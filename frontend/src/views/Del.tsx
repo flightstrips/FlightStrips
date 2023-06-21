@@ -1,10 +1,11 @@
 import './del.css'
 import BasePlate from "../components/BasePlate.tsx"
+import InformationBarComp from '../components/InformationBar.tsx'
 
 function Del() {
   return (
     <div className="Fill">
-        test
+        <InformationBarComp stationA="TE" stationB="TW"/>
         <BasePlate />
     </div>
   )

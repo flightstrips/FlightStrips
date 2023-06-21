@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600&display=swap');
 :root {
   color-scheme: light dark;
   font-synthesis: none;
@@ -13,6 +14,7 @@ body {
   place-items: center;
   min-width: 320px;
   min-height: 100vh;
+  font-family: 'Rubik', sans-serif;
 }
 
 
@@ -20,4 +22,32 @@ body {
   width: 100vw;
   height: 100vh;
   background-color: #A9A9A9;
+  display: flex;
+  justify-content: space-between;
+}
+.baseBay {
+  background-color: #555355;
+  width: 24.6%;
+  height: 100vh;
+}
+.InformationBar {
+  position: absolute;
+  bottom: 0;
+  width: 100vw;
+  height: 5vh;
+  background-color: #3C3C3C;
+  display: flex;
+  align-items: center;
+}
+.curStation {
+  font-weight: 500;
+  color: black;
+  margin: .5rem;
+  background-color: #1BFF16;
+  width: 8%;
+  height: 80%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
 }

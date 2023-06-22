@@ -1,4 +1,6 @@
 import * as net from 'net'
+import { FlightDataUpdatedMessage } from './interfaces/FlightDataUpdatedMessage';
+import { Message } from './interfaces/Message';
 
 type ConnectFunction = () => void
 
@@ -7,11 +9,23 @@ const Connect: ConnectFunction = () => {
 
     // Temp values
     const PORT = 27015
-    const IP = 'localhost'
+    const IP = '127.0.0.1'
 
-    const socket = new net.Socket()
-    socket.on('data', (data) => console.log(data.toString()))
-    socket.connect(PORT, IP)
+    const socket = net.createConnection(PORT, IP)
+    // TODO better handling, this can miss messages and does not handle partial messages
+    socket.on('data', (data) => {
+        const index = data.indexOf(0x00)
+        if (index != -1) {
+            let slice = data.buffer.slice(0, index)
+            let json = new TextDecoder().decode(slice)
+            let obj = JSON.parse(json)
+            let message = obj as FlightDataUpdatedMessage | Message
+
+            if (message.$type == 'FlightPlanUpdated') {
+                console.log(message)
+            }
+        }
+    })
 }
 
 export type EuroScope = {

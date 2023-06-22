@@ -19,9 +19,11 @@
 }
 
 .callsign {
+    width: 34%;
     font-weight: 500;
     font-size: 1.8rem;
     margin-left: 10px;
+    background-color: orange;
 }
 .destStand {
     text-align: center;

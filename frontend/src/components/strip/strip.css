@@ -1,0 +1,69 @@
+.arrival-bg {
+    background-color: #FFD100;
+}
+.departure-bg {
+    background-color: #BEF5EF;
+}
+.strip {
+    width: 90%;
+    height: 4.5%;
+    border: 4px solid #fff;
+    box-sizing: border-box;
+    -moz-box-sizing: border-box;
+    -webkit-box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    color: black;
+    justify-content: left;
+    
+}
+.CallsignBox {
+    width: 35%;
+    height: 100%;
+    font-weight: 500;
+    font-size: 1.8rem;
+    display: flex;
+    align-items: center;
+    border: solid 2px #85B4AF;
+    box-sizing: border-box;
+    -moz-box-sizing: border-box;
+    -webkit-box-sizing: border-box;
+}
+.CallsignBox p {
+    padding-left: 5px;
+}
+.DestinationStand {
+    width: 15%;
+    height: 100%;
+    font-weight: 500;
+    font-size: 18px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    border: solid 2px #85B4AF;
+    box-sizing: border-box;
+    -moz-box-sizing: border-box;
+    -webkit-box-sizing: border-box;
+}
+.DelEOBT {
+    width: 25%;
+    height: 100%;
+    display: flex;
+    align-items: top;
+    gap: 5px;
+    border: solid 2px #85B4AF;
+    box-sizing: border-box;
+    -moz-box-sizing: border-box;
+    -webkit-box-sizing: border-box;
+}
+.DelTSATCTOT {
+    width: 25%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    border: solid 2px #85B4AF;
+    box-sizing: border-box;
+    -moz-box-sizing: border-box;
+    -webkit-box-sizing: border-box;
+}

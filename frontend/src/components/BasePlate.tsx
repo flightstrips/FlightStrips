@@ -1,10 +1,11 @@
 import CLRDELStrip from "./CLRDELStrip";
+import Strip from "./strip";
 
 export default function BasePlate() {
     return (
       <div className="baseplate">
         <div className="baseBay">
-          <CLRDELStrip callsign="VKG1334" destinationICAO="LGKR" stand="D3" eobt={1312} tsat={0} ctot={0}/>
+          <Strip />
         </div>
         <div className="baseBay">b</div>
         <div className="baseBay">c</div>

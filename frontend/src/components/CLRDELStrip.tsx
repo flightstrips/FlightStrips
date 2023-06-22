@@ -7,24 +7,23 @@ export default function CLRDELStrip({callsign, destinationICAO, stand,eobt,tsat,
 
   return (
     <>
-        <div className="baselayer">
-            <div>
+        <div className="baselayer dep">
+            <div className='callsign'>
                 {callsign}
             </div>
-            <div>
-                {destinationICAO}
+            <div className='destStand'>
+                <span className='destinationICAO'>{destinationICAO}</span><br />
+                <span className='stand'>{stand}</span>
             </div>
             <div>
-                {stand}
+                
             </div>
             <div>
-                {eobt}
+                EOBT {eobt}
             </div>
             <div>
-                {tsat}
-            </div>
-            <div>
-                {ctot}
+                TSAT: {tsat}<br />
+                CTOT: {ctot}
             </div>
         </div>
     </>

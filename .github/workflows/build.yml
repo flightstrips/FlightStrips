@@ -13,6 +13,10 @@ jobs:
     steps:
       - name: Check out Git repository
         uses: actions/checkout@v1
+      
+      - name: change dir
+        run: |
+            cd frontend
 
       - name: Install Node.js, NPM and Yarn
         uses: actions/setup-node@v1

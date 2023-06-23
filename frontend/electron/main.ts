@@ -1,4 +1,4 @@
-import { app, BrowserWindow } from 'electron'
+import { app, BrowserWindow, Menu, shell } from 'electron'
 import path from 'node:path'
 
 // The built directory structure
@@ -38,7 +38,25 @@ function createWindow() {
   } else {
     win.loadFile(path.join(process.env.DIST, 'index.html'))
   }
-  
+  var menu = Menu.buildFromTemplate([
+    {
+      label: 'Views',
+      submenu : [
+        {label: 'Clearance Delivery',},
+        {label: 'Apron'},
+        {label: 'Tower'}
+      ]
+    },
+    {
+      label: 'Development',
+      submenu : [
+        {label: 'VATSIM Scandinavia',click(){shell.openExternal('https://vatsim-scandinavia.org/')}},
+        {label: 'Github',click(){shell.openExternal('https://github.com/frederikrosenberg/FlightStrips')}},
+        {label: 'Discord',click(){shell.openExternal('https://discord.gg/vatsca')}},
+      ]
+    }
+  ])
+  Menu.setApplicationMenu(menu)
 }
 
 app.on('window-all-closed', () => {

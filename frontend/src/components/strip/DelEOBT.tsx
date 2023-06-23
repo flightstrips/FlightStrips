@@ -4,7 +4,7 @@ export default function DelEOBT(props) {
   return (
     <>
       <div className='DelEOBT'>
-          EOBT: {props.eobt}
+          <span>EOBT:</span> <span>{props.eobt}</span>
       </div>
     </>
   )

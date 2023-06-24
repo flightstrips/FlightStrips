@@ -1,8 +1,10 @@
 import * as net from 'net'
-import { FlightDataUpdatedMessage } from './interfaces/FlightDataUpdatedMessage';
-import { Message } from './interfaces/Message';
+import { onData } from './network/DataHandler';
 
 type ConnectFunction = () => void
+type DisconnectFunction = () => void
+
+let socket: net.Socket;
 
 const Connect: ConnectFunction = () => {
     console.log("Trying to connect to ES!")
@@ -11,29 +13,26 @@ const Connect: ConnectFunction = () => {
     const PORT = 27015
     const IP = '127.0.0.1'
 
-    const socket = net.createConnection(PORT, IP)
-    // TODO better handling, this can miss messages and does not handle partial messages
-    socket.on('data', (data) => {
-        const index = data.indexOf(0x00)
-        if (index != -1) {
-            let slice = data.buffer.slice(0, index)
-            let json = new TextDecoder().decode(slice)
-            let obj = JSON.parse(json)
-            let message = obj as FlightDataUpdatedMessage | Message
+    socket = net.createConnection(PORT, IP)
+    socket.on('data', onData)
+    socket.on('close', (error) => console.log("Socket closed!"))
+}
 
-            if (message.$type == 'FlightPlanUpdated') {
-                console.log(message)
-            }
-        }
-    })
+const Disconnect: DisconnectFunction = () => {
+    if (socket) {
+        socket.destroy()
+    }
 }
 
 export type EuroScope = {
     connect: ConnectFunction
+    disconnect: DisconnectFunction
 }
 
 const euroScope: EuroScope = {
-    connect: Connect
+    connect: Connect,
+    disconnect: Disconnect
+
 }
 
 export default euroScope

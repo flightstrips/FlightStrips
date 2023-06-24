@@ -1,6 +1,6 @@
 import './strip.css'
 
-export default function DelTSATCTOT(props) {
+export default function DelTSATCTOT(props: any) {
   return (
     <>
       <div className='DelTSATCTOT'>

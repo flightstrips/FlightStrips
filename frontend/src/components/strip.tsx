@@ -4,7 +4,7 @@ import DelTSATCTOT from './strip/DelTSATCTOT'
 import DestinationStand from './strip/DestinationStand'
 import './strip/strip.css'
 
-export default function Strip(props) {
+export default function Strip() {
   return (
     <>
         <div className='strip departure-bg'>

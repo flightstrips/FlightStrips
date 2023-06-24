@@ -1,6 +1,6 @@
 import './strip.css'
 
-export default function DelEOBT(props) {
+export default function DelEOBT(props: any) {
   return (
     <>
       <div className='DelEOBT'>

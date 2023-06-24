@@ -1,6 +1,6 @@
 import './strip.css'
 
-export default function CallsignBox(props) {
+export default function CallsignBox(props: any) {
   return (
     <>
       <div className='CallsignBox'>

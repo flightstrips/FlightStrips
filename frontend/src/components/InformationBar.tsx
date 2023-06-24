@@ -1,20 +1,36 @@
-import InformationBar from "../data/informationbar.ts"
+import './InformationBar.css'
 
-interface InformationBarProps {
-  InformationBar: InformationBar[];
-}
-
-export default function InformationBarComp(props) {
+export default function InformationBarComp(props: any) {
 	const a = props.stationA
   const b = props.stationB
-  const rwyDep = props.rwyDep
   return (
     <div className="InformationBar">
       <div className="curStation">
           {a} + {b}
       </div>
       <div className="rwyDep">
-          {rwyDep}
+          <p>DEP</p>
+          <div className="rwyBox">
+            {props.rwyDep}
+          </div>
+      </div>
+      <div className="rwyAar">
+          <p>AAR</p>
+          <div className="rwyBox">
+            {props.rwyAar}
+          </div>
+      </div>
+      <div className="QNH">
+          {props.QNH}
+      </div>
+      <button className="atis">
+        ATIS
+      </button>
+      <div className="atisLetter">
+          {props.atisLetter}
+      </div>
+      <div className="atisWinds">
+          {props.atisWinds}
       </div>
     </div>
   )

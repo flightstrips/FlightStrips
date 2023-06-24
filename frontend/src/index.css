@@ -30,24 +30,3 @@ body {
   width: 24.6%;
   height: 100vh;
 }
-.InformationBar {
-  position: absolute;
-  bottom: 0;
-  width: 100vw;
-  height: 5vh;
-  background-color: #3C3C3C;
-  display: flex;
-  align-items: center;
-}
-.curStation {
-  font-weight: 500;
-  color: black;
-  margin: .5rem;
-  background-color: #1BFF16;
-  width: 8%;
-  height: 80%;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  text-align: center;
-}

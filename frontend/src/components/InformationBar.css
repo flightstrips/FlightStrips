@@ -1,0 +1,90 @@
+.InformationBar {
+    position: absolute;
+    bottom: 0;
+    width: 100vw;
+    height: 5vh;
+    background-color: #3C3C3C;
+    color: #fff;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: left;
+    gap: .5vw;
+  }
+  .curStation {
+    font-weight: 500;
+    color: black;
+    margin: .5rem;
+    background-color: #1BFF16;
+    width: 8%;
+    height: 80%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+  }
+  
+.rwyDep {
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    font-size: 2rem;
+}
+.rwyAar {
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    font-size: 2rem;
+}
+.QNH {
+    font-weight: 500;
+    font-size: 2rem;
+    margin-left: 10px;
+    height: 4vh;
+    width: 6rem;
+    background-color: aliceblue;
+    color: #3C3C3C;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+.atisLetter {
+    font-size: 2rem;
+    margin-left: 10px;
+    height: 4vh;
+    width: 4rem;
+    background-color: aliceblue;
+    color: #3C3C3C;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-weight: 500;
+}
+.atisWinds {
+    font-size: 2rem;
+    margin-left: 10px;
+    height: 4vh;
+    width: 8rem;
+    background-color: aliceblue;
+    color: #3C3C3C;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-weight: 500;
+}
+.rwyBox {
+    margin-left: 10px;
+    height: 4vh;
+    width: 6rem;
+    background-color: aliceblue;
+    color: #3C3C3C;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+.atis {
+    height: 4vh;
+    width: 6rem;
+    font-size: 2rem;
+    font-weight: 500;
+}

@@ -1,26 +1,20 @@
 import './baseHeader.css'
 
-function NEWButton(props) {
+function NEWButton(props: any) {
     const Enabled = props.enabled
     if (Enabled == true) {
         return <button>NEW</button>;
     }
 }
-function PLANNEDButton(props) {
+function PLANNEDButton(props : any) {
     const Enabled = props.enabled
     if (Enabled == true) {
         return <button>PLANNED</button>;
     }
 }
-function MEMAIDButton(props) {
-    const Enabled = props.enabled
-    if (Enabled == true) {
-        return <button>MEM AID</button>;
-    }
-}
 
 
-export default function BayHeader(props) {
+export default function BayHeader(props: any) {
     return (
       <div className="BayHeader">
         <span className='Name'>

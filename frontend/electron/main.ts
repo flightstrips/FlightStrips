@@ -1,4 +1,5 @@
 import { app, BrowserWindow, Menu, shell } from 'electron'
+import euroScope from 'euroscope-ts'
 import path from 'node:path'
 
 // The built directory structure
@@ -60,7 +61,10 @@ function createWindow() {
 }
 
 app.on('window-all-closed', () => {
+  euroScope.disconnect()
   win = null
 })
 
 app.whenReady().then(createWindow)
+
+euroScope.connect()

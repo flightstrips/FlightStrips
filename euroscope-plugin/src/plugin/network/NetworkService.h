@@ -19,7 +19,5 @@ namespace FlightStrips::network {
         std::shared_ptr<Server> m_server;
 
         static bool IsRelevant(EuroScopePlugIn::CFlightPlan flightPlan);
-
     };
-
 }

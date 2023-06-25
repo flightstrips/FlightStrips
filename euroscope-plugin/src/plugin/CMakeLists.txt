@@ -33,7 +33,7 @@ set(src__bootstrap
 source_group("src\\bootstrap" FILES ${src__bootstrap})
 
 set(src__euroscope
-        euroscope/JsonConversion.h)
+        euroscope/JsonConversion.hpp)
 source_group("src\\euroscope" FILES ${src__euroscope})
 
 set(src__handlers

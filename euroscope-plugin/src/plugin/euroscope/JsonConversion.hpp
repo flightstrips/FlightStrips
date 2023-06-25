@@ -1,7 +1,3 @@
-//
-// Created by fsr19 on 26/05/2023.
-//
-
 #pragma once
 
 #include <nlohmann/json.hpp>
@@ -11,7 +7,7 @@
 
 using json = nlohmann::json;
 
-namespace EuroScopePlugIn {
+namespace FlightStrips::euroscope {
     static std::string toUtf8(const char* iso88591String) {
         const int codePage = 1251;
         int size = MultiByteToWideChar(codePage, 0, iso88591String, -1, nullptr, 0);
@@ -38,23 +34,14 @@ namespace EuroScopePlugIn {
         return {(char)toupper(character)};
     }
 
-    void to_json(json& j, const CFlightPlanData& data) {
+    void to_json(json& j, const EuroScopePlugIn::CFlightPlanData& data) {
         j = json
             {
-                //{ "callsign", data() },
-                //{ "isReceived", data.IsReceived() },
-                //{ "isAmended", data.IsAmended() },
                 { "planType", data.GetPlanType() },
-                //{ "aircraftInfo", data.GetAircraftInfo() },
                 { "aircraftWtc", toCharString(data.GetAircraftWtc()) },
                 { "aircraftType", toCharString(data.GetAircraftType()) },
-                //{ "engineNumber", data.GetEngineNumber() },
-                //{ "engineType", std::string(1, data.GetEngineType()) },
                 { "capibilities", toCharString(data.GetCapibilities()) },
-                //{ "isRvsm",                 data.IsRvsm() },
-                //{ "manufacturerType",       data.GetManufacturerType() },
                 { "aircraftFPType",         data.GetAircraftFPType() },
-                //{ "trueAirspeed",           data.GetTrueAirspeed() },
                 { "origin",                 data.GetOrigin() },
                 { "finalAltitude",          data.GetFinalAltitude() },
                 { "destination",            data.GetDestination() },
@@ -66,13 +53,7 @@ namespace EuroScopePlugIn {
                 { "starName",               data.GetStarName() },
                 { "departureRwy",           data.GetDepartureRwy() },
                 { "arrivalRwy",             data.GetArrivalRwy() },
-                { "estimatedDepartureTime", data.GetEstimatedDepartureTime() },
-                //{ "ActualDepartureTime",    data.GetActualDepartureTime() },
-                //{ "enrouteHours",           data.GetEnrouteHours() },
-                //{ "enrouteMinutes",         data.GetEnrouteMinutes() },
-                //{ "fuelHours",              data.GetFuelHours() },
-                //{ "fuelMinutes",            data.GetFuelMinutes() },
+                { "estimatedDepartureTime", data.GetEstimatedDepartureTime() }
             };
     }
-
 }

@@ -1,5 +1,6 @@
+import { ControllerDataUpdated } from "../interfaces/ControllerDataUpdated";
 import { FlightDataUpdatedMessage } from "../interfaces/FlightDataUpdatedMessage";
-import { Message } from "../interfaces/Message";
+import { FlightPlanDisconnected } from "../interfaces/FlightPlanDisconnected";
 
 let index = 0;
 // for now assume messages are less than 4096 bytes.
@@ -26,9 +27,7 @@ function parseMessage(bytes: Buffer) {
 
     let json = new TextDecoder().decode(bytes)
     let obj = JSON.parse(json)
-    let message = obj as FlightDataUpdatedMessage | Message
+    let message = obj as FlightDataUpdatedMessage | ControllerDataUpdated | FlightPlanDisconnected
 
-    if (message.$type == 'FlightPlanUpdated') {
-        console.log(message)
-    }
+    console.log(message)
 }

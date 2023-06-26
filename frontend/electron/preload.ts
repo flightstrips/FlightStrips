@@ -1,5 +1,9 @@
+import { contextBridge } from "electron"
+import IpcApi from "./IPC/IpcApi"
+
 function domReady(condition: DocumentReadyState[] = ['complete', 'interactive']) {
   return new Promise(resolve => {
+        contextBridge.exposeInMainWorld('api', IpcApi)
     if (condition.includes(document.readyState)) {
       resolve(true)
     } else {
@@ -88,5 +92,6 @@ domReady().then(appendLoading)
 window.onmessage = ev => {
   ev.data.payload === 'removeLoading' && removeLoading()
 }
+
 
 setTimeout(removeLoading, 4999)

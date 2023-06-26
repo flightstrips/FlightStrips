@@ -18,8 +18,14 @@
     "strict": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
-    "noFallthroughCasesInSwitch": true
+    "noFallthroughCasesInSwitch": true,
+
+    /* mobx */
+    "experimentalDecorators": true,
   },
+  "files": [
+    "src/inedx.d.ts"
+  ],
   "include": ["src", "electron"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

@@ -1,3 +1,4 @@
+import { BrowserWindow } from "electron";
 import { ControllerDataUpdated } from "../interfaces/ControllerDataUpdated";
 import { FlightDataUpdatedMessage } from "../interfaces/FlightDataUpdatedMessage";
 import { FlightPlanDisconnected } from "../interfaces/FlightPlanDisconnected";
@@ -7,14 +8,14 @@ let index = 0;
 const dataBuffer: Buffer = Buffer.alloc(4096)
 
 
-export function onData(data: Buffer) {
+export function onData(data: Buffer, window: BrowserWindow) {
 
     for (let i = 0; i < data.length; i++) {
         const byte = data[i];
 
         if (byte == 0) {
             // new message
-            parseMessage(dataBuffer.subarray(0, index)) 
+            parseMessage(dataBuffer.subarray(0, index), window) 
             index = 0;
             continue;
         }
@@ -23,11 +24,12 @@ export function onData(data: Buffer) {
     }
 }
 
-function parseMessage(bytes: Buffer) {
-
+function parseMessage(bytes: Buffer, window: BrowserWindow) {
     let json = new TextDecoder().decode(bytes)
     let obj = JSON.parse(json)
     let message = obj as FlightDataUpdatedMessage | ControllerDataUpdated | FlightPlanDisconnected
 
-    console.log(message)
+    if (message.$type == 'FlightPlanUpdated') {
+        window.webContents.send('FlightPlanUpdated', JSON.stringify(message))
+    }
 }

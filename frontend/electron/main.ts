@@ -1,6 +1,7 @@
-import { app, BrowserWindow, Menu, shell } from 'electron'
-import euroScope from 'euroscope-ts'
+import { app, BrowserWindow, ipcMain, Menu, shell } from 'electron'
+import euroScope from './network/euroscope'
 import path from 'node:path'
+import { IpcChannelInterface } from './IPC/IpcChannelInterface'
 
 // The built directory structure
 //
@@ -14,58 +15,77 @@ import path from 'node:path'
 process.env.DIST = path.join(__dirname, '../dist')
 process.env.PUBLIC = app.isPackaged ? process.env.DIST : path.join(process.env.DIST, '../public')
 
-
-let win: BrowserWindow | null
-// 🚧 Use ['ENV_NAME'] avoid vite:define plugin - Vite@2.x
 const VITE_DEV_SERVER_URL = process.env['VITE_DEV_SERVER_URL']
 
-function createWindow() {
-  win = new BrowserWindow({
-    icon: path.join(process.env.PUBLIC, 'electron-vite.svg'),
-    webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
-    },
-    minWidth:1920,
-    minHeight:1080,
-  })
-  win.webContents.openDevTools();
+class Main {
+  private mainWindow: BrowserWindow | null = null
 
-  win.webContents.on('did-finish-load', () => {
-    win?.webContents.send('main-process-message', (new Date).toLocaleString())
-  })
-  win.setAspectRatio(16/9)
+  public init(ipcChannels: IpcChannelInterface[]) {
+    app.on('ready', this.createWindows)
+    app.on('window-all-closed', this.onWindowAllClosed)
 
-  if (VITE_DEV_SERVER_URL) {
-    win.loadURL(VITE_DEV_SERVER_URL)
-  } else {
-    win.loadFile(path.join(process.env.DIST, 'index.html'))
+    this.registerIpcChannels(ipcChannels);
+
   }
-  var menu = Menu.buildFromTemplate([
-    {
-      label: 'Views',
-      submenu : [
-        {label: 'Clearance Delivery',},
-        {label: 'Apron'},
-        {label: 'Tower'}
-      ]
-    },
-    {
-      label: 'Development',
-      submenu : [
-        {label: 'VATSIM Scandinavia',click(){shell.openExternal('https://vatsim-scandinavia.org/')}},
-        {label: 'Github',click(){shell.openExternal('https://github.com/frederikrosenberg/FlightStrips')}},
-        {label: 'Discord',click(){shell.openExternal('https://discord.gg/vatsca')}},
-      ]
+
+  private createWindows() {
+    this.mainWindow = new BrowserWindow({
+      icon: path.join(process.env.PUBLIC, 'electron-vite.svg'),
+      webPreferences: {
+        nodeIntegration: false,
+        contextIsolation: true,
+        preload: path.join(__dirname, 'preload.js'),
+      },
+      minWidth:1920,
+      minHeight:1080,
+    })
+
+    this.mainWindow.webContents.openDevTools();
+    this.mainWindow.webContents.on('did-finish-load', () => {
+      this.mainWindow?.webContents.send('main-process-message', (new Date).toLocaleString())
+    })
+    this.mainWindow.setAspectRatio(16/9)
+
+    if (VITE_DEV_SERVER_URL) {
+      this.mainWindow.loadURL(VITE_DEV_SERVER_URL)
+    } else {
+      this.mainWindow.loadFile(path.join(process.env.DIST, 'index.html'))
     }
-  ])
-  Menu.setApplicationMenu(menu)
+    const menu = Menu.buildFromTemplate([
+      {
+        label: 'Views',
+        submenu : [
+          {label: 'Clearance Delivery',},
+          {label: 'Apron'},
+          {label: 'Tower'}
+        ]
+      },
+      {
+        label: 'Development',
+        submenu : [
+          {label: 'VATSIM Scandinavia',click(){shell.openExternal('https://vatsim-scandinavia.org/')}},
+          {label: 'Github',click(){shell.openExternal('https://github.com/frederikrosenberg/FlightStrips')}},
+          {label: 'Discord',click(){shell.openExternal('https://discord.gg/vatsca')}},
+        ]
+      }
+    ])
+    Menu.setApplicationMenu(menu)
+
+    euroScope.connect(this.mainWindow)
+  }
+
+  private onWindowAllClosed() {
+    euroScope.disconnect()
+    this.mainWindow = null
+
+  }
+
+  private registerIpcChannels(ipcChannels: IpcChannelInterface[]) {
+    ipcChannels.forEach(channel => ipcMain.on(channel.getName(), (event, request) => channel.handle(event, request)));
+  }
+
 }
 
-app.on('window-all-closed', () => {
-  euroScope.disconnect()
-  win = null
-})
 
-app.whenReady().then(createWindow)
-
-euroScope.connect()
+const main: Main = new Main()
+main.init([])

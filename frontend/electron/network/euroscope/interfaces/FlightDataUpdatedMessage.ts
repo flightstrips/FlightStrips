@@ -6,7 +6,7 @@ import { Message } from "./Message";
 import { Wtc } from "./Wtc";
 
 export interface FlightDataUpdatedMessage extends Message {
-    $type: "FlightDataUpdated",
+    $type: "FlightPlanUpdated",
     callsign: string,
     origin: string,
     destination: string,

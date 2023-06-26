@@ -28,6 +28,7 @@ function createWindow() {
     minWidth:1920,
     minHeight:1080,
   })
+  win.webContents.openDevTools();
 
   win.webContents.on('did-finish-load', () => {
     win?.webContents.send('main-process-message', (new Date).toLocaleString())

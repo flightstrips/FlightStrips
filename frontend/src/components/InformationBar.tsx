@@ -1,12 +1,12 @@
 import './InformationBar.css'
+import ATIS from './ATIS'
 
 export default function InformationBarComp(props: any) {
-	const a = props.stationA
-  const b = props.stationB
+
   return (
     <div className="InformationBar">
       <div className="curStation">
-          {a} + {b}
+          {props.stationA} + {props.stationB}
       </div>
       <div className="rwyDep">
           <p>DEP</p>
@@ -24,10 +24,10 @@ export default function InformationBarComp(props: any) {
           {props.QNH}
       </div>
       <button className="atis">
-        ATIS
+        <ATIS />
       </button>
       <div className="atisLetter">
-          {props.atisLetter}
+          <ATIS />
       </div>
       <div className="atisWinds">
           {props.atisWinds}

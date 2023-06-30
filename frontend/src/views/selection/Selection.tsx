@@ -4,18 +4,13 @@ import './Selection.css'
 function Selection() {
   return (
     <>
-        <form action="/ekch/del">
             <h3>EKCH - Kastrup Airport</h3>
-            <select id="stations" name="stations">
-                <option value="EKCH_DEL">Clearance Delivery</option>
-                <option value="EKCH_A_GND">Apron East</option>
-                <option value="EKCH_D_GND">Apron West</option>
-                <option value="EKCH_A_TWR">Tower East</option>
-                <option value="EKCH_D_TWR">Tower West</option>
-                <option value="EKCH_C_TWR">Tower Crossing</option>
-            </select>
-            <button>Select</button>
-        </form>
+            <button><a href="/ekch/del">EKCH_DEL</a></button>
+            <button>EKCH_A_GND</button>
+            <button>EKCH_D_GND</button>
+            <button>EKCH_A_TWR</button>
+            <button>EKCH_D_TWR</button>
+            <button>EKCH_C_TWR</button>
         <Outlet />
     </>
   )

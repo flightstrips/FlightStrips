@@ -1,7 +1,8 @@
 import { app, BrowserWindow, ipcMain, Menu, shell } from 'electron'
-import euroScope from './network/euroscope'
+import { createEuroScopeSocket } from './network/euroscope'
 import path from 'node:path'
 import { IpcChannelInterface } from './IPC/IpcChannelInterface'
+import { EuroScopeSocket } from './network/euroscope/EuroScopeSocket'
 
 // The built directory structure
 //
@@ -19,6 +20,7 @@ const VITE_DEV_SERVER_URL = process.env['VITE_DEV_SERVER_URL']
 
 class Main {
   private mainWindow: BrowserWindow | null = null
+  private euroScopeScoket: EuroScopeSocket | null = null
 
   public init(ipcChannels: IpcChannelInterface[]) {
     app.on('ready', this.createWindows)
@@ -71,11 +73,13 @@ class Main {
     ])
     Menu.setApplicationMenu(menu)
 
-    euroScope.connect(this.mainWindow)
+    this.euroScopeScoket = createEuroScopeSocket(this.mainWindow.webContents)
+    this.euroScopeScoket.start()
+
   }
 
   private onWindowAllClosed() {
-    euroScope.disconnect()
+    this.euroScopeScoket?.stop()
     this.mainWindow = null
 
   }

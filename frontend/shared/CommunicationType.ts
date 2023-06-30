@@ -1,4 +1,4 @@
-export enum COmmunicationType {
+export enum CommunicationType {
     '?', // unknown
     'V', // voice
     'R', // receive voice only

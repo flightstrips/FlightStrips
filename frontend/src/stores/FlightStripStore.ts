@@ -1,11 +1,7 @@
 import { action, observable } from "mobx";
 import { RootStore } from "./RootStore";
 import Flightstrip from "../data/interfaces/flightstrip";
-// I don't like this, should create some interfaces somewhere common instead
-import { FlightDataUpdatedMessage } from "../../electron/network/euroscope/interfaces/FlightDataUpdatedMessage";
-
-
-
+import { FlightPlanUpdate } from "../../shared/FlightPlanUpdate"
 
 export class FlightStripStore {
     @observable flightStrips: Flightstrip[] = []
@@ -13,12 +9,11 @@ export class FlightStripStore {
 
     constructor(rootStore: RootStore) {
         this.rootStore = rootStore
-        api.onFlightPlanUpdated((plan: FlightDataUpdatedMessage) => this.updateFlightPlanData(plan))
+        api.onFlightPlanUpdated((plan: FlightPlanUpdate) => this.updateFlightPlanData(plan))
 
     }
 
-    @action updateFlightPlanData(data: FlightDataUpdatedMessage) {
-        console.log(data)
+    @action private updateFlightPlanData(data: FlightPlanUpdate) {
         let flightstrip = this.flightStrips.find((strip, _) => strip.callsign == data.callsign)
 
         if (!flightstrip) {
@@ -51,5 +46,13 @@ export class FlightStripStore {
         flightstrip.departureRWY = data.departureRwy
         flightstrip.arrivalRWY = data.arrivalRwy
         flightstrip.eobt = parseInt(data.estimatedDeparture)
+    }
+
+    @action clear(callsign: string) {
+
+    }
+
+    @action move(callsign: string, bay: number) {
+
     }
 }

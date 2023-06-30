@@ -26,6 +26,6 @@
   "files": [
     "src/inedx.d.ts"
   ],
-  "include": ["src", "electron"],
+  "include": ["src", "electron", "shared/AircraftType.ts", "shared/CommunicationType.ts"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

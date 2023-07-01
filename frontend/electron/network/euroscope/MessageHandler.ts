@@ -5,6 +5,7 @@ import { FlightDataUpdatedMessage } from "./interfaces/FlightDataUpdatedMessage"
 import { FlightPlanDisconnected } from "./interfaces/FlightPlanDisconnected";
 import { IpcInterface } from "./interfaces/IpcInterface";
 import { Message } from "./interfaces/Message";
+import { SquawkUpdate } from "./interfaces/SquawkUpdate";
 
 export class MessageHandler implements MessageHandlerInterface {
     private readonly ipc: IpcInterface
@@ -47,6 +48,10 @@ export class MessageHandler implements MessageHandlerInterface {
                 break
             case 'FlightPlanDisconnected':
                 this.ipc.sendFlightPlanDisconnect((event as FlightPlanDisconnected).callsign)
+                break
+            case 'SquawkUpdate':
+                const squawkUpdate = event as SquawkUpdate
+                this.ipc.sendSquawkUpdate(squawkUpdate.callsign, squawkUpdate.squawk)
                 break
             default:
                 console.error(`Unknown message type '${event.$type}'.`)

@@ -7,10 +7,6 @@ namespace FlightStrips::network {
     }
 
     void NetworkService::FlightPlanEvent(EuroScopePlugIn::CFlightPlan flightPlan) {
-        if (!IsRelevant(flightPlan)) {
-            return;
-        }
-
         json j = json{};
         euroscope::to_json(j, flightPlan.GetFlightPlanData());
         j["callsign"] = flightPlan.GetCallsign();
@@ -22,10 +18,6 @@ namespace FlightStrips::network {
 
     void NetworkService::ControllerFlightPlanDataEvent(EuroScopePlugIn::CFlightPlan flightPlan,
                                                                               int dataType) {
-        if (!IsRelevant(flightPlan)) {
-            return;
-        }
-
         auto data = json{
                 { "$type", "ControllerDataUpdated" },
                 { "callsign", flightPlan.GetCallsign()}
@@ -64,10 +56,6 @@ namespace FlightStrips::network {
     }
 
     void NetworkService::FlightPlanDisconnectEvent(EuroScopePlugIn::CFlightPlan flightPlan) {
-        if (!IsRelevant(flightPlan)) {
-            return;
-        }
-
         auto data = json{
             { "$type", "FlightPlanDisconnected" },
             { "callsign", flightPlan.GetCallsign() }
@@ -76,9 +64,14 @@ namespace FlightStrips::network {
         this->m_server->SendMessage(data.dump());
     }
 
-    bool NetworkService::IsRelevant(EuroScopePlugIn::CFlightPlan flightPlan) {
-        return strcmp(flightPlan.GetFlightPlanData().GetDestination(), AIRPORT) == 0
-            || strcmp(flightPlan.GetFlightPlanData().GetOrigin(), AIRPORT) == 0;
+    void NetworkService::SquawkUpdateEvent(std::string callsign, int squawk) {
+        auto data = json{
+                { "$type", "SquawkUpdate" },
+                { "callsign", callsign },
+                { "squawk", squawk }
+        };
+
+        this->m_server->SendMessage(data.dump());
     }
 }
 

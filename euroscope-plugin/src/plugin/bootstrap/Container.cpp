@@ -9,6 +9,7 @@
 #include "network/Server.h"
 #include "network/NetworkService.h"
 #include "handlers/FlightPlanEventHandlers.h"
+#include "flightplan/FlightPlanService.h"
 
 namespace FlightStrips {
     Container::Container() = default;

@@ -10,4 +10,5 @@ export interface IpcInterface {
     sendSetCleared(callsign: string, clear: boolean): void
     sendSetCommunicationType(callsign: string, communication_type: CommunicationType): void
     sendSetGroundState(callsign: string, state: string): void
+    sendSquawkUpdate(callsign: string, squawk: number): void
 }

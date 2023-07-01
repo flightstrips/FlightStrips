@@ -15,9 +15,10 @@ namespace FlightStrips::network {
 
         void FlightPlanDisconnectEvent(EuroScopePlugIn::CFlightPlan flightPlan) override;
 
+        void SquawkUpdateEvent(std::string callsign, int squawk) override;
+
     private:
         std::shared_ptr<Server> m_server;
 
-        static bool IsRelevant(EuroScopePlugIn::CFlightPlan flightPlan);
     };
 }

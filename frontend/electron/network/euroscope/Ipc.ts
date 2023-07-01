@@ -34,4 +34,7 @@ export class Ipc implements IpcInterface {
     sendSetGroundState(callsign: string, state: string): void {
         this.webContents.send('SetGroundState', callsign, state)
     }
+    sendSquawkUpdate(callsign: string, squawk: number): void {
+        this.webContents.send("SquawkUpdaet", callsign, squawk)
+    }
 }

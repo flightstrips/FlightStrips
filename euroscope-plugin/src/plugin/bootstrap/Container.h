@@ -6,6 +6,7 @@
 
 #include <memory>
 #include <functional>
+#include "handlers/RadarTargetEventHandlers.h"
 
 namespace FlightStrips {
     class FlightStripsPlugin;
@@ -21,6 +22,9 @@ namespace FlightStrips {
     }
     namespace handlers {
         class FlightPlanEventHandlers;
+    }
+    namespace flightplan {
+        class FlightPlanService;
     }
 }
 
@@ -45,10 +49,14 @@ namespace FlightStrips {
 
         // event collections
         std::shared_ptr<handlers::FlightPlanEventHandlers> flightPlanEventHandlers;
+        std::shared_ptr<handlers::RadarTargetEventHandlers> radarTargetEventHandlers;
 
         // network
         std::shared_ptr<network::Server> server;
         std::shared_ptr<network::NetworkService> networkService;
+
+        // flight plan
+        std::shared_ptr<flightplan::FlightPlanService> flightPlanService;
 
         // Stands
         std::unique_ptr<stands::StandService> standService;

@@ -10,12 +10,14 @@
 #endif // !COPYRIGHTS
 
 #include "handlers/FlightPlanEventHandlers.h"
+#include "handlers/RadarTargetEventHandlers.h"
 
 namespace FlightStrips {
     class FlightStripsPlugin : public EuroScopePlugIn::CPlugIn {
     public:
-        explicit FlightStripsPlugin(
-                const std::shared_ptr<handlers::FlightPlanEventHandlers>& mFlightPlanEventHandlerCollection);
+        FlightStripsPlugin(
+                const std::shared_ptr<handlers::FlightPlanEventHandlers> &mFlightPlanEventHandlerCollection,
+                const std::shared_ptr<handlers::RadarTargetEventHandlers>& mRadarTargetEventHandlers);
 
         ~FlightStripsPlugin() override;
 
@@ -31,11 +33,16 @@ namespace FlightStrips {
                                            const char *sSenderController,
                                            const char *sTargetController) override;
 
+        void OnRadarTargetPositionUpdate (EuroScopePlugIn::CRadarTarget RadarTarget) override;
+
 
 
         void OnTimer(int Counter) override;
 
     private:
         const std::shared_ptr<handlers::FlightPlanEventHandlers> m_flightPlanEventHandlerCollection;
+        const std::shared_ptr<handlers::RadarTargetEventHandlers> m_radarTargetEventHandlers;
+
+        static bool IsRelevant(EuroScopePlugIn::CFlightPlan flightPlan);
     };
 }

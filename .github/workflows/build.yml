@@ -30,7 +30,6 @@ jobs:
     - uses: actions/setup-node@master
       with:
         node-version: 18.14
-    - 
     - name: install dependencies
       run: npm ci
     - name: build

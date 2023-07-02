@@ -114,7 +114,6 @@ export class EuroScopeSocket {
         }
 
         this.clearListners()
-
         this.wait = true
         setTimeout(() => this.connect(), 2500)
     }

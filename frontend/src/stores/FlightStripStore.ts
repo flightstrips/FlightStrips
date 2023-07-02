@@ -48,6 +48,7 @@ export class FlightStripStore {
         flightstrip.eobt = parseInt(data.estimatedDeparture)
     }
 
+    /*
     @action clear(callsign: string) {
 
     }
@@ -55,4 +56,5 @@ export class FlightStripStore {
     @action move(callsign: string, bay: number) {
 
     }
+    */
 }

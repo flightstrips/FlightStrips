@@ -24,7 +24,7 @@
     "experimentalDecorators": true,
   },
   "files": [
-    "src/inedx.d.ts"
+    "src/index.d.ts"
   ],
   "include": ["src", "electron", "shared"],
   "references": [{ "path": "./tsconfig.node.json" }]

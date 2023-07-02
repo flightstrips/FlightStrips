@@ -1,4 +1,4 @@
-import './del.css'
+import './Del.css'
 import BasePlate from "../../components/BasePlate.tsx"
 import InformationBarComp from '../../components/InformationBar.tsx'
 

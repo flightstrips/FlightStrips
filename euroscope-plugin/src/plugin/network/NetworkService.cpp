@@ -73,5 +73,25 @@ namespace FlightStrips::network {
 
         this->m_server->SendMessage(data.dump());
     }
+
+    void NetworkService::SendActiveRunways(std::vector<runway::ActiveRunway> &runways) const {
+        auto arr = json::array();
+
+        for (auto it = runways.begin(); it != runways.end(); ++it) {
+            auto element = json{
+                    { "name", it->name },
+                    { "isDeparture", it->isDeparture }
+            };
+
+            arr.push_back(element);
+        }
+
+        auto data = json{
+                { "$type", "ActiveRunways"},
+                { "runways", arr}
+        };
+
+        this->m_server->SendMessage(data.dump());
+    }
 }
 

@@ -39,13 +39,17 @@ source_group("src\\euroscope" FILES ${src__euroscope})
 set(src__handlers
         handlers/FlightPlanEventHandler.h
         handlers/FlightPlanEventHandlers.h
-        handlers/FlightPlanEventHandlers.cpp handlers/RadarTargetEventHandler.h handlers/RadarTargetEventHandlers.cpp handlers/RadarTargetEventHandlers.h)
+        handlers/FlightPlanEventHandlers.cpp handlers/RadarTargetEventHandler.h handlers/RadarTargetEventHandlers.cpp handlers/RadarTargetEventHandlers.h handlers/AirportRunwaysChangedEvent.h)
 source_group("src\\collections" FILES ${src__handlers})
 
 set(src__flightplan
         flightplan/FlightPlanService.h
         flightplan/FlightPlanService.cpp flightplan/FlightPlan.h flightplan/FlightPlanBootstrapper.cpp flightplan/FlightPlanBootstrapper.h)
 source_group("src\\flightplan" FILES ${src__flightplan})
+
+set(src__runway
+        runway/ActiveRunway.h)
+source_group("src\\runway" FILES ${src__runway})
 
 set(ALL_FILES
     ${src__plugin}
@@ -56,6 +60,7 @@ set(ALL_FILES
     ${src__euroscope}
     ${src__handlers}
     ${src__flightplan}
+    ${src__runway}
         Constants.h)
 
 ################################################################################

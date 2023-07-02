@@ -11,13 +11,15 @@
 
 #include "handlers/FlightPlanEventHandlers.h"
 #include "handlers/RadarTargetEventHandlers.h"
+#include "network/NetworkService.h"
 
 namespace FlightStrips {
     class FlightStripsPlugin : public EuroScopePlugIn::CPlugIn {
     public:
         FlightStripsPlugin(
                 const std::shared_ptr<handlers::FlightPlanEventHandlers> &mFlightPlanEventHandlerCollection,
-                const std::shared_ptr<handlers::RadarTargetEventHandlers>& mRadarTargetEventHandlers);
+                const std::shared_ptr<handlers::RadarTargetEventHandlers> &mRadarTargetEventHandlers,
+                const std::shared_ptr<network::NetworkService> mNetworkService);
 
         ~FlightStripsPlugin() override;
 
@@ -35,6 +37,8 @@ namespace FlightStrips {
 
         void OnRadarTargetPositionUpdate (EuroScopePlugIn::CRadarTarget RadarTarget) override;
 
+        void OnAirportRunwayActivityChanged() override;
+
 
 
         void OnTimer(int Counter) override;
@@ -42,6 +46,7 @@ namespace FlightStrips {
     private:
         const std::shared_ptr<handlers::FlightPlanEventHandlers> m_flightPlanEventHandlerCollection;
         const std::shared_ptr<handlers::RadarTargetEventHandlers> m_radarTargetEventHandlers;
+        const std::shared_ptr<network::NetworkService> m_networkService;
 
         static bool IsRelevant(EuroScopePlugIn::CFlightPlan flightPlan);
     };

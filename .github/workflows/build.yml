@@ -33,4 +33,4 @@ jobs:
     - name: install dependencies
       run: npm ci
     - name: build
-      run: npm run make
+      run: npm run build

@@ -45,7 +45,6 @@ export class EuroScopeSocket {
     private tryReconnect: boolean = true
     private wait = false
 
-
     private readonly delimitor: number = 0
 
     private onData(data: Buffer, self: this) {

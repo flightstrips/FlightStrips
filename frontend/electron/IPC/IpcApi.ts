@@ -1,6 +1,7 @@
 import { ipcRenderer } from "electron";
 import { FlightDataUpdatedMessage } from "../network/euroscope/interfaces/FlightDataUpdatedMessage";
 import { CommunicationType } from "../../shared/CommunicationType";
+import { ActiveRunway } from "../../shared/ActiveRunway";
 
 export default {
     onFlightPlanUpdated: (handler: (plan: FlightDataUpdatedMessage) => void) => {
@@ -27,4 +28,7 @@ export default {
     onSetCleared: (handler: (callsign: string, clear: boolean) => void) => {
         ipcRenderer.on("SetCleared", (_, ...args) => handler(args[0], args[1]))
     },
+    onActiveRunways: (handler: (runways: ActiveRunway[]) => void) => {
+        ipcRenderer.on("OnActiveRunways", (_, args) => handler(args))
+    }
 }

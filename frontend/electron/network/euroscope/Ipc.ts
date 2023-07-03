@@ -2,6 +2,7 @@ import { WebContents } from "electron";
 import { CommunicationType } from "../../../shared/CommunicationType";
 import { FlightPlanUpdate } from "../../../shared/FlightPlanUpdate";
 import { IpcInterface } from "./interfaces/IpcInterface";
+import { ActiveRunway } from "../../../shared/ActiveRunway";
 
 export class Ipc implements IpcInterface {
     private readonly webContents: WebContents
@@ -36,5 +37,8 @@ export class Ipc implements IpcInterface {
     }
     sendSquawkUpdate(callsign: string, squawk: number): void {
         this.webContents.send("SquawkUpdaet", callsign, squawk)
+    }
+    sendActiveRunways(runways: ActiveRunway[]) {
+        this.webContents.send('OnActiveRunways', runways)
     }
 }

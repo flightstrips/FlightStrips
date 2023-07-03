@@ -1,11 +1,13 @@
 import { CommunicationType } from "../../../shared/CommunicationType";
 import { MessageHandlerInterface } from "./MessageHandlerInterface";
+import { ActiveRunway } from "../../../shared/ActiveRunway";
 import { ControllerDataUpdated } from "./interfaces/ControllerDataUpdated";
 import { FlightDataUpdatedMessage } from "./interfaces/FlightDataUpdatedMessage";
 import { FlightPlanDisconnected } from "./interfaces/FlightPlanDisconnected";
 import { IpcInterface } from "./interfaces/IpcInterface";
 import { Message } from "./interfaces/Message";
 import { SquawkUpdate } from "./interfaces/SquawkUpdate";
+import { ActiveRunwaysMessage } from "./interfaces/ActiveRunwaysMessage";
 
 export class MessageHandler implements MessageHandlerInterface {
     private readonly ipc: IpcInterface
@@ -52,6 +54,10 @@ export class MessageHandler implements MessageHandlerInterface {
             case 'SquawkUpdate':
                 const squawkUpdate = event as SquawkUpdate
                 this.ipc.sendSquawkUpdate(squawkUpdate.callsign, squawkUpdate.squawk)
+                break
+            case 'ActiveRunways':
+                const runways = event as ActiveRunwaysMessage
+                this.ipc.sendActiveRunways(runways.runways)
                 break
             default:
                 console.error(`Unknown message type '${event.$type}'.`)

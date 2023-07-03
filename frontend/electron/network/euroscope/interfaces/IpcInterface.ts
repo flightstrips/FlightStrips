@@ -1,3 +1,4 @@
+import { ActiveRunway } from "../../../../shared/ActiveRunway"
 import { CommunicationType } from "../../../../shared/CommunicationType"
 import { FlightPlanUpdate } from "../../../../shared/FlightPlanUpdate"
 
@@ -11,4 +12,5 @@ export interface IpcInterface {
     sendSetCommunicationType(callsign: string, communication_type: CommunicationType): void
     sendSetGroundState(callsign: string, state: string): void
     sendSquawkUpdate(callsign: string, squawk: number): void
+    sendActiveRunways(runways: ActiveRunway[]): void
 }

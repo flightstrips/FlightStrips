@@ -1,6 +1,5 @@
 import { CommunicationType } from "../../../shared/CommunicationType";
 import { MessageHandlerInterface } from "./MessageHandlerInterface";
-import { ActiveRunway } from "../../../shared/ActiveRunway";
 import { ControllerDataUpdated } from "./interfaces/ControllerDataUpdated";
 import { FlightDataUpdatedMessage } from "./interfaces/FlightDataUpdatedMessage";
 import { FlightPlanDisconnected } from "./interfaces/FlightPlanDisconnected";

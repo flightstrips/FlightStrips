@@ -3,10 +3,11 @@
 //
 
 #include "Server.h"
+#include "plugin/FlightStripsPlugin.h"
 
 namespace FlightStrips {
     namespace network {
-        Server::Server() {
+        Server::Server(const std::shared_ptr<FlightStripsPlugin>& mPlugin) : m_plugin(mPlugin) {
             struct addrinfo *addressInfo = nullptr, hints{};
             ZeroMemory(&hints, sizeof(hints));
             hints.ai_family = AF_INET;
@@ -69,22 +70,9 @@ namespace FlightStrips {
                     continue;
                 }
 
-                this->m_Clients.push_back(std::make_unique<ConnectedClient>(client));
+                this->m_Clients.push_back(std::make_unique<ConnectedClient>(client, this->m_plugin));
             }
 
-        }
-
-        std::vector<std::string> Server::ReadMessages() {
-            std::vector<std::string> messages;
-
-            for (const auto& client : this->m_Clients)
-            {
-                while (client->HasMessage()) {
-                    messages.push_back(client->Read());
-                }
-            }
-
-            return messages;
         }
 
         void Server::SendMessage(const std::string& message) {

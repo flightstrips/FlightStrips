@@ -83,8 +83,9 @@ export class EuroScopeSocket {
 
     }
 
-    private onConnected() {
+    private onConnected(self: this) {
         console.log("Connected")
+        self.socket?.write('{ "$type": "Initial", "message": "Hello from application" }\0');
     }
 
     private clearListners() {
@@ -105,7 +106,7 @@ export class EuroScopeSocket {
         this.socket.on('error', error => this.onError(error, self))
         this.socket.on('timeout', () => this.onTimeout(self))
 
-        this.socket.connect(this.port, this.host, this.onConnected)
+        this.socket.connect(this.port, this.host, () => this.onConnected(self))
     }
 
     private reconnect() {

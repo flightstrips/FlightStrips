@@ -42,7 +42,7 @@ namespace FlightStrips {
         auto operator=(Container&&) noexcept -> Container&;
 
         // The plugin
-        std::unique_ptr<FlightStripsPlugin> plugin;
+        std::shared_ptr<FlightStripsPlugin> plugin;
 
         // FileSystem
         std::unique_ptr<filesystem::FileSystem> filesystem;

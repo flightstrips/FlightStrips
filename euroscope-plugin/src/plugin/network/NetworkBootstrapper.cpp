@@ -6,7 +6,7 @@
 
 namespace FlightStrips::network {
     void NetworkBootstrapper::Bootstrap(Container &container) {
-        container.server = std::make_shared<Server>();
+        container.server = std::make_shared<Server>(container.plugin);
         container.networkService = std::make_shared<NetworkService>(container.server);
         container.flightPlanEventHandlers->RegisterHandler(container.networkService);
     }

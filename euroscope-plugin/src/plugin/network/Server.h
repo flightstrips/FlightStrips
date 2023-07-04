@@ -5,16 +5,17 @@
 #pragma once
 
 #include "ConnectedClient.h"
+namespace FlightStrips {
+    class FlightStripsPlugin;
+}
 
 namespace FlightStrips {
     namespace network {
 
         class Server {
         public:
-            Server();
+            explicit Server(const std::shared_ptr<FlightStripsPlugin>& mPlugin);
             ~Server();
-
-            std::vector<std::string> ReadMessages();
 
             void SendMessage(const std::string& message);
         private:
@@ -27,6 +28,7 @@ namespace FlightStrips {
 
             std::unique_ptr<std::thread> m_ListenThread;
             std::vector<std::unique_ptr<ConnectedClient>> m_Clients;
+            std::shared_ptr<FlightStripsPlugin> m_plugin;
         };
 
     } // FlightStrips

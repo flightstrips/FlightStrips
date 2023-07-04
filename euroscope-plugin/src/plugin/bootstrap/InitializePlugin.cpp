@@ -23,7 +23,7 @@ namespace FlightStrips {
         this->container->filesystem = std::make_unique<filesystem::FileSystem>(dllInstance);
         stands::StandsBootstrapper::Bootstrap(*this->container);
 
-        this->container->plugin = std::make_unique<FlightStripsPlugin>(this->container->flightPlanEventHandlers, this->container->radarTargetEventHandlers, this->container->networkService);
+        this->container->plugin = std::make_shared<FlightStripsPlugin>(this->container->flightPlanEventHandlers, this->container->radarTargetEventHandlers, this->container->networkService);
 
         this->container->plugin->Information("Initialized");
     }

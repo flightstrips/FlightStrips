@@ -2,13 +2,17 @@
 // Created by fsr19 on 25/05/2023.
 //
 
+#include <winsock.h>
+#include "plugin/FlightStripsPlugin.h"
 #include "ConnectedClient.h"
 
 namespace FlightStrips::network {
-    ConnectedClient::ConnectedClient(SOCKET socket) : socket(socket) {
+    ConnectedClient::ConnectedClient(SOCKET socket, const std::shared_ptr<FlightStripsPlugin>& mPlugin)
+            : socket(socket) {
         this->isActive = true;
         this->writerThread = std::make_unique<std::thread>(&ConnectedClient::WriteLoop, this);
         this->readerThread = std::make_unique<std::thread>(&ConnectedClient::ReadLoop, this);
+        this->m_messageHandler = std::make_unique<MessageHandler>(mPlugin);
     }
 
     ConnectedClient::~ConnectedClient() {
@@ -33,37 +37,35 @@ namespace FlightStrips::network {
         this->writerMutex.unlock();
     }
 
-    std::string ConnectedClient::Read() {
-        if (!HasMessage()) return {};
-
-        std::string message;
-
-        this->readerMutex.lock();
-
-        message = this->readQueue.front();
-        this->readQueue.pop();
-
-        this->readerMutex.unlock();
-        return message;
-    }
-
-    bool ConnectedClient::HasMessage() {
-        return !this->readQueue.empty();
-    }
-
     void ConnectedClient::ReadLoop() {
 
         int bytesReceived = 0;
         std::array<char, 4096> receiveBuffer{};
 
+        std::array<char, 4096> messageBuffer{};
+        int index = 0;
+
         while (this->isActive) {
             bytesReceived = recv(this->socket, &receiveBuffer[0], READ_BUFFER_SIZE, 0);
 
             if (bytesReceived > 0)  {
-                auto lock = std::lock_guard(this->readerMutex);
+                for (int i = 0; i < bytesReceived; i++) {
+                    char byte = receiveBuffer[i];
 
-                // TODO delimiter
-                this->readQueue.emplace(receiveBuffer.cbegin(), receiveBuffer.cbegin() + bytesReceived);
+                    if (byte == 0) {
+                        auto string = std::string(messageBuffer.cbegin(), messageBuffer.cbegin() + index);
+                        m_messageHandler->OnMessage(string);
+                        /*
+                        auto lock = std::lock_guard(this->readerMutex);
+
+                        this->readQueue.emplace();
+                         */
+                        index = 0;
+                        continue;
+                    }
+
+                    messageBuffer[index++] = byte;
+                }
             } else {
                 this->isActive = false;
             }

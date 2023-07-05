@@ -73,7 +73,6 @@ export class EuroScopeSocket {
     }
 
     private onError(err: Error, self: this) {
-        console.log(`Connection failed: ${err.message}`)
         self.reconnect()
     }
 

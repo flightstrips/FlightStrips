@@ -9,11 +9,10 @@ export class FlightStripStore {
 
     constructor(rootStore: RootStore) {
         this.rootStore = rootStore
-        api.onFlightPlanUpdated((plan: FlightPlanUpdate) => this.updateFlightPlanData(plan))
-
     }
 
-    @action private updateFlightPlanData(data: FlightPlanUpdate) {
+    @action updateFlightPlanData(data: FlightPlanUpdate) {
+        console.log(data)
         let flightstrip = this.flightStrips.find(strip => strip.callsign == data.callsign)
 
         if (!flightstrip) {

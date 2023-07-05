@@ -1,6 +1,7 @@
 import axios from 'axios';
 
 function ATIS() {
+    /*
   const getAtis = () =>  {
     axios.get('https://data.vatsim.net/v3/vatsim-data.json')
     .then(response => {
@@ -10,9 +11,10 @@ function ATIS() {
       console.log(err)
     })
   }
+  */
     return (
         <>
-          {getAtis}
+          A
         </>
     )
   }

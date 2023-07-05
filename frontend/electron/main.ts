@@ -42,7 +42,7 @@ class Main {
       minHeight:1080,
     })
 
-    this.mainWindow.webContents.openDevTools();
+    this.mainWindow.webContents.openDevTools({ mode: 'undocked' });
     this.mainWindow.webContents.on('did-finish-load', () => {
       this.mainWindow?.webContents.send('main-process-message', (new Date).toLocaleString())
     })

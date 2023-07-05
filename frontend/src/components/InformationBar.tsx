@@ -24,8 +24,8 @@ export default function InformationBarComp(props: InformationBarProps) {
             {props.rwyDep}
           </div>
       </div>
-      <div className="rwyAar">
-          <p>AAR</p>
+      <div className="rwyArr">
+          <p>ARR</p>
           <div className="rwyBox">
             {props.rwyArr}
           </div>

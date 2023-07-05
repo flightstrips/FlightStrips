@@ -1,4 +1,3 @@
-import { createContext } from "react"
 import { FlightStripStore } from "./FlightStripStore"
 
 export class RootStore {
@@ -8,5 +7,3 @@ export class RootStore {
         this.flightStripStore = new FlightStripStore(this)
     }
 }
-
-export const StoreContext = createContext(new RootStore())

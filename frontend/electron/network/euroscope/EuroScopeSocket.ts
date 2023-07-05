@@ -72,7 +72,7 @@ export class EuroScopeSocket {
         self.reconnect()
     }
 
-    private onError(err: Error, self: this) {
+    private onError(self: this) {
         self.reconnect()
     }
 
@@ -102,7 +102,7 @@ export class EuroScopeSocket {
         const self = this
         this.socket.on('data', data => this.onData(data, self))
         this.socket.on('close', hasError => this.onClose(hasError, self))
-        this.socket.on('error', error => this.onError(error, self))
+        this.socket.on('error', error => this.onError(self))
         this.socket.on('timeout', () => this.onTimeout(self))
 
         this.socket.connect(this.port, this.host, () => this.onConnected(self))

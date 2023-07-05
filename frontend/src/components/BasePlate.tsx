@@ -5,7 +5,7 @@ export default function BasePlate() {
     return (
       <div className="baseplate">
         <div className="baseBay">
-          <BayHeader name="others" NEWButton={true} PLANNEDButton={true}/>
+          <BayHeader name="others" showNewButton={true} showPlannedButton={true}/>
           <Strip />
         </div>
         <div className="baseBay">

@@ -1,7 +1,17 @@
 import './InformationBar.css'
 import ATIS from './ATIS'
 
-export default function InformationBarComp(props: any) {
+interface InformationBarProps {
+  stationA: string,
+  stationB: string,
+  rwyDep: string,
+  rwyArr: string,
+  qnh: number,
+  atisWinds: string,
+  atisLetter: string
+}
+
+export default function InformationBarComp(props: InformationBarProps) {
 
   return (
     <div className="InformationBar">
@@ -17,11 +27,11 @@ export default function InformationBarComp(props: any) {
       <div className="rwyAar">
           <p>AAR</p>
           <div className="rwyBox">
-            {props.rwyAar}
+            {props.rwyArr}
           </div>
       </div>
       <div className="QNH">
-          {props.QNH}
+          {props.qnh}
       </div>
       <button className="atis">
         <ATIS />

@@ -14,7 +14,7 @@ export class FlightStripStore {
     }
 
     @action private updateFlightPlanData(data: FlightPlanUpdate) {
-        let flightstrip = this.flightStrips.find((strip, _) => strip.callsign == data.callsign)
+        let flightstrip = this.flightStrips.find(strip => strip.callsign == data.callsign)
 
         if (!flightstrip) {
             flightstrip = {

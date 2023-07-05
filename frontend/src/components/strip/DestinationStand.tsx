@@ -1,6 +1,6 @@
 import './strip.css'
 
-export default function DestinationStand(props: any) {
+export default function DestinationStand(props: { desicao: string, stand: string }) {
   return (
     <>
       <div className='DestinationStand'>

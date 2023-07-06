@@ -57,7 +57,6 @@ export class EuroScopeSocket {
                 const message = new TextDecoder().decode(bytes)
 
                 self.handler?.handleMessage(message)
-                console.log(message)
 
                 self.index = 0;
                 continue;

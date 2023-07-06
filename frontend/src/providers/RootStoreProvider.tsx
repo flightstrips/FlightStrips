@@ -22,6 +22,7 @@ export function useFlightStripStore() {
 function initializeStore(): RootStore {
     const s = new RootStore();
     api.onFlightPlanUpdated((plan) => s.flightStripStore.updateFlightPlanData(plan))
+    api.onSetCleared((callsign, cleared) => s.flightStripStore.setCleared(callsign, cleared))
 
     return s
 }

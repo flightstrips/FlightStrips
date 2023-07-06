@@ -1,17 +1,29 @@
-import { action, observable } from "mobx";
+import { action, computed, makeObservable, observable } from "mobx";
 import { RootStore } from "./RootStore";
 import Flightstrip from "../data/interfaces/flightstrip";
 import { FlightPlanUpdate } from "../../shared/FlightPlanUpdate"
 
 export class FlightStripStore {
-    @observable flightStrips: Flightstrip[] = []
+    flightStrips: Flightstrip[] = []
     rootStore: RootStore
 
     constructor(rootStore: RootStore) {
         this.rootStore = rootStore
+        makeObservable(this, { 
+            flightStrips: observable, 
+            updateFlightPlanData: action, 
+            setCleared: action
+        })
     }
 
-    @action updateFlightPlanData(data: FlightPlanUpdate) {
+    public setCleared(callsign: string, cleared: boolean) {
+        let flightstrip = this.flightStrips.find(strip => strip.callsign == callsign)
+        if (!flightstrip) return
+
+        flightstrip.cleared = cleared
+    }
+
+    public updateFlightPlanData(data: FlightPlanUpdate) {
         console.log(data)
         let flightstrip = this.flightStrips.find(strip => strip.callsign == data.callsign)
 
@@ -32,6 +44,7 @@ export class FlightStripStore {
                 eobt: parseInt(data.estimatedDeparture),
                 tsat: 0,
                 ctot: 0,
+                cleared: false,
             }
 
             this.flightStrips.push(flightstrip)
@@ -45,6 +58,15 @@ export class FlightStripStore {
         flightstrip.departureRWY = data.departureRwy
         flightstrip.arrivalRWY = data.arrivalRwy
         flightstrip.eobt = parseInt(data.estimatedDeparture)
+    }
+
+    public pending(sasOnly: boolean): Flightstrip[] {
+        return this.flightStrips.filter(plan => !plan.cleared &&
+            sasOnly === plan.callsign.toUpperCase().startsWith("SAS"))
+    }
+
+    public cleared(): Flightstrip[] {
+        return this.flightStrips.filter(plan => plan.cleared)
     }
 
     /*

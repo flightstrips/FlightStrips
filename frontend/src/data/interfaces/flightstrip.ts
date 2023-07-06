@@ -14,6 +14,7 @@ interface Flightstrip {
     eobt: number,
     tsat: number,
     ctot: number,
+    cleared: boolean
 }
 
 export default Flightstrip;

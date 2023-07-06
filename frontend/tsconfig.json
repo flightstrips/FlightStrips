@@ -20,8 +20,6 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
 
-    /* mobx */
-    "experimentalDecorators": true,
   },
   "files": [
     "src/index.d.ts"

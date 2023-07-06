@@ -1,4 +1,4 @@
-import { action, computed, makeObservable, observable } from "mobx";
+import { action, makeObservable, observable } from "mobx";
 import { RootStore } from "./RootStore";
 import Flightstrip from "../data/interfaces/flightstrip";
 import { FlightPlanUpdate } from "../../shared/FlightPlanUpdate"
@@ -17,7 +17,7 @@ export class FlightStripStore {
     }
 
     public setCleared(callsign: string, cleared: boolean) {
-        let flightstrip = this.flightStrips.find(strip => strip.callsign == callsign)
+        const flightstrip = this.flightStrips.find(strip => strip.callsign == callsign)
         if (!flightstrip) return
 
         flightstrip.cleared = cleared

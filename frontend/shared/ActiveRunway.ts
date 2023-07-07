@@ -1,4 +1,4 @@
 export interface ActiveRunway {
-    name: string,
-    isDeparture: boolean
+  name: string
+  isDeparture: boolean
 }

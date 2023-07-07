@@ -1,9 +1,11 @@
-import { contextBridge } from "electron"
-import IpcApi from "./IPC/IpcApi"
+import { contextBridge } from 'electron'
+import IpcApi from './IPC/IpcApi'
 
-function domReady(condition: DocumentReadyState[] = ['complete', 'interactive']) {
-  return new Promise(resolve => {
-        contextBridge.exposeInMainWorld('api', IpcApi)
+function domReady(
+  condition: DocumentReadyState[] = ['complete', 'interactive'],
+) {
+  return new Promise((resolve) => {
+    contextBridge.exposeInMainWorld('api', IpcApi)
     if (condition.includes(document.readyState)) {
       resolve(true)
     } else {
@@ -18,12 +20,12 @@ function domReady(condition: DocumentReadyState[] = ['complete', 'interactive'])
 
 const safeDOM = {
   append(parent: HTMLElement, child: HTMLElement) {
-    if (!Array.from(parent.children).find(e => e === child)) {
+    if (!Array.from(parent.children).find((e) => e === child)) {
       parent.appendChild(child)
     }
   },
   remove(parent: HTMLElement, child: HTMLElement) {
-    if (Array.from(parent.children).find(e => e === child)) {
+    if (Array.from(parent.children).find((e) => e === child)) {
       parent.removeChild(child)
     }
   },
@@ -89,9 +91,8 @@ function useLoading() {
 const { appendLoading, removeLoading } = useLoading()
 domReady().then(appendLoading)
 
-window.onmessage = ev => {
+window.onmessage = (ev) => {
   ev.data.payload === 'removeLoading' && removeLoading()
 }
-
 
 setTimeout(removeLoading, 4999)

@@ -1,6 +1,6 @@
-import { Message } from "./Message";
+import { Message } from './Message'
 
 export interface FlightPlanDisconnected extends Message {
-    $type: 'FlightPlanDisconnected',
-    callsign: string
+  $type: 'FlightPlanDisconnected'
+  callsign: string
 }

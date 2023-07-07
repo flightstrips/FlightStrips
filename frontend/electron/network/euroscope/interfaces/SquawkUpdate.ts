@@ -1,7 +1,7 @@
-import { Message } from "./Message";
+import { Message } from './Message'
 
 export interface SquawkUpdate extends Message {
-    $type: 'SquawkUpdate'
-    callsign: string,
-    squawk: number
+  $type: 'SquawkUpdate'
+  callsign: string
+  squawk: number
 }

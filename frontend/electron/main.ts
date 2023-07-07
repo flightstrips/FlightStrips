@@ -14,7 +14,9 @@ import { EuroScopeSocket } from './network/euroscope/EuroScopeSocket'
 // │ │ └── preload.js
 // │
 process.env.DIST = path.join(__dirname, '../dist')
-process.env.PUBLIC = app.isPackaged ? process.env.DIST : path.join(process.env.DIST, '../public')
+process.env.PUBLIC = app.isPackaged
+  ? process.env.DIST
+  : path.join(process.env.DIST, '../public')
 
 const VITE_DEV_SERVER_URL = process.env['VITE_DEV_SERVER_URL']
 
@@ -26,8 +28,7 @@ class Main {
     app.on('ready', this.createWindows)
     app.on('window-all-closed', this.onWindowAllClosed)
 
-    this.registerIpcChannels(ipcChannels);
-
+    this.registerIpcChannels(ipcChannels)
   }
 
   private createWindows() {
@@ -38,15 +39,18 @@ class Main {
         contextIsolation: true,
         preload: path.join(__dirname, 'preload.js'),
       },
-      minWidth:1920,
-      minHeight:1080,
+      minWidth: 1920,
+      minHeight: 1080,
     })
 
-    this.mainWindow.webContents.openDevTools({ mode: 'undocked' });
+    this.mainWindow.webContents.openDevTools({ mode: 'undocked' })
     this.mainWindow.webContents.on('did-finish-load', () => {
-      this.mainWindow?.webContents.send('main-process-message', (new Date).toLocaleString())
+      this.mainWindow?.webContents.send(
+        'main-process-message',
+        new Date().toLocaleString(),
+      )
     })
-    this.mainWindow.setAspectRatio(16/9)
+    this.mainWindow.setAspectRatio(16 / 9)
 
     if (VITE_DEV_SERVER_URL) {
       this.mainWindow.loadURL(VITE_DEV_SERVER_URL)
@@ -56,40 +60,57 @@ class Main {
     const menu = Menu.buildFromTemplate([
       {
         label: 'Views',
-        submenu : [
-          {label: 'Clearance Delivery',},
-          {label: 'Apron'},
-          {label: 'Tower'}
-        ]
+        submenu: [
+          { label: 'Clearance Delivery' },
+          { label: 'Apron' },
+          { label: 'Tower' },
+        ],
       },
       {
         label: 'Development',
-        submenu : [
-          {label: 'VATSIM Scandinavia',click(){shell.openExternal('https://vatsim-scandinavia.org/')}},
-          {label: 'Github',click(){shell.openExternal('https://github.com/frederikrosenberg/FlightStrips')}},
-          {label: 'Discord',click(){shell.openExternal('https://discord.gg/vatsca')}},
-        ]
-      }
+        submenu: [
+          {
+            label: 'VATSIM Scandinavia',
+            click() {
+              shell.openExternal('https://vatsim-scandinavia.org/')
+            },
+          },
+          {
+            label: 'Github',
+            click() {
+              shell.openExternal(
+                'https://github.com/frederikrosenberg/FlightStrips',
+              )
+            },
+          },
+          {
+            label: 'Discord',
+            click() {
+              shell.openExternal('https://discord.gg/vatsca')
+            },
+          },
+        ],
+      },
     ])
     Menu.setApplicationMenu(menu)
 
     this.euroScopeScoket = createEuroScopeSocket(this.mainWindow.webContents)
     this.euroScopeScoket.start()
-
   }
 
   private onWindowAllClosed() {
     this.euroScopeScoket?.stop()
     this.mainWindow = null
-
   }
 
   private registerIpcChannels(ipcChannels: IpcChannelInterface[]) {
-    ipcChannels.forEach(channel => ipcMain.on(channel.getName(), (event, request) => channel.handle(event, request)));
+    ipcChannels.forEach((channel) =>
+      ipcMain.on(channel.getName(), (event, request) =>
+        channel.handle(event, request),
+      ),
+    )
   }
-
 }
-
 
 const main: Main = new Main()
 main.init([])

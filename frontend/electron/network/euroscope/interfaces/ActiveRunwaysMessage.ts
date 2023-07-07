@@ -1,7 +1,7 @@
-import { ActiveRunway } from "../../../../shared/ActiveRunway";
-import { Message } from "./Message";
+import { ActiveRunway } from '../../../../shared/ActiveRunway'
+import { Message } from './Message'
 
 export interface ActiveRunwaysMessage extends Message {
-    $type: 'ActiveRunways',
-    runways: ActiveRunway[]
+  $type: 'ActiveRunways'
+  runways: ActiveRunway[]
 }

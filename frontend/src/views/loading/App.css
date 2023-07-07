@@ -1,6 +1,6 @@
 :root {
   margin: 0;
-  overflow: hidden!important;
+  overflow: hidden !important;
   height: 100vh;
   width: 100vw;
 }
@@ -18,9 +18,9 @@
   transform: translate(-50%, -50%);
 }
 .startup.vatscaLogo {
-    width: 10vw;
-    position: absolute;
-    z-index: 2;
-    right: 4vw;
-    bottom: 4vh;
-  }
+  width: 10vw;
+  position: absolute;
+  z-index: 2;
+  right: 4vw;
+  bottom: 4vh;
+}

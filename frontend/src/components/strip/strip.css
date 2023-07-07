@@ -1,80 +1,79 @@
 .arrival-bg {
-    background-color: #FFD100;
+  background-color: #ffd100;
 }
 .departure-bg {
-    background-color: #BEF5EF;
+  background-color: #bef5ef;
 }
 .strip {
-    width: 90%;
-    height: 4.5%;
-    border: 2px solid #fff;
-    box-sizing: border-box;
-    -moz-box-sizing: border-box;
-    -webkit-box-sizing: border-box;
-    display: flex;
-    align-items: center;
-    color: black;
-    justify-content: left;
-    
+  width: 90%;
+  height: 4.5%;
+  border: 2px solid #fff;
+  box-sizing: border-box;
+  -moz-box-sizing: border-box;
+  -webkit-box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  color: black;
+  justify-content: left;
 }
 .CallsignBox {
-    width: 35%;
-    height: 100%;
-    font-weight: 500;
-    font-size: 1.8rem;
-    display: flex;
-    align-items: center;
-    border: solid 2px #85B4AF;
-    border-right: 1px solid #85B4AF;
-    box-sizing: border-box;
-    -moz-box-sizing: border-box;
-    -webkit-box-sizing: border-box;
+  width: 35%;
+  height: 100%;
+  font-weight: 500;
+  font-size: 1.8rem;
+  display: flex;
+  align-items: center;
+  border: solid 2px #85b4af;
+  border-right: 1px solid #85b4af;
+  box-sizing: border-box;
+  -moz-box-sizing: border-box;
+  -webkit-box-sizing: border-box;
 }
 .CallsignBox p {
-    padding-left: 5px;
+  padding-left: 5px;
 }
 .DestinationStand {
-    width: 15%;
-    height: 100%;
-    font-weight: 500;
-    font-size: 18px;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    text-align: center;
-    border: solid 2px #85B4AF;
-    border-left: 1px solid #85B4AF;
-    border-right: 1px solid #85B4AF;
-    box-sizing: border-box;
-    -moz-box-sizing: border-box;
-    -webkit-box-sizing: border-box;
+  width: 15%;
+  height: 100%;
+  font-weight: 500;
+  font-size: 18px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  border: solid 2px #85b4af;
+  border-left: 1px solid #85b4af;
+  border-right: 1px solid #85b4af;
+  box-sizing: border-box;
+  -moz-box-sizing: border-box;
+  -webkit-box-sizing: border-box;
 }
 .DelEOBT {
-    width: 25%;
-    height: 100%;
-    display: flex;
-    align-items: top;
-    gap: 5px;
-    border: solid 2px #85B4AF;
-    border-left: 1px solid #85B4AF;
-    border-right: 1px solid #85B4AF;
-    box-sizing: border-box;
-    -moz-box-sizing: border-box;
-    -webkit-box-sizing: border-box;
-    display: flex;
-    justify-content: space-between;
+  width: 25%;
+  height: 100%;
+  display: flex;
+  align-items: top;
+  gap: 5px;
+  border: solid 2px #85b4af;
+  border-left: 1px solid #85b4af;
+  border-right: 1px solid #85b4af;
+  box-sizing: border-box;
+  -moz-box-sizing: border-box;
+  -webkit-box-sizing: border-box;
+  display: flex;
+  justify-content: space-between;
 }
 .DelEOBT span {
-    padding: 0 10px 0 10px;
+  padding: 0 10px 0 10px;
 }
 .DelTSATCTOT {
-    width: 25%;
-    height: 100%;
-    display: flex;
-    align-items: center;
-    border-left: 1px solid #85B4AF;
-    border: solid 2px #85B4AF;
-    box-sizing: border-box;
-    -moz-box-sizing: border-box;
-    -webkit-box-sizing: border-box;
+  width: 25%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  border-left: 1px solid #85b4af;
+  border: solid 2px #85b4af;
+  box-sizing: border-box;
+  -moz-box-sizing: border-box;
+  -webkit-box-sizing: border-box;
 }

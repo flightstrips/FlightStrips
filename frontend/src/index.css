@@ -17,11 +17,10 @@ body {
   font-family: 'Rubik', sans-serif;
 }
 
-
 .baseplate {
   width: 100vw;
   height: 100vh;
-  background-color: #A9A9A9;
+  background-color: #a9a9a9;
   display: flex;
   justify-content: space-between;
 }

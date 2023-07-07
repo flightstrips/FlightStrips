@@ -1,38 +1,38 @@
 .baselayer {
-    width: 100%;
-    height: 4.5%;
-    background-color: blue;
-    border: 4px solid #fff;
-    box-sizing: border-box;
-    -moz-box-sizing: border-box;
-    -webkit-box-sizing: border-box;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    color: black;
-  }
+  width: 100%;
+  height: 4.5%;
+  background-color: blue;
+  border: 4px solid #fff;
+  box-sizing: border-box;
+  -moz-box-sizing: border-box;
+  -webkit-box-sizing: border-box;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: black;
+}
 .arr {
-    background-color: #FFD100;
-  }
+  background-color: #ffd100;
+}
 .dep {
-    background-color: #BEF5EF;
+  background-color: #bef5ef;
 }
 
 .callsign {
-    width: 34%;
-    font-weight: 500;
-    font-size: 1.8rem;
-    margin-left: 10px;
-    background-color: orange;
+  width: 34%;
+  font-weight: 500;
+  font-size: 1.8rem;
+  margin-left: 10px;
+  background-color: orange;
 }
 .destStand {
-    text-align: center;
+  text-align: center;
 }
 .destinationICAO {
-    font-weight: 500;
-    font-size: 1.2rem;
+  font-weight: 500;
+  font-size: 1.2rem;
 }
 .stand {
-    font-weight: 500;
-    font-size: .9rem;
+  font-weight: 500;
+  font-size: 0.9rem;
 }

@@ -1,3 +1,3 @@
 export interface MessageHandlerInterface {
-    handleMessage(message: string): void
+  handleMessage(message: string): void
 }

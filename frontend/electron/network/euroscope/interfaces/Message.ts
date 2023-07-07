@@ -1,3 +1,3 @@
 export interface Message {
-    $type: string,
+  $type: string
 }

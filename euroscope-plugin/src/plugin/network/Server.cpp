@@ -76,14 +76,16 @@ namespace FlightStrips {
         }
 
         void Server::SendMessage(const std::string& message) {
-            for (auto it = this->m_Clients.begin(); it != this->m_Clients.end(); ++it)
+            auto it = this->m_Clients.begin();
+
+            while (it != this->m_Clients.end())
             {
                 if (!(*it)->IsActive()) {
-                    this->m_Clients.erase(it);
-                    continue;
+                    it = this->m_Clients.erase(it);
+                } else {
+                    (*it)->Write(message);
+                    ++it;
                 }
-
-                (*it)->Write(message);
             }
         }
 

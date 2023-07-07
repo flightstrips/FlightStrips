@@ -1,7 +1,7 @@
 import BayHeader from './BayHeader'
 import { observer } from 'mobx-react'
-import { useFlightStripStore } from '../providers/RootStoreProvider'
 import { StripList } from './StripList'
+import { useFlightStripStore } from '../providers/RootStoreContext'
 
 export const BasePlate = observer(() => {
   const flightStripStore = useFlightStripStore()

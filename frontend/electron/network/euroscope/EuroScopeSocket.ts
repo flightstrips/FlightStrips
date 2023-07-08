@@ -1,5 +1,6 @@
 import * as net from 'net'
 import { MessageHandlerInterface } from './MessageHandlerInterface'
+import { Message } from './interfaces/Message'
 
 export class EuroScopeSocket {
   private readonly port: number
@@ -35,6 +36,11 @@ export class EuroScopeSocket {
       this.clearListners()
       this.socket?.destroy()
     }
+  }
+
+  public send<T extends Message>(message: T) {
+    const data = JSON.stringify(message)
+    this.socket?.write(`${data}\0`)
   }
 
   private readonly dataBuffer: Buffer = Buffer.alloc(4096)

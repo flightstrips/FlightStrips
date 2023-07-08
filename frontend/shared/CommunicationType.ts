@@ -1,6 +1,6 @@
 export enum CommunicationType {
-  '?', // unknown
-  'V', // voice
-  'R', // receive voice only
-  'T', // text only
+  Unknown = '?', // unknown
+  Voice = 'V', // voice
+  Receive = 'R', // receive voice only
+  Text = 'T', // text only
 }

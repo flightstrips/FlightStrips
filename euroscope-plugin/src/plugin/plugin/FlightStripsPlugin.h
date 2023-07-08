@@ -13,6 +13,10 @@
 #include "handlers/RadarTargetEventHandlers.h"
 #include "network/NetworkService.h"
 
+// TODO move
+#define CLEARED "CLEA"
+#define NOT_CLEARED "NOTC"
+
 namespace FlightStrips {
     class FlightStripsPlugin : public EuroScopePlugIn::CPlugIn {
     public:
@@ -43,10 +47,14 @@ namespace FlightStrips {
 
         void OnTimer(int Counter) override;
 
+        void SetClearenceFlag(std::string callsign, bool cleared);
+
     private:
         const std::shared_ptr<handlers::FlightPlanEventHandlers> m_flightPlanEventHandlerCollection;
         const std::shared_ptr<handlers::RadarTargetEventHandlers> m_radarTargetEventHandlers;
         const std::shared_ptr<network::NetworkService> m_networkService;
+
+        void UpdateViaScratchPad(const char* callsign, const char* message) const;
 
         static bool IsRelevant(EuroScopePlugIn::CFlightPlan flightPlan);
     };

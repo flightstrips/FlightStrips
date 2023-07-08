@@ -3,6 +3,7 @@ import { createEuroScopeSocket } from './network/euroscope'
 import path from 'node:path'
 import { IpcChannelInterface } from './IPC/IpcChannelInterface'
 import { EuroScopeSocket } from './network/euroscope/EuroScopeSocket'
+import EventHandler from './network/euroscope/EventHandler'
 
 // The built directory structure
 //
@@ -23,6 +24,7 @@ const VITE_DEV_SERVER_URL = process.env['VITE_DEV_SERVER_URL']
 class Main {
   private mainWindow: BrowserWindow | null = null
   private euroScopeScoket: EuroScopeSocket | null = null
+  private eventHandler: EventHandler | null = null
 
   public init(ipcChannels: IpcChannelInterface[]) {
     app.on('ready', this.createWindows)
@@ -94,8 +96,10 @@ class Main {
     ])
     Menu.setApplicationMenu(menu)
 
-    this.euroScopeScoket = createEuroScopeSocket(this.mainWindow.webContents)
+    const result = createEuroScopeSocket(this.mainWindow.webContents)
+    this.euroScopeScoket = result.socket
     this.euroScopeScoket.start()
+    this.eventHandler = result.eventHandler
   }
 
   private onWindowAllClosed() {

@@ -98,5 +98,23 @@ namespace FlightStrips {
 
         this->m_networkService->SendActiveRunways(active);
     }
+
+    void FlightStripsPlugin::SetClearenceFlag(std::string callsign, bool cleared) {
+        if (cleared) {
+            this->UpdateViaScratchPad(callsign.c_str(), CLEARED);
+        } else {
+            this->UpdateViaScratchPad(callsign.c_str(), NOT_CLEARED);
+        }
+    }
+
+    void FlightStripsPlugin::UpdateViaScratchPad(const char* callsign, const char *message) const {
+        auto fp = this->FlightPlanSelect(callsign);
+
+        if (!fp.IsValid()) return;
+
+        auto scratch = fp.GetControllerAssignedData().GetScratchPadString();
+        fp.GetControllerAssignedData().SetScratchPadString(message);
+        fp.GetControllerAssignedData().SetScratchPadString(scratch);
+    }
 }
 

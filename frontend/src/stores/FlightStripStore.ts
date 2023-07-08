@@ -66,6 +66,7 @@ export class FlightStripStore {
   public pending(sasOnly: boolean): Flightstrip[] {
     return this.flightStrips.filter(
       (plan) =>
+        plan.departingICAO == 'EKCH' &&
         !plan.cleared &&
         sasOnly === plan.callsign.toUpperCase().startsWith('SAS'),
     )

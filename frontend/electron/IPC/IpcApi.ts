@@ -45,4 +45,40 @@ export default {
   onActiveRunways: (handler: (runways: ActiveRunway[]) => void) => {
     ipcRenderer.on('OnActiveRunways', (_, args) => handler(args))
   },
+  setSquawk: (callsign: string, squawk: number) => {
+    ipcRenderer.send('SetSquawk', callsign, squawk)
+  },
+  setFinalAltitude: (callsign: string, altitude: number) => {
+    ipcRenderer.send('SetFinalAltitude', callsign, altitude)
+  },
+  setClearedAltitude: (callsign: string, altitude: number) => {
+    ipcRenderer.send('SetClearedAltitude', callsign, altitude)
+  },
+  setCommunicationType: (
+    callsign: string,
+    communication_type: CommunicationType,
+  ) => {
+    ipcRenderer.send('SetCommunicationType', callsign, communication_type)
+  },
+  setGroundState: (callsign: string, state: string) => {
+    ipcRenderer.send('SetGroundState', callsign, state)
+  },
+  setCleared: (callsign: string, clear: boolean) => {
+    ipcRenderer.send('SetCleared', callsign, clear)
+  },
+  setFlightPlanRoute: (callsign: string, route: string) => {
+    ipcRenderer.send('SetFlightPlanRoute', callsign, route)
+  },
+  setRemarks: (callsign: string, remarks: string) => {
+    ipcRenderer.send('SetRemarks', callsign, remarks)
+  },
+  setDepartureRunway: (callsign: string, runway: string) => {
+    ipcRenderer.send('SetDepartureRunway', callsign, runway)
+  },
+  setSID: (callsign: string, sid: string) => {
+    ipcRenderer.send('SetSID', callsign, sid)
+  },
+  setHeading: (callsign: string, heading: number) => {
+    ipcRenderer.send(callsign, heading)
+  },
 }

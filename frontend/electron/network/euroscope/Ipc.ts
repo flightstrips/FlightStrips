@@ -3,6 +3,7 @@ import { CommunicationType } from '../../../shared/CommunicationType'
 import { FlightPlanUpdate } from '../../../shared/FlightPlanUpdate'
 import { IpcInterface } from './interfaces/IpcInterface'
 import { ActiveRunway } from '../../../shared/ActiveRunway'
+import { GroundState } from '../../../shared/GroundState'
 
 export class Ipc implements IpcInterface {
   private readonly webContents: WebContents
@@ -35,7 +36,7 @@ export class Ipc implements IpcInterface {
   ): void {
     this.webContents.send('SetCommunicationType', callsign, communication_type)
   }
-  sendSetGroundState(callsign: string, state: string): void {
+  sendSetGroundState(callsign: string, state: GroundState): void {
     this.webContents.send('SetGroundState', callsign, state)
   }
   sendSquawkUpdate(callsign: string, squawk: number): void {

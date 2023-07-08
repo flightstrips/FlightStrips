@@ -52,9 +52,44 @@ void FlightStrips::network::MessageHandler::OnMessage(const std::string& string)
                 plan.GetControllerAssignedData().SetCommunicationType(j["communicationType"].get_ref<std::string&>().front());
             }
             return;
+        } else if (type == "SetGroundState") {
+            if (j.contains("callsign") && j.contains("state")) {
+                this->m_plugin->UpdateViaScratchPad(
+                        j["callsign"].get_ref<std::string&>().c_str(),
+                        j["state"].get_ref<std::string&>().c_str());
+            }
+            return;
         } else if (type == "SetCleared") {
             if (j.contains("callsign") && j.contains("cleared")) {
                 this->m_plugin->SetClearenceFlag(j["callsign"], j["cleared"]);
+            }
+            return;
+        } else if (type == "SetFlightPlanRoute") {
+            if (j.contains("callsign") && j.contains("route")) {
+                auto plan = this->m_plugin->FlightPlanSelect(j["callsign"].get_ref<std::string&>().c_str());
+                if (!plan.IsValid()) return;
+                plan.GetFlightPlanData().SetRoute(j["route"].get_ref<std::string&>().c_str());
+            }
+            return;
+        } else if (type == "SetRemarks") {
+            if (j.contains("callsign") && j.contains("remarks")) {
+                auto plan = this->m_plugin->FlightPlanSelect(j["callsign"].get_ref<std::string&>().c_str());
+                if (!plan.IsValid()) return;
+                plan.GetFlightPlanData().SetRemarks(j["remarks"].get_ref<std::string&>().c_str());
+            }
+            return;
+        } else if (type == "SetDepartureRunway") {
+            if (j.contains("callsign") && j.contains("runway")) {
+                auto plan = this->m_plugin->FlightPlanSelect(j["callsign"].get_ref<std::string&>().c_str());
+                if (!plan.IsValid()) return;
+                // TODO
+            }
+            return;
+        } else if (type == "SetSID") {
+            if (j.contains("callsign") && j.contains("sid")) {
+                auto plan = this->m_plugin->FlightPlanSelect(j["callsign"].get_ref<std::string&>().c_str());
+                if (!plan.IsValid()) return;
+                // TODO
             }
             return;
         }

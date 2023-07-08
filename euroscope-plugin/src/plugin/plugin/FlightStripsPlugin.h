@@ -49,12 +49,13 @@ namespace FlightStrips {
 
         void SetClearenceFlag(std::string callsign, bool cleared);
 
+        void UpdateViaScratchPad(const char* callsign, const char* message) const;
+
     private:
         const std::shared_ptr<handlers::FlightPlanEventHandlers> m_flightPlanEventHandlerCollection;
         const std::shared_ptr<handlers::RadarTargetEventHandlers> m_radarTargetEventHandlers;
         const std::shared_ptr<network::NetworkService> m_networkService;
 
-        void UpdateViaScratchPad(const char* callsign, const char* message) const;
 
         static bool IsRelevant(EuroScopePlugIn::CFlightPlan flightPlan);
     };

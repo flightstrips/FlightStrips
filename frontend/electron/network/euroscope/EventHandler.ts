@@ -46,7 +46,6 @@ export default class EventHandler {
     })
 
     this.webContents.ipc.on('SetGroundState', (_, ...args) => {
-      console.log(`Set ${args[0]}: ${args[1]}`)
       this.socket.send({
         $type: 'SetGroundState',
         callsign: args[0],
@@ -71,8 +70,9 @@ export default class EventHandler {
     })
 
     this.webContents.ipc.on('SetRemarks', (_, ...args) => {
+      console.log(`Set ${args[0]}: ${args[1]}`)
       this.socket.send({
-        $type: 'SetFlightPlanRoute',
+        $type: 'SetRemarks',
         callsign: args[0],
         remarks: args[1],
       })

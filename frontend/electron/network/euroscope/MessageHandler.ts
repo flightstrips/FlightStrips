@@ -7,6 +7,7 @@ import { IpcInterface } from './interfaces/IpcInterface'
 import { Message } from './interfaces/Message'
 import { SquawkUpdate } from './interfaces/SquawkUpdate'
 import { ActiveRunwaysMessage } from './interfaces/ActiveRunwaysMessage'
+import { GroundState } from '../../../shared/GroundState'
 
 export class MessageHandler implements MessageHandlerInterface {
   private readonly ipc: IpcInterface
@@ -52,7 +53,7 @@ export class MessageHandler implements MessageHandlerInterface {
           case 'ground_state':
             this.ipc.sendSetGroundState(
               controllerUpdate.callsign,
-              controllerUpdate.data as string,
+              controllerUpdate.data as GroundState,
             )
             break
           case 'squawk':

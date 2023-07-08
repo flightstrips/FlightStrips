@@ -112,9 +112,9 @@ namespace FlightStrips {
 
         if (!fp.IsValid()) return;
 
-        auto scratch = fp.GetControllerAssignedData().GetScratchPadString();
+        auto scratch = std::string(fp.GetControllerAssignedData().GetScratchPadString());
         fp.GetControllerAssignedData().SetScratchPadString(message);
-        fp.GetControllerAssignedData().SetScratchPadString(scratch);
+        fp.GetControllerAssignedData().SetScratchPadString(scratch.c_str());
     }
 }
 

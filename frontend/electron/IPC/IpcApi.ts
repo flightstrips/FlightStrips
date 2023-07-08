@@ -2,6 +2,7 @@ import { ipcRenderer } from 'electron'
 import { FlightDataUpdatedMessage } from '../network/euroscope/interfaces/FlightDataUpdatedMessage'
 import { CommunicationType } from '../../shared/CommunicationType'
 import { ActiveRunway } from '../../shared/ActiveRunway'
+import { GroundState } from '../../shared/GroundState'
 
 export default {
   onFlightPlanUpdated: (handler: (plan: FlightDataUpdatedMessage) => void) => {
@@ -36,7 +37,9 @@ export default {
       handler(args[0], args[1]),
     )
   },
-  onSetGroundState: (handler: (callsign: string, state: string) => void) => {
+  onSetGroundState: (
+    handler: (callsign: string, state: GroundState) => void,
+  ) => {
     ipcRenderer.on('SetGroundState', (_, ...args) => handler(args[0], args[1]))
   },
   onSetCleared: (handler: (callsign: string, clear: boolean) => void) => {
@@ -60,7 +63,7 @@ export default {
   ) => {
     ipcRenderer.send('SetCommunicationType', callsign, communication_type)
   },
-  setGroundState: (callsign: string, state: string) => {
+  setGroundState: (callsign: string, state: GroundState) => {
     ipcRenderer.send('SetGroundState', callsign, state)
   },
   setCleared: (callsign: string, clear: boolean) => {

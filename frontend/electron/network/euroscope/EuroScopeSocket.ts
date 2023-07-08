@@ -38,9 +38,9 @@ export class EuroScopeSocket {
   }
 
   private readonly dataBuffer: Buffer = Buffer.alloc(4096)
-  private index: number = 0
+  private index = 0
   private socket: net.Socket | null = null
-  private tryReconnect: boolean = true
+  private tryReconnect = true
   private wait = false
 
   private readonly delimitor: number = 0
@@ -97,13 +97,12 @@ export class EuroScopeSocket {
     }
 
     this.wait = false
-    const self = this
-    this.socket.on('data', (data) => this.onData(data, self))
-    this.socket.on('close', (hasError) => this.onClose(hasError, self))
-    this.socket.on('error', () => this.onError(self))
-    this.socket.on('timeout', () => this.onTimeout(self))
+    this.socket.on('data', (data) => this.onData(data, this))
+    this.socket.on('close', (hasError) => this.onClose(hasError, this))
+    this.socket.on('error', () => this.onError(this))
+    this.socket.on('timeout', () => this.onTimeout(this))
 
-    this.socket.connect(this.port, this.host, () => this.onConnected(self))
+    this.socket.connect(this.port, this.host, () => this.onConnected(this))
   }
 
   private reconnect() {

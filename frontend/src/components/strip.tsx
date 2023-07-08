@@ -1,3 +1,4 @@
+import { observer } from 'mobx-react'
 import Flightstrip from '../data/interfaces/flightstrip'
 import CallsignBox from './strip/CallsignBox'
 import DelEOBT from './strip/DelEOBT'
@@ -5,7 +6,7 @@ import DelTSATCTOT from './strip/DelTSATCTOT'
 import DestinationStand from './strip/DestinationStand'
 import './strip/strip.css'
 
-export default function Strip(props: { plan: Flightstrip }) {
+export default observer((props: { plan: Flightstrip }) => {
   return (
     <>
       <div className="strip departure-bg">
@@ -19,4 +20,4 @@ export default function Strip(props: { plan: Flightstrip }) {
       </div>
     </>
   )
-}
+})

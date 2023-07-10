@@ -43,10 +43,10 @@ export class FlightStripStore {
         departureRWY: data.departureRwy,
         arrivalRWY: data.arrivalRwy,
         clearancelimit: '',
-        stand: '',
-        eobt: parseInt(data.estimatedDeparture),
-        tsat: 0,
-        ctot: 0,
+        stand: 'A7',
+        eobt: parseInt(data.estimatedDeparture) || 1200,
+        tsat: 1200,
+        ctot: 1200,
         cleared: false,
       }
 

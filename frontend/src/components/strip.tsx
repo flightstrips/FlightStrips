@@ -6,7 +6,7 @@ import DelTSATCTOT from './strip/DelTSATCTOT'
 import DestinationStand from './strip/DestinationStand'
 import './strip/strip.css'
 
-export default observer((props: { plan: Flightstrip }) => {
+const Strip = observer((props: { plan: Flightstrip }) => {
   return (
     <>
       <div className="strip departure-bg">
@@ -21,3 +21,5 @@ export default observer((props: { plan: Flightstrip }) => {
     </>
   )
 })
+
+export default Strip

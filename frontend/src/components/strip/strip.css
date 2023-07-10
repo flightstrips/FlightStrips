@@ -51,6 +51,8 @@
 .DelEOBT {
   width: 25%;
   height: 100%;
+  font-weight: 400;
+  font-size: 18px;
   display: flex;
   align-items: top;
   gap: 5px;
@@ -69,6 +71,8 @@
 .DelTSATCTOT {
   width: 25%;
   height: 100%;
+  font-weight: 400;
+  font-size: 18px;
   display: flex;
   align-items: center;
   border-left: 1px solid #85b4af;

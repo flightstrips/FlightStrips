@@ -93,11 +93,9 @@ void FlightStrips::network::MessageHandler::OnMessage(const std::string& string)
             }
             return;
         }
-
     } catch(std::exception& e) {
         this->m_plugin->Information(e.what());
         this->m_plugin->Information("Failed event: " + j.dump());
-
     }
 
     this->m_plugin->Information("Unknown event: " + j.dump());

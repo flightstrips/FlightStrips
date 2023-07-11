@@ -1,0 +1,27 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{3B8F8A40-647A-4AF4-BFC3-3F568A4337A5}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Vatsim.Scandinavia.FlightStrips.Host", "src\Vatsim.Scandinavia.FlightStrips.Host\Vatsim.Scandinavia.FlightStrips.Host.csproj", "{135DAF59-9198-4075-A2E6-D3101D70215D}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{135DAF59-9198-4075-A2E6-D3101D70215D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{135DAF59-9198-4075-A2E6-D3101D70215D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{135DAF59-9198-4075-A2E6-D3101D70215D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{135DAF59-9198-4075-A2E6-D3101D70215D}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{135DAF59-9198-4075-A2E6-D3101D70215D} = {3B8F8A40-647A-4AF4-BFC3-3F568A4337A5}
+	EndGlobalSection
+EndGlobal

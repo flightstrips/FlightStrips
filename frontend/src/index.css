@@ -20,16 +20,3 @@ body {
   min-height: 100vh;
   font-family: 'Rubik', sans-serif;
 }
-
-.baseplate {
-  width: 100vw;
-  height: 100vh;
-  background-color: #a9a9a9;
-  display: flex;
-  justify-content: space-between;
-}
-.baseBay {
-  background-color: #555355;
-  width: 24.6%;
-  height: 100vh;
-}

@@ -1,27 +1,28 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
-import Del from './views/del/Del'
+import { HashRouter, Routes, Route } from 'react-router-dom'
 import './index.css'
-import Selection from './views/selection/Selection'
-import { Layout } from './Layout'
-import { RootStoreProvider } from './providers/RootStoreProvider'
+
+
+import DEL from "./EKCH/DEL";
+import GND from "./EKCH/GND";
+import TWR from "./EKCH/TWR";
+import CTWR from "./EKCH/CTWR";
+import FIRCS from "./FIRCS";
 
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>
-    <RootStoreProvider>
-      <BrowserRouter>
-        <Routes>
-          <Route index element={<Selection />} />
-          <Route path="/ekch" element={<Layout />}>
-            <Route path="del" element={<Del />} />
-            <Route path="ae" element={<h1>AE</h1>} />
-            <Route path="aw" element={<h1>AW</h1>} />
+    <HashRouter>
+      <Routes>
+        <Route path="/" element={<FIRCS />}>
+          <Route path="ekch/">
+            <Route path="del" element={<DEL />} />
+            <Route path="gnd" element={<GND />} />
+            <Route path="twr" element={<TWR />} />
+            <Route path="ctwr" element={<CTWR />} />
           </Route>
-        </Routes>
-      </BrowserRouter>
-    </RootStoreProvider>
-  </React.StrictMode>,
+        </Route>
+      </Routes>
+    </HashRouter>
+  </React.StrictMode>
 )
-
-postMessage({ payload: 'removeLoading' }, '*')

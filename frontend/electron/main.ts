@@ -67,7 +67,10 @@ class Main {
       {
         label: 'Views',
         submenu: [
-          { label: 'Clearance Delivery' },
+          {
+            label: 'Kastrup Delivery',
+            click: () => this.mainWindow.webContents.send('navigate', '/ekch/del'),
+          },
           { label: 'Apron' },
           { label: 'Tower' },
         ],

@@ -7,6 +7,12 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{3B8F8A40-647
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Vatsim.Scandinavia.FlightStrips.Host", "src\Vatsim.Scandinavia.FlightStrips.Host\Vatsim.Scandinavia.FlightStrips.Host.csproj", "{135DAF59-9198-4075-A2E6-D3101D70215D}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Vatsim.Scandinavia.FlightStrips.Abstractions", "src\Vatsim.Scandinavia.FlightStrips.Abstractions\Vatsim.Scandinavia.FlightStrips.Abstractions.csproj", "{083166B2-314D-4DBB-A21E-16713660C210}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Vatsim.Scandinavia.FlightStrips", "src\Vatsim.Scandinavia.FlightStrips\Vatsim.Scandinavia.FlightStrips.csproj", "{296C4A64-184D-4BFC-9F7C-435B24EB613E}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Vatsim.Scandinavia.FlightStrips.Persistence.Redis", "src\Vatsim.Scandinavia.FlightStrips.Persistence.Redis\Vatsim.Scandinavia.FlightStrips.Persistence.Redis.csproj", "{F03889ED-FA9C-4A04-A7C1-3A877E83BFB2}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -20,8 +26,23 @@ Global
 		{135DAF59-9198-4075-A2E6-D3101D70215D}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{135DAF59-9198-4075-A2E6-D3101D70215D}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{135DAF59-9198-4075-A2E6-D3101D70215D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{083166B2-314D-4DBB-A21E-16713660C210}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{083166B2-314D-4DBB-A21E-16713660C210}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{083166B2-314D-4DBB-A21E-16713660C210}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{083166B2-314D-4DBB-A21E-16713660C210}.Release|Any CPU.Build.0 = Release|Any CPU
+		{296C4A64-184D-4BFC-9F7C-435B24EB613E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{296C4A64-184D-4BFC-9F7C-435B24EB613E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{296C4A64-184D-4BFC-9F7C-435B24EB613E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{296C4A64-184D-4BFC-9F7C-435B24EB613E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F03889ED-FA9C-4A04-A7C1-3A877E83BFB2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F03889ED-FA9C-4A04-A7C1-3A877E83BFB2}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F03889ED-FA9C-4A04-A7C1-3A877E83BFB2}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F03889ED-FA9C-4A04-A7C1-3A877E83BFB2}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{135DAF59-9198-4075-A2E6-D3101D70215D} = {3B8F8A40-647A-4AF4-BFC3-3F568A4337A5}
+		{083166B2-314D-4DBB-A21E-16713660C210} = {3B8F8A40-647A-4AF4-BFC3-3F568A4337A5}
+		{296C4A64-184D-4BFC-9F7C-435B24EB613E} = {3B8F8A40-647A-4AF4-BFC3-3F568A4337A5}
+		{F03889ED-FA9C-4A04-A7C1-3A877E83BFB2} = {3B8F8A40-647A-4AF4-BFC3-3F568A4337A5}
 	EndGlobalSection
 EndGlobal

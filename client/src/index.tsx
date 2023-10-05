@@ -1,14 +1,12 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { HashRouter, Routes, Route } from "react-router-dom";
-const { ipcRenderer } = window.require('electron');
 import "./index.css";
 
 import DEL from "./EKCH/DEL";
 import GND from "./EKCH/GND";
 import TWR from "./EKCH/TWR";
 import CTWR from "./EKCH/CTWR";
-import Layout from "./layout";
 import FIRCS from "./FIRCS";
 
 const root = ReactDOM.createRoot(

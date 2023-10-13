@@ -20,26 +20,25 @@ public class RedisStripRepository : IStripRepository
     private const string NextControllerField = "nextController";
     private const string StateField = "state";
 
-    public async Task CreateAsync(StripCreateRequest createRequest)
+    public async Task<bool> UpsertAsync(StripUpsertRequest upsertRequest)
     {
-        var key = new RedisKey(createRequest.Id.ToString());
+        var key = new RedisKey(upsertRequest.Id.ToString());
 
-        if (await _database.KeyExistsAsync(createRequest.Id.ToString()))
-        {
-            throw new InvalidOperationException();
-        }
+        var doesExist = await _database.KeyExistsAsync(upsertRequest.Id.ToString());
 
         var entries = new HashEntry[]
         {
-            new (DestinationField, createRequest.Destination),
-            new (OriginField, createRequest.Origin),
-            new (ClearedField, createRequest.Cleared),
-            new (ControllerField, createRequest.Controller),
-            new (NextControllerField, createRequest.NextController),
-            new (StateField, (int)createRequest.State)
+            new (DestinationField, upsertRequest.Destination ?? string.Empty),
+            new (OriginField, upsertRequest.Origin ?? string.Empty),
+            new (ClearedField, upsertRequest.Cleared),
+            new (ControllerField, string.Empty),
+            new (NextControllerField, string.Empty),
+            new (StateField, (int)upsertRequest.State)
         };
 
         await _database.HashSetAsync(key, entries);
+
+        return doesExist;
     }
 
     public Task DeleteAsync(StripId stripId)
@@ -57,6 +56,8 @@ public class RedisStripRepository : IStripRepository
         var values = await _database.HashGetAsync(stripId.ToString(),
             new RedisValue[] { DestinationField, OriginField, ClearedField, ControllerField, NextControllerField, StateField });
 
+        var sequence = await _database.SortedSetScoreAsync(GetSortedSetKey(stripId), stripId.Callsign);
+
         return new Strip
         {
             Callsign = stripId.Callsign,
@@ -65,7 +66,8 @@ public class RedisStripRepository : IStripRepository
             Cleared = (bool)values[2],
             Controller = values[3],
             NextController = values[4],
-            State = (StripState)(int)values[5]
+            State = (StripState)(int)values[5],
+            Sequence = (int?)sequence
         };
     }
 

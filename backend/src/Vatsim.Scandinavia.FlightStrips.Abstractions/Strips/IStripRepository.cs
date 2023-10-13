@@ -2,7 +2,7 @@
 
 public interface IStripRepository
 {
-    Task CreateAsync(StripCreateRequest createRequest);
+    Task<bool> UpsertAsync(StripUpsertRequest upsertRequest);
 
     Task DeleteAsync(StripId stripId);
 

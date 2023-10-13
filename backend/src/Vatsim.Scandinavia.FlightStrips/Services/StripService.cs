@@ -1,37 +1,41 @@
-﻿using Vatsim.Scandinavia.FlightStrips.Abstractions.Interfaces;
+﻿using Microsoft.Extensions.Logging;
+
+using Vatsim.Scandinavia.FlightStrips.Abstractions.Interfaces;
 using Vatsim.Scandinavia.FlightStrips.Abstractions.Strips;
 
 namespace Vatsim.Scandinavia.FlightStrips.Services;
 
 public class StripService : IStripService
 {
-    public Strip CreateStrip(StripCreateRequest createRequest)
+    private readonly IStripRepository _stripRepository;
+    private readonly ILogger<StripService> _logger;
+
+    public StripService(IStripRepository stripRepository, ILogger<StripService> logger)
     {
-        throw new NotImplementedException();
+        _stripRepository = stripRepository;
+        _logger = logger;
     }
 
-    public Strip UpdateStrip(Strip updatedStrip)
+    public Task<bool> UpsertStripAsync(StripUpsertRequest upsertRequest)
     {
-        throw new NotImplementedException();
+        return _stripRepository.UpsertAsync(upsertRequest);
     }
 
-    public void DeleteStrip(StripId id)
+    public Task DeleteStripAsync(StripId id)
     {
-        throw new NotImplementedException();
+        return _stripRepository.DeleteAsync(id);
     }
 
     public Task<Strip?> GetStripAsync(StripId stripId)
     {
-        throw new NotImplementedException();
+        return _stripRepository.GetAsync(stripId);
     }
 
-    public Task SetSequence(string callsign, int sequence)
+    public Task SetSequenceAsync(StripId stripId, int? sequence)
     {
-        // take all strips after sequence, and before current value and increment by one
+        _logger.LogInformation("Setting sequence for {Strip} to {Sequence}", stripId, sequence);
         
-        // set strip == callsign, equal sequence.
-
-        return Task.CompletedTask;
+        return _stripRepository.SetSequenceAsync(stripId, sequence);
 
     }
 }

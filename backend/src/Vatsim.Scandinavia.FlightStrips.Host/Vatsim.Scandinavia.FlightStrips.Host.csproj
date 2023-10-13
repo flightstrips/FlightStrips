@@ -5,6 +5,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Vatsim.Scandinavia.FlightStrips.Abstractions\Vatsim.Scandinavia.FlightStrips.Abstractions.csproj" />
+    <ProjectReference Include="..\Vatsim.Scandinavia.FlightStrips.Persistence.Redis\Vatsim.Scandinavia.FlightStrips.Persistence.Redis.csproj" />
     <ProjectReference Include="..\Vatsim.Scandinavia.FlightStrips\Vatsim.Scandinavia.FlightStrips.csproj" />
   </ItemGroup>
 </Project>

@@ -13,4 +13,6 @@ public class Strip
 
     public string? Controller { get; set; }
     public string? NextController { get; set; }
+
+    public string BayId { get; set; } = string.Empty;
 }

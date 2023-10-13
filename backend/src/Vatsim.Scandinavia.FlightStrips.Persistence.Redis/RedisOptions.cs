@@ -4,6 +4,8 @@ namespace Vatsim.Scandinavia.FlightStrips.Persistence.Redis;
 
 public class RedisOptions
 {
+    public const string Redis = nameof(Redis);
+    
     [Required]
     public string Host { get; set; } = string.Empty;
 
@@ -12,6 +14,6 @@ public class RedisOptions
     public string Password { get; set; } = string.Empty;
 
 
-    public string GetConnectionString() => $"{Host}:{Port};password={Password}";
+    public string GetConnectionString() => $"{Host}:{Port},password={Password}";
     
 }

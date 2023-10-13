@@ -1,9 +1,9 @@
-﻿using Microsoft.AspNetCore.Http.Metadata;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Routing.Patterns;
+﻿using Microsoft.AspNetCore.Mvc;
 
 using Vatsim.Scandinavia.FlightStrips.Abstractions.Interfaces;
 using Vatsim.Scandinavia.FlightStrips.Abstractions.Strips;
+using Vatsim.Scandinavia.FlightStrips.Host.Models;
+
 // ReSharper disable RouteTemplates.RouteParameterIsNotPassedToMethod
 
 namespace Vatsim.Scandinavia.FlightStrips.Host.Controllers;
@@ -32,18 +32,32 @@ public static class StripEndpoints
             .WithDescription("Create strip if it does not exist, otherwise update")
             .Produces(StatusCodes.Status204NoContent)
             .Produces(StatusCodes.Status201Created);
-        
-            
+
+        group.MapPost("{session}/{airport}/{callsign}/{sequence:int}", SetSequenceAsync)
+            .WithOpenApi().WithName("SetStripSequence")
+            .WithSummary("Set the sequence for a strip")
+            .Produces(StatusCodes.Status204NoContent);
         
         return group;
     }
 
 
-    private static IResult UpsertAsync([AsParameters] StripId id, [FromServices] IStripService service)
+    private static async Task<IResult> UpsertAsync([AsParameters] StripId id,
+        [FromBody] UpsertStripRequestModel request, [FromServices] IStripService service)
     {
-        return Results.NoContent();
+        var upsertRequest = new StripUpsertRequest
+        {
+            Id = id,
+            Destination = request.Destination,
+            Origin = request.Origin,
+            State = request.State,
+            Cleared = request.Cleared
+        };
+        var created = await service.UpsertStripAsync(upsertRequest);
 
-
+        return created
+            ? Results.CreatedAtRoute("GetStrip", new {id.Session, id.Airport, id.Callsign})
+            : Results.NoContent();
     }
 
     private static async Task<IResult> GetStripAsync([AsParameters] StripId id, [FromServices] IStripService service)
@@ -51,6 +65,14 @@ public static class StripEndpoints
         var strip = await service.GetStripAsync(id);
 
         return strip is null ? Results.NotFound() : Results.Ok(strip);
+    }
+
+    private static async Task<IResult> SetSequenceAsync([AsParameters] StripId id, [FromRoute] int sequence, [FromServices] IStripService service)
+    {
+        await service.SetSequenceAsync(id, sequence);
+
+        return Results.NoContent();
+
     }
     
 }

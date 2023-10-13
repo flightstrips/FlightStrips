@@ -1,10 +1,9 @@
-﻿using Vatsim.Scandinavia.FlightStrips.Abstractions.Entities;
+﻿using Vatsim.Scandinavia.FlightStrips.Abstractions.Bays;
 
 namespace Vatsim.Scandinavia.FlightStrips.Abstractions.Interfaces;
 
 public interface IBayService
 {
-    Bay CreateBay(string name);
-    Bay UpdateBay(Bay updatedBay);
-    void DeleteBay(Guid id); 
+    Task<bool> UpsertAsync(UpsertBayRequest request);
+    Task DeleteAsync(BayId id); 
 }

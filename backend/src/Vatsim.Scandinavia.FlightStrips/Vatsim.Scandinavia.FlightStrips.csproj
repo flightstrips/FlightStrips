@@ -11,4 +11,6 @@
       <ProjectReference Include="..\Vatsim.Scandinavia.FlightStrips.Abstractions\Vatsim.Scandinavia.FlightStrips.Abstractions.csproj" />
     </ItemGroup>
 
+
+
 </Project>

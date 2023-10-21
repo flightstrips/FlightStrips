@@ -1,25 +1,27 @@
-using System.ComponentModel.DataAnnotations;
-
+using Microsoft.EntityFrameworkCore;
+using Vatsim.Scandinavia.FlightStrips.Abstractions;
 using Vatsim.Scandinavia.FlightStrips.Extensions;
+using Vatsim.Scandinavia.FlightStrips.Host;
 using Vatsim.Scandinavia.FlightStrips.Host.Controllers;
-using Vatsim.Scandinavia.FlightStrips.Persistence.Redis;
+using Vatsim.Scandinavia.FlightStrips.Host.Middleware;
+using Vatsim.Scandinavia.FlightStrips.Persistence.EfCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
-builder.Services.Configure<RedisOptions>(builder.Configuration.GetSection(RedisOptions.Redis));
-var redisOptions = builder.Configuration.GetSection(RedisOptions.Redis).Get<RedisOptions>();
-if (redisOptions is null)
-{
-    throw new ValidationException();
-}
 
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddAuthorization();
 builder.Services.AddFlightStripServices();
-builder.Services.AddRedisStorage(redisOptions);
+builder.Services.AddEfCore();
+builder.Services.AddScoped<ITenantService, TenantService>();
+builder.Services.AddTransient<TenantMiddleware>();
+
+var connectionString = builder.Configuration.GetConnectionString("Database");
+
+builder.Services.AddDbContext<FlightStripsDbContext>(dbBuilder => dbBuilder.UseMySql(connectionString, new MariaDbServerVersion("11.1")));
 
 var app = builder.Build();
 
@@ -34,7 +36,11 @@ app.UseHttpsRedirection();
 
 app.UseAuthorization();
 
-app.MapStrips();
-app.MapBays();
+app.UseTenantMiddleware();
+
+var apiGroup = app.MapGroup("api");
+
+apiGroup.MapStrips();
+apiGroup.MapBays();
 
 app.Run();

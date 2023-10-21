@@ -1,5 +1,4 @@
 ﻿using Vatsim.Scandinavia.FlightStrips.Abstractions.Bays;
-using Vatsim.Scandinavia.FlightStrips.Abstractions.Interfaces;
 
 namespace Vatsim.Scandinavia.FlightStrips.Services;
 
@@ -14,26 +13,32 @@ public class BayService : IBayService
 
     public Task<bool> UpsertAsync(UpsertBayRequest request)
     {
+        request.CallsignFilter = request.CallsignFilter.Select(x => x.ToUpperInvariant()).ToArray();
         return _bayRepository.UpsertAsync(request);
     }
 
-    public Task DeleteAsync(BayId id)
+    public Task DeleteAsync(string name)
     {
-        return _bayRepository.DeleteAsync(id);
+        return _bayRepository.DeleteAsync(name);
     }
 
-    public Task<Bay?> GetAsync(BayId id)
+    public Task<Bay?> GetAsync(string name)
     {
-        return _bayRepository.GetAsync(id);
+        return _bayRepository.GetAsync(name);
     }
 
-    public async Task<BayId?> GetDefault(string airport, string callsign)
+    public Task<Bay[]> ListAsync()
+    {
+        return _bayRepository.ListAsync(new ListBaysRequest(Default: null));
+    }
+
+    public async Task<string?> GetDefault(string callsign)
     {
         callsign = callsign.ToUpperInvariant();
 
-        var company = callsign.Trim()[..2];
+        var company = callsign.Trim()[..3];
 
-        var defaultBays = (await _bayRepository.ListAsync(new ListBaysRequest(airport, Default: true))).ToArray();
+        var defaultBays = (await _bayRepository.ListAsync(new ListBaysRequest(Default: true))).ToArray();
 
         if (defaultBays.Length == 0)
         {
@@ -43,11 +48,6 @@ public class BayService : IBayService
         var bay = defaultBays.FirstOrDefault(x => x.CallsignFilter.Any() && x.CallsignFilter.Contains(company)) ??
                   defaultBays.FirstOrDefault(x => !x.CallsignFilter.Any());
 
-        if (bay is null)
-        {
-            return null;
-        }
-
-        return new BayId(bay.Airport, bay.Name);
+        return bay?.Name;
     }
 }

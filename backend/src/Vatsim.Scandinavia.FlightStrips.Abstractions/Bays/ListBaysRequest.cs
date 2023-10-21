@@ -1,3 +1,3 @@
 ﻿namespace Vatsim.Scandinavia.FlightStrips.Abstractions.Bays;
 
-public record ListBaysRequest(string Airport, bool? Default = null);
+public record ListBaysRequest(bool? Default = null);

@@ -1,6 +1,5 @@
 ﻿using Microsoft.Extensions.Logging;
-
-using Vatsim.Scandinavia.FlightStrips.Abstractions.Interfaces;
+using Vatsim.Scandinavia.FlightStrips.Abstractions.Bays;
 using Vatsim.Scandinavia.FlightStrips.Abstractions.Strips;
 
 namespace Vatsim.Scandinavia.FlightStrips.Services;
@@ -8,34 +7,56 @@ namespace Vatsim.Scandinavia.FlightStrips.Services;
 public class StripService : IStripService
 {
     private readonly IStripRepository _stripRepository;
+    private readonly IBayService _bayService;
     private readonly ILogger<StripService> _logger;
 
-    public StripService(IStripRepository stripRepository, ILogger<StripService> logger)
+    public StripService(IStripRepository stripRepository, ILogger<StripService> logger, IBayService bayService)
     {
         _stripRepository = stripRepository;
         _logger = logger;
+        _bayService = bayService;
     }
 
-    public Task<bool> UpsertStripAsync(StripUpsertRequest upsertRequest)
+    public async Task<bool> UpsertStripAsync(StripUpsertRequest upsertRequest)
     {
-        return _stripRepository.UpsertAsync(upsertRequest);
+        var strip = await GetStripAsync(upsertRequest.Callsign);
+
+        if (strip is not null)
+        {
+            upsertRequest.Bay = strip.Bay;
+        }
+
+        if (string.IsNullOrEmpty(upsertRequest.Bay))
+        {
+            var bay = await _bayService.GetDefault(upsertRequest.Callsign);
+
+            if (string.IsNullOrEmpty(bay))
+            {
+                throw new InvalidOperationException("Must have a bay");
+
+            }
+
+            upsertRequest.Bay = bay;
+        }
+
+        return await _stripRepository.UpsertAsync(upsertRequest);
     }
 
-    public Task DeleteStripAsync(StripId id)
+    public Task DeleteStripAsync(string callsign)
     {
-        return _stripRepository.DeleteAsync(id);
+        return _stripRepository.DeleteAsync(callsign);
     }
 
-    public Task<Strip?> GetStripAsync(StripId stripId)
+    public Task<Strip?> GetStripAsync(string callsign)
     {
-        return _stripRepository.GetAsync(stripId);
+        return _stripRepository.GetAsync(callsign);
     }
 
-    public Task SetSequenceAsync(StripId stripId, int? sequence)
+    public Task SetSequenceAsync(string callsign, int? sequence)
     {
-        _logger.LogInformation("Setting sequence for {Strip} to {Sequence}", stripId, sequence);
-        
-        return _stripRepository.SetSequenceAsync(stripId, sequence);
+        _logger.LogInformation("Setting sequence for {Strip} to {Sequence}", callsign, sequence);
+
+        return _stripRepository.SetSequenceAsync(callsign, sequence);
 
     }
 }

@@ -4,9 +4,9 @@ public interface IStripRepository
 {
     Task<bool> UpsertAsync(StripUpsertRequest upsertRequest);
 
-    Task DeleteAsync(StripId stripId);
+    Task DeleteAsync(string callsign);
 
-    Task<Strip?> GetAsync(StripId stripId);
+    Task<Strip?> GetAsync(string callsign);
 
-    Task SetSequenceAsync(StripId stripId, int? sequence);
+    Task SetSequenceAsync(string callsign, int? sequence);
 }

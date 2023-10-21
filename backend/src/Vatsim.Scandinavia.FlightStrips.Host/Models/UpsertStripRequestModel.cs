@@ -2,7 +2,7 @@
 
 namespace Vatsim.Scandinavia.FlightStrips.Host.Models;
 
-internal class UpsertStripRequestModel
+public class UpsertStripRequestModel
 {
     public string? Origin { get; set; }
     public string? Destination { get; set; }

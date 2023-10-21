@@ -5,7 +5,13 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Vatsim.Scandinavia.FlightStrips.Abstractions\Vatsim.Scandinavia.FlightStrips.Abstractions.csproj" />
-    <ProjectReference Include="..\Vatsim.Scandinavia.FlightStrips.Persistence.Redis\Vatsim.Scandinavia.FlightStrips.Persistence.Redis.csproj" />
+    <ProjectReference Include="..\Vatsim.Scandinavia.FlightStrips.Persistence.EfCore\Vatsim.Scandinavia.FlightStrips.Persistence.EfCore.csproj" />
     <ProjectReference Include="..\Vatsim.Scandinavia.FlightStrips\Vatsim.Scandinavia.FlightStrips.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
   </ItemGroup>
 </Project>

@@ -42,5 +42,6 @@ var apiGroup = app.MapGroup("api");
 
 apiGroup.MapStrips();
 apiGroup.MapBays();
+apiGroup.MapPositions();
 
 app.Run();

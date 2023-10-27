@@ -1,6 +1,7 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using Vatsim.Scandinavia.FlightStrips.Abstractions;
 using Vatsim.Scandinavia.FlightStrips.Abstractions.Bays;
+using Vatsim.Scandinavia.FlightStrips.Abstractions.Positions;
 using Vatsim.Scandinavia.FlightStrips.Abstractions.Strips;
 using Vatsim.Scandinavia.FlightStrips.Services;
 
@@ -12,6 +13,7 @@ public static class FlightStripExtensions
     {
         services.AddScoped<IStripService, StripService>();
         services.AddScoped<IBayService, BayService>();
+        services.AddScoped<IPositionService, PositionService>();
 
         return services;
     }

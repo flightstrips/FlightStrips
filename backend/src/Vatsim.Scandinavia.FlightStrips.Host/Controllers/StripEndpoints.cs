@@ -1,5 +1,4 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using Microsoft.OpenApi.Models;
 using Vatsim.Scandinavia.FlightStrips.Abstractions;
 using Vatsim.Scandinavia.FlightStrips.Abstractions.Strips;
 using Vatsim.Scandinavia.FlightStrips.Host.Attributes;
@@ -23,21 +22,25 @@ public static class StripEndpoints
         group.MapGet("{callsign}", GetStripAsync)
             .WithName("GetStrip")
             .WithSummary("Gets a strip from identifier.")
-            .Produces<Strip>();
+            .Produces<Strip>()
+            .ProducesValidationProblem();
 
         group.MapPost("{callsign}", UpsertAsync)
             .WithName("UpsertStrip")
             .WithSummary("Upsert strip")
             .WithDescription("Create strip if it does not exist, otherwise update")
             .Produces(StatusCodes.Status204NoContent)
-            .Produces(StatusCodes.Status201Created);
+            .Produces(StatusCodes.Status201Created)
+            .ProducesValidationProblem();
 
-        group.MapPost("{callsign}/{sequence:int}", SetSequenceAsync)
-            .WithOpenApi().WithName("SetStripSequence")
-            .WithSummary("Set the sequence for a strip")
-            .Produces(StatusCodes.Status204NoContent);
+            group.MapPost("{callsign}/{sequence:int}", SetSequenceAsync)
+                .WithOpenApi().WithName("SetStripSequence")
+                .WithSummary("Set the sequence for a strip")
+                .Produces(StatusCodes.Status204NoContent)
+                .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesValidationProblem();
 
-        return group;
+            return group;
     }
 
 
@@ -71,6 +74,13 @@ public static class StripEndpoints
     private static async Task<IResult> SetSequenceAsync([Callsign, FromRoute] string callsign,
         [FromRoute] int sequence, [FromServices] IStripService service)
     {
+        var strip = await service.GetStripAsync(callsign);
+
+        if (strip is null)
+        {
+            return Results.NotFound();
+        }
+
         await service.SetSequenceAsync(callsign, sequence);
 
         return Results.NoContent();

@@ -1,6 +1,4 @@
-﻿using System.Linq.Expressions;
-
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 
 using Vatsim.Scandinavia.FlightStrips.Abstractions.Strips;
 using Vatsim.Scandinavia.FlightStrips.Persistence.EfCore.Entities;
@@ -19,25 +17,19 @@ public class EfStripRepository : IStripRepository
     public async Task<bool> UpsertAsync(StripUpsertRequest upsertRequest)
     {
         var entity = await _context.Strips.FirstOrDefaultAsync(x => x.Callsign == upsertRequest.Callsign);
-        var bay = await _context.Bays.FirstOrDefaultAsync(x => x.Name == upsertRequest.Bay);
-
-        if (bay is null)
-        {
-            throw new InvalidOperationException("Bay does not exist");
-        }
-
         var created = entity is null;
 
         if (entity is null)
         {
             entity = new StripEntity
             {
-                Callsign = upsertRequest.Callsign
+                Callsign = upsertRequest.Callsign,
+                BayName = upsertRequest.Bay!
             };
             _context.Add(entity);
         }
 
-        entity.BayId = bay.Id;
+        entity.BayName = upsertRequest.Bay!;
         entity.Destination = upsertRequest.Destination;
         entity.Origin = upsertRequest.Origin;
         entity.State = upsertRequest.State;
@@ -55,10 +47,9 @@ public class EfStripRepository : IStripRepository
             .ExecuteDeleteAsync();
     }
 
-
     public async Task<Strip?> GetAsync(string callsign)
     {
-        var entity = await _context.Strips.Include(x => x.Bay).FirstOrDefaultAsync(x => x.Callsign == callsign);
+        var entity = await _context.Strips.FirstOrDefaultAsync(x => x.Callsign == callsign);
 
         if (entity is null)
         {
@@ -73,7 +64,9 @@ public class EfStripRepository : IStripRepository
             State = entity.State,
             Cleared = entity.Cleared,
             Sequence = entity.Sequence,
-            Bay = entity.Bay.Name,
+            Bay = entity.BayName,
+            LastUpdated = entity.UpdatedTime,
+            PositionFrequency = entity.PositionFrequency
         };
     }
 
@@ -112,5 +105,28 @@ public class EfStripRepository : IStripRepository
 
         await _context.Strips.Where(x => x.Callsign == callsign)
             .ExecuteUpdateAsync(x => x.SetProperty(entity => entity.Sequence, sequence));
+    }
+
+    public async Task SetBayAsync(string callsign, string bayName)
+    {
+        var count = await _context.Strips.Where(x => x.Callsign == callsign)
+            .ExecuteUpdateAsync(x => x.SetProperty(strip => strip.BayName, bayName));
+
+        if (count != 1)
+        {
+            throw new InvalidOperationException("Strip does not exist");
+        }
+    }
+
+    public async Task SetPositionFrequencyAsync(string callsign, string frequency)
+    {
+        var count = await _context.Strips.Where(x => x.Callsign == callsign)
+            .ExecuteUpdateAsync(x => x.SetProperty(strip => strip.PositionFrequency, frequency));
+
+        if (count != 1)
+        {
+            throw new InvalidOperationException("Strip does not exist");
+        }
+
     }
 }

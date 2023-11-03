@@ -59,4 +59,14 @@ public class StripService : IStripService
         return _stripRepository.SetSequenceAsync(callsign, sequence);
 
     }
+
+    public Task SetBayAsync(string callsign, string bayName)
+    {
+        return _stripRepository.SetBayAsync(callsign, bayName);
+    }
+
+    public Task AssumeAsync(string callsign, string frequency)
+    {
+        return _stripRepository.SetPositionFrequencyAsync(callsign, frequency);
+    }
 }

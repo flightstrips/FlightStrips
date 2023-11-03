@@ -1,6 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
-
-namespace Vatsim.Scandinavia.FlightStrips.Host.Models;
+﻿namespace Vatsim.Scandinavia.FlightStrips.Host.Models;
 
 public class UpsertBayRequestModel
 {

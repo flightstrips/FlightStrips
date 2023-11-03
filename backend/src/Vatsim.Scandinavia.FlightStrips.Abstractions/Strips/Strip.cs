@@ -11,8 +11,9 @@ public class Strip
     public StripState State { get; set; }
     public bool Cleared { get; set; }
 
-    public string? Controller { get; set; }
-    public string? NextController { get; set; }
+    public string? PositionFrequency { get; set; }
 
     public string Bay { get; set; } = string.Empty;
+
+    public DateTime LastUpdated { get; set; }
 }

@@ -1,5 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Vatsim.Scandinavia.FlightStrips.Abstractions.Positions;
 using Vatsim.Scandinavia.FlightStrips.Host.Attributes;
 using Vatsim.Scandinavia.FlightStrips.Host.Extensions;
@@ -33,7 +32,7 @@ public static class PositionEndpoints
         return group;
     }
 
-    private static async Task<IResult> UpsertAsync([RegularExpression(@"^\d{3}\.\d{3}$")][FromRoute] string frequency,
+    private static async Task<IResult> UpsertAsync([Frequency][FromRoute] string frequency,
         [FromBody] UpsertPositionRequestModel model, [FromServices] IPositionService service)
     {
         var request = new UpsertPositionRequest(frequency, model.Name);
@@ -50,17 +49,11 @@ public static class PositionEndpoints
         return Results.Ok(positions);
     }
 
-    private static async Task<IResult> DeleteAsync([AsParameters] Test frequency,
+    private static async Task<IResult> DeleteAsync([FromRoute, Frequency] string frequency,
         [FromServices] IPositionService service)
     {
-        await service.DeleteAsync(frequency.Frequency);
+        await service.DeleteAsync(frequency);
 
         return Results.NoContent();
-    }
-
-    private class Test
-    {
-        [Required] [FromRoute] [Frequency] public string Frequency { get; set; } = string.Empty;
-
     }
 }

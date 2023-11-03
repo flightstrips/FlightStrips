@@ -1,9 +1,10 @@
-﻿namespace Vatsim.Scandinavia.FlightStrips.Persistence.EfCore.Entities;
+﻿using Microsoft.EntityFrameworkCore;
 
+namespace Vatsim.Scandinavia.FlightStrips.Persistence.EfCore.Entities;
+
+[PrimaryKey(nameof(Airport), nameof(Frequency))]
 public class PositionEntity : IAirportTenant
 {
-    public int Id { get; set; }
-
     public required string Name { get; set; }
 
     public required string Frequency { get; set; }

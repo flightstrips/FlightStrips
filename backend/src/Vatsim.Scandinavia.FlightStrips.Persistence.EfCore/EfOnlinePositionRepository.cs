@@ -4,7 +4,7 @@ using Vatsim.Scandinavia.FlightStrips.Persistence.EfCore.Entities;
 
 namespace Vatsim.Scandinavia.FlightStrips.Persistence.EfCore;
 
-public class EfOnlinePositionRepository
+public class EfOnlinePositionRepository : IOnlinePositionRepository
 {
     private readonly FlightStripsDbContext _context;
 
@@ -15,22 +15,12 @@ public class EfOnlinePositionRepository
 
     public async Task AddAsync(OnlinePositionAddRequest request)
     {
-        var position = await _context.Positions.AsNoTracking()
-            .FirstOrDefaultAsync(x => x.Frequency == request.Frequency);
-
-        if (position is null)
-        {
-            throw new InvalidOperationException($"Unknown position frequency {request.Frequency}");
-        }
-
-        var entity = new OnlinePositionEntity {PositionName = request.Name, PositionId = position.Id};
+        var entity = new OnlinePositionEntity {PositionName = request.Name, PositionFrequency = request.Frequency};
 
         _context.OnlinePositions.Add(entity);
 
         await _context.SaveChangesAsync();
     }
-
-    // TODO support update
 
     public Task DeleteAsync(string positionName)
     {

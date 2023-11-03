@@ -3,10 +3,9 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Vatsim.Scandinavia.FlightStrips.Persistence.EfCore.Entities;
 
+[PrimaryKey(nameof(Name), nameof(Airport))]
 public class BayEntity : IAirportTenant
 {
-    public int Id { get; set; }
-
     public string Airport { get; set; } = string.Empty;
 
     public required string Name { get; set; }

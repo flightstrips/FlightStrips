@@ -9,4 +9,6 @@ public interface IStripRepository
     Task<Strip?> GetAsync(string callsign);
 
     Task SetSequenceAsync(string callsign, int? sequence);
+    Task SetBayAsync(string callsign, string bayName);
+    Task SetPositionFrequencyAsync(string callsign, string frequency);
 }

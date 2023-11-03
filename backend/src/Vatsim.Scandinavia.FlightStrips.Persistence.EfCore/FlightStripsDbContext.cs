@@ -16,6 +16,8 @@ public class FlightStripsDbContext : DbContext
     public DbSet<PositionEntity> Positions { get; set; } = null!;
     public DbSet<OnlinePositionEntity> OnlinePositions { get; set; } = null!;
 
+    public DbSet<CoordinationEntity> Coordination { get; set; } = null!;
+
     public FlightStripsDbContext(DbContextOptions<FlightStripsDbContext> options, ITenantService tenantService) : base(options)
     {
         _tenantService = tenantService;

@@ -1,4 +1,5 @@
-﻿using Vatsim.Scandinavia.FlightStrips.Abstractions.Coordinations;
+﻿using Vatsim.Scandinavia.FlightStrips.Abstractions;
+using Vatsim.Scandinavia.FlightStrips.Abstractions.Coordinations;
 using Vatsim.Scandinavia.FlightStrips.Abstractions.Strips;
 
 namespace Vatsim.Scandinavia.FlightStrips.Services;
@@ -7,11 +8,13 @@ public class CoordinationService : ICoordinationService
 {
     private readonly ICoordinationRepository _repository;
     private readonly IStripRepository _stripRepository;
+    private readonly IEventService _eventService;
 
-    public CoordinationService(ICoordinationRepository repository, IStripRepository stripRepository)
+    public CoordinationService(ICoordinationRepository repository, IStripRepository stripRepository, IEventService eventService)
     {
         _repository = repository;
         _stripRepository = stripRepository;
+        _eventService = eventService;
     }
 
     public Task<Coordination[]> ListForFrequencyAsync(string frequency)
@@ -34,16 +37,28 @@ public class CoordinationService : ICoordinationService
 
         await _repository.DeleteAsync(id);
         await _stripRepository.SetPositionFrequencyAsync(coordination.Callsign, frequency);
-
+        await _eventService.AcceptCoordinationAsync(coordination);
     }
 
-    public Task RejectAsync(int id, string frequency)
+    public async Task RejectAsync(int id, string frequency)
     {
-        return _repository.DeleteAsync(id);
+        var coordination = await _repository.GetAsync(id);
+        if (coordination is null)
+        {
+            return;
+        }
+
+        await _repository.DeleteAsync(id);
+        await _eventService.RejectCoordinationAsync(coordination);
     }
 
-    public Task<int> CreateAsync(Coordination coordination)
+    public async Task<int> CreateAsync(Coordination coordination)
     {
-        return _repository.CreateAsync(coordination);
+        var id = await _repository.CreateAsync(coordination);
+        coordination.Id = id;
+
+        await _eventService.StartCoordinationAsync(coordination);
+
+        return id;
     }
 }

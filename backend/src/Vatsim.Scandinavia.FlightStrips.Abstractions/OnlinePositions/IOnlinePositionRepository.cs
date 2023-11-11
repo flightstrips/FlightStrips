@@ -5,4 +5,5 @@ public interface IOnlinePositionRepository
     Task AddAsync(OnlinePositionAddRequest request);
     Task DeleteAsync(string positionName);
     Task<OnlinePosition[]> ListAsync();
+    Task<OnlinePosition?> GetAsync(string positionName);
 }

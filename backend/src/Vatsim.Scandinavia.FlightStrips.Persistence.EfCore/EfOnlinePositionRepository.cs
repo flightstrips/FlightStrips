@@ -27,6 +27,14 @@ public class EfOnlinePositionRepository : IOnlinePositionRepository
         return _context.OnlinePositions.Where(x => x.PositionName == positionName).ExecuteDeleteAsync();
     }
 
+    public async Task<OnlinePosition?> GetAsync(string positionName)
+    {
+        var entity = await _context.OnlinePositions.FirstOrDefaultAsync(x => x.PositionName == positionName);
+        return entity is null
+            ? null
+            : new OnlinePosition {PositionId = entity.PositionName, PrimaryFrequency = entity.PositionFrequency};
+    }
+
     public Task<OnlinePosition[]> ListAsync()
     {
         return _context.OnlinePositions

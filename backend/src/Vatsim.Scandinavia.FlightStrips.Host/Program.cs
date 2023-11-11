@@ -1,8 +1,10 @@
+using Microsoft.AspNetCore.Http.Connections;
 using Microsoft.EntityFrameworkCore;
 using Vatsim.Scandinavia.FlightStrips.Abstractions;
 using Vatsim.Scandinavia.FlightStrips.Extensions;
 using Vatsim.Scandinavia.FlightStrips.Host;
 using Vatsim.Scandinavia.FlightStrips.Host.Controllers;
+using Vatsim.Scandinavia.FlightStrips.Host.Hubs;
 using Vatsim.Scandinavia.FlightStrips.Host.Middleware;
 using Vatsim.Scandinavia.FlightStrips.Persistence.EfCore;
 
@@ -17,7 +19,9 @@ builder.Services.AddAuthorization();
 builder.Services.AddFlightStripServices();
 builder.Services.AddEfCore();
 builder.Services.AddScoped<ITenantService, TenantService>();
+builder.Services.AddScoped<IEventService, EventService>();
 builder.Services.AddTransient<TenantMiddleware>();
+builder.Services.AddSignalR().AddMessagePackProtocol();
 
 var connectionString = builder.Configuration.GetConnectionString("Database");
 
@@ -37,6 +41,11 @@ app.UseHttpsRedirection();
 app.UseAuthorization();
 
 app.UseTenantMiddleware();
+
+app.MapHub<EventHub>("/hubs/events", options =>
+{
+    options.Transports = HttpTransportType.WebSockets;
+});
 
 var apiGroup = app.MapGroup("api");
 

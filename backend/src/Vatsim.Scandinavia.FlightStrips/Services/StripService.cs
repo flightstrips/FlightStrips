@@ -1,4 +1,5 @@
 ﻿using Microsoft.Extensions.Logging;
+using Vatsim.Scandinavia.FlightStrips.Abstractions;
 using Vatsim.Scandinavia.FlightStrips.Abstractions.Bays;
 using Vatsim.Scandinavia.FlightStrips.Abstractions.Strips;
 
@@ -8,13 +9,15 @@ public class StripService : IStripService
 {
     private readonly IStripRepository _stripRepository;
     private readonly IBayService _bayService;
+    private readonly IEventService _eventService;
     private readonly ILogger<StripService> _logger;
 
-    public StripService(IStripRepository stripRepository, ILogger<StripService> logger, IBayService bayService)
+    public StripService(IStripRepository stripRepository, ILogger<StripService> logger, IBayService bayService, IEventService eventService)
     {
         _stripRepository = stripRepository;
         _logger = logger;
         _bayService = bayService;
+        _eventService = eventService;
     }
 
     public async Task<bool> UpsertStripAsync(StripUpsertRequest upsertRequest)
@@ -39,12 +42,32 @@ public class StripService : IStripService
             upsertRequest.Bay = bay;
         }
 
-        return await _stripRepository.UpsertAsync(upsertRequest);
+        var created = await _stripRepository.UpsertAsync(upsertRequest);
+        strip = await _stripRepository.GetAsync(upsertRequest.Callsign);
+
+        if (created)
+        {
+            await _eventService.StripCreatedAsync(strip!);
+        }
+        else
+        {
+            await _eventService.StripUpdatedAsync(strip!);
+        }
+
+        return created;
     }
 
-    public Task DeleteStripAsync(string callsign)
+    public async Task DeleteStripAsync(string callsign)
     {
-        return _stripRepository.DeleteAsync(callsign);
+        var strip = await _stripRepository.GetAsync(callsign);
+
+        if (strip is null)
+        {
+            return;
+        }
+
+        await _stripRepository.DeleteAsync(callsign);
+        await _eventService.StripDeletedAsync(strip);
     }
 
     public Task<Strip?> GetStripAsync(string callsign)
@@ -52,21 +75,28 @@ public class StripService : IStripService
         return _stripRepository.GetAsync(callsign);
     }
 
-    public Task SetSequenceAsync(string callsign, int? sequence)
+    public async Task SetSequenceAsync(string callsign, int? sequence)
     {
+
         _logger.LogInformation("Setting sequence for {Strip} to {Sequence}", callsign, sequence);
 
-        return _stripRepository.SetSequenceAsync(callsign, sequence);
+        await _stripRepository.SetSequenceAsync(callsign, sequence);
+        var strip = await _stripRepository.GetAsync(callsign);
+        await _eventService.StripUpdatedAsync(strip!);
 
     }
 
-    public Task SetBayAsync(string callsign, string bayName)
+    public async Task SetBayAsync(string callsign, string bayName)
     {
-        return _stripRepository.SetBayAsync(callsign, bayName);
+        await _stripRepository.SetBayAsync(callsign, bayName);
+        var strip = await _stripRepository.GetAsync(callsign);
+        await _eventService.StripUpdatedAsync(strip!);
     }
 
-    public Task AssumeAsync(string callsign, string frequency)
+    public async Task AssumeAsync(string callsign, string frequency)
     {
-        return _stripRepository.SetPositionFrequencyAsync(callsign, frequency);
+        await _stripRepository.SetPositionFrequencyAsync(callsign, frequency);
+        var strip = await _stripRepository.GetAsync(callsign);
+        await _eventService.StripUpdatedAsync(strip!);
     }
 }

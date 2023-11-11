@@ -1,9 +1,8 @@
-import React from 'react'
-import { BayHeader } from '../components/bayheader'
 import { CommandBar } from '../components/commandbar'
 import { FlightStrip } from '../components/flightstrip'
 import { NewFlightBtn } from '../components/headerbuttons/newflightbtn'
 import { PlannedFlightBtn } from '../components/headerbuttons/plannedflightbtn'
+import BayHeader from '../components/BayHeader'
 
 const flights = [
   {
@@ -66,7 +65,7 @@ const flights_sas = [
   },
 ]
 
-function DEL() {
+function Delivery() {
   return (
     <div className="bg-slate-400 h-full w-full flex gap-2 justify-center">
       <div className="w-full bg-gray-500">
@@ -126,4 +125,4 @@ function DEL() {
   )
 }
 
-export default DEL
+export default Delivery

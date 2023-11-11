@@ -3,7 +3,6 @@ import { Listbox, Transition } from '@headlessui/react'
 import {
   CheckIcon,
   ChevronUpDownIcon,
-  ClipboardDocumentCheckIcon,
   XCircleIcon,
   CheckCircleIcon,
 } from '@heroicons/react/20/solid'

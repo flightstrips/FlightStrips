@@ -8,11 +8,9 @@ export default class EventHandler {
   constructor(socket: EuroScopeSocket, webContents: WebContents) {
     this.socket = socket
     this.webContents = webContents
-
-    this.setupHandlers()
   }
 
-  private setupHandlers() {
+  public setupHandlers() {
     this.webContents.ipc.on('SetSquawk', (_, ...args) => {
       this.socket.send({
         $type: 'SetSquawk',

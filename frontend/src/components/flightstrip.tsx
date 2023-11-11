@@ -1,4 +1,3 @@
-import React from 'react' // we need this to make JSX compile
 import { EOBT } from './strip/eobt'
 import { FSCS } from './strip/fscs'
 import { DESSTD } from './strip/desstd'

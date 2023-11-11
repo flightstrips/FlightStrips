@@ -1,5 +1,3 @@
-import React from 'react' // we need this to make JSX compile
-
 export function TSATCTOT(props: any) {
   return (
     <div className="flex flex-col justify-between">

@@ -1,7 +1,10 @@
-import React from 'react' // we need this to make JSX compile
+export default function BayHeader(props: {
+  title: string
+  msg?: boolean
+  buttons?: JSX.Element
+}) {
+  const msg = props.msg ?? false
 
-export function BayHeader(props: any) {
-  const msg = props.msg
   return (
     <div
       className={`${
@@ -13,12 +16,3 @@ export function BayHeader(props: any) {
     </div>
   )
 }
-
-/*
-                <button className='flex bg-gray-700 border-gray-300 border-2 w-20 h-4/5 text-white justify-center items-center font-bold text-xl mr-1'>
-                    NEW
-                </button>
-                <button className='flex bg-gray-700 border-gray-300 border-2 w-32 h-4/5 text-white justify-center items-center font-bold text-xl mr-1'>
-                    PLANNED
-                </button>
-*/

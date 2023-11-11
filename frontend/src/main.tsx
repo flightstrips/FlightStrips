@@ -3,10 +3,10 @@ import ReactDOM from 'react-dom/client'
 import { HashRouter, Routes, Route } from 'react-router-dom'
 import './index.css'
 
-import DEL from './EKCH/DEL'
-import GND from './EKCH/GND'
-import TWR from './EKCH/TWR'
-import CTWR from './EKCH/CTWR'
+import DEL from './EKCH/Delivery'
+import GND from './EKCH/Ground'
+import TWR from './EKCH/Tower'
+import CTWR from './EKCH/CrossingTower'
 import FIRCS from './FIRCS'
 
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(

@@ -111,11 +111,13 @@ class Main {
     this.euroScopeScoket = result.socket
     this.euroScopeScoket.start()
     this.eventHandler = result.eventHandler
+    this.eventHandler.setupHandlers()
   }
 
   private onWindowAllClosed() {
     this.euroScopeScoket?.stop()
     this.mainWindow = null
+    this.eventHandler = null
   }
 
   private registerIpcChannels(ipcChannels: IpcChannelInterface[]) {

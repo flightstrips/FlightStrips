@@ -1,8 +1,8 @@
-import React, { useState } from 'react'
+import { useState } from 'react'
 
-export function CommandBar(bg: any) {
-  const [runways, setRunways] = useState({ dep: '22R', arr: '22L' })
-  const [atis, setAtis] = useState({
+export function CommandBar() {
+  const [runways] = useState({ dep: '22R', arr: '22L' })
+  const [atis] = useState({
     QNH: 1015,
     letter: 'L',
     winds: '350/35KT',

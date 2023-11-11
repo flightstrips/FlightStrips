@@ -1,7 +1,6 @@
-import React from 'react' // we need this to make JSX compile
 import { Button } from '../shared/button'
 
-export function PlannedFlightBtn(title: any) {
+export function PlannedFlightBtn() {
   return (
     <>
       <Button title="PLANNED" />

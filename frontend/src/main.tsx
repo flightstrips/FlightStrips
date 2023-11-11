@@ -3,12 +3,11 @@ import ReactDOM from 'react-dom/client'
 import { HashRouter, Routes, Route } from 'react-router-dom'
 import './index.css'
 
-
-import DEL from "./EKCH/DEL";
-import GND from "./EKCH/GND";
-import TWR from "./EKCH/TWR";
-import CTWR from "./EKCH/CTWR";
-import FIRCS from "./FIRCS";
+import DEL from './EKCH/DEL'
+import GND from './EKCH/GND'
+import TWR from './EKCH/TWR'
+import CTWR from './EKCH/CTWR'
+import FIRCS from './FIRCS'
 
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>
@@ -24,5 +23,5 @@ ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
         </Route>
       </Routes>
     </HashRouter>
-  </React.StrictMode>
+  </React.StrictMode>,
 )

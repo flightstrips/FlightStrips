@@ -3,7 +3,7 @@ import { Outlet } from 'react-router-dom'
 function Selection() {
   return (
     <>
-      <p className='text-3xl font-bold underline'>EKCH - Kastrup Airport</p>
+      <p className="text-3xl font-bold underline">EKCH - Kastrup Airport</p>
       <button>
         <a href="/ekch/del">EKCH_DEL</a>
       </button>

@@ -23,7 +23,7 @@ export class MessageHandler implements MessageHandlerInterface {
       case 'FlightPlanUpdated':
         this.ipc.sendFlightPlanUpdate(event as FlightDataUpdatedMessage)
         break
-      case 'ControllerDataUpdated':
+      case 'ControllerDataUpdated': {
         const controllerUpdate = event as ControllerDataUpdated
         switch (controllerUpdate.type) {
           case 'cleared_altitude':
@@ -68,19 +68,22 @@ export class MessageHandler implements MessageHandlerInterface {
             )
         }
         break
+      }
       case 'FlightPlanDisconnected':
         this.ipc.sendFlightPlanDisconnect(
           (event as FlightPlanDisconnected).callsign,
         )
         break
-      case 'SquawkUpdate':
+      case 'SquawkUpdate': {
         const squawkUpdate = event as SquawkUpdate
         this.ipc.sendSquawkUpdate(squawkUpdate.callsign, squawkUpdate.squawk)
         break
-      case 'ActiveRunways':
+      }
+      case 'ActiveRunways': {
         const runways = event as ActiveRunwaysMessage
         this.ipc.sendActiveRunways(runways.runways)
         break
+      }
       default:
         console.error(`Unknown message type '${event.$type}'.`)
     }

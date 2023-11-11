@@ -22,8 +22,11 @@ process.env.PUBLIC = app.isPackaged
 const VITE_DEV_SERVER_URL = process.env['VITE_DEV_SERVER_URL']
 
 try {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
   require('electron-reloader')(module)
-} catch (_) {}
+} catch (_) {
+  // Ignore
+}
 
 class Main {
   private mainWindow: BrowserWindow | null = null
@@ -69,7 +72,8 @@ class Main {
         submenu: [
           {
             label: 'Kastrup Delivery',
-            click: () => this.mainWindow.webContents.send('navigate', '/ekch/del'),
+            click: () =>
+              this.mainWindow?.webContents.send('navigate', '/ekch/del'),
           },
           { label: 'Apron' },
           { label: 'Tower' },

@@ -6,7 +6,7 @@ public class ControllerUpdateModel
 
     public required string Frequency { get; set; }
 
-    public required string? Position { get; set; }
+    public required string Position { get; set; }
 }
 
 public enum ControllerState

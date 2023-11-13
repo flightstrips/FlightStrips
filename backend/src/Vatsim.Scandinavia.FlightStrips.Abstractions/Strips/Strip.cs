@@ -1,9 +1,11 @@
-﻿using Vatsim.Scandinavia.FlightStrips.Abstractions.Enums;
+﻿using System.ComponentModel.DataAnnotations;
+using Vatsim.Scandinavia.FlightStrips.Abstractions.Enums;
 
 namespace Vatsim.Scandinavia.FlightStrips.Abstractions.Strips;
 
 public class Strip
 {
+    [Required]
     public required string Callsign { get; set; }
     public string? Origin { get; set; }
     public string? Destination { get; set; }
@@ -13,7 +15,9 @@ public class Strip
 
     public string? PositionFrequency { get; set; }
 
+    [Required]
     public string Bay { get; set; } = string.Empty;
 
+    [Required]
     public DateTime LastUpdated { get; set; }
 }

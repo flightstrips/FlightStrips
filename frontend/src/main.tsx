@@ -13,14 +13,11 @@ ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>
     <HashRouter>
       <Routes>
-        <Route path="/" element={<FIRCS />}>
-          <Route path="ekch/">
-            <Route path="del" element={<DEL />} />
-            <Route path="gnd" element={<GND />} />
-            <Route path="twr" element={<TWR />} />
-            <Route path="ctwr" element={<CTWR />} />
-          </Route>
-        </Route>
+        <Route path="/" element={<FIRCS />} />
+        <Route path="/ekch/del" element={<DEL />} />
+        <Route path="/ekch/gnd" element={<GND />} />
+        <Route path="/ekch/twr" element={<TWR />} />
+        <Route path="/ekch/ctwr" element={<CTWR />} />
       </Routes>
     </HashRouter>
   </React.StrictMode>,

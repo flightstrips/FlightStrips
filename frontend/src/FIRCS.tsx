@@ -6,6 +6,7 @@ import {
   XCircleIcon,
   CheckCircleIcon,
 } from '@heroicons/react/20/solid'
+import { Link } from 'react-router-dom'
 
 const atc = [
   {
@@ -115,7 +116,7 @@ export default function FIRCS() {
                         value={atc}
                       >
                         {({ selected, active }) => (
-                          <a href={atc.href}>
+                          <Link to={atc.href}>
                             <div className="flex items-center">
                               <div className="h-5 w-5 flex-shrink-0 rounded-full">
                                 {atc.icon}
@@ -143,7 +144,7 @@ export default function FIRCS() {
                                 />
                               </span>
                             ) : null}
-                          </a>
+                          </Link>
                         )}
                       </Listbox.Option>
                     ))}

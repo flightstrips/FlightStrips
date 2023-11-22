@@ -52,7 +52,6 @@ class Main {
       minHeight: 1080,
     })
 
-    this.mainWindow.webContents.openDevTools({ mode: 'undocked' })
     this.mainWindow.webContents.on('did-finish-load', () => {
       this.mainWindow?.webContents.send(
         'main-process-message',
@@ -100,6 +99,14 @@ class Main {
             label: 'Discord',
             click() {
               shell.openExternal('https://discord.gg/vatsca')
+            },
+          },
+          {
+            label: 'Toggle Developer Tools',
+            accelerator:
+              process.platform === 'darwin' ? 'Alt+Command+I' : 'Ctrl+Shift+I',
+            click(_, focusedWindow) {
+              if (focusedWindow) focusedWindow.webContents.openDevTools()
             },
           },
         ],

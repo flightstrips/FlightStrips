@@ -8,7 +8,7 @@ export function FlightStrip(props: any) {
   if (props.clearanceGranted) {
     return (
       <>
-        <div className="flex border-white border-4 w-fit h-16 bg-[#BEF5EF]">
+        <div className="flex border-white border-x-4 border-y-2 w-fit h-16 bg-[#BEF5EF] text-black">
           <OwnerBOX />
           <FSCS cs={props.cs} />
           <DESSTD des={props.des} stand={props.stand} />
@@ -20,7 +20,7 @@ export function FlightStrip(props: any) {
   } else {
     return (
       <>
-        <div className="flex border-white border-4 w-fit h-16 bg-[#BEF5EF]">
+        <div className="flex border-white border-x-4 border-y-2 w-fit h-16 bg-[#BEF5EF] text-black">
           <FSCS cs={props.cs} />
           <DESSTD des={props.des} stand={props.stand} />
           <EOBT time={props.time} />

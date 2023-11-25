@@ -80,6 +80,7 @@ function Delivery() {
         />
         {flights.map((item) => (
           <FlightStrip
+            key={item.callsign}
             cs={item.callsign}
             des={item.destination}
             stand={item.parking}
@@ -92,6 +93,7 @@ function Delivery() {
         <BayHeader title="SAS" />
         {flights_sas.map((item) => (
           <FlightStrip
+            key={item.callsign}
             cs={item.callsign}
             des={item.destination}
             stand={item.parking}

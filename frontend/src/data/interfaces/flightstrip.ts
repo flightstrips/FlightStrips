@@ -1,6 +1,5 @@
 interface Flightstrip {
   pilotCID: number
-  pilotName: string
   callsign: string
   actype: string
   acreg: string
@@ -10,11 +9,15 @@ interface Flightstrip {
   departureRWY: string
   arrivalRWY: string
   clearancelimit: string
-  stand: string
+  stand: string | null
   eobt: number
   tsat: number
   ctot: number
   cleared: boolean
+  bay: string
+  controller: string | null
+  nextController: string | null
+  sequence: number | null
 }
 
 export default Flightstrip

@@ -67,8 +67,8 @@ const flights_sas = [
 
 function Delivery() {
   return (
-    <div className="bg-slate-400 h-full w-full flex gap-2 justify-center">
-      <div className="w-full bg-gray-500">
+    <div className="bg-background-grey h-screen w-screen flex gap-2 justify-center">
+      <div className="w-full bg-bay-grey">
         <BayHeader
           title="OTHERS"
           buttons={
@@ -89,7 +89,7 @@ function Delivery() {
           />
         ))}
       </div>
-      <div className="w-full bg-gray-500">
+      <div className="w-full bg-bay-grey">
         <BayHeader title="SAS" />
         {flights_sas.map((item) => (
           <FlightStrip
@@ -102,8 +102,8 @@ function Delivery() {
           />
         ))}
       </div>
-      <div className="w-full bg-gray-500 flex flex-col">
-        <>
+      <div className="w-full bg-bay-grey flex flex-col">
+        <div className="h-2/3">
           <BayHeader title="Cleared" />
           <FlightStrip
             cs="SAS1206"
@@ -113,13 +113,13 @@ function Delivery() {
             TSAT="14:00"
             clearanceGranted
           />
-        </>
+        </div>
         <div className="justify-self-end">
           <BayHeader title="Messages" msg />
         </div>
       </div>
-      <div className="w-full bg-gray-500">
-        <BayHeader title="To Be Named" />
+      <div className="w-full bg-bay-grey">
+        <BayHeader title="Standby" />
       </div>
 
       <CommandBar />

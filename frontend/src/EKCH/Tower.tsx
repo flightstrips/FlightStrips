@@ -3,8 +3,8 @@ import { CommandBar } from '../components/commandbar'
 
 function Tower() {
   return (
-    <div className="bg-slate-400 h-screen w-screen flex gap-2 justify-center">
-      <div className="w-full bg-gray-500">
+    <div className="bg-background-grey h-screen w-screen flex gap-2 justify-center">
+      <div className="w-full bg-bay-grey">
         <div className="h-2/5">
           <BayHeader title="FINAL" />
         </div>
@@ -16,7 +16,7 @@ function Tower() {
         </div>
       </div>
 
-      <div className="w-full bg-gray-500">
+      <div className="w-full bg-bay-grey">
         <div className="h-2/5">
           <BayHeader title="TWY DEP" />
         </div>
@@ -28,7 +28,7 @@ function Tower() {
         </div>
       </div>
 
-      <div className="w-full bg-gray-500 flex flex-col">
+      <div className="w-full bg-bay-grey flex flex-col">
         <div className="h-2/5">
           <BayHeader title="CONTROL ZONE" />
         </div>
@@ -40,7 +40,7 @@ function Tower() {
         </div>
       </div>
 
-      <div className="w-full bg-gray-500">
+      <div className="w-full bg-bay-grey">
         <div className="h-3/5">
           <BayHeader title="CLR DEL" />
         </div>

@@ -3,8 +3,8 @@ import { CommandBar } from '../components/commandbar'
 
 function CrossingTower() {
   return (
-    <div className="bg-slate-400 h-screen w-screen flex gap-2 justify-center">
-      <div className="w-full bg-gray-500">
+    <div className="bg-background-grey h-screen w-screen flex gap-2 justify-center">
+      <div className="w-full bg-bay-grey">
         <div className="h-2/6">
           <BayHeader title="FINAL" />
         </div>
@@ -19,7 +19,7 @@ function CrossingTower() {
         </div>
       </div>
 
-      <div className="w-full bg-gray-500">
+      <div className="w-full bg-bay-grey">
         <div className="h-1/6">
           <BayHeader title="PUSH BACK" />
         </div>
@@ -34,7 +34,7 @@ function CrossingTower() {
         </div>
       </div>
 
-      <div className="w-full bg-gray-500 flex flex-col">
+      <div className="w-full bg-bay-grey flex flex-col">
         <div className="h-2/3">
           <BayHeader title="CONTROL ZONE" />
         </div>
@@ -43,7 +43,7 @@ function CrossingTower() {
         </div>
       </div>
 
-      <div className="w-full bg-gray-500">
+      <div className="w-full bg-bay-grey">
         <div className="h-4/5">
           <BayHeader title="CLR DEL" />
         </div>

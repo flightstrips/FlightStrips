@@ -3,8 +3,8 @@ import { CommandBar } from '../components/commandbar'
 
 function Ground() {
   return (
-    <div className="bg-slate-400 h-screen w-screen flex gap-2 justify-center">
-      <div className="w-full bg-gray-500 flex flex-col gap-8">
+    <div className="bg-background-grey h-screen w-screen flex gap-2 justify-center">
+      <div className="w-full bg-bay-grey flex flex-col gap-8">
         <div className="h-1/4">
           <BayHeader title="MESSAGES" msg />
         </div>
@@ -18,7 +18,7 @@ function Ground() {
           <BayHeader title="STAND" />
         </div>
       </div>
-      <div className="w-full bg-gray-500">
+      <div className="w-full bg-bay-grey">
         <div className="h-3/5">
           <BayHeader title="TWY DEP" />
         </div>
@@ -26,7 +26,7 @@ function Ground() {
           <BayHeader title="TWY ARR" />
         </div>
       </div>
-      <div className="w-full bg-gray-500 flex flex-col">
+      <div className="w-full bg-bay-grey flex flex-col">
         <div className="h-3/6">
           <BayHeader title="STARTUP" />
         </div>
@@ -34,7 +34,7 @@ function Ground() {
           <BayHeader title="PUSH BACK" />
         </div>
       </div>
-      <div className="w-full bg-gray-500">
+      <div className="w-full bg-bay-grey">
         <div className="h-4/5">
           <BayHeader title="CLR DEL" />
         </div>

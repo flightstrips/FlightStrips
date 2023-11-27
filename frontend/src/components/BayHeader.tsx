@@ -8,7 +8,7 @@ export default function BayHeader(props: {
   return (
     <div
       className={`${
-        msg ? 'bg-[#285A5C]' : 'bg-slate-800'
+        msg ? 'bg-[#285A5C]' : 'bg-header-grey'
       } 'w-full h-12  text-white font-bold flex items-center justify-between'`}
     >
       <p className="ml-2 text-xl uppercase">{props.title}</p>

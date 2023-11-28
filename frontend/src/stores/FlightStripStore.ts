@@ -32,6 +32,7 @@ export class FlightStripStore {
     )
     if (!flightstrip) return
 
+    flightstrip.bay = this.getBay(callsign, cleared, flightstrip.departingICAO)
     flightstrip.cleared = cleared
   }
 
@@ -117,7 +118,7 @@ export class FlightStripStore {
         tsat: 1200,
         ctot: 1200,
         cleared: false,
-        bay: '',
+        bay: this.getBay(data.callsign, false, data.origin),
         controller: null,
         nextController: null,
         sequence: 0,
@@ -134,6 +135,23 @@ export class FlightStripStore {
     flightstrip.departureRWY = data.departureRwy
     flightstrip.arrivalRWY = data.arrivalRwy
     flightstrip.eobt = parseInt(data.estimatedDeparture)
+  }
+
+  // TODO remove
+  private getBay(callsign: string, isCleared: boolean, origin: string): string {
+    const upper = callsign.toUpperCase()
+
+    if (origin.toUpperCase() !== 'EKCH') return 'arr'
+
+    if (isCleared) {
+      return 'cleared'
+    }
+
+    if (upper.startsWith('SAS')) {
+      return 'sas'
+    }
+
+    return 'other'
   }
 
   public inBay(bay: string): Flightstrip[] {

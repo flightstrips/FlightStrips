@@ -3,30 +3,21 @@ import { FSCS } from './strip/fscs'
 import { DESSTD } from './strip/desstd'
 import { TSATCTOT } from './strip/tsatctot'
 import { OwnerBOX } from './strip/ownerbox'
+import Flightstrip from '../data/interfaces/flightstrip.ts'
+import { observer } from 'mobx-react'
 
-export function FlightStrip(props: any) {
-  if (props.clearanceGranted) {
-    return (
-      <>
-        <div className="flex border-white border-x-4 border-y-2 w-fit h-16 bg-[#BEF5EF] text-black">
-          <OwnerBOX />
-          <FSCS cs={props.cs} />
-          <DESSTD des={props.des} stand={props.stand} />
-          <EOBT time={props.time} />
-          <TSATCTOT TSAT={props.TSAT} />
-        </div>
-      </>
-    )
-  } else {
-    return (
-      <>
-        <div className="flex border-white border-x-4 border-y-2 w-fit h-16 bg-[#BEF5EF] text-black">
-          <FSCS cs={props.cs} />
-          <DESSTD des={props.des} stand={props.stand} />
-          <EOBT time={props.time} />
-          <TSATCTOT TSAT={props.TSAT} />
-        </div>
-      </>
-    )
-  }
-}
+const FlightStrip = observer((props: { strip: Flightstrip }) => {
+  return (
+    <>
+      <div className="flex border-white border-x-4 border-y-2 w-fit h-16 bg-[#BEF5EF] text-black">
+        {props.strip.cleared && <OwnerBOX />}
+        <FSCS cs={props.strip.callsign} />
+        <DESSTD des={props.strip.destinationICAO} stand={props.strip.stand} />
+        <EOBT time={props.strip.eobt} />
+        <TSATCTOT TSAT={props.strip.tsat} />
+      </div>
+    </>
+  )
+})
+
+export { FlightStrip }

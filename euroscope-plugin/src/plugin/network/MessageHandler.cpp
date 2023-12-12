@@ -5,11 +5,12 @@
 #include <nlohmann/json.hpp>
 #include "MessageHandler.h"
 #include "plugin/FlightStripsPlugin.h"
+#include "ConnectedClient.h"
 
 using json = nlohmann::json;
 
-FlightStrips::network::MessageHandler::MessageHandler(const std::shared_ptr<FlightStripsPlugin> &mPlugin) : m_plugin(
-        mPlugin) {}
+FlightStrips::network::MessageHandler::MessageHandler(const std::shared_ptr<FlightStripsPlugin>& mPlugin, ConnectedClient *mConnectedClient) : m_plugin(
+        mPlugin), m_connectedClient(mConnectedClient) {}
 
 void FlightStrips::network::MessageHandler::OnMessage(const std::string& string) {
     json j = json::parse(string);
@@ -91,6 +92,20 @@ void FlightStrips::network::MessageHandler::OnMessage(const std::string& string)
                 if (!plan.IsValid()) return;
                 // TODO
             }
+            return;
+        } else if (type == "Me") {
+            auto controller = this->m_plugin->ControllerMyself();
+            // TODO may not be a good idea
+            if (!controller.IsValid()) return;
+
+            auto data = json{
+                    { "$type", "ControllerUpdate", },
+                    { "isMe", true },
+                    { "frequency", controller.GetPrimaryFrequency() },
+                    { "position", controller.GetPositionId() },
+                    { "callsign", controller.GetCallsign() }
+            };
+            this->m_connectedClient->Write(data.dump());
             return;
         }
     } catch(std::exception& e) {

@@ -10,6 +10,9 @@
 
 namespace FlightStrips {
     class FlightStripsPlugin;
+    namespace network {
+        class MessageHandler;
+    }
 }
 
 namespace FlightStrips::network {
@@ -38,7 +41,7 @@ namespace FlightStrips::network {
         std::counting_semaphore<100> writerSemaphore{0};
         std::mutex writerMutex;
 
-        std::unique_ptr<MessageHandler> m_messageHandler;
+        MessageHandler m_messageHandler;
 
         static inline const int READ_BUFFER_SIZE = 4096;
     };

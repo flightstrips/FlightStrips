@@ -3,6 +3,7 @@
 //
 
 #include "Server.h"
+#include "ConnectedClient.h"
 #include "plugin/FlightStripsPlugin.h"
 
 namespace FlightStrips {
@@ -70,6 +71,7 @@ namespace FlightStrips {
                     continue;
                 }
 
+                this->m_plugin->Information("Client connected");
                 this->m_Clients.push_back(std::make_unique<ConnectedClient>(client, this->m_plugin));
             }
 
@@ -81,6 +83,7 @@ namespace FlightStrips {
             while (it != this->m_Clients.end())
             {
                 if (!(*it)->IsActive()) {
+                    this->m_plugin->Information("Client no longer active");
                     it = this->m_Clients.erase(it);
                 } else {
                     (*it)->Write(message);

@@ -4,9 +4,11 @@
 
 #pragma once
 
-#include "ConnectedClient.h"
 namespace FlightStrips {
     class FlightStripsPlugin;
+    namespace network {
+        class ConnectedClient;
+    }
 }
 
 namespace FlightStrips {

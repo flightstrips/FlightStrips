@@ -89,6 +89,8 @@ export class EuroScopeSocket {
     self.socket?.write(
       '{ "$type": "Initial", "message": "Hello from application" }\0',
     )
+    // Get current controller if there is one
+    self.socket?.write('{ "$type": "Me" }\0')
   }
 
   private clearListners() {

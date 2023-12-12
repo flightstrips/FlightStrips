@@ -18,7 +18,7 @@ namespace FlightStrips {
     }
 
     void FlightStripsPlugin::Information(const std::string& message) {
-        DisplayUserMessage("message", PLUGIN_NAME, message.c_str(), true, false, false, false, false);
+        DisplayUserMessage("FlightStrips", PLUGIN_NAME, message.c_str(), true, false, false, false, false);
     }
 
     void FlightStripsPlugin::OnFlightPlanDisconnect(EuroScopePlugIn::CFlightPlan FlightPlan) {

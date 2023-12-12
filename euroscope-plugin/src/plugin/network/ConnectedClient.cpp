@@ -8,11 +8,10 @@
 
 namespace FlightStrips::network {
     ConnectedClient::ConnectedClient(SOCKET socket, const std::shared_ptr<FlightStripsPlugin>& mPlugin)
-            : socket(socket) {
+            : socket(socket), m_messageHandler(mPlugin, this) {
         this->isActive = true;
         this->writerThread = std::make_unique<std::thread>(&ConnectedClient::WriteLoop, this);
         this->readerThread = std::make_unique<std::thread>(&ConnectedClient::ReadLoop, this);
-        this->m_messageHandler = std::make_unique<MessageHandler>(mPlugin);
     }
 
     ConnectedClient::~ConnectedClient() {
@@ -54,7 +53,7 @@ namespace FlightStrips::network {
 
                     if (byte == 0) {
                         auto string = std::string(messageBuffer.cbegin(), messageBuffer.cbegin() + index);
-                        m_messageHandler->OnMessage(string);
+                        m_messageHandler.OnMessage(string);
                         /*
                         auto lock = std::lock_guard(this->readerMutex);
 

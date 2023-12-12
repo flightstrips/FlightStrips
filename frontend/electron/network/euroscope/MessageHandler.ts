@@ -85,7 +85,9 @@ export class MessageHandler implements MessageHandlerInterface {
         break
       }
       default:
-        console.error(`Unknown message type '${event.$type}'.`)
+        console.error(
+          `Unknown message type '${event.$type}'. Raw JSON: ${message}`,
+        )
     }
   }
 }

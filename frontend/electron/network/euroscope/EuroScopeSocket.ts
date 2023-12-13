@@ -86,11 +86,9 @@ export class EuroScopeSocket {
 
   private onConnected(self: this) {
     console.log('Connected')
-    self.socket?.write(
-      '{ "$type": "Initial", "message": "Hello from application" }\0',
-    )
+    self.send({ $type: 'Initial', message: 'Hello from application' })
     // Get current controller if there is one
-    self.socket?.write('{ "$type": "Me" }\0')
+    self.send({ $type: 'Me' })
   }
 
   private clearListners() {

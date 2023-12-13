@@ -30,7 +30,7 @@ export interface CoordinationUpdate {
   state: CoordinationState
 }
 
-export enum StripState {
+export enum StripStateEvent {
   Created = 'Created',
   Updated = 'Updated',
   Deleted = 'Deleted',
@@ -41,7 +41,7 @@ export interface StripUpdate {
   origin: string | null
   destination: string | null
   sequence: number | null
-  state: StripState
+  state: StripStateEvent
   cleared: boolean
   positionFrequency: string | null
   bay: string

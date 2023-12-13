@@ -5,10 +5,12 @@ import { FlightPlanUpdate } from '../../shared/FlightPlanUpdate'
 import {
   CoordinationState,
   CoordinationUpdate,
-  StripState,
+  StripStateEvent,
   StripUpdate,
 } from '../services/models.ts'
 import { signalRService } from '../services/SignalRService.ts'
+import stripsService from '../services/StripsService.ts'
+import { StripState } from '../services/api/generated/FlightStripsClient.ts'
 
 export class FlightStripStore {
   flightStrips: Flightstrip[] = []
@@ -74,8 +76,8 @@ export class FlightStripStore {
     )
 
     switch (update.state) {
-      case StripState.Created:
-      case StripState.Updated:
+      case StripStateEvent.Created:
+      case StripStateEvent.Updated:
         if (index !== -1) {
           this.flightStrips[index] = {
             ...this.flightStrips[index],
@@ -87,7 +89,7 @@ export class FlightStripStore {
         }
         break
 
-      case StripState.Deleted:
+      case StripStateEvent.Deleted:
         // Remove a flight strip
         if (index !== -1) {
           this.flightStrips.splice(index, 1)
@@ -96,7 +98,7 @@ export class FlightStripStore {
     }
   }
 
-  public updateFlightPlanData(data: FlightPlanUpdate) {
+  public async updateFlightPlanData(data: FlightPlanUpdate) {
     let flightstrip = this.flightStrips.find(
       (strip) => strip.callsign == data.callsign,
     )
@@ -118,11 +120,17 @@ export class FlightStripStore {
         tsat: 1200,
         ctot: 1200,
         cleared: false,
-        bay: this.getBay(data.callsign, false, data.origin),
+        bay: 'none',
         controller: null,
         nextController: null,
         sequence: 0,
       }
+      await stripsService.api.upsertStrip(data.callsign, 'EKCH', 'live', {
+        cleared: false,
+        origin: data.origin,
+        state: StripState.None,
+        destination: data.destination,
+      })
 
       this.flightStrips.push(flightstrip)
       return

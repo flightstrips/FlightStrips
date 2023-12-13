@@ -35,6 +35,10 @@ builder.Services.AddScoped<ITenantService, TenantService>();
 builder.Services.AddScoped<IEventService, EventService>();
 builder.Services.AddTransient<TenantMiddleware>();
 builder.Services.AddSignalR().AddMessagePackProtocol();
+builder.Services.AddCors(options =>
+{
+    options.AddDefaultPolicy(policyBuilder => policyBuilder.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod());
+});
 
 var connectionString = builder.Configuration.GetConnectionString("Database");
 
@@ -51,6 +55,7 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
+app.UseCors();
 app.UseAuthorization();
 
 app.UseTenantMiddleware();

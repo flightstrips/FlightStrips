@@ -10,17 +10,12 @@ using StripState = Vatsim.Scandinavia.FlightStrips.Host.Hubs.Models.StripState;
 
 namespace Vatsim.Scandinavia.FlightStrips.Host;
 
-public class EventService : IEventService
+public class EventService(
+    ITenantService tenantService,
+    IHubContext<EventHub, IEventClient> hubContext,
+    ILogger<EventService> logger)
+    : IEventService
 {
-    private readonly IHubContext<EventHub, IEventClient> _hubContext;
-    private readonly ITenantService _tenantService;
-
-    public EventService(ITenantService tenantService, IHubContext<EventHub, IEventClient> hubContext)
-    {
-        _tenantService = tenantService;
-        _hubContext = hubContext;
-    }
-
     public Task ControllerOnlineAsync(OnlinePosition position) => ControllerUpdateAsync(position, true);
 
     public Task ControllerOfflineAsync(OnlinePosition position) => ControllerUpdateAsync(position, false);
@@ -34,7 +29,7 @@ public class EventService : IEventService
             State = online ? ControllerState.Online : ControllerState.Offline
         };
 
-        return _hubContext.Clients.Group(ToAirportAndSessionGroup()).ReceiveControllerUpdate(model);
+        return hubContext.Clients.Group(ToAirportAndSessionGroup()).ReceiveControllerUpdate(model);
     }
 
     public Task StripCreatedAsync(Strip strip) => StripUpdateAsync(strip, StripState.Created);
@@ -43,10 +38,12 @@ public class EventService : IEventService
 
     private Task StripUpdateAsync(Strip strip, StripState status)
     {
+        logger.LogInformation("Sending strip update {@Strip} ", strip);
         var model = new StripUpdateModel
         {
             Callsign = strip.Callsign,
             State = strip.State,
+            EventState = status,
             Bay = strip.Bay,
             Cleared = strip.Cleared,
             Destination = strip.Destination,
@@ -55,7 +52,7 @@ public class EventService : IEventService
             PositionFrequency = strip.PositionFrequency
         };
 
-        return _hubContext.Clients.Group(ToAirportAndSessionGroup()).ReceiveStripUpdate(model);
+        return hubContext.Clients.Group(ToAirportAndSessionGroup()).ReceiveStripUpdate(model);
     }
 
     public Task AtisUpdateAsync() => throw new NotImplementedException();
@@ -80,10 +77,10 @@ public class EventService : IEventService
             CoordinationId = coordination.Id
         };
 
-        return _hubContext.Clients.Group(ToAirportAndSessionGroup()).ReceiveCoordinationUpdate(model);
+        return hubContext.Clients.Group(ToAirportAndSessionGroup()).ReceiveCoordinationUpdate(model);
     }
 
     private string ToAirportAndSessionGroup() =>
-        ToAirportAndSessionGroup(_tenantService.Airport, _tenantService.Session);
+        ToAirportAndSessionGroup(tenantService.Airport, tenantService.Session);
     private static string ToAirportAndSessionGroup(string airport, string session) => $"{session}:{airport}";
 }

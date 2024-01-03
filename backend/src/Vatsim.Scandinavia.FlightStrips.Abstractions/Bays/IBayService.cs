@@ -2,9 +2,7 @@
 
 public interface IBayService
 {
-    Task<bool> UpsertAsync(UpsertBayRequest request);
-    Task DeleteAsync(string name);
-    Task<Bay?> GetAsync(string name);
-    Task<Bay[]> ListAsync();
-    Task<string?> GetDefault(string callsign);
+    Task<Bay?> GetAsync(string airport, string name);
+    Task<Bay[]> ListAsync(string airport);
+    Task<string?> GetDefault(string airport, string callsign, bool isDeparture);
 }

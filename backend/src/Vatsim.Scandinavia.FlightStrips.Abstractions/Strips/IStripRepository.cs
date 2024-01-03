@@ -4,11 +4,11 @@ public interface IStripRepository
 {
     Task<bool> UpsertAsync(StripUpsertRequest upsertRequest);
 
-    Task DeleteAsync(string callsign);
+    Task DeleteAsync(StripId id);
 
-    Task<Strip?> GetAsync(string callsign);
+    Task<Strip?> GetAsync(StripId id);
 
-    Task SetSequenceAsync(string callsign, int? sequence);
-    Task SetBayAsync(string callsign, string bayName);
-    Task SetPositionFrequencyAsync(string callsign, string frequency);
+    Task SetSequenceAsync(StripId id, int? sequence);
+    Task SetBayAsync(StripId id, string bayName);
+    Task SetPositionFrequencyAsync(StripId id, string frequency);
 }

@@ -17,16 +17,16 @@ public class CoordinationService : ICoordinationService
         _eventService = eventService;
     }
 
-    public Task<Coordination[]> ListForFrequencyAsync(string frequency)
+    public Task<Coordination[]> ListForFrequencyAsync(SessionId session, string frequency)
     {
-        return _repository.ListForFrequency(frequency);
+        return _repository.ListForFrequency(session, frequency);
     }
 
-    public Task<Coordination?> GetForCallsignAsync(string callsign) => _repository.GetForCallsignAsync(callsign);
+    public Task<Coordination?> GetForCallsignAsync(SessionId session, string callsign) => _repository.GetForCallsignAsync(session, callsign);
 
-    public Task<Coordination?> GetAsync(int id) => _repository.GetAsync(id);
+    public Task<Coordination?> GetAsync(CoordinationId id) => _repository.GetAsync(id);
 
-    public async Task AcceptAsync(int id, string frequency)
+    public async Task AcceptAsync(CoordinationId id, string frequency)
     {
         var coordination = await GetAsync(id);
 
@@ -36,11 +36,11 @@ public class CoordinationService : ICoordinationService
         }
 
         await _repository.DeleteAsync(id);
-        await _stripRepository.SetPositionFrequencyAsync(coordination.Callsign, frequency);
+        await _stripRepository.SetPositionFrequencyAsync(coordination.StripId, frequency);
         await _eventService.AcceptCoordinationAsync(coordination);
     }
 
-    public async Task RejectAsync(int id, string frequency)
+    public async Task RejectAsync(CoordinationId id, string frequency)
     {
         var coordination = await _repository.GetAsync(id);
         if (coordination is null)

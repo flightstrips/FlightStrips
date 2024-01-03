@@ -15,30 +15,48 @@ public class EfOnlinePositionRepository : IOnlinePositionRepository
 
     public async Task AddAsync(OnlinePositionAddRequest request)
     {
-        var entity = new OnlinePositionEntity {PositionName = request.Name, PositionFrequency = request.Frequency};
+        var entity = new OnlinePositionEntity
+        {
+            Airport = request.Id.Airport,
+            Session = request.Id.Session,
+            PositionName = request.Id.Position,
+            PositionFrequency = request.Frequency
+        };
 
         _context.OnlinePositions.Add(entity);
 
         await _context.SaveChangesAsync();
     }
 
-    public Task DeleteAsync(string positionName)
-    {
-        return _context.OnlinePositions.Where(x => x.PositionName == positionName).ExecuteDeleteAsync();
-    }
-
-    public async Task<OnlinePosition?> GetAsync(string positionName)
-    {
-        var entity = await _context.OnlinePositions.FirstOrDefaultAsync(x => x.PositionName == positionName);
-        return entity is null
-            ? null
-            : new OnlinePosition {PositionId = entity.PositionName, PrimaryFrequency = entity.PositionFrequency};
-    }
-
-    public Task<OnlinePosition[]> ListAsync()
+    public Task DeleteAsync(OnlinePositionId id)
     {
         return _context.OnlinePositions
-            .Select(x => new OnlinePosition {PositionId = x.PositionName, PrimaryFrequency = x.Position.Frequency})
+            .Where(x => x.Airport == id.Airport && x.Session == id.Session && x.PositionName == id.Position)
+            .ExecuteDeleteAsync();
+    }
+
+    public async Task<OnlinePosition?> GetAsync(OnlinePositionId id)
+    {
+        var entity = await _context.OnlinePositions.FirstOrDefaultAsync(x =>
+            x.Airport == id.Airport && x.Session == id.Session && x.PositionName == id.Position);
+        return entity is null
+            ? null
+            : new OnlinePosition
+            {
+                Id = new OnlinePositionId(entity.Airport, entity.Session, entity.PositionName),
+                PrimaryFrequency = entity.PositionFrequency
+            };
+    }
+
+    public Task<OnlinePosition[]> ListAsync(string airport, string session)
+    {
+        return _context.OnlinePositions
+            .Where(x => x.Airport == airport && x.Session == session)
+            .Select(x => new OnlinePosition
+            {
+                Id = new OnlinePositionId(x.Airport, x.Session, x.PositionName),
+                PrimaryFrequency = x.Position.Frequency
+            })
             .ToArrayAsync();
     }
 }

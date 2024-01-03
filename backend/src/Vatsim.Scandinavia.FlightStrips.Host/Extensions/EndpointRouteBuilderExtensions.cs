@@ -67,7 +67,7 @@ public static partial class EndpointRouteBuilderExtensions
 
             return ValueTask.FromResult<object?>(Results.ValidationProblem(new Dictionary<string, string[]>
             {
-                {"airport", new[] {"The airport must be an airport ICAO code."}}
+                {"airport", ["The airport must be an airport ICAO code."] }
             }));
         }
 

@@ -24,9 +24,6 @@ public class StripEntity : IAirportAndSessionTenant
 
     public required string BayName { get; set; }
 
-    [ForeignKey( $"{nameof(BayName)},{nameof(Airport)}")]
-    public virtual BayEntity Bay { get; set; } = null!;
-
     [DatabaseGenerated(DatabaseGeneratedOption.Computed)]
     public DateTime UpdatedTime { get; set; }
 }

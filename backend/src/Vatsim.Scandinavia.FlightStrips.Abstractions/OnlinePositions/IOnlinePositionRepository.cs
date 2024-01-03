@@ -3,7 +3,7 @@
 public interface IOnlinePositionRepository
 {
     Task AddAsync(OnlinePositionAddRequest request);
-    Task DeleteAsync(string positionName);
-    Task<OnlinePosition[]> ListAsync();
-    Task<OnlinePosition?> GetAsync(string positionName);
+    Task DeleteAsync(OnlinePositionId id);
+    Task<OnlinePosition[]> ListAsync(string airport, string session);
+    Task<OnlinePosition?> GetAsync(OnlinePositionId id);
 }

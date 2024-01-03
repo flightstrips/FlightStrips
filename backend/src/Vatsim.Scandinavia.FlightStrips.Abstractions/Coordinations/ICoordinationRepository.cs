@@ -3,8 +3,8 @@
 public interface ICoordinationRepository
 {
     Task<int> CreateAsync(Coordination coordination);
-    Task DeleteAsync(int id);
-    Task<Coordination[]> ListForFrequency(string frequency);
-    Task<Coordination?> GetAsync(int id);
-    Task<Coordination?> GetForCallsignAsync(string callsign);
+    Task DeleteAsync(CoordinationId id);
+    Task<Coordination[]> ListForFrequency(SessionId session, string frequency);
+    Task<Coordination?> GetAsync(CoordinationId id);
+    Task<Coordination?> GetForCallsignAsync(SessionId session, string callsign);
 }

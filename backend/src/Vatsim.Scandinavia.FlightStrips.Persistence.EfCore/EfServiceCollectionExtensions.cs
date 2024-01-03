@@ -13,7 +13,6 @@ public static class EfServiceCollectionExtensions
 {
     public static IServiceCollection AddEfCore(this IServiceCollection services)
     {
-        services.AddScoped<IBayRepository, EfBayRepository>();
         services.AddScoped<IStripRepository, EfStripRepository>();
         services.AddScoped<IPositionRepository, EfPositionRepository>();
         services.AddScoped<IOnlinePositionRepository, EfOnlinePositionRepository>();

@@ -2,7 +2,7 @@
 
 public interface IOnlinePositionService
 {
-    Task CreateAsync(string controllerId, string frequency);
-    Task DeleteAsync(string controllerId);
-    Task<OnlinePosition[]> ListAsync();
+    Task CreateAsync(OnlinePositionId id, string frequency);
+    Task DeleteAsync(OnlinePositionId id);
+    Task<OnlinePosition[]> ListAsync(string airport, string session);
 }

@@ -4,50 +4,65 @@ namespace Vatsim.Scandinavia.FlightStrips.Services;
 
 public class BayService : IBayService
 {
-    private readonly IBayRepository _bayRepository;
+    private static readonly Bay[] s_bays =
+    [
+        new Bay { Name = "OTHER", Default = BayDefaultType.Arrival },
+        new Bay { Name = "SAS", Default = BayDefaultType.Arrival, CallsignFilter = ["SAS"] },
+        new Bay { Name = "NORWEGIAN", Default = BayDefaultType.Arrival, CallsignFilter = ["IBK", "NZS", "NAX"] },
+        new Bay { Name = "STARTUP", Default = BayDefaultType.None },
+        new Bay { Name = "PUSHBACK", Default = BayDefaultType.None },
+        new Bay { Name = "TWY ARR", Default = BayDefaultType.None },
+        new Bay { Name = "TWY DEP", Default = BayDefaultType.None },
+        new Bay { Name = "DE-ICE", Default = BayDefaultType.None },
+        new Bay { Name = "RWY ARR", Default = BayDefaultType.None },
+        new Bay { Name = "RWY DEP", Default = BayDefaultType.None },
+        new Bay { Name = "AIRBORNE", Default = BayDefaultType.None },
+        new Bay { Name = "STAND", Default = BayDefaultType.None },
+        new Bay { Name = "FINAL", Default = BayDefaultType.Arrival },
+    ];
 
-    public BayService(IBayRepository bayRepository)
+    public Task<Bay?> GetAsync(string airport, string name)
     {
-        _bayRepository = bayRepository;
+        if (airport.Equals("EKCH", StringComparison.OrdinalIgnoreCase))
+        {
+            return Task.FromResult<Bay?>(null);
+        }
+
+        return Task.FromResult(s_bays.FirstOrDefault(x => x.Name.Equals(name, StringComparison.OrdinalIgnoreCase)));
     }
 
-    public Task<bool> UpsertAsync(UpsertBayRequest request)
+    public Task<Bay[]> ListAsync(string airport)
     {
-        request.CallsignFilter = request.CallsignFilter.Select(x => x.ToUpperInvariant()).ToArray();
-        return _bayRepository.UpsertAsync(request);
+        if (airport.Equals("EKCH", StringComparison.OrdinalIgnoreCase))
+        {
+            return Task.FromResult(Array.Empty<Bay>());
+        }
+
+        return Task.FromResult(s_bays);
     }
 
-    public Task DeleteAsync(string name)
+    public Task<string?> GetDefault(string airport, string callsign, bool isDeparture)
     {
-        return _bayRepository.DeleteAsync(name);
-    }
-
-    public Task<Bay?> GetAsync(string name)
-    {
-        return _bayRepository.GetAsync(name);
-    }
-
-    public Task<Bay[]> ListAsync()
-    {
-        return _bayRepository.ListAsync(new ListBaysRequest(Default: null));
-    }
-
-    public async Task<string?> GetDefault(string callsign)
-    {
-        callsign = callsign.ToUpperInvariant();
+        if (airport.Equals("EKCH", StringComparison.OrdinalIgnoreCase))
+        {
+            return Task.FromResult<string?>(null);
+        }
 
         var company = callsign.Trim()[..3];
 
-        var defaultBays = (await _bayRepository.ListAsync(new ListBaysRequest(Default: true))).ToArray();
+        var defaultBays = s_bays
+            .Where(x => x.Default == (isDeparture ? BayDefaultType.Departure : BayDefaultType.Arrival)).ToArray();
 
         if (defaultBays.Length == 0)
         {
-            return null;
+            return Task.FromResult<string?>(null);
         }
 
-        var bay = defaultBays.FirstOrDefault(x => x.CallsignFilter.Any() && x.CallsignFilter.Contains(company)) ??
-                  defaultBays.FirstOrDefault(x => !x.CallsignFilter.Any());
+        var bay = defaultBays.FirstOrDefault(x =>
+                      x.CallsignFilter.Length != 0 &&
+                      x.CallsignFilter.Contains(company, StringComparer.OrdinalIgnoreCase)) ??
+                  defaultBays.FirstOrDefault(x => x.CallsignFilter.Length == 0);
 
-        return bay?.Name;
+        return Task.FromResult(bay?.Name);
     }
 }

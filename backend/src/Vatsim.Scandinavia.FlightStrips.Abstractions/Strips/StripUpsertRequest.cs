@@ -4,7 +4,7 @@ namespace Vatsim.Scandinavia.FlightStrips.Abstractions.Strips;
 
 public class StripUpsertRequest
 {
-    public required string Callsign { get; set; }
+    public required StripId Id { get; set; }
     public string? Origin { get; set; }
     public string? Destination { get; set; }
     public StripState State { get; set; } = StripState.None;

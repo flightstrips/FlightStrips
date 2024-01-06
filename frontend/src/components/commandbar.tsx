@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { AtisModal } from './ATIS/AtisModal'
 import ZuluTime from './Clock'
 
 export function CommandBar() {
@@ -28,7 +27,6 @@ export function CommandBar() {
         <div className="bg-[#212121] text-white w-fit h-12 ml-4 mr-4 pl-4 pr-4  flex items-center text-center">
           {atis.qnh}
         </div>
-        <AtisModal />
         <div className="bg-white w-20 h-12 ml-4 mr-4 justify-center items-center flex pl-4 pr-4">
           {atis.letter}
         </div>

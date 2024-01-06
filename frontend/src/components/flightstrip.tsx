@@ -5,7 +5,10 @@ import { observer } from 'mobx-react'
 const FlightStrip = observer((props: { strip: Flightstrip }) => {
   return (
     <>
-      <div className="w-[90%] min-w-96 h-14 bg-[#BEF5EF] border-l-4 border-r-4 border-t-2 border-b-2 mb-1 flex items-center ">
+      <div
+        className="w-[90%] min-w-96 h-14 bg-[#BEF5EF] border-l-4 border-r-4 border-t-2 border-b-2 mb-1 flex items-center"
+        draggable="true"
+      >
         {props.strip.cleared && <OwnerBOX />}
         <div className="w-[30%] border-r-2 border-l-2 border-t-2 border-b-2 border-[#85B4AF] max-w-64 h-full flex items-center pl-2 text-base font-medium">
           {props.strip.callsign}

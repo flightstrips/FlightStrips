@@ -2,6 +2,7 @@ import {
   Modal,
   ModalContent,
   ModalBody,
+  ModalFooter,
   Button,
   useDisclosure,
 } from '@nextui-org/react'
@@ -9,7 +10,7 @@ import {
 export function AtisModal() {
   const { isOpen, onOpen, onOpenChange } = useDisclosure()
   return (
-    <div>
+    <>
       <Button
         onPress={onOpen}
         radius="none"
@@ -23,7 +24,7 @@ export function AtisModal() {
         size="5xl"
         radius="none"
         classNames={{
-          backdrop: 'bg-[#000]/50 backdrop-opacity-40',
+          backdrop: 'bg-[#000]/50 backdrop-opacity-40 w-screen h-screen z-10',
           base: 'border-[#292f46] bg-[#e4e4e4] drop-shadow-2xl',
         }}
       >
@@ -41,10 +42,18 @@ export function AtisModal() {
                   </div>
                 </div>
               </ModalBody>
+              <ModalFooter>
+                <Button color="danger" variant="light" onPress={onClose}>
+                  Close
+                </Button>
+                <Button color="primary" onPress={onClose}>
+                  Action
+                </Button>
+              </ModalFooter>
             </>
           )}
         </ModalContent>
       </Modal>
-    </div>
+    </>
   )
 }

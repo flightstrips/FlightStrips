@@ -1,56 +1,56 @@
 import { useState } from 'react'
+import { AtisModal } from './ATIS/AtisModal'
+import ZuluTime from './Clock'
 
 export function CommandBar() {
   const [runways] = useState({ dep: '22R', arr: '22L' })
   const [atis] = useState({
-    QNH: 1015,
+    qnh: 1015,
     letter: 'L',
     winds: '350/35KT',
   })
 
   return (
-    <div className="flex w-full h-14 bg-[#3C3C3C] absolute bottom-0 justify-between">
-      <div className="flex items-center">
-        <div className="flex bg-[#1BFF16] w-32 h-10  text-black text-xs font-bold text-center ml-2 justify-center items-center">
-          DEL - A/D_GND A/C/D_TWR
+    <div className="bg-[#3C3C3C] w-screen h-16 absolute bottom-0 flex items-center pl-2 justify-between">
+      <div className="pl-2 pr-2 flex items-center text-3xl font-bold">
+        <div className="bg-[#1bff16] text-black w-40 h-12 text-center font-bold pl-4 pr-4 break-words text-base">
+          TE-TW-TC
+          <br />
+          APRON-DEL
         </div>
-        <p className="font-black text-2xl ml-2 mr-2 text-white">DEP</p>
-        <div className="flex bg-[#E4E4E4] w-16 h-10 text-black justify-center items-center font-bold text-xl">
-          {runways.dep}
+
+        <span className=" text-white ml-6 mr-2">DEP</span>
+
+        <span className="  text-white ml-2 mr-2">ARR</span>
+
+        <span className="  text-white ml-2 mr-2">QNH</span>
+
+        <div className="bg-[#212121] text-white w-fit h-12 ml-4 mr-4 pl-4 pr-4  flex items-center text-center">
+          {atis.qnh}
         </div>
-        <p className="font-black text-2xl ml-2 mr-2 text-white">ARR</p>
-        <div className="flex bg-[#E4E4E4] w-16 h-10 text-black justify-center items-center font-bold text-xl">
-          {runways.arr}
-        </div>
-        <p className="font-black text-2xl ml-2 mr-2 text-white">QNH</p>
-        <div className="flex bg-[#212121] w-16 h-10 text-white justify-center items-center font-bold text-xl">
-          {atis.QNH}
-        </div>
-        <button className="flex bg-[#646464] border-[#E4E4E4] border-t-2 border-l-2 w-16 h-10 text-white justify-center items-center font-bold text-xl ml-4">
-          ATIS
-        </button>
-        <div className="flex bg-[#E4E4E4] w-12 h-10 text-black justify-center items-center font-bold text-xl">
+        <AtisModal />
+        <div className="bg-white w-20 h-12 ml-4 mr-4 justify-center items-center flex pl-4 pr-4">
           {atis.letter}
         </div>
-        <div className="flex bg-[#E4E4E4] w-32 h-10 text-black justify-center items-center font-bold text-xl ml-4">
+        <div className="bg-white w-450 h-12 ml-4 mr-4 justify-center items-center flex pl-4 pr-4 text-2xl">
           {atis.winds}
         </div>
       </div>
-      <div className="flex items-center">
-        <button className="flex bg-[#646464] border-[#E4E4E4] border-t-2 border-l-2 w-16 h-10 text-white justify-center items-center font-bold text-xl mr-1">
+      <div className="pl-2 pr-2 flex items-center text-3xl font-extrabold">
+        <button className="bg-[#646464] border-white border-2 w-fit h-12 pl-2 pr-2  ml-1 text-white">
           TRF
         </button>
-        <button className="flex bg-[#646464] border-[#E4E4E4] border-t-2 border-l-2 w-16 h-10 text-white justify-center items-center font-bold text-xl mr-1">
+        <button className="bg-[#646464] border-white border-2 w-fit h-12 pl-2 pr-2  ml-1 text-white">
           MRK
         </button>
-        <button className="flex bg-[#646464] border-[#E4E4E4] border-t-2 border-l-2 w-16 h-10 text-white justify-center items-center font-bold text-xl mr-1">
+        <button className="bg-[#646464] border-white border-2 w-fit h-12 pl-2 pr-2  ml-1 text-white">
           REQ
         </button>
-        <button className="flex bg-[#646464] border-[#E4E4E4] border-t-2 border-l-2 w-16  h-10 text-white justify-center items-center font-bold text-xl mr-2">
+        <button className="bg-[#646464] border-white border-2 w-16 h-12 pl-2 pr-2  ml-1 text-white">
           X
         </button>
-        <div className="flex bg-[#E4E4E4] w-28 h-10 text-black justify-center items-center font-bold text-md mr-2">
-          19:24:56z
+        <div className="bg-white w-44 h-12 ml-2 mr-2 justify-center items-center flex pl-4 pr-4">
+          <ZuluTime />
         </div>
       </div>
     </div>

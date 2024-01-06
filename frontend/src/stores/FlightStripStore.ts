@@ -120,17 +120,11 @@ export class FlightStripStore {
         tsat: 1200,
         ctot: 1200,
         cleared: false,
-        bay: 'none',
+        bay: this.getBay(data.callsign, false, data.origin),
         controller: null,
         nextController: null,
         sequence: 0,
       }
-      await stripsService.api.upsertStrip(data.callsign, 'EKCH', 'live', {
-        cleared: false,
-        origin: data.origin,
-        state: StripState.None,
-        destination: data.destination,
-      })
 
       this.flightStrips.push(flightstrip)
       return
@@ -157,6 +151,10 @@ export class FlightStripStore {
 
     if (upper.startsWith('SAS')) {
       return 'sas'
+    }
+
+    if (upper.startsWith('NOZ')) {
+      return 'norwegian'
     }
 
     return 'other'

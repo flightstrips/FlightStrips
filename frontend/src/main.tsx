@@ -4,7 +4,7 @@ import { HashRouter, Routes, Route } from 'react-router-dom'
 import { NextUIProvider } from '@nextui-org/react'
 import './index.css'
 
-import DEL from './EKCH/Delivery'
+import DEL from './EKCH/Delivery2'
 import GND from './EKCH/Ground'
 import TWR from './EKCH/Tower'
 import CTWR from './EKCH/CrossingTower'
@@ -17,7 +17,7 @@ ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
       <RootStoreProvider>
         <HashRouter>
           <Routes>
-            <Route path="/" element={<FIRCS />} />
+            <Route path="/" element={<DEL />} />
             <Route path="/ekch/del" element={<DEL />} />
             <Route path="/ekch/gnd" element={<GND />} />
             <Route path="/ekch/twr" element={<TWR />} />

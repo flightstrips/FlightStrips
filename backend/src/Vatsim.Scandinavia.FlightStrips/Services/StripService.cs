@@ -79,8 +79,7 @@ public class StripService : IStripService
 
     public async Task SetSequenceAsync(StripId id, int? sequence)
     {
-
-        _logger.LogInformation("Setting sequence for {Strip} to {Sequence}", id, sequence);
+        _logger.SetSequence(id, sequence);
 
         await _stripRepository.SetSequenceAsync(id, sequence);
         var strip = await _stripRepository.GetAsync(id);

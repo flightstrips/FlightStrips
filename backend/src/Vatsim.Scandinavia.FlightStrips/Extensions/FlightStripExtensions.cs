@@ -2,7 +2,6 @@
 using Vatsim.Scandinavia.FlightStrips.Abstractions.Bays;
 using Vatsim.Scandinavia.FlightStrips.Abstractions.Coordinations;
 using Vatsim.Scandinavia.FlightStrips.Abstractions.OnlinePositions;
-using Vatsim.Scandinavia.FlightStrips.Abstractions.Positions;
 using Vatsim.Scandinavia.FlightStrips.Abstractions.Strips;
 using Vatsim.Scandinavia.FlightStrips.Services;
 
@@ -14,7 +13,6 @@ public static class FlightStripExtensions
     {
         services.AddScoped<IStripService, StripService>();
         services.AddScoped<IBayService, BayService>();
-        services.AddScoped<IPositionService, PositionService>();
         services.AddScoped<IOnlinePositionService, OnlinePositionService>();
         services.AddScoped<ICoordinationService, CoordinationService>();
 

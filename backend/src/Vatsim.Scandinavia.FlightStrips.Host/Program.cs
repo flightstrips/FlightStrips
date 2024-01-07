@@ -5,7 +5,6 @@ using Microsoft.EntityFrameworkCore;
 using Vatsim.Scandinavia.FlightStrips.Abstractions;
 using Vatsim.Scandinavia.FlightStrips.Extensions;
 using Vatsim.Scandinavia.FlightStrips.Host;
-using Vatsim.Scandinavia.FlightStrips.Host.Controllers;
 using Vatsim.Scandinavia.FlightStrips.Host.Hubs;
 using Vatsim.Scandinavia.FlightStrips.Persistence.EfCore;
 
@@ -32,6 +31,7 @@ builder.Services.AddFlightStripServices();
 builder.Services.AddEfCore();
 builder.Services.AddScoped<IEventService, EventService>();
 builder.Services.AddSignalR().AddMessagePackProtocol();
+builder.Services.AddControllers();
 builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policyBuilder => policyBuilder.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod());
@@ -61,9 +61,4 @@ app.MapHub<EventHub>("/hubs/events", options =>
 });
 
 app.MapControllers();
-
-var apiGroup = app.MapGroup("api");
-
-apiGroup.MapPositions();
-
 app.Run();

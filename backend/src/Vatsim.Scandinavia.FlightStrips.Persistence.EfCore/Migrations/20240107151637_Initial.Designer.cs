@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Vatsim.Scandinavia.FlightStrips.Persistence.EfCore;
 
@@ -10,9 +11,11 @@ using Vatsim.Scandinavia.FlightStrips.Persistence.EfCore;
 namespace Vatsim.Scandinavia.FlightStrips.Persistence.EfCore.Migrations
 {
     [DbContext(typeof(FlightStripsDbContext))]
-    partial class FlightStripsDbContextModelSnapshot : ModelSnapshot
+    [Migration("20240107151637_Initial")]
+    partial class Initial
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

@@ -6,9 +6,9 @@ public class BayService : IBayService
 {
     private static readonly Bay[] s_bays =
     [
-        new Bay { Name = "OTHER", Default = BayDefaultType.Arrival },
-        new Bay { Name = "SAS", Default = BayDefaultType.Arrival, CallsignFilter = ["SAS"] },
-        new Bay { Name = "NORWEGIAN", Default = BayDefaultType.Arrival, CallsignFilter = ["IBK", "NZS", "NAX"] },
+        new Bay { Name = "OTHER", Default = BayDefaultType.Departure },
+        new Bay { Name = "SAS", Default = BayDefaultType.Departure, CallsignFilter = ["SAS"] },
+        new Bay { Name = "NORWEGIAN", Default = BayDefaultType.Departure, CallsignFilter = ["IBK", "NZS", "NAX"] },
         new Bay { Name = "STARTUP", Default = BayDefaultType.None },
         new Bay { Name = "PUSHBACK", Default = BayDefaultType.None },
         new Bay { Name = "TWY ARR", Default = BayDefaultType.None },
@@ -23,7 +23,7 @@ public class BayService : IBayService
 
     public Task<Bay?> GetAsync(string airport, string name)
     {
-        if (airport.Equals("EKCH", StringComparison.OrdinalIgnoreCase))
+        if (!airport.Equals("EKCH", StringComparison.OrdinalIgnoreCase))
         {
             return Task.FromResult<Bay?>(null);
         }
@@ -33,7 +33,7 @@ public class BayService : IBayService
 
     public Task<Bay[]> ListAsync(string airport)
     {
-        if (airport.Equals("EKCH", StringComparison.OrdinalIgnoreCase))
+        if (!airport.Equals("EKCH", StringComparison.OrdinalIgnoreCase))
         {
             return Task.FromResult(Array.Empty<Bay>());
         }
@@ -43,7 +43,7 @@ public class BayService : IBayService
 
     public Task<string?> GetDefault(string airport, string callsign, bool isDeparture)
     {
-        if (airport.Equals("EKCH", StringComparison.OrdinalIgnoreCase))
+        if (!airport.Equals("EKCH", StringComparison.OrdinalIgnoreCase))
         {
             return Task.FromResult<string?>(null);
         }

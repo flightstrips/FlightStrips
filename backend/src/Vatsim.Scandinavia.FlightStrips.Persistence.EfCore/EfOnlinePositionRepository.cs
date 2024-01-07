@@ -55,7 +55,7 @@ public class EfOnlinePositionRepository : IOnlinePositionRepository
             .Select(x => new OnlinePosition
             {
                 Id = new OnlinePositionId(x.Airport, x.Session, x.PositionName),
-                PrimaryFrequency = x.Position.Frequency
+                PrimaryFrequency = x.PositionFrequency
             })
             .ToArrayAsync();
     }

@@ -1,5 +1,4 @@
 import BayHeader from '../components/BayHeader.tsx'
-import { MSGModal } from '../components/MSGModal.tsx'
 import TestModal from '../components/TestModal.tsx'
 import { CommandBar } from '../components/commandbar.tsx'
 import { FlightStrip } from '../components/flightstrip.tsx'

@@ -9,8 +9,6 @@ import {
   StripUpdate,
 } from '../services/models.ts'
 import { signalRService } from '../services/SignalRService.ts'
-import stripsService from '../services/StripsService.ts'
-import { StripState } from '../services/api/generated/FlightStripsClient.ts'
 
 export class FlightStripStore {
   flightStrips: Flightstrip[] = []

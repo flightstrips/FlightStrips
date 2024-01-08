@@ -11,7 +11,7 @@ import {
 export const MSGModal = () => {
   const { isOpen, onOpen, onOpenChange } = useDisclosure()
 
-  function BroadcastToStation(props) {
+  function BroadcastToStation(props: { text: string }) {
     return (
       <Button radius="none" className="w-24 m-2 font-semibold">
         {props.text}
@@ -19,7 +19,7 @@ export const MSGModal = () => {
     )
   }
 
-  function PreDefMSG(props) {
+  function PreDefMSG(props: { text: string }) {
     return (
       <Button
         radius="none"

@@ -1,3 +1,4 @@
+using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Http.Connections;
@@ -25,7 +26,11 @@ builder.Services.Configure<Microsoft.AspNetCore.Mvc.JsonOptions>(options =>
 });
 
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(options =>
+{
+    var xmlFilename = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
+    options.IncludeXmlComments(Path.Combine(AppContext.BaseDirectory, xmlFilename));
+});
 builder.Services.AddAuthorization();
 builder.Services.AddFlightStripServices();
 builder.Services.AddEfCore();

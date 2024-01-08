@@ -8,10 +8,10 @@ export default function BayHeader(props: {
   return (
     <div
       className={`${
-        msg ? 'bg-[#285A5C]' : 'bg-header-grey'
-      } 'w-full h-12  text-white font-bold flex items-center justify-between'`}
+        msg ? 'bg-[#285a5c]' : 'bg-header-grey'
+      } 'w-full h-10 text-white text-xl flex items-center pl-2 pr-2 justify-between font-semibold'`}
     >
-      <p className="ml-2 text-xl uppercase">{props.title}</p>
+      <p className="uppercase">{props.title}</p>
       <div className="flex flex-row">{props.buttons}</div>
     </div>
   )

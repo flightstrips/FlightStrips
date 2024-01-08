@@ -1,8 +1,8 @@
-import { CommandBar } from '../components/commandbar'
-import { FlightStrip } from '../components/flightstrip'
-import { NewFlightBtn } from '../components/headerbuttons/newflightbtn'
-import { PlannedFlightBtn } from '../components/headerbuttons/plannedflightbtn'
-import BayHeader from '../components/BayHeader'
+import BayHeader from '../components/BayHeader.tsx'
+import { MSGModal } from '../components/MSGModal.tsx'
+import TestModal from '../components/TestModal.tsx'
+import { CommandBar } from '../components/commandbar.tsx'
+import { FlightStrip } from '../components/flightstrip.tsx'
 import { useFlightStripStore } from '../providers/RootStoreContext.ts'
 import { observer } from 'mobx-react'
 
@@ -10,47 +10,46 @@ const Delivery = observer(() => {
   const flightStripStore = useFlightStripStore()
 
   return (
-    <div className="bg-background-grey h-screen w-screen flex gap-2 justify-center">
-      <div className="w-full bg-bay-grey">
-        <BayHeader
-          title="OTHERS"
-          buttons={
-            <>
-              <NewFlightBtn />
-              <PlannedFlightBtn />
-            </>
-          }
-        />
-        {flightStripStore.inBay('other').map((item) => (
-          <FlightStrip strip={item} />
-        ))}
-      </div>
-      <div className="w-full bg-bay-grey">
-        <BayHeader title="SAS" />
-        {flightStripStore.inBay('sas').map((item) => (
-          <FlightStrip strip={item} />
-        ))}
-      </div>
-      <div className="w-full bg-bay-grey flex flex-col">
-        <div className="h-2/3">
-          <BayHeader title="Cleared" />
-          {flightStripStore.inBay('cleared').map((item) => (
-            <FlightStrip strip={item} />
-          ))}
+    <>
+      <div className="bg-[#A9A9A9] w-screen h-[calc(100vh-4rem)] flex justify-center justify-items-center shrink">
+        <div className="bg-[#555355] w-full h-auto border-r-4 border-[#a9a9a9]">
+          <BayHeader title="OTHERS" />
+          <div className="h-[calc(100%-2.5rem)] overflow-auto overflow-x-hidden">
+            {flightStripStore.inBay('other').map((item) => (
+              <FlightStrip strip={item} />
+            ))}
+            <TestModal />
+          </div>
         </div>
-        <div className="justify-self-end">
-          <BayHeader title="Messages" msg />
+        <div className="bg-[#555355] h-full w-full border-l-4 border-r-4 border-[#a9a9a9]">
+          <BayHeader title="SAS" />
+          <div className="h-[calc(60%-2.5rem)] overflow-auto overflow-x-hidden">
+            {flightStripStore.inBay('sas').map((item) => (
+              <FlightStrip strip={item} />
+            ))}
+          </div>
+          <BayHeader title="NORWEGIAN" />
+          <div className="h-[calc(40%-2.5rem)] overflow-auto overflow-x-hidden">
+            {flightStripStore.inBay('norwegian').map((item) => (
+              <FlightStrip strip={item} />
+            ))}
+          </div>
+        </div>
+        <div className="bg-[#555355] w-full h-auto border-l-4 border-r-4 border-[#a9a9a9]">
+          <BayHeader title="CLEARED" />
+          <div className="h-[calc(50%-2.5rem)] overflow-auto overflow-x-hidden"></div>
+          <BayHeader title="MESSAGES" msg />
+          <div className="h-[calc(33%-2.5rem)] overflow-auto overflow-x-hidden"></div>
+        </div>
+        <div className="bg-[#555355] w-full h-auto border-l-2 border-[#a9a9a9]">
+          <BayHeader title="PUSHBACK" />
+          <div className="h-[calc(33%-2.5rem)] overflow-auto overflow-x-hidden"></div>
+          <BayHeader title="TWY DEP" />
+          <div className="h-[calc(66%-2.5rem)] overflow-auto overflow-x-hidden"></div>
         </div>
       </div>
-      <div className="w-full bg-bay-grey">
-        <BayHeader title="Standby" />
-        {flightStripStore.inBay('standby').map((item) => (
-          <FlightStrip strip={item} />
-        ))}
-      </div>
-
       <CommandBar />
-    </div>
+    </>
   )
 })
 

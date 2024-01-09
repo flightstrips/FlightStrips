@@ -2,7 +2,7 @@ import { useState } from 'react'
 import ZuluTime from './Clock'
 
 export function CommandBar() {
-  const [runways] = useState({ dep: '22R', arr: '22L' })
+  //const [runways] = useState({ dep: '22R', arr: '22L' })
   const [atis] = useState({
     qnh: 1015,
     letter: 'L',

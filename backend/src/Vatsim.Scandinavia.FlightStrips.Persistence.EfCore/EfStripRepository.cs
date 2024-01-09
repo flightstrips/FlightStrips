@@ -16,14 +16,18 @@ public class EfStripRepository : IStripRepository
 
     public async Task<bool> UpsertAsync(StripUpsertRequest upsertRequest)
     {
-        var entity = await _context.Strips.FirstOrDefaultAsync(x => x.Callsign == upsertRequest.Callsign);
+        var id = upsertRequest.Id;
+        var entity = await _context.Strips.FirstOrDefaultAsync(x =>
+            x.Airport == id.Airport && x.Session == id.Session && x.Callsign == id.Callsign);
         var created = entity is null;
 
         if (entity is null)
         {
             entity = new StripEntity
             {
-                Callsign = upsertRequest.Callsign,
+                Airport = id.Airport,
+                Session = id.Session,
+                Callsign = id.Callsign,
                 BayName = upsertRequest.Bay!
             };
             _context.Add(entity);
@@ -40,16 +44,17 @@ public class EfStripRepository : IStripRepository
 
     }
 
-    public Task DeleteAsync(string callsign)
+    public Task DeleteAsync(StripId id)
     {
         return _context.Strips
-            .Where(x => x.Callsign == callsign)
+            .Where(x => x.Airport == id.Airport && x.Session == id.Session && x.Callsign == id.Callsign)
             .ExecuteDeleteAsync();
     }
 
-    public async Task<Strip?> GetAsync(string callsign)
+    public async Task<Strip?> GetAsync(StripId id)
     {
-        var entity = await _context.Strips.FirstOrDefaultAsync(x => x.Callsign == callsign);
+        var entity = await _context.Strips.FirstOrDefaultAsync(x =>
+            x.Airport == id.Airport && x.Session == id.Session && x.Callsign == id.Callsign);
 
         if (entity is null)
         {
@@ -58,7 +63,7 @@ public class EfStripRepository : IStripRepository
 
         return new Strip
         {
-            Callsign = entity.Callsign,
+            Id = new StripId(entity.Airport, entity.Session, entity.Callsign),
             Destination = entity.Destination,
             Origin = entity.Origin,
             State = entity.State,
@@ -70,14 +75,16 @@ public class EfStripRepository : IStripRepository
         };
     }
 
-    public async Task SetSequenceAsync(string callsign, int? sequence)
+    public async Task SetSequenceAsync(StripId id, int? sequence)
     {
-        var current = await _context.Strips.Where(x => x.Callsign == callsign).Select(x => new {x.Sequence})
+        var current = await _context.Strips
+            .Where(x => x.Airport == id.Airport && x.Session == id.Session && x.Callsign == id.Callsign)
+            .Select(x => new { x.Sequence })
             .FirstOrDefaultAsync();
 
         if (current is null)
         {
-            throw new InvalidOperationException($"Strip with callsign {callsign} not found.");
+            throw new InvalidOperationException($"Strip with id {id} not found.");
         }
 
         if (current.Sequence == sequence)
@@ -87,29 +94,37 @@ public class EfStripRepository : IStripRepository
 
         if (current.Sequence is null && sequence.HasValue)
         {
-            await _context.Strips.Where(x => x.Sequence >= sequence).ExecuteUpdateAsync(x =>
-                x.SetProperty(entity => entity.Sequence, entity => entity.Sequence + 1));
+            await _context.Strips
+                .Where(x => x.Airport == id.Airport && x.Session == id.Session && x.Sequence >= sequence)
+                .ExecuteUpdateAsync(x =>
+                    x.SetProperty(entity => entity.Sequence, entity => entity.Sequence + 1));
         }
 
         if (current.Sequence < sequence)
         {
-            await _context.Strips.Where(x => x.Sequence > current.Sequence && x.Sequence <= sequence)
+            await _context.Strips.Where(x =>
+                    x.Airport == id.Airport && x.Session == id.Session && x.Sequence > current.Sequence &&
+                    x.Sequence <= sequence)
                 .ExecuteUpdateAsync(x => x.SetProperty(entity => entity.Sequence, entity => entity.Sequence - 1));
         }
 
         if (current.Sequence > sequence)
         {
-            await _context.Strips.Where(x => x.Sequence <= current.Sequence && x.Sequence > sequence)
+            await _context.Strips.Where(x =>
+                    x.Airport == id.Airport && x.Session == id.Session && x.Sequence <= current.Sequence &&
+                    x.Sequence > sequence)
                 .ExecuteUpdateAsync(x => x.SetProperty(entity => entity.Sequence, entity => entity.Sequence + 1));
         }
 
-        await _context.Strips.Where(x => x.Callsign == callsign)
+        await _context.Strips
+            .Where(x => x.Airport == id.Airport && x.Session == id.Session && x.Callsign == id.Callsign)
             .ExecuteUpdateAsync(x => x.SetProperty(entity => entity.Sequence, sequence));
     }
 
-    public async Task SetBayAsync(string callsign, string bayName)
+    public async Task SetBayAsync(StripId id, string bayName)
     {
-        var count = await _context.Strips.Where(x => x.Callsign == callsign)
+        var count = await _context.Strips
+            .Where(x => x.Airport == id.Airport && x.Session == id.Session && x.Callsign == id.Callsign)
             .ExecuteUpdateAsync(x => x.SetProperty(strip => strip.BayName, bayName));
 
         if (count != 1)
@@ -118,9 +133,10 @@ public class EfStripRepository : IStripRepository
         }
     }
 
-    public async Task SetPositionFrequencyAsync(string callsign, string frequency)
+    public async Task SetPositionFrequencyAsync(StripId id, string frequency)
     {
-        var count = await _context.Strips.Where(x => x.Callsign == callsign)
+        var count = await _context.Strips
+            .Where(x => x.Airport == id.Airport && x.Session == id.Session && x.Callsign == id.Callsign)
             .ExecuteUpdateAsync(x => x.SetProperty(strip => strip.PositionFrequency, frequency));
 
         if (count != 1)

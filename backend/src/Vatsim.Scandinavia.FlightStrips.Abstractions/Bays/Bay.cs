@@ -8,8 +8,15 @@ public class Bay
     public required string Name { get; set; }
 
     [Required]
-    public bool Default { get; set; }
+    public BayDefaultType Default { get; set; }
 
     [Required]
     public string[] CallsignFilter { get; set; } = Array.Empty<string>();
+}
+
+public enum BayDefaultType
+{
+    Arrival,
+    Departure,
+    None
 }

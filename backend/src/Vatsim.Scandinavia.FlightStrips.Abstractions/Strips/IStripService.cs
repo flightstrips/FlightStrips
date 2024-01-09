@@ -3,9 +3,9 @@
 public interface IStripService
 {
     Task<bool> UpsertStripAsync(StripUpsertRequest upsertRequest);
-    Task DeleteStripAsync(string callsign);
-    Task<Strip?> GetStripAsync(string callsign);
-    Task SetSequenceAsync(string callsign, int? sequence);
-    Task SetBayAsync(string callsign, string bayName);
-    Task AssumeAsync(string callsign, string frequency);
+    Task DeleteStripAsync(StripId id);
+    Task<Strip?> GetStripAsync(StripId id);
+    Task SetSequenceAsync(StripId id, int? sequence);
+    Task SetBayAsync(StripId id, string bayName);
+    Task AssumeAsync(StripId id, string frequency);
 }

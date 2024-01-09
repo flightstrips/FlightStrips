@@ -2,7 +2,7 @@
 
 public readonly record struct StripId
 {
-    public StripId(string Session, string Airport, string Callsign)
+    public StripId(string Airport, string Session, string Callsign)
     {
         this.Session = Session.ToUpperInvariant();
         this.Airport = Airport.ToUpperInvariant();

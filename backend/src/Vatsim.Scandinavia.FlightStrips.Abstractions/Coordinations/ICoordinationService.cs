@@ -2,10 +2,10 @@
 
 public interface ICoordinationService
 {
-    Task<Coordination[]> ListForFrequencyAsync(string frequency);
-    Task<Coordination?> GetForCallsignAsync(string callsign);
-    Task<Coordination?> GetAsync(int id);
-    Task AcceptAsync(int id, string frequency);
-    Task RejectAsync(int id, string frequency);
+    Task<Coordination[]> ListForFrequencyAsync(SessionId session, string frequency);
+    Task<Coordination?> GetForCallsignAsync(SessionId session, string callsign);
+    Task<Coordination?> GetAsync(CoordinationId id);
+    Task AcceptAsync(CoordinationId id, string frequency);
+    Task RejectAsync(CoordinationId id, string frequency);
     Task<int> CreateAsync(Coordination coordination);
 }

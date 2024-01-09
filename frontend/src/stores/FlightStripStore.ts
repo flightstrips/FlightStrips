@@ -9,8 +9,6 @@ import {
   StripUpdate,
 } from '../services/models.ts'
 import { signalRService } from '../services/SignalRService.ts'
-import stripsService from '../services/StripsService.ts'
-import { StripState } from '../services/api/generated/FlightStripsClient.ts'
 
 export class FlightStripStore {
   flightStrips: Flightstrip[] = []
@@ -22,10 +20,11 @@ export class FlightStripStore {
       flightStrips: observable,
       updateFlightPlanData: action,
       setCleared: action,
+      handleStripUpdate: action,
     })
 
     signalRService.on('CoordinationUpdate', this.handleCoordinationUpdate)
-    signalRService.on('StripUpdate', this.handleStripUpdate)
+    signalRService.on('ReceiveStripUpdate', this.handleStripUpdate)
   }
 
   public setCleared(callsign: string, cleared: boolean) {
@@ -38,7 +37,7 @@ export class FlightStripStore {
     flightstrip.cleared = cleared
   }
 
-  public handleCoordinationUpdate(update: CoordinationUpdate) {
+  public handleCoordinationUpdate = (update: CoordinationUpdate) => {
     const index = this.flightStrips.findIndex(
       (strip) => strip.callsign === update.callsign,
     )
@@ -70,30 +69,30 @@ export class FlightStripStore {
     }
   }
 
-  public handleStripUpdate(update: StripUpdate) {
-    const index = this.flightStrips.findIndex(
+  public handleStripUpdate = (update: StripUpdate) => {
+    const strip = this.flightStrips.find(
       (strip) => strip.callsign === update.callsign,
     )
 
-    switch (update.state) {
+    if (!strip) {
+      console.log(`Did not find strip ${update.callsign}!`)
+      return
+    }
+
+    console.log(`Found strip ${update.callsign}: ${JSON.stringify(update)}!`)
+
+    switch (update.eventState) {
       case StripStateEvent.Created:
       case StripStateEvent.Updated:
-        if (index !== -1) {
-          this.flightStrips[index] = {
-            ...this.flightStrips[index],
-            bay: update.bay,
-            cleared: update.cleared,
-            controller: update.positionFrequency,
-            sequence: update.sequence,
-          }
-        }
+        strip.bay = update.bay.toLowerCase()
+        strip.cleared = update.cleared
+        strip.controller = update.positionFrequency
+        strip.sequence = update.sequence
         break
 
       case StripStateEvent.Deleted:
         // Remove a flight strip
-        if (index !== -1) {
-          this.flightStrips.splice(index, 1)
-        }
+        //this.flightStrips./
         break
     }
   }
@@ -126,7 +125,6 @@ export class FlightStripStore {
         sequence: 0,
       }
 
-      this.flightStrips.push(flightstrip)
       return
     }
 

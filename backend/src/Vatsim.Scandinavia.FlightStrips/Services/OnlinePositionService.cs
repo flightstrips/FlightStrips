@@ -14,25 +14,27 @@ public class OnlinePositionService : IOnlinePositionService
         _eventService = eventService;
     }
 
-    public async Task CreateAsync(string controllerId, string frequency)
+    public async Task CreateAsync(OnlinePositionId id, string frequency)
     {
-        await _repository.AddAsync(new OnlinePositionAddRequest(controllerId, frequency));
+        await _repository.AddAsync(new OnlinePositionAddRequest(id, frequency));
         await _eventService.ControllerOnlineAsync(new OnlinePosition
         {
-            PositionId = controllerId, PrimaryFrequency = frequency
+            Id = id,
+            PrimaryFrequency = frequency
         });
     }
 
-    public async Task DeleteAsync(string controllerId)
+    public async Task DeleteAsync(OnlinePositionId id)
     {
-        var position = await _repository.GetAsync(controllerId);
+        var position = await _repository.GetAsync(id);
         if (position is null)
         {
             return;
         }
-        await _repository.DeleteAsync(controllerId);
+        await _repository.DeleteAsync(id);
         await _eventService.ControllerOfflineAsync(position);
     }
 
-    public Task<OnlinePosition[]> ListAsync() => _repository.ListAsync();
+    public Task<OnlinePosition[]> ListAsync(string airport, string session) =>
+        _repository.ListAsync(airport.ToUpperInvariant(), session.ToUpperInvariant());
 }

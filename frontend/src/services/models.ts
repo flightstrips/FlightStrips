@@ -45,6 +45,7 @@ export interface StripUpdate {
   cleared: boolean
   positionFrequency: string | null
   bay: string
+  eventState: StripStateEvent
 }
 
 export interface SubscribeRequest {

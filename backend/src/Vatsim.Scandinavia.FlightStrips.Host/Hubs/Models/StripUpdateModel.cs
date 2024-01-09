@@ -8,6 +8,7 @@ public class StripUpdateModel
     public string? Destination { get; set; }
     public int? Sequence { get; set; }
     public Abstractions.Enums.StripState State { get; set; }
+    public StripState EventState { get; set; }
     public bool Cleared { get; set; }
 
     public string? PositionFrequency { get; set; }

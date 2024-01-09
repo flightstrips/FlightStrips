@@ -1,9 +1,7 @@
 import {
   Modal,
   ModalContent,
-  ModalHeader,
   ModalBody,
-  ModalFooter,
   Button,
   useDisclosure,
   Input,
@@ -12,6 +10,7 @@ import {
 import Flightstrip from '../data/interfaces/flightstrip'
 import { SIDButton } from './CLX/SIDButton'
 
+// eslint-disable-next-line react-refresh/only-export-components
 export default function CLX(props: {
   destinationICAO: string
   stand: string | null
@@ -76,7 +75,9 @@ export default function CLX(props: {
                         value=" "
                       />
                       <div className="flex flex-col">
-                        <p className="pl-1 pr-1 pt-1 -mt-1 pb-1 text-sm">Route</p>
+                        <p className="pl-1 pr-1 pt-1 -mt-1 pb-1 text-sm">
+                          Route
+                        </p>
                         <SIDButton SID="SIMEG 8C"></SIDButton>
                       </div>
 

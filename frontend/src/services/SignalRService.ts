@@ -16,7 +16,7 @@ export class SignalRService {
 
     this.connection
       .start()
-      .then((_) =>
+      .then(() =>
         this.connection.invoke('subscribe', {
           Airport: 'EKCH',
           Session: 'live',
@@ -26,11 +26,11 @@ export class SignalRService {
       .catch((err) => console.error('SignalR Connection Error: ', err))
   }
 
-  public on(eventName: string, callback: (...args: any[]) => void) {
+  public on(eventName: string, callback: (...args: unknown[]) => void) {
     this.connection.on(eventName, callback)
   }
 
-  public off(eventName: string, callback: (...args: any[]) => void) {
+  public off(eventName: string, callback: (...args: unknown[]) => void) {
     this.connection.off(eventName, callback)
   }
 }

@@ -1,3 +1,4 @@
+// eslint-disable-next-line react-refresh/only-export-components
 export function DESSTD(props: any) {
   return (
     <div className="flex font-bold items-center w-20 border-2 border-[#85B4AF] flex-col">

@@ -122,7 +122,8 @@ export class FlightStripStore {
         bay: this.getBay(data.callsign, false, data.origin),
         controller: null,
         nextController: null,
-        sequence: 0,
+        sequence: null,
+        route: data.route,
       }
       this.flightStrips.push(flightstrip)
 

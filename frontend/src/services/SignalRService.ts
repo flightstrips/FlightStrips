@@ -26,11 +26,13 @@ export class SignalRService {
       .catch((err) => console.error('SignalR Connection Error: ', err))
   }
 
-  public on(eventName: string, callback: (...args: unknown[]) => void) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  public on(eventName: string, callback: (...args: any[]) => void) {
     this.connection.on(eventName, callback)
   }
 
-  public off(eventName: string, callback: (...args: unknown[]) => void) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  public off(eventName: string, callback: (...args: any[]) => void) {
     this.connection.off(eventName, callback)
   }
 }

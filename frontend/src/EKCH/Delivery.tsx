@@ -1,6 +1,4 @@
 import BayHeader from '../components/BayHeader.tsx'
-import { MSGModal } from '../components/MSGModal.tsx'
-import TestModal from '../components/TestModal.tsx'
 import { CommandBar } from '../components/commandbar.tsx'
 import { FlightStrip } from '../components/flightstrip.tsx'
 import { useFlightStripStore } from '../providers/RootStoreContext.ts'
@@ -18,7 +16,6 @@ const Delivery = observer(() => {
             {flightStripStore.inBay('other').map((item) => (
               <FlightStrip strip={item} />
             ))}
-            <TestModal />
           </div>
         </div>
         <div className="bg-[#555355] h-full w-full border-l-4 border-r-4 border-[#a9a9a9]">

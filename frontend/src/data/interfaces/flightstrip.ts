@@ -18,6 +18,7 @@ interface Flightstrip {
   controller: string | null
   nextController: string | null
   sequence: number | null
+  route: string | null
 }
 
 export default Flightstrip

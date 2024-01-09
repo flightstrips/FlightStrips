@@ -43,11 +43,21 @@ export function AtisModal() {
                 </div>
               </ModalBody>
               <ModalFooter>
-                <Button color="danger" variant="light" onPress={onClose}>
-                  Close
+                <Button
+                  radius="none"
+                  size="lg"
+                  className="text-xl bg-[#3F3F3F] text-white m-4"
+                  onPress={onClose}
+                >
+                  ESC
                 </Button>
-                <Button color="primary" onPress={onClose}>
-                  Action
+                <Button
+                  radius="none"
+                  size="lg"
+                  className="text-xl bg-[#3F3F3F] text-white m-4"
+                  onPress={onClose}
+                >
+                  SEARCH
                 </Button>
               </ModalFooter>
             </>

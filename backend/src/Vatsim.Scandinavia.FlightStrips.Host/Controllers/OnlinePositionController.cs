@@ -21,7 +21,7 @@ public class OnlinePositionController(IOnlinePositionService onlinePositionServi
     }
 
     [HttpGet]
-    [ProducesResponseType(typeof(OnlinePosition[]), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(OnlinePositionResponseModel[]), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> ListAsync([Airport] string airport, string session)
     {

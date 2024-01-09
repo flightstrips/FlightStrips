@@ -20,11 +20,17 @@ export interface AcceptCoordinationRequestModel {
 export interface Bay {
   /** @minLength 1 */
   name: string
-  default: boolean
+  default: BayDefaultType
   callsignFilter: string[]
 }
 
-export interface Coordination {
+export enum BayDefaultType {
+  Arrival = 'Arrival',
+  Departure = 'Departure',
+  None = 'None',
+}
+
+export interface CoordinationResponseModel {
   /** @format int32 */
   id: number
   state: CoordinationState
@@ -40,24 +46,6 @@ export enum CoordinationState {
   Transfer = 'Transfer',
 }
 
-export interface HttpValidationProblemDetails {
-  type?: string | null
-  title?: string | null
-  /** @format int32 */
-  status?: number | null
-  detail?: string | null
-  instance?: string | null
-  errors?: Record<string, string[]>
-  [key: string]: any
-}
-
-export interface OnlinePosition {
-  /** @minLength 1 */
-  positionId: string
-  /** @minLength 1 */
-  primaryFrequency: string
-}
-
 export interface OnlinePositionCreateRequestModel {
   /**
    * @minLength 1
@@ -66,9 +54,19 @@ export interface OnlinePositionCreateRequestModel {
   frequency: string
 }
 
-export interface Position {
-  name?: string | null
+export interface OnlinePositionResponseModel {
+  position?: string | null
   frequency?: string | null
+}
+
+export interface ProblemDetails {
+  type?: string | null
+  title?: string | null
+  /** @format int32 */
+  status?: number | null
+  detail?: string | null
+  instance?: string | null
+  [key: string]: any
 }
 
 export interface RejectCoordinationRequestModel {
@@ -77,22 +75,6 @@ export interface RejectCoordinationRequestModel {
    * @pattern ^\d{3}\.\d{3}$
    */
   frequency: string
-}
-
-export interface Strip {
-  /** @minLength 1 */
-  callsign: string
-  origin?: string | null
-  destination?: string | null
-  /** @format int32 */
-  sequence?: number | null
-  state?: StripState
-  cleared?: boolean
-  positionFrequency?: string | null
-  /** @minLength 1 */
-  bay: string
-  /** @format date-time */
-  lastUpdated: string
 }
 
 export interface StripAssumeRequestModel {
@@ -106,6 +88,19 @@ export interface StripMoveRequestModel {
   bay: string
   /** @format int32 */
   sequence?: number | null
+}
+
+export interface StripResponseModel {
+  /** @minLength 1 */
+  callsign: string
+  origin?: string | null
+  destination?: string | null
+  /** @format int32 */
+  sequence?: number | null
+  cleared?: boolean
+  controller?: string | null
+  /** @minLength 1 */
+  bay: string
 }
 
 export enum StripState {
@@ -132,24 +127,32 @@ export interface StripTransferRequestModel {
   toFrequency: string
 }
 
-export interface UpsertBayRequestModel {
-  default: boolean
-  callsignFilter?: string[] | null
-}
-
-export interface UpsertPositionRequestModel {
-  /**
-   * @minLength 1
-   * @maxLength 50
-   */
-  name: string
-}
-
 export interface UpsertStripRequestModel {
+  /**
+   * Origin
+   * @pattern ^[A-z]{4}$
+   * @example "EKCH"
+   */
   origin?: string | null
+  /**
+   * Destination
+   * @pattern ^[A-z]{4}$
+   * @example "EKCH"
+   */
   destination?: string | null
   state?: StripState
   cleared?: boolean
+}
+
+export interface ValidationProblemDetails {
+  type?: string | null
+  title?: string | null
+  /** @format int32 */
+  status?: number | null
+  detail?: string | null
+  instance?: string | null
+  errors?: Record<string, string[]>
+  [key: string]: any
 }
 
 export type QueryParamsType = Record<string | number, any>
@@ -411,92 +414,55 @@ export class Api<
     /**
      * No description
      *
-     * @tags Bays
-     * @name UpsertBay
-     * @summary Create or update bay
-     * @request PUT:/api/{airport}/bays/{name}
-     */
-    upsertBay: (
-      name: string,
-      airport: string,
-      data: UpsertBayRequestModel,
-      params: RequestParams = {},
-    ) =>
-      this.request<void, any>({
-        path: `/api/${airport}/bays/${name}`,
-        method: 'PUT',
-        body: data,
-        type: ContentType.Json,
-        ...params,
-      }),
-
-    /**
-     * No description
-     *
-     * @tags Bays
-     * @name DeleteBay
-     * @summary Delete bay.
-     * @request DELETE:/api/{airport}/bays/{name}
-     */
-    deleteBay: (name: string, airport: string, params: RequestParams = {}) =>
-      this.request<void, any>({
-        path: `/api/${airport}/bays/${name}`,
-        method: 'DELETE',
-        ...params,
-      }),
-
-    /**
-     * No description
-     *
-     * @tags Bays
-     * @name ListBays
-     * @summary Retrieve bays
+     * @tags Bay
+     * @name BaysDetail
      * @request GET:/api/{airport}/bays
      */
-    listBays: (airport: string, params: RequestParams = {}) =>
+    baysDetail: (airport: string, params: RequestParams = {}) =>
       this.request<Bay[], any>({
         path: `/api/${airport}/bays`,
         method: 'GET',
         format: 'json',
         ...params,
       }),
-
+  }
+  airport = {
     /**
-     * @description List coordination ongoing for frequency
+     * No description
      *
      * @tags Coordination
-     * @name ListCoordination
-     * @request GET:/api/{airport}/{session}/coordination/{frequency}
+     * @name CoordinationDetail
+     * @request GET:/{airport}/{session}/coordination/{frequency}
      */
-    listCoordination: (
-      frequency: string,
+    coordinationDetail: (
       airport: string,
       session: string,
+      frequency: string,
       params: RequestParams = {},
     ) =>
-      this.request<Coordination[], HttpValidationProblemDetails>({
-        path: `/api/${airport}/${session}/coordination/${frequency}`,
+      this.request<CoordinationResponseModel[], ValidationProblemDetails>({
+        path: `/${airport}/${session}/coordination/${frequency}`,
         method: 'GET',
         format: 'json',
         ...params,
       }),
 
     /**
-     * @description Accept coordination
+     * No description
      *
      * @tags Coordination
-     * @name AcceptCoordination
-     * @request POST:/api/{airport}/{session}/coordination/{id}/accept
+     * @name AcceptCreate
+     * @request POST:/{airport}/{session}/coordination/{id}/accept
      */
-    acceptCoordination: (
-      id: number,
+    acceptCreate: (
       airport: string,
       session: string,
+      id: number,
       data: AcceptCoordinationRequestModel,
       params: RequestParams = {},
     ) =>
-      this.request<void, HttpValidationProblemDetails | void>({
-        path: `/api/${airport}/${session}/coordination/${id}/accept`,
+      this.request<void, ValidationProblemDetails | ProblemDetails>({
+        path: `/${airport}/${session}/coordination/${id}/accept`,
         method: 'POST',
         body: data,
         type: ContentType.Json,
@@ -504,21 +470,21 @@ export class Api<
       }),
 
     /**
-     * @description Reject coordination
+     * No description
      *
      * @tags Coordination
-     * @name RejectCoordination
-     * @request POST:/api/{airport}/{session}/coordination/{id}/reject
+     * @name RejectCreate
+     * @request POST:/{airport}/{session}/coordination/{id}/reject
      */
-    rejectCoordination: (
-      id: number,
+    rejectCreate: (
       airport: string,
       session: string,
+      id: number,
       data: RejectCoordinationRequestModel,
       params: RequestParams = {},
     ) =>
-      this.request<void, HttpValidationProblemDetails | void>({
-        path: `/api/${airport}/${session}/coordination/${id}/reject`,
+      this.request<void, ValidationProblemDetails | ProblemDetails>({
+        path: `/${airport}/${session}/coordination/${id}/reject`,
         method: 'POST',
         body: data,
         type: ContentType.Json,
@@ -528,19 +494,19 @@ export class Api<
     /**
      * No description
      *
-     * @tags Online Positions
-     * @name CreateOnlinePosition
-     * @request POST:/api/{airport}/{session}/online-positions/{id}
+     * @tags OnlinePosition
+     * @name OnlinePositionsCreate
+     * @request POST:/{airport}/{session}/online-positions/{id}
      */
-    createOnlinePosition: (
-      id: string,
+    onlinePositionsCreate: (
       airport: string,
       session: string,
+      id: string,
       data: OnlinePositionCreateRequestModel,
       params: RequestParams = {},
     ) =>
-      this.request<void, HttpValidationProblemDetails>({
-        path: `/api/${airport}/${session}/online-positions/${id}`,
+      this.request<void, ValidationProblemDetails>({
+        path: `/${airport}/${session}/online-positions/${id}`,
         method: 'POST',
         body: data,
         type: ContentType.Json,
@@ -550,18 +516,18 @@ export class Api<
     /**
      * No description
      *
-     * @tags Online Positions
-     * @name DeleteOnlinePosition
-     * @request DELETE:/api/{airport}/{session}/online-positions/{id}
+     * @tags OnlinePosition
+     * @name OnlinePositionsDelete
+     * @request DELETE:/{airport}/{session}/online-positions/{id}
      */
-    deleteOnlinePosition: (
+    onlinePositionsDelete: (
+      airport: string,
+      session: string,
       id: string,
-      airport: string,
-      session: string,
       params: RequestParams = {},
     ) =>
-      this.request<void, HttpValidationProblemDetails>({
-        path: `/api/${airport}/${session}/online-positions/${id}`,
+      this.request<void, ValidationProblemDetails>({
+        path: `/${airport}/${session}/online-positions/${id}`,
         method: 'DELETE',
         ...params,
       }),
@@ -569,17 +535,17 @@ export class Api<
     /**
      * No description
      *
-     * @tags Online Positions
-     * @name ListOnlinePositions
-     * @request GET:/api/{airport}/{session}/online-positions
+     * @tags OnlinePosition
+     * @name OnlinePositionsDetail
+     * @request GET:/{airport}/{session}/online-positions
      */
-    listOnlinePositions: (
+    onlinePositionsDetail: (
       airport: string,
       session: string,
       params: RequestParams = {},
     ) =>
-      this.request<OnlinePosition[], HttpValidationProblemDetails>({
-        path: `/api/${airport}/${session}/online-positions`,
+      this.request<OnlinePositionResponseModel[], ValidationProblemDetails>({
+        path: `/${airport}/${session}/online-positions`,
         method: 'GET',
         format: 'json',
         ...params,
@@ -588,98 +554,39 @@ export class Api<
     /**
      * No description
      *
-     * @tags Positions
-     * @name UpsertPosition
-     * @summary Create or update position
-     * @request PUT:/api/{airport}/positions/{frequency}
+     * @tags Strip
+     * @name StripsDetail
+     * @request GET:/{airport}/{session}/strips/{callsign}
      */
-    upsertPosition: (
-      frequency: string,
+    stripsDetail: (
       airport: string,
-      data: UpsertPositionRequestModel,
-      params: RequestParams = {},
-    ) =>
-      this.request<void, HttpValidationProblemDetails>({
-        path: `/api/${airport}/positions/${frequency}`,
-        method: 'PUT',
-        body: data,
-        type: ContentType.Json,
-        ...params,
-      }),
-
-    /**
-     * No description
-     *
-     * @tags Positions
-     * @name DeletePosition
-     * @summary Delete position
-     * @request DELETE:/api/{airport}/positions/{frequency}
-     */
-    deletePosition: (
-      frequency: string,
-      airport: string,
-      params: RequestParams = {},
-    ) =>
-      this.request<void, HttpValidationProblemDetails>({
-        path: `/api/${airport}/positions/${frequency}`,
-        method: 'DELETE',
-        ...params,
-      }),
-
-    /**
-     * No description
-     *
-     * @tags Positions
-     * @name ListPositions
-     * @summary List positions
-     * @request GET:/api/{airport}/positions
-     */
-    listPositions: (airport: string, params: RequestParams = {}) =>
-      this.request<Position[], any>({
-        path: `/api/${airport}/positions`,
-        method: 'GET',
-        format: 'json',
-        ...params,
-      }),
-
-    /**
-     * No description
-     *
-     * @tags Strips
-     * @name GetStrip
-     * @summary Gets a strip from identifier.
-     * @request GET:/api/{airport}/{session}/strips/{callsign}
-     */
-    getStrip: (
+      session: string,
       callsign: string,
-      airport: string,
-      session: string,
       params: RequestParams = {},
     ) =>
-      this.request<Strip, HttpValidationProblemDetails>({
-        path: `/api/${airport}/${session}/strips/${callsign}`,
+      this.request<StripResponseModel, ProblemDetails>({
+        path: `/${airport}/${session}/strips/${callsign}`,
         method: 'GET',
         format: 'json',
         ...params,
       }),
 
     /**
-     * @description Create strip if it does not exist, otherwise update
+     * No description
      *
-     * @tags Strips
-     * @name UpsertStrip
-     * @summary Upsert strip
-     * @request POST:/api/{airport}/{session}/strips/{callsign}
+     * @tags Strip
+     * @name StripsCreate
+     * @request POST:/{airport}/{session}/strips/{callsign}
      */
-    upsertStrip: (
-      callsign: string,
+    stripsCreate: (
       airport: string,
       session: string,
+      callsign: string,
       data: UpsertStripRequestModel,
       params: RequestParams = {},
     ) =>
-      this.request<void, HttpValidationProblemDetails>({
-        path: `/api/${airport}/${session}/strips/${callsign}`,
+      this.request<void, any>({
+        path: `/${airport}/${session}/strips/${callsign}`,
         method: 'POST',
         body: data,
         type: ContentType.Json,
@@ -689,20 +596,19 @@ export class Api<
     /**
      * No description
      *
-     * @tags Strips
-     * @name MoveStrip
-     * @summary Move strip to bay and set sequence
-     * @request POST:/api/{airport}/{session}/strips/{callsign}/move
+     * @tags Strip
+     * @name MoveCreate
+     * @request POST:/{airport}/{session}/strips/{callsign}/move
      */
-    moveStrip: (
-      callsign: string,
+    moveCreate: (
       airport: string,
       session: string,
+      callsign: string,
       data: StripMoveRequestModel,
       params: RequestParams = {},
     ) =>
-      this.request<void, HttpValidationProblemDetails>({
-        path: `/api/${airport}/${session}/strips/${callsign}/move`,
+      this.request<void, ProblemDetails>({
+        path: `/${airport}/${session}/strips/${callsign}/move`,
         method: 'POST',
         body: data,
         type: ContentType.Json,
@@ -710,21 +616,21 @@ export class Api<
       }),
 
     /**
-     * @description Assume a strip.
+     * No description
      *
-     * @tags Strips
-     * @name AssumeStrip
-     * @request POST:/api/{airport}/{session}/strips/{callsign}/assume
+     * @tags Strip
+     * @name AssumeCreate
+     * @request POST:/{airport}/{session}/strips/{callsign}/assume
      */
-    assumeStrip: (
-      callsign: string,
+    assumeCreate: (
       airport: string,
       session: string,
+      callsign: string,
       data: StripAssumeRequestModel,
       params: RequestParams = {},
     ) =>
-      this.request<void, HttpValidationProblemDetails | void>({
-        path: `/api/${airport}/${session}/strips/${callsign}/assume`,
+      this.request<void, ProblemDetails>({
+        path: `/${airport}/${session}/strips/${callsign}/assume`,
         method: 'POST',
         body: data,
         type: ContentType.Json,
@@ -732,21 +638,21 @@ export class Api<
       }),
 
     /**
-     * @description Transfer a strip
+     * No description
      *
-     * @tags Strips
-     * @name TransferStrip
-     * @request POST:/api/{airport}/{session}/strips/{callsign}/transfer
+     * @tags Strip
+     * @name TransferCreate
+     * @request POST:/{airport}/{session}/strips/{callsign}/transfer
      */
-    transferStrip: (
-      callsign: string,
+    transferCreate: (
       airport: string,
       session: string,
+      callsign: string,
       data: StripTransferRequestModel,
       params: RequestParams = {},
     ) =>
-      this.request<Coordination, HttpValidationProblemDetails | void>({
-        path: `/api/${airport}/${session}/strips/${callsign}/transfer`,
+      this.request<CoordinationResponseModel, ProblemDetails>({
+        path: `/${airport}/${session}/strips/${callsign}/transfer`,
         method: 'POST',
         body: data,
         type: ContentType.Json,

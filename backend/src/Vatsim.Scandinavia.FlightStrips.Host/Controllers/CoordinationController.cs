@@ -2,6 +2,7 @@
 using Vatsim.Scandinavia.FlightStrips.Abstractions;
 using Vatsim.Scandinavia.FlightStrips.Abstractions.Coordinations;
 using Vatsim.Scandinavia.FlightStrips.Host.Attributes;
+using Vatsim.Scandinavia.FlightStrips.Host.Mappers;
 using Vatsim.Scandinavia.FlightStrips.Host.Models;
 
 namespace Vatsim.Scandinavia.FlightStrips.Host.Controllers;
@@ -26,7 +27,7 @@ public class CoordinationController : ControllerBase
     {
         var sessionId = new SessionId(airport, session);
         var coordinations = await _coordinationService.ListForFrequencyAsync(sessionId, frequency);
-        var models = coordinations.Select(Map).ToArray();
+        var models = coordinations.Select(CoordinationMapper.Map).ToArray();
         return Ok(models);
     }
 
@@ -74,17 +75,5 @@ public class CoordinationController : ControllerBase
 
         await _coordinationService.RejectAsync(coordinationId, request.Frequency);
         return NoContent();
-    }
-
-    private static CoordinationResponseModel Map(Coordination coordination)
-    {
-        return new CoordinationResponseModel
-        {
-            Callsign = coordination.StripId.Callsign,
-            FromFrequency = coordination.FromFrequency,
-            ToFrequency = coordination.ToFrequency,
-            State = coordination.State,
-            Id = coordination.Id
-        };
     }
 }

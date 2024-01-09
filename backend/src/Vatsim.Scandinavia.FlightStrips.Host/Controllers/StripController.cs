@@ -4,6 +4,7 @@ using Vatsim.Scandinavia.FlightStrips.Abstractions.Coordinations;
 using Vatsim.Scandinavia.FlightStrips.Abstractions.Strips;
 using Vatsim.Scandinavia.FlightStrips.Host.Attributes;
 using Vatsim.Scandinavia.FlightStrips.Host.Hubs.Models;
+using Vatsim.Scandinavia.FlightStrips.Host.Mappers;
 using Vatsim.Scandinavia.FlightStrips.Host.Models;
 using CoordinationState = Vatsim.Scandinavia.FlightStrips.Abstractions.Coordinations.CoordinationState;
 
@@ -105,7 +106,7 @@ public class StripController : ControllerBase
     }
 
     [HttpPost("{callsign}/transfer")]
-    [ProducesResponseType(typeof(Coordination), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(CoordinationResponseModel), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> TransferAsync([Airport] string airport, string session,
@@ -134,6 +135,8 @@ public class StripController : ControllerBase
         var coordinationId = await _coordinationService.CreateAsync(coordination);
         coordination.Id = coordinationId;
 
-        return Ok(coordination);
+        var model = CoordinationMapper.Map(coordination);
+
+        return Ok(model);
     }
 }

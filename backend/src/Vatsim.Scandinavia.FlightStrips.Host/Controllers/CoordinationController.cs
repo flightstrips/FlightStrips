@@ -19,7 +19,7 @@ public class CoordinationController : ControllerBase
         _coordinationService = coordinationService;
     }
 
-    [HttpGet("{frequency}")]
+    [HttpGet("{frequency}", Name = "ListCoordinationsForFrequency")]
     [ProducesResponseType(typeof(CoordinationResponseModel[]), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> ListForFrequencyAsync([Airport] string airport, string session,
@@ -31,7 +31,7 @@ public class CoordinationController : ControllerBase
         return Ok(models);
     }
 
-    [HttpPost("{id:int}/accept")]
+    [HttpPost("{id:int}/accept", Name = "AcceptCoordination")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
@@ -54,7 +54,7 @@ public class CoordinationController : ControllerBase
         return NoContent();
     }
 
-    [HttpPost("{id:int}/reject")]
+    [HttpPost("{id:int}/reject", Name = "RejectCoordination")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]

@@ -8,7 +8,7 @@ namespace Vatsim.Scandinavia.FlightStrips.Host.Controllers;
 [Route("api/{airport:required}/bays")]
 public class BayController(IBayService bayService) : ControllerBase
 {
-    [HttpGet]
+    [HttpGet(Name = "ListBays")]
     [Produces(typeof(Bay[]))]
     public async Task<IActionResult> ListAsync([Airport] string airport)
     {

@@ -23,7 +23,7 @@ public class StripController : ControllerBase
         _coordinationService = coordinationService;
     }
 
-    [HttpGet("{callsign}")]
+    [HttpGet("{callsign}", Name = "GetStrip")]
     [ProducesResponseType(typeof(StripResponseModel), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetStripAsync([Airport] string airport, string session,
@@ -50,7 +50,7 @@ public class StripController : ControllerBase
         return Ok(model);
     }
 
-    [HttpPost("{callsign}")]
+    [HttpPost("{callsign}", Name = "UpsertStrip")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status201Created)]
     public async Task<IActionResult> UpsertAsync([Airport] string airport, string session,
@@ -71,7 +71,7 @@ public class StripController : ControllerBase
             : NoContent();
     }
 
-    [HttpPost("{callsign}/move")]
+    [HttpPost("{callsign}/move", Name = "MoveStrip")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> MoveAsync([Airport] string airport, string session,
@@ -87,7 +87,7 @@ public class StripController : ControllerBase
         return NoContent();
     }
 
-    [HttpPost("{callsign}/assume")]
+    [HttpPost("{callsign}/assume", Name = "AssumeStrip")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -105,7 +105,7 @@ public class StripController : ControllerBase
         return NoContent();
     }
 
-    [HttpPost("{callsign}/transfer")]
+    [HttpPost("{callsign}/transfer", Name = "TransferStrip")]
     [ProducesResponseType(typeof(CoordinationResponseModel), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]

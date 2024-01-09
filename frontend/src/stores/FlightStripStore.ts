@@ -124,6 +124,7 @@ export class FlightStripStore {
         nextController: null,
         sequence: 0,
       }
+      this.flightStrips.push(flightstrip)
 
       return
     }

@@ -23,7 +23,7 @@ export default function CLX(props: {
       <Button
         onPress={onOpen}
         radius="none"
-        className="bg-[#BEF5EF] w-[20%] border-r-1 border-l-1 border-t-2 border-b-2 border-[#85B4AF] pl-4 pr-4 h-full flex flex-col  items-center justify-center text-center"
+        className="bg-[#BEF5EF] w-16 border-r-1 border-l-1 border-t-2 border-b-2 border-[#85B4AF] pl-4 pr-4 h-full flex flex-col  items-center justify-center text-center"
       >
         <span className="font-bold">{props.destinationICAO}</span>
         <span className="font-bold">{props.stand}</span>

@@ -21,13 +21,6 @@ process.env.PUBLIC = app.isPackaged
 
 const VITE_DEV_SERVER_URL = process.env['VITE_DEV_SERVER_URL']
 
-try {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  require('electron-reloader')(module)
-} catch (_) {
-  // Ignore
-}
-
 class Main {
   private mainWindow: BrowserWindow | null = null
   private euroScopeScoket: EuroScopeSocket | null = null

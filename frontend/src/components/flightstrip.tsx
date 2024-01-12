@@ -1,10 +1,10 @@
-import { OwnerBOX } from './strip/ownerbox'
-import Flightstrip from '../data/interfaces/flightstrip.ts'
+import { OwnerBOX } from './strip/ownerbox.tsx'
 import { observer } from 'mobx-react'
 import { Button } from '@nextui-org/react'
-import CLX from './CLX.tsx'
+import * as Model from '../stores/FlightStrip.ts'
+import { CLX } from './CLX.tsx'
 
-const FlightStrip = observer((props: { strip: Flightstrip }) => {
+const FlightStrip = observer((props: { strip: Model.FlightStrip }) => {
   return (
     <>
       <div
@@ -18,11 +18,7 @@ const FlightStrip = observer((props: { strip: Flightstrip }) => {
         >
           {props.strip.callsign}
         </Button>
-        <CLX
-          destinationICAO={props.strip.destinationICAO}
-          stand={props.strip.stand}
-          Flightstrip={props.strip}
-        />
+        <CLX Flightstrip={props.strip} />
         <div className="w-[5.5rem] border-r-1 border-l-1 border-t-2 border-b-2 border-[#85B4AF] h-full flex items-top justify-between text-center pl-1 pr-1 whitespace-nowrap">
           <div>EOBT</div>
           <div>{props.strip.eobt}</div>

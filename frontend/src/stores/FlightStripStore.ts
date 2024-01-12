@@ -1,22 +1,22 @@
 import { action, makeObservable, observable } from 'mobx'
 import { RootStore } from './RootStore'
-import Flightstrip from '../data/interfaces/flightstrip'
 import { FlightPlanUpdate } from '../../shared/FlightPlanUpdate'
 import {
-  CoordinationState,
   CoordinationUpdate,
   StripStateEvent,
   StripUpdate,
 } from '../services/models.ts'
 import { signalRService } from '../services/SignalRService.ts'
+import { FlightStrip } from './FlightStrip.ts'
 
 export class FlightStripStore {
-  flightStrips: Flightstrip[] = []
+  flightStrips: FlightStrip[] = []
   rootStore: RootStore
 
   constructor(rootStore: RootStore) {
     this.rootStore = rootStore
     makeObservable(this, {
+      rootStore: false,
       flightStrips: observable,
       updateFlightPlanData: action,
       setCleared: action,
@@ -33,46 +33,30 @@ export class FlightStripStore {
     )
     if (!flightstrip) return
 
-    flightstrip.bay = this.getBay(callsign, cleared, flightstrip.departingICAO)
+    flightstrip.bay = this.getBay(callsign, cleared, flightstrip.origin)
     flightstrip.cleared = cleared
   }
 
   public handleCoordinationUpdate = (update: CoordinationUpdate) => {
-    const index = this.flightStrips.findIndex(
+    const strip = this.flightStrips.find(
       (strip) => strip.callsign === update.callsign,
     )
 
-    if (index === -1) {
+    if (!strip) {
       return
     }
 
-    switch (update.state) {
-      case CoordinationState.Created:
-        this.flightStrips[index] = {
-          ...this.flightStrips[index],
-          nextController: update.to,
-        }
-        break
-      case CoordinationState.Accepted:
-        this.flightStrips[index] = {
-          ...this.flightStrips[index],
-          controller: update.to,
-          nextController: null,
-        }
-        break
-      case CoordinationState.Cancelled:
-      case CoordinationState.Rejected:
-        this.flightStrips[index] = {
-          ...this.flightStrips[index],
-          nextController: null,
-        }
-    }
+    strip.updateController(update)
   }
 
   public handleStripUpdate = (update: StripUpdate) => {
     const strip = this.flightStrips.find(
       (strip) => strip.callsign === update.callsign,
     )
+
+    if (update.eventState == StripStateEvent.Created) {
+      // TODO create strip if not exist
+    }
 
     if (!strip) {
       console.log(`Did not find strip ${update.callsign}!`)
@@ -89,10 +73,8 @@ export class FlightStripStore {
         strip.controller = update.positionFrequency
         strip.sequence = update.sequence
         break
-
       case StripStateEvent.Deleted:
-        // Remove a flight strip
-        //this.flightStrips./
+        this.flightStrips.splice(this.flightStrips.indexOf(strip), 1)
         break
     }
   }
@@ -103,40 +85,21 @@ export class FlightStripStore {
     )
 
     if (!flightstrip) {
-      flightstrip = {
-        pilotCID: 0,
-        callsign: data.callsign,
-        actype: data.aircraftFPType,
-        acreg: '',
-        accat: data.aircraftWtc.toString(),
-        departingICAO: data.origin,
-        destinationICAO: data.destination,
-        departureRWY: data.departureRwy,
-        arrivalRWY: data.arrivalRwy,
-        clearancelimit: '',
-        stand: 'A7',
-        eobt: parseInt(data.estimatedDeparture) || 1200,
-        tsat: 1200,
-        ctot: 1200,
-        cleared: false,
-        bay: this.getBay(data.callsign, false, data.origin),
-        controller: null,
-        nextController: null,
-        sequence: null,
-        route: data.route,
-      }
+      flightstrip = new FlightStrip(this, data.callsign)
+      flightstrip.stand = 'A7'
+      flightstrip.bay = this.getBay(data.callsign, false, data.origin)
+      flightstrip.route = data.route
       this.flightStrips.push(flightstrip)
-
-      return
     }
 
-    flightstrip.actype = data.aircraftFPType
-    flightstrip.accat = data.aircraftWtc.toString()
-    flightstrip.destinationICAO = data.origin
-    flightstrip.destinationICAO = data.destination
-    flightstrip.departureRWY = data.departureRwy
-    flightstrip.arrivalRWY = data.arrivalRwy
-    flightstrip.eobt = parseInt(data.estimatedDeparture)
+    flightstrip.aircraftType = data.aircraftFPType
+    flightstrip.aircraftCategory = data.aircraftWtc.toString()
+    flightstrip.origin = data.origin
+    flightstrip.destination = data.destination
+    flightstrip.runway = data.departureRwy
+    flightstrip.squawk = '6534' // temp
+    //flightstrip.arrivalRWY = data.arrivalRwy
+    flightstrip.eobt = data.estimatedDeparture
   }
 
   // TODO remove
@@ -160,7 +123,7 @@ export class FlightStripStore {
     return 'other'
   }
 
-  public inBay(bay: string): Flightstrip[] {
+  public inBay(bay: string): FlightStrip[] {
     return this.flightStrips.filter((plan) => plan.bay == bay)
   }
 

@@ -7,15 +7,12 @@ import {
   Input,
   Textarea,
 } from '@nextui-org/react'
-import Flightstrip from '../data/interfaces/flightstrip'
 import { SIDButton } from './CLX/SIDButton'
+import { FlightStrip } from '../stores/FlightStrip'
+import { observer } from 'mobx-react'
 
 // eslint-disable-next-line react-refresh/only-export-components
-export default function CLX(props: {
-  destinationICAO: string
-  stand: string | null
-  Flightstrip: Flightstrip
-}) {
+export const CLX = observer((props: { Flightstrip: FlightStrip }) => {
   const { isOpen, onOpen, onOpenChange } = useDisclosure()
 
   return (
@@ -25,8 +22,10 @@ export default function CLX(props: {
         radius="none"
         className="bg-[#BEF5EF] w-16 border-r-1 border-l-1 border-t-2 border-b-2 border-[#85B4AF] pl-4 pr-4 h-full flex flex-col  items-center justify-center text-center"
       >
-        <span className="font-bold p-0 -mb-1">{props.destinationICAO}</span>
-        <span className="font-bold p-0 -mt-1">{props.stand}</span>
+        <span className="font-bold p-0 -mb-1">
+          {props.Flightstrip.destination}
+        </span>
+        <span className="font-bold p-0 -mt-1">{props.Flightstrip.stand}</span>
       </Button>
       <Modal
         isOpen={isOpen}
@@ -63,7 +62,7 @@ export default function CLX(props: {
                         disabled
                         radius="none"
                         className="border-1 border-black w-20"
-                        value={props.Flightstrip.destinationICAO}
+                        value={props.Flightstrip.origin}
                       />
                       <Input
                         label="RNAV"
@@ -87,7 +86,7 @@ export default function CLX(props: {
                         labelPlacement="outside"
                         radius="none"
                         className="border-1 border-black w-20"
-                        value="6532"
+                        value={props.Flightstrip.squawk}
                       />
                       <Input
                         label="CTOT"
@@ -133,7 +132,7 @@ export default function CLX(props: {
                         disabled
                         radius="none"
                         className="border-1 border-black w-28 ml-6"
-                        value="22R"
+                        value={props.Flightstrip.runway}
                       />
                       <Input
                         label="REA"
@@ -153,7 +152,7 @@ export default function CLX(props: {
                         disabled
                         radius="none"
                         className="border-1 border-black w-48"
-                        value={props.Flightstrip.actype}
+                        value={props.Flightstrip.aircraftType}
                       />
                       <Input
                         label="FL"
@@ -189,7 +188,7 @@ export default function CLX(props: {
                         disabled
                         radius="none"
                         className="border-1 border-black w-[32rem] text-center"
-                        value="NEXEN T503 GIMRU DCT MICOS DCT RIMET/N0481F390 T157 ODIPI/N0454F210 T157 KERAX KERAX4D N0454F210 T157 KERAX KERAX4DN0454F210 T157 KERAX KERAX4D"
+                        value={props.Flightstrip.route}
                       />
                     </div>
                     <div className="flex">
@@ -233,4 +232,4 @@ export default function CLX(props: {
       </Modal>
     </>
   )
-}
+})

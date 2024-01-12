@@ -14,8 +14,8 @@ import SettingsPage from './views/Settings.tsx'
 
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>
-    <NextUIProvider>
-      <RootStoreProvider>
+    <RootStoreProvider>
+      <NextUIProvider>
         <HashRouter>
           <Routes>
             <Route path="/" element={<DEL />} />
@@ -25,7 +25,7 @@ ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
             <Route path="/ekch/ctwr" element={<CTWR />} />
           </Routes>
         </HashRouter>
-      </RootStoreProvider>
-    </NextUIProvider>
+      </NextUIProvider>
+    </RootStoreProvider>
   </React.StrictMode>,
 )

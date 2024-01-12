@@ -9,7 +9,7 @@ namespace Vatsim.Scandinavia.FlightStrips.Host.Controllers;
 [Route("{airport:required}/{session:required}/online-positions")]
 public class OnlinePositionController(IOnlinePositionService onlinePositionService) : ControllerBase
 {
-    [HttpPost("{id}")]
+    [HttpPost("{id}", Name = "CreateOnlinePosition")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> CreateAsync([Airport] string airport, string session, string id,
@@ -20,8 +20,8 @@ public class OnlinePositionController(IOnlinePositionService onlinePositionServi
         return NoContent();
     }
 
-    [HttpGet]
-    [ProducesResponseType(typeof(OnlinePosition[]), StatusCodes.Status200OK)]
+    [HttpGet(Name = "ListOnlinePositions")]
+    [ProducesResponseType(typeof(OnlinePositionResponseModel[]), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> ListAsync([Airport] string airport, string session)
     {
@@ -30,7 +30,7 @@ public class OnlinePositionController(IOnlinePositionService onlinePositionServi
         return Ok(models);
     }
 
-    [HttpDelete("{id}")]
+    [HttpDelete("{id}", Name = "RemoveOnlinePosition")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> DeleteAsync([Airport] string airport, string session, string id)

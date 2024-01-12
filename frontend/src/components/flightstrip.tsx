@@ -8,7 +8,7 @@ const FlightStrip = observer((props: { strip: Flightstrip }) => {
   return (
     <>
       <div
-        className="w-fit min-w-96 h-14 bg-[#BEF5EF] border-l-4 border-r-4 border-t-2 border-b-2 mb-1 flex items-center text-sm"
+        className="w-fit min-w-96 h-12 bg-[#BEF5EF] border-l-4 border-r-4 border-t-2 border-b-2 mb-1 flex items-center text-sm"
         draggable="true"
       >
         <OwnerBOX />
@@ -23,7 +23,7 @@ const FlightStrip = observer((props: { strip: Flightstrip }) => {
           stand={props.strip.stand}
           Flightstrip={props.strip}
         />
-        <div className="w-[5.5rem] border-r-1 border-l-1 border-t-2 border-b-2 border-[#85B4AF] h-full flex items-top justify-between text-center pl-2 pr-2 whitespace-nowrap">
+        <div className="w-[5.5rem] border-r-1 border-l-1 border-t-2 border-b-2 border-[#85B4AF] h-full flex items-top justify-between text-center pl-1 pr-1 whitespace-nowrap">
           <div>EOBT</div>
           <div>{props.strip.eobt}</div>
         </div>

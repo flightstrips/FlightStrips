@@ -25,8 +25,8 @@ export default function CLX(props: {
         radius="none"
         className="bg-[#BEF5EF] w-16 border-r-1 border-l-1 border-t-2 border-b-2 border-[#85B4AF] pl-4 pr-4 h-full flex flex-col  items-center justify-center text-center"
       >
-        <span className="font-bold">{props.destinationICAO}</span>
-        <span className="font-bold">{props.stand}</span>
+        <span className="font-bold p-0 -mb-1">{props.destinationICAO}</span>
+        <span className="font-bold p-0 -mt-1">{props.stand}</span>
       </Button>
       <Modal
         isOpen={isOpen}

@@ -35,7 +35,7 @@ class Main {
 
   private createWindows() {
     this.mainWindow = new BrowserWindow({
-      icon: path.join(process.env.PUBLIC, 'electron-vite.svg'),
+      icon: path.join(process.env.PUBLIC, 'icon.ico'),
       webPreferences: {
         nodeIntegration: false,
         contextIsolation: true,
@@ -63,7 +63,7 @@ class Main {
         label: 'Views',
         submenu: [
           {
-            label: 'Kastrup Delivery',
+            label: 'Delivery',
             click: () =>
               this.mainWindow?.webContents.send('navigate', '/ekch/del'),
           },
@@ -72,34 +72,43 @@ class Main {
         ],
       },
       {
-        label: 'Development',
+        label: "Window",
+        submenu: [
+          { role: "forceReload" },
+          { role: "togglefullscreen" },
+          { role: "toggleDevTools" }
+        ],
+      },
+      {
+        label: "Misc",
+        submenu: [{ label: "VATCAN Event Code" }, { type: "separator" }],
+      },
+      {
+        role: "help",
+    
         submenu: [
           {
-            label: 'VATSIM Scandinavia',
-            click() {
-              shell.openExternal('https://vatsim-scandinavia.org/')
+            label: "Documentation",
+            click: async () => {
+              const { shell } = require("electron");
+              await shell.openExternal("https://docs.fstools.dk");
+            },
+          },
+          { type: "separator" },
+          {
+            label: "Discord",
+            click: async () => {
+              const { shell } = require("electron");
+              await shell.openExternal("https://discord.gg/vatsca");
             },
           },
           {
-            label: 'Github',
-            click() {
-              shell.openExternal(
-                'https://github.com/frederikrosenberg/FlightStrips',
-              )
-            },
-          },
-          {
-            label: 'Discord',
-            click() {
-              shell.openExternal('https://discord.gg/vatsca')
-            },
-          },
-          {
-            label: 'Toggle Developer Tools',
-            accelerator:
-              process.platform === 'darwin' ? 'Alt+Command+I' : 'Ctrl+Shift+I',
-            click(_, focusedWindow) {
-              if (focusedWindow) focusedWindow.webContents.openDevTools()
+            label: "Support",
+            click: async () => {
+              const { shell } = require("electron");
+              await shell.openExternal(
+                "https://github.com/frederikrosenberg/FlightStrips/issues"
+              );
             },
           },
         ],

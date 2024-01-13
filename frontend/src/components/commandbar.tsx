@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import ZuluTime from './Clock'
+import { TRF } from './TRF'
 
 export function CommandBar() {
   //const [runways] = useState({ dep: '22R', arr: '22L' })
@@ -35,9 +36,7 @@ export function CommandBar() {
         </div>
       </div>
       <div className="pl-2 pr-2 flex items-center text-3xl font-extrabold">
-        <button className="bg-[#646464] border-white border-2 w-fit h-12 pl-2 pr-2  ml-1 text-white">
-          TRF
-        </button>
+        <TRF />
         <button className="bg-[#646464] border-white border-2 w-fit h-12 pl-2 pr-2  ml-1 text-white">
           MRK
         </button>

@@ -57,8 +57,13 @@ export class FlightStrip {
     if (internal) {
       api.setCleared(this.callsign, true)
     }
-    //client.airport.moveStrip('EKCH', 'LIVE', this.callsign, { bay: 'STARUP' })
-    //client.airport.upsertStrip('EKCH', 'LIVE', this.callsign, { cleared: true })
+    // eslint-disable-next-line no-constant-condition
+    if (false) {
+      client.airport.moveStrip('EKCH', 'LIVE', this.callsign, { bay: 'STARUP' })
+      client.airport.upsertStrip('EKCH', 'LIVE', this.callsign, {
+        cleared: true,
+      })
+    }
   }
 
   public move(bay: string) {

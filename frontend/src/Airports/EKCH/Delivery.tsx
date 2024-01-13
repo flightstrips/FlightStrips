@@ -34,15 +34,27 @@ const Delivery = observer(() => {
         </div>
         <div className="bg-[#555355] w-full h-auto border-l-4 border-r-4 border-[#a9a9a9]">
           <BayHeader title="CLEARED" />
-          <div className="h-[calc(50%-2.5rem)] overflow-auto overflow-x-hidden"></div>
+          <div className="h-[calc(50%-2.5rem)] overflow-auto overflow-x-hidden">
+            {flightStripStore.inBay('cleared').map((item) => (
+              <FlightStrip strip={item} />
+            ))}
+          </div>
           <BayHeader title="MESSAGES" msg />
           <div className="h-[calc(33%-2.5rem)] overflow-auto overflow-x-hidden"></div>
         </div>
         <div className="bg-[#555355] w-full h-auto border-l-2 border-[#a9a9a9]">
           <BayHeader title="PUSHBACK" />
-          <div className="h-[calc(33%-2.5rem)] overflow-auto overflow-x-hidden"></div>
+          <div className="h-[calc(33%-2.5rem)] overflow-auto overflow-x-hidden">
+            {flightStripStore.inBay('PUSHBACK').map((item) => (
+              <FlightStrip strip={item} />
+            ))}
+          </div>
           <BayHeader title="TWY DEP" />
-          <div className="h-[calc(66%-2.5rem)] overflow-auto overflow-x-hidden"></div>
+          <div className="h-[calc(66%-2.5rem)] overflow-auto overflow-x-hidden">
+            {flightStripStore.inBay('TWY DEP').map((item) => (
+              <FlightStrip strip={item} />
+            ))}
+          </div>
         </div>
       </div>
       <CommandBar />

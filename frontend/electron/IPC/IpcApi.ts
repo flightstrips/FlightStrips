@@ -13,7 +13,7 @@ export default {
   onFlightPlanDisconnect: (handler: (callsign: string) => void) => {
     ipcRenderer.on('FlightPlanDiconnect', (_, args) => handler(args))
   },
-  onSetSquawk: (handler: (callsign: string, squawk: number) => void) => {
+  onSetSquawk: (handler: (callsign: string, squawk: string) => void) => {
     ipcRenderer.on('SetSquawk', (_, ...args) => handler(args[0], args[1]))
   },
   onSetFinalAltitude: (

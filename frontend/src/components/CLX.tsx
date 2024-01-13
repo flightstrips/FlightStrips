@@ -220,7 +220,7 @@ export const CLX = observer((props: { Flightstrip: FlightStrip }) => {
                     radius="none"
                     size="lg"
                     className="text-xl bg-[#3F3F3F] text-white m-4"
-                    onPress={onClose}
+                    onPress={() => props.Flightstrip.clear()}
                   >
                     CLD
                   </Button>

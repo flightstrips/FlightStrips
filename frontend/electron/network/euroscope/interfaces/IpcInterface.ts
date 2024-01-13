@@ -6,7 +6,7 @@ import { GroundState } from '../../../../shared/GroundState'
 export interface IpcInterface {
   sendFlightPlanUpdate(plan: FlightPlanUpdate): void
   sendFlightPlanDisconnect(callsign: string): void
-  sendSetSquawk(callsign: string, squawk: number): void
+  sendSetSquawk(callsign: string, squawk: string): void
   sendSetFinalAltitude(callsign: string, altitude: number): void
   sendSetClearedAltitude(callsign: string, altitude: number): void
   sendSetCleared(callsign: string, clear: boolean): void

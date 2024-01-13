@@ -31,10 +31,9 @@ export class FlightStripStore {
     const flightstrip = this.flightStrips.find(
       (strip) => strip.callsign == callsign,
     )
-    if (!flightstrip) return
+    if (!flightstrip || cleared) return
 
-    flightstrip.bay = this.getBay(callsign, cleared, flightstrip.origin)
-    flightstrip.cleared = cleared
+    flightstrip.clear(false)
   }
 
   public handleCoordinationUpdate = (update: CoordinationUpdate) => {
@@ -47,6 +46,14 @@ export class FlightStripStore {
     }
 
     strip.updateController(update)
+  }
+
+  public setSquawk = (callsign: string, squawk: string) => {
+    const strip = this.flightStrips.find((strip) => strip.callsign === callsign)
+
+    if (!strip) return
+
+    strip.squawk = squawk
   }
 
   public handleStripUpdate = (update: StripUpdate) => {
@@ -97,9 +104,8 @@ export class FlightStripStore {
     flightstrip.origin = data.origin
     flightstrip.destination = data.destination
     flightstrip.runway = data.departureRwy
-    flightstrip.squawk = '6534' // temp
-    flightstrip.eobt = data.estimatedDeparture
-    //flightstrip.arrivalRWY = data.arrivalRwy
+    flightstrip.eobt = data.estimatedDepartureTime
+    flightstrip.remarks = data.remarks
   }
 
   // TODO remove

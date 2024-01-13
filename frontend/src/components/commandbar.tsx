@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import ZuluTime from './Clock'
 import { TRF } from './TRF'
+import { AtisModal } from './ATIS/AtisModal'
 
 export function CommandBar() {
   //const [runways] = useState({ dep: '22R', arr: '22L' })
@@ -28,6 +29,7 @@ export function CommandBar() {
         <div className="bg-[#212121] text-white w-fit h-12 ml-4 mr-4 pl-4 pr-4  flex items-center text-center">
           {atis.qnh}
         </div>
+        <AtisModal />
         <div className="bg-white w-20 h-12 ml-4 mr-4 justify-center items-center flex pl-4 pr-4">
           {atis.letter}
         </div>

@@ -1,7 +1,7 @@
-import BayHeader from '../components/BayHeader.tsx'
-import { CommandBar } from '../components/commandbar.tsx'
-import { FlightStrip } from '../components/flightstrip.tsx'
-import { useFlightStripStore } from '../providers/RootStoreContext.ts'
+import BayHeader from '../../components/BayHeader.tsx'
+import { CommandBar } from '../../components/commandbar.tsx'
+import { FlightStrip } from '../../components/flightstrip.tsx'
+import { useFlightStripStore } from '../../providers/RootStoreContext.ts'
 import { observer } from 'mobx-react'
 
 const Delivery = observer(() => {

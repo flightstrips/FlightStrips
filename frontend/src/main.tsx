@@ -4,10 +4,10 @@ import { HashRouter, Routes, Route } from 'react-router-dom'
 import { NextUIProvider } from '@nextui-org/react'
 import './index.css'
 
-import DEL from './EKCH/Delivery.tsx'
-import GND from './EKCH/Ground'
-import TWR from './EKCH/Tower'
-import CTWR from './EKCH/CrossingTower'
+import DEL from './Airports/EKCH/Delivery.tsx'
+import GND from './Airports/EKCH/Ground.tsx'
+import TWR from './Airports/EKCH/Tower.tsx'
+import CTWR from './Airports/EKCH/CrossingTower.tsx'
 
 import { RootStoreProvider } from './providers/RootStoreProvider.tsx'
 

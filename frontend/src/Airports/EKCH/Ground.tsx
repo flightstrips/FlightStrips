@@ -1,5 +1,5 @@
-import BayHeader from '../components/BayHeader'
-import { CommandBar } from '../components/commandbar'
+import BayHeader from '../../components/BayHeader'
+import { CommandBar } from '../../components/commandbar'
 
 function Ground() {
   return (

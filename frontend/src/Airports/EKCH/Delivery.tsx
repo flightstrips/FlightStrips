@@ -14,7 +14,7 @@ const Delivery = observer(() => {
           <BayHeader title="OTHERS" />
           <div className="h-[calc(100%-2.5rem)] overflow-auto overflow-x-hidden">
             {flightStripStore.inBay('other').map((item) => (
-              <FlightStrip strip={item} />
+              <FlightStrip strip={item} key={item.callsign} />
             ))}
           </div>
         </div>
@@ -22,13 +22,13 @@ const Delivery = observer(() => {
           <BayHeader title="SAS" />
           <div className="h-[calc(60%-2.5rem)] overflow-auto overflow-x-hidden">
             {flightStripStore.inBay('sas').map((item) => (
-              <FlightStrip strip={item} />
+              <FlightStrip strip={item} key={item.callsign} />
             ))}
           </div>
           <BayHeader title="NORWEGIAN" />
           <div className="h-[calc(40%-2.5rem)] overflow-auto overflow-x-hidden">
             {flightStripStore.inBay('norwegian').map((item) => (
-              <FlightStrip strip={item} />
+              <FlightStrip strip={item} key={item.callsign} />
             ))}
           </div>
         </div>

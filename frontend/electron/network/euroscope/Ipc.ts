@@ -18,7 +18,7 @@ export class Ipc implements IpcInterface {
   sendFlightPlanDisconnect(callsign: string): void {
     this.webContents.send('FlightPlanDisconnect', callsign)
   }
-  sendSetSquawk(callsign: string, squawk: number): void {
+  sendSetSquawk(callsign: string, squawk: string): void {
     this.webContents.send('SetSquawk', callsign, squawk)
   }
   sendSetFinalAltitude(callsign: string, altitude: number): void {

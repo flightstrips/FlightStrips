@@ -1,6 +1,7 @@
 import { makeAutoObservable } from 'mobx'
 import { FlightStripStore } from './FlightStripStore'
 import { CoordinationState, CoordinationUpdate } from '../services/models'
+import client from '../services/api/StripsApi'
 
 export class FlightStrip {
   store: FlightStripStore
@@ -23,6 +24,7 @@ export class FlightStrip {
   controller: string | null = null
   nextController: string | null = null
   squawk = ''
+  remarks = ''
 
   constructor(store: FlightStripStore, callsign: string) {
     makeAutoObservable(this, {
@@ -47,5 +49,24 @@ export class FlightStrip {
       case CoordinationState.Rejected:
         this.nextController = null
     }
+  }
+
+  public clear(internal = true) {
+    this.cleared = true
+    this.bay = 'STARTUP'
+    if (internal) {
+      api.setCleared(this.callsign, true)
+    }
+    // eslint-disable-next-line no-constant-condition
+    if (false) {
+      client.airport.moveStrip('EKCH', 'LIVE', this.callsign, { bay: 'STARUP' })
+      client.airport.upsertStrip('EKCH', 'LIVE', this.callsign, {
+        cleared: true,
+      })
+    }
+  }
+
+  public move(bay: string) {
+    this.bay = bay
   }
 }

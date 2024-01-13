@@ -59,7 +59,7 @@ export class MessageHandler implements MessageHandlerInterface {
           case 'squawk':
             this.ipc.sendSetSquawk(
               controllerUpdate.callsign,
-              Number.parseInt(controllerUpdate.data as string),
+              controllerUpdate.data as string,
             )
             break
           default:

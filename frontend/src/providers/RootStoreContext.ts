@@ -32,6 +32,9 @@ function initializeStore(): RootStore {
   api.onSetCleared((callsign, cleared) =>
     s.flightStripStore.setCleared(callsign, cleared),
   )
+  api.onSetSquawk((callsign, squawk) =>
+    s.flightStripStore.setSquawk(callsign, squawk),
+  )
 
   return s
 }

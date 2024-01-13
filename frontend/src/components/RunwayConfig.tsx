@@ -6,12 +6,12 @@ import {
   ModalFooter,
   Button,
   useDisclosure,
-} from "@nextui-org/react";
+} from '@nextui-org/react'
 
-export const RunwayConfig = (props: { ActiveRunway: string}) => {
-  const { isOpen, onOpen, onOpenChange } = useDisclosure();
+export const RunwayConfig = (props: { ActiveRunway: string }) => {
+  const { isOpen, onOpen, onOpenChange } = useDisclosure()
 
-  function RwyBtn(props: {runway: string, Active?: boolean}) {
+  function RwyBtn(props: { runway: string; Active?: boolean }) {
     if (props.Active) {
       return (
         <Button
@@ -23,7 +23,7 @@ export const RunwayConfig = (props: { ActiveRunway: string}) => {
         >
           {props.runway}
         </Button>
-      );
+      )
     } else {
       return (
         <Button
@@ -34,7 +34,7 @@ export const RunwayConfig = (props: { ActiveRunway: string}) => {
         >
           {props.runway}
         </Button>
-      );
+      )
     }
   }
   return (
@@ -55,21 +55,20 @@ export const RunwayConfig = (props: { ActiveRunway: string}) => {
               </ModalHeader>
               <ModalBody>
                 <div className="flex font-extrabold justify-evenly">
-
                   <div className="flex-col">
                     <p className="w-full text-center">DEP RWY</p>
                     <div className="w-full h-full border-2 border-black flex flex-col text-xl">
                       <div className="w-full justify-center items-center flex">
-                        <RwyBtn runway="04L"/>
-                        <RwyBtn runway="04R"/>
+                        <RwyBtn runway="04L" />
+                        <RwyBtn runway="04R" />
                       </div>
                       <div className="w-full justify-center items-center flex">
-                        <RwyBtn runway="22L"/>
-                        <RwyBtn runway="22R" Active/>
+                        <RwyBtn runway="22L" />
+                        <RwyBtn runway="22R" Active />
                       </div>
                       <div className="w-full justify-center items-center flex">
-                        <RwyBtn runway="12"/>
-                        <RwyBtn runway="30"/>
+                        <RwyBtn runway="12" />
+                        <RwyBtn runway="30" />
                       </div>
                     </div>
                   </div>
@@ -78,20 +77,19 @@ export const RunwayConfig = (props: { ActiveRunway: string}) => {
                     <p className="w-full text-center">DEP RWY</p>
                     <div className="w-full h-full border-2 border-black flex flex-col text-xl">
                       <div className="w-full justify-center items-center flex">
-                        <RwyBtn runway="04L"/>
-                        <RwyBtn runway="04R"/>
+                        <RwyBtn runway="04L" />
+                        <RwyBtn runway="04R" />
                       </div>
                       <div className="w-full justify-center items-center flex">
-                        <RwyBtn runway="22L" Active/>
+                        <RwyBtn runway="22L" Active />
                         <RwyBtn runway="22R" />
                       </div>
                       <div className="w-full justify-center items-center flex">
-                        <RwyBtn runway="12"/>
-                        <RwyBtn runway="30"/>
+                        <RwyBtn runway="12" />
+                        <RwyBtn runway="30" />
                       </div>
                     </div>
                   </div>
-
                 </div>
               </ModalBody>
               <ModalFooter>
@@ -109,5 +107,5 @@ export const RunwayConfig = (props: { ActiveRunway: string}) => {
         </ModalContent>
       </Modal>
     </>
-  );
-};
+  )
+}

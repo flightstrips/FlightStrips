@@ -22,9 +22,9 @@ export function CommandBar() {
         </div>
 
         <span className=" text-white ml-6 mr-2">DEP</span>
-        <RunwayConfig ActiveRunway="22R"/>
+        <RunwayConfig ActiveRunway="22R" />
         <span className="  text-white ml-2 mr-2">ARR</span>
-        <RunwayConfig ActiveRunway="22L"/>
+        <RunwayConfig ActiveRunway="22L" />
         <span className="  text-white ml-2 mr-2">QNH</span>
 
         <div className="bg-[#212121] text-white w-fit h-12 ml-4 mr-4 pl-4 pr-4  flex items-center text-center">

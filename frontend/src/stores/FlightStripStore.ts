@@ -98,8 +98,8 @@ export class FlightStripStore {
     flightstrip.destination = data.destination
     flightstrip.runway = data.departureRwy
     flightstrip.squawk = '6534' // temp
-    //flightstrip.arrivalRWY = data.arrivalRwy
     flightstrip.eobt = data.estimatedDeparture
+    //flightstrip.arrivalRWY = data.arrivalRwy
   }
 
   // TODO remove

@@ -9,6 +9,8 @@ import {
 import { signalRService } from '../services/SignalRService.ts'
 import { FlightStrip } from './FlightStrip.ts'
 
+const BACKEND = false
+
 export class FlightStripStore {
   flightStrips: FlightStrip[] = []
   rootStore: RootStore
@@ -75,7 +77,7 @@ export class FlightStripStore {
     switch (update.eventState) {
       case StripStateEvent.Created:
       case StripStateEvent.Updated:
-        strip.bay = update.bay.toLowerCase()
+        strip.bay = update.bay
         strip.cleared = update.cleared
         strip.controller = update.positionFrequency
         strip.sequence = update.sequence
@@ -93,19 +95,18 @@ export class FlightStripStore {
 
     if (!flightstrip) {
       flightstrip = new FlightStrip(this, data.callsign)
-      flightstrip.stand = 'A7'
-      flightstrip.bay = this.getBay(data.callsign, false, data.origin)
-      flightstrip.route = data.route
       this.flightStrips.push(flightstrip)
     }
 
-    flightstrip.aircraftType = data.aircraftFPType
-    flightstrip.aircraftCategory = data.aircraftWtc.toString()
-    flightstrip.origin = data.origin
-    flightstrip.destination = data.destination
-    flightstrip.runway = data.departureRwy
-    flightstrip.eobt = data.estimatedDepartureTime
-    flightstrip.remarks = data.remarks
+    flightstrip.handleUpdateFromEuroScope(data)
+
+    if (!BACKEND) {
+      flightstrip.bay = this.getBay(
+        flightstrip.callsign,
+        flightstrip.cleared,
+        flightstrip.origin,
+      )
+    }
   }
 
   // TODO remove
@@ -115,18 +116,18 @@ export class FlightStripStore {
     if (origin.toUpperCase() !== 'EKCH') return 'arr'
 
     if (isCleared) {
-      return 'cleared'
+      return 'STARTUP'
     }
 
     if (upper.startsWith('SAS')) {
-      return 'sas'
+      return 'SAS'
     }
 
     if (upper.startsWith('NOZ')) {
-      return 'norwegian'
+      return 'NORWEGIAN'
     }
 
-    return 'other'
+    return 'OTHER'
   }
 
   public inBay(bay: string): FlightStrip[] {

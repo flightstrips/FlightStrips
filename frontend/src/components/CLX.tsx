@@ -62,7 +62,7 @@ export const CLX = observer((props: { Flightstrip: FlightStrip }) => {
                         disabled
                         radius="none"
                         className="border-1 border-black w-20"
-                        value={props.Flightstrip.origin}
+                        value={props.Flightstrip.destination}
                       />
                       <Input
                         label="RNAV"
@@ -74,10 +74,8 @@ export const CLX = observer((props: { Flightstrip: FlightStrip }) => {
                         value=" "
                       />
                       <div className="flex flex-col">
-                        <p className="pl-1 pr-1 pt-1 -mt-1 pb-1 text-sm">
-                          Route
-                        </p>
-                        <SIDButton SID="SIMEG 8C"></SIDButton>
+                        <p className="pl-1 pr-1 pt-1 -mt-1 pb-1 text-sm">SID</p>
+                        <SIDButton SID={props.Flightstrip.sid}></SIDButton>
                       </div>
 
                       <Input
@@ -161,7 +159,7 @@ export const CLX = observer((props: { Flightstrip: FlightStrip }) => {
                         disabled
                         radius="none"
                         className="border-1 border-black w-16"
-                        value="360"
+                        value={props.Flightstrip.fl}
                       />
                       <Input
                         label="SPEED"

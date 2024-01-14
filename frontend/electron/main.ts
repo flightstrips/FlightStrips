@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, Menu, shell } from 'electron'
+import { app, BrowserWindow, ipcMain, Menu } from 'electron'
 import { createEuroScopeSocket } from './network/euroscope'
 import path from 'node:path'
 import { IpcChannelInterface } from './IPC/IpcChannelInterface'
@@ -72,43 +72,43 @@ class Main {
         ],
       },
       {
-        label: "Window",
+        label: 'Window',
         submenu: [
-          { role: "forceReload" },
-          { role: "togglefullscreen" },
-          { role: "toggleDevTools" }
+          { role: 'forceReload' },
+          { role: 'togglefullscreen' },
+          { role: 'toggleDevTools' },
         ],
       },
       {
-        label: "Misc",
-        submenu: [{ label: "VATCAN Event Code" }, { type: "separator" }],
+        label: 'Misc',
+        submenu: [{ label: 'VATCAN Event Code' }, { type: 'separator' }],
       },
       {
-        role: "help",
-    
+        role: 'help',
+
         submenu: [
           {
-            label: "Documentation",
+            label: 'Documentation',
             click: async () => {
-              const { shell } = require("electron");
-              await shell.openExternal("https://docs.fstools.dk");
+              const { shell } = require('electron')
+              await shell.openExternal('https://docs.fstools.dk')
             },
           },
-          { type: "separator" },
+          { type: 'separator' },
           {
-            label: "Discord",
+            label: 'Discord',
             click: async () => {
-              const { shell } = require("electron");
-              await shell.openExternal("https://discord.gg/vatsca");
+              const { shell } = require('electron')
+              await shell.openExternal('https://discord.gg/vatsca')
             },
           },
           {
-            label: "Support",
+            label: 'Support',
             click: async () => {
-              const { shell } = require("electron");
+              const { shell } = require('electron')
               await shell.openExternal(
-                "https://github.com/frederikrosenberg/FlightStrips/issues"
-              );
+                'https://github.com/frederikrosenberg/FlightStrips/issues',
+              )
             },
           },
         ],

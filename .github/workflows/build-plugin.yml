@@ -41,5 +41,5 @@ jobs:
 
       # Run the build
       - name: Run Ninja Build
-        working-directory: build
+        working-directory: ./euroscope-plugin/build
         run: ninja

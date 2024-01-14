@@ -1,10 +1,12 @@
-export default function BayHeader(props: {
-  title: string
+import React from 'react'
+interface LayoutProps {
+  Title: string
   msg?: boolean
-  buttons?: JSX.Element
-}) {
-  const msg = props.msg ?? false
+  Buttons?: JSX.Element
+}
 
+export default function BayHeader(props: LayoutProps) {
+  const msg = props.msg ?? false
   return (
     <div
       className={`${

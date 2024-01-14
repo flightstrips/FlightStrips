@@ -1,8 +1,7 @@
-import React from 'react'
 interface LayoutProps {
-  Title: string
+  title: string
   msg?: boolean
-  Buttons?: JSX.Element
+  buttons?: JSX.Element
 }
 
 export default function BayHeader(props: LayoutProps) {

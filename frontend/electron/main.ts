@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, Menu } from 'electron'
+import { app, BrowserWindow, ipcMain, Menu, shell } from 'electron'
 import { createEuroScopeSocket } from './network/euroscope'
 import path from 'node:path'
 import { IpcChannelInterface } from './IPC/IpcChannelInterface'
@@ -90,7 +90,6 @@ class Main {
           {
             label: 'Documentation',
             click: async () => {
-              const { shell } = require('electron')
               await shell.openExternal('https://docs.fstools.dk')
             },
           },
@@ -98,14 +97,12 @@ class Main {
           {
             label: 'Discord',
             click: async () => {
-              const { shell } = require('electron')
               await shell.openExternal('https://discord.gg/vatsca')
             },
           },
           {
             label: 'Support',
             click: async () => {
-              const { shell } = require('electron')
               await shell.openExternal(
                 'https://github.com/frederikrosenberg/FlightStrips/issues',
               )

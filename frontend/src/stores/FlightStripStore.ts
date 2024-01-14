@@ -119,11 +119,16 @@ export class FlightStripStore {
       return 'STARTUP'
     }
 
-    if (upper.startsWith('SAS')) {
+    if (upper.startsWith('SAS') || upper.startsWith('SK')) {
       return 'SAS'
     }
 
-    if (upper.startsWith('NOZ')) {
+    if (
+      upper.startsWith('NOZ') ||
+      upper.startsWith('NAX') ||
+      upper.startsWith('NSZ') ||
+      upper.startsWith('D8')
+    ) {
       return 'NORWEGIAN'
     }
 

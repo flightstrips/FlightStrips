@@ -78,6 +78,7 @@ export class FlightStrip {
             }
           }),
         )
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         .catch((_) => {
           client.airport.upsertStrip('EKCH', 'LIVE', update.callsign, {
             cleared: false,

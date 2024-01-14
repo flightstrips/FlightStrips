@@ -1,4 +1,5 @@
-export function TSATCTOT(props: any) {
+// eslint-disable-next-line react-refresh/only-export-components
+export function TSATCTOT(props: { TSAT: string }) {
   return (
     <div className="flex flex-col justify-between">
       <div className="flex w-32 border-b-[1px] pl-2 border-t-2 border-r-2 border-l-2 h-8 border-[#85B4AF]">

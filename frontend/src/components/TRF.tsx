@@ -6,6 +6,7 @@ import {
   useDisclosure,
 } from '@nextui-org/react'
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function TRF() {
   const { isOpen, onOpen, onOpenChange } = useDisclosure()
 

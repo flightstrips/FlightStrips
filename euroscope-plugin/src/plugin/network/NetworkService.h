@@ -4,11 +4,16 @@
 #include "Server.h"
 #include "runway/ActiveRunway.h"
 
+namespace FlightStrips::stands {
+    class StandService;
+}
+
 namespace FlightStrips::network {
+
     class NetworkService : public handlers::FlightPlanEventHandler {
 
     public:
-        explicit NetworkService(const std::shared_ptr<Server> &server);
+        NetworkService(const std::shared_ptr<Server> &server, const std::shared_ptr<stands::StandService> &standService);
 
         void FlightPlanEvent(EuroScopePlugIn::CFlightPlan flightPlan) override;
 
@@ -22,6 +27,7 @@ namespace FlightStrips::network {
 
     private:
         std::shared_ptr<Server> m_server;
+        std::shared_ptr<stands::StandService> m_standService;
 
     };
 }

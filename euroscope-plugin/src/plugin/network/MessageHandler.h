@@ -7,17 +7,18 @@ namespace FlightStrips {
     namespace network {
         class ConnectedClient;
     }
+    struct Container;
 }
 
 namespace FlightStrips::network {
     class MessageHandler {
     public:
-        MessageHandler(const std::shared_ptr<FlightStripsPlugin>& mPlugin, ConnectedClient *mConnectedClient);
+        MessageHandler(const std::shared_ptr<Container>& mContainer, ConnectedClient *mConnectedClient);
 
         void OnMessage(const std::string& string);
 
     private:
-       std::shared_ptr<FlightStripsPlugin> m_plugin;
+       std::shared_ptr<Container> m_container;
        ConnectedClient* m_connectedClient;
 
     };

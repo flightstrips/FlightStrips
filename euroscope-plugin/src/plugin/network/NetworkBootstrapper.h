@@ -5,6 +5,6 @@
 namespace FlightStrips::network {
     class NetworkBootstrapper {
     public:
-        static void Bootstrap(Container& container);
+        static void Bootstrap(const std::shared_ptr<Container> &container);
     };
 }

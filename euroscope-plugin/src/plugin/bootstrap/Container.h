@@ -59,7 +59,7 @@ namespace FlightStrips {
         std::shared_ptr<flightplan::FlightPlanService> flightPlanService;
 
         // Stands
-        std::unique_ptr<stands::StandService> standService;
+        std::shared_ptr<stands::StandService> standService;
     };
 
 }

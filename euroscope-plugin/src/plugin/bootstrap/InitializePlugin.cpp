@@ -18,10 +18,10 @@ namespace FlightStrips {
         this->container = std::make_shared<Container>();
         this->container->flightPlanEventHandlers = std::make_shared<handlers::FlightPlanEventHandlers>();
         this->container->radarTargetEventHandlers = std::make_shared<handlers::RadarTargetEventHandlers>();
-        network::NetworkBootstrapper::Bootstrap(*this->container);
-        flightplan::FlightPlanBootstrapper::Bootstrap(*this->container);
         this->container->filesystem = std::make_unique<filesystem::FileSystem>(dllInstance);
         stands::StandsBootstrapper::Bootstrap(*this->container);
+        flightplan::FlightPlanBootstrapper::Bootstrap(*this->container);
+        network::NetworkBootstrapper::Bootstrap(this->container);
 
         this->container->plugin = std::make_shared<FlightStripsPlugin>(this->container->flightPlanEventHandlers, this->container->radarTargetEventHandlers, this->container->networkService);
 

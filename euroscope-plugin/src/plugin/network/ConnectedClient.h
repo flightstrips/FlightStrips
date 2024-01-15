@@ -9,7 +9,7 @@
 #include "MessageHandler.h"
 
 namespace FlightStrips {
-    class FlightStripsPlugin;
+    struct Container;
     namespace network {
         class MessageHandler;
     }
@@ -18,7 +18,7 @@ namespace FlightStrips {
 namespace FlightStrips::network {
     class ConnectedClient {
     public:
-        ConnectedClient(SOCKET socket, const std::shared_ptr<FlightStripsPlugin>& mPlugin);
+        ConnectedClient(SOCKET socket, const std::shared_ptr<Container>& mContainer);
         ~ConnectedClient();
 
         void Write(const std::string &message);

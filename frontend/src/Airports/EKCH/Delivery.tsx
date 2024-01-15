@@ -1,4 +1,5 @@
 import BayHeader from '../../components/BayHeader.tsx'
+import { Planned } from '../../components/Buttons/Planned.tsx'
 import { CommandBar } from '../../components/commandbar.tsx'
 import { FlightStrip } from '../../components/flightstrip.tsx'
 import { useFlightStripStore } from '../../providers/RootStoreContext.ts'
@@ -11,7 +12,7 @@ const Delivery = observer(() => {
     <>
       <div className="bg-[#A9A9A9] w-screen h-[calc(100vh-4rem)] flex justify-center justify-items-center shrink">
         <div className="bg-[#555355] w-full h-auto border-r-4 border-[#a9a9a9]">
-          <BayHeader title="OTHERS" />
+          <BayHeader title="OTHERS" buttons={<Planned />} />
           <div className="h-[calc(100%-2.5rem)] overflow-auto overflow-x-hidden">
             {flightStripStore.inBay('OTHER').map((item) => (
               <FlightStrip strip={item} key={item.callsign} />

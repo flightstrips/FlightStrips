@@ -1,5 +1,6 @@
 import BayHeader from '../../components/BayHeader'
 import { NewVFR } from '../../components/Buttons/NewVFR'
+import { ControllerMessages } from '../../components/ControllerMessages'
 import { CommandBar } from '../../components/commandbar'
 
 function Tower() {
@@ -37,7 +38,7 @@ function Tower() {
           <BayHeader title="PUSH BACK" />
         </div>
         <div className="h-2/6">
-          <BayHeader title="MESSAGES" msg />
+          <BayHeader title="MESSAGES" msg buttons={<ControllerMessages />} />
         </div>
       </div>
 

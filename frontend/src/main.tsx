@@ -17,7 +17,7 @@ ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
       <NextUIProvider>
         <HashRouter>
           <Routes>
-            <Route path="/" element={<DEL />} />
+            <Route path="/" element={<GND />} />
             <Route path="/ekch/del" element={<DEL />} />
             <Route path="/ekch/gnd" element={<GND />} />
             <Route path="/ekch/twr" element={<TWR />} />

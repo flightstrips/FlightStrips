@@ -40,7 +40,10 @@ export function Planned() {
                   C/S
                 </h1>
                 <Input
-                  className="drop-shadow text-lg"
+                  classNames={{
+                    input: ['text-xl text-center'],
+                    inputWrapper: ['drop-shadow'],
+                  }}
                   size="lg"
                   radius="none"
                 ></Input>

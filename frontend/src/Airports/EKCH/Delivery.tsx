@@ -1,5 +1,6 @@
 import BayHeader from '../../components/BayHeader.tsx'
 import { Planned } from '../../components/Buttons/Planned.tsx'
+import { ControllerMessages } from '../../components/ControllerMessages.tsx'
 import { CommandBar } from '../../components/commandbar.tsx'
 import { FlightStrip } from '../../components/flightstrip.tsx'
 import { useFlightStripStore } from '../../providers/RootStoreContext.ts'
@@ -40,7 +41,7 @@ const Delivery = observer(() => {
               <FlightStrip strip={item} key={item.callsign} />
             ))}
           </div>
-          <BayHeader title="MESSAGES" msg />
+          <BayHeader title="MESSAGES" msg buttons={<ControllerMessages />} />
           <div className="h-[calc(33%-2.5rem)] overflow-auto overflow-x-hidden"></div>
         </div>
         <div className="bg-[#555355] w-full h-auto border-l-2 border-[#a9a9a9]">

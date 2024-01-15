@@ -25,7 +25,12 @@ export function NewVFR() {
       >
         NEW
       </Button>
-      <Modal isOpen={isOpen} onOpenChange={onOpenChange} size="lg">
+      <Modal
+        isOpen={isOpen}
+        onOpenChange={onOpenChange}
+        size="lg"
+        radius="none"
+      >
         <ModalContent>
           {(onClose) => (
             <>

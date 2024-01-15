@@ -1,4 +1,6 @@
 import BayHeader from '../../components/BayHeader'
+import { NewVFR } from '../../components/Buttons/NewVFR'
+import { ControllerMessages } from '../../components/ControllerMessages'
 import { CommandBar } from '../../components/commandbar'
 
 function Tower() {
@@ -30,13 +32,13 @@ function Tower() {
 
       <div className="w-full bg-bay-grey flex flex-col">
         <div className="h-2/5">
-          <BayHeader title="CONTROL ZONE" />
+          <BayHeader title="CONTROL ZONE" buttons={<NewVFR />} />
         </div>
         <div className="h-1/4">
           <BayHeader title="PUSH BACK" />
         </div>
         <div className="h-2/6">
-          <BayHeader title="MESSAGES" msg />
+          <BayHeader title="MESSAGES" msg buttons={<ControllerMessages />} />
         </div>
       </div>
 

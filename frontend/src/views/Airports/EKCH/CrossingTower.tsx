@@ -1,5 +1,6 @@
-import BayHeader from '../../components/BayHeader'
-import { CommandBar } from '../../components/commandbar'
+import BayHeader from '../../../components/BayHeader'
+import { ControllerMessages } from '../../../components/Buttons/ControllerMessages'
+import { CommandBar } from '../../../components/commandbar'
 
 function CrossingTower() {
   return (
@@ -39,7 +40,7 @@ function CrossingTower() {
           <BayHeader title="CONTROL ZONE" />
         </div>
         <div className="h-2/6">
-          <BayHeader title="MESSAGES" msg />
+          <BayHeader title="MESSAGES" msg buttons={<ControllerMessages />} />
         </div>
       </div>
 

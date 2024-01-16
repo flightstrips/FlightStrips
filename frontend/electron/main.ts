@@ -95,12 +95,6 @@ class Main {
           },
           { type: 'separator' },
           {
-            label: 'Discord',
-            click: async () => {
-              await shell.openExternal('https://discord.gg/vatsca')
-            },
-          },
-          {
             label: 'Support',
             click: async () => {
               await shell.openExternal(

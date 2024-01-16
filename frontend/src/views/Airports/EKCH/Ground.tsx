@@ -1,12 +1,15 @@
-import BayHeader from '../../components/BayHeader'
-import { CommandBar } from '../../components/commandbar'
+import BayHeader from '../../../components/BayHeader'
+import { Planned } from '../../../components/Buttons/Planned'
+import { ControllerMessages } from '../../../components/Buttons/ControllerMessages'
+import { MemoryAid } from '../../../components/Buttons/MemoryAid'
+import { CommandBar } from '../../../components/commandbar'
 
 function Ground() {
   return (
     <div className="bg-background-grey h-screen w-screen flex gap-2 justify-center">
       <div className="w-full bg-bay-grey flex flex-col gap-8">
         <div className="h-1/4">
-          <BayHeader title="MESSAGES" msg />
+          <BayHeader title="MESSAGES" msg buttons={<ControllerMessages />} />
         </div>
         <div className="h-1/3">
           <BayHeader title="RWY ARR" />
@@ -20,10 +23,10 @@ function Ground() {
       </div>
       <div className="w-full bg-bay-grey">
         <div className="h-3/5">
-          <BayHeader title="TWY DEP" />
+          <BayHeader title="TWY DEP" buttons={<MemoryAid />} />
         </div>
         <div className="h-1/3">
-          <BayHeader title="TWY ARR" />
+          <BayHeader title="TWY ARR" buttons={<MemoryAid />} />
         </div>
       </div>
       <div className="w-full bg-bay-grey flex flex-col">
@@ -36,7 +39,7 @@ function Ground() {
       </div>
       <div className="w-full bg-bay-grey">
         <div className="h-4/5">
-          <BayHeader title="CLR DEL" />
+          <BayHeader title="CLR DEL" buttons={<Planned />} />
         </div>
         <div>
           <BayHeader title="DE-ICE" />

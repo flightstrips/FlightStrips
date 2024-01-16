@@ -7,8 +7,8 @@ import {
   Input,
   Textarea,
 } from '@nextui-org/react'
-import { SIDButton } from './CLX/SIDButton'
-import { FlightStrip } from '../stores/FlightStrip'
+import { SIDButton } from '../CLX/SIDButton'
+import { FlightStrip } from '../../stores/FlightStrip'
 import { observer } from 'mobx-react'
 
 // eslint-disable-next-line react-refresh/only-export-components

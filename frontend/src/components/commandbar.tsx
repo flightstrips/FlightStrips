@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import ZuluTime from './Clock'
-import { TRF } from './TRF'
+import { TRF } from './Buttons/TRF'
 import { AtisModal } from './ATIS/AtisModal'
-import { RunwayConfig } from './RunwayConfig'
+import { RunwayConfig } from './Buttons/RunwayConfig'
 
 export function CommandBar() {
   //const [runways] = useState({ dep: '22R', arr: '22L' })

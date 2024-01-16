@@ -8,7 +8,7 @@ import {
   Input,
 } from '@nextui-org/react'
 
-export const Planned = () => {
+export function Planned() {
   const { isOpen, onOpen, onOpenChange } = useDisclosure()
 
   return (
@@ -16,9 +16,10 @@ export const Planned = () => {
       <Button
         onPress={onOpen}
         radius="none"
-        className="bg-[#646464] pl-4 pr-4 border-white border-2 mr-1 text-white text-xl"
+        size="sm"
+        className="bg-[#646464] border-white border-2 mr-1 text-white text-md"
       >
-        FIND
+        Planned
       </Button>
       <Modal
         isOpen={isOpen}
@@ -39,7 +40,10 @@ export const Planned = () => {
                   C/S
                 </h1>
                 <Input
-                  className="drop-shadow text-lg"
+                  classNames={{
+                    input: ['text-xl text-center'],
+                    inputWrapper: ['drop-shadow'],
+                  }}
                   size="lg"
                   radius="none"
                 ></Input>

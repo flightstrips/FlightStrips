@@ -8,16 +8,8 @@ import {
   Input,
 } from '@nextui-org/react'
 
-export const MSGModal = () => {
+export const MemoryAid = () => {
   const { isOpen, onOpen, onOpenChange } = useDisclosure()
-
-  function BroadcastToStation(props: { text: string }) {
-    return (
-      <Button radius="none" className="w-24 m-2 font-semibold">
-        {props.text}
-      </Button>
-    )
-  }
 
   function PreDefMSG(props: { text: string }) {
     return (
@@ -35,9 +27,10 @@ export const MSGModal = () => {
       <Button
         onPress={onOpen}
         radius="none"
-        className="bg-[#646464] pl-4 pr-4 border-white border-2 mr-1 text-white text-xl"
+        size="sm"
+        className="bg-[#004fd6] border-white border-2 mr-1 text-white text-md"
       >
-        NEW
+        MEM AID
       </Button>
       <Modal
         isOpen={isOpen}
@@ -65,45 +58,17 @@ export const MSGModal = () => {
                       classNames={{ input: 'text-2xl text-center' }}
                     />
                   </div>
-
                   <div className="flex justify-evenly">
-                    <div className="flex w-1/3 flex-col justify-center items-center">
-                      <div className="bg-gray-500 p-4">
-                        <Button
-                          radius="none"
-                          color="success"
-                          className="w-52 ml-4 mr-4 mb-2 mt-2 font-semibold"
-                        >
-                          BROADCAST
-                        </Button>
-                        <div className="flex items-start">
-                          <BroadcastToStation text="CLR DEL" />
-                          <BroadcastToStation text="CLR DEL" />
-                        </div>
-                        <div className="flex">
-                          <BroadcastToStation text="APRON ARR" />
-                          <BroadcastToStation text="APRON DEP" />
-                        </div>
-                        <div className="flex">
-                          <BroadcastToStation text="GND WEST" />
-                          <BroadcastToStation text="GND EAST" />
-                        </div>
-                        <div className="flex">
-                          <BroadcastToStation text="TWR ARR" />
-                          <BroadcastToStation text="TWR DEP" />
-                        </div>
-                      </div>
-                    </div>
-
                     <div className="w-2/3">
-                      <PreDefMSG text="RUNWAY CHANGE TO 04R/04L" />
-                      <PreDefMSG text="RUNWAY CHANGE TO 22R/22L" />
-                      <PreDefMSG text="RUNWAY CHANGE TO 12/30" />
-                      <PreDefMSG text="CLOSING POSITION SOON" />
-                      <PreDefMSG text="ENFORCE A-CDM. TRAFFIC LOAD TOO HIGH" />
-                      <PreDefMSG text="ALL DEPARTURES MUST BE CLRD RWY-HDG 4000' UFN" />
-                      <PreDefMSG text="ATIS REPORTED DOWN. PLEASE RESOLVE" />
-                      <PreDefMSG text="ATIS REPORT WRONG RWY CONFIG" />
+                      <PreDefMSG text="ALL DEPARTURES ON RWY HDG" />
+                      <PreDefMSG text="3 MINUTES SEPARATION" />
+                      <PreDefMSG text="NO RIGHT TURN AFTER DEPARTURE" />
+                      <PreDefMSG text="STOP CLIMB AT 3000'" />
+                      <PreDefMSG text="STOP CLIMB AT 4000'" />
+                      <PreDefMSG text="OUTBOUND ON K1" />
+                      <PreDefMSG text="OUTBOUND ON K3" />
+                      <PreDefMSG text="OUTBOUND ON K3" />
+                      <PreDefMSG text="OLD AIRAC SID" />
                     </div>
                   </div>
                 </div>

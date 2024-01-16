@@ -1,8 +1,11 @@
-@import url('https://fonts.googleapis.com/css2?family=Rubik:wght@300;400;500;600;700;800;900&display=swap');
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@font-face {
+  font-family: Rubik;
+  src: url(/fonts/Rubik-VariableFont_wght.ttf);
+}
 
 body {
   margin: 0;

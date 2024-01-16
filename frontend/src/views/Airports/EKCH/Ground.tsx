@@ -1,8 +1,8 @@
-import BayHeader from '../../components/BayHeader'
-import { Planned } from '../../components/Buttons/Planned'
-import { ControllerMessages } from '../../components/ControllerMessages'
-import { MemoryAid } from '../../components/MemoryAid'
-import { CommandBar } from '../../components/commandbar'
+import BayHeader from '../../../components/BayHeader'
+import { Planned } from '../../../components/Buttons/Planned'
+import { ControllerMessages } from '../../../components/ControllerMessages'
+import { MemoryAid } from '../../../components/Buttons/MemoryAid'
+import { CommandBar } from '../../../components/commandbar'
 
 function Ground() {
   return (

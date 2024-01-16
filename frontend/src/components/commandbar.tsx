@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import ZuluTime from './Clock'
-import { TRF } from './TRF'
+import { TRF } from './Buttons/TRF'
 import { AtisModal } from './ATIS/AtisModal'
 import { RunwayConfig } from './RunwayConfig'
 

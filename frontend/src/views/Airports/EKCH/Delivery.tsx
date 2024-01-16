@@ -1,9 +1,9 @@
-import BayHeader from '../../components/BayHeader.tsx'
-import { Planned } from '../../components/Buttons/Planned.tsx'
-import { ControllerMessages } from '../../components/ControllerMessages.tsx'
-import { CommandBar } from '../../components/commandbar.tsx'
-import { FlightStrip } from '../../components/flightstrip.tsx'
-import { useFlightStripStore } from '../../providers/RootStoreContext.ts'
+import BayHeader from '../../../components/BayHeader.tsx'
+import { Planned } from '../../../components/Buttons/Planned.tsx'
+import { ControllerMessages } from '../../../components/ControllerMessages.tsx'
+import { CommandBar } from '../../../components/commandbar.tsx'
+import { FlightStrip } from '../../../components/flightstrip.tsx'
+import { useFlightStripStore } from '../../../providers/RootStoreContext.ts'
 import { observer } from 'mobx-react'
 
 const Delivery = observer(() => {

@@ -2,7 +2,7 @@ import { OwnerBOX } from './strip/ownerbox.tsx'
 import { observer } from 'mobx-react'
 import { Button } from '@nextui-org/react'
 import * as Model from '../stores/FlightStrip.ts'
-import { CLX } from './CLX.tsx'
+import { CLX } from './Buttons/CLX.tsx'
 
 const FlightStrip = observer((props: { strip: Model.FlightStrip }) => {
   return (

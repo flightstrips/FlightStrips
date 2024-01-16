@@ -1,6 +1,6 @@
 import BayHeader from '../../../components/BayHeader'
 import { Planned } from '../../../components/Buttons/Planned'
-import { ControllerMessages } from '../../../components/ControllerMessages'
+import { ControllerMessages } from '../../../components/Buttons/ControllerMessages'
 import { MemoryAid } from '../../../components/Buttons/MemoryAid'
 import { CommandBar } from '../../../components/commandbar'
 

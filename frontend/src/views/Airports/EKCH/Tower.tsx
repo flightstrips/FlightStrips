@@ -1,6 +1,6 @@
 import BayHeader from '../../../components/BayHeader'
 import { NewVFR } from '../../../components/Buttons/NewVFR'
-import { ControllerMessages } from '../../../components/ControllerMessages'
+import { ControllerMessages } from '../../../components/Buttons/ControllerMessages'
 import { CommandBar } from '../../../components/commandbar'
 
 function Tower() {

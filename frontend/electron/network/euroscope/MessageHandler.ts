@@ -20,6 +20,9 @@ export class MessageHandler implements MessageHandlerInterface {
     const event = JSON.parse(message) as Message
 
     switch (event.$type) {
+      case 'ControllerUpdate':
+        console.log(`Controller update: ${message}`)
+        break
       case 'FlightPlanUpdated':
         this.ipc.sendFlightPlanUpdate(event as FlightDataUpdatedMessage)
         break

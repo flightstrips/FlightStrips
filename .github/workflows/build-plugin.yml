@@ -43,8 +43,9 @@ jobs:
       - name: Run Ninja Build
         working-directory: ./euroscope-plugin/build
         run: ninja
+
       - uses: actions/upload-artifact@v4
         with:
           name: Plugin
-          path: ./build/bin/FlightStripsPlugin.dll
+          path: ./euroscope-plugin/build/bin/FlightStripsPlugin.dll
           if-no-files-found: error

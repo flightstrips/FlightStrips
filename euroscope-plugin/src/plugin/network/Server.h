@@ -5,7 +5,7 @@
 #pragma once
 
 namespace FlightStrips {
-    class FlightStripsPlugin;
+    struct Container;
     namespace network {
         class ConnectedClient;
     }
@@ -16,7 +16,7 @@ namespace FlightStrips {
 
         class Server {
         public:
-            explicit Server(const std::shared_ptr<FlightStripsPlugin>& mPlugin);
+            explicit Server(Container& mContainer);
             ~Server();
 
             void SendMessage(const std::string& message);
@@ -30,7 +30,7 @@ namespace FlightStrips {
 
             std::unique_ptr<std::thread> m_ListenThread;
             std::vector<std::unique_ptr<ConnectedClient>> m_Clients;
-            std::shared_ptr<FlightStripsPlugin> m_plugin;
+            Container &m_container;
         };
 
     } // FlightStrips

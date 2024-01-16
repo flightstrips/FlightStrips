@@ -1,0 +1,36 @@
+name: Build frontend
+
+on:
+  push:
+    branches:
+      - 'main'
+    paths:
+      - 'frontend/**'
+  pull_request:
+    branches:
+      - 'main'
+    paths:
+      - 'frontend/**'
+
+jobs:
+  build-frontend:
+    name: Build frontend (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+
+    defaults:
+      run:
+        working-directory: ./frontend
+
+    steps:
+    - uses: actions/checkout@v3
+    - uses: actions/setup-node@master
+      with:
+        node-version: 18.14
+    - name: install dependencies
+      run: npm ci
+    - name: build
+      run: npm run build

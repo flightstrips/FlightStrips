@@ -1,9 +1,10 @@
 #include "NetworkService.h"
 #include "euroscope/JsonConversion.hpp"
+#include "stands/StandService.h"
 
 namespace FlightStrips::network {
-    NetworkService::NetworkService(const std::shared_ptr<FlightStrips::network::Server> &server)
-        : m_server(server) {
+    NetworkService::NetworkService(const std::shared_ptr<FlightStrips::network::Server> &server, const std::shared_ptr<FlightStrips::stands::StandService> &standService)
+        : m_server(server), m_standService(standService) {
     }
 
     void NetworkService::FlightPlanEvent(EuroScopePlugIn::CFlightPlan flightPlan) {
@@ -11,6 +12,15 @@ namespace FlightStrips::network {
         euroscope::to_json(j, flightPlan.GetFlightPlanData());
         j["callsign"] = flightPlan.GetCallsign();
         j["$type"] = "FlightPlanUpdated";
+
+        auto stand = this->m_standService->GetStandFromFlightPlan(flightPlan);
+
+        if (stand == nullptr) {
+            j["stand"] = "";
+        } else {
+            j["stand"] = stand->GetName();
+        }
+
         auto message = j.dump();
 
         this->m_server->SendMessage(message);
@@ -89,6 +99,27 @@ namespace FlightStrips::network {
         auto data = json{
                 { "$type", "ActiveRunways"},
                 { "runways", arr}
+        };
+
+        this->m_server->SendMessage(data.dump());
+    }
+
+    void NetworkService::ControllerPositionUpdateEvent(EuroScopePlugIn::CController controller) {
+        auto data = json{
+                { "$type", "ControllerUpdate"},
+                { "callsign", controller.GetCallsign() },
+                { "frequency", controller.GetPrimaryFrequency() },
+                { "position", controller.GetPositionId() }
+        };
+
+        this->m_server->SendMessage(data.dump());
+    }
+
+    void NetworkService::ControllerDisconnectEvent(EuroScopePlugIn::CController controller) {
+        auto data = json{
+                { "$type", "ControllerDisconnect"},
+                { "callsign", controller.GetCallsign() },
+                { "frequency", controller.GetPrimaryFrequency() },
         };
 
         this->m_server->SendMessage(data.dump());

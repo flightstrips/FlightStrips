@@ -99,6 +99,7 @@ export class FlightStrip {
     this.route = update.route
     this.sid = update.sidName
     this.fl = (update.finalAltitude / 100).toString()
+    this.stand = update.stand
 
     const index = update.remarks.toUpperCase().indexOf('REG/')
     if (index !== -1) {

@@ -23,4 +23,5 @@ export interface FlightPlanUpdate {
   starName: string
   estimatedDepartureTime: string
   finalAltitude: number
+  stand: string
 }

@@ -10,8 +10,12 @@
 
 using json = nlohmann::json;
 
-FlightStrips::network::MessageHandler::MessageHandler(const std::shared_ptr<Container>& mContainer, ConnectedClient *mConnectedClient) : m_container(
+FlightStrips::network::MessageHandler::MessageHandler(Container& mContainer, ConnectedClient *mConnectedClient) : m_container(
         mContainer), m_connectedClient(mConnectedClient) {}
+
+FlightStrips::network::MessageHandler::~MessageHandler() {
+    this->m_connectedClient = nullptr;
+}
 
 void FlightStrips::network::MessageHandler::OnMessage(const std::string& string) {
     json j = json::parse(string);
@@ -19,7 +23,7 @@ void FlightStrips::network::MessageHandler::OnMessage(const std::string& string)
         return;
     }
 
-    auto plugin = this->m_container->plugin;
+    auto plugin = this->m_container.plugin;
     auto type = j["$type"];
 
     try {

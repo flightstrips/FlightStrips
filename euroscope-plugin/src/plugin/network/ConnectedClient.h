@@ -18,7 +18,7 @@ namespace FlightStrips {
 namespace FlightStrips::network {
     class ConnectedClient {
     public:
-        ConnectedClient(SOCKET socket, const std::shared_ptr<Container>& mContainer);
+        ConnectedClient(SOCKET socket, Container& mContainer);
         ~ConnectedClient();
 
         void Write(const std::string &message);

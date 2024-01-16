@@ -13,12 +13,13 @@ namespace FlightStrips {
 namespace FlightStrips::network {
     class MessageHandler {
     public:
-        MessageHandler(const std::shared_ptr<Container>& mContainer, ConnectedClient *mConnectedClient);
+        MessageHandler(Container& mContainer, ConnectedClient *mConnectedClient);
+        ~MessageHandler();
 
         void OnMessage(const std::string& string);
 
     private:
-       std::shared_ptr<Container> m_container;
+       Container &m_container;
        ConnectedClient* m_connectedClient;
 
     };

@@ -12,6 +12,7 @@
 #include "handlers/FlightPlanEventHandlers.h"
 #include "handlers/RadarTargetEventHandlers.h"
 #include "network/NetworkService.h"
+#include "handlers/ControllerEventHandlers.h"
 
 // TODO move
 #define CLEARED "CLEA"
@@ -23,6 +24,7 @@ namespace FlightStrips {
         FlightStripsPlugin(
                 const std::shared_ptr<handlers::FlightPlanEventHandlers> &mFlightPlanEventHandlerCollection,
                 const std::shared_ptr<handlers::RadarTargetEventHandlers> &mRadarTargetEventHandlers,
+                const std::shared_ptr<handlers::ControllerEventHandlers> &mControllerEventHandlers,
                 const std::shared_ptr<network::NetworkService> mNetworkService);
 
         ~FlightStripsPlugin() override;
@@ -43,7 +45,8 @@ namespace FlightStrips {
 
         void OnAirportRunwayActivityChanged() override;
 
-
+        void OnControllerPositionUpdate (EuroScopePlugIn::CController Controller ) override;
+        void OnControllerDisconnect (EuroScopePlugIn::CController Controller ) override;
 
         void OnTimer(int Counter) override;
 
@@ -54,6 +57,7 @@ namespace FlightStrips {
     private:
         const std::shared_ptr<handlers::FlightPlanEventHandlers> m_flightPlanEventHandlerCollection;
         const std::shared_ptr<handlers::RadarTargetEventHandlers> m_radarTargetEventHandlers;
+        const std::shared_ptr<handlers::ControllerEventHandlers> m_controllerEventHandlerCollection;
         const std::shared_ptr<network::NetworkService> m_networkService;
 
 

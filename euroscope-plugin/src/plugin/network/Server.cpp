@@ -9,7 +9,7 @@
 
 namespace FlightStrips {
     namespace network {
-        Server::Server(const std::shared_ptr<Container>& mContainer) : m_container(mContainer) {
+        Server::Server(Container& mContainer) : m_container(mContainer) {
             struct addrinfo *addressInfo = nullptr, hints{};
             ZeroMemory(&hints, sizeof(hints));
             hints.ai_family = AF_INET;
@@ -72,7 +72,7 @@ namespace FlightStrips {
                     continue;
                 }
 
-                this->m_container->plugin->Information("Client connected");
+                this->m_container.plugin->Information("Client connected");
                 this->m_Clients.push_back(std::make_unique<ConnectedClient>(client, this->m_container));
             }
 
@@ -84,7 +84,7 @@ namespace FlightStrips {
             while (it != this->m_Clients.end())
             {
                 if (!(*it)->IsActive()) {
-                    this->m_container->plugin->Information("Client no longer active");
+                    this->m_container.plugin->Information("Client no longer active");
                     it = this->m_Clients.erase(it);
                 } else {
                     (*it)->Write(message);

@@ -7,7 +7,7 @@
 #include "bootstrap/Container.h"
 
 namespace FlightStrips::network {
-    ConnectedClient::ConnectedClient(SOCKET socket, const std::shared_ptr<Container>& mContainer)
+    ConnectedClient::ConnectedClient(SOCKET socket, Container& mContainer)
             : socket(socket), m_messageHandler(mContainer, this) {
         this->isActive = true;
         this->writerThread = std::make_unique<std::thread>(&ConnectedClient::WriteLoop, this);

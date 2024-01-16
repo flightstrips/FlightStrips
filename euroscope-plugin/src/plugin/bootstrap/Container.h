@@ -22,6 +22,7 @@ namespace FlightStrips {
     }
     namespace handlers {
         class FlightPlanEventHandlers;
+        class ControllerEventHandlers;
     }
     namespace flightplan {
         class FlightPlanService;
@@ -48,6 +49,7 @@ namespace FlightStrips {
         std::unique_ptr<filesystem::FileSystem> filesystem;
 
         // event collections
+        std::shared_ptr<handlers::ControllerEventHandlers> controllerEventHandlers;
         std::shared_ptr<handlers::FlightPlanEventHandlers> flightPlanEventHandlers;
         std::shared_ptr<handlers::RadarTargetEventHandlers> radarTargetEventHandlers;
 

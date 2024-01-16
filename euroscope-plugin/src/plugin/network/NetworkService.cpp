@@ -103,5 +103,26 @@ namespace FlightStrips::network {
 
         this->m_server->SendMessage(data.dump());
     }
+
+    void NetworkService::ControllerPositionUpdateEvent(EuroScopePlugIn::CController controller) {
+        auto data = json{
+                { "$type", "ControllerUpdate"},
+                { "callsign", controller.GetCallsign() },
+                { "frequency", controller.GetPrimaryFrequency() },
+                { "position", controller.GetPositionId() }
+        };
+
+        this->m_server->SendMessage(data.dump());
+    }
+
+    void NetworkService::ControllerDisconnectEvent(EuroScopePlugIn::CController controller) {
+        auto data = json{
+                { "$type", "ControllerDisconnect"},
+                { "callsign", controller.GetCallsign() },
+                { "frequency", controller.GetPrimaryFrequency() },
+        };
+
+        this->m_server->SendMessage(data.dump());
+    }
 }
 

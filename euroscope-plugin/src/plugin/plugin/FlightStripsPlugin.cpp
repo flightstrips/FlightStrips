@@ -11,10 +11,13 @@ namespace FlightStrips {
     FlightStripsPlugin::FlightStripsPlugin(
             const std::shared_ptr<handlers::FlightPlanEventHandlers> &mFlightPlanEventHandlerCollection,
             const std::shared_ptr<handlers::RadarTargetEventHandlers> &mRadarTargetEventHandlers,
+            const std::shared_ptr<handlers::ControllerEventHandlers> &mControllerEventHandlers,
             const std::shared_ptr<network::NetworkService> mNetworkService)
             : CPlugIn(COMPATIBILITY_CODE, PLUGIN_NAME, "0.0.1", PLUGIN_AUTHOR, PLUGIN_COPYRIGHT),
               m_flightPlanEventHandlerCollection(mFlightPlanEventHandlerCollection),
-              m_radarTargetEventHandlers(mRadarTargetEventHandlers), m_networkService(mNetworkService) {
+              m_radarTargetEventHandlers(mRadarTargetEventHandlers),
+              m_controllerEventHandlerCollection(mControllerEventHandlers),
+              m_networkService(mNetworkService) {
     }
 
     void FlightStripsPlugin::Information(const std::string& message) {
@@ -115,6 +118,24 @@ namespace FlightStrips {
         auto scratch = std::string(fp.GetControllerAssignedData().GetScratchPadString());
         fp.GetControllerAssignedData().SetScratchPadString(message);
         fp.GetControllerAssignedData().SetScratchPadString(scratch.c_str());
+    }
+
+    void FlightStripsPlugin::OnControllerPositionUpdate(EuroScopePlugIn::CController Controller) {
+        if (!Controller.IsValid() || !Controller.IsController() ||
+            (strncmp(Controller.GetCallsign(), "EKCH", 4) != 0 && strncmp(Controller.GetCallsign(), "EKDK", 4) != 0))
+            return;
+
+        Information(Controller.GetCallsign());
+
+        this->m_controllerEventHandlerCollection->ControllerPositionUpdateEvent(Controller);
+    }
+
+    void FlightStripsPlugin::OnControllerDisconnect (EuroScopePlugIn::CController Controller ) {
+        if (!Controller.IsValid() || !Controller.IsController() ||
+            (strncmp(Controller.GetCallsign(), "EKCH", 4) != 0 && strncmp(Controller.GetCallsign(), "EKDK", 4) != 0))
+            return;
+
+        this->m_controllerEventHandlerCollection->ControllerDisconnectEvent(Controller);
     }
 }
 

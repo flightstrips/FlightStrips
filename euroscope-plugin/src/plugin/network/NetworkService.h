@@ -3,6 +3,7 @@
 #include "handlers/FlightPlanEventHandler.h"
 #include "Server.h"
 #include "runway/ActiveRunway.h"
+#include "handlers/ControllerEventHandler.h"
 
 namespace FlightStrips::stands {
     class StandService;
@@ -10,7 +11,7 @@ namespace FlightStrips::stands {
 
 namespace FlightStrips::network {
 
-    class NetworkService : public handlers::FlightPlanEventHandler {
+class NetworkService : public handlers::FlightPlanEventHandler, public handlers::ControllerEventHandler {
 
     public:
         NetworkService(const std::shared_ptr<Server> &server, const std::shared_ptr<stands::StandService> &standService);
@@ -23,7 +24,12 @@ namespace FlightStrips::network {
 
         void SquawkUpdateEvent(std::string callsign, int squawk) override;
 
+        void ControllerPositionUpdateEvent(EuroScopePlugIn::CController controller) override;
+
+        void ControllerDisconnectEvent(EuroScopePlugIn::CController controller) override;
+
         void SendActiveRunways(std::vector<runway::ActiveRunway> &runways) const;
+
 
     private:
         std::shared_ptr<Server> m_server;

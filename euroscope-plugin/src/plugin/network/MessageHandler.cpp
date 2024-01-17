@@ -104,7 +104,7 @@ void FlightStrips::network::MessageHandler::OnMessage(const std::string& string)
             auto connectionType = plugin->GetConnectionType();
 
             auto data = json{
-                    { "$type", "ControllerUpdate", },
+                    { "$type", "ControllerMe", },
                     { "isMe", true },
                     { "connectionType", std::to_string(connectionType) },
             };

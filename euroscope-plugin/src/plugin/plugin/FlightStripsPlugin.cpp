@@ -50,18 +50,17 @@ namespace FlightStrips {
     }
 
     void FlightStripsPlugin::OnTimer(int Counter) {
-        /*
-        for (const auto& message : this->server->ReadMessages()) {
-            Information(message);
+        int type = GetConnectionType();
+        if (type != this->connectionType) {
+            this->connectionType = type;
+            auto me = ControllerMyself();
+            this->m_networkService->ConnectionTypeUpdate(type, me);
         }
-        */
     }
 
     void FlightStripsPlugin::OnFlightPlanFlightStripPushed(EuroScopePlugIn::CFlightPlan FlightPlan,
                                                               const char *sSenderController,
                                                               const char *sTargetController) {
-        Information(FlightPlan.GetCallsign());
-
     }
 
     void FlightStripsPlugin::OnRadarTargetPositionUpdate(EuroScopePlugIn::CRadarTarget RadarTarget) {
@@ -121,21 +120,22 @@ namespace FlightStrips {
     }
 
     void FlightStripsPlugin::OnControllerPositionUpdate(EuroScopePlugIn::CController Controller) {
-        if (!Controller.IsValid() || !Controller.IsController() ||
-            (strncmp(Controller.GetCallsign(), "EKCH", 4) != 0 && strncmp(Controller.GetCallsign(), "EKDK", 4) != 0))
+        if (!IsRelevant(Controller))
             return;
-
-        Information(Controller.GetCallsign());
 
         this->m_controllerEventHandlerCollection->ControllerPositionUpdateEvent(Controller);
     }
 
     void FlightStripsPlugin::OnControllerDisconnect (EuroScopePlugIn::CController Controller ) {
-        if (!Controller.IsValid() || !Controller.IsController() ||
-            (strncmp(Controller.GetCallsign(), "EKCH", 4) != 0 && strncmp(Controller.GetCallsign(), "EKDK", 4) != 0))
+        if (!IsRelevant(Controller))
             return;
 
         this->m_controllerEventHandlerCollection->ControllerDisconnectEvent(Controller);
+    }
+
+    bool FlightStripsPlugin::IsRelevant(EuroScopePlugIn::CController controller) {
+        return controller.IsValid() && controller.IsController() &&
+            (strncmp(controller.GetCallsign(), "EKCH", 4) == 0 || strncmp(controller.GetCallsign(), "EKDK", 4) == 0);
     }
 }
 

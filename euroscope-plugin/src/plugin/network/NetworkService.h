@@ -30,6 +30,8 @@ class NetworkService : public handlers::FlightPlanEventHandler, public handlers:
 
         void SendActiveRunways(std::vector<runway::ActiveRunway> &runways) const;
 
+        void ConnectionTypeUpdate(int type, EuroScopePlugIn::CController controller) const;
+
 
     private:
         std::shared_ptr<Server> m_server;

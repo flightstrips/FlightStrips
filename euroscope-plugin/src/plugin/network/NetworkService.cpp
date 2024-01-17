@@ -124,5 +124,16 @@ namespace FlightStrips::network {
 
         this->m_server->SendMessage(data.dump());
     }
+
+    void NetworkService::ConnectionTypeUpdate(int type, EuroScopePlugIn::CController controller) const {
+        auto data = json{
+                { "$type", "ConnectionUpdate"},
+                { "connection", type},
+                { "callsign", controller.GetCallsign() },
+                { "frequency", controller.GetPrimaryFrequency() }
+        };
+
+        this->m_server->SendMessage(data.dump());
+    }
 }
 

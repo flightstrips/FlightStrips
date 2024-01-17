@@ -4,6 +4,7 @@ import { CoordinationState, CoordinationUpdate } from '../services/models'
 import client from '../services/api/StripsApi'
 import { FlightPlanUpdate } from '../../shared/FlightPlanUpdate'
 import { StripState } from '../services/api/generated/FlightStripsClient'
+import { CommunicationType } from '../../shared/CommunicationType'
 
 const BACKEND = false
 
@@ -36,6 +37,7 @@ export class FlightStrip {
   hdg = ''
   alt = 'FL070'
   deice = ''
+  communicationType = CommunicationType.Unknown
 
   constructor(store: FlightStripStore, callsign: string) {
     makeAutoObservable(this, {
@@ -107,6 +109,10 @@ export class FlightStrip {
     }
   }
 
+  public handleCommunicationTypeUpdate(communicationType: CommunicationType) {
+    this.communicationType = communicationType
+  }
+
   public clear(internal = true) {
     if (this.cleared) {
       return
@@ -140,5 +146,17 @@ export class FlightStrip {
 
   get nitosRemarks() {
     return ''
+  }
+
+  get callsignIncludingCommunicationType() {
+    switch (this.communicationType) {
+      case CommunicationType.Unknown:
+      case CommunicationType.Voice:
+        return this.callsign
+      case CommunicationType.Text:
+        return `${this.callsign}/t`
+      case CommunicationType.Receive:
+        return `${this.callsign}/r`
+    }
   }
 }

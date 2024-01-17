@@ -35,6 +35,12 @@ function initializeStore(): RootStore {
   api.onSetSquawk((callsign, squawk) =>
     s.flightStripStore.setSquawk(callsign, squawk),
   )
+  api.onSetCommunicationType((callsign, communicationType) =>
+    s.flightStripStore.handleCommunicationTypeUpdate(
+      callsign,
+      communicationType,
+    ),
+  )
 
   return s
 }

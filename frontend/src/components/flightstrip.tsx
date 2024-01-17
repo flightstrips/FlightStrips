@@ -16,7 +16,7 @@ const FlightStrip = observer((props: { strip: Model.FlightStrip }) => {
           radius="none"
           className="w-24 bg-[#BEF5EF] border-r-2 border-l-2 border-t-2 border-b-2 border-[#85B4AF] max-w-64 h-full flex items-center pl-2 text-left text-base font-medium"
         >
-          {props.strip.callsign}
+          {props.strip.callsignIncludingCommunicationType}
         </Button>
         <CLX Flightstrip={props.strip} />
         <div className="w-[5.5rem] border-r-1 border-l-1 border-t-2 border-b-2 border-[#85B4AF] h-full flex items-top justify-between text-center pl-1 pr-1 whitespace-nowrap">

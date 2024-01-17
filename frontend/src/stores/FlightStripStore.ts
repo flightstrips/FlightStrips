@@ -8,6 +8,7 @@ import {
 } from '../services/models.ts'
 import { signalRService } from '../services/SignalRService.ts'
 import { FlightStrip } from './FlightStrip.ts'
+import { CommunicationType } from '../../shared/CommunicationType.ts'
 
 const BACKEND = false
 
@@ -107,6 +108,22 @@ export class FlightStripStore {
         flightstrip.origin,
       )
     }
+  }
+
+  public handleCommunicationTypeUpdate(
+    callsign: string,
+    communicationType: CommunicationType,
+  ) {
+    let flightstrip = this.flightStrips.find(
+      (strip) => strip.callsign == callsign,
+    )
+
+    if (!flightstrip) {
+      flightstrip = new FlightStrip(this, callsign)
+      this.flightStrips.push(flightstrip)
+    }
+
+    flightstrip.handleCommunicationTypeUpdate(communicationType)
   }
 
   // TODO remove

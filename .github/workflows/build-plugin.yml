@@ -2,9 +2,15 @@ name: Build Plugin
 
 on:
   push:
-    branches: ["main"]
+    branches:
+      - "main"
+    paths:
+      - "euroscope-plugin/**"
   pull_request:
-    branches: ["main"]
+    branches:
+      - "main"
+    paths:
+      - "euroscope-plugin/**"
 
 env:
   # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)

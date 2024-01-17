@@ -180,7 +180,7 @@ export const CLX = observer((props: { Flightstrip: FlightStrip }) => {
                         value=" "
                       />
                     </div>
-                    <div className="flex w-4/5 justify-center mt-4 flex-col">
+                    <div className="flex w-4/5 justify-center mt-2 flex-col">
                       <p className="p-1">Route</p>
                       <Textarea
                         disabled
@@ -189,19 +189,135 @@ export const CLX = observer((props: { Flightstrip: FlightStrip }) => {
                         value={props.Flightstrip.route}
                       />
                     </div>
-                    <div className="flex">
-                      <Input />
+                    <div className="flex w-4/5 justify-center flex-col">
+                      <p className="p-1">COPANS REMARKS</p>
+                      <Textarea
+                        disabled
+                        radius="none"
+                        className="border-1 border-black w-[32rem] text-center"
+                        value={props.Flightstrip.remarks}
+                      />
                     </div>
-                    <div className="flex">
-                      <Input />
+                    <div className="flex w-4/5 justify-center flex-col">
+                      <div className="flex justify-around mt-2">
+                        <Input
+                          label="NITOS REMARKS"
+                          placeholder=" "
+                          labelPlacement="outside"
+                          disabled
+                          radius="none"
+                          className="border-1 border-black w-full mr-2 text-center"
+                          value=""
+                        />
+                        <Input
+                          label="IATA TYPE"
+                          placeholder=" "
+                          labelPlacement="outside"
+                          disabled
+                          radius="none"
+                          className="border-1 border-black w-32"
+                          value=" "
+                        />
+                      </div>
                     </div>
-                    <div className="flex">
-                      <Input />
-                      <Input />
-                      <Input />
-                      <Input />
-                      <Input />
-                      <Input />
+                    <div className="flex w-4/5 justify-center gap-2 mt-4 mb-4">
+                      <Input
+                        label="CLIMB"
+                        placeholder=" "
+                        labelPlacement="outside"
+                        radius="none"
+                        className="border-1 border-black w-full"
+                        value="M"
+                      />
+                      <Input
+                        label="HDG"
+                        placeholder=" "
+                        labelPlacement="outside"
+                        radius="none"
+                        className="border-1 border-black w-full"
+                        value={props.Flightstrip.hdg}
+                      />
+                      <Input
+                        label="ALT"
+                        placeholder=" "
+                        labelPlacement="outside"
+                        radius="none"
+                        className="border-1 border-black w-full"
+                        value={props.Flightstrip.alt}
+                      />
+                      <Input
+                        label="De-ICE"
+                        placeholder=" "
+                        labelPlacement="outside"
+                        radius="none"
+                        className="border-1 border-black w-full"
+                        value={props.Flightstrip.deice}
+                      />
+                      <Input
+                        label="REG"
+                        placeholder=" "
+                        labelPlacement="outside"
+                        radius="none"
+                        className="border-1 border-black w-full"
+                        value={props.Flightstrip.reg}
+                      />
+                      <Input
+                        label="STAND"
+                        placeholder=" "
+                        labelPlacement="outside"
+                        radius="none"
+                        className="border-1 border-black w-full"
+                        value={props.Flightstrip.stand}
+                      />
+                    </div>
+                  </div>
+                </fieldset>
+                <fieldset className="border-2 border-black h-fit mt-4 mb-4 flex items-center justify-center ">
+                  <legend className="pl-4 pr-4 text-center text-lg">
+                    ARRIVAL
+                  </legend>
+                  <div className="flex flex-col justtify-center items-center">
+                    <div className="flex w-4/5 justify-center gap-2 mb-4">
+                      <Input
+                        label="ADEP"
+                        placeholder=" "
+                        labelPlacement="outside"
+                        radius="none"
+                        className="border-1 border-black w-full"
+                        value=""
+                      />
+                      <Input
+                        label="STAR"
+                        placeholder=" "
+                        labelPlacement="outside"
+                        radius="none"
+                        className="border-1 border-black w-full"
+                        value=""
+                      />
+                      <Input
+                        label="RWY"
+                        placeholder=" "
+                        labelPlacement="outside"
+                        radius="none"
+                        className="border-1 border-black w-full"
+                        value={props.Flightstrip.runway}
+                      />
+                      <Input
+                        label="ETA"
+                        placeholder=" "
+                        labelPlacement="outside"
+                        radius="none"
+                        className="border-1 border-black w-full"
+                        value=""
+                      />
+                      <Input
+                        label="AOBT"
+                        placeholder=" "
+                        labelPlacement="outside"
+                        radius="none"
+                        className="border-1 border-black w-full"
+                        value=""
+                      />
                     </div>
                   </div>
                 </fieldset>

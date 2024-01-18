@@ -16,12 +16,6 @@ import { RunwayButton } from './CLX/Rynway'
 export const CLX = observer((props: { Flightstrip: FlightStrip }) => {
   const { isOpen, onOpen, onOpenChange } = useDisclosure()
 
-  function IsArrivalAircraft(Departure: string, Destination: string) {
-    if (Departure === Destination) {
-      return 'true'
-    }
-  }
-
   return (
     <>
       <Button
@@ -274,65 +268,55 @@ export const CLX = observer((props: { Flightstrip: FlightStrip }) => {
                     </div>
                   </div>
                 </fieldset>
-                {IsArrivalAircraft(
-                  props.Flightstrip.origin,
-                  props.Flightstrip.destination,
-                ) ? (
-                  <fieldset className="border-2 border-black h-fit mt-4 mb-4 flex items-center justify-center ">
-                    <legend className="pl-4 pr-4 text-center text-lg">
-                      ARRIVAL
-                    </legend>
-                    <div className="flex flex-col justtify-center items-center">
-                      <div className="flex w-4/5 justify-center gap-2 mb-4">
-                        <Input
-                          label="ADEP"
-                          placeholder=" "
-                          labelPlacement="outside"
-                          radius="none"
-                          className="border-1 border-black w-full"
-                          value=""
-                          disabled
-                        />
-                        <Input
-                          label="STAR"
-                          placeholder=" "
-                          labelPlacement="outside"
-                          radius="none"
-                          className="border-1 border-black w-full"
-                          value=""
-                          disabled
-                        />
-                        <div className="flex flex-col">
-                          <p className="pl-1 pr-1 pt-1 -mt-1 pb-1 text-sm">
-                            RWY
-                          </p>
-                          <RunwayButton Runway={props.Flightstrip.runway} />
-                        </div>
-                        <Input
-                          label="ETA"
-                          placeholder=" "
-                          labelPlacement="outside"
-                          radius="none"
-                          className="border-1 border-black w-full"
-                          value=""
-                          disabled
-                        />
-                        <Input
-                          label="AOBT"
-                          placeholder=" "
-                          labelPlacement="outside"
-                          radius="none"
-                          className="border-1 border-black w-full"
-                          value=""
-                          disabled
-                        />
+                <fieldset className="border-2 border-black h-fit mt-4 mb-4 flex items-center justify-center ">
+                  <legend className="pl-4 pr-4 text-center text-lg">
+                    ARRIVAL
+                  </legend>
+                  <div className="flex flex-col justtify-center items-center">
+                    <div className="flex w-4/5 justify-center gap-2 mb-4">
+                      <Input
+                        label="ADEP"
+                        placeholder=" "
+                        labelPlacement="outside"
+                        radius="none"
+                        className="border-1 border-black w-full"
+                        value=""
+                        disabled
+                      />
+                      <Input
+                        label="STAR"
+                        placeholder=" "
+                        labelPlacement="outside"
+                        radius="none"
+                        className="border-1 border-black w-full"
+                        value=""
+                        disabled
+                      />
+                      <div className="flex flex-col">
+                        <p className="pl-1 pr-1 pt-1 -mt-1 pb-1 text-sm">RWY</p>
+                        <RunwayButton Runway={''} />
                       </div>
+                      <Input
+                        label="ETA"
+                        placeholder=" "
+                        labelPlacement="outside"
+                        radius="none"
+                        className="border-1 border-black w-full"
+                        value=""
+                        disabled
+                      />
+                      <Input
+                        label="AOBT"
+                        placeholder=" "
+                        labelPlacement="outside"
+                        radius="none"
+                        className="border-1 border-black w-full"
+                        value=""
+                        disabled
+                      />
                     </div>
-                  </fieldset>
-                ) : (
-                  <></>
-                )}
-
+                  </div>
+                </fieldset>
                 <div className="flex justify-between">
                   <Button
                     radius="none"

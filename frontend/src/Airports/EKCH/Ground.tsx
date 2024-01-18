@@ -9,7 +9,11 @@ function Ground() {
     <div className="bg-background-grey h-screen w-screen flex gap-2 justify-center">
       <div className="w-full bg-bay-grey flex flex-col gap-8">
         <div className="h-1/4">
-          <BayHeader title="MESSAGES" msg buttons={<ControllerMessages />} />
+          <BayHeader
+            title="MESSAGES"
+            message
+            buttons={<ControllerMessages />}
+          />
         </div>
         <div className="h-1/3">
           <BayHeader title="RWY ARR" />

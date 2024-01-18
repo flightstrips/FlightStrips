@@ -41,17 +41,21 @@ const Delivery = observer(() => {
               <FlightStrip strip={item} key={item.callsign} />
             ))}
           </div>
-          <BayHeader title="MESSAGES" msg buttons={<ControllerMessages />} />
+          <BayHeader
+            title="MESSAGES"
+            message
+            buttons={<ControllerMessages />}
+          />
           <div className="h-[calc(33%-2.5rem)] overflow-auto overflow-x-hidden"></div>
         </div>
         <div className="bg-[#555355] w-full h-auto border-l-2 border-[#a9a9a9]">
-          <BayHeader title="PUSHBACK" />
+          <BayHeader title="PUSHBACK" information />
           <div className="h-[calc(33%-2.5rem)] overflow-auto overflow-x-hidden">
             {flightStripStore.inBay('PUSHBACK').map((item) => (
               <FlightStrip strip={item} />
             ))}
           </div>
-          <BayHeader title="TWY DEP" />
+          <BayHeader title="TWY DEP" information />
           <div className="h-[calc(66%-2.5rem)] overflow-auto overflow-x-hidden">
             {flightStripStore.inBay('TWY DEP').map((item) => (
               <FlightStrip strip={item} />

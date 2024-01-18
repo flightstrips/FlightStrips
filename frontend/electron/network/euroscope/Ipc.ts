@@ -4,6 +4,8 @@ import { FlightPlanUpdate } from '../../../shared/FlightPlanUpdate'
 import { IpcInterface } from './interfaces/IpcInterface'
 import { ActiveRunway } from '../../../shared/ActiveRunway'
 import { GroundState } from '../../../shared/GroundState'
+import { ConnectionType } from '../../../shared/ConnectionType'
+import { ControllerUpdate } from '../../../shared/ControllerUpdate'
 
 export class Ipc implements IpcInterface {
   private readonly webContents: WebContents
@@ -11,7 +13,21 @@ export class Ipc implements IpcInterface {
   constructor(webContents: WebContents) {
     this.webContents = webContents
   }
-
+  sendEuroScopeConnectionUpdate(isConnected: boolean): void {
+    this.webContents.send('EuroScopeConnectionUpdate', isConnected)
+  }
+  sendVatsimConnectionUpdate(connection: ConnectionType): void {
+    this.webContents.send('VatsimConnectionUpdate', connection)
+  }
+  sendControllerUpdate(update: ControllerUpdate): void {
+    this.webContents.send('ControllerUpdate', update)
+  }
+  sendControllerDisconnect(update: ControllerUpdate): void {
+    this.webContents.send('ControllerDisconnect', update)
+  }
+  sendMe(callsign: string): void {
+    this.webContents.send('Me', callsign)
+  }
   sendFlightPlanUpdate(plan: FlightPlanUpdate): void {
     this.webContents.send('FlightPlanUpdated', JSON.stringify(plan))
   }

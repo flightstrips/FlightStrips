@@ -18,7 +18,7 @@ ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
       <NextUIProvider>
         <HashRouter>
           <Routes>
-            <Route path="/" element={<Startup value={75} label="Loading" />} />
+            <Route path="/" element={<Startup />} />
             <Route path="/ekch/del" element={<DEL />} />
             <Route path="/ekch/gnd" element={<GND />} />
             <Route path="/ekch/twr" element={<TWR />} />
@@ -29,3 +29,5 @@ ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
     </RootStoreProvider>
   </React.StrictMode>,
 )
+
+postMessage({ payload: 'removeLoading' }, '*')

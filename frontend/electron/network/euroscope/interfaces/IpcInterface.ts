@@ -1,5 +1,7 @@
 import { ActiveRunway } from '../../../../shared/ActiveRunway'
 import { CommunicationType } from '../../../../shared/CommunicationType'
+import { ConnectionType } from '../../../../shared/ConnectionType'
+import { ControllerUpdate } from '../../../../shared/ControllerUpdate'
 import { FlightPlanUpdate } from '../../../../shared/FlightPlanUpdate'
 import { GroundState } from '../../../../shared/GroundState'
 
@@ -17,4 +19,9 @@ export interface IpcInterface {
   sendSetGroundState(callsign: string, state: GroundState): void
   sendSquawkUpdate(callsign: string, squawk: number): void
   sendActiveRunways(runways: ActiveRunway[]): void
+  sendEuroScopeConnectionUpdate(isConnected: boolean): void
+  sendVatsimConnectionUpdate(connection: ConnectionType): void
+  sendControllerUpdate(update: ControllerUpdate): void
+  sendControllerDisconnect(update: ControllerUpdate): void
+  sendMe(callsign: string): void
 }

@@ -108,10 +108,10 @@ class Main {
     Menu.setApplicationMenu(menu)
 
     const result = createEuroScopeSocket(this.mainWindow.webContents)
-    this.euroScopeScoket = result.socket
-    this.euroScopeScoket.start()
     this.eventHandler = result.eventHandler
     this.eventHandler.setupHandlers()
+    this.euroScopeScoket = result.socket
+    this.euroScopeScoket.start()
   }
 
   private onWindowAllClosed() {

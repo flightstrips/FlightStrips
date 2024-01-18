@@ -24,7 +24,6 @@ export class EuroScopeSocket {
   }
 
   public start() {
-    console.log('Starting socket connection')
     if (this.tryReconnect) {
       this.connect()
     }
@@ -71,24 +70,26 @@ export class EuroScopeSocket {
   }
 
   private onClose(hasError: boolean, self: this) {
+    this.handler?.handleConnectionStatus(false)
     console.log(`Connection closed. Error: ${hasError}`)
     self.reconnect()
   }
 
   private onError(self: this) {
+    this.handler?.handleConnectionStatus(false)
     self.reconnect()
   }
 
   private onTimeout(self: this) {
+    this.handler?.handleConnectionStatus(false)
     console.log('Connection timed out!')
     self.reconnect()
   }
 
   private onConnected(self: this) {
-    console.log('Connected')
-    self.send({ $type: 'Initial', message: 'Hello from application' })
-    // Get current controller if there is one
-    self.send({ $type: 'Me' })
+    self.send({ $type: 'Initial', message: 'Client connected' })
+    // TODO figure out way to avoid timeout
+    setTimeout(() => this.handler?.handleConnectionStatus(true), 2500)
   }
 
   private clearListners() {

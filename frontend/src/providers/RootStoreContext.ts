@@ -1,5 +1,5 @@
 import { createContext, useContext } from 'react'
-import { RootStore } from '../stores/RootStore'
+import { RootStore } from '../stores/RootStore.ts'
 
 let store: RootStore
 export const StoreContext = createContext<RootStore | undefined>(undefined)
@@ -17,6 +17,11 @@ export function useRootStore() {
 export function useFlightStripStore() {
   const { flightStripStore } = useRootStore()
   return flightStripStore
+}
+
+export function useStateStore() {
+  const { stateStore } = useRootStore()
+  return stateStore
 }
 
 export function getRoot() {
@@ -41,6 +46,18 @@ function initializeStore(): RootStore {
       communicationType,
     ),
   )
-
+  api.onEuroScopeConnectionUpdate((isConnected) =>
+    s.stateStore.handleEuroScopeConnectionUpdate(isConnected),
+  )
+  api.onVatsimConnectionUpdate((connection) =>
+    s.stateStore.handleVatsimConnectionUpdate(connection),
+  )
+  api.onControllerUpdate((update) =>
+    s.controllerStore.handleControllerUpdate(update),
+  )
+  api.onControllerDisconnect((update) =>
+    s.controllerStore.handleControllerDisconnect(update),
+  )
+  api.onMe((callsign) => s.controllerStore.setMe(callsign))
   return s
 }

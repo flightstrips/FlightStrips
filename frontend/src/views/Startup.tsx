@@ -1,5 +1,16 @@
 import { Progress } from '@nextui-org/react'
-function Startup(props: { label: string; value: number }) {
+import { useStateStore } from '../providers/RootStoreContext.ts'
+import { observer } from 'mobx-react'
+import { useNavigate } from 'react-router-dom'
+
+const Startup = observer(() => {
+  const stateStore = useStateStore()
+  const navigate = useNavigate()
+
+  if (stateStore.isReady) {
+    navigate('/ekch/del')
+  }
+
   return (
     <>
       <div className="h-screen w-screen bg-black bg-opacity-50 z-10 absolute flex justify-center items-center flex-col text-white">
@@ -11,17 +22,17 @@ function Startup(props: { label: string; value: number }) {
           <h1 className="text-center text-[4rem] font-semibold">
             Flightstrips
           </h1>
-          <Progress size="lg" label={props.label} value={props.value} />
+          <Progress size="md" label={stateStore.loadingLabel} isIndeterminate />
         </div>
       </div>
       <div className="z-0 absolute h-[110vh] w-[110vw] aspect-auto w-screen">
         <img
-          src="startup.png"
+          src="images/startup.png"
           className="absolute -top-[5vh] -left-[5vh] h-[110vh] w-[110vw] z-0 blur-md"
         />
       </div>
     </>
   )
-}
+})
 
 export default Startup

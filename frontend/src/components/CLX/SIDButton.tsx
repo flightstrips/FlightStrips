@@ -34,20 +34,20 @@ export function SIDButton(props: { SID: string }) {
         onOpenChange={onOpenChange}
         size="xs"
         classNames={{
-          backdrop: 'bg-[#000]/50 backdrop-opacity-40 w-screen h-screen z-10',
-          base: 'bg-[#b3b3b3] drop-shadow-2xl',
+          backdrop: 'bg-[#000]/0 backdrop-opacity-40 w-screen h-screen z-10',
+          base: 'bg-[#D6D6D6] drop-shadow-2xl',
         }}
       >
         <ModalContent>
           {(onClose) => (
             <>
               <ModalBody>
-                <fieldset className="border-2 border-black h-fit mt-4 mb-4 flex flex-col items-center justify-center gap-2">
+                <fieldset className="border-2 border-black h-fit mt-4 mb-4 flex flex-col items-center justify-center gap-4 pt-4 pb-4">
                   {SIDs.map((SIDName) => (
                     <Button
                       key={SIDName}
                       radius="none"
-                      className="text-xl bg-[#d6d6d6] text-blackdrop-shadow"
+                      className="text-xl bg-[#d6d6d6] text-blackdrop-shadow w-32 drop-shadow-md border-gray-500 border-1 border-opacity-25"
                     >
                       {SIDName}
                     </Button>

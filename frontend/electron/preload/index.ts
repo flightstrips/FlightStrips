@@ -1,5 +1,5 @@
 import { contextBridge } from 'electron'
-import IpcApi from './IPC/IpcApi'
+import IpcApi from '../IPC/IpcApi'
 
 function domReady(
   condition: DocumentReadyState[] = ['complete', 'interactive'],

@@ -9,6 +9,7 @@ const Startup = observer(() => {
 
   if (stateStore.isReady) {
     navigate('/ekch/del')
+    return
   }
 
   return (

@@ -2,14 +2,17 @@ import { Progress } from '@nextui-org/react'
 import { useStateStore } from '../providers/RootStoreContext.ts'
 import { observer } from 'mobx-react'
 import { useNavigate } from 'react-router-dom'
+import { useEffect } from 'react'
 
 const Startup = observer(() => {
   const stateStore = useStateStore()
   const navigate = useNavigate()
 
-  if (stateStore.isReady) {
-    navigate('/ekch/del')
-  }
+  useEffect(() => {
+    if (stateStore.isReady) {
+      navigate('/ekch/del')
+    }
+  }, [navigate, stateStore.isReady])
 
   return (
     <>

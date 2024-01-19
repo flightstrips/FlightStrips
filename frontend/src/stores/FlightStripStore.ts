@@ -1,4 +1,4 @@
-import { action, makeObservable, observable } from 'mobx'
+import { makeAutoObservable } from 'mobx'
 import { RootStore } from './RootStore'
 import { FlightPlanUpdate } from '../../shared/FlightPlanUpdate'
 import {
@@ -18,12 +18,8 @@ export class FlightStripStore {
 
   constructor(rootStore: RootStore) {
     this.rootStore = rootStore
-    makeObservable(this, {
+    makeAutoObservable(this, {
       rootStore: false,
-      flightStrips: observable,
-      updateFlightPlanData: action,
-      setCleared: action,
-      handleStripUpdate: action,
     })
 
     signalRService.on('CoordinationUpdate', this.handleCoordinationUpdate)

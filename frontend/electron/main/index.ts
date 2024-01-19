@@ -129,6 +129,7 @@ class Main {
     this.euroScopeScoket?.stop()
     this.mainWindow = null
     this.eventHandler = null
+    app.quit()
   }
 
   private registerIpcChannels(ipcChannels: IpcChannelInterface[]) {

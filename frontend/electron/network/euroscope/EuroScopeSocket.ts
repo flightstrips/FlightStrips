@@ -32,8 +32,8 @@ export class EuroScopeSocket {
   public stop() {
     this.tryReconnect = false
     if (this.socket) {
-      this.clearListners()
       this.socket?.destroy()
+      this.clearListners()
     }
   }
 

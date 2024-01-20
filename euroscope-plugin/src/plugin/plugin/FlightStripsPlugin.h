@@ -25,11 +25,12 @@ namespace FlightStrips {
                 const std::shared_ptr<handlers::FlightPlanEventHandlers> &mFlightPlanEventHandlerCollection,
                 const std::shared_ptr<handlers::RadarTargetEventHandlers> &mRadarTargetEventHandlers,
                 const std::shared_ptr<handlers::ControllerEventHandlers> &mControllerEventHandlers,
-                const std::shared_ptr<network::NetworkService> mNetworkService);
+                const std::shared_ptr<network::NetworkService> &mNetworkService);
 
         ~FlightStripsPlugin() override;
 
         void Information(const std::string &message);
+        void Error(const std::string &message);
 
         void OnFlightPlanDisconnect (EuroScopePlugIn::CFlightPlan FlightPlan ) override;
 

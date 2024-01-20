@@ -86,8 +86,7 @@ export class EuroScopeSocket {
     self.reconnect()
   }
 
-  private onConnected(self: this) {
-    self.send({ $type: 'Initial', message: 'Client connected' })
+  private onConnected() {
     // TODO figure out way to avoid timeout
     setTimeout(() => this.handler?.handleConnectionStatus(true), 2500)
   }

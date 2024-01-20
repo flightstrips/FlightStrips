@@ -10,9 +10,9 @@ const Startup = observer(() => {
 
   useEffect(() => {
     if (stateStore.isReady) {
-      navigate('/ekch/del')
+      navigate(stateStore.view)
     }
-  }, [navigate, stateStore.isReady])
+  }, [navigate, stateStore.isReady, stateStore.view])
 
   return (
     <>

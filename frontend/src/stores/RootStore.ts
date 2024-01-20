@@ -11,5 +11,6 @@ export class RootStore {
     this.flightStripStore = new FlightStripStore(this)
     this.stateStore = new StateStore(this)
     this.controllerStore = new ControllerStore(this)
+    api.ready()
   }
 }

@@ -3,11 +3,24 @@ import { Planned } from '../../../components/Buttons/Planned.tsx'
 import { ControllerMessages } from '../../../components/Buttons/ControllerMessages.tsx'
 import { CommandBar } from '../../../components/commandbar.tsx'
 import { FlightStrip } from '../../../components/flightstrip.tsx'
-import { useFlightStripStore } from '../../../providers/RootStoreContext.ts'
+import {
+  useFlightStripStore,
+  useStateStore,
+} from '../../../providers/RootStoreContext.ts'
 import { observer } from 'mobx-react'
+import { useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 
 const Delivery = observer(() => {
   const flightStripStore = useFlightStripStore()
+  const stateStore = useStateStore()
+  const navigate = useNavigate()
+
+  useEffect(() => {
+    if (!stateStore.isReady) {
+      navigate('/')
+    }
+  }, [navigate, stateStore.isReady, stateStore.view])
 
   return (
     <>

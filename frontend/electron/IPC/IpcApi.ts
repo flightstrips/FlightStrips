@@ -111,4 +111,7 @@ export default {
   setHeading: (callsign: string, heading: number) => {
     ipcRenderer.send(callsign, heading)
   },
+  ready: () => {
+    ipcRenderer.send('ready', {})
+  },
 }

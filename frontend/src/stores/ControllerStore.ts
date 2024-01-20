@@ -2,6 +2,7 @@ import { makeAutoObservable } from 'mobx'
 import { RootStore } from './RootStore'
 import { Controller } from './Controller'
 import { ControllerUpdate } from '../../shared/ControllerUpdate'
+import { ControllerPosition } from '../data/models'
 
 export class ControllerStore {
   rootStore: RootStore
@@ -15,6 +16,10 @@ export class ControllerStore {
     })
   }
 
+  public reest() {
+    this.controllers = []
+  }
+
   public setMe(callsign: string) {
     if (!this.me) {
       this.me = new Controller(callsign)
@@ -25,10 +30,10 @@ export class ControllerStore {
 
   public handleControllerUpdate(update: ControllerUpdate) {
     if (this.me?.callsign === update.callsign) {
-      if (update.frequency !== '199.998') {
-        this.rootStore.stateStore.setIdentified(true)
-      } else {
-        this.rootStore.stateStore.setIdentified(false)
+      if (update.frequency !== this.me.frequency) {
+        this.rootStore.stateStore.setController(
+          update.frequency as ControllerPosition,
+        )
       }
 
       this.me.frequency = update.frequency

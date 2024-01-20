@@ -6,6 +6,7 @@ export class EuroScopeSocket {
   private readonly port: number
   private readonly host: string
   private readonly handler?: MessageHandlerInterface
+  public isConnected = false
 
   constructor(handler?: MessageHandlerInterface, host?: string, port?: number) {
     if (host) {
@@ -70,25 +71,35 @@ export class EuroScopeSocket {
   }
 
   private onClose(hasError: boolean, self: this) {
-    this.handler?.handleConnectionStatus(false)
+    this.setConnected(false)
     console.log(`Connection closed. Error: ${hasError}`)
     self.reconnect()
   }
 
   private onError(self: this) {
-    this.handler?.handleConnectionStatus(false)
+    this.setConnected(false)
     self.reconnect()
   }
 
   private onTimeout(self: this) {
-    this.handler?.handleConnectionStatus(false)
+    this.setConnected(false)
     console.log('Connection timed out!')
     self.reconnect()
   }
 
   private onConnected() {
-    // TODO figure out way to avoid timeout
-    setTimeout(() => this.handler?.handleConnectionStatus(true), 2500)
+    this.setConnected(true)
+  }
+
+  private setConnected(connected: boolean) {
+    if (connected === this.isConnected) return
+
+    this.isConnected = connected
+    if (this.isConnected) {
+      this.handler?.handleConnectionStatus(true)
+    } else {
+      this.handler?.handleConnectionStatus(false)
+    }
   }
 
   private clearListners() {

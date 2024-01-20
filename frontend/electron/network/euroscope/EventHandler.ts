@@ -91,5 +91,12 @@ export default class EventHandler {
         sid: args[1],
       })
     })
+    this.webContents.ipc.on('ready', () => {
+      this.webContents.send(
+        'EuroScopeConnectionUpdate',
+        this.socket.isConnected,
+      )
+      this.socket.send({ $type: 'Initial' })
+    })
   }
 }

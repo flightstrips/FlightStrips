@@ -28,7 +28,43 @@ void FlightStrips::network::MessageHandler::OnMessage(const std::string& string)
 
     try {
         if (type == "Initial") {
-            plugin->Information(j["message"]);
+            // Client is fully ready send everything
+            auto connectionType = plugin->GetConnectionType();
+            auto me = plugin->ControllerMyself();
+            this->m_container.networkService->ConnectionTypeUpdate(connectionType, me);
+            plugin->OnAirportRunwayActivityChanged();
+
+            // Don't do anything else if not connected.
+            if (connectionType == 0) return;
+
+            plugin->OnControllerPositionUpdate(me);
+
+
+
+            for (auto plan = plugin->FlightPlanSelectFirst(); plan.IsValid(); plan = plugin->FlightPlanSelectNext(plan)) {
+                try {
+                    plugin->OnFlightPlanFlightPlanDataUpdate(plan);
+                    plugin->OnRadarTargetPositionUpdate(plan.GetCorrelatedRadarTarget());
+                    plugin->OnFlightPlanControllerAssignedDataUpdate(plan, EuroScopePlugIn::CTR_DATA_TYPE_SQUAWK);
+                    plugin->OnFlightPlanControllerAssignedDataUpdate(plan, EuroScopePlugIn::CTR_DATA_TYPE_FINAL_ALTITUDE);
+                    plugin->OnFlightPlanControllerAssignedDataUpdate(plan, EuroScopePlugIn::CTR_DATA_TYPE_TEMPORARY_ALTITUDE);
+                    plugin->OnFlightPlanControllerAssignedDataUpdate(plan, EuroScopePlugIn::CTR_DATA_TYPE_COMMUNICATION_TYPE);
+                    plugin->OnFlightPlanControllerAssignedDataUpdate(plan, EuroScopePlugIn::CTR_DATA_TYPE_SCRATCH_PAD_STRING);
+                    plugin->OnFlightPlanControllerAssignedDataUpdate(plan, EuroScopePlugIn::CTR_DATA_TYPE_GROUND_STATE);
+                    plugin->OnFlightPlanControllerAssignedDataUpdate(plan, EuroScopePlugIn::CTR_DATA_TYPE_CLEARENCE_FLAG);
+                } catch (std::exception &e) {
+                    plugin->Error("Failed to send plan (" + std::string(plan.GetCallsign()) + "):" + std::string(e.what()));
+                }
+            }
+
+            for (auto controller = plugin->ControllerSelectFirst(); controller.IsValid(); controller = plugin->ControllerSelectNext(controller)) {
+                try {
+                    plugin->OnControllerPositionUpdate(controller);
+                } catch (std::exception &e) {
+                    plugin->Error("Failed to send controller (" + std::string(controller.GetCallsign()) + "):" + std::string(e.what()));
+                }
+            }
+
             return;
         } else if (type == "SetSquawk") {
             if (j.contains("callsign") && j.contains("squawk")) {

@@ -26,11 +26,15 @@ export class FlightStripStore {
     signalRService.on('ReceiveStripUpdate', this.handleStripUpdate)
   }
 
+  public reset() {
+    this.flightStrips = []
+  }
+
   public setCleared(callsign: string, cleared: boolean) {
     const flightstrip = this.flightStrips.find(
       (strip) => strip.callsign == callsign,
     )
-    if (!flightstrip || cleared) return
+    if (!flightstrip || !cleared) return
 
     flightstrip.clear(false)
   }

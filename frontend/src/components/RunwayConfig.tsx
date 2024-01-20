@@ -19,7 +19,7 @@ export const RunwayConfig = (props: { ActiveRunway: string }) => {
           size="lg"
           variant="solid"
           color="success"
-          className="p-4 m-2 border-2 border-black w-full"
+          className="border-2 border-black w-full bg-[#70ed45]"
         >
           {props.runway}
         </Button>
@@ -30,7 +30,7 @@ export const RunwayConfig = (props: { ActiveRunway: string }) => {
           radius="none"
           size="lg"
           variant="bordered"
-          className="p-4 m-2 border-2 border-black w-full"
+          className="border-2 border-black w-full bg-[#d6d6d6]"
         >
           {props.runway}
         </Button>
@@ -46,45 +46,51 @@ export const RunwayConfig = (props: { ActiveRunway: string }) => {
       >
         {props.ActiveRunway}
       </Button>
-      <Modal isOpen={isOpen} onOpenChange={onOpenChange} size="xl">
+      <Modal
+        isOpen={isOpen}
+        onOpenChange={onOpenChange}
+        radius="none"
+        size="xl"
+        classNames={{
+          backdrop: 'bg-[#000]/50 backdrop-opacity-40 w-screen h-screen z-10',
+          base: 'bg-[#b3b3b3] drop-shadow-2xl',
+        }}
+      >
         <ModalContent>
           {(onClose) => (
             <>
-              <ModalHeader className="flex flex-col gap-1">
-                EKCH - Runway Configuration
-              </ModalHeader>
               <ModalBody>
-                <div className="flex font-extrabold justify-evenly">
-                  <div className="flex-col">
-                    <p className="w-full text-center">DEP RWY</p>
+                <div className="flex font-semibold justify-evenly">
+                  <fieldset className="flex-col">
+                    <legend className="w-full text-center">DEP RWY</legend>
                     <div className="w-full h-full border-2 border-black flex flex-col text-xl">
-                      <div className="w-full justify-center items-center flex">
+                      <div className="w-full justify-center items-center flex gap-4 p-4">
                         <RwyBtn runway="04L" />
                         <RwyBtn runway="04R" />
                       </div>
-                      <div className="w-full justify-center items-center flex">
+                      <div className="w-full justify-center items-center flex gap-4 p-4">
                         <RwyBtn runway="22L" />
                         <RwyBtn runway="22R" Active />
                       </div>
-                      <div className="w-full justify-center items-center flex">
+                      <div className="w-full justify-center items-center flex gap-4 p-4">
                         <RwyBtn runway="12" />
                         <RwyBtn runway="30" />
                       </div>
                     </div>
-                  </div>
+                  </fieldset>
 
                   <div className="flex-col">
                     <p className="w-full text-center">DEP RWY</p>
                     <div className="w-full h-full border-2 border-black flex flex-col text-xl">
-                      <div className="w-full justify-center items-center flex">
+                      <div className="w-full justify-center items-center flex gap-4 p-4">
                         <RwyBtn runway="04L" />
                         <RwyBtn runway="04R" />
                       </div>
-                      <div className="w-full justify-center items-center flex">
+                      <div className="w-full justify-center items-center flex gap-4 p-4">
                         <RwyBtn runway="22L" Active />
                         <RwyBtn runway="22R" />
                       </div>
-                      <div className="w-full justify-center items-center flex">
+                      <div className="w-full justify-center items-center flex gap-4 p-4">
                         <RwyBtn runway="12" />
                         <RwyBtn runway="30" />
                       </div>
@@ -92,14 +98,14 @@ export const RunwayConfig = (props: { ActiveRunway: string }) => {
                   </div>
                 </div>
               </ModalBody>
-              <ModalFooter>
+              <ModalFooter className="flex justify-center">
                 <Button
-                  color="danger"
-                  variant="light"
+                  radius="none"
+                  size="lg"
+                  className="text-xl bg-[#3F3F3F] text-white m-4"
                   onPress={onClose}
-                  className="mt-6"
                 >
-                  Close
+                  OK
                 </Button>
               </ModalFooter>
             </>

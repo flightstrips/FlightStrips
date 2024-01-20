@@ -108,7 +108,7 @@ export class EuroScopeSocket {
     this.socket.on('error', () => this.onError(this))
     this.socket.on('timeout', () => this.onTimeout(this))
 
-    this.socket.connect(this.port, this.host, () => this.onConnected(this))
+    this.socket.connect(this.port, this.host, () => this.onConnected())
   }
 
   private reconnect() {

@@ -11,6 +11,9 @@ import { SIDButton } from './CLX/SIDButton'
 import { FlightStrip } from '../stores/FlightStrip'
 import { observer } from 'mobx-react'
 import { RunwayButton } from './CLX/Rynway'
+import { DeIceSelector } from './CLX/DeIceSelector'
+import { CFLSelector } from './CLX/CFL'
+import { HDGSelector } from './CLX/HDG'
 
 // eslint-disable-next-line react-refresh/only-export-components
 export const CLX = observer((props: { Flightstrip: FlightStrip }) => {
@@ -225,30 +228,18 @@ export const CLX = observer((props: { Flightstrip: FlightStrip }) => {
                         className="border-1 border-black w-full"
                         value="M"
                       />
-                      <Input
-                        label="HDG"
-                        placeholder=" "
-                        labelPlacement="outside"
-                        radius="none"
-                        className="border-1 border-black w-full"
-                        value={props.Flightstrip.hdg}
-                      />
-                      <Input
-                        label="ALT"
-                        placeholder=" "
-                        labelPlacement="outside"
-                        radius="none"
-                        className="border-1 border-black w-full"
-                        value={props.Flightstrip.alt}
-                      />
-                      <Input
-                        label="De-ICE"
-                        placeholder=" "
-                        labelPlacement="outside"
-                        radius="none"
-                        className="border-1 border-black w-full"
-                        value={props.Flightstrip.deice}
-                      />
+                      <div className="flex flex-col">
+                        <p className="pl-1 pr-1 pt-1 -mt-1 pb-1 text-sm">HDG</p>
+                        <HDGSelector hdg={props.Flightstrip.hdg} />
+                      </div>
+                      <div className="flex flex-col">
+                        <p className="pl-1 pr-1 pt-1 -mt-1 pb-1 text-sm">ALT</p>
+                        <CFLSelector cfl={props.Flightstrip.alt} />
+                      </div>
+                      <div className="flex flex-col">
+                        <p className="pl-1 pr-1 pt-1 -mt-1 pb-1 text-sm">DE-ICE</p>
+                        <DeIceSelector DeIcePad={props.Flightstrip.deice} />
+                      </div>
                       <Input
                         label="REG"
                         placeholder=" "

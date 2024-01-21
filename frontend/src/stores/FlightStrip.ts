@@ -96,7 +96,7 @@ export class FlightStrip {
     this.origin = update.origin
     this.destination = update.destination
     this.runway = update.departureRwy
-    this.eobt = update.estimatedDepartureTime
+    this.eobt = update.estimatedDepartureTime.padStart(4, '0')
     this.remarks = update.remarks
     this.route = update.route
     this.sid = update.sidName

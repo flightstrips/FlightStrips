@@ -24,6 +24,11 @@ export function useStateStore() {
   return stateStore
 }
 
+export function useRunwayStore() {
+  const { runwayStore } = useRootStore()
+  return runwayStore
+}
+
 export function getRoot() {
   const root = store ?? initializeStore()
   return root

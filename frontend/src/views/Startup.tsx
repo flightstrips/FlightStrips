@@ -24,10 +24,9 @@ const Startup = observer(() => {
           <h1 className="text-center text-4xl font-semibold mt-4">
             Flightstrips
           </h1>
-          
         </div>
       </div>
-      <div className='absolute bottom-12 left-1/2 transform -translate-x-1/2 z-20 w-1/4 text-white'>
+      <div className="absolute bottom-12 left-1/2 transform -translate-x-1/2 z-20 w-1/4 text-white">
         <Progress size="sm" label={stateStore.loadingLabel} isIndeterminate />
       </div>
 

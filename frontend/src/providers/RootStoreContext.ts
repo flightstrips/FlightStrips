@@ -59,5 +59,6 @@ function initializeStore(): RootStore {
     s.controllerStore.handleControllerDisconnect(update),
   )
   api.onMe((callsign) => s.controllerStore.setMe(callsign))
+  api.onNavitage((route) => s.stateStore.setOverrideView(route))
   return s
 }

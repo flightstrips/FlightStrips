@@ -75,6 +75,11 @@ export default {
       handler(args[0])
     })
   },
+  onNavitage: (handler: (route: string) => void) => {
+    ipcRenderer.on('navigate', (_, ...args) => {
+      handler(args[0])
+    })
+  },
   setSquawk: (callsign: string, squawk: number) => {
     ipcRenderer.send('SetSquawk', callsign, squawk)
   },

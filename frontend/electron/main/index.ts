@@ -78,8 +78,16 @@ class Main {
             click: () =>
               this.mainWindow?.webContents.send('navigate', '/ekch/del'),
           },
-          { label: 'Apron' },
-          { label: 'Tower' },
+          {
+            label: 'Apron',
+            click: () =>
+              this.mainWindow?.webContents.send('navigate', '/ekch/gnd'),
+          },
+          {
+            label: 'Tower',
+            click: () =>
+              this.mainWindow?.webContents.send('navigate', '/ekch/twr'),
+          },
         ],
       },
       {

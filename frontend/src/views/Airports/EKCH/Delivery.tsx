@@ -17,10 +17,10 @@ const Delivery = observer(() => {
   const navigate = useNavigate()
 
   useEffect(() => {
-    if (!stateStore.isReady) {
-      navigate('/')
+    if (stateStore.view !== '/ekch/del') {
+      navigate(stateStore.view)
     }
-  }, [navigate, stateStore.isReady, stateStore.view])
+  }, [navigate, stateStore.view])
 
   return (
     <>

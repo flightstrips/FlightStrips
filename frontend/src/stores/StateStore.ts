@@ -9,6 +9,7 @@ export class StateStore {
   vatsimConnection = ConnectionType.Disconnected
   connectedToBackend = true // TODO
   controller = ControllerPosition.Unknown
+  overrideView: string | null = null
 
   constructor(root: RootStore) {
     makeAutoObservable(this, {
@@ -26,7 +27,13 @@ export class StateStore {
     if (connection === ConnectionType.Disconnected) {
       this.rootStore.flightStripStore.reset()
       this.rootStore.controllerStore.reest()
+      this.overrideView = null
+      this.controller = ControllerPosition.Unknown
     }
+  }
+
+  public setOverrideView(view: string | null) {
+    this.overrideView = view
   }
 
   public setController(controller: ControllerPosition) {
@@ -35,15 +42,17 @@ export class StateStore {
 
   get isReady() {
     return (
-      this.connectedToBackend &&
-      this.connectedToEuroScope &&
-      this.vatsimConnection !== ConnectionType.Disconnected &&
-      this.controller !== null &&
-      this.view !== '/'
+      this.overrideView !== null ||
+      (this.connectedToBackend &&
+        this.connectedToEuroScope &&
+        this.vatsimConnection !== ConnectionType.Disconnected &&
+        this.controller !== null &&
+        this.view !== '/')
     )
   }
 
   get view() {
+    if (this.overrideView !== null) return this.overrideView
     switch (this.controller) {
       case ControllerPosition.EKCH_DEL:
         return '/ekch/del'

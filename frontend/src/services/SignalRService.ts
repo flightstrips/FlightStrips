@@ -12,18 +12,37 @@ export class SignalRService {
         transport: HttpTransportType.WebSockets,
       })
       .configureLogging(signalR.LogLevel.Information)
+      .withAutomaticReconnect()
       .build()
 
     this.connection
       .start()
-      .then(() =>
-        this.connection.invoke('subscribe', {
-          Airport: 'EKCH',
-          Session: 'live',
-          Frequency: '111.111',
-        }),
-      )
-      .catch((err) => console.error('SignalR Connection Error: ', err))
+      .catch((err) => console.log(`Failed to connect to backend ${err}`))
+  }
+
+  public isConnected(): boolean {
+    return this.connection.state == signalR.HubConnectionState.Connected
+  }
+
+  public subscribe(
+    session: string,
+    callsign: string,
+    frequency: string,
+  ): Promise<void> {
+    return this.connection.invoke('subscribe', {
+      Airport: 'EKCH',
+      Session: session,
+      Frequency: frequency,
+      callsign: callsign,
+    })
+  }
+
+  public unsubscribe(session: string, frequency: string): Promise<void> {
+    return this.connection.invoke('unsubscribe', {
+      Airport: 'EKCH',
+      Session: session,
+      Frequency: frequency,
+    })
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

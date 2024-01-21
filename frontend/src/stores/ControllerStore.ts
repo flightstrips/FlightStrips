@@ -33,6 +33,7 @@ export class ControllerStore {
       if (update.frequency !== this.me.frequency) {
         this.rootStore.stateStore.setController(
           update.frequency as ControllerPosition,
+          this.me.callsign,
         )
       }
 

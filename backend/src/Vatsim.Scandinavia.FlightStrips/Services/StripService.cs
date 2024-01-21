@@ -100,4 +100,8 @@ public class StripService : IStripService
         var strip = await _stripRepository.GetAsync(id);
         await _eventService.StripUpdatedAsync(strip!);
     }
+
+    public Task<SessionId[]> GetSessionsAsync() => _stripRepository.GetSessionsAsync();
+
+    public Task RemoveSessionAsync(SessionId id) => _stripRepository.RemoveSessionAsync(id);
 }

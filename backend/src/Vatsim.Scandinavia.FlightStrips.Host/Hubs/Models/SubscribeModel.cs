@@ -12,4 +12,7 @@ public class SubscribeModel
 
     [Required]
     public required string Frequency { get; set; }
+
+    [Required]
+    public required string Callsign { get; set; }
 }

@@ -1,5 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
-
+using Vatsim.Scandinavia.FlightStrips.Abstractions;
 using Vatsim.Scandinavia.FlightStrips.Abstractions.Strips;
 using Vatsim.Scandinavia.FlightStrips.Persistence.EfCore.Entities;
 
@@ -145,4 +145,18 @@ public class EfStripRepository : IStripRepository
         }
 
     }
+
+    public Task<SessionId[]> GetSessionsAsync()
+    {
+        return _context.Strips.GroupBy(x => new {x.Airport, x.Session})
+            .Select(x => new SessionId(x.Key.Airport, x.Key.Session))
+            .ToArrayAsync();
+    }
+
+    public Task RemoveSessionAsync(SessionId id)
+    {
+        return _context.Strips.Where(x => x.Airport == id.Airport && x.Session == id.Session)
+            .ExecuteDeleteAsync();
+    }
+
 }

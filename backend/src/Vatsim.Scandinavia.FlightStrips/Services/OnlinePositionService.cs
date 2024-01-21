@@ -37,4 +37,8 @@ public class OnlinePositionService : IOnlinePositionService
 
     public Task<OnlinePosition[]> ListAsync(string airport, string session) =>
         _repository.ListAsync(airport.ToUpperInvariant(), session.ToUpperInvariant());
+
+    public Task<SessionId[]> GetSessionsAsync() => _repository.GetSessionsAsync();
+
+    public Task RemoveSessionAsync(SessionId id) => _repository.RemoveSessionAsync(id);
 }

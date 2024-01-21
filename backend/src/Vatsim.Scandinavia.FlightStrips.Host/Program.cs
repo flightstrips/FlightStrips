@@ -12,6 +12,7 @@ using Vatsim.Scandinavia.FlightStrips.Persistence.EfCore;
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
+builder.Services.AddHostedService<CleanupService>();
 
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.ConfigureHttpJsonOptions(options =>
@@ -45,17 +46,19 @@ builder.Services.AddCors(options =>
 var connectionString = builder.Configuration.GetConnectionString("Database");
 
 builder.Services.AddDbContext<FlightStripsDbContext>(dbBuilder => dbBuilder.UseMySql(connectionString, new MariaDbServerVersion("11.1")));
+builder.Services.AddSingleton<IControllerService, ControllerService>();
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
+// TODO: Before going to production this need to move. Will work while testing but should not be used in production!
+await using (var scope = app.Services.CreateAsyncScope())
 {
-    app.UseSwagger();
-    app.UseSwaggerUI();
+    var db = scope.ServiceProvider.GetRequiredService<FlightStripsDbContext>();
+    await db.Database.MigrateAsync();
 }
 
-app.UseHttpsRedirection();
+app.UseSwagger();
+app.UseSwaggerUI();
 
 app.UseCors();
 app.UseAuthorization();

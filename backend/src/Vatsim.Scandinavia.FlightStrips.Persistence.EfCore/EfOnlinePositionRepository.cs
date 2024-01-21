@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Vatsim.Scandinavia.FlightStrips.Abstractions;
 using Vatsim.Scandinavia.FlightStrips.Abstractions.OnlinePositions;
 using Vatsim.Scandinavia.FlightStrips.Persistence.EfCore.Entities;
 
@@ -46,6 +47,19 @@ public class EfOnlinePositionRepository : IOnlinePositionRepository
                 Id = new OnlinePositionId(entity.Airport, entity.Session, entity.PositionName),
                 PrimaryFrequency = entity.PositionFrequency
             };
+    }
+
+    public Task<SessionId[]> GetSessionsAsync()
+    {
+        return _context.OnlinePositions.GroupBy(x => new {x.Airport, x.Session})
+            .Select(x => new SessionId(x.Key.Airport, x.Key.Session))
+            .ToArrayAsync();
+    }
+
+    public Task RemoveSessionAsync(SessionId id)
+    {
+        return _context.OnlinePositions.Where(x => x.Airport == id.Airport && x.Session == id.Session)
+            .ExecuteDeleteAsync();
     }
 
     public Task<OnlinePosition[]> ListAsync(string airport, string session)

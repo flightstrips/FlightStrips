@@ -2,14 +2,16 @@ import { makeAutoObservable } from 'mobx'
 import { RootStore } from './RootStore.ts'
 import { ConnectionType } from '../../shared/ConnectionType.ts'
 import { ControllerPosition } from '../data/models.ts'
+import { signalRService } from '../services/SignalRService.ts'
 
 export class StateStore {
   rootStore: RootStore
   connectedToEuroScope = false
   vatsimConnection = ConnectionType.Disconnected
   connectedToBackend = true // TODO
-  controller = ControllerPosition.Unknown
+  controller: string = ControllerPosition.Unknown
   overrideView: string | null = null
+  session = 'NONE'
 
   constructor(root: RootStore) {
     makeAutoObservable(this, {
@@ -23,21 +25,54 @@ export class StateStore {
   }
 
   public handleVatsimConnectionUpdate(connection: ConnectionType) {
-    this.vatsimConnection = connection
     if (connection === ConnectionType.Disconnected) {
+      if (this.session !== 'NONE') {
+        signalRService.unsubscribe(this.session, this.controller)
+      }
       this.rootStore.flightStripStore.reset()
       this.rootStore.controllerStore.reest()
       this.overrideView = null
       this.controller = ControllerPosition.Unknown
     }
+
+    this.vatsimConnection = connection
+    this.setSession()
   }
 
   public setOverrideView(view: string | null) {
     this.overrideView = view
   }
 
-  public setController(controller: ControllerPosition) {
+  public setController(controller: ControllerPosition, callsign: string) {
     this.controller = controller
+
+    if (
+      this.vatsimConnection === 0 ||
+      this.controller == ControllerPosition.Unknown
+    )
+      return
+
+    signalRService.subscribe(this.session, callsign, this.controller)
+  }
+
+  private setSession() {
+    switch (this.vatsimConnection) {
+      case ConnectionType.Disconnected:
+      case ConnectionType.Proxy:
+        this.session = 'NONE'
+        break
+      case ConnectionType.Client:
+      case ConnectionType.Simulator:
+      case ConnectionType.Sweatbox:
+        this.session = 'SWEATBOX'
+        break
+      case ConnectionType.Playback:
+        this.session = 'PLAYBACK-' + Math.random().toString(36).slice(2, 7)
+        break
+      case ConnectionType.Direct:
+        this.session = 'LIVE'
+        break
+    }
   }
 
   get isReady() {

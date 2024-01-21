@@ -8,4 +8,6 @@ public interface IStripService
     Task SetSequenceAsync(StripId id, int? sequence);
     Task SetBayAsync(StripId id, string bayName);
     Task AssumeAsync(StripId id, string frequency);
+    Task<SessionId[]> GetSessionsAsync();
+    Task RemoveSessionAsync(SessionId id);
 }

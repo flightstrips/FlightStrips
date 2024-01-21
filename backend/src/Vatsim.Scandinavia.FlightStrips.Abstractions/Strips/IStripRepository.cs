@@ -11,4 +11,6 @@ public interface IStripRepository
     Task SetSequenceAsync(StripId id, int? sequence);
     Task SetBayAsync(StripId id, string bayName);
     Task SetPositionFrequencyAsync(StripId id, string frequency);
+    Task<SessionId[]> GetSessionsAsync();
+    Task RemoveSessionAsync(SessionId id);
 }

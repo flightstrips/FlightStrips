@@ -25,7 +25,7 @@ const Delivery = observer(() => {
   return (
     <>
       <div className="bg-[#A9A9A9] w-screen h-[calc(100vh-4rem)] flex justify-center justify-items-center shrink">
-        <div className="bg-[#555355] w-full h-auto border-r-4 border-[#a9a9a9]">
+        <div className="bg-[#555355] w-full h-auto border-l-[4px] border-r-[2px]">
           <BayHeader title="OTHERS" buttons={<Planned />} />
           <div className="h-[calc(100%-2.5rem)] overflow-auto overflow-x-hidden">
             {flightStripStore.inBay('OTHER').map((item) => (
@@ -33,7 +33,7 @@ const Delivery = observer(() => {
             ))}
           </div>
         </div>
-        <div className="bg-[#555355] h-full w-full border-l-4 border-r-4 border-[#a9a9a9]">
+        <div className="bg-[#555355] h-full w-full border-l-[4px] border-r-[4px]">
           <BayHeader title="SAS" />
           <div className="h-[calc(60%-2.5rem)] overflow-auto overflow-x-hidden">
             {flightStripStore.inBay('SAS').map((item) => (
@@ -47,7 +47,7 @@ const Delivery = observer(() => {
             ))}
           </div>
         </div>
-        <div className="bg-[#555355] w-full h-auto border-l-4 border-r-4 border-[#a9a9a9]">
+        <div className="bg-[#555355] w-full h-auto border-l-[4px] border-r-[4px]">
           <BayHeader title="CLEARED" />
           <div className="h-[calc(50%-2.5rem)] overflow-auto overflow-x-hidden">
             {flightStripStore.inBay('STARTUP').map((item) => (
@@ -57,7 +57,7 @@ const Delivery = observer(() => {
           <BayHeader title="MESSAGES" msg buttons={<ControllerMessages />} />
           <div className="h-[calc(33%-2.5rem)] overflow-auto overflow-x-hidden"></div>
         </div>
-        <div className="bg-[#555355] w-full h-auto border-l-2 border-[#a9a9a9]">
+        <div className="bg-[#555355] w-full h-auto border-l-[4px] border-r-[4px]">
           <BayHeader title="PUSHBACK" />
           <div className="h-[calc(33%-2.5rem)] overflow-auto overflow-x-hidden">
             {flightStripStore.inBay('PUSHBACK').map((item) => (

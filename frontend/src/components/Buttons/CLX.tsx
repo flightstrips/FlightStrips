@@ -20,12 +20,15 @@ export const CLX = observer((props: { Flightstrip: FlightStrip }) => {
       <Button
         onPress={onOpen}
         radius="none"
-        className="bg-[#BEF5EF] w-16 border-r-1 border-l-1 border-t-2 border-b-2 border-[#85B4AF] pl-4 pr-4 h-full flex flex-col  items-center justify-center text-center"
+        size="sm"
+        className="h-full flex flex-col items-center justify-center text-sm text-center border-t-2 border-b-2 border-white p-0 m-0 bg-[#bef5ef]"
       >
-        <span className="font-bold p-0 -mb-1">
-          {props.Flightstrip.destination}
-        </span>
-        <span className="font-bold p-0 -mt-1">{props.Flightstrip.stand}</span>
+        <div className="border-1 border-t-2 border-b-2 border-[#85B4AF] border-r-[1-px] h-full w-full">
+          <span className="font-bold p-0 -mb-1">
+            {props.Flightstrip.destination}
+          </span>
+          <span className="font-bold p-0 -mt-1">{props.Flightstrip.stand}</span>
+        </div>
       </Button>
       <Modal
         isOpen={isOpen}

@@ -21,7 +21,7 @@ ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
             <Route path="/" element={<Startup />} />
             <Route path="/ekch/del" element={<DEL />} />
             <Route path="/ekch/gnd" element={<GND />} />
-            <Route path="/ekch/twr" element={<TWR />} />
+            <Route path="/ekch/twr" element={<DEL />} />
             <Route path="/ekch/ctwr" element={<CTWR />} />
           </Routes>
         </HashRouter>

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics.CodeAnalysis;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Migrations;
 
@@ -7,6 +8,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace Vatsim.Scandinavia.FlightStrips.Persistence.EfCore.Migrations
 {
     /// <inheritdoc />
+    [SuppressMessage("Performance", "CA1861:Avoid constant arrays as arguments")]
     public partial class Initial : Migration
     {
         /// <inheritdoc />

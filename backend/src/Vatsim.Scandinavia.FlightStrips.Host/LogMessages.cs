@@ -21,4 +21,8 @@ public static partial class LogMessages
 
     [LoggerMessage(LogLevel.Information, "Connection removed {ConnectionId}")]
     public static partial void ConnectionRemove(this ILogger logger, string connectionId);
+
+    [LoggerMessage(LogLevel.Information, "Removing inactive session {Airport} {Session}")]
+    public static partial void RemovingInactiveSession(this ILogger logger, string airport, string session);
+
 }

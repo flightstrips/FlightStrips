@@ -11,8 +11,7 @@ using StripState = Vatsim.Scandinavia.FlightStrips.Host.Hubs.Models.StripState;
 namespace Vatsim.Scandinavia.FlightStrips.Host;
 
 public class EventService(
-    IHubContext<EventHub, IEventClient> hubContext,
-    ILogger<EventService> logger)
+    IHubContext<EventHub, IEventClient> hubContext)
     : IEventService
 {
     public Task ControllerOnlineAsync(OnlinePosition position) => ControllerUpdateAsync(position, true);
@@ -37,7 +36,6 @@ public class EventService(
 
     private Task StripUpdateAsync(Strip strip, StripState status)
     {
-        logger.LogInformation("Sending strip update {@Strip} ", strip);
         var model = new StripUpdateModel
         {
             Callsign = strip.Id.Callsign,

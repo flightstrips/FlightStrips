@@ -70,7 +70,7 @@ public class CleanupService(IServiceProvider serviceProvider, ILogger<CleanupSer
         var expired = _sessions.Where(x => x.Value.Add(Timeout) <= now).ToArray();
         foreach (var (session, _) in expired)
         {
-            logger.LogInformation("Removing inactive session {Airport} {Session}", session.Airport, session.Session);
+            logger.RemovingInactiveSession(session.Airport, session.Session);
             _sessions.Remove(session);
             await stripService.RemoveSessionAsync(session);
         }

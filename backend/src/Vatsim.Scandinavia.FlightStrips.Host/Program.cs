@@ -45,7 +45,7 @@ builder.Services.AddCors(options =>
 
 var connectionString = builder.Configuration.GetConnectionString("Database");
 
-builder.Services.AddDbContext<FlightStripsDbContext>(dbBuilder => dbBuilder.UseMySql(connectionString, new MariaDbServerVersion("11.1")));
+builder.Services.AddDbContext<FlightStripsDbContext>(dbBuilder => dbBuilder.UseNpgsql(connectionString));
 builder.Services.AddSingleton<IControllerService, ControllerService>();
 
 var app = builder.Build();

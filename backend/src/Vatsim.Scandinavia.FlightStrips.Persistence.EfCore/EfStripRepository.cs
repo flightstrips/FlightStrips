@@ -148,7 +148,7 @@ public class EfStripRepository : IStripRepository
 
     public Task<SessionId[]> GetSessionsAsync()
     {
-        return _context.Strips.GroupBy(x => new {x.Airport, x.Session})
+        return _context.Strips.GroupBy(x => new { x.Airport, x.Session })
             .Select(x => new SessionId(x.Key.Airport, x.Key.Session))
             .ToArrayAsync();
     }

@@ -51,7 +51,7 @@ public class EfOnlinePositionRepository : IOnlinePositionRepository
 
     public Task<SessionId[]> GetSessionsAsync()
     {
-        return _context.OnlinePositions.GroupBy(x => new {x.Airport, x.Session})
+        return _context.OnlinePositions.GroupBy(x => new { x.Airport, x.Session })
             .Select(x => new SessionId(x.Key.Airport, x.Key.Session))
             .ToArrayAsync();
     }

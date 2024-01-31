@@ -1,12 +1,14 @@
 import { action, makeAutoObservable } from 'mobx'
 import { FlightStripStore } from './FlightStripStore'
-import { CoordinationState, CoordinationUpdate } from '../services/models'
+import {
+  CoordinationState,
+  CoordinationUpdate,
+  StripUpdate,
+} from '../services/models'
 import client from '../services/api/StripsApi'
 import { FlightPlanUpdate } from '../../shared/FlightPlanUpdate'
 import { StripState } from '../services/api/generated/FlightStripsClient'
 import { CommunicationType } from '../../shared/CommunicationType'
-
-const BACKEND = false
 
 export class FlightStrip {
   store: FlightStripStore
@@ -66,10 +68,14 @@ export class FlightStrip {
   }
 
   public handleUpdateFromEuroScope(update: FlightPlanUpdate) {
-    if (!this.isSynced && BACKEND) {
+    if (!this.isSynced) {
       this.isSynced = true
       client.airport
-        .getStrip('EKCH', 'LIVE', update.callsign)
+        .getStrip(
+          'EKCH',
+          this.store.rootStore.stateStore.session,
+          update.callsign,
+        )
         .then(
           action('GotStrip', (response) => {
             const data = response.data
@@ -82,12 +88,17 @@ export class FlightStrip {
         )
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         .catch((_) => {
-          client.airport.upsertStrip('EKCH', 'LIVE', update.callsign, {
-            cleared: false,
-            destination: update.destination,
-            origin: update.origin,
-            state: StripState.None,
-          })
+          client.airport.upsertStrip(
+            'EKCH',
+            this.store.rootStore.stateStore.session,
+            update.callsign,
+            {
+              cleared: false,
+              destination: update.destination,
+              origin: update.origin,
+              state: StripState.None,
+            },
+          )
         })
     }
 
@@ -109,39 +120,47 @@ export class FlightStrip {
     }
   }
 
+  public handleBackendUpdate(update: StripUpdate) {
+    this.bay = update.bay
+    this.cleared = update.cleared
+    this.controller = update.positionFrequency
+    this.sequence = update.sequence
+  }
+
   public handleCommunicationTypeUpdate(communicationType: CommunicationType) {
     this.communicationType = communicationType
   }
 
-  public clear(internal = true) {
+  public clear(isCleared = true, internal = true) {
     if (this.cleared) {
       return
     }
 
-    this.cleared = true
+    this.cleared = isCleared
     this.bay = 'STARTUP'
     if (internal) {
-      api.setCleared(this.callsign, true)
+      api.setCleared(this.callsign, isCleared)
     }
 
-    if (BACKEND) {
-      client.airport.moveStrip('EKCH', 'LIVE', this.callsign, {
-        bay: 'STARTUP',
-      })
-      client.airport.upsertStrip('EKCH', 'LIVE', this.callsign, {
-        cleared: true,
-        destination: this.destination,
-        origin: this.origin,
-      })
-    }
+    client.airport.clearStrip(
+      'EKCH',
+      this.store.rootStore.stateStore.session,
+      this.callsign,
+      {
+        isCleared,
+      },
+    )
   }
 
   public move(bay: string) {
     this.bay = bay
 
-    if (BACKEND) {
-      client.airport.moveStrip('EKCH', 'LIVE', this.callsign, { bay: bay })
-    }
+    client.airport.moveStrip(
+      'EKCH',
+      this.store.rootStore.stateStore.session,
+      this.callsign,
+      { bay: bay },
+    )
   }
 
   get nitosRemarks() {

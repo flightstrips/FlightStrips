@@ -4,5 +4,5 @@ public interface IBayService
 {
     Task<Bay?> GetAsync(string airport, string name);
     Task<Bay[]> ListAsync(string airport);
-    Task<string?> GetDefault(string airport, string callsign, bool isDeparture);
+    Task<string?> GetDefaultAsync(string airport, string callsign, bool isDeparture);
 }

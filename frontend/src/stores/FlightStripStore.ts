@@ -10,8 +10,6 @@ import { signalRService } from '../services/SignalRService.ts'
 import { FlightStrip } from './FlightStrip.ts'
 import { CommunicationType } from '../../shared/CommunicationType.ts'
 
-const BACKEND = false
-
 export class FlightStripStore {
   flightStrips: FlightStrip[] = []
   rootStore: RootStore
@@ -22,8 +20,18 @@ export class FlightStripStore {
       rootStore: false,
     })
 
-    signalRService.on('CoordinationUpdate', this.handleCoordinationUpdate)
-    signalRService.on('ReceiveStripUpdate', this.handleStripUpdate)
+    signalRService.on('CoordinationUpdate', (update) =>
+      this.handleCoordinationUpdate(update),
+    )
+    signalRService.on('ReceiveStripUpdate', (update) =>
+      this.handleStripUpdate(update),
+    )
+    api.onFlightPlanUpdated((plan) => this.updateFlightPlanData(plan))
+    api.onSetCleared((callsign, cleared) => this.setCleared(callsign, cleared))
+    api.onSetSquawk((callsign, squawk) => this.setSquawk(callsign, squawk))
+    api.onSetCommunicationType((callsign, communicationType) =>
+      this.handleCommunicationTypeUpdate(callsign, communicationType),
+    )
   }
 
   public reset() {
@@ -36,7 +44,7 @@ export class FlightStripStore {
     )
     if (!flightstrip || !cleared) return
 
-    flightstrip.clear(false)
+    flightstrip.clear(cleared, false)
   }
 
   public handleCoordinationUpdate = (update: CoordinationUpdate) => {
@@ -78,10 +86,7 @@ export class FlightStripStore {
     switch (update.eventState) {
       case StripStateEvent.Created:
       case StripStateEvent.Updated:
-        strip.bay = update.bay
-        strip.cleared = update.cleared
-        strip.controller = update.positionFrequency
-        strip.sequence = update.sequence
+        strip.handleBackendUpdate(update)
         break
       case StripStateEvent.Deleted:
         this.flightStrips.splice(this.flightStrips.indexOf(strip), 1)
@@ -100,14 +105,6 @@ export class FlightStripStore {
     }
 
     flightstrip.handleUpdateFromEuroScope(data)
-
-    if (!BACKEND) {
-      flightstrip.bay = this.getBay(
-        flightstrip.callsign,
-        flightstrip.cleared,
-        flightstrip.origin,
-      )
-    }
   }
 
   public handleCommunicationTypeUpdate(
@@ -124,32 +121,6 @@ export class FlightStripStore {
     }
 
     flightstrip.handleCommunicationTypeUpdate(communicationType)
-  }
-
-  // TODO remove
-  private getBay(callsign: string, isCleared: boolean, origin: string): string {
-    const upper = callsign.toUpperCase()
-
-    if (origin.toUpperCase() !== 'EKCH') return 'arr'
-
-    if (isCleared) {
-      return 'STARTUP'
-    }
-
-    if (upper.startsWith('SAS') || upper.startsWith('SK')) {
-      return 'SAS'
-    }
-
-    if (
-      upper.startsWith('NOZ') ||
-      upper.startsWith('NAX') ||
-      upper.startsWith('NSZ') ||
-      upper.startsWith('D8')
-    ) {
-      return 'NORWEGIAN'
-    }
-
-    return 'OTHER'
   }
 
   public inBay(bay: string): FlightStrip[] {

@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.SignalR;
+using Microsoft.VisualBasic;
 using Vatsim.Scandinavia.FlightStrips.Abstractions;
 using Vatsim.Scandinavia.FlightStrips.Abstractions.Coordinations;
 using Vatsim.Scandinavia.FlightStrips.Abstractions.OnlinePositions;
@@ -11,7 +12,7 @@ using StripState = Vatsim.Scandinavia.FlightStrips.Host.Hubs.Models.StripState;
 namespace Vatsim.Scandinavia.FlightStrips.Host;
 
 public class EventService(
-    IHubContext<EventHub, IEventClient> hubContext)
+    IHubContext<EventHub, IEventClient> hubContext, ILogger<EventService> logger)
     : IEventService
 {
     public Task ControllerOnlineAsync(OnlinePosition position) => ControllerUpdateAsync(position, true);
@@ -36,6 +37,7 @@ public class EventService(
 
     private Task StripUpdateAsync(Strip strip, StripState status)
     {
+
         var model = new StripUpdateModel
         {
             Callsign = strip.Id.Callsign,
@@ -48,8 +50,11 @@ public class EventService(
             Sequence = strip.Sequence,
             PositionFrequency = strip.PositionFrequency
         };
+        var group = ToAirportAndSessionGroup(strip.Id);
 
-        return hubContext.Clients.Group(ToAirportAndSessionGroup(strip.Id)).ReceiveStripUpdate(model);
+        logger.SendingStripUpdate(strip.Id.Callsign, strip.Id.Airport, strip.Id.Session, status, group);
+
+        return hubContext.Clients.Group(group).ReceiveStripUpdate(model);
     }
 
     public Task AtisUpdateAsync() => throw new NotImplementedException();
@@ -78,5 +83,5 @@ public class EventService(
     }
 
     private static string ToAirportAndSessionGroup(StripId id) => ToAirportAndSessionGroup(id.Airport, id.Session);
-    private static string ToAirportAndSessionGroup(string airport, string session) => $"{session}:{airport}";
+    private static string ToAirportAndSessionGroup(string airport, string session) => $"{session.ToUpperInvariant()}:{airport.ToUpperInvariant()}";
 }

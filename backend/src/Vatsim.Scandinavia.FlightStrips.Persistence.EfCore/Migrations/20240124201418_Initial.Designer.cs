@@ -12,7 +12,7 @@ using Vatsim.Scandinavia.FlightStrips.Persistence.EfCore;
 namespace Vatsim.Scandinavia.FlightStrips.Persistence.EfCore.Migrations
 {
     [DbContext(typeof(FlightStripsDbContext))]
-    [Migration("20240123172522_Initial")]
+    [Migration("20240124201418_Initial")]
     partial class Initial
     {
         /// <inheritdoc />
@@ -63,7 +63,7 @@ namespace Vatsim.Scandinavia.FlightStrips.Persistence.EfCore.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Callsign", "Airport", "Session");
+                    b.HasIndex("Callsign", "Session", "Airport");
 
                     b.ToTable("Coordination");
                 });
@@ -87,9 +87,11 @@ namespace Vatsim.Scandinavia.FlightStrips.Persistence.EfCore.Migrations
                         .HasMaxLength(7)
                         .HasColumnType("character varying(7)");
 
-                    b.Property<DateTime>("UpdatedTime")
+                    b.Property<uint>("Version")
+                        .IsConcurrencyToken()
                         .ValueGeneratedOnAddOrUpdate()
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
 
                     b.HasKey("PositionName", "Session", "Airport");
 
@@ -136,9 +138,11 @@ namespace Vatsim.Scandinavia.FlightStrips.Persistence.EfCore.Migrations
                     b.Property<int>("State")
                         .HasColumnType("integer");
 
-                    b.Property<DateTime>("UpdatedTime")
+                    b.Property<uint>("Version")
+                        .IsConcurrencyToken()
                         .ValueGeneratedOnAddOrUpdate()
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
 
                     b.HasKey("Callsign", "Session", "Airport");
 
@@ -149,7 +153,7 @@ namespace Vatsim.Scandinavia.FlightStrips.Persistence.EfCore.Migrations
                 {
                     b.HasOne("Vatsim.Scandinavia.FlightStrips.Persistence.EfCore.Entities.StripEntity", "Strip")
                         .WithMany()
-                        .HasForeignKey("Callsign", "Airport", "Session")
+                        .HasForeignKey("Callsign", "Session", "Airport")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 

@@ -11,6 +11,13 @@ public class EventHub(IControllerService controllerService, ILogger<EventHub> lo
         logger.ConnectionRemove(Context.ConnectionId);
     }
 
+    [HubMethodName("SubscribeAirport")]
+    public async Task SubscribeAirportAsync(SubscribeAirportModel request)
+    {
+        await Groups.AddToGroupAsync(Context.ConnectionId, ToAirportGroupName(request));
+        logger.ConnectionSubscribedToAirport(Context.ConnectionId, request.Airport, request.Session);
+    }
+
     [HubMethodName("Subscribe")]
     public async Task SubscribeAsync(SubscribeModel request)
     {
@@ -32,14 +39,14 @@ public class EventHub(IControllerService controllerService, ILogger<EventHub> lo
         logger.ControllerUnsubscribed(request.Frequency, request.Airport, request.Session);
     }
 
-    private static string ToAirportGroupName(SubscribeModel model)
+    private static string ToAirportGroupName(SubscribeAirportModel model)
     {
-        return $"{model.Session}:{model.Airport}";
+        return $"{model.Session.ToUpperInvariant()}:{model.Airport.ToUpperInvariant()}";
     }
 
     private static string ToAirportGroupName(UnsubscribeModel model)
     {
-        return $"{model.Session}:{model.Airport}";
+        return $"{model.Session.ToUpperInvariant()}:{model.Airport.ToUpperInvariant()}";
     }
 
     private static string ToFrequencyGroupName(SubscribeModel model)

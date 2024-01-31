@@ -1,4 +1,4 @@
-import { action, makeAutoObservable } from 'mobx'
+import { makeAutoObservable } from 'mobx'
 import { RootStore } from './RootStore.ts'
 import { ConnectionType } from '../../shared/ConnectionType.ts'
 import { ControllerPosition } from '../data/models.ts'

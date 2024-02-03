@@ -1,18 +1,31 @@
-import BayHeader from '../../components/BayHeader.tsx'
-import { Planned } from '../../components/Buttons/Planned.tsx'
-import { ControllerMessages } from '../../components/ControllerMessages.tsx'
-import { CommandBar } from '../../components/commandbar.tsx'
-import { FlightStrip } from '../../components/flightstrip.tsx'
-import { useFlightStripStore } from '../../providers/RootStoreContext.ts'
+import BayHeader from '../../../components/BayHeader.tsx'
+import { Planned } from '../../../components/Buttons/Planned.tsx'
+import { ControllerMessages } from '../../../components/Buttons/ControllerMessages.tsx'
+import { CommandBar } from '../../../components/commandbar.tsx'
+import { FlightStrip } from '../../../components/flightstrip.tsx'
+import {
+  useFlightStripStore,
+  useStateStore,
+} from '../../../providers/RootStoreContext.ts'
 import { observer } from 'mobx-react'
+import { useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 
 const Delivery = observer(() => {
   const flightStripStore = useFlightStripStore()
+  const stateStore = useStateStore()
+  const navigate = useNavigate()
+
+  useEffect(() => {
+    if (stateStore.view !== '/ekch/del') {
+      navigate(stateStore.view)
+    }
+  }, [navigate, stateStore.view])
 
   return (
     <>
       <div className="bg-[#A9A9A9] w-screen h-[calc(100vh-4rem)] flex justify-center justify-items-center shrink">
-        <div className="bg-[#555355] w-full h-auto border-r-4 border-[#a9a9a9]">
+        <div className="bg-[#555355] w-full h-auto border-l-[4px] border-r-[2px]">
           <BayHeader title="OTHERS" buttons={<Planned />} />
           <div className="h-[calc(100%-2.5rem)] overflow-auto overflow-x-hidden">
             {flightStripStore.inBay('OTHER').map((item) => (
@@ -20,7 +33,7 @@ const Delivery = observer(() => {
             ))}
           </div>
         </div>
-        <div className="bg-[#555355] h-full w-full border-l-4 border-r-4 border-[#a9a9a9]">
+        <div className="bg-[#555355] h-full w-full border-l-[4px] border-r-[4px]">
           <BayHeader title="SAS" />
           <div className="h-[calc(60%-2.5rem)] overflow-auto overflow-x-hidden">
             {flightStripStore.inBay('SAS').map((item) => (
@@ -34,7 +47,7 @@ const Delivery = observer(() => {
             ))}
           </div>
         </div>
-        <div className="bg-[#555355] w-full h-auto border-l-4 border-r-4 border-[#a9a9a9]">
+        <div className="bg-[#555355] w-full h-auto border-l-[4px] border-r-[4px]">
           <BayHeader title="CLEARED" />
           <div className="h-[calc(50%-2.5rem)] overflow-auto overflow-x-hidden">
             {flightStripStore.inBay('STARTUP').map((item) => (
@@ -48,8 +61,8 @@ const Delivery = observer(() => {
           />
           <div className="h-[calc(33%-2.5rem)] overflow-auto overflow-x-hidden"></div>
         </div>
-        <div className="bg-[#555355] w-full h-auto border-l-2 border-[#a9a9a9]">
-          <BayHeader title="PUSHBACK" information />
+        <div className="bg-[#555355] w-full h-auto border-l-[4px] border-r-[4px]">
+          <BayHeader title="PUSHBACK" />
           <div className="h-[calc(33%-2.5rem)] overflow-auto overflow-x-hidden">
             {flightStripStore.inBay('PUSHBACK').map((item) => (
               <FlightStrip strip={item} />

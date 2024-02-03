@@ -11,62 +11,92 @@ namespace FlightStrips {
     FlightStripsPlugin::FlightStripsPlugin(
             const std::shared_ptr<handlers::FlightPlanEventHandlers> &mFlightPlanEventHandlerCollection,
             const std::shared_ptr<handlers::RadarTargetEventHandlers> &mRadarTargetEventHandlers,
-            const std::shared_ptr<network::NetworkService> mNetworkService)
+            const std::shared_ptr<handlers::ControllerEventHandlers> &mControllerEventHandlers,
+            const std::shared_ptr<network::NetworkService> &mNetworkService)
             : CPlugIn(COMPATIBILITY_CODE, PLUGIN_NAME, "0.0.1", PLUGIN_AUTHOR, PLUGIN_COPYRIGHT),
               m_flightPlanEventHandlerCollection(mFlightPlanEventHandlerCollection),
-              m_radarTargetEventHandlers(mRadarTargetEventHandlers), m_networkService(mNetworkService) {
+              m_radarTargetEventHandlers(mRadarTargetEventHandlers),
+              m_controllerEventHandlerCollection(mControllerEventHandlers),
+              m_networkService(mNetworkService) {
     }
 
-    void FlightStripsPlugin::Information(const std::string& message) {
+    void FlightStripsPlugin::Information(const std::string &message) {
         DisplayUserMessage("FlightStrips", PLUGIN_NAME, message.c_str(), true, false, false, false, false);
     }
 
-    void FlightStripsPlugin::OnFlightPlanDisconnect(EuroScopePlugIn::CFlightPlan FlightPlan) {
-        if (!IsRelevant(FlightPlan)) {
-            return;
-        }
+    void FlightStripsPlugin::Error(const std::string &message) {
+        DisplayUserMessage("FlightStrips", PLUGIN_NAME, message.c_str(), true, true, true, true, true);
+    }
 
-        this->m_flightPlanEventHandlerCollection->FlightPlanDisconnectEvent(FlightPlan);
+    void FlightStripsPlugin::OnFlightPlanDisconnect(EuroScopePlugIn::CFlightPlan FlightPlan) {
+        try {
+            if (!IsRelevant(FlightPlan)) {
+                return;
+            }
+
+            this->m_flightPlanEventHandlerCollection->FlightPlanDisconnectEvent(FlightPlan);
+        } catch (std::exception &e) {
+            Error("Error during flight plant disconnect (" + std::string(FlightPlan.GetCallsign()) + "): " +
+                        std::string(e.what()));
+        }
     }
 
     void FlightStripsPlugin::OnFlightPlanControllerAssignedDataUpdate(EuroScopePlugIn::CFlightPlan FlightPlan,
                                                                       int DataType) {
-        if (!IsRelevant(FlightPlan)) {
-            return;
-        }
+        try {
+            if (!IsRelevant(FlightPlan)) {
+                return;
+            }
 
-        this->m_flightPlanEventHandlerCollection->ControllerFlightPlanDataEvent(FlightPlan, DataType);
+            this->m_flightPlanEventHandlerCollection->ControllerFlightPlanDataEvent(FlightPlan, DataType);
+        } catch (std::exception &e) {
+            Error("Error during controller data update (" + std::string(FlightPlan.GetCallsign()) + "): " +
+                        std::string(e.what()));
+        }
     }
 
     void FlightStripsPlugin::OnFlightPlanFlightPlanDataUpdate(EuroScopePlugIn::CFlightPlan FlightPlan) {
-        if (!IsRelevant(FlightPlan)) {
-            return;
-        }
+        try {
+            if (!IsRelevant(FlightPlan)) {
+                return;
+            }
 
-        this->m_flightPlanEventHandlerCollection->FlightPlanEvent(FlightPlan);
+            this->m_flightPlanEventHandlerCollection->FlightPlanEvent(FlightPlan);
+        } catch (std::exception &e) {
+            Error("Error during flight plan update (" + std::string(FlightPlan.GetCallsign()) + "): " +
+                        std::string(e.what()));
+        }
     }
 
     void FlightStripsPlugin::OnTimer(int Counter) {
-        /*
-        for (const auto& message : this->server->ReadMessages()) {
-            Information(message);
+        try {
+            int type = GetConnectionType();
+            if (type != this->connectionType) {
+                this->connectionType = type;
+                auto me = ControllerMyself();
+                this->m_networkService->ConnectionTypeUpdate(type, me);
+            }
+        } catch (std::exception &e) {
+            Error("Error during on time: " + std::string(e.what()));
         }
-        */
     }
 
     void FlightStripsPlugin::OnFlightPlanFlightStripPushed(EuroScopePlugIn::CFlightPlan FlightPlan,
-                                                              const char *sSenderController,
-                                                              const char *sTargetController) {
-        Information(FlightPlan.GetCallsign());
-
+                                                           const char *sSenderController,
+                                                           const char *sTargetController) {
     }
 
     void FlightStripsPlugin::OnRadarTargetPositionUpdate(EuroScopePlugIn::CRadarTarget RadarTarget) {
-        if (!RadarTarget.IsValid() || !IsRelevant(RadarTarget.GetCorrelatedFlightPlan())) {
-            return;
-        }
+        try {
+            if (!RadarTarget.IsValid() || !IsRelevant(RadarTarget.GetCorrelatedFlightPlan())) {
+                return;
+            }
 
-        this->m_radarTargetEventHandlers->RadarTargetPositionEvent(RadarTarget);
+            this->m_radarTargetEventHandlers->RadarTargetPositionEvent(RadarTarget);
+        } catch (std::exception &e) {
+            Error("Error during radar position(" + std::string(RadarTarget.GetCallsign()) + "): " +
+                        std::string(e.what()));
+        }
     }
 
     FlightStripsPlugin::~FlightStripsPlugin() = default;
@@ -74,40 +104,48 @@ namespace FlightStrips {
     bool FlightStripsPlugin::IsRelevant(EuroScopePlugIn::CFlightPlan flightPlan) {
         return flightPlan.IsValid() &&
                (strcmp(flightPlan.GetFlightPlanData().GetDestination(), AIRPORT) == 0
-                  || strcmp(flightPlan.GetFlightPlanData().GetOrigin(), AIRPORT) == 0);
+                || strcmp(flightPlan.GetFlightPlanData().GetOrigin(), AIRPORT) == 0);
     }
 
     void FlightStripsPlugin::OnAirportRunwayActivityChanged() {
-        std::vector<runway::ActiveRunway> active;
+        try {
+            std::vector<runway::ActiveRunway> active;
 
-        auto it = CPlugIn::SectorFileElementSelectFirst(SECTOR_ELEMENT_RUNWAY);
-        while (it.IsValid()) {
-            if (strncmp(it.GetAirportName(), "EKCH", 4) == 0) {
-                for (int i = 0; i < 2; i++) {
-                    for (int j = 0; j < 2; j++) {
-                        if (it.IsElementActive((bool)j, i)) {
-                            runway::ActiveRunway runway = { it.GetRunwayName(i), (bool)j };
-                            active.push_back(runway);
+            auto it = CPlugIn::SectorFileElementSelectFirst(SECTOR_ELEMENT_RUNWAY);
+            while (it.IsValid()) {
+                if (strncmp(it.GetAirportName(), "EKCH", 4) == 0) {
+                    for (int i = 0; i < 2; i++) {
+                        for (int j = 0; j < 2; j++) {
+                            if (it.IsElementActive((bool) j, i)) {
+                                runway::ActiveRunway runway = {it.GetRunwayName(i), (bool) j};
+                                active.push_back(runway);
+                            }
                         }
                     }
                 }
+
+                it = CPlugIn::SectorFileElementSelectNext(it, SECTOR_ELEMENT_RUNWAY);
             }
 
-            it = CPlugIn::SectorFileElementSelectNext(it, SECTOR_ELEMENT_RUNWAY);
+            this->m_networkService->SendActiveRunways(active);
+        } catch (std::exception &e) {
+            Error("Error during runway change: " + std::string(e.what()));
         }
-
-        this->m_networkService->SendActiveRunways(active);
     }
 
     void FlightStripsPlugin::SetClearenceFlag(std::string callsign, bool cleared) {
-        if (cleared) {
-            this->UpdateViaScratchPad(callsign.c_str(), CLEARED);
-        } else {
-            this->UpdateViaScratchPad(callsign.c_str(), NOT_CLEARED);
+        try {
+            if (cleared) {
+                this->UpdateViaScratchPad(callsign.c_str(), CLEARED);
+            } else {
+                this->UpdateViaScratchPad(callsign.c_str(), NOT_CLEARED);
+            }
+        } catch (std::exception &e) {
+            Error("Error during set clearance(" + callsign + "): " + std::string(e.what()));
         }
     }
 
-    void FlightStripsPlugin::UpdateViaScratchPad(const char* callsign, const char *message) const {
+    void FlightStripsPlugin::UpdateViaScratchPad(const char *callsign, const char *message) const {
         auto fp = this->FlightPlanSelect(callsign);
 
         if (!fp.IsValid()) return;
@@ -115,6 +153,35 @@ namespace FlightStrips {
         auto scratch = std::string(fp.GetControllerAssignedData().GetScratchPadString());
         fp.GetControllerAssignedData().SetScratchPadString(message);
         fp.GetControllerAssignedData().SetScratchPadString(scratch.c_str());
+    }
+
+    void FlightStripsPlugin::OnControllerPositionUpdate(EuroScopePlugIn::CController Controller) {
+        try {
+            if (!IsRelevant(Controller))
+                return;
+
+            this->m_controllerEventHandlerCollection->ControllerPositionUpdateEvent(Controller);
+        } catch (std::exception &e) {
+            Error("Error during controller position update (" + std::string(Controller.GetCallsign()) + "): " +
+                        std::string(e.what()));
+        }
+    }
+
+    void FlightStripsPlugin::OnControllerDisconnect(EuroScopePlugIn::CController Controller) {
+        try {
+            if (!IsRelevant(Controller))
+                return;
+
+            this->m_controllerEventHandlerCollection->ControllerDisconnectEvent(Controller);
+        } catch (std::exception &e) {
+            Error("Error during controller disconnect (" + std::string(Controller.GetCallsign()) + "): " +
+                        std::string(e.what()));
+        }
+    }
+
+    bool FlightStripsPlugin::IsRelevant(EuroScopePlugIn::CController controller) {
+        return controller.IsValid() && controller.IsController() &&
+               (strncmp(controller.GetCallsign(), "EKCH", 4) == 0 || strncmp(controller.GetCallsign(), "EKDK", 4) == 0);
     }
 }
 

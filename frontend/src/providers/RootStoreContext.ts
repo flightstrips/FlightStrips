@@ -1,5 +1,5 @@
 import { createContext, useContext } from 'react'
-import { RootStore } from '../stores/RootStore'
+import { RootStore } from '../stores/RootStore.ts'
 
 let store: RootStore
 export const StoreContext = createContext<RootStore | undefined>(undefined)
@@ -19,6 +19,16 @@ export function useFlightStripStore() {
   return flightStripStore
 }
 
+export function useStateStore() {
+  const { stateStore } = useRootStore()
+  return stateStore
+}
+
+export function useRunwayStore() {
+  const { runwayStore } = useRootStore()
+  return runwayStore
+}
+
 export function getRoot() {
   const root = store ?? initializeStore()
   return root
@@ -26,15 +36,7 @@ export function getRoot() {
 
 function initializeStore(): RootStore {
   const s = new RootStore()
-  api.onFlightPlanUpdated((plan) =>
-    s.flightStripStore.updateFlightPlanData(plan),
-  )
-  api.onSetCleared((callsign, cleared) =>
-    s.flightStripStore.setCleared(callsign, cleared),
-  )
-  api.onSetSquawk((callsign, squawk) =>
-    s.flightStripStore.setSquawk(callsign, squawk),
-  )
-
+  api.onMe((callsign) => s.controllerStore.setMe(callsign))
+  api.onNavitage((route) => s.stateStore.setOverrideView(route))
   return s
 }

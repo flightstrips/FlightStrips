@@ -3,12 +3,12 @@
 //
 
 #include <winsock.h>
-#include "plugin/FlightStripsPlugin.h"
 #include "ConnectedClient.h"
+#include "bootstrap/Container.h"
 
 namespace FlightStrips::network {
-    ConnectedClient::ConnectedClient(SOCKET socket, const std::shared_ptr<FlightStripsPlugin>& mPlugin)
-            : socket(socket), m_messageHandler(mPlugin, this) {
+    ConnectedClient::ConnectedClient(SOCKET socket, Container& mContainer)
+            : socket(socket), m_messageHandler(mContainer, this) {
         this->isActive = true;
         this->writerThread = std::make_unique<std::thread>(&ConnectedClient::WriteLoop, this);
         this->readerThread = std::make_unique<std::thread>(&ConnectedClient::ReadLoop, this);

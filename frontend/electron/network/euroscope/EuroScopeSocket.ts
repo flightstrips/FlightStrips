@@ -6,6 +6,7 @@ export class EuroScopeSocket {
   private readonly port: number
   private readonly host: string
   private readonly handler?: MessageHandlerInterface
+  public isConnected = false
 
   constructor(handler?: MessageHandlerInterface, host?: string, port?: number) {
     if (host) {
@@ -24,7 +25,6 @@ export class EuroScopeSocket {
   }
 
   public start() {
-    console.log('Starting socket connection')
     if (this.tryReconnect) {
       this.connect()
     }
@@ -33,8 +33,8 @@ export class EuroScopeSocket {
   public stop() {
     this.tryReconnect = false
     if (this.socket) {
-      this.clearListners()
       this.socket?.destroy()
+      this.clearListners()
     }
   }
 
@@ -71,24 +71,35 @@ export class EuroScopeSocket {
   }
 
   private onClose(hasError: boolean, self: this) {
+    this.setConnected(false)
     console.log(`Connection closed. Error: ${hasError}`)
     self.reconnect()
   }
 
   private onError(self: this) {
+    this.setConnected(false)
     self.reconnect()
   }
 
   private onTimeout(self: this) {
+    this.setConnected(false)
     console.log('Connection timed out!')
     self.reconnect()
   }
 
-  private onConnected(self: this) {
-    console.log('Connected')
-    self.send({ $type: 'Initial', message: 'Hello from application' })
-    // Get current controller if there is one
-    self.send({ $type: 'Me' })
+  private onConnected() {
+    this.setConnected(true)
+  }
+
+  private setConnected(connected: boolean) {
+    if (connected === this.isConnected) return
+
+    this.isConnected = connected
+    if (this.isConnected) {
+      this.handler?.handleConnectionStatus(true)
+    } else {
+      this.handler?.handleConnectionStatus(false)
+    }
   }
 
   private clearListners() {
@@ -108,7 +119,7 @@ export class EuroScopeSocket {
     this.socket.on('error', () => this.onError(this))
     this.socket.on('timeout', () => this.onTimeout(this))
 
-    this.socket.connect(this.port, this.host, () => this.onConnected(this))
+    this.socket.connect(this.port, this.host, () => this.onConnected())
   }
 
   private reconnect() {

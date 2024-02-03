@@ -8,6 +8,9 @@ import { Message } from './interfaces/Message'
 import { SquawkUpdate } from './interfaces/SquawkUpdate'
 import { ActiveRunwaysMessage } from './interfaces/ActiveRunwaysMessage'
 import { GroundState } from '../../../shared/GroundState'
+import { ConnectionUpdate } from './interfaces/ConnectionUpdate'
+import { ControllerUpdate } from './interfaces/ControllerUpdate'
+import { ControllerDisconect } from './interfaces/ControllerDisconnect'
 
 export class MessageHandler implements MessageHandlerInterface {
   private readonly ipc: IpcInterface
@@ -15,11 +18,38 @@ export class MessageHandler implements MessageHandlerInterface {
   constructor(ipc: IpcInterface) {
     this.ipc = ipc
   }
+  handleConnectionStatus(isConnected: boolean): void {
+    this.ipc.sendEuroScopeConnectionUpdate(isConnected)
+  }
 
   handleMessage(message: string): void {
     const event = JSON.parse(message) as Message
 
     switch (event.$type) {
+      case 'ConnectionUpdate': {
+        const m = event as ConnectionUpdate
+        this.ipc.sendVatsimConnectionUpdate(m.connection)
+        this.ipc.sendMe(m.callsign)
+        break
+      }
+      case 'ControllerUpdate': {
+        const c = event as ControllerUpdate
+        this.ipc.sendControllerUpdate({
+          callsign: c.callsign,
+          frequency: c.frequency.toFixed(3),
+          postion: c.position,
+        })
+        break
+      }
+      case 'ControllerDisconnect': {
+        const c = event as ControllerDisconect
+        this.ipc.sendControllerDisconnect({
+          callsign: c.callsign,
+          frequency: c.frequency.toFixed(3),
+          postion: '',
+        })
+        break
+      }
       case 'FlightPlanUpdated':
         this.ipc.sendFlightPlanUpdate(event as FlightDataUpdatedMessage)
         break

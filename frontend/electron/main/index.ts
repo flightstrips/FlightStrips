@@ -1,25 +1,38 @@
 import { app, BrowserWindow, ipcMain, Menu, shell } from 'electron'
-import { createEuroScopeSocket } from './network/euroscope'
-import path from 'node:path'
-import { IpcChannelInterface } from './IPC/IpcChannelInterface'
-import { EuroScopeSocket } from './network/euroscope/EuroScopeSocket'
-import EventHandler from './network/euroscope/EventHandler'
+import { createEuroScopeSocket } from '../network/euroscope'
+import { join, dirname } from 'node:path'
+import { IpcChannelInterface } from '../IPC/IpcChannelInterface'
+import { EuroScopeSocket } from '../network/euroscope/EuroScopeSocket'
+import EventHandler from '../network/euroscope/EventHandler'
+import { fileURLToPath } from 'node:url'
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = dirname(__filename)
+
+if (!app.requestSingleInstanceLock()) {
+  app.quit()
+  process.exit(0)
+}
 
 // The built directory structure
 //
-// ├─┬─┬ dist
-// │ │ └── index.html
-// │ │
-// │ ├─┬ dist-electron
-// │ │ ├── main.js
-// │ │ └── preload.js
-// │
-process.env.DIST = path.join(__dirname, '../dist')
+// ├─┬ dist-electron
+// │ ├─┬ main
+// │ │ └── index.js    > Electron-Main
+// │ └─┬ preload
+// │   └── index.mjs   > Preload-Scripts
+// ├─┬ dist
+// │ └── index.html    > Electron-Renderer
+//
+process.env.DIST_ELECTRON = join(__dirname, '../')
+process.env.DIST = join(process.env.DIST_ELECTRON, '../dist')
 process.env.PUBLIC = app.isPackaged
   ? process.env.DIST
-  : path.join(process.env.DIST, '../public')
+  : join(process.env.DIST_ELECTRON, '../public')
 
-const VITE_DEV_SERVER_URL = process.env['VITE_DEV_SERVER_URL']
+const preload = join(__dirname, '../preload/index.mjs')
+const url = process.env.VITE_DEV_SERVER_URL
+const indexHtml = join(process.env.DIST, 'index.html')
 
 class Main {
   private mainWindow: BrowserWindow | null = null
@@ -35,15 +48,15 @@ class Main {
 
   private createWindows() {
     this.mainWindow = new BrowserWindow({
-      icon: path.join(process.env.PUBLIC, 'icon.ico'),
+      icon: join(process.env.PUBLIC, 'icon.ico'),
       webPreferences: {
-        nodeIntegration: false,
-        contextIsolation: true,
-        preload: path.join(__dirname, 'preload.js'),
+        preload: preload,
       },
       minWidth: 1920,
       minHeight: 1080,
     })
+
+    this.mainWindow.webContents.openDevTools()
 
     this.mainWindow.webContents.on('did-finish-load', () => {
       this.mainWindow?.webContents.send(
@@ -53,10 +66,10 @@ class Main {
     })
     this.mainWindow.setAspectRatio(16 / 9)
 
-    if (VITE_DEV_SERVER_URL) {
-      this.mainWindow.loadURL(VITE_DEV_SERVER_URL)
+    if (url) {
+      this.mainWindow.loadURL(url)
     } else {
-      this.mainWindow.loadFile(path.join(process.env.DIST, 'index.html'))
+      this.mainWindow.loadFile(indexHtml)
     }
     const menu = Menu.buildFromTemplate([
       {
@@ -67,8 +80,16 @@ class Main {
             click: () =>
               this.mainWindow?.webContents.send('navigate', '/ekch/del'),
           },
-          { label: 'Apron' },
-          { label: 'Tower' },
+          {
+            label: 'Apron',
+            click: () =>
+              this.mainWindow?.webContents.send('navigate', '/ekch/gnd'),
+          },
+          {
+            label: 'Tower',
+            click: () =>
+              this.mainWindow?.webContents.send('navigate', '/ekch/twr'),
+          },
         ],
       },
       {
@@ -108,16 +129,17 @@ class Main {
     Menu.setApplicationMenu(menu)
 
     const result = createEuroScopeSocket(this.mainWindow.webContents)
-    this.euroScopeScoket = result.socket
-    this.euroScopeScoket.start()
     this.eventHandler = result.eventHandler
     this.eventHandler.setupHandlers()
+    this.euroScopeScoket = result.socket
+    this.euroScopeScoket.start()
   }
 
   private onWindowAllClosed() {
     this.euroScopeScoket?.stop()
     this.mainWindow = null
     this.eventHandler = null
+    app.quit()
   }
 
   private registerIpcChannels(ipcChannels: IpcChannelInterface[]) {

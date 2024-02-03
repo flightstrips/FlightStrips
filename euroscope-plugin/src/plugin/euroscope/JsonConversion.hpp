@@ -50,7 +50,7 @@ namespace FlightStrips::euroscope {
                 { "communicationType", toCharString(data.GetCommunicationType()) },
                 { "route", toUtf8(data.GetRoute()) },
                 { "sidName",                data.GetSidName() },
-                { "starName",               data.GetStarName() },
+                { "starName",               toUtf8(data.GetStarName()) },
                 { "departureRwy",           data.GetDepartureRwy() },
                 { "arrivalRwy",             data.GetArrivalRwy() },
                 { "estimatedDepartureTime", data.GetEstimatedDepartureTime() }

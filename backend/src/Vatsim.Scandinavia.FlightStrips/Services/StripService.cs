@@ -20,20 +20,15 @@ public class StripService : IStripService
         _eventService = eventService;
     }
 
-    public async Task<bool> UpsertStripAsync(StripUpsertRequest upsertRequest)
+    public async Task<(bool created, Strip strip)> UpsertStripAsync(StripUpsertRequest upsertRequest)
     {
         var strip = await GetStripAsync(upsertRequest.Id);
 
-        if (strip is not null)
-        {
-            upsertRequest.Bay = strip.Bay;
-        }
-
-        if (string.IsNullOrEmpty(upsertRequest.Bay))
+        if (string.IsNullOrEmpty(strip?.Bay))
         {
             var isDeparture = upsertRequest.Id.Airport.Equals(upsertRequest.Origin, StringComparison.OrdinalIgnoreCase);
 
-            var bay = await _bayService.GetDefault(upsertRequest.Id.Airport, upsertRequest.Id.Callsign, isDeparture);
+            var bay = await _bayService.GetDefaultAsync(upsertRequest.Id.Airport, upsertRequest.Id.Callsign, isDeparture);
 
             if (string.IsNullOrEmpty(bay))
             {
@@ -44,19 +39,18 @@ public class StripService : IStripService
             upsertRequest.Bay = bay;
         }
 
-        var created = await _stripRepository.UpsertAsync(upsertRequest);
-        strip = await _stripRepository.GetAsync(upsertRequest.Id);
+        var (created, result) = await _stripRepository.UpsertAsync(upsertRequest);
 
         if (created)
         {
-            await _eventService.StripCreatedAsync(strip!);
+            await _eventService.StripCreatedAsync(result);
         }
         else
         {
-            await _eventService.StripUpdatedAsync(strip!);
+            await _eventService.StripUpdatedAsync(result);
         }
 
-        return created;
+        return (created, result);
     }
 
     public async Task DeleteStripAsync(StripId id)
@@ -99,5 +93,20 @@ public class StripService : IStripService
         await _stripRepository.SetPositionFrequencyAsync(id, frequency);
         var strip = await _stripRepository.GetAsync(id);
         await _eventService.StripUpdatedAsync(strip!);
+    }
+
+    public Task<SessionId[]> GetSessionsAsync() => _stripRepository.GetSessionsAsync();
+
+    public Task RemoveSessionAsync(SessionId id) => _stripRepository.RemoveSessionAsync(id);
+
+    public async Task ClearAsync(StripId id, bool isCleared)
+    {
+        var bay = "STARTUP";
+        if (!isCleared)
+        {
+            bay = await _bayService.GetDefaultAsync(id.Airport, id.Callsign, true) ?? "OTHER";
+        }
+
+        await _stripRepository.SetCleared(id, isCleared, bay);
     }
 }

@@ -1,11 +1,13 @@
 import { useState } from 'react'
 import ZuluTime from './Clock'
-import { TRF } from './TRF'
+import { TRF } from './Buttons/TRF'
 import { AtisModal } from './ATIS/AtisModal'
-import { RunwayConfig } from './RunwayConfig'
+import { RunwayConfig } from './Buttons/RunwayConfig'
+import { observer } from 'mobx-react'
+import { useRunwayStore } from '../providers/RootStoreContext'
 
-export function CommandBar() {
-  //const [runways] = useState({ dep: '22R', arr: '22L' })
+export const CommandBar = observer(() => {
+  const runwayStore = useRunwayStore()
   const [atis] = useState({
     qnh: 1015,
     letter: 'L',
@@ -22,9 +24,9 @@ export function CommandBar() {
         </div>
 
         <span className=" text-white ml-6 mr-2">DEP</span>
-        <RunwayConfig ActiveRunway="22R" />
+        <RunwayConfig ActiveRunway={runwayStore.departure} />
         <span className="  text-white ml-2 mr-2">ARR</span>
-        <RunwayConfig ActiveRunway="22L" />
+        <RunwayConfig ActiveRunway={runwayStore.arrival} />
         <span className="  text-white ml-2 mr-2">QNH</span>
 
         <div className="bg-[#212121] text-white w-fit h-12 ml-4 mr-4 pl-4 pr-4  flex items-center text-center">
@@ -55,4 +57,4 @@ export function CommandBar() {
       </div>
     </div>
   )
-}
+})

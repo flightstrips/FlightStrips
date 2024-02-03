@@ -42,6 +42,6 @@ public class OnlinePositionController(IOnlinePositionService onlinePositionServi
 
     private static OnlinePositionResponseModel Map(OnlinePosition position)
     {
-        return new OnlinePositionResponseModel {Frequency = position.PrimaryFrequency, Position = position.Id.Position};
+        return new OnlinePositionResponseModel { Frequency = position.PrimaryFrequency, Position = position.Id.Position };
     }
 }

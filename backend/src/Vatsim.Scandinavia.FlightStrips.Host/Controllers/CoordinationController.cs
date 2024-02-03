@@ -31,6 +31,26 @@ public class CoordinationController : ControllerBase
         return Ok(models);
     }
 
+
+    [HttpGet("{id:int}", Name = "GetCoordination")]
+    [ProducesResponseType(typeof(CoordinationResponseModel), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetAsync([Airport] string airport, string session, int id)
+    {
+        var coordinationId = new CoordinationId(airport, session, id);
+        var coordination = await _coordinationService.GetAsync(coordinationId);
+
+        if (coordination is null)
+        {
+            return NotFound();
+        }
+
+        var model = CoordinationMapper.Map(coordination);
+
+        return Ok(model);
+
+    }
+
     [HttpPost("{id:int}/accept", Name = "AcceptCoordination")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]

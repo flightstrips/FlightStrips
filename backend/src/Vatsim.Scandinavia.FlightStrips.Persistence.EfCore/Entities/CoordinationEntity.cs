@@ -4,7 +4,7 @@ using Vatsim.Scandinavia.FlightStrips.Abstractions.Coordinations;
 
 namespace Vatsim.Scandinavia.FlightStrips.Persistence.EfCore.Entities;
 
-public class CoordinationEntity: IAirportAndSessionTenant
+public class CoordinationEntity : IAirportAndSessionTenant
 {
     public int Id { get; set; }
 
@@ -18,7 +18,7 @@ public class CoordinationEntity: IAirportAndSessionTenant
     [MaxLength(7)]
     public required string ToFrequency { get; set; }
 
-    [ForeignKey( $"{nameof(Callsign)},{nameof(Airport)},{nameof(Session)}")]
+    [ForeignKey($"{nameof(Callsign)},{nameof(Session)},{nameof(Airport)}")]
     public StripEntity Strip { get; set; } = null!;
 
     [MaxLength(4)]

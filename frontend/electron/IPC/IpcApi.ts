@@ -3,6 +3,8 @@ import { FlightDataUpdatedMessage } from '../network/euroscope/interfaces/Flight
 import { CommunicationType } from '../../shared/CommunicationType'
 import { ActiveRunway } from '../../shared/ActiveRunway'
 import { GroundState } from '../../shared/GroundState'
+import { ConnectionType } from '../../shared/ConnectionType'
+import { ControllerUpdate } from '../../shared/ControllerUpdate'
 
 export default {
   onFlightPlanUpdated: (handler: (plan: FlightDataUpdatedMessage) => void) => {
@@ -48,6 +50,36 @@ export default {
   onActiveRunways: (handler: (runways: ActiveRunway[]) => void) => {
     ipcRenderer.on('OnActiveRunways', (_, args) => handler(args))
   },
+  onEuroScopeConnectionUpdate: (handler: (isConnected: boolean) => void) => {
+    ipcRenderer.on('EuroScopeConnectionUpdate', (_, ...args) => {
+      handler(args[0])
+    })
+  },
+  onVatsimConnectionUpdate: (handler: (connection: ConnectionType) => void) => {
+    ipcRenderer.on('VatsimConnectionUpdate', (_, ...args) => {
+      handler(args[0])
+    })
+  },
+  onControllerUpdate: (handler: (update: ControllerUpdate) => void) => {
+    ipcRenderer.on('ControllerUpdate', (_, ...args) => {
+      handler(args[0])
+    })
+  },
+  onControllerDisconnect: (handler: (update: ControllerUpdate) => void) => {
+    ipcRenderer.on('ControllerDisconnect', (_, ...args) => {
+      handler(args[0])
+    })
+  },
+  onMe: (handler: (callsign: string) => void) => {
+    ipcRenderer.on('Me', (_, ...args) => {
+      handler(args[0])
+    })
+  },
+  onNavitage: (handler: (route: string) => void) => {
+    ipcRenderer.on('navigate', (_, ...args) => {
+      handler(args[0])
+    })
+  },
   setSquawk: (callsign: string, squawk: number) => {
     ipcRenderer.send('SetSquawk', callsign, squawk)
   },
@@ -83,5 +115,8 @@ export default {
   },
   setHeading: (callsign: string, heading: number) => {
     ipcRenderer.send(callsign, heading)
+  },
+  ready: () => {
+    ipcRenderer.send('ready', {})
   },
 }

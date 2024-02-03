@@ -1,11 +1,14 @@
 import { action, makeAutoObservable } from 'mobx'
 import { FlightStripStore } from './FlightStripStore'
-import { CoordinationState, CoordinationUpdate } from '../services/models'
+import {
+  CoordinationState,
+  CoordinationUpdate,
+  StripUpdate,
+} from '../services/models'
 import client from '../services/api/StripsApi'
 import { FlightPlanUpdate } from '../../shared/FlightPlanUpdate'
 import { StripState } from '../services/api/generated/FlightStripsClient'
-
-const BACKEND = false
+import { CommunicationType } from '../../shared/CommunicationType'
 
 export class FlightStrip {
   store: FlightStripStore
@@ -36,6 +39,7 @@ export class FlightStrip {
   hdg = ''
   alt = 'FL070'
   deice = ''
+  communicationType = CommunicationType.Unknown
 
   constructor(store: FlightStripStore, callsign: string) {
     makeAutoObservable(this, {
@@ -64,10 +68,14 @@ export class FlightStrip {
   }
 
   public handleUpdateFromEuroScope(update: FlightPlanUpdate) {
-    if (!this.isSynced && BACKEND) {
+    if (!this.isSynced) {
       this.isSynced = true
       client.airport
-        .getStrip('EKCH', 'LIVE', update.callsign)
+        .getStrip(
+          'EKCH',
+          this.store.rootStore.stateStore.session,
+          update.callsign,
+        )
         .then(
           action('GotStrip', (response) => {
             const data = response.data
@@ -80,12 +88,17 @@ export class FlightStrip {
         )
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         .catch((_) => {
-          client.airport.upsertStrip('EKCH', 'LIVE', update.callsign, {
-            cleared: false,
-            destination: update.destination,
-            origin: update.origin,
-            state: StripState.None,
-          })
+          client.airport.upsertStrip(
+            'EKCH',
+            this.store.rootStore.stateStore.session,
+            update.callsign,
+            {
+              cleared: false,
+              destination: update.destination,
+              origin: update.origin,
+              state: StripState.None,
+            },
+          )
         })
     }
 
@@ -94,11 +107,12 @@ export class FlightStrip {
     this.origin = update.origin
     this.destination = update.destination
     this.runway = update.departureRwy
-    this.eobt = update.estimatedDepartureTime
+    this.eobt = update.estimatedDepartureTime.padStart(4, '0')
     this.remarks = update.remarks
     this.route = update.route
     this.sid = update.sidName
     this.fl = (update.finalAltitude / 100).toString()
+    this.stand = update.stand
 
     const index = update.remarks.toUpperCase().indexOf('REG/')
     if (index !== -1) {
@@ -106,38 +120,62 @@ export class FlightStrip {
     }
   }
 
-  public clear(internal = true) {
+  public handleBackendUpdate(update: StripUpdate) {
+    this.bay = update.bay
+    this.cleared = update.cleared
+    this.controller = update.positionFrequency
+    this.sequence = update.sequence
+  }
+
+  public handleCommunicationTypeUpdate(communicationType: CommunicationType) {
+    this.communicationType = communicationType
+  }
+
+  public clear(isCleared = true, internal = true) {
     if (this.cleared) {
       return
     }
 
-    this.cleared = true
+    this.cleared = isCleared
     this.bay = 'STARTUP'
     if (internal) {
-      api.setCleared(this.callsign, true)
+      api.setCleared(this.callsign, isCleared)
     }
 
-    if (BACKEND) {
-      client.airport.moveStrip('EKCH', 'LIVE', this.callsign, {
-        bay: 'STARTUP',
-      })
-      client.airport.upsertStrip('EKCH', 'LIVE', this.callsign, {
-        cleared: true,
-        destination: this.destination,
-        origin: this.origin,
-      })
-    }
+    client.airport.clearStrip(
+      'EKCH',
+      this.store.rootStore.stateStore.session,
+      this.callsign,
+      {
+        isCleared,
+      },
+    )
   }
 
   public move(bay: string) {
     this.bay = bay
 
-    if (BACKEND) {
-      client.airport.moveStrip('EKCH', 'LIVE', this.callsign, { bay: bay })
-    }
+    client.airport.moveStrip(
+      'EKCH',
+      this.store.rootStore.stateStore.session,
+      this.callsign,
+      { bay: bay },
+    )
   }
 
   get nitosRemarks() {
     return ''
+  }
+
+  get callsignIncludingCommunicationType() {
+    switch (this.communicationType) {
+      case CommunicationType.Unknown:
+      case CommunicationType.Voice:
+        return this.callsign
+      case CommunicationType.Text:
+        return `${this.callsign}/t`
+      case CommunicationType.Receive:
+        return `${this.callsign}/r`
+    }
   }
 }

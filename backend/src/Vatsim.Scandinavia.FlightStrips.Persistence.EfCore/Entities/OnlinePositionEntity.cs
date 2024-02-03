@@ -19,6 +19,6 @@ public class OnlinePositionEntity : IAirportAndSessionTenant
     [MaxLength(7)]
     public required string PositionFrequency { get; set; }
 
-    [DatabaseGenerated(DatabaseGeneratedOption.Computed)]
-    public DateTime UpdatedTime { get; set; }
+    [Timestamp]
+    public uint Version { get; set; }
 }

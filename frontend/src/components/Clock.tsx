@@ -13,7 +13,9 @@ function ZuluTime() {
 
   return (
     <p className="text-xl">
-      {time.getUTCHours()}:{time.getUTCMinutes()}:{time.getUTCSeconds()}z
+      {time.getUTCHours().toString().padStart(2, '0')}:
+      {time.getUTCMinutes().toString().padStart(2, '0')}:
+      {time.getUTCSeconds().toString().padStart(2, '0')}z
     </p>
   )
 }

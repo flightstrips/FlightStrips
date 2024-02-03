@@ -1,0 +1,57 @@
+name: Build Plugin
+
+on:
+  push:
+    branches:
+      - "main"
+    paths:
+      - "euroscope-plugin/**"
+  pull_request:
+    branches:
+      - "main"
+    paths:
+      - "euroscope-plugin/**"
+
+env:
+  # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
+  BUILD_TYPE: Release
+
+jobs:
+  build:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: ./euroscope-plugin
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Visual Studio Shell
+        uses: egor-tensin/vs-shell@v2
+        with:
+          arch: x86
+
+      - name: Check Clang Version
+        run: clang-cl --version
+
+      - name: Setup Ninja
+        uses: seanmiddleditch/gha-setup-ninja@master
+
+      - name: Run CMake
+        env:
+          CC: clang-cl
+          CFLAGS: -m32
+          CXX: clang-cl
+          CXXFLAGS: -m32
+        run: cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -G Ninja -Bbuild
+
+      # Run the build
+      - name: Run Ninja Build
+        working-directory: ./euroscope-plugin/build
+        run: ninja
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Plugin
+          path: ./euroscope-plugin/build/bin/FlightStripsPlugin.dll
+          if-no-files-found: error

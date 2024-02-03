@@ -1,14 +1,39 @@
-version: '3'
+version: "3"
 services:
   db:
-    image: docker.io/library/mariadb:11
-    ports:
-      - 3306:3306
+    image: postgres:16
+    restart: on-failure
     environment:
-      MARIADB_DATABASE: flightstrips
-      MARIADB_ROOT_PASSWORD: root
+      POSTGRES_PASSWORD: password
+    ports:
+      - 5432:5432
+    networks:
+      - flightstrips
     volumes:
-      - data:/var/lib/mysql
+      - data:/var/lib/postgresql/data/
+    profiles:
+      - services
+      - all
+  host:
+    image: ghcr.io/frederikrosenberg/flightstrips/host:latest
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.Host
+    ports:
+      - 5233:8080
+    restart: on-failure
+    environment:
+      ConnectionStrings__Database: "Host=db;Port=5432;Database=flightstrips; Username=postgres; Password=password"
+    networks:
+      - flightstrips
+    profiles:
+      - all
+    depends_on:
+      db:
+        condition: service_started
 
 volumes:
   data:
+
+networks:
+  flightstrips:

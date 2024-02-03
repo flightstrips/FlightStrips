@@ -1,5 +1,5 @@
 import { contextBridge } from 'electron'
-import IpcApi from './IPC/IpcApi'
+import IpcApi from '../IPC/IpcApi'
 
 function domReady(
   condition: DocumentReadyState[] = ['complete', 'interactive'],
@@ -95,4 +95,4 @@ window.onmessage = (ev) => {
   ev.data.payload === 'removeLoading' && removeLoading()
 }
 
-setTimeout(removeLoading, 250)
+setTimeout(removeLoading, 4999)

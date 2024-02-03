@@ -33,13 +33,17 @@ set(src__bootstrap
 source_group("src\\bootstrap" FILES ${src__bootstrap})
 
 set(src__euroscope
-        euroscope/JsonConversion.hpp)
+        euroscope/JsonConversion.hpp
+)
 source_group("src\\euroscope" FILES ${src__euroscope})
 
 set(src__handlers
         handlers/FlightPlanEventHandler.h
         handlers/FlightPlanEventHandlers.h
-        handlers/FlightPlanEventHandlers.cpp handlers/RadarTargetEventHandler.h handlers/RadarTargetEventHandlers.cpp handlers/RadarTargetEventHandlers.h handlers/AirportRunwaysChangedEvent.h network/MessageHandler.cpp network/MessageHandler.h)
+        handlers/FlightPlanEventHandlers.cpp handlers/RadarTargetEventHandler.h handlers/RadarTargetEventHandlers.cpp handlers/RadarTargetEventHandlers.h handlers/AirportRunwaysChangedEvent.h network/MessageHandler.cpp network/MessageHandler.h
+        handlers/ControllerEventHandler.h
+        handlers/ControllerEventHandlers.cpp
+        handlers/ControllerEventHandlers.h)
 source_group("src\\collections" FILES ${src__handlers})
 
 set(src__flightplan

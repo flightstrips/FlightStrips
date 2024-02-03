@@ -6,28 +6,21 @@ import {
   useDisclosure,
 } from '@nextui-org/react'
 
-export function SIDButton(props: { SID: string }) {
+export function DeIceSelector(props: { DeIcePad: string }) {
   const { isOpen, onOpen, onOpenChange } = useDisclosure()
-  const SIDs = [
-    'LANGO2C',
-    'NEXEN2C',
-    'KOPEX2C',
-    'ODN2C',
-    'GOLGA2C',
-    'VEDAR2C',
-    'KEMAX2C',
-    'SIMEG8C',
-    'SALLO1C',
-    'BETUD2C',
+  const DeIcePads = [
+    'DE-ICE A',
+    'DE-ICE B',
+    'DE-ICE C',
   ]
   return (
     <>
       <Button
         onPress={onOpen}
         radius="none"
-        className="border-1 border-black w-28 h-full"
+        className="border-1 border-black w-full h-full bg-default-100"
       >
-        {props.SID}
+        {props.DeIcePad}
       </Button>
       <Modal
         isOpen={isOpen}
@@ -43,13 +36,13 @@ export function SIDButton(props: { SID: string }) {
             <>
               <ModalBody>
                 <fieldset className="border-2 border-black h-fit mt-4 mb-4 flex flex-col items-center justify-center gap-4 pt-4 pb-4">
-                  {SIDs.map((SIDName) => (
+                  {DeIcePads.map((DeIcePad) => (
                     <Button
-                      key={SIDName}
+                      key={DeIcePad}
                       radius="none"
                       className="text-xl bg-[#d6d6d6] text-blackdrop-shadow w-32 drop-shadow-md border-gray-500 border-1 border-opacity-25"
                     >
-                      {SIDName}
+                      {DeIcePad}
                     </Button>
                   ))}
                 </fieldset>

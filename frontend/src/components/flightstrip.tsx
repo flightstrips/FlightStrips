@@ -3,6 +3,7 @@ import { observer } from 'mobx-react'
 import { Button } from '@nextui-org/react'
 import * as Model from '../stores/FlightStrip.ts'
 import { CLX } from './Buttons/CLX.tsx'
+import { Pushback } from './Buttons/Pushback.tsx'
 
 const FlightStrip = observer((props: { strip: Model.FlightStrip }) => {
   return (
@@ -24,7 +25,11 @@ const FlightStrip = observer((props: { strip: Model.FlightStrip }) => {
             </div>
           )}
         </Button>
-        <CLX Flightstrip={props.strip} />
+        {props.strip.cleared ? (
+          <Pushback Flightstrip={props.strip} />
+        ) : (
+          <CLX Flightstrip={props.strip} />
+        )}
         <div className="w-[17%] h-full text-[13px] border-t-2 border-b-2 border-white bg-[#bef5ef]">
           <span className="text-left flex items-center w-full h-1/2 text-sm border-1 border-t-2 border-[#85B4AF] flex justify-between">
             <span className="pl-1">EOBT</span>

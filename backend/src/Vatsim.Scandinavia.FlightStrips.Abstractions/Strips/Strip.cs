@@ -19,5 +19,5 @@ public class Strip
     public string Bay { get; set; } = string.Empty;
 
     [Required]
-    public DateTime LastUpdated { get; set; }
+    public uint Version { get; set; }
 }

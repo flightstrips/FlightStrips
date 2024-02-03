@@ -4,11 +4,11 @@ namespace Vatsim.Scandinavia.FlightStrips.Services;
 
 public class BayService : IBayService
 {
-    private static readonly Bay[] s_bays =
+    private static readonly Bay[] _bays =
     [
         new Bay { Name = "OTHER", Default = BayDefaultType.Departure },
-        new Bay { Name = "SAS", Default = BayDefaultType.Departure, CallsignFilter = ["SAS"] },
-        new Bay { Name = "NORWEGIAN", Default = BayDefaultType.Departure, CallsignFilter = ["IBK", "NZS", "NAX"] },
+        new Bay { Name = "SAS", Default = BayDefaultType.Departure, CallsignFilter = ["SAS","SK"] },
+        new Bay { Name = "NORWEGIAN", Default = BayDefaultType.Departure, CallsignFilter = ["NOZ", "NSZ", "NAX"] },
         new Bay { Name = "STARTUP", Default = BayDefaultType.None },
         new Bay { Name = "PUSHBACK", Default = BayDefaultType.None },
         new Bay { Name = "TWY ARR", Default = BayDefaultType.None },
@@ -28,7 +28,7 @@ public class BayService : IBayService
             return Task.FromResult<Bay?>(null);
         }
 
-        return Task.FromResult(s_bays.FirstOrDefault(x => x.Name.Equals(name, StringComparison.OrdinalIgnoreCase)));
+        return Task.FromResult(_bays.FirstOrDefault(x => x.Name.Equals(name, StringComparison.OrdinalIgnoreCase)));
     }
 
     public Task<Bay[]> ListAsync(string airport)
@@ -38,10 +38,10 @@ public class BayService : IBayService
             return Task.FromResult(Array.Empty<Bay>());
         }
 
-        return Task.FromResult(s_bays);
+        return Task.FromResult(_bays);
     }
 
-    public Task<string?> GetDefault(string airport, string callsign, bool isDeparture)
+    public Task<string?> GetDefaultAsync(string airport, string callsign, bool isDeparture)
     {
         if (!airport.Equals("EKCH", StringComparison.OrdinalIgnoreCase))
         {
@@ -50,7 +50,7 @@ public class BayService : IBayService
 
         var company = callsign.Trim()[..3];
 
-        var defaultBays = s_bays
+        var defaultBays = _bays
             .Where(x => x.Default == (isDeparture ? BayDefaultType.Departure : BayDefaultType.Arrival)).ToArray();
 
         if (defaultBays.Length == 0)

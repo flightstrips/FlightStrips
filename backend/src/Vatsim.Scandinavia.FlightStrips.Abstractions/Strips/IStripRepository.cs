@@ -2,7 +2,7 @@
 
 public interface IStripRepository
 {
-    Task<bool> UpsertAsync(StripUpsertRequest upsertRequest);
+    Task<(bool, Strip)> UpsertAsync(StripUpsertRequest upsertRequest);
 
     Task DeleteAsync(StripId id);
 
@@ -13,4 +13,5 @@ public interface IStripRepository
     Task SetPositionFrequencyAsync(StripId id, string frequency);
     Task<SessionId[]> GetSessionsAsync();
     Task RemoveSessionAsync(SessionId id);
+    Task SetCleared(StripId id, bool isCleared, string bay);
 }

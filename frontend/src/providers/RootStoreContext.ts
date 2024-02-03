@@ -36,33 +36,6 @@ export function getRoot() {
 
 function initializeStore(): RootStore {
   const s = new RootStore()
-  api.onFlightPlanUpdated((plan) =>
-    s.flightStripStore.updateFlightPlanData(plan),
-  )
-  api.onSetCleared((callsign, cleared) =>
-    s.flightStripStore.setCleared(callsign, cleared),
-  )
-  api.onSetSquawk((callsign, squawk) =>
-    s.flightStripStore.setSquawk(callsign, squawk),
-  )
-  api.onSetCommunicationType((callsign, communicationType) =>
-    s.flightStripStore.handleCommunicationTypeUpdate(
-      callsign,
-      communicationType,
-    ),
-  )
-  api.onEuroScopeConnectionUpdate((isConnected) =>
-    s.stateStore.handleEuroScopeConnectionUpdate(isConnected),
-  )
-  api.onVatsimConnectionUpdate((connection) =>
-    s.stateStore.handleVatsimConnectionUpdate(connection),
-  )
-  api.onControllerUpdate((update) =>
-    s.controllerStore.handleControllerUpdate(update),
-  )
-  api.onControllerDisconnect((update) =>
-    s.controllerStore.handleControllerDisconnect(update),
-  )
   api.onMe((callsign) => s.controllerStore.setMe(callsign))
   api.onNavitage((route) => s.stateStore.setOverrideView(route))
   return s

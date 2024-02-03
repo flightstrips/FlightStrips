@@ -36,7 +36,8 @@ builder.Services.AddAuthorization();
 builder.Services.AddFlightStripServices();
 builder.Services.AddEfCore();
 builder.Services.AddScoped<IEventService, EventService>();
-builder.Services.AddSignalR().AddMessagePackProtocol();
+builder.Services.AddSignalR()
+    .AddJsonProtocol(options => options.PayloadSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 builder.Services.AddControllers();
 builder.Services.AddCors(options =>
 {

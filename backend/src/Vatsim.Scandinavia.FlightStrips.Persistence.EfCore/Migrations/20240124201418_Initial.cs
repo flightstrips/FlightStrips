@@ -1,6 +1,4 @@
-﻿using System;
-using System.Diagnostics.CodeAnalysis;
-using Microsoft.EntityFrameworkCore.Migrations;
+﻿using Microsoft.EntityFrameworkCore.Migrations;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 #nullable disable
@@ -8,7 +6,6 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Vatsim.Scandinavia.FlightStrips.Persistence.EfCore.Migrations
 {
     /// <inheritdoc />
-    [SuppressMessage("Performance", "CA1861:Avoid constant arrays as arguments")]
     public partial class Initial : Migration
     {
         /// <inheritdoc />
@@ -22,7 +19,7 @@ namespace Vatsim.Scandinavia.FlightStrips.Persistence.EfCore.Migrations
                     Airport = table.Column<string>(type: "character varying(4)", maxLength: 4, nullable: false),
                     PositionName = table.Column<string>(type: "character varying(32)", maxLength: 32, nullable: false),
                     PositionFrequency = table.Column<string>(type: "character varying(7)", maxLength: 7, nullable: false),
-                    UpdatedTime = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                    xmin = table.Column<uint>(type: "xid", rowVersion: true, nullable: false)
                 },
                 constraints: table =>
                 {
@@ -43,7 +40,7 @@ namespace Vatsim.Scandinavia.FlightStrips.Persistence.EfCore.Migrations
                     Cleared = table.Column<bool>(type: "boolean", nullable: false),
                     PositionFrequency = table.Column<string>(type: "character varying(7)", maxLength: 7, nullable: true),
                     BayName = table.Column<string>(type: "character varying(32)", maxLength: 32, nullable: false),
-                    UpdatedTime = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                    xmin = table.Column<uint>(type: "xid", rowVersion: true, nullable: false)
                 },
                 constraints: table =>
                 {
@@ -67,17 +64,17 @@ namespace Vatsim.Scandinavia.FlightStrips.Persistence.EfCore.Migrations
                 {
                     table.PrimaryKey("PK_Coordination", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_Coordination_Strips_Callsign_Airport_Session",
-                        columns: x => new { x.Callsign, x.Airport, x.Session },
+                        name: "FK_Coordination_Strips_Callsign_Session_Airport",
+                        columns: x => new { x.Callsign, x.Session, x.Airport },
                         principalTable: "Strips",
                         principalColumns: new[] { "Callsign", "Session", "Airport" },
                         onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateIndex(
-                name: "IX_Coordination_Callsign_Airport_Session",
+                name: "IX_Coordination_Callsign_Session_Airport",
                 table: "Coordination",
-                columns: new[] { "Callsign", "Airport", "Session" });
+                columns: new[] { "Callsign", "Session", "Airport" });
         }
 
         /// <inheritdoc />

@@ -83,6 +83,10 @@ export interface StripAssumeRequestModel {
   force: boolean
 }
 
+export interface StripClearRequestModel {
+  isCleared: boolean
+}
+
 export interface StripMoveRequestModel {
   /** @minLength 1 */
   bay: string
@@ -177,16 +181,22 @@ export interface FullRequestParams extends Omit<RequestInit, 'body'> {
   cancelToken?: CancelToken
 }
 
-export type RequestParams = Omit<FullRequestParams, 'body' | 'method' | 'query' | 'path'>
+export type RequestParams = Omit<
+  FullRequestParams,
+  'body' | 'method' | 'query' | 'path'
+>
 
 export interface ApiConfig<SecurityDataType = unknown> {
   baseUrl?: string
   baseApiParams?: Omit<RequestParams, 'baseUrl' | 'cancelToken' | 'signal'>
-  securityWorker?: (securityData: SecurityDataType | null) => Promise<RequestParams | void> | RequestParams | void
+  securityWorker?: (
+    securityData: SecurityDataType | null,
+  ) => Promise<RequestParams | void> | RequestParams | void
   customFetch?: typeof fetch
 }
 
-export interface HttpResponse<D extends unknown, E extends unknown = unknown> extends Response {
+export interface HttpResponse<D extends unknown, E extends unknown = unknown>
+  extends Response {
   data: D
   error: E
 }
@@ -205,7 +215,8 @@ export class HttpClient<SecurityDataType = unknown> {
   private securityData: SecurityDataType | null = null
   private securityWorker?: ApiConfig<SecurityDataType>['securityWorker']
   private abortControllers = new Map<CancelToken, AbortController>()
-  private customFetch = (...fetchParams: Parameters<typeof fetch>) => fetch(...fetchParams)
+  private customFetch = (...fetchParams: Parameters<typeof fetch>) =>
+    fetch(...fetchParams)
 
   private baseApiParams: RequestParams = {
     credentials: 'same-origin',
@@ -224,7 +235,9 @@ export class HttpClient<SecurityDataType = unknown> {
 
   protected encodeQueryParam(key: string, value: any) {
     const encodedKey = encodeURIComponent(key)
-    return `${encodedKey}=${encodeURIComponent(typeof value === 'number' ? value : `${value}`)}`
+    return `${encodedKey}=${encodeURIComponent(
+      typeof value === 'number' ? value : `${value}`,
+    )}`
   }
 
   protected addQueryParam(query: QueryParamsType, key: string) {
@@ -238,9 +251,15 @@ export class HttpClient<SecurityDataType = unknown> {
 
   protected toQueryString(rawQuery?: QueryParamsType): string {
     const query = rawQuery || {}
-    const keys = Object.keys(query).filter((key) => 'undefined' !== typeof query[key])
+    const keys = Object.keys(query).filter(
+      (key) => 'undefined' !== typeof query[key],
+    )
     return keys
-      .map((key) => (Array.isArray(query[key]) ? this.addArrayQueryParam(query, key) : this.addQueryParam(query, key)))
+      .map((key) =>
+        Array.isArray(query[key])
+          ? this.addArrayQueryParam(query, key)
+          : this.addQueryParam(query, key),
+      )
       .join('&')
   }
 
@@ -251,8 +270,13 @@ export class HttpClient<SecurityDataType = unknown> {
 
   private contentFormatters: Record<ContentType, (input: any) => any> = {
     [ContentType.Json]: (input: any) =>
-      input !== null && (typeof input === 'object' || typeof input === 'string') ? JSON.stringify(input) : input,
-    [ContentType.Text]: (input: any) => (input !== null && typeof input !== 'string' ? JSON.stringify(input) : input),
+      input !== null && (typeof input === 'object' || typeof input === 'string')
+        ? JSON.stringify(input)
+        : input,
+    [ContentType.Text]: (input: any) =>
+      input !== null && typeof input !== 'string'
+        ? JSON.stringify(input)
+        : input,
     [ContentType.FormData]: (input: any) =>
       Object.keys(input || {}).reduce((formData, key) => {
         const property = input[key]
@@ -269,7 +293,10 @@ export class HttpClient<SecurityDataType = unknown> {
     [ContentType.UrlEncoded]: (input: any) => this.toQueryString(input),
   }
 
-  protected mergeRequestParams(params1: RequestParams, params2?: RequestParams): RequestParams {
+  protected mergeRequestParams(
+    params1: RequestParams,
+    params2?: RequestParams,
+  ): RequestParams {
     return {
       ...this.baseApiParams,
       ...params1,
@@ -282,7 +309,9 @@ export class HttpClient<SecurityDataType = unknown> {
     }
   }
 
-  protected createAbortSignal = (cancelToken: CancelToken): AbortSignal | undefined => {
+  protected createAbortSignal = (
+    cancelToken: CancelToken,
+  ): AbortSignal | undefined => {
     if (this.abortControllers.has(cancelToken)) {
       const abortController = this.abortControllers.get(cancelToken)
       if (abortController) {
@@ -326,15 +355,28 @@ export class HttpClient<SecurityDataType = unknown> {
     const payloadFormatter = this.contentFormatters[type || ContentType.Json]
     const responseFormat = format || requestParams.format
 
-    return this.customFetch(`${baseUrl || this.baseUrl || ''}${path}${queryString ? `?${queryString}` : ''}`, {
-      ...requestParams,
-      headers: {
-        ...(requestParams.headers || {}),
-        ...(type && type !== ContentType.FormData ? { 'Content-Type': type } : {}),
+    return this.customFetch(
+      `${baseUrl || this.baseUrl || ''}${path}${
+        queryString ? `?${queryString}` : ''
+      }`,
+      {
+        ...requestParams,
+        headers: {
+          ...(requestParams.headers || {}),
+          ...(type && type !== ContentType.FormData
+            ? { 'Content-Type': type }
+            : {}),
+        },
+        signal:
+          (cancelToken
+            ? this.createAbortSignal(cancelToken)
+            : requestParams.signal) || null,
+        body:
+          typeof body === 'undefined' || body === null
+            ? null
+            : payloadFormatter(body),
       },
-      signal: (cancelToken ? this.createAbortSignal(cancelToken) : requestParams.signal) || null,
-      body: typeof body === 'undefined' || body === null ? null : payloadFormatter(body),
-    }).then(async (response) => {
+    ).then(async (response) => {
       const r = response as HttpResponse<T, E>
       r.data = null as unknown as T
       r.error = null as unknown as E
@@ -369,7 +411,9 @@ export class HttpClient<SecurityDataType = unknown> {
  * @title Vatsim.Scandinavia.FlightStrips.Host
  * @version 1.0
  */
-export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDataType> {
+export class Api<
+  SecurityDataType extends unknown,
+> extends HttpClient<SecurityDataType> {
   api = {
     /**
      * No description
@@ -394,9 +438,34 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      * @name ListCoordinationsForFrequency
      * @request GET:/{airport}/{session}/coordination/{frequency}
      */
-    listCoordinationsForFrequency: (airport: string, session: string, frequency: string, params: RequestParams = {}) =>
+    listCoordinationsForFrequency: (
+      airport: string,
+      session: string,
+      frequency: string,
+      params: RequestParams = {},
+    ) =>
       this.request<CoordinationResponseModel[], ValidationProblemDetails>({
         path: `/${airport}/${session}/coordination/${frequency}`,
+        method: 'GET',
+        format: 'json',
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @tags Coordination
+     * @name GetCoordination
+     * @request GET:/{airport}/{session}/coordination/{id}
+     */
+    getCoordination: (
+      airport: string,
+      session: string,
+      id: number,
+      params: RequestParams = {},
+    ) =>
+      this.request<CoordinationResponseModel, ProblemDetails>({
+        path: `/${airport}/${session}/coordination/${id}`,
         method: 'GET',
         format: 'json',
         ...params,
@@ -475,7 +544,12 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      * @name RemoveOnlinePosition
      * @request DELETE:/{airport}/{session}/online-positions/{id}
      */
-    removeOnlinePosition: (airport: string, session: string, id: string, params: RequestParams = {}) =>
+    removeOnlinePosition: (
+      airport: string,
+      session: string,
+      id: string,
+      params: RequestParams = {},
+    ) =>
       this.request<void, ValidationProblemDetails>({
         path: `/${airport}/${session}/online-positions/${id}`,
         method: 'DELETE',
@@ -489,7 +563,11 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      * @name ListOnlinePositions
      * @request GET:/{airport}/{session}/online-positions
      */
-    listOnlinePositions: (airport: string, session: string, params: RequestParams = {}) =>
+    listOnlinePositions: (
+      airport: string,
+      session: string,
+      params: RequestParams = {},
+    ) =>
       this.request<OnlinePositionResponseModel[], ValidationProblemDetails>({
         path: `/${airport}/${session}/online-positions`,
         method: 'GET',
@@ -504,7 +582,12 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      * @name GetStrip
      * @request GET:/{airport}/{session}/strips/{callsign}
      */
-    getStrip: (airport: string, session: string, callsign: string, params: RequestParams = {}) =>
+    getStrip: (
+      airport: string,
+      session: string,
+      callsign: string,
+      params: RequestParams = {},
+    ) =>
       this.request<StripResponseModel, ProblemDetails>({
         path: `/${airport}/${session}/strips/${callsign}`,
         method: 'GET',
@@ -517,7 +600,7 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      *
      * @tags Strip
      * @name UpsertStrip
-     * @request POST:/{airport}/{session}/strips/{callsign}
+     * @request PUT:/{airport}/{session}/strips/{callsign}
      */
     upsertStrip: (
       airport: string,
@@ -526,8 +609,31 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
       data: UpsertStripRequestModel,
       params: RequestParams = {},
     ) =>
-      this.request<void, any>({
+      this.request<StripResponseModel, any>({
         path: `/${airport}/${session}/strips/${callsign}`,
+        method: 'PUT',
+        body: data,
+        type: ContentType.Json,
+        format: 'json',
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @tags Strip
+     * @name ClearStrip
+     * @request POST:/{airport}/{session}/strips/{callsign}/clear
+     */
+    clearStrip: (
+      airport: string,
+      session: string,
+      callsign: string,
+      data: StripClearRequestModel,
+      params: RequestParams = {},
+    ) =>
+      this.request<void, ProblemDetails>({
+        path: `/${airport}/${session}/strips/${callsign}/clear`,
         method: 'POST',
         body: data,
         type: ContentType.Json,

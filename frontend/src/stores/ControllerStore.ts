@@ -14,6 +14,11 @@ export class ControllerStore {
     makeAutoObservable(this, {
       rootStore: false,
     })
+
+    api.onControllerUpdate((update) => this.handleControllerUpdate(update))
+    api.onControllerDisconnect((update) =>
+      this.handleControllerDisconnect(update),
+    )
   }
 
   public reest() {

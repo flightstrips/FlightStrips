@@ -31,6 +31,6 @@ public class StripEntity : IAirportAndSessionTenant
     [MaxLength(32)]
     public required string BayName { get; set; }
 
-    [DatabaseGenerated(DatabaseGeneratedOption.Computed)]
-    public DateTime UpdatedTime { get; set; }
+    [Timestamp]
+    public uint Version { get; set; }
 }

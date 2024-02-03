@@ -20,8 +20,34 @@ export class SignalRService {
       .catch((err) => console.log(`Failed to connect to backend ${err}`))
   }
 
-  public isConnected(): boolean {
-    return this.connection.state == signalR.HubConnectionState.Connected
+  public tryReconnect() {
+    if (this.connection.state !== signalR.HubConnectionState.Disconnected) {
+      return
+    }
+
+    this.connection
+      .start()
+      .catch((err) => console.log(`Failed to connect to backend ${err}`))
+  }
+
+  public getState(): 'Connected' | 'Disconnected' | 'Connecting' {
+    switch (this.connection.state) {
+      case signalR.HubConnectionState.Connected:
+        return 'Connected'
+      case signalR.HubConnectionState.Disconnected:
+      case signalR.HubConnectionState.Disconnecting:
+        return 'Disconnected'
+      case signalR.HubConnectionState.Connecting:
+      case signalR.HubConnectionState.Reconnecting:
+        return 'Connecting'
+    }
+  }
+
+  public subscribeAirport(session: string): Promise<void> {
+    return this.connection.invoke('subscribeAirport', {
+      Airport: 'EKCH',
+      Session: session,
+    })
   }
 
   public subscribe(

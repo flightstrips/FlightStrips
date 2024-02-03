@@ -8,7 +8,7 @@ export class StateStore {
   rootStore: RootStore
   connectedToEuroScope = false
   vatsimConnection = ConnectionType.Disconnected
-  connectedToBackend = true // TODO
+  connectedToBackend = false
   controller: string = ControllerPosition.Unknown
   overrideView: string | null = null
   session = 'NONE'
@@ -18,6 +18,29 @@ export class StateStore {
       rootStore: false,
     })
     this.rootStore = root
+
+    api.onEuroScopeConnectionUpdate((isConnected) =>
+      this.handleEuroScopeConnectionUpdate(isConnected),
+    )
+    api.onVatsimConnectionUpdate((connection) =>
+      this.handleVatsimConnectionUpdate(connection),
+    )
+
+    this.checkConnectionToBackend()
+    setInterval(() => this.checkConnectionToBackend(), 10000)
+  }
+
+  public checkConnectionToBackend() {
+    const state = signalRService.getState()
+
+    if (state === 'Connected') {
+      this.connectedToBackend = true
+      return
+    } else this.connectedToBackend = false
+
+    if (state == 'Connecting') return
+
+    signalRService.tryReconnect()
   }
 
   public handleEuroScopeConnectionUpdate(isConnected: boolean) {
@@ -25,6 +48,7 @@ export class StateStore {
   }
 
   public handleVatsimConnectionUpdate(connection: ConnectionType) {
+    if (this.vatsimConnection === connection) return
     if (connection === ConnectionType.Disconnected) {
       if (this.session !== 'NONE') {
         signalRService.unsubscribe(this.session, this.controller)
@@ -35,8 +59,14 @@ export class StateStore {
       this.controller = ControllerPosition.Unknown
     }
 
+    const prev = this.vatsimConnection
+
     this.vatsimConnection = connection
     this.setSession()
+
+    if (prev === ConnectionType.Disconnected && this.session !== 'NONE') {
+      signalRService.subscribeAirport(this.session)
+    }
   }
 
   public setOverrideView(view: string | null) {
@@ -90,6 +120,7 @@ export class StateStore {
     if (this.overrideView !== null) return this.overrideView
     switch (this.controller) {
       case ControllerPosition.EKCH_DEL:
+      case ControllerPosition.EKDK_CTR:
         return '/ekch/del'
       case ControllerPosition.EKCH_A_GND:
       case ControllerPosition.EKCH_D_GND:

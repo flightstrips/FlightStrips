@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Vatsim.Scandinavia.FlightStrips.Abstractions;
+using Vatsim.Scandinavia.FlightStrips.Abstractions.Bays;
 using Vatsim.Scandinavia.FlightStrips.Abstractions.Coordinations;
 using Vatsim.Scandinavia.FlightStrips.Abstractions.Strips;
 using Vatsim.Scandinavia.FlightStrips.Host.Attributes;
@@ -11,22 +12,24 @@ using CoordinationState = Vatsim.Scandinavia.FlightStrips.Abstractions.Coordinat
 namespace Vatsim.Scandinavia.FlightStrips.Host.Controllers;
 
 [ApiController]
-[Route("{airport:required}/{session:required}/strips")]
+[Route("{airport}/{session}/strips")]
 public class StripController : ControllerBase
 {
     private readonly IStripService _stripService;
     private readonly ICoordinationService _coordinationService;
+    private readonly IBayService _bayService;
 
-    public StripController(IStripService stripService, ICoordinationService coordinationService)
+    public StripController(IStripService stripService, ICoordinationService coordinationService, IBayService bayService)
     {
         _stripService = stripService;
         _coordinationService = coordinationService;
+        _bayService = bayService;
     }
 
     [HttpGet("{callsign}", Name = "GetStrip")]
     [ProducesResponseType(typeof(StripResponseModel), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> GetStripAsync([Airport] string airport, string session,
+    public async Task<IActionResult> GetStripAsync([Airport, FromRoute] string airport, [FromRoute] string session,
         [Callsign, FromRoute] string callsign)
     {
         var id = new StripId(airport, session, callsign);
@@ -50,10 +53,10 @@ public class StripController : ControllerBase
         return Ok(model);
     }
 
-    [HttpPost("{callsign}", Name = "UpsertStrip")]
-    [ProducesResponseType(StatusCodes.Status204NoContent)]
-    [ProducesResponseType(StatusCodes.Status201Created)]
-    public async Task<IActionResult> UpsertAsync([Airport] string airport, string session,
+    [HttpPut("{callsign}", Name = "UpsertStrip")]
+    [ProducesResponseType(typeof(StripResponseModel), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(StripResponseModel), StatusCodes.Status201Created)]
+    public async Task<IActionResult> UpsertAsync([Airport, FromRoute] string airport, [FromRoute] string session,
         [Callsign, FromRoute] string callsign, [FromBody] UpsertStripRequestModel request)
     {
         var upsertRequest = new StripUpsertRequest
@@ -64,11 +67,37 @@ public class StripController : ControllerBase
             State = request.State,
             Cleared = request.Cleared
         };
-        var created = await _stripService.UpsertStripAsync(upsertRequest);
+        var (created, strip) = await _stripService.UpsertStripAsync(upsertRequest);
+
+        var model = new StripResponseModel
+        {
+            Callsign = strip.Id.Callsign,
+            Bay = strip.Bay,
+            Controller = strip.PositionFrequency,
+            Cleared = strip.Cleared,
+            Destination = strip.Destination,
+            Origin = strip.Origin,
+            Sequence = strip.Sequence
+        };
 
         return created
-            ? CreatedAtRoute("GetStrip", new { airport, session, callsign })
-            : NoContent();
+            ? CreatedAtAction("GetStrip", new { airport, session, callsign }, model)
+            : Ok(model);
+    }
+
+    [HttpPost("{callsign}/clear", Name = "ClearStrip")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> ClearAsync([Airport] string airport, string session,
+        [Callsign, FromRoute] string callsign, [FromBody] StripClearRequestModel request)
+    {
+        var id = new StripId(airport, session, callsign);
+        var strip = await _stripService.GetStripAsync(id);
+        if (strip is null) return NotFound();
+
+        await _stripService.ClearAsync(id, request.IsCleared);
+
+        return NoContent();
     }
 
     [HttpPost("{callsign}/move", Name = "MoveStrip")]
@@ -81,7 +110,10 @@ public class StripController : ControllerBase
         var strip = await _stripService.GetStripAsync(id);
         if (strip is null) return NotFound();
 
-        await _stripService.SetBayAsync(id, request.Bay);
+        var bay = await _bayService.GetAsync(id.Airport, request.Bay.ToUpperInvariant());
+        if (bay is null) return NotFound();
+
+        await _stripService.SetBayAsync(id, bay.Name);
         await _stripService.SetSequenceAsync(id, request.Sequence);
 
         return NoContent();
@@ -137,6 +169,6 @@ public class StripController : ControllerBase
 
         var model = CoordinationMapper.Map(coordination);
 
-        return Ok(model);
+        return CreatedAtAction("Get", "Coordination", new {airport, session, id = coordination.Id}, model);
     }
 }

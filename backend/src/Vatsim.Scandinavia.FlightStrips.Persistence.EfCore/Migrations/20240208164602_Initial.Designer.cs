@@ -12,7 +12,7 @@ using Vatsim.Scandinavia.FlightStrips.Persistence.EfCore;
 namespace Vatsim.Scandinavia.FlightStrips.Persistence.EfCore.Migrations
 {
     [DbContext(typeof(FlightStripsDbContext))]
-    [Migration("20240124201418_Initial")]
+    [Migration("20240208164602_Initial")]
     partial class Initial
     {
         /// <inheritdoc />
@@ -87,6 +87,9 @@ namespace Vatsim.Scandinavia.FlightStrips.Persistence.EfCore.Migrations
                         .HasMaxLength(7)
                         .HasColumnType("character varying(7)");
 
+                    b.Property<int>("Sector")
+                        .HasColumnType("integer");
+
                     b.Property<uint>("Version")
                         .IsConcurrencyToken()
                         .ValueGeneratedOnAddOrUpdate()
@@ -96,6 +99,36 @@ namespace Vatsim.Scandinavia.FlightStrips.Persistence.EfCore.Migrations
                     b.HasKey("PositionName", "Session", "Airport");
 
                     b.ToTable("OnlinePositions");
+                });
+
+            modelBuilder.Entity("Vatsim.Scandinavia.FlightStrips.Persistence.EfCore.Entities.RunwayConfigurationEntity", b =>
+                {
+                    b.Property<string>("Session")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<string>("Airport")
+                        .HasMaxLength(4)
+                        .HasColumnType("character varying(4)");
+
+                    b.Property<string>("Arrival")
+                        .IsRequired()
+                        .HasMaxLength(4)
+                        .HasColumnType("character varying(4)");
+
+                    b.Property<string>("Departure")
+                        .IsRequired()
+                        .HasMaxLength(4)
+                        .HasColumnType("character varying(4)");
+
+                    b.Property<string>("Position")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.HasKey("Session", "Airport");
+
+                    b.ToTable("RunwayConfigs");
                 });
 
             modelBuilder.Entity("Vatsim.Scandinavia.FlightStrips.Persistence.EfCore.Entities.StripEntity", b =>

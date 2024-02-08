@@ -3,6 +3,7 @@ import { RootStore } from './RootStore'
 import { Controller } from './Controller'
 import { ControllerUpdate } from '../../shared/ControllerUpdate'
 import { ControllerPosition } from '../data/models'
+import { signalRService } from '../services/SignalRService'
 
 export class ControllerStore {
   rootStore: RootStore
@@ -18,6 +19,9 @@ export class ControllerStore {
     api.onControllerUpdate((update) => this.handleControllerUpdate(update))
     api.onControllerDisconnect((update) =>
       this.handleControllerDisconnect(update),
+    )
+    signalRService.on('ReceiveControllerSectorsUpdate', (update) =>
+      console.log(update),
     )
   }
 

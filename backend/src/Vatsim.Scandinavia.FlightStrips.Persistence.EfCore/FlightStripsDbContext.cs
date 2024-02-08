@@ -10,6 +10,8 @@ public class FlightStripsDbContext : DbContext
 
     public DbSet<CoordinationEntity> Coordination { get; set; } = null!;
 
+    public required DbSet<RunwayConfigurationEntity> RunwayConfigs { get; set; }
+
     public FlightStripsDbContext(DbContextOptions<FlightStripsDbContext> options) : base(options)
     {
     }

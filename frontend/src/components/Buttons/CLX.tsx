@@ -10,10 +10,10 @@ import {
 import { SIDButton } from '../CLX/SIDButton'
 import { FlightStrip } from '../../stores/FlightStrip'
 import { observer } from 'mobx-react'
-import { RunwayButton } from './CLX/Rynway'
-import { DeIceSelector } from './CLX/DeIceSelector'
-import { CFLSelector } from './CLX/CFL'
-import { HDGSelector } from './CLX/HDG'
+import { RunwayButton } from '../CLX/Rynway'
+import { DeIceSelector } from '../CLX/DeIceSelector'
+import { CFLSelector } from '../CLX/CFL'
+import { HDGSelector } from '../CLX/HDG'
 
 // eslint-disable-next-line react-refresh/only-export-components
 export const CLX = observer((props: { Flightstrip: FlightStrip }) => {
@@ -240,7 +240,9 @@ export const CLX = observer((props: { Flightstrip: FlightStrip }) => {
                         <CFLSelector cfl={props.Flightstrip.alt} />
                       </div>
                       <div className="flex flex-col">
-                        <p className="pl-1 pr-1 pt-1 -mt-1 pb-1 text-sm">DE-ICE</p>
+                        <p className="pl-1 pr-1 pt-1 -mt-1 pb-1 text-sm">
+                          DE-ICE
+                        </p>
                         <DeIceSelector DeIcePad={props.Flightstrip.deice} />
                       </div>
                       <Input

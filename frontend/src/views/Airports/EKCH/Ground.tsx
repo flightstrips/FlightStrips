@@ -27,7 +27,11 @@ const Ground = observer(() => {
     <div className="bg-background-grey h-screen w-screen flex justify-center">
       <div className="w-full bg-bay-grey flex flex-col border-l-[4px] border-r-[4px]">
         <div className="h-1/4">
-          <BayHeader title="MESSAGES" msg buttons={<ControllerMessages />} />
+          <BayHeader
+            title="MESSAGES"
+            message
+            buttons={<ControllerMessages />}
+          />
         </div>
         <div className="h-1/3">
           <BayHeader title="FINAL" />

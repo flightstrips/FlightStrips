@@ -8,14 +8,7 @@ import {
 
 export function HDGSelector(props: { hdg: string }) {
   const { isOpen, onOpen, onOpenChange } = useDisclosure()
-  const HDGs = [
-    '350',
-    '090',
-    '120',
-    '300',
-    '040',
-    '220',
-  ]
+  const HDGs = ['350', '090', '120', '300', '040', '220']
   return (
     <>
       <Button

@@ -4,7 +4,7 @@ using Vatsim.Scandinavia.FlightStrips.Abstractions.Coordinations;
 
 namespace Vatsim.Scandinavia.FlightStrips.Persistence.EfCore.Entities;
 
-public class CoordinationEntity : IAirportAndSessionTenant
+public class CoordinationEntity
 {
     public int Id { get; set; }
 

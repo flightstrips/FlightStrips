@@ -73,4 +73,20 @@ public class EfOnlinePositionRepository : IOnlinePositionRepository
             })
             .ToArrayAsync();
     }
+
+    public async Task BulkSetSectorAsync(SessionId id, IEnumerable<OnlinePosition> positions)
+    {
+        var entities = await _context.OnlinePositions.Where(x => x.Airport == id.Airport && x.Session == id.Session)
+            .ToArrayAsync();
+
+        foreach (var onlinePosition in positions)
+        {
+            var entity = entities.FirstOrDefault(x => x.PositionName == onlinePosition.Id.Position);
+            if (entity is null) continue;
+
+            entity.Sector = onlinePosition.Sector;
+        }
+
+        await _context.SaveChangesAsync();
+    }
 }

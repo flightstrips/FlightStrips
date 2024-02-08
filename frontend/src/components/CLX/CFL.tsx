@@ -8,14 +8,7 @@ import {
 
 export function CFLSelector(props: { cfl: string }) {
   const { isOpen, onOpen, onOpenChange } = useDisclosure()
-  const CFLs = [
-    '1500',
-    '2500',
-    '3000',
-    '4000',
-    '5000',
-    'FL070',
-  ]
+  const CFLs = ['1500', '2500', '3000', '4000', '5000', 'FL070']
   return (
     <>
       <Button

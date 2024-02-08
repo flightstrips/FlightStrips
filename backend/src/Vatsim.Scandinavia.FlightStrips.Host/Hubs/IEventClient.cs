@@ -11,4 +11,6 @@ public interface IEventClient
     Task ReceiveAtisUpdate(AtisUpdateModel atisUpdate);
 
     Task ReceiveCoordinationUpdate(CoordinationUpdateModel coordinationUpdate);
+
+    Task ReceiveControllerSectorsUpdate(SectorUpdateModel[] sectors);
 }

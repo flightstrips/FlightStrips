@@ -56,3 +56,8 @@ export interface SubscribeRequest {
 export interface UnsubscribeRequest extends SubscribeRequest {
   unsubscribeFromAirport: boolean
 }
+
+export interface SectorUpadet {
+  frequency: string
+  sectors: string[]
+}

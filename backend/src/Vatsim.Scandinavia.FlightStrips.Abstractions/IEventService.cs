@@ -15,4 +15,5 @@ public interface IEventService
     Task StripCreatedAsync(Strip strip);
     Task StripUpdatedAsync(Strip strip);
     Task StripDeletedAsync(Strip strip);
+    Task SendControllerSectorsAsync(SessionId id, IEnumerable<OnlinePosition> onlinePositions);
 }

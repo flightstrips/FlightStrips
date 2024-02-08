@@ -1,5 +1,4 @@
 ﻿using Microsoft.AspNetCore.SignalR;
-using Microsoft.VisualBasic;
 using Vatsim.Scandinavia.FlightStrips.Abstractions;
 using Vatsim.Scandinavia.FlightStrips.Abstractions.Coordinations;
 using Vatsim.Scandinavia.FlightStrips.Abstractions.OnlinePositions;
@@ -57,6 +56,17 @@ public class EventService(
         return hubContext.Clients.Group(group).ReceiveStripUpdate(model);
     }
 
+    public Task SendControllerSectorsAsync(SessionId id, IEnumerable<OnlinePosition> onlinePositions)
+    {
+        var model = onlinePositions.DistinctBy(x => x.PrimaryFrequency).Select(x => new SectorUpdateModel
+        {
+            Frequency = x.PrimaryFrequency, Sectors = x.Sector.ToString().Split(", ")
+        }).ToArray();
+
+        var group = ToAirportAndSessionGroup(id);
+        return hubContext.Clients.Group(group).ReceiveControllerSectorsUpdate(model);
+    }
+
     public Task AtisUpdateAsync() => throw new NotImplementedException();
 
     public Task AcceptCoordinationAsync(Coordination coordination) =>
@@ -83,5 +93,6 @@ public class EventService(
     }
 
     private static string ToAirportAndSessionGroup(StripId id) => ToAirportAndSessionGroup(id.Airport, id.Session);
+    private static string ToAirportAndSessionGroup(SessionId id) => ToAirportAndSessionGroup(id.Airport, id.Session);
     private static string ToAirportAndSessionGroup(string airport, string session) => $"{session.ToUpperInvariant()}:{airport.ToUpperInvariant()}";
 }

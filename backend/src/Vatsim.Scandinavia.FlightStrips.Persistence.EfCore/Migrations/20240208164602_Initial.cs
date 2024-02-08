@@ -19,11 +19,27 @@ namespace Vatsim.Scandinavia.FlightStrips.Persistence.EfCore.Migrations
                     Airport = table.Column<string>(type: "character varying(4)", maxLength: 4, nullable: false),
                     PositionName = table.Column<string>(type: "character varying(32)", maxLength: 32, nullable: false),
                     PositionFrequency = table.Column<string>(type: "character varying(7)", maxLength: 7, nullable: false),
+                    Sector = table.Column<int>(type: "integer", nullable: false),
                     xmin = table.Column<uint>(type: "xid", rowVersion: true, nullable: false)
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_OnlinePositions", x => new { x.PositionName, x.Session, x.Airport });
+                });
+
+            migrationBuilder.CreateTable(
+                name: "RunwayConfigs",
+                columns: table => new
+                {
+                    Airport = table.Column<string>(type: "character varying(4)", maxLength: 4, nullable: false),
+                    Session = table.Column<string>(type: "character varying(32)", maxLength: 32, nullable: false),
+                    Departure = table.Column<string>(type: "character varying(4)", maxLength: 4, nullable: false),
+                    Arrival = table.Column<string>(type: "character varying(4)", maxLength: 4, nullable: false),
+                    Position = table.Column<string>(type: "character varying(32)", maxLength: 32, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_RunwayConfigs", x => new { x.Session, x.Airport });
                 });
 
             migrationBuilder.CreateTable(
@@ -85,6 +101,9 @@ namespace Vatsim.Scandinavia.FlightStrips.Persistence.EfCore.Migrations
 
             migrationBuilder.DropTable(
                 name: "OnlinePositions");
+
+            migrationBuilder.DropTable(
+                name: "RunwayConfigs");
 
             migrationBuilder.DropTable(
                 name: "Strips");

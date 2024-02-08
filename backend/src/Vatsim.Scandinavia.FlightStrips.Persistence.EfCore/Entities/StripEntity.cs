@@ -6,7 +6,7 @@ using Vatsim.Scandinavia.FlightStrips.Abstractions.Enums;
 namespace Vatsim.Scandinavia.FlightStrips.Persistence.EfCore.Entities;
 
 [PrimaryKey(nameof(Callsign), nameof(Session), nameof(Airport))]
-public class StripEntity : IAirportAndSessionTenant
+public class StripEntity
 {
     [MaxLength(32)]
     public required string Session { get; set; }

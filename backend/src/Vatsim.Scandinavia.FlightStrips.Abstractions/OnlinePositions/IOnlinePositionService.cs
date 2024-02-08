@@ -1,4 +1,6 @@
-﻿namespace Vatsim.Scandinavia.FlightStrips.Abstractions.OnlinePositions;
+﻿using Vatsim.Scandinavia.FlightStrips.Abstractions.Runways;
+
+namespace Vatsim.Scandinavia.FlightStrips.Abstractions.OnlinePositions;
 
 public interface IOnlinePositionService
 {
@@ -7,4 +9,7 @@ public interface IOnlinePositionService
     Task<OnlinePosition[]> ListAsync(string airport, string session);
     Task<SessionId[]> GetSessionsAsync();
     Task RemoveSessionAsync(SessionId id);
+
+    Task UpdateSectorsAsync(SessionId id);
 }
+

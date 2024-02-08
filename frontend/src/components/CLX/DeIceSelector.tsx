@@ -8,11 +8,7 @@ import {
 
 export function DeIceSelector(props: { DeIcePad: string }) {
   const { isOpen, onOpen, onOpenChange } = useDisclosure()
-  const DeIcePads = [
-    'DE-ICE A',
-    'DE-ICE B',
-    'DE-ICE C',
-  ]
+  const DeIcePads = ['DE-ICE A', 'DE-ICE B', 'DE-ICE C']
   return (
     <>
       <Button

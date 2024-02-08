@@ -80,7 +80,11 @@ const Tower = observer(() => {
           ))}
         </div>
         <div className="h-2/6">
-          <BayHeader title="MESSAGES" msg buttons={<ControllerMessages />} />
+          <BayHeader
+            title="MESSAGES"
+            message
+            buttons={<ControllerMessages />}
+          />
         </div>
       </div>
 

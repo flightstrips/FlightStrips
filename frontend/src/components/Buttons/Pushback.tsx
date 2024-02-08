@@ -5,7 +5,6 @@ import {
   ModalFooter,
   Button,
   useDisclosure,
-  Input,
 } from '@nextui-org/react'
 import { FlightStrip } from '../../stores/FlightStrip'
 import { observer } from 'mobx-react'

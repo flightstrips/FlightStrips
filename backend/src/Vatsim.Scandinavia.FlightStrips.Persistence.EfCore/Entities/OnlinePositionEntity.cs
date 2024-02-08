@@ -1,11 +1,12 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using Microsoft.EntityFrameworkCore;
+using Vatsim.Scandinavia.FlightStrips.Abstractions.Sectors;
 
 namespace Vatsim.Scandinavia.FlightStrips.Persistence.EfCore.Entities;
 
 [PrimaryKey(nameof(PositionName), nameof(Session), nameof(Airport))]
-public class OnlinePositionEntity : IAirportAndSessionTenant
+public class OnlinePositionEntity
 {
     [MaxLength(32)]
     public required string Session { get; set; }
@@ -18,6 +19,8 @@ public class OnlinePositionEntity : IAirportAndSessionTenant
 
     [MaxLength(7)]
     public required string PositionFrequency { get; set; }
+
+    public Sector Sector { get; set; } = Sector.NONE;
 
     [Timestamp]
     public uint Version { get; set; }

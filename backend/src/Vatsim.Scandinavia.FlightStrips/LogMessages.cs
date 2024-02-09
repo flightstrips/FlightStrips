@@ -7,4 +7,7 @@ public static partial class LogMessages
 {
     [LoggerMessage(LogLevel.Information, "Setting sequence for {Strip} to {Sequence}")]
     public static partial void SetSequence(this ILogger logger, StripId strip, int? sequence);
+
+    [LoggerMessage(LogLevel.Debug, "Runway configuration is null, unable to assign sectors to controllers.")]
+    public static partial void RunwayConfigurationIsNull(this ILogger logger);
 }

@@ -1,6 +1,8 @@
 ﻿using Vatsim.Scandinavia.FlightStrips.Abstractions;
 using Vatsim.Scandinavia.FlightStrips.Abstractions.OnlinePositions;
+using Vatsim.Scandinavia.FlightStrips.Abstractions.Runways;
 using Vatsim.Scandinavia.FlightStrips.Abstractions.Strips;
+using Vatsim.Scandinavia.FlightStrips.Services;
 
 namespace Vatsim.Scandinavia.FlightStrips.Host;
 
@@ -48,6 +50,7 @@ public class CleanupService(IServiceProvider serviceProvider, ILogger<CleanupSer
     {
         var onlinePositionService = provider.GetRequiredService<IOnlinePositionService>();
         var stripService = provider.GetRequiredService<IStripService>();
+        var runwayService = provider.GetRequiredService<IRunwayService>();
 
         var now = DateTime.UtcNow;
         var stripSessions = await stripService.GetSessionsAsync();
@@ -73,8 +76,7 @@ public class CleanupService(IServiceProvider serviceProvider, ILogger<CleanupSer
             logger.RemovingInactiveSession(session.Airport, session.Session);
             _sessions.Remove(session);
             await stripService.RemoveSessionAsync(session);
+            await runwayService.DeleteRunwaysAsync(session);
         }
     }
-
-
 }

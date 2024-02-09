@@ -1,4 +1,6 @@
-﻿using Vatsim.Scandinavia.FlightStrips.Abstractions;
+﻿using System.Diagnostics.CodeAnalysis;
+using Microsoft.Extensions.Logging;
+using Vatsim.Scandinavia.FlightStrips.Abstractions;
 using Vatsim.Scandinavia.FlightStrips.Abstractions.OnlinePositions;
 using Vatsim.Scandinavia.FlightStrips.Abstractions.Positions;
 using Vatsim.Scandinavia.FlightStrips.Abstractions.Runways;
@@ -6,7 +8,7 @@ using Vatsim.Scandinavia.FlightStrips.Abstractions.Sectors;
 
 namespace Vatsim.Scandinavia.FlightStrips.Services;
 
-public class OwnerService : IOwnerService
+public class OwnerService(ILogger<OwnerService> logger) : IOwnerService
 {
     private static readonly Position[] _del = [Position.EKCH_DEL, Position.EKCH_D_GND, Position.EKCH_A_GND, Position.EKCH_C_TWR, Position.EKCH_D_TWR, Position.EKCH_A_TWR];
 
@@ -64,6 +66,7 @@ public class OwnerService : IOwnerService
 
         if (runwayConfig is null)
         {
+            logger.RunwayConfigurationIsNull();
             return onlinePositions.Select(x =>
                 new OnlinePosition {Id = x.Id, PrimaryFrequency = x.PrimaryFrequency, Sector = Sector.NONE}).ToArray();
         }
@@ -76,7 +79,7 @@ public class OwnerService : IOwnerService
 
         foreach (var sector in Enum.GetValues<Sector>())
         {
-            if (sector is Sector.NONE or Sector.All) continue;
+            if (sector is Sector.NONE) continue;
             var pos = sectors[sector].FirstOrDefault(x => positions.Contains(x));
             if (pos == default) continue;
 
@@ -97,6 +100,11 @@ public class OwnerService : IOwnerService
         }
 
         return result;
+    }
+
+    private static string PositionToString(OnlinePosition position)
+    {
+        return $"{position.PrimaryFrequency}: {position.Sector.ToString()}";
     }
 
     private static readonly string[] _runway12 = ["12", "30"];

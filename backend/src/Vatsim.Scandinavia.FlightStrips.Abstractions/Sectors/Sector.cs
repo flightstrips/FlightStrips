@@ -11,7 +11,11 @@ public enum Sector
     GW =   1 << 3,
     GE =   1 << 4,
     TW =   1 << 5,
-    TE =   1 << 6,
+    TE =   1 << 6
 
-    All = DEL | AA | AD | GW | GE | TW | TE
+}
+
+public static class Sectors
+{
+    public const Sector All = Sector.DEL | Sector.AA | Sector.AD | Sector.GW | Sector.GE | Sector.TW | Sector.TE;
 }

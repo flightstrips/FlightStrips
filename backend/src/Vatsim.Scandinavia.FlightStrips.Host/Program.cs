@@ -1,7 +1,9 @@
+using System.Net;
 using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Http.Connections;
+using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.EntityFrameworkCore;
 using Vatsim.Scandinavia.FlightStrips.Abstractions;
 using Vatsim.Scandinavia.FlightStrips.Extensions;
@@ -12,6 +14,15 @@ using Vatsim.Scandinavia.FlightStrips.Persistence.EfCore;
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
+builder.WebHost.ConfigureKestrel(options =>
+{
+    options.Listen(IPAddress.Any, 50051, listenOptions =>
+    {
+        listenOptions.Protocols = HttpProtocols.Http2;
+    });
+});
+
+
 builder.Services.AddHostedService<CleanupService>();
 
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
@@ -48,6 +59,8 @@ var connectionString = builder.Configuration.GetConnectionString("Database");
 
 builder.Services.AddDbContext<FlightStripsDbContext>(dbBuilder => dbBuilder.UseNpgsql(connectionString));
 builder.Services.AddSingleton<IControllerService, ControllerService>();
+
+builder.Services.AddGrpc();
 
 var app = builder.Build();
 

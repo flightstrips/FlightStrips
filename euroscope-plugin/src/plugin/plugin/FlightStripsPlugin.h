@@ -61,10 +61,10 @@ namespace FlightStrips {
         const std::shared_ptr<handlers::ControllerEventHandlers> m_controllerEventHandlerCollection;
         const std::shared_ptr<network::NetworkService> m_networkService;
 
-
         int connectionType = 0;
 
         static bool IsRelevant(EuroScopePlugIn::CFlightPlan flightPlan);
         static bool IsRelevant(EuroScopePlugIn::CController controller);
+        std::unique_ptr<std::thread> readerThread;
     };
 }

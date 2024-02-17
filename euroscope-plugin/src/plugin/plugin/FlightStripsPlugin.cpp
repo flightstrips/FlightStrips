@@ -68,7 +68,7 @@ namespace FlightStrips {
         }
     }
 
-    void FlightStripsPlugin::OnTimer(int Counter) {
+    void FlightStripsPlugin::OnTimer(int) {
         try {
             int type = GetConnectionType();
             if (type != this->connectionType) {
@@ -81,9 +81,7 @@ namespace FlightStrips {
         }
     }
 
-    void FlightStripsPlugin::OnFlightPlanFlightStripPushed(EuroScopePlugIn::CFlightPlan FlightPlan,
-                                                           const char *sSenderController,
-                                                           const char *sTargetController) {
+    void FlightStripsPlugin::OnFlightPlanFlightStripPushed(EuroScopePlugIn::CFlightPlan, const char *, const char *) {
     }
 
     void FlightStripsPlugin::OnRadarTargetPositionUpdate(EuroScopePlugIn::CRadarTarget RadarTarget) {
@@ -97,6 +95,7 @@ namespace FlightStrips {
             Error("Error during radar position(" + std::string(RadarTarget.GetCallsign()) + "): " +
                         std::string(e.what()));
         }
+
     }
 
     FlightStripsPlugin::~FlightStripsPlugin() = default;

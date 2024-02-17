@@ -5,6 +5,7 @@
     <ProjectReference Include="..\Vatsim.Scandinavia.FlightStrips\Vatsim.Scandinavia.FlightStrips.csproj" />
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="Grpc.AspNetCore" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
     <PackageReference Include="Swashbuckle.AspNetCore" />
     <PackageReference Include="Microsoft.AspNetCore.SignalR.Protocols.MessagePack" />
@@ -13,7 +14,11 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
   </ItemGroup>
-  
+
+  <ItemGroup>
+    <Protobuf Include="../../../proto/flight_strips.proto" GrpcServices="Server" />
+  </ItemGroup>
+
   <PropertyGroup>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <NoWarn>$(NoWarn);1591</NoWarn>

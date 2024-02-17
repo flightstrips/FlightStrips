@@ -21,7 +21,8 @@ set(src__stands
 source_group("src\\stands" FILES ${src__stands})
 
 set(src__network
-        network/ConnectedClient.cpp network/ConnectedClient.h network/Server.cpp network/Server.h network/NetworkService.cpp network/NetworkService.h network/NetworkBootstrapper.cpp network/NetworkBootstrapper.h)
+        network/ConnectedClient.cpp network/ConnectedClient.h network/Server.cpp network/Server.h network/NetworkService.cpp network/NetworkService.h network/NetworkBootstrapper.cpp network/NetworkBootstrapper.h
+)
 source_group("src\\network" FILES ${src__network})
 
 set(src__bootstrap
@@ -70,8 +71,7 @@ set(ALL_FILES
 ################################################################################
 # Target
 ################################################################################
-add_library(${PROJECT_NAME} SHARED ${ALL_FILES})
-set_target_properties(${PROJECT_NAME} PROPERTIES COMPILE_FLAGS "-m32" LINK_FLAGS "-m32")
+add_library(${PROJECT_NAME} SHARED ${ALL_FILES} "${CMAKE_CURRENT_LIST_DIR}/../../../proto/flight_strips.proto")
 
 target_precompile_headers(${PROJECT_NAME} PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${CMAKE_CURRENT_SOURCE_DIR}/pch/pch.h>")
 
@@ -120,8 +120,7 @@ target_include_directories(${PROJECT_NAME} PUBLIC
         "${CMAKE_CURRENT_SOURCE_DIR}/.;"
         )
 
-target_include_directories(${PROJECT_NAME} PRIVATE
-        "${CMAKE_CURRENT_SOURCE_DIR}/../../third_party"
+target_include_directories(${PROJECT_NAME} SYSTEM PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/../../third_party"
         )
 
 target_link_directories(
@@ -163,9 +162,6 @@ if (MSVC)
             ${DEFAULT_CXX_DEBUG_INFORMATION_FORMAT};
             /Zm200;
             ${DEFAULT_CXX_EXCEPTION_HANDLING}
-            -Wno-unused-parameter # Lots of interfaces don't use everything
-            -Wno-missing-field-initializers # Windows has loads of this sadly
-            -ftime-trace
             )
     target_link_options(${PROJECT_NAME} PRIVATE
             $<$<CONFIG:Debug>:
@@ -181,7 +177,6 @@ if (MSVC)
             >
             /NODEFAULTLIB:LIBCMT;
             /SUBSYSTEM:WINDOWS
-            /ALLOWISOLATION
             )
 endif ()
 
@@ -213,12 +208,31 @@ set(ADDITIONAL_LIBRARY_DEPENDENCIES
         "comctl32"
         )
 
+
 target_link_libraries(${PROJECT_NAME} PUBLIC "${ADDITIONAL_LIBRARY_DEPENDENCIES}")
-target_link_libraries(${PROJECT_NAME} PRIVATE nlohmann_json::nlohmann_json)
+target_link_libraries(${PROJECT_NAME} PRIVATE nlohmann_json::nlohmann_json grpc++)
+
+set(PROTO_BINARY_DIR "${CMAKE_CURRENT_BINARY_DIR}/generated")
+set(PROTO_IMPORT_DIRS "${CMAKE_CURRENT_LIST_DIR}/../../../proto")
+
+target_include_directories(${PROJECT_NAME} SYSTEM PRIVATE "$<BUILD_INTERFACE:${PROTO_BINARY_DIR}>")
+
+protobuf_generate(
+        TARGET ${PROJECT_NAME}
+        IMPORT_DIRS ${PROTO_IMPORT_DIRS}
+        PROTOC_OUT_DIR "${PROTO_BINARY_DIR}")
+
+protobuf_generate(
+        TARGET ${PROJECT_NAME}
+        LANGUAGE grpc
+        GENERATE_EXTENSIONS .grpc.pb.h .grpc.pb.cc
+        PLUGIN "protoc-gen-grpc=\$<TARGET_FILE:grpc_cpp_plugin>"
+        IMPORT_DIRS ${PROTO_IMPORT_DIRS}
+        PROTOC_OUT_DIR "${PROTO_BINARY_DIR}")
+
 
 # Post-build copy the EuroScope binary
 add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy "${CMAKE_CURRENT_SOURCE_DIR}/../../lib/EuroScopePlugInDll.dll" "${PROJECT_BINARY_DIR}/bin/EuroScopePlugInDll.dll"
         COMMENT "Copied EuroScope shared library to ${PROJECT_BINARY_DIR}/bin/EuroScopePlugInDll.dll"
         )
-

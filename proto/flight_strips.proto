@@ -1,0 +1,263 @@
+syntax = "proto3";
+
+package FlightStrips;
+
+service FlightStripsService {
+  rpc Start (stream ClientStreamMessage) returns (stream ServerStreamMessage) {}
+  rpc GetAllStrips(GetAllStripsRequest) returns (GetAllStripsResponse) {}
+}
+
+message Session {
+  string airport = 1; // EKCH
+  string session = 2; // LIVE, SWEATBOX, PLAYBACK-uuid
+}
+
+message GetAllStripsResponse {
+  repeated StripFullResponse strips = 1;
+}
+
+message GetAllStripsRequest {
+  Session session = 1;
+}
+
+message ClientStreamMessage {
+  string clientId = 1; // Controller position aka. EKCH_A_TWR
+  oneof message {
+    ClientInfo client_info = 2;
+    AirportInfo airport_info = 3;
+    ControllerUpdate controller_update = 4;
+    StripData strip_data = 5;
+  }
+}
+
+message ServerStreamMessage {
+  oneof message {
+    SessionInfo session_info = 1;
+    StripResponse strip_update = 2;
+    StripFullResponse full_strip = 15;
+  }
+}
+
+message AirportInfo {
+  string arrival_runway = 1;
+  string departure_runway = 2;
+}
+
+message ClientInfo {
+  uint32 range = 1;
+  string frequency = 2;
+  Session session = 3;
+}
+
+message ControllerUpdate {
+  string callsign = 1;
+  ConnectionStatus connection_status = 2;
+  optional string frequency = 3;
+}
+
+message SessionInfo {
+  bool isMaster = 1;
+  optional uint32 relevant_range = 2;
+}
+
+message StripData {
+  string callsign = 1;
+  oneof message {
+    Squawk assigned_squawk = 2;
+    FinalAltitude final_altitude = 3;
+    ClearedAltitude cleared_altitude = 4;
+    CommunicationType communication_type = 5;
+    GroundStateUpdate ground_state = 6;
+    ClearedFlag cleared = 7;
+    Squawk set_squawk = 8;
+    PositionUpdate position = 9;
+    StripFullData fullData = 15;
+  }
+}
+
+message RouteUpdate {
+  string route = 1;
+}
+
+message RemarksUpdate {
+  string remarks = 1;
+}
+
+message StandUpdate {
+  string stand = 1;
+}
+
+message CdmUpdate {
+  optional uint32 eobt = 1;
+  optional uint32 tsat = 2;
+  optional uint32 ctot = 3;
+}
+
+message Squawk {
+  uint32 squawk = 1;
+}
+
+message FinalAltitude {
+  uint32 altitude = 1;
+}
+
+message ClearedAltitude {
+  uint32 altitude = 1;
+}
+
+message CommunicationUpdate {
+  CommunicationType type = 1;
+}
+
+message GroundStateUpdate {
+  GroundState state = 1;
+}
+
+message ClearedFlag {
+  bool cleared = 1;
+}
+
+message PositionUpdate {
+  Position position = 1;
+}
+
+message StripFullData {
+  string route = 1;
+  string origin = 2;
+  string destination = 3;
+  string remarks = 4;
+  uint32 squawk = 5;
+  string sid = 6;
+  uint32 cleared_alt = 7;
+  optional uint32 heading = 8;
+  string aircraft_type = 9;
+  string aircraft_registration = 10;
+  WeightCategory aircraft_category = 11;
+  string runway = 12;
+  Position position = 13;
+  GroundState ground_state = 14;
+  bool cleared = 15;
+  CommunicationType communication_type = 16;
+  uint32 final_altitude = 17;
+  string alternate = 18;
+  Capabilities capabilities = 19;
+  string estimated_departure_time = 20;
+}
+
+
+message StripResponse {
+  string callsign = 1;
+  oneof message {
+    RouteUpdate route = 2;
+    RemarksUpdate remarks = 3;
+    StandUpdate stand = 4;
+    Squawk assigned_squawk = 5;
+    CdmUpdate cdm = 6;
+    FinalAltitude final_altitude = 7;
+    ClearedAltitude cleared_altitude = 8;
+    CommunicationUpdate communication = 9;
+    GroundStateUpdate ground_state = 10;
+    ClearedFlag cleared = 11;
+  }
+}
+
+// Full strip sync from backend. Intended for new clients to sync local state.
+message StripFullResponse {
+  string callsign = 1;
+  // Arrival stand if any.
+  optional string stand = 2;
+  int32 cleared_alt = 3;
+  GroundState ground_state = 4;
+  int32 assigned_squawk = 5;
+  bool cleared = 6;
+  optional uint32 eobt = 7;
+  optional uint32 tsat = 8;
+  optional uint32 ctot = 9;
+}
+
+message Position {
+  LatLng position = 1;
+  double altitude = 2;
+}
+
+// TOOD find a way to use the built in type with the same name.
+message LatLng {
+  // The latitude in degrees. It must be in the range [-90.0, +90.0].
+  double latitude = 1;
+
+  // The longitude in degrees. It must be in the range [-180.0, +180.0].
+  double longitude = 2;
+}
+
+enum GroundState {
+  GROUND_STATE_UNSPECIFIED = 0;
+  START_UP = 1;
+  PUSH = 2;
+  TAXI = 3;
+  DE_ICE = 4;
+  LINE_UP = 5;
+  DEPART = 6;
+  ARRIVAL = 7;
+}
+
+enum Facility {
+  FACILITY_UNSPECIFIED = 0;
+  FSS = 1;
+  DEL = 2;
+  GND = 3;
+  TWR = 4;
+  APP = 5;
+  CTR = 6;
+}
+
+enum ConnectionStatus {
+  CONNECTION_STATUS_UNSPECIFIED = 0;
+  CONNECTED = 1;
+  DISCONNECTED = 2;
+}
+
+enum CommunicationType {
+  COMMUNICATION_TYPE_UNSPECIFIED = 0;
+  UNASSIGNED = 1;
+  VOICE = 2;
+  RECEIVE = 3;
+  TEXT = 4;
+}
+
+enum WeightCategory {
+  WEIGHT_CATEGORY_UNSPECIFIED = 0;
+  WEIGHT_CATEGORY_UNKNOWN = 1;
+  LIGHT = 2;
+  MEDIUM = 3;
+  HEAVY = 4;
+  SUPER_HEAVY = 5;
+}
+
+enum PlanType {
+  PLAN_TYPE_UNSPECIFIED = 0;
+  VFR = 1;
+  IFR = 2;
+}
+
+enum Capabilities {
+  CAPIBILITIES_UNSPECIFIED = 0;
+  CAPIBILITIES_UNKNOWN = 1;
+  T = 2;
+  X = 3;
+  U = 4;
+  D = 5;
+  B = 6;
+  A = 7;
+  M = 8;
+  N = 9;
+  P = 10;
+  Y = 11;
+  C = 12;
+  I = 13;
+  E = 14;
+  F = 15;
+  G = 16;
+  R = 17;
+  W = 18;
+  Q = 19;
+}

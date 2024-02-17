@@ -1,8 +1,14 @@
 cmake_minimum_required(VERSION 3.15.0 FATAL_ERROR)
 
 set(CMAKE_SYSTEM_VERSION 10.0 CACHE STRING "" FORCE)
+SET(CMAKE_CXX_STANDARD 20)
 
 project(FlightStrips CXX)
+
+# Avoid warning about DOWNLOAD_EXTRACT_TIMESTAMP in CMake 3.24:
+if (CMAKE_VERSION VERSION_GREATER_EQUAL "3.24.0")
+    cmake_policy(SET CMP0135 NEW)
+endif()
 
 ################################################################################
 # Set target arch type if empty. Visual studio solution generator provides it.
@@ -68,6 +74,31 @@ include(FetchContent)
 
 FetchContent_Declare(json URL https://github.com/nlohmann/json/releases/download/v3.11.2/json.tar.xz)
 FetchContent_MakeAvailable(json)
+
+# gRPC
+set(ABSL_ENABLE_INSTALL ON)
+set(ABSL_PROPAGATE_CXX_STD ON)
+FetchContent_Declare(
+        grpc
+        GIT_REPOSITORY https://github.com/grpc/grpc.git
+        GIT_TAG        v1.59.4
+        SYSTEM
+)
+set(FETCHCONTENT_QUIET OFF)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /EHsc")
+
+FetchContent_MakeAvailable(grpc)
+FetchContent_GetProperties(grpc SOURCE_DIR grpc_SOURCE_DIR)
+include(${grpc_SOURCE_DIR}/third_party/protobuf/cmake/protobuf-generate.cmake)
+
+#FIND_PACKAGE ( protobuf CONFIG  REQUIRED )
+#FIND_PACKAGE ( c-ares   CONFIG  REQUIRED )
+#FIND_PACKAGE ( gRPC     CONFIG  REQUIRED )
+#FIND_PACKAGE ( ZLIB             REQUIRED )
+#FIND_PACKAGE ( OpenSSL          REQUIRED )
+#FIND_PACKAGE ( Threads          REQUIRED )
+
+
 
 ################################################################################
 # Common utils

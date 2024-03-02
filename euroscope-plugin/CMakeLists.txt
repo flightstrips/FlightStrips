@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.15.0 FATAL_ERROR)
 
 set(CMAKE_SYSTEM_VERSION 10.0 CACHE STRING "" FORCE)
-SET(CMAKE_CXX_STANDARD 20)
+SET(CMAKE_CXX_STANDARD 17)
 
 project(FlightStrips CXX)
 
@@ -60,7 +60,6 @@ if(MSVC)
     set(CMAKE_SHARED_LINKER_FLAGS_RELEASE "${CMAKE_SHARED_LINKER_FLAGS}")
     set(CMAKE_STATIC_LINKER_FLAGS_RELEASE "${CMAKE_STATIC_LINKER_FLAGS}")
 endif()
-
 ################################################################################
 # Nuget packages function stub.
 ################################################################################
@@ -72,16 +71,16 @@ endfunction()
 
 include(FetchContent)
 
-FetchContent_Declare(json URL https://github.com/nlohmann/json/releases/download/v3.11.2/json.tar.xz)
-FetchContent_MakeAvailable(json)
-
 # gRPC
 set(ABSL_ENABLE_INSTALL ON)
 set(ABSL_PROPAGATE_CXX_STD ON)
+set(BUILD_SHARED_LIBS OFF)
+SET(ABSL_BUILD_TESTING OFF)
+set(CMAKE_USE_WIN32_THREADS_INIT 1)
 FetchContent_Declare(
         grpc
         GIT_REPOSITORY https://github.com/grpc/grpc.git
-        GIT_TAG        v1.59.4
+        GIT_TAG        v1.62.0
         SYSTEM
 )
 set(FETCHCONTENT_QUIET OFF)
@@ -90,15 +89,6 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /EHsc")
 FetchContent_MakeAvailable(grpc)
 FetchContent_GetProperties(grpc SOURCE_DIR grpc_SOURCE_DIR)
 include(${grpc_SOURCE_DIR}/third_party/protobuf/cmake/protobuf-generate.cmake)
-
-#FIND_PACKAGE ( protobuf CONFIG  REQUIRED )
-#FIND_PACKAGE ( c-ares   CONFIG  REQUIRED )
-#FIND_PACKAGE ( gRPC     CONFIG  REQUIRED )
-#FIND_PACKAGE ( ZLIB             REQUIRED )
-#FIND_PACKAGE ( OpenSSL          REQUIRED )
-#FIND_PACKAGE ( Threads          REQUIRED )
-
-
 
 ################################################################################
 # Common utils

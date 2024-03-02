@@ -27,4 +27,9 @@ EuroScopePlugInExit(void)
 {
     plugin->EuroScopeCleanup();
     delete plugin;
+
+    grpc_shutdown();
+    while (grpc_is_initialized()) {
+        Sleep(10);
+    }
 }

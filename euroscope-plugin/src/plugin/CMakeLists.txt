@@ -21,7 +21,9 @@ set(src__stands
 source_group("src\\stands" FILES ${src__stands})
 
 set(src__network
-        network/ConnectedClient.cpp network/ConnectedClient.h network/Server.cpp network/Server.h network/NetworkService.cpp network/NetworkService.h network/NetworkBootstrapper.cpp network/NetworkBootstrapper.h
+        network/NetworkService.cpp network/NetworkService.h network/NetworkBootstrapper.cpp network/NetworkBootstrapper.h
+        network/FlightStripsClient.cpp
+        network/FlightStripsClient.h
 )
 source_group("src\\network" FILES ${src__network})
 
@@ -33,18 +35,20 @@ set(src__bootstrap
         bootstrap/InitializePlugin.cpp)
 source_group("src\\bootstrap" FILES ${src__bootstrap})
 
-set(src__euroscope
-        euroscope/JsonConversion.hpp
-)
 source_group("src\\euroscope" FILES ${src__euroscope})
 
 set(src__handlers
         handlers/FlightPlanEventHandler.h
         handlers/FlightPlanEventHandlers.h
-        handlers/FlightPlanEventHandlers.cpp handlers/RadarTargetEventHandler.h handlers/RadarTargetEventHandlers.cpp handlers/RadarTargetEventHandlers.h handlers/AirportRunwaysChangedEvent.h network/MessageHandler.cpp network/MessageHandler.h
+        handlers/FlightPlanEventHandlers.cpp handlers/RadarTargetEventHandler.h handlers/RadarTargetEventHandlers.cpp handlers/RadarTargetEventHandlers.h handlers/AirportRunwaysChangedEvent.h
         handlers/ControllerEventHandler.h
         handlers/ControllerEventHandlers.cpp
-        handlers/ControllerEventHandlers.h)
+        handlers/ControllerEventHandlers.h
+        handlers/TimedEventHandler.h
+        handlers/TimedEventHandlers.cpp
+        handlers/TimedEventHandlers.h
+        handlers/AirportRunwaysChangedEventHandlers.cpp
+        handlers/AirportRunwaysChangedEventHandlers.h)
 source_group("src\\collections" FILES ${src__handlers})
 
 set(src__flightplan
@@ -62,7 +66,6 @@ set(ALL_FILES
     ${src__stands}
     ${src__network}
     ${src__bootstrap}
-    ${src__euroscope}
     ${src__handlers}
     ${src__flightplan}
     ${src__runway}
@@ -131,6 +134,7 @@ target_link_directories(
 ################################################################################
 # Compile definitions
 ################################################################################
+
 target_compile_definitions(${PROJECT_NAME} PRIVATE
         "$<$<CONFIG:Debug>:"
         "_DEBUG;"
@@ -157,15 +161,15 @@ if (MSVC)
             /permissive-;
             /std:c++20;
             /sdl;
-            /W4;
-            /WX;
+            #/W4;
+            #/WX;
             ${DEFAULT_CXX_DEBUG_INFORMATION_FORMAT};
             /Zm200;
             ${DEFAULT_CXX_EXCEPTION_HANDLING}
             )
     target_link_options(${PROJECT_NAME} PRIVATE
             $<$<CONFIG:Debug>:
-            /DEBUG:GHASH;
+            /DEBUG;
             /INCREMENTAL
             -flto=thin
             >
@@ -210,7 +214,7 @@ set(ADDITIONAL_LIBRARY_DEPENDENCIES
 
 
 target_link_libraries(${PROJECT_NAME} PUBLIC "${ADDITIONAL_LIBRARY_DEPENDENCIES}")
-target_link_libraries(${PROJECT_NAME} PRIVATE nlohmann_json::nlohmann_json grpc++)
+target_link_libraries(${PROJECT_NAME} PRIVATE grpc++)
 
 set(PROTO_BINARY_DIR "${CMAKE_CURRENT_BINARY_DIR}/generated")
 set(PROTO_IMPORT_DIRS "${CMAKE_CURRENT_LIST_DIR}/../../../proto")

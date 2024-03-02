@@ -76,7 +76,7 @@ app.UseSwaggerUI();
 
 app.UseCors();
 app.UseAuthorization();
-
+app.MapGrpcService<FlightStripsEndpoint>();
 app.MapHub<EventHub>("/hubs/events", options =>
 {
     options.Transports = HttpTransportType.WebSockets;

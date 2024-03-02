@@ -11,8 +11,9 @@
 
 #include "handlers/FlightPlanEventHandlers.h"
 #include "handlers/RadarTargetEventHandlers.h"
-#include "network/NetworkService.h"
 #include "handlers/ControllerEventHandlers.h"
+#include "handlers/TimedEventHandlers.h"
+#include "handlers/AirportRunwaysChangedEventHandlers.h"
 
 // TODO move
 #define CLEARED "CLEA"
@@ -25,7 +26,8 @@ namespace FlightStrips {
                 const std::shared_ptr<handlers::FlightPlanEventHandlers> &mFlightPlanEventHandlerCollection,
                 const std::shared_ptr<handlers::RadarTargetEventHandlers> &mRadarTargetEventHandlers,
                 const std::shared_ptr<handlers::ControllerEventHandlers> &mControllerEventHandlers,
-                const std::shared_ptr<network::NetworkService> &mNetworkService);
+                const std::shared_ptr<handlers::TimedEventHandlers> &mTimedEventHandlers,
+                const std::shared_ptr<handlers::AirportRunwaysChangedEventHandlers> &mAirportRunwaysChangedEventHandlers);
 
         ~FlightStripsPlugin() override;
 
@@ -55,16 +57,15 @@ namespace FlightStrips {
 
         void UpdateViaScratchPad(const char* callsign, const char* message) const;
 
+        static bool ControllerIsMe(EuroScopePlugIn::CController controller, EuroScopePlugIn::CController me);
+
     private:
         const std::shared_ptr<handlers::FlightPlanEventHandlers> m_flightPlanEventHandlerCollection;
         const std::shared_ptr<handlers::RadarTargetEventHandlers> m_radarTargetEventHandlers;
         const std::shared_ptr<handlers::ControllerEventHandlers> m_controllerEventHandlerCollection;
-        const std::shared_ptr<network::NetworkService> m_networkService;
-
-        int connectionType = 0;
+        const std::shared_ptr<handlers::TimedEventHandlers> m_timedEventHandlers;
+        const std::shared_ptr<handlers::AirportRunwaysChangedEventHandlers> m_airportRunwayChangedEventHandlers;
 
         static bool IsRelevant(EuroScopePlugIn::CFlightPlan flightPlan);
-        static bool IsRelevant(EuroScopePlugIn::CController controller);
-        std::unique_ptr<std::thread> readerThread;
     };
 }

@@ -5,6 +5,10 @@ namespace FlightStrips::handlers {
         this->m_handlers.push_back(handler);
     }
 
+    void FlightPlanEventHandlers::Clear() {
+        m_handlers.clear();
+    }
+
     void FlightPlanEventHandlers::FlightPlanEvent(EuroScopePlugIn::CFlightPlan flightPlan) const {
         for (auto it = this->m_handlers.cbegin(); it != this->m_handlers.cend(); ++it) {
             (*it)->FlightPlanEvent(flightPlan);
@@ -25,7 +29,7 @@ namespace FlightStrips::handlers {
         }
     }
 
-    void FlightPlanEventHandlers::SquawkUpdateEvent(std::string callsign, int squawk) const {
+    void FlightPlanEventHandlers::SquawkUpdateEvent(std::string callsign, std::string squawk) const {
         for (auto it = this->m_handlers.cbegin(); it != this->m_handlers.cend(); ++it) {
             (*it)->SquawkUpdateEvent(callsign, squawk);
         }

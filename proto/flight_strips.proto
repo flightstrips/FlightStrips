@@ -94,7 +94,7 @@ message CdmUpdate {
 }
 
 message Squawk {
-  uint32 squawk = 1;
+  string squawk = 1;
 }
 
 message FinalAltitude {
@@ -126,22 +126,21 @@ message StripFullData {
   string origin = 2;
   string destination = 3;
   string remarks = 4;
-  uint32 squawk = 5;
+  string squawk = 5;
   string sid = 6;
   uint32 cleared_alt = 7;
   optional uint32 heading = 8;
   string aircraft_type = 9;
-  string aircraft_registration = 10;
-  WeightCategory aircraft_category = 11;
-  string runway = 12;
-  Position position = 13;
-  GroundState ground_state = 14;
-  bool cleared = 15;
-  CommunicationType communication_type = 16;
-  uint32 final_altitude = 17;
-  string alternate = 18;
-  Capabilities capabilities = 19;
-  string estimated_departure_time = 20;
+  WeightCategory aircraft_category = 10;
+  string runway = 11;
+  Position position = 12;
+  GroundState ground_state = 13;
+  bool cleared = 14;
+  CommunicationType communication_type = 15;
+  uint32 final_altitude = 16;
+  string alternate = 17;
+  Capabilities capabilities = 18;
+  string estimated_departure_time = 19;
 }
 
 
@@ -198,6 +197,7 @@ enum GroundState {
   LINE_UP = 5;
   DEPART = 6;
   ARRIVAL = 7;
+  GROUND_STATE_NONE = 8;
 }
 
 enum Facility {

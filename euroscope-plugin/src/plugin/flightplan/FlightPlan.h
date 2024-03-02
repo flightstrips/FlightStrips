@@ -3,7 +3,7 @@
 namespace FlightStrips::flightplan {
     struct FlightPlan {
     public:
-        int squawk = 0;
+        std::string squawk = 0;
     };
 }
 

@@ -6,6 +6,7 @@ namespace FlightStrips::handlers {
     class RadarTargetEventHandlers {
 
     public:
+        void Clear();
 
         void RadarTargetPositionEvent(EuroScopePlugIn::CRadarTarget radarTarget) const;
 

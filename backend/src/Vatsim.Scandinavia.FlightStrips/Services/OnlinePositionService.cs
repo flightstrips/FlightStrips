@@ -42,8 +42,6 @@ public class OnlinePositionService : IOnlinePositionService
     {
         var (arrival, departure) = RunwayHelper.GetRunways(runways);
 
-
-
         /*
         var position = await onlinePositionService.GetAsync(id);
 
@@ -57,8 +55,6 @@ public class OnlinePositionService : IOnlinePositionService
             new RunwayConfig(position.DepartureRunway, position.ArrivalRunway, position.Id.Position));
         */
 
-
-
         await _repository.SetRunwaysAsync(id, departure, arrival);
         if (!_masterService.IsMaster(id) || string.IsNullOrEmpty(arrival) || string.IsNullOrEmpty(departure))
         {
@@ -67,6 +63,7 @@ public class OnlinePositionService : IOnlinePositionService
 
         var sessionId = new SessionId(id.Airport, id.Session);
         await _runwayService.SetRunwaysAsync(sessionId, new RunwayConfig(departure, arrival, id.Position));
+        await UpdateSectorsAsync(sessionId);
     }
 
     public async Task UpsertAsync(OnlinePositionId id, string? frequency = null, ActiveRunway[]? runways = null, bool? ui = null)
@@ -85,13 +82,21 @@ public class OnlinePositionService : IOnlinePositionService
     public async Task DeleteAsync(OnlinePositionId id)
     {
         var position = await _repository.GetAsync(id);
+
         if (position is null)
         {
             return;
         }
+
+        var sessionId = new SessionId(id.Airport, id.Session);
         await _repository.DeleteAsync(id);
         await _eventService.ControllerOfflineAsync(position);
-        await UpdateSectorsAsync(new SessionId(id.Airport, id.Session));
+        if (_masterService.IsMaster(id))
+        {
+            // TODO: were do we set the runways again if another master can be selected.
+            await _runwayService.DeleteRunwaysAsync(sessionId);
+        }
+        await UpdateSectorsAsync(sessionId);
     }
 
     public Task<OnlinePosition?> GetAsync(OnlinePositionId id) => _repository.GetAsync(id);

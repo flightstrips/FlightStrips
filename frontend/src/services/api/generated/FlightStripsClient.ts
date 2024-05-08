@@ -30,6 +30,13 @@ export enum BayDefaultType {
   None = 'None',
 }
 
+export enum CommunicationType {
+  Unassigned = 'Unassigned',
+  Voice = 'Voice',
+  Receive = 'Receive',
+  Text = 'Text',
+}
+
 export interface CoordinationResponseModel {
   /** @format int32 */
   id: number
@@ -44,14 +51,6 @@ export interface CoordinationResponseModel {
 
 export enum CoordinationState {
   Transfer = 'Transfer',
-}
-
-export interface OnlinePositionCreateRequestModel {
-  /**
-   * @minLength 1
-   * @pattern ^\d{3}\.\d{3}$
-   */
-  frequency: string
 }
 
 export interface OnlinePositionResponseModel {
@@ -77,6 +76,15 @@ export interface RejectCoordinationRequestModel {
   frequency: string
 }
 
+export interface RunwayConfigResponseModel {
+  /** @minLength 1 */
+  departure: string
+  /** @minLength 1 */
+  arrival: string
+  /** @minLength 1 */
+  position: string
+}
+
 export interface StripAssumeRequestModel {
   /** @minLength 1 */
   frequency: string
@@ -99,23 +107,32 @@ export interface StripResponseModel {
   callsign: string
   origin?: string | null
   destination?: string | null
+  alternate?: string | null
+  route?: string | null
+  remarks?: string | null
+  assignedSquawk?: string | null
+  squawk?: string | null
+  sid?: string | null
+  /** @format int32 */
+  clearedAltitude?: number | null
+  /** @format int32 */
+  finalAltitude?: number
+  /** @format int32 */
+  heading?: number | null
+  aircraftCategory?: WeightCategory
+  aircraftType?: string | null
+  runway?: string | null
+  capabilities?: string | null
+  communicationType?: CommunicationType
+  stand?: string | null
+  tobt?: string | null
+  tsat?: string | null
   /** @format int32 */
   sequence?: number | null
   cleared?: boolean
   controller?: string | null
   /** @minLength 1 */
   bay: string
-}
-
-export enum StripState {
-  None = 'None',
-  Startup = 'Startup',
-  Push = 'Push',
-  Taxi = 'Taxi',
-  Deice = 'Deice',
-  Lineup = 'Lineup',
-  Depart = 'Depart',
-  Arrival = 'Arrival',
 }
 
 export interface StripTransferRequestModel {
@@ -131,23 +148,6 @@ export interface StripTransferRequestModel {
   toFrequency: string
 }
 
-export interface UpsertStripRequestModel {
-  /**
-   * Origin
-   * @pattern ^[A-z]{4}$
-   * @example "EKCH"
-   */
-  origin?: string | null
-  /**
-   * Destination
-   * @pattern ^[A-z]{4}$
-   * @example "EKCH"
-   */
-  destination?: string | null
-  state?: StripState
-  cleared?: boolean
-}
-
 export interface ValidationProblemDetails {
   type?: string | null
   title?: string | null
@@ -157,6 +157,14 @@ export interface ValidationProblemDetails {
   instance?: string | null
   errors?: Record<string, string[]>
   [key: string]: any
+}
+
+export enum WeightCategory {
+  Unknown = 'Unknown',
+  Light = 'Light',
+  Medium = 'Medium',
+  Heavy = 'Heavy',
+  SuperHeavy = 'SuperHeavy',
 }
 
 export type QueryParamsType = Record<string | number, any>
@@ -519,47 +527,6 @@ export class Api<
      * No description
      *
      * @tags OnlinePosition
-     * @name CreateOnlinePosition
-     * @request POST:/{airport}/{session}/online-positions/{id}
-     */
-    createOnlinePosition: (
-      airport: string,
-      session: string,
-      id: string,
-      data: OnlinePositionCreateRequestModel,
-      params: RequestParams = {},
-    ) =>
-      this.request<void, ValidationProblemDetails>({
-        path: `/${airport}/${session}/online-positions/${id}`,
-        method: 'POST',
-        body: data,
-        type: ContentType.Json,
-        ...params,
-      }),
-
-    /**
-     * No description
-     *
-     * @tags OnlinePosition
-     * @name RemoveOnlinePosition
-     * @request DELETE:/{airport}/{session}/online-positions/{id}
-     */
-    removeOnlinePosition: (
-      airport: string,
-      session: string,
-      id: string,
-      params: RequestParams = {},
-    ) =>
-      this.request<void, ValidationProblemDetails>({
-        path: `/${airport}/${session}/online-positions/${id}`,
-        method: 'DELETE',
-        ...params,
-      }),
-
-    /**
-     * No description
-     *
-     * @tags OnlinePosition
      * @name ListOnlinePositions
      * @request GET:/{airport}/{session}/online-positions
      */
@@ -570,6 +537,25 @@ export class Api<
     ) =>
       this.request<OnlinePositionResponseModel[], ValidationProblemDetails>({
         path: `/${airport}/${session}/online-positions`,
+        method: 'GET',
+        format: 'json',
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @tags Runway
+     * @name GetRunwayConfiguration
+     * @request GET:/{airport}/{session}/runways
+     */
+    getRunwayConfiguration: (
+      airport: string,
+      session: string,
+      params: RequestParams = {},
+    ) =>
+      this.request<RunwayConfigResponseModel, ProblemDetails>({
+        path: `/${airport}/${session}/runways`,
         method: 'GET',
         format: 'json',
         ...params,
@@ -591,29 +577,6 @@ export class Api<
       this.request<StripResponseModel, ProblemDetails>({
         path: `/${airport}/${session}/strips/${callsign}`,
         method: 'GET',
-        format: 'json',
-        ...params,
-      }),
-
-    /**
-     * No description
-     *
-     * @tags Strip
-     * @name UpsertStrip
-     * @request PUT:/{airport}/{session}/strips/{callsign}
-     */
-    upsertStrip: (
-      airport: string,
-      session: string,
-      callsign: string,
-      data: UpsertStripRequestModel,
-      params: RequestParams = {},
-    ) =>
-      this.request<StripResponseModel, any>({
-        path: `/${airport}/${session}/strips/${callsign}`,
-        method: 'PUT',
-        body: data,
-        type: ContentType.Json,
         format: 'json',
         ...params,
       }),

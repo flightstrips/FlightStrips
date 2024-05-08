@@ -1,4 +1,4 @@
-import { action, makeAutoObservable } from 'mobx'
+import { makeAutoObservable } from 'mobx'
 import { FlightStripStore } from './FlightStripStore'
 import {
   CoordinationState,
@@ -6,9 +6,6 @@ import {
   StripUpdate,
 } from '../services/models'
 import client from '../services/api/StripsApi'
-import { FlightPlanUpdate } from '../../shared/FlightPlanUpdate'
-import { StripState } from '../services/api/generated/FlightStripsClient'
-import { CommunicationType } from '../../shared/CommunicationType'
 
 export class FlightStrip {
   store: FlightStripStore
@@ -39,7 +36,6 @@ export class FlightStrip {
   hdg = ''
   alt = 'FL070'
   deice = ''
-  communicationType = CommunicationType.Unknown
 
   constructor(store: FlightStripStore, callsign: string) {
     makeAutoObservable(this, {
@@ -67,68 +63,11 @@ export class FlightStrip {
     }
   }
 
-  public handleUpdateFromEuroScope(update: FlightPlanUpdate) {
-    if (!this.isSynced) {
-      this.isSynced = true
-      client.airport
-        .getStrip(
-          'EKCH',
-          this.store.rootStore.stateStore.session,
-          update.callsign,
-        )
-        .then(
-          action('GotStrip', (response) => {
-            const data = response.data
-            this.bay = data.bay
-            this.sequence = data.sequence ?? null
-            if (data.cleared !== undefined && this.cleared !== data.cleared) {
-              this.cleared = data.cleared
-            }
-          }),
-        )
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        .catch((_) => {
-          client.airport.upsertStrip(
-            'EKCH',
-            this.store.rootStore.stateStore.session,
-            update.callsign,
-            {
-              cleared: false,
-              destination: update.destination,
-              origin: update.origin,
-              state: StripState.None,
-            },
-          )
-        })
-    }
-
-    this.aircraftType = update.aircraftFPType
-    this.aircraftCategory = update.aircraftWtc.toString()
-    this.origin = update.origin
-    this.destination = update.destination
-    this.runway = update.departureRwy
-    this.eobt = update.estimatedDepartureTime.padStart(4, '0')
-    this.remarks = update.remarks
-    this.route = update.route
-    this.sid = update.sidName
-    this.fl = (update.finalAltitude / 100).toString()
-    this.stand = update.stand
-
-    const index = update.remarks.toUpperCase().indexOf('REG/')
-    if (index !== -1) {
-      this.reg = update.remarks.substring(index + 4, index + 9)
-    }
-  }
-
   public handleBackendUpdate(update: StripUpdate) {
     this.bay = update.bay
     this.cleared = update.cleared
     this.controller = update.positionFrequency
     this.sequence = update.sequence
-  }
-
-  public handleCommunicationTypeUpdate(communicationType: CommunicationType) {
-    this.communicationType = communicationType
   }
 
   public clear(isCleared = true, internal = true) {
@@ -139,7 +78,7 @@ export class FlightStrip {
     this.cleared = isCleared
     this.bay = 'STARTUP'
     if (internal) {
-      api.setCleared(this.callsign, isCleared)
+      //api.setCleared(this.callsign, isCleared)
     }
 
     client.airport.clearStrip(
@@ -168,6 +107,8 @@ export class FlightStrip {
   }
 
   get callsignIncludingCommunicationType() {
+    return this.callsign
+    /*
     switch (this.communicationType) {
       case CommunicationType.Unknown:
       case CommunicationType.Voice:
@@ -177,5 +118,6 @@ export class FlightStrip {
       case CommunicationType.Receive:
         return `${this.callsign}/r`
     }
+    */
   }
 }

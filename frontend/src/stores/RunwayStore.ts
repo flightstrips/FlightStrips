@@ -1,6 +1,10 @@
 import { makeAutoObservable } from 'mobx'
-import { ActiveRunway } from '../../shared/ActiveRunway'
 import { RootStore } from './RootStore'
+
+interface ActiveRunway {
+  name: string
+  isDeparture: boolean
+}
 
 export class RunwayStore {
   rootStore: RootStore
@@ -12,7 +16,6 @@ export class RunwayStore {
     makeAutoObservable(this, {
       rootStore: false,
     })
-    api.onActiveRunways((runways) => this.setActiveRunways(runways))
   }
 
   public setActiveRunways(runways: ActiveRunway[]) {

@@ -36,7 +36,7 @@ export function getRoot() {
 
 function initializeStore(): RootStore {
   const s = new RootStore()
-  api.onMe((callsign) => s.controllerStore.setMe(callsign))
-  api.onNavitage((route) => s.stateStore.setOverrideView(route))
+  //api.onMe((callsign) => s.controllerStore.setMe(callsign))
+  //api.onNavitage((route) => s.stateStore.setOverrideView(route))
   return s
 }

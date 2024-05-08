@@ -1,6 +1,5 @@
 import { makeAutoObservable } from 'mobx'
 import { RootStore } from './RootStore'
-import { FlightPlanUpdate } from '../../shared/FlightPlanUpdate'
 import {
   CoordinationUpdate,
   StripStateEvent,
@@ -8,7 +7,6 @@ import {
 } from '../services/models.ts'
 import { signalRService } from '../services/SignalRService.ts'
 import { FlightStrip } from './FlightStrip.ts'
-import { CommunicationType } from '../../shared/CommunicationType.ts'
 
 export class FlightStripStore {
   flightStrips: FlightStrip[] = []
@@ -25,12 +23,6 @@ export class FlightStripStore {
     )
     signalRService.on('ReceiveStripUpdate', (update) =>
       this.handleStripUpdate(update),
-    )
-    api.onFlightPlanUpdated((plan) => this.updateFlightPlanData(plan))
-    api.onSetCleared((callsign, cleared) => this.setCleared(callsign, cleared))
-    api.onSetSquawk((callsign, squawk) => this.setSquawk(callsign, squawk))
-    api.onSetCommunicationType((callsign, communicationType) =>
-      this.handleCommunicationTypeUpdate(callsign, communicationType),
     )
   }
 
@@ -92,35 +84,6 @@ export class FlightStripStore {
         this.flightStrips.splice(this.flightStrips.indexOf(strip), 1)
         break
     }
-  }
-
-  public async updateFlightPlanData(data: FlightPlanUpdate) {
-    let flightstrip = this.flightStrips.find(
-      (strip) => strip.callsign == data.callsign,
-    )
-
-    if (!flightstrip) {
-      flightstrip = new FlightStrip(this, data.callsign)
-      this.flightStrips.push(flightstrip)
-    }
-
-    flightstrip.handleUpdateFromEuroScope(data)
-  }
-
-  public handleCommunicationTypeUpdate(
-    callsign: string,
-    communicationType: CommunicationType,
-  ) {
-    let flightstrip = this.flightStrips.find(
-      (strip) => strip.callsign == callsign,
-    )
-
-    if (!flightstrip) {
-      flightstrip = new FlightStrip(this, callsign)
-      this.flightStrips.push(flightstrip)
-    }
-
-    flightstrip.handleCommunicationTypeUpdate(communicationType)
   }
 
   public inBay(bay: string): FlightStrip[] {

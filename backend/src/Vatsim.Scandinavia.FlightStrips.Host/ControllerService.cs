@@ -1,5 +1,6 @@
 ﻿using System.Collections.Concurrent;
 using Vatsim.Scandinavia.FlightStrips.Abstractions.OnlinePositions;
+using Vatsim.Scandinavia.FlightStrips.Abstractions.Runways;
 using Vatsim.Scandinavia.FlightStrips.Host.Hubs.Models;
 
 namespace Vatsim.Scandinavia.FlightStrips.Host;
@@ -22,7 +23,7 @@ public class ControllerService(IServiceProvider serviceProvider) : IControllerSe
         await using var scope = serviceProvider.CreateAsyncScope();
         var onlinePositionService = scope.ServiceProvider.GetRequiredService<IOnlinePositionService>();
 
-        await onlinePositionService.CreateAsync(position.Id, position.PrimaryFrequency);
+        await onlinePositionService.CreateAsync(position.Id, position.PrimaryFrequency, Array.Empty<ActiveRunway>());
     }
 
     public async Task RemoveControllerAsync(string connectionId)

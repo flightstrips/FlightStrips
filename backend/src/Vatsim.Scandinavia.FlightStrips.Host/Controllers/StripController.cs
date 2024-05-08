@@ -39,36 +39,6 @@ public class StripController : ControllerBase
             return NotFound();
         }
 
-        var model = new StripResponseModel()
-        {
-            Callsign = strip.Id.Callsign,
-            Bay = strip.Bay,
-            Controller = strip.PositionFrequency,
-            Cleared = strip.Cleared,
-            Destination = strip.Destination,
-            Origin = strip.Origin,
-            Sequence = strip.Sequence
-        };
-
-        return Ok(model);
-    }
-
-    [HttpPut("{callsign}", Name = "UpsertStrip")]
-    [ProducesResponseType(typeof(StripResponseModel), StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(StripResponseModel), StatusCodes.Status201Created)]
-    public async Task<IActionResult> UpsertAsync([Airport, FromRoute] string airport, [FromRoute] string session,
-        [Callsign, FromRoute] string callsign, [FromBody] UpsertStripRequestModel request)
-    {
-        var upsertRequest = new StripUpsertRequest
-        {
-            Id = new StripId(airport, session, callsign),
-            Destination = request.Destination,
-            Origin = request.Origin,
-            State = request.State,
-            Cleared = request.Cleared
-        };
-        var (created, strip) = await _stripService.UpsertStripAsync(upsertRequest);
-
         var model = new StripResponseModel
         {
             Callsign = strip.Id.Callsign,
@@ -77,12 +47,27 @@ public class StripController : ControllerBase
             Cleared = strip.Cleared,
             Destination = strip.Destination,
             Origin = strip.Origin,
-            Sequence = strip.Sequence
+            Sequence = strip.Sequence,
+            Alternate = strip.Alternate,
+            Capabilities = strip.Capabilities,
+            Remarks = strip.Remarks,
+            Route = strip.Route,
+            Runway = strip.Runway,
+            Squawk = strip.Squawk,
+            Stand = strip.Stand,
+            Tobt = strip.TOBT,
+            AircraftCategory = strip.AircraftCategory,
+            AircraftType = strip.AircraftType,
+            AssignedSquawk = strip.AssignedSquawk,
+            CommunicationType = strip.CommunicationType,
+            Heading = strip.Heading,
+            Sid = strip.Sid,
+            Tsat = strip.TSAT,
+            ClearedAltitude = strip.ClearedAltitude,
+            FinalAltitude = strip.FinalAltitude
         };
 
-        return created
-            ? CreatedAtAction("GetStrip", new { airport, session, callsign }, model)
-            : Ok(model);
+        return Ok(model);
     }
 
     [HttpPost("{callsign}/clear", Name = "ClearStrip")]

@@ -100,6 +100,8 @@ namespace FlightStrips {
                 || strcmp(flightPlan.GetFlightPlanData().GetOrigin(), AIRPORT) == 0);
     }
 
+
+
     void FlightStripsPlugin::OnAirportRunwayActivityChanged() {
         try {
             m_airportRunwayChangedEventHandlers->OnAirportRunwayActivityChanged();
@@ -148,6 +150,28 @@ namespace FlightStrips {
         auto scratch = std::string(fp.GetControllerAssignedData().GetScratchPadString());
         fp.GetControllerAssignedData().SetScratchPadString(message);
         fp.GetControllerAssignedData().SetScratchPadString(scratch.c_str());
+    }
+
+    std::vector<runway::ActiveRunway> FlightStripsPlugin::GetActiveRunways(const char *airport) const {
+         std::vector<runway::ActiveRunway> active;
+
+        auto it = CPlugIn::SectorFileElementSelectFirst(SECTOR_ELEMENT_RUNWAY);
+        while (it.IsValid()) {
+            if (strncmp(it.GetAirportName(), airport, 4) == 0) {
+                for (int i = 0; i < 2; i++) {
+                    for (int j = 0; j < 2; j++) {
+                        if (it.IsElementActive(static_cast<bool>(j), i)) {
+                            runway::ActiveRunway runway = {it.GetRunwayName(i), static_cast<bool>(j)};
+                            active.push_back(runway);
+                        }
+                    }
+                }
+            }
+
+            it = CPlugIn::SectorFileElementSelectNext(it, SECTOR_ELEMENT_RUNWAY);
+        }
+
+        return active;
     }
 
     void FlightStripsPlugin::OnControllerPositionUpdate(EuroScopePlugIn::CController Controller) {

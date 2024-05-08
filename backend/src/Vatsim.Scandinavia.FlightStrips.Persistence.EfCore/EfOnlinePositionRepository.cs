@@ -23,7 +23,11 @@ public class EfOnlinePositionRepository : IOnlinePositionRepository
             Session = request.Id.Session,
             PositionName = request.Id.Position,
             PositionFrequency = request.Frequency,
-            Sector = Sector.NONE
+            Sector = Sector.NONE,
+            FromPlugin = request.Plugin,
+            ConnectedWithUi = request.Ui,
+            ArrivalRunway = request.ArrivalRunway,
+            DepartureRunway = request.DepartureRunway
         };
 
         _context.OnlinePositions.Add(entity);
@@ -48,7 +52,9 @@ public class EfOnlinePositionRepository : IOnlinePositionRepository
             {
                 Id = new OnlinePositionId(entity.Airport, entity.Session, entity.PositionName),
                 PrimaryFrequency = entity.PositionFrequency,
-                Sector = entity.Sector
+                Sector = entity.Sector,
+                ArrivalRunway = entity.ArrivalRunway,
+                DepartureRunway = entity.DepartureRunway
             };
     }
 
@@ -92,5 +98,12 @@ public class EfOnlinePositionRepository : IOnlinePositionRepository
         }
 
         await _context.SaveChangesAsync();
+    }
+
+    public Task SetRunwaysAsync(OnlinePositionId id, string? departure, string? arrival)
+    {
+        return _context.OnlinePositions.Where(x => x.Airport == id.Airport && x.Session == id.Session)
+            .ExecuteUpdateAsync(x =>
+                x.SetProperty(o => o.DepartureRunway, departure).SetProperty(o => o.ArrivalRunway, arrival));
     }
 }

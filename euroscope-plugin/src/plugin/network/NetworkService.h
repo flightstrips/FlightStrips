@@ -77,6 +77,7 @@ namespace FlightStrips::network {
         [[nodiscard]] static bool Online(int connection);
 
         static CommunicationType GetCommunicationType(const EuroScopePlugIn::CFlightPlan &flightPlan);
+        static CommunicationType GetCommunicationType(char type);
         static GroundState GetGroundState(const EuroScopePlugIn::CFlightPlan &flightPlan);
         static WeightCategory GetAircraftWtc(const EuroScopePlugIn::CFlightPlan &flightPlan);
 

@@ -7,10 +7,10 @@ public interface IEventClient
     Task ReceiveControllerUpdate(ControllerUpdateModel controllerUpdate);
 
     Task ReceiveStripUpdate(StripUpdateModel stripUpdate);
-
+    Task ReceiveStripDeleted(StripDisconnectedModel stripDisconnected);
     Task ReceiveAtisUpdate(AtisUpdateModel atisUpdate);
-
     Task ReceiveCoordinationUpdate(CoordinationUpdateModel coordinationUpdate);
-
     Task ReceiveControllerSectorsUpdate(SectorUpdateModel[] sectors);
+    Task ReceiveRunwayConfigurationUpdate(RunwayConfigurationModel runwayConfiguration);
+    Task ReceiveStripPositionUpdate(StripPositionUpdate update);
 }

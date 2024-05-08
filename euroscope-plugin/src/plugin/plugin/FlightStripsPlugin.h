@@ -14,6 +14,7 @@
 #include "handlers/ControllerEventHandlers.h"
 #include "handlers/TimedEventHandlers.h"
 #include "handlers/AirportRunwaysChangedEventHandlers.h"
+#include "runway/ActiveRunway.h"
 
 // TODO move
 #define CLEARED "CLEA"
@@ -56,6 +57,7 @@ namespace FlightStrips {
         void SetClearenceFlag(std::string callsign, bool cleared);
 
         void UpdateViaScratchPad(const char* callsign, const char* message) const;
+        std::vector<runway::ActiveRunway> GetActiveRunways(const char* airport) const;
 
         static bool ControllerIsMe(EuroScopePlugIn::CController controller, EuroScopePlugIn::CController me);
 

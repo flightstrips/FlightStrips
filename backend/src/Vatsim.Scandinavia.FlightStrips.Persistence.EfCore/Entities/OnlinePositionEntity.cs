@@ -20,6 +20,16 @@ public class OnlinePositionEntity
     [MaxLength(7)]
     public required string PositionFrequency { get; set; }
 
+    public bool FromPlugin { get; set; }
+
+    public bool ConnectedWithUi { get; set; }
+
+    [MaxLength(3)]
+    public string? ArrivalRunway { get; set; }
+
+    [MaxLength(3)]
+    public string? DepartureRunway { get; set; }
+
     public Sector Sector { get; set; } = Sector.NONE;
 
     [Timestamp]

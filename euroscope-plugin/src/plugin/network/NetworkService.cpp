@@ -5,7 +5,7 @@
 namespace FlightStrips::network {
 
     void NetworkService::FlightPlanEvent(EuroScopePlugIn::CFlightPlan flightPlan) {
-        if (!ShouldSend()) return;
+        if (!ShouldSend() || flightPlan.GetSimulated()) return;
 
         StripFullData full;
         full.set_route(std::string(flightPlan.GetFlightPlanData().GetRoute()));
@@ -32,7 +32,7 @@ namespace FlightStrips::network {
         LatLng latLng;
         latLng.set_longitude(flightPlan.GetCorrelatedRadarTarget().GetPosition().GetPosition().m_Longitude);
         latLng.set_latitude(flightPlan.GetCorrelatedRadarTarget().GetPosition().GetPosition().m_Latitude);
-        p.set_altitude(flightPlan.GetCorrelatedRadarTarget().GetPosition().GetFlightLevel());
+        p.set_altitude(flightPlan.GetCorrelatedRadarTarget().GetPosition().GetPressureAltitude());
         p.mutable_position()->CopyFrom(latLng);
         full.mutable_position()->CopyFrom(p);
 
@@ -41,18 +41,33 @@ namespace FlightStrips::network {
         data.mutable_fulldata()->CopyFrom(full);
 
         ClientStreamMessage message;
+        message.set_clientid(position);
         message.mutable_strip_data()->CopyFrom(data);
+
+
+        plugin->Information(std::string(1, flightPlan.GetFlightPlanData().GetCommunicationType()));
+        plugin->Information(message.DebugString());
 
         reader->AddMessage(message);
     }
 
     CommunicationType NetworkService::GetCommunicationType(const EuroScopePlugIn::CFlightPlan &flightPlan) {
-        switch (flightPlan.GetControllerAssignedData().GetCommunicationType()) {
-            case 'V':
+        const CommunicationType controller = GetCommunicationType(flightPlan.GetControllerAssignedData().GetCommunicationType());
+
+        if (controller == UNASSIGNED) {
+            return GetCommunicationType(flightPlan.GetFlightPlanData().GetCommunicationType());
+        }
+
+        return controller;
+    }
+
+    CommunicationType NetworkService::GetCommunicationType(const char type) {
+        switch (type) {
+            case 'v':
                 return VOICE;
-            case 'R':
+            case 'r':
                 return RECEIVE;
-            case 'T':
+            case 't':
                 return TEXT;
             case '0':
             default:
@@ -106,6 +121,7 @@ namespace FlightStrips::network {
         }
 
         ClientStreamMessage message;
+        message.set_clientid(position);
         message.mutable_strip_data()->CopyFrom(data);
 
         reader->AddMessage(message);
@@ -114,7 +130,14 @@ namespace FlightStrips::network {
     void NetworkService::FlightPlanDisconnectEvent(EuroScopePlugIn::CFlightPlan flightPlan) {
         if (!ShouldSend()) return;
 
-        plugin->Information(flightPlan.GetCallsign());
+        Disconnect disconnect;
+        StripData data;
+        data.set_callsign(flightPlan.GetCallsign());
+        data.mutable_disconnect()->CopyFrom(disconnect);
+        ClientStreamMessage message;
+        message.set_clientid(position);
+
+        reader->AddMessage(message);
     }
 
     void NetworkService::SquawkUpdateEvent(std::string callsign, std::string squawk) {
@@ -128,6 +151,7 @@ namespace FlightStrips::network {
         data.mutable_set_squawk()->CopyFrom(s);
 
         ClientStreamMessage message;
+        message.set_clientid(position);
         message.mutable_strip_data()->CopyFrom(data);
 
         reader->AddMessage(message);
@@ -150,6 +174,7 @@ namespace FlightStrips::network {
         update.set_connection_status(CONNECTED);
 
         ClientStreamMessage message;
+        message.set_clientid(position);
         message.mutable_controller_update()->CopyFrom(update);
 
         reader->AddMessage(message);
@@ -163,6 +188,7 @@ namespace FlightStrips::network {
         update.set_connection_status(DISCONNECTED);
 
         ClientStreamMessage message;
+        message.set_clientid(position);
         message.mutable_controller_update()->CopyFrom(update);
 
         reader->AddMessage(message);
@@ -204,7 +230,9 @@ namespace FlightStrips::network {
             } else if (connectionStatus == EuroScopePlugIn::CONNECTION_TYPE_SWEATBOX) {
                 session.set_session("SWEATBOX");
             } else {
-                session.set_session("PLAYBACK");
+                auto now = std::chrono::system_clock::now();
+                time_t time_t =  std::chrono::system_clock::to_time_t( now );
+                session.set_session(std::format("PLAYBACK-{}", time_t));
             }
 
             auto me = plugin->ControllerMyself();
@@ -215,6 +243,17 @@ namespace FlightStrips::network {
             info.set_frequency(std::format("{:.3f}", me.GetPrimaryFrequency()));
             info.set_range(me.GetRange());
             info.mutable_session()->CopyFrom(session);
+
+            auto runways = plugin->GetActiveRunways("EKCH");
+
+            AirportInfo airport_info;
+            for (auto [name, isDeparture]: runways) {
+                const auto r = airport_info.add_runways();
+                r->set_runway(name);
+                r->set_departure(isDeparture);
+            }
+
+            info.mutable_airport_info()->CopyFrom(airport_info);
 
             ClientStreamMessage message;
             message.set_clientid(std::string(me.GetCallsign()));
@@ -227,7 +266,7 @@ namespace FlightStrips::network {
     void NetworkService::RadarTargetPositionEvent(EuroScopePlugIn::CRadarTarget radarTarget) {
         if (!ShouldSend()) return;
 
-        auto cPosition = radarTarget.GetPosition();
+        const auto cPosition = radarTarget.GetPosition();
 
         LatLng latLng;
         latLng.set_latitude(cPosition.GetPosition().m_Latitude);
@@ -244,6 +283,7 @@ namespace FlightStrips::network {
         data.mutable_position()->CopyFrom(positionUpdate);
 
         ClientStreamMessage message;
+        message.set_clientid(position);
         message.mutable_strip_data()->CopyFrom(data);
 
         reader->AddMessage(message);
@@ -276,7 +316,7 @@ namespace FlightStrips::network {
     }
 
     Capabilities NetworkService::GetCapabilities(const EuroScopePlugIn::CFlightPlan& flightPlan) {
-        switch (flightPlan.GetFlightPlanData().GetCapibilities()) {
+        switch (toupper(flightPlan.GetFlightPlanData().GetCapibilities())) {
             case 'T':
                 return T;
             case 'X':

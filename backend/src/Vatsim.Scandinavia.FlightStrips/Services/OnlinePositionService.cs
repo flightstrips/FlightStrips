@@ -1,4 +1,5 @@
 ﻿using Vatsim.Scandinavia.FlightStrips.Abstractions;
+using Vatsim.Scandinavia.FlightStrips.Abstractions.Masters;
 using Vatsim.Scandinavia.FlightStrips.Abstractions.OnlinePositions;
 using Vatsim.Scandinavia.FlightStrips.Abstractions.Runways;
 
@@ -10,24 +11,75 @@ public class OnlinePositionService : IOnlinePositionService
     private readonly IEventService _eventService;
     private readonly IRunwayRepository _runwayRepository;
     private readonly IOwnerService _ownerService;
+    private readonly IMasterService _masterService;
+    private readonly IRunwayService _runwayService;
 
-    public OnlinePositionService(IOnlinePositionRepository repository, IEventService eventService, IRunwayRepository runwayRepository, IOwnerService ownerService)
+    public OnlinePositionService(IOnlinePositionRepository repository, IEventService eventService,
+        IRunwayRepository runwayRepository, IOwnerService ownerService, IMasterService masterService,
+        IRunwayService runwayService)
     {
         _repository = repository;
         _eventService = eventService;
         _runwayRepository = runwayRepository;
         _ownerService = ownerService;
+        _masterService = masterService;
+        _runwayService = runwayService;
     }
 
-    public async Task CreateAsync(OnlinePositionId id, string frequency)
+    public async Task CreateAsync(OnlinePositionId id, string frequency, ActiveRunway[] runways, bool plugin = false, bool ui = false)
     {
-        await _repository.AddAsync(new OnlinePositionAddRequest(id, frequency));
+        var (arrival, departure) = RunwayHelper.GetRunways(runways);
+        await _repository.AddAsync(new OnlinePositionAddRequest(id, frequency, plugin, ui, departure, arrival));
         await _eventService.ControllerOnlineAsync(new OnlinePosition
         {
             Id = id,
             PrimaryFrequency = frequency
         });
         await UpdateSectorsAsync(new SessionId(id.Airport, id.Session));
+    }
+
+    public async Task SetRunwaysAsync(OnlinePositionId id, ActiveRunway[] runways)
+    {
+        var (arrival, departure) = RunwayHelper.GetRunways(runways);
+
+
+
+        /*
+        var position = await onlinePositionService.GetAsync(id);
+
+        if (position is null || string.IsNullOrEmpty(position.DepartureRunway) ||
+            string.IsNullOrEmpty(position.ArrivalRunway))
+        {
+            return true;
+        }
+
+        await runwayService.SetRunwaysAsync(sessionId,
+            new RunwayConfig(position.DepartureRunway, position.ArrivalRunway, position.Id.Position));
+        */
+
+
+
+        await _repository.SetRunwaysAsync(id, departure, arrival);
+        if (!_masterService.IsMaster(id) || string.IsNullOrEmpty(arrival) || string.IsNullOrEmpty(departure))
+        {
+            return;
+        }
+
+        var sessionId = new SessionId(id.Airport, id.Session);
+        await _runwayService.SetRunwaysAsync(sessionId, new RunwayConfig(departure, arrival, id.Position));
+    }
+
+    public async Task UpsertAsync(OnlinePositionId id, string? frequency = null, ActiveRunway[]? runways = null, bool? ui = null)
+    {
+        if (frequency is null && runways is null && ui is null) return;
+
+        var position = await _repository.GetAsync(id);
+
+        if (position is null)
+        {
+            await _repository.AddAsync(new OnlinePositionAddRequest(id, frequency ?? "", false, ui ?? false, null, null));
+        }
+
     }
 
     public async Task DeleteAsync(OnlinePositionId id)
@@ -41,6 +93,8 @@ public class OnlinePositionService : IOnlinePositionService
         await _eventService.ControllerOfflineAsync(position);
         await UpdateSectorsAsync(new SessionId(id.Airport, id.Session));
     }
+
+    public Task<OnlinePosition?> GetAsync(OnlinePositionId id) => _repository.GetAsync(id);
 
     public Task<OnlinePosition[]> ListAsync(string airport, string session) =>
         _repository.ListAsync(airport.ToUpperInvariant(), session.ToUpperInvariant());

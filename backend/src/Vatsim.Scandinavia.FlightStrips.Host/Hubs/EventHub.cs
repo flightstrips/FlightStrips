@@ -15,6 +15,12 @@ public class EventHub(IControllerService controllerService, ILogger<EventHub> lo
     public async Task SubscribeAirportAsync(SubscribeAirportModel request)
     {
         await Groups.AddToGroupAsync(Context.ConnectionId, ToAirportGroupName(request));
+
+        if (request.IncludePositionUpdates)
+        {
+            await Groups.AddToGroupAsync(Context.ConnectionId, ToPositionUpdateGroupName(request));
+        }
+
         logger.ConnectionSubscribedToAirport(Context.ConnectionId, request.Airport, request.Session);
     }
 
@@ -33,6 +39,7 @@ public class EventHub(IControllerService controllerService, ILogger<EventHub> lo
         if (request.UnsubscribeFromAirport)
         {
             await Groups.RemoveFromGroupAsync(Context.ConnectionId, ToAirportGroupName(request));
+            await Groups.RemoveFromGroupAsync(Context.ConnectionId, ToPositionUpdateGroupName(request));
         }
         await Groups.RemoveFromGroupAsync(Context.ConnectionId, ToFrequencyGroupName(request));
         await controllerService.RemoveControllerAsync(Context.ConnectionId);
@@ -44,9 +51,19 @@ public class EventHub(IControllerService controllerService, ILogger<EventHub> lo
         return $"{model.Session.ToUpperInvariant()}:{model.Airport.ToUpperInvariant()}";
     }
 
+    private static string ToPositionUpdateGroupName(SubscribeAirportModel model)
+    {
+        return $"{ToAirportGroupName(model)}:position";
+    }
+
     private static string ToAirportGroupName(UnsubscribeModel model)
     {
         return $"{model.Session.ToUpperInvariant()}:{model.Airport.ToUpperInvariant()}";
+    }
+
+    private static string ToPositionUpdateGroupName(UnsubscribeModel model)
+    {
+        return $"{ToAirportGroupName(model)}:position";
     }
 
     private static string ToFrequencyGroupName(SubscribeModel model)

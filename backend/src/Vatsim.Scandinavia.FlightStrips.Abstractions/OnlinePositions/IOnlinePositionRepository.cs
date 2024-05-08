@@ -9,4 +9,5 @@ public interface IOnlinePositionRepository
     Task<SessionId[]> GetSessionsAsync();
     Task RemoveSessionAsync(SessionId id);
     Task BulkSetSectorAsync(SessionId id, IEnumerable<OnlinePosition> positions);
+    Task SetRunwaysAsync(OnlinePositionId id, string? departure, string? arrival);
 }

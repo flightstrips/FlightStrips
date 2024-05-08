@@ -34,19 +34,24 @@ message ServerStreamMessage {
   oneof message {
     SessionInfo session_info = 1;
     StripResponse strip_update = 2;
-    StripFullResponse full_strip = 15;
+    GetAllStripsResponse server_strips = 15;
   }
 }
 
+message ActiveRunway {
+  string runway = 1;
+  bool departure = 2;
+}
+
 message AirportInfo {
-  string arrival_runway = 1;
-  string departure_runway = 2;
+  repeated ActiveRunway runways = 1;
 }
 
 message ClientInfo {
   uint32 range = 1;
   string frequency = 2;
   Session session = 3;
+  AirportInfo airport_info = 4;
 }
 
 message ControllerUpdate {
@@ -71,9 +76,12 @@ message StripData {
     ClearedFlag cleared = 7;
     Squawk set_squawk = 8;
     PositionUpdate position = 9;
+    Disconnect disconnect = 10;
     StripFullData fullData = 15;
   }
 }
+
+message Disconnect {}
 
 message RouteUpdate {
   string route = 1;
@@ -141,6 +149,7 @@ message StripFullData {
   string alternate = 17;
   Capabilities capabilities = 18;
   string estimated_departure_time = 19;
+  string estimated_arrival_time = 20;
 }
 
 
@@ -150,6 +159,7 @@ message StripResponse {
     RouteUpdate route = 2;
     RemarksUpdate remarks = 3;
     StandUpdate stand = 4;
+    // Setting squawk to 0000 will generate squawk for flight
     Squawk assigned_squawk = 5;
     CdmUpdate cdm = 6;
     FinalAltitude final_altitude = 7;
@@ -167,7 +177,7 @@ message StripFullResponse {
   optional string stand = 2;
   int32 cleared_alt = 3;
   GroundState ground_state = 4;
-  int32 assigned_squawk = 5;
+  string assigned_squawk = 5;
   bool cleared = 6;
   optional uint32 eobt = 7;
   optional uint32 tsat = 8;

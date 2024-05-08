@@ -22,7 +22,7 @@ namespace FlightStrips {
         this->container->timedEventHandlers = std::make_shared<handlers::TimedEventHandlers>();
         this->container->airportRunwaysChangedEventHandlers = std::make_shared<handlers::AirportRunwaysChangedEventHandlers>();
         this->container->filesystem = std::make_unique<filesystem::FileSystem>(dllInstance);
-        //stands::StandsBootstrapper::Bootstrap(*this->container);
+        stands::StandsBootstrapper::Bootstrap(*this->container);
         //flightplan::FlightPlanBootstrapper::Bootstrap(*this->container);
 
         this->container->plugin = std::make_shared<FlightStripsPlugin>(this->container->flightPlanEventHandlers, this->container->radarTargetEventHandlers, this->container->controllerEventHandlers, this->container->timedEventHandlers, this->container->airportRunwaysChangedEventHandlers);

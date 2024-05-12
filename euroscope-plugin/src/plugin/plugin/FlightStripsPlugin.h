@@ -61,6 +61,7 @@ namespace FlightStrips {
 
         static bool ControllerIsMe(EuroScopePlugIn::CController controller, EuroScopePlugIn::CController me);
 
+        static bool IsRelevant(EuroScopePlugIn::CFlightPlan flightPlan);
     private:
         const std::shared_ptr<handlers::FlightPlanEventHandlers> m_flightPlanEventHandlerCollection;
         const std::shared_ptr<handlers::RadarTargetEventHandlers> m_radarTargetEventHandlers;
@@ -68,6 +69,5 @@ namespace FlightStrips {
         const std::shared_ptr<handlers::TimedEventHandlers> m_timedEventHandlers;
         const std::shared_ptr<handlers::AirportRunwaysChangedEventHandlers> m_airportRunwayChangedEventHandlers;
 
-        static bool IsRelevant(EuroScopePlugIn::CFlightPlan flightPlan);
     };
 }

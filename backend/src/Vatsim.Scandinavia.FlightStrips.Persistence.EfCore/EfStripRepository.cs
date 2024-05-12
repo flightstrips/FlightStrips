@@ -134,6 +134,11 @@ public class EfStripRepository(FlightStripsDbContext context) : IStripRepository
         return (created, Map(entity));
     }
 
+    public Task<Strip[]> ListAsync(SessionId id)
+    {
+        return context.Strips.Where(x => x.Airport == id.Airport && x.Session == id.Session).Select(x => Map(x)).ToArrayAsync();
+    }
+
     public Task DeleteAsync(StripId id)
     {
         return context.Strips

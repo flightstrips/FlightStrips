@@ -7,34 +7,7 @@ namespace FlightStrips::network {
     void NetworkService::FlightPlanEvent(EuroScopePlugIn::CFlightPlan flightPlan) {
         if (!ShouldSend() || flightPlan.GetSimulated()) return;
 
-        StripFullData full;
-        full.set_route(std::string(flightPlan.GetFlightPlanData().GetRoute()));
-        full.set_origin(std::string(flightPlan.GetFlightPlanData().GetOrigin()));
-        full.set_destination(std::string(flightPlan.GetFlightPlanData().GetDestination()));
-        full.set_remarks(std::string(flightPlan.GetFlightPlanData().GetRemarks()));
-        full.set_squawk(std::string(flightPlan.GetControllerAssignedData().GetSquawk()));
-        full.set_sid(std::string(flightPlan.GetFlightPlanData().GetSidName())); // TODO don't set if not departure
-        full.set_cleared_alt(flightPlan.GetControllerAssignedData().GetClearedAltitude());
-        if (flightPlan.GetControllerAssignedData().GetAssignedHeading() != 0)
-            full.set_heading(flightPlan.GetControllerAssignedData().GetAssignedHeading());
-        full.set_aircraft_type(std::string(flightPlan.GetFlightPlanData().GetAircraftInfo()));
-        full.set_runway(std::string(flightPlan.GetFlightPlanData().GetDepartureRwy()));
-        full.set_cleared(flightPlan.GetClearenceFlag());
-        full.set_final_altitude(flightPlan.GetControllerAssignedData().GetFinalAltitude());
-        full.set_alternate(std::string(flightPlan.GetFlightPlanData().GetAlternate()));
-        full.set_estimated_departure_time(std::string(flightPlan.GetFlightPlanData().GetEstimatedDepartureTime()));
-        full.set_capabilities(GetCapabilities(flightPlan));
-        full.set_communication_type(GetCommunicationType(flightPlan));
-        full.set_ground_state(GetGroundState(flightPlan));
-        full.set_aircraft_category(GetAircraftWtc(flightPlan));
-
-        Position p;
-        LatLng latLng;
-        latLng.set_longitude(flightPlan.GetCorrelatedRadarTarget().GetPosition().GetPosition().m_Longitude);
-        latLng.set_latitude(flightPlan.GetCorrelatedRadarTarget().GetPosition().GetPosition().m_Latitude);
-        p.set_altitude(flightPlan.GetCorrelatedRadarTarget().GetPosition().GetPressureAltitude());
-        p.mutable_position()->CopyFrom(latLng);
-        full.mutable_position()->CopyFrom(p);
+        auto full = ConvertToFullData(flightPlan);
 
         StripData data;
         data.set_callsign(flightPlan.GetCallsign());
@@ -312,6 +285,28 @@ namespace FlightStrips::network {
             if (isMaster) {
                 plugin->Information("Master");
             }
+
+            // TODO ensure that we do not send outdated information compared to what is on the server.
+            // The master client need to sync all the extra state with the server before it can send.
+            // Such as squawks and so on.
+            // Sending all flight plans.
+            for (auto fp = this->plugin->FlightPlanSelectFirst(); fp.IsValid(); fp = this->plugin->FlightPlanSelectNext(fp)) {
+                if (!this->plugin->IsRelevant(fp)) {
+                    continue;
+                }
+
+                auto full = ConvertToFullData(fp);
+
+                StripData data;
+                data.set_callsign(fp.GetCallsign());
+                data.mutable_fulldata()->CopyFrom(full);
+
+                ClientStreamMessage clientMessage;
+                clientMessage.set_clientid(position);
+                clientMessage.mutable_strip_data()->CopyFrom(data);
+
+                reader->AddMessage(clientMessage);
+            }
         }
     }
 
@@ -383,6 +378,39 @@ namespace FlightStrips::network {
             default:
                 return WEIGHT_CATEGORY_UNKNOWN;
         }
+    }
+
+    StripFullData NetworkService::ConvertToFullData(const EuroScopePlugIn::CFlightPlan &flightPlan) {
+        StripFullData full;
+        full.set_route(std::string(flightPlan.GetFlightPlanData().GetRoute()));
+        full.set_origin(std::string(flightPlan.GetFlightPlanData().GetOrigin()));
+        full.set_destination(std::string(flightPlan.GetFlightPlanData().GetDestination()));
+        full.set_remarks(std::string(flightPlan.GetFlightPlanData().GetRemarks()));
+        full.set_squawk(std::string(flightPlan.GetControllerAssignedData().GetSquawk()));
+        full.set_sid(std::string(flightPlan.GetFlightPlanData().GetSidName())); // TODO don't set if not departure
+        full.set_cleared_alt(flightPlan.GetControllerAssignedData().GetClearedAltitude());
+        if (flightPlan.GetControllerAssignedData().GetAssignedHeading() != 0)
+            full.set_heading(flightPlan.GetControllerAssignedData().GetAssignedHeading());
+        full.set_aircraft_type(std::string(flightPlan.GetFlightPlanData().GetAircraftInfo()));
+        full.set_runway(std::string(flightPlan.GetFlightPlanData().GetDepartureRwy()));
+        full.set_cleared(flightPlan.GetClearenceFlag());
+        full.set_final_altitude(flightPlan.GetControllerAssignedData().GetFinalAltitude());
+        full.set_alternate(std::string(flightPlan.GetFlightPlanData().GetAlternate()));
+        full.set_estimated_departure_time(std::string(flightPlan.GetFlightPlanData().GetEstimatedDepartureTime()));
+        full.set_capabilities(GetCapabilities(flightPlan));
+        full.set_communication_type(GetCommunicationType(flightPlan));
+        full.set_ground_state(GetGroundState(flightPlan));
+        full.set_aircraft_category(GetAircraftWtc(flightPlan));
+
+        Position p;
+        LatLng latLng;
+        latLng.set_longitude(flightPlan.GetCorrelatedRadarTarget().GetPosition().GetPosition().m_Longitude);
+        latLng.set_latitude(flightPlan.GetCorrelatedRadarTarget().GetPosition().GetPosition().m_Latitude);
+        p.set_altitude(flightPlan.GetCorrelatedRadarTarget().GetPosition().GetPressureAltitude());
+        p.mutable_position()->CopyFrom(latLng);
+        full.mutable_position()->CopyFrom(p);
+
+        return full;
     }
 
     NetworkService::~NetworkService() {

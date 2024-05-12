@@ -6,6 +6,8 @@ public interface IStripRepository
 {
     Task<(bool, Strip)> UpsertAsync(StripUpsertRequest upsertRequest);
 
+    Task<Strip[]> ListAsync(SessionId id);
+
     Task DeleteAsync(StripId id);
 
     Task<Strip?> GetAsync(StripId id);

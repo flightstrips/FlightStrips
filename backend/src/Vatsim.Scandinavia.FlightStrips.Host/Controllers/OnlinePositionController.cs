@@ -13,9 +13,9 @@ public class OnlinePositionController(IOnlinePositionService onlinePositionServi
     [HttpGet(Name = "ListOnlinePositions")]
     [ProducesResponseType(typeof(OnlinePositionResponseModel[]), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> ListAsync([Airport] string airport, string session)
+    public async Task<IActionResult> ListAsync([Airport] string airport, string session, bool connected)
     {
-        var positions = await onlinePositionService.ListAsync(airport, session);
+        var positions = await onlinePositionService.ListAsync(airport, session, connected);
         var models = positions.Select(Map).ToArray();
         return Ok(models);
     }

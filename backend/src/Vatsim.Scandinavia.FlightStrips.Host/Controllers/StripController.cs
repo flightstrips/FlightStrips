@@ -4,7 +4,6 @@ using Vatsim.Scandinavia.FlightStrips.Abstractions.Bays;
 using Vatsim.Scandinavia.FlightStrips.Abstractions.Coordinations;
 using Vatsim.Scandinavia.FlightStrips.Abstractions.Strips;
 using Vatsim.Scandinavia.FlightStrips.Host.Attributes;
-using Vatsim.Scandinavia.FlightStrips.Host.Hubs.Models;
 using Vatsim.Scandinavia.FlightStrips.Host.Mappers;
 using Vatsim.Scandinavia.FlightStrips.Host.Models;
 using CoordinationState = Vatsim.Scandinavia.FlightStrips.Abstractions.Coordinations.CoordinationState;
@@ -26,6 +25,18 @@ public class StripController : ControllerBase
         _bayService = bayService;
     }
 
+    [HttpGet(Name = "ListStrips")]
+    [ProducesResponseType(typeof(IEnumerable<StripResponseModel>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> ListAsync([Airport, FromRoute] string airport, [FromRoute] string session)
+    {
+        var strips = await _stripService.ListAsync(new SessionId(airport, session));
+
+        var result = strips.Select(Map).ToArray();
+
+        return Ok(result);
+    }
+
+
     [HttpGet("{callsign}", Name = "GetStrip")]
     [ProducesResponseType(typeof(StripResponseModel), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -39,33 +50,7 @@ public class StripController : ControllerBase
             return NotFound();
         }
 
-        var model = new StripResponseModel
-        {
-            Callsign = strip.Id.Callsign,
-            Bay = strip.Bay,
-            Controller = strip.PositionFrequency,
-            Cleared = strip.Cleared,
-            Destination = strip.Destination,
-            Origin = strip.Origin,
-            Sequence = strip.Sequence,
-            Alternate = strip.Alternate,
-            Capabilities = strip.Capabilities,
-            Remarks = strip.Remarks,
-            Route = strip.Route,
-            Runway = strip.Runway,
-            Squawk = strip.Squawk,
-            Stand = strip.Stand,
-            Tobt = strip.TOBT,
-            AircraftCategory = strip.AircraftCategory,
-            AircraftType = strip.AircraftType,
-            AssignedSquawk = strip.AssignedSquawk,
-            CommunicationType = strip.CommunicationType,
-            Heading = strip.Heading,
-            Sid = strip.Sid,
-            Tsat = strip.TSAT,
-            ClearedAltitude = strip.ClearedAltitude,
-            FinalAltitude = strip.FinalAltitude
-        };
+        var model = Map(strip);
 
         return Ok(model);
     }
@@ -155,5 +140,37 @@ public class StripController : ControllerBase
         var model = CoordinationMapper.Map(coordination);
 
         return CreatedAtAction("Get", "Coordination", new {airport, session, id = coordination.Id}, model);
+    }
+
+    private static StripResponseModel Map(Strip strip)
+    {
+        return new StripResponseModel
+        {
+            Callsign = strip.Id.Callsign,
+            Bay = strip.Bay,
+            Controller = strip.PositionFrequency,
+            Cleared = strip.Cleared,
+            Destination = strip.Destination,
+            Origin = strip.Origin,
+            Sequence = strip.Sequence,
+            Alternate = strip.Alternate,
+            Capabilities = strip.Capabilities,
+            Remarks = strip.Remarks,
+            Route = strip.Route,
+            Runway = strip.Runway,
+            Squawk = strip.Squawk,
+            Stand = strip.Stand,
+            Tobt = strip.TOBT,
+            AircraftCategory = strip.AircraftCategory,
+            AircraftType = strip.AircraftType,
+            AssignedSquawk = strip.AssignedSquawk,
+            CommunicationType = strip.CommunicationType,
+            Heading = strip.Heading,
+            Sid = strip.Sid,
+            Tsat = strip.TSAT,
+            ClearedAltitude = strip.ClearedAltitude,
+            FinalAltitude = strip.FinalAltitude
+        };
+
     }
 }

@@ -80,6 +80,7 @@ namespace FlightStrips::network {
         static CommunicationType GetCommunicationType(char type);
         static GroundState GetGroundState(const EuroScopePlugIn::CFlightPlan &flightPlan);
         static WeightCategory GetAircraftWtc(const EuroScopePlugIn::CFlightPlan &flightPlan);
+        static StripFullData ConvertToFullData(const EuroScopePlugIn::CFlightPlan &flightPlan);
 
     };
 }

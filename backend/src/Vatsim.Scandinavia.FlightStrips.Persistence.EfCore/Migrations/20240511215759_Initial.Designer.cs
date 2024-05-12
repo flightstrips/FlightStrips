@@ -12,7 +12,7 @@ using Vatsim.Scandinavia.FlightStrips.Persistence.EfCore;
 namespace Vatsim.Scandinavia.FlightStrips.Persistence.EfCore.Migrations
 {
     [DbContext(typeof(FlightStripsDbContext))]
-    [Migration("20240311160113_Initial")]
+    [Migration("20240511215759_Initial")]
     partial class Initial
     {
         /// <inheritdoc />
@@ -165,9 +165,8 @@ namespace Vatsim.Scandinavia.FlightStrips.Persistence.EfCore.Migrations
                     b.Property<string>("ASAT")
                         .HasColumnType("text");
 
-                    b.Property<string>("AircraftCategory")
-                        .IsRequired()
-                        .HasColumnType("text");
+                    b.Property<int>("AircraftCategory")
+                        .HasColumnType("integer");
 
                     b.Property<string>("AircraftType")
                         .IsRequired()

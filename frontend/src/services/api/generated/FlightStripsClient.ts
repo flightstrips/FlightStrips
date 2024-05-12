@@ -489,10 +489,18 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
      * @name ListOnlinePositions
      * @request GET:/{airport}/{session}/online-positions
      */
-    listOnlinePositions: (airport: string, session: string, params: RequestParams = {}) =>
+    listOnlinePositions: (
+      airport: string,
+      session: string,
+      query?: {
+        connected?: boolean
+      },
+      params: RequestParams = {},
+    ) =>
       this.request<OnlinePositionResponseModel[], ValidationProblemDetails>({
         path: `/${airport}/${session}/online-positions`,
         method: 'GET',
+        query: query,
         format: 'json',
         ...params,
       }),
@@ -507,6 +515,21 @@ export class Api<SecurityDataType extends unknown> extends HttpClient<SecurityDa
     getRunwayConfiguration: (airport: string, session: string, params: RequestParams = {}) =>
       this.request<RunwayConfigResponseModel, ProblemDetails>({
         path: `/${airport}/${session}/runways`,
+        method: 'GET',
+        format: 'json',
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @tags Strip
+     * @name ListStrips
+     * @request GET:/{airport}/{session}/strips
+     */
+    listStrips: (airport: string, session: string, params: RequestParams = {}) =>
+      this.request<StripResponseModel[], any>({
+        path: `/${airport}/${session}/strips`,
         method: 'GET',
         format: 'json',
         ...params,

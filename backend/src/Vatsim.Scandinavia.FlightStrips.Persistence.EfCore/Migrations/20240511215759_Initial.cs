@@ -68,7 +68,7 @@ namespace Vatsim.Scandinavia.FlightStrips.Persistence.EfCore.Migrations
                     FinalAltitude = table.Column<int>(type: "integer", nullable: false),
                     Capabilities = table.Column<string>(type: "text", nullable: false),
                     CommunicationType = table.Column<int>(type: "integer", nullable: false),
-                    AircraftCategory = table.Column<string>(type: "text", nullable: false),
+                    AircraftCategory = table.Column<int>(type: "integer", nullable: false),
                     Stand = table.Column<string>(type: "text", nullable: false),
                     Sequence = table.Column<int>(type: "integer", nullable: true),
                     State = table.Column<int>(type: "integer", nullable: false),

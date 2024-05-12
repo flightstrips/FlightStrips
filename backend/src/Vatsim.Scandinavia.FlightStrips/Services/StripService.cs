@@ -164,6 +164,11 @@ public class StripService : IStripService
         return (created, result);
     }
 
+    public Task<Strip[]> ListAsync(SessionId id)
+    {
+        return _stripRepository.ListAsync(id);
+    }
+
     public async Task DeleteStripAsync(StripId id)
     {
         var strip = await _stripRepository.GetAsync(id);

@@ -6,20 +6,21 @@ import {
   StripUpdate,
 } from '../services/models'
 import client from '../services/api/StripsApi'
+import { StripResponseModel } from '../services/api/generated/FlightStripsClient'
 
 export class FlightStrip {
   store: FlightStripStore
-  isSynced = false
   callsign: string
   aircraftType = ''
   aircraftRegistration = ''
   aircraftCategory = ''
   origin = ''
   destination = ''
+  alternate = ''
   runway = ''
   clearenceLimit = ''
   stand = ''
-  eobt = ''
+  tobt = ''
   tsat = ''
   ctot = ''
   cleared = false
@@ -34,14 +35,13 @@ export class FlightStrip {
   fl = ''
   reg = ''
   hdg = ''
-  alt = 'FL070'
+  alt = 7000
   deice = ''
 
   constructor(store: FlightStripStore, callsign: string) {
     makeAutoObservable(this, {
       store: false,
       callsign: false,
-      isSynced: false,
     })
 
     this.store = store
@@ -63,11 +63,57 @@ export class FlightStrip {
     }
   }
 
+  public setData(data: StripResponseModel) {
+    this.origin = data.origin ?? ''
+    this.destination = data.destination ?? ''
+    this.alternate = data.alternate ?? ''
+    this.remarks = data.remarks ?? ''
+    this.squawk = data.assignedSquawk ?? ''
+    this.sid = data.sid ?? ''
+    this.alt = data.clearedAltitude ?? 7000
+    this.aircraftCategory = data.aircraftCategory ?? ''
+    this.aircraftType = data.aircraftType ?? ''
+    this.runway = data.runway ?? ''
+    // communication type
+    //this.c
+    this.stand = data.stand ?? ''
+    this.tobt = data.tobt ?? ''
+    this.tsat = data.tsat ?? ''
+    this.cleared = data.cleared ?? false
+    this.controller = data.controller ?? null
+    this.sequence = data.sequence ?? null
+    this.bay = data.bay
+  }
+
   public handleBackendUpdate(update: StripUpdate) {
-    this.bay = update.bay
+    this.origin = update.origin
+    this.destination = update.destination
+    this.alternate = update.alternate
+    this.remarks = update.remarks
+    this.squawk = update.assignedSquawk
+    this.sid = update.sid ?? ''
+    this.alt = update.clearedAltitude ?? 7000
+    this.aircraftCategory = update.aircraftCategory
+    this.aircraftType = update.aircraftType
+    this.runway = update.runway
+    // communication type
+    //this.c
+    this.stand = update.stand
+    this.tobt = update.tobt
+    this.tsat = update.tsat ?? ''
     this.cleared = update.cleared
-    this.controller = update.positionFrequency
+    this.controller = update.controller
     this.sequence = update.sequence
+    this.bay = update.bay
+  }
+
+  public getClearedAlt() {
+    // TODO for other airports
+    if (this.alt > 5000) {
+      return `FL${this.alt / 100}`
+    }
+
+    return `${this.alt} ft`
   }
 
   public clear(isCleared = true, internal = true) {

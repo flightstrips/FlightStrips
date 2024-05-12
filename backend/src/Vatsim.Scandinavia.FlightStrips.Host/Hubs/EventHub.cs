@@ -1,9 +1,10 @@
 ﻿using Microsoft.AspNetCore.SignalR;
+using Vatsim.Scandinavia.FlightStrips.Abstractions.OnlinePositions;
 using Vatsim.Scandinavia.FlightStrips.Host.Hubs.Models;
 
 namespace Vatsim.Scandinavia.FlightStrips.Host.Hubs;
 
-public class EventHub(IControllerService controllerService, ILogger<EventHub> logger) : Hub<IEventClient>
+public class EventHub(IControllerService controllerService, IOnlinePositionService onlinePositionService, ILogger<EventHub> logger) : Hub<IEventClient>
 {
     public override async Task OnDisconnectedAsync(Exception? exception)
     {
@@ -25,12 +26,24 @@ public class EventHub(IControllerService controllerService, ILogger<EventHub> lo
     }
 
     [HubMethodName("Subscribe")]
-    public async Task SubscribeAsync(SubscribeModel request)
+    public async Task<string> SubscribeAsync(SubscribeModel request)
     {
+        var positionId = new OnlinePositionId(request.Airport, request.Session, request.Callsign);
+        var position = await onlinePositionService.GetAsync(positionId);
+
+        if (position is null)
+        {
+            // There is no position online with this callsign
+            throw new InvalidOperationException($"No position online with callsign {request.Callsign}");
+        }
+
+        await onlinePositionService.SetUiOnlineAsync(positionId, online: true);
         await Groups.AddToGroupAsync(Context.ConnectionId, ToAirportGroupName(request));
-        await Groups.AddToGroupAsync(Context.ConnectionId, ToFrequencyGroupName(request));
-        await controllerService.AddController(Context.ConnectionId, request);
-        logger.ControllerSubscribed(request.Callsign, request.Frequency, request.Airport, request.Session);
+        await Groups.AddToGroupAsync(Context.ConnectionId, ToFrequencyGroupName(request, position.PrimaryFrequency));
+        await controllerService.AddController(Context.ConnectionId, request, position.PrimaryFrequency);
+        logger.ControllerSubscribed(request.Callsign, request.Airport, request.Session);
+
+        return position.PrimaryFrequency;
     }
 
     [HubMethodName("Unsubscribe")]
@@ -41,9 +54,18 @@ public class EventHub(IControllerService controllerService, ILogger<EventHub> lo
             await Groups.RemoveFromGroupAsync(Context.ConnectionId, ToAirportGroupName(request));
             await Groups.RemoveFromGroupAsync(Context.ConnectionId, ToPositionUpdateGroupName(request));
         }
-        await Groups.RemoveFromGroupAsync(Context.ConnectionId, ToFrequencyGroupName(request));
+
+        var positionId = new OnlinePositionId(request.Airport, request.Session, request.Callsign);
+        var position = await onlinePositionService.GetAsync(positionId);
+
+        if (position is not null)
+        {
+            await Groups.RemoveFromGroupAsync(Context.ConnectionId, ToFrequencyGroupName(request, position.PrimaryFrequency));
+        }
+
+        await onlinePositionService.SetUiOnlineAsync(positionId, online: true);
         await controllerService.RemoveControllerAsync(Context.ConnectionId);
-        logger.ControllerUnsubscribed(request.Frequency, request.Airport, request.Session);
+        logger.ControllerUnsubscribed(request.Airport, request.Session);
     }
 
     private static string ToAirportGroupName(SubscribeAirportModel model)
@@ -66,13 +88,13 @@ public class EventHub(IControllerService controllerService, ILogger<EventHub> lo
         return $"{ToAirportGroupName(model)}:position";
     }
 
-    private static string ToFrequencyGroupName(SubscribeModel model)
+    private static string ToFrequencyGroupName(SubscribeModel model, string frequency)
     {
-        return $"{ToAirportGroupName(model)}:{model.Frequency}";
+        return $"{ToAirportGroupName(model)}:{frequency}";
     }
 
-    private static string ToFrequencyGroupName(UnsubscribeModel model)
+    private static string ToFrequencyGroupName(UnsubscribeModel model, string frequency)
     {
-        return $"{ToAirportGroupName(model)}:{model.Frequency}";
+        return $"{ToAirportGroupName(model)}:{frequency}";
     }
 }

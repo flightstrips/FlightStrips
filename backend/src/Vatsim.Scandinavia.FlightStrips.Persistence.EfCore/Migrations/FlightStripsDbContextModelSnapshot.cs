@@ -162,9 +162,8 @@ namespace Vatsim.Scandinavia.FlightStrips.Persistence.EfCore.Migrations
                     b.Property<string>("ASAT")
                         .HasColumnType("text");
 
-                    b.Property<string>("AircraftCategory")
-                        .IsRequired()
-                        .HasColumnType("text");
+                    b.Property<int>("AircraftCategory")
+                        .HasColumnType("integer");
 
                     b.Property<string>("AircraftType")
                         .IsRequired()

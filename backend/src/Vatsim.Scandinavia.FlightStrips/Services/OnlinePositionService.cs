@@ -38,6 +38,7 @@ public class OnlinePositionService : IOnlinePositionService
         await UpdateSectorsAsync(new SessionId(id.Airport, id.Session));
     }
 
+
     public async Task SetRunwaysAsync(OnlinePositionId id, ActiveRunway[] runways)
     {
         var (arrival, departure) = RunwayHelper.GetRunways(runways);
@@ -65,6 +66,8 @@ public class OnlinePositionService : IOnlinePositionService
         await _runwayService.SetRunwaysAsync(sessionId, new RunwayConfig(departure, arrival, id.Position));
         await UpdateSectorsAsync(sessionId);
     }
+
+    public Task SetUiOnlineAsync(OnlinePositionId id, bool online) => _repository.SetUiOnlineAsync(id, online);
 
     public async Task UpsertAsync(OnlinePositionId id, string? frequency = null, ActiveRunway[]? runways = null, bool? ui = null)
     {
@@ -101,8 +104,8 @@ public class OnlinePositionService : IOnlinePositionService
 
     public Task<OnlinePosition?> GetAsync(OnlinePositionId id) => _repository.GetAsync(id);
 
-    public Task<OnlinePosition[]> ListAsync(string airport, string session) =>
-        _repository.ListAsync(airport.ToUpperInvariant(), session.ToUpperInvariant());
+    public Task<OnlinePosition[]> ListAsync(string airport, string session, bool onlyEuroscopeConnected = false) =>
+        _repository.ListAsync(airport.ToUpperInvariant(), session.ToUpperInvariant(), onlyEuroscopeConnected);
 
     public Task<SessionId[]> GetSessionsAsync() => _repository.GetSessionsAsync();
 

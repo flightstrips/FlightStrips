@@ -1,12 +1,9 @@
-import { makeAutoObservable } from 'mobx'
+import { makeAutoObservable, runInAction } from 'mobx'
 import { RootStore } from './RootStore'
-import {
-  CoordinationUpdate,
-  StripStateEvent,
-  StripUpdate,
-} from '../services/models.ts'
+import { CoordinationUpdate, StripUpdate } from '../services/models.ts'
 import { signalRService } from '../services/SignalRService.ts'
 import { FlightStrip } from './FlightStrip.ts'
+import client from '../services/api/StripsApi.ts'
 
 export class FlightStripStore {
   flightStrips: FlightStrip[] = []
@@ -24,6 +21,21 @@ export class FlightStripStore {
     signalRService.on('ReceiveStripUpdate', (update) =>
       this.handleStripUpdate(update),
     )
+  }
+
+  public async loadStrips() {
+    const strips = await client.airport.listStrips(
+      'EKCH',
+      this.rootStore.stateStore.session,
+    )
+
+    runInAction(() => {
+      this.flightStrips = strips.data.map((s) => {
+        const strip = new FlightStrip(this, s.callsign)
+        strip.setData(s)
+        return strip
+      })
+    })
   }
 
   public reset() {
@@ -64,26 +76,15 @@ export class FlightStripStore {
       (strip) => strip.callsign === update.callsign,
     )
 
-    if (update.eventState == StripStateEvent.Created) {
-      // TODO create strip if not exist
-    }
-
     if (!strip) {
-      console.log(`Did not find strip ${update.callsign}!`)
+      // new strip
+      const strip = new FlightStrip(this, update.callsign)
+      strip.handleBackendUpdate(update)
+      this.flightStrips.push(strip)
       return
     }
 
-    console.log(`Found strip ${update.callsign}: ${JSON.stringify(update)}!`)
-
-    switch (update.eventState) {
-      case StripStateEvent.Created:
-      case StripStateEvent.Updated:
-        strip.handleBackendUpdate(update)
-        break
-      case StripStateEvent.Deleted:
-        this.flightStrips.splice(this.flightStrips.indexOf(strip), 1)
-        break
-    }
+    strip.handleBackendUpdate(update)
   }
 
   public inBay(bay: string): FlightStrip[] {

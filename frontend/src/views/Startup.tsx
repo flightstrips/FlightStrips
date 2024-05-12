@@ -1,18 +1,24 @@
-import { Progress } from '@nextui-org/react'
-import { useStateStore } from '../providers/RootStoreContext.ts'
+import { Select, SelectItem } from '@nextui-org/react'
+import {
+  useControllerStore,
+  useStateStore,
+} from '../providers/RootStoreContext.ts'
 import { observer } from 'mobx-react'
 import { useNavigate } from 'react-router-dom'
 import { useEffect } from 'react'
 
 const Startup = observer(() => {
   const stateStore = useStateStore()
+  const controllerStore = useControllerStore()
   const navigate = useNavigate()
 
   useEffect(() => {
     if (stateStore.isReady) {
       navigate(stateStore.view)
     }
-  }, [navigate, stateStore.isReady, stateStore.view])
+
+    stateStore.loadSessions()
+  }, [navigate, stateStore, stateStore.isReady, stateStore.view])
 
   return (
     <>
@@ -26,8 +32,29 @@ const Startup = observer(() => {
           </h1>
         </div>
       </div>
-      <div className="absolute bottom-12 left-1/2 transform -translate-x-1/2 z-20 w-1/4 text-white">
-        <Progress size="sm" label={stateStore.loadingLabel} isIndeterminate />
+      <div className="absolute bottom-48 left-1/2 transform -translate-x-1/2 z-20 w-1/4">
+        <Select
+          label="Select session"
+          className="mb-2"
+          onChange={(e) => stateStore.setSession(e.target.value)}
+        >
+          {stateStore.availableSessions.map((session) => (
+            <SelectItem key={session.name} value={session.name}>
+              {session.name}
+            </SelectItem>
+          ))}
+        </Select>
+
+        <Select
+          label="Select controller"
+          onChange={(e) => stateStore.setController(e.target.value)}
+        >
+          {controllerStore.controllers.map((controller) => (
+            <SelectItem key={controller.callsign} value={controller.callsign}>
+              {controller.callsign}
+            </SelectItem>
+          ))}
+        </Select>
       </div>
 
       <div className="z-0 absolute h-[110vh] w-[110vw] aspect-auto w-screen">

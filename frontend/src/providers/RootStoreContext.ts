@@ -29,6 +29,11 @@ export function useRunwayStore() {
   return runwayStore
 }
 
+export function useControllerStore() {
+  const { controllerStore } = useRootStore()
+  return controllerStore
+}
+
 export function getRoot() {
   const root = store ?? initializeStore()
   return root

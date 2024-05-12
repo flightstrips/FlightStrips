@@ -50,24 +50,19 @@ export class SignalRService {
     })
   }
 
-  public subscribe(
-    session: string,
-    callsign: string,
-    frequency: string,
-  ): Promise<void> {
+  public subscribe(session: string, callsign: string): Promise<string> {
     return this.connection.invoke('subscribe', {
       Airport: 'EKCH',
       Session: session,
-      Frequency: frequency,
       callsign: callsign,
     })
   }
 
-  public unsubscribe(session: string, frequency: string): Promise<void> {
+  public unsubscribe(session: string, callsign: string): Promise<void> {
     return this.connection.invoke('unsubscribe', {
       Airport: 'EKCH',
       Session: session,
-      Frequency: frequency,
+      callsign: callsign,
     })
   }
 

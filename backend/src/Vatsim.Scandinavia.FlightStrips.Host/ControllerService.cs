@@ -1,41 +1,28 @@
 ﻿using System.Collections.Concurrent;
 using Vatsim.Scandinavia.FlightStrips.Abstractions.OnlinePositions;
-using Vatsim.Scandinavia.FlightStrips.Abstractions.Runways;
 using Vatsim.Scandinavia.FlightStrips.Host.Hubs.Models;
 
 namespace Vatsim.Scandinavia.FlightStrips.Host;
 
-public class ControllerService(IServiceProvider serviceProvider) : IControllerService
+public class ControllerService(/*IServiceProvider serviceProvider*/) : IControllerService
 {
     private readonly ConcurrentDictionary<string, OnlinePosition> _onlinePositions = new(StringComparer.Ordinal);
 
-    public async Task AddController(string connectionId, SubscribeModel subscribeModel)
+    public Task AddController(string connectionId, SubscribeModel subscribeModel, string frequency)
     {
         var position = new OnlinePosition
         {
             Id = new OnlinePositionId(subscribeModel.Airport, subscribeModel.Session, subscribeModel.Callsign),
-            PrimaryFrequency = subscribeModel.Frequency
+            PrimaryFrequency = frequency
         };
         var added = _onlinePositions.TryAdd(connectionId, position);
 
-        if (!added) return;
-
-        await using var scope = serviceProvider.CreateAsyncScope();
-        var onlinePositionService = scope.ServiceProvider.GetRequiredService<IOnlinePositionService>();
-
-        await onlinePositionService.CreateAsync(position.Id, position.PrimaryFrequency, Array.Empty<ActiveRunway>());
+        return Task.CompletedTask;
     }
 
-    public async Task RemoveControllerAsync(string connectionId)
+    public Task RemoveControllerAsync(string connectionId)
     {
-        if (!_onlinePositions.Remove(connectionId, out var position))
-        {
-            return;
-        }
-
-        await using var scope = serviceProvider.CreateAsyncScope();
-        var onlinePositionService = scope.ServiceProvider.GetRequiredService<IOnlinePositionService>();
-
-        await onlinePositionService.DeleteAsync(position.Id);
+        _onlinePositions.Remove(connectionId, out var position);
+        return Task.CompletedTask;
     }
 }

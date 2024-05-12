@@ -1,7 +1,17 @@
-import { makeAutoObservable } from 'mobx'
+import { makeAutoObservable, runInAction } from 'mobx'
 import { RootStore } from './RootStore.ts'
 import { ControllerPosition } from '../data/models.ts'
 import { signalRService } from '../services/SignalRService.ts'
+import client from '../services/api/StripsApi.ts'
+
+export interface Session {
+  name: string
+  airport: string
+}
+
+export interface Controller {
+  name: string
+}
 
 export class StateStore {
   rootStore: RootStore
@@ -10,6 +20,9 @@ export class StateStore {
   controller: string = ControllerPosition.Unknown
   overrideView: string | null = null
   session = 'NONE'
+  availableSessions: Session[] = []
+  callsign = 'Unknown'
+  ready = false
 
   constructor(root: RootStore) {
     makeAutoObservable(this, {
@@ -17,8 +30,36 @@ export class StateStore {
     })
     this.rootStore = root
 
-    this.checkConnectionToBackend()
-    setInterval(() => this.checkConnectionToBackend(), 10000)
+    //this.checkConnectionToBackend()
+    //setInterval(() => this.checkConnectionToBackend(), 10000)
+  }
+
+  public async loadSessions() {
+    const response = await client.sessions.getSessions()
+
+    if (response.error) {
+      console.log('Failed to load sessions: ', response.error)
+    }
+
+    runInAction(() => {
+      if (!response.data.sessions) {
+        return
+      }
+
+      this.availableSessions = response.data.sessions.map((s) => {
+        return {
+          name: s.name ?? 'Unknown',
+          airport: 'EKCH',
+        }
+      })
+    })
+  }
+
+  public setSession(session: string) {
+    if (this.session === session) return
+
+    this.session = session
+    this.rootStore.controllerStore.getControllers(this.session)
   }
 
   public checkConnectionToBackend() {
@@ -34,28 +75,19 @@ export class StateStore {
     signalRService.tryReconnect()
   }
 
-  public handleEuroScopeConnectionUpdate(isConnected: boolean) {
-    this.connectedToEuroScope = isConnected
-  }
-
   public setOverrideView(view: string | null) {
     this.overrideView = view
   }
 
-  public setController(controller: ControllerPosition, callsign: string) {
-    this.controller = controller
-
-    if (
-      //this.vatsimConnection === 0 ||
-      this.controller == ControllerPosition.Unknown
-    )
-      return
-
-    signalRService.subscribe(this.session, callsign, this.controller)
+  public async setController(callsign: string) {
+    const frequency = await signalRService.subscribe(this.session, callsign)
+    this.controller = frequency as ControllerPosition
+    this.rootStore.flightStripStore.loadStrips()
+    this.ready = true
   }
 
   get isReady() {
-    return true
+    return this.ready
   }
 
   get view() {

@@ -180,6 +180,8 @@ namespace FlightStrips::network {
                 isMaster = false;
                 if (reader) {
                     reader->TryCancel();
+                    // TODO this MUST be moved as it will block the UI thread.
+                    reader->WaitForOnDone();
                     reader.reset();
                 }
             }
@@ -416,6 +418,8 @@ namespace FlightStrips::network {
     NetworkService::~NetworkService() {
         if (reader) {
             reader->TryCancel();
+            // Block until gRPC is done.
+            reader->WaitForOnDone();
         }
     }
 }

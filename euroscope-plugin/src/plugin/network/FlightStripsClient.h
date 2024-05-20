@@ -16,6 +16,13 @@ namespace FlightStrips::network {
             StartCall();
         }
 
+        void WaitForOnDone() {
+            std::unique_lock l(doneMutex_);
+            while (!done) {
+                cv_.wait(l);
+            }
+        }
+
         void OnWriteDone(bool ok) override {
             if (!ok) {
                 // Error
@@ -41,20 +48,19 @@ namespace FlightStrips::network {
 
         void AddMessage(const ClientStreamMessage& message) {
             if (done) return;
-            //std::lock_guard<std::mutex> lock(mutex_);
             messages_.push(message);
             if (messages_.size() == 1) NextWrite();
         }
 
         void OnDone(const grpc::Status&) override {
+            std::unique_lock l(doneMutex_);
             done = true;
-            //delete this;
+            cv_.notify_all();
         }
 
         void TryCancel() {
             if (!done) {
                 StartWritesDone();
-                done = true;
             }
             context_.TryCancel();
         }
@@ -64,6 +70,8 @@ namespace FlightStrips::network {
         grpc::ClientContext context_;
         ServerStreamMessage response_;
         std::mutex mutex_;
+        std::mutex doneMutex_;
+        std::condition_variable cv_;
         std::queue<ClientStreamMessage> messages_;
         std::function<void(const ServerStreamMessage& message)> callBack_;
 

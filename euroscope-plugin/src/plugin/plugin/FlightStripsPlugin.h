@@ -54,7 +54,7 @@ namespace FlightStrips {
 
         void OnTimer(int Counter) override;
 
-        void SetClearenceFlag(std::string callsign, bool cleared);
+        void SetClearenceFlag(const std::string &callsign, bool cleared);
 
         void UpdateViaScratchPad(const char* callsign, const char* message) const;
         std::vector<runway::ActiveRunway> GetActiveRunways(const char* airport) const;

@@ -65,7 +65,7 @@ public class StripController : ControllerBase
         var strip = await _stripService.GetStripAsync(id);
         if (strip is null) return NotFound();
 
-        await _stripService.ClearAsync(id, request.IsCleared);
+        await _stripService.ClearAsync(id, request.IsCleared, Sender.Frontend);
 
         return NoContent();
     }

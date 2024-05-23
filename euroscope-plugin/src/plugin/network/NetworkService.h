@@ -46,6 +46,7 @@ namespace FlightStrips::network {
     private:
         static Capabilities GetCapabilities(const EuroScopePlugIn::CFlightPlan& flightPlan);
         void OnNetworkMessage(const ServerStreamMessage& message);
+        void HandleStripUpdate(const StripResponse& response) const;
 
         std::shared_ptr<FlightStripsPlugin> plugin;
         enum State {

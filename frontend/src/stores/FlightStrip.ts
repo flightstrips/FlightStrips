@@ -23,6 +23,7 @@ export class FlightStrip {
   tobt = ''
   tsat = ''
   ctot = ''
+  eobt = ''
   cleared = false
   bay = ''
   sequence: number | null = null

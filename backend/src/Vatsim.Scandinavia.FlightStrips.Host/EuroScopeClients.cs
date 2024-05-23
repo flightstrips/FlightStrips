@@ -1,4 +1,5 @@
 ﻿using System.Collections.Concurrent;
+using System.Runtime.InteropServices;
 using FlightStrips;
 using Vatsim.Scandinavia.FlightStrips.Abstractions;
 using Vatsim.Scandinavia.FlightStrips.Abstractions.OnlinePositions;
@@ -28,6 +29,16 @@ public sealed class EuroScopeClients(ILoggerFactory loggerFactory) : IEuroScopeC
     {
         var clients = _sessionClients.GetOrAdd(new SessionId(id.Airport, id.Session), CreateSessionClients);
         await clients.RemoveClientAsync(id.Position);
+    }
+
+    public Task WriteToControllerClient(SessionId session, string controller, ServerStreamMessage message)
+    {
+        if (!_sessionClients.TryGetValue(session, out var client))
+        {
+            return Task.CompletedTask;
+        }
+
+        return client.WriteToControllerAsync(controller, message);
     }
 
 

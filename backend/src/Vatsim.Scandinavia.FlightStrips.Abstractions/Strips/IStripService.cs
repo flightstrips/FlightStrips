@@ -15,7 +15,7 @@ public interface IStripService
     Task AssumeAsync(StripId id, string frequency);
     Task<SessionId[]> GetSessionsAsync();
     Task RemoveSessionAsync(SessionId id);
-    Task ClearAsync(StripId id, bool isCleared);
+    Task ClearAsync(StripId id, bool isCleared, Sender sender);
     Task HandleStripUpdateAsync(FullStripEvent stripEvent);
     Task HandleStripPositionUpdateAsync(PositionEvent positionEvent);
     Task SetSquawkAsync(StripId id, string squawk);

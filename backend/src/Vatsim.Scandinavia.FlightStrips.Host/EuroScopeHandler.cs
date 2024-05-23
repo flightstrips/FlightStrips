@@ -183,7 +183,7 @@ public sealed class EuroScopeHandler(ILogger<EuroScopeHandler> logger, IGRpcMapp
                         case StripData.MessageOneofCase.Cleared:
                             await stripService.ClearAsync(
                                 new StripId(_session.Airport, _session.Session, message.StripData.Callsign),
-                                message.StripData.Cleared.Cleared);
+                                message.StripData.Cleared.Cleared, Sender.EuroScope);
                             break;
                         case StripData.MessageOneofCase.SetSquawk:
                             await stripService.SetSquawkAsync(mapper.MapStripId(message.StripData, _session),

@@ -281,34 +281,118 @@ namespace FlightStrips::network {
     }
 
     void NetworkService::OnNetworkMessage(const ServerStreamMessage& message) {
-        if (message.has_session_info()) {
-            const auto& info = message.session_info();
-            isMaster = info.ismaster();
-            if (isMaster) {
-                plugin->Information("Master");
-            }
-
-            // TODO ensure that we do not send outdated information compared to what is on the server.
-            // The master client need to sync all the extra state with the server before it can send.
-            // Such as squawks and so on.
-            // Sending all flight plans.
-            for (auto fp = this->plugin->FlightPlanSelectFirst(); fp.IsValid(); fp = this->plugin->FlightPlanSelectNext(fp)) {
-                if (!this->plugin->IsRelevant(fp)) {
-                    continue;
+        switch (message.message_case()) {
+            case ServerStreamMessage::kSessionInfo: {
+                const auto& info = message.session_info();
+                isMaster = info.ismaster();
+                if (isMaster) {
+                    plugin->Information("Master");
                 }
 
-                auto full = ConvertToFullData(fp);
+                // TODO ensure that we do not send outdated information compared to what is on the server.
+                // The master client need to sync all the extra state with the server before it can send.
+                // Such as squawks and so on.
+                // Sending all flight plans.
+                for (auto fp = this->plugin->FlightPlanSelectFirst(); fp.IsValid(); fp = this->plugin->FlightPlanSelectNext(fp)) {
+                    if (!this->plugin->IsRelevant(fp)) {
+                        continue;
+                    }
 
-                StripData data;
-                data.set_callsign(fp.GetCallsign());
-                data.mutable_fulldata()->CopyFrom(full);
+                    auto full = ConvertToFullData(fp);
 
-                ClientStreamMessage clientMessage;
-                clientMessage.set_clientid(position);
-                clientMessage.mutable_strip_data()->CopyFrom(data);
+                    StripData data;
+                    data.set_callsign(fp.GetCallsign());
+                    data.mutable_fulldata()->CopyFrom(full);
 
-                reader->AddMessage(clientMessage);
+                    ClientStreamMessage clientMessage;
+                    clientMessage.set_clientid(position);
+                    clientMessage.mutable_strip_data()->CopyFrom(data);
+
+                    reader->AddMessage(clientMessage);
+                }
+                break;
+
             }
+            case ServerStreamMessage::kStripUpdate:
+                HandleStripUpdate(message.strip_update());
+                break;
+            case ServerStreamMessage::kServerStrips:
+                // TODO handle updating all strip locally.
+                break;
+            case ServerStreamMessage::MESSAGE_NOT_SET:
+                // nothing to do, invalid message?
+                this->plugin->Information("Server message did not set message type.");
+                break;
+        }
+    }
+
+    void NetworkService::HandleStripUpdate(const StripResponse &response) const {
+        const auto fp = this->plugin->FlightPlanSelect(response.callsign().c_str());
+
+        if (!fp.IsValid()) {
+            this->plugin->Information(std::format("Flight plan is not valid {}", response.callsign()));
+            return;
+        }
+
+        switch (response.message_case()) {
+            case StripResponse::kRoute:
+                fp.GetFlightPlanData().SetRoute(response.route().route().c_str());
+                break;
+            case StripResponse::kRemarks:
+                fp.GetFlightPlanData().SetRemarks(response.remarks().remarks().c_str());
+                break;
+            case StripResponse::kStand:
+                // TODO set stand
+                break;
+            case StripResponse::kAssignedSquawk: {
+                const auto squawk = response.assigned_squawk().squawk().c_str();
+                if (strcmp(squawk, "0000") == 0) {
+                    // TODO generate squawk using tag function.
+                    return;
+                }
+                fp.GetControllerAssignedData().SetSquawk(squawk);
+                break;
+            }
+            case StripResponse::kCdm:
+                // TODO handle CDM updates.
+                break;
+            case StripResponse::kFinalAltitude:
+                fp.GetFlightPlanData().SetFinalAltitude(static_cast<int>(response.final_altitude().altitude()));
+                break;
+            case StripResponse::kClearedAltitude:
+                fp.GetControllerAssignedData().SetClearedAltitude(static_cast<int>(response.cleared_altitude().altitude()));
+                break;
+            case StripResponse::kCommunication: {
+                char type = '0';
+                switch (response.communication().type()) {
+                    case VOICE:
+                        type = 'V';
+                        break;
+                    case RECEIVE:
+                        type = 'R';
+                        break;
+                    case TEXT:
+                        type = 'T';
+                        break;
+                    case UNASSIGNED:
+                        break;
+                    case COMMUNICATION_TYPE_UNSPECIFIED:
+                    case CommunicationType_INT_MIN_SENTINEL_DO_NOT_USE_:
+                    case CommunicationType_INT_MAX_SENTINEL_DO_NOT_USE_:
+                        return;
+                }
+                fp.GetControllerAssignedData().SetCommunicationType(type);
+                break;
+            }
+            case StripResponse::kGroundState:
+                // TODO ground state
+                break;
+            case StripResponse::kCleared:
+                this->plugin->SetClearenceFlag(response.callsign(), response.cleared().cleared());
+                break;
+            case StripResponse::MESSAGE_NOT_SET:
+                this->plugin->Information("Strip response message did not set message type.");
+                break;
         }
     }
 

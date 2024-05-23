@@ -130,7 +130,7 @@ namespace FlightStrips {
         }
     }
 
-    void FlightStripsPlugin::SetClearenceFlag(std::string callsign, bool cleared) {
+    void FlightStripsPlugin::SetClearenceFlag(const std::string &callsign, const bool cleared) {
         try {
             if (cleared) {
                 this->UpdateViaScratchPad(callsign.c_str(), CLEARED);

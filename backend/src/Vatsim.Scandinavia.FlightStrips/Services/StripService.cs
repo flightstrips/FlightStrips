@@ -63,7 +63,7 @@ public class StripService : IStripService
 
         if (await _stripRepository.SetStandAsync(positionEvent.Id, stand.Name))
         {
-            await SendUpdateEvent(positionEvent.Id);
+            await SendUpdateEventAsync(positionEvent.Id);
         }
     }
 
@@ -71,7 +71,7 @@ public class StripService : IStripService
     {
         if (await _stripRepository.SetSquawk(id, squawk))
         {
-            await SendUpdateEvent(id);
+            await SendUpdateEventAsync(id);
         }
     }
 
@@ -79,7 +79,7 @@ public class StripService : IStripService
     {
         if (await _stripRepository.SetAssignedSquawkAsync(id, squawk))
         {
-            await SendUpdateEvent(id);
+            await SendUpdateEventAsync(id);
         }
     }
 
@@ -87,7 +87,7 @@ public class StripService : IStripService
     {
         if (await _stripRepository.SetFinalAltitudeAsync(id, altitude))
         {
-            await SendUpdateEvent(id);
+            await SendUpdateEventAsync(id);
         }
     }
 
@@ -95,7 +95,7 @@ public class StripService : IStripService
     {
         if (await _stripRepository.SetClearedAltitudeAsync(id, altitude))
         {
-            await SendUpdateEvent(id);
+            await SendUpdateEventAsync(id);
         }
     }
 
@@ -103,7 +103,7 @@ public class StripService : IStripService
     {
         if (await _stripRepository.SetCommunicationTypeAsync(id, communicationType))
         {
-            await SendUpdateEvent(id);
+            await SendUpdateEventAsync(id);
         }
     }
 
@@ -111,7 +111,7 @@ public class StripService : IStripService
     {
         if (await _stripRepository.SetGroundStateAsync(id, state))
         {
-            await SendUpdateEvent(id);
+            await SendUpdateEventAsync(id);
         }
     }
 
@@ -192,27 +192,27 @@ public class StripService : IStripService
         _logger.SetSequence(id, sequence);
 
         await _stripRepository.SetSequenceAsync(id, sequence);
-        await SendUpdateEvent(id);
+        await SendUpdateEventAsync(id);
 
     }
 
     public async Task SetBayAsync(StripId id, string bayName)
     {
         await _stripRepository.SetBayAsync(id, bayName);
-        await SendUpdateEvent(id);
+        await SendUpdateEventAsync(id);
     }
 
     public async Task AssumeAsync(StripId id, string frequency)
     {
         await _stripRepository.SetPositionFrequencyAsync(id, frequency);
-        await SendUpdateEvent(id);
+        await SendUpdateEventAsync(id);
     }
 
     public Task<SessionId[]> GetSessionsAsync() => _stripRepository.GetSessionsAsync();
 
     public Task RemoveSessionAsync(SessionId id) => _stripRepository.RemoveSessionAsync(id);
 
-    public async Task ClearAsync(StripId id, bool isCleared)
+    public async Task ClearAsync(StripId id, bool isCleared, Sender sender)
     {
         var bay = "STARTUP";
         if (!isCleared)
@@ -221,9 +221,18 @@ public class StripService : IStripService
         }
 
         await _stripRepository.SetCleared(id, isCleared, bay);
+
+        if (sender == Sender.EuroScope)
+        {
+            await SendUpdateEventAsync(id);
+        }
+        else
+        {
+        }
+
     }
 
-    private async Task SendUpdateEvent(StripId id)
+    private async Task SendUpdateEventAsync(StripId id)
     {
         var strip = await _stripRepository.GetAsync(id);
 

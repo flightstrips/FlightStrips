@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.15.0 FATAL_ERROR)
 
 set(CMAKE_SYSTEM_VERSION 10.0 CACHE STRING "" FORCE)
-SET(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 17)
 
 project(FlightStrips CXX)
 
@@ -29,8 +29,7 @@ set(CMAKE_CONFIGURATION_TYPES
         "Debug"
         "Release"
         CACHE STRING "" FORCE
-        )
-
+)
 
 ################################################################################
 # Global compiler options
@@ -60,6 +59,7 @@ if(MSVC)
     set(CMAKE_SHARED_LINKER_FLAGS_RELEASE "${CMAKE_SHARED_LINKER_FLAGS}")
     set(CMAKE_STATIC_LINKER_FLAGS_RELEASE "${CMAKE_STATIC_LINKER_FLAGS}")
 endif()
+
 ################################################################################
 # Nuget packages function stub.
 ################################################################################
@@ -75,16 +75,23 @@ include(FetchContent)
 set(ABSL_ENABLE_INSTALL ON)
 set(ABSL_PROPAGATE_CXX_STD ON)
 set(BUILD_SHARED_LIBS OFF)
-SET(ABSL_BUILD_TESTING OFF)
+set(ABSL_BUILD_TESTING OFF)
+set(gRPC_BUILD_GRPC_CPP_PLUGIN ON)
+set(gRPC_BUILD_GRPC_CSHARP_PLUGIN OFF)
+set(gRPC_BUILD_GRPC_NODE_PLUGIN OFF)
+set(gRPC_BUILD_GRPC_OBJECTIVE_C_PLUGIN OFF)
+set(gRPC_BUILD_GRPC_PHP_PLUGIN OFF)
+set(gRPC_BUILD_GRPC_PYTHON_PLUGIN OFF)
+set(gRPC_BUILD_GRPC_RUBY_PLUGIN OFF)
 set(CMAKE_USE_WIN32_THREADS_INIT 1)
 FetchContent_Declare(
         grpc
         GIT_REPOSITORY https://github.com/grpc/grpc.git
-        GIT_TAG        v1.62.0
+        GIT_TAG v1.64.0
         SYSTEM
 )
 set(FETCHCONTENT_QUIET OFF)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /EHsc")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /EHsc -DNDEBUG")
 
 FetchContent_MakeAvailable(grpc)
 FetchContent_GetProperties(grpc SOURCE_DIR grpc_SOURCE_DIR)
@@ -109,4 +116,3 @@ set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 # Sub-projects
 ################################################################################
 add_subdirectory(src/plugin)
-

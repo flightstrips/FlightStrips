@@ -12,4 +12,8 @@ public class OnlinePosition
     public required string PrimaryFrequency { get; set; }
 
     public Sector Sector { get; set; } = Sector.NONE;
+
+    public string? DepartureRunway { get; set; }
+
+    public string? ArrivalRunway { get; set; }
 }

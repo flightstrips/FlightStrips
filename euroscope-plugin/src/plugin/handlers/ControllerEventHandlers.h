@@ -5,6 +5,7 @@
 namespace FlightStrips::handlers {
     class ControllerEventHandlers {
     public:
+        void Clear();
         void ControllerPositionUpdateEvent(EuroScopePlugIn::CController controller) const;
         void ControllerDisconnectEvent(EuroScopePlugIn::CController controller) const;
 

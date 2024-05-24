@@ -11,8 +11,10 @@
 
 #include "handlers/FlightPlanEventHandlers.h"
 #include "handlers/RadarTargetEventHandlers.h"
-#include "network/NetworkService.h"
 #include "handlers/ControllerEventHandlers.h"
+#include "handlers/TimedEventHandlers.h"
+#include "handlers/AirportRunwaysChangedEventHandlers.h"
+#include "runway/ActiveRunway.h"
 
 // TODO move
 #define CLEARED "CLEA"
@@ -25,7 +27,8 @@ namespace FlightStrips {
                 const std::shared_ptr<handlers::FlightPlanEventHandlers> &mFlightPlanEventHandlerCollection,
                 const std::shared_ptr<handlers::RadarTargetEventHandlers> &mRadarTargetEventHandlers,
                 const std::shared_ptr<handlers::ControllerEventHandlers> &mControllerEventHandlers,
-                const std::shared_ptr<network::NetworkService> &mNetworkService);
+                const std::shared_ptr<handlers::TimedEventHandlers> &mTimedEventHandlers,
+                const std::shared_ptr<handlers::AirportRunwaysChangedEventHandlers> &mAirportRunwaysChangedEventHandlers);
 
         ~FlightStripsPlugin() override;
 
@@ -51,20 +54,20 @@ namespace FlightStrips {
 
         void OnTimer(int Counter) override;
 
-        void SetClearenceFlag(std::string callsign, bool cleared);
+        void SetClearenceFlag(const std::string &callsign, bool cleared);
 
         void UpdateViaScratchPad(const char* callsign, const char* message) const;
+        std::vector<runway::ActiveRunway> GetActiveRunways(const char* airport) const;
 
+        static bool ControllerIsMe(EuroScopePlugIn::CController controller, EuroScopePlugIn::CController me);
+
+        static bool IsRelevant(EuroScopePlugIn::CFlightPlan flightPlan);
     private:
         const std::shared_ptr<handlers::FlightPlanEventHandlers> m_flightPlanEventHandlerCollection;
         const std::shared_ptr<handlers::RadarTargetEventHandlers> m_radarTargetEventHandlers;
         const std::shared_ptr<handlers::ControllerEventHandlers> m_controllerEventHandlerCollection;
-        const std::shared_ptr<network::NetworkService> m_networkService;
+        const std::shared_ptr<handlers::TimedEventHandlers> m_timedEventHandlers;
+        const std::shared_ptr<handlers::AirportRunwaysChangedEventHandlers> m_airportRunwayChangedEventHandlers;
 
-
-        int connectionType = 0;
-
-        static bool IsRelevant(EuroScopePlugIn::CFlightPlan flightPlan);
-        static bool IsRelevant(EuroScopePlugIn::CController controller);
     };
 }

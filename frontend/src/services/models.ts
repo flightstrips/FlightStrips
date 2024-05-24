@@ -30,22 +30,50 @@ export interface CoordinationUpdate {
   state: CoordinationState
 }
 
-export enum StripStateEvent {
-  Created = 'Created',
-  Updated = 'Updated',
-  Deleted = 'Deleted',
+export enum CommunicationType {
+  unassigned = 'Unassigned',
+  voice = 'Voice',
+  receive = 'Receive',
+  text = 'Text',
+}
+
+export enum WeightCategory {
+  unknown = 'Unknown',
+  light = 'Light',
+  medium = 'Medium',
+  heavy = 'Heavy',
+  superHeavy = 'SuperHeavy',
 }
 
 export interface StripUpdate {
   callsign: string
-  origin: string | null
-  destination: string | null
+  origin: string
+  destination: string
+  alternate: string
+  route: string
+  remarks: string
+  assignedSquawk: string
+  squawk: string
+  sid: string | null
+  clearedAltitude: number | null
+  finalAltitude: number
+  heading: number | null
+  aircraftCategory: WeightCategory
+  aircraftType: string
+  runway: string
+  capabilities: string
+  communicationType: CommunicationType
+  stand: string
+  tobt: string
+  tsat: string | null
   sequence: number | null
-  state: StripStateEvent
   cleared: boolean
-  positionFrequency: string | null
+  controller: string | null
   bay: string
-  eventState: StripStateEvent
+}
+
+export interface StripDisconnectUpdate {
+  callsign: string
 }
 
 export interface SubscribeRequest {
@@ -57,7 +85,12 @@ export interface UnsubscribeRequest extends SubscribeRequest {
   unsubscribeFromAirport: boolean
 }
 
-export interface SectorUpadet {
+export interface SectorUpdate {
   frequency: string
   sectors: string[]
+}
+
+export interface RunwayConfiguration {
+  departure: string | null
+  arrival: string | null
 }

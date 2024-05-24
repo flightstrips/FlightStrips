@@ -6,7 +6,7 @@ import {
   useDisclosure,
 } from '@nextui-org/react'
 
-export function CFLSelector(props: { cfl: string }) {
+export function CFLSelector(props: { cfl: number }) {
   const { isOpen, onOpen, onOpenChange } = useDisclosure()
   const CFLs = ['1500', '2500', '3000', '4000', '5000', 'FL070']
   return (

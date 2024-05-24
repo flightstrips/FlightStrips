@@ -4,7 +4,7 @@ namespace FlightStrips::flightplan {
 
     void FlightPlanService::RadarTargetPositionEvent(EuroScopePlugIn::CRadarTarget radarTarget) {
         FlightPlan plan;
-        plan.squawk = std::stoi(radarTarget.GetPosition().GetSquawk());
+        plan.squawk = radarTarget.GetPosition().GetSquawk();
 
         auto entry = this->m_flightPlans.insert({radarTarget.GetCallsign(), plan});
 

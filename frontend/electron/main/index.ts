@@ -1,9 +1,6 @@
 import { app, BrowserWindow, ipcMain, Menu, shell } from 'electron'
-import { createEuroScopeSocket } from '../network/euroscope'
 import { join, dirname } from 'node:path'
 import { IpcChannelInterface } from '../IPC/IpcChannelInterface'
-import { EuroScopeSocket } from '../network/euroscope/EuroScopeSocket'
-import EventHandler from '../network/euroscope/EventHandler'
 import { fileURLToPath } from 'node:url'
 
 const __filename = fileURLToPath(import.meta.url)
@@ -36,8 +33,6 @@ const indexHtml = join(process.env.DIST, 'index.html')
 
 class Main {
   private mainWindow: BrowserWindow | null = null
-  private euroScopeScoket: EuroScopeSocket | null = null
-  private eventHandler: EventHandler | null = null
 
   public init(ipcChannels: IpcChannelInterface[]) {
     app.on('ready', this.createWindows)
@@ -127,18 +122,9 @@ class Main {
       },
     ])
     Menu.setApplicationMenu(menu)
-
-    const result = createEuroScopeSocket(this.mainWindow.webContents)
-    this.eventHandler = result.eventHandler
-    this.eventHandler.setupHandlers()
-    this.euroScopeScoket = result.socket
-    this.euroScopeScoket.start()
   }
 
   private onWindowAllClosed() {
-    this.euroScopeScoket?.stop()
-    this.mainWindow = null
-    this.eventHandler = null
     app.quit()
   }
 

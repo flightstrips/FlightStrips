@@ -79,6 +79,20 @@ namespace Vatsim.Scandinavia.FlightStrips.Persistence.EfCore.Migrations
                         .HasMaxLength(4)
                         .HasColumnType("character varying(4)");
 
+                    b.Property<string>("ArrivalRunway")
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)");
+
+                    b.Property<bool>("ConnectedWithUi")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("DepartureRunway")
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)");
+
+                    b.Property<bool>("FromPlugin")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("PositionFrequency")
                         .IsRequired()
                         .HasMaxLength(7)
@@ -142,19 +156,62 @@ namespace Vatsim.Scandinavia.FlightStrips.Persistence.EfCore.Migrations
                         .HasMaxLength(4)
                         .HasColumnType("character varying(4)");
 
+                    b.Property<string>("AOBT")
+                        .HasColumnType("text");
+
+                    b.Property<string>("ASAT")
+                        .HasColumnType("text");
+
+                    b.Property<int>("AircraftCategory")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("AircraftType")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Alternate")
+                        .IsRequired()
+                        .HasMaxLength(4)
+                        .HasColumnType("character varying(4)");
+
+                    b.Property<string>("AssignedSquawk")
+                        .IsRequired()
+                        .HasColumnType("text");
+
                     b.Property<string>("BayName")
                         .IsRequired()
                         .HasMaxLength(32)
                         .HasColumnType("character varying(32)");
 
+                    b.Property<string>("CTOT")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Capabilities")
+                        .IsRequired()
+                        .HasColumnType("text");
+
                     b.Property<bool>("Cleared")
                         .HasColumnType("boolean");
 
+                    b.Property<int>("ClearedAltitude")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("CommunicationType")
+                        .HasColumnType("integer");
+
                     b.Property<string>("Destination")
+                        .IsRequired()
                         .HasMaxLength(4)
                         .HasColumnType("character varying(4)");
 
+                    b.Property<int>("FinalAltitude")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("Heading")
+                        .HasColumnType("integer");
+
                     b.Property<string>("Origin")
+                        .IsRequired()
                         .HasMaxLength(4)
                         .HasColumnType("character varying(4)");
 
@@ -162,11 +219,45 @@ namespace Vatsim.Scandinavia.FlightStrips.Persistence.EfCore.Migrations
                         .HasMaxLength(7)
                         .HasColumnType("character varying(7)");
 
+                    b.Property<string>("Remarks")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Route")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Runway")
+                        .IsRequired()
+                        .HasColumnType("text");
+
                     b.Property<int?>("Sequence")
                         .HasColumnType("integer");
 
+                    b.Property<string>("Sid")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Squawk")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Stand")
+                        .IsRequired()
+                        .HasColumnType("text");
+
                     b.Property<int>("State")
                         .HasColumnType("integer");
+
+                    b.Property<string>("TOBT")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("TSAT")
+                        .HasColumnType("text");
+
+                    b.Property<string>("TTOT")
+                        .HasColumnType("text");
 
                     b.Property<uint>("Version")
                         .IsConcurrencyToken()

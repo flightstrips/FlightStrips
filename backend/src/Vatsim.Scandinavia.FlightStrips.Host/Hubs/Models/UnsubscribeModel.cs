@@ -11,7 +11,7 @@ public class UnsubscribeModel
     public required string Session { get; set; }
 
     [Required]
-    public required string Frequency { get; set; }
+    public required string Callsign { get; set; }
 
     public bool UnsubscribeFromAirport { get; set; }
 }

@@ -4,6 +4,10 @@ namespace FlightStrips::handlers {
         this->m_handlers.push_back(handler);
     }
 
+    void RadarTargetEventHandlers::Clear() {
+        m_handlers.clear();
+    }
+
     void RadarTargetEventHandlers::RadarTargetPositionEvent(EuroScopePlugIn::CRadarTarget radarTarget) const {
         for (auto it = this->m_handlers.cbegin(); it != this->m_handlers.cend(); ++it) {
             (*it)->RadarTargetPositionEvent(radarTarget);

@@ -1,9 +1,14 @@
 #pragma once
 
 #include "handlers/FlightPlanEventHandler.h"
-#include "Server.h"
 #include "runway/ActiveRunway.h"
 #include "handlers/ControllerEventHandler.h"
+#include "handlers/TimedEventHandler.h"
+#include "handlers/RadarTargetEventHandler.h"
+#include "FlightStripsClient.h"
+
+#include <unordered_map>
+#include <plugin/FlightStripsPlugin.h>
 
 namespace FlightStrips::stands {
     class StandService;
@@ -11,10 +16,15 @@ namespace FlightStrips::stands {
 
 namespace FlightStrips::network {
 
-class NetworkService : public handlers::FlightPlanEventHandler, public handlers::ControllerEventHandler {
+    class NetworkService
+            : public handlers::FlightPlanEventHandler,
+              public handlers::ControllerEventHandler,
+              public handlers::TimedEventHandler,
+              public handlers::RadarTargetEventHandler {
 
     public:
-        NetworkService(const std::shared_ptr<Server> &server, const std::shared_ptr<stands::StandService> &standService);
+        explicit NetworkService(const std::shared_ptr<FlightStripsPlugin>& plugin, const std::shared_ptr<grpc::Channel> &channel);
+        ~NetworkService() override;
 
         void FlightPlanEvent(EuroScopePlugIn::CFlightPlan flightPlan) override;
 
@@ -22,20 +32,56 @@ class NetworkService : public handlers::FlightPlanEventHandler, public handlers:
 
         void FlightPlanDisconnectEvent(EuroScopePlugIn::CFlightPlan flightPlan) override;
 
-        void SquawkUpdateEvent(std::string callsign, int squawk) override;
+        void SquawkUpdateEvent(std::string callsign, std::string squawk) override;
 
         void ControllerPositionUpdateEvent(EuroScopePlugIn::CController controller) override;
 
         void ControllerDisconnectEvent(EuroScopePlugIn::CController controller) override;
 
-        void SendActiveRunways(std::vector<runway::ActiveRunway> &runways) const;
+        void OnTimer(int time) override;
 
-        void ConnectionTypeUpdate(int type, EuroScopePlugIn::CController controller) const;
+        void RadarTargetPositionEvent(EuroScopePlugIn::CRadarTarget radarTarget) override;
 
 
     private:
-        std::shared_ptr<Server> m_server;
-        std::shared_ptr<stands::StandService> m_standService;
+        static Capabilities GetCapabilities(const EuroScopePlugIn::CFlightPlan& flightPlan);
+        void OnNetworkMessage(const ServerStreamMessage& message);
+        void HandleStripUpdate(const StripResponse& response) const;
+
+        std::shared_ptr<FlightStripsPlugin> plugin;
+        enum State {
+            NOT_SENT = 0,
+            ONLINE = 1,
+            OFFLINE = 2,
+            OUT_OF_RANGE = 3
+        };
+
+        const int RANGE = 50;
+        std::string airport = "EKCH";
+        const int DELAY_IN_SECONDS = 10;
+        const double DEFAULT_FREQUENCY = 199.980;
+
+        bool isMaster = false;
+        bool initialized = false;
+        double frequency = 0;
+        std::string position;
+
+
+        int connectionStatus = EuroScopePlugIn::CONNECTION_TYPE_NO;
+        int onlineTime = 0;
+
+        //std::unordered_map<std::string, State> strips;
+        std::unique_ptr<Reader> reader;
+        FlightStripsClient client;
+
+        [[nodiscard]] bool ShouldSend() const;
+        [[nodiscard]] static bool Online(int connection);
+
+        static CommunicationType GetCommunicationType(const EuroScopePlugIn::CFlightPlan &flightPlan);
+        static CommunicationType GetCommunicationType(char type);
+        static GroundState GetGroundState(const EuroScopePlugIn::CFlightPlan &flightPlan);
+        static WeightCategory GetAircraftWtc(const EuroScopePlugIn::CFlightPlan &flightPlan);
+        static StripFullData ConvertToFullData(const EuroScopePlugIn::CFlightPlan &flightPlan);
 
     };
 }

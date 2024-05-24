@@ -6,7 +6,7 @@
 
 #include <memory>
 #include <functional>
-#include "handlers/RadarTargetEventHandlers.h"
+#include <grpcpp/channel.h>
 
 namespace FlightStrips {
     class FlightStripsPlugin;
@@ -17,12 +17,14 @@ namespace FlightStrips {
         class StandService;
     }
     namespace network {
-        class Server;
         class NetworkService;
     }
     namespace handlers {
         class FlightPlanEventHandlers;
         class ControllerEventHandlers;
+        class TimedEventHandlers;
+        class AirportRunwaysChangedEventHandlers;
+        class RadarTargetEventHandlers;
     }
     namespace flightplan {
         class FlightPlanService;
@@ -52,9 +54,10 @@ namespace FlightStrips {
         std::shared_ptr<handlers::ControllerEventHandlers> controllerEventHandlers;
         std::shared_ptr<handlers::FlightPlanEventHandlers> flightPlanEventHandlers;
         std::shared_ptr<handlers::RadarTargetEventHandlers> radarTargetEventHandlers;
+        std::shared_ptr<handlers::TimedEventHandlers> timedEventHandlers;
+        std::shared_ptr<handlers::AirportRunwaysChangedEventHandlers> airportRunwaysChangedEventHandlers;
 
         // network
-        std::shared_ptr<network::Server> server;
         std::shared_ptr<network::NetworkService> networkService;
 
         // flight plan
@@ -62,6 +65,7 @@ namespace FlightStrips {
 
         // Stands
         std::shared_ptr<stands::StandService> standService;
+        std::shared_ptr<grpc::Channel> channel;
     };
 
 }

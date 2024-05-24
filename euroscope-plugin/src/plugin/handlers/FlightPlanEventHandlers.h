@@ -7,10 +7,11 @@
 namespace FlightStrips::handlers {
     class FlightPlanEventHandlers {
     public:
+        void Clear();
         void FlightPlanEvent(EuroScopePlugIn::CFlightPlan flightPlan) const;
         void ControllerFlightPlanDataEvent(EuroScopePlugIn::CFlightPlan flightPlan, int dataType) const;
         void FlightPlanDisconnectEvent(EuroScopePlugIn::CFlightPlan flightPlan) const;
-        void SquawkUpdateEvent(std::string callsign, int squawk) const;
+        void SquawkUpdateEvent(std::string callsign, std::string squawk) const;
 
         void RegisterHandler(const std::shared_ptr<FlightPlanEventHandler>& handler);
 

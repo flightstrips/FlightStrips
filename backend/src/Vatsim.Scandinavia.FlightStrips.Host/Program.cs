@@ -7,11 +7,23 @@ using Vatsim.Scandinavia.FlightStrips.Abstractions;
 using Vatsim.Scandinavia.FlightStrips.Extensions;
 using Vatsim.Scandinavia.FlightStrips.Host;
 using Vatsim.Scandinavia.FlightStrips.Host.Hubs;
+using Vatsim.Scandinavia.FlightStrips.Host.Mappers;
 using Vatsim.Scandinavia.FlightStrips.Persistence.EfCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
+/*
+builder.WebHost.ConfigureKestrel(options =>
+{
+    options.Listen(IPAddress.Any, 50051, listenOptions =>
+    {
+        listenOptions.Protocols = HttpProtocols.Http2;
+    });
+});
+*/
+
+
 builder.Services.AddHostedService<CleanupService>();
 
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
@@ -36,6 +48,10 @@ builder.Services.AddAuthorization();
 builder.Services.AddFlightStripServices();
 builder.Services.AddEfCore();
 builder.Services.AddScoped<IEventService, EventService>();
+builder.Services.AddTransient<EuroScopeHandler>(); // will kinda turn into a singleton due to being alive as long as the connection from ES is alive.
+builder.Services.AddSingleton<IGRpcMapper, GRpcMapper>();
+builder.Services.AddSingleton<IEuroScopeClients, EuroScopeClients>();
+builder.Services.AddSingleton<IEuroScopeService, EuroScopeService>();
 builder.Services.AddSignalR()
     .AddJsonProtocol(options => options.PayloadSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 builder.Services.AddControllers();
@@ -48,6 +64,8 @@ var connectionString = builder.Configuration.GetConnectionString("Database");
 
 builder.Services.AddDbContext<FlightStripsDbContext>(dbBuilder => dbBuilder.UseNpgsql(connectionString));
 builder.Services.AddSingleton<IControllerService, ControllerService>();
+
+builder.Services.AddGrpc();
 
 var app = builder.Build();
 
@@ -63,7 +81,7 @@ app.UseSwaggerUI();
 
 app.UseCors();
 app.UseAuthorization();
-
+app.MapGrpcService<FlightStripsEndpoint>();
 app.MapHub<EventHub>("/hubs/events", options =>
 {
     options.Transports = HttpTransportType.WebSockets;

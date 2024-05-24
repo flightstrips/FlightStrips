@@ -1,14 +1,9 @@
-import { makeAutoObservable } from 'mobx'
+import { makeAutoObservable, runInAction } from 'mobx'
 import { RootStore } from './RootStore'
-import { FlightPlanUpdate } from '../../shared/FlightPlanUpdate'
-import {
-  CoordinationUpdate,
-  StripStateEvent,
-  StripUpdate,
-} from '../services/models.ts'
+import { CoordinationUpdate, StripUpdate } from '../services/models.ts'
 import { signalRService } from '../services/SignalRService.ts'
 import { FlightStrip } from './FlightStrip.ts'
-import { CommunicationType } from '../../shared/CommunicationType.ts'
+import client from '../services/api/StripsApi.ts'
 
 export class FlightStripStore {
   flightStrips: FlightStrip[] = []
@@ -26,12 +21,21 @@ export class FlightStripStore {
     signalRService.on('ReceiveStripUpdate', (update) =>
       this.handleStripUpdate(update),
     )
-    api.onFlightPlanUpdated((plan) => this.updateFlightPlanData(plan))
-    api.onSetCleared((callsign, cleared) => this.setCleared(callsign, cleared))
-    api.onSetSquawk((callsign, squawk) => this.setSquawk(callsign, squawk))
-    api.onSetCommunicationType((callsign, communicationType) =>
-      this.handleCommunicationTypeUpdate(callsign, communicationType),
+  }
+
+  public async loadStrips() {
+    const strips = await client.airport.listStrips(
+      'EKCH',
+      this.rootStore.stateStore.session,
     )
+
+    runInAction(() => {
+      this.flightStrips = strips.data.map((s) => {
+        const strip = new FlightStrip(this, s.callsign)
+        strip.setData(s)
+        return strip
+      })
+    })
   }
 
   public reset() {
@@ -72,55 +76,15 @@ export class FlightStripStore {
       (strip) => strip.callsign === update.callsign,
     )
 
-    if (update.eventState == StripStateEvent.Created) {
-      // TODO create strip if not exist
-    }
-
     if (!strip) {
-      console.log(`Did not find strip ${update.callsign}!`)
+      // new strip
+      const strip = new FlightStrip(this, update.callsign)
+      strip.handleBackendUpdate(update)
+      this.flightStrips.push(strip)
       return
     }
 
-    console.log(`Found strip ${update.callsign}: ${JSON.stringify(update)}!`)
-
-    switch (update.eventState) {
-      case StripStateEvent.Created:
-      case StripStateEvent.Updated:
-        strip.handleBackendUpdate(update)
-        break
-      case StripStateEvent.Deleted:
-        this.flightStrips.splice(this.flightStrips.indexOf(strip), 1)
-        break
-    }
-  }
-
-  public async updateFlightPlanData(data: FlightPlanUpdate) {
-    let flightstrip = this.flightStrips.find(
-      (strip) => strip.callsign == data.callsign,
-    )
-
-    if (!flightstrip) {
-      flightstrip = new FlightStrip(this, data.callsign)
-      this.flightStrips.push(flightstrip)
-    }
-
-    flightstrip.handleUpdateFromEuroScope(data)
-  }
-
-  public handleCommunicationTypeUpdate(
-    callsign: string,
-    communicationType: CommunicationType,
-  ) {
-    let flightstrip = this.flightStrips.find(
-      (strip) => strip.callsign == callsign,
-    )
-
-    if (!flightstrip) {
-      flightstrip = new FlightStrip(this, callsign)
-      this.flightStrips.push(flightstrip)
-    }
-
-    flightstrip.handleCommunicationTypeUpdate(communicationType)
+    strip.handleBackendUpdate(update)
   }
 
   public inBay(bay: string): FlightStrip[] {

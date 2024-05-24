@@ -1,9 +1,8 @@
-import { makeAutoObservable } from 'mobx'
+import { makeAutoObservable, runInAction } from 'mobx'
 import { RootStore } from './RootStore'
 import { Controller } from './Controller'
-import { ControllerUpdate } from '../../shared/ControllerUpdate'
-import { ControllerPosition } from '../data/models'
 import { signalRService } from '../services/SignalRService'
+import client from '../services/api/StripsApi'
 
 export class ControllerStore {
   rootStore: RootStore
@@ -16,13 +15,32 @@ export class ControllerStore {
       rootStore: false,
     })
 
-    api.onControllerUpdate((update) => this.handleControllerUpdate(update))
-    api.onControllerDisconnect((update) =>
-      this.handleControllerDisconnect(update),
-    )
     signalRService.on('ReceiveControllerSectorsUpdate', (update) =>
       console.log(update),
     )
+  }
+
+  public async getControllers(session: string) {
+    const response = await client.airport.listOnlinePositions('EKCH', session, {
+      connected: true,
+    })
+
+    if (response.error) {
+      console.log('Got error from server: ', response.error.detail)
+      return
+    }
+
+    runInAction(() => {
+      this.controllers = response.data
+        .filter((r) => r.frequency !== undefined)
+        .map((r) => {
+          const controller = new Controller(r.position ?? 'Unknown controller')
+          if (r.frequency) {
+            controller.frequency = r.frequency
+          }
+          return controller
+        })
+    })
   }
 
   public reest() {
@@ -35,39 +53,5 @@ export class ControllerStore {
     } else {
       this.me.callsign = callsign
     }
-  }
-
-  public handleControllerUpdate(update: ControllerUpdate) {
-    if (this.me?.callsign === update.callsign) {
-      if (update.frequency !== this.me.frequency) {
-        this.rootStore.stateStore.setController(
-          update.frequency as ControllerPosition,
-          this.me.callsign,
-        )
-      }
-
-      this.me.frequency = update.frequency
-      this.me.position = update.postion
-    }
-
-    let controller = this.controllers.find((c) => c.callsign == update.callsign)
-
-    if (!controller) {
-      controller = new Controller(update.callsign)
-      this.controllers.push(controller)
-    }
-
-    controller.frequency = update.frequency
-    controller.position = update.postion
-  }
-
-  public handleControllerDisconnect(disconnect: ControllerUpdate) {
-    const controller = this.controllers.find(
-      (c) => c.callsign == disconnect.callsign,
-    )
-
-    if (!controller) return
-
-    this.controllers.splice(this.controllers.indexOf(controller), 1)
   }
 }

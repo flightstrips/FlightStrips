@@ -1,6 +1,7 @@
 #include "FlightPlanBootstrapper.h"
 
 #include "FlightPlanService.h"
+#include "handlers/RadarTargetEventHandlers.h"
 
 namespace FlightStrips::flightplan {
     void FlightPlanBootstrapper::Bootstrap(Container &container) {

@@ -9,4 +9,6 @@ public class SubscribeAirportModel
 
     [Required]
     public required string Session { get; set; }
+
+    public bool IncludePositionUpdates { get; set; }
 }

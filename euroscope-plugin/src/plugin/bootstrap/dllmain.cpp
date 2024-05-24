@@ -7,7 +7,7 @@ FlightStrips::InitializePlugin* plugin = nullptr;
 
 HINSTANCE dllInstance;
 
-[[maybe_unused]] auto DllMain(HINSTANCE hinstance, [[maybe_unused]] DWORD dwReason, [[maybe_unused]] LPVOID lpvReserved) -> BOOL
+[[maybe_unused]] auto __stdcall DllMain(HINSTANCE hinstance, [[maybe_unused]] DWORD dwReason, [[maybe_unused]] LPVOID lpvReserved) -> BOOL
 {
     dllInstance = hinstance;
     return TRUE;
@@ -27,4 +27,9 @@ EuroScopePlugInExit(void)
 {
     plugin->EuroScopeCleanup();
     delete plugin;
+
+    grpc_shutdown();
+    while (grpc_is_initialized()) {
+        Sleep(10);
+    }
 }

@@ -5,6 +5,10 @@ namespace FlightStrips::handlers {
         this->m_handlers.push_back(handler);
     }
 
+    void ControllerEventHandlers::Clear() {
+        m_handlers.clear();
+    }
+
     void ControllerEventHandlers::ControllerPositionUpdateEvent(EuroScopePlugIn::CController controller) const {
         for (auto it = this->m_handlers.cbegin(); it != this->m_handlers.cend(); ++it) {
             (*it)->ControllerPositionUpdateEvent(controller);

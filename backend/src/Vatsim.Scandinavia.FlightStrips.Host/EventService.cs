@@ -2,11 +2,11 @@
 using Vatsim.Scandinavia.FlightStrips.Abstractions;
 using Vatsim.Scandinavia.FlightStrips.Abstractions.Coordinations;
 using Vatsim.Scandinavia.FlightStrips.Abstractions.OnlinePositions;
+using Vatsim.Scandinavia.FlightStrips.Abstractions.Runways;
 using Vatsim.Scandinavia.FlightStrips.Abstractions.Strips;
 using Vatsim.Scandinavia.FlightStrips.Host.Hubs;
 using Vatsim.Scandinavia.FlightStrips.Host.Hubs.Models;
 using CoordinationState = Vatsim.Scandinavia.FlightStrips.Host.Hubs.Models.CoordinationState;
-using StripState = Vatsim.Scandinavia.FlightStrips.Host.Hubs.Models.StripState;
 
 namespace Vatsim.Scandinavia.FlightStrips.Host;
 
@@ -30,28 +30,49 @@ public class EventService(
         return hubContext.Clients.Group(ToAirportAndSessionGroup(position.Id.Airport, position.Id.Session)).ReceiveControllerUpdate(model);
     }
 
-    public Task StripCreatedAsync(Strip strip) => StripUpdateAsync(strip, StripState.Created);
-    public Task StripUpdatedAsync(Strip strip) => StripUpdateAsync(strip, StripState.Updated);
-    public Task StripDeletedAsync(Strip strip) => StripUpdateAsync(strip, StripState.Deleted);
+    public Task StripDeletedAsync(Strip strip)
+    {
+        var model = new StripDisconnectedModel {Callsign = strip.Id.Callsign};
 
-    private Task StripUpdateAsync(Strip strip, StripState status)
+        var group = ToAirportAndSessionGroup(strip.Id);
+
+        return hubContext.Clients.Group(group).ReceiveStripDeleted(model);
+    }
+
+    public Task StripUpdatedAsync(Strip strip)
     {
 
         var model = new StripUpdateModel
         {
             Callsign = strip.Id.Callsign,
-            State = strip.State,
-            EventState = status,
             Bay = strip.Bay,
+            Controller = strip.PositionFrequency,
             Cleared = strip.Cleared,
             Destination = strip.Destination,
             Origin = strip.Origin,
             Sequence = strip.Sequence,
-            PositionFrequency = strip.PositionFrequency
+            Alternate = strip.Alternate,
+            Capabilities = strip.Capabilities,
+            Remarks = strip.Remarks,
+            Route = strip.Route,
+            Runway = strip.Runway,
+            Squawk = strip.Squawk,
+            Stand = strip.Stand,
+            Tobt = strip.TOBT,
+            AircraftCategory = strip.AircraftCategory,
+            AircraftType = strip.AircraftType,
+            AssignedSquawk = strip.AssignedSquawk,
+            CommunicationType = strip.CommunicationType,
+            Heading = strip.Heading,
+            Sid = strip.Sid,
+            Tsat = strip.TSAT,
+            ClearedAltitude = strip.ClearedAltitude,
+            FinalAltitude = strip.FinalAltitude
+
         };
         var group = ToAirportAndSessionGroup(strip.Id);
 
-        logger.SendingStripUpdate(strip.Id.Callsign, strip.Id.Airport, strip.Id.Session, status, group);
+        logger.SendingStripUpdate(strip.Id.Callsign, strip.Id.Airport, strip.Id.Session, group);
 
         return hubContext.Clients.Group(group).ReceiveStripUpdate(model);
     }
@@ -65,6 +86,29 @@ public class EventService(
 
         var group = ToAirportAndSessionGroup(id);
         return hubContext.Clients.Group(group).ReceiveControllerSectorsUpdate(model);
+    }
+
+    public Task SendRunwayConfigurationUpdate(SessionId id, RunwayConfig runwayConfig)
+    {
+        var model = new RunwayConfigurationModel {Arrival = runwayConfig.Arrival, Departure = runwayConfig.Departure};
+
+        var group = ToAirportAndSessionGroup(id);
+        return hubContext.Clients.Group(group).ReceiveRunwayConfigurationUpdate(model);
+    }
+
+    public Task SendPositionUpdate(StripId id, Position position)
+    {
+        var model = new StripPositionUpdate()
+        {
+            Callsign = id.Callsign,
+            Altitude = position.Height,
+            Latitude = position.Location.Latitude,
+            Longitude = position.Location.Longitude
+        };
+
+        var group = $"{ToAirportAndSessionGroup(id)}:position";
+
+        return hubContext.Clients.Group(group).ReceiveStripPositionUpdate(model);
     }
 
     public Task AtisUpdateAsync() => throw new NotImplementedException();

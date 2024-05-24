@@ -23,7 +23,11 @@ public class EfOnlinePositionRepository : IOnlinePositionRepository
             Session = request.Id.Session,
             PositionName = request.Id.Position,
             PositionFrequency = request.Frequency,
-            Sector = Sector.NONE
+            Sector = Sector.NONE,
+            FromPlugin = request.Plugin,
+            ConnectedWithUi = request.Ui,
+            ArrivalRunway = request.ArrivalRunway,
+            DepartureRunway = request.DepartureRunway
         };
 
         _context.OnlinePositions.Add(entity);
@@ -48,7 +52,9 @@ public class EfOnlinePositionRepository : IOnlinePositionRepository
             {
                 Id = new OnlinePositionId(entity.Airport, entity.Session, entity.PositionName),
                 PrimaryFrequency = entity.PositionFrequency,
-                Sector = entity.Sector
+                Sector = entity.Sector,
+                ArrivalRunway = entity.ArrivalRunway,
+                DepartureRunway = entity.DepartureRunway
             };
     }
 
@@ -65,10 +71,17 @@ public class EfOnlinePositionRepository : IOnlinePositionRepository
             .ExecuteDeleteAsync();
     }
 
-    public Task<OnlinePosition[]> ListAsync(string airport, string session)
+    public Task<OnlinePosition[]> ListAsync(string airport, string session, bool onlyEuroscopeConnected = false)
     {
-        return _context.OnlinePositions
-            .Where(x => x.Airport == airport && x.Session == session)
+        var controllers = _context.OnlinePositions
+            .Where(x => x.Airport == airport && x.Session == session);
+
+        if (onlyEuroscopeConnected)
+        {
+            controllers = controllers.Where(x => x.FromPlugin);
+        }
+
+        return controllers
             .Select(x => new OnlinePosition
             {
                 Id = new OnlinePositionId(x.Airport, x.Session, x.PositionName),
@@ -92,5 +105,19 @@ public class EfOnlinePositionRepository : IOnlinePositionRepository
         }
 
         await _context.SaveChangesAsync();
+    }
+
+    public Task SetRunwaysAsync(OnlinePositionId id, string? departure, string? arrival)
+    {
+        return _context.OnlinePositions.Where(x => x.Airport == id.Airport && x.Session == id.Session && x.PositionName == id.Position)
+            .ExecuteUpdateAsync(x =>
+                x.SetProperty(o => o.DepartureRunway, departure).SetProperty(o => o.ArrivalRunway, arrival));
+    }
+
+    public Task SetUiOnlineAsync(OnlinePositionId id, bool online)
+    {
+        return _context.OnlinePositions.Where(x =>
+                x.Airport == id.Airport && x.Session == id.Session && x.PositionName == id.Position)
+            .ExecuteUpdateAsync(x => x.SetProperty(o => o.ConnectedWithUi, online));
     }
 }

@@ -12,7 +12,7 @@ using Vatsim.Scandinavia.FlightStrips.Persistence.EfCore;
 namespace Vatsim.Scandinavia.FlightStrips.Persistence.EfCore.Migrations
 {
     [DbContext(typeof(FlightStripsDbContext))]
-    [Migration("20240511215759_Initial")]
+    [Migration("20240609151915_Initial")]
     partial class Initial
     {
         /// <inheritdoc />
@@ -212,6 +212,15 @@ namespace Vatsim.Scandinavia.FlightStrips.Persistence.EfCore.Migrations
 
                     b.Property<int?>("Heading")
                         .HasColumnType("integer");
+
+                    b.Property<int>("Height")
+                        .HasColumnType("integer");
+
+                    b.Property<double>("Latitude")
+                        .HasColumnType("double precision");
+
+                    b.Property<double>("Longitude")
+                        .HasColumnType("double precision");
 
                     b.Property<string>("Origin")
                         .IsRequired()

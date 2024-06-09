@@ -135,6 +135,12 @@ export interface StripResponseModel {
   communicationType?: CommunicationType
   stand?: string | null
   tobt?: string | null
+  /** @format int32 */
+  height?: number
+  /** @format double */
+  latitude?: number
+  /** @format double */
+  longitude?: number
   tsat?: string | null
   /** @format int32 */
   sequence?: number | null

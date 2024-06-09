@@ -56,9 +56,9 @@ public class StripService : IStripService
         var stand = await _standService.GetStandAsync(positionEvent.Id.Airport, positionEvent.Position.Location);
         if (stand is null) return;
 
-
         // TODO send to flow control system.
 
+        await _stripRepository.SetPositionAsync(positionEvent.Id, positionEvent.Position);
         await _eventService.SendPositionUpdate(positionEvent.Id, positionEvent.Position);
 
         if (await _stripRepository.SetStandAsync(positionEvent.Id, stand.Name))
@@ -136,6 +136,7 @@ public class StripService : IStripService
         strip.CommunicationType = stripEvent.CommunicationType;
         strip.FinalAltitude = stripEvent.FinalAltitude;
         strip.TOBT = stripEvent.TOBT;
+        strip.Position = stripEvent.Position;
     }
 
     public async Task<(bool created, Strip strip)> UpsertStripAsync(StripUpsertRequest upsertRequest)

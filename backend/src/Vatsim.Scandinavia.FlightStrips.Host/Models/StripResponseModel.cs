@@ -27,6 +27,13 @@ public class StripResponseModel
     public required string Stand { get; set; }
 
     public required string Tobt { get; set; }
+
+    public required int Height { get; set; }
+
+    public required double Latitude { get; set; }
+
+    public required double Longitude { get; set; }
+
     public string? Tsat { get; set; }
 
     public int? Sequence { get; set; }

@@ -65,6 +65,12 @@ public class StripEntity
     [MaxLength(32)]
     public required string BayName { get; set; }
 
+    public int Height { get; set; }
+
+    public double Latitude { get; set; }
+
+    public double Longitude { get; set; }
+
     [Timestamp]
     public uint Version { get; set; }
 

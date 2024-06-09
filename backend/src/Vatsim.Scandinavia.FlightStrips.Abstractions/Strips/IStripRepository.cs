@@ -28,4 +28,5 @@ public interface IStripRepository
     Task<bool> SetClearedAltitudeAsync(StripId id, int altitude);
     Task<bool> SetGroundStateAsync(StripId id, StripState state);
     Task<bool> SetCommunicationTypeAsync(StripId id, CommunicationType communicationType);
+    Task SetPositionAsync(StripId id, Position position);
 }

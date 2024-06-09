@@ -25,17 +25,22 @@ public class GRpcMapper : IGRpcMapper
             Capabilities = Map(data.Capabilities),
             Alternate = data.Alternate,
             AssignedSquawk = data.Squawk,
-            Heading = (int?) data.Heading,
+            Heading = (int?)data.Heading,
             Remarks = data.Remarks,
             Runway = data.Runway,
             Sid = data.Sid,
             State = Map(data.GroundState),
-            ClearedAltitude = (int) data.ClearedAlt,
-            FinalAltitude = (int) data.FinalAltitude,
+            ClearedAltitude = (int)data.ClearedAlt,
+            FinalAltitude = (int)data.FinalAltitude,
             AircraftCategory = Map(data.AircraftCategory),
             CommunicationType = Map(data.CommunicationType),
             TOBT = data.EstimatedDepartureTime,
             AircraftType = data.AircraftType,
+            Position = new Position
+            {
+                Height = (int)data.Position.Altitude,
+                Location = new Location(data.Position.Position_.Latitude, data.Position.Position_.Longitude)
+            }
         };
 
     }

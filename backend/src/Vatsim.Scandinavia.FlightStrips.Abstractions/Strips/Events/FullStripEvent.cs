@@ -40,4 +40,6 @@ public class FullStripEvent
 
     public string TOBT { get; set; } = string.Empty;
 
+    public Position Position { get; set; } = new();
+
 }

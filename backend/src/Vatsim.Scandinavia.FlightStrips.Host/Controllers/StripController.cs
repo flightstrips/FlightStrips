@@ -169,7 +169,10 @@ public class StripController : ControllerBase
             Sid = strip.Sid,
             Tsat = strip.TSAT,
             ClearedAltitude = strip.ClearedAltitude,
-            FinalAltitude = strip.FinalAltitude
+            FinalAltitude = strip.FinalAltitude,
+            Height = strip.Position.Height,
+            Latitude = strip.Position.Location.Latitude,
+            Longitude = strip.Position.Location.Longitude
         };
 
     }

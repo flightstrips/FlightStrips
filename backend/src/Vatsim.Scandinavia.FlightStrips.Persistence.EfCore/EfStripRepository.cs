@@ -256,6 +256,21 @@ public class EfStripRepository(FlightStripsDbContext context) : IStripRepository
             .ExecuteDeleteAsync();
     }
 
+    public async Task SetPositionAsync(StripId id, Position position)
+    {
+        var count = await context.Strips
+            .Where(x => x.Airport == id.Airport && x.Session == id.Session && x.Callsign == id.Callsign)
+            .ExecuteUpdateAsync(x =>
+                x.SetProperty(strip => strip.Height, position.Height)
+                    .SetProperty(s => s.Longitude, position.Location.Longitude)
+                    .SetProperty(s => s.Latitude, position.Location.Latitude));
+
+        if (count != 1)
+        {
+            throw new InvalidOperationException("Strip does not exist");
+        }
+    }
+
     private static Strip Map(StripEntity entity)
     {
         return new Strip
@@ -281,6 +296,8 @@ public class EfStripRepository(FlightStripsDbContext context) : IStripRepository
             ClearedAltitude = entity.ClearedAltitude,
             CommunicationType = entity.CommunicationType,
             FinalAltitude = entity.FinalAltitude,
+            Position =
+                new Position {Height = entity.Height, Location = new Location(entity.Latitude, entity.Longitude)},
             AOBT = entity.AOBT,
             ASAT = entity.ASAT,
             CTOT = entity.CTOT,

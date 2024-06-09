@@ -50,6 +50,8 @@ public class Strip
 
     public required string Bay { get; set; }
 
+    public Position Position { get; set; } = new();
+
     public string TOBT { get; set; } = string.Empty;
 
     public string? TSAT { get; set; }

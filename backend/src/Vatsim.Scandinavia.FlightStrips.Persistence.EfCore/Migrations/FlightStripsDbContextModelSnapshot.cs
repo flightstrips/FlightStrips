@@ -210,6 +210,15 @@ namespace Vatsim.Scandinavia.FlightStrips.Persistence.EfCore.Migrations
                     b.Property<int?>("Heading")
                         .HasColumnType("integer");
 
+                    b.Property<int>("Height")
+                        .HasColumnType("integer");
+
+                    b.Property<double>("Latitude")
+                        .HasColumnType("double precision");
+
+                    b.Property<double>("Longitude")
+                        .HasColumnType("double precision");
+
                     b.Property<string>("Origin")
                         .IsRequired()
                         .HasMaxLength(4)

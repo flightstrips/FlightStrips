@@ -10,12 +10,12 @@ public interface IStripService
     Task<Strip[]> ListAsync(SessionId id);
     Task DeleteStripAsync(StripId id);
     Task<Strip?> GetStripAsync(StripId id);
-    Task SetSequenceAsync(StripId id, int? sequence);
-    Task SetBayAsync(StripId id, string bayName);
-    Task AssumeAsync(StripId id, string frequency);
+    Task SetSequenceAsync(StripId id, int? sequence, string position);
+    Task SetBayAsync(StripId id, string bayName, string position);
+    Task AssumeAsync(StripId id, string frequency, string position);
     Task<SessionId[]> GetSessionsAsync();
     Task RemoveSessionAsync(SessionId id);
-    Task ClearAsync(StripId id, bool isCleared, Sender sender);
+    Task ClearAsync(StripId id, bool isCleared, string? position = null);
     Task HandleStripUpdateAsync(FullStripEvent stripEvent);
     Task HandleStripPositionUpdateAsync(PositionEvent positionEvent);
     Task SetSquawkAsync(StripId id, string squawk);

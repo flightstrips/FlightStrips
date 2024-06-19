@@ -9,4 +9,7 @@ public class StripAssumeRequestModel
 
     [Required]
     public bool Force { get; set; }
+
+    [Required]
+    public required string Position { get; set; }
 }

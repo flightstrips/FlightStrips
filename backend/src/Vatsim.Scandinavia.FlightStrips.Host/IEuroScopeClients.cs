@@ -8,5 +8,5 @@ public interface IEuroScopeClients
 {
     Task<bool> AddClientAsync(OnlinePositionId id, IEuroScopeClient client);
     Task RemoveClientAsync(OnlinePositionId id);
-    Task WriteToControllerClient(SessionId session, string controller, ServerStreamMessage message);
+    Task WriteToControllerClientAsync(SessionId session, string controller, ServerStreamMessage message);
 }

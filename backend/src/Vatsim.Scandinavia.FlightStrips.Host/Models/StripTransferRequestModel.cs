@@ -12,4 +12,7 @@ public class StripTransferRequestModel
     [Required]
     [Frequency]
     public required string ToFrequency { get; set; }
+
+    [Required]
+    public required string Position { get; set; }
 }

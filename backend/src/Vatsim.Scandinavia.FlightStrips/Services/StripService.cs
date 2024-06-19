@@ -5,6 +5,7 @@ using Vatsim.Scandinavia.FlightStrips.Abstractions.Enums;
 using Vatsim.Scandinavia.FlightStrips.Abstractions.Stands;
 using Vatsim.Scandinavia.FlightStrips.Abstractions.Strips;
 using Vatsim.Scandinavia.FlightStrips.Abstractions.Strips.Events;
+using Vatsim.Scandinavia.FlightStrips.Host;
 
 namespace Vatsim.Scandinavia.FlightStrips.Services;
 
@@ -12,17 +13,19 @@ public class StripService : IStripService
 {
     private readonly IStripRepository _stripRepository;
     private readonly IStandService _standService;
+    private readonly IEuroScopeService _euroScopeService;
     private readonly IBayService _bayService;
     private readonly IEventService _eventService;
     private readonly ILogger<StripService> _logger;
 
-    public StripService(IStripRepository stripRepository, ILogger<StripService> logger, IBayService bayService, IEventService eventService, IStandService standService)
+    public StripService(IStripRepository stripRepository, ILogger<StripService> logger, IBayService bayService, IEventService eventService, IStandService standService, IEuroScopeService euroScopeService)
     {
         _stripRepository = stripRepository;
         _logger = logger;
         _bayService = bayService;
         _eventService = eventService;
         _standService = standService;
+        _euroScopeService = euroScopeService;
     }
 
     public async Task HandleStripUpdateAsync(FullStripEvent stripEvent)
@@ -188,7 +191,7 @@ public class StripService : IStripService
         return _stripRepository.GetAsync(id);
     }
 
-    public async Task SetSequenceAsync(StripId id, int? sequence)
+    public async Task SetSequenceAsync(StripId id, int? sequence, string position)
     {
         _logger.SetSequence(id, sequence);
 
@@ -197,13 +200,13 @@ public class StripService : IStripService
 
     }
 
-    public async Task SetBayAsync(StripId id, string bayName)
+    public async Task SetBayAsync(StripId id, string bayName, string position)
     {
         await _stripRepository.SetBayAsync(id, bayName);
         await SendUpdateEventAsync(id);
     }
 
-    public async Task AssumeAsync(StripId id, string frequency)
+    public async Task AssumeAsync(StripId id, string frequency, string position)
     {
         await _stripRepository.SetPositionFrequencyAsync(id, frequency);
         await SendUpdateEventAsync(id);
@@ -213,7 +216,7 @@ public class StripService : IStripService
 
     public Task RemoveSessionAsync(SessionId id) => _stripRepository.RemoveSessionAsync(id);
 
-    public async Task ClearAsync(StripId id, bool isCleared, Sender sender)
+    public async Task ClearAsync(StripId id, bool isCleared, string? position = null)
     {
         var bay = "STARTUP";
         if (!isCleared)
@@ -223,12 +226,13 @@ public class StripService : IStripService
 
         await _stripRepository.SetCleared(id, isCleared, bay);
 
-        if (sender == Sender.EuroScope)
+        if (string.IsNullOrEmpty(position))
         {
             await SendUpdateEventAsync(id);
         }
         else
         {
+            await _euroScopeService.SetClearedAsync(id, position, isCleared);
         }
 
     }

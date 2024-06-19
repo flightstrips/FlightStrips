@@ -31,7 +31,7 @@ public sealed class EuroScopeClients(ILoggerFactory loggerFactory) : IEuroScopeC
         await clients.RemoveClientAsync(id.Position);
     }
 
-    public Task WriteToControllerClient(SessionId session, string controller, ServerStreamMessage message)
+    public Task WriteToControllerClientAsync(SessionId session, string controller, ServerStreamMessage message)
     {
         if (!_sessionClients.TryGetValue(session, out var client))
         {

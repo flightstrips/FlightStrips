@@ -8,4 +8,7 @@ public class StripMoveRequestModel
     public string Bay { get; set; } = string.Empty;
 
     public int? Sequence { get; set; }
+
+    [Required]
+    public required string Position { get; set; }
 }

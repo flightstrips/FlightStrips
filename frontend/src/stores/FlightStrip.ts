@@ -134,6 +134,7 @@ export class FlightStrip {
       this.callsign,
       {
         isCleared,
+        position: this.store.rootStore.stateStore.callsign,
       },
     )
   }
@@ -145,7 +146,7 @@ export class FlightStrip {
       'EKCH',
       this.store.rootStore.stateStore.session,
       this.callsign,
-      { bay: bay },
+      { bay: bay, position: this.store.rootStore.stateStore.callsign },
     )
   }
 

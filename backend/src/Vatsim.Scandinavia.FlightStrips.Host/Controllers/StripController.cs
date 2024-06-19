@@ -36,7 +36,6 @@ public class StripController : ControllerBase
         return Ok(result);
     }
 
-
     [HttpGet("{callsign}", Name = "GetStrip")]
     [ProducesResponseType(typeof(StripResponseModel), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -65,7 +64,7 @@ public class StripController : ControllerBase
         var strip = await _stripService.GetStripAsync(id);
         if (strip is null) return NotFound();
 
-        await _stripService.ClearAsync(id, request.IsCleared, Sender.Frontend);
+        await _stripService.ClearAsync(id, request.IsCleared, request.Position);
 
         return NoContent();
     }
@@ -83,8 +82,8 @@ public class StripController : ControllerBase
         var bay = await _bayService.GetAsync(id.Airport, request.Bay.ToUpperInvariant());
         if (bay is null) return NotFound();
 
-        await _stripService.SetBayAsync(id, bay.Name);
-        await _stripService.SetSequenceAsync(id, request.Sequence);
+        await _stripService.SetBayAsync(id, bay.Name, request.Position);
+        await _stripService.SetSequenceAsync(id, request.Sequence, request.Position);
 
         return NoContent();
     }
@@ -103,7 +102,7 @@ public class StripController : ControllerBase
         if (!request.Force && !string.IsNullOrEmpty(strip.PositionFrequency))
             return BadRequest("Can't assume strip when assumed by another controller.");
 
-        await _stripService.AssumeAsync(id, request.Frequency);
+        await _stripService.AssumeAsync(id, request.Frequency, request.Position);
         return NoContent();
     }
 

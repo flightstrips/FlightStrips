@@ -4,7 +4,7 @@
   "version": "0.0.1",
   "license": "GPL-3.0 license",
   "scripts": {
-    "dev": "vite",
+    "dev": "vite -p 3001",
     "build": "tsc && vite build",
     "dist": "npm run build && electron-builder",
     "lint": "eslint src --ext ts,tsx --report-unused-disable-directives --max-warnings 0",

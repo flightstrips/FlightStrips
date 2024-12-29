@@ -15,7 +15,7 @@ export default function BayComponent() {
                         </button>
                     </span>
                 </div>
-                <div className="h-[calc(100%-2.5rem)] w-full bg-pink-400">
+                <div className="h-[calc(100%-2.5rem)] w-full bg-[#555355]">
                     Lorem ipsum dolor sit amet, consectetur adipisicing elit. Fugit veniam minima laudantium distinctio nisi unde eveniet quibusdam similique, atque laboriosam asperiores ducimus nam maxime odit at sapiente. Similique, eveniet neque.
                 </div>
             </div>
@@ -25,7 +25,7 @@ export default function BayComponent() {
                         SAS
                     </span>
                 </div>
-                <div className="h-1/2 w-full bg-pink-400">
+                <div className="h-1/2 w-full bg-[#555355]">
                     Lorem ipsum dolor sit amet, consectetur adipisicing elit. Fugit veniam minima laudantium distinctio nisi unde eveniet quibusdam similique, atque laboriosam asperiores ducimus nam maxime odit at sapiente. Similique, eveniet neque.
                 </div>
                 <div className="bg-[#393939] h-10 flex items-center px-2 justify-between">
@@ -33,7 +33,7 @@ export default function BayComponent() {
                         NORWEGIAN
                     </span>
                 </div>
-                <div className="h-[calc(50%-5rem)] w-full bg-pink-400">
+                <div className="h-[calc(50%-5rem)] w-full bg-[#555355]">
                     Lorem ipsum dolor sit amet, consectetur adipisicing elit. Fugit veniam minima laudantium distinctio nisi unde eveniet quibusdam similique, atque laboriosam asperiores ducimus nam maxime odit at sapiente. Similique, eveniet neque.
                 </div>
             </div>
@@ -43,7 +43,7 @@ export default function BayComponent() {
                         CLEARED
                     </span>
                 </div>
-                <div className="h-1/2 w-full bg-pink-400">
+                <div className="h-1/2 w-full bg-[#555355]">
                     Lorem ipsum dolor sit amet, consectetur adipisicing elit. Fugit veniam minima laudantium distinctio nisi unde eveniet quibusdam similique, atque laboriosam asperiores ducimus nam maxime odit at sapiente. Similique, eveniet neque.
                 </div>
                 <div className="bg-[#285a5c] h-10 flex items-center px-2 justify-between">
@@ -51,7 +51,7 @@ export default function BayComponent() {
                         MESSAGES
                     </span>
                 </div>
-                <div className="h-[calc(50%-5rem)] w-full bg-pink-400">
+                <div className="h-[calc(50%-5rem)] w-full bg-[#555355]">
                     Lorem ipsum dolor sit amet, consectetur adipisicing elit. Fugit veniam minima laudantium distinctio nisi unde eveniet quibusdam similique, atque laboriosam asperiores ducimus nam maxime odit at sapiente. Similique, eveniet neque.
                 </div>
             </div>
@@ -61,7 +61,7 @@ export default function BayComponent() {
                         PUSHBACK
                     </span>
                 </div>
-                <div className="h-2/5 w-full bg-pink-400">
+                <div className="h-2/5 w-full bg-[#555355]">
                     Lorem ipsum dolor sit amet, consectetur adipisicing elit. Fugit veniam minima laudantium distinctio nisi unde eveniet quibusdam similique, atque laboriosam asperiores ducimus nam maxime odit at sapiente. Similique, eveniet neque.
                 </div>
                 <div className="bg-[#b3b3b3] h-10 flex items-center px-2 justify-between">
@@ -69,7 +69,7 @@ export default function BayComponent() {
                         TWY DEP
                     </span>
                 </div>
-                <div className="h-[calc(60%-5rem)] w-full bg-pink-400">
+                <div className="h-[calc(60%-5rem)] w-full bg-[#555355]">
                     Lorem ipsum dolor sit amet, consectetur adipisicing elit. Fugit veniam minima laudantium distinctio nisi unde eveniet quibusdam similique, atque laboriosam asperiores ducimus nam maxime odit at sapiente. Similique, eveniet neque.
                 </div>
             </div>

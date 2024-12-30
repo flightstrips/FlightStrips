@@ -1,6 +1,3 @@
-import { CurrentUTC } from "@/app/helpers/time";
-import { FlightStrip } from "../strip/FlightStrip";
-
 export default function BayComponent() {
     return (<>
         <div className="bg-[#A9A9A9] w-screen h-[calc(100vh-4rem)] flex justify-center justify-items-center gap-2">
@@ -18,9 +15,8 @@ export default function BayComponent() {
                         </button>
                     </span>
                 </div>
-                <div className="h-[calc(100%-2.5rem)] w-full bg-[#555355] p-1 flex flex-col gap-[2px]">
-                    <FlightStrip />
-
+                <div className="h-[calc(100%-2.5rem)] w-full bg-[#555355]">
+                    Lorem ipsum dolor sit amet, consectetur adipisicing elit. Fugit veniam minima laudantium distinctio nisi unde eveniet quibusdam similique, atque laboriosam asperiores ducimus nam maxime odit at sapiente. Similique, eveniet neque.
                 </div>
             </div>
             <div className="w-full h-full bg-[#555355]">
@@ -122,7 +118,7 @@ export default function BayComponent() {
                     X
                 </button>
                 <div className="w-32 bg-[#e4e4e4] text-black flex items-center justify-center p-3">
-                    <CurrentUTC />
+                    13:37:00
                 </div>
             </div>
         </div>

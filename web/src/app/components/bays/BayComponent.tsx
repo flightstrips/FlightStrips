@@ -3,7 +3,7 @@ import { FlightStrip } from "../strip/FlightStrip";
 
 export default function BayComponent() {
     return (<>
-        <div className="bg-[#A9A9A9] w-screen h-[calc(100vh-4rem)] flex justify-center justify-items-center gap-2">
+        <div className="bg-[#A9A9A9] w-screen h-[calc(100vh-4rem)] flex justify-center justify-items-center gap-2 aspect-video">
             <div className="w-full h-full bg-[#555355]">
                 <div className="bg-[#393939] h-10 flex items-center px-2 justify-between">
                     <span className="text-white font-bold text-lg">
@@ -18,9 +18,22 @@ export default function BayComponent() {
                         </button>
                     </span>
                 </div>
-                <div className="h-[calc(100%-2.5rem)] w-full bg-[#555355] p-1 flex flex-col gap-[2px]">
-                    <FlightStrip />
-
+                <div className="h-[calc(100%-2.5rem)] w-full bg-[#555355] p-1 flex flex-col gap-[2px] overflow-y-auto">
+                    <FlightStrip callsing="RYR2MY" clearances/>
+                    <FlightStrip callsing="DLH2GH" />
+                    <FlightStrip callsing="PHX124" />
+                    <FlightStrip callsing="NSZ3676" clearances />
+                    <FlightStrip callsing="SAS1988" />
+                    <FlightStrip callsing="SAS22H" />
+                    <FlightStrip callsing="SAS1244" />
+                    <FlightStrip callsing="NSZ37A" />
+                    <FlightStrip callsing="AUA30P" />
+                    <FlightStrip callsing="ETD4EA" />
+                    <FlightStrip callsing="EZS17AG" />
+                    <FlightStrip callsing="RYR57KY" />
+                    <FlightStrip callsing="NSZ3512" />
+                    <FlightStrip callsing="SAS455" />
+                    <FlightStrip callsing="EZY38RX" />
                 </div>
             </div>
             <div className="w-full h-full bg-[#555355]">

@@ -61,8 +61,26 @@ func NewHeartBeatEvent(content string) *Event {
 	}
 }
 
-type InitializeConnectionEvent struct {
+// This event is from the frontend to the backend
+type InitiateConnectionEvent struct {
+	CID string
+}
+
+type InitialConnectionEvent struct {
 	Strips                []Strip
 	Positions             []Position
 	AirportConfigurations []AirportConfiguration
+}
+
+func NewInitialConnectionEvent(strips []Strip, positions []Position, airportConfigurations []AirportConfiguration) *Event {
+	return &Event{
+		Type:      InitialConnection,
+		Source:    "FlightStrips",
+		TimeStamp: time.Now(),
+		Payload: &InitialConnectionEvent{
+			Strips:                strips,
+			Positions:             positions,
+			AirportConfigurations: airportConfigurations,
+		},
+	}
 }

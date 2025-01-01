@@ -69,7 +69,7 @@ type Strip struct {
 	StripState StripState
 	Cleared    bool
 
-	PositionFrequency *strong
+	PositionFrequency *string
 
 	Bay string
 

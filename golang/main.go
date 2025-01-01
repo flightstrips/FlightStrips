@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"log"
 	"net/http"
@@ -39,6 +40,32 @@ func frontEndEvents(w http.ResponseWriter, r *http.Request) {
 	client := &FrontEndClient{conn: conn, send: make(chan []byte)}
 	frontEndClients[client] = true
 
+	// Read initial message from client
+	_, msg, err := conn.ReadMessage()
+	if err != nil {
+		log.Println("read error:", err)
+		delete(frontEndClients, client)
+		conn.Close()
+		return
+	}
+	// TODO: Check payload is an Initiate Connection Payload
+	var initialConnectionEvent Event
+	err = json.Unmarshal(msg, &initialConnectionEvent)
+	if err != nil {
+		log.Println("Error unmarshalling initial connection event")
+		delete(frontEndClients, client)
+		conn.Close()
+		return
+	}
+	if initialConnectionEvent.Type != InitialConnection {
+		log.Println("Error: Initial Connection Event not received")
+		delete(frontEndClients, client)
+		conn.Close()
+		return
+	}
+
+	log.Printf("recv: %s", msg)
+
 	// Goroutine for outgoing messages.
 	// This needs to be a function to also determine whether a message needs to be sent to euroscope?
 	go handleOutgoingMessages(client)
@@ -48,12 +75,19 @@ func frontEndEvents(w http.ResponseWriter, r *http.Request) {
 		// TODO: Validate messages?
 		_, msg, err := conn.ReadMessage()
 		if err != nil {
-			log.Println("read error:", err)
+			log.Println("read error (connection closed by remote?):", err)
 			break
 		}
 		log.Printf("recv: %s", msg)
 
+		// TODO: SwitchCase for different types of messages
+		//switch initialConnectionEvent.Type {
+		//case InitialConnection:
+
+		//}
+
 		// Broadcast the received message to all clients.
+		// TODO: Work on this
 		frontEndBroadcast <- msg
 	}
 
@@ -80,8 +114,12 @@ func handleOutgoingMessages(client *FrontEndClient) {
 func periodicMessages() {
 	for {
 		time.Sleep(5 * time.Second)
-		serealisedHeartbeatEvent := NewHeartBeatEvent("Server heartbeat").json()
-		frontEndBroadcast <- []byte(serealisedHeartbeatEvent)
+		serealisedHeartbeatEvent, err := json.Marshal(NewHeartBeatEvent("Server heartbeat"))
+		if err != nil {
+			log.Println("error serialising heartbeat event")
+			continue
+		}
+		frontEndBroadcast <- serealisedHeartbeatEvent
 	}
 }
 

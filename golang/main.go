@@ -63,6 +63,7 @@ func frontEndEvents(w http.ResponseWriter, r *http.Request) {
 		conn.Close()
 		return
 	}
+	//TODO: Auth
 
 	log.Printf("recv: %s", msg)
 
@@ -72,19 +73,24 @@ func frontEndEvents(w http.ResponseWriter, r *http.Request) {
 
 	// Read incoming messages.
 	for {
-		// TODO: Validate messages?
 		_, msg, err := conn.ReadMessage()
 		if err != nil {
 			log.Println("read error (connection closed by remote?):", err)
 			break
 		}
 		log.Printf("recv: %s", msg)
+		var event Event
+		err = json.Unmarshal(msg, &event)
+		if err != nil {
+			log.Printf("Error unmarshalling event: %s \n", err)
+			continue
+		}
 
 		// TODO: SwitchCase for different types of messages
-		//switch initialConnectionEvent.Type {
-		//case InitialConnection:
+		switch event.Type {
+		case InitiateConnection:
 
-		//}
+		}
 
 		// Broadcast the received message to all clients.
 		// TODO: Work on this

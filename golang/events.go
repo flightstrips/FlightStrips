@@ -40,7 +40,7 @@ const (
 	// PositionOffline - Sent to all FrontEnd Clients
 	PositionOnline  EventType = "position_online"
 	PositionOffline EventType = "position_offline"
-	
+
 	// StripUpdate - Sent to all FrontEnd Clients && One Euroscope Client (The one who made the change)
 	// StripAssumeRequestInit - Sent to a specific FrontEnd Client
 	// StripAssumeRequestReject - Sent to a specific FrontEnd Client
@@ -57,6 +57,7 @@ const (
 
 type Event struct {
 	Type      EventType
+	Airport   string
 	Source    string
 	TimeStamp time.Time
 	Payload   interface{}
@@ -75,6 +76,7 @@ func NewHeartBeatEvent(content string) *Event {
 	return &Event{
 		Type:      Heartbeat,
 		Source:    "FlightStrips",
+		Airport:   "All",
 		TimeStamp: time.Now(),
 		Payload:   &HeartBeatEventPayload{Payload: content},
 	}
@@ -92,10 +94,11 @@ type InitialConnectionEvent struct {
 	AirportConfigurations []AirportConfiguration
 }
 
-func NewInitialConnectionEvent(strips []Strip, positions []Position, airportConfigurations []AirportConfiguration) *Event {
+func NewInitialConnectionEvent(airport string, strips []Strip, positions []Position, airportConfigurations []AirportConfiguration) *Event {
 	return &Event{
 		Type:      InitialConnection,
 		Source:    "FlightStrips",
+		Airport:   airport,
 		TimeStamp: time.Now(),
 		Payload: &InitialConnectionEvent{
 			Strips:                strips,

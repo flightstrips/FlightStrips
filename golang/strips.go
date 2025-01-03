@@ -54,7 +54,7 @@ type Strip struct {
 
 	Runway string
 
-	FinalAltitude string
+	RequestedAltitude string
 
 	Capabilities string
 

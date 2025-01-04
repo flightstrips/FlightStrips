@@ -105,6 +105,7 @@ func (s *Server) frontEndEventHandler(event Event) (interface{}, error) {
 			return nil, err
 		}
 	}
+	// TODO: Other Events
 
 	// TODO: Not sure what to do here.
 	return nil, nil

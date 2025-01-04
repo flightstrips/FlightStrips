@@ -1,6 +1,9 @@
 package main
 
-import "time"
+import (
+	"FlightStrips/data"
+	"time"
+)
 
 type EventType string
 
@@ -64,6 +67,7 @@ type Event struct {
 }
 
 // TODO: Work out if this would be ever used
+
 type MessageEvent struct {
 	contents string
 }
@@ -82,27 +86,27 @@ func NewHeartBeatEvent(content string) *Event {
 	}
 }
 
-// This event is from the frontend to the backend
+// InitiateConnectionEvent This event is from the frontend to the backend
 type InitiateConnectionEvent struct {
 	CID       string
 	AuthToken string
 }
 
-type InitialConnectionEvent struct {
-	Strips                []Strip
-	Positions             []Position
+type InitialConnectionEventResponsePayload struct {
+	Strips                []data.Strip
+	Controllers           []data.Controller
 	AirportConfigurations []AirportConfiguration
 }
 
-func NewInitialConnectionEvent(airport string, strips []Strip, positions []Position, airportConfigurations []AirportConfiguration) *Event {
+func NewInitialConnectionEvent(airport string, strips []data.Strip, controllers []data.Controller, airportConfigurations []AirportConfiguration) *Event {
 	return &Event{
 		Type:      InitialConnection,
 		Source:    "FlightStrips",
 		Airport:   airport,
 		TimeStamp: time.Now(),
-		Payload: &InitialConnectionEvent{
+		Payload: &InitialConnectionEventResponsePayload{
 			Strips:                strips,
-			Positions:             positions,
+			Controllers:           controllers,
 			AirportConfigurations: airportConfigurations,
 		},
 	}

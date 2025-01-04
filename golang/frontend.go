@@ -73,7 +73,11 @@ func (s *Server) frontEndEvents(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// TODO: SwitchCase for different types of messages
-		s.frontEndEventHandler(event)
+		eventOutput, err := s.frontEndEventHandler(event)
+		if err != nil {
+			return
+		}
+		fmt.Printf("Event Output: %v", eventOutput)
 
 		// Broadcast the received message to all clients.
 		// TODO: Work on this
@@ -91,7 +95,7 @@ func (s *Server) frontEndEventHandler(event Event) (interface{}, error) {
 	switch event.Type {
 	// Insert Controller Event
 	case InitiateConnection:
-		err := s.frontendeventhandlerInitiateconnection(event)
+		_, err := s.frontendeventhandlerInitiateconnection(event)
 		if err != nil {
 			return nil, err
 		}
@@ -106,13 +110,15 @@ func (s *Server) frontEndEventHandler(event Event) (interface{}, error) {
 	return nil, nil
 }
 
-func (s *Server) frontendeventhandlerInitiateconnection(event Event) error {
+func (s *Server) frontendeventhandlerInitiateconnection(event Event) (resp InitialConnectionEventResponsePayload, err error) {
 	var controller data.Controller
+	resp = InitialConnectionEventResponsePayload{}
+
 	payload := event.Payload.(string)
-	err := json.Unmarshal([]byte(payload), &controller)
+	err = json.Unmarshal([]byte(payload), &controller)
 	if err != nil {
 		log.Println("Error unmarshalling controller")
-		return err
+		return resp, err
 	}
 
 	insertControllerParams := data.InsertControllerParams{
@@ -137,14 +143,77 @@ func (s *Server) frontendeventhandlerInitiateconnection(event Event) error {
 		Err:    errChan,
 	}
 
+	// Insert a controller into the database
 	select {
 	case _ = <-resultsChan:
-		return nil
+		break
 	case err := <-errChan:
-		return err
+		return resp, err
 	case <-time.After(5 * time.Second):
-		return fmt.Errorf("timeout")
+		return resp, fmt.Errorf("timeout")
 	}
+	//  Fetch all the initial connection event response data
+	// Strips, Controllers & Runway configurations
+
+	// Fetch all the Controllers
+	controllersResultsChan := make(chan interface{})
+	controllersErrChan := make(chan error)
+	s.Jobs <- DBJob{
+		Action: func(ctx context.Context, q *data.Queries) (interface{}, error) {
+			controllers, err := q.ListControllersByAirport(ctx, controller.Airport)
+			if err != nil {
+				return nil, err
+			}
+			return controllers, nil
+		},
+		Result: controllersResultsChan,
+		Err:    controllersErrChan,
+	}
+
+	select {
+	case resultControllers := <-controllersResultsChan:
+		controllers, ok := resultControllers.([]data.Controller)
+		if !ok {
+			return resp, fmt.Errorf(dbFetchingControllersCastingErr)
+		}
+		resp.Controllers = controllers
+	case err := <-controllersErrChan:
+		return resp, err
+	case <-time.After(5 * time.Second):
+		return resp, fmt.Errorf(dbFetchingControllersTimeoutErr)
+	}
+
+	// Fetch all the Strips
+	stripsResultsChan := make(chan interface{})
+	stripsErrChan := make(chan error)
+	s.Jobs <- DBJob{
+		Action: func(ctx context.Context, q *data.Queries) (interface{}, error) {
+			strips, err := q.ListStripsByOrigin(ctx, controller.Airport)
+			if err != nil {
+				return nil, err
+			}
+			return strips, nil
+		},
+		Result: stripsResultsChan,
+		Err:    stripsErrChan,
+	}
+	select {
+	case resultsStrips := <-stripsResultsChan:
+		strips, ok := resultsStrips.([]data.Strip)
+		if !ok {
+			return resp, fmt.Errorf(dbFetchingStripsCastingErr)
+		}
+		resp.Strips = strips
+
+		break
+	case err := <-stripsErrChan:
+		return resp, err
+	case <-time.After(5 * time.Second):
+		return resp, fmt.Errorf(dbFetchingStripsTimeoutErr)
+	}
+
+	//TODO: Still to do is Airport Configurations
+	return resp, nil
 }
 
 func (s *Server) frontendeventhandlerCloseconnection(event Event) error {

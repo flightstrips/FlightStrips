@@ -3,15 +3,18 @@ package main
 import (
 	"FlightStrips/data"
 	"context"
-	"database/sql"
+	_ "database/sql"
 	"encoding/json"
 	"flag"
+	_ "github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"log"
 	"net/http"
 	"time"
 
 	_ "embed"
-	_ "github.com/mattn/go-sqlite3"
+	_ "github.com/jackc/pgx/v5"
+	_ "github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/gorilla/websocket"
 )
@@ -35,6 +38,7 @@ func handleOutgoingMessages(client *FrontEndClient) {
 	//TODO: Store Message somewhere?
 	//How do we determine when a message is out of lifespan?
 	for msg := range client.send {
+		log.Printf("send to all FE Clients: %s", msg)
 		err := client.conn.WriteMessage(websocket.TextMessage, msg)
 		if err != nil {
 			log.Println("write error:", err)
@@ -75,7 +79,7 @@ type DBJob struct {
 }
 
 // dbWorker processes database jobs
-func dbWorker(dbConn *sql.DB, jobs <-chan DBJob) {
+func dbWorker(dbConn *pgxpool.Pool, jobs <-chan DBJob) {
 	queries := data.New(dbConn)
 	for job := range jobs {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -94,8 +98,8 @@ func dbWorker(dbConn *sql.DB, jobs <-chan DBJob) {
 
 // Server holds shared resources
 type Server struct {
-	DBConn *sql.DB
-	Jobs   chan DBJob
+	DBPool *pgxpool.Pool
+	// Jobs   chan DBJob Not needed with a PGX Pool
 }
 
 func healthz(w http.ResponseWriter, _ *http.Request) {
@@ -110,33 +114,15 @@ func main() {
 	log.SetFlags(0)
 
 	ctx := context.Background()
-
-	db, err := sql.Open("sqlite3", ":memory:")
+	dbpool, err := pgxpool.New(ctx, "postgresql://user:password@localhost/dbname?sslmode=disable")
 	if err != nil {
 		log.Fatal(err)
 	}
-	// create tables
-	if _, err := db.ExecContext(ctx, ddl); err != nil {
-		log.Fatal(err)
-	}
-	// I think this is to close the DB connection when the main function exits
-	defer func(db *sql.DB) {
-		err := db.Close()
-		if err != nil {
-
-		}
-	}(db)
-
-	// Create a jobs channel and workers
-	jobs := make(chan DBJob, 10)
-	for i := 0; i < 5; i++ {
-		go dbWorker(db, jobs)
-	}
+	defer dbpool.Close()
 
 	// Create the parent server struct
 	server := Server{
-		DBConn: db,
-		Jobs:   jobs,
+		DBPool: dbpool,
 	}
 
 	// Health Function for local Dev

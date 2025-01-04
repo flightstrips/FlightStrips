@@ -5,53 +5,53 @@
 package data
 
 import (
-	"database/sql"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type Controller struct {
 	Cid      string
-	Airport  sql.NullString
-	Position sql.NullString
+	Airport  pgtype.Text
+	Position pgtype.Text
 }
 
 type Event struct {
 	ID        string
-	Type      sql.NullString
-	Timestamp sql.NullString
-	Cid       sql.NullString
-	Data      sql.NullString
+	Type      pgtype.Text
+	Timestamp pgtype.Text
+	Cid       pgtype.Text
+	Data      pgtype.Text
 }
 
 type Strip struct {
 	ID                string
-	Origin            sql.NullString
-	Destination       sql.NullString
-	Alternative       sql.NullString
-	Route             sql.NullString
-	Remarks           sql.NullString
-	AssignedSquawk    sql.NullString
-	Squawk            sql.NullString
-	Sid               sql.NullString
-	ClearedAltitude   sql.NullString
-	Heading           sql.NullString
-	AircraftType      sql.NullString
-	Runway            sql.NullString
-	RequestedAltitude sql.NullString
-	Capabilities      sql.NullString
-	CommunicationType sql.NullString
-	AircraftCategory  sql.NullString
-	Stand             sql.NullString
-	Sequence          sql.NullString
-	State             sql.NullString
-	Cleared           interface{}
-	Positionfrequency sql.NullString
-	PositionLatitude  sql.NullString
-	PositionLongitude sql.NullString
-	PositionAltitude  sql.NullString
-	Tobt              sql.NullString
-	Tsat              sql.NullString
-	Ttot              sql.NullString
-	Ctot              sql.NullString
-	Aobt              sql.NullString
-	Asat              sql.NullString
+	Origin            pgtype.Text
+	Destination       pgtype.Text
+	Alternative       pgtype.Text
+	Route             pgtype.Text
+	Remarks           pgtype.Text
+	AssignedSquawk    pgtype.Text
+	Squawk            pgtype.Text
+	Sid               pgtype.Text
+	ClearedAltitude   pgtype.Text
+	Heading           pgtype.Text
+	AircraftType      pgtype.Text
+	Runway            pgtype.Text
+	RequestedAltitude pgtype.Text
+	Capabilities      pgtype.Text
+	CommunicationType pgtype.Text
+	AircraftCategory  pgtype.Text
+	Stand             pgtype.Text
+	Sequence          pgtype.Text
+	State             pgtype.Text
+	Cleared           pgtype.Bool
+	Positionfrequency pgtype.Text
+	PositionLatitude  pgtype.Text
+	PositionLongitude pgtype.Text
+	PositionAltitude  pgtype.Text
+	Tobt              pgtype.Text
+	Tsat              pgtype.Text
+	Ttot              pgtype.Text
+	Ctot              pgtype.Text
+	Aobt              pgtype.Text
+	Asat              pgtype.Text
 }

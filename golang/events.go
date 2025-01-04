@@ -79,7 +79,7 @@ type HeartBeatEventPayload struct {
 func NewHeartBeatEvent(content string) *Event {
 	return &Event{
 		Type:      Heartbeat,
-		Source:    "FlightStrips",
+		Source:    "server",
 		Airport:   "All",
 		TimeStamp: time.Now(),
 		Payload:   &HeartBeatEventPayload{Payload: content},
@@ -87,7 +87,7 @@ func NewHeartBeatEvent(content string) *Event {
 }
 
 // InitiateConnectionEvent This event is from the frontend to the backend
-type InitiateConnectionEvent struct {
+type InitialConnectionEvent struct {
 	CID       string
 	AuthToken string
 }
@@ -110,4 +110,13 @@ func NewInitialConnectionEvent(airport string, strips []data.Strip, controllers 
 			AirportConfigurations: airportConfigurations,
 		},
 	}
+}
+
+type GoAroundEventPayload struct {
+	ControllerID string
+}
+
+type PositionOnlinePayload struct {
+	Airport  string
+	Position string
 }

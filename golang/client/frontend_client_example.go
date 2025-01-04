@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"github.com/gorilla/websocket"
 	"log"
+	"math/rand"
 	"os"
 	"os/signal"
+	"strconv"
 	"time"
 )
 
@@ -35,9 +37,9 @@ func main() {
 	defer c.Close()
 
 	controller := Controller{
-		Cid:      "1",
+		Cid:      strconv.Itoa(rand.Int()),
 		Airport:  "EKCH",
-		Position: "EKCH_W_APP",
+		Position: strconv.Itoa(rand.Int()),
 	}
 	marshal, err := json.Marshal(controller)
 	if err != nil {

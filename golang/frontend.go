@@ -3,10 +3,10 @@ package main
 import (
 	"FlightStrips/data"
 	"context"
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"github.com/gorilla/websocket"
+	"github.com/jackc/pgx/v5/pgtype"
 	"log"
 	"net/http"
 	"time"
@@ -52,33 +52,56 @@ func (s *Server) frontEndEvents(w http.ResponseWriter, r *http.Request) {
 		conn.Close()
 		return
 	}
+
 	//TODO: Auth
 
 	log.Printf("recv: %s", msg)
 
-	initialConnectionEventPayload, err := s.frontEndEventHandler(initialConnectionEvent)
+	initialConnectionEventResponsePayload, err := s.frontEndEventHandler(initialConnectionEvent)
 	if err != nil {
 		log.Printf("Error handling event: %s \n", err)
 		return
 	}
-	fmt.Printf("Initial Event Output: %v", initialConnectionEventPayload)
+	fmt.Printf("Initial Event Output: %v", initialConnectionEventResponsePayload)
 
-	// Send the initial message back to the client.
-
-	initialConnectionEvent = Event{
-		Type:      InitialConnection,
-		Airport:   "EKCH",
-		Source:    "Server",
-		TimeStamp: time.Now(),
-		Payload:   initialConnectionEventPayload,
+	var initialConnectionEventPayload Controller
+	err = json.Unmarshal([]byte(initialConnectionEvent.Payload.(string)), &initialConnectionEventPayload)
+	if err != nil {
+		log.Println("Error unmarshalling initial connection event payload")
+		return
 	}
 
-	eventOutputBytes, err := json.Marshal(initialConnectionEvent)
+	initialConnectionEventReturn := Event{
+		Type:      InitialConnection,
+		Airport:   initialConnectionEventPayload.Airport,
+		Source:    "Server",
+		TimeStamp: time.Now(),
+		Payload:   initialConnectionEventPayload.Position,
+	}
 
+	eventOutputBytes, err := json.Marshal(initialConnectionEventReturn)
 	err = conn.WriteMessage(websocket.TextMessage, eventOutputBytes)
 	if err != nil {
 		return
 	}
+
+	PositionOnlineEvent := Event{
+		Type:      PositionOnline,
+		Airport:   initialConnectionEvent.Airport,
+		Source:    "Server",
+		TimeStamp: time.Now(),
+		Payload: PositionOnlinePayload{
+			Airport:  initialConnectionEventPayload.Airport,
+			Position: initialConnectionEventPayload.Position,
+		},
+	}
+
+	positionOnlineEventBytes, err := json.Marshal(PositionOnlineEvent)
+	if err != nil {
+		return
+	}
+
+	frontEndBroadcast <- positionOnlineEventBytes
 
 	// Goroutine for outgoing messages.
 	// This needs to be a function to also determine whether a message needs to be sent to euroscope?
@@ -86,6 +109,7 @@ func (s *Server) frontEndEvents(w http.ResponseWriter, r *http.Request) {
 
 	// Read incoming messages.
 	for {
+		// Once the position is online is it worth adding the CID or positon to the client list information so we can take it offline if the connection fails?
 		_, msg, err := conn.ReadMessage()
 		if err != nil {
 			log.Println("read error (connection closed by remote?):", err)
@@ -108,7 +132,7 @@ func (s *Server) frontEndEvents(w http.ResponseWriter, r *http.Request) {
 		fmt.Printf("Event Output: %v", eventOutput)
 
 		// Broadcast the received message to all clients.
-		// TODO: Work on this
+		// TODO: Decide whether this is the best case
 		resp, ok := eventOutput.([]byte)
 		if !ok {
 			log.Fatal("Error casting eventOutput to byte")
@@ -147,7 +171,7 @@ func (s *Server) frontEndEventHandler(event Event) (interface{}, error) {
 
 	case GoAround:
 		log.Println("Go Around Event")
-		response, err := s.frontendeventhandlerGoARound(event)
+		_, err := s.frontendeventhandlerGoARound(event)
 		if err != nil {
 			return nil, err
 		}
@@ -164,6 +188,7 @@ func (s *Server) frontEndEventHandler(event Event) (interface{}, error) {
 	// TODO: Better managing Return responses.
 
 	// TODO: Not sure what to do here.
+	return nil, nil
 }
 
 func (s *Server) frontendeventhandlerInitialconnection(event Event) (resp InitialConnectionEventResponsePayload, err error) {
@@ -179,106 +204,49 @@ func (s *Server) frontendeventhandlerInitialconnection(event Event) (resp Initia
 
 	insertControllerParams := data.InsertControllerParams{
 		Cid: controller.Cid,
-		Airport: sql.NullString{
+		Airport: pgtype.Text{
 			String: controller.Airport,
+			Valid:  true,
 		},
-		Position: sql.NullString{
+		Position: pgtype.Text{
 			String: controller.Position,
+			Valid:  true,
 		},
 	}
 
-	resultsChan := make(chan interface{})
-	errChan := make(chan error)
-
-	s.Jobs <- DBJob{
-		Action: func(ctx context.Context, q *data.Queries) (interface{}, error) {
-			err := q.InsertController(ctx, insertControllerParams)
-			if err != nil {
-				return nil, err
-			}
-			// Because InsertController does not return anything
-			return nil, nil
-		},
-		Result: resultsChan,
-		Err:    errChan,
+	db := data.New(s.DBPool)
+	_, err = db.InsertController(context.Background(), insertControllerParams)
+	if err != nil {
+		return resp, nil
 	}
 
-	// Insert a controller into the database
-	select {
-	case _ = <-resultsChan:
-		break
-	case err := <-errChan:
-		return resp, err
-	case <-time.After(5 * time.Second):
-		return resp, fmt.Errorf("timeout")
-	}
 	//  Fetch all the initial connection event response data
 	// Strips, Controllers & Runway configurations
 
 	// Fetch all the Controllers
-	controllersResultsChan := make(chan interface{})
-	controllersErrChan := make(chan error)
-	s.Jobs <- DBJob{
-		Action: func(ctx context.Context, q *data.Queries) (interface{}, error) {
-			controllers, err := q.ListControllersByAirport(ctx, sql.NullString{String: controller.Airport})
-			if err != nil {
-				return nil, err
-			}
-			return controllers, nil
-		},
-		Result: controllersResultsChan,
-		Err:    controllersErrChan,
-	}
-
-	select {
-	case resultControllers := <-controllersResultsChan:
-		controllers, ok := resultControllers.([]data.Controller)
-		if !ok {
-			return resp, fmt.Errorf(dbFetchingControllersCastingErr)
-		}
-		resp.Controllers = controllers
-	case err := <-controllersErrChan:
+	db = data.New(s.DBPool)
+	controllers, err := db.ListControllers(context.Background())
+	if err != nil {
 		return resp, err
-	case <-time.After(5 * time.Second):
-		return resp, fmt.Errorf(dbFetchingControllersTimeoutErr)
 	}
+	resp.Controllers = controllers
 
 	// Fetch all the Strips
-	stripsResultsChan := make(chan interface{})
-	stripsErrChan := make(chan error)
-	s.Jobs <- DBJob{
-		Action: func(ctx context.Context, q *data.Queries) (interface{}, error) {
-			strips, err := q.ListStripsByOrigin(ctx, sql.NullString{String: controller.Airport})
-			if err != nil {
-				return nil, err
-			}
-			return strips, nil
-		},
-		Result: stripsResultsChan,
-		Err:    stripsErrChan,
-	}
-	select {
-	case resultsStrips := <-stripsResultsChan:
-		strips, ok := resultsStrips.([]data.Strip)
-		if !ok {
-			return resp, fmt.Errorf(dbFetchingStripsCastingErr)
-		}
-		resp.Strips = strips
-
-		break
-	case err := <-stripsErrChan:
+	db = data.New(s.DBPool)
+	strips, err := db.ListStripsByOrigin(context.Background(), pgtype.Text{String: controller.Airport, Valid: true})
+	if err != nil {
 		return resp, err
-	case <-time.After(5 * time.Second):
-		return resp, fmt.Errorf(dbFetchingStripsTimeoutErr)
 	}
+	resp.Strips = strips
 
 	// TODO: Still to do is Airport Configurations
 	// TODO: Send a PositionOnline message to all other FrontEndClients
+	log.Printf("Initial Connection Event Response: %v", resp)
 	return resp, nil
 }
 
 func (s *Server) frontendeventhandlerCloseconnection(event Event) error {
-	var controller data.Controller
+	var controller Controller
 	payload := event.Payload.(string)
 	err := json.Unmarshal([]byte(payload), &controller)
 	if err != nil {
@@ -288,28 +256,30 @@ func (s *Server) frontendeventhandlerCloseconnection(event Event) error {
 
 	removeControllerParams := controller.Cid
 
-	resultsChan := make(chan interface{})
-	errChan := make(chan error)
-
-	s.Jobs <- DBJob{
-		Action: func(ctx context.Context, q *data.Queries) (interface{}, error) {
-			err := q.RemoveController(ctx, removeControllerParams)
-			if err != nil {
-				return nil, err
-			}
-			// Because RemoveController does not return anything
-			return nil, nil
-		},
-		Result: resultsChan,
-		Err:    errChan,
-	}
-
-	select {
-	case _ = <-resultsChan:
-		return nil
-	case err := <-errChan:
+	db := data.New(s.DBPool)
+	err = db.RemoveController(context.Background(), removeControllerParams)
+	if err != nil {
 		return err
-	case <-time.After(5 * time.Second):
-		return fmt.Errorf("timeout")
 	}
+	return nil
+}
+
+func (s *Server) frontendeventhandlerGoARound(event Event) (resp interface{}, err error) {
+	var goaround GoAroundEventPayload
+	payload := event.Payload.(string)
+	err = json.Unmarshal([]byte(payload), &goaround)
+	if err != nil {
+		log.Println("Error unmarshalling goaround event")
+		return nil, err
+	}
+
+	bEvent, err := json.Marshal(event)
+	if err != nil {
+		return nil, err
+	}
+
+	//Go Around is an event to send to all FrontEndClients
+	frontEndBroadcast <- bEvent
+
+	return nil, nil
 }

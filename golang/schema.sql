@@ -33,7 +33,7 @@ CREATE TABLE strips (
     stand VARCHAR(256),
     sequence VARCHAR(256),
     state VARCHAR(256),
-    cleared INT(1),
+    cleared bool,
     positionFrequency VARCHAR(256),
     position_latitude VARCHAR(256),
     position_longitude VARCHAR(256),

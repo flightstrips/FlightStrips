@@ -1,11 +1,17 @@
 package main
 
 import (
+	"FlightStrips/data"
+	"context"
+	"database/sql"
 	"encoding/json"
 	"flag"
 	"log"
 	"net/http"
 	"time"
+
+	_ "embed"
+	_ "github.com/mattn/go-sqlite3"
 
 	"github.com/gorilla/websocket"
 )
@@ -23,84 +29,6 @@ type FrontEndClient struct {
 // Global variables for managing clients.
 var frontEndClients = make(map[*FrontEndClient]bool) // Map to track connected FrontEnd clients.
 var frontEndBroadcast = make(chan []byte)            // Channel for broadcasting messages for the FrontEnd.
-
-func frontEndEvents(w http.ResponseWriter, r *http.Request) {
-
-	//TODO: Authenticate
-	//TODO: Initial Information and message.
-	//TODO:
-
-	conn, err := upgrader.Upgrade(w, r, nil)
-	if err != nil {
-		log.Print("upgrade:", err)
-		return
-	}
-
-	// Create a new client instance.
-	client := &FrontEndClient{conn: conn, send: make(chan []byte)}
-	frontEndClients[client] = true
-
-	// Read initial message from client
-	_, msg, err := conn.ReadMessage()
-	if err != nil {
-		log.Println("read error:", err)
-		delete(frontEndClients, client)
-		conn.Close()
-		return
-	}
-	// TODO: Check payload is an Initiate Connection Payload
-	var initialConnectionEvent Event
-	err = json.Unmarshal(msg, &initialConnectionEvent)
-	if err != nil {
-		log.Println("Error unmarshalling initial connection event")
-		delete(frontEndClients, client)
-		conn.Close()
-		return
-	}
-	if initialConnectionEvent.Type != InitialConnection {
-		log.Println("Error: Initial Connection Event not received")
-		delete(frontEndClients, client)
-		conn.Close()
-		return
-	}
-	//TODO: Auth
-
-	log.Printf("recv: %s", msg)
-
-	// Goroutine for outgoing messages.
-	// This needs to be a function to also determine whether a message needs to be sent to euroscope?
-	go handleOutgoingMessages(client)
-
-	// Read incoming messages.
-	for {
-		_, msg, err := conn.ReadMessage()
-		if err != nil {
-			log.Println("read error (connection closed by remote?):", err)
-			break
-		}
-		log.Printf("recv: %s", msg)
-		var event Event
-		err = json.Unmarshal(msg, &event)
-		if err != nil {
-			log.Printf("Error unmarshalling event: %s \n", err)
-			continue
-		}
-
-		// TODO: SwitchCase for different types of messages
-		switch event.Type {
-		case InitiateConnection:
-
-		}
-
-		// Broadcast the received message to all clients.
-		// TODO: Work on this
-		frontEndBroadcast <- msg
-	}
-
-	// Cleanup when connection is closed.
-	delete(frontEndClients, client)
-	close(client.send)
-}
 
 // Goroutine to handle outgoing messages for each client.
 func handleOutgoingMessages(client *FrontEndClient) {
@@ -139,17 +67,82 @@ func handleFrontEndBroadcast() {
 	}
 }
 
+// DBJob represents a database job request
+type DBJob struct {
+	Action func(ctx context.Context, q *data.Queries) (interface{}, error)
+	Result chan<- interface{}
+	Err    chan<- error
+}
+
+// dbWorker processes database jobs
+func dbWorker(dbConn *sql.DB, jobs <-chan DBJob) {
+	queries := data.New(dbConn)
+	for job := range jobs {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		// posible memory leak but I am not a good developer
+		defer cancel()
+
+		result, err := job.Action(ctx, queries)
+		if err != nil {
+			job.Err <- err
+			continue
+		}
+		job.Result <- result
+		job.Err <- nil
+	}
+}
+
+// Server holds shared resources
+type Server struct {
+	DBConn *sql.DB
+	Jobs   chan DBJob
+}
+
 func healthz(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+//go:embed schema.sql
+var ddl string
+
 func main() {
 	flag.Parse()
 	log.SetFlags(0)
+
+	ctx := context.Background()
+
+	db, err := sql.Open("sqlite3", ":memory:")
+	if err != nil {
+		log.Fatal(err)
+	}
+	// create tables
+	if _, err := db.ExecContext(ctx, ddl); err != nil {
+		log.Fatal(err)
+	}
+	// I think this is to close the DB connection when the main function exits
+	defer func(db *sql.DB) {
+		err := db.Close()
+		if err != nil {
+
+		}
+	}(db)
+
+	// Create a jobs channel and workers
+	jobs := make(chan DBJob, 10)
+	for i := 0; i < 5; i++ {
+		go dbWorker(db, jobs)
+	}
+
+	// Create the parent server struct
+	server := Server{
+		DBConn: db,
+		Jobs:   jobs,
+	}
+
 	// Health Function for local Dev
 	http.HandleFunc("/healthz", healthz)
 	//http.HandleFunc("/euroscopeEvents", euroscopeEvents)
-	http.HandleFunc("/frontEndEvents", frontEndEvents)
+	http.HandleFunc("/frontEndEvents", server.frontEndEvents)
 
 	// Start background tasks.
 	go handleFrontEndBroadcast()

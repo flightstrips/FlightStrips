@@ -25,7 +25,86 @@ type InsertControllerParams struct {
 }
 
 func (q *Queries) InsertController(ctx context.Context, arg InsertControllerParams) error {
-	_, err := q.db.Exec(ctx, insertController, arg.Cid, arg.Airport, arg.Position)
+	_, err := q.db.ExecContext(ctx, insertController, arg.Cid, arg.Airport, arg.Position)
+	return err
+}
+
+const insertStrip = `-- name: InsertStrip :exec
+INSERT INTO strips (
+    id, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand, sequence, state, cleared, positionFrequency, position_latitude, position_longitude, position_altitude, tobt, tsat, ttot, ctot, aobt, asat
+) VALUES (
+             ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+         )
+`
+
+type InsertStripParams struct {
+	ID                string
+	Origin            sql.NullString
+	Destination       sql.NullString
+	Alternative       sql.NullString
+	Route             sql.NullString
+	Remarks           sql.NullString
+	AssignedSquawk    sql.NullString
+	Squawk            sql.NullString
+	Sid               sql.NullString
+	ClearedAltitude   sql.NullString
+	Heading           sql.NullString
+	AircraftType      sql.NullString
+	Runway            sql.NullString
+	RequestedAltitude sql.NullString
+	Capabilities      sql.NullString
+	CommunicationType sql.NullString
+	AircraftCategory  sql.NullString
+	Stand             sql.NullString
+	Sequence          sql.NullString
+	State             sql.NullString
+	Cleared           interface{}
+	Positionfrequency sql.NullString
+	PositionLatitude  sql.NullString
+	PositionLongitude sql.NullString
+	PositionAltitude  sql.NullString
+	Tobt              sql.NullString
+	Tsat              sql.NullString
+	Ttot              sql.NullString
+	Ctot              sql.NullString
+	Aobt              sql.NullString
+	Asat              sql.NullString
+}
+
+func (q *Queries) InsertStrip(ctx context.Context, arg InsertStripParams) error {
+	_, err := q.db.ExecContext(ctx, insertStrip,
+		arg.ID,
+		arg.Origin,
+		arg.Destination,
+		arg.Alternative,
+		arg.Route,
+		arg.Remarks,
+		arg.AssignedSquawk,
+		arg.Squawk,
+		arg.Sid,
+		arg.ClearedAltitude,
+		arg.Heading,
+		arg.AircraftType,
+		arg.Runway,
+		arg.RequestedAltitude,
+		arg.Capabilities,
+		arg.CommunicationType,
+		arg.AircraftCategory,
+		arg.Stand,
+		arg.Sequence,
+		arg.State,
+		arg.Cleared,
+		arg.Positionfrequency,
+		arg.PositionLatitude,
+		arg.PositionLongitude,
+		arg.PositionAltitude,
+		arg.Tobt,
+		arg.Tsat,
+		arg.Ttot,
+		arg.Ctot,
+		arg.Aobt,
+		arg.Asat,
+	)
 	return err
 }
 
@@ -34,7 +113,7 @@ SELECT cid, airport, position FROM controllers
 `
 
 func (q *Queries) ListControllers(ctx context.Context) ([]Controller, error) {
-	rows, err := q.db.Query(ctx, listControllers)
+	rows, err := q.db.QueryContext(ctx, listControllers)
 	if err != nil {
 		return nil, err
 	}
@@ -46,6 +125,9 @@ func (q *Queries) ListControllers(ctx context.Context) ([]Controller, error) {
 			return nil, err
 		}
 		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -58,7 +140,7 @@ SELECT cid, airport, position FROM controllers WHERE airport = ?
 `
 
 func (q *Queries) ListControllersByAirport(ctx context.Context, airport sql.NullString) ([]Controller, error) {
-	rows, err := q.db.Query(ctx, listControllersByAirport, airport)
+	rows, err := q.db.QueryContext(ctx, listControllersByAirport, airport)
 	if err != nil {
 		return nil, err
 	}
@@ -71,6 +153,68 @@ func (q *Queries) ListControllersByAirport(ctx context.Context, airport sql.Null
 		}
 		items = append(items, i)
 	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listStripsByOrigin = `-- name: ListStripsByOrigin :many
+SELECT id, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand, sequence, state, cleared, positionfrequency, position_latitude, position_longitude, position_altitude, tobt, tsat, ttot, ctot, aobt, asat FROM strips WHERE origin = ?
+`
+
+func (q *Queries) ListStripsByOrigin(ctx context.Context, origin sql.NullString) ([]Strip, error) {
+	rows, err := q.db.QueryContext(ctx, listStripsByOrigin, origin)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Strip
+	for rows.Next() {
+		var i Strip
+		if err := rows.Scan(
+			&i.ID,
+			&i.Origin,
+			&i.Destination,
+			&i.Alternative,
+			&i.Route,
+			&i.Remarks,
+			&i.AssignedSquawk,
+			&i.Squawk,
+			&i.Sid,
+			&i.ClearedAltitude,
+			&i.Heading,
+			&i.AircraftType,
+			&i.Runway,
+			&i.RequestedAltitude,
+			&i.Capabilities,
+			&i.CommunicationType,
+			&i.AircraftCategory,
+			&i.Stand,
+			&i.Sequence,
+			&i.State,
+			&i.Cleared,
+			&i.Positionfrequency,
+			&i.PositionLatitude,
+			&i.PositionLongitude,
+			&i.PositionAltitude,
+			&i.Tobt,
+			&i.Tsat,
+			&i.Ttot,
+			&i.Ctot,
+			&i.Aobt,
+			&i.Asat,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
@@ -82,6 +226,28 @@ DELETE FROM controllers WHERE cid = ?
 `
 
 func (q *Queries) RemoveController(ctx context.Context, cid string) error {
-	_, err := q.db.Exec(ctx, removeController, cid)
+	_, err := q.db.ExecContext(ctx, removeController, cid)
+	return err
+}
+
+const removeStripByID = `-- name: RemoveStripByID :exec
+DELETE FROM strips WHERE id = ?
+`
+
+func (q *Queries) RemoveStripByID(ctx context.Context, id string) error {
+	_, err := q.db.ExecContext(ctx, removeStripByID, id)
+	return err
+}
+
+const updateStripByID = `-- name: UpdateStripByID :exec
+UPDATE strips SET (
+        origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand, sequence, state, cleared, positionFrequency, position_latitude, position_longitude, position_altitude, tobt, tsat, ttot, ctot, aobt, asat
+) = (
+    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+    ) WHERE id = ?
+`
+
+func (q *Queries) UpdateStripByID(ctx context.Context, id string) error {
+	_, err := q.db.ExecContext(ctx, updateStripByID, id)
 	return err
 }

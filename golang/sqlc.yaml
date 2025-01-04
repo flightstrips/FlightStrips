@@ -7,4 +7,3 @@ sql:
       go:
         package: "data"
         out: "data"
-        sql_package: "pgx/v5"

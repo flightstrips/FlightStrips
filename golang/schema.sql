@@ -38,10 +38,10 @@ CREATE TABLE strips (
     position_latitude VARCHAR(256),
     position_longitude VARCHAR(256),
     position_altitude VARCHAR(256),
-    TOBT VARCHAR(256),
-    TSAT VARCHAR(256),
-    TTOT VARCHAR(256),
-    CTOT VARCHAR(256),
-    AOBT VARCHAR(256),
-    ASAT VARCHAR(256) 
+    tobt VARCHAR(256),
+    tsat VARCHAR(256),
+    ttot VARCHAR(256),
+    ctot VARCHAR(256),
+    aobt VARCHAR(256),
+    asat VARCHAR(256)
 )

@@ -148,5 +148,6 @@ func main() {
 	go handleFrontEndBroadcast()
 	go periodicMessages()
 
+	log.Println("Server started on address:", *addr)
 	log.Fatal(http.ListenAndServe(*addr, nil))
 }

@@ -3,8 +3,10 @@ package main
 import (
 	"FlightStrips/data"
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
+	"github.com/gorilla/websocket"
 	"log"
 	"net/http"
 	"time"
@@ -14,7 +16,7 @@ func (s *Server) frontEndEvents(w http.ResponseWriter, r *http.Request) {
 
 	//TODO: Authenticate
 	//TODO: Initial Information and message.
-	//TODO:
+	//TODO: Logging per websocket? An ID or a prefix perhaps?
 
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
@@ -34,11 +36,12 @@ func (s *Server) frontEndEvents(w http.ResponseWriter, r *http.Request) {
 		conn.Close()
 		return
 	}
-	// TODO: Check payload is an Initiate Connection Payload
+	// TODO: Check payload is an Initial Connection Payload
 	var initialConnectionEvent Event
 	err = json.Unmarshal(msg, &initialConnectionEvent)
 	if err != nil {
-		log.Println("Error unmarshalling initial connection event")
+		log.Printf("Error unmarshalling initial connection event: %s \n\n", msg)
+
 		delete(frontEndClients, client)
 		conn.Close()
 		return
@@ -52,6 +55,30 @@ func (s *Server) frontEndEvents(w http.ResponseWriter, r *http.Request) {
 	//TODO: Auth
 
 	log.Printf("recv: %s", msg)
+
+	initialConnectionEventPayload, err := s.frontEndEventHandler(initialConnectionEvent)
+	if err != nil {
+		log.Printf("Error handling event: %s \n", err)
+		return
+	}
+	fmt.Printf("Initial Event Output: %v", initialConnectionEventPayload)
+
+	// Send the initial message back to the client.
+
+	initialConnectionEvent = Event{
+		Type:      InitialConnection,
+		Airport:   "EKCH",
+		Source:    "Server",
+		TimeStamp: time.Now(),
+		Payload:   initialConnectionEventPayload,
+	}
+
+	eventOutputBytes, err := json.Marshal(initialConnectionEvent)
+
+	err = conn.WriteMessage(websocket.TextMessage, eventOutputBytes)
+	if err != nil {
+		return
+	}
 
 	// Goroutine for outgoing messages.
 	// This needs to be a function to also determine whether a message needs to be sent to euroscope?
@@ -75,44 +102,72 @@ func (s *Server) frontEndEvents(w http.ResponseWriter, r *http.Request) {
 		// TODO: SwitchCase for different types of messages
 		eventOutput, err := s.frontEndEventHandler(event)
 		if err != nil {
+			log.Printf("Error handling event: %s \n", err)
 			return
 		}
 		fmt.Printf("Event Output: %v", eventOutput)
 
 		// Broadcast the received message to all clients.
 		// TODO: Work on this
-		frontEndBroadcast <- msg
+		resp, ok := eventOutput.([]byte)
+		if !ok {
+			log.Fatal("Error casting eventOutput to byte")
+		}
+
+		frontEndBroadcast <- resp
 	}
 
 	// Cleanup when connection is closed.
+	// TODO: Add removal of online controllers if the controller is also not seen in Euroscope?
 	delete(frontEndClients, client)
 	close(client.send)
 }
 
 func (s *Server) frontEndEventHandler(event Event) (interface{}, error) {
-
 	// TODO: SwitchCase for different types of messages
+	// TODO: Decide whether the responses are handled here or whether they are handled in the frontEndEvents function
+	// In order for there to be non broadcasted messages it is just done here?
 	switch event.Type {
 	// Insert Controller Event
-	case InitiateConnection:
-		_, err := s.frontendeventhandlerInitiateconnection(event)
+	case InitialConnection:
+		log.Println("Initial Connection Event")
+		response, err := s.frontendeventhandlerInitialconnection(event)
 		if err != nil {
 			return nil, err
 		}
+		return response, nil
 	case CloseConnection:
+		log.Println("Close Connection Event")
 		err := s.frontendeventhandlerCloseconnection(event)
 		if err != nil {
 			return nil, err
 		}
+		response := []byte("Connection Closed")
+		return response, nil
+
+	case GoAround:
+		log.Println("Go Around Event")
+		response, err := s.frontendeventhandlerGoARound(event)
+		if err != nil {
+			return nil, err
+		}
+
+		frontEndBroadcast <- []byte("Go Around!")
+
+	default:
+		log.Println("Unknown Event Type")
+		response := []byte("Not sure what to do here - Unknown EventType Handler")
+		return response, nil
 	}
 	// TODO: Other Events
 
+	// TODO: Better managing Return responses.
+
 	// TODO: Not sure what to do here.
-	return nil, nil
 }
 
-func (s *Server) frontendeventhandlerInitiateconnection(event Event) (resp InitialConnectionEventResponsePayload, err error) {
-	var controller data.Controller
+func (s *Server) frontendeventhandlerInitialconnection(event Event) (resp InitialConnectionEventResponsePayload, err error) {
+	var controller Controller
 	resp = InitialConnectionEventResponsePayload{}
 
 	payload := event.Payload.(string)
@@ -123,9 +178,13 @@ func (s *Server) frontendeventhandlerInitiateconnection(event Event) (resp Initi
 	}
 
 	insertControllerParams := data.InsertControllerParams{
-		Cid:      controller.Cid,
-		Airport:  controller.Airport,
-		Position: controller.Position,
+		Cid: controller.Cid,
+		Airport: sql.NullString{
+			String: controller.Airport,
+		},
+		Position: sql.NullString{
+			String: controller.Position,
+		},
 	}
 
 	resultsChan := make(chan interface{})
@@ -161,7 +220,7 @@ func (s *Server) frontendeventhandlerInitiateconnection(event Event) (resp Initi
 	controllersErrChan := make(chan error)
 	s.Jobs <- DBJob{
 		Action: func(ctx context.Context, q *data.Queries) (interface{}, error) {
-			controllers, err := q.ListControllersByAirport(ctx, controller.Airport)
+			controllers, err := q.ListControllersByAirport(ctx, sql.NullString{String: controller.Airport})
 			if err != nil {
 				return nil, err
 			}
@@ -189,7 +248,7 @@ func (s *Server) frontendeventhandlerInitiateconnection(event Event) (resp Initi
 	stripsErrChan := make(chan error)
 	s.Jobs <- DBJob{
 		Action: func(ctx context.Context, q *data.Queries) (interface{}, error) {
-			strips, err := q.ListStripsByOrigin(ctx, controller.Airport)
+			strips, err := q.ListStripsByOrigin(ctx, sql.NullString{String: controller.Airport})
 			if err != nil {
 				return nil, err
 			}
@@ -213,7 +272,8 @@ func (s *Server) frontendeventhandlerInitiateconnection(event Event) (resp Initi
 		return resp, fmt.Errorf(dbFetchingStripsTimeoutErr)
 	}
 
-	//TODO: Still to do is Airport Configurations
+	// TODO: Still to do is Airport Configurations
+	// TODO: Send a PositionOnline message to all other FrontEndClients
 	return resp, nil
 }
 

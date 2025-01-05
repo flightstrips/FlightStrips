@@ -205,17 +205,20 @@ func (s *Server) returnInitialConnectionResponseEvent(conn *websocket.Conn, airp
 	// Get all Controllers
 	controllers, err := db.ListControllersByAirport(context.Background(), pgtype.Text{
 		String: airport,
-		Valid:  false,
+		Valid:  true,
 	})
 	if err != nil {
 		return err
+	}
+	if controllers == nil {
+		log.Println("No controllers found for airport: %s", airport)
 	}
 	resp.Controllers = controllers
 
 	// Get all Strips
 	strips, err := db.ListStripsByOrigin(context.Background(), pgtype.Text{
 		String: airport,
-		Valid:  false,
+		Valid:  true,
 	})
 	if err != nil {
 		return err

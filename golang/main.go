@@ -13,7 +13,6 @@ import (
 	"time"
 
 	_ "embed"
-	_ "github.com/jackc/pgx/v5"
 	_ "github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/gorilla/websocket"
@@ -27,6 +26,7 @@ var upgrader = websocket.Upgrader{} // use default options
 type FrontEndClient struct {
 	conn *websocket.Conn
 	send chan []byte // Channel for outgoing messages.
+	cid  string
 }
 
 // Global variables for managing clients.
@@ -51,7 +51,7 @@ func handleOutgoingMessages(client *FrontEndClient) {
 // Periodic server-side message example.
 func periodicMessages() {
 	for {
-		time.Sleep(5 * time.Second)
+		time.Sleep(50 * time.Second)
 		serealisedHeartbeatEvent, err := json.Marshal(NewHeartBeatEvent("Server heartbeat"))
 		if err != nil {
 			log.Println("error serialising heartbeat event")
@@ -114,7 +114,7 @@ func main() {
 	log.SetFlags(0)
 
 	ctx := context.Background()
-	dbpool, err := pgxpool.New(ctx, "postgresql://user:password@localhost/dbname?sslmode=disable")
+	dbpool, err := pgxpool.New(ctx, "postgresql://theoandresier@localhost/postgres?sslmode=disable")
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -35,6 +35,7 @@ const (
 	// CoordinationRequestInit - Sent to a specific FrontEnd Client
 	// CoordinationRequestAccept - Sent to a specific FrontEnd Client
 	// CoordinationRequestReject - Sent to a specific FrontEnd Client
+	// TODO: What are these used for?
 	CoordinationRequestInit   EventType = "coordination_request_init"
 	CoordinationRequestAccept EventType = "coordination_request_accept"
 	CoordinationRequestReject EventType = "coordination_request_reject"
@@ -87,8 +88,10 @@ func NewHeartBeatEvent(content string) *Event {
 }
 
 // InitiateConnectionEvent This event is from the frontend to the backend
-type InitialConnectionEvent struct {
+type InitialConnectionEventPayload struct {
 	CID       string
+	Airport   string
+	Position  string
 	AuthToken string
 }
 

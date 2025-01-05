@@ -4,6 +4,7 @@ import (
 	"FlightStrips/data"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/gorilla/websocket"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -24,84 +25,31 @@ func (s *Server) frontEndEvents(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Create a new client instance.
-	client := &FrontEndClient{conn: conn, send: make(chan []byte)}
-	frontEndClients[client] = true
-
 	// Read initial message from client
 	_, msg, err := conn.ReadMessage()
 	if err != nil {
 		log.Println("read error:", err)
-		delete(frontEndClients, client)
-		conn.Close()
-		return
-	}
-	// TODO: Check payload is an Initial Connection Payload
-	var initialConnectionEvent Event
-	err = json.Unmarshal(msg, &initialConnectionEvent)
-	if err != nil {
-		log.Printf("Error unmarshalling initial connection event: %s \n\n", msg)
-
-		delete(frontEndClients, client)
-		conn.Close()
-		return
-	}
-	if initialConnectionEvent.Type != InitialConnection {
-		log.Println("Error: Initial Connection Event not received")
-		delete(frontEndClients, client)
 		conn.Close()
 		return
 	}
 
-	//TODO: Auth
-
-	log.Printf("recv: %s", msg)
-
-	initialConnectionEventResponsePayload, err := s.frontEndEventHandler(initialConnectionEvent)
+	// Handle the initial connection event and insert the controller into the database
+	cid, airport, err := s.handleInitialConnectionEvent(msg)
 	if err != nil {
-		log.Printf("Error handling event: %s \n", err)
+		log.Printf("Error handling initial connection event: %s \n", err)
+		conn.Close()
 		return
 	}
-	fmt.Printf("Initial Event Output: %v", initialConnectionEventResponsePayload)
-
-	var initialConnectionEventPayload Controller
-	err = json.Unmarshal([]byte(initialConnectionEvent.Payload.(string)), &initialConnectionEventPayload)
+	// Return the initialConnectionEventPayload to the client
+	err = s.returnInitialConnectionResponseEvent(conn, airport)
 	if err != nil {
-		log.Println("Error unmarshalling initial connection event payload")
+		log.Printf("Error returning initial connection response event: %s \n", err)
+		conn.Close()
 		return
 	}
-
-	initialConnectionEventReturn := Event{
-		Type:      InitialConnection,
-		Airport:   initialConnectionEventPayload.Airport,
-		Source:    "Server",
-		TimeStamp: time.Now(),
-		Payload:   initialConnectionEventPayload.Position,
-	}
-
-	eventOutputBytes, err := json.Marshal(initialConnectionEventReturn)
-	err = conn.WriteMessage(websocket.TextMessage, eventOutputBytes)
-	if err != nil {
-		return
-	}
-
-	PositionOnlineEvent := Event{
-		Type:      PositionOnline,
-		Airport:   initialConnectionEvent.Airport,
-		Source:    "Server",
-		TimeStamp: time.Now(),
-		Payload: PositionOnlinePayload{
-			Airport:  initialConnectionEventPayload.Airport,
-			Position: initialConnectionEventPayload.Position,
-		},
-	}
-
-	positionOnlineEventBytes, err := json.Marshal(PositionOnlineEvent)
-	if err != nil {
-		return
-	}
-
-	frontEndBroadcast <- positionOnlineEventBytes
+	// Create a new client instance.
+	client := &FrontEndClient{conn: conn, send: make(chan []byte), cid: cid}
+	frontEndClients[client] = true
 
 	// Goroutine for outgoing messages.
 	// TODO: This needs to be a function to also determine whether a message needs to be sent to euroscope?
@@ -152,14 +100,6 @@ func (s *Server) frontEndEventHandler(event Event) (interface{}, error) {
 	// TODO: Decide whether the responses are handled here or whether they are handled in the frontEndEvents function
 	// TODO: In order for there to be non broadcasted messages it is just done here?
 	switch event.Type {
-	// Insert Controller Event
-	case InitialConnection:
-		log.Println("Initial Connection Event")
-		response, err := s.frontendeventhandlerInitialconnection(event)
-		if err != nil {
-			return nil, err
-		}
-		return response, nil
 	case CloseConnection:
 		log.Println("Close Connection Event")
 		err := s.frontendeventhandlerCloseconnection(event)
@@ -171,12 +111,11 @@ func (s *Server) frontEndEventHandler(event Event) (interface{}, error) {
 
 	case GoAround:
 		log.Println("Go Around Event")
+		// This event is sent to all FrontEndClients - No need for any backend parseing
 		_, err := s.frontendeventhandlerGoARound(event)
 		if err != nil {
 			return nil, err
 		}
-
-		frontEndBroadcast <- []byte("Go Around!")
 
 	default:
 		log.Println("Unknown Event Type")
@@ -191,60 +130,125 @@ func (s *Server) frontEndEventHandler(event Event) (interface{}, error) {
 	return nil, nil
 }
 
-func (s *Server) frontendeventhandlerInitialconnection(event Event) (resp InitialConnectionEventResponsePayload, err error) {
-	var controller Controller
-	resp = InitialConnectionEventResponsePayload{}
-
-	payload := event.Payload.(string)
-	err = json.Unmarshal([]byte(payload), &controller)
+func (s *Server) handleInitialConnectionEvent(msg []byte) (cid, airport string, err error) {
+	// Unmarshall into event
+	var initialConnectionEvent Event
+	var initialConnectionEventPayload InitialConnectionEventPayload
+	err = json.Unmarshal(msg, &initialConnectionEvent)
 	if err != nil {
-		log.Println("Error unmarshalling controller")
-		return resp, err
+		log.Fatalf("Error unmarshalling initial connection event: %v", err)
+		return "", "", err
+	}
+	// Check event type
+	if initialConnectionEvent.Type != InitialConnection {
+		log.Fatalf("Error: Initial Connection Event not received, instead recieved event of type: %v", initialConnectionEvent.Type)
+		return "", "", err
 	}
 
+	// handle event payload
+	eventPayload := initialConnectionEvent.Payload.(string)
+	err = json.Unmarshal([]byte(eventPayload), &initialConnectionEventPayload)
+	if err != nil {
+		log.Fatalf("Error unmarshalling initial connection event payload: %v", err)
+		return "", "", err
+	}
+
+	// Check the authentication of the event
+	// TODO: Auth
+
+	// Define insertable controller params
 	insertControllerParams := data.InsertControllerParams{
-		Cid: controller.Cid,
+		Cid: initialConnectionEventPayload.CID,
 		Airport: pgtype.Text{
-			String: controller.Airport,
+			String: initialConnectionEventPayload.Airport,
 			Valid:  true,
 		},
 		Position: pgtype.Text{
-			String: controller.Position,
+			String: initialConnectionEventPayload.Position,
 			Valid:  true,
 		},
 	}
 
+	// Insert into database
 	db := data.New(s.DBPool)
-	_, err = db.InsertController(context.Background(), insertControllerParams)
+	insertedController, err := db.InsertController(context.Background(), insertControllerParams)
 	if err != nil {
-		return resp, nil
+		log.Fatalf("Error inserting controller into database: %v", err)
+		return "", "", err
+	}
+	// Redundant Check
+	if insertedController.Cid != initialConnectionEventPayload.CID {
+		log.Fatalf("Error inserting controller into database: Cid mismatch")
+		return "", "", err
 	}
 
-	//  Fetch all the initial connection event response data
-	// Strips, Controllers & Runway configurations
+	// Broadcast the position coming online
+	if err := s.publishControllerOnlineEvent(initialConnectionEventPayload.Airport, initialConnectionEventPayload.Position); err != nil {
+		log.Fatalf("Error publishing controller online event: %v", err)
+		return "", "", err
+	}
 
-	// Fetch all the Controllers
-	db = data.New(s.DBPool)
-	controllers, err := db.ListControllers(context.Background())
+	return initialConnectionEventPayload.CID, initialConnectionEventPayload.Airport, nil
+}
+
+func (s *Server) returnInitialConnectionResponseEvent(conn *websocket.Conn, airport string) error {
+	if conn == nil {
+		return errors.New("returning initial connection response event parser failed on null connection")
+	}
+	if airport == "" {
+		return errors.New("returning initial connection response event parser failed on empty airport")
+	}
+
+	db := data.New(s.DBPool)
+	var resp InitialConnectionEventResponsePayload
+
+	// Get all Controllers
+	controllers, err := db.ListControllersByAirport(context.Background(), pgtype.Text{
+		String: airport,
+		Valid:  false,
+	})
 	if err != nil {
-		return resp, err
+		return err
 	}
 	resp.Controllers = controllers
 
-	// Fetch all the Strips
-	db = data.New(s.DBPool)
-	strips, err := db.ListStripsByOrigin(context.Background(), pgtype.Text{String: controller.Airport, Valid: true})
+	// Get all Strips
+	strips, err := db.ListStripsByOrigin(context.Background(), pgtype.Text{
+		String: airport,
+		Valid:  false,
+	})
 	if err != nil {
-		return resp, err
+		return err
 	}
 	resp.Strips = strips
 
-	// TODO: Still to do is Airport Configurations
-	// TODO: Send a PositionOnline message to all other FrontEndClients
-	log.Printf("Initial Connection Event Response: %v", resp)
-	return resp, nil
-}
+	// Get all Airport Configurations
+	// TODO:
 
+	// Build the event
+	initialConnectionEvent := Event{
+		Type:      InitialConnection,
+		Source:    "FlightStrips",
+		Airport:   airport,
+		TimeStamp: time.Now(),
+		Payload:   resp,
+	}
+	var initialConnectionEventBytes []byte
+	initialConnectionEventBytes, err = json.Marshal(initialConnectionEvent)
+	if err != nil {
+		return err
+	}
+
+	// Send the event
+	err = conn.WriteMessage(websocket.TextMessage, initialConnectionEventBytes)
+	if err != nil {
+		return err
+	}
+
+	log.Printf("Initial Connection Response Event sent to client: %s", initialConnectionEventBytes)
+
+	return nil
+}
 func (s *Server) frontendeventhandlerCloseconnection(event Event) error {
 	var controller Controller
 	payload := event.Payload.(string)
@@ -282,4 +286,33 @@ func (s *Server) frontendeventhandlerGoARound(event Event) (resp interface{}, er
 	frontEndBroadcast <- bEvent
 
 	return nil, nil
+}
+
+func (s *Server) publishControllerOnlineEvent(airport, position string) error {
+	// Build PositionOnline Event
+	positionOnlineEvent := Event{
+		Type:      PositionOnline,
+		Airport:   airport,
+		Source:    "Server",
+		TimeStamp: time.Now(),
+		Payload: PositionOnlinePayload{
+			Airport:  airport,
+			Position: position,
+		},
+	}
+
+	positionOnlineEventBytes, err := json.Marshal(positionOnlineEvent)
+	if err != nil {
+		log.Fatalf("Error marshalling position online event: %v", err)
+		return err
+	}
+
+	// Broadcast the position coming online
+	frontEndBroadcast <- positionOnlineEventBytes
+
+	return nil
+}
+
+func (s *Server) publishControllerOfflineEvent(airport, position string) error {
+	return errors.New("not implemented")
 }

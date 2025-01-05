@@ -24,9 +24,11 @@ var upgrader = websocket.Upgrader{} // use default options
 
 // FrontEndClient structure.
 type FrontEndClient struct {
-	conn *websocket.Conn
-	send chan []byte // Channel for outgoing messages.
-	cid  string
+	conn     *websocket.Conn
+	send     chan []byte // Channel for outgoing messages.
+	cid      string
+	airport  string
+	position string
 }
 
 // Global variables for managing clients.

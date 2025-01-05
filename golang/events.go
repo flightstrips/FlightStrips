@@ -123,3 +123,8 @@ type PositionOnlinePayload struct {
 	Airport  string
 	Position string
 }
+
+type PositionOfflinePayload struct {
+	Airport  string
+	Position string
+}

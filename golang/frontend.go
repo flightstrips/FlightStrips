@@ -104,12 +104,12 @@ func (s *Server) frontEndEvents(w http.ResponseWriter, r *http.Request) {
 	frontEndBroadcast <- positionOnlineEventBytes
 
 	// Goroutine for outgoing messages.
-	// This needs to be a function to also determine whether a message needs to be sent to euroscope?
+	// TODO: This needs to be a function to also determine whether a message needs to be sent to euroscope?
 	go handleOutgoingMessages(client)
 
 	// Read incoming messages.
 	for {
-		// Once the position is online is it worth adding the CID or positon to the client list information so we can take it offline if the connection fails?
+		// TODO: Once the position is online is it worth adding the CID or positon to the client list information so we can take it offline if the connection fails?
 		_, msg, err := conn.ReadMessage()
 		if err != nil {
 			log.Println("read error (connection closed by remote?):", err)
@@ -150,7 +150,7 @@ func (s *Server) frontEndEvents(w http.ResponseWriter, r *http.Request) {
 func (s *Server) frontEndEventHandler(event Event) (interface{}, error) {
 	// TODO: SwitchCase for different types of messages
 	// TODO: Decide whether the responses are handled here or whether they are handled in the frontEndEvents function
-	// In order for there to be non broadcasted messages it is just done here?
+	// TODO: In order for there to be non broadcasted messages it is just done here?
 	switch event.Type {
 	// Insert Controller Event
 	case InitialConnection:

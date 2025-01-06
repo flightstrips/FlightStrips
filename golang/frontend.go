@@ -52,12 +52,10 @@ func (s *Server) frontEndEvents(w http.ResponseWriter, r *http.Request) {
 	frontEndClients[client] = true
 
 	// Goroutine for outgoing messages.
-	// TODO: This needs to be a function to also determine whether a message needs to be sent to euroscope?
 	go handleOutgoingMessages(client)
 
 	// Read incoming messages.
 	for {
-		// TODO: Once the position is online is it worth adding the CID or position to the client list information so we can take it offline if the connection fails?
 		_, msg, err := conn.ReadMessage()
 		if err != nil {
 			log.Println("read error (connection closed by remote?):", err)
@@ -81,15 +79,15 @@ func (s *Server) frontEndEvents(w http.ResponseWriter, r *http.Request) {
 		if event.Type == CloseConnection || event.Type == PositionOffline {
 			break
 		}
+		/*
+			// Broadcast the received message to all clients.
+			// TODO: Decide whether this is the best case - This will be done inside the handler
+			resp, ok := eventOutput.([]byte)
+			if !ok {
+				log.Fatal("Error casting eventOutput to byte")
+			}
 
-		// Broadcast the received message to all clients.
-		// TODO: Decide whether this is the best case
-		resp, ok := eventOutput.([]byte)
-		if !ok {
-			log.Fatal("Error casting eventOutput to byte")
-		}
-
-		frontEndBroadcast <- resp
+			frontEndBroadcast <- resp*/
 	}
 
 	// Cleanup when connection is closed.

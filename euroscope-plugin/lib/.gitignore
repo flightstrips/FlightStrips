@@ -1,2 +1,4 @@
-!EuroScopePlugInDll.dll
 !EuroScopePlugInDll.lib
+!libcrypto.lib
+!libcurl_a.lib
+!libssl.lib

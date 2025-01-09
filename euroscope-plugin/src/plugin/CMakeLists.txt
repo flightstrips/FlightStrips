@@ -22,15 +22,6 @@ set(src__stands
         stands/StandsBootstrapper.h)
 source_group("src\\stands" FILES ${src__stands})
 
-set(src__network
-        network/NetworkService.cpp
-        network/NetworkService.h
-        network/NetworkBootstrapper.cpp
-        network/NetworkBootstrapper.h
-        network/FlightStripsClient.cpp
-        network/FlightStripsClient.h)
-source_group("src\\network" FILES ${src__network})
-
 set(src__bootstrap
         bootstrap/dllmain.cpp
         bootstrap/Container.h
@@ -73,7 +64,6 @@ set(ALL_FILES
         ${src__plugin}
         ${src__filesystem}
         ${src__stands}
-        ${src__network}
         ${src__bootstrap}
         ${src__handlers}
         ${src__flightplan}
@@ -83,7 +73,7 @@ set(ALL_FILES
 ################################################################################
 # Target
 ################################################################################
-add_library(${PROJECT_NAME} SHARED ${ALL_FILES} "${CMAKE_CURRENT_LIST_DIR}/../../../proto/flight_strips.proto")
+add_library(${PROJECT_NAME} SHARED ${ALL_FILES})
 
 target_precompile_headers(${PROJECT_NAME} PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${CMAKE_CURRENT_SOURCE_DIR}/pch/pch.h>")
 
@@ -153,16 +143,32 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE
 ################################################################################
 if (MSVC)
         target_compile_options(${PROJECT_NAME} PRIVATE
-                $<$<CONFIG:Release>:/Oi;/Gy>
-                /permissive-
-                /sdl
-                /Zm200
+                $<$<CONFIG:Release>:
+                /Oi;
+                /Gy
+                >
+                /permissive-;
+                /std:c++20;
+                /sdl;
+                ${DEFAULT_CXX_DEBUG_INFORMATION_FORMAT};
+                /Zm200;
+                ${DEFAULT_CXX_EXCEPTION_HANDLING}
         )
         target_link_options(${PROJECT_NAME} PRIVATE
-                $<$<CONFIG:Debug>:/DEBUG;/INCREMENTAL>
-                $<$<CONFIG:Release>:/DEBUG:NONE;/OPT:REF;/OPT:ICF;/INCREMENTAL:NO>
-                /NODEFAULTLIB:LIBCMT
+                $<$<CONFIG:Debug>:
+                /DEBUG:GHASH;
+                /INCREMENTAL
+                -flto=thin
+                >
+                $<$<CONFIG:Release>:
+                /DEBUG:NONE;
+                /OPT:REF;
+                /OPT:ICF;
+                /INCREMENTAL:NO
+                >
+                /NODEFAULTLIB:LIBCMT;
                 /SUBSYSTEM:WINDOWS
+                /SAFESEH:NO
         )
 endif ()
 
@@ -195,28 +201,3 @@ set(ADDITIONAL_LIBRARY_DEPENDENCIES
 )
 
 target_link_libraries(${PROJECT_NAME} PUBLIC ${ADDITIONAL_LIBRARY_DEPENDENCIES})
-target_link_libraries(${PROJECT_NAME} PRIVATE grpc++)
-
-set(PROTO_BINARY_DIR "${CMAKE_CURRENT_BINARY_DIR}/generated")
-set(PROTO_IMPORT_DIRS "${CMAKE_CURRENT_LIST_DIR}/../../../proto")
-
-target_include_directories(${PROJECT_NAME} SYSTEM PRIVATE "$<BUILD_INTERFACE:${PROTO_BINARY_DIR}>")
-
-protobuf_generate(
-        TARGET ${PROJECT_NAME}
-        IMPORT_DIRS ${PROTO_IMPORT_DIRS}
-        PROTOC_OUT_DIR "${PROTO_BINARY_DIR}")
-
-protobuf_generate(
-        TARGET ${PROJECT_NAME}
-        LANGUAGE grpc
-        GENERATE_EXTENSIONS .grpc.pb.h .grpc.pb.cc
-        PLUGIN "protoc-gen-grpc=\$<TARGET_FILE:grpc_cpp_plugin>"
-        IMPORT_DIRS ${PROTO_IMPORT_DIRS}
-        PROTOC_OUT_DIR "${PROTO_BINARY_DIR}")
-
-# Post-build copy the EuroScope binary
-add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy "${CMAKE_CURRENT_SOURCE_DIR}/../../lib/EuroScopePlugInDll.dll" "${PROJECT_BINARY_DIR}/bin/EuroScopePlugInDll.dll"
-        COMMENT "Copied EuroScope shared library to ${PROJECT_BINARY_DIR}/bin/EuroScopePlugInDll.dll"
-)

@@ -4,10 +4,6 @@
 
 #pragma once
 
-#include <memory>
-#include <functional>
-#include <grpcpp/channel.h>
-
 namespace FlightStrips {
     class FlightStripsPlugin;
     namespace filesystem {
@@ -15,9 +11,6 @@ namespace FlightStrips {
     }
     namespace stands {
         class StandService;
-    }
-    namespace network {
-        class NetworkService;
     }
     namespace handlers {
         class FlightPlanEventHandlers;
@@ -57,15 +50,11 @@ namespace FlightStrips {
         std::shared_ptr<handlers::TimedEventHandlers> timedEventHandlers;
         std::shared_ptr<handlers::AirportRunwaysChangedEventHandlers> airportRunwaysChangedEventHandlers;
 
-        // network
-        std::shared_ptr<network::NetworkService> networkService;
-
         // flight plan
         std::shared_ptr<flightplan::FlightPlanService> flightPlanService;
 
         // Stands
         std::shared_ptr<stands::StandService> standService;
-        std::shared_ptr<grpc::Channel> channel;
     };
 
 }

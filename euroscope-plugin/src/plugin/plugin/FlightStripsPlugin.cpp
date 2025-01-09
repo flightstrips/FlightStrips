@@ -32,43 +32,28 @@ namespace FlightStrips {
     }
 
     void FlightStripsPlugin::OnFlightPlanDisconnect(EuroScopePlugIn::CFlightPlan FlightPlan) {
-        try {
-            if (!IsRelevant(FlightPlan)) {
-                return;
-            }
-
-            this->m_flightPlanEventHandlerCollection->FlightPlanDisconnectEvent(FlightPlan);
-        } catch (std::exception &e) {
-            Error("Error during flight plant disconnect (" + std::string(FlightPlan.GetCallsign()) + "): " +
-                        std::string(e.what()));
+        if (!IsRelevant(FlightPlan)) {
+            return;
         }
+
+        this->m_flightPlanEventHandlerCollection->FlightPlanDisconnectEvent(FlightPlan);
     }
 
     void FlightStripsPlugin::OnFlightPlanControllerAssignedDataUpdate(EuroScopePlugIn::CFlightPlan FlightPlan,
                                                                       int DataType) {
-        try {
-            if (!IsRelevant(FlightPlan)) {
-                return;
-            }
-
-            this->m_flightPlanEventHandlerCollection->ControllerFlightPlanDataEvent(FlightPlan, DataType);
-        } catch (std::exception &e) {
-            Error("Error during controller data update (" + std::string(FlightPlan.GetCallsign()) + "): " +
-                        std::string(e.what()));
+        if (!IsRelevant(FlightPlan)) {
+            return;
         }
+
+        this->m_flightPlanEventHandlerCollection->ControllerFlightPlanDataEvent(FlightPlan, DataType);
     }
 
     void FlightStripsPlugin::OnFlightPlanFlightPlanDataUpdate(EuroScopePlugIn::CFlightPlan FlightPlan) {
-        try {
-            if (!IsRelevant(FlightPlan)) {
-                return;
-            }
-
-            this->m_flightPlanEventHandlerCollection->FlightPlanEvent(FlightPlan);
-        } catch (std::exception &e) {
-            Error("Error during flight plan update (" + std::string(FlightPlan.GetCallsign()) + "): " +
-                        std::string(e.what()));
+        if (!IsRelevant(FlightPlan)) {
+            return;
         }
+
+        this->m_flightPlanEventHandlerCollection->FlightPlanEvent(FlightPlan);
     }
 
     void FlightStripsPlugin::OnTimer(int time) {
@@ -79,17 +64,11 @@ namespace FlightStrips {
     }
 
     void FlightStripsPlugin::OnRadarTargetPositionUpdate(EuroScopePlugIn::CRadarTarget RadarTarget) {
-        try {
-            if (!RadarTarget.IsValid() || !IsRelevant(RadarTarget.GetCorrelatedFlightPlan())) {
-                return;
-            }
-
-            this->m_radarTargetEventHandlers->RadarTargetPositionEvent(RadarTarget);
-        } catch (std::exception &e) {
-            Error("Error during radar position(" + std::string(RadarTarget.GetCallsign()) + "): " +
-                        std::string(e.what()));
+        if (!RadarTarget.IsValid() || !IsRelevant(RadarTarget.GetCorrelatedFlightPlan())) {
+            return;
         }
 
+        this->m_radarTargetEventHandlers->RadarTargetPositionEvent(RadarTarget);
     }
 
     FlightStripsPlugin::~FlightStripsPlugin() = default;
@@ -103,42 +82,14 @@ namespace FlightStrips {
 
 
     void FlightStripsPlugin::OnAirportRunwayActivityChanged() {
-        try {
-            m_airportRunwayChangedEventHandlers->OnAirportRunwayActivityChanged();
-            /*
-            std::vector<runway::ActiveRunway> active;
-
-
-            auto it = CPlugIn::SectorFileElementSelectFirst(SECTOR_ELEMENT_RUNWAY);
-            while (it.IsValid()) {
-                if (strncmp(it.GetAirportName(), "EKCH", 4) == 0) {
-                    for (int i = 0; i < 2; i++) {
-                        for (int j = 0; j < 2; j++) {
-                            if (it.IsElementActive((bool) j, i)) {
-                                runway::ActiveRunway runway = {it.GetRunwayName(i), (bool) j};
-                                active.push_back(runway);
-                            }
-                        }
-                    }
-                }
-
-                it = CPlugIn::SectorFileElementSelectNext(it, SECTOR_ELEMENT_RUNWAY);
-            }
-             */
-        } catch (std::exception &e) {
-            Error("Error during runway change: " + std::string(e.what()));
-        }
+        m_airportRunwayChangedEventHandlers->OnAirportRunwayActivityChanged();
     }
 
     void FlightStripsPlugin::SetClearenceFlag(const std::string &callsign, const bool cleared) {
-        try {
-            if (cleared) {
-                this->UpdateViaScratchPad(callsign.c_str(), CLEARED);
-            } else {
-                this->UpdateViaScratchPad(callsign.c_str(), NOT_CLEARED);
-            }
-        } catch (std::exception &e) {
-            Error("Error during set clearance(" + callsign + "): " + std::string(e.what()));
+        if (cleared) {
+            this->UpdateViaScratchPad(callsign.c_str(), CLEARED);
+        } else {
+            this->UpdateViaScratchPad(callsign.c_str(), NOT_CLEARED);
         }
     }
 
@@ -175,21 +126,11 @@ namespace FlightStrips {
     }
 
     void FlightStripsPlugin::OnControllerPositionUpdate(EuroScopePlugIn::CController Controller) {
-        try {
-            this->m_controllerEventHandlerCollection->ControllerPositionUpdateEvent(Controller);
-        } catch (std::exception &e) {
-            Error("Error during controller position update (" + std::string(Controller.GetCallsign()) + "): " +
-                        std::string(e.what()));
-        }
+        this->m_controllerEventHandlerCollection->ControllerPositionUpdateEvent(Controller);
     }
 
     void FlightStripsPlugin::OnControllerDisconnect(EuroScopePlugIn::CController Controller) {
-        try {
-            this->m_controllerEventHandlerCollection->ControllerDisconnectEvent(Controller);
-        } catch (std::exception &e) {
-            Error("Error during controller disconnect (" + std::string(Controller.GetCallsign()) + "): " +
-                        std::string(e.what()));
-        }
+        this->m_controllerEventHandlerCollection->ControllerDisconnectEvent(Controller);
     }
 
     bool FlightStripsPlugin::ControllerIsMe(EuroScopePlugIn::CController controller, EuroScopePlugIn::CController me) {

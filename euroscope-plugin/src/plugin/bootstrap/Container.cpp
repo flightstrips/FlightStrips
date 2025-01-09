@@ -6,7 +6,6 @@
 #include "plugin/FlightStripsPlugin.h"
 #include "filesystem/FileSystem.h"
 #include "stands/StandService.h"
-#include "network/NetworkService.h"
 #include "handlers/FlightPlanEventHandlers.h"
 #include "handlers/ControllerEventHandlers.h"
 #include "handlers/TimedEventHandlers.h"

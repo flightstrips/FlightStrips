@@ -69,34 +69,6 @@ function(use_package TARGET PACKAGE VERSION)
             "for target \"${TARGET}\" is ignored!")
 endfunction()
 
-include(FetchContent)
-
-# gRPC
-set(ABSL_ENABLE_INSTALL ON)
-set(ABSL_PROPAGATE_CXX_STD ON)
-set(BUILD_SHARED_LIBS OFF)
-set(ABSL_BUILD_TESTING OFF)
-set(gRPC_BUILD_GRPC_CPP_PLUGIN ON)
-set(gRPC_BUILD_GRPC_CSHARP_PLUGIN OFF)
-set(gRPC_BUILD_GRPC_NODE_PLUGIN OFF)
-set(gRPC_BUILD_GRPC_OBJECTIVE_C_PLUGIN OFF)
-set(gRPC_BUILD_GRPC_PHP_PLUGIN OFF)
-set(gRPC_BUILD_GRPC_PYTHON_PLUGIN OFF)
-set(gRPC_BUILD_GRPC_RUBY_PLUGIN OFF)
-set(CMAKE_USE_WIN32_THREADS_INIT 1)
-FetchContent_Declare(
-        grpc
-        GIT_REPOSITORY https://github.com/grpc/grpc.git
-        GIT_TAG v1.64.0
-        SYSTEM
-)
-set(FETCHCONTENT_QUIET OFF)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /EHsc -DNDEBUG")
-
-FetchContent_MakeAvailable(grpc)
-FetchContent_GetProperties(grpc SOURCE_DIR grpc_SOURCE_DIR)
-include(${grpc_SOURCE_DIR}/third_party/protobuf/cmake/protobuf-generate.cmake)
-
 ################################################################################
 # Common utils
 ################################################################################

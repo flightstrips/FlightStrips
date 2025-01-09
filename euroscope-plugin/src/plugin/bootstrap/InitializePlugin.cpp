@@ -3,8 +3,6 @@
 #include "filesystem/FileSystem.h"
 #include "stands/StandsBootstrapper.h"
 #include "euroscope/EuroScopePlugIn.h"
-#include "network/NetworkBootstrapper.h"
-#include "flightplan/FlightPlanBootstrapper.h"
 #include "handlers/ControllerEventHandlers.h"
 #include "handlers/TimedEventHandlers.h"
 #include "handlers/AirportRunwaysChangedEventHandlers.h"
@@ -27,8 +25,6 @@ namespace FlightStrips {
 
         this->container->plugin = std::make_shared<FlightStripsPlugin>(this->container->flightPlanEventHandlers, this->container->radarTargetEventHandlers, this->container->controllerEventHandlers, this->container->timedEventHandlers, this->container->airportRunwaysChangedEventHandlers);
 
-        network::NetworkBootstrapper::Bootstrap(*this->container);
-
         this->container->plugin->Information("Initialized");
     }
 
@@ -45,8 +41,6 @@ namespace FlightStrips {
         this->container->timedEventHandlers.reset();
         this->container->filesystem.reset();
         this->container->plugin.reset();
-        this->container->networkService.reset();
-        this->container->channel.reset();
         this->container->standService.reset();
         this->container->flightPlanService.reset();
         this->container.reset();

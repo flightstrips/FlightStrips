@@ -136,6 +136,7 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE
         "_USRDLL"
         "UNICODE"
         "_UNICODE"
+        "CURL_STATICLIB;"
 )
 
 ################################################################################
@@ -199,5 +200,7 @@ set(ADDITIONAL_LIBRARY_DEPENDENCIES
         "gdiplus"
         "comctl32"
 )
+
+target_link_libraries(${PROJECT_NAME} PRIVATE libcrypto.lib libssl.lib libcurl_a.lib)
 
 target_link_libraries(${PROJECT_NAME} PUBLIC ${ADDITIONAL_LIBRARY_DEPENDENCIES})

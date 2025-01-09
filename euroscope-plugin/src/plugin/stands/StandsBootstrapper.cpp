@@ -3,6 +3,8 @@
 //
 
 #include "StandsBootstrapper.h"
+
+#include "Logger.h"
 #include "filesystem/FileSystem.h"
 #include "stands/StandService.h"
 #include "plugin/FlightStripsPlugin.h"
@@ -11,6 +13,7 @@ namespace FlightStrips::stands {
     void StandsBootstrapper::Bootstrap(Container &container) {
         auto stands = LoadStands(*container.filesystem);
         container.plugin->Information(std::format("Loaded {} stands", stands.size()));
+        Logger::Info(std::format("Loaded {} stands", stands.size()));
         container.standService = std::make_shared<StandService>(stands);
     }
 
@@ -29,6 +32,8 @@ namespace FlightStrips::stands {
 
             stands.push_back(Stand::FromLine(line));
         }
+
+        filestream.close();
 
         return stands;
     }

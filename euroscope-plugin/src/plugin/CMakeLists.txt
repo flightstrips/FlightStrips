@@ -68,7 +68,9 @@ set(ALL_FILES
         ${src__handlers}
         ${src__flightplan}
         ${src__runway}
-        Constants.h)
+        Constants.h
+        Logger.cpp
+        Logger.h)
 
 ################################################################################
 # Target

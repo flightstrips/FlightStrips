@@ -1,4 +1,6 @@
 #include "InitializePlugin.h"
+
+#include "Logger.h"
 #include "plugin/FlightStripsPlugin.h"
 #include "filesystem/FileSystem.h"
 #include "stands/StandsBootstrapper.h"
@@ -14,18 +16,22 @@ namespace FlightStrips {
 
     void InitializePlugin::PostInit(HINSTANCE dllInstance) {
         this->container = std::make_shared<Container>();
+        this->container->filesystem = std::make_unique<filesystem::FileSystem>(dllInstance);
+
+        Logger::LEVEL = LOG_INFO;
+        Logger::LOG_PATH = this->container->filesystem->GetLocalFilePath("flightstrips.log").string();
+
         this->container->controllerEventHandlers = std::make_shared<handlers::ControllerEventHandlers>();
         this->container->flightPlanEventHandlers = std::make_shared<handlers::FlightPlanEventHandlers>();
         this->container->radarTargetEventHandlers = std::make_shared<handlers::RadarTargetEventHandlers>();
         this->container->timedEventHandlers = std::make_shared<handlers::TimedEventHandlers>();
         this->container->airportRunwaysChangedEventHandlers = std::make_shared<handlers::AirportRunwaysChangedEventHandlers>();
-        this->container->filesystem = std::make_unique<filesystem::FileSystem>(dllInstance);
         stands::StandsBootstrapper::Bootstrap(*this->container);
         //flightplan::FlightPlanBootstrapper::Bootstrap(*this->container);
 
         this->container->plugin = std::make_shared<FlightStripsPlugin>(this->container->flightPlanEventHandlers, this->container->radarTargetEventHandlers, this->container->controllerEventHandlers, this->container->timedEventHandlers, this->container->airportRunwaysChangedEventHandlers);
 
-        this->container->plugin->Information("Initialized");
+        Logger::Info("Initialized!");
     }
 
     void InitializePlugin::EuroScopeCleanup() {

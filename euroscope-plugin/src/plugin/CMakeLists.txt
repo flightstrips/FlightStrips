@@ -219,6 +219,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE libcrypto.lib libssl.lib libcurl_a
 
 target_link_libraries(${PROJECT_NAME} PUBLIC ${ADDITIONAL_LIBRARY_DEPENDENCIES})
 
+
 add_custom_command(
         TARGET ${PROJECT_NAME} POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy

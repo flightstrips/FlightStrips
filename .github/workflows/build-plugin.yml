@@ -5,11 +5,13 @@ on:
     branches:
       - "main"
     paths:
+      - ".github/workflows/build-plugin.yml"
       - "euroscope-plugin/**"
   pull_request:
     branches:
       - "main"
     paths:
+      - ".github/workflows/build-plugin.yml"
       - "euroscope-plugin/**"
 
 env:
@@ -31,23 +33,10 @@ jobs:
         with:
           arch: x86
 
-      - name: Check Clang Version
-        run: clang-cl --version
-
-      - name: install packages
-        run: |
-          choco install nasm
-          echo "C:\Program Files\NASM" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-
       - name: Setup Ninja
         uses: seanmiddleditch/gha-setup-ninja@master
 
       - name: Run CMake
-        env:
-          CC: clang-cl
-          CFLAGS: -m32
-          CXX: clang-cl
-          CXXFLAGS: -m32
         run: cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -G Ninja -Bbuild
 
       # Run the build
@@ -58,5 +47,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: Plugin
-          path: ./euroscope-plugin/build/bin/FlightStripsPlugin.dll
+          path: |
+            ./euroscope-plugin/build/bin/FlightStripsPlugin.dll
+            ./euroscope-plugin/build/bin/flightstrips_config.ini
           if-no-files-found: error

@@ -4,7 +4,7 @@
 
 #include <utility>
 
-#include "config.h"
+#include "Config.h"
 
 namespace FlightStrips::configuration {
     void Config::save() const {

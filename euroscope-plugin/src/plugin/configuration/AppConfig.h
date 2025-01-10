@@ -3,7 +3,7 @@
 //
 
 #pragma once
-#include "config.h"
+#include "Config.h"
 
 
 namespace FlightStrips::configuration {

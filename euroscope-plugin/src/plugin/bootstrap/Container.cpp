@@ -11,6 +11,8 @@
 #include "handlers/TimedEventHandlers.h"
 #include "handlers/RadarTargetEventHandlers.h"
 #include"flightplan/FlightPlanService.h"
+#include "configuration/AppConfig.h"
+#include "configuration/UserConfig.h"
 
 namespace FlightStrips {
     Container::Container() = default;

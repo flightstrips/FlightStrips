@@ -30,6 +30,17 @@ set(src__bootstrap
         bootstrap/InitializePlugin.cpp)
 source_group("src\\bootstrap" FILES ${src__bootstrap})
 
+set(src__configuration
+        configuration/config.cpp
+        configuration/config.h
+        configuration/AppConfig.cpp
+        configuration/AppConfig.h
+        configuration/UserConfig.cpp
+        configuration/UserConfig.h
+        configuration/ConfigurationBootstrapper.cpp
+        configuration/ConfigurationBootstrapper.h)
+source_group("src\\configuration" FILES ${src__configuration})
+
 set(src__handlers
         handlers/FlightPlanEventHandler.h
         handlers/FlightPlanEventHandlers.h
@@ -63,6 +74,7 @@ source_group("src\\runway" FILES ${src__runway})
 set(ALL_FILES
         ${src__plugin}
         ${src__filesystem}
+        ${src__configuration}
         ${src__stands}
         ${src__bootstrap}
         ${src__handlers}
@@ -206,3 +218,9 @@ set(ADDITIONAL_LIBRARY_DEPENDENCIES
 target_link_libraries(${PROJECT_NAME} PRIVATE libcrypto.lib libssl.lib libcurl_a.lib)
 
 target_link_libraries(${PROJECT_NAME} PUBLIC ${ADDITIONAL_LIBRARY_DEPENDENCIES})
+
+add_custom_command(
+        TARGET ${PROJECT_NAME} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy
+        ${CMAKE_SOURCE_DIR}/src/config.ini
+        ${PROJECT_BINARY_DIR}/bin/flightstrips_config.ini)

@@ -12,6 +12,10 @@ namespace FlightStrips {
     namespace stands {
         class StandService;
     }
+    namespace configuration {
+        class AppConfig;
+        class UserConfig;
+    }
     namespace handlers {
         class FlightPlanEventHandlers;
         class ControllerEventHandlers;
@@ -42,6 +46,10 @@ namespace FlightStrips {
 
         // FileSystem
         std::unique_ptr<filesystem::FileSystem> filesystem;
+
+        // Config
+        std::shared_ptr<configuration::AppConfig> appConfig;
+        std::shared_ptr<configuration::UserConfig> userConfig;
 
         // event collections
         std::shared_ptr<handlers::ControllerEventHandlers> controllerEventHandlers;

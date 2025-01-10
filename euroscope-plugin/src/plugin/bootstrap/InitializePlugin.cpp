@@ -1,6 +1,7 @@
 #include "InitializePlugin.h"
 
 #include "Logger.h"
+#include "configuration/AppConfig.h"
 #include "plugin/FlightStripsPlugin.h"
 #include "filesystem/FileSystem.h"
 #include "stands/StandsBootstrapper.h"
@@ -8,6 +9,7 @@
 #include "handlers/ControllerEventHandlers.h"
 #include "handlers/TimedEventHandlers.h"
 #include "handlers/AirportRunwaysChangedEventHandlers.h"
+#include "configuration/ConfigurationBootstrapper.h"
 
 namespace FlightStrips {
     auto InitializePlugin::GetPlugin() -> EuroScopePlugIn::CPlugIn* {
@@ -17,9 +19,10 @@ namespace FlightStrips {
     void InitializePlugin::PostInit(HINSTANCE dllInstance) {
         this->container = std::make_shared<Container>();
         this->container->filesystem = std::make_unique<filesystem::FileSystem>(dllInstance);
-
-        Logger::LEVEL = LOG_INFO;
+        FilghtStrips::configuration::ConfigurationBootstrapper::Bootstrap(*this->container);
         Logger::LOG_PATH = this->container->filesystem->GetLocalFilePath("flightstrips.log").string();
+        Logger::SetLevelFromString(this->container->appConfig->GetLogLevel());
+        Logger::Debug("Logger initialized and loaded configuration!");
 
         this->container->controllerEventHandlers = std::make_shared<handlers::ControllerEventHandlers>();
         this->container->flightPlanEventHandlers = std::make_shared<handlers::FlightPlanEventHandlers>();
@@ -31,7 +34,7 @@ namespace FlightStrips {
 
         this->container->plugin = std::make_shared<FlightStripsPlugin>(this->container->flightPlanEventHandlers, this->container->radarTargetEventHandlers, this->container->controllerEventHandlers, this->container->timedEventHandlers, this->container->airportRunwaysChangedEventHandlers);
 
-        Logger::Info("Initialized!");
+        Logger::Info(std::format("Loaded plugin version {}.", PLUGIN_VERSION));
     }
 
     void InitializePlugin::EuroScopeCleanup() {
@@ -50,6 +53,8 @@ namespace FlightStrips {
         this->container->standService.reset();
         this->container->flightPlanService.reset();
         this->container.reset();
+
+        Logger::Info("Unloaded!");
     }
 
 }

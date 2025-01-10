@@ -14,7 +14,7 @@ namespace FlightStrips {
             const std::shared_ptr<handlers::ControllerEventHandlers> &mControllerEventHandlers,
             const std::shared_ptr<handlers::TimedEventHandlers> &mTimedEventHandlers,
             const std::shared_ptr<handlers::AirportRunwaysChangedEventHandlers> &mAirportRunwaysChangedEventHandlers)
-            : CPlugIn(COMPATIBILITY_CODE, PLUGIN_NAME, "0.0.1", PLUGIN_AUTHOR, PLUGIN_COPYRIGHT),
+            : CPlugIn(COMPATIBILITY_CODE, PLUGIN_NAME, PLUGIN_VERSION, PLUGIN_AUTHOR, PLUGIN_COPYRIGHT),
               m_flightPlanEventHandlerCollection(mFlightPlanEventHandlerCollection),
               m_radarTargetEventHandlers(mRadarTargetEventHandlers),
               m_controllerEventHandlerCollection(mControllerEventHandlers),

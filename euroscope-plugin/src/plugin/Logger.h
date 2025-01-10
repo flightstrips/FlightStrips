@@ -20,6 +20,8 @@ public:
     static LogLevel LEVEL;
     static std::string LOG_PATH;
 
+    static void SetLevelFromString(const std::string& logLevel);
+
     static void Debug(const std::string &message) { WriteToFile(message, LOG_DEBUG); }
     static void Info(const std::string &message) { WriteToFile(message, LOG_INFO); }
     static void Warning(const std::string &message) { WriteToFile(message, LOG_WARNING); }

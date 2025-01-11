@@ -1,6 +1,7 @@
 #pragma once
 #include <future>
 #include <optional>
+#include <nlohmann/json.hpp>
 
 #include "configuration/AppConfig.h"
 #include "configuration/UserConfig.h"
@@ -29,11 +30,23 @@ private:
     std::shared_ptr<configuration::UserConfig> userConfig;
     std::atomic_bool running_token = ATOMIC_VAR_INIT(false);
 
+    std::string accessToken = "";
+    std::string refreshToken = "";
+    std::string name = "";
+    time_t expirationTime = 0;
+    bool authenticated = false;
+
+    void LoadFromConfig();
+
+    bool NeedsRefresh() const;
+
     void DoAuthenticationFlow();
     bool WaitForResult(const std::future<std::optional<std::string>> &future) const;
     [[nodiscard]] std::string GetAuthorizeUrl(const std::string& code_challenge, const std::string& client_id, const std::string& redirect_uri) const;
 
     static void OpenBrowser(const std::string& url);
+
+    static std::optional<nlohmann::json> GetTokenPayload(const std::string &access_token);
 
     std::thread token_thread;
 
@@ -42,6 +55,7 @@ private:
 
     static std::string generateCodeVerifier();
     static std::string base64_encode(const std::string & in);
+    static std::string base64_decode(const std::string & in);
     static std::string generateCodeChallenge(const std::string& codeVerifier);
 };
 

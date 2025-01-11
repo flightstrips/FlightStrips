@@ -20,8 +20,7 @@ namespace FlightStrips::authentication {
                 resultPromise.set_value({});
             } else {
                 const auto code = request.get_param_value("code");
-                res.body = "Authentication successful, you may now close this window.";
-                res.status = 200;
+                res.set_content("<html><body>Authentication successful, you may now close this window. Window will close after 5 seconds automatically.<script>setTimeout(function(){window.close()},5000);</script></body></html>", "text/html; charset=utf-8");
                 resultPromise.set_value(code);
             }
         });

@@ -4,6 +4,7 @@
 #include <openssl/rand.h>
 #include <openssl/sha.h>
 #include <curl/curl.h>
+#include <nlohmann/json.hpp>
 
 #include "AuthenticationRedirectListener.h"
 #include "Logger.h"
@@ -12,6 +13,7 @@ namespace FlightStrips::authentication {
     AuthenticationService::AuthenticationService(const std::shared_ptr<configuration::AppConfig> &appConfig,
                                                  const std::shared_ptr<configuration::UserConfig> &
                                                  userConfig) : appConfig(appConfig), userConfig(userConfig) {
+        LoadFromConfig();
     }
 
     AuthenticationService::~AuthenticationService() {
@@ -63,6 +65,51 @@ namespace FlightStrips::authentication {
         ShellExecute(nullptr, nullptr, wurl.c_str(), nullptr, nullptr, SW_SHOW);
     }
 
+    std::optional<nlohmann::json> AuthenticationService::GetTokenPayload(const std::string &access_token) {
+        const auto start = access_token.find('.');
+        if (start == std::string::npos) {
+            Logger::Error("GetTokenPayload start '.' not found");
+            return {};
+        }
+        const auto end = access_token.find('.', start + 1);
+        if (end == std::string::npos) {
+            Logger::Error("GetTokenPayload end '.' not found");
+            return {};
+        }
+
+        const std::string token = access_token.substr(start + 1, end - (start + 1));
+        const auto decoded = base64_decode(token);
+        try {
+            return nlohmann::json::parse(decoded);
+        } catch (const std::exception &e) {
+            Logger::Error(std::format("Failed to parse payload part of token: {}", e.what()));
+            return {};
+        }
+    }
+
+    void AuthenticationService::LoadFromConfig() {
+        auto token = this->userConfig->GetToken();
+        accessToken = token.accessToken;
+        refreshToken = token.refreshToken;
+        expirationTime = token.expiry;
+
+        const auto parsed_id_token = GetTokenPayload(token.idToken);
+        if (parsed_id_token.has_value()) {
+            name = parsed_id_token.value()["name"];
+        }
+
+        if (!accessToken.empty() && !refreshToken.empty() && !NeedsRefresh()) {
+            authenticated = true;
+        }
+
+        Logger::Debug(std::format("Name: {}", name));
+    }
+
+    bool AuthenticationService::NeedsRefresh() const {
+        const time_t now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+        return expirationTime < now + 60 * 30;
+    }
+
     void AuthenticationService::DoAuthenticationFlow() {
         Logger::Debug("Starting authentication flow");
         std::promise<std::optional<std::string> > promise;
@@ -100,6 +147,35 @@ namespace FlightStrips::authentication {
 
         auto token_result = GetTokenFromAuthorizationCode(client_id, code_verifier, code, redirect_uri);
         Logger::Debug(std::format("Got authentication token: {}", token_result));
+
+        nlohmann::json token_json;
+        try {
+            token_json = nlohmann::json::parse(token_result);
+        } catch (const std::exception &e) {
+            Logger::Error(std::format("Failed to parse authentication token endpoint JSON. Error: {}", e.what()));
+            return;
+        }
+
+        std::string access_token = token_json["access_token"];
+        std::string refresh_token = token_json["refresh_token"];
+        std::string id_token = token_json["id_token"];
+        auto access_token_payload = GetTokenPayload(access_token);
+        auto id_token_payload = GetTokenPayload(id_token);
+        if (!access_token_payload.has_value() || !id_token_payload.has_value()) {
+            return;
+        }
+
+        const int exp = access_token_payload.value()["exp"];
+
+        // TODO event
+        configuration::Token token = { accessToken, refresh_token, id_token, exp };
+        userConfig->SetToken(token);
+
+        this->accessToken = access_token;
+        this->refreshToken = refresh_token;
+        this->name = id_token_payload.value()["name"];
+        this->expirationTime = exp;
+        this->authenticated = true;
     }
 
     bool AuthenticationService::WaitForResult(const std::future<std::optional<std::string> > &future) const {
@@ -177,6 +253,26 @@ namespace FlightStrips::authentication {
         }
         if (valb > -6) {
             out.push_back(base64_url_alphabet[((val << 8) >> (valb + 8)) & 0x3F]);
+        }
+        return out;
+    }
+
+    std::string AuthenticationService::base64_decode(const std::string & in) {
+        std::string out;
+        std::vector<int> T(256, -1);
+        unsigned int i;
+        for (i =0; i < 64; i++) T[base64_url_alphabet[i]] = i;
+
+        int val = 0, valb = -8;
+        for (i = 0; i < in.length(); i++) {
+            unsigned char c = in[i];
+            if (T[c] == -1) break;
+            val = (val<<6) + T[c];
+            valb += 6;
+            if (valb >= 0) {
+                out.push_back(char((val>>valb)&0xFF));
+                valb -= 8;
+            }
         }
         return out;
     }

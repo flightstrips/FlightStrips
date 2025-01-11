@@ -71,6 +71,13 @@ set(src__runway
         runway/ActiveRunway.h)
 source_group("src\\runway" FILES ${src__runway})
 
+set(src__authentication
+        authentication/AuthenticationService.cpp
+        authentication/AuthenticationService.h
+        authentication/AuthenticationRedirectListener.cpp
+        authentication/AuthenticationRedirectListener.h)
+source_group("src\\authentication" FILES ${src__authentication})
+
 set(ALL_FILES
         ${src__plugin}
         ${src__filesystem}
@@ -80,6 +87,7 @@ set(ALL_FILES
         ${src__handlers}
         ${src__flightplan}
         ${src__runway}
+        ${src__authentication}
         Constants.h
         Logger.cpp
         Logger.h)

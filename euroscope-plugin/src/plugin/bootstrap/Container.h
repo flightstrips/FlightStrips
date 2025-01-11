@@ -6,6 +6,9 @@
 
 namespace FlightStrips {
     class FlightStripsPlugin;
+    namespace authentication {
+        class AuthenticationService;
+    }
     namespace filesystem {
         class FileSystem;
     }
@@ -43,6 +46,9 @@ namespace FlightStrips {
 
         // The plugin
         std::shared_ptr<FlightStripsPlugin> plugin;
+
+        // Authentication
+        std::shared_ptr<authentication::AuthenticationService> authenticationService;
 
         // FileSystem
         std::unique_ptr<filesystem::FileSystem> filesystem;

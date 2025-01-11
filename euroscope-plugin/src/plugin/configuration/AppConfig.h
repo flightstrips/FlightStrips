@@ -16,6 +16,7 @@ public:
 
     [[nodiscard]] std::string GetAuthority();
     [[nodiscard]] std::string GetClientId();
+    [[nodiscard]] std::string GetScopes();
     [[nodiscard]] int GetRedirectPort();
     [[nodiscard]] std::string GetBaseUrl();
     [[nodiscard]] std::string GetLogLevel();

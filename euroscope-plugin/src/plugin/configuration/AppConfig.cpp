@@ -13,6 +13,10 @@ namespace FlightStrips::configuration {
         return std::string(ini["authentication"]["clientId"] | "error");
     }
 
+    std::string AppConfig::GetScopes() {
+        return std::string(ini["authentication"]["scopes"] | "openid profile offline_access");
+    }
+
     int AppConfig::GetRedirectPort() {
         return ini["authentication"]["redirectPort"] | 27015;
     }

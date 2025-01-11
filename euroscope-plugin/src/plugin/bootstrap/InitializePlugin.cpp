@@ -1,6 +1,7 @@
 #include "InitializePlugin.h"
 
 #include "Logger.h"
+#include "authentication/AuthenticationService.h"
 #include "configuration/AppConfig.h"
 #include "plugin/FlightStripsPlugin.h"
 #include "filesystem/FileSystem.h"
@@ -32,9 +33,13 @@ namespace FlightStrips {
         stands::StandsBootstrapper::Bootstrap(*this->container);
         //flightplan::FlightPlanBootstrapper::Bootstrap(*this->container);
 
+        this->container->authenticationService = std::make_shared<authentication::AuthenticationService>(this->container->appConfig, this->container->userConfig);
+
         this->container->plugin = std::make_shared<FlightStripsPlugin>(this->container->flightPlanEventHandlers, this->container->radarTargetEventHandlers, this->container->controllerEventHandlers, this->container->timedEventHandlers, this->container->airportRunwaysChangedEventHandlers);
 
         Logger::Info(std::format("Loaded plugin version {}.", PLUGIN_VERSION));
+
+        this->container->authenticationService->StartAuthentication();
     }
 
     void InitializePlugin::EuroScopeCleanup() {
@@ -52,6 +57,7 @@ namespace FlightStrips {
         this->container->plugin.reset();
         this->container->standService.reset();
         this->container->flightPlanService.reset();
+        this->container->authenticationService.reset();
         this->container.reset();
 
         Logger::Info("Unloaded!");

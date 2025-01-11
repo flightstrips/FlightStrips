@@ -13,6 +13,7 @@
 #include"flightplan/FlightPlanService.h"
 #include "configuration/AppConfig.h"
 #include "configuration/UserConfig.h"
+#include "authentication/AuthenticationService.h"
 
 namespace FlightStrips {
     Container::Container() = default;

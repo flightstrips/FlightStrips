@@ -25,6 +25,7 @@ namespace FlightStrips::graphics {
             return;
         }
 
+
         if (hdcHandle != hDC) {
             hdcHandle = hDC;
             graphics.SetHandle(hdcHandle);
@@ -70,6 +71,7 @@ namespace FlightStrips::graphics {
         graphics.FillRect(colors.headerBrush.get(), btnRect);
         graphics.DrawString(btnText, btnRect, colors.whiteBrush.get(), Gdiplus::StringAlignmentCenter);
         AddScreenObject(authenticationButtonId, "", btnRect, false, nullptr);
+        canClick = true;
     }
 
     void InfoScreen::OnAsrContentToBeClosed() {
@@ -91,11 +93,18 @@ namespace FlightStrips::graphics {
     }
 
     void InfoScreen::OnClickScreenObject(int ObjectType, const char *sObjectId, POINT Pt, RECT Area, int Button) {
+        if (!canClick) {
+            return;
+        }
+
+        canClick = false;
         if (ObjectType == closeId) {
             isOpen = false;
+            RequestRefresh();
         } else if (ObjectType == minimizeId) {
             isMinimized = !isMinimized;
             userConfig->SetWindowState({menubar.left, menubar.top, isMinimized});
+            RequestRefresh();
         } else if (ObjectType == authenticationButtonId) {
             if (authService->IsRunningAuthentication()) {
                 authService->CancelAuthentication();
@@ -104,6 +113,7 @@ namespace FlightStrips::graphics {
             } else if (!authService->IsAuthenticated()) {
                 authService->StartAuthentication();
             }
+            RequestRefresh();
         }
     }
 }

@@ -30,7 +30,13 @@ namespace FlightStrips::authentication {
     }
 
     void AuthenticationService::StartAuthentication() {
-        CancelAuthentication();
+        if (running_token) {
+            return;
+        }
+
+        if (token_thread.joinable()) {
+            token_thread.join();
+        }
 
         running_token = true;
         this->token_thread = std::thread(&AuthenticationService::DoAuthenticationFlow, this);

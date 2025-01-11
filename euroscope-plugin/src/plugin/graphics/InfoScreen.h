@@ -32,6 +32,7 @@ namespace FlightStrips::graphics {
 
         bool isOpen = true;
         bool isMinimized = false;
+        bool canClick = true;
 
         std::shared_ptr<authentication::AuthenticationService> authService;
         std::shared_ptr<configuration::UserConfig> userConfig;

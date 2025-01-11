@@ -78,6 +78,14 @@ set(src__authentication
         authentication/AuthenticationRedirectListener.h)
 source_group("src\\authentication" FILES ${src__authentication})
 
+set(src__graphics
+        graphics/InfoScreen.cpp
+        graphics/InfoScreen.h
+        graphics/Colors.h
+        graphics/Graphics.cpp
+        graphics/Graphics.h)
+source_group("src\\graphics" FILES ${src__graphics})
+
 set(ALL_FILES
         ${src__plugin}
         ${src__filesystem}
@@ -88,6 +96,7 @@ set(ALL_FILES
         ${src__flightplan}
         ${src__runway}
         ${src__authentication}
+        ${src__graphics}
         Constants.h
         Logger.cpp
         Logger.h)

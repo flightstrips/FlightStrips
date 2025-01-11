@@ -21,9 +21,13 @@ public:
     AuthenticationService(const std::shared_ptr<configuration::AppConfig> &appConfig, const std::shared_ptr<configuration::UserConfig> &userConfig);
     ~AuthenticationService();
 
+    void Logout();
     void StartAuthentication();
     void CancelAuthentication();
     [[nodiscard]] bool IsRunningAuthentication() const;
+    [[nodiscard]] bool IsAuthenticated() const;
+    [[nodiscard]] std::string GetName() const;
+
 
 private:
     std::shared_ptr<configuration::AppConfig> appConfig;
@@ -41,6 +45,7 @@ private:
     bool NeedsRefresh() const;
 
     void DoAuthenticationFlow();
+    void DoAuthenticationFlowImpl();
     bool WaitForResult(const std::future<std::optional<std::string>> &future) const;
     [[nodiscard]] std::string GetAuthorizeUrl(const std::string& code_challenge, const std::string& client_id, const std::string& redirect_uri) const;
 

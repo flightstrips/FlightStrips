@@ -2,6 +2,7 @@
 #include <format>
 #include "FlightStripsPlugin.h"
 #include "euroscope/EuroScopePlugIn.h"
+#include "graphics/InfoScreen.h"
 #include "handlers/FlightPlanEventHandlers.h"
 #include "runway/ActiveRunway.h"
 
@@ -13,13 +14,17 @@ namespace FlightStrips {
             const std::shared_ptr<handlers::RadarTargetEventHandlers> &mRadarTargetEventHandlers,
             const std::shared_ptr<handlers::ControllerEventHandlers> &mControllerEventHandlers,
             const std::shared_ptr<handlers::TimedEventHandlers> &mTimedEventHandlers,
-            const std::shared_ptr<handlers::AirportRunwaysChangedEventHandlers> &mAirportRunwaysChangedEventHandlers)
+            const std::shared_ptr<handlers::AirportRunwaysChangedEventHandlers> &mAirportRunwaysChangedEventHandlers,
+            const std::shared_ptr<authentication::AuthenticationService> &mAuthenticationService,
+            const std::shared_ptr<configuration::UserConfig> &mUserConfig)
             : CPlugIn(COMPATIBILITY_CODE, PLUGIN_NAME, PLUGIN_VERSION, PLUGIN_AUTHOR, PLUGIN_COPYRIGHT),
               m_flightPlanEventHandlerCollection(mFlightPlanEventHandlerCollection),
               m_radarTargetEventHandlers(mRadarTargetEventHandlers),
               m_controllerEventHandlerCollection(mControllerEventHandlers),
               m_timedEventHandlers(mTimedEventHandlers),
-              m_airportRunwayChangedEventHandlers(mAirportRunwaysChangedEventHandlers)
+              m_airportRunwayChangedEventHandlers(mAirportRunwaysChangedEventHandlers),
+              m_authenticationService(mAuthenticationService),
+              m_userConfig(mUserConfig)
     {
     }
 
@@ -123,6 +128,11 @@ namespace FlightStrips {
         }
 
         return active;
+    }
+
+    CRadarScreen * FlightStripsPlugin::OnRadarScreenCreated(const char *sDisplayName,
+        bool NeedRadarContent, bool GeoReferenced, bool CanBeSaved, bool CanBeCreated) {
+        return new graphics::InfoScreen(m_authenticationService, m_userConfig);
     }
 
     void FlightStripsPlugin::OnControllerPositionUpdate(EuroScopePlugIn::CController Controller) {

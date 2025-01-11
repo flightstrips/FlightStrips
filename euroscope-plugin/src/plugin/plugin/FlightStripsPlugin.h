@@ -10,6 +10,7 @@
 #define GITHUB_LINK "https://github.com/frederikrosenberg/FlightStrips"
 #endif // !COPYRIGHTS
 
+#include "authentication/AuthenticationService.h"
 #include "handlers/FlightPlanEventHandlers.h"
 #include "handlers/RadarTargetEventHandlers.h"
 #include "handlers/ControllerEventHandlers.h"
@@ -29,7 +30,9 @@ namespace FlightStrips {
                 const std::shared_ptr<handlers::RadarTargetEventHandlers> &mRadarTargetEventHandlers,
                 const std::shared_ptr<handlers::ControllerEventHandlers> &mControllerEventHandlers,
                 const std::shared_ptr<handlers::TimedEventHandlers> &mTimedEventHandlers,
-                const std::shared_ptr<handlers::AirportRunwaysChangedEventHandlers> &mAirportRunwaysChangedEventHandlers);
+                const std::shared_ptr<handlers::AirportRunwaysChangedEventHandlers> &mAirportRunwaysChangedEventHandlers,
+                const std::shared_ptr<authentication::AuthenticationService> &mAuthenticationService,
+                const std::shared_ptr<configuration::UserConfig> &mUserConfig);
 
         ~FlightStripsPlugin() override;
 
@@ -60,6 +63,8 @@ namespace FlightStrips {
         void UpdateViaScratchPad(const char* callsign, const char* message) const;
         std::vector<runway::ActiveRunway> GetActiveRunways(const char* airport) const;
 
+        EuroScopePlugIn::CRadarScreen* OnRadarScreenCreated ( const char * sDisplayName, bool NeedRadarContent, bool GeoReferenced, bool CanBeSaved, bool CanBeCreated ) override;
+
         static bool ControllerIsMe(EuroScopePlugIn::CController controller, EuroScopePlugIn::CController me);
 
         static bool IsRelevant(EuroScopePlugIn::CFlightPlan flightPlan);
@@ -69,6 +74,8 @@ namespace FlightStrips {
         const std::shared_ptr<handlers::ControllerEventHandlers> m_controllerEventHandlerCollection;
         const std::shared_ptr<handlers::TimedEventHandlers> m_timedEventHandlers;
         const std::shared_ptr<handlers::AirportRunwaysChangedEventHandlers> m_airportRunwayChangedEventHandlers;
+        const std::shared_ptr<authentication::AuthenticationService> m_authenticationService;
+        const std::shared_ptr<configuration::UserConfig> m_userConfig;
 
     };
 }

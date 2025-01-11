@@ -30,7 +30,6 @@ namespace configuration {
         return WindowState {
             section["x"] | 400,
             section["y"] | 400,
-            section["open"] | true,
             section["minimized"] | false
         };
     }
@@ -39,7 +38,6 @@ namespace configuration {
         const auto section = ini[WindowSection];
         section["x"] = state.x;
         section["y"] = state.y;
-        section["open"] = state.open;
         section["minimized"] = state.minimized;
         save();
     }

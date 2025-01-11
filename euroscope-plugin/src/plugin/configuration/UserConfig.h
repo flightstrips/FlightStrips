@@ -18,7 +18,6 @@ struct Token {
 struct WindowState {
     int x;
     int y;
-    bool open;
     bool minimized;
 };
 

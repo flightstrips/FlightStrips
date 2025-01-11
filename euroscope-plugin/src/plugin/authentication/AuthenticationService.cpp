@@ -20,6 +20,15 @@ namespace FlightStrips::authentication {
         CancelAuthentication();
     }
 
+    void AuthenticationService::Logout() {
+        accessToken = "";
+        refreshToken = "";
+        expirationTime = 0;
+        name = "";
+        authenticated = false;
+        userConfig->SetToken({});
+    }
+
     void AuthenticationService::StartAuthentication() {
         CancelAuthentication();
 
@@ -37,6 +46,14 @@ namespace FlightStrips::authentication {
 
     bool AuthenticationService::IsRunningAuthentication() const {
         return running_token;
+    }
+
+    bool AuthenticationService::IsAuthenticated() const {
+        return authenticated;
+    }
+
+    std::string AuthenticationService::GetName() const {
+        return name;
     }
 
     std::string AuthenticationService::GetAuthorizeUrl(const std::string &code_challenge, const std::string &client_id,
@@ -110,7 +127,7 @@ namespace FlightStrips::authentication {
         return expirationTime < now + 60 * 30;
     }
 
-    void AuthenticationService::DoAuthenticationFlow() {
+    void AuthenticationService::DoAuthenticationFlowImpl() {
         Logger::Debug("Starting authentication flow");
         std::promise<std::optional<std::string> > promise;
         std::future<std::optional<std::string> > future = promise.get_future();
@@ -168,7 +185,7 @@ namespace FlightStrips::authentication {
         const int exp = access_token_payload.value()["exp"];
 
         // TODO event
-        configuration::Token token = { accessToken, refresh_token, id_token, exp };
+        configuration::Token token = { access_token, refresh_token, id_token, exp };
         userConfig->SetToken(token);
 
         this->accessToken = access_token;
@@ -176,6 +193,11 @@ namespace FlightStrips::authentication {
         this->name = id_token_payload.value()["name"];
         this->expirationTime = exp;
         this->authenticated = true;
+    }
+
+    void AuthenticationService::DoAuthenticationFlow() {
+        DoAuthenticationFlowImpl();
+        running_token = false;
     }
 
     bool AuthenticationService::WaitForResult(const std::future<std::optional<std::string> > &future) const {

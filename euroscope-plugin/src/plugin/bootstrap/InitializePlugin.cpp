@@ -13,8 +13,8 @@
 #include "configuration/ConfigurationBootstrapper.h"
 
 namespace FlightStrips {
-    auto InitializePlugin::GetPlugin() -> EuroScopePlugIn::CPlugIn* {
-        return static_cast<FlightStripsPlugin*>(this->container->plugin.get());
+    auto InitializePlugin::GetPlugin() -> EuroScopePlugIn::CPlugIn * {
+        return static_cast<FlightStripsPlugin *>(this->container->plugin.get());
     }
 
     void InitializePlugin::PostInit(HINSTANCE dllInstance) {
@@ -29,12 +29,21 @@ namespace FlightStrips {
         this->container->flightPlanEventHandlers = std::make_shared<handlers::FlightPlanEventHandlers>();
         this->container->radarTargetEventHandlers = std::make_shared<handlers::RadarTargetEventHandlers>();
         this->container->timedEventHandlers = std::make_shared<handlers::TimedEventHandlers>();
-        this->container->airportRunwaysChangedEventHandlers = std::make_shared<handlers::AirportRunwaysChangedEventHandlers>();
+        this->container->airportRunwaysChangedEventHandlers = std::make_shared<
+            handlers::AirportRunwaysChangedEventHandlers>();
         stands::StandsBootstrapper::Bootstrap(*this->container);
         //flightplan::FlightPlanBootstrapper::Bootstrap(*this->container);
 
-        this->container->authenticationService = std::make_shared<authentication::AuthenticationService>(this->container->appConfig, this->container->userConfig);
-        this->container->plugin = std::make_shared<FlightStripsPlugin>(this->container->flightPlanEventHandlers, this->container->radarTargetEventHandlers, this->container->controllerEventHandlers, this->container->timedEventHandlers, this->container->airportRunwaysChangedEventHandlers);
+        this->container->authenticationService = std::make_shared<authentication::AuthenticationService>(
+            this->container->appConfig, this->container->userConfig);
+        this->container->plugin = std::make_shared<FlightStripsPlugin>(this->container->flightPlanEventHandlers,
+                                                                       this->container->radarTargetEventHandlers,
+                                                                       this->container->controllerEventHandlers,
+                                                                       this->container->timedEventHandlers,
+                                                                       this->container->
+                                                                       airportRunwaysChangedEventHandlers,
+                                                                       this->container->authenticationService,
+                                                                       this->container->userConfig);
 
         Logger::Info(std::format("Loaded plugin version {}.", PLUGIN_VERSION));
     }
@@ -59,5 +68,4 @@ namespace FlightStrips {
 
         Logger::Info("Unloaded!");
     }
-
 }

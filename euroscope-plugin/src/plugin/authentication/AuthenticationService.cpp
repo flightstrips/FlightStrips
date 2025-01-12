@@ -3,12 +3,9 @@
 #include <format>
 #include <openssl/rand.h>
 #include <openssl/sha.h>
-#include <curl/curl.h>
 #include <nlohmann/json.hpp>
-
 #include "AuthenticationRedirectListener.h"
 #include "Logger.h"
-#include "handlers/TimedEventHandler.h"
 #include "http/Http.h"
 
 namespace FlightStrips::authentication {

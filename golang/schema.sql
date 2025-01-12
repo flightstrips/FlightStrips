@@ -1,10 +1,10 @@
-CREATE TABLE controllers (
+CREATE TABLE IF NOT EXISTS controllers (
   cid text PRIMARY KEY,
   airport text,
   position text
 );
 
-CREATE TABLE events (
+CREATE TABLE IF NOT EXISTS events (
     id text PRIMARY KEY,
     type text,
     timestamp text,
@@ -12,7 +12,7 @@ CREATE TABLE events (
     data text
 );
 
-CREATE TABLE strips (
+CREATE TABLE IF NOT EXISTS strips (
     id text PRIMARY KEY,
     origin text,
     destination text,

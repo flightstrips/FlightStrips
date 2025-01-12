@@ -12,26 +12,28 @@ services:
       - POSTGRES_DB=fsdb
       - POSTGRES_HOST_AUTH_METHOD=trust
     networks:
-      - postgres-db-network
+      - flightstrips
     restart: unless-stopped
     command: ["postgres"]
 
   flightstrip:
     build: .
-    links:
-      - postgres
     environment:
       - POSTGRES_USER=theoa
       - POSTGRES_PASSWORD=theoa
       - POSTGRES_DB=fsdb
       - SLEEP_TIME=30
     networks:
-      - postgres-db-network
+      - flightstrips
     restart: unless-stopped
+    ports:
+      - 2994:2994
+    depends_on:
+      postgres:
+        condition: service_started
 
 networks:
-  postgres-db-network:
-    driver: bridge
+  flightstrips:
 
 volumes:
   postgres:

@@ -131,6 +131,7 @@ func main() {
 	_, err = dbpool.Exec(ctx, ddl)
 	if err != nil {
 		log.Println("error checking connection to postgres database")
+		log.Println(err.Error())
 		log.Fatal(err)
 	}
 

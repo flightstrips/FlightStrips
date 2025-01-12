@@ -48,6 +48,7 @@ namespace FlightStrips::graphics {
         graphics.DrawLineButton(colors.buttonPen.get(), minimizeBtn);
 
         if (isMinimized) {
+            canClick = true;
             return;
         }
         graphics.DrawRect(colors.backgroundPen.get(), windowRect);

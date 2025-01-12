@@ -116,7 +116,7 @@ func main() {
 	log.SetFlags(0)
 
 	ctx := context.Background()
-	dbpool, err := pgxpool.New(ctx, "postgresql://theoandresier@localhost/postgres?sslmode=disable")
+	dbpool, err := pgxpool.New(ctx, "postgresql://theoa:theoa@postgres/fsdb?sslmode=disable")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -125,6 +125,13 @@ func main() {
 	// Create the parent server struct
 	server := Server{
 		DBPool: dbpool,
+	}
+
+	//check that the dbpool is working
+	_, err = dbpool.Exec(ctx, ddl)
+	if err != nil {
+		log.Println("error checking connection to postgres database")
+		log.Fatal(err)
 	}
 
 	// Health Function for local Dev

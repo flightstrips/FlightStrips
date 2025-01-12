@@ -86,6 +86,11 @@ set(src__graphics
         graphics/Graphics.h)
 source_group("src\\graphics" FILES ${src__graphics})
 
+set(src__http
+        http/Http.h
+        http/Http.cpp)
+source_group("src\\http" FILES ${src__http})
+
 set(ALL_FILES
         ${src__plugin}
         ${src__filesystem}
@@ -97,6 +102,7 @@ set(ALL_FILES
         ${src__runway}
         ${src__authentication}
         ${src__graphics}
+        ${src__http}
         Constants.h
         Logger.cpp
         Logger.h)

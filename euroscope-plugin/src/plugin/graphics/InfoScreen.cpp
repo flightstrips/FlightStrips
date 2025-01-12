@@ -55,16 +55,26 @@ namespace FlightStrips::graphics {
         const RECT rectText = {menubar.left, menubar.bottom + 5, menubar.right, menubar.bottom + 35};
 
         std::string btnText;
-        if (authService->IsRunningAuthentication()) {
-            graphics.DrawString("Logging in...", rectText, colors.whiteBrush.get(), Gdiplus::StringAlignmentNear);
-            btnText = "Cancel";
-        } else if (authService->IsAuthenticated()) {
-            graphics.DrawString(std::format("Logged in as:\n{}", authService->GetName()), rectText,
-                                colors.whiteBrush.get(), Gdiplus::StringAlignmentNear);
-            btnText = "Logout";
-        } else {
-            graphics.DrawString("Logged out.", rectText, colors.whiteBrush.get(), Gdiplus::StringAlignmentNear);
-            btnText = "Login";
+
+        switch (authService->GetAuthenticationState()) {
+            case authentication::LOGIN:
+                graphics.DrawString("Logging in...", rectText, colors.whiteBrush.get(), Gdiplus::StringAlignmentNear);
+                btnText = "Cancel";
+                break;
+            case authentication::REFRESH:
+                graphics.DrawString("Refreshing token...", rectText, colors.whiteBrush.get(), Gdiplus::StringAlignmentNear);
+                btnText = "No action";
+                break;
+            case authentication::AUTHENTICATED:
+                graphics.DrawString(std::format("Logged in as:\n{}", authService->GetName()), rectText,
+                                    colors.whiteBrush.get(), Gdiplus::StringAlignmentNear);
+                btnText = "Logout";
+                break;
+            case authentication::NONE:
+            default:
+                graphics.DrawString("Logged out.", rectText, colors.whiteBrush.get(), Gdiplus::StringAlignmentNear);
+                btnText = "Login";
+                break;
         }
 
         const RECT btnRect = {rectText.left + 10, rectText.bottom + 10, rectText.right - 70, rectText.bottom + 30};
@@ -106,12 +116,20 @@ namespace FlightStrips::graphics {
             userConfig->SetWindowState({menubar.left, menubar.top, isMinimized});
             RequestRefresh();
         } else if (ObjectType == authenticationButtonId) {
-            if (authService->IsRunningAuthentication()) {
-                authService->CancelAuthentication();
-            } else if (authService->IsAuthenticated()) {
-                authService->Logout();
-            } else if (!authService->IsAuthenticated()) {
-                authService->StartAuthentication();
+            switch (authService->GetAuthenticationState()) {
+                case authentication::LOGIN:
+                    authService->CancelAuthentication();
+                    break;
+                case authentication::REFRESH:
+                    // NO OP
+                    break;
+                case authentication::AUTHENTICATED:
+                    authService->Logout();
+                    break;
+                case authentication::NONE:
+                default:
+                    authService->StartAuthentication();
+                    break;
             }
             RequestRefresh();
         }

@@ -36,6 +36,7 @@ namespace FlightStrips {
 
         this->container->authenticationService = std::make_shared<authentication::AuthenticationService>(
             this->container->appConfig, this->container->userConfig);
+        this->container->timedEventHandlers->RegisterHandler(this->container->authenticationService);
         this->container->plugin = std::make_shared<FlightStripsPlugin>(this->container->flightPlanEventHandlers,
                                                                        this->container->radarTargetEventHandlers,
                                                                        this->container->controllerEventHandlers,

@@ -8,6 +8,8 @@
 
 #include "AuthenticationRedirectListener.h"
 #include "Logger.h"
+#include "handlers/TimedEventHandler.h"
+#include "http/Http.h"
 
 namespace FlightStrips::authentication {
     AuthenticationService::AuthenticationService(const std::shared_ptr<configuration::AppConfig> &appConfig,
@@ -25,12 +27,12 @@ namespace FlightStrips::authentication {
         refreshToken = "";
         expirationTime = 0;
         name = "";
-        authenticated = false;
+        state = NONE;
         userConfig->SetToken({});
     }
 
     void AuthenticationService::StartAuthentication() {
-        if (running_token) {
+        if (state != NONE) {
             return;
         }
 
@@ -38,28 +40,30 @@ namespace FlightStrips::authentication {
             token_thread.join();
         }
 
-        running_token = true;
+        state = true;
         this->token_thread = std::thread(&AuthenticationService::DoAuthenticationFlow, this);
     }
 
     void AuthenticationService::CancelAuthentication() {
-        if (!running_token) return;
-        running_token = false;
+        if (state != LOGIN) return;
+        state = NONE;
         if (token_thread.joinable()) {
             token_thread.join();
         }
     }
 
-    bool AuthenticationService::IsRunningAuthentication() const {
-        return running_token;
-    }
-
-    bool AuthenticationService::IsAuthenticated() const {
-        return authenticated;
+    AuthenticationState AuthenticationService::GetAuthenticationState() const {
+        return static_cast<AuthenticationState>(state.load());
     }
 
     std::string AuthenticationService::GetName() const {
         return name;
+    }
+
+    void AuthenticationService::OnTimer(int time) {
+        if (state == AUTHENTICATED && NeedsRefresh()) {
+            StartRefresh();
+        }
     }
 
     std::string AuthenticationService::GetAuthorizeUrl(const std::string &code_challenge, const std::string &client_id,
@@ -116,20 +120,92 @@ namespace FlightStrips::authentication {
         refreshToken = token.refreshToken;
         expirationTime = token.expiry;
 
-        if (accessToken.empty() || refreshToken.empty() || NeedsRefresh()) return;
+        if (accessToken.empty() || refreshToken.empty()) return;
 
         const auto parsed_id_token = GetTokenPayload(token.idToken);
         if (parsed_id_token.has_value()) {
             name = parsed_id_token.value()["name"];
         }
 
-        authenticated = true;
+        state = AUTHENTICATED;
         Logger::Debug(std::format("Name: {}", name));
     }
 
     bool AuthenticationService::NeedsRefresh() const {
         const time_t now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
         return expirationTime < now + 60 * 30;
+    }
+
+    void AuthenticationService::StartRefresh() {
+        if (state != AUTHENTICATED) return;
+        state = REFRESH;
+
+        if (token_thread.joinable()) {
+            token_thread.join();
+        }
+
+        token_thread = std::thread(&AuthenticationService::DoRefreshFlow, this);
+    }
+
+    void AuthenticationService::DoRefreshFlow() {
+        Logger::Debug(std::format("Refreshing authentication token."));
+        const auto token_url = std::format("{}/oauth/token", this->appConfig->GetAuthority());
+        std::ostringstream token_params;
+
+        token_params << "grant_type=refresh_token"
+                << "&client_id=" << this->appConfig->GetClientId()
+                << "&refresh_token=" << refreshToken;
+
+        const auto [status_code, content] = http::Http::PostUrlEncoded(token_url, token_params.str());
+        if (status_code != 200) {
+            Logger::Error(std::format("Failed to refresh token. HTTP response code: {}. Content: {}", status_code,
+                                      content));
+            Logout();
+            return;
+        }
+
+        if (!ParseAndSetToken(content)) {
+            Logout();
+            return;
+        }
+
+        Logger::Debug(std::format("Refreshing authentication token completed."));
+    }
+
+    bool AuthenticationService::ParseAndSetToken(const std::string &content) {
+        nlohmann::json token_json;
+        try {
+            token_json = nlohmann::json::parse(content);
+        } catch (const std::exception &e) {
+            Logger::Error(std::format("Failed to parse authentication token endpoint JSON. Error: {}", e.what()));
+            return false;
+        }
+
+        std::string access_token = token_json["access_token"];
+        std::string refresh_token = refreshToken;
+        if (token_json.contains("refresh_token")) {
+            refresh_token = token_json["refresh_token"];
+        }
+        std::string id_token = token_json["id_token"];
+        auto access_token_payload = GetTokenPayload(access_token);
+        auto id_token_payload = GetTokenPayload(id_token);
+        if (!access_token_payload.has_value() || !id_token_payload.has_value()) {
+            return false;
+        }
+
+        const int exp = access_token_payload.value()["exp"];
+
+        // TODO event
+        configuration::Token token = {access_token, refresh_token, id_token, exp};
+        userConfig->SetToken(token);
+
+        this->accessToken = access_token;
+        this->refreshToken = refresh_token;
+        this->name = id_token_payload.value()["name"];
+        this->expirationTime = exp;
+        state = AUTHENTICATED;
+
+        return true;
     }
 
     void AuthenticationService::DoAuthenticationFlowImpl() {
@@ -162,7 +238,7 @@ namespace FlightStrips::authentication {
             return;
         }
 
-        if (!running_token) return;
+        if (!state) return;
 
         auto code = code_result.value();
         Logger::Debug(std::format("Authorization code: {}", code));
@@ -170,44 +246,18 @@ namespace FlightStrips::authentication {
         auto token_result = GetTokenFromAuthorizationCode(client_id, code_verifier, code, redirect_uri);
         Logger::Debug(std::format("Got authentication token: {}", token_result));
 
-        nlohmann::json token_json;
-        try {
-            token_json = nlohmann::json::parse(token_result);
-        } catch (const std::exception &e) {
-            Logger::Error(std::format("Failed to parse authentication token endpoint JSON. Error: {}", e.what()));
-            return;
-        }
-
-        std::string access_token = token_json["access_token"];
-        std::string refresh_token = token_json["refresh_token"];
-        std::string id_token = token_json["id_token"];
-        auto access_token_payload = GetTokenPayload(access_token);
-        auto id_token_payload = GetTokenPayload(id_token);
-        if (!access_token_payload.has_value() || !id_token_payload.has_value()) {
-            return;
-        }
-
-        const int exp = access_token_payload.value()["exp"];
-
-        // TODO event
-        configuration::Token token = { access_token, refresh_token, id_token, exp };
-        userConfig->SetToken(token);
-
-        this->accessToken = access_token;
-        this->refreshToken = refresh_token;
-        this->name = id_token_payload.value()["name"];
-        this->expirationTime = exp;
-        this->authenticated = true;
+        ParseAndSetToken(token_result);
     }
 
     void AuthenticationService::DoAuthenticationFlow() {
         DoAuthenticationFlowImpl();
-        running_token = false;
+        if (state == AUTHENTICATED) return;
+        state = NONE;
     }
 
     bool AuthenticationService::WaitForResult(const std::future<std::optional<std::string> > &future) const {
         auto result = future.wait_for(std::chrono::milliseconds(10));
-        while (result == std::future_status::timeout && this->running_token) {
+        while (result == std::future_status::timeout && this->state == LOGIN) {
             result = future.wait_for(std::chrono::milliseconds(10));
         }
 
@@ -218,7 +268,6 @@ namespace FlightStrips::authentication {
                                                                      const std::string &codeVerifier,
                                                                      const std::string &code,
                                                                      const std::string &redirectUrl) const {
-        const auto curl = curl_easy_init();
         const auto token_url = std::format("{}/oauth/token", this->appConfig->GetAuthority());
 
         std::ostringstream token_params;
@@ -229,27 +278,8 @@ namespace FlightStrips::authentication {
                 << "&code=" << code
                 << "&redirect_uri=" << redirectUrl;
 
-        std::string resultBuffer;
-        curl_easy_setopt(curl, CURLOPT_URL, token_url);
-        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, token_params.str());
-        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
-        curl_easy_setopt(curl, CURLOPT_WRITEDATA, &resultBuffer);
-        curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
-
-        const auto result = curl_easy_perform(curl);
-
-        curl_easy_cleanup(curl);
-
-        if (result != CURLE_OK) {
-            return curl_easy_strerror(result);
-        }
-
-        return resultBuffer;
-    }
-
-    size_t AuthenticationService::WriteCallback(void *contents, size_t size, size_t nmemb, void *userp) {
-        static_cast<std::string *>(userp)->append(static_cast<char *>(contents), size * nmemb);
-        return size * nmemb;
+        const auto [status_code, content] = http::Http::PostUrlEncoded(token_url, token_params.str());
+        return content;
     }
 
     std::string AuthenticationService::generateCodeVerifier() {
@@ -284,20 +314,20 @@ namespace FlightStrips::authentication {
         return out;
     }
 
-    std::string AuthenticationService::base64_decode(const std::string & in) {
+    std::string AuthenticationService::base64_decode(const std::string &in) {
         std::string out;
         std::vector<int> T(256, -1);
         unsigned int i;
-        for (i =0; i < 64; i++) T[base64_url_alphabet[i]] = i;
+        for (i = 0; i < 64; i++) T[base64_url_alphabet[i]] = i;
 
         int val = 0, valb = -8;
         for (i = 0; i < in.length(); i++) {
             unsigned char c = in[i];
             if (T[c] == -1) break;
-            val = (val<<6) + T[c];
+            val = (val << 6) + T[c];
             valb += 6;
             if (valb >= 0) {
-                out.push_back(char((val>>valb)&0xFF));
+                out.push_back(char((val >> valb) & 0xFF));
                 valb -= 8;
             }
         }

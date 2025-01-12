@@ -22,6 +22,8 @@ namespace FlightStrips::graphics {
 
         void OnClickScreenObject(int ObjectType, const char *sObjectId, POINT Pt, RECT Area, int Button) override;
 
+        bool OnCompileCommand(const char * sCommandLine ) override;
+
     private:
         const int windowId = 1;
         const int minimizeId = 2;

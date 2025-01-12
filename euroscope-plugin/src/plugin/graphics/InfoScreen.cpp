@@ -116,4 +116,18 @@ namespace FlightStrips::graphics {
             RequestRefresh();
         }
     }
+
+    bool InfoScreen::OnCompileCommand(const char *sCommandLine) {
+        if (_stricmp(sCommandLine, COMMAND_OPEN) == 0) {
+            isOpen = true;
+            return true;
+        }
+
+        if (_stricmp(sCommandLine, COMMAND_CLOSE) == 0) {
+            isOpen = false;
+            return true;
+        }
+
+        return false;
+    }
 }

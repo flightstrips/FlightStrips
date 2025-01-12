@@ -116,15 +116,14 @@ namespace FlightStrips::authentication {
         refreshToken = token.refreshToken;
         expirationTime = token.expiry;
 
+        if (accessToken.empty() || refreshToken.empty() || NeedsRefresh()) return;
+
         const auto parsed_id_token = GetTokenPayload(token.idToken);
         if (parsed_id_token.has_value()) {
             name = parsed_id_token.value()["name"];
         }
 
-        if (!accessToken.empty() && !refreshToken.empty() && !NeedsRefresh()) {
-            authenticated = true;
-        }
-
+        authenticated = true;
         Logger::Debug(std::format("Name: {}", name));
     }
 

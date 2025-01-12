@@ -136,7 +136,7 @@ func main() {
 
 	// Health Function for local Dev
 	http.HandleFunc("/healthz", healthz)
-	//http.HandleFunc("/euroscopeEvents", euroscopeEvents)
+	http.HandleFunc("/euroscopeEvents", server.euroscopeEvents)
 	http.HandleFunc("/frontEndEvents", server.frontEndEvents)
 
 	// Start background tasks.

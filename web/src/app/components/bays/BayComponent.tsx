@@ -19,21 +19,7 @@ export default function BayComponent() {
                     </span>
                 </div>
                 <div className="h-[calc(100%-2.5rem)] w-full bg-[#555355] p-1 flex flex-col gap-[2px] overflow-y-auto">
-                    <FlightStrip callsing="RYR2MY" clearances/>
-                    <FlightStrip callsing="DLH2GH" />
-                    <FlightStrip callsing="PHX124" />
-                    <FlightStrip callsing="NSZ3676" clearances />
-                    <FlightStrip callsing="SAS1988" />
-                    <FlightStrip callsing="SAS22H" />
-                    <FlightStrip callsing="SAS1244" />
-                    <FlightStrip callsing="NSZ37A" />
-                    <FlightStrip callsing="AUA30P" />
-                    <FlightStrip callsing="ETD4EA" />
-                    <FlightStrip callsing="EZS17AG" />
-                    <FlightStrip callsing="RYR57KY" />
-                    <FlightStrip callsing="NSZ3512" />
-                    <FlightStrip callsing="SAS455" />
-                    <FlightStrip callsing="EZY38RX" />
+                    <FlightStrip callsing="NSZ3676" clearances standchanged taxiway="D" holdingpoint="E1" destination={'EKYT'} stand={'D3'} tsat={'1312'}/>
                 </div>
             </div>
             <div className="w-full h-full bg-[#555355]">

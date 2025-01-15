@@ -36,15 +36,15 @@ const FlightStrip: React.FC<FlightStripProps> = (props) => {
         )
     }
 
-    function StripCLX() { 
+    function StripCLX(props: BasePlateProps) { 
         return (
             <Strip>
-                <div className='border-2 border-[#85b4af] h-full min-w-24 w-fit font-bold' style={{borderRightWidth: 1, borderLeftWidth: 1}}>
-                    <button className='active:bg-pink-500 active:border-2 active:border-l-0 active:border-t-0  w-full text-left pl-1 select-none'>{props.callsing}</button>
+                <div className='border-2 border-[#85b4af] h-[calc(3rem-4px)] min-w-24 w-fit font-bold' style={{borderRightWidth: 1, borderLeftWidth: 1}}>
+                    <button className='active:bg-[#F237AA] active:border-2 active:border-l-0 active:border-t-0 w-full h-[32px] text-center select-none'>{props.callsing}</button>
                 </div>
-                <button className='border-2 border-[#85b4af] h-full text-sm text-center min-w-16 w-fit select-none py-1' style={{borderRightWidth: 1, borderLeftWidth: 1}}>
+                <a className='border-2 border-[#85b4af] h-full text-sm text-center min-w-16 w-fit select-none py-1' style={{borderRightWidth: 1, borderLeftWidth: 1}}>
                     <CLXBtn><span className='font-semibold'>{props.destination}</span><span>{props.stand}</span></CLXBtn>
-                </button>
+                </a>
                 <div className='border-2 border-[#85b4af] h-full text-sm text-center min-w-24 w-fit select-none flex justify-between px-1' style={{borderRightWidth: 1, borderLeftWidth: 1}}>
                     <span>EOBT</span>
                     <span>1312</span>
@@ -86,8 +86,8 @@ const FlightStrip: React.FC<FlightStripProps> = (props) => {
                     <div className={`border-2 select-none border-[#85b4af] h-full justify-center items-center font-bold bg-slate-50 text-gray-600 min-w-8 w-fit ${ props.clearances ? "flex" : "hidden"}`} style={{borderRightWidth: 1}}>
                         GW
                     </div>
-                    <div className='border-2 border-[#85b4af] h-full min-w-24 w-fit font-bold' style={{borderRightWidth: 1, borderLeftWidth: 1}}>
-                        <button className='active:bg-pink-500 active:border-2 active:border-l-0 active:border-t-0  w-full text-left pl-1 select-none'>{props.callsing}</button>
+                    <div className='border-2 border-[#85b4af] h-12 w-28' style={{borderRightWidth: 1, borderLeftWidth: 1}}>
+                        <button className='active:bg-[#F237AA] h-12 w-full select-none font-bold'>{props.callsing}</button>
                     </div>
                     <div className='border-2 border-[#85b4af] h-full text-sm text-center min-w-16 w-fit select-none' style={{borderRightWidth: 1, borderLeftWidth: 1}}>
                         B738 <br/> EIESN
@@ -125,9 +125,8 @@ const FlightStrip: React.FC<FlightStripProps> = (props) => {
     }
 
     return  <div>
-                <BasePlate callsing={props.callsing} clearances={props.clearances} standchanged={props.standchanged} taxiway={props.taxiway} holdingpoint={props.holdingpoint}  destination={props.destination} stand={props.stand} tsat={props.tsat} ctot={props.ctot} />
-                <StripCLX />
+                <StripCLX callsing={props.callsing} clearances={props.clearances} standchanged={props.standchanged} taxiway={props.taxiway} holdingpoint={props.holdingpoint}  destination={props.destination} stand={props.stand} tsat={props.tsat} ctot={props.ctot}/>
             </div>;
 };
 
-export { FlightStrip, StripCLX };
+export { FlightStrip };

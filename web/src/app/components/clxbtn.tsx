@@ -18,7 +18,7 @@ export function CLXBtn({ children }: { children?: React.ReactNode }) {
       <DialogTrigger asChild>
         <Button variant="clx">{children}</Button>
       </DialogTrigger>
-      <DialogContent className="bg-[#d4d4d4] rounded-none">
+      <DialogContent className="bg-[#d4d4d4] rounded-none w-full max-w-2xl">
         <DialogHeader>
           <DialogTitle>FLIGHT PLAN</DialogTitle>
         </DialogHeader>
@@ -214,7 +214,7 @@ export function CLXBtn({ children }: { children?: React.ReactNode }) {
         </div>
         <div className="flex gap-2 w-full">
             <div className="grid items-center w-full">
-                    <Label htmlFor="name" className="text-center">
+                    <Label htmlFor="name">
                     COOPANS REMARKS
                     </Label>
                     <Input
@@ -225,9 +225,101 @@ export function CLXBtn({ children }: { children?: React.ReactNode }) {
                     />
             </div>
         </div>
+        <div className="flex gap-2 w-full">
+            <div className="grid items-center w-full">
+                    <Label htmlFor="name">
+                    NITOS REMARKS
+                    </Label>
+                    <Input
+                    id="name"
+                    defaultValue="450"
+                    disabled
+                    className="border-black rounded-none disabled:bg-[#9e989c] text-black font-semibold disabled:opacity-100 w-full text-center"
+                    />
+            </div>
+            <div className="grid items-center">
+                    <Label htmlFor="name">
+                    IATA TYPE
+                    </Label>
+                    <Input
+                    id="name"
+                    defaultValue="450"
+                    disabled
+                    className="border-black rounded-none disabled:bg-[#9e989c] text-black font-semibold disabled:opacity-100 w-full text-center"
+                    />
+            </div>
+        </div>
+        <div className="flex gap-2 w-full">
+          <div className="grid items-center">
+                    <Label htmlFor="name">
+                    CLIMB GR.
+                    </Label>
+                    <Input
+                    id="name"
+                    defaultValue=""
+                    disabled
+                    className="border-black rounded-none disabled:bg-[#9e989c] text-black font-semibold disabled:opacity-100 w-full text-center"
+                    />
+            </div>
+            <div className="grid items-center">
+                    <Label htmlFor="name">
+                    HDG
+                    </Label>
+                    <Input
+                    id="name"
+                    defaultValue=""
+                    disabled
+                    className="border-black rounded-none disabled:bg-[#9e989c] text-black font-semibold disabled:opacity-100 w-full text-center"
+                    />
+            </div>
+            <div className="grid items-center">
+                    <Label htmlFor="name">
+                    ALT
+                    </Label>
+                    <Input
+                    id="name"
+                    defaultValue=""
+                    disabled
+                    className="border-black rounded-none disabled:bg-[#9e989c] text-black font-semibold disabled:opacity-100 w-full text-center"
+                    />
+            </div>
+            <div className="grid items-center">
+                    <Label htmlFor="name">
+                    DE-ICE
+                    </Label>
+                    <Input
+                    id="name"
+                    defaultValue=""
+                    disabled
+                    className="border-black rounded-none disabled:bg-[#9e989c] text-black font-semibold disabled:opacity-100 w-full text-center"
+                    />
+            </div>
+            <div className="grid items-center">
+                    <Label htmlFor="name">
+                    REG
+                    </Label>
+                    <Input
+                    id="name"
+                    defaultValue=""
+                    disabled
+                    className="border-black rounded-none disabled:bg-[#9e989c] text-black font-semibold disabled:opacity-100 w-full text-center"
+                    />
+            </div>
+            <div className="grid items-center">
+                    <Label htmlFor="name">
+                    STAND
+                    </Label>
+                    <Input
+                    id="name"
+                    defaultValue=""
+                    disabled
+                    className="border-black rounded-none disabled:bg-[#9e989c] text-black font-semibold disabled:opacity-100 w-full text-center"
+                    />
+            </div>
+        </div>
         <DialogFooter>
-            <Button type="submit" variant="darkaction">ESC</Button>
-            <Button type="submit" variant="darkaction">CLD</Button>
+            <a type="submit">ESC</a>
+            <a type="submit">CLD</a>
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -2,6 +2,7 @@ import { CurrentUTC } from "@/app/helpers/time";
 import MRKBTN from "./MRKBTN";
 import TRFBRN from "./TRFBRN";
 import REQBTN from "./REQBTN";
+import ATIS from "./ATIS";
 
 export default function CommandBar() {
     return (
@@ -26,16 +27,19 @@ export default function CommandBar() {
                         22L
                     </span>
                 </div>
-                <div className="flex w-32 text-2xl font-bold m-2 items-center justify-between">
+                <div className="flex w-fit text-2xl font-bold m-2 items-center justify-between">
                     <h1>
                         QNH
                     </h1>
                     <span className="bg-[#212121]  w-18 p-2">
                         1015
                     </span>
-                    <span className="bg-white text-black w-20 p-2 mx-2">
+                    <span className="bg-white text-black w-12 p-2 mx-2 text-center">
                         D
                     </span>
+                </div>
+                <div className="flex w-fit text-2xl font-bold m-2 items-center justify-between">
+                    <ATIS />
                 </div>
             </div>
             <div className="flex items-center justify-center gap-1">

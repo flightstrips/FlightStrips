@@ -208,7 +208,7 @@ export function CLXBtn({ children }: { children?: React.ReactNode }) {
                     <Input
                     id="name"
                     defaultValue="NEXEN T503 GIMRU DCT MICOS DCT RIMET/N0481F390 T157 ODIPI/N0454F210 T157 KERAX KERAX4D N0454F210 T157 KERAX KERAX4DN0454F210 T157 KERAX KERAX4D"
-                    className="border-black rounded-none bg-[#ededed] text-black font-semibold disabled:opacity-100 w-full text-center h-32 text-wrap break-all"
+                    className="border-black rounded-none bg-[#ededed] text-black font-semibold disabled:opacity-100 w-full text-center h-32 break-words line-clamp-2"
                     />
             </div>
         </div>

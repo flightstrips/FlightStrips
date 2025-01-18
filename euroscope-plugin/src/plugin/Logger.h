@@ -20,17 +20,42 @@ public:
     static LogLevel LEVEL;
     static std::string LOG_PATH;
 
-    static void SetLevelFromString(const std::string& logLevel);
+    static void SetLevelFromString(const std::string &logLevel);
 
     static void Debug(const std::string &message) { WriteToFile(message, LOG_DEBUG); }
     static void Info(const std::string &message) { WriteToFile(message, LOG_INFO); }
     static void Warning(const std::string &message) { WriteToFile(message, LOG_WARNING); }
     static void Error(const std::string &message) { WriteToFile(message, LOG_ERROR); }
+
+    template<class... _Types>
+    static void Debug(const std::format_string<_Types...> fmt, _Types &&... args) {
+        if (!IsEnabled(LOG_DEBUG)) return;
+        WriteToFile(std::vformat(fmt.get(), std::make_format_args(args...)), LOG_DEBUG);
+    }
+
+    template<class... _Types>
+    static void Info(const std::format_string<_Types...> fmt, _Types &&... args) {
+        if (!IsEnabled(LOG_INFO)) return;
+        WriteToFile(std::vformat(fmt.get(), std::make_format_args(args...)), LOG_INFO);
+    }
+
+    template<class... _Types>
+    static void Warning(const std::format_string<_Types...> fmt, _Types &&... args) {
+        if (!IsEnabled(LOG_WARNING)) return;
+        WriteToFile(std::vformat(fmt.get(), std::make_format_args(args...)), LOG_WARNING);
+    }
+
+    template<class... _Types>
+    static void Error(const std::format_string<_Types...> fmt, _Types &&... args) {
+        if (!IsEnabled(LOG_ERROR)) return;
+        WriteToFile(std::vformat(fmt.get(), std::make_format_args(args...)), LOG_ERROR);
+    }
+
+    static bool IsEnabled(const LogLevel level) { return !(level < LEVEL || LOG_PATH.empty()); }
+
 private:
-    static void WriteToFile(const std::string& message, const LogLevel& level) {
-        if (level < LEVEL || LOG_PATH.empty()) {
-            return;
-        }
+    static void WriteToFile(const std::string &message, const LogLevel &level) {
+        if (!IsEnabled(level)) return;
 
         const auto now = std::chrono::system_clock::now();
         const std::string formatted_time = std::format("{0:%F %T}", now);
@@ -41,7 +66,7 @@ private:
         file.close();
     }
 
-    static std::string GetLogString(const LogLevel& level) {
+    static std::string GetLogString(const LogLevel &level) {
         switch (level) {
             case LOG_DEBUG:
                 return "DEBUG";
@@ -56,6 +81,3 @@ private:
         }
     }
 };
-
-
-

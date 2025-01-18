@@ -93,7 +93,9 @@ source_group("src\\http" FILES ${src__http})
 
 set(src__websocket
         websocket/WebSocket.h
-        websocket/WebSocket.cpp)
+        websocket/WebSocket.cpp
+        websocket/WebSocketService.cpp
+        websocket/WebSocketService.h)
 source_group("src\\websocket" FILES ${src__websocket})
 
 set(ALL_FILES

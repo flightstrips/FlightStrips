@@ -5,7 +5,7 @@
 #pragma once
 
 namespace FlightStrips::websocket {
-    class WebSocket;
+    class WebSocketService;
 }
 
 namespace FlightStrips {
@@ -75,7 +75,7 @@ namespace FlightStrips {
         std::shared_ptr<stands::StandService> standService;
 
         // Websocket
-        std::shared_ptr<websocket::WebSocket> websocket;
+        std::shared_ptr<websocket::WebSocketService> webSocketService;
     };
 
 }

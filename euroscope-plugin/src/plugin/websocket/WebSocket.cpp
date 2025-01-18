@@ -8,18 +8,38 @@
 #include <asio/asio/ssl.hpp>
 
 namespace FlightStrips::websocket {
+    WebSocket::WebSocket(const std::string &endpoint, const callback& cb) : endpoint(endpoint), cb(cb) { }
+
     void WebSocket::Start() {
+        if (connection || thread.joinable()) return;
         thread = std::thread(&WebSocket::Run, this);
     }
 
     void WebSocket::Stop() {
-        if (connection) {
-            connection->close(websocketpp::close::status::going_away, "Shutting down");
-            connection.reset();
+        if (IsConnected()) {
+            websocketpp::lib::error_code ec;
+            connection->close(websocketpp::close::status::going_away, "Shutting down", ec);
+            if (ec) {
+                Logger::Error(std::format("Error during close: {}", ec.message()));
+            }
         }
+        connection.reset();
         if (thread.joinable()) {
             thread.join();
         }
+    }
+
+    void WebSocket::Send(const std::string &message) const {
+        if (!IsConnected()) {
+            Logger::Debug("Trying to send message with websocket not connected");
+            return;
+        }
+
+        connection->send(message, websocketpp::frame::opcode::text);
+    }
+
+    bool WebSocket::IsConnected() const {
+        return connection && connection->get_state() == websocketpp::session::state::open;
     }
 
     void WebSocket::Run() {
@@ -45,33 +65,33 @@ namespace FlightStrips::websocket {
 
             c.set_message_handler([this]<typename T0, typename T1>(T0 && hdl, T1 && msg) { OnMessage(std::forward<T0>(hdl), std::forward<T1>(msg)); });
 
-            Logger::Info("Get Connection...");
+            Logger::Debug("Get Connection...");
 
             websocketpp::lib::error_code ec;
-            connection = c.get_connection("ws://localhost:2994/euroscopeEvents", ec);
+            connection = c.get_connection(endpoint, ec);
             if (ec) {
                 Logger::Error(std::format("Could not create connection: {}", ec.message()));
                 return;
             }
 
-            Logger::Info("Connecting...");
+            Logger::Debug("Connecting...");
 
             c.connect(connection);
 
-            Logger::Info("Run...");
+            Logger::Debug("Run websocket...");
 
             c.run();
 
-            Logger::Info("Shutting down...");
+            Logger::Debug("Shutting down websocket...");
         } catch (const std::exception& e) {
             Logger::Error(e.what());
         }
     }
 
-    void WebSocket::OnMessage(websocketpp::connection_hdl hdl, client::message_ptr msg) {
-            std::stringstream s;
-            s << "Got message: " << msg->get_payload();
-            Logger::Info(s.str());
+    void WebSocket::OnMessage(websocketpp::connection_hdl, const client::message_ptr &msg) const {
+        auto payload = msg->get_payload();
+        Logger::Debug("Got message from server: {}", payload);
+        cb(payload);
     }
 
     void WebSocket::add_windows_root_certs(const std::shared_ptr<asio::ssl::context>& context) {

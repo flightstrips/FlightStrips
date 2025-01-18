@@ -6,13 +6,15 @@ import (
 	_ "database/sql"
 	"encoding/json"
 	"flag"
-	_ "github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"log"
 	"net/http"
 	"time"
 
+	_ "github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
+
 	_ "embed"
+
 	_ "github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/gorilla/websocket"
@@ -146,4 +148,5 @@ func main() {
 
 	log.Println("Server started on address:", *addr)
 	log.Fatal(http.ListenAndServe(*addr, nil))
+	//log.Fatal(http.ListenAndServeTLS(*addr, "localhost.crt", "localhost.key", nil))
 }

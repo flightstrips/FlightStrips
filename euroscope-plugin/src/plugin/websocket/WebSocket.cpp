@@ -13,13 +13,14 @@ namespace FlightStrips::websocket {
     }
 
     void WebSocket::Stop() {
-        connection->close(websocketpp::close::status::going_away, "Shutting down");
-        connection.reset();
+        if (connection) {
+            connection->close(websocketpp::close::status::going_away, "Shutting down");
+            connection.reset();
+        }
         if (thread.joinable()) {
             thread.join();
         }
     }
-
 
     void WebSocket::Run() {
         try {

@@ -26,6 +26,9 @@ services:
     networks:
       - flightstrips
     restart: unless-stopped
+    volumes:
+      - ./localhost.crt:/myapp/bin/localhost.crt
+      - ./localhost.key:/myapp/bin/localhost.key
     ports:
       - 2994:2994
     depends_on:

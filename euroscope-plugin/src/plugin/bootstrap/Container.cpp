@@ -14,6 +14,7 @@
 #include "configuration/AppConfig.h"
 #include "configuration/UserConfig.h"
 #include "authentication/AuthenticationService.h"
+#include "websocket/WebSocket.h"
 
 namespace FlightStrips {
     Container::Container() = default;

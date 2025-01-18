@@ -4,6 +4,10 @@
 
 #pragma once
 
+namespace FlightStrips::websocket {
+    class WebSocket;
+}
+
 namespace FlightStrips {
     class FlightStripsPlugin;
     namespace authentication {
@@ -69,6 +73,9 @@ namespace FlightStrips {
 
         // Stands
         std::shared_ptr<stands::StandService> standService;
+
+        // Websocket
+        std::shared_ptr<websocket::WebSocket> websocket;
     };
 
 }

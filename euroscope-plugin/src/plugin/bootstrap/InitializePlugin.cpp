@@ -11,6 +11,7 @@
 #include "handlers/TimedEventHandlers.h"
 #include "handlers/AirportRunwaysChangedEventHandlers.h"
 #include "configuration/ConfigurationBootstrapper.h"
+#include "websocket/WebSocket.h"
 
 namespace FlightStrips {
     auto InitializePlugin::GetPlugin() -> EuroScopePlugIn::CPlugIn * {
@@ -34,6 +35,7 @@ namespace FlightStrips {
         stands::StandsBootstrapper::Bootstrap(*this->container);
         //flightplan::FlightPlanBootstrapper::Bootstrap(*this->container);
 
+        this->container->websocket = std::make_shared<websocket::WebSocket>();
         this->container->authenticationService = std::make_shared<authentication::AuthenticationService>(
             this->container->appConfig, this->container->userConfig);
         this->container->timedEventHandlers->RegisterHandler(this->container->authenticationService);
@@ -61,6 +63,8 @@ namespace FlightStrips {
         this->container->timedEventHandlers->Clear();
         this->container->timedEventHandlers.reset();
         this->container->filesystem.reset();
+        this->container->websocket->Stop();
+        this->container->websocket.reset();
         this->container->plugin.reset();
         this->container->standService.reset();
         this->container->flightPlanService.reset();

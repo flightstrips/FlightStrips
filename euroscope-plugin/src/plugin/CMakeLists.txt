@@ -91,6 +91,11 @@ set(src__http
         http/Http.cpp)
 source_group("src\\http" FILES ${src__http})
 
+set(src__websocket
+        websocket/WebSocket.h
+        websocket/WebSocket.cpp)
+source_group("src\\websocket" FILES ${src__websocket})
+
 set(ALL_FILES
         ${src__plugin}
         ${src__filesystem}
@@ -103,6 +108,7 @@ set(ALL_FILES
         ${src__authentication}
         ${src__graphics}
         ${src__http}
+        ${src__websocket}
         Constants.h
         Logger.cpp
         Logger.h)
@@ -157,7 +163,8 @@ target_include_directories(${PROJECT_NAME} PUBLIC
         "${CMAKE_CURRENT_SOURCE_DIR}/."
 )
 
-target_include_directories(${PROJECT_NAME} SYSTEM PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/../../third_party")
+add_definitions(-DASIO_STANDALONE)
+target_include_directories(${PROJECT_NAME} SYSTEM PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/../../third_party" "${CMAKE_CURRENT_SOURCE_DIR}/../../third_party/asio" )
 
 target_link_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/../../lib)
 

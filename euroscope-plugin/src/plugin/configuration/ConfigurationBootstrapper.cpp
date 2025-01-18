@@ -5,7 +5,6 @@
 #include "ConfigurationBootstrapper.h"
 
 #include "AppConfig.h"
-#include "Logger.h"
 #include "UserConfig.h"
 #include "filesystem/FileSystem.h"
 

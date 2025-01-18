@@ -1,7 +1,6 @@
 
 #include <format>
 #include "FlightStripsPlugin.h"
-#include "euroscope/EuroScopePlugIn.h"
 #include "graphics/InfoScreen.h"
 #include "handlers/FlightPlanEventHandlers.h"
 #include "runway/ActiveRunway.h"

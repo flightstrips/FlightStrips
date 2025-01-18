@@ -164,7 +164,10 @@ target_include_directories(${PROJECT_NAME} PUBLIC
 )
 
 add_definitions(-DASIO_STANDALONE)
-target_include_directories(${PROJECT_NAME} SYSTEM PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/../../third_party" "${CMAKE_CURRENT_SOURCE_DIR}/../../third_party/asio" )
+target_include_directories(${PROJECT_NAME} SYSTEM PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}/../../third_party/asio"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../../third_party"
+)
 
 target_link_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/../../lib)
 

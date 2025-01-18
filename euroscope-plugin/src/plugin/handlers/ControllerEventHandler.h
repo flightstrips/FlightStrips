@@ -1,7 +1,5 @@
 #pragma once
 
-#include "euroscope/EuroScopePlugIn.h"
-
 namespace FlightStrips::handlers {
     class ControllerEventHandler {
     public:

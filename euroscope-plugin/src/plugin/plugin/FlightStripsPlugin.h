@@ -1,7 +1,5 @@
 #pragma once
 
-#include <functional>
-
 #ifndef COPYRIGHTS
 #define PLUGIN_NAME "FlightStrips"
 #define PLUGIN_VERSION "0.0.1"

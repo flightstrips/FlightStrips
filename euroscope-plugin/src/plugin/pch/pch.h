@@ -52,5 +52,5 @@
 #include <array>
 #include <gdiplus.h>
 
-#include "euroscope/EuroScopePlugIn.h"
+#include <euroscope/EuroScopePlugIn.h>
 #include "Constants.h"

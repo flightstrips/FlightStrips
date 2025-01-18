@@ -4,18 +4,18 @@
 
 #pragma once
 
-#include "tortellini/tortellini.hh"
+#include <tortellini/tortellini.hh>
 
 namespace FlightStrips::configuration {
 
 class Config {
-private:
-    std::string path;
+public:
+    explicit Config(std::string path);
 protected:
     tortellini::ini ini;
     void save() const;
-public:
-    explicit Config(std::string path);
+private:
+    std::string path;
 
 };
 

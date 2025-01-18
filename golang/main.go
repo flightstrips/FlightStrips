@@ -148,5 +148,4 @@ func main() {
 
 	log.Println("Server started on address:", *addr)
 	log.Fatal(http.ListenAndServe(*addr, nil))
-	//log.Fatal(http.ListenAndServeTLS(*addr, "localhost.crt", "localhost.key", nil))
 }

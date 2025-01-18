@@ -1,21 +1,33 @@
 import { MainNavigation } from "./components/MainNavigation";
 import Image from "next/image";
+import MobileNav from "./components/MobileNavigation";
 
 
 export default function Home() {
   return (
     <div style={{fontFamily: "Plus Jakarta Sans"}} className="bg-[#003d48] w-scren h-full min-h-screen text-white ">
-      <nav className="flex h-20 items-center justify-between w-1/2 mx-auto">
+      <nav className="hidden md:flex h-20 items-center justify-between w-1/2 mx-auto">
         <h1 className="font-semibold text-xl">FlightStrips</h1>
         <MainNavigation />
       </nav>
-      <section className="w-full h-[60rem] flex justify-between items-center px-32">
-        <div>
-          <h2 className="text-3xl"><span className="font-semibold text-6xl">FlightStips</span><br/>Experience next-gen strip management with </h2>
+      <nav className="flex items-center justify-between md:hidden ">
+        <h1 className="font-semibold text-xl pl-6">FlightStrips</h1>
+        <MobileNav />
+      </nav>
+      <section className="w-full h-[calc(85vh)] md:h-[60rem] flex justify-center md:justify-between items-center px-12 md:px-32">
+        <div className="flex gap-2 flex-col">
+          <h1 className="font-semibold text-6xl">FlightStips</h1>
+          <p className="text-xl md:text-3xl p-1">Experience next-gen strip management with </p>
         </div>
-        <Image src="/fsdemo.png" width="850" height="478" alt="fsdemo" />
+        <Image src="/fsdemo.png" width="850" height="478" alt="fsdemo" className="hidden lg:block"/>
       </section>
-      <footer className="h-48 bg-white w-full flex  justify-around text-[#003d48]">
+      <section className="w-full h-[60rem] flex justify-between items-center px-32 bg-white">
+
+      </section>
+      <section className="w-full h-[60rem] flex justify-between items-center px-32">
+
+      </section>
+      <footer className="h-48 bg-white w-full hidden md:flex justify-around text-[#003d48]">
         <div className="p-1 aspect-video w-64 flex justify-center items-center">
           <span className="font-semibold text-2xl p-2">
             FlightStrips
@@ -25,32 +37,63 @@ export default function Home() {
           <section>
             <ul className="list-disc list-inside">
               <li className="list-none font-semibold">Getting Started</li>
-              <li>Introduction</li>
-              <li>Installation</li>
-              <li>Development</li>
-              <li>Documentation</li>
+              <li><a href="">Introduction</a></li>
+              <li><a href="">Installation</a></li>
+              <li><a href="">Development</a></li>
+              <li><a href="">Documentation</a></li>
             </ul>
           </section>
           <section>
             <ul className="list-disc list-inside">
               <li className="list-none font-semibold">Features</li>
-              <li>PDC</li>
-              <li>BARS</li>
-              <li>vACDM 2.0</li>
+              <li><a href="">PDC</a></li>
+              <li><a href="">BARS</a></li>
+              <li><a href="">vACDM</a></li>
             </ul>
           </section>
           <section>
             <ul className="list-disc list-inside">
               <li className="list-none font-semibold">About</li>
-              <li>Us</li>
-              <li>License</li>
-              <li>Contact</li>
+              <li><a href="">Us</a></li>
+              <li><a href="">License</a></li>
+              <li><a href="">Contact</a></li>
             </ul>
           </section>
 
         </div>
-      </footer>
-
+        </footer>
+        <footer className="bg-white w-full h-64 text-[#003d48] flex flex-col gap-6 items-center">
+          <span className="font-semibold text-2xl pt-4">
+              FlightStrips
+          </span>
+          <div className="flex justify-center gap-4">
+            <section>
+              <ul className="list-disc list-inside">
+                <li className="list-none font-semibold">Getting Started</li>
+                <li><a href="">Introduction</a></li>
+                <li><a href="">Installation</a></li>
+                <li><a href="">Development</a></li>
+                <li><a href="">Documentation</a></li>
+              </ul>
+            </section>
+            <section>
+              <ul className="list-disc list-inside">
+                <li className="list-none font-semibold">Features</li>
+                <li><a href="">PDC</a></li>
+                <li><a href="">BARS</a></li>
+                <li><a href="">vACDM</a></li>
+              </ul>
+            </section>
+            <section>
+              <ul className="list-disc list-inside">
+                <li className="list-none font-semibold">About</li>
+                <li><a href="">Us</a></li>
+                <li><a href="">License</a></li>
+                <li><a href="">Contact</a></li>
+              </ul>
+            </section>
+          </div>
+        </footer>
     </div>
   );
 }

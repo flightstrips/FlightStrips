@@ -38,6 +38,9 @@ export default function CommandBar() {
                     <span className="bg-white text-black w-12 p-2 mx-2 text-center">
                         D
                     </span>
+                    <span className="bg-white text-black w-32 p-2 mx-2 text-center">
+                        250/17kt
+                    </span>
                 </div>
                 <div className="flex w-fit text-2xl font-bold m-2 items-center justify-between">
                     <ATIS />

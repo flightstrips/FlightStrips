@@ -15,7 +15,7 @@ type Controller struct {
 }
 
 type Event struct {
-	ID        string
+	ID        int32
 	Type      pgtype.Text
 	Timestamp pgtype.Text
 	Cid       pgtype.Text

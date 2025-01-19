@@ -23,6 +23,7 @@ type Event struct {
 	Type      string
 	Airport   string
 	Source    string
+	Cid       string
 	TimeStamp time.Time
 	Payload   interface{}
 }
@@ -50,6 +51,7 @@ func main() {
 		Type:      "initial_connection",
 		Airport:   "EKCH",
 		TimeStamp: time.Now(),
+		Cid:       "Client",
 		Source:    "Client",
 		Payload:   string(marshal),
 	}

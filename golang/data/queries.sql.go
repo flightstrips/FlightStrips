@@ -33,6 +33,31 @@ func (q *Queries) InsertController(ctx context.Context, arg InsertControllerPara
 	return i, err
 }
 
+const insertIntoEvents = `-- name: InsertIntoEvents :exec
+INSERT INTO events (
+    type, timestamp, cid, data
+) VALUES (
+             $1, $2, $3, $4
+         )
+`
+
+type InsertIntoEventsParams struct {
+	Type      pgtype.Text
+	Timestamp pgtype.Text
+	Cid       pgtype.Text
+	Data      pgtype.Text
+}
+
+func (q *Queries) InsertIntoEvents(ctx context.Context, arg InsertIntoEventsParams) error {
+	_, err := q.db.Exec(ctx, insertIntoEvents,
+		arg.Type,
+		arg.Timestamp,
+		arg.Cid,
+		arg.Data,
+	)
+	return err
+}
+
 const insertStrip = `-- name: InsertStrip :exec
 INSERT INTO strips (
     id, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand, sequence, state, cleared, positionFrequency, position_latitude, position_longitude, position_altitude, tobt, tsat, ttot, ctot, aobt, asat
@@ -150,6 +175,36 @@ func (q *Queries) ListControllersByAirport(ctx context.Context, airport pgtype.T
 	for rows.Next() {
 		var i Controller
 		if err := rows.Scan(&i.Cid, &i.Airport, &i.Position); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listEvents = `-- name: ListEvents :many
+SELECT id, type, timestamp, cid, data FROM events ORDER BY timestamp
+`
+
+func (q *Queries) ListEvents(ctx context.Context) ([]Event, error) {
+	rows, err := q.db.Query(ctx, listEvents)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Event
+	for rows.Next() {
+		var i Event
+		if err := rows.Scan(
+			&i.ID,
+			&i.Type,
+			&i.Timestamp,
+			&i.Cid,
+			&i.Data,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

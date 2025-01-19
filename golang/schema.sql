@@ -5,7 +5,7 @@ CREATE TABLE IF NOT EXISTS controllers (
 );
 
 CREATE TABLE IF NOT EXISTS events (
-    id text PRIMARY KEY,
+    id SERIAL PRIMARY KEY,
     type text,
     timestamp text,
     cid text,

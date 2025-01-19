@@ -79,20 +79,11 @@ func (s *Server) frontEndEvents(w http.ResponseWriter, r *http.Request) {
 		if event.Type == CloseConnection || event.Type == PositionOffline {
 			break
 		}
-		/*
-			// Broadcast the received message to all clients.
-			// TODO: Decide whether this is the best case - This will be done inside the handler
-			resp, ok := eventOutput.([]byte)
-			if !ok {
-				log.Fatal("Error casting eventOutput to byte")
-			}
-
-			frontEndBroadcast <- resp*/
 	}
 
 	// Cleanup when connection is closed.
 	// TODO: Add removal of online controllers if the controller is also not seen in Euroscope?
-	err = s.frontendeventhandlerPositionOffline(client)
+	err = s.frontendeventhandlerControllerOffline(client)
 	if err != nil {
 		return
 	}
@@ -102,33 +93,60 @@ func (s *Server) frontEndEvents(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) frontEndEventHandler(client FrontEndClient, event Event) (interface{}, error) {
 	// TODO: SwitchCase for different types of messages
-	// TODO: Decide whether the responses are handled here or whether they are handled in the frontEndEvents function
-	// TODO: In order for there to be non broadcasted messages it is just done here?
+	// TODO: Decide whether the responses are handled here or whether they are handled in the frontEndEvents function <- so far it is inside the handler.
+	// TODO: In order for there to be non broadcast messages it is just done here?
 	switch event.Type {
-	case CloseConnection:
-		log.Println("Close Connection Event")
-		err := s.frontendeventhandlerCloseconnection(event)
-		if err != nil {
-			return nil, err
-		}
-		response := []byte("Connection Closed")
-		return response, nil
+	/*
+		case CloseConnection:
+			log.Println("Close Connection Event")
+			err := s.frontendeventhandlerCloseConnection(event)
+			if err != nil {
+				return nil, err
+			}
+			response := []byte("Connection Closed")
+			return response, nil
+	*/
 	case GoAround:
-		log.Println("Go Around Event")
-		// This event is sent to all FrontEndClients - No need for any backend parseing
+		s.log("Go Around Event")
+		// This event is sent to all FrontEndClients - No need for any backend parsing
 		err := s.frontendeventhandlerGoARound(event)
-		if err != nil {
-			return nil, err
-		}
+		return nil, err
 	case PositionOffline:
-		log.Println("Position Offline Event")
-		// This event is sent to all FrontEndClients - No need for any backend parseing
-		err := s.frontendeventhandlerPositionOffline(&client)
-		if err != nil {
-			return nil, err
-		}
-		return nil, nil
+		s.log("Position Offline Event")
+		// This event is sent to all FrontEndClients - No need for any backend parsing
+		err := s.frontendeventhandlerControllerOffline(&client)
+		return nil, err
 
+	case Message:
+		s.log("Message Event")
+		// This event is sent to all OR specific FrontEndClients - No need for any backend parsing
+		err := s._publishEvent(client.airport, event)
+		return nil, err
+
+	// TODO:
+	case StripUpdate:
+		s.log("Strip Update Event")
+
+	case StripAssumeRequestInit:
+		s.log("Strip Assume Request Init Event")
+		print("Not Implemented")
+
+	case StripAssumeRequestReject:
+		s.log("Strip Assume Request Reject Event")
+		print("Not Implemented")
+
+	case StripTransferRequestInit:
+		s.log("Strip Transfer Request Init Event")
+		print("Not Implemented")
+
+	case StripTransferRequestReject:
+		s.log("Strip Transfer Request Reject Event")
+		print("Not Implemented")
+
+	case StripMoveRequest:
+		s.log("Strip Move Request Event")
+		print("Not Implemented")
+		
 	default:
 		log.Println("Unknown Event Type")
 		response := []byte("Not sure what to do here - Unknown EventType Handler")
@@ -195,7 +213,7 @@ func (s *Server) handleInitialConnectionEvent(msg []byte) (cid, airport, positio
 	}
 
 	// Broadcast the position coming online
-	if err := s.publishControllerOnlineEvent(initialConnectionEventPayload.Airport, initialConnectionEventPayload.Position); err != nil {
+	if err := s.publishPositionOnlineEvent(initialConnectionEventPayload.Airport, initialConnectionEventPayload.Position); err != nil {
 		log.Fatalf("Error publishing controller online event: %v", err)
 		return "", "", "", err
 	}
@@ -223,7 +241,7 @@ func (s *Server) returnInitialConnectionResponseEvent(conn *websocket.Conn, airp
 		return err
 	}
 	if controllers == nil {
-		log.Println("No controllers found for airport: %s", airport)
+		log.Printf("no controllers found for airport: %s\n", airport)
 	}
 	resp.Controllers = controllers
 
@@ -265,7 +283,8 @@ func (s *Server) returnInitialConnectionResponseEvent(conn *websocket.Conn, airp
 	return nil
 }
 
-func (s *Server) frontendeventhandlerCloseconnection(event Event) error {
+// TODO
+func (s *Server) frontendeventhandlerCloseConnection(event Event) error {
 	var controller Controller
 	payload := event.Payload.(string)
 	err := json.Unmarshal([]byte(payload), &controller)
@@ -281,93 +300,5 @@ func (s *Server) frontendeventhandlerCloseconnection(event Event) error {
 	if err != nil {
 		return err
 	}
-	return nil
-}
-
-func (s *Server) frontendeventhandlerGoARound(event Event) (err error) {
-	var goaround GoAroundEventPayload
-	payload := event.Payload.(string)
-	err = json.Unmarshal([]byte(payload), &goaround)
-	if err != nil {
-		log.Println("Error unmarshalling goaround event")
-		return err
-	}
-
-	bEvent, err := json.Marshal(event)
-	if err != nil {
-		return err
-	}
-
-	//Go Around is an event to send to all FrontEndClients
-	frontEndBroadcast <- bEvent
-
-	return nil
-}
-
-func (s *Server) frontendeventhandlerPositionOffline(client *FrontEndClient) error {
-	// TODO: Var verification?
-
-	err := s.publishControllerOfflineEvent(client.airport, client.position)
-	if err != nil {
-		log.Fatalf("Error publishing controller offline event: %v", err)
-	}
-
-	// Remove the controller from the database
-	db := data.New(s.DBPool)
-	err = db.RemoveController(context.Background(), client.cid)
-	if err != nil {
-		log.Fatalf("Error removing controller from database: %v", err)
-	}
-
-	return nil
-}
-
-func (s *Server) publishControllerOnlineEvent(airport, position string) error {
-	// Build PositionOnline Event
-	positionOnlineEvent := Event{
-		Type:      PositionOnline,
-		Airport:   airport,
-		Source:    "Server",
-		TimeStamp: time.Now(),
-		Payload: PositionOnlinePayload{
-			Airport:  airport,
-			Position: position,
-		},
-	}
-
-	positionOnlineEventBytes, err := json.Marshal(positionOnlineEvent)
-	if err != nil {
-		log.Fatalf("Error marshalling position online event: %v", err)
-		return err
-	}
-
-	// Broadcast the position coming online
-	frontEndBroadcast <- positionOnlineEventBytes
-
-	return nil
-}
-
-func (s *Server) publishControllerOfflineEvent(airport, position string) error {
-	// Build PositionOnline Event
-	positionOfflineEvent := Event{
-		Type:      PositionOffline,
-		Airport:   airport,
-		Source:    "Server",
-		TimeStamp: time.Now(),
-		Payload: PositionOfflinePayload{
-			Airport:  airport,
-			Position: position,
-		},
-	}
-
-	positionOfflineEventBytes, err := json.Marshal(positionOfflineEvent)
-	if err != nil {
-		log.Fatalf("Error marshalling position online event: %v", err)
-		return err
-	}
-
-	// Broadcast the position coming online
-	frontEndBroadcast <- positionOfflineEventBytes
-
 	return nil
 }

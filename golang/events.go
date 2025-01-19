@@ -32,14 +32,6 @@ const (
 	RunWayConfiguration        EventType = "run_way_configuration"
 	AtisUpdate                 EventType = "atis_update"
 
-	// CoordinationRequestInit - Sent to a specific FrontEnd Client
-	// CoordinationRequestAccept - Sent to a specific FrontEnd Client
-	// CoordinationRequestReject - Sent to a specific FrontEnd Client
-	// TODO: What are these used for?
-	CoordinationRequestInit   EventType = "coordination_request_init"
-	CoordinationRequestAccept EventType = "coordination_request_accept"
-	CoordinationRequestReject EventType = "coordination_request_reject"
-
 	// PositionOnline - Sent to all FrontEnd Clients
 	// PositionOffline - Sent to all FrontEnd Clients
 	PositionOnline  EventType = "position_online"
@@ -63,6 +55,7 @@ type Event struct {
 	Type      EventType
 	Airport   string
 	Source    string
+	Cid       string
 	TimeStamp time.Time
 	Payload   interface{}
 }
@@ -82,6 +75,7 @@ func NewHeartBeatEvent(content string) *Event {
 		Type:      Heartbeat,
 		Source:    "server",
 		Airport:   "All",
+		Cid:       "server",
 		TimeStamp: time.Now(),
 		Payload:   &HeartBeatEventPayload{Payload: content},
 	}
@@ -120,11 +114,14 @@ type GoAroundEventPayload struct {
 }
 
 type PositionOnlinePayload struct {
-	Airport  string
 	Position string
 }
 
 type PositionOfflinePayload struct {
-	Airport  string
 	Position string
+}
+
+type MessageEventPayload struct {
+	TargetPosition string
+	Contents       string
 }

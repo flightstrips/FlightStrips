@@ -6,6 +6,7 @@ import (
 	_ "database/sql"
 	"encoding/json"
 	"flag"
+	"github.com/jackc/pgx/v5/pgtype"
 	"log"
 	"net/http"
 	"time"
@@ -75,35 +76,62 @@ func handleFrontEndBroadcast() {
 	}
 }
 
-// DBJob represents a database job request
-type DBJob struct {
-	Action func(ctx context.Context, q *data.Queries) (interface{}, error)
-	Result chan<- interface{}
-	Err    chan<- error
-}
+func (s *Server) handleServerLogging(logging chan interface{}) {
+	for {
+		msg := <-logging
 
-// dbWorker processes database jobs
-func dbWorker(dbConn *pgxpool.Pool, jobs <-chan DBJob) {
-	queries := data.New(dbConn)
-	for job := range jobs {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		// posible memory leak but I am not a good developer
-		defer cancel()
+		var dataToInsert data.InsertIntoEventsParams
+		switch msg := msg.(type) {
+		case Event:
+			dataToInsert = data.InsertIntoEventsParams{
+				Type: pgtype.Text{
+					String: string(msg.Type),
+				},
+				Timestamp: pgtype.Text{
+					String: msg.TimeStamp.String(),
+				},
+				Cid: pgtype.Text{
+					String: msg.Cid,
+				},
+				Data: pgtype.Text{
+					String: msg.Payload.(string),
+				},
+			}
+		default:
+			dataToInsert = data.InsertIntoEventsParams{
+				Type: pgtype.Text{
+					String: "Unknown",
+				},
+				Timestamp: pgtype.Text{
+					String: time.Now().String(),
+				},
+				Cid: pgtype.Text{
+					String: "Server",
+				},
+				Data: pgtype.Text{
+					String: msg.(string),
+				},
+			}
 
-		result, err := job.Action(ctx, queries)
-		if err != nil {
-			job.Err <- err
-			continue
 		}
-		job.Result <- result
-		job.Err <- nil
+
+		database := data.New(s.DBPool)
+
+		err := database.InsertIntoEvents(context.Background(), dataToInsert)
+		if err != nil {
+			log.Println("error logging event")
+		}
 	}
 }
 
 // Server holds shared resources
 type Server struct {
-	DBPool *pgxpool.Pool
-	// Jobs   chan DBJob Not needed with a PGX Pool
+	DBPool  *pgxpool.Pool
+	logging chan interface{}
+}
+
+func (s *Server) log(msg string) {
+	s.logging <- msg
 }
 
 func healthz(w http.ResponseWriter, _ *http.Request) {
@@ -124,9 +152,12 @@ func main() {
 	}
 	defer dbpool.Close()
 
+	logging := make(chan interface{})
+
 	// Create the parent server struct
 	server := Server{
-		DBPool: dbpool,
+		DBPool:  dbpool,
+		logging: logging,
 	}
 
 	//check that the dbpool is working
@@ -145,6 +176,7 @@ func main() {
 	// Start background tasks.
 	go handleFrontEndBroadcast()
 	go periodicMessages()
+	go server.handleServerLogging(logging)
 
 	log.Println("Server started on address:", *addr)
 	log.Fatal(http.ListenAndServe(*addr, nil))

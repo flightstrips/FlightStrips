@@ -35,3 +35,13 @@ DELETE FROM strips WHERE id = $1;
 -- name: ListStripsByOrigin :many
 SELECT * FROM strips WHERE origin = $1 ORDER BY id;
 
+-- name: InsertIntoEvents :exec
+INSERT INTO events (
+    type, timestamp, cid, data
+) VALUES (
+             $1, $2, $3, $4
+         );
+
+-- name: ListEvents :many
+SELECT * FROM events ORDER BY timestamp;
+

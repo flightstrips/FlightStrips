@@ -6,6 +6,13 @@
 1. Client sends auth token (max 2 seconds after connection is open)
 1. Server validates, if not valid disconnect
 
+```json
+{
+    "type": "token",
+    "token": ""
+}
+```
+
 ## EuroScope
 
 ### Login event

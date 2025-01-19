@@ -38,14 +38,15 @@ const (
 	PositionOffline EventType = "position_offline"
 
 	// StripUpdate - Sent to all FrontEnd Clients && One Euroscope Client (The one who made the change)
-	// StripAssumeRequestInit - Sent to a specific FrontEnd Client
-	// StripAssumeRequestReject - Sent to a specific FrontEnd Client
 	// StripTransferRequestInit - Sent to a specific FrontEnd Client
 	// StripTransferRequestReject - Sent to a specific FrontEnd Client
 	// StripMoveRequest - Sent to a specific FrontEnd Client
 	StripUpdate                EventType = "strip_update"
-	StripAssumeRequestInit     EventType = "strip_assume_request"
-	StripAssumeRequestReject   EventType = "strip_assume_request_reject"
+	StripUpdateCleared         EventType = "strip_update_cleared"
+	StripUpdateBay             EventType = "strip_update_bay"
+	StripUpdateBayPosition     EventType = "strip_update_bay_position"
+	StripUpdateRunwayChange    EventType = "strip_update_runway_change"
+	StripUpdateDeparture       EventType = "strip_update_departure"
 	StripTransferRequestInit   EventType = "strip_transfer_request"
 	StripTransferRequestReject EventType = "strip_transfer_request_reject"
 	StripMoveRequest           EventType = "strip_move_request"
@@ -126,9 +127,17 @@ type PositionOfflinePayload struct {
 	Position string
 }
 
-type StripAssumeRequestInitPayload struct{}
+type StripUpdatePayload struct{}
 
-type StripAssumeRequestRejectPayload struct{}
+type StripUpdateClearedPayload struct{}
+
+type StripUpdateBayPayload struct{}
+
+type StripUpdateBayPositionPayload struct{}
+
+type StripUpdateRunwayChangePayload struct{}
+
+type StripUpdateDeparturePayload struct{}
 
 type StripTransferRequestInitPayload struct{}
 

@@ -2,6 +2,7 @@ import { CurrentUTC } from "@/app/helpers/time";
 import MRKBTN from "./MRKBTN";
 import TRFBRN from "./TRFBRN";
 import REQBTN from "./REQBTN";
+import HOMEBTN from "./HOMEBTN";
 
 export default function CommandBar() {
     return (
@@ -39,6 +40,7 @@ export default function CommandBar() {
                 </div>
             </div>
             <div className="flex items-center justify-center gap-1">
+                <HOMEBTN />
                 <TRFBRN />
                 <MRKBTN />
                 <REQBTN />

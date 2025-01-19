@@ -14,7 +14,7 @@ export default function Home() {
         <h1 className="font-semibold text-xl pl-6">FlightStrips</h1>
         <MobileNav />
       </nav>
-      <section className="w-full h-[calc(85vh)] md:h-[60rem] flex justify-center md:justify-between items-center px-12 md:px-32">
+      <section className="w-full h-[calc(85vh)] md:h-[60rem] flex justify-center md:justify-between items-center px-6 md:px-32 max-w-[1600px]">
         <div className="flex gap-2 flex-col">
           <h1 className="font-semibold text-6xl">FlightStips</h1>
           <p className="text-xl md:text-3xl p-1">Experience next-gen strip management with </p>
@@ -27,10 +27,10 @@ export default function Home() {
       <section className="w-full h-[60rem] flex justify-between items-center px-32">
 
       </section>
-      <footer className="h-48 bg-white w-full hidden md:flex justify-around text-[#003d48]">
+      <footer className="h-48 bg-white w-full hidden md:flex justify-around text-[#003d48] ">
         <div className="p-1 aspect-video w-64 flex justify-center items-center">
           <span className="font-semibold text-2xl p-2">
-            FlightStrips
+            FlightStrips <br /> <span className="text-xs -mt-4 -pt-4">(Only for simulation)</span>
           </span>
         </div>
         <div className="w-[32rem] flex gap-12 items-center">
@@ -62,7 +62,7 @@ export default function Home() {
 
         </div>
         </footer>
-        <footer className="bg-white w-full h-64 text-[#003d48] flex flex-col gap-6 items-center">
+        <footer className="bg-white w-full h-64 text-[#003d48] flex flex-col gap-6 items-center md:hidden">
           <span className="font-semibold text-2xl pt-4">
               FlightStrips
           </span>

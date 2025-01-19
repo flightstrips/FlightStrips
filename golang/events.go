@@ -109,6 +109,11 @@ func NewInitialConnectionEvent(airport string, strips []data.Strip, controllers 
 	}
 }
 
+type MessageEventPayload struct {
+	TargetPosition string
+	Contents       string
+}
+
 type GoAroundEventPayload struct {
 	ControllerID string
 }
@@ -121,7 +126,12 @@ type PositionOfflinePayload struct {
 	Position string
 }
 
-type MessageEventPayload struct {
-	TargetPosition string
-	Contents       string
-}
+type StripAssumeRequestInitPayload struct{}
+
+type StripAssumeRequestRejectPayload struct{}
+
+type StripTransferRequestInitPayload struct{}
+
+type StripTransferRequestRejectPayload struct{}
+
+type StripMoveRequestPayload struct{}

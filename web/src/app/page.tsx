@@ -1,6 +1,7 @@
 import { MainNavigation } from "./components/MainNavigation";
 import Image from "next/image";
 import MobileNav from "./components/MobileNavigation";
+import { PatnerCarousel } from "./components/PatnerCarousel";
 
 
 export default function Home() {
@@ -14,17 +15,18 @@ export default function Home() {
         <h1 className="font-semibold text-xl pl-6">FlightStrips</h1>
         <MobileNav />
       </nav>
-      <section className="w-full h-[calc(85vh)] md:h-[60rem] flex justify-center md:justify-between items-center px-6 md:px-32 max-w-[1600px]">
+      <section className="w-full h-[calc(85vh)] md:h-[60rem] flex justify-center md:justify-between mx-auto items-center px-6 md:px-32 max-w-[1600px]">
         <div className="flex gap-2 flex-col">
           <h1 className="font-semibold text-6xl">FlightStips</h1>
           <p className="text-xl md:text-3xl p-1">Experience next-gen strip management with </p>
         </div>
         <Image src="/fsdemo.png" width="850" height="478" alt="fsdemo" className="hidden lg:block"/>
       </section>
-      <section className="w-full h-[60rem] flex justify-between items-center px-32 bg-white">
-
+      <section className="w-full h-[20rem] flex flex-col justify-center items-center px-32 bg-white">
+        <h3 className="text-3xl pb-6 text-black">Parner vACCs</h3>
+        <PatnerCarousel />
       </section>
-      <section className="w-full h-[60rem] flex justify-between items-center px-32">
+      <section className="w-full min-h-fit h-[60rem] flex justify-between items-center px-32">
 
       </section>
       <footer className="h-48 bg-white w-full hidden md:flex justify-around text-[#003d48] ">

@@ -6,21 +6,27 @@
 
 #include <nlohmann/json.hpp>
 
+#include "Events.h"
 #include "Logger.h"
 
 namespace FlightStrips::websocket {
-    WebSocketService::WebSocketService(const std::shared_ptr<configuration::AppConfig> &appConfig) : webSocket(
-        appConfig->GetBaseUrl(), [this](const std::string &message) { this->OnMessage(message); }) {
+    WebSocketService::WebSocketService(const std::shared_ptr<configuration::AppConfig> &appConfig,
+                                       const std::shared_ptr<authentication::AuthenticationService> &
+                                       authentication_service) : authentication_service(authentication_service),
+                                                                 webSocket(
+                                                                     appConfig->GetBaseUrl(),
+                                                                     [this](const std::string &message) {
+                                                                         this->OnMessage(message);
+                                                                     }, [this] { this->OnConnected(); }) {
     }
 
     WebSocketService::~WebSocketService() {
-        Stop();
     }
 
     void WebSocketService::OnTimer(int time) {
         if (!webSocket.IsConnected()) {
-            Logger::Info("Starting websocket connection");
-            webSocket.Start();
+            //Logger::Info("Starting websocket connection");
+            //webSocket.Connect();
             return;
         }
 
@@ -28,11 +34,17 @@ namespace FlightStrips::websocket {
     }
 
     void WebSocketService::Start() {
-        webSocket.Start();
+        webSocket.Connect();
     }
 
     void WebSocketService::Stop() {
-        webSocket.Stop();
+        webSocket.Disconnect();
+    }
+
+    template<typename T> requires std::is_base_of_v<Event, T>
+    void WebSocketService::SendEvent(const T &event) {
+        const nlohmann::json json = event;
+        webSocket.Send(json.dump());
     }
 
     void WebSocketService::OnMessage(const std::string &message) {
@@ -41,5 +53,10 @@ namespace FlightStrips::websocket {
             Logger::Warning("Invalid JSON message: {}", message);
             return;
         }
+    }
+
+    void WebSocketService::OnConnected() {
+        const auto token = TokenEvent(authentication_service->GetAccessToken());
+        SendEvent(token);
     }
 }

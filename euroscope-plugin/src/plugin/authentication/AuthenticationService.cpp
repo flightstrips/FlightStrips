@@ -17,6 +17,11 @@ namespace FlightStrips::authentication {
 
     AuthenticationService::~AuthenticationService() {
         CancelAuthentication();
+
+        // Cleanup
+        if (token_thread.joinable()) {
+            token_thread.join();
+        }
     }
 
     void AuthenticationService::Logout() {
@@ -55,6 +60,10 @@ namespace FlightStrips::authentication {
 
     std::string AuthenticationService::GetName() const {
         return name;
+    }
+
+    std::string AuthenticationService::GetAccessToken() const {
+        return accessToken;
     }
 
     void AuthenticationService::OnTimer(int time) {

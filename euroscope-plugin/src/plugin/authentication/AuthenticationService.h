@@ -34,6 +34,7 @@ public:
     void CancelAuthentication();
     [[nodiscard]] AuthenticationState GetAuthenticationState() const;
     [[nodiscard]] std::string GetName() const;
+    [[nodiscard]] std::string GetAccessToken() const;
 
 
     void OnTimer(int time) override;

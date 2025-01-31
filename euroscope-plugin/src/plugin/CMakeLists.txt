@@ -95,7 +95,8 @@ set(src__websocket
         websocket/WebSocket.h
         websocket/WebSocket.cpp
         websocket/WebSocketService.cpp
-        websocket/WebSocketService.h)
+        websocket/WebSocketService.h
+        websocket/Events.h)
 source_group("src\\websocket" FILES ${src__websocket})
 
 set(ALL_FILES
@@ -165,7 +166,6 @@ target_include_directories(${PROJECT_NAME} PUBLIC
         "${CMAKE_CURRENT_SOURCE_DIR}/."
 )
 
-add_definitions(-DASIO_STANDALONE)
 target_include_directories(${PROJECT_NAME} SYSTEM PRIVATE
         "${CMAKE_CURRENT_SOURCE_DIR}/../../third_party/asio"
         "${CMAKE_CURRENT_SOURCE_DIR}/../../third_party"

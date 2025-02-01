@@ -12,33 +12,45 @@
 namespace FlightStrips::websocket {
     WebSocketService::WebSocketService(const std::shared_ptr<configuration::AppConfig> &appConfig,
                                        const std::shared_ptr<authentication::AuthenticationService> &
-                                       authentication_service) : authentication_service(authentication_service),
-                                                                 webSocket(
-                                                                     appConfig->GetBaseUrl(),
-                                                                     [this](const std::string &message) {
-                                                                         this->OnMessage(message);
-                                                                     }, [this] { this->OnConnected(); }) {
+                                       authentication_service,
+                                       const std::shared_ptr<FlightStripsPlugin> &plugin) : m_appConfig(appConfig),
+        m_authentication_service(authentication_service),
+        m_plugin(plugin),
+        webSocket(
+            appConfig->GetBaseUrl(),
+            [this](const std::string &message) {
+                this->OnMessage(message);
+            }, [this] { this->OnConnected(); }) {
     }
 
     WebSocketService::~WebSocketService() {
     }
 
     void WebSocketService::OnTimer(int time) {
-        if (!webSocket.IsConnected()) {
-            //Logger::Info("Starting websocket connection");
-            //webSocket.Connect();
+        const auto &state = m_plugin->GetConnectionState();
+        const bool should_connect = !state.primary_frequency.empty() && state.primary_frequency != "199.998" && !state.
+                                    relevant_airport.empty() && (
+                                        state.connection_type == CONNECTION_TYPE_SWEATBOX || state.connection_type ==
+                                        CONNECTION_TYPE_DIRECT || state.connection_type == CONNECTION_TYPE_PLAYBACK);
+        if (should_connect && (webSocket.GetStatus() == WEBSOCKET_STATUS_DISCONNECTED || webSocket.GetStatus() ==
+                               WEBSOCKET_STATUS_FAILED)) {
+            primary = state.primary_frequency;
+            Logger::Info("Trying to connect to server: {}", m_appConfig->GetBaseUrl());
+            webSocket.Connect();
             return;
         }
 
-        webSocket.Send(std::format("EuroScope time: {}", time));
-    }
+        if (!should_connect && webSocket.GetStatus() == WEBSOCKET_STATUS_CONNECTED) {
+            Logger::Info("Disconnecting from server: {}", m_appConfig->GetBaseUrl());
+            webSocket.Disconnect();
+            return;
+        }
 
-    void WebSocketService::Start() {
-        webSocket.Connect();
-    }
+        if (!should_connect) return;
 
-    void WebSocketService::Stop() {
-        webSocket.Disconnect();
+        if (webSocket.GetStatus() == WEBSOCKET_STATUS_CONNECTED && primary != state.primary_frequency) {
+            SendLoginEvent();
+        }
     }
 
     template<typename T> requires std::is_base_of_v<Event, T>
@@ -56,7 +68,15 @@ namespace FlightStrips::websocket {
     }
 
     void WebSocketService::OnConnected() {
-        const auto token = TokenEvent(authentication_service->GetAccessToken());
+        const auto token = TokenEvent(m_authentication_service->GetAccessToken());
         SendEvent(token);
+        SendLoginEvent();
+    }
+
+    void WebSocketService::SendLoginEvent() {
+        const auto &state = m_plugin->GetConnectionState();
+        primary = state.primary_frequency;
+        const auto login = LoginEvent(state.relevant_airport, state.primary_frequency, state.callsign, state.range);
+        SendEvent(login);
     }
 }

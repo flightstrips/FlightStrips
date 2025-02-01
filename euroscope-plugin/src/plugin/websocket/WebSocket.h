@@ -32,7 +32,7 @@ namespace FlightStrips::websocket {
         void Connect();
         void Disconnect();
         void Send(const std::string& message) ;
-        bool IsConnected() ;
+        WebSocketStatus GetStatus() const;
 
     private:
         WebSocketStatus status_ = WEBSOCKET_STATUS_DISCONNECTED;

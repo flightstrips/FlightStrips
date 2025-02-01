@@ -21,6 +21,24 @@
 #define NOT_CLEARED "NOTC"
 
 namespace FlightStrips {
+    enum ConnectionType {
+        CONNECTION_TYPE_NO               = 0,
+        CONNECTION_TYPE_DIRECT           = 1,
+        CONNECTION_TYPE_VIA_PROXY        = 2,
+        CONNECTION_TYPE_SIMULATOR_SERVER = 3,
+        CONNECTION_TYPE_PLAYBACK         = 4,
+        CONNECTION_TYPE_SIMULATOR_CLIENT = 5,
+        CONNECTION_TYPE_SWEATBOX         = 6
+    };
+
+    struct ConnectionState {
+        int range;
+        ConnectionType connection_type;
+        std::string primary_frequency;
+        std::string callsign;
+        std::string relevant_airport;
+    };
+
     class FlightStripsPlugin : public EuroScopePlugIn::CPlugIn {
     public:
         FlightStripsPlugin(
@@ -30,7 +48,8 @@ namespace FlightStrips {
                 const std::shared_ptr<handlers::TimedEventHandlers> &mTimedEventHandlers,
                 const std::shared_ptr<handlers::AirportRunwaysChangedEventHandlers> &mAirportRunwaysChangedEventHandlers,
                 const std::shared_ptr<authentication::AuthenticationService> &mAuthenticationService,
-                const std::shared_ptr<configuration::UserConfig> &mUserConfig);
+                const std::shared_ptr<configuration::UserConfig> &mUserConfig,
+                const std::shared_ptr<configuration::AppConfig> &mAppConfig);
 
         ~FlightStripsPlugin() override;
 
@@ -66,6 +85,8 @@ namespace FlightStrips {
         static bool ControllerIsMe(EuroScopePlugIn::CController controller, EuroScopePlugIn::CController me);
 
         static bool IsRelevant(EuroScopePlugIn::CFlightPlan flightPlan);
+
+        ConnectionState& GetConnectionState();
     private:
         const std::shared_ptr<handlers::FlightPlanEventHandlers> m_flightPlanEventHandlerCollection;
         const std::shared_ptr<handlers::RadarTargetEventHandlers> m_radarTargetEventHandlers;
@@ -74,6 +95,9 @@ namespace FlightStrips {
         const std::shared_ptr<handlers::AirportRunwaysChangedEventHandlers> m_airportRunwayChangedEventHandlers;
         const std::shared_ptr<authentication::AuthenticationService> m_authenticationService;
         const std::shared_ptr<configuration::UserConfig> m_userConfig;
+        const std::shared_ptr<configuration::AppConfig> m_appConfig;
+
+        ConnectionState m_connectionState = {};
 
     };
 }

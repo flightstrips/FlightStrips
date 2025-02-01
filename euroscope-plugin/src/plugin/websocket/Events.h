@@ -59,4 +59,21 @@ struct TokenEvent final : Event {
     NLOHMANN_DEFINE_TYPE_INTRUSIVE(TokenEvent, token, type)
 };
 
+struct LoginEvent final : Event {
+    std::string airport;
+    std::string position;
+    std::string callsign;
+    int range;
+
+    LoginEvent(const std::string &airport, const std::string &position, const std::string &callsign, const int range)
+        : Event(EVENT_LOGIN),
+          airport(airport),
+          position(position),
+          callsign(callsign),
+          range(range) {
+    }
+
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE(LoginEvent, airport, position, callsign, range, type);
+};
+
 #endif //EVENTS_H

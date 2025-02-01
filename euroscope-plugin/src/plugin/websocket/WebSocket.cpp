@@ -48,7 +48,7 @@ namespace FlightStrips::websocket {
     }
 
     void WebSocket::Connect() {
-        if (IsConnected() || (status_ != WEBSOCKET_STATUS_DISCONNECTED && status_ != WEBSOCKET_STATUS_FAILED)) { return;}
+        if (status_ != WEBSOCKET_STATUS_DISCONNECTED && status_ != WEBSOCKET_STATUS_FAILED) { return; }
         status_ = WEBSOCKET_STATUS_CONNECTING;
         websocketpp::lib::error_code ec;
 
@@ -81,12 +81,8 @@ namespace FlightStrips::websocket {
         }
     }
 
-    bool WebSocket::IsConnected() {
-        websocketpp::lib::error_code ec;
-        const auto connection = m_endpoint.get_con_from_hdl(m_hdl, ec);
-        if (ec) return false;
-
-        return connection->get_state() == websocketpp::session::state::open;
+    WebSocketStatus WebSocket::GetStatus() const {
+        return status_;
     }
 
     void WebSocket::OnMessage(const websocketpp::connection_hdl &, const client::message_ptr &msg) const {

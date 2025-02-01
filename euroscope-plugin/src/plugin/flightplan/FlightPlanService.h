@@ -23,7 +23,7 @@ class FlightPlanService final : public handlers::FlightPlanEventHandler, public 
 
 private:
     std::shared_ptr<websocket::WebSocketService> m_websocketService;
-    std::unordered_map<std::string, FlightPlan> m_flightPlans;
+    std::unordered_map<std::string, FlightPlan> m_flightPlans = {};
 
 
 };

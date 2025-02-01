@@ -98,10 +98,10 @@ struct RunwayEvent final : Event {
 
 struct AssignedSquawkEvent final : Event {
     std::string callsign;
-    int squawk;
+    std::string squawk;
 
-    AssignedSquawkEvent(std::string callsign, const int squawk) : Event(EVENT_ASSIGNED_SQUAWK),
-                                                                  callsign(std::move(callsign)), squawk(squawk) {
+    AssignedSquawkEvent(std::string callsign, std::string squawk) : Event(EVENT_ASSIGNED_SQUAWK),
+                                                                  callsign(std::move(callsign)), squawk(std::move(squawk)) {
     }
 
     NLOHMANN_DEFINE_TYPE_INTRUSIVE(AssignedSquawkEvent, callsign, squawk, type);
@@ -109,10 +109,10 @@ struct AssignedSquawkEvent final : Event {
 
 struct SquawkEvent final : Event {
     std::string callsign;
-    int squawk;
+    std::string squawk;
 
-    SquawkEvent(std::string callsign, const int squawk) : Event(EVENT_SQUAWK), callsign(std::move(callsign)),
-                                                          squawk(squawk) {
+    SquawkEvent(std::string callsign, std::string squawk) : Event(EVENT_SQUAWK), callsign(std::move(callsign)),
+                                                          squawk(std::move(squawk)) {
     }
 
     NLOHMANN_DEFINE_TYPE_INTRUSIVE(SquawkEvent, callsign, squawk, type);

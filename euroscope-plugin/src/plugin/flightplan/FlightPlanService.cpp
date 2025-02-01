@@ -1,23 +1,25 @@
 #include "FlightPlanService.h"
 
 namespace FlightStrips::flightplan {
-    FlightPlanService::FlightPlanService(std::shared_ptr<websocket::WebSocketService> websocketService) : m_websocketService(websocketService) {
+    FlightPlanService::FlightPlanService(std::shared_ptr<websocket::WebSocketService> websocketService) : m_websocketService(websocketService), m_flightPlans({}) {
     }
 
     void FlightPlanService::RadarTargetPositionEvent(EuroScopePlugIn::CRadarTarget radarTarget) {
-        if (true) return;
-        FlightPlan plan;
-        plan.squawk = radarTarget.GetPosition().GetSquawk();
+        const auto position = radarTarget.GetPosition();
+        if (!position.IsValid()) return;
+        FlightPlan plan = { std::string(position.GetSquawk()) };
+        const auto callsign = std::string(radarTarget.GetCallsign());
 
-        auto entry = this->m_flightPlans.insert({radarTarget.GetCallsign(), plan});
+        const auto [pair, exists] = this->m_flightPlans.insert({callsign, plan});
 
-        if (!entry.second) {
-            if (entry.first->second.squawk == plan.squawk) {
+        if (!exists) {
+            if (pair->second.squawk == plan.squawk) {
                 return;
             }
-            entry.first->second.squawk = plan.squawk;
+            pair->second.squawk = plan.squawk;
         }
         if (!m_websocketService->ShouldSend()) return;
+        m_websocketService->SendEvent(SquawkEvent(callsign, plan.squawk));
     }
 
     void FlightPlanService::FlightPlanEvent(EuroScopePlugIn::CFlightPlan flightPlan) {
@@ -30,7 +32,7 @@ namespace FlightStrips::flightplan {
 
         switch (dataType) {
             case EuroScopePlugIn::CTR_DATA_TYPE_SQUAWK:
-                m_websocketService->SendEvent(AssignedSquawkEvent(callsign, std::stoi(flightPlan.GetControllerAssignedData().GetSquawk())));
+                m_websocketService->SendEvent(AssignedSquawkEvent(callsign, std::string(flightPlan.GetControllerAssignedData().GetSquawk())));
                 break;
             case EuroScopePlugIn::CTR_DATA_TYPE_FINAL_ALTITUDE:
                 m_websocketService->SendEvent(RequestedAltitudeEvent(callsign, flightPlan.GetControllerAssignedData().GetFinalAltitude()));

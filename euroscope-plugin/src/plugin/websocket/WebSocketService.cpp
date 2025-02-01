@@ -10,16 +10,16 @@ namespace FlightStrips::websocket {
                                        const std::shared_ptr<authentication::AuthenticationService> &
                                        authentication_service,
                                        const std::shared_ptr<FlightStripsPlugin> &plugin,
-                                       const std::shared_ptr<handlers::ConnectionEventHandlers> &event_handlers) :
-        m_appConfig(appConfig),
-        m_authentication_service(authentication_service),
-        m_plugin(plugin),
-        m_connection_handlers(event_handlers),
-        webSocket(
-            appConfig->GetBaseUrl(),
-            [this](const std::string &message) {
-                this->OnMessage(message);
-            }, [this] { this->OnConnected(); }) {
+                                       const std::shared_ptr<handlers::ConnectionEventHandlers> &
+                                       event_handlers) : m_appConfig(appConfig),
+                                                         m_authentication_service(authentication_service),
+                                                         m_plugin(plugin),
+                                                         m_connection_handlers(event_handlers),
+                                                         webSocket(
+                                                             appConfig->GetBaseUrl(),
+                                                             [this](const std::string &message) {
+                                                                 this->OnMessage(message);
+                                                             }, [this] { this->OnConnected(); }) {
     }
 
     WebSocketService::~WebSocketService() {
@@ -30,7 +30,8 @@ namespace FlightStrips::websocket {
         const bool should_connect = !state.primary_frequency.empty() && state.primary_frequency != "199.998" && !state.
                                     relevant_airport.empty() && (
                                         state.connection_type == CONNECTION_TYPE_SWEATBOX || state.connection_type ==
-                                        CONNECTION_TYPE_DIRECT || state.connection_type == CONNECTION_TYPE_PLAYBACK);
+                                        CONNECTION_TYPE_DIRECT || state.connection_type == CONNECTION_TYPE_PLAYBACK) &&
+                                    m_authentication_service->GetAuthenticationState() == authentication::AUTHENTICATED;
         if (should_connect && (webSocket.GetStatus() == WEBSOCKET_STATUS_DISCONNECTED || webSocket.GetStatus() ==
                                WEBSOCKET_STATUS_FAILED)) {
             primary = state.primary_frequency;
@@ -54,6 +55,10 @@ namespace FlightStrips::websocket {
 
     bool WebSocketService::IsConnected() const {
         return webSocket.GetStatus() == WEBSOCKET_STATUS_CONNECTED;
+    }
+
+    bool WebSocketService::ShouldSend() const {
+        return IsConnected();
     }
 
     template<typename T> requires std::is_base_of_v<Event, T>

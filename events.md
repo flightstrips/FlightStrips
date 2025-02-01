@@ -187,13 +187,13 @@ Position changed for aircraft
 
 ### Set heading 
 
-Position changed for aircraft
+Set heading. Heading 0 means not set.
 
 ```json
 {
     "type": "heading",
     "callsign": "SAS123",
-    "heading": 000
+    "heading": 0
 }
 ```
 

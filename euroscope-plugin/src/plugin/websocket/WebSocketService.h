@@ -22,6 +22,7 @@ namespace FlightStrips::websocket {
         template<typename T> requires std::is_base_of_v<Event, T>
         void SendEvent(const T &event);
         bool IsConnected() const;
+        bool ShouldSend() const;
 
     private:
         std::shared_ptr<configuration::AppConfig> m_appConfig;
@@ -37,4 +38,12 @@ namespace FlightStrips::websocket {
     };
 }
 
+template void FlightStrips::websocket::WebSocketService::SendEvent<AssignedSquawkEvent>(const AssignedSquawkEvent & event);
+template void FlightStrips::websocket::WebSocketService::SendEvent<ClearedAltitudeEvent>(const ClearedAltitudeEvent & event);
+template void FlightStrips::websocket::WebSocketService::SendEvent<ClearedFlagEvent>(const ClearedFlagEvent & event);
+template void FlightStrips::websocket::WebSocketService::SendEvent<CommunicationTypeEvent>(const CommunicationTypeEvent & event);
+template void FlightStrips::websocket::WebSocketService::SendEvent<GroundStateEvent>(const GroundStateEvent & event);
+template void FlightStrips::websocket::WebSocketService::SendEvent<HeadingEvent>(const HeadingEvent & event);
+template void FlightStrips::websocket::WebSocketService::SendEvent<RequestedAltitudeEvent>(const RequestedAltitudeEvent & event);
 template void FlightStrips::websocket::WebSocketService::SendEvent<RunwayEvent>(const RunwayEvent & event);
+template void FlightStrips::websocket::WebSocketService::SendEvent<SquawkEvent>(const SquawkEvent & event);

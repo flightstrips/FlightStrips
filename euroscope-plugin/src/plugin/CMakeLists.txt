@@ -67,7 +67,8 @@ set(src__flightplan
         flightplan/FlightPlanService.cpp
         flightplan/FlightPlan.h
         flightplan/FlightPlanBootstrapper.cpp
-        flightplan/FlightPlanBootstrapper.h)
+        flightplan/FlightPlanBootstrapper.h
+)
 source_group("src\\flightplan" FILES ${src__flightplan})
 
 set(src__runway

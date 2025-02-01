@@ -82,7 +82,7 @@ namespace FlightStrips {
 
         static bool ControllerIsMe(EuroScopePlugIn::CController controller, EuroScopePlugIn::CController me);
 
-        static bool IsRelevant(EuroScopePlugIn::CFlightPlan flightPlan);
+        bool IsRelevant(EuroScopePlugIn::CFlightPlan flightPlan) const;
 
         ConnectionState& GetConnectionState();
     private:

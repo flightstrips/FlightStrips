@@ -5,18 +5,26 @@
 #include "handlers/RadarTargetEventHandler.h"
 #include "FlightPlan.h"
 #include "handlers/FlightPlanEventHandlers.h"
+#include "websocket/WebSocketService.h"
 
 namespace FlightStrips::flightplan {
-class FlightPlanService : public handlers::RadarTargetEventHandler {
+class FlightPlanService final : public handlers::FlightPlanEventHandler, public handlers::RadarTargetEventHandler  {
     public:
 
-    explicit FlightPlanService(const std::shared_ptr<handlers::FlightPlanEventHandlers> &handlers);
+    explicit FlightPlanService(std::shared_ptr<websocket::WebSocketService> websocketService);
 
     void RadarTargetPositionEvent(EuroScopePlugIn::CRadarTarget radarTarget) override;
 
-    private:
-        std::unordered_map<std::string, FlightPlan> m_flightPlans;
+    void FlightPlanEvent(EuroScopePlugIn::CFlightPlan flightPlan) override;
 
-        std::shared_ptr<handlers::FlightPlanEventHandlers> handlers;
-    };
+    void ControllerFlightPlanDataEvent(EuroScopePlugIn::CFlightPlan flightPlan, int dataType) override;
+
+    void FlightPlanDisconnectEvent(EuroScopePlugIn::CFlightPlan flightPlan) override;
+
+private:
+    std::shared_ptr<websocket::WebSocketService> m_websocketService;
+    std::unordered_map<std::string, FlightPlan> m_flightPlans;
+
+
+};
 }

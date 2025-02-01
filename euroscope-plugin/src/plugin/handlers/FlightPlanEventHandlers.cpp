@@ -28,10 +28,4 @@ namespace FlightStrips::handlers {
             (*it)->FlightPlanDisconnectEvent(flightPlan);
         }
     }
-
-    void FlightPlanEventHandlers::SquawkUpdateEvent(std::string callsign, std::string squawk) const {
-        for (auto it = this->m_handlers.cbegin(); it != this->m_handlers.cend(); ++it) {
-            (*it)->SquawkUpdateEvent(callsign, squawk);
-        }
-    }
 }

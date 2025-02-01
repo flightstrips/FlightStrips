@@ -1,4 +1,3 @@
-import { CurrentUTC } from "@/app/helpers/time";
 import { FlightStrip } from "../strip/FlightStrip";
 import { Message } from "../Message";
 import CommandBar from "../commandbar/CommandBar";

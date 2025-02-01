@@ -2,7 +2,6 @@
 import { useState } from 'react';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
-import { Menu as MenuIcon } from 'lucide-react';
 import Image from 'next/image';
 
 const mobileItems = ['A', 'B', 'C'];

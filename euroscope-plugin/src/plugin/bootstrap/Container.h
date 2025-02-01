@@ -1,8 +1,8 @@
-//
-// Created by fsr19 on 19/05/2023.
-//
-
 #pragma once
+
+namespace FlightStrips::runway {
+    class RunwayService;
+}
 
 namespace FlightStrips::websocket {
     class WebSocketService;
@@ -24,6 +24,7 @@ namespace FlightStrips {
         class UserConfig;
     }
     namespace handlers {
+        class ConnectionEventHandlers;
         class FlightPlanEventHandlers;
         class ControllerEventHandlers;
         class TimedEventHandlers;
@@ -67,6 +68,7 @@ namespace FlightStrips {
         std::shared_ptr<handlers::RadarTargetEventHandlers> radarTargetEventHandlers;
         std::shared_ptr<handlers::TimedEventHandlers> timedEventHandlers;
         std::shared_ptr<handlers::AirportRunwaysChangedEventHandlers> airportRunwaysChangedEventHandlers;
+        std::shared_ptr<handlers::ConnectionEventHandlers> connectionEventHandlers;
 
         // flight plan
         std::shared_ptr<flightplan::FlightPlanService> flightPlanService;
@@ -76,6 +78,9 @@ namespace FlightStrips {
 
         // Websocket
         std::shared_ptr<websocket::WebSocketService> webSocketService;
+
+        // Runway
+        std::shared_ptr<runway::RunwayService> runwayService;
     };
 
 }

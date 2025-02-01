@@ -4,7 +4,6 @@
 #include "Logger.h"
 #include "graphics/InfoScreen.h"
 #include "handlers/FlightPlanEventHandlers.h"
-#include "runway/ActiveRunway.h"
 
 using namespace EuroScopePlugIn;
 
@@ -157,27 +156,6 @@ namespace FlightStrips {
         fp.GetControllerAssignedData().SetScratchPadString(scratch.c_str());
     }
 
-    std::vector<runway::ActiveRunway> FlightStripsPlugin::GetActiveRunways(const char *airport) const {
-        std::vector<runway::ActiveRunway> active;
-
-        auto it = CPlugIn::SectorFileElementSelectFirst(SECTOR_ELEMENT_RUNWAY);
-        while (it.IsValid()) {
-            if (strncmp(it.GetAirportName(), airport, 4) == 0) {
-                for (int i = 0; i < 2; i++) {
-                    for (int j = 0; j < 2; j++) {
-                        if (it.IsElementActive(static_cast<bool>(j), i)) {
-                            runway::ActiveRunway runway = {it.GetRunwayName(i), static_cast<bool>(j)};
-                            active.push_back(runway);
-                        }
-                    }
-                }
-            }
-
-            it = CPlugIn::SectorFileElementSelectNext(it, SECTOR_ELEMENT_RUNWAY);
-        }
-
-        return active;
-    }
 
     CRadarScreen *FlightStripsPlugin::OnRadarScreenCreated(const char *sDisplayName,
                                                            bool NeedRadarContent, bool GeoReferenced, bool CanBeSaved,

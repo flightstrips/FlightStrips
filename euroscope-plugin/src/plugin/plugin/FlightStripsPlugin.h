@@ -14,7 +14,6 @@
 #include "handlers/ControllerEventHandlers.h"
 #include "handlers/TimedEventHandlers.h"
 #include "handlers/AirportRunwaysChangedEventHandlers.h"
-#include "runway/ActiveRunway.h"
 
 // TODO move
 #define CLEARED "CLEA"
@@ -78,7 +77,6 @@ namespace FlightStrips {
         void SetClearenceFlag(const std::string &callsign, bool cleared);
 
         void UpdateViaScratchPad(const char* callsign, const char* message) const;
-        std::vector<runway::ActiveRunway> GetActiveRunways(const char* airport) const;
 
         EuroScopePlugIn::CRadarScreen* OnRadarScreenCreated ( const char * sDisplayName, bool NeedRadarContent, bool GeoReferenced, bool CanBeSaved, bool CanBeCreated ) override;
 

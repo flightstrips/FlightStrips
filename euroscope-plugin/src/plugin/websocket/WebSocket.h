@@ -1,7 +1,3 @@
-//
-// Created by fsr19 on 14/01/2025.
-//
-
 #pragma once
 
 #define _WEBSOCKETPP_CPP11_RANDOM_DEVICE_

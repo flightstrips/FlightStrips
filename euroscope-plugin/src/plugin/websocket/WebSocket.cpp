@@ -1,7 +1,3 @@
-//
-// Created by fsr19 on 14/01/2025.
-//
-
 #include "WebSocket.h"
 
 #include "Logger.h"

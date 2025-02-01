@@ -1,7 +1,3 @@
-//
-// Created by fsr19 on 18/01/2025.
-//
-
 #include "WebSocketService.h"
 
 #include <nlohmann/json.hpp>
@@ -13,9 +9,12 @@ namespace FlightStrips::websocket {
     WebSocketService::WebSocketService(const std::shared_ptr<configuration::AppConfig> &appConfig,
                                        const std::shared_ptr<authentication::AuthenticationService> &
                                        authentication_service,
-                                       const std::shared_ptr<FlightStripsPlugin> &plugin) : m_appConfig(appConfig),
+                                       const std::shared_ptr<FlightStripsPlugin> &plugin,
+                                       const std::shared_ptr<handlers::ConnectionEventHandlers> &event_handlers) :
+        m_appConfig(appConfig),
         m_authentication_service(authentication_service),
         m_plugin(plugin),
+        m_connection_handlers(event_handlers),
         webSocket(
             appConfig->GetBaseUrl(),
             [this](const std::string &message) {
@@ -53,10 +52,16 @@ namespace FlightStrips::websocket {
         }
     }
 
+    bool WebSocketService::IsConnected() const {
+        return webSocket.GetStatus() == WEBSOCKET_STATUS_CONNECTED;
+    }
+
     template<typename T> requires std::is_base_of_v<Event, T>
     void WebSocketService::SendEvent(const T &event) {
         const nlohmann::json json = event;
-        webSocket.Send(json.dump());
+        const auto json_str = json.dump();
+        webSocket.Send(json_str);
+        Logger::Debug("Sending event: {}", json_str);
     }
 
     void WebSocketService::OnMessage(const std::string &message) {
@@ -71,6 +76,8 @@ namespace FlightStrips::websocket {
         const auto token = TokenEvent(m_authentication_service->GetAccessToken());
         SendEvent(token);
         SendLoginEvent();
+
+        m_connection_handlers->OnOnline();
     }
 
     void WebSocketService::SendLoginEvent() {

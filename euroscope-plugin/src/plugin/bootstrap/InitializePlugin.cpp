@@ -11,6 +11,8 @@
 #include "handlers/TimedEventHandlers.h"
 #include "handlers/AirportRunwaysChangedEventHandlers.h"
 #include "configuration/ConfigurationBootstrapper.h"
+#include "handlers/ConnectionEventHandlers.h"
+#include "runway/RunwayService.h"
 #include "websocket/WebSocketService.h"
 
 namespace FlightStrips {
@@ -26,6 +28,7 @@ namespace FlightStrips {
         Logger::SetLevelFromString(this->container->appConfig->GetLogLevel());
         Logger::Debug("Logger initialized and loaded configuration!");
 
+        this->container->connectionEventHandlers = std::make_shared<handlers::ConnectionEventHandlers>();
         this->container->controllerEventHandlers = std::make_shared<handlers::ControllerEventHandlers>();
         this->container->flightPlanEventHandlers = std::make_shared<handlers::FlightPlanEventHandlers>();
         this->container->radarTargetEventHandlers = std::make_shared<handlers::RadarTargetEventHandlers>();
@@ -48,8 +51,11 @@ namespace FlightStrips {
                                                                        this->container->userConfig,
                                                                        this->container->appConfig);
         this->container->webSocketService = std::make_shared<websocket::WebSocketService>(
-            this->container->appConfig, this->container->authenticationService, this->container->plugin);
+            this->container->appConfig, this->container->authenticationService, this->container->plugin,
+            this->container->connectionEventHandlers);
+        this->container->runwayService = std::make_shared<runway::RunwayService>(this->container->webSocketService, this->container->plugin);
         this->container->timedEventHandlers->RegisterHandler(this->container->webSocketService);
+        this->container->connectionEventHandlers->RegisterHandler(this->container->runwayService);
 
         Logger::Info(std::format("Loaded plugin version {}.", PLUGIN_VERSION));
     }
@@ -62,15 +68,18 @@ namespace FlightStrips {
         this->container->radarTargetEventHandlers->Clear();
         this->container->radarTargetEventHandlers.reset();
         this->container->airportRunwaysChangedEventHandlers->Clear();
+        this->container->connectionEventHandlers->Clear();
+        this->container->connectionEventHandlers.reset();
         this->container->airportRunwaysChangedEventHandlers.reset();
         this->container->timedEventHandlers->Clear();
         this->container->timedEventHandlers.reset();
         this->container->filesystem.reset();
         this->container->webSocketService.reset();
+        this->container->runwayService.reset();
+        this->container->authenticationService.reset();
         this->container->plugin.reset();
         this->container->standService.reset();
         this->container->flightPlanService.reset();
-        this->container->authenticationService.reset();
         this->container.reset();
 
         Logger::Info("Unloaded!");

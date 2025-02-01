@@ -56,7 +56,10 @@ set(src__handlers
         handlers/TimedEventHandlers.cpp
         handlers/TimedEventHandlers.h
         handlers/AirportRunwaysChangedEventHandlers.cpp
-        handlers/AirportRunwaysChangedEventHandlers.h)
+        handlers/AirportRunwaysChangedEventHandlers.h
+        handlers/ConnectionEventHandlers.cpp
+        handlers/ConnectionEventHandlers.h
+        handlers/ConnectionEventHandler.h)
 source_group("src\\collections" FILES ${src__handlers})
 
 set(src__flightplan
@@ -68,7 +71,8 @@ set(src__flightplan
 source_group("src\\flightplan" FILES ${src__flightplan})
 
 set(src__runway
-        runway/ActiveRunway.h)
+        runway/RunwayService.cpp
+        runway/RunwayService.h)
 source_group("src\\runway" FILES ${src__runway})
 
 set(src__authentication

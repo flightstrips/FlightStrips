@@ -3,6 +3,7 @@
 //
 
 #include "AppConfig.h"
+#include <cctype>
 
 namespace FlightStrips::configuration {
     std::string AppConfig::GetAuthority() {
@@ -27,6 +28,32 @@ namespace FlightStrips::configuration {
 
     std::string AppConfig::GetLogLevel() {
         return std::string(ini["logging"]["level"] | "INFO");
+    }
+
+    CallsignAirportMap& AppConfig::GetCallsignAirportMap() {
+        if (!callsignAirportMap.empty()) { return callsignAirportMap; }
+
+        for (const auto [name, section] : ini) {
+            auto nameStr = std::string(name);
+            auto prefixesStr = std::string(section["callsignPrefixes"] | "");
+            const auto airportsLength = std::strlen("airports.");
+            if (_strnicmp(nameStr.c_str(), "airports.", airportsLength) == 0 && !prefixesStr.empty()) {
+                auto airport = nameStr.substr(airportsLength);
+                touppercase(airport);
+                touppercase(prefixesStr);
+                auto prefixes = split(prefixesStr, ' ');
+                if (!prefixes.empty()) {
+                    callsignAirportMap.emplace(airport, prefixes);
+                }
+            }
+        }
+
+        if (callsignAirportMap.empty()) {
+            std::vector<std::string> callsigns = {"EKCH"};
+            callsignAirportMap.emplace("EKCH", callsigns);
+        }
+
+        return callsignAirportMap;
     }
 } // configuration
 // FlightStrips

@@ -95,7 +95,7 @@
 {
     "type": "assigned_squawk",
     "callsign": "SAS123",
-    "squawk": 1111
+    "squawk": "1111"
 }
 ```
 
@@ -107,7 +107,7 @@ Squawk set by pilot
 {
     "type": "squawk",
     "callsign": "SAS123",
-    "squawk": 1111
+    "squawk": "1111"
 }
 ```
 
@@ -180,7 +180,7 @@ Position changed for aircraft
     "type": "aircraft_position_update",
     "callsign": "SAS123",
     "lat": 1111, 
-    "long": 1111, 
+    "lon": 1111, 
     "altitude": 123
 }
 ```

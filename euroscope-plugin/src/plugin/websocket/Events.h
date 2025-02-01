@@ -101,7 +101,8 @@ struct AssignedSquawkEvent final : Event {
     std::string squawk;
 
     AssignedSquawkEvent(std::string callsign, std::string squawk) : Event(EVENT_ASSIGNED_SQUAWK),
-                                                                  callsign(std::move(callsign)), squawk(std::move(squawk)) {
+                                                                    callsign(std::move(callsign)),
+                                                                    squawk(std::move(squawk)) {
     }
 
     NLOHMANN_DEFINE_TYPE_INTRUSIVE(AssignedSquawkEvent, callsign, squawk, type);
@@ -112,7 +113,7 @@ struct SquawkEvent final : Event {
     std::string squawk;
 
     SquawkEvent(std::string callsign, std::string squawk) : Event(EVENT_SQUAWK), callsign(std::move(callsign)),
-                                                          squawk(std::move(squawk)) {
+                                                            squawk(std::move(squawk)) {
     }
 
     NLOHMANN_DEFINE_TYPE_INTRUSIVE(SquawkEvent, callsign, squawk, type);
@@ -186,6 +187,21 @@ struct ClearedFlagEvent final : Event {
     }
 
     NLOHMANN_DEFINE_TYPE_INTRUSIVE(ClearedFlagEvent, callsign, cleared, type);
+};
+
+struct PositionEvent final : Event {
+    std::string callsign;
+    double lat;
+    double lon;
+    int altitude;
+
+    explicit PositionEvent(std::string callsign, const double lat, const double lon,
+                           const int altitude) : Event(EVENT_AIRCRAFT_POSITION_UPDATE),
+                                                 callsign(std::move(callsign)),
+                                                 lat(lat), lon(lon), altitude(altitude) {
+    }
+
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE(PositionEvent, callsign, lat, lon, altitude, type);
 };
 
 #endif //EVENTS_H

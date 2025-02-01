@@ -11,15 +11,20 @@ namespace FlightStrips::flightplan {
         const auto callsign = std::string(radarTarget.GetCallsign());
 
         const auto [pair, exists] = this->m_flightPlans.insert({callsign, plan});
+        bool shouldSendSquawkEvent = true;
 
         if (!exists) {
             if (pair->second.squawk == plan.squawk) {
-                return;
+                shouldSendSquawkEvent = false;
+            } else {
+                pair->second.squawk = plan.squawk;
+
             }
-            pair->second.squawk = plan.squawk;
         }
         if (!m_websocketService->ShouldSend()) return;
-        m_websocketService->SendEvent(SquawkEvent(callsign, plan.squawk));
+        if (shouldSendSquawkEvent) m_websocketService->SendEvent(SquawkEvent(callsign, plan.squawk));
+        const auto aircraftPosition = position.GetPosition();
+        m_websocketService->SendEvent(PositionEvent(callsign, aircraftPosition.m_Latitude, aircraftPosition.m_Longitude, position.GetPressureAltitude()));
     }
 
     void FlightPlanService::FlightPlanEvent(EuroScopePlugIn::CFlightPlan flightPlan) {

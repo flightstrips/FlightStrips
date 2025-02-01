@@ -1,5 +1,5 @@
-import { MainNavigation } from "./components/MainNavigation";
 import Image from "next/image";
+import { MainNavigation } from "./components/MainNavigation";
 import MobileNav from "./components/MobileNavigation";
 import { PatnerCarousel } from "./components/PatnerCarousel";
 

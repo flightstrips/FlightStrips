@@ -1,5 +1,9 @@
 #pragma once
 
+namespace FlightStrips::controller {
+    class ControllerService;
+}
+
 namespace FlightStrips::runway {
     class RunwayService;
 }
@@ -72,6 +76,9 @@ namespace FlightStrips {
 
         // flight plan
         std::shared_ptr<flightplan::FlightPlanService> flightPlanService;
+
+        // controller
+        std::shared_ptr<controller::ControllerService> controllerService;
 
         // Stands
         std::shared_ptr<stands::StandService> standService;

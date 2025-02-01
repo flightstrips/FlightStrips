@@ -13,6 +13,7 @@
 #include "authentication/AuthenticationService.h"
 #include "websocket/WebSocketService.h"
 #include "runway/RunwayService.h"
+#include "controller/ControllerService.h"
 
 namespace FlightStrips {
     Container::Container() = default;

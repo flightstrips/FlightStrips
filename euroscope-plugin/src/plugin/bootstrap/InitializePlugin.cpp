@@ -11,6 +11,7 @@
 #include "handlers/TimedEventHandlers.h"
 #include "handlers/AirportRunwaysChangedEventHandlers.h"
 #include "configuration/ConfigurationBootstrapper.h"
+#include "controller/ControllerService.h"
 #include "flightplan/FlightPlanBootstrapper.h"
 #include "handlers/ConnectionEventHandlers.h"
 #include "runway/RunwayService.h"
@@ -54,7 +55,11 @@ namespace FlightStrips {
             this->container->appConfig, this->container->authenticationService, this->container->plugin,
             this->container->connectionEventHandlers);
         flightplan::FlightPlanBootstrapper::Bootstrap(*this->container);
-        this->container->runwayService = std::make_shared<runway::RunwayService>(this->container->webSocketService, this->container->plugin);
+        this->container->controllerService = std::make_shared<controller::ControllerService>(
+            this->container->webSocketService);
+        this->container->controllerEventHandlers->RegisterHandler(this->container->controllerService);
+        this->container->runwayService = std::make_shared<runway::RunwayService>(
+            this->container->webSocketService, this->container->plugin);
         this->container->timedEventHandlers->RegisterHandler(this->container->webSocketService);
         this->container->connectionEventHandlers->RegisterHandler(this->container->runwayService);
 

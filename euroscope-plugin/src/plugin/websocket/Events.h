@@ -254,4 +254,25 @@ struct StripUpdateEvent final : Event {
                                    sid, aircraft_type, aircraft_category, capabilities, eobt, eldt, type);
 };
 
+struct ControllerOnlineEvent final : Event {
+    std::string callsign;
+    std::string position;
+
+    explicit ControllerOnlineEvent(std::string callsign, std::string position) : Event(EVENT_CONTROLLER_ONLINE),
+        callsign(std::move(callsign)), position(std::move(position)) {
+    }
+
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE(ControllerOnlineEvent, callsign, position, type);
+};
+
+struct ControllerOfflineEvent final : Event {
+    std::string callsign;
+
+    explicit ControllerOfflineEvent(std::string callsign) : Event(EVENT_CONTROLLER_OFFLINE),
+        callsign(std::move(callsign)) {
+    }
+
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE(ControllerOfflineEvent, callsign, type);
+};
+
 #endif //EVENTS_H

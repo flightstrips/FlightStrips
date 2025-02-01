@@ -104,6 +104,11 @@ set(src__websocket
         websocket/Events.h)
 source_group("src\\websocket" FILES ${src__websocket})
 
+set(src__controller
+        controller/ControllerService.cpp
+        controller/ControllerService.h)
+source_group("src\\controller" FILES ${src__controller})
+
 set(ALL_FILES
         ${src__plugin}
         ${src__filesystem}
@@ -117,6 +122,7 @@ set(ALL_FILES
         ${src__graphics}
         ${src__http}
         ${src__websocket}
+        ${src__controller}
         Constants.h
         Logger.cpp
         Logger.h)

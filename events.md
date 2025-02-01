@@ -43,7 +43,6 @@
 ```json
 {
     "type": "controller_offline",
-    "position": "118.105",
     "callsign": "EKCH_A_TWR"
 }
 ```

@@ -43,6 +43,8 @@ template void FlightStrips::websocket::WebSocketService::SendEvent<AssignedSquaw
 template void FlightStrips::websocket::WebSocketService::SendEvent<ClearedAltitudeEvent>(const ClearedAltitudeEvent & event);
 template void FlightStrips::websocket::WebSocketService::SendEvent<ClearedFlagEvent>(const ClearedFlagEvent & event);
 template void FlightStrips::websocket::WebSocketService::SendEvent<CommunicationTypeEvent>(const CommunicationTypeEvent & event);
+template void FlightStrips::websocket::WebSocketService::SendEvent<ControllerOfflineEvent>(const ControllerOfflineEvent & event);
+template void FlightStrips::websocket::WebSocketService::SendEvent<ControllerOnlineEvent>(const ControllerOnlineEvent & event);
 template void FlightStrips::websocket::WebSocketService::SendEvent<GroundStateEvent>(const GroundStateEvent & event);
 template void FlightStrips::websocket::WebSocketService::SendEvent<HeadingEvent>(const HeadingEvent & event);
 template void FlightStrips::websocket::WebSocketService::SendEvent<PositionEvent>(const PositionEvent & event);

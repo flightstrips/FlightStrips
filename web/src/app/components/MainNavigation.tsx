@@ -103,9 +103,9 @@ export function MainNavigation() {
           </NavigationMenuContent>
         </NavigationMenuItem>
         <NavigationMenuItem >
-          <Link href="/docs" legacyBehavior passHref>
+          <Link href="/about" legacyBehavior passHref>
             <NavigationMenuLink className={`${navigationMenuTriggerStyle()} bg-transparent`} >
-              About
+              About Us
             </NavigationMenuLink>
           </Link>
         </NavigationMenuItem>

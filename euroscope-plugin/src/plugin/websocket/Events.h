@@ -204,4 +204,54 @@ struct PositionEvent final : Event {
     NLOHMANN_DEFINE_TYPE_INTRUSIVE(PositionEvent, callsign, lat, lon, altitude, type);
 };
 
+struct AircraftDisconnectEvent final : Event {
+    std::string callsign;
+
+    explicit AircraftDisconnectEvent(std::string callsign) : Event(EVENT_AIRCRAFT_DISCONNECT),
+                                                             callsign(std::move(callsign)) {
+    }
+
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE(AircraftDisconnectEvent, callsign, type);
+};
+
+struct StripUpdateEvent final : Event {
+    StripUpdateEvent(std::string callsign, std::string origin, std::string destination, std::string alternate,
+                     std::string route, std::string remarks, std::string runway, std::string sid,
+                     std::string aircraft_type,
+                     std::string aircraft_category, std::string capabilities, std::string eobt, std::string eldt)
+        : Event(EVENT_STRIP_UPDATE),
+          callsign(std::move(callsign)),
+          origin(std::move(origin)),
+          destination(std::move(destination)),
+          alternate(std::move(alternate)),
+          route(std::move(route)),
+          remarks(std::move(remarks)),
+          runway(std::move(runway)),
+          sid(std::move(sid)),
+          aircraft_type(std::move(aircraft_type)),
+          aircraft_category(std::move(aircraft_category)),
+          capabilities(std::move(capabilities)),
+          eobt(std::move(eobt)),
+          eldt(std::move(eldt)) {
+    }
+
+    std::string callsign;
+    std::string origin;
+    std::string destination;
+    std::string alternate;
+    std::string route;
+    std::string remarks;
+    std::string runway;
+    std::string sid;
+    std::string aircraft_type;
+    std::string aircraft_category;
+    std::string capabilities;
+    std::string eobt;
+    std::string eldt;
+
+
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE(StripUpdateEvent, callsign, origin, destination, alternate, route, remarks, runway,
+                                   sid, aircraft_type, aircraft_category, capabilities, eobt, eldt, type);
+};
+
 #endif //EVENTS_H

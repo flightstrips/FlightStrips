@@ -17,6 +17,8 @@
 
 ### Login event
 
+Sent by: EuroScope
+
 ```json
 {
     "type": "login",
@@ -30,6 +32,8 @@
 
 ### Controller online
 
+Sent by: EuroScope
+
 ```json
 {
     "type": "controller_online",
@@ -40,6 +44,8 @@
 
 ### Controller offline
 
+Sent by: EuroScope
+
 ```json
 {
     "type": "controller_offline",
@@ -48,6 +54,8 @@
 ```
 
 ### Sync
+
+Sent by: EuroScope
 
 ```json
 {
@@ -90,6 +98,8 @@
 
 ### Assigned squawk
 
+Sent by: EuroScope and Server
+
 ```json
 {
     "type": "assigned_squawk",
@@ -99,6 +109,8 @@
 ```
 
 ### Squawk
+
+Sent by: EuroScope
 
 Squawk set by pilot
 
@@ -112,6 +124,8 @@ Squawk set by pilot
 
 ### Requested altitude
 
+Sent by: EuroScope and Server
+
 Requested altitude set by controller
 
 ```json
@@ -123,6 +137,8 @@ Requested altitude set by controller
 ```
 
 ### Cleared altitude
+
+Sent by: EuroScope and Server
 
 Cleared altitude set by controller
 
@@ -136,6 +152,8 @@ Cleared altitude set by controller
 
 ### Communication type
 
+Sent by: EuroScope and Server
+
 Communication type set by controller
 
 ```json
@@ -147,6 +165,8 @@ Communication type set by controller
 ```
 
 ### Ground state
+
+Sent by: EuroScope and Server
 
 Ground state set by controller
 
@@ -160,6 +180,8 @@ Ground state set by controller
 
 ### Cleared flag
 
+Sent by: EuroScope and Server
+
 Cleared flag set by controller
 
 ```json
@@ -171,6 +193,8 @@ Cleared flag set by controller
 ```
 
 ### Position update
+
+Sent by: EuroScope
 
 Position changed for aircraft
 
@@ -186,6 +210,8 @@ Position changed for aircraft
 
 ### Set heading 
 
+Sent by: EuroScope and Server
+
 Set heading. Heading 0 means not set.
 
 ```json
@@ -198,6 +224,8 @@ Set heading. Heading 0 means not set.
 
 ### Disconnect
 
+Sent by: EuroScope
+
 Flight disconnected
 
 ```json
@@ -208,6 +236,8 @@ Flight disconnected
 ```
 
 ### Stand
+
+Sent by: EuroScope and Server
 
 Stand update
 
@@ -220,6 +250,8 @@ Stand update
 ```
 
 ### Strip update
+
+Sent by: EuroScope
 
 Strip update
 
@@ -244,6 +276,8 @@ Strip update
 
 ### Runway
 
+Sent by: EuroScope
+
 All clients will send this event
 
 ```json
@@ -259,3 +293,74 @@ All clients will send this event
 }
 ```
 
+### Session info
+
+Sent by: Server
+
+Possible roles: `master` or `slave`
+
+```json
+{
+    "type": "session_info",
+    "role": "master",
+}
+```
+
+### Generate squawk
+
+Sent by: Server
+
+```json
+{
+    "type": "generate_squawk",
+    "callsign": "SAS123"
+}
+```
+
+### Route
+
+Sent by: Server
+
+```json
+{
+    "type": "route",
+    "callsign": "SAS123",
+    "route": "ODDON LOKSA"
+}
+```
+
+### Remarks
+
+Sent by: Server
+
+```json
+{
+    "type": "remarks",
+    "callsign": "SAS123",
+    "remarks": "remarks"
+}
+```
+
+### Sid
+
+Sent by: Server
+
+```json
+{
+    "type": "sid",
+    "callsign": "SAS123",
+    "sid": "NEXEN2C"
+}
+```
+
+### Runway
+
+Sent by: Server
+
+```json
+{
+    "type": "aircraft_runway",
+    "callsign": "SAS123",
+    "runway": "22L"
+}
+```

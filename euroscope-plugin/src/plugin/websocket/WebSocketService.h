@@ -53,3 +53,4 @@ template void FlightStrips::websocket::WebSocketService::SendEvent<RunwayEvent>(
 template void FlightStrips::websocket::WebSocketService::SendEvent<SquawkEvent>(const SquawkEvent & event);
 template void FlightStrips::websocket::WebSocketService::SendEvent<StandEvent>(const StandEvent & event);
 template void FlightStrips::websocket::WebSocketService::SendEvent<StripUpdateEvent>(const StripUpdateEvent & event);
+template void FlightStrips::websocket::WebSocketService::SendEvent<SyncEvent>(const SyncEvent & event);

@@ -282,7 +282,7 @@ struct ControllerOfflineEvent final : Event {
     std::string callsign;
 
     explicit ControllerOfflineEvent(std::string callsign) : Event(EVENT_CONTROLLER_OFFLINE),
-        callsign(std::move(callsign)) {
+                                                            callsign(std::move(callsign)) {
     }
 
     NLOHMANN_DEFINE_TYPE_INTRUSIVE(ControllerOfflineEvent, callsign, type);
@@ -293,12 +293,110 @@ struct StandEvent final : Event {
     std::string stand;
 
     explicit StandEvent(std::string callsign, std::string stand) : Event(EVENT_STAND),
-        callsign(std::move(callsign)), stand(std::move(stand)) {
+                                                                   callsign(std::move(callsign)),
+                                                                   stand(std::move(stand)) {
     }
 
     NLOHMANN_DEFINE_TYPE_INTRUSIVE(StandEvent, callsign, stand, type);
 };
 
+struct Position final {
+    double lat;
+    double lon;
+    int altitude;
+
+    explicit Position(const double lat, const double lon, const int altitude) : lat(lat), lon(lon), altitude(altitude) {
+    }
+
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE(Position, lat, lon, altitude);
+};
+
+struct Strip final {
+    Strip(std::string callsign, std::string origin, std::string destination, std::string alternate, std::string route,
+          std::string remarks, std::string runway, std::string squawk, std::string assigned_squawk, std::string sid,
+          bool cleared, std::string ground_state, int cleared_altitude, int requested_altitude, int heading,
+          std::string aircraft_type, std::string aircraft_category, Position position, std::string stand,
+          std::string communication_type, std::string capabilities, std::string eobt, std::string eldt)
+        : callsign(std::move(callsign)),
+          origin(std::move(origin)),
+          destination(std::move(destination)),
+          alternate(std::move(alternate)),
+          route(std::move(route)),
+          remarks(std::move(remarks)),
+          runway(std::move(runway)),
+          squawk(std::move(squawk)),
+          assigned_squawk(std::move(assigned_squawk)),
+          sid(std::move(sid)),
+          cleared(cleared),
+          ground_state(std::move(ground_state)),
+          cleared_altitude(cleared_altitude),
+          requested_altitude(requested_altitude),
+          heading(heading),
+          aircraft_type(std::move(aircraft_type)),
+          aircraft_category(std::move(aircraft_category)),
+          position(position),
+          stand(std::move(stand)),
+          communication_type(std::move(communication_type)),
+          capabilities(std::move(capabilities)),
+          eobt(std::move(eobt)),
+          eldt(std::move(eldt)) {
+    }
+
+    std::string callsign;
+    std::string origin;
+    std::string destination;
+    std::string alternate;
+    std::string route;
+    std::string remarks;
+    std::string runway;
+    std::string squawk;
+    std::string assigned_squawk;
+    std::string sid;
+    bool cleared;
+    std::string ground_state;
+    int cleared_altitude;
+    int requested_altitude;
+    int heading;
+    std::string aircraft_type;
+    std::string aircraft_category;
+    Position position;
+    std::string stand;
+    std::string communication_type;
+    std::string capabilities;
+    std::string eobt;
+    std::string eldt;
+
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE(Strip, callsign, origin, destination, alternate, route, remarks, runway, squawk,
+                                   assigned_squawk, sid, cleared, ground_state, cleared_altitude, requested_altitude,
+                                   heading, aircraft_type, aircraft_category, position, stand, communication_type,
+                                   capabilities, eobt, eldt);
+};
+
+struct Controller final {
+    Controller(std::string position, std::string callsign)
+        : position(std::move(position)),
+          callsign(std::move(callsign)) {
+    }
+
+    std::string position;
+    std::string callsign;
+
+
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE(Controller, position, callsign);
+};
+
+
+struct SyncEvent final : Event {
+    SyncEvent(std::vector<Strip> strips, std::vector<Controller> controllers)
+        : Event(EVENT_SYNC), strips(std::move(strips)),
+          controllers(std::move(controllers)) {
+    }
+
+    std::vector<Strip> strips;
+    std::vector<Controller> controllers;
+
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE(SyncEvent, strips, controllers, type);
+};
 
 /**
  * Server only events
@@ -308,7 +406,7 @@ struct SessionInfoEvent final : Event {
     std::string role;
 
     explicit SessionInfoEvent(std::string role) : Event(EVENT_SESSION_INFO),
-        role(std::move(role)) {
+                                                  role(std::move(role)) {
     }
 
     NLOHMANN_DEFINE_TYPE_INTRUSIVE(SessionInfoEvent, role, type);
@@ -318,7 +416,7 @@ struct GenerateSquawkEvent final : Event {
     std::string callsign;
 
     explicit GenerateSquawkEvent(std::string callsign) : Event(EVENT_GENERATE_SQUAWK),
-        callsign(std::move(callsign)) {
+                                                         callsign(std::move(callsign)) {
     }
 
     NLOHMANN_DEFINE_TYPE_INTRUSIVE(GenerateSquawkEvent, callsign, type);
@@ -329,7 +427,8 @@ struct RouteEvent final : Event {
     std::string route;
 
     explicit RouteEvent(std::string callsign, std::string route) : Event(EVENT_ROUTE),
-        callsign(std::move(callsign)), route(std::move(route)) {
+                                                                   callsign(std::move(callsign)),
+                                                                   route(std::move(route)) {
     }
 
     NLOHMANN_DEFINE_TYPE_INTRUSIVE(RouteEvent, callsign, route, type);
@@ -340,7 +439,8 @@ struct RemarksEvent final : Event {
     std::string remarks;
 
     explicit RemarksEvent(std::string callsign, std::string remarks) : Event(EVENT_REMARKS),
-        callsign(std::move(callsign)), remarks(std::move(remarks)) {
+                                                                       callsign(std::move(callsign)),
+                                                                       remarks(std::move(remarks)) {
     }
 
     NLOHMANN_DEFINE_TYPE_INTRUSIVE(RemarksEvent, callsign, remarks, type);
@@ -351,7 +451,7 @@ struct SidEvent final : Event {
     std::string sid;
 
     explicit SidEvent(std::string callsign, std::string sid) : Event(EVENT_SID),
-        callsign(std::move(callsign)), sid(std::move(sid)) {
+                                                               callsign(std::move(callsign)), sid(std::move(sid)) {
     }
 
     NLOHMANN_DEFINE_TYPE_INTRUSIVE(SidEvent, callsign, sid, type);
@@ -362,7 +462,8 @@ struct AircraftRunwayEvent final : Event {
     std::string runway;
 
     explicit AircraftRunwayEvent(std::string callsign, std::string runway) : Event(EVENT_AIRCRAFT_RUNWAY),
-        callsign(std::move(callsign)), runway(std::move(runway)) {
+                                                                             callsign(std::move(callsign)),
+                                                                             runway(std::move(runway)) {
     }
 
     NLOHMANN_DEFINE_TYPE_INTRUSIVE(AircraftRunwayEvent, callsign, runway, type);

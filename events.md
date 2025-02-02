@@ -85,7 +85,7 @@ Sent by: EuroScope
             "heading": 0, // 0 - not set
             "aircraft_type": "A320",
             "aircraft_category": "M",
-            "position": { "lat": 1111, "long": 1111, "altitude": 123 },
+            "position": { "lat": 1111, "lon": 1111, "altitude": 123 },
             "stand": "A12",
             "capabilities": "G",
             "communication_type": "V",

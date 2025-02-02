@@ -3,40 +3,80 @@
 namespace FlightStrips::flightplan {
     FlightPlanService::FlightPlanService(
         const std::shared_ptr<websocket::WebSocketService> &websocketService,
-        const std::shared_ptr<FlightStripsPlugin> &flightStripsPlugin) : m_websocketService(websocketService),
-                                                                         m_flightStripsPlugin(flightStripsPlugin),
-                                                                         m_flightPlans({}) {
+        const std::shared_ptr<FlightStripsPlugin> &flightStripsPlugin,
+        const std::shared_ptr<stands::StandService> &standService) : m_websocketService(websocketService),
+                                                                     m_flightStripsPlugin(flightStripsPlugin),
+                                                                     m_standService(standService),
+                                                                     m_flightPlans({}) {
     }
 
     void FlightPlanService::RadarTargetPositionEvent(EuroScopePlugIn::CRadarTarget radarTarget) {
         const auto position = radarTarget.GetPosition();
-        if (!position.IsValid()) return;
-        FlightPlan plan = {std::string(position.GetSquawk())};
+        const auto fp = radarTarget.GetCorrelatedFlightPlan();
+        if (!position.IsValid() || !fp.IsValid()) return;
+        const auto isArrival = strcmp(fp.GetFlightPlanData().GetDestination(),
+                                      m_flightStripsPlugin->GetConnectionState().relevant_airport.c_str()) == 0;
+        const auto aircraftPosition = position.GetPosition();
+        std::string stand;
+        // TODO get airport height
+        if (!isArrival && position.GetPressureAltitude() < 1000) {
+            if (const auto s = m_standService->GetStand(aircraftPosition); s != nullptr) {
+                stand = s->GetName();
+            }
+        }
+
+        FlightPlan plan = {std::string(position.GetSquawk()), stand};
         const auto callsign = std::string(radarTarget.GetCallsign());
 
-        const auto [pair, exists] = this->m_flightPlans.insert({callsign, plan});
+        const auto [pair, inserted] = this->m_flightPlans.insert({callsign, plan});
         bool shouldSendSquawkEvent = true;
+        bool shouldSendStandEvent = true;
 
-        if (!exists) {
+        if (!inserted) {
             if (pair->second.squawk == plan.squawk) {
                 shouldSendSquawkEvent = false;
             } else {
                 pair->second.squawk = plan.squawk;
             }
+
+            if (plan.stand.empty() || pair->second.stand == plan.stand) {
+                shouldSendStandEvent = false;
+            } else {
+                pair->second.stand = plan.stand;
+            }
         }
         if (!m_websocketService->ShouldSend()) return;
-        if (shouldSendSquawkEvent) m_websocketService->SendEvent(SquawkEvent(callsign, plan.squawk));
-        const auto aircraftPosition = position.GetPosition();
+        if (shouldSendSquawkEvent) {
+            m_websocketService->SendEvent(SquawkEvent(callsign, plan.squawk));
+        }
+        if (shouldSendStandEvent && !plan.stand.empty()) {
+            m_websocketService->SendEvent(StandEvent(callsign, plan.stand));
+        }
+
         m_websocketService->SendEvent(PositionEvent(callsign, aircraftPosition.m_Latitude, aircraftPosition.m_Longitude,
                                                     position.GetPressureAltitude()));
     }
 
     void FlightPlanService::FlightPlanEvent(EuroScopePlugIn::CFlightPlan flightPlan) {
+        const auto callsign = std::string(flightPlan.GetCallsign());
+        const auto stand = m_standService->GetStand(flightPlan.GetControllerAssignedData().GetFlightStripAnnotation(6),
+                                                    m_flightStripsPlugin->GetConnectionState().relevant_airport);
+        bool shouldSendStandEvent = true;
+        if (stand != nullptr) {
+            FlightPlan plan{{}, stand->GetName()};
+            if (const auto [pair, inserted] = this->m_flightPlans.insert({callsign, plan}); !inserted) {
+                if (pair->second.stand != plan.stand) {
+                    pair->second.stand = plan.stand;
+                } else {
+                    shouldSendStandEvent = false;
+                }
+            }
+        }
         if (!m_websocketService->ShouldSend()) return;
         const auto isArrival = strcmp(flightPlan.GetFlightPlanData().GetDestination(),
                                       m_flightStripsPlugin->GetConnectionState().relevant_airport.c_str()) == 0;
         const auto event = StripUpdateEvent(
-            std::string(flightPlan.GetCallsign()),
+            callsign,
             std::string(flightPlan.GetFlightPlanData().GetOrigin()),
             std::string(flightPlan.GetFlightPlanData().GetDestination()),
             std::string(flightPlan.GetFlightPlanData().GetAlternate()),
@@ -53,6 +93,8 @@ namespace FlightStrips::flightplan {
             isArrival ? GetEstimatedLandingTime(flightPlan) : ""
         );
         m_websocketService->SendEvent(event);
+        if (shouldSendStandEvent && stand != nullptr) m_websocketService->SendEvent(
+            StandEvent(callsign, stand->GetName()));
     }
 
     void FlightPlanService::ControllerFlightPlanDataEvent(EuroScopePlugIn::CFlightPlan flightPlan, int dataType) {
@@ -87,6 +129,25 @@ namespace FlightStrips::flightplan {
                 m_websocketService->SendEvent(
                     HeadingEvent(callsign, flightPlan.GetControllerAssignedData().GetAssignedHeading()));
                 break;
+            case EuroScopePlugIn::CTR_DATA_TYPE_SCRATCH_PAD_STRING: {
+                const auto scratch = flightPlan.GetControllerAssignedData().GetScratchPadString();
+
+                if (_strnicmp(scratch, "GRP/S/", 6) != 0) break;
+
+                const auto stand = std::string(scratch).substr(6);
+                // We are not validating the stand here!
+                FlightPlan plan{{}, stand};
+
+                if (const auto [pair, inserted] = this->m_flightPlans.insert({callsign, plan}); !inserted) {
+                    if (pair->second.stand == stand) {
+                        break;
+                    }
+                    pair->second.stand = stand;
+                }
+
+                m_websocketService->SendEvent(StandEvent(callsign, stand));
+                break;
+            }
             case EuroScopePlugIn::CTR_DATA_TYPE_DEPARTURE_SEQUENCE:
                 // TODO should we use this???
                 break;
@@ -100,7 +161,7 @@ namespace FlightStrips::flightplan {
         m_websocketService->SendEvent(AircraftDisconnectEvent(std::string(flightPlan.GetCallsign())));
     }
 
-    std::string FlightPlanService::GetEstimatedLandingTime(const EuroScopePlugIn::CFlightPlan& flightPlan) {
+    std::string FlightPlanService::GetEstimatedLandingTime(const EuroScopePlugIn::CFlightPlan &flightPlan) {
         time_t rawtime;
         tm ptm;
 

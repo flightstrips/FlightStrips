@@ -74,7 +74,9 @@ namespace FlightStrips {
 
         void OnTimer(int Counter) override;
 
-        void SetClearenceFlag(const std::string &callsign, bool cleared);
+        void SetClearenceFlag(const std::string &callsign, bool cleared) const;
+
+        void SetArrivalStand(const std::string &callsign, std::string stand) const;
 
         void UpdateViaScratchPad(const char* callsign, const char* message) const;
 

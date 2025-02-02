@@ -6,11 +6,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/gorilla/websocket"
-	"github.com/jackc/pgx/v5/pgtype"
 	"log"
 	"net/http"
 	"time"
+
+	"github.com/gorilla/websocket"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 func (s *Server) frontEndEvents(w http.ResponseWriter, r *http.Request) {
@@ -127,14 +128,6 @@ func (s *Server) frontEndEventHandler(client FrontEndClient, event Event) (inter
 	case StripUpdate:
 		s.log("Strip Update Event")
 
-	case StripAssumeRequestInit:
-		s.log("Strip Assume Request Init Event")
-		print("Not Implemented")
-
-	case StripAssumeRequestReject:
-		s.log("Strip Assume Request Reject Event")
-		print("Not Implemented")
-
 	case StripTransferRequestInit:
 		s.log("Strip Transfer Request Init Event")
 		print("Not Implemented")
@@ -146,7 +139,7 @@ func (s *Server) frontEndEventHandler(client FrontEndClient, event Event) (inter
 	case StripMoveRequest:
 		s.log("Strip Move Request Event")
 		print("Not Implemented")
-		
+
 	default:
 		log.Println("Unknown Event Type")
 		response := []byte("Not sure what to do here - Unknown EventType Handler")

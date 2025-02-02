@@ -51,4 +51,5 @@ template void FlightStrips::websocket::WebSocketService::SendEvent<PositionEvent
 template void FlightStrips::websocket::WebSocketService::SendEvent<RequestedAltitudeEvent>(const RequestedAltitudeEvent & event);
 template void FlightStrips::websocket::WebSocketService::SendEvent<RunwayEvent>(const RunwayEvent & event);
 template void FlightStrips::websocket::WebSocketService::SendEvent<SquawkEvent>(const SquawkEvent & event);
+template void FlightStrips::websocket::WebSocketService::SendEvent<StandEvent>(const StandEvent & event);
 template void FlightStrips::websocket::WebSocketService::SendEvent<StripUpdateEvent>(const StripUpdateEvent & event);

@@ -275,4 +275,15 @@ struct ControllerOfflineEvent final : Event {
     NLOHMANN_DEFINE_TYPE_INTRUSIVE(ControllerOfflineEvent, callsign, type);
 };
 
+struct StandEvent final : Event {
+    std::string callsign;
+    std::string stand;
+
+    explicit StandEvent(std::string callsign, std::string stand) : Event(EVENT_STAND),
+        callsign(std::move(callsign)), stand(std::move(stand)) {
+    }
+
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE(StandEvent, callsign, stand, type);
+};
+
 #endif //EVENTS_H

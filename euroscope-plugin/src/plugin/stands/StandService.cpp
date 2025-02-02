@@ -42,7 +42,7 @@ namespace FlightStrips::stands {
                    std::strcmp(item.GetName().c_str(), stand.c_str()) == 0;
         };
 
-        auto iter = std::find_if(this->stands.begin(), this->stands.end(), matches);
+        auto iter = std::ranges::find_if(this->stands, matches);
 
         if (iter == this->stands.end()) {
             return nullptr;
@@ -52,12 +52,16 @@ namespace FlightStrips::stands {
     }
 
     Stand *StandService::GetStandFromFlightPlan(EuroScopePlugIn::CFlightPlan flightPlan) {
-        auto stand = this->GetStand(flightPlan.GetFPTrackPosition().GetPosition());
-        if (stand != nullptr) {
-            return stand;
+        const auto trackPosition = flightPlan.GetFPTrackPosition();
+        if (trackPosition.IsValid()) {
+            const auto stand = this->GetStand(trackPosition.GetPosition());
+            if (stand != nullptr) {
+                return stand;
+            }
+
         }
 
-        stand = this->GetStand(flightPlan.GetControllerAssignedData().GetFlightStripAnnotation(6), "EKCH");
+        const auto stand = this->GetStand(flightPlan.GetControllerAssignedData().GetFlightStripAnnotation(6), "EKCH");
 
         return stand;
     }

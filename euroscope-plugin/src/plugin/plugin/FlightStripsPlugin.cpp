@@ -138,12 +138,16 @@ namespace FlightStrips {
         m_airportRunwayChangedEventHandlers->OnAirportRunwayActivityChanged();
     }
 
-    void FlightStripsPlugin::SetClearenceFlag(const std::string &callsign, const bool cleared) {
+    void FlightStripsPlugin::SetClearenceFlag(const std::string &callsign, const bool cleared) const {
         if (cleared) {
             this->UpdateViaScratchPad(callsign.c_str(), CLEARED);
         } else {
             this->UpdateViaScratchPad(callsign.c_str(), NOT_CLEARED);
         }
+    }
+
+    void FlightStripsPlugin::SetArrivalStand(const std::string &callsign, std::string stand) const {
+        UpdateViaScratchPad(callsign.c_str(), std::format("GRP/S/{}", stand).c_str());
     }
 
     void FlightStripsPlugin::UpdateViaScratchPad(const char *callsign, const char *message) const {

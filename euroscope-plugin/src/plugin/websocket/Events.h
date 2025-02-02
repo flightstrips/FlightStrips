@@ -22,7 +22,14 @@ enum EventType {
     EVENT_AIRCRAFT_DISCONNECT,
     EVENT_STAND,
     EVENT_STRIP_UPDATE,
-    EVENT_RUNWAY
+    EVENT_RUNWAY,
+    // Server only events:
+    EVENT_SESSION_INFO,
+    EVENT_GENERATE_SQUAWK,
+    EVENT_ROUTE,
+    EVENT_REMARKS,
+    EVENT_SID,
+    EVENT_AIRCRAFT_RUNWAY,
 };
 
 NLOHMANN_JSON_SERIALIZE_ENUM(EventType, {
@@ -45,6 +52,12 @@ NLOHMANN_JSON_SERIALIZE_ENUM(EventType, {
                              {EVENT_STAND, "stand"},
                              {EVENT_STRIP_UPDATE, "strip_update"},
                              {EVENT_RUNWAY, "runway"},
+                             {EVENT_SESSION_INFO, "session_info"},
+                             {EVENT_GENERATE_SQUAWK, "generate_squawk"},
+                             {EVENT_ROUTE, "route"},
+                             {EVENT_REMARKS, "remarks"},
+                             {EVENT_SID, "sid"},
+                             {EVENT_AIRCRAFT_RUNWAY, "aircraft_runway"},
                              })
 
 struct Event {
@@ -284,6 +297,75 @@ struct StandEvent final : Event {
     }
 
     NLOHMANN_DEFINE_TYPE_INTRUSIVE(StandEvent, callsign, stand, type);
+};
+
+
+/**
+ * Server only events
+ **/
+
+struct SessionInfoEvent final : Event {
+    std::string role;
+
+    explicit SessionInfoEvent(std::string role) : Event(EVENT_SESSION_INFO),
+        role(std::move(role)) {
+    }
+
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE(SessionInfoEvent, role, type);
+};
+
+struct GenerateSquawkEvent final : Event {
+    std::string callsign;
+
+    explicit GenerateSquawkEvent(std::string callsign) : Event(EVENT_GENERATE_SQUAWK),
+        callsign(std::move(callsign)) {
+    }
+
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE(GenerateSquawkEvent, callsign, type);
+};
+
+struct RouteEvent final : Event {
+    std::string callsign;
+    std::string route;
+
+    explicit RouteEvent(std::string callsign, std::string route) : Event(EVENT_ROUTE),
+        callsign(std::move(callsign)), route(std::move(route)) {
+    }
+
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE(RouteEvent, callsign, route, type);
+};
+
+struct RemarksEvent final : Event {
+    std::string callsign;
+    std::string remarks;
+
+    explicit RemarksEvent(std::string callsign, std::string remarks) : Event(EVENT_REMARKS),
+        callsign(std::move(callsign)), remarks(std::move(remarks)) {
+    }
+
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE(RemarksEvent, callsign, remarks, type);
+};
+
+struct SidEvent final : Event {
+    std::string callsign;
+    std::string sid;
+
+    explicit SidEvent(std::string callsign, std::string sid) : Event(EVENT_SID),
+        callsign(std::move(callsign)), sid(std::move(sid)) {
+    }
+
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE(SidEvent, callsign, sid, type);
+};
+
+struct AircraftRunwayEvent final : Event {
+    std::string callsign;
+    std::string runway;
+
+    explicit AircraftRunwayEvent(std::string callsign, std::string runway) : Event(EVENT_AIRCRAFT_RUNWAY),
+        callsign(std::move(callsign)), runway(std::move(runway)) {
+    }
+
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE(AircraftRunwayEvent, callsign, runway, type);
 };
 
 #endif //EVENTS_H

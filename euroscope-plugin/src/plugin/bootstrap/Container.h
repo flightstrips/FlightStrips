@@ -1,5 +1,9 @@
 #pragma once
 
+namespace FlightStrips::messages {
+    class MessageService;
+}
+
 namespace FlightStrips::controller {
     class ControllerService;
 }
@@ -28,6 +32,7 @@ namespace FlightStrips {
         class UserConfig;
     }
     namespace handlers {
+        class MessageHandlers;
         class ConnectionEventHandlers;
         class FlightPlanEventHandlers;
         class ControllerEventHandlers;
@@ -73,6 +78,7 @@ namespace FlightStrips {
         std::shared_ptr<handlers::TimedEventHandlers> timedEventHandlers;
         std::shared_ptr<handlers::AirportRunwaysChangedEventHandlers> airportRunwaysChangedEventHandlers;
         std::shared_ptr<handlers::ConnectionEventHandlers> connectionEventHandlers;
+        std::shared_ptr<handlers::MessageHandlers> messageHandlers;
 
         // flight plan
         std::shared_ptr<flightplan::FlightPlanService> flightPlanService;
@@ -88,6 +94,9 @@ namespace FlightStrips {
 
         // Runway
         std::shared_ptr<runway::RunwayService> runwayService;
+
+        // Messages
+        std::shared_ptr<messages::MessageService> messageService;
     };
 
 }

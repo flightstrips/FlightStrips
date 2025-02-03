@@ -10,11 +10,13 @@ namespace FlightStrips::websocket {
                                        const std::shared_ptr<authentication::AuthenticationService> &
                                        authentication_service,
                                        const std::shared_ptr<FlightStripsPlugin> &plugin,
-                                       const std::shared_ptr<handlers::ConnectionEventHandlers> &
-                                       event_handlers) : m_appConfig(appConfig),
+                                       const std::shared_ptr<handlers::ConnectionEventHandlers> & event_handlers,
+                                       const std::shared_ptr<handlers::MessageHandlers>& message_handlers) :
+                                                         m_appConfig(appConfig),
                                                          m_authentication_service(authentication_service),
                                                          m_plugin(plugin),
                                                          m_connection_handlers(event_handlers),
+                                                         m_messageHandlers(message_handlers),
                                                          webSocket(
                                                              appConfig->GetBaseUrl(),
                                                              [this](const std::string &message) {
@@ -40,17 +42,30 @@ namespace FlightStrips::websocket {
             return;
         }
 
-        if (!should_connect && webSocket.GetStatus() == WEBSOCKET_STATUS_CONNECTED) {
+        if (!should_connect && IsConnected()) {
             Logger::Info("Disconnecting from server: {}", m_appConfig->GetBaseUrl());
             webSocket.Disconnect();
+            std::lock_guard lock(message_mutex_);
+            messages_.clear();
+            client_state = STATE_UNKNOWN;
             return;
         }
 
-        if (!should_connect) return;
+        if (!should_connect || !IsConnected()) return;
 
-        if (webSocket.GetStatus() == WEBSOCKET_STATUS_CONNECTED && primary != state.primary_frequency) {
+        if (primary != state.primary_frequency) {
             SendLoginEvent();
         }
+
+        std::vector<nlohmann::json> messages;
+        {
+            std::lock_guard lock(message_mutex_);
+            if (messages_.empty()) return;
+            Logger::Info("Got messages {} from server", messages_.size());
+            messages = std::move(messages_);
+        }
+
+        m_messageHandlers->OnMessages(messages);
     }
 
     bool WebSocketService::IsConnected() const {
@@ -58,7 +73,11 @@ namespace FlightStrips::websocket {
     }
 
     bool WebSocketService::ShouldSend() const {
-        return IsConnected();
+        return IsConnected() && client_state == STATE_MASTER;
+    }
+
+    void WebSocketService::SetSessionState(const ClientState state) {
+        client_state = state;
     }
 
     template<typename T> requires std::is_base_of_v<Event, T>
@@ -75,6 +94,9 @@ namespace FlightStrips::websocket {
             Logger::Warning("Invalid JSON message: {}", message);
             return;
         }
+
+        std::lock_guard lock(message_mutex_);
+        messages_.push_back(json);
     }
 
     void WebSocketService::OnConnected() {

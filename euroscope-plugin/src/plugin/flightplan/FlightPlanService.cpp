@@ -161,6 +161,21 @@ namespace FlightStrips::flightplan {
         m_websocketService->SendEvent(AircraftDisconnectEvent(std::string(flightPlan.GetCallsign())));
     }
 
+    FlightPlan * FlightPlanService::GetFlightPlan(const std::string &callsign) {
+        const auto flightPlan = m_flightPlans.find(callsign);
+        if (flightPlan == m_flightPlans.end()) return nullptr;
+        return &(flightPlan->second);
+    }
+
+    void FlightPlanService::SetStand(const std::string &callsign, const std::string &stand) {
+        FlightPlan plan{{}, stand};
+        if (const auto [pair, inserted] = this->m_flightPlans.insert({callsign, plan}); !inserted) {
+            if (pair->second.stand != plan.stand) {
+                pair->second.stand = plan.stand;
+            }
+        }
+    }
+
     std::string FlightPlanService::GetEstimatedLandingTime(const EuroScopePlugIn::CFlightPlan &flightPlan) {
         time_t rawtime;
         tm ptm;

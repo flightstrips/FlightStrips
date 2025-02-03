@@ -123,7 +123,7 @@ namespace FlightStrips {
 
     FlightStripsPlugin::~FlightStripsPlugin() = default;
 
-    bool FlightStripsPlugin::IsRelevant(EuroScopePlugIn::CFlightPlan flightPlan) const {
+    bool FlightStripsPlugin::IsRelevant(const CFlightPlan flightPlan) const {
         return flightPlan.IsValid() &&
                (strcmp(flightPlan.GetFlightPlanData().GetDestination(), m_connectionState.relevant_airport.c_str()) == 0
                 || strcmp(flightPlan.GetFlightPlanData().GetOrigin(), m_connectionState.relevant_airport.c_str()) == 0);

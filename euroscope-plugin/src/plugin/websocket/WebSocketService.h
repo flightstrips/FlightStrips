@@ -4,16 +4,24 @@
 #include "authentication/AuthenticationService.h"
 #include "configuration/AppConfig.h"
 #include "handlers/ConnectionEventHandlers.h"
+#include "handlers/MessageHandlers.h"
 #include "handlers/TimedEventHandler.h"
 #include "plugin/FlightStripsPlugin.h"
 
 namespace FlightStrips::websocket {
+    enum ClientState {
+        STATE_UNKNOWN,
+        STATE_SLAVE,
+        STATE_MASTER
+    };
+
     class WebSocketService final : public handlers::TimedEventHandler {
     public:
         explicit WebSocketService(const std::shared_ptr<configuration::AppConfig> &appConfig,
                                   const std::shared_ptr<authentication::AuthenticationService> &authentication_service,
                                   const std::shared_ptr<FlightStripsPlugin> &plugin,
-                                  const std::shared_ptr<handlers::ConnectionEventHandlers> &event_handlers);
+                                  const std::shared_ptr<handlers::ConnectionEventHandlers> &event_handlers,
+                                  const std::shared_ptr<handlers::MessageHandlers> &message_handlers);
 
         ~WebSocketService() override;
 
@@ -23,16 +31,22 @@ namespace FlightStrips::websocket {
         void SendEvent(const T &event);
         bool IsConnected() const;
         bool ShouldSend() const;
+        void SetSessionState(ClientState state);
 
     private:
         std::shared_ptr<configuration::AppConfig> m_appConfig;
         std::shared_ptr<authentication::AuthenticationService> m_authentication_service;
         std::shared_ptr<FlightStripsPlugin> m_plugin;
         std::shared_ptr<handlers::ConnectionEventHandlers> m_connection_handlers;
+        std::shared_ptr<handlers::MessageHandlers> m_messageHandlers;
         WebSocket webSocket;
         std::string primary;
+        ClientState client_state = STATE_UNKNOWN;
 
-        static void OnMessage(const std::string &message);
+        std::mutex message_mutex_;
+        std::vector<nlohmann::json> messages_ {};
+
+        void OnMessage(const std::string &message);
         void OnConnected();
         void SendLoginEvent();
     };

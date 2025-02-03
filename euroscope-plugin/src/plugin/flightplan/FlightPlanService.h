@@ -22,13 +22,17 @@ class FlightPlanService final : public handlers::FlightPlanEventHandler, public 
 
     void FlightPlanDisconnectEvent(EuroScopePlugIn::CFlightPlan flightPlan) override;
 
+    FlightPlan* GetFlightPlan(const std::string &callsign);
+
+    void SetStand(const std::string& callsign, const std::string& stand);
+
+    static std::string GetEstimatedLandingTime(const EuroScopePlugIn::CFlightPlan& flightPlan);
 private:
     std::shared_ptr<websocket::WebSocketService> m_websocketService;
     std::shared_ptr<FlightStripsPlugin> m_flightStripsPlugin;
     std::shared_ptr<stands::StandService> m_standService;
     std::unordered_map<std::string, FlightPlan> m_flightPlans = {};
 
-    static std::string GetEstimatedLandingTime(const EuroScopePlugIn::CFlightPlan& flightPlan);
 
 
 };

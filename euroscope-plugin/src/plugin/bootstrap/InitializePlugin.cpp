@@ -14,6 +14,7 @@
 #include "controller/ControllerService.h"
 #include "flightplan/FlightPlanBootstrapper.h"
 #include "handlers/ConnectionEventHandlers.h"
+#include "messages/MessageService.h"
 #include "runway/RunwayService.h"
 #include "websocket/WebSocketService.h"
 
@@ -35,6 +36,7 @@ namespace FlightStrips {
         this->container->flightPlanEventHandlers = std::make_shared<handlers::FlightPlanEventHandlers>();
         this->container->radarTargetEventHandlers = std::make_shared<handlers::RadarTargetEventHandlers>();
         this->container->timedEventHandlers = std::make_shared<handlers::TimedEventHandlers>();
+        this->container->messageHandlers = std::make_shared<handlers::MessageHandlers>();
         this->container->airportRunwaysChangedEventHandlers = std::make_shared<
             handlers::AirportRunwaysChangedEventHandlers>();
         stands::StandsBootstrapper::Bootstrap(*this->container);
@@ -53,7 +55,7 @@ namespace FlightStrips {
                                                                        this->container->appConfig);
         this->container->webSocketService = std::make_shared<websocket::WebSocketService>(
             this->container->appConfig, this->container->authenticationService, this->container->plugin,
-            this->container->connectionEventHandlers);
+            this->container->connectionEventHandlers, this->container->messageHandlers);
         flightplan::FlightPlanBootstrapper::Bootstrap(*this->container);
         this->container->controllerService = std::make_shared<controller::ControllerService>(
             this->container->webSocketService);
@@ -62,6 +64,10 @@ namespace FlightStrips {
             this->container->webSocketService, this->container->plugin);
         this->container->timedEventHandlers->RegisterHandler(this->container->webSocketService);
         this->container->connectionEventHandlers->RegisterHandler(this->container->runwayService);
+        this->container->messageService = std::make_shared<messages::MessageService>(
+            this->container->plugin, this->container->webSocketService, this->container->flightPlanService,
+            this->container->standService);
+        this->container->messageHandlers->RegisterHandler(this->container->messageService);
 
         Logger::Info(std::format("Loaded plugin version {}.", PLUGIN_VERSION));
     }
@@ -79,6 +85,9 @@ namespace FlightStrips {
         this->container->airportRunwaysChangedEventHandlers.reset();
         this->container->timedEventHandlers->Clear();
         this->container->timedEventHandlers.reset();
+        this->container->messageHandlers->Clear();
+        this->container->messageHandlers.reset();
+        this->container->messageService.reset();
         this->container->filesystem.reset();
         this->container->webSocketService.reset();
         this->container->runwayService.reset();

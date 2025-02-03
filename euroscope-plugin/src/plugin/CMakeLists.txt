@@ -59,7 +59,10 @@ set(src__handlers
         handlers/AirportRunwaysChangedEventHandlers.h
         handlers/ConnectionEventHandlers.cpp
         handlers/ConnectionEventHandlers.h
-        handlers/ConnectionEventHandler.h)
+        handlers/ConnectionEventHandler.h
+        handlers/MessageHandlers.cpp
+        handlers/MessageHandlers.h
+        handlers/MessageHandler.h)
 source_group("src\\collections" FILES ${src__handlers})
 
 set(src__flightplan
@@ -109,6 +112,11 @@ set(src__controller
         controller/ControllerService.h)
 source_group("src\\controller" FILES ${src__controller})
 
+set(src__messages
+        messages/MessageService.cpp
+        messages/MessageService.h)
+source_group("src\\messages" FILES ${src__messages})
+
 set(ALL_FILES
         ${src__plugin}
         ${src__filesystem}
@@ -123,6 +131,7 @@ set(ALL_FILES
         ${src__http}
         ${src__websocket}
         ${src__controller}
+        ${src__messages}
         Constants.h
         Logger.cpp
         Logger.h)

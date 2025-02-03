@@ -63,8 +63,10 @@ NLOHMANN_JSON_SERIALIZE_ENUM(EventType, {
 struct Event {
     EventType type{EVENT_UNKNOWN};
 
+protected:
     explicit Event(const EventType type) : type(type) {
     }
+    Event() = default;
 };
 
 struct TokenEvent final : Event {
@@ -408,6 +410,8 @@ struct SessionInfoEvent final : Event {
     explicit SessionInfoEvent(std::string role) : Event(EVENT_SESSION_INFO),
                                                   role(std::move(role)) {
     }
+
+    SessionInfoEvent() = default;
 
     NLOHMANN_DEFINE_TYPE_INTRUSIVE(SessionInfoEvent, role, type);
 };

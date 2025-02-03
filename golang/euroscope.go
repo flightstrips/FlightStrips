@@ -17,7 +17,7 @@ func (s *Server) euroscopeEvents(w http.ResponseWriter, r *http.Request) {
 
 	defer conn.Close()
 
-	err = conn.WriteMessage(websocket.TextMessage, []byte("Hello from the server!"))
+	err = conn.WriteMessage(websocket.TextMessage, []byte("{\"type\": \"session_info\", \"role\": \"master\"}"))
 	if err != nil {
 		return
 	}
@@ -38,9 +38,11 @@ func (s *Server) euroscopeEvents(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 
-		err = conn.WriteMessage(websocket.TextMessage, []byte("Message from server"))
-		if err != nil {
-			return
-		}
+		/*
+			err = conn.WriteMessage(websocket.TextMessage, []byte("{\"type\": \"unknown\"}"))
+			if err != nil {
+				return
+			}
+		*/
 	}
 }

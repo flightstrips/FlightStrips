@@ -14,6 +14,8 @@
 #include "websocket/WebSocketService.h"
 #include "runway/RunwayService.h"
 #include "controller/ControllerService.h"
+#include "handlers/MessageHandlers.h"
+#include "messages/MessageService.h"
 
 namespace FlightStrips {
     Container::Container() = default;

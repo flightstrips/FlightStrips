@@ -14,6 +14,8 @@ namespace FlightStrips::messages {
 
         if (type == EVENT_SESSION_INFO_NAME) {
             HandleSessionInfoEvent(message.get<SessionInfoEvent>());
+        } else if (type == EVENT_ASSIGNED_SQUAWK_NAME) {
+            HandleAssignedSquawkEvent(message.get<AssignedSquawkEvent>());
         } else {
             Logger::Warning("Unknown message type: {}", type);
         }
@@ -34,7 +36,7 @@ namespace FlightStrips::messages {
         for (auto it = m_plugin->ControllerSelectFirst(); it.IsValid(); it = m_plugin->ControllerSelectNext(it)) {
             if (!it.IsController()) continue;
             const auto primaryFrequency = std::format("{:.3f}", it.GetPrimaryFrequency());
-            controllers.push_back({primaryFrequency, std::string(it.GetCallsign())});
+            controllers.emplace_back(primaryFrequency, std::string(it.GetCallsign()));
         }
 
         const auto relevantAirport = m_plugin->GetConnectionState().relevant_airport.c_str();
@@ -93,11 +95,19 @@ namespace FlightStrips::messages {
                 {flightPlanData.GetCommunicationType()},
                 {flightPlanData.GetCapibilities()},
                 isArrival ? "" : std::string(flightPlanData.GetEstimatedDepartureTime()),
-                isArrival ? m_flightPlanService->GetEstimatedLandingTime(it) : ""
+                isArrival ? flightplan::FlightPlanService::GetEstimatedLandingTime(it) : ""
             });
         }
 
         const auto syncEvent = SyncEvent(strips, controllers);
         m_webSocketService->SendEvent(syncEvent);
+    }
+
+    void MessageService::HandleAssignedSquawkEvent(const AssignedSquawkEvent &event) const {
+        const auto fp = m_plugin->FlightPlanSelect(event.callsign.c_str());
+        if (!fp.IsValid()) return;
+        if (!fp.GetControllerAssignedData().SetSquawk(event.squawk.c_str())) {
+            Logger::Warning("Failed to set squawk {} for {}", event.squawk, event.callsign);
+        }
     }
 }

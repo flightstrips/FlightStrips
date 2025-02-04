@@ -31,6 +31,16 @@ namespace FlightStrips::messages {
         void HandleAssignedSquawkEvent(const AssignedSquawkEvent& event) const;
         void HandleRequestedAltitudeEvent(const RequestedAltitudeEvent& event) const;
         void HandleClearedAltitudeEvent(const ClearedAltitudeEvent& event) const;
+        void HandleCommunicationTypeEvent(const CommunicationTypeEvent& event) const;
+        void HandleGroundStateEvent(const GroundStateEvent& event) const;
+        void HandleClearedFlagEvent(const ClearedFlagEvent& event) const;
+        void HandleHeadingEvent(const HeadingEvent& event) const;
+        void HandleStandEvent(const StandEvent& event) const;
+        void HandleGenerateSquawkEvent(const GenerateSquawkEvent& event) const;
+        void HandleRouteEvent(const RouteEvent& event) const;
+        void HandleRemarksEvent(const RemarksEvent& event) const;
+        void HandleSidEvent(const SidEvent& event) const;
+        void HandleAircraftRunwayEvent(const AircraftRunwayEvent& event) const;
     };
 
 }

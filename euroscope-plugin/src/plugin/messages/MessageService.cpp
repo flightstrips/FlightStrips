@@ -20,6 +20,26 @@ namespace FlightStrips::messages {
             HandleRequestedAltitudeEvent(message.get<RequestedAltitudeEvent>());
         } else if (type == EVENT_CLEARED_ALTITUDE_NAME) {
             HandleClearedAltitudeEvent(message.get<ClearedAltitudeEvent>());
+        } else if (type == EVENT_COMMUNICATION_TYPE_NAME) {
+            HandleCommunicationTypeEvent(message.get<CommunicationTypeEvent>());
+        } else if (type == EVENT_GROUND_STATE_NAME) {
+            HandleGroundStateEvent(message.get<GroundStateEvent>());
+        } else if (type == EVENT_CLEARED_FLAG_NAME) {
+            HandleClearedFlagEvent(message.get<ClearedFlagEvent>());
+        } else if (type == EVENT_HEADING_NAME) {
+            HandleHeadingEvent(message.get<HeadingEvent>());
+        } else if (type == EVENT_STAND_NAME) {
+            HandleStandEvent(message.get<StandEvent>());
+        } else if (type == EVENT_GENERATE_SQUAWK_NAME) {
+            HandleGenerateSquawkEvent(message.get<GenerateSquawkEvent>());
+        } else if (type == EVENT_ROUTE_NAME) {
+            HandleRouteEvent(message.get<RouteEvent>());
+        } else if (type == EVENT_REMARKS_NAME) {
+            HandleRemarksEvent(message.get<RemarksEvent>());
+        } else if (type == EVENT_SID_NAME) {
+            HandleSidEvent(message.get<SidEvent>());
+        } else if (type == EVENT_AIRCRAFT_RUNWAY_NAME) {
+            HandleAircraftRunwayEvent(message.get<AircraftRunwayEvent>());
         } else {
             Logger::Warning("Unknown message type: {}", type);
         }
@@ -129,5 +149,67 @@ namespace FlightStrips::messages {
         if (!fp.GetControllerAssignedData().SetClearedAltitude(event.altitude)) {
             Logger::Warning("Failed to set cleared altitude {} for {}", event.altitude, event.callsign);
         }
+    }
+
+    void MessageService::HandleCommunicationTypeEvent(const CommunicationTypeEvent &event) const {
+        const auto fp = m_plugin->FlightPlanSelect(event.callsign.c_str());
+        if (!fp.IsValid()) return;
+        if (!fp.GetControllerAssignedData().SetCommunicationType(event.communication_type[0])) {
+            Logger::Warning("Failed to set communication type {} for {}", event.communication_type, event.callsign);
+        }
+    }
+
+    void MessageService::HandleGroundStateEvent(const GroundStateEvent &event) const {
+        m_plugin->UpdateViaScratchPad(event.callsign.c_str(), event.ground_state.c_str());
+    }
+
+    void MessageService::HandleClearedFlagEvent(const ClearedFlagEvent &event) const {
+        m_plugin->SetClearenceFlag(event.callsign, event.cleared);
+    }
+
+    void MessageService::HandleHeadingEvent(const HeadingEvent &event) const {
+        const auto fp = m_plugin->FlightPlanSelect(event.callsign.c_str());
+        if (!fp.IsValid()) return;
+        if (!fp.GetControllerAssignedData().SetAssignedHeading(event.heading)) {
+            Logger::Warning("Failed to set assigned heading {} for {}", event.heading, event.callsign);
+        }
+    }
+
+    void MessageService::HandleStandEvent(const StandEvent &event) const {
+        m_plugin->SetArrivalStand(event.callsign.c_str(), event.stand);
+    }
+
+    void MessageService::HandleGenerateSquawkEvent(const GenerateSquawkEvent &event) const {
+        const auto fp = m_plugin->FlightPlanSelect(event.callsign.c_str());
+        if (!fp.IsValid()) return;
+        // TODO generate squawk
+    }
+
+    void MessageService::HandleRouteEvent(const RouteEvent &event) const {
+        const auto fp = m_plugin->FlightPlanSelect(event.callsign.c_str());
+        if (!fp.IsValid()) return;
+        if (!fp.GetFlightPlanData().SetRoute(event.route.c_str())) {
+            Logger::Warning("Failed to set route '{}' for {}", event.route, event.callsign);
+        }
+    }
+
+    void MessageService::HandleRemarksEvent(const RemarksEvent &event) const {
+        const auto fp = m_plugin->FlightPlanSelect(event.callsign.c_str());
+        if (!fp.IsValid()) return;
+        if (!fp.GetFlightPlanData().SetRoute(event.remarks.c_str())) {
+            Logger::Warning("Failed to set remarks '{}' for {}", event.remarks, event.callsign);
+        }
+    }
+
+    void MessageService::HandleSidEvent(const SidEvent &event) const {
+        const auto fp = m_plugin->FlightPlanSelect(event.callsign.c_str());
+        if (!fp.IsValid()) return;
+        // TODO
+    }
+
+    void MessageService::HandleAircraftRunwayEvent(const AircraftRunwayEvent &event) const {
+        const auto fp = m_plugin->FlightPlanSelect(event.callsign.c_str());
+        if (!fp.IsValid()) return;
+        // TODO
     }
 }

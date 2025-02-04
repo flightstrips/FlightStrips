@@ -169,6 +169,7 @@ struct HeadingEvent final : Event {
     HeadingEvent(std::string callsign, const int heading) : Event(EVENT_HEADING), callsign(std::move(callsign)),
                                                             heading(heading) {
     }
+    HeadingEvent() = default;
 
     NLOHMANN_DEFINE_TYPE_INTRUSIVE(HeadingEvent, callsign, heading, type);
 };
@@ -206,6 +207,7 @@ struct CommunicationTypeEvent final : Event {
     CommunicationTypeEvent(std::string callsign, const char communicationType) : Event(EVENT_COMMUNICATION_TYPE),
         callsign(std::move(callsign)), communication_type({communicationType}) {
     }
+    CommunicationTypeEvent() = default;
 
     NLOHMANN_DEFINE_TYPE_INTRUSIVE(CommunicationTypeEvent, callsign, communication_type, type);
 };
@@ -218,6 +220,7 @@ struct GroundStateEvent final : Event {
                                                                                callsign(std::move(callsign)),
                                                                                ground_state(std::move(groundState)) {
     }
+    GroundStateEvent() = default;
 
     NLOHMANN_DEFINE_TYPE_INTRUSIVE(GroundStateEvent, callsign, ground_state, type);
 };
@@ -230,6 +233,7 @@ struct ClearedFlagEvent final : Event {
                                                                           callsign(std::move(callsign)),
                                                                           cleared(cleared) {
     }
+    ClearedFlagEvent() = default;
 
     NLOHMANN_DEFINE_TYPE_INTRUSIVE(ClearedFlagEvent, callsign, cleared, type);
 };
@@ -328,6 +332,7 @@ struct StandEvent final : Event {
                                                                    callsign(std::move(callsign)),
                                                                    stand(std::move(stand)) {
     }
+    StandEvent() = default;
 
     NLOHMANN_DEFINE_TYPE_INTRUSIVE(StandEvent, callsign, stand, type);
 };
@@ -452,6 +457,7 @@ struct GenerateSquawkEvent final : Event {
     explicit GenerateSquawkEvent(std::string callsign) : Event(EVENT_GENERATE_SQUAWK),
                                                          callsign(std::move(callsign)) {
     }
+    GenerateSquawkEvent() = default;
 
     NLOHMANN_DEFINE_TYPE_INTRUSIVE(GenerateSquawkEvent, callsign, type);
 };
@@ -464,6 +470,7 @@ struct RouteEvent final : Event {
                                                                    callsign(std::move(callsign)),
                                                                    route(std::move(route)) {
     }
+    RouteEvent() = default;
 
     NLOHMANN_DEFINE_TYPE_INTRUSIVE(RouteEvent, callsign, route, type);
 };
@@ -476,6 +483,7 @@ struct RemarksEvent final : Event {
                                                                        callsign(std::move(callsign)),
                                                                        remarks(std::move(remarks)) {
     }
+    RemarksEvent() = default;
 
     NLOHMANN_DEFINE_TYPE_INTRUSIVE(RemarksEvent, callsign, remarks, type);
 };
@@ -487,6 +495,7 @@ struct SidEvent final : Event {
     explicit SidEvent(std::string callsign, std::string sid) : Event(EVENT_SID),
                                                                callsign(std::move(callsign)), sid(std::move(sid)) {
     }
+    SidEvent() = default;
 
     NLOHMANN_DEFINE_TYPE_INTRUSIVE(SidEvent, callsign, sid, type);
 };
@@ -499,6 +508,7 @@ struct AircraftRunwayEvent final : Event {
                                                                              callsign(std::move(callsign)),
                                                                              runway(std::move(runway)) {
     }
+    AircraftRunwayEvent() = default;
 
     NLOHMANN_DEFINE_TYPE_INTRUSIVE(AircraftRunwayEvent, callsign, runway, type);
 };

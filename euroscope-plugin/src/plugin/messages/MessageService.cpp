@@ -12,7 +12,7 @@ namespace FlightStrips::messages {
     void MessageService::HandleMessage(const nlohmann::json &message) const {
         const auto type = message["type"].get<std::string>();
 
-        if (type == "session_info") {
+        if (type == EVENT_SESSION_INFO_NAME) {
             HandleSessionInfoEvent(message.get<SessionInfoEvent>());
         } else {
             Logger::Warning("Unknown message type: {}", type);

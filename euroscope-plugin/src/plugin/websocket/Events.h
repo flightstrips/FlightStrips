@@ -3,6 +3,32 @@
 #include <nlohmann/json.hpp>
 #include <utility>
 
+#define EVENT_UNKNOWN_NAME "unknown"
+#define EVENT_TOKEN_NAME "token"
+#define EVENT_LOGIN_NAME "login"
+#define EVENT_CONTROLLER_ONLINE_NAME "controller_online"
+#define EVENT_CONTROLLER_OFFLINE_NAME "controller_offline"
+#define EVENT_SYNC_NAME "sync"
+#define EVENT_ASSIGNED_SQUAWK_NAME "assigned_squawk"
+#define EVENT_SQUAWK_NAME "squawk"
+#define EVENT_REQUESTED_ALTITUDE_NAME "requested_altitude"
+#define EVENT_CLEARED_ALTITUDE_NAME "cleared_altitude"
+#define EVENT_COMMUNICATION_TYPE_NAME "communication_type"
+#define EVENT_GROUND_STATE_NAME "ground_state"
+#define EVENT_CLEARED_FLAG_NAME "cleared_flag"
+#define EVENT_AIRCRAFT_POSITION_UPDATE_NAME "aircraft_position_update"
+#define EVENT_HEADING_NAME "heading"
+#define EVENT_AIRCRAFT_DISCONNECT_NAME "aircraft_disconnect"
+#define EVENT_STAND_NAME "stand"
+#define EVENT_STRIP_UPDATE_NAME "strip_update"
+#define EVENT_RUNWAY_NAME "runway"
+#define EVENT_SESSION_INFO_NAME "session_info"
+#define EVENT_GENERATE_SQUAWK_NAME "generate_squawk"
+#define EVENT_ROUTE_NAME "route"
+#define EVENT_REMARKS_NAME "remarks"
+#define EVENT_SID_NAME "sid"
+#define EVENT_AIRCRAFT_RUNWAY_NAME "aircraft_runway"
+
 enum EventType {
     EVENT_UNKNOWN = 0,
     EVENT_TOKEN,
@@ -33,31 +59,31 @@ enum EventType {
 };
 
 NLOHMANN_JSON_SERIALIZE_ENUM(EventType, {
-                             {EVENT_UNKNOWN, "unknown"},
-                             {EVENT_TOKEN, "token"},
-                             {EVENT_LOGIN, "login"},
-                             {EVENT_CONTROLLER_ONLINE, "controller_online"},
-                             {EVENT_CONTROLLER_OFFLINE, "controller_offline"},
-                             {EVENT_SYNC, "sync"},
-                             {EVENT_ASSIGNED_SQUAWK, "assigned_squawk"},
-                             {EVENT_SQUAWK, "squawk"},
-                             {EVENT_REQUESTED_ALTITUDE, "requested_altitude"},
-                             {EVENT_CLEARED_ALTITUDE, "cleared_altitude"},
-                             {EVENT_COMMUNICATION_TYPE, "communication_type"},
-                             {EVENT_GROUND_STATE, "ground_state"},
-                             {EVENT_CLEARED_FLAG, "cleared_flag"},
-                             {EVENT_AIRCRAFT_POSITION_UPDATE, "aircraft_position_update"},
-                             {EVENT_HEADING, "heading"},
-                             {EVENT_AIRCRAFT_DISCONNECT, "aircraft_disconnect"},
-                             {EVENT_STAND, "stand"},
-                             {EVENT_STRIP_UPDATE, "strip_update"},
-                             {EVENT_RUNWAY, "runway"},
-                             {EVENT_SESSION_INFO, "session_info"},
-                             {EVENT_GENERATE_SQUAWK, "generate_squawk"},
-                             {EVENT_ROUTE, "route"},
-                             {EVENT_REMARKS, "remarks"},
-                             {EVENT_SID, "sid"},
-                             {EVENT_AIRCRAFT_RUNWAY, "aircraft_runway"},
+                             {EVENT_UNKNOWN, EVENT_UNKNOWN_NAME},
+                             {EVENT_TOKEN, EVENT_TOKEN_NAME},
+                             {EVENT_LOGIN, EVENT_LOGIN_NAME},
+                             {EVENT_CONTROLLER_ONLINE, EVENT_CONTROLLER_ONLINE_NAME},
+                             {EVENT_CONTROLLER_OFFLINE, EVENT_CONTROLLER_OFFLINE_NAME},
+                             {EVENT_SYNC, EVENT_SYNC_NAME},
+                             {EVENT_ASSIGNED_SQUAWK, EVENT_ASSIGNED_SQUAWK_NAME},
+                             {EVENT_SQUAWK, EVENT_SQUAWK_NAME},
+                             {EVENT_REQUESTED_ALTITUDE, EVENT_REQUESTED_ALTITUDE_NAME},
+                             {EVENT_CLEARED_ALTITUDE, EVENT_CLEARED_ALTITUDE_NAME},
+                             {EVENT_COMMUNICATION_TYPE, EVENT_COMMUNICATION_TYPE_NAME},
+                             {EVENT_GROUND_STATE, EVENT_GROUND_STATE_NAME},
+                             {EVENT_CLEARED_FLAG, EVENT_CLEARED_FLAG_NAME},
+                             {EVENT_AIRCRAFT_POSITION_UPDATE, EVENT_AIRCRAFT_POSITION_UPDATE_NAME},
+                             {EVENT_HEADING, EVENT_HEADING_NAME},
+                             {EVENT_AIRCRAFT_DISCONNECT, EVENT_AIRCRAFT_DISCONNECT_NAME},
+                             {EVENT_STAND, EVENT_STAND_NAME},
+                             {EVENT_STRIP_UPDATE, EVENT_STRIP_UPDATE_NAME},
+                             {EVENT_RUNWAY, EVENT_RUNWAY_NAME},
+                             {EVENT_SESSION_INFO, EVENT_SESSION_INFO_NAME},
+                             {EVENT_GENERATE_SQUAWK, EVENT_GENERATE_SQUAWK_NAME},
+                             {EVENT_ROUTE, EVENT_ROUTE_NAME},
+                             {EVENT_REMARKS, EVENT_REMARKS_NAME},
+                             {EVENT_SID, EVENT_SID_NAME},
+                             {EVENT_AIRCRAFT_RUNWAY, EVENT_AIRCRAFT_RUNWAY_NAME},
                              })
 
 struct Event {
@@ -66,6 +92,7 @@ struct Event {
 protected:
     explicit Event(const EventType type) : type(type) {
     }
+
     Event() = default;
 };
 
@@ -119,6 +146,7 @@ struct AssignedSquawkEvent final : Event {
                                                                     callsign(std::move(callsign)),
                                                                     squawk(std::move(squawk)) {
     }
+    AssignedSquawkEvent() = default;
 
     NLOHMANN_DEFINE_TYPE_INTRUSIVE(AssignedSquawkEvent, callsign, squawk, type);
 };

@@ -16,6 +16,10 @@ namespace FlightStrips::messages {
             HandleSessionInfoEvent(message.get<SessionInfoEvent>());
         } else if (type == EVENT_ASSIGNED_SQUAWK_NAME) {
             HandleAssignedSquawkEvent(message.get<AssignedSquawkEvent>());
+        } else if (type == EVENT_REQUESTED_ALTITUDE_NAME) {
+            HandleRequestedAltitudeEvent(message.get<RequestedAltitudeEvent>());
+        } else if (type == EVENT_CLEARED_ALTITUDE_NAME) {
+            HandleClearedAltitudeEvent(message.get<ClearedAltitudeEvent>());
         } else {
             Logger::Warning("Unknown message type: {}", type);
         }
@@ -108,6 +112,22 @@ namespace FlightStrips::messages {
         if (!fp.IsValid()) return;
         if (!fp.GetControllerAssignedData().SetSquawk(event.squawk.c_str())) {
             Logger::Warning("Failed to set squawk {} for {}", event.squawk, event.callsign);
+        }
+    }
+
+    void MessageService::HandleRequestedAltitudeEvent(const RequestedAltitudeEvent &event) const {
+        const auto fp = m_plugin->FlightPlanSelect(event.callsign.c_str());
+        if (!fp.IsValid()) return;
+        if (!fp.GetControllerAssignedData().SetFinalAltitude(event.altitude)) {
+            Logger::Warning("Failed to set request altitude {} for {}", event.altitude, event.callsign);
+        }
+    }
+
+    void MessageService::HandleClearedAltitudeEvent(const ClearedAltitudeEvent &event) const {
+        const auto fp = m_plugin->FlightPlanSelect(event.callsign.c_str());
+        if (!fp.IsValid()) return;
+        if (!fp.GetControllerAssignedData().SetClearedAltitude(event.altitude)) {
+            Logger::Warning("Failed to set cleared altitude {} for {}", event.altitude, event.callsign);
         }
     }
 }

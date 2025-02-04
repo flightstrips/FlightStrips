@@ -180,6 +180,7 @@ struct RequestedAltitudeEvent final : Event {
     explicit RequestedAltitudeEvent(std::string callsign, const int altitude) : Event(EVENT_REQUESTED_ALTITUDE),
         callsign(std::move(callsign)), altitude(altitude) {
     }
+    RequestedAltitudeEvent() = default;
 
     NLOHMANN_DEFINE_TYPE_INTRUSIVE(RequestedAltitudeEvent, callsign, altitude, type);
 };
@@ -192,6 +193,7 @@ struct ClearedAltitudeEvent final : Event {
                                                                               callsign(std::move(callsign)),
                                                                               altitude(altitude) {
     }
+    ClearedAltitudeEvent() = default;
 
     NLOHMANN_DEFINE_TYPE_INTRUSIVE(ClearedAltitudeEvent, callsign, altitude, type);
 };

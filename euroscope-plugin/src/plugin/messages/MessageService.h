@@ -29,6 +29,8 @@ namespace FlightStrips::messages {
         void HandleMessage(const nlohmann::json &message) const;
         void HandleSessionInfoEvent(const SessionInfoEvent& event) const;
         void HandleAssignedSquawkEvent(const AssignedSquawkEvent& event) const;
+        void HandleRequestedAltitudeEvent(const RequestedAltitudeEvent& event) const;
+        void HandleClearedAltitudeEvent(const ClearedAltitudeEvent& event) const;
     };
 
 }

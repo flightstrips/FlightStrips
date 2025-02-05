@@ -5,12 +5,8 @@ type EuroscopeEvent struct {
 }
 
 type EuroscopeAuthenticationEvent struct {
-	Type  EventType `json:"type"`
-	Token string    `json:"token"`
-}
-
-func (e *EuroscopeAuthenticationEvent) ValidateToken() bool {
-	return false
+	Type  EventType
+	Token string
 }
 
 type EuroscopeLoginEvent struct {

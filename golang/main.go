@@ -126,8 +126,9 @@ func (s *Server) handleServerLogging(logging chan interface{}) {
 
 // Server holds shared resources
 type Server struct {
-	DBPool  *pgxpool.Pool
-	logging chan interface{}
+	DBPool        *pgxpool.Pool
+	logging       chan interface{}
+	AuthServerURL string
 }
 
 func (s *Server) log(msg string) {

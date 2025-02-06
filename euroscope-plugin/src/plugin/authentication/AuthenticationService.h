@@ -38,6 +38,7 @@ public:
 
 
     void OnTimer(int time) override;
+    static std::optional<nlohmann::json> GetTokenPayload(const std::string &access_token);
 
 private:
     std::shared_ptr<configuration::AppConfig> appConfig;
@@ -63,7 +64,6 @@ private:
 
     static void OpenBrowser(const std::string& url);
 
-    static std::optional<nlohmann::json> GetTokenPayload(const std::string &access_token);
 
     std::thread token_thread;
 

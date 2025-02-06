@@ -88,3 +88,4 @@ set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 # Sub-projects
 ################################################################################
 add_subdirectory(src/plugin)
+add_subdirectory(test/plugin)

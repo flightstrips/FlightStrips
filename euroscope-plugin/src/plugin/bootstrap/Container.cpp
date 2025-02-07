@@ -16,6 +16,7 @@
 #include "controller/ControllerService.h"
 #include "handlers/MessageHandlers.h"
 #include "messages/MessageService.h"
+#include "flightplan/RouteService.h"
 
 namespace FlightStrips {
     Container::Container() = default;

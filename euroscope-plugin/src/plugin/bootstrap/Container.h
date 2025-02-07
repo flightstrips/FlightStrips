@@ -41,6 +41,7 @@ namespace FlightStrips {
         class RadarTargetEventHandlers;
     }
     namespace flightplan {
+        class RouteService;
         class FlightPlanService;
     }
 }
@@ -82,6 +83,7 @@ namespace FlightStrips {
 
         // flight plan
         std::shared_ptr<flightplan::FlightPlanService> flightPlanService;
+        std::shared_ptr<flightplan::RouteService> routeService;
 
         // controller
         std::shared_ptr<controller::ControllerService> controllerService;

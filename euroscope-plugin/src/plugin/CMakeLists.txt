@@ -5,7 +5,8 @@ set(PROJECT_NAME FlightStripsCore)
 ################################################################################
 set(src__plugin
         plugin/FlightStripsPlugin.h
-        plugin/FlightStripsPlugin.cpp)
+        plugin/FlightStripsPlugin.cpp
+        plugin/FlightStripsPluginInterface.h)
 source_group("src\\plugin" FILES ${src__plugin})
 
 set(src__filesystem
@@ -71,6 +72,8 @@ set(src__flightplan
         flightplan/FlightPlan.h
         flightplan/FlightPlanBootstrapper.cpp
         flightplan/FlightPlanBootstrapper.h
+        flightplan/RouteService.cpp
+        flightplan/RouteService.h
 )
 source_group("src\\flightplan" FILES ${src__flightplan})
 

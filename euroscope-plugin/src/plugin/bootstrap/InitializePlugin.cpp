@@ -13,6 +13,7 @@
 #include "configuration/ConfigurationBootstrapper.h"
 #include "controller/ControllerService.h"
 #include "flightplan/FlightPlanBootstrapper.h"
+#include "flightplan/RouteService.h"
 #include "handlers/ConnectionEventHandlers.h"
 #include "messages/MessageService.h"
 #include "runway/RunwayService.h"
@@ -64,9 +65,10 @@ namespace FlightStrips {
             this->container->webSocketService, this->container->plugin);
         this->container->timedEventHandlers->RegisterHandler(this->container->webSocketService);
         this->container->connectionEventHandlers->RegisterHandler(this->container->runwayService);
+        this->container->routeService = std::make_shared<flightplan::RouteService>(this->container->plugin);
         this->container->messageService = std::make_shared<messages::MessageService>(
             this->container->plugin, this->container->webSocketService, this->container->flightPlanService,
-            this->container->standService);
+            this->container->standService, this->container->routeService);
         this->container->messageHandlers->RegisterHandler(this->container->messageService);
 
         Logger::Info(std::format("Loaded plugin version {}.", PLUGIN_VERSION));
@@ -95,6 +97,7 @@ namespace FlightStrips {
         this->container->plugin.reset();
         this->container->standService.reset();
         this->container->flightPlanService.reset();
+        this->container->routeService.reset();
         this->container.reset();
 
         Logger::Info("Unloaded!");

@@ -6,6 +6,7 @@
 #define PLUGIN_AUTHOR "Frederik Rosenberg"
 #define PLUGIN_COPYRIGHT "GPLv3 License, Copyright (c) 2023 Frederik Rosenberg"
 #define GITHUB_LINK "https://github.com/frederikrosenberg/FlightStrips"
+#include "FlightStripsPluginInterface.h"
 #endif // !COPYRIGHTS
 
 #include "authentication/AuthenticationService.h"
@@ -38,7 +39,7 @@ namespace FlightStrips {
         std::string relevant_airport;
     };
 
-    class FlightStripsPlugin : public EuroScopePlugIn::CPlugIn {
+    class FlightStripsPlugin final : public EuroScopePlugIn::CPlugIn, public FlightStripsPluginInterface {
     public:
         FlightStripsPlugin(
                 const std::shared_ptr<handlers::FlightPlanEventHandlers> &mFlightPlanEventHandlerCollection,
@@ -84,9 +85,12 @@ namespace FlightStrips {
 
         static bool ControllerIsMe(EuroScopePlugIn::CController controller, EuroScopePlugIn::CController me);
 
-        inline bool IsRelevant(EuroScopePlugIn::CFlightPlan flightPlan) const;
+        [[nodiscard]] inline bool IsRelevant(EuroScopePlugIn::CFlightPlan flightPlan) const;
 
         ConnectionState& GetConnectionState();
+
+        std::vector<Sid> GetSids(const std::string& airport) override;
+
     private:
         const std::shared_ptr<handlers::FlightPlanEventHandlers> m_flightPlanEventHandlerCollection;
         const std::shared_ptr<handlers::RadarTargetEventHandlers> m_radarTargetEventHandlers;

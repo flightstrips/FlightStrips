@@ -191,20 +191,34 @@ namespace FlightStrips::messages {
         if (!fp.GetFlightPlanData().SetRoute(event.route.c_str())) {
             Logger::Warning("Failed to set route '{}' for {}", event.route, event.callsign);
         }
+        if (!fp.GetFlightPlanData().AmendFlightPlan()) {
+            Logger::Warning("Failed to amend flight plan {}", event.callsign);
+        }
     }
 
     void MessageService::HandleRemarksEvent(const RemarksEvent &event) const {
         const auto fp = m_plugin->FlightPlanSelect(event.callsign.c_str());
         if (!fp.IsValid()) return;
-        if (!fp.GetFlightPlanData().SetRoute(event.remarks.c_str())) {
+        if (!fp.GetFlightPlanData().SetRemarks(event.remarks.c_str())) {
             Logger::Warning("Failed to set remarks '{}' for {}", event.remarks, event.callsign);
+        }
+        if (!fp.GetFlightPlanData().AmendFlightPlan()) {
+            Logger::Warning("Failed to amend flight plan {}", event.callsign);
         }
     }
 
     void MessageService::HandleSidEvent(const SidEvent &event) const {
         const auto fp = m_plugin->FlightPlanSelect(event.callsign.c_str());
         if (!fp.IsValid()) return;
-        // TODO
+        auto route = std::string(fp.GetFlightPlanData().GetRoute());
+        m_routeService->SetSid(route, event.sid, m_plugin->GetConnectionState().relevant_airport);
+        if (route.empty()) return;
+        if (!fp.GetFlightPlanData().SetRoute(route.c_str())) {
+            Logger::Warning("Failed to set route '{}' for {}", route, event.callsign);
+        }
+        if (!fp.GetFlightPlanData().AmendFlightPlan()) {
+            Logger::Warning("Failed to amend flight plan {}", event.callsign);
+        }
     }
 
     void MessageService::HandleAircraftRunwayEvent(const AircraftRunwayEvent &event) const {

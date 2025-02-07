@@ -8,7 +8,8 @@ set(ALL_FILES
         doctest.cpp
         doctest.h
         $<TARGET_OBJECTS:FlightStripsCore>
-        AuthenticationServiceTest.cpp)
+        AuthenticationServiceTest.cpp
+        RouteServiceTest.cpp)
 
 ################################################################################
 # Target
@@ -19,6 +20,8 @@ add_test(NAME ${PROJECT_NAME} COMMAND ${PROJECT_NAME})
 
 use_props(${PROJECT_NAME} "${CMAKE_CONFIGURATION_TYPES}" "${DEFAULT_CXX_PROPS}")
 set(ROOT_NAMESPACE FlightStripsTest)
+
+target_precompile_headers(${PROJECT_NAME} PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${CMAKE_CURRENT_SOURCE_DIR}/../../src/plugin/pch/pch.h>")
 
 set_target_properties(${PROJECT_NAME} PROPERTIES
         VS_GLOBAL_KEYWORD "Win32Proj"

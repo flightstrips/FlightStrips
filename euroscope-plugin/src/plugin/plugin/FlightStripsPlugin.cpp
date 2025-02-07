@@ -133,6 +133,25 @@ namespace FlightStrips {
         return m_connectionState;
     }
 
+    std::vector<Sid> FlightStripsPlugin::GetSids(const std::string& airport) {
+        // Assumption name of the element will be in the format of: <airport-fixed-length> SID <runway> <sid>
+        constexpr size_t start = std::string_view("EKCH SID ").length();
+        std::vector<Sid> sids;
+
+        for (auto it = SectorFileElementSelectFirst(SECTOR_ELEMENT_SID); it.IsValid(); it = SectorFileElementSelectNext(it, SECTOR_ELEMENT_SID)) {
+            const auto sid= it.GetName();
+            if (_strnicmp(sid, airport.c_str(), 4) != 0) continue;
+            auto str = std::string(sid);
+
+            const auto pos = str.find(' ', start);
+            const auto runway = str.substr(start, pos - start);
+            const auto name = str.substr(pos + 1);
+
+            sids.emplace_back(name, runway);
+        }
+
+        return sids;
+    }
 
     void FlightStripsPlugin::OnAirportRunwayActivityChanged() {
         m_airportRunwayChangedEventHandlers->OnAirportRunwayActivityChanged();

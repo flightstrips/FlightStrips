@@ -42,6 +42,7 @@ namespace FlightStrips::websocket {
         void OnMessage(const websocketpp::connection_hdl& hdl, const client::message_ptr &msg) const;
         void OnFailure(const websocketpp::connection_hdl &hdl) ;
         void OnOpen(const websocketpp::connection_hdl &hdl) ;
+        void OnClose(const websocketpp::connection_hdl &hdl) ;
 
         void TryDisconnect();
 

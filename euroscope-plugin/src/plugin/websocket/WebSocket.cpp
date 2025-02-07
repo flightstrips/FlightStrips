@@ -59,6 +59,7 @@ namespace FlightStrips::websocket {
         con->set_open_handler([this] (const websocketpp::connection_hdl &hdl) { OnOpen(hdl); });
         con->set_message_handler([this](const websocketpp::connection_hdl &hdl, const client::message_ptr &msg) { OnMessage(hdl, msg); });
         con->set_fail_handler([this](const websocketpp::connection_hdl &hdl) { OnFailure(hdl); });
+        con->set_close_handler([this](const websocketpp::connection_hdl &hdl) { OnClose(hdl); });
 
         m_endpoint.connect(con);
     }
@@ -100,6 +101,13 @@ namespace FlightStrips::websocket {
         auto server = con->get_response_header("Server");
         Logger::Info("Connected to server: {}", server);
         on_connected_cb();
+    }
+
+    void WebSocket::OnClose(const websocketpp::connection_hdl &hdl) {
+        status_ = WEBSOCKET_STATUS_DISCONNECTED;
+        const client::connection_ptr con = m_endpoint.get_con_from_hdl(hdl);
+        const auto m_error_reason = con->get_ec().message();
+        Logger::Debug("Connection to server closed. Reason: {}", m_error_reason);
     }
 
     void WebSocket::add_windows_root_certs(const std::shared_ptr<asio::ssl::context> &context) {

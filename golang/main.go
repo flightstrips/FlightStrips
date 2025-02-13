@@ -6,10 +6,11 @@ import (
 	_ "database/sql"
 	"encoding/json"
 	"flag"
-	"github.com/jackc/pgx/v5/pgtype"
 	"log"
 	"net/http"
 	"time"
+
+	"github.com/jackc/pgx/v5/pgtype"
 
 	_ "github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -157,8 +158,9 @@ func main() {
 
 	// Create the parent server struct
 	server := Server{
-		DBPool:  dbpool,
-		logging: logging,
+		DBPool:        dbpool,
+		logging:       logging,
+		AuthServerURL: "https://dev-xd0uf4sd1v27r8tg.eu.auth0.com/.well-known/jwks.json",
 	}
 
 	//check that the dbpool is working

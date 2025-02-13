@@ -4,9 +4,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/golang-jwt/jwt/v5"
 	"log"
 	"net/http"
+
+	"github.com/golang-jwt/jwt/v5"
 
 	"github.com/gorilla/websocket"
 )
@@ -72,11 +73,13 @@ func (s *Server) euroscopeEvents(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	err = s.euroscopeeventhandlerConnectionClosed(client)
-	if err != nil {
-		log.Printf("Error handling connection closed event: %s \n", err)
-		return
-	}
+	/*
+		err = s.euroscopeeventhandlerConnectionClosed(client)
+		if err != nil {
+			log.Printf("Error handling connection closed event: %s \n", err)
+			return
+		}
+	*/
 	delete(euroscopeClients, client)
 	close(client.send)
 }
@@ -110,7 +113,7 @@ func (s *Server) euroscopeInitialEventsHandler(conn *websocket.Conn) (client *Eu
 	// Controller Online
 
 	client = &EuroscopeClient{conn: conn, authToken: token, send: make(chan []byte)}
-	return client, false, nil
+	return client, true, nil
 }
 
 func (s *Server) euroscopeEventsHandler(client *EuroscopeClient, event EuroscopeEvent, msg []byte) (output string, err error) {
@@ -119,6 +122,6 @@ func (s *Server) euroscopeEventsHandler(client *EuroscopeClient, event Euroscope
 	case PositionOnline:
 		return "", errors.New("not implemented")
 	default:
-		return "", fmt.Error("Unknown event type")
+		return "", errors.New("unknown event type")
 	}
 }

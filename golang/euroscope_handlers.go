@@ -3,9 +3,10 @@ package main
 import (
 	"encoding/json"
 	"errors"
+	"log"
+
 	"github.com/MicahParks/keyfunc/v3"
 	"github.com/golang-jwt/jwt/v5"
-	"log"
 )
 
 func (s *Server) euroscopeeventhandlerAuthentication(msg []byte, authServerURL string) (token *jwt.Token, err error) {
@@ -66,7 +67,7 @@ func (s *Server) euroscopeeventhandlerLogin(msg []byte) (success bool, err error
 
 	// TODO: Login Check Login Event and place into DB.
 
-	return false, nil
+	return true, nil
 }
 
 func (s *Server) euroscopeeventhandlerControllerOnline(msg []byte) (success bool, err error) {

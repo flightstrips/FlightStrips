@@ -153,6 +153,20 @@ namespace FlightStrips {
         return sids;
     }
 
+    void FlightStripsPlugin::AddNeedsSquawk(const std::string &callsign) {
+        m_needsSquawk.push(callsign);
+    }
+
+    std::optional<std::string> FlightStripsPlugin::GetNeedsSquawk() {
+        if (m_needsSquawk.empty()) {
+            return {};
+        }
+
+        auto needsSquawk = m_needsSquawk.front();
+        m_needsSquawk.pop();
+        return needsSquawk;
+    }
+
     void FlightStripsPlugin::OnAirportRunwayActivityChanged() {
         m_airportRunwayChangedEventHandlers->OnAirportRunwayActivityChanged();
     }
@@ -183,7 +197,7 @@ namespace FlightStrips {
     CRadarScreen *FlightStripsPlugin::OnRadarScreenCreated(const char *sDisplayName,
                                                            bool NeedRadarContent, bool GeoReferenced, bool CanBeSaved,
                                                            bool CanBeCreated) {
-        return new graphics::InfoScreen(m_authenticationService, m_userConfig);
+        return new graphics::InfoScreen(m_authenticationService, m_userConfig, this);
     }
 
     void FlightStripsPlugin::OnControllerPositionUpdate(EuroScopePlugIn::CController Controller) {

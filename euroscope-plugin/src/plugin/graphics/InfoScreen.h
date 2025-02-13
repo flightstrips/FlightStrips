@@ -7,11 +7,15 @@
 #include "Graphics.h"
 #include "authentication/AuthenticationService.h"
 
+namespace FlightStrips {
+    class FlightStripsPlugin;
+}
+
 namespace FlightStrips::graphics {
     class InfoScreen : public EuroScopePlugIn::CRadarScreen {
     public:
         explicit InfoScreen(const std::shared_ptr<authentication::AuthenticationService> &authenticationService,
-                            const std::shared_ptr<configuration::UserConfig> &config);
+                            const std::shared_ptr<configuration::UserConfig> &config, FlightStripsPlugin* plugin);
 
 
         void OnRefresh(HDC hDC, int Phase) override;
@@ -38,6 +42,7 @@ namespace FlightStrips::graphics {
 
         std::shared_ptr<authentication::AuthenticationService> authService;
         std::shared_ptr<configuration::UserConfig> userConfig;
+        FlightStripsPlugin *m_plugin;
 
         RECT menubar;
         HDC hdcHandle = nullptr;

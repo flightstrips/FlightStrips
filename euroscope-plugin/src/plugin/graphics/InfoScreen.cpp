@@ -5,20 +5,27 @@
 #include "InfoScreen.h"
 
 #include "Colors.h"
+#include "plugin/FlightStripsPlugin.h"
 
 namespace FlightStrips::graphics {
     InfoScreen::InfoScreen(
         const std::shared_ptr<authentication::AuthenticationService> &authenticationService,
-        const std::shared_ptr<configuration::UserConfig> &config) : authService(
-                                                                        authenticationService), userConfig(config) {
+        const std::shared_ptr<configuration::UserConfig> &config,
+        FlightStripsPlugin *plugin) : authService(
+                                          authenticationService), userConfig(config), m_plugin(plugin) {
         const auto state = userConfig->GetWindowState();
-        menubar = { state.x, state.y, state.x + width, state.y + height };
+        menubar = {state.x, state.y, state.x + width, state.y + height};
         isMinimized = state.minimized;
     }
 
     void InfoScreen::OnRefresh(HDC hDC, int Phase) {
         if (Phase != EuroScopePlugIn::REFRESH_PHASE_AFTER_LISTS) {
             return;
+        }
+
+        const auto needsSquawk = m_plugin->GetNeedsSquawk();
+        if (needsSquawk.has_value()) {
+            StartTagFunction("", "TopSky plugin", 0, needsSquawk.value().c_str(), "TopSky plugin", 667, {}, {});
         }
 
         if (!isOpen) {
@@ -63,7 +70,8 @@ namespace FlightStrips::graphics {
                 btnText = "Cancel";
                 break;
             case authentication::REFRESH:
-                graphics.DrawString("Refreshing token...", rectText, colors.whiteBrush.get(), Gdiplus::StringAlignmentNear);
+                graphics.DrawString("Refreshing token...", rectText, colors.whiteBrush.get(),
+                                    Gdiplus::StringAlignmentNear);
                 btnText = "No action";
                 break;
             case authentication::AUTHENTICATED:

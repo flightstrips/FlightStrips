@@ -91,6 +91,9 @@ namespace FlightStrips {
 
         std::vector<Sid> GetSids(const std::string& airport) override;
 
+        void AddNeedsSquawk(const std::string &callsign);
+        std::optional<std::string> GetNeedsSquawk();
+
     private:
         const std::shared_ptr<handlers::FlightPlanEventHandlers> m_flightPlanEventHandlerCollection;
         const std::shared_ptr<handlers::RadarTargetEventHandlers> m_radarTargetEventHandlers;
@@ -102,6 +105,6 @@ namespace FlightStrips {
         const std::shared_ptr<configuration::AppConfig> m_appConfig;
 
         ConnectionState m_connectionState = {};
-
+        std::queue<std::string> m_needsSquawk = {};
     };
 }

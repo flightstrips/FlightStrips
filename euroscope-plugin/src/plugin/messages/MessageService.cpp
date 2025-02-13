@@ -181,8 +181,8 @@ namespace FlightStrips::messages {
 
     void MessageService::HandleGenerateSquawkEvent(const GenerateSquawkEvent &event) const {
         const auto fp = m_plugin->FlightPlanSelect(event.callsign.c_str());
-        if (!fp.IsValid()) return;
-        // TODO generate squawk
+        if (!fp.IsValid() || !fp.GetCorrelatedRadarTarget().IsValid()) return;
+        m_plugin->AddNeedsSquawk(std::string(fp.GetCallsign()));
     }
 
     void MessageService::HandleRouteEvent(const RouteEvent &event) const {

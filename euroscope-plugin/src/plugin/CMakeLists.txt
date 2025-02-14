@@ -63,7 +63,10 @@ set(src__handlers
         handlers/ConnectionEventHandler.h
         handlers/MessageHandlers.cpp
         handlers/MessageHandlers.h
-        handlers/MessageHandler.h)
+        handlers/MessageHandler.h
+        handlers/AuthenticationEventHandlers.cpp
+        handlers/AuthenticationEventHandlers.h
+        handlers/AuthenticationEventHandler.h)
 source_group("src\\collections" FILES ${src__handlers})
 
 set(src__flightplan

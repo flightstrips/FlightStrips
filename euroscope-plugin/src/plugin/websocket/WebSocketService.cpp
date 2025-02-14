@@ -68,6 +68,12 @@ namespace FlightStrips::websocket {
         m_messageHandlers->OnMessages(messages);
     }
 
+    void WebSocketService::OnTokenUpdate(const std::string &token) {
+        if (!IsConnected()) return;
+        const auto event = TokenEvent(token);
+        SendEvent(event);
+    }
+
     bool WebSocketService::IsConnected() const {
         return webSocket.GetStatus() == WEBSOCKET_STATUS_CONNECTED;
     }

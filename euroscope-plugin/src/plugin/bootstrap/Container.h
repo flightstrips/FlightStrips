@@ -32,6 +32,7 @@ namespace FlightStrips {
         class UserConfig;
     }
     namespace handlers {
+        class AuthenticationEventHandlers;
         class MessageHandlers;
         class ConnectionEventHandlers;
         class FlightPlanEventHandlers;
@@ -80,6 +81,7 @@ namespace FlightStrips {
         std::shared_ptr<handlers::AirportRunwaysChangedEventHandlers> airportRunwaysChangedEventHandlers;
         std::shared_ptr<handlers::ConnectionEventHandlers> connectionEventHandlers;
         std::shared_ptr<handlers::MessageHandlers> messageHandlers;
+        std::shared_ptr<handlers::AuthenticationEventHandlers> authenticationEventHandlers;
 
         // flight plan
         std::shared_ptr<flightplan::FlightPlanService> flightPlanService;

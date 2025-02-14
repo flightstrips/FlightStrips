@@ -5,6 +5,7 @@
 
 #include "configuration/AppConfig.h"
 #include "configuration/UserConfig.h"
+#include "handlers/AuthenticationEventHandlers.h"
 #include "handlers/TimedEventHandler.h"
 
 namespace FlightStrips::authentication {
@@ -26,7 +27,7 @@ enum AuthenticationState {
 
 class AuthenticationService : public handlers::TimedEventHandler{
 public:
-    AuthenticationService(const std::shared_ptr<configuration::AppConfig> &appConfig, const std::shared_ptr<configuration::UserConfig> &userConfig);
+    AuthenticationService(const std::shared_ptr<configuration::AppConfig> &appConfig, const std::shared_ptr<configuration::UserConfig> &userConfig, const std::shared_ptr<handlers::AuthenticationEventHandlers> &handlers);
     ~AuthenticationService() override;
 
     void Logout();
@@ -43,11 +44,12 @@ public:
 private:
     std::shared_ptr<configuration::AppConfig> appConfig;
     std::shared_ptr<configuration::UserConfig> userConfig;
+    std::shared_ptr<handlers::AuthenticationEventHandlers> authEventHandlers;
     std::atomic_int state = ATOMIC_VAR_INIT(AuthenticationState::NONE);
 
-    std::string accessToken = "";
-    std::string refreshToken = "";
-    std::string name = "";
+    std::string accessToken;
+    std::string refreshToken;
+    std::string name;
     time_t expirationTime = 0;
 
     void LoadFromConfig();

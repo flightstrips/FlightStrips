@@ -38,12 +38,13 @@ namespace FlightStrips {
         this->container->radarTargetEventHandlers = std::make_shared<handlers::RadarTargetEventHandlers>();
         this->container->timedEventHandlers = std::make_shared<handlers::TimedEventHandlers>();
         this->container->messageHandlers = std::make_shared<handlers::MessageHandlers>();
+        this->container->authenticationEventHandlers = std::make_shared<handlers::AuthenticationEventHandlers>();
         this->container->airportRunwaysChangedEventHandlers = std::make_shared<
             handlers::AirportRunwaysChangedEventHandlers>();
         stands::StandsBootstrapper::Bootstrap(*this->container);
 
         this->container->authenticationService = std::make_shared<authentication::AuthenticationService>(
-            this->container->appConfig, this->container->userConfig);
+            this->container->appConfig, this->container->userConfig, this->container->authenticationEventHandlers);
         this->container->timedEventHandlers->RegisterHandler(this->container->authenticationService);
         this->container->plugin = std::make_shared<FlightStripsPlugin>(this->container->flightPlanEventHandlers,
                                                                        this->container->radarTargetEventHandlers,
@@ -70,6 +71,7 @@ namespace FlightStrips {
             this->container->plugin, this->container->webSocketService, this->container->flightPlanService,
             this->container->standService, this->container->routeService);
         this->container->messageHandlers->RegisterHandler(this->container->messageService);
+        this->container->authenticationEventHandlers->RegisterHandler(this->container->webSocketService);
 
         Logger::Info(std::format("Loaded plugin version {}.", PLUGIN_VERSION));
     }
@@ -87,6 +89,8 @@ namespace FlightStrips {
         this->container->airportRunwaysChangedEventHandlers.reset();
         this->container->timedEventHandlers->Clear();
         this->container->timedEventHandlers.reset();
+        this->container->authenticationEventHandlers->Clear();
+        this->container->authenticationEventHandlers.reset();
         this->container->messageHandlers->Clear();
         this->container->messageHandlers.reset();
         this->container->messageService.reset();

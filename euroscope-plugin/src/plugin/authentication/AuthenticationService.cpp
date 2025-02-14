@@ -11,7 +11,10 @@
 namespace FlightStrips::authentication {
     AuthenticationService::AuthenticationService(const std::shared_ptr<configuration::AppConfig> &appConfig,
                                                  const std::shared_ptr<configuration::UserConfig> &
-                                                 userConfig) : appConfig(appConfig), userConfig(userConfig) {
+                                                 userConfig,
+                                                 const std::shared_ptr<handlers::AuthenticationEventHandlers> &
+                                                 handlers) : appConfig(appConfig), userConfig(userConfig),
+                                                             authEventHandlers(handlers) {
         LoadFromConfig();
     }
 
@@ -201,9 +204,9 @@ namespace FlightStrips::authentication {
 
         const int exp = access_token_payload.value()["exp"];
 
-        // TODO event
         configuration::Token token = {access_token, refresh_token, id_token, exp};
         userConfig->SetToken(token);
+        authEventHandlers->OnTokenUpdate(access_token);
 
         this->accessToken = access_token;
         this->refreshToken = refresh_token;

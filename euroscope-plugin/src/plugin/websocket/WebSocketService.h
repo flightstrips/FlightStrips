@@ -3,6 +3,7 @@
 #include "WebSocket.h"
 #include "authentication/AuthenticationService.h"
 #include "configuration/AppConfig.h"
+#include "handlers/AuthenticationEventHandler.h"
 #include "handlers/ConnectionEventHandlers.h"
 #include "handlers/MessageHandlers.h"
 #include "handlers/TimedEventHandler.h"
@@ -15,7 +16,7 @@ namespace FlightStrips::websocket {
         STATE_MASTER
     };
 
-    class WebSocketService final : public handlers::TimedEventHandler {
+    class WebSocketService final : public handlers::TimedEventHandler, public handlers::AuthenticationEventHandler {
     public:
         explicit WebSocketService(const std::shared_ptr<configuration::AppConfig> &appConfig,
                                   const std::shared_ptr<authentication::AuthenticationService> &authentication_service,
@@ -26,6 +27,7 @@ namespace FlightStrips::websocket {
         ~WebSocketService() override;
 
         void OnTimer(int time) override;
+        void OnTokenUpdate(const std::string &token) override;
 
         template<typename T> requires std::is_base_of_v<Event, T>
         void SendEvent(const T &event);

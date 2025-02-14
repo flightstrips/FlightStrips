@@ -224,6 +224,18 @@ namespace FlightStrips::messages {
     void MessageService::HandleAircraftRunwayEvent(const AircraftRunwayEvent &event) const {
         const auto fp = m_plugin->FlightPlanSelect(event.callsign.c_str());
         if (!fp.IsValid()) return;
-        // TODO
+        // TODO: We only handle departures for now
+        const auto airport = m_plugin->GetConnectionState().relevant_airport;
+        if (_stricmp(fp.GetFlightPlanData().GetOrigin(), airport.c_str()) != 0) return;
+        auto route = std::string(fp.GetFlightPlanData().GetRoute());
+        m_routeService->SetDepartureRunway(route, event.runway, airport);
+        if (route.empty()) return;
+        if (!fp.GetFlightPlanData().SetRoute(route.c_str())) {
+            Logger::Warning("Failed to set route '{}' for {}", route, event.callsign);
+        }
+        if (!fp.GetFlightPlanData().AmendFlightPlan()) {
+            Logger::Warning("Failed to amend flight plan {}", event.callsign);
+        }
+
     }
 }

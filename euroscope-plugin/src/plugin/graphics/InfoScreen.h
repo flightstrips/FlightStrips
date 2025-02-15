@@ -6,6 +6,7 @@
 #include "Colors.h"
 #include "Graphics.h"
 #include "authentication/AuthenticationService.h"
+#include "websocket/WebSocketService.h"
 
 namespace FlightStrips {
     class FlightStripsPlugin;
@@ -15,7 +16,9 @@ namespace FlightStrips::graphics {
     class InfoScreen : public EuroScopePlugIn::CRadarScreen {
     public:
         explicit InfoScreen(const std::shared_ptr<authentication::AuthenticationService> &authenticationService,
-                            const std::shared_ptr<configuration::UserConfig> &config, FlightStripsPlugin* plugin);
+                            const std::shared_ptr<configuration::UserConfig> &config,
+                            const std::weak_ptr<websocket::WebSocketService> &webSocketService,
+                            FlightStripsPlugin* plugin);
 
 
         void OnRefresh(HDC hDC, int Phase) override;
@@ -42,6 +45,7 @@ namespace FlightStrips::graphics {
 
         std::shared_ptr<authentication::AuthenticationService> authService;
         std::shared_ptr<configuration::UserConfig> userConfig;
+        std::weak_ptr<websocket::WebSocketService> webSocketService;
         FlightStripsPlugin *m_plugin;
 
         RECT menubar;

@@ -14,8 +14,7 @@ namespace FlightStrips {
         const std::shared_ptr<handlers::ControllerEventHandlers> &mControllerEventHandlers,
         const std::shared_ptr<handlers::TimedEventHandlers> &mTimedEventHandlers,
         const std::shared_ptr<handlers::AirportRunwaysChangedEventHandlers> &mAirportRunwaysChangedEventHandlers,
-        const std::shared_ptr<authentication::AuthenticationService> &mAuthenticationService,
-        const std::shared_ptr<configuration::UserConfig> &mUserConfig,
+        const std::weak_ptr<Container> &mContainer,
         const std::shared_ptr<configuration::AppConfig> &mAppConfig)
         : CPlugIn(COMPATIBILITY_CODE, PLUGIN_NAME, PLUGIN_VERSION, PLUGIN_AUTHOR, PLUGIN_COPYRIGHT),
           m_flightPlanEventHandlerCollection(mFlightPlanEventHandlerCollection),
@@ -23,9 +22,8 @@ namespace FlightStrips {
           m_controllerEventHandlerCollection(mControllerEventHandlers),
           m_timedEventHandlers(mTimedEventHandlers),
           m_airportRunwayChangedEventHandlers(mAirportRunwaysChangedEventHandlers),
-          m_authenticationService(mAuthenticationService),
-          m_userConfig(mUserConfig),
-          m_appConfig(mAppConfig) {
+          m_appConfig(mAppConfig),
+          m_container(mContainer) {
     }
 
     void FlightStripsPlugin::Information(const std::string &message) {
@@ -197,7 +195,11 @@ namespace FlightStrips {
     CRadarScreen *FlightStripsPlugin::OnRadarScreenCreated(const char *sDisplayName,
                                                            bool NeedRadarContent, bool GeoReferenced, bool CanBeSaved,
                                                            bool CanBeCreated) {
-        return new graphics::InfoScreen(m_authenticationService, m_userConfig, this);
+        if (const auto ptr = m_container.lock()) {
+            return new graphics::InfoScreen(ptr->authenticationService, ptr->userConfig, ptr->webSocketService, this);
+        }
+        return nullptr;
+
     }
 
     void FlightStripsPlugin::OnControllerPositionUpdate(EuroScopePlugIn::CController Controller) {

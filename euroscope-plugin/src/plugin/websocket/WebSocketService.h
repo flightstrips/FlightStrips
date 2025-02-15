@@ -16,6 +16,11 @@ namespace FlightStrips::websocket {
         STATE_MASTER
     };
 
+    struct Stats {
+        int tx;
+        int rx;
+    };
+
     class WebSocketService final : public handlers::TimedEventHandler, public handlers::AuthenticationEventHandler {
     public:
         explicit WebSocketService(const std::shared_ptr<configuration::AppConfig> &appConfig,
@@ -34,6 +39,7 @@ namespace FlightStrips::websocket {
         bool IsConnected() const;
         bool ShouldSend() const;
         void SetSessionState(ClientState state);
+        Stats GetStats() const;
 
     private:
         std::shared_ptr<configuration::AppConfig> m_appConfig;
@@ -47,6 +53,9 @@ namespace FlightStrips::websocket {
 
         std::mutex message_mutex_;
         std::vector<nlohmann::json> messages_ {};
+
+        volatile int tx;
+        volatile int rx;
 
         void OnMessage(const std::string &message);
         void OnConnected();

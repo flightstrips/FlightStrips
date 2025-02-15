@@ -52,8 +52,7 @@ namespace FlightStrips {
                                                                        this->container->timedEventHandlers,
                                                                        this->container->
                                                                        airportRunwaysChangedEventHandlers,
-                                                                       this->container->authenticationService,
-                                                                       this->container->userConfig,
+                                                                       this->container,
                                                                        this->container->appConfig);
         this->container->webSocketService = std::make_shared<websocket::WebSocketService>(
             this->container->appConfig, this->container->authenticationService, this->container->plugin,

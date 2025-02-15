@@ -7,6 +7,7 @@
 #define PLUGIN_COPYRIGHT "GPLv3 License, Copyright (c) 2023 Frederik Rosenberg"
 #define GITHUB_LINK "https://github.com/frederikrosenberg/FlightStrips"
 #include "FlightStripsPluginInterface.h"
+#include "bootstrap/Container.h"
 #endif // !COPYRIGHTS
 
 #include "authentication/AuthenticationService.h"
@@ -47,8 +48,7 @@ namespace FlightStrips {
                 const std::shared_ptr<handlers::ControllerEventHandlers> &mControllerEventHandlers,
                 const std::shared_ptr<handlers::TimedEventHandlers> &mTimedEventHandlers,
                 const std::shared_ptr<handlers::AirportRunwaysChangedEventHandlers> &mAirportRunwaysChangedEventHandlers,
-                const std::shared_ptr<authentication::AuthenticationService> &mAuthenticationService,
-                const std::shared_ptr<configuration::UserConfig> &mUserConfig,
+                const std::weak_ptr<Container> &mContainer,
                 const std::shared_ptr<configuration::AppConfig> &mAppConfig);
 
         ~FlightStripsPlugin() override;
@@ -100,9 +100,8 @@ namespace FlightStrips {
         const std::shared_ptr<handlers::ControllerEventHandlers> m_controllerEventHandlerCollection;
         const std::shared_ptr<handlers::TimedEventHandlers> m_timedEventHandlers;
         const std::shared_ptr<handlers::AirportRunwaysChangedEventHandlers> m_airportRunwayChangedEventHandlers;
-        const std::shared_ptr<authentication::AuthenticationService> m_authenticationService;
-        const std::shared_ptr<configuration::UserConfig> m_userConfig;
         const std::shared_ptr<configuration::AppConfig> m_appConfig;
+        const std::weak_ptr<Container> m_container;
 
         ConnectionState m_connectionState = {};
         std::queue<std::string> m_needsSquawk = {};

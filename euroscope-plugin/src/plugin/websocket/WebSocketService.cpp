@@ -86,8 +86,13 @@ namespace FlightStrips::websocket {
         client_state = state;
     }
 
+    Stats WebSocketService::GetStats() const {
+        return Stats(tx, rx);
+    }
+
     template<typename T> requires std::is_base_of_v<Event, T>
     void WebSocketService::SendEvent(const T &event) {
+        tx++;
         const nlohmann::json json = event;
         const auto json_str = json.dump();
         webSocket.Send(json_str);
@@ -95,6 +100,7 @@ namespace FlightStrips::websocket {
     }
 
     void WebSocketService::OnMessage(const std::string &message) {
+        rx++;
         const auto json = nlohmann::json::parse(message, nullptr, false, false);
         if (json.is_discarded()) {
             Logger::Warning("Invalid JSON message: {}", message);
@@ -106,6 +112,8 @@ namespace FlightStrips::websocket {
     }
 
     void WebSocketService::OnConnected() {
+        tx = 0;
+        rx = 0;
         const auto token = TokenEvent(m_authentication_service->GetAccessToken());
         SendEvent(token);
         SendLoginEvent();

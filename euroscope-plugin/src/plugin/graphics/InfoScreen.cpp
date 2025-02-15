@@ -11,8 +11,9 @@ namespace FlightStrips::graphics {
     InfoScreen::InfoScreen(
         const std::shared_ptr<authentication::AuthenticationService> &authenticationService,
         const std::shared_ptr<configuration::UserConfig> &config,
+        const std::weak_ptr<websocket::WebSocketService> &webSocketService,
         FlightStripsPlugin *plugin) : authService(
-                                          authenticationService), userConfig(config), m_plugin(plugin) {
+                                          authenticationService), userConfig(config), webSocketService(webSocketService), m_plugin(plugin) {
         const auto state = userConfig->GetWindowState();
         menubar = {state.x, state.y, state.x + width, state.y + height};
         isMinimized = state.minimized;
@@ -40,7 +41,7 @@ namespace FlightStrips::graphics {
 
         AddScreenObject(windowId, "", menubar, true, nullptr);
 
-        const RECT windowRect = {menubar.left, menubar.top, menubar.right, menubar.bottom + 75};
+        const RECT windowRect = {menubar.left, menubar.top, menubar.right, menubar.bottom + 110};
         const RECT closeBth = {menubar.right - 12, menubar.top + 3, menubar.right - 3, menubar.bottom - 3};
         AddScreenObject(closeId, "", closeBth, false, nullptr);
         const RECT minimizeBtn = {menubar.right - 30, menubar.top + 3, menubar.right - 18, menubar.bottom - 3};
@@ -90,6 +91,14 @@ namespace FlightStrips::graphics {
         graphics.FillRect(colors.headerBrush.get(), btnRect);
         graphics.DrawString(btnText, btnRect, colors.whiteBrush.get(), Gdiplus::StringAlignmentCenter);
         AddScreenObject(authenticationButtonId, "", btnRect, false, nullptr);
+
+        if (const auto service = webSocketService.lock()) {
+            const RECT statusRect = {rectText.left, btnRect.bottom + 10, rectText.right, btnRect.bottom + 45};
+            const auto [tx, rx] = service->GetStats();
+            const auto statusText = std::format("{}\nTX: {}\nRX: {}", service->IsConnected() ? "Connected" : "Disconnected", tx, rx);
+            graphics.DrawString(statusText, statusRect, colors.whiteBrush.get(), Gdiplus::StringAlignmentNear);
+        }
+
         canClick = true;
     }
 

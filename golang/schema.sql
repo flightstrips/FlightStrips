@@ -4,6 +4,8 @@ CREATE TABLE IF NOT EXISTS controllers (
   position varchar
 );
 
+
+
 CREATE TABLE IF NOT EXISTS events (
     id SERIAL PRIMARY KEY,
     type varchar,

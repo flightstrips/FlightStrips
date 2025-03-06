@@ -29,6 +29,36 @@ UPDATE strips SET (
         $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30
     ) WHERE id = $31;
 
+-- name: UpdateStripSquawkByID :exec
+UPDATE strips SET squawk = $1 WHERE id = $2;
+
+-- name: UpdateStripAssignedSquawkByID :exec
+UPDATE strips SET assigned_squawk = $1 WHERE id = $2;
+
+-- name: UpdateStripClearedAltitudeByID :exec
+UPDATE strips SET cleared_altitude = $1 WHERE id = $2;
+
+-- name: UpdateStripRequestedAltitudeByID :exec
+UPDATE strips SET requested_altitude = $1 WHERE id = $2;
+
+-- name: UpdateStripCommunicationTypeByID :exec
+UPDATE strips SET communication_type = $1 WHERE id = $2;
+
+-- name: UpdateStripGroundStateByID :exec
+UPDATE strips SET state = $1 WHERE id = $2;
+
+-- name: UpdateStripClearedFlagByID :exec
+UPDATE strips SET cleared = $1 WHERE id = $2;
+
+-- name: UpdateStripAircraftPositionByID :exec
+UPDATE strips SET position_latitude = $1, position_longitude = $2, position_altitude = $3 WHERE id = $4;
+
+-- name: UpdateStripHeadingByID :exec
+UPDATE strips SET heading = $1 WHERE id = $2;
+
+-- name: UpdateStripStandByID :exec
+UPDATE strips SET stand = $1 WHERE id = $2;
+
 -- name: RemoveStripByID :exec
 DELETE FROM strips WHERE id = $1;
 

@@ -8,6 +8,7 @@ import (
 	"flag"
 	"log"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
@@ -20,6 +21,7 @@ import (
 	_ "github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/gorilla/websocket"
+	"github.com/joho/godotenv"
 )
 
 var addr = flag.String("addr", ":2994", "http service address")
@@ -147,8 +149,13 @@ func main() {
 	flag.Parse()
 	log.SetFlags(0)
 
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatal("Error loading .env file")
+	}
+
 	ctx := context.Background()
-	dbpool, err := pgxpool.New(ctx, "postgresql://theoa:theoa@postgres/fsdb?sslmode=disable")
+	dbpool, err := pgxpool.New(ctx, os.Getenv("DATABASE_CONNECTIONSTRING"))
 	if err != nil {
 		log.Fatal(err)
 	}

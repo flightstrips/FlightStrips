@@ -4,24 +4,23 @@ services:
     ports:
       - 5432:5432
     volumes:
-      - ./postgres-data:/var/lib/postgresql/data
+      - postgres:/var/lib/postgresql/data
       - ./pg_hba.conf:/var/lib/postgresql/pg_hba.conf
     environment:
-      - POSTGRES_PASSWORD=theoa
-      - POSTGRES_USER=theoa
+      - POSTGRES_PASSWORD=fs_password
+      - POSTGRES_USER=fs
       - POSTGRES_DB=fsdb
       - POSTGRES_HOST_AUTH_METHOD=trust
     networks:
       - flightstrips
     restart: unless-stopped
     command: ["postgres"]
+    profiles: [all, database]
 
   flightstrip:
     build: .
     environment:
-      - POSTGRES_USER=theoa
-      - POSTGRES_PASSWORD=theoa
-      - POSTGRES_DB=fsdb
+      - DATABASE_CONNECTIONSTRING=postgresql://fs:fs_password@postgres:5432/fsdb?sslmode=disable
       - SLEEP_TIME=30
     networks:
       - flightstrips
@@ -31,6 +30,7 @@ services:
     depends_on:
       postgres:
         condition: service_started
+    profiles: [all]
 
 networks:
   flightstrips:

@@ -121,6 +121,50 @@ func (s *Server) euroscopeEventsHandler(client *EuroscopeClient, event Euroscope
 	switch event.Type {
 	case PositionOnline:
 		return "", errors.New("not implemented")
+	case EuroscopeControllerOnline:
+		return "", errors.New("not implemented")
+	case EuroscopeControllerOffline:
+		return "", errors.New("not implemented")
+	case EuroscopeSync:
+		return "", errors.New("not implemented")
+	case EuroscopeAssignedSquawk:
+		return "", errors.New("not implemented")
+	case EuroscopeSquawk:
+		return "", errors.New("not implemented")
+	case EuroscopeRequestedAltitude:
+		return "", errors.New("not implemented")
+	case EuroscopeClearedAltitude:
+		return "", errors.New("not implemented")
+	case EuroscopeCommunicationType:
+		return "", errors.New("not implemented")
+	case EuroscopeGroundState:
+		return "", errors.New("not implemented")
+	case EuroscopeClearedFlag:
+		return "", errors.New("not implemented")
+	case EuroscopePositionUpdate:
+		return "", errors.New("not implemented")
+	case EuroscopeSetHeading:
+		return "", errors.New("not implemented")
+	case EuroscopeAircraftDisconnected:
+		return "", errors.New("not implemented")
+	case EuroscopeStand:
+		return "", errors.New("not implemented")
+	case EuroscopeStripUpdate:
+		return "", errors.New("not implemented")
+	case EuroscopeRunway:
+		return "", errors.New("not implemented")
+	case EuroscopeSessionInfo:
+		return "", errors.New("not implemented")
+	case EuroscopeGenerateSquawk:
+		return "", errors.New("not implemented")
+	case EuroscopeRoute:
+		return "", errors.New("not implemented")
+	case EuroscopeRemarks:
+		return "", errors.New("not implemented")
+	case EuroscopeSID:
+		return "", errors.New("not implemented")
+	case EuroscopeAircraftRunway:
+		return "", errors.New("not implemented")
 	default:
 		return "", errors.New("unknown event type")
 	}

@@ -1,66 +1,65 @@
 package main
 
 import (
+	"FlightStrips/data"
+	"context"
 	"encoding/json"
 	"errors"
 	"log"
 
 	"github.com/MicahParks/keyfunc/v3"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
-func (s *Server) euroscopeeventhandlerAuthentication(msg []byte, authServerURL string) (token *jwt.Token, err error) {
-
-	var event EuroscopeEvent
+func (s *Server) euroscopeeventhandlerAuthentication(msg []byte) (user *EuroscopeUser, err error) {
+	var event EuroscopeAuthenticationEvent
 	err = json.Unmarshal(msg, &event)
 	if err != nil {
-		return token, err
-	}
-	if event.Type != EuroscopeAuthentication {
-		return token, errors.New("invalid event type")
+		return user, err
 	}
 
-	var authEvent EuroscopeAuthenticationEvent
-	err = json.Unmarshal(msg, &authEvent)
-	if err != nil {
-		return token, err
-	}
-
-	return s.euroscopeeventhandlerAuthenticationTokenValidation(authEvent.Token, authServerURL)
+	return s.euroscopeeventhandlerAuthenticationTokenValidation(event.Token)
 }
 
-func (s *Server) euroscopeeventhandlerAuthenticationTokenValidation(eventToken string, authServerURL string) (token *jwt.Token, err error) {
+func (s *Server) euroscopeeventhandlerAuthenticationTokenValidation(eventToken string) (user *EuroscopeUser, err error) {
 	// TODO: Sort out Logging
 	JWTToken := eventToken
 
-	k, err := keyfunc.NewDefault([]string{authServerURL})
+	k, err := keyfunc.NewDefault([]string{s.AuthServerURL})
 	if err != nil {
 		log.Fatalf("Failed to create a keyfunc.Keyfunc from the server's URL.\nError: %s", err)
 	}
-	token, err = jwt.Parse(JWTToken, k.Keyfunc)
+	options := jwt.WithValidMethods([]string{s.AuthSigningAlgo})
+	token, err := jwt.Parse(JWTToken, k.Keyfunc, options)
 	if err != nil {
-		return token, err
+		return nil, err
 	}
 	if !token.Valid {
-		return token, errors.New("invalid jwt")
+		return nil, errors.New("invalid jwt")
 	}
 
-	return token, nil
+	claims := token.Claims.(jwt.MapClaims)
+
+	cid, ok := claims["vatsim/cid"].(string)
+
+	if !ok {
+		return nil, errors.New("Missing CID claim")
+	}
+
+	rating, ok := claims["vatsim/rating"].(float64)
+
+	if !ok {
+		return nil, errors.New("Missing Rating claim")
+	}
+
+	esUser := &EuroscopeUser { cid: cid, rating: int(rating), authToken: token }
+	return esUser, nil
 }
 
 func (s *Server) euroscopeeventhandlerLogin(msg []byte) (success bool, err error) {
-	var event EuroscopeEvent
+	var event EuroscopeLoginEvent
 	err = json.Unmarshal(msg, &event)
-	if err != nil {
-		return false, err
-	}
-
-	if event.Type != EuroscopeLogin {
-		return false, errors.New("invalid event type")
-	}
-
-	var loginEvent EuroscopeLoginEvent
-	err = json.Unmarshal(msg, &loginEvent)
 	if err != nil {
 		return false, err
 	}
@@ -71,21 +70,20 @@ func (s *Server) euroscopeeventhandlerLogin(msg []byte) (success bool, err error
 }
 
 func (s *Server) euroscopeeventhandlerControllerOnline(msg []byte) (success bool, err error) {
-	var event EuroscopeEvent
+	var event EuroscopeControllerOnlineEvent
 	err = json.Unmarshal(msg, &event)
 	if err != nil {
 		return false, err
 	}
 
-	if event.Type != EuroscopeControllerOnline {
-		return false, errors.New("invalid event type")
+	db := data.New(s.DBPool)
+	data := data.InsertControllerParams{
+		Cid:      "1111",
+		Airport:  pgtype.Text{String: "EKCH", Valid: true},
+		Position: pgtype.Text{String: event.Position, Valid: true},
 	}
 
-	var positionOnlineEvent EuroscopeControllerOnlineEvent
-	err = json.Unmarshal(msg, &positionOnlineEvent)
-	if err != nil {
-		return false, err
-	}
+	db.InsertController(context.Background(), data)
 
 	//TODO: Put into DB and shit
 

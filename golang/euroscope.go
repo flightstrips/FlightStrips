@@ -12,11 +12,17 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-type EuroscopeClient struct {
-	conn      *websocket.Conn
+type EuroscopeUser struct {
+	cid       string
+	rating    int
 	authToken *jwt.Token
-	send      chan []byte
-	token     string
+}
+
+type EuroscopeClient struct {
+	conn    *websocket.Conn
+	send    chan []byte
+	user    *EuroscopeUser
+	airport string
 }
 
 // Global variables for managing clients.
@@ -91,7 +97,7 @@ func (s *Server) euroscopeInitialEventsHandler(conn *websocket.Conn) (client *Eu
 		return nil, false, err
 	}
 
-	token, err := s.euroscopeeventhandlerAuthentication(msg, s.AuthServerURL)
+	user, err := s.euroscopeeventhandlerAuthentication(msg)
 	if err != nil {
 		return nil, false, err
 	}
@@ -112,7 +118,7 @@ func (s *Server) euroscopeInitialEventsHandler(conn *websocket.Conn) (client *Eu
 
 	// Controller Online
 
-	client = &EuroscopeClient{conn: conn, authToken: token, send: make(chan []byte)}
+	client = &EuroscopeClient{conn: conn, send: make(chan []byte), user: user}
 	return client, true, nil
 }
 

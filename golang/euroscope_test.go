@@ -14,6 +14,7 @@ func TestEuroscopeLoginEvent(t *testing.T) {
 		nil,
 		nil,
 		"",
+		"",
 	}
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

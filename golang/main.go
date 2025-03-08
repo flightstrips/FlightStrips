@@ -129,9 +129,10 @@ func (s *Server) handleServerLogging(logging chan interface{}) {
 
 // Server holds shared resources
 type Server struct {
-	DBPool        *pgxpool.Pool
-	logging       chan interface{}
-	AuthServerURL string
+	DBPool          *pgxpool.Pool
+	logging         chan interface{}
+	AuthServerURL   string
+	AuthSigningAlgo string
 }
 
 func (s *Server) log(msg string) {
@@ -165,9 +166,10 @@ func main() {
 
 	// Create the parent server struct
 	server := Server{
-		DBPool:        dbpool,
-		logging:       logging,
-		AuthServerURL: "https://dev-xd0uf4sd1v27r8tg.eu.auth0.com/.well-known/jwks.json",
+		DBPool:          dbpool,
+		logging:         logging,
+		AuthServerURL:   os.Getenv("OIDC_AUTHORITY"),
+		AuthSigningAlgo: os.Getenv("OIDC_SIGNING_ALGO"),
 	}
 
 	//check that the dbpool is working

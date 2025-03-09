@@ -9,9 +9,11 @@ import (
 )
 
 type Controller struct {
-	Cid      string
-	Airport  pgtype.Text
-	Position pgtype.Text
+	Callsign  string
+	Airport   string
+	Position  string
+	Master    bool
+	Connected bool
 }
 
 type Event struct {

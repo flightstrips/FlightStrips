@@ -9,7 +9,7 @@ import (
 
 	"github.com/MicahParks/keyfunc/v3"
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/jackc/pgx/v5"
 )
 
 func (s *Server) euroscopeeventhandlerAuthentication(msg []byte) (user *EuroscopeUser, err error) {
@@ -53,23 +53,49 @@ func (s *Server) euroscopeeventhandlerAuthenticationTokenValidation(eventToken s
 		return nil, errors.New("Missing Rating claim")
 	}
 
-	esUser := &EuroscopeUser { cid: cid, rating: int(rating), authToken: token }
+	esUser := &EuroscopeUser{cid: cid, rating: int(rating), authToken: token}
 	return esUser, nil
 }
 
-func (s *Server) euroscopeeventhandlerLogin(msg []byte) (success bool, err error) {
-	var event EuroscopeLoginEvent
+func (s *Server) euroscopeeventhandlerLogin(msg []byte) (event EuroscopeLoginEvent, err error) {
 	err = json.Unmarshal(msg, &event)
 	if err != nil {
-		return false, err
+		return
 	}
 
-	// TODO: Login Check Login Event and place into DB.
+	// Since the login is sent on first logon and when a position is changed we need to check if the controller is
+	// already in the database. It may also already be in the database if the master have synced it before a new
+	// controller connects to FlightStrips
 
-	return true, nil
+	db := data.New(s.DBPool)
+	controller, err := db.GetController(context.TODO(), event.Callsign)
+
+	if err == pgx.ErrNoRows {
+		data := data.InsertControllerParams{
+			Callsign:  event.Callsign,
+			Position:  event.Position,
+			Airport:   event.Airport,
+			Connected: true,
+			Master:    false,
+		}
+
+		err = db.InsertController(context.Background(), data)
+
+		return event, err
+	}
+
+	if err != nil {
+		return event, err
+	}
+
+	data := data.UpdateControllerParams{Callsign: event.Callsign, Connected: true, Master: controller.Master, Position: event.Position}
+
+	err = db.UpdateController(context.TODO(), data)
+
+	return event, err
 }
 
-func (s *Server) euroscopeeventhandlerControllerOnline(msg []byte) (success bool, err error) {
+func (s *Server) euroscopeeventhandlerControllerOnline(msg []byte, airport string) (success bool, err error) {
 	var event EuroscopeControllerOnlineEvent
 	err = json.Unmarshal(msg, &event)
 	if err != nil {
@@ -77,15 +103,42 @@ func (s *Server) euroscopeeventhandlerControllerOnline(msg []byte) (success bool
 	}
 
 	db := data.New(s.DBPool)
-	data := data.InsertControllerParams{
-		Cid:      "1111",
-		Airport:  pgtype.Text{String: "EKCH", Valid: true},
-		Position: pgtype.Text{String: event.Position, Valid: true},
+	controller, err := db.GetController(context.TODO(), event.Callsign)
+
+	if err == pgx.ErrNoRows {
+		// New controller insert
+		data := data.InsertControllerParams{
+			Callsign:  event.Callsign,
+			Position:  event.Position,
+			Airport:   airport,
+			Connected: false,
+			Master:    false,
+		}
+
+		err = db.InsertController(context.Background(), data)
+
+		if err != nil {
+			return false, err
+		}
+
+		return true, nil
 	}
 
-	db.InsertController(context.Background(), data)
+	if err != nil {
+		return false, err
+	}
 
-	//TODO: Put into DB and shit
+	if controller.Position == event.Position {
+		return true, nil
+	}
+
+	data := data.UpdateControllerParams{Callsign: event.Callsign, Connected: controller.Connected, Master: controller.Master, Position: event.Position}
+
+	err = db.UpdateController(context.TODO(), data)
+
+	if err != nil {
+		return false, err
+	}
 
 	return true, nil
 }

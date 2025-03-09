@@ -1,10 +1,19 @@
--- name: InsertController :one
+-- name: InsertController :exec
 INSERT INTO controllers (
-    cid, airport, position
+    callsign, airport, position, master, connected
 ) VALUES (
-             $1, $2, $3
-         )
-RETURNING *;
+             $1, $2, $3, $4, $5
+         );
+
+-- name: BulkInsertControllers :copyfrom
+INSERT INTO controllers (
+    callsign, airport, position, master, connected
+) VALUES (
+             $1, $2, $3, $4, $5
+         );
+
+-- name: UpdateController :exec
+UPDATE controllers SET (position, master, connected) = ($1, $2, $3) WHERE callsign = $4;
 
 -- name: ListControllers :many
 SELECT * FROM controllers ORDER BY airport;
@@ -13,7 +22,10 @@ SELECT * FROM controllers ORDER BY airport;
 SELECT * FROM controllers WHERE airport = $1;
 
 -- name: RemoveController :exec
-DELETE FROM controllers WHERE cid = $1;
+DELETE FROM controllers WHERE callsign = $1;
+
+-- name: GetController :one
+SELECT * FROM controllers WHERE callsign = $1;
 
 -- name: InsertStrip :exec
 INSERT INTO strips (

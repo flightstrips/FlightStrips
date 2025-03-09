@@ -1,7 +1,9 @@
 CREATE TABLE IF NOT EXISTS controllers (
-  cid varchar PRIMARY KEY,
-  airport varchar,
-  position varchar
+    callsign varchar PRIMARY KEY,
+    airport varchar(4) NOT NULL,
+    position varchar(7) NOT NULL,
+    master boolean NOT NULL,
+    connected boolean NOT NULL
 );
 
 

@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"github.com/jackc/pgx/v5/pgtype"
 	"log"
 )
 
@@ -13,7 +12,7 @@ func (s *Server) frontendeventhandlerControllerOffline(client *FrontEndClient) e
 	// TODO: Var verification?
 
 	// Obtain a list of the controllers at the airport from the database
-	controllersAtAirport, err := data.New(s.DBPool).ListControllersByAirport(context.Background(), pgtype.Text{String: client.airport})
+	controllersAtAirport, err := data.New(s.DBPool).ListControllersByAirport(context.Background(), client.airport)
 	if err != nil {
 		log.Fatalf("Error getting controllers by airport: %v", err)
 	}
@@ -21,7 +20,7 @@ func (s *Server) frontendeventhandlerControllerOffline(client *FrontEndClient) e
 	// Check to see if there is another controller online at that position
 	otherControllerAtPosition := false
 	for _, controller := range controllersAtAirport {
-		if controller.Position.String == client.position {
+		if controller.Position == client.position {
 			otherControllerAtPosition = true
 		}
 	}

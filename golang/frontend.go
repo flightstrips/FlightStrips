@@ -180,6 +180,7 @@ func (s *Server) handleInitialConnectionEvent(msg []byte) (cid, airport, positio
 	// TODO: Auth
 
 	// Define insertable controller params
+	/*
 	insertControllerParams := data.InsertControllerParams{
 		Cid: initialConnectionEventPayload.CID,
 		Airport: pgtype.Text{
@@ -210,6 +211,7 @@ func (s *Server) handleInitialConnectionEvent(msg []byte) (cid, airport, positio
 		log.Fatalf("Error publishing controller online event: %v", err)
 		return "", "", "", err
 	}
+	*/
 
 	return initialConnectionEventPayload.CID, initialConnectionEventPayload.Airport, initialConnectionEventPayload.Position, nil
 }
@@ -226,10 +228,7 @@ func (s *Server) returnInitialConnectionResponseEvent(conn *websocket.Conn, airp
 	var resp InitialConnectionEventResponsePayload
 
 	// Get all Controllers
-	controllers, err := db.ListControllersByAirport(context.Background(), pgtype.Text{
-		String: airport,
-		Valid:  true,
-	})
+	controllers, err := db.ListControllersByAirport(context.Background(), airport)
 	if err != nil {
 		return err
 	}

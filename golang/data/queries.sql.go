@@ -11,26 +11,56 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const insertController = `-- name: InsertController :one
+type BulkInsertControllersParams struct {
+	Callsign  string
+	Airport   string
+	Position  string
+	Master    bool
+	Connected bool
+}
+
+const getController = `-- name: GetController :one
+SELECT callsign, airport, position, master, connected FROM controllers WHERE callsign = $1
+`
+
+func (q *Queries) GetController(ctx context.Context, callsign string) (Controller, error) {
+	row := q.db.QueryRow(ctx, getController, callsign)
+	var i Controller
+	err := row.Scan(
+		&i.Callsign,
+		&i.Airport,
+		&i.Position,
+		&i.Master,
+		&i.Connected,
+	)
+	return i, err
+}
+
+const insertController = `-- name: InsertController :exec
 INSERT INTO controllers (
-    cid, airport, position
+    callsign, airport, position, master, connected
 ) VALUES (
-             $1, $2, $3
+             $1, $2, $3, $4, $5
          )
-RETURNING cid, airport, position
 `
 
 type InsertControllerParams struct {
-	Cid      string
-	Airport  pgtype.Text
-	Position pgtype.Text
+	Callsign  string
+	Airport   string
+	Position  string
+	Master    bool
+	Connected bool
 }
 
-func (q *Queries) InsertController(ctx context.Context, arg InsertControllerParams) (Controller, error) {
-	row := q.db.QueryRow(ctx, insertController, arg.Cid, arg.Airport, arg.Position)
-	var i Controller
-	err := row.Scan(&i.Cid, &i.Airport, &i.Position)
-	return i, err
+func (q *Queries) InsertController(ctx context.Context, arg InsertControllerParams) error {
+	_, err := q.db.Exec(ctx, insertController,
+		arg.Callsign,
+		arg.Airport,
+		arg.Position,
+		arg.Master,
+		arg.Connected,
+	)
+	return err
 }
 
 const insertIntoEvents = `-- name: InsertIntoEvents :exec
@@ -138,7 +168,7 @@ func (q *Queries) InsertStrip(ctx context.Context, arg InsertStripParams) error 
 }
 
 const listControllers = `-- name: ListControllers :many
-SELECT cid, airport, position FROM controllers ORDER BY airport
+SELECT callsign, airport, position, master, connected FROM controllers ORDER BY airport
 `
 
 func (q *Queries) ListControllers(ctx context.Context) ([]Controller, error) {
@@ -150,7 +180,13 @@ func (q *Queries) ListControllers(ctx context.Context) ([]Controller, error) {
 	var items []Controller
 	for rows.Next() {
 		var i Controller
-		if err := rows.Scan(&i.Cid, &i.Airport, &i.Position); err != nil {
+		if err := rows.Scan(
+			&i.Callsign,
+			&i.Airport,
+			&i.Position,
+			&i.Master,
+			&i.Connected,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -162,10 +198,10 @@ func (q *Queries) ListControllers(ctx context.Context) ([]Controller, error) {
 }
 
 const listControllersByAirport = `-- name: ListControllersByAirport :many
-SELECT cid, airport, position FROM controllers WHERE airport = $1
+SELECT callsign, airport, position, master, connected FROM controllers WHERE airport = $1
 `
 
-func (q *Queries) ListControllersByAirport(ctx context.Context, airport pgtype.Text) ([]Controller, error) {
+func (q *Queries) ListControllersByAirport(ctx context.Context, airport string) ([]Controller, error) {
 	rows, err := q.db.Query(ctx, listControllersByAirport, airport)
 	if err != nil {
 		return nil, err
@@ -174,7 +210,13 @@ func (q *Queries) ListControllersByAirport(ctx context.Context, airport pgtype.T
 	var items []Controller
 	for rows.Next() {
 		var i Controller
-		if err := rows.Scan(&i.Cid, &i.Airport, &i.Position); err != nil {
+		if err := rows.Scan(
+			&i.Callsign,
+			&i.Airport,
+			&i.Position,
+			&i.Master,
+			&i.Connected,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -272,11 +314,11 @@ func (q *Queries) ListStripsByOrigin(ctx context.Context, origin pgtype.Text) ([
 }
 
 const removeController = `-- name: RemoveController :exec
-DELETE FROM controllers WHERE cid = $1
+DELETE FROM controllers WHERE callsign = $1
 `
 
-func (q *Queries) RemoveController(ctx context.Context, cid string) error {
-	_, err := q.db.Exec(ctx, removeController, cid)
+func (q *Queries) RemoveController(ctx context.Context, callsign string) error {
+	_, err := q.db.Exec(ctx, removeController, callsign)
 	return err
 }
 
@@ -286,6 +328,27 @@ DELETE FROM strips WHERE id = $1
 
 func (q *Queries) RemoveStripByID(ctx context.Context, id string) error {
 	_, err := q.db.Exec(ctx, removeStripByID, id)
+	return err
+}
+
+const updateController = `-- name: UpdateController :exec
+UPDATE controllers SET (position, master, connected) = ($1, $2, $3) WHERE callsign = $4
+`
+
+type UpdateControllerParams struct {
+	Position  string
+	Master    bool
+	Connected bool
+	Callsign  string
+}
+
+func (q *Queries) UpdateController(ctx context.Context, arg UpdateControllerParams) error {
+	_, err := q.db.Exec(ctx, updateController,
+		arg.Position,
+		arg.Master,
+		arg.Connected,
+		arg.Callsign,
+	)
 	return err
 }
 

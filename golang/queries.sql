@@ -12,7 +12,7 @@ INSERT INTO controllers (
              $1, $2, $3, $4, $5
          );
 
--- name: UpdateController :exec
+-- name: UpdateController :execrows
 UPDATE controllers SET (position, master, connected) = ($1, $2, $3) WHERE callsign = $4;
 
 -- name: ListControllers :many
@@ -21,7 +21,7 @@ SELECT * FROM controllers ORDER BY airport;
 -- name: ListControllersByAirport :many
 SELECT * FROM controllers WHERE airport = $1;
 
--- name: RemoveController :exec
+-- name: RemoveController :execrows
 DELETE FROM controllers WHERE callsign = $1;
 
 -- name: GetController :one

@@ -313,13 +313,16 @@ func (q *Queries) ListStripsByOrigin(ctx context.Context, origin pgtype.Text) ([
 	return items, nil
 }
 
-const removeController = `-- name: RemoveController :exec
+const removeController = `-- name: RemoveController :execrows
 DELETE FROM controllers WHERE callsign = $1
 `
 
-func (q *Queries) RemoveController(ctx context.Context, callsign string) error {
-	_, err := q.db.Exec(ctx, removeController, callsign)
-	return err
+func (q *Queries) RemoveController(ctx context.Context, callsign string) (int64, error) {
+	result, err := q.db.Exec(ctx, removeController, callsign)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const removeStripByID = `-- name: RemoveStripByID :exec
@@ -331,7 +334,7 @@ func (q *Queries) RemoveStripByID(ctx context.Context, id string) error {
 	return err
 }
 
-const updateController = `-- name: UpdateController :exec
+const updateController = `-- name: UpdateController :execrows
 UPDATE controllers SET (position, master, connected) = ($1, $2, $3) WHERE callsign = $4
 `
 
@@ -342,14 +345,17 @@ type UpdateControllerParams struct {
 	Callsign  string
 }
 
-func (q *Queries) UpdateController(ctx context.Context, arg UpdateControllerParams) error {
-	_, err := q.db.Exec(ctx, updateController,
+func (q *Queries) UpdateController(ctx context.Context, arg UpdateControllerParams) (int64, error) {
+	result, err := q.db.Exec(ctx, updateController,
 		arg.Position,
 		arg.Master,
 		arg.Connected,
 		arg.Callsign,
 	)
-	return err
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const updateStripAircraftPositionByID = `-- name: UpdateStripAircraftPositionByID :exec

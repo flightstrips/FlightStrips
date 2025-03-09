@@ -35,7 +35,7 @@ func (s *Server) frontendeventhandlerControllerOffline(client *FrontEndClient) e
 
 	// Remove the controller from the database
 	db := data.New(s.DBPool)
-	err = db.RemoveController(context.Background(), client.cid)
+	_, err = db.RemoveController(context.Background(), client.cid)
 	if err != nil {
 		log.Fatalf("Error removing controller from database: %v", err)
 	}

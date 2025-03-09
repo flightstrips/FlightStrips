@@ -22,6 +22,31 @@ func (s *Server) euroscopeeventhandlerAuthentication(msg []byte) (user *Euroscop
 	return s.euroscopeeventhandlerAuthenticationTokenValidation(event.Token)
 }
 
+func (s *Server) euroscopeeventhandlerConnectionClosed(client *EuroscopeClient) error {
+	// Controller may still be online and may have just logged out or unloaded the plugin
+
+	db := data.New(s.DBPool)
+
+	data := data.UpdateControllerParams {
+		Connected: false,
+		Master: false,
+		Position: client.position,
+		Callsign: client.callsign,
+	}
+
+	count, err := db.UpdateController(context.Background(), data)
+
+	if err != nil {
+		return err
+	}
+
+	if count != 1 {
+		log.Printf("Disconnected client did not exist in the database. Callsign: %s", client.callsign)
+	}
+
+	return nil
+}
+
 func (s *Server) euroscopeeventhandlerAuthenticationTokenValidation(eventToken string) (user *EuroscopeUser, err error) {
 	// TODO: Sort out Logging
 	JWTToken := eventToken
@@ -90,16 +115,16 @@ func (s *Server) euroscopeeventhandlerLogin(msg []byte) (event EuroscopeLoginEve
 
 	data := data.UpdateControllerParams{Callsign: event.Callsign, Connected: true, Master: controller.Master, Position: event.Position}
 
-	err = db.UpdateController(context.TODO(), data)
+	_, err = db.UpdateController(context.TODO(), data)
 
 	return event, err
 }
 
-func (s *Server) euroscopeeventhandlerControllerOnline(msg []byte, airport string) (success bool, err error) {
+func (s *Server) euroscopeeventhandlerControllerOnline(msg []byte, airport string) error {
 	var event EuroscopeControllerOnlineEvent
-	err = json.Unmarshal(msg, &event)
+	err := json.Unmarshal(msg, &event)
 	if err != nil {
-		return false, err
+		return err
 	}
 
 	db := data.New(s.DBPool)
@@ -117,28 +142,20 @@ func (s *Server) euroscopeeventhandlerControllerOnline(msg []byte, airport strin
 
 		err = db.InsertController(context.Background(), data)
 
-		if err != nil {
-			return false, err
-		}
-
-		return true, nil
+		return err
 	}
 
 	if err != nil {
-		return false, err
+		return err
 	}
 
 	if controller.Position == event.Position {
-		return true, nil
+		return nil
 	}
 
 	data := data.UpdateControllerParams{Callsign: event.Callsign, Connected: controller.Connected, Master: controller.Master, Position: event.Position}
 
-	err = db.UpdateController(context.TODO(), data)
+	_, err = db.UpdateController(context.TODO(), data)
 
-	if err != nil {
-		return false, err
-	}
-
-	return true, nil
+	return err
 }

@@ -288,7 +288,7 @@ func (s *Server) frontendeventhandlerCloseConnection(event Event) error {
 	removeControllerParams := controller.Cid
 
 	db := data.New(s.DBPool)
-	err = db.RemoveController(context.Background(), removeControllerParams)
+	_, err = db.RemoveController(context.Background(), removeControllerParams)
 	if err != nil {
 		return err
 	}

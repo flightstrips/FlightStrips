@@ -52,15 +52,17 @@ func (s *Server) euroscopeEvents(w http.ResponseWriter, r *http.Request) {
 
 	defer conn.Close()
 
-
 	// go handleOutgoingMessages(client)
 	client, err := s.euroscopeInitialEventsHandler(conn)
 	if err != nil {
 		log.Printf("Error handling initial events: %s \n", err)
 		return
 	}
-	defer close(client.send)
-	go client.write()
+	defer func() {
+		close(client.send)
+		s.euroscopeeventhandlerConnectionClosed(client)
+	}()
+	go client.writeLoop()
 
 	// TODO: Handle this on which one is the master etc
 	client.send <- []byte("{\"type\": \"session_info\", \"role\": \"master\"}")
@@ -86,21 +88,16 @@ func (s *Server) euroscopeEvents(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 
-		eventOutput, err := s.euroscopeEventsHandler(client, event, msg)
-		fmt.Printf("Event Output: %v", eventOutput)
+		err = s.euroscopeEventsHandler(client, event, msg)
+		if err != nil {
+			fmt.Printf("Failed to process event %s with error %v\n", event.Type, err)
+		}
 	}
 
-	/*
-		err = s.euroscopeeventhandlerConnectionClosed(client)
-		if err != nil {
-			log.Printf("Error handling connection closed event: %s \n", err)
-			return
-		}
-	*/
 	delete(euroscopeClients, client)
 }
 
-func (c *EuroscopeClient) write() {
+func (c *EuroscopeClient) writeLoop() {
 	ticker := time.NewTicker(pingPeriod)
 	defer func() {
 		ticker.Stop()
@@ -157,56 +154,54 @@ func (s *Server) euroscopeInitialEventsHandler(conn *websocket.Conn) (client *Eu
 	return client, nil
 }
 
-func (s *Server) euroscopeEventsHandler(client *EuroscopeClient, event EuroscopeEvent, msg []byte) (output string, err error) {
+func (s *Server) euroscopeEventsHandler(client *EuroscopeClient, event EuroscopeEvent, msg []byte) error {
 
 	switch event.Type {
-	case PositionOnline:
-		return "", errors.New("not implemented")
 	case EuroscopeControllerOnline:
-		return "", errors.New("not implemented")
+		return s.euroscopeeventhandlerControllerOnline(msg, client.airport)
 	case EuroscopeControllerOffline:
-		return "", errors.New("not implemented")
+		return errors.New("not implemented")
 	case EuroscopeSync:
-		return "", errors.New("not implemented")
+		return errors.New("not implemented")
 	case EuroscopeAssignedSquawk:
-		return "", errors.New("not implemented")
+		return errors.New("not implemented")
 	case EuroscopeSquawk:
-		return "", errors.New("not implemented")
+		return errors.New("not implemented")
 	case EuroscopeRequestedAltitude:
-		return "", errors.New("not implemented")
+		return errors.New("not implemented")
 	case EuroscopeClearedAltitude:
-		return "", errors.New("not implemented")
+		return errors.New("not implemented")
 	case EuroscopeCommunicationType:
-		return "", errors.New("not implemented")
+		return errors.New("not implemented")
 	case EuroscopeGroundState:
-		return "", errors.New("not implemented")
+		return errors.New("not implemented")
 	case EuroscopeClearedFlag:
-		return "", errors.New("not implemented")
+		return errors.New("not implemented")
 	case EuroscopePositionUpdate:
-		return "", errors.New("not implemented")
+		return errors.New("not implemented")
 	case EuroscopeSetHeading:
-		return "", errors.New("not implemented")
+		return errors.New("not implemented")
 	case EuroscopeAircraftDisconnected:
-		return "", errors.New("not implemented")
+		return errors.New("not implemented")
 	case EuroscopeStand:
-		return "", errors.New("not implemented")
+		return errors.New("not implemented")
 	case EuroscopeStripUpdate:
-		return "", errors.New("not implemented")
+		return errors.New("not implemented")
 	case EuroscopeRunway:
-		return "", errors.New("not implemented")
+		return errors.New("not implemented")
 	case EuroscopeSessionInfo:
-		return "", errors.New("not implemented")
+		return errors.New("not implemented")
 	case EuroscopeGenerateSquawk:
-		return "", errors.New("not implemented")
+		return errors.New("not implemented")
 	case EuroscopeRoute:
-		return "", errors.New("not implemented")
+		return errors.New("not implemented")
 	case EuroscopeRemarks:
-		return "", errors.New("not implemented")
+		return errors.New("not implemented")
 	case EuroscopeSID:
-		return "", errors.New("not implemented")
+		return errors.New("not implemented")
 	case EuroscopeAircraftRunway:
-		return "", errors.New("not implemented")
+		return errors.New("not implemented")
 	default:
-		return "", errors.New("unknown event type")
+		return errors.New("unknown event type")
 	}
 }

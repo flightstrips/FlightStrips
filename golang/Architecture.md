@@ -64,7 +64,8 @@ However, under the current design, multiple people can be on the same position, 
 ### Invalidating an Old Session
 
 If no controllers are connected to the backend via Euroscope, session data should be cleaned up after approximately 
-five minutes. This brief window allows old data to be used for syncing tags when a new controller logs in after another has logged off (e.g., during a controller shift change).
+five minutes. This brief window allows old data to be used for syncing tags when a new controller logs in after another
+has logged off (e.g., during a controller shift change).
 
 ### Ordering Strips
 
@@ -106,6 +107,15 @@ broadcast messages to all clients. This requires a pub/sub system, such as **Red
 Backend servers must also communicate to determine the **master Euroscope client**. This communication must occur over
 the pub/sub system.
 
+### Starting point
+
+For the first version this will not be supported but it should be built with multiple backend servers in mind. This
+comes with the following considerations:
+
+* No to very little state can be stored in memory.
+* The communication with clients must be over well structured 'interfaces' which implementations can be changed to
+  support multiple servers.
+
 ## Determining the Master Client
 
 Due to the high-frequency communication from Euroscope, one Euroscope client must be designated as the
@@ -137,4 +147,10 @@ If a flight plan is updated on the frontend, it must be synchronized with Eurosc
 It is **CRITICAL** that the Euroscope client associated with the user on the frontend is the one updating the flight
 plan.
 
+## Integration with vACDM
+
+vACDM is the new system used for assigning startup times to pilots. Instead of having a ES plugin for using vACDM the
+backend should instead act as the master and updating vACDM based on the events from ES.
+
+Later if decided due to poor times from vACDM the backend may implement its own CDM system instead.
 

@@ -41,34 +41,34 @@ UPDATE strips SET (
         $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30
     ) WHERE id = $31;
 
--- name: UpdateStripSquawkByID :exec
+-- name: UpdateStripSquawkByID :execrows
 UPDATE strips SET squawk = $1 WHERE id = $2;
 
--- name: UpdateStripAssignedSquawkByID :exec
+-- name: UpdateStripAssignedSquawkByID :execrows
 UPDATE strips SET assigned_squawk = $1 WHERE id = $2;
 
--- name: UpdateStripClearedAltitudeByID :exec
+-- name: UpdateStripClearedAltitudeByID :execrows
 UPDATE strips SET cleared_altitude = $1 WHERE id = $2;
 
--- name: UpdateStripRequestedAltitudeByID :exec
+-- name: UpdateStripRequestedAltitudeByID :execrows
 UPDATE strips SET requested_altitude = $1 WHERE id = $2;
 
--- name: UpdateStripCommunicationTypeByID :exec
+-- name: UpdateStripCommunicationTypeByID :execrows
 UPDATE strips SET communication_type = $1 WHERE id = $2;
 
--- name: UpdateStripGroundStateByID :exec
+-- name: UpdateStripGroundStateByID :execrows
 UPDATE strips SET state = $1 WHERE id = $2;
 
--- name: UpdateStripClearedFlagByID :exec
+-- name: UpdateStripClearedFlagByID :execrows
 UPDATE strips SET cleared = $1 WHERE id = $2;
 
--- name: UpdateStripAircraftPositionByID :exec
+-- name: UpdateStripAircraftPositionByID :execrows
 UPDATE strips SET position_latitude = $1, position_longitude = $2, position_altitude = $3 WHERE id = $4;
 
--- name: UpdateStripHeadingByID :exec
+-- name: UpdateStripHeadingByID :execrows
 UPDATE strips SET heading = $1 WHERE id = $2;
 
--- name: UpdateStripStandByID :exec
+-- name: UpdateStripStandByID :execrows
 UPDATE strips SET stand = $1 WHERE id = $2;
 
 -- name: RemoveStripByID :exec

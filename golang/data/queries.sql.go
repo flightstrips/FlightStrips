@@ -358,7 +358,7 @@ func (q *Queries) UpdateController(ctx context.Context, arg UpdateControllerPara
 	return result.RowsAffected(), nil
 }
 
-const updateStripAircraftPositionByID = `-- name: UpdateStripAircraftPositionByID :exec
+const updateStripAircraftPositionByID = `-- name: UpdateStripAircraftPositionByID :execrows
 UPDATE strips SET position_latitude = $1, position_longitude = $2, position_altitude = $3 WHERE id = $4
 `
 
@@ -369,17 +369,20 @@ type UpdateStripAircraftPositionByIDParams struct {
 	ID                string
 }
 
-func (q *Queries) UpdateStripAircraftPositionByID(ctx context.Context, arg UpdateStripAircraftPositionByIDParams) error {
-	_, err := q.db.Exec(ctx, updateStripAircraftPositionByID,
+func (q *Queries) UpdateStripAircraftPositionByID(ctx context.Context, arg UpdateStripAircraftPositionByIDParams) (int64, error) {
+	result, err := q.db.Exec(ctx, updateStripAircraftPositionByID,
 		arg.PositionLatitude,
 		arg.PositionLongitude,
 		arg.PositionAltitude,
 		arg.ID,
 	)
-	return err
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
-const updateStripAssignedSquawkByID = `-- name: UpdateStripAssignedSquawkByID :exec
+const updateStripAssignedSquawkByID = `-- name: UpdateStripAssignedSquawkByID :execrows
 UPDATE strips SET assigned_squawk = $1 WHERE id = $2
 `
 
@@ -388,9 +391,12 @@ type UpdateStripAssignedSquawkByIDParams struct {
 	ID             string
 }
 
-func (q *Queries) UpdateStripAssignedSquawkByID(ctx context.Context, arg UpdateStripAssignedSquawkByIDParams) error {
-	_, err := q.db.Exec(ctx, updateStripAssignedSquawkByID, arg.AssignedSquawk, arg.ID)
-	return err
+func (q *Queries) UpdateStripAssignedSquawkByID(ctx context.Context, arg UpdateStripAssignedSquawkByIDParams) (int64, error) {
+	result, err := q.db.Exec(ctx, updateStripAssignedSquawkByID, arg.AssignedSquawk, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const updateStripByID = `-- name: UpdateStripByID :exec
@@ -472,7 +478,7 @@ func (q *Queries) UpdateStripByID(ctx context.Context, arg UpdateStripByIDParams
 	return err
 }
 
-const updateStripClearedAltitudeByID = `-- name: UpdateStripClearedAltitudeByID :exec
+const updateStripClearedAltitudeByID = `-- name: UpdateStripClearedAltitudeByID :execrows
 UPDATE strips SET cleared_altitude = $1 WHERE id = $2
 `
 
@@ -481,12 +487,15 @@ type UpdateStripClearedAltitudeByIDParams struct {
 	ID              string
 }
 
-func (q *Queries) UpdateStripClearedAltitudeByID(ctx context.Context, arg UpdateStripClearedAltitudeByIDParams) error {
-	_, err := q.db.Exec(ctx, updateStripClearedAltitudeByID, arg.ClearedAltitude, arg.ID)
-	return err
+func (q *Queries) UpdateStripClearedAltitudeByID(ctx context.Context, arg UpdateStripClearedAltitudeByIDParams) (int64, error) {
+	result, err := q.db.Exec(ctx, updateStripClearedAltitudeByID, arg.ClearedAltitude, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
-const updateStripClearedFlagByID = `-- name: UpdateStripClearedFlagByID :exec
+const updateStripClearedFlagByID = `-- name: UpdateStripClearedFlagByID :execrows
 UPDATE strips SET cleared = $1 WHERE id = $2
 `
 
@@ -495,12 +504,15 @@ type UpdateStripClearedFlagByIDParams struct {
 	ID      string
 }
 
-func (q *Queries) UpdateStripClearedFlagByID(ctx context.Context, arg UpdateStripClearedFlagByIDParams) error {
-	_, err := q.db.Exec(ctx, updateStripClearedFlagByID, arg.Cleared, arg.ID)
-	return err
+func (q *Queries) UpdateStripClearedFlagByID(ctx context.Context, arg UpdateStripClearedFlagByIDParams) (int64, error) {
+	result, err := q.db.Exec(ctx, updateStripClearedFlagByID, arg.Cleared, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
-const updateStripCommunicationTypeByID = `-- name: UpdateStripCommunicationTypeByID :exec
+const updateStripCommunicationTypeByID = `-- name: UpdateStripCommunicationTypeByID :execrows
 UPDATE strips SET communication_type = $1 WHERE id = $2
 `
 
@@ -509,12 +521,15 @@ type UpdateStripCommunicationTypeByIDParams struct {
 	ID                string
 }
 
-func (q *Queries) UpdateStripCommunicationTypeByID(ctx context.Context, arg UpdateStripCommunicationTypeByIDParams) error {
-	_, err := q.db.Exec(ctx, updateStripCommunicationTypeByID, arg.CommunicationType, arg.ID)
-	return err
+func (q *Queries) UpdateStripCommunicationTypeByID(ctx context.Context, arg UpdateStripCommunicationTypeByIDParams) (int64, error) {
+	result, err := q.db.Exec(ctx, updateStripCommunicationTypeByID, arg.CommunicationType, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
-const updateStripGroundStateByID = `-- name: UpdateStripGroundStateByID :exec
+const updateStripGroundStateByID = `-- name: UpdateStripGroundStateByID :execrows
 UPDATE strips SET state = $1 WHERE id = $2
 `
 
@@ -523,12 +538,15 @@ type UpdateStripGroundStateByIDParams struct {
 	ID    string
 }
 
-func (q *Queries) UpdateStripGroundStateByID(ctx context.Context, arg UpdateStripGroundStateByIDParams) error {
-	_, err := q.db.Exec(ctx, updateStripGroundStateByID, arg.State, arg.ID)
-	return err
+func (q *Queries) UpdateStripGroundStateByID(ctx context.Context, arg UpdateStripGroundStateByIDParams) (int64, error) {
+	result, err := q.db.Exec(ctx, updateStripGroundStateByID, arg.State, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
-const updateStripHeadingByID = `-- name: UpdateStripHeadingByID :exec
+const updateStripHeadingByID = `-- name: UpdateStripHeadingByID :execrows
 UPDATE strips SET heading = $1 WHERE id = $2
 `
 
@@ -537,12 +555,15 @@ type UpdateStripHeadingByIDParams struct {
 	ID      string
 }
 
-func (q *Queries) UpdateStripHeadingByID(ctx context.Context, arg UpdateStripHeadingByIDParams) error {
-	_, err := q.db.Exec(ctx, updateStripHeadingByID, arg.Heading, arg.ID)
-	return err
+func (q *Queries) UpdateStripHeadingByID(ctx context.Context, arg UpdateStripHeadingByIDParams) (int64, error) {
+	result, err := q.db.Exec(ctx, updateStripHeadingByID, arg.Heading, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
-const updateStripRequestedAltitudeByID = `-- name: UpdateStripRequestedAltitudeByID :exec
+const updateStripRequestedAltitudeByID = `-- name: UpdateStripRequestedAltitudeByID :execrows
 UPDATE strips SET requested_altitude = $1 WHERE id = $2
 `
 
@@ -551,12 +572,15 @@ type UpdateStripRequestedAltitudeByIDParams struct {
 	ID                string
 }
 
-func (q *Queries) UpdateStripRequestedAltitudeByID(ctx context.Context, arg UpdateStripRequestedAltitudeByIDParams) error {
-	_, err := q.db.Exec(ctx, updateStripRequestedAltitudeByID, arg.RequestedAltitude, arg.ID)
-	return err
+func (q *Queries) UpdateStripRequestedAltitudeByID(ctx context.Context, arg UpdateStripRequestedAltitudeByIDParams) (int64, error) {
+	result, err := q.db.Exec(ctx, updateStripRequestedAltitudeByID, arg.RequestedAltitude, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
-const updateStripSquawkByID = `-- name: UpdateStripSquawkByID :exec
+const updateStripSquawkByID = `-- name: UpdateStripSquawkByID :execrows
 UPDATE strips SET squawk = $1 WHERE id = $2
 `
 
@@ -565,12 +589,15 @@ type UpdateStripSquawkByIDParams struct {
 	ID     string
 }
 
-func (q *Queries) UpdateStripSquawkByID(ctx context.Context, arg UpdateStripSquawkByIDParams) error {
-	_, err := q.db.Exec(ctx, updateStripSquawkByID, arg.Squawk, arg.ID)
-	return err
+func (q *Queries) UpdateStripSquawkByID(ctx context.Context, arg UpdateStripSquawkByIDParams) (int64, error) {
+	result, err := q.db.Exec(ctx, updateStripSquawkByID, arg.Squawk, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
-const updateStripStandByID = `-- name: UpdateStripStandByID :exec
+const updateStripStandByID = `-- name: UpdateStripStandByID :execrows
 UPDATE strips SET stand = $1 WHERE id = $2
 `
 
@@ -579,7 +606,10 @@ type UpdateStripStandByIDParams struct {
 	ID    string
 }
 
-func (q *Queries) UpdateStripStandByID(ctx context.Context, arg UpdateStripStandByIDParams) error {
-	_, err := q.db.Exec(ctx, updateStripStandByID, arg.Stand, arg.ID)
-	return err
+func (q *Queries) UpdateStripStandByID(ctx context.Context, arg UpdateStripStandByIDParams) (int64, error) {
+	result, err := q.db.Exec(ctx, updateStripStandByID, arg.Stand, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }

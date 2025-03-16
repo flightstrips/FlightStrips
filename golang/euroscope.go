@@ -160,13 +160,13 @@ func (s *Server) euroscopeEventsHandler(client *EuroscopeClient, event Euroscope
 	case EuroscopeControllerOnline:
 		return s.euroscopeeventhandlerControllerOnline(msg, client.airport)
 	case EuroscopeControllerOffline:
-		return errors.New("not implemented")
+		return s.euroscopeeventhandlerControllerOffline(msg, client.airport)
 	case EuroscopeSync:
 		return errors.New("not implemented")
 	case EuroscopeAssignedSquawk:
-		return errors.New("not implemented")
+		return s.euroscopeeventhandlerAssignedSquawk(msg, client.airport)
 	case EuroscopeSquawk:
-		return errors.New("not implemented")
+		return s.euroscopeeventhandlerSquawk(msg, client.airport)
 	case EuroscopeRequestedAltitude:
 		return errors.New("not implemented")
 	case EuroscopeClearedAltitude:

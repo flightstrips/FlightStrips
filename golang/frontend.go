@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/jackc/pgx/v5/pgtype"
 )
 
 func (s *Server) frontEndEvents(w http.ResponseWriter, r *http.Request) {
@@ -108,36 +107,30 @@ func (s *Server) frontEndEventHandler(client FrontEndClient, event Event) (inter
 			return response, nil
 	*/
 	case GoAround:
-		s.log("Go Around Event")
 		// This event is sent to all FrontEndClients - No need for any backend parsing
 		err := s.frontendeventhandlerGoARound(event)
 		return nil, err
 	case PositionOffline:
-		s.log("Position Offline Event")
 		// This event is sent to all FrontEndClients - No need for any backend parsing
 		err := s.frontendeventhandlerControllerOffline(&client)
 		return nil, err
 
 	case Message:
-		s.log("Message Event")
 		// This event is sent to all OR specific FrontEndClients - No need for any backend parsing
 		err := s._publishEvent(client.airport, event)
 		return nil, err
 
 	// TODO:
 	case StripUpdate:
-		s.log("Strip Update Event")
+		print("Not Implemented")
 
 	case StripTransferRequestInit:
-		s.log("Strip Transfer Request Init Event")
 		print("Not Implemented")
 
 	case StripTransferRequestReject:
-		s.log("Strip Transfer Request Reject Event")
 		print("Not Implemented")
 
 	case StripMoveRequest:
-		s.log("Strip Move Request Event")
 		print("Not Implemented")
 
 	default:
@@ -228,7 +221,8 @@ func (s *Server) returnInitialConnectionResponseEvent(conn *websocket.Conn, airp
 	var resp InitialConnectionEventResponsePayload
 
 	// Get all Controllers
-	controllers, err := db.ListControllersByAirport(context.Background(), airport)
+	// TODO session
+	controllers, err := db.ListControllers(context.Background(), 1)
 	if err != nil {
 		return err
 	}
@@ -238,14 +232,7 @@ func (s *Server) returnInitialConnectionResponseEvent(conn *websocket.Conn, airp
 	resp.Controllers = controllers
 
 	// Get all Strips
-	strips, err := db.ListStripsByOrigin(context.Background(), pgtype.Text{
-		String: airport,
-		Valid:  true,
-	})
-	if err != nil {
-		return err
-	}
-	resp.Strips = strips
+	// TODO: session
 
 	// Get all Airport Configurations
 	// TODO:
@@ -275,22 +262,3 @@ func (s *Server) returnInitialConnectionResponseEvent(conn *websocket.Conn, airp
 	return nil
 }
 
-// TODO
-func (s *Server) frontendeventhandlerCloseConnection(event Event) error {
-	var controller Controller
-	payload := event.Payload.(string)
-	err := json.Unmarshal([]byte(payload), &controller)
-	if err != nil {
-		log.Println("Error unmarshalling controller")
-		return err
-	}
-
-	removeControllerParams := controller.Cid
-
-	db := data.New(s.DBPool)
-	_, err = db.RemoveController(context.Background(), removeControllerParams)
-	if err != nil {
-		return err
-	}
-	return nil
-}

@@ -30,10 +30,9 @@ func (r *iteratorForBulkInsertControllers) Next() bool {
 func (r iteratorForBulkInsertControllers) Values() ([]interface{}, error) {
 	return []interface{}{
 		r.rows[0].Callsign,
+		r.rows[0].Session,
 		r.rows[0].Airport,
 		r.rows[0].Position,
-		r.rows[0].Master,
-		r.rows[0].Connected,
 	}, nil
 }
 
@@ -42,5 +41,5 @@ func (r iteratorForBulkInsertControllers) Err() error {
 }
 
 func (q *Queries) BulkInsertControllers(ctx context.Context, arg []BulkInsertControllersParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"controllers"}, []string{"callsign", "airport", "position", "master", "connected"}, &iteratorForBulkInsertControllers{rows: arg})
+	return q.db.CopyFrom(ctx, []string{"controllers"}, []string{"callsign", "session", "airport", "position"}, &iteratorForBulkInsertControllers{rows: arg})
 }

@@ -1,8 +1,6 @@
 package main
 
 import (
-	"FlightStrips/data"
-	"context"
 	"encoding/json"
 	"errors"
 	"log"
@@ -11,6 +9,7 @@ import (
 func (s *Server) frontendeventhandlerControllerOffline(client *FrontEndClient) error {
 	// TODO: Var verification?
 
+	/*
 	// Obtain a list of the controllers at the airport from the database
 	controllersAtAirport, err := data.New(s.DBPool).ListControllersByAirport(context.Background(), client.airport)
 	if err != nil {
@@ -39,6 +38,7 @@ func (s *Server) frontendeventhandlerControllerOffline(client *FrontEndClient) e
 	if err != nil {
 		log.Fatalf("Error removing controller from database: %v", err)
 	}
+	*/
 
 	return nil
 }

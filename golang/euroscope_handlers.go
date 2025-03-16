@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"log"
+	"time"
 
 	"github.com/MicahParks/keyfunc/v3"
 	"github.com/golang-jwt/jwt/v5"
@@ -28,14 +29,12 @@ func (s *Server) euroscopeeventhandlerConnectionClosed(client *EuroscopeClient) 
 
 	db := data.New(s.DBPool)
 
-	data := data.UpdateControllerParams{
-		Connected: false,
-		Master:    false,
-		Position:  client.position,
+	params := data.SetControllerEuroscopeSeenParams{
 		Callsign:  client.callsign,
+		Session: client.session,
 	}
 
-	count, err := db.UpdateController(context.Background(), data)
+	count, err := db.SetControllerEuroscopeSeen(context.Background(), params)
 
 	if err != nil {
 		return err
@@ -83,8 +82,16 @@ func (s *Server) euroscopeeventhandlerAuthenticationTokenValidation(eventToken s
 	return esUser, nil
 }
 
-func (s *Server) euroscopeeventhandlerLogin(msg []byte) (event EuroscopeLoginEvent, err error) {
+func (s *Server) euroscopeeventhandlerLogin(msg []byte) (event EuroscopeLoginEvent, sessionId int32, err error) {
 	err = json.Unmarshal(msg, &event)
+	if err != nil {
+		return
+	}
+
+	const sessionName = "LIVE"
+
+	session, err := s.GetOrCreateSession(event.Airport, sessionName)
+
 	if err != nil {
 		return
 	}
@@ -94,34 +101,44 @@ func (s *Server) euroscopeeventhandlerLogin(msg []byte) (event EuroscopeLoginEve
 	// controller connects to FlightStrips
 
 	db := data.New(s.DBPool)
-	controller, err := db.GetController(context.TODO(), event.Callsign)
+	params := data.GetControllerParams{Callsign: event.Callsign, Session: session.Id}
+	controller, err := db.GetController(context.TODO(), params)
 
 	if err == pgx.ErrNoRows {
-		data := data.InsertControllerParams{
-			Callsign:  event.Callsign,
-			Position:  event.Position,
-			Airport:   event.Airport,
-			Connected: true,
-			Master:    false,
+		params := data.InsertControllerParams{
+			Callsign: event.Callsign,
+			Session:  session.Id,
+			Position: event.Position,
+			Airport:  event.Airport,
+			//Cid: , // TODO,
+			LastSeenEuroscope: pgtype.Timestamp{Valid: true, Time: time.Now().UTC()},
 		}
 
-		err = db.InsertController(context.Background(), data)
+		err = db.InsertController(context.Background(), params)
 
-		return event, err
+		return event, session.Id, err
 	}
 
 	if err != nil {
-		return event, err
+		return event, session.Id, err
 	}
 
-	data := data.UpdateControllerParams{Callsign: event.Callsign, Connected: true, Master: controller.Master, Position: event.Position}
+	if controller.Position != event.Position {
+		params := data.SetControllerPositionParams{Session: session.Id, Callsign: event.Callsign, Position: event.Position}
+		_, err = db.SetControllerPosition(context.TODO(), params)
 
-	_, err = db.UpdateController(context.TODO(), data)
+		if err != nil {
+			return event, session.Id, err
+		}
+	}
 
-	return event, err
+	setParams := data.SetControllerEuroscopeSeenParams{Session: session.Id, Callsign: event.Callsign, LastSeenEuroscope: pgtype.Timestamp{Time: time.Now().UTC(), Valid: true}}
+	_, err = db.SetControllerEuroscopeSeen(context.TODO(), setParams)
+
+	return event, session.Id, err
 }
 
-func (s *Server) euroscopeeventhandlerControllerOnline(msg []byte, airport string) error {
+func (s *Server) euroscopeeventhandlerControllerOnline(msg []byte, session int32, airport string) error {
 	var event EuroscopeControllerOnlineEvent
 	err := json.Unmarshal(msg, &event)
 	if err != nil {
@@ -129,19 +146,19 @@ func (s *Server) euroscopeeventhandlerControllerOnline(msg []byte, airport strin
 	}
 
 	db := data.New(s.DBPool)
-	controller, err := db.GetController(context.TODO(), event.Callsign)
+	getParams := data.GetControllerParams{Callsign: event.Callsign, Session: session}
+	controller, err := db.GetController(context.TODO(), getParams)
 
 	if err == pgx.ErrNoRows {
 		// New controller insert
-		data := data.InsertControllerParams{
-			Callsign:  event.Callsign,
-			Position:  event.Position,
-			Airport:   airport,
-			Connected: false,
-			Master:    false,
+		params := data.InsertControllerParams{
+			Callsign: event.Callsign,
+			Position: event.Position,
+			Airport:  airport,
+			Session:  session,
 		}
 
-		err = db.InsertController(context.Background(), data)
+		err = db.InsertController(context.Background(), params)
 
 		return err
 	}
@@ -154,14 +171,13 @@ func (s *Server) euroscopeeventhandlerControllerOnline(msg []byte, airport strin
 		return nil
 	}
 
-	data := data.UpdateControllerParams{Callsign: event.Callsign, Connected: controller.Connected, Master: controller.Master, Position: event.Position}
-
-	_, err = db.UpdateController(context.TODO(), data)
+	setParams := data.SetControllerPositionParams{Session: session, Callsign: event.Callsign, Position: event.Position}
+	_, err = db.SetControllerPosition(context.TODO(), setParams)
 
 	return err
 }
 
-func (s *Server) euroscopeeventhandlerControllerOffline(msg []byte, airport string) error {
+func (s *Server) euroscopeeventhandlerControllerOffline(msg []byte, session int32, airport string) error {
 	var event EuroscopeControllerOfflineEvent
 	err := json.Unmarshal(msg, &event)
 	if err != nil {
@@ -170,8 +186,8 @@ func (s *Server) euroscopeeventhandlerControllerOffline(msg []byte, airport stri
 
 	db := data.New(s.DBPool)
 
-	// TODO with the current DATABASE schema we only support one airport at a time
-	count, err := db.RemoveController(context.TODO(), event.Callsign)
+	params := data.RemoveControllerParams{Session: session, Callsign: event.Callsign}
+	count, err := db.RemoveController(context.TODO(), params)
 
 	if err != nil {
 		return err
@@ -185,7 +201,7 @@ func (s *Server) euroscopeeventhandlerControllerOffline(msg []byte, airport stri
 	return err
 }
 
-func (s *Server) euroscopeeventhandlerAssignedSquawk(msg []byte, airport string) error {
+func (s *Server) euroscopeeventhandlerAssignedSquawk(msg []byte, session int32, airport string) error {
 	var event EuroscopeAssignedSquawkEvent
 	err := json.Unmarshal(msg, &event)
 	if err != nil {
@@ -194,9 +210,10 @@ func (s *Server) euroscopeeventhandlerAssignedSquawk(msg []byte, airport string)
 
 	db := data.New(s.DBPool)
 
-	data := data.UpdateStripAssignedSquawkByIDParams {
-		AssignedSquawk: pgtype.Text{ Valid: true, String: event.Squawk },
-		ID: event.Callsign,
+	data := data.UpdateStripAssignedSquawkByIDParams{
+		AssignedSquawk: pgtype.Text{Valid: true, String: event.Squawk},
+		Callsign:       event.Callsign,
+		Session:        session,
 	}
 
 	count, err := db.UpdateStripAssignedSquawkByID(context.TODO(), data)
@@ -212,7 +229,7 @@ func (s *Server) euroscopeeventhandlerAssignedSquawk(msg []byte, airport string)
 	return err
 }
 
-func (s *Server) euroscopeeventhandlerSquawk(msg []byte, airport string) error {
+func (s *Server) euroscopeeventhandlerSquawk(msg []byte, session int32, airport string) error {
 	var event EuroscopeSquawkEvent
 	err := json.Unmarshal(msg, &event)
 	if err != nil {
@@ -221,9 +238,10 @@ func (s *Server) euroscopeeventhandlerSquawk(msg []byte, airport string) error {
 
 	db := data.New(s.DBPool)
 
-	data := data.UpdateStripSquawkByIDParams {
-		Squawk: pgtype.Text{ Valid: true, String: event.Squawk },
-		ID: event.Callsign,
+	data := data.UpdateStripSquawkByIDParams{
+		Squawk:   pgtype.Text{Valid: true, String: event.Squawk},
+		Callsign: event.Callsign,
+		Session:  session,
 	}
 
 	count, err := db.UpdateStripSquawkByID(context.TODO(), data)
@@ -238,7 +256,3 @@ func (s *Server) euroscopeeventhandlerSquawk(msg []byte, airport string) error {
 
 	return err
 }
-
-
-
-

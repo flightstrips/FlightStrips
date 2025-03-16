@@ -11,7 +11,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/jackc/pgx/v5"
 
 	_ "github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -79,54 +79,6 @@ func handleFrontEndBroadcast() {
 	}
 }
 
-func (s *Server) handleServerLogging(logging chan interface{}) {
-	for {
-		msg := <-logging
-
-		var dataToInsert data.InsertIntoEventsParams
-		switch msg := msg.(type) {
-		case Event:
-			dataToInsert = data.InsertIntoEventsParams{
-				Type: pgtype.Text{
-					String: string(msg.Type),
-				},
-				Timestamp: pgtype.Text{
-					String: msg.TimeStamp.String(),
-				},
-				Cid: pgtype.Text{
-					String: msg.Cid,
-				},
-				Data: pgtype.Text{
-					String: msg.Payload.(string),
-				},
-			}
-		default:
-			dataToInsert = data.InsertIntoEventsParams{
-				Type: pgtype.Text{
-					String: "Unknown",
-				},
-				Timestamp: pgtype.Text{
-					String: time.Now().String(),
-				},
-				Cid: pgtype.Text{
-					String: "Server",
-				},
-				Data: pgtype.Text{
-					String: msg.(string),
-				},
-			}
-
-		}
-
-		database := data.New(s.DBPool)
-
-		err := database.InsertIntoEvents(context.Background(), dataToInsert)
-		if err != nil {
-			log.Println("error logging event")
-		}
-	}
-}
-
 // Server holds shared resources
 type Server struct {
 	DBPool          *pgxpool.Pool
@@ -135,12 +87,34 @@ type Server struct {
 	AuthSigningAlgo string
 }
 
-func (s *Server) log(msg string) {
-	s.logging <- msg
+type Session struct {
+	Id      int32
+	Name    string
+	Airport string
 }
 
 func healthz(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(http.StatusOK)
+}
+
+func (s *Server) GetOrCreateSession(airport string, name string) (Session, error) {
+	db := data.New(s.DBPool)
+
+	arg := data.GetSessionParams { Name: name, Airport: airport }
+	session, err := db.GetSession(context.Background(), arg)
+
+	if err == nil {
+		return Session { Name: session.Name, Airport: session.Airport, Id: session.ID }, nil
+	}
+
+	if err == pgx.ErrNoRows {
+		insertArg := data.InsertSessionParams { Name: name, Airport: airport }
+		id, err := db.InsertSession(context.Background(), insertArg)
+
+		return Session { Name: name, Airport: airport, Id: id }, err
+	}
+
+	return Session{}, nil
 }
 
 //go:embed schema.sql
@@ -180,6 +154,10 @@ func main() {
 		log.Fatal(err)
 	}
 
+	// TODO remove
+	db := data.New(dbpool)
+	db.InsertAirport(context.Background(), "EKCH")
+
 	// Health Function for local Dev
 	http.HandleFunc("/healthz", healthz)
 	http.HandleFunc("/euroscopeEvents", server.euroscopeEvents)
@@ -188,7 +166,6 @@ func main() {
 	// Start background tasks.
 	go handleFrontEndBroadcast()
 	go periodicMessages()
-	go server.handleServerLogging(logging)
 
 	log.Println("Server started on address:", *addr)
 	log.Fatal(http.ListenAndServe(*addr, nil))

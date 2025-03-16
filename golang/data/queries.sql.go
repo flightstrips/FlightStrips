@@ -12,94 +12,156 @@ import (
 )
 
 type BulkInsertControllersParams struct {
-	Callsign  string
-	Airport   string
-	Position  string
-	Master    bool
-	Connected bool
+	Callsign string
+	Session  int32
+	Airport  string
+	Position string
+}
+
+const deleteSession = `-- name: DeleteSession :execrows
+DELETE FROM sessions WHERE id = $1
+`
+
+func (q *Queries) DeleteSession(ctx context.Context, id int32) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteSession, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const getController = `-- name: GetController :one
-SELECT callsign, airport, position, master, connected FROM controllers WHERE callsign = $1
+SELECT id, session, callsign, airport, position, cid, last_seen_euroscope, last_seen_frontend FROM controllers WHERE callsign = $1 AND session = $2
 `
 
-func (q *Queries) GetController(ctx context.Context, callsign string) (Controller, error) {
-	row := q.db.QueryRow(ctx, getController, callsign)
+type GetControllerParams struct {
+	Callsign string
+	Session  int32
+}
+
+func (q *Queries) GetController(ctx context.Context, arg GetControllerParams) (Controller, error) {
+	row := q.db.QueryRow(ctx, getController, arg.Callsign, arg.Session)
 	var i Controller
 	err := row.Scan(
+		&i.ID,
+		&i.Session,
 		&i.Callsign,
 		&i.Airport,
 		&i.Position,
-		&i.Master,
-		&i.Connected,
+		&i.Cid,
+		&i.LastSeenEuroscope,
+		&i.LastSeenFrontend,
 	)
 	return i, err
 }
 
+const getExpiredSessions = `-- name: GetExpiredSessions :many
+SELECT id FROM sessions WHERE NOT EXISTS (SELECT 1 FROM controllers WHERE last_seen_euroscope < $1)
+`
+
+func (q *Queries) GetExpiredSessions(ctx context.Context, expiredTime pgtype.Timestamp) ([]int32, error) {
+	rows, err := q.db.Query(ctx, getExpiredSessions, expiredTime)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []int32
+	for rows.Next() {
+		var id int32
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getSession = `-- name: GetSession :one
+SELECT id, name, airport FROM sessions WHERE airport = $1 AND name = $2
+`
+
+type GetSessionParams struct {
+	Airport string
+	Name    string
+}
+
+func (q *Queries) GetSession(ctx context.Context, arg GetSessionParams) (Session, error) {
+	row := q.db.QueryRow(ctx, getSession, arg.Airport, arg.Name)
+	var i Session
+	err := row.Scan(&i.ID, &i.Name, &i.Airport)
+	return i, err
+}
+
+const insertAirport = `-- name: InsertAirport :exec
+INSERT INTO airports (name) VALUES ($1)
+`
+
+func (q *Queries) InsertAirport(ctx context.Context, name string) error {
+	_, err := q.db.Exec(ctx, insertAirport, name)
+	return err
+}
+
 const insertController = `-- name: InsertController :exec
 INSERT INTO controllers (
-    callsign, airport, position, master, connected
+    callsign, session, airport, position, cid, last_seen_euroscope, last_seen_frontend
 ) VALUES (
-             $1, $2, $3, $4, $5
+             $1, $2, $3, $4, $5, $6, $7
          )
 `
 
 type InsertControllerParams struct {
-	Callsign  string
-	Airport   string
-	Position  string
-	Master    bool
-	Connected bool
+	Callsign          string
+	Session           int32
+	Airport           string
+	Position          string
+	Cid               pgtype.Text
+	LastSeenEuroscope pgtype.Timestamp
+	LastSeenFrontend  pgtype.Timestamp
 }
 
 func (q *Queries) InsertController(ctx context.Context, arg InsertControllerParams) error {
 	_, err := q.db.Exec(ctx, insertController,
 		arg.Callsign,
+		arg.Session,
 		arg.Airport,
 		arg.Position,
-		arg.Master,
-		arg.Connected,
+		arg.Cid,
+		arg.LastSeenEuroscope,
+		arg.LastSeenFrontend,
 	)
 	return err
 }
 
-const insertIntoEvents = `-- name: InsertIntoEvents :exec
-INSERT INTO events (
-    type, timestamp, cid, data
-) VALUES (
-             $1, $2, $3, $4
-         )
+const insertSession = `-- name: InsertSession :one
+INSERT INTO sessions (name, airport) VALUES ($1, $2) RETURNING id
 `
 
-type InsertIntoEventsParams struct {
-	Type      pgtype.Text
-	Timestamp pgtype.Text
-	Cid       pgtype.Text
-	Data      pgtype.Text
+type InsertSessionParams struct {
+	Name    string
+	Airport string
 }
 
-func (q *Queries) InsertIntoEvents(ctx context.Context, arg InsertIntoEventsParams) error {
-	_, err := q.db.Exec(ctx, insertIntoEvents,
-		arg.Type,
-		arg.Timestamp,
-		arg.Cid,
-		arg.Data,
-	)
-	return err
+func (q *Queries) InsertSession(ctx context.Context, arg InsertSessionParams) (int32, error) {
+	row := q.db.QueryRow(ctx, insertSession, arg.Name, arg.Airport)
+	var id int32
+	err := row.Scan(&id)
+	return id, err
 }
 
 const insertStrip = `-- name: InsertStrip :exec
-INSERT INTO strips (
-    id, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand, sequence, state, cleared, positionFrequency, position_latitude, position_longitude, position_altitude, tobt, tsat, ttot, ctot, aobt, asat
+INSERT INTO strips (version, callsign, session, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand, sequence, state, cleared, owner, position_latitude, position_longitude, position_altitude, tobt
 ) VALUES (
-             $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31
-         )
+    1, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27)
 `
 
 type InsertStripParams struct {
-	ID                string
-	Origin            pgtype.Text
-	Destination       pgtype.Text
+	Callsign          string
+	Session           int32
+	Origin            string
+	Destination       string
 	Alternative       pgtype.Text
 	Route             pgtype.Text
 	Remarks           pgtype.Text
@@ -107,32 +169,28 @@ type InsertStripParams struct {
 	Squawk            pgtype.Text
 	Sid               pgtype.Text
 	ClearedAltitude   pgtype.Text
-	Heading           pgtype.Text
+	Heading           pgtype.Int4
 	AircraftType      pgtype.Text
 	Runway            pgtype.Text
-	RequestedAltitude pgtype.Text
+	RequestedAltitude pgtype.Int4
 	Capabilities      pgtype.Text
 	CommunicationType pgtype.Text
 	AircraftCategory  pgtype.Text
 	Stand             pgtype.Text
-	Sequence          pgtype.Text
+	Sequence          pgtype.Int4
 	State             pgtype.Text
 	Cleared           pgtype.Bool
-	Positionfrequency pgtype.Text
+	Owner             pgtype.Text
 	PositionLatitude  pgtype.Text
 	PositionLongitude pgtype.Text
 	PositionAltitude  pgtype.Text
 	Tobt              pgtype.Text
-	Tsat              pgtype.Text
-	Ttot              pgtype.Text
-	Ctot              pgtype.Text
-	Aobt              pgtype.Text
-	Asat              pgtype.Text
 }
 
 func (q *Queries) InsertStrip(ctx context.Context, arg InsertStripParams) error {
 	_, err := q.db.Exec(ctx, insertStrip,
-		arg.ID,
+		arg.Callsign,
+		arg.Session,
 		arg.Origin,
 		arg.Destination,
 		arg.Alternative,
@@ -153,26 +211,21 @@ func (q *Queries) InsertStrip(ctx context.Context, arg InsertStripParams) error 
 		arg.Sequence,
 		arg.State,
 		arg.Cleared,
-		arg.Positionfrequency,
+		arg.Owner,
 		arg.PositionLatitude,
 		arg.PositionLongitude,
 		arg.PositionAltitude,
 		arg.Tobt,
-		arg.Tsat,
-		arg.Ttot,
-		arg.Ctot,
-		arg.Aobt,
-		arg.Asat,
 	)
 	return err
 }
 
 const listControllers = `-- name: ListControllers :many
-SELECT callsign, airport, position, master, connected FROM controllers ORDER BY airport
+SELECT id, session, callsign, airport, position, cid, last_seen_euroscope, last_seen_frontend FROM controllers WHERE session = $1 ORDER BY callsign
 `
 
-func (q *Queries) ListControllers(ctx context.Context) ([]Controller, error) {
-	rows, err := q.db.Query(ctx, listControllers)
+func (q *Queries) ListControllers(ctx context.Context, session int32) ([]Controller, error) {
+	rows, err := q.db.Query(ctx, listControllers, session)
 	if err != nil {
 		return nil, err
 	}
@@ -180,73 +233,40 @@ func (q *Queries) ListControllers(ctx context.Context) ([]Controller, error) {
 	var items []Controller
 	for rows.Next() {
 		var i Controller
-		if err := rows.Scan(
-			&i.Callsign,
-			&i.Airport,
-			&i.Position,
-			&i.Master,
-			&i.Connected,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listControllersByAirport = `-- name: ListControllersByAirport :many
-SELECT callsign, airport, position, master, connected FROM controllers WHERE airport = $1
-`
-
-func (q *Queries) ListControllersByAirport(ctx context.Context, airport string) ([]Controller, error) {
-	rows, err := q.db.Query(ctx, listControllersByAirport, airport)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []Controller
-	for rows.Next() {
-		var i Controller
-		if err := rows.Scan(
-			&i.Callsign,
-			&i.Airport,
-			&i.Position,
-			&i.Master,
-			&i.Connected,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listEvents = `-- name: ListEvents :many
-SELECT id, type, timestamp, cid, data FROM events ORDER BY timestamp
-`
-
-func (q *Queries) ListEvents(ctx context.Context) ([]Event, error) {
-	rows, err := q.db.Query(ctx, listEvents)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []Event
-	for rows.Next() {
-		var i Event
 		if err := rows.Scan(
 			&i.ID,
-			&i.Type,
-			&i.Timestamp,
+			&i.Session,
+			&i.Callsign,
+			&i.Airport,
+			&i.Position,
 			&i.Cid,
-			&i.Data,
+			&i.LastSeenEuroscope,
+			&i.LastSeenFrontend,
 		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listSessionsByAirport = `-- name: ListSessionsByAirport :many
+SELECT id, name, airport FROM sessions WHERE airport = $1
+`
+
+func (q *Queries) ListSessionsByAirport(ctx context.Context, airport string) ([]Session, error) {
+	rows, err := q.db.Query(ctx, listSessionsByAirport, airport)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Session
+	for rows.Next() {
+		var i Session
+		if err := rows.Scan(&i.ID, &i.Name, &i.Airport); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -258,11 +278,16 @@ func (q *Queries) ListEvents(ctx context.Context) ([]Event, error) {
 }
 
 const listStripsByOrigin = `-- name: ListStripsByOrigin :many
-SELECT id, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand, sequence, state, cleared, positionfrequency, position_latitude, position_longitude, position_altitude, tobt, tsat, ttot, ctot, aobt, asat FROM strips WHERE origin = $1 ORDER BY id
+SELECT id, version, callsign, session, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand, sequence, state, cleared, owner, position_latitude, position_longitude, position_altitude, tobt, tsat, ttot, ctot, aobt, asat FROM strips WHERE origin = $1 AND session = $2 ORDER BY callsign
 `
 
-func (q *Queries) ListStripsByOrigin(ctx context.Context, origin pgtype.Text) ([]Strip, error) {
-	rows, err := q.db.Query(ctx, listStripsByOrigin, origin)
+type ListStripsByOriginParams struct {
+	Origin  string
+	Session int32
+}
+
+func (q *Queries) ListStripsByOrigin(ctx context.Context, arg ListStripsByOriginParams) ([]Strip, error) {
+	rows, err := q.db.Query(ctx, listStripsByOrigin, arg.Origin, arg.Session)
 	if err != nil {
 		return nil, err
 	}
@@ -272,6 +297,9 @@ func (q *Queries) ListStripsByOrigin(ctx context.Context, origin pgtype.Text) ([
 		var i Strip
 		if err := rows.Scan(
 			&i.ID,
+			&i.Version,
+			&i.Callsign,
+			&i.Session,
 			&i.Origin,
 			&i.Destination,
 			&i.Alternative,
@@ -292,7 +320,7 @@ func (q *Queries) ListStripsByOrigin(ctx context.Context, origin pgtype.Text) ([
 			&i.Sequence,
 			&i.State,
 			&i.Cleared,
-			&i.Positionfrequency,
+			&i.Owner,
 			&i.PositionLatitude,
 			&i.PositionLongitude,
 			&i.PositionAltitude,
@@ -314,11 +342,16 @@ func (q *Queries) ListStripsByOrigin(ctx context.Context, origin pgtype.Text) ([
 }
 
 const removeController = `-- name: RemoveController :execrows
-DELETE FROM controllers WHERE callsign = $1
+DELETE FROM controllers WHERE callsign = $1 AND session = $2
 `
 
-func (q *Queries) RemoveController(ctx context.Context, callsign string) (int64, error) {
-	result, err := q.db.Exec(ctx, removeController, callsign)
+type RemoveControllerParams struct {
+	Callsign string
+	Session  int32
+}
+
+func (q *Queries) RemoveController(ctx context.Context, arg RemoveControllerParams) (int64, error) {
+	result, err := q.db.Exec(ctx, removeController, arg.Callsign, arg.Session)
 	if err != nil {
 		return 0, err
 	}
@@ -326,32 +359,49 @@ func (q *Queries) RemoveController(ctx context.Context, callsign string) (int64,
 }
 
 const removeStripByID = `-- name: RemoveStripByID :exec
-DELETE FROM strips WHERE id = $1
+DELETE FROM strips WHERE callsign = $1 AND session = $2
 `
 
-func (q *Queries) RemoveStripByID(ctx context.Context, id string) error {
-	_, err := q.db.Exec(ctx, removeStripByID, id)
+type RemoveStripByIDParams struct {
+	Callsign string
+	Session  int32
+}
+
+func (q *Queries) RemoveStripByID(ctx context.Context, arg RemoveStripByIDParams) error {
+	_, err := q.db.Exec(ctx, removeStripByID, arg.Callsign, arg.Session)
 	return err
 }
 
-const updateController = `-- name: UpdateController :execrows
-UPDATE controllers SET (position, master, connected) = ($1, $2, $3) WHERE callsign = $4
+const setControllerEuroscopeSeen = `-- name: SetControllerEuroscopeSeen :execrows
+UPDATE controllers SET last_seen_euroscope = $1 WHERE callsign = $2 AND session = $3
 `
 
-type UpdateControllerParams struct {
-	Position  string
-	Master    bool
-	Connected bool
-	Callsign  string
+type SetControllerEuroscopeSeenParams struct {
+	LastSeenEuroscope pgtype.Timestamp
+	Callsign          string
+	Session           int32
 }
 
-func (q *Queries) UpdateController(ctx context.Context, arg UpdateControllerParams) (int64, error) {
-	result, err := q.db.Exec(ctx, updateController,
-		arg.Position,
-		arg.Master,
-		arg.Connected,
-		arg.Callsign,
-	)
+func (q *Queries) SetControllerEuroscopeSeen(ctx context.Context, arg SetControllerEuroscopeSeenParams) (int64, error) {
+	result, err := q.db.Exec(ctx, setControllerEuroscopeSeen, arg.LastSeenEuroscope, arg.Callsign, arg.Session)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const setControllerPosition = `-- name: SetControllerPosition :execrows
+UPDATE controllers SET position = $1 WHERE callsign = $2 AND session = $3
+`
+
+type SetControllerPositionParams struct {
+	Position string
+	Callsign string
+	Session  int32
+}
+
+func (q *Queries) SetControllerPosition(ctx context.Context, arg SetControllerPositionParams) (int64, error) {
+	result, err := q.db.Exec(ctx, setControllerPosition, arg.Position, arg.Callsign, arg.Session)
 	if err != nil {
 		return 0, err
 	}
@@ -359,14 +409,16 @@ func (q *Queries) UpdateController(ctx context.Context, arg UpdateControllerPara
 }
 
 const updateStripAircraftPositionByID = `-- name: UpdateStripAircraftPositionByID :execrows
-UPDATE strips SET position_latitude = $1, position_longitude = $2, position_altitude = $3 WHERE id = $4
+UPDATE strips SET position_latitude = $1, position_longitude = $2, position_altitude = $3 WHERE callsign = $4 AND session = $5 AND (version = $6 OR $6 IS NULL)
 `
 
 type UpdateStripAircraftPositionByIDParams struct {
 	PositionLatitude  pgtype.Text
 	PositionLongitude pgtype.Text
 	PositionAltitude  pgtype.Text
-	ID                string
+	Callsign          string
+	Session           int32
+	Version           pgtype.Int4
 }
 
 func (q *Queries) UpdateStripAircraftPositionByID(ctx context.Context, arg UpdateStripAircraftPositionByIDParams) (int64, error) {
@@ -374,7 +426,9 @@ func (q *Queries) UpdateStripAircraftPositionByID(ctx context.Context, arg Updat
 		arg.PositionLatitude,
 		arg.PositionLongitude,
 		arg.PositionAltitude,
-		arg.ID,
+		arg.Callsign,
+		arg.Session,
+		arg.Version,
 	)
 	if err != nil {
 		return 0, err
@@ -383,112 +437,47 @@ func (q *Queries) UpdateStripAircraftPositionByID(ctx context.Context, arg Updat
 }
 
 const updateStripAssignedSquawkByID = `-- name: UpdateStripAssignedSquawkByID :execrows
-UPDATE strips SET assigned_squawk = $1 WHERE id = $2
+UPDATE strips SET assigned_squawk = $1, version = version + 1 WHERE callsign = $2 AND session = $3 AND (version = $4 OR $4 IS NULL)
 `
 
 type UpdateStripAssignedSquawkByIDParams struct {
 	AssignedSquawk pgtype.Text
-	ID             string
+	Callsign       string
+	Session        int32
+	Version        pgtype.Int4
 }
 
 func (q *Queries) UpdateStripAssignedSquawkByID(ctx context.Context, arg UpdateStripAssignedSquawkByIDParams) (int64, error) {
-	result, err := q.db.Exec(ctx, updateStripAssignedSquawkByID, arg.AssignedSquawk, arg.ID)
+	result, err := q.db.Exec(ctx, updateStripAssignedSquawkByID,
+		arg.AssignedSquawk,
+		arg.Callsign,
+		arg.Session,
+		arg.Version,
+	)
 	if err != nil {
 		return 0, err
 	}
 	return result.RowsAffected(), nil
 }
 
-const updateStripByID = `-- name: UpdateStripByID :exec
-UPDATE strips SET (
-        origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand, sequence, state, cleared, positionFrequency, position_latitude, position_longitude, position_altitude, tobt, tsat, ttot, ctot, aobt, asat
-) = (
-        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30
-    ) WHERE id = $31
-`
-
-type UpdateStripByIDParams struct {
-	Origin            pgtype.Text
-	Destination       pgtype.Text
-	Alternative       pgtype.Text
-	Route             pgtype.Text
-	Remarks           pgtype.Text
-	AssignedSquawk    pgtype.Text
-	Squawk            pgtype.Text
-	Sid               pgtype.Text
-	ClearedAltitude   pgtype.Text
-	Heading           pgtype.Text
-	AircraftType      pgtype.Text
-	Runway            pgtype.Text
-	RequestedAltitude pgtype.Text
-	Capabilities      pgtype.Text
-	CommunicationType pgtype.Text
-	AircraftCategory  pgtype.Text
-	Stand             pgtype.Text
-	Sequence          pgtype.Text
-	State             pgtype.Text
-	Cleared           pgtype.Bool
-	Positionfrequency pgtype.Text
-	PositionLatitude  pgtype.Text
-	PositionLongitude pgtype.Text
-	PositionAltitude  pgtype.Text
-	Tobt              pgtype.Text
-	Tsat              pgtype.Text
-	Ttot              pgtype.Text
-	Ctot              pgtype.Text
-	Aobt              pgtype.Text
-	Asat              pgtype.Text
-	ID                string
-}
-
-func (q *Queries) UpdateStripByID(ctx context.Context, arg UpdateStripByIDParams) error {
-	_, err := q.db.Exec(ctx, updateStripByID,
-		arg.Origin,
-		arg.Destination,
-		arg.Alternative,
-		arg.Route,
-		arg.Remarks,
-		arg.AssignedSquawk,
-		arg.Squawk,
-		arg.Sid,
-		arg.ClearedAltitude,
-		arg.Heading,
-		arg.AircraftType,
-		arg.Runway,
-		arg.RequestedAltitude,
-		arg.Capabilities,
-		arg.CommunicationType,
-		arg.AircraftCategory,
-		arg.Stand,
-		arg.Sequence,
-		arg.State,
-		arg.Cleared,
-		arg.Positionfrequency,
-		arg.PositionLatitude,
-		arg.PositionLongitude,
-		arg.PositionAltitude,
-		arg.Tobt,
-		arg.Tsat,
-		arg.Ttot,
-		arg.Ctot,
-		arg.Aobt,
-		arg.Asat,
-		arg.ID,
-	)
-	return err
-}
-
 const updateStripClearedAltitudeByID = `-- name: UpdateStripClearedAltitudeByID :execrows
-UPDATE strips SET cleared_altitude = $1 WHERE id = $2
+UPDATE strips SET cleared_altitude = $1, version = version + 1 WHERE callsign = $2 AND session = $3 AND (version = $4 OR $4 IS NULL)
 `
 
 type UpdateStripClearedAltitudeByIDParams struct {
 	ClearedAltitude pgtype.Text
-	ID              string
+	Callsign        string
+	Session         int32
+	Version         pgtype.Int4
 }
 
 func (q *Queries) UpdateStripClearedAltitudeByID(ctx context.Context, arg UpdateStripClearedAltitudeByIDParams) (int64, error) {
-	result, err := q.db.Exec(ctx, updateStripClearedAltitudeByID, arg.ClearedAltitude, arg.ID)
+	result, err := q.db.Exec(ctx, updateStripClearedAltitudeByID,
+		arg.ClearedAltitude,
+		arg.Callsign,
+		arg.Session,
+		arg.Version,
+	)
 	if err != nil {
 		return 0, err
 	}
@@ -496,16 +485,23 @@ func (q *Queries) UpdateStripClearedAltitudeByID(ctx context.Context, arg Update
 }
 
 const updateStripClearedFlagByID = `-- name: UpdateStripClearedFlagByID :execrows
-UPDATE strips SET cleared = $1 WHERE id = $2
+UPDATE strips SET cleared = $1, version = version + 1 WHERE callsign = $2 AND session = $3 AND (version = $4 OR $4 IS NULL)
 `
 
 type UpdateStripClearedFlagByIDParams struct {
-	Cleared pgtype.Bool
-	ID      string
+	Cleared  pgtype.Bool
+	Callsign string
+	Session  int32
+	Version  pgtype.Int4
 }
 
 func (q *Queries) UpdateStripClearedFlagByID(ctx context.Context, arg UpdateStripClearedFlagByIDParams) (int64, error) {
-	result, err := q.db.Exec(ctx, updateStripClearedFlagByID, arg.Cleared, arg.ID)
+	result, err := q.db.Exec(ctx, updateStripClearedFlagByID,
+		arg.Cleared,
+		arg.Callsign,
+		arg.Session,
+		arg.Version,
+	)
 	if err != nil {
 		return 0, err
 	}
@@ -513,16 +509,23 @@ func (q *Queries) UpdateStripClearedFlagByID(ctx context.Context, arg UpdateStri
 }
 
 const updateStripCommunicationTypeByID = `-- name: UpdateStripCommunicationTypeByID :execrows
-UPDATE strips SET communication_type = $1 WHERE id = $2
+UPDATE strips SET communication_type = $1, version = version + 1 WHERE callsign = $2 AND session = $3 AND (version = $4 OR $4 IS NULL)
 `
 
 type UpdateStripCommunicationTypeByIDParams struct {
 	CommunicationType pgtype.Text
-	ID                string
+	Callsign          string
+	Session           int32
+	Version           pgtype.Int4
 }
 
 func (q *Queries) UpdateStripCommunicationTypeByID(ctx context.Context, arg UpdateStripCommunicationTypeByIDParams) (int64, error) {
-	result, err := q.db.Exec(ctx, updateStripCommunicationTypeByID, arg.CommunicationType, arg.ID)
+	result, err := q.db.Exec(ctx, updateStripCommunicationTypeByID,
+		arg.CommunicationType,
+		arg.Callsign,
+		arg.Session,
+		arg.Version,
+	)
 	if err != nil {
 		return 0, err
 	}
@@ -530,16 +533,23 @@ func (q *Queries) UpdateStripCommunicationTypeByID(ctx context.Context, arg Upda
 }
 
 const updateStripGroundStateByID = `-- name: UpdateStripGroundStateByID :execrows
-UPDATE strips SET state = $1 WHERE id = $2
+UPDATE strips SET state = $1, version = version + 1 WHERE callsign = $2 AND session = $3 AND (version = $4 OR $4 IS NULL)
 `
 
 type UpdateStripGroundStateByIDParams struct {
-	State pgtype.Text
-	ID    string
+	State    pgtype.Text
+	Callsign string
+	Session  int32
+	Version  pgtype.Int4
 }
 
 func (q *Queries) UpdateStripGroundStateByID(ctx context.Context, arg UpdateStripGroundStateByIDParams) (int64, error) {
-	result, err := q.db.Exec(ctx, updateStripGroundStateByID, arg.State, arg.ID)
+	result, err := q.db.Exec(ctx, updateStripGroundStateByID,
+		arg.State,
+		arg.Callsign,
+		arg.Session,
+		arg.Version,
+	)
 	if err != nil {
 		return 0, err
 	}
@@ -547,16 +557,23 @@ func (q *Queries) UpdateStripGroundStateByID(ctx context.Context, arg UpdateStri
 }
 
 const updateStripHeadingByID = `-- name: UpdateStripHeadingByID :execrows
-UPDATE strips SET heading = $1 WHERE id = $2
+UPDATE strips SET heading = $1, version = version + 1 WHERE callsign = $2 AND session = $3 AND (version = $4 OR $4 IS NULL)
 `
 
 type UpdateStripHeadingByIDParams struct {
-	Heading pgtype.Text
-	ID      string
+	Heading  pgtype.Int4
+	Callsign string
+	Session  int32
+	Version  pgtype.Int4
 }
 
 func (q *Queries) UpdateStripHeadingByID(ctx context.Context, arg UpdateStripHeadingByIDParams) (int64, error) {
-	result, err := q.db.Exec(ctx, updateStripHeadingByID, arg.Heading, arg.ID)
+	result, err := q.db.Exec(ctx, updateStripHeadingByID,
+		arg.Heading,
+		arg.Callsign,
+		arg.Session,
+		arg.Version,
+	)
 	if err != nil {
 		return 0, err
 	}
@@ -564,16 +581,23 @@ func (q *Queries) UpdateStripHeadingByID(ctx context.Context, arg UpdateStripHea
 }
 
 const updateStripRequestedAltitudeByID = `-- name: UpdateStripRequestedAltitudeByID :execrows
-UPDATE strips SET requested_altitude = $1 WHERE id = $2
+UPDATE strips SET requested_altitude = $1, version = version + 1 WHERE callsign = $2 AND session = $3 AND (version = $4 OR $4 IS NULL)
 `
 
 type UpdateStripRequestedAltitudeByIDParams struct {
-	RequestedAltitude pgtype.Text
-	ID                string
+	RequestedAltitude pgtype.Int4
+	Callsign          string
+	Session           int32
+	Version           pgtype.Int4
 }
 
 func (q *Queries) UpdateStripRequestedAltitudeByID(ctx context.Context, arg UpdateStripRequestedAltitudeByIDParams) (int64, error) {
-	result, err := q.db.Exec(ctx, updateStripRequestedAltitudeByID, arg.RequestedAltitude, arg.ID)
+	result, err := q.db.Exec(ctx, updateStripRequestedAltitudeByID,
+		arg.RequestedAltitude,
+		arg.Callsign,
+		arg.Session,
+		arg.Version,
+	)
 	if err != nil {
 		return 0, err
 	}
@@ -581,16 +605,23 @@ func (q *Queries) UpdateStripRequestedAltitudeByID(ctx context.Context, arg Upda
 }
 
 const updateStripSquawkByID = `-- name: UpdateStripSquawkByID :execrows
-UPDATE strips SET squawk = $1 WHERE id = $2
+UPDATE strips SET squawk = $1, version = version + 1 WHERE callsign = $2 AND session = $3 AND (version = $4 OR $4 IS NULL)
 `
 
 type UpdateStripSquawkByIDParams struct {
-	Squawk pgtype.Text
-	ID     string
+	Squawk   pgtype.Text
+	Callsign string
+	Session  int32
+	Version  pgtype.Int4
 }
 
 func (q *Queries) UpdateStripSquawkByID(ctx context.Context, arg UpdateStripSquawkByIDParams) (int64, error) {
-	result, err := q.db.Exec(ctx, updateStripSquawkByID, arg.Squawk, arg.ID)
+	result, err := q.db.Exec(ctx, updateStripSquawkByID,
+		arg.Squawk,
+		arg.Callsign,
+		arg.Session,
+		arg.Version,
+	)
 	if err != nil {
 		return 0, err
 	}
@@ -598,16 +629,23 @@ func (q *Queries) UpdateStripSquawkByID(ctx context.Context, arg UpdateStripSqua
 }
 
 const updateStripStandByID = `-- name: UpdateStripStandByID :execrows
-UPDATE strips SET stand = $1 WHERE id = $2
+UPDATE strips SET stand = $1, version = version + 1 WHERE callsign = $2 AND session = $3 AND (version = $4 OR $4 IS NULL)
 `
 
 type UpdateStripStandByIDParams struct {
-	Stand pgtype.Text
-	ID    string
+	Stand    pgtype.Text
+	Callsign string
+	Session  int32
+	Version  pgtype.Int4
 }
 
 func (q *Queries) UpdateStripStandByID(ctx context.Context, arg UpdateStripStandByIDParams) (int64, error) {
-	result, err := q.db.Exec(ctx, updateStripStandByID, arg.Stand, arg.ID)
+	result, err := q.db.Exec(ctx, updateStripStandByID,
+		arg.Stand,
+		arg.Callsign,
+		arg.Session,
+		arg.Version,
+	)
 	if err != nil {
 		return 0, err
 	}

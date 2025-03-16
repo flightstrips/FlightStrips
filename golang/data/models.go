@@ -8,26 +8,41 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-type Controller struct {
-	Callsign  string
-	Airport   string
-	Position  string
-	Master    bool
-	Connected bool
+type Airport struct {
+	Name string
 }
 
-type Event struct {
-	ID        int32
-	Type      pgtype.Text
-	Timestamp pgtype.Text
-	Cid       pgtype.Text
-	Data      pgtype.Text
+type AirportMasterOrder struct {
+	ID       int32
+	Airport  pgtype.Text
+	Position string
+	Priority int32
+}
+
+type Controller struct {
+	ID                int32
+	Session           int32
+	Callsign          string
+	Airport           string
+	Position          string
+	Cid               pgtype.Text
+	LastSeenEuroscope pgtype.Timestamp
+	LastSeenFrontend  pgtype.Timestamp
+}
+
+type Session struct {
+	ID      int32
+	Name    string
+	Airport string
 }
 
 type Strip struct {
-	ID                string
-	Origin            pgtype.Text
-	Destination       pgtype.Text
+	ID                int32
+	Version           int32
+	Callsign          string
+	Session           int32
+	Origin            string
+	Destination       string
 	Alternative       pgtype.Text
 	Route             pgtype.Text
 	Remarks           pgtype.Text
@@ -35,18 +50,18 @@ type Strip struct {
 	Squawk            pgtype.Text
 	Sid               pgtype.Text
 	ClearedAltitude   pgtype.Text
-	Heading           pgtype.Text
+	Heading           pgtype.Int4
 	AircraftType      pgtype.Text
 	Runway            pgtype.Text
-	RequestedAltitude pgtype.Text
+	RequestedAltitude pgtype.Int4
 	Capabilities      pgtype.Text
 	CommunicationType pgtype.Text
 	AircraftCategory  pgtype.Text
 	Stand             pgtype.Text
-	Sequence          pgtype.Text
+	Sequence          pgtype.Int4
 	State             pgtype.Text
 	Cleared           pgtype.Bool
-	Positionfrequency pgtype.Text
+	Owner             pgtype.Text
 	PositionLatitude  pgtype.Text
 	PositionLongitude pgtype.Text
 	PositionAltitude  pgtype.Text

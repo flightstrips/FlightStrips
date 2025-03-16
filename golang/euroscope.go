@@ -1,6 +1,8 @@
 package main
 
 import (
+	"FlightStrips/data"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -9,6 +11,7 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/gorilla/websocket"
 )
@@ -24,6 +27,7 @@ type EuroscopeClient struct {
 	send     chan []byte
 	user     *EuroscopeUser
 	airport  string
+	session  int32
 	position string
 	callsign string
 }
@@ -70,7 +74,13 @@ func (s *Server) euroscopeEvents(w http.ResponseWriter, r *http.Request) {
 	euroscopeClients[client] = true
 
 	conn.SetReadDeadline(time.Now().Add(pongWait))
-	conn.SetPongHandler(func(string) error { conn.SetReadDeadline(time.Now().Add(pongWait)); return nil })
+	conn.SetPongHandler(func(string) error { 
+		conn.SetReadDeadline(time.Now().Add(pongWait))
+		db := data.New(s.DBPool)
+		params := data.SetControllerEuroscopeSeenParams { Callsign: client.callsign, Session: client.session, LastSeenEuroscope: pgtype.Timestamp{ Valid: true, Time: time.Now().UTC() } } 
+		_, err := db.SetControllerEuroscopeSeen(context.Background(), params)
+		return err 
+	})
 
 	// Read incoming messages.
 	for {
@@ -143,14 +153,14 @@ func (s *Server) euroscopeInitialEventsHandler(conn *websocket.Conn) (client *Eu
 		return nil, err
 	}
 
-	loginEvent, err := s.euroscopeeventhandlerLogin(msg)
+	loginEvent, sessionId, err := s.euroscopeeventhandlerLogin(msg)
 	if err != nil {
 		return nil, err
 	}
 
 	// Controller Online
 
-	client = &EuroscopeClient{conn: conn, send: make(chan []byte), user: user, airport: loginEvent.Airport, position: loginEvent.Position, callsign: loginEvent.Callsign}
+	client = &EuroscopeClient{conn: conn, send: make(chan []byte), user: user, airport: loginEvent.Airport, position: loginEvent.Position, callsign: loginEvent.Callsign, session: sessionId}
 	return client, nil
 }
 
@@ -158,15 +168,15 @@ func (s *Server) euroscopeEventsHandler(client *EuroscopeClient, event Euroscope
 
 	switch event.Type {
 	case EuroscopeControllerOnline:
-		return s.euroscopeeventhandlerControllerOnline(msg, client.airport)
+		return s.euroscopeeventhandlerControllerOnline(msg, client.session, client.airport)
 	case EuroscopeControllerOffline:
-		return s.euroscopeeventhandlerControllerOffline(msg, client.airport)
+		return s.euroscopeeventhandlerControllerOffline(msg, client.session, client.airport)
 	case EuroscopeSync:
 		return errors.New("not implemented")
 	case EuroscopeAssignedSquawk:
-		return s.euroscopeeventhandlerAssignedSquawk(msg, client.airport)
+		return s.euroscopeeventhandlerAssignedSquawk(msg, client.session, client.airport)
 	case EuroscopeSquawk:
-		return s.euroscopeeventhandlerSquawk(msg, client.airport)
+		return s.euroscopeeventhandlerSquawk(msg, client.session, client.airport)
 	case EuroscopeRequestedAltitude:
 		return errors.New("not implemented")
 	case EuroscopeClearedAltitude:

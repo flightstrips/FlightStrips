@@ -12,7 +12,6 @@ func TestEuroscopeLoginEvent(t *testing.T) {
 
 	websocketHandlerServer := Server{
 		nil,
-		nil,
 		"",
 		"",
 	}

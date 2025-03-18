@@ -14,7 +14,7 @@ type Airport struct {
 
 type AirportMasterOrder struct {
 	ID       int32
-	Airport  pgtype.Text
+	Airport  string
 	Position string
 	Priority int32
 }

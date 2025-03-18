@@ -43,7 +43,7 @@ INSERT INTO sessions (name, airport) VALUES ($1, $2) RETURNING id;
 SELECT * FROM sessions WHERE airport = $1 AND name = $2;
 
 -- name: GetExpiredSessions :many
-SELECT id FROM sessions WHERE NOT EXISTS (SELECT 1 FROM controllers WHERE last_seen_euroscope < @expired_time);
+SELECT id FROM sessions WHERE NOT EXISTS (SELECT 1 FROM controllers WHERE last_seen_euroscope > @expired_time);
 
 -- name: InsertStrip :exec
 INSERT INTO strips (version, callsign, session, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand, sequence, state, cleared, owner, position_latitude, position_longitude, position_altitude, tobt

@@ -5,19 +5,19 @@ CREATE TABLE IF NOT EXISTS airports (
 CREATE TABLE IF NOT EXISTS sessions (
     id SERIAL PRIMARY KEY,
     name text NOT NULL,
-    airport varchar(4) REFERENCES airports(name) NOT NULL
+    airport varchar(4) REFERENCES airports(name) ON DELETE CASCADE NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS airport_master_orders (
     id SERIAL PRIMARY KEY,
-    airport varchar(4) REFERENCES airports(name),
+    airport varchar(4) REFERENCES airports(name) ON DELETE CASCADE NOT NULL,
     position varchar(7) NOT NULL,
     priority integer NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS controllers (
     id SERIAL PRIMARY KEY,
-    session integer references sessions(id) NOT NULL,
+    session integer references sessions(id) ON DELETE CASCADE NOT NULL,
     callsign varchar NOT NULL,
     airport varchar(4) NOT NULL,
     position varchar(7) NOT NULL,
@@ -35,7 +35,7 @@ CREATE TABLE IF NOT EXISTS strips (
     id SERIAL PRIMARY KEY,
     version integer NOT NULL,
     callsign varchar NOT NULL,
-    session integer references sessions(id) NOT NULL,
+    session integer references sessions(id) ON DELETE CASCADE NOT NULL,
     origin varchar(4) NOT NULL,
     destination varchar(4) NOT NULL,
     alternative varchar(4),

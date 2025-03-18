@@ -56,7 +56,7 @@ func (q *Queries) GetController(ctx context.Context, arg GetControllerParams) (C
 }
 
 const getExpiredSessions = `-- name: GetExpiredSessions :many
-SELECT id FROM sessions WHERE NOT EXISTS (SELECT 1 FROM controllers WHERE last_seen_euroscope < $1)
+SELECT id FROM sessions WHERE NOT EXISTS (SELECT 1 FROM controllers WHERE last_seen_euroscope > $1)
 `
 
 func (q *Queries) GetExpiredSessions(ctx context.Context, expiredTime pgtype.Timestamp) ([]int32, error) {

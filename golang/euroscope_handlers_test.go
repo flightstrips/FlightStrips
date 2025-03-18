@@ -14,7 +14,6 @@ func Test_euroscopehandlerAuthentication(t *testing.T) {
 
 	server := Server{
 		nil,
-		nil,
 		authServerURL,
 		signingAlgo,
 	}

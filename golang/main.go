@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	_ "github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	_ "embed"
@@ -79,10 +80,36 @@ func handleFrontEndBroadcast() {
 	}
 }
 
+func (s *Server) monitorSessions() {
+	for {
+		expired := time.Now().Add(-time.Minute * 5).UTC()
+		db := data.New(s.DBPool)
+
+		sessions, err := db.GetExpiredSessions(context.Background(), pgtype.Timestamp{Time: expired, Valid: true})
+
+		if err != nil {
+			log.Println("Failed to get expired sessions:", err)
+		}
+
+		for _, session := range sessions {
+			log.Println("Removing expired session:", session)
+			count, err := db.DeleteSession(context.Background(), session)
+			if err != nil {
+				log.Println("Failed to remove expired session:", session, err)
+			}
+
+			if count != 1 {
+				log.Println("Failed to remove expired session (no changes):", session, err)
+			}
+		}
+
+		time.Sleep(time.Minute)
+	}
+}
+
 // Server holds shared resources
 type Server struct {
 	DBPool          *pgxpool.Pool
-	logging         chan interface{}
 	AuthServerURL   string
 	AuthSigningAlgo string
 }
@@ -100,18 +127,18 @@ func healthz(w http.ResponseWriter, _ *http.Request) {
 func (s *Server) GetOrCreateSession(airport string, name string) (Session, error) {
 	db := data.New(s.DBPool)
 
-	arg := data.GetSessionParams { Name: name, Airport: airport }
+	arg := data.GetSessionParams{Name: name, Airport: airport}
 	session, err := db.GetSession(context.Background(), arg)
 
 	if err == nil {
-		return Session { Name: session.Name, Airport: session.Airport, Id: session.ID }, nil
+		return Session{Name: session.Name, Airport: session.Airport, Id: session.ID}, nil
 	}
 
 	if err == pgx.ErrNoRows {
-		insertArg := data.InsertSessionParams { Name: name, Airport: airport }
+		insertArg := data.InsertSessionParams{Name: name, Airport: airport}
 		id, err := db.InsertSession(context.Background(), insertArg)
 
-		return Session { Name: name, Airport: airport, Id: id }, err
+		return Session{Name: name, Airport: airport, Id: id}, err
 	}
 
 	return Session{}, nil
@@ -136,12 +163,9 @@ func main() {
 	}
 	defer dbpool.Close()
 
-	logging := make(chan interface{})
-
 	// Create the parent server struct
 	server := Server{
 		DBPool:          dbpool,
-		logging:         logging,
 		AuthServerURL:   os.Getenv("OIDC_AUTHORITY"),
 		AuthSigningAlgo: os.Getenv("OIDC_SIGNING_ALGO"),
 	}
@@ -166,6 +190,7 @@ func main() {
 	// Start background tasks.
 	go handleFrontEndBroadcast()
 	go periodicMessages()
+	go server.monitorSessions()
 
 	log.Println("Server started on address:", *addr)
 	log.Fatal(http.ListenAndServe(*addr, nil))

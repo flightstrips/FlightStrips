@@ -10,11 +10,12 @@ type EuroscopeAuthenticationEvent struct {
 }
 
 type EuroscopeLoginEvent struct {
-	Type     EventType `json:"type"`
-	Airport  string    `json:"airport"`
-	Position string    `json:"position"`
-	Callsign string    `json:"callsign"`
-	Range    int       `json:"range"`
+	Type       EventType `json:"type"`
+	Connection string    `json:"connection"`
+	Airport    string    `json:"airport"`
+	Position   string    `json:"position"`
+	Callsign   string    `json:"callsign"`
+	Range      int       `json:"range"`
 }
 
 type EuroscopeControllerOnlineEvent struct {
@@ -157,4 +158,3 @@ type EuroscopeRunwayEvent struct {
 	} `json:"runways"`
 	Type EventType `json:"type"`
 }
-

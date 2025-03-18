@@ -122,9 +122,11 @@ namespace FlightStrips::websocket {
     }
 
     void WebSocketService::SendLoginEvent() {
-        const auto &state = m_plugin->GetConnectionState();
-        primary = state.primary_frequency;
-        const auto login = LoginEvent(state.relevant_airport, state.primary_frequency, state.callsign, state.range);
+        const auto &[range, connection_type, primary_frequency, callsign, relevant_airport] = m_plugin->GetConnectionState();
+        primary = primary_frequency;
+
+        const auto connection = connection_type == CONNECTION_TYPE_DIRECT ? "LIVE" : connection_type == CONNECTION_TYPE_SWEATBOX ? "SWEATBOX" : "PLAYBACK";
+        const auto login = LoginEvent(relevant_airport, connection, primary_frequency, callsign, range);
         SendEvent(login);
     }
 }

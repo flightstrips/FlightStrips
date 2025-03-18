@@ -135,6 +135,7 @@ func (s *Server) GetOrCreateSession(airport string, name string) (Session, error
 	}
 
 	if err == pgx.ErrNoRows {
+		log.Println("Creating session:", name, "for airport:", airport)
 		insertArg := data.InsertSessionParams{Name: name, Airport: airport}
 		id, err := db.InsertSession(context.Background(), insertArg)
 

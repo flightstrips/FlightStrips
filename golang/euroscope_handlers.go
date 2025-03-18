@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"errors"
 	"log"
+	"math/rand"
+	"strconv"
 	"time"
 
 	"github.com/MicahParks/keyfunc/v3"
@@ -27,22 +29,8 @@ func (s *Server) euroscopeeventhandlerAuthentication(msg []byte) (user *Euroscop
 func (s *Server) euroscopeeventhandlerConnectionClosed(client *EuroscopeClient) error {
 	// Controller may still be online and may have just logged out or unloaded the plugin
 
-	db := data.New(s.DBPool)
-
-	params := data.SetControllerEuroscopeSeenParams{
-		Callsign:  client.callsign,
-		Session: client.session,
-	}
-
-	count, err := db.SetControllerEuroscopeSeen(context.Background(), params)
-
-	if err != nil {
-		return err
-	}
-
-	if count != 1 {
-		log.Printf("Disconnected client did not exist in the database. Callsign: %s", client.callsign)
-	}
+	// Do not set last seen as we want to keep the data for some time before removing the session if this is the last
+	// controller disconnecting
 
 	return nil
 }
@@ -88,7 +76,10 @@ func (s *Server) euroscopeeventhandlerLogin(msg []byte) (event EuroscopeLoginEve
 		return
 	}
 
-	const sessionName = "LIVE"
+	sessionName := event.Connection
+	if sessionName == "PLAYBACK" {
+		sessionName = sessionName + "_" + strconv.Itoa(rand.Int())
+	}
 
 	session, err := s.GetOrCreateSession(event.Airport, sessionName)
 

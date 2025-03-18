@@ -107,19 +107,21 @@ struct TokenEvent final : Event {
 
 struct LoginEvent final : Event {
     std::string airport;
+    std::string connection;
     std::string position;
     std::string callsign;
     int range;
 
-    LoginEvent(std::string airport, std::string position, std::string callsign, const int range)
+    LoginEvent(std::string airport, std::string connection, std::string position, std::string callsign, const int range)
         : Event(EVENT_LOGIN),
           airport(std::move(airport)),
+          connection(std::move(connection)),
           position(std::move(position)),
           callsign(std::move(callsign)),
           range(range) {
     }
 
-    NLOHMANN_DEFINE_TYPE_INTRUSIVE(LoginEvent, airport, position, callsign, range, type);
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE(LoginEvent, airport, connection, position, callsign, range, type);
 };
 
 struct Runway final {

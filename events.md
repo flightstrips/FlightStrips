@@ -19,9 +19,12 @@
 
 Sent by: EuroScope
 
+`connection` can be `LIVE`, `SWEATBOX` or `PLAYBACK`
+
 ```json
 {
     "type": "login",
+    "connection": "LIVE",
     "airport": "EKCH",
     "position": "118.105",
     "callsign": "EKCH_A_TWR",

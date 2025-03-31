@@ -260,7 +260,6 @@ Strip update
 
 ```json
 {
-    "type": "strip_update",
     "callsign": "",
     "origin": "",
     "destination": "",
@@ -268,10 +267,20 @@ Strip update
     "route": "",
     "remarks": "",
     "runway": "",
+    "squawk": "1234",
+    "assigned_squawk": "1234",
     "sid": "",
+    "cleared": false,
+    "ground_state": "PUSH",
+    "cleared_altitude": 1234,
+    "requested_altitude": 1234,
+    "heading": 0, // 0 - not set
     "aircraft_type": "A320",
     "aircraft_category": "M",
+    "position": { "lat": 1111, "lon": 1111, "altitude": 123 },
+    "stand": "A12",
     "capabilities": "G",
+    "communication_type": "V",
     "eobt": "1200", // nullable
     "eldt": "1200" // nullable
 }

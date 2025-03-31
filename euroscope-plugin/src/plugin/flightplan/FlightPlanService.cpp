@@ -59,42 +59,59 @@ namespace FlightStrips::flightplan {
 
     void FlightPlanService::FlightPlanEvent(EuroScopePlugIn::CFlightPlan flightPlan) {
         const auto callsign = std::string(flightPlan.GetCallsign());
+        const auto relevantAirport = m_flightStripsPlugin->GetConnectionState().relevant_airport;
         const auto stand = m_standService->GetStand(flightPlan.GetControllerAssignedData().GetFlightStripAnnotation(6),
-                                                    m_flightStripsPlugin->GetConnectionState().relevant_airport);
-        bool shouldSendStandEvent = true;
+                                                    relevantAirport);
         if (stand != nullptr) {
             FlightPlan plan{{}, stand->GetName()};
             if (const auto [pair, inserted] = this->m_flightPlans.insert({callsign, plan}); !inserted) {
                 if (pair->second.stand != plan.stand) {
                     pair->second.stand = plan.stand;
-                } else {
-                    shouldSendStandEvent = false;
                 }
             }
         }
         if (!m_websocketService->ShouldSend()) return;
-        const auto isArrival = strcmp(flightPlan.GetFlightPlanData().GetDestination(),
-                                      m_flightStripsPlugin->GetConnectionState().relevant_airport.c_str()) == 0;
-        const auto event = StripUpdateEvent(
+        const auto flightPlanData = flightPlan.GetFlightPlanData();
+        if (!flightPlanData.IsReceived()) return;
+        const auto trackPosition = flightPlan.GetFPTrackPosition();
+        if (!trackPosition.IsValid()) return;
+        const auto position = trackPosition.GetPosition();
+
+        const auto isArrival = strcmp(flightPlan.GetFlightPlanData().GetDestination(), relevantAirport.c_str()) == 0;
+        const auto runway = std::string(isArrival
+                                            ? flightPlan.GetFlightPlanData().GetArrivalRwy()
+                                            : flightPlan.GetFlightPlanData().GetDepartureRwy());
+        const auto controllerAssignedData = flightPlan.GetControllerAssignedData();
+
+        const auto event = StripUpdateEvent{
             callsign,
-            std::string(flightPlan.GetFlightPlanData().GetOrigin()),
-            std::string(flightPlan.GetFlightPlanData().GetDestination()),
-            std::string(flightPlan.GetFlightPlanData().GetAlternate()),
-            std::string(flightPlan.GetFlightPlanData().GetRoute()),
-            std::string(flightPlan.GetFlightPlanData().GetRemarks()),
-            std::string(isArrival
-                            ? flightPlan.GetFlightPlanData().GetArrivalRwy()
-                            : flightPlan.GetFlightPlanData().GetDepartureRwy()),
-            std::string(flightPlan.GetFlightPlanData().GetSidName()),
-            std::string(flightPlan.GetFlightPlanData().GetAircraftInfo()),
-            {flightPlan.GetFlightPlanData().GetAircraftWtc()},
-            {flightPlan.GetFlightPlanData().GetCapibilities()},
-            isArrival ? "" : std::string(flightPlan.GetFlightPlanData().GetEstimatedDepartureTime()),
+            std::string(flightPlanData.GetOrigin()),
+            std::string(flightPlanData.GetDestination()),
+            std::string(flightPlanData.GetAlternate()),
+            std::string(flightPlanData.GetRoute()),
+            std::string(flightPlanData.GetRemarks()),
+            runway,
+            std::string(trackPosition.GetSquawk()),
+            std::string(controllerAssignedData.GetSquawk()),
+            std::string(flightPlanData.GetSidName()),
+            flightPlan.GetClearenceFlag(),
+            std::string(flightPlan.GetGroundState()),
+            controllerAssignedData.GetClearedAltitude(),
+            controllerAssignedData.GetFinalAltitude(),
+            controllerAssignedData.GetAssignedHeading(),
+            std::string(flightPlanData.GetAircraftInfo()),
+            {flightPlanData.GetAircraftWtc()},
+            Position{
+                position.m_Latitude, position.m_Longitude,
+                trackPosition.GetPressureAltitude()
+            },
+            stand == nullptr ? "" : stand->GetName(),
+            {flightPlanData.GetCommunicationType()},
+            flightPlanData.GetCapibilities() == 0 ? "?" : std::string {flightPlanData.GetCapibilities()},
+            isArrival ? "" : std::string(flightPlanData.GetEstimatedDepartureTime()),
             isArrival ? GetEstimatedLandingTime(flightPlan) : ""
-        );
+        };
         m_websocketService->SendEvent(event);
-        if (shouldSendStandEvent && stand != nullptr) m_websocketService->SendEvent(
-            StandEvent(callsign, stand->GetName()));
     }
 
     void FlightPlanService::ControllerFlightPlanDataEvent(EuroScopePlugIn::CFlightPlan flightPlan, int dataType) {

@@ -265,22 +265,43 @@ struct AircraftDisconnectEvent final : Event {
     NLOHMANN_DEFINE_TYPE_INTRUSIVE(AircraftDisconnectEvent, callsign, type);
 };
 
+struct Position final {
+    double lat;
+    double lon;
+    int altitude;
+
+    explicit Position(const double lat, const double lon, const int altitude) : lat(lat), lon(lon), altitude(altitude) {
+    }
+
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE(Position, lat, lon, altitude);
+};
+
 struct StripUpdateEvent final : Event {
-    StripUpdateEvent(std::string callsign, std::string origin, std::string destination, std::string alternate,
-                     std::string route, std::string remarks, std::string runway, std::string sid,
-                     std::string aircraft_type,
-                     std::string aircraft_category, std::string capabilities, std::string eobt, std::string eldt)
-        : Event(EVENT_STRIP_UPDATE),
-          callsign(std::move(callsign)),
+    StripUpdateEvent(std::string callsign, std::string origin, std::string destination, std::string alternate, std::string route,
+          std::string remarks, std::string runway, std::string squawk, std::string assigned_squawk, std::string sid,
+          bool cleared, std::string ground_state, int cleared_altitude, int requested_altitude, int heading,
+          std::string aircraft_type, std::string aircraft_category, Position position, std::string stand,
+          std::string communication_type, std::string capabilities, std::string eobt, std::string eldt)
+        : Event(EVENT_STRIP_UPDATE), callsign(std::move(callsign)),
           origin(std::move(origin)),
           destination(std::move(destination)),
           alternate(std::move(alternate)),
           route(std::move(route)),
           remarks(std::move(remarks)),
           runway(std::move(runway)),
+          squawk(std::move(squawk)),
+          assigned_squawk(std::move(assigned_squawk)),
           sid(std::move(sid)),
+          cleared(cleared),
+          ground_state(std::move(ground_state)),
+          cleared_altitude(cleared_altitude),
+          requested_altitude(requested_altitude),
+          heading(heading),
           aircraft_type(std::move(aircraft_type)),
           aircraft_category(std::move(aircraft_category)),
+          position(position),
+          stand(std::move(stand)),
+          communication_type(std::move(communication_type)),
           capabilities(std::move(capabilities)),
           eobt(std::move(eobt)),
           eldt(std::move(eldt)) {
@@ -293,16 +314,28 @@ struct StripUpdateEvent final : Event {
     std::string route;
     std::string remarks;
     std::string runway;
+    std::string squawk;
+    std::string assigned_squawk;
     std::string sid;
+    bool cleared;
+    std::string ground_state;
+    int cleared_altitude;
+    int requested_altitude;
+    int heading;
     std::string aircraft_type;
     std::string aircraft_category;
+    Position position;
+    std::string stand;
+    std::string communication_type;
     std::string capabilities;
     std::string eobt;
     std::string eldt;
 
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE(StripUpdateEvent, callsign, origin, destination, alternate, route, remarks, runway, squawk,
+                                   assigned_squawk, sid, cleared, ground_state, cleared_altitude, requested_altitude,
+                                   heading, aircraft_type, aircraft_category, position, stand, communication_type,
+                                   capabilities, eobt, eldt, type);
 
-    NLOHMANN_DEFINE_TYPE_INTRUSIVE(StripUpdateEvent, callsign, origin, destination, alternate, route, remarks, runway,
-                                   sid, aircraft_type, aircraft_category, capabilities, eobt, eldt, type);
 };
 
 struct ControllerOnlineEvent final : Event {
@@ -339,16 +372,6 @@ struct StandEvent final : Event {
     NLOHMANN_DEFINE_TYPE_INTRUSIVE(StandEvent, callsign, stand, type);
 };
 
-struct Position final {
-    double lat;
-    double lon;
-    int altitude;
-
-    explicit Position(const double lat, const double lon, const int altitude) : lat(lat), lon(lon), altitude(altitude) {
-    }
-
-    NLOHMANN_DEFINE_TYPE_INTRUSIVE(Position, lat, lon, altitude);
-};
 
 struct Strip final {
     Strip(std::string callsign, std::string origin, std::string destination, std::string alternate, std::string route,

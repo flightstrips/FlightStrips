@@ -117,7 +117,7 @@ namespace FlightStrips::messages {
                 },
                 stand,
                 {flightPlanData.GetCommunicationType()},
-                {flightPlanData.GetCapibilities()},
+                flightPlanData.GetCapibilities() == 0 ? "?" : std::string {flightPlanData.GetCapibilities()},
                 isArrival ? "" : std::string(flightPlanData.GetEstimatedDepartureTime()),
                 isArrival ? flightplan::FlightPlanService::GetEstimatedLandingTime(it) : ""
             });

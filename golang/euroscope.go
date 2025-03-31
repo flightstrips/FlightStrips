@@ -74,12 +74,12 @@ func (s *Server) euroscopeEvents(w http.ResponseWriter, r *http.Request) {
 	euroscopeClients[client] = true
 
 	conn.SetReadDeadline(time.Now().Add(pongWait))
-	conn.SetPongHandler(func(string) error { 
+	conn.SetPongHandler(func(string) error {
 		conn.SetReadDeadline(time.Now().Add(pongWait))
 		db := data.New(s.DBPool)
-		params := data.SetControllerEuroscopeSeenParams { Callsign: client.callsign, Session: client.session, LastSeenEuroscope: pgtype.Timestamp{ Valid: true, Time: time.Now().UTC() } } 
+		params := data.SetControllerEuroscopeSeenParams{Callsign: client.callsign, Session: client.session, LastSeenEuroscope: pgtype.Timestamp{Valid: true, Time: time.Now().UTC()}}
 		_, err := db.SetControllerEuroscopeSeen(context.Background(), params)
-		return err 
+		return err
 	})
 
 	// Read incoming messages.
@@ -116,7 +116,7 @@ func (c *EuroscopeClient) writeLoop() {
 
 	for {
 		select {
-		case message, ok := <- c.send:
+		case message, ok := <-c.send:
 			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
 
 			if !ok {
@@ -126,7 +126,7 @@ func (c *EuroscopeClient) writeLoop() {
 			}
 
 			c.conn.WriteMessage(websocket.TextMessage, message)
-		case <- ticker.C:
+		case <-ticker.C:
 			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
 			if err := c.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
 				return
@@ -172,44 +172,32 @@ func (s *Server) euroscopeEventsHandler(client *EuroscopeClient, event Euroscope
 	case EuroscopeControllerOffline:
 		return s.euroscopeeventhandlerControllerOffline(msg, client.session, client.airport)
 	case EuroscopeSync:
-		return errors.New("not implemented")
+		return s.euroscopeeventhandlerSync(msg, client.session, client.airport)
 	case EuroscopeAssignedSquawk:
-		return s.euroscopeeventhandlerAssignedSquawk(msg, client.session, client.airport)
+		return s.euroscopeeventhandlerAssignedSquawk(msg, client.session)
 	case EuroscopeSquawk:
-		return s.euroscopeeventhandlerSquawk(msg, client.session, client.airport)
+		return s.euroscopeeventhandlerSquawk(msg, client.session)
 	case EuroscopeRequestedAltitude:
-		return errors.New("not implemented")
+		return s.euroscopeeventhandlerRequestedAltitude(msg, client.session)
 	case EuroscopeClearedAltitude:
-		return errors.New("not implemented")
+		return s.euroscopeeventhandlerClearedAltitude(msg, client.session)
 	case EuroscopeCommunicationType:
-		return errors.New("not implemented")
+		return s.euroscopeeventhandlerCommunicationType(msg, client.session)
 	case EuroscopeGroundState:
-		return errors.New("not implemented")
+		return s.euroscopeeventhandlerGroundState(msg, client.session)
 	case EuroscopeClearedFlag:
-		return errors.New("not implemented")
+		return s.euroscopeeventhandlerClearedFlag(msg, client.session)
 	case EuroscopePositionUpdate:
-		return errors.New("not implemented")
+		return s.euroscopeeventhandlerPositionUpdate(msg, client.session)
 	case EuroscopeSetHeading:
-		return errors.New("not implemented")
+		return s.euroscopeeventhandlerSetHeading(msg, client.session)
 	case EuroscopeAircraftDisconnected:
-		return errors.New("not implemented")
+		return s.euroscopeeventhandlerAircraftDisconnected(msg, client.session)
 	case EuroscopeStand:
-		return errors.New("not implemented")
+		return s.euroscopeeventhandlerStand(msg, client.session)
 	case EuroscopeStripUpdate:
-		return errors.New("not implemented")
+		return s.euroscopeeventhandlerStripUpdate(msg, client.session)
 	case EuroscopeRunway:
-		return errors.New("not implemented")
-	case EuroscopeSessionInfo:
-		return errors.New("not implemented")
-	case EuroscopeGenerateSquawk:
-		return errors.New("not implemented")
-	case EuroscopeRoute:
-		return errors.New("not implemented")
-	case EuroscopeRemarks:
-		return errors.New("not implemented")
-	case EuroscopeSID:
-		return errors.New("not implemented")
-	case EuroscopeAircraftRunway:
 		return errors.New("not implemented")
 	default:
 		return errors.New("unknown event type")

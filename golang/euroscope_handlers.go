@@ -192,7 +192,7 @@ func (s *Server) euroscopeeventhandlerControllerOffline(msg []byte, session int3
 	return err
 }
 
-func (s *Server) euroscopeeventhandlerAssignedSquawk(msg []byte, session int32, airport string) error {
+func (s *Server) euroscopeeventhandlerAssignedSquawk(msg []byte, session int32) error {
 	var event EuroscopeAssignedSquawkEvent
 	err := json.Unmarshal(msg, &event)
 	if err != nil {
@@ -220,7 +220,7 @@ func (s *Server) euroscopeeventhandlerAssignedSquawk(msg []byte, session int32, 
 	return err
 }
 
-func (s *Server) euroscopeeventhandlerSquawk(msg []byte, session int32, airport string) error {
+func (s *Server) euroscopeeventhandlerSquawk(msg []byte, session int32) error {
 	var event EuroscopeSquawkEvent
 	err := json.Unmarshal(msg, &event)
 	if err != nil {
@@ -245,5 +245,363 @@ func (s *Server) euroscopeeventhandlerSquawk(msg []byte, session int32, airport 
 		log.Printf("Strip %v which is being updated does not exist in the database", event.Callsign)
 	}
 
+	return err
+}
+
+func (s *Server) euroscopeeventhandlerRequestedAltitude(msg []byte, session int32) error {
+	var event EuroscopeRequestedAltitudeEvent
+	err := json.Unmarshal(msg, &event)
+	if err != nil {
+		return err
+	}
+
+	db := data.New(s.DBPool)
+
+	data := data.UpdateStripRequestedAltitudeByIDParams{
+		RequestedAltitude: pgtype.Int4{Valid: true, Int32: int32(event.Altitude)},
+		Callsign:          event.Callsign,
+		Session:           session,
+	}
+
+	count, err := db.UpdateStripRequestedAltitudeByID(context.TODO(), data)
+	if err != nil {
+		return err
+	}
+	if count != 1 {
+		log.Printf("Strip %v which is being updated does not exist in the database", event.Callsign)
+	}
+	return err
+}
+
+func (s *Server) euroscopeeventhandlerClearedAltitude(msg []byte, session int32) error {
+	var event EuroscopeClearedAltitudeEvent
+	err := json.Unmarshal(msg, &event)
+	if err != nil {
+		return err
+	}
+
+	db := data.New(s.DBPool)
+	data := data.UpdateStripClearedAltitudeByIDParams{
+		ClearedAltitude: pgtype.Int4{Valid: true, Int32: int32(event.Altitude)},
+		Callsign:        event.Callsign,
+		Session:         session,
+	}
+
+	count, err := db.UpdateStripClearedAltitudeByID(context.TODO(), data)
+	if err != nil {
+		return err
+	}
+	if count != 1 {
+		log.Printf("Strip %v which is being updated does not exist in the database", event.Callsign)
+	}
+	return err
+}
+
+func (s *Server) euroscopeeventhandlerCommunicationType(msg []byte, session int32) error {
+	var event EuroscopeCommunicationTypeEvent
+	err := json.Unmarshal(msg, &event)
+	if err != nil {
+		return err
+	}
+
+	db := data.New(s.DBPool)
+
+	data := data.UpdateStripCommunicationTypeByIDParams{
+		CommunicationType: pgtype.Text{Valid: true, String: event.CommunicationType},
+		Callsign:          event.Callsign,
+		Session:           session,
+	}
+
+	count, err := db.UpdateStripCommunicationTypeByID(context.TODO(), data)
+	if err != nil {
+		return err
+	}
+	if count != 1 {
+		log.Printf("Strip %v which is being updated does not exist in the database", event.Callsign)
+	}
+	return err
+}
+
+func (s *Server) euroscopeeventhandlerGroundState(msg []byte, session int32) error {
+	var event EuroscopeGroundStateEvent
+	err := json.Unmarshal(msg, &event)
+	if err != nil {
+		return err
+	}
+
+	db := data.New(s.DBPool)
+	data := data.UpdateStripGroundStateByIDParams{
+		State:    pgtype.Text{Valid: true, String: event.GroundState},
+		Callsign: event.Callsign,
+		Session:  session,
+	}
+
+	count, err := db.UpdateStripGroundStateByID(context.TODO(), data)
+	if err != nil {
+		return err
+	}
+	if count != 1 {
+		log.Printf("Strip %v which is being updated does not exist in the database", event.Callsign)
+	}
+	return err
+}
+
+func (s *Server) euroscopeeventhandlerClearedFlag(msg []byte, session int32) error {
+	var event EuroscopeClearedFlagEvent
+	err := json.Unmarshal(msg, &event)
+	if err != nil {
+		return err
+	}
+
+	db := data.New(s.DBPool)
+	data := data.UpdateStripClearedFlagByIDParams{
+		Cleared:  pgtype.Bool{Valid: true, Bool: event.Cleared},
+		Callsign: event.Callsign,
+		Session:  session,
+	}
+	count, err := db.UpdateStripClearedFlagByID(context.TODO(), data)
+	if err != nil {
+		return err
+	}
+	if count != 1 {
+		log.Printf("Strip %v which is being updated does not exist in the database", event.Callsign)
+	}
+	return err
+}
+
+func (s *Server) euroscopeeventhandlerPositionUpdate(msg []byte, session int32) error {
+	var event EuroscopeAircraftPositionUpdateEvent
+	err := json.Unmarshal(msg, &event)
+	if err != nil {
+		return err
+	}
+
+	db := data.New(s.DBPool)
+	data := data.UpdateStripAircraftPositionByIDParams{
+		PositionLatitude:  pgtype.Float8{Valid: true, Float64: event.Lat},
+		PositionLongitude: pgtype.Float8{Valid: true, Float64: event.Lon},
+		PositionAltitude:  pgtype.Int4{Valid: true, Int32: int32(event.Altitude)},
+		Callsign:          event.Callsign,
+		Session:           session,
+	}
+
+	count, err := db.UpdateStripAircraftPositionByID(context.TODO(), data)
+	if err != nil {
+		return err
+	}
+	if count != 1 {
+		log.Printf("Strip %v which is being updated does not exist in the database", event.Callsign)
+	}
+	return err
+}
+
+func (s *Server) euroscopeeventhandlerSetHeading(msg []byte, session int32) error {
+	var event EuroscopeHeadingEvent
+	err := json.Unmarshal(msg, &event)
+	if err != nil {
+		return err
+	}
+
+	db := data.New(s.DBPool)
+	data := data.UpdateStripHeadingByIDParams{
+		Heading:  pgtype.Int4{Valid: true, Int32: int32(event.Heading)},
+		Callsign: event.Callsign,
+		Session:  session,
+	}
+
+	count, err := db.UpdateStripHeadingByID(context.TODO(), data)
+	if err != nil {
+		return err
+	}
+	if count != 1 {
+		log.Printf("Strip %v which is being updated does not exist in the database", event.Callsign)
+	}
+	return err
+}
+
+func (s *Server) euroscopeeventhandlerAircraftDisconnected(msg []byte, session int32) error {
+	var event EuroscopeAircraftDisconnectEvent
+	err := json.Unmarshal(msg, &event)
+	if err != nil {
+		return err
+	}
+
+	db := data.New(s.DBPool)
+	err = db.RemoveStripByID(context.TODO(), data.RemoveStripByIDParams{Callsign: event.Callsign, Session: session})
+	return err
+}
+
+func (s *Server) euroscopeeventhandlerStand(msg []byte, session int32) error {
+	var event EuroscopeStandEvent
+	err := json.Unmarshal(msg, &event)
+	if err != nil {
+		return err
+	}
+
+	db := data.New(s.DBPool)
+	data := data.UpdateStripStandByIDParams{
+		Stand:    pgtype.Text{Valid: true, String: event.Stand},
+		Callsign: event.Callsign,
+		Session:  session,
+	}
+
+	count, err := db.UpdateStripStandByID(context.TODO(), data)
+	if err != nil {
+		return err
+	}
+	if count != 1 {
+		log.Printf("Strip %v which is being updated does not exist in the database", event.Callsign)
+	}
+	return err
+}
+
+func (s *Server) euroscopeeventhandlerSync(msg []byte, session int32, airport string) error {
+	var event EuroscopeSyncEvent
+	err := json.Unmarshal(msg, &event)
+	if err != nil {
+		return err
+	}
+
+	db := data.New(s.DBPool)
+
+	for _, controller := range event.Controllers {
+		// Check if the controller exists
+		_, err := db.GetController(context.TODO(), data.GetControllerParams{Callsign: controller.Callsign, Session: session})
+		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			return err
+		}
+
+		if errors.Is(err, pgx.ErrNoRows) {
+			// Controller doesn't exist, so insert
+			controllerParams := data.InsertControllerParams{
+				Callsign:          controller.Callsign,
+				Session:           session,
+				Airport:           airport,
+				Position:          controller.Position,
+				Cid:               pgtype.Text{Valid: false},
+				LastSeenEuroscope: pgtype.Timestamp{Valid: false},
+				LastSeenFrontend:  pgtype.Timestamp{Valid: false},
+			}
+			err = db.InsertController(context.TODO(), controllerParams)
+			if err != nil {
+				return err
+			}
+			log.Printf("Inserted controller: %s", controller.Callsign)
+		} else {
+			// Controller exists, update it
+			updateControllerParams := data.SetControllerPositionParams{
+				Callsign: controller.Callsign,
+				Session:  session,
+				Position: controller.Position,
+			}
+			_, err = db.SetControllerPosition(context.TODO(), updateControllerParams)
+			if err != nil {
+				return err
+			}
+			log.Printf("Updated controller: %s", controller.Callsign)
+		}
+	}
+
+	for _, strip := range event.Strips {
+		err = handleStripUpdate(db, strip, session)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func handleStripUpdate (db *data.Queries, strip EuroscopeStrip, session int32) error {
+		// Check if the strip exists
+	_, err := db.GetStrip(context.TODO(), data.GetStripParams{Callsign: strip.Callsign, Session: session})
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return err
+	}
+
+	stripParams := data.InsertStripParams{ //keep this for insert
+		Callsign:          strip.Callsign,
+		Session:           session,
+		Origin:            strip.Origin,
+		Destination:       strip.Destination,
+		Alternative:       pgtype.Text{Valid: true, String: strip.Alternate},
+		Route:             pgtype.Text{Valid: true, String: strip.Route},
+		Remarks:           pgtype.Text{Valid: true, String: strip.Remarks},
+		Runway:            pgtype.Text{Valid: true, String: strip.Runway},
+		Squawk:            pgtype.Text{Valid: true, String: strip.Squawk},
+		AssignedSquawk:    pgtype.Text{Valid: true, String: strip.AssignedSquawk},
+		Sid:               pgtype.Text{Valid: true, String: strip.Sid},
+		Cleared:           pgtype.Bool{Valid: true, Bool: strip.Cleared},
+		State:             pgtype.Text{Valid: true, String: strip.GroundState},
+		ClearedAltitude:   pgtype.Int4{Valid: true, Int32: int32(strip.ClearedAltitude)},
+		RequestedAltitude: pgtype.Int4{Valid: true, Int32: int32(strip.RequestedAltitude)},
+		Heading:           pgtype.Int4{Valid: true, Int32: int32(strip.Heading)},
+		AircraftType:      pgtype.Text{Valid: true, String: strip.AircraftType},
+		AircraftCategory:  pgtype.Text{Valid: true, String: strip.AircraftCategory},
+		PositionLatitude:  pgtype.Float8{Valid: true, Float64: strip.Position.Lat},
+		PositionLongitude: pgtype.Float8{Valid: true, Float64: strip.Position.Lon},
+		PositionAltitude:  pgtype.Int4{Valid: true, Int32: int32(strip.Position.Altitude)},
+		Stand:             pgtype.Text{Valid: true, String: strip.Stand},
+		Capabilities:      pgtype.Text{Valid: true, String: strip.Capabilities},
+		CommunicationType: pgtype.Text{Valid: true, String: strip.CommunicationType},
+		Tobt:              pgtype.Text{Valid: false}, // These fields are not in the provided event.
+	}
+
+	if errors.Is(err, pgx.ErrNoRows) {
+		// Strip doesn't exist, so insert
+		err = db.InsertStrip(context.TODO(), stripParams)
+		if err != nil {
+			return err
+		}
+		log.Printf("Inserted strip: %s", strip.Callsign)
+	} else {
+		// Strip exists, update it
+		// TODO we need to ensure the master is synced first otherwise this will overwrite the strip with potential wrong values
+		updateStripParams := data.UpdateStripParams{ // create this
+			Callsign:          strip.Callsign,
+			Session:           session,
+			Origin:            strip.Origin,
+			Destination:       strip.Destination,
+			Alternative:       pgtype.Text{Valid: true, String: strip.Alternate}, // Assuming these fields exist
+			Route:             pgtype.Text{Valid: true, String: strip.Route},
+			Remarks:           pgtype.Text{Valid: true, String: strip.Remarks},
+			AssignedSquawk:    pgtype.Text{Valid: true, String: strip.AssignedSquawk},
+			Squawk:            pgtype.Text{Valid: true, String: strip.Squawk},
+			Sid:               pgtype.Text{Valid: true, String: strip.Sid},
+			ClearedAltitude:   pgtype.Int4{Valid: true, Int32: int32(strip.ClearedAltitude)},
+			Heading:           pgtype.Int4{Valid: true, Int32: int32(strip.Heading)},
+			AircraftType:      pgtype.Text{Valid: true, String: strip.AircraftType},
+			Runway:            pgtype.Text{Valid: true, String: strip.Runway},
+			RequestedAltitude: pgtype.Int4{Valid: true, Int32: int32(strip.RequestedAltitude)},
+			Capabilities:      pgtype.Text{Valid: true, String: strip.Capabilities},
+			CommunicationType: pgtype.Text{Valid: true, String: strip.CommunicationType},
+			AircraftCategory:  pgtype.Text{Valid: true, String: strip.AircraftCategory},
+			Stand:             pgtype.Text{Valid: true, String: strip.Stand},
+			Cleared:           pgtype.Bool{Valid: true, Bool: strip.Cleared},
+			State:             pgtype.Text{Valid: true, String: strip.GroundState},
+			PositionLatitude:  pgtype.Float8{Valid: true, Float64: strip.Position.Lat},
+			PositionLongitude: pgtype.Float8{Valid: true, Float64: strip.Position.Lon},
+			PositionAltitude:  pgtype.Int4{Valid: true, Int32: int32(strip.Position.Altitude)},
+		}
+		_, err = db.UpdateStrip(context.TODO(), updateStripParams)
+		if err != nil {
+			return err
+		}
+		log.Printf("Updated strip: %s", strip.Callsign)
+	}
+
+	return nil
+}
+
+func (s *Server) euroscopeeventhandlerStripUpdate(msg []byte, session int32) error {
+	var event EuroscopeStripUpdateEvent
+	err := json.Unmarshal(msg, &event)
+	if err != nil {
+		return err
+	}
+
+	db := data.New(s.DBPool)
+
+	err = handleStripUpdate(db, event.EuroscopeStrip, session)
 	return err
 }

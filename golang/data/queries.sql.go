@@ -95,6 +95,57 @@ func (q *Queries) GetSession(ctx context.Context, arg GetSessionParams) (Session
 	return i, err
 }
 
+const getStrip = `-- name: GetStrip :one
+SELECT id, version, callsign, session, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand, sequence, state, cleared, owner, position_latitude, position_longitude, position_altitude, tobt, tsat, ttot, ctot, aobt, asat FROM strips WHERE callsign = $1 AND session = $2
+`
+
+type GetStripParams struct {
+	Callsign string
+	Session  int32
+}
+
+func (q *Queries) GetStrip(ctx context.Context, arg GetStripParams) (Strip, error) {
+	row := q.db.QueryRow(ctx, getStrip, arg.Callsign, arg.Session)
+	var i Strip
+	err := row.Scan(
+		&i.ID,
+		&i.Version,
+		&i.Callsign,
+		&i.Session,
+		&i.Origin,
+		&i.Destination,
+		&i.Alternative,
+		&i.Route,
+		&i.Remarks,
+		&i.AssignedSquawk,
+		&i.Squawk,
+		&i.Sid,
+		&i.ClearedAltitude,
+		&i.Heading,
+		&i.AircraftType,
+		&i.Runway,
+		&i.RequestedAltitude,
+		&i.Capabilities,
+		&i.CommunicationType,
+		&i.AircraftCategory,
+		&i.Stand,
+		&i.Sequence,
+		&i.State,
+		&i.Cleared,
+		&i.Owner,
+		&i.PositionLatitude,
+		&i.PositionLongitude,
+		&i.PositionAltitude,
+		&i.Tobt,
+		&i.Tsat,
+		&i.Ttot,
+		&i.Ctot,
+		&i.Aobt,
+		&i.Asat,
+	)
+	return i, err
+}
+
 const insertAirport = `-- name: InsertAirport :exec
 INSERT INTO airports (name) VALUES ($1)
 `
@@ -168,7 +219,7 @@ type InsertStripParams struct {
 	AssignedSquawk    pgtype.Text
 	Squawk            pgtype.Text
 	Sid               pgtype.Text
-	ClearedAltitude   pgtype.Text
+	ClearedAltitude   pgtype.Int4
 	Heading           pgtype.Int4
 	AircraftType      pgtype.Text
 	Runway            pgtype.Text
@@ -181,9 +232,9 @@ type InsertStripParams struct {
 	State             pgtype.Text
 	Cleared           pgtype.Bool
 	Owner             pgtype.Text
-	PositionLatitude  pgtype.Text
-	PositionLongitude pgtype.Text
-	PositionAltitude  pgtype.Text
+	PositionLatitude  pgtype.Float8
+	PositionLongitude pgtype.Float8
+	PositionAltitude  pgtype.Int4
 	Tobt              pgtype.Text
 }
 
@@ -408,14 +459,87 @@ func (q *Queries) SetControllerPosition(ctx context.Context, arg SetControllerPo
 	return result.RowsAffected(), nil
 }
 
+const updateStrip = `-- name: UpdateStrip :execrows
+UPDATE strips SET (version, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand, sequence, state, cleared, owner, position_latitude, position_longitude, position_altitude, tobt
+) = (
+    version + 1, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27)
+WHERE callsign = $1 AND session = $2
+`
+
+type UpdateStripParams struct {
+	Callsign          string
+	Session           int32
+	Origin            string
+	Destination       string
+	Alternative       pgtype.Text
+	Route             pgtype.Text
+	Remarks           pgtype.Text
+	AssignedSquawk    pgtype.Text
+	Squawk            pgtype.Text
+	Sid               pgtype.Text
+	ClearedAltitude   pgtype.Int4
+	Heading           pgtype.Int4
+	AircraftType      pgtype.Text
+	Runway            pgtype.Text
+	RequestedAltitude pgtype.Int4
+	Capabilities      pgtype.Text
+	CommunicationType pgtype.Text
+	AircraftCategory  pgtype.Text
+	Stand             pgtype.Text
+	Sequence          pgtype.Int4
+	State             pgtype.Text
+	Cleared           pgtype.Bool
+	Owner             pgtype.Text
+	PositionLatitude  pgtype.Float8
+	PositionLongitude pgtype.Float8
+	PositionAltitude  pgtype.Int4
+	Tobt              pgtype.Text
+}
+
+func (q *Queries) UpdateStrip(ctx context.Context, arg UpdateStripParams) (int64, error) {
+	result, err := q.db.Exec(ctx, updateStrip,
+		arg.Callsign,
+		arg.Session,
+		arg.Origin,
+		arg.Destination,
+		arg.Alternative,
+		arg.Route,
+		arg.Remarks,
+		arg.AssignedSquawk,
+		arg.Squawk,
+		arg.Sid,
+		arg.ClearedAltitude,
+		arg.Heading,
+		arg.AircraftType,
+		arg.Runway,
+		arg.RequestedAltitude,
+		arg.Capabilities,
+		arg.CommunicationType,
+		arg.AircraftCategory,
+		arg.Stand,
+		arg.Sequence,
+		arg.State,
+		arg.Cleared,
+		arg.Owner,
+		arg.PositionLatitude,
+		arg.PositionLongitude,
+		arg.PositionAltitude,
+		arg.Tobt,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const updateStripAircraftPositionByID = `-- name: UpdateStripAircraftPositionByID :execrows
 UPDATE strips SET position_latitude = $1, position_longitude = $2, position_altitude = $3 WHERE callsign = $4 AND session = $5 AND (version = $6 OR $6 IS NULL)
 `
 
 type UpdateStripAircraftPositionByIDParams struct {
-	PositionLatitude  pgtype.Text
-	PositionLongitude pgtype.Text
-	PositionAltitude  pgtype.Text
+	PositionLatitude  pgtype.Float8
+	PositionLongitude pgtype.Float8
+	PositionAltitude  pgtype.Int4
 	Callsign          string
 	Session           int32
 	Version           pgtype.Int4
@@ -465,7 +589,7 @@ UPDATE strips SET cleared_altitude = $1, version = version + 1 WHERE callsign = 
 `
 
 type UpdateStripClearedAltitudeByIDParams struct {
-	ClearedAltitude pgtype.Text
+	ClearedAltitude pgtype.Int4
 	Callsign        string
 	Session         int32
 	Version         pgtype.Int4

@@ -29,41 +29,43 @@ type EuroscopeControllerOfflineEvent struct {
 	Callsign string    `json:"callsign"`
 }
 
+type EuroscopeStrip struct {
+	Callsign          string `json:"callsign"`
+	Origin            string `json:"origin"`
+	Destination       string `json:"destination"`
+	Alternate         string `json:"alternate"`
+	Route             string `json:"route"`
+	Remarks           string `json:"remarks"`
+	Runway            string `json:"runway"`
+	Squawk            string `json:"squawk"`
+	AssignedSquawk    string `json:"assigned_squawk"`
+	Sid               string `json:"sid"`
+	Cleared           bool   `json:"cleared"`
+	GroundState       string `json:"ground_state"`
+	ClearedAltitude   int    `json:"cleared_altitude"`
+	RequestedAltitude int    `json:"requested_altitude"`
+	Heading           int    `json:"heading"`
+	AircraftType      string `json:"aircraft_type"`
+	AircraftCategory  string `json:"aircraft_category"`
+	Position          struct {
+		Lat      float64 `json:"lat"`
+		Lon      float64 `json:"lon"`
+		Altitude int     `json:"altitude"`
+	} `json:"position"`
+	Stand             string `json:"stand"`
+	Capabilities      string `json:"capabilities"`
+	CommunicationType string `json:"communication_type"`
+	Eobt              string `json:"eobt"`
+	Eldt              string `json:"eldt"`
+}
+
 type EuroscopeSyncEvent struct {
 	Type        EventType `json:"type"`
 	Controllers []struct {
 		Position string `json:"position"`
 		Callsign string `json:"callsign"`
 	} `json:"controllers"`
-	Strips []struct {
-		Callsign          string `json:"callsign"`
-		Origin            string `json:"origin"`
-		Destination       string `json:"destination"`
-		Alternate         string `json:"alternate"`
-		Route             string `json:"route"`
-		Remarks           string `json:"remarks"`
-		Runway            string `json:"runway"`
-		Squawk            string `json:"squawk"`
-		AssignedSquawk    string `json:"assigned_squawk"`
-		Sid               string `json:"sid"`
-		Cleared           bool   `json:"cleared"`
-		GroundState       string `json:"ground_state"`
-		ClearedAltitude   int    `json:"cleared_altitude"`
-		RequestedAltitude int    `json:"requested_altitude"`
-		Heading           int    `json:"heading"`
-		AircraftType      string `json:"aircraft_type"`
-		AircraftCategory  string `json:"aircraft_category"`
-		Position          struct {
-			Lat      int `json:"lat"`
-			Lon      int `json:"lon"`
-			Altitude int `json:"altitude"`
-		} `json:"position"`
-		Stand             string `json:"stand"`
-		Capabilities      string `json:"capabilities"`
-		CommunicationType string `json:"communication_type"`
-		Eobt              string `json:"eobt"`
-		Eldt              string `json:"eldt"`
-	} `json:"strips"`
+	Strips []EuroscopeStrip `json:"strips"`
 }
 
 type EuroscopeAssignedSquawkEvent struct {
@@ -80,13 +82,13 @@ type EuroscopeSquawkEvent struct {
 
 type EuroscopeClearedAltitudeEvent struct {
 	Type     EventType `json:"type"`
-	Altitude int64     `json:"altitude"`
+	Altitude int       `json:"altitude"`
 	Callsign string    `json:"callsign"`
 }
 
 type EuroscopeRequestedAltitudeEvent struct {
 	Type     EventType `json:"type"`
-	Altitude int64     `json:"altitude"`
+	Altitude int       `json:"altitude"`
 	Callsign string    `json:"callsign"`
 }
 
@@ -111,14 +113,14 @@ type EuroscopeClearedFlagEvent struct {
 type EuroscopeAircraftPositionUpdateEvent struct {
 	Altitude int64     `json:"altitude"`
 	Callsign string    `json:"callsign"`
-	Lat      int64     `json:"lat"`
-	Lon      int64     `json:"lon"`
+	Lat      float64   `json:"lat"`
+	Lon      float64   `json:"lon"`
 	Type     EventType `json:"type"`
 }
 
 type EuroscopeHeadingEvent struct {
 	Callsign string    `json:"callsign"`
-	Heading  int64     `json:"heading"`
+	Heading  int       `json:"heading"`
 	Type     EventType `json:"type"`
 }
 
@@ -134,20 +136,8 @@ type EuroscopeStandEvent struct {
 }
 
 type EuroscopeStripUpdateEvent struct {
-	AircraftCategory string    `json:"aircraft_category"`
-	AircraftType     string    `json:"aircraft_type"`
-	Alternate        string    `json:"alternate"`
-	Callsign         string    `json:"callsign"`
-	Capabilities     string    `json:"capabilities"`
-	Destination      string    `json:"destination"`
-	Eldt             *string   `json:"eldt"`
-	Eobt             *string   `json:"eobt"`
-	Origin           string    `json:"origin"`
-	Remarks          string    `json:"remarks"`
-	Route            string    `json:"route"`
-	Runway           string    `json:"runway"`
-	Sid              string    `json:"sid"`
-	Type             EventType `json:"type"`
+	EuroscopeStrip
+	Type EventType `json:"type"`
 }
 
 type EuroscopeRunwayEvent struct {

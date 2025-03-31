@@ -49,7 +49,7 @@ type Strip struct {
 	AssignedSquawk    pgtype.Text
 	Squawk            pgtype.Text
 	Sid               pgtype.Text
-	ClearedAltitude   pgtype.Text
+	ClearedAltitude   pgtype.Int4
 	Heading           pgtype.Int4
 	AircraftType      pgtype.Text
 	Runway            pgtype.Text
@@ -62,9 +62,9 @@ type Strip struct {
 	State             pgtype.Text
 	Cleared           pgtype.Bool
 	Owner             pgtype.Text
-	PositionLatitude  pgtype.Text
-	PositionLongitude pgtype.Text
-	PositionAltitude  pgtype.Text
+	PositionLatitude  pgtype.Float8
+	PositionLongitude pgtype.Float8
+	PositionAltitude  pgtype.Int4
 	Tobt              pgtype.Text
 	Tsat              pgtype.Text
 	Ttot              pgtype.Text

@@ -16,7 +16,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-func (s *Server) euroscopeeventhandlerAuthentication(msg []byte) (user *EuroscopeUser, err error) {
+func (s *Server) euroscopeeventhandlerAuthentication(msg []byte) (user *ClientUser, err error) {
 	var event EuroscopeAuthenticationEvent
 	err = json.Unmarshal(msg, &event)
 	if err != nil {
@@ -35,7 +35,7 @@ func (s *Server) euroscopeeventhandlerConnectionClosed(client *EuroscopeClient) 
 	return nil
 }
 
-func (s *Server) euroscopeeventhandlerAuthenticationTokenValidation(eventToken string) (user *EuroscopeUser, err error) {
+func (s *Server) euroscopeeventhandlerAuthenticationTokenValidation(eventToken string) (user *ClientUser, err error) {
 	// TODO: Sort out Logging
 	JWTToken := eventToken
 
@@ -66,7 +66,7 @@ func (s *Server) euroscopeeventhandlerAuthenticationTokenValidation(eventToken s
 		return nil, errors.New("missing Rating claim")
 	}
 
-	esUser := &EuroscopeUser{cid: cid, rating: int(rating), authToken: token}
+	esUser := &ClientUser{cid: cid, rating: int(rating), token: token}
 	return esUser, nil
 }
 

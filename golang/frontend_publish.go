@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"time"
 )
@@ -12,8 +13,8 @@ func (s *Server) _publishEvent(airport string, event Event) error {
 		log.Fatalf("Error marshalling event: %v", err)
 		return err
 	}
-	// Broadcast the position coming online
-	frontEndBroadcast <- eventBytes
+	// Broadcast the event to all frontend clients
+	s.FrontendHub.broadcast <- eventBytes
 
 	return nil
 }
@@ -25,10 +26,11 @@ func (s *Server) _publishEventSpecificFrontEndClients(airport, position string, 
 		return err
 	}
 
-	for client := range frontEndClients {
-		if client.airport == airport && client.position == position {
-			client.send <- eventBytes
-		}
+	// Send to clients in the specific position group
+	group := fmt.Sprintf("position:%s", position)
+	err = s.FrontendHub.SendToPosition(group, eventBytes)
+	if err != nil {
+		log.Printf("Error sending to group %s: %v", group, err)
 	}
 
 	return nil

@@ -6,38 +6,38 @@ import (
 	"log"
 )
 
-func (s *Server) frontendeventhandlerControllerOffline(client *FrontEndClient) error {
+func (s *Server) frontendeventhandlerControllerOffline(client *FrontendClient) error {
 	// TODO: Var verification?
 
 	/*
-	// Obtain a list of the controllers at the airport from the database
-	controllersAtAirport, err := data.New(s.DBPool).ListControllersByAirport(context.Background(), client.airport)
-	if err != nil {
-		log.Fatalf("Error getting controllers by airport: %v", err)
-	}
-
-	// Check to see if there is another controller online at that position
-	otherControllerAtPosition := false
-	for _, controller := range controllersAtAirport {
-		if controller.Position == client.position {
-			otherControllerAtPosition = true
-		}
-	}
-
-	// If another controller is not online at that position then publish a PositionOffline event
-	if !otherControllerAtPosition {
-		err = s.publishPositionOfflineEvent(client.airport, client.position)
+		// Obtain a list of the controllers at the airport from the database
+		controllersAtAirport, err := data.New(s.DBPool).ListControllersByAirport(context.Background(), client.GetAirport())
 		if err != nil {
-			log.Fatalf("Error publishing controller offline event: %v", err)
+			log.Fatalf("Error getting controllers by airport: %v", err)
 		}
-	}
 
-	// Remove the controller from the database
-	db := data.New(s.DBPool)
-	_, err = db.RemoveController(context.Background(), client.cid)
-	if err != nil {
-		log.Fatalf("Error removing controller from database: %v", err)
-	}
+		// Check to see if there is another controller online at that position
+		otherControllerAtPosition := false
+		for _, controller := range controllersAtAirport {
+			if controller.Position == client.GetPosition() {
+				otherControllerAtPosition = true
+			}
+		}
+
+		// If another controller is not online at that position then publish a PositionOffline event
+		if !otherControllerAtPosition {
+			err = s.publishPositionOfflineEvent(client.GetAirport(), client.GetPosition())
+			if err != nil {
+				log.Fatalf("Error publishing controller offline event: %v", err)
+			}
+		}
+
+		// Remove the controller from the database
+		db := data.New(s.DBPool)
+		_, err = db.RemoveController(context.Background(), client.GetID())
+		if err != nil {
+			log.Fatalf("Error removing controller from database: %v", err)
+		}
 	*/
 
 	return nil
@@ -58,7 +58,7 @@ func (s *Server) frontendeventhandlerGoARound(event Event) (err error) {
 	}
 
 	//Go Around is an event to send to all FrontEndClients
-	frontEndBroadcast <- bEvent
+	s.FrontendHub.broadcast <- bEvent
 
 	return nil
 }

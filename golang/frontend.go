@@ -5,93 +5,13 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"log"
-	"net/http"
 	"time"
 
 	"github.com/gorilla/websocket"
 )
 
-func (s *Server) frontEndEvents(w http.ResponseWriter, r *http.Request) {
-
-	//TODO: Authenticate
-	//TODO: Initial Information and message.
-	//TODO: Logging per websocket? An ID or a prefix perhaps?
-
-	conn, err := upgrader.Upgrade(w, r, nil)
-	if err != nil {
-		log.Print("upgrade:", err)
-		return
-	}
-
-	// Read initial message from client
-	_, msg, err := conn.ReadMessage()
-	if err != nil {
-		log.Println("read error:", err)
-		conn.Close()
-		return
-	}
-
-	// Handle the initial connection event and insert the controller into the database
-	cid, airport, position, err := s.handleInitialConnectionEvent(msg)
-	if err != nil {
-		log.Printf("Error handling initial connection event: %s \n", err)
-		conn.Close()
-		return
-	}
-	// Return the initialConnectionEventPayload to the client
-	err = s.returnInitialConnectionResponseEvent(conn, airport)
-	if err != nil {
-		log.Printf("Error returning initial connection response event: %s \n", err)
-		conn.Close()
-		return
-	}
-	// Create a new client instance.
-	client := &FrontEndClient{conn: conn, send: make(chan []byte), cid: cid, airport: airport, position: position}
-	frontEndClients[client] = true
-
-	// Goroutine for outgoing messages.
-	go handleOutgoingMessages(client)
-
-	// Read incoming messages.
-	for {
-		_, msg, err := conn.ReadMessage()
-		if err != nil {
-			log.Println("read error (connection closed by remote?):", err)
-			break
-		}
-		log.Printf("recv: %s", msg)
-		var event Event
-		err = json.Unmarshal(msg, &event)
-		if err != nil {
-			log.Printf("Error unmarshalling event: %s \n", err)
-			continue
-		}
-
-		// TODO: SwitchCase for different types of messages
-		eventOutput, err := s.frontEndEventHandler(*client, event)
-		if err != nil {
-			log.Printf("Error handling event: %s \n", err)
-			return
-		}
-		fmt.Printf("Event Output: %v", eventOutput)
-		if event.Type == CloseConnection || event.Type == PositionOffline {
-			break
-		}
-	}
-
-	// Cleanup when connection is closed.
-	// TODO: Add removal of online controllers if the controller is also not seen in Euroscope?
-	err = s.frontendeventhandlerControllerOffline(client)
-	if err != nil {
-		return
-	}
-	delete(frontEndClients, client)
-	close(client.send)
-}
-
-func (s *Server) frontEndEventHandler(client FrontEndClient, event Event) (interface{}, error) {
+func (s *Server) frontEndEventHandler(client *FrontendClient, event Event) (interface{}, error) {
 	// TODO: SwitchCase for different types of messages
 	// TODO: Decide whether the responses are handled here or whether they are handled in the frontEndEvents function <- so far it is inside the handler.
 	// TODO: In order for there to be non broadcast messages it is just done here?
@@ -112,12 +32,12 @@ func (s *Server) frontEndEventHandler(client FrontEndClient, event Event) (inter
 		return nil, err
 	case PositionOffline:
 		// This event is sent to all FrontEndClients - No need for any backend parsing
-		err := s.frontendeventhandlerControllerOffline(&client)
+		err := s.frontendeventhandlerControllerOffline(client)
 		return nil, err
 
 	case Message:
 		// This event is sent to all OR specific FrontEndClients - No need for any backend parsing
-		err := s._publishEvent(client.airport, event)
+		err := s._publishEvent(client.GetAirport(), event)
 		return nil, err
 
 	// TODO:
@@ -174,36 +94,36 @@ func (s *Server) handleInitialConnectionEvent(msg []byte) (cid, airport, positio
 
 	// Define insertable controller params
 	/*
-	insertControllerParams := data.InsertControllerParams{
-		Cid: initialConnectionEventPayload.CID,
-		Airport: pgtype.Text{
-			String: initialConnectionEventPayload.Airport,
-			Valid:  true,
-		},
-		Position: pgtype.Text{
-			String: initialConnectionEventPayload.Position,
-			Valid:  true,
-		},
-	}
+		insertControllerParams := data.InsertControllerParams{
+			Cid: initialConnectionEventPayload.CID,
+			Airport: pgtype.Text{
+				String: initialConnectionEventPayload.Airport,
+				Valid:  true,
+			},
+			Position: pgtype.Text{
+				String: initialConnectionEventPayload.Position,
+				Valid:  true,
+			},
+		}
 
-	// Insert into database
-	db := data.New(s.DBPool)
-	insertedController, err := db.InsertController(context.Background(), insertControllerParams)
-	if err != nil {
-		log.Fatalf("Error inserting controller into database: %v", err)
-		return "", "", "", err
-	}
-	// Redundant Check
-	if insertedController.Cid != initialConnectionEventPayload.CID {
-		log.Fatalf("Error inserting controller into database: Cid mismatch")
-		return "", "", "", err
-	}
+		// Insert into database
+		db := data.New(s.DBPool)
+		insertedController, err := db.InsertController(context.Background(), insertControllerParams)
+		if err != nil {
+			log.Fatalf("Error inserting controller into database: %v", err)
+			return "", "", "", err
+		}
+		// Redundant Check
+		if insertedController.Cid != initialConnectionEventPayload.CID {
+			log.Fatalf("Error inserting controller into database: Cid mismatch")
+			return "", "", "", err
+		}
 
-	// Broadcast the position coming online
-	if err := s.publishPositionOnlineEvent(initialConnectionEventPayload.Airport, initialConnectionEventPayload.Position); err != nil {
-		log.Fatalf("Error publishing controller online event: %v", err)
-		return "", "", "", err
-	}
+		// Broadcast the position coming online
+		if err := s.publishPositionOnlineEvent(initialConnectionEventPayload.Airport, initialConnectionEventPayload.Position); err != nil {
+			log.Fatalf("Error publishing controller online event: %v", err)
+			return "", "", "", err
+		}
 	*/
 
 	return initialConnectionEventPayload.CID, initialConnectionEventPayload.Airport, initialConnectionEventPayload.Position, nil
@@ -261,4 +181,3 @@ func (s *Server) returnInitialConnectionResponseEvent(conn *websocket.Conn, airp
 
 	return nil
 }
-

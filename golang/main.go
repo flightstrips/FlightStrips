@@ -5,6 +5,7 @@ import (
 	"context"
 	_ "database/sql"
 	"encoding/json"
+	"errors"
 	"flag"
 	"log"
 	"net/http"
@@ -134,7 +135,7 @@ func (s *Server) GetOrCreateSession(airport string, name string) (Session, error
 		return Session{Name: session.Name, Airport: session.Airport, Id: session.ID}, nil
 	}
 
-	if err == pgx.ErrNoRows {
+	if errors.Is(err, pgx.ErrNoRows) {
 		log.Println("Creating session:", name, "for airport:", airport)
 		insertArg := data.InsertSessionParams{Name: name, Airport: airport}
 		id, err := db.InsertSession(context.Background(), insertArg)

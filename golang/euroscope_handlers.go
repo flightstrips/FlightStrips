@@ -57,13 +57,13 @@ func (s *Server) euroscopeeventhandlerAuthenticationTokenValidation(eventToken s
 	cid, ok := claims["vatsim/cid"].(string)
 
 	if !ok {
-		return nil, errors.New("Missing CID claim")
+		return nil, errors.New("missing CID claim")
 	}
 
 	rating, ok := claims["vatsim/rating"].(float64)
 
 	if !ok {
-		return nil, errors.New("Missing Rating claim")
+		return nil, errors.New("missing Rating claim")
 	}
 
 	esUser := &EuroscopeUser{cid: cid, rating: int(rating), authToken: token}
@@ -95,7 +95,7 @@ func (s *Server) euroscopeeventhandlerLogin(msg []byte) (event EuroscopeLoginEve
 	params := data.GetControllerParams{Callsign: event.Callsign, Session: session.Id}
 	controller, err := db.GetController(context.TODO(), params)
 
-	if err == pgx.ErrNoRows {
+	if errors.Is(err, pgx.ErrNoRows) {
 		params := data.InsertControllerParams{
 			Callsign: event.Callsign,
 			Session:  session.Id,
@@ -140,7 +140,7 @@ func (s *Server) euroscopeeventhandlerControllerOnline(msg []byte, session int32
 	getParams := data.GetControllerParams{Callsign: event.Callsign, Session: session}
 	controller, err := db.GetController(context.TODO(), getParams)
 
-	if err == pgx.ErrNoRows {
+	if errors.Is(err, pgx.ErrNoRows) {
 		// New controller insert
 		params := data.InsertControllerParams{
 			Callsign: event.Callsign,
@@ -201,13 +201,13 @@ func (s *Server) euroscopeeventhandlerAssignedSquawk(msg []byte, session int32) 
 
 	db := data.New(s.DBPool)
 
-	data := data.UpdateStripAssignedSquawkByIDParams{
+	insertData := data.UpdateStripAssignedSquawkByIDParams{
 		AssignedSquawk: pgtype.Text{Valid: true, String: event.Squawk},
 		Callsign:       event.Callsign,
 		Session:        session,
 	}
 
-	count, err := db.UpdateStripAssignedSquawkByID(context.TODO(), data)
+	count, err := db.UpdateStripAssignedSquawkByID(context.TODO(), insertData)
 
 	if err != nil {
 		return err
@@ -229,13 +229,13 @@ func (s *Server) euroscopeeventhandlerSquawk(msg []byte, session int32) error {
 
 	db := data.New(s.DBPool)
 
-	data := data.UpdateStripSquawkByIDParams{
+	insertData := data.UpdateStripSquawkByIDParams{
 		Squawk:   pgtype.Text{Valid: true, String: event.Squawk},
 		Callsign: event.Callsign,
 		Session:  session,
 	}
 
-	count, err := db.UpdateStripSquawkByID(context.TODO(), data)
+	count, err := db.UpdateStripSquawkByID(context.TODO(), insertData)
 
 	if err != nil {
 		return err
@@ -257,13 +257,13 @@ func (s *Server) euroscopeeventhandlerRequestedAltitude(msg []byte, session int3
 
 	db := data.New(s.DBPool)
 
-	data := data.UpdateStripRequestedAltitudeByIDParams{
+	insertData := data.UpdateStripRequestedAltitudeByIDParams{
 		RequestedAltitude: pgtype.Int4{Valid: true, Int32: int32(event.Altitude)},
 		Callsign:          event.Callsign,
 		Session:           session,
 	}
 
-	count, err := db.UpdateStripRequestedAltitudeByID(context.TODO(), data)
+	count, err := db.UpdateStripRequestedAltitudeByID(context.TODO(), insertData)
 	if err != nil {
 		return err
 	}
@@ -281,13 +281,13 @@ func (s *Server) euroscopeeventhandlerClearedAltitude(msg []byte, session int32)
 	}
 
 	db := data.New(s.DBPool)
-	data := data.UpdateStripClearedAltitudeByIDParams{
+	insertData := data.UpdateStripClearedAltitudeByIDParams{
 		ClearedAltitude: pgtype.Int4{Valid: true, Int32: int32(event.Altitude)},
 		Callsign:        event.Callsign,
 		Session:         session,
 	}
 
-	count, err := db.UpdateStripClearedAltitudeByID(context.TODO(), data)
+	count, err := db.UpdateStripClearedAltitudeByID(context.TODO(), insertData)
 	if err != nil {
 		return err
 	}
@@ -306,13 +306,13 @@ func (s *Server) euroscopeeventhandlerCommunicationType(msg []byte, session int3
 
 	db := data.New(s.DBPool)
 
-	data := data.UpdateStripCommunicationTypeByIDParams{
+	insertData := data.UpdateStripCommunicationTypeByIDParams{
 		CommunicationType: pgtype.Text{Valid: true, String: event.CommunicationType},
 		Callsign:          event.Callsign,
 		Session:           session,
 	}
 
-	count, err := db.UpdateStripCommunicationTypeByID(context.TODO(), data)
+	count, err := db.UpdateStripCommunicationTypeByID(context.TODO(), insertData)
 	if err != nil {
 		return err
 	}
@@ -330,13 +330,13 @@ func (s *Server) euroscopeeventhandlerGroundState(msg []byte, session int32) err
 	}
 
 	db := data.New(s.DBPool)
-	data := data.UpdateStripGroundStateByIDParams{
+	insertData := data.UpdateStripGroundStateByIDParams{
 		State:    pgtype.Text{Valid: true, String: event.GroundState},
 		Callsign: event.Callsign,
 		Session:  session,
 	}
 
-	count, err := db.UpdateStripGroundStateByID(context.TODO(), data)
+	count, err := db.UpdateStripGroundStateByID(context.TODO(), insertData)
 	if err != nil {
 		return err
 	}
@@ -354,12 +354,12 @@ func (s *Server) euroscopeeventhandlerClearedFlag(msg []byte, session int32) err
 	}
 
 	db := data.New(s.DBPool)
-	data := data.UpdateStripClearedFlagByIDParams{
+	insertData := data.UpdateStripClearedFlagByIDParams{
 		Cleared:  pgtype.Bool{Valid: true, Bool: event.Cleared},
 		Callsign: event.Callsign,
 		Session:  session,
 	}
-	count, err := db.UpdateStripClearedFlagByID(context.TODO(), data)
+	count, err := db.UpdateStripClearedFlagByID(context.TODO(), insertData)
 	if err != nil {
 		return err
 	}
@@ -377,7 +377,7 @@ func (s *Server) euroscopeeventhandlerPositionUpdate(msg []byte, session int32) 
 	}
 
 	db := data.New(s.DBPool)
-	data := data.UpdateStripAircraftPositionByIDParams{
+	insertData := data.UpdateStripAircraftPositionByIDParams{
 		PositionLatitude:  pgtype.Float8{Valid: true, Float64: event.Lat},
 		PositionLongitude: pgtype.Float8{Valid: true, Float64: event.Lon},
 		PositionAltitude:  pgtype.Int4{Valid: true, Int32: int32(event.Altitude)},
@@ -385,7 +385,7 @@ func (s *Server) euroscopeeventhandlerPositionUpdate(msg []byte, session int32) 
 		Session:           session,
 	}
 
-	count, err := db.UpdateStripAircraftPositionByID(context.TODO(), data)
+	count, err := db.UpdateStripAircraftPositionByID(context.TODO(), insertData)
 	if err != nil {
 		return err
 	}
@@ -403,13 +403,13 @@ func (s *Server) euroscopeeventhandlerSetHeading(msg []byte, session int32) erro
 	}
 
 	db := data.New(s.DBPool)
-	data := data.UpdateStripHeadingByIDParams{
+	insertData := data.UpdateStripHeadingByIDParams{
 		Heading:  pgtype.Int4{Valid: true, Int32: int32(event.Heading)},
 		Callsign: event.Callsign,
 		Session:  session,
 	}
 
-	count, err := db.UpdateStripHeadingByID(context.TODO(), data)
+	count, err := db.UpdateStripHeadingByID(context.TODO(), insertData)
 	if err != nil {
 		return err
 	}
@@ -439,13 +439,13 @@ func (s *Server) euroscopeeventhandlerStand(msg []byte, session int32) error {
 	}
 
 	db := data.New(s.DBPool)
-	data := data.UpdateStripStandByIDParams{
+	insertData := data.UpdateStripStandByIDParams{
 		Stand:    pgtype.Text{Valid: true, String: event.Stand},
 		Callsign: event.Callsign,
 		Session:  session,
 	}
 
-	count, err := db.UpdateStripStandByID(context.TODO(), data)
+	count, err := db.UpdateStripStandByID(context.TODO(), insertData)
 	if err != nil {
 		return err
 	}
@@ -512,8 +512,8 @@ func (s *Server) euroscopeeventhandlerSync(msg []byte, session int32, airport st
 	return nil
 }
 
-func handleStripUpdate (db *data.Queries, strip EuroscopeStrip, session int32) error {
-		// Check if the strip exists
+func handleStripUpdate(db *data.Queries, strip EuroscopeStrip, session int32) error {
+	// Check if the strip exists
 	_, err := db.GetStrip(context.TODO(), data.GetStripParams{Callsign: strip.Callsign, Session: session})
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return err

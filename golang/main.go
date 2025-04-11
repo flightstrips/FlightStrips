@@ -85,7 +85,7 @@ func main() {
 	}
 
 	server.FrontendHub = NewBaseHub[*FrontendClient](&server)
-	server.EuroscopeHub = NewBaseHub[*EuroscopeClient](&server)
+	server.EuroscopeHub = NewEuroscopeHub(&server)
 
 	//check that the dbpool is working
 	_, err = dbpool.Exec(ctx, ddl)

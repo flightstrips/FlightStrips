@@ -101,10 +101,10 @@ func (c *BaseWebsocketClient) HandleMessage(message []byte) error {
 }
 
 // readPump pumps messages from the WebSocket connection to the hub.
-func (hub *BaseHub[WebsocketClient]) ReadPump(client WebsocketClient) {
+func ReadPump[TClient WebsocketClient, THub Hub[TClient]](hub THub, client TClient) {
 	log.Println("ReadPump")
 	defer func() {
-		hub.unregister <- client
+		hub.Unregister(client)
 		client.GetConnection().Close()
 	}()
 
@@ -131,7 +131,7 @@ func (hub *BaseHub[WebsocketClient]) ReadPump(client WebsocketClient) {
 }
 
 // writePump pumps messages from the hub to the WebSocket connection.
-func (hub *BaseHub[WebsocketClient]) WritePump(client WebsocketClient) {
+func WritePump[TClient WebsocketClient, THub Hub[TClient]](hub THub, client TClient) {
 	log.Println("WritePump")
 	ticker := time.NewTicker(pingPeriod)
 	defer func() {
@@ -142,7 +142,6 @@ func (hub *BaseHub[WebsocketClient]) WritePump(client WebsocketClient) {
 	for {
 		select {
 		case message, ok := <-client.GetSendChannel():
-			log.Println("Sending message", message)
 			client.GetConnection().SetWriteDeadline(time.Now().Add(writeWait))
 			if !ok {
 				// The hub closed the channel.

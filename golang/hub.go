@@ -1,5 +1,10 @@
 package main
 
+type Hub[T WebsocketClient] interface {
+	Register(client T)
+	Unregister(client T)
+}
+
 // BaseHub represents the common functionality for all hubs
 type BaseHub[T WebsocketClient] struct {
 	// Registered clients.
@@ -16,6 +21,14 @@ type BaseHub[T WebsocketClient] struct {
 
 	// Server reference
 	server *Server
+}
+
+func (h *BaseHub[T]) Register(client T) {
+	h.register <- client
+}
+
+func (h *BaseHub[T]) Unregister(client T) {
+	h.unregister <- client
 }
 
 // NewBaseHub creates a new base hub

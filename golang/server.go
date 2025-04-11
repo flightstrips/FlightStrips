@@ -16,11 +16,11 @@ type Server struct {
 	DBPool          *pgxpool.Pool
 	AuthServerURL   string
 	AuthSigningAlgo string
-	EuroscopeHub    *BaseHub
-	FrontendHub     *BaseHub
+	EuroscopeHub    *BaseHub[*EuroscopeClient]
+	FrontendHub     *BaseHub[*FrontendClient]
 }
 
-func (s *Server) handleWebsocketConnection(w http.ResponseWriter, r *http.Request, initializer func(*websocket.Conn) (WebsocketClient, error), hub *BaseHub) {
+func handleWebsocketConnection[T WebsocketClient](s *Server, w http.ResponseWriter, r *http.Request, initializer func(*Server, *websocket.Conn) (T, error), hub *BaseHub[T]) {
 	upgrader := websocket.Upgrader{
 		ReadBufferSize:  1024,
 		WriteBufferSize: 1024,
@@ -35,7 +35,7 @@ func (s *Server) handleWebsocketConnection(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	client, err := initializer(conn)
+	client, err := initializer(s, conn)
 	if err != nil {
 		log.Println("Failed to initialize client:", err)
 		conn.Close()
@@ -44,8 +44,8 @@ func (s *Server) handleWebsocketConnection(w http.ResponseWriter, r *http.Reques
 
 	hub.register <- client
 
-	go WritePump(client)
-	go ReadPump(client)
+	go hub.WritePump(client)
+	go hub.ReadPump(client)
 }
 
 func (s *Server) monitorSessions() {

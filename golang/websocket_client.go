@@ -10,6 +10,7 @@ import (
 )
 
 type WebsocketClient interface {
+	comparable
 	// Core methods
 	Send(message []byte) error
 	Close() error
@@ -26,7 +27,6 @@ type WebsocketClient interface {
 	HandlePong() error
 	HandleMessage(message []byte) error
 
-	GetHub() *BaseHub
 	GetSendChannel() chan []byte
 }
 
@@ -37,7 +37,7 @@ type ClientUser struct {
 }
 
 type BaseWebsocketClient struct {
-	hub     *BaseHub
+	server  *Server
 	send    chan []byte
 	conn    *websocket.Conn
 	session int32
@@ -81,10 +81,6 @@ func (c *BaseWebsocketClient) IsAuthenticated() bool {
 	return c.user.token.Valid
 }
 
-func (c *BaseWebsocketClient) GetHub() *BaseHub {
-	return c.hub
-}
-
 func (c *BaseWebsocketClient) GetSendChannel() chan []byte {
 	return c.send
 }
@@ -105,10 +101,10 @@ func (c *BaseWebsocketClient) HandleMessage(message []byte) error {
 }
 
 // readPump pumps messages from the WebSocket connection to the hub.
-func ReadPump(client WebsocketClient) {
+func (hub *BaseHub[WebsocketClient]) ReadPump(client WebsocketClient) {
 	log.Println("ReadPump")
 	defer func() {
-		client.GetHub().unregister <- client
+		hub.unregister <- client
 		client.GetConnection().Close()
 	}()
 
@@ -135,7 +131,7 @@ func ReadPump(client WebsocketClient) {
 }
 
 // writePump pumps messages from the hub to the WebSocket connection.
-func WritePump(client WebsocketClient) {
+func (hub *BaseHub[WebsocketClient]) WritePump(client WebsocketClient) {
 	log.Println("WritePump")
 	ticker := time.NewTicker(pingPeriod)
 	defer func() {

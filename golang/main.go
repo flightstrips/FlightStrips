@@ -84,8 +84,8 @@ func main() {
 		AuthSigningAlgo: os.Getenv("OIDC_SIGNING_ALGO"),
 	}
 
-	server.FrontendHub = NewBaseHub(&server)
-	server.EuroscopeHub = NewBaseHub(&server)
+	server.FrontendHub = NewBaseHub[*FrontendClient](&server)
+	server.EuroscopeHub = NewBaseHub[*EuroscopeClient](&server)
 
 	//check that the dbpool is working
 	_, err = dbpool.Exec(ctx, ddl)

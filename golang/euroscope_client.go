@@ -18,7 +18,7 @@ type EuroscopeClient struct {
 }
 
 // EuroscopeClientInitializer creates a new Euroscope client
-func (s *Server) EuroscopeClientInitializer(conn *websocket.Conn) (WebsocketClient, error) {
+func EuroscopeClientInitializer(server *Server, conn *websocket.Conn) (*EuroscopeClient, error) {
 	// Read the authentication message
 	_, msg, err := conn.ReadMessage()
 	if err != nil {
@@ -26,7 +26,7 @@ func (s *Server) EuroscopeClientInitializer(conn *websocket.Conn) (WebsocketClie
 	}
 
 	// Authenticate the user
-	user, err := s.euroscopeeventhandlerAuthentication(msg)
+	user, err := server.euroscopeeventhandlerAuthentication(msg)
 	if err != nil {
 		return nil, fmt.Errorf("authentication failed: %w", err)
 	}
@@ -38,14 +38,14 @@ func (s *Server) EuroscopeClientInitializer(conn *websocket.Conn) (WebsocketClie
 	}
 
 	// Handle the login
-	event, sessionID, err := s.euroscopeeventhandlerLogin(msg)
+	event, sessionID, err := server.euroscopeeventhandlerLogin(msg)
 	if err != nil {
 		return nil, fmt.Errorf("login failed: %w", err)
 	}
 
 	// Create and return the client
 	client := EuroscopeClient{BaseWebsocketClient{
-		hub:     s.EuroscopeHub,
+		server:  server,
 		send:    make(chan []byte, 100),
 		conn:    conn,
 		session: sessionID,
@@ -63,14 +63,13 @@ func (s *Server) EuroscopeClientInitializer(conn *websocket.Conn) (WebsocketClie
 
 // EuroscopeEventsHandler handles the Euroscope events endpoint
 func (s *Server) EuroscopeEventsHandler(w http.ResponseWriter, r *http.Request) {
-	s.handleWebsocketConnection(w, r, s.EuroscopeClientInitializer, s.EuroscopeHub)
+	handleWebsocketConnection(s, w, r, EuroscopeClientInitializer, s.EuroscopeHub)
 }
 
 // HandlePong handles pong messages from the client
 func (c *EuroscopeClient) HandlePong() error {
-	server := c.hub.server
 	// Update the last seen timestamp in the database
-	db := data.New(server.DBPool)
+	db := data.New(c.server.DBPool)
 	params := data.SetControllerEuroscopeSeenParams{
 		Callsign:          c.user.cid,
 		Session:           c.session,
@@ -89,5 +88,5 @@ func (c *EuroscopeClient) HandleMessage(message []byte) error {
 	}
 
 	// Handle the event based on its type
-	return c.hub.server.euroscopeEventsHandler(c, event, message)
+	return c.server.euroscopeEventsHandler(c, event, message)
 }

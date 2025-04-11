@@ -39,12 +39,12 @@ func (c *FrontendClient) HandleMessage(message []byte) error {
 	}
 
 	// Handle the event based on its type
-	_, err = c.hub.server.frontEndEventHandler(c, event)
+	_, err = c.server.frontEndEventHandler(c, event)
 	return err
 }
 
 // FrontendClientInitializer creates a new Frontend client
-func (s *Server) FrontendClientInitializer(conn *websocket.Conn) (WebsocketClient, error) {
+func FrontendClientInitializer(server *Server, conn *websocket.Conn) (*FrontendClient, error) {
 	// Read the initial connection message
 	_, msg, err := conn.ReadMessage()
 	if err != nil {
@@ -52,13 +52,13 @@ func (s *Server) FrontendClientInitializer(conn *websocket.Conn) (WebsocketClien
 	}
 
 	// Handle the initial connection
-	_, airport, position, err := s.handleInitialConnectionEvent(msg)
+	_, airport, position, err := server.handleInitialConnectionEvent(msg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to handle initial connection: %w", err)
 	}
 
 	// Return the initial connection response
-	err = s.returnInitialConnectionResponseEvent(conn, airport)
+	err = server.returnInitialConnectionResponseEvent(conn, airport)
 	if err != nil {
 		return nil, fmt.Errorf("failed to return initial connection response: %w", err)
 	}
@@ -66,7 +66,7 @@ func (s *Server) FrontendClientInitializer(conn *websocket.Conn) (WebsocketClien
 	// Create and return the client
 	client := FrontendClient{
 		BaseWebsocketClient{
-			hub:      s.FrontendHub,
+			server:   server,
 			send:     make(chan []byte, 100),
 			conn:     conn,
 			session:  1, // TODO
@@ -81,5 +81,5 @@ func (s *Server) FrontendClientInitializer(conn *websocket.Conn) (WebsocketClien
 
 // FrontendEventsHandler handles the Frontend events endpoint
 func (s *Server) FrontendEventsHandler(w http.ResponseWriter, r *http.Request) {
-	s.handleWebsocketConnection(w, r, s.FrontendClientInitializer, s.FrontendHub)
+	handleWebsocketConnection(s, w, r, FrontendClientInitializer, s.FrontendHub)
 }

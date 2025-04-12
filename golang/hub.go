@@ -68,3 +68,4 @@ func (h *BaseHub[T]) Run() {
 		}
 	}
 }
+

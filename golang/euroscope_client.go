@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"time"
 
@@ -55,9 +56,6 @@ func EuroscopeClientInitializer(server *Server, conn *websocket.Conn) (*Euroscop
 		airport:  event.Airport,
 	}}
 
-	// TODO move!
-	client.send <- []byte("{\"type\": \"session_info\", \"role\": \"master\"}")
-
 	return &client, nil
 }
 
@@ -90,3 +88,14 @@ func (c *EuroscopeClient) HandleMessage(message []byte) error {
 	// Handle the event based on its type
 	return c.server.euroscopeEventsHandler(c, event, message)
 }
+
+func SendEuroscopeEvent[T EuroscopeSendEvent](client *EuroscopeClient, event T) {
+	json, err := json.Marshal(event)
+	if err != nil {
+		log.Println("Failed to marshal event: ", err)
+		return
+	}
+
+	client.Send(json)
+}
+

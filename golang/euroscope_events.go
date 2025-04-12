@@ -1,5 +1,7 @@
 package main
 
+import "encoding/json"
+
 type EuroscopeEvent struct {
 	Type EventType
 }
@@ -148,3 +150,45 @@ type EuroscopeRunwayEvent struct {
 	} `json:"runways"`
 	Type EventType `json:"type"`
 }
+
+type SessionInfoRole string
+
+const (
+	SessionInfoMaster SessionInfoRole = "master"
+	SessionInfoSlave SessionInfoRole = "slave"
+)
+
+type EuroscopeSessionInfoEvent struct {
+	Role SessionInfoRole `json:"role"`
+}
+
+func (e EuroscopeSessionInfoEvent) MarshalJSON() ([]byte, error) {
+	type Alias EuroscopeSessionInfoEvent
+	return json.Marshal(&struct {
+		Type  EventType `json:"type"`
+		Alias
+	}{
+		Type:  EuroscopeSessionInfo,
+		Alias: (Alias)(e),
+	})
+}
+
+type EuroscopeGenerateSquawkEvent struct {
+	Callsign string `json:"callsign"`
+}
+
+func (e EuroscopeGenerateSquawkEvent) MarshalJSON() ([]byte, error) {
+	type Alias EuroscopeGenerateSquawkEvent
+	return json.Marshal(&struct {
+		Type  EventType `json:"type"`
+		Alias
+	}{
+		Type:  EuroscopeGenerateSquawk,
+		Alias: (Alias)(e),
+	})
+}
+
+type EuroscopeSendEvent interface {
+	EuroscopeSessionInfoEvent | EuroscopeGenerateSquawkEvent
+}
+

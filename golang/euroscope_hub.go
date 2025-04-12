@@ -3,7 +3,7 @@ package main
 type EuroscopeHub struct {
 	BaseHub[*EuroscopeClient]
 
-	master *EuroscopeClient
+	Master *EuroscopeClient
 }
 
 func NewEuroscopeHub(server *Server) *EuroscopeHub {
@@ -15,31 +15,57 @@ func NewEuroscopeHub(server *Server) *EuroscopeHub {
 			clients:    make(map[*EuroscopeClient]bool),
 			server:     server,
 		},
-		master: nil,
+		Master: nil,
 	}
 
 	return hub
 }
 
-func (hub *EuroscopeHub) Register(client *EuroscopeClient) {
-	hub.BaseHub.Register(client)
-
-	// TODO select new master if relevant
-}
-
-func (hub *EuroscopeHub) Unregister(client *EuroscopeClient) {
-	hub.BaseHub.Unregister(client)
-
-	if hub.master != client {
+func (hub *EuroscopeHub) OnRegister(client *EuroscopeClient) {
+	if hub.Master == nil {
+		hub.Master = client
+		SendEuroscopeEvent(client, EuroscopeSessionInfoEvent{Role: SessionInfoMaster})
 		return
 	}
 
+	SendEuroscopeEvent(client, EuroscopeSessionInfoEvent{Role: SessionInfoSlave})
+}
+
+func (hub *EuroscopeHub) OnUnregister(client *EuroscopeClient) {
+	if hub.Master != client {
+		return
+	}
 
 	// No clients, no master can be assigned
 	if len(hub.clients) == 0 {
-		hub.master = nil
+		hub.Master = nil
 		return
 	}
 
-	// TODO select new master if any clients left
+	// TODO better master selection. For now just use the next available client
+	for newMaster := range hub.clients {
+		hub.Master = newMaster
+		SendEuroscopeEvent(newMaster, EuroscopeSessionInfoEvent{Role: SessionInfoMaster})
+		break
+	}
+}
+
+func (h *EuroscopeHub) Run() {
+	for {
+		select {
+		case client := <-h.register:
+			h.clients[client] = true
+			h.OnRegister(client)
+		case client := <-h.unregister:
+			if _, ok := h.clients[client]; ok {
+				delete(h.clients, client)
+				client.Close()
+			}
+			h.OnUnregister(client)
+		case message := <-h.broadcast:
+			for client := range h.clients {
+				client.Send(message)
+			}
+		}
+	}
 }

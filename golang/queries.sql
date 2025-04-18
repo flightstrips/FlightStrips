@@ -19,7 +19,16 @@ INSERT INTO controllers (
 UPDATE controllers SET position = $1 WHERE callsign = $2 AND session = $3;
 
 -- name: SetControllerEuroscopeSeen :execrows
-UPDATE controllers SET last_seen_euroscope = $1 WHERE callsign = $2 AND session = $3;
+UPDATE controllers SET last_seen_euroscope = $1 WHERE cid = @cid::text AND session = $2;
+
+-- name: SetControllerFrontendSeen :execrows
+UPDATE controllers SET last_seen_frontend = $1 WHERE cid = @cid::text AND session = $2;
+
+-- name: SetControllerCid :execrows
+UPDATE controllers SET cid = $1 WHERE callsign = $2 AND session = $3;
+
+-- name: GetControllerByCid :one
+SELECT * FROM controllers WHERE cid = @cid::text LIMIT 1;
 
 -- name: ListControllers :many
 SELECT * FROM controllers WHERE session = $1 ORDER BY callsign;

@@ -14,7 +14,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-func (s *Server) euroscopeeventhandlerLogin(msg []byte) (event EuroscopeLoginEvent, sessionId int32, err error) {
+func (s *Server) euroscopeeventhandlerLogin(msg []byte, user *ClientUser) (event EuroscopeLoginEvent, sessionId int32, err error) {
 	err = json.Unmarshal(msg, &event)
 	if err != nil {
 		return
@@ -41,21 +41,23 @@ func (s *Server) euroscopeeventhandlerLogin(msg []byte) (event EuroscopeLoginEve
 
 	if errors.Is(err, pgx.ErrNoRows) {
 		params := data.InsertControllerParams{
-			Callsign: event.Callsign,
-			Session:  session.Id,
-			Position: event.Position,
-			Airport:  event.Airport,
-			//Cid: , // TODO,
+			Callsign:          event.Callsign,
+			Session:           session.Id,
+			Position:          event.Position,
+			Airport:           event.Airport,
+			Cid:               pgtype.Text{Valid: true, String: user.cid},
 			LastSeenEuroscope: pgtype.Timestamp{Valid: true, Time: time.Now().UTC()},
 		}
 
 		err = db.InsertController(context.Background(), params)
 
 		return event, session.Id, err
-	}
-
-	if err != nil {
+	} else if err != nil {
 		return event, session.Id, err
+	} else {
+		// Set CID
+		params := data.SetControllerCidParams{Session: session.Id, Cid: pgtype.Text{Valid: true, String: user.cid}, Callsign: event.Callsign}
+		db.SetControllerCid(context.Background(), params)
 	}
 
 	if controller.Position != event.Position {
@@ -66,9 +68,6 @@ func (s *Server) euroscopeeventhandlerLogin(msg []byte) (event EuroscopeLoginEve
 			return event, session.Id, err
 		}
 	}
-
-	setParams := data.SetControllerEuroscopeSeenParams{Session: session.Id, Callsign: event.Callsign, LastSeenEuroscope: pgtype.Timestamp{Time: time.Now().UTC(), Valid: true}}
-	_, err = db.SetControllerEuroscopeSeen(context.TODO(), setParams)
 
 	return event, session.Id, err
 }

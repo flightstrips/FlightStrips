@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"errors"
 	"log"
 )
 
@@ -24,10 +23,5 @@ func (s *Server) frontendeventhandlerGoARound(event Event) (err error) {
 	s.FrontendHub.broadcast <- bEvent
 
 	return nil
-}
-
-func (s *Server) frontendeventhandlerStripUpdate(event Event) (err error) {
-	// TODO
-	return errors.New("not implemented")
 }
 

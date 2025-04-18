@@ -1,5 +1,13 @@
 package main
 
+import (
+	"FlightStrips/data"
+	"context"
+	"log"
+
+	"github.com/jackc/pgx/v5/pgtype"
+)
+
 type EuroscopeHub struct {
 	BaseHub[*EuroscopeClient]
 
@@ -32,6 +40,19 @@ func (hub *EuroscopeHub) OnRegister(client *EuroscopeClient) {
 }
 
 func (hub *EuroscopeHub) OnUnregister(client *EuroscopeClient) {
+	server := hub.server
+	db := data.New(server.DBPool)
+	params := data.SetControllerCidParams {
+		Cid: pgtype.Text{ Valid: false },
+		Callsign: client.callsign,
+		Session: client.session,
+	}
+	count, err := db.SetControllerCid(context.Background(), params)
+
+	if err != nil || count != 1 {
+		log.Printf("Failed to remove CID for client %s with CID %s. Error: %s", client.callsign, client.user.cid, err)
+	}
+
 	if hub.Master != client {
 		return
 	}

@@ -9,6 +9,13 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+type ControllerNotFoundError struct {}
+
+func (*ControllerNotFoundError) Error() string {
+	return "controller not found"
+}
+
+
 type WebsocketClient interface {
 	comparable
 	// Core methods
@@ -45,6 +52,7 @@ type BaseWebsocketClient struct {
 
 	position string
 	airport  string
+	callsign string
 }
 
 func (c *BaseWebsocketClient) Send(message []byte) error {

@@ -39,7 +39,7 @@ func EuroscopeClientInitializer(server *Server, conn *websocket.Conn) (*Euroscop
 	}
 
 	// Handle the login
-	event, sessionID, err := server.euroscopeeventhandlerLogin(msg)
+	event, sessionID, err := server.euroscopeeventhandlerLogin(msg, user)
 	if err != nil {
 		return nil, fmt.Errorf("login failed: %w", err)
 	}
@@ -54,6 +54,7 @@ func EuroscopeClientInitializer(server *Server, conn *websocket.Conn) (*Euroscop
 
 		position: event.Position,
 		airport:  event.Airport,
+		callsign: event.Callsign,
 	}}
 
 	return &client, nil
@@ -69,11 +70,15 @@ func (c *EuroscopeClient) HandlePong() error {
 	// Update the last seen timestamp in the database
 	db := data.New(c.server.DBPool)
 	params := data.SetControllerEuroscopeSeenParams{
-		Callsign:          c.user.cid,
+		Cid:               c.user.cid,
 		Session:           c.session,
 		LastSeenEuroscope: pgtype.Timestamp{Valid: true, Time: time.Now().UTC()},
 	}
-	_, err := db.SetControllerEuroscopeSeen(context.Background(), params)
+	count, err := db.SetControllerEuroscopeSeen(context.Background(), params)
+
+	if count != 1 {
+		return &ControllerNotFoundError{}
+	}
 	return err
 }
 
@@ -98,4 +103,3 @@ func SendEuroscopeEvent[T EuroscopeSendEvent](client *EuroscopeClient, event T) 
 
 	client.Send(json)
 }
-

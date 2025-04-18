@@ -55,6 +55,26 @@ func (q *Queries) GetController(ctx context.Context, arg GetControllerParams) (C
 	return i, err
 }
 
+const getControllerByCid = `-- name: GetControllerByCid :one
+SELECT id, session, callsign, airport, position, cid, last_seen_euroscope, last_seen_frontend FROM controllers WHERE cid = $1::text LIMIT 1
+`
+
+func (q *Queries) GetControllerByCid(ctx context.Context, cid string) (Controller, error) {
+	row := q.db.QueryRow(ctx, getControllerByCid, cid)
+	var i Controller
+	err := row.Scan(
+		&i.ID,
+		&i.Session,
+		&i.Callsign,
+		&i.Airport,
+		&i.Position,
+		&i.Cid,
+		&i.LastSeenEuroscope,
+		&i.LastSeenFrontend,
+	)
+	return i, err
+}
+
 const getExpiredSessions = `-- name: GetExpiredSessions :many
 SELECT id FROM sessions WHERE NOT EXISTS (SELECT 1 FROM controllers WHERE last_seen_euroscope > $1)
 `
@@ -423,18 +443,54 @@ func (q *Queries) RemoveStripByID(ctx context.Context, arg RemoveStripByIDParams
 	return err
 }
 
+const setControllerCid = `-- name: SetControllerCid :execrows
+UPDATE controllers SET cid = $1 WHERE callsign = $2 AND session = $3
+`
+
+type SetControllerCidParams struct {
+	Cid      pgtype.Text
+	Callsign string
+	Session  int32
+}
+
+func (q *Queries) SetControllerCid(ctx context.Context, arg SetControllerCidParams) (int64, error) {
+	result, err := q.db.Exec(ctx, setControllerCid, arg.Cid, arg.Callsign, arg.Session)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const setControllerEuroscopeSeen = `-- name: SetControllerEuroscopeSeen :execrows
-UPDATE controllers SET last_seen_euroscope = $1 WHERE callsign = $2 AND session = $3
+UPDATE controllers SET last_seen_euroscope = $1 WHERE cid = $3::text AND session = $2
 `
 
 type SetControllerEuroscopeSeenParams struct {
 	LastSeenEuroscope pgtype.Timestamp
-	Callsign          string
 	Session           int32
+	Cid               string
 }
 
 func (q *Queries) SetControllerEuroscopeSeen(ctx context.Context, arg SetControllerEuroscopeSeenParams) (int64, error) {
-	result, err := q.db.Exec(ctx, setControllerEuroscopeSeen, arg.LastSeenEuroscope, arg.Callsign, arg.Session)
+	result, err := q.db.Exec(ctx, setControllerEuroscopeSeen, arg.LastSeenEuroscope, arg.Session, arg.Cid)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const setControllerFrontendSeen = `-- name: SetControllerFrontendSeen :execrows
+UPDATE controllers SET last_seen_frontend = $1 WHERE cid = $3::text AND session = $2
+`
+
+type SetControllerFrontendSeenParams struct {
+	LastSeenFrontend pgtype.Timestamp
+	Session          int32
+	Cid              string
+}
+
+func (q *Queries) SetControllerFrontendSeen(ctx context.Context, arg SetControllerFrontendSeenParams) (int64, error) {
+	result, err := q.db.Exec(ctx, setControllerFrontendSeen, arg.LastSeenFrontend, arg.Session, arg.Cid)
 	if err != nil {
 		return 0, err
 	}

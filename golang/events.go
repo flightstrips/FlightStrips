@@ -1,7 +1,6 @@
 package main
 
 import (
-	"FlightStrips/data"
 	"time"
 )
 
@@ -14,10 +13,6 @@ const (
 	// Whether the event is sent to all other FrontEnd Clients
 	// Whether the event is sent to a specific FrontEnd Client
 	// Whether the event is sent to a specific Euroscope Client
-
-	Message    EventType = "message"
-	LogMessage EventType = "log_message"
-	Heartbeat  EventType = "heartbeat"
 
 	// Euroscope Specific Events
 	EuroscopeAuthentication       EventType = "token"
@@ -44,10 +39,6 @@ const (
 	EuroscopeRemarks              EventType = "remarks"
 	EuroscopeSID                  EventType = "sid"
 	EuroscopeAircraftRunway       EventType = "aircraft_runway"
-
-	InitiateConnection EventType = "initiate_connection"
-	CloseConnection    EventType = "close_connection"
-	InitialConnection  EventType = "initial_connection"
 
 	// GoAround - Sent to all FrontEnd Clients
 	// AirportConfigurationChange - Sent to all FrontEnd Clients
@@ -88,58 +79,6 @@ type Event struct {
 }
 
 // TODO: Work out if this would be ever used
-
-type MessageEvent struct {
-	contents string
-}
-
-type HeartBeatEventPayload struct {
-	Payload string
-}
-
-func NewHeartBeatEvent(content string) *Event {
-	return &Event{
-		Type:      Heartbeat,
-		Source:    "server",
-		Airport:   "All",
-		Cid:       "server",
-		TimeStamp: time.Now(),
-		Payload:   &HeartBeatEventPayload{Payload: content},
-	}
-}
-
-// InitiateConnectionEvent This event is from the frontend to the backend
-type InitialConnectionEventPayload struct {
-	CID       string
-	Airport   string
-	Position  string
-	AuthToken string
-}
-
-type InitialConnectionEventResponsePayload struct {
-	Strips                []data.Strip
-	Controllers           []data.Controller
-	AirportConfigurations []AirportConfiguration
-}
-
-func NewInitialConnectionEvent(airport string, strips []data.Strip, controllers []data.Controller, airportConfigurations []AirportConfiguration) *Event {
-	return &Event{
-		Type:      InitialConnection,
-		Source:    "FlightStrips",
-		Airport:   airport,
-		TimeStamp: time.Now(),
-		Payload: &InitialConnectionEventResponsePayload{
-			Strips:                strips,
-			Controllers:           controllers,
-			AirportConfigurations: airportConfigurations,
-		},
-	}
-}
-
-type MessageEventPayload struct {
-	TargetPosition string
-	Contents       string
-}
 
 type GoAroundEventPayload struct {
 	ControllerID string

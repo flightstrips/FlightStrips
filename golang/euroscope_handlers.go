@@ -10,8 +10,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/MicahParks/keyfunc/v3"
-	"github.com/golang-jwt/jwt/v5"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 )
@@ -23,51 +21,7 @@ func (s *Server) euroscopeeventhandlerAuthentication(msg []byte) (user *ClientUs
 		return user, err
 	}
 
-	return s.euroscopeeventhandlerAuthenticationTokenValidation(event.Token)
-}
-
-func (s *Server) euroscopeeventhandlerConnectionClosed(client *EuroscopeClient) error {
-	// Controller may still be online and may have just logged out or unloaded the plugin
-
-	// Do not set last seen as we want to keep the data for some time before removing the session if this is the last
-	// controller disconnecting
-
-	return nil
-}
-
-func (s *Server) euroscopeeventhandlerAuthenticationTokenValidation(eventToken string) (user *ClientUser, err error) {
-	// TODO: Sort out Logging
-	JWTToken := eventToken
-
-	k, err := keyfunc.NewDefault([]string{s.AuthServerURL})
-	if err != nil {
-		log.Fatalf("Failed to create a keyfunc.Keyfunc from the server's URL.\nError: %s", err)
-	}
-	options := jwt.WithValidMethods([]string{s.AuthSigningAlgo})
-	token, err := jwt.Parse(JWTToken, k.Keyfunc, options)
-	if err != nil {
-		return nil, err
-	}
-	if !token.Valid {
-		return nil, errors.New("invalid jwt")
-	}
-
-	claims := token.Claims.(jwt.MapClaims)
-
-	cid, ok := claims["vatsim/cid"].(string)
-
-	if !ok {
-		return nil, errors.New("missing CID claim")
-	}
-
-	rating, ok := claims["vatsim/rating"].(float64)
-
-	if !ok {
-		return nil, errors.New("missing Rating claim")
-	}
-
-	esUser := &ClientUser{cid: cid, rating: int(rating), token: token}
-	return esUser, nil
+	return s.parseAuthenticationToken(event.Token)
 }
 
 func (s *Server) euroscopeeventhandlerLogin(msg []byte) (event EuroscopeLoginEvent, sessionId int32, err error) {

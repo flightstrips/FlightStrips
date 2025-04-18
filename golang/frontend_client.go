@@ -51,18 +51,6 @@ func FrontendClientInitializer(server *Server, conn *websocket.Conn) (*FrontendC
 		return nil, fmt.Errorf("failed to read initial connection message: %w", err)
 	}
 
-	// Handle the initial connection
-	_, airport, position, err := server.handleInitialConnectionEvent(msg)
-	if err != nil {
-		return nil, fmt.Errorf("failed to handle initial connection: %w", err)
-	}
-
-	// Return the initial connection response
-	err = server.returnInitialConnectionResponseEvent(conn, airport)
-	if err != nil {
-		return nil, fmt.Errorf("failed to return initial connection response: %w", err)
-	}
-
 	// Create and return the client
 	client := FrontendClient{
 		BaseWebsocketClient{
@@ -70,8 +58,8 @@ func FrontendClientInitializer(server *Server, conn *websocket.Conn) (*FrontendC
 			send:     make(chan []byte, 100),
 			conn:     conn,
 			session:  1, // TODO
-			position: position,
-			airport:  airport,
+			position: "TODO",
+			airport:  "TODO",
 			user:     nil, // TODO
 		},
 	}

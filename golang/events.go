@@ -13,9 +13,9 @@ const (
 	// Whether the event is sent to all other FrontEnd Clients
 	// Whether the event is sent to a specific FrontEnd Client
 	// Whether the event is sent to a specific Euroscope Client
+	Authentication       EventType = "token"
 
 	// Euroscope Specific Events
-	EuroscopeAuthentication       EventType = "token"
 	EuroscopeLogin                EventType = "login"
 	EuroscopeControllerOnline     EventType = "controller_online"
 	EuroscopeControllerOffline    EventType = "controller_offline"
@@ -68,6 +68,12 @@ const (
 	StripTransferRequestReject EventType = "strip_transfer_request_reject"
 	StripMoveRequest           EventType = "strip_move_request"
 )
+
+type AuthenticationEvent struct {
+	Type  EventType
+	Token string
+}
+
 
 type Event struct {
 	Type      EventType

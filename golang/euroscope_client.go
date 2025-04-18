@@ -27,7 +27,7 @@ func EuroscopeClientInitializer(server *Server, conn *websocket.Conn) (*Euroscop
 	}
 
 	// Authenticate the user
-	user, err := server.euroscopeeventhandlerAuthentication(msg)
+	user, err := server.eventhandlerAuthentication(msg)
 	if err != nil {
 		return nil, fmt.Errorf("authentication failed: %w", err)
 	}

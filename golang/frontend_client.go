@@ -8,6 +8,12 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+const (
+	WaitingForEuroscopeConnectionSessionId int32 = -1
+	WaitingForEuroscopeConnectionPosition = ""
+	WaitingForEuroscopeConnectionAirport = ""
+)
+
 // FrontendClient represents a frontend websocket client
 type FrontendClient struct {
 	BaseWebsocketClient
@@ -45,22 +51,28 @@ func (c *FrontendClient) HandleMessage(message []byte) error {
 
 // FrontendClientInitializer creates a new Frontend client
 func FrontendClientInitializer(server *Server, conn *websocket.Conn) (*FrontendClient, error) {
-	// Read the initial connection message
+	// Read the authentication message
 	_, msg, err := conn.ReadMessage()
 	if err != nil {
-		return nil, fmt.Errorf("failed to read initial connection message: %w", err)
+		return nil, fmt.Errorf("failed to read authentication message: %w", err)
+	}
+
+	// Authenticate the user
+	user, err := server.eventhandlerAuthentication(msg)
+	if err != nil {
+		return nil, fmt.Errorf("authentication failed: %w", err)
 	}
 
 	// Create and return the client
 	client := FrontendClient{
-		BaseWebsocketClient{
+		BaseWebsocketClient: BaseWebsocketClient{
 			server:   server,
 			send:     make(chan []byte, 100),
 			conn:     conn,
-			session:  1, // TODO
-			position: "TODO",
-			airport:  "TODO",
-			user:     nil, // TODO
+			session:  WaitingForEuroscopeConnectionSessionId,
+			position: WaitingForEuroscopeConnectionPosition,
+			airport:  WaitingForEuroscopeConnectionAirport,
+			user:     user,
 		},
 	}
 

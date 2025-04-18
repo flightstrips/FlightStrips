@@ -6,11 +6,6 @@ type EuroscopeEvent struct {
 	Type EventType
 }
 
-type EuroscopeAuthenticationEvent struct {
-	Type  EventType
-	Token string
-}
-
 type EuroscopeLoginEvent struct {
 	Type       EventType `json:"type"`
 	Connection string    `json:"connection"`

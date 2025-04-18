@@ -1,12 +1,25 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"log"
 
 	"github.com/MicahParks/keyfunc/v3"
 	"github.com/golang-jwt/jwt/v5"
 )
+
+func (s *Server) eventhandlerAuthentication(msg []byte) (user *ClientUser, err error) {
+
+	var event AuthenticationEvent
+	err = json.Unmarshal(msg, &event)
+	if err != nil {
+		return user, err
+	}
+
+	return s.parseAuthenticationToken(event.Token)
+}
+
 
 func (s *Server) parseAuthenticationToken(eventToken string) (user *ClientUser, err error) {
 	// TODO: Sort out Logging

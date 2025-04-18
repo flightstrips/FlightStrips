@@ -14,16 +14,6 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-func (s *Server) euroscopeeventhandlerAuthentication(msg []byte) (user *ClientUser, err error) {
-	var event EuroscopeAuthenticationEvent
-	err = json.Unmarshal(msg, &event)
-	if err != nil {
-		return user, err
-	}
-
-	return s.parseAuthenticationToken(event.Token)
-}
-
 func (s *Server) euroscopeeventhandlerLogin(msg []byte) (event EuroscopeLoginEvent, sessionId int32, err error) {
 	err = json.Unmarshal(msg, &event)
 	if err != nil {

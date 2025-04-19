@@ -14,13 +14,13 @@ func (s *Server) frontendeventhandlerGoARound(event Event) (err error) {
 		return err
 	}
 
-	bEvent, err := json.Marshal(event)
+	_, err = json.Marshal(event)
 	if err != nil {
 		return err
 	}
 
-	//Go Around is an event to send to all FrontEndClients
-	s.FrontendHub.broadcast <- bEvent
+	// TODO Go Around is an event to send to all FrontEndClients
+	//s.FrontendHub.broadcast <- bEvent
 
 	return nil
 }

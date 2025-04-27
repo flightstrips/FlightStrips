@@ -446,7 +446,7 @@ func (s *Server) euroscopeeventhandlerSync(msg []byte, session int32, airport st
 	}
 
 	for _, strip := range event.Strips {
-		err = handleStripUpdate(db, strip, session)
+		err = handleStripUpdate(s, db, strip, session)
 		if err != nil {
 			return err
 		}
@@ -455,7 +455,7 @@ func (s *Server) euroscopeeventhandlerSync(msg []byte, session int32, airport st
 	return nil
 }
 
-func handleStripUpdate(db *data.Queries, strip EuroscopeStrip, session int32) error {
+func handleStripUpdate(server *Server, db *data.Queries, strip EuroscopeStrip, session int32) error {
 	// Check if the strip exists
 	existingStrip, err := db.GetStrip(context.TODO(), data.GetStripParams{Callsign: strip.Callsign, Session: session})
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
@@ -536,6 +536,8 @@ func handleStripUpdate(db *data.Queries, strip EuroscopeStrip, session int32) er
 		log.Printf("Updated strip: %s", strip.Callsign)
 	}
 
+	server.FrontendHub.SendStripUpdate(session, strip.Callsign)
+
 	return nil
 }
 
@@ -548,6 +550,6 @@ func (s *Server) euroscopeeventhandlerStripUpdate(msg []byte, session int32) err
 
 	db := data.New(s.DBPool)
 
-	err = handleStripUpdate(db, event.EuroscopeStrip, session)
+	err = handleStripUpdate(s, db, event.EuroscopeStrip, session)
 	return err
 }

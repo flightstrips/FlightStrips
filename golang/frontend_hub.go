@@ -3,6 +3,7 @@ package main
 import (
 	"FlightStrips/data"
 	"context"
+	"encoding/json"
 	"log"
 )
 
@@ -66,31 +67,7 @@ func (hub *FrontendHub) OnRegister(client *FrontendClient) {
 	}
 
 	for _, strip := range strips {
-		stripModels = append(stripModels, FrontendStrip{
-			Callsign:          strip.Callsign,
-			Origin:            strip.Origin,
-			Destination:       strip.Destination,
-			Alternate:         strip.Alternative.String,
-			Route:             strip.Route.String,
-			Remarks:           strip.Remarks.String,
-			Runway:            strip.Remarks.String,
-			Squawk:            strip.Squawk.String,
-			AssignedSquawk:    strip.AssignedSquawk.String,
-			Sid:               strip.Sid.String,
-			Cleared:           strip.Cleared.Bool,
-			ClearedAltitude:   int(strip.ClearedAltitude.Int32),
-			RequestedAltitude: int(strip.RequestedAltitude.Int32),
-			Heading:           int(strip.Heading.Int32),
-			AircraftType:      strip.AircraftType.String,
-			AircraftCategory:  strip.AircraftCategory.String,
-			Stand:             strip.Stand.String,
-			Capabilities:      strip.Capabilities.String,
-			CommunicationType: strip.CommunicationType.String,
-			Bay:               strip.Bay.String,
-			ReleasePoint:      "",
-			Version:           int(strip.Version),
-			Sequence:          int(strip.Sequence.Int32),
-		})
+		stripModels = append(stripModels, MapStripToFrontendModel(&strip))
 	}
 
 	event := FrontendInitialEvent{
@@ -108,6 +85,34 @@ func (hub *FrontendHub) OnRegister(client *FrontendClient) {
 	SendFrontendEvent(client, event)
 }
 
+func MapStripToFrontendModel(strip *data.Strip) FrontendStrip {
+	return FrontendStrip{
+		Callsign:          strip.Callsign,
+		Origin:            strip.Origin,
+		Destination:       strip.Destination,
+		Alternate:         strip.Alternative.String,
+		Route:             strip.Route.String,
+		Remarks:           strip.Remarks.String,
+		Runway:            strip.Remarks.String,
+		Squawk:            strip.Squawk.String,
+		AssignedSquawk:    strip.AssignedSquawk.String,
+		Sid:               strip.Sid.String,
+		Cleared:           strip.Cleared.Bool,
+		ClearedAltitude:   int(strip.ClearedAltitude.Int32),
+		RequestedAltitude: int(strip.RequestedAltitude.Int32),
+		Heading:           int(strip.Heading.Int32),
+		AircraftType:      strip.AircraftType.String,
+		AircraftCategory:  strip.AircraftCategory.String,
+		Stand:             strip.Stand.String,
+		Capabilities:      strip.Capabilities.String,
+		CommunicationType: strip.CommunicationType.String,
+		Bay:               strip.Bay.String,
+		ReleasePoint:      "",
+		Version:           int(strip.Version),
+		Sequence:          int(strip.Sequence.Int32),
+	}
+}
+
 func (hub *FrontendHub) OnUnregister(client *FrontendClient) {
 }
 
@@ -121,6 +126,23 @@ func NewFrontendHub(server *Server) *FrontendHub {
 		clients:    make(map[*FrontendClient]bool),
 		server:     server,
 	}
+}
+
+func (hub *FrontendHub) SendStripUpdate(session int32, callsign string) {
+	db := data.New(hub.server.DBPool)
+	strip, err := db.GetStrip(context.Background(), data.GetStripParams{Callsign: callsign, Session: session})
+	if err != nil {
+		return
+	}
+
+	model := MapStripToFrontendModel(&strip)
+
+	message, err := json.Marshal(FrontendStripUpdateEvent{FrontendStrip: model})
+	if err != nil {
+		return
+	}
+
+	hub.broadcast <- FrontendBroadcastMessage{session: session, message: message}
 }
 
 func (h *FrontendHub) Run() {

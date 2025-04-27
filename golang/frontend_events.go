@@ -49,8 +49,10 @@ type FrontendInitialEvent struct {
 	RunwaySetup RunwayConfiguration `json:"runway_setup"`
 }
 
-type FrontendPlaceholderEvent struct {
+type FrontendStripUpdateEvent struct {
+	FrontendStrip
 }
+
 
 func (e FrontendInitialEvent) MarshalJSON() ([]byte, error) {
 	type Alias FrontendInitialEvent
@@ -63,7 +65,18 @@ func (e FrontendInitialEvent) MarshalJSON() ([]byte, error) {
 	})
 }
 
+func (e FrontendStripUpdateEvent) MarshalJSON() ([]byte, error) {
+	type Alias FrontendStripUpdateEvent
+	return json.Marshal(&struct {
+		Type EventType `json:"type"`
+		Alias
+	}{
+		Type:  FrontendStripUpdate,
+		Alias: (Alias)(e),
+	})
+}
+
 
 type FrontendSendEvent interface {
-	FrontendInitialEvent | FrontendPlaceholderEvent
+	FrontendInitialEvent | FrontendStripUpdateEvent
 }

@@ -69,6 +69,7 @@ const (
 	StripMoveRequest           EventType = "strip_move_request"
 
 	FrontendInitial	           EventType = "initial"
+	FrontendStripUpdate	       EventType = "strip_update"
 )
 
 type AuthenticationEvent struct {

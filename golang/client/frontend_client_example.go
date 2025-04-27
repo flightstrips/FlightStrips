@@ -2,31 +2,12 @@ package main
 
 import (
 	"bufio"
-	"encoding/json"
 	"fmt"
 	"github.com/gorilla/websocket"
 	"log"
-	"math/rand"
 	"os"
 	"os/signal"
-	"strconv"
-	"time"
 )
-
-type Controller struct {
-	Cid      string
-	Airport  string
-	Position string
-}
-
-type Event struct {
-	Type      string
-	Airport   string
-	Source    string
-	Cid       string
-	TimeStamp time.Time
-	Payload   interface{}
-}
 
 func main() {
 	// Connect to the WebSocket server.
@@ -37,35 +18,10 @@ func main() {
 	}
 	defer c.Close()
 
-	controller := Controller{
-		Cid:      strconv.Itoa(rand.Int()),
-		Airport:  "EKCH",
-		Position: strconv.Itoa(rand.Int()),
-	}
-	marshal, err := json.Marshal(controller)
-	if err != nil {
-		return
-	}
-
-	initialEvent := Event{
-		Type:      "initial_connection",
-		Airport:   "EKCH",
-		TimeStamp: time.Now(),
-		Cid:       "Client",
-		Source:    "Client",
-		Payload:   string(marshal),
-	}
-
-	initialEventJson, err := json.Marshal(initialEvent)
 
 	// Handle interrupt signal for cleanup.
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt)
-
-	err = c.WriteMessage(websocket.TextMessage, initialEventJson)
-	if err != nil {
-		return
-	}
 
 	// Goroutine to listen for messages from the server.
 	go func() {
@@ -81,6 +37,7 @@ func main() {
 
 	// Main loop for reading input from the user and sending it to the server.
 	scanner := bufio.NewScanner(os.Stdin)
+
 	fmt.Println("Enter messages to send to the server. Type 'exit' to quit.")
 	for scanner.Scan() {
 		text := scanner.Text()

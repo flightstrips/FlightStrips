@@ -67,6 +67,8 @@ const (
 	StripTransferRequestInit   EventType = "strip_transfer_request"
 	StripTransferRequestReject EventType = "strip_transfer_request_reject"
 	StripMoveRequest           EventType = "strip_move_request"
+
+	FrontendInitial	           EventType = "initial"
 )
 
 type AuthenticationEvent struct {

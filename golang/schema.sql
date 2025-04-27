@@ -57,6 +57,7 @@ CREATE TABLE IF NOT EXISTS strips (
     state varchar,
     cleared bool,
     owner varchar,
+    bay varchar,
     position_latitude double precision,
     position_longitude double precision,
     position_altitude integer,

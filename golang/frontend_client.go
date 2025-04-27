@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"time"
 
@@ -116,4 +117,14 @@ func FrontendClientInitializer(server *Server, conn *websocket.Conn) (*FrontendC
 // FrontendEventsHandler handles the Frontend events endpoint
 func (s *Server) FrontendEventsHandler(w http.ResponseWriter, r *http.Request) {
 	handleWebsocketConnection(s, w, r, FrontendClientInitializer, s.FrontendHub)
+}
+
+func SendFrontendEvent[T FrontendSendEvent](client *FrontendClient, event T) {
+	json, err := json.Marshal(event)
+	if err != nil {
+		log.Println("Failed to marshal event: ", err)
+		return
+	}
+
+	client.Send(json)
 }

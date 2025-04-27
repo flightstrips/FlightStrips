@@ -62,6 +62,7 @@ type Strip struct {
 	State             pgtype.Text
 	Cleared           pgtype.Bool
 	Owner             pgtype.Text
+	Bay               pgtype.Text
 	PositionLatitude  pgtype.Float8
 	PositionLongitude pgtype.Float8
 	PositionAltitude  pgtype.Int4

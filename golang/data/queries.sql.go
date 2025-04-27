@@ -116,7 +116,7 @@ func (q *Queries) GetSession(ctx context.Context, arg GetSessionParams) (Session
 }
 
 const getStrip = `-- name: GetStrip :one
-SELECT id, version, callsign, session, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand, sequence, state, cleared, owner, position_latitude, position_longitude, position_altitude, tobt, tsat, ttot, ctot, aobt, asat FROM strips WHERE callsign = $1 AND session = $2
+SELECT id, version, callsign, session, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay, position_latitude, position_longitude, position_altitude, tobt, tsat, ttot, ctot, aobt, asat FROM strips WHERE callsign = $1 AND session = $2
 `
 
 type GetStripParams struct {
@@ -153,6 +153,7 @@ func (q *Queries) GetStrip(ctx context.Context, arg GetStripParams) (Strip, erro
 		&i.State,
 		&i.Cleared,
 		&i.Owner,
+		&i.Bay,
 		&i.PositionLatitude,
 		&i.PositionLongitude,
 		&i.PositionAltitude,
@@ -223,9 +224,9 @@ func (q *Queries) InsertSession(ctx context.Context, arg InsertSessionParams) (i
 }
 
 const insertStrip = `-- name: InsertStrip :exec
-INSERT INTO strips (version, callsign, session, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand, sequence, state, cleared, owner, position_latitude, position_longitude, position_altitude, tobt
+INSERT INTO strips (version, callsign, session, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay, position_latitude, position_longitude, position_altitude, tobt
 ) VALUES (
-    1, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27)
+    1, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28)
 `
 
 type InsertStripParams struct {
@@ -252,6 +253,7 @@ type InsertStripParams struct {
 	State             pgtype.Text
 	Cleared           pgtype.Bool
 	Owner             pgtype.Text
+	Bay               pgtype.Text
 	PositionLatitude  pgtype.Float8
 	PositionLongitude pgtype.Float8
 	PositionAltitude  pgtype.Int4
@@ -283,6 +285,7 @@ func (q *Queries) InsertStrip(ctx context.Context, arg InsertStripParams) error 
 		arg.State,
 		arg.Cleared,
 		arg.Owner,
+		arg.Bay,
 		arg.PositionLatitude,
 		arg.PositionLongitude,
 		arg.PositionAltitude,
@@ -348,8 +351,68 @@ func (q *Queries) ListSessionsByAirport(ctx context.Context, airport string) ([]
 	return items, nil
 }
 
+const listStrips = `-- name: ListStrips :many
+SELECT id, version, callsign, session, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay, position_latitude, position_longitude, position_altitude, tobt, tsat, ttot, ctot, aobt, asat FROM strips WHERE session = $1 ORDER BY callsign
+`
+
+func (q *Queries) ListStrips(ctx context.Context, session int32) ([]Strip, error) {
+	rows, err := q.db.Query(ctx, listStrips, session)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Strip
+	for rows.Next() {
+		var i Strip
+		if err := rows.Scan(
+			&i.ID,
+			&i.Version,
+			&i.Callsign,
+			&i.Session,
+			&i.Origin,
+			&i.Destination,
+			&i.Alternative,
+			&i.Route,
+			&i.Remarks,
+			&i.AssignedSquawk,
+			&i.Squawk,
+			&i.Sid,
+			&i.ClearedAltitude,
+			&i.Heading,
+			&i.AircraftType,
+			&i.Runway,
+			&i.RequestedAltitude,
+			&i.Capabilities,
+			&i.CommunicationType,
+			&i.AircraftCategory,
+			&i.Stand,
+			&i.Sequence,
+			&i.State,
+			&i.Cleared,
+			&i.Owner,
+			&i.Bay,
+			&i.PositionLatitude,
+			&i.PositionLongitude,
+			&i.PositionAltitude,
+			&i.Tobt,
+			&i.Tsat,
+			&i.Ttot,
+			&i.Ctot,
+			&i.Aobt,
+			&i.Asat,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listStripsByOrigin = `-- name: ListStripsByOrigin :many
-SELECT id, version, callsign, session, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand, sequence, state, cleared, owner, position_latitude, position_longitude, position_altitude, tobt, tsat, ttot, ctot, aobt, asat FROM strips WHERE origin = $1 AND session = $2 ORDER BY callsign
+SELECT id, version, callsign, session, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay, position_latitude, position_longitude, position_altitude, tobt, tsat, ttot, ctot, aobt, asat FROM strips WHERE origin = $1 AND session = $2 ORDER BY callsign
 `
 
 type ListStripsByOriginParams struct {
@@ -392,6 +455,7 @@ func (q *Queries) ListStripsByOrigin(ctx context.Context, arg ListStripsByOrigin
 			&i.State,
 			&i.Cleared,
 			&i.Owner,
+			&i.Bay,
 			&i.PositionLatitude,
 			&i.PositionLongitude,
 			&i.PositionAltitude,
@@ -516,9 +580,9 @@ func (q *Queries) SetControllerPosition(ctx context.Context, arg SetControllerPo
 }
 
 const updateStrip = `-- name: UpdateStrip :execrows
-UPDATE strips SET (version, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand, sequence, state, cleared, owner, position_latitude, position_longitude, position_altitude, tobt
+UPDATE strips SET (version, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay, position_latitude, position_longitude, position_altitude, tobt
 ) = (
-    version + 1, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27)
+    version + 1, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28)
 WHERE callsign = $1 AND session = $2
 `
 
@@ -546,6 +610,7 @@ type UpdateStripParams struct {
 	State             pgtype.Text
 	Cleared           pgtype.Bool
 	Owner             pgtype.Text
+	Bay               pgtype.Text
 	PositionLatitude  pgtype.Float8
 	PositionLongitude pgtype.Float8
 	PositionAltitude  pgtype.Int4
@@ -577,6 +642,7 @@ func (q *Queries) UpdateStrip(ctx context.Context, arg UpdateStripParams) (int64
 		arg.State,
 		arg.Cleared,
 		arg.Owner,
+		arg.Bay,
 		arg.PositionLatitude,
 		arg.PositionLongitude,
 		arg.PositionAltitude,

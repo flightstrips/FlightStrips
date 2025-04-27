@@ -457,41 +457,43 @@ func (s *Server) euroscopeeventhandlerSync(msg []byte, session int32, airport st
 
 func handleStripUpdate(db *data.Queries, strip EuroscopeStrip, session int32) error {
 	// Check if the strip exists
-	_, err := db.GetStrip(context.TODO(), data.GetStripParams{Callsign: strip.Callsign, Session: session})
+	existingStrip, err := db.GetStrip(context.TODO(), data.GetStripParams{Callsign: strip.Callsign, Session: session})
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return err
 	}
 
-	stripParams := data.InsertStripParams{ //keep this for insert
-		Callsign:          strip.Callsign,
-		Session:           session,
-		Origin:            strip.Origin,
-		Destination:       strip.Destination,
-		Alternative:       pgtype.Text{Valid: true, String: strip.Alternate},
-		Route:             pgtype.Text{Valid: true, String: strip.Route},
-		Remarks:           pgtype.Text{Valid: true, String: strip.Remarks},
-		Runway:            pgtype.Text{Valid: true, String: strip.Runway},
-		Squawk:            pgtype.Text{Valid: true, String: strip.Squawk},
-		AssignedSquawk:    pgtype.Text{Valid: true, String: strip.AssignedSquawk},
-		Sid:               pgtype.Text{Valid: true, String: strip.Sid},
-		Cleared:           pgtype.Bool{Valid: true, Bool: strip.Cleared},
-		State:             pgtype.Text{Valid: true, String: strip.GroundState},
-		ClearedAltitude:   pgtype.Int4{Valid: true, Int32: int32(strip.ClearedAltitude)},
-		RequestedAltitude: pgtype.Int4{Valid: true, Int32: int32(strip.RequestedAltitude)},
-		Heading:           pgtype.Int4{Valid: true, Int32: int32(strip.Heading)},
-		AircraftType:      pgtype.Text{Valid: true, String: strip.AircraftType},
-		AircraftCategory:  pgtype.Text{Valid: true, String: strip.AircraftCategory},
-		PositionLatitude:  pgtype.Float8{Valid: true, Float64: strip.Position.Lat},
-		PositionLongitude: pgtype.Float8{Valid: true, Float64: strip.Position.Lon},
-		PositionAltitude:  pgtype.Int4{Valid: true, Int32: int32(strip.Position.Altitude)},
-		Stand:             pgtype.Text{Valid: true, String: strip.Stand},
-		Capabilities:      pgtype.Text{Valid: true, String: strip.Capabilities},
-		CommunicationType: pgtype.Text{Valid: true, String: strip.CommunicationType},
-		Tobt:              pgtype.Text{Valid: false}, // These fields are not in the provided event.
-	}
-
 	if errors.Is(err, pgx.ErrNoRows) {
 		// Strip doesn't exist, so insert
+
+		// TODO handle which the strip needs to go into
+
+		stripParams := data.InsertStripParams{ //keep this for insert
+			Callsign:          strip.Callsign,
+			Session:           session,
+			Origin:            strip.Origin,
+			Destination:       strip.Destination,
+			Alternative:       pgtype.Text{Valid: true, String: strip.Alternate},
+			Route:             pgtype.Text{Valid: true, String: strip.Route},
+			Remarks:           pgtype.Text{Valid: true, String: strip.Remarks},
+			Runway:            pgtype.Text{Valid: true, String: strip.Runway},
+			Squawk:            pgtype.Text{Valid: true, String: strip.Squawk},
+			AssignedSquawk:    pgtype.Text{Valid: true, String: strip.AssignedSquawk},
+			Sid:               pgtype.Text{Valid: true, String: strip.Sid},
+			Cleared:           pgtype.Bool{Valid: true, Bool: strip.Cleared},
+			State:             pgtype.Text{Valid: true, String: strip.GroundState},
+			ClearedAltitude:   pgtype.Int4{Valid: true, Int32: int32(strip.ClearedAltitude)},
+			RequestedAltitude: pgtype.Int4{Valid: true, Int32: int32(strip.RequestedAltitude)},
+			Heading:           pgtype.Int4{Valid: true, Int32: int32(strip.Heading)},
+			AircraftType:      pgtype.Text{Valid: true, String: strip.AircraftType},
+			AircraftCategory:  pgtype.Text{Valid: true, String: strip.AircraftCategory},
+			PositionLatitude:  pgtype.Float8{Valid: true, Float64: strip.Position.Lat},
+			PositionLongitude: pgtype.Float8{Valid: true, Float64: strip.Position.Lon},
+			PositionAltitude:  pgtype.Int4{Valid: true, Int32: int32(strip.Position.Altitude)},
+			Stand:             pgtype.Text{Valid: true, String: strip.Stand},
+			Capabilities:      pgtype.Text{Valid: true, String: strip.Capabilities},
+			CommunicationType: pgtype.Text{Valid: true, String: strip.CommunicationType},
+			Tobt:              pgtype.Text{Valid: false}, // These fields are not in the provided event.
+		}
 		err = db.InsertStrip(context.TODO(), stripParams)
 		if err != nil {
 			return err
@@ -525,6 +527,7 @@ func handleStripUpdate(db *data.Queries, strip EuroscopeStrip, session int32) er
 			PositionLatitude:  pgtype.Float8{Valid: true, Float64: strip.Position.Lat},
 			PositionLongitude: pgtype.Float8{Valid: true, Float64: strip.Position.Lon},
 			PositionAltitude:  pgtype.Int4{Valid: true, Int32: int32(strip.Position.Altitude)},
+			Bay:               existingStrip.Bay,
 		}
 		_, err = db.UpdateStrip(context.TODO(), updateStripParams)
 		if err != nil {

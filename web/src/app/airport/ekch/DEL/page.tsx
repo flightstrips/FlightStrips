@@ -1,8 +1,21 @@
+
 import { FlightStrip } from "../../../components/strip/FlightStrip";
 import { Message } from "../../../components/Message";
 import CommandBar from "../../../components/commandbar/CommandBar";
+import { auth0 } from "@/lib/auth0"
 
-export default function Home() {
+export default async function Home() {
+  const session = await auth0.getSession()
+
+  if (!session) {
+    return (
+      <main>
+        <a href="/auth/login?screen_hint=signup">Sign up</a>
+        <a href="/auth/login">Log in</a>
+      </main>
+    )
+  }
+
   return (
     <>
       <div className="bg-[#A9A9A9] w-screen h-[calc(100vh-4rem)] flex justify-center justify-items-center gap-2 aspect-video">

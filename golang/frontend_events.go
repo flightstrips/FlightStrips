@@ -42,17 +42,16 @@ type FrontendController struct {
 
 type FrontendInitialEvent struct {
 	Controllers []FrontendController `json:"controllers"`
-	Strips      []FrontendStrip     `json:"strips"`
-	Position    string              `json:"position"`
-	Airport     string              `json:"airport"`
-	Callsign    string              `json:"callsign"`
-	RunwaySetup RunwayConfiguration `json:"runway_setup"`
+	Strips      []FrontendStrip      `json:"strips"`
+	Position    string               `json:"position"`
+	Airport     string               `json:"airport"`
+	Callsign    string               `json:"callsign"`
+	RunwaySetup RunwayConfiguration  `json:"runway_setup"`
 }
 
 type FrontendStripUpdateEvent struct {
 	FrontendStrip
 }
-
 
 func (e FrontendInitialEvent) MarshalJSON() ([]byte, error) {
 	type Alias FrontendInitialEvent
@@ -76,6 +75,35 @@ func (e FrontendStripUpdateEvent) MarshalJSON() ([]byte, error) {
 	})
 }
 
+type FrontendControllerOnlineEvent struct {
+	FrontendController
+}
+
+func (e FrontendControllerOnlineEvent) MarshalJSON() ([]byte, error) {
+	type Alias FrontendControllerOnlineEvent
+	return json.Marshal(&struct {
+		Type EventType `json:"type"`
+		Alias
+	}{
+		Type:  FrontendControllerOnline, // You should add this EventType constant if not present
+		Alias: (Alias)(e),
+	})
+}
+
+type FrontendControllerOfflineEvent struct {
+	FrontendController
+}
+
+func (e FrontendControllerOfflineEvent) MarshalJSON() ([]byte, error) {
+	type Alias FrontendControllerOfflineEvent
+	return json.Marshal(&struct {
+		Type EventType `json:"type"`
+		Alias
+	}{
+		Type:  FrontendControllerOffline, // Ensure this EventType exists
+		Alias: (Alias)(e),
+	})
+}
 
 type FrontendSendEvent interface {
 	FrontendInitialEvent | FrontendStripUpdateEvent

@@ -84,7 +84,6 @@ func (s *Server) euroscopeeventhandlerControllerOnline(msg []byte, session int32
 	controller, err := db.GetController(context.TODO(), getParams)
 
 	if errors.Is(err, pgx.ErrNoRows) {
-		// New controller insert
 		params := data.InsertControllerParams{
 			Callsign: event.Callsign,
 			Position: event.Position,
@@ -93,7 +92,9 @@ func (s *Server) euroscopeeventhandlerControllerOnline(msg []byte, session int32
 		}
 
 		err = db.InsertController(context.Background(), params)
-
+		if err == nil {
+			s.FrontendHub.SendControllerOnline(session, event.Callsign, event.Position)
+		}
 		return err
 	}
 
@@ -101,14 +102,16 @@ func (s *Server) euroscopeeventhandlerControllerOnline(msg []byte, session int32
 		return err
 	}
 
-	if controller.Position == event.Position {
-		return nil
+	if controller.Position != event.Position {
+		setParams := data.SetControllerPositionParams{Session: session, Callsign: event.Callsign, Position: event.Position}
+		_, err = db.SetControllerPosition(context.TODO(), setParams)
+		if err == nil {
+			s.FrontendHub.SendControllerOnline(session, event.Callsign, event.Position)
+		}
+		return err
 	}
 
-	setParams := data.SetControllerPositionParams{Session: session, Callsign: event.Callsign, Position: event.Position}
-	_, err = db.SetControllerPosition(context.TODO(), setParams)
-
-	return err
+	return nil
 }
 
 func (s *Server) euroscopeeventhandlerControllerOffline(msg []byte, session int32, airport string) error {
@@ -119,10 +122,22 @@ func (s *Server) euroscopeeventhandlerControllerOffline(msg []byte, session int3
 	}
 
 	db := data.New(s.DBPool)
+	getParams := data.GetControllerParams{Session: session, Callsign: event.Callsign}
+	controller, err := db.GetController(context.TODO(), getParams)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return err
+	}
+
+	if errors.Is(err, pgx.ErrNoRows) {
+		log.Printf("Controller %s which was going offline does not exist in the database\n", event.Callsign)
+		s.FrontendHub.SendControllerOffline(session, event.Callsign, "")
+		return nil
+	}
 
 	params := data.RemoveControllerParams{Session: session, Callsign: event.Callsign}
 	count, err := db.RemoveController(context.TODO(), params)
 
+	s.FrontendHub.SendControllerOffline(session, event.Callsign, controller.Position)
 	if err != nil {
 		return err
 	}
@@ -132,7 +147,7 @@ func (s *Server) euroscopeeventhandlerControllerOffline(msg []byte, session int3
 			event.Callsign, airport)
 	}
 
-	return err
+	return nil
 }
 
 func (s *Server) euroscopeeventhandlerAssignedSquawk(msg []byte, session int32) error {

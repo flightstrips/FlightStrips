@@ -29,12 +29,12 @@ type FrontendHub struct {
 	unregister chan *FrontendClient
 }
 
-func (h *FrontendHub) Register(client *FrontendClient) {
-	h.register <- client
+func (hub *FrontendHub) Register(client *FrontendClient) {
+	hub.register <- client
 }
 
-func (h *FrontendHub) Unregister(client *FrontendClient) {
-	h.unregister <- client
+func (hub *FrontendHub) Unregister(client *FrontendClient) {
+	hub.unregister <- client
 }
 
 func (hub *FrontendHub) OnRegister(client *FrontendClient) {
@@ -145,26 +145,52 @@ func (hub *FrontendHub) SendStripUpdate(session int32, callsign string) {
 	hub.broadcast <- FrontendBroadcastMessage{session: session, message: message}
 }
 
-func (h *FrontendHub) Run() {
+func (hub *FrontendHub) SendControllerOnline(session int32, callsign string, position string) {
+	message, err := json.Marshal(FrontendControllerOnlineEvent{
+		FrontendController: FrontendController{
+			Callsign: callsign,
+			Position: position,
+		},
+	})
+	if err != nil {
+		return
+	}
+	hub.broadcast <- FrontendBroadcastMessage{session: session, message: message}
+}
+
+func (hub *FrontendHub) SendControllerOffline(session int32, callsign string, position string) {
+	message, err := json.Marshal(FrontendControllerOfflineEvent{
+		FrontendController: FrontendController{
+			Callsign: callsign,
+			Position: position,
+		},
+	})
+	if err != nil {
+		return
+	}
+	hub.broadcast <- FrontendBroadcastMessage{session: session, message: message}
+}
+
+func (hub *FrontendHub) Run() {
 	for {
 		select {
-		case client := <-h.register:
-			h.clients[client] = true
-			h.OnRegister(client)
-		case client := <-h.unregister:
-			if _, ok := h.clients[client]; ok {
-				delete(h.clients, client)
+		case client := <-hub.register:
+			hub.clients[client] = true
+			hub.OnRegister(client)
+		case client := <-hub.unregister:
+			if _, ok := hub.clients[client]; ok {
+				delete(hub.clients, client)
 				client.Close()
 			}
-			h.OnUnregister(client)
-		case message := <-h.broadcast:
-			for client := range h.clients {
+			hub.OnUnregister(client)
+		case message := <-hub.broadcast:
+			for client := range hub.clients {
 				if message.session == client.session {
 					client.send <- message.message
 				}
 			}
-		case message := <-h.send:
-			for client := range h.clients {
+		case message := <-hub.send:
+			for client := range hub.clients {
 				if message.session == client.session && message.position == client.position {
 					client.send <- message.message
 				}

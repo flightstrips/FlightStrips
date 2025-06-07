@@ -105,6 +105,86 @@ func (e FrontendControllerOfflineEvent) MarshalJSON() ([]byte, error) {
 	})
 }
 
+type FrontendAssignedSquawkEvent struct {
+	Callsign string `json:"callsign"`
+	Squawk   string `json:"squawk"`
+}
+
+func (e FrontendAssignedSquawkEvent) MarshalJSON() ([]byte, error) {
+	type Alias FrontendAssignedSquawkEvent
+	return json.Marshal(&struct {
+		Type EventType `json:"type"`
+		Alias
+	}{
+		Type:  FrontendAssignedSquawk,
+		Alias: (Alias)(e),
+	})
+}
+
+type FrontendSquawkEvent struct {
+	Callsign string `json:"callsign"`
+	Squawk   string `json:"squawk"`
+}
+
+func (e FrontendSquawkEvent) MarshalJSON() ([]byte, error) {
+	type Alias FrontendSquawkEvent
+	return json.Marshal(&struct {
+		Type EventType `json:"type"`
+		Alias
+	}{
+		Type:  FrontendSquawk,
+		Alias: (Alias)(e),
+	})
+}
+
+type FrontendRequestedAltitudeEvent struct {
+	Callsign string `json:"callsign"`
+	Altitude int    `json:"altitude"`
+}
+
+func (e FrontendRequestedAltitudeEvent) MarshalJSON() ([]byte, error) {
+	type Alias FrontendRequestedAltitudeEvent
+	return json.Marshal(&struct {
+		Type EventType `json:"type"`
+		Alias
+	}{
+		Type:  FrontendRequestedAltitude,
+		Alias: (Alias)(e),
+	})
+}
+
+type FrontendClearedAltitudeEvent struct {
+	Callsign string `json:"callsign"`
+	Altitude int    `json:"altitude"`
+}
+
+func (e FrontendClearedAltitudeEvent) MarshalJSON() ([]byte, error) {
+	type Alias FrontendClearedAltitudeEvent
+	return json.Marshal(&struct {
+		Type EventType `json:"type"`
+		Alias
+	}{
+		Type:  FrontendClearedAltitude,
+		Alias: (Alias)(e),
+	})
+}
+
+type FrontendBayEvent struct {
+	Callsign string `json:"callsign"`
+	Bay      string `json:"bay"`
+}
+
+func (e FrontendBayEvent) MarshalJSON() ([]byte, error) {
+	type Alias FrontendBayEvent
+	return json.Marshal(&struct {
+		Type EventType `json:"type"`
+		Alias
+	}{
+		Type:  FrontendBay,
+		Alias: (Alias)(e),
+	})
+}
+
 type FrontendSendEvent interface {
 	FrontendInitialEvent | FrontendStripUpdateEvent
 }

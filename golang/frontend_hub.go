@@ -171,6 +171,61 @@ func (hub *FrontendHub) SendControllerOffline(session int32, callsign string, po
 	hub.broadcast <- FrontendBroadcastMessage{session: session, message: message}
 }
 
+func (hub *FrontendHub) SendAssignedSquawkEvent(session int32, callsign string, squawk string) {
+	message, err := json.Marshal(FrontendAssignedSquawkEvent{
+		Callsign: callsign,
+		Squawk:   squawk,
+	})
+	if err != nil {
+		return
+	}
+	hub.broadcast <- FrontendBroadcastMessage{session: session, message: message}
+}
+
+func (hub *FrontendHub) SendSquawkEvent(session int32, callsign string, squawk string) {
+	message, err := json.Marshal(FrontendSquawkEvent{
+		Callsign: callsign,
+		Squawk:   squawk,
+	})
+	if err != nil {
+		return
+	}
+	hub.broadcast <- FrontendBroadcastMessage{session: session, message: message}
+}
+
+func (hub *FrontendHub) SendRequestedAltitudeEvent(session int32, callsign string, altitude int) {
+	message, err := json.Marshal(FrontendRequestedAltitudeEvent{
+		Callsign: callsign,
+		Altitude: altitude,
+	})
+	if err != nil {
+		return
+	}
+	hub.broadcast <- FrontendBroadcastMessage{session: session, message: message}
+}
+
+func (hub *FrontendHub) SendClearedAltitudeEvent(session int32, callsign string, altitude int) {
+	message, err := json.Marshal(FrontendClearedAltitudeEvent{
+		Callsign: callsign,
+		Altitude: altitude,
+	})
+	if err != nil {
+		return
+	}
+	hub.broadcast <- FrontendBroadcastMessage{session: session, message: message}
+}
+
+func (hub *FrontendHub) SendBayEvent(session int32, callsign string, bay string) {
+	message, err := json.Marshal(FrontendBayEvent{
+		Callsign: callsign,
+		Bay:      bay,
+	})
+	if err != nil {
+		return
+	}
+	hub.broadcast <- FrontendBroadcastMessage{session: session, message: message}
+}
+
 func (hub *FrontendHub) Run() {
 	for {
 		select {

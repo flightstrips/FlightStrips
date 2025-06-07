@@ -173,6 +173,8 @@ func (s *Server) euroscopeeventhandlerAssignedSquawk(msg []byte, session int32) 
 
 	if count != 1 {
 		log.Printf("Strip %v which is being updated does not exist in the database", event.Callsign)
+	} else {
+		s.FrontendHub.SendAssignedSquawkEvent(session, event.Callsign, event.Squawk)
 	}
 
 	return err
@@ -201,6 +203,8 @@ func (s *Server) euroscopeeventhandlerSquawk(msg []byte, session int32) error {
 
 	if count != 1 {
 		log.Printf("Strip %v which is being updated does not exist in the database", event.Callsign)
+	} else {
+		s.FrontendHub.SendSquawkEvent(session, event.Callsign, event.Squawk)
 	}
 
 	return err
@@ -227,6 +231,8 @@ func (s *Server) euroscopeeventhandlerRequestedAltitude(msg []byte, session int3
 	}
 	if count != 1 {
 		log.Printf("Strip %v which is being updated does not exist in the database", event.Callsign)
+	} else {
+		s.FrontendHub.SendRequestedAltitudeEvent(session, event.Callsign, event.Altitude)
 	}
 	return err
 }
@@ -251,6 +257,8 @@ func (s *Server) euroscopeeventhandlerClearedAltitude(msg []byte, session int32)
 	}
 	if count != 1 {
 		log.Printf("Strip %v which is being updated does not exist in the database", event.Callsign)
+	} else {
+		s.FrontendHub.SendClearedAltitudeEvent(session, event.Callsign, event.Altitude)
 	}
 	return err
 }
@@ -288,20 +296,39 @@ func (s *Server) euroscopeeventhandlerGroundState(msg []byte, session int32) err
 	}
 
 	db := data.New(s.DBPool)
+	existingStrip, err := db.GetStrip(context.TODO(), data.GetStripParams{Callsign: event.Callsign, Session: session})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			log.Printf("Strip %v which is being updated does not exist in the database", event.Callsign)
+			return nil
+		}
+		return err
+	}
+
+	if existingStrip.State.String == event.GroundState {
+		return nil
+	}
+
+	bay := GetDepartureBayFromGroundState(event.GroundState, existingStrip)
+
 	insertData := data.UpdateStripGroundStateByIDParams{
 		State:    pgtype.Text{Valid: true, String: event.GroundState},
+		Bay:      pgtype.Text{Valid: true, String: bay},
 		Callsign: event.Callsign,
 		Session:  session,
 	}
 
-	count, err := db.UpdateStripGroundStateByID(context.TODO(), insertData)
+	_, err = db.UpdateStripGroundStateByID(context.TODO(), insertData)
+
 	if err != nil {
 		return err
 	}
-	if count != 1 {
-		log.Printf("Strip %v which is being updated does not exist in the database", event.Callsign)
+
+	if existingStrip.Bay.String != bay {
+		s.FrontendHub.SendBayEvent(session, event.Callsign, bay)
 	}
-	return err
+
+	return nil
 }
 
 func (s *Server) euroscopeeventhandlerClearedFlag(msg []byte, session int32) error {
@@ -312,18 +339,39 @@ func (s *Server) euroscopeeventhandlerClearedFlag(msg []byte, session int32) err
 	}
 
 	db := data.New(s.DBPool)
+	existingStrip, err := db.GetStrip(context.TODO(), data.GetStripParams{Callsign: event.Callsign, Session: session})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			log.Printf("Strip %v which is being updated does not exist in the database", event.Callsign)
+			return nil
+		}
+		return err
+	}
+
+	if existingStrip.Cleared.Valid && existingStrip.Cleared.Bool == event.Cleared {
+		return nil
+	}
+
+	bay := existingStrip.Bay.String
+	if bay == BAY_NOT_CLEARED || bay == BAY_UNKNOWN {
+		bay = BAY_CLEARED
+	}
+
 	insertData := data.UpdateStripClearedFlagByIDParams{
 		Cleared:  pgtype.Bool{Valid: true, Bool: event.Cleared},
+		Bay:      pgtype.Text{Valid: true, String: bay},
 		Callsign: event.Callsign,
 		Session:  session,
 	}
-	count, err := db.UpdateStripClearedFlagByID(context.TODO(), insertData)
+	_, err = db.UpdateStripClearedFlagByID(context.TODO(), insertData)
 	if err != nil {
 		return err
 	}
-	if count != 1 {
-		log.Printf("Strip %v which is being updated does not exist in the database", event.Callsign)
+
+	if existingStrip.Bay.String != bay {
+		s.FrontendHub.SendBayEvent(session, event.Callsign, bay)
 	}
+
 	return err
 }
 
@@ -335,22 +383,36 @@ func (s *Server) euroscopeeventhandlerPositionUpdate(msg []byte, session int32) 
 	}
 
 	db := data.New(s.DBPool)
+	existingStrip, err := db.GetStrip(context.TODO(), data.GetStripParams{Callsign: event.Callsign, Session: session})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			log.Printf("Strip %v which is being updated does not exist in the database", event.Callsign)
+			return nil
+		}
+		return err
+	}
+
+	bay := GetDepartureBayFromPosition(event.Lat, event.Lon, event.Altitude, existingStrip)
+
 	insertData := data.UpdateStripAircraftPositionByIDParams{
 		PositionLatitude:  pgtype.Float8{Valid: true, Float64: event.Lat},
 		PositionLongitude: pgtype.Float8{Valid: true, Float64: event.Lon},
 		PositionAltitude:  pgtype.Int4{Valid: true, Int32: int32(event.Altitude)},
+		Bay:               pgtype.Text{Valid: true, String: bay},
 		Callsign:          event.Callsign,
 		Session:           session,
 	}
+	_, err = db.UpdateStripAircraftPositionByID(context.TODO(), insertData)
 
-	count, err := db.UpdateStripAircraftPositionByID(context.TODO(), insertData)
 	if err != nil {
 		return err
 	}
-	if count != 1 {
-		log.Printf("Strip %v which is being updated does not exist in the database", event.Callsign)
+
+	if existingStrip.Bay.String != bay {
+		s.FrontendHub.SendBayEvent(session, event.Callsign, bay)
 	}
-	return err
+
+	return nil
 }
 
 func (s *Server) euroscopeeventhandlerSetHeading(msg []byte, session int32) error {
@@ -480,7 +542,7 @@ func handleStripUpdate(server *Server, db *data.Queries, strip EuroscopeStrip, s
 	if errors.Is(err, pgx.ErrNoRows) {
 		// Strip doesn't exist, so insert
 
-		// TODO handle which the strip needs to go into
+		bay := GetDepartureBay(strip, nil)
 
 		stripParams := data.InsertStripParams{ //keep this for insert
 			Callsign:          strip.Callsign,
@@ -508,6 +570,7 @@ func handleStripUpdate(server *Server, db *data.Queries, strip EuroscopeStrip, s
 			Capabilities:      pgtype.Text{Valid: true, String: strip.Capabilities},
 			CommunicationType: pgtype.Text{Valid: true, String: strip.CommunicationType},
 			Tobt:              pgtype.Text{Valid: false}, // These fields are not in the provided event.
+			Bay:               pgtype.Text{Valid: true, String: bay},
 		}
 		err = db.InsertStrip(context.TODO(), stripParams)
 		if err != nil {
@@ -517,6 +580,8 @@ func handleStripUpdate(server *Server, db *data.Queries, strip EuroscopeStrip, s
 	} else {
 		// Strip exists, update it
 		// TODO we need to ensure the master is synced first otherwise this will overwrite the strip with potential wrong values
+		bay := GetDepartureBay(strip, &existingStrip)
+
 		updateStripParams := data.UpdateStripParams{ // create this
 			Callsign:          strip.Callsign,
 			Session:           session,
@@ -542,7 +607,7 @@ func handleStripUpdate(server *Server, db *data.Queries, strip EuroscopeStrip, s
 			PositionLatitude:  pgtype.Float8{Valid: true, Float64: strip.Position.Lat},
 			PositionLongitude: pgtype.Float8{Valid: true, Float64: strip.Position.Lon},
 			PositionAltitude:  pgtype.Int4{Valid: true, Int32: int32(strip.Position.Altitude)},
-			Bay:               existingStrip.Bay,
+			Bay:               pgtype.Text{Valid: true, String: bay},
 		}
 		_, err = db.UpdateStrip(context.TODO(), updateStripParams)
 		if err != nil {

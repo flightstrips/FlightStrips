@@ -655,13 +655,14 @@ func (q *Queries) UpdateStrip(ctx context.Context, arg UpdateStripParams) (int64
 }
 
 const updateStripAircraftPositionByID = `-- name: UpdateStripAircraftPositionByID :execrows
-UPDATE strips SET position_latitude = $1, position_longitude = $2, position_altitude = $3 WHERE callsign = $4 AND session = $5 AND (version = $6 OR $6 IS NULL)
+UPDATE strips SET position_latitude = $1, position_longitude = $2, position_altitude = $3, bay = $4 WHERE callsign = $5 AND session = $6 AND (version = $7 OR $7 IS NULL)
 `
 
 type UpdateStripAircraftPositionByIDParams struct {
 	PositionLatitude  pgtype.Float8
 	PositionLongitude pgtype.Float8
 	PositionAltitude  pgtype.Int4
+	Bay               pgtype.Text
 	Callsign          string
 	Session           int32
 	Version           pgtype.Int4
@@ -672,6 +673,7 @@ func (q *Queries) UpdateStripAircraftPositionByID(ctx context.Context, arg Updat
 		arg.PositionLatitude,
 		arg.PositionLongitude,
 		arg.PositionAltitude,
+		arg.Bay,
 		arg.Callsign,
 		arg.Session,
 		arg.Version,
@@ -731,11 +733,12 @@ func (q *Queries) UpdateStripClearedAltitudeByID(ctx context.Context, arg Update
 }
 
 const updateStripClearedFlagByID = `-- name: UpdateStripClearedFlagByID :execrows
-UPDATE strips SET cleared = $1, version = version + 1 WHERE callsign = $2 AND session = $3 AND (version = $4 OR $4 IS NULL)
+UPDATE strips SET cleared = $1, bay = $2, version = version + 1 WHERE callsign = $3 AND session = $4 AND (version = $5 OR $5 IS NULL)
 `
 
 type UpdateStripClearedFlagByIDParams struct {
 	Cleared  pgtype.Bool
+	Bay      pgtype.Text
 	Callsign string
 	Session  int32
 	Version  pgtype.Int4
@@ -744,6 +747,7 @@ type UpdateStripClearedFlagByIDParams struct {
 func (q *Queries) UpdateStripClearedFlagByID(ctx context.Context, arg UpdateStripClearedFlagByIDParams) (int64, error) {
 	result, err := q.db.Exec(ctx, updateStripClearedFlagByID,
 		arg.Cleared,
+		arg.Bay,
 		arg.Callsign,
 		arg.Session,
 		arg.Version,
@@ -779,11 +783,12 @@ func (q *Queries) UpdateStripCommunicationTypeByID(ctx context.Context, arg Upda
 }
 
 const updateStripGroundStateByID = `-- name: UpdateStripGroundStateByID :execrows
-UPDATE strips SET state = $1, version = version + 1 WHERE callsign = $2 AND session = $3 AND (version = $4 OR $4 IS NULL)
+UPDATE strips SET state = $1, bay = $2, version = version + 1 WHERE callsign = $3 AND session = $4 AND (version = $5 OR $5 IS NULL)
 `
 
 type UpdateStripGroundStateByIDParams struct {
 	State    pgtype.Text
+	Bay      pgtype.Text
 	Callsign string
 	Session  int32
 	Version  pgtype.Int4
@@ -792,6 +797,7 @@ type UpdateStripGroundStateByIDParams struct {
 func (q *Queries) UpdateStripGroundStateByID(ctx context.Context, arg UpdateStripGroundStateByIDParams) (int64, error) {
 	result, err := q.db.Exec(ctx, updateStripGroundStateByID,
 		arg.State,
+		arg.Bay,
 		arg.Callsign,
 		arg.Session,
 		arg.Version,

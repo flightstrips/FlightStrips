@@ -72,6 +72,11 @@ const (
 	FrontendStripUpdate       EventType = "strip_update"
 	FrontendControllerOnline  EventType = "controller_online"
 	FrontendControllerOffline EventType = "controller_offline"
+	FrontendAssignedSquawk    EventType = "assigned_squawk"
+	FrontendSquawk            EventType = "squawk"
+	FrontendRequestedAltitude EventType = "requested_altitude"
+	FrontendClearedAltitude   EventType = "cleared_altitude"
+	FrontendBay               EventType = "bay"
 )
 
 type AuthenticationEvent struct {

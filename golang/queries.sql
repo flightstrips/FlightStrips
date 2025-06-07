@@ -87,13 +87,13 @@ UPDATE strips SET requested_altitude = $1, version = version + 1 WHERE callsign 
 UPDATE strips SET communication_type = $1, version = version + 1 WHERE callsign = $2 AND session = $3 AND (version = sqlc.narg('version') OR sqlc.narg('version') IS NULL); 
 
 -- name: UpdateStripGroundStateByID :execrows
-UPDATE strips SET state = $1, version = version + 1 WHERE callsign = $2 AND session = $3 AND (version = sqlc.narg('version') OR sqlc.narg('version') IS NULL);
+UPDATE strips SET state = $1, bay = $2, version = version + 1 WHERE callsign = $3 AND session = $4 AND (version = sqlc.narg('version') OR sqlc.narg('version') IS NULL);
 
 -- name: UpdateStripClearedFlagByID :execrows
-UPDATE strips SET cleared = $1, version = version + 1 WHERE callsign = $2 AND session = $3 AND (version = sqlc.narg('version') OR sqlc.narg('version') IS NULL); 
+UPDATE strips SET cleared = $1, bay = $2, version = version + 1 WHERE callsign = $3 AND session = $4 AND (version = sqlc.narg('version') OR sqlc.narg('version') IS NULL);
 
 -- name: UpdateStripAircraftPositionByID :execrows
-UPDATE strips SET position_latitude = $1, position_longitude = $2, position_altitude = $3 WHERE callsign = $4 AND session = $5 AND (version = sqlc.narg('version') OR sqlc.narg('version') IS NULL);
+UPDATE strips SET position_latitude = $1, position_longitude = $2, position_altitude = $3, bay = $4 WHERE callsign = $5 AND session = $6 AND (version = sqlc.narg('version') OR sqlc.narg('version') IS NULL);
 
 -- name: UpdateStripHeadingByID :execrows
 UPDATE strips SET heading = $1, version = version + 1 WHERE callsign = $2 AND session = $3 AND (version = sqlc.narg('version') OR sqlc.narg('version') IS NULL);

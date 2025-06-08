@@ -1,7 +1,7 @@
 
 import { FlightStrip } from "@/components/strip/FlightStrip.tsx";
 import { Message } from "@/components/Message.tsx";
-import CommandBar from "../../components/commandbar/CommandBar";
+
 
 export default function DEL() {
   return (
@@ -142,7 +142,7 @@ export default function DEL() {
           </div>
         </div>
       </div>
-      <CommandBar />
+      
     </>
   );
 }

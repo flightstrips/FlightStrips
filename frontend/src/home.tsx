@@ -4,7 +4,7 @@ import { PatnerCarousel } from "./components/PatnerCarousel";
 
 export default function Home() {
     return (
-            <div className="bg-primary w-scren h-full min-h-screen text-white ">
+            <div className="bg-primary w-scren h-full min-h-screen text-gray-100 ">
                 <nav className="hidden md:flex h-20 items-center justify-between w-1/2 mx-auto">
                     <h1 className="font-semibold text-xl">FlightStrips</h1>
                     <MainNavigation />
@@ -20,14 +20,14 @@ export default function Home() {
                     </div>
                     <img src="/fsdemo.png" width="850" height="478" alt="fsdemo" className="hidden lg:block"/>
                 </section>
-                <section className="w-full h-[20rem] flex flex-col justify-center items-center px-32 bg-white">
+                <section className="w-full h-[20rem] flex flex-col justify-center items-center px-32 bg-gray-100">
                     <h3 className="text-3xl pb-6 text-black">Parner vACCs</h3>
                     <PatnerCarousel />
                 </section>
                 <section className="w-full min-h-fit h-[60rem] flex justify-between items-center px-32">
 
                 </section>
-                <footer className="h-48 bg-white w-full hidden md:flex justify-around text-[#003d48] ">
+                <footer className="h-48 bg-gray-100 w-full hidden md:flex justify-around text-primary ">
                     <div className="p-1 aspect-video w-64 flex justify-center items-center">
             <span className="font-semibold text-2xl p-2">
                 FlightStrips <br /> <span className="text-xs -mt-4 -pt-4">(Only for simulation)</span>
@@ -62,7 +62,7 @@ export default function Home() {
 
                     </div>
                 </footer>
-                <footer className="bg-white w-full h-64 text-[#003d48] flex flex-col gap-6 items-center md:hidden">
+                <footer className="bg-gray-100 w-full h-64 text-primary flex flex-col gap-6 items-center md:hidden">
             <span className="font-semibold text-2xl pt-4">
                 FlightStrips
             </span>

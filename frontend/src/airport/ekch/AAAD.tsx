@@ -5,7 +5,7 @@ export default function Home() {
     <>
       <div className="bg-[#A9A9A9] w-screen h-[calc(100vh-4rem)] flex justify-center justify-items-center gap-2 aspect-video">
         <div className="w-1/4 h-full bg-[#555355]">
-          <div className="bg-[#285a5c] h-10 flex items-center px-2 justify-between">
+          <div className="bg-primary h-10 flex items-center px-2 justify-between">
             <span className="text-white font-bold text-lg">
               MESSAGES
             </span>

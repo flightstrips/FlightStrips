@@ -96,7 +96,7 @@ export default function DEL() {
         </div>
         <div className="w-1/4 h-full bg-[#555355]">
           <div className="bg-[#393939] h-10 flex items-center px-2 justify-between">
-            <span className="text-white font-bold text-lg">
+            <span className="text-gray-100 font-bold text-lg">
               CLEARED
             </span>
           </div>
@@ -104,8 +104,8 @@ export default function DEL() {
             <FlightStrip callsing="NSZ3676" clearances standchanged taxiway="D" holdingpoint="E1" destination={'EKYT'} stand={'D3'} tsat={'1312'} status="CLROK" />
             <FlightStrip callsing="NSZ1234" clearances standchanged taxiway="A" holdingpoint="B1" destination={'ESSA'} stand={'A6'} tsat={'1400'} status="CLROK" />
           </div>
-          <div className="bg-[#285a5c] h-10 flex items-center px-2 justify-between">
-            <span className="text-white font-bold text-lg">
+          <div className="bg-primary h-10 flex items-center px-2 justify-between">
+            <span className="text-gray-100 font-bold text-lg">
               MESSAGES
             </span>
           </div>

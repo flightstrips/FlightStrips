@@ -4,6 +4,9 @@ import TRFBRN from "./TRFBRN";
 import REQBTN from "./REQBTN";
 import ATIS from "./ATIS";
 import HOMEBTN from "./HOMEBTN";
+import GetMetar from "@/helpers/GetMetar"
+import MetarHelper from "@/helpers/MetarHelper.tsx"
+
 
 export default function CommandBar() {
     return (
@@ -32,14 +35,14 @@ export default function CommandBar() {
                     <h1>
                         QNH
                     </h1>
-                    <span className="bg-[#212121]  w-18 p-2">
-                        1015
+                    <span className="bg-[#212121] w-18 p-2">
+                        <MetarHelper metar={GetMetar({ icao: "EKCH" })} style="qnh" />
                     </span>
                     <span className="bg-white text-black w-12 p-2 mx-2 text-center">
                         D
                     </span>
-                    <span className="bg-white text-black w-32 p-2 mx-2 text-center">
-                        250/17kt
+                    <span className="bg-white text-black w-32 p-2 mx-2 text-center text-xl">
+                        <MetarHelper metar={GetMetar({ icao: "EKCH" })} style="winds" />
                     </span>
                 </div>
                 <div className="flex w-fit text-2xl font-bold m-2 items-center justify-between">
@@ -54,7 +57,7 @@ export default function CommandBar() {
                 <button className="bg-[#646464] text-xl font-bold p-2 border-2">
                     X
                 </button>
-                <div className="w-32 bg-[#e4e4e4] text-black flex items-center justify-center p-3">
+                <div className="w-32 bg-[#646464] flex items-center justify-center h-6/8 border-2">
                     <CurrentUTC />
                 </div>
             </div>

@@ -21,7 +21,7 @@ export default function DEL() {
               </button>
             </span>
           </div>
-          <div className="h-[calc(100%-2.5rem)] w-full bg-[#555355] p-1 flex flex-col gap-[2px] overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-[#285a5c]">
+          <div className="h-[calc(100%-2.5rem)] w-full bg-[#555355] p-1 flex flex-col gap-[2px] overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary">
             <FlightStrip callsing="DAT3676" standchanged taxiway="D" holdingpoint="E1" destination={'EKYT'} stand={'D3'} tsat={'1312'} status="CLR" />
             <FlightStrip callsing="BAW1234" standchanged taxiway="A" holdingpoint="B1" destination={'EGLL'} stand={'A6'} tsat={'1400'} status="CLR" />
             <FlightStrip callsing="DLH5678" standchanged taxiway="B" holdingpoint="C2" destination={'EDDF'} stand={'B9'} tsat={'1415'} status="CLR" />
@@ -60,7 +60,7 @@ export default function DEL() {
               SAS
             </span>
           </div>
-          <div className="h-[calc(50%-2.5rem)] w-full bg-[#555355] p-1 flex flex-col gap-[2px] overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-[#285a5c]">
+          <div className="h-[calc(50%-2.5rem)] w-full bg-[#555355] p-1 flex flex-col gap-[2px] overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary">
             <FlightStrip callsing="OYYSB" standchanged taxiway="D" holdingpoint="E1" destination={'EKYT'} stand={'D3'} tsat={'1312'} status="CLR" />
             <FlightStrip callsing="SAS1234" standchanged taxiway="A" holdingpoint="B1" destination={'ESSA'} stand={'A6'} tsat={'1400'} status="CLR" />
             <FlightStrip callsing="SAS5678" standchanged taxiway="B" holdingpoint="C2" destination={'ENGM'} stand={'B9'} tsat={'1415'} status="CLR" />
@@ -79,7 +79,7 @@ export default function DEL() {
               NORWEGIAN
             </span>
           </div>
-          <div className="h-[calc(50%-2.5rem)] w-full bg-[#555355] p-1 flex flex-col gap-[2px] overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-[#285a5c]">
+          <div className="h-[calc(50%-2.5rem)] w-full bg-[#555355] p-1 flex flex-col gap-[2px] overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary">
             <FlightStrip callsing="NSZ3676" standchanged taxiway="D" holdingpoint="E1" destination={'EKYT'} stand={'D3'} tsat={'1312'} status="CLR" />
             <FlightStrip callsing="NSZ1234" standchanged taxiway="A" holdingpoint="B1" destination={'ESSA'} stand={'A6'} tsat={'1400'} status="CLR" />
             <FlightStrip callsing="NAX5678" standchanged taxiway="B" holdingpoint="C2" destination={'ENGM'} stand={'B9'} tsat={'1415'} status="CLR" />
@@ -100,7 +100,7 @@ export default function DEL() {
               CLEARED
             </span>
           </div>
-          <div className="h-1/2 w-full bg-[#555355] p-1 flex flex-col gap-[2px] overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-[#285a5c]">
+          <div className="h-1/2 w-full bg-[#555355] p-1 flex flex-col gap-[2px] overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary">
             <FlightStrip callsing="NSZ3676" clearances standchanged taxiway="D" holdingpoint="E1" destination={'EKYT'} stand={'D3'} tsat={'1312'} status="CLROK" />
             <FlightStrip callsing="NSZ1234" clearances standchanged taxiway="A" holdingpoint="B1" destination={'ESSA'} stand={'A6'} tsat={'1400'} status="CLROK" />
           </div>
@@ -121,7 +121,7 @@ export default function DEL() {
               PUSHBACK
             </span>
           </div>
-          <div className="h-2/5 w-full bg-[#555355] p-1 flex flex-col gap-[2px] overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-[#285a5c]">
+          <div className="h-2/5 w-full bg-[#555355] p-1 flex flex-col gap-[2px] overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary">
             <FlightStrip callsing="NSZ1234" clearances standchanged taxiway="A" holdingpoint="B1" destination={'ESSA'} stand={'A6'} tsat={'1400'} status="HALF" />
             <FlightStrip callsing="NSZ1234" clearances standchanged taxiway="A" holdingpoint="B1" destination={'ESSA'} stand={'A6'} tsat={'1400'} status="HALF" />
             <FlightStrip callsing="NSZ1234" clearances standchanged taxiway="A" holdingpoint="B1" destination={'ESSA'} stand={'A6'} tsat={'1400'} status="HALF" />
@@ -133,7 +133,7 @@ export default function DEL() {
               TWY DEP
             </span>
           </div>
-          <div className="h-[calc(60%-5rem)] w-full bg-[#555355] p-1 flex flex-col gap-[2px] overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-[#285a5c]">
+          <div className="h-[calc(60%-5rem)] w-full bg-[#555355] p-1 flex flex-col gap-[2px] overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary">
             <FlightStrip callsing="NSZ1234" clearances standchanged taxiway="A" holdingpoint="B1" destination={'ESSA'} stand={'A6'} tsat={'1400'} status="HALF" />
             <FlightStrip callsing="NSZ1234" clearances standchanged taxiway="A" holdingpoint="B1" destination={'ESSA'} stand={'A6'} tsat={'1400'} status="HALF" />
             <FlightStrip callsing="NSZ1234" clearances standchanged taxiway="A" holdingpoint="B1" destination={'ESSA'} stand={'A6'} tsat={'1400'} status="HALF" />

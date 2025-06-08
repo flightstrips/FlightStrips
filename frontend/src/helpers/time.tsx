@@ -14,7 +14,7 @@ const CurrentUTC: React.FC = () => {
     }, []);
 
     const formattedDate = `${date.getUTCHours().toString().padStart(2, '0')}:${date.getUTCMinutes().toString().padStart(2, '0')}:${date.getUTCSeconds().toString().padStart(2, '0')}Z`;
-    return <div>{formattedDate}</div>;
+    return <div className='w-full h-full flex justify-center items-center'>{formattedDate}</div>;
 };
 
 export { CurrentUTC };

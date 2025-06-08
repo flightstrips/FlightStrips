@@ -6,6 +6,8 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
+import GetMetar from "@/helpers/GetMetar"
+import MetarHelper from "@/helpers/MetarHelper.tsx"
 
 
 export default function ATIS() {
@@ -16,27 +18,26 @@ export default function ATIS() {
                 ATIS
             </button>
         </DialogTrigger>
-        <DialogContent className="bg-[#e4e4e4] w-[42rem]">
+        <DialogContent className="bg-[#e4e4e4] w-[42rem] border-4 border-primary">
           <DialogHeader>
-            <DialogTitle >METAR</DialogTitle>
+            <DialogTitle className="text-primary font-semibold text-xl">METAR</DialogTitle>
           </DialogHeader>
           <div className="flex flex-col  items-center justify-center">
-            <div className="bg-[#FCFCFC] w-full text-center h-20 flex items-center justify-center">
-                EKCH 181250Z 26005KT 230V290 3000 BR OVC003 05/04 Q1032 NOSIG
+            <div className="bg-gray-100 w-full text-center h-16 flex items-center justify-center border-primary border-2">
+                <MetarHelper metar={GetMetar({ icao: "EKCH" })} style="full" />
             </div>
-            <div className="flex gap-12">
+            <div className="flex gap-12 pt-6">
                 <section className="flex flex-col items-center">
-                    <p>WIND</p>
-                    <p>260° 5kts</p>
-                    <p className="text-xs">(230V290)</p>
+                    <p className="font-semibold text-lg text-primary">WIND</p>
+                    <p><MetarHelper metar={GetMetar({ icao: "EKCH" })} style="winds" /></p>
                 </section>
                 <section className="flex flex-col items-center">
-                    <p>TEMOERATURE</p>
-                    <p>5°c</p>
+                    <p className="font-semibold text-lg text-primary">TEMOERATURE</p>
+                    <p><MetarHelper metar={GetMetar({ icao: "EKCH" })} style="temp" /></p>
                 </section>
                 <section className="flex flex-col items-center">
-                    <p>Conditions</p>
-                    <p>Fog</p>
+                    <p className="font-semibold text-lg text-primary">Conditions</p>
+                    <p><MetarHelper metar={GetMetar({ icao: "EKCH" })} style="conditions" /></p>
                 </section>
             </div>
           </div>

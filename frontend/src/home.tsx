@@ -1,0 +1,100 @@
+import { MainNavigation } from "./components/MainNavigation";
+import MobileNav from "./components/MobileNavigation";
+import { PatnerCarousel } from "./components/PatnerCarousel";
+
+
+export default function Home() {
+    return (
+        <div style={{fontFamily: "Plus Jakarta Sans"}} className="bg-[#003d48] w-scren h-full min-h-screen text-white ">
+            <nav className="hidden md:flex h-20 items-center justify-between w-1/2 mx-auto">
+                <h1 className="font-semibold text-xl">FlightStrips</h1>
+                <MainNavigation />
+            </nav>
+            <nav className="flex items-center justify-between md:hidden ">
+                <h1 className="font-semibold text-xl pl-6">FlightStrips</h1>
+                <MobileNav />
+            </nav>
+            <section className="w-full h-[calc(85vh)] md:h-[60rem] flex justify-center md:justify-between mx-auto items-center px-6 md:px-32 max-w-[1600px]">
+                <div className="flex gap-2 flex-col">
+                    <h1 className="font-semibold text-6xl">FlightStips</h1>
+                    <p className="text-xl md:text-3xl p-1">Experience next-gen strip management with </p>
+                </div>
+                <img src="/fsdemo.png" width="850" height="478" alt="fsdemo" className="hidden lg:block"/>
+            </section>
+            <section className="w-full h-[20rem] flex flex-col justify-center items-center px-32 bg-white">
+                <h3 className="text-3xl pb-6 text-black">Parner vACCs</h3>
+                <PatnerCarousel />
+            </section>
+            <section className="w-full min-h-fit h-[60rem] flex justify-between items-center px-32">
+
+            </section>
+            <footer className="h-48 bg-white w-full hidden md:flex justify-around text-[#003d48] ">
+                <div className="p-1 aspect-video w-64 flex justify-center items-center">
+          <span className="font-semibold text-2xl p-2">
+            FlightStrips <br /> <span className="text-xs -mt-4 -pt-4">(Only for simulation)</span>
+          </span>
+                </div>
+                <div className="w-[32rem] flex gap-12 items-center">
+                    <section>
+                        <ul className="list-disc list-inside">
+                            <li className="list-none font-semibold">Getting Started</li>
+                            <li><a href="">Introduction</a></li>
+                            <li><a href="">Installation</a></li>
+                            <li><a href="">Development</a></li>
+                            <li><a href="">Documentation</a></li>
+                        </ul>
+                    </section>
+                    <section>
+                        <ul className="list-disc list-inside">
+                            <li className="list-none font-semibold">Features</li>
+                            <li><a href="">PDC</a></li>
+                            <li><a href="">BARS</a></li>
+                            <li><a href="">vACDM</a></li>
+                        </ul>
+                    </section>
+                    <section>
+                        <ul className="list-disc list-inside">
+                            <li className="list-none font-semibold">About</li>
+                            <li><a href="">Us</a></li>
+                            <li><a href="">License</a></li>
+                            <li><a href="">Contact</a></li>
+                        </ul>
+                    </section>
+
+                </div>
+            </footer>
+            <footer className="bg-white w-full h-64 text-[#003d48] flex flex-col gap-6 items-center md:hidden">
+          <span className="font-semibold text-2xl pt-4">
+              FlightStrips
+          </span>
+                <div className="flex justify-center gap-4">
+                    <section>
+                        <ul className="list-disc list-inside">
+                            <li className="list-none font-semibold">Getting Started</li>
+                            <li><a href="">Introduction</a></li>
+                            <li><a href="">Installation</a></li>
+                            <li><a href="">Development</a></li>
+                            <li><a href="">Documentation</a></li>
+                        </ul>
+                    </section>
+                    <section>
+                        <ul className="list-disc list-inside">
+                            <li className="list-none font-semibold">Features</li>
+                            <li><a href="">PDC</a></li>
+                            <li><a href="">BARS</a></li>
+                            <li><a href="">vACDM</a></li>
+                        </ul>
+                    </section>
+                    <section>
+                        <ul className="list-disc list-inside">
+                            <li className="list-none font-semibold">About</li>
+                            <li><a href="">Us</a></li>
+                            <li><a href="">License</a></li>
+                            <li><a href="">Contact</a></li>
+                        </ul>
+                    </section>
+                </div>
+            </footer>
+        </div>
+    );
+}

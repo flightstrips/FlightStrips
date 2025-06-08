@@ -7,6 +7,7 @@ import Home from "./home.tsx";
 import About from "@/about.tsx";
 import EKCHDEL from "@/airport/ekch/CLX.tsx";
 import Layout from './airport/Layout.tsx';
+import Auth from "@/auth.tsx";
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -14,6 +15,7 @@ createRoot(document.getElementById('root')!).render(
           <Routes>
               <Route path="/" element={<Home />} />
               <Route path="/about" element={<About />} />
+              <Route path="/authentication" element={<Auth/>} />
                 <Route element={<Layout />}>
                   <Route path="EKCH/CLX" element={<EKCHDEL />} />
                   <Route path="EKCH/AAAD" element={<EKCHDEL />} />

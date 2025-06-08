@@ -11,6 +11,7 @@ import {
   navigationMenuTriggerStyle,
 } from "@/components/ui/navigation-menu.tsx"
 import {Link} from "react-router-dom";
+import { Button } from "./ui/button";
 
 const components: { title: string; href: string; description: string }[] = [
   {
@@ -105,6 +106,13 @@ export function MainNavigation() {
             <NavigationMenuLink className={`${navigationMenuTriggerStyle()} bg-transparent`} >
               About Us
             </NavigationMenuLink>
+          </Link>
+        </NavigationMenuItem>
+        <NavigationMenuItem className="px-4">
+          <Link to="/authentication">
+            <Button variant={"outline"} className="bg-transparent">
+              Login
+            </Button>
           </Link>
         </NavigationMenuItem>
       </NavigationMenuList>

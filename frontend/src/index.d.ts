@@ -1,1 +1,0 @@
-declare const api: typeof import('../electron/IPC/IpcApi').default

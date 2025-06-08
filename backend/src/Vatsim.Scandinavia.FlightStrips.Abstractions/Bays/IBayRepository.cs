@@ -1,9 +1,0 @@
-﻿namespace Vatsim.Scandinavia.FlightStrips.Abstractions.Bays;
-
-public interface IBayRepository
-{
-    Task<bool> UpsertAsync(UpsertBayRequest request);
-    Task DeleteAsync(string name);
-    Task<Bay?> GetAsync(string name);
-    Task<Bay[]> ListAsync(ListBaysRequest request);
-}

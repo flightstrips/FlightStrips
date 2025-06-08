@@ -4,7 +4,7 @@ import { PatnerCarousel } from "./components/PatnerCarousel";
 
 export default function Home() {
     return (
-            <div className="bg-[#003d48] w-scren h-full min-h-screen text-white ">
+            <div className="bg-primary w-scren h-full min-h-screen text-white ">
                 <nav className="hidden md:flex h-20 items-center justify-between w-1/2 mx-auto">
                     <h1 className="font-semibold text-xl">FlightStrips</h1>
                     <MainNavigation />

@@ -1,9 +1,9 @@
 
 import { FlightStrip } from "@/components/strip/FlightStrip.tsx";
 import { Message } from "@/components/Message.tsx";
-import CommandBar from "../../../components/commandbar/CommandBar";
+import CommandBar from "../../components/commandbar/CommandBar";
 
-export default async function Home() {
+export default function DEL() {
   return (
     <>
       <div className="bg-[#A9A9A9] w-screen h-[calc(100vh-4rem)] flex justify-center justify-items-center gap-2 aspect-video">

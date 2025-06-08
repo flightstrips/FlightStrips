@@ -1,4 +1,4 @@
-import CommandBar from "../../../components/commandbar/CommandBar";
+import CommandBar from "../../components/commandbar/CommandBar";
 
 export default function Home() {
   return (

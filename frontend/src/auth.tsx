@@ -16,10 +16,6 @@ export default function Authentication() {
                 </Button>
                 <Button variant="default" size="lg" className="flex flex-col h-fit p-4 aspect-video w-48 font-semibold text-lg">
                     <img src="/VATSIM_Logo_White_No_Tagline_500px.png" alt="" className="h-12" />
-                    Sweatbox
-                </Button>
-                <Button variant="default" size="lg" className="flex flex-col h-fit p-4 aspect-video w-48 font-semibold text-lg">
-                    <img src="/VATSIM_Logo_White_No_Tagline_500px.png" alt="" className="h-12" />
                     Local Development
                 </Button>
             </div>

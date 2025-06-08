@@ -9,7 +9,7 @@ export default function Authentication() {
         <div className="bg-gray-100 w-full min-h-svh flex flex-col items-center justify-center text-primary relative">
             <h3 className="text-2xl font-semibold">ATC Strip Management</h3>
             <br />
-            <div className="flex justify-between w-full max-w-2xl gap-4 px-4">
+            <div className="flex justify-center w-full max-w-2xl gap-4 px-4">
                 <Button variant="default" size="lg" className="flex flex-col h-fit p-4 aspect-video w-48 font-semibold text-lg">
                     <img src="/VATSIM_Logo_White_No_Tagline_500px.png" alt="" className="h-12" />
                     Live

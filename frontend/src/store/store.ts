@@ -23,6 +23,7 @@ export interface WebSocketState {
   airport: string;
   callsign: string;
   runwaySetup: RunwayConfiguration;
+  isInitialized: boolean;
 }
 
 // Create the store using createVanilla
@@ -37,7 +38,8 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     runwaySetup: {
       departure: [],
       arrival: []
-    }
+    },
+    isInitialized: false
   };
 
   // Create the store
@@ -53,6 +55,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
         state.airport = data.airport;
         state.callsign = data.callsign;
         state.runwaySetup = data.runway_setup;
+        state.isInitialized = true;
       })
     );
   };

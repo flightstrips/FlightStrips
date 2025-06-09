@@ -18,7 +18,16 @@ export const WebSocketStoreProvider = ({ children, wsClient }: WebSocketStorePro
   if (!storeRef.current) {
     storeRef.current = createWebSocketStore(wsClient);
   }
-  
+
+  const initialized = useStore(storeRef.current!, state => state.isInitialized);
+
+  if (!initialized) {
+    return (
+      // TODO Simon please fix
+      <div>Waiting for ES connection...</div>
+    )
+  }
+
   return (
     <WebSocketStoreContext.Provider value={storeRef.current}>
       {children}

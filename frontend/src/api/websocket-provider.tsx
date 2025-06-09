@@ -48,6 +48,7 @@ export const WebSocketProvider = ({ children, url }: WebSocketProviderProps) => 
   }, [getAccessTokenSilently, isAuthenticated, isLoading]);
 
   if (isLoading) {
+    // TODO Simon please fix
     return <div>Loading...</div>;
   }
 

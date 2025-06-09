@@ -1,8 +1,7 @@
-"use client";
+import { useState, useEffect } from 'react';
 
-import React, { useState, useEffect } from 'react';
 
-const CurrentUTC: React.FC = () => {
+export default function Time() {
     const [date, setDate] = useState(new Date());
 
     useEffect(() => {
@@ -14,7 +13,5 @@ const CurrentUTC: React.FC = () => {
     }, []);
 
     const formattedDate = `${date.getUTCHours().toString().padStart(2, '0')}:${date.getUTCMinutes().toString().padStart(2, '0')}:${date.getUTCSeconds().toString().padStart(2, '0')}Z`;
-    return <div className='w-full h-full flex justify-center items-center'>{formattedDate}</div>;
-};
-
-export { CurrentUTC };
+    return (<div className='w-full h-full flex justify-center items-center'>{formattedDate}</div>);
+}

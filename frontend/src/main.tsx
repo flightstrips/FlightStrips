@@ -13,10 +13,9 @@ import {Auth0ProviderWithNavigate,} from "@/auth-provider.tsx";
 import Profile from './profile.tsx';
 import Layout from './layout.tsx';
 const MyProtectedComponent = withAuthenticationRequired(Layout);
-import Docs from './Docs.tsx';
-import Settings from './Settings.tsx';
 import Dashboard from './dashboard.tsx';
 import { withAuthenticationRequired } from '@auth0/auth0-react';
+import DocsRouter from './DocsRouter.tsx';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -29,8 +28,7 @@ createRoot(document.getElementById('root')!).render(
           <Route element={<MyProtectedComponent/>}>
             <Route index path="/dashboard" element={<Dashboard/>}/>
             <Route path="/dashboard/profile" element={<Profile/>}/>
-            <Route path="/dashboard/docs" element={<Docs />}/>
-            <Route path="/dashboard/settings" element={<Settings />}/>
+            <Route path="/dashboard/docs" element={<DocsRouter />}/>
           </Route>
           <Route element={<AirportLayout/>}>
             <Route path="EKCH/CLX" element={<EKCHDEL/>}/>

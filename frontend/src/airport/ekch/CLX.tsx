@@ -3,6 +3,7 @@ import { FlightStrip } from "@/components/strip/FlightStrip.tsx";
 import { Message } from "@/components/Message.tsx";
 
 
+
 export default function DEL() {
   return (
     <>

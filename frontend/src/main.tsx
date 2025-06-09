@@ -6,9 +6,17 @@ import './index.css'
 import Home from "./home.tsx";
 import About from "@/about.tsx";
 import EKCHDEL from "@/airport/ekch/CLX.tsx";
-import Layout from './airport/Layout.tsx';
+import AirportLayout from './airport/Layout.tsx';
 import Auth from "@/auth.tsx";
-import {Auth0ProviderWithNavigate} from "@/auth-provider.tsx";
+
+import {Auth0ProviderWithNavigate,} from "@/auth-provider.tsx";
+import Profile from './profile.tsx';
+import Layout from './layout.tsx';
+const MyProtectedComponent = withAuthenticationRequired(Layout);
+import Docs from './Docs.tsx';
+import Settings from './Settings.tsx';
+import Dashboard from './dashboard.tsx';
+import { withAuthenticationRequired } from '@auth0/auth0-react';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -18,7 +26,13 @@ createRoot(document.getElementById('root')!).render(
           <Route path="/" element={<Home/>}/>
           <Route path="/about" element={<About/>}/>
           <Route path="/login" element={<Auth/>}/>
-          <Route element={<Layout/>}>
+          <Route element={<MyProtectedComponent/>}>
+            <Route index path="/dashboard" element={<Dashboard/>}/>
+            <Route path="/dashboard/profile" element={<Profile/>}/>
+            <Route path="/dashboard/docs" element={<Docs />}/>
+            <Route path="/dashboard/settings" element={<Settings />}/>
+          </Route>
+          <Route element={<AirportLayout/>}>
             <Route path="EKCH/CLX" element={<EKCHDEL/>}/>
             <Route path="EKCH/AAAD" element={<EKCHDEL/>}/>
             <Route path="EKCH/GEGW" element={<EKCHDEL/>}/>

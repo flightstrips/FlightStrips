@@ -114,10 +114,17 @@ export function MainNavigation() {
         </NavigationMenuItem>
         <NavigationMenuItem className="px-4">
           {isAuthenticated ?
-            <Button onClick={() => logout({logoutParams: {returnTo: window.location.origin}})}
-                    variant={"outline"} className="bg-transparent">
-              Logout
-            </Button>
+            <div className="flex gap-2">
+              <Link to={'/dashboard'} className="bg-transparent">
+                <Button variant={"outline"} className="bg-transparent">
+                Dashboard
+              </Button>
+              </Link>
+              <Button onClick={() => logout({logoutParams: {returnTo: window.location.origin}})}
+                      variant={"outline"} className="bg-transparent">
+                Logout
+              </Button>
+            </div>
             :
             <Link to="/login">
               <Button variant={"outline"} className="bg-transparent">

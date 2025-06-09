@@ -48,8 +48,7 @@ export const WebSocketProvider = ({ children, url }: WebSocketProviderProps) => 
   }, [getAccessTokenSilently, isAuthenticated, isLoading]);
 
   if (isLoading) {
-    // TODO Simon please fix
-    return <div>Loading...</div>;
+    return <div className='w-screen min-h-svh flex justify-center items-center bg-primary text-white text-4xl font-semibold'>Loading...</div>;
   }
 
   if (!wsClientRef.current) {

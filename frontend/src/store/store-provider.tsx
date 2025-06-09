@@ -23,8 +23,7 @@ export const WebSocketStoreProvider = ({ children, wsClient }: WebSocketStorePro
 
   if (!initialized) {
     return (
-      // TODO Simon please fix
-      <div>Waiting for ES connection...</div>
+      <div className='w-screen min-h-svh flex justify-center items-center bg-primary text-white text-4xl font-semibold'>Waiting for ES connection...</div>
     )
   }
 

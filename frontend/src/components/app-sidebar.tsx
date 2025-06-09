@@ -39,7 +39,7 @@ const items = [
 ]
 
 export function AppSidebar() {
-  const { isAuthenticated, logout } = useAuth0()
+  const { logout } = useAuth0()
   return (
     <Sidebar>
       <SidebarContent>

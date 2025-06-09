@@ -10,6 +10,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import React from 'react';
+import StandDialog from "./ui/StandDialog";
 
 export function CLXBtn({ children }: { children?: React.ReactNode }) {
   return (
@@ -305,15 +306,7 @@ export function CLXBtn({ children }: { children?: React.ReactNode }) {
                     />
             </div>
             <div className="grid items-center">
-                    <Label htmlFor="name">
-                    STAND
-                    </Label>
-                    <Input
-                    id="name"
-                    defaultValue=""
-                    disabled
-                    className="border-black rounded-none disabled:bg-[#9e989c] text-black font-semibold disabled:opacity-100 w-full text-center"
-                    />
+                    <StandDialog />
             </div>
         </div>
         <DialogFooter>

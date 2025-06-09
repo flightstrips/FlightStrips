@@ -35,7 +35,6 @@ createRoot(document.getElementById('root')!).render(
             <Route path="EKCH/AAAD" element={<EKCHDEL/>}/>
             <Route path="EKCH/GEGW" element={<EKCHDEL/>}/>
             <Route path="EKCH/TWTE" element={<EKCHDEL/>}/>
-            <Route path="*" element={<Navigate to="/" replace/>}/>
           </Route>
           <Route path="ekbi" element={<div>Billund not implemented</div>}/>
           <Route path="ekyt" element={<div>Aalborg not implemented</div>}/>

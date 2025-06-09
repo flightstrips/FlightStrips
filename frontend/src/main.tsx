@@ -14,7 +14,7 @@ import Profile from './profile.tsx';
 import Layout from './layout.tsx';
 const MyProtectedComponent = withAuthenticationRequired(Layout);
 import Docs from './Docs.tsx';
-import Settings from './Settings.tsx';
+import Settings from './settings.tsx';
 import Dashboard from './dashboard.tsx';
 import { withAuthenticationRequired } from '@auth0/auth0-react';
 

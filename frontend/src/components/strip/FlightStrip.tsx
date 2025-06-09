@@ -11,6 +11,7 @@ type FlightStripProps = {
     stand?: string
     tsat?: string
     ctot?: string
+    eobt?: string
     status?: unknown
 }
 
@@ -27,6 +28,7 @@ const FlightStrip: React.FC<FlightStripProps> = (props) => {
         stand?: string
         tsat?: string
         ctot?: string
+        eobt?: string
         status?: unknown
     }
 
@@ -52,7 +54,7 @@ const FlightStrip: React.FC<FlightStripProps> = (props) => {
         )
     }
 
-    function StripCLX(props: BasePlateProps) { 
+    function StripCLX(props: BasePlateProps) {
         return (
             <Strip>
                 <div className='border-2 border-[#85b4af] h-[calc(3rem-4px)] min-w-24 w-fit font-bold' style={{borderRightWidth: 1, borderLeftWidth: 1}}>
@@ -63,7 +65,7 @@ const FlightStrip: React.FC<FlightStripProps> = (props) => {
                 </a>
                 <div className='border-2 border-[#85b4af] h-full text-sm text-center min-w-24 w-fit select-none flex justify-between px-1' style={{borderRightWidth: 1, borderLeftWidth: 1}}>
                     <span>EOBT</span>
-                    <span>1312</span>
+                    <span>{props.eobt}</span>
                 </div>
                 <div className='flex flex-col w-28 border-[#85b4af] border-2 h-full text-sm' style={{borderRightWidth: 1, borderLeftWidth: 1}}>
                         <div className='border-[#85b4af] h-1/2 w-full flex justify-between px-1' style={{borderBottomWidth: 1}}>
@@ -83,7 +85,7 @@ const FlightStrip: React.FC<FlightStripProps> = (props) => {
                             </span>
                         </div>
                 </div>
-                
+
             </Strip>
         )
     }

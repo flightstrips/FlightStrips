@@ -5,14 +5,14 @@ export default function Authentication() {
   const {loginWithRedirect} = useAuth0()
 
   return (
-    <div className="min-h-svh w-screen flex items-center justify-center bg-gray-100">
+    <div className="min-h-svh w-screen flex items-center justify-center bg-gray-100 select-none">
       <div
         className="hidden xl:flex bg-primary w-full min-h-svh text-gray-100 text-6xl font-semibold items-center justify-center select-none">
         <h1>FlightStrips</h1>
       </div>
       <div className="bg-gray-100 w-full min-h-svh flex flex-col items-center justify-center text-primary relative">
-        <h3 className="text-2xl font-semibold">ATC Strip Management</h3>
-        <br/>
+        <h3 className="text-3xl font-semibold">ATC Strip Management</h3>
+        <hr className="border-1 border-primary w-96 rounded-md my-4"/>
         <div className="flex justify-center w-full max-w-2xl gap-4 px-4">
           <Button disabled={true} variant="default" size="lg"
                   className="flex flex-col h-fit p-4 aspect-video w-48 font-semibold text-lg">

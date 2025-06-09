@@ -1,6 +1,6 @@
 import * as React from "react"
 
-import { cn } from "@/lib/utils.ts"
+import {cn} from "@/lib/utils.ts"
 import {
   NavigationMenu,
   NavigationMenuContent,
@@ -11,7 +11,8 @@ import {
   navigationMenuTriggerStyle,
 } from "@/components/ui/navigation-menu.tsx"
 import {Link} from "react-router-dom";
-import { Button } from "./ui/button";
+import {Button} from "./ui/button";
+import {useAuth0} from "@auth0/auth0-react";
 
 const components: { title: string; href: string; description: string }[] = [
   {
@@ -52,6 +53,7 @@ const components: { title: string; href: string; description: string }[] = [
 ]
 
 export function MainNavigation() {
+  const { isAuthenticated, logout } = useAuth0()
   return (
     <NavigationMenu>
       <NavigationMenuList>
@@ -61,7 +63,9 @@ export function MainNavigation() {
             <ul className="grid gap-3 p-6 md:w-[400px] lg:w-[500px] lg:grid-cols-[.75fr_1fr]">
               <li className="row-span-3">
                 <NavigationMenuLink asChild>
-                <a className="flex h-full w-full select-none flex-col justify-end rounded-md bg-gradient-to-b from-muted/50 to-muted p-6 no-underline outline-none focus:shadow-md" href="" >
+                  <a
+                    className="flex h-full w-full select-none flex-col justify-end rounded-md bg-gradient-to-b from-muted/50 to-muted p-6 no-underline outline-none focus:shadow-md"
+                    href="">
                     <div className="mb-2 mt-4 text-lg font-medium">
                       FlightStrips
                     </div>
@@ -101,19 +105,26 @@ export function MainNavigation() {
             </ul>
           </NavigationMenuContent>
         </NavigationMenuItem>
-        <NavigationMenuItem >
+        <NavigationMenuItem>
           <Link to="/about">
-            <NavigationMenuLink className={`${navigationMenuTriggerStyle()} bg-transparent`} >
+            <NavigationMenuLink className={`${navigationMenuTriggerStyle()} bg-transparent`}>
               About Us
             </NavigationMenuLink>
           </Link>
         </NavigationMenuItem>
         <NavigationMenuItem className="px-4">
-          <Link to="/authentication">
-            <Button variant={"outline"} className="bg-transparent">
-              Login
+          {isAuthenticated ?
+            <Button onClick={() => logout({logoutParams: {returnTo: window.location.origin}})}
+                    variant={"outline"} className="bg-transparent">
+              Logout
             </Button>
-          </Link>
+            :
+            <Link to="/login">
+              <Button variant={"outline"} className="bg-transparent">
+                Login
+              </Button>
+            </Link>
+          }
         </NavigationMenuItem>
       </NavigationMenuList>
     </NavigationMenu>
@@ -123,7 +134,7 @@ export function MainNavigation() {
 const ListItem = React.forwardRef<
   React.ElementRef<"a">,
   React.ComponentPropsWithoutRef<"a">
->(({ className, title, children, ...props }, ref) => {
+>(({className, title, children, ...props}, ref) => {
   return (
     <li>
       <NavigationMenuLink asChild className="bg-transparent">

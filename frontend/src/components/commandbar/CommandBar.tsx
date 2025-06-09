@@ -1,4 +1,4 @@
-import { CurrentUTC } from "@/helpers/time";
+import CurrentUTC from "@/helpers/time";
 import MRKBTN from "./MRKBTN";
 import TRFBRN from "./TRFBRN";
 import REQBTN from "./REQBTN";
@@ -9,6 +9,7 @@ import MetarHelper from "@/helpers/MetarHelper.tsx"
 
 
 export default function CommandBar() {
+    const metar = GetMetar({ icao: "EKCH" })
     return (
         <div className="h-16 w-screen bg-[#3b3b3b] flex justify-between text-white">
             <div className="h-full w-full flex">
@@ -36,13 +37,13 @@ export default function CommandBar() {
                         QNH
                     </h1>
                     <span className="bg-[#212121] w-18 p-2">
-                        <MetarHelper metar={GetMetar({ icao: "EKCH" })} style="qnh" />
+                        <MetarHelper metar={metar} style="qnh" />
                     </span>
                     <span className="bg-white text-black w-12 p-2 mx-2 text-center">
                         D
                     </span>
                     <span className="bg-white text-black w-32 p-2 mx-2 text-center text-xl">
-                        <MetarHelper metar={GetMetar({ icao: "EKCH" })} style="winds" />
+                        <MetarHelper metar={metar} style="winds" />
                     </span>
                 </div>
                 <div className="flex w-fit text-2xl font-bold m-2 items-center justify-between">

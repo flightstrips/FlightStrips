@@ -22,6 +22,8 @@ export const Auth0ProviderWithNavigate = ({ children }: React.PropsWithChildren)
       clientId={clientId}
       authorizationParams={{
         redirect_uri: redirectUri,
+        scope: "openid profile email offline_access",
+        audience: "backend"
       }}
       onRedirectCallback={onRedirectCallback}
       cacheLocation="localstorage"

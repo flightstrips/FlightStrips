@@ -44,9 +44,11 @@ export default function MetarHelper({ metar, style = 'full' }: MetarHelperProps)
         }
     };
 
+    const content = getContent();
+
     return (
         <div>
-            {getContent()}
+            {content}
         </div>
     );
 }

@@ -96,6 +96,10 @@ func GetDepartureBayFromGroundState(state string, existing data.Strip) string {
 }
 
 func GetDepartureBayFromPosition(lat, lon float64, alt int64, existing data.Strip) string {
+	if GetDistance(lat, lon, AirportLatitude, AirportLongitude) > RelevantDistance {
+		return BAY_HIDDEN
+	}
+
 	if existing.Origin != "EKCH" {
 		return existing.Bay.String
 	}
@@ -106,10 +110,6 @@ func GetDepartureBayFromPosition(lat, lon float64, alt int64, existing data.Stri
 
 	if alt > AirportElevation+AltitudeErrorMargin {
 		return BAY_AIRBORNE
-	}
-
-	if GetDistance(lat, lon, AirportLatitude, AirportLongitude) > RelevantDistance {
-		return BAY_HIDDEN
 	}
 
 	return existing.Bay.String

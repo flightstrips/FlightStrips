@@ -1,11 +1,6 @@
 import { BookOpenText } from "lucide-react";
+import type {NavItem} from "@/types/nav.ts";
 
-export interface NavItem {
-  title: string;
-  url: string;
-  children?: NavItem[];
-  icon?: React.ComponentType<{ className?: string }>;
-}
 
 const pages = import.meta.glob("/src/docs/**/*.mdx", { eager: true });
 

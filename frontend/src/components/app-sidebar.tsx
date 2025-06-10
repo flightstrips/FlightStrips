@@ -1,8 +1,6 @@
 import {
-  BookOpenText,
   User,
   Proportions,
-  type LucideIcon,
 } from "lucide-react"
 
 import {

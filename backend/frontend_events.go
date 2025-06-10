@@ -185,6 +185,18 @@ func (e FrontendBayEvent) MarshalJSON() ([]byte, error) {
 	})
 }
 
+type FrontendDisconnectEvent struct{}
+
+func (e FrontendDisconnectEvent) MarshalJSON() ([]byte, error) {
+	type Alias FrontendDisconnectEvent
+	return json.Marshal(&struct {
+		Type EventType `json:"type"`
+		Alias
+	}{
+		Type: FrontendDisconnect,
+	})
+}
+
 type FrontendSendEvent interface {
-	FrontendInitialEvent | FrontendStripUpdateEvent
+	FrontendInitialEvent | FrontendStripUpdateEvent | FrontendDisconnectEvent
 }

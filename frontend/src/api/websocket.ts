@@ -1,7 +1,7 @@
 import {
   EventType, type FrontendAssignedSquawkEvent, type FrontendBayEvent, type FrontendClearedAltitudeEvent,
   type FrontendControllerOfflineEvent,
-  type FrontendControllerOnlineEvent,
+  type FrontendControllerOnlineEvent, type FrontendDisconnectEvent,
   type FrontendInitialEvent,
   type FrontendRequestedAltitudeEvent, type FrontendSendEvent,
   type FrontendSquawkEvent,
@@ -19,6 +19,7 @@ type EventMap = {
   [EventType.FrontendRequestedAltitude]: FrontendRequestedAltitudeEvent;
   [EventType.FrontendClearedAltitude]: FrontendClearedAltitudeEvent;
   [EventType.FrontendBay]: FrontendBayEvent;
+  [EventType.FrontendDisconnect]: FrontendDisconnectEvent;
 };
 
 type WebSocketClientDelegate = {

@@ -8,6 +8,7 @@ export enum EventType {
   FrontendRequestedAltitude = "requested_altitude",
   FrontendClearedAltitude = "cleared_altitude",
   FrontendBay = "bay",
+  FrontendDisconnect = "disconnect",
 }
 
 export enum Bay {
@@ -149,6 +150,10 @@ export interface FrontendAuthenticationEvent {
   token: string;
 }
 
+export interface FrontendDisconnectEvent {
+  type: EventType.FrontendDisconnect;
+}
+
 // Union type for all events that can be received
 export type WebSocketEvent =
   | FrontendInitialEvent
@@ -159,7 +164,8 @@ export type WebSocketEvent =
   | FrontendSquawkEvent
   | FrontendRequestedAltitudeEvent
   | FrontendClearedAltitudeEvent
-  | FrontendBayEvent;
+  | FrontendBayEvent
+  | FrontendDisconnectEvent;
 
 // Union type for all events that can be sent
 export type FrontendSendEvent = FrontendAuthenticationEvent

@@ -77,6 +77,7 @@ const (
 	FrontendRequestedAltitude EventType = "requested_altitude"
 	FrontendClearedAltitude   EventType = "cleared_altitude"
 	FrontendBay               EventType = "bay"
+	FrontendDisconnect        EventType = "disconnect"
 )
 
 type AuthenticationEvent struct {

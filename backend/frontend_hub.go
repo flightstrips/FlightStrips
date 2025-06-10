@@ -42,6 +42,10 @@ func (hub *FrontendHub) OnRegister(client *FrontendClient) {
 		return
 	}
 
+	hub.sendInitialEvent(client)
+}
+
+func (hub *FrontendHub) sendInitialEvent(client *FrontendClient) {
 	db := data.New(hub.server.DBPool)
 
 	controllers, err := db.ListControllers(context.Background(), client.session)
@@ -116,7 +120,6 @@ func MapStripToFrontendModel(strip *data.Strip) FrontendStrip {
 func (hub *FrontendHub) OnUnregister(client *FrontendClient) {
 }
 
-// NewBaseHub creates a new base hub
 func NewFrontendHub(server *Server) *FrontendHub {
 	return &FrontendHub{
 		broadcast:  make(chan FrontendBroadcastMessage),
@@ -125,6 +128,26 @@ func NewFrontendHub(server *Server) *FrontendHub {
 		unregister: make(chan *FrontendClient),
 		clients:    make(map[*FrontendClient]bool),
 		server:     server,
+	}
+}
+
+func (hub *FrontendHub) CidOnline(session int32, cid string) {
+	for client := range hub.clients {
+		if client.user.cid == cid {
+			client.session = session
+			hub.sendInitialEvent(client)
+			return
+		}
+	}
+}
+
+func (hub *FrontendHub) CidDisconnect(cid string) {
+	for client := range hub.clients {
+		if client.user.cid == cid {
+			client.session = WaitingForEuroscopeConnectionSessionId
+			SendFrontendEvent(client, FrontendDisconnectEvent{})
+			return
+		}
 	}
 }
 

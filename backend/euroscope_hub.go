@@ -101,6 +101,7 @@ func (h *EuroscopeHub) Run() {
 			if _, ok := h.clients[client]; ok {
 				delete(h.clients, client)
 				client.Close()
+				h.server.FrontendHub.CidDisconnect(client.user.cid)
 			}
 			h.OnUnregister(client)
 		case message := <-h.send:

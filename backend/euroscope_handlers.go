@@ -51,7 +51,13 @@ func (s *Server) euroscopeeventhandlerLogin(msg []byte, user *ClientUser) (event
 
 		err = db.InsertController(context.Background(), params)
 
-		return event, session.Id, err
+		if err != nil {
+			return event, session.Id, err
+		}
+
+		s.FrontendHub.CidOnline(session.Id, user.cid)
+
+		return event, session.Id, nil
 	} else if err != nil {
 		return event, session.Id, err
 	} else {

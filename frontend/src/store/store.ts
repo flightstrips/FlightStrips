@@ -166,6 +166,10 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     );
   };
 
+  const handleDisconnectEvent = () => {
+    store.setState(initialState, true)
+  }
+
   // Register event handlers
   wsClient.on(EventType.FrontendInitial, handleInitialEvent);
   wsClient.on(EventType.FrontendStripUpdate, handleStripUpdateEvent);
@@ -176,6 +180,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
   wsClient.on(EventType.FrontendRequestedAltitude, handleRequestedAltitudeEvent);
   wsClient.on(EventType.FrontendClearedAltitude, handleClearedAltitudeEvent);
   wsClient.on(EventType.FrontendBay, handleBayEvent);
+  wsClient.on(EventType.FrontendDisconnect, handleDisconnectEvent);
 
   return store;
 };

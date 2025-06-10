@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"fmt"
 )
 
 func (s *Server) euroscopeEventsHandler(client *EuroscopeClient, event EuroscopeEvent, msg []byte) error {
@@ -39,6 +40,6 @@ func (s *Server) euroscopeEventsHandler(client *EuroscopeClient, event Euroscope
 	case EuroscopeRunway:
 		return errors.New("not implemented")
 	default:
-		return errors.New("unknown event type")
+		return fmt.Errorf("unknown event type: %s", event.Type)
 	}
 }

@@ -114,6 +114,7 @@ func MapStripToFrontendModel(strip *data.Strip) FrontendStrip {
 		ReleasePoint:      "",
 		Version:           int(strip.Version),
 		Sequence:          int(strip.Sequence.Int32),
+		Eobt:              strip.Eobt.String,
 	}
 }
 

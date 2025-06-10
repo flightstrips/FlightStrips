@@ -72,4 +72,5 @@ type Strip struct {
 	Ctot              pgtype.Text
 	Aobt              pgtype.Text
 	Asat              pgtype.Text
+	Eobt              pgtype.Text
 }

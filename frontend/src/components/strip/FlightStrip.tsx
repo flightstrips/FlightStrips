@@ -146,11 +146,11 @@ const FlightStrip: React.FC<FlightStripProps> = (props) => {
     function FlightStripDisplay(props: BasePlateProps) {
         switch (props.status) {
             case 'CLROK':
-                    return (<BasePlate callsing={props.callsing} clearances={props.clearances} standchanged={props.standchanged} taxiway={props.taxiway} holdingpoint={props.holdingpoint}  destination={props.destination} stand={props.stand} tsat={props.tsat} ctot={props.ctot}/>)
+                    return (<BasePlate callsing={props.callsing} clearances={props.clearances} standchanged={props.standchanged} taxiway={props.taxiway} holdingpoint={props.holdingpoint}  destination={props.destination} stand={props.stand} tsat={props.tsat} ctot={props.ctot} eobt={props.eobt}/>)
             case 'CLR':
-                return (<StripCLX callsing={props.callsing} clearances={props.clearances} standchanged={props.standchanged} taxiway={props.taxiway} holdingpoint={props.holdingpoint}  destination={props.destination} stand={props.stand} tsat={props.tsat} ctot={props.ctot}/>)
+                return (<StripCLX callsing={props.callsing} clearances={props.clearances} standchanged={props.standchanged} taxiway={props.taxiway} holdingpoint={props.holdingpoint}  destination={props.destination} stand={props.stand} tsat={props.tsat} ctot={props.ctot} eobt={props.eobt}/>)
             case 'HALF':
-                return (<HalfStrip callsing={props.callsing} clearances={props.clearances} standchanged={props.standchanged} taxiway={props.taxiway} holdingpoint={props.holdingpoint}  destination={props.destination} stand={props.stand} tsat={props.tsat} ctot={props.ctot}/>)
+                return (<HalfStrip callsing={props.callsing} clearances={props.clearances} standchanged={props.standchanged} taxiway={props.taxiway} holdingpoint={props.holdingpoint}  destination={props.destination} stand={props.stand} tsat={props.tsat} ctot={props.ctot} eobt={props.eobt}/>)
 
             default:
                 return (<h1>Test</h1>)
@@ -158,7 +158,7 @@ const FlightStrip: React.FC<FlightStripProps> = (props) => {
     }
 
     return  <div>
-                <FlightStripDisplay status={props.status} callsing={props.callsing} clearances={props.clearances} standchanged={props.standchanged} taxiway={props.taxiway} holdingpoint={props.holdingpoint}  destination={props.destination} stand={props.stand} tsat={props.tsat} ctot={props.ctot}/>
+                <FlightStripDisplay status={props.status} callsing={props.callsing} clearances={props.clearances} standchanged={props.standchanged} taxiway={props.taxiway} holdingpoint={props.holdingpoint}  destination={props.destination} stand={props.stand} tsat={props.tsat} ctot={props.ctot} eobt={props.eobt}/>
             </div>;
 };
 

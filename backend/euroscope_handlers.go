@@ -575,8 +575,9 @@ func handleStripUpdate(server *Server, db *data.Queries, strip EuroscopeStrip, s
 			Stand:             pgtype.Text{Valid: true, String: strip.Stand},
 			Capabilities:      pgtype.Text{Valid: true, String: strip.Capabilities},
 			CommunicationType: pgtype.Text{Valid: true, String: strip.CommunicationType},
-			Tobt:              pgtype.Text{Valid: false}, // These fields are not in the provided event.
+			Tobt:              pgtype.Text{Valid: true, String: strip.Eobt},
 			Bay:               pgtype.Text{Valid: true, String: bay},
+			Eobt:              pgtype.Text{Valid: true, String: strip.Eobt},
 		}
 		err = db.InsertStrip(context.TODO(), stripParams)
 		if err != nil {
@@ -614,6 +615,8 @@ func handleStripUpdate(server *Server, db *data.Queries, strip EuroscopeStrip, s
 			PositionLongitude: pgtype.Float8{Valid: true, Float64: strip.Position.Lon},
 			PositionAltitude:  pgtype.Int4{Valid: true, Int32: int32(strip.Position.Altitude)},
 			Bay:               pgtype.Text{Valid: true, String: bay},
+			Tobt:              pgtype.Text{Valid: true, String: strip.Eobt},
+			Eobt:              pgtype.Text{Valid: true, String: strip.Eobt},
 		}
 		_, err = db.UpdateStrip(context.TODO(), updateStripParams)
 		if err != nil {

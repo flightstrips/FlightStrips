@@ -66,7 +66,8 @@ CREATE TABLE IF NOT EXISTS strips (
     ttot varchar,
     ctot varchar,
     aobt varchar,
-    asat varchar
+    asat varchar,
+    eobt varchar
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS ux_strips_session_callsign ON strips (session, callsign);

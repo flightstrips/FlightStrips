@@ -21,44 +21,62 @@ type EventMap = {
   [EventType.FrontendBay]: FrontendBayEvent;
 };
 
+type WebSocketClientDelegate = {
+  onConnected?: () => void;
+  onDisconnected?: () => void;
+};
+
 export class WebSocketClient {
   private socket: WebSocket | null = null;
   private eventHandlers: Map<EventType, Array<(data: unknown) => void>> = new Map();
   private readonly url: string;
   private token: string | null = null;
+  private reconnectAttempts = 0;
+  private reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
+  private manuallyClosed = false;
+  private delegate?: WebSocketClientDelegate;
 
-  constructor(url: string) {
+  constructor(url: string, delegate?: WebSocketClientDelegate) {
     this.url = url;
+    this.delegate = delegate;
   }
 
   setToken(token: string): void {
     this.token = token;
-    // If already connected, send the authentication event with the new token
     if (this.isConnected()) {
       this.sendAuthenticationEvent();
     }
   }
 
   connect(): Promise<void> {
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve,) => {
+      this.manuallyClosed = false;
       this.socket = new WebSocket(this.url);
 
       this.socket.onopen = () => {
         console.log('WebSocket connection established');
-        // Send authentication event if token is available
+        this.reconnectAttempts = 0;
         if (this.token) {
           this.sendAuthenticationEvent();
+        }
+        if (this.delegate?.onConnected) {
+          this.delegate.onConnected();
         }
         resolve();
       };
 
       this.socket.onerror = (error) => {
         console.error('WebSocket error:', error);
-        reject(error);
       };
 
       this.socket.onclose = (event) => {
         console.log('WebSocket connection closed:', event.code, event.reason);
+        if (this.delegate?.onDisconnected) {
+          this.delegate.onDisconnected();
+        }
+        if (!this.manuallyClosed) {
+          this.retryConnection();
+        }
       };
 
       this.socket.onmessage = (event) => {
@@ -75,7 +93,29 @@ export class WebSocketClient {
     });
   }
 
+  private retryConnection() {
+    this.reconnectAttempts += 1;
+    const delay = Math.min(1000 * 2 ** this.reconnectAttempts, 30000); // Exponential backoff, max 30s
+
+    if (this.reconnectTimeout) {
+      clearTimeout(this.reconnectTimeout);
+    }
+
+    this.reconnectTimeout = setTimeout(() => {
+      console.log(`Reconnecting WebSocket (attempt ${this.reconnectAttempts})...`);
+      this.connect().catch(() => {
+        // error is logged in connect()
+        // retry logic continues in onclose
+      });
+    }, delay);
+  }
+
   disconnect(): void {
+    this.manuallyClosed = true;
+    if (this.reconnectTimeout) {
+      clearTimeout(this.reconnectTimeout);
+      this.reconnectTimeout = null;
+    }
     if (this.socket) {
       this.socket.close();
       this.socket = null;
@@ -116,6 +156,9 @@ export class WebSocketClient {
   }
 }
 
-export function createWebSocketClient(url: string): WebSocketClient {
-  return new WebSocketClient(url);
+export function createWebSocketClient(
+  url: string,
+  delegate?: WebSocketClientDelegate
+): WebSocketClient {
+  return new WebSocketClient(url, delegate);
 }

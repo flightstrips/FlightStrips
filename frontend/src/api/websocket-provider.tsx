@@ -1,19 +1,21 @@
-import { type ReactNode, useEffect, useRef } from 'react';
-import { WebSocketClient, createWebSocketClient } from './websocket';
-import { WebSocketStoreProvider } from '../store/store-provider.tsx';
-import { useAuth0 } from '@auth0/auth0-react';
+import {type ReactNode, useEffect, useRef, useState} from 'react';
+import {WebSocketClient, createWebSocketClient} from './websocket';
+import {WebSocketStoreProvider} from '../store/store-provider.tsx';
+import {useAuth0} from '@auth0/auth0-react';
 
 interface WebSocketProviderProps {
   children: ReactNode;
   url: string;
 }
 
-export const WebSocketProvider = ({ children, url }: WebSocketProviderProps) => {
+export const WebSocketProvider = ({children, url}: WebSocketProviderProps) => {
   // Get the authentication token from Auth0
-  const { getAccessTokenSilently, isAuthenticated, isLoading } = useAuth0();
+  const {getAccessTokenSilently, isAuthenticated, isLoading} = useAuth0();
 
   // Create the WebSocket client only once
   const wsClientRef = useRef<WebSocketClient | null>(null);
+
+  const [wsConnected, setWsConnected] = useState(false);
 
   // Set the authentication token and connect when it's available
   useEffect(() => {
@@ -41,25 +43,40 @@ export const WebSocketProvider = ({ children, url }: WebSocketProviderProps) => 
 
     return () => {
       clearInterval(tokenRefreshInterval);
-      if (wsClientRef.current?.isConnected()) {
+      if (wsClientRef.current) {
         wsClientRef.current.disconnect();
       }
     };
   }, [getAccessTokenSilently, isAuthenticated, isLoading]);
 
   if (isLoading) {
-    return <div className='w-screen min-h-svh flex justify-center items-center bg-primary text-white text-4xl font-semibold'>Loading...</div>;
+    return (<div
+      className='w-screen min-h-svh flex justify-center items-center bg-primary text-white text-4xl font-semibold'>Loading...</div>);
   }
 
   if (!wsClientRef.current) {
-    wsClientRef.current = createWebSocketClient(url);
+    wsClientRef.current = createWebSocketClient(url, {
+      onConnected: () => setWsConnected(true),
+      onDisconnected: () => setWsConnected(false)
+    });
   }
-
 
   // If the WebSocket client hasn't been created yet, don't render anything
   if (!wsClientRef.current) {
     return null;
   }
+
+  if (!wsConnected) {
+    return (
+      <div className="w-screen min-h-svh flex flex-col justify-center items-center bg-primary text-white">
+        <div className="flex items-center text-4xl font-semibold">
+          <span>Connecting to FlightStrips</span>
+          <span className="ml-2 animate-bounce text-5xl">...</span>
+        </div>
+      </div>
+    );
+  }
+
 
   // Provide both the WebSocket client and the store
   return (

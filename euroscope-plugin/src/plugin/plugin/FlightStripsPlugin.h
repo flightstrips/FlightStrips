@@ -53,6 +53,8 @@ namespace FlightStrips {
 
         ~FlightStripsPlugin() override;
 
+        bool IsValidAirports(EuroScopePlugIn::CFlightPlan flightPlan) const;
+
         void Information(const std::string &message);
         void Error(const std::string &message);
 

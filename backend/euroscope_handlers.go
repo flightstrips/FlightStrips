@@ -597,6 +597,12 @@ func handleStripUpdate(server *Server, db *data.Queries, strip EuroscopeStrip, s
 		// TODO we need to ensure the master is synced first otherwise this will overwrite the strip with potential wrong values
 		bay := GetDepartureBay(strip, &existingStrip)
 
+		// Do not overwrite with an empty stand
+		stand := existingStrip.Stand.String
+		if strip.Stand != "" {
+			stand = strip.Stand
+		}
+
 		updateStripParams := data.UpdateStripParams{ // create this
 			Callsign:          strip.Callsign,
 			Session:           session,
@@ -616,7 +622,7 @@ func handleStripUpdate(server *Server, db *data.Queries, strip EuroscopeStrip, s
 			Capabilities:      pgtype.Text{Valid: true, String: strip.Capabilities},
 			CommunicationType: pgtype.Text{Valid: true, String: strip.CommunicationType},
 			AircraftCategory:  pgtype.Text{Valid: true, String: strip.AircraftCategory},
-			Stand:             pgtype.Text{Valid: true, String: strip.Stand},
+			Stand:             pgtype.Text{Valid: true, String: stand},
 			Cleared:           pgtype.Bool{Valid: true, Bool: strip.Cleared},
 			State:             pgtype.Text{Valid: true, String: strip.GroundState},
 			PositionLatitude:  pgtype.Float8{Valid: true, Float64: strip.Position.Lat},

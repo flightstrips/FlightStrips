@@ -35,7 +35,7 @@ namespace FlightStrips {
     }
 
     void FlightStripsPlugin::OnFlightPlanDisconnect(EuroScopePlugIn::CFlightPlan FlightPlan) {
-        if (!IsRelevant(FlightPlan)) {
+        if (!IsValidAirports(FlightPlan) || !FlightPlan.IsValid()) {
             return;
         }
 
@@ -112,7 +112,7 @@ namespace FlightStrips {
     }
 
     void FlightStripsPlugin::OnRadarTargetPositionUpdate(EuroScopePlugIn::CRadarTarget RadarTarget) {
-        if (!RadarTarget.IsValid() || !IsRelevant(RadarTarget.GetCorrelatedFlightPlan())) {
+        if (const auto flightPlan = RadarTarget.GetCorrelatedFlightPlan(); !RadarTarget.IsValid() || !flightPlan.IsValid() || !IsValidAirports(flightPlan)) {
             return;
         }
 
@@ -121,10 +121,14 @@ namespace FlightStrips {
 
     FlightStripsPlugin::~FlightStripsPlugin() = default;
 
+    bool FlightStripsPlugin::IsValidAirports(const CFlightPlan flightPlan) const {
+        return (strcmp(flightPlan.GetFlightPlanData().GetDestination(), m_connectionState.relevant_airport.c_str()) == 0
+         || strcmp(flightPlan.GetFlightPlanData().GetOrigin(), m_connectionState.relevant_airport.c_str()) == 0);
+    }
+
     bool FlightStripsPlugin::IsRelevant(const CFlightPlan flightPlan) const {
-        return flightPlan.IsValid() &&
-               (strcmp(flightPlan.GetFlightPlanData().GetDestination(), m_connectionState.relevant_airport.c_str()) == 0
-                || strcmp(flightPlan.GetFlightPlanData().GetOrigin(), m_connectionState.relevant_airport.c_str()) == 0);
+        return flightPlan.IsValid() && !flightPlan.GetSimulated() && flightPlan.GetCorrelatedRadarTarget().IsValid() &&
+            IsValidAirports(flightPlan);
     }
 
     ConnectionState &FlightStripsPlugin::GetConnectionState() {

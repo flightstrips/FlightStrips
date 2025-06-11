@@ -290,8 +290,10 @@ func (s *Server) euroscopeeventhandlerCommunicationType(msg []byte, session int3
 	}
 	if count != 1 {
 		log.Printf("Strip %v which is being updated does not exist in the database", event.Callsign)
+		return nil
 	}
-	return err
+	s.FrontendHub.SendCommunicationTypeEvent(session, event.Callsign, event.CommunicationType)
+	return nil
 }
 
 func (s *Server) euroscopeeventhandlerGroundState(msg []byte, session int32) error {
@@ -441,8 +443,10 @@ func (s *Server) euroscopeeventhandlerSetHeading(msg []byte, session int32) erro
 	}
 	if count != 1 {
 		log.Printf("Strip %v which is being updated does not exist in the database", event.Callsign)
+		return nil
 	}
-	return err
+	s.FrontendHub.SendSetHeadingEvent(session, event.Callsign, event.Heading)
+	return nil
 }
 
 func (s *Server) euroscopeeventhandlerAircraftDisconnected(msg []byte, session int32) error {
@@ -454,6 +458,7 @@ func (s *Server) euroscopeeventhandlerAircraftDisconnected(msg []byte, session i
 
 	db := data.New(s.DBPool)
 	err = db.RemoveStripByID(context.TODO(), data.RemoveStripByIDParams{Callsign: event.Callsign, Session: session})
+	s.FrontendHub.SendAircraftDisconnect(session, event.Callsign)
 	return err
 }
 
@@ -477,8 +482,11 @@ func (s *Server) euroscopeeventhandlerStand(msg []byte, session int32) error {
 	}
 	if count != 1 {
 		log.Printf("Strip %v which is being updated does not exist in the database", event.Callsign)
+		return nil
 	}
-	return err
+
+	s.FrontendHub.SendStandEvent(session, event.Callsign, event.Stand)
+	return nil
 }
 
 func (s *Server) euroscopeeventhandlerSync(msg []byte, session int32, airport string) error {

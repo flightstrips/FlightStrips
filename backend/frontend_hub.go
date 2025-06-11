@@ -250,6 +250,49 @@ func (hub *FrontendHub) SendBayEvent(session int32, callsign string, bay string)
 	hub.broadcast <- FrontendBroadcastMessage{session: session, message: message}
 }
 
+func (hub *FrontendHub) SendAircraftDisconnect(session int32, callsign string) {
+	message, err := json.Marshal(FrontendAircraftDisconnectEvent{
+		Callsign: callsign,
+	})
+	if err != nil {
+		return
+	}
+	hub.broadcast <- FrontendBroadcastMessage{session: session, message: message}
+}
+
+func (hub *FrontendHub) SendStandEvent(session int32, callsign string, stand string) {
+	message, err := json.Marshal(FrontendStandEvent{
+		Callsign: callsign,
+		Stand:    stand,
+	})
+	if err != nil {
+		return
+	}
+	hub.broadcast <- FrontendBroadcastMessage{session: session, message: message}
+}
+
+func (hub *FrontendHub) SendSetHeadingEvent(session int32, callsign string, heading int) {
+	message, err := json.Marshal(FrontendSetHeadingEvent{
+		Callsign: callsign,
+		Heading:  heading,
+	})
+	if err != nil {
+		return
+	}
+	hub.broadcast <- FrontendBroadcastMessage{session: session, message: message}
+}
+
+func (hub *FrontendHub) SendCommunicationTypeEvent(session int32, callsign string, communicationType string) {
+	message, err := json.Marshal(FrontendCommunicationTypeEvent{
+		Callsign:          callsign,
+		CommunicationType: communicationType,
+	})
+	if err != nil {
+		return
+	}
+	hub.broadcast <- FrontendBroadcastMessage{session: session, message: message}
+}
+
 func (hub *FrontendHub) Run() {
 	for {
 		select {

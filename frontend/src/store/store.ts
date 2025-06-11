@@ -11,7 +11,11 @@ import {
   type FrontendControllerOfflineEvent,
   type FrontendAssignedSquawkEvent,
   type FrontendSquawkEvent,
-  type FrontendRequestedAltitudeEvent, type FrontendClearedAltitudeEvent, type FrontendBayEvent
+  type FrontendRequestedAltitudeEvent,
+  type FrontendClearedAltitudeEvent,
+  type FrontendBayEvent,
+  type FrontendAircraftDisconnectEvent, type FrontendStandEvent,
+  type FrontendSetHeadingEvent, type FrontendCommunicationTypeEvent
 } from '../api/models.ts';
 import { WebSocketClient } from '../api/websocket.ts';
 
@@ -170,6 +174,48 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     store.setState(initialState, true)
   }
 
+  const handleAircraftDisconnectEvent = (data: FrontendAircraftDisconnectEvent) => {
+    store.setState(
+      produce((state: WebSocketState) => {
+        state.strips = state.strips.filter(strip => strip.callsign !== data.callsign);
+      })
+    )
+  };
+
+  const handleStandEvent = (data: FrontendStandEvent) => {
+    store.setState(
+      produce((state: WebSocketState) => {
+        const stripIndex = state.strips.findIndex(strip => strip.callsign === data.callsign);
+        if (stripIndex !== -1) {
+          state.strips[stripIndex].stand = data.stand;
+        }
+      })
+    )
+  };
+
+  const handleSetHeadingEvent = (data: FrontendSetHeadingEvent) => {
+    store.setState(
+      produce((state: WebSocketState) => {
+        const stripIndex = state.strips.findIndex(strip => strip.callsign === data.callsign);
+        if (stripIndex !== -1) {
+          state.strips[stripIndex].heading = data.heading;
+        }
+      })
+    )
+  }
+
+  const handleCommunicationTypeEvent = (data: FrontendCommunicationTypeEvent) => {
+    store.setState(
+      produce((state: WebSocketState) => {
+        const stripIndex = state.strips.findIndex(strip => strip.callsign === data.callsign);
+        if (stripIndex !== -1) {
+          state.strips[stripIndex].communication_type = data.communication_type;
+        }
+      })
+    )
+  }
+
+
   // Register event handlers
   wsClient.on(EventType.FrontendInitial, handleInitialEvent);
   wsClient.on(EventType.FrontendStripUpdate, handleStripUpdateEvent);
@@ -181,6 +227,10 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
   wsClient.on(EventType.FrontendClearedAltitude, handleClearedAltitudeEvent);
   wsClient.on(EventType.FrontendBay, handleBayEvent);
   wsClient.on(EventType.FrontendDisconnect, handleDisconnectEvent);
+  wsClient.on(EventType.FrontendAircraftDisconnect, handleAircraftDisconnectEvent);
+  wsClient.on(EventType.FrontendStand, handleStandEvent);
+  wsClient.on(EventType.FrontendSetHeading, handleSetHeadingEvent);
+  wsClient.on(EventType.FrontendCommunicationType, handleCommunicationTypeEvent);
 
   return store;
 };

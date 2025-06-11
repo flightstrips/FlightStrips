@@ -197,6 +197,69 @@ func (e FrontendDisconnectEvent) MarshalJSON() ([]byte, error) {
 	})
 }
 
+type FrontendAircraftDisconnectEvent struct {
+	Callsign string `json:"callsign"`
+}
+
+func (e FrontendAircraftDisconnectEvent) MarshalJSON() ([]byte, error) {
+	type Alias FrontendAircraftDisconnectEvent
+	return json.Marshal(&struct {
+		Type EventType `json:"type"`
+		Alias
+	}{
+		Type:  FrontendAircraftDisconnect,
+		Alias: (Alias)(e),
+	})
+}
+
+type FrontendStandEvent struct {
+	Callsign string `json:"callsign"`
+	Stand    string `json:"stand"`
+}
+
+func (e FrontendStandEvent) MarshalJSON() ([]byte, error) {
+	type Alias FrontendStandEvent
+	return json.Marshal(&struct {
+		Type EventType `json:"type"`
+		Alias
+	}{
+		Type:  FrontendStand,
+		Alias: (Alias)(e),
+	})
+}
+
+type FrontendSetHeadingEvent struct {
+	Callsign string `json:"callsign"`
+	Heading  int    `json:"heading"`
+}
+
+func (e FrontendSetHeadingEvent) MarshalJSON() ([]byte, error) {
+	type Alias FrontendSetHeadingEvent
+	return json.Marshal(&struct {
+		Type EventType `json:"type"`
+		Alias
+	}{
+		Type:  FrontendSetHeading,
+		Alias: (Alias)(e),
+	})
+}
+
+type FrontendCommunicationTypeEvent struct {
+	Callsign          string `json:"callsign"`
+	CommunicationType string `json:"communication_type"`
+}
+
+func (e FrontendCommunicationTypeEvent) MarshalJSON() ([]byte, error) {
+	type Alias FrontendCommunicationTypeEvent
+	return json.Marshal(&struct {
+		Type EventType `json:"type"`
+		Alias
+	}{
+		Type:  FrontendCommunicationType,
+		Alias: (Alias)(e),
+	})
+}
+
 type FrontendSendEvent interface {
 	FrontendInitialEvent | FrontendStripUpdateEvent | FrontendDisconnectEvent
 }

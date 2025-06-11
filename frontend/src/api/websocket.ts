@@ -1,11 +1,18 @@
 import {
-  EventType, type FrontendAssignedSquawkEvent, type FrontendBayEvent, type FrontendClearedAltitudeEvent,
+  EventType,
+  type FrontendAircraftDisconnectEvent,
+  type FrontendAssignedSquawkEvent,
+  type FrontendBayEvent,
+  type FrontendClearedAltitudeEvent, type FrontendCommunicationTypeEvent,
   type FrontendControllerOfflineEvent,
-  type FrontendControllerOnlineEvent, type FrontendDisconnectEvent,
+  type FrontendControllerOnlineEvent,
+  type FrontendDisconnectEvent,
   type FrontendInitialEvent,
-  type FrontendRequestedAltitudeEvent, type FrontendSendEvent,
-  type FrontendSquawkEvent,
-  type FrontendStripUpdateEvent, type WebSocketEvent
+  type FrontendRequestedAltitudeEvent,
+  type FrontendSendEvent, type FrontendSetHeadingEvent,
+  type FrontendSquawkEvent, type FrontendStandEvent,
+  type FrontendStripUpdateEvent,
+  type WebSocketEvent
 } from "./models";
 
 
@@ -20,6 +27,10 @@ type EventMap = {
   [EventType.FrontendClearedAltitude]: FrontendClearedAltitudeEvent;
   [EventType.FrontendBay]: FrontendBayEvent;
   [EventType.FrontendDisconnect]: FrontendDisconnectEvent;
+  [EventType.FrontendAircraftDisconnect]: FrontendAircraftDisconnectEvent;
+  [EventType.FrontendStand]: FrontendStandEvent;
+  [EventType.FrontendSetHeading]: FrontendSetHeadingEvent;
+  [EventType.FrontendCommunicationType]: FrontendCommunicationTypeEvent;
 };
 
 type WebSocketClientDelegate = {

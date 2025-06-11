@@ -9,6 +9,10 @@ export enum EventType {
   FrontendClearedAltitude = "cleared_altitude",
   FrontendBay = "bay",
   FrontendDisconnect = "disconnect",
+  FrontendAircraftDisconnect = "aircraft_disconnect",
+  FrontendStand = "stand",
+  FrontendSetHeading = "set_heading",
+  FrontendCommunicationType = "communication_type",
 }
 
 export enum Bay {
@@ -49,7 +53,7 @@ export interface FrontendStrip {
   aircraft_category: string;
   stand: string;
   capabilities: string;
-  communication_type: string;
+  communication_type: CommunicationType;
   eobt: string;
   eldt: string;
   bay: string;
@@ -93,7 +97,7 @@ export interface FrontendStripUpdateEvent {
   aircraft_category: string;
   stand: string;
   capabilities: string;
-  communication_type: string;
+  communication_type: CommunicationType;
   eobt: string;
   eldt: string;
   bay: string;
@@ -154,6 +158,36 @@ export interface FrontendDisconnectEvent {
   type: EventType.FrontendDisconnect;
 }
 
+export interface FrontendAircraftDisconnectEvent {
+  type: EventType.FrontendAircraftDisconnect;
+  callsign: string;
+}
+
+export interface FrontendStandEvent {
+  type: EventType.FrontendStand;
+  callsign: string;
+  stand: string;
+}
+
+export interface FrontendSetHeadingEvent {
+  type: EventType.FrontendSetHeading;
+  callsign: string;
+  heading: number;
+}
+
+export enum CommunicationType {
+  Voice = "V",
+  Receive = "R",
+  Text = "T",
+  Unknown = ""
+}
+
+export interface FrontendCommunicationTypeEvent {
+  type: EventType.FrontendCommunicationType;
+  callsign: string;
+  communication_type: CommunicationType;
+}
+
 // Union type for all events that can be received
 export type WebSocketEvent =
   | FrontendInitialEvent
@@ -165,7 +199,11 @@ export type WebSocketEvent =
   | FrontendRequestedAltitudeEvent
   | FrontendClearedAltitudeEvent
   | FrontendBayEvent
-  | FrontendDisconnectEvent;
+  | FrontendDisconnectEvent
+  | FrontendAircraftDisconnectEvent
+  | FrontendStandEvent
+  | FrontendSetHeadingEvent
+  | FrontendCommunicationTypeEvent;
 
 // Union type for all events that can be sent
 export type FrontendSendEvent = FrontendAuthenticationEvent

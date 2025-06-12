@@ -1,16 +1,20 @@
 import {
+  ActionType,
   EventType,
   type FrontendAircraftDisconnectEvent,
   type FrontendAssignedSquawkEvent,
   type FrontendBayEvent,
-  type FrontendClearedAltitudeEvent, type FrontendCommunicationTypeEvent,
+  type FrontendClearedAltitudeEvent,
+  type FrontendCommunicationTypeEvent,
   type FrontendControllerOfflineEvent,
   type FrontendControllerOnlineEvent,
   type FrontendDisconnectEvent,
   type FrontendInitialEvent,
   type FrontendRequestedAltitudeEvent,
-  type FrontendSendEvent, type FrontendSetHeadingEvent,
-  type FrontendSquawkEvent, type FrontendStandEvent,
+  type FrontendSendEvent,
+  type FrontendSetHeadingEvent,
+  type FrontendSquawkEvent,
+  type FrontendStandEvent,
   type FrontendStripUpdateEvent,
   type WebSocketEvent
 } from "./models";
@@ -157,7 +161,7 @@ export class WebSocketClient {
   private sendAuthenticationEvent(): void {
     if (this.token) {
       this.send({
-        type: 'token',
+        type: ActionType.FrontendToken,
         token: this.token
       });
     }

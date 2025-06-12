@@ -1,23 +1,27 @@
-import { createStore } from 'zustand/vanilla';
-import { produce } from 'immer';
+import {createStore} from 'zustand/vanilla';
+import {produce} from 'immer';
 import {
-  type FrontendStrip,
-  type FrontendController,
-  type RunwayConfiguration,
+  ActionType,
+  Bay,
   EventType,
-  type FrontendInitialEvent,
-  type FrontendStripUpdateEvent,
-  type FrontendControllerOnlineEvent,
-  type FrontendControllerOfflineEvent,
+  type FrontendAircraftDisconnectEvent,
   type FrontendAssignedSquawkEvent,
-  type FrontendSquawkEvent,
-  type FrontendRequestedAltitudeEvent,
-  type FrontendClearedAltitudeEvent,
   type FrontendBayEvent,
-  type FrontendAircraftDisconnectEvent, type FrontendStandEvent,
-  type FrontendSetHeadingEvent, type FrontendCommunicationTypeEvent
+  type FrontendClearedAltitudeEvent,
+  type FrontendCommunicationTypeEvent,
+  type FrontendController,
+  type FrontendControllerOfflineEvent,
+  type FrontendControllerOnlineEvent,
+  type FrontendInitialEvent,
+  type FrontendRequestedAltitudeEvent,
+  type FrontendSetHeadingEvent,
+  type FrontendSquawkEvent,
+  type FrontendStandEvent,
+  type FrontendStrip,
+  type FrontendStripUpdateEvent,
+  type RunwayConfiguration
 } from '../api/models.ts';
-import { WebSocketClient } from '../api/websocket.ts';
+import {WebSocketClient} from '../api/websocket.ts';
 
 // Define the state interface for our store
 export interface WebSocketState {
@@ -28,12 +32,15 @@ export interface WebSocketState {
   callsign: string;
   runwaySetup: RunwayConfiguration;
   isInitialized: boolean;
+
+  // actions
+  move: (callsign: string, bay: Bay) => void;
 }
 
 // Create the store using createVanilla
 export const createWebSocketStore = (wsClient: WebSocketClient) => {
   // Initial state
-  const initialState: WebSocketState = {
+  const initialState = {
     controllers: [],
     strips: [],
     position: '',
@@ -43,11 +50,25 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
       departure: [],
       arrival: []
     },
-    isInitialized: false
+    isInitialized: false,
   };
 
   // Create the store
-  const store = createStore<WebSocketState>()(() => initialState);
+  const store = createStore<WebSocketState>()((set) => ({
+    ...initialState,
+    move: (callsign, bay) => set((state) => {
+        wsClient.send({type: ActionType.FrontendMove, callsign, bay})
+
+        return produce((state: WebSocketState) => {
+          const stripIndex = state.strips.findIndex(strip => strip.callsign === callsign);
+          if (stripIndex !== -1) {
+            state.strips[stripIndex].bay = bay;
+          }
+          return state;
+        })(state)
+      }
+    )
+  }));
 
   // Private methods to handle WebSocket events
   const handleInitialEvent = (data: FrontendInitialEvent) => {
@@ -171,7 +192,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
   };
 
   const handleDisconnectEvent = () => {
-    store.setState(initialState, true)
+    store.setState({...initialState})
   }
 
   const handleAircraftDisconnectEvent = (data: FrontendAircraftDisconnectEvent) => {

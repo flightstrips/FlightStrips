@@ -101,7 +101,6 @@ func MapStripToFrontendModel(strip *data.Strip) FrontendStrip {
 		Squawk:            strip.Squawk.String,
 		AssignedSquawk:    strip.AssignedSquawk.String,
 		Sid:               strip.Sid.String,
-		Cleared:           strip.Cleared.Bool,
 		ClearedAltitude:   int(strip.ClearedAltitude.Int32),
 		RequestedAltitude: int(strip.RequestedAltitude.Int32),
 		Heading:           int(strip.Heading.Int32),

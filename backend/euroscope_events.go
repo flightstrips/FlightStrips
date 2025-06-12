@@ -191,6 +191,28 @@ func (e EuroscopeGenerateSquawkEvent) MarshalJSON() ([]byte, error) {
 	})
 }
 
+func (e EuroscopeGroundStateEvent) MarshalJSON() ([]byte, error) {
+	type Alias EuroscopeGroundStateEvent
+	return json.Marshal(&struct {
+		Type EventType `json:"type"`
+		Alias
+	}{
+		Type:  EuroscopeGroundState,
+		Alias: (Alias)(e),
+	})
+}
+
+func (e EuroscopeClearedFlagEvent) MarshalJSON() ([]byte, error) {
+	type Alias EuroscopeClearedFlagEvent
+	return json.Marshal(&struct {
+		Type EventType `json:"type"`
+		Alias
+	}{
+		Type:  EuroscopeClearedFlag,
+		Alias: (Alias)(e),
+	})
+}
+
 type EuroscopeSendEvent interface {
-	EuroscopeSessionInfoEvent | EuroscopeGenerateSquawkEvent
+	EuroscopeSessionInfoEvent | EuroscopeGenerateSquawkEvent | EuroscopeGroundStateEvent | EuroscopeClearedFlagEvent
 }

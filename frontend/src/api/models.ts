@@ -15,6 +15,11 @@ export enum EventType {
   FrontendCommunicationType = "communication_type",
 }
 
+export enum ActionType {
+  FrontendToken = "token",
+  FrontendMove = "move",
+}
+
 export enum Bay {
   Unknown = "UNKNOWN",
   NotCleared = "NOT_CLEARED",
@@ -45,7 +50,6 @@ export interface FrontendStrip {
   squawk: string;
   assigned_squawk: string;
   sid: string;
-  cleared: boolean;
   cleared_altitude: number;
   requested_altitude: number;
   heading: number;
@@ -89,7 +93,6 @@ export interface FrontendStripUpdateEvent {
   squawk: string;
   assigned_squawk: string;
   sid: string;
-  cleared: boolean;
   cleared_altitude: number;
   requested_altitude: number;
   heading: number;
@@ -150,7 +153,7 @@ export interface FrontendBayEvent {
 
 // Define authentication event interface
 export interface FrontendAuthenticationEvent {
-  type: 'token';
+  type: ActionType.FrontendToken;
   token: string;
 }
 
@@ -205,5 +208,11 @@ export type WebSocketEvent =
   | FrontendSetHeadingEvent
   | FrontendCommunicationTypeEvent;
 
+export interface FrontendMoveEvent {
+  type: ActionType.FrontendMove;
+  callsign: string;
+  bay: Bay;
+}
+
 // Union type for all events that can be sent
-export type FrontendSendEvent = FrontendAuthenticationEvent
+export type FrontendSendEvent = FrontendAuthenticationEvent | FrontendMoveEvent;

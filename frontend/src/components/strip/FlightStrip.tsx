@@ -61,7 +61,7 @@ const FlightStrip: React.FC<FlightStripProps> = (props) => {
                     <button className='active:bg-[#F237AA] active:border-2 active:border-l-0 active:border-t-0 w-full h-[32px] text-left pl-1 select-none'>{props.callsing}</button>
                 </div>
                 <a className='border-2 border-[#85b4af] h-full text-sm text-center w-16 select-none py-1' style={{borderRightWidth: 1, borderLeftWidth: 1}}>
-                    <CLXBtn><span className='font-semibold'>{props.destination}</span><span>{props.stand}</span></CLXBtn>
+                    <CLXBtn callsign={props.callsing}><span className='font-semibold'>{props.destination}</span><span>{props.stand}</span></CLXBtn>
                 </a>
                 <div className='border-2 border-[#85b4af] h-full text-sm text-center min-w-24 w-fit select-none flex justify-between px-1' style={{borderRightWidth: 1, borderLeftWidth: 1}}>
                     <span>EOBT</span>

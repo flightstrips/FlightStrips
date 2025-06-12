@@ -20,6 +20,11 @@ func (s *Server) euroscopeeventhandlerLogin(msg []byte, user *ClientUser) (event
 		return
 	}
 
+	if event.Type != EuroscopeLogin {
+		err = errors.New("invalid initial event type, expected login")
+		return
+	}
+
 	sessionName := event.Connection
 	if sessionName == "PLAYBACK" {
 		sessionName = sessionName + "_" + strconv.Itoa(rand.Int())

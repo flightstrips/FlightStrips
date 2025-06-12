@@ -18,7 +18,6 @@ type FrontendStrip struct {
 	Squawk            string `json:"squawk"`
 	AssignedSquawk    string `json:"assigned_squawk"`
 	Sid               string `json:"sid"`
-	Cleared           bool   `json:"cleared"`
 	ClearedAltitude   int    `json:"cleared_altitude"`
 	RequestedAltitude int    `json:"requested_altitude"`
 	Heading           int    `json:"heading"`
@@ -260,6 +259,12 @@ func (e FrontendCommunicationTypeEvent) MarshalJSON() ([]byte, error) {
 	})
 }
 
+type FrontendMoveEvent struct {
+	Type     EventType `json:"type"`
+	Callsign string    `json:"callsign"`
+	Bay      string    `json:"bay"`
+}
+
 type FrontendSendEvent interface {
-	FrontendInitialEvent | FrontendStripUpdateEvent | FrontendDisconnectEvent
+	FrontendInitialEvent | FrontendStripUpdateEvent | FrontendDisconnectEvent | FrontendAircraftDisconnectEvent | FrontendStandEvent | FrontendSetHeadingEvent | FrontendCommunicationTypeEvent | FrontendAssignedSquawkEvent | FrontendSquawkEvent | FrontendRequestedAltitudeEvent | FrontendClearedAltitudeEvent | FrontendBayEvent | FrontendControllerOnlineEvent | FrontendControllerOfflineEvent
 }

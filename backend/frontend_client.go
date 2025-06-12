@@ -58,7 +58,7 @@ func (c *FrontendClient) HandleMessage(message []byte) error {
 	}
 
 	// Handle the event based on its type
-	_, err = c.server.frontEndEventHandler(c, event)
+	err = c.server.frontEndEventHandler(c, event, message)
 	return err
 }
 

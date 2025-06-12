@@ -1,18 +1,21 @@
-import { Button } from "@/components/ui/button"
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+import {Button} from "@/components/ui/button"
+import {Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,} from "@/components/ui/dialog"
+import {Input} from "@/components/ui/input"
+import {Label} from "@/components/ui/label"
 import React from 'react';
 import StandDialog from "./ui/StandDialog";
+import {useWebSocketStore} from "@/store/store-provider.tsx";
+import {Bay} from "@/api/models.ts";
 
-export function CLXBtn({ children }: { children?: React.ReactNode }) {
+export function CLXBtn({ callsign, children }: { callsign: string, children?: React.ReactNode }) {
+  // TODO Simon this is very hacky due to where this component is place (a.k.a in the button of the component tree)
+  const strip = useWebSocketStore(state => state.strips.find(s => s.callsign === callsign));
+  const moveAction = useWebSocketStore(state => state.move);
+
+  console.log(strip);
+
+  if (!strip) return null;
+
   return (
     <Dialog>
       <DialogTrigger asChild>
@@ -311,7 +314,7 @@ export function CLXBtn({ children }: { children?: React.ReactNode }) {
         </div>
         <DialogFooter>
             <a type="submit">ESC</a>
-            <a type="submit">CLD</a>
+            <button onClick={() => moveAction(strip.callsign, Bay.Cleared)}>CLD</button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

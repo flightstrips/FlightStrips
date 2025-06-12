@@ -3,6 +3,7 @@ package main
 import (
 	"FlightStrips/data"
 	"context"
+	"fmt"
 	"log"
 
 	"github.com/jackc/pgx/v5/pgtype"
@@ -41,12 +42,12 @@ func NewEuroscopeHub(server *Server) *EuroscopeHub {
 	return hub
 }
 
-func (h *EuroscopeHub) Register(client *EuroscopeClient) {
-	h.register <- client
+func (hub *EuroscopeHub) Register(client *EuroscopeClient) {
+	hub.register <- client
 }
 
-func (h *EuroscopeHub) Unregister(client *EuroscopeClient) {
-	h.unregister <- client
+func (hub *EuroscopeHub) Unregister(client *EuroscopeClient) {
+	hub.unregister <- client
 }
 
 func (hub *EuroscopeHub) OnRegister(client *EuroscopeClient) {
@@ -91,21 +92,54 @@ func (hub *EuroscopeHub) OnUnregister(client *EuroscopeClient) {
 	}
 }
 
-func (h *EuroscopeHub) Run() {
+func (hub *EuroscopeHub) SendGroundState(cid string, callsign string, state string) {
+	event := EuroscopeGroundStateEvent{
+		Callsign:    callsign,
+		GroundState: state,
+	}
+
+	sendEuroscopeEventInternal(hub, cid, event)
+}
+
+func (hub *EuroscopeHub) SendClearedFlag(cid string, callsign string, flag bool) {
+	event := EuroscopeClearedFlagEvent{
+		Callsign: callsign,
+		Cleared:  flag,
+	}
+
+	sendEuroscopeEventInternal(hub, cid, event)
+}
+
+func sendEuroscopeEventInternal[T EuroscopeSendEvent](hub *EuroscopeHub, cid string, event T) {
+	eventSent := false
+	for client := range hub.clients {
+		if client.user.cid == cid {
+			SendEuroscopeEvent(client, event)
+			eventSent = true
+			break
+		}
+	}
+
+	if !eventSent {
+		fmt.Printf("Failed to find a client with %s when trying to send ES event.", cid)
+	}
+}
+
+func (hub *EuroscopeHub) Run() {
 	for {
 		select {
-		case client := <-h.register:
-			h.clients[client] = true
-			h.OnRegister(client)
-		case client := <-h.unregister:
-			if _, ok := h.clients[client]; ok {
-				delete(h.clients, client)
+		case client := <-hub.register:
+			hub.clients[client] = true
+			hub.OnRegister(client)
+		case client := <-hub.unregister:
+			if _, ok := hub.clients[client]; ok {
+				delete(hub.clients, client)
 				client.Close()
-				h.server.FrontendHub.CidDisconnect(client.user.cid)
+				hub.server.FrontendHub.CidDisconnect(client.user.cid)
 			}
-			h.OnUnregister(client)
-		case message := <-h.send:
-			for client := range h.clients {
+			hub.OnUnregister(client)
+		case message := <-hub.send:
+			for client := range hub.clients {
 				if client.user.cid == message.cid && client.session == message.session {
 					client.send <- message.message
 					break

@@ -35,10 +35,6 @@ const (
 	EuroscopeRunway               EventType = "runway"
 	EuroscopeSessionInfo          EventType = "session_info"
 	EuroscopeGenerateSquawk       EventType = "generate_squawk"
-	EuroscopeRoute                EventType = "route"
-	EuroscopeRemarks              EventType = "remarks"
-	EuroscopeSID                  EventType = "sid"
-	EuroscopeAircraftRunway       EventType = "aircraft_runway"
 
 	// GoAround - Sent to all FrontEnd Clients
 	// AirportConfigurationChange - Sent to all FrontEnd Clients
@@ -49,25 +45,7 @@ const (
 	RunWayConfiguration        EventType = "run_way_configuration"
 	AtisUpdate                 EventType = "atis_update"
 
-	// PositionOnline - Sent to all FrontEnd Clients
-	// PositionOffline - Sent to all FrontEnd Clients
-	PositionOnline  EventType = "position_online"
-	PositionOffline EventType = "position_offline"
-
-	// StripUpdate - Sent to all FrontEnd Clients && One Euroscope Client (The one who made the change)
-	// StripTransferRequestInit - Sent to a specific FrontEnd Client
-	// StripTransferRequestReject - Sent to a specific FrontEnd Client
-	// StripMoveRequest - Sent to a specific FrontEnd Client
-	StripUpdate                EventType = "strip_update"
-	StripUpdateCleared         EventType = "strip_update_cleared"
-	StripUpdateBay             EventType = "strip_update_bay"
-	StripUpdateBayPosition     EventType = "strip_update_bay_position"
-	StripUpdateRunwayChange    EventType = "strip_update_runway_change"
-	StripUpdateDeparture       EventType = "strip_update_departure"
-	StripTransferRequestInit   EventType = "strip_transfer_request"
-	StripTransferRequestReject EventType = "strip_transfer_request_reject"
-	StripMoveRequest           EventType = "strip_move_request"
-
+	// Events:
 	FrontendInitial            EventType = "initial"
 	FrontendStripUpdate        EventType = "strip_update"
 	FrontendControllerOnline   EventType = "controller_online"
@@ -82,6 +60,9 @@ const (
 	FrontendStand              EventType = "stand"
 	FrontendSetHeading         EventType = "heading"
 	FrontendCommunicationType  EventType = "communication_type"
+
+	// Actions:
+	FrontendMove EventType = "move"
 )
 
 type AuthenticationEvent struct {

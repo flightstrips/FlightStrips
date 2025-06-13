@@ -265,6 +265,10 @@ type FrontendMoveEvent struct {
 	Bay      string    `json:"bay"`
 }
 
+type FrontendGenerateSquawkEvent struct {
+	Callsign string `json:"callsign"`
+}
+
 type FrontendSendEvent interface {
 	FrontendInitialEvent | FrontendStripUpdateEvent | FrontendDisconnectEvent | FrontendAircraftDisconnectEvent | FrontendStandEvent | FrontendSetHeadingEvent | FrontendCommunicationTypeEvent | FrontendAssignedSquawkEvent | FrontendSquawkEvent | FrontendRequestedAltitudeEvent | FrontendClearedAltitudeEvent | FrontendBayEvent | FrontendControllerOnlineEvent | FrontendControllerOfflineEvent
 }

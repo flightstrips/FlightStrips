@@ -29,6 +29,17 @@ func (s *Server) frontendeventhandlerGoARound(event Event) (err error) {
 	return nil
 }
 
+func (s *Server) frontendEventGenerateSquawk(client *FrontendClient, message []byte) error {
+	var generateSquawk FrontendGenerateSquawkEvent
+	err := json.Unmarshal(message, &generateSquawk)
+	if err != nil {
+		return err
+	}
+
+	s.EuroscopeHub.SendGenerateSquawk(client.user.cid, generateSquawk.Callsign)
+	return nil
+}
+
 func (s *Server) frontendEventHandlerMove(client *FrontendClient, message []byte) error {
 	var move FrontendMoveEvent
 	err := json.Unmarshal(message, &move)

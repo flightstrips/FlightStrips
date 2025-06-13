@@ -58,3 +58,5 @@ export const usePosition = () => useWebSocketStore((state) => state.position);
 export const useAirport = () => useWebSocketStore((state) => state.airport);
 export const useCallsign = () => useWebSocketStore((state) => state.callsign);
 export const useRunwaySetup = () => useWebSocketStore((state) => state.runwaySetup);
+
+export const useStrip = (callsign: string) => useWebSocketStore((state) => state.strips.find(strip => strip.callsign === callsign));

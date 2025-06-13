@@ -18,6 +18,7 @@ export enum EventType {
 export enum ActionType {
   FrontendToken = "token",
   FrontendMove = "move",
+  FrontendGenerateSquawk = "generate_squawk",
 }
 
 export enum Bay {
@@ -214,5 +215,10 @@ export interface FrontendMoveEvent {
   bay: Bay;
 }
 
+export interface FrontendGenerateSquawkEvent {
+  type: ActionType.FrontendGenerateSquawk;
+  callsign: string;
+}
+
 // Union type for all events that can be sent
-export type FrontendSendEvent = FrontendAuthenticationEvent | FrontendMoveEvent;
+export type FrontendSendEvent = FrontendAuthenticationEvent | FrontendMoveEvent | FrontendGenerateSquawkEvent;

@@ -12,6 +12,9 @@ func (s *Server) frontEndEventHandler(client *FrontendClient, event Event, messa
 	case FrontendMove:
 		err := s.frontendEventHandlerMove(client, message)
 		return err
+	case FrontendGenerateSquawk:
+		err := s.frontendEventGenerateSquawk(client, message)
+		return err
 	default:
 		return fmt.Errorf("unknown event type: %s", event.Type)
 	}

@@ -4,15 +4,14 @@ import {Input} from "@/components/ui/input"
 import {Label} from "@/components/ui/label"
 import React from 'react';
 import StandDialog from "./ui/StandDialog";
-import {useWebSocketStore} from "@/store/store-provider.tsx";
+import {useStrip, useWebSocketStore} from "@/store/store-provider.tsx";
 import {Bay} from "@/api/models.ts";
 
 export function CLXBtn({ callsign, children }: { callsign: string, children?: React.ReactNode }) {
   // TODO Simon this is very hacky due to where this component is place (a.k.a in the button of the component tree)
-  const strip = useWebSocketStore(state => state.strips.find(s => s.callsign === callsign));
+  const strip = useStrip(callsign);
   const moveAction = useWebSocketStore(state => state.move);
-
-  console.log(strip);
+  const generateSquawk = useWebSocketStore(state => state.generateSquawk);
 
   if (!strip) return null;
 
@@ -75,7 +74,8 @@ export function CLXBtn({ callsign, children }: { callsign: string, children?: Re
             <Button
               id="name"
               className="border-black border rounded-none bg-[#ededed] text-black font-semibold disabled:opacity-100 w-16 h-10 text-center text-lg select-none hover:bg-[#ededed]"
-            >6532</Button>
+              onClick={() => generateSquawk(callsign)}
+            >{strip.assigned_squawk}</Button>
           </div>
           <div className="grid items-center">
             <Label htmlFor="name">

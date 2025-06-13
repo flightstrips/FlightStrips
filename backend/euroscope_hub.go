@@ -92,6 +92,13 @@ func (hub *EuroscopeHub) OnUnregister(client *EuroscopeClient) {
 	}
 }
 
+func (hub *EuroscopeHub) SendGenerateSquawk(cid string, callsign string) {
+	event := EuroscopeGenerateSquawkEvent{
+		Callsign: callsign,
+	}
+	sendEuroscopeEventInternal(hub, cid, event)
+}
+
 func (hub *EuroscopeHub) SendGroundState(cid string, callsign string, state string) {
 	event := EuroscopeGroundStateEvent{
 		Callsign:    callsign,

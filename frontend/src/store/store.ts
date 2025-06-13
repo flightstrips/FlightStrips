@@ -35,6 +35,7 @@ export interface WebSocketState {
 
   // actions
   move: (callsign: string, bay: Bay) => void;
+  generateSquawk: (callsign: string) => void;
 }
 
 // Create the store using createVanilla
@@ -67,7 +68,10 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
           return state;
         })(state)
       }
-    )
+    ),
+    generateSquawk: (callsign) => {
+        wsClient.send({type: ActionType.FrontendGenerateSquawk, callsign})
+    },
   }));
 
   // Private methods to handle WebSocket events

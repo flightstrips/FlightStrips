@@ -62,7 +62,8 @@ const (
 	FrontendCommunicationType  EventType = "communication_type"
 
 	// Actions:
-	FrontendMove EventType = "move"
+	FrontendMove           EventType = "move"
+	FrontendGenerateSquawk EventType = "generate_squawk"
 )
 
 type AuthenticationEvent struct {

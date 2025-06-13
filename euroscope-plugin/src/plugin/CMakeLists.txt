@@ -115,7 +115,8 @@ source_group("src\\websocket" FILES ${src__websocket})
 
 set(src__controller
         controller/ControllerService.cpp
-        controller/ControllerService.h)
+        controller/ControllerService.h
+        controller/Controller.h)
 source_group("src\\controller" FILES ${src__controller})
 
 set(src__messages

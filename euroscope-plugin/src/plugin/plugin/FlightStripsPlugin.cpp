@@ -207,6 +207,9 @@ namespace FlightStrips {
     }
 
     void FlightStripsPlugin::OnControllerPositionUpdate(EuroScopePlugIn::CController Controller) {
+        if (!Controller.IsValid()) return;
+        if (!Controller.GetPositionIdentified()) return;
+        if (!Controller.IsController()) return;
         this->m_controllerEventHandlerCollection->ControllerPositionUpdateEvent(Controller);
     }
 

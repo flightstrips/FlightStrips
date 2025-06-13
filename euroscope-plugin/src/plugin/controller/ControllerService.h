@@ -1,4 +1,5 @@
 #pragma once
+#include "Controller.h"
 #include "handlers/ControllerEventHandler.h"
 #include "websocket/WebSocketService.h"
 
@@ -13,5 +14,6 @@ namespace FlightStrips::controller {
         void ControllerDisconnectEvent(EuroScopePlugIn::CController controller) override;
     private:
         std::shared_ptr<websocket::WebSocketService> m_webSocketService;
+        std::unordered_map<std::string, Controller> m_controllers = {};
     };
 }

@@ -1,5 +1,6 @@
 #pragma once
 #include "Events.h"
+#include "Logger.h"
 #include "WebSocket.h"
 #include "authentication/AuthenticationService.h"
 #include "configuration/AppConfig.h"
@@ -17,8 +18,8 @@ namespace FlightStrips::websocket {
     };
 
     struct Stats {
-        int tx;
-        int rx;
+        int tx = 0;
+        int rx = 0;
     };
 
     class WebSocketService final : public handlers::TimedEventHandler, public handlers::AuthenticationEventHandler {
@@ -54,13 +55,22 @@ namespace FlightStrips::websocket {
         std::mutex message_mutex_;
         std::vector<nlohmann::json> messages_ {};
 
-        volatile int tx;
-        volatile int rx;
+        int tx;
+        int rx;
 
         void OnMessage(const std::string &message);
         void OnConnected();
         void SendLoginEvent();
     };
+}
+
+template<typename T> requires std::is_base_of_v<Event, T>
+void FlightStrips::websocket::WebSocketService::SendEvent(const T &event) {
+    ++tx;
+    const nlohmann::json json = event;
+    const auto json_str = json.dump();
+    webSocket.Send(json_str);
+    Logger::Debug("Sending event: {}", json_str);
 }
 
 template void FlightStrips::websocket::WebSocketService::SendEvent<AircraftDisconnectEvent>(const AircraftDisconnectEvent & event);

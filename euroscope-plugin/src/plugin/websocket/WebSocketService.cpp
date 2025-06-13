@@ -90,14 +90,7 @@ namespace FlightStrips::websocket {
         return Stats(tx, rx);
     }
 
-    template<typename T> requires std::is_base_of_v<Event, T>
-    void WebSocketService::SendEvent(const T &event) {
-        tx++;
-        const nlohmann::json json = event;
-        const auto json_str = json.dump();
-        webSocket.Send(json_str);
-        Logger::Debug("Sending event: {}", json_str);
-    }
+
 
     void WebSocketService::OnMessage(const std::string &message) {
         rx++;

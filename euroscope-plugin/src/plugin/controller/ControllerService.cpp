@@ -23,6 +23,8 @@ namespace FlightStrips::controller {
     }
 
     void ControllerService::ControllerDisconnectEvent(EuroScopePlugIn::CController controller) {
+        m_controllers.erase(controller.GetCallsign());
+
         if (!m_webSocketService->ShouldSend()) return;
         m_webSocketService->SendEvent(ControllerOfflineEvent(std::string(controller.GetCallsign())));
     }

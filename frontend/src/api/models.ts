@@ -19,6 +19,7 @@ export enum ActionType {
   FrontendToken = "token",
   FrontendMove = "move",
   FrontendGenerateSquawk = "generate_squawk",
+  FrontendUpdateStripData = "update_strip_data",
 }
 
 export enum Bay {
@@ -220,5 +221,16 @@ export interface FrontendGenerateSquawkEvent {
   callsign: string;
 }
 
+export interface FrontendUpdateStripDataEvent {
+  type: ActionType.FrontendUpdateStripData;
+  callsign: string;
+  sid?: string;
+  eobt?: string;
+  route?: string;
+  heading?: number;
+  altitude?: number;
+  stand?: string;
+}
+
 // Union type for all events that can be sent
-export type FrontendSendEvent = FrontendAuthenticationEvent | FrontendMoveEvent | FrontendGenerateSquawkEvent;
+export type FrontendSendEvent = FrontendAuthenticationEvent | FrontendMoveEvent | FrontendGenerateSquawkEvent | FrontendUpdateStripDataEvent;

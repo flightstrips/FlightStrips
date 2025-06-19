@@ -269,6 +269,17 @@ type FrontendGenerateSquawkEvent struct {
 	Callsign string `json:"callsign"`
 }
 
+type FrontendUpdateStripDataEvent struct {
+	Type     EventType `json:"type"`
+	Callsign string    `json:"callsign"`
+	Sid      *string   `json:"sid"`
+	Eobt     *string   `json:"eobt"`
+	Route    *string   `json:"route"`
+	Heading  *int      `json:"heading"`
+	Altitude *int      `json:"altitude"`
+	Stand    *string   `json:"stand"`
+}
+
 type FrontendSendEvent interface {
 	FrontendInitialEvent | FrontendStripUpdateEvent | FrontendDisconnectEvent | FrontendAircraftDisconnectEvent | FrontendStandEvent | FrontendSetHeadingEvent | FrontendCommunicationTypeEvent | FrontendAssignedSquawkEvent | FrontendSquawkEvent | FrontendRequestedAltitudeEvent | FrontendClearedAltitudeEvent | FrontendBayEvent | FrontendControllerOnlineEvent | FrontendControllerOfflineEvent
 }

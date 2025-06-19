@@ -213,6 +213,136 @@ func (e EuroscopeClearedFlagEvent) MarshalJSON() ([]byte, error) {
 	})
 }
 
+func (e EuroscopeAssignedSquawkEvent) MarshalJSON() ([]byte, error) {
+	type Alias EuroscopeAssignedSquawkEvent
+	return json.Marshal(&struct {
+		Type EventType `json:"type"`
+		Alias
+	}{
+		Type:  EuroscopeAssignedSquawk,
+		Alias: (Alias)(e),
+	})
+}
+
+func (e EuroscopeRequestedAltitudeEvent) MarshalJSON() ([]byte, error) {
+	type Alias EuroscopeRequestedAltitudeEvent
+	return json.Marshal(&struct {
+		Type EventType `json:"type"`
+		Alias
+	}{
+		Type:  EuroscopeRequestedAltitude,
+		Alias: (Alias)(e),
+	})
+}
+
+func (e EuroscopeClearedAltitudeEvent) MarshalJSON() ([]byte, error) {
+	type Alias EuroscopeClearedAltitudeEvent
+	return json.Marshal(&struct {
+		Type EventType `json:"type"`
+		Alias
+	}{
+		Type:  EuroscopeClearedAltitude,
+		Alias: (Alias)(e),
+	})
+}
+
+func (e EuroscopeCommunicationTypeEvent) MarshalJSON() ([]byte, error) {
+	type Alias EuroscopeCommunicationTypeEvent
+	return json.Marshal(&struct {
+		Type EventType `json:"type"`
+		Alias
+	}{
+		Type:  EuroscopeCommunicationType,
+		Alias: (Alias)(e),
+	})
+}
+
+func (e EuroscopeHeadingEvent) MarshalJSON() ([]byte, error) {
+	type Alias EuroscopeHeadingEvent
+	return json.Marshal(&struct {
+		Type EventType `json:"type"`
+		Alias
+	}{
+		Type:  EuroscopeSetHeading,
+		Alias: (Alias)(e),
+	})
+}
+
+func (e EuroscopeStandEvent) MarshalJSON() ([]byte, error) {
+	type Alias EuroscopeStandEvent
+	return json.Marshal(&struct {
+		Type EventType `json:"type"`
+		Alias
+	}{
+		Type:  EuroscopeStand,
+		Alias: (Alias)(e),
+	})
+}
+
+type EuroscopeRouteEvent struct {
+	Callsign string `json:"callsign"`
+	Route    string `json:"route"`
+}
+
+type EuroscopeRemarksEvent struct {
+	Callsign string `json:"callsign"`
+	Remarks  string `json:"remarks"`
+}
+
+type EuroscopeSidEvent struct {
+	Callsign string `json:"callsign"`
+	Sid      string `json:"sid"`
+}
+
+type EuroscopeAircraftRunwayEvent struct {
+	Callsign string `json:"callsign"`
+	Runway   string `json:"runway"`
+}
+
+func (e EuroscopeRouteEvent) MarshalJSON() ([]byte, error) {
+	type Alias EuroscopeRouteEvent
+	return json.Marshal(&struct {
+		Type EventType `json:"type"`
+		Alias
+	}{
+		Type:  EuroscopeRoute,
+		Alias: (Alias)(e),
+	})
+}
+
+func (e EuroscopeRemarksEvent) MarshalJSON() ([]byte, error) {
+	type Alias EuroscopeRemarksEvent
+	return json.Marshal(&struct {
+		Type EventType `json:"type"`
+		Alias
+	}{
+		Type:  EuroscopeRemarks,
+		Alias: (Alias)(e),
+	})
+}
+
+func (e EuroscopeSidEvent) MarshalJSON() ([]byte, error) {
+	type Alias EuroscopeSidEvent
+	return json.Marshal(&struct {
+		Type EventType `json:"type"`
+		Alias
+	}{
+		Type:  EuroscopeSid,
+		Alias: (Alias)(e),
+	})
+}
+
+func (e EuroscopeAircraftRunwayEvent) MarshalJSON() ([]byte, error) {
+	type Alias EuroscopeAircraftRunwayEvent
+	return json.Marshal(&struct {
+		Type EventType `json:"type"`
+		Alias
+	}{
+		Type:  EuroscopeAircraftRunway,
+		Alias: (Alias)(e),
+	})
+}
+
 type EuroscopeSendEvent interface {
-	EuroscopeSessionInfoEvent | EuroscopeGenerateSquawkEvent | EuroscopeGroundStateEvent | EuroscopeClearedFlagEvent
+	EuroscopeSessionInfoEvent | EuroscopeGenerateSquawkEvent | EuroscopeGroundStateEvent | EuroscopeClearedFlagEvent | EuroscopeAssignedSquawkEvent | EuroscopeRequestedAltitudeEvent | EuroscopeClearedAltitudeEvent | EuroscopeCommunicationTypeEvent | EuroscopeRouteEvent | EuroscopeRemarksEvent | EuroscopeSidEvent | EuroscopeRunwayEvent | EuroscopeStandEvent | EuroscopeAircraftRunwayEvent | EuroscopeHeadingEvent
 }

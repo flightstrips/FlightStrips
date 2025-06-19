@@ -15,6 +15,9 @@ func (s *Server) frontEndEventHandler(client *FrontendClient, event Event, messa
 	case FrontendGenerateSquawk:
 		err := s.frontendEventGenerateSquawk(client, message)
 		return err
+	case FrontendUpdateStripData:
+		err := s.frontendEventHandlerStripUpdate(client, message)
+		return err
 	default:
 		return fmt.Errorf("unknown event type: %s", event.Type)
 	}

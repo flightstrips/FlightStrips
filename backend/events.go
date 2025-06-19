@@ -33,8 +33,12 @@ const (
 	EuroscopeStand                EventType = "stand"
 	EuroscopeStripUpdate          EventType = "strip_update"
 	EuroscopeRunway               EventType = "runway"
+	EuroscopeAircraftRunway       EventType = "aircraft_runway"
 	EuroscopeSessionInfo          EventType = "session_info"
 	EuroscopeGenerateSquawk       EventType = "generate_squawk"
+	EuroscopeRoute                EventType = "route"
+	EuroscopeRemarks              EventType = "remarks"
+	EuroscopeSid                  EventType = "sid"
 
 	// GoAround - Sent to all FrontEnd Clients
 	// AirportConfigurationChange - Sent to all FrontEnd Clients
@@ -62,8 +66,9 @@ const (
 	FrontendCommunicationType  EventType = "communication_type"
 
 	// Actions:
-	FrontendMove           EventType = "move"
-	FrontendGenerateSquawk EventType = "generate_squawk"
+	FrontendMove            EventType = "move"
+	FrontendGenerateSquawk  EventType = "generate_squawk"
+	FrontendUpdateStripData EventType = "update_strip_data"
 )
 
 type AuthenticationEvent struct {

@@ -131,3 +131,47 @@ func handleGeneralBayUpdate(client *FrontendClient, strip data.Strip, move Front
 	}
 	return nil
 }
+
+func (s *Server) frontendEventHandlerStripUpdate(client *FrontendClient, message []byte) error {
+	var event FrontendUpdateStripDataEvent
+	err := json.Unmarshal(message, &event)
+	if err != nil {
+		return err
+	}
+
+	if event.Route != nil && event.Sid != nil {
+		return errors.New("cannot update both route and sid at the same time")
+	}
+
+	db := data.New(s.DBPool)
+	strip, err := db.GetStrip(context.Background(), data.GetStripParams{Callsign: event.Callsign, Session: client.session})
+	if err != nil {
+		return err
+	}
+
+	if event.Route != nil && strip.Route.String != *event.Route {
+		s.EuroscopeHub.SendRoute(client.user.cid, event.Callsign, *event.Route)
+	}
+
+	if event.Sid != nil && strip.Sid.String != *event.Sid {
+		s.EuroscopeHub.SendSid(client.user.cid, event.Callsign, *event.Sid)
+	}
+
+	if event.Stand != nil && strip.Stand.String != *event.Stand {
+		s.EuroscopeHub.SendStand(client.user.cid, event.Callsign, *event.Stand)
+	}
+
+	if event.Eobt != nil && strip.Eobt.String != *event.Eobt {
+		// TODO add support
+	}
+
+	if event.Altitude != nil && strip.ClearedAltitude.Int32 != int32(*event.Altitude) {
+		s.EuroscopeHub.SendClearedAltitude(client.user.cid, event.Callsign, *event.Altitude)
+	}
+
+	if event.Heading != nil && strip.Heading.Int32 != int32(*event.Heading) {
+		s.EuroscopeHub.SendHeading(client.user.cid, event.Callsign, *event.Heading)
+	}
+
+	return nil
+}

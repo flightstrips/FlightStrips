@@ -23,6 +23,15 @@ import {
 } from '../api/models.ts';
 import {WebSocketClient} from '../api/websocket.ts';
 
+export interface UpdateStrip {
+  sid?: string
+  eobt?: string;
+  route?: string
+  heading?: number;
+  altitude?: number;
+  stand?: string;
+}
+
 // Define the state interface for our store
 export interface WebSocketState {
   controllers: FrontendController[];
@@ -36,6 +45,7 @@ export interface WebSocketState {
   // actions
   move: (callsign: string, bay: Bay) => void;
   generateSquawk: (callsign: string) => void;
+  updateStrip(callsign: string, update: UpdateStrip): void;
 }
 
 // Create the store using createVanilla
@@ -72,6 +82,42 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     generateSquawk: (callsign) => {
         wsClient.send({type: ActionType.FrontendGenerateSquawk, callsign})
     },
+    updateStrip(callsign: string, update: UpdateStrip) {
+      wsClient.send({
+        type: ActionType.FrontendUpdateStripData,
+        callsign,
+        eobt: update.eobt,
+        route: update.route,
+        sid: update.sid,
+        heading: update.heading,
+        altitude: update.altitude,
+        stand: update.stand,
+      })
+
+      return produce((state: WebSocketState) => {
+        const stripIndex = state.strips.findIndex(strip => strip.callsign === callsign);
+        if (stripIndex !== -1) {
+          if (update.sid) {
+            state.strips[stripIndex].sid = update.sid;
+          }
+          if (update.eobt) {
+            state.strips[stripIndex].eobt = update.eobt;
+          }
+          if (update.route) {
+            state.strips[stripIndex].route = update.route;
+          }
+          if (update.heading) {
+            state.strips[stripIndex].heading = update.heading;
+          }
+          if (update.altitude) {
+            state.strips[stripIndex].cleared_altitude = update.altitude;
+          }
+          if (update.stand) {
+            state.strips[stripIndex].stand = update.stand;
+          }
+        }
+      })
+    }
   }));
 
   // Private methods to handle WebSocket events

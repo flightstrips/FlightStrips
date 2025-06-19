@@ -117,6 +117,78 @@ func (hub *EuroscopeHub) SendClearedFlag(cid string, callsign string, flag bool)
 	sendEuroscopeEventInternal(hub, cid, event)
 }
 
+func (hub *EuroscopeHub) SendStand(cid string, callsign string, stand string) {
+	event := EuroscopeStandEvent{
+		Callsign: callsign,
+		Stand:    stand,
+	}
+
+	sendEuroscopeEventInternal(hub, cid, event)
+}
+
+func (hub *EuroscopeHub) SendRoute(cid string, callsign string, route string) {
+	event := EuroscopeRouteEvent{
+		Callsign: callsign,
+		Route:    route,
+	}
+
+	sendEuroscopeEventInternal(hub, cid, event)
+}
+
+func (hub *EuroscopeHub) SendRemarks(cid string, callsign string, remarks string) {
+	event := EuroscopeRemarksEvent{
+		Callsign: callsign,
+		Remarks:  remarks,
+	}
+
+	sendEuroscopeEventInternal(hub, cid, event)
+}
+
+func (hub *EuroscopeHub) SendSid(cid string, callsign string, sid string) {
+	event := EuroscopeSidEvent{
+		Callsign: callsign,
+		Sid:      sid,
+	}
+
+	sendEuroscopeEventInternal(hub, cid, event)
+}
+
+func (hub *EuroscopeHub) SendAssignedSquawk(cid string, callsign string, squawk string) {
+	event := EuroscopeAssignedSquawkEvent{
+		Callsign: callsign,
+		Squawk:   squawk,
+	}
+
+	sendEuroscopeEventInternal(hub, cid, event)
+}
+
+func (hub *EuroscopeHub) SendRunway(cid string, callsign string, runway string) {
+	event := EuroscopeAircraftRunwayEvent{
+		Callsign: callsign,
+		Runway:   runway,
+	}
+
+	sendEuroscopeEventInternal(hub, cid, event)
+}
+
+func (hub *EuroscopeHub) SendClearedAltitude(cid string, callsign string, altitude int) {
+	event := EuroscopeClearedAltitudeEvent{
+		Callsign: callsign,
+		Altitude: altitude,
+	}
+
+	sendEuroscopeEventInternal(hub, cid, event)
+}
+
+func (hub *EuroscopeHub) SendHeading(cid string, callsign string, heading int) {
+	event := EuroscopeHeadingEvent{
+		Callsign: callsign,
+		Heading:  heading,
+	}
+
+	sendEuroscopeEventInternal(hub, cid, event)
+}
+
 func sendEuroscopeEventInternal[T EuroscopeSendEvent](hub *EuroscopeHub, cid string, event T) {
 	eventSent := false
 	for client := range hub.clients {

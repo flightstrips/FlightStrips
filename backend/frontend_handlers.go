@@ -175,3 +175,112 @@ func (s *Server) frontendEventHandlerStripUpdate(client *FrontendClient, message
 
 	return nil
 }
+
+func (s *Server) frontendEventHandlerCoordinationTransferRequest(client *FrontendClient, message []byte) error {
+	var req CoordinationTransferRequestEvent
+	if err := json.Unmarshal(message, &req); err != nil {
+		return err
+	}
+	position := client.position
+	db := data.New(s.DBPool)
+	strip, err := db.GetStrip(context.Background(), data.GetStripParams{Callsign: req.Callsign, Session: client.session})
+	if err != nil {
+		return err
+	}
+
+	if !strip.Owner.Valid || strip.Owner.String != position {
+		return errors.New("cannot transfer strip which is not assumed")
+	}
+
+	_, err = db.CreateCoordination(
+		context.Background(),
+		data.CreateCoordinationParams{
+			Session:      client.session,
+			StripID:      strip.ID,
+			FromPosition: position,
+			ToPosition:   req.To,
+		},
+	)
+	if err != nil {
+		return err
+	}
+	s.FrontendHub.SendCoordinationTransfer(client.session, req.Callsign, position, req.To)
+	return nil
+}
+
+func (s *Server) frontendEventHandlerCoordinationAssumeRequest(client *FrontendClient, message []byte) error {
+	var req CoordinationAssumeRequestEvent
+	if err := json.Unmarshal(message, &req); err != nil {
+		return err
+	}
+	db := data.New(s.DBPool)
+
+	strip, err := db.GetStrip(context.Background(), data.GetStripParams{Callsign: req.Callsign, Session: client.session})
+	if err != nil {
+		return err
+	}
+	// Strip is not owned by anyone assume it
+	if !strip.Owner.Valid || strip.Owner.String == "" {
+		err2 := SetOwner(client, db, req, strip, s)
+		if err2 != nil {
+			return err2
+		}
+		return nil
+	}
+	coordination, err := db.GetCoordinationByStripID(context.Background(), data.GetCoordinationByStripIDParams{StripID: strip.ID, Session: client.session})
+	if err != nil {
+		return err
+	}
+
+	if coordination.ToPosition != client.position {
+		return errors.New("cannot assume strip which is not transferred to you")
+	}
+
+	_, err = db.DeleteCoordinationByID(context.Background(), coordination.ID)
+	if err != nil {
+		return err
+	}
+	err = SetOwner(client, db, req, strip, s)
+	return err
+}
+
+func SetOwner(client *FrontendClient, db *data.Queries, req CoordinationAssumeRequestEvent, strip data.Strip, s *Server) error {
+	count, err := db.SetStripOwner(context.Background(), data.SetStripOwnerParams{
+		Owner: pgtype.Text{Valid: true, String: client.position}, Callsign: req.Callsign, Session: client.session, Version: strip.Version,
+	})
+
+	if err != nil {
+		return err
+	}
+
+	if count != 1 {
+		return errors.New("failed to set strip owner")
+	}
+
+	s.FrontendHub.SendCoordinationAssume(client.session, req.Callsign, client.position)
+	return nil
+}
+
+func (s *Server) frontendEventHandlerCoordinationRejectRequest(client *FrontendClient, message []byte) error {
+	var req CoordinationRejectRequestEvent
+	if err := json.Unmarshal(message, &req); err != nil {
+		return err
+	}
+	db := data.New(s.DBPool)
+
+	coordination, err := db.GetCoordinationByStripCallsign(context.Background(), data.GetCoordinationByStripCallsignParams{Callsign: req.Callsign, Session: client.session})
+	if err != nil {
+		return err
+	}
+
+	if coordination.ToPosition != client.position {
+		return errors.New("cannot reject strip which is not transferred to you")
+	}
+
+	_, err = db.DeleteCoordinationByID(context.Background(), coordination.ID)
+	if err != nil {
+		return err
+	}
+	s.FrontendHub.SendCoordinationReject(client.session, req.Callsign, client.position)
+	return nil
+}

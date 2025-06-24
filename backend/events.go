@@ -65,10 +65,17 @@ const (
 	FrontendSetHeading         EventType = "heading"
 	FrontendCommunicationType  EventType = "communication_type"
 
+	CoordinationTransferRequestType EventType = "coordination_transfer_request"
+	CoordinationAssumeRequestType   EventType = "coordination_assume_request"
+	CoordinationRejectRequestType   EventType = "coordination_reject_request"
+
 	// Actions:
-	FrontendMove            EventType = "move"
-	FrontendGenerateSquawk  EventType = "generate_squawk"
-	FrontendUpdateStripData EventType = "update_strip_data"
+	FrontendMove                      EventType = "move"
+	FrontendGenerateSquawk            EventType = "generate_squawk"
+	FrontendUpdateStripData           EventType = "update_strip_data"
+	CoordinationAssumeBroadcastType   EventType = "coordination_assume_broadcast"
+	CoordinationRejectBroadcastType   EventType = "coordination_reject_broadcast"
+	CoordinationTransferBroadcastType EventType = "coordination_transfer_broadcast"
 )
 
 type AuthenticationEvent struct {

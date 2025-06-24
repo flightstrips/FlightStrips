@@ -18,6 +18,50 @@ type BulkInsertControllersParams struct {
 	Position string
 }
 
+const createCoordination = `-- name: CreateCoordination :one
+INSERT INTO coordinations (session, strip_id, from_position, to_position)
+VALUES ($1, $2, $3, $4)
+    RETURNING id, session, strip_id, from_position, to_position, coordinated_at
+`
+
+type CreateCoordinationParams struct {
+	Session      int32
+	StripID      int32
+	FromPosition string
+	ToPosition   string
+}
+
+func (q *Queries) CreateCoordination(ctx context.Context, arg CreateCoordinationParams) (Coordination, error) {
+	row := q.db.QueryRow(ctx, createCoordination,
+		arg.Session,
+		arg.StripID,
+		arg.FromPosition,
+		arg.ToPosition,
+	)
+	var i Coordination
+	err := row.Scan(
+		&i.ID,
+		&i.Session,
+		&i.StripID,
+		&i.FromPosition,
+		&i.ToPosition,
+		&i.CoordinatedAt,
+	)
+	return i, err
+}
+
+const deleteCoordinationByID = `-- name: DeleteCoordinationByID :execrows
+DELETE FROM coordinations WHERE id = $1
+`
+
+func (q *Queries) DeleteCoordinationByID(ctx context.Context, id int32) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteCoordinationByID, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const deleteSession = `-- name: DeleteSession :execrows
 DELETE FROM sessions WHERE id = $1
 `
@@ -71,6 +115,52 @@ func (q *Queries) GetControllerByCid(ctx context.Context, cid string) (Controlle
 		&i.Cid,
 		&i.LastSeenEuroscope,
 		&i.LastSeenFrontend,
+	)
+	return i, err
+}
+
+const getCoordinationByStripCallsign = `-- name: GetCoordinationByStripCallsign :one
+SELECT c.id, c.session, c.strip_id, c.from_position, c.to_position, c.coordinated_at FROM coordinations c JOIN strips s ON s.id = c.strip_id WHERE s.session = $1 AND s.callsign = $2
+`
+
+type GetCoordinationByStripCallsignParams struct {
+	Session  int32
+	Callsign string
+}
+
+func (q *Queries) GetCoordinationByStripCallsign(ctx context.Context, arg GetCoordinationByStripCallsignParams) (Coordination, error) {
+	row := q.db.QueryRow(ctx, getCoordinationByStripCallsign, arg.Session, arg.Callsign)
+	var i Coordination
+	err := row.Scan(
+		&i.ID,
+		&i.Session,
+		&i.StripID,
+		&i.FromPosition,
+		&i.ToPosition,
+		&i.CoordinatedAt,
+	)
+	return i, err
+}
+
+const getCoordinationByStripID = `-- name: GetCoordinationByStripID :one
+SELECT id, session, strip_id, from_position, to_position, coordinated_at FROM coordinations WHERE session = $1 AND strip_id = $2
+`
+
+type GetCoordinationByStripIDParams struct {
+	Session int32
+	StripID int32
+}
+
+func (q *Queries) GetCoordinationByStripID(ctx context.Context, arg GetCoordinationByStripIDParams) (Coordination, error) {
+	row := q.db.QueryRow(ctx, getCoordinationByStripID, arg.Session, arg.StripID)
+	var i Coordination
+	err := row.Scan(
+		&i.ID,
+		&i.Session,
+		&i.StripID,
+		&i.FromPosition,
+		&i.ToPosition,
+		&i.CoordinatedAt,
 	)
 	return i, err
 }
@@ -330,6 +420,37 @@ func (q *Queries) ListControllers(ctx context.Context, session int32) ([]Control
 	return items, nil
 }
 
+const listCoordinationsBySession = `-- name: ListCoordinationsBySession :many
+SELECT id, session, strip_id, from_position, to_position, coordinated_at FROM coordinations WHERE session = $1 ORDER BY coordinated_at DESC
+`
+
+func (q *Queries) ListCoordinationsBySession(ctx context.Context, session int32) ([]Coordination, error) {
+	rows, err := q.db.Query(ctx, listCoordinationsBySession, session)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Coordination
+	for rows.Next() {
+		var i Coordination
+		if err := rows.Scan(
+			&i.ID,
+			&i.Session,
+			&i.StripID,
+			&i.FromPosition,
+			&i.ToPosition,
+			&i.CoordinatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listSessionsByAirport = `-- name: ListSessionsByAirport :many
 SELECT id, name, airport FROM sessions WHERE airport = $1
 `
@@ -578,6 +699,30 @@ type SetControllerPositionParams struct {
 
 func (q *Queries) SetControllerPosition(ctx context.Context, arg SetControllerPositionParams) (int64, error) {
 	result, err := q.db.Exec(ctx, setControllerPosition, arg.Position, arg.Callsign, arg.Session)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const setStripOwner = `-- name: SetStripOwner :execrows
+UPDATE strips SET owner = $1, version = version + 1 WHERE callsign = $2 AND session = $3 AND version = $4
+`
+
+type SetStripOwnerParams struct {
+	Owner    pgtype.Text
+	Callsign string
+	Session  int32
+	Version  int32
+}
+
+func (q *Queries) SetStripOwner(ctx context.Context, arg SetStripOwnerParams) (int64, error) {
+	result, err := q.db.Exec(ctx, setStripOwner,
+		arg.Owner,
+		arg.Callsign,
+		arg.Session,
+		arg.Version,
+	)
 	if err != nil {
 		return 0, err
 	}

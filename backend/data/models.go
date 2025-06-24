@@ -30,6 +30,15 @@ type Controller struct {
 	LastSeenFrontend  pgtype.Timestamp
 }
 
+type Coordination struct {
+	ID            int32
+	Session       int32
+	StripID       int32
+	FromPosition  string
+	ToPosition    string
+	CoordinatedAt pgtype.Timestamp
+}
+
 type Session struct {
 	ID      int32
 	Name    string

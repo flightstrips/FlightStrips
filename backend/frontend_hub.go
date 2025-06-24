@@ -292,6 +292,43 @@ func (hub *FrontendHub) SendCommunicationTypeEvent(session int32, callsign strin
 	hub.broadcast <- FrontendBroadcastMessage{session: session, message: message}
 }
 
+func (hub *FrontendHub) SendCoordinationTransfer(session int32, callsign, from, to string) {
+	event := CoordinationTransferBroadcastEvent{
+		Callsign: callsign,
+		From:     from,
+		To:       to,
+	}
+	message, err := json.Marshal(event)
+	if err != nil {
+		return
+	}
+	hub.broadcast <- FrontendBroadcastMessage{session: session, message: message}
+}
+
+func (hub *FrontendHub) SendCoordinationAssume(session int32, callsign, position string) {
+	event := CoordinationAssumeBroadcastEvent{
+		Callsign: callsign,
+		Position: position,
+	}
+	message, err := json.Marshal(event)
+	if err != nil {
+		return
+	}
+	hub.broadcast <- FrontendBroadcastMessage{session: session, message: message}
+}
+
+func (hub *FrontendHub) SendCoordinationReject(session int32, callsign, position string) {
+	event := CoordinationRejectBroadcastEvent{
+		Callsign: callsign,
+		Position: position,
+	}
+	message, err := json.Marshal(event)
+	if err != nil {
+		return
+	}
+	hub.broadcast <- FrontendBroadcastMessage{session: session, message: message}
+}
+
 func (hub *FrontendHub) Run() {
 	for {
 		select {

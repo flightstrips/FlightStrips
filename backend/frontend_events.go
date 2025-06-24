@@ -283,3 +283,77 @@ type FrontendUpdateStripDataEvent struct {
 type FrontendSendEvent interface {
 	FrontendInitialEvent | FrontendStripUpdateEvent | FrontendDisconnectEvent | FrontendAircraftDisconnectEvent | FrontendStandEvent | FrontendSetHeadingEvent | FrontendCommunicationTypeEvent | FrontendAssignedSquawkEvent | FrontendSquawkEvent | FrontendRequestedAltitudeEvent | FrontendClearedAltitudeEvent | FrontendBayEvent | FrontendControllerOnlineEvent | FrontendControllerOfflineEvent
 }
+
+// ---------- TRANSFER ----------
+
+type CoordinationTransferRequestEvent struct {
+	Type     string `json:"type"`
+	To       string `json:"to"`
+	Callsign string `json:"callsign"`
+}
+
+type CoordinationTransferBroadcastEvent struct {
+	Type     string `json:"type"`
+	From     string `json:"from"`
+	To       string `json:"to"`
+	Callsign string `json:"callsign"`
+}
+
+func (e CoordinationTransferBroadcastEvent) MarshalJSON() ([]byte, error) {
+	type Alias CoordinationTransferBroadcastEvent
+	return json.Marshal(&struct {
+		Type EventType `json:"type"`
+		Alias
+	}{
+		Type:  CoordinationTransferBroadcastType,
+		Alias: (Alias)(e),
+	})
+}
+
+// ---------- ASSUME ----------
+
+type CoordinationAssumeRequestEvent struct {
+	Type     string `json:"type"`
+	Callsign string `json:"callsign"`
+}
+
+type CoordinationAssumeBroadcastEvent struct {
+	Type     string `json:"type"`
+	Position string `json:"position"`
+	Callsign string `json:"callsign"`
+}
+
+func (e CoordinationAssumeBroadcastEvent) MarshalJSON() ([]byte, error) {
+	type Alias CoordinationAssumeBroadcastEvent
+	return json.Marshal(&struct {
+		Type EventType `json:"type"`
+		Alias
+	}{
+		Type:  CoordinationAssumeBroadcastType,
+		Alias: (Alias)(e),
+	})
+}
+
+// ---------- REJECT ----------
+
+type CoordinationRejectRequestEvent struct {
+	Type     string `json:"type"`
+	Callsign string `json:"callsign"`
+}
+
+type CoordinationRejectBroadcastEvent struct {
+	Type     string `json:"type"`
+	Position string `json:"position"`
+	Callsign string `json:"callsign"`
+}
+
+func (e CoordinationRejectBroadcastEvent) MarshalJSON() ([]byte, error) {
+	type Alias CoordinationRejectBroadcastEvent
+	return json.Marshal(&struct {
+		Type EventType `json:"type"`
+		Alias
+	}{
+		Type:  CoordinationRejectBroadcastType,
+		Alias: (Alias)(e),
+	})
+}

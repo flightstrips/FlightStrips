@@ -18,6 +18,15 @@ func (s *Server) frontEndEventHandler(client *FrontendClient, event Event, messa
 	case FrontendUpdateStripData:
 		err := s.frontendEventHandlerStripUpdate(client, message)
 		return err
+	case CoordinationTransferRequestType:
+		err := s.frontendEventHandlerCoordinationTransferRequest(client, message)
+		return err
+	case CoordinationAssumeRequestType:
+		err := s.frontendEventHandlerCoordinationAssumeRequest(client, message)
+		return err
+	case CoordinationRejectRequestType:
+		err := s.frontendEventHandlerCoordinationRejectRequest(client, message)
+		return err
 	default:
 		return fmt.Errorf("unknown event type: %s", event.Type)
 	}

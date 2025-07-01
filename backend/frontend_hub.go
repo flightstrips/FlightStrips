@@ -329,6 +329,17 @@ func (hub *FrontendHub) SendCoordinationReject(session int32, callsign, position
 	hub.broadcast <- FrontendBroadcastMessage{session: session, message: message}
 }
 
+func (hub *FrontendHub) SendCoordinationFree(session int32, callsign string) {
+	event := CoordinationFreeBroadcastEvent{
+		Callsign: callsign,
+	}
+	message, err := json.Marshal(event)
+	if err != nil {
+		return
+	}
+	hub.broadcast <- FrontendBroadcastMessage{session: session, message: message}
+}
+
 func (hub *FrontendHub) Run() {
 	for {
 		select {

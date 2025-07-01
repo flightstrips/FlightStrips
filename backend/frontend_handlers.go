@@ -284,3 +284,34 @@ func (s *Server) frontendEventHandlerCoordinationRejectRequest(client *FrontendC
 	s.FrontendHub.SendCoordinationReject(client.session, req.Callsign, client.position)
 	return nil
 }
+
+func (s *Server) frontendEventHandlerCoordinationFreeRequest(client *FrontendClient, message []byte) error {
+	var req CoordinationFreeRequestEvent
+	if err := json.Unmarshal(message, &req); err != nil {
+		return err
+	}
+	db := data.New(s.DBPool)
+
+	strip, err := db.GetStrip(context.Background(), data.GetStripParams{Callsign: req.Callsign, Session: client.session})
+	if err != nil {
+		return err
+	}
+
+	if strip.Owner.String != client.position {
+		return errors.New("cannot free strip which is not owned by you")
+	}
+
+	count, err := db.SetStripOwner(context.Background(), data.SetStripOwnerParams{Owner: pgtype.Text{Valid: false}, Callsign: req.Callsign, Session: client.session, Version: strip.Version})
+
+	if err != nil {
+		return err
+	}
+
+	if count != 1 {
+		return errors.New("failed to set strip owner")
+	}
+
+	s.FrontendHub.SendCoordinationFree(client.session, req.Callsign)
+
+	return nil
+}

@@ -27,6 +27,9 @@ func (s *Server) frontEndEventHandler(client *FrontendClient, event Event, messa
 	case CoordinationRejectRequestType:
 		err := s.frontendEventHandlerCoordinationRejectRequest(client, message)
 		return err
+	case CoordinationFreeRequestType:
+		err := s.frontendEventHandlerCoordinationFreeRequest(client, message)
+		return err
 	default:
 		return fmt.Errorf("unknown event type: %s", event.Type)
 	}

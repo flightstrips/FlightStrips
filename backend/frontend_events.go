@@ -357,3 +357,26 @@ func (e CoordinationRejectBroadcastEvent) MarshalJSON() ([]byte, error) {
 		Alias: (Alias)(e),
 	})
 }
+
+// ---------- FREE ------------
+
+type CoordinationFreeRequestEvent struct {
+	Type     string `json:"type"`
+	Callsign string `json:"callsign"`
+}
+
+type CoordinationFreeBroadcastEvent struct {
+	Type     string `json:"type"`
+	Callsign string `json:"callsign"`
+}
+
+func (e CoordinationFreeBroadcastEvent) MarshalJSON() ([]byte, error) {
+	type Alias CoordinationFreeBroadcastEvent
+	return json.Marshal(&struct {
+		Type EventType `json:"type"`
+		Alias
+	}{
+		Type:  CoordinationFreeBroadcastType,
+		Alias: (Alias)(e),
+	})
+}

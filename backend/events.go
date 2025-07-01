@@ -68,6 +68,7 @@ const (
 	CoordinationTransferRequestType EventType = "coordination_transfer_request"
 	CoordinationAssumeRequestType   EventType = "coordination_assume_request"
 	CoordinationRejectRequestType   EventType = "coordination_reject_request"
+	CoordinationFreeRequestType     EventType = "coordination_free_request"
 
 	// Actions:
 	FrontendMove                      EventType = "move"
@@ -76,6 +77,7 @@ const (
 	CoordinationAssumeBroadcastType   EventType = "coordination_assume_broadcast"
 	CoordinationRejectBroadcastType   EventType = "coordination_reject_broadcast"
 	CoordinationTransferBroadcastType EventType = "coordination_transfer_broadcast"
+	CoordinationFreeBroadcastType     EventType = "coordination_free_broadcast"
 )
 
 type AuthenticationEvent struct {

@@ -45,6 +45,7 @@ export interface WebSocketState {
   // actions
   move: (callsign: string, bay: Bay) => void;
   generateSquawk: (callsign: string) => void;
+
   updateStrip(callsign: string, update: UpdateStrip): void;
 }
 
@@ -80,7 +81,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
       }
     ),
     generateSquawk: (callsign) => {
-        wsClient.send({type: ActionType.FrontendGenerateSquawk, callsign})
+      wsClient.send({type: ActionType.FrontendGenerateSquawk, callsign})
     },
     updateStrip(callsign: string, update: UpdateStrip) {
       wsClient.send({

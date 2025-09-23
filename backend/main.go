@@ -2,6 +2,7 @@ package main
 
 import (
 	"FlightStrips/data"
+	"FlightStrips/taxi"
 	"context"
 	_ "database/sql"
 	"errors"
@@ -71,6 +72,7 @@ func main() {
 	}
 
 	ctx := context.Background()
+	taxi.InitRoutes()
 	dbpool, err := pgxpool.New(ctx, os.Getenv("DATABASE_CONNECTIONSTRING"))
 	if err != nil {
 		log.Fatal(err)

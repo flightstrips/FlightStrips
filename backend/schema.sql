@@ -78,8 +78,7 @@ CREATE TABLE IF NOT EXISTS coordinations (
     strip_id INTEGER REFERENCES strips(id) ON DELETE CASCADE NOT NULL,
     from_position VARCHAR(7) NOT NULL,
     to_position VARCHAR(7) NOT NULL,
-    coordinated_at TIMESTAMP NOT NULL DEFAULT now(),
-    UNIQUE (session, callsign)
+    coordinated_at TIMESTAMP NOT NULL DEFAULT now()
 );
 
 CREATE INDEX IF NOT EXISTS idx_coordinations_session

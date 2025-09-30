@@ -1,9 +1,7 @@
-﻿package taxi
+﻿package config
 
 import (
 	"fmt"
-	"io"
-	"os"
 	"strconv"
 	"strings"
 
@@ -154,26 +152,20 @@ type Route struct {
 	Name           string       `yaml:"name"`
 	ForRunway      string       `yaml:"forRunway"`      // e.g., "RWY27" or "27" (case-insensitive)
 	ForStandRanges []StandRange `yaml:"forStandRanges"` // e.g., A10-A20, B5-B10, or single stands like W1 (From=To=1)
-	Path           []string     `yaml:"path"`           // ordered sector names from general origin area to destination
-	RequiredActive []string     `yaml:"requiredActive"` // all of these "active" flags must be present to use this route
+	Path           []string     `yaml:"path"`           // ordered Sector names from general origin area to destination
+	Active         []string     `yaml:"active"`         // all of these "active" flags must be present to use this route
 }
 
-// RunwayRoutes maps a runway to all available routes for that runway.
-var RunwayRoutes = map[string][]Route{}
-
-// StandRoutes lists all stand-based routes (ranges are matched at runtime).
-var StandRoutes []Route
-
 // ComputeToRunway selects a route to the given runway that is valid under the current
-// active sector flags and contains the aircraft's current sector within its path.
-// Returns the subsequence of sectors from the current sector to the end of the route.
+// active Sector flags and contains the aircraft's current Sector within its path.
+// Returns the subsequence of config from the current Sector to the end of the route.
 func ComputeToRunway(active []string, currentSector string, runway string) ([]string, bool) {
-	candidates := RunwayRoutes[normalizeRunway(runway)]
+	candidates := runwayRoutes[normalizeRunway(runway)]
 	if len(candidates) == 0 {
 		return nil, false
 	}
 	for _, r := range candidates {
-		if !hasAllActive(active, r.RequiredActive) {
+		if !hasAllActive(active, r.Active) {
 			continue
 		}
 		startIdx := indexOfSector(r.Path, currentSector)
@@ -186,15 +178,15 @@ func ComputeToRunway(active []string, currentSector string, runway string) ([]st
 }
 
 // ComputeToStand selects a route to the given destination stand that is valid under
-// current active flags and contains the aircraft's current sector within its path.
-// Returns the subsequence of sectors from the current sector to the end of the route.
+// current active flags and contains the aircraft's current Sector within its path.
+// Returns the subsequence of config from the current Sector to the end of the route.
 // Note: Single stands are represented as ranges with From == To.
 func ComputeToStand(active []string, currentSector string, standStr string) ([]string, bool) {
 	st, err := ParseStand(standStr)
 	if err != nil {
 		return nil, false
 	}
-	for _, r := range StandRoutes {
+	for _, r := range standRoutes {
 		if len(r.ForStandRanges) == 0 {
 			continue
 		}
@@ -209,7 +201,7 @@ func ComputeToStand(active []string, currentSector string, standStr string) ([]s
 		if !matched {
 			continue
 		}
-		if !hasAllActive(active, r.RequiredActive) {
+		if !hasAllActive(active, r.Active) {
 			continue
 		}
 		startIdx := indexOfSector(r.Path, currentSector)
@@ -217,7 +209,7 @@ func ComputeToStand(active []string, currentSector string, standStr string) ([]s
 			continue
 		}
 		// Without coverage mapping, the route's Path is assumed to lead to the stands;
-		// return from current sector to the end of the path.
+		// return from current Sector to the end of the path.
 		return r.Path[startIdx:], true
 	}
 	return nil, false
@@ -250,77 +242,4 @@ func indexOfSector(path []string, sector string) int {
 		}
 	}
 	return -1
-}
-
-// RoutesConfig is a YAML root that contains a list of routes.
-// Each route must specify exactly one of forRunway or forStandRanges.
-type RoutesConfig struct {
-	Routes []Route `yaml:"routes"`
-}
-
-// LoadRoutesYAML reads YAML from r and populates RunwayRoutes and StandRoutes.
-// If both are already populated, they will be replaced by the contents of the YAML.
-func LoadRoutesYAML(r io.Reader) error {
-	var cfg RoutesConfig
-	dec := yaml.NewDecoder(r)
-	dec.KnownFields(true)
-	if err := dec.Decode(&cfg); err != nil {
-		return fmt.Errorf("decode routes YAML: %w", err)
-	}
-
-	newRunway := make(map[string][]Route)
-	var newStands []Route
-
-	for i, rt := range cfg.Routes {
-		runway := strings.TrimSpace(rt.ForRunway)
-		hasRunway := runway != ""
-		hasStands := len(rt.ForStandRanges) > 0
-
-		if hasRunway == hasStands {
-			return fmt.Errorf("route %d (%q): must specify exactly one of forRunway or forStandRanges", i, rt.Name)
-		}
-		if len(rt.Path) == 0 {
-			return fmt.Errorf("route %d (%q): path must not be empty", i, rt.Name)
-		}
-
-		// Normalize required actives and path elements for consistency.
-		for j := range rt.RequiredActive {
-			rt.RequiredActive[j] = strings.TrimSpace(rt.RequiredActive[j])
-		}
-		for j := range rt.Path {
-			rt.Path[j] = strings.TrimSpace(rt.Path[j])
-		}
-
-		if hasRunway {
-			key := normalizeRunway(runway)
-			rt.ForRunway = key
-			newRunway[key] = append(newRunway[key], rt)
-		} else {
-			// normalize prefixes in stand ranges
-			for j := range rt.ForStandRanges {
-				rt.ForStandRanges[j].Prefix = strings.ToUpper(strings.TrimSpace(rt.ForStandRanges[j].Prefix))
-			}
-			newStands = append(newStands, rt)
-		}
-	}
-
-	RunwayRoutes = newRunway
-	StandRoutes = newStands
-	return nil
-}
-
-func InitRoutes() {
-	f, err := os.Open("taxi/ekch.yaml")
-	if err != nil {
-		panic(err)
-	}
-	defer func(f *os.File) {
-		err := f.Close()
-		if err != nil {
-			panic(err)
-		}
-	}(f)
-	if err := LoadRoutesYAML(f); err != nil {
-		panic(err)
-	}
 }

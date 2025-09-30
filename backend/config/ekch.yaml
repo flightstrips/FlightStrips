@@ -1,0 +1,177 @@
+﻿positions:
+  - name: "EKCH_DEL"
+    frequency: "119.905"
+  - name: "EKCH_A_GND"
+    frequency: "121.630"
+  - name: "EKCH_B_GND"
+    frequency: "121.905"
+  - name: "EKCH_C_GND"
+    frequency: "121.730"
+  - name: "EKCH_D_TWR"
+    frequency: "119.355"
+  - name: "EKCH_A_TWR"
+    frequency: "118.105"
+  - name: "EKCH_C_TWR"
+    frequency: "118.580"
+  - name: "EKCH_FMH"
+    frequency: "120.500"
+
+sectors:
+  - name: DEL
+    name_priority: 10
+    active: [ ]
+    owner:
+      - "EKCH_DEL"
+      - "EKCH_A_GND"
+      - "EKCH_B_GND"
+      - "EKCH_C_TWR"
+      - "EKCH_D_TWR"
+      - "EKCH_A_TWR"
+  - name: SQ
+    name_priority: 0
+    active: [ ]
+    owner:
+      - "EKCH_B_GND"
+
+  # Apron
+  - name: AA
+    name_priority: 30
+    region: APRON_NORTH
+    active: [ ]
+    constraints:
+      departure: false
+      arrival: true
+    owner:
+      - "EKCH_A_GND"
+      - "EKCH_B_GND"
+      - "EKCH_C_TWR"
+      - "EKCH_D_TWR"
+      - "EKCH_A_TWR"
+  - name: AD
+    name_priority: 20
+    active: [ ]
+    region: APRON_NORTH
+    constraints:
+      departure: true
+      arrival: false
+    owner:
+      - "EKCH_C_GND"
+      - "EKCH_B_GND"
+      - "EKCH_A_GND"
+      - "EKCH_C_TWR"
+      - "EKCH_D_TWR"
+      - "EKCH_A_TWR"
+  - name: GW
+    name_priority: 40
+    active: [ ]
+    region: GROUND_WEST
+    owner:
+      - "EKCH_C_TWR"
+      - "EKCH_D_TWR"
+      - "EKCH_A_TWR"
+
+  # Towers 22s
+  - name: TE
+    name_priority: 50
+    active: ["22L", "22R"]
+    region: TOWER_EAST
+    owner:
+      - "EKCH_A_TWR"
+      - "EKCH_D_TWR"
+      - "EKCH_C_TWR"
+  - name: TW
+    name_priority: 50
+    active: ["22L", "22R"]
+    region: TOWER_WEST
+    owner:
+      - "EKCH_D_TWR"
+      - "EKCH_A_TWR"
+      - "EKCH_C_TWR"
+
+  # Towers 04s
+  - name: TE
+    name_priority: 50
+    active: ["04L", "04R"]
+    region: TOWER_EAST
+    owner:
+      - "EKCH_D_TWR"
+      - "EKCH_A_TWR"
+      - "EKCH_C_TWR"
+  - name: TW
+    name_priority: 50
+    active: ["04L", "04R"]
+    region: TOWER_WEST
+    owner:
+      - "EKCH_A_TWR"
+      - "EKCH_D_TWR"
+      - "EKCH_C_TWR"
+
+
+routes:
+  - name: Stands to Runway 22R
+    forRunway: 22R
+    active: [22R]
+    path: [APRON_NORTH, GROUND_WEST, TOWER_WEST]
+  - name: Stands to Runway 04R
+    forRunway: 04R
+    active: [04R]
+    path: [APRON_NORTH, GROUND_WEST, TOWER_EAST]
+  - name: Stands to Runway 22R cargo
+    forRunway: 22R
+    active: [22R]
+    path: [APRON_EAST, TOWER_EAST, GROUND_WEST, TOWER_WEST]
+  - name: Stands to Runway 04R cargo
+    forRunway: 04R
+    active: [04R]
+    path: [APRON_EAST, TOWER_WEST]
+  # TODO rest of the runways
+  - name: Runway 22L/04R to high A stands
+    forStandRanges:
+      - A17-A33
+      - A4
+      - A6
+      - A8
+    active: [22L, 04R]
+    path: [TOWER_EAST, GROUND_WEST, APRON_NORTH]
+  - name: Runway 22L/04R to cargo
+    forStandRanges:
+      - G110-G137
+    active: [22L, 04R]
+    path: [TOWER_EAST, APRON_EAST]
+  - name: Runway 22L to rest
+    forStandRanges:
+      - A7
+      - A9-A15
+      - B3-B19
+      - C10-C27
+      - D1-D4
+      - E20-E90
+      - F1-F99
+      - H101-H106
+    active: [22L, 04R]
+    path: [TOWER_EAST, APRON_NORTH]
+  - name: Runway 04L/22R to high A stands
+    forStandRanges:
+      - A17-A33
+      - A4
+      - A6
+      - A8
+    active: [04L, 22R]
+    path: [TOWER_WEST, GROUND_WEST, APRON_NORTH]
+  - name: Runway 04L/22R to cargo
+    forStandRanges:
+      - G110-G137
+    active: [04L, 22R]
+    path: [TOWER_WEST, GROUND_WEST, TOWER_EAST, APRON_EAST]
+  - name: Runway 04L/22R to rest
+    forStandRanges:
+      - A7
+      - A9-A15
+      - B3-B19
+      - C10-C27
+      - D1-D4
+      - E20-E90
+      - F1-F99
+      - H101-H106
+    active: [04L, 22R]
+    path: [TOWER_WEST, GROUND_WEST, APRON_NORTH]

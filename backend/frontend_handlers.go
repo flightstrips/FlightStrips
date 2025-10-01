@@ -5,21 +5,16 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"github.com/jackc/pgx/v5/pgtype"
 	"log"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
-func (s *Server) frontendeventhandlerGoARound(event Event) (err error) {
+func frontendeventhandlerGoARound(_ *FrontendClient, message []byte) (err error) {
 	var goAround GoAroundEventPayload
-	payload := event.Payload.(string)
-	err = json.Unmarshal([]byte(payload), &goAround)
+	err = json.Unmarshal(message, &goAround)
 	if err != nil {
 		log.Println("Error unmarshalling goAround event")
-		return err
-	}
-
-	_, err = json.Marshal(event)
-	if err != nil {
 		return err
 	}
 
@@ -29,23 +24,25 @@ func (s *Server) frontendeventhandlerGoARound(event Event) (err error) {
 	return nil
 }
 
-func (s *Server) frontendEventGenerateSquawk(client *FrontendClient, message []byte) error {
+func frontendEventGenerateSquawk(client *FrontendClient, message []byte) error {
 	var generateSquawk FrontendGenerateSquawkEvent
 	err := json.Unmarshal(message, &generateSquawk)
 	if err != nil {
 		return err
 	}
 
-	s.EuroscopeHub.SendGenerateSquawk(client.user.cid, generateSquawk.Callsign)
+	client.server.EuroscopeHub.SendGenerateSquawk(client.user.cid, generateSquawk.Callsign)
 	return nil
 }
 
-func (s *Server) frontendEventHandlerMove(client *FrontendClient, message []byte) error {
+func frontendEventHandlerMove(client *FrontendClient, message []byte) error {
 	var move FrontendMoveEvent
 	err := json.Unmarshal(message, &move)
 	if err != nil {
 		return err
 	}
+
+	s := client.server
 
 	db := data.New(s.DBPool)
 	strip, err := db.GetStrip(context.Background(), data.GetStripParams{Callsign: move.Callsign, Session: client.session})
@@ -132,7 +129,7 @@ func handleGeneralBayUpdate(client *FrontendClient, strip data.Strip, move Front
 	return nil
 }
 
-func (s *Server) frontendEventHandlerStripUpdate(client *FrontendClient, message []byte) error {
+func frontendEventHandlerStripUpdate(client *FrontendClient, message []byte) error {
 	var event FrontendUpdateStripDataEvent
 	err := json.Unmarshal(message, &event)
 	if err != nil {
@@ -142,6 +139,7 @@ func (s *Server) frontendEventHandlerStripUpdate(client *FrontendClient, message
 	if event.Route != nil && event.Sid != nil {
 		return errors.New("cannot update both route and sid at the same time")
 	}
+	s := client.server
 
 	db := data.New(s.DBPool)
 	strip, err := db.GetStrip(context.Background(), data.GetStripParams{Callsign: event.Callsign, Session: client.session})
@@ -176,11 +174,12 @@ func (s *Server) frontendEventHandlerStripUpdate(client *FrontendClient, message
 	return nil
 }
 
-func (s *Server) frontendEventHandlerCoordinationTransferRequest(client *FrontendClient, message []byte) error {
+func frontendEventHandlerCoordinationTransferRequest(client *FrontendClient, message []byte) error {
 	var req CoordinationTransferRequestEvent
 	if err := json.Unmarshal(message, &req); err != nil {
 		return err
 	}
+	s := client.server
 	position := client.position
 	db := data.New(s.DBPool)
 	strip, err := db.GetStrip(context.Background(), data.GetStripParams{Callsign: req.Callsign, Session: client.session})
@@ -208,11 +207,12 @@ func (s *Server) frontendEventHandlerCoordinationTransferRequest(client *Fronten
 	return nil
 }
 
-func (s *Server) frontendEventHandlerCoordinationAssumeRequest(client *FrontendClient, message []byte) error {
+func frontendEventHandlerCoordinationAssumeRequest(client *FrontendClient, message []byte) error {
 	var req CoordinationAssumeRequestEvent
 	if err := json.Unmarshal(message, &req); err != nil {
 		return err
 	}
+	s := client.server
 	db := data.New(s.DBPool)
 
 	strip, err := db.GetStrip(context.Background(), data.GetStripParams{Callsign: req.Callsign, Session: client.session})
@@ -261,11 +261,12 @@ func SetOwner(client *FrontendClient, db *data.Queries, req CoordinationAssumeRe
 	return nil
 }
 
-func (s *Server) frontendEventHandlerCoordinationRejectRequest(client *FrontendClient, message []byte) error {
+func frontendEventHandlerCoordinationRejectRequest(client *FrontendClient, message []byte) error {
 	var req CoordinationRejectRequestEvent
 	if err := json.Unmarshal(message, &req); err != nil {
 		return err
 	}
+	s := client.server
 	db := data.New(s.DBPool)
 
 	coordination, err := db.GetCoordinationByStripCallsign(context.Background(), data.GetCoordinationByStripCallsignParams{Callsign: req.Callsign, Session: client.session})
@@ -285,11 +286,12 @@ func (s *Server) frontendEventHandlerCoordinationRejectRequest(client *FrontendC
 	return nil
 }
 
-func (s *Server) frontendEventHandlerCoordinationFreeRequest(client *FrontendClient, message []byte) error {
+func frontendEventHandlerCoordinationFreeRequest(client *FrontendClient, message []byte) error {
 	var req CoordinationFreeRequestEvent
 	if err := json.Unmarshal(message, &req); err != nil {
 		return err
 	}
+	s := client.server
 	db := data.New(s.DBPool)
 
 	strip, err := db.GetStrip(context.Background(), data.GetStripParams{Callsign: req.Callsign, Session: client.session})

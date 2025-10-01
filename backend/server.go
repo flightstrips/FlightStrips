@@ -18,6 +18,8 @@ type Server struct {
 	AuthSigningAlgo string
 	EuroscopeHub    *EuroscopeHub
 	FrontendHub     *FrontendHub
+
+	FrontendEventHandlers FrontendEventHandlers
 }
 
 func handleWebsocketConnection[TClient WebsocketClient, THub Hub[TClient]](s *Server, w http.ResponseWriter, r *http.Request, initializer func(*Server, *websocket.Conn) (TClient, error), hub THub) {

@@ -58,8 +58,12 @@ func (c *FrontendClient) HandleMessage(message []byte) error {
 	}
 
 	// Handle the event based on its type
-	err = c.server.frontEndEventHandler(c, event, message)
-	return err
+	handler := c.server.FrontendEventHandlers.Handlers[event.Type]
+	if handler == nil {
+		return fmt.Errorf("no handler for event type: %s", event.Type)
+	}
+
+	return handler(c, message)
 }
 
 // FrontendClientInitializer creates a new Frontend client

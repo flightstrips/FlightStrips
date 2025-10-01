@@ -30,7 +30,7 @@ func GetControllerSectors(controllers []Position, active []string) map[string][]
 		}
 
 		for _, owner := range s.Owner {
-			if result[owner] != nil {
+			if _, ok := result[owner]; ok {
 				result[owner] = append(result[owner], s)
 				break
 			}

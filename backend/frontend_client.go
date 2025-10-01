@@ -58,8 +58,8 @@ func (c *FrontendClient) HandleMessage(message []byte) error {
 	}
 
 	// Handle the event based on its type
-	handler := c.server.FrontendEventHandlers.Handlers[event.Type]
-	if handler == nil {
+	handler, ok := c.server.FrontendEventHandlers.Handlers[event.Type]
+	if !ok {
 		return fmt.Errorf("no handler for event type: %s", event.Type)
 	}
 

@@ -20,6 +20,7 @@ type Server struct {
 	FrontendHub     *FrontendHub
 
 	FrontendEventHandlers FrontendEventHandlers
+	EuroscopeEventHandlers EuroscopeEventHandlers
 }
 
 func handleWebsocketConnection[TClient WebsocketClient, THub Hub[TClient]](s *Server, w http.ResponseWriter, r *http.Request, initializer func(*Server, *websocket.Conn) (TClient, error), hub THub) {

@@ -91,7 +91,12 @@ func (c *EuroscopeClient) HandleMessage(message []byte) error {
 	}
 
 	// Handle the event based on its type
-	return c.server.euroscopeEventsHandler(c, event, message)
+	handler, ok := c.server.EuroscopeEventHandlers.Handlers[event.Type]
+	if !ok {
+		return fmt.Errorf("no handler for event type: %s", event.Type)
+	}
+
+	return handler(c, message)
 }
 
 func SendEuroscopeEvent[T EuroscopeSendEvent](client *EuroscopeClient, event T) {

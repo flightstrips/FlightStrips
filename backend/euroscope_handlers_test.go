@@ -19,6 +19,8 @@ func Test_euroscopehandlerAuthentication(t *testing.T) {
 		signingAlgo,
 		nil,
 		nil,
+		GetFrontendEventHandlers(),
+		GetEuroscopeEventHandlers(),
 	}
 
 	_, err := server.parseAuthenticationToken("")

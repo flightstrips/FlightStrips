@@ -81,10 +81,11 @@ func main() {
 
 	// Create the parent server struct
 	server := Server{
-		DBPool:                dbpool,
-		AuthServerURL:         os.Getenv("OIDC_AUTHORITY"),
-		AuthSigningAlgo:       os.Getenv("OIDC_SIGNING_ALGO"),
-		FrontendEventHandlers: GetFrontendEventHandlers(),
+		DBPool:                 dbpool,
+		AuthServerURL:          os.Getenv("OIDC_AUTHORITY"),
+		AuthSigningAlgo:        os.Getenv("OIDC_SIGNING_ALGO"),
+		FrontendEventHandlers:  GetFrontendEventHandlers(),
+		EuroscopeEventHandlers: GetEuroscopeEventHandlers(),
 	}
 
 	server.FrontendHub = NewFrontendHub(&server)

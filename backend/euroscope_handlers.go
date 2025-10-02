@@ -83,12 +83,15 @@ func (s *Server) euroscopeeventhandlerLogin(msg []byte, user *ClientUser) (event
 	return event, session.Id, err
 }
 
-func (s *Server) euroscopeeventhandlerControllerOnline(msg []byte, session int32, airport string) error {
+func euroscopeeventhandlerControllerOnline(client *EuroscopeClient, msg []byte) error {
 	var event EuroscopeControllerOnlineEvent
 	err := json.Unmarshal(msg, &event)
 	if err != nil {
 		return err
 	}
+	s := client.server
+	session := client.session
+	airport := client.airport
 
 	db := data.New(s.DBPool)
 	getParams := data.GetControllerParams{Callsign: event.Callsign, Session: session}
@@ -125,12 +128,15 @@ func (s *Server) euroscopeeventhandlerControllerOnline(msg []byte, session int32
 	return nil
 }
 
-func (s *Server) euroscopeeventhandlerControllerOffline(msg []byte, session int32, airport string) error {
+func euroscopeeventhandlerControllerOffline(client *EuroscopeClient, msg []byte) error {
 	var event EuroscopeControllerOfflineEvent
 	err := json.Unmarshal(msg, &event)
 	if err != nil {
 		return err
 	}
+	s := client.server
+	session := client.session
+	airport := client.airport
 
 	db := data.New(s.DBPool)
 	getParams := data.GetControllerParams{Session: session, Callsign: event.Callsign}
@@ -161,12 +167,14 @@ func (s *Server) euroscopeeventhandlerControllerOffline(msg []byte, session int3
 	return nil
 }
 
-func (s *Server) euroscopeeventhandlerAssignedSquawk(msg []byte, session int32) error {
+func euroscopeeventhandlerAssignedSquawk(client *EuroscopeClient, msg []byte) error {
 	var event EuroscopeAssignedSquawkEvent
 	err := json.Unmarshal(msg, &event)
 	if err != nil {
 		return err
 	}
+	s := client.server
+	session := client.session
 
 	db := data.New(s.DBPool)
 
@@ -191,12 +199,14 @@ func (s *Server) euroscopeeventhandlerAssignedSquawk(msg []byte, session int32) 
 	return err
 }
 
-func (s *Server) euroscopeeventhandlerSquawk(msg []byte, session int32) error {
+func euroscopeeventhandlerSquawk(client *EuroscopeClient, msg []byte) error {
 	var event EuroscopeSquawkEvent
 	err := json.Unmarshal(msg, &event)
 	if err != nil {
 		return err
 	}
+	s := client.server
+	session := client.session
 
 	db := data.New(s.DBPool)
 
@@ -221,12 +231,14 @@ func (s *Server) euroscopeeventhandlerSquawk(msg []byte, session int32) error {
 	return err
 }
 
-func (s *Server) euroscopeeventhandlerRequestedAltitude(msg []byte, session int32) error {
+func euroscopeeventhandlerRequestedAltitude(client *EuroscopeClient, msg []byte) error {
 	var event EuroscopeRequestedAltitudeEvent
 	err := json.Unmarshal(msg, &event)
 	if err != nil {
 		return err
 	}
+	s := client.server
+	session := client.session
 
 	db := data.New(s.DBPool)
 
@@ -248,12 +260,14 @@ func (s *Server) euroscopeeventhandlerRequestedAltitude(msg []byte, session int3
 	return err
 }
 
-func (s *Server) euroscopeeventhandlerClearedAltitude(msg []byte, session int32) error {
+func euroscopeeventhandlerClearedAltitude(client *EuroscopeClient, msg []byte) error {
 	var event EuroscopeClearedAltitudeEvent
 	err := json.Unmarshal(msg, &event)
 	if err != nil {
 		return err
 	}
+	s := client.server
+	session := client.session
 
 	db := data.New(s.DBPool)
 	insertData := data.UpdateStripClearedAltitudeByIDParams{
@@ -274,12 +288,14 @@ func (s *Server) euroscopeeventhandlerClearedAltitude(msg []byte, session int32)
 	return err
 }
 
-func (s *Server) euroscopeeventhandlerCommunicationType(msg []byte, session int32) error {
+func euroscopeeventhandlerCommunicationType(client *EuroscopeClient, msg []byte) error {
 	var event EuroscopeCommunicationTypeEvent
 	err := json.Unmarshal(msg, &event)
 	if err != nil {
 		return err
 	}
+	s := client.server
+	session := client.session
 
 	db := data.New(s.DBPool)
 
@@ -301,12 +317,14 @@ func (s *Server) euroscopeeventhandlerCommunicationType(msg []byte, session int3
 	return nil
 }
 
-func (s *Server) euroscopeeventhandlerGroundState(msg []byte, session int32) error {
+func euroscopeeventhandlerGroundState(client *EuroscopeClient, msg []byte) error {
 	var event EuroscopeGroundStateEvent
 	err := json.Unmarshal(msg, &event)
 	if err != nil {
 		return err
 	}
+	s := client.server
+	session := client.session
 
 	db := data.New(s.DBPool)
 	existingStrip, err := db.GetStrip(context.TODO(), data.GetStripParams{Callsign: event.Callsign, Session: session})
@@ -344,12 +362,14 @@ func (s *Server) euroscopeeventhandlerGroundState(msg []byte, session int32) err
 	return nil
 }
 
-func (s *Server) euroscopeeventhandlerClearedFlag(msg []byte, session int32) error {
+func euroscopeeventhandlerClearedFlag(client *EuroscopeClient, msg []byte) error {
 	var event EuroscopeClearedFlagEvent
 	err := json.Unmarshal(msg, &event)
 	if err != nil {
 		return err
 	}
+	s := client.server
+	session := client.session
 
 	db := data.New(s.DBPool)
 	existingStrip, err := db.GetStrip(context.TODO(), data.GetStripParams{Callsign: event.Callsign, Session: session})
@@ -388,12 +408,14 @@ func (s *Server) euroscopeeventhandlerClearedFlag(msg []byte, session int32) err
 	return err
 }
 
-func (s *Server) euroscopeeventhandlerPositionUpdate(msg []byte, session int32) error {
+func euroscopeeventhandlerPositionUpdate(client *EuroscopeClient, msg []byte) error {
 	var event EuroscopeAircraftPositionUpdateEvent
 	err := json.Unmarshal(msg, &event)
 	if err != nil {
 		return err
 	}
+	s := client.server
+	session := client.session
 
 	db := data.New(s.DBPool)
 	existingStrip, err := db.GetStrip(context.TODO(), data.GetStripParams{Callsign: event.Callsign, Session: session})
@@ -428,12 +450,14 @@ func (s *Server) euroscopeeventhandlerPositionUpdate(msg []byte, session int32) 
 	return nil
 }
 
-func (s *Server) euroscopeeventhandlerSetHeading(msg []byte, session int32) error {
+func euroscopeeventhandlerSetHeading(client *EuroscopeClient, msg []byte) error {
 	var event EuroscopeHeadingEvent
 	err := json.Unmarshal(msg, &event)
 	if err != nil {
 		return err
 	}
+	s := client.server
+	session := client.session
 
 	db := data.New(s.DBPool)
 	insertData := data.UpdateStripHeadingByIDParams{
@@ -454,12 +478,14 @@ func (s *Server) euroscopeeventhandlerSetHeading(msg []byte, session int32) erro
 	return nil
 }
 
-func (s *Server) euroscopeeventhandlerAircraftDisconnected(msg []byte, session int32) error {
+func euroscopeeventhandlerAircraftDisconnected(client *EuroscopeClient, msg []byte) error {
 	var event EuroscopeAircraftDisconnectEvent
 	err := json.Unmarshal(msg, &event)
 	if err != nil {
 		return err
 	}
+	s := client.server
+	session := client.session
 
 	db := data.New(s.DBPool)
 	err = db.RemoveStripByID(context.TODO(), data.RemoveStripByIDParams{Callsign: event.Callsign, Session: session})
@@ -467,12 +493,14 @@ func (s *Server) euroscopeeventhandlerAircraftDisconnected(msg []byte, session i
 	return err
 }
 
-func (s *Server) euroscopeeventhandlerStand(msg []byte, session int32) error {
+func euroscopeeventhandlerStand(client *EuroscopeClient, msg []byte) error {
 	var event EuroscopeStandEvent
 	err := json.Unmarshal(msg, &event)
 	if err != nil {
 		return err
 	}
+	s := client.server
+	session := client.session
 
 	db := data.New(s.DBPool)
 	insertData := data.UpdateStripStandByIDParams{
@@ -494,12 +522,16 @@ func (s *Server) euroscopeeventhandlerStand(msg []byte, session int32) error {
 	return nil
 }
 
-func (s *Server) euroscopeeventhandlerSync(msg []byte, session int32, airport string) error {
+func euroscopeeventhandlerSync(client *EuroscopeClient, msg []byte) error {
 	var event EuroscopeSyncEvent
 	err := json.Unmarshal(msg, &event)
 	if err != nil {
 		return err
 	}
+
+	s := client.server
+	session := client.session
+	airport := client.airport
 
 	db := data.New(s.DBPool)
 
@@ -649,15 +681,16 @@ func handleStripUpdate(server *Server, db *data.Queries, strip EuroscopeStrip, s
 	return nil
 }
 
-func (s *Server) euroscopeeventhandlerStripUpdate(msg []byte, session int32) error {
+func euroscopeeventhandlerStripUpdate(client *EuroscopeClient, msg []byte) error {
 	var event EuroscopeStripUpdateEvent
 	err := json.Unmarshal(msg, &event)
 	if err != nil {
 		return err
 	}
+	s := client.server
 
 	db := data.New(s.DBPool)
 
-	err = handleStripUpdate(s, db, event.EuroscopeStrip, session)
+	err = handleStripUpdate(s, db, event.EuroscopeStrip, client.session)
 	return err
 }

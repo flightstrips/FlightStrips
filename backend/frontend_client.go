@@ -1,7 +1,7 @@
 package main
 
 import (
-	"FlightStrips/data"
+	"FlightStrips/database"
 	"context"
 	"encoding/json"
 	"errors"
@@ -35,8 +35,8 @@ func (c *FrontendClient) HandlePong() error {
 
 	// Update the last seen timestamp in the database
 	server := c.server
-	db := data.New(server.DBPool)
-	params := data.SetControllerFrontendSeenParams{
+	db := database.New(server.DBPool)
+	params := database.SetControllerFrontendSeenParams{
 		Cid:              c.user.cid,
 		Session:          c.session,
 		LastSeenFrontend: pgtype.Timestamp{Valid: true, Time: time.Now().UTC()},
@@ -80,7 +80,7 @@ func FrontendClientInitializer(server *Server, conn *websocket.Conn) (*FrontendC
 		return nil, fmt.Errorf("authentication failed: %w", err)
 	}
 
-	db := data.New(server.DBPool)
+	db := database.New(server.DBPool)
 	controller, err := db.GetControllerByCid(context.Background(), user.cid)
 
 	var session int32

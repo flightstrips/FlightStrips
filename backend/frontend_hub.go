@@ -1,7 +1,7 @@
 package main
 
 import (
-	"FlightStrips/data"
+	"FlightStrips/database"
 	"context"
 	"encoding/json"
 	"log"
@@ -46,7 +46,7 @@ func (hub *FrontendHub) OnRegister(client *FrontendClient) {
 }
 
 func (hub *FrontendHub) sendInitialEvent(client *FrontendClient) {
-	db := data.New(hub.server.DBPool)
+	db := database.New(hub.server.DBPool)
 
 	controllers, err := db.ListControllers(context.Background(), client.session)
 	if err != nil {
@@ -89,7 +89,7 @@ func (hub *FrontendHub) sendInitialEvent(client *FrontendClient) {
 	SendFrontendEvent(client, event)
 }
 
-func MapStripToFrontendModel(strip *data.Strip) FrontendStrip {
+func MapStripToFrontendModel(strip *database.Strip) FrontendStrip {
 	return FrontendStrip{
 		Callsign:          strip.Callsign,
 		Origin:            strip.Origin,
@@ -152,8 +152,8 @@ func (hub *FrontendHub) CidDisconnect(cid string) {
 }
 
 func (hub *FrontendHub) SendStripUpdate(session int32, callsign string) {
-	db := data.New(hub.server.DBPool)
-	strip, err := db.GetStrip(context.Background(), data.GetStripParams{Callsign: callsign, Session: session})
+	db := database.New(hub.server.DBPool)
+	strip, err := db.GetStrip(context.Background(), database.GetStripParams{Callsign: callsign, Session: session})
 	if err != nil {
 		return
 	}

@@ -1,7 +1,7 @@
 package main
 
 import (
-	"FlightStrips/data"
+	"FlightStrips/database"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -68,8 +68,8 @@ func (s *Server) EuroscopeEventsHandler(w http.ResponseWriter, r *http.Request) 
 // HandlePong handles pong messages from the client
 func (c *EuroscopeClient) HandlePong() error {
 	// Update the last seen timestamp in the database
-	db := data.New(c.server.DBPool)
-	params := data.SetControllerEuroscopeSeenParams{
+	db := database.New(c.server.DBPool)
+	params := database.SetControllerEuroscopeSeenParams{
 		Cid:               c.user.cid,
 		Session:           c.session,
 		LastSeenEuroscope: pgtype.Timestamp{Valid: true, Time: time.Now().UTC()},

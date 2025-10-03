@@ -1,7 +1,7 @@
 package main
 
 import (
-	"FlightStrips/data"
+	"FlightStrips/database"
 	"context"
 	"fmt"
 	"log"
@@ -62,8 +62,8 @@ func (hub *EuroscopeHub) OnRegister(client *EuroscopeClient) {
 
 func (hub *EuroscopeHub) OnUnregister(client *EuroscopeClient) {
 	server := hub.server
-	db := data.New(server.DBPool)
-	params := data.SetControllerCidParams{
+	db := database.New(server.DBPool)
+	params := database.SetControllerCidParams{
 		Cid:      pgtype.Text{Valid: false},
 		Callsign: client.callsign,
 		Session:  client.session,

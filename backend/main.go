@@ -2,7 +2,7 @@ package main
 
 import (
 	"FlightStrips/config"
-	"FlightStrips/data"
+	"FlightStrips/database"
 	"context"
 	_ "database/sql"
 	"errors"
@@ -39,9 +39,9 @@ func healthz(w http.ResponseWriter, _ *http.Request) {
 }
 
 func (s *Server) GetOrCreateSession(airport string, name string) (Session, error) {
-	db := data.New(s.DBPool)
+	db := database.New(s.DBPool)
 
-	arg := data.GetSessionParams{Name: name, Airport: airport}
+	arg := database.GetSessionParams{Name: name, Airport: airport}
 	session, err := db.GetSession(context.Background(), arg)
 
 	if err == nil {
@@ -50,7 +50,7 @@ func (s *Server) GetOrCreateSession(airport string, name string) (Session, error
 
 	if errors.Is(err, pgx.ErrNoRows) {
 		log.Println("Creating session:", name, "for airport:", airport)
-		insertArg := data.InsertSessionParams{Name: name, Airport: airport}
+		insertArg := database.InsertSessionParams{Name: name, Airport: airport}
 		id, err := db.InsertSession(context.Background(), insertArg)
 
 		return Session{Name: name, Airport: airport, Id: id}, err
@@ -100,7 +100,7 @@ func main() {
 	}
 
 	// TODO remove
-	db := data.New(dbpool)
+	db := database.New(dbpool)
 	db.InsertAirport(context.Background(), "EKCH")
 
 	// Health Function for local Dev

@@ -1,7 +1,7 @@
 package main
 
 import (
-	"FlightStrips/data"
+	"FlightStrips/database"
 	"context"
 	"encoding/json"
 	"errors"
@@ -44,8 +44,8 @@ func frontendEventHandlerMove(client *FrontendClient, message []byte) error {
 
 	s := client.server
 
-	db := data.New(s.DBPool)
-	strip, err := db.GetStrip(context.Background(), data.GetStripParams{Callsign: move.Callsign, Session: client.session})
+	db := database.New(s.DBPool)
+	strip, err := db.GetStrip(context.Background(), database.GetStripParams{Callsign: move.Callsign, Session: client.session})
 	if err != nil {
 		return err
 	}
@@ -69,7 +69,7 @@ func frontendEventHandlerMove(client *FrontendClient, message []byte) error {
 	return nil
 }
 
-func handleClearedBayUpdate(client *FrontendClient, strip data.Strip, move FrontendMoveEvent, db *data.Queries, s *Server) error {
+func handleClearedBayUpdate(client *FrontendClient, strip database.Strip, move FrontendMoveEvent, db *database.Queries, s *Server) error {
 	isCleared := move.Bay == BAY_CLEARED
 	if strip.Cleared.Bool == isCleared {
 		return nil
@@ -77,7 +77,7 @@ func handleClearedBayUpdate(client *FrontendClient, strip data.Strip, move Front
 
 	count, err := db.UpdateStripClearedFlagByID(
 		context.Background(),
-		data.UpdateStripClearedFlagByIDParams{
+		database.UpdateStripClearedFlagByIDParams{
 			Callsign: move.Callsign,
 			Session:  client.session,
 			Cleared:  pgtype.Bool{Valid: true, Bool: isCleared},
@@ -97,7 +97,7 @@ func handleClearedBayUpdate(client *FrontendClient, strip data.Strip, move Front
 
 }
 
-func handleGeneralBayUpdate(client *FrontendClient, strip data.Strip, move FrontendMoveEvent, db *data.Queries, s *Server) error {
+func handleGeneralBayUpdate(client *FrontendClient, strip database.Strip, move FrontendMoveEvent, db *database.Queries, s *Server) error {
 	state := strip.State.String
 	if strip.Origin == client.airport {
 		groundState := GetGroundState(move.Bay)
@@ -108,7 +108,7 @@ func handleGeneralBayUpdate(client *FrontendClient, strip data.Strip, move Front
 
 	count, err := db.UpdateStripGroundStateByID(
 		context.Background(),
-		data.UpdateStripGroundStateByIDParams{
+		database.UpdateStripGroundStateByIDParams{
 			Callsign: move.Callsign,
 			Session:  client.session,
 			Bay:      pgtype.Text{Valid: true, String: move.Bay},
@@ -141,8 +141,8 @@ func frontendEventHandlerStripUpdate(client *FrontendClient, message []byte) err
 	}
 	s := client.server
 
-	db := data.New(s.DBPool)
-	strip, err := db.GetStrip(context.Background(), data.GetStripParams{Callsign: event.Callsign, Session: client.session})
+	db := database.New(s.DBPool)
+	strip, err := db.GetStrip(context.Background(), database.GetStripParams{Callsign: event.Callsign, Session: client.session})
 	if err != nil {
 		return err
 	}
@@ -181,8 +181,8 @@ func frontendEventHandlerCoordinationTransferRequest(client *FrontendClient, mes
 	}
 	s := client.server
 	position := client.position
-	db := data.New(s.DBPool)
-	strip, err := db.GetStrip(context.Background(), data.GetStripParams{Callsign: req.Callsign, Session: client.session})
+	db := database.New(s.DBPool)
+	strip, err := db.GetStrip(context.Background(), database.GetStripParams{Callsign: req.Callsign, Session: client.session})
 	if err != nil {
 		return err
 	}
@@ -193,7 +193,7 @@ func frontendEventHandlerCoordinationTransferRequest(client *FrontendClient, mes
 
 	_, err = db.CreateCoordination(
 		context.Background(),
-		data.CreateCoordinationParams{
+		database.CreateCoordinationParams{
 			Session:      client.session,
 			StripID:      strip.ID,
 			FromPosition: position,
@@ -213,9 +213,9 @@ func frontendEventHandlerCoordinationAssumeRequest(client *FrontendClient, messa
 		return err
 	}
 	s := client.server
-	db := data.New(s.DBPool)
+	db := database.New(s.DBPool)
 
-	strip, err := db.GetStrip(context.Background(), data.GetStripParams{Callsign: req.Callsign, Session: client.session})
+	strip, err := db.GetStrip(context.Background(), database.GetStripParams{Callsign: req.Callsign, Session: client.session})
 	if err != nil {
 		return err
 	}
@@ -227,7 +227,7 @@ func frontendEventHandlerCoordinationAssumeRequest(client *FrontendClient, messa
 		}
 		return nil
 	}
-	coordination, err := db.GetCoordinationByStripID(context.Background(), data.GetCoordinationByStripIDParams{StripID: strip.ID, Session: client.session})
+	coordination, err := db.GetCoordinationByStripID(context.Background(), database.GetCoordinationByStripIDParams{StripID: strip.ID, Session: client.session})
 	if err != nil {
 		return err
 	}
@@ -244,8 +244,8 @@ func frontendEventHandlerCoordinationAssumeRequest(client *FrontendClient, messa
 	return err
 }
 
-func SetOwner(client *FrontendClient, db *data.Queries, req CoordinationAssumeRequestEvent, strip data.Strip, s *Server) error {
-	count, err := db.SetStripOwner(context.Background(), data.SetStripOwnerParams{
+func SetOwner(client *FrontendClient, db *database.Queries, req CoordinationAssumeRequestEvent, strip database.Strip, s *Server) error {
+	count, err := db.SetStripOwner(context.Background(), database.SetStripOwnerParams{
 		Owner: pgtype.Text{Valid: true, String: client.position}, Callsign: req.Callsign, Session: client.session, Version: strip.Version,
 	})
 
@@ -267,9 +267,9 @@ func frontendEventHandlerCoordinationRejectRequest(client *FrontendClient, messa
 		return err
 	}
 	s := client.server
-	db := data.New(s.DBPool)
+	db := database.New(s.DBPool)
 
-	coordination, err := db.GetCoordinationByStripCallsign(context.Background(), data.GetCoordinationByStripCallsignParams{Callsign: req.Callsign, Session: client.session})
+	coordination, err := db.GetCoordinationByStripCallsign(context.Background(), database.GetCoordinationByStripCallsignParams{Callsign: req.Callsign, Session: client.session})
 	if err != nil {
 		return err
 	}
@@ -292,9 +292,9 @@ func frontendEventHandlerCoordinationFreeRequest(client *FrontendClient, message
 		return err
 	}
 	s := client.server
-	db := data.New(s.DBPool)
+	db := database.New(s.DBPool)
 
-	strip, err := db.GetStrip(context.Background(), data.GetStripParams{Callsign: req.Callsign, Session: client.session})
+	strip, err := db.GetStrip(context.Background(), database.GetStripParams{Callsign: req.Callsign, Session: client.session})
 	if err != nil {
 		return err
 	}
@@ -303,7 +303,7 @@ func frontendEventHandlerCoordinationFreeRequest(client *FrontendClient, message
 		return errors.New("cannot free strip which is not owned by you")
 	}
 
-	count, err := db.SetStripOwner(context.Background(), data.SetStripOwnerParams{Owner: pgtype.Text{Valid: false}, Callsign: req.Callsign, Session: client.session, Version: strip.Version})
+	count, err := db.SetStripOwner(context.Background(), database.SetStripOwnerParams{Owner: pgtype.Text{Valid: false}, Callsign: req.Callsign, Session: client.session, Version: strip.Version})
 
 	if err != nil {
 		return err

@@ -1,7 +1,7 @@
 ﻿package main
 
 import (
-	"FlightStrips/data"
+	"FlightStrips/database"
 	"math"
 )
 
@@ -38,7 +38,7 @@ const (
 	RelevantDistance    = 20
 )
 
-func GetDepartureBay(strip EuroscopeStrip, existing *data.Strip) string {
+func GetDepartureBay(strip EuroscopeStrip, existing *database.Strip) string {
 	// TODO handle arrivals in this method. Maybe split into two but the entry point should be in this file and the same
 	// for both arrivals and departures.
 	if strip.Origin != "EKCH" {
@@ -79,7 +79,7 @@ func GetDepartureBay(strip EuroscopeStrip, existing *data.Strip) string {
 	return BAY_AIRBORNE
 }
 
-func GetDepartureBayFromGroundState(state string, existing data.Strip) string {
+func GetDepartureBayFromGroundState(state string, existing database.Strip) string {
 	if state == EuroscopeGroundStatePush {
 		return BAY_PUSH
 	}
@@ -95,7 +95,7 @@ func GetDepartureBayFromGroundState(state string, existing data.Strip) string {
 	return existing.Bay.String
 }
 
-func GetDepartureBayFromPosition(lat, lon float64, alt int64, existing data.Strip) string {
+func GetDepartureBayFromPosition(lat, lon float64, alt int64, existing database.Strip) string {
 	if GetDistance(lat, lon, AirportLatitude, AirportLongitude) > RelevantDistance {
 		return BAY_HIDDEN
 	}

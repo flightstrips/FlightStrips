@@ -1,7 +1,7 @@
 package main
 
 import (
-	"FlightStrips/data"
+	"FlightStrips/database"
 	"context"
 	"log"
 	"net/http"
@@ -19,7 +19,7 @@ type Server struct {
 	EuroscopeHub    *EuroscopeHub
 	FrontendHub     *FrontendHub
 
-	FrontendEventHandlers FrontendEventHandlers
+	FrontendEventHandlers  FrontendEventHandlers
 	EuroscopeEventHandlers EuroscopeEventHandlers
 }
 
@@ -54,7 +54,7 @@ func handleWebsocketConnection[TClient WebsocketClient, THub Hub[TClient]](s *Se
 func (s *Server) monitorSessions() {
 	for {
 		expired := time.Now().Add(-time.Minute * 5).UTC()
-		db := data.New(s.DBPool)
+		db := database.New(s.DBPool)
 
 		sessions, err := db.GetExpiredSessions(context.Background(), pgtype.Timestamp{Time: expired, Valid: true})
 

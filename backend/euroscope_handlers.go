@@ -1,7 +1,7 @@
 package main
 
 import (
-	"FlightStrips/data"
+	"FlightStrips/database"
 	"context"
 	"encoding/json"
 	"errors"
@@ -40,12 +40,12 @@ func (s *Server) euroscopeeventhandlerLogin(msg []byte, user *ClientUser) (event
 	// already in the database. It may also already be in the database if the master have synced it before a new
 	// controller connects to FlightStrips
 
-	db := data.New(s.DBPool)
-	params := data.GetControllerParams{Callsign: event.Callsign, Session: session.Id}
+	db := database.New(s.DBPool)
+	params := database.GetControllerParams{Callsign: event.Callsign, Session: session.Id}
 	controller, err := db.GetController(context.TODO(), params)
 
 	if errors.Is(err, pgx.ErrNoRows) {
-		params := data.InsertControllerParams{
+		params := database.InsertControllerParams{
 			Callsign:          event.Callsign,
 			Session:           session.Id,
 			Position:          event.Position,
@@ -66,12 +66,12 @@ func (s *Server) euroscopeeventhandlerLogin(msg []byte, user *ClientUser) (event
 		return event, session.Id, err
 	} else {
 		// Set CID
-		params := data.SetControllerCidParams{Session: session.Id, Cid: pgtype.Text{Valid: true, String: user.cid}, Callsign: event.Callsign}
+		params := database.SetControllerCidParams{Session: session.Id, Cid: pgtype.Text{Valid: true, String: user.cid}, Callsign: event.Callsign}
 		db.SetControllerCid(context.Background(), params)
 	}
 
 	if controller.Position != event.Position {
-		params := data.SetControllerPositionParams{Session: session.Id, Callsign: event.Callsign, Position: event.Position}
+		params := database.SetControllerPositionParams{Session: session.Id, Callsign: event.Callsign, Position: event.Position}
 		_, err = db.SetControllerPosition(context.TODO(), params)
 
 		if err != nil {
@@ -91,12 +91,12 @@ func euroscopeeventhandlerControllerOnline(client *EuroscopeClient, msg []byte) 
 	s := client.server
 	session := client.session
 
-	db := data.New(s.DBPool)
-	getParams := data.GetControllerParams{Callsign: event.Callsign, Session: session}
+	db := database.New(s.DBPool)
+	getParams := database.GetControllerParams{Callsign: event.Callsign, Session: session}
 	controller, err := db.GetController(context.TODO(), getParams)
 
 	if errors.Is(err, pgx.ErrNoRows) {
-		params := data.InsertControllerParams{
+		params := database.InsertControllerParams{
 			Callsign: event.Callsign,
 			Position: event.Position,
 			Session:  session,
@@ -114,7 +114,7 @@ func euroscopeeventhandlerControllerOnline(client *EuroscopeClient, msg []byte) 
 	}
 
 	if controller.Position != event.Position {
-		setParams := data.SetControllerPositionParams{Session: session, Callsign: event.Callsign, Position: event.Position}
+		setParams := database.SetControllerPositionParams{Session: session, Callsign: event.Callsign, Position: event.Position}
 		_, err = db.SetControllerPosition(context.TODO(), setParams)
 		if err == nil {
 			s.FrontendHub.SendControllerOnline(session, event.Callsign, event.Position)
@@ -135,8 +135,8 @@ func euroscopeeventhandlerControllerOffline(client *EuroscopeClient, msg []byte)
 	session := client.session
 	airport := client.airport
 
-	db := data.New(s.DBPool)
-	getParams := data.GetControllerParams{Session: session, Callsign: event.Callsign}
+	db := database.New(s.DBPool)
+	getParams := database.GetControllerParams{Session: session, Callsign: event.Callsign}
 	controller, err := db.GetController(context.TODO(), getParams)
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return err
@@ -148,7 +148,7 @@ func euroscopeeventhandlerControllerOffline(client *EuroscopeClient, msg []byte)
 		return nil
 	}
 
-	params := data.RemoveControllerParams{Session: session, Callsign: event.Callsign}
+	params := database.RemoveControllerParams{Session: session, Callsign: event.Callsign}
 	count, err := db.RemoveController(context.TODO(), params)
 
 	s.FrontendHub.SendControllerOffline(session, event.Callsign, controller.Position)
@@ -173,9 +173,9 @@ func euroscopeeventhandlerAssignedSquawk(client *EuroscopeClient, msg []byte) er
 	s := client.server
 	session := client.session
 
-	db := data.New(s.DBPool)
+	db := database.New(s.DBPool)
 
-	insertData := data.UpdateStripAssignedSquawkByIDParams{
+	insertData := database.UpdateStripAssignedSquawkByIDParams{
 		AssignedSquawk: pgtype.Text{Valid: true, String: event.Squawk},
 		Callsign:       event.Callsign,
 		Session:        session,
@@ -205,9 +205,9 @@ func euroscopeeventhandlerSquawk(client *EuroscopeClient, msg []byte) error {
 	s := client.server
 	session := client.session
 
-	db := data.New(s.DBPool)
+	db := database.New(s.DBPool)
 
-	insertData := data.UpdateStripSquawkByIDParams{
+	insertData := database.UpdateStripSquawkByIDParams{
 		Squawk:   pgtype.Text{Valid: true, String: event.Squawk},
 		Callsign: event.Callsign,
 		Session:  session,
@@ -237,9 +237,9 @@ func euroscopeeventhandlerRequestedAltitude(client *EuroscopeClient, msg []byte)
 	s := client.server
 	session := client.session
 
-	db := data.New(s.DBPool)
+	db := database.New(s.DBPool)
 
-	insertData := data.UpdateStripRequestedAltitudeByIDParams{
+	insertData := database.UpdateStripRequestedAltitudeByIDParams{
 		RequestedAltitude: pgtype.Int4{Valid: true, Int32: int32(event.Altitude)},
 		Callsign:          event.Callsign,
 		Session:           session,
@@ -266,8 +266,8 @@ func euroscopeeventhandlerClearedAltitude(client *EuroscopeClient, msg []byte) e
 	s := client.server
 	session := client.session
 
-	db := data.New(s.DBPool)
-	insertData := data.UpdateStripClearedAltitudeByIDParams{
+	db := database.New(s.DBPool)
+	insertData := database.UpdateStripClearedAltitudeByIDParams{
 		ClearedAltitude: pgtype.Int4{Valid: true, Int32: int32(event.Altitude)},
 		Callsign:        event.Callsign,
 		Session:         session,
@@ -294,9 +294,9 @@ func euroscopeeventhandlerCommunicationType(client *EuroscopeClient, msg []byte)
 	s := client.server
 	session := client.session
 
-	db := data.New(s.DBPool)
+	db := database.New(s.DBPool)
 
-	insertData := data.UpdateStripCommunicationTypeByIDParams{
+	insertData := database.UpdateStripCommunicationTypeByIDParams{
 		CommunicationType: pgtype.Text{Valid: true, String: event.CommunicationType},
 		Callsign:          event.Callsign,
 		Session:           session,
@@ -323,8 +323,8 @@ func euroscopeeventhandlerGroundState(client *EuroscopeClient, msg []byte) error
 	s := client.server
 	session := client.session
 
-	db := data.New(s.DBPool)
-	existingStrip, err := db.GetStrip(context.TODO(), data.GetStripParams{Callsign: event.Callsign, Session: session})
+	db := database.New(s.DBPool)
+	existingStrip, err := db.GetStrip(context.TODO(), database.GetStripParams{Callsign: event.Callsign, Session: session})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			log.Printf("Strip %v which is being updated does not exist in the database", event.Callsign)
@@ -339,7 +339,7 @@ func euroscopeeventhandlerGroundState(client *EuroscopeClient, msg []byte) error
 
 	bay := GetDepartureBayFromGroundState(event.GroundState, existingStrip)
 
-	insertData := data.UpdateStripGroundStateByIDParams{
+	insertData := database.UpdateStripGroundStateByIDParams{
 		State:    pgtype.Text{Valid: true, String: event.GroundState},
 		Bay:      pgtype.Text{Valid: true, String: bay},
 		Callsign: event.Callsign,
@@ -368,8 +368,8 @@ func euroscopeeventhandlerClearedFlag(client *EuroscopeClient, msg []byte) error
 	s := client.server
 	session := client.session
 
-	db := data.New(s.DBPool)
-	existingStrip, err := db.GetStrip(context.TODO(), data.GetStripParams{Callsign: event.Callsign, Session: session})
+	db := database.New(s.DBPool)
+	existingStrip, err := db.GetStrip(context.TODO(), database.GetStripParams{Callsign: event.Callsign, Session: session})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			log.Printf("Strip %v which is being updated does not exist in the database", event.Callsign)
@@ -387,7 +387,7 @@ func euroscopeeventhandlerClearedFlag(client *EuroscopeClient, msg []byte) error
 		bay = BAY_CLEARED
 	}
 
-	insertData := data.UpdateStripClearedFlagByIDParams{
+	insertData := database.UpdateStripClearedFlagByIDParams{
 		Cleared:  pgtype.Bool{Valid: true, Bool: event.Cleared},
 		Bay:      pgtype.Text{Valid: true, String: bay},
 		Callsign: event.Callsign,
@@ -414,8 +414,8 @@ func euroscopeeventhandlerPositionUpdate(client *EuroscopeClient, msg []byte) er
 	s := client.server
 	session := client.session
 
-	db := data.New(s.DBPool)
-	existingStrip, err := db.GetStrip(context.TODO(), data.GetStripParams{Callsign: event.Callsign, Session: session})
+	db := database.New(s.DBPool)
+	existingStrip, err := db.GetStrip(context.TODO(), database.GetStripParams{Callsign: event.Callsign, Session: session})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			log.Printf("Strip %v which is being updated does not exist in the database", event.Callsign)
@@ -426,7 +426,7 @@ func euroscopeeventhandlerPositionUpdate(client *EuroscopeClient, msg []byte) er
 
 	bay := GetDepartureBayFromPosition(event.Lat, event.Lon, event.Altitude, existingStrip)
 
-	insertData := data.UpdateStripAircraftPositionByIDParams{
+	insertData := database.UpdateStripAircraftPositionByIDParams{
 		PositionLatitude:  pgtype.Float8{Valid: true, Float64: event.Lat},
 		PositionLongitude: pgtype.Float8{Valid: true, Float64: event.Lon},
 		PositionAltitude:  pgtype.Int4{Valid: true, Int32: int32(event.Altitude)},
@@ -456,8 +456,8 @@ func euroscopeeventhandlerSetHeading(client *EuroscopeClient, msg []byte) error 
 	s := client.server
 	session := client.session
 
-	db := data.New(s.DBPool)
-	insertData := data.UpdateStripHeadingByIDParams{
+	db := database.New(s.DBPool)
+	insertData := database.UpdateStripHeadingByIDParams{
 		Heading:  pgtype.Int4{Valid: true, Int32: int32(event.Heading)},
 		Callsign: event.Callsign,
 		Session:  session,
@@ -484,8 +484,8 @@ func euroscopeeventhandlerAircraftDisconnected(client *EuroscopeClient, msg []by
 	s := client.server
 	session := client.session
 
-	db := data.New(s.DBPool)
-	err = db.RemoveStripByID(context.TODO(), data.RemoveStripByIDParams{Callsign: event.Callsign, Session: session})
+	db := database.New(s.DBPool)
+	err = db.RemoveStripByID(context.TODO(), database.RemoveStripByIDParams{Callsign: event.Callsign, Session: session})
 	s.FrontendHub.SendAircraftDisconnect(session, event.Callsign)
 	return err
 }
@@ -499,8 +499,8 @@ func euroscopeeventhandlerStand(client *EuroscopeClient, msg []byte) error {
 	s := client.server
 	session := client.session
 
-	db := data.New(s.DBPool)
-	insertData := data.UpdateStripStandByIDParams{
+	db := database.New(s.DBPool)
+	insertData := database.UpdateStripStandByIDParams{
 		Stand:    pgtype.Text{Valid: true, String: event.Stand},
 		Callsign: event.Callsign,
 		Session:  session,
@@ -529,18 +529,18 @@ func euroscopeeventhandlerSync(client *EuroscopeClient, msg []byte) error {
 	s := client.server
 	session := client.session
 
-	db := data.New(s.DBPool)
+	db := database.New(s.DBPool)
 
 	for _, controller := range event.Controllers {
 		// Check if the controller exists
-		_, err := db.GetController(context.TODO(), data.GetControllerParams{Callsign: controller.Callsign, Session: session})
+		_, err := db.GetController(context.TODO(), database.GetControllerParams{Callsign: controller.Callsign, Session: session})
 		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 			return err
 		}
 
 		if errors.Is(err, pgx.ErrNoRows) {
 			// Controller doesn't exist, so insert
-			controllerParams := data.InsertControllerParams{
+			controllerParams := database.InsertControllerParams{
 				Callsign:          controller.Callsign,
 				Session:           session,
 				Position:          controller.Position,
@@ -555,7 +555,7 @@ func euroscopeeventhandlerSync(client *EuroscopeClient, msg []byte) error {
 			log.Printf("Inserted controller: %s", controller.Callsign)
 		} else {
 			// Controller exists, update it
-			updateControllerParams := data.SetControllerPositionParams{
+			updateControllerParams := database.SetControllerPositionParams{
 				Callsign: controller.Callsign,
 				Session:  session,
 				Position: controller.Position,
@@ -578,9 +578,9 @@ func euroscopeeventhandlerSync(client *EuroscopeClient, msg []byte) error {
 	return nil
 }
 
-func handleStripUpdate(server *Server, db *data.Queries, strip EuroscopeStrip, session int32) error {
+func handleStripUpdate(server *Server, db *database.Queries, strip EuroscopeStrip, session int32) error {
 	// Check if the strip exists
-	existingStrip, err := db.GetStrip(context.TODO(), data.GetStripParams{Callsign: strip.Callsign, Session: session})
+	existingStrip, err := db.GetStrip(context.TODO(), database.GetStripParams{Callsign: strip.Callsign, Session: session})
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return err
 	}
@@ -590,7 +590,7 @@ func handleStripUpdate(server *Server, db *data.Queries, strip EuroscopeStrip, s
 
 		bay := GetDepartureBay(strip, nil)
 
-		stripParams := data.InsertStripParams{ //keep this for insert
+		stripParams := database.InsertStripParams{ //keep this for insert
 			Callsign:          strip.Callsign,
 			Session:           session,
 			Origin:            strip.Origin,
@@ -635,7 +635,7 @@ func handleStripUpdate(server *Server, db *data.Queries, strip EuroscopeStrip, s
 			stand = strip.Stand
 		}
 
-		updateStripParams := data.UpdateStripParams{ // create this
+		updateStripParams := database.UpdateStripParams{ // create this
 			Callsign:          strip.Callsign,
 			Session:           session,
 			Origin:            strip.Origin,
@@ -684,7 +684,7 @@ func euroscopeeventhandlerStripUpdate(client *EuroscopeClient, msg []byte) error
 	}
 	s := client.server
 
-	db := data.New(s.DBPool)
+	db := database.New(s.DBPool)
 
 	err = handleStripUpdate(s, db, event.EuroscopeStrip, client.session)
 	return err

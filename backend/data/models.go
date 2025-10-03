@@ -23,7 +23,6 @@ type Controller struct {
 	ID                int32
 	Session           int32
 	Callsign          string
-	Airport           string
 	Position          string
 	Cid               pgtype.Text
 	LastSeenEuroscope pgtype.Timestamp
@@ -37,6 +36,13 @@ type Coordination struct {
 	FromPosition  string
 	ToPosition    string
 	CoordinatedAt pgtype.Timestamp
+}
+
+type SectorOwner struct {
+	ID       int32
+	Session  int32
+	Sector   string
+	Position string
 }
 
 type Session struct {

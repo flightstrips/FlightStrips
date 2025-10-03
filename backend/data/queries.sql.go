@@ -14,14 +14,12 @@ import (
 type BulkInsertControllersParams struct {
 	Callsign string
 	Session  int32
-	Airport  string
 	Position string
 }
 
 const createCoordination = `-- name: CreateCoordination :one
 INSERT INTO coordinations (session, strip_id, from_position, to_position)
-VALUES ($1, $2, $3, $4)
-    RETURNING id, session, strip_id, from_position, to_position, coordinated_at
+VALUES ($1, $2, $3, $4) RETURNING id, session, strip_id, from_position, to_position, coordinated_at
 `
 
 type CreateCoordinationParams struct {
@@ -51,7 +49,9 @@ func (q *Queries) CreateCoordination(ctx context.Context, arg CreateCoordination
 }
 
 const deleteCoordinationByID = `-- name: DeleteCoordinationByID :execrows
-DELETE FROM coordinations WHERE id = $1
+DELETE
+FROM coordinations
+WHERE id = $1
 `
 
 func (q *Queries) DeleteCoordinationByID(ctx context.Context, id int32) (int64, error) {
@@ -63,7 +63,9 @@ func (q *Queries) DeleteCoordinationByID(ctx context.Context, id int32) (int64, 
 }
 
 const deleteSession = `-- name: DeleteSession :execrows
-DELETE FROM sessions WHERE id = $1
+DELETE
+FROM sessions
+WHERE id = $1
 `
 
 func (q *Queries) DeleteSession(ctx context.Context, id int32) (int64, error) {
@@ -75,7 +77,9 @@ func (q *Queries) DeleteSession(ctx context.Context, id int32) (int64, error) {
 }
 
 const getController = `-- name: GetController :one
-SELECT id, session, callsign, airport, position, cid, last_seen_euroscope, last_seen_frontend FROM controllers WHERE callsign = $1 AND session = $2
+SELECT id, session, callsign, position, cid, last_seen_euroscope, last_seen_frontend
+FROM controllers
+WHERE callsign = $1 AND session = $2
 `
 
 type GetControllerParams struct {
@@ -90,7 +94,6 @@ func (q *Queries) GetController(ctx context.Context, arg GetControllerParams) (C
 		&i.ID,
 		&i.Session,
 		&i.Callsign,
-		&i.Airport,
 		&i.Position,
 		&i.Cid,
 		&i.LastSeenEuroscope,
@@ -100,7 +103,9 @@ func (q *Queries) GetController(ctx context.Context, arg GetControllerParams) (C
 }
 
 const getControllerByCid = `-- name: GetControllerByCid :one
-SELECT id, session, callsign, airport, position, cid, last_seen_euroscope, last_seen_frontend FROM controllers WHERE cid = $1::text LIMIT 1
+SELECT id, session, callsign, position, cid, last_seen_euroscope, last_seen_frontend
+FROM controllers
+WHERE cid = $1::text LIMIT 1
 `
 
 func (q *Queries) GetControllerByCid(ctx context.Context, cid string) (Controller, error) {
@@ -110,7 +115,6 @@ func (q *Queries) GetControllerByCid(ctx context.Context, cid string) (Controlle
 		&i.ID,
 		&i.Session,
 		&i.Callsign,
-		&i.Airport,
 		&i.Position,
 		&i.Cid,
 		&i.LastSeenEuroscope,
@@ -120,7 +124,11 @@ func (q *Queries) GetControllerByCid(ctx context.Context, cid string) (Controlle
 }
 
 const getCoordinationByStripCallsign = `-- name: GetCoordinationByStripCallsign :one
-SELECT c.id, c.session, c.strip_id, c.from_position, c.to_position, c.coordinated_at FROM coordinations c JOIN strips s ON s.id = c.strip_id WHERE s.session = $1 AND s.callsign = $2
+SELECT c.id, c.session, c.strip_id, c.from_position, c.to_position, c.coordinated_at
+FROM coordinations c
+         JOIN strips s ON s.id = c.strip_id
+WHERE s.session = $1
+  AND s.callsign = $2
 `
 
 type GetCoordinationByStripCallsignParams struct {
@@ -143,7 +151,9 @@ func (q *Queries) GetCoordinationByStripCallsign(ctx context.Context, arg GetCoo
 }
 
 const getCoordinationByStripID = `-- name: GetCoordinationByStripID :one
-SELECT id, session, strip_id, from_position, to_position, coordinated_at FROM coordinations WHERE session = $1 AND strip_id = $2
+SELECT id, session, strip_id, from_position, to_position, coordinated_at
+FROM coordinations
+WHERE session = $1 AND strip_id = $2
 `
 
 type GetCoordinationByStripIDParams struct {
@@ -166,7 +176,9 @@ func (q *Queries) GetCoordinationByStripID(ctx context.Context, arg GetCoordinat
 }
 
 const getExpiredSessions = `-- name: GetExpiredSessions :many
-SELECT id FROM sessions WHERE NOT EXISTS (SELECT 1 FROM controllers WHERE last_seen_euroscope > $1)
+SELECT id
+FROM sessions
+WHERE NOT EXISTS (SELECT 1 FROM controllers WHERE last_seen_euroscope > $1)
 `
 
 func (q *Queries) GetExpiredSessions(ctx context.Context, expiredTime pgtype.Timestamp) ([]int32, error) {
@@ -190,7 +202,10 @@ func (q *Queries) GetExpiredSessions(ctx context.Context, expiredTime pgtype.Tim
 }
 
 const getSession = `-- name: GetSession :one
-SELECT id, name, airport FROM sessions WHERE airport = $1 AND name = $2
+SELECT id, name, airport
+FROM sessions
+WHERE airport = $1
+  AND name = $2
 `
 
 type GetSessionParams struct {
@@ -205,8 +220,23 @@ func (q *Queries) GetSession(ctx context.Context, arg GetSessionParams) (Session
 	return i, err
 }
 
+const getSessionById = `-- name: GetSessionById :one
+SELECT id, name, airport
+FROM sessions
+WHERE id = $1
+`
+
+func (q *Queries) GetSessionById(ctx context.Context, id int32) (Session, error) {
+	row := q.db.QueryRow(ctx, getSessionById, id)
+	var i Session
+	err := row.Scan(&i.ID, &i.Name, &i.Airport)
+	return i, err
+}
+
 const getStrip = `-- name: GetStrip :one
-SELECT id, version, callsign, session, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay, position_latitude, position_longitude, position_altitude, tobt, tsat, ttot, ctot, aobt, asat, eobt FROM strips WHERE callsign = $1 AND session = $2
+SELECT id, version, callsign, session, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay, position_latitude, position_longitude, position_altitude, tobt, tsat, ttot, ctot, aobt, asat, eobt
+FROM strips
+WHERE callsign = $1 AND session = $2
 `
 
 type GetStripParams struct {
@@ -259,7 +289,8 @@ func (q *Queries) GetStrip(ctx context.Context, arg GetStripParams) (Strip, erro
 }
 
 const insertAirport = `-- name: InsertAirport :exec
-INSERT INTO airports (name) VALUES ($1)
+INSERT INTO airports (name)
+VALUES ($1)
 `
 
 func (q *Queries) InsertAirport(ctx context.Context, name string) error {
@@ -268,17 +299,13 @@ func (q *Queries) InsertAirport(ctx context.Context, name string) error {
 }
 
 const insertController = `-- name: InsertController :exec
-INSERT INTO controllers (
-    callsign, session, airport, position, cid, last_seen_euroscope, last_seen_frontend
-) VALUES (
-             $1, $2, $3, $4, $5, $6, $7
-         )
+INSERT INTO controllers (callsign, session, position, cid, last_seen_euroscope, last_seen_frontend)
+VALUES ($1, $2, $3, $4, $5, $6)
 `
 
 type InsertControllerParams struct {
 	Callsign          string
 	Session           int32
-	Airport           string
 	Position          string
 	Cid               pgtype.Text
 	LastSeenEuroscope pgtype.Timestamp
@@ -289,7 +316,6 @@ func (q *Queries) InsertController(ctx context.Context, arg InsertControllerPara
 	_, err := q.db.Exec(ctx, insertController,
 		arg.Callsign,
 		arg.Session,
-		arg.Airport,
 		arg.Position,
 		arg.Cid,
 		arg.LastSeenEuroscope,
@@ -299,7 +325,8 @@ func (q *Queries) InsertController(ctx context.Context, arg InsertControllerPara
 }
 
 const insertSession = `-- name: InsertSession :one
-INSERT INTO sessions (name, airport) VALUES ($1, $2) RETURNING id
+INSERT INTO sessions (name, airport)
+VALUES ($1, $2) RETURNING id
 `
 
 type InsertSessionParams struct {
@@ -315,9 +342,12 @@ func (q *Queries) InsertSession(ctx context.Context, arg InsertSessionParams) (i
 }
 
 const insertStrip = `-- name: InsertStrip :exec
-INSERT INTO strips (version, callsign, session, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay, position_latitude, position_longitude, position_altitude, tobt, eobt
-) VALUES (
-    1, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29)
+INSERT INTO strips (version, callsign, session, origin, destination, alternative, route, remarks, assigned_squawk,
+                    squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities,
+                    communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay,
+                    position_latitude, position_longitude, position_altitude, tobt, eobt)
+VALUES (1, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23,
+        $24, $25, $26, $27, $28, $29)
 `
 
 type InsertStripParams struct {
@@ -388,7 +418,10 @@ func (q *Queries) InsertStrip(ctx context.Context, arg InsertStripParams) error 
 }
 
 const listControllers = `-- name: ListControllers :many
-SELECT id, session, callsign, airport, position, cid, last_seen_euroscope, last_seen_frontend FROM controllers WHERE session = $1 ORDER BY callsign
+SELECT id, session, callsign, position, cid, last_seen_euroscope, last_seen_frontend
+FROM controllers
+WHERE session = $1
+ORDER BY callsign
 `
 
 func (q *Queries) ListControllers(ctx context.Context, session int32) ([]Controller, error) {
@@ -404,7 +437,6 @@ func (q *Queries) ListControllers(ctx context.Context, session int32) ([]Control
 			&i.ID,
 			&i.Session,
 			&i.Callsign,
-			&i.Airport,
 			&i.Position,
 			&i.Cid,
 			&i.LastSeenEuroscope,
@@ -421,7 +453,10 @@ func (q *Queries) ListControllers(ctx context.Context, session int32) ([]Control
 }
 
 const listCoordinationsBySession = `-- name: ListCoordinationsBySession :many
-SELECT id, session, strip_id, from_position, to_position, coordinated_at FROM coordinations WHERE session = $1 ORDER BY coordinated_at DESC
+SELECT id, session, strip_id, from_position, to_position, coordinated_at
+FROM coordinations
+WHERE session = $1
+ORDER BY coordinated_at DESC
 `
 
 func (q *Queries) ListCoordinationsBySession(ctx context.Context, session int32) ([]Coordination, error) {
@@ -452,7 +487,9 @@ func (q *Queries) ListCoordinationsBySession(ctx context.Context, session int32)
 }
 
 const listSessionsByAirport = `-- name: ListSessionsByAirport :many
-SELECT id, name, airport FROM sessions WHERE airport = $1
+SELECT id, name, airport
+FROM sessions
+WHERE airport = $1
 `
 
 func (q *Queries) ListSessionsByAirport(ctx context.Context, airport string) ([]Session, error) {
@@ -476,7 +513,10 @@ func (q *Queries) ListSessionsByAirport(ctx context.Context, airport string) ([]
 }
 
 const listStrips = `-- name: ListStrips :many
-SELECT id, version, callsign, session, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay, position_latitude, position_longitude, position_altitude, tobt, tsat, ttot, ctot, aobt, asat, eobt FROM strips WHERE session = $1 ORDER BY callsign
+SELECT id, version, callsign, session, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay, position_latitude, position_longitude, position_altitude, tobt, tsat, ttot, ctot, aobt, asat, eobt
+FROM strips
+WHERE session = $1
+ORDER BY callsign
 `
 
 func (q *Queries) ListStrips(ctx context.Context, session int32) ([]Strip, error) {
@@ -537,7 +577,10 @@ func (q *Queries) ListStrips(ctx context.Context, session int32) ([]Strip, error
 }
 
 const listStripsByOrigin = `-- name: ListStripsByOrigin :many
-SELECT id, version, callsign, session, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay, position_latitude, position_longitude, position_altitude, tobt, tsat, ttot, ctot, aobt, asat, eobt FROM strips WHERE origin = $1 AND session = $2 ORDER BY callsign
+SELECT id, version, callsign, session, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay, position_latitude, position_longitude, position_altitude, tobt, tsat, ttot, ctot, aobt, asat, eobt
+FROM strips
+WHERE origin = $1 AND session = $2
+ORDER BY callsign
 `
 
 type ListStripsByOriginParams struct {
@@ -603,7 +646,9 @@ func (q *Queries) ListStripsByOrigin(ctx context.Context, arg ListStripsByOrigin
 }
 
 const removeController = `-- name: RemoveController :execrows
-DELETE FROM controllers WHERE callsign = $1 AND session = $2
+DELETE
+FROM controllers
+WHERE callsign = $1 AND session = $2
 `
 
 type RemoveControllerParams struct {
@@ -620,7 +665,9 @@ func (q *Queries) RemoveController(ctx context.Context, arg RemoveControllerPara
 }
 
 const removeStripByID = `-- name: RemoveStripByID :exec
-DELETE FROM strips WHERE callsign = $1 AND session = $2
+DELETE
+FROM strips
+WHERE callsign = $1 AND session = $2
 `
 
 type RemoveStripByIDParams struct {
@@ -634,7 +681,9 @@ func (q *Queries) RemoveStripByID(ctx context.Context, arg RemoveStripByIDParams
 }
 
 const setControllerCid = `-- name: SetControllerCid :execrows
-UPDATE controllers SET cid = $1 WHERE callsign = $2 AND session = $3
+UPDATE controllers
+SET cid = $1
+WHERE callsign = $2 AND session = $3
 `
 
 type SetControllerCidParams struct {
@@ -652,7 +701,9 @@ func (q *Queries) SetControllerCid(ctx context.Context, arg SetControllerCidPara
 }
 
 const setControllerEuroscopeSeen = `-- name: SetControllerEuroscopeSeen :execrows
-UPDATE controllers SET last_seen_euroscope = $1 WHERE cid = $3::text AND session = $2
+UPDATE controllers
+SET last_seen_euroscope = $1
+WHERE cid = $3::text AND session = $2
 `
 
 type SetControllerEuroscopeSeenParams struct {
@@ -670,7 +721,9 @@ func (q *Queries) SetControllerEuroscopeSeen(ctx context.Context, arg SetControl
 }
 
 const setControllerFrontendSeen = `-- name: SetControllerFrontendSeen :execrows
-UPDATE controllers SET last_seen_frontend = $1 WHERE cid = $3::text AND session = $2
+UPDATE controllers
+SET last_seen_frontend = $1
+WHERE cid = $3::text AND session = $2
 `
 
 type SetControllerFrontendSeenParams struct {
@@ -688,7 +741,9 @@ func (q *Queries) SetControllerFrontendSeen(ctx context.Context, arg SetControll
 }
 
 const setControllerPosition = `-- name: SetControllerPosition :execrows
-UPDATE controllers SET position = $1 WHERE callsign = $2 AND session = $3
+UPDATE controllers
+SET position = $1
+WHERE callsign = $2 AND session = $3
 `
 
 type SetControllerPositionParams struct {
@@ -706,7 +761,10 @@ func (q *Queries) SetControllerPosition(ctx context.Context, arg SetControllerPo
 }
 
 const setStripOwner = `-- name: SetStripOwner :execrows
-UPDATE strips SET owner = $1, version = version + 1 WHERE callsign = $2 AND session = $3 AND version = $4
+UPDATE strips
+SET owner   = $1,
+    version = version + 1
+WHERE callsign = $2 AND session = $3 AND version = $4
 `
 
 type SetStripOwnerParams struct {
@@ -730,9 +788,11 @@ func (q *Queries) SetStripOwner(ctx context.Context, arg SetStripOwnerParams) (i
 }
 
 const updateStrip = `-- name: UpdateStrip :execrows
-UPDATE strips SET (version, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay, position_latitude, position_longitude, position_altitude, tobt, eobt
-) = (
-    version + 1, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29)
+UPDATE strips
+SET (version, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay, position_latitude, position_longitude, position_altitude, tobt, eobt
+        ) = (
+             version + 1, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22,
+             $23, $24, $25, $26, $27, $28, $29)
 WHERE callsign = $1 AND session = $2
 `
 
@@ -807,7 +867,12 @@ func (q *Queries) UpdateStrip(ctx context.Context, arg UpdateStripParams) (int64
 }
 
 const updateStripAircraftPositionByID = `-- name: UpdateStripAircraftPositionByID :execrows
-UPDATE strips SET position_latitude = $1, position_longitude = $2, position_altitude = $3, bay = $4 WHERE callsign = $5 AND session = $6 AND (version = $7 OR $7 IS NULL)
+UPDATE strips
+SET position_latitude  = $1,
+    position_longitude = $2,
+    position_altitude  = $3,
+    bay                = $4
+WHERE callsign = $5 AND session = $6 AND (version = $7 OR $7 IS NULL)
 `
 
 type UpdateStripAircraftPositionByIDParams struct {
@@ -837,7 +902,10 @@ func (q *Queries) UpdateStripAircraftPositionByID(ctx context.Context, arg Updat
 }
 
 const updateStripAssignedSquawkByID = `-- name: UpdateStripAssignedSquawkByID :execrows
-UPDATE strips SET assigned_squawk = $1, version = version + 1 WHERE callsign = $2 AND session = $3 AND (version = $4 OR $4 IS NULL)
+UPDATE strips
+SET assigned_squawk = $1,
+    version         = version + 1
+WHERE callsign = $2 AND session = $3 AND (version = $4 OR $4 IS NULL)
 `
 
 type UpdateStripAssignedSquawkByIDParams struct {
@@ -861,7 +929,10 @@ func (q *Queries) UpdateStripAssignedSquawkByID(ctx context.Context, arg UpdateS
 }
 
 const updateStripClearedAltitudeByID = `-- name: UpdateStripClearedAltitudeByID :execrows
-UPDATE strips SET cleared_altitude = $1, version = version + 1 WHERE callsign = $2 AND session = $3 AND (version = $4 OR $4 IS NULL)
+UPDATE strips
+SET cleared_altitude = $1,
+    version          = version + 1
+WHERE callsign = $2 AND session = $3 AND (version = $4 OR $4 IS NULL)
 `
 
 type UpdateStripClearedAltitudeByIDParams struct {
@@ -885,7 +956,11 @@ func (q *Queries) UpdateStripClearedAltitudeByID(ctx context.Context, arg Update
 }
 
 const updateStripClearedFlagByID = `-- name: UpdateStripClearedFlagByID :execrows
-UPDATE strips SET cleared = $1, bay = $2, version = version + 1 WHERE callsign = $3 AND session = $4 AND (version = $5 OR $5 IS NULL)
+UPDATE strips
+SET cleared = $1,
+    bay     = $2,
+    version = version + 1
+WHERE callsign = $3 AND session = $4 AND (version = $5 OR $5 IS NULL)
 `
 
 type UpdateStripClearedFlagByIDParams struct {
@@ -911,7 +986,10 @@ func (q *Queries) UpdateStripClearedFlagByID(ctx context.Context, arg UpdateStri
 }
 
 const updateStripCommunicationTypeByID = `-- name: UpdateStripCommunicationTypeByID :execrows
-UPDATE strips SET communication_type = $1, version = version + 1 WHERE callsign = $2 AND session = $3 AND (version = $4 OR $4 IS NULL)
+UPDATE strips
+SET communication_type = $1,
+    version            = version + 1
+WHERE callsign = $2 AND session = $3 AND (version = $4 OR $4 IS NULL)
 `
 
 type UpdateStripCommunicationTypeByIDParams struct {
@@ -935,7 +1013,11 @@ func (q *Queries) UpdateStripCommunicationTypeByID(ctx context.Context, arg Upda
 }
 
 const updateStripGroundStateByID = `-- name: UpdateStripGroundStateByID :execrows
-UPDATE strips SET state = $1, bay = $2, version = version + 1 WHERE callsign = $3 AND session = $4 AND (version = $5 OR $5 IS NULL)
+UPDATE strips
+SET state   = $1,
+    bay     = $2,
+    version = version + 1
+WHERE callsign = $3 AND session = $4 AND (version = $5 OR $5 IS NULL)
 `
 
 type UpdateStripGroundStateByIDParams struct {
@@ -961,7 +1043,10 @@ func (q *Queries) UpdateStripGroundStateByID(ctx context.Context, arg UpdateStri
 }
 
 const updateStripHeadingByID = `-- name: UpdateStripHeadingByID :execrows
-UPDATE strips SET heading = $1, version = version + 1 WHERE callsign = $2 AND session = $3 AND (version = $4 OR $4 IS NULL)
+UPDATE strips
+SET heading = $1,
+    version = version + 1
+WHERE callsign = $2 AND session = $3 AND (version = $4 OR $4 IS NULL)
 `
 
 type UpdateStripHeadingByIDParams struct {
@@ -985,7 +1070,10 @@ func (q *Queries) UpdateStripHeadingByID(ctx context.Context, arg UpdateStripHea
 }
 
 const updateStripRequestedAltitudeByID = `-- name: UpdateStripRequestedAltitudeByID :execrows
-UPDATE strips SET requested_altitude = $1, version = version + 1 WHERE callsign = $2 AND session = $3 AND (version = $4 OR $4 IS NULL)
+UPDATE strips
+SET requested_altitude = $1,
+    version            = version + 1
+WHERE callsign = $2 AND session = $3 AND (version = $4 OR $4 IS NULL)
 `
 
 type UpdateStripRequestedAltitudeByIDParams struct {
@@ -1009,7 +1097,10 @@ func (q *Queries) UpdateStripRequestedAltitudeByID(ctx context.Context, arg Upda
 }
 
 const updateStripSquawkByID = `-- name: UpdateStripSquawkByID :execrows
-UPDATE strips SET squawk = $1, version = version + 1 WHERE callsign = $2 AND session = $3 AND (version = $4 OR $4 IS NULL)
+UPDATE strips
+SET squawk  = $1,
+    version = version + 1
+WHERE callsign = $2 AND session = $3 AND (version = $4 OR $4 IS NULL)
 `
 
 type UpdateStripSquawkByIDParams struct {
@@ -1033,7 +1124,10 @@ func (q *Queries) UpdateStripSquawkByID(ctx context.Context, arg UpdateStripSqua
 }
 
 const updateStripStandByID = `-- name: UpdateStripStandByID :execrows
-UPDATE strips SET stand = $1, version = version + 1 WHERE callsign = $2 AND session = $3 AND (version = $4 OR $4 IS NULL)
+UPDATE strips
+SET stand   = $1,
+    version = version + 1
+WHERE callsign = $2 AND session = $3 AND (version = $4 OR $4 IS NULL)
 `
 
 type UpdateStripStandByIDParams struct {

@@ -31,7 +31,6 @@ func (r iteratorForBulkInsertControllers) Values() ([]interface{}, error) {
 	return []interface{}{
 		r.rows[0].Callsign,
 		r.rows[0].Session,
-		r.rows[0].Airport,
 		r.rows[0].Position,
 	}, nil
 }
@@ -41,5 +40,5 @@ func (r iteratorForBulkInsertControllers) Err() error {
 }
 
 func (q *Queries) BulkInsertControllers(ctx context.Context, arg []BulkInsertControllersParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"controllers"}, []string{"callsign", "session", "airport", "position"}, &iteratorForBulkInsertControllers{rows: arg})
+	return q.db.CopyFrom(ctx, []string{"controllers"}, []string{"callsign", "session", "position"}, &iteratorForBulkInsertControllers{rows: arg})
 }

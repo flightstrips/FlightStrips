@@ -49,7 +49,6 @@ func (s *Server) euroscopeeventhandlerLogin(msg []byte, user *ClientUser) (event
 			Callsign:          event.Callsign,
 			Session:           session.Id,
 			Position:          event.Position,
-			Airport:           event.Airport,
 			Cid:               pgtype.Text{Valid: true, String: user.cid},
 			LastSeenEuroscope: pgtype.Timestamp{Valid: true, Time: time.Now().UTC()},
 		}
@@ -91,7 +90,6 @@ func euroscopeeventhandlerControllerOnline(client *EuroscopeClient, msg []byte) 
 	}
 	s := client.server
 	session := client.session
-	airport := client.airport
 
 	db := data.New(s.DBPool)
 	getParams := data.GetControllerParams{Callsign: event.Callsign, Session: session}
@@ -101,7 +99,6 @@ func euroscopeeventhandlerControllerOnline(client *EuroscopeClient, msg []byte) 
 		params := data.InsertControllerParams{
 			Callsign: event.Callsign,
 			Position: event.Position,
-			Airport:  airport,
 			Session:  session,
 		}
 
@@ -531,7 +528,6 @@ func euroscopeeventhandlerSync(client *EuroscopeClient, msg []byte) error {
 
 	s := client.server
 	session := client.session
-	airport := client.airport
 
 	db := data.New(s.DBPool)
 
@@ -547,7 +543,6 @@ func euroscopeeventhandlerSync(client *EuroscopeClient, msg []byte) error {
 			controllerParams := data.InsertControllerParams{
 				Callsign:          controller.Callsign,
 				Session:           session,
-				Airport:           airport,
 				Position:          controller.Position,
 				Cid:               pgtype.Text{Valid: false},
 				LastSeenEuroscope: pgtype.Timestamp{Valid: false},

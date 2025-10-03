@@ -95,9 +95,16 @@ func FrontendClientInitializer(server *Server, conn *websocket.Conn) (*FrontendC
 		airport = WaitingForEuroscopeConnectionAirport
 		callsign = WaitingForEuroscopeConnectionCallsign
 	} else {
-		session = controller.Session
+		dbSession, err := db.GetSessionById(context.Background(), controller.Session)
+
+		if err != nil {
+			// this should not really happen due to the foreign key constraint on the controller table
+			return nil, err
+		}
+
+		session = dbSession.ID
 		position = controller.Position
-		airport = controller.Airport
+		airport = dbSession.Airport
 		callsign = controller.Callsign
 	}
 

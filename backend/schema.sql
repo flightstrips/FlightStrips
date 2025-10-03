@@ -8,6 +8,8 @@ CREATE TABLE IF NOT EXISTS sessions (
     airport varchar(4) REFERENCES airports(name) ON DELETE CASCADE NOT NULL
 );
 
+CREATE UNIQUE INDEX IF NOT EXISTS ux_sessions_name_airport ON sessions (name, airport);
+
 CREATE TABLE IF NOT EXISTS airport_master_orders (
     id SERIAL PRIMARY KEY,
     airport varchar(4) REFERENCES airports(name) ON DELETE CASCADE NOT NULL,
@@ -19,7 +21,6 @@ CREATE TABLE IF NOT EXISTS controllers (
     id SERIAL PRIMARY KEY,
     session integer references sessions(id) ON DELETE CASCADE NOT NULL,
     callsign varchar NOT NULL,
-    airport varchar(4) NOT NULL,
     position varchar(7) NOT NULL,
     cid varchar(10),
     last_seen_euroscope timestamp,
@@ -28,8 +29,14 @@ CREATE TABLE IF NOT EXISTS controllers (
 
 CREATE UNIQUE INDEX IF NOT EXISTS ux_controllers_session_callsign ON controllers (session, callsign);
 
+CREATE TABLE IF NOT EXISTS sector_owners (
+    id SERIAL PRIMARY KEY,
+    session integer references sessions(id) ON DELETE CASCADE NOT NULL,
+    sector varchar(256) NOT NULL, -- JSON array of string
+    position varchar(7) NOT NULL
+);
 
-CREATE UNIQUE INDEX IF NOT EXISTS ux_sessions_name_airport ON sessions (name, airport);
+CREATE UNIQUE INDEX IF NOT EXISTS ux_sector_owners_session_position ON sector_owners (session, position);
 
 CREATE TABLE IF NOT EXISTS strips (
     id SERIAL PRIMARY KEY,

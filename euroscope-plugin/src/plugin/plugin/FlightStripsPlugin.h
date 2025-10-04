@@ -2,10 +2,10 @@
 
 #ifndef COPYRIGHTS
 #define PLUGIN_NAME "FlightStrips"
-#define PLUGIN_VERSION "0.0.1"
+#include "Version.h"
 #define PLUGIN_AUTHOR "Frederik Rosenberg"
-#define PLUGIN_COPYRIGHT "GPLv3 License, Copyright (c) 2023 Frederik Rosenberg"
-#define GITHUB_LINK "https://github.com/frederikrosenberg/FlightStrips"
+#define PLUGIN_COPYRIGHT "GPLv3 License, Copyright (c) 2025 Frederik Rosenberg"
+#define GITHUB_LINK "https://github.com/flightstrips/FlightStrips"
 #include "FlightStripsPluginInterface.h"
 #include "bootstrap/Container.h"
 #endif // !COPYRIGHTS

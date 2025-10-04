@@ -1,0 +1,46 @@
+name: Release plugin
+
+on:
+  workflow_dispatch:
+
+env:
+  BUILD_TYPE: Release
+
+jobs:
+  build:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: ./euroscope-plugin
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Visual Studio Shell
+        uses: egor-tensin/vs-shell@v2
+        with:
+          arch: x86
+
+      - name: Setup Ninja
+        uses: seanmiddleditch/gha-setup-ninja@master
+
+      - name: Read version from file
+        id: get_version
+        run: |
+          echo "version=$(type version.txt)" >> $GITHUB_OUTPUT
+
+      - name: Run CMake
+        run: |
+          cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -G Ninja -Bbuild
+
+      - name: Run Ninja Build
+        working-directory: ./euroscope-plugin/build
+        run: ninja
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: FlightStripsPlugin-${{ steps.get_version.outputs.version }}
+          path: |
+            ./euroscope-plugin/build/bin/FlightStripsPlugin.dll
+            ./euroscope-plugin/build/bin/flightstrips_config.ini
+          if-no-files-found: error

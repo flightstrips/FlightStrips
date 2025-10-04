@@ -143,6 +143,18 @@ set(ALL_FILES
         Logger.cpp
         Logger.h)
 
+# Read version from file
+file(READ "${CMAKE_SOURCE_DIR}/VERSION.txt" PLUGIN_VERSION)
+string(STRIP "${PLUGIN_VERSION}" PLUGIN_VERSION)
+
+# Configure the version header
+configure_file(
+        "${CMAKE_SOURCE_DIR}/src/plugin/plugin/Version.h.in"
+        "${CMAKE_CURRENT_BINARY_DIR}/generated/Version.h"
+        @ONLY
+)
+
+
 ################################################################################
 # Target
 ################################################################################
@@ -197,6 +209,9 @@ target_include_directories(${PROJECT_NAME} SYSTEM PRIVATE
         "${CMAKE_CURRENT_SOURCE_DIR}/../../third_party/asio"
         "${CMAKE_CURRENT_SOURCE_DIR}/../../third_party"
 )
+
+
+target_include_directories(${PROJECT_NAME} PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/generated")
 
 target_link_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/../../lib)
 

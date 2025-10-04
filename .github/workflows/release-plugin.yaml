@@ -3,6 +3,9 @@ name: Release plugin
 on:
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 env:
   BUILD_TYPE: Release
 

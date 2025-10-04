@@ -12,6 +12,8 @@ jobs:
     defaults:
       run:
         working-directory: ./euroscope-plugin
+    outputs:
+      version: ${{ steps.get_version.outputs.version }}
 
     steps:
       - uses: actions/checkout@v3
@@ -27,7 +29,9 @@ jobs:
       - name: Read version from file
         id: get_version
         run: |
-          echo "version=$(type version.txt)" >> $GITHUB_OUTPUT
+          $version = Get-Content version.txt | ForEach-Object { $_.Trim() }
+          Write-Host "Version: $version"
+          echo "version=$version" >> $env:GITHUB_OUTPUT
 
       - name: Run CMake
         run: |
@@ -44,3 +48,34 @@ jobs:
             ./euroscope-plugin/build/bin/FlightStripsPlugin.dll
             ./euroscope-plugin/build/bin/flightstrips_config.ini
           if-no-files-found: error
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: FlightStripsPlugin-${{ needs.build.outputs.version }}
+          path: ./release-assets
+      - name: Set prerelease flag
+        id: set_prerelease
+        run: |
+          version="${{ needs.build.outputs.version }}"
+          if [[ $(echo "$version < 1" | bc) -eq 1 ]]; then
+            echo "prerelease=true" >> $GITHUB_OUTPUT
+          else
+            echo "prerelease=false" >> $GITHUB_OUTPUT
+          fi
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ needs.build.outputs.version }}
+          name: FlightStripsPlugin v${{ needs.build.outputs.version }}
+          files: |
+            release-assets/FlightStripsPlugin.dll
+            release-assets/flightstrips_config.ini
+          prerelease: ${{ steps.set_prerelease.outputs.prerelease }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

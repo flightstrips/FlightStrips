@@ -24,6 +24,7 @@ func GetEuroscopeEventHandlers() EuroscopeEventHandlers {
 	handlers[EuroscopeAircraftDisconnected] = euroscopeeventhandlerAircraftDisconnected
 	handlers[EuroscopeStand] = euroscopeeventhandlerStand
 	handlers[EuroscopeStripUpdate] = euroscopeeventhandlerStripUpdate
+	handlers[EuroscopeRunway] = euroscopeeventhandlerRunways
 
 	return EuroscopeEventHandlers{
 		handlers,

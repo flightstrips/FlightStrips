@@ -123,6 +123,39 @@ func (q *Queries) GetControllerByCid(ctx context.Context, cid string) (Controlle
 	return i, err
 }
 
+const getControllers = `-- name: GetControllers :many
+SELECT id, session, callsign, position, cid, last_seen_euroscope, last_seen_frontend FROM controllers
+WHERE session = $1
+`
+
+func (q *Queries) GetControllers(ctx context.Context, session int32) ([]Controller, error) {
+	rows, err := q.db.Query(ctx, getControllers, session)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Controller
+	for rows.Next() {
+		var i Controller
+		if err := rows.Scan(
+			&i.ID,
+			&i.Session,
+			&i.Callsign,
+			&i.Position,
+			&i.Cid,
+			&i.LastSeenEuroscope,
+			&i.LastSeenFrontend,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getCoordinationByStripCallsign = `-- name: GetCoordinationByStripCallsign :one
 SELECT c.id, c.session, c.strip_id, c.from_position, c.to_position, c.coordinated_at
 FROM coordinations c
@@ -201,8 +234,38 @@ func (q *Queries) GetExpiredSessions(ctx context.Context, expiredTime pgtype.Tim
 	return items, nil
 }
 
+const getSectorOwners = `-- name: GetSectorOwners :many
+SELECT id, session, sector, position FROM sector_owners
+WHERE session = $1
+`
+
+func (q *Queries) GetSectorOwners(ctx context.Context, session int32) ([]SectorOwner, error) {
+	rows, err := q.db.Query(ctx, getSectorOwners, session)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []SectorOwner
+	for rows.Next() {
+		var i SectorOwner
+		if err := rows.Scan(
+			&i.ID,
+			&i.Session,
+			&i.Sector,
+			&i.Position,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getSession = `-- name: GetSession :one
-SELECT id, name, airport
+SELECT id, name, airport, active_runways
 FROM sessions
 WHERE airport = $1
   AND name = $2
@@ -216,12 +279,17 @@ type GetSessionParams struct {
 func (q *Queries) GetSession(ctx context.Context, arg GetSessionParams) (Session, error) {
 	row := q.db.QueryRow(ctx, getSession, arg.Airport, arg.Name)
 	var i Session
-	err := row.Scan(&i.ID, &i.Name, &i.Airport)
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Airport,
+		&i.ActiveRunways,
+	)
 	return i, err
 }
 
 const getSessionById = `-- name: GetSessionById :one
-SELECT id, name, airport
+SELECT id, name, airport, active_runways
 FROM sessions
 WHERE id = $1
 `
@@ -229,7 +297,12 @@ WHERE id = $1
 func (q *Queries) GetSessionById(ctx context.Context, id int32) (Session, error) {
 	row := q.db.QueryRow(ctx, getSessionById, id)
 	var i Session
-	err := row.Scan(&i.ID, &i.Name, &i.Airport)
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Airport,
+		&i.ActiveRunways,
+	)
 	return i, err
 }
 
@@ -487,7 +560,7 @@ func (q *Queries) ListCoordinationsBySession(ctx context.Context, session int32)
 }
 
 const listSessionsByAirport = `-- name: ListSessionsByAirport :many
-SELECT id, name, airport
+SELECT id, name, airport, active_runways
 FROM sessions
 WHERE airport = $1
 `
@@ -501,7 +574,12 @@ func (q *Queries) ListSessionsByAirport(ctx context.Context, airport string) ([]
 	var items []Session
 	for rows.Next() {
 		var i Session
-		if err := rows.Scan(&i.ID, &i.Name, &i.Airport); err != nil {
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Airport,
+			&i.ActiveRunways,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -785,6 +863,20 @@ func (q *Queries) SetStripOwner(ctx context.Context, arg SetStripOwnerParams) (i
 		return 0, err
 	}
 	return result.RowsAffected(), nil
+}
+
+const updateActiveRunways = `-- name: UpdateActiveRunways :exec
+UPDATE sessions SET active_runways = $2 WHERE id = $1
+`
+
+type UpdateActiveRunwaysParams struct {
+	ID            int32
+	ActiveRunways pgtype.Text
+}
+
+func (q *Queries) UpdateActiveRunways(ctx context.Context, arg UpdateActiveRunwaysParams) error {
+	_, err := q.db.Exec(ctx, updateActiveRunways, arg.ID, arg.ActiveRunways)
+	return err
 }
 
 const updateStrip = `-- name: UpdateStrip :execrows

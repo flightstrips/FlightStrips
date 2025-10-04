@@ -5,7 +5,8 @@ CREATE TABLE IF NOT EXISTS airports (
 CREATE TABLE IF NOT EXISTS sessions (
     id SERIAL PRIMARY KEY,
     name text NOT NULL,
-    airport varchar(4) REFERENCES airports(name) ON DELETE CASCADE NOT NULL
+    airport varchar(4) REFERENCES airports(name) ON DELETE CASCADE NOT NULL,
+    active_runways varchar(256)
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS ux_sessions_name_airport ON sessions (name, airport);

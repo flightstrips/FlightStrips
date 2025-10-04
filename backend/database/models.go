@@ -46,9 +46,10 @@ type SectorOwner struct {
 }
 
 type Session struct {
-	ID      int32
-	Name    string
-	Airport string
+	ID            int32
+	Name          string
+	Airport       string
+	ActiveRunways pgtype.Text
 }
 
 type Strip struct {

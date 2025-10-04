@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
 	"math/rand"
 	"strconv"
@@ -575,7 +576,8 @@ func euroscopeeventhandlerSync(client *EuroscopeClient, msg []byte) error {
 		}
 	}
 
-	return nil
+	err = client.server.UpdateSectors(client.session)
+	return err
 }
 
 func handleStripUpdate(server *Server, db *database.Queries, strip EuroscopeStrip, session int32) error {
@@ -688,4 +690,56 @@ func euroscopeeventhandlerStripUpdate(client *EuroscopeClient, msg []byte) error
 
 	err = handleStripUpdate(s, db, event.EuroscopeStrip, client.session)
 	return err
+}
+
+func euroscopeeventhandlerRunways(client *EuroscopeClient, msg []byte) error {
+	var event EuroscopeRunwayEvent
+	err := json.Unmarshal(msg, &event)
+	if err != nil {
+		return err
+	}
+
+	if client.server.EuroscopeHub.master == client {
+		db := database.New(client.server.DBPool)
+
+		departure := make([]string, 0)
+		arrival := make([]string, 0)
+
+		for _, runway := range event.Runways {
+			if runway.Arrival {
+				arrival = append(arrival, runway.Name)
+			}
+			if runway.Departure {
+				departure = append(departure, runway.Name)
+			}
+		}
+
+		activeRunways := ActiveRunways{
+			DepartureRunways: departure,
+			ArrivalRunways:   arrival,
+		}
+
+		data, err := json.Marshal(activeRunways)
+
+		fmt.Printf("Setting active runways to %v for session %v\n", activeRunways, client.session)
+
+		if err != nil {
+			return err
+		}
+
+		params := database.UpdateActiveRunwaysParams{
+			ID:            client.session,
+			ActiveRunways: pgtype.Text{Valid: true, String: string(data)},
+		}
+
+		err = db.UpdateActiveRunways(context.Background(), params)
+		if err != nil {
+			return err
+		}
+
+		err = client.server.UpdateSectors(client.session)
+		return err
+	}
+
+	return nil
 }

@@ -18,10 +18,15 @@ type Sector struct {
 	Owner        []string     `yaml:"owner"`
 }
 
-func GetControllerSectors(controllers []Position, active []string) map[string][]Sector {
+func GetControllerSectors(controllers []*Position, active []string) map[string][]Sector {
 	var result = make(map[string][]Sector)
 	for _, c := range controllers {
-		result[c.Name] = make([]Sector, 0)
+		result[c.Frequency] = make([]Sector, 0)
+	}
+
+	var lookup = make(map[string]string)
+	for _, c := range controllers {
+		lookup[c.Name] = c.Frequency
 	}
 
 	for _, s := range sectors {
@@ -30,8 +35,8 @@ func GetControllerSectors(controllers []Position, active []string) map[string][]
 		}
 
 		for _, owner := range s.Owner {
-			if _, ok := result[owner]; ok {
-				result[owner] = append(result[owner], s)
+			if _, ok := result[lookup[owner]]; ok {
+				result[lookup[owner]] = append(result[lookup[owner]], s)
 				break
 			}
 		}
@@ -41,6 +46,9 @@ func GetControllerSectors(controllers []Position, active []string) map[string][]
 }
 
 func isActive(sector Sector, active []string) bool {
+	if len(sector.Active) == 0 {
+		return true
+	}
 	for _, a := range active {
 		if slices.Contains(sector.Active, a) {
 			return true

@@ -215,3 +215,14 @@ FROM coordinations c
          JOIN strips s ON s.id = c.strip_id
 WHERE s.session = $1
   AND s.callsign = $2;
+
+-- name: GetSectorOwners :many
+SELECT * FROM sector_owners
+WHERE session = $1;
+
+-- name: GetControllers :many
+SELECT * FROM controllers
+WHERE session = $1;
+
+-- name: UpdateActiveRunways :exec
+UPDATE sessions SET active_runways = $2 WHERE id = $1;

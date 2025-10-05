@@ -14,7 +14,8 @@ const (
 	// BAY_PUSH Used for departures
 	BAY_PUSH = "PUSH"
 	// BAY_TAXI Used for departures and arrivals
-	BAY_TAXI = "TAXI"
+	BAY_TAXI     = "TAXI"
+	BAY_TAXI_TWR = "TAXI_TWR"
 	// BAY_DEPART Used for departures
 	BAY_DEPART = "DEPART"
 	// BAY_AIRBORNE Used for departures
@@ -119,7 +120,7 @@ func GetGroundState(bay string) string {
 	if bay == BAY_PUSH {
 		return EuroscopeGroundStatePush
 	}
-	if bay == BAY_TAXI {
+	if bay == BAY_TAXI || bay == BAY_TAXI_TWR {
 		return EuroscopeGroundStateTaxi
 	}
 	if bay == BAY_DEPART {

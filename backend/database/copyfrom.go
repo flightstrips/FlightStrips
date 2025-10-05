@@ -42,3 +42,37 @@ func (r iteratorForBulkInsertControllers) Err() error {
 func (q *Queries) BulkInsertControllers(ctx context.Context, arg []BulkInsertControllersParams) (int64, error) {
 	return q.db.CopyFrom(ctx, []string{"controllers"}, []string{"callsign", "session", "position"}, &iteratorForBulkInsertControllers{rows: arg})
 }
+
+// iteratorForInsertSectorOwners implements pgx.CopyFromSource.
+type iteratorForInsertSectorOwners struct {
+	rows                 []InsertSectorOwnersParams
+	skippedFirstNextCall bool
+}
+
+func (r *iteratorForInsertSectorOwners) Next() bool {
+	if len(r.rows) == 0 {
+		return false
+	}
+	if !r.skippedFirstNextCall {
+		r.skippedFirstNextCall = true
+		return true
+	}
+	r.rows = r.rows[1:]
+	return len(r.rows) > 0
+}
+
+func (r iteratorForInsertSectorOwners) Values() ([]interface{}, error) {
+	return []interface{}{
+		r.rows[0].Session,
+		r.rows[0].Sector,
+		r.rows[0].Position,
+	}, nil
+}
+
+func (r iteratorForInsertSectorOwners) Err() error {
+	return nil
+}
+
+func (q *Queries) InsertSectorOwners(ctx context.Context, arg []InsertSectorOwnersParams) (int64, error) {
+	return q.db.CopyFrom(ctx, []string{"sector_owners"}, []string{"session", "sector", "position"}, &iteratorForInsertSectorOwners{rows: arg})
+}

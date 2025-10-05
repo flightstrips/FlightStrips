@@ -397,6 +397,12 @@ func (q *Queries) InsertController(ctx context.Context, arg InsertControllerPara
 	return err
 }
 
+type InsertSectorOwnersParams struct {
+	Session  int32
+	Sector   string
+	Position string
+}
+
 const insertSession = `-- name: InsertSession :one
 INSERT INTO sessions (name, airport)
 VALUES ($1, $2) RETURNING id
@@ -740,6 +746,15 @@ func (q *Queries) RemoveController(ctx context.Context, arg RemoveControllerPara
 		return 0, err
 	}
 	return result.RowsAffected(), nil
+}
+
+const removeSectorOwners = `-- name: RemoveSectorOwners :exec
+DELETE FROM sector_owners WHERE session = $1
+`
+
+func (q *Queries) RemoveSectorOwners(ctx context.Context, session int32) error {
+	_, err := q.db.Exec(ctx, removeSectorOwners, session)
+	return err
 }
 
 const removeStripByID = `-- name: RemoveStripByID :exec

@@ -70,6 +70,9 @@ func (s *Server) UpdateSectors(sessionId int32) error {
 	}
 
 	sectors := config.GetControllerSectors(positions, active)
+	if len(sectors) == 0 {
+		return nil
+	}
 
 	currentOwners := make([]database.SectorOwner, 0)
 	for key, sectors := range sectors {
@@ -98,15 +101,34 @@ func (s *Server) UpdateSectors(sessionId int32) error {
 		return nil
 	}
 
-	// for now lets just print the new sectors
-	text, err := json.Marshal(currentOwners)
+	tx, err := s.DBPool.Begin(context.Background())
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(context.Background())
+
+	db = db.WithTx(tx)
+
+	err = db.RemoveSectorOwners(context.Background(), sessionId)
 	if err != nil {
 		return err
 	}
 
-	fmt.Println(string(text))
+	dbParams := make([]database.InsertSectorOwnersParams, 0)
+	for _, owner := range currentOwners {
+		dbParams = append(dbParams, database.InsertSectorOwnersParams{
+			Session:  owner.Session,
+			Position: owner.Position,
+			Sector:   owner.Sector,
+		})
+	}
 
-	return nil
+	_, err = db.InsertSectorOwners(context.Background(), dbParams)
+	if err != nil {
+		return err
+	}
+	err = tx.Commit(context.Background())
+	return err
 }
 
 func sectorsEqual(a, b database.SectorOwner) bool {

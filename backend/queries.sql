@@ -226,3 +226,10 @@ WHERE session = $1;
 
 -- name: UpdateActiveRunways :exec
 UPDATE sessions SET active_runways = $2 WHERE id = $1;
+
+-- name: RemoveSectorOwners :exec
+DELETE FROM sector_owners WHERE session = $1;
+
+-- name: InsertSectorOwners :copyfrom
+INSERT INTO sector_owners (session, sector, position)
+VALUES ($1, $2, $3);

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"FlightStrips/config"
 	"FlightStrips/database"
 	"context"
 	"encoding/json"
@@ -120,7 +121,15 @@ func euroscopeeventhandlerControllerOnline(client *EuroscopeClient, msg []byte) 
 		if err == nil {
 			s.FrontendHub.SendControllerOnline(session, event.Callsign, event.Position)
 		}
-		return err
+	}
+
+	// TODO not good enough
+	if _, err := config.GetPositionBasedOnFrequency(event.Position); err == nil {
+		return client.server.UpdateSectors(client.session)
+	}
+
+	if _, err := config.GetPositionBasedOnFrequency(controller.Position); err == nil {
+		return client.server.UpdateSectors(client.session)
 	}
 
 	return nil
@@ -160,6 +169,11 @@ func euroscopeeventhandlerControllerOffline(client *EuroscopeClient, msg []byte)
 	if count != 1 {
 		log.Printf("Controller %s at airport %s which was online did not exist in the database\n",
 			event.Callsign, airport)
+		return nil
+	}
+
+	if _, err := config.GetPositionBasedOnFrequency(controller.Position); err == nil {
+		return client.server.UpdateSectors(client.session)
 	}
 
 	return nil

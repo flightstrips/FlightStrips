@@ -583,6 +583,11 @@ func euroscopeeventhandlerSync(client *EuroscopeClient, msg []byte) error {
 		}
 	}
 
+	err = client.server.UpdateSectors(client.session)
+	if err != nil {
+		return err
+	}
+
 	for _, strip := range event.Strips {
 		err = handleStripUpdate(s, db, strip, session)
 		if err != nil {
@@ -590,8 +595,7 @@ func euroscopeeventhandlerSync(client *EuroscopeClient, msg []byte) error {
 		}
 	}
 
-	err = client.server.UpdateSectors(client.session)
-	return err
+	return nil
 }
 
 func handleStripUpdate(server *Server, db *database.Queries, strip EuroscopeStrip, session int32) error {
@@ -685,6 +689,11 @@ func handleStripUpdate(server *Server, db *database.Queries, strip EuroscopeStri
 			return err
 		}
 		log.Printf("Updated strip: %s", strip.Callsign)
+	}
+
+	err = server.UpdateRouteForStrip(strip.Callsign, session)
+	if err != nil {
+		fmt.Printf("Error updating route for strip %s: %v\n", strip.Callsign, err)
 	}
 
 	server.FrontendHub.SendStripUpdate(session, strip.Callsign)

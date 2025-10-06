@@ -31,6 +31,17 @@ type Region struct {
 	Region *s2.Loop
 }
 
+func GetRegionForPosition(lat, lon float64) (*Region, error) {
+	point := s2.PointFromLatLng(s2.LatLngFromDegrees(lat, lon))
+	for _, region := range regions {
+		if region.Region.ContainsPoint(point) {
+			return &region, nil
+		}
+	}
+
+	return nil, errors.New("unknown region")
+}
+
 func loadRegions(f io.Reader) error {
 	var features featureCollection
 	decoder := json.NewDecoder(f)

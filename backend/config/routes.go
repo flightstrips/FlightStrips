@@ -2,6 +2,7 @@
 
 import (
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -165,7 +166,7 @@ func ComputeToRunway(active []string, currentSector string, runway string) ([]st
 		return nil, false
 	}
 	for _, r := range candidates {
-		if !hasAllActive(active, r.Active) {
+		if !hasAnyActive(active, r.Active) {
 			continue
 		}
 		startIdx := indexOfSector(r.Path, currentSector)
@@ -201,7 +202,7 @@ func ComputeToStand(active []string, currentSector string, standStr string) ([]s
 		if !matched {
 			continue
 		}
-		if !hasAllActive(active, r.Active) {
+		if !hasAnyActive(active, r.Active) {
 			continue
 		}
 		startIdx := indexOfSector(r.Path, currentSector)
@@ -219,20 +220,18 @@ func normalizeRunway(rwy string) string {
 	return strings.ToUpper(strings.TrimSpace(rwy))
 }
 
-func hasAllActive(active []string, required []string) bool {
+func hasAnyActive(active []string, required []string) bool {
 	if len(required) == 0 {
 		return true
 	}
-	set := make(map[string]struct{}, len(active))
-	for _, a := range active {
-		set[strings.ToLower(strings.TrimSpace(a))] = struct{}{}
-	}
-	for _, req := range required {
-		if _, ok := set[strings.ToLower(strings.TrimSpace(req))]; !ok {
-			return false
+
+	for _, a := range required {
+		if slices.Contains(active, a) {
+			return true
 		}
 	}
-	return true
+
+	return false
 }
 
 func indexOfSector(path []string, sector string) int {

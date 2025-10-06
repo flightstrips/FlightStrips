@@ -1,7 +1,9 @@
 ﻿package config
 
 import (
+	"errors"
 	"slices"
+	"strings"
 )
 
 type constraints struct {
@@ -16,6 +18,19 @@ type Sector struct {
 	Constraints  *constraints `yaml:"constraints"`
 	Active       []string     `yaml:"active"`
 	Owner        []string     `yaml:"owner"`
+}
+
+func GetSectorFromRegion(region *Region, isArrival bool) (string, error) {
+	for _, sector := range sectors {
+		if sector.Constraints != nil && (sector.Constraints.Arrival != isArrival || sector.Constraints.Departure != !isArrival) {
+			continue
+		}
+		if sector.Region != nil && strings.EqualFold(*sector.Region, region.Name) {
+			return sector.Name, nil
+		}
+	}
+
+	return "", errors.New("sector not found")
 }
 
 func GetControllerSectors(controllers []*Position, active []string) map[string][]Sector {

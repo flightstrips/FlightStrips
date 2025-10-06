@@ -111,19 +111,19 @@ routes:
   - name: Stands to Runway 22R
     forRunway: 22R
     active: [22R]
-    path: [APRON_NORTH, GROUND_WEST, TOWER_WEST]
+    path: [AD, GW, TW]
   - name: Stands to Runway 04R
     forRunway: 04R
     active: [04R]
-    path: [APRON_NORTH, GROUND_WEST, TOWER_EAST]
+    path: [AD, GW, TE]
   - name: Stands to Runway 22R cargo
     forRunway: 22R
     active: [22R]
-    path: [APRON_EAST, TOWER_EAST, GROUND_WEST, TOWER_WEST]
+    path: [TE, GW, TW]
   - name: Stands to Runway 04R cargo
     forRunway: 04R
     active: [04R]
-    path: [APRON_EAST, TOWER_WEST]
+    path: [TW]
   # TODO rest of the runways
   - name: Runway 22L/04R to high A stands
     forStandRanges:
@@ -132,12 +132,12 @@ routes:
       - A6
       - A8
     active: [22L, 04R]
-    path: [TOWER_EAST, GROUND_WEST, APRON_NORTH]
+    path: [TE, GW, AA]
   - name: Runway 22L/04R to cargo
     forStandRanges:
       - G110-G137
     active: [22L, 04R]
-    path: [TOWER_EAST, APRON_EAST]
+    path: [TE]
   - name: Runway 22L to rest
     forStandRanges:
       - A7
@@ -149,7 +149,7 @@ routes:
       - F1-F99
       - H101-H106
     active: [22L, 04R]
-    path: [TOWER_EAST, APRON_NORTH]
+    path: [TE, AA]
   - name: Runway 04L/22R to high A stands
     forStandRanges:
       - A17-A33
@@ -157,12 +157,12 @@ routes:
       - A6
       - A8
     active: [04L, 22R]
-    path: [TOWER_WEST, GROUND_WEST, APRON_NORTH]
+    path: [TW, GW, AA]
   - name: Runway 04L/22R to cargo
     forStandRanges:
       - G110-G137
     active: [04L, 22R]
-    path: [TOWER_WEST, GROUND_WEST, TOWER_EAST, APRON_EAST]
+    path: [TW, GW, TE]
   - name: Runway 04L/22R to rest
     forStandRanges:
       - A7
@@ -174,4 +174,4 @@ routes:
       - F1-F99
       - H101-H106
     active: [04L, 22R]
-    path: [TOWER_WEST, GROUND_WEST, APRON_NORTH]
+    path: [TW, GW, AA]

@@ -34,13 +34,7 @@ func (s *Server) UpdateSectors(sessionId int32) error {
 		return err
 	}
 
-	controllers, err := db.GetControllers(context.Background(), sessionId)
-	if err != nil {
-		return err
-	}
-
 	fmt.Printf("Updating sectors for session %d\n", sessionId)
-	fmt.Printf("Found %d controllers\n", len(controllers))
 	fmt.Printf("Found %d previous owners\n", len(previousOwners))
 
 	session, err := db.GetSessionById(context.Background(), sessionId)
@@ -54,6 +48,11 @@ func (s *Server) UpdateSectors(sessionId int32) error {
 		return nil
 	}
 
+	positions, err := getCurrentPositions(db, sessionId)
+	if err != nil {
+		return err
+	}
+
 	var runways ActiveRunways
 	err = json.Unmarshal([]byte(session.ActiveRunways.String), &runways)
 	if err != nil {
@@ -61,13 +60,6 @@ func (s *Server) UpdateSectors(sessionId int32) error {
 	}
 
 	active := runways.GetAllActiveRunways()
-
-	positions := make([]*config.Position, 0)
-	for _, controller := range controllers {
-		if position, err := config.GetPositionBasedOnFrequency(controller.Position); err == nil {
-			positions = append(positions, position)
-		}
-	}
 
 	sectors := config.GetControllerSectors(positions, active)
 	if len(sectors) == 0 {
@@ -137,4 +129,21 @@ func sectorsEqual(a, b database.SectorOwner) bool {
 
 func sectorsCompare(e, e2 config.Sector) int {
 	return cmp.Compare(e.Name, e2.Name)
+}
+
+func getCurrentPositions(db *database.Queries, sessionId int32) ([]*config.Position, error) {
+
+	controllers, err := db.GetControllers(context.Background(), sessionId)
+	if err != nil {
+		return nil, err
+	}
+
+	positions := make([]*config.Position, 0)
+	for _, controller := range controllers {
+		if position, err := config.GetPositionBasedOnFrequency(controller.Position); err == nil {
+			positions = append(positions, position)
+		}
+	}
+
+	return positions, nil
 }

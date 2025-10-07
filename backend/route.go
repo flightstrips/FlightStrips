@@ -82,6 +82,16 @@ func (s *Server) UpdateRouteForStrip(callsign string, sessionId int32) error {
 		}
 	}
 
+	if !isArrival && strip.Sid.Valid && strip.Sid.String != "" {
+		as, err := config.GetAirborneSector(strip.Sid.String)
+		if err != nil {
+			fmt.Printf("Error getting airborne frequency: %v\n", err)
+		} else if owner, ok := sectorToOnwer[as]; ok && !slices.Contains(actualRoute, owner) {
+			path = append(path, as)
+			actualRoute = append(actualRoute, owner)
+		}
+	}
+
 	fmt.Printf("Found route: %v (%v) for strip: %v\n", actualRoute, path, callsign)
 
 	return nil

@@ -242,3 +242,18 @@ func indexOfSector(path []string, sector string) int {
 	}
 	return -1
 }
+
+type AirborneRoutes struct {
+	Name         string   `yaml:"name"`
+	UseAsDefault bool     `yaml:"default"`
+	Sids         []string `yaml:"sids"`
+}
+
+func GetAirborneSector(sid string) (string, error) {
+	for _, ar := range airborneRoutes {
+		if slices.Contains(ar.Sids, sid) {
+			return ar.Name, nil
+		}
+	}
+	return "", fmt.Errorf("no airborne controller for SID %q", sid)
+}

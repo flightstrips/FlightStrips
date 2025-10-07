@@ -15,6 +15,125 @@
     frequency: "118.580"
   - name: "EKCH_FMH"
     frequency: "120.500"
+  - name: "EKCH_K_DEP"
+    frequency: "124.980"
+  - name: "EKCH_R_DEP"
+    frequency: "120.255"
+  - name: "EKCH_W_APP"
+    frequency: "119.805"
+  - name: "EKCH_O_APP"
+    frequency: "118.455"
+  - name: "EKCH_F_APP"
+    frequency: "120.205"
+  - name: "EKDK_V_CTR"
+    frequency: "135.565"
+  - name: "EKDK_L_CTR"
+    frequency: "124.555"
+  - name: "EKDK_N_CTR"
+    frequency: "134.680"
+  - name: "EKDK_UN_CTR"
+    frequency: "136.555"
+  - name: "EKDK_E_CTR"
+    frequency: "123.730"
+  - name: "EKDK_D_CTR"
+    frequency: "133.155"
+  - name: "EKDK_I_CTR"
+    frequency: "121.380"
+  - name: "EKDK_B_CTR"
+    frequency: "119.555"
+  - name: "EKDK_A_CTR"
+    frequency: "135.290"
+  - name: "EKDK_C_CTR"
+    frequency: "128.215"
+  - name: "EKDK_CTR"
+    frequency: "136.485"
+  - name: "EKDK_OE_CTR"
+    frequency: "127.865"
+  - name: "EKDK_WE_CTR"
+    frequency: "126.055"
+
+
+airborne_owners:
+  - EKCH_W_APP
+  - EKCH_O_APP
+  - EKCH_R_DEP
+  - EKCH_K_DEP
+  - EKDK_I_CTR
+  - EKDK_B_CTR
+  - EKDK_E_CTR
+  - EKDK_D_CTR
+  - EKDK_OE_CTR
+  - EKDK_WE_CTR
+  - EKDK_CTR
+
+airborne_routes:
+  - name: K_DEP
+    default: true
+    sids:
+      - BETUD2E
+      - NEXEN2E
+      - KOPEX2E
+      - LANGO2E
+      - KEMAX2E
+      - SIMEG2E
+      - SALLO1E
+      - BETUD3B
+      - NEXEN3B
+      - KOPEX3B
+      - LANGO3B
+      - SIMEG9B
+      - SALLO1B
+      - BETUD2F
+      - NEXEN2F
+      - KOPEX2F
+      - LANGO2F
+      - KEMAX2F
+      - SIMEG2F
+      - SALLO1F
+      - BETUD3D
+      - NEXEN3D
+      - KOPEX3D
+      - LANGO3D
+      - SIMEG9D
+      - SALLO1D
+      - BETUD2A
+      - NEXEN2A
+      - KOPEX2A
+      - LANGO2A
+      - KEMAX5A
+      - SIMEG8A
+      - SALLO1A
+      - BETUD2C
+      - NEXEN2C
+      - KOPEX2C
+      - LANGO2C
+      - KEMAX5C
+      - SIMEG9C
+      - SALLO1C
+
+  - name: R_DEP
+    default: false
+    sids:
+      - ODDON1E
+      - GOLGA3E
+      - VEDAR3E
+      - ODDON1B
+      - GOLGA3B
+      - VEDAR3B
+      - KEMAX6B
+      - ODDON1F
+      - GOLGA2F
+      - VEDAR2F
+      - ODDON1D
+      - GOLGA3D
+      - VEDAR3D
+      - KEMAX6D
+      - ODDON1A
+      - GOLGA3A
+      - VEDAR4A
+      - ODDON1C
+      - GOLGA2C
+      - VEDAR2C
 
 sectors:
   - name: DEL
@@ -106,6 +225,38 @@ sectors:
       - "EKCH_D_TWR"
       - "EKCH_C_TWR"
 
+  # Airborne
+  - name: K_DEP
+    active: [ ]
+    name_priority: 0
+    owner:
+      - EKCH_K_DEP
+      - EKCH_R_DEP
+      - EKCH_W_APP
+      - EKCH_O_APP
+      - EKDK_I_CTR
+      - EKDK_B_CTR
+      - EKDK_E_CTR
+      - EKDK_D_CTR
+      - EKDK_OE_CTR
+      - EKDK_WE_CTR
+      - EKDK_CTR
+
+  - name: R_DEP
+    active: [ ]
+    name_priority: 0
+    owner:
+      - EKCH_R_DEP
+      - EKCH_K_DEP
+      - EKCH_W_APP
+      - EKCH_O_APP
+      - EKDK_I_CTR
+      - EKDK_B_CTR
+      - EKDK_E_CTR
+      - EKDK_D_CTR
+      - EKDK_OE_CTR
+      - EKDK_WE_CTR
+      - EKDK_CTR
 
 routes:
   - name: Stands to Runway 22R

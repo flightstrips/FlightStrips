@@ -90,3 +90,9 @@ type Strip struct {
 	Asat              pgtype.Text
 	Eobt              pgtype.Text
 }
+
+type Version struct {
+	ID        int32
+	Name      string
+	AppliedAt pgtype.Timestamp
+}

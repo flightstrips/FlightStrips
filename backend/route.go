@@ -57,7 +57,6 @@ func (s *Server) UpdateRouteForStrip(callsign string, sessionId int32) error {
 		return errors.New("unable to compute route")
 	}
 
-	// this is even more stupid
 	owners, err := db.GetSectorOwners(context.Background(), sessionId)
 	if err != nil {
 		return err

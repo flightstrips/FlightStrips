@@ -233,3 +233,10 @@ DELETE FROM sector_owners WHERE session = $1;
 -- name: InsertSectorOwners :copyfrom
 INSERT INTO sector_owners (session, sector, position)
 VALUES ($1, $2, $3);
+
+-- name: GetAllDatabaseVersions :many
+SELECT id, name FROM versions;
+
+-- name: InsertDatabaseVersion :exec
+INSERT INTO versions (id, name)
+VALUES($1, $2);

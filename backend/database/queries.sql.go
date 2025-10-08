@@ -76,6 +76,35 @@ func (q *Queries) DeleteSession(ctx context.Context, id int32) (int64, error) {
 	return result.RowsAffected(), nil
 }
 
+const getAllDatabaseVersions = `-- name: GetAllDatabaseVersions :many
+SELECT id, name FROM versions
+`
+
+type GetAllDatabaseVersionsRow struct {
+	ID   int32
+	Name string
+}
+
+func (q *Queries) GetAllDatabaseVersions(ctx context.Context) ([]GetAllDatabaseVersionsRow, error) {
+	rows, err := q.db.Query(ctx, getAllDatabaseVersions)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetAllDatabaseVersionsRow
+	for rows.Next() {
+		var i GetAllDatabaseVersionsRow
+		if err := rows.Scan(&i.ID, &i.Name); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getController = `-- name: GetController :one
 SELECT id, session, callsign, position, cid, last_seen_euroscope, last_seen_frontend
 FROM controllers
@@ -394,6 +423,21 @@ func (q *Queries) InsertController(ctx context.Context, arg InsertControllerPara
 		arg.LastSeenEuroscope,
 		arg.LastSeenFrontend,
 	)
+	return err
+}
+
+const insertDatabaseVersion = `-- name: InsertDatabaseVersion :exec
+INSERT INTO versions (id, name)
+VALUES($1, $2)
+`
+
+type InsertDatabaseVersionParams struct {
+	ID   int32
+	Name string
+}
+
+func (q *Queries) InsertDatabaseVersion(ctx context.Context, arg InsertDatabaseVersionParams) error {
+	_, err := q.db.Exec(ctx, insertDatabaseVersion, arg.ID, arg.Name)
 	return err
 }
 

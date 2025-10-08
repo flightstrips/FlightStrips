@@ -91,3 +91,9 @@ CREATE TABLE IF NOT EXISTS coordinations (
 
 CREATE INDEX IF NOT EXISTS idx_coordinations_session
     ON coordinations (session);
+
+CREATE TABLE IF NOT EXISTS versions (
+    id SERIAL PRIMARY KEY,
+    name varchar(256) NOT NULL,
+    applied_at TIMESTAMP NOT NULL DEFAULT now()
+);

@@ -20,13 +20,10 @@ import (
 
 	_ "github.com/jackc/pgx/v5/pgtype"
 
-	"github.com/gorilla/websocket"
 	"github.com/joho/godotenv"
 )
 
 var addr = flag.String("addr", "0.0.0.0:2994", "http service address")
-
-var upgrader = websocket.Upgrader{} // use default options
 
 type Session struct {
 	Id      int32
@@ -59,9 +56,6 @@ func (s *Server) GetOrCreateSession(airport string, name string) (Session, error
 	return Session{}, nil
 }
 
-//go:embed schema.sql
-var ddl string
-
 func main() {
 	flag.Parse()
 	log.SetFlags(0)
@@ -90,14 +84,6 @@ func main() {
 
 	server.FrontendHub = NewFrontendHub(&server)
 	server.EuroscopeHub = NewEuroscopeHub(&server)
-
-	//check that the dbpool is working
-	_, err = dbpool.Exec(ctx, ddl)
-	if err != nil {
-		log.Println("error checking connection to postgres database")
-		log.Println(err.Error())
-		log.Fatal(err)
-	}
 
 	// TODO remove
 	db := database.New(dbpool)

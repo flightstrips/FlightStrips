@@ -16,6 +16,18 @@ services:
     restart: unless-stopped
     command: ["postgres"]
     profiles: [all, database]
+  
+  flightstrips-migrator:
+    build: 
+      dockerfile: Dockerfile.Migrate
+    networks:
+      - flightstrips
+    restart: on-failure
+    depends_on:
+      postgres:
+        condition: service_started
+    profiles: [all, database]
+    command: /app/bin/migrate --dsn "postgresql://fs:fs_password@postgres:5432/fsdb?sslmode=disable" --migrations /app/database/migrations
 
   flightstrip:
     build: .
@@ -30,6 +42,8 @@ services:
     depends_on:
       postgres:
         condition: service_started
+      flightstrips-migrator:
+        condition: service_completed_successfully
     profiles: [all]
 
 networks:

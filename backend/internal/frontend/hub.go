@@ -1,0 +1,403 @@
+package frontend
+
+import (
+	"FlightStrips/internal/database"
+	"FlightStrips/internal/shared"
+	"FlightStrips/pkg/events"
+	"FlightStrips/pkg/events/frontend"
+	"context"
+	"errors"
+	"log"
+
+	gorilla "github.com/gorilla/websocket"
+	"github.com/jackc/pgx/v5"
+)
+
+type internalMessage struct {
+	session int32
+	message frontend.OutgoingMessage
+	cid     *string
+}
+
+type Hub struct {
+	server  shared.Server
+	clients map[*Client]bool
+
+	send chan internalMessage
+
+	register   chan *Client
+	unregister chan *Client
+
+	handlers shared.MessageHandlers[frontend.EventType, *Client]
+}
+
+func NewHub() *Hub {
+	handlers := shared.NewMessageHandlers[frontend.EventType, *Client]()
+
+	handlers.Add(frontend.GenerateSquawk, handleGenerateSquawk)
+	handlers.Add(frontend.Move, handleMove)
+	handlers.Add(frontend.StripUpdate, handleStripUpdate)
+	handlers.Add(frontend.CoordinationTransferRequestType, handleCoordinationTransferRequest)
+	handlers.Add(frontend.CoordinationAssumeRequestType, handleCoordinationAssumeRequest)
+	handlers.Add(frontend.CoordinationRejectRequestType, handleCoordinationRejectRequest)
+	handlers.Add(frontend.CoordinationFreeRequestType, handleCoordinationFreeRequest)
+
+	hub := &Hub{
+		send:       make(chan internalMessage),
+		register:   make(chan *Client),
+		unregister: make(chan *Client),
+		clients:    make(map[*Client]bool),
+		handlers:   handlers,
+	}
+
+	go hub.Run()
+
+	return hub
+}
+
+func (hub *Hub) Unregister(client *Client) {
+	hub.unregister <- client
+}
+
+func (hub *Hub) GetMessageHandlers() shared.MessageHandlers[frontend.EventType, *Client] {
+	return hub.handlers
+}
+
+func (hub *Hub) Broadcast(session int32, message frontend.OutgoingMessage) {
+	hub.send <- internalMessage{
+		session: session,
+		message: message,
+		cid:     nil,
+	}
+}
+
+func (hub *Hub) Send(session int32, cid string, message frontend.OutgoingMessage) {
+	hub.send <- internalMessage{
+		session: session,
+		message: message,
+		cid:     &cid,
+	}
+}
+
+func (hub *Hub) GetServer() shared.Server {
+	return hub.server
+}
+
+func (hub *Hub) SetServer(server shared.Server) {
+	hub.server = server
+}
+
+func (hub *Hub) HandleNewConnection(conn *gorilla.Conn, user shared.AuthenticatedUser) (*Client, error) {
+	db := database.New(hub.server.GetDatabasePool())
+	controller, err := db.GetControllerByCid(context.Background(), user.GetCid())
+
+	var session int32
+	var position, airport, callsign string
+	if err != nil {
+		if !errors.Is(err, pgx.ErrNoRows) {
+			return nil, err
+		}
+
+		session = WaitingForEuroscopeConnectionSessionId
+		position = WaitingForEuroscopeConnectionPosition
+		airport = WaitingForEuroscopeConnectionAirport
+		callsign = WaitingForEuroscopeConnectionCallsign
+	} else {
+		dbSession, err := db.GetSessionById(context.Background(), controller.Session)
+
+		if err != nil {
+			// this should not really happen due to the foreign key constraint on the controller table
+			return nil, err
+		}
+
+		session = dbSession.ID
+		position = controller.Position
+		airport = dbSession.Airport
+		callsign = controller.Callsign
+	}
+
+	// Create and return the client
+	client := &Client{
+		conn:     conn,
+		user:     user,
+		session:  session,
+		send:     make(chan events.OutgoingMessage),
+		hub:      hub,
+		position: position,
+		airport:  airport,
+		callsign: callsign,
+	}
+
+	hub.register <- client
+
+	return client, nil
+}
+
+func (hub *Hub) sendInitialEvent(client *Client) {
+	db := database.New(hub.server.GetDatabasePool())
+
+	controllers, err := db.ListControllers(context.Background(), client.session)
+	if err != nil {
+		log.Println("Failed to list controllers:", err)
+		return
+	}
+
+	strips, err := db.ListStrips(context.Background(), client.session)
+	if err != nil {
+		log.Println("Failed to list strips:", err)
+		return
+	}
+
+	controllerModels := make([]frontend.Controller, 0, len(controllers))
+	stripModels := make([]frontend.Strip, 0, len(strips))
+
+	for _, controller := range controllers {
+		controllerModels = append(controllerModels, frontend.Controller{
+			Callsign: controller.Callsign,
+			Position: controller.Position,
+		})
+	}
+
+	for _, strip := range strips {
+		stripModels = append(stripModels, MapStripToFrontendModel(&strip))
+	}
+
+	event := frontend.InitialEvent{
+		Contsollsrs: controllerModels,
+		Strips:      stripModels,
+		Position:    client.position,
+		Callsign:    client.callsign,
+		Airport:     client.airport,
+		RunwaySetup: frontend.RunwayConfiguration{
+			Departure: make([]string, 0),
+			Arrival:   make([]string, 0),
+		},
+	}
+
+	client.send <- event
+}
+
+func MapStripToFrontendModel(strip *database.Strip) frontend.Strip {
+	return frontend.Strip{
+		Callsign:          strip.Callsign,
+		Origin:            strip.Origin,
+		Destination:       strip.Destination,
+		Alternate:         strip.Alternative.String,
+		Route:             strip.Route.String,
+		Remarks:           strip.Remarks.String,
+		Runway:            strip.Remarks.String,
+		Squawk:            strip.Squawk.String,
+		AssignedSquawk:    strip.AssignedSquawk.String,
+		Sid:               strip.Sid.String,
+		ClearedAltitude:   int(strip.ClearedAltitude.Int32),
+		RequestedAltitude: int(strip.RequestedAltitude.Int32),
+		Heading:           int(strip.Heading.Int32),
+		AircraftType:      strip.AircraftType.String,
+		AircraftCategory:  strip.AircraftCategory.String,
+		Stand:             strip.Stand.String,
+		Capabilities:      strip.Capabilities.String,
+		CommunicationType: strip.CommunicationType.String,
+		Bay:               strip.Bay.String,
+		ReleasePoint:      "",
+		Version:           int(strip.Version),
+		Sequence:          int(strip.Sequence.Int32),
+		Eobt:              strip.Eobt.String,
+	}
+}
+
+func (hub *Hub) CidOnline(session int32, cid string) {
+	for client := range hub.clients {
+		if client.user.GetCid() == cid {
+			client.session = session
+			hub.sendInitialEvent(client)
+			return
+		}
+	}
+}
+
+func (hub *Hub) CidDisconnect(cid string) {
+	for client := range hub.clients {
+		if client.user.GetCid() == cid {
+			client.session = WaitingForEuroscopeConnectionSessionId
+			client.send <- frontend.DisconnectEvent{}
+			return
+		}
+	}
+}
+
+func (hub *Hub) SendStripUpdate(session int32, callsign string) {
+	db := database.New(hub.server.GetDatabasePool())
+	strip, err := db.GetStrip(context.Background(), database.GetStripParams{Callsign: callsign, Session: session})
+	if err != nil {
+		return
+	}
+
+	model := MapStripToFrontendModel(&strip)
+
+	event := frontend.StripUpdateEvent{
+		Strip: model,
+	}
+
+	hub.Broadcast(session, event)
+}
+
+func (hub *Hub) SendControllerOnline(session int32, callsign string, position string) {
+	event := frontend.ControllerOnlineEvent{
+		Controller: frontend.Controller{
+			Callsign: callsign,
+			Position: position,
+		},
+	}
+	hub.Broadcast(session, event)
+}
+
+func (hub *Hub) SendControllerOffline(session int32, callsign string, position string) {
+	event := frontend.ControllerOfflineEvent{
+		Controller: frontend.Controller{
+			Callsign: callsign,
+			Position: position,
+		},
+	}
+	hub.Broadcast(session, event)
+}
+
+func (hub *Hub) SendAssignedSquawkEvent(session int32, callsign string, squawk string) {
+	event := frontend.AssignedSquawkEvent{
+		Callsign: callsign,
+		Squawk:   squawk,
+	}
+	hub.Broadcast(session, event)
+}
+
+func (hub *Hub) SendSquawkEvent(session int32, callsign string, squawk string) {
+	event := frontend.SquawkEvent{
+		Callsign: callsign,
+		Squawk:   squawk,
+	}
+	hub.Broadcast(session, event)
+}
+
+func (hub *Hub) SendRequestedAltitudeEvent(session int32, callsign string, altitude int) {
+	event := frontend.RequestedAltitudeEvent{
+		Callsign: callsign,
+		Altitude: altitude,
+	}
+	hub.Broadcast(session, event)
+}
+
+func (hub *Hub) SendClearedAltitudeEvent(session int32, callsign string, altitude int) {
+	event := frontend.ClearedAltitudeEvent{
+		Callsign: callsign,
+		Altitude: altitude,
+	}
+	hub.Broadcast(session, event)
+}
+
+func (hub *Hub) SendBayEvent(session int32, callsign string, bay string) {
+	event := frontend.BayEvent{
+		Callsign: callsign,
+		Bay:      bay,
+	}
+	hub.Broadcast(session, event)
+}
+
+func (hub *Hub) SendAircraftDisconnect(session int32, callsign string) {
+	event := frontend.AircraftDisconnectEvent{
+		Callsign: callsign,
+	}
+	hub.Broadcast(session, event)
+}
+
+func (hub *Hub) SendStandEvent(session int32, callsign string, stand string) {
+	event := frontend.StandEvent{
+		Callsign: callsign,
+		Stand:    stand,
+	}
+	hub.Broadcast(session, event)
+}
+
+func (hub *Hub) SendSetHeadingEvent(session int32, callsign string, heading int) {
+	event := frontend.SetHeadingEvent{
+		Callsign: callsign,
+		Heading:  heading,
+	}
+	hub.Broadcast(session, event)
+}
+
+func (hub *Hub) SendCommunicationTypeEvent(session int32, callsign string, communicationType string) {
+	event := frontend.CommunicationTypeEvent{
+		Callsign:          callsign,
+		CommunicationType: communicationType,
+	}
+	hub.Broadcast(session, event)
+}
+
+func (hub *Hub) SendCoordinationTransfer(session int32, callsign, from, to string) {
+	event := frontend.CoordinationTransferBroadcastEvent{
+		Callsign: callsign,
+		From:     from,
+		To:       to,
+	}
+	hub.Broadcast(session, event)
+}
+
+func (hub *Hub) SendCoordinationAssume(session int32, callsign, position string) {
+	event := frontend.CoordinationAssumeBroadcastEvent{
+		Callsign: callsign,
+		Position: position,
+	}
+	hub.Broadcast(session, event)
+}
+
+func (hub *Hub) SendCoordinationReject(session int32, callsign, position string) {
+	event := frontend.CoordinationRejectBroadcastEvent{
+		Callsign: callsign,
+		Position: position,
+	}
+	hub.Broadcast(session, event)
+}
+
+func (hub *Hub) SendCoordinationFree(session int32, callsign string) {
+	event := frontend.CoordinationFreeBroadcastEvent{
+		Callsign: callsign,
+	}
+	hub.Broadcast(session, event)
+}
+
+func (hub *Hub) OnRegister(client *Client) {
+	log.Println("Client registered:", client.user.GetCid())
+	hub.sendInitialEvent(client)
+}
+
+func (hub *Hub) OnUnregister(client *Client) {
+	log.Println("Client unregistered:", client.user.GetCid())
+}
+
+func (hub *Hub) Run() {
+	for {
+		select {
+		case client := <-hub.register:
+			hub.clients[client] = true
+			hub.OnRegister(client)
+		case client := <-hub.unregister:
+			if _, ok := hub.clients[client]; ok {
+				delete(hub.clients, client)
+				client.Close()
+			}
+		case message := <-hub.send:
+			if message.cid != nil {
+				for client := range hub.clients {
+					if message.session == client.session && *message.cid == client.GetCid() {
+						client.send <- message.message
+					}
+				}
+			} else {
+				for client := range hub.clients {
+					if message.session == client.session {
+						client.send <- message.message
+					}
+				}
+			}
+		}
+	}
+}

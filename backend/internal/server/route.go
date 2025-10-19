@@ -26,6 +26,33 @@ func (s *Server) UpdateRouteForStrip(callsign string, sessionId int32) error {
 		return err
 	}
 
+	return updateRouteForStripHelper(db, strip, session)
+}
+
+func (s *Server) UpdateRoutesForSession(sessionId int32) error {
+	db := database.New(s.GetDatabasePool())
+
+	strips, err := db.ListStrips(context.Background(), sessionId)
+	if err != nil {
+		return err
+	}
+
+	session, err := db.GetSessionById(context.Background(), sessionId)
+	if err != nil {
+		return err
+	}
+
+	for _, strip := range strips {
+		err := updateRouteForStripHelper(db, strip, session)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func updateRouteForStripHelper(db *database.Queries, strip database.Strip, session database.Session) error {
 	isArrival := strip.Destination == session.Airport
 
 	region, err := config.GetRegionForPosition(strip.PositionLatitude.Float64, strip.PositionLongitude.Float64)
@@ -58,7 +85,7 @@ func (s *Server) UpdateRouteForStrip(callsign string, sessionId int32) error {
 		return errors.New("unable to compute route")
 	}
 
-	owners, err := db.GetSectorOwners(context.Background(), sessionId)
+	owners, err := db.GetSectorOwners(context.Background(), session.ID)
 	if err != nil {
 		return err
 	}
@@ -92,7 +119,7 @@ func (s *Server) UpdateRouteForStrip(callsign string, sessionId int32) error {
 		}
 	}
 
-	fmt.Printf("Found route: %v (%v) for strip: %v\n", actualRoute, path, callsign)
+	fmt.Printf("Found route: %v (%v) for strip: %v\n", actualRoute, path, strip.Callsign)
 
 	return nil
 }

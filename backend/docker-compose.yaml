@@ -27,7 +27,7 @@ services:
       postgres:
         condition: service_started
     profiles: [all, database]
-    command: /app/bin/migrate --dsn "postgresql://fs:fs_password@postgres:5432/fsdb?sslmode=disable" --migrations /app/database/migrations
+    command: /app/bin/migrate --dsn "postgresql://fs:fs_password@postgres:5432/fsdb?sslmode=disable" --migrations /app/migrations
 
   flightstrip:
     build: .

@@ -162,10 +162,12 @@ func (hub *Hub) handleLogin(msg []byte, user shared.AuthenticatedUser) (event eu
 		return
 	}
 
-	sessionName := event.Connection
+	sessionName := "LIVE"
 	if sessionName == "PLAYBACK" {
 		sessionName = sessionName + "_" + strconv.Itoa(rand.Int())
 	}
+
+	log.Println("Euroscope Client (", user.GetCid(), ") logged in:", sessionName)
 
 	session, err := hub.server.GetOrCreateSession(event.Airport, sessionName)
 	if err != nil {

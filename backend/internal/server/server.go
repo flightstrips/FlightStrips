@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -57,6 +58,19 @@ func (s *Server) GetOrCreateSession(airport string, name string) (shared.Session
 		log.Println("Creating session:", name, "for airport:", airport)
 		insertArg := database.InsertSessionParams{Name: name, Airport: airport}
 		id, err := db.InsertSession(context.Background(), insertArg)
+
+		if err != nil {
+			var pgErr *pgconn.PgError
+			if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+				session, err = db.GetSession(context.Background(), arg)
+				if err != nil {
+					return shared.Session{Name: name, Airport: airport, Id: id}, err
+				}
+			}
+
+			return shared.Session{}, err
+
+		}
 
 		return shared.Session{Name: name, Airport: airport, Id: id}, err
 	}

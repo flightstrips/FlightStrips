@@ -3,9 +3,7 @@
 import (
 	"FlightStrips/internal/config"
 	"FlightStrips/internal/database"
-	"FlightStrips/internal/shared"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"slices"
@@ -13,7 +11,7 @@ import (
 
 // This is dumb please optimize
 
-func (s *Server) UpdateRouteForStrip(callsign string, sessionId int32) error {
+func (s *Server) UpdateRouteForStrip(callsign string, sessionId int32, sendUpdate bool) error {
 	db := database.New(s.GetDatabasePool())
 
 	strip, err := db.GetStrip(context.Background(), database.GetStripParams{Callsign: callsign, Session: sessionId})
@@ -26,10 +24,10 @@ func (s *Server) UpdateRouteForStrip(callsign string, sessionId int32) error {
 		return err
 	}
 
-	return updateRouteForStripHelper(db, strip, session)
+	return s.updateRouteForStripHelper(db, strip, session, sendUpdate)
 }
 
-func (s *Server) UpdateRoutesForSession(sessionId int32) error {
+func (s *Server) UpdateRoutesForSession(sessionId int32, sendUpdate bool) error {
 	db := database.New(s.GetDatabasePool())
 
 	strips, err := db.ListStrips(context.Background(), sessionId)
@@ -43,7 +41,7 @@ func (s *Server) UpdateRoutesForSession(sessionId int32) error {
 	}
 
 	for _, strip := range strips {
-		err := updateRouteForStripHelper(db, strip, session)
+		err := s.updateRouteForStripHelper(db, strip, session, sendUpdate)
 		if err != nil {
 			return err
 		}
@@ -52,7 +50,7 @@ func (s *Server) UpdateRoutesForSession(sessionId int32) error {
 	return nil
 }
 
-func updateRouteForStripHelper(db *database.Queries, strip database.Strip, session database.Session) error {
+func (s *Server) updateRouteForStripHelper(db *database.Queries, strip database.Strip, session database.Session, sendUpdate bool) error {
 	isArrival := strip.Destination == session.Airport
 
 	region, err := config.GetRegionForPosition(strip.PositionLatitude.Float64, strip.PositionLongitude.Float64)
@@ -65,13 +63,7 @@ func updateRouteForStripHelper(db *database.Queries, strip database.Strip, sessi
 		return err
 	}
 
-	var runways shared.ActiveRunways
-	err = json.Unmarshal([]byte(session.ActiveRunways.String), &runways)
-	if err != nil {
-		return err
-	}
-
-	allRunways := runways.GetAllActiveRunways()
+	allRunways := session.ActiveRunways.GetAllActiveRunways()
 
 	var path []string
 	var success bool
@@ -92,12 +84,7 @@ func updateRouteForStripHelper(db *database.Queries, strip database.Strip, sessi
 
 	sectorToOnwer := make(map[string]string)
 	for _, owner := range owners {
-		var ownerSectors []string
-		err := json.Unmarshal([]byte(owner.Sector), &ownerSectors)
-		if err != nil {
-			return err
-		}
-		for _, s := range ownerSectors {
+		for _, s := range owner.Sector {
 			sectorToOnwer[s] = owner.Position
 		}
 	}
@@ -119,7 +106,23 @@ func updateRouteForStripHelper(db *database.Queries, strip database.Strip, sessi
 		}
 	}
 
-	fmt.Printf("Found route: %v (%v) for strip: %v\n", actualRoute, path, strip.Callsign)
+	if strip.Owner.Valid && strip.Owner.String != "" {
+		index := slices.Index(actualRoute, strip.Owner.String)
+		if index != -1 {
+			actualRoute = append(actualRoute[:index], actualRoute[index+1:]...)
+		}
+	}
 
-	return nil
+	if slices.Equal(strip.NextOwners, actualRoute) {
+		// No need to update
+		return nil
+	}
+
+	err = db.SetNextOwners(context.Background(), database.SetNextOwnersParams{NextOwners: actualRoute, Session: session.ID, Callsign: strip.Callsign})
+
+	if sendUpdate {
+		s.frontendHub.SendOwnersUpdate(session.ID, strip.Callsign, actualRoute, strip.PreviousOwners)
+	}
+
+	return err
 }

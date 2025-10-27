@@ -2,9 +2,30 @@ version: "2"
 sql:
   - engine: "postgresql"
     queries: "queries.sql"
-    schema: "database/migrations/"
+    schema: "migrations/"
     gen:
       go:
         package: "database"
-        out: "database"
+        out: "internal/database"
         sql_package: "pgx/v5"
+        overrides:
+          - column: "strips.next_owners"
+            go_type:
+              pointer: false
+              type: "string"
+              slice: true
+          - column: "strips.previous_owners"
+            go_type:
+              pointer: false
+              type: "string"
+              slice: true
+          - column: "sector_owners.sector"
+            go_type:
+              pointer: false
+              type: "string"
+              slice: true
+          - column: "sessions.active_runways"
+            go_type:
+              pointer: false
+              import: "FlightStrips/pkg/models"
+              type: "ActiveRunways"

@@ -231,8 +231,8 @@ UPDATE sessions SET active_runways = $2 WHERE id = $1;
 DELETE FROM sector_owners WHERE session = $1;
 
 -- name: InsertSectorOwners :copyfrom
-INSERT INTO sector_owners (session, sector, position)
-VALUES ($1, $2, $3);
+INSERT INTO sector_owners (session, sector, position, identifier)
+VALUES ($1, $2, $3, $4);
 
 -- name: GetAllDatabaseVersions :many
 SELECT id, name FROM versions;
@@ -240,3 +240,12 @@ SELECT id, name FROM versions;
 -- name: InsertDatabaseVersion :exec
 INSERT INTO versions (id, name)
 VALUES($1, $2);
+
+-- name: SetNextOwners :exec
+UPDATE strips SET next_owners = $3 WHERE session = $1 AND callsign = $2;
+
+-- name: SetNextAndPreviousOwners :exec
+UPDATE strips SET next_owners = $3, previous_owners = $4 WHERE session = $1 AND callsign = $2;
+
+-- name: SetPreviousOwners :exec
+UPDATE strips SET previous_owners = $3 WHERE session = $1 AND callsign = $2;

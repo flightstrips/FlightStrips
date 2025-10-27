@@ -11,8 +11,8 @@ type FrontendHub interface {
 	CidOnline(session int32, cid string)
 	CidDisconnect(cid string)
 	SendStripUpdate(session int32, callsign string)
-	SendControllerOnline(session int32, callsign string, position string)
-	SendControllerOffline(session int32, callsign string, position string)
+	SendControllerOnline(session int32, callsign string, position string, identifier string)
+	SendControllerOffline(session int32, callsign string, position string, identifier string)
 	SendAssignedSquawkEvent(session int32, callsign string, squawk string)
 	SendSquawkEvent(session int32, callsign string, squawk string)
 	SendRequestedAltitudeEvent(session int32, callsign string, altitude int)
@@ -26,4 +26,5 @@ type FrontendHub interface {
 	SendCoordinationAssume(session int32, callsign, position string)
 	SendCoordinationReject(session int32, callsign, position string)
 	SendCoordinationFree(session int32, callsign string)
+	SendOwnersUpdate(session int32, callsign string, nextOwners []string, previousOwners []string)
 }

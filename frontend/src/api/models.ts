@@ -13,6 +13,7 @@ export enum EventType {
   FrontendStand = "stand",
   FrontendSetHeading = "set_heading",
   FrontendCommunicationType = "communication_type",
+  FrontendOwnersUpdate = "owners_update",
 }
 
 export enum ActionType {
@@ -71,13 +72,14 @@ export interface FrontendStrip {
 export interface FrontendController {
   callsign: string;
   position: string;
+  identifier: string;
 }
 
 export interface FrontendInitialEvent {
   type: EventType.FrontendInitial;
   controllers: FrontendController[];
   strips: FrontendStrip[];
-  position: string;
+  me: FrontendController;
   airport: string;
   callsign: string;
   runway_setup: RunwayConfiguration;
@@ -109,18 +111,23 @@ export interface FrontendStripUpdateEvent {
   release_point: string;
   version: number;
   sequence: number;
+  next_owners: string[];
+  previous_owners: string[];
+  owner: string;
 }
 
 export interface FrontendControllerOnlineEvent {
   type: EventType.FrontendControllerOnline;
   callsign: string;
   position: string;
+  identifier: string;
 }
 
 export interface FrontendControllerOfflineEvent {
   type: EventType.FrontendControllerOffline;
   callsign: string;
   position: string;
+  identifier: string;
 }
 
 export interface FrontendAssignedSquawkEvent {
@@ -193,6 +200,13 @@ export interface FrontendCommunicationTypeEvent {
   communication_type: CommunicationType;
 }
 
+export interface FrontendOwnersUpdateEvent {
+  type: EventType.FrontendOwnersUpdate;
+  callsign: string;
+  next_owners: string[];
+  previous_owners: string[];
+}
+
 // Union type for all events that can be received
 export type WebSocketEvent =
   | FrontendInitialEvent
@@ -208,7 +222,8 @@ export type WebSocketEvent =
   | FrontendAircraftDisconnectEvent
   | FrontendStandEvent
   | FrontendSetHeadingEvent
-  | FrontendCommunicationTypeEvent;
+  | FrontendCommunicationTypeEvent
+  | FrontendOwnersUpdateEvent;
 
 export interface FrontendMoveEvent {
   type: ActionType.FrontendMove;

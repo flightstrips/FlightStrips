@@ -148,14 +148,37 @@ func (hub *Hub) sendInitialEvent(client *Client) {
 		return
 	}
 
+	sectors, err := db.GetSectorOwners(context.Background(), client.session)
+	if err != nil {
+		log.Println("Failed to list sectors:", err)
+		return
+	}
+
+	sectorsMap := make(map[string]database.SectorOwner)
+	for _, sector := range sectors {
+		sectorsMap[sector.Position] = sector
+	}
+
 	controllerModels := make([]frontend.Controller, 0, len(controllers))
 	stripModels := make([]frontend.Strip, 0, len(strips))
 
+	me := frontend.Controller{}
+
 	for _, controller := range controllers {
-		controllerModels = append(controllerModels, frontend.Controller{
-			Callsign: controller.Callsign,
-			Position: controller.Position,
-		})
+		identifier := ""
+		if sector, ok := sectorsMap[controller.Position]; ok {
+			identifier = sector.Identifier
+		}
+		c := frontend.Controller{
+			Callsign:   controller.Callsign,
+			Position:   controller.Position,
+			Identifier: identifier,
+		}
+		controllerModels = append(controllerModels, c)
+
+		if controller.Callsign == client.callsign {
+			me = c
+		}
 	}
 
 	for _, strip := range strips {
@@ -163,9 +186,9 @@ func (hub *Hub) sendInitialEvent(client *Client) {
 	}
 
 	event := frontend.InitialEvent{
-		Contsollsrs: controllerModels,
+		Contsollers: controllerModels,
 		Strips:      stripModels,
-		Position:    client.position,
+		Me:          me,
 		Callsign:    client.callsign,
 		Airport:     client.airport,
 		RunwaySetup: frontend.RunwayConfiguration{
@@ -178,30 +201,34 @@ func (hub *Hub) sendInitialEvent(client *Client) {
 }
 
 func MapStripToFrontendModel(strip *database.Strip) frontend.Strip {
+
 	return frontend.Strip{
-		Callsign:          strip.Callsign,
-		Origin:            strip.Origin,
-		Destination:       strip.Destination,
-		Alternate:         strip.Alternative.String,
-		Route:             strip.Route.String,
-		Remarks:           strip.Remarks.String,
-		Runway:            strip.Remarks.String,
-		Squawk:            strip.Squawk.String,
-		AssignedSquawk:    strip.AssignedSquawk.String,
-		Sid:               strip.Sid.String,
-		ClearedAltitude:   int(strip.ClearedAltitude.Int32),
-		RequestedAltitude: int(strip.RequestedAltitude.Int32),
-		Heading:           int(strip.Heading.Int32),
-		AircraftType:      strip.AircraftType.String,
-		AircraftCategory:  strip.AircraftCategory.String,
-		Stand:             strip.Stand.String,
-		Capabilities:      strip.Capabilities.String,
-		CommunicationType: strip.CommunicationType.String,
-		Bay:               strip.Bay.String,
-		ReleasePoint:      "",
-		Version:           int(strip.Version),
-		Sequence:          int(strip.Sequence.Int32),
-		Eobt:              strip.Eobt.String,
+		Callsign:            strip.Callsign,
+		Origin:              strip.Origin,
+		Destination:         strip.Destination,
+		Alternate:           strip.Alternative.String,
+		Route:               strip.Route.String,
+		Remarks:             strip.Remarks.String,
+		Runway:              strip.Remarks.String,
+		Squawk:              strip.Squawk.String,
+		AssignedSquawk:      strip.AssignedSquawk.String,
+		Sid:                 strip.Sid.String,
+		ClearedAltitude:     int(strip.ClearedAltitude.Int32),
+		RequestedAltitude:   int(strip.RequestedAltitude.Int32),
+		Heading:             int(strip.Heading.Int32),
+		AircraftType:        strip.AircraftType.String,
+		AircraftCategory:    strip.AircraftCategory.String,
+		Stand:               strip.Stand.String,
+		Capabilities:        strip.Capabilities.String,
+		CommunicationType:   strip.CommunicationType.String,
+		Bay:                 strip.Bay.String,
+		ReleasePoint:        "",
+		Version:             int(strip.Version),
+		Sequence:            int(strip.Sequence.Int32),
+		Eobt:                strip.Eobt.String,
+		NextControllers:     strip.NextOwners,
+		PreviousControllers: strip.PreviousOwners,
+		Owner:               strip.Owner.String,
 	}
 }
 
@@ -241,21 +268,23 @@ func (hub *Hub) SendStripUpdate(session int32, callsign string) {
 	hub.Broadcast(session, event)
 }
 
-func (hub *Hub) SendControllerOnline(session int32, callsign string, position string) {
+func (hub *Hub) SendControllerOnline(session int32, callsign string, position string, identifier string) {
 	event := frontend.ControllerOnlineEvent{
 		Controller: frontend.Controller{
-			Callsign: callsign,
-			Position: position,
+			Callsign:   callsign,
+			Position:   position,
+			Identifier: identifier,
 		},
 	}
 	hub.Broadcast(session, event)
 }
 
-func (hub *Hub) SendControllerOffline(session int32, callsign string, position string) {
+func (hub *Hub) SendControllerOffline(session int32, callsign string, position string, identifier string) {
 	event := frontend.ControllerOfflineEvent{
 		Controller: frontend.Controller{
-			Callsign: callsign,
-			Position: position,
+			Callsign:   callsign,
+			Position:   position,
+			Identifier: identifier,
 		},
 	}
 	hub.Broadcast(session, event)
@@ -360,6 +389,15 @@ func (hub *Hub) SendCoordinationReject(session int32, callsign, position string)
 func (hub *Hub) SendCoordinationFree(session int32, callsign string) {
 	event := frontend.CoordinationFreeBroadcastEvent{
 		Callsign: callsign,
+	}
+	hub.Broadcast(session, event)
+}
+
+func (hub *Hub) SendOwnersUpdate(session int32, callsign string, nextOwners []string, previousOwners []string) {
+	event := frontend.OwnersUpdateEvent{
+		Callsign:       callsign,
+		NextOwners:     nextOwners,
+		PreviousOwners: previousOwners,
 	}
 	hub.Broadcast(session, event)
 }

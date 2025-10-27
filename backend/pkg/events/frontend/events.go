@@ -42,6 +42,8 @@ const (
 	CoordinationRejectBroadcastType   EventType = "coordination_reject_broadcast"
 	CoordinationTransferBroadcastType EventType = "coordination_transfer_broadcast"
 	CoordinationFreeBroadcastType     EventType = "coordination_free_broadcast"
+
+	OwnersUpdate EventType = "owners_update"
 )
 
 type OutgoingMessage interface {
@@ -55,41 +57,45 @@ type RunwayConfiguration struct {
 }
 
 type Strip struct {
-	Callsign          string `json:"callsign"`
-	Origin            string `json:"origin"`
-	Destination       string `json:"destination"`
-	Alternate         string `json:"alternate"`
-	Route             string `json:"route"`
-	Remarks           string `json:"remarks"`
-	Runway            string `json:"runway"`
-	Squawk            string `json:"squawk"`
-	AssignedSquawk    string `json:"assigned_squawk"`
-	Sid               string `json:"sid"`
-	ClearedAltitude   int    `json:"cleared_altitude"`
-	RequestedAltitude int    `json:"requested_altitude"`
-	Heading           int    `json:"heading"`
-	AircraftType      string `json:"aircraft_type"`
-	AircraftCategory  string `json:"aircraft_category"`
-	Stand             string `json:"stand"`
-	Capabilities      string `json:"capabilities"`
-	CommunicationType string `json:"communication_type"`
-	Eobt              string `json:"eobt"`
-	Eldt              string `json:"eldt"`
-	Bay               string `json:"bay"`
-	ReleasePoint      string `json:"release_point"`
-	Version           int    `json:"version"`
-	Sequence          int    `json:"sequence"`
+	Callsign            string   `json:"callsign"`
+	Origin              string   `json:"origin"`
+	Destination         string   `json:"destination"`
+	Alternate           string   `json:"alternate"`
+	Route               string   `json:"route"`
+	Remarks             string   `json:"remarks"`
+	Runway              string   `json:"runway"`
+	Squawk              string   `json:"squawk"`
+	AssignedSquawk      string   `json:"assigned_squawk"`
+	Sid                 string   `json:"sid"`
+	ClearedAltitude     int      `json:"cleared_altitude"`
+	RequestedAltitude   int      `json:"requested_altitude"`
+	Heading             int      `json:"heading"`
+	AircraftType        string   `json:"aircraft_type"`
+	AircraftCategory    string   `json:"aircraft_category"`
+	Stand               string   `json:"stand"`
+	Capabilities        string   `json:"capabilities"`
+	CommunicationType   string   `json:"communication_type"`
+	Eobt                string   `json:"eobt"`
+	Eldt                string   `json:"eldt"`
+	Bay                 string   `json:"bay"`
+	ReleasePoint        string   `json:"release_point"`
+	Version             int      `json:"version"`
+	Sequence            int      `json:"sequence"`
+	NextControllers     []string `json:"next_controllers"`
+	PreviousControllers []string `json:"previous_controllers"`
+	Owner               string   `json:"owner"`
 }
 
 type Controller struct {
-	Callsign string `json:"callsign"`
-	Position string `json:"position"`
+	Callsign   string `json:"callsign"`
+	Position   string `json:"position"`
+	Identifier string `json:"identifier"`
 }
 
 type InitialEvent struct {
-	Contsollsrs []Controller        `json:"controllers"`
+	Contsollers []Controller        `json:"controllers"`
 	Strips      []Strip             `json:"strips"`
-	Position    string              `json:"position"`
+	Me          Controller          `json:"me"`
 	Airport     string              `json:"airport"`
 	Callsign    string              `json:"callsign"`
 	RunwaySetup RunwayConfiguration `json:"runway_setup"`
@@ -383,4 +389,18 @@ func (c CoordinationFreeBroadcastEvent) Marshal() ([]byte, error) {
 
 func (c CoordinationFreeBroadcastEvent) GetType() EventType {
 	return CoordinationFreeBroadcastType
+}
+
+type OwnersUpdateEvent struct {
+	Callsign       string   `json:"callsign"`
+	NextOwners     []string `json:"next_owners"`
+	PreviousOwners []string `json:"previous_owners"`
+}
+
+func (o OwnersUpdateEvent) Marshal() ([]byte, error) {
+	return json.Marshal(o)
+}
+
+func (o OwnersUpdateEvent) GetType() EventType {
+	return OwnersUpdate
 }

@@ -7,6 +7,7 @@ import (
 	"FlightStrips/pkg/events/frontend"
 	"context"
 	"errors"
+	"slices"
 
 	"github.com/jackc/pgx/v5/pgtype"
 )
@@ -231,8 +232,31 @@ func handleCoordinationAssumeRequest(client *Client, message Message) error {
 	if err != nil {
 		return err
 	}
-	err = setOwner(client, db, req, strip)
-	return err
+
+	nextOwners := strip.NextOwners
+	index := slices.Index(nextOwners, client.position)
+	if index >= 0 {
+		nextOwners = nextOwners[index+1:]
+	}
+
+	previousOwners := append(strip.PreviousOwners, client.position)
+
+	err = db.SetNextAndPreviousOwners(context.Background(), database.SetNextAndPreviousOwnersParams{
+		Session:        client.session,
+		Callsign:       strip.Callsign,
+		NextOwners:     nextOwners,
+		PreviousOwners: previousOwners,
+	})
+	if err != nil {
+		return err
+	}
+
+	if err := setOwner(client, db, req, strip); err != nil {
+		return err
+	}
+
+	client.hub.SendOwnersUpdate(client.session, strip.Callsign, nextOwners, previousOwners)
+	return nil
 }
 
 func setOwner(client *Client, db *database.Queries, req frontend.CoordinationAssumeRequestEvent, strip database.Strip) error {
@@ -292,6 +316,16 @@ func handleCoordinationFreeRequest(client *Client, message Message) error {
 		return errors.New("cannot free strip which is not owned by you")
 	}
 
+	previousOwners := append(strip.PreviousOwners, client.position)
+
+	if err := db.SetPreviousOwners(context.Background(), database.SetPreviousOwnersParams{
+		Session:        client.session,
+		Callsign:       strip.Callsign,
+		PreviousOwners: previousOwners,
+	}); err != nil {
+		return err
+	}
+
 	count, err := db.SetStripOwner(context.Background(), database.SetStripOwnerParams{Owner: pgtype.Text{Valid: false}, Callsign: req.Callsign, Session: client.session, Version: strip.Version})
 
 	if err != nil {
@@ -303,6 +337,7 @@ func handleCoordinationFreeRequest(client *Client, message Message) error {
 	}
 
 	client.hub.SendCoordinationFree(client.session, req.Callsign)
+	client.hub.SendOwnersUpdate(client.session, strip.Callsign, strip.NextOwners, previousOwners)
 
 	return nil
 }

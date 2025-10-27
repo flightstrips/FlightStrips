@@ -37,6 +37,7 @@ export interface WebSocketState {
   controllers: FrontendController[];
   strips: FrontendStrip[];
   position: string;
+  identifier: string;
   airport: string;
   callsign: string;
   runwaySetup: RunwayConfiguration;
@@ -56,6 +57,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     controllers: [],
     strips: [],
     position: '',
+    identifier: '',
     airport: '',
     callsign: '',
     runwaySetup: {
@@ -127,7 +129,8 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
       produce((state: WebSocketState) => {
         state.controllers = data.controllers;
         state.strips = data.strips;
-        state.position = data.position;
+        state.position = data.me.position;
+        state.identifier = data.me.identifier;
         state.airport = data.airport;
         state.callsign = data.callsign;
         state.runwaySetup = data.runway_setup;
@@ -165,7 +168,8 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
           // Add new controller
           state.controllers.push({
             callsign: data.callsign,
-            position: data.position
+            position: data.position,
+            identifier: data.identifier,
           });
         }
       })

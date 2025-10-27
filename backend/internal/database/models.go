@@ -5,6 +5,7 @@
 package database
 
 import (
+	"FlightStrips/pkg/models"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -39,17 +40,18 @@ type Coordination struct {
 }
 
 type SectorOwner struct {
-	ID       int32
-	Session  int32
-	Sector   string
-	Position string
+	ID         int32
+	Session    int32
+	Sector     []string
+	Position   string
+	Identifier string
 }
 
 type Session struct {
 	ID            int32
 	Name          string
 	Airport       string
-	ActiveRunways pgtype.Text
+	ActiveRunways models.ActiveRunways
 }
 
 type Strip struct {
@@ -89,6 +91,8 @@ type Strip struct {
 	Aobt              pgtype.Text
 	Asat              pgtype.Text
 	Eobt              pgtype.Text
+	NextOwners        []string
+	PreviousOwners    []string
 }
 
 type Version struct {

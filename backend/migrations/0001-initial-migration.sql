@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS sessions (
     id SERIAL PRIMARY KEY,
     name text NOT NULL,
     airport varchar(4) REFERENCES airports(name) ON DELETE CASCADE NOT NULL,
-    active_runways varchar(256)
+    active_runways jsonb DEFAULT '{}' NOT NULL
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS ux_sessions_name_airport ON sessions (name, airport);
@@ -33,8 +33,9 @@ CREATE UNIQUE INDEX IF NOT EXISTS ux_controllers_session_callsign ON controllers
 CREATE TABLE IF NOT EXISTS sector_owners (
     id SERIAL PRIMARY KEY,
     session integer references sessions(id) ON DELETE CASCADE NOT NULL,
-    sector varchar(256) NOT NULL, -- JSON array of string
-    position varchar(7) NOT NULL
+    sector jsonb DEFAULT '[]' NOT NULL,
+    position varchar(7) NOT NULL,
+    identifier varchar(10) NOT NULL
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS ux_sector_owners_session_position ON sector_owners (session, position);
@@ -75,7 +76,9 @@ CREATE TABLE IF NOT EXISTS strips (
     ctot varchar,
     aobt varchar,
     asat varchar,
-    eobt varchar
+    eobt varchar,
+    next_owners jsonb DEFAULT '[]' NOT NULL,
+    previous_owners jsonb DEFAULT '[]' NOT NULL
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS ux_strips_session_callsign ON strips (session, callsign);

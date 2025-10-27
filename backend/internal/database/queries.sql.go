@@ -8,6 +8,7 @@ package database
 import (
 	"context"
 
+	"FlightStrips/pkg/models"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -264,7 +265,7 @@ func (q *Queries) GetExpiredSessions(ctx context.Context, expiredTime pgtype.Tim
 }
 
 const getSectorOwners = `-- name: GetSectorOwners :many
-SELECT id, session, sector, position FROM sector_owners
+SELECT id, session, sector, position, identifier FROM sector_owners
 WHERE session = $1
 `
 
@@ -282,6 +283,7 @@ func (q *Queries) GetSectorOwners(ctx context.Context, session int32) ([]SectorO
 			&i.Session,
 			&i.Sector,
 			&i.Position,
+			&i.Identifier,
 		); err != nil {
 			return nil, err
 		}
@@ -336,7 +338,7 @@ func (q *Queries) GetSessionById(ctx context.Context, id int32) (Session, error)
 }
 
 const getStrip = `-- name: GetStrip :one
-SELECT id, version, callsign, session, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay, position_latitude, position_longitude, position_altitude, tobt, tsat, ttot, ctot, aobt, asat, eobt
+SELECT id, version, callsign, session, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay, position_latitude, position_longitude, position_altitude, tobt, tsat, ttot, ctot, aobt, asat, eobt, next_owners, previous_owners
 FROM strips
 WHERE callsign = $1 AND session = $2
 `
@@ -386,6 +388,8 @@ func (q *Queries) GetStrip(ctx context.Context, arg GetStripParams) (Strip, erro
 		&i.Aobt,
 		&i.Asat,
 		&i.Eobt,
+		&i.NextOwners,
+		&i.PreviousOwners,
 	)
 	return i, err
 }
@@ -442,9 +446,10 @@ func (q *Queries) InsertDatabaseVersion(ctx context.Context, arg InsertDatabaseV
 }
 
 type InsertSectorOwnersParams struct {
-	Session  int32
-	Sector   string
-	Position string
+	Session    int32
+	Sector     []string
+	Position   string
+	Identifier string
 }
 
 const insertSession = `-- name: InsertSession :one
@@ -641,7 +646,7 @@ func (q *Queries) ListSessionsByAirport(ctx context.Context, airport string) ([]
 }
 
 const listStrips = `-- name: ListStrips :many
-SELECT id, version, callsign, session, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay, position_latitude, position_longitude, position_altitude, tobt, tsat, ttot, ctot, aobt, asat, eobt
+SELECT id, version, callsign, session, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay, position_latitude, position_longitude, position_altitude, tobt, tsat, ttot, ctot, aobt, asat, eobt, next_owners, previous_owners
 FROM strips
 WHERE session = $1
 ORDER BY callsign
@@ -693,6 +698,8 @@ func (q *Queries) ListStrips(ctx context.Context, session int32) ([]Strip, error
 			&i.Aobt,
 			&i.Asat,
 			&i.Eobt,
+			&i.NextOwners,
+			&i.PreviousOwners,
 		); err != nil {
 			return nil, err
 		}
@@ -705,7 +712,7 @@ func (q *Queries) ListStrips(ctx context.Context, session int32) ([]Strip, error
 }
 
 const listStripsByOrigin = `-- name: ListStripsByOrigin :many
-SELECT id, version, callsign, session, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay, position_latitude, position_longitude, position_altitude, tobt, tsat, ttot, ctot, aobt, asat, eobt
+SELECT id, version, callsign, session, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay, position_latitude, position_longitude, position_altitude, tobt, tsat, ttot, ctot, aobt, asat, eobt, next_owners, previous_owners
 FROM strips
 WHERE origin = $1 AND session = $2
 ORDER BY callsign
@@ -762,6 +769,8 @@ func (q *Queries) ListStripsByOrigin(ctx context.Context, arg ListStripsByOrigin
 			&i.Aobt,
 			&i.Asat,
 			&i.Eobt,
+			&i.NextOwners,
+			&i.PreviousOwners,
 		); err != nil {
 			return nil, err
 		}
@@ -897,6 +906,57 @@ func (q *Queries) SetControllerPosition(ctx context.Context, arg SetControllerPo
 	return result.RowsAffected(), nil
 }
 
+const setNextAndPreviousOwners = `-- name: SetNextAndPreviousOwners :exec
+UPDATE strips SET next_owners = $3, previous_owners = $4 WHERE session = $1 AND callsign = $2
+`
+
+type SetNextAndPreviousOwnersParams struct {
+	Session        int32
+	Callsign       string
+	NextOwners     []string
+	PreviousOwners []string
+}
+
+func (q *Queries) SetNextAndPreviousOwners(ctx context.Context, arg SetNextAndPreviousOwnersParams) error {
+	_, err := q.db.Exec(ctx, setNextAndPreviousOwners,
+		arg.Session,
+		arg.Callsign,
+		arg.NextOwners,
+		arg.PreviousOwners,
+	)
+	return err
+}
+
+const setNextOwners = `-- name: SetNextOwners :exec
+UPDATE strips SET next_owners = $3 WHERE session = $1 AND callsign = $2
+`
+
+type SetNextOwnersParams struct {
+	Session    int32
+	Callsign   string
+	NextOwners []string
+}
+
+func (q *Queries) SetNextOwners(ctx context.Context, arg SetNextOwnersParams) error {
+	_, err := q.db.Exec(ctx, setNextOwners, arg.Session, arg.Callsign, arg.NextOwners)
+	return err
+}
+
+const setPreviousOwners = `-- name: SetPreviousOwners :exec
+UPDATE strips SET previous_owners = $3 WHERE session = $1 AND callsign = $2
+`
+
+type SetPreviousOwnersParams struct {
+	Session        int32
+	Callsign       string
+	PreviousOwners []string
+}
+
+func (q *Queries) SetPreviousOwners(ctx context.Context, arg SetPreviousOwnersParams) error {
+	_, err := q.db.Exec(ctx, setPreviousOwners, arg.Session, arg.Callsign, arg.PreviousOwners)
+	return err
+}
+
 const setStripOwner = `-- name: SetStripOwner :execrows
 UPDATE strips
 SET owner   = $1,
@@ -930,7 +990,7 @@ UPDATE sessions SET active_runways = $2 WHERE id = $1
 
 type UpdateActiveRunwaysParams struct {
 	ID            int32
-	ActiveRunways pgtype.Text
+	ActiveRunways models.ActiveRunways
 }
 
 func (q *Queries) UpdateActiveRunways(ctx context.Context, arg UpdateActiveRunwaysParams) error {

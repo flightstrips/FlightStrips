@@ -3,10 +3,8 @@
 import (
 	"FlightStrips/internal/config"
 	"FlightStrips/internal/database"
-	"FlightStrips/internal/shared"
 	"cmp"
 	"context"
-	"encoding/json"
 	"fmt"
 	"slices"
 )
@@ -28,7 +26,7 @@ func (s *Server) UpdateSectors(sessionId int32) error {
 	}
 
 	// If the runways are not set, we cannot calculate the sector ownerships
-	if !session.ActiveRunways.Valid || session.ActiveRunways.String == "" {
+	if len(session.ActiveRunways.ArrivalRunways) == 0 || len(session.ActiveRunways.DepartureRunways) == 0 {
 		fmt.Println("No active runways found")
 		return nil
 	}
@@ -38,13 +36,7 @@ func (s *Server) UpdateSectors(sessionId int32) error {
 		return err
 	}
 
-	var runways shared.ActiveRunways
-	err = json.Unmarshal([]byte(session.ActiveRunways.String), &runways)
-	if err != nil {
-		return err
-	}
-
-	active := runways.GetAllActiveRunways()
+	active := session.ActiveRunways.GetAllActiveRunways()
 
 	sectors := config.GetControllerSectors(positions, active)
 	if len(sectors) == 0 {
@@ -55,19 +47,22 @@ func (s *Server) UpdateSectors(sessionId int32) error {
 	for key, sectors := range sectors {
 		names := make([]string, 0)
 		sorted := slices.SortedFunc(slices.Values(sectors), sectorsCompare)
+		identifier := ""
+		priority := 0
+
 		for _, sector := range sorted {
 			names = append(names, sector.Name)
-		}
-
-		jsonSectors, err := json.Marshal(names)
-		if err != nil {
-			continue
+			if sector.NamePriority > priority {
+				priority = sector.NamePriority
+				identifier = sector.Name
+			}
 		}
 
 		currentOwners = append(currentOwners, database.SectorOwner{
-			Session:  sessionId,
-			Position: key,
-			Sector:   string(jsonSectors),
+			Session:    sessionId,
+			Position:   key,
+			Sector:     names,
+			Identifier: identifier,
 		})
 	}
 
@@ -94,9 +89,10 @@ func (s *Server) UpdateSectors(sessionId int32) error {
 	dbParams := make([]database.InsertSectorOwnersParams, 0)
 	for _, owner := range currentOwners {
 		dbParams = append(dbParams, database.InsertSectorOwnersParams{
-			Session:  owner.Session,
-			Position: owner.Position,
-			Sector:   owner.Sector,
+			Session:    owner.Session,
+			Position:   owner.Position,
+			Sector:     owner.Sector,
+			Identifier: owner.Identifier,
 		})
 	}
 
@@ -105,11 +101,15 @@ func (s *Server) UpdateSectors(sessionId int32) error {
 		return err
 	}
 	err = tx.Commit(context.Background())
-	return err
+	if err != nil {
+		return err
+	}
+
+	return s.sendControllerUpdates(sessionId, currentOwners, db)
 }
 
 func sectorsEqual(a, b database.SectorOwner) bool {
-	return a.Session == b.Session && a.Position == b.Position && a.Sector == b.Sector
+	return a.Session == b.Session && a.Position == b.Position && slices.Equal(a.Sector, b.Sector)
 }
 
 func sectorsCompare(e, e2 config.Sector) int {
@@ -131,4 +131,27 @@ func getCurrentPositions(db *database.Queries, sessionId int32) ([]*config.Posit
 	}
 
 	return positions, nil
+}
+
+func (s *Server) sendControllerUpdates(sessionId int32, owners []database.SectorOwner, db *database.Queries) error {
+	controllers, err := db.GetControllers(context.Background(), sessionId)
+	if err != nil {
+		return err
+	}
+
+	ownerMap := make(map[string]database.SectorOwner)
+	for _, owner := range owners {
+		ownerMap[owner.Position] = owner
+	}
+
+	for _, controller := range controllers {
+		identifier := ""
+		if sector, ok := ownerMap[controller.Position]; ok {
+			identifier = sector.Identifier
+		}
+
+		s.frontendHub.SendControllerOnline(sessionId, controller.Callsign, controller.Position, identifier)
+	}
+
+	return nil
 }

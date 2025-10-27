@@ -23,8 +23,8 @@ type Server interface {
 
 	// TODO move to another service
 	UpdateSectors(sessionId int32) error
-	UpdateRouteForStrip(callsign string, sessionId int32) error
-	UpdateRoutesForSession(sessionId int32) error
+	UpdateRouteForStrip(callsign string, sessionId int32, sendUpdate bool) error
+	UpdateRoutesForSession(sessionId int32, sendUpdate bool) error
 }
 
 type ConnectedUser struct {

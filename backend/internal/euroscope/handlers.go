@@ -5,8 +5,8 @@ import (
 	"FlightStrips/internal/database"
 	"FlightStrips/internal/shared"
 	"FlightStrips/pkg/events/euroscope"
+	"FlightStrips/pkg/models"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -38,31 +38,41 @@ func handleControllerOnline(client *Client, message Message) error {
 		}
 
 		err = db.InsertController(context.Background(), params)
-		if err == nil {
-			s.GetFrontendHub().SendControllerOnline(session, event.Callsign, event.Position)
+		if err != nil {
+			return err
 		}
+		err = s.UpdateSectors(client.session)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	}
+
+	if controller.Position == event.Position || err != nil {
 		return err
 	}
 
+	setParams := database.SetControllerPositionParams{Session: session, Callsign: event.Callsign, Position: event.Position}
+	_, err = db.SetControllerPosition(context.TODO(), setParams)
 	if err != nil {
 		return err
 	}
 
-	if controller.Position != event.Position {
-		setParams := database.SetControllerPositionParams{Session: session, Callsign: event.Callsign, Position: event.Position}
-		_, err = db.SetControllerPosition(context.TODO(), setParams)
-		if err == nil {
-			s.GetFrontendHub().SendControllerOnline(session, event.Callsign, event.Position)
-		}
-	}
-
-	// TODO not good enough
+	shouldUpdate := false
 	if _, err := config.GetPositionBasedOnFrequency(event.Position); err == nil {
-		return s.UpdateSectors(client.session)
+		shouldUpdate = true
 	}
 
 	if _, err := config.GetPositionBasedOnFrequency(controller.Position); err == nil {
-		return s.UpdateSectors(client.session)
+		shouldUpdate = true
+	}
+
+	if shouldUpdate {
+		err = s.UpdateSectors(client.session)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -87,14 +97,14 @@ func handleControllerOffline(client *Client, message Message) error {
 
 	if errors.Is(err, pgx.ErrNoRows) {
 		log.Printf("Controller %s which was going offline does not exist in the database\n", event.Callsign)
-		s.GetFrontendHub().SendControllerOffline(session, event.Callsign, "")
+		s.GetFrontendHub().SendControllerOffline(session, event.Callsign, "", "")
 		return nil
 	}
 
 	params := database.RemoveControllerParams{Session: session, Callsign: event.Callsign}
 	count, err := db.RemoveController(context.TODO(), params)
 
-	s.GetFrontendHub().SendControllerOffline(session, event.Callsign, controller.Position)
+	s.GetFrontendHub().SendControllerOffline(session, event.Callsign, controller.Position, "")
 	if err != nil {
 		return err
 	}
@@ -528,7 +538,7 @@ func handleSync(client *Client, message Message) error {
 		}
 	}
 
-	return nil
+	return err
 }
 
 func handleStripUpdateHelper(server shared.Server, db *database.Queries, strip euroscope.Strip, session int32) error {
@@ -624,7 +634,7 @@ func handleStripUpdateHelper(server shared.Server, db *database.Queries, strip e
 		log.Printf("Updated strip: %s", strip.Callsign)
 	}
 
-	err = server.UpdateRouteForStrip(strip.Callsign, session)
+	err = server.UpdateRouteForStrip(strip.Callsign, session, false)
 	if err != nil {
 		fmt.Printf("Error updating route for strip %s: %v\n", strip.Callsign, err)
 	}
@@ -671,22 +681,16 @@ func handleRunways(client *Client, message Message) error {
 			}
 		}
 
-		activeRunways := shared.ActiveRunways{
+		activeRunways := models.ActiveRunways{
 			DepartureRunways: departure,
 			ArrivalRunways:   arrival,
 		}
 
-		data, err := json.Marshal(activeRunways)
-
 		fmt.Printf("Setting active runways to %v for session %v\n", activeRunways, client.session)
-
-		if err != nil {
-			return err
-		}
 
 		params := database.UpdateActiveRunwaysParams{
 			ID:            client.session,
-			ActiveRunways: pgtype.Text{Valid: true, String: string(data)},
+			ActiveRunways: activeRunways,
 		}
 
 		err = db.UpdateActiveRunways(context.Background(), params)
@@ -695,6 +699,11 @@ func handleRunways(client *Client, message Message) error {
 		}
 
 		err = s.UpdateSectors(client.session)
+		if err != nil {
+			return err
+		}
+
+		err = s.UpdateRoutesForSession(client.session, true)
 		return err
 	}
 

@@ -66,6 +66,7 @@ func (r iteratorForInsertSectorOwners) Values() ([]interface{}, error) {
 		r.rows[0].Session,
 		r.rows[0].Sector,
 		r.rows[0].Position,
+		r.rows[0].Identifier,
 	}, nil
 }
 
@@ -74,5 +75,5 @@ func (r iteratorForInsertSectorOwners) Err() error {
 }
 
 func (q *Queries) InsertSectorOwners(ctx context.Context, arg []InsertSectorOwnersParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"sector_owners"}, []string{"session", "sector", "position"}, &iteratorForInsertSectorOwners{rows: arg})
+	return q.db.CopyFrom(ctx, []string{"sector_owners"}, []string{"session", "sector", "position", "identifier"}, &iteratorForInsertSectorOwners{rows: arg})
 }

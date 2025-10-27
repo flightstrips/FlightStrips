@@ -1,7 +1,7 @@
 ﻿package main
 
 import (
-	"FlightStrips/database"
+	"FlightStrips/internal/database"
 	"flag"
 	"fmt"
 	"log"

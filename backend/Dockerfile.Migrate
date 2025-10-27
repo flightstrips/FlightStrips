@@ -19,6 +19,6 @@ RUN apk --no-cache add ca-certificates
 
 # Copy only the binary from the builder stage
 COPY --from=builder /app/bin/migrate ./bin/migrate
-COPY ./database/migrations ./database/migrations
+COPY ./migrations ./migrations
 
 CMD ["/app/bin/migrate"]

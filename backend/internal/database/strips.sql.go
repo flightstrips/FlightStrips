@@ -32,17 +32,18 @@ func (q *Queries) GetMaxSequenceInBay(ctx context.Context, arg GetMaxSequenceInB
 const getSequence = `-- name: GetSequence :one
 SELECT sequence
 FROM strips
-WHERE session = $1 AND callsign = $2
+WHERE session = $1 AND callsign = $2 AND bay = $3::TEXT
 LIMIT 1
 `
 
 type GetSequenceParams struct {
 	Session  int32
 	Callsign string
+	Bay      string
 }
 
 func (q *Queries) GetSequence(ctx context.Context, arg GetSequenceParams) (pgtype.Int4, error) {
-	row := q.db.QueryRow(ctx, getSequence, arg.Session, arg.Callsign)
+	row := q.db.QueryRow(ctx, getSequence, arg.Session, arg.Callsign, arg.Bay)
 	var sequence pgtype.Int4
 	err := row.Scan(&sequence)
 	return sequence, err
@@ -184,17 +185,22 @@ func (q *Queries) InsertStrip(ctx context.Context, arg InsertStripParams) error 
 const listStripSequences = `-- name: ListStripSequences :many
 SELECT callsign, sequence
 FROM strips
-WHERE session = $1
+WHERE session = $1 AND bay = $2::TEXT
 ORDER BY sequence, callsign
 `
+
+type ListStripSequencesParams struct {
+	Session int32
+	Bay     string
+}
 
 type ListStripSequencesRow struct {
 	Callsign string
 	Sequence pgtype.Int4
 }
 
-func (q *Queries) ListStripSequences(ctx context.Context, session int32) ([]ListStripSequencesRow, error) {
-	rows, err := q.db.Query(ctx, listStripSequences, session)
+func (q *Queries) ListStripSequences(ctx context.Context, arg ListStripSequencesParams) ([]ListStripSequencesRow, error) {
+	rows, err := q.db.Query(ctx, listStripSequences, arg.Session, arg.Bay)
 	if err != nil {
 		return nil, err
 	}
@@ -354,7 +360,7 @@ const recalculateStripSequences = `-- name: RecalculateStripSequences :exec
 WITH row_numbers AS (
     SELECT s.id, ((ROW_NUMBER() OVER (ORDER BY s.sequence, s.callsign)) - 1) * $2::INT AS new_sequence
     FROM strips as s
-    WHERE s.session = $1
+    WHERE s.session = $1 AND s.bay = $3::TEXT
 )
 UPDATE strips
 SET sequence = row_numbers.new_sequence,
@@ -366,10 +372,11 @@ WHERE strips.id = row_numbers.id AND strips.session = $1
 type RecalculateStripSequencesParams struct {
 	Session int32
 	Spacing int32
+	Bay     string
 }
 
 func (q *Queries) RecalculateStripSequences(ctx context.Context, arg RecalculateStripSequencesParams) error {
-	_, err := q.db.Exec(ctx, recalculateStripSequences, arg.Session, arg.Spacing)
+	_, err := q.db.Exec(ctx, recalculateStripSequences, arg.Session, arg.Spacing, arg.Bay)
 	return err
 }
 
@@ -776,7 +783,7 @@ func (q *Queries) UpdateStripRequestedAltitudeByID(ctx context.Context, arg Upda
 	return result.RowsAffected(), nil
 }
 
-const updateStripSequence = `-- name: UpdateStripSequence :execrows
+const updateStripSequence = `-- name: updateStripSequence :execrows
 UPDATE strips
 SET sequence = $3::INT,
     version  = version + 1

@@ -17,7 +17,7 @@ type FrontendHub interface {
 	SendSquawkEvent(session int32, callsign string, squawk string)
 	SendRequestedAltitudeEvent(session int32, callsign string, altitude int)
 	SendClearedAltitudeEvent(session int32, callsign string, altitude int)
-	SendBayEvent(session int32, callsign string, bay string)
+	SendBayEvent(session int32, callsign string, bay string, sequence int32)
 	SendAircraftDisconnect(session int32, callsign string)
 	SendStandEvent(session int32, callsign string, stand string)
 	SendSetHeadingEvent(session int32, callsign string, heading int)

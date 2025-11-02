@@ -217,6 +217,7 @@ func (r ClearedAltitudeEvent) GetType() EventType {
 type BayEvent struct {
 	Callsign string `json:"callsign"`
 	Bay      string `json:"bay"`
+	Sequence int32  `json:"sequence"`
 }
 
 func (b BayEvent) Marshal() ([]byte, error) {

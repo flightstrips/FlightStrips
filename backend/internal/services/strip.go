@@ -1,6 +1,7 @@
 ﻿package services
 
 import (
+	"FlightStrips/internal/shared"
 	"context"
 	"fmt"
 
@@ -17,13 +18,18 @@ const (
 )
 
 type StripService struct {
-	queries *database.Queries
+	queries     *database.Queries
+	frontendHub shared.FrontendHub
 }
 
 func NewStripService(dbPool *pgxpool.Pool) *StripService {
 	return &StripService{
 		queries: database.New(dbPool),
 	}
+}
+
+func (s *StripService) SetFrontendHub(frontendHub shared.FrontendHub) {
+	s.frontendHub = frontendHub
 }
 
 // calculateOrderBetween calculates the order value for a strip being inserted between two existing strips.
@@ -55,8 +61,8 @@ func (s *StripService) needsRecalculation(prevOrder, nextOrder int32) bool {
 	return gap <= MinOrderGap
 }
 
-// UpdateStripSequence updates the sequence of a single strip in the database.
-func (s *StripService) UpdateStripSequence(ctx context.Context, session int32, callsign string, sequence int32) error {
+// updateStripSequence updates the sequence of a single strip in the database.
+func (s *StripService) updateStripSequence(ctx context.Context, session int32, callsign string, sequence int32, bay string) error {
 	_, err := s.queries.UpdateStripSequence(ctx, database.UpdateStripSequenceParams{
 		Session:  session,
 		Callsign: callsign,
@@ -67,11 +73,11 @@ func (s *StripService) UpdateStripSequence(ctx context.Context, session int32, c
 	}
 
 	// Send update notification
-	sendStripUpdate(session, callsign, sequence)
+	s.sendStripUpdate(session, callsign, sequence, bay)
 	return nil
 }
 
-func (s *StripService) MoveToBay(ctx context.Context, session int32, callsign string, bay string) error {
+func (s *StripService) MoveToBay(ctx context.Context, session int32, callsign string, bay string, sendNotification bool) error {
 	maxInBay, err := s.queries.GetMaxSequenceInBay(ctx, database.GetMaxSequenceInBayParams{
 		Session: session,
 		Bay:     bay,
@@ -82,15 +88,20 @@ func (s *StripService) MoveToBay(ctx context.Context, session int32, callsign st
 	}
 
 	order, _ := s.calculateOrderBetween(maxInBay, nil)
-	return s.UpdateStripSequence(ctx, session, callsign, order)
+	if sendNotification {
+		return s.updateStripSequence(ctx, session, callsign, order, bay)
+	}
+
+	return nil
 }
 
 // MoveStripBetween moves a strip between two other strips, calculating the appropriate sequence value.
 // If recalculation is needed (gap too small), it will recalculate all strips in the session.
-func (s *StripService) MoveStripBetween(ctx context.Context, session int32, callsign string, prevCallsign string, nextCallsign *string) error {
+func (s *StripService) MoveStripBetween(ctx context.Context, session int32, callsign string, prevCallsign string, nextCallsign *string, bay string) error {
 	prevOrder, err := s.queries.GetSequence(ctx, database.GetSequenceParams{
 		Session:  session,
 		Callsign: prevCallsign,
+		Bay:      bay,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to get previous strip sequence: %w", err)
@@ -105,6 +116,7 @@ func (s *StripService) MoveStripBetween(ctx context.Context, session int32, call
 		dbNextOrder, err := s.queries.GetSequence(ctx, database.GetSequenceParams{
 			Session:  session,
 			Callsign: *nextCallsign,
+			Bay:      bay,
 		})
 		if err != nil {
 			return fmt.Errorf("failed to get next strip sequence: %w", err)
@@ -119,26 +131,30 @@ func (s *StripService) MoveStripBetween(ctx context.Context, session int32, call
 
 	if needsRecalc {
 		// Gap is too small, need to recalculate all sequences
-		return s.recalculateAllStripSequences(ctx, session)
+		return s.recalculateAllStripSequences(ctx, session, bay)
 	}
 
-	return s.UpdateStripSequence(ctx, session, callsign, newOrder)
+	return s.updateStripSequence(ctx, session, callsign, newOrder, bay)
 }
 
 // recalculateAllStripSequences recalculates sequences for all strips in a session,
 // spacing them InitialOrderSpacing apart based on their current order.
-func (s *StripService) recalculateAllStripSequences(ctx context.Context, session int32) error {
+func (s *StripService) recalculateAllStripSequences(ctx context.Context, session int32, bay string) error {
 	// Recalculate with proper spacing
 	err := s.queries.RecalculateStripSequences(ctx, database.RecalculateStripSequencesParams{
 		Session: session,
 		Spacing: InitialOrderSpacing,
+		Bay:     bay,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to recalculate strip sequences: %w", err)
 	}
 
 	// Get updated sequences
-	sequences, err := s.queries.ListStripSequences(ctx, session)
+	sequences, err := s.queries.ListStripSequences(ctx, database.ListStripSequencesParams{
+		Session: session,
+		Bay:     bay,
+	})
 	if err != nil {
 		return fmt.Errorf("failed to list strip sequences: %w", err)
 	}
@@ -154,43 +170,21 @@ func (s *StripService) recalculateAllStripSequences(ctx context.Context, session
 	}
 
 	// Send bulk update notification
-	sendBulkSequenceUpdate(session, callsigns, seqs)
+	s.sendBulkSequenceUpdate(session, callsigns, seqs, bay)
 	return nil
 }
 
-// GetStripSequences retrieves all strip callsigns and their sequences for a given session.
-func (s *StripService) GetStripSequences(ctx context.Context, session int32) ([]database.ListStripSequencesRow, error) {
-	sequences, err := s.queries.ListStripSequences(ctx, session)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get strip sequences: %w", err)
-	}
-	return sequences, nil
+func (s *StripService) sendStripUpdate(session int32, callsign string, sequence int32, bay string) {
+	s.frontendHub.SendBayEvent(session, callsign, bay, sequence)
 }
 
-// UpdateStripSequenceBulk updates multiple strip sequences in a single transaction.
-func (s *StripService) UpdateStripSequenceBulk(ctx context.Context, session int32, callsigns []string, sequences []int32) error {
+func (s *StripService) sendBulkSequenceUpdate(session int32, callsigns []string, sequences []int32, bay string) {
 	if len(callsigns) != len(sequences) {
-		return fmt.Errorf("callsigns and sequences length mismatch")
+		return
 	}
 
-	err := s.queries.UpdateStripSequenceBulk(ctx, database.UpdateStripSequenceBulkParams{
-		Callsigns: callsigns,
-		Sequences: sequences,
-		Session:   session,
-	})
-	if err != nil {
-		return fmt.Errorf("failed to bulk update strip sequences: %w", err)
+	for i, callsign := range callsigns {
+		seq := sequences[i]
+		s.frontendHub.SendBayEvent(session, callsign, bay, seq)
 	}
-
-	// Send bulk update notification
-	sendBulkSequenceUpdate(session, callsigns, sequences)
-	return nil
-}
-
-func sendStripUpdate(session int32, callsign string, sequence int32) {
-	// DO NOT TOUCH
-}
-
-func sendBulkSequenceUpdate(session int32, callsigns []string, sequences []int32) {
-	// DO NOT TOUCH
 }

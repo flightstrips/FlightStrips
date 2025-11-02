@@ -26,8 +26,9 @@ type internalMessage struct {
 }
 
 type Hub struct {
-	server  shared.Server
-	clients map[*Client]bool
+	server       shared.Server
+	stripService shared.StripService
+	clients      map[*Client]bool
 
 	send chan internalMessage
 
@@ -39,7 +40,7 @@ type Hub struct {
 	handlers shared.MessageHandlers[euroscope.EventType, *Client]
 }
 
-func NewHub() *Hub {
+func NewHub(stripService shared.StripService) *Hub {
 	handlers := shared.NewMessageHandlers[euroscope.EventType, *Client]()
 
 	handlers.Add(euroscope.ControllerOnline, handleControllerOnline)
@@ -60,12 +61,13 @@ func NewHub() *Hub {
 	handlers.Add(euroscope.Runway, handleRunways)
 
 	hub := &Hub{
-		register:   make(chan *Client),
-		unregister: make(chan *Client),
-		clients:    make(map[*Client]bool),
-		send:       make(chan internalMessage),
-		master:     make(map[int32]*Client),
-		handlers:   handlers,
+		register:     make(chan *Client),
+		unregister:   make(chan *Client),
+		clients:      make(map[*Client]bool),
+		send:         make(chan internalMessage),
+		master:       make(map[int32]*Client),
+		handlers:     handlers,
+		stripService: stripService,
 	}
 
 	go hub.Run()

@@ -55,8 +55,12 @@ func main() {
 		log.Fatal(err)
 	}
 
-	frontendHub := frontend.NewHub()
-	euroscopeHub := euroscope.NewHub()
+	stripService := services.NewStripService(dbpool)
+
+	frontendHub := frontend.NewHub(stripService)
+	euroscopeHub := euroscope.NewHub(stripService)
+
+	stripService.SetFrontendHub(frontendHub)
 
 	fsServer := server.NewServer(dbpool, euroscopeHub, frontendHub)
 

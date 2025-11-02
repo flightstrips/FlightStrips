@@ -54,13 +54,7 @@ func handleMove(client *Client, message Message) error {
 		return err
 	}
 
-	event := frontend.BayEvent{
-		Callsign: move.Callsign,
-		Bay:      move.Bay,
-	}
-
-	client.hub.Broadcast(client.session, event)
-	return nil
+	return client.hub.stripService.MoveToBay(context.Background(), client.session, move.Callsign, move.Bay, true)
 }
 
 func handleClearedBayUpdate(client *Client, strip database.Strip, move frontend.MoveEvent, db *database.Queries, es shared.EuroscopeHub) error {

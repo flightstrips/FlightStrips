@@ -129,7 +129,7 @@ WHERE s.session = $1 AND s.callsign = u.callsign;
 WITH row_numbers AS (
     SELECT s.id, ((ROW_NUMBER() OVER (ORDER BY s.sequence, s.callsign)) - 1) * sqlc.arg(spacing)::INT AS new_sequence
     FROM strips as s
-    WHERE s.session = $1
+    WHERE s.session = $1 AND s.bay = sqlc.arg(bay)::TEXT
 )
 UPDATE strips
 SET sequence = row_numbers.new_sequence,
@@ -140,13 +140,13 @@ WHERE strips.id = row_numbers.id AND strips.session = $1;
 -- name: ListStripSequences :many
 SELECT callsign, sequence
 FROM strips
-WHERE session = $1
+WHERE session = $1 AND bay = sqlc.arg(bay)::TEXT
 ORDER BY sequence, callsign;
 
 -- name: GetSequence :one
 SELECT sequence
 FROM strips
-WHERE session = $1 AND callsign = $2
+WHERE session = $1 AND callsign = $2 AND bay = sqlc.arg(bay)::TEXT
 LIMIT 1;
 
 -- name: GetMaxSequenceInBay :one

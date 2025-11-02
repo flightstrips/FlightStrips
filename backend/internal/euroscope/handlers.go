@@ -311,7 +311,7 @@ func handleGroundState(client *Client, message Message) error {
 	}
 
 	if existingStrip.Bay.String != bay {
-		s.GetFrontendHub().SendBayEvent(session, event.Callsign, bay)
+		return client.hub.stripService.MoveToBay(context.Background(), client.session, event.Callsign, bay, true)
 	}
 
 	return nil
@@ -357,7 +357,7 @@ func handleClearedFlag(client *Client, message Message) error {
 	}
 
 	if existingStrip.Bay.String != bay {
-		s.GetFrontendHub().SendBayEvent(session, event.Callsign, bay)
+		return client.hub.stripService.MoveToBay(context.Background(), client.session, event.Callsign, bay, true)
 	}
 
 	return err
@@ -399,7 +399,7 @@ func handlePositionUpdate(client *Client, message Message) error {
 	}
 
 	if existingStrip.Bay.String != bay {
-		s.GetFrontendHub().SendBayEvent(session, event.Callsign, bay)
+		return client.hub.stripService.MoveToBay(context.Background(), client.session, event.Callsign, bay, true)
 	}
 
 	return nil
@@ -532,7 +532,7 @@ func handleSync(client *Client, message Message) error {
 	}
 
 	for _, strip := range event.Strips {
-		err = handleStripUpdateHelper(s, db, strip, session)
+		err = client.hub.handleStripUpdateHelper(db, strip, session)
 		if err != nil {
 			return err
 		}
@@ -541,17 +541,20 @@ func handleSync(client *Client, message Message) error {
 	return err
 }
 
-func handleStripUpdateHelper(server shared.Server, db *database.Queries, strip euroscope.Strip, session int32) error {
+func (hub *Hub) handleStripUpdateHelper(db *database.Queries, strip euroscope.Strip, session int32) error {
 	// Check if the strip exists
+	server := hub.server
 	existingStrip, err := db.GetStrip(context.TODO(), database.GetStripParams{Callsign: strip.Callsign, Session: session})
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return err
 	}
 
+	var bay string
+
 	if errors.Is(err, pgx.ErrNoRows) {
 		// Strip doesn't exist, so insert
 
-		bay := shared.GetDepartureBay(strip, nil)
+		bay = shared.GetDepartureBay(strip, nil)
 
 		stripParams := database.InsertStripParams{ //keep this for insert
 			Callsign:          strip.Callsign,
@@ -590,7 +593,7 @@ func handleStripUpdateHelper(server shared.Server, db *database.Queries, strip e
 	} else {
 		// Strip exists, update it
 		// TODO we need to ensure the master is synced first otherwise this will overwrite the strip with potential wrong values
-		bay := shared.GetDepartureBay(strip, &existingStrip)
+		bay = shared.GetDepartureBay(strip, &existingStrip)
 
 		// Do not overwrite with an empty stand
 		stand := existingStrip.Stand.String
@@ -639,6 +642,11 @@ func handleStripUpdateHelper(server shared.Server, db *database.Queries, strip e
 		fmt.Printf("Error updating route for strip %s: %v\n", strip.Callsign, err)
 	}
 
+	err = hub.stripService.MoveToBay(context.Background(), session, strip.Callsign, bay, false)
+	if err != nil {
+		fmt.Printf("Error moving bay to strip %s: %v\n", strip.Callsign, err)
+	}
+
 	server.GetFrontendHub().SendStripUpdate(session, strip.Callsign)
 
 	return nil
@@ -654,7 +662,7 @@ func handleStripUpdateEvent(client *Client, message Message) error {
 
 	db := database.New(s.GetDatabasePool())
 
-	err = handleStripUpdateHelper(s, db, event.Strip, client.session)
+	err = client.hub.handleStripUpdateHelper(db, event.Strip, client.session)
 	return err
 }
 

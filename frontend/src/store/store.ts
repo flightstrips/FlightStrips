@@ -241,6 +241,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
 
         if (stripIndex !== -1) {
           state.strips[stripIndex].bay = data.bay;
+          state.strips[stripIndex].sequence = data.sequence;
         }
       })
     );

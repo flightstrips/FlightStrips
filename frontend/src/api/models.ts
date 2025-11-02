@@ -158,6 +158,7 @@ export interface FrontendBayEvent {
   type: EventType.FrontendBay;
   callsign: string;
   bay: string;
+  sequence: number;
 }
 
 // Define authentication event interface

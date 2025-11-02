@@ -20,8 +20,9 @@ type internalMessage struct {
 }
 
 type Hub struct {
-	server  shared.Server
-	clients map[*Client]bool
+	server       shared.Server
+	stripService shared.StripService
+	clients      map[*Client]bool
 
 	send chan internalMessage
 
@@ -31,7 +32,7 @@ type Hub struct {
 	handlers shared.MessageHandlers[frontend.EventType, *Client]
 }
 
-func NewHub() *Hub {
+func NewHub(stripService shared.StripService) *Hub {
 	handlers := shared.NewMessageHandlers[frontend.EventType, *Client]()
 
 	handlers.Add(frontend.GenerateSquawk, handleGenerateSquawk)
@@ -43,11 +44,12 @@ func NewHub() *Hub {
 	handlers.Add(frontend.CoordinationFreeRequestType, handleCoordinationFreeRequest)
 
 	hub := &Hub{
-		send:       make(chan internalMessage),
-		register:   make(chan *Client),
-		unregister: make(chan *Client),
-		clients:    make(map[*Client]bool),
-		handlers:   handlers,
+		send:         make(chan internalMessage),
+		register:     make(chan *Client),
+		unregister:   make(chan *Client),
+		clients:      make(map[*Client]bool),
+		handlers:     handlers,
+		stripService: stripService,
 	}
 
 	go hub.Run()
@@ -322,10 +324,11 @@ func (hub *Hub) SendClearedAltitudeEvent(session int32, callsign string, altitud
 	hub.Broadcast(session, event)
 }
 
-func (hub *Hub) SendBayEvent(session int32, callsign string, bay string) {
+func (hub *Hub) SendBayEvent(session int32, callsign string, bay string, sequence int32) {
 	event := frontend.BayEvent{
 		Callsign: callsign,
 		Bay:      bay,
+		Sequence: sequence,
 	}
 	hub.Broadcast(session, event)
 }

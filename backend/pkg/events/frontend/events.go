@@ -44,6 +44,8 @@ const (
 	CoordinationFreeBroadcastType     EventType = "coordination_free_broadcast"
 
 	OwnersUpdate EventType = "owners_update"
+
+	UpdateOrder EventType = "update_order"
 )
 
 type OutgoingMessage interface {
@@ -404,4 +406,17 @@ func (o OwnersUpdateEvent) Marshal() ([]byte, error) {
 
 func (o OwnersUpdateEvent) GetType() EventType {
 	return OwnersUpdate
+}
+
+type UpdateOrderEvent struct {
+	Callsign string  `json:"callsign"`
+	Before   *string `json:"before"`
+}
+
+func (o UpdateOrderEvent) Marshal() ([]byte, error) {
+	return json.Marshal(o)
+}
+
+func (o UpdateOrderEvent) GetType() EventType {
+	return UpdateOrder
 }

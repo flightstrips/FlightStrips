@@ -67,7 +67,7 @@ func ReadPump[TType comparable, TClient Client, THub Hub[TType, TClient]](hub TH
 		err = handlers.Handle(client, parsedMessage)
 
 		if err != nil {
-			log.Println("Failed to handle message", err)
+			log.Println("Failed to handle message", err, "message", string(message))
 		}
 	}
 }

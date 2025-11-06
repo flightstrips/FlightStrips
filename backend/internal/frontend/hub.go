@@ -42,6 +42,7 @@ func NewHub(stripService shared.StripService) *Hub {
 	handlers.Add(frontend.CoordinationAssumeRequestType, handleCoordinationAssumeRequest)
 	handlers.Add(frontend.CoordinationRejectRequestType, handleCoordinationRejectRequest)
 	handlers.Add(frontend.CoordinationFreeRequestType, handleCoordinationFreeRequest)
+	handlers.Add(frontend.UpdateOrder, handleUpdateOrder)
 
 	hub := &Hub{
 		send:         make(chan internalMessage),

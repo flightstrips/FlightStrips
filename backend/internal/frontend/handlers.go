@@ -335,3 +335,23 @@ func handleCoordinationFreeRequest(client *Client, message Message) error {
 
 	return nil
 }
+
+func handleUpdateOrder(client *Client, message Message) error {
+	var event frontend.UpdateOrderEvent
+	err := message.JsonUnmarshal(&event)
+	if err != nil {
+		return err
+	}
+
+	db := database.New(client.hub.server.GetDatabasePool())
+	bay, err := db.GetBay(context.Background(), database.GetBayParams{Session: client.session, Callsign: event.Callsign})
+	if err != nil {
+		return err
+	}
+
+	if !bay.Valid || bay.String == "" {
+		return errors.New("cannot update order of a strip which is not in a bay")
+	}
+
+	return client.hub.stripService.MoveStripBetween(context.Background(), client.session, event.Callsign, event.Before, bay.String)
+}

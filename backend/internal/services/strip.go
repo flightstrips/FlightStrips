@@ -3,10 +3,12 @@
 import (
 	"FlightStrips/internal/shared"
 	"context"
+	"errors"
 	"fmt"
 
 	"FlightStrips/internal/database"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -14,7 +16,7 @@ const (
 	// InitialOrderSpacing is the gap between strips when initially created or after recalculation
 	InitialOrderSpacing = 1000
 	// MinOrderGap is the minimum gap before recalculation is needed
-	MinOrderGap = 2
+	MinOrderGap = 5
 )
 
 type StripService struct {
@@ -62,7 +64,7 @@ func (s *StripService) needsRecalculation(prevOrder, nextOrder int32) bool {
 }
 
 // updateStripSequence updates the sequence of a single strip in the database.
-func (s *StripService) updateStripSequence(ctx context.Context, session int32, callsign string, sequence int32, bay string) error {
+func (s *StripService) updateStripSequence(ctx context.Context, session int32, callsign string, sequence int32, bay string, sendNotification bool) error {
 	_, err := s.queries.UpdateStripSequence(ctx, database.UpdateStripSequenceParams{
 		Session:  session,
 		Callsign: callsign,
@@ -72,8 +74,10 @@ func (s *StripService) updateStripSequence(ctx context.Context, session int32, c
 		return fmt.Errorf("failed to update strip sequence: %w", err)
 	}
 
-	// Send update notification
-	s.sendStripUpdate(session, callsign, sequence, bay)
+	if sendNotification {
+		// Send update notification
+		s.sendStripUpdate(session, callsign, sequence, bay)
+	}
 	return nil
 }
 
@@ -88,53 +92,63 @@ func (s *StripService) MoveToBay(ctx context.Context, session int32, callsign st
 	}
 
 	order, _ := s.calculateOrderBetween(maxInBay, nil)
-	if sendNotification {
-		return s.updateStripSequence(ctx, session, callsign, order, bay)
-	}
-
-	return nil
+	return s.updateStripSequence(ctx, session, callsign, order, bay, sendNotification)
 }
 
 // MoveStripBetween moves a strip between two other strips, calculating the appropriate sequence value.
 // If recalculation is needed (gap too small), it will recalculate all strips in the session.
-func (s *StripService) MoveStripBetween(ctx context.Context, session int32, callsign string, prevCallsign string, nextCallsign *string, bay string) error {
-	prevOrder, err := s.queries.GetSequence(ctx, database.GetSequenceParams{
-		Session:  session,
-		Callsign: prevCallsign,
-		Bay:      bay,
-	})
-	if err != nil {
-		return fmt.Errorf("failed to get previous strip sequence: %w", err)
-	}
+func (s *StripService) MoveStripBetween(ctx context.Context, session int32, callsign string, before *string, bay string) error {
+	var prev int32
+	var next *int32
 
-	if !prevOrder.Valid {
-		return fmt.Errorf("previous strip sequence not found or invalid")
-	}
-
-	var nextOrder *int32
-	if nextCallsign != nil {
-		dbNextOrder, err := s.queries.GetSequence(ctx, database.GetSequenceParams{
+	if before == nil {
+		fmt.Println("move strip between: nil", "for bay: ", bay, "session: ", session, "callsign: ", callsign)
+		prev = 0
+		nextOrder, err := s.queries.GetMinSequenceInBay(ctx, database.GetMinSequenceInBayParams{
+			Session: session,
+			Bay:     bay,
+		})
+		if err != nil {
+			return fmt.Errorf("failed to get min sequence in bay: %w", err)
+		}
+		next = &nextOrder
+	} else {
+		fmt.Println("move strip between:", *before, "for bay: ", bay, "session: ", session, "callsign: ", callsign)
+		var err error
+		prev, err = s.queries.GetSequence(ctx, database.GetSequenceParams{
 			Session:  session,
-			Callsign: *nextCallsign,
+			Callsign: *before,
 			Bay:      bay,
 		})
 		if err != nil {
-			return fmt.Errorf("failed to get next strip sequence: %w", err)
+			return fmt.Errorf("failed to get sequence: %w", err)
 		}
-
-		if dbNextOrder.Valid {
-			nextOrder = &dbNextOrder.Int32
+		nextOrder, err := s.queries.GetNextSequence(ctx, database.GetNextSequenceParams{
+			Session:  session,
+			Bay:      bay,
+			Sequence: prev,
+		})
+		if err != nil {
+			if !errors.Is(err, pgx.ErrNoRows) {
+				return fmt.Errorf("failed to get next sequence: %w", err)
+			}
+		} else {
+			next = &nextOrder
 		}
 	}
 
-	newOrder, needsRecalc := s.calculateOrderBetween(prevOrder.Int32, nextOrder)
+	newOrder, needsRecalc := s.calculateOrderBetween(prev, next)
 
 	if needsRecalc {
+		err := s.updateStripSequence(ctx, session, callsign, newOrder, bay, false)
+		if err != nil {
+			return err
+		}
 		// Gap is too small, need to recalculate all sequences
 		return s.recalculateAllStripSequences(ctx, session, bay)
 	}
 
-	return s.updateStripSequence(ctx, session, callsign, newOrder, bay)
+	return s.updateStripSequence(ctx, session, callsign, newOrder, bay, true)
 }
 
 // recalculateAllStripSequences recalculates sequences for all strips in a session,

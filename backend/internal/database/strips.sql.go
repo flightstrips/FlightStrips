@@ -11,6 +11,24 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const getBay = `-- name: GetBay :one
+SELECT bay
+FROM strips
+WHERE session = $1 AND callsign = $2
+`
+
+type GetBayParams struct {
+	Session  int32
+	Callsign string
+}
+
+func (q *Queries) GetBay(ctx context.Context, arg GetBayParams) (pgtype.Text, error) {
+	row := q.db.QueryRow(ctx, getBay, arg.Session, arg.Callsign)
+	var bay pgtype.Text
+	err := row.Scan(&bay)
+	return bay, err
+}
+
 const getMaxSequenceInBay = `-- name: GetMaxSequenceInBay :one
 SELECT COALESCE(max(sequence), 0)::INTEGER AS max_sequence
 FROM strips
@@ -29,8 +47,45 @@ func (q *Queries) GetMaxSequenceInBay(ctx context.Context, arg GetMaxSequenceInB
 	return max_sequence, err
 }
 
+const getMinSequenceInBay = `-- name: GetMinSequenceInBay :one
+SELECT COALESCE(min(sequence), 0)::INTEGER AS min_sequence
+FROM strips
+WHERE session = $1 AND bay = $2::TEXT
+`
+
+type GetMinSequenceInBayParams struct {
+	Session int32
+	Bay     string
+}
+
+func (q *Queries) GetMinSequenceInBay(ctx context.Context, arg GetMinSequenceInBayParams) (int32, error) {
+	row := q.db.QueryRow(ctx, getMinSequenceInBay, arg.Session, arg.Bay)
+	var min_sequence int32
+	err := row.Scan(&min_sequence)
+	return min_sequence, err
+}
+
+const getNextSequence = `-- name: GetNextSequence :one
+SELECT sequence::INT
+FROM strips
+WHERE session = $1 AND bay = $2::TEXT AND sequence > $3::INT
+`
+
+type GetNextSequenceParams struct {
+	Session  int32
+	Bay      string
+	Sequence int32
+}
+
+func (q *Queries) GetNextSequence(ctx context.Context, arg GetNextSequenceParams) (int32, error) {
+	row := q.db.QueryRow(ctx, getNextSequence, arg.Session, arg.Bay, arg.Sequence)
+	var sequence int32
+	err := row.Scan(&sequence)
+	return sequence, err
+}
+
 const getSequence = `-- name: GetSequence :one
-SELECT sequence
+SELECT sequence::INT
 FROM strips
 WHERE session = $1 AND callsign = $2 AND bay = $3::TEXT
 LIMIT 1
@@ -42,9 +97,9 @@ type GetSequenceParams struct {
 	Bay      string
 }
 
-func (q *Queries) GetSequence(ctx context.Context, arg GetSequenceParams) (pgtype.Int4, error) {
+func (q *Queries) GetSequence(ctx context.Context, arg GetSequenceParams) (int32, error) {
 	row := q.db.QueryRow(ctx, getSequence, arg.Session, arg.Callsign, arg.Bay)
-	var sequence pgtype.Int4
+	var sequence int32
 	err := row.Scan(&sequence)
 	return sequence, err
 }
@@ -358,7 +413,7 @@ func (q *Queries) ListStripsByOrigin(ctx context.Context, arg ListStripsByOrigin
 
 const recalculateStripSequences = `-- name: RecalculateStripSequences :exec
 WITH row_numbers AS (
-    SELECT s.id, ((ROW_NUMBER() OVER (ORDER BY s.sequence, s.callsign)) - 1) * $2::INT AS new_sequence
+    SELECT s.id, (ROW_NUMBER() OVER (ORDER BY s.sequence, s.callsign)) * $2::INT AS new_sequence
     FROM strips as s
     WHERE s.session = $1 AND s.bay = $3::TEXT
 )
@@ -783,7 +838,7 @@ func (q *Queries) UpdateStripRequestedAltitudeByID(ctx context.Context, arg Upda
 	return result.RowsAffected(), nil
 }
 
-const updateStripSequence = `-- name: updateStripSequence :execrows
+const updateStripSequence = `-- name: UpdateStripSequence :execrows
 UPDATE strips
 SET sequence = $3::INT,
     version  = version + 1

@@ -127,7 +127,7 @@ WHERE s.session = $1 AND s.callsign = u.callsign;
 
 -- name: RecalculateStripSequences :exec
 WITH row_numbers AS (
-    SELECT s.id, ((ROW_NUMBER() OVER (ORDER BY s.sequence, s.callsign)) - 1) * sqlc.arg(spacing)::INT AS new_sequence
+    SELECT s.id, (ROW_NUMBER() OVER (ORDER BY s.sequence, s.callsign)) * sqlc.arg(spacing)::INT AS new_sequence
     FROM strips as s
     WHERE s.session = $1 AND s.bay = sqlc.arg(bay)::TEXT
 )
@@ -144,7 +144,7 @@ WHERE session = $1 AND bay = sqlc.arg(bay)::TEXT
 ORDER BY sequence, callsign;
 
 -- name: GetSequence :one
-SELECT sequence
+SELECT sequence::INT
 FROM strips
 WHERE session = $1 AND callsign = $2 AND bay = sqlc.arg(bay)::TEXT
 LIMIT 1;
@@ -153,6 +153,21 @@ LIMIT 1;
 SELECT COALESCE(max(sequence), 0)::INTEGER AS max_sequence
 FROM strips
 WHERE session = $1 AND bay = sqlc.arg(bay)::TEXT;
+
+-- name: GetMinSequenceInBay :one
+SELECT COALESCE(min(sequence), 0)::INTEGER AS min_sequence
+FROM strips
+WHERE session = $1 AND bay = sqlc.arg(bay)::TEXT;
+
+-- name: GetNextSequence :one
+SELECT sequence::INT
+FROM strips
+WHERE session = $1 AND bay = sqlc.arg(bay)::TEXT AND sequence > sqlc.arg(sequence)::INT;
+
+-- name: GetBay :one
+SELECT bay
+FROM strips
+WHERE session = $1 AND callsign = $2;
 
 -- name: SetPreviousOwners :exec
 UPDATE strips SET previous_owners = $3 WHERE session = $1 AND callsign = $2;

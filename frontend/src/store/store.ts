@@ -46,6 +46,7 @@ export interface WebSocketState {
   // actions
   move: (callsign: string, bay: Bay) => void;
   generateSquawk: (callsign: string) => void;
+  updateOrder: (callsign: string, before: string | null) => void;
 
   updateStrip(callsign: string, update: UpdateStrip): void;
 }
@@ -118,6 +119,22 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
           if (update.stand) {
             state.strips[stripIndex].stand = update.stand;
           }
+        }
+      })
+    },
+    updateOrder: (callsign, before) => {
+      wsClient.send({type: ActionType.FrontendUpdateOrder, callsign: callsign, before: before})
+
+      return produce((state: WebSocketState) => {
+        // Calculate a temporary order to update the UI while we wait for the backend
+        const stripIndex = state.strips.findIndex(strip => strip.callsign === callsign)
+
+        if (before === null) {
+          // Put it in-front of everything
+          state.strips[stripIndex].sequence = -1;
+        } else {
+          const beforeIndex = state.strips.findIndex(strip => strip.callsign === before)
+          state.strips[stripIndex].sequence = state.strips[beforeIndex].sequence + 1
         }
       })
     }

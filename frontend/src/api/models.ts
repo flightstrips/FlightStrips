@@ -21,6 +21,7 @@ export enum ActionType {
   FrontendMove = "move",
   FrontendGenerateSquawk = "generate_squawk",
   FrontendUpdateStripData = "update_strip_data",
+  FrontendUpdateOrder = "update_order",
 }
 
 export enum Bay {
@@ -248,5 +249,11 @@ export interface FrontendUpdateStripDataEvent {
   stand?: string;
 }
 
+export interface FrontendUpdateOrder {
+  type: ActionType.FrontendUpdateOrder;
+  callsign: string;
+  before: string | null;
+}
+
 // Union type for all events that can be sent
-export type FrontendSendEvent = FrontendAuthenticationEvent | FrontendMoveEvent | FrontendGenerateSquawkEvent | FrontendUpdateStripDataEvent;
+export type FrontendSendEvent = FrontendAuthenticationEvent | FrontendMoveEvent | FrontendGenerateSquawkEvent | FrontendUpdateStripDataEvent | FrontendUpdateOrder;

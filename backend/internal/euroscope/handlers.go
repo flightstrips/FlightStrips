@@ -45,8 +45,7 @@ func handleControllerOnline(client *Client, message Message) error {
 		if err != nil {
 			return err
 		}
-
-		return nil
+		return s.UpdateLayouts(session)
 	}
 
 	if controller.Position == event.Position || err != nil {
@@ -73,6 +72,7 @@ func handleControllerOnline(client *Client, message Message) error {
 		if err != nil {
 			return err
 		}
+		return s.UpdateLayouts(session)
 	}
 
 	return nil
@@ -116,7 +116,10 @@ func handleControllerOffline(client *Client, message Message) error {
 	}
 
 	if _, err := config.GetPositionBasedOnFrequency(controller.Position); err == nil {
-		return s.UpdateSectors(client.session)
+		if err := s.UpdateSectors(client.session); err != nil {
+			return err
+		}
+		return s.UpdateLayouts(client.session)
 	}
 
 	return nil
@@ -527,6 +530,10 @@ func handleSync(client *Client, message Message) error {
 	}
 
 	err = s.UpdateSectors(client.session)
+	if err != nil {
+		return err
+	}
+	err = s.UpdateLayouts(client.session)
 	if err != nil {
 		return err
 	}

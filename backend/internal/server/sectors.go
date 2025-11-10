@@ -79,9 +79,9 @@ func (s *Server) UpdateSectors(sessionId int32) error {
 	}
 	defer tx.Rollback(context.Background())
 
-	db = db.WithTx(tx)
+	dbWithTx := db.WithTx(tx)
 
-	err = db.RemoveSectorOwners(context.Background(), sessionId)
+	err = dbWithTx.RemoveSectorOwners(context.Background(), sessionId)
 	if err != nil {
 		return err
 	}
@@ -96,7 +96,7 @@ func (s *Server) UpdateSectors(sessionId int32) error {
 		})
 	}
 
-	_, err = db.InsertSectorOwners(context.Background(), dbParams)
+	_, err = dbWithTx.InsertSectorOwners(context.Background(), dbParams)
 	if err != nil {
 		return err
 	}

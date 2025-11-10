@@ -70,70 +70,77 @@ airborne_routes:
   - name: K_DEP
     default: true
     sids:
-      - BETUD2E
-      - NEXEN2E
-      - KOPEX2E
-      - LANGO2E
-      - KEMAX2E
-      - SIMEG2E
-      - SALLO1E
-      - BETUD3B
-      - NEXEN3B
-      - KOPEX3B
-      - LANGO3B
-      - SIMEG9B
-      - SALLO1B
-      - BETUD2F
-      - NEXEN2F
-      - KOPEX2F
-      - LANGO2F
-      - KEMAX2F
-      - SIMEG2F
-      - SALLO1F
-      - BETUD3D
-      - NEXEN3D
-      - KOPEX3D
-      - LANGO3D
-      - SIMEG9D
-      - SALLO1D
       - BETUD2A
-      - NEXEN2A
-      - KOPEX2A
-      - LANGO2A
-      - KEMAX5A
-      - SIMEG8A
-      - SALLO1A
       - BETUD2C
-      - NEXEN2C
-      - KOPEX2C
-      - LANGO2C
+      - BETUD2E
+      - BETUD2F
+      - BETUD3B
+      - BETUD3D
+      - KEMAX2E
+      - KEMAX2F
+      - KEMAX5A
       - KEMAX5C
-      - SIMEG9C
+      - KOPEX2A
+      - KOPEX2C
+      - KOPEX2E
+      - KOPEX2F
+      - KOPEX3B
+      - KOPEX3D
+      - LANGO2A
+      - LANGO2C
+      - LANGO2E
+      - LANGO2F
+      - LANGO3B
+      - LANGO3D
+      - NEXEN2A
+      - NEXEN2C
+      - NEXEN2E
+      - NEXEN2F
+      - NEXEN3B
+      - NEXEN3D
+      - SALLO1A
+      - SALLO1B
       - SALLO1C
+      - SALLO1D
+      - SALLO1E
+      - SALLO1F
+      - SIMEG2E
+      - SIMEG2F
+      - SIMEG8A
+      - SIMEG9B
+      - SIMEG9C
+      - SIMEG9D
 
   - name: R_DEP
     default: false
     sids:
-      - ODDON1E
-      - GOLGA3E
-      - VEDAR3E
-      - ODDON1B
-      - GOLGA3B
-      - VEDAR3B
-      - KEMAX6B
-      - ODDON1F
+      - GOLGA2C
       - GOLGA2F
-      - VEDAR2F
-      - ODDON1D
+      - GOLGA3A
+      - GOLGA3B
       - GOLGA3D
-      - VEDAR3D
+      - GOLGA3E
+      - KEMAX6B
       - KEMAX6D
       - ODDON1A
-      - GOLGA3A
-      - VEDAR4A
+      - ODDON1B
       - ODDON1C
-      - GOLGA2C
+      - ODDON1D
+      - ODDON1E
+      - ODDON1F
       - VEDAR2C
+      - VEDAR2F
+      - VEDAR3B
+      - VEDAR3D
+      - VEDAR3E
+      - VEDAR4A
+      #ES seems to report ODDON as ODON
+      - ODON1A
+      - ODON1B
+      - ODON1C
+      - ODON1D
+      - ODON1E
+      - ODON1F
 
 sectors:
   - name: DEL
@@ -152,7 +159,7 @@ sectors:
     owner:
       - "EKCH_B_GND"
 
-  # Apron
+    # Apron
   - name: AA
     name_priority: 30
     region: APRON_NORTH
@@ -326,3 +333,115 @@ routes:
       - H101-H106
     active: [04L, 22R]
     path: [TW, GW, AA]
+
+layouts:
+  EKCH_DEL:
+    - online: []
+      offline: []
+      layout: CLR DEL
+
+  EKCH_A_GND:
+    - online: [EKCH_B_GND, EKCH_C_GND]
+      offline: []
+      layout: AA
+    - online: [EKCH_B_GND]
+      offline: [EKCH_C_GND]
+      layout: AA
+    - online: []
+      offline: [EKCH_B_GND, EKCH_C_GND]
+      layout: AA+AD
+
+  EKCH_B_GND:
+    - online: [EKCH_A_GND, EKCH_C_GND]
+      offline: []
+      layout: SEQ PLN
+    - online: [EKCH_A_GND]
+      offline: [EKCH_C_GND]
+      layout: AD
+    - online: [EKCH_C_GND]
+      offline: [EKCH_A_GND]
+      layout: AA
+    - online: []
+      offline: [EKCH_B_GND, EKCH_C_GND]
+      layout: AA+AD
+
+  EKCH_C_GND:
+    - online: [EKCH_A_GND, EKCH_B_GND]
+      offline: []
+      layout: AD
+    - online: [EKCH_B_GND]
+      offline: [EKCH_A_GND]
+      layout: AD
+    - online: [EKCH_A_GND]
+      offline: [EKCH_B_GND]
+      layout: AD
+    - online: []
+      offline: [EKCH_B_GND, EKCH_C_GND]
+      layout: AA+AD
+    - online: [EKCH_A_GND, EKCH_B_GND]
+      offline: []
+      layout: AD
+    - online: [EKCH_B_GND]
+      offline: [EKCH_A_GND]
+      layout: AD
+    - online: [EKCH_A_GND]
+      offline: [EKCH_B_GND]
+      layout: AD
+    - online: []
+      offline: [EKCH_B_GND, EKCH_C_GND]
+      layout: AA+AD
+
+  EKCH_C_TWR:
+    - online: [EKCH_A_TWR, EKCH_D_TWR, _GND]
+      offline: []
+      layout: GW
+    - online: [EKCH_A_TWR, _GND]
+      offline: [EKCH_D_TWR]
+      layout: GW
+    - online: [EKCH_D_TWR, _GND]
+      offline: [EKCH_A_TWR]
+      layout: GW
+    - online: [_GND]
+      offline: [EKCH_A_TWR, EKCH_D_TWR]
+      layout: TE+TW
+    - online: []
+      offline: [_GND]
+      layout: TE+TW
+    - online: [EKCH_A_TWR, EKCH_D_TWR]
+      offline: []
+      layout: GW
+    - online: [EKCH_A_TWR]
+      offline: [EKCH_D_TWR]
+      layout: GW
+    - online: [EKCH_D_TWR]
+      offline: [EKCH_A_TWR]
+      layout: GW
+    - online: []
+      offline: [EKCH_A_TWR, EKCH_D_TWR]
+      layout: GW
+
+  EKCH_A_TWR:
+    - active: [22L, 22R]
+      online: [EKCH_D_TWR]
+      offline: []
+      layout: TE
+    - active: [04L, 04R]
+      online: [EKCH_D_TWR]
+      offline: []
+      layout: TW
+    - online: []
+      offline: [EKCH_D_TWR]
+      layout: TE+TW
+
+  EKCH_D_TWR:
+    - active: [22L, 22R]
+      online: [EKCH_A_TWR]
+      offline: []
+      layout: TW
+    - active: [04L, 04R]
+      online: [EKCH_A_TWR]
+      offline: []
+      layout: TE
+    - online: []
+      offline: [EKCH_A_TWR]
+      layout: TE+TW

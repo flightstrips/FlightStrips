@@ -14,6 +14,7 @@ export enum EventType {
   FrontendSetHeading = "set_heading",
   FrontendCommunicationType = "communication_type",
   FrontendOwnersUpdate = "owners_update",
+  FrontendLayoutUpdate = "layout_update",
 }
 
 export enum ActionType {
@@ -68,6 +69,8 @@ export interface FrontendStrip {
   release_point: string;
   version: number;
   sequence: number;
+  next_controllers: string[];
+  previous_controllers: string[];
 }
 
 export interface FrontendController {
@@ -82,6 +85,7 @@ export interface FrontendInitialEvent {
   strips: FrontendStrip[];
   me: FrontendController;
   airport: string;
+  layout: string;
   callsign: string;
   runway_setup: RunwayConfiguration;
 }
@@ -112,8 +116,8 @@ export interface FrontendStripUpdateEvent {
   release_point: string;
   version: number;
   sequence: number;
-  next_owners: string[];
-  previous_owners: string[];
+  next_controllers: string[];
+  previous_controllers: string[];
   owner: string;
 }
 
@@ -209,6 +213,11 @@ export interface FrontendOwnersUpdateEvent {
   previous_owners: string[];
 }
 
+export interface FrontendLayoutUpdateEvent {
+  type: EventType.FrontendLayoutUpdate;
+  layout: string;
+}
+
 // Union type for all events that can be received
 export type WebSocketEvent =
   | FrontendInitialEvent
@@ -225,7 +234,8 @@ export type WebSocketEvent =
   | FrontendStandEvent
   | FrontendSetHeadingEvent
   | FrontendCommunicationTypeEvent
-  | FrontendOwnersUpdateEvent;
+  | FrontendOwnersUpdateEvent
+  | FrontendLayoutUpdateEvent;
 
 export interface FrontendMoveEvent {
   type: ActionType.FrontendMove;

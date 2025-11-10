@@ -50,3 +50,8 @@ WHERE callsign = $1 AND session = $2;
 -- name: GetControllers :many
 SELECT * FROM controllers
 WHERE session = $1;
+
+-- name: SetControllerLayout :execrows
+UPDATE controllers
+SET layout = $1
+WHERE position = $2 AND session = $3;

@@ -46,6 +46,8 @@ const (
 	OwnersUpdate EventType = "owners_update"
 
 	UpdateOrder EventType = "update_order"
+
+	LayoutUpdate = "layout_update"
 )
 
 type OutgoingMessage interface {
@@ -98,6 +100,7 @@ type InitialEvent struct {
 	Contsollers []Controller        `json:"controllers"`
 	Strips      []Strip             `json:"strips"`
 	Me          Controller          `json:"me"`
+	Layout      string              `json:"layout"`
 	Airport     string              `json:"airport"`
 	Callsign    string              `json:"callsign"`
 	RunwaySetup RunwayConfiguration `json:"runway_setup"`
@@ -419,4 +422,16 @@ func (o UpdateOrderEvent) Marshal() ([]byte, error) {
 
 func (o UpdateOrderEvent) GetType() EventType {
 	return UpdateOrder
+}
+
+type LayoutUpdateEvent struct {
+	Layout string `json:"layout"`
+}
+
+func (l LayoutUpdateEvent) Marshal() ([]byte, error) {
+	return json.Marshal(l)
+}
+
+func (l LayoutUpdateEvent) GetType() EventType {
+	return LayoutUpdate
 }

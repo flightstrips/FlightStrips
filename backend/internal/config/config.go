@@ -10,17 +10,19 @@ import (
 )
 
 type Config struct {
-	Routes         []Route          `yaml:"routes"`
-	AirborneRoutes []AirborneRoutes `yaml:"airborne_routes"`
-	Positions      []Position       `yaml:"positions"`
-	Sectors        []Sector         `yaml:"sectors"`
-	AirborneOwners []string         `yaml:"airborne_owners"`
+	Routes         []Route                    `yaml:"routes"`
+	AirborneRoutes []AirborneRoutes           `yaml:"airborne_routes"`
+	Positions      []Position                 `yaml:"positions"`
+	Sectors        []Sector                   `yaml:"sectors"`
+	AirborneOwners []string                   `yaml:"airborne_owners"`
+	Layouts        map[string][]LayoutVariant `yaml:"layouts"`
 }
 
 var sectors []Sector
 var regions []Region
 var positions []Position
 var airborneRoutes []AirborneRoutes
+var layouts map[string][]LayoutVariant
 
 // runwayRoutes maps a runway to all available routes for that runway.
 var runwayRoutes = map[string][]Route{}
@@ -43,6 +45,7 @@ func loadAirportConfig(r io.Reader) error {
 	positions = cfg.Positions
 	sectors = cfg.Sectors
 	airborneRoutes = cfg.AirborneRoutes
+	layouts = cfg.Layouts
 
 	return nil
 }

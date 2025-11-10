@@ -25,7 +25,8 @@ CREATE TABLE IF NOT EXISTS controllers (
     position varchar(7) NOT NULL,
     cid varchar(10),
     last_seen_euroscope timestamp,
-    last_seen_frontend timestamp
+    last_seen_frontend timestamp,
+    layout varchar(20)
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS ux_controllers_session_callsign ON controllers (session, callsign);

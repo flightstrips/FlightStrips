@@ -28,6 +28,7 @@ type Controller struct {
 	Cid               pgtype.Text
 	LastSeenEuroscope pgtype.Timestamp
 	LastSeenFrontend  pgtype.Timestamp
+	Layout            pgtype.Text
 }
 
 type Coordination struct {

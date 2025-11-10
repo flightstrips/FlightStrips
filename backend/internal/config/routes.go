@@ -220,20 +220,6 @@ func normalizeRunway(rwy string) string {
 	return strings.ToUpper(strings.TrimSpace(rwy))
 }
 
-func hasAnyActive(active []string, required []string) bool {
-	if len(required) == 0 {
-		return true
-	}
-
-	for _, a := range required {
-		if slices.Contains(active, a) {
-			return true
-		}
-	}
-
-	return false
-}
-
 func indexOfSector(path []string, sector string) int {
 	for i, s := range path {
 		if strings.EqualFold(s, sector) {

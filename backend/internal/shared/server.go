@@ -25,6 +25,7 @@ type Server interface {
 	UpdateSectors(sessionId int32) error
 	UpdateRouteForStrip(callsign string, sessionId int32, sendUpdate bool) error
 	UpdateRoutesForSession(sessionId int32, sendUpdate bool) error
+	UpdateLayouts(sessionId int32) error
 }
 
 type ConnectedUser struct {

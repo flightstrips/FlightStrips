@@ -164,6 +164,7 @@ func (hub *Hub) sendInitialEvent(client *Client) {
 
 	controllerModels := make([]frontend.Controller, 0, len(controllers))
 	stripModels := make([]frontend.Strip, 0, len(strips))
+	layout := ""
 
 	me := frontend.Controller{}
 
@@ -181,6 +182,9 @@ func (hub *Hub) sendInitialEvent(client *Client) {
 
 		if controller.Callsign == client.callsign {
 			me = c
+			if controller.Layout.Valid {
+				layout = controller.Layout.String
+			}
 		}
 	}
 
@@ -194,6 +198,7 @@ func (hub *Hub) sendInitialEvent(client *Client) {
 		Me:          me,
 		Callsign:    client.callsign,
 		Airport:     client.airport,
+		Layout:      layout,
 		RunwaySetup: frontend.RunwayConfiguration{
 			Departure: make([]string, 0),
 			Arrival:   make([]string, 0),
@@ -406,9 +411,22 @@ func (hub *Hub) SendOwnersUpdate(session int32, callsign string, nextOwners []st
 	hub.Broadcast(session, event)
 }
 
+func (hub *Hub) SendLayoutUpdates(session int32, layoutMap map[string]string) {
+	for client, _ := range hub.clients {
+		if layout, ok := layoutMap[client.callsign]; client.session == session && ok {
+			event := frontend.LayoutUpdateEvent{
+				Layout: layout,
+			}
+			client.send <- event
+		}
+	}
+}
+
 func (hub *Hub) OnRegister(client *Client) {
 	log.Println("Client registered:", client.user.GetCid())
-	hub.sendInitialEvent(client)
+	if client.session != WaitingForEuroscopeConnectionSessionId {
+		hub.sendInitialEvent(client)
+	}
 }
 
 func (hub *Hub) OnUnregister(client *Client) {

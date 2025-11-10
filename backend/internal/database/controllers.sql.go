@@ -18,7 +18,7 @@ type BulkInsertControllersParams struct {
 }
 
 const getController = `-- name: GetController :one
-SELECT id, session, callsign, position, cid, last_seen_euroscope, last_seen_frontend
+SELECT id, session, callsign, position, cid, last_seen_euroscope, last_seen_frontend, layout
 FROM controllers
 WHERE callsign = $1 AND session = $2
 `
@@ -39,12 +39,13 @@ func (q *Queries) GetController(ctx context.Context, arg GetControllerParams) (C
 		&i.Cid,
 		&i.LastSeenEuroscope,
 		&i.LastSeenFrontend,
+		&i.Layout,
 	)
 	return i, err
 }
 
 const getControllerByCid = `-- name: GetControllerByCid :one
-SELECT id, session, callsign, position, cid, last_seen_euroscope, last_seen_frontend
+SELECT id, session, callsign, position, cid, last_seen_euroscope, last_seen_frontend, layout
 FROM controllers
 WHERE cid = $1::text LIMIT 1
 `
@@ -60,12 +61,13 @@ func (q *Queries) GetControllerByCid(ctx context.Context, cid string) (Controlle
 		&i.Cid,
 		&i.LastSeenEuroscope,
 		&i.LastSeenFrontend,
+		&i.Layout,
 	)
 	return i, err
 }
 
 const getControllers = `-- name: GetControllers :many
-SELECT id, session, callsign, position, cid, last_seen_euroscope, last_seen_frontend FROM controllers
+SELECT id, session, callsign, position, cid, last_seen_euroscope, last_seen_frontend, layout FROM controllers
 WHERE session = $1
 `
 
@@ -86,6 +88,7 @@ func (q *Queries) GetControllers(ctx context.Context, session int32) ([]Controll
 			&i.Cid,
 			&i.LastSeenEuroscope,
 			&i.LastSeenFrontend,
+			&i.Layout,
 		); err != nil {
 			return nil, err
 		}
@@ -124,7 +127,7 @@ func (q *Queries) InsertController(ctx context.Context, arg InsertControllerPara
 }
 
 const listControllers = `-- name: ListControllers :many
-SELECT id, session, callsign, position, cid, last_seen_euroscope, last_seen_frontend
+SELECT id, session, callsign, position, cid, last_seen_euroscope, last_seen_frontend, layout
 FROM controllers
 WHERE session = $1
 ORDER BY callsign
@@ -147,6 +150,7 @@ func (q *Queries) ListControllers(ctx context.Context, session int32) ([]Control
 			&i.Cid,
 			&i.LastSeenEuroscope,
 			&i.LastSeenFrontend,
+			&i.Layout,
 		); err != nil {
 			return nil, err
 		}
@@ -231,6 +235,26 @@ type SetControllerFrontendSeenParams struct {
 
 func (q *Queries) SetControllerFrontendSeen(ctx context.Context, arg SetControllerFrontendSeenParams) (int64, error) {
 	result, err := q.db.Exec(ctx, setControllerFrontendSeen, arg.LastSeenFrontend, arg.Session, arg.Cid)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const setControllerLayout = `-- name: SetControllerLayout :execrows
+UPDATE controllers
+SET layout = $1
+WHERE position = $2 AND session = $3
+`
+
+type SetControllerLayoutParams struct {
+	Layout   pgtype.Text
+	Position string
+	Session  int32
+}
+
+func (q *Queries) SetControllerLayout(ctx context.Context, arg SetControllerLayoutParams) (int64, error) {
+	result, err := q.db.Exec(ctx, setControllerLayout, arg.Layout, arg.Position, arg.Session)
 	if err != nil {
 		return 0, err
 	}

@@ -13,6 +13,8 @@ import {
   type FrontendControllerOfflineEvent,
   type FrontendControllerOnlineEvent,
   type FrontendInitialEvent,
+  type FrontendLayoutUpdateEvent,
+  type FrontendOwnersUpdateEvent,
   type FrontendRequestedAltitudeEvent,
   type FrontendSetHeadingEvent,
   type FrontendSquawkEvent,
@@ -40,6 +42,7 @@ export interface WebSocketState {
   identifier: string;
   airport: string;
   callsign: string;
+  layout: string;
   runwaySetup: RunwayConfiguration;
   isInitialized: boolean;
 
@@ -61,6 +64,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     identifier: '',
     airport: '',
     callsign: '',
+    layout: '',
     runwaySetup: {
       departure: [],
       arrival: []
@@ -150,6 +154,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
         state.identifier = data.me.identifier;
         state.airport = data.airport;
         state.callsign = data.callsign;
+        state.layout = data.layout;
         state.runwaySetup = data.runway_setup;
         state.isInitialized = true;
       })
@@ -309,6 +314,25 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     )
   }
 
+  const handleOwnersUpdateEvent = (data: FrontendOwnersUpdateEvent) => {
+    store.setState(
+      produce((state: WebSocketState) => {
+        const stripIndex = state.strips.findIndex(strip => strip.callsign === data.callsign);
+        if (stripIndex !== -1) {
+          state.strips[stripIndex].next_controllers = data.next_owners;
+          state.strips[stripIndex].previous_controllers = data.previous_owners;
+        }
+      })
+    )
+  }
+
+  const handleLayoutUpdateEvent = (data: FrontendLayoutUpdateEvent) => {
+    store.setState(
+      produce((state: WebSocketState) => {
+        state.layout = data.layout;
+      })
+    )
+  }
 
   // Register event handlers
   wsClient.on(EventType.FrontendInitial, handleInitialEvent);
@@ -325,6 +349,8 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
   wsClient.on(EventType.FrontendStand, handleStandEvent);
   wsClient.on(EventType.FrontendSetHeading, handleSetHeadingEvent);
   wsClient.on(EventType.FrontendCommunicationType, handleCommunicationTypeEvent);
+  wsClient.on(EventType.FrontendOwnersUpdate, handleOwnersUpdateEvent);
+  wsClient.on(EventType.FrontendLayoutUpdate, handleLayoutUpdateEvent);
 
   return store;
 };

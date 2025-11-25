@@ -15,6 +15,7 @@ export enum EventType {
   FrontendCommunicationType = "communication_type",
   FrontendOwnersUpdate = "owners_update",
   FrontendLayoutUpdate = "layout_update",
+  FrontendBroadcast = "broadcast",
 }
 
 export enum ActionType {
@@ -23,6 +24,7 @@ export enum ActionType {
   FrontendGenerateSquawk = "generate_squawk",
   FrontendUpdateStripData = "update_strip_data",
   FrontendUpdateOrder = "update_order",
+  FrontendSendMessage = "send_message",
 }
 
 export enum Bay {
@@ -218,6 +220,12 @@ export interface FrontendLayoutUpdateEvent {
   layout: string;
 }
 
+export interface FrontendBroadcastEvent {
+  type: EventType.FrontendBroadcast;
+  message: string;
+  from: string;
+}
+
 // Union type for all events that can be received
 export type WebSocketEvent =
   | FrontendInitialEvent
@@ -235,7 +243,8 @@ export type WebSocketEvent =
   | FrontendSetHeadingEvent
   | FrontendCommunicationTypeEvent
   | FrontendOwnersUpdateEvent
-  | FrontendLayoutUpdateEvent;
+  | FrontendLayoutUpdateEvent
+  | FrontendBroadcastEvent;
 
 export interface FrontendMoveEvent {
   type: ActionType.FrontendMove;
@@ -265,5 +274,11 @@ export interface FrontendUpdateOrder {
   before: string | null;
 }
 
+export interface FrontendSendMessageEvent {
+  type: ActionType.FrontendSendMessage;
+  message: string;
+  to: string | null
+}
+
 // Union type for all events that can be sent
-export type FrontendSendEvent = FrontendAuthenticationEvent | FrontendMoveEvent | FrontendGenerateSquawkEvent | FrontendUpdateStripDataEvent | FrontendUpdateOrder;
+export type FrontendSendEvent = FrontendAuthenticationEvent | FrontendMoveEvent | FrontendGenerateSquawkEvent | FrontendUpdateStripDataEvent | FrontendUpdateOrder | FrontendSendMessageEvent;

@@ -355,3 +355,22 @@ func handleUpdateOrder(client *Client, message Message) error {
 
 	return client.hub.stripService.MoveStripBetween(context.Background(), client.session, event.Callsign, event.Before, bay.String)
 }
+
+func handleSendMessage(client *Client, message Message) error {
+	var event frontend.SendMessageEvent
+	if err := message.JsonUnmarshal(&event); err != nil {
+		return err
+	}
+
+	outgoingEvent := frontend.BroadcastEvent{
+		Message: event.Message,
+		From:    client.position,
+	}
+
+	if event.To == nil {
+		client.hub.Broadcast(client.session, outgoingEvent)
+	} else {
+		client.hub.SendToPosition(client.session, *event.To, outgoingEvent)
+	}
+	return nil
+}

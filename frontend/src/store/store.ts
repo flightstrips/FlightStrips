@@ -6,7 +6,7 @@ import {
   EventType,
   type FrontendAircraftDisconnectEvent,
   type FrontendAssignedSquawkEvent,
-  type FrontendBayEvent,
+  type FrontendBayEvent, type FrontendBroadcastEvent,
   type FrontendClearedAltitudeEvent,
   type FrontendCommunicationTypeEvent,
   type FrontendController,
@@ -46,10 +46,13 @@ export interface WebSocketState {
   runwaySetup: RunwayConfiguration;
   isInitialized: boolean;
 
+  activeMessages: FrontendBroadcastEvent[];
+
   // actions
   move: (callsign: string, bay: Bay) => void;
   generateSquawk: (callsign: string) => void;
   updateOrder: (callsign: string, before: string | null) => void;
+  sendMessage: (message: string, to: string | null) => void;
 
   updateStrip(callsign: string, update: UpdateStrip): void;
 }
@@ -70,6 +73,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
       arrival: []
     },
     isInitialized: false,
+    activeMessages: []
   };
 
   // Create the store
@@ -141,6 +145,9 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
           state.strips[stripIndex].sequence = state.strips[beforeIndex].sequence + 1
         }
       })
+    },
+    sendMessage: (message, to) => {
+      wsClient.send({type: ActionType.FrontendSendMessage, message, to})
     }
   }));
 
@@ -334,6 +341,14 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     )
   }
 
+  const handleBroadcastEvent = (data: FrontendBroadcastEvent) => {
+    store.setState(
+      produce((state: WebSocketState) => {
+        state.activeMessages.push(data);
+      })
+    )
+  }
+
   // Register event handlers
   wsClient.on(EventType.FrontendInitial, handleInitialEvent);
   wsClient.on(EventType.FrontendStripUpdate, handleStripUpdateEvent);
@@ -351,6 +366,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
   wsClient.on(EventType.FrontendCommunicationType, handleCommunicationTypeEvent);
   wsClient.on(EventType.FrontendOwnersUpdate, handleOwnersUpdateEvent);
   wsClient.on(EventType.FrontendLayoutUpdate, handleLayoutUpdateEvent);
+  wsClient.on(EventType.FrontendBroadcast, handleBroadcastEvent);
 
   return store;
 };

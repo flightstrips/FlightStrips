@@ -48,6 +48,9 @@ const (
 	UpdateOrder EventType = "update_order"
 
 	LayoutUpdate = "layout_update"
+
+	Broadcast   EventType = "broadcast"
+	SendMessage EventType = "send_message"
 )
 
 type OutgoingMessage interface {
@@ -434,4 +437,22 @@ func (l LayoutUpdateEvent) Marshal() ([]byte, error) {
 
 func (l LayoutUpdateEvent) GetType() EventType {
 	return LayoutUpdate
+}
+
+type BroadcastEvent struct {
+	Message string `json:"message"`
+	From    string `json:"from"`
+}
+
+func (l BroadcastEvent) Marshal() ([]byte, error) {
+	return json.Marshal(l)
+}
+
+func (l BroadcastEvent) GetType() EventType {
+	return Broadcast
+}
+
+type SendMessageEvent struct {
+	Message string  `json:"message"`
+	To      *string `json:"to"`
 }

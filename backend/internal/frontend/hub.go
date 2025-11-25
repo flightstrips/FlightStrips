@@ -43,6 +43,7 @@ func NewHub(stripService shared.StripService) *Hub {
 	handlers.Add(frontend.CoordinationRejectRequestType, handleCoordinationRejectRequest)
 	handlers.Add(frontend.CoordinationFreeRequestType, handleCoordinationFreeRequest)
 	handlers.Add(frontend.UpdateOrder, handleUpdateOrder)
+	handlers.Add(frontend.SendMessage, handleSendMessage)
 
 	hub := &Hub{
 		send:         make(chan internalMessage),
@@ -418,6 +419,22 @@ func (hub *Hub) SendLayoutUpdates(session int32, layoutMap map[string]string) {
 				Layout: layout,
 			}
 			client.send <- event
+		}
+	}
+}
+
+func (hub *Hub) SendServerMessage(session int32, message string) {
+	event := frontend.BroadcastEvent{
+		Message: message,
+		From:    "SERVER",
+	}
+	hub.Broadcast(session, event)
+}
+
+func (hub *Hub) SendToPosition(session int32, position string, message frontend.OutgoingMessage) {
+	for client := range hub.clients {
+		if client.session == session && client.position == position {
+			client.send <- message
 		}
 	}
 }

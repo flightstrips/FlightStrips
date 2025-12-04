@@ -1,12 +1,13 @@
-import {createStore} from 'zustand/vanilla';
-import {produce} from 'immer';
+import { createStore } from "zustand/vanilla";
+import { produce } from "immer";
 import {
   ActionType,
   Bay,
   EventType,
   type FrontendAircraftDisconnectEvent,
   type FrontendAssignedSquawkEvent,
-  type FrontendBayEvent, type FrontendBroadcastEvent,
+  type FrontendBayEvent,
+  type FrontendBroadcastEvent,
   type FrontendClearedAltitudeEvent,
   type FrontendCommunicationTypeEvent,
   type FrontendController,
@@ -21,14 +22,14 @@ import {
   type FrontendStandEvent,
   type FrontendStrip,
   type FrontendStripUpdateEvent,
-  type RunwayConfiguration
-} from '../api/models.ts';
-import {WebSocketClient} from '../api/websocket.ts';
+  type RunwayConfiguration,
+} from "../api/models.js";
+import { WebSocketClient } from "../api/websocket.js";
 
 export interface UpdateStrip {
-  sid?: string
+  sid?: string;
   eobt?: string;
-  route?: string
+  route?: string;
   heading?: number;
   altitude?: number;
   stand?: string;
@@ -63,36 +64,38 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
   const initialState = {
     controllers: [],
     strips: [],
-    position: '',
-    identifier: '',
-    airport: '',
-    callsign: '',
-    layout: '',
+    position: "",
+    identifier: "",
+    airport: "",
+    callsign: "",
+    layout: "",
     runwaySetup: {
       departure: [],
-      arrival: []
+      arrival: [],
     },
     isInitialized: false,
-    activeMessages: []
+    activeMessages: [],
   };
 
   // Create the store
   const store = createStore<WebSocketState>()((set) => ({
     ...initialState,
-    move: (callsign, bay) => set((state) => {
-        wsClient.send({type: ActionType.FrontendMove, callsign, bay})
+    move: (callsign, bay) =>
+      set((state) => {
+        wsClient.send({ type: ActionType.FrontendMove, callsign, bay });
 
         return produce((state: WebSocketState) => {
-          const stripIndex = state.strips.findIndex(strip => strip.callsign === callsign);
+          const stripIndex = state.strips.findIndex(
+            (strip) => strip.callsign === callsign
+          );
           if (stripIndex !== -1) {
             state.strips[stripIndex].bay = bay;
           }
           return state;
-        })(state)
-      }
-    ),
+        })(state);
+      }),
     generateSquawk: (callsign) => {
-      wsClient.send({type: ActionType.FrontendGenerateSquawk, callsign})
+      wsClient.send({ type: ActionType.FrontendGenerateSquawk, callsign });
     },
     updateStrip(callsign: string, update: UpdateStrip) {
       wsClient.send({
@@ -104,10 +107,12 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
         heading: update.heading,
         altitude: update.altitude,
         stand: update.stand,
-      })
+      });
 
       return produce((state: WebSocketState) => {
-        const stripIndex = state.strips.findIndex(strip => strip.callsign === callsign);
+        const stripIndex = state.strips.findIndex(
+          (strip) => strip.callsign === callsign
+        );
         if (stripIndex !== -1) {
           if (update.sid) {
             state.strips[stripIndex].sid = update.sid;
@@ -128,27 +133,36 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
             state.strips[stripIndex].stand = update.stand;
           }
         }
-      })
+      });
     },
     updateOrder: (callsign, before) => {
-      wsClient.send({type: ActionType.FrontendUpdateOrder, callsign: callsign, before: before})
+      wsClient.send({
+        type: ActionType.FrontendUpdateOrder,
+        callsign: callsign,
+        before: before,
+      });
 
       return produce((state: WebSocketState) => {
         // Calculate a temporary order to update the UI while we wait for the backend
-        const stripIndex = state.strips.findIndex(strip => strip.callsign === callsign)
+        const stripIndex = state.strips.findIndex(
+          (strip) => strip.callsign === callsign
+        );
 
         if (before === null) {
           // Put it in-front of everything
           state.strips[stripIndex].sequence = -1;
         } else {
-          const beforeIndex = state.strips.findIndex(strip => strip.callsign === before)
-          state.strips[stripIndex].sequence = state.strips[beforeIndex].sequence + 1
+          const beforeIndex = state.strips.findIndex(
+            (strip) => strip.callsign === before
+          );
+          state.strips[stripIndex].sequence =
+            state.strips[beforeIndex].sequence + 1;
         }
-      })
+      });
     },
     sendMessage: (message, to) => {
-      wsClient.send({type: ActionType.FrontendSendMessage, message, to})
-    }
+      wsClient.send({ type: ActionType.FrontendSendMessage, message, to });
+    },
   }));
 
   // Private methods to handle WebSocket events
@@ -171,12 +185,14 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
   const handleStripUpdateEvent = (data: FrontendStripUpdateEvent) => {
     store.setState(
       produce((state: WebSocketState) => {
-        const stripIndex = state.strips.findIndex(strip => strip.callsign === data.callsign);
+        const stripIndex = state.strips.findIndex(
+          (strip) => strip.callsign === data.callsign
+        );
 
         if (stripIndex !== -1) {
           // Update existing strip
           state.strips[stripIndex] = {
-            ...data
+            ...data,
           };
         } else {
           // Add new strip
@@ -190,7 +206,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     store.setState(
       produce((state: WebSocketState) => {
         const controllerIndex = state.controllers.findIndex(
-          controller => controller.callsign === data.callsign
+          (controller) => controller.callsign === data.callsign
         );
 
         if (controllerIndex === -1) {
@@ -205,11 +221,13 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     );
   };
 
-  const handleControllerOfflineEvent = (data: FrontendControllerOfflineEvent) => {
+  const handleControllerOfflineEvent = (
+    data: FrontendControllerOfflineEvent
+  ) => {
     store.setState(
       produce((state: WebSocketState) => {
         state.controllers = state.controllers.filter(
-          controller => controller.callsign !== data.callsign
+          (controller) => controller.callsign !== data.callsign
         );
       })
     );
@@ -218,7 +236,9 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
   const handleAssignedSquawkEvent = (data: FrontendAssignedSquawkEvent) => {
     store.setState(
       produce((state: WebSocketState) => {
-        const stripIndex = state.strips.findIndex(strip => strip.callsign === data.callsign);
+        const stripIndex = state.strips.findIndex(
+          (strip) => strip.callsign === data.callsign
+        );
 
         if (stripIndex !== -1) {
           state.strips[stripIndex].assigned_squawk = data.squawk;
@@ -230,7 +250,9 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
   const handleSquawkEvent = (data: FrontendSquawkEvent) => {
     store.setState(
       produce((state: WebSocketState) => {
-        const stripIndex = state.strips.findIndex(strip => strip.callsign === data.callsign);
+        const stripIndex = state.strips.findIndex(
+          (strip) => strip.callsign === data.callsign
+        );
 
         if (stripIndex !== -1) {
           state.strips[stripIndex].squawk = data.squawk;
@@ -239,10 +261,14 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     );
   };
 
-  const handleRequestedAltitudeEvent = (data: FrontendRequestedAltitudeEvent) => {
+  const handleRequestedAltitudeEvent = (
+    data: FrontendRequestedAltitudeEvent
+  ) => {
     store.setState(
       produce((state: WebSocketState) => {
-        const stripIndex = state.strips.findIndex(strip => strip.callsign === data.callsign);
+        const stripIndex = state.strips.findIndex(
+          (strip) => strip.callsign === data.callsign
+        );
 
         if (stripIndex !== -1) {
           state.strips[stripIndex].requested_altitude = data.altitude;
@@ -254,7 +280,9 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
   const handleClearedAltitudeEvent = (data: FrontendClearedAltitudeEvent) => {
     store.setState(
       produce((state: WebSocketState) => {
-        const stripIndex = state.strips.findIndex(strip => strip.callsign === data.callsign);
+        const stripIndex = state.strips.findIndex(
+          (strip) => strip.callsign === data.callsign
+        );
 
         if (stripIndex !== -1) {
           state.strips[stripIndex].cleared_altitude = data.altitude;
@@ -266,7 +294,9 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
   const handleBayEvent = (data: FrontendBayEvent) => {
     store.setState(
       produce((state: WebSocketState) => {
-        const stripIndex = state.strips.findIndex(strip => strip.callsign === data.callsign);
+        const stripIndex = state.strips.findIndex(
+          (strip) => strip.callsign === data.callsign
+        );
 
         if (stripIndex !== -1) {
           state.strips[stripIndex].bay = data.bay;
@@ -277,93 +307,119 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
   };
 
   const handleDisconnectEvent = () => {
-    store.setState({...initialState})
-  }
+    store.setState({ ...initialState });
+  };
 
-  const handleAircraftDisconnectEvent = (data: FrontendAircraftDisconnectEvent) => {
+  const handleAircraftDisconnectEvent = (
+    data: FrontendAircraftDisconnectEvent
+  ) => {
     store.setState(
       produce((state: WebSocketState) => {
-        state.strips = state.strips.filter(strip => strip.callsign !== data.callsign);
+        state.strips = state.strips.filter(
+          (strip) => strip.callsign !== data.callsign
+        );
       })
-    )
+    );
   };
 
   const handleStandEvent = (data: FrontendStandEvent) => {
     store.setState(
       produce((state: WebSocketState) => {
-        const stripIndex = state.strips.findIndex(strip => strip.callsign === data.callsign);
+        const stripIndex = state.strips.findIndex(
+          (strip) => strip.callsign === data.callsign
+        );
         if (stripIndex !== -1) {
           state.strips[stripIndex].stand = data.stand;
         }
       })
-    )
+    );
   };
 
   const handleSetHeadingEvent = (data: FrontendSetHeadingEvent) => {
     store.setState(
       produce((state: WebSocketState) => {
-        const stripIndex = state.strips.findIndex(strip => strip.callsign === data.callsign);
+        const stripIndex = state.strips.findIndex(
+          (strip) => strip.callsign === data.callsign
+        );
         if (stripIndex !== -1) {
           state.strips[stripIndex].heading = data.heading;
         }
       })
-    )
-  }
+    );
+  };
 
-  const handleCommunicationTypeEvent = (data: FrontendCommunicationTypeEvent) => {
+  const handleCommunicationTypeEvent = (
+    data: FrontendCommunicationTypeEvent
+  ) => {
     store.setState(
       produce((state: WebSocketState) => {
-        const stripIndex = state.strips.findIndex(strip => strip.callsign === data.callsign);
+        const stripIndex = state.strips.findIndex(
+          (strip) => strip.callsign === data.callsign
+        );
         if (stripIndex !== -1) {
           state.strips[stripIndex].communication_type = data.communication_type;
         }
       })
-    )
-  }
+    );
+  };
 
   const handleOwnersUpdateEvent = (data: FrontendOwnersUpdateEvent) => {
     store.setState(
       produce((state: WebSocketState) => {
-        const stripIndex = state.strips.findIndex(strip => strip.callsign === data.callsign);
+        const stripIndex = state.strips.findIndex(
+          (strip) => strip.callsign === data.callsign
+        );
         if (stripIndex !== -1) {
           state.strips[stripIndex].next_controllers = data.next_owners;
           state.strips[stripIndex].previous_controllers = data.previous_owners;
         }
       })
-    )
-  }
+    );
+  };
 
   const handleLayoutUpdateEvent = (data: FrontendLayoutUpdateEvent) => {
     store.setState(
       produce((state: WebSocketState) => {
         state.layout = data.layout;
       })
-    )
-  }
+    );
+  };
 
   const handleBroadcastEvent = (data: FrontendBroadcastEvent) => {
     store.setState(
       produce((state: WebSocketState) => {
         state.activeMessages.push(data);
       })
-    )
-  }
+    );
+  };
 
   // Register event handlers
   wsClient.on(EventType.FrontendInitial, handleInitialEvent);
   wsClient.on(EventType.FrontendStripUpdate, handleStripUpdateEvent);
   wsClient.on(EventType.FrontendControllerOnline, handleControllerOnlineEvent);
-  wsClient.on(EventType.FrontendControllerOffline, handleControllerOfflineEvent);
+  wsClient.on(
+    EventType.FrontendControllerOffline,
+    handleControllerOfflineEvent
+  );
   wsClient.on(EventType.FrontendAssignedSquawk, handleAssignedSquawkEvent);
   wsClient.on(EventType.FrontendSquawk, handleSquawkEvent);
-  wsClient.on(EventType.FrontendRequestedAltitude, handleRequestedAltitudeEvent);
+  wsClient.on(
+    EventType.FrontendRequestedAltitude,
+    handleRequestedAltitudeEvent
+  );
   wsClient.on(EventType.FrontendClearedAltitude, handleClearedAltitudeEvent);
   wsClient.on(EventType.FrontendBay, handleBayEvent);
   wsClient.on(EventType.FrontendDisconnect, handleDisconnectEvent);
-  wsClient.on(EventType.FrontendAircraftDisconnect, handleAircraftDisconnectEvent);
+  wsClient.on(
+    EventType.FrontendAircraftDisconnect,
+    handleAircraftDisconnectEvent
+  );
   wsClient.on(EventType.FrontendStand, handleStandEvent);
   wsClient.on(EventType.FrontendSetHeading, handleSetHeadingEvent);
-  wsClient.on(EventType.FrontendCommunicationType, handleCommunicationTypeEvent);
+  wsClient.on(
+    EventType.FrontendCommunicationType,
+    handleCommunicationTypeEvent
+  );
   wsClient.on(EventType.FrontendOwnersUpdate, handleOwnersUpdateEvent);
   wsClient.on(EventType.FrontendLayoutUpdate, handleLayoutUpdateEvent);
   wsClient.on(EventType.FrontendBroadcast, handleBroadcastEvent);

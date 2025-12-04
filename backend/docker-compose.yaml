@@ -5,7 +5,8 @@ services:
       - 5432:5432
     volumes:
       - postgres:/var/lib/postgresql/database
-      - ./pg_hba.conf:/var/lib/postgresql/pg_hba.conf
+      # Disabled for development convenience - consider enabling for production or completely remove it.
+      # - ./pg_hba.conf:/var/lib/postgresql/pg_hba.conf
     environment:
       - POSTGRES_PASSWORD=fs_password
       - POSTGRES_USER=fs
@@ -16,9 +17,9 @@ services:
     restart: unless-stopped
     command: ["postgres"]
     profiles: [all, database]
-  
+
   flightstrips-migrator:
-    build: 
+    build:
       dockerfile: Dockerfile.Migrate
     networks:
       - flightstrips

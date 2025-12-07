@@ -1,8 +1,10 @@
+//TODO: Change to app.tsx for main
+import { StrictMode } from "react";
 import {
   isRouteErrorResponse,
   Links,
   Meta,
-  Outlet,
+  Outlet, // Renders the matched child route
   Scripts,
   ScrollRestoration,
 } from "react-router";
@@ -10,7 +12,6 @@ import {
 import type { Route } from "./+types/root";
 import "./assets/globals.css";
 
-//TODO: Preconnect/fetch to seperate file
 /* export const links: Route.LinksFunction = () => [
   { rel: "preconnect", href: "https://fonts.googleapis.com" },
   {
@@ -24,7 +25,6 @@ import "./assets/globals.css";
   },
 ]; */
 
-//TODO: Default layout to its own file - and also to keep it optimized.
 export function Layout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
@@ -44,10 +44,13 @@ export function Layout({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
-  return <Outlet />;
+  return (
+    <StrictMode>
+      <Outlet />
+    </StrictMode>
+  );
 }
 
-//TODO: Seperate to its own file.
 export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
   let message = "Oops!";
   let details = "An unexpected error occurred.";

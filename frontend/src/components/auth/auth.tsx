@@ -1,4 +1,4 @@
-import { Button } from "~/refactor/src/components/ui/button";
+/* import { Button } from "@/components/refactor/ui/button";
 import { useAuth0 } from "@auth0/auth0-react";
 
 export default function Authentication() {
@@ -53,4 +53,9 @@ export default function Authentication() {
       </div>
     </div>
   );
+}
+ */
+
+export default function Authentication() {
+  return <>test</>;
 }

@@ -1,9 +1,10 @@
 import {
   type RouteConfig,
   index,
-  route,
   layout,
-  prefix,
+  route,
+  /*   layout,
+  prefix, */
 } from "@react-router/dev/routes";
 
 //
@@ -15,15 +16,16 @@ import {
 
 //TODO: Better segmentation
 export default [
-  index("app/page.tsx"),
-
-  route("about", "app/about/page.tsx"),
+  layout("components/layouts/marketing-layout.tsx", [
+    index("app/page.tsx"),
+    /* route("about", "app/about/page.tsx"), */
+  ]),
 
   route("login", "app/auth/page.tsx"),
 
-  ...prefix("app", [
+  /* ...prefix("app", [
     layout("components/layouts/dashboard-layout.tsx", [
       route("dashboard", "app/dashboard/page.tsx"),
     ]),
-  ]),
+  ]), */
 ] satisfies RouteConfig;

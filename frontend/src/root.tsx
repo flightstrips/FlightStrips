@@ -1,5 +1,3 @@
-//TODO: Change to app.tsx for main
-import { StrictMode } from "react";
 import {
   isRouteErrorResponse,
   Links,
@@ -43,12 +41,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
   );
 }
 
-export default function App() {
-  return (
-    <StrictMode>
-      <Outlet />
-    </StrictMode>
-  );
+export default function Root() {
+  return <Outlet />;
 }
 
 export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {

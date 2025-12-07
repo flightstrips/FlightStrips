@@ -1,10 +1,10 @@
 import { type AppState, Auth0Provider } from "@auth0/auth0-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import React from "react";
 
-export const Auth0ProviderWithNavigate = ({
+export default function Auth0ProviderWithNavigate({
   children,
-}: React.PropsWithChildren) => {
+}: React.PropsWithChildren): React.ReactNode {
   const navigate = useNavigate();
   const domain = "dev-xd0uf4sd1v27r8tg.eu.auth0.com";
   const clientId = "DL0v1w0GCPmGImJ3Ia3giz9SiLfH28EW";
@@ -34,4 +34,4 @@ export const Auth0ProviderWithNavigate = ({
       {children}
     </Auth0Provider>
   );
-};
+}

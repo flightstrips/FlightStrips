@@ -3,8 +3,7 @@
     "**/*",
     "**/.server/**/*",
     "**/.client/**/*",
-    ".react-router/types/**/*",
-    "../refactor"
+    ".react-router/types/**/*"
   ],
   "exclude": ["**/refactor/**/*"],
   "compilerOptions": {

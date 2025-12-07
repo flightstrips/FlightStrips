@@ -1,6 +1,6 @@
-import * as React from "react"
+import * as React from "react";
 
-import {cn} from "@/lib/utils.ts"
+import { cn } from "@/lib/utils";
 import {
   NavigationMenu,
   NavigationMenuContent,
@@ -9,23 +9,21 @@ import {
   NavigationMenuList,
   NavigationMenuTrigger,
   navigationMenuTriggerStyle,
-} from "@/components/ui/navigation-menu.tsx"
-import {Link} from "react-router-dom";
-import {Button} from "./ui/button";
-import {useAuth0} from "@auth0/auth0-react";
+} from "@/components/refactor/ui/navigation-menu";
+import { Link } from "react-router";
+import { Button } from "./ui/button";
+import { useAuth0 } from "@auth0/auth0-react";
 
 const components: { title: string; href: string; description: string }[] = [
   {
     title: "PDC",
     href: "/docs/primitives/alert-dialog",
-    description:
-      "Pre departure clearance serviced by the Hoppie Network.",
+    description: "Pre departure clearance serviced by the Hoppie Network.",
   },
   {
     title: "BARS",
     href: "/docs/primitives/hover-card",
-    description:
-      "Let FS manage the",
+    description: "Let FS manage the",
   },
   {
     title: "Progress",
@@ -50,22 +48,25 @@ const components: { title: string; href: string; description: string }[] = [
     description:
       "A popup that displays information related to an element when the element receives keyboard focus or the mouse hovers over it.",
   },
-]
+];
 
 export function MainNavigation() {
-  const { isAuthenticated, logout } = useAuth0()
+  const { isAuthenticated, logout } = useAuth0();
   return (
     <NavigationMenu>
       <NavigationMenuList>
         <NavigationMenuItem>
-          <NavigationMenuTrigger className="bg-transparent">Getting started</NavigationMenuTrigger>
+          <NavigationMenuTrigger className="bg-transparent">
+            Getting started
+          </NavigationMenuTrigger>
           <NavigationMenuContent>
             <ul className="grid gap-3 p-6 md:w-[400px] lg:w-[500px] lg:grid-cols-[.75fr_1fr]">
               <li className="row-span-3">
                 <NavigationMenuLink asChild>
                   <a
                     className="flex h-full w-full select-none flex-col justify-end rounded-md bg-gradient-to-b from-muted/50 to-muted p-6 no-underline outline-none focus:shadow-md"
-                    href="">
+                    href=""
+                  >
                     <div className="mb-2 mt-4 text-lg font-medium">
                       FlightStrips
                     </div>
@@ -90,7 +91,9 @@ export function MainNavigation() {
           </NavigationMenuContent>
         </NavigationMenuItem>
         <NavigationMenuItem>
-          <NavigationMenuTrigger className="bg-transparent">Features</NavigationMenuTrigger>
+          <NavigationMenuTrigger className="bg-transparent">
+            Features
+          </NavigationMenuTrigger>
           <NavigationMenuContent>
             <ul className="grid w-[400px] gap-3 p-4 md:w-[500px] md:grid-cols-2 lg:w-[600px] ">
               {components.map((component) => (
@@ -107,41 +110,48 @@ export function MainNavigation() {
         </NavigationMenuItem>
         <NavigationMenuItem>
           <Link to="/about">
-            <NavigationMenuLink className={`${navigationMenuTriggerStyle()} bg-transparent`}>
+            <NavigationMenuLink
+              className={`${navigationMenuTriggerStyle()} bg-transparent`}
+            >
               About Us
             </NavigationMenuLink>
           </Link>
         </NavigationMenuItem>
         <NavigationMenuItem className="px-4">
-          {isAuthenticated ?
+          {isAuthenticated ? (
             <div className="flex gap-2">
-              <Link to={'/dashboard'} className="bg-transparent">
+              <Link to={"/dashboard"} className="bg-transparent">
                 <Button variant={"outline"} className="bg-transparent">
-                Dashboard
-              </Button>
+                  Dashboard
+                </Button>
               </Link>
-              <Button onClick={() => logout({logoutParams: {returnTo: window.location.origin}})}
-                      variant={"outline"} className="bg-transparent">
+              <Button
+                onClick={() =>
+                  logout({ logoutParams: { returnTo: window.location.origin } })
+                }
+                variant={"outline"}
+                className="bg-transparent"
+              >
                 Logout
               </Button>
             </div>
-            :
+          ) : (
             <Link to="/login">
               <Button variant={"outline"} className="bg-transparent">
                 Login
               </Button>
             </Link>
-          }
+          )}
         </NavigationMenuItem>
       </NavigationMenuList>
     </NavigationMenu>
-  )
+  );
 }
 
 const ListItem = React.forwardRef<
   React.ElementRef<"a">,
   React.ComponentPropsWithoutRef<"a">
->(({className, title, children, ...props}, ref) => {
+>(({ className, title, children, ...props }, ref) => {
   return (
     <li>
       <NavigationMenuLink asChild className="bg-transparent">
@@ -160,6 +170,6 @@ const ListItem = React.forwardRef<
         </a>
       </NavigationMenuLink>
     </li>
-  )
-})
-ListItem.displayName = "ListItem"
+  );
+});
+ListItem.displayName = "ListItem";

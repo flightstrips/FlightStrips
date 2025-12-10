@@ -1,6 +1,6 @@
 import { Package } from "lucide-react";
 
-export default function Landing() {
+export default function LandingPage() {
   return (
     <main className="">
       <section className="relative">

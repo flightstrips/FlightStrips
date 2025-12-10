@@ -1,17 +1,17 @@
 import { type AppState, Auth0Provider } from "@auth0/auth0-react";
-import { useNavigate } from "react-router";
+import { redirect } from "react-router";
 import React from "react";
 
 export default function Auth0ProviderWithNavigate({
   children,
 }: React.PropsWithChildren): React.ReactNode {
-  const navigate = useNavigate();
   const domain = "dev-xd0uf4sd1v27r8tg.eu.auth0.com";
   const clientId = "DL0v1w0GCPmGImJ3Ia3giz9SiLfH28EW";
   const redirectUri = window.location.origin;
+  console.log("Redirect URI:", redirectUri);
 
   const onRedirectCallback = (appState?: AppState) => {
-    navigate(appState?.returnTo || window.location.pathname);
+    redirect(appState?.returnTo || window.location.pathname);
   };
 
   if (!(domain && clientId && redirectUri)) {

@@ -28,9 +28,11 @@ We use **pnpm** as the package manager. You can install it by using `npm install
 
 ## SSR & CSR
 
-Currently default is SSR by RR7.
+Currently default is SSR by RR7. But supports pre-render & CSR.
 
-For client side components use `*.client.ts/tsx` or any folder that have `.client` in it will be recognised as a client component.
+For all marketing related use SSR. Due to better SEO.
+
+For client side modules use `*.client.ts` or any folder that have `.client` in it will be recognised as a client module.
 
 For global client providers, goto `entry.client.tsx` in the `src` folder that is start starting point RR7 uses after server.
 

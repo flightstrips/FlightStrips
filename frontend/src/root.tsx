@@ -2,7 +2,7 @@ import {
   isRouteErrorResponse,
   Links,
   Meta,
-  Outlet, // Renders the matched child route
+  Outlet,
   Scripts,
   ScrollRestoration,
 } from "react-router";
@@ -10,18 +10,7 @@ import {
 import type { Route } from "./+types/root";
 import "./assets/globals.css";
 
-/* export const links: Route.LinksFunction = () => [
-  { rel: "preconnect", href: "https://fonts.googleapis.com" },
-  {
-    rel: "preconnect",
-    href: "https://fonts.gstatic.com",
-    crossOrigin: "anonymous",
-  },
-  {
-    rel: "stylesheet",
-    href: "https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap",
-  },
-]; */
+import RouteIndicator from "./components/RouteIndicator";
 
 export function Layout({ children }: { children: React.ReactNode }) {
   return (
@@ -34,6 +23,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       </head>
       <body>
         {children}
+        <RouteIndicator />
         <ScrollRestoration />
         <Scripts />
       </body>
@@ -41,7 +31,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
   );
 }
 
-export default function Root() {
+export default function App() {
   return <Outlet />;
 }
 
@@ -56,7 +46,7 @@ export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
       error.status === 404
         ? "The requested page could not be found."
         : error.statusText || details;
-  } else if (import.meta.env.DEV && error && error instanceof Error) {
+  } else if (import.meta.env.DEV_ENABLED && error && error instanceof Error) {
     details = error.message;
     stack = error.stack;
   }

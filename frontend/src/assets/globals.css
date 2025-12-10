@@ -186,5 +186,22 @@ body {
   }
   body {
     @apply bg-background text-foreground;
+    @apply min-h-svh w-full overflow-x-hidden;
   }
+}
+
+@keyframes loading-bar {
+  0% {
+    width: 0%;
+  }
+  50% {
+    width: 70%;
+  }
+  100% {
+    width: 100%;
+  }
+}
+
+.animate-loading-bar {
+  animation: loading-bar 2s ease-in-out infinite;
 }

@@ -1,5 +1,5 @@
 import { LogIn } from "lucide-react";
-import { Outlet } from "react-router";
+import { Outlet, NavLink } from "react-router";
 
 // TODO: mobile navigation menu and move it to a component instead.
 export default function MarketingLayout() {
@@ -8,44 +8,44 @@ export default function MarketingLayout() {
       <header className="bg-gray-900">
         <nav className="mr-12 py-8 px-8 bg-gray-200 overflow-hidden">
           <div className="flex w-full items-center justify-between">
-            <a className="text-2xl inline-block self-center" href="#">
+            <NavLink className="text-2xl inline-block self-center" to="/" end>
               <b>FlightStrips</b>
-            </a>
+            </NavLink>
             <ul className="relative flex justify-center items-center flex-wrap lg:flex-nowrap w-full lg:w-auto mt-4 lg:mt-0">
               <div className="absolute top-0 -left-8 h-32 -mt-20 w-px bg-gray-400"></div>
               <li className="mr-6 lg:mr-14 mb-2 lg:mb-0">
-                <a
+                <NavLink
                   className="font-bold inline-flex items-center text-base text-gray-900 hover:text-gray-700"
-                  href="#"
+                  to="#"
                 >
                   <span>Getting started</span>
-                </a>
+                </NavLink>
               </li>
               <li className="mr-6 lg:mr-14 mb-2 lg:mb-0">
-                <a
+                <NavLink
                   className="font-bold inline-flex items-center text-base text-gray-900 hover:text-gray-700"
-                  href="#"
+                  to="#"
                 >
                   <span>Features</span>
-                </a>
+                </NavLink>
               </li>
               <li className="mr-6 lg:mr-14 mb-2 lg:mb-0">
-                <a
+                <NavLink
                   className="font-bold inline-flex items-center text-base text-gray-900 hover:text-gray-700"
-                  href="#"
+                  to="#"
                 >
                   <span>About Us</span>
-                </a>
+                </NavLink>
               </li>
               <li className="mr-6 mb-2 lg:mb-0">
-                <a
+                <NavLink
                   className="3xl:hidden flex ml-auto items-center justify-center w-14 h-14 rounded-full bg-white hover:bg-gray-100"
-                  href="#"
+                  to="/login"
                 >
                   <span>
                     <LogIn strokeWidth={2.5} />
                   </span>
-                </a>
+                </NavLink>
               </li>
             </ul>
           </div>

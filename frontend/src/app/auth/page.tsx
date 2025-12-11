@@ -1,4 +1,4 @@
-import { ChevronRight } from "lucide-react";
+import { ArrowLeft, ChevronRight } from "lucide-react";
 import { NavLink, useNavigate } from "react-router";
 import { useAuth0 } from "@auth0/auth0-react";
 import { useEffect } from "react";
@@ -27,18 +27,7 @@ export default function AuthPage() {
                   className="flex mb-6 items-center text-white/75 hover:text-white/50"
                   to="/"
                 >
-                  <svg
-                    width="14"
-                    height="11"
-                    viewBox="0 0 14 11"
-                    fill="none"
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <path
-                      d="M6.10529 11L7.18516 10.0272L2.92291 6.1875L14 6.1875L14 4.8125L2.92291 4.8125L7.18516 0.972813L6.10529 -6.90178e-07L4.80825e-07 5.5L6.10529 11Z"
-                      fill="currentColor"
-                    ></path>
-                  </svg>
+                  <ArrowLeft size={24} />
                   <span className="ml-6">Back to frontpage</span>
                 </NavLink>
                 <h3 className="font-heading font-bold text-4xl mb-10">

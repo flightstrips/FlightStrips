@@ -188,7 +188,7 @@ body {
   }
   body {
     @apply bg-background text-foreground;
-    @apply min-h-svh w-full overflow-x-hidden;
+    @apply min-h-svh w-full overflow-x-hidden relative;
   }
 }
 

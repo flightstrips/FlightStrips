@@ -1,6 +1,6 @@
-import CommandBar from "@/components/refactor/commandbar/CommandBar";
-
-export default function Home() {
+/* import CommandBar from "@/components/refactor/commandbar/CommandBar";
+ */
+export default function AAAD() {
   return (
     <>
       <div className="bg-[#A9A9A9] w-screen h-[calc(100vh-4rem)] flex justify-center justify-items-center gap-2 aspect-video">
@@ -70,7 +70,7 @@ export default function Home() {
           <div className="h-[calc(20%-2.5rem)] w-full bg-[#555355]"></div>
         </div>
       </div>
-      <CommandBar />
+      {/* <CommandBar /> */}
     </>
   );
 }

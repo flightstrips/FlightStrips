@@ -26,5 +26,10 @@ export default [
       route("profile", "app/app/profile/page.tsx"),
       route("settings", "app/app/settings/page.tsx"),
     ]),
+
+    ...prefix("live", [
+      index("app/app/live/page.tsx"),
+      route("offline", "app/app/live/offline/page.tsx"),
+    ]),
   ]),
 ] satisfies RouteConfig;

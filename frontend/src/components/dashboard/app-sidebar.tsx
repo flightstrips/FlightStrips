@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Home, Settings2, User2 } from "lucide-react";
+import { Home, Settings2, TicketsPlane, User2 } from "lucide-react";
 
 import { NavMain } from "./nav-main";
 import {
@@ -16,6 +16,7 @@ import {
 import { NavLink } from "react-router";
 import { ModeToggle } from "../mode-toggle";
 import { useAuth0 } from "@auth0/auth0-react";
+import { NavSecondary } from "./nav-secondary";
 
 const data = {
   user: {
@@ -41,6 +42,13 @@ const data = {
       url: "/app/settings",
       icon: Settings2,
       isActive: false,
+    },
+  ],
+  navSecondary: [
+    {
+      title: "Go Live",
+      url: "/app/live",
+      icon: TicketsPlane,
     },
   ],
 };
@@ -69,6 +77,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       </SidebarHeader>
       <SidebarContent>
         <NavMain items={data.navMain} />
+        <NavSecondary items={data.navSecondary} />
       </SidebarContent>
       <SidebarFooter>
         <SidebarMenu>

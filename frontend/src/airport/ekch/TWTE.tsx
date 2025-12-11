@@ -1,6 +1,6 @@
 import CommandBar from "@/components/refactor/commandbar/CommandBar";
 
-export default function Home() {
+export default function TWTE() {
   return (
     <>
       <div className="bg-[#A9A9A9] w-screen h-[calc(100vh-4rem)] flex justify-center justify-items-center gap-2 aspect-video">

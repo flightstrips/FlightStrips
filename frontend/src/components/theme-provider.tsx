@@ -21,7 +21,7 @@ const initialState: ThemeProviderState = {
 
 const ThemeProviderContext = createContext<ThemeProviderState>(initialState);
 
-export default function ThemeProvider({
+export function ThemeProvider({
   children,
   defaultTheme = "light",
   storageKey = "fs-ui-theme",

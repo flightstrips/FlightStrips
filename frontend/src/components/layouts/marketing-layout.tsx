@@ -1,10 +1,11 @@
 import { LogIn } from "lucide-react";
 import { Outlet, NavLink } from "react-router";
+import { ModeToggle } from "../mode-toggle";
 
 // TODO: mobile navigation menu and move it to a component instead.
 export default function MarketingLayout() {
   return (
-    <div className="bg-gray-100 relative">
+    <div className="bg-gray-100 relative light">
       <header className="bg-gray-900">
         <nav className="mr-12 py-8 px-8 bg-gray-200 overflow-hidden">
           <div className="flex w-full items-center justify-between">
@@ -32,7 +33,7 @@ export default function MarketingLayout() {
               <li className="mr-6 lg:mr-14 mb-2 lg:mb-0">
                 <NavLink
                   className="font-bold inline-flex items-center text-base text-gray-900 hover:text-gray-700"
-                  to="#"
+                  to="/about"
                 >
                   <span>About Us</span>
                 </NavLink>
@@ -47,6 +48,10 @@ export default function MarketingLayout() {
                   </span>
                 </NavLink>
               </li>
+              {/* Temporary until themeing is sorted out */}
+              <li>
+                <ModeToggle />
+              </li>
             </ul>
           </div>
         </nav>
@@ -57,44 +62,44 @@ export default function MarketingLayout() {
           <div className="container px-4 mx-auto">
             <div className="flex flex-wrap items-start xl:items-center justify-center">
               <div className="w-1/2 xl:w-auto flex flex-wrap items-center justify-center xl:-mb-6">
-                <a
+                <NavLink
                   className="inline-block w-full lg:w-auto text-sm text-white hover:text-gray-200 mb-6 mr-14"
-                  href="#"
+                  to="#"
                 >
                   Features
-                </a>
-                <a
+                </NavLink>
+                <NavLink
                   className="inline-block w-full lg:w-auto text-sm text-white hover:text-gray-200 mb-6 mr-14"
-                  href="#"
+                  to="#"
                 >
                   Documentation
-                </a>
-                <a
+                </NavLink>
+                <NavLink
                   className="inline-block w-full lg:w-auto text-sm text-white hover:text-gray-200 mb-6 mr-14"
-                  href="#"
+                  to="#"
                 >
                   Plans
-                </a>
+                </NavLink>
               </div>
               <div className="w-1/2 xl:w-auto flex flex-wrap items-center justify-center -mb-6">
-                <a
+                <NavLink
                   className="inline-block w-full lg:w-auto text-sm text-white hover:text-gray-200 mb-6 mr-14"
-                  href="#"
+                  to="/about"
                 >
                   About us
-                </a>
-                <a
+                </NavLink>
+                <NavLink
                   className="inline-block w-full lg:w-auto text-sm text-white hover:text-gray-200 mb-6 mr-14"
-                  href="#"
+                  to="#"
                 >
                   License
-                </a>
-                <a
+                </NavLink>
+                <NavLink
                   className="inline-block w-full lg:w-auto text-sm text-white hover:text-gray-200 mb-6"
-                  href="#"
+                  to="#"
                 >
                   Contact
-                </a>
+                </NavLink>
               </div>
             </div>
           </div>

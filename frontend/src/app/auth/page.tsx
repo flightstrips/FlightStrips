@@ -1,10 +1,20 @@
 import { ChevronRight } from "lucide-react";
-import { NavLink } from "react-router";
+import { NavLink, useNavigate } from "react-router";
 import { useAuth0 } from "@auth0/auth0-react";
+import { useEffect } from "react";
 
 // TODO: change button design.
 export default function AuthPage() {
-  const { loginWithRedirect } = useAuth0();
+  const { loginWithRedirect, isLoading, isAuthenticated } = useAuth0();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!isLoading) {
+      if (isAuthenticated) {
+        navigate("/app/dashboard");
+      }
+    }
+  }, [isAuthenticated, isLoading, navigate]);
 
   return (
     <main className="min-h-svh bg-gray-100 flex items-center justify-center">
@@ -43,24 +53,28 @@ export default function AuthPage() {
           <div className=" my-auto w-full lg:w-1/2 3xl:w-2/3">
             <div className="flex flex-1 items-center p-10 bg-white">
               <div className="flex items-center justify-center w-full max-w-2xl gap-4 px-4">
-                <button
-                  onClick={() => {
-                    loginWithRedirect({
-                      authorizationParams: { connection: "vatsim-dev" },
-                    });
-                  }}
-                  className="cursor-pointer bg-gray-700 text-white/90 hover:bg-gray-600 hover:text-white font-bold px-4 py-3.5 rounded inline-flex justify-between items-center w-full"
-                >
-                  <div className="inline-flex space-x-5 items-center">
-                    <img
-                      src="/VATSIM_Logo_White_No_Tagline_500px.png"
-                      alt=""
-                      className="h-12 pointer-events-none"
-                    />
-                    <p>Local Development</p>
-                  </div>
-                  <ChevronRight size={48} />
-                </button>
+                {isLoading ? (
+                  <div className="text-left">Loading...</div>
+                ) : (
+                  <button
+                    onClick={() => {
+                      loginWithRedirect({
+                        authorizationParams: { connection: "vatsim-dev" },
+                      });
+                    }}
+                    className="cursor-pointer bg-gray-700 text-white/90 hover:bg-gray-600 hover:text-white font-bold px-4 py-3.5 rounded inline-flex justify-between items-center w-full"
+                  >
+                    <div className="inline-flex space-x-5 items-center">
+                      <img
+                        src="/VATSIM_Logo_White_No_Tagline_500px.png"
+                        alt=""
+                        className="h-12 pointer-events-none"
+                      />
+                      <p>Local Development</p>
+                    </div>
+                    <ChevronRight size={48} />
+                  </button>
+                )}
               </div>
             </div>
           </div>

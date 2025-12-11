@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/sidebar";
 import { NavLink } from "react-router";
 import { ModeToggle } from "../mode-toggle";
+import { useAuth0 } from "@auth0/auth0-react";
 
 const data = {
   user: {
@@ -45,6 +46,8 @@ const data = {
 };
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+  const { logout } = useAuth0();
+
   return (
     <Sidebar variant="inset" {...props}>
       <SidebarHeader>
@@ -68,6 +71,18 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <NavMain items={data.navMain} />
       </SidebarContent>
       <SidebarFooter>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              onClick={() =>
+                logout({ logoutParams: { returnTo: window.location.origin } })
+              }
+              className="cursor-pointer"
+            >
+              Logout
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
         <ModeToggle />
       </SidebarFooter>
     </Sidebar>

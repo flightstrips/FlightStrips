@@ -10,8 +10,9 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "../ui/breadcrumb";
+import { withAuthenticationRequired } from "@auth0/auth0-react";
 
-export default function DashboardLayout() {
+export function DashboardLayout() {
   return (
     <SidebarProvider>
       <AppSidebar />
@@ -51,3 +52,7 @@ export default function DashboardLayout() {
     </SidebarProvider>
   );
 }
+
+const DashboardLayoutWithAuth = withAuthenticationRequired(DashboardLayout);
+
+export default DashboardLayoutWithAuth;

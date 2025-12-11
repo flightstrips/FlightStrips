@@ -1,4 +1,4 @@
-import CommandBar from "../../components/commandbar/CommandBar";
+import CommandBar from "@/components/refactor/commandbar/CommandBar";
 
 export default function Home() {
   return (
@@ -6,108 +6,59 @@ export default function Home() {
       <div className="bg-[#A9A9A9] w-screen h-[calc(100vh-4rem)] flex justify-center justify-items-center gap-2 aspect-video">
         <div className="w-[27%] h-full bg-[#555355]">
           <div className="bg-[#393939] h-10 flex items-center px-2 justify-between">
-            <span className="text-white font-bold text-lg">
-              FINAL
-            </span>
+            <span className="text-white font-bold text-lg">FINAL</span>
           </div>
-          <div className="h-[calc(35%-2.5rem)] w-full bg-[#555355]">
-
-          </div>
+          <div className="h-[calc(35%-2.5rem)] w-full bg-[#555355]"></div>
           <div className="bg-[#393939] h-10 flex items-center px-2 justify-between">
-            <span className="text-white font-bold text-lg">
-              RWY ARR
-            </span>
+            <span className="text-white font-bold text-lg">RWY ARR</span>
           </div>
-          <div className="h-[calc(20%-2.5rem)] w-full bg-[#212121]">
-
-          </div>
+          <div className="h-[calc(20%-2.5rem)] w-full bg-[#212121]"></div>
           <div className="bg-[#393939] h-10 flex items-center px-2 justify-between">
-            <span className="text-white font-bold text-lg">
-              TWY ARR
-            </span>
+            <span className="text-white font-bold text-lg">TWY ARR</span>
           </div>
-          <div className="h-[calc(45%-2.5rem)] w-full bg-[#555355]">
-
-          </div>
+          <div className="h-[calc(45%-2.5rem)] w-full bg-[#555355]"></div>
         </div>
         <div className="w-[28%] h-full bg-[#555355]">
           <div className="bg-[#393939] h-10 flex items-center px-2 justify-between">
-            <span className="text-white font-bold text-lg">
-              PUSHBACK
-            </span>
+            <span className="text-white font-bold text-lg">PUSHBACK</span>
           </div>
-          <div className="h-[calc(15%-2.5rem)] w-full bg-[#555355]">
-
-          </div>
+          <div className="h-[calc(15%-2.5rem)] w-full bg-[#555355]"></div>
           <div className="bg-[#393939] h-10 flex items-center px-2 justify-between">
-            <span className="text-white font-bold text-lg">
-              TWY DEP
-            </span>
+            <span className="text-white font-bold text-lg">TWY DEP</span>
           </div>
-          <div className="h-[calc(60%-2.5rem)] w-full bg-[#555355]">
-
-          </div>
+          <div className="h-[calc(60%-2.5rem)] w-full bg-[#555355]"></div>
           <div className="bg-[#393939] h-10 flex items-center px-2 justify-between">
-            <span className="text-white font-bold text-lg">
-              RWY DEP
-            </span>
+            <span className="text-white font-bold text-lg">RWY DEP</span>
           </div>
-          <div className="h-[calc(12.5%-2.5rem)] w-full bg-[#212121]">
-
-          </div>
+          <div className="h-[calc(12.5%-2.5rem)] w-full bg-[#212121]"></div>
           <div className="bg-[#393939] h-10 flex items-center px-2 justify-between">
-            <span className="text-white font-bold text-lg">
-              AIRBORNE
-            </span>
+            <span className="text-white font-bold text-lg">AIRBORNE</span>
           </div>
-          <div className="h-[calc(12.5%-2.5rem)] w-full bg-[#555355]">
-
-          </div>
+          <div className="h-[calc(12.5%-2.5rem)] w-full bg-[#555355]"></div>
         </div>
         <div className="w-1/4 h-full bg-[#555355]">
           <div className="bg-[#393939] h-10 flex items-center px-2 justify-between">
-            <span className="text-white font-bold text-lg">
-              CONTROLZONE
-            </span>
+            <span className="text-white font-bold text-lg">CONTROLZONE</span>
           </div>
-          <div className="h-[calc(35%-2.5rem)] w-full bg-[#555355]">
-
-          </div>
+          <div className="h-[calc(35%-2.5rem)] w-full bg-[#555355]"></div>
           <div className="bg-[#393939] h-10 flex items-center px-2 justify-between">
-            <span className="text-white font-bold text-lg">
-              DE-ICE
-            </span>
+            <span className="text-white font-bold text-lg">DE-ICE</span>
           </div>
-          <div className="h-[calc(35%-2.5rem)] w-full bg-[#555355]">
-
-          </div>
+          <div className="h-[calc(35%-2.5rem)] w-full bg-[#555355]"></div>
           <div className="bg-[#285a5c] h-10 flex items-center px-2 justify-between">
-            <span className="text-white font-bold text-lg">
-              MESSAGES
-            </span>
+            <span className="text-white font-bold text-lg">MESSAGES</span>
           </div>
-          <div className="h-[calc(30%-2.5rem)] w-full bg-[#555355]">
-
-          </div>
-
+          <div className="h-[calc(30%-2.5rem)] w-full bg-[#555355]"></div>
         </div>
         <div className="w-1/5 h-full bg-[#555355]">
           <div className="bg-[#393939] h-10 flex items-center px-2 justify-between">
-            <span className="text-white font-bold text-lg">
-              CLRDEL
-            </span>
+            <span className="text-white font-bold text-lg">CLRDEL</span>
           </div>
-          <div className="h-[calc(80%-2.5rem)] w-full bg-[#555355]">
-
-          </div>
+          <div className="h-[calc(80%-2.5rem)] w-full bg-[#555355]"></div>
           <div className="bg-[#393939] h-10 flex items-center px-2 justify-between">
-            <span className="text-white font-bold text-lg">
-              STAND
-            </span>
+            <span className="text-white font-bold text-lg">STAND</span>
           </div>
-          <div className="h-[calc(20%-2.5rem)] w-full bg-[#555355]">
-
-          </div>
+          <div className="h-[calc(20%-2.5rem)] w-full bg-[#555355]"></div>
         </div>
       </div>
       <CommandBar />

@@ -1,9 +1,12 @@
-import { LogIn } from "lucide-react";
+import { LayoutDashboard, LogIn } from "lucide-react";
 import { Outlet, NavLink } from "react-router";
 import { ModeToggle } from "../mode-toggle";
+import { useAuth0 } from "@auth0/auth0-react";
 
 // TODO: mobile navigation menu and move it to a component instead.
 export default function MarketingLayout() {
+  const { isAuthenticated } = useAuth0();
+
   return (
     <div className="bg-gray-100 relative light">
       <header className="bg-gray-900">
@@ -39,14 +42,26 @@ export default function MarketingLayout() {
                 </NavLink>
               </li>
               <li className="mr-6 mb-2 lg:mb-0">
-                <NavLink
-                  className="3xl:hidden flex ml-auto items-center justify-center w-14 h-14 rounded-full bg-white hover:bg-gray-100"
-                  to="/login"
-                >
-                  <span>
-                    <LogIn strokeWidth={2.5} />
-                  </span>
-                </NavLink>
+                {isAuthenticated ? (
+                  <NavLink
+                    className="3xl:hidden space-x-2 flex ml-auto items-center justify-center px-4 py-3 rounded-full bg-white hover:bg-gray-100"
+                    to="/app/dashboard"
+                  >
+                    <span>
+                      <LayoutDashboard strokeWidth={2.5} />
+                    </span>
+                    <span>Dashboard</span>
+                  </NavLink>
+                ) : (
+                  <NavLink
+                    className="3xl:hidden flex ml-auto items-center justify-center w-14 h-14 rounded-full bg-white hover:bg-gray-100"
+                    to="/login"
+                  >
+                    <span>
+                      <LogIn strokeWidth={2.5} />
+                    </span>
+                  </NavLink>
+                )}
               </li>
               {/* Temporary until themeing is sorted out */}
               <li>

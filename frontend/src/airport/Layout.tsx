@@ -1,5 +1,5 @@
 import { Outlet } from "react-router";
-import CommandBar from "@/components/commandbar/CommandBar";
+import CommandBar from "@/components/refactor/commandbar/CommandBar";
 import { WebSocketProvider } from "@/api/websocket-provider";
 
 export default function Dashboard() {

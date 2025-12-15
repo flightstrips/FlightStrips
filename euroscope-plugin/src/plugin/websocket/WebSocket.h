@@ -4,14 +4,15 @@
 #define _WEBSOCKETPP_CPP11_TYPE_TRAITS_
 #define ASIO_STANDALONE
 #include <asio/asio.hpp>
-#include <websocketpp/config/asio_client.hpp>
 #include <websocketpp/client.hpp>
+#include <websocketpp/config/asio_client.hpp>
 
+#include <functional>
+#include <memory>
+#include <string>
 
 typedef std::function<void()> on_connected_callback;
 typedef std::function<void(const std::string&)> message_callback;
-
-typedef websocketpp::client<websocketpp::config::asio_client> client;
 
 namespace FlightStrips::websocket {
     enum WebSocketStatus {
@@ -23,30 +24,28 @@ namespace FlightStrips::websocket {
 
     class WebSocket {
     public:
-        WebSocket(std::string  endpoint, message_callback  cb, on_connected_callback on_connected);
+        WebSocket(std::string endpoint, message_callback cb, on_connected_callback on_connected);
         ~WebSocket();
-        void Connect();
-        void Disconnect();
-        void Send(const std::string& message) ;
-        WebSocketStatus GetStatus() const;
 
-    private:
-        WebSocketStatus status_ = WEBSOCKET_STATUS_DISCONNECTED;
-        client m_endpoint;
-        websocketpp::lib::shared_ptr<websocketpp::lib::thread> m_thread;
-        websocketpp::connection_hdl m_hdl;
+        void Connect() const;
+        void Disconnect() const;
+        void Send(const std::string& message) const;
+        [[nodiscard]] WebSocketStatus GetStatus() const;
 
-        on_connected_callback on_connected_cb;
-        message_callback message_cb;
-        std::string endpoint;
-        void OnMessage(const websocketpp::connection_hdl& hdl, const client::message_ptr &msg) const;
-        void OnFailure(const websocketpp::connection_hdl &hdl) ;
-        void OnOpen(const websocketpp::connection_hdl &hdl) ;
-        void OnClose(const websocketpp::connection_hdl &hdl) ;
-
-        void TryDisconnect();
+        struct ImplBase {
+            virtual ~ImplBase() = default;
+            virtual void Connect() = 0;
+            virtual void Disconnect() = 0;
+            virtual void Send(const std::string& message) = 0;
+            [[nodiscard]] virtual WebSocketStatus GetStatus() const = 0;
+        };
 
         static void add_windows_root_certs(const std::shared_ptr<asio::ssl::context>& context);
-    };
 
+    private:
+
+        std::unique_ptr<ImplBase> impl_;
+
+        static bool is_tls_endpoint(const std::string& endpoint);
+    };
 }

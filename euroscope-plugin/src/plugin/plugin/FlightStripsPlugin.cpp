@@ -24,6 +24,7 @@ namespace FlightStrips {
           m_airportRunwayChangedEventHandlers(mAirportRunwaysChangedEventHandlers),
           m_appConfig(mAppConfig),
           m_container(mContainer) {
+        RegisterTagItemType("DE-ICE", TAG_ITEM_DEICING_DESIGNATOR);
     }
 
     void FlightStripsPlugin::Information(const std::string &message) {
@@ -215,6 +216,44 @@ namespace FlightStrips {
 
     void FlightStripsPlugin::OnControllerDisconnect(EuroScopePlugIn::CController Controller) {
         this->m_controllerEventHandlerCollection->ControllerDisconnectEvent(Controller);
+    }
+
+    void FlightStripsPlugin::OnGetTagItem(EuroScopePlugIn::CFlightPlan FlightPlan,
+        EuroScopePlugIn::CRadarTarget RadarTarget, int ItemCode, int TagData, char sItemString[16], int *pColorCode,
+        COLORREF *pRGB, double *pFontSize) {
+        if (!FlightPlan.IsValid()) return;
+
+        if (ItemCode != TAG_ITEM_DEICING_DESIGNATOR) return;
+
+        const auto fpData = FlightPlan.GetFlightPlanData();
+        const std::string acType = fpData.GetAircraftFPType();
+
+        std::string airline;
+        if (std::strlen(FlightPlan.GetCallsign()) >= 3) {
+            airline.assign(FlightPlan.GetCallsign(), 0, 3);
+        }
+
+        auto config = m_appConfig->GetDeIceConfig();
+        for (const auto& action : config.order) {
+            if (action == "ac_type") {
+                if (auto r = config.ac_types.find(acType); r != config.ac_types.end()) {
+                    const auto len = r->second.copy(sItemString, 15);
+                    sItemString[len] = '\0';
+                    return;
+                }
+            } else if (action == "airline") {
+                if (auto r = config.airlines.find(airline); r != config.airlines.end()) {
+                    const auto len = r->second.copy(sItemString, 15);
+                    sItemString[len] = '\0';
+                    return;
+                }
+            } else if (action == "stand") {
+                // TODO
+            }
+        }
+
+        const auto len = config.fallback.copy(sItemString, 15);
+        sItemString[len] = '\0';
     }
 
     bool FlightStripsPlugin::ControllerIsMe(EuroScopePlugIn::CController controller, EuroScopePlugIn::CController me) {

@@ -3,11 +3,14 @@
 //
 
 #include "AppConfig.h"
-#include <cctype>
 
 namespace FlightStrips::configuration {
     std::string AppConfig::GetAuthority() {
         return std::string(ini["authentication"]["authority"] | "error");
+    }
+
+    std::string AppConfig::GetAudience() {
+        return std::string(ini["authentication"]["audience"] | "error");
     }
 
     std::string AppConfig::GetClientId() {
@@ -24,6 +27,10 @@ namespace FlightStrips::configuration {
 
     std::string AppConfig::GetBaseUrl() {
         return std::string(ini["api"]["baseurl"] | "error");
+    }
+
+    bool AppConfig::GetApiEnabled() {
+        return ini["api"]["enabled"] | false;
     }
 
     std::string AppConfig::GetLogLevel() {
@@ -54,6 +61,29 @@ namespace FlightStrips::configuration {
         }
 
         return callsignAirportMap;
+    }
+
+    DeIceConfig& AppConfig::GetDeIceConfig() {
+        if (!deIceConfig.order.empty()) { return deIceConfig; }
+
+        for (const auto [name, section] : ini) {
+            // TODO support more airports
+            if (!name.starts_with("deice_designator")) continue;
+
+            if (auto order = std::string(section["order"] | ""); !order.empty()) {
+                deIceConfig.order = split(order, ' ');
+            }
+
+            if (auto fallback = std::string(section["default"] | ""); !fallback.empty()) {
+                deIceConfig.fallback = fallback;
+            }
+
+            iterate_deice_type(section, "ac_type_rule_", deIceConfig.ac_types);
+            iterate_deice_type(section, "airline_rule_", deIceConfig.airlines);
+            iterate_deice_type(section, "stand_rule_", deIceConfig.stands);
+        }
+
+        return deIceConfig;
     }
 } // configuration
 // FlightStrips

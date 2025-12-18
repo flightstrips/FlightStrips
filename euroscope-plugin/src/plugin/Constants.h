@@ -6,3 +6,5 @@
 #define COMMAND_PREFIX ".fs"
 #define COMMAND_OPEN COMMAND_PREFIX " open"
 #define COMMAND_CLOSE COMMAND_PREFIX " close"
+
+constexpr int TAG_ITEM_DEICING_DESIGNATOR = 1;

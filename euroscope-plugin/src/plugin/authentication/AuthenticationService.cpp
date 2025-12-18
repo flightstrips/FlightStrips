@@ -90,7 +90,7 @@ namespace FlightStrips::authentication {
                 << "&scope=" << scope
                 << "&code_challenge=" << code_challenge
                 << "&code_challenge_method=S256"
-                << "&audience=backend";
+                << "&audience=" << this->appConfig->GetAudience();
 
         return url.str();
     }

@@ -4,8 +4,8 @@ import React from "react";
 
 export const Auth0ProviderWithNavigate = ({ children }: React.PropsWithChildren) => {
   const navigate = useNavigate();
-  const domain = "dev-xd0uf4sd1v27r8tg.eu.auth0.com";
-  const clientId = "DL0v1w0GCPmGImJ3Ia3giz9SiLfH28EW";
+  const domain = "auth.flightstrips.dk";
+  const clientId = "mIjRYlbKHpTwnNAkhcu9plQP541Klwvn";
   const redirectUri = window.location.origin;
 
   const onRedirectCallback = (appState?: AppState) => {
@@ -23,7 +23,7 @@ export const Auth0ProviderWithNavigate = ({ children }: React.PropsWithChildren)
       authorizationParams={{
         redirect_uri: redirectUri,
         scope: "openid profile email offline_access",
-        audience: "backend"
+        audience: "backend-dev"
       }}
       onRedirectCallback={onRedirectCallback}
       cacheLocation="localstorage"

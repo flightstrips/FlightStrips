@@ -55,8 +55,10 @@ namespace FlightStrips::websocket {
         std::mutex message_mutex_;
         std::vector<nlohmann::json> messages_ {};
 
-        int tx;
-        int rx;
+        bool enabled;
+
+        int tx = 0;
+        int rx = 0;
 
         void OnMessage(const std::string &message);
         void OnConnected();

@@ -75,6 +75,8 @@ namespace FlightStrips {
         void OnControllerPositionUpdate (EuroScopePlugIn::CController Controller ) override;
         void OnControllerDisconnect (EuroScopePlugIn::CController Controller ) override;
 
+        void OnGetTagItem(EuroScopePlugIn::CFlightPlan FlightPlan, EuroScopePlugIn::CRadarTarget RadarTarget, int ItemCode, int TagData, char sItemString[16], int *pColorCode, COLORREF *pRGB, double *pFontSize) override;
+
         void OnTimer(int Counter) override;
 
         void SetClearenceFlag(const std::string &callsign, bool cleared) const;

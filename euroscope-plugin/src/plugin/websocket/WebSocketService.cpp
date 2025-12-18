@@ -22,12 +22,14 @@ namespace FlightStrips::websocket {
                                                              [this](const std::string &message) {
                                                                  this->OnMessage(message);
                                                              }, [this] { this->OnConnected(); }) {
+        enabled = appConfig->GetApiEnabled();
     }
 
     WebSocketService::~WebSocketService() {
     }
 
     void WebSocketService::OnTimer(int time) {
+        if (!enabled) return;
         const auto &state = m_plugin->GetConnectionState();
         const bool should_connect = !state.primary_frequency.empty() && state.primary_frequency != "199.998" && !state.
                                     relevant_airport.empty() && (

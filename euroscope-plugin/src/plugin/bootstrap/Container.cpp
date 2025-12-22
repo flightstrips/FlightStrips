@@ -18,6 +18,8 @@
 #include "messages/MessageService.h"
 #include "flightplan/RouteService.h"
 #include "handlers/AuthenticationEventHandlers.h"
+#include "tag_items/TagItemHandlers.h"
+#include "tag_items/DeIceHandler.h"
 
 namespace FlightStrips {
     Container::Container() = default;

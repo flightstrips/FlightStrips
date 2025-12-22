@@ -45,6 +45,10 @@ namespace FlightStrips {
         class RouteService;
         class FlightPlanService;
     }
+    namespace TagItems {
+        class TagItemHandlers;
+        class DeIceHandler;
+    }
 }
 
 namespace EuroScopePlugIn {
@@ -82,6 +86,10 @@ namespace FlightStrips {
         std::shared_ptr<handlers::ConnectionEventHandlers> connectionEventHandlers;
         std::shared_ptr<handlers::MessageHandlers> messageHandlers;
         std::shared_ptr<handlers::AuthenticationEventHandlers> authenticationEventHandlers;
+        std::shared_ptr<TagItems::TagItemHandlers> tagItemHandlers;
+
+        // tag items
+        std::shared_ptr<TagItems::DeIceHandler> deIceHandler;
 
         // flight plan
         std::shared_ptr<flightplan::FlightPlanService> flightPlanService;

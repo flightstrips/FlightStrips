@@ -8,6 +8,7 @@
 #define GITHUB_LINK "https://github.com/flightstrips/FlightStrips"
 #include "FlightStripsPluginInterface.h"
 #include "bootstrap/Container.h"
+#include "tag_items/TagItemHandlers.h"
 #endif // !COPYRIGHTS
 
 #include "authentication/AuthenticationService.h"
@@ -49,7 +50,8 @@ namespace FlightStrips {
                 const std::shared_ptr<handlers::TimedEventHandlers> &mTimedEventHandlers,
                 const std::shared_ptr<handlers::AirportRunwaysChangedEventHandlers> &mAirportRunwaysChangedEventHandlers,
                 const std::weak_ptr<Container> &mContainer,
-                const std::shared_ptr<configuration::AppConfig> &mAppConfig);
+                const std::shared_ptr<configuration::AppConfig> &mAppConfig,
+                const std::shared_ptr<TagItems::TagItemHandlers> &mTagItemHandlers);
 
         ~FlightStripsPlugin() override;
 
@@ -105,6 +107,7 @@ namespace FlightStrips {
         const std::shared_ptr<handlers::TimedEventHandlers> m_timedEventHandlers;
         const std::shared_ptr<handlers::AirportRunwaysChangedEventHandlers> m_airportRunwayChangedEventHandlers;
         const std::shared_ptr<configuration::AppConfig> m_appConfig;
+        const std::shared_ptr<TagItems::TagItemHandlers> m_tagItemHandlers;
         const std::weak_ptr<Container> m_container;
 
         ConnectionState m_connectionState = {};

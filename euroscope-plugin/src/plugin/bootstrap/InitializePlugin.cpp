@@ -17,6 +17,7 @@
 #include "handlers/ConnectionEventHandlers.h"
 #include "messages/MessageService.h"
 #include "runway/RunwayService.h"
+#include "tag_items/DeIceHandler.h"
 #include "websocket/WebSocketService.h"
 
 namespace FlightStrips {
@@ -41,7 +42,13 @@ namespace FlightStrips {
         this->container->authenticationEventHandlers = std::make_shared<handlers::AuthenticationEventHandlers>();
         this->container->airportRunwaysChangedEventHandlers = std::make_shared<
             handlers::AirportRunwaysChangedEventHandlers>();
+        this->container->tagItemHandlers = std::make_shared<TagItems::TagItemHandlers>();
         stands::StandsBootstrapper::Bootstrap(*this->container);
+
+        // Tag items
+        this->container->deIceHandler = std::make_shared<TagItems::DeIceHandler>(this->container->standService, this->container->appConfig);
+        this->container->tagItemHandlers->RegisterHandler(this->container->deIceHandler, TAG_ITEM_DEICING_DESIGNATOR);
+        this->container->flightPlanEventHandlers->RegisterHandler(this->container->deIceHandler);
 
         this->container->authenticationService = std::make_shared<authentication::AuthenticationService>(
             this->container->appConfig, this->container->userConfig, this->container->authenticationEventHandlers);
@@ -53,7 +60,8 @@ namespace FlightStrips {
                                                                        this->container->
                                                                        airportRunwaysChangedEventHandlers,
                                                                        this->container,
-                                                                       this->container->appConfig);
+                                                                       this->container->appConfig,
+                                                                       this->container->tagItemHandlers);
         this->container->webSocketService = std::make_shared<websocket::WebSocketService>(
             this->container->appConfig, this->container->authenticationService, this->container->plugin,
             this->container->connectionEventHandlers, this->container->messageHandlers);
@@ -92,6 +100,9 @@ namespace FlightStrips {
         this->container->authenticationEventHandlers.reset();
         this->container->messageHandlers->Clear();
         this->container->messageHandlers.reset();
+        this->container->tagItemHandlers->Clear();
+        this->container->tagItemHandlers.reset();
+        this->container->deIceHandler.reset();
         this->container->messageService.reset();
         this->container->filesystem.reset();
         this->container->webSocketService.reset();

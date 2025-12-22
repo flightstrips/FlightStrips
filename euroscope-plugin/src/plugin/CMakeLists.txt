@@ -124,6 +124,13 @@ set(src__messages
         messages/MessageService.h)
 source_group("src\\messages" FILES ${src__messages})
 
+set(src__tag_items
+        tag_items/TagItemHandlers.cpp
+        tag_items/TagItemHandlers.h
+        tag_items/TagItemHandler.h
+        tag_items/DeIceHandler.cpp
+        tag_items/DeIceHandler.h)
+
 set(ALL_FILES
         ${src__plugin}
         ${src__filesystem}
@@ -139,6 +146,7 @@ set(ALL_FILES
         ${src__websocket}
         ${src__controller}
         ${src__messages}
+        ${src__tag_items}
         Constants.h
         Logger.cpp
         Logger.h)

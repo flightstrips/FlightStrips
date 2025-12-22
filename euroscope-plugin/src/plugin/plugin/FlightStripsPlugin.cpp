@@ -15,7 +15,8 @@ namespace FlightStrips {
         const std::shared_ptr<handlers::TimedEventHandlers> &mTimedEventHandlers,
         const std::shared_ptr<handlers::AirportRunwaysChangedEventHandlers> &mAirportRunwaysChangedEventHandlers,
         const std::weak_ptr<Container> &mContainer,
-        const std::shared_ptr<configuration::AppConfig> &mAppConfig)
+        const std::shared_ptr<configuration::AppConfig> &mAppConfig,
+        const std::shared_ptr<TagItems::TagItemHandlers> &mTagItemHandlers)
         : CPlugIn(COMPATIBILITY_CODE, PLUGIN_NAME, PLUGIN_VERSION, PLUGIN_AUTHOR, PLUGIN_COPYRIGHT),
           m_flightPlanEventHandlerCollection(mFlightPlanEventHandlerCollection),
           m_radarTargetEventHandlers(mRadarTargetEventHandlers),
@@ -23,6 +24,7 @@ namespace FlightStrips {
           m_timedEventHandlers(mTimedEventHandlers),
           m_airportRunwayChangedEventHandlers(mAirportRunwaysChangedEventHandlers),
           m_appConfig(mAppConfig),
+          m_tagItemHandlers(mTagItemHandlers),
           m_container(mContainer) {
         RegisterTagItemType("DE-ICE", TAG_ITEM_DEICING_DESIGNATOR);
     }
@@ -223,37 +225,7 @@ namespace FlightStrips {
         COLORREF *pRGB, double *pFontSize) {
         if (!FlightPlan.IsValid()) return;
 
-        if (ItemCode != TAG_ITEM_DEICING_DESIGNATOR) return;
-
-        const auto fpData = FlightPlan.GetFlightPlanData();
-        const std::string acType = fpData.GetAircraftFPType();
-
-        std::string airline;
-        if (std::strlen(FlightPlan.GetCallsign()) >= 3) {
-            airline.assign(FlightPlan.GetCallsign(), 0, 3);
-        }
-
-        auto config = m_appConfig->GetDeIceConfig();
-        for (const auto& action : config.order) {
-            if (action == "ac_type") {
-                if (auto r = config.ac_types.find(acType); r != config.ac_types.end()) {
-                    const auto len = r->second.copy(sItemString, 15);
-                    sItemString[len] = '\0';
-                    return;
-                }
-            } else if (action == "airline") {
-                if (auto r = config.airlines.find(airline); r != config.airlines.end()) {
-                    const auto len = r->second.copy(sItemString, 15);
-                    sItemString[len] = '\0';
-                    return;
-                }
-            } else if (action == "stand") {
-                // TODO
-            }
-        }
-
-        const auto len = config.fallback.copy(sItemString, 15);
-        sItemString[len] = '\0';
+        m_tagItemHandlers->Handle(FlightPlan, RadarTarget, ItemCode, TagData, sItemString, pColorCode, pRGB, pFontSize);
     }
 
     bool FlightStripsPlugin::ControllerIsMe(EuroScopePlugIn::CController controller, EuroScopePlugIn::CController me) {

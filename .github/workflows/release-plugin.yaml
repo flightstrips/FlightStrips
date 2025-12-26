@@ -1,7 +1,9 @@
 name: Release plugin
 
 on:
-  workflow_dispatch:
+  push:
+    tags:
+      - 'plugin-v*'
 
 permissions:
   contents: write
@@ -10,13 +12,11 @@ env:
   BUILD_TYPE: Release
 
 jobs:
-  build:
+  build-and-release:
     runs-on: windows-latest
     defaults:
       run:
         working-directory: ./euroscope-plugin
-    outputs:
-      version: ${{ steps.get_version.outputs.version }}
 
     steps:
       - uses: actions/checkout@v3
@@ -29,10 +29,10 @@ jobs:
       - name: Setup Ninja
         uses: seanmiddleditch/gha-setup-ninja@master
 
-      - name: Read version from file
+      - name: Read version from tag
         id: get_version
         run: |
-          $version = Get-Content version.txt | ForEach-Object { $_.Trim() }
+          $version = $env:GITHUB_REF_NAME -replace '^plugin-v', ''
           Write-Host "Version: $version"
           echo "version=$version" >> $env:GITHUB_OUTPUT
 
@@ -44,41 +44,24 @@ jobs:
         working-directory: ./euroscope-plugin/build
         run: ninja
 
-      - uses: actions/upload-artifact@v4
-        with:
-          name: FlightStripsPlugin-${{ steps.get_version.outputs.version }}
-          path: |
-            ./euroscope-plugin/build/bin/FlightStripsPlugin.dll
-            ./euroscope-plugin/build/bin/flightstrips_config.ini
-          if-no-files-found: error
-
-  release:
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - name: Download build artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: FlightStripsPlugin-${{ needs.build.outputs.version }}
-          path: ./release-assets
       - name: Set prerelease flag
         id: set_prerelease
         run: |
-          version="${{ needs.build.outputs.version }}"
-          if [[ $(echo "$version < 1" | bc) -eq 1 ]]; then
+          version="${{ steps.get_version.outputs.version }}"
+          if [[ "$version" == *"-"* || $(echo "$version < 1" | bc 2>/dev/null || echo 0) -eq 1 ]]; then
             echo "prerelease=true" >> $GITHUB_OUTPUT
           else
             echo "prerelease=false" >> $GITHUB_OUTPUT
           fi
-      - name: Create GitHub Release
+
+      - name: Create/Update GitHub Release
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: v${{ needs.build.outputs.version }}
-          name: FlightStripsPlugin v${{ needs.build.outputs.version }}
+          tag_name: ${{ github.ref_name }}
+          name: FlightStripsPlugin ${{ github.ref_name }}
           files: |
-            release-assets/FlightStripsPlugin.dll
-            release-assets/flightstrips_config.ini
+            ./euroscope-plugin/build/bin/FlightStripsPlugin.dll
+            ./euroscope-plugin/build/bin/flightstrips_config.ini
           prerelease: ${{ steps.set_prerelease.outputs.prerelease }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,0 +1,49 @@
+name: Release Backend
+
+on:
+  push:
+    tags:
+      - 'backend-v*'
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Get version
+        id: get_version
+        run: |
+          version=${GITHUB_REF_NAME#backend-v}
+          echo "version=$version" >> $GITHUB_OUTPUT
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push api image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/backend-api:${{ steps.get_version.outputs.version }}
+            ghcr.io/${{ github.repository_owner }}/backend-api:latest
+
+      - name: Build and push migrate image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile.Migrate
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/backend-migrate:${{ steps.get_version.outputs.version }}
+            ghcr.io/${{ github.repository_owner }}/backend-migrate:latest

@@ -1,0 +1,13 @@
+{
+  "packages": {
+    "euroscope-plugin": {
+      "component": "plugin",
+      "extra-files": ["version.txt"]
+    },
+    "backend": {
+      "component": "backend",
+      "extra-files": ["version.txt"]
+    }
+  },
+  "separate-pull-requests": true
+}

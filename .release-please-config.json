@@ -3,11 +3,13 @@
     "euroscope-plugin": {
       "release-type": "simple",
       "component": "plugin",
+      "tag-separator": "/",
       "extra-files": ["version.txt"]
     },
     "backend": {
       "release-type": "simple",
       "component": "backend",
+      "tag-separator": "/",
       "extra-files": ["version.txt"]
     }
   },

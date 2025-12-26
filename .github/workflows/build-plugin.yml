@@ -1,12 +1,6 @@
 name: Build Plugin
 
 on:
-  push:
-    branches:
-      - "main"
-    paths:
-      - ".github/workflows/build-plugin.yml"
-      - "euroscope-plugin/**"
   pull_request:
     branches:
       - "main"

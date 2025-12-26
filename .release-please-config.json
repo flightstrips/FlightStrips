@@ -1,10 +1,12 @@
 {
   "packages": {
     "euroscope-plugin": {
+      "release-type": "simple",
       "component": "plugin",
       "extra-files": ["version.txt"]
     },
     "backend": {
+      "release-type": "simple",
       "component": "backend",
       "extra-files": ["version.txt"]
     }

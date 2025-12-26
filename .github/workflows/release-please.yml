@@ -14,7 +14,11 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       plugin_release_created: ${{ steps.release.outputs.euroscope-plugin--release_created }}
+      plugin_tag: ${{ steps.release.outputs.euroscope-plugin--tag_name }}
+      plugin_version: ${{ steps.release.outputs.euroscope-plugin--version }}
       backend_release_created: ${{ steps.release.outputs.backend--release_created }}
+      backend_tag: ${{ steps.release.outputs.backend--tag_name }}
+      backend_version: ${{ steps.release.outputs.backend--version }}
     steps:
       - uses: googleapis/release-please-action@v4
         id: release
@@ -41,13 +45,6 @@ jobs:
       - name: Setup Ninja
         uses: seanmiddleditch/gha-setup-ninja@master
 
-      - name: Read version from tag
-        id: get_version
-        shell: bash
-        run: |
-          version=${GITHUB_REF_NAME#plugin/}
-          echo "version=$version" >> $GITHUB_OUTPUT
-
       - name: Run CMake
         run: |
           cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -G Ninja -Bbuild
@@ -60,7 +57,7 @@ jobs:
         id: set_prerelease
         shell: bash
         run: |
-          version="${{ steps.get_version.outputs.version }}"
+          version="${{ needs.release-please.outputs.plugin_version }}"
           if [[ "$version" == *"-"* || $(echo "$version < 1" | bc 2>/dev/null || echo 0) -eq 1 ]]; then
             echo "prerelease=true" >> $GITHUB_OUTPUT
           else
@@ -70,8 +67,8 @@ jobs:
       - name: Create/Update GitHub Release
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: ${{ github.ref_name }}
-          name: FlightStripsPlugin ${{ github.ref_name }}
+          tag_name: ${{ needs.release-please.outputs.plugin_tag }}
+          name: FlightStripsPlugin ${{ needs.release-please.outputs.plugin_tag }}
           files: |
             ./euroscope-plugin/build/bin/FlightStripsPlugin.dll
             ./euroscope-plugin/build/bin/flightstrips_config.ini
@@ -85,12 +82,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-
-      - name: Get version
-        id: get_version
-        run: |
-          version=${GITHUB_REF_NAME#backend/}
-          echo "version=$version" >> $GITHUB_OUTPUT
 
       - name: Log in to GHCR
         uses: docker/login-action@v3
@@ -106,7 +97,7 @@ jobs:
           file: ./backend/Dockerfile
           push: true
           tags: |
-            ghcr.io/${{ github.repository_owner }}/backend-api:${{ steps.get_version.outputs.version }}
+            ghcr.io/${{ github.repository_owner }}/backend-api:${{ needs.release-please.outputs.backend_version }}
             ghcr.io/${{ github.repository_owner }}/backend-api:latest
 
       - name: Build and push migrate image
@@ -116,5 +107,5 @@ jobs:
           file: ./backend/Dockerfile.Migrate
           push: true
           tags: |
-            ghcr.io/${{ github.repository_owner }}/backend-migrate:${{ steps.get_version.outputs.version }}
+            ghcr.io/${{ github.repository_owner }}/backend-migrate:${{ needs.release-please.outputs.backend_version }}
             ghcr.io/${{ github.repository_owner }}/backend-migrate:latest

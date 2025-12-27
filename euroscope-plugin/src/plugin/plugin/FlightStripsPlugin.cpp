@@ -202,11 +202,14 @@ namespace FlightStrips {
     CRadarScreen *FlightStripsPlugin::OnRadarScreenCreated(const char *sDisplayName,
                                                            bool NeedRadarContent, bool GeoReferenced, bool CanBeSaved,
                                                            bool CanBeCreated) {
+        if (!m_appConfig->GetApiEnabled()) {
+            return nullptr;
+        }
         if (const auto ptr = m_container.lock()) {
             return new graphics::InfoScreen(ptr->authenticationService, ptr->userConfig, ptr->webSocketService, this);
         }
-        return nullptr;
 
+        return nullptr;
     }
 
     void FlightStripsPlugin::OnControllerPositionUpdate(EuroScopePlugIn::CController Controller) {

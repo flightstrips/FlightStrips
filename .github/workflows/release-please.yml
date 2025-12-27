@@ -73,6 +73,7 @@ jobs:
           files: |
             ./euroscope-plugin/build/bin/FlightStripsPlugin.dll
             ./euroscope-plugin/build/bin/flightstrips_config.ini
+            ./euroscope-plugin/build/bin/flightstrips_config_dev.ini
           prerelease: ${{ steps.set_prerelease.outputs.prerelease }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

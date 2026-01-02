@@ -171,3 +171,16 @@ WHERE session = $1 AND callsign = $2;
 
 -- name: SetPreviousOwners :exec
 UPDATE strips SET previous_owners = $3 WHERE session = $1 AND callsign = $2;
+
+-- name: SetCdmStatus :execrows
+UPDATE strips SET cdm_status = $3 WHERE session = $1 AND callsign = $2;
+
+-- name: GetCdmData :many
+SELECT callsign, tobt, tsat, ttot, ctot, aobt, asat, eobt, cdm_status FROM strips WHERE session = $1;
+
+-- name: GetCdmDataForCallsign :one
+SELECT callsign, tobt, tsat, ttot, ctot, aobt, asat, eobt, cdm_status FROM strips WHERE session = $1 and callsign = $2;
+
+-- name: UpdateCdmData :execrows
+UPDATE strips SET tobt = $3, tsat = $4, ttot = $5, ctot = $6, aobt = $7, eobt = $8, cdm_status = $9
+              WHERE session = $1 AND callsign = $2;

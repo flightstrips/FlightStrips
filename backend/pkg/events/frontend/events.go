@@ -51,6 +51,9 @@ const (
 
 	Broadcast   EventType = "broadcast"
 	SendMessage EventType = "send_message"
+
+	CdmWait EventType = "cdm_wait"
+	CdmData EventType = "cdm_data"
 )
 
 type OutgoingMessage interface {
@@ -455,4 +458,32 @@ func (l BroadcastEvent) GetType() EventType {
 type SendMessageEvent struct {
 	Message string  `json:"message"`
 	To      *string `json:"to"`
+}
+
+type CdmWaitEvent struct {
+	Callsign string `json:"callsign"`
+}
+
+func (c CdmWaitEvent) Marshal() ([]byte, error) {
+	return json.Marshal(c)
+}
+
+func (c CdmWaitEvent) GetType() EventType {
+	return CdmWait
+}
+
+type CdmDataEvent struct {
+	Callsign string `json:"callsign"`
+	Eobt     string `json:"eobt"`
+	Tobt     string `json:"tobt"`
+	Tsat     string `json:"tsat"`
+	Ctot     string `json:"ctot"`
+}
+
+func (c CdmDataEvent) Marshal() ([]byte, error) {
+	return json.Marshal(c)
+}
+
+func (c CdmDataEvent) GetType() EventType {
+	return CdmData
 }

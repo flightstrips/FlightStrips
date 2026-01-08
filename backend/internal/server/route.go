@@ -3,6 +3,7 @@
 import (
 	"FlightStrips/internal/config"
 	"FlightStrips/internal/database"
+	"FlightStrips/pkg/helpers"
 	"context"
 	"errors"
 	"fmt"
@@ -53,7 +54,7 @@ func (s *Server) UpdateRoutesForSession(sessionId int32, sendUpdate bool) error 
 func (s *Server) updateRouteForStripHelper(db *database.Queries, strip database.Strip, session database.Session, sendUpdate bool) error {
 	isArrival := strip.Destination == session.Airport
 
-	region, err := config.GetRegionForPosition(strip.PositionLatitude.Float64, strip.PositionLongitude.Float64)
+	region, err := config.GetRegionForPosition(helpers.ValueOrDefault(strip.PositionLatitude), helpers.ValueOrDefault(strip.PositionLongitude))
 	if err != nil {
 		return err
 	}
@@ -68,9 +69,9 @@ func (s *Server) updateRouteForStripHelper(db *database.Queries, strip database.
 	var path []string
 	var success bool
 	if isArrival {
-		path, success = config.ComputeToStand(allRunways, sector, strip.Stand.String)
+		path, success = config.ComputeToStand(allRunways, sector, helpers.ValueOrDefault(strip.Stand))
 	} else {
-		path, success = config.ComputeToRunway(allRunways, sector, strip.Runway.String)
+		path, success = config.ComputeToRunway(allRunways, sector, helpers.ValueOrDefault(strip.Runway))
 	}
 
 	if !success {
@@ -96,8 +97,8 @@ func (s *Server) updateRouteForStripHelper(db *database.Queries, strip database.
 		}
 	}
 
-	if !isArrival && strip.Sid.Valid && strip.Sid.String != "" {
-		as, err := config.GetAirborneSector(strip.Sid.String)
+	if !isArrival && strip.Sid != nil && *strip.Sid != "" {
+		as, err := config.GetAirborneSector(*strip.Sid)
 		if err != nil {
 			fmt.Printf("Error getting airborne frequency: %v\n", err)
 		} else if owner, ok := sectorToOnwer[as]; ok && !slices.Contains(actualRoute, owner) {
@@ -106,8 +107,8 @@ func (s *Server) updateRouteForStripHelper(db *database.Queries, strip database.
 		}
 	}
 
-	if strip.Owner.Valid && strip.Owner.String != "" {
-		index := slices.Index(actualRoute, strip.Owner.String)
+	if strip.Owner != nil && *strip.Owner != "" {
+		index := slices.Index(actualRoute, *strip.Owner)
 		if index != -1 {
 			actualRoute = append(actualRoute[:index], actualRoute[index+1:]...)
 		}

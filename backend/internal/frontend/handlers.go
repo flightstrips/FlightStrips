@@ -8,8 +8,6 @@ import (
 	"context"
 	"errors"
 	"slices"
-
-	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type Message = shared.Message[frontend.EventType]
@@ -40,7 +38,7 @@ func handleMove(client *Client, message Message) error {
 		return err
 	}
 
-	if strip.Bay.String == move.Bay {
+	if strip.Bay == move.Bay {
 		return nil
 	}
 
@@ -59,7 +57,7 @@ func handleMove(client *Client, message Message) error {
 
 func handleClearedBayUpdate(client *Client, strip database.Strip, move frontend.MoveEvent, db *database.Queries, es shared.EuroscopeHub) error {
 	isCleared := move.Bay == shared.BAY_CLEARED
-	if strip.Cleared.Bool == isCleared {
+	if strip.Cleared == isCleared {
 		return nil
 	}
 
@@ -68,8 +66,8 @@ func handleClearedBayUpdate(client *Client, strip database.Strip, move frontend.
 		database.UpdateStripClearedFlagByIDParams{
 			Callsign: move.Callsign,
 			Session:  client.session,
-			Cleared:  pgtype.Bool{Valid: true, Bool: isCleared},
-			Bay:      pgtype.Text{Valid: true, String: move.Bay},
+			Cleared:  isCleared,
+			Bay:      move.Bay,
 		})
 
 	if err != nil {
@@ -85,11 +83,11 @@ func handleClearedBayUpdate(client *Client, strip database.Strip, move frontend.
 }
 
 func handleGeneralBayUpdate(client *Client, strip database.Strip, move frontend.MoveEvent, db *database.Queries, es shared.EuroscopeHub) error {
-	state := strip.State.String
+	state := strip.State
 	if strip.Origin == client.airport {
 		groundState := shared.GetGroundState(move.Bay)
 		if groundState != euroscope.GroundStateUnknown {
-			state = groundState
+			state = &groundState
 		}
 	}
 
@@ -98,8 +96,8 @@ func handleGeneralBayUpdate(client *Client, strip database.Strip, move frontend.
 		database.UpdateStripGroundStateByIDParams{
 			Callsign: move.Callsign,
 			Session:  client.session,
-			Bay:      pgtype.Text{Valid: true, String: move.Bay},
-			State:    pgtype.Text{Valid: true, String: state},
+			Bay:      move.Bay,
+			State:    state,
 		})
 
 	if err != nil {
@@ -110,8 +108,8 @@ func handleGeneralBayUpdate(client *Client, strip database.Strip, move frontend.
 		return errors.New("failed to update strip bay/ground state")
 	}
 
-	if state != strip.State.String {
-		es.SendGroundState(client.session, client.GetCid(), move.Callsign, state)
+	if state != strip.State && state != nil {
+		es.SendGroundState(client.session, client.GetCid(), move.Callsign, *state)
 	}
 	return nil
 }
@@ -135,27 +133,27 @@ func handleStripUpdate(client *Client, message Message) error {
 		return err
 	}
 
-	if event.Route != nil && strip.Route.String != *event.Route {
+	if event.Route != nil && strip.Route != event.Route {
 		s.GetEuroscopeHub().SendRoute(client.session, client.GetCid(), event.Callsign, *event.Route)
 	}
 
-	if event.Sid != nil && strip.Sid.String != *event.Sid {
+	if event.Sid != nil && strip.Sid != event.Sid {
 		s.GetEuroscopeHub().SendSid(client.session, client.GetCid(), event.Callsign, *event.Sid)
 	}
 
-	if event.Stand != nil && strip.Stand.String != *event.Stand {
+	if event.Stand != nil && strip.Stand != event.Stand {
 		s.GetEuroscopeHub().SendStand(client.session, client.GetCid(), event.Callsign, *event.Stand)
 	}
 
-	if event.Eobt != nil && strip.Eobt.String != *event.Eobt {
+	if event.Eobt != nil && strip.Eobt != event.Eobt {
 		// TODO add support
 	}
 
-	if event.Altitude != nil && strip.ClearedAltitude.Int32 != int32(*event.Altitude) {
+	if event.Altitude != nil && strip.ClearedAltitude != event.Altitude {
 		s.GetEuroscopeHub().SendClearedAltitude(client.session, client.GetCid(), event.Callsign, *event.Altitude)
 	}
 
-	if event.Heading != nil && strip.Heading.Int32 != int32(*event.Heading) {
+	if event.Heading != nil && strip.Heading != event.Heading {
 		s.GetEuroscopeHub().SendHeading(client.session, client.GetCid(), event.Callsign, *event.Heading)
 	}
 
@@ -174,7 +172,7 @@ func handleCoordinationTransferRequest(client *Client, message Message) error {
 		return err
 	}
 
-	if !strip.Owner.Valid || strip.Owner.String != position {
+	if strip.Owner == nil || *strip.Owner != position {
 		return errors.New("cannot transfer strip which is not assumed")
 	}
 
@@ -206,7 +204,7 @@ func handleCoordinationAssumeRequest(client *Client, message Message) error {
 		return err
 	}
 	// Strip is not owned by anyone assume it
-	if !strip.Owner.Valid || strip.Owner.String == "" {
+	if strip.Owner == nil || *strip.Owner == "" {
 		err2 := setOwner(client, db, req, strip)
 		if err2 != nil {
 			return err2
@@ -255,7 +253,7 @@ func handleCoordinationAssumeRequest(client *Client, message Message) error {
 
 func setOwner(client *Client, db *database.Queries, req frontend.CoordinationAssumeRequestEvent, strip database.Strip) error {
 	count, err := db.SetStripOwner(context.Background(), database.SetStripOwnerParams{
-		Owner: pgtype.Text{Valid: true, String: client.position}, Callsign: req.Callsign, Session: client.session, Version: strip.Version,
+		Owner: &client.position, Callsign: req.Callsign, Session: client.session, Version: strip.Version,
 	})
 
 	if err != nil {
@@ -306,7 +304,7 @@ func handleCoordinationFreeRequest(client *Client, message Message) error {
 		return err
 	}
 
-	if strip.Owner.String != client.position {
+	if strip.Owner == nil || *strip.Owner != client.position {
 		return errors.New("cannot free strip which is not owned by you")
 	}
 
@@ -320,7 +318,7 @@ func handleCoordinationFreeRequest(client *Client, message Message) error {
 		return err
 	}
 
-	count, err := db.SetStripOwner(context.Background(), database.SetStripOwnerParams{Owner: pgtype.Text{Valid: false}, Callsign: req.Callsign, Session: client.session, Version: strip.Version})
+	count, err := db.SetStripOwner(context.Background(), database.SetStripOwnerParams{Owner: nil, Callsign: req.Callsign, Session: client.session, Version: strip.Version})
 
 	if err != nil {
 		return err
@@ -349,11 +347,11 @@ func handleUpdateOrder(client *Client, message Message) error {
 		return err
 	}
 
-	if !bay.Valid || bay.String == "" {
+	if bay == "" {
 		return errors.New("cannot update order of a strip which is not in a bay")
 	}
 
-	return client.hub.stripService.MoveStripBetween(context.Background(), client.session, event.Callsign, event.Before, bay.String)
+	return client.hub.stripService.MoveStripBetween(context.Background(), client.session, event.Callsign, event.Before, bay)
 }
 
 func handleSendMessage(client *Client, message Message) error {

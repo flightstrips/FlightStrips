@@ -177,9 +177,9 @@ func (s *StripService) recalculateAllStripSequences(ctx context.Context, session
 	callsigns := make([]string, len(sequences))
 	seqs := make([]int32, len(sequences))
 	for i, seq := range sequences {
-		if seq.Sequence.Valid {
+		if seq.Sequence != nil {
 			callsigns[i] = seq.Callsign
-			seqs[i] = seq.Sequence.Int32
+			seqs[i] = *seq.Sequence
 		}
 	}
 

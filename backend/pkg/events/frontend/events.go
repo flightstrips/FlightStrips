@@ -77,9 +77,9 @@ type Strip struct {
 	Squawk              string   `json:"squawk"`
 	AssignedSquawk      string   `json:"assigned_squawk"`
 	Sid                 string   `json:"sid"`
-	ClearedAltitude     int      `json:"cleared_altitude"`
-	RequestedAltitude   int      `json:"requested_altitude"`
-	Heading             int      `json:"heading"`
+	ClearedAltitude     int32    `json:"cleared_altitude"`
+	RequestedAltitude   int32    `json:"requested_altitude"`
+	Heading             int32    `json:"heading"`
 	AircraftType        string   `json:"aircraft_type"`
 	AircraftCategory    string   `json:"aircraft_category"`
 	Stand               string   `json:"stand"`
@@ -89,8 +89,8 @@ type Strip struct {
 	Eldt                string   `json:"eldt"`
 	Bay                 string   `json:"bay"`
 	ReleasePoint        string   `json:"release_point"`
-	Version             int      `json:"version"`
-	Sequence            int      `json:"sequence"`
+	Version             int32    `json:"version"`
+	Sequence            int32    `json:"sequence"`
 	NextControllers     []string `json:"next_controllers"`
 	PreviousControllers []string `json:"previous_controllers"`
 	Owner               string   `json:"owner"`
@@ -201,7 +201,7 @@ func (s SquawkEvent) GetType() EventType {
 
 type RequestedAltitudeEvent struct {
 	Callsign string `json:"callsign"`
-	Altitude int    `json:"altitude"`
+	Altitude int32  `json:"altitude"`
 }
 
 func (r RequestedAltitudeEvent) Marshal() ([]byte, error) {
@@ -214,7 +214,7 @@ func (r RequestedAltitudeEvent) GetType() EventType {
 
 type ClearedAltitudeEvent struct {
 	Callsign string `json:"callsign"`
-	Altitude int    `json:"altitude"`
+	Altitude int32  `json:"altitude"`
 }
 
 func (r ClearedAltitudeEvent) Marshal() ([]byte, error) {
@@ -276,7 +276,7 @@ func (s StandEvent) GetType() EventType {
 
 type SetHeadingEvent struct {
 	Callsign string `json:"callsign"`
-	Heading  int    `json:"heading"`
+	Heading  int32  `json:"heading"`
 }
 
 func (s SetHeadingEvent) Marshal() ([]byte, error) {
@@ -317,8 +317,8 @@ type UpdateStripDataEvent struct {
 	Sid      *string   `json:"sid"`
 	Eobt     *string   `json:"eobt"`
 	Route    *string   `json:"route"`
-	Heading  *int      `json:"heading"`
-	Altitude *int      `json:"altitude"`
+	Heading  *int32    `json:"heading"`
+	Altitude *int32    `json:"altitude"`
 	Stand    *string   `json:"stand"`
 }
 

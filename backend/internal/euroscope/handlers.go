@@ -137,7 +137,7 @@ func handleAssignedSquawk(client *Client, message Message) error {
 	db := database.New(s.GetDatabasePool())
 
 	insertData := database.UpdateStripAssignedSquawkByIDParams{
-		AssignedSquawk: pgtype.Text{Valid: true, String: event.Squawk},
+		AssignedSquawk: &event.Squawk,
 		Callsign:       event.Callsign,
 		Session:        session,
 	}
@@ -169,7 +169,7 @@ func handleSquawk(client *Client, message Message) error {
 	db := database.New(s.GetDatabasePool())
 
 	insertData := database.UpdateStripSquawkByIDParams{
-		Squawk:   pgtype.Text{Valid: true, String: event.Squawk},
+		Squawk:   &event.Squawk,
 		Callsign: event.Callsign,
 		Session:  session,
 	}
@@ -200,8 +200,9 @@ func handleRequestedAltitude(client *Client, message Message) error {
 
 	db := database.New(s.GetDatabasePool())
 
+	intAltitude := int32(event.Altitude)
 	insertData := database.UpdateStripRequestedAltitudeByIDParams{
-		RequestedAltitude: pgtype.Int4{Valid: true, Int32: int32(event.Altitude)},
+		RequestedAltitude: &intAltitude,
 		Callsign:          event.Callsign,
 		Session:           session,
 	}
@@ -228,8 +229,9 @@ func handleClearedAltitude(client *Client, message Message) error {
 	session := client.session
 
 	db := database.New(s.GetDatabasePool())
+	intAltitude := int32(event.Altitude)
 	insertData := database.UpdateStripClearedAltitudeByIDParams{
-		ClearedAltitude: pgtype.Int4{Valid: true, Int32: int32(event.Altitude)},
+		ClearedAltitude: &intAltitude,
 		Callsign:        event.Callsign,
 		Session:         session,
 	}
@@ -258,7 +260,7 @@ func handleCommunicationType(client *Client, message Message) error {
 	db := database.New(s.GetDatabasePool())
 
 	insertData := database.UpdateStripCommunicationTypeByIDParams{
-		CommunicationType: pgtype.Text{Valid: true, String: event.CommunicationType},
+		CommunicationType: &event.CommunicationType,
 		Callsign:          event.Callsign,
 		Session:           session,
 	}
@@ -294,15 +296,15 @@ func handleGroundState(client *Client, message Message) error {
 		return err
 	}
 
-	if existingStrip.State.String == event.GroundState {
+	if existingStrip.State != nil && *existingStrip.State == event.GroundState {
 		return nil
 	}
 
 	bay := shared.GetDepartureBayFromGroundState(event.GroundState, existingStrip)
 
 	insertData := database.UpdateStripGroundStateByIDParams{
-		State:    pgtype.Text{Valid: true, String: event.GroundState},
-		Bay:      pgtype.Text{Valid: true, String: bay},
+		State:    &event.GroundState,
+		Bay:      bay,
 		Callsign: event.Callsign,
 		Session:  session,
 	}
@@ -313,7 +315,7 @@ func handleGroundState(client *Client, message Message) error {
 		return err
 	}
 
-	if existingStrip.Bay.String != bay {
+	if existingStrip.Bay != bay {
 		return client.hub.stripService.MoveToBay(context.Background(), client.session, event.Callsign, bay, true)
 	}
 
@@ -339,18 +341,18 @@ func handleClearedFlag(client *Client, message Message) error {
 		return err
 	}
 
-	if existingStrip.Cleared.Valid && existingStrip.Cleared.Bool == event.Cleared {
+	if existingStrip.Cleared == event.Cleared {
 		return nil
 	}
 
-	bay := existingStrip.Bay.String
+	bay := existingStrip.Bay
 	if bay == shared.BAY_NOT_CLEARED || bay == shared.BAY_UNKNOWN {
 		bay = shared.BAY_CLEARED
 	}
 
 	insertData := database.UpdateStripClearedFlagByIDParams{
-		Cleared:  pgtype.Bool{Valid: true, Bool: event.Cleared},
-		Bay:      pgtype.Text{Valid: true, String: bay},
+		Cleared:  event.Cleared,
+		Bay:      bay,
 		Callsign: event.Callsign,
 		Session:  session,
 	}
@@ -359,7 +361,7 @@ func handleClearedFlag(client *Client, message Message) error {
 		return err
 	}
 
-	if existingStrip.Bay.String != bay {
+	if existingStrip.Bay != bay {
 		return client.hub.stripService.MoveToBay(context.Background(), client.session, event.Callsign, bay, true)
 	}
 
@@ -386,12 +388,13 @@ func handlePositionUpdate(client *Client, message Message) error {
 	}
 
 	bay := shared.GetDepartureBayFromPosition(event.Lat, event.Lon, event.Altitude, existingStrip)
+	intAltitude := int32(event.Altitude)
 
 	insertData := database.UpdateStripAircraftPositionByIDParams{
-		PositionLatitude:  pgtype.Float8{Valid: true, Float64: event.Lat},
-		PositionLongitude: pgtype.Float8{Valid: true, Float64: event.Lon},
-		PositionAltitude:  pgtype.Int4{Valid: true, Int32: int32(event.Altitude)},
-		Bay:               pgtype.Text{Valid: true, String: bay},
+		PositionLatitude:  &event.Lat,
+		PositionLongitude: &event.Lon,
+		PositionAltitude:  &intAltitude,
+		Bay:               bay,
 		Callsign:          event.Callsign,
 		Session:           session,
 	}
@@ -401,7 +404,7 @@ func handlePositionUpdate(client *Client, message Message) error {
 		return err
 	}
 
-	if existingStrip.Bay.String != bay {
+	if existingStrip.Bay != bay {
 		return client.hub.stripService.MoveToBay(context.Background(), client.session, event.Callsign, bay, true)
 	}
 
@@ -419,7 +422,7 @@ func handleSetHeading(client *Client, message Message) error {
 
 	db := database.New(s.GetDatabasePool())
 	insertData := database.UpdateStripHeadingByIDParams{
-		Heading:  pgtype.Int4{Valid: true, Int32: int32(event.Heading)},
+		Heading:  &event.Heading,
 		Callsign: event.Callsign,
 		Session:  session,
 	}
@@ -462,7 +465,7 @@ func handleStand(client *Client, message Message) error {
 
 	db := database.New(s.GetDatabasePool())
 	insertData := database.UpdateStripStandByIDParams{
-		Stand:    pgtype.Text{Valid: true, String: event.Stand},
+		Stand:    &event.Stand,
 		Callsign: event.Callsign,
 		Session:  session,
 	}
@@ -505,7 +508,7 @@ func handleSync(client *Client, message Message) error {
 				Callsign:          controller.Callsign,
 				Session:           session,
 				Position:          controller.Position,
-				Cid:               pgtype.Text{Valid: false},
+				Cid:               nil,
 				LastSeenEuroscope: pgtype.Timestamp{Valid: false},
 				LastSeenFrontend:  pgtype.Timestamp{Valid: false},
 			}
@@ -568,29 +571,29 @@ func (hub *Hub) handleStripUpdateHelper(db *database.Queries, strip euroscope.St
 			Session:           session,
 			Origin:            strip.Origin,
 			Destination:       strip.Destination,
-			Alternative:       pgtype.Text{Valid: true, String: strip.Alternate},
-			Route:             pgtype.Text{Valid: true, String: strip.Route},
-			Remarks:           pgtype.Text{Valid: true, String: strip.Remarks},
-			Runway:            pgtype.Text{Valid: true, String: strip.Runway},
-			Squawk:            pgtype.Text{Valid: true, String: strip.Squawk},
-			AssignedSquawk:    pgtype.Text{Valid: true, String: strip.AssignedSquawk},
-			Sid:               pgtype.Text{Valid: true, String: strip.Sid},
-			Cleared:           pgtype.Bool{Valid: true, Bool: strip.Cleared},
-			State:             pgtype.Text{Valid: true, String: strip.GroundState},
-			ClearedAltitude:   pgtype.Int4{Valid: true, Int32: int32(strip.ClearedAltitude)},
-			RequestedAltitude: pgtype.Int4{Valid: true, Int32: int32(strip.RequestedAltitude)},
-			Heading:           pgtype.Int4{Valid: true, Int32: int32(strip.Heading)},
-			AircraftType:      pgtype.Text{Valid: true, String: strip.AircraftType},
-			AircraftCategory:  pgtype.Text{Valid: true, String: strip.AircraftCategory},
-			PositionLatitude:  pgtype.Float8{Valid: true, Float64: strip.Position.Lat},
-			PositionLongitude: pgtype.Float8{Valid: true, Float64: strip.Position.Lon},
-			PositionAltitude:  pgtype.Int4{Valid: true, Int32: int32(strip.Position.Altitude)},
-			Stand:             pgtype.Text{Valid: true, String: strip.Stand},
-			Capabilities:      pgtype.Text{Valid: true, String: strip.Capabilities},
-			CommunicationType: pgtype.Text{Valid: true, String: strip.CommunicationType},
-			Tobt:              pgtype.Text{Valid: true, String: strip.Eobt},
-			Bay:               pgtype.Text{Valid: true, String: bay},
-			Eobt:              pgtype.Text{Valid: true, String: strip.Eobt},
+			Alternative:       &strip.Alternate,
+			Route:             &strip.Route,
+			Remarks:           &strip.Remarks,
+			Runway:            &strip.Runway,
+			Squawk:            &strip.Squawk,
+			AssignedSquawk:    &strip.AssignedSquawk,
+			Sid:               &strip.Sid,
+			Cleared:           strip.Cleared,
+			State:             &strip.GroundState,
+			ClearedAltitude:   &strip.ClearedAltitude,
+			RequestedAltitude: &strip.RequestedAltitude,
+			Heading:           &strip.Heading,
+			AircraftType:      &strip.AircraftType,
+			AircraftCategory:  &strip.AircraftCategory,
+			PositionLatitude:  &strip.Position.Lat,
+			PositionLongitude: &strip.Position.Lon,
+			PositionAltitude:  &strip.Position.Altitude,
+			Stand:             &strip.Stand,
+			Capabilities:      &strip.Capabilities,
+			CommunicationType: &strip.CommunicationType,
+			Tobt:              &strip.Eobt,
+			Bay:               bay,
+			Eobt:              &strip.Eobt,
 		}
 		err = db.InsertStrip(context.TODO(), stripParams)
 		if err != nil {
@@ -603,39 +606,39 @@ func (hub *Hub) handleStripUpdateHelper(db *database.Queries, strip euroscope.St
 		bay = shared.GetDepartureBay(strip, &existingStrip)
 
 		// Do not overwrite with an empty stand
-		stand := existingStrip.Stand.String
+		stand := existingStrip.Stand
 		if strip.Stand != "" {
-			stand = strip.Stand
+			stand = &strip.Stand
 		}
 
-		updateStripParams := database.UpdateStripParams{ // create this
+		updateStripParams := database.UpdateStripParams{
 			Callsign:          strip.Callsign,
 			Session:           session,
 			Origin:            strip.Origin,
 			Destination:       strip.Destination,
-			Alternative:       pgtype.Text{Valid: true, String: strip.Alternate}, // Assuming these fields exist
-			Route:             pgtype.Text{Valid: true, String: strip.Route},
-			Remarks:           pgtype.Text{Valid: true, String: strip.Remarks},
-			AssignedSquawk:    pgtype.Text{Valid: true, String: strip.AssignedSquawk},
-			Squawk:            pgtype.Text{Valid: true, String: strip.Squawk},
-			Sid:               pgtype.Text{Valid: true, String: strip.Sid},
-			ClearedAltitude:   pgtype.Int4{Valid: true, Int32: int32(strip.ClearedAltitude)},
-			Heading:           pgtype.Int4{Valid: true, Int32: int32(strip.Heading)},
-			AircraftType:      pgtype.Text{Valid: true, String: strip.AircraftType},
-			Runway:            pgtype.Text{Valid: true, String: strip.Runway},
-			RequestedAltitude: pgtype.Int4{Valid: true, Int32: int32(strip.RequestedAltitude)},
-			Capabilities:      pgtype.Text{Valid: true, String: strip.Capabilities},
-			CommunicationType: pgtype.Text{Valid: true, String: strip.CommunicationType},
-			AircraftCategory:  pgtype.Text{Valid: true, String: strip.AircraftCategory},
-			Stand:             pgtype.Text{Valid: true, String: stand},
-			Cleared:           pgtype.Bool{Valid: true, Bool: strip.Cleared},
-			State:             pgtype.Text{Valid: true, String: strip.GroundState},
-			PositionLatitude:  pgtype.Float8{Valid: true, Float64: strip.Position.Lat},
-			PositionLongitude: pgtype.Float8{Valid: true, Float64: strip.Position.Lon},
-			PositionAltitude:  pgtype.Int4{Valid: true, Int32: int32(strip.Position.Altitude)},
-			Bay:               pgtype.Text{Valid: true, String: bay},
-			Tobt:              pgtype.Text{Valid: true, String: strip.Eobt},
-			Eobt:              pgtype.Text{Valid: true, String: strip.Eobt},
+			Alternative:       &strip.Alternate,
+			Route:             &strip.Route,
+			Remarks:           &strip.Remarks,
+			AssignedSquawk:    &strip.AssignedSquawk,
+			Squawk:            &strip.Squawk,
+			Sid:               &strip.Sid,
+			ClearedAltitude:   &strip.ClearedAltitude,
+			Heading:           &strip.Heading,
+			AircraftType:      &strip.AircraftType,
+			Runway:            &strip.Runway,
+			RequestedAltitude: &strip.RequestedAltitude,
+			Capabilities:      &strip.Capabilities,
+			CommunicationType: &strip.CommunicationType,
+			AircraftCategory:  &strip.AircraftCategory,
+			Stand:             stand,
+			Cleared:           strip.Cleared,
+			State:             &strip.GroundState,
+			PositionLatitude:  &strip.Position.Lat,
+			PositionLongitude: &strip.Position.Lon,
+			PositionAltitude:  &strip.Position.Altitude,
+			Bay:               bay,
+			Tobt:              existingStrip.Tobt,
+			Eobt:              existingStrip.Eobt,
 		}
 		_, err = db.UpdateStrip(context.TODO(), updateStripParams)
 		if err != nil {

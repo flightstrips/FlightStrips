@@ -5,6 +5,7 @@ import (
 	"FlightStrips/internal/shared"
 	"FlightStrips/pkg/events"
 	"FlightStrips/pkg/events/frontend"
+	"FlightStrips/pkg/helpers"
 	"context"
 	"errors"
 	"log"
@@ -183,8 +184,8 @@ func (hub *Hub) sendInitialEvent(client *Client) {
 
 		if controller.Callsign == client.callsign {
 			me = c
-			if controller.Layout.Valid {
-				layout = controller.Layout.String
+			if controller.Layout != nil {
+				layout = *controller.Layout
 			}
 		}
 	}
@@ -215,29 +216,29 @@ func MapStripToFrontendModel(strip *database.Strip) frontend.Strip {
 		Callsign:            strip.Callsign,
 		Origin:              strip.Origin,
 		Destination:         strip.Destination,
-		Alternate:           strip.Alternative.String,
-		Route:               strip.Route.String,
-		Remarks:             strip.Remarks.String,
-		Runway:              strip.Remarks.String,
-		Squawk:              strip.Squawk.String,
-		AssignedSquawk:      strip.AssignedSquawk.String,
-		Sid:                 strip.Sid.String,
-		ClearedAltitude:     int(strip.ClearedAltitude.Int32),
-		RequestedAltitude:   int(strip.RequestedAltitude.Int32),
-		Heading:             int(strip.Heading.Int32),
-		AircraftType:        strip.AircraftType.String,
-		AircraftCategory:    strip.AircraftCategory.String,
-		Stand:               strip.Stand.String,
-		Capabilities:        strip.Capabilities.String,
-		CommunicationType:   strip.CommunicationType.String,
-		Bay:                 strip.Bay.String,
+		Alternate:           helpers.ValueOrDefault(strip.Alternative),
+		Route:               helpers.ValueOrDefault(strip.Route),
+		Remarks:             helpers.ValueOrDefault(strip.Remarks),
+		Runway:              helpers.ValueOrDefault(strip.Remarks),
+		Squawk:              helpers.ValueOrDefault(strip.Squawk),
+		AssignedSquawk:      helpers.ValueOrDefault(strip.AssignedSquawk),
+		Sid:                 helpers.ValueOrDefault(strip.Sid),
+		ClearedAltitude:     helpers.ValueOrDefault(strip.ClearedAltitude),
+		RequestedAltitude:   helpers.ValueOrDefault(strip.RequestedAltitude),
+		Heading:             helpers.ValueOrDefault(strip.Heading),
+		AircraftType:        helpers.ValueOrDefault(strip.AircraftType),
+		AircraftCategory:    helpers.ValueOrDefault(strip.AircraftCategory),
+		Stand:               helpers.ValueOrDefault(strip.Stand),
+		Capabilities:        helpers.ValueOrDefault(strip.Capabilities),
+		CommunicationType:   helpers.ValueOrDefault(strip.CommunicationType),
+		Bay:                 strip.Bay,
 		ReleasePoint:        "",
-		Version:             int(strip.Version),
-		Sequence:            int(strip.Sequence.Int32),
-		Eobt:                strip.Eobt.String,
+		Version:             strip.Version,
+		Sequence:            helpers.ValueOrDefault(strip.Sequence),
+		Eobt:                helpers.ValueOrDefault(strip.Eobt),
 		NextControllers:     strip.NextOwners,
 		PreviousControllers: strip.PreviousOwners,
-		Owner:               strip.Owner.String,
+		Owner:               helpers.ValueOrDefault(strip.Owner),
 	}
 }
 
@@ -315,7 +316,7 @@ func (hub *Hub) SendSquawkEvent(session int32, callsign string, squawk string) {
 	hub.Broadcast(session, event)
 }
 
-func (hub *Hub) SendRequestedAltitudeEvent(session int32, callsign string, altitude int) {
+func (hub *Hub) SendRequestedAltitudeEvent(session int32, callsign string, altitude int32) {
 	event := frontend.RequestedAltitudeEvent{
 		Callsign: callsign,
 		Altitude: altitude,
@@ -323,7 +324,7 @@ func (hub *Hub) SendRequestedAltitudeEvent(session int32, callsign string, altit
 	hub.Broadcast(session, event)
 }
 
-func (hub *Hub) SendClearedAltitudeEvent(session int32, callsign string, altitude int) {
+func (hub *Hub) SendClearedAltitudeEvent(session int32, callsign string, altitude int32) {
 	event := frontend.ClearedAltitudeEvent{
 		Callsign: callsign,
 		Altitude: altitude,
@@ -355,7 +356,7 @@ func (hub *Hub) SendStandEvent(session int32, callsign string, stand string) {
 	hub.Broadcast(session, event)
 }
 
-func (hub *Hub) SendSetHeadingEvent(session int32, callsign string, heading int) {
+func (hub *Hub) SendSetHeadingEvent(session int32, callsign string, heading int32) {
 	event := frontend.SetHeadingEvent{
 		Callsign: callsign,
 		Heading:  heading,

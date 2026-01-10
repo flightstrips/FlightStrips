@@ -109,7 +109,7 @@ type InsertControllerParams struct {
 	Callsign          string
 	Session           int32
 	Position          string
-	Cid               pgtype.Text
+	Cid               *string
 	LastSeenEuroscope pgtype.Timestamp
 	LastSeenFrontend  pgtype.Timestamp
 }
@@ -188,7 +188,7 @@ WHERE callsign = $2 AND session = $3
 `
 
 type SetControllerCidParams struct {
-	Cid      pgtype.Text
+	Cid      *string
 	Callsign string
 	Session  int32
 }
@@ -248,7 +248,7 @@ WHERE position = $2 AND session = $3
 `
 
 type SetControllerLayoutParams struct {
-	Layout   pgtype.Text
+	Layout   *string
 	Position string
 	Session  int32
 }

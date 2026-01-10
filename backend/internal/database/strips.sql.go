@@ -7,8 +7,6 @@ package database
 
 import (
 	"context"
-
-	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const getBay = `-- name: GetBay :one
@@ -22,11 +20,95 @@ type GetBayParams struct {
 	Callsign string
 }
 
-func (q *Queries) GetBay(ctx context.Context, arg GetBayParams) (pgtype.Text, error) {
+func (q *Queries) GetBay(ctx context.Context, arg GetBayParams) (string, error) {
 	row := q.db.QueryRow(ctx, getBay, arg.Session, arg.Callsign)
-	var bay pgtype.Text
+	var bay string
 	err := row.Scan(&bay)
 	return bay, err
+}
+
+const getCdmData = `-- name: GetCdmData :many
+SELECT callsign, tobt, tsat, ttot, ctot, aobt, asat, eobt, cdm_status FROM strips WHERE session = $1
+`
+
+type GetCdmDataRow struct {
+	Callsign  string
+	Tobt      *string
+	Tsat      *string
+	Ttot      *string
+	Ctot      *string
+	Aobt      *string
+	Asat      *string
+	Eobt      *string
+	CdmStatus *string
+}
+
+func (q *Queries) GetCdmData(ctx context.Context, session int32) ([]GetCdmDataRow, error) {
+	rows, err := q.db.Query(ctx, getCdmData, session)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetCdmDataRow
+	for rows.Next() {
+		var i GetCdmDataRow
+		if err := rows.Scan(
+			&i.Callsign,
+			&i.Tobt,
+			&i.Tsat,
+			&i.Ttot,
+			&i.Ctot,
+			&i.Aobt,
+			&i.Asat,
+			&i.Eobt,
+			&i.CdmStatus,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getCdmDataForCallsign = `-- name: GetCdmDataForCallsign :one
+SELECT callsign, tobt, tsat, ttot, ctot, aobt, asat, eobt, cdm_status FROM strips WHERE session = $1 and callsign = $2
+`
+
+type GetCdmDataForCallsignParams struct {
+	Session  int32
+	Callsign string
+}
+
+type GetCdmDataForCallsignRow struct {
+	Callsign  string
+	Tobt      *string
+	Tsat      *string
+	Ttot      *string
+	Ctot      *string
+	Aobt      *string
+	Asat      *string
+	Eobt      *string
+	CdmStatus *string
+}
+
+func (q *Queries) GetCdmDataForCallsign(ctx context.Context, arg GetCdmDataForCallsignParams) (GetCdmDataForCallsignRow, error) {
+	row := q.db.QueryRow(ctx, getCdmDataForCallsign, arg.Session, arg.Callsign)
+	var i GetCdmDataForCallsignRow
+	err := row.Scan(
+		&i.Callsign,
+		&i.Tobt,
+		&i.Tsat,
+		&i.Ttot,
+		&i.Ctot,
+		&i.Aobt,
+		&i.Asat,
+		&i.Eobt,
+		&i.CdmStatus,
+	)
+	return i, err
 }
 
 const getMaxSequenceInBay = `-- name: GetMaxSequenceInBay :one
@@ -105,7 +187,7 @@ func (q *Queries) GetSequence(ctx context.Context, arg GetSequenceParams) (int32
 }
 
 const getStrip = `-- name: GetStrip :one
-SELECT id, version, callsign, session, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay, position_latitude, position_longitude, position_altitude, tobt, tsat, ttot, ctot, aobt, asat, eobt, next_owners, previous_owners
+SELECT id, version, callsign, session, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay, position_latitude, position_longitude, position_altitude, tobt, tsat, ttot, ctot, aobt, asat, eobt, next_owners, previous_owners, cdm_status
 FROM strips
 WHERE callsign = $1 AND session = $2
 `
@@ -157,6 +239,7 @@ func (q *Queries) GetStrip(ctx context.Context, arg GetStripParams) (Strip, erro
 		&i.Eobt,
 		&i.NextOwners,
 		&i.PreviousOwners,
+		&i.CdmStatus,
 	)
 	return i, err
 }
@@ -175,31 +258,31 @@ type InsertStripParams struct {
 	Session           int32
 	Origin            string
 	Destination       string
-	Alternative       pgtype.Text
-	Route             pgtype.Text
-	Remarks           pgtype.Text
-	AssignedSquawk    pgtype.Text
-	Squawk            pgtype.Text
-	Sid               pgtype.Text
-	ClearedAltitude   pgtype.Int4
-	Heading           pgtype.Int4
-	AircraftType      pgtype.Text
-	Runway            pgtype.Text
-	RequestedAltitude pgtype.Int4
-	Capabilities      pgtype.Text
-	CommunicationType pgtype.Text
-	AircraftCategory  pgtype.Text
-	Stand             pgtype.Text
-	Sequence          pgtype.Int4
-	State             pgtype.Text
-	Cleared           pgtype.Bool
-	Owner             pgtype.Text
-	Bay               pgtype.Text
-	PositionLatitude  pgtype.Float8
-	PositionLongitude pgtype.Float8
-	PositionAltitude  pgtype.Int4
-	Tobt              pgtype.Text
-	Eobt              pgtype.Text
+	Alternative       *string
+	Route             *string
+	Remarks           *string
+	AssignedSquawk    *string
+	Squawk            *string
+	Sid               *string
+	ClearedAltitude   *int32
+	Heading           *int32
+	AircraftType      *string
+	Runway            *string
+	RequestedAltitude *int32
+	Capabilities      *string
+	CommunicationType *string
+	AircraftCategory  *string
+	Stand             *string
+	Sequence          *int32
+	State             *string
+	Cleared           bool
+	Owner             *string
+	Bay               string
+	PositionLatitude  *float64
+	PositionLongitude *float64
+	PositionAltitude  *int32
+	Tobt              *string
+	Eobt              *string
 }
 
 func (q *Queries) InsertStrip(ctx context.Context, arg InsertStripParams) error {
@@ -251,7 +334,7 @@ type ListStripSequencesParams struct {
 
 type ListStripSequencesRow struct {
 	Callsign string
-	Sequence pgtype.Int4
+	Sequence *int32
 }
 
 func (q *Queries) ListStripSequences(ctx context.Context, arg ListStripSequencesParams) ([]ListStripSequencesRow, error) {
@@ -275,7 +358,7 @@ func (q *Queries) ListStripSequences(ctx context.Context, arg ListStripSequences
 }
 
 const listStrips = `-- name: ListStrips :many
-SELECT id, version, callsign, session, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay, position_latitude, position_longitude, position_altitude, tobt, tsat, ttot, ctot, aobt, asat, eobt, next_owners, previous_owners
+SELECT id, version, callsign, session, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay, position_latitude, position_longitude, position_altitude, tobt, tsat, ttot, ctot, aobt, asat, eobt, next_owners, previous_owners, cdm_status
 FROM strips
 WHERE session = $1
 ORDER BY callsign
@@ -329,6 +412,7 @@ func (q *Queries) ListStrips(ctx context.Context, session int32) ([]Strip, error
 			&i.Eobt,
 			&i.NextOwners,
 			&i.PreviousOwners,
+			&i.CdmStatus,
 		); err != nil {
 			return nil, err
 		}
@@ -341,7 +425,7 @@ func (q *Queries) ListStrips(ctx context.Context, session int32) ([]Strip, error
 }
 
 const listStripsByOrigin = `-- name: ListStripsByOrigin :many
-SELECT id, version, callsign, session, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay, position_latitude, position_longitude, position_altitude, tobt, tsat, ttot, ctot, aobt, asat, eobt, next_owners, previous_owners
+SELECT id, version, callsign, session, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay, position_latitude, position_longitude, position_altitude, tobt, tsat, ttot, ctot, aobt, asat, eobt, next_owners, previous_owners, cdm_status
 FROM strips
 WHERE origin = $1 AND session = $2
 ORDER BY callsign
@@ -400,6 +484,7 @@ func (q *Queries) ListStripsByOrigin(ctx context.Context, arg ListStripsByOrigin
 			&i.Eobt,
 			&i.NextOwners,
 			&i.PreviousOwners,
+			&i.CdmStatus,
 		); err != nil {
 			return nil, err
 		}
@@ -449,6 +534,24 @@ type RemoveStripByIDParams struct {
 func (q *Queries) RemoveStripByID(ctx context.Context, arg RemoveStripByIDParams) error {
 	_, err := q.db.Exec(ctx, removeStripByID, arg.Callsign, arg.Session)
 	return err
+}
+
+const setCdmStatus = `-- name: SetCdmStatus :execrows
+UPDATE strips SET cdm_status = $3 WHERE session = $1 AND callsign = $2
+`
+
+type SetCdmStatusParams struct {
+	Session   int32
+	Callsign  string
+	CdmStatus *string
+}
+
+func (q *Queries) SetCdmStatus(ctx context.Context, arg SetCdmStatusParams) (int64, error) {
+	result, err := q.db.Exec(ctx, setCdmStatus, arg.Session, arg.Callsign, arg.CdmStatus)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const setNextAndPreviousOwners = `-- name: SetNextAndPreviousOwners :exec
@@ -510,7 +613,7 @@ WHERE callsign = $2 AND session = $3 AND version = $4
 `
 
 type SetStripOwnerParams struct {
-	Owner    pgtype.Text
+	Owner    *string
 	Callsign string
 	Session  int32
 	Version  int32
@@ -522,6 +625,41 @@ func (q *Queries) SetStripOwner(ctx context.Context, arg SetStripOwnerParams) (i
 		arg.Callsign,
 		arg.Session,
 		arg.Version,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const updateCdmData = `-- name: UpdateCdmData :execrows
+UPDATE strips SET tobt = $3, tsat = $4, ttot = $5, ctot = $6, aobt = $7, eobt = $8, cdm_status = $9
+              WHERE session = $1 AND callsign = $2
+`
+
+type UpdateCdmDataParams struct {
+	Session   int32
+	Callsign  string
+	Tobt      *string
+	Tsat      *string
+	Ttot      *string
+	Ctot      *string
+	Aobt      *string
+	Eobt      *string
+	CdmStatus *string
+}
+
+func (q *Queries) UpdateCdmData(ctx context.Context, arg UpdateCdmDataParams) (int64, error) {
+	result, err := q.db.Exec(ctx, updateCdmData,
+		arg.Session,
+		arg.Callsign,
+		arg.Tobt,
+		arg.Tsat,
+		arg.Ttot,
+		arg.Ctot,
+		arg.Aobt,
+		arg.Eobt,
+		arg.CdmStatus,
 	)
 	if err != nil {
 		return 0, err
@@ -543,31 +681,31 @@ type UpdateStripParams struct {
 	Session           int32
 	Origin            string
 	Destination       string
-	Alternative       pgtype.Text
-	Route             pgtype.Text
-	Remarks           pgtype.Text
-	AssignedSquawk    pgtype.Text
-	Squawk            pgtype.Text
-	Sid               pgtype.Text
-	ClearedAltitude   pgtype.Int4
-	Heading           pgtype.Int4
-	AircraftType      pgtype.Text
-	Runway            pgtype.Text
-	RequestedAltitude pgtype.Int4
-	Capabilities      pgtype.Text
-	CommunicationType pgtype.Text
-	AircraftCategory  pgtype.Text
-	Stand             pgtype.Text
-	Sequence          pgtype.Int4
-	State             pgtype.Text
-	Cleared           pgtype.Bool
-	Owner             pgtype.Text
-	Bay               pgtype.Text
-	PositionLatitude  pgtype.Float8
-	PositionLongitude pgtype.Float8
-	PositionAltitude  pgtype.Int4
-	Tobt              pgtype.Text
-	Eobt              pgtype.Text
+	Alternative       *string
+	Route             *string
+	Remarks           *string
+	AssignedSquawk    *string
+	Squawk            *string
+	Sid               *string
+	ClearedAltitude   *int32
+	Heading           *int32
+	AircraftType      *string
+	Runway            *string
+	RequestedAltitude *int32
+	Capabilities      *string
+	CommunicationType *string
+	AircraftCategory  *string
+	Stand             *string
+	Sequence          *int32
+	State             *string
+	Cleared           bool
+	Owner             *string
+	Bay               string
+	PositionLatitude  *float64
+	PositionLongitude *float64
+	PositionAltitude  *int32
+	Tobt              *string
+	Eobt              *string
 }
 
 func (q *Queries) UpdateStrip(ctx context.Context, arg UpdateStripParams) (int64, error) {
@@ -618,13 +756,13 @@ WHERE callsign = $5 AND session = $6 AND (version = $7 OR $7 IS NULL)
 `
 
 type UpdateStripAircraftPositionByIDParams struct {
-	PositionLatitude  pgtype.Float8
-	PositionLongitude pgtype.Float8
-	PositionAltitude  pgtype.Int4
-	Bay               pgtype.Text
+	PositionLatitude  *float64
+	PositionLongitude *float64
+	PositionAltitude  *int32
+	Bay               string
 	Callsign          string
 	Session           int32
-	Version           pgtype.Int4
+	Version           *int32
 }
 
 func (q *Queries) UpdateStripAircraftPositionByID(ctx context.Context, arg UpdateStripAircraftPositionByIDParams) (int64, error) {
@@ -651,10 +789,10 @@ WHERE callsign = $2 AND session = $3 AND (version = $4 OR $4 IS NULL)
 `
 
 type UpdateStripAssignedSquawkByIDParams struct {
-	AssignedSquawk pgtype.Text
+	AssignedSquawk *string
 	Callsign       string
 	Session        int32
-	Version        pgtype.Int4
+	Version        *int32
 }
 
 func (q *Queries) UpdateStripAssignedSquawkByID(ctx context.Context, arg UpdateStripAssignedSquawkByIDParams) (int64, error) {
@@ -678,10 +816,10 @@ WHERE callsign = $2 AND session = $3 AND (version = $4 OR $4 IS NULL)
 `
 
 type UpdateStripClearedAltitudeByIDParams struct {
-	ClearedAltitude pgtype.Int4
+	ClearedAltitude *int32
 	Callsign        string
 	Session         int32
-	Version         pgtype.Int4
+	Version         *int32
 }
 
 func (q *Queries) UpdateStripClearedAltitudeByID(ctx context.Context, arg UpdateStripClearedAltitudeByIDParams) (int64, error) {
@@ -706,11 +844,11 @@ WHERE callsign = $3 AND session = $4 AND (version = $5 OR $5 IS NULL)
 `
 
 type UpdateStripClearedFlagByIDParams struct {
-	Cleared  pgtype.Bool
-	Bay      pgtype.Text
+	Cleared  bool
+	Bay      string
 	Callsign string
 	Session  int32
-	Version  pgtype.Int4
+	Version  *int32
 }
 
 func (q *Queries) UpdateStripClearedFlagByID(ctx context.Context, arg UpdateStripClearedFlagByIDParams) (int64, error) {
@@ -735,10 +873,10 @@ WHERE callsign = $2 AND session = $3 AND (version = $4 OR $4 IS NULL)
 `
 
 type UpdateStripCommunicationTypeByIDParams struct {
-	CommunicationType pgtype.Text
+	CommunicationType *string
 	Callsign          string
 	Session           int32
-	Version           pgtype.Int4
+	Version           *int32
 }
 
 func (q *Queries) UpdateStripCommunicationTypeByID(ctx context.Context, arg UpdateStripCommunicationTypeByIDParams) (int64, error) {
@@ -763,11 +901,11 @@ WHERE callsign = $3 AND session = $4 AND (version = $5 OR $5 IS NULL)
 `
 
 type UpdateStripGroundStateByIDParams struct {
-	State    pgtype.Text
-	Bay      pgtype.Text
+	State    *string
+	Bay      string
 	Callsign string
 	Session  int32
-	Version  pgtype.Int4
+	Version  *int32
 }
 
 func (q *Queries) UpdateStripGroundStateByID(ctx context.Context, arg UpdateStripGroundStateByIDParams) (int64, error) {
@@ -792,10 +930,10 @@ WHERE callsign = $2 AND session = $3 AND (version = $4 OR $4 IS NULL)
 `
 
 type UpdateStripHeadingByIDParams struct {
-	Heading  pgtype.Int4
+	Heading  *int32
 	Callsign string
 	Session  int32
-	Version  pgtype.Int4
+	Version  *int32
 }
 
 func (q *Queries) UpdateStripHeadingByID(ctx context.Context, arg UpdateStripHeadingByIDParams) (int64, error) {
@@ -819,10 +957,10 @@ WHERE callsign = $2 AND session = $3 AND (version = $4 OR $4 IS NULL)
 `
 
 type UpdateStripRequestedAltitudeByIDParams struct {
-	RequestedAltitude pgtype.Int4
+	RequestedAltitude *int32
 	Callsign          string
 	Session           int32
-	Version           pgtype.Int4
+	Version           *int32
 }
 
 func (q *Queries) UpdateStripRequestedAltitudeByID(ctx context.Context, arg UpdateStripRequestedAltitudeByIDParams) (int64, error) {
@@ -886,10 +1024,10 @@ WHERE callsign = $2 AND session = $3 AND (version = $4 OR $4 IS NULL)
 `
 
 type UpdateStripSquawkByIDParams struct {
-	Squawk   pgtype.Text
+	Squawk   *string
 	Callsign string
 	Session  int32
-	Version  pgtype.Int4
+	Version  *int32
 }
 
 func (q *Queries) UpdateStripSquawkByID(ctx context.Context, arg UpdateStripSquawkByIDParams) (int64, error) {
@@ -913,10 +1051,10 @@ WHERE callsign = $2 AND session = $3 AND (version = $4 OR $4 IS NULL)
 `
 
 type UpdateStripStandByIDParams struct {
-	Stand    pgtype.Text
+	Stand    *string
 	Callsign string
 	Session  int32
-	Version  pgtype.Int4
+	Version  *int32
 }
 
 func (q *Queries) UpdateStripStandByID(ctx context.Context, arg UpdateStripStandByIDParams) (int64, error) {

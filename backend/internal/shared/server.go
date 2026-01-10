@@ -20,6 +20,7 @@ type Server interface {
 	GetEuroscopeHub() EuroscopeHub
 	GetFrontendHub() FrontendHub
 	GetOrCreateSession(airport string, name string) (Session, error)
+	GetCdmService() CdmService
 
 	// TODO move to another service
 	UpdateSectors(sessionId int32) error

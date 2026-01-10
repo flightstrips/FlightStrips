@@ -30,3 +30,6 @@ WHERE NOT EXISTS (SELECT 1 FROM controllers WHERE last_seen_euroscope > @expired
 
 -- name: UpdateActiveRunways :exec
 UPDATE sessions SET active_runways = $2 WHERE id = $1;
+
+-- name: GetSessions :many
+SELECT * FROM sessions;

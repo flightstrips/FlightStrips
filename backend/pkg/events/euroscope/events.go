@@ -35,11 +35,11 @@ const (
 )
 
 const (
-	GroundStateUnknown       = ""
-	GroundStateStartup       = "ST-UP"
-	GroundStatePush            = "PUSH"
-	GroundStateTaxi   = "TAXI"
-	GroundStateDepart = "DEPA"
+	GroundStateUnknown = ""
+	GroundStateStartup = "ST-UP"
+	GroundStatePush    = "PUSH"
+	GroundStateTaxi    = "TAXI"
+	GroundStateDepart  = "DEPA"
 )
 
 type OutgoingMessage interface {
@@ -70,7 +70,7 @@ type LoginEvent struct {
 	Airport    string    `json:"airport"`
 	Position   string    `json:"position"`
 	Callsign   string    `json:"callsign"`
-	Range      int       `json:"range"`
+	Range      int32     `json:"range"`
 }
 
 type ControllerOnlineEvent struct {
@@ -97,15 +97,15 @@ type Strip struct {
 	Sid               string `json:"sid"`
 	Cleared           bool   `json:"cleared"`
 	GroundState       string `json:"ground_state"`
-	ClearedAltitude   int    `json:"cleared_altitude"`
-	RequestedAltitude int    `json:"requested_altitude"`
-	Heading           int    `json:"heading"`
+	ClearedAltitude   int32  `json:"cleared_altitude"`
+	RequestedAltitude int32  `json:"requested_altitude"`
+	Heading           int32  `json:"heading"`
 	AircraftType      string `json:"aircraft_type"`
 	AircraftCategory  string `json:"aircraft_category"`
 	Position          struct {
 		Lat      float64 `json:"lat"`
 		Lon      float64 `json:"lon"`
-		Altitude int     `json:"altitude"`
+		Altitude int32   `json:"altitude"`
 	} `json:"position"`
 	Stand             string `json:"stand"`
 	Capabilities      string `json:"capabilities"`
@@ -137,13 +137,13 @@ type SquawkEvent struct {
 
 type ClearedAltitudeEvent struct {
 	Type     EventType `json:"type"`
-	Altitude int       `json:"altitude"`
+	Altitude int32     `json:"altitude"`
 	Callsign string    `json:"callsign"`
 }
 
 type RequestedAltitudeEvent struct {
 	Type     EventType `json:"type"`
-	Altitude int       `json:"altitude"`
+	Altitude int32     `json:"altitude"`
 	Callsign string    `json:"callsign"`
 }
 
@@ -176,7 +176,7 @@ type AircraftPositionUpdateEvent struct {
 type HeadingEvent struct {
 	Type     EventType `json:"type"`
 	Callsign string    `json:"callsign"`
-	Heading  int       `json:"heading"`
+	Heading  int32     `json:"heading"`
 }
 
 type AircraftDisconnectEvent struct {
@@ -196,7 +196,7 @@ type StripUpdateEvent struct {
 }
 
 type RunwayEvent struct {
-	Type EventType `json:"type"`
+	Type    EventType `json:"type"`
 	Runways []struct {
 		Arrival   bool   `json:"arrival"`
 		Departure bool   `json:"departure"`

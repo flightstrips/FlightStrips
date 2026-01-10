@@ -5,8 +5,6 @@ import (
 	"FlightStrips/internal/database"
 	"context"
 	"fmt"
-
-	"github.com/jackc/pgx/v5/pgtype"
 )
 
 func (s *Server) UpdateLayouts(sessionId int32) error {
@@ -41,7 +39,7 @@ func (s *Server) UpdateLayouts(sessionId int32) error {
 			continue
 		}
 		_, err = db.SetControllerLayout(context.Background(), database.SetControllerLayoutParams{
-			Layout:   pgtype.Text{Valid: true, String: *layout},
+			Layout:   layout,
 			Position: position,
 			Session:  sessionId,
 		})

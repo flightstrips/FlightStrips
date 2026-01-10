@@ -51,6 +51,10 @@ const (
 
 	Broadcast   EventType = "broadcast"
 	SendMessage EventType = "send_message"
+
+	CdmWait  EventType = "cdm_wait"
+	CdmData  EventType = "cdm_data"
+	CdmReady EventType = "cdm_ready"
 )
 
 type OutgoingMessage interface {
@@ -74,9 +78,9 @@ type Strip struct {
 	Squawk              string   `json:"squawk"`
 	AssignedSquawk      string   `json:"assigned_squawk"`
 	Sid                 string   `json:"sid"`
-	ClearedAltitude     int      `json:"cleared_altitude"`
-	RequestedAltitude   int      `json:"requested_altitude"`
-	Heading             int      `json:"heading"`
+	ClearedAltitude     int32    `json:"cleared_altitude"`
+	RequestedAltitude   int32    `json:"requested_altitude"`
+	Heading             int32    `json:"heading"`
 	AircraftType        string   `json:"aircraft_type"`
 	AircraftCategory    string   `json:"aircraft_category"`
 	Stand               string   `json:"stand"`
@@ -86,11 +90,14 @@ type Strip struct {
 	Eldt                string   `json:"eldt"`
 	Bay                 string   `json:"bay"`
 	ReleasePoint        string   `json:"release_point"`
-	Version             int      `json:"version"`
-	Sequence            int      `json:"sequence"`
+	Version             int32    `json:"version"`
+	Sequence            int32    `json:"sequence"`
 	NextControllers     []string `json:"next_controllers"`
 	PreviousControllers []string `json:"previous_controllers"`
 	Owner               string   `json:"owner"`
+	Tobt                string   `json:"tobt"`
+	Tsat                string   `json:"tsat"`
+	Ctot                string   `json:"ctot"`
 }
 
 type Controller struct {
@@ -198,7 +205,7 @@ func (s SquawkEvent) GetType() EventType {
 
 type RequestedAltitudeEvent struct {
 	Callsign string `json:"callsign"`
-	Altitude int    `json:"altitude"`
+	Altitude int32  `json:"altitude"`
 }
 
 func (r RequestedAltitudeEvent) Marshal() ([]byte, error) {
@@ -211,7 +218,7 @@ func (r RequestedAltitudeEvent) GetType() EventType {
 
 type ClearedAltitudeEvent struct {
 	Callsign string `json:"callsign"`
-	Altitude int    `json:"altitude"`
+	Altitude int32  `json:"altitude"`
 }
 
 func (r ClearedAltitudeEvent) Marshal() ([]byte, error) {
@@ -273,7 +280,7 @@ func (s StandEvent) GetType() EventType {
 
 type SetHeadingEvent struct {
 	Callsign string `json:"callsign"`
-	Heading  int    `json:"heading"`
+	Heading  int32  `json:"heading"`
 }
 
 func (s SetHeadingEvent) Marshal() ([]byte, error) {
@@ -314,8 +321,8 @@ type UpdateStripDataEvent struct {
 	Sid      *string   `json:"sid"`
 	Eobt     *string   `json:"eobt"`
 	Route    *string   `json:"route"`
-	Heading  *int      `json:"heading"`
-	Altitude *int      `json:"altitude"`
+	Heading  *int32    `json:"heading"`
+	Altitude *int32    `json:"altitude"`
 	Stand    *string   `json:"stand"`
 }
 
@@ -407,7 +414,7 @@ type OwnersUpdateEvent struct {
 }
 
 func (o OwnersUpdateEvent) Marshal() ([]byte, error) {
-	return json.Marshal(o)
+	return marshall(o)
 }
 
 func (o OwnersUpdateEvent) GetType() EventType {
@@ -420,7 +427,7 @@ type UpdateOrderEvent struct {
 }
 
 func (o UpdateOrderEvent) Marshal() ([]byte, error) {
-	return json.Marshal(o)
+	return marshall(o)
 }
 
 func (o UpdateOrderEvent) GetType() EventType {
@@ -432,7 +439,7 @@ type LayoutUpdateEvent struct {
 }
 
 func (l LayoutUpdateEvent) Marshal() ([]byte, error) {
-	return json.Marshal(l)
+	return marshall(l)
 }
 
 func (l LayoutUpdateEvent) GetType() EventType {
@@ -445,7 +452,7 @@ type BroadcastEvent struct {
 }
 
 func (l BroadcastEvent) Marshal() ([]byte, error) {
-	return json.Marshal(l)
+	return marshall(l)
 }
 
 func (l BroadcastEvent) GetType() EventType {
@@ -455,4 +462,36 @@ func (l BroadcastEvent) GetType() EventType {
 type SendMessageEvent struct {
 	Message string  `json:"message"`
 	To      *string `json:"to"`
+}
+
+type CdmWaitEvent struct {
+	Callsign string `json:"callsign"`
+}
+
+func (c CdmWaitEvent) Marshal() ([]byte, error) {
+	return marshall(c)
+}
+
+func (c CdmWaitEvent) GetType() EventType {
+	return CdmWait
+}
+
+type CdmDataEvent struct {
+	Callsign string `json:"callsign"`
+	Eobt     string `json:"eobt"`
+	Tobt     string `json:"tobt"`
+	Tsat     string `json:"tsat"`
+	Ctot     string `json:"ctot"`
+}
+
+func (c CdmDataEvent) Marshal() ([]byte, error) {
+	return marshall(c)
+}
+
+func (c CdmDataEvent) GetType() EventType {
+	return CdmData
+}
+
+type CdmReadyEvent struct {
+	Callsign string `json:"callsign"`
 }

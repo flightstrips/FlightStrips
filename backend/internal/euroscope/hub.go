@@ -184,12 +184,13 @@ func (hub *Hub) handleLogin(msg []byte, user shared.AuthenticatedUser) (event eu
 	params := database.GetControllerParams{Callsign: event.Callsign, Session: session.Id}
 	controller, err := db.GetController(context.Background(), params)
 
+	cid := user.GetCid()
 	if errors.Is(err, pgx.ErrNoRows) {
 		params := database.InsertControllerParams{
 			Callsign:          event.Callsign,
 			Session:           session.Id,
 			Position:          event.Position,
-			Cid:               pgtype.Text{Valid: true, String: user.GetCid()},
+			Cid:               &cid,
 			LastSeenEuroscope: pgtype.Timestamp{Valid: true, Time: time.Now().UTC()},
 		}
 
@@ -206,7 +207,7 @@ func (hub *Hub) handleLogin(msg []byte, user shared.AuthenticatedUser) (event eu
 		return event, session.Id, err
 	} else {
 		// Set CID
-		params := database.SetControllerCidParams{Session: session.Id, Cid: pgtype.Text{Valid: true, String: user.GetCid()}, Callsign: event.Callsign}
+		params := database.SetControllerCidParams{Session: session.Id, Cid: &cid, Callsign: event.Callsign}
 		db.SetControllerCid(context.Background(), params)
 	}
 
@@ -226,7 +227,7 @@ func (hub *Hub) OnUnregister(client *Client) {
 	server := hub.server
 	db := database.New(server.GetDatabasePool())
 	params := database.SetControllerCidParams{
-		Cid:      pgtype.Text{Valid: false},
+		Cid:      nil,
 		Callsign: client.callsign,
 		Session:  client.session,
 	}
@@ -333,7 +334,7 @@ func (hub *Hub) SendRunway(session int32, cid string, callsign string, runway st
 	hub.Send(session, cid, event)
 }
 
-func (hub *Hub) SendClearedAltitude(session int32, cid string, callsign string, altitude int) {
+func (hub *Hub) SendClearedAltitude(session int32, cid string, callsign string, altitude int32) {
 	event := euroscope.ClearedAltitudeEvent{
 		Callsign: callsign,
 		Altitude: altitude,
@@ -342,7 +343,7 @@ func (hub *Hub) SendClearedAltitude(session int32, cid string, callsign string, 
 	hub.Send(session, cid, event)
 }
 
-func (hub *Hub) SendHeading(session int32, cid string, callsign string, heading int) {
+func (hub *Hub) SendHeading(session int32, cid string, callsign string, heading int32) {
 	event := euroscope.HeadingEvent{
 		Callsign: callsign,
 		Heading:  heading,

@@ -7,6 +7,7 @@ sql:
       go:
         package: "database"
         out: "internal/database"
+        emit_pointers_for_null_types: true
         sql_package: "pgx/v5"
         overrides:
           - column: "strips.next_owners"

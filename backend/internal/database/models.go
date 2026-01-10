@@ -25,10 +25,10 @@ type Controller struct {
 	Session           int32
 	Callsign          string
 	Position          string
-	Cid               pgtype.Text
+	Cid               *string
 	LastSeenEuroscope pgtype.Timestamp
 	LastSeenFrontend  pgtype.Timestamp
-	Layout            pgtype.Text
+	Layout            *string
 }
 
 type Coordination struct {
@@ -62,38 +62,39 @@ type Strip struct {
 	Session           int32
 	Origin            string
 	Destination       string
-	Alternative       pgtype.Text
-	Route             pgtype.Text
-	Remarks           pgtype.Text
-	AssignedSquawk    pgtype.Text
-	Squawk            pgtype.Text
-	Sid               pgtype.Text
-	ClearedAltitude   pgtype.Int4
-	Heading           pgtype.Int4
-	AircraftType      pgtype.Text
-	Runway            pgtype.Text
-	RequestedAltitude pgtype.Int4
-	Capabilities      pgtype.Text
-	CommunicationType pgtype.Text
-	AircraftCategory  pgtype.Text
-	Stand             pgtype.Text
-	Sequence          pgtype.Int4
-	State             pgtype.Text
-	Cleared           pgtype.Bool
-	Owner             pgtype.Text
-	Bay               pgtype.Text
-	PositionLatitude  pgtype.Float8
-	PositionLongitude pgtype.Float8
-	PositionAltitude  pgtype.Int4
-	Tobt              pgtype.Text
-	Tsat              pgtype.Text
-	Ttot              pgtype.Text
-	Ctot              pgtype.Text
-	Aobt              pgtype.Text
-	Asat              pgtype.Text
-	Eobt              pgtype.Text
+	Alternative       *string
+	Route             *string
+	Remarks           *string
+	AssignedSquawk    *string
+	Squawk            *string
+	Sid               *string
+	ClearedAltitude   *int32
+	Heading           *int32
+	AircraftType      *string
+	Runway            *string
+	RequestedAltitude *int32
+	Capabilities      *string
+	CommunicationType *string
+	AircraftCategory  *string
+	Stand             *string
+	Sequence          *int32
+	State             *string
+	Cleared           bool
+	Owner             *string
+	Bay               string
+	PositionLatitude  *float64
+	PositionLongitude *float64
+	PositionAltitude  *int32
+	Tobt              *string
+	Tsat              *string
+	Ttot              *string
+	Ctot              *string
+	Aobt              *string
+	Asat              *string
+	Eobt              *string
 	NextOwners        []string
 	PreviousOwners    []string
+	CdmStatus         *string
 }
 
 type Version struct {

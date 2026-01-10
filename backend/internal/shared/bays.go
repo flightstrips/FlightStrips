@@ -44,8 +44,8 @@ func GetDepartureBay(strip euroscope.Strip, existing *database.Strip) string {
 	// TODO handle arrivals in this method. Maybe split into two but the entry point should be in this file and the same
 	// for both arrivals and departures.
 	if strip.Origin != "EKCH" {
-		if existing != nil {
-			return existing.Bay.String
+		if existing != nil && existing.Bay != "" {
+			return existing.Bay
 		}
 		return BAY_HIDDEN
 	}
@@ -54,8 +54,8 @@ func GetDepartureBay(strip euroscope.Strip, existing *database.Strip) string {
 		return BAY_HIDDEN
 	}
 
-	if existing != nil && existing.Bay.Valid && strip.GroundState == existing.State.String && existing.Bay.String != "" {
-		return existing.Bay.String
+	if existing != nil && existing.Bay != "" && existing.State != nil && strip.GroundState == *existing.State {
+		return existing.Bay
 	}
 
 	if strip.GroundState == euroscope.GroundStatePush {
@@ -94,7 +94,7 @@ func GetDepartureBayFromGroundState(state string, existing database.Strip) strin
 		return BAY_DEPART
 	}
 
-	return existing.Bay.String
+	return existing.Bay
 }
 
 func GetDepartureBayFromPosition(lat, lon float64, alt int64, existing database.Strip) string {
@@ -102,19 +102,21 @@ func GetDepartureBayFromPosition(lat, lon float64, alt int64, existing database.
 		return BAY_HIDDEN
 	}
 
+	bay := existing.Bay
+
 	if existing.Origin != "EKCH" {
-		return existing.Bay.String
+		return bay
 	}
 
-	if !existing.Bay.Valid || existing.Bay.String != BAY_DEPART || existing.State.String != BAY_AIRBORNE {
-		return existing.Bay.String
+	if bay != BAY_DEPART || existing.State == nil || *existing.State != BAY_AIRBORNE {
+		return bay
 	}
 
 	if alt > AirportElevation+AltitudeErrorMargin {
 		return BAY_AIRBORNE
 	}
 
-	return existing.Bay.String
+	return bay
 }
 
 func GetGroundState(bay string) string {

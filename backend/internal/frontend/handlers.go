@@ -372,3 +372,13 @@ func handleSendMessage(client *Client, message Message) error {
 	}
 	return nil
 }
+
+func handleCdmReady(client *Client, message Message) error {
+	var event frontend.CdmReadyEvent
+	if err := message.JsonUnmarshal(&event); err != nil {
+		return err
+	}
+
+	cdmService := client.hub.server.GetCdmService()
+	return cdmService.RequestBetterTobt(context.Background(), client.session, event.Callsign)
+}

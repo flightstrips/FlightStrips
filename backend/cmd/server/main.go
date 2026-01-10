@@ -1,6 +1,7 @@
 package main
 
 import (
+	"FlightStrips/internal/cdm"
 	"FlightStrips/internal/config"
 	"FlightStrips/internal/database"
 	"FlightStrips/internal/euroscope"
@@ -55,20 +56,27 @@ func main() {
 		log.Fatal(err)
 	}
 
+	cdmKey := os.Getenv("CDM_KEY")
+	cdmClient := cdm.NewClient(cdm.WithAPIKey(cdmKey))
+
 	stripService := services.NewStripService(dbpool)
+	cdmService := cdm.NewCdmService(cdmClient, dbpool)
 
 	frontendHub := frontend.NewHub(stripService)
 	euroscopeHub := euroscope.NewHub(stripService)
 
 	stripService.SetFrontendHub(frontendHub)
+	cdmService.SetFrontendHub(frontendHub)
 
-	fsServer := server.NewServer(dbpool, euroscopeHub, frontendHub)
+	fsServer := server.NewServer(dbpool, euroscopeHub, frontendHub, cdmService)
 
 	frontendHub.SetServer(fsServer)
 	euroscopeHub.SetServer(fsServer)
 
 	frontendUpgrader := websocket.NewConnectionUpgrader[pkgFrontend.EventType, *frontend.Client](frontendHub, authenticationService)
 	euroscopeUpgrader := websocket.NewConnectionUpgrader[pkgEuroscope.EventType, *euroscope.Client](euroscopeHub, authenticationService)
+
+	go cdmService.Start(ctx)
 
 	// TODO remove
 	db := database.New(dbpool)

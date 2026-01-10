@@ -17,6 +17,7 @@ type Client struct {
 	baseURL    string
 	apiKey     string
 	httpClient *http.Client
+	isValid    bool
 }
 
 type Option func(*Client)
@@ -24,6 +25,7 @@ type Option func(*Client)
 func WithAPIKey(key string) Option {
 	return func(c *Client) {
 		c.apiKey = key
+		c.isValid = key != ""
 	}
 }
 

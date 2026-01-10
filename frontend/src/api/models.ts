@@ -16,6 +16,8 @@ export enum EventType {
   FrontendOwnersUpdate = "owners_update",
   FrontendLayoutUpdate = "layout_update",
   FrontendBroadcast = "broadcast",
+  FrontendCdmData = "cdm_data",
+  FrontendCdmWait = "cdm_wait",
 }
 
 export enum ActionType {
@@ -25,6 +27,7 @@ export enum ActionType {
   FrontendUpdateStripData = "update_strip_data",
   FrontendUpdateOrder = "update_order",
   FrontendSendMessage = "send_message",
+  FrontendCdmReady = "cdm_ready"
 }
 
 export enum Bay {
@@ -66,6 +69,9 @@ export interface FrontendStrip {
   capabilities: string;
   communication_type: CommunicationType;
   eobt: string;
+  tobt: string;
+  tsat: string;
+  ctot: string;
   eldt: string;
   bay: string;
   release_point: string;
@@ -113,6 +119,9 @@ export interface FrontendStripUpdateEvent {
   capabilities: string;
   communication_type: CommunicationType;
   eobt: string;
+  tobt: string;
+  tsat: string;
+  ctot: string;
   eldt: string;
   bay: string;
   release_point: string;
@@ -226,6 +235,20 @@ export interface FrontendBroadcastEvent {
   from: string;
 }
 
+export interface FrontendCdmDataEvent {
+  type: EventType.FrontendCdmData;
+  callsign: string;
+  eobt: string;
+  tobt: string;
+  tsat: string;
+  ctot: string;
+}
+
+export interface FrontendCdmWaitEvent {
+  type: EventType.FrontendCdmWait;
+  callsign: string;
+}
+
 // Union type for all events that can be received
 export type WebSocketEvent =
   | FrontendInitialEvent
@@ -244,7 +267,9 @@ export type WebSocketEvent =
   | FrontendCommunicationTypeEvent
   | FrontendOwnersUpdateEvent
   | FrontendLayoutUpdateEvent
-  | FrontendBroadcastEvent;
+  | FrontendBroadcastEvent
+  | FrontendCdmDataEvent
+  | FrontendCdmWaitEvent;
 
 export interface FrontendMoveEvent {
   type: ActionType.FrontendMove;
@@ -280,5 +305,10 @@ export interface FrontendSendMessageEvent {
   to: string | null
 }
 
+export interface FrontendCdmReadyEvent {
+  type: ActionType.FrontendCdmReady;
+  callsign: string;
+}
+
 // Union type for all events that can be sent
-export type FrontendSendEvent = FrontendAuthenticationEvent | FrontendMoveEvent | FrontendGenerateSquawkEvent | FrontendUpdateStripDataEvent | FrontendUpdateOrder | FrontendSendMessageEvent;
+export type FrontendSendEvent = FrontendAuthenticationEvent | FrontendMoveEvent | FrontendGenerateSquawkEvent | FrontendUpdateStripDataEvent | FrontendUpdateOrder | FrontendSendMessageEvent | FrontendCdmReadyEvent;

@@ -3,11 +3,11 @@ package cdm
 import (
 	"FlightStrips/internal/database"
 	"FlightStrips/internal/shared"
+	"FlightStrips/pkg/helpers"
 	"context"
 	"fmt"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -17,17 +17,24 @@ type Service struct {
 	frontendHub shared.FrontendHub
 }
 
-func NewCdmService(client *Client, dbPool *pgxpool.Pool, frontendHub shared.FrontendHub) *Service {
-	return &Service{client: client, queries: database.New(dbPool), frontendHub: frontendHub}
+func NewCdmService(client *Client, dbPool *pgxpool.Pool) *Service {
+	return &Service{client: client, queries: database.New(dbPool)}
+}
+
+func (s *Service) SetFrontendHub(frontendHub shared.FrontendHub) {
+	s.frontendHub = frontendHub
 }
 
 func (s *Service) SetReady(ctx context.Context, session int32, callsign string) error {
+	if !s.client.isValid {
+		return nil
+	}
 	cdmData, err := s.queries.GetCdmDataForCallsign(ctx, database.GetCdmDataForCallsignParams{Callsign: callsign, Session: session})
 	if err != nil {
 		return err
 	}
 
-	if cdmData.CdmStatus.Valid && cdmData.CdmStatus.String == "REA" {
+	if cdmData.CdmStatus != nil && *cdmData.CdmStatus == "REA" {
 		return nil
 	}
 
@@ -35,8 +42,9 @@ func (s *Service) SetReady(ctx context.Context, session int32, callsign string) 
 		return err
 	}
 
+	rea := "REA"
 	rows, err := s.queries.SetCdmStatus(ctx, database.SetCdmStatusParams{
-		CdmStatus: pgtype.Text{Valid: true, String: "REA"}, Callsign: callsign, Session: session,
+		CdmStatus: &rea, Callsign: callsign, Session: session,
 	})
 	if err != nil {
 		return err
@@ -46,10 +54,15 @@ func (s *Service) SetReady(ctx context.Context, session int32, callsign string) 
 		return fmt.Errorf("failed to update CDM status for %s session %d", callsign, session)
 	}
 
+	s.frontendHub.SendCdmWait(session, callsign)
+
 	return nil
 }
 
 func (s *Service) RequestBetterTobt(ctx context.Context, session int32, callsign string) error {
+	if !s.client.isValid {
+		return nil
+	}
 	now := time.Now()
 	// format hhmm
 	format := now.Format("1504")
@@ -60,7 +73,7 @@ func (s *Service) RequestBetterTobt(ctx context.Context, session int32, callsign
 		return err
 	}
 
-	if cdmData.CdmStatus.Valid && cdmData.CdmStatus.String == status {
+	if cdmData.CdmStatus != nil && *cdmData.CdmStatus == status {
 		return nil
 	}
 
@@ -70,7 +83,7 @@ func (s *Service) RequestBetterTobt(ctx context.Context, session int32, callsign
 	}
 
 	rows, err := s.queries.SetCdmStatus(ctx, database.SetCdmStatusParams{
-		CdmStatus: pgtype.Text{Valid: true, String: status}, Callsign: callsign, Session: session,
+		CdmStatus: &status, Callsign: callsign, Session: session,
 	})
 	if err != nil {
 		return err
@@ -80,18 +93,48 @@ func (s *Service) RequestBetterTobt(ctx context.Context, session int32, callsign
 		return fmt.Errorf("failed to update CDM status for %s session %d", callsign, session)
 	}
 
+	s.frontendHub.SendCdmWait(session, callsign)
+
 	return nil
 }
 
-func (s *Service) SyncCdmData(ctx context.Context, session int32) error {
-	sessionData, err := s.queries.GetSessionById(ctx, session)
-	if err != nil {
-		return err
+func (s *Service) Start(ctx context.Context) {
+	if !s.client.isValid {
+		fmt.Println("CDM client is not valid, CDM data will not be synced")
+		return
 	}
 
-	airport := sessionData.Airport
+	ticker := time.NewTicker(30 * time.Second)
+	defer ticker.Stop()
 
-	currentData, err := s.queries.GetCdmData(ctx, session)
+	for range ticker.C {
+		sessions, err := s.queries.GetSessions(ctx)
+		if err != nil {
+			continue
+		}
+		for _, session := range sessions {
+			if session.Name != "LIVE" {
+				continue
+			}
+
+			fmt.Println("Syncing CDM data for session", session.Name, "id", session.ID, "airport", session.Airport)
+
+			err = s.syncCdmData(ctx, session)
+			if err != nil {
+				fmt.Println("Failed to sync CDM data:", err)
+			}
+		}
+	}
+}
+
+func (s *Service) syncCdmData(ctx context.Context, session database.Session) error {
+	if !s.client.isValid {
+		return nil
+	}
+
+	airport := session.Airport
+
+	currentData, err := s.queries.GetCdmData(ctx, session.ID)
 	if err != nil {
 		return err
 	}
@@ -116,28 +159,29 @@ func (s *Service) SyncCdmData(ctx context.Context, session int32) error {
 			if len(ttot) > 4 {
 				ttot = ttot[:4]
 			}
-			if flight.CdmStatus.String != row.CDMStatus ||
-				flight.Aobt.String != row.AOBT ||
-				flight.Eobt.String != row.EOBT ||
-				flight.Ctot.String != row.CTOT ||
-				flight.Tobt.String != row.TOBT ||
-				flight.Tsat.String != tsat ||
-				flight.Ttot.String != ttot {
+			if helpers.ValueOrDefault(flight.CdmStatus) != row.CDMStatus ||
+				helpers.ValueOrDefault(flight.Aobt) != row.AOBT ||
+				helpers.ValueOrDefault(flight.Eobt) != row.EOBT ||
+				helpers.ValueOrDefault(flight.Ctot) != row.CTOT ||
+				helpers.ValueOrDefault(flight.Tobt) != row.TOBT ||
+				helpers.ValueOrDefault(flight.Tsat) != tsat ||
+				helpers.ValueOrDefault(flight.Ttot) != ttot {
 				_, err = s.queries.UpdateCdmData(ctx, database.UpdateCdmDataParams{
-					Session:   session,
+					Session:   session.ID,
 					Callsign:  row.Callsign,
-					Tobt:      pgtype.Text{Valid: true, String: row.TOBT},
-					Tsat:      pgtype.Text{Valid: true, String: tsat},
-					Ttot:      pgtype.Text{Valid: true, String: ttot},
-					Ctot:      pgtype.Text{Valid: true, String: row.CTOT},
-					Aobt:      pgtype.Text{Valid: true, String: row.AOBT},
-					Eobt:      pgtype.Text{Valid: true, String: row.EOBT},
-					CdmStatus: pgtype.Text{Valid: true, String: row.CDMStatus},
+					Tobt:      &row.TOBT,
+					Tsat:      &tsat,
+					Ttot:      &ttot,
+					Ctot:      &row.CTOT,
+					Aobt:      &row.AOBT,
+					Eobt:      &row.EOBT,
+					CdmStatus: &row.CDMStatus,
 				})
 				if err != nil {
 					return err
 				}
 
+				s.frontendHub.SendCdmUpdate(session.ID, row.Callsign, row.EOBT, row.TOBT, tsat, row.CTOT)
 			}
 		}
 	}

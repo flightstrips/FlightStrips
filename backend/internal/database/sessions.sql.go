@@ -94,6 +94,35 @@ func (q *Queries) GetSessionById(ctx context.Context, id int32) (Session, error)
 	return i, err
 }
 
+const getSessions = `-- name: GetSessions :many
+SELECT id, name, airport, active_runways FROM sessions
+`
+
+func (q *Queries) GetSessions(ctx context.Context) ([]Session, error) {
+	rows, err := q.db.Query(ctx, getSessions)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Session
+	for rows.Next() {
+		var i Session
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Airport,
+			&i.ActiveRunways,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const insertSession = `-- name: InsertSession :one
 INSERT INTO sessions (name, airport)
 VALUES ($1, $2) RETURNING id

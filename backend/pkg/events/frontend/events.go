@@ -52,8 +52,9 @@ const (
 	Broadcast   EventType = "broadcast"
 	SendMessage EventType = "send_message"
 
-	CdmWait EventType = "cdm_wait"
-	CdmData EventType = "cdm_data"
+	CdmWait  EventType = "cdm_wait"
+	CdmData  EventType = "cdm_data"
+	CdmReady EventType = "cdm_ready"
 )
 
 type OutgoingMessage interface {
@@ -94,6 +95,9 @@ type Strip struct {
 	NextControllers     []string `json:"next_controllers"`
 	PreviousControllers []string `json:"previous_controllers"`
 	Owner               string   `json:"owner"`
+	Tobt                string   `json:"tobt"`
+	Tsat                string   `json:"tsat"`
+	Ctot                string   `json:"ctot"`
 }
 
 type Controller struct {
@@ -410,7 +414,7 @@ type OwnersUpdateEvent struct {
 }
 
 func (o OwnersUpdateEvent) Marshal() ([]byte, error) {
-	return json.Marshal(o)
+	return marshall(o)
 }
 
 func (o OwnersUpdateEvent) GetType() EventType {
@@ -423,7 +427,7 @@ type UpdateOrderEvent struct {
 }
 
 func (o UpdateOrderEvent) Marshal() ([]byte, error) {
-	return json.Marshal(o)
+	return marshall(o)
 }
 
 func (o UpdateOrderEvent) GetType() EventType {
@@ -435,7 +439,7 @@ type LayoutUpdateEvent struct {
 }
 
 func (l LayoutUpdateEvent) Marshal() ([]byte, error) {
-	return json.Marshal(l)
+	return marshall(l)
 }
 
 func (l LayoutUpdateEvent) GetType() EventType {
@@ -448,7 +452,7 @@ type BroadcastEvent struct {
 }
 
 func (l BroadcastEvent) Marshal() ([]byte, error) {
-	return json.Marshal(l)
+	return marshall(l)
 }
 
 func (l BroadcastEvent) GetType() EventType {
@@ -465,7 +469,7 @@ type CdmWaitEvent struct {
 }
 
 func (c CdmWaitEvent) Marshal() ([]byte, error) {
-	return json.Marshal(c)
+	return marshall(c)
 }
 
 func (c CdmWaitEvent) GetType() EventType {
@@ -481,9 +485,13 @@ type CdmDataEvent struct {
 }
 
 func (c CdmDataEvent) Marshal() ([]byte, error) {
-	return json.Marshal(c)
+	return marshall(c)
 }
 
 func (c CdmDataEvent) GetType() EventType {
 	return CdmData
+}
+
+type CdmReadyEvent struct {
+	Callsign string `json:"callsign"`
 }

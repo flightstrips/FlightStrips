@@ -3,7 +3,7 @@ import {
   EventType,
   type FrontendAircraftDisconnectEvent,
   type FrontendAssignedSquawkEvent,
-  type FrontendBayEvent, type FrontendBroadcastEvent,
+  type FrontendBayEvent, type FrontendBroadcastEvent, type FrontendCdmDataEvent, type FrontendCdmWaitEvent,
   type FrontendClearedAltitudeEvent,
   type FrontendCommunicationTypeEvent,
   type FrontendControllerOfflineEvent,
@@ -38,6 +38,8 @@ type EventMap = {
   [EventType.FrontendOwnersUpdate]: FrontendOwnersUpdateEvent;
   [EventType.FrontendLayoutUpdate]: FrontendLayoutUpdateEvent;
   [EventType.FrontendBroadcast]: FrontendBroadcastEvent;
+  [EventType.FrontendCdmData]: FrontendCdmDataEvent;
+  [EventType.FrontendCdmWait]: FrontendCdmWaitEvent;
 };
 
 type WebSocketClientDelegate = {

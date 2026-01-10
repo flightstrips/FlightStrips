@@ -6,7 +6,7 @@ import {
   EventType,
   type FrontendAircraftDisconnectEvent,
   type FrontendAssignedSquawkEvent,
-  type FrontendBayEvent, type FrontendBroadcastEvent,
+  type FrontendBayEvent, type FrontendBroadcastEvent, type FrontendCdmDataEvent, type FrontendCdmWaitEvent,
   type FrontendClearedAltitudeEvent,
   type FrontendCommunicationTypeEvent,
   type FrontendController,
@@ -54,7 +54,7 @@ export interface WebSocketState {
   updateOrder: (callsign: string, before: string | null) => void;
   sendMessage: (message: string, to: string | null) => void;
 
-  updateStrip(callsign: string, update: UpdateStrip): void;
+  updateStrip: (callsign: string, update: UpdateStrip) => void;
 }
 
 // Create the store using createVanilla
@@ -349,6 +349,26 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     )
   }
 
+  const handleCdmUpdateEvent = (data: FrontendCdmDataEvent) => {
+    store.setState(
+      produce((state: WebSocketState) => {
+        const stripIndex = state.strips.findIndex(strip => strip.callsign === data.callsign);
+        if (stripIndex !== -1) {
+          state.strips[stripIndex].tobt = data.tobt
+          state.strips[stripIndex].eobt = data.eobt
+          state.strips[stripIndex].tsat = data.tsat
+          state.strips[stripIndex].ctot = data.ctot
+        }
+      })
+    )
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const handleCdmWaitEvent = (_data: FrontendCdmWaitEvent) => {
+    // TODO set marker on strip to indicate that we are waiting for CDM data
+    // this is the case when a strip requests a new tobt
+  }
+
   // Register event handlers
   wsClient.on(EventType.FrontendInitial, handleInitialEvent);
   wsClient.on(EventType.FrontendStripUpdate, handleStripUpdateEvent);
@@ -367,6 +387,8 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
   wsClient.on(EventType.FrontendOwnersUpdate, handleOwnersUpdateEvent);
   wsClient.on(EventType.FrontendLayoutUpdate, handleLayoutUpdateEvent);
   wsClient.on(EventType.FrontendBroadcast, handleBroadcastEvent);
+  wsClient.on(EventType.FrontendCdmData, handleCdmUpdateEvent);
+  wsClient.on(EventType.FrontendCdmWait, handleCdmWaitEvent);
 
   return store;
 };

@@ -18,13 +18,15 @@ type Server struct {
 	dbPool       *pgxpool.Pool
 	euroscopeHub shared.EuroscopeHub
 	frontendHub  shared.FrontendHub
+	cdmService   shared.CdmService
 }
 
-func NewServer(dbPool *pgxpool.Pool, euroscopeHub shared.EuroscopeHub, frontendHub shared.FrontendHub) *Server {
+func NewServer(dbPool *pgxpool.Pool, euroscopeHub shared.EuroscopeHub, frontendHub shared.FrontendHub, cdmService shared.CdmService) *Server {
 	server := Server{
 		dbPool:       dbPool,
 		euroscopeHub: euroscopeHub,
 		frontendHub:  frontendHub,
+		cdmService:   cdmService,
 	}
 
 	go server.monitorSessions()
@@ -42,6 +44,10 @@ func (s *Server) GetEuroscopeHub() shared.EuroscopeHub {
 
 func (s *Server) GetFrontendHub() shared.FrontendHub {
 	return s.frontendHub
+}
+
+func (s *Server) GetCdmService() shared.CdmService {
+	return s.cdmService
 }
 
 func (s *Server) GetOrCreateSession(airport string, name string) (shared.Session, error) {

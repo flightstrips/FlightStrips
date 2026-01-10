@@ -45,6 +45,7 @@ func NewHub(stripService shared.StripService) *Hub {
 	handlers.Add(frontend.CoordinationFreeRequestType, handleCoordinationFreeRequest)
 	handlers.Add(frontend.UpdateOrder, handleUpdateOrder)
 	handlers.Add(frontend.SendMessage, handleSendMessage)
+	handlers.Add(frontend.CdmReady, handleCdmReady)
 
 	hub := &Hub{
 		send:         make(chan internalMessage),
@@ -235,10 +236,13 @@ func MapStripToFrontendModel(strip *database.Strip) frontend.Strip {
 		ReleasePoint:        "",
 		Version:             strip.Version,
 		Sequence:            helpers.ValueOrDefault(strip.Sequence),
-		Eobt:                helpers.ValueOrDefault(strip.Eobt),
 		NextControllers:     strip.NextOwners,
 		PreviousControllers: strip.PreviousOwners,
 		Owner:               helpers.ValueOrDefault(strip.Owner),
+		Eobt:                helpers.ValueOrDefault(strip.Eobt),
+		Tobt:                helpers.ValueOrDefault(strip.Tobt),
+		Tsat:                helpers.ValueOrDefault(strip.Tsat),
+		Ctot:                helpers.ValueOrDefault(strip.Ctot),
 	}
 }
 
@@ -422,6 +426,24 @@ func (hub *Hub) SendLayoutUpdates(session int32, layoutMap map[string]string) {
 			client.send <- event
 		}
 	}
+}
+
+func (hub *Hub) SendCdmUpdate(session int32, callsign, eobt, tobt, tsat, ctot string) {
+	event := frontend.CdmDataEvent{
+		Callsign: callsign,
+		Eobt:     eobt,
+		Tobt:     tobt,
+		Tsat:     tsat,
+		Ctot:     ctot,
+	}
+	hub.Broadcast(session, event)
+}
+
+func (hub *Hub) SendCdmWait(session int32, callsign string) {
+	event := frontend.CdmWaitEvent{
+		Callsign: callsign,
+	}
+	hub.Broadcast(session, event)
 }
 
 func (hub *Hub) SendServerMessage(session int32, message string) {

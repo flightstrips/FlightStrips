@@ -44,7 +44,7 @@ func GetDepartureBay(strip euroscope.Strip, existing *database.Strip) string {
 	// TODO handle arrivals in this method. Maybe split into two but the entry point should be in this file and the same
 	// for both arrivals and departures.
 	if strip.Origin != "EKCH" {
-		if existing.Bay != "" {
+		if existing != nil && existing.Bay != "" {
 			return existing.Bay
 		}
 		return BAY_HIDDEN
@@ -54,7 +54,7 @@ func GetDepartureBay(strip euroscope.Strip, existing *database.Strip) string {
 		return BAY_HIDDEN
 	}
 
-	if existing.Bay != "" && existing.State != nil && strip.GroundState == *existing.State {
+	if existing != nil && existing.Bay != "" && existing.State != nil && strip.GroundState == *existing.State {
 		return existing.Bay
 	}
 

@@ -7,6 +7,7 @@
 #define PLUGIN_COPYRIGHT "GPLv3 License, Copyright (c) 2025 Frederik Rosenberg"
 #define GITHUB_LINK "https://github.com/flightstrips/FlightStrips"
 #include "FlightStripsPluginInterface.h"
+#include "Logger.h"
 #include "bootstrap/Container.h"
 #include "tag_items/TagItemHandlers.h"
 #endif // !COPYRIGHTS
@@ -112,5 +113,18 @@ namespace FlightStrips {
 
         ConnectionState m_connectionState = {};
         std::queue<std::string> m_needsSquawk = {};
+
+        template <typename Func, typename... Args>
+        void SafeCall(const std::string& context, Func func, Args&&... args) {
+            try {
+                func(std::forward<Args>(args)...);
+            } catch (const std::exception& e) {
+                Logger::Error("Exception in {}: {}", context, e.what());
+                Error(std::format("Internal error in {}: {}", context, e.what()));
+            } catch (...) {
+                Logger::Error("Unknown exception in {}", context);
+                Error(std::format("Unknown internal error in {}", context));
+            }
+        }
     };
 }

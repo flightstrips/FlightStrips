@@ -42,7 +42,9 @@ namespace FlightStrips {
             return;
         }
 
-        this->m_flightPlanEventHandlerCollection->FlightPlanDisconnectEvent(FlightPlan);
+        SafeCall("OnFlightPlanDisconnect", [this, FlightPlan] {
+            this->m_flightPlanEventHandlerCollection->FlightPlanDisconnectEvent(FlightPlan);
+        });
     }
 
     void FlightStripsPlugin::OnFlightPlanControllerAssignedDataUpdate(EuroScopePlugIn::CFlightPlan FlightPlan,
@@ -51,7 +53,9 @@ namespace FlightStrips {
             return;
         }
 
-        this->m_flightPlanEventHandlerCollection->ControllerFlightPlanDataEvent(FlightPlan, DataType);
+        SafeCall("OnFlightPlanControllerAssignedDataUpdate", [this, FlightPlan, DataType] {
+            this->m_flightPlanEventHandlerCollection->ControllerFlightPlanDataEvent(FlightPlan, DataType);
+        });
     }
 
     void FlightStripsPlugin::OnFlightPlanFlightPlanDataUpdate(EuroScopePlugIn::CFlightPlan FlightPlan) {
@@ -59,56 +63,60 @@ namespace FlightStrips {
             return;
         }
 
-        this->m_flightPlanEventHandlerCollection->FlightPlanEvent(FlightPlan);
+        SafeCall("OnFlightPlanFlightPlanDataUpdate", [this, FlightPlan] {
+            this->m_flightPlanEventHandlerCollection->FlightPlanEvent(FlightPlan);
+        });
     }
 
-    void FlightStripsPlugin::OnTimer(int time) {
-        const auto connectionType = static_cast<ConnectionType>(GetConnectionType());
+    void FlightStripsPlugin::OnTimer(int Counter) {
+        SafeCall("OnTimer", [this, Counter] {
+            const auto connectionType = static_cast<ConnectionType>(GetConnectionType());
 
-        if (m_connectionState.connection_type != connectionType) {
-            Logger::Debug("Connection type change to: {}", static_cast<int>(connectionType));
-            m_connectionState.callsign = "";
-            m_connectionState.primary_frequency = "";
-            m_connectionState.range = 0;
-            m_connectionState.relevant_airport = "";
-            m_connectionState.connection_type = connectionType;
-        }
-
-        if (m_connectionState.connection_type == CONNECTION_TYPE_DIRECT || m_connectionState.connection_type ==
-            CONNECTION_TYPE_PLAYBACK || m_connectionState.connection_type == CONNECTION_TYPE_SWEATBOX) {
-            const auto me = ControllerMyself();
-
-            if (strcmp(me.GetCallsign(), m_connectionState.callsign.c_str()) != 0) {
-                m_connectionState.callsign = {me.GetCallsign()};
-                Logger::Debug("Setting callsign: {}", m_connectionState.callsign);
+            if (m_connectionState.connection_type != connectionType) {
+                Logger::Debug("Connection type change to: {}", static_cast<int>(connectionType));
+                m_connectionState.callsign = "";
+                m_connectionState.primary_frequency = "";
+                m_connectionState.range = 0;
                 m_connectionState.relevant_airport = "";
-                // Get relevant airport
-                for (const auto& [airport, prefixes]: m_appConfig->GetCallsignAirportMap()) {
-                    for (const auto& prefix: prefixes) {
-                        if (_strnicmp(m_connectionState.callsign.c_str(), prefix.c_str(), prefix.length()) == 0) {
-                            m_connectionState.relevant_airport = airport;
-                            Logger::Debug("Found relevant airport: {}", m_connectionState.relevant_airport);
-                            break;
+                m_connectionState.connection_type = connectionType;
+            }
+
+            if (m_connectionState.connection_type == CONNECTION_TYPE_DIRECT || m_connectionState.connection_type ==
+                CONNECTION_TYPE_PLAYBACK || m_connectionState.connection_type == CONNECTION_TYPE_SWEATBOX) {
+                const auto me = ControllerMyself();
+
+                if (strcmp(me.GetCallsign(), m_connectionState.callsign.c_str()) != 0) {
+                    m_connectionState.callsign = {me.GetCallsign()};
+                    Logger::Debug("Setting callsign: {}", m_connectionState.callsign);
+                    m_connectionState.relevant_airport = "";
+                    // Get relevant airport
+                    for (const auto& [airport, prefixes]: m_appConfig->GetCallsignAirportMap()) {
+                        for (const auto& prefix: prefixes) {
+                            if (_strnicmp(m_connectionState.callsign.c_str(), prefix.c_str(), prefix.length()) == 0) {
+                                m_connectionState.relevant_airport = airport;
+                                Logger::Debug("Found relevant airport: {}", m_connectionState.relevant_airport);
+                                break;
+                            }
                         }
+                        if (!m_connectionState.relevant_airport.empty()) break;
                     }
-                    if (!m_connectionState.relevant_airport.empty()) break;
+                }
+
+                const auto primaryFrequency = std::format("{:.3f}", me.GetPrimaryFrequency());
+                if (strcmp(primaryFrequency.c_str(), m_connectionState.primary_frequency.c_str()) != 0) {
+                    m_connectionState.primary_frequency = primaryFrequency;
+                    Logger::Debug("Setting primary frequency: {}", m_connectionState.primary_frequency);
+                }
+
+                if (me.GetRange() != m_connectionState.range) {
+                    m_connectionState.range = me.GetRange();
+                    Logger::Debug("Setting range: {}", m_connectionState.range);
                 }
             }
 
-            const auto primaryFrequency = std::format("{:.3f}", me.GetPrimaryFrequency());
-            if (strcmp(primaryFrequency.c_str(), m_connectionState.primary_frequency.c_str()) != 0) {
-                m_connectionState.primary_frequency = primaryFrequency;
-                Logger::Debug("Setting primary frequency: {}", m_connectionState.primary_frequency);
-            }
 
-            if (me.GetRange() != m_connectionState.range) {
-                m_connectionState.range = me.GetRange();
-                Logger::Debug("Setting range: {}", m_connectionState.range);
-            }
-        }
-
-
-        m_timedEventHandlers->OnTimer(time);
+            m_timedEventHandlers->OnTimer(Counter);
+        });
     }
 
     void FlightStripsPlugin::OnFlightPlanFlightStripPushed(EuroScopePlugIn::CFlightPlan, const char *, const char *) {
@@ -119,7 +127,9 @@ namespace FlightStrips {
             return;
         }
 
-        this->m_radarTargetEventHandlers->RadarTargetPositionEvent(RadarTarget);
+        SafeCall("OnRadarTargetPositionUpdate", [this, RadarTarget] {
+            this->m_radarTargetEventHandlers->RadarTargetPositionEvent(RadarTarget);
+        });
     }
 
     FlightStripsPlugin::~FlightStripsPlugin() = default;
@@ -173,7 +183,9 @@ namespace FlightStrips {
     }
 
     void FlightStripsPlugin::OnAirportRunwayActivityChanged() {
-        m_airportRunwayChangedEventHandlers->OnAirportRunwayActivityChanged();
+        SafeCall("OnAirportRunwayActivityChanged", [this] {
+            m_airportRunwayChangedEventHandlers->OnAirportRunwayActivityChanged();
+        });
     }
 
     void FlightStripsPlugin::SetClearenceFlag(const std::string &callsign, const bool cleared) const {
@@ -216,11 +228,16 @@ namespace FlightStrips {
         if (!Controller.IsValid()) return;
         if (!Controller.GetPositionIdentified()) return;
         if (!Controller.IsController()) return;
-        this->m_controllerEventHandlerCollection->ControllerPositionUpdateEvent(Controller);
+
+        SafeCall("OnControllerPositionUpdate", [this, Controller] {
+            this->m_controllerEventHandlerCollection->ControllerPositionUpdateEvent(Controller);
+        });
     }
 
     void FlightStripsPlugin::OnControllerDisconnect(EuroScopePlugIn::CController Controller) {
-        this->m_controllerEventHandlerCollection->ControllerDisconnectEvent(Controller);
+        SafeCall("OnControllerDisconnect", [this, Controller] {
+            this->m_controllerEventHandlerCollection->ControllerDisconnectEvent(Controller);
+        });
     }
 
     void FlightStripsPlugin::OnGetTagItem(EuroScopePlugIn::CFlightPlan FlightPlan,
@@ -228,7 +245,9 @@ namespace FlightStrips {
         COLORREF *pRGB, double *pFontSize) {
         if (!FlightPlan.IsValid()) return;
 
-        m_tagItemHandlers->Handle(FlightPlan, RadarTarget, ItemCode, TagData, sItemString, pColorCode, pRGB, pFontSize);
+        SafeCall("OnGetTagItem", [this, FlightPlan, RadarTarget, ItemCode, TagData, sItemString, pColorCode, pRGB, pFontSize] {
+            m_tagItemHandlers->Handle(FlightPlan, RadarTarget, ItemCode, TagData, sItemString, pColorCode, pRGB, pFontSize);
+        });
     }
 
     bool FlightStripsPlugin::ControllerIsMe(EuroScopePlugIn::CController controller, EuroScopePlugIn::CController me) {

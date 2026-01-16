@@ -1,0 +1,7 @@
+# CODEOWNERS
+
+/backend/ @frederikrosenberg
+/euroscope-plugin/ @frederikrosenberg
+
+/.github/CODEOWNERS @frederikrosenberg
+

@@ -1,6 +1,6 @@
 #include "WebSocket.h"
 
-#include "Logger.h"
+#include "Logger.hpp"
 
 #include <asio/asio/ssl.hpp>
 #include <utility>

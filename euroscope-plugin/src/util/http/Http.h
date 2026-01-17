@@ -1,7 +1,3 @@
-//
-// Created by fsr19 on 12/01/2025.
-//
-
 #pragma once
 
 namespace FlightStrips::http {
@@ -15,9 +11,13 @@ namespace FlightStrips::http {
   class Http {
   public:
     static HttpResponse PostUrlEncoded(const std::string& url, const std::string& params);
+    static HttpResponse Get(const std::string& url);
+    static bool DownloadFile(const std::string& url, const std::string& outputPath);
 
   private:
+    static const char* GetUserAgent();
     static size_t WriteCallback(void *contents, size_t size, size_t nmemb, void *userp);
+    static size_t WriteFileCallback(void* contents, size_t size, size_t nmemb, void* userp);
 
   };
 

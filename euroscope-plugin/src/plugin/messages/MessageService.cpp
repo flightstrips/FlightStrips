@@ -1,6 +1,6 @@
 #include "MessageService.h"
 
-#include "Logger.h"
+#include "Logger.hpp"
 
 namespace FlightStrips::messages {
     void MessageService::OnMessages(const std::vector<nlohmann::json> &messages) {

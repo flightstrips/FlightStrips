@@ -1,6 +1,6 @@
 #pragma once
 #include "Events.h"
-#include "Logger.h"
+#include "Logger.hpp"
 #include "WebSocket.h"
 #include "authentication/AuthenticationService.h"
 #include "configuration/AppConfig.h"

@@ -1,7 +1,7 @@
 #include <format>
 #include "FlightStripsPlugin.h"
 
-#include "Logger.h"
+#include "Logger.hpp"
 #include "graphics/InfoScreen.h"
 #include "handlers/FlightPlanEventHandlers.h"
 

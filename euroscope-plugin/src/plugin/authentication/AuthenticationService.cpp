@@ -5,7 +5,7 @@
 #include <openssl/sha.h>
 #include <nlohmann/json.hpp>
 #include "AuthenticationRedirectListener.h"
-#include "Logger.h"
+#include "Logger.hpp"
 #include "http/Http.h"
 
 namespace FlightStrips::authentication {

@@ -19,11 +19,13 @@ bool FlightStrips::Loader::ShouldUpdate(const std::string &latestVersion) const 
 
     const auto getPluginVersion = reinterpret_cast<GETPLUGINVERSION>(GetProcAddress(pluginDllInstance, "GetPluginVersion"));
     if (!getPluginVersion) {
+        FreeLibrary(pluginDllInstance);
         Logger::Error("Failed to load plugin entry point");
         return true;
     }
 
     const auto currentVersion = std::string(getPluginVersion());
+    FreeLibrary(pluginDllInstance);
     return currentVersion != latestVersion;
 }
 

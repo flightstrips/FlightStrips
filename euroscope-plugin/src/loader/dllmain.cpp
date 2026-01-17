@@ -31,7 +31,13 @@ EuroScopePlugInInit(EuroScopePlugIn::CPlugIn** ppPlugInInstance)
     }
 
     loaderDllInstance = loader.LoadPluginDll();
-    *ppPlugInInstance = FlightStrips::Loader::GetPluginInstance(loaderDllInstance);
+    if (!loaderDllInstance) return;
+    const auto pluginPtr = FlightStrips::Loader::GetPluginInstance(loaderDllInstance);
+    if (pluginPtr == nullptr) {
+        FlightStrips::Loader::UnloadPluginDll(loaderDllInstance);
+        return;
+    }
+    *ppPlugInInstance = pluginPtr;
 }
 
 [[maybe_unused]] void __declspec (dllexport)

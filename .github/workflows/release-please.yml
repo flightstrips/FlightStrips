@@ -72,6 +72,7 @@ jobs:
           name: FlightStripsPlugin ${{ needs.release-please.outputs.plugin_tag }}
           files: |
             ./euroscope-plugin/build/bin/FlightStripsPlugin.dll
+            ./euroscope-plugin/build/bin/FlightStripsPluginCore.dll
             ./euroscope-plugin/build/bin/flightstrips_config.ini
             ./euroscope-plugin/build/bin/flightstrips_config_dev.ini
           prerelease: ${{ steps.set_prerelease.outputs.prerelease }}

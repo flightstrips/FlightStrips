@@ -7,7 +7,7 @@ set(PROJECT_NAME FlightStripsCoreTests)
 set(ALL_FILES
         doctest.cpp
         doctest.h
-        $<TARGET_OBJECTS:FlightStripsCore>
+        $<TARGET_OBJECTS:FlightStripsPluginCore>
         AuthenticationServiceTest.cpp
         RouteServiceTest.cpp)
 
@@ -114,6 +114,14 @@ endif ()
 ################################################################################
 # Dependencies
 ################################################################################
+add_dependencies(${PROJECT_NAME}
+        FlightStripsPluginUtils
+)
+
+# Link with other targets.
+target_link_libraries(${PROJECT_NAME} PUBLIC
+        FlightStripsPluginUtils
+)
 
 set(ADDITIONAL_LIBRARY_DEPENDENCIES
         "kernel32"

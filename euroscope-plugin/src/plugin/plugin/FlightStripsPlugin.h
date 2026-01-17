@@ -7,7 +7,7 @@
 #define PLUGIN_COPYRIGHT "GPLv3 License, Copyright (c) 2025 Frederik Rosenberg"
 #define GITHUB_LINK "https://github.com/flightstrips/FlightStrips"
 #include "FlightStripsPluginInterface.h"
-#include "Logger.h"
+#include "Logger.hpp"
 #include "bootstrap/Container.h"
 #include "tag_items/TagItemHandlers.h"
 #endif // !COPYRIGHTS

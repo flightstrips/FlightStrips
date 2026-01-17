@@ -1,142 +1,11 @@
-set(PROJECT_NAME FlightStripsPluginCore)
+set(PROJECT_NAME FlightStripsLoader)
 
 ################################################################################
 # Source groups
 ################################################################################
-set(src__plugin
-        plugin/FlightStripsPlugin.h
-        plugin/FlightStripsPlugin.cpp
-        plugin/FlightStripsPluginInterface.h)
-source_group("src\\plugin" FILES ${src__plugin})
-
-set(src__stands
-        stands/Stand.h
-        stands/Stand.cpp
-        stands/StandService.h
-        stands/StandService.cpp
-        stands/StandsBootstrapper.cpp
-        stands/StandsBootstrapper.h)
-source_group("src\\stands" FILES ${src__stands})
-
-set(src__bootstrap
-        bootstrap/dllmain.cpp
-        bootstrap/Container.h
-        bootstrap/Container.cpp
-        bootstrap/InitializePlugin.h
-        bootstrap/InitializePlugin.cpp)
-source_group("src\\bootstrap" FILES ${src__bootstrap})
-
-set(src__configuration
-        configuration/config.cpp
-        configuration/config.h
-        configuration/AppConfig.cpp
-        configuration/AppConfig.h
-        configuration/UserConfig.cpp
-        configuration/UserConfig.h
-        configuration/ConfigurationBootstrapper.cpp
-        configuration/ConfigurationBootstrapper.h)
-source_group("src\\configuration" FILES ${src__configuration})
-
-set(src__handlers
-        handlers/FlightPlanEventHandler.h
-        handlers/FlightPlanEventHandlers.h
-        handlers/FlightPlanEventHandlers.cpp
-        handlers/RadarTargetEventHandler.h
-        handlers/RadarTargetEventHandlers.cpp
-        handlers/RadarTargetEventHandlers.h
-        handlers/AirportRunwaysChangedEvent.h
-        handlers/ControllerEventHandler.h
-        handlers/ControllerEventHandlers.cpp
-        handlers/ControllerEventHandlers.h
-        handlers/TimedEventHandler.h
-        handlers/TimedEventHandlers.cpp
-        handlers/TimedEventHandlers.h
-        handlers/AirportRunwaysChangedEventHandlers.cpp
-        handlers/AirportRunwaysChangedEventHandlers.h
-        handlers/ConnectionEventHandlers.cpp
-        handlers/ConnectionEventHandlers.h
-        handlers/ConnectionEventHandler.h
-        handlers/MessageHandlers.cpp
-        handlers/MessageHandlers.h
-        handlers/MessageHandler.h
-        handlers/AuthenticationEventHandlers.cpp
-        handlers/AuthenticationEventHandlers.h
-        handlers/AuthenticationEventHandler.h)
-source_group("src\\collections" FILES ${src__handlers})
-
-set(src__flightplan
-        flightplan/FlightPlanService.h
-        flightplan/FlightPlanService.cpp
-        flightplan/FlightPlan.h
-        flightplan/FlightPlanBootstrapper.cpp
-        flightplan/FlightPlanBootstrapper.h
-        flightplan/RouteService.cpp
-        flightplan/RouteService.h
-)
-source_group("src\\flightplan" FILES ${src__flightplan})
-
-set(src__runway
-        runway/RunwayService.cpp
-        runway/RunwayService.h)
-source_group("src\\runway" FILES ${src__runway})
-
-set(src__authentication
-        authentication/AuthenticationService.cpp
-        authentication/AuthenticationService.h
-        authentication/AuthenticationRedirectListener.cpp
-        authentication/AuthenticationRedirectListener.h)
-source_group("src\\authentication" FILES ${src__authentication})
-
-set(src__graphics
-        graphics/InfoScreen.cpp
-        graphics/InfoScreen.h
-        graphics/Colors.h
-        graphics/Graphics.cpp
-        graphics/Graphics.h)
-source_group("src\\graphics" FILES ${src__graphics})
-
-set(src__websocket
-        websocket/WebSocket.h
-        websocket/WebSocket.cpp
-        websocket/WebSocketService.cpp
-        websocket/WebSocketService.h
-        websocket/Events.h)
-source_group("src\\websocket" FILES ${src__websocket})
-
-set(src__controller
-        controller/ControllerService.cpp
-        controller/ControllerService.h
-        controller/Controller.h)
-source_group("src\\controller" FILES ${src__controller})
-
-set(src__messages
-        messages/MessageService.cpp
-        messages/MessageService.h)
-source_group("src\\messages" FILES ${src__messages})
-
-set(src__tag_items
-        tag_items/TagItemHandlers.cpp
-        tag_items/TagItemHandlers.h
-        tag_items/TagItemHandler.h
-        tag_items/DeIceHandler.cpp
-        tag_items/DeIceHandler.h)
-
-set(ALL_FILES
-        ${src__plugin}
-        ${src__configuration}
-        ${src__stands}
-        ${src__bootstrap}
-        ${src__handlers}
-        ${src__flightplan}
-        ${src__runway}
-        ${src__authentication}
-        ${src__graphics}
-        ${src__websocket}
-        ${src__controller}
-        ${src__messages}
-        ${src__tag_items}
-        Constants.h
-)
+set(ALL_FILES dllmain.cpp
+        Loader.cpp
+        Loader.h)
 
 ################################################################################
 # Target
@@ -156,8 +25,8 @@ set_target_properties(${PROJECT_NAME} PROPERTIES
 # Target name
 ################################################################################
 set_target_properties(${PROJECT_NAME} PROPERTIES
-        TARGET_NAME_DEBUG "FlightStripsPluginCore"
-        TARGET_NAME_RELEASE "FlightStripsPluginCore"
+        TARGET_NAME_DEBUG "FlightStripsPlugin"
+        TARGET_NAME_RELEASE "FlightStripsPlugin"
 )
 
 ################################################################################
@@ -284,16 +153,3 @@ set(ADDITIONAL_LIBRARY_DEPENDENCIES
 target_link_libraries(${PROJECT_NAME} PRIVATE libcrypto.lib libssl.lib libcurl_a.lib)
 
 target_link_libraries(${PROJECT_NAME} PUBLIC ${ADDITIONAL_LIBRARY_DEPENDENCIES})
-
-
-add_custom_command(
-        TARGET ${PROJECT_NAME} POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy
-        ${CMAKE_SOURCE_DIR}/src/config.ini
-        ${PROJECT_BINARY_DIR}/bin/flightstrips_config.ini)
-
-add_custom_command(
-        TARGET ${PROJECT_NAME} POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy
-        ${CMAKE_SOURCE_DIR}/src/config_dev.ini
-        ${PROJECT_BINARY_DIR}/bin/flightstrips_config_dev.ini)

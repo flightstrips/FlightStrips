@@ -3,7 +3,7 @@
 #include <nlohmann/json.hpp>
 
 #include "Events.h"
-#include "Logger.h"
+#include "Logger.hpp"
 
 namespace FlightStrips::websocket {
     WebSocketService::WebSocketService(const std::shared_ptr<configuration::AppConfig> &appConfig,

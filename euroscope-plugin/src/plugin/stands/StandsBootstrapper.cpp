@@ -4,7 +4,7 @@
 
 #include "StandsBootstrapper.h"
 
-#include "Logger.h"
+#include "Logger.hpp"
 #include "filesystem/FileSystem.h"
 #include "stands/StandService.h"
 #include "plugin/FlightStripsPlugin.h"

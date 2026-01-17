@@ -1,6 +1,6 @@
 #include "AuthenticationRedirectListener.h"
 
-#include "Logger.h"
+#include "Logger.hpp"
 
 
 namespace FlightStrips::authentication {

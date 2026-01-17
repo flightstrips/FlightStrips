@@ -1,6 +1,6 @@
 #include "InitializePlugin.h"
 
-#include "Logger.h"
+#include "Logger.hpp"
 #include "authentication/AuthenticationService.h"
 #include "configuration/AppConfig.h"
 #include "plugin/FlightStripsPlugin.h"
@@ -29,8 +29,9 @@ namespace FlightStrips {
         this->container = std::make_shared<Container>();
         this->container->filesystem = std::make_unique<filesystem::FileSystem>(dllInstance);
         FilghtStrips::configuration::ConfigurationBootstrapper::Bootstrap(*this->container);
-        Logger::LOG_PATH = this->container->filesystem->GetLocalFilePath("flightstrips.log").string();
-        Logger::SetLevelFromString(this->container->appConfig->GetLogLevel());
+        const auto logLevel = Logger::GetLevelFromString(this->container->appConfig->GetLogLevel());
+        const auto logPath = this->container->filesystem->GetLocalFilePath("flightstrips.log").string();
+        Logger::Init(logPath, logLevel);
         Logger::Debug("Logger initialized and loaded configuration!");
 
         this->container->connectionEventHandlers = std::make_shared<handlers::ConnectionEventHandlers>();

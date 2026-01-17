@@ -223,6 +223,7 @@ if (MSVC)
                 /permissive-;
                 /std:c++20;
                 /sdl;
+                /utf-8;
                 ${DEFAULT_CXX_DEBUG_INFORMATION_FORMAT};
                 /Zm200;
                 ${DEFAULT_CXX_EXCEPTION_HANDLING}

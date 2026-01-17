@@ -1,10 +1,9 @@
 #pragma once
-#include <chrono>
-#include <fstream>
-#include <iostream>
 #include <string>
-#include <syncstream>
-#include <utility>
+#include <memory>
+#include "spdlog/spdlog.h"
+#include "spdlog/sinks/rotating_file_sink.h"
+#include "spdlog/sinks/basic_file_sink.h"
 
 class Logger;
 
@@ -15,8 +14,6 @@ enum LogLevel {
     LOG_ERROR,
     LOG_NONE,
 };
-
-static Logger* log_instance;
 
 class Logger {
 public:
@@ -36,95 +33,102 @@ public:
         return LOG_INFO;
     }
 
+    static void SetInstance(std::shared_ptr<Logger> instance) {
+        s_instance = std::move(instance);
+    }
+
+    static std::shared_ptr<Logger> GetInstance() {
+        return s_instance;
+    }
+
     static void Debug(const std::string &message) {
-        if (!log_instance) return;
-        log_instance->Log(message, LOG_DEBUG);
+        if (!s_instance) return;
+        s_instance->m_logger->debug(message);
     }
     static void Info(const std::string &message) {
-        if (!log_instance) return;
-        log_instance->Log(message, LOG_INFO);
+        if (!s_instance) return;
+        s_instance->m_logger->info(message);
     }
     static void Warning(const std::string &message) {
-        if (!log_instance) return;
-        log_instance->Log(message, LOG_WARNING);
+        if (!s_instance) return;
+        s_instance->m_logger->warn(message);
     }
     static void Error(const std::string &message) {
-        if (!log_instance) return;
-        log_instance->Log(message, LOG_ERROR);
+        if (!s_instance) return;
+        s_instance->m_logger->error(message);
     }
 
-    template<class... _Types>
-    static void Debug(const std::format_string<_Types...> fmt, _Types &&... args) {
-        if (!log_instance) return;
-        if (!log_instance->IsEnabled(LOG_DEBUG)) return;
-        log_instance->Log(std::vformat(fmt.get(), std::make_format_args(args...)), LOG_DEBUG);
+    template<typename... Args>
+    static void Debug(spdlog::format_string_t<Args...> fmt, Args &&... args) {
+        if (!s_instance) return;
+        s_instance->m_logger->debug(fmt, std::forward<Args>(args)...);
     }
 
-    template<class... _Types>
-    static void Info(const std::format_string<_Types...> fmt, _Types &&... args) {
-        if (!log_instance) return;
-        if (!log_instance->IsEnabled(LOG_INFO)) return;
-        log_instance->Log(std::vformat(fmt.get(), std::make_format_args(args...)), LOG_INFO);
+    template<typename... Args>
+    static void Info(spdlog::format_string_t<Args...> fmt, Args &&... args) {
+        if (!s_instance) return;
+        s_instance->m_logger->info(fmt, std::forward<Args>(args)...);
     }
 
-    template<class... _Types>
-    static void Warning(const std::format_string<_Types...> fmt, _Types &&... args) {
-        if (!log_instance) return;
-        if (!log_instance->IsEnabled(LOG_WARNING)) return;
-        log_instance->Log(std::vformat(fmt.get(), std::make_format_args(args...)), LOG_WARNING);
+    template<typename... Args>
+    static void Warning(spdlog::format_string_t<Args...> fmt, Args &&... args) {
+        if (!s_instance) return;
+        s_instance->m_logger->warn(fmt, std::forward<Args>(args)...);
     }
 
-    template<class... _Types>
-    static void Error(const std::format_string<_Types...> fmt, _Types &&... args) {
-        if (!log_instance) return;
-        if (!log_instance->IsEnabled(LOG_ERROR)) return;
-        log_instance->Log(std::vformat(fmt.get(), std::make_format_args(args...)), LOG_ERROR);
+    template<typename... Args>
+    static void Error(spdlog::format_string_t<Args...> fmt, Args &&... args) {
+        if (!s_instance) return;
+        s_instance->m_logger->error(fmt, std::forward<Args>(args)...);
     }
 
+    static std::shared_ptr<Logger> Init(const std::string &logPath, const LogLevel level) {
+        struct EnableMakeShared : Logger {
+            EnableMakeShared(const std::string &logPath, const LogLevel level) : Logger(logPath, level) {}
+        };
+        auto instance = std::make_shared<EnableMakeShared>(logPath, level);
+        SetInstance(instance);
+        return instance;
+    }
 
-    static void Init(const std::string &logPath, const LogLevel level) { log_instance = new Logger(logPath, level); }
-    static void Shutdown() { delete log_instance; }
+    static void Shutdown() {
+        s_instance.reset();
+    }
 
 private:
-    Logger(std::string logPath, const LogLevel level) : LOG_PATH(std::move(logPath)), LEVEL(level), out(std::cout) {
-        file.open(logPath, std::ofstream::out | std::ofstream::trunc);
-        out = std::osyncstream(file);
+    Logger(const std::string &logPath, const LogLevel level) {
+        m_logger = spdlog::rotating_logger_mt("logger", logPath, 1024 * 1024 * 5, 3);
+        m_logger->set_level(ConvertToSpdlogLevel(level));
+        m_logger->flush_on(spdlog::level::trace);
+        m_logger->set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%^%l%$] %v");
     }
 
     ~Logger() {
-        out.flush();
-        file.close();
-    }
-
-    std::string LOG_PATH;
-    LogLevel LEVEL;
-    std::ofstream file = {};
-    std::osyncstream out;
-
-    [[nodiscard]] bool IsEnabled(const LogLevel level) const { return !(level < LEVEL || LOG_PATH.empty()); }
-
-    void Log(const std::string &message, const LogLevel &level) {
-        if (!IsEnabled(level)) return;
-
-        const auto now = std::chrono::system_clock::now();
-        const std::string formatted_time = std::format("{0:%F %T}", now);
-        out << "[" << formatted_time << "] " << GetLogString(level) << ": " << message << std::endl;
-    }
-
-    static std::string GetLogString(const LogLevel &level) {
-        switch (level) {
-            case LOG_DEBUG:
-                return "DEBUG";
-            case LOG_INFO:
-                return "INFO";
-            case LOG_WARNING:
-                return "WARNING";
-            case LOG_ERROR:
-                return "ERROR";
-            default:
-                return "UNKNOWN";
+        if (m_logger) {
+            m_logger->flush();
+            m_logger.reset();
         }
     }
+
+    static spdlog::level::level_enum ConvertToSpdlogLevel(const LogLevel level) {
+        switch (level) {
+            case LOG_DEBUG:
+                return spdlog::level::debug;
+            case LOG_INFO:
+                return spdlog::level::info;
+            case LOG_WARNING:
+                return spdlog::level::warn;
+            case LOG_ERROR:
+                return spdlog::level::err;
+            case LOG_NONE:
+                return spdlog::level::off;
+            default:
+                return spdlog::level::info;
+        }
+    }
+
+    static inline std::shared_ptr<Logger> s_instance;
+    std::shared_ptr<spdlog::logger> m_logger;
 
 };
 

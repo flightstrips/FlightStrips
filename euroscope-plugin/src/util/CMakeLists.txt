@@ -60,6 +60,7 @@ target_include_directories(${PROJECT_NAME} PUBLIC
 
 target_include_directories(${PROJECT_NAME} SYSTEM PRIVATE
         "${CMAKE_CURRENT_SOURCE_DIR}/../../third_party/asio"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../../third_party/spdlog"
         "${CMAKE_CURRENT_SOURCE_DIR}/../../third_party"
 )
 
@@ -93,6 +94,7 @@ if (MSVC)
                 /permissive-;
                 /std:c++20;
                 /sdl;
+                /utf-8;
                 ${DEFAULT_CXX_DEBUG_INFORMATION_FORMAT};
                 /Zm200;
                 ${DEFAULT_CXX_EXCEPTION_HANDLING}

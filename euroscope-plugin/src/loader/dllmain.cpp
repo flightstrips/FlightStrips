@@ -21,6 +21,7 @@ EuroScopePlugInInit(EuroScopePlugIn::CPlugIn** ppPlugInInstance)
     const auto fileSystem = std::make_shared<FlightStrips::filesystem::FileSystem>(loaderDllInstance);;
     const auto logPath = fileSystem->GetLocalFilePath("flightstripsloader.log");
     Logger::Init(logPath.string(), LOG_INFO);
+    Logger::Info("Logger initialized!");
 
     const auto loader = FlightStrips::Loader{fileSystem};
 

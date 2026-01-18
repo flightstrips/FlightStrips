@@ -100,7 +100,6 @@ func (hub *Hub) Send(session int32, cid string, message euroscope.OutgoingMessag
 }
 
 func (hub *Hub) OnRegister(client *Client) {
-	log.Println("Euroscope Client registered:", client.GetCid())
 	if _, ok := hub.master[client.session]; !ok {
 		log.Println("Euroscope Client is master:", client.GetCid())
 		hub.master[client.session] = client

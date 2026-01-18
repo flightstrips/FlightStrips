@@ -55,6 +55,9 @@ func (s *Server) updateRouteForStripHelper(db *database.Queries, strip database.
 	isArrival := strip.Destination == session.Airport
 
 	region, err := config.GetRegionForPosition(helpers.ValueOrDefault(strip.PositionLatitude), helpers.ValueOrDefault(strip.PositionLongitude))
+	if errors.Is(err, config.UnsupportedRegion) {
+		return nil
+	}
 	if err != nil {
 		return err
 	}

@@ -10,6 +10,7 @@ import {
   type FrontendControllerOnlineEvent,
   type FrontendDisconnectEvent,
   type FrontendInitialEvent, type FrontendLayoutUpdateEvent, type FrontendOwnersUpdateEvent,
+  type FrontendReleasePointEvent,
   type FrontendRequestedAltitudeEvent,
   type FrontendSendEvent,
   type FrontendSetHeadingEvent,
@@ -40,6 +41,7 @@ type EventMap = {
   [EventType.FrontendBroadcast]: FrontendBroadcastEvent;
   [EventType.FrontendCdmData]: FrontendCdmDataEvent;
   [EventType.FrontendCdmWait]: FrontendCdmWaitEvent;
+  [EventType.FrontendReleasePoint]: FrontendReleasePointEvent;
 };
 
 type WebSocketClientDelegate = {

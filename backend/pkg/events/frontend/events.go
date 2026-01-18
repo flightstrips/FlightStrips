@@ -55,6 +55,8 @@ const (
 	CdmWait  EventType = "cdm_wait"
 	CdmData  EventType = "cdm_data"
 	CdmReady EventType = "cdm_ready"
+
+	ReleasePoint EventType = "release_point"
 )
 
 type OutgoingMessage interface {
@@ -494,4 +496,17 @@ func (c CdmDataEvent) GetType() EventType {
 
 type CdmReadyEvent struct {
 	Callsign string `json:"callsign"`
+}
+
+type ReleasePointEvent struct {
+	Callsign     string `json:"callsign"`
+	ReleasePoint string `json:"release_point"`
+}
+
+func (r ReleasePointEvent) Marshal() ([]byte, error) {
+	return marshall(r)
+}
+
+func (r ReleasePointEvent) GetType() EventType {
+	return ReleasePoint
 }

@@ -184,3 +184,6 @@ SELECT callsign, tobt, tsat, ttot, ctot, aobt, asat, eobt, cdm_status FROM strip
 -- name: UpdateCdmData :execrows
 UPDATE strips SET tobt = $3, tsat = $4, ttot = $5, ctot = $6, aobt = $7, eobt = $8, cdm_status = $9
               WHERE session = $1 AND callsign = $2;
+
+-- name: UpdateReleasePoint :execrows
+UPDATE strips SET release_point = $3 WHERE session = $1 AND callsign = $2;

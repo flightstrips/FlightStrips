@@ -14,7 +14,7 @@ import {
   type FrontendControllerOnlineEvent,
   type FrontendInitialEvent,
   type FrontendLayoutUpdateEvent,
-  type FrontendOwnersUpdateEvent,
+  type FrontendOwnersUpdateEvent, type FrontendReleasePointEvent,
   type FrontendRequestedAltitudeEvent,
   type FrontendSetHeadingEvent,
   type FrontendSquawkEvent,
@@ -53,8 +53,8 @@ export interface WebSocketState {
   generateSquawk: (callsign: string) => void;
   updateOrder: (callsign: string, before: string | null) => void;
   sendMessage: (message: string, to: string | null) => void;
-
   updateStrip: (callsign: string, update: UpdateStrip) => void;
+  setReleasePoint: (callsign: string, releasePoint: string) => void;
 }
 
 // Create the store using createVanilla
@@ -148,6 +148,16 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     },
     sendMessage: (message, to) => {
       wsClient.send({type: ActionType.FrontendSendMessage, message, to})
+    },
+    setReleasePoint: (callsign, releasePoint) => {
+      wsClient.send({type: ActionType.FrontendReleasePoint, callsign: callsign, release_point: releasePoint})
+
+      return produce((state: WebSocketState) => {
+        const stripIndex = state.strips.findIndex(strip => strip.callsign === callsign)
+        if (stripIndex !== -1) {
+          state.strips[stripIndex].release_point = releasePoint
+        }
+      })
     }
   }));
 
@@ -369,6 +379,17 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     // this is the case when a strip requests a new tobt
   }
 
+  const handleReleasePointEvent = (data: FrontendReleasePointEvent) => {
+    store.setState(
+        produce((state: WebSocketState) => {
+          const stripIndex = state.strips.findIndex(strip => strip.callsign == data.callsign);
+          if (stripIndex !== -1) {
+            state.strips[stripIndex].release_point = data.release_point;
+          }
+        })
+    )
+  }
+
   // Register event handlers
   wsClient.on(EventType.FrontendInitial, handleInitialEvent);
   wsClient.on(EventType.FrontendStripUpdate, handleStripUpdateEvent);
@@ -389,6 +410,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
   wsClient.on(EventType.FrontendBroadcast, handleBroadcastEvent);
   wsClient.on(EventType.FrontendCdmData, handleCdmUpdateEvent);
   wsClient.on(EventType.FrontendCdmWait, handleCdmWaitEvent);
+  wsClient.on(EventType.FrontendReleasePoint, handleReleasePointEvent);
 
   return store;
 };

@@ -46,6 +46,7 @@ func NewHub(stripService shared.StripService) *Hub {
 	handlers.Add(frontend.UpdateOrder, handleUpdateOrder)
 	handlers.Add(frontend.SendMessage, handleSendMessage)
 	handlers.Add(frontend.CdmReady, handleCdmReady)
+	handlers.Add(frontend.ReleasePoint, handleReleasePoint)
 
 	hub := &Hub{
 		send:         make(chan internalMessage),
@@ -233,7 +234,7 @@ func MapStripToFrontendModel(strip *database.Strip) frontend.Strip {
 		Capabilities:        helpers.ValueOrDefault(strip.Capabilities),
 		CommunicationType:   helpers.ValueOrDefault(strip.CommunicationType),
 		Bay:                 strip.Bay,
-		ReleasePoint:        "",
+		ReleasePoint:        helpers.ValueOrDefault(strip.ReleasePoint),
 		Version:             strip.Version,
 		Sequence:            helpers.ValueOrDefault(strip.Sequence),
 		NextControllers:     strip.NextOwners,

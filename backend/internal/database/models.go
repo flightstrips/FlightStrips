@@ -95,6 +95,7 @@ type Strip struct {
 	NextOwners        []string
 	PreviousOwners    []string
 	CdmStatus         *string
+	ReleasePoint      *string
 }
 
 type Version struct {

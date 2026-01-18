@@ -18,6 +18,7 @@ export enum EventType {
   FrontendBroadcast = "broadcast",
   FrontendCdmData = "cdm_data",
   FrontendCdmWait = "cdm_wait",
+  FrontendReleasePoint = "release_point",
 }
 
 export enum ActionType {
@@ -27,7 +28,8 @@ export enum ActionType {
   FrontendUpdateStripData = "update_strip_data",
   FrontendUpdateOrder = "update_order",
   FrontendSendMessage = "send_message",
-  FrontendCdmReady = "cdm_ready"
+  FrontendCdmReady = "cdm_ready",
+  FrontendReleasePoint = "release_point",
 }
 
 export enum Bay {
@@ -249,6 +251,12 @@ export interface FrontendCdmWaitEvent {
   callsign: string;
 }
 
+export interface FrontendReleasePointEvent {
+  type: EventType.FrontendReleasePoint;
+  callsign: string;
+  release_point: string;
+}
+
 // Union type for all events that can be received
 export type WebSocketEvent =
   | FrontendInitialEvent
@@ -269,7 +277,8 @@ export type WebSocketEvent =
   | FrontendLayoutUpdateEvent
   | FrontendBroadcastEvent
   | FrontendCdmDataEvent
-  | FrontendCdmWaitEvent;
+  | FrontendCdmWaitEvent
+  | FrontendReleasePointEvent;
 
 export interface FrontendMoveEvent {
   type: ActionType.FrontendMove;
@@ -310,5 +319,11 @@ export interface FrontendCdmReadyEvent {
   callsign: string;
 }
 
+export interface FrontendSendReleasePointEvent {
+  type: ActionType.FrontendReleasePoint;
+  callsign: string;
+  release_point: string;
+}
+
 // Union type for all events that can be sent
-export type FrontendSendEvent = FrontendAuthenticationEvent | FrontendMoveEvent | FrontendGenerateSquawkEvent | FrontendUpdateStripDataEvent | FrontendUpdateOrder | FrontendSendMessageEvent | FrontendCdmReadyEvent;
+export type FrontendSendEvent = FrontendAuthenticationEvent | FrontendMoveEvent | FrontendGenerateSquawkEvent | FrontendUpdateStripDataEvent | FrontendUpdateOrder | FrontendSendMessageEvent | FrontendCdmReadyEvent | FrontendSendReleasePointEvent;

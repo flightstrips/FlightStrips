@@ -382,3 +382,28 @@ func handleCdmReady(client *Client, message Message) error {
 	cdmService := client.hub.server.GetCdmService()
 	return cdmService.RequestBetterTobt(context.Background(), client.session, event.Callsign)
 }
+
+func handleReleasePoint(client *Client, message Message) error {
+	var event frontend.ReleasePointEvent
+	if err := message.JsonUnmarshal(&event); err != nil {
+		return err
+	}
+
+	db := database.New(client.hub.server.GetDatabasePool())
+	affected, err := db.UpdateReleasePoint(context.Background(), database.UpdateReleasePointParams{
+		Session:      client.session,
+		Callsign:     event.Callsign,
+		ReleasePoint: &event.ReleasePoint,
+	})
+
+	if err != nil {
+		return err
+	}
+	if affected != 1 {
+		return errors.New("failed to update release point")
+	}
+
+	client.hub.Broadcast(client.session, event)
+
+	return nil
+}

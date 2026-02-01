@@ -57,6 +57,11 @@ const (
 	CdmReady EventType = "cdm_ready"
 
 	ReleasePoint EventType = "release_point"
+
+	PdcManualStateChange EventType = "pdc_manual_state_change"
+	PdcStateChange       EventType = "pdc_state_change"
+	IssuePdcClearance    EventType = "issue_pdc_clearance"
+	RevertToVoice        EventType = "revert_to_voice"
 )
 
 type OutgoingMessage interface {
@@ -100,6 +105,7 @@ type Strip struct {
 	Tobt                string   `json:"tobt"`
 	Tsat                string   `json:"tsat"`
 	Ctot                string   `json:"ctot"`
+	PdcState            string   `json:"pdc_state"`
 }
 
 type Controller struct {
@@ -509,4 +515,38 @@ func (r ReleasePointEvent) Marshal() ([]byte, error) {
 
 func (r ReleasePointEvent) GetType() EventType {
 	return ReleasePoint
+}
+
+// PDC Events
+
+type PdcStateChangeEvent struct {
+	Callsign string `json:"callsign"`
+	State    string `json:"state"`
+}
+
+func (p PdcStateChangeEvent) Marshal() ([]byte, error) {
+	return marshall(p)
+}
+
+func (p PdcStateChangeEvent) GetType() EventType {
+	return PdcStateChange
+}
+
+// PDC Incoming Events
+
+type IssuePdcClearanceRequest struct {
+	Type     EventType `json:"type"`
+	Callsign string    `json:"callsign"`
+	Remarks  string    `json:"remarks"`
+}
+
+type RevertToVoiceRequest struct {
+	Type     EventType `json:"type"`
+	Callsign string    `json:"callsign"`
+}
+
+type PdcManualStateChangeRequest struct {
+	Type     EventType `json:"type"`
+	Callsign string    `json:"callsign"`
+	State    string    `json:"state"`
 }

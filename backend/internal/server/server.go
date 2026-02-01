@@ -2,6 +2,7 @@ package server
 
 import (
 	"FlightStrips/internal/database"
+	"FlightStrips/internal/pdc"
 	"FlightStrips/internal/shared"
 	"context"
 	"errors"
@@ -19,14 +20,16 @@ type Server struct {
 	euroscopeHub shared.EuroscopeHub
 	frontendHub  shared.FrontendHub
 	cdmService   shared.CdmService
+	pdcService   *pdc.Service
 }
 
-func NewServer(dbPool *pgxpool.Pool, euroscopeHub shared.EuroscopeHub, frontendHub shared.FrontendHub, cdmService shared.CdmService) *Server {
+func NewServer(dbPool *pgxpool.Pool, euroscopeHub shared.EuroscopeHub, frontendHub shared.FrontendHub, cdmService shared.CdmService, pdcService *pdc.Service) *Server {
 	server := Server{
 		dbPool:       dbPool,
 		euroscopeHub: euroscopeHub,
 		frontendHub:  frontendHub,
 		cdmService:   cdmService,
+		pdcService:   pdcService,
 	}
 
 	go server.monitorSessions()
@@ -48,6 +51,10 @@ func (s *Server) GetFrontendHub() shared.FrontendHub {
 
 func (s *Server) GetCdmService() shared.CdmService {
 	return s.cdmService
+}
+
+func (s *Server) GetPdcService() shared.PdcService {
+	return s.pdcService
 }
 
 func (s *Server) GetOrCreateSession(airport string, name string) (shared.Session, error) {

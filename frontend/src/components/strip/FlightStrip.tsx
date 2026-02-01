@@ -1,5 +1,6 @@
 import React from 'react';
 import { CLXBtn } from '../clxbtn';
+import type {PdcStatus} from "@/api/models.ts";
 
 type FlightStripProps = {
     callsing: string
@@ -13,6 +14,7 @@ type FlightStripProps = {
     ctot?: string
     eobt?: string
     status?: unknown
+    pdcStatus?: PdcStatus
 }
 
 const FlightStrip: React.FC<FlightStripProps> = (props) => {
@@ -30,11 +32,13 @@ const FlightStrip: React.FC<FlightStripProps> = (props) => {
         ctot?: string
         eobt?: string
         status?: unknown
+        pdcStatus: PdcStatus
     }
 
-    function Strip({ children }: { children?: React.ReactNode }) { 
+    function Strip({ children, pdcStatus }: { children?: React.ReactNode, pdcStatus?: PdcStatus }) {
+        const bgColor = pdcStatus === "REQUESTED" || pdcStatus === "CLEARED" ? "#393455" : "#bef5ef";
         return (
-            <div className={`w-fit h-12 bg-[#bef5ef] border-2 border-white text-black flex`}>
+            <div className={`w-fit h-12 border-2 border-white text-black flex`} style={{ backgroundColor: bgColor }}>
 
                 {children}
             </div>
@@ -56,7 +60,7 @@ const FlightStrip: React.FC<FlightStripProps> = (props) => {
 
     function StripCLX(props: BasePlateProps) {
         return (
-            <Strip>
+            <Strip pdcStatus={props.pdcStatus}>
                 <div className='border-2 border-[#85b4af] h-[calc(3rem-4px)] min-w-24 w-fit font-bold' style={{borderRightWidth: 1, borderLeftWidth: 1}}>
                     <button className='active:bg-[#F237AA] active:border-2 active:border-l-0 active:border-t-0 w-full h-[32px] text-left pl-1 select-none'>{props.callsing}</button>
                 </div>
@@ -99,8 +103,9 @@ const FlightStrip: React.FC<FlightStripProps> = (props) => {
                 </div>
             )
         } else {
+            const bgColor = props.pdcStatus === "REQUESTED" || props.pdcStatus === "CLEARED" ? "#393455" : "#bef5ef";
             return (
-                <div className={`w-fit h-12 bg-[#bef5ef] border-2 border-white text-black flex`}>
+                <div className={`w-fit h-12 border-2 border-white text-black flex`} style={{ backgroundColor: bgColor }}>
                     <div className={`border-2 select-none border-[#85b4af] h-full justify-center items-center font-bold bg-slate-50 text-gray-600 w-10 ${ props.clearances ? "flex" : "hidden"}`} style={{borderRightWidth: 1}}>
                         GW
                     </div>
@@ -146,11 +151,11 @@ const FlightStrip: React.FC<FlightStripProps> = (props) => {
     function FlightStripDisplay(props: BasePlateProps) {
         switch (props.status) {
             case 'CLROK':
-                    return (<BasePlate callsing={props.callsing} clearances={props.clearances} standchanged={props.standchanged} taxiway={props.taxiway} holdingpoint={props.holdingpoint}  destination={props.destination} stand={props.stand} tsat={props.tsat} ctot={props.ctot} eobt={props.eobt}/>)
+                    return (<BasePlate callsing={props.callsing} pdcStatus={props.pdcStatus} clearances={props.clearances} standchanged={props.standchanged} taxiway={props.taxiway} holdingpoint={props.holdingpoint}  destination={props.destination} stand={props.stand} tsat={props.tsat} ctot={props.ctot} eobt={props.eobt}/>)
             case 'CLR':
-                return (<StripCLX callsing={props.callsing} clearances={props.clearances} standchanged={props.standchanged} taxiway={props.taxiway} holdingpoint={props.holdingpoint}  destination={props.destination} stand={props.stand} tsat={props.tsat} ctot={props.ctot} eobt={props.eobt}/>)
+                return (<StripCLX callsing={props.callsing} pdcStatus={props.pdcStatus} clearances={props.clearances} standchanged={props.standchanged} taxiway={props.taxiway} holdingpoint={props.holdingpoint}  destination={props.destination} stand={props.stand} tsat={props.tsat} ctot={props.ctot} eobt={props.eobt}/>)
             case 'HALF':
-                return (<HalfStrip callsing={props.callsing} clearances={props.clearances} standchanged={props.standchanged} taxiway={props.taxiway} holdingpoint={props.holdingpoint}  destination={props.destination} stand={props.stand} tsat={props.tsat} ctot={props.ctot} eobt={props.eobt}/>)
+                return (<HalfStrip callsing={props.callsing} pdcStatus={props.pdcStatus} clearances={props.clearances} standchanged={props.standchanged} taxiway={props.taxiway} holdingpoint={props.holdingpoint}  destination={props.destination} stand={props.stand} tsat={props.tsat} ctot={props.ctot} eobt={props.eobt}/>)
 
             default:
                 return (<h1>Test</h1>)
@@ -158,7 +163,7 @@ const FlightStrip: React.FC<FlightStripProps> = (props) => {
     }
 
     return  <div>
-                <FlightStripDisplay status={props.status} callsing={props.callsing} clearances={props.clearances} standchanged={props.standchanged} taxiway={props.taxiway} holdingpoint={props.holdingpoint}  destination={props.destination} stand={props.stand} tsat={props.tsat} ctot={props.ctot} eobt={props.eobt}/>
+                <FlightStripDisplay status={props.status} callsing={props.callsing} pdcStatus={props.pdcStatus ?? "NONE"} clearances={props.clearances} standchanged={props.standchanged} taxiway={props.taxiway} holdingpoint={props.holdingpoint}  destination={props.destination} stand={props.stand} tsat={props.tsat} ctot={props.ctot} eobt={props.eobt}/>
             </div>;
 };
 

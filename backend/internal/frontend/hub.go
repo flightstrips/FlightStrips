@@ -47,6 +47,9 @@ func NewHub(stripService shared.StripService) *Hub {
 	handlers.Add(frontend.SendMessage, handleSendMessage)
 	handlers.Add(frontend.CdmReady, handleCdmReady)
 	handlers.Add(frontend.ReleasePoint, handleReleasePoint)
+	handlers.Add(frontend.IssuePdcClearance, handleIssuePdcClearance)
+	handlers.Add(frontend.PdcManualStateChange, handlePdcManualStateChange)
+	handlers.Add(frontend.RevertToVoice, handleRevertToVoice)
 
 	hub := &Hub{
 		send:         make(chan internalMessage),
@@ -221,7 +224,7 @@ func MapStripToFrontendModel(strip *database.Strip) frontend.Strip {
 		Alternate:           helpers.ValueOrDefault(strip.Alternative),
 		Route:               helpers.ValueOrDefault(strip.Route),
 		Remarks:             helpers.ValueOrDefault(strip.Remarks),
-		Runway:              helpers.ValueOrDefault(strip.Remarks),
+		Runway:              helpers.ValueOrDefault(strip.Runway),
 		Squawk:              helpers.ValueOrDefault(strip.Squawk),
 		AssignedSquawk:      helpers.ValueOrDefault(strip.AssignedSquawk),
 		Sid:                 helpers.ValueOrDefault(strip.Sid),
@@ -244,6 +247,7 @@ func MapStripToFrontendModel(strip *database.Strip) frontend.Strip {
 		Tobt:                helpers.ValueOrDefault(strip.Tobt),
 		Tsat:                helpers.ValueOrDefault(strip.Tsat),
 		Ctot:                helpers.ValueOrDefault(strip.Ctot),
+		PdcState:            strip.PdcState,
 	}
 }
 
@@ -443,6 +447,14 @@ func (hub *Hub) SendCdmUpdate(session int32, callsign, eobt, tobt, tsat, ctot st
 func (hub *Hub) SendCdmWait(session int32, callsign string) {
 	event := frontend.CdmWaitEvent{
 		Callsign: callsign,
+	}
+	hub.Broadcast(session, event)
+}
+
+func (hub *Hub) SendPdcStateChange(session int32, callsign, state string) {
+	event := frontend.PdcStateChangeEvent{
+		Callsign: callsign,
+		State:    state,
 	}
 	hub.Broadcast(session, event)
 }

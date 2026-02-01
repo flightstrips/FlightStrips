@@ -407,3 +407,49 @@ func handleReleasePoint(client *Client, message Message) error {
 
 	return nil
 }
+
+func handleIssuePdcClearance(client *Client, message Message) error {
+	var req frontend.IssuePdcClearanceRequest
+	if err := message.JsonUnmarshal(&req); err != nil {
+		return err
+	}
+
+	// Get PDC service from server
+	pdcService := client.hub.server.GetPdcService()
+	if pdcService == nil {
+		return errors.New("PDC service not available")
+	}
+
+	// Issue clearance
+	return pdcService.IssueClearance(context.Background(), req.Callsign, req.Remarks, client.session)
+}
+
+func handlePdcManualStateChange(client *Client, message Message) error {
+	var req frontend.PdcManualStateChangeRequest
+	if err := message.JsonUnmarshal(&req); err != nil {
+		return err
+	}
+
+	// Get PDC service
+	pdcService := client.hub.server.GetPdcService()
+	if pdcService == nil {
+		return errors.New("PDC service not available")
+	}
+
+	// Manually update PDC state
+	return pdcService.ManualStateChange(context.Background(), req.Callsign, client.session, req.State)
+}
+
+func handleRevertToVoice(client *Client, message Message) error {
+	var req frontend.RevertToVoiceRequest
+	if err := message.JsonUnmarshal(&req); err != nil {
+		return err
+	}
+
+	pdcService := client.hub.server.GetPdcService()
+	if pdcService == nil {
+		return errors.New("PDC service not available")
+	}
+
+	return pdcService.RevertToVoice(context.Background(), req.Callsign, client.session)
+}

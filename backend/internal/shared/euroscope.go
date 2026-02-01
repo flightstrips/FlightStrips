@@ -6,7 +6,8 @@ import (
 
 type EuroscopeHub interface {
 	ServerInjectable
-	Hub[euroscope.OutgoingMessage]
+	Broadcast(session int32, message euroscope.OutgoingMessage)
+	Send(session int32, cid string, message euroscope.OutgoingMessage)
 	SendGenerateSquawk(session int32, cid string, callsign string)
 	SendGroundState(session int32, cid string, callsign string, state string)
 	SendClearedFlag(session int32, cid string, callsign string, flag bool)

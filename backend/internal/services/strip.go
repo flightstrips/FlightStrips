@@ -20,8 +20,9 @@ const (
 )
 
 type StripService struct {
-	queries     *database.Queries
-	frontendHub shared.FrontendHub
+	queries      *database.Queries
+	frontendHub  shared.FrontendHub
+	euroscopeHub shared.EuroscopeHub
 }
 
 func NewStripService(dbPool *pgxpool.Pool) *StripService {
@@ -32,6 +33,10 @@ func NewStripService(dbPool *pgxpool.Pool) *StripService {
 
 func (s *StripService) SetFrontendHub(frontendHub shared.FrontendHub) {
 	s.frontendHub = frontendHub
+}
+
+func (s *StripService) SetEuroscopeHub(euroscopeHub shared.EuroscopeHub) {
+	s.euroscopeHub = euroscopeHub
 }
 
 // calculateOrderBetween calculates the order value for a strip being inserted between two existing strips.
@@ -201,4 +206,30 @@ func (s *StripService) sendBulkSequenceUpdate(session int32, callsigns []string,
 		seq := sequences[i]
 		s.frontendHub.SendBayEvent(session, callsign, bay, seq)
 	}
+}
+
+// ClearStrip moves strip to cleared bay and notifies EuroScope to set cleared flag
+func (s *StripService) ClearStrip(ctx context.Context, session int32, callsign string, cid string) error {
+	if err := s.MoveToBay(ctx, session, callsign, shared.BAY_CLEARED, true); err != nil {
+		return fmt.Errorf("failed to move strip to cleared bay: %w", err)
+	}
+
+	if s.euroscopeHub != nil {
+		s.euroscopeHub.SendClearedFlag(session, cid, callsign, true)
+	}
+
+	return nil
+}
+
+// UnclearStrip moves strip back to not-cleared bay and notifies EuroScope to clear the cleared flag
+func (s *StripService) UnclearStrip(ctx context.Context, session int32, callsign string, cid string) error {
+	if err := s.MoveToBay(ctx, session, callsign, shared.BAY_NOT_CLEARED, true); err != nil {
+		return fmt.Errorf("failed to move strip to not-cleared bay: %w", err)
+	}
+
+	if s.euroscopeHub != nil {
+		s.euroscopeHub.SendClearedFlag(session, cid, callsign, false)
+	}
+
+	return nil
 }

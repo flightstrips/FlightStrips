@@ -17,10 +17,17 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+type HoppieClientInterface interface {
+	Poll(ctx context.Context, callsign string) ([]Message, error)
+	SendCPDLC(ctx context.Context, from, to, packet string) error
+	SendTelex(ctx context.Context, from, to, packet string) error
+}
+
 type timeoutTracker struct {
 	cancel    context.CancelFunc
 	callsign  string
 	sessionID int32
+	cid       string
 }
 
 type sessionInformation struct {
@@ -29,7 +36,7 @@ type sessionInformation struct {
 }
 
 type Service struct {
-	client        *Client
+	client        HoppieClientInterface
 	queries       *database.Queries
 	frontendHub   shared.FrontendHub
 	stripService  shared.StripService
@@ -55,6 +62,48 @@ func (s *Service) SetFrontendHub(frontendHub shared.FrontendHub) {
 
 func (s *Service) SetStripService(stripService shared.StripService) {
 	s.stripService = stripService
+}
+
+// Helper functions
+
+// getSessionInfo retrieves session information from the database
+func (s *Service) getSessionInfo(ctx context.Context, sessionID int32) (sessionInformation, error) {
+	session, err := s.queries.GetSessionById(ctx, sessionID)
+	if err != nil {
+		return sessionInformation{}, fmt.Errorf("failed to get session: %w", err)
+	}
+	return sessionInformation{id: sessionID, callsign: session.Airport}, nil
+}
+
+// getNextSequence retrieves the next message sequence number
+func (s *Service) getNextSequence(ctx context.Context, sessionID int32) (int32, error) {
+	seq, err := s.queries.GetNextMessageSequence(ctx, sessionID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get next message sequence: %w", err)
+	}
+	return seq, nil
+}
+
+// sendErrorAndReturn sends an error message to the pilot and returns the original error
+func (s *Service) sendErrorAndReturn(ctx context.Context, session sessionInformation, callsign string, originalErr error, messageBuilder func(int32) string) error {
+	seq, seqErr := s.getNextSequence(ctx, session.id)
+	if seqErr != nil {
+		return fmt.Errorf("%w; also failed to get message sequence: %w", originalErr, seqErr)
+	}
+	
+	msg := messageBuilder(seq)
+	if sendErr := s.client.SendCPDLC(ctx, session.callsign, callsign, msg); sendErr != nil {
+		return fmt.Errorf("%w; also failed to send error message: %w", originalErr, sendErr)
+	}
+	
+	return originalErr
+}
+
+// notifyFrontendStateChange sends PDC state change notification to frontend
+func (s *Service) notifyFrontendStateChange(sessionID int32, callsign string, state ClearanceState) {
+	if s.frontendHub != nil {
+		s.frontendHub.SendPdcStateChange(sessionID, callsign, string(state))
+	}
 }
 
 // Start begins the background polling loop
@@ -153,17 +202,19 @@ func (s *Service) ProcessPDCRequest(ctx context.Context, msg *IncomingMessage, s
 	})
 
 	if errors.Is(err, sql.ErrNoRows) || !strings.EqualFold(strip.Origin, req.Departure) || !strings.EqualFold(strip.Destination, req.Destination) {
-		// TODO Send flight plan not held
-		return fmt.Errorf("strip not found or invalid PDC request")
+		return s.sendErrorAndReturn(ctx, session, req.Callsign, 
+			fmt.Errorf("strip not found or invalid PDC request"), 
+			func(seq int32) string { return buildFlightPlanNotHeld(seq, strip.Origin, req.Callsign) })
 	}
 
 	if err != nil {
-		// TODO Send PDC unavailable revert to voice.
-		return err
+		return s.sendErrorAndReturn(ctx, session, req.Callsign, err, buildPDCUnavailable)
 	}
 
 	if strip.AircraftType == nil || !strings.EqualFold(*strip.AircraftType, req.Aircraft) {
-		// TODO Invalid aircraft type
+		return s.sendErrorAndReturn(ctx, session, req.Callsign,
+			fmt.Errorf("aircraft type mismatch: expected %s, got %s", *strip.AircraftType, req.Aircraft),
+			func(seq int32) string { return buildInvalidAircraftType(seq, strip.Origin, req.Callsign) })
 	}
 
 	err = s.queries.SetPdcRequested(ctx, database.SetPdcRequestedParams{
@@ -181,10 +232,7 @@ func (s *Service) ProcessPDCRequest(ctx context.Context, msg *IncomingMessage, s
 		return fmt.Errorf("failed to send status ack: %w", err)
 	}
 
-	// Notify frontend
-	if s.frontendHub != nil {
-		s.frontendHub.SendPdcStateChange(session.id, req.Callsign, string(StateRequested))
-	}
+	s.notifyFrontendStateChange(session.id, req.Callsign, StateRequested)
 
 	slog.InfoContext(ctx, "PDC Service: PDC request acknowledged", slog.String("callsign", req.Callsign))
 	return nil
@@ -192,9 +240,9 @@ func (s *Service) ProcessPDCRequest(ctx context.Context, msg *IncomingMessage, s
 
 // SendStatusAck sends the "request received" message
 func (s *Service) SendStatusAck(ctx context.Context, session sessionInformation, callsign, origin string) error {
-	seq, err := s.queries.GetNextMessageSequence(ctx, session.id)
+	seq, err := s.getNextSequence(ctx, session.id)
 	if err != nil {
-		return fmt.Errorf("failed to get next message sequence: %w", err)
+		return err
 	}
 
 	msg := buildRequestAck(seq, origin, callsign)
@@ -203,13 +251,11 @@ func (s *Service) SendStatusAck(ctx context.Context, session sessionInformation,
 
 // IssueClearance sends a PDC clearance to a pilot
 // The clearance data (runway, sid, squawk) should already be in the strip table
-// TODO send message to euroscope to the correct client
-func (s *Service) IssueClearance(ctx context.Context, callsign, remarks string, sessionID int32) error {
-	session, err := s.queries.GetSessionById(ctx, sessionID)
+func (s *Service) IssueClearance(ctx context.Context, callsign, remarks, cid string, sessionID int32) error {
+	sessionInfo, err := s.getSessionInfo(ctx, sessionID)
 	if err != nil {
-		return fmt.Errorf("failed to get session: %w", err)
+		return err
 	}
-	sessionInfo := sessionInformation{id: sessionID, callsign: session.Airport}
 
 	// Get strip data (source of truth for clearance data)
 	strip, err := s.queries.GetStrip(ctx, database.GetStripParams{
@@ -235,9 +281,9 @@ func (s *Service) IssueClearance(ctx context.Context, callsign, remarks string, 
 		return fmt.Errorf("failed to get next PDC sequence: %w", err)
 	}
 
-	nextSeq, err := s.queries.GetNextMessageSequence(ctx, sessionInfo.id)
+	nextSeq, err := s.getNextSequence(ctx, sessionInfo.id)
 	if err != nil {
-		return fmt.Errorf("failed to get next message sequence: %w", err)
+		return err
 	}
 
 	options := ClearanceOptions{
@@ -285,28 +331,24 @@ func (s *Service) IssueClearance(ctx context.Context, callsign, remarks string, 
 	}
 
 	if s.stripService != nil {
-		// TODO actually cleare the strip
-		if err := s.stripService.MoveToBay(ctx, sessionInfo.id, callsign, shared.BAY_CLEARED, true); err != nil {
-			slog.ErrorContext(ctx, "PDC Service: Warning - failed to set cleared flag", slog.Any("error", err))
+		if err := s.stripService.ClearStrip(ctx, sessionInfo.id, callsign, cid); err != nil {
+			slog.ErrorContext(ctx, "PDC Service: Warning - failed to clear strip", slog.Any("error", err))
 		}
 	}
 
-	s.StartClearanceTimeout(ctx, strip.Origin, callsign, nextSeq, sessionInfo)
+	s.StartClearanceTimeout(ctx, strip.Origin, callsign, nextSeq, sessionInfo, cid)
 
-	if s.frontendHub != nil {
-		s.frontendHub.SendPdcStateChange(sessionInfo.id, callsign, string(StateCleared))
-	}
+	s.notifyFrontendStateChange(sessionInfo.id, callsign, StateCleared)
 
 	slog.DebugContext(ctx, "PDC Service: Clearance issued", slog.String("callsign", callsign), slog.Int("sequence", int(nextSeq)))
 	return nil
 }
 
-func (s *Service) RevertToVoice(ctx context.Context, callsign string, sessionId int32) error {
-	session, err := s.queries.GetSessionById(ctx, sessionId)
+func (s *Service) RevertToVoice(ctx context.Context, callsign string, sessionId int32, cid string) error {
+	sessionInfo, err := s.getSessionInfo(ctx, sessionId)
 	if err != nil {
-		return fmt.Errorf("failed to get session: %w", err)
+		return err
 	}
-	sessionInfo := sessionInformation{id: sessionId, callsign: session.Airport}
 
 	strip, err := s.queries.GetStrip(ctx, database.GetStripParams{
 		Callsign: callsign,
@@ -320,24 +362,25 @@ func (s *Service) RevertToVoice(ctx context.Context, callsign string, sessionId 
 		return fmt.Errorf("cannot revert to voice, PDC state is %s", strip.PdcState)
 	}
 
-	nextSeq, err := s.queries.GetNextMessageSequence(ctx, sessionInfo.id)
+	nextSeq, err := s.getNextSequence(ctx, sessionInfo.id)
 	if err != nil {
-		return fmt.Errorf("failed to get next message sequence: %w", err)
+		return err
 	}
+	
 	pdcMessage := buildRevertToVoice(nextSeq)
 	err = s.client.SendCPDLC(ctx, sessionInfo.callsign, callsign, pdcMessage)
 	if err != nil {
 		return fmt.Errorf("failed to send revert to voice: %w", err)
 	}
 
-	err = s.setPdcFailed(ctx, callsign, sessionId, StateRevertToVoice)
+	s.CancelTimeout(callsign, sessionId)
+
+	err = s.setPdcFailed(ctx, callsign, sessionId, StateRevertToVoice, cid)
 	if err != nil {
 		return fmt.Errorf("failed to set PDC failed: %w", err)
 	}
 
-	if s.frontendHub != nil {
-		s.frontendHub.SendPdcStateChange(sessionInfo.id, callsign, string(StateRevertToVoice))
-	}
+	s.notifyFrontendStateChange(sessionInfo.id, callsign, StateRevertToVoice)
 
 	slog.DebugContext(ctx, "PDC Service: Reverting to voice", slog.String("callsign", callsign))
 	return nil
@@ -424,14 +467,27 @@ func (s *Service) HandleWilco(ctx context.Context, message *IncomingMessage, ses
 
 	s.CancelTimeout(callsign, session.id)
 
-	s.frontendHub.SendPdcStateChange(session.id, callsign, string(StateConfirmed))
+	s.notifyFrontendStateChange(session.id, callsign, StateConfirmed)
 
 	slog.DebugContext(ctx, "PDC Service: WILCO received", slog.String("callsign", callsign))
 	return nil
 }
 
 func (s *Service) HandleUnable(ctx context.Context, callsign string, session sessionInformation) error {
-	err := s.setPdcFailed(ctx, callsign, session.id, StateFailed)
+	key := fmt.Sprintf("%s_%d", callsign, session.id)
+
+	s.timeoutsMutex.RLock()
+	tracker, exists := s.timeouts[key]
+	s.timeoutsMutex.RUnlock()
+
+	cid := ""
+	if exists {
+		cid = tracker.cid
+	}
+
+	s.CancelTimeout(callsign, session.id)
+
+	err := s.setPdcFailed(ctx, callsign, session.id, StateFailed, cid)
 	if err != nil {
 		return fmt.Errorf("failed to set PDC failed: %w", err)
 	}
@@ -486,16 +542,16 @@ func (s *Service) ManualStateChange(ctx context.Context, callsign string, sessio
 
 // SendErrorMessage sends error message to pilot for invalid PDC requests
 func (s *Service) SendErrorMessage(ctx context.Context, session sessionInformation, callsign string) error {
-	seq, err := s.queries.GetNextMessageSequence(ctx, session.id)
+	seq, err := s.getNextSequence(ctx, session.id)
 	if err != nil {
-		return fmt.Errorf("failed to get next message sequence: %w", err)
+		return err
 	}
 	msg := fmt.Sprintf("/data2/%d//NE/BAD PDC MESSAGE. @RESEND OR REVERT TO VOICE", seq)
 	return s.client.SendCPDLC(ctx, session.callsign, callsign, msg)
 }
 
 // StartClearanceTimeout starts a timeout that reverts cleared flag if pilot doesn't respond
-func (s *Service) StartClearanceTimeout(ctx context.Context, airport, callsign string, messageId int32, session sessionInformation) {
+func (s *Service) StartClearanceTimeout(ctx context.Context, airport, callsign string, messageId int32, session sessionInformation, cid string) {
 	key := fmt.Sprintf("%s_%d", callsign, session.id)
 
 	// Cancel any existing timeout for this callsign
@@ -508,6 +564,7 @@ func (s *Service) StartClearanceTimeout(ctx context.Context, airport, callsign s
 		cancel:    cancel,
 		callsign:  callsign,
 		sessionID: session.id,
+		cid:       cid,
 	}
 
 	s.timeoutsMutex.Lock()
@@ -536,6 +593,16 @@ func (s *Service) CancelTimeout(callsign string, sessionID int32) {
 
 // handleTimeout waits for timeout and reverts cleared flag if no response
 func (s *Service) handleTimeout(ctx context.Context, airport, callsign string, messageId int32, session sessionInformation) {
+	key := fmt.Sprintf("%s_%d", callsign, session.id)
+
+	s.timeoutsMutex.RLock()
+	tracker, exists := s.timeouts[key]
+	s.timeoutsMutex.RUnlock()
+
+	if !exists {
+		return
+	}
+
 	select {
 	case <-ctx.Done():
 		// Timeout was cancelled (pilot responded)
@@ -544,12 +611,12 @@ func (s *Service) handleTimeout(ctx context.Context, airport, callsign string, m
 		// Timeout expired - revert cleared flag
 		slog.DebugContext(ctx, "PDC Service: Timeout expired - reverting cleared flag", slog.String("callsign", callsign))
 
-		err := s.setPdcFailed(ctx, callsign, session.id, StateNoResponse)
+		err := s.setPdcFailed(ctx, callsign, session.id, StateNoResponse, tracker.cid)
 		if err != nil {
 			slog.ErrorContext(ctx, "PDC Service: Failed to revert cleared flag", slog.String("callsign", callsign), slog.Any("error", err))
 		}
 
-		seq, err := s.queries.GetNextMessageSequence(ctx, session.id)
+		seq, err := s.getNextSequence(ctx, session.id)
 		if err != nil {
 			slog.ErrorContext(ctx, "PDC Service: Failed to get next message sequence", slog.Any("error", err))
 		} else {
@@ -561,33 +628,29 @@ func (s *Service) handleTimeout(ctx context.Context, airport, callsign string, m
 		}
 
 		// Clean up timeout tracker
-		key := fmt.Sprintf("%s_%d", callsign, session.id)
 		s.timeoutsMutex.Lock()
 		delete(s.timeouts, key)
 		s.timeoutsMutex.Unlock()
 	}
 }
 
-func (s *Service) setPdcFailed(ctx context.Context, callsign string, sessionId int32, state ClearanceState) error {
+func (s *Service) setPdcFailed(ctx context.Context, callsign string, sessionId int32, state ClearanceState, cid string) error {
 	err := s.queries.UpdatePdcStatus(ctx, database.UpdatePdcStatusParams{
 		Callsign: callsign,
 		Session:  sessionId,
 		PdcState: string(state),
 	})
 	if err != nil {
-		slog.ErrorContext(ctx, "PDC Service: Failed to pdc status", slog.Any("error", err))
+		slog.ErrorContext(ctx, "PDC Service: Failed to update PDC status", slog.Any("error", err))
 	}
 
-	// Move strip back from cleared bay
 	if s.stripService != nil {
-		if err := s.stripService.MoveToBay(ctx, sessionId, callsign, shared.BAY_NOT_CLEARED, true); err != nil {
-			slog.ErrorContext(ctx, "PDC Service: Error reverting cleared flag", slog.Any("error", err))
+		if err := s.stripService.UnclearStrip(ctx, sessionId, callsign, cid); err != nil {
+			slog.ErrorContext(ctx, "PDC Service: Error unclearing strip", slog.Any("error", err))
 		}
 	}
 
-	if s.frontendHub != nil {
-		s.frontendHub.SendPdcStateChange(sessionId, callsign, string(state))
-	}
+	s.notifyFrontendStateChange(sessionId, callsign, state)
 
 	return nil
 }

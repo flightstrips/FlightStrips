@@ -421,7 +421,7 @@ func handleIssuePdcClearance(client *Client, message Message) error {
 	}
 
 	// Issue clearance
-	return pdcService.IssueClearance(context.Background(), req.Callsign, req.Remarks, client.session)
+	return pdcService.IssueClearance(context.Background(), req.Callsign, req.Remarks, client.GetCid(), client.session)
 }
 
 func handlePdcManualStateChange(client *Client, message Message) error {
@@ -451,5 +451,5 @@ func handleRevertToVoice(client *Client, message Message) error {
 		return errors.New("PDC service not available")
 	}
 
-	return pdcService.RevertToVoice(context.Background(), req.Callsign, client.session)
+	return pdcService.RevertToVoice(context.Background(), req.Callsign, client.session, client.GetCid())
 }

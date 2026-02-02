@@ -226,3 +226,29 @@ func buildRevertToVoice(sequence int32) string {
 	payload := "ERROR @REVERT TO VOICE PROCEDURES"
 	return buildHoppieMessage(sequence, payload, MsgRevertToVoice)
 }
+
+func buildFlightPlanNotHeld(sequence int32, airport, callsign string) string {
+	now := time.Now()
+	timeStr := now.Format("1504")
+	dateStr := now.Format("020106")
+	payload := fmt.Sprintf("DEPART REQUEST STATUS . FSM %s %s %s @%s@ RCD REJECTED @FLIGHT PLAN NOT HELD @REVERT TO VOICE PROCEDURES", timeStr, dateStr, airport, callsign)
+	return buildHoppieMessage(sequence, payload, MsgFlightPlanNotHeld)
+}
+
+func buildPDCUnavailable(sequence int32) string {
+	payload := "ERROR @REVERT TO VOICE PROCEDURES"
+	return buildHoppieMessage(sequence, payload, MsgPDCUnavailable)
+}
+
+func buildInvalidAircraftType(sequence int32, airport, callsign string) string {
+	now := time.Now()
+	timeStr := now.Format("1504")
+	dateStr := now.Format("020106")
+	payload := fmt.Sprintf("DEPART REQUEST STATUS . FSM %s %s %s @%s@ RCD REJECTED @TYPE MISMATCH @UPDATE RCD AND RESEND", timeStr, dateStr, airport, callsign)
+	return buildHoppieMessage(sequence, payload, MsgInvalidAircraftType)
+}
+
+func buildRefuseNotSupported(sequence int32) string {
+	payload := "CONTACT ATC BY VOICE @REFUSE NOT SUPPORTED BY DATALINK"
+	return buildHoppieMessage(sequence, payload, MsgRefuseNotSupported)
+}

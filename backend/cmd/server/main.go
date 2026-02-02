@@ -82,6 +82,7 @@ func main() {
 	euroscopeHub := euroscope.NewHub(stripService)
 
 	stripService.SetFrontendHub(frontendHub)
+	stripService.SetEuroscopeHub(euroscopeHub)
 	cdmService.SetFrontendHub(frontendHub)
 	if pdcService != nil {
 		pdcService.SetFrontendHub(frontendHub)

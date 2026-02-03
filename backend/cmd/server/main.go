@@ -7,6 +7,7 @@ import (
 	"FlightStrips/internal/euroscope"
 	"FlightStrips/internal/frontend"
 	"FlightStrips/internal/pdc"
+	"FlightStrips/internal/repository/postgres"
 	"FlightStrips/internal/server"
 	"FlightStrips/internal/services"
 	"FlightStrips/internal/websocket"
@@ -63,15 +64,23 @@ func main() {
 	cdmKey := os.Getenv("CDM_KEY")
 	cdmClient := cdm.NewClient(cdm.WithAPIKey(cdmKey))
 
-	stripService := services.NewStripService(dbpool)
-	cdmService := cdm.NewCdmService(cdmClient, dbpool)
+	// Initialize repositories
+	stripRepo := postgres.NewStripRepository(dbpool)
+	controllerRepo := postgres.NewControllerRepository(dbpool)
+	sessionRepo := postgres.NewSessionRepository(dbpool)
+	sectorRepo := postgres.NewSectorOwnerRepository(dbpool)
+	coordRepo := postgres.NewCoordinationRepository(dbpool)
+
+	// Initialize services
+	stripService := services.NewStripService(stripRepo)
+	cdmService := cdm.NewCdmService(cdmClient, stripRepo, sessionRepo)
 
 	// Initialize PDC Service
 	hoppieLogon := os.Getenv("HOPPIE_LOGON")
 	var pdcService *pdc.Service
 	if hoppieLogon != "" {
 		hoppieClient := pdc.NewClient(hoppieLogon)
-		pdcService = pdc.NewPDCService(hoppieClient, dbpool)
+		pdcService = pdc.NewPDCService(hoppieClient, sessionRepo, stripRepo, sectorRepo)
 		pdcService.SetStripService(stripService)
 		slog.Info("PDC Service initialized")
 	} else {
@@ -88,7 +97,7 @@ func main() {
 		pdcService.SetFrontendHub(frontendHub)
 	}
 
-	fsServer := server.NewServer(dbpool, euroscopeHub, frontendHub, cdmService, pdcService)
+	fsServer := server.NewServer(dbpool, euroscopeHub, frontendHub, cdmService, pdcService, stripRepo, controllerRepo, sessionRepo, sectorRepo, coordRepo)
 
 	frontendHub.SetServer(fsServer)
 	euroscopeHub.SetServer(fsServer)

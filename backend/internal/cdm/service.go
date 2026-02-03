@@ -1,24 +1,28 @@
 package cdm
 
 import (
-	"FlightStrips/internal/database"
+	"FlightStrips/internal/models"
+	"FlightStrips/internal/repository"
 	"FlightStrips/internal/shared"
 	"FlightStrips/pkg/helpers"
 	"context"
 	"fmt"
 	"time"
-
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type Service struct {
 	client      *Client
-	queries     *database.Queries
+	stripRepo   repository.StripRepository
+	sessionRepo repository.SessionRepository
 	frontendHub shared.FrontendHub
 }
 
-func NewCdmService(client *Client, dbPool *pgxpool.Pool) *Service {
-	return &Service{client: client, queries: database.New(dbPool)}
+func NewCdmService(client *Client, stripRepo repository.StripRepository, sessionRepo repository.SessionRepository) *Service {
+	return &Service{
+		client:      client,
+		stripRepo:   stripRepo,
+		sessionRepo: sessionRepo,
+	}
 }
 
 func (s *Service) SetFrontendHub(frontendHub shared.FrontendHub) {
@@ -29,7 +33,7 @@ func (s *Service) SetReady(ctx context.Context, session int32, callsign string) 
 	if !s.client.isValid {
 		return nil
 	}
-	cdmData, err := s.queries.GetCdmDataForCallsign(ctx, database.GetCdmDataForCallsignParams{Callsign: callsign, Session: session})
+	cdmData, err := s.stripRepo.GetCdmDataForCallsign(ctx, session, callsign)
 	if err != nil {
 		return err
 	}
@@ -43,9 +47,7 @@ func (s *Service) SetReady(ctx context.Context, session int32, callsign string) 
 	}
 
 	rea := "REA"
-	rows, err := s.queries.SetCdmStatus(ctx, database.SetCdmStatusParams{
-		CdmStatus: &rea, Callsign: callsign, Session: session,
-	})
+	rows, err := s.stripRepo.SetCdmStatus(ctx, session, callsign, &rea)
 	if err != nil {
 		return err
 	}
@@ -68,7 +70,7 @@ func (s *Service) RequestBetterTobt(ctx context.Context, session int32, callsign
 	format := now.Format("1504")
 	status := "REQTOBT/" + format + "/ATC"
 
-	cdmData, err := s.queries.GetCdmDataForCallsign(ctx, database.GetCdmDataForCallsignParams{Callsign: callsign, Session: session})
+	cdmData, err := s.stripRepo.GetCdmDataForCallsign(ctx, session, callsign)
 	if err != nil {
 		return err
 	}
@@ -82,9 +84,7 @@ func (s *Service) RequestBetterTobt(ctx context.Context, session int32, callsign
 		return err
 	}
 
-	rows, err := s.queries.SetCdmStatus(ctx, database.SetCdmStatusParams{
-		CdmStatus: &status, Callsign: callsign, Session: session,
-	})
+	rows, err := s.stripRepo.SetCdmStatus(ctx, session, callsign, &status)
 	if err != nil {
 		return err
 	}
@@ -108,7 +108,7 @@ func (s *Service) Start(ctx context.Context) {
 	defer ticker.Stop()
 
 	for range ticker.C {
-		sessions, err := s.queries.GetSessions(ctx)
+		sessions, err := s.sessionRepo.List(ctx)
 		if err != nil {
 			continue
 		}
@@ -127,19 +127,19 @@ func (s *Service) Start(ctx context.Context) {
 	}
 }
 
-func (s *Service) syncCdmData(ctx context.Context, session database.Session) error {
+func (s *Service) syncCdmData(ctx context.Context, session *models.Session) error {
 	if !s.client.isValid {
 		return nil
 	}
 
 	airport := session.Airport
 
-	currentData, err := s.queries.GetCdmData(ctx, session.ID)
+	currentData, err := s.stripRepo.GetCdmData(ctx, session.ID)
 	if err != nil {
 		return err
 	}
 
-	lookup := make(map[string]database.GetCdmDataRow)
+	lookup := make(map[string]*models.CdmData)
 	for _, row := range currentData {
 		lookup[row.Callsign] = row
 	}
@@ -166,17 +166,7 @@ func (s *Service) syncCdmData(ctx context.Context, session database.Session) err
 				helpers.ValueOrDefault(flight.Tobt) != row.TOBT ||
 				helpers.ValueOrDefault(flight.Tsat) != tsat ||
 				helpers.ValueOrDefault(flight.Ttot) != ttot {
-				_, err = s.queries.UpdateCdmData(ctx, database.UpdateCdmDataParams{
-					Session:   session.ID,
-					Callsign:  row.Callsign,
-					Tobt:      &row.TOBT,
-					Tsat:      &tsat,
-					Ttot:      &ttot,
-					Ctot:      &row.CTOT,
-					Aobt:      &row.AOBT,
-					Eobt:      &row.EOBT,
-					CdmStatus: &row.CDMStatus,
-				})
+				_, err = s.stripRepo.UpdateCdmData(ctx, session.ID, row.Callsign, &row.TOBT, &tsat, &ttot, &row.CTOT, &row.AOBT, &row.EOBT, &row.CDMStatus)
 				if err != nil {
 					return err
 				}

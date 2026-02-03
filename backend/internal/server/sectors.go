@@ -2,7 +2,8 @@
 
 import (
 	"FlightStrips/internal/config"
-	"FlightStrips/internal/database"
+	"FlightStrips/internal/models"
+	"FlightStrips/internal/repository"
 	"cmp"
 	"context"
 	"fmt"
@@ -10,9 +11,11 @@ import (
 )
 
 func (s *Server) UpdateSectors(sessionId int32) error {
-	db := database.New(s.GetDatabasePool())
+	sessionRepo := s.sessionRepo
+	sectorRepo := s.sectorRepo
+	controllerRepo := s.controllerRepo
 
-	previousOwners, err := db.GetSectorOwners(context.Background(), sessionId)
+	previousOwners, err := sectorRepo.ListBySession(context.Background(), sessionId)
 	if err != nil {
 		return err
 	}
@@ -20,7 +23,7 @@ func (s *Server) UpdateSectors(sessionId int32) error {
 	fmt.Printf("Updating sectors for session %d\n", sessionId)
 	fmt.Printf("Found %d previous owners\n", len(previousOwners))
 
-	session, err := db.GetSessionById(context.Background(), sessionId)
+	session, err := sessionRepo.GetByID(context.Background(), sessionId)
 	if err != nil {
 		return err
 	}
@@ -31,7 +34,7 @@ func (s *Server) UpdateSectors(sessionId int32) error {
 		return nil
 	}
 
-	positions, err := getCurrentPositions(db, sessionId)
+	positions, err := getCurrentPositions(controllerRepo, sessionId)
 	if err != nil {
 		return err
 	}
@@ -43,7 +46,7 @@ func (s *Server) UpdateSectors(sessionId int32) error {
 		return nil
 	}
 
-	currentOwners := make([]database.SectorOwner, 0)
+	currentOwners := make([]*models.SectorOwner, 0)
 	for key, sectors := range sectors {
 		names := make([]string, 0)
 		sorted := slices.SortedFunc(slices.Values(sectors), sectorsCompare)
@@ -58,7 +61,7 @@ func (s *Server) UpdateSectors(sessionId int32) error {
 			}
 		}
 
-		currentOwners = append(currentOwners, database.SectorOwner{
+		currentOwners = append(currentOwners, &models.SectorOwner{
 			Session:    sessionId,
 			Position:   key,
 			Sector:     names,
@@ -79,36 +82,27 @@ func (s *Server) UpdateSectors(sessionId int32) error {
 	}
 	defer tx.Rollback(context.Background())
 
-	dbWithTx := db.WithTx(tx)
-
-	err = dbWithTx.RemoveSectorOwners(context.Background(), sessionId)
+	err = sectorRepo.RemoveBySession(context.Background(), sessionId)
 	if err != nil {
 		return err
 	}
 
-	dbParams := make([]database.InsertSectorOwnersParams, 0)
 	for _, owner := range currentOwners {
-		dbParams = append(dbParams, database.InsertSectorOwnersParams{
-			Session:    owner.Session,
-			Position:   owner.Position,
-			Sector:     owner.Sector,
-			Identifier: owner.Identifier,
-		})
+		err = sectorRepo.Create(context.Background(), owner)
+		if err != nil {
+			return err
+		}
 	}
-
-	_, err = dbWithTx.InsertSectorOwners(context.Background(), dbParams)
-	if err != nil {
-		return err
-	}
+	
 	err = tx.Commit(context.Background())
 	if err != nil {
 		return err
 	}
 
-	return s.sendControllerUpdates(sessionId, currentOwners, db)
+	return s.sendControllerUpdates(sessionId, currentOwners, controllerRepo)
 }
 
-func sectorsEqual(a, b database.SectorOwner) bool {
+func sectorsEqual(a, b *models.SectorOwner) bool {
 	return a.Session == b.Session && a.Position == b.Position && slices.Equal(a.Sector, b.Sector)
 }
 
@@ -116,9 +110,9 @@ func sectorsCompare(e, e2 config.Sector) int {
 	return cmp.Compare(e.Name, e2.Name)
 }
 
-func getCurrentPositions(db *database.Queries, sessionId int32) ([]*config.Position, error) {
+func getCurrentPositions(controllerRepo repository.ControllerRepository, sessionId int32) ([]*config.Position, error) {
 
-	controllers, err := db.GetControllers(context.Background(), sessionId)
+	controllers, err := controllerRepo.List(context.Background(), sessionId)
 	if err != nil {
 		return nil, err
 	}
@@ -133,13 +127,13 @@ func getCurrentPositions(db *database.Queries, sessionId int32) ([]*config.Posit
 	return positions, nil
 }
 
-func (s *Server) sendControllerUpdates(sessionId int32, owners []database.SectorOwner, db *database.Queries) error {
-	controllers, err := db.GetControllers(context.Background(), sessionId)
+func (s *Server) sendControllerUpdates(sessionId int32, owners []*models.SectorOwner, controllerRepo repository.ControllerRepository) error {
+	controllers, err := controllerRepo.List(context.Background(), sessionId)
 	if err != nil {
 		return err
 	}
 
-	ownerMap := make(map[string]database.SectorOwner)
+	ownerMap := make(map[string]*models.SectorOwner)
 	for _, owner := range owners {
 		ownerMap[owner.Position] = owner
 	}

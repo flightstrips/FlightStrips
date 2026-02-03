@@ -1,15 +1,13 @@
 ﻿package services
 
 import (
+	"FlightStrips/internal/repository"
 	"FlightStrips/internal/shared"
 	"context"
 	"errors"
 	"fmt"
 
-	"FlightStrips/internal/database"
-
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 const (
@@ -20,14 +18,14 @@ const (
 )
 
 type StripService struct {
-	queries      *database.Queries
+	stripRepo    repository.StripRepository
 	frontendHub  shared.FrontendHub
 	euroscopeHub shared.EuroscopeHub
 }
 
-func NewStripService(dbPool *pgxpool.Pool) *StripService {
+func NewStripService(stripRepo repository.StripRepository) *StripService {
 	return &StripService{
-		queries: database.New(dbPool),
+		stripRepo: stripRepo,
 	}
 }
 
@@ -70,11 +68,7 @@ func (s *StripService) needsRecalculation(prevOrder, nextOrder int32) bool {
 
 // updateStripSequence updates the sequence of a single strip in the database.
 func (s *StripService) updateStripSequence(ctx context.Context, session int32, callsign string, sequence int32, bay string, sendNotification bool) error {
-	_, err := s.queries.UpdateStripSequence(ctx, database.UpdateStripSequenceParams{
-		Session:  session,
-		Callsign: callsign,
-		Sequence: sequence,
-	})
+	_, err := s.stripRepo.UpdateSequence(ctx, session, callsign, sequence)
 	if err != nil {
 		return fmt.Errorf("failed to update strip sequence: %w", err)
 	}
@@ -87,11 +81,7 @@ func (s *StripService) updateStripSequence(ctx context.Context, session int32, c
 }
 
 func (s *StripService) MoveToBay(ctx context.Context, session int32, callsign string, bay string, sendNotification bool) error {
-	maxInBay, err := s.queries.GetMaxSequenceInBay(ctx, database.GetMaxSequenceInBayParams{
-		Session: session,
-		Bay:     bay,
-	})
-
+	maxInBay, err := s.stripRepo.GetMaxSequenceInBay(ctx, session, bay)
 	if err != nil {
 		return fmt.Errorf("failed to get max sequence in bay: %w", err)
 	}
@@ -109,10 +99,7 @@ func (s *StripService) MoveStripBetween(ctx context.Context, session int32, call
 	if before == nil {
 		fmt.Println("move strip between: nil", "for bay: ", bay, "session: ", session, "callsign: ", callsign)
 		prev = 0
-		nextOrder, err := s.queries.GetMinSequenceInBay(ctx, database.GetMinSequenceInBayParams{
-			Session: session,
-			Bay:     bay,
-		})
+		nextOrder, err := s.stripRepo.GetMinSequenceInBay(ctx, session, bay)
 		if err != nil {
 			return fmt.Errorf("failed to get min sequence in bay: %w", err)
 		}
@@ -120,19 +107,11 @@ func (s *StripService) MoveStripBetween(ctx context.Context, session int32, call
 	} else {
 		fmt.Println("move strip between:", *before, "for bay: ", bay, "session: ", session, "callsign: ", callsign)
 		var err error
-		prev, err = s.queries.GetSequence(ctx, database.GetSequenceParams{
-			Session:  session,
-			Callsign: *before,
-			Bay:      bay,
-		})
+		prev, err = s.stripRepo.GetSequence(ctx, session, *before, bay)
 		if err != nil {
 			return fmt.Errorf("failed to get sequence: %w", err)
 		}
-		nextOrder, err := s.queries.GetNextSequence(ctx, database.GetNextSequenceParams{
-			Session:  session,
-			Bay:      bay,
-			Sequence: prev,
-		})
+		nextOrder, err := s.stripRepo.GetNextSequence(ctx, session, bay, prev)
 		if err != nil {
 			if !errors.Is(err, pgx.ErrNoRows) {
 				return fmt.Errorf("failed to get next sequence: %w", err)
@@ -160,20 +139,13 @@ func (s *StripService) MoveStripBetween(ctx context.Context, session int32, call
 // spacing them InitialOrderSpacing apart based on their current order.
 func (s *StripService) recalculateAllStripSequences(ctx context.Context, session int32, bay string) error {
 	// Recalculate with proper spacing
-	err := s.queries.RecalculateStripSequences(ctx, database.RecalculateStripSequencesParams{
-		Session: session,
-		Spacing: InitialOrderSpacing,
-		Bay:     bay,
-	})
+	err := s.stripRepo.RecalculateSequences(ctx, session, bay, InitialOrderSpacing)
 	if err != nil {
 		return fmt.Errorf("failed to recalculate strip sequences: %w", err)
 	}
 
 	// Get updated sequences
-	sequences, err := s.queries.ListStripSequences(ctx, database.ListStripSequencesParams{
-		Session: session,
-		Bay:     bay,
-	})
+	sequences, err := s.stripRepo.ListSequences(ctx, session, bay)
 	if err != nil {
 		return fmt.Errorf("failed to list strip sequences: %w", err)
 	}

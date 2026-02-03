@@ -4,6 +4,7 @@ import (
 	"FlightStrips/internal/database"
 	"FlightStrips/internal/pdc/mocks"
 	"FlightStrips/internal/pdc/testdata"
+	"FlightStrips/internal/repository/postgres"
 	"context"
 	"fmt"
 	"strings"
@@ -60,14 +61,20 @@ func (suite *PDCIntegrationTestSuite) SetupTest(t *testing.T) {
 	dbPool, queries := testdata.SetupTestDB(t)
 	suite.queries = queries
 
+	// Create repositories
+	sessionRepo := postgres.NewSessionRepository(dbPool)
+	stripRepo := postgres.NewStripRepository(dbPool)
+	sectorRepo := postgres.NewSectorOwnerRepository(dbPool)
+
 	// Create service with mocks
 	adapter := &hoppieClientAdapter{HoppieClient: suite.mockHoppie}
 	suite.service = &Service{
 		client:        adapter,
-		queries:       queries,
+		sessionRepo:   sessionRepo,
+		stripRepo:     stripRepo,
+		sectorRepo:    sectorRepo,
 		frontendHub:   suite.mockFrontend,
 		stripService:  suite.mockStrip,
-		dbPool:        dbPool,
 		timeouts:      make(map[string]*timeoutTracker),
 		timeoutConfig: 30 * time.Second, // Long timeout to prevent firing during test
 	}
@@ -156,8 +163,8 @@ func TestHandleWilcoFlow(t *testing.T) {
 		Type:       MsgWilco,
 		From:       callsign,
 		To:         "EKCH",
-		Payload:    "/data2/1/2/N/WILCO",
-		RawMessage: callsign + " EKCH cpdlc {/data2/1/2/N/WILCO}",
+		Payload:    "/data2/1/1/N/WILCO",
+		RawMessage: callsign + " EKCH cpdlc {/data2/1/1/N/WILCO}",
 	}
 
 	session := sessionInformation{

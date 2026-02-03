@@ -1,7 +1,7 @@
 package euroscope
 
 import (
-	"FlightStrips/internal/database"
+	internalModels "FlightStrips/internal/models"
 	"FlightStrips/internal/shared"
 	"FlightStrips/pkg/events"
 	"FlightStrips/pkg/events/euroscope"
@@ -16,7 +16,6 @@ import (
 
 	gorilla "github.com/gorilla/websocket"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type internalMessage struct {
@@ -179,21 +178,21 @@ func (hub *Hub) handleLogin(msg []byte, user shared.AuthenticatedUser) (event eu
 	// already in the database. It may also already be in the database if the master have synced it before a new
 	// controller connects to FlightStrips
 
-	db := database.New(hub.server.GetDatabasePool())
-	params := database.GetControllerParams{Callsign: event.Callsign, Session: session.Id}
-	controller, err := db.GetController(context.Background(), params)
+	controllerRepo := hub.server.GetControllerRepository()
+	controller, err := controllerRepo.Get(context.Background(), event.Callsign, session.Id)
 
 	cid := user.GetCid()
+	now := time.Now().UTC()
 	if errors.Is(err, pgx.ErrNoRows) {
-		params := database.InsertControllerParams{
+		newController := &internalModels.Controller{
 			Callsign:          event.Callsign,
 			Session:           session.Id,
 			Position:          event.Position,
 			Cid:               &cid,
-			LastSeenEuroscope: pgtype.Timestamp{Valid: true, Time: time.Now().UTC()},
+			LastSeenEuroscope: &now,
 		}
 
-		err = db.InsertController(context.Background(), params)
+		err = controllerRepo.Create(context.Background(), newController)
 
 		if err != nil {
 			return event, session.Id, err
@@ -206,13 +205,11 @@ func (hub *Hub) handleLogin(msg []byte, user shared.AuthenticatedUser) (event eu
 		return event, session.Id, err
 	} else {
 		// Set CID
-		params := database.SetControllerCidParams{Session: session.Id, Cid: &cid, Callsign: event.Callsign}
-		db.SetControllerCid(context.Background(), params)
+		controllerRepo.SetCid(context.Background(), session.Id, event.Callsign, &cid)
 	}
 
 	if controller.Position != event.Position {
-		params := database.SetControllerPositionParams{Session: session.Id, Callsign: event.Callsign, Position: event.Position}
-		_, err = db.SetControllerPosition(context.TODO(), params)
+		_, err = controllerRepo.SetPosition(context.TODO(), session.Id, event.Callsign, event.Position)
 
 		if err != nil {
 			return event, session.Id, err
@@ -224,13 +221,8 @@ func (hub *Hub) handleLogin(msg []byte, user shared.AuthenticatedUser) (event eu
 
 func (hub *Hub) OnUnregister(client *Client) {
 	server := hub.server
-	db := database.New(server.GetDatabasePool())
-	params := database.SetControllerCidParams{
-		Cid:      nil,
-		Callsign: client.callsign,
-		Session:  client.session,
-	}
-	count, err := db.SetControllerCid(context.Background(), params)
+	controllerRepo := server.GetControllerRepository()
+	count, err := controllerRepo.SetCid(context.Background(), client.session, client.callsign, nil)
 
 	if err != nil || count != 1 {
 		log.Printf("Failed to remove CID for client %s with CID %s. Error: %s", client.callsign, client.GetCid(), err)

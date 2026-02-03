@@ -1,6 +1,7 @@
 ﻿package shared
 
 import (
+	"FlightStrips/internal/repository"
 	"context"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -23,6 +24,9 @@ type PdcService interface {
 	RevertToVoice(ctx context.Context, callsign string, sessionID int32, cid string) error
 }
 
+// Alias for repository type used in handlers
+type StripRepository = repository.StripRepository
+
 type Server interface {
 	GetDatabasePool() *pgxpool.Pool
 	GetEuroscopeHub() EuroscopeHub
@@ -30,6 +34,13 @@ type Server interface {
 	GetOrCreateSession(airport string, name string) (Session, error)
 	GetCdmService() CdmService
 	GetPdcService() PdcService
+
+	// Repository access
+	GetStripRepository() repository.StripRepository
+	GetControllerRepository() repository.ControllerRepository
+	GetSessionRepository() repository.SessionRepository
+	GetSectorOwnerRepository() repository.SectorOwnerRepository
+	GetCoordinationRepository() repository.CoordinationRepository
 
 	// TODO move to another service
 	UpdateSectors(sessionId int32) error

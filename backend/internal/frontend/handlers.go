@@ -1,7 +1,7 @@
 package frontend
 
 import (
-	"FlightStrips/internal/database"
+	internalModels "FlightStrips/internal/models"
 	"FlightStrips/internal/shared"
 	"FlightStrips/pkg/events/euroscope"
 	"FlightStrips/pkg/events/frontend"
@@ -31,9 +31,9 @@ func handleMove(client *Client, message Message) error {
 	}
 
 	s := client.hub.server
+	stripRepo := s.GetStripRepository()
 
-	db := database.New(s.GetDatabasePool())
-	strip, err := db.GetStrip(context.Background(), database.GetStripParams{Callsign: move.Callsign, Session: client.session})
+	strip, err := stripRepo.GetByCallsign(context.Background(), client.session, move.Callsign)
 	if err != nil {
 		return err
 	}
@@ -43,9 +43,9 @@ func handleMove(client *Client, message Message) error {
 	}
 
 	if move.Bay == shared.BAY_NOT_CLEARED || move.Bay == shared.BAY_CLEARED {
-		err = handleClearedBayUpdate(client, strip, move, db, s.GetEuroscopeHub())
+		err = handleClearedBayUpdate(client, strip, move, stripRepo, s.GetEuroscopeHub())
 	} else {
-		err = handleGeneralBayUpdate(client, strip, move, db, s.GetEuroscopeHub())
+		err = handleGeneralBayUpdate(client, strip, move, stripRepo, s.GetEuroscopeHub())
 	}
 
 	if err != nil {
@@ -55,20 +55,19 @@ func handleMove(client *Client, message Message) error {
 	return client.hub.stripService.MoveToBay(context.Background(), client.session, move.Callsign, move.Bay, true)
 }
 
-func handleClearedBayUpdate(client *Client, strip database.Strip, move frontend.MoveEvent, db *database.Queries, es shared.EuroscopeHub) error {
+func handleClearedBayUpdate(client *Client, strip *internalModels.Strip, move frontend.MoveEvent, stripRepo shared.StripRepository, es shared.EuroscopeHub) error {
 	isCleared := move.Bay == shared.BAY_CLEARED
 	if strip.Cleared == isCleared {
 		return nil
 	}
 
-	count, err := db.UpdateStripClearedFlagByID(
+	count, err := stripRepo.UpdateClearedFlag(
 		context.Background(),
-		database.UpdateStripClearedFlagByIDParams{
-			Callsign: move.Callsign,
-			Session:  client.session,
-			Cleared:  isCleared,
-			Bay:      move.Bay,
-		})
+		client.session,
+		move.Callsign,
+		isCleared,
+		move.Bay,
+		nil)
 
 	if err != nil {
 		return err
@@ -82,7 +81,7 @@ func handleClearedBayUpdate(client *Client, strip database.Strip, move frontend.
 	return nil
 }
 
-func handleGeneralBayUpdate(client *Client, strip database.Strip, move frontend.MoveEvent, db *database.Queries, es shared.EuroscopeHub) error {
+func handleGeneralBayUpdate(client *Client, strip *internalModels.Strip, move frontend.MoveEvent, stripRepo shared.StripRepository, es shared.EuroscopeHub) error {
 	state := strip.State
 	if strip.Origin == client.airport {
 		groundState := shared.GetGroundState(move.Bay)
@@ -91,14 +90,13 @@ func handleGeneralBayUpdate(client *Client, strip database.Strip, move frontend.
 		}
 	}
 
-	count, err := db.UpdateStripGroundStateByID(
+	count, err := stripRepo.UpdateGroundState(
 		context.Background(),
-		database.UpdateStripGroundStateByIDParams{
-			Callsign: move.Callsign,
-			Session:  client.session,
-			Bay:      move.Bay,
-			State:    state,
-		})
+		client.session,
+		move.Callsign,
+		state,
+		move.Bay,
+		nil)
 
 	if err != nil {
 		return err
@@ -126,9 +124,9 @@ func handleStripUpdate(client *Client, message Message) error {
 	}
 
 	s := client.hub.server
+	stripRepo := s.GetStripRepository()
 
-	db := database.New(s.GetDatabasePool())
-	strip, err := db.GetStrip(context.Background(), database.GetStripParams{Callsign: event.Callsign, Session: client.session})
+	strip, err := stripRepo.GetByCallsign(context.Background(), client.session, event.Callsign)
 	if err != nil {
 		return err
 	}
@@ -166,8 +164,11 @@ func handleCoordinationTransferRequest(client *Client, message Message) error {
 		return err
 	}
 	position := client.position
-	db := database.New(client.hub.server.GetDatabasePool())
-	strip, err := db.GetStrip(context.Background(), database.GetStripParams{Callsign: req.Callsign, Session: client.session})
+	s := client.hub.server
+	stripRepo := s.GetStripRepository()
+	coordRepo := s.GetCoordinationRepository()
+	
+	strip, err := stripRepo.GetByCallsign(context.Background(), client.session, req.Callsign)
 	if err != nil {
 		return err
 	}
@@ -176,15 +177,14 @@ func handleCoordinationTransferRequest(client *Client, message Message) error {
 		return errors.New("cannot transfer strip which is not assumed")
 	}
 
-	_, err = db.CreateCoordination(
-		context.Background(),
-		database.CreateCoordinationParams{
-			Session:      client.session,
-			StripID:      strip.ID,
-			FromPosition: position,
-			ToPosition:   req.To,
-		},
-	)
+	coord := &internalModels.Coordination{
+		Session:      client.session,
+		StripID:      strip.ID,
+		FromPosition: position,
+		ToPosition:   req.To,
+	}
+	
+	err = coordRepo.Create(context.Background(), coord)
 	if err != nil {
 		return err
 	}
@@ -197,21 +197,23 @@ func handleCoordinationAssumeRequest(client *Client, message Message) error {
 	if err := message.JsonUnmarshal(&req); err != nil {
 		return err
 	}
-	db := database.New(client.hub.server.GetDatabasePool())
+	s := client.hub.server
+	stripRepo := s.GetStripRepository()
+	coordRepo := s.GetCoordinationRepository()
 
-	strip, err := db.GetStrip(context.Background(), database.GetStripParams{Callsign: req.Callsign, Session: client.session})
+	strip, err := stripRepo.GetByCallsign(context.Background(), client.session, req.Callsign)
 	if err != nil {
 		return err
 	}
 	// Strip is not owned by anyone assume it
 	if strip.Owner == nil || *strip.Owner == "" {
-		err2 := setOwner(client, db, req, strip)
+		err2 := setOwner(client, stripRepo, req, strip)
 		if err2 != nil {
 			return err2
 		}
 		return nil
 	}
-	coordination, err := db.GetCoordinationByStripID(context.Background(), database.GetCoordinationByStripIDParams{StripID: strip.ID, Session: client.session})
+	coordination, err := coordRepo.GetByStripID(context.Background(), client.session, strip.ID)
 	if err != nil {
 		return err
 	}
@@ -220,7 +222,7 @@ func handleCoordinationAssumeRequest(client *Client, message Message) error {
 		return errors.New("cannot assume strip which is not transferred to you")
 	}
 
-	_, err = db.DeleteCoordinationByID(context.Background(), coordination.ID)
+	err = coordRepo.Delete(context.Background(), coordination.ID)
 	if err != nil {
 		return err
 	}
@@ -233,17 +235,12 @@ func handleCoordinationAssumeRequest(client *Client, message Message) error {
 
 	previousOwners := append(strip.PreviousOwners, client.position)
 
-	err = db.SetNextAndPreviousOwners(context.Background(), database.SetNextAndPreviousOwnersParams{
-		Session:        client.session,
-		Callsign:       strip.Callsign,
-		NextOwners:     nextOwners,
-		PreviousOwners: previousOwners,
-	})
+	err = stripRepo.SetNextAndPreviousOwners(context.Background(), client.session, strip.Callsign, nextOwners, previousOwners)
 	if err != nil {
 		return err
 	}
 
-	if err := setOwner(client, db, req, strip); err != nil {
+	if err := setOwner(client, stripRepo, req, strip); err != nil {
 		return err
 	}
 
@@ -251,10 +248,8 @@ func handleCoordinationAssumeRequest(client *Client, message Message) error {
 	return nil
 }
 
-func setOwner(client *Client, db *database.Queries, req frontend.CoordinationAssumeRequestEvent, strip database.Strip) error {
-	count, err := db.SetStripOwner(context.Background(), database.SetStripOwnerParams{
-		Owner: &client.position, Callsign: req.Callsign, Session: client.session, Version: strip.Version,
-	})
+func setOwner(client *Client, stripRepo shared.StripRepository, req frontend.CoordinationAssumeRequestEvent, strip *internalModels.Strip) error {
+	count, err := stripRepo.SetOwner(context.Background(), client.session, req.Callsign, &client.position, strip.Version)
 
 	if err != nil {
 		return err
@@ -273,9 +268,10 @@ func handleCoordinationRejectRequest(client *Client, message Message) error {
 	if err := message.JsonUnmarshal(&req); err != nil {
 		return err
 	}
-	db := database.New(client.hub.server.GetDatabasePool())
+	s := client.hub.server
+	coordRepo := s.GetCoordinationRepository()
 
-	coordination, err := db.GetCoordinationByStripCallsign(context.Background(), database.GetCoordinationByStripCallsignParams{Callsign: req.Callsign, Session: client.session})
+	coordination, err := coordRepo.GetByStripCallsign(context.Background(), client.session, req.Callsign)
 	if err != nil {
 		return err
 	}
@@ -284,7 +280,7 @@ func handleCoordinationRejectRequest(client *Client, message Message) error {
 		return errors.New("cannot reject strip which is not transferred to you")
 	}
 
-	_, err = db.DeleteCoordinationByID(context.Background(), coordination.ID)
+	err = coordRepo.Delete(context.Background(), coordination.ID)
 	if err != nil {
 		return err
 	}
@@ -297,9 +293,10 @@ func handleCoordinationFreeRequest(client *Client, message Message) error {
 	if err := message.JsonUnmarshal(&req); err != nil {
 		return err
 	}
-	db := database.New(client.hub.server.GetDatabasePool())
+	s := client.hub.server
+	stripRepo := s.GetStripRepository()
 
-	strip, err := db.GetStrip(context.Background(), database.GetStripParams{Callsign: req.Callsign, Session: client.session})
+	strip, err := stripRepo.GetByCallsign(context.Background(), client.session, req.Callsign)
 	if err != nil {
 		return err
 	}
@@ -310,15 +307,11 @@ func handleCoordinationFreeRequest(client *Client, message Message) error {
 
 	previousOwners := append(strip.PreviousOwners, client.position)
 
-	if err := db.SetPreviousOwners(context.Background(), database.SetPreviousOwnersParams{
-		Session:        client.session,
-		Callsign:       strip.Callsign,
-		PreviousOwners: previousOwners,
-	}); err != nil {
+	if err := stripRepo.SetPreviousOwners(context.Background(), client.session, strip.Callsign, previousOwners); err != nil {
 		return err
 	}
 
-	count, err := db.SetStripOwner(context.Background(), database.SetStripOwnerParams{Owner: nil, Callsign: req.Callsign, Session: client.session, Version: strip.Version})
+	count, err := stripRepo.SetOwner(context.Background(), client.session, req.Callsign, nil, strip.Version)
 
 	if err != nil {
 		return err
@@ -341,8 +334,10 @@ func handleUpdateOrder(client *Client, message Message) error {
 		return err
 	}
 
-	db := database.New(client.hub.server.GetDatabasePool())
-	bay, err := db.GetBay(context.Background(), database.GetBayParams{Session: client.session, Callsign: event.Callsign})
+	s := client.hub.server
+	stripRepo := s.GetStripRepository()
+	
+	bay, err := stripRepo.GetBay(context.Background(), client.session, event.Callsign)
 	if err != nil {
 		return err
 	}
@@ -389,12 +384,8 @@ func handleReleasePoint(client *Client, message Message) error {
 		return err
 	}
 
-	db := database.New(client.hub.server.GetDatabasePool())
-	affected, err := db.UpdateReleasePoint(context.Background(), database.UpdateReleasePointParams{
-		Session:      client.session,
-		Callsign:     event.Callsign,
-		ReleasePoint: &event.ReleasePoint,
-	})
+	stripRepo := client.hub.server.GetStripRepository()
+	affected, err := stripRepo.UpdateReleasePoint(context.Background(), client.session, event.Callsign, &event.ReleasePoint)
 
 	if err != nil {
 		return err

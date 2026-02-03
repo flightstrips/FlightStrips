@@ -39,5 +39,5 @@ func (handlers MessageHandlers[TType, TClient]) Handle(client TClient, message M
 		return handler(client, message)
 	}
 
-	return fmt.Errorf("no handler for event type: %s", message.Type)
+	return fmt.Errorf("no handler for event type: %v", message.Type)
 }

@@ -1,7 +1,6 @@
 package euroscope
 
 import (
-	"FlightStrips/internal/database"
 	"FlightStrips/internal/shared"
 	"FlightStrips/pkg/events"
 	"context"
@@ -9,7 +8,6 @@ import (
 	"time"
 
 	gorilla "github.com/gorilla/websocket"
-	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type Client struct {
@@ -59,13 +57,9 @@ func (c *Client) SetUser(user shared.AuthenticatedUser) {
 // HandlePong handles pong messages from the client
 func (c *Client) HandlePong() error {
 	// Update the last seen timestamp in the database
-	db := database.New(c.hub.server.GetDatabasePool())
-	params := database.SetControllerEuroscopeSeenParams{
-		Cid:               c.GetCid(),
-		Session:           c.session,
-		LastSeenEuroscope: pgtype.Timestamp{Valid: true, Time: time.Now().UTC()},
-	}
-	count, err := db.SetControllerEuroscopeSeen(context.Background(), params)
+	controllerRepo := c.hub.server.GetControllerRepository()
+	now := time.Now().UTC()
+	count, err := controllerRepo.SetEuroscopeSeen(context.Background(), c.GetCid(), c.session, &now)
 
 	if count != 1 {
 		return errors.New("failed to update last seen timestamp")

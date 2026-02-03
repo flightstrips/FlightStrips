@@ -1,7 +1,6 @@
 package frontend
 
 import (
-	"FlightStrips/internal/database"
 	"FlightStrips/internal/shared"
 	"FlightStrips/pkg/events"
 	"context"
@@ -9,7 +8,6 @@ import (
 	"time"
 
 	gorilla "github.com/gorilla/websocket"
-	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const (
@@ -71,13 +69,9 @@ func (c *Client) HandlePong() error {
 	}
 
 	// Update the last seen timestamp in the database
-	db := database.New(c.hub.server.GetDatabasePool())
-	params := database.SetControllerFrontendSeenParams{
-		Cid:              c.GetCid(),
-		Session:          c.session,
-		LastSeenFrontend: pgtype.Timestamp{Valid: true, Time: time.Now().UTC()},
-	}
-	count, err := db.SetControllerFrontendSeen(context.Background(), params)
+	controllerRepo := c.hub.server.GetControllerRepository()
+	now := time.Now().UTC()
+	count, err := controllerRepo.SetFrontendSeen(context.Background(), c.GetCid(), c.session, &now)
 
 	if count != 1 {
 		//return &ControllerNotFoundError{}

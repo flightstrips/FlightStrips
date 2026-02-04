@@ -19,6 +19,7 @@ export enum EventType {
   FrontendCdmData = "cdm_data",
   FrontendCdmWait = "cdm_wait",
   FrontendReleasePoint = "release_point",
+  FrontendPdcStateChange = "pdc_state_change",
 }
 
 export enum ActionType {
@@ -30,7 +31,11 @@ export enum ActionType {
   FrontendSendMessage = "send_message",
   FrontendCdmReady = "cdm_ready",
   FrontendReleasePoint = "release_point",
+  FrontendIssuePdcClearanceRequest = "issue_pdc_clearance",
+  FrontendRevertToVoiceRequest = "revert_to_voice",
 }
+
+export type PdcStatus = "NONE" | "REQUESTED" | "CLEARED" | "CONFIRMED" | "NO_RESPONSE" | "FAILED" | "REVERT_TO_VOICE";
 
 export enum Bay {
   Unknown = "UNKNOWN",
@@ -81,6 +86,8 @@ export interface FrontendStrip {
   sequence: number;
   next_controllers: string[];
   previous_controllers: string[];
+  owner: string;
+  pdc_state: PdcStatus;
 }
 
 export interface FrontendController {
@@ -132,6 +139,7 @@ export interface FrontendStripUpdateEvent {
   next_controllers: string[];
   previous_controllers: string[];
   owner: string;
+  pdc_state: PdcStatus;
 }
 
 export interface FrontendControllerOnlineEvent {
@@ -257,6 +265,12 @@ export interface FrontendReleasePointEvent {
   release_point: string;
 }
 
+export interface FrontendPdcStateUpdateEvent {
+  type: EventType.FrontendPdcStateChange;
+  callsign: string;
+  state: "NONE" | "REQUESTED" | "CLEARED" | "CONFIRMED" | "NO_RESPONSE" | "FAILED";
+}
+
 // Union type for all events that can be received
 export type WebSocketEvent =
   | FrontendInitialEvent
@@ -278,7 +292,8 @@ export type WebSocketEvent =
   | FrontendBroadcastEvent
   | FrontendCdmDataEvent
   | FrontendCdmWaitEvent
-  | FrontendReleasePointEvent;
+  | FrontendReleasePointEvent
+  | FrontendPdcStateUpdateEvent;
 
 export interface FrontendMoveEvent {
   type: ActionType.FrontendMove;
@@ -325,5 +340,16 @@ export interface FrontendSendReleasePointEvent {
   release_point: string;
 }
 
+export interface FrontendIssuePdcClearanceRequest {
+  type: ActionType.FrontendIssuePdcClearanceRequest;
+  callsign: string;
+  remarks: string | null;
+}
+
+export interface FrontendRevertToVoiceRequest {
+  type: ActionType.FrontendRevertToVoiceRequest;
+  callsign: string;
+}
+
 // Union type for all events that can be sent
-export type FrontendSendEvent = FrontendAuthenticationEvent | FrontendMoveEvent | FrontendGenerateSquawkEvent | FrontendUpdateStripDataEvent | FrontendUpdateOrder | FrontendSendMessageEvent | FrontendCdmReadyEvent | FrontendSendReleasePointEvent;
+export type FrontendSendEvent = FrontendAuthenticationEvent | FrontendMoveEvent | FrontendGenerateSquawkEvent | FrontendUpdateStripDataEvent | FrontendUpdateOrder | FrontendSendMessageEvent | FrontendCdmReadyEvent | FrontendSendReleasePointEvent | FrontendIssuePdcClearanceRequest | FrontendRevertToVoiceRequest;

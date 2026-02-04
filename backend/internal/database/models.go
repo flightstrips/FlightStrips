@@ -49,53 +49,59 @@ type SectorOwner struct {
 }
 
 type Session struct {
-	ID            int32
-	Name          string
-	Airport       string
-	ActiveRunways models.ActiveRunways
+	ID                 int32
+	Name               string
+	Airport            string
+	ActiveRunways      models.ActiveRunways
+	PdcSequence        int32
+	PdcMessageSequence int32
 }
 
 type Strip struct {
-	ID                int32
-	Version           int32
-	Callsign          string
-	Session           int32
-	Origin            string
-	Destination       string
-	Alternative       *string
-	Route             *string
-	Remarks           *string
-	AssignedSquawk    *string
-	Squawk            *string
-	Sid               *string
-	ClearedAltitude   *int32
-	Heading           *int32
-	AircraftType      *string
-	Runway            *string
-	RequestedAltitude *int32
-	Capabilities      *string
-	CommunicationType *string
-	AircraftCategory  *string
-	Stand             *string
-	Sequence          *int32
-	State             *string
-	Cleared           bool
-	Owner             *string
-	Bay               string
-	PositionLatitude  *float64
-	PositionLongitude *float64
-	PositionAltitude  *int32
-	Tobt              *string
-	Tsat              *string
-	Ttot              *string
-	Ctot              *string
-	Aobt              *string
-	Asat              *string
-	Eobt              *string
-	NextOwners        []string
-	PreviousOwners    []string
-	CdmStatus         *string
-	ReleasePoint      *string
+	ID                 int32
+	Version            int32
+	Callsign           string
+	Session            int32
+	Origin             string
+	Destination        string
+	Alternative        *string
+	Route              *string
+	Remarks            *string
+	AssignedSquawk     *string
+	Squawk             *string
+	Sid                *string
+	ClearedAltitude    *int32
+	Heading            *int32
+	AircraftType       *string
+	Runway             *string
+	RequestedAltitude  *int32
+	Capabilities       *string
+	CommunicationType  *string
+	AircraftCategory   *string
+	Stand              *string
+	Sequence           *int32
+	State              *string
+	Cleared            bool
+	Owner              *string
+	Bay                string
+	PositionLatitude   *float64
+	PositionLongitude  *float64
+	PositionAltitude   *int32
+	Tobt               *string
+	Tsat               *string
+	Ttot               *string
+	Ctot               *string
+	Aobt               *string
+	Asat               *string
+	Eobt               *string
+	NextOwners         []string
+	PreviousOwners     []string
+	CdmStatus          *string
+	ReleasePoint       *string
+	PdcState           string
+	PdcRequestedAt     pgtype.Timestamp
+	PdcMessageSequence *int32
+	PdcMessageSent     pgtype.Timestamp
 }
 
 type Version struct {

@@ -158,6 +158,12 @@ sectors:
     active: [ ]
     owner:
       - "EKCH_B_GND"
+      - "EKCH_DEL"
+      - "EKCH_A_GND"
+      - "EKCH_C_GND"
+      - "EKCH_C_TWR"
+      - "EKCH_D_TWR"
+      - "EKCH_A_TWR"
 
     # Apron
   - name: AA

@@ -6,6 +6,7 @@ import (
 	"FlightStrips/internal/database"
 	"FlightStrips/internal/euroscope"
 	"FlightStrips/internal/frontend"
+	"FlightStrips/internal/pdc"
 	"FlightStrips/internal/server"
 	"FlightStrips/internal/services"
 	"FlightStrips/internal/websocket"
@@ -15,6 +16,7 @@ import (
 	_ "database/sql"
 	"flag"
 	"log"
+	"log/slog"
 	"net/http"
 	"os"
 
@@ -37,6 +39,8 @@ func healthz(w http.ResponseWriter, _ *http.Request) {
 func main() {
 	flag.Parse()
 	log.SetFlags(0)
+
+	slog.SetLogLoggerLevel(slog.LevelDebug)
 
 	err := godotenv.Load()
 	if err != nil {
@@ -62,13 +66,29 @@ func main() {
 	stripService := services.NewStripService(dbpool)
 	cdmService := cdm.NewCdmService(cdmClient, dbpool)
 
+	// Initialize PDC Service
+	hoppieLogon := os.Getenv("HOPPIE_LOGON")
+	var pdcService *pdc.Service
+	if hoppieLogon != "" {
+		hoppieClient := pdc.NewClient(hoppieLogon)
+		pdcService = pdc.NewPDCService(hoppieClient, dbpool)
+		pdcService.SetStripService(stripService)
+		slog.Info("PDC Service initialized")
+	} else {
+		slog.Warn("PDC Service not initialized - HOPPIE_LOGON")
+	}
+
 	frontendHub := frontend.NewHub(stripService)
 	euroscopeHub := euroscope.NewHub(stripService)
 
 	stripService.SetFrontendHub(frontendHub)
+	stripService.SetEuroscopeHub(euroscopeHub)
 	cdmService.SetFrontendHub(frontendHub)
+	if pdcService != nil {
+		pdcService.SetFrontendHub(frontendHub)
+	}
 
-	fsServer := server.NewServer(dbpool, euroscopeHub, frontendHub, cdmService)
+	fsServer := server.NewServer(dbpool, euroscopeHub, frontendHub, cdmService, pdcService)
 
 	frontendHub.SetServer(fsServer)
 	euroscopeHub.SetServer(fsServer)
@@ -77,16 +97,19 @@ func main() {
 	euroscopeUpgrader := websocket.NewConnectionUpgrader[pkgEuroscope.EventType, *euroscope.Client](euroscopeHub, authenticationService)
 
 	go cdmService.Start(ctx)
+	if pdcService != nil {
+		go pdcService.Start(ctx)
+	}
 
 	// TODO remove
 	db := database.New(dbpool)
-	db.InsertAirport(context.Background(), "EKCH")
+	_ = db.InsertAirport(context.Background(), "EKCH")
 
 	// Health Function for local Dev
 	http.HandleFunc("/healthz", healthz)
 	http.HandleFunc("/euroscopeEvents", euroscopeUpgrader.Upgrade)
 	http.HandleFunc("/frontEndEvents", frontendUpgrader.Upgrade)
 
-	log.Println("Server started on address:", *addr)
+	slog.Info("Server started", slog.String("address", *addr))
 	log.Fatal(http.ListenAndServe(*addr, nil))
 }

@@ -12,6 +12,7 @@ export function CLXBtn({ callsign, children }: { callsign: string, children?: Re
   const strip = useStrip(callsign);
   const moveAction = useWebSocketStore(state => state.move);
   const generateSquawk = useWebSocketStore(state => state.generateSquawk);
+  const clearPdc = useWebSocketStore(state => state.issuePdcClearance);
 
   if (!strip) return null;
 
@@ -314,7 +315,7 @@ export function CLXBtn({ callsign, children }: { callsign: string, children?: Re
         </div>
         <DialogFooter>
             <a type="submit">ESC</a>
-            <button onClick={() => moveAction(strip.callsign, Bay.Cleared)}>CLD</button>
+            <button onClick={() => strip?.pdc_state == "REQUESTED" ?  clearPdc(strip.callsign, null) : moveAction(strip.callsign, Bay.Cleared)}>CLD</button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -33,3 +33,6 @@ UPDATE sessions SET active_runways = $2 WHERE id = $1;
 
 -- name: GetSessions :many
 SELECT * FROM sessions;
+
+-- name: GetSessionsByNames :many
+SELECT * FROM sessions WHERE name = $1;

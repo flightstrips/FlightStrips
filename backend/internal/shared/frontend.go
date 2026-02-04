@@ -6,8 +6,8 @@ import (
 
 type FrontendHub interface {
 	ServerInjectable
-	Hub[frontend.OutgoingMessage]
-
+	Broadcast(session int32, message frontend.OutgoingMessage)
+	Send(session int32, cid string, message frontend.OutgoingMessage)
 	CidOnline(session int32, cid string)
 	CidDisconnect(cid string)
 	SendStripUpdate(session int32, callsign string)
@@ -30,4 +30,5 @@ type FrontendHub interface {
 	SendLayoutUpdates(session int32, layoutMap map[string]string)
 	SendCdmUpdate(session int32, callsign, eobt, tobt, tsat, ctot string)
 	SendCdmWait(session int32, callsign string)
+	SendPdcStateChange(session int32, callsign, state string)
 }

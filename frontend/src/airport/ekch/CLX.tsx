@@ -10,7 +10,7 @@ export default function DEL() {
   const otherStrips = useOtherBayStrips().sort((a, b) => a.sequence - b.sequence);
   const cleared = useClearedStrips().sort((a, b) => a.sequence - b.sequence);
 
-  const mapToStrip = (strip: FrontendStrip, status: string) => <FlightStrip callsing={strip.callsign} destination={strip.destination} stand={strip.stand} eobt={strip.eobt} tsat={strip.tsat} ctot={strip.ctot} status={status} key={strip.callsign}/>
+  const mapToStrip = (strip: FrontendStrip, status: string) => <FlightStrip callsing={strip.callsign} destination={strip.destination} stand={strip.stand} eobt={strip.eobt} tsat={strip.tsat} ctot={strip.ctot} status={status} key={strip.callsign} pdcStatus={strip.pdc_state}/>
 
   return (
     <>

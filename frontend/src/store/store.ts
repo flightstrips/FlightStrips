@@ -14,7 +14,7 @@ import {
   type FrontendControllerOnlineEvent,
   type FrontendInitialEvent,
   type FrontendLayoutUpdateEvent,
-  type FrontendOwnersUpdateEvent, type FrontendReleasePointEvent,
+  type FrontendOwnersUpdateEvent, type FrontendPdcStateUpdateEvent, type FrontendReleasePointEvent,
   type FrontendRequestedAltitudeEvent,
   type FrontendSetHeadingEvent,
   type FrontendSquawkEvent,
@@ -55,6 +55,8 @@ export interface WebSocketState {
   sendMessage: (message: string, to: string | null) => void;
   updateStrip: (callsign: string, update: UpdateStrip) => void;
   setReleasePoint: (callsign: string, releasePoint: string) => void;
+  issuePdcClearance: (callsign: string, remarks: string | null) => void;
+  revertToVoice: (callsign: string) => void;
 }
 
 // Create the store using createVanilla
@@ -156,6 +158,26 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
         const stripIndex = state.strips.findIndex(strip => strip.callsign === callsign)
         if (stripIndex !== -1) {
           state.strips[stripIndex].release_point = releasePoint
+        }
+      })
+    },
+    issuePdcClearance: (callsign, remarks) => {
+      wsClient.send({type: ActionType.FrontendIssuePdcClearanceRequest, callsign, remarks})
+
+      return produce((state: WebSocketState) => {
+        const stripIndex = state.strips.findIndex(strip => strip.callsign === callsign)
+        if (stripIndex !== -1) {
+          state.strips[stripIndex].pdc_state = "CLEARED"
+        }
+      })
+    },
+    revertToVoice: (callsign) => {
+      wsClient.send({type: ActionType.FrontendRevertToVoiceRequest, callsign})
+
+      return produce((state: WebSocketState) => {
+        const stripIndex = state.strips.findIndex(strip => strip.callsign === callsign)
+        if (stripIndex !== -1) {
+          state.strips[stripIndex].pdc_state = "REVERT_TO_VOICE"
         }
       })
     }
@@ -390,6 +412,17 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     )
   }
 
+  const handlePdcStateUpdateEvent = (data: FrontendPdcStateUpdateEvent) => {
+    store.setState(
+        produce((state: WebSocketState) => {
+          const stripIndex = state.strips.findIndex(strip => strip.callsign == data.callsign);
+          if (stripIndex !== -1) {
+            state.strips[stripIndex].pdc_state = data.state;
+          }
+        })
+    )
+  }
+
   // Register event handlers
   wsClient.on(EventType.FrontendInitial, handleInitialEvent);
   wsClient.on(EventType.FrontendStripUpdate, handleStripUpdateEvent);
@@ -411,6 +444,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
   wsClient.on(EventType.FrontendCdmData, handleCdmUpdateEvent);
   wsClient.on(EventType.FrontendCdmWait, handleCdmWaitEvent);
   wsClient.on(EventType.FrontendReleasePoint, handleReleasePointEvent);
+  wsClient.on(EventType.FrontendPdcStateChange, handlePdcStateUpdateEvent);
 
   return store;
 };

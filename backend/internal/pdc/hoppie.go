@@ -65,7 +65,7 @@ func ParseWilcoMessage(payload string) (*Wilco, error) {
 		return nil, errors.New("invalid Wilco message")
 	}
 
-	responseTo, _ := strconv.Atoi(m[1])
+	responseTo, _ := strconv.Atoi(m[2])
 	wilco := &Wilco{}
 	wilco.ResponseTo = int32(responseTo)
 

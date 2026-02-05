@@ -1,7 +1,7 @@
 package pdc
 
 import (
-	"FlightStrips/internal/database"
+	"FlightStrips/internal/repository"
 	"FlightStrips/internal/shared"
 	"context"
 	"database/sql"
@@ -12,9 +12,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-
-	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type HoppieClientInterface interface {
@@ -37,22 +34,24 @@ type sessionInformation struct {
 
 type Service struct {
 	client        HoppieClientInterface
-	queries       *database.Queries
+	sessionRepo   repository.SessionRepository
+	stripRepo     repository.StripRepository
+	sectorRepo    repository.SectorOwnerRepository
 	frontendHub   shared.FrontendHub
 	stripService  shared.StripService
-	dbPool        *pgxpool.Pool
 	timeouts      map[string]*timeoutTracker
 	timeoutsMutex sync.RWMutex
 	timeoutConfig time.Duration
 }
 
-func NewPDCService(client *Client, dbPool *pgxpool.Pool) *Service {
+func NewPDCService(client *Client, sessionRepo repository.SessionRepository, stripRepo repository.StripRepository, sectorRepo repository.SectorOwnerRepository) *Service {
 	return &Service{
 		client:        client,
-		queries:       database.New(dbPool),
-		dbPool:        dbPool,
+		sessionRepo:   sessionRepo,
+		stripRepo:     stripRepo,
+		sectorRepo:    sectorRepo,
 		timeouts:      make(map[string]*timeoutTracker),
-		timeoutConfig: 10 * time.Minute, // Default 5 minutes
+		timeoutConfig: 10 * time.Minute, // Default 10 minutes
 	}
 }
 
@@ -68,7 +67,7 @@ func (s *Service) SetStripService(stripService shared.StripService) {
 
 // getSessionInfo retrieves session information from the database
 func (s *Service) getSessionInfo(ctx context.Context, sessionID int32) (sessionInformation, error) {
-	session, err := s.queries.GetSessionById(ctx, sessionID)
+	session, err := s.sessionRepo.GetByID(ctx, sessionID)
 	if err != nil {
 		return sessionInformation{}, fmt.Errorf("failed to get session: %w", err)
 	}
@@ -77,7 +76,7 @@ func (s *Service) getSessionInfo(ctx context.Context, sessionID int32) (sessionI
 
 // getNextSequence retrieves the next message sequence number
 func (s *Service) getNextSequence(ctx context.Context, sessionID int32) (int32, error) {
-	seq, err := s.queries.GetNextMessageSequence(ctx, sessionID)
+	seq, err := s.sessionRepo.IncrementPdcMessageSequence(ctx, sessionID)
 	if err != nil {
 		return 0, fmt.Errorf("failed to get next message sequence: %w", err)
 	}
@@ -90,12 +89,12 @@ func (s *Service) sendErrorAndReturn(ctx context.Context, session sessionInforma
 	if seqErr != nil {
 		return fmt.Errorf("%w; also failed to get message sequence: %w", originalErr, seqErr)
 	}
-	
+
 	msg := messageBuilder(seq)
 	if sendErr := s.client.SendCPDLC(ctx, session.callsign, callsign, msg); sendErr != nil {
 		return fmt.Errorf("%w; also failed to send error message: %w", originalErr, sendErr)
 	}
-	
+
 	return originalErr
 }
 
@@ -124,7 +123,7 @@ func (s *Service) Start(ctx context.Context) {
 }
 
 func (s *Service) pollAndProcess(ctx context.Context) error {
-	sessions, err := s.queries.GetSessionsByNames(ctx, "LIVE")
+	sessions, err := s.sessionRepo.GetByNames(ctx, "LIVE")
 	if err != nil {
 		return fmt.Errorf("failed to get sessions: %w", err)
 	}
@@ -196,19 +195,22 @@ func (s *Service) ProcessPDCRequest(ctx context.Context, msg *IncomingMessage, s
 
 	slog.DebugContext(ctx, "PDC Service: Processing PDC request", slog.String("callsign", req.Callsign), slog.String("departure", req.Departure))
 
-	strip, err := s.queries.GetStrip(ctx, database.GetStripParams{
-		Callsign: req.Callsign,
-		Session:  session.id,
-	})
+	strip, err := s.stripRepo.GetByCallsign(ctx, session.id, req.Callsign)
 
-	if errors.Is(err, sql.ErrNoRows) || !strings.EqualFold(strip.Origin, req.Departure) || !strings.EqualFold(strip.Destination, req.Destination) {
-		return s.sendErrorAndReturn(ctx, session, req.Callsign, 
-			fmt.Errorf("strip not found or invalid PDC request"), 
-			func(seq int32) string { return buildFlightPlanNotHeld(seq, strip.Origin, req.Callsign) })
+	if errors.Is(err, sql.ErrNoRows) {
+		return s.sendErrorAndReturn(ctx, session, req.Callsign,
+			fmt.Errorf("strip not found"),
+			func(seq int32) string { return buildFlightPlanNotHeld(seq, req.Departure, req.Callsign) })
 	}
 
 	if err != nil {
 		return s.sendErrorAndReturn(ctx, session, req.Callsign, err, buildPDCUnavailable)
+	}
+
+	if !strings.EqualFold(strip.Origin, req.Departure) || !strings.EqualFold(strip.Destination, req.Destination) {
+		return s.sendErrorAndReturn(ctx, session, req.Callsign,
+			fmt.Errorf("invalid PDC request: origin/destination mismatch"),
+			func(seq int32) string { return buildFlightPlanNotHeld(seq, strip.Origin, req.Callsign) })
 	}
 
 	if strip.AircraftType == nil || !strings.EqualFold(*strip.AircraftType, req.Aircraft) {
@@ -217,12 +219,8 @@ func (s *Service) ProcessPDCRequest(ctx context.Context, msg *IncomingMessage, s
 			func(seq int32) string { return buildInvalidAircraftType(seq, strip.Origin, req.Callsign) })
 	}
 
-	err = s.queries.SetPdcRequested(ctx, database.SetPdcRequestedParams{
-		Callsign:       strip.Callsign,
-		Session:        session.id,
-		PdcState:       string(StateRequested),
-		PdcRequestedAt: pgtype.Timestamp{Valid: true, Time: time.Now().UTC()},
-	})
+	now := time.Now().UTC()
+	err = s.stripRepo.SetPdcRequested(ctx, session.id, strip.Callsign, string(StateRequested), &now)
 	if err != nil {
 		return fmt.Errorf("failed to set PDC requested: %w", err)
 	}
@@ -258,10 +256,7 @@ func (s *Service) IssueClearance(ctx context.Context, callsign, remarks, cid str
 	}
 
 	// Get strip data (source of truth for clearance data)
-	strip, err := s.queries.GetStrip(ctx, database.GetStripParams{
-		Callsign: callsign,
-		Session:  sessionInfo.id,
-	})
+	strip, err := s.stripRepo.GetByCallsign(ctx, sessionInfo.id, callsign)
 	if err != nil {
 		return fmt.Errorf("strip not found for PDC clearance: %w", err)
 	}
@@ -276,7 +271,7 @@ func (s *Service) IssueClearance(ctx context.Context, callsign, remarks, cid str
 		return fmt.Errorf("failed to get next frequency: %w", err)
 	}
 
-	nextPdcSeq, err := s.queries.GetNextPdcSequence(ctx, sessionInfo.id)
+	nextPdcSeq, err := s.sessionRepo.IncrementPdcSequence(ctx, sessionInfo.id)
 	if err != nil {
 		return fmt.Errorf("failed to get next PDC sequence: %w", err)
 	}
@@ -318,13 +313,8 @@ func (s *Service) IssueClearance(ctx context.Context, callsign, remarks, cid str
 		return fmt.Errorf("failed to send clearance: %w", err)
 	}
 
-	err = s.queries.SetPdcMessageSent(ctx, database.SetPdcMessageSentParams{
-		Callsign:           callsign,
-		Session:            sessionInfo.id,
-		PdcState:           string(StateCleared),
-		PdcMessageSequence: &nextSeq,
-		PdcMessageSent:     pgtype.Timestamp{Valid: true, Time: time.Now().UTC()},
-	})
+	now := time.Now().UTC()
+	err = s.stripRepo.SetPdcMessageSent(ctx, sessionInfo.id, callsign, string(StateCleared), &nextSeq, &now)
 
 	if err != nil {
 		return fmt.Errorf("failed to set PDC message sent: %w", err)
@@ -350,10 +340,7 @@ func (s *Service) RevertToVoice(ctx context.Context, callsign string, sessionId 
 		return err
 	}
 
-	strip, err := s.queries.GetStrip(ctx, database.GetStripParams{
-		Callsign: callsign,
-		Session:  sessionId,
-	})
+	strip, err := s.stripRepo.GetByCallsign(ctx, sessionId, callsign)
 	if err != nil {
 		return fmt.Errorf("failed to get strip: %w", err)
 	}
@@ -366,7 +353,7 @@ func (s *Service) RevertToVoice(ctx context.Context, callsign string, sessionId 
 	if err != nil {
 		return err
 	}
-	
+
 	pdcMessage := buildRevertToVoice(nextSeq)
 	err = s.client.SendCPDLC(ctx, sessionInfo.callsign, callsign, pdcMessage)
 	if err != nil {
@@ -387,7 +374,7 @@ func (s *Service) RevertToVoice(ctx context.Context, callsign string, sessionId 
 }
 
 func (s *Service) getNextFrequency(ctx context.Context, sessionID int32) (string, error) {
-	owners, err := s.queries.GetSectorOwners(ctx, sessionID)
+	owners, err := s.sectorRepo.ListBySession(ctx, sessionID)
 	if err != nil {
 		return "", fmt.Errorf("failed to get sector owners: %w", err)
 	}
@@ -428,10 +415,7 @@ func (s *Service) HandleWilco(ctx context.Context, message *IncomingMessage, ses
 		return fmt.Errorf("failed to parse WILCO message: %w", err)
 	}
 
-	strip, err := s.queries.GetStrip(ctx, database.GetStripParams{
-		Callsign: callsign,
-		Session:  session.id,
-	})
+	strip, err := s.stripRepo.GetByCallsign(ctx, session.id, callsign)
 	if err != nil {
 		sendErr := s.SendErrorMessage(ctx, session, callsign)
 		if sendErr != nil {
@@ -453,14 +437,10 @@ func (s *Service) HandleWilco(ctx context.Context, message *IncomingMessage, ses
 		if sendErr != nil {
 			return errors.Join(err, sendErr)
 		}
-		return fmt.Errorf("WILCO response missing sequence or not correct response")
+		return fmt.Errorf("WILCO response missing sequence or not correct response. Expected: %d, got: %d", *strip.PdcMessageSequence, wilco.ResponseTo)
 	}
 
-	err = s.queries.UpdatePdcStatus(ctx, database.UpdatePdcStatusParams{
-		Callsign: callsign,
-		Session:  session.id,
-		PdcState: string(StateConfirmed),
-	})
+	err = s.stripRepo.UpdatePdcStatus(ctx, session.id, callsign, string(StateConfirmed))
 	if err != nil {
 		return fmt.Errorf("failed to update PDC status: %w", err)
 	}
@@ -635,11 +615,7 @@ func (s *Service) handleTimeout(ctx context.Context, airport, callsign string, m
 }
 
 func (s *Service) setPdcFailed(ctx context.Context, callsign string, sessionId int32, state ClearanceState, cid string) error {
-	err := s.queries.UpdatePdcStatus(ctx, database.UpdatePdcStatusParams{
-		Callsign: callsign,
-		Session:  sessionId,
-		PdcState: string(state),
-	})
+	err := s.stripRepo.UpdatePdcStatus(ctx, sessionId, callsign, string(state))
 	if err != nil {
 		slog.ErrorContext(ctx, "PDC Service: Failed to update PDC status", slog.Any("error", err))
 	}

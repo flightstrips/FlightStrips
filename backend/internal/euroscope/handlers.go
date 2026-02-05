@@ -3,6 +3,7 @@ package euroscope
 import (
 	"FlightStrips/internal/config"
 	"FlightStrips/internal/database"
+	internalModels "FlightStrips/internal/models"
 	"FlightStrips/internal/shared"
 	"FlightStrips/pkg/events/euroscope"
 	"FlightStrips/pkg/models"
@@ -12,7 +13,6 @@ import (
 	"log"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type Message = shared.Message[euroscope.EventType]
@@ -26,18 +26,17 @@ func handleControllerOnline(client *Client, message Message) error {
 	s := client.hub.server
 	session := client.session
 
-	db := database.New(s.GetDatabasePool())
-	getParams := database.GetControllerParams{Callsign: event.Callsign, Session: session}
-	controller, err := db.GetController(context.TODO(), getParams)
+	controllerRepo := s.GetControllerRepository()
+	controller, err := controllerRepo.GetByCallsign(context.TODO(), session, event.Callsign)
 
 	if errors.Is(err, pgx.ErrNoRows) {
-		params := database.InsertControllerParams{
+		newController := &internalModels.Controller{
 			Callsign: event.Callsign,
 			Position: event.Position,
 			Session:  session,
 		}
 
-		err = db.InsertController(context.Background(), params)
+		err = controllerRepo.Create(context.Background(), newController)
 		if err != nil {
 			return err
 		}
@@ -52,8 +51,7 @@ func handleControllerOnline(client *Client, message Message) error {
 		return err
 	}
 
-	setParams := database.SetControllerPositionParams{Session: session, Callsign: event.Callsign, Position: event.Position}
-	_, err = db.SetControllerPosition(context.TODO(), setParams)
+	_, err = controllerRepo.SetPosition(context.TODO(), session, event.Callsign, event.Position)
 	if err != nil {
 		return err
 	}
@@ -86,11 +84,9 @@ func handleControllerOffline(client *Client, message Message) error {
 	}
 	s := client.hub.server
 	session := client.session
-	airport := client.airport
 
-	db := database.New(s.GetDatabasePool())
-	getParams := database.GetControllerParams{Session: session, Callsign: event.Callsign}
-	controller, err := db.GetController(context.TODO(), getParams)
+	controllerRepo := s.GetControllerRepository()
+	controller, err := controllerRepo.GetByCallsign(context.TODO(), session, event.Callsign)
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return err
 	}
@@ -101,18 +97,11 @@ func handleControllerOffline(client *Client, message Message) error {
 		return nil
 	}
 
-	params := database.RemoveControllerParams{Session: session, Callsign: event.Callsign}
-	count, err := db.RemoveController(context.TODO(), params)
+	err = controllerRepo.Delete(context.TODO(), session, event.Callsign)
 
 	s.GetFrontendHub().SendControllerOffline(session, event.Callsign, controller.Position, "")
 	if err != nil {
 		return err
-	}
-
-	if count != 1 {
-		log.Printf("Controller %s at airport %s which was online did not exist in the database\n",
-			event.Callsign, airport)
-		return nil
 	}
 
 	if _, err := config.GetPositionBasedOnFrequency(controller.Position); err == nil {
@@ -134,15 +123,8 @@ func handleAssignedSquawk(client *Client, message Message) error {
 	s := client.hub.server
 	session := client.session
 
-	db := database.New(s.GetDatabasePool())
-
-	insertData := database.UpdateStripAssignedSquawkByIDParams{
-		AssignedSquawk: &event.Squawk,
-		Callsign:       event.Callsign,
-		Session:        session,
-	}
-
-	count, err := db.UpdateStripAssignedSquawkByID(context.TODO(), insertData)
+	stripRepo := s.GetStripRepository()
+	count, err := stripRepo.UpdateAssignedSquawk(context.TODO(), session, event.Callsign, &event.Squawk, nil)
 
 	if err != nil {
 		return err
@@ -166,15 +148,8 @@ func handleSquawk(client *Client, message Message) error {
 	s := client.hub.server
 	session := client.session
 
-	db := database.New(s.GetDatabasePool())
-
-	insertData := database.UpdateStripSquawkByIDParams{
-		Squawk:   &event.Squawk,
-		Callsign: event.Callsign,
-		Session:  session,
-	}
-
-	count, err := db.UpdateStripSquawkByID(context.TODO(), insertData)
+	stripRepo := s.GetStripRepository()
+	count, err := stripRepo.UpdateSquawk(context.TODO(), session, event.Callsign, &event.Squawk, nil)
 
 	if err != nil {
 		return err
@@ -198,16 +173,10 @@ func handleRequestedAltitude(client *Client, message Message) error {
 	s := client.hub.server
 	session := client.session
 
-	db := database.New(s.GetDatabasePool())
+	stripRepo := s.GetStripRepository()
 
 	intAltitude := int32(event.Altitude)
-	insertData := database.UpdateStripRequestedAltitudeByIDParams{
-		RequestedAltitude: &intAltitude,
-		Callsign:          event.Callsign,
-		Session:           session,
-	}
-
-	count, err := db.UpdateStripRequestedAltitudeByID(context.TODO(), insertData)
+	count, err := stripRepo.UpdateRequestedAltitude(context.TODO(), session, event.Callsign, &intAltitude, nil)
 	if err != nil {
 		return err
 	}
@@ -228,15 +197,9 @@ func handleClearedAltitude(client *Client, message Message) error {
 	s := client.hub.server
 	session := client.session
 
-	db := database.New(s.GetDatabasePool())
+	stripRepo := s.GetStripRepository()
 	intAltitude := int32(event.Altitude)
-	insertData := database.UpdateStripClearedAltitudeByIDParams{
-		ClearedAltitude: &intAltitude,
-		Callsign:        event.Callsign,
-		Session:         session,
-	}
-
-	count, err := db.UpdateStripClearedAltitudeByID(context.TODO(), insertData)
+	count, err := stripRepo.UpdateClearedAltitude(context.TODO(), session, event.Callsign, &intAltitude, nil)
 	if err != nil {
 		return err
 	}
@@ -257,15 +220,9 @@ func handleCommunicationType(client *Client, message Message) error {
 	s := client.hub.server
 	session := client.session
 
-	db := database.New(s.GetDatabasePool())
+	stripRepo := s.GetStripRepository()
 
-	insertData := database.UpdateStripCommunicationTypeByIDParams{
-		CommunicationType: &event.CommunicationType,
-		Callsign:          event.Callsign,
-		Session:           session,
-	}
-
-	count, err := db.UpdateStripCommunicationTypeByID(context.TODO(), insertData)
+	count, err := stripRepo.UpdateCommunicationType(context.TODO(), session, event.Callsign, &event.CommunicationType, nil)
 	if err != nil {
 		return err
 	}
@@ -286,8 +243,8 @@ func handleGroundState(client *Client, message Message) error {
 	s := client.hub.server
 	session := client.session
 
-	db := database.New(s.GetDatabasePool())
-	existingStrip, err := db.GetStrip(context.TODO(), database.GetStripParams{Callsign: event.Callsign, Session: session})
+	stripRepo := s.GetStripRepository()
+	existingStrip, err := stripRepo.GetByCallsign(context.TODO(), session, event.Callsign)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			log.Printf("Strip %v which is being updated does not exist in the database", event.Callsign)
@@ -300,16 +257,15 @@ func handleGroundState(client *Client, message Message) error {
 		return nil
 	}
 
-	bay := shared.GetDepartureBayFromGroundState(event.GroundState, existingStrip)
-
-	insertData := database.UpdateStripGroundStateByIDParams{
-		State:    &event.GroundState,
-		Bay:      bay,
-		Callsign: event.Callsign,
-		Session:  session,
+	// Convert domain model to database model for shared helper function
+	dbStrip := database.Strip{
+		Origin:      existingStrip.Origin,
+		Destination: existingStrip.Destination,
+		Cleared:     existingStrip.Cleared,
 	}
+	bay := shared.GetDepartureBayFromGroundState(event.GroundState, dbStrip)
 
-	_, err = db.UpdateStripGroundStateByID(context.TODO(), insertData)
+	_, err = stripRepo.UpdateGroundState(context.TODO(), session, event.Callsign, &event.GroundState, bay, nil)
 
 	if err != nil {
 		return err
@@ -331,8 +287,8 @@ func handleClearedFlag(client *Client, message Message) error {
 	s := client.hub.server
 	session := client.session
 
-	db := database.New(s.GetDatabasePool())
-	existingStrip, err := db.GetStrip(context.TODO(), database.GetStripParams{Callsign: event.Callsign, Session: session})
+	stripRepo := s.GetStripRepository()
+	existingStrip, err := stripRepo.GetByCallsign(context.TODO(), session, event.Callsign)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			log.Printf("Strip %v which is being updated does not exist in the database", event.Callsign)
@@ -350,13 +306,7 @@ func handleClearedFlag(client *Client, message Message) error {
 		bay = shared.BAY_CLEARED
 	}
 
-	insertData := database.UpdateStripClearedFlagByIDParams{
-		Cleared:  event.Cleared,
-		Bay:      bay,
-		Callsign: event.Callsign,
-		Session:  session,
-	}
-	_, err = db.UpdateStripClearedFlagByID(context.TODO(), insertData)
+	_, err = stripRepo.UpdateClearedFlag(context.TODO(), session, event.Callsign, event.Cleared, bay, nil)
 	if err != nil {
 		return err
 	}
@@ -377,8 +327,8 @@ func handlePositionUpdate(client *Client, message Message) error {
 	s := client.hub.server
 	session := client.session
 
-	db := database.New(s.GetDatabasePool())
-	existingStrip, err := db.GetStrip(context.TODO(), database.GetStripParams{Callsign: event.Callsign, Session: session})
+	stripRepo := s.GetStripRepository()
+	existingStrip, err := stripRepo.GetByCallsign(context.TODO(), session, event.Callsign)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			log.Printf("Strip %v which is being updated does not exist in the database", event.Callsign)
@@ -387,18 +337,18 @@ func handlePositionUpdate(client *Client, message Message) error {
 		return err
 	}
 
-	bay := shared.GetDepartureBayFromPosition(event.Lat, event.Lon, event.Altitude, existingStrip)
+	// Convert domain model to database model for shared helper function
+	dbStrip := database.Strip{
+		Origin:      existingStrip.Origin,
+		Destination: existingStrip.Destination,
+		Cleared:     existingStrip.Cleared,
+		Bay:         existingStrip.Bay,
+	}
+	bay := shared.GetDepartureBayFromPosition(event.Lat, event.Lon, event.Altitude, dbStrip)
 	intAltitude := int32(event.Altitude)
 
-	insertData := database.UpdateStripAircraftPositionByIDParams{
-		PositionLatitude:  &event.Lat,
-		PositionLongitude: &event.Lon,
-		PositionAltitude:  &intAltitude,
-		Bay:               bay,
-		Callsign:          event.Callsign,
-		Session:           session,
-	}
-	_, err = db.UpdateStripAircraftPositionByID(context.TODO(), insertData)
+	_, err = stripRepo.UpdateAircraftPosition(context.TODO(), session, event.Callsign, &event.Lat, &event.Lon, &intAltitude, bay, nil)
+	_, err = stripRepo.UpdateAircraftPosition(context.TODO(), session, event.Callsign, &event.Lat, &event.Lon, &intAltitude, bay, nil)
 
 	if err != nil {
 		return err
@@ -420,14 +370,8 @@ func handleSetHeading(client *Client, message Message) error {
 	s := client.hub.server
 	session := client.session
 
-	db := database.New(s.GetDatabasePool())
-	insertData := database.UpdateStripHeadingByIDParams{
-		Heading:  &event.Heading,
-		Callsign: event.Callsign,
-		Session:  session,
-	}
-
-	count, err := db.UpdateStripHeadingByID(context.TODO(), insertData)
+	stripRepo := s.GetStripRepository()
+	count, err := stripRepo.UpdateHeading(context.TODO(), session, event.Callsign, &event.Heading, nil)
 	if err != nil {
 		return err
 	}
@@ -448,8 +392,8 @@ func handleAircraftDisconnected(client *Client, message Message) error {
 	s := client.hub.server
 	session := client.session
 
-	db := database.New(s.GetDatabasePool())
-	err = db.RemoveStripByID(context.TODO(), database.RemoveStripByIDParams{Callsign: event.Callsign, Session: session})
+	stripRepo := s.GetStripRepository()
+	err = stripRepo.Delete(context.TODO(), session, event.Callsign)
 	s.GetFrontendHub().SendAircraftDisconnect(session, event.Callsign)
 	return err
 }
@@ -463,14 +407,8 @@ func handleStand(client *Client, message Message) error {
 	s := client.hub.server
 	session := client.session
 
-	db := database.New(s.GetDatabasePool())
-	insertData := database.UpdateStripStandByIDParams{
-		Stand:    &event.Stand,
-		Callsign: event.Callsign,
-		Session:  session,
-	}
-
-	count, err := db.UpdateStripStandByID(context.TODO(), insertData)
+	stripRepo := s.GetStripRepository()
+	count, err := stripRepo.UpdateStand(context.TODO(), session, event.Callsign, &event.Stand, nil)
 	if err != nil {
 		return err
 	}
@@ -493,40 +431,33 @@ func handleSync(client *Client, message Message) error {
 	s := client.hub.server
 	session := client.session
 
-	db := database.New(s.GetDatabasePool())
+	controllerRepo := s.GetControllerRepository()
 
 	for _, controller := range event.Controllers {
 		// Check if the controller exists
-		_, err := db.GetController(context.TODO(), database.GetControllerParams{Callsign: controller.Callsign, Session: session})
+		_, err := controllerRepo.GetByCallsign(context.TODO(), session, controller.Callsign)
 		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
-			return err
+			return errors.Join(errors.New("something went wrong with fetching controller"), err)
 		}
 
 		if errors.Is(err, pgx.ErrNoRows) {
 			// Controller doesn't exist, so insert
-			controllerParams := database.InsertControllerParams{
-				Callsign:          controller.Callsign,
-				Session:           session,
-				Position:          controller.Position,
-				Cid:               nil,
-				LastSeenEuroscope: pgtype.Timestamp{Valid: false},
-				LastSeenFrontend:  pgtype.Timestamp{Valid: false},
+			newController := &internalModels.Controller{
+				Callsign: controller.Callsign,
+				Session:  session,
+				Position: controller.Position,
+				Cid:      nil,
 			}
-			err = db.InsertController(context.TODO(), controllerParams)
+			err = controllerRepo.Create(context.TODO(), newController)
 			if err != nil {
-				return err
+				return fmt.Errorf("error inserting controller: %w", err)
 			}
 			log.Printf("Inserted controller: %s", controller.Callsign)
 		} else {
 			// Controller exists, update it
-			updateControllerParams := database.SetControllerPositionParams{
-				Callsign: controller.Callsign,
-				Session:  session,
-				Position: controller.Position,
-			}
-			_, err = db.SetControllerPosition(context.TODO(), updateControllerParams)
+			_, err = controllerRepo.SetPosition(context.TODO(), session, controller.Callsign, controller.Position)
 			if err != nil {
-				return err
+				return fmt.Errorf("error updating controller position: %w", err)
 			}
 			log.Printf("Updated controller: %s", controller.Callsign)
 		}
@@ -542,7 +473,7 @@ func handleSync(client *Client, message Message) error {
 	}
 
 	for _, strip := range event.Strips {
-		err = client.hub.handleStripUpdateHelper(db, strip, session)
+		err = client.hub.handleStripUpdateHelper(strip, session)
 		if err != nil {
 			return err
 		}
@@ -551,10 +482,11 @@ func handleSync(client *Client, message Message) error {
 	return err
 }
 
-func (hub *Hub) handleStripUpdateHelper(db *database.Queries, strip euroscope.Strip, session int32) error {
-	// Check if the strip exists
+func (hub *Hub) handleStripUpdateHelper(strip euroscope.Strip, session int32) error {
 	server := hub.server
-	existingStrip, err := db.GetStrip(context.TODO(), database.GetStripParams{Callsign: strip.Callsign, Session: session})
+	stripRepo := server.GetStripRepository()
+
+	existingStrip, err := stripRepo.GetByCallsign(context.TODO(), session, strip.Callsign)
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return err
 	}
@@ -563,10 +495,9 @@ func (hub *Hub) handleStripUpdateHelper(db *database.Queries, strip euroscope.St
 
 	if errors.Is(err, pgx.ErrNoRows) {
 		// Strip doesn't exist, so insert
-
 		bay = shared.GetDepartureBay(strip, nil)
 
-		stripParams := database.InsertStripParams{ //keep this for insert
+		newStrip := &internalModels.Strip{
 			Callsign:          strip.Callsign,
 			Session:           session,
 			Origin:            strip.Origin,
@@ -595,15 +526,22 @@ func (hub *Hub) handleStripUpdateHelper(db *database.Queries, strip euroscope.St
 			Bay:               bay,
 			Eobt:              &strip.Eobt,
 		}
-		err = db.InsertStrip(context.TODO(), stripParams)
+		err = stripRepo.Create(context.TODO(), newStrip)
 		if err != nil {
 			return err
 		}
 		log.Printf("Inserted strip: %s", strip.Callsign)
 	} else {
 		// Strip exists, update it
-		// TODO we need to ensure the master is synced first otherwise this will overwrite the strip with potential wrong values
-		bay = shared.GetDepartureBay(strip, &existingStrip)
+		// Convert to database model for shared helper
+		dbExistingStrip := database.Strip{
+			Origin:      existingStrip.Origin,
+			Destination: existingStrip.Destination,
+			Cleared:     existingStrip.Cleared,
+			Bay:         existingStrip.Bay,
+			Stand:       existingStrip.Stand,
+		}
+		bay = shared.GetDepartureBay(strip, &dbExistingStrip)
 
 		// Do not overwrite with an empty stand
 		stand := existingStrip.Stand
@@ -611,7 +549,7 @@ func (hub *Hub) handleStripUpdateHelper(db *database.Queries, strip euroscope.St
 			stand = &strip.Stand
 		}
 
-		updateStripParams := database.UpdateStripParams{
+		updateStrip := &internalModels.Strip{
 			Callsign:          strip.Callsign,
 			Session:           session,
 			Origin:            strip.Origin,
@@ -640,7 +578,7 @@ func (hub *Hub) handleStripUpdateHelper(db *database.Queries, strip euroscope.St
 			Tobt:              existingStrip.Tobt,
 			Eobt:              existingStrip.Eobt,
 		}
-		_, err = db.UpdateStrip(context.TODO(), updateStripParams)
+		_, err = stripRepo.Update(context.TODO(), updateStrip)
 		if err != nil {
 			return err
 		}
@@ -668,11 +606,8 @@ func handleStripUpdateEvent(client *Client, message Message) error {
 	if err != nil {
 		return err
 	}
-	s := client.hub.server
 
-	db := database.New(s.GetDatabasePool())
-
-	err = client.hub.handleStripUpdateHelper(db, event.Strip, client.session)
+	err = client.hub.handleStripUpdateHelper(event.Strip, client.session)
 	return err
 }
 
@@ -685,7 +620,7 @@ func handleRunways(client *Client, message Message) error {
 
 	if master, ok := client.hub.master[client.session]; ok && master == client {
 		s := client.hub.server
-		db := database.New(s.GetDatabasePool())
+		sessionRepo := s.GetSessionRepository()
 
 		departure := make([]string, 0)
 		arrival := make([]string, 0)
@@ -706,12 +641,7 @@ func handleRunways(client *Client, message Message) error {
 
 		fmt.Printf("Setting active runways to %v for session %v\n", activeRunways, client.session)
 
-		params := database.UpdateActiveRunwaysParams{
-			ID:            client.session,
-			ActiveRunways: activeRunways,
-		}
-
-		err = db.UpdateActiveRunways(context.Background(), params)
+		err = sessionRepo.UpdateActiveRunways(context.Background(), client.session, activeRunways)
 		if err != nil {
 			return err
 		}

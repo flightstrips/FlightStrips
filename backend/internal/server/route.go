@@ -2,7 +2,7 @@
 
 import (
 	"FlightStrips/internal/config"
-	"FlightStrips/internal/database"
+	"FlightStrips/internal/models"
 	"FlightStrips/pkg/helpers"
 	"context"
 	"errors"
@@ -13,36 +13,38 @@ import (
 // This is dumb please optimize
 
 func (s *Server) UpdateRouteForStrip(callsign string, sessionId int32, sendUpdate bool) error {
-	db := database.New(s.GetDatabasePool())
+	stripRepo := s.stripRepo
+	sessionRepo := s.sessionRepo
 
-	strip, err := db.GetStrip(context.Background(), database.GetStripParams{Callsign: callsign, Session: sessionId})
+	strip, err := stripRepo.GetByCallsign(context.Background(), sessionId, callsign)
 	if err != nil {
 		return err
 	}
 
-	session, err := db.GetSessionById(context.Background(), sessionId)
+	session, err := sessionRepo.GetByID(context.Background(), sessionId)
 	if err != nil {
 		return err
 	}
 
-	return s.updateRouteForStripHelper(db, strip, session, sendUpdate)
+	return s.updateRouteForStripHelper(strip, session, sendUpdate)
 }
 
 func (s *Server) UpdateRoutesForSession(sessionId int32, sendUpdate bool) error {
-	db := database.New(s.GetDatabasePool())
+	stripRepo := s.stripRepo
+	sessionRepo := s.sessionRepo
 
-	strips, err := db.ListStrips(context.Background(), sessionId)
+	strips, err := stripRepo.List(context.Background(), sessionId)
 	if err != nil {
 		return err
 	}
 
-	session, err := db.GetSessionById(context.Background(), sessionId)
+	session, err := sessionRepo.GetByID(context.Background(), sessionId)
 	if err != nil {
 		return err
 	}
 
 	for _, strip := range strips {
-		err := s.updateRouteForStripHelper(db, strip, session, sendUpdate)
+		err := s.updateRouteForStripHelper(strip, session, sendUpdate)
 		if err != nil {
 			return err
 		}
@@ -51,7 +53,7 @@ func (s *Server) UpdateRoutesForSession(sessionId int32, sendUpdate bool) error 
 	return nil
 }
 
-func (s *Server) updateRouteForStripHelper(db *database.Queries, strip database.Strip, session database.Session, sendUpdate bool) error {
+func (s *Server) updateRouteForStripHelper(strip *models.Strip, session *models.Session, sendUpdate bool) error {
 	isArrival := strip.Destination == session.Airport
 
 	region, err := config.GetRegionForPosition(helpers.ValueOrDefault(strip.PositionLatitude), helpers.ValueOrDefault(strip.PositionLongitude))
@@ -81,7 +83,7 @@ func (s *Server) updateRouteForStripHelper(db *database.Queries, strip database.
 		return errors.New("unable to compute route")
 	}
 
-	owners, err := db.GetSectorOwners(context.Background(), session.ID)
+	owners, err := s.sectorRepo.ListBySession(context.Background(), session.ID)
 	if err != nil {
 		return err
 	}
@@ -122,7 +124,7 @@ func (s *Server) updateRouteForStripHelper(db *database.Queries, strip database.
 		return nil
 	}
 
-	err = db.SetNextOwners(context.Background(), database.SetNextOwnersParams{NextOwners: actualRoute, Session: session.ID, Callsign: strip.Callsign})
+	err = s.stripRepo.SetNextOwners(context.Background(), session.ID, strip.Callsign, actualRoute)
 
 	if sendUpdate {
 		s.frontendHub.SendOwnersUpdate(session.ID, strip.Callsign, actualRoute, strip.PreviousOwners)

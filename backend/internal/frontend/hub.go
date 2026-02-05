@@ -1,7 +1,7 @@
 package frontend
 
 import (
-	"FlightStrips/internal/database"
+	internalModels "FlightStrips/internal/models"
 	"FlightStrips/internal/shared"
 	"FlightStrips/pkg/events"
 	"FlightStrips/pkg/events/frontend"
@@ -98,8 +98,10 @@ func (hub *Hub) SetServer(server shared.Server) {
 }
 
 func (hub *Hub) HandleNewConnection(conn *gorilla.Conn, user shared.AuthenticatedUser) (*Client, error) {
-	db := database.New(hub.server.GetDatabasePool())
-	controller, err := db.GetControllerByCid(context.Background(), user.GetCid())
+	controllerRepo := hub.server.GetControllerRepository()
+	sessionRepo := hub.server.GetSessionRepository()
+	
+	controller, err := controllerRepo.GetByCid(context.Background(), user.GetCid())
 
 	var session int32
 	var position, airport, callsign string
@@ -113,7 +115,7 @@ func (hub *Hub) HandleNewConnection(conn *gorilla.Conn, user shared.Authenticate
 		airport = WaitingForEuroscopeConnectionAirport
 		callsign = WaitingForEuroscopeConnectionCallsign
 	} else {
-		dbSession, err := db.GetSessionById(context.Background(), controller.Session)
+		dbSession, err := sessionRepo.GetByID(context.Background(), controller.Session)
 
 		if err != nil {
 			// this should not really happen due to the foreign key constraint on the controller table
@@ -144,27 +146,29 @@ func (hub *Hub) HandleNewConnection(conn *gorilla.Conn, user shared.Authenticate
 }
 
 func (hub *Hub) sendInitialEvent(client *Client) {
-	db := database.New(hub.server.GetDatabasePool())
+	controllerRepo := hub.server.GetControllerRepository()
+	stripRepo := hub.server.GetStripRepository()
+	sectorRepo := hub.server.GetSectorOwnerRepository()
 
-	controllers, err := db.ListControllers(context.Background(), client.session)
+	controllers, err := controllerRepo.ListBySession(context.Background(), client.session)
 	if err != nil {
 		log.Println("Failed to list controllers:", err)
 		return
 	}
 
-	strips, err := db.ListStrips(context.Background(), client.session)
+	strips, err := stripRepo.List(context.Background(), client.session)
 	if err != nil {
 		log.Println("Failed to list strips:", err)
 		return
 	}
 
-	sectors, err := db.GetSectorOwners(context.Background(), client.session)
+	sectors, err := sectorRepo.ListBySession(context.Background(), client.session)
 	if err != nil {
 		log.Println("Failed to list sectors:", err)
 		return
 	}
 
-	sectorsMap := make(map[string]database.SectorOwner)
+	sectorsMap := make(map[string]*internalModels.SectorOwner)
 	for _, sector := range sectors {
 		sectorsMap[sector.Position] = sector
 	}
@@ -196,7 +200,7 @@ func (hub *Hub) sendInitialEvent(client *Client) {
 	}
 
 	for _, strip := range strips {
-		stripModels = append(stripModels, MapStripToFrontendModel(&strip))
+		stripModels = append(stripModels, MapStripToFrontendModel(strip))
 	}
 
 	event := frontend.InitialEvent{
@@ -215,7 +219,7 @@ func (hub *Hub) sendInitialEvent(client *Client) {
 	client.send <- event
 }
 
-func MapStripToFrontendModel(strip *database.Strip) frontend.Strip {
+func MapStripToFrontendModel(strip *internalModels.Strip) frontend.Strip {
 
 	return frontend.Strip{
 		Callsign:            strip.Callsign,
@@ -272,13 +276,13 @@ func (hub *Hub) CidDisconnect(cid string) {
 }
 
 func (hub *Hub) SendStripUpdate(session int32, callsign string) {
-	db := database.New(hub.server.GetDatabasePool())
-	strip, err := db.GetStrip(context.Background(), database.GetStripParams{Callsign: callsign, Session: session})
+	stripRepo := hub.server.GetStripRepository()
+	strip, err := stripRepo.GetByCallsign(context.Background(), session, callsign)
 	if err != nil {
 		return
 	}
 
-	model := MapStripToFrontendModel(&strip)
+	model := MapStripToFrontendModel(strip)
 
 	event := frontend.StripUpdateEvent{
 		Strip: model,

@@ -14,7 +14,7 @@ type constraints struct {
 type Sector struct {
 	Name         string       `yaml:"name"`
 	NamePriority int          `yaml:"name_priority"`
-	Region       *string      `yaml:"region"`
+	Region       []string     `yaml:"region"`
 	Constraints  *constraints `yaml:"constraints"`
 	Active       []string     `yaml:"active"`
 	Owner        []string     `yaml:"owner"`
@@ -25,8 +25,10 @@ func GetSectorFromRegion(region *Region, isArrival bool) (string, error) {
 		if sector.Constraints != nil && (sector.Constraints.Arrival != isArrival || sector.Constraints.Departure != !isArrival) {
 			continue
 		}
-		if sector.Region != nil && strings.EqualFold(*sector.Region, region.Name) {
-			return sector.Name, nil
+		for _, r := range sector.Region {
+			if strings.EqualFold(r, region.Name) {
+				return sector.Name, nil
+			}
 		}
 	}
 

@@ -104,6 +104,12 @@ airborne_routes:
       - SALLO1D
       - SALLO1E
       - SALLO1F
+      - SALO1A
+      - SALO1B
+      - SALO1C
+      - SALO1D
+      - SALO1E
+      - SALO1F
       - SIMEG2E
       - SIMEG2F
       - SIMEG8A
@@ -168,7 +174,7 @@ sectors:
     # Apron
   - name: AA
     name_priority: 30
-    region: APRON_NORTH
+    region: [APRON_NORTH]
     active: [ ]
     constraints:
       departure: false
@@ -182,7 +188,7 @@ sectors:
   - name: AD
     name_priority: 20
     active: [ ]
-    region: APRON_NORTH
+    region: [APRON_NORTH]
     constraints:
       departure: true
       arrival: false
@@ -196,7 +202,7 @@ sectors:
   - name: GW
     name_priority: 40
     active: [ ]
-    region: GROUND_WEST
+    region: [GROUND_WEST]
     owner:
       - "EKCH_C_TWR"
       - "EKCH_D_TWR"
@@ -206,7 +212,7 @@ sectors:
   - name: TE
     name_priority: 50
     active: ["22L", "22R"]
-    region: TOWER_EAST
+    region: [TOWER_EAST, GROUND_EAST]
     owner:
       - "EKCH_A_TWR"
       - "EKCH_D_TWR"
@@ -214,7 +220,7 @@ sectors:
   - name: TW
     name_priority: 50
     active: ["22L", "22R"]
-    region: TOWER_WEST
+    region: [TOWER_WEST]
     owner:
       - "EKCH_D_TWR"
       - "EKCH_A_TWR"
@@ -224,7 +230,7 @@ sectors:
   - name: TE
     name_priority: 50
     active: ["04L", "04R"]
-    region: TOWER_EAST
+    region: [TOWER_EAST, GROUND_EAST]
     owner:
       - "EKCH_D_TWR"
       - "EKCH_A_TWR"
@@ -232,7 +238,7 @@ sectors:
   - name: TW
     name_priority: 50
     active: ["04L", "04R"]
-    region: TOWER_WEST
+    region: [TOWER_WEST]
     owner:
       - "EKCH_A_TWR"
       - "EKCH_D_TWR"
@@ -307,7 +313,7 @@ routes:
       - A7
       - A9-A15
       - B3-B19
-      - C10-C27
+      - C10-C39
       - D1-D4
       - E20-E90
       - F1-F99
@@ -332,7 +338,7 @@ routes:
       - A7
       - A9-A15
       - B3-B19
-      - C10-C27
+      - C10-C39
       - D1-D4
       - E20-E90
       - F1-F99

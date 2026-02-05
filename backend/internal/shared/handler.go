@@ -1,6 +1,7 @@
 ﻿package shared
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 )
@@ -14,7 +15,7 @@ func (m *Message[TType]) JsonUnmarshal(v interface{}) error {
 	return json.Unmarshal(m.Message, v)
 }
 
-type Handler[TType comparable, T any] func(client T, message Message[TType]) error
+type Handler[TType comparable, T any] func(ctx context.Context, client T, message Message[TType]) error
 
 type MessageHandlers[TType comparable, TClient any] struct {
 	handlers map[TType]Handler[TType, TClient]
@@ -34,9 +35,9 @@ func (handlers MessageHandlers[TType, TClient]) Remove(eventType TType) {
 	delete(handlers.handlers, eventType)
 }
 
-func (handlers MessageHandlers[TType, TClient]) Handle(client TClient, message Message[TType]) error {
+func (handlers MessageHandlers[TType, TClient]) Handle(ctx context.Context, client TClient, message Message[TType]) error {
 	if handler, ok := handlers.handlers[message.Type]; ok {
-		return handler(client, message)
+		return handler(ctx, client, message)
 	}
 
 	return fmt.Errorf("no handler for event type: %v", message.Type)

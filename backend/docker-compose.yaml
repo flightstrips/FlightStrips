@@ -30,11 +30,28 @@ services:
     profiles: [all, database]
     command: /app/bin/migrate --dsn "postgresql://fs:fs_password@postgres:5432/fsdb?sslmode=disable" --migrations /app/migrations
 
+  aspire-dashboard:
+    image: mcr.microsoft.com/dotnet/aspire-dashboard:latest
+    ports:
+      - 18888:18888  # Dashboard UI
+      - 18889:18889  # OTLP gRPC endpoint
+    environment:
+      - DOTNET_DASHBOARD_UNSECURED_ALLOW_ANONYMOUS=true
+      - ASPNETCORE_URLS=http://+:18888
+      - DOTNET_DASHBOARD_OTLP_ENDPOINT_URL=http://+:18889
+      - DOTNET_DASHBOARD_OTLP_HTTP_ENDPOINT_URL=http://+:18890
+    networks:
+      - flightstrips
+    restart: unless-stopped
+    profiles: [all]
+
   flightstrip:
     build: .
     environment:
       - DATABASE_CONNECTIONSTRING=postgresql://fs:fs_password@postgres:5432/fsdb?sslmode=disable
       - SLEEP_TIME=30
+      - OTEL_EXPORTER_OTLP_ENDPOINT=aspire-dashboard:18889
+      - ENVIRONMENT=docker
     networks:
       - flightstrips
     restart: unless-stopped
@@ -45,6 +62,8 @@ services:
         condition: service_started
       flightstrips-migrator:
         condition: service_completed_successfully
+      aspire-dashboard:
+        condition: service_started
     profiles: [all]
 
 networks:

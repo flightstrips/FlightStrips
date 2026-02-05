@@ -4,11 +4,17 @@ import (
 	"FlightStrips/internal/shared"
 	"FlightStrips/pkg/constants"
 	"FlightStrips/pkg/events"
+	"context"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"time"
 
 	"github.com/gorilla/websocket"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
 )
 
 type Client interface {
@@ -63,12 +69,27 @@ func ReadPump[TType comparable, TClient Client, THub Hub[TType, TClient]](hub TH
 			continue
 		}
 
+		// Create trace span for message handling
+		tracer := otel.Tracer("websocket")
+		ctx, span := tracer.Start(context.Background(), "websocket.message",
+			trace.WithAttributes(
+				attribute.String("message.type", fmt.Sprintf("%v", parsedMessage.Type)),
+				attribute.String("client.cid", client.GetCid()),
+				attribute.String("client.position", client.GetPosition()),
+			),
+		)
+
 		handlers := hub.GetMessageHandlers()
-		err = handlers.Handle(client, parsedMessage)
+		err = handlers.Handle(ctx, client, parsedMessage)
 
 		if err != nil {
-			slog.Error("Failed to handle message", slog.Any("error", err), slog.String("message", string(message)))
+			span.SetStatus(codes.Error, err.Error())
+			span.RecordError(err)
+			slog.ErrorContext(ctx, "Failed to handle message", slog.Any("error", err), slog.String("message", string(message)))
+		} else {
+			span.SetStatus(codes.Ok, "")
 		}
+		span.End()
 	}
 }
 

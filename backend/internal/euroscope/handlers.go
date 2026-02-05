@@ -17,7 +17,7 @@ import (
 
 type Message = shared.Message[euroscope.EventType]
 
-func handleControllerOnline(client *Client, message Message) error {
+func handleControllerOnline(ctx context.Context, client *Client, message Message) error {
 	var event euroscope.ControllerOnlineEvent
 	err := message.JsonUnmarshal(&event)
 	if err != nil {
@@ -27,7 +27,7 @@ func handleControllerOnline(client *Client, message Message) error {
 	session := client.session
 
 	controllerRepo := s.GetControllerRepository()
-	controller, err := controllerRepo.GetByCallsign(context.TODO(), session, event.Callsign)
+	controller, err := controllerRepo.GetByCallsign(ctx, session, event.Callsign)
 
 	if errors.Is(err, pgx.ErrNoRows) {
 		newController := &internalModels.Controller{
@@ -36,7 +36,7 @@ func handleControllerOnline(client *Client, message Message) error {
 			Session:  session,
 		}
 
-		err = controllerRepo.Create(context.Background(), newController)
+		err = controllerRepo.Create(ctx, newController)
 		if err != nil {
 			return err
 		}
@@ -51,7 +51,7 @@ func handleControllerOnline(client *Client, message Message) error {
 		return err
 	}
 
-	_, err = controllerRepo.SetPosition(context.TODO(), session, event.Callsign, event.Position)
+	_, err = controllerRepo.SetPosition(ctx, session, event.Callsign, event.Position)
 	if err != nil {
 		return err
 	}
@@ -76,7 +76,7 @@ func handleControllerOnline(client *Client, message Message) error {
 	return nil
 }
 
-func handleControllerOffline(client *Client, message Message) error {
+func handleControllerOffline(ctx context.Context, client *Client, message Message) error {
 	var event euroscope.ControllerOfflineEvent
 	err := message.JsonUnmarshal(&event)
 	if err != nil {
@@ -86,7 +86,7 @@ func handleControllerOffline(client *Client, message Message) error {
 	session := client.session
 
 	controllerRepo := s.GetControllerRepository()
-	controller, err := controllerRepo.GetByCallsign(context.TODO(), session, event.Callsign)
+	controller, err := controllerRepo.GetByCallsign(ctx, session, event.Callsign)
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return err
 	}
@@ -97,7 +97,7 @@ func handleControllerOffline(client *Client, message Message) error {
 		return nil
 	}
 
-	err = controllerRepo.Delete(context.TODO(), session, event.Callsign)
+	err = controllerRepo.Delete(ctx, session, event.Callsign)
 
 	s.GetFrontendHub().SendControllerOffline(session, event.Callsign, controller.Position, "")
 	if err != nil {
@@ -114,7 +114,7 @@ func handleControllerOffline(client *Client, message Message) error {
 	return nil
 }
 
-func handleAssignedSquawk(client *Client, message Message) error {
+func handleAssignedSquawk(ctx context.Context, client *Client, message Message) error {
 	var event euroscope.AssignedSquawkEvent
 	err := message.JsonUnmarshal(&event)
 	if err != nil {
@@ -124,7 +124,7 @@ func handleAssignedSquawk(client *Client, message Message) error {
 	session := client.session
 
 	stripRepo := s.GetStripRepository()
-	count, err := stripRepo.UpdateAssignedSquawk(context.TODO(), session, event.Callsign, &event.Squawk, nil)
+	count, err := stripRepo.UpdateAssignedSquawk(ctx, session, event.Callsign, &event.Squawk, nil)
 
 	if err != nil {
 		return err
@@ -139,7 +139,7 @@ func handleAssignedSquawk(client *Client, message Message) error {
 	return err
 }
 
-func handleSquawk(client *Client, message Message) error {
+func handleSquawk(ctx context.Context, client *Client, message Message) error {
 	var event euroscope.SquawkEvent
 	err := message.JsonUnmarshal(&event)
 	if err != nil {
@@ -149,7 +149,7 @@ func handleSquawk(client *Client, message Message) error {
 	session := client.session
 
 	stripRepo := s.GetStripRepository()
-	count, err := stripRepo.UpdateSquawk(context.TODO(), session, event.Callsign, &event.Squawk, nil)
+	count, err := stripRepo.UpdateSquawk(ctx, session, event.Callsign, &event.Squawk, nil)
 
 	if err != nil {
 		return err
@@ -164,7 +164,7 @@ func handleSquawk(client *Client, message Message) error {
 	return err
 }
 
-func handleRequestedAltitude(client *Client, message Message) error {
+func handleRequestedAltitude(ctx context.Context, client *Client, message Message) error {
 	var event euroscope.RequestedAltitudeEvent
 	err := message.JsonUnmarshal(&event)
 	if err != nil {
@@ -176,7 +176,7 @@ func handleRequestedAltitude(client *Client, message Message) error {
 	stripRepo := s.GetStripRepository()
 
 	intAltitude := int32(event.Altitude)
-	count, err := stripRepo.UpdateRequestedAltitude(context.TODO(), session, event.Callsign, &intAltitude, nil)
+	count, err := stripRepo.UpdateRequestedAltitude(ctx, session, event.Callsign, &intAltitude, nil)
 	if err != nil {
 		return err
 	}
@@ -188,7 +188,7 @@ func handleRequestedAltitude(client *Client, message Message) error {
 	return err
 }
 
-func handleClearedAltitude(client *Client, message Message) error {
+func handleClearedAltitude(ctx context.Context, client *Client, message Message) error {
 	var event euroscope.ClearedAltitudeEvent
 	err := message.JsonUnmarshal(&event)
 	if err != nil {
@@ -199,7 +199,7 @@ func handleClearedAltitude(client *Client, message Message) error {
 
 	stripRepo := s.GetStripRepository()
 	intAltitude := int32(event.Altitude)
-	count, err := stripRepo.UpdateClearedAltitude(context.TODO(), session, event.Callsign, &intAltitude, nil)
+	count, err := stripRepo.UpdateClearedAltitude(ctx, session, event.Callsign, &intAltitude, nil)
 	if err != nil {
 		return err
 	}
@@ -211,7 +211,7 @@ func handleClearedAltitude(client *Client, message Message) error {
 	return err
 }
 
-func handleCommunicationType(client *Client, message Message) error {
+func handleCommunicationType(ctx context.Context, client *Client, message Message) error {
 	var event euroscope.CommunicationTypeEvent
 	err := message.JsonUnmarshal(&event)
 	if err != nil {
@@ -222,7 +222,7 @@ func handleCommunicationType(client *Client, message Message) error {
 
 	stripRepo := s.GetStripRepository()
 
-	count, err := stripRepo.UpdateCommunicationType(context.TODO(), session, event.Callsign, &event.CommunicationType, nil)
+	count, err := stripRepo.UpdateCommunicationType(ctx, session, event.Callsign, &event.CommunicationType, nil)
 	if err != nil {
 		return err
 	}
@@ -234,7 +234,7 @@ func handleCommunicationType(client *Client, message Message) error {
 	return nil
 }
 
-func handleGroundState(client *Client, message Message) error {
+func handleGroundState(ctx context.Context, client *Client, message Message) error {
 	var event euroscope.GroundStateEvent
 	err := message.JsonUnmarshal(&event)
 	if err != nil {
@@ -244,7 +244,7 @@ func handleGroundState(client *Client, message Message) error {
 	session := client.session
 
 	stripRepo := s.GetStripRepository()
-	existingStrip, err := stripRepo.GetByCallsign(context.TODO(), session, event.Callsign)
+	existingStrip, err := stripRepo.GetByCallsign(ctx, session, event.Callsign)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			slog.Debug("Strip being updated does not exist in database", slog.String("callsign", event.Callsign), slog.String("event", "GroundState"))
@@ -265,7 +265,7 @@ func handleGroundState(client *Client, message Message) error {
 	}
 	bay := shared.GetDepartureBayFromGroundState(event.GroundState, dbStrip)
 
-	_, err = stripRepo.UpdateGroundState(context.TODO(), session, event.Callsign, &event.GroundState, bay, nil)
+	_, err = stripRepo.UpdateGroundState(ctx, session, event.Callsign, &event.GroundState, bay, nil)
 
 	if err != nil {
 		return err
@@ -278,7 +278,7 @@ func handleGroundState(client *Client, message Message) error {
 	return nil
 }
 
-func handleClearedFlag(client *Client, message Message) error {
+func handleClearedFlag(ctx context.Context, client *Client, message Message) error {
 	var event euroscope.ClearedFlagEvent
 	err := message.JsonUnmarshal(&event)
 	if err != nil {
@@ -288,7 +288,7 @@ func handleClearedFlag(client *Client, message Message) error {
 	session := client.session
 
 	stripRepo := s.GetStripRepository()
-	existingStrip, err := stripRepo.GetByCallsign(context.TODO(), session, event.Callsign)
+	existingStrip, err := stripRepo.GetByCallsign(ctx, session, event.Callsign)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			slog.Debug("Strip being updated does not exist in database", slog.String("callsign", event.Callsign), slog.String("event", "FlightStripOnline"))
@@ -306,19 +306,19 @@ func handleClearedFlag(client *Client, message Message) error {
 		bay = shared.BAY_CLEARED
 	}
 
-	_, err = stripRepo.UpdateClearedFlag(context.TODO(), session, event.Callsign, event.Cleared, bay, nil)
+	_, err = stripRepo.UpdateClearedFlag(ctx, session, event.Callsign, event.Cleared, bay, nil)
 	if err != nil {
 		return err
 	}
 
 	if existingStrip.Bay != bay {
-		return client.hub.stripService.MoveToBay(context.Background(), client.session, event.Callsign, bay, true)
+		return client.hub.stripService.MoveToBay(ctx, client.session, event.Callsign, bay, true)
 	}
 
 	return err
 }
 
-func handlePositionUpdate(client *Client, message Message) error {
+func handlePositionUpdate(ctx context.Context, client *Client, message Message) error {
 	var event euroscope.AircraftPositionUpdateEvent
 	err := message.JsonUnmarshal(&event)
 	if err != nil {
@@ -328,7 +328,7 @@ func handlePositionUpdate(client *Client, message Message) error {
 	session := client.session
 
 	stripRepo := s.GetStripRepository()
-	existingStrip, err := stripRepo.GetByCallsign(context.TODO(), session, event.Callsign)
+	existingStrip, err := stripRepo.GetByCallsign(ctx, session, event.Callsign)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			slog.Debug("Strip being updated does not exist in database", slog.String("callsign", event.Callsign), slog.String("event", "FlightStripOffline"))
@@ -347,8 +347,7 @@ func handlePositionUpdate(client *Client, message Message) error {
 	bay := shared.GetDepartureBayFromPosition(event.Lat, event.Lon, event.Altitude, dbStrip)
 	intAltitude := int32(event.Altitude)
 
-	_, err = stripRepo.UpdateAircraftPosition(context.TODO(), session, event.Callsign, &event.Lat, &event.Lon, &intAltitude, bay, nil)
-	_, err = stripRepo.UpdateAircraftPosition(context.TODO(), session, event.Callsign, &event.Lat, &event.Lon, &intAltitude, bay, nil)
+	_, err = stripRepo.UpdateAircraftPosition(ctx, session, event.Callsign, &event.Lat, &event.Lon, &intAltitude, bay, nil)
 
 	if err != nil {
 		return err
@@ -361,7 +360,7 @@ func handlePositionUpdate(client *Client, message Message) error {
 	return nil
 }
 
-func handleSetHeading(client *Client, message Message) error {
+func handleSetHeading(ctx context.Context, client *Client, message Message) error {
 	var event euroscope.HeadingEvent
 	err := message.JsonUnmarshal(&event)
 	if err != nil {
@@ -371,7 +370,7 @@ func handleSetHeading(client *Client, message Message) error {
 	session := client.session
 
 	stripRepo := s.GetStripRepository()
-	count, err := stripRepo.UpdateHeading(context.TODO(), session, event.Callsign, &event.Heading, nil)
+	count, err := stripRepo.UpdateHeading(ctx, session, event.Callsign, &event.Heading, nil)
 	if err != nil {
 		return err
 	}
@@ -383,7 +382,7 @@ func handleSetHeading(client *Client, message Message) error {
 	return nil
 }
 
-func handleAircraftDisconnected(client *Client, message Message) error {
+func handleAircraftDisconnected(ctx context.Context, client *Client, message Message) error {
 	var event euroscope.AircraftDisconnectEvent
 	err := message.JsonUnmarshal(&event)
 	if err != nil {
@@ -393,12 +392,12 @@ func handleAircraftDisconnected(client *Client, message Message) error {
 	session := client.session
 
 	stripRepo := s.GetStripRepository()
-	err = stripRepo.Delete(context.TODO(), session, event.Callsign)
+	err = stripRepo.Delete(ctx, session, event.Callsign)
 	s.GetFrontendHub().SendAircraftDisconnect(session, event.Callsign)
 	return err
 }
 
-func handleStand(client *Client, message Message) error {
+func handleStand(ctx context.Context, client *Client, message Message) error {
 	var event euroscope.StandEvent
 	err := message.JsonUnmarshal(&event)
 	if err != nil {
@@ -408,7 +407,7 @@ func handleStand(client *Client, message Message) error {
 	session := client.session
 
 	stripRepo := s.GetStripRepository()
-	count, err := stripRepo.UpdateStand(context.TODO(), session, event.Callsign, &event.Stand, nil)
+	count, err := stripRepo.UpdateStand(ctx, session, event.Callsign, &event.Stand, nil)
 	if err != nil {
 		return err
 	}
@@ -421,7 +420,7 @@ func handleStand(client *Client, message Message) error {
 	return nil
 }
 
-func handleSync(client *Client, message Message) error {
+func handleSync(ctx context.Context, client *Client, message Message) error {
 	var event euroscope.SyncEvent
 	err := message.JsonUnmarshal(&event)
 	if err != nil {
@@ -435,7 +434,7 @@ func handleSync(client *Client, message Message) error {
 
 	for _, controller := range event.Controllers {
 		// Check if the controller exists
-		_, err := controllerRepo.GetByCallsign(context.TODO(), session, controller.Callsign)
+		_, err := controllerRepo.GetByCallsign(ctx, session, controller.Callsign)
 		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 			return errors.Join(errors.New("something went wrong with fetching controller"), err)
 		}
@@ -448,14 +447,14 @@ func handleSync(client *Client, message Message) error {
 				Position: controller.Position,
 				Cid:      nil,
 			}
-			err = controllerRepo.Create(context.TODO(), newController)
+			err = controllerRepo.Create(ctx, newController)
 			if err != nil {
 				return fmt.Errorf("error inserting controller: %w", err)
 			}
 			slog.Debug("Inserted controller", slog.String("callsign", controller.Callsign))
 		} else {
 			// Controller exists, update it
-			_, err = controllerRepo.SetPosition(context.TODO(), session, controller.Callsign, controller.Position)
+			_, err = controllerRepo.SetPosition(ctx, session, controller.Callsign, controller.Position)
 			if err != nil {
 				return fmt.Errorf("error updating controller position: %w", err)
 			}
@@ -473,7 +472,7 @@ func handleSync(client *Client, message Message) error {
 	}
 
 	for _, strip := range event.Strips {
-		err = client.hub.handleStripUpdateHelper(strip, session)
+		err = client.hub.handleStripUpdateHelper(ctx, strip, session)
 		if err != nil {
 			return err
 		}
@@ -482,11 +481,11 @@ func handleSync(client *Client, message Message) error {
 	return err
 }
 
-func (hub *Hub) handleStripUpdateHelper(strip euroscope.Strip, session int32) error {
+func (hub *Hub) handleStripUpdateHelper(ctx context.Context, strip euroscope.Strip, session int32) error {
 	server := hub.server
 	stripRepo := server.GetStripRepository()
 
-	existingStrip, err := stripRepo.GetByCallsign(context.TODO(), session, strip.Callsign)
+	existingStrip, err := stripRepo.GetByCallsign(ctx, session, strip.Callsign)
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return err
 	}
@@ -526,7 +525,7 @@ func (hub *Hub) handleStripUpdateHelper(strip euroscope.Strip, session int32) er
 			Bay:               bay,
 			Eobt:              &strip.Eobt,
 		}
-		err = stripRepo.Create(context.TODO(), newStrip)
+		err = stripRepo.Create(ctx, newStrip)
 		if err != nil {
 			return err
 		}
@@ -578,7 +577,7 @@ func (hub *Hub) handleStripUpdateHelper(strip euroscope.Strip, session int32) er
 			Tobt:              existingStrip.Tobt,
 			Eobt:              existingStrip.Eobt,
 		}
-		_, err = stripRepo.Update(context.TODO(), updateStrip)
+		_, err = stripRepo.Update(ctx, updateStrip)
 		if err != nil {
 			return err
 		}
@@ -590,7 +589,7 @@ func (hub *Hub) handleStripUpdateHelper(strip euroscope.Strip, session int32) er
 		slog.Error("Error updating route for strip", slog.String("callsign", strip.Callsign), slog.Any("error", err))
 	}
 
-	err = hub.stripService.MoveToBay(context.Background(), session, strip.Callsign, bay, false)
+	err = hub.stripService.MoveToBay(ctx, session, strip.Callsign, bay, false)
 	if err != nil {
 		slog.Error("Error moving bay for strip", slog.String("callsign", strip.Callsign), slog.Any("error", err))
 	}
@@ -600,18 +599,18 @@ func (hub *Hub) handleStripUpdateHelper(strip euroscope.Strip, session int32) er
 	return nil
 }
 
-func handleStripUpdateEvent(client *Client, message Message) error {
+func handleStripUpdateEvent(ctx context.Context, client *Client, message Message) error {
 	var event euroscope.StripUpdateEvent
 	err := message.JsonUnmarshal(&event)
 	if err != nil {
 		return err
 	}
 
-	err = client.hub.handleStripUpdateHelper(event.Strip, client.session)
+	err = client.hub.handleStripUpdateHelper(ctx, event.Strip, client.session)
 	return err
 }
 
-func handleRunways(client *Client, message Message) error {
+func handleRunways(ctx context.Context, client *Client, message Message) error {
 	var event euroscope.RunwayEvent
 	err := message.JsonUnmarshal(&event)
 	if err != nil {
@@ -641,7 +640,7 @@ func handleRunways(client *Client, message Message) error {
 
 		slog.Debug("Setting active runways", slog.Any("runways", activeRunways), slog.Int("session", int(client.session)))
 
-		err = sessionRepo.UpdateActiveRunways(context.Background(), client.session, activeRunways)
+		err = sessionRepo.UpdateActiveRunways(ctx, client.session, activeRunways)
 		if err != nil {
 			return err
 		}

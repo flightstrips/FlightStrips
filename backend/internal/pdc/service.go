@@ -515,7 +515,7 @@ func (s *Service) ManualStateChange(ctx context.Context, callsign string, sessio
 			s.frontendHub.SendPdcStateChange(sessionID, callsign, newState, seq, timestamp)
 		}
 
-		log.Printf("PDC Service: Manual state change to %s for %s", newState, callsign)
+		slog.Info("PDC manual state change", slog.String("state", string(newState)), slog.String("callsign", callsign))
 	*/
 	return nil
 }

@@ -10,7 +10,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
+	"log/slog"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -92,7 +92,7 @@ func handleControllerOffline(client *Client, message Message) error {
 	}
 
 	if errors.Is(err, pgx.ErrNoRows) {
-		log.Printf("Controller %s which was going offline does not exist in the database\n", event.Callsign)
+		slog.Debug("Controller going offline does not exist in database", slog.String("callsign", event.Callsign))
 		s.GetFrontendHub().SendControllerOffline(session, event.Callsign, "", "")
 		return nil
 	}
@@ -131,7 +131,7 @@ func handleAssignedSquawk(client *Client, message Message) error {
 	}
 
 	if count != 1 {
-		log.Printf("Strip %v which is being updated does not exist in the database", event.Callsign)
+		slog.Debug("Strip being updated does not exist in database", slog.String("callsign", event.Callsign), slog.String("event", "AssignedSquawk"))
 	} else {
 		s.GetFrontendHub().SendAssignedSquawkEvent(session, event.Callsign, event.Squawk)
 	}
@@ -156,7 +156,7 @@ func handleSquawk(client *Client, message Message) error {
 	}
 
 	if count != 1 {
-		log.Printf("Strip %v which is being updated does not exist in the database", event.Callsign)
+		slog.Debug("Strip being updated does not exist in database", slog.String("callsign", event.Callsign), slog.String("event", "Squawk"))
 	} else {
 		s.GetFrontendHub().SendSquawkEvent(session, event.Callsign, event.Squawk)
 	}
@@ -181,7 +181,7 @@ func handleRequestedAltitude(client *Client, message Message) error {
 		return err
 	}
 	if count != 1 {
-		log.Printf("Strip %v which is being updated does not exist in the database", event.Callsign)
+		slog.Debug("Strip being updated does not exist in database", slog.String("callsign", event.Callsign), slog.String("event", "RequestedAltitude"))
 	} else {
 		s.GetFrontendHub().SendRequestedAltitudeEvent(session, event.Callsign, event.Altitude)
 	}
@@ -204,7 +204,7 @@ func handleClearedAltitude(client *Client, message Message) error {
 		return err
 	}
 	if count != 1 {
-		log.Printf("Strip %v which is being updated does not exist in the database", event.Callsign)
+		slog.Debug("Strip being updated does not exist in database", slog.String("callsign", event.Callsign), slog.String("event", "ClearedAltitude"))
 	} else {
 		s.GetFrontendHub().SendClearedAltitudeEvent(session, event.Callsign, event.Altitude)
 	}
@@ -227,7 +227,7 @@ func handleCommunicationType(client *Client, message Message) error {
 		return err
 	}
 	if count != 1 {
-		log.Printf("Strip %v which is being updated does not exist in the database", event.Callsign)
+		slog.Debug("Strip being updated does not exist in database", slog.String("callsign", event.Callsign), slog.String("event", "CommunicationType"))
 		return nil
 	}
 	s.GetFrontendHub().SendCommunicationTypeEvent(session, event.Callsign, event.CommunicationType)
@@ -247,7 +247,7 @@ func handleGroundState(client *Client, message Message) error {
 	existingStrip, err := stripRepo.GetByCallsign(context.TODO(), session, event.Callsign)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			log.Printf("Strip %v which is being updated does not exist in the database", event.Callsign)
+			slog.Debug("Strip being updated does not exist in database", slog.String("callsign", event.Callsign), slog.String("event", "GroundState"))
 			return nil
 		}
 		return err
@@ -291,7 +291,7 @@ func handleClearedFlag(client *Client, message Message) error {
 	existingStrip, err := stripRepo.GetByCallsign(context.TODO(), session, event.Callsign)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			log.Printf("Strip %v which is being updated does not exist in the database", event.Callsign)
+			slog.Debug("Strip being updated does not exist in database", slog.String("callsign", event.Callsign), slog.String("event", "FlightStripOnline"))
 			return nil
 		}
 		return err
@@ -331,7 +331,7 @@ func handlePositionUpdate(client *Client, message Message) error {
 	existingStrip, err := stripRepo.GetByCallsign(context.TODO(), session, event.Callsign)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			log.Printf("Strip %v which is being updated does not exist in the database", event.Callsign)
+			slog.Debug("Strip being updated does not exist in database", slog.String("callsign", event.Callsign), slog.String("event", "FlightStripOffline"))
 			return nil
 		}
 		return err
@@ -376,7 +376,7 @@ func handleSetHeading(client *Client, message Message) error {
 		return err
 	}
 	if count != 1 {
-		log.Printf("Strip %v which is being updated does not exist in the database", event.Callsign)
+		slog.Debug("Strip being updated does not exist in database", slog.String("callsign", event.Callsign), slog.String("event", "SetHeading"))
 		return nil
 	}
 	s.GetFrontendHub().SendSetHeadingEvent(session, event.Callsign, event.Heading)
@@ -413,7 +413,7 @@ func handleStand(client *Client, message Message) error {
 		return err
 	}
 	if count != 1 {
-		log.Printf("Strip %v which is being updated does not exist in the database", event.Callsign)
+		slog.Debug("Strip being updated does not exist in database", slog.String("callsign", event.Callsign), slog.String("event", "Stand"))
 		return nil
 	}
 
@@ -452,14 +452,14 @@ func handleSync(client *Client, message Message) error {
 			if err != nil {
 				return fmt.Errorf("error inserting controller: %w", err)
 			}
-			log.Printf("Inserted controller: %s", controller.Callsign)
+			slog.Debug("Inserted controller", slog.String("callsign", controller.Callsign))
 		} else {
 			// Controller exists, update it
 			_, err = controllerRepo.SetPosition(context.TODO(), session, controller.Callsign, controller.Position)
 			if err != nil {
 				return fmt.Errorf("error updating controller position: %w", err)
 			}
-			log.Printf("Updated controller: %s", controller.Callsign)
+			slog.Debug("Updated controller", slog.String("callsign", controller.Callsign))
 		}
 	}
 
@@ -530,7 +530,7 @@ func (hub *Hub) handleStripUpdateHelper(strip euroscope.Strip, session int32) er
 		if err != nil {
 			return err
 		}
-		log.Printf("Inserted strip: %s", strip.Callsign)
+		slog.Debug("Inserted strip", slog.String("callsign", strip.Callsign))
 	} else {
 		// Strip exists, update it
 		// Convert to database model for shared helper
@@ -582,17 +582,17 @@ func (hub *Hub) handleStripUpdateHelper(strip euroscope.Strip, session int32) er
 		if err != nil {
 			return err
 		}
-		log.Printf("Updated strip: %s", strip.Callsign)
+		slog.Debug("Updated strip", slog.String("callsign", strip.Callsign))
 	}
 
 	err = server.UpdateRouteForStrip(strip.Callsign, session, false)
 	if err != nil {
-		fmt.Printf("Error updating route for strip %s: %v\n", strip.Callsign, err)
+		slog.Error("Error updating route for strip", slog.String("callsign", strip.Callsign), slog.Any("error", err))
 	}
 
 	err = hub.stripService.MoveToBay(context.Background(), session, strip.Callsign, bay, false)
 	if err != nil {
-		fmt.Printf("Error moving bay to strip %s: %v\n", strip.Callsign, err)
+		slog.Error("Error moving bay for strip", slog.String("callsign", strip.Callsign), slog.Any("error", err))
 	}
 
 	server.GetFrontendHub().SendStripUpdate(session, strip.Callsign)
@@ -639,7 +639,7 @@ func handleRunways(client *Client, message Message) error {
 			ArrivalRunways:   arrival,
 		}
 
-		fmt.Printf("Setting active runways to %v for session %v\n", activeRunways, client.session)
+		slog.Debug("Setting active runways", slog.Any("runways", activeRunways), slog.Int("session", int(client.session)))
 
 		err = sessionRepo.UpdateActiveRunways(context.Background(), client.session, activeRunways)
 		if err != nil {

@@ -6,7 +6,7 @@ import (
 	"FlightStrips/pkg/helpers"
 	"context"
 	"errors"
-	"fmt"
+	"log/slog"
 	"slices"
 )
 
@@ -66,7 +66,8 @@ func (s *Server) updateRouteForStripHelper(strip *models.Strip, session *models.
 
 	sector, err := config.GetSectorFromRegion(region, isArrival)
 	if err != nil {
-		return err
+		slog.Warn("Sector not found based on region", slog.String("callsign", strip.Callsign), slog.String("region", region.Name))
+		return nil
 	}
 
 	allRunways := session.ActiveRunways.GetAllActiveRunways()
@@ -80,7 +81,9 @@ func (s *Server) updateRouteForStripHelper(strip *models.Strip, session *models.
 	}
 
 	if !success {
-		return errors.New("unable to compute route")
+		stand := helpers.ValueOrDefault(strip.Stand)
+		slog.Warn("Could not compute route for strip", slog.String("callsign", strip.Callsign), slog.String("sector", sector), slog.Bool("is_arrival", isArrival), slog.Any("stand", stand))
+		return nil
 	}
 
 	owners, err := s.sectorRepo.ListBySession(context.Background(), session.ID)
@@ -105,7 +108,7 @@ func (s *Server) updateRouteForStripHelper(strip *models.Strip, session *models.
 	if !isArrival && strip.Sid != nil && *strip.Sid != "" {
 		as, err := config.GetAirborneSector(*strip.Sid)
 		if err != nil {
-			fmt.Printf("Error getting airborne frequency: %v\n", err)
+			slog.Info("Error getting airborne frequency", slog.String("sid", *strip.Sid), slog.Any("error", err))
 		} else if owner, ok := sectorToOnwer[as]; ok && !slices.Contains(actualRoute, owner) {
 			path = append(path, as)
 			actualRoute = append(actualRoute, owner)

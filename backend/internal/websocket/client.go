@@ -5,7 +5,7 @@ import (
 	"FlightStrips/pkg/constants"
 	"FlightStrips/pkg/events"
 	"encoding/json"
-	"log"
+	"log/slog"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -29,7 +29,7 @@ type Client interface {
 
 // ReadPump pumps messages from the WebSocket connection to the hub.
 func ReadPump[TType comparable, TClient Client, THub Hub[TType, TClient]](hub THub, client TClient) {
-	log.Println("ReadPump")
+	slog.Debug("ReadPump started", slog.String("cid", client.GetCid()))
 	defer func() {
 		hub.Unregister(client)
 		client.GetConnection().Close()
@@ -37,13 +37,13 @@ func ReadPump[TType comparable, TClient Client, THub Hub[TType, TClient]](hub TH
 
 	err := client.GetConnection().SetReadDeadline(time.Now().Add(constants.PongWait))
 	if err != nil {
-		log.Println("Failed to set read deadline:", err)
+		slog.Info("Failed to set read deadline", slog.Any("error", err))
 		return
 	}
 	client.GetConnection().SetPongHandler(func(string) error {
 		err := client.GetConnection().SetReadDeadline(time.Now().Add(constants.PongWait))
 		if err != nil {
-			log.Println("Failed to set read deadline:", err)
+			slog.Info("Failed to set read deadline in pong handler", slog.Any("error", err))
 			return err
 		}
 		return client.HandlePong()
@@ -53,13 +53,13 @@ func ReadPump[TType comparable, TClient Client, THub Hub[TType, TClient]](hub TH
 		_, message, err := client.GetConnection().ReadMessage()
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				log.Printf("error: %v", err)
+				slog.Info("Unexpected websocket close", slog.Any("error", err))
 			}
 			break
 		}
 		parsedMessage, err := parseMessage[TType](message)
 		if err != nil {
-			log.Println("Failed to parse message", err)
+			slog.Info("Failed to parse message", slog.Any("error", err))
 			continue
 		}
 
@@ -67,7 +67,7 @@ func ReadPump[TType comparable, TClient Client, THub Hub[TType, TClient]](hub TH
 		err = handlers.Handle(client, parsedMessage)
 
 		if err != nil {
-			log.Println("Failed to handle message", err, "message", string(message))
+			slog.Error("Failed to handle message", slog.Any("error", err), slog.String("message", string(message)))
 		}
 	}
 }
@@ -90,7 +90,7 @@ func parseMessage[TType comparable](message []byte) (shared.Message[TType], erro
 
 // WritePump pumps messages from the hub to the WebSocket connection.
 func WritePump[TClient Client](client TClient) {
-	log.Println("WritePump")
+	slog.Debug("WritePump started", slog.String("cid", client.GetCid()))
 	ticker := time.NewTicker(constants.PingPeriod)
 	defer func() {
 		ticker.Stop()
@@ -102,21 +102,21 @@ func WritePump[TClient Client](client TClient) {
 		case message, ok := <-client.GetSendChannel():
 			err := client.GetConnection().SetWriteDeadline(time.Now().Add(constants.WriteWait))
 			if err != nil {
-				log.Println("Failed to set write deadline:", err)
+				slog.Info("Failed to set write deadline", slog.Any("error", err))
 				return
 			}
 			if !ok {
 				// The hub closed the channel.
 				err := client.GetConnection().WriteMessage(websocket.CloseMessage, []byte{})
 				if err != nil {
-					log.Println("Failed to close connection:", err)
+					slog.Info("Failed to close connection", slog.Any("error", err))
 				}
 				return
 			}
 
 			bytes, err := message.Marshal()
 			if err != nil {
-				log.Println("Failed to marshal message:", err)
+				slog.Error("Failed to marshal message", slog.Any("error", err))
 				continue
 			}
 

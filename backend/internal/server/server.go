@@ -7,7 +7,7 @@ import (
 	"FlightStrips/internal/shared"
 	"context"
 	"errors"
-	"log"
+	"log/slog"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -110,7 +110,7 @@ func (s *Server) GetOrCreateSession(airport string, name string) (shared.Session
 	}
 
 	if errors.Is(err, pgx.ErrNoRows) {
-		log.Println("Creating session:", name, "for airport:", airport)
+		slog.Debug("Creating session", slog.String("name", name), slog.String("airport", airport))
 		newSession := &models.Session{Name: name, Airport: airport}
 		id, err := sessionRepo.Create(context.Background(), newSession)
 
@@ -141,18 +141,18 @@ func (s *Server) monitorSessions() {
 		sessions, err := sessionRepo.GetExpiredSessions(context.Background(), &expired)
 
 		if err != nil {
-			log.Println("Failed to get expired sessions:", err)
+			slog.Error("Failed to get expired sessions", slog.Any("error", err))
 		}
 
 		for _, session := range sessions {
-			log.Println("Removing expired session:", session)
+			slog.Info("Removing expired session", slog.Int("session", int(session.ID)))
 			count, err := sessionRepo.Delete(context.Background(), session.ID)
 			if err != nil {
-				log.Println("Failed to remove expired session:", session, err)
+				slog.Error("Failed to remove expired session", slog.Int("session", int(session.ID)), slog.Any("error", err))
 			}
 
 			if count != 1 {
-				log.Println("Failed to remove expired session (no changes):", session, err)
+				slog.Warn("Failed to remove expired session (no changes)", slog.Int("session", int(session.ID)))
 			}
 		}
 

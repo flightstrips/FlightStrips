@@ -19,7 +19,7 @@ func (s *Server) UpdateLayouts(sessionId int32) error {
 
 	// If the runways are not set, we cannot calculate the sector ownerships
 	if len(session.ActiveRunways.ArrivalRunways) == 0 || len(session.ActiveRunways.DepartureRunways) == 0 {
-		fmt.Println("No active runways found")
+		slog.Debug("No active runways found", slog.Int("session", int(sessionId)))
 		return nil
 	}
 

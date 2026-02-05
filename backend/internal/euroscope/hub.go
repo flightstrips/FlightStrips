@@ -9,7 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
+	"log/slog"
 	"math/rand"
 	"strconv"
 	"time"
@@ -100,7 +100,7 @@ func (hub *Hub) Send(session int32, cid string, message euroscope.OutgoingMessag
 
 func (hub *Hub) OnRegister(client *Client) {
 	if _, ok := hub.master[client.session]; !ok {
-		log.Println("Euroscope Client is master:", client.GetCid())
+		slog.Debug("Euroscope client is master", slog.String("cid", client.GetCid()))
 		hub.master[client.session] = client
 		client.send <- euroscope.SessionInfoEvent{Role: euroscope.SessionInfoMaster}
 		return
@@ -122,7 +122,7 @@ func (hub *Hub) SetServer(server shared.Server) {
 }
 
 func (hub *Hub) HandleNewConnection(conn *gorilla.Conn, user shared.AuthenticatedUser) (*Client, error) {
-	log.Println("Euroscope Client connected:", user.GetCid())
+	slog.Debug("Euroscope client connected", slog.String("cid", user.GetCid()))
 	// Read the login message
 	_, msg, err := conn.ReadMessage()
 	if err != nil {
@@ -167,7 +167,7 @@ func (hub *Hub) handleLogin(msg []byte, user shared.AuthenticatedUser) (event eu
 		sessionName = sessionName + "_" + strconv.Itoa(rand.Int())
 	}
 
-	log.Println("Euroscope Client (", user.GetCid(), ") logged in:", sessionName)
+	slog.Debug("Euroscope client logged in", slog.String("cid", user.GetCid()), slog.String("session", sessionName))
 
 	session, err := hub.server.GetOrCreateSession(event.Airport, sessionName)
 	if err != nil {
@@ -225,7 +225,7 @@ func (hub *Hub) OnUnregister(client *Client) {
 	count, err := controllerRepo.SetCid(context.Background(), client.session, client.callsign, nil)
 
 	if err != nil || count != 1 {
-		log.Printf("Failed to remove CID for client %s with CID %s. Error: %s", client.callsign, client.GetCid(), err)
+		slog.Error("Failed to remove CID for client", slog.String("callsign", client.callsign), slog.String("cid", client.GetCid()), slog.Any("error", err))
 	}
 
 	if master, ok := hub.master[client.session]; !ok || master != client {

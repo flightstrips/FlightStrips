@@ -3,7 +3,7 @@
 import (
 	"FlightStrips/internal/shared"
 	"FlightStrips/pkg/events"
-	"log"
+	"log/slog"
 	"net/http"
 
 	gorilla "github.com/gorilla/websocket"
@@ -33,7 +33,7 @@ func NewConnectionUpgrader[TType comparable, TClient Client](hub Hub[TType, TCli
 func (u ConnectionUpgrader[TType, TClient]) Upgrade(w http.ResponseWriter, r *http.Request) {
 	conn, err := u.upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		log.Println("Failed to upgrade connection:", err)
+		slog.Debug("Failed to upgrade connection", slog.Any("error", err))
 		return
 	}
 
@@ -41,19 +41,19 @@ func (u ConnectionUpgrader[TType, TClient]) Upgrade(w http.ResponseWriter, r *ht
 	var authenticationEvent events.AuthenticationEvent
 	err = conn.ReadJSON(&authenticationEvent)
 	if err != nil {
-		log.Println("Failed to handle new connection:", err)
+		slog.Debug("Failed to read authentication event", slog.Any("error", err))
 		return
 	}
 
 	user, err := u.authenticationService.Validate(authenticationEvent.Token)
 	if err != nil {
-		log.Println("Failed to handle new connection:", err)
+		slog.Debug("Failed to validate authentication token", slog.Any("error", err))
 		return
 	}
 
 	client, err := u.hub.HandleNewConnection(conn, user)
 	if err != nil {
-		log.Println("Failed to handle new connection:", err)
+		slog.Warn("Failed to handle new connection", slog.Any("error", err))
 		return
 	}
 

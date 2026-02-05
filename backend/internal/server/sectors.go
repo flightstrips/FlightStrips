@@ -6,7 +6,7 @@ import (
 	"FlightStrips/internal/repository"
 	"cmp"
 	"context"
-	"fmt"
+	"log/slog"
 	"slices"
 )
 
@@ -20,8 +20,7 @@ func (s *Server) UpdateSectors(sessionId int32) error {
 		return err
 	}
 
-	fmt.Printf("Updating sectors for session %d\n", sessionId)
-	fmt.Printf("Found %d previous owners\n", len(previousOwners))
+	slog.Debug("Updating sectors", slog.Int("session", int(sessionId)), slog.Int("previousOwners", len(previousOwners)))
 
 	session, err := sessionRepo.GetByID(context.Background(), sessionId)
 	if err != nil {
@@ -30,7 +29,7 @@ func (s *Server) UpdateSectors(sessionId int32) error {
 
 	// If the runways are not set, we cannot calculate the sector ownerships
 	if len(session.ActiveRunways.ArrivalRunways) == 0 || len(session.ActiveRunways.DepartureRunways) == 0 {
-		fmt.Println("No active runways found")
+		slog.Debug("No active runways found for sector update", slog.Int("session", int(sessionId)))
 		return nil
 	}
 
@@ -69,7 +68,7 @@ func (s *Server) UpdateSectors(sessionId int32) error {
 		})
 	}
 
-	fmt.Printf("Found %d sectors\n", len(currentOwners))
+	slog.Debug("Found sectors for session", slog.Int("session", int(sessionId)), slog.Int("sectors", len(currentOwners)))
 
 	if slices.EqualFunc(currentOwners, previousOwners, sectorsEqual) {
 		// No changes

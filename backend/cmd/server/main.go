@@ -16,7 +16,6 @@ import (
 	"context"
 	_ "database/sql"
 	"flag"
-	"log"
 	"log/slog"
 	"net/http"
 	"os"
@@ -29,6 +28,7 @@ import (
 	_ "github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/joho/godotenv"
+	"github.com/lmittmann/tint"
 )
 
 var addr = flag.String("addr", "0.0.0.0:2994", "http service address")
@@ -40,25 +40,28 @@ func healthz(w http.ResponseWriter, _ *http.Request) {
 func main() {
 	flag.Parse()
 
-	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
+	logger := slog.New(tint.NewHandler(os.Stdout, &tint.Options{Level: slog.LevelInfo}))
 	slog.SetDefault(logger)
 
 	err := godotenv.Load()
 	if err != nil {
-		log.Fatal("Error loading .env file")
+		slog.Error("Error loading .env file", slog.Any("error", err))
+		os.Exit(1)
 	}
 
 	ctx := context.Background()
 	config.InitConfig()
 	dbpool, err := pgxpool.New(ctx, os.Getenv("DATABASE_CONNECTIONSTRING"))
 	if err != nil {
-		log.Fatal(err)
+		slog.Error("Failed to connect to database", slog.Any("error", err))
+		os.Exit(1)
 	}
 	defer dbpool.Close()
 
 	authenticationService, err := services.NewAuthenticationService(os.Getenv("OIDC_SIGNING_ALGO"), os.Getenv("OIDC_AUTHORITY"))
 	if err != nil {
-		log.Fatal(err)
+		slog.Error("Failed to initialize authentication service", slog.Any("error", err))
+		os.Exit(1)
 	}
 
 	cdmKey := os.Getenv("CDM_KEY")
@@ -120,5 +123,8 @@ func main() {
 	http.HandleFunc("/frontEndEvents", frontendUpgrader.Upgrade)
 
 	slog.Info("Server started", slog.String("address", *addr))
-	log.Fatal(http.ListenAndServe(*addr, nil))
+	if err := http.ListenAndServe(*addr, nil); err != nil {
+		slog.Error("Server failed", slog.Any("error", err))
+		os.Exit(1)
+	}
 }

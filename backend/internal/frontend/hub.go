@@ -8,7 +8,7 @@ import (
 	"FlightStrips/pkg/helpers"
 	"context"
 	"errors"
-	"log"
+	"log/slog"
 
 	gorilla "github.com/gorilla/websocket"
 	"github.com/jackc/pgx/v5"
@@ -152,19 +152,19 @@ func (hub *Hub) sendInitialEvent(client *Client) {
 
 	controllers, err := controllerRepo.ListBySession(context.Background(), client.session)
 	if err != nil {
-		log.Println("Failed to list controllers:", err)
+		slog.Error("Failed to list controllers", slog.Any("error", err), slog.Int("session", int(client.session)))
 		return
 	}
 
 	strips, err := stripRepo.List(context.Background(), client.session)
 	if err != nil {
-		log.Println("Failed to list strips:", err)
+		slog.Error("Failed to list strips", slog.Any("error", err), slog.Int("session", int(client.session)))
 		return
 	}
 
 	sectors, err := sectorRepo.ListBySession(context.Background(), client.session)
 	if err != nil {
-		log.Println("Failed to list sectors:", err)
+		slog.Error("Failed to list sectors", slog.Any("error", err), slog.Int("session", int(client.session)))
 		return
 	}
 
@@ -480,14 +480,14 @@ func (hub *Hub) SendToPosition(session int32, position string, message frontend.
 }
 
 func (hub *Hub) OnRegister(client *Client) {
-	log.Println("Client registered:", client.user.GetCid())
+	slog.Debug("Client registered", slog.String("cid", client.user.GetCid()))
 	if client.session != WaitingForEuroscopeConnectionSessionId {
 		hub.sendInitialEvent(client)
 	}
 }
 
 func (hub *Hub) OnUnregister(client *Client) {
-	log.Println("Client unregistered:", client.user.GetCid())
+	slog.Debug("Client unregistered", slog.String("cid", client.user.GetCid()))
 }
 
 func (hub *Hub) Run() {

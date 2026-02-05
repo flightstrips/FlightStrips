@@ -3,9 +3,10 @@
 import (
 	"FlightStrips/internal/database"
 	"flag"
-	"fmt"
-	"log"
+	"log/slog"
 	"os"
+
+	"github.com/lmittmann/tint"
 )
 
 func main() {
@@ -17,14 +18,19 @@ func main() {
 	flag.StringVar(&migrationsDir, "migrations", "migrations", "Directory containing SQL migration files")
 	flag.Parse()
 
+	logger := slog.New(tint.NewHandler(os.Stdout, &tint.Options{Level: slog.LevelInfo}))
+	slog.SetDefault(logger)
+
 	// Check migrations dir exists
 	if _, err := os.Stat(migrationsDir); os.IsNotExist(err) {
-		log.Fatalf("Migrations directory %q does not exist", migrationsDir)
+		slog.Error("Migrations directory does not exist", slog.String("directory", migrationsDir))
+		os.Exit(1)
 	}
 
 	err := database.Migrate(dbPath, migrationsDir)
 	if err != nil {
-		log.Fatalf("Migration failed: %v", err)
+		slog.Error("Migration failed", slog.Any("error", err))
+		os.Exit(1)
 	}
-	fmt.Println("Migration finished successfully.")
+	slog.Info("Migration finished successfully")
 }

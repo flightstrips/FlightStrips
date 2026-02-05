@@ -2,6 +2,7 @@
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -177,16 +178,16 @@ func Migrate(dsn, migrationsDir string) error {
 		}
 	}
 	if len(toApply) == 0 {
-		fmt.Println("No new migrations to apply.")
+		slog.Info("No new migrations to apply")
 		return nil
 	}
 	for _, m := range toApply {
-		fmt.Printf("Applying migration %d: %s\n", m.ID, m.Name)
+		slog.Info("Applying migration", slog.Int("id", m.ID), slog.String("name", m.Name))
 		if err := applyMigration(db, m, q, ctx); err != nil {
 			return err
 		}
-		fmt.Printf("Applied migration %d: %s\n", m.ID, m.Name)
+		slog.Info("Applied migration", slog.Int("id", m.ID), slog.String("name", m.Name))
 	}
-	fmt.Printf("Migrations complete. %d applied.\n", len(toApply))
+	slog.Info("Migrations complete", slog.Int("applied", len(toApply)))
 	return nil
 }

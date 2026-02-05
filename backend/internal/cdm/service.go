@@ -7,6 +7,7 @@ import (
 	"FlightStrips/pkg/helpers"
 	"context"
 	"fmt"
+	"log/slog"
 	"time"
 )
 
@@ -100,7 +101,7 @@ func (s *Service) RequestBetterTobt(ctx context.Context, session int32, callsign
 
 func (s *Service) Start(ctx context.Context) {
 	if !s.client.isValid {
-		fmt.Println("CDM client is not valid, CDM data will not be synced")
+		slog.Warn("CDM client is not valid, CDM data will not be synced")
 		return
 	}
 
@@ -117,11 +118,11 @@ func (s *Service) Start(ctx context.Context) {
 				continue
 			}
 
-			fmt.Println("Syncing CDM data for session", session.Name, "id", session.ID, "airport", session.Airport)
+			slog.Debug("Syncing CDM data", slog.String("session", session.Name), slog.Int("id", int(session.ID)), slog.String("airport", session.Airport))
 
 			err = s.syncCdmData(ctx, session)
 			if err != nil {
-				fmt.Println("Failed to sync CDM data:", err)
+				slog.Error("Failed to sync CDM data", slog.Any("error", err))
 			}
 		}
 	}

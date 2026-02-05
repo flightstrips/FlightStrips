@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -97,7 +98,7 @@ func (s *StripService) MoveStripBetween(ctx context.Context, session int32, call
 	var next *int32
 
 	if before == nil {
-		fmt.Println("move strip between: nil", "for bay: ", bay, "session: ", session, "callsign: ", callsign)
+		slog.Debug("Moving strip to start of bay", slog.String("bay", bay), slog.Int("session", int(session)), slog.String("callsign", callsign))
 		prev = 0
 		nextOrder, err := s.stripRepo.GetMinSequenceInBay(ctx, session, bay)
 		if err != nil {
@@ -105,7 +106,7 @@ func (s *StripService) MoveStripBetween(ctx context.Context, session int32, call
 		}
 		next = &nextOrder
 	} else {
-		fmt.Println("move strip between:", *before, "for bay: ", bay, "session: ", session, "callsign: ", callsign)
+		slog.Debug("Moving strip between other strips", slog.String("before", *before), slog.String("bay", bay), slog.Int("session", int(session)), slog.String("callsign", callsign))
 		var err error
 		prev, err = s.stripRepo.GetSequence(ctx, session, *before, bay)
 		if err != nil {

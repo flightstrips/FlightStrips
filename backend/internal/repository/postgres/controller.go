@@ -126,16 +126,10 @@ func (r *controllerRepository) SetCid(ctx context.Context, session int32, callsi
 }
 
 // SetLayout sets the layout for controllers at a position
-func (r *controllerRepository) SetLayout(ctx context.Context, session int32, callsign string, layout *string) (int64, error) {
-	// Note: The SQL query sets layout by position, but we need to get the position first
-	controller, err := r.GetByCallsign(ctx, session, callsign)
-	if err != nil {
-		return 0, err
-	}
-
+func (r *controllerRepository) SetLayout(ctx context.Context, session int32, position string, layout *string) (int64, error) {
 	return r.queries.SetControllerLayout(ctx, database.SetControllerLayoutParams{
 		Layout:   layout,
-		Position: controller.Position,
+		Position: position,
 		Session:  session,
 	})
 }

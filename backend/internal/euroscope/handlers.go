@@ -437,7 +437,7 @@ func handleSync(client *Client, message Message) error {
 		// Check if the controller exists
 		_, err := controllerRepo.GetByCallsign(context.TODO(), session, controller.Callsign)
 		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
-			return err
+			return errors.Join(errors.New("something went wrong with fetching controller"), err)
 		}
 
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -450,14 +450,14 @@ func handleSync(client *Client, message Message) error {
 			}
 			err = controllerRepo.Create(context.TODO(), newController)
 			if err != nil {
-				return err
+				return fmt.Errorf("error inserting controller: %w", err)
 			}
 			log.Printf("Inserted controller: %s", controller.Callsign)
 		} else {
 			// Controller exists, update it
 			_, err = controllerRepo.SetPosition(context.TODO(), session, controller.Callsign, controller.Position)
 			if err != nil {
-				return err
+				return fmt.Errorf("error updating controller position: %w", err)
 			}
 			log.Printf("Updated controller: %s", controller.Callsign)
 		}
@@ -485,7 +485,7 @@ func handleSync(client *Client, message Message) error {
 func (hub *Hub) handleStripUpdateHelper(strip euroscope.Strip, session int32) error {
 	server := hub.server
 	stripRepo := server.GetStripRepository()
-	
+
 	existingStrip, err := stripRepo.GetByCallsign(context.TODO(), session, strip.Callsign)
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return err

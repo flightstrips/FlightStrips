@@ -39,9 +39,9 @@ func healthz(w http.ResponseWriter, _ *http.Request) {
 
 func main() {
 	flag.Parse()
-	log.SetFlags(0)
 
-	slog.SetLogLoggerLevel(slog.LevelDebug)
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
+	slog.SetDefault(logger)
 
 	err := godotenv.Load()
 	if err != nil {

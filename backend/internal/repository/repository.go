@@ -75,7 +75,7 @@ type ControllerRepository interface {
 
 	SetPosition(ctx context.Context, session int32, callsign string, position string) (int64, error)
 	SetCid(ctx context.Context, session int32, callsign string, cid *string) (int64, error)
-	SetLayout(ctx context.Context, session int32, callsign string, layout *string) (int64, error)
+	SetLayout(ctx context.Context, session int32, position string, layout *string) (int64, error)
 	SetEuroscopeSeen(ctx context.Context, cid string, session int32, lastSeen *time.Time) (int64, error)
 	SetFrontendSeen(ctx context.Context, cid string, session int32, lastSeen *time.Time) (int64, error)
 }

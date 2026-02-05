@@ -4,15 +4,17 @@ import (
 	"FlightStrips/internal/config"
 	"context"
 	"fmt"
+	"log/slog"
 )
 
 func (s *Server) UpdateLayouts(sessionId int32) error {
+	slog.Debug("Updating layouts", slog.Int("session", int(sessionId)))
 	sessionRepo := s.sessionRepo
 	controllerRepo := s.controllerRepo
-	
+
 	session, err := sessionRepo.GetByID(context.Background(), sessionId)
 	if err != nil {
-		return err
+		return fmt.Errorf("error getting session: %w", err)
 	}
 
 	// If the runways are not set, we cannot calculate the sector ownerships
@@ -23,7 +25,7 @@ func (s *Server) UpdateLayouts(sessionId int32) error {
 
 	positions, err := getCurrentPositions(controllerRepo, sessionId)
 	if err != nil {
-		return err
+		return fmt.Errorf("error getting positions: %w", err)
 	}
 
 	active := session.ActiveRunways.GetAllActiveRunways()

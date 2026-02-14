@@ -57,7 +57,7 @@ func (s *Server) updateRouteForStripHelper(strip *models.Strip, session *models.
 	isArrival := strip.Destination == session.Airport
 
 	region, err := config.GetRegionForPosition(helpers.ValueOrDefault(strip.PositionLatitude), helpers.ValueOrDefault(strip.PositionLongitude))
-	if errors.Is(err, config.UnsupportedRegion) {
+	if errors.Is(err, config.ErrUnsupportedRegion) {
 		return nil
 	}
 	if err != nil {
@@ -110,7 +110,6 @@ func (s *Server) updateRouteForStripHelper(strip *models.Strip, session *models.
 		if err != nil {
 			slog.Info("Error getting airborne frequency", slog.String("sid", *strip.Sid), slog.Any("error", err))
 		} else if owner, ok := sectorToOnwer[as]; ok && !slices.Contains(actualRoute, owner) {
-			path = append(path, as)
 			actualRoute = append(actualRoute, owner)
 		}
 	}
@@ -118,7 +117,7 @@ func (s *Server) updateRouteForStripHelper(strip *models.Strip, session *models.
 	if strip.Owner != nil && *strip.Owner != "" {
 		index := slices.Index(actualRoute, *strip.Owner)
 		if index != -1 {
-			actualRoute = append(actualRoute[:index], actualRoute[index+1:]...)
+			actualRoute = slices.Delete(actualRoute, index, index+1)
 		}
 	}
 

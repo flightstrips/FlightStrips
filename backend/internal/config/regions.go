@@ -31,7 +31,7 @@ type Region struct {
 	Region *s2.Loop
 }
 
-var UnsupportedRegion = errors.New("unsupported region")
+var ErrUnsupportedRegion = errors.New("unsupported region")
 
 func GetRegionForPosition(lat, lon float64) (*Region, error) {
 	point := s2.PointFromLatLng(s2.LatLngFromDegrees(lat, lon))
@@ -41,7 +41,7 @@ func GetRegionForPosition(lat, lon float64) (*Region, error) {
 		}
 	}
 
-	return nil, UnsupportedRegion
+	return nil, ErrUnsupportedRegion
 }
 
 func loadRegions(f io.Reader) error {

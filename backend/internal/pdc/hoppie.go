@@ -84,16 +84,6 @@ func ParseIncomingMessage(from, to, raw string) (*IncomingMessage, error) {
 	}, nil
 }
 
-func buildClearanceConfirm(sequence int32, origin, callsign string) string {
-	payload := fmt.Sprintf(
-		"ATC REQUEST STATUS . . FSM %s %s %s @%s@ CDA RECEIVED @CLEARANCE CONFIRMED",
-		time.Now().Format("1504"),
-		time.Now().Format("020106"),
-		origin,
-		callsign,
-	)
-	return buildHoppieMessage(sequence, payload, MsgClearanceConfirm)
-}
 
 func buildRequestAck(sequence int32, origin, callsign string) string {
 	payload := fmt.Sprintf(
@@ -248,7 +238,3 @@ func buildInvalidAircraftType(sequence int32, airport, callsign string) string {
 	return buildHoppieMessage(sequence, payload, MsgInvalidAircraftType)
 }
 
-func buildRefuseNotSupported(sequence int32) string {
-	payload := "CONTACT ATC BY VOICE @REFUSE NOT SUPPORTED BY DATALINK"
-	return buildHoppieMessage(sequence, payload, MsgRefuseNotSupported)
-}

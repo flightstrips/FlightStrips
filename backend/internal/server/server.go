@@ -118,8 +118,8 @@ func (s *Server) GetOrCreateSession(airport string, name string) (shared.Session
 			var pgErr *pgconn.PgError
 			if errors.As(err, &pgErr) && pgErr.Code == "23505" {
 				session, err = sessionRepo.Get(context.Background(), name, airport)
-				if err != nil {
-					return shared.Session{Name: name, Airport: airport, Id: id}, err
+				if err == nil {
+					return shared.Session{Name: session.Name, Airport: session.Airport, Id: session.ID}, nil
 				}
 			}
 

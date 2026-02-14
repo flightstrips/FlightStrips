@@ -103,7 +103,7 @@ func (c *Client) sendMessage(ctx context.Context, from, to, msgType, packet stri
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("Hoppie returned error: %s", string(body))
+		return fmt.Errorf("hoppie returned error: %s", string(body))
 	}
 
 	return nil
@@ -121,26 +121,26 @@ func (c *Client) parseResponse(body string) []Message {
 	}
 
 	// Remove "ok " prefix if present
-	if strings.HasPrefix(body, "ok ") {
-		body = strings.TrimPrefix(body, "ok ")
-	}
+	body = strings.TrimPrefix(body, "ok ")
 
 	// Extract top-level brace-enclosed blocks
 	var blocks []string
 	start := -1
 	depth := 0
 	for i, char := range body {
-		if char == '{' {
-			if depth == 0 {
-				start = i
-			}
-			depth++
-		} else if char == '}' {
-			depth--
-			if depth == 0 && start != -1 {
-				blocks = append(blocks, body[start+1:i])
-				start = -1
-			}
+		switch char {
+			case '{':
+
+				if depth == 0 {
+					start = i
+				}
+				depth++
+			case '}':
+				depth--
+				if depth == 0 && start != -1 {
+					blocks = append(blocks, body[start+1:i])
+					start = -1
+				}
 		}
 	}
 

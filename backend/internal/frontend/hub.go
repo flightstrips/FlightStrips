@@ -258,6 +258,9 @@ func MapStripToFrontendModel(strip *internalModels.Strip) frontend.Strip {
 func (hub *Hub) CidOnline(session int32, cid string) {
 	for client := range hub.clients {
 		if client.user.GetCid() == cid {
+			slog.Debug("Associating frontend client with session",
+				slog.String("cid", cid),
+				slog.Int("session", int(session)))
 			client.session = session
 			hub.sendInitialEvent(client)
 			return

@@ -3,6 +3,7 @@
 import (
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"strings"
 
@@ -17,6 +18,15 @@ type Config struct {
 	AirborneOwners []string                   `yaml:"airborne_owners"`
 	Layouts        map[string][]LayoutVariant `yaml:"layouts"`
 }
+
+// TestModeConfig holds test/replay mode configuration
+type TestModeConfig struct {
+	Enabled       bool
+	RecordMode    bool
+	RecordingPath string
+}
+
+var testMode TestModeConfig
 
 var sectors []Sector
 var regions []Region
@@ -93,10 +103,57 @@ func loadRoutes(cfg Config) error {
 }
 
 func InitConfig() {
+	// Initialize test mode configuration
+	initTestMode()
+
 	err := loadConfigurationFiles("ekch")
 	if err != nil {
 		panic(err)
 	}
+}
+
+// initTestMode initializes test/replay mode configuration from environment variables
+func initTestMode() {
+	testModeEnv := os.Getenv("TEST_MODE")
+	recordModeEnv := os.Getenv("RECORD_MODE")
+	environment := os.Getenv("ENV")
+
+	testMode.Enabled = testModeEnv == "true"
+	testMode.RecordMode = recordModeEnv == "true"
+	testMode.RecordingPath = os.Getenv("RECORDING_PATH")
+
+	if testMode.RecordingPath == "" {
+		testMode.RecordingPath = "recordings"
+	}
+
+	// Security safeguard: panic if test mode is enabled in production
+	if testMode.Enabled && environment == "production" {
+		panic("TEST_MODE cannot be enabled in production environment")
+	}
+
+	// Log warning if test mode is active
+	if testMode.Enabled {
+		slog.Warn("TEST_MODE is enabled - authentication will be bypassed")
+	}
+
+	if testMode.RecordMode {
+		slog.Info("RECORD_MODE is enabled - WebSocket events will be recorded", slog.String("path", testMode.RecordingPath))
+	}
+}
+
+// IsTestMode returns true if test/replay mode is enabled
+func IsTestMode() bool {
+	return testMode.Enabled
+}
+
+// IsRecordMode returns true if recording mode is enabled
+func IsRecordMode() bool {
+	return testMode.RecordMode
+}
+
+// GetRecordingPath returns the path where recordings are stored
+func GetRecordingPath() string {
+	return testMode.RecordingPath
 }
 
 func loadConfigurationFiles(airport string) error {

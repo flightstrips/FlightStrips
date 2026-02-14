@@ -56,6 +56,21 @@ func (s *Server) UpdateRoutesForSession(sessionId int32, sendUpdate bool) error 
 func (s *Server) updateRouteForStripHelper(strip *models.Strip, session *models.Session, sendUpdate bool) error {
 	isArrival := strip.Destination == session.Airport
 
+	// For route computation, we need:
+	// - Departures: runway must be assigned
+	// - Arrivals: stand must be assigned
+	if isArrival {
+		if strip.Stand == nil || *strip.Stand == "" {
+			// Arrival without stand - can't compute route yet
+			return nil
+		}
+	} else {
+		if strip.Runway == nil || *strip.Runway == "" {
+			// Departure without runway - can't compute route yet
+			return nil
+		}
+	}
+
 	region, err := config.GetRegionForPosition(helpers.ValueOrDefault(strip.PositionLatitude), helpers.ValueOrDefault(strip.PositionLongitude))
 	if errors.Is(err, config.ErrUnsupportedRegion) {
 		return nil
@@ -81,8 +96,14 @@ func (s *Server) updateRouteForStripHelper(strip *models.Strip, session *models.
 	}
 
 	if !success {
+		runway := helpers.ValueOrDefault(strip.Runway)
 		stand := helpers.ValueOrDefault(strip.Stand)
-		slog.Warn("Could not compute route for strip", slog.String("callsign", strip.Callsign), slog.String("sector", sector), slog.Bool("is_arrival", isArrival), slog.Any("stand", stand))
+		slog.Warn("Could not compute route for strip", 
+			slog.String("callsign", strip.Callsign), 
+			slog.String("sector", sector), 
+			slog.Bool("is_arrival", isArrival), 
+			slog.String("runway", runway),
+			slog.String("stand", stand))
 		return nil
 	}
 

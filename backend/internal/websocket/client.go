@@ -31,6 +31,9 @@ type Client interface {
 	HandlePong() error
 
 	GetSendChannel() chan events.OutgoingMessage
+	
+	// RecordMessage optionally records a message for replay
+	RecordMessage(rawMessage []byte)
 }
 
 // ReadPump pumps messages from the WebSocket connection to the hub.
@@ -63,6 +66,10 @@ func ReadPump[TType comparable, TClient Client, THub Hub[TType, TClient]](hub TH
 			}
 			break
 		}
+		
+		// Record the message if recording is enabled
+		client.RecordMessage(message)
+		
 		parsedMessage, err := parseMessage[TType](message)
 		if err != nil {
 			slog.Info("Failed to parse message", slog.Any("error", err))

@@ -79,3 +79,8 @@ func (c *Client) HandlePong() error {
 	}
 	return err
 }
+
+// RecordMessage is a no-op for frontend clients (recording is EuroScope-only)
+func (c *Client) RecordMessage(rawMessage []byte) {
+	// Frontend messages are not recorded
+}

@@ -1,8 +1,10 @@
 package euroscope
 
 import (
+	"FlightStrips/internal/config"
 	internalModels "FlightStrips/internal/models"
 	"FlightStrips/internal/shared"
+	"FlightStrips/internal/testing/recorder"
 	"FlightStrips/pkg/events"
 	"FlightStrips/pkg/events/euroscope"
 	"context"
@@ -37,6 +39,9 @@ type Hub struct {
 	master map[int32]*Client
 
 	handlers shared.MessageHandlers[euroscope.EventType, *Client]
+	
+	// Recording support
+	recorders map[int32]*recorder.Recorder // One recorder per session
 }
 
 func NewHub(stripService shared.StripService) *Hub {
@@ -67,6 +72,7 @@ func NewHub(stripService shared.StripService) *Hub {
 		master:       make(map[int32]*Client),
 		handlers:     handlers,
 		stripService: stripService,
+		recorders:    make(map[int32]*recorder.Recorder),
 	}
 
 	go hub.Run()
@@ -99,6 +105,19 @@ func (hub *Hub) Send(session int32, cid string, message euroscope.OutgoingMessag
 }
 
 func (hub *Hub) OnRegister(client *Client) {
+	// Start recording if in record mode and not already recording this session
+	if config.IsRecordMode() && !hub.IsRecording(client.session) {
+		err := hub.StartRecording(client.session, client.airport, "LIVE", "Auto-recorded session")
+		if err != nil {
+			slog.Error("Failed to start recording", slog.Any("error", err))
+		} else {
+			// Set login info in the recorder
+			if rec, ok := hub.recorders[client.session]; ok {
+				rec.SetLoginInfo(client.position, client.callsign, 0) // range not stored in client
+			}
+		}
+	}
+
 	if _, ok := hub.master[client.session]; !ok {
 		slog.Debug("Euroscope client is master", slog.String("cid", client.GetCid()))
 		hub.master[client.session] = client
@@ -372,4 +391,48 @@ func (hub *Hub) Run() {
 			}
 		}
 	}
+}
+
+// RecordEvent records an event if recording is enabled for the session
+func (hub *Hub) RecordEvent(sessionID int32, eventType string, payload interface{}) error {
+	if rec, ok := hub.recorders[sessionID]; ok {
+		return rec.RecordEvent(eventType, payload)
+	}
+	return nil // Not recording, no error
+}
+
+// StartRecording starts recording for a session
+func (hub *Hub) StartRecording(sessionID int32, airport, connection, description string) error {
+	if _, ok := hub.recorders[sessionID]; ok {
+		return fmt.Errorf("recording already active for session %d", sessionID)
+	}
+
+	rec := recorder.NewRecorder(airport, connection, description)
+	rec.Start()
+	hub.recorders[sessionID] = rec
+	
+	slog.Info("Started recording", slog.Int("session", int(sessionID)), slog.String("airport", airport))
+	return nil
+}
+
+// StopRecording stops recording for a session
+func (hub *Hub) StopRecording(sessionID int32) error {
+	rec, ok := hub.recorders[sessionID]
+	if !ok {
+		return fmt.Errorf("no active recording for session %d", sessionID)
+	}
+
+	if err := rec.Stop(); err != nil {
+		return fmt.Errorf("failed to stop recording: %w", err)
+	}
+
+	delete(hub.recorders, sessionID)
+	slog.Info("Stopped recording", slog.Int("session", int(sessionID)), slog.String("path", rec.GetOutputPath()))
+	return nil
+}
+
+// IsRecording returns true if the session is being recorded
+func (hub *Hub) IsRecording(sessionID int32) bool {
+	_, ok := hub.recorders[sessionID]
+	return ok
 }

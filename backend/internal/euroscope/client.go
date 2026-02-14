@@ -66,3 +66,8 @@ func (c *Client) HandlePong() error {
 	}
 	return err
 }
+
+// RecordMessage records an incoming message if recording is enabled
+func (c *Client) RecordMessage(rawMessage []byte) {
+	c.hub.recordMessage(c.session, rawMessage)
+}

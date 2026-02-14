@@ -1,0 +1,21 @@
+CompileFlags:
+  CompilationDatabase: cmake-build-release
+  Add:
+    - --target=i686-pc-windows-msvc
+    - -m32
+  Remove:
+    - /Yu*
+    - /Fp*
+    - /Fo*
+    - /Yc*
+    - /Fd*
+    - -include-pch
+
+Diagnostics:
+  UnusedIncludes: None
+  MissingIncludes: None
+  
+InlayHints:
+  Enabled: Yes
+  ParameterNames: Yes
+  DeducedTypes: Yes

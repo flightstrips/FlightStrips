@@ -4,10 +4,12 @@ namespace FlightStrips::flightplan {
     FlightPlanService::FlightPlanService(
         const std::shared_ptr<websocket::WebSocketService> &websocketService,
         const std::shared_ptr<FlightStripsPlugin> &flightStripsPlugin,
-        const std::shared_ptr<stands::StandService> &standService) : m_websocketService(websocketService),
-                                                                     m_flightStripsPlugin(flightStripsPlugin),
-                                                                     m_standService(standService),
-                                                                     m_flightPlans({}) {
+        const std::shared_ptr<stands::StandService> &standService,
+        const std::shared_ptr<configuration::AppConfig> &appConfig) : m_websocketService(websocketService),
+                                                                      m_flightStripsPlugin(flightStripsPlugin),
+                                                                      m_standService(standService),
+                                                                      m_appConfig(appConfig),
+                                                                      m_flightPlans({}) {
     }
 
     void FlightPlanService::RadarTargetPositionEvent(EuroScopePlugIn::CRadarTarget radarTarget) {
@@ -53,8 +55,10 @@ namespace FlightStrips::flightplan {
             m_websocketService->SendEvent(StandEvent(callsign, plan.stand));
         }
 
-        m_websocketService->SendEvent(PositionEvent(callsign, aircraftPosition.m_Latitude, aircraftPosition.m_Longitude,
-                                                    position.GetPressureAltitude()));
+        // Queue position update instead of sending immediately
+        m_pendingPositionUpdates.insert_or_assign(callsign, PositionEvent(callsign, aircraftPosition.m_Latitude, 
+                                                                          aircraftPosition.m_Longitude,
+                                                                          position.GetPressureAltitude()));
     }
 
     void FlightPlanService::FlightPlanEvent(EuroScopePlugIn::CFlightPlan flightPlan) {
@@ -183,8 +187,13 @@ namespace FlightStrips::flightplan {
     }
 
     void FlightPlanService::FlightPlanDisconnectEvent(EuroScopePlugIn::CFlightPlan flightPlan) {
+        const auto callsign = std::string(flightPlan.GetCallsign());
+        
+        // Remove pending position updates for disconnected aircraft
+        m_pendingPositionUpdates.erase(callsign);
+        
         if (!m_websocketService->ShouldSend()) return;
-        m_websocketService->SendEvent(AircraftDisconnectEvent(std::string(flightPlan.GetCallsign())));
+        m_websocketService->SendEvent(AircraftDisconnectEvent(callsign));
     }
 
     FlightPlan *FlightPlanService::GetFlightPlan(const std::string &callsign) {
@@ -211,5 +220,24 @@ namespace FlightStrips::flightplan {
         gmtime_s(&ptm, &rawtime);
 
         return std::format("{:0>2}{:0>2}", ptm.tm_hour, ptm.tm_min);
+    }
+
+    void FlightPlanService::OnTimer(int counter) {
+        const auto interval = m_appConfig->GetPositionUpdateIntervalSeconds();
+        
+        if (counter - m_lastPositionFlushCounter >= interval) {
+            FlushPositionUpdates();
+            m_lastPositionFlushCounter = counter;
+        }
+    }
+
+    void FlightPlanService::FlushPositionUpdates() {
+        if (!m_websocketService->ShouldSend() || m_pendingPositionUpdates.empty()) return;
+        
+        for (const auto& [callsign, positionEvent] : m_pendingPositionUpdates) {
+            m_websocketService->SendEvent(positionEvent);
+        }
+        
+        m_pendingPositionUpdates.clear();
     }
 }

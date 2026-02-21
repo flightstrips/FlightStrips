@@ -1,6 +1,8 @@
 
 #pragma once
 
+#include "configuration/AppConfig.h"
+
 namespace FlightStrips {
     struct Sid {
         std::string name;

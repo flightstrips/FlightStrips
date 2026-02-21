@@ -34,6 +34,7 @@ public:
     [[nodiscard]] std::string GetLogLevel();
     [[nodiscard]] CallsignAirportMap& GetCallsignAirportMap();
     [[nodiscard]] DeIceConfig& GetDeIceConfig();
+    [[nodiscard]] int GetPositionUpdateIntervalSeconds();
 private:
     CallsignAirportMap callsignAirportMap = {};
     DeIceConfig deIceConfig;

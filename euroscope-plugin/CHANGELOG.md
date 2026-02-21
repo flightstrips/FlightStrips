@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/flightstrips/FlightStrips/compare/plugin/v0.3.0...plugin/v0.4.0) (2026-02-21)
+
+
+### Features
+
+* Reduce the number of position updates being sent ([#74](https://github.com/flightstrips/FlightStrips/issues/74)) ([3227296](https://github.com/flightstrips/FlightStrips/commit/3227296079e3343fe954d7e89c4fb33345908929))
+
 ## [0.3.0](https://github.com/flightstrips/FlightStrips/compare/plugin/v0.2.1...plugin/v0.3.0) (2026-01-17)
 
 

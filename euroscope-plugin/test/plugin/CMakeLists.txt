@@ -95,9 +95,8 @@ if (MSVC)
         )
         target_link_options(${PROJECT_NAME} PRIVATE
                 $<$<CONFIG:Debug>:
-                /DEBUG:GHASH;
+                /DEBUG;
                 /INCREMENTAL
-                -flto=thin
                 >
                 $<$<CONFIG:Release>:
                 /DEBUG:NONE;

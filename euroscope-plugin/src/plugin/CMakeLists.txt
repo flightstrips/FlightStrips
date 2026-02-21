@@ -290,10 +290,10 @@ add_custom_command(
         TARGET ${PROJECT_NAME} POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy
         ${CMAKE_SOURCE_DIR}/src/config.ini
-        ${PROJECT_BINARY_DIR}/bin/flightstrips_config.ini)
+        ${PROJECT_BINARY_DIR}/bin/$<IF:$<CONFIG:Debug>,flightstrips_config_prod.ini,flightstrips_config.ini>)
 
 add_custom_command(
         TARGET ${PROJECT_NAME} POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy
         ${CMAKE_SOURCE_DIR}/src/config_dev.ini
-        ${PROJECT_BINARY_DIR}/bin/flightstrips_config_dev.ini)
+        ${PROJECT_BINARY_DIR}/bin/$<IF:$<CONFIG:Debug>,flightstrips_config.ini,flightstrips_config_dev.ini>)

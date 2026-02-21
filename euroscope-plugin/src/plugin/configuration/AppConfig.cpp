@@ -85,5 +85,9 @@ namespace FlightStrips::configuration {
 
         return deIceConfig;
     }
+
+    int AppConfig::GetPositionUpdateIntervalSeconds() {
+        return ini["api"]["position_update_interval_seconds"] | 10;
+    }
 } // configuration
 // FlightStrips

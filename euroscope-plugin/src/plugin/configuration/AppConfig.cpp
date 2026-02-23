@@ -89,5 +89,9 @@ namespace FlightStrips::configuration {
     int AppConfig::GetPositionUpdateIntervalSeconds() {
         return ini["api"]["position_update_interval_seconds"] | 10;
     }
+
+    std::string AppConfig::GetStandsFile() {
+        return std::string(ini["files"]["stands"] | "GRpluginStands.txt");
+    }
 } // configuration
 // FlightStrips

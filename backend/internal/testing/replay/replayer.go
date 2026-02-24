@@ -2,6 +2,7 @@ package replay
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -112,8 +113,16 @@ func (r *Replayer) Replay(ctx context.Context) error {
 	// Start reading messages from server
 	r.client.ReadMessages(ctx, r.handleServerMessage)
 
-	// Connect frontend client if there are frontend actions
-	if len(r.session.FrontendActions) > 0 {
+	// Connect frontend client if there are frontend clients with actions
+	hasFrontendActions := false
+	for _, feClient := range r.session.FrontendClients {
+		if len(feClient.Actions) > 0 {
+			hasFrontendActions = true
+			break
+		}
+	}
+
+	if hasFrontendActions {
 		if err := r.connectFrontendClient(ctx); err != nil {
 			slog.Warn("Failed to connect frontend client, frontend actions will be skipped", slog.Any("error", err))
 		} else {
@@ -133,7 +142,7 @@ func (r *Replayer) Replay(ctx context.Context) error {
 
 	// If there are frontend actions, wait a bit longer for any async processing
 	// to complete (e.g., strip updates being sent to EuroScope clients)
-	if len(r.session.FrontendActions) > 0 {
+	if hasFrontendActions {
 		if r.config.Verbose {
 			slog.Info("Waiting for frontend actions to complete...")
 		}
@@ -176,26 +185,41 @@ func (r *Replayer) connectFrontendClient(ctx context.Context) error {
 	return nil
 }
 
-// sendLoginEvent synthesizes and sends a login event from metadata
+// sendLoginEvent synthesizes and sends a login event from metadata or client_connect events
 func (r *Replayer) sendLoginEvent() error {
+	// Try to find the first client_connect event to extract login info
+	var callsign, position string
+	var rang int32 = 200 // default
+
+	for _, event := range r.session.Events {
+		if event.Type == "client_connect" {
+			var connectPayload recorder.ClientConnectPayload
+			if err := json.Unmarshal(event.Payload, &connectPayload); err == nil {
+				callsign = connectPayload.Callsign
+				position = connectPayload.Position
+				if connectPayload.Range > 0 {
+					rang = connectPayload.Range
+				}
+				break
+			}
+		}
+	}
+
+	// Fallback to defaults if no client_connect found
+	if callsign == "" {
+		callsign = "REPLAY_CTR"
+	}
+	if position == "" {
+		position = "REPLAY_POS"
+	}
+
 	loginEvent := map[string]interface{}{
 		"type":       "login",
 		"connection": r.session.Metadata.Connection,
 		"airport":    r.session.Metadata.Airport,
-		"position":   r.session.Metadata.Position,
-		"callsign":   r.session.Metadata.Callsign,
-		"range":      r.session.Metadata.Range,
-	}
-	
-	// Use default values if not set in metadata
-	if loginEvent["position"] == "" {
-		loginEvent["position"] = "REPLAY_POS"
-	}
-	if loginEvent["callsign"] == "" {
-		loginEvent["callsign"] = "REPLAY_CTR"
-	}
-	if loginEvent["range"] == int32(0) {
-		loginEvent["range"] = 200
+		"position":   position,
+		"callsign":   callsign,
+		"range":      rang,
 	}
 
 	if r.config.Verbose {
@@ -215,10 +239,12 @@ func (r *Replayer) replayEvents(ctx context.Context) error {
 		assertionMap[assertion.AfterEventIndex] = append(assertionMap[assertion.AfterEventIndex], assertion)
 	}
 
-	// Build frontend action map for quick lookup
+	// Build frontend action map for quick lookup (flatten all client actions)
 	frontendActionMap := make(map[int][]recorder.FrontendAction)
-	for _, action := range r.session.FrontendActions {
-		frontendActionMap[action.AfterEventIndex] = append(frontendActionMap[action.AfterEventIndex], action)
+	for _, feClient := range r.session.FrontendClients {
+		for _, action := range feClient.Actions {
+			frontendActionMap[action.AfterEventIndex] = append(frontendActionMap[action.AfterEventIndex], action)
+		}
 	}
 
 	for i, event := range r.session.Events {

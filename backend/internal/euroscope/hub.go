@@ -110,11 +110,16 @@ func (hub *Hub) OnRegister(client *Client) {
 		err := hub.StartRecording(client.session, client.airport, "LIVE", "Auto-recorded session")
 		if err != nil {
 			slog.Error("Failed to start recording", slog.Any("error", err))
-		} else {
-			// Set login info in the recorder
-			if rec, ok := hub.recorders[client.session]; ok {
-				rec.SetLoginInfo(client.position, client.callsign, 0) // range not stored in client
-			}
+		}
+	}
+
+	// Record client connect event
+	if config.IsRecordMode() && hub.IsRecording(client.session) {
+		// Extract frequency from position (simplified - may need adjustment based on actual data structure)
+		frequency := client.position // TODO: Get actual frequency if available
+		err := hub.ClientConnect(client.session, client.callsign, frequency, client.position, 0)
+		if err != nil {
+			slog.Error("Failed to record client connect", slog.Any("error", err))
 		}
 	}
 
@@ -239,6 +244,14 @@ func (hub *Hub) handleLogin(msg []byte, user shared.AuthenticatedUser) (event eu
 }
 
 func (hub *Hub) OnUnregister(client *Client) {
+	// Record client disconnect event
+	if config.IsRecordMode() && hub.IsRecording(client.session) {
+		err := hub.ClientDisconnect(client.session, client.callsign, "normal")
+		if err != nil {
+			slog.Error("Failed to record client disconnect", slog.Any("error", err))
+		}
+	}
+
 	server := hub.server
 	controllerRepo := server.GetControllerRepository()
 	count, err := controllerRepo.SetCid(context.Background(), client.session, client.callsign, nil)
@@ -394,9 +407,25 @@ func (hub *Hub) Run() {
 }
 
 // RecordEvent records an event if recording is enabled for the session
-func (hub *Hub) RecordEvent(sessionID int32, eventType string, payload interface{}) error {
+func (hub *Hub) RecordEvent(sessionID int32, clientID, eventType string, payload interface{}) error {
 	if rec, ok := hub.recorders[sessionID]; ok {
-		return rec.RecordEvent(eventType, payload)
+		return rec.RecordEvent(clientID, eventType, payload)
+	}
+	return nil // Not recording, no error
+}
+
+// ClientConnect records when a client connects
+func (hub *Hub) ClientConnect(sessionID int32, callsign, frequency, position string, rang int32) error {
+	if rec, ok := hub.recorders[sessionID]; ok {
+		return rec.ClientConnect(callsign, frequency, position, rang)
+	}
+	return nil // Not recording, no error
+}
+
+// ClientDisconnect records when a client disconnects
+func (hub *Hub) ClientDisconnect(sessionID int32, callsign, reason string) error {
+	if rec, ok := hub.recorders[sessionID]; ok {
+		return rec.ClientDisconnect(callsign, reason)
 	}
 	return nil // Not recording, no error
 }

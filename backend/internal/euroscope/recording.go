@@ -7,7 +7,7 @@ import (
 )
 
 // RecordMessage records an incoming message if recording is enabled
-func (hub *Hub) recordMessage(sessionID int32, rawMessage []byte) {
+func (hub *Hub) recordMessage(client *Client, sessionID int32, rawMessage []byte) {
 	if !config.IsRecordMode() {
 		return
 	}
@@ -28,7 +28,10 @@ func (hub *Hub) recordMessage(sessionID int32, rawMessage []byte) {
 		return
 	}
 
-	if err := hub.RecordEvent(sessionID, msg.Type, payload); err != nil {
+	// Get client callsign (empty if not set yet)
+	clientID := client.callsign
+
+	if err := hub.RecordEvent(sessionID, clientID, msg.Type, payload); err != nil {
 		slog.Warn("Failed to record event", slog.Any("error", err))
 	}
 }

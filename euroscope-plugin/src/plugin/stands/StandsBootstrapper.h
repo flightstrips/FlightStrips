@@ -10,7 +10,7 @@ namespace FlightStrips::stands {
         static void Bootstrap(Container& container);
 
     private:
-        static std::vector<Stand> LoadStands(filesystem::FileSystem& fileSystem);
+        static std::vector<Stand> LoadStands(filesystem::FileSystem& fileSystem, configuration::AppConfig& appConfig);
     };
 
 } // FlightStrips::stands

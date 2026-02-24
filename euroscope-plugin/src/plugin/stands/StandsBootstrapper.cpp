@@ -5,21 +5,22 @@
 #include "StandsBootstrapper.h"
 
 #include "Logger.hpp"
+#include "configuration/AppConfig.h"
 #include "filesystem/FileSystem.h"
 #include "stands/StandService.h"
 #include "plugin/FlightStripsPlugin.h"
 
 namespace FlightStrips::stands {
     void StandsBootstrapper::Bootstrap(Container &container) {
-        auto stands = LoadStands(*container.filesystem);
+        auto stands = LoadStands(*container.filesystem, *container.appConfig);
         container.plugin->Information(std::format("Loaded {} stands", stands.size()));
         Logger::Info(std::format("Loaded {} stands", stands.size()));
         container.standService = std::make_shared<StandService>(stands);
     }
 
-    std::vector<Stand> StandsBootstrapper::LoadStands(filesystem::FileSystem &fileSystem) {
+    std::vector<Stand> StandsBootstrapper::LoadStands(filesystem::FileSystem &fileSystem, configuration::AppConfig &appConfig) {
         std::vector<Stand> stands;
-        auto path = fileSystem.GetLocalFilePath("GRpluginStands.txt");
+        auto path = fileSystem.GetLocalFilePath(appConfig.GetStandsFile());
         std::ifstream filestream(path);
 
         if (!filestream.is_open()) {

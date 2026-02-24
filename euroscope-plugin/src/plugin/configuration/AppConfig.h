@@ -35,6 +35,7 @@ public:
     [[nodiscard]] CallsignAirportMap& GetCallsignAirportMap();
     [[nodiscard]] DeIceConfig& GetDeIceConfig();
     [[nodiscard]] int GetPositionUpdateIntervalSeconds();
+    [[nodiscard]] std::string GetStandsFile();
 private:
     CallsignAirportMap callsignAirportMap = {};
     DeIceConfig deIceConfig;

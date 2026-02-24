@@ -1,15 +1,15 @@
-import CurrentUTC from "@/helpers/time";
+import Time from "@/components/Time";
 import MRKBTN from "./MRKBTN";
 import TRFBRN from "./TRFBRN";
 import REQBTN from "./REQBTN";
 import ATIS from "./ATIS";
 import HOMEBTN from "./HOMEBTN";
-import GetMetar from "@/helpers/GetMetar"
-import MetarHelper from "@/helpers/MetarHelper.tsx"
+import { useMetar } from "@/hooks/use-metar"
+import MetarHelper from "@/components/MetarHelper"
 
 
 export default function CommandBar() {
-    const metar = GetMetar({ icao: "EKCH" })
+    const metar = useMetar("EKCH")
     return (
         <div className="h-16 w-screen bg-[#3b3b3b] flex justify-between text-white">
             <div className="h-full w-full flex">
@@ -59,7 +59,7 @@ export default function CommandBar() {
                     X
                 </button>
                 <div className="w-32 bg-[#646464] flex items-center justify-center h-6/8 border-2">
-                    <CurrentUTC />
+                    <Time />
                 </div>
             </div>
         </div>);

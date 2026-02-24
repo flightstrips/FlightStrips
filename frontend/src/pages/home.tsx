@@ -1,6 +1,6 @@
-import { MainNavigation } from "./components/MainNavigation";
-import MobileNav from "./components/MobileNavigation";
-import { PatnerCarousel } from "./components/PatnerCarousel";
+import { MainNavigation } from "@/components/navigation/MainNavigation";
+import MobileNav from "@/components/navigation/MobileNavigation";
+import { PatnerCarousel } from "@/components/PatnerCarousel";
 
 export default function Home() {
     return (
@@ -98,3 +98,4 @@ export default function Home() {
 
     );
 }
+

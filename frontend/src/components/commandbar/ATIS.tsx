@@ -6,8 +6,8 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
-import GetMetar from "@/helpers/GetMetar"
-import MetarHelper from "@/helpers/MetarHelper.tsx"
+import { useMetar } from "@/hooks/use-metar"
+import MetarHelper from "@/components/MetarHelper"
 
 
 export default function ATIS() {
@@ -24,20 +24,20 @@ export default function ATIS() {
           </DialogHeader>
           <div className="flex flex-col  items-center justify-center">
             <div className="bg-gray-100 w-full text-center h-16 flex items-center justify-center border-primary border-2">
-                <MetarHelper metar={GetMetar({ icao: "EKCH" })} style="full" />
+                <MetarHelper metar={useMetar("EKCH")} style="full" />
             </div>
             <div className="flex gap-12 pt-6">
                 <section className="flex flex-col items-center">
                     <p className="font-semibold text-lg text-primary">WIND</p>
-                    <p><MetarHelper metar={GetMetar({ icao: "EKCH" })} style="winds" /></p>
+                    <p><MetarHelper metar={useMetar("EKCH")} style="winds" /></p>
                 </section>
                 <section className="flex flex-col items-center">
                     <p className="font-semibold text-lg text-primary">TEMOERATURE</p>
-                    <p><MetarHelper metar={GetMetar({ icao: "EKCH" })} style="temp" /></p>
+                    <p><MetarHelper metar={useMetar("EKCH")} style="temp" /></p>
                 </section>
                 <section className="flex flex-col items-center">
                     <p className="font-semibold text-lg text-primary">Conditions</p>
-                    <p><MetarHelper metar={GetMetar({ icao: "EKCH" })} style="conditions" /></p>
+                    <p><MetarHelper metar={useMetar("EKCH")} style="conditions" /></p>
                 </section>
             </div>
           </div>
@@ -47,5 +47,6 @@ export default function ATIS() {
       </Dialog>
     )
 }
+
 
 

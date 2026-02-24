@@ -1,7 +1,7 @@
 
 import { FlightStrip } from "@/components/strip/FlightStrip.tsx";
 import { Message } from "@/components/Message.tsx";
-import {useClearedStrips, useNorwegianBayStrips, useOtherBayStrips, useSasBayStrips} from "@/store/ekch.ts";
+import {useClearedStrips, useNorwegianBayStrips, useOtherBayStrips, useSasBayStrips} from "@/store/airports/ekch.ts";
 import type {FrontendStrip} from "@/api/models.ts";
 
 export default function DEL() {
@@ -102,3 +102,4 @@ export default function DEL() {
     </>
   );
 }
+

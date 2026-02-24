@@ -14,9 +14,9 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
-import { Button } from "./ui/button"
+import { Button } from "@/components/ui/button"
 import { useAuth0 } from "@auth0/auth0-react"
-import { useDocsNav } from "@/types/useDocsNav"
+import { useDocsNav } from "@/hooks/useDocsNav"
 import type { NavItem } from "@/types/nav"
 
 export function AppSidebar() {

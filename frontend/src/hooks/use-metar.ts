@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react"
 
-export default function GetMetar({ icao }: { icao: string }) {
+export function useMetar(icao: string): string {
     const [metar, setMetar] = useState<string>("")
 
     useEffect(() => {

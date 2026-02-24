@@ -5,7 +5,7 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import StandMap from "../StandMap"
+import StandMap from "./StandMap"
 
 export default function StandDialog() {
   return (
@@ -30,3 +30,4 @@ export default function StandDialog() {
     </Dialog>
   )
 }
+

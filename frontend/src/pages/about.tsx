@@ -1,5 +1,5 @@
-import { MainNavigation } from "@/components/MainNavigation";
-import MobileNav from "@/components/MobileNavigation";
+import { MainNavigation } from "@/components/navigation/MainNavigation";
+import MobileNav from "@/components/navigation/MobileNavigation";
 
 export default function About() {
   return ( 

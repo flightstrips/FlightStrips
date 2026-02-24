@@ -1,6 +1,6 @@
 import { Outlet } from "react-router";
 import CommandBar from "@/components/commandbar/CommandBar";
-import { WebSocketProvider } from "@/api/websocket-provider";
+import { WebSocketProvider } from "@/providers/websocket-provider";
 
 export default function Dashboard() {
   // The WebSocket server URL - replace with your actual WebSocket server URL
@@ -16,3 +16,4 @@ export default function Dashboard() {
     </WebSocketProvider>
   );
 }
+

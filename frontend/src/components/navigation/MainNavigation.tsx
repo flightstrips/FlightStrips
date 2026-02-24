@@ -11,7 +11,7 @@ import {
   navigationMenuTriggerStyle,
 } from "@/components/ui/navigation-menu.tsx"
 import {Link} from "react-router-dom";
-import {Button} from "./ui/button";
+import {Button} from "@/components/ui/button";
 import {useAuth0} from "@auth0/auth0-react";
 
 const components: { title: string; href: string; description: string }[] = [
@@ -163,3 +163,4 @@ const ListItem = React.forwardRef<
   )
 })
 ListItem.displayName = "ListItem"
+

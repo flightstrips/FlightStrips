@@ -2,20 +2,19 @@ import {StrictMode} from 'react'
 import {createRoot} from 'react-dom/client'
 import {BrowserRouter, Routes, Route} from "react-router";
 import './index.css'
-
-import Home from "./home.tsx";
-import About from "@/about.tsx";
-import EKCHDEL from "@/airport/ekch/CLX.tsx";
-import AirportLayout from './airport/Layout.tsx';
-import Auth from "@/auth.tsx";
-
-import {Auth0ProviderWithNavigate,} from "@/auth-provider.tsx";
-import Profile from './profile.tsx';
-import Layout from './layout.tsx';
-const MyProtectedComponent = withAuthenticationRequired(Layout);
-import Dashboard from './dashboard.tsx';
+import Home from "@/pages/home";
+import About from "@/pages/about";
+import EKCHDEL from "@/routes/ekch/CLX";
+import AirportLayout from "@/routes/Layout";
+import Auth from "@/pages/auth";
+import {Auth0ProviderWithNavigate} from "@/providers/auth-provider";
+import Profile from "@/pages/profile";
+import Layout from "@/pages/layout";
+import Dashboard from "@/pages/dashboard";
 import { withAuthenticationRequired } from '@auth0/auth0-react';
-import DocsRouter from './DocsRouter.tsx';
+import DocsRouter from "@/pages/docs/DocsRouter";
+
+const MyProtectedComponent = withAuthenticationRequired(Layout);
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

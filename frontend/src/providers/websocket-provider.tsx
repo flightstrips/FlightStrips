@@ -1,6 +1,6 @@
 import {type ReactNode, useEffect, useRef, useState} from 'react';
-import {WebSocketClient, createWebSocketClient} from './websocket';
-import {WebSocketStoreProvider} from '../store/store-provider.tsx';
+import {WebSocketClient, createWebSocketClient} from '@/api/websocket';
+import {WebSocketStoreProvider} from '@/store/store-provider';
 import {useAuth0} from '@auth0/auth0-react';
 
 interface WebSocketProviderProps {
@@ -85,3 +85,4 @@ export const WebSocketProvider = ({children, url}: WebSocketProviderProps) => {
     </WebSocketStoreProvider>
   );
 };
+

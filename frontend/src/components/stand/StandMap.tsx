@@ -1,4 +1,4 @@
-import Stand from './Stand.tsx'
+import Stand from './Stand'
 
 const stands: {
   label: string;
@@ -32,3 +32,4 @@ export default function StandMap() {
     </div>
   )
 }
+

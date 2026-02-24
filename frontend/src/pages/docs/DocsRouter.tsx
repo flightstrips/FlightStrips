@@ -1,3 +1,4 @@
+import React from "react";
 import { useRoutes } from "react-router-dom";
 
 // Dynamically import all MDX pages under /docs
@@ -11,7 +12,7 @@ function pathToRoute(filePath: string) {
 
 export default function DocsRouter() {
   const routes = Object.entries(pages).map(([path, module]) => {
-    const Component = (module as any).default;
+    const Component = (module as { default: React.ComponentType }).default;
     return {
       path: pathToRoute(path),
       element: <Component />,

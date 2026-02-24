@@ -1,4 +1,4 @@
-import {type ReactNode, useEffect, useRef, useState} from 'react';
+import {type ReactNode, useEffect, useState} from 'react';
 import {WebSocketClient, createWebSocketClient} from '@/api/websocket';
 import {WebSocketStoreProvider} from '@/store/store-provider';
 import {useAuth0} from '@auth0/auth0-react';
@@ -12,21 +12,24 @@ export const WebSocketProvider = ({children, url}: WebSocketProviderProps) => {
   // Get the authentication token from Auth0
   const {getAccessTokenSilently, isAuthenticated, isLoading} = useAuth0();
 
-  // Create the WebSocket client only once
-  const wsClientRef = useRef<WebSocketClient | null>(null);
-
   const [wsConnected, setWsConnected] = useState(false);
+
+  // Create the WebSocket client only once using lazy state initialization
+  const [wsClient] = useState<WebSocketClient>(() => createWebSocketClient(url, {
+    onConnected: () => setWsConnected(true),
+    onDisconnected: () => setWsConnected(false)
+  }));
 
   // Set the authentication token and connect when it's available
   useEffect(() => {
     const getAndSetTokenAndConnect = async () => {
-      if (isAuthenticated && !isLoading && wsClientRef.current) {
+      if (isAuthenticated && !isLoading && wsClient) {
         try {
           const token = await getAccessTokenSilently();
-          wsClientRef.current.setToken(token);
+          wsClient.setToken(token);
 
-          if (!wsClientRef.current.isConnected()) {
-            wsClientRef.current.connect().catch(error => {
+          if (!wsClient.isConnected()) {
+            wsClient.connect().catch(error => {
               console.error('Failed to connect to WebSocket server:', error);
             });
           }
@@ -43,27 +46,15 @@ export const WebSocketProvider = ({children, url}: WebSocketProviderProps) => {
 
     return () => {
       clearInterval(tokenRefreshInterval);
-      if (wsClientRef.current) {
-        wsClientRef.current.disconnect();
+      if (wsClient) {
+        wsClient.disconnect();
       }
     };
-  }, [getAccessTokenSilently, isAuthenticated, isLoading]);
+  }, [getAccessTokenSilently, isAuthenticated, isLoading, wsClient]);
 
   if (isLoading) {
     return (<div
       className='w-screen min-h-svh flex justify-center items-center bg-primary text-white text-4xl font-semibold'>Loading...</div>);
-  }
-
-  if (!wsClientRef.current) {
-    wsClientRef.current = createWebSocketClient(url, {
-      onConnected: () => setWsConnected(true),
-      onDisconnected: () => setWsConnected(false)
-    });
-  }
-
-  // If the WebSocket client hasn't been created yet, don't render anything
-  if (!wsClientRef.current) {
-    return null;
   }
 
   if (!wsConnected) {
@@ -77,12 +68,10 @@ export const WebSocketProvider = ({children, url}: WebSocketProviderProps) => {
     );
   }
 
-
   // Provide both the WebSocket client and the store
   return (
-    <WebSocketStoreProvider wsClient={wsClientRef.current}>
+    <WebSocketStoreProvider wsClient={wsClient}>
       {children}
     </WebSocketStoreProvider>
   );
 };
-

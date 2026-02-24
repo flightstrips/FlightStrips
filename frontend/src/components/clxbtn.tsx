@@ -4,7 +4,7 @@ import {Input} from "@/components/ui/input"
 import {Label} from "@/components/ui/label"
 import React from 'react';
 import StandDialog from "./stand/StandDialog";
-import {useStrip, useWebSocketStore} from "@/store/store-provider.tsx";
+import {useStrip, useWebSocketStore} from "@/store/store-hooks.ts";
 import {Bay} from "@/api/models.ts";
 
 export function CLXBtn({ callsign, children }: { callsign: string, children?: React.ReactNode }) {

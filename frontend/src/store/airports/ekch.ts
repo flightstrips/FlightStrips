@@ -1,5 +1,5 @@
 import {useMemo} from "react";
-import {useWebSocketStore} from "@/store/store-provider.tsx";
+import {useWebSocketStore} from "@/store/store-hooks.ts";
 import {Bay, type FrontendStrip} from "@/api/models.ts";
 
 const isSasStrip = (strip: FrontendStrip) =>

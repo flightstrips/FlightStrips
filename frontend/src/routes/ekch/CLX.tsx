@@ -10,7 +10,28 @@ export default function DEL() {
   const otherStrips = useOtherBayStrips().sort((a, b) => a.sequence - b.sequence);
   const cleared = useClearedStrips().sort((a, b) => a.sequence - b.sequence);
 
-  const mapToStrip = (strip: FrontendStrip, status: string) => <FlightStrip callsing={strip.callsign} destination={strip.destination} stand={strip.stand} eobt={strip.eobt} tsat={strip.tsat} ctot={strip.ctot} status={status} key={strip.callsign} pdcStatus={strip.pdc_state}/>
+  const mapToStrip = (strip: FrontendStrip, status: string) => (
+    <FlightStrip
+      key={strip.callsign}
+      callsign={strip.callsign}
+      status={status as "CLR" | "CLROK" | "HALF"}
+      pdcStatus={strip.pdc_state}
+      destination={strip.destination}
+      origin={strip.origin}
+      stand={strip.stand}
+      eobt={strip.eobt}
+      tobt={strip.tobt}
+      tsat={strip.tsat}
+      ctot={strip.ctot}
+      aircraftType={strip.aircraft_type}
+      squawk={strip.squawk}
+      sid={strip.sid}
+      runway={strip.runway}
+      clearedAltitude={strip.cleared_altitude}
+      requestedAltitude={strip.requested_altitude}
+      owner={strip.owner}
+    />
+  );
 
   return (
     <>
@@ -29,7 +50,7 @@ export default function DEL() {
               </button>
             </span>
           </div>
-          <div className="h-[calc(100%-2.5rem)] w-full bg-[#555355] p-1 flex flex-col gap-[2px] overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary">
+          <div className="h-[calc(100%-2.5rem)] w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary">
             {otherStrips.map(x => mapToStrip(x, "CLR"))}
           </div>
         </div>
@@ -39,7 +60,7 @@ export default function DEL() {
               SAS
             </span>
           </div>
-          <div className="h-[calc(50%-2.5rem)] w-full bg-[#555355] p-1 flex flex-col gap-[2px] overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary">
+          <div className="h-[calc(50%-2.5rem)] w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary">
             {sasStrips.map(x => mapToStrip(x, "CLR"))}
           </div>
           <div className="bg-[#393939] h-10 flex items-center px-2 justify-between">
@@ -47,7 +68,7 @@ export default function DEL() {
               NORWEGIAN
             </span>
           </div>
-          <div className="h-[calc(50%-2.5rem)] w-full bg-[#555355] p-1 flex flex-col gap-[2px] overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary">
+          <div className="h-[calc(50%-2.5rem)] w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary">
             {norgewianStrips.map(x => mapToStrip(x, "CLR"))}
           </div>
         </div>
@@ -57,7 +78,7 @@ export default function DEL() {
               CLEARED
             </span>
           </div>
-          <div className="h-1/2 w-full bg-[#555355] p-1 flex flex-col gap-[2px] overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary">
+          <div className="h-1/2 w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary">
             {cleared.map(x => mapToStrip(x, "CLROK"))}
           </div>
           <div className="bg-primary h-10 flex items-center px-2 justify-between">
@@ -77,24 +98,24 @@ export default function DEL() {
               PUSHBACK
             </span>
           </div>
-          <div className="h-2/5 w-full bg-[#555355] p-1 flex flex-col gap-[2px] overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary">
-            <FlightStrip callsing="NSZ1234" clearances standchanged taxiway="A" holdingpoint="B1" destination={'ESSA'} stand={'A6'} tsat={'1400'} status="HALF" />
-            <FlightStrip callsing="NSZ1234" clearances standchanged taxiway="A" holdingpoint="B1" destination={'ESSA'} stand={'A6'} tsat={'1400'} status="HALF" />
-            <FlightStrip callsing="NSZ1234" clearances standchanged taxiway="A" holdingpoint="B1" destination={'ESSA'} stand={'A6'} tsat={'1400'} status="HALF" />
-            <FlightStrip callsing="NSZ1234" clearances standchanged taxiway="A" holdingpoint="B1" destination={'ESSA'} stand={'A6'} tsat={'1400'} status="HALF" />
-            <FlightStrip callsing="NSZ1234" clearances standchanged taxiway="A" holdingpoint="B1" destination={'ESSA'} stand={'A6'} tsat={'1400'} status="HALF" />
+          <div className="h-2/5 w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary">
+            <FlightStrip callsign="NSZ1234" clearances standChanged taxiway="A" holdingPoint="B1" destination={'ESSA'} stand={'A6'} tsat={'1400'} status="HALF" />
+            <FlightStrip callsign="NSZ1234" clearances standChanged taxiway="A" holdingPoint="B1" destination={'ESSA'} stand={'A6'} tsat={'1400'} status="HALF" />
+            <FlightStrip callsign="NSZ1234" clearances standChanged taxiway="A" holdingPoint="B1" destination={'ESSA'} stand={'A6'} tsat={'1400'} status="HALF" />
+            <FlightStrip callsign="NSZ1234" clearances standChanged taxiway="A" holdingPoint="B1" destination={'ESSA'} stand={'A6'} tsat={'1400'} status="HALF" />
+            <FlightStrip callsign="NSZ1234" clearances standChanged taxiway="A" holdingPoint="B1" destination={'ESSA'} stand={'A6'} tsat={'1400'} status="HALF" />
           </div>
           <div className="bg-[#b3b3b3] h-10 flex items-center px-2 justify-between">
             <span className="text-[#393939] font-bold text-lg">
               TWY DEP
             </span>
           </div>
-          <div className="h-[calc(60%-5rem)] w-full bg-[#555355] p-1 flex flex-col gap-[2px] overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary">
-            <FlightStrip callsing="NSZ1234" clearances standchanged taxiway="A" holdingpoint="B1" destination={'ESSA'} stand={'A6'} tsat={'1400'} status="HALF" />
-            <FlightStrip callsing="NSZ1234" clearances standchanged taxiway="A" holdingpoint="B1" destination={'ESSA'} stand={'A6'} tsat={'1400'} status="HALF" />
-            <FlightStrip callsing="NSZ1234" clearances standchanged taxiway="A" holdingpoint="B1" destination={'ESSA'} stand={'A6'} tsat={'1400'} status="HALF" />
-            <FlightStrip callsing="NSZ1234" clearances standchanged taxiway="A" holdingpoint="B1" destination={'ESSA'} stand={'A6'} tsat={'1400'} status="HALF" />
-            <FlightStrip callsing="NSZ1234" clearances standchanged taxiway="A" holdingpoint="B1" destination={'ESSA'} stand={'A6'} tsat={'1400'} status="HALF" />
+          <div className="h-[calc(60%-5rem)] w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary">
+            <FlightStrip callsign="NSZ1234" clearances standChanged taxiway="A" holdingPoint="B1" destination={'ESSA'} stand={'A6'} tsat={'1400'} status="HALF" />
+            <FlightStrip callsign="NSZ1234" clearances standChanged taxiway="A" holdingPoint="B1" destination={'ESSA'} stand={'A6'} tsat={'1400'} status="HALF" />
+            <FlightStrip callsign="NSZ1234" clearances standChanged taxiway="A" holdingPoint="B1" destination={'ESSA'} stand={'A6'} tsat={'1400'} status="HALF" />
+            <FlightStrip callsign="NSZ1234" clearances standChanged taxiway="A" holdingPoint="B1" destination={'ESSA'} stand={'A6'} tsat={'1400'} status="HALF" />
+            <FlightStrip callsign="NSZ1234" clearances standChanged taxiway="A" holdingPoint="B1" destination={'ESSA'} stand={'A6'} tsat={'1400'} status="HALF" />
           </div>
         </div>
       </div>

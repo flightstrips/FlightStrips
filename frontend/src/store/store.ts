@@ -48,6 +48,9 @@ export interface WebSocketState {
 
   activeMessages: FrontendBroadcastEvent[];
 
+  selectedCallsign: string | null;
+  selectStrip: (callsign: string | null) => void;
+
   // actions
   move: (callsign: string, bay: Bay) => void;
   generateSquawk: (callsign: string) => void;
@@ -75,12 +78,14 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
       arrival: []
     },
     isInitialized: false,
-    activeMessages: []
+    activeMessages: [],
+    selectedCallsign: null
   };
 
   // Create the store
   const store = createStore<WebSocketState>()((set) => ({
     ...initialState,
+    selectStrip: (callsign) => set({ selectedCallsign: callsign }),
     move: (callsign, bay) => set((state) => {
         wsClient.send({type: ActionType.FrontendMove, callsign, bay})
 
@@ -303,6 +308,9 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
         if (stripIndex !== -1) {
           state.strips[stripIndex].bay = data.bay;
           state.strips[stripIndex].sequence = data.sequence;
+        }
+        if (state.selectedCallsign === data.callsign) {
+          state.selectedCallsign = null;
         }
       })
     );

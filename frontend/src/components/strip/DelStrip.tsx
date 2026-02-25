@@ -2,12 +2,10 @@ import { CLXBtn } from "@/components/clxbtn";
 import { StripCell, SplitStripCell } from "./StripCell";
 import { getStripBg } from "./types";
 import type { StripProps } from "./types";
+import { useSelectedCallsign, useSelectStrip } from "@/store/store-hooks";
 
 /**
- * DelStrip – shown before departure clearance is issued (status="CLR").
- *
- * Layout (left → right):
- *  [Callsign 130px] [Dest/Stand 65px] [EOBT 90px] [TOBT╱TSAT 90px]
+ * DelStrip - shown before departure clearance is issued (status="CLR").
  */
 export function DelStrip({
   callsign,
@@ -17,11 +15,21 @@ export function DelStrip({
   eobt,
   tobt,
   tsat,
+  selectable,
 }: StripProps) {
+  const selectedCallsign = useSelectedCallsign();
+  const selectStrip = useSelectStrip();
+  const isSelected = selectable && selectedCallsign === callsign;
+
+  const handleClick = selectable
+    ? () => selectStrip(isSelected ? null : callsign)
+    : undefined;
+
   return (
     <div
-      className="flex h-12 w-fit border border-[#85b4af] outline outline-1 outline-white text-black select-none"
+      className={`flex h-12 w-fit border border-[#85b4af] outline outline-1 text-black select-none${isSelected ? " outline-[#FF00F5]" : " outline-white"}${selectable ? " cursor-pointer" : ""}`}
       style={{ backgroundColor: getStripBg(pdcStatus) }}
+      onClick={handleClick}
     >
       {/* Callsign */}
       <StripCell width={130} className="flex items-center">

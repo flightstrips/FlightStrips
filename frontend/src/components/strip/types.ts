@@ -25,6 +25,7 @@ export interface StripProps {
   frequency?: string;
   arrival?: boolean;
   owner?: string;
+  selectable?: boolean;
 }
 
 export function getStripBg(pdcStatus?: PdcStatus | string): string {

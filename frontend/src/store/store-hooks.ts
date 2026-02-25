@@ -20,3 +20,5 @@ export const useAirport = () => useWebSocketStore((state) => state.airport);
 export const useCallsign = () => useWebSocketStore((state) => state.callsign);
 export const useRunwaySetup = () => useWebSocketStore((state) => state.runwaySetup);
 export const useStrip = (callsign: string) => useWebSocketStore((state) => state.strips.find(strip => strip.callsign === callsign));
+export const useSelectedCallsign = () => useWebSocketStore((state) => state.selectedCallsign);
+export const useSelectStrip = () => useWebSocketStore((state) => state.selectStrip);

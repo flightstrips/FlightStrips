@@ -1,12 +1,10 @@
 import { StripCell, SplitStripCell } from "./StripCell";
 import { getStripBg } from "./types";
 import type { StripProps } from "./types";
+import { useSelectedCallsign, useSelectStrip } from "@/store/store-hooks";
 
 /**
- * GroundStrip – shown after clearance is issued (status="CLROK").
- *
- * Layout (left → right):
- *  [Owner 40px] [Callsign 130px] [Dest╱Stand 65px] [EOBT 90px] [TOBT╱TSAT 90px]
+ * GroundStrip - shown after clearance is issued (status="CLROK").
  */
 export function GroundStrip({
   callsign,
@@ -18,15 +16,25 @@ export function GroundStrip({
   tsat,
   arrival,
   owner,
+  selectable,
 }: StripProps) {
+  const selectedCallsign = useSelectedCallsign();
+  const selectStrip = useSelectStrip();
+  const isSelected = selectable && selectedCallsign === callsign;
+
+  const handleClick = selectable
+    ? () => selectStrip(isSelected ? null : callsign)
+    : undefined;
+
   if (arrival) {
     return <div className="w-full h-12 bg-[#fff28e]" />;
   }
 
   return (
     <div
-      className="flex h-12 w-fit border border-[#85b4af] outline outline-1 outline-white text-black select-none"
+      className={`flex h-12 w-fit border border-[#85b4af] outline outline-1 text-black select-none${isSelected ? " outline-[#FF00F5]" : " outline-white"}${selectable ? " cursor-pointer" : ""}`}
       style={{ backgroundColor: getStripBg(pdcStatus) }}
+      onClick={handleClick}
     >
       {/* Current owner position indicator */}
       <StripCell

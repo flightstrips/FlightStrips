@@ -8,7 +8,7 @@ import ATIS from "./ATIS";
 import HOMEBTN from "./HOMEBTN";
 import { useMetar } from "@/hooks/use-metar";
 import MetarHelper from "@/components/MetarHelper";
-import { useRunwaySetup, useSelectedCallsign, useSelectStrip, useWebSocketStore } from "@/store/store-hooks";
+import { useAirport, useRunwaySetup, useSelectedCallsign, useSelectStrip, useWebSocketStore } from "@/store/store-hooks";
 import { Bay } from "@/api/models";
 
 const SCOPE_LABELS: Record<string, string> = {
@@ -19,7 +19,8 @@ const SCOPE_LABELS: Record<string, string> = {
 };
 
 export default function CommandBar() {
-  const metar = useMetar("EKCH");
+  const airport = useAirport();
+  const { metar } = useMetar(airport || "EKCH");
   const location = useLocation();
   const runwaySetup = useRunwaySetup();
   const selectedCallsign = useSelectedCallsign();
@@ -75,7 +76,7 @@ export default function CommandBar() {
             className="bg-white text-black w-12 p-2 mx-2 text-center cursor-pointer select-none"
             onClick={() => setUnit((u) => (u === "hPa" ? "inHg" : "hPa"))}
           >
-            D
+            {unit === "hPa" ? "D" : "I"}
           </span>
           <span className="bg-white text-black w-32 p-2 mx-2 text-center text-xl">
             <MetarHelper metar={metar} style="winds" />

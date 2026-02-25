@@ -1,20 +1,28 @@
 type MetarHelperProps = {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  metar: any;
+  metar: string | null;
   style?: "full" | "winds" | "temp" | "conditions" | "qnh";
   unit?: "hPa" | "inHg";
 };
 
 export default function MetarHelper({ metar, style = "full", unit = "hPa" }: MetarHelperProps) {
-  console.log(metar.props);
   const getContent = () => {
+    if (!metar) return "N/A";
+
     switch (style) {
       case "winds": {
-        const windMatch = metar.match(/\b(\d{3})(\d{2})KT\b/);
+        // Handle calm (00000KT), variable (VRB05KT), gusting (27015G25KT)
+        const calmMatch = metar.match(/\b00000KT\b/);
+        if (calmMatch) return "Calm";
+
+        const vrbMatch = metar.match(/\bVRB(\d{2})(?:G\d{2})?KT\b/);
+        if (vrbMatch) return `VRB ${vrbMatch[1]}KT`;
+
+        const windMatch = metar.match(/\b(\d{3})(\d{2})(?:G(\d{2}))?KT\b/);
         if (windMatch) {
           const degrees = windMatch[1];
           const speed = windMatch[2];
-          return `${degrees}° ${speed}KT`;
+          const gust = windMatch[3];
+          return gust ? `${degrees}° ${speed}G${gust}KT` : `${degrees}° ${speed}KT`;
         }
         return "No wind info";
       }
@@ -27,18 +35,18 @@ export default function MetarHelper({ metar, style = "full", unit = "hPa" }: Met
         return condMatch ? condMatch[0] : "N/A";
       }
       case "qnh": {
-        const qnhMatch = metar.match(/\b(Q\d{4}|A\d{4})\b/);
+        // Match QNH1013, Q1013, or A2992
+        const qnhMatch = metar.match(/\b(?:QNH(\d{4})|Q(\d{4})|A(\d{4}))\b/);
         if (qnhMatch) {
-          const raw = qnhMatch[0];
-          if (raw.startsWith("Q")) {
-            const hpa = parseInt(raw.substring(1), 10);
+          if (qnhMatch[1] || qnhMatch[2]) {
+            const hpa = parseInt(qnhMatch[1] ?? qnhMatch[2], 10);
             if (unit === "inHg") {
               return (hpa * 0.02953).toFixed(2);
             }
             return String(hpa);
-          } else {
+          } else if (qnhMatch[3]) {
             // A-prefix: value in hundredths of inHg
-            const inHg = parseInt(raw.substring(1), 10) / 100;
+            const inHg = parseInt(qnhMatch[3], 10) / 100;
             if (unit === "hPa") {
               return Math.round(inHg / 0.02953).toString();
             }

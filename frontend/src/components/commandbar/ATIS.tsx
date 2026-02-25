@@ -7,10 +7,12 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { useMetar } from "@/hooks/use-metar"
-import MetarHelper from "@/components/MetarHelper"
-
+import { useAirport } from "@/store/store-hooks"
 
 export default function ATIS() {
+    const airport = useAirport();
+    const { metar, refetch } = useMetar(airport || "EKCH");
+
     return (
         <Dialog>
         <DialogTrigger asChild>
@@ -20,33 +22,24 @@ export default function ATIS() {
         </DialogTrigger>
         <DialogContent className="bg-[#e4e4e4] w-[42rem] border-4 border-primary">
           <DialogHeader>
-            <DialogTitle className="text-primary font-semibold text-xl">METAR</DialogTitle>
+            <DialogTitle className="text-primary font-semibold text-xl">
+              METAR — {airport || "EKCH"}
+            </DialogTitle>
           </DialogHeader>
-          <div className="flex flex-col  items-center justify-center">
-            <div className="bg-gray-100 w-full text-center h-16 flex items-center justify-center border-primary border-2">
-                <MetarHelper metar={useMetar("EKCH")} style="full" />
-            </div>
-            <div className="flex gap-12 pt-6">
-                <section className="flex flex-col items-center">
-                    <p className="font-semibold text-lg text-primary">WIND</p>
-                    <p><MetarHelper metar={useMetar("EKCH")} style="winds" /></p>
-                </section>
-                <section className="flex flex-col items-center">
-                    <p className="font-semibold text-lg text-primary">TEMOERATURE</p>
-                    <p><MetarHelper metar={useMetar("EKCH")} style="temp" /></p>
-                </section>
-                <section className="flex flex-col items-center">
-                    <p className="font-semibold text-lg text-primary">Conditions</p>
-                    <p><MetarHelper metar={useMetar("EKCH")} style="conditions" /></p>
-                </section>
-            </div>
+          <div className="flex flex-col gap-4">
+            <pre className="font-mono text-sm whitespace-pre-wrap break-words bg-black text-green-400 p-4 rounded min-h-16">
+              {metar ?? "No METAR available"}
+            </pre>
           </div>
           <DialogFooter>
+            <button
+              className="bg-primary text-white px-4 py-2 rounded text-sm"
+              onClick={refetch}
+            >
+              Refresh
+            </button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
     )
 }
-
-
-

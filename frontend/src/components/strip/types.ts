@@ -25,11 +25,13 @@ export interface StripProps {
   frequency?: string;
   arrival?: boolean;
   owner?: string;
+  nextControllers?: string[];
+  previousControllers?: string[];
+  myIdentifier?: string;
   selectable?: boolean;
 }
 
-export function getStripBg(pdcStatus?: PdcStatus | string): string {
-  return pdcStatus === "REQUESTED" || pdcStatus === "CLEARED"
-    ? "#393455"
-    : "#bef5ef";
+export function getStripBg(pdcStatus?: PdcStatus, isArrival?: boolean): string {
+  if (pdcStatus === "REQUESTED" || pdcStatus === "CLEARED") return "#393455";
+  return isArrival ? "#fff28e" : "#bef5ef";
 }

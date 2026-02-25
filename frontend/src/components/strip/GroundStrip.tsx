@@ -1,7 +1,47 @@
-import { StripCell, SplitStripCell } from "./StripCell";
+﻿import { StripCell, SplitStripCell } from "./StripCell";
 import { getStripBg } from "./types";
 import type { StripProps } from "./types";
 import { useSelectedCallsign, useSelectStrip } from "@/store/store-hooks";
+
+// -----------------------------------------------------------------------------
+// SIBox — rightmost 38px cell showing strip ownership state
+// -----------------------------------------------------------------------------
+
+interface SIBoxProps {
+  owner?: string;
+  nextControllers?: string[];
+  previousControllers?: string[];
+  myIdentifier?: string;
+}
+
+function SIBox({ owner, nextControllers, previousControllers, myIdentifier }: SIBoxProps) {
+  const isAssumed = !!myIdentifier && owner === myIdentifier;
+  const isTransferredAway =
+    !!myIdentifier &&
+    !!previousControllers?.includes(myIdentifier) &&
+    !nextControllers?.includes(myIdentifier);
+
+  let bgColor = "#E082E7"; // Purple — Concerned (default)
+  if (isAssumed) bgColor = "#F0F0F0";
+  else if (isTransferredAway) bgColor = "#DD6A12";
+
+  // In Assumed state, display 2-letter abbreviation of next controller
+  const nextLabel =
+    isAssumed && nextControllers?.[0] ? nextControllers[0].slice(0, 2) : "";
+
+  return (
+    <div
+      className="flex-shrink-0 flex items-center justify-center h-full text-sm font-bold"
+      style={{ width: 38, backgroundColor: bgColor }}
+    >
+      {nextLabel}
+    </div>
+  );
+}
+
+// -----------------------------------------------------------------------------
+// GroundStrip — shown after clearance is issued (status="CLROK")
+// -----------------------------------------------------------------------------
 
 /**
  * GroundStrip - shown after clearance is issued (status="CLROK").
@@ -16,6 +56,9 @@ export function GroundStrip({
   tsat,
   arrival,
   owner,
+  nextControllers,
+  previousControllers,
+  myIdentifier,
   selectable,
 }: StripProps) {
   const selectedCallsign = useSelectedCallsign();
@@ -26,24 +69,19 @@ export function GroundStrip({
     ? () => selectStrip(isSelected ? null : callsign)
     : undefined;
 
-  if (arrival) {
-    return <div className="w-full h-12 bg-[#fff28e]" />;
-  }
-
   return (
     <div
-      className={`flex h-12 w-fit border border-[#85b4af] outline outline-1 text-black select-none${isSelected ? " outline-[#FF00F5]" : " outline-white"}${selectable ? " cursor-pointer" : ""}`}
-      style={{ backgroundColor: getStripBg(pdcStatus) }}
+      className={`flex h-[42px] w-full text-black select-none${isSelected ? " outline outline-2 outline-[#FF00F5]" : ""}${selectable ? " cursor-pointer" : ""}`}
+      style={{
+        backgroundColor: getStripBg(pdcStatus, arrival),
+        borderLeft: "2px solid white",
+        borderRight: "2px solid white",
+        borderTop: "2px solid white",
+        borderBottom: "1px solid white",
+        boxShadow: "1px 0 0 0 #2F2F2F, 0 -1px 0 0 #2F2F2F",
+      }}
       onClick={handleClick}
     >
-      {/* Current owner position indicator */}
-      <StripCell
-        width={40}
-        className="flex items-center justify-center font-bold text-sm bg-orange-500 text-white"
-      >
-        {owner ?? ""}
-      </StripCell>
-
       {/* Callsign */}
       <StripCell width={130} className="flex items-center">
         <button className="w-full h-8 text-left pl-2 font-bold text-xl active:bg-[#F237AA] truncate">
@@ -90,6 +128,14 @@ export function GroundStrip({
             <span className="text-xs font-medium">{tsat}</span>
           </div>
         }
+      />
+
+      {/* SI Box — ownership state indicator */}
+      <SIBox
+        owner={owner}
+        nextControllers={nextControllers}
+        previousControllers={previousControllers}
+        myIdentifier={myIdentifier}
       />
     </div>
   );

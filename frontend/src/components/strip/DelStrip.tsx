@@ -15,6 +15,7 @@ export function DelStrip({
   eobt,
   tobt,
   tsat,
+  arrival,
   selectable,
 }: StripProps) {
   const selectedCallsign = useSelectedCallsign();
@@ -27,8 +28,15 @@ export function DelStrip({
 
   return (
     <div
-      className={`flex h-12 w-fit border border-[#85b4af] outline outline-1 text-black select-none${isSelected ? " outline-[#FF00F5]" : " outline-white"}${selectable ? " cursor-pointer" : ""}`}
-      style={{ backgroundColor: getStripBg(pdcStatus) }}
+      className={`flex h-[42px] w-full text-black select-none${isSelected ? " outline outline-2 outline-[#FF00F5]" : ""}${selectable ? " cursor-pointer" : ""}`}
+      style={{
+        backgroundColor: getStripBg(pdcStatus, arrival),
+        borderLeft: "2px solid white",
+        borderRight: "2px solid white",
+        borderTop: "2px solid white",
+        borderBottom: "1px solid white",
+        boxShadow: "1px 0 0 0 #2F2F2F, 0 -1px 0 0 #2F2F2F",
+      }}
       onClick={handleClick}
     >
       {/* Callsign */}

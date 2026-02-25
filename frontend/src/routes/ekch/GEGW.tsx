@@ -10,6 +10,8 @@ import {
 } from "@/store/airports/ekch.ts";
 import type { FrontendStrip } from "@/api/models.ts";
 import type { HalfStripVariant, StripStatus } from "@/components/strip/types.ts";
+import { SortableBay } from "@/components/bays/SortableBay.tsx";
+import { useWebSocketStore } from "@/store/store-hooks.ts";
 
 const mapToStrip = (strip: FrontendStrip, status: StripStatus, halfStripVariant?: HalfStripVariant, selectable = true) => (
   <FlightStrip
@@ -44,6 +46,7 @@ export default function GEGW() {
   const pushStrips   = usePushbackStrips();
   const twyDepStrips = useTaxiDepStrips();
   const standStrips  = useStandStrips();
+  const updateOrder  = useWebSocketStore(state => state.updateOrder);
 
   return (
     <div className="bg-[#A9A9A9] w-screen h-[calc(100vh-4rem)] flex justify-center justify-items-center gap-2">
@@ -74,9 +77,16 @@ export default function GEGW() {
         <div className="bg-[#393939] h-10 flex items-center px-2 shrink-0">
           <span className="text-white font-bold text-lg">TWY ARR</span>
         </div>
-        <div className="flex-1 w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary">
-          {twyArrStrips.map(x => mapToStrip(x, "HALF", "APN-ARR"))}
-        </div>
+        <SortableBay
+          strips={twyArrStrips}
+          onReorder={updateOrder}
+          className="flex-1 w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary"
+        >
+          {(callsign) => {
+            const strip = twyArrStrips.find(s => s.callsign === callsign)!;
+            return mapToStrip(strip, "HALF", "APN-ARR");
+          }}
+        </SortableBay>
       </div>
 
       {/* Column 2 (28%) – PUSHBACK + TWY DEP UPR + TWY DEP LWR */}
@@ -84,23 +94,44 @@ export default function GEGW() {
         <div className="bg-[#b3b3b3] h-10 flex items-center px-2 shrink-0">
           <span className="text-[#393939] font-bold text-lg">PUSHBACK</span>
         </div>
-        <div className="h-[20%] w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary">
-          {pushStrips.map(x => mapToStrip(x, "HALF", "APN-PUSH"))}
-        </div>
+        <SortableBay
+          strips={pushStrips}
+          onReorder={updateOrder}
+          className="h-[20%] w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary"
+        >
+          {(callsign) => {
+            const strip = pushStrips.find(s => s.callsign === callsign)!;
+            return mapToStrip(strip, "HALF", "APN-PUSH");
+          }}
+        </SortableBay>
 
         <div className="bg-[#b3b3b3] h-10 flex items-center px-2 shrink-0">
           <span className="text-[#393939] font-bold text-lg">TWY DEP UPR</span>
         </div>
-        <div className="h-[35%] w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary">
-          {twyDepStrips.map(x => mapToStrip(x, "CLROK"))}
-        </div>
+        <SortableBay
+          strips={twyDepStrips}
+          onReorder={updateOrder}
+          className="h-[35%] w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary"
+        >
+          {(callsign) => {
+            const strip = twyDepStrips.find(s => s.callsign === callsign)!;
+            return mapToStrip(strip, "CLROK");
+          }}
+        </SortableBay>
 
         <div className="bg-[#b3b3b3] h-10 flex items-center px-2 shrink-0">
           <span className="text-[#393939] font-bold text-lg">TWY DEP LWR</span>
         </div>
-        <div className="flex-1 w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary">
-          {twyDepStrips.map(x => mapToStrip(x, "CLROK"))}
-        </div>
+        <SortableBay
+          strips={twyDepStrips}
+          onReorder={updateOrder}
+          className="flex-1 w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary"
+        >
+          {(callsign) => {
+            const strip = twyDepStrips.find(s => s.callsign === callsign)!;
+            return mapToStrip(strip, "CLROK");
+          }}
+        </SortableBay>
       </div>
 
       {/* Column 3 (25%) – CLRDEL (locked, no strips) */}
@@ -116,9 +147,16 @@ export default function GEGW() {
         <div className="bg-[#393939] h-10 flex items-center px-2 shrink-0">
           <span className="text-white font-bold text-lg">STAND</span>
         </div>
-        <div className="flex-1 w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary">
-          {standStrips.map(x => mapToStrip(x, "CLROK"))}
-        </div>
+        <SortableBay
+          strips={standStrips}
+          onReorder={updateOrder}
+          className="flex-1 w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary"
+        >
+          {(callsign) => {
+            const strip = standStrips.find(s => s.callsign === callsign)!;
+            return mapToStrip(strip, "CLROK");
+          }}
+        </SortableBay>
       </div>
 
     </div>

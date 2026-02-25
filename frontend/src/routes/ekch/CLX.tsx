@@ -3,12 +3,15 @@ import { FlightStrip } from "@/components/strip/FlightStrip.tsx";
 import { Message } from "@/components/Message.tsx";
 import {useClearedStrips, useNorwegianBayStrips, useOtherBayStrips, useSasBayStrips} from "@/store/airports/ekch.ts";
 import type {FrontendStrip} from "@/api/models.ts";
+import { SortableBay } from "@/components/bays/SortableBay.tsx";
+import { useWebSocketStore } from "@/store/store-hooks.ts";
 
 export default function DEL() {
   const sasStrips = useSasBayStrips().sort((a, b) => a.sequence - b.sequence);
   const norgewianStrips = useNorwegianBayStrips().sort((a, b) => a.sequence - b.sequence);
   const otherStrips = useOtherBayStrips().sort((a, b) => a.sequence - b.sequence);
   const cleared = useClearedStrips().sort((a, b) => a.sequence - b.sequence);
+  const updateOrder = useWebSocketStore(state => state.updateOrder);
 
   const mapToStrip = (strip: FrontendStrip, status: string) => (
     <FlightStrip
@@ -50,9 +53,16 @@ export default function DEL() {
               </button>
             </span>
           </div>
-          <div className="h-[calc(100%-2.5rem)] w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary">
-            {otherStrips.map(x => mapToStrip(x, "CLR"))}
-          </div>
+          <SortableBay
+            strips={otherStrips}
+            onReorder={updateOrder}
+            className="h-[calc(100%-2.5rem)] w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary"
+          >
+            {(callsign) => {
+              const strip = otherStrips.find(s => s.callsign === callsign)!;
+              return mapToStrip(strip, "CLR");
+            }}
+          </SortableBay>
         </div>
         <div className="w-1/4 h-full bg-[#555355]">
           <div className="bg-[#393939] h-10 flex items-center px-2 justify-between">
@@ -60,17 +70,31 @@ export default function DEL() {
               SAS
             </span>
           </div>
-          <div className="h-[calc(50%-2.5rem)] w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary">
-            {sasStrips.map(x => mapToStrip(x, "CLR"))}
-          </div>
+          <SortableBay
+            strips={sasStrips}
+            onReorder={updateOrder}
+            className="h-[calc(50%-2.5rem)] w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary"
+          >
+            {(callsign) => {
+              const strip = sasStrips.find(s => s.callsign === callsign)!;
+              return mapToStrip(strip, "CLR");
+            }}
+          </SortableBay>
           <div className="bg-[#393939] h-10 flex items-center px-2 justify-between">
             <span className="text-white font-bold text-lg">
               NORWEGIAN
             </span>
           </div>
-          <div className="h-[calc(50%-2.5rem)] w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary">
-            {norgewianStrips.map(x => mapToStrip(x, "CLR"))}
-          </div>
+          <SortableBay
+            strips={norgewianStrips}
+            onReorder={updateOrder}
+            className="h-[calc(50%-2.5rem)] w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary"
+          >
+            {(callsign) => {
+              const strip = norgewianStrips.find(s => s.callsign === callsign)!;
+              return mapToStrip(strip, "CLR");
+            }}
+          </SortableBay>
         </div>
         <div className="w-1/4 h-full bg-[#555355]">
           <div className="bg-[#393939] h-10 flex items-center px-2 justify-between">
@@ -78,9 +102,16 @@ export default function DEL() {
               CLEARED
             </span>
           </div>
-          <div className="h-1/2 w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary">
-            {cleared.map(x => mapToStrip(x, "CLROK"))}
-          </div>
+          <SortableBay
+            strips={cleared}
+            onReorder={updateOrder}
+            className="h-1/2 w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary"
+          >
+            {(callsign) => {
+              const strip = cleared.find(s => s.callsign === callsign)!;
+              return mapToStrip(strip, "CLROK");
+            }}
+          </SortableBay>
           <div className="bg-primary h-10 flex items-center px-2 justify-between">
             <span className="text-gray-100 font-bold text-lg">
               MESSAGES

@@ -11,6 +11,8 @@ import {
 } from "@/store/airports/ekch.ts";
 import type { FrontendStrip } from "@/api/models.ts";
 import type { HalfStripVariant, StripStatus } from "@/components/strip/types.ts";
+import { SortableBay } from "@/components/bays/SortableBay.tsx";
+import { useWebSocketStore } from "@/store/store-hooks.ts";
 
 const mapToStrip = (strip: FrontendStrip, status: StripStatus, halfStripVariant?: HalfStripVariant, selectable = true) => (
   <FlightStrip
@@ -46,6 +48,7 @@ export default function TWTE() {
   const rwyDepStrips = useDepartStrips();
   const airborne     = useAirborneStrips();
   const standStrips  = useStandStrips();
+  const updateOrder  = useWebSocketStore(state => state.updateOrder);
 
   return (
     <div className="bg-[#A9A9A9] w-screen h-[calc(100vh-4rem)] flex justify-center justify-items-center gap-2">
@@ -55,23 +58,44 @@ export default function TWTE() {
         <div className="bg-[#393939] h-10 flex items-center px-2 shrink-0">
           <span className="text-white font-bold text-lg">FINAL</span>
         </div>
-        <div className="h-[35%] w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary">
-          {finalStrips.map(x => mapToStrip(x, "CLROK", undefined, true))}
-        </div>
+        <SortableBay
+          strips={finalStrips}
+          onReorder={updateOrder}
+          className="h-[35%] w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary"
+        >
+          {(callsign) => {
+            const strip = finalStrips.find(s => s.callsign === callsign)!;
+            return mapToStrip(strip, "CLROK", undefined, true);
+          }}
+        </SortableBay>
 
         <div className="bg-[#393939] h-10 flex items-center px-2 shrink-0">
           <span className="text-white font-bold text-lg">RWY ARR</span>
         </div>
-        <div className="h-[20%] w-full bg-[#212121] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary">
-          {rwyArrStrips.map(x => mapToStrip(x, "CLROK"))}
-        </div>
+        <SortableBay
+          strips={rwyArrStrips}
+          onReorder={updateOrder}
+          className="h-[20%] w-full bg-[#212121] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary"
+        >
+          {(callsign) => {
+            const strip = rwyArrStrips.find(s => s.callsign === callsign)!;
+            return mapToStrip(strip, "CLROK");
+          }}
+        </SortableBay>
 
         <div className="bg-[#393939] h-10 flex items-center px-2 shrink-0">
           <span className="text-white font-bold text-lg">TWY ARR</span>
         </div>
-        <div className="flex-1 w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary">
-          {twyArrStrips.map(x => mapToStrip(x, "HALF", "APN-ARR"))}
-        </div>
+        <SortableBay
+          strips={twyArrStrips}
+          onReorder={updateOrder}
+          className="flex-1 w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary"
+        >
+          {(callsign) => {
+            const strip = twyArrStrips.find(s => s.callsign === callsign)!;
+            return mapToStrip(strip, "HALF", "APN-ARR");
+          }}
+        </SortableBay>
       </div>
 
       {/* Column 2 (28%) – TWY DEP + RWY DEP + AIRBORNE */}
@@ -79,23 +103,44 @@ export default function TWTE() {
         <div className="bg-[#b3b3b3] h-10 flex items-center px-2 shrink-0">
           <span className="text-[#393939] font-bold text-lg">TWY DEP</span>
         </div>
-        <div className="h-[55%] w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary">
-          {twyDepStrips.map(x => mapToStrip(x, "CLROK"))}
-        </div>
+        <SortableBay
+          strips={twyDepStrips}
+          onReorder={updateOrder}
+          className="h-[55%] w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary"
+        >
+          {(callsign) => {
+            const strip = twyDepStrips.find(s => s.callsign === callsign)!;
+            return mapToStrip(strip, "CLROK");
+          }}
+        </SortableBay>
 
         <div className="bg-[#b3b3b3] h-10 flex items-center px-2 shrink-0">
           <span className="text-[#393939] font-bold text-lg">RWY DEP</span>
         </div>
-        <div className="h-[20%] w-full bg-[#212121] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary">
-          {rwyDepStrips.map(x => mapToStrip(x, "CLROK"))}
-        </div>
+        <SortableBay
+          strips={rwyDepStrips}
+          onReorder={updateOrder}
+          className="h-[20%] w-full bg-[#212121] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary"
+        >
+          {(callsign) => {
+            const strip = rwyDepStrips.find(s => s.callsign === callsign)!;
+            return mapToStrip(strip, "CLROK");
+          }}
+        </SortableBay>
 
         <div className="bg-[#b3b3b3] h-10 flex items-center px-2 shrink-0">
           <span className="text-[#393939] font-bold text-lg">AIRBORNE</span>
         </div>
-        <div className="flex-1 w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary">
-          {airborne.map(x => mapToStrip(x, "CLROK"))}
-        </div>
+        <SortableBay
+          strips={airborne}
+          onReorder={updateOrder}
+          className="flex-1 w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary"
+        >
+          {(callsign) => {
+            const strip = airborne.find(s => s.callsign === callsign)!;
+            return mapToStrip(strip, "CLROK");
+          }}
+        </SortableBay>
       </div>
 
       {/* Column 3 (25%) – CONTROLZONE + DE-ICE + MESSAGES */}
@@ -131,9 +176,16 @@ export default function TWTE() {
         <div className="bg-[#393939] h-10 flex items-center px-2 shrink-0">
           <span className="text-white font-bold text-lg">STAND</span>
         </div>
-        <div className="flex-1 w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary">
-          {standStrips.map(x => mapToStrip(x, "CLROK"))}
-        </div>
+        <SortableBay
+          strips={standStrips}
+          onReorder={updateOrder}
+          className="flex-1 w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary"
+        >
+          {(callsign) => {
+            const strip = standStrips.find(s => s.callsign === callsign)!;
+            return mapToStrip(strip, "CLROK");
+          }}
+        </SortableBay>
       </div>
 
     </div>

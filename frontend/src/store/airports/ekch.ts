@@ -1,5 +1,5 @@
 import {useMemo} from "react";
-import {useAirport, useWebSocketStore} from "@/store/store-hooks.ts";
+import {useActiveMessages, useAirport, useWebSocketStore} from "@/store/store-hooks.ts";
 import {Bay, type FrontendStrip} from "@/api/models.ts";
 
 const isSasStrip = (strip: FrontendStrip) =>
@@ -129,6 +129,5 @@ export const useHiddenStrips = () => {
   );
 };
 
-// Placeholder until messages state is wired from the backend
-export const useActiveMessages = (): string[] => [];
+export { useActiveMessages };
 

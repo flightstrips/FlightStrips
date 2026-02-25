@@ -1,4 +1,5 @@
 import { FlightStrip } from "@/components/strip/FlightStrip.tsx";
+import { Message } from "@/components/Message.tsx";
 import {
   useActiveMessages,
   useAirborneStrips,
@@ -13,6 +14,7 @@ import type { FrontendStrip } from "@/api/models.ts";
 import type { HalfStripVariant, StripStatus } from "@/components/strip/types.ts";
 import { SortableBay } from "@/components/bays/SortableBay.tsx";
 import { useWebSocketStore } from "@/store/store-hooks.ts";
+import { useRef, useEffect } from "react";
 
 const mapToStrip = (strip: FrontendStrip, status: StripStatus, halfStripVariant?: HalfStripVariant, selectable = true) => (
   <FlightStrip
@@ -41,6 +43,12 @@ const mapToStrip = (strip: FrontendStrip, status: StripStatus, halfStripVariant?
 
 export default function TWTE() {
   const messages     = useActiveMessages();
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
   const finalStrips  = useFinalStrips();
   const rwyArrStrips = useRwyArrStrips();
   const twyArrStrips = useTaxiArrStrips();
@@ -161,7 +169,10 @@ export default function TWTE() {
           <span className="text-white font-bold text-lg">MESSAGES</span>
         </div>
         <div className="flex-1 w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary">
-          {messages.length === 0 && null}
+          {messages.map((msg, i) => (
+            <Message key={i} from={msg.from}>{msg.message}</Message>
+          ))}
+          <div ref={messagesEndRef} />
         </div>
       </div>
 

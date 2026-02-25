@@ -4,7 +4,8 @@ import { Message } from "@/components/Message.tsx";
 import {useClearedStrips, useNorwegianBayStrips, useOtherBayStrips, useSasBayStrips} from "@/store/airports/ekch.ts";
 import type {FrontendStrip} from "@/api/models.ts";
 import { SortableBay } from "@/components/bays/SortableBay.tsx";
-import { useWebSocketStore } from "@/store/store-hooks.ts";
+import { useWebSocketStore, useActiveMessages } from "@/store/store-hooks.ts";
+import { useRef, useEffect } from "react";
 
 export default function DEL() {
   const sasStrips = useSasBayStrips().sort((a, b) => a.sequence - b.sequence);
@@ -12,6 +13,12 @@ export default function DEL() {
   const otherStrips = useOtherBayStrips().sort((a, b) => a.sequence - b.sequence);
   const cleared = useClearedStrips().sort((a, b) => a.sequence - b.sequence);
   const updateOrder = useWebSocketStore(state => state.updateOrder);
+  const messages = useActiveMessages();
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
 
   const mapToStrip = (strip: FrontendStrip, status: string) => (
     <FlightStrip
@@ -117,10 +124,11 @@ export default function DEL() {
               MESSAGES
             </span>
           </div>
-          <div className="h-[calc(50%-6rem)] w-full bg-[#555355]">
-            <Message>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nam tincidunt vitae enim eget porttitor. Suspendisse ultrices ullamcorper tortor, vitae condimentum lacus convallis at. </Message>
-            <Message><b>FLIGHTSTRIPS</b> has deteced that EKCH_DEL has logged off. You are in change of Delivery!</Message>
-            <Message>VFR Request LOW PASS rwy 12</Message>
+          <div className="h-[calc(50%-6rem)] w-full bg-[#555355] overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary">
+            {messages.map((msg, i) => (
+              <Message key={i} from={msg.from}>{msg.message}</Message>
+            ))}
+            <div ref={messagesEndRef} />
           </div>
         </div>
         <div className="w-1/4 h-full bg-[#555355]">

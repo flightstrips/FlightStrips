@@ -2,10 +2,11 @@ import type { PdcStatus } from "@/api/models";
 import { DelStrip } from "./DelStrip";
 import { GroundStrip } from "./GroundStrip";
 import { HalfStrip } from "./HalfStrip";
-import type { StripProps, StripStatus } from "./types";
+import type { HalfStripVariant, StripProps, StripStatus } from "./types";
 
 export type { StripStatus };
 export type { StripProps };
+export type { HalfStripVariant };
 
 export interface FlightStripProps extends StripProps {
   status?: StripStatus;

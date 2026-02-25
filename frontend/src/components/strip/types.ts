@@ -2,7 +2,18 @@ import type { PdcStatus } from "@/api/models";
 
 export type StripStatus = "CLR" | "CLROK" | "HALF";
 
+export type HalfStripVariant =
+  | "APN-PUSH"    // Pushback bays
+  | "APN-ARR"     // Arrival taxi bays
+  | "LOCKED-DEP"  // DEP-LOCKED bays (read-only)
+  | "LOCKED-ARR"  // ARR-LOCKED bays (read-only)
+  | "MESSAGES"    // MESSAGES bay
+  | "MEM-AID"     // Memory aid strip
+  | "LAND-START"  // Land/start clearance
+  | "CROSSING";   // Runway crossing
+
 export interface StripProps {
+  halfStripVariant?: HalfStripVariant;
   callsign: string;
   pdcStatus?: PdcStatus;
   destination?: string;

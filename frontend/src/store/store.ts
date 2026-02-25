@@ -403,7 +403,6 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     )
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleCdmWaitEvent = (_data: FrontendCdmWaitEvent) => {
     // TODO set marker on strip to indicate that we are waiting for CDM data
     // this is the case when a strip requests a new tobt

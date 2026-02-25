@@ -2,7 +2,7 @@ import {Button} from "@/components/ui/button"
 import {Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,} from "@/components/ui/dialog"
 import {Input} from "@/components/ui/input"
 import {Label} from "@/components/ui/label"
-import React, {useEffect, useState} from 'react';
+import React, {useState} from 'react';
 import StandDialog from "./stand/StandDialog";
 import {useStrip, useWebSocketStore} from "@/store/store-hooks.ts";
 import {Bay} from "@/api/models.ts";
@@ -10,10 +10,16 @@ import {Bay} from "@/api/models.ts";
 function useEditableField(value: string | number | undefined | null) {
   const [fieldValue, setFieldValue] = useState(value?.toString() ?? "");
   const [focused, setFocused] = useState(false);
-  useEffect(() => {
-    if (!focused) setFieldValue(value?.toString() ?? "");
-  }, [value, focused]);
-  return [fieldValue, setFieldValue, focused, setFocused] as const;
+
+  const handleSetFocused = (f: boolean) => {
+    if (f) setFieldValue(value?.toString() ?? "");
+    setFocused(f);
+  };
+
+  // While focused show the user's input; otherwise reflect the external value
+  const displayValue = focused ? fieldValue : (value?.toString() ?? "");
+
+  return [displayValue, setFieldValue, focused, handleSetFocused] as const;
 }
 
 export function CLXBtn({ callsign, children }: { callsign: string, children?: React.ReactNode }) {
@@ -28,11 +34,11 @@ export function CLXBtn({ callsign, children }: { callsign: string, children?: Re
   // Controlled open state prevents the dialog from closing on re-renders triggered by strip updates
   const [open, setOpen] = useState(false);
 
-  const [sid, setSid, sidFocused, setSidFocused] = useEditableField(strip?.sid);
-  const [eobt, setEobt, eobtFocused, setEobtFocused] = useEditableField(strip?.eobt);
-  const [route, setRoute, routeFocused, setRouteFocused] = useEditableField(strip?.route);
-  const [hdg, setHdg, hdgFocused, setHdgFocused] = useEditableField(strip?.heading);
-  const [alt, setAlt, altFocused, setAltFocused] = useEditableField(strip?.cleared_altitude);
+  const [sid, setSid, _sidFocused, setSidFocused] = useEditableField(strip?.sid);
+  const [eobt, setEobt, _eobtFocused, setEobtFocused] = useEditableField(strip?.eobt);
+  const [route, setRoute, _routeFocused, setRouteFocused] = useEditableField(strip?.route);
+  const [hdg, setHdg, _hdgFocused, setHdgFocused] = useEditableField(strip?.heading);
+  const [alt, setAlt, _altFocused, setAltFocused] = useEditableField(strip?.cleared_altitude);
 
   if (!strip) return null;
 
@@ -242,8 +248,8 @@ export function CLXBtn({ callsign, children }: { callsign: string, children?: Re
               value={hdg}
               onChange={e => setHdg(e.target.value)}
               onFocus={() => setHdgFocused(true)}
-              onBlur={() => { setHdgFocused(false); updateStrip(callsign, { heading: hdg }); }}
-              onKeyDown={e => e.key === "Enter" && updateStrip(callsign, { heading: hdg })}
+              onBlur={() => { setHdgFocused(false); updateStrip(callsign, { heading: hdg ? Number(hdg) : undefined }); }}
+              onKeyDown={e => e.key === "Enter" && updateStrip(callsign, { heading: hdg ? Number(hdg) : undefined })}
               className="border-black border rounded-none bg-[#ededed] text-black font-semibold w-full h-10 text-center"
             />
           </div>
@@ -253,8 +259,8 @@ export function CLXBtn({ callsign, children }: { callsign: string, children?: Re
               value={alt}
               onChange={e => setAlt(e.target.value)}
               onFocus={() => setAltFocused(true)}
-              onBlur={() => { setAltFocused(false); updateStrip(callsign, { altitude: alt }); }}
-              onKeyDown={e => e.key === "Enter" && updateStrip(callsign, { altitude: alt })}
+              onBlur={() => { setAltFocused(false); updateStrip(callsign, { altitude: alt ? Number(alt) : undefined }); }}
+              onKeyDown={e => e.key === "Enter" && updateStrip(callsign, { altitude: alt ? Number(alt) : undefined })}
               className="border-black border rounded-none bg-[#ededed] text-black font-semibold w-full h-10 text-center"
             />
           </div>

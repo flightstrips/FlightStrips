@@ -1,112 +1,141 @@
-import CommandBar from "@/components/commandbar/CommandBar";
+import { FlightStrip } from "@/components/strip/FlightStrip.tsx";
+import {
+  useActiveMessages,
+  useClearedStrips,
+  useFinalStrips,
+  useNorwegianBayStrips,
+  useOtherBayStrips,
+  usePushbackStrips,
+  useRwyArrStrips,
+  useSasBayStrips,
+  useTaxiArrStrips,
+  useTaxiDepStrips,
+} from "@/store/airports/ekch.ts";
+import type { FrontendStrip } from "@/api/models.ts";
+import type { HalfStripVariant, StripStatus } from "@/components/strip/types.ts";
 
-export default function Home() {
+const mapToStrip = (strip: FrontendStrip, status: StripStatus, halfStripVariant?: HalfStripVariant, selectable = true) => (
+  <FlightStrip
+    key={strip.callsign}
+    callsign={strip.callsign}
+    status={status}
+    halfStripVariant={halfStripVariant}
+    pdcStatus={strip.pdc_state}
+    destination={strip.destination}
+    origin={strip.origin}
+    stand={strip.stand}
+    eobt={strip.eobt}
+    tobt={strip.tobt}
+    tsat={strip.tsat}
+    ctot={strip.ctot}
+    aircraftType={strip.aircraft_type}
+    squawk={strip.squawk}
+    sid={strip.sid}
+    runway={strip.runway}
+    clearedAltitude={strip.cleared_altitude}
+    requestedAltitude={strip.requested_altitude}
+    owner={strip.owner}
+    selectable={selectable}
+  />
+);
+
+export default function AAAD() {
+  const messages      = useActiveMessages();
+  const finalStrips   = useFinalStrips();
+  const rwyArrStrips  = useRwyArrStrips();
+  const twyArrStrips  = useTaxiArrStrips();
+  const startupStrips = useClearedStrips().sort((a, b) => a.sequence - b.sequence);
+  const pushStrips    = usePushbackStrips();
+  const twyDepStrips  = useTaxiDepStrips();
+  const otherStrips   = useOtherBayStrips().sort((a, b) => a.sequence - b.sequence);
+  const sasStrips     = useSasBayStrips().sort((a, b) => a.sequence - b.sequence);
+  const norStrips     = useNorwegianBayStrips().sort((a, b) => a.sequence - b.sequence);
+
   return (
-    <>
-      <div className="bg-[#A9A9A9] w-screen h-[calc(100vh-4rem)] flex justify-center justify-items-center gap-2 aspect-video">
-        <div className="w-1/4 h-full bg-[#555355]">
-          <div className="bg-primary h-10 flex items-center px-2 justify-between">
-            <span className="text-white font-bold text-lg">
-              MESSAGES
-            </span>
-          </div>
-          <div className="h-[calc(30%-2.5rem)] w-full bg-[#555355]">
+    <div className="bg-[#A9A9A9] w-screen h-[calc(100vh-4rem)] flex justify-center justify-items-center gap-2">
 
-          </div>
-          <div className="bg-[#393939] h-10 flex items-center px-2 justify-between">
-            <span className="text-white font-bold text-lg">
-              FINAL
-            </span>
-          </div>
-          <div className="h-[calc(25%-2.5rem)] w-full bg-[#555355]">
-
-          </div>
-          <div className="bg-[#393939] h-10 flex items-center px-2 justify-between">
-            <span className="text-white font-bold text-lg">
-              RWY ARR
-            </span>
-          </div>
-          <div className="h-[calc(30%-2.5rem)] w-full bg-[#555355]">
-
-          </div>
-          <div className="bg-[#393939] h-10 flex items-center px-2 justify-between">
-            <span className="text-white font-bold text-lg">
-              STAND
-            </span>
-          </div>
-          <div className="h-[calc(15%-2.5rem)] w-full bg-[#555355]">
-
-          </div>
+      {/* Column 1 – Arrivals + Messages */}
+      <div className="w-1/4 h-full bg-[#555355] flex flex-col">
+        <div className="bg-primary h-10 flex items-center px-2 shrink-0">
+          <span className="text-white font-bold text-lg">MESSAGES</span>
         </div>
-        
-        <div className="w-1/4 h-full bg-[#555355]">
-          <div className="bg-[#393939] h-10 flex items-center px-2 justify-between">
-            <span className="text-white font-bold text-lg">
-              TWY DEP
-            </span>
-          </div>
-          <div className="h-[calc(35%-2.5rem)] w-full bg-[#555355]">
-
-          </div>
-          <div className="h-2 bg-[#a9a9a9]">
-
-          </div>
-          <div className="flex justify-center gap-2 pt-2 h-8">
-            <button className="bg-[#393939] w-24 border-2 border-white text-white">TW</button>
-            <button className="bg-[#393939] w-24 border-2 border-white text-white">TE</button>
-            <button className="bg-[#393939] w-24 border-2 border-white text-white">GW</button>
-            <button className="bg-[#393939] w-24 border-2 border-white text-white">GE</button>
-
-          </div>
-          <div className="h-[calc(30%-2.5rem)] w-full bg-[#555355]">
-
-          </div>
-          <div className="bg-[#393939] h-10 flex items-center px-2 justify-between">
-            <span className="text-white font-bold text-lg">
-              TWY ARR
-            </span>
-          </div>
+        <div className="h-[20%] w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary">
+          {messages.length === 0 && null}
         </div>
 
-        <div className="w-1/4 h-full bg-[#555355]">
-          <div className="bg-[#393939] h-10 flex items-center px-2 justify-between">
-            <span className="text-white font-bold text-lg">
-              STARTUP
-            </span>
-          </div>
-          <div className="h-[calc(60%-2.5rem)] w-full bg-[#555355]">
-
-          </div>
-          <div className="bg-[#393939] h-10 flex items-center px-2 justify-between">
-            <span className="text-white font-bold text-lg">
-              PUSHBACK
-            </span>
-          </div>
-          <div className="h-[calc(40%-2.5rem)] w-full bg-[#555355]">
-
-          </div>
+        <div className="bg-[#393939] h-10 flex items-center px-2 shrink-0">
+          <span className="text-white font-bold text-lg">FINAL</span>
         </div>
-        <div className="w-1/4 h-full bg-[#555355]">
-        <div className="bg-[#393939] h-10 flex items-center px-2 justify-between">
-            <span className="text-white font-bold text-lg">
-              CLRDEL
-            </span>
-          </div>
-          <div className="h-[calc(80%-2.5rem)] w-full bg-[#555355]">
+        <div className="h-[25%] w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary">
+          {finalStrips.map(x => mapToStrip(x, "HALF", "LOCKED-ARR", false))}
+        </div>
 
-          </div>
-          <div className="bg-[#393939] h-10 flex items-center px-2 justify-between">
-            <span className="text-white font-bold text-lg">
-              DE-ICE
-            </span>
-          </div>
-          <div className="h-[calc(20%-2.5rem)] w-full bg-[#555355]">
-
-          </div>
+        <div className="bg-[#393939] h-10 flex items-center px-2 shrink-0">
+          <span className="text-white font-bold text-lg">RWY ARR</span>
+        </div>
+        <div className="flex-1 w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary">
+          {rwyArrStrips.map(x => mapToStrip(x, "HALF", "LOCKED-ARR", false))}
         </div>
       </div>
-      <CommandBar />
-    </>
+
+      {/* Column 2 – TWY ARR + TWY DEP UPR */}
+      <div className="w-1/4 h-full bg-[#555355] flex flex-col">
+        <div className="bg-[#393939] h-10 flex items-center px-2 shrink-0">
+          <span className="text-white font-bold text-lg">TWY ARR</span>
+        </div>
+        <div className="h-[40%] w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary">
+          {twyArrStrips.map(x => mapToStrip(x, "HALF", "APN-ARR"))}
+        </div>
+
+        <div className="bg-[#b3b3b3] h-10 flex items-center px-2 shrink-0">
+          <span className="text-[#393939] font-bold text-lg">TWY DEP UPR</span>
+        </div>
+        <div className="flex-1 w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary">
+          {twyDepStrips.map(x => mapToStrip(x, "CLROK"))}
+        </div>
+      </div>
+
+      {/* Column 3 – STARTUP + PUSHBACK */}
+      <div className="w-1/4 h-full bg-[#555355] flex flex-col">
+        <div className="bg-[#393939] h-10 flex items-center px-2 shrink-0">
+          <span className="text-white font-bold text-lg">STARTUP</span>
+        </div>
+        <div className="h-[55%] w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary">
+          {startupStrips.map(x => mapToStrip(x, "CLROK"))}
+        </div>
+
+        <div className="bg-[#b3b3b3] h-10 flex items-center px-2 shrink-0">
+          <span className="text-[#393939] font-bold text-lg">PUSHBACK</span>
+        </div>
+        <div className="flex-1 w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary">
+          {pushStrips.map(x => mapToStrip(x, "HALF", "APN-PUSH"))}
+        </div>
+      </div>
+
+      {/* Column 4 – OTHERS / SAS / NORWEGIAN (locked, uncleared) */}
+      <div className="w-1/4 h-full bg-[#555355] flex flex-col">
+        <div className="bg-[#393939] h-10 flex items-center px-2 shrink-0">
+          <span className="text-white font-bold text-lg">OTHERS</span>
+        </div>
+        <div className="h-[40%] w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary">
+          {otherStrips.map(x => mapToStrip(x, "CLR", undefined, false))}
+        </div>
+
+        <div className="bg-[#393939] h-10 flex items-center px-2 shrink-0">
+          <span className="text-white font-bold text-lg">SAS</span>
+        </div>
+        <div className="h-[25%] w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary">
+          {sasStrips.map(x => mapToStrip(x, "CLR", undefined, false))}
+        </div>
+
+        <div className="bg-[#393939] h-10 flex items-center px-2 shrink-0">
+          <span className="text-white font-bold text-lg">NORWEGIAN</span>
+        </div>
+        <div className="flex-1 w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary">
+          {norStrips.map(x => mapToStrip(x, "CLR", undefined, false))}
+        </div>
+      </div>
+
+    </div>
   );
 }
-

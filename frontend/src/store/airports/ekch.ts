@@ -128,3 +128,7 @@ export const useHiddenStrips = () => {
     [strips]
   );
 };
+
+// Placeholder until messages state is wired from the backend
+export const useActiveMessages = (): string[] => [];
+

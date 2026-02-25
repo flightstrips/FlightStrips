@@ -4,7 +4,10 @@ import {BrowserRouter, Routes, Route} from "react-router";
 import './index.css'
 import Home from "@/pages/home";
 import About from "@/pages/about";
-import EKCHDEL from "@/routes/ekch/CLX";
+import EKCHDEL  from "@/routes/ekch/CLX";
+import EKCHAAAD from "@/routes/ekch/AAAD";
+import EKCHGEGW from "@/routes/ekch/GEGW";
+import EKCHTWTE from "@/routes/ekch/TWTE";
 import AirportLayout from "@/routes/Layout";
 import Auth from "@/pages/auth";
 import {Auth0ProviderWithNavigate} from "@/providers/auth-provider";
@@ -30,10 +33,10 @@ createRoot(document.getElementById('root')!).render(
             <Route path="/dashboard/docs" element={<DocsRouter />}/>
           </Route>
           <Route element={<AirportLayout/>}>
-            <Route path="EKCH/CLX" element={<EKCHDEL/>}/>
-            <Route path="EKCH/AAAD" element={<EKCHDEL/>}/>
-            <Route path="EKCH/GEGW" element={<EKCHDEL/>}/>
-            <Route path="EKCH/TWTE" element={<EKCHDEL/>}/>
+            <Route path="EKCH/CLX"  element={<EKCHDEL/>}/>
+            <Route path="EKCH/AAAD" element={<EKCHAAAD/>}/>
+            <Route path="EKCH/GEGW" element={<EKCHGEGW/>}/>
+            <Route path="EKCH/TWTE" element={<EKCHTWTE/>}/>
           </Route>
           <Route path="ekbi" element={<div>Billund not implemented</div>}/>
           <Route path="ekyt" element={<div>Aalborg not implemented</div>}/>

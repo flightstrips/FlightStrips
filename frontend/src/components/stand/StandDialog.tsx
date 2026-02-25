@@ -1,3 +1,4 @@
+import { useState } from "react"
 import {
   Dialog,
   DialogContent,
@@ -7,27 +8,35 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import StandMap from "./StandMap"
 
-export default function StandDialog() {
+interface StandDialogProps {
+  value: string;
+  onSelect: (stand: string) => void;
+}
+
+export default function StandDialog({ value, onSelect }: StandDialogProps) {
+  const [open, setOpen] = useState(false);
+
+  const handleSelect = (stand: string) => {
+    onSelect(stand);
+    setOpen(false);
+  };
+
   return (
-    <Dialog>
+    <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <div>
-            <Label htmlFor="stand">
-            Stand
-            </Label>
-            <Input 
+          <Label htmlFor="stand">Stand</Label>
+          <Input
             id="stand"
-            defaultValue=""
-            className="border-black rounded-none disabled:bg-[#9e989c] text-black font-semibold disabled:opacity-100 w-full text-center" />
+            value={value}
+            readOnly
+            className="border-black rounded-none text-black font-semibold w-full text-center cursor-pointer"
+          />
         </div>
       </DialogTrigger>
-      
       <DialogContent className="h-screen max-w-none max-h-none w-screen">
-
-        <StandMap />
-
+        <StandMap onSelect={handleSelect} />
       </DialogContent>
     </Dialog>
   )
 }
-

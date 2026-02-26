@@ -1,59 +1,28 @@
-﻿import { StripCell, SplitStripCell } from "./StripCell";
 import { getStripBg } from "./types";
 import type { StripProps } from "./types";
 import { useSelectedCallsign, useSelectStrip } from "@/store/store-hooks";
 
-// -----------------------------------------------------------------------------
-// SIBox — rightmost 38px cell showing strip ownership state
-// -----------------------------------------------------------------------------
-
-interface SIBoxProps {
-  owner?: string;
-  nextControllers?: string[];
-  previousControllers?: string[];
-  myIdentifier?: string;
-}
-
-function SIBox({ owner, nextControllers, previousControllers, myIdentifier }: SIBoxProps) {
-  const isAssumed = !!myIdentifier && owner === myIdentifier;
-  const isTransferredAway =
-    !!myIdentifier &&
-    !!previousControllers?.includes(myIdentifier) &&
-    !nextControllers?.includes(myIdentifier);
-
-  let bgColor = "#E082E7"; // Purple — Concerned (default)
-  if (isAssumed) bgColor = "#F0F0F0";
-  else if (isTransferredAway) bgColor = "#DD6A12";
-
-  // In Assumed state, display 2-letter abbreviation of next controller
-  const nextLabel =
-    isAssumed && nextControllers?.[0] ? nextControllers[0].slice(0, 2) : "";
-
-  return (
-    <div
-      className="flex-shrink-0 flex items-center justify-center h-full text-sm font-bold"
-      style={{ width: 38, backgroundColor: bgColor }}
-    >
-      {nextLabel}
-    </div>
-  );
-}
+const CELL_BORDER = "border-r border-[#85b4af]";
+const TOP_H = 32; // 2/3 of 48px
+const BOT_H = 16; // 1/3 of 48px
 
 // -----------------------------------------------------------------------------
-// GroundStrip — shown after clearance is issued (status="CLROK")
+// GroundStrip — shown after clearance is issued (status="CLROK") — TWY DEP
+//
+// 48px strip with 2/3 (32px) top row / 1/3 (16px) bottom row vertical layout:
+//   [40px SI] | [120px callsign] | [80px actype/reg] | [80px stand] | [80px clearance limit] | [80px RWY] | [27px box]
+//
+// Background: cyan (#bef5ef).
 // -----------------------------------------------------------------------------
 
-/**
- * GroundStrip - shown after clearance is issued (status="CLROK").
- */
 export function GroundStrip({
   callsign,
   pdcStatus,
-  destination,
+  aircraftType,
   stand,
-  eobt,
-  tobt,
-  tsat,
+  taxiway,
+  holdingPoint,
+  runway,
   arrival,
   owner,
   nextControllers,
@@ -69,10 +38,25 @@ export function GroundStrip({
     ? () => selectStrip(isSelected ? null : callsign)
     : undefined;
 
+  const isAssumed = !!myIdentifier && owner === myIdentifier;
+  const isTransferredAway =
+    !!myIdentifier &&
+    !!previousControllers?.includes(myIdentifier) &&
+    !nextControllers?.includes(myIdentifier);
+
+  let siBg = "#E082E7";
+  if (isAssumed) siBg = "#F0F0F0";
+  else if (isTransferredAway) siBg = "#DD6A12";
+
+  const nextLabel =
+    isAssumed && nextControllers?.[0] ? nextControllers[0].slice(0, 2) : "";
+
   return (
     <div
-      className={`flex h-[42px] w-fit text-black select-none${isSelected ? " outline outline-2 outline-[#FF00F5]" : ""}${selectable ? " cursor-pointer" : ""}`}
+      className={`flex text-black select-none${isSelected ? " outline outline-2 outline-[#FF00F5]" : ""}${selectable ? " cursor-pointer" : ""}`}
       style={{
+        height: 48,
+        width: 480,
         backgroundColor: getStripBg(pdcStatus, arrival),
         borderLeft: "2px solid white",
         borderRight: "2px solid white",
@@ -82,61 +66,53 @@ export function GroundStrip({
       }}
       onClick={handleClick}
     >
-      {/* SI Box — ownership state indicator */}
-      <SIBox
-        owner={owner}
-        nextControllers={nextControllers}
-        previousControllers={previousControllers}
-        myIdentifier={myIdentifier}
-      />
-
-      {/* Callsign */}
-      <StripCell width={130} className="flex items-center">
-        <button className="w-full h-8 text-left pl-2 font-bold text-xl active:bg-[#F237AA] truncate">
-          {callsign}
-        </button>
-      </StripCell>
-
-      {/* Destination / Stand */}
-      <SplitStripCell
-        width={65}
-        top={
-          <span className="px-1 text-sm font-semibold truncate w-full text-center">
-            {destination}
-          </span>
-        }
-        bottom={
-          <span className="px-1 text-xs truncate w-full text-center">
-            {stand}
-          </span>
-        }
-      />
-
-      {/* EOBT */}
-      <StripCell
-        width={90}
-        className="flex items-center justify-between px-1"
+      {/* SI / ownership — 40px */}
+      <div
+        className={`flex-shrink-0 flex items-center justify-center text-sm font-bold ${CELL_BORDER}`}
+        style={{ width: 40, height: "100%", backgroundColor: siBg }}
       >
-        <span className="text-xs text-gray-600 shrink-0">EOBT</span>
-        <span className="text-xs font-medium">{eobt}</span>
-      </StripCell>
+        {nextLabel}
+      </div>
 
-      {/* TOBT / TSAT stacked */}
-      <SplitStripCell
-        width={90}
-        top={
-          <div className="flex justify-between w-full px-1">
-            <span className="text-xs text-gray-600">TOBT</span>
-            <span className="text-xs font-medium">{tobt}</span>
-          </div>
-        }
-        bottom={
-          <div className="flex justify-between w-full px-1">
-            <span className="text-xs text-gray-600">TSAT</span>
-            <span className="text-xs font-medium">{tsat}</span>
-          </div>
-        }
-      />
+      {/* Callsign — 120px */}
+      <div className={`flex-shrink-0 flex flex-col ${CELL_BORDER}`} style={{ width: 120, height: "100%" }}>
+        <div className="flex items-center pl-2" style={{ height: TOP_H }}>
+          <span className="font-bold text-xl truncate w-full">{callsign}</span>
+        </div>
+        <div style={{ height: BOT_H }} />
+      </div>
+
+      {/* A/C type — 80px split (bottom reserved for registration) */}
+      <div className={`flex-shrink-0 flex flex-col ${CELL_BORDER}`} style={{ width: 80, height: "100%" }}>
+        <div className="flex items-center justify-center border-b border-[#85b4af]" style={{ height: TOP_H }}>
+          <span className="text-xs font-semibold truncate px-1">{aircraftType}</span>
+        </div>
+        <div style={{ height: BOT_H }} />
+      </div>
+
+      {/* Stand — 80px */}
+      <div className={`flex-shrink-0 flex flex-col ${CELL_BORDER}`} style={{ width: 80, height: "100%" }}>
+        <div className="flex items-center justify-center" style={{ height: TOP_H }}>
+          <span className="font-bold text-xl truncate">{stand}</span>
+        </div>
+        <div style={{ height: BOT_H }} />
+      </div>
+
+      {/* Clearance limit — 80px */}
+      <div className={`flex-shrink-0 flex flex-col ${CELL_BORDER}`} style={{ width: 80, height: "100%" }}>
+        <div className="flex items-center justify-center" style={{ height: TOP_H }}>
+          <span className="font-bold text-xl truncate">{taxiway ?? holdingPoint}</span>
+        </div>
+        <div style={{ height: BOT_H }} />
+      </div>
+
+      {/* RWY — 80px */}
+      <div className="flex-shrink-0 flex flex-col overflow-hidden" style={{ width: 80, height: "100%" }}>
+        <div className="flex items-center justify-center" style={{ height: TOP_H }}>
+          <span className="font-bold text-xl truncate">{runway}</span>
+        </div>
+        <div style={{ height: BOT_H }} />
+      </div>
     </div>
   );
 }

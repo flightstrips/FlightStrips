@@ -121,6 +121,14 @@ export const useStandStrips = () => {
   );
 };
 
+export const useDeIceStrips = () => {
+  const strips = useWebSocketStore(state => state.strips);
+  return useMemo(
+    () => strips.filter(x => x.bay === Bay.DeIce).sort((a, b) => a.sequence - b.sequence),
+    [strips]
+  );
+};
+
 export const useHiddenStrips = () => {
   const strips = useWebSocketStore(state => state.strips);
   return useMemo(

@@ -1,4 +1,6 @@
 import type { PdcStatus } from "@/api/models";
+import { ApnArrStrip } from "./ApnArrStrip";
+import { ApnPushStrip } from "./ApnPushStrip";
 import { DelStrip } from "./DelStrip";
 import { GroundStrip } from "./GroundStrip";
 import { HalfStrip } from "./HalfStrip";
@@ -15,10 +17,11 @@ export interface FlightStripProps extends StripProps {
 /**
  * FlightStrip – top-level strip dispatcher.
  *
- * Renders the correct strip variant based on `status`:
- *  - `"CLR"`   → DelStrip   (pre-clearance)
- *  - `"CLROK"` → GroundStrip (post-clearance, ground movement)
- *  - `"HALF"`  → HalfStrip  (compact pushback/taxi bay)
+ *  - `"CLR"`   → DelStrip     (pre-clearance / UNCLEARED bays)
+ *  - `"CLROK"` → GroundStrip  (ground movement / TWY DEP)
+ *  - `"HALF"`  → HalfStrip    (21px compact — FINAL locked strips)
+ *  - `"PUSH"`  → ApnPushStrip (48px — STARTUP / PUSH BACK / DE-ICE)
+ *  - `"ARR"`   → ApnArrStrip  (48px yellow — TWY ARR / STAND)
  */
 export function FlightStrip({ status, pdcStatus, ...rest }: FlightStripProps) {
   const props: StripProps = {
@@ -33,6 +36,10 @@ export function FlightStrip({ status, pdcStatus, ...rest }: FlightStripProps) {
       return <GroundStrip {...props} />;
     case "HALF":
       return <HalfStrip {...props} />;
+    case "PUSH":
+      return <ApnPushStrip {...props} />;
+    case "ARR":
+      return <ApnArrStrip {...props} />;
     default:
       return null;
   }

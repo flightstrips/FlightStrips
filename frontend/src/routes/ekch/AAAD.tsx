@@ -13,8 +13,10 @@ import {
   useTaxiDepStrips,
 } from "@/store/airports/ekch.ts";
 import type { FrontendStrip } from "@/api/models.ts";
+import { Bay } from "@/api/models.ts";
 import type { HalfStripVariant, StripStatus } from "@/components/strip/types.ts";
 import { SortableBay } from "@/components/bays/SortableBay.tsx";
+import { ViewDndContext } from "@/components/bays/ViewDndContext.tsx";
 import { useWebSocketStore } from "@/store/store-hooks.ts";
 import { useRef, useEffect } from "react";
 
@@ -61,11 +63,45 @@ export default function AAAD() {
   const sasStrips     = useSasBayStrips().sort((a, b) => a.sequence - b.sequence);
   const norStrips     = useNorwegianBayStrips().sort((a, b) => a.sequence - b.sequence);
   const updateOrder   = useWebSocketStore(state => state.updateOrder);
+  const move          = useWebSocketStore(state => state.move);
+
+  // Only the 4 active bays participate in cross-bay drag
+  const bayStripMap = {
+    "TWY-ARR":     { strips: twyArrStrips,  targetBay: Bay.Taxi },
+    "TWY-DEP-UPR": { strips: twyDepStrips,  targetBay: Bay.Taxi },
+    "STARTUP":     { strips: startupStrips, targetBay: Bay.Cleared },
+    "PUSHBACK":    { strips: pushStrips,    targetBay: Bay.Push },
+  };
+
+  // Any of the 4 active bays may transfer to any of the other 3
+  const transferRules: Record<string, string[]> = {
+    "TWY-ARR":     ["TWY-DEP-UPR", "STARTUP", "PUSHBACK"],
+    "TWY-DEP-UPR": ["TWY-ARR",     "STARTUP", "PUSHBACK"],
+    "STARTUP":     ["TWY-ARR", "TWY-DEP-UPR", "PUSHBACK"],
+    "PUSHBACK":    ["TWY-ARR", "TWY-DEP-UPR", "STARTUP"],
+  };
 
   return (
+    <ViewDndContext
+      bayStripMap={bayStripMap}
+      transferRules={transferRules}
+      onReorder={updateOrder}
+      onMove={move}
+      renderDragOverlay={(callsign) => {
+        const twyArr = twyArrStrips.find(s => s.callsign === callsign);
+        if (twyArr) return mapToStrip(twyArr, "HALF", "APN-ARR");
+        const twyDep = twyDepStrips.find(s => s.callsign === callsign);
+        if (twyDep) return mapToStrip(twyDep, "CLROK");
+        const startup = startupStrips.find(s => s.callsign === callsign);
+        if (startup) return mapToStrip(startup, "CLROK");
+        const push = pushStrips.find(s => s.callsign === callsign);
+        if (push) return mapToStrip(push, "HALF", "APN-PUSH");
+        return null;
+      }}
+    >
     <div className="bg-[#A9A9A9] w-screen h-[calc(100vh-4rem)] flex justify-center justify-items-center gap-2">
 
-      {/* Column 1 – Arrivals + Messages */}
+      {/* Column 1 – Arrivals + Messages (locked, no drag) */}
       <div className="w-1/4 h-full bg-[#555355] flex flex-col">
         <div className="bg-primary h-10 flex items-center px-2 shrink-0">
           <span className="text-white font-bold text-lg">MESSAGES</span>
@@ -92,14 +128,15 @@ export default function AAAD() {
         </div>
       </div>
 
-      {/* Column 2 – TWY ARR + TWY DEP UPR */}
+      {/* Column 2 – TWY ARR + TWY DEP UPR (draggable) */}
       <div className="w-1/4 h-full bg-[#555355] flex flex-col">
         <div className="bg-[#393939] h-10 flex items-center px-2 shrink-0">
           <span className="text-white font-bold text-lg">TWY ARR</span>
         </div>
         <SortableBay
           strips={twyArrStrips}
-          onReorder={updateOrder}
+          bayId="TWY-ARR"
+          standalone={false}
           className="h-[40%] w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary"
         >
           {(callsign) => {
@@ -113,7 +150,8 @@ export default function AAAD() {
         </div>
         <SortableBay
           strips={twyDepStrips}
-          onReorder={updateOrder}
+          bayId="TWY-DEP-UPR"
+          standalone={false}
           className="flex-1 w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary"
         >
           {(callsign) => {
@@ -123,14 +161,15 @@ export default function AAAD() {
         </SortableBay>
       </div>
 
-      {/* Column 3 – STARTUP + PUSHBACK */}
+      {/* Column 3 – STARTUP + PUSHBACK (draggable) */}
       <div className="w-1/4 h-full bg-[#555355] flex flex-col">
         <div className="bg-[#393939] h-10 flex items-center px-2 shrink-0">
           <span className="text-white font-bold text-lg">STARTUP</span>
         </div>
         <SortableBay
           strips={startupStrips}
-          onReorder={updateOrder}
+          bayId="STARTUP"
+          standalone={false}
           className="h-[55%] w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary"
         >
           {(callsign) => {
@@ -144,7 +183,8 @@ export default function AAAD() {
         </div>
         <SortableBay
           strips={pushStrips}
-          onReorder={updateOrder}
+          bayId="PUSHBACK"
+          standalone={false}
           className="flex-1 w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary"
         >
           {(callsign) => {
@@ -154,51 +194,31 @@ export default function AAAD() {
         </SortableBay>
       </div>
 
-      {/* Column 4 – OTHERS / SAS / NORWEGIAN (locked, uncleared) */}
+      {/* Column 4 – OTHERS / SAS / NORWEGIAN (no drag per design doc) */}
       <div className="w-1/4 h-full bg-[#555355] flex flex-col">
         <div className="bg-[#393939] h-10 flex items-center px-2 shrink-0">
           <span className="text-white font-bold text-lg">OTHERS</span>
         </div>
-        <SortableBay
-          strips={otherStrips}
-          onReorder={updateOrder}
-          className="h-[40%] w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary"
-        >
-          {(callsign) => {
-            const strip = otherStrips.find(s => s.callsign === callsign)!;
-            return mapToStrip(strip, "CLR", undefined, false);
-          }}
-        </SortableBay>
+        <div className="h-[40%] w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary">
+          {otherStrips.map(x => mapToStrip(x, "CLR", undefined, false))}
+        </div>
 
         <div className="bg-[#393939] h-10 flex items-center px-2 shrink-0">
           <span className="text-white font-bold text-lg">SAS</span>
         </div>
-        <SortableBay
-          strips={sasStrips}
-          onReorder={updateOrder}
-          className="h-[25%] w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary"
-        >
-          {(callsign) => {
-            const strip = sasStrips.find(s => s.callsign === callsign)!;
-            return mapToStrip(strip, "CLR", undefined, false);
-          }}
-        </SortableBay>
+        <div className="h-[25%] w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary">
+          {sasStrips.map(x => mapToStrip(x, "CLR", undefined, false))}
+        </div>
 
         <div className="bg-[#393939] h-10 flex items-center px-2 shrink-0">
           <span className="text-white font-bold text-lg">NORWEGIAN</span>
         </div>
-        <SortableBay
-          strips={norStrips}
-          onReorder={updateOrder}
-          className="flex-1 w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary"
-        >
-          {(callsign) => {
-            const strip = norStrips.find(s => s.callsign === callsign)!;
-            return mapToStrip(strip, "CLR", undefined, false);
-          }}
-        </SortableBay>
+        <div className="flex-1 w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary">
+          {norStrips.map(x => mapToStrip(x, "CLR", undefined, false))}
+        </div>
       </div>
 
     </div>
+    </ViewDndContext>
   );
 }

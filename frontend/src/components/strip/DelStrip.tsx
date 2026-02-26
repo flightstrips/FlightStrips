@@ -28,7 +28,7 @@ export function DelStrip({
 
   return (
     <div
-      className={`flex h-[42px] w-full text-black select-none${isSelected ? " outline outline-2 outline-[#FF00F5]" : ""}${selectable ? " cursor-pointer" : ""}`}
+      className={`flex h-[42px] w-fit text-black select-none${isSelected ? " outline outline-2 outline-[#FF00F5]" : ""}${selectable ? " cursor-pointer" : ""}`}
       style={{
         backgroundColor: getStripBg(pdcStatus, arrival),
         borderLeft: "2px solid white",

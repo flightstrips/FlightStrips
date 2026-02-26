@@ -10,8 +10,10 @@ import {
   useTaxiDepStrips,
 } from "@/store/airports/ekch.ts";
 import type { FrontendStrip } from "@/api/models.ts";
+import { Bay } from "@/api/models.ts";
 import type { HalfStripVariant, StripStatus } from "@/components/strip/types.ts";
 import { SortableBay } from "@/components/bays/SortableBay.tsx";
+import { ViewDndContext } from "@/components/bays/ViewDndContext.tsx";
 import { useWebSocketStore } from "@/store/store-hooks.ts";
 import { useRef, useEffect } from "react";
 
@@ -55,8 +57,40 @@ export default function GEGW() {
   const twyDepStrips = useTaxiDepStrips();
   const standStrips  = useStandStrips();
   const updateOrder  = useWebSocketStore(state => state.updateOrder);
+  const move         = useWebSocketStore(state => state.move);
+
+  // PUSHBACK, TWY-DEP-UPR, TWY-DEP-LWR, STAND are all draggable between each other.
+  // TWY-DEP-UPR and TWY-DEP-LWR share Bay.Taxi (same backend bay, visual distinction only).
+  const bayStripMap = {
+    "PUSHBACK":    { strips: pushStrips,   targetBay: Bay.Push },
+    "TWY-DEP-UPR": { strips: twyDepStrips, targetBay: Bay.Taxi },
+    "TWY-DEP-LWR": { strips: twyDepStrips, targetBay: Bay.Taxi },
+    "STAND":       { strips: standStrips,  targetBay: Bay.Stand },
+  };
+
+  const transferRules: Record<string, string[]> = {
+    "PUSHBACK":    ["TWY-DEP-UPR", "TWY-DEP-LWR", "STAND"],
+    "TWY-DEP-UPR": ["PUSHBACK",    "TWY-DEP-LWR", "STAND"],
+    "TWY-DEP-LWR": ["PUSHBACK",    "TWY-DEP-UPR", "STAND"],
+    "STAND":       ["PUSHBACK",    "TWY-DEP-UPR", "TWY-DEP-LWR"],
+  };
 
   return (
+    <ViewDndContext
+      bayStripMap={bayStripMap}
+      transferRules={transferRules}
+      onReorder={updateOrder}
+      onMove={move}
+      renderDragOverlay={(callsign) => {
+        const push = pushStrips.find(s => s.callsign === callsign);
+        if (push) return mapToStrip(push, "HALF", "APN-PUSH");
+        const twyDep = twyDepStrips.find(s => s.callsign === callsign);
+        if (twyDep) return mapToStrip(twyDep, "CLROK");
+        const stand = standStrips.find(s => s.callsign === callsign);
+        if (stand) return mapToStrip(stand, "CLROK");
+        return null;
+      }}
+    >
     <div className="bg-[#A9A9A9] w-screen h-[calc(100vh-4rem)] flex justify-center justify-items-center gap-2">
 
       {/* Column 1 (27%) – MESSAGES + FINAL + RWY ARR + TWY ARR */}
@@ -85,29 +119,24 @@ export default function GEGW() {
           {rwyArrStrips.map(x => mapToStrip(x, "HALF", "LOCKED-ARR", false))}
         </div>
 
+        {/* TWY ARR is SI-only; no manual drag */}
         <div className="bg-[#393939] h-10 flex items-center px-2 shrink-0">
           <span className="text-white font-bold text-lg">TWY ARR</span>
         </div>
-        <SortableBay
-          strips={twyArrStrips}
-          onReorder={updateOrder}
-          className="flex-1 w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary"
-        >
-          {(callsign) => {
-            const strip = twyArrStrips.find(s => s.callsign === callsign)!;
-            return mapToStrip(strip, "HALF", "APN-ARR");
-          }}
-        </SortableBay>
+        <div className="flex-1 w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary">
+          {twyArrStrips.map(x => mapToStrip(x, "HALF", "APN-ARR"))}
+        </div>
       </div>
 
-      {/* Column 2 (28%) – PUSHBACK + TWY DEP UPR + TWY DEP LWR */}
+      {/* Column 2 (28%) – PUSHBACK + TWY DEP UPR + TWY DEP LWR (all draggable) */}
       <div className="w-[28%] h-full bg-[#555355] flex flex-col">
         <div className="bg-[#b3b3b3] h-10 flex items-center px-2 shrink-0">
           <span className="text-[#393939] font-bold text-lg">PUSHBACK</span>
         </div>
         <SortableBay
           strips={pushStrips}
-          onReorder={updateOrder}
+          bayId="PUSHBACK"
+          standalone={false}
           className="h-[20%] w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary"
         >
           {(callsign) => {
@@ -121,7 +150,8 @@ export default function GEGW() {
         </div>
         <SortableBay
           strips={twyDepStrips}
-          onReorder={updateOrder}
+          bayId="TWY-DEP-UPR"
+          standalone={false}
           className="h-[35%] w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary"
         >
           {(callsign) => {
@@ -135,7 +165,8 @@ export default function GEGW() {
         </div>
         <SortableBay
           strips={twyDepStrips}
-          onReorder={updateOrder}
+          bayId="TWY-DEP-LWR"
+          standalone={false}
           className="flex-1 w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary"
         >
           {(callsign) => {
@@ -153,14 +184,15 @@ export default function GEGW() {
         <div className="flex-1 w-full bg-[#555355]" />
       </div>
 
-      {/* Column 4 (20%) – STAND */}
+      {/* Column 4 (20%) – STAND (draggable) */}
       <div className="w-1/5 h-full bg-[#555355] flex flex-col">
         <div className="bg-[#393939] h-10 flex items-center px-2 shrink-0">
           <span className="text-white font-bold text-lg">STAND</span>
         </div>
         <SortableBay
           strips={standStrips}
-          onReorder={updateOrder}
+          bayId="STAND"
+          standalone={false}
           className="flex-1 w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary"
         >
           {(callsign) => {
@@ -171,5 +203,6 @@ export default function GEGW() {
       </div>
 
     </div>
+    </ViewDndContext>
   );
 }

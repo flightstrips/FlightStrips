@@ -69,7 +69,7 @@ export function HalfStrip({
 
   return (
     <div
-      className={`w-full flex text-sm select-none${isSelected ? " outline outline-2 outline-[#FF00F5]" : ""}${isSelectable ? " cursor-pointer" : ""}`}
+      className={`w-fit flex text-sm select-none${isSelected ? " outline outline-2 outline-[#FF00F5]" : ""}${isSelectable ? " cursor-pointer" : ""}`}
       style={{
         height: "21px",
         backgroundColor: bg,
@@ -88,13 +88,13 @@ export function HalfStrip({
 
       {isFreeText ? (
         /* Free-text variants: single flexible content area */
-        <div className={`h-full flex-1 flex items-center pl-2 text-xs ${textColor} truncate`}>
+        <div className={`h-full w-[394px] flex items-center pl-2 text-xs ${textColor} truncate`}>
           {callsign}
         </div>
       ) : (
         /* Structured variants: callsign + flight data cells */
         <>
-          <div className={`h-full flex-1 border-r border-[#d9d9d9] flex items-center pl-2 font-bold truncate ${textColor}`}>
+          <div className={`h-full w-[130px] border-r border-[#d9d9d9] flex items-center pl-2 font-bold truncate ${textColor}`}>
             {callsign}
           </div>
           <div className={`h-full w-14 border-r border-[#d9d9d9] flex items-center justify-center text-xs ${textColor}`}>

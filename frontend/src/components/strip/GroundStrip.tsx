@@ -71,7 +71,7 @@ export function GroundStrip({
 
   return (
     <div
-      className={`flex h-[42px] w-full text-black select-none${isSelected ? " outline outline-2 outline-[#FF00F5]" : ""}${selectable ? " cursor-pointer" : ""}`}
+      className={`flex h-[42px] w-fit text-black select-none${isSelected ? " outline outline-2 outline-[#FF00F5]" : ""}${selectable ? " cursor-pointer" : ""}`}
       style={{
         backgroundColor: getStripBg(pdcStatus, arrival),
         borderLeft: "2px solid white",
@@ -82,6 +82,14 @@ export function GroundStrip({
       }}
       onClick={handleClick}
     >
+      {/* SI Box — ownership state indicator */}
+      <SIBox
+        owner={owner}
+        nextControllers={nextControllers}
+        previousControllers={previousControllers}
+        myIdentifier={myIdentifier}
+      />
+
       {/* Callsign */}
       <StripCell width={130} className="flex items-center">
         <button className="w-full h-8 text-left pl-2 font-bold text-xl active:bg-[#F237AA] truncate">
@@ -128,14 +136,6 @@ export function GroundStrip({
             <span className="text-xs font-medium">{tsat}</span>
           </div>
         }
-      />
-
-      {/* SI Box — ownership state indicator */}
-      <SIBox
-        owner={owner}
-        nextControllers={nextControllers}
-        previousControllers={previousControllers}
-        myIdentifier={myIdentifier}
       />
     </div>
   );

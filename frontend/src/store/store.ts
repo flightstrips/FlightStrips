@@ -137,22 +137,24 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
         }
       })
     },
-    updateOrder: (callsign, before) => {
+    updateOrder: (callsign, before) => set((state) => {
       wsClient.send({type: ActionType.FrontendUpdateOrder, callsign: callsign, before: before})
 
-      return produce((state: WebSocketState) => {
-        // Calculate a temporary order to update the UI while we wait for the backend
-        const stripIndex = state.strips.findIndex(strip => strip.callsign === callsign)
+      return produce((draft: WebSocketState) => {
+        // Optimistically update sequence so the UI reflects the new order immediately
+        const stripIndex = draft.strips.findIndex(strip => strip.callsign === callsign)
+        if (stripIndex === -1) return;
 
         if (before === null) {
-          // Put it in-front of everything
-          state.strips[stripIndex].sequence = -1;
+          // Append to end
+          draft.strips[stripIndex].sequence = -1;
         } else {
-          const beforeIndex = state.strips.findIndex(strip => strip.callsign === before)
-          state.strips[stripIndex].sequence = state.strips[beforeIndex].sequence + 1
+          const beforeIndex = draft.strips.findIndex(strip => strip.callsign === before)
+          if (beforeIndex === -1) return;
+          draft.strips[stripIndex].sequence = draft.strips[beforeIndex].sequence + 1
         }
-      })
-    },
+      })(state)
+    }),
     sendMessage: (message, to) => {
       wsClient.send({type: ActionType.FrontendSendMessage, message, to})
     },

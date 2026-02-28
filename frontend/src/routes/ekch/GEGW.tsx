@@ -12,7 +12,7 @@ import {
 import type { FrontendStrip } from "@/api/models.ts";
 import { Bay } from "@/api/models.ts";
 import type { HalfStripVariant, StripStatus } from "@/components/strip/types.ts";
-import { SortableBay } from "@/components/bays/SortableBay.tsx";
+import { SortableBay, DropIndicatorBay } from "@/components/bays/SortableBay.tsx";
 import { ViewDndContext } from "@/components/bays/ViewDndContext.tsx";
 import { useWebSocketStore } from "@/store/store-hooks.ts";
 import { useRef, useEffect } from "react";
@@ -108,24 +108,24 @@ export default function GEGW() {
         <div className="bg-[#393939] h-10 flex items-center px-2 shrink-0">
           <span className="text-white font-bold text-lg">FINAL</span>
         </div>
-        <div className="h-[25%] w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary">
+        <DropIndicatorBay bayId="FINAL" className="h-[25%] w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary">
           {finalStrips.map(x => mapToStrip(x, "HALF", "LOCKED-ARR", false))}
-        </div>
+        </DropIndicatorBay>
 
         <div className="bg-[#393939] h-10 flex items-center px-2 shrink-0">
           <span className="text-white font-bold text-lg">RWY ARR</span>
         </div>
-        <div className="h-[20%] w-full bg-[#212121] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary">
+        <DropIndicatorBay bayId="RWY-ARR" className="h-[20%] w-full bg-[#212121] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary">
           {rwyArrStrips.map(x => mapToStrip(x, "HALF", "LOCKED-ARR", false))}
-        </div>
+        </DropIndicatorBay>
 
         {/* TWY ARR is SI-only; no manual drag */}
         <div className="bg-[#393939] h-10 flex items-center px-2 shrink-0">
           <span className="text-white font-bold text-lg">TWY ARR</span>
         </div>
-        <div className="flex-1 w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary">
+        <DropIndicatorBay bayId="TWY-ARR" className="flex-1 w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary">
           {twyArrStrips.map(x => mapToStrip(x, "HALF", "APN-ARR"))}
-        </div>
+        </DropIndicatorBay>
       </div>
 
       {/* Column 2 (28%) – PUSHBACK + TWY DEP UPR + TWY DEP LWR (all draggable) */}

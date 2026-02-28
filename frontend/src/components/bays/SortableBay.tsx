@@ -1,11 +1,13 @@
-﻿import {
+import {
   DndContext,
   closestCenter,
   PointerSensor,
   useSensor,
   useSensors,
   useDroppable,
+  useDndMonitor,
   type DragEndEvent,
+  type DragOverEvent,
 } from "@dnd-kit/core";
 import {
   SortableContext,
@@ -14,7 +16,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useDragState } from "@/components/bays/ViewDndContext.tsx";
-import type { CSSProperties, ReactNode } from "react";
+import { useState, type CSSProperties, type ReactNode } from "react";
 
 interface SortableBayProps {
   strips: { callsign: string }[];
@@ -76,7 +78,7 @@ export function SortableBay({
     <SortableContext items={sortableItems} strategy={verticalListSortingStrategy}>
       <DroppableContainer bayId={bayId!} className={className}>
         {strips.map(s => (
-          <SortableStrip key={s.callsign} callsign={s.callsign} hideWhenDragging>
+          <SortableStrip key={s.callsign} callsign={s.callsign} hideWhenDragging bayId={bayId}>
             {children(s.callsign)}
           </SortableStrip>
         ))}
@@ -96,24 +98,92 @@ function DroppableContainer({
 }) {
   const { setNodeRef } = useDroppable({ id: bayId });
   const { activeId, isValidTarget } = useDragState();
+  const [isOver, setIsOver] = useState(false);
+
+  useDndMonitor({
+    onDragOver(event: DragOverEvent) {
+      const { over } = event;
+      setIsOver(!!over && (over.id === bayId || over.data.current?.bayId === bayId));
+    },
+    onDragEnd() { setIsOver(false); },
+    onDragCancel() { setIsOver(false); },
+  });
 
   const isDragging = activeId !== null;
   const canDrop = isValidTarget(bayId);
-  const invalid = isDragging && !canDrop;
 
-  const invalidStyle: CSSProperties = invalid
-    ? { boxShadow: "inset 0 0 0 2px #ef4444", backgroundColor: "rgba(239,68,68,0.15)" }
-    : {};
+  let hoverStyle: CSSProperties = {};
+  if (isDragging && isOver) {
+    hoverStyle = canDrop
+      ? { boxShadow: "inset 0 0 0 2px #FFFB03" }
+      : { boxShadow: "inset 0 0 0 2px #ef4444" };
+  }
 
   return (
-    <div ref={setNodeRef} className={className} style={invalidStyle}>
+    <div ref={setNodeRef} className={className} style={hoverStyle}>
       {children}
     </div>
   );
 }
 
-export function SortableStrip({ callsign, children, hideWhenDragging = false }: { callsign: string; children: ReactNode; hideWhenDragging?: boolean }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: callsign });
+/**
+ * Registers a locked/read-only bay as a droppable target so it can show
+ * a red border when a strip is dragged over it.
+ * Use this instead of a plain <div> for bays that are not SortableBay instances.
+ */
+export function DropIndicatorBay({
+  bayId,
+  className,
+  children,
+}: {
+  bayId: string;
+  className?: string;
+  children?: ReactNode;
+}) {
+  const { setNodeRef } = useDroppable({ id: bayId });
+  const { activeId, isValidTarget } = useDragState();
+  const [isOver, setIsOver] = useState(false);
+
+  useDndMonitor({
+    onDragOver(event: DragOverEvent) {
+      setIsOver(!!event.over && event.over.id === bayId);
+    },
+    onDragEnd() { setIsOver(false); },
+    onDragCancel() { setIsOver(false); },
+  });
+
+  const isDragging = activeId !== null;
+  const canDrop = isValidTarget(bayId);
+
+  let hoverStyle: CSSProperties = {};
+  if (isDragging && isOver) {
+    hoverStyle = canDrop
+      ? { boxShadow: "inset 0 0 0 2px #FFFB03" }
+      : { boxShadow: "inset 0 0 0 2px #ef4444" };
+  }
+
+  return (
+    <div ref={setNodeRef} className={className} style={hoverStyle}>
+      {children}
+    </div>
+  );
+}
+
+export function SortableStrip({
+  callsign,
+  children,
+  hideWhenDragging = false,
+  bayId,
+}: {
+  callsign: string;
+  children: ReactNode;
+  hideWhenDragging?: boolean;
+  bayId?: string;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: callsign,
+    data: bayId != null ? { bayId } : undefined,
+  });
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,

@@ -17,7 +17,7 @@ import {
 import type { FrontendStrip } from "@/api/models.ts";
 import { Bay } from "@/api/models.ts";
 import type { HalfStripVariant, StripStatus } from "@/components/strip/types.ts";
-import { SortableBay } from "@/components/bays/SortableBay.tsx";
+import { SortableBay, DropIndicatorBay } from "@/components/bays/SortableBay.tsx";
 import { ViewDndContext } from "@/components/bays/ViewDndContext.tsx";
 import { useWebSocketStore } from "@/store/store-hooks.ts";
 import { useRef, useEffect } from "react";
@@ -135,23 +135,23 @@ export default function AAAD() {
         <div className={lockedHeader}>
           <span className={lockedLabel}>FINAL</span>
         </div>
-        <div className={`h-[25%] ${scrollArea}`}>
+        <DropIndicatorBay bayId="FINAL" className={`h-[25%] ${scrollArea}`}>
           {finalStrips.map(x => mapToStrip(x, "HALF", "LOCKED-ARR", false))}
-        </div>
+        </DropIndicatorBay>
 
         <div className={lockedHeader}>
           <span className={lockedLabel}>RWY ARR</span>
         </div>
-        <div className={`h-[30%] ${scrollArea}`}>
+        <DropIndicatorBay bayId="RWY-ARR" className={`h-[30%] ${scrollArea}`}>
           {rwyArrStrips.map(x => mapToStrip(x, "ARR", undefined, false))}
-        </div>
+        </DropIndicatorBay>
 
         <div className={activeHeader}>
           <span className={activeLabel}>STAND</span>
         </div>
-        <div className={`flex-1 ${scrollArea}`}>
+        <DropIndicatorBay bayId="STAND" className={`flex-1 ${scrollArea}`}>
           {standStrips.map(x => mapToStrip(x, "ARR"))}
-        </div>
+        </DropIndicatorBay>
 
       </div>
 
@@ -270,23 +270,23 @@ export default function AAAD() {
             <button className={btn}>PLANNED</button>
           </span>
         </div>
-        <div className={`h-[40%] ${scrollArea}`}>
+        <DropIndicatorBay bayId="SAS" className={`h-[40%] ${scrollArea}`}>
           {sasStrips.map(x => mapToStrip(x, "CLR", undefined, false))}
-        </div>
+        </DropIndicatorBay>
 
         <div className={lockedHeader}>
           <span className={lockedLabel}>NORWEGIAN</span>
         </div>
-        <div className={`h-[30%] ${scrollArea}`}>
+        <DropIndicatorBay bayId="NORWEGIAN" className={`h-[30%] ${scrollArea}`}>
           {norStrips.map(x => mapToStrip(x, "CLR", undefined, false))}
-        </div>
+        </DropIndicatorBay>
 
         <div className={lockedHeader}>
           <span className={lockedLabel}>OTHERS</span>
         </div>
-        <div className={`flex-1 ${scrollArea}`}>
+        <DropIndicatorBay bayId="OTHERS" className={`flex-1 ${scrollArea}`}>
           {otherStrips.map(x => mapToStrip(x, "CLR", undefined, false))}
-        </div>
+        </DropIndicatorBay>
 
       </div>
 

@@ -225,6 +225,7 @@ func (hub *Hub) handleLogin(msg []byte, user shared.AuthenticatedUser) (event eu
 	} else {
 		// Set CID
 		controllerRepo.SetCid(context.Background(), session.Id, event.Callsign, &cid)
+		hub.server.GetFrontendHub().CidOnline(session.Id, user.GetCid())
 	}
 
 	if controller.Position != event.Position {

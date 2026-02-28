@@ -4,8 +4,10 @@ import {
   Dialog,
   DialogContent,
   DialogFooter,
+  DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import * as VisuallyHidden from "@radix-ui/react-visually-hidden";
 import { useControllers, useSelectedCallsign, useWebSocketStore } from "@/store/store-hooks";
 import { Bay } from "@/api/models";
 
@@ -34,6 +36,9 @@ export default function TRFBRN() {
         </button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px] bg-[#b3b3b3]">
+        <VisuallyHidden.Root>
+          <DialogTitle>Transfer Strip</DialogTitle>
+        </VisuallyHidden.Root>
         <div className="border-2 border-black">
           <div className="w-64 min-h-24 grid grid-cols-2 gap-2 p-2">
             {controllers.length === 0 ? (

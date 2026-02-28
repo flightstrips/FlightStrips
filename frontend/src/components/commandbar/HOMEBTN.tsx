@@ -5,8 +5,10 @@ import {
   Dialog,
   DialogContent,
   DialogFooter,
+  DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import * as VisuallyHidden from "@radix-ui/react-visually-hidden";
 
 const EKCH_SCOPES = [
   { label: "CLR DEL", path: "/EKCH/CLX" },
@@ -33,6 +35,9 @@ export default function HOMEBTN() {
         </button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[300px] bg-[#b3b3b3]">
+        <VisuallyHidden.Root>
+          <DialogTitle>Select View</DialogTitle>
+        </VisuallyHidden.Root>
         <div className="border-2 border-black">
           <div className="grid grid-cols-2 gap-2 p-2">
             {EKCH_SCOPES.map((scope) => (

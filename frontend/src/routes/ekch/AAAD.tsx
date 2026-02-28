@@ -42,6 +42,7 @@ const mapToStrip = (strip: FrontendStrip, status: StripStatus, halfStripVariant?
     runway={strip.runway}
     clearedAltitude={strip.cleared_altitude}
     requestedAltitude={strip.requested_altitude}
+    holdingPoint={strip.release_point}
     owner={strip.owner}
     nextControllers={strip.next_controllers}
     previousControllers={strip.previous_controllers}

@@ -39,6 +39,7 @@ export default function DEL() {
       runway={strip.runway}
       clearedAltitude={strip.cleared_altitude}
       requestedAltitude={strip.requested_altitude}
+      holdingPoint={strip.release_point}
       owner={strip.owner}
     />
   );

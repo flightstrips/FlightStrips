@@ -1,5 +1,6 @@
 import {Button} from "@/components/ui/button"
-import {Dialog, DialogContent, DialogTrigger,} from "@/components/ui/dialog"
+import {Dialog, DialogContent, DialogTitle, DialogTrigger,} from "@/components/ui/dialog"
+import * as VisuallyHidden from "@radix-ui/react-visually-hidden"
 import {Input} from "@/components/ui/input"
 import {Label} from "@/components/ui/label"
 import React, {useState} from 'react';
@@ -54,6 +55,9 @@ export function CLXBtn({ callsign, children }: { callsign: string, children?: Re
         <div className="px-0" style={{ flex: "1 0 0%", height: "100%", minWidth: 0 }}>{children}</div>
       </DialogTrigger>
       <DialogContent className="bg-[#d4d4d4] rounded-none p-[25px] flex flex-col gap-0" style={{ width: 1000, maxWidth: 1000, height: 925, maxHeight: 925 }}>
+        <VisuallyHidden.Root>
+          <DialogTitle>Clearance</DialogTitle>
+        </VisuallyHidden.Root>
         <div className="relative border-2 border-black flex-1 flex flex-col items-center gap-[30px] min-h-0" style={{ paddingTop: 30, paddingBottom: 30 }}>
           <span className="absolute font-bold text-base bg-[#d4d4d4] px-2" style={{ top: -11, left: '50%', transform: 'translateX(-50%)', whiteSpace: 'nowrap' }}>FLIGHT PLAN</span>
           {/* Row 1: C/S ADES RNAV SID SSR TTOT CTOT */}

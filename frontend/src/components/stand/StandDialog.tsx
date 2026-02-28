@@ -2,8 +2,10 @@ import { useState } from "react"
 import {
   Dialog,
   DialogContent,
+  DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
+import * as VisuallyHidden from "@radix-ui/react-visually-hidden"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import StandMap from "./StandMap"
@@ -36,6 +38,9 @@ export default function StandDialog({ value, onSelect }: StandDialogProps) {
         </div>
       </DialogTrigger>
       <DialogContent className="h-screen max-w-none max-h-none w-screen">
+        <VisuallyHidden.Root>
+          <DialogTitle>Select Stand</DialogTitle>
+        </VisuallyHidden.Root>
         <StandMap onSelect={handleSelect} />
       </DialogContent>
     </Dialog>

@@ -15,7 +15,7 @@ interface StripCellProps {
 export function StripCell({ children, width, className }: StripCellProps) {
   return (
     <div
-      className={`border-x border-[#85b4af] h-full flex-shrink-0 overflow-hidden ${className ?? ""}`}
+      className={`border-r border-[#85b4af] h-full flex-shrink-0 overflow-hidden ${className ?? ""}`}
       style={width !== undefined ? { width } : undefined}
     >
       {children}

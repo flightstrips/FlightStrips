@@ -9,13 +9,47 @@ const FULL_H  = "4.44vh";
 const HALF_H  = "2.22vh";
 
 /**
- * DelStrip - shown before departure clearance is issued (status="CLR").
+ * ClxClearedStrip — used in the CLEARED bay on the CLX layout (status="CLROK").
  *
- * Width: 80% of bay. Left 50% | Right 50%
- *   Left:  Callsign (2/3) | Dest+Stand (1/3, stacked no line)
- *   Right: EOBT (left half) | TOBT/TSAT (right half, stacked with line between)
+ * Same layout as DelStrip but with:
+ *  - SI box (8.44% extra width → total 88.44% of bay)
+ *  - CTOT added below EOBT
+ *
+ * Width: 88.44% of bay.
+ *   SI (8.44) | Left 50% of 80: Callsign (2/3) + Dest/Stand (1/3)
+ *             | Right 50% of 80: EOBT/CTOT (left) + TOBT/TSAT (right)
  */
-export function DelStrip({
+
+function SIBox({ owner, nextControllers, previousControllers, myIdentifier }: {
+  owner?: string;
+  nextControllers?: string[];
+  previousControllers?: string[];
+  myIdentifier?: string;
+}) {
+  const isAssumed = !!myIdentifier && owner === myIdentifier;
+  const isTransferredAway =
+    !!myIdentifier &&
+    !!previousControllers?.includes(myIdentifier) &&
+    !nextControllers?.includes(myIdentifier);
+
+  let bgColor = "#E082E7";
+  if (isAssumed) bgColor = "#F0F0F0";
+  else if (isTransferredAway) bgColor = "#DD6A12";
+
+  const nextLabel =
+    isAssumed && nextControllers?.[0] ? nextControllers[0].slice(0, 2) : "";
+
+  return (
+    <div
+      className={`flex items-center justify-center text-sm font-bold ${CELL_BORDER}`}
+      style={{ flex: "8.44 0 0%", height: "100%", backgroundColor: bgColor, minWidth: 0 }}
+    >
+      {nextLabel}
+    </div>
+  );
+}
+
+export function ClxClearedStrip({
   callsign,
   pdcStatus,
   destination,
@@ -23,7 +57,12 @@ export function DelStrip({
   eobt,
   tobt,
   tsat,
+  ctot,
   arrival,
+  owner,
+  nextControllers,
+  previousControllers,
+  myIdentifier,
   selectable,
 }: StripProps) {
   const selectedCallsign = useSelectedCallsign();
@@ -39,7 +78,7 @@ export function DelStrip({
       className={`select-none${isSelected ? " outline outline-2 outline-[#FF00F5]" : ""}${selectable ? " cursor-pointer" : ""}`}
       style={{
         height: FULL_H,
-        width: "80%",
+        width: "88.44%",
         backgroundColor: "#85b4af",
         padding: "1px",
         borderLeft: "2px solid white",
@@ -54,12 +93,20 @@ export function DelStrip({
         className="flex text-black"
         style={{ height: "100%", overflow: "hidden", backgroundColor: getStripBg(pdcStatus, arrival) }}
       >
-        {/* ── Left 50% ── */}
+        {/* SI / ownership — 8.44% */}
+        <SIBox
+          owner={owner}
+          nextControllers={nextControllers}
+          previousControllers={previousControllers}
+          myIdentifier={myIdentifier}
+        />
+
+        {/* ── Left half of 80% ── */}
 
         {/* Callsign — 2/3 of left half */}
         <button
           className={`flex items-center justify-start overflow-hidden active:bg-[#F237AA] ${CELL_BORDER}`}
-          style={{ flex: "2 0 0%", height: "100%", minWidth: 0, fontFamily: RUBIK, fontWeight: 500, fontSize: 24 }}
+          style={{ flex: "26.667 0 0%", height: "100%", minWidth: 0, fontFamily: RUBIK, fontWeight: 500, fontSize: 24 }}
         >
           <span className="truncate w-full">{callsign}</span>
         </button>
@@ -67,7 +114,7 @@ export function DelStrip({
         {/* Dest / Stand — 1/3 of left half, top=dest bottom=stand, no line */}
         <div
           className={`flex flex-col overflow-hidden ${CELL_BORDER}`}
-          style={{ flex: "1 0 0%", height: "100%", minWidth: 0 }}
+          style={{ flex: "13.333 0 0%", height: "100%", minWidth: 0 }}
         >
           <CLXBtn callsign={callsign}>
             <div className="flex items-center justify-center overflow-hidden" style={{ height: HALF_H, fontFamily: RUBIK, fontWeight: 700, fontSize: 14 }}>
@@ -79,18 +126,21 @@ export function DelStrip({
           </CLXBtn>
         </div>
 
-        {/* ── Right 50% ── */}
+        {/* ── Right half of 80% ── */}
 
-        {/* EOBT (left) | TOBT/TSAT (right) — horizontal split */}
         <div
-          className={`flex flex-row overflow-hidden ${CELL_BORDER}`}
-          style={{ flex: "3 0 0%", height: "100%", minWidth: 0 }}
+          className="flex flex-row overflow-hidden"
+          style={{ flex: "40 0 0%", height: "100%", minWidth: 0 }}
         >
-          {/* EOBT — left half */}
-          <div className={`flex flex-col justify-start overflow-hidden ${CELL_BORDER}`} style={{ flex: "1 0 0%", height: "100%", minWidth: 0 }}>
-            <div className="flex items-center justify-between px-1 overflow-hidden" style={{ height: HALF_H, fontFamily: RUBIK, fontWeight: 400, fontSize: 14 }}>
+          {/* EOBT / CTOT — left half, stacked with line between */}
+          <div className={`flex flex-col overflow-hidden ${CELL_BORDER}`} style={{ flex: "1 0 0%", height: "100%", minWidth: 0 }}>
+            <div className="flex items-center justify-between px-1 border-b border-[#85b4af] overflow-hidden" style={{ height: HALF_H, fontFamily: RUBIK, fontWeight: 400, fontSize: 14 }}>
               <span className="text-black shrink-0">EOBT</span>
               <span>{eobt}</span>
+            </div>
+            <div className="flex items-center justify-between px-1 overflow-hidden" style={{ height: HALF_H, fontFamily: RUBIK, fontWeight: 400, fontSize: 14 }}>
+              <span className="text-black shrink-0">CTOT</span>
+              <span>{ctot}</span>
             </div>
           </div>
 

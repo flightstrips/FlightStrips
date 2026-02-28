@@ -3,7 +3,9 @@ import { useSelectedCallsign, useSelectStrip } from "@/store/store-hooks";
 
 const CELL_BORDER = "border-r border-[#85b4af]";
 const RUBIK = "'Rubik', sans-serif";
-const HALF_H = "2.22vh"; // half of 4.44vh for TSAT/CTOT split
+const HALF_H = "2.22vh";    // half of 4.44vh for TSAT/CTOT split
+const TOP_H  = "2.96vh";    // 2/3 of 4.44vh
+const BOT_H  = "1.48vh";    // 1/3 of 4.44vh
 
 // Flex-grow proportions (flex-basis: 0 so space is shared proportionally)
 const F_SI       = 8;
@@ -73,20 +75,21 @@ export function ApnPushStrip({
 
   return (
     <div
-      className={`flex text-black select-none${isSelected ? " outline outline-2 outline-[#FF00F5]" : ""}${selectable ? " cursor-pointer" : ""}`}
+      className={`select-none${isSelected ? " outline outline-2 outline-[#FF00F5]" : ""}${selectable ? " cursor-pointer" : ""}`}
       style={{
         height: "4.44vh",
         width: "90%",
-        backgroundColor: "#bef5ef",
+        backgroundColor: "#85b4af",
+        padding: "1px",
         borderLeft: "2px solid white",
         borderRight: "2px solid white",
         borderTop: "2px solid white",
         borderBottom: "1px solid white",
         boxShadow: "1px 0 0 0 #2F2F2F, 0 -1px 0 0 #2F2F2F",
-        overflow: "hidden",
       }}
       onClick={handleClick}
     >
+    <div className="flex text-black" style={{ height: "100%", overflow: "hidden", backgroundColor: "#bef5ef" }}>
       {/* SI / ownership — 8% */}
       <SIBox
         owner={owner}
@@ -95,14 +98,17 @@ export function ApnPushStrip({
         myIdentifier={myIdentifier}
       />
 
-      {/* Callsign — 25%, Rubik medium 20 */}
+      {/* Callsign — 25%, Rubik medium 20, top 2/3 highlighted when selected */}
       <div
-        className={`flex items-center pl-2 overflow-hidden ${CELL_BORDER}`}
-        style={{ flex: `${F_CALLSIGN} 0 0%`, height: "100%", paddingBottom: "1.48vh", minWidth: 0 }}
+        className={`flex flex-col overflow-hidden ${CELL_BORDER}`}
+        style={{ flex: `${F_CALLSIGN} 0 0%`, height: "100%", minWidth: 0 }}
       >
-        <span className="truncate w-full" style={{ fontFamily: RUBIK, fontWeight: 500, fontSize: 20 }}>
-          {callsign}
-        </span>
+        <div className="flex items-center pl-2" style={{ height: TOP_H, backgroundColor: isSelected ? "#FF00F5" : undefined }}>
+          <span className="truncate w-full" style={{ fontFamily: RUBIK, fontWeight: 500, fontSize: 20 }}>
+            {callsign}
+          </span>
+        </div>
+        <div style={{ height: BOT_H }} />
       </div>
 
       {/* A/C type / Registration — 25%*(2/3), Rubik regular 10, stacked top 2/3 no divider */}
@@ -144,6 +150,7 @@ export function ApnPushStrip({
       >
         <span style={{ fontFamily: RUBIK, fontWeight: 600, fontSize: 20 }}>{runway}</span>
       </div>
+    </div>
     </div>
   );
 }

@@ -1,8 +1,8 @@
 import type { PdcStatus } from "@/api/models";
 import { ApnArrStrip } from "./ApnArrStrip";
 import { ApnPushStrip } from "./ApnPushStrip";
+import { ClxClearedStrip } from "./ClxClearedStrip";
 import { DelStrip } from "./DelStrip";
-import { GroundStrip } from "./GroundStrip";
 import { HalfStrip } from "./HalfStrip";
 import type { HalfStripVariant, StripProps, StripStatus } from "./types";
 
@@ -33,7 +33,7 @@ export function FlightStrip({ status, pdcStatus, ...rest }: FlightStripProps) {
     case "CLR":
       return <DelStrip {...props} />;
     case "CLROK":
-      return <GroundStrip {...props} />;
+      return <ClxClearedStrip {...props} />;
     case "HALF":
       return <HalfStrip {...props} />;
     case "PUSH":

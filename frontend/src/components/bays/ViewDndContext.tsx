@@ -127,7 +127,7 @@ export function ViewDndContext({
       <DragStateContext value={{ activeId, isValidTarget }}>
         {children}
         {renderDragOverlay && (
-          <DragOverlay>
+          <DragOverlay style={{ opacity: 0.5 }}>
             {activeId ? renderDragOverlay(activeId) : null}
           </DragOverlay>
         )}

@@ -117,7 +117,7 @@ export function SortableStrip({ callsign, children, hideWhenDragging = false }: 
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
-    opacity: hideWhenDragging && isDragging ? 0 : 1,
+    opacity: isDragging ? (hideWhenDragging ? 0 : 0.5) : 1,
   };
   return (
     <div ref={setNodeRef} style={style} {...attributes} {...listeners}>

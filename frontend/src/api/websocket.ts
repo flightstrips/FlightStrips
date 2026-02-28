@@ -12,6 +12,10 @@ import {
   type FrontendInitialEvent, type FrontendLayoutUpdateEvent, type FrontendOwnersUpdateEvent,
   type FrontendPdcStateUpdateEvent,
   type FrontendReleasePointEvent,
+  type FrontendCoordinationTransferBroadcastEvent,
+  type FrontendCoordinationAssumeBroadcastEvent,
+  type FrontendCoordinationRejectBroadcastEvent,
+  type FrontendCoordinationFreeBroadcastEvent,
   type FrontendRequestedAltitudeEvent,
   type FrontendSendEvent,
   type FrontendSetHeadingEvent,
@@ -44,6 +48,10 @@ type EventMap = {
   [EventType.FrontendCdmWait]: FrontendCdmWaitEvent;
   [EventType.FrontendReleasePoint]: FrontendReleasePointEvent;
   [EventType.FrontendPdcStateChange]: FrontendPdcStateUpdateEvent;
+  [EventType.FrontendCoordinationTransferBroadcast]: FrontendCoordinationTransferBroadcastEvent;
+  [EventType.FrontendCoordinationAssumeBroadcast]: FrontendCoordinationAssumeBroadcastEvent;
+  [EventType.FrontendCoordinationRejectBroadcast]: FrontendCoordinationRejectBroadcastEvent;
+  [EventType.FrontendCoordinationFreeBroadcast]: FrontendCoordinationFreeBroadcastEvent;
 };
 
 type WebSocketClientDelegate = {

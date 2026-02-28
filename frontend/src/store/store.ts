@@ -15,6 +15,10 @@ import {
   type FrontendInitialEvent,
   type FrontendLayoutUpdateEvent,
   type FrontendOwnersUpdateEvent, type FrontendPdcStateUpdateEvent, type FrontendReleasePointEvent,
+  type FrontendCoordinationTransferBroadcastEvent,
+  type FrontendCoordinationAssumeBroadcastEvent,
+  type FrontendCoordinationRejectBroadcastEvent,
+  type FrontendCoordinationFreeBroadcastEvent,
   type FrontendRequestedAltitudeEvent,
   type FrontendSetHeadingEvent,
   type FrontendSquawkEvent,
@@ -45,6 +49,7 @@ export interface WebSocketState {
   layout: string;
   runwaySetup: RunwayConfiguration;
   isInitialized: boolean;
+  stripTransfers: Record<string, string>;
 
   activeMessages: FrontendBroadcastEvent[];
 
@@ -78,6 +83,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
       arrival: []
     },
     isInitialized: false,
+    stripTransfers: {},
     activeMessages: [],
     selectedCallsign: null
   };
@@ -203,6 +209,11 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
         state.layout = data.layout;
         state.runwaySetup = data.runway_setup;
         state.isInitialized = true;
+        const transfers: Record<string, string> = {};
+        for (const coord of data.coordinations) {
+          transfers[coord.callsign] = coord.to;
+        }
+        state.stripTransfers = transfers;
       })
     );
   };
@@ -432,6 +443,38 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     )
   }
 
+  const handleCoordinationTransferBroadcastEvent = (data: FrontendCoordinationTransferBroadcastEvent) => {
+    store.setState(
+      produce((state: WebSocketState) => {
+        state.stripTransfers[data.callsign] = data.to;
+      })
+    );
+  };
+
+  const handleCoordinationAssumeBroadcastEvent = (data: FrontendCoordinationAssumeBroadcastEvent) => {
+    store.setState(
+      produce((state: WebSocketState) => {
+        delete state.stripTransfers[data.callsign];
+      })
+    );
+  };
+
+  const handleCoordinationRejectBroadcastEvent = (data: FrontendCoordinationRejectBroadcastEvent) => {
+    store.setState(
+      produce((state: WebSocketState) => {
+        delete state.stripTransfers[data.callsign];
+      })
+    );
+  };
+
+  const handleCoordinationFreeBroadcastEvent = (data: FrontendCoordinationFreeBroadcastEvent) => {
+    store.setState(
+      produce((state: WebSocketState) => {
+        delete state.stripTransfers[data.callsign];
+      })
+    );
+  };
+
   // Register event handlers
   wsClient.on(EventType.FrontendInitial, handleInitialEvent);
   wsClient.on(EventType.FrontendStripUpdate, handleStripUpdateEvent);
@@ -454,6 +497,10 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
   wsClient.on(EventType.FrontendCdmWait, handleCdmWaitEvent);
   wsClient.on(EventType.FrontendReleasePoint, handleReleasePointEvent);
   wsClient.on(EventType.FrontendPdcStateChange, handlePdcStateUpdateEvent);
+  wsClient.on(EventType.FrontendCoordinationTransferBroadcast, handleCoordinationTransferBroadcastEvent);
+  wsClient.on(EventType.FrontendCoordinationAssumeBroadcast, handleCoordinationAssumeBroadcastEvent);
+  wsClient.on(EventType.FrontendCoordinationRejectBroadcast, handleCoordinationRejectBroadcastEvent);
+  wsClient.on(EventType.FrontendCoordinationFreeBroadcast, handleCoordinationFreeBroadcastEvent);
 
   return store;
 };

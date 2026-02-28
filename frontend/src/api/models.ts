@@ -20,6 +20,10 @@ export enum EventType {
   FrontendCdmWait = "cdm_wait",
   FrontendReleasePoint = "release_point",
   FrontendPdcStateChange = "pdc_state_change",
+  FrontendCoordinationTransferBroadcast = "coordination_transfer_broadcast",
+  FrontendCoordinationAssumeBroadcast = "coordination_assume_broadcast",
+  FrontendCoordinationRejectBroadcast = "coordination_reject_broadcast",
+  FrontendCoordinationFreeBroadcast = "coordination_free_broadcast",
 }
 
 export enum ActionType {
@@ -106,6 +110,7 @@ export interface FrontendInitialEvent {
   layout: string;
   callsign: string;
   runway_setup: RunwayConfiguration;
+  coordinations: Array<{ callsign: string; from: string; to: string }>;
 }
 
 export interface FrontendStripUpdateEvent {
@@ -272,6 +277,30 @@ export interface FrontendPdcStateUpdateEvent {
   state: "NONE" | "REQUESTED" | "CLEARED" | "CONFIRMED" | "NO_RESPONSE" | "FAILED";
 }
 
+export interface FrontendCoordinationTransferBroadcastEvent {
+  type: EventType.FrontendCoordinationTransferBroadcast;
+  callsign: string;
+  from: string;
+  to: string;
+}
+
+export interface FrontendCoordinationAssumeBroadcastEvent {
+  type: EventType.FrontendCoordinationAssumeBroadcast;
+  callsign: string;
+  position: string;
+}
+
+export interface FrontendCoordinationRejectBroadcastEvent {
+  type: EventType.FrontendCoordinationRejectBroadcast;
+  callsign: string;
+  position: string;
+}
+
+export interface FrontendCoordinationFreeBroadcastEvent {
+  type: EventType.FrontendCoordinationFreeBroadcast;
+  callsign: string;
+}
+
 // Union type for all events that can be received
 export type WebSocketEvent =
   | FrontendInitialEvent
@@ -294,7 +323,11 @@ export type WebSocketEvent =
   | FrontendCdmDataEvent
   | FrontendCdmWaitEvent
   | FrontendReleasePointEvent
-  | FrontendPdcStateUpdateEvent;
+  | FrontendPdcStateUpdateEvent
+  | FrontendCoordinationTransferBroadcastEvent
+  | FrontendCoordinationAssumeBroadcastEvent
+  | FrontendCoordinationRejectBroadcastEvent
+  | FrontendCoordinationFreeBroadcastEvent;
 
 export interface FrontendMoveEvent {
   type: ActionType.FrontendMove;

@@ -37,7 +37,7 @@ export function ClxClearedStrip({
   owner,
   nextControllers,
   previousControllers,
-  myIdentifier,
+  myPosition,
   selectable,
 }: StripProps) {
   const { isSelected, handleClick } = useStripSelection(callsign, selectable);
@@ -62,7 +62,7 @@ export function ClxClearedStrip({
           owner={owner}
           nextControllers={nextControllers}
           previousControllers={previousControllers}
-          myIdentifier={myIdentifier}
+          myPosition={myPosition}
           flexGrow={8.44}
         />
 

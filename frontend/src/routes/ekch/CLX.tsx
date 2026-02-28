@@ -3,10 +3,11 @@ import { FlightStrip } from "@/components/strip/FlightStrip.tsx";
 import { Message } from "@/components/Message.tsx";
 import {useClearedStrips, useNorwegianBayStrips, useOtherBayStrips, usePushbackStrips, useSasBayStrips, useTaxiDepStrips} from "@/store/airports/ekch.ts";
 import type {FrontendStrip} from "@/api/models.ts";
-import { useActiveMessages } from "@/store/store-hooks.ts";
+import { useActiveMessages, useMyPosition } from "@/store/store-hooks.ts";
 import { useRef, useEffect } from "react";
 
 export default function DEL() {
+  const myPosition = useMyPosition();
   const sasStrips = useSasBayStrips().sort((a, b) => a.sequence - b.sequence);
   const norgewianStrips = useNorwegianBayStrips().sort((a, b) => a.sequence - b.sequence);
   const otherStrips = useOtherBayStrips().sort((a, b) => a.sequence - b.sequence);
@@ -41,6 +42,9 @@ export default function DEL() {
       requestedAltitude={strip.requested_altitude}
       holdingPoint={strip.release_point}
       owner={strip.owner}
+      nextControllers={strip.next_controllers}
+      previousControllers={strip.previous_controllers}
+      myPosition={myPosition}
     />
   );
 

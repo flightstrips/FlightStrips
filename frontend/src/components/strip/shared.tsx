@@ -2,7 +2,7 @@
  * Shared strip sub-components and helpers used across multiple strip variants.
  */
 
-import { useSelectedCallsign, useSelectStrip } from "@/store/store-hooks";
+import { useSelectedCallsign, useSelectStrip, useControllers } from "@/store/store-hooks";
 import type { CSSProperties } from "react";
 
 export const SELECTION_COLOR = "#FF00F5";
@@ -79,31 +79,32 @@ export function SIBox({
   owner,
   nextControllers,
   previousControllers,
-  myIdentifier,
+  myPosition,
   marked,
   flexGrow = F_SI,
 }: {
   owner?: string;
   nextControllers?: string[];
   previousControllers?: string[];
-  myIdentifier?: string;
+  myPosition?: string;
   /** Pass true when the strip is in the marked state (not yet wired). */
   marked?: boolean;
   /** flex-grow value (defaults to 8). Override when the strip layout requires a different proportion. */
   flexGrow?: number;
 }) {
-  const isAssumed = !!myIdentifier && owner === myIdentifier;
-  const isTransferredAway =
-    !!myIdentifier &&
-    !!previousControllers?.includes(myIdentifier) &&
-    !nextControllers?.includes(myIdentifier);
+  const controllers = useControllers();
+  const isAssumed = !!myPosition && owner === myPosition;
+  const isTransferredAway = !!myPosition && !!previousControllers?.includes(myPosition);
+  const isConcerned = !!myPosition && !!nextControllers?.includes(myPosition);
 
-  let bgColor = "#E082E7";
+  let bgColor = "#808080"; // unconcerned
   if (isAssumed) bgColor = "#F0F0F0";
   else if (isTransferredAway) bgColor = "#DD6A12";
+  else if (isConcerned) bgColor = "#E082E7";
 
-  const nextLabel =
-    isAssumed && nextControllers?.[0] ? nextControllers[0].slice(0, 2) : "";
+  const nextPosition = nextControllers?.find(pos => pos !== myPosition);
+  const nextController = controllers.find(c => c.position === nextPosition);
+  const nextLabel = isAssumed && nextController ? nextController.identifier : "";
 
   return (
     <div
@@ -114,6 +115,9 @@ export function SIBox({
         backgroundColor: bgColor,
         minWidth: 0,
         borderRightColor: getCellBorderColor(!!marked),
+        fontFamily: "'Arial', sans-serif",
+        fontSize: 22,
+        color: "#8F8F8F"
       }}
     >
       {nextLabel}

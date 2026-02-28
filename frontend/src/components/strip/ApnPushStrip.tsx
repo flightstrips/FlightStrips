@@ -37,7 +37,7 @@ export function ApnPushStrip({
   owner,
   nextControllers,
   previousControllers,
-  myIdentifier,
+  myPosition,
   selectable,
 }: StripProps) {
   const { isSelected, handleClick } = useStripSelection(callsign, selectable);
@@ -59,7 +59,7 @@ export function ApnPushStrip({
           owner={owner}
           nextControllers={nextControllers}
           previousControllers={previousControllers}
-          myIdentifier={myIdentifier}
+          myPosition={myPosition}
         />
 
         {/* Callsign — 25%, Rubik medium 20, top 2/3 highlighted when selected */}

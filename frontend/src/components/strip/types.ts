@@ -38,7 +38,7 @@ export interface StripProps {
   owner?: string;
   nextControllers?: string[];
   previousControllers?: string[];
-  myIdentifier?: string;
+  myPosition?: string;
   selectable?: boolean;
 }
 

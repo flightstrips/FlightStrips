@@ -23,3 +23,4 @@ export const useStrip = (callsign: string) => useWebSocketStore((state) => state
 export const useSelectedCallsign = () => useWebSocketStore((state) => state.selectedCallsign);
 export const useSelectStrip = () => useWebSocketStore((state) => state.selectStrip);
 export const useActiveMessages = () => useWebSocketStore((state) => state.activeMessages);
+export const useMyPosition = () => useWebSocketStore((state) => state.position);

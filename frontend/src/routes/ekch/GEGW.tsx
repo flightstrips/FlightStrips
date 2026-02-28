@@ -14,37 +14,42 @@ import { Bay } from "@/api/models.ts";
 import type { HalfStripVariant, StripStatus } from "@/components/strip/types.ts";
 import { SortableBay, DropIndicatorBay } from "@/components/bays/SortableBay.tsx";
 import { ViewDndContext } from "@/components/bays/ViewDndContext.tsx";
-import { useWebSocketStore } from "@/store/store-hooks.ts";
+import { useWebSocketStore, useMyPosition } from "@/store/store-hooks.ts";
 import { useRef, useEffect } from "react";
 
-const mapToStrip = (strip: FrontendStrip, status: StripStatus, halfStripVariant?: HalfStripVariant, selectable = true) => (
-  <FlightStrip
-    key={strip.callsign}
-    callsign={strip.callsign}
-    status={status}
-    halfStripVariant={halfStripVariant}
-    pdcStatus={strip.pdc_state}
-    destination={strip.destination}
-    origin={strip.origin}
-    stand={strip.stand}
-    eobt={strip.eobt}
-    tobt={strip.tobt}
-    tsat={strip.tsat}
-    ctot={strip.ctot}
-    aircraftType={strip.aircraft_type}
-    squawk={strip.squawk}
-    sid={strip.sid}
-    runway={strip.runway}
-    clearedAltitude={strip.cleared_altitude}
-    requestedAltitude={strip.requested_altitude}
-    holdingPoint={strip.release_point}
-    owner={strip.owner}
-    selectable={selectable}
-  />
-);
 
 export default function GEGW() {
+  const myPosition = useMyPosition();
   const messages     = useActiveMessages();
+
+  const mapToStrip = (strip: FrontendStrip, status: StripStatus, halfStripVariant?: HalfStripVariant, selectable = true) => (
+    <FlightStrip
+      key={strip.callsign}
+      callsign={strip.callsign}
+      status={status}
+      halfStripVariant={halfStripVariant}
+      pdcStatus={strip.pdc_state}
+      destination={strip.destination}
+      origin={strip.origin}
+      stand={strip.stand}
+      eobt={strip.eobt}
+      tobt={strip.tobt}
+      tsat={strip.tsat}
+      ctot={strip.ctot}
+      aircraftType={strip.aircraft_type}
+      squawk={strip.squawk}
+      sid={strip.sid}
+      runway={strip.runway}
+      clearedAltitude={strip.cleared_altitude}
+      requestedAltitude={strip.requested_altitude}
+      holdingPoint={strip.release_point}
+      owner={strip.owner}
+      nextControllers={strip.next_controllers}
+      previousControllers={strip.previous_controllers}
+      myPosition={myPosition}
+      selectable={selectable}
+    />
+  );
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {

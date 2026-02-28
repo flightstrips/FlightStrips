@@ -1,5 +1,6 @@
 import { FlightStrip } from "@/components/strip/FlightStrip.tsx";
 import { Message } from "@/components/Message.tsx";
+import { useMyPosition } from "@/store/store-hooks.ts";
 import {
   useActiveMessages,
   useClearedStrips,
@@ -22,34 +23,6 @@ import { ViewDndContext } from "@/components/bays/ViewDndContext.tsx";
 import { useWebSocketStore } from "@/store/store-hooks.ts";
 import { useRef, useEffect } from "react";
 
-const mapToStrip = (strip: FrontendStrip, status: StripStatus, halfStripVariant?: HalfStripVariant, selectable = true) => (
-  <FlightStrip
-    key={strip.callsign}
-    callsign={strip.callsign}
-    status={status}
-    halfStripVariant={halfStripVariant}
-    pdcStatus={strip.pdc_state}
-    destination={strip.destination}
-    origin={strip.origin}
-    stand={strip.stand}
-    eobt={strip.eobt}
-    tobt={strip.tobt}
-    tsat={strip.tsat}
-    ctot={strip.ctot}
-    aircraftType={strip.aircraft_type}
-    squawk={strip.squawk}
-    sid={strip.sid}
-    runway={strip.runway}
-    clearedAltitude={strip.cleared_altitude}
-    requestedAltitude={strip.requested_altitude}
-    holdingPoint={strip.release_point}
-    owner={strip.owner}
-    nextControllers={strip.next_controllers}
-    previousControllers={strip.previous_controllers}
-    selectable={selectable}
-  />
-);
-
 // Shared header styles
 const activeHeader   = "bg-[#b3b3b3] h-10 flex items-center px-2 shrink-0";
 const activeLabel    = "text-[#393939] font-bold text-lg";
@@ -61,7 +34,37 @@ const scrollArea     = "w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-
 const btn            = "bg-[#646464] text-white font-bold text-sm px-3 border-2 border-white active:bg-[#424242]";
 
 export default function AAAD() {
+  const myPosition  = useMyPosition();
   const messages      = useActiveMessages();
+
+  const mapToStrip = (strip: FrontendStrip, status: StripStatus, halfStripVariant?: HalfStripVariant, selectable = true) => (
+    <FlightStrip
+      key={strip.callsign}
+      callsign={strip.callsign}
+      status={status}
+      halfStripVariant={halfStripVariant}
+      pdcStatus={strip.pdc_state}
+      destination={strip.destination}
+      origin={strip.origin}
+      stand={strip.stand}
+      eobt={strip.eobt}
+      tobt={strip.tobt}
+      tsat={strip.tsat}
+      ctot={strip.ctot}
+      aircraftType={strip.aircraft_type}
+      squawk={strip.squawk}
+      sid={strip.sid}
+      runway={strip.runway}
+      clearedAltitude={strip.cleared_altitude}
+      requestedAltitude={strip.requested_altitude}
+      holdingPoint={strip.release_point}
+      owner={strip.owner}
+      nextControllers={strip.next_controllers}
+      previousControllers={strip.previous_controllers}
+      myPosition={myPosition}
+      selectable={selectable}
+    />
+  );
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {

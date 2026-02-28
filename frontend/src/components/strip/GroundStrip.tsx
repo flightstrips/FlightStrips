@@ -1,6 +1,7 @@
 import { getStripBg } from "./types";
 import type { StripProps } from "./types";
 import { useStripSelection, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR } from "./shared";
+import { useControllers } from "@/store/store-hooks";
 
 const TOP_H = 32; // 2/3 of 48px
 const BOT_H = 16; // 1/3 of 48px
@@ -26,24 +27,25 @@ export function GroundStrip({
   owner,
   nextControllers,
   previousControllers,
-  myIdentifier,
+  myPosition,
   selectable,
 }: StripProps) {
   const { isSelected, handleClick } = useStripSelection(callsign, selectable);
   const cellBorderColor = getCellBorderColor(false);
+  const controllers = useControllers();
 
-  const isAssumed = !!myIdentifier && owner === myIdentifier;
-  const isTransferredAway =
-    !!myIdentifier &&
-    !!previousControllers?.includes(myIdentifier) &&
-    !nextControllers?.includes(myIdentifier);
+  const isAssumed = !!myPosition && owner === myPosition;
+  const isTransferredAway = !!myPosition && !!previousControllers?.includes(myPosition);
+  const isConcerned = !!myPosition && !!nextControllers?.includes(myPosition);
 
-  let siBg = "#E082E7";
+  let siBg = "#808080"; // unconcerned
   if (isAssumed) siBg = "#F0F0F0";
   else if (isTransferredAway) siBg = "#DD6A12";
+  else if (isConcerned) siBg = "#E082E7";
 
-  const nextLabel =
-    isAssumed && nextControllers?.[0] ? nextControllers[0].slice(0, 2) : "";
+  const nextPosition = nextControllers?.find(pos => pos !== myPosition);
+  const nextController = controllers.find(c => c.position === nextPosition);
+  const nextLabel = isAssumed && nextController ? nextController.identifier : "";
 
   return (
     <div

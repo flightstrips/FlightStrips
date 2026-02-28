@@ -114,14 +114,21 @@ type Controller struct {
 	Identifier string `json:"identifier"`
 }
 
+type SyncCoordination struct {
+	Callsign string `json:"callsign"`
+	From     string `json:"from"`
+	To       string `json:"to"`
+}
+
 type InitialEvent struct {
-	Contsollers []Controller        `json:"controllers"`
-	Strips      []Strip             `json:"strips"`
-	Me          Controller          `json:"me"`
-	Layout      string              `json:"layout"`
-	Airport     string              `json:"airport"`
-	Callsign    string              `json:"callsign"`
-	RunwaySetup RunwayConfiguration `json:"runway_setup"`
+	Contsollers   []Controller        `json:"controllers"`
+	Strips        []Strip             `json:"strips"`
+	Me            Controller          `json:"me"`
+	Layout        string              `json:"layout"`
+	Airport       string              `json:"airport"`
+	Callsign      string              `json:"callsign"`
+	RunwaySetup   RunwayConfiguration `json:"runway_setup"`
+	Coordinations []SyncCoordination  `json:"coordinations"`
 }
 
 func (i InitialEvent) Marshal() ([]byte, error) {

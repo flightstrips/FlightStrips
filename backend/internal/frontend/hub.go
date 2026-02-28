@@ -203,17 +203,43 @@ func (hub *Hub) sendInitialEvent(client *Client) {
 		stripModels = append(stripModels, MapStripToFrontendModel(strip))
 	}
 
+	coordRepo := hub.server.GetCoordinationRepository()
+	coordinations, err := coordRepo.ListBySession(context.Background(), client.session)
+	if err != nil {
+		slog.Error("Failed to list coordinations", slog.Any("error", err), slog.Int("session", int(client.session)))
+		return
+	}
+
+	stripCallsignByID := make(map[int32]string)
+	for _, strip := range strips {
+		stripCallsignByID[strip.ID] = strip.Callsign
+	}
+
+	coordinationModels := make([]frontend.SyncCoordination, 0, len(coordinations))
+	for _, coord := range coordinations {
+		callsign, ok := stripCallsignByID[coord.StripID]
+		if !ok {
+			continue
+		}
+		coordinationModels = append(coordinationModels, frontend.SyncCoordination{
+			Callsign: callsign,
+			From:     coord.FromPosition,
+			To:       coord.ToPosition,
+		})
+	}
+
 	event := frontend.InitialEvent{
-		Contsollers: controllerModels,
-		Strips:      stripModels,
-		Me:          me,
-		Callsign:    client.callsign,
-		Airport:     client.airport,
-		Layout:      layout,
-		RunwaySetup: frontend.RunwayConfiguration{
+		Contsollers:   controllerModels,
+		Strips:        stripModels,
+		Me:            me,
+		Callsign:      client.callsign,
+		Airport:       client.airport,
+		Layout:        layout,
+		RunwaySetup:   frontend.RunwayConfiguration{
 			Departure: make([]string, 0),
 			Arrival:   make([]string, 0),
 		},
+		Coordinations: coordinationModels,
 	}
 
 	client.send <- event

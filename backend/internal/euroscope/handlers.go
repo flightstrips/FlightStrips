@@ -65,6 +65,8 @@ func handleControllerOnline(ctx context.Context, client *Client, message Message
 		shouldUpdate = true
 	}
 
+	slog.Debug("Controller online with updated position", slog.String("callsign", event.Callsign), slog.String("position", event.Position), slog.Bool("shouldUpdate", shouldUpdate))
+
 	if shouldUpdate {
 		err = s.UpdateSectors(client.session)
 		if err != nil {

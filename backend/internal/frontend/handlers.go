@@ -7,6 +7,7 @@ import (
 	"FlightStrips/pkg/events/frontend"
 	"context"
 	"errors"
+	"log/slog"
 	"slices"
 )
 
@@ -75,6 +76,45 @@ func handleClearedBayUpdate(ctx context.Context, client *Client, strip *internal
 
 	if count != 1 {
 		return errors.New("failed to update strip cleared flag")
+	}
+
+	// TODO move the code somewhere else
+	if isCleared {
+		sectorRepo := client.hub.server.GetSectorOwnerRepository()
+		owners, err := sectorRepo.ListBySession(ctx, client.session)
+		if err != nil {
+			return err
+		}
+
+		sqPosition := ""
+		for _, owner := range owners {
+			if slices.Contains(owner.Sector, "SQ") {
+				sqPosition = owner.Position
+				break
+			}
+		}
+		if sqPosition == "" {
+			for _, owner := range owners {
+				if slices.Contains(owner.Sector, "DEL") {
+					sqPosition = owner.Position
+					break
+				}
+			}
+		}
+
+		slog.Debug("Assigning SQ position to cleared strip", slog.String("callsign", move.Callsign), slog.String("sqPosition", sqPosition))
+
+		if sqPosition != "" {
+			ownerCount, err := stripRepo.SetOwner(ctx, client.session, move.Callsign, &sqPosition, strip.Version+1) // HACK
+			if err != nil {
+				slog.Debug("Failed to assign SQ position to cleared strip", slog.String("callsign", move.Callsign), slog.String("sqPosition", sqPosition), slog.Any("error", err))
+				return err
+			}
+			if ownerCount == 1 {
+				slog.Debug("Strip owner updated to SQ position", slog.String("callsign", move.Callsign), slog.String("sqPosition", sqPosition))
+				client.hub.SendCoordinationAssume(client.session, move.Callsign, sqPosition)
+			}
+		}
 	}
 
 	es.SendClearedFlag(client.session, client.GetCid(), move.Callsign, isCleared)
@@ -167,7 +207,7 @@ func handleCoordinationTransferRequest(ctx context.Context, client *Client, mess
 	s := client.hub.server
 	stripRepo := s.GetStripRepository()
 	coordRepo := s.GetCoordinationRepository()
-	
+
 	strip, err := stripRepo.GetByCallsign(ctx, client.session, req.Callsign)
 	if err != nil {
 		return err
@@ -183,7 +223,7 @@ func handleCoordinationTransferRequest(ctx context.Context, client *Client, mess
 		FromPosition: position,
 		ToPosition:   req.To,
 	}
-	
+
 	err = coordRepo.Create(ctx, coord)
 	if err != nil {
 		return err
@@ -336,7 +376,7 @@ func handleUpdateOrder(ctx context.Context, client *Client, message Message) err
 
 	s := client.hub.server
 	stripRepo := s.GetStripRepository()
-	
+
 	bay, err := stripRepo.GetBay(ctx, client.session, event.Callsign)
 	if err != nil {
 		return err

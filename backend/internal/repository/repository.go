@@ -109,7 +109,7 @@ type CoordinationRepository interface {
 
 // SectorOwnerRepository defines the interface for sector owner data access
 type SectorOwnerRepository interface {
-	Create(ctx context.Context, owner *models.SectorOwner) error
+	CreateBulk(ctx context.Context, owner []*models.SectorOwner) error
 	GetByID(ctx context.Context, id int32) (*models.SectorOwner, error)
 	ListBySession(ctx context.Context, session int32) ([]*models.SectorOwner, error)
 	Delete(ctx context.Context, id int32) error

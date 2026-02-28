@@ -47,7 +47,7 @@ func healthz(w http.ResponseWriter, _ *http.Request) {
 func main() {
 	flag.Parse()
 
-	logger := slog.New(tint.NewHandler(os.Stdout, &tint.Options{Level: slog.LevelInfo}))
+	logger := slog.New(tint.NewHandler(os.Stdout, &tint.Options{Level: slog.LevelDebug}))
 	slog.SetDefault(logger)
 
 	err := godotenv.Load()

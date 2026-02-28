@@ -1,8 +1,12 @@
 import type { StripProps } from "./types";
-import { useSelectedCallsign, useSelectStrip } from "@/store/store-hooks";
-import { SIBox } from "./shared";
+import {
+  useStripSelection,
+  getFramedStripStyle,
+  getCellBorderColor,
+  SIBox,
+  SELECTION_COLOR,
+} from "./shared";
 
-const CELL_BORDER = "border-r border-[#85b4af]";
 const RUBIK = "'Rubik', sans-serif";
 const HALF_H = "2.22vh";    // half of 4.44vh for TSAT/CTOT split
 const TOP_H  = "2.96vh";    // 2/3 of 4.44vh
@@ -36,92 +40,81 @@ export function ApnPushStrip({
   myIdentifier,
   selectable,
 }: StripProps) {
-  const selectedCallsign = useSelectedCallsign();
-  const selectStrip = useSelectStrip();
-  const isSelected = selectable && selectedCallsign === callsign;
-
-  const handleClick = selectable
-    ? () => selectStrip(isSelected ? null : callsign)
-    : undefined;
+  const { isSelected, handleClick } = useStripSelection(callsign, selectable);
+  const cellBorderColor = getCellBorderColor(false);
 
   return (
     <div
-      className={`select-none${isSelected ? " outline outline-2 outline-[#FF00F5]" : ""}${selectable ? " cursor-pointer" : ""}`}
+      className={`select-none${selectable ? " cursor-pointer" : ""}`}
       style={{
         height: "4.44vh",
         width: "90%",
-        backgroundColor: "#85b4af",
-        padding: "1px",
-        borderLeft: "2px solid white",
-        borderRight: "2px solid white",
-        borderTop: "2px solid white",
-        borderBottom: "2px solid white",
-        boxShadow: "1px 0 0 0 #2F2F2F, 0 -1px 0 0 #2F2F2F",
+        ...getFramedStripStyle(false),
       }}
       onClick={handleClick}
     >
-    <div className="flex text-black" style={{ height: "100%", overflow: "hidden", backgroundColor: "#bef5ef" }}>
-      {/* SI / ownership — 8% */}
-      <SIBox
-        owner={owner}
-        nextControllers={nextControllers}
-        previousControllers={previousControllers}
-        myIdentifier={myIdentifier}
-      />
+      <div className="flex text-black" style={{ height: "100%", overflow: "hidden", backgroundColor: "#bef5ef" }}>
+        {/* SI / ownership — 8% */}
+        <SIBox
+          owner={owner}
+          nextControllers={nextControllers}
+          previousControllers={previousControllers}
+          myIdentifier={myIdentifier}
+        />
 
-      {/* Callsign — 25%, Rubik medium 20, top 2/3 highlighted when selected */}
-      <div
-        className={`flex flex-col overflow-hidden ${CELL_BORDER}`}
-        style={{ flex: `${F_CALLSIGN} 0 0%`, height: "100%", minWidth: 0 }}
-      >
-        <div className="flex items-center pl-2" style={{ height: TOP_H, backgroundColor: isSelected ? "#FF00F5" : undefined }}>
-          <span className="truncate w-full" style={{ fontFamily: RUBIK, fontWeight: 500, fontSize: 20 }}>
-            {callsign}
-          </span>
+        {/* Callsign — 25%, Rubik medium 20, top 2/3 highlighted when selected */}
+        <div
+          className="flex flex-col overflow-hidden border-r-2"
+          style={{ flex: `${F_CALLSIGN} 0 0%`, height: "100%", minWidth: 0, borderRightColor: cellBorderColor }}
+        >
+          <div className="flex items-center pl-2" style={{ height: TOP_H, backgroundColor: isSelected ? SELECTION_COLOR : undefined }}>
+            <span className="truncate w-full" style={{ fontFamily: RUBIK, fontWeight: 500, fontSize: 20 }}>
+              {callsign}
+            </span>
+          </div>
+          <div style={{ height: BOT_H }} />
         </div>
-        <div style={{ height: BOT_H }} />
-      </div>
 
-      {/* A/C type / Registration — 25%*(2/3), Rubik regular 10, stacked top 2/3 no divider */}
-      <div
-        className={`flex flex-col items-center justify-center overflow-hidden ${CELL_BORDER}`}
-        style={{ flex: `${F_TYPE} 0 0%`, height: "100%", paddingBottom: "1.48vh", minWidth: 0 }}
-      >
-        <span className="truncate px-1 leading-tight w-full text-center" style={{ fontFamily: RUBIK, fontWeight: 400, fontSize: 10 }}>{aircraftType?.split("/")[0]}</span>
-        <span className="truncate px-1 leading-tight w-full text-center" style={{ fontFamily: RUBIK, fontWeight: 400, fontSize: 10 }}>OYFSR</span>
-      </div>
-
-      {/* Stand — 25%*(2/3), Rubik semibold 20 */}
-      <div
-        className={`flex items-center justify-center overflow-hidden ${CELL_BORDER}`}
-        style={{ flex: `${F_STAND} 0 0%`, height: "100%", paddingBottom: "1.48vh", minWidth: 0 }}
-      >
-        <span style={{ fontFamily: RUBIK, fontWeight: 600, fontSize: 20 }}>{stand}</span>
-      </div>
-
-      {/* TSAT / CTOT — 25%*(2/3), Rubik regular 12, split in half with border */}
-      <div
-        className={`flex flex-col overflow-hidden ${CELL_BORDER}`}
-        style={{ flex: `${F_TSAT} 0 0%`, height: "100%", minWidth: 0 }}
-      >
-        <div className="flex items-center gap-1 px-1 border-b border-[#85b4af]" style={{ height: HALF_H }}>
-          <span className="shrink-0" style={{ fontFamily: RUBIK, fontWeight: 400, fontSize: 12 }}>TSAT</span>
-          <span className="truncate" style={{ fontFamily: RUBIK, fontWeight: 400, fontSize: 12 }}>{tsat}</span>
+        {/* A/C type / Registration — 25%*(2/3), stacked in top 2/3 */}
+        <div
+          className="flex flex-col items-center justify-center overflow-hidden border-r-2"
+          style={{ flex: `${F_TYPE} 0 0%`, height: "100%", paddingBottom: "1.48vh", minWidth: 0, borderRightColor: cellBorderColor }}
+        >
+          <span className="truncate px-1 leading-tight w-full text-center" style={{ fontFamily: RUBIK, fontWeight: 400, fontSize: 10 }}>{aircraftType?.split("/")[0]}</span>
+          <span className="truncate px-1 leading-tight w-full text-center" style={{ fontFamily: RUBIK, fontWeight: 400, fontSize: 10 }}>OYFSR</span>
         </div>
-        <div className="flex items-center gap-1 px-1" style={{ height: HALF_H }}>
-          <span className="shrink-0" style={{ fontFamily: RUBIK, fontWeight: 400, fontSize: 12 }}>CTOT</span>
-          <span className="truncate" style={{ fontFamily: RUBIK, fontWeight: 400, fontSize: 12 }}>{ctot}</span>
+
+        {/* Stand — 25%*(2/3) */}
+        <div
+          className="flex items-center justify-center overflow-hidden border-r-2"
+          style={{ flex: `${F_STAND} 0 0%`, height: "100%", paddingBottom: "1.48vh", minWidth: 0, borderRightColor: cellBorderColor }}
+        >
+          <span style={{ fontFamily: RUBIK, fontWeight: 600, fontSize: 20 }}>{stand}</span>
+        </div>
+
+        {/* TSAT / CTOT — 25%*(2/3), split in half with border */}
+        <div
+          className="flex flex-col overflow-hidden border-r-2"
+          style={{ flex: `${F_TSAT} 0 0%`, height: "100%", minWidth: 0, borderRightColor: cellBorderColor }}
+        >
+          <div className="flex items-center gap-1 px-1 border-b-2" style={{ height: HALF_H, borderBottomColor: cellBorderColor }}>
+            <span className="shrink-0" style={{ fontFamily: RUBIK, fontWeight: 400, fontSize: 12 }}>TSAT</span>
+            <span className="truncate" style={{ fontFamily: RUBIK, fontWeight: 400, fontSize: 12 }}>{tsat}</span>
+          </div>
+          <div className="flex items-center gap-1 px-1" style={{ height: HALF_H }}>
+            <span className="shrink-0" style={{ fontFamily: RUBIK, fontWeight: 400, fontSize: 12 }}>CTOT</span>
+            <span className="truncate" style={{ fontFamily: RUBIK, fontWeight: 400, fontSize: 12 }}>{ctot}</span>
+          </div>
+        </div>
+
+        {/* RWY — 25%*(2/3)*(2/3) */}
+        <div
+          className="flex items-center justify-center overflow-hidden"
+          style={{ flex: `${F_RWY} 0 0%`, height: "100%", paddingBottom: "1.48vh", minWidth: 0 }}
+        >
+          <span style={{ fontFamily: RUBIK, fontWeight: 600, fontSize: 20 }}>{runway}</span>
         </div>
       </div>
-
-      {/* RWY — 25%*(2/3)*(2/3), Rubik semibold 20 */}
-      <div
-        className="flex items-center justify-center overflow-hidden"
-        style={{ flex: `${F_RWY} 0 0%`, height: "100%", paddingBottom: "1.48vh", minWidth: 0 }}
-      >
-        <span style={{ fontFamily: RUBIK, fontWeight: 600, fontSize: 20 }}>{runway}</span>
-      </div>
-    </div>
     </div>
   );
 }

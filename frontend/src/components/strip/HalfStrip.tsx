@@ -1,5 +1,5 @@
 import type { HalfStripVariant, StripProps } from "./types";
-import { useSelectedCallsign, useSelectStrip } from "@/store/store-hooks";
+import { useStripSelection, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR } from "./shared";
 
 /** Background colour per half-strip variant. */
 const VARIANT_BG: Record<HalfStripVariant, string> = {
@@ -33,6 +33,9 @@ const FREE_TEXT_VARIANTS: HalfStripVariant[] = [
 /** Variants that are locked (read-only, never selectable). */
 const LOCKED_VARIANTS: HalfStripVariant[] = ["LOCKED-DEP", "LOCKED-ARR"];
 
+/** Base cell border colour for HalfStrip (lighter grey). */
+const HALF_CELL_BASE = "#d9d9d9";
+
 /**
  * HalfStrip - compact single-row strip (height: 21px) used in pushback/taxi bays (status="HALF").
  * Supports multiple visual variants with different background colours and content layouts.
@@ -47,18 +50,13 @@ export function HalfStrip({
   selectable,
   halfStripVariant = "APN-PUSH",
 }: StripProps) {
-  const selectedCallsign = useSelectedCallsign();
-  const selectStrip = useSelectStrip();
-
   const isLocked = LOCKED_VARIANTS.includes(halfStripVariant);
   const isFreeText = FREE_TEXT_VARIANTS.includes(halfStripVariant);
   // Locked variants are never selectable regardless of the prop
   const isSelectable = selectable && !isLocked;
-  const isSelected = isSelectable && selectedCallsign === callsign;
+  const { isSelected, handleClick } = useStripSelection(callsign, isSelectable);
 
-  const handleClick = isSelectable
-    ? () => selectStrip(isSelected ? null : callsign)
-    : undefined;
+  const cellBorderColor = getCellBorderColor(false, HALF_CELL_BASE);
 
   const bg = VARIANT_BG[halfStripVariant];
   const label = VARIANT_LABEL[halfStripVariant];
@@ -69,20 +67,19 @@ export function HalfStrip({
 
   return (
     <div
-      className={`w-fit flex text-sm select-none${isSelected ? " outline outline-2 outline-[#FF00F5]" : ""}${isSelectable ? " cursor-pointer" : ""}`}
+      className={`w-fit flex text-sm select-none${isSelectable ? " cursor-pointer" : ""}`}
       style={{
         height: "21px",
         backgroundColor: bg,
-        borderLeft: "2px solid white",
-        borderRight: "2px solid white",
-        borderTop: "2px solid white",
-        borderBottom: "1px solid white",
-        boxShadow: "1px 0 0 0 #2F2F2F, 0 -1px 0 0 #2F2F2F",
+        ...getFlatStripBorderStyle({ borderBottom: "1px solid white" }),
       }}
       onClick={handleClick}
     >
       {/* Left identifier box */}
-      <div className={`h-full w-8 border-r border-[#d9d9d9] flex items-center justify-center font-bold text-xs ${textColor}`}>
+      <div
+        className={`h-full w-8 border-r-2 flex items-center justify-center font-bold text-xs ${textColor}`}
+        style={{ borderRightColor: cellBorderColor }}
+      >
         {label}
       </div>
 
@@ -94,19 +91,34 @@ export function HalfStrip({
       ) : (
         /* Structured variants: callsign + flight data cells */
         <>
-          <div className={`h-full w-[130px] border-r border-[#d9d9d9] flex items-center pl-2 font-bold truncate ${textColor}`}>
+          <div
+            className={`h-full w-[130px] border-r-2 flex items-center pl-2 font-bold truncate ${textColor}`}
+            style={{ borderRightColor: cellBorderColor, backgroundColor: isSelected ? SELECTION_COLOR : undefined }}
+          >
             {callsign}
           </div>
-          <div className={`h-full w-14 border-r border-[#d9d9d9] flex items-center justify-center text-xs ${textColor}`}>
+          <div
+            className={`h-full w-14 border-r-2 flex items-center justify-center text-xs ${textColor}`}
+            style={{ borderRightColor: cellBorderColor }}
+          >
             {aircraftType}
           </div>
-          <div className={`h-full w-14 border-r border-[#d9d9d9] flex items-center justify-center font-bold ${textColor}`}>
+          <div
+            className={`h-full w-14 border-r-2 flex items-center justify-center font-bold ${textColor}`}
+            style={{ borderRightColor: cellBorderColor }}
+          >
             {runway}
           </div>
-          <div className={`h-full w-14 border-r border-[#d9d9d9] flex items-center justify-center font-bold ${textColor}`}>
+          <div
+            className={`h-full w-14 border-r-2 flex items-center justify-center font-bold ${textColor}`}
+            style={{ borderRightColor: cellBorderColor }}
+          >
             {taxiway}
           </div>
-          <div className={`h-full w-10 border-r border-[#d9d9d9] flex items-center justify-center text-xs ${textColor}`}>
+          <div
+            className={`h-full w-10 border-r-2 flex items-center justify-center text-xs ${textColor}`}
+            style={{ borderRightColor: cellBorderColor }}
+          >
             {holdingPoint}
           </div>
           <div className={`h-full w-14 flex items-center justify-center font-bold ${textColor}`}>

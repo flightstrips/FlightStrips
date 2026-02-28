@@ -1,9 +1,13 @@
 import type { StripProps } from "./types";
-import { useSelectedCallsign, useSelectStrip } from "@/store/store-hooks";
+import {
+  useStripSelection,
+  getFramedStripStyle,
+  getCellBorderColor,
+  SIBox,
+  SELECTION_COLOR,
+} from "./shared";
 import { getSimpleAircraftType } from "@/lib/utils";
-import { SIBox } from "./shared";
 
-const CELL_BORDER = "border-r border-[#85b4af]";
 const RUBIK = "'Rubik', sans-serif";
 const TOP_H  = "2.96vh";  // 2/3 of 4.44vh
 const BOT_H  = "1.48vh";  // 1/3 of 4.44vh
@@ -36,27 +40,16 @@ export function ApnTaxiDepStrip({
   myIdentifier,
   selectable,
 }: StripProps) {
-  const selectedCallsign = useSelectedCallsign();
-  const selectStrip = useSelectStrip();
-  const isSelected = selectable && selectedCallsign === callsign;
-
-  const handleClick = selectable
-    ? () => selectStrip(isSelected ? null : callsign)
-    : undefined;
+  const { isSelected, handleClick } = useStripSelection(callsign, selectable);
+  const cellBorderColor = getCellBorderColor(false);
 
   return (
     <div
-      className={`select-none${isSelected ? " outline outline-2 outline-[#FF00F5]" : ""}${selectable ? " cursor-pointer" : ""}`}
+      className={`select-none${selectable ? " cursor-pointer" : ""}`}
       style={{
         height: "4.44vh",
         width: "90%",
-        backgroundColor: "#85b4af",
-        padding: "1px",
-        borderLeft: "2px solid white",
-        borderRight: "2px solid white",
-        borderTop: "2px solid white",
-        borderBottom: "2px solid white",
-        boxShadow: "1px 0 0 0 #2F2F2F, 0 -1px 0 0 #2F2F2F",
+        ...getFramedStripStyle(false),
       }}
       onClick={handleClick}
     >
@@ -72,10 +65,10 @@ export function ApnTaxiDepStrip({
 
         {/* Callsign — 25%, Rubik medium 20, top 2/3 highlighted when selected */}
         <div
-          className={`flex flex-col overflow-hidden ${CELL_BORDER}`}
-          style={{ flex: `${F_CALLSIGN} 0 0%`, height: "100%", minWidth: 0 }}
+          className="flex flex-col overflow-hidden border-r-2"
+          style={{ flex: `${F_CALLSIGN} 0 0%`, height: "100%", minWidth: 0, borderRightColor: cellBorderColor }}
         >
-          <div className="flex items-center pl-2" style={{ height: TOP_H, backgroundColor: isSelected ? "#FF00F5" : undefined }}>
+          <div className="flex items-center pl-2" style={{ height: TOP_H, backgroundColor: isSelected ? SELECTION_COLOR : undefined }}>
             <span className="truncate w-full" style={{ fontFamily: RUBIK, fontWeight: 500, fontSize: 20 }}>
               {callsign}
             </span>
@@ -85,8 +78,8 @@ export function ApnTaxiDepStrip({
 
         {/* A/C type / Registration — 25%*(2/3), stacked in top 2/3 */}
         <div
-          className={`flex flex-col items-center justify-center overflow-hidden ${CELL_BORDER}`}
-          style={{ flex: `${F_TYPE} 0 0%`, height: "100%", paddingBottom: BOT_H, minWidth: 0 }}
+          className="flex flex-col items-center justify-center overflow-hidden border-r-2"
+          style={{ flex: `${F_TYPE} 0 0%`, height: "100%", paddingBottom: BOT_H, minWidth: 0, borderRightColor: cellBorderColor }}
         >
           <span className="truncate px-1 leading-tight w-full text-center" style={{ fontFamily: RUBIK, fontWeight: 400, fontSize: 10 }}>
             {getSimpleAircraftType(aircraftType)}
@@ -98,20 +91,18 @@ export function ApnTaxiDepStrip({
 
         {/* Stand — 25%*(2/3), value in top 2/3 */}
         <div
-          className={`flex items-center justify-center overflow-hidden ${CELL_BORDER}`}
-          style={{ flex: `${F_STAND} 0 0%`, height: "100%", paddingBottom: BOT_H, minWidth: 0 }}
+          className="flex items-center justify-center overflow-hidden border-r-2"
+          style={{ flex: `${F_STAND} 0 0%`, height: "100%", paddingBottom: BOT_H, minWidth: 0, borderRightColor: cellBorderColor }}
         >
           <span style={{ fontFamily: RUBIK, fontWeight: 600, fontSize: 20 }}>{stand}</span>
         </div>
 
-        {/* Holding Point — 25%*(2/3)*(2/3)
-              top 1/2: HP value separated by a border line
-              bottom 1/2: faint "HP" label */}
+        {/* Holding Point — 25%*(2/3)*(2/3) */}
         <div
-          className={`flex flex-col overflow-hidden ${CELL_BORDER}`}
-          style={{ flex: `${F_HP} 0 0%`, height: "100%", minWidth: 0 }}
+          className="flex flex-col overflow-hidden border-r-2"
+          style={{ flex: `${F_HP} 0 0%`, height: "100%", minWidth: 0, borderRightColor: cellBorderColor }}
         >
-          <div className="flex items-center justify-center border-b border-[#85b4af]" style={{ height: HALF_H }}>
+          <div className="flex items-center justify-center border-b-2" style={{ height: HALF_H, borderBottomColor: cellBorderColor }}>
             <span style={{ fontFamily: RUBIK, fontWeight: 600, fontSize: 11 }}>{holdingPoint}</span>
           </div>
           <div className="flex items-center justify-center" style={{ height: HALF_H }}>
@@ -119,9 +110,7 @@ export function ApnTaxiDepStrip({
           </div>
         </div>
 
-        {/* Runway — 25%*(2/3)
-              top 1/2: left 2/3 = runway text, right 1/3 = empty box
-              bottom 1/2: empty */}
+        {/* Runway — 25%*(2/3) */}
         <div
           className="flex flex-col overflow-hidden"
           style={{ flex: `${F_RWY} 0 0%`, height: "100%", minWidth: 0 }}
@@ -130,7 +119,7 @@ export function ApnTaxiDepStrip({
             <div className="flex items-center justify-center" style={{ flex: "2 0 0%", height: "100%" }}>
               <span style={{ fontFamily: RUBIK, fontWeight: 600, fontSize: 14 }}>{runway}</span>
             </div>
-            <div style={{ flexShrink: 0, width: HALF_H, height: "100%", borderLeft: "1px solid #85b4af", borderBottom: "1px solid #85b4af" }} />
+            <div style={{ flexShrink: 0, width: HALF_H, height: "100%", borderLeft: `1px solid ${cellBorderColor}`, borderBottom: `1px solid ${cellBorderColor}` }} />
           </div>
           <div style={{ height: HALF_H }} />
         </div>

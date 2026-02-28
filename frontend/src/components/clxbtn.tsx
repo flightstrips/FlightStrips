@@ -51,7 +51,7 @@ export function CLXBtn({ callsign, children }: { callsign: string, children?: Re
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="clx">{children}</Button>
+        <div className="px-0" style={{ flex: "1 0 0%", height: "100%", minWidth: 0 }}>{children}</div>
       </DialogTrigger>
       <DialogContent className="bg-[#d4d4d4] rounded-none p-[25px] flex flex-col gap-0" style={{ width: 1000, maxWidth: 1000, height: 925, maxHeight: 925 }}>
         <div className="relative border-2 border-black flex-1 flex flex-col items-center gap-[30px] min-h-0" style={{ paddingTop: 30, paddingBottom: 30 }}>

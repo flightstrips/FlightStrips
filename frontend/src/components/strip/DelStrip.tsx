@@ -3,7 +3,7 @@ import { getStripBg } from "./types";
 import type { StripProps } from "./types";
 import { useSelectedCallsign, useSelectStrip } from "@/store/store-hooks";
 
-const RUBIK = "'Rubik', sans-serif";
+const RUBIK = "'Arial', sans-serif";
 const CELL_BORDER = "border-r border-[#85b4af]";
 const FULL_H  = "4.44vh";
 const HALF_H  = "2.22vh";
@@ -59,7 +59,7 @@ export function DelStrip({
         {/* Callsign — 2/3 of left half */}
         <button
           className={`flex items-center justify-start overflow-hidden active:bg-[#F237AA] ${CELL_BORDER}`}
-          style={{ flex: "2 0 0%", height: "100%", minWidth: 0, fontFamily: RUBIK, fontWeight: 500, fontSize: 24 }}
+          style={{ flex: "2 0 0%", height: "100%", minWidth: 0, fontFamily: RUBIK, fontWeight: "bold", fontSize: 24, textAlign: "left", paddingLeft: "4px" }}
         >
           <span className="truncate w-full">{callsign}</span>
         </button>

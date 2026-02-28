@@ -1,6 +1,6 @@
 import type { PdcStatus } from "@/api/models";
 
-export type StripStatus = "CLR" | "CLROK" | "HALF" | "PUSH" | "ARR";
+export type StripStatus = "CLR" | "CLROK" | "HALF" | "PUSH" | "ARR" | "CLX-HALF" | "TAXI-DEP";
 
 export type HalfStripVariant =
   | "APN-PUSH"    // Pushback bays

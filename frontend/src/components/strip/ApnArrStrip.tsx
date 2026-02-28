@@ -54,7 +54,7 @@ export function ApnArrStrip({
         borderLeft: "2px solid white",
         borderRight: "2px solid white",
         borderTop: "2px solid white",
-        borderBottom: "1px solid white",
+        borderBottom: "2px solid white",
         boxShadow: "1px 0 0 0 #2F2F2F, 0 -1px 0 0 #2F2F2F",
       }}
       onClick={handleClick}

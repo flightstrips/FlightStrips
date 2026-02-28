@@ -105,7 +105,7 @@ export default function AAAD() {
       onMove={move}
       renderDragOverlay={(callsign) => {
         const twyDep = twyDepStrips.find(s => s.callsign === callsign);
-        if (twyDep) return mapToStrip(twyDep, "CLROK");
+        if (twyDep) return mapToStrip(twyDep, "TAXI-DEP");
         const twyArr = twyArrStrips.find(s => s.callsign === callsign);
         if (twyArr) return mapToStrip(twyArr, "ARR");
         const startup = startupStrips.find(s => s.callsign === callsign);
@@ -174,7 +174,7 @@ export default function AAAD() {
         >
           {(callsign) => {
             const strip = twyDepStrips.find(s => s.callsign === callsign)!;
-            return mapToStrip(strip, "CLROK");
+            return mapToStrip(strip, "TAXI-DEP");
           }}
         </SortableBay>
 

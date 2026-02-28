@@ -1,5 +1,6 @@
 import type { StripProps } from "./types";
 import { useSelectedCallsign, useSelectStrip } from "@/store/store-hooks";
+import { SIBox } from "./shared";
 
 const CELL_BORDER = "border-r border-[#85b4af]";
 const RUBIK = "'Rubik', sans-serif";
@@ -8,41 +9,11 @@ const TOP_H  = "2.96vh";    // 2/3 of 4.44vh
 const BOT_H  = "1.48vh";    // 1/3 of 4.44vh
 
 // Flex-grow proportions (flex-basis: 0 so space is shared proportionally)
-const F_SI       = 8;
 const F_CALLSIGN = 25;
 const F_TYPE     = 25 * (2 / 3);          // ~16.67
 const F_STAND    = 25 * (2 / 3);          // ~16.67
 const F_TSAT     = 25 * (2 / 3);          // ~16.67
 const F_RWY      = 25 * (2 / 3) * (2 / 3); // ~11.11
-
-function SIBox({ owner, nextControllers, previousControllers, myIdentifier }: {
-  owner?: string;
-  nextControllers?: string[];
-  previousControllers?: string[];
-  myIdentifier?: string;
-}) {
-  const isAssumed = !!myIdentifier && owner === myIdentifier;
-  const isTransferredAway =
-    !!myIdentifier &&
-    !!previousControllers?.includes(myIdentifier) &&
-    !nextControllers?.includes(myIdentifier);
-
-  let bgColor = "#E082E7";
-  if (isAssumed) bgColor = "#F0F0F0";
-  else if (isTransferredAway) bgColor = "#DD6A12";
-
-  const nextLabel =
-    isAssumed && nextControllers?.[0] ? nextControllers[0].slice(0, 2) : "";
-
-  return (
-    <div
-      className={`flex items-center justify-center text-sm font-bold ${CELL_BORDER}`}
-      style={{ flex: `${F_SI} 0 0%`, height: "100%", backgroundColor: bgColor, minWidth: 0 }}
-    >
-      {nextLabel}
-    </div>
-  );
-}
 
 /**
  * ApnPushStrip — APNPUSH strip for STARTUP, PUSH BACK and DE-ICE bays (status="PUSH").
@@ -84,7 +55,7 @@ export function ApnPushStrip({
         borderLeft: "2px solid white",
         borderRight: "2px solid white",
         borderTop: "2px solid white",
-        borderBottom: "1px solid white",
+        borderBottom: "2px solid white",
         boxShadow: "1px 0 0 0 #2F2F2F, 0 -1px 0 0 #2F2F2F",
       }}
       onClick={handleClick}

@@ -3,7 +3,7 @@ import { getStripBg } from "./types";
 import type { StripProps } from "./types";
 import { useSelectedCallsign, useSelectStrip } from "@/store/store-hooks";
 
-const RUBIK = "'Rubik', sans-serif";
+const ARIAL = "'Arial', sans-serif";
 const CELL_BORDER = "border-r border-[#85b4af]";
 const FULL_H  = "4.44vh";
 const HALF_H  = "2.22vh";
@@ -84,7 +84,7 @@ export function ClxClearedStrip({
         borderLeft: "2px solid white",
         borderRight: "2px solid white",
         borderTop: "2px solid white",
-        borderBottom: "1px solid white",
+        borderBottom: "2px solid white",
         boxShadow: "1px 0 0 0 #2F2F2F, 0 -1px 0 0 #2F2F2F",
       }}
       onClick={handleClick}
@@ -106,7 +106,7 @@ export function ClxClearedStrip({
         {/* Callsign — 2/3 of left half */}
         <button
           className={`flex items-center justify-start overflow-hidden active:bg-[#F237AA] ${CELL_BORDER}`}
-          style={{ flex: "26.667 0 0%", height: "100%", minWidth: 0, fontFamily: RUBIK, fontWeight: 500, fontSize: 24 }}
+          style={{ flex: "26.667 0 0%", height: "100%", minWidth: 0, fontFamily: ARIAL, fontWeight: "bold", fontSize: 24, textAlign: "left", paddingLeft: "4px" }}
         >
           <span className="truncate w-full">{callsign}</span>
         </button>
@@ -117,10 +117,10 @@ export function ClxClearedStrip({
           style={{ flex: "13.333 0 0%", height: "100%", minWidth: 0 }}
         >
           <CLXBtn callsign={callsign}>
-            <div className="flex items-center justify-center overflow-hidden" style={{ height: HALF_H, fontFamily: RUBIK, fontWeight: 700, fontSize: 14 }}>
+            <div className="flex items-center justify-center overflow-hidden" style={{ height: HALF_H, fontFamily: ARIAL, fontWeight: "bold", fontSize: 14 }}>
               {destination}
             </div>
-            <div className="flex items-center justify-center overflow-hidden" style={{ height: HALF_H, fontFamily: RUBIK, fontWeight: 700, fontSize: 14 }}>
+            <div className="flex items-center justify-center overflow-hidden" style={{ height: HALF_H, fontFamily: ARIAL, fontWeight: "bold", fontSize: 14 }}>
               {stand}
             </div>
           </CLXBtn>
@@ -134,11 +134,11 @@ export function ClxClearedStrip({
         >
           {/* EOBT / CTOT — left half, stacked with line between */}
           <div className={`flex flex-col overflow-hidden ${CELL_BORDER}`} style={{ flex: "1 0 0%", height: "100%", minWidth: 0 }}>
-            <div className="flex items-center justify-between px-1 border-b border-[#85b4af] overflow-hidden" style={{ height: HALF_H, fontFamily: RUBIK, fontWeight: 400, fontSize: 14 }}>
+            <div className="flex items-center justify-between px-1 overflow-hidden" style={{ height: HALF_H, fontFamily: ARIAL, fontSize: 14 }}>
               <span className="text-black shrink-0">EOBT</span>
               <span>{eobt}</span>
             </div>
-            <div className="flex items-center justify-between px-1 overflow-hidden" style={{ height: HALF_H, fontFamily: RUBIK, fontWeight: 400, fontSize: 14 }}>
+            <div className="flex items-center justify-between px-1 overflow-hidden" style={{ height: HALF_H, fontFamily: ARIAL, fontSize: 14 }}>
               <span className="text-black shrink-0">CTOT</span>
               <span>{ctot}</span>
             </div>
@@ -146,11 +146,11 @@ export function ClxClearedStrip({
 
           {/* TOBT / TSAT — right half, stacked with line between */}
           <div className="flex flex-col" style={{ flex: "1 0 0%", height: "100%" }}>
-            <div className="flex items-center justify-between px-1 border-b border-[#85b4af] overflow-hidden" style={{ height: HALF_H, fontFamily: RUBIK, fontWeight: 400, fontSize: 14 }}>
+            <div className="flex items-center justify-between px-1 border-b border-[#85b4af] overflow-hidden" style={{ height: HALF_H, fontFamily: ARIAL, fontSize: 14 }}>
               <span className="text-black shrink-0">TOBT</span>
               <span>{tobt}</span>
             </div>
-            <div className="flex items-center justify-between px-1 overflow-hidden" style={{ height: HALF_H, fontFamily: RUBIK, fontWeight: 400, fontSize: 14 }}>
+            <div className="flex items-center justify-between px-1 overflow-hidden" style={{ height: HALF_H, fontFamily: ARIAL, fontSize: 14 }}>
               <span className="text-black shrink-0">TSAT</span>
               <span>{tsat}</span>
             </div>

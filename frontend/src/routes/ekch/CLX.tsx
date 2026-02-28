@@ -1,7 +1,7 @@
 
 import { FlightStrip } from "@/components/strip/FlightStrip.tsx";
 import { Message } from "@/components/Message.tsx";
-import {useClearedStrips, useNorwegianBayStrips, useOtherBayStrips, useSasBayStrips} from "@/store/airports/ekch.ts";
+import {useClearedStrips, useNorwegianBayStrips, useOtherBayStrips, usePushbackStrips, useSasBayStrips, useTaxiDepStrips} from "@/store/airports/ekch.ts";
 import type {FrontendStrip} from "@/api/models.ts";
 import { useActiveMessages } from "@/store/store-hooks.ts";
 import { useRef, useEffect } from "react";
@@ -11,6 +11,8 @@ export default function DEL() {
   const norgewianStrips = useNorwegianBayStrips().sort((a, b) => a.sequence - b.sequence);
   const otherStrips = useOtherBayStrips().sort((a, b) => a.sequence - b.sequence);
   const cleared = useClearedStrips().sort((a, b) => a.sequence - b.sequence);
+  const pushback = usePushbackStrips().sort((a, b) => a.sequence - b.sequence);
+  const taxidep = useTaxiDepStrips().sort((a, b) => a.sequence - b.sequence);
   const messages = useActiveMessages();
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -41,6 +43,17 @@ export default function DEL() {
     />
   );
 
+  const mapToHalfStrip = (strip: FrontendStrip) => (
+    <FlightStrip key={strip.callsign}
+      callsign={strip.callsign}
+      aircraftType={strip.aircraft_type}
+      runway={strip.runway}
+      sid={strip.sid}
+      stand={strip.stand}
+      status="CLX-HALF"
+      />
+    );
+
   return (
     <>
       <div className="bg-[#A9A9A9] w-screen h-[calc(100vh-4rem)] flex justify-center justify-items-center gap-2 aspect-video">
@@ -68,7 +81,7 @@ export default function DEL() {
               SAS
             </span>
           </div>
-          <div className="h-[calc(50%-2.5rem)] w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary">
+          <div className="h-[calc(67%-2.5rem)] w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary">
             {sasStrips.map(strip => mapToStrip(strip, "CLR"))}
           </div>
           <div className="bg-[#393939] h-10 flex items-center px-2 justify-between">
@@ -76,7 +89,7 @@ export default function DEL() {
               NORWEGIAN
             </span>
           </div>
-          <div className="h-[calc(50%-2.5rem)] w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary">
+          <div className="h-[calc(33%-2.5rem)] w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary">
             {norgewianStrips.map(strip => mapToStrip(strip, "CLR"))}
           </div>
         </div>
@@ -86,7 +99,7 @@ export default function DEL() {
               CLEARED
             </span>
           </div>
-          <div className="h-1/2 w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary">
+          <div className="h-[calc(67%-2.5rem)] w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary">
             {cleared.map(strip => mapToStrip(strip, "CLROK"))}
           </div>
           <div className="bg-primary h-10 flex items-center px-2 justify-between">
@@ -94,7 +107,7 @@ export default function DEL() {
               MESSAGES
             </span>
           </div>
-          <div className="h-[calc(50%-6rem)] w-full bg-[#555355] overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary">
+          <div className="h-[calc(33%-6rem)] w-full bg-[#555355] overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary">
             {messages.map((msg, i) => (
               <Message key={i} from={msg.from}>{msg.message}</Message>
             ))}
@@ -108,11 +121,8 @@ export default function DEL() {
             </span>
           </div>
           <div className="h-2/5 w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary">
-            <FlightStrip callsign="NSZ1234" clearances standChanged taxiway="A" holdingPoint="B1" destination={'ESSA'} stand={'A6'} tsat={'1400'} status="HALF" />
-            <FlightStrip callsign="NSZ1234" clearances standChanged taxiway="A" holdingPoint="B1" destination={'ESSA'} stand={'A6'} tsat={'1400'} status="HALF" />
-            <FlightStrip callsign="NSZ1234" clearances standChanged taxiway="A" holdingPoint="B1" destination={'ESSA'} stand={'A6'} tsat={'1400'} status="HALF" />
-            <FlightStrip callsign="NSZ1234" clearances standChanged taxiway="A" holdingPoint="B1" destination={'ESSA'} stand={'A6'} tsat={'1400'} status="HALF" />
-            <FlightStrip callsign="NSZ1234" clearances standChanged taxiway="A" holdingPoint="B1" destination={'ESSA'} stand={'A6'} tsat={'1400'} status="HALF" />
+            {pushback.map(strip => mapToHalfStrip(strip))}
+
           </div>
           <div className="bg-[#b3b3b3] h-10 flex items-center px-2 justify-between">
             <span className="text-[#393939] font-bold text-lg">
@@ -120,11 +130,7 @@ export default function DEL() {
             </span>
           </div>
           <div className="h-[calc(60%-5rem)] w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary">
-            <FlightStrip callsign="NSZ1234" clearances standChanged taxiway="A" holdingPoint="B1" destination={'ESSA'} stand={'A6'} tsat={'1400'} status="HALF" />
-            <FlightStrip callsign="NSZ1234" clearances standChanged taxiway="A" holdingPoint="B1" destination={'ESSA'} stand={'A6'} tsat={'1400'} status="HALF" />
-            <FlightStrip callsign="NSZ1234" clearances standChanged taxiway="A" holdingPoint="B1" destination={'ESSA'} stand={'A6'} tsat={'1400'} status="HALF" />
-            <FlightStrip callsign="NSZ1234" clearances standChanged taxiway="A" holdingPoint="B1" destination={'ESSA'} stand={'A6'} tsat={'1400'} status="HALF" />
-            <FlightStrip callsign="NSZ1234" clearances standChanged taxiway="A" holdingPoint="B1" destination={'ESSA'} stand={'A6'} tsat={'1400'} status="HALF" />
+            {taxidep.map(strip => mapToHalfStrip(strip))}
           </div>
         </div>
       </div>

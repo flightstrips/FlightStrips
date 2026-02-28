@@ -6,6 +6,7 @@ import {
   SIBox,
   SELECTION_COLOR,
 } from "./shared";
+import { useStripTransfers } from "@/store/store-hooks";
 
 const RUBIK = "'Rubik', sans-serif";
 const HALF_H = "2.22vh";    // half of 4.44vh for TSAT/CTOT split
@@ -42,6 +43,7 @@ export function ApnPushStrip({
 }: StripProps) {
   const { isSelected, handleClick } = useStripSelection(callsign, selectable);
   const cellBorderColor = getCellBorderColor(false);
+  const stripTransfers = useStripTransfers();
 
   return (
     <div
@@ -56,10 +58,12 @@ export function ApnPushStrip({
       <div className="flex text-black" style={{ height: "100%", overflow: "hidden", backgroundColor: "#bef5ef" }}>
         {/* SI / ownership — 8% */}
         <SIBox
+          callsign={callsign}
           owner={owner}
           nextControllers={nextControllers}
           previousControllers={previousControllers}
           myPosition={myPosition}
+          transferringTo={stripTransfers[callsign] ?? ""}
         />
 
         {/* Callsign — 25%, Rubik medium 20, top 2/3 highlighted when selected */}

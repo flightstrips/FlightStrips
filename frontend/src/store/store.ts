@@ -65,6 +65,9 @@ export interface WebSocketState {
   setReleasePoint: (callsign: string, releasePoint: string) => void;
   issuePdcClearance: (callsign: string, remarks: string | null) => void;
   revertToVoice: (callsign: string) => void;
+  transferStrip: (callsign: string, toPosition: string) => void;
+  assumeStrip: (callsign: string) => void;
+  freeStrip: (callsign: string) => void;
 }
 
 // Create the store using createVanilla
@@ -193,7 +196,20 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
           state.strips[stripIndex].pdc_state = "REVERT_TO_VOICE"
         }
       })
-    }
+    },
+    transferStrip: (callsign, toPosition) => {
+      wsClient.send({
+        type: ActionType.FrontendCoordinationTransferRequest,
+        callsign,
+        to: toPosition,
+      });
+    },
+    assumeStrip: (callsign) => {
+      wsClient.send({ type: ActionType.FrontendCoordinationAssumeRequest, callsign });
+    },
+    freeStrip: (callsign) => {
+      wsClient.send({ type: ActionType.FrontendCoordinationFreeRequest, callsign });
+    },
   }));
 
   // Private methods to handle WebSocket events

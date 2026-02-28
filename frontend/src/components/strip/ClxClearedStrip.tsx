@@ -8,6 +8,7 @@ import {
   SIBox,
   SELECTION_COLOR,
 } from "./shared";
+import { useStripTransfers } from "@/store/store-hooks";
 
 const ARIAL = "'Arial', sans-serif";
 const FULL_H  = "4.44vh";
@@ -42,6 +43,7 @@ export function ClxClearedStrip({
 }: StripProps) {
   const { isSelected, handleClick } = useStripSelection(callsign, selectable);
   const cellBorderColor = getCellBorderColor(false);
+  const stripTransfers = useStripTransfers();
 
   return (
     <div
@@ -59,11 +61,13 @@ export function ClxClearedStrip({
       >
         {/* SI / ownership — 8.44% */}
         <SIBox
+          callsign={callsign}
           owner={owner}
           nextControllers={nextControllers}
           previousControllers={previousControllers}
           myPosition={myPosition}
           flexGrow={8.44}
+          transferringTo={stripTransfers[callsign] ?? ""}
         />
 
         {/* ── Left half of 80% ── */}

@@ -7,6 +7,7 @@ import {
   SELECTION_COLOR,
 } from "./shared";
 import { getSimpleAircraftType } from "@/lib/utils";
+import { useStripTransfers } from "@/store/store-hooks";
 
 const RUBIK = "'Rubik', sans-serif";
 const TOP_H  = "2.96vh";  // 2/3 of 4.44vh
@@ -42,6 +43,7 @@ export function ApnTaxiDepStrip({
 }: StripProps) {
   const { isSelected, handleClick } = useStripSelection(callsign, selectable);
   const cellBorderColor = getCellBorderColor(false);
+  const stripTransfers = useStripTransfers();
 
   return (
     <div
@@ -57,10 +59,12 @@ export function ApnTaxiDepStrip({
 
         {/* SI / ownership — 8% */}
         <SIBox
+          callsign={callsign}
           owner={owner}
           nextControllers={nextControllers}
           previousControllers={previousControllers}
           myPosition={myPosition}
+          transferringTo={stripTransfers[callsign] ?? ""}
         />
 
         {/* Callsign — 25%, Rubik medium 20, top 2/3 highlighted when selected */}

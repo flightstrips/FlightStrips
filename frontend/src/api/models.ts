@@ -37,6 +37,9 @@ export enum ActionType {
   FrontendReleasePoint = "release_point",
   FrontendIssuePdcClearanceRequest = "issue_pdc_clearance",
   FrontendRevertToVoiceRequest = "revert_to_voice",
+  FrontendCoordinationTransferRequest = "coordination_transfer_request",
+  FrontendCoordinationAssumeRequest = "coordination_assume_request",
+  FrontendCoordinationFreeRequest = "coordination_free_request",
 }
 
 export type PdcStatus = "NONE" | "REQUESTED" | "CLEARED" | "CONFIRMED" | "NO_RESPONSE" | "FAILED" | "REVERT_TO_VOICE";
@@ -385,5 +388,21 @@ export interface FrontendRevertToVoiceRequest {
   callsign: string;
 }
 
+export interface FrontendCoordinationTransferRequestEvent {
+  type: ActionType.FrontendCoordinationTransferRequest;
+  callsign: string;
+  to: string;
+}
+
+export interface FrontendCoordinationAssumeRequestEvent {
+  type: ActionType.FrontendCoordinationAssumeRequest;
+  callsign: string;
+}
+
+export interface FrontendCoordinationFreeRequestEvent {
+  type: ActionType.FrontendCoordinationFreeRequest;
+  callsign: string;
+}
+
 // Union type for all events that can be sent
-export type FrontendSendEvent = FrontendAuthenticationEvent | FrontendMoveEvent | FrontendGenerateSquawkEvent | FrontendUpdateStripDataEvent | FrontendUpdateOrder | FrontendSendMessageEvent | FrontendCdmReadyEvent | FrontendSendReleasePointEvent | FrontendIssuePdcClearanceRequest | FrontendRevertToVoiceRequest;
+export type FrontendSendEvent = FrontendAuthenticationEvent | FrontendMoveEvent | FrontendGenerateSquawkEvent | FrontendUpdateStripDataEvent | FrontendUpdateOrder | FrontendSendMessageEvent | FrontendCdmReadyEvent | FrontendSendReleasePointEvent | FrontendIssuePdcClearanceRequest | FrontendRevertToVoiceRequest | FrontendCoordinationTransferRequestEvent | FrontendCoordinationAssumeRequestEvent | FrontendCoordinationFreeRequestEvent;

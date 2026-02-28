@@ -9,18 +9,17 @@ import {
 } from "@/components/ui/dialog";
 import * as VisuallyHidden from "@radix-ui/react-visually-hidden";
 import { useControllers, useSelectedCallsign, useWebSocketStore } from "@/store/store-hooks";
-import { Bay } from "@/api/models";
 
 export default function TRFBRN() {
   const [open, setOpen] = useState(false);
   const selectedCallsign = useSelectedCallsign();
   const controllers = useControllers();
-  const move = useWebSocketStore((state) => state.move);
+  const transferStrip = useWebSocketStore((state) => state.transferStrip);
 
   const disabled = !selectedCallsign;
 
-  const handleTransfer = (callsign: string) => {
-    move(callsign, Bay.Unknown);
+  const handleTransfer = (callsign: string, toPosition: string) => {
+    transferStrip(callsign, toPosition);
     setOpen(false);
   };
 
@@ -49,7 +48,7 @@ export default function TRFBRN() {
                   key={c.callsign}
                   variant="trf"
                   className="font-normal text-base p-0 m-0 h-fit py-1"
-                  onClick={() => handleTransfer(selectedCallsign!)}
+                  onClick={() => handleTransfer(selectedCallsign!, c.position)}
                 >
                   {c.position}
                   <br />

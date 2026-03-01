@@ -47,6 +47,7 @@ func NewHub(stripService shared.StripService) *Hub {
 	handlers.Add(frontend.SendMessage, handleSendMessage)
 	handlers.Add(frontend.CdmReady, handleCdmReady)
 	handlers.Add(frontend.ReleasePoint, handleReleasePoint)
+	handlers.Add(frontend.Marked, handleMarked)
 	handlers.Add(frontend.IssuePdcClearance, handleIssuePdcClearance)
 	handlers.Add(frontend.PdcManualStateChange, handlePdcManualStateChange)
 	handlers.Add(frontend.RevertToVoice, handleRevertToVoice)
@@ -278,6 +279,7 @@ func MapStripToFrontendModel(strip *internalModels.Strip) frontend.Strip {
 		Tsat:                helpers.ValueOrDefault(strip.Tsat),
 		Ctot:                helpers.ValueOrDefault(strip.Ctot),
 		PdcState:            strip.PdcState,
+		Marked:              strip.Marked,
 	}
 }
 

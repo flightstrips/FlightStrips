@@ -41,6 +41,7 @@ type StripRepository interface {
 	UpdateAircraftPosition(ctx context.Context, session int32, callsign string, lat *float64, lon *float64, alt *int32, bay string, version *int32) (int64, error)
 	UpdateHeading(ctx context.Context, session int32, callsign string, heading *int32, version *int32) (int64, error)
 	UpdateStand(ctx context.Context, session int32, callsign string, stand *string, version *int32) (int64, error)
+	UpdateMarked(ctx context.Context, session int32, callsign string, marked bool, version *int32) (int64, error)
 
 	// Owner management
 	SetOwner(ctx context.Context, session int32, callsign string, owner *string, version int32) (int64, error)

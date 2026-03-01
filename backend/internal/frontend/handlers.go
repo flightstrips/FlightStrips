@@ -439,6 +439,26 @@ func handleReleasePoint(ctx context.Context, client *Client, message Message) er
 	return nil
 }
 
+func handleMarked(ctx context.Context, client *Client, message Message) error {
+	var event frontend.MarkedEvent
+	if err := message.JsonUnmarshal(&event); err != nil {
+		return err
+	}
+
+	stripRepo := client.hub.server.GetStripRepository()
+	affected, err := stripRepo.UpdateMarked(ctx, client.session, event.Callsign, event.Marked, nil)
+	if err != nil {
+		return err
+	}
+	if affected != 1 {
+		return errors.New("failed to update marked flag")
+	}
+
+	client.hub.Broadcast(client.session, event)
+
+	return nil
+}
+
 func handleIssuePdcClearance(ctx context.Context, client *Client, message Message) error {
 	var req frontend.IssuePdcClearanceRequest
 	if err := message.JsonUnmarshal(&req); err != nil {

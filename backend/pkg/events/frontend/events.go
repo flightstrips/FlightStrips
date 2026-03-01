@@ -58,6 +58,8 @@ const (
 
 	ReleasePoint EventType = "release_point"
 
+	Marked EventType = "marked"
+
 	PdcManualStateChange EventType = "pdc_manual_state_change"
 	PdcStateChange       EventType = "pdc_state_change"
 	IssuePdcClearance    EventType = "issue_pdc_clearance"
@@ -106,6 +108,7 @@ type Strip struct {
 	Tsat                string   `json:"tsat"`
 	Ctot                string   `json:"ctot"`
 	PdcState            string   `json:"pdc_state"`
+	Marked              bool     `json:"marked"`
 }
 
 type Controller struct {
@@ -522,6 +525,19 @@ func (r ReleasePointEvent) Marshal() ([]byte, error) {
 
 func (r ReleasePointEvent) GetType() EventType {
 	return ReleasePoint
+}
+
+type MarkedEvent struct {
+	Callsign string `json:"callsign"`
+	Marked   bool   `json:"marked"`
+}
+
+func (m MarkedEvent) Marshal() ([]byte, error) {
+	return marshall(m)
+}
+
+func (m MarkedEvent) GetType() EventType {
+	return Marked
 }
 
 // PDC Events

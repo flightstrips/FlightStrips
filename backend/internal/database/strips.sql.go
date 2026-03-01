@@ -187,7 +187,7 @@ func (q *Queries) GetSequence(ctx context.Context, arg GetSequenceParams) (int32
 }
 
 const getStrip = `-- name: GetStrip :one
-SELECT id, version, callsign, session, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay, position_latitude, position_longitude, position_altitude, tobt, tsat, ttot, ctot, aobt, asat, eobt, next_owners, previous_owners, cdm_status, release_point, pdc_state, pdc_requested_at, pdc_message_sequence, pdc_message_sent
+SELECT id, version, callsign, session, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay, position_latitude, position_longitude, position_altitude, tobt, tsat, ttot, ctot, aobt, asat, eobt, next_owners, previous_owners, cdm_status, release_point, pdc_state, pdc_requested_at, pdc_message_sequence, pdc_message_sent, marked
 FROM strips
 WHERE callsign = $1 AND session = $2
 `
@@ -245,6 +245,7 @@ func (q *Queries) GetStrip(ctx context.Context, arg GetStripParams) (Strip, erro
 		&i.PdcRequestedAt,
 		&i.PdcMessageSequence,
 		&i.PdcMessageSent,
+		&i.Marked,
 	)
 	return i, err
 }
@@ -363,7 +364,7 @@ func (q *Queries) ListStripSequences(ctx context.Context, arg ListStripSequences
 }
 
 const listStrips = `-- name: ListStrips :many
-SELECT id, version, callsign, session, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay, position_latitude, position_longitude, position_altitude, tobt, tsat, ttot, ctot, aobt, asat, eobt, next_owners, previous_owners, cdm_status, release_point, pdc_state, pdc_requested_at, pdc_message_sequence, pdc_message_sent
+SELECT id, version, callsign, session, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay, position_latitude, position_longitude, position_altitude, tobt, tsat, ttot, ctot, aobt, asat, eobt, next_owners, previous_owners, cdm_status, release_point, pdc_state, pdc_requested_at, pdc_message_sequence, pdc_message_sent, marked
 FROM strips
 WHERE session = $1
 ORDER BY callsign
@@ -423,6 +424,7 @@ func (q *Queries) ListStrips(ctx context.Context, session int32) ([]Strip, error
 			&i.PdcRequestedAt,
 			&i.PdcMessageSequence,
 			&i.PdcMessageSent,
+			&i.Marked,
 		); err != nil {
 			return nil, err
 		}
@@ -435,7 +437,7 @@ func (q *Queries) ListStrips(ctx context.Context, session int32) ([]Strip, error
 }
 
 const listStripsByOrigin = `-- name: ListStripsByOrigin :many
-SELECT id, version, callsign, session, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay, position_latitude, position_longitude, position_altitude, tobt, tsat, ttot, ctot, aobt, asat, eobt, next_owners, previous_owners, cdm_status, release_point, pdc_state, pdc_requested_at, pdc_message_sequence, pdc_message_sent
+SELECT id, version, callsign, session, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay, position_latitude, position_longitude, position_altitude, tobt, tsat, ttot, ctot, aobt, asat, eobt, next_owners, previous_owners, cdm_status, release_point, pdc_state, pdc_requested_at, pdc_message_sequence, pdc_message_sent, marked
 FROM strips
 WHERE origin = $1 AND session = $2
 ORDER BY callsign
@@ -500,6 +502,7 @@ func (q *Queries) ListStripsByOrigin(ctx context.Context, arg ListStripsByOrigin
 			&i.PdcRequestedAt,
 			&i.PdcMessageSequence,
 			&i.PdcMessageSent,
+			&i.Marked,
 		); err != nil {
 			return nil, err
 		}
@@ -972,6 +975,33 @@ type UpdateStripHeadingByIDParams struct {
 func (q *Queries) UpdateStripHeadingByID(ctx context.Context, arg UpdateStripHeadingByIDParams) (int64, error) {
 	result, err := q.db.Exec(ctx, updateStripHeadingByID,
 		arg.Heading,
+		arg.Callsign,
+		arg.Session,
+		arg.Version,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const updateStripMarkedByID = `-- name: UpdateStripMarkedByID :execrows
+UPDATE strips
+SET marked  = $1,
+    version = version + 1
+WHERE callsign = $2 AND session = $3 AND (version = $4 OR $4 IS NULL)
+`
+
+type UpdateStripMarkedByIDParams struct {
+	Marked   bool
+	Callsign string
+	Session  int32
+	Version  *int32
+}
+
+func (q *Queries) UpdateStripMarkedByID(ctx context.Context, arg UpdateStripMarkedByIDParams) (int64, error) {
+	result, err := q.db.Exec(ctx, updateStripMarkedByID,
+		arg.Marked,
 		arg.Callsign,
 		arg.Session,
 		arg.Version,

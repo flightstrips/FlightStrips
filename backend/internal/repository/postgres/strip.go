@@ -67,6 +67,7 @@ func stripToModel(db database.Strip) *models.Strip {
 		PdcRequestedAt:     PgTimestampToTime(db.PdcRequestedAt),
 		PdcMessageSequence: db.PdcMessageSequence,
 		PdcMessageSent:     PgTimestampToTime(db.PdcMessageSent),
+		Marked:             db.Marked,
 	}
 }
 
@@ -532,5 +533,15 @@ func (r *stripRepository) UpdatePdcStatus(ctx context.Context, session int32, ca
 		Callsign: callsign,
 		Session:  session,
 		PdcState: pdcState,
+	})
+}
+
+// UpdateMarked updates the marked flag of a strip
+func (r *stripRepository) UpdateMarked(ctx context.Context, session int32, callsign string, marked bool, version *int32) (int64, error) {
+	return r.queries.UpdateStripMarkedByID(ctx, database.UpdateStripMarkedByIDParams{
+		Marked:   marked,
+		Callsign: callsign,
+		Session:  session,
+		Version:  version,
 	})
 }

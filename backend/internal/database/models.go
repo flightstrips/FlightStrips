@@ -102,6 +102,7 @@ type Strip struct {
 	PdcRequestedAt     pgtype.Timestamp
 	PdcMessageSequence *int32
 	PdcMessageSent     pgtype.Timestamp
+	Marked             bool
 }
 
 type Version struct {

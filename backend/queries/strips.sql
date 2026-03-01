@@ -187,3 +187,9 @@ UPDATE strips SET tobt = $3, tsat = $4, ttot = $5, ctot = $6, aobt = $7, eobt = 
 
 -- name: UpdateReleasePoint :execrows
 UPDATE strips SET release_point = $3 WHERE session = $1 AND callsign = $2;
+
+-- name: UpdateStripMarkedByID :execrows
+UPDATE strips
+SET marked  = $1,
+    version = version + 1
+WHERE callsign = $2 AND session = $3 AND (version = sqlc.narg('version') OR sqlc.narg('version') IS NULL);

@@ -110,7 +110,7 @@ namespace FlightStrips::flightplan {
             flightPlan.GetClearenceFlag(),
             std::string(flightPlan.GetGroundState()),
             controllerAssignedData.GetClearedAltitude(),
-            controllerAssignedData.GetFinalAltitude(),
+            flightPlanData.GetFinalAltitude(),
             controllerAssignedData.GetAssignedHeading(),
             std::string(flightPlanData.GetAircraftInfo()),
             {flightPlanData.GetAircraftWtc()},

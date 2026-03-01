@@ -107,7 +107,7 @@ namespace FlightStrips::messages {
                 it.GetClearenceFlag(),
                 std::string(it.GetGroundState()),
                 controllerAssignedData.GetClearedAltitude(),
-                controllerAssignedData.GetFinalAltitude(),
+                flightPlanData.GetFinalAltitude(),
                 controllerAssignedData.GetAssignedHeading(),
                 std::string(flightPlanData.GetAircraftInfo()),
                 {flightPlanData.GetAircraftWtc()},

@@ -48,4 +48,5 @@ type Strip struct {
 	PdcMessageSequence *int32
 	PdcMessageSent     *time.Time
 	Marked             bool
+	Registration       *string
 }

@@ -103,6 +103,7 @@ type Strip struct {
 	PdcMessageSequence *int32
 	PdcMessageSent     pgtype.Timestamp
 	Marked             bool
+	Registration       *string
 }
 
 type Version struct {

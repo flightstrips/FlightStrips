@@ -124,6 +124,10 @@ func (m *FrontendHub) SendPdcStateChange(session int32, callsign, state string) 
 	m.Called(session, callsign, state)
 }
 
+func (m *FrontendHub) SendRunwayConfiguration(session int32, departure, arrival []string) {
+	m.Called(session, departure, arrival)
+}
+
 type EuroscopeHub struct {
 	mock.Mock
 }

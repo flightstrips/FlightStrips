@@ -101,6 +101,7 @@ export interface FrontendStrip {
   owner: string;
   pdc_state: PdcStatus;
   marked: boolean;
+  registration: string;
 }
 
 export interface FrontendController {
@@ -155,6 +156,7 @@ export interface FrontendStripUpdateEvent {
   owner: string;
   pdc_state: PdcStatus;
   marked: boolean;
+  registration: string;
 }
 
 export interface FrontendControllerOnlineEvent {

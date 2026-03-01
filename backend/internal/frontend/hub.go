@@ -102,7 +102,7 @@ func (hub *Hub) SetServer(server shared.Server) {
 func (hub *Hub) HandleNewConnection(conn *gorilla.Conn, user shared.AuthenticatedUser) (*Client, error) {
 	controllerRepo := hub.server.GetControllerRepository()
 	sessionRepo := hub.server.GetSessionRepository()
-	
+
 	controller, err := controllerRepo.GetByCid(context.Background(), user.GetCid())
 
 	var session int32
@@ -247,13 +247,13 @@ func (hub *Hub) sendInitialEvent(client *Client) {
 	}
 
 	event := frontend.InitialEvent{
-		Contsollers:   controllerModels,
-		Strips:        stripModels,
-		Me:            me,
-		Callsign:      client.callsign,
-		Airport:       client.airport,
-		Layout:        layout,
-		RunwaySetup:   frontend.RunwayConfiguration{
+		Contsollers: controllerModels,
+		Strips:      stripModels,
+		Me:          me,
+		Callsign:    client.callsign,
+		Airport:     client.airport,
+		Layout:      layout,
+		RunwaySetup: frontend.RunwayConfiguration{
 			Departure: departure,
 			Arrival:   arrival,
 		},
@@ -297,6 +297,7 @@ func MapStripToFrontendModel(strip *internalModels.Strip) frontend.Strip {
 		Ctot:                helpers.ValueOrDefault(strip.Ctot),
 		PdcState:            strip.PdcState,
 		Marked:              strip.Marked,
+		Registration:        helpers.ValueOrDefault(strip.Registration),
 	}
 }
 

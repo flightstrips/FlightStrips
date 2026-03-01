@@ -32,6 +32,7 @@ const F_RWY      = 25 * (2 / 3);            // ~16.67
 export function ApnTaxiDepStrip({
   callsign,
   aircraftType,
+  registration,
   stand,
   holdingPoint,
   runway,
@@ -90,7 +91,7 @@ export function ApnTaxiDepStrip({
             {getSimpleAircraftType(aircraftType)}
           </span>
           <span className="truncate px-1 leading-tight w-full text-center" style={{ fontFamily: FONT, fontSize: 10 }}>
-            OYFSR
+            {registration}
           </span>
         </div>
 

@@ -42,6 +42,7 @@ type StripRepository interface {
 	UpdateHeading(ctx context.Context, session int32, callsign string, heading *int32, version *int32) (int64, error)
 	UpdateStand(ctx context.Context, session int32, callsign string, stand *string, version *int32) (int64, error)
 	UpdateMarked(ctx context.Context, session int32, callsign string, marked bool, version *int32) (int64, error)
+	UpdateRegistration(ctx context.Context, session int32, callsign string, registration string) error
 
 	// Owner management
 	SetOwner(ctx context.Context, session int32, callsign string, owner *string, version int32) (int64, error)

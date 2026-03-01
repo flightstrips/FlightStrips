@@ -4,6 +4,7 @@ import (
 	"FlightStrips/internal/config"
 	"FlightStrips/internal/database"
 	internalModels "FlightStrips/internal/models"
+	"FlightStrips/internal/services"
 	"FlightStrips/internal/shared"
 	"FlightStrips/pkg/events/euroscope"
 	"FlightStrips/pkg/models"
@@ -11,6 +12,8 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"regexp"
+	"strings"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -527,6 +530,8 @@ func (hub *Hub) handleStripUpdateHelper(ctx context.Context, strip euroscope.Str
 			Bay:               bay,
 			Eobt:              &strip.Eobt,
 		}
+		reg := services.ParseRegistration(strip.Callsign, strip.Remarks)
+		newStrip.Registration = &reg
 		err = stripRepo.Create(ctx, newStrip)
 		if err != nil {
 			return err
@@ -578,12 +583,21 @@ func (hub *Hub) handleStripUpdateHelper(ctx context.Context, strip euroscope.Str
 			Bay:               bay,
 			Tobt:              existingStrip.Tobt,
 			Eobt:              existingStrip.Eobt,
+			Registration:      existingStrip.Registration,
 		}
 		_, err = stripRepo.Update(ctx, updateStrip)
 		if err != nil {
 			return err
 		}
 		slog.Debug("Updated strip", slog.String("callsign", strip.Callsign))
+
+		// If registration is NULL (backfill) or remarks now contain a REG/ token, update registration in DB.
+		if existingStrip.Registration == nil || remarksContainsReg(strip.Remarks) {
+			newReg := services.ParseRegistration(strip.Callsign, strip.Remarks)
+			if err := stripRepo.UpdateRegistration(ctx, session, strip.Callsign, newReg); err != nil {
+				slog.Error("Failed to update registration from remarks", slog.Any("error", err))
+			}
+		}
 	}
 
 	err = server.UpdateRouteForStrip(strip.Callsign, session, false)
@@ -599,6 +613,12 @@ func (hub *Hub) handleStripUpdateHelper(ctx context.Context, strip euroscope.Str
 	server.GetFrontendHub().SendStripUpdate(session, strip.Callsign)
 
 	return nil
+}
+
+var remarksRegRe = regexp.MustCompile(`\bREG/([A-Z0-9-]+)`)
+
+func remarksContainsReg(remarks string) bool {
+	return remarksRegRe.MatchString(strings.ToUpper(remarks))
 }
 
 func handleStripUpdateEvent(ctx context.Context, client *Client, message Message) error {

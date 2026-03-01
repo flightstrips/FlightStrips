@@ -33,6 +33,7 @@ const F_RWY      = 25 * (2 / 3) * (2 / 3); // ~11.11
 export function ApnPushStrip({
   callsign,
   aircraftType,
+  registration,
   stand,
   tsat,
   ctot,
@@ -89,7 +90,7 @@ export function ApnPushStrip({
           style={{ flex: `${F_TYPE} 0 0%`, height: "100%", paddingBottom: "1.48vh", minWidth: 0, borderRightColor: cellBorderColor }}
         >
           <span className="truncate px-1 leading-tight w-full text-center" style={{ fontFamily: FONT, fontSize: 10 }}>{aircraftType?.split("/")[0]}</span>
-          <span className="truncate px-1 leading-tight w-full text-center" style={{ fontFamily: FONT, fontSize: 10 }}>OYFSR</span>
+          <span className="truncate px-1 leading-tight w-full text-center" style={{ fontFamily: FONT, fontSize: 10 }}>{registration}</span>
         </div>
 
         {/* Stand — 25%*(2/3) */}

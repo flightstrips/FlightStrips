@@ -18,6 +18,7 @@ import {
   type FrontendCoordinationRejectBroadcastEvent,
   type FrontendCoordinationFreeBroadcastEvent,
   type FrontendRequestedAltitudeEvent,
+  type FrontendRunwayConfigurationEvent,
   type FrontendSendEvent,
   type FrontendSetHeadingEvent,
   type FrontendSquawkEvent,
@@ -54,6 +55,7 @@ type EventMap = {
   [EventType.FrontendCoordinationAssumeBroadcast]: FrontendCoordinationAssumeBroadcastEvent;
   [EventType.FrontendCoordinationRejectBroadcast]: FrontendCoordinationRejectBroadcastEvent;
   [EventType.FrontendCoordinationFreeBroadcast]: FrontendCoordinationFreeBroadcastEvent;
+  [EventType.FrontendRunWayConfiguration]: FrontendRunwayConfigurationEvent;
 };
 
 type WebSocketClientDelegate = {

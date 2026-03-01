@@ -56,6 +56,7 @@ export default function TWTE() {
       myPosition={myPosition}
       selectable={selectable}
       marked={strip.marked}
+      registration={strip.registration}
     />
   );
   const messagesEndRef = useRef<HTMLDivElement>(null);

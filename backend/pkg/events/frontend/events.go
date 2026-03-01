@@ -30,10 +30,10 @@ const (
 	SetHeading         EventType = "heading"
 	CommunicationType  EventType = "communication_type"
 
-	CoordinationTransferRequestType EventType = "coordination_transfer_request"
-	CoordinationAssumeRequestType   EventType = "coordination_assume_request"
-	CoordinationRejectRequestType   EventType = "coordination_reject_request"
-	CoordinationFreeRequestType     EventType = "coordination_free_request"
+	CoordinationTransferRequestType   EventType = "coordination_transfer_request"
+	CoordinationAssumeRequestType     EventType = "coordination_assume_request"
+	CoordinationRejectRequestType     EventType = "coordination_reject_request"
+	CoordinationFreeRequestType       EventType = "coordination_free_request"
 	CoordinationCancelTransferRequest EventType = "coordination_cancel_transfer_request"
 
 	Move                              EventType = "move"
@@ -110,6 +110,7 @@ type Strip struct {
 	Ctot                string   `json:"ctot"`
 	PdcState            string   `json:"pdc_state"`
 	Marked              bool     `json:"marked"`
+	Registration        string   `json:"registration"`
 }
 
 type Controller struct {

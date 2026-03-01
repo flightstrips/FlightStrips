@@ -41,6 +41,7 @@ export interface StripProps {
   myPosition?: string;
   selectable?: boolean;
   marked?: boolean;
+  registration?: string;
 }
 
 export function getStripBg(pdcStatus?: PdcStatus, isArrival?: boolean): string {

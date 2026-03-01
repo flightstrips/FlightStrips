@@ -184,5 +184,19 @@ body {
   }
   body {
     @apply bg-background text-foreground;
+    background-color: #0a0a0a; /* nc-black */
+    color: #ffffff; /* white */
   }
+}
+
+/* Scroll reveal animation */
+.reveal {
+  opacity: 0;
+  transform: translateY(28px);
+  transition: opacity 0.75s ease, transform 0.75s ease;
+}
+
+.reveal.visible {
+  opacity: 1;
+  transform: translateY(0);
 }

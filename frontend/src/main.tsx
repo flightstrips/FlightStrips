@@ -4,6 +4,8 @@ import {BrowserRouter, Routes, Route} from "react-router";
 import './index.css'
 import Home from "@/pages/home";
 import About from "@/pages/about";
+import Privacy from "@/pages/privacy";
+import DataHandling from "@/pages/data-handling";
 import EKCHDEL  from "@/routes/ekch/CLX";
 import EKCHAAAD from "@/routes/ekch/AAAD";
 import EKCHGEGW from "@/routes/ekch/GEGW";
@@ -26,6 +28,8 @@ createRoot(document.getElementById('root')!).render(
         <Routes>
           <Route path="/" element={<Home/>}/>
           <Route path="/about" element={<About/>}/>
+          <Route path="/privacy" element={<Privacy/>}/>
+          <Route path="/data-handling" element={<DataHandling/>}/>
           <Route path="/login" element={<Auth/>}/>
           <Route element={<MyProtectedComponent/>}>
             <Route index path="/dashboard" element={<Dashboard/>}/>

@@ -1,99 +1,221 @@
-import { MainNavigation } from "@/components/navigation/MainNavigation";
-import MobileNav from "@/components/navigation/MobileNavigation";
+import { PublicNavigation } from "@/components/public/PublicNavigation";
+import { PublicFooter } from "@/components/public/PublicFooter";
+import { ScrollProgress } from "@/components/public/ScrollProgress";
+import { ScrollReveal } from "@/components/public/ScrollReveal";
 
 export default function About() {
-  return ( 
-    <div className="bg-primary w-scren h-full min-h-screen text-gray-100 overflow-hidden">
-      <nav className="hidden md:flex h-20 items-center justify-between w-1/2 mx-auto">
-        <h1 className="font-semibold text-xl">FlightStrips</h1>
-        <MainNavigation />
-      </nav>
-      <nav className="flex items-center justify-between md:hidden ">
-        <h1 className="font-semibold text-xl pl-6">FlightStrips</h1>
-        <MobileNav />
-      </nav>
-      <section className="h-[35rem] w-screen text-gray-100 flex flex-col justify-center items-center">
-        <h1 className="text-6xl py-4 font-semibold">About Us</h1>
-        <p>Home / About Us</p>
+  return (
+    <div className="bg-nc-black min-h-screen text-white">
+      <ScrollProgress />
+      <PublicNavigation />
+      
+      {/* Hero Section */}
+      <section className="bg-nc-black py-28 px-8">
+        <div className="max-w-7xl mx-auto">
+          <ScrollReveal>
+            <div className="flex items-center gap-4 mb-4">
+              <div className="w-8 h-px bg-nc-border"></div>
+              <p className="text-xs tracking-widest uppercase text-nc-muted">About</p>
+            </div>
+          </ScrollReveal>
+          
+          <ScrollReveal delay={0.1}>
+            <h1 
+              className="font-display font-normal text-5xl md:text-7xl mb-6 text-white"
+              style={{ letterSpacing: '-0.02em' }}
+            >
+              About Us
+            </h1>
+          </ScrollReveal>
+          
+          <ScrollReveal delay={0.2}>
+            <p className="text-sm text-nc-muted">Home / About Us</p>
+          </ScrollReveal>
+        </div>
       </section>
-      <section className="bg-[#191919] w-screen min-h-screen h-fit flex items-center justify-center">
-        <div className="w-full min-h-screen bg-[#191919] flex justify-center py-12">
-          <div className="flex gap-2">
-            <div className="w-8 h-32 bg-gradient-to-b from-primary to-transparent" />
-            <h2 className="text-3xl font-semibold max-w-[24ch]">Our vision for a next generation strip management system</h2>
-          </div>
 
-        </div>
-        <div className="w-full min-h-screen bg-[#191919] hidden md:flex">
-b
+      {/* Vision Section */}
+      <section className="bg-fs-primary/8 border-t border-fs-primary/20 py-20 px-8">
+        <div className="max-w-7xl mx-auto">
+          <div className="grid md:grid-cols-2 gap-12 md:gap-16 items-center">
+            <ScrollReveal>
+              <div className="flex items-start gap-4">
+                <div className="w-8 h-32 bg-gradient-to-b from-fs-primary to-transparent"></div>
+                <div>
+                  <div className="flex items-center gap-4 mb-4">
+                    <div className="w-8 h-px bg-nc-border"></div>
+                    <p className="text-xs tracking-widest uppercase text-nc-muted">Vision</p>
+                  </div>
+                  <h2 
+                    className="font-display font-normal text-3xl md:text-5xl mb-8 text-white"
+                    style={{ letterSpacing: '-0.02em' }}
+                  >
+                    Our vision for a next generation strip management system
+                  </h2>
+                </div>
+              </div>
+            </ScrollReveal>
+            
+            <ScrollReveal delay={0.1}>
+              <div className="space-y-6">
+                <p className="font-sans font-light text-base text-gray-400 leading-relaxed">
+                  FlightStrips represents a fundamental reimagining of air traffic control strip management, 
+                  designed specifically for virtual ATC environments. We combine precision engineering with 
+                  intuitive design to deliver a system that feels both powerful and effortless.
+                </p>
+                <p className="font-sans font-light text-base text-gray-400 leading-relaxed">
+                  Built for simulation communities, FlightStrips enables controllers to focus on what matters: 
+                  safe, efficient air traffic management. Every feature is crafted with the understanding that 
+                  clarity and reliability are non-negotiable in high-stakes environments.
+                </p>
+              </div>
+            </ScrollReveal>
+          </div>
         </div>
       </section>
-      <footer className="h-48 bg-gray-100 w-full hidden md:flex justify-around text-primary ">
-        <div className="p-1 aspect-video w-64 flex justify-center items-center">
-          <span className="font-semibold text-2xl p-2">
-            FlightStrips <br /> <span className="text-xs -mt-4 -pt-4">(Only for simulation)</span>
-          </span>
-        </div>
-        <div className="w-[32rem] flex gap-12 items-center">
-          <section>
-            <ul className="list-disc list-inside">
-              <li className="list-none font-semibold">Getting Started</li>
-              <li><a href="">Introduction</a></li>
-              <li><a href="">Installation</a></li>
-              <li><a href="">Development</a></li>
-              <li><a href="">Documentation</a></li>
-            </ul>
-          </section>
-          <section>
-            <ul className="list-disc list-inside">
-              <li className="list-none font-semibold">Features</li>
-              <li><a href="">PDC</a></li>
-              <li><a href="">BARS</a></li>
-              <li><a href="">vACDM</a></li>
-            </ul>
-          </section>
-          <section>
-            <ul className="list-disc list-inside">
-              <li className="list-none font-semibold">About</li>
-              <li><a href="">Us</a></li>
-              <li><a href="">License</a></li>
-              <li><a href="">Contact</a></li>
-            </ul>
-          </section>
 
-        </div>
-        </footer>
-        <footer className="bg-gray-100 w-full h-64 text-primary flex flex-col gap-6 items-center md:hidden">
-          <span className="font-semibold text-2xl pt-4">
-              FlightStrips
-          </span>
-          <div className="flex justify-center gap-4">
-            <section>
-              <ul className="list-disc list-inside">
-                <li className="list-none font-semibold">Getting Started</li>
-                <li><a href="">Introduction</a></li>
-                <li><a href="">Installation</a></li>
-                <li><a href="">Development</a></li>
-                <li><a href="">Documentation</a></li>
-              </ul>
-            </section>
-            <section>
-              <ul className="list-disc list-inside">
-                <li className="list-none font-semibold">Features</li>
-                <li><a href="">PDC</a></li>
-                <li><a href="">BARS</a></li>
-                <li><a href="">vACDM</a></li>
-              </ul>
-            </section>
-            <section>
-              <ul className="list-disc list-inside">
-                <li className="list-none font-semibold">About</li>
-                <li><a href="">Us</a></li>
-                <li><a href="">License</a></li>
-                <li><a href="">Contact</a></li>
-              </ul>
-            </section>
+      {/* Values Section */}
+      <section className="bg-fs-primary/5 py-20 px-8">
+        <div className="max-w-7xl mx-auto">
+          <ScrollReveal>
+            <div className="flex items-center gap-4 mb-4">
+              <div className="w-8 h-px bg-nc-border"></div>
+              <p className="text-xs tracking-widest uppercase text-nc-muted">Principles</p>
+            </div>
+          </ScrollReveal>
+          
+          <ScrollReveal delay={0.1}>
+            <h2 
+              className="font-display font-normal text-3xl md:text-5xl mb-16 text-white"
+              style={{ letterSpacing: '-0.02em' }}
+            >
+              Built on core principles
+            </h2>
+          </ScrollReveal>
+
+          <div className="grid md:grid-cols-3 gap-px bg-nc-border">
+            <ScrollReveal delay={0.1}>
+              <div className="bg-fs-primary/12 p-8 hover:bg-fs-primary/20 transition-colors duration-300 border border-fs-primary/25">
+                <p className="text-xs tracking-widest uppercase text-nc-muted mb-6">0.1</p>
+                <div className="w-8 h-px bg-fs-primary mb-6"></div>
+                <h3 
+                  className="font-display font-normal text-xl md:text-2xl mb-4 text-white"
+                  style={{ letterSpacing: '-0.01em' }}
+                >
+                  Precision
+                </h3>
+                <p className="text-gray-400 text-sm leading-relaxed font-light">
+                  FlightStrips is designed to match the real life counterpart 1:1 in nearly all scenarios. 
+                  Every workflow, interaction, and system behavior mirrors authentic air traffic control operations 
+                  for true-to-life simulation and training.
+                </p>
+              </div>
+            </ScrollReveal>
+            
+            <ScrollReveal delay={0.2}>
+              <div className="bg-fs-primary/12 p-8 hover:bg-fs-primary/20 transition-colors duration-300 border border-fs-primary/25">
+                <p className="text-xs tracking-widest uppercase text-nc-muted mb-6">0.2</p>
+                <div className="w-8 h-px bg-fs-primary mb-6"></div>
+                <h3 
+                  className="font-display font-normal text-xl md:text-2xl mb-4 text-white"
+                  style={{ letterSpacing: '-0.01em' }}
+                >
+                  Reliability
+                </h3>
+                <p className="text-gray-400 text-sm leading-relaxed font-light">
+                  All systems are connected and talk instantly and securely together. Real-time synchronization 
+                  ensures seamless communication between components, maintaining data integrity and operational 
+                  continuity across the entire platform.
+                </p>
+              </div>
+            </ScrollReveal>
+            
+            <ScrollReveal delay={0.3}>
+              <div className="bg-fs-primary/12 p-8 hover:bg-fs-primary/20 transition-colors duration-300 border border-fs-primary/25">
+                <p className="text-xs tracking-widest uppercase text-nc-muted mb-6">0.3</p>
+                <div className="w-8 h-px bg-fs-primary mb-6"></div>
+                <h3 
+                  className="font-display font-normal text-xl md:text-2xl mb-4 text-white"
+                  style={{ letterSpacing: '-0.01em' }}
+                >
+                  Clarity
+                </h3>
+                <p className="text-gray-400 text-sm leading-relaxed font-light">
+                  Expanded information and coordination. Critical data is presented clearly and comprehensively, 
+                  enabling controllers to make informed decisions with full situational awareness and seamless 
+                  coordination between positions.
+                </p>
+              </div>
+            </ScrollReveal>
           </div>
-        </footer>
+        </div>
+      </section>
+
+      {/* Quote Section */}
+      <section className="bg-fs-primary/10 border-t border-fs-primary/25 py-20 px-8">
+        <div className="max-w-4xl mx-auto">
+          <ScrollReveal>
+            <blockquote className="border-l-2 border-fs-primary pl-6">
+              <p className="text-gray-300 text-lg md:text-xl font-light italic leading-relaxed mb-4">
+                "FlightStrips has transformed how our vACC manages operations. 
+                The precision and clarity of the system allows controllers to focus entirely on 
+                what they do best. Compated to previous systems, FlightStrips is a game changer."
+              </p>
+              <footer className="mt-4">
+                <p className="text-sm text-white font-medium">VATSCA vACC Director</p>
+                <p className="text-xs text-nc-muted">Simon Bjerre</p>
+              </footer>
+            </blockquote>
+          </ScrollReveal>
+        </div>
+      </section>
+
+      {/* Open Source Section */}
+      <section className="bg-fs-primary/8 py-20 px-8">
+        <div className="max-w-7xl mx-auto">
+          <ScrollReveal>
+            <div className="flex items-center gap-4 mb-4">
+              <div className="w-8 h-px bg-nc-border"></div>
+              <p className="text-xs tracking-widest uppercase text-nc-muted">Open Source</p>
+            </div>
+          </ScrollReveal>
+          
+          <ScrollReveal delay={0.1}>
+            <h2 
+              className="font-display font-normal text-3xl md:text-5xl mb-8 text-white"
+              style={{ letterSpacing: '-0.02em' }}
+            >
+              Free and open-source
+            </h2>
+          </ScrollReveal>
+          
+          <ScrollReveal delay={0.2}>
+            <p className="font-sans font-light text-base text-gray-400 mb-12 max-w-3xl leading-relaxed">
+              FlightStrips is a free and open-source project, built by and for the virtual ATC community. 
+              Support is available via GitHub, and contributions are welcome from developers and controllers 
+              who share our vision for better strip management.
+            </p>
+          </ScrollReveal>
+          
+          <ScrollReveal delay={0.3}>
+            <div className="flex flex-col sm:flex-row gap-4">
+              <a 
+                href="https://github.com" 
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 bg-fs-primary text-white px-7 py-3.5 text-sm font-medium hover:bg-fs-primary/90 transition-colors"
+              >
+                View on GitHub
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M17.25 8.25L21 12m0 0l-3.75 3.75M21 12H3"/>
+                </svg>
+              </a>
+            </div>
+          </ScrollReveal>
+        </div>
+      </section>
+
+      <PublicFooter />
     </div>
-  ) }
+  );
+}

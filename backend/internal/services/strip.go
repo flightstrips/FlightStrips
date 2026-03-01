@@ -81,6 +81,7 @@ func (s *StripService) updateStripSequence(ctx context.Context, session int32, c
 	}
 
 	if sendNotification {
+		slog.Debug("Strip moved to bay", slog.String("callsign", callsign), slog.String("bay", bay), slog.Int("sequence", int(sequence)))
 		// Send update notification
 		s.sendStripUpdate(session, callsign, sequence, bay)
 	}

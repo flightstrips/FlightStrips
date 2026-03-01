@@ -58,10 +58,11 @@ func handleMove(ctx context.Context, client *Client, message Message) error {
 
 func handleClearedBayUpdate(ctx context.Context, client *Client, strip *internalModels.Strip, move frontend.MoveEvent, stripRepo shared.StripRepository, es shared.EuroscopeHub) error {
 	isCleared := move.Bay == shared.BAY_CLEARED
-	if strip.Cleared == isCleared {
-		return nil
-	}
 
+	// Always update the bay and cleared flag in DB — the outer handleMove guard
+	// already ensures strip.Bay != move.Bay, so there is always something to update.
+	// Do NOT early-exit based on strip.Cleared alone: handleGeneralBayUpdate does not
+	// reset the cleared flag, so it can be stale after a round-trip through a general bay.
 	count, err := stripRepo.UpdateClearedFlag(
 		ctx,
 		client.session,
@@ -78,13 +79,15 @@ func handleClearedBayUpdate(ctx context.Context, client *Client, strip *internal
 		return errors.New("failed to update strip cleared flag")
 	}
 
-	if isCleared {
-		if err := client.hub.stripService.AutoAssumeForClearedStrip(ctx, client.session, move.Callsign, strip.Version+1); err != nil {
-			slog.Error("Failed to auto-assume cleared strip", slog.Any("error", err))
+	// Only trigger side-effects when the cleared flag actually changed value.
+	if strip.Cleared != isCleared {
+		if isCleared {
+			if err := client.hub.stripService.AutoAssumeForClearedStrip(ctx, client.session, move.Callsign, strip.Version+1); err != nil {
+				slog.Error("Failed to auto-assume cleared strip", slog.Any("error", err))
+			}
 		}
+		es.SendClearedFlag(client.session, client.GetCid(), move.Callsign, isCleared)
 	}
-
-	es.SendClearedFlag(client.session, client.GetCid(), move.Callsign, isCleared)
 	return nil
 }
 

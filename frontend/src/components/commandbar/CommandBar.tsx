@@ -8,7 +8,7 @@ import ATIS from "./ATIS";
 import HOMEBTN from "./HOMEBTN";
 import { useMetar } from "@/hooks/use-metar";
 import MetarHelper from "@/components/MetarHelper";
-import { useAirport, useRunwaySetup, useSelectedCallsign, useSelectStrip, useWebSocketStore } from "@/store/store-hooks";
+import { useAirport, useRunwaySetup, useSelectedCallsign, useSelectStrip, useWebSocketStore, useStrip } from "@/store/store-hooks";
 import { Bay } from "@/api/models";
 
 const SCOPE_LABELS: Record<string, string> = {
@@ -26,8 +26,9 @@ export default function CommandBar() {
   const selectedCallsign = useSelectedCallsign();
   const selectStrip = useSelectStrip();
   const move = useWebSocketStore((state) => state.move);
+  const toggleMarked = useWebSocketStore((state) => state.toggleMarked);
+  const strip = useStrip(selectedCallsign ?? "");
 
-  const [markedCallsigns, setMarkedCallsigns] = useState<Set<string>>(new Set());
   const [unit, setUnit] = useState<"hPa" | "inHg">("hPa");
 
   const depRwy = runwaySetup.departure[0] ?? "—";
@@ -35,16 +36,11 @@ export default function CommandBar() {
 
   const scopeLabel = SCOPE_LABELS[location.pathname] ?? location.pathname;
 
-  const isMarked = !!selectedCallsign && markedCallsigns.has(selectedCallsign);
+  const isMarked = strip?.marked ?? false;
 
   const handleMark = () => {
     if (!selectedCallsign) return;
-    setMarkedCallsigns((prev) => {
-      const next = new Set(prev);
-      if (next.has(selectedCallsign)) next.delete(selectedCallsign);
-      else next.add(selectedCallsign);
-      return next;
-    });
+    toggleMarked(selectedCallsign, !isMarked);
   };
 
   const handleDelete = () => {

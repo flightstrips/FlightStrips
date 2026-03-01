@@ -15,6 +15,7 @@ import {
   type FrontendInitialEvent,
   type FrontendLayoutUpdateEvent,
   type FrontendOwnersUpdateEvent, type FrontendPdcStateUpdateEvent, type FrontendReleasePointEvent,
+  type FrontendMarkedEvent,
   type FrontendCoordinationTransferBroadcastEvent,
   type FrontendCoordinationAssumeBroadcastEvent,
   type FrontendCoordinationRejectBroadcastEvent,
@@ -68,6 +69,7 @@ export interface WebSocketState {
   transferStrip: (callsign: string, toPosition: string) => void;
   assumeStrip: (callsign: string) => void;
   freeStrip: (callsign: string) => void;
+  toggleMarked: (callsign: string, marked: boolean) => void;
 }
 
 // Create the store using createVanilla
@@ -209,6 +211,15 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     },
     freeStrip: (callsign) => {
       wsClient.send({ type: ActionType.FrontendCoordinationFreeRequest, callsign });
+    },
+    toggleMarked: (callsign, marked) => {
+      wsClient.send({ type: ActionType.FrontendMarked, callsign, marked });
+      store.setState(
+        produce((state: WebSocketState) => {
+          const idx = state.strips.findIndex(s => s.callsign === callsign);
+          if (idx !== -1) state.strips[idx].marked = marked;
+        })
+      );
     },
   }));
 
@@ -448,6 +459,15 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     )
   }
 
+  const handleMarkedEvent = (data: FrontendMarkedEvent) => {
+    store.setState(
+      produce((state: WebSocketState) => {
+        const idx = state.strips.findIndex(s => s.callsign === data.callsign);
+        if (idx !== -1) state.strips[idx].marked = data.marked;
+      })
+    );
+  };
+
   const handlePdcStateUpdateEvent = (data: FrontendPdcStateUpdateEvent) => {
     store.setState(
         produce((state: WebSocketState) => {
@@ -512,6 +532,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
   wsClient.on(EventType.FrontendCdmData, handleCdmUpdateEvent);
   wsClient.on(EventType.FrontendCdmWait, handleCdmWaitEvent);
   wsClient.on(EventType.FrontendReleasePoint, handleReleasePointEvent);
+  wsClient.on(EventType.FrontendMarked, handleMarkedEvent);
   wsClient.on(EventType.FrontendPdcStateChange, handlePdcStateUpdateEvent);
   wsClient.on(EventType.FrontendCoordinationTransferBroadcast, handleCoordinationTransferBroadcastEvent);
   wsClient.on(EventType.FrontendCoordinationAssumeBroadcast, handleCoordinationAssumeBroadcastEvent);

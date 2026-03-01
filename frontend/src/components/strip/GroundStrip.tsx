@@ -29,9 +29,10 @@ export function GroundStrip({
   previousControllers,
   myPosition,
   selectable,
+  marked = false,
 }: StripProps) {
   const { isSelected, handleClick } = useStripSelection(callsign, selectable);
-  const cellBorderColor = getCellBorderColor(false);
+  const cellBorderColor = getCellBorderColor(marked);
   const controllers = useControllers();
 
   const isAssumed = !!myPosition && owner === myPosition;

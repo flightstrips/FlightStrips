@@ -49,6 +49,7 @@ export function HalfStrip({
   stand,
   selectable,
   halfStripVariant = "APN-PUSH",
+  marked = false,
 }: StripProps) {
   const isLocked = LOCKED_VARIANTS.includes(halfStripVariant);
   const isFreeText = FREE_TEXT_VARIANTS.includes(halfStripVariant);
@@ -56,7 +57,7 @@ export function HalfStrip({
   const isSelectable = selectable && !isLocked;
   const { isSelected, handleClick } = useStripSelection(callsign, isSelectable);
 
-  const cellBorderColor = getCellBorderColor(false, HALF_CELL_BASE);
+  const cellBorderColor = getCellBorderColor(marked, HALF_CELL_BASE);
 
   const bg = VARIANT_BG[halfStripVariant];
   const label = VARIANT_LABEL[halfStripVariant];

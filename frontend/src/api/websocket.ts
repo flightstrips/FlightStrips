@@ -12,6 +12,7 @@ import {
   type FrontendInitialEvent, type FrontendLayoutUpdateEvent, type FrontendOwnersUpdateEvent,
   type FrontendPdcStateUpdateEvent,
   type FrontendReleasePointEvent,
+  type FrontendMarkedEvent,
   type FrontendCoordinationTransferBroadcastEvent,
   type FrontendCoordinationAssumeBroadcastEvent,
   type FrontendCoordinationRejectBroadcastEvent,
@@ -47,6 +48,7 @@ type EventMap = {
   [EventType.FrontendCdmData]: FrontendCdmDataEvent;
   [EventType.FrontendCdmWait]: FrontendCdmWaitEvent;
   [EventType.FrontendReleasePoint]: FrontendReleasePointEvent;
+  [EventType.FrontendMarked]: FrontendMarkedEvent;
   [EventType.FrontendPdcStateChange]: FrontendPdcStateUpdateEvent;
   [EventType.FrontendCoordinationTransferBroadcast]: FrontendCoordinationTransferBroadcastEvent;
   [EventType.FrontendCoordinationAssumeBroadcast]: FrontendCoordinationAssumeBroadcastEvent;

@@ -29,9 +29,10 @@ export function DelStrip({
   tsat,
   arrival,
   selectable,
+  marked = false,
 }: StripProps) {
   const { isSelected, handleClick } = useStripSelection(callsign, selectable);
-  const cellBorderColor = getCellBorderColor(false);
+  const cellBorderColor = getCellBorderColor(marked);
 
   return (
     <div
@@ -39,7 +40,7 @@ export function DelStrip({
       style={{
         height: FULL_H,
         width: "80%",
-        ...getFramedStripStyle(false),
+        ...getFramedStripStyle(marked),
         borderBottom: "1px solid white",
       }}
       onClick={handleClick}

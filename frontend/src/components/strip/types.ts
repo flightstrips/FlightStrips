@@ -40,6 +40,7 @@ export interface StripProps {
   previousControllers?: string[];
   myPosition?: string;
   selectable?: boolean;
+  marked?: boolean;
 }
 
 export function getStripBg(pdcStatus?: PdcStatus, isArrival?: boolean): string {

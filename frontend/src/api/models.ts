@@ -20,6 +20,7 @@ export enum EventType {
   FrontendCdmWait = "cdm_wait",
   FrontendReleasePoint = "release_point",
   FrontendPdcStateChange = "pdc_state_change",
+  FrontendMarked = "marked",
   FrontendCoordinationTransferBroadcast = "coordination_transfer_broadcast",
   FrontendCoordinationAssumeBroadcast = "coordination_assume_broadcast",
   FrontendCoordinationRejectBroadcast = "coordination_reject_broadcast",
@@ -35,6 +36,7 @@ export enum ActionType {
   FrontendSendMessage = "send_message",
   FrontendCdmReady = "cdm_ready",
   FrontendReleasePoint = "release_point",
+  FrontendMarked = "marked",
   FrontendIssuePdcClearanceRequest = "issue_pdc_clearance",
   FrontendRevertToVoiceRequest = "revert_to_voice",
   FrontendCoordinationTransferRequest = "coordination_transfer_request",
@@ -96,6 +98,7 @@ export interface FrontendStrip {
   previous_controllers: string[];
   owner: string;
   pdc_state: PdcStatus;
+  marked: boolean;
 }
 
 export interface FrontendController {
@@ -149,6 +152,7 @@ export interface FrontendStripUpdateEvent {
   previous_controllers: string[];
   owner: string;
   pdc_state: PdcStatus;
+  marked: boolean;
 }
 
 export interface FrontendControllerOnlineEvent {
@@ -274,6 +278,18 @@ export interface FrontendReleasePointEvent {
   release_point: string;
 }
 
+export interface FrontendMarkedEvent {
+  type: EventType.FrontendMarked;
+  callsign: string;
+  marked: boolean;
+}
+
+export interface FrontendSendMarkedEvent {
+  type: ActionType.FrontendMarked;
+  callsign: string;
+  marked: boolean;
+}
+
 export interface FrontendPdcStateUpdateEvent {
   type: EventType.FrontendPdcStateChange;
   callsign: string;
@@ -326,6 +342,7 @@ export type WebSocketEvent =
   | FrontendCdmDataEvent
   | FrontendCdmWaitEvent
   | FrontendReleasePointEvent
+  | FrontendMarkedEvent
   | FrontendPdcStateUpdateEvent
   | FrontendCoordinationTransferBroadcastEvent
   | FrontendCoordinationAssumeBroadcastEvent
@@ -405,4 +422,4 @@ export interface FrontendCoordinationFreeRequestEvent {
 }
 
 // Union type for all events that can be sent
-export type FrontendSendEvent = FrontendAuthenticationEvent | FrontendMoveEvent | FrontendGenerateSquawkEvent | FrontendUpdateStripDataEvent | FrontendUpdateOrder | FrontendSendMessageEvent | FrontendCdmReadyEvent | FrontendSendReleasePointEvent | FrontendIssuePdcClearanceRequest | FrontendRevertToVoiceRequest | FrontendCoordinationTransferRequestEvent | FrontendCoordinationAssumeRequestEvent | FrontendCoordinationFreeRequestEvent;
+export type FrontendSendEvent = FrontendAuthenticationEvent | FrontendMoveEvent | FrontendGenerateSquawkEvent | FrontendUpdateStripDataEvent | FrontendUpdateOrder | FrontendSendMessageEvent | FrontendCdmReadyEvent | FrontendSendReleasePointEvent | FrontendSendMarkedEvent | FrontendIssuePdcClearanceRequest | FrontendRevertToVoiceRequest | FrontendCoordinationTransferRequestEvent | FrontendCoordinationAssumeRequestEvent | FrontendCoordinationFreeRequestEvent;

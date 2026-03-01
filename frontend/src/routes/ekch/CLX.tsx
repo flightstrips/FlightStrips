@@ -45,6 +45,7 @@ export default function DEL() {
       nextControllers={strip.next_controllers}
       previousControllers={strip.previous_controllers}
       myPosition={myPosition}
+      marked={strip.marked}
     />
   );
 

@@ -55,6 +55,7 @@ export default function TWTE() {
       previousControllers={strip.previous_controllers}
       myPosition={myPosition}
       selectable={selectable}
+      marked={strip.marked}
     />
   );
   const messagesEndRef = useRef<HTMLDivElement>(null);

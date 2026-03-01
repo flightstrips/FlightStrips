@@ -40,9 +40,10 @@ export function ApnPushStrip({
   previousControllers,
   myPosition,
   selectable,
+  marked = false,
 }: StripProps) {
   const { isSelected, handleClick } = useStripSelection(callsign, selectable);
-  const cellBorderColor = getCellBorderColor(false);
+  const cellBorderColor = getCellBorderColor(marked);
   const stripTransfers = useStripTransfers();
 
   return (
@@ -51,7 +52,7 @@ export function ApnPushStrip({
       style={{
         height: "4.44vh",
         width: "90%",
-        ...getFramedStripStyle(false),
+        ...getFramedStripStyle(marked),
       }}
       onClick={handleClick}
     >

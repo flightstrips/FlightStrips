@@ -3,7 +3,7 @@ import type { StripProps } from "./types";
 
 
 const CELL_BORDER = "border-r border-[#85b4af]";
-const RUBIK = "'Arial', sans-serif";
+const FONT = "'Arial', sans-serif";
 // Flex-grow proportions (flex-basis: 0 so space is shared proportionally)
 const F_SI       = 8;
 const F_CALLSIGN = 25;
@@ -40,7 +40,7 @@ export function ClxHalfStrip({
         {/* OB — 8% */}
         <div className={`flex flex-col overflow-hidden ${CELL_BORDER}`} style={{ flex: `${F_SI} 0 0%`, height: "100%", minWidth: 0 }}>
           <div className="flex items-center justify-center" style={{ height: "100%" }}>
-            <span className="font-bold" style={{ fontFamily: RUBIK, fontSize: FONT_SIZE }}>
+            <span className="font-bold" style={{ fontFamily: FONT, fontSize: FONT_SIZE }}>
               OB
             </span>
           </div>
@@ -52,7 +52,7 @@ export function ClxHalfStrip({
           style={{ flex: `${F_CALLSIGN} 0 0%`, height: "100%", minWidth: 0 }}
         >
           <div className="flex items-center pl-2" style={{ height: "100%" }}>
-            <span className="truncate w-full" style={{ fontFamily: RUBIK, fontWeight: "bold", fontSize: FONT_SIZE }}>
+            <span className="truncate w-full" style={{ fontFamily: FONT, fontWeight: "bold", fontSize: FONT_SIZE }}>
               {callsign}
             </span>
           </div>
@@ -64,7 +64,7 @@ export function ClxHalfStrip({
           style={{ flex: `${F_TYPE} 0 0%`, height: "100%", minWidth: 0 }}
         >
           <div className="flex items-center justify-center" style={{ height: "100%" }}>
-            <span className="truncate" style={{ fontFamily: RUBIK, fontSize: FONT_SIZE }}>
+            <span className="truncate" style={{ fontFamily: FONT, fontSize: FONT_SIZE }}>
               {getSimpleAircraftType(aircraftType)}
             </span>
           </div>
@@ -76,7 +76,7 @@ export function ClxHalfStrip({
           style={{ flex: `${F_RUNWAY} 0 0%`, height: "100%", minWidth: 0 }}
         >
           <div className="flex items-center justify-center"  style={{ height: "100%" }}>
-            <span style={{ fontFamily: RUBIK, fontWeight: "bold", fontSize: FONT_SIZE }}>
+            <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: FONT_SIZE }}>
               {runway}
             </span>
           </div>
@@ -88,7 +88,7 @@ export function ClxHalfStrip({
           style={{ flex: `${F_SID} 0 0%`, height: "100%", minWidth: 0 }}
         >
           <div className="flex items-center justify-center" style={{ height: "100%" }}>
-            <span style={{ fontFamily: RUBIK, fontWeight: "bold", fontSize: FONT_SIZE }}>
+            <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: FONT_SIZE }}>
               {sid}
             </span>
           </div>
@@ -100,7 +100,7 @@ export function ClxHalfStrip({
           style={{ flex: `${F_STAND} 0 0%`, height: "100%", minWidth: 0 }}
         >
           <div className="flex items-center justify-center" style={{ height: "100%" }}>
-            <span className="truncate w-full" style={{ fontFamily: RUBIK, fontWeight: "bold", fontSize: FONT_SIZE }}>
+            <span className="truncate w-full" style={{ fontFamily: FONT, fontWeight: "bold", fontSize: FONT_SIZE }}>
               {stand}
             </span>
           </div>

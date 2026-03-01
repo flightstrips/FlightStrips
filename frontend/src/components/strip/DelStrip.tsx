@@ -8,7 +8,7 @@ import {
   SELECTION_COLOR,
 } from "./shared";
 
-const RUBIK = "'Arial', sans-serif";
+const FONT = "'Arial', sans-serif";
 const FULL_H  = "4.44vh";
 const HALF_H  = "2.22vh";
 
@@ -54,7 +54,7 @@ export function DelStrip({
         {/* Callsign — 2/3 of left half */}
         <button
           className="flex items-center justify-start overflow-hidden active:bg-[#F237AA] border-r-2"
-          style={{ flex: "2 0 0%", height: "100%", minWidth: 0, fontFamily: RUBIK, fontWeight: "bold", fontSize: 24, textAlign: "left", paddingLeft: "4px", borderRightColor: cellBorderColor, backgroundColor: isSelected ? SELECTION_COLOR : undefined }}
+          style={{ flex: "2 0 0%", height: "100%", minWidth: 0, fontFamily: FONT, fontWeight: "bold", fontSize: 24, textAlign: "left", paddingLeft: "4px", borderRightColor: cellBorderColor, backgroundColor: isSelected ? SELECTION_COLOR : undefined }}
         >
           <span className="truncate w-full">{callsign}</span>
         </button>
@@ -65,10 +65,10 @@ export function DelStrip({
           style={{ flex: "1 0 0%", height: "100%", minWidth: 0, borderRightColor: cellBorderColor }}
         >
           <CLXBtn callsign={callsign}>
-            <div className="flex items-center justify-center overflow-hidden" style={{ height: HALF_H, fontFamily: RUBIK, fontWeight: 700, fontSize: 14 }}>
+            <div className="flex items-center justify-center overflow-hidden" style={{ height: HALF_H, fontFamily: FONT, fontWeight: "bold", fontSize: 14 }}>
               {destination}
             </div>
-            <div className="flex items-center justify-center overflow-hidden" style={{ height: HALF_H, fontFamily: RUBIK, fontWeight: 700, fontSize: 14 }}>
+            <div className="flex items-center justify-center overflow-hidden" style={{ height: HALF_H, fontFamily: FONT, fontWeight: "bold", fontSize: 14 }}>
               {stand}
             </div>
           </CLXBtn>
@@ -83,7 +83,7 @@ export function DelStrip({
         >
           {/* EOBT — left half */}
           <div className="flex flex-col justify-start overflow-hidden border-r-2" style={{ flex: "1 0 0%", height: "100%", minWidth: 0, borderRightColor: cellBorderColor }}>
-            <div className="flex items-center justify-between px-1 overflow-hidden" style={{ height: HALF_H, fontFamily: RUBIK, fontWeight: 400, fontSize: 14 }}>
+            <div className="flex items-center justify-between px-1 overflow-hidden" style={{ height: HALF_H, fontFamily: FONT, fontSize: 14 }}>
               <span className="text-black shrink-0">EOBT</span>
               <span>{eobt}</span>
             </div>
@@ -91,11 +91,11 @@ export function DelStrip({
 
           {/* TOBT / TSAT — right half, stacked with line between */}
           <div className="flex flex-col" style={{ flex: "1 0 0%", height: "100%" }}>
-            <div className="flex items-center justify-between px-1 border-b-2 overflow-hidden" style={{ height: HALF_H, fontFamily: RUBIK, fontWeight: 400, fontSize: 14, borderBottomColor: cellBorderColor }}>
+            <div className="flex items-center justify-between px-1 border-b-2 overflow-hidden" style={{ height: HALF_H, fontFamily: FONT, fontSize: 14, borderBottomColor: cellBorderColor }}>
               <span className="text-black shrink-0">TOBT</span>
               <span>{tobt}</span>
             </div>
-            <div className="flex items-center justify-between px-1 overflow-hidden" style={{ height: HALF_H, fontFamily: RUBIK, fontWeight: 400, fontSize: 14 }}>
+            <div className="flex items-center justify-between px-1 overflow-hidden" style={{ height: HALF_H, fontFamily: FONT, fontSize: 14 }}>
               <span className="text-black shrink-0">TSAT</span>
               <span>{tsat}</span>
             </div>

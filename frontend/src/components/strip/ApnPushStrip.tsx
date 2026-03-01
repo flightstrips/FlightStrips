@@ -8,7 +8,7 @@ import {
 } from "./shared";
 import { useStripTransfers } from "@/store/store-hooks";
 
-const RUBIK = "'Rubik', sans-serif";
+const FONT = "'Arial', sans-serif";
 const HALF_H = "2.22vh";    // half of 4.44vh for TSAT/CTOT split
 const TOP_H  = "2.96vh";    // 2/3 of 4.44vh
 const BOT_H  = "1.48vh";    // 1/3 of 4.44vh
@@ -67,13 +67,13 @@ export function ApnPushStrip({
           transferringTo={stripTransfers[callsign] ?? ""}
         />
 
-        {/* Callsign — 25%, Rubik medium 20, top 2/3 highlighted when selected */}
+        {/* Callsign — 25%, FONT medium 20, top 2/3 highlighted when selected */}
         <div
           className="flex flex-col overflow-hidden border-r-2"
           style={{ flex: `${F_CALLSIGN} 0 0%`, height: "100%", minWidth: 0, borderRightColor: cellBorderColor }}
         >
           <div className="flex items-center pl-2" style={{ height: TOP_H, backgroundColor: isSelected ? SELECTION_COLOR : undefined }}>
-            <span className="truncate w-full" style={{ fontFamily: RUBIK, fontWeight: 500, fontSize: 20 }}>
+            <span className="truncate w-full" style={{ fontFamily: FONT, fontWeight: "bold", fontSize: 20 }}>
               {callsign}
             </span>
           </div>
@@ -85,8 +85,8 @@ export function ApnPushStrip({
           className="flex flex-col items-center justify-center overflow-hidden border-r-2"
           style={{ flex: `${F_TYPE} 0 0%`, height: "100%", paddingBottom: "1.48vh", minWidth: 0, borderRightColor: cellBorderColor }}
         >
-          <span className="truncate px-1 leading-tight w-full text-center" style={{ fontFamily: RUBIK, fontWeight: 400, fontSize: 10 }}>{aircraftType?.split("/")[0]}</span>
-          <span className="truncate px-1 leading-tight w-full text-center" style={{ fontFamily: RUBIK, fontWeight: 400, fontSize: 10 }}>OYFSR</span>
+          <span className="truncate px-1 leading-tight w-full text-center" style={{ fontFamily: FONT, fontSize: 10 }}>{aircraftType?.split("/")[0]}</span>
+          <span className="truncate px-1 leading-tight w-full text-center" style={{ fontFamily: FONT, fontSize: 10 }}>OYFSR</span>
         </div>
 
         {/* Stand — 25%*(2/3) */}
@@ -94,7 +94,7 @@ export function ApnPushStrip({
           className="flex items-center justify-center overflow-hidden border-r-2"
           style={{ flex: `${F_STAND} 0 0%`, height: "100%", paddingBottom: "1.48vh", minWidth: 0, borderRightColor: cellBorderColor }}
         >
-          <span style={{ fontFamily: RUBIK, fontWeight: 600, fontSize: 20 }}>{stand}</span>
+          <span style={{ fontFamily: FONT, fontWeight: 600, fontSize: 20 }}>{stand}</span>
         </div>
 
         {/* TSAT / CTOT — 25%*(2/3), split in half with border */}
@@ -103,12 +103,12 @@ export function ApnPushStrip({
           style={{ flex: `${F_TSAT} 0 0%`, height: "100%", minWidth: 0, borderRightColor: cellBorderColor }}
         >
           <div className="flex items-center gap-1 px-1 border-b-2" style={{ height: HALF_H, borderBottomColor: cellBorderColor }}>
-            <span className="shrink-0" style={{ fontFamily: RUBIK, fontWeight: 400, fontSize: 12 }}>TSAT</span>
-            <span className="truncate" style={{ fontFamily: RUBIK, fontWeight: 400, fontSize: 12 }}>{tsat}</span>
+            <span className="shrink-0" style={{ fontFamily: FONT, fontSize: 12 }}>TSAT</span>
+            <span className="truncate" style={{ fontFamily: FONT, fontSize: 12 }}>{tsat}</span>
           </div>
           <div className="flex items-center gap-1 px-1" style={{ height: HALF_H }}>
-            <span className="shrink-0" style={{ fontFamily: RUBIK, fontWeight: 400, fontSize: 12 }}>CTOT</span>
-            <span className="truncate" style={{ fontFamily: RUBIK, fontWeight: 400, fontSize: 12 }}>{ctot}</span>
+            <span className="shrink-0" style={{ fontFamily: FONT, fontSize: 12 }}>CTOT</span>
+            <span className="truncate" style={{ fontFamily: FONT, fontSize: 12 }}>{ctot}</span>
           </div>
         </div>
 
@@ -117,7 +117,7 @@ export function ApnPushStrip({
           className="flex items-center justify-center overflow-hidden"
           style={{ flex: `${F_RWY} 0 0%`, height: "100%", paddingBottom: "1.48vh", minWidth: 0 }}
         >
-          <span style={{ fontFamily: RUBIK, fontWeight: 600, fontSize: 20 }}>{runway}</span>
+          <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: 20 }}>{runway}</span>
         </div>
       </div>
     </div>

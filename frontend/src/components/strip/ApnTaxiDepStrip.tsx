@@ -9,7 +9,7 @@ import {
 import { getSimpleAircraftType } from "@/lib/utils";
 import { useStripTransfers } from "@/store/store-hooks";
 
-const RUBIK = "'Rubik', sans-serif";
+const FONT = "'Arial', sans-serif";
 const TOP_H  = "2.96vh";  // 2/3 of 4.44vh
 const BOT_H  = "1.48vh";  // 1/3 of 4.44vh
 const HALF_H = "calc(2.22vh - 3px)";  // 1/2 of inner content height (4.44vh - 2px border - 1px padding each side)
@@ -68,13 +68,13 @@ export function ApnTaxiDepStrip({
           transferringTo={stripTransfers[callsign] ?? ""}
         />
 
-        {/* Callsign — 25%, Rubik medium 20, top 2/3 highlighted when selected */}
+        {/* Callsign — 25%, FONT medium 20, top 2/3 highlighted when selected */}
         <div
           className="flex flex-col overflow-hidden border-r-2"
           style={{ flex: `${F_CALLSIGN} 0 0%`, height: "100%", minWidth: 0, borderRightColor: cellBorderColor }}
         >
           <div className="flex items-center pl-2" style={{ height: TOP_H, backgroundColor: isSelected ? SELECTION_COLOR : undefined }}>
-            <span className="truncate w-full" style={{ fontFamily: RUBIK, fontWeight: 500, fontSize: 20 }}>
+            <span className="truncate w-full" style={{ fontFamily: FONT, fontWeight: "bold", fontSize: 20 }}>
               {callsign}
             </span>
           </div>
@@ -86,10 +86,10 @@ export function ApnTaxiDepStrip({
           className="flex flex-col items-center justify-center overflow-hidden border-r-2"
           style={{ flex: `${F_TYPE} 0 0%`, height: "100%", paddingBottom: BOT_H, minWidth: 0, borderRightColor: cellBorderColor }}
         >
-          <span className="truncate px-1 leading-tight w-full text-center" style={{ fontFamily: RUBIK, fontWeight: 400, fontSize: 10 }}>
+          <span className="truncate px-1 leading-tight w-full text-center" style={{ fontFamily: FONT, fontSize: 10 }}>
             {getSimpleAircraftType(aircraftType)}
           </span>
-          <span className="truncate px-1 leading-tight w-full text-center" style={{ fontFamily: RUBIK, fontWeight: 400, fontSize: 10 }}>
+          <span className="truncate px-1 leading-tight w-full text-center" style={{ fontFamily: FONT, fontSize: 10 }}>
             OYFSR
           </span>
         </div>
@@ -99,7 +99,7 @@ export function ApnTaxiDepStrip({
           className="flex items-center justify-center overflow-hidden border-r-2"
           style={{ flex: `${F_STAND} 0 0%`, height: "100%", paddingBottom: BOT_H, minWidth: 0, borderRightColor: cellBorderColor }}
         >
-          <span style={{ fontFamily: RUBIK, fontWeight: 600, fontSize: 20 }}>{stand}</span>
+          <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: 20 }}>{stand}</span>
         </div>
 
         {/* Holding Point — 25%*(2/3)*(2/3) */}
@@ -108,10 +108,10 @@ export function ApnTaxiDepStrip({
           style={{ flex: `${F_HP} 0 0%`, height: "100%", minWidth: 0, borderRightColor: cellBorderColor }}
         >
           <div className="flex items-center justify-center border-b-2" style={{ height: HALF_H, borderBottomColor: cellBorderColor }}>
-            <span style={{ fontFamily: RUBIK, fontWeight: 600, fontSize: 11 }}>{holdingPoint}</span>
+            <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: 11 }}>{holdingPoint}</span>
           </div>
           <div className="flex items-center justify-center" style={{ height: HALF_H }}>
-            <span style={{ fontFamily: RUBIK, fontWeight: 700, fontSize: 14, opacity: 0.2 }}>HP</span>
+            <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: 14, opacity: 0.2 }}>HP</span>
           </div>
         </div>
 
@@ -122,7 +122,7 @@ export function ApnTaxiDepStrip({
         >
           <div className="flex" style={{ height: HALF_H }}>
             <div className="flex items-center justify-center" style={{ flex: "2 0 0%", height: "100%" }}>
-              <span style={{ fontFamily: RUBIK, fontWeight: 600, fontSize: 14 }}>{runway}</span>
+              <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: 14 }}>{runway}</span>
             </div>
             <div style={{ flexShrink: 0, width: HALF_H, height: "100%", borderLeft: `1px solid ${cellBorderColor}`, borderBottom: `1px solid ${cellBorderColor}` }} />
           </div>

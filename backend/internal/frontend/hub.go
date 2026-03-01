@@ -21,9 +21,10 @@ type internalMessage struct {
 }
 
 type Hub struct {
-	server       shared.Server
-	stripService shared.StripService
-	clients      map[*Client]bool
+	server                shared.Server
+	stripService          shared.StripService
+	authenticationService shared.AuthenticationService
+	clients               map[*Client]bool
 
 	send chan internalMessage
 
@@ -33,9 +34,10 @@ type Hub struct {
 	handlers shared.MessageHandlers[frontend.EventType, *Client]
 }
 
-func NewHub(stripService shared.StripService) *Hub {
+func NewHub(stripService shared.StripService, authenticationService shared.AuthenticationService) *Hub {
 	handlers := shared.NewMessageHandlers[frontend.EventType, *Client]()
 
+	handlers.Add(frontend.Token, handleTokenEvent)
 	handlers.Add(frontend.GenerateSquawk, handleGenerateSquawk)
 	handlers.Add(frontend.Move, handleMove)
 	handlers.Add(frontend.UpdateStripData, handleStripUpdate)
@@ -54,12 +56,13 @@ func NewHub(stripService shared.StripService) *Hub {
 	handlers.Add(frontend.RevertToVoice, handleRevertToVoice)
 
 	hub := &Hub{
-		send:         make(chan internalMessage),
-		register:     make(chan *Client),
-		unregister:   make(chan *Client),
-		clients:      make(map[*Client]bool),
-		handlers:     handlers,
-		stripService: stripService,
+		send:                  make(chan internalMessage),
+		register:              make(chan *Client),
+		unregister:            make(chan *Client),
+		clients:               make(map[*Client]bool),
+		handlers:              handlers,
+		stripService:          stripService,
+		authenticationService: authenticationService,
 	}
 
 	go hub.Run()

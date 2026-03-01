@@ -27,9 +27,10 @@ type internalMessage struct {
 }
 
 type Hub struct {
-	server       shared.Server
-	stripService shared.StripService
-	clients      map[*Client]bool
+	server                shared.Server
+	stripService          shared.StripService
+	authenticationService shared.AuthenticationService
+	clients               map[*Client]bool
 
 	send chan internalMessage
 
@@ -44,9 +45,10 @@ type Hub struct {
 	recorders map[int32]*recorder.Recorder // One recorder per session
 }
 
-func NewHub(stripService shared.StripService) *Hub {
+func NewHub(stripService shared.StripService, authenticationService shared.AuthenticationService) *Hub {
 	handlers := shared.NewMessageHandlers[euroscope.EventType, *Client]()
 
+	handlers.Add(euroscope.Authentication, handleTokenEvent)
 	handlers.Add(euroscope.ControllerOnline, handleControllerOnline)
 	handlers.Add(euroscope.ControllerOffline, handleControllerOffline)
 	handlers.Add(euroscope.CommunicationType, handleCommunicationType)
@@ -65,14 +67,15 @@ func NewHub(stripService shared.StripService) *Hub {
 	handlers.Add(euroscope.Runway, handleRunways)
 
 	hub := &Hub{
-		register:     make(chan *Client),
-		unregister:   make(chan *Client),
-		clients:      make(map[*Client]bool),
-		send:         make(chan internalMessage),
-		master:       make(map[int32]*Client),
-		handlers:     handlers,
-		stripService: stripService,
-		recorders:    make(map[int32]*recorder.Recorder),
+		register:              make(chan *Client),
+		unregister:            make(chan *Client),
+		clients:               make(map[*Client]bool),
+		send:                  make(chan internalMessage),
+		master:                make(map[int32]*Client),
+		handlers:              handlers,
+		stripService:          stripService,
+		authenticationService: authenticationService,
+		recorders:             make(map[int32]*recorder.Recorder),
 	}
 
 	go hub.Run()

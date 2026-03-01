@@ -12,6 +12,9 @@ const (
 
 	// Send pings to peer with this period. Must be less than PongWait.
 	PingPeriod = (PongWait * 9) / 10
+
+	// How often to check whether the connected client's token is still valid.
+	TokenCheckPeriod = 60 * time.Second
 )
 
 // Shared byte slices for message formatting

@@ -120,8 +120,8 @@ func StartTestServer() (*TestServer, error) {
 	cdmService := cdm.NewCdmService(cdmClient, stripRepo, sessionRepo)
 
 	// Initialize hubs
-	frontendHub := frontend.NewHub(stripService)
-	euroscopeHub := euroscope.NewHub(stripService)
+	frontendHub := frontend.NewHub(stripService, authService)
+	euroscopeHub := euroscope.NewHub(stripService, authService)
 
 	stripService.SetFrontendHub(frontendHub)
 	stripService.SetEuroscopeHub(euroscopeHub)

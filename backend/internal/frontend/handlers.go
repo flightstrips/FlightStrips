@@ -3,15 +3,37 @@ package frontend
 import (
 	internalModels "FlightStrips/internal/models"
 	"FlightStrips/internal/shared"
+	"FlightStrips/pkg/events"
 	"FlightStrips/pkg/events/euroscope"
 	"FlightStrips/pkg/events/frontend"
 	"context"
 	"errors"
 	"log/slog"
 	"slices"
+
+	gorilla "github.com/gorilla/websocket"
 )
 
 type Message = shared.Message[frontend.EventType]
+
+func handleTokenEvent(ctx context.Context, client *Client, message Message) error {
+	var event events.AuthenticationEvent
+	if err := message.JsonUnmarshal(&event); err != nil {
+		return err
+	}
+
+	user, err := client.hub.authenticationService.Validate(event.Token)
+	if err != nil {
+		slog.Info("Token re-validation failed, disconnecting client", slog.String("cid", client.GetCid()), slog.Any("error", err))
+		_ = client.GetConnection().WriteMessage(gorilla.CloseMessage,
+			gorilla.FormatCloseMessage(gorilla.CloseNormalClosure, "token invalid"))
+		client.GetConnection().Close()
+		return err
+	}
+
+	client.SetUser(user)
+	return nil
+}
 
 func handleGenerateSquawk(ctx context.Context, client *Client, message Message) error {
 	var generateSquawk frontend.GenerateSquawkRequest

@@ -120,8 +120,10 @@ func parseMessage[TType comparable](message []byte) (shared.Message[TType], erro
 func WritePump[TClient Client](client TClient) {
 	slog.Debug("WritePump started", slog.String("cid", client.GetCid()))
 	ticker := time.NewTicker(constants.PingPeriod)
+	tokenTicker := time.NewTicker(constants.TokenCheckPeriod)
 	defer func() {
 		ticker.Stop()
+		tokenTicker.Stop()
 		client.GetConnection().Close()
 	}()
 
@@ -156,6 +158,14 @@ func WritePump[TClient Client](client TClient) {
 				return
 			}
 			if err := client.GetConnection().WriteMessage(websocket.PingMessage, nil); err != nil {
+				return
+			}
+		case <-tokenTicker.C:
+			if !client.IsAuthenticated() {
+				slog.Info("Token expired, disconnecting client", slog.String("cid", client.GetCid()))
+				_ = client.GetConnection().SetWriteDeadline(time.Now().Add(constants.WriteWait))
+				_ = client.GetConnection().WriteMessage(websocket.CloseMessage,
+					websocket.FormatCloseMessage(websocket.CloseNormalClosure, "token expired"))
 				return
 			}
 		}

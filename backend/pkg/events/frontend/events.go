@@ -15,6 +15,8 @@ const (
 	RunWayConfiguration        EventType = "run_way_configuration"
 	AtisUpdate                 EventType = "atis_update"
 
+	Token EventType = "token"
+
 	Initial            EventType = "initial"
 	StripUpdate        EventType = "strip_update"
 	ControllerOnline   EventType = "controller_online"

@@ -143,8 +143,8 @@ func main() {
 		slog.Warn("PDC Service not initialized - HOPPIE_LOGON")
 	}
 
-	frontendHub := frontend.NewHub(stripService)
-	euroscopeHub := euroscope.NewHub(stripService)
+	frontendHub := frontend.NewHub(stripService, authenticationService)
+	euroscopeHub := euroscope.NewHub(stripService, authenticationService)
 
 	stripService.SetFrontendHub(frontendHub)
 	stripService.SetEuroscopeHub(euroscopeHub)

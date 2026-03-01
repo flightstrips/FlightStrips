@@ -6,6 +6,7 @@ import (
 	internalModels "FlightStrips/internal/models"
 	"FlightStrips/internal/services"
 	"FlightStrips/internal/shared"
+	"FlightStrips/pkg/events"
 	"FlightStrips/pkg/events/euroscope"
 	"FlightStrips/pkg/models"
 	"context"
@@ -15,10 +16,30 @@ import (
 	"regexp"
 	"strings"
 
+	gorilla "github.com/gorilla/websocket"
 	"github.com/jackc/pgx/v5"
 )
 
 type Message = shared.Message[euroscope.EventType]
+
+func handleTokenEvent(ctx context.Context, client *Client, message Message) error {
+	var event events.AuthenticationEvent
+	if err := message.JsonUnmarshal(&event); err != nil {
+		return err
+	}
+
+	user, err := client.hub.authenticationService.Validate(event.Token)
+	if err != nil {
+		slog.Info("Token re-validation failed, disconnecting client", slog.String("cid", client.GetCid()), slog.Any("error", err))
+		_ = client.GetConnection().WriteMessage(gorilla.CloseMessage,
+			gorilla.FormatCloseMessage(gorilla.CloseNormalClosure, "token invalid"))
+		client.GetConnection().Close()
+		return err
+	}
+
+	client.SetUser(user)
+	return nil
+}
 
 func handleControllerOnline(ctx context.Context, client *Client, message Message) error {
 	var event euroscope.ControllerOnlineEvent

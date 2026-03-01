@@ -8,7 +8,7 @@ import {
 } from "./shared";
 import { SIBox } from "./SIBox";
 import { useStripTransfers } from "@/store/store-hooks";
-import { PushbackMapDialog } from "@/components/pushback/PushbackMapDialog";
+import { PushbackMapDialog } from "@/components/map-dialogs/PushbackMapDialog";
 
 const FONT = "'Arial', sans-serif";
 const HALF_H = "2.22vh";    // half of 4.44vh for TSAT/CTOT split

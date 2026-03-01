@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { StripProps } from "./types";
 import {
   useStripSelection,
@@ -8,6 +9,7 @@ import {
 import { SIBox } from "./SIBox";
 import { getSimpleAircraftType } from "@/lib/utils";
 import { useStripTransfers } from "@/store/store-hooks";
+import { ApronTaxiMapDialog } from "@/components/map-dialogs/ApronTaxiMapDialog";
 
 const FONT = "'Arial', sans-serif";
 const TOP_H  = "2.96vh";  // 2/3 of 4.44vh
@@ -46,6 +48,7 @@ export function ApnTaxiDepStrip({
   const { isSelected, handleClick } = useStripSelection(callsign, selectable);
   const cellBorderColor = getCellBorderColor(marked);
   const stripTransfers = useStripTransfers();
+  const [showTaxiMap, setShowTaxiMap] = useState(false);
 
   return (
     <div
@@ -106,7 +109,8 @@ export function ApnTaxiDepStrip({
         {/* Holding Point — 25%*(2/3)*(2/3) */}
         <div
           className="flex flex-col overflow-hidden border-r-2"
-          style={{ flex: `${F_HP} 0 0%`, height: "100%", minWidth: 0, borderRightColor: cellBorderColor }}
+          style={{ flex: `${F_HP} 0 0%`, height: "100%", minWidth: 0, borderRightColor: cellBorderColor, cursor: "pointer" }}
+          onClick={(e) => { e.stopPropagation(); setShowTaxiMap(true); }}
         >
           <div className="flex items-center justify-center border-b-2" style={{ height: HALF_H, borderBottomColor: cellBorderColor }}>
             <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: 11 }}>{holdingPoint}</span>
@@ -131,6 +135,12 @@ export function ApnTaxiDepStrip({
         </div>
 
       </div>
+
+      <ApronTaxiMapDialog
+        open={showTaxiMap}
+        onOpenChange={setShowTaxiMap}
+        callsign={callsign}
+      />
     </div>
   );
 }

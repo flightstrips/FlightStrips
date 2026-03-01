@@ -4,6 +4,9 @@ export interface ClickPoint {
   left: string;
   /** Percentage from top edge of the map container */
   top: string;
+
+  width?: string;
+  height?: string;
 }
 
 /**
@@ -43,7 +46,8 @@ export const RELEASE_POINTS: ClickPoint[] = [
   { label: "R1",  left: "60.31%", top: "47.92%" },
   { label: "R2",  left: "60.68%", top: "60.81%" },
   { label: "R3",  left: "61.41%", top: "72.79%" },
-  { label: "R3",  left: "61.41%", top: "78.26%" },
+  { label: "R4",  left: "61.41%", top: "78.26%" },
+  { label: "B",  left: "61.00%", top: "95.00%" },
   { label: "S1",  left: "63.88%", top: "47.92%" },
   { label: "S2",  left: "64.48%", top: "60.81%" },
   { label: "S3",  left: "64.94%", top: "72.79%" },
@@ -61,4 +65,45 @@ export const RELEASE_POINTS: ClickPoint[] = [
   { label: "V5", left: "90.94%", top: "50.85%" },
   { label: "T4",  left: "92.32%", top: "18.23%" },
   { label: "T5",  left: "95.14%", top: "9.70%"  },
+];
+
+/**
+ * EKCH apron taxi points positioned over apron_taxi.png.
+ * Positions are percentages relative to the image content area (1859×903).
+ * Derived from SVG layout: (cx - 40) / 1859 and (cy - 40) / 903.
+ * Labels are placeholders (TD001–TD032) — replace with actual taxiway names.
+ */
+export const APRON_TAXI_POINTS: ClickPoint[] = [
+  { label: "K/J", left: "8.42%",  top: "30.40%" },
+  { label: "K2", left: "16.54%", top: "43.63%" },
+  { label: "K/L", left: "21.71%", top: "37.76%" },
+  { label: "K3", left: "23.75%", top: "51.05%" },
+  { label: "Z/L", left: "27.25%", top: "43.30%" },
+  { label: "L/Y", left: "27.62%", top: "28.90%" },
+  { label: "Y/L", left: "29.67%", top: "37.65%" },
+  { label: "Z/M", left: "33.06%", top: "50.06%" },
+  { label: "Y/M", left: "35.69%", top: "44.63%" },
+  { label: "Z/A", left: "38.33%", top: "56.81%" },
+  { label: "Y/A", left: "40.32%", top: "50.72%" },
+  { label: "A", left: "40.91%", top: "69.21%" },
+  { label: "Z/F", left: "44.94%", top: "63.57%" },
+  { label: "P/Y", left: "45.54%", top: "44.85%" },
+  { label: "F", left: "45.54%", top: "72.87%" },
+  { label: "Z/D", left: "50.91%", top: "70.54%" },
+  { label: "D", left: "50.91%", top: "78.52%" },
+  { label: "Q/Y", left: "51.51%", top: "53.27%" },
+  { label: "Y/V", left: "55.86%", top: "68.49%" },
+  { label: "B", left: "58.66%", top: "86.93%" },
+  { label: "R/W", left: "60.44%", top: "55.59%" },
+  { label: "R/V", left: "60.97%", top: "65.67%" },
+  { label: "S/W", left: "65.30%", top: "55.48%" },
+  { label: "S/V", left: "65.44%", top: "65.67%" },
+  { label: "DE-ICE B", left: "67.05%", top: "86.16%", width: "115px" },
+  { label: "W/S", left: "70.60%", top: "54.37%" },
+  { label: "V/S", left: "70.60%", top: "68.11%" },
+  { label: "DE-ICE V", left: "73.13%", top: "76.97%", width: "115px" },
+  { label: "V2", left: "84.75%", top: "65.56%" },
+  { label: "T/S", left: "86.20%", top: "43.74%" },
+  { label: "V/T", left: "86.74%", top: "51.83%" },
+  { label: "V1", left: "96.26%", top: "35.22%" },
 ];

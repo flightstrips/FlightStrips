@@ -687,7 +687,11 @@ func handleRunways(ctx context.Context, client *Client, message Message) error {
 			ArrivalRunways:   arrival,
 		}
 
-		slog.Debug("Setting active runways", slog.Any("runways", activeRunways), slog.Int("session", int(client.session)))
+		slog.Info("Runway change received",
+			slog.Int("session", int(client.session)),
+			slog.Any("departure", departure),
+			slog.Any("arrival", arrival),
+		)
 
 		err = sessionRepo.UpdateActiveRunways(ctx, client.session, activeRunways)
 		if err != nil {
@@ -698,11 +702,18 @@ func handleRunways(ctx context.Context, client *Client, message Message) error {
 
 		err = s.UpdateSectors(client.session)
 		if err != nil {
+			slog.Error("UpdateSectors failed after runway change", slog.Int("session", int(client.session)), slog.Any("error", err))
 			return err
 		}
+		slog.Debug("UpdateSectors completed", slog.Int("session", int(client.session)))
 
 		err = s.UpdateRoutesForSession(client.session, true)
-		return err
+		if err != nil {
+			slog.Error("UpdateRoutesForSession failed after runway change", slog.Int("session", int(client.session)), slog.Any("error", err))
+			return err
+		}
+		slog.Debug("UpdateRoutesForSession completed", slog.Int("session", int(client.session)))
+		return nil
 	}
 
 	return nil

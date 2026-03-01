@@ -284,7 +284,7 @@ func handleCoordinationAssumeRequest(ctx context.Context, client *Client, messag
 		return err
 	}
 
-	client.hub.SendOwnersUpdate(client.session, strip.Callsign, nextOwners, previousOwners)
+	client.hub.SendOwnersUpdate(client.session, req.Callsign, client.position, nextOwners, previousOwners)
 	return nil
 }
 
@@ -362,8 +362,33 @@ func handleCoordinationFreeRequest(ctx context.Context, client *Client, message 
 	}
 
 	client.hub.SendCoordinationFree(client.session, req.Callsign)
-	client.hub.SendOwnersUpdate(client.session, strip.Callsign, strip.NextOwners, previousOwners)
+	client.hub.SendOwnersUpdate(client.session, strip.Callsign, "", strip.NextOwners, previousOwners)
 
+	return nil
+}
+
+func handleCoordinationCancelTransferRequest(ctx context.Context, client *Client, message Message) error {
+	var req frontend.CoordinationCancelTransferRequestEvent
+	if err := message.JsonUnmarshal(&req); err != nil {
+		return err
+	}
+	s := client.hub.server
+	coordRepo := s.GetCoordinationRepository()
+
+	coordination, err := coordRepo.GetByStripCallsign(ctx, client.session, req.Callsign)
+	if err != nil {
+		return err
+	}
+
+	if coordination.FromPosition != client.position {
+		return errors.New("cannot cancel a transfer that you did not initiate")
+	}
+
+	if err := coordRepo.Delete(ctx, coordination.ID); err != nil {
+		return err
+	}
+
+	client.hub.SendCoordinationReject(client.session, req.Callsign, client.position)
 	return nil
 }
 

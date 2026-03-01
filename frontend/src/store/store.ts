@@ -70,6 +70,7 @@ export interface WebSocketState {
   transferStrip: (callsign: string, toPosition: string) => void;
   assumeStrip: (callsign: string) => void;
   freeStrip: (callsign: string) => void;
+  cancelTransfer: (callsign: string) => void;
   toggleMarked: (callsign: string, marked: boolean) => void;
 }
 
@@ -212,6 +213,9 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     },
     freeStrip: (callsign) => {
       wsClient.send({ type: ActionType.FrontendCoordinationFreeRequest, callsign });
+    },
+    cancelTransfer: (callsign) => {
+      wsClient.send({ type: ActionType.FrontendCoordinationCancelTransferRequest, callsign });
     },
     toggleMarked: (callsign, marked) => {
       wsClient.send({ type: ActionType.FrontendMarked, callsign, marked });
@@ -407,6 +411,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
       produce((state: WebSocketState) => {
         const stripIndex = state.strips.findIndex(strip => strip.callsign === data.callsign);
         if (stripIndex !== -1) {
+          state.strips[stripIndex].owner = data.owner;
           state.strips[stripIndex].next_controllers = data.next_owners;
           state.strips[stripIndex].previous_controllers = data.previous_owners;
         }

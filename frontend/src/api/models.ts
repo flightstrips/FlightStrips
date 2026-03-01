@@ -43,6 +43,7 @@ export enum ActionType {
   FrontendCoordinationTransferRequest = "coordination_transfer_request",
   FrontendCoordinationAssumeRequest = "coordination_assume_request",
   FrontendCoordinationFreeRequest = "coordination_free_request",
+  FrontendCoordinationCancelTransferRequest = "coordination_cancel_transfer_request",
 }
 
 export type PdcStatus = "NONE" | "REQUESTED" | "CLEARED" | "CONFIRMED" | "NO_RESPONSE" | "FAILED" | "REVERT_TO_VOICE";
@@ -244,6 +245,7 @@ export interface FrontendCommunicationTypeEvent {
 export interface FrontendOwnersUpdateEvent {
   type: EventType.FrontendOwnersUpdate;
   callsign: string;
+  owner: string;
   next_owners: string[];
   previous_owners: string[];
 }
@@ -428,5 +430,10 @@ export interface FrontendCoordinationFreeRequestEvent {
   callsign: string;
 }
 
+export interface FrontendCoordinationCancelTransferRequestEvent {
+  type: ActionType.FrontendCoordinationCancelTransferRequest;
+  callsign: string;
+}
+
 // Union type for all events that can be sent
-export type FrontendSendEvent = FrontendAuthenticationEvent | FrontendMoveEvent | FrontendGenerateSquawkEvent | FrontendUpdateStripDataEvent | FrontendUpdateOrder | FrontendSendMessageEvent | FrontendCdmReadyEvent | FrontendSendReleasePointEvent | FrontendSendMarkedEvent | FrontendIssuePdcClearanceRequest | FrontendRevertToVoiceRequest | FrontendCoordinationTransferRequestEvent | FrontendCoordinationAssumeRequestEvent | FrontendCoordinationFreeRequestEvent;
+export type FrontendSendEvent = FrontendAuthenticationEvent | FrontendMoveEvent | FrontendGenerateSquawkEvent | FrontendUpdateStripDataEvent | FrontendUpdateOrder | FrontendSendMessageEvent | FrontendCdmReadyEvent | FrontendSendReleasePointEvent | FrontendSendMarkedEvent | FrontendIssuePdcClearanceRequest | FrontendRevertToVoiceRequest | FrontendCoordinationTransferRequestEvent | FrontendCoordinationAssumeRequestEvent | FrontendCoordinationFreeRequestEvent | FrontendCoordinationCancelTransferRequestEvent;

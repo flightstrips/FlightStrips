@@ -150,7 +150,11 @@ func (s *Server) updateRouteForStripHelper(strip *models.Strip, session *models.
 	err = s.stripRepo.SetNextOwners(context.Background(), session.ID, strip.Callsign, actualRoute)
 
 	if sendUpdate {
-		s.frontendHub.SendOwnersUpdate(session.ID, strip.Callsign, actualRoute, strip.PreviousOwners)
+		owner := ""
+		if strip.Owner != nil {
+			owner = *strip.Owner
+		}
+		s.frontendHub.SendOwnersUpdate(session.ID, strip.Callsign, owner, actualRoute, strip.PreviousOwners)
 	}
 
 	return err

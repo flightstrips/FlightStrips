@@ -43,6 +43,7 @@ func NewHub(stripService shared.StripService) *Hub {
 	handlers.Add(frontend.CoordinationAssumeRequestType, handleCoordinationAssumeRequest)
 	handlers.Add(frontend.CoordinationRejectRequestType, handleCoordinationRejectRequest)
 	handlers.Add(frontend.CoordinationFreeRequestType, handleCoordinationFreeRequest)
+	handlers.Add(frontend.CoordinationCancelTransferRequest, handleCoordinationCancelTransferRequest)
 	handlers.Add(frontend.UpdateOrder, handleUpdateOrder)
 	handlers.Add(frontend.SendMessage, handleSendMessage)
 	handlers.Add(frontend.CdmReady, handleCdmReady)
@@ -464,9 +465,10 @@ func (hub *Hub) SendCoordinationFree(session int32, callsign string) {
 	hub.Broadcast(session, event)
 }
 
-func (hub *Hub) SendOwnersUpdate(session int32, callsign string, nextOwners []string, previousOwners []string) {
+func (hub *Hub) SendOwnersUpdate(session int32, callsign, owner string, nextOwners []string, previousOwners []string) {
 	event := frontend.OwnersUpdateEvent{
 		Callsign:       callsign,
+		Owner:          owner,
 		NextOwners:     nextOwners,
 		PreviousOwners: previousOwners,
 	}

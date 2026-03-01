@@ -1,3 +1,4 @@
+import React from "react";
 import { useControllers, useWebSocketStore } from "@/store/store-hooks";
 import { getCellBorderColor } from "./shared";
 
@@ -29,7 +30,7 @@ export function SIBox({
   const controllers = useControllers();
   const transferStrip = useWebSocketStore(s => s.transferStrip);
   const assumeStrip = useWebSocketStore(s => s.assumeStrip);
-  const freeStrip = useWebSocketStore(s => s.freeStrip);
+  const cancelTransfer = useWebSocketStore(s => s.cancelTransfer);
 
   const isAssumed = !!myPosition && owner === myPosition;
   const isTransferredAway = !!myPosition && !!previousControllers?.includes(myPosition);
@@ -49,11 +50,12 @@ export function SIBox({
     nextLabel = nextController ? nextController.identifier : "";
   }
 
-  const handleClick = () => {
+  const handleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
     if (isReceivingTransfer) {
       assumeStrip(callsign);
     } else if (isSendingTransfer) {
-      freeStrip(callsign);
+      cancelTransfer(callsign);
     } else if (isAssumed && nextPosition) {
       transferStrip(callsign, nextPosition);
     }

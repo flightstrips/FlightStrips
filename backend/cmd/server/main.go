@@ -148,6 +148,7 @@ func main() {
 
 	stripService.SetFrontendHub(frontendHub)
 	stripService.SetEuroscopeHub(euroscopeHub)
+	stripService.SetSectorOwnerRepo(sectorRepo)
 	cdmService.SetFrontendHub(frontendHub)
 	if pdcService != nil {
 		pdcService.SetFrontendHub(frontendHub)

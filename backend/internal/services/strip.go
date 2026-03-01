@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"slices"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -19,9 +20,10 @@ const (
 )
 
 type StripService struct {
-	stripRepo    repository.StripRepository
-	frontendHub  shared.FrontendHub
-	euroscopeHub shared.EuroscopeHub
+	stripRepo       repository.StripRepository
+	sectorOwnerRepo repository.SectorOwnerRepository
+	frontendHub     shared.FrontendHub
+	euroscopeHub    shared.EuroscopeHub
 }
 
 func NewStripService(stripRepo repository.StripRepository) *StripService {
@@ -36,6 +38,10 @@ func (s *StripService) SetFrontendHub(frontendHub shared.FrontendHub) {
 
 func (s *StripService) SetEuroscopeHub(euroscopeHub shared.EuroscopeHub) {
 	s.euroscopeHub = euroscopeHub
+}
+
+func (s *StripService) SetSectorOwnerRepo(sectorOwnerRepo repository.SectorOwnerRepository) {
+	s.sectorOwnerRepo = sectorOwnerRepo
 }
 
 // calculateOrderBetween calculates the order value for a strip being inserted between two existing strips.
@@ -202,6 +208,59 @@ func (s *StripService) UnclearStrip(ctx context.Context, session int32, callsign
 
 	if s.euroscopeHub != nil {
 		s.euroscopeHub.SendClearedFlag(session, cid, callsign, false)
+	}
+
+	return nil
+}
+
+// AutoAssumeForClearedStrip finds the SQ (or fallback DEL) sector owner for the
+// session and assigns them as the strip owner. It sends an owners update broadcast
+// to all frontend clients. If no SQ/DEL owner is found, the strip is left unowned.
+func (s *StripService) AutoAssumeForClearedStrip(ctx context.Context, session int32, callsign string, stripVersion int32) error {
+	if s.sectorOwnerRepo == nil {
+		return nil
+	}
+
+	owners, err := s.sectorOwnerRepo.ListBySession(ctx, session)
+	if err != nil {
+		return err
+	}
+
+	sqPosition := ""
+	for _, owner := range owners {
+		if slices.Contains(owner.Sector, "SQ") {
+			sqPosition = owner.Position
+			break
+		}
+	}
+	if sqPosition == "" {
+		for _, owner := range owners {
+			if slices.Contains(owner.Sector, "DEL") {
+				sqPosition = owner.Position
+				break
+			}
+		}
+	}
+
+	if sqPosition == "" {
+		slog.Debug("No SQ/DEL owner found for auto-assume", slog.String("callsign", callsign))
+		return nil
+	}
+
+	slog.Debug("Auto-assuming cleared strip", slog.String("callsign", callsign), slog.String("position", sqPosition))
+
+	strip, err := s.stripRepo.GetByCallsign(ctx, session, callsign)
+	if err != nil {
+		return err
+	}
+
+	count, err := s.stripRepo.SetOwner(ctx, session, callsign, &sqPosition, stripVersion)
+	if err != nil {
+		return err
+	}
+
+	if count == 1 {
+		s.frontendHub.SendOwnersUpdate(session, callsign, sqPosition, strip.NextOwners, strip.PreviousOwners)
 	}
 
 	return nil

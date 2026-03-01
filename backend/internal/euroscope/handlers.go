@@ -316,6 +316,12 @@ func handleClearedFlag(ctx context.Context, client *Client, message Message) err
 		return err
 	}
 
+	if event.Cleared {
+		if err := client.hub.stripService.AutoAssumeForClearedStrip(ctx, session, event.Callsign, existingStrip.Version+1); err != nil {
+			slog.Error("Failed to auto-assume cleared strip from EuroScope", slog.Any("error", err))
+		}
+	}
+
 	if existingStrip.Bay != bay {
 		return client.hub.stripService.MoveToBay(ctx, client.session, event.Callsign, bay, true)
 	}

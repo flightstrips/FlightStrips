@@ -125,6 +125,7 @@ func StartTestServer() (*TestServer, error) {
 
 	stripService.SetFrontendHub(frontendHub)
 	stripService.SetEuroscopeHub(euroscopeHub)
+	stripService.SetSectorOwnerRepo(sectorRepo)
 	cdmService.SetFrontendHub(frontendHub)
 
 	// Initialize server

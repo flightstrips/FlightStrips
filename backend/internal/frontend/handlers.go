@@ -78,42 +78,9 @@ func handleClearedBayUpdate(ctx context.Context, client *Client, strip *internal
 		return errors.New("failed to update strip cleared flag")
 	}
 
-	// TODO move the code somewhere else
 	if isCleared {
-		sectorRepo := client.hub.server.GetSectorOwnerRepository()
-		owners, err := sectorRepo.ListBySession(ctx, client.session)
-		if err != nil {
-			return err
-		}
-
-		sqPosition := ""
-		for _, owner := range owners {
-			if slices.Contains(owner.Sector, "SQ") {
-				sqPosition = owner.Position
-				break
-			}
-		}
-		if sqPosition == "" {
-			for _, owner := range owners {
-				if slices.Contains(owner.Sector, "DEL") {
-					sqPosition = owner.Position
-					break
-				}
-			}
-		}
-
-		slog.Debug("Assigning SQ position to cleared strip", slog.String("callsign", move.Callsign), slog.String("sqPosition", sqPosition))
-
-		if sqPosition != "" {
-			ownerCount, err := stripRepo.SetOwner(ctx, client.session, move.Callsign, &sqPosition, strip.Version+1) // HACK
-			if err != nil {
-				slog.Debug("Failed to assign SQ position to cleared strip", slog.String("callsign", move.Callsign), slog.String("sqPosition", sqPosition), slog.Any("error", err))
-				return err
-			}
-			if ownerCount == 1 {
-				slog.Debug("Strip owner updated to SQ position", slog.String("callsign", move.Callsign), slog.String("sqPosition", sqPosition))
-				client.hub.SendOwnersUpdate(client.session, move.Callsign, sqPosition, strip.NextOwners, strip.PreviousOwners)
-			}
+		if err := client.hub.stripService.AutoAssumeForClearedStrip(ctx, client.session, move.Callsign, strip.Version+1); err != nil {
+			slog.Error("Failed to auto-assume cleared strip", slog.Any("error", err))
 		}
 	}
 

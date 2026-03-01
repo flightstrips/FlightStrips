@@ -29,3 +29,8 @@ func (m *StripService) MoveStripBetween(ctx context.Context, session int32, call
 	args := m.Called(ctx, session, callsign, before, bay)
 	return args.Error(0)
 }
+
+func (m *StripService) AutoAssumeForClearedStrip(ctx context.Context, session int32, callsign string, stripVersion int32) error {
+	args := m.Called(ctx, session, callsign, stripVersion)
+	return args.Error(0)
+}

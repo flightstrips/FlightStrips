@@ -9,26 +9,13 @@ import {
   type DragStartEvent,
 } from "@dnd-kit/core";
 import type { Bay } from "@/api/models.ts";
-import { createContext, useContext, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
+import { DragStateContext } from "./DragStateContext";
 
 export interface BayConfig {
   strips: { callsign: string }[];
   /** Backend Bay enum value this visual bay maps to */
   targetBay: Bay;
-}
-
-interface DragState {
-  /** Callsign of the strip currently being dragged, or null. */
-  activeId: string | null;
-  /** Returns true if the active strip may be dropped into the given bay. */
-  isValidTarget: (bayId: string) => boolean;
-}
-
-const DragStateContext = createContext<DragState>({ activeId: null, isValidTarget: () => true });
-
-/** Consume drag state (activeId + validity check) inside any bay component. */
-export function useDragState() {
-  return useContext(DragStateContext);
 }
 
 interface ViewDndContextProps {

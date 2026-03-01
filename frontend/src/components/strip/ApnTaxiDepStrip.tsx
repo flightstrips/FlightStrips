@@ -3,9 +3,9 @@ import {
   useStripSelection,
   getFramedStripStyle,
   getCellBorderColor,
-  SIBox,
   SELECTION_COLOR,
 } from "./shared";
+import { SIBox } from "./SIBox";
 import { getSimpleAircraftType } from "@/lib/utils";
 import { useStripTransfers } from "@/store/store-hooks";
 

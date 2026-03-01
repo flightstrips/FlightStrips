@@ -25,6 +25,7 @@ export enum EventType {
   FrontendCoordinationAssumeBroadcast = "coordination_assume_broadcast",
   FrontendCoordinationRejectBroadcast = "coordination_reject_broadcast",
   FrontendCoordinationFreeBroadcast = "coordination_free_broadcast",
+  FrontendRunWayConfiguration = "run_way_configuration",
 }
 
 export enum ActionType {
@@ -320,6 +321,11 @@ export interface FrontendCoordinationFreeBroadcastEvent {
   callsign: string;
 }
 
+export interface FrontendRunwayConfigurationEvent {
+  type: EventType.FrontendRunWayConfiguration;
+  runway_setup: RunwayConfiguration;
+}
+
 // Union type for all events that can be received
 export type WebSocketEvent =
   | FrontendInitialEvent
@@ -347,7 +353,8 @@ export type WebSocketEvent =
   | FrontendCoordinationTransferBroadcastEvent
   | FrontendCoordinationAssumeBroadcastEvent
   | FrontendCoordinationRejectBroadcastEvent
-  | FrontendCoordinationFreeBroadcastEvent;
+  | FrontendCoordinationFreeBroadcastEvent
+  | FrontendRunwayConfigurationEvent;
 
 export interface FrontendMoveEvent {
   type: ActionType.FrontendMove;

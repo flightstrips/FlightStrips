@@ -5,9 +5,9 @@ import {
   useStripSelection,
   getFramedStripStyle,
   getCellBorderColor,
-  SIBox,
   SELECTION_COLOR,
 } from "./shared";
+import { SIBox } from "./SIBox";
 import { useStripTransfers } from "@/store/store-hooks";
 
 const ARIAL = "'Arial', sans-serif";

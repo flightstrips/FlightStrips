@@ -20,6 +20,7 @@ import {
   type FrontendCoordinationAssumeBroadcastEvent,
   type FrontendCoordinationRejectBroadcastEvent,
   type FrontendCoordinationFreeBroadcastEvent,
+  type FrontendRunwayConfigurationEvent,
   type FrontendRequestedAltitudeEvent,
   type FrontendSetHeadingEvent,
   type FrontendSquawkEvent,
@@ -511,6 +512,14 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     );
   };
 
+  const handleRunwayConfigurationEvent = (data: FrontendRunwayConfigurationEvent) => {
+    store.setState(
+      produce((state: WebSocketState) => {
+        state.runwaySetup = data.runway_setup;
+      })
+    );
+  };
+
   // Register event handlers
   wsClient.on(EventType.FrontendInitial, handleInitialEvent);
   wsClient.on(EventType.FrontendStripUpdate, handleStripUpdateEvent);
@@ -538,6 +547,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
   wsClient.on(EventType.FrontendCoordinationAssumeBroadcast, handleCoordinationAssumeBroadcastEvent);
   wsClient.on(EventType.FrontendCoordinationRejectBroadcast, handleCoordinationRejectBroadcastEvent);
   wsClient.on(EventType.FrontendCoordinationFreeBroadcast, handleCoordinationFreeBroadcastEvent);
+  wsClient.on(EventType.FrontendRunWayConfiguration, handleRunwayConfigurationEvent);
 
   return store;
 };

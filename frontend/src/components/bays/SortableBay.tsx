@@ -15,7 +15,7 @@ import {
   useSortable,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { useDragState } from "@/components/bays/ViewDndContext.tsx";
+import { useDragState } from "@/components/bays/DragStateContext";
 import { useState, type CSSProperties, type ReactNode } from "react";
 
 interface SortableBayProps {

@@ -112,7 +112,7 @@ func handleClearedBayUpdate(ctx context.Context, client *Client, strip *internal
 			}
 			if ownerCount == 1 {
 				slog.Debug("Strip owner updated to SQ position", slog.String("callsign", move.Callsign), slog.String("sqPosition", sqPosition))
-				client.hub.SendCoordinationAssume(client.session, move.Callsign, sqPosition)
+				client.hub.SendOwnersUpdate(client.session, move.Callsign, sqPosition, strip.NextOwners, strip.PreviousOwners)
 			}
 		}
 	}

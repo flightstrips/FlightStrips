@@ -38,7 +38,7 @@ func NewHub(stripService shared.StripService) *Hub {
 
 	handlers.Add(frontend.GenerateSquawk, handleGenerateSquawk)
 	handlers.Add(frontend.Move, handleMove)
-	handlers.Add(frontend.StripUpdate, handleStripUpdate)
+	handlers.Add(frontend.UpdateStripData, handleStripUpdate)
 	handlers.Add(frontend.CoordinationTransferRequestType, handleCoordinationTransferRequest)
 	handlers.Add(frontend.CoordinationAssumeRequestType, handleCoordinationAssumeRequest)
 	handlers.Add(frontend.CoordinationRejectRequestType, handleCoordinationRejectRequest)

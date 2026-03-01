@@ -11,6 +11,7 @@ import {
 import type { Bay } from "@/api/models.ts";
 import { useState, type ReactNode } from "react";
 import { DragStateContext } from "./DragStateContext";
+import { DragDisabledContext } from "./DragDisabledContext";
 
 export interface BayConfig {
   strips: { callsign: string }[];
@@ -38,8 +39,9 @@ export function ViewDndContext({
   onMove,
   renderDragOverlay,
 }: ViewDndContextProps) {
+  const [dragDisabled, setDragDisabled] = useState(false);
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
+    useSensor(PointerSensor, { activationConstraint: { distance: dragDisabled ? Infinity : 5 } })
   );
 
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -110,15 +112,17 @@ export function ViewDndContext({
   }
 
   return (
-    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-      <DragStateContext value={{ activeId, isValidTarget }}>
-        {children}
-        {renderDragOverlay && (
-          <DragOverlay style={{ opacity: 0.5 }}>
-            {activeId ? renderDragOverlay(activeId) : null}
-          </DragOverlay>
-        )}
-      </DragStateContext>
-    </DndContext>
+    <DragDisabledContext value={{ setDragDisabled }}>
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+        <DragStateContext value={{ activeId, isValidTarget }}>
+          {children}
+          {renderDragOverlay && (
+            <DragOverlay style={{ opacity: 0.5 }}>
+              {activeId ? renderDragOverlay(activeId) : null}
+            </DragOverlay>
+          )}
+        </DragStateContext>
+      </DndContext>
+    </DragDisabledContext>
   );
 }

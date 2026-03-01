@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { StripProps } from "./types";
 import {
   useStripSelection,
@@ -7,6 +8,7 @@ import {
 } from "./shared";
 import { SIBox } from "./SIBox";
 import { useStripTransfers } from "@/store/store-hooks";
+import { PushbackMapDialog } from "@/components/pushback/PushbackMapDialog";
 
 const FONT = "'Arial', sans-serif";
 const HALF_H = "2.22vh";    // half of 4.44vh for TSAT/CTOT split
@@ -45,6 +47,7 @@ export function ApnPushStrip({
   const { isSelected, handleClick } = useStripSelection(callsign, selectable);
   const cellBorderColor = getCellBorderColor(marked);
   const stripTransfers = useStripTransfers();
+  const [pushbackOpen, setPushbackOpen] = useState(false);
 
   return (
     <div
@@ -91,11 +94,18 @@ export function ApnPushStrip({
 
         {/* Stand — 25%*(2/3) */}
         <div
-          className="flex items-center justify-center overflow-hidden border-r-2"
+          className="flex items-center justify-center overflow-hidden border-r-2 cursor-pointer hover:bg-cyan-200"
           style={{ flex: `${F_STAND} 0 0%`, height: "100%", paddingBottom: "1.48vh", minWidth: 0, borderRightColor: cellBorderColor }}
+          onClick={(e) => { e.stopPropagation(); setPushbackOpen(true); }}
         >
           <span style={{ fontFamily: FONT, fontWeight: 600, fontSize: 20 }}>{stand}</span>
         </div>
+
+        <PushbackMapDialog
+          open={pushbackOpen}
+          onOpenChange={setPushbackOpen}
+          callsign={callsign}
+        />
 
         {/* TSAT / CTOT — 25%*(2/3), split in half with border */}
         <div

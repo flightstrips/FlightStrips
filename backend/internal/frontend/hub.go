@@ -150,10 +150,17 @@ func (hub *Hub) sendInitialEvent(client *Client) {
 	controllerRepo := hub.server.GetControllerRepository()
 	stripRepo := hub.server.GetStripRepository()
 	sectorRepo := hub.server.GetSectorOwnerRepository()
+	sessionRepo := hub.server.GetSessionRepository()
 
 	controllers, err := controllerRepo.ListBySession(context.Background(), client.session)
 	if err != nil {
 		slog.Error("Failed to list controllers", slog.Any("error", err), slog.Int("session", int(client.session)))
+		return
+	}
+
+	dbSession, err := sessionRepo.GetByID(context.Background(), client.session)
+	if err != nil {
+		slog.Error("Failed to get session", slog.Any("error", err), slog.Int("session", int(client.session)))
 		return
 	}
 
@@ -229,6 +236,15 @@ func (hub *Hub) sendInitialEvent(client *Client) {
 		})
 	}
 
+	departure := dbSession.ActiveRunways.DepartureRunways
+	if departure == nil {
+		departure = make([]string, 0)
+	}
+	arrival := dbSession.ActiveRunways.ArrivalRunways
+	if arrival == nil {
+		arrival = make([]string, 0)
+	}
+
 	event := frontend.InitialEvent{
 		Contsollers:   controllerModels,
 		Strips:        stripModels,
@@ -237,8 +253,8 @@ func (hub *Hub) sendInitialEvent(client *Client) {
 		Airport:       client.airport,
 		Layout:        layout,
 		RunwaySetup:   frontend.RunwayConfiguration{
-			Departure: make([]string, 0),
-			Arrival:   make([]string, 0),
+			Departure: departure,
+			Arrival:   arrival,
 		},
 		Coordinations: coordinationModels,
 	}
@@ -490,6 +506,16 @@ func (hub *Hub) SendPdcStateChange(session int32, callsign, state string) {
 	event := frontend.PdcStateChangeEvent{
 		Callsign: callsign,
 		State:    state,
+	}
+	hub.Broadcast(session, event)
+}
+
+func (hub *Hub) SendRunwayConfiguration(session int32, departure, arrival []string) {
+	event := frontend.RunwayConfigurationEvent{
+		RunwaySetup: frontend.RunwayConfiguration{
+			Departure: departure,
+			Arrival:   arrival,
+		},
 	}
 	hub.Broadcast(session, event)
 }

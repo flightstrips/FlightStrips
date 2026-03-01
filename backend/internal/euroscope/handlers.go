@@ -647,6 +647,8 @@ func handleRunways(ctx context.Context, client *Client, message Message) error {
 			return err
 		}
 
+		s.GetFrontendHub().SendRunwayConfiguration(client.session, departure, arrival)
+
 		err = s.UpdateSectors(client.session)
 		if err != nil {
 			return err

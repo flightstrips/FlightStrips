@@ -573,3 +573,15 @@ type PdcManualStateChangeRequest struct {
 	Callsign string    `json:"callsign"`
 	State    string    `json:"state"`
 }
+
+type RunwayConfigurationEvent struct {
+	RunwaySetup RunwayConfiguration `json:"runway_setup"`
+}
+
+func (r RunwayConfigurationEvent) Marshal() ([]byte, error) {
+	return marshall(r)
+}
+
+func (r RunwayConfigurationEvent) GetType() EventType {
+	return RunWayConfiguration
+}

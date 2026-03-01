@@ -31,4 +31,5 @@ type FrontendHub interface {
 	SendCdmUpdate(session int32, callsign, eobt, tobt, tsat, ctot string)
 	SendCdmWait(session int32, callsign string)
 	SendPdcStateChange(session int32, callsign, state string)
+	SendRunwayConfiguration(session int32, departure, arrival []string)
 }

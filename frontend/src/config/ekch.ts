@@ -107,3 +107,57 @@ export const APRON_TAXI_POINTS: ClickPoint[] = [
   { label: "V/T", left: "86.74%", top: "51.83%" },
   { label: "V1", left: "96.26%", top: "35.22%" },
 ];
+
+/**
+ * EKCH TWR taxi map points positioned over taxi_map.png.
+ * Positions are percentages relative to the image content area (1801×1013).
+ * Derived from SVG layout: (cx - 40) / 1801 and (cy - 40) / 1013.
+ * Labels are placeholders (TD001–TD046) — replace with actual taxiway names.
+ */
+export const TAXI_MAP_POINTS: ClickPoint[] = [
+  { label: "K1/K", left: "13.16%", top: "5.38%" },
+  { label: "A5", left: "18.98%", top: "96.84%" },
+  { label: "K2/K", left: "20.12%", top: "10.73%" },
+  { label: "K2/12", left: "20.12%", top: "17.81%" },
+  { label: "K3/Z", left: "26.13%", top: "13.58%" },
+  { label: "A4", left: "26.13%", top: "84.76%" },
+  { label: "K3/12", left: "26.83%", top: "22.74%" },
+  { label: "LINE 3", left: "27.03%", top: "47.74%", width: "80px" },
+  { label: "LINE 2", left: "27.03%", top: "51.91%", width: "80px" },
+  { label: "LINE 1", left: "27.03%", top: "56.08%", width: "80px" },
+  { label: "A3", left: "28.79%", top: "78.92%" },
+  { label: "A2", left: "31.44%", top: "73.51%" },
+  { label: "F2/30", left: "32.42%", top: "35.38%" },
+  { label: "A/A1", left: "33.88%", top: "62.14%" },
+  { label: "A1", left: "34.29%", top: "67.47%" },
+  { label: "A/D", left: "35.82%", top: "52.05%" },
+  { label: "B1", left: "36.29%", top: "97.24%" }, // TODO maybe height 40
+  { label: "B2", left: "38.67%", top: "92.69%" },
+  { label: "E1", left: "38.83%", top: "76.01%" },
+  { label: "D/A", left: "39.22%", top: "57.05%" },
+  { label: "A/30", left: "40.00%", top: "28.37%" },
+  { label: "C/30", left: "40.04%", top: "44.86%" },
+  { label: "B3", left: "40.67%", top: "88.10%" },
+  { label: "30/A", left: "41.95%", top: "39.27%" },
+  { label: "B/C", left: "42.26%", top: "80.60%" },
+  { label: "C/D", left: "43.12%", top: "62.05%" },
+  { label: "F/30", left: "43.90%", top: "32.47%" },
+  { label: "D/30", left: "43.90%", top: "50.52%" },
+  { label: "30/D", left: "46.56%", top: "44.20%" },
+  { label: "B/C", left: "46.83%", top: "67.05%" },
+  { label: "C/22L", left: "47.54%", top: "91.26%" },
+  { label: "B4", left: "47.56%", top: "97.29%" },
+  { label: "D/Z", left: "47.81%", top: "37.47%" },
+  { label: "B/30", left: "50.43%", top: "55.72%" },
+  { label: "B/Z", left: "55.00%", top: "43.51%" },
+  { label: "30/B", left: "55.82%", top: "52.81%" },
+  { label: "V/S", left: "62.30%", top: "32.53%" },
+  { label: "12/22L", left: "62.34%", top: "59.90%", width: "80px" },
+  { label: "30/22L", left: "70.03%", top: "68.16%", width: "80px" },
+  { label: "V2", left: "75.62%", top: "30.38%" },
+  { label: "N2/30", left: "76.36%", top: "84.06%" },
+  { label: "I/22L", left: "79.84%", top: "46.35%" },
+  { label: "G2/30", left: "81.13%", top: "68.16%" },
+  { label: "V1", left: "84.33%", top: "8.58%" },
+  { label: "G1", left: "97.61%", top: "87.60%" },
+];

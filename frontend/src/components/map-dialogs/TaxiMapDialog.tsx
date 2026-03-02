@@ -1,9 +1,9 @@
 import { useWebSocketStore } from "@/store/store-hooks";
-import { APRON_TAXI_POINTS } from "@/config/ekch";
-import apronTaxi from "@/assets/apron_taxi.png";
+import { TAXI_MAP_POINTS } from "@/config/ekch";
+import taxiMap from "@/assets/taxi_map.png";
 import { MAP_BTN_BASE, MapDialogShell, MapEraseControls } from "./MapDialogShell";
 
-interface ApronTaxiMapDialogProps {
+interface TaxiMapDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   callsign: string;
@@ -11,12 +11,12 @@ interface ApronTaxiMapDialogProps {
 
 const BTN_STYLE: React.CSSProperties = {
   ...MAP_BTN_BASE,
-  width: 75,
+  width: 70,
   height: 45,
-  fontSize: 22,
+  fontSize: "clamp(8px, 0.9vw, 16px)",
 };
 
-export function ApronTaxiMapDialog({ open, onOpenChange, callsign }: ApronTaxiMapDialogProps) {
+export function TaxiMapDialog({ open, onOpenChange, callsign }: TaxiMapDialogProps) {
   const setReleasePoint = useWebSocketStore((s) => s.setReleasePoint);
 
   const handleSelect = (label: string) => {
@@ -29,11 +29,11 @@ export function ApronTaxiMapDialog({ open, onOpenChange, callsign }: ApronTaxiMa
       open={open}
       onOpenChange={onOpenChange}
       title="Select Taxi Route"
-      imageSrc={apronTaxi}
-      imageAlt="Apron taxi map"
-      imgWidth={1859}
-      imgHeight={903}
-      points={APRON_TAXI_POINTS}
+      imageSrc={taxiMap}
+      imageAlt="TWR taxi map"
+      imgWidth={1801}
+      imgHeight={1013}
+      points={TAXI_MAP_POINTS}
       btnStyle={BTN_STYLE}
       onSelect={handleSelect}
     >
@@ -41,8 +41,8 @@ export function ApronTaxiMapDialog({ open, onOpenChange, callsign }: ApronTaxiMa
       <div
         style={{
           position: "absolute",
-          bottom: "30%",
-          left: "10%",
+          bottom: "5%",
+          left: "2%",
           zIndex: 20,
           display: "flex",
           flexDirection: "column",

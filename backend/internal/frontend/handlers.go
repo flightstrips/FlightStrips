@@ -266,7 +266,7 @@ func handleCoordinationAssumeRequest(ctx context.Context, client *Client, messag
 		nextOwners = nextOwners[index+1:]
 	}
 
-	previousOwners := append(strip.PreviousOwners, client.position)
+	previousOwners := append(strip.PreviousOwners, coordination.FromPosition)
 
 	err = stripRepo.SetNextAndPreviousOwners(ctx, client.session, strip.Callsign, nextOwners, previousOwners)
 	if err != nil {

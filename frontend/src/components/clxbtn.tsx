@@ -58,7 +58,7 @@ export function CLXBtn({ callsign, children }: { callsign: string, children?: Re
         <VisuallyHidden.Root>
           <DialogTitle>Clearance</DialogTitle>
         </VisuallyHidden.Root>
-        <div className="relative border-2 border-black flex-1 flex flex-col items-center gap-[30px] min-h-0" style={{ paddingTop: 30, paddingBottom: 30 }}>
+        <div className="relative border-2 border-black flex-1 flex flex-col items-center gap-[30px] min-h-0" style={{ paddingTop: 30, paddingBottom: 30, color: "#000" }}>
           <span className="absolute font-bold text-base bg-[#d4d4d4] px-2" style={{ top: -11, left: '50%', transform: 'translateX(-50%)', whiteSpace: 'nowrap' }}>FLIGHT PLAN</span>
           {/* Row 1: C/S ADES RNAV SID SSR TTOT CTOT */}
           <div className="flex gap-[5px]" style={{ width: 835 }}>

@@ -39,7 +39,7 @@ export default function HOMEBTN() {
           <DialogTitle>Select View</DialogTitle>
         </VisuallyHidden.Root>
         <div className="border-2 border-black">
-          <div className="grid grid-cols-2 gap-2 p-2">
+          <div className="grid grid-cols-2 gap-2 p-2" style={{ color: "#000" }}>
             {EKCH_SCOPES.map((scope) => (
               <Button
                 key={scope.path}

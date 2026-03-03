@@ -22,7 +22,9 @@ import { useWebSocketStore, useMyPosition, useLowerPositionOnline } from "@/stor
 import { useRef, useEffect, useMemo } from "react";
 
 const scrollArea = "w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary";
+const scrollAreaBottom = "w-full bg-[#555355] p-1 flex flex-col justify-end gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary";
 const darkScrollArea = "w-full bg-[#212121] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary";
+const darkScrollAreaBottom = "w-full bg-[#212121] p-1 flex flex-col justify-end gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary";
 const btn = "bg-[#646464] text-white font-bold text-sm px-3 border-2 border-white active:bg-[#424242]";
 
 export default function TWTE() {
@@ -80,6 +82,11 @@ export default function TWTE() {
   const updateOrder   = useWebSocketStore(state => state.updateOrder);
   const move          = useWebSocketStore(state => state.move);
 
+  // TWY-DEP, RWY-DEP and AIRBORNE display highest sequence at top (descending).
+  const twyDepStripsDesc  = useMemo(() => [...twyDepStrips].reverse(),  [twyDepStrips]);
+  const rwyDepStripsDesc  = useMemo(() => [...rwyDepStrips].reverse(),  [rwyDepStrips]);
+  const airborneDesc      = useMemo(() => [...airborne].reverse(),      [airborne]);
+
   // RWY-ARR is a subset of FINAL (Bay.Final filtered by destination=airport).
   // Give RWY-ARR strips exclusive ownership so they are correctly identified
   // as "from RWY-ARR" rather than "from FINAL" during drag.
@@ -98,9 +105,9 @@ export default function TWTE() {
     "FINAL":    { strips: finalOnlyStrips, targetBay: Bay.Final },
     "RWY-ARR":  { strips: rwyArrStrips,   targetBay: Bay.Final },
     "TWY-ARR":  { strips: twyArrStrips,   targetBay: Bay.Taxi },
-    "TWY-DEP":  { strips: twyDepStrips,   targetBay: Bay.Taxi },
-    "RWY-DEP":  { strips: rwyDepStrips,   targetBay: Bay.Depart },
-    "AIRBORNE": { strips: airborne,       targetBay: Bay.Airborne },
+    "TWY-DEP":  { strips: twyDepStripsDesc,   targetBay: Bay.Taxi },
+    "RWY-DEP":  { strips: rwyDepStripsDesc,   targetBay: Bay.Depart },
+    "AIRBORNE": { strips: airborneDesc,       targetBay: Bay.Airborne },
     "STAND":    { strips: standStrips,    targetBay: Bay.Stand },
     "PUSHBACK": { strips: pushStrips,     targetBay: Bay.Push },
     "DE-ICE":   { strips: deIceStrips,   targetBay: Bay.DeIce },
@@ -210,10 +217,10 @@ export default function TWTE() {
           </span>
         </div>
         <SortableBay
-          strips={twyDepStrips}
+          strips={twyDepStripsDesc}
           bayId="TWY-DEP"
           standalone={false}
-          className={`h-[35%] ${scrollArea}`}
+          className={`h-[35%] ${scrollAreaBottom}`}
         >
           {(callsign) => {
             const strip = twyDepStrips.find(s => s.callsign === callsign)!;
@@ -231,10 +238,10 @@ export default function TWTE() {
           </span>
         </div>
         <SortableBay
-          strips={rwyDepStrips}
+          strips={rwyDepStripsDesc}
           bayId="RWY-DEP"
           standalone={false}
-          className={`h-[20%] ${darkScrollArea}`}
+          className={`h-[20%] ${darkScrollAreaBottom}`}
         >
           {(callsign) => {
             const strip = rwyDepStrips.find(s => s.callsign === callsign)!;
@@ -246,10 +253,10 @@ export default function TWTE() {
           <span className="text-white font-bold text-lg">AIRBORNE</span>
         </div>
         <SortableBay
-          strips={airborne}
+          strips={airborneDesc}
           bayId="AIRBORNE"
           standalone={false}
-          className={`flex-1 ${scrollArea}`}
+          className={`flex-1 ${scrollAreaBottom}`}
         >
           {(callsign) => {
             const strip = airborne.find(s => s.callsign === callsign)!;

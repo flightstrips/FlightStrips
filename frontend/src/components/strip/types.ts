@@ -1,6 +1,6 @@
 import type { PdcStatus } from "@/api/models";
 
-export type StripStatus = "CLR" | "CLROK" | "HALF" | "PUSH" | "ARR" | "CLX-HALF" | "TAXI-DEP";
+export type StripStatus = "CLR" | "CLROK" | "HALF" | "PUSH" | "ARR" | "CLX-HALF" | "TAXI-DEP" | "TWY-DEP";
 
 export type HalfStripVariant =
   | "APN-PUSH"    // Pushback bays
@@ -34,6 +34,7 @@ export interface StripProps {
   holdingPoint?: string;
   clearances?: boolean;
   frequency?: string;
+  heading?: number;
   arrival?: boolean;
   owner?: string;
   nextControllers?: string[];

@@ -5,6 +5,7 @@ import { ApnTaxiDepStrip } from "./ApnTaxiDepStrip";
 import { ClxClearedStrip } from "./ClxClearedStrip";
 import { DelStrip } from "./DelStrip";
 import { HalfStrip } from "./HalfStrip";
+import { TwyDepStrip } from "./TwyDepStrip";
 import type { HalfStripVariant, StripProps, StripStatus } from "./types";
 import { ClxHalfStrip } from "./ClxHalfStrip";
 
@@ -25,6 +26,7 @@ export interface FlightStripProps extends StripProps {
  *  - `"PUSH"`    → ApnPushStrip    (48px — STARTUP / PUSH BACK / DE-ICE)
  *  - `"ARR"`     → ApnArrStrip     (48px yellow — TWY ARR / STAND)
  *  - `"TAXI-DEP"` → ApnTaxiDepStrip (APN-TAXI-DEP bays)
+ *  - `"TWY-DEP"`  → TwyDepStrip     (TETW TWY-DEP bay)
  */
 export function FlightStrip({ status, pdcStatus, ...rest }: FlightStripProps) {
   const props: StripProps = {
@@ -47,6 +49,8 @@ export function FlightStrip({ status, pdcStatus, ...rest }: FlightStripProps) {
       return <ClxHalfStrip {...props} />;
     case "TAXI-DEP":
       return <ApnTaxiDepStrip {...props} />;
+    case "TWY-DEP":
+      return <TwyDepStrip {...props} />;
     default:
       return null;
   }

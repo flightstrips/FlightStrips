@@ -12,8 +12,7 @@ interface TaxiMapDialogProps {
 const BTN_STYLE: React.CSSProperties = {
   ...MAP_BTN_BASE,
   width: 70,
-  height: 45,
-  fontSize: "clamp(8px, 0.9vw, 16px)",
+  height: 40,
 };
 
 export function TaxiMapDialog({ open, onOpenChange, callsign }: TaxiMapDialogProps) {

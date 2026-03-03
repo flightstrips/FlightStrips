@@ -50,6 +50,7 @@ export default function TWTE() {
       runway={strip.runway}
       clearedAltitude={strip.cleared_altitude}
       requestedAltitude={strip.requested_altitude}
+      heading={strip.heading}
       holdingPoint={strip.release_point}
       owner={strip.owner}
       nextControllers={strip.next_controllers}
@@ -132,11 +133,11 @@ export default function TWTE() {
         const twyArr = twyArrStrips.find(s => s.callsign === callsign);
         if (twyArr) return mapToStrip(twyArr, "HALF", "APN-ARR");
         const twyDep = twyDepStrips.find(s => s.callsign === callsign);
-        if (twyDep) return mapToStrip(twyDep, "CLROK");
+        if (twyDep) return mapToStrip(twyDep, "TWY-DEP");
         const rwyDep = rwyDepStrips.find(s => s.callsign === callsign);
-        if (rwyDep) return mapToStrip(rwyDep, "CLROK");
+        if (rwyDep) return mapToStrip(rwyDep, "TWY-DEP");
         const air = airborne.find(s => s.callsign === callsign);
-        if (air) return mapToStrip(air, "CLROK");
+        if (air) return mapToStrip(air, "TWY-DEP");
         const stand = standStrips.find(s => s.callsign === callsign);
         if (stand) return mapToStrip(stand, "CLROK");
         const push = pushStrips.find(s => s.callsign === callsign);
@@ -216,7 +217,7 @@ export default function TWTE() {
         >
           {(callsign) => {
             const strip = twyDepStrips.find(s => s.callsign === callsign)!;
-            return mapToStrip(strip, "CLROK");
+            return mapToStrip(strip, "TWY-DEP");
           }}
         </SortableBay>
 
@@ -237,7 +238,7 @@ export default function TWTE() {
         >
           {(callsign) => {
             const strip = rwyDepStrips.find(s => s.callsign === callsign)!;
-            return mapToStrip(strip, "CLROK");
+            return mapToStrip(strip, "TWY-DEP");
           }}
         </SortableBay>
 
@@ -252,7 +253,7 @@ export default function TWTE() {
         >
           {(callsign) => {
             const strip = airborne.find(s => s.callsign === callsign)!;
-            return mapToStrip(strip, "CLROK");
+            return mapToStrip(strip, "TWY-DEP");
           }}
         </SortableBay>
       </div>
@@ -310,36 +311,7 @@ export default function TWTE() {
           </span>
         </div>
         <DropIndicatorBay bayId="CLRDEL" className={`h-[45%] ${scrollArea}`}>
-          {nonClearedStrips.map(x => (
-            <FlightStrip
-              key={x.callsign}
-              callsign={x.callsign}
-              status={lowerPositionOnline ? "CLX-HALF" : "CLROK"}
-              pdcStatus={x.pdc_state}
-              destination={x.destination}
-              origin={x.origin}
-              stand={x.stand}
-              eobt={x.eobt}
-              tobt={x.tobt}
-              tsat={x.tsat}
-              ctot={x.ctot}
-              aircraftType={x.aircraft_type}
-              squawk={x.squawk}
-              sid={x.sid}
-              runway={x.runway}
-              clearedAltitude={x.cleared_altitude}
-              requestedAltitude={x.requested_altitude}
-              holdingPoint={x.release_point}
-              owner={x.owner}
-              nextControllers={x.next_controllers}
-              previousControllers={x.previous_controllers}
-              myPosition={myPosition}
-              selectable={false}
-              marked={x.marked}
-              registration={x.registration}
-              fullWidth
-            />
-          ))}
+          {nonClearedStrips.map(x => mapToStrip(x, lowerPositionOnline ? "CLX-HALF" : "CLROK"))}
         </DropIndicatorBay>
 
         <div className="bg-[#393939] h-10 flex items-center px-2 shrink-0 justify-between border-t-4 border-[#A9A9A9]">

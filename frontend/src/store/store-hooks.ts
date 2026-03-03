@@ -25,3 +25,10 @@ export const useSelectStrip = () => useWebSocketStore((state) => state.selectStr
 export const useActiveMessages = () => useWebSocketStore((state) => state.activeMessages);
 export const useMyPosition = () => useWebSocketStore((state) => state.position);
 export const useStripTransfers = () => useWebSocketStore((state) => state.stripTransfers);
+
+const LOWER_SECTIONS = new Set(["DEL", "GND"]);
+
+export const useLowerPositionOnline = () =>
+  useWebSocketStore((state) =>
+    state.controllers.some((c) => LOWER_SECTIONS.has(c.section) && c.callsign !== state.callsign)
+  );

@@ -119,6 +119,7 @@ type Controller struct {
 	Callsign   string `json:"callsign"`
 	Position   string `json:"position"`
 	Identifier string `json:"identifier"`
+	Section    string `json:"section"`
 }
 
 type SyncCoordination struct {

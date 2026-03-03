@@ -45,6 +45,14 @@ export const useOtherBayStrips = () => {
   );
 };
 
+export const useNonClearedStrips = () => {
+  const strips = useWebSocketStore(state => state.strips);
+  return useMemo(
+    () => strips.filter(x => x.bay === Bay.NotCleared),
+    [strips]
+  );
+}
+
 export const usePushbackStrips = () => {
   const strips = useWebSocketStore(state => state.strips);
   return useMemo(

@@ -1,6 +1,7 @@
 package frontend
 
 import (
+	"FlightStrips/internal/config"
 	internalModels "FlightStrips/internal/models"
 	"FlightStrips/internal/shared"
 	"FlightStrips/pkg/events"
@@ -196,10 +197,15 @@ func (hub *Hub) sendInitialEvent(client *Client) {
 		if sector, ok := sectorsMap[controller.Position]; ok {
 			identifier = sector.Identifier
 		}
+		section := ""
+		if pos, err := config.GetPositionBasedOnFrequency(controller.Position); err == nil {
+			section = pos.Section
+		}
 		c := frontend.Controller{
 			Callsign:   controller.Callsign,
 			Position:   controller.Position,
 			Identifier: identifier,
+			Section:    section,
 		}
 		controllerModels = append(controllerModels, c)
 
@@ -344,22 +350,32 @@ func (hub *Hub) SendStripUpdate(session int32, callsign string) {
 }
 
 func (hub *Hub) SendControllerOnline(session int32, callsign string, position string, identifier string) {
+	section := ""
+	if pos, err := config.GetPositionBasedOnFrequency(position); err == nil {
+		section = pos.Section
+	}
 	event := frontend.ControllerOnlineEvent{
 		Controller: frontend.Controller{
 			Callsign:   callsign,
 			Position:   position,
 			Identifier: identifier,
+			Section:    section,
 		},
 	}
 	hub.Broadcast(session, event)
 }
 
 func (hub *Hub) SendControllerOffline(session int32, callsign string, position string, identifier string) {
+	section := ""
+	if pos, err := config.GetPositionBasedOnFrequency(position); err == nil {
+		section = pos.Section
+	}
 	event := frontend.ControllerOfflineEvent{
 		Controller: frontend.Controller{
 			Callsign:   callsign,
 			Position:   position,
 			Identifier: identifier,
+			Section:    section,
 		},
 	}
 	hub.Broadcast(session, event)

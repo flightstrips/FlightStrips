@@ -19,13 +19,14 @@ export function ClxHalfStrip({
   aircraftType,
   runway,
   sid,
-  stand
+  stand,
+  fullWidth
 }: StripProps) {
 
   return (
     <div style={{ 
       height: "2.22vh",
-      width: "80%",
+      width: fullWidth ? "100%" : "80%",
       backgroundColor: "#85b4af",
       padding: "1px",
       borderLeft: "2px solid white",
@@ -100,7 +101,7 @@ export function ClxHalfStrip({
           style={{ flex: `${F_STAND} 0 0%`, height: "100%", minWidth: 0 }}
         >
           <div className="flex items-center justify-center" style={{ height: "100%" }}>
-            <span className="truncate w-full" style={{ fontFamily: FONT, fontWeight: "bold", fontSize: FONT_SIZE }}>
+            <span className="truncate" style={{ fontFamily: FONT, fontWeight: "bold", fontSize: FONT_SIZE }}>
               {stand}
             </span>
           </div>

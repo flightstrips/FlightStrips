@@ -108,6 +108,7 @@ export interface FrontendController {
   callsign: string;
   position: string;
   identifier: string;
+  section: string;
 }
 
 export interface FrontendInitialEvent {

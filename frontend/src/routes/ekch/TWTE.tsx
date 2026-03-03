@@ -3,7 +3,6 @@ import { Message } from "@/components/Message.tsx";
 import {
   useActiveMessages,
   useAirborneStrips,
-  useClearedStrips,
   useDepartStrips,
   useDeIceStrips,
   useFinalStrips,
@@ -12,13 +11,14 @@ import {
   useStandStrips,
   useTaxiArrStrips,
   useTaxiDepStrips,
+  useNonClearedStrips,
 } from "@/store/airports/ekch.ts";
 import type { FrontendStrip } from "@/api/models.ts";
 import { Bay } from "@/api/models.ts";
 import type { HalfStripVariant, StripStatus } from "@/components/strip/types.ts";
 import { SortableBay, DropIndicatorBay } from "@/components/bays/SortableBay.tsx";
 import { ViewDndContext } from "@/components/bays/ViewDndContext.tsx";
-import { useWebSocketStore, useMyPosition } from "@/store/store-hooks.ts";
+import { useWebSocketStore, useMyPosition, useLowerPositionOnline } from "@/store/store-hooks.ts";
 import { useRef, useEffect, useMemo } from "react";
 
 const scrollArea = "w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary";
@@ -28,6 +28,7 @@ const btn = "bg-[#646464] text-white font-bold text-sm px-3 border-2 border-whit
 export default function TWTE() {
   const myPosition = useMyPosition();
   const messages   = useActiveMessages();
+  const lowerPositionOnline = useLowerPositionOnline();
 
   const mapToStrip = (strip: FrontendStrip, status: StripStatus, halfStripVariant?: HalfStripVariant, selectable = true) => (
     <FlightStrip
@@ -73,7 +74,7 @@ export default function TWTE() {
   const airborne      = useAirborneStrips();
   const standStrips   = useStandStrips();
   const pushStrips    = usePushbackStrips();
-  const clearedStrips = useClearedStrips();
+  const nonClearedStrips = useNonClearedStrips();
   const deIceStrips   = useDeIceStrips();
   const updateOrder   = useWebSocketStore(state => state.updateOrder);
   const move          = useWebSocketStore(state => state.move);
@@ -309,11 +310,11 @@ export default function TWTE() {
           </span>
         </div>
         <DropIndicatorBay bayId="CLRDEL" className={`h-[45%] ${scrollArea}`}>
-          {clearedStrips.map(x => (
+          {nonClearedStrips.map(x => (
             <FlightStrip
               key={x.callsign}
               callsign={x.callsign}
-              status="CLROK"
+              status={lowerPositionOnline ? "CLX-HALF" : "CLROK"}
               pdcStatus={x.pdc_state}
               destination={x.destination}
               origin={x.origin}

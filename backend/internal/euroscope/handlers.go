@@ -462,6 +462,8 @@ func handleSync(ctx context.Context, client *Client, message Message) error {
 	s := client.hub.server
 	session := client.session
 
+	slog.Debug("Received sync event", slog.Int("session", int(session)), slog.String("client", client.callsign))
+
 	controllerRepo := s.GetControllerRepository()
 
 	for _, controller := range event.Controllers {
@@ -665,6 +667,8 @@ func handleRunways(ctx context.Context, client *Client, message Message) error {
 	if err != nil {
 		return err
 	}
+
+	slog.Debug("Received runway configuration change", slog.Int("session", int(client.session)), slog.Any("event", event))
 
 	if master, ok := client.hub.master[client.session]; ok && master == client {
 		s := client.hub.server

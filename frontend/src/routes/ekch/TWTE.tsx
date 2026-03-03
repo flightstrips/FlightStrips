@@ -147,8 +147,8 @@ export default function TWTE() {
     >
     <div className="bg-[#A9A9A9] w-screen h-[calc(100vh-4rem)] flex justify-center justify-items-center gap-2">
 
-      {/* Column 1 (27%) – FINAL + RWY ARR + TWY ARR */}
-      <div className="w-[27%] h-full bg-[#555355] flex flex-col">
+      {/* Column 1 – FINAL + RWY ARR + TWY ARR */}
+      <div className="w-[24.5%] h-full bg-[#555355] flex flex-col">
         <div className="bg-[#393939] h-10 flex items-center px-2 shrink-0 justify-between">
           <span className="text-white font-bold text-lg">FINAL</span>
           <span className="flex gap-1">
@@ -199,8 +199,8 @@ export default function TWTE() {
         </SortableBay>
       </div>
 
-      {/* Column 2 (28%) – TWY DEP + RWY DEP + AIRBORNE */}
-      <div className="w-[28%] h-full bg-[#555355] flex flex-col">
+      {/* Column 2 – TWY DEP + RWY DEP + AIRBORNE */}
+      <div className="w-[28.5%] h-full bg-[#555355] flex flex-col">
         <div className="bg-[#393939] h-10 flex items-center px-2 shrink-0 justify-between">
           <span className="text-white font-bold text-lg">TWY DEP</span>
           <span className="flex gap-1">
@@ -256,8 +256,8 @@ export default function TWTE() {
         </SortableBay>
       </div>
 
-      {/* Column 3 (25%) – CONTROLZONE + PUSHBACK + MESSAGES */}
-      <div className="w-1/4 h-full bg-[#555355] flex flex-col">
+      {/* Column 3 – CONTROLZONE + PUSHBACK + MESSAGES */}
+      <div className="w-[24.5%] h-full bg-[#555355] flex flex-col">
         <div className="bg-[#393939] h-10 flex items-center px-2 shrink-0 justify-between">
           <span className="text-white font-bold text-lg">CONTROLZONE</span>
           <span className="flex gap-1">
@@ -299,8 +299,8 @@ export default function TWTE() {
         </div>
       </div>
 
-      {/* Column 4 (20%) – CLRDEL + DE-ICE A + STAND */}
-      <div className="w-1/5 h-full bg-[#555355] flex flex-col">
+      {/* Column 4 – CLRDEL + DE-ICE A + STAND */}
+      <div className="w-[20.5%] h-full bg-[#555355] flex flex-col">
         <div className="bg-[#393939] h-10 flex items-center px-2 shrink-0 justify-between">
           <span className="text-white font-bold text-lg">CLRDEL</span>
           <span className="flex gap-1">
@@ -309,7 +309,36 @@ export default function TWTE() {
           </span>
         </div>
         <DropIndicatorBay bayId="CLRDEL" className={`h-[45%] ${scrollArea}`}>
-          {clearedStrips.map(x => mapToStrip(x, "CLROK", undefined, false))}
+          {clearedStrips.map(x => (
+            <FlightStrip
+              key={x.callsign}
+              callsign={x.callsign}
+              status="CLROK"
+              pdcStatus={x.pdc_state}
+              destination={x.destination}
+              origin={x.origin}
+              stand={x.stand}
+              eobt={x.eobt}
+              tobt={x.tobt}
+              tsat={x.tsat}
+              ctot={x.ctot}
+              aircraftType={x.aircraft_type}
+              squawk={x.squawk}
+              sid={x.sid}
+              runway={x.runway}
+              clearedAltitude={x.cleared_altitude}
+              requestedAltitude={x.requested_altitude}
+              holdingPoint={x.release_point}
+              owner={x.owner}
+              nextControllers={x.next_controllers}
+              previousControllers={x.previous_controllers}
+              myPosition={myPosition}
+              selectable={false}
+              marked={x.marked}
+              registration={x.registration}
+              fullWidth
+            />
+          ))}
         </DropIndicatorBay>
 
         <div className="bg-[#393939] h-10 flex items-center px-2 shrink-0 justify-between border-t-4 border-[#A9A9A9]">

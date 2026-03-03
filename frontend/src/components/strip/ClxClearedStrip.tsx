@@ -41,6 +41,7 @@ export function ClxClearedStrip({
   myPosition,
   selectable,
   marked = false,
+  fullWidth = false,
 }: StripProps) {
   const { isSelected, handleClick } = useStripSelection(callsign, selectable);
   const cellBorderColor = getCellBorderColor(marked);
@@ -51,7 +52,7 @@ export function ClxClearedStrip({
       className={`select-none${selectable ? " cursor-pointer" : ""}`}
       style={{
         height: FULL_H,
-        width: "88.44%",
+        width: fullWidth ? "100%" : "88.44%",
         ...getFramedStripStyle(marked),
       }}
       onClick={handleClick}

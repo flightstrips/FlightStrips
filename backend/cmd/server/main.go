@@ -126,10 +126,13 @@ func main() {
 	sessionRepo := postgres.NewSessionRepository(dbpool)
 	sectorRepo := postgres.NewSectorOwnerRepository(dbpool)
 	coordRepo := postgres.NewCoordinationRepository(dbpool)
+	tacticalStripRepo := postgres.NewTacticalStripRepository(dbpool)
 
 	// Initialize services
 	stripService := services.NewStripService(stripRepo)
 	cdmService := cdm.NewCdmService(cdmClient, stripRepo, sessionRepo)
+
+	stripService.SetTacticalStripRepo(tacticalStripRepo)
 
 	// Initialize PDC Service
 	hoppieLogon := os.Getenv("HOPPIE_LOGON")
@@ -154,7 +157,7 @@ func main() {
 		pdcService.SetFrontendHub(frontendHub)
 	}
 
-	fsServer := server.NewServer(dbpool, euroscopeHub, frontendHub, cdmService, pdcService, stripRepo, controllerRepo, sessionRepo, sectorRepo, coordRepo)
+	fsServer := server.NewServer(dbpool, euroscopeHub, frontendHub, cdmService, pdcService, stripRepo, controllerRepo, sessionRepo, sectorRepo, coordRepo, tacticalStripRepo)
 
 	frontendHub.SetServer(fsServer)
 	euroscopeHub.SetServer(fsServer)

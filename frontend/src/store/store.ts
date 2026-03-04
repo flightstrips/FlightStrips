@@ -27,7 +27,14 @@ import {
   type FrontendStandEvent,
   type FrontendStrip,
   type FrontendStripUpdateEvent,
-  type RunwayConfiguration
+  type RunwayConfiguration,
+  type StripRef,
+  type TacticalStrip,
+  type TacticalStripType,
+  type FrontendTacticalStripCreatedEvent,
+  type FrontendTacticalStripDeletedEvent,
+  type FrontendTacticalStripUpdatedEvent,
+  type FrontendTacticalStripMovedEvent,
 } from '../api/models.ts';
 import {WebSocketClient} from '../api/websocket.ts';
 
@@ -44,6 +51,7 @@ export interface UpdateStrip {
 export interface WebSocketState {
   controllers: FrontendController[];
   strips: FrontendStrip[];
+  tacticalStrips: TacticalStrip[];
   position: string;
   identifier: string;
   airport: string;
@@ -61,7 +69,7 @@ export interface WebSocketState {
   // actions
   move: (callsign: string, bay: Bay) => void;
   generateSquawk: (callsign: string) => void;
-  updateOrder: (callsign: string, before: string | null) => void;
+  updateOrder: (callsign: string, insertAfter: StripRef | null) => void;
   sendMessage: (message: string, to: string | null) => void;
   updateStrip: (callsign: string, update: UpdateStrip) => void;
   setReleasePoint: (callsign: string, releasePoint: string) => void;
@@ -72,6 +80,13 @@ export interface WebSocketState {
   freeStrip: (callsign: string) => void;
   cancelTransfer: (callsign: string) => void;
   toggleMarked: (callsign: string, marked: boolean) => void;
+
+  // tactical strip actions
+  createTacticalStrip: (stripType: TacticalStripType, bay: string, label: string, aircraft: string) => void;
+  deleteTacticalStrip: (id: number) => void;
+  confirmTacticalStrip: (id: number) => void;
+  startTacticalTimer: (id: number) => void;
+  moveTacticalStrip: (id: number, insertAfter: StripRef | null) => void;
 }
 
 // Create the store using createVanilla
@@ -80,6 +95,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
   const initialState = {
     controllers: [],
     strips: [],
+    tacticalStrips: [],
     position: '',
     identifier: '',
     airport: '',
@@ -106,6 +122,14 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
           const stripIndex = state.strips.findIndex(strip => strip.callsign === callsign);
           if (stripIndex !== -1) {
             state.strips[stripIndex].bay = bay;
+            // Optimistically assign end-of-bay sequence matching backend (max of flights+tacticals + spacing)
+            const maxFlight = state.strips
+              .filter(s => s.bay === bay && s.callsign !== callsign)
+              .reduce((m, s) => Math.max(m, s.sequence), 0);
+            const maxTactical = state.tacticalStrips
+              .filter(t => t.bay === bay)
+              .reduce((m, t) => Math.max(m, t.sequence), 0);
+            state.strips[stripIndex].sequence = Math.max(maxFlight, maxTactical) + 1000;
           }
           return state;
         })(state)
@@ -150,22 +174,38 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
         }
       })
     },
-    updateOrder: (callsign, before) => set((state) => {
-      wsClient.send({type: ActionType.FrontendUpdateOrder, callsign: callsign, before: before})
+    updateOrder: (callsign, insertAfter) => set((state) => {
+      wsClient.send({type: ActionType.FrontendUpdateOrder, callsign: callsign, insert_after: insertAfter})
 
       return produce((draft: WebSocketState) => {
-        // Optimistically update sequence so the UI reflects the new order immediately
+        // Optimistically update sequence using the same midpoint formula as the backend
         const stripIndex = draft.strips.findIndex(strip => strip.callsign === callsign)
         if (stripIndex === -1) return;
 
-        if (before === null) {
-          // Append to end
-          draft.strips[stripIndex].sequence = -1;
+        const strip = draft.strips[stripIndex];
+        const bayStrips = draft.strips
+          .filter(s => s.bay === strip.bay && s.callsign !== callsign)
+          .sort((a, b) => a.sequence - b.sequence);
+
+        let prevSeq: number;
+        let nextSeq: number | null;
+
+        if (insertAfter === null) {
+          prevSeq = 0;
+          nextSeq = bayStrips[0]?.sequence ?? null;
+        } else if (insertAfter.kind === 'flight' && insertAfter.callsign) {
+          const afterStrip = bayStrips.find(s => s.callsign === insertAfter.callsign);
+          if (!afterStrip) return;
+          prevSeq = afterStrip.sequence;
+          const afterIdx = bayStrips.indexOf(afterStrip);
+          nextSeq = bayStrips[afterIdx + 1]?.sequence ?? null;
         } else {
-          const beforeIndex = draft.strips.findIndex(strip => strip.callsign === before)
-          if (beforeIndex === -1) return;
-          draft.strips[stripIndex].sequence = draft.strips[beforeIndex].sequence + 1
+          return;
         }
+
+        draft.strips[stripIndex].sequence = nextSeq === null
+          ? prevSeq + 100
+          : Math.floor((prevSeq + nextSeq) / 2);
       })(state)
     }),
     sendMessage: (message, to) => {
@@ -226,6 +266,21 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
         })
       );
     },
+    createTacticalStrip: (stripType, bay, label, aircraft) => {
+      wsClient.send({ type: ActionType.FrontendCreateTacticalStrip, strip_type: stripType, bay, label, aircraft });
+    },
+    deleteTacticalStrip: (id) => {
+      wsClient.send({ type: ActionType.FrontendDeleteTacticalStrip, id });
+    },
+    confirmTacticalStrip: (id) => {
+      wsClient.send({ type: ActionType.FrontendConfirmTacticalStrip, id });
+    },
+    startTacticalTimer: (id) => {
+      wsClient.send({ type: ActionType.FrontendStartTacticalTimer, id });
+    },
+    moveTacticalStrip: (id, insertAfter) => {
+      wsClient.send({ type: ActionType.FrontendMoveTacticalStrip, id, insert_after: insertAfter });
+    },
   }));
 
   // Private methods to handle WebSocket events
@@ -234,6 +289,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
       produce((state: WebSocketState) => {
         state.controllers = data.controllers;
         state.strips = data.strips;
+        state.tacticalStrips = data.tactical_strips ?? [];
         state.position = data.me.position;
         state.identifier = data.me.identifier;
         state.airport = data.airport;
@@ -525,6 +581,45 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     );
   };
 
+  const handleTacticalStripCreatedEvent = (data: FrontendTacticalStripCreatedEvent) => {
+    store.setState(
+      produce((state: WebSocketState) => {
+        state.tacticalStrips.push(data.strip);
+      })
+    );
+  };
+
+  const handleTacticalStripDeletedEvent = (data: FrontendTacticalStripDeletedEvent) => {
+    store.setState(
+      produce((state: WebSocketState) => {
+        state.tacticalStrips = state.tacticalStrips.filter(ts => ts.id !== data.id);
+      })
+    );
+  };
+
+  const handleTacticalStripUpdatedEvent = (data: FrontendTacticalStripUpdatedEvent) => {
+    store.setState(
+      produce((state: WebSocketState) => {
+        const idx = state.tacticalStrips.findIndex(ts => ts.id === data.strip.id);
+        if (idx !== -1) {
+          state.tacticalStrips[idx] = data.strip;
+        }
+      })
+    );
+  };
+
+  const handleTacticalStripMovedEvent = (data: FrontendTacticalStripMovedEvent) => {
+    store.setState(
+      produce((state: WebSocketState) => {
+        const idx = state.tacticalStrips.findIndex(ts => ts.id === data.id);
+        if (idx !== -1) {
+          state.tacticalStrips[idx].bay = data.bay;
+          state.tacticalStrips[idx].sequence = data.sequence;
+        }
+      })
+    );
+  };
+
   // Register event handlers
   wsClient.on(EventType.FrontendInitial, handleInitialEvent);
   wsClient.on(EventType.FrontendStripUpdate, handleStripUpdateEvent);
@@ -553,6 +648,10 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
   wsClient.on(EventType.FrontendCoordinationRejectBroadcast, handleCoordinationRejectBroadcastEvent);
   wsClient.on(EventType.FrontendCoordinationFreeBroadcast, handleCoordinationFreeBroadcastEvent);
   wsClient.on(EventType.FrontendRunWayConfiguration, handleRunwayConfigurationEvent);
+  wsClient.on(EventType.FrontendTacticalStripCreated, handleTacticalStripCreatedEvent);
+  wsClient.on(EventType.FrontendTacticalStripDeleted, handleTacticalStripDeletedEvent);
+  wsClient.on(EventType.FrontendTacticalStripUpdated, handleTacticalStripUpdatedEvent);
+  wsClient.on(EventType.FrontendTacticalStripMoved, handleTacticalStripMovedEvent);
 
   return store;
 };

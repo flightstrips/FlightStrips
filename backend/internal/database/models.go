@@ -106,6 +106,21 @@ type Strip struct {
 	Registration       *string
 }
 
+type TacticalStrip struct {
+	ID          int64
+	SessionID   int32
+	Type        string
+	Bay         string
+	Label       string
+	Aircraft    *string
+	ProducedBy  string
+	Sequence    int32
+	TimerStart  pgtype.Timestamptz
+	Confirmed   bool
+	ConfirmedBy *string
+	CreatedAt   pgtype.Timestamptz
+}
+
 type Version struct {
 	ID        int32
 	Name      string

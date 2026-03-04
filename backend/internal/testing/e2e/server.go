@@ -129,7 +129,7 @@ func StartTestServer() (*TestServer, error) {
 	cdmService.SetFrontendHub(frontendHub)
 
 	// Initialize server
-	fsServer := server.NewServer(dbpool, euroscopeHub, frontendHub, cdmService, nil, stripRepo, controllerRepo, sessionRepo, sectorRepo, coordRepo)
+	fsServer := server.NewServer(dbpool, euroscopeHub, frontendHub, cdmService, nil, stripRepo, controllerRepo, sessionRepo, sectorRepo, coordRepo, nil)
 
 	frontendHub.SetServer(fsServer)
 	euroscopeHub.SetServer(fsServer)

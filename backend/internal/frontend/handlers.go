@@ -404,7 +404,7 @@ func handleUpdateOrder(ctx context.Context, client *Client, message Message) err
 		return errors.New("cannot update order of a strip which is not in a bay")
 	}
 
-	return client.hub.stripService.MoveStripBetween(ctx, client.session, event.Callsign, event.Before, bay)
+	return client.hub.stripService.MoveStripBetween(ctx, client.session, event.Callsign, event.InsertAfter, bay)
 }
 
 func handleSendMessage(ctx context.Context, client *Client, message Message) error {
@@ -521,4 +521,162 @@ func handleRevertToVoice(ctx context.Context, client *Client, message Message) e
 	}
 
 	return pdcService.RevertToVoice(ctx, req.Callsign, client.session, client.GetCid())
+}
+
+func handleCreateTacticalStrip(ctx context.Context, client *Client, message Message) error {
+	var req frontend.CreateTacticalStripAction
+	if err := message.JsonUnmarshal(&req); err != nil {
+		return err
+	}
+
+	validTypes := map[string]bool{"MEMAID": true, "CROSSING": true, "START": true, "LAND": true}
+	if !validTypes[req.StripType] {
+		return errors.New("invalid tactical strip type: " + req.StripType)
+	}
+	if req.Bay == "" {
+		return errors.New("bay is required")
+	}
+
+	tacticalRepo := client.hub.server.GetTacticalStripRepository()
+	if tacticalRepo == nil {
+		return errors.New("tactical strip repository not available")
+	}
+
+	maxSeq, err := tacticalRepo.GetMaxSequenceInBayUnified(ctx, client.session, req.Bay)
+	if err != nil {
+		return err
+	}
+
+	sequence := maxSeq + 1000 // InitialOrderSpacing
+
+	var aircraft *string
+	if req.Aircraft != "" {
+		a := req.Aircraft
+		aircraft = &a
+	}
+
+	ts, err := tacticalRepo.Create(ctx, client.session, req.StripType, req.Bay, req.Label, aircraft, client.position, sequence)
+	if err != nil {
+		return err
+	}
+
+	client.hub.SendTacticalStripCreated(client.session, MapTacticalStripToPayload(ts))
+	return nil
+}
+
+func handleDeleteTacticalStrip(ctx context.Context, client *Client, message Message) error {
+	var req frontend.DeleteTacticalStripAction
+	if err := message.JsonUnmarshal(&req); err != nil {
+		return err
+	}
+
+	tacticalRepo := client.hub.server.GetTacticalStripRepository()
+	if tacticalRepo == nil {
+		return errors.New("tactical strip repository not available")
+	}
+
+	// Need the bay for the deleted event
+	// We load it first, then delete
+	strips, err := tacticalRepo.ListBySession(ctx, client.session)
+	if err != nil {
+		return err
+	}
+	bay := ""
+	for _, s := range strips {
+		if s.ID == req.ID {
+			bay = s.Bay
+			break
+		}
+	}
+
+	if err := tacticalRepo.Delete(ctx, req.ID, client.session); err != nil {
+		return err
+	}
+
+	client.hub.SendTacticalStripDeleted(client.session, req.ID, bay)
+	return nil
+}
+
+func handleConfirmTacticalStrip(ctx context.Context, client *Client, message Message) error {
+	var req frontend.ConfirmTacticalStripAction
+	if err := message.JsonUnmarshal(&req); err != nil {
+		return err
+	}
+
+	tacticalRepo := client.hub.server.GetTacticalStripRepository()
+	if tacticalRepo == nil {
+		return errors.New("tactical strip repository not available")
+	}
+
+	ts, err := tacticalRepo.Confirm(ctx, req.ID, client.session, client.position)
+	if err != nil {
+		return err
+	}
+
+	if ts.Type != "MEMAID" && ts.Type != "CROSSING" {
+		return errors.New("confirm is only valid for MEMAID and CROSSING strips")
+	}
+
+	client.hub.SendTacticalStripUpdated(client.session, MapTacticalStripToPayload(ts))
+	return nil
+}
+
+func handleStartTacticalTimer(ctx context.Context, client *Client, message Message) error {
+	var req frontend.StartTacticalTimerAction
+	if err := message.JsonUnmarshal(&req); err != nil {
+		return err
+	}
+
+	tacticalRepo := client.hub.server.GetTacticalStripRepository()
+	if tacticalRepo == nil {
+		return errors.New("tactical strip repository not available")
+	}
+
+	ts, err := tacticalRepo.StartTimer(ctx, req.ID, client.session)
+	if err != nil {
+		return err
+	}
+
+	if ts.Type != "START" && ts.Type != "LAND" {
+		return errors.New("start timer is only valid for START and LAND strips")
+	}
+
+	client.hub.SendTacticalStripUpdated(client.session, MapTacticalStripToPayload(ts))
+	return nil
+}
+
+func handleMoveTacticalStrip(ctx context.Context, client *Client, message Message) error {
+	var req frontend.MoveTacticalStripAction
+	if err := message.JsonUnmarshal(&req); err != nil {
+		return err
+	}
+
+	tacticalRepo := client.hub.server.GetTacticalStripRepository()
+	if tacticalRepo == nil {
+		return errors.New("tactical strip repository not available")
+	}
+
+	seq, err := tacticalRepo.GetSequenceByID(ctx, req.ID, client.session)
+	if err != nil {
+		return err
+	}
+	_ = seq
+
+	// We need the bay — find it from the session list
+	strips, err := tacticalRepo.ListBySession(ctx, client.session)
+	if err != nil {
+		return err
+	}
+	bay := ""
+	for _, s := range strips {
+		if s.ID == req.ID {
+			bay = s.Bay
+			break
+		}
+	}
+	if bay == "" {
+		return errors.New("tactical strip not found")
+	}
+
+	return client.hub.stripService.MoveTacticalStripBetween(ctx, client.session, req.ID, req.InsertAfter, bay)
 }

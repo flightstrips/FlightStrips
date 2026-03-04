@@ -29,6 +29,7 @@ type StripRepository interface {
 	GetMaxSequenceInBay(ctx context.Context, session int32, bay string) (int32, error)
 	GetMinSequenceInBay(ctx context.Context, session int32, bay string) (int32, error)
 	GetNextSequence(ctx context.Context, session int32, bay string, sequence int32) (int32, error)
+	GetPrevSequence(ctx context.Context, session int32, bay string, sequence int32, excludeCallsign string) (int32, error)
 
 	// Field updates
 	UpdateSquawk(ctx context.Context, session int32, callsign string, squawk *string, version *int32) (int64, error)
@@ -117,4 +118,19 @@ type SectorOwnerRepository interface {
 	Delete(ctx context.Context, id int32) error
 	DeleteAllBySession(ctx context.Context, session int32) error
 	RemoveBySession(ctx context.Context, session int32) error
+}
+
+// TacticalStripRepository defines the interface for tactical strip data access
+type TacticalStripRepository interface {
+	Create(ctx context.Context, sessionID int32, stripType, bay, label string, aircraft *string, producedBy string, sequence int32) (*models.TacticalStrip, error)
+	ListBySession(ctx context.Context, sessionID int32) ([]*models.TacticalStrip, error)
+	Delete(ctx context.Context, id int64, sessionID int32) error
+	Confirm(ctx context.Context, id int64, sessionID int32, confirmedBy string) (*models.TacticalStrip, error)
+	StartTimer(ctx context.Context, id int64, sessionID int32) (*models.TacticalStrip, error)
+	UpdateSequence(ctx context.Context, id int64, sessionID int32, sequence int32) (*models.TacticalStrip, error)
+	GetSequenceByID(ctx context.Context, id int64, sessionID int32) (int32, error)
+	ListBaySequences(ctx context.Context, sessionID int32, bay string) ([]*models.TacticalStripSequence, error)
+	GetMaxSequenceInBayUnified(ctx context.Context, session int32, bay string) (int32, error)
+	GetNextSequenceUnified(ctx context.Context, session int32, bay string, prev int32) (int32, error)
+	GetPrevSequenceUnified(ctx context.Context, session int32, bay string, seq int32, excludeCallsign string) (int32, error)
 }

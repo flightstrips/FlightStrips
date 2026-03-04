@@ -167,6 +167,13 @@ SELECT sequence::INT
 FROM strips
 WHERE session = $1 AND bay = sqlc.arg(bay)::TEXT AND sequence > sqlc.arg(sequence)::INT;
 
+-- name: GetPrevSequence :one
+SELECT sequence::INT
+FROM strips
+WHERE session = $1 AND bay = sqlc.arg(bay)::TEXT AND sequence < sqlc.arg(seq)::INT AND callsign != sqlc.arg(exclude_callsign)::TEXT
+ORDER BY sequence DESC
+LIMIT 1;
+
 -- name: GetBay :one
 SELECT bay
 FROM strips
@@ -202,3 +209,37 @@ UPDATE strips
 SET registration = $1,
     version      = version + 1
 WHERE callsign = $2 AND session = $3;
+
+-- name: GetMaxSequenceInBayUnified :one
+-- Returns the maximum sequence value across BOTH strips and tactical_strips for a bay.
+SELECT COALESCE(MAX(seq), 0)::INTEGER AS max_sequence
+FROM (
+    SELECT sequence AS seq FROM strips          WHERE session = $1 AND bay = sqlc.arg(bay)::TEXT
+    UNION ALL
+    SELECT sequence AS seq FROM tactical_strips WHERE session_id = $1 AND bay = sqlc.arg(bay)::TEXT
+) combined;
+
+-- name: GetNextSequenceUnified :one
+-- Returns the smallest sequence > prev across BOTH strips and tactical_strips in the bay.
+-- Returns pgx.ErrNoRows if nothing exists above prev (append to bottom).
+SELECT seq::INT AS next_sequence
+FROM (
+    SELECT sequence AS seq FROM strips          WHERE session = $1 AND bay = sqlc.arg(bay)::TEXT AND sequence > sqlc.arg(prev)::INT
+    UNION ALL
+    SELECT sequence AS seq FROM tactical_strips WHERE session_id = $1 AND bay = sqlc.arg(bay)::TEXT AND sequence > sqlc.arg(prev)::INT
+) combined
+ORDER BY seq
+LIMIT 1;
+
+-- name: GetPrevSequenceUnified :one
+-- Returns the largest sequence < seq across BOTH strips and tactical_strips in the bay,
+-- excluding a specific callsign from the strips table (the flight strip being moved).
+-- Returns pgx.ErrNoRows if nothing exists below seq (strip is already at top).
+SELECT seq::INT AS prev_sequence
+FROM (
+    SELECT sequence AS seq FROM strips          WHERE session = $1 AND bay = sqlc.arg(bay)::TEXT AND sequence < sqlc.arg(seq)::INT AND callsign != sqlc.arg(exclude_callsign)::TEXT
+    UNION ALL
+    SELECT sequence AS seq FROM tactical_strips WHERE session_id = $1 AND bay = sqlc.arg(bay)::TEXT AND sequence < sqlc.arg(seq)::INT
+) combined
+ORDER BY seq DESC
+LIMIT 1;

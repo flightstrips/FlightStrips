@@ -129,6 +129,28 @@ func (q *Queries) GetMaxSequenceInBay(ctx context.Context, arg GetMaxSequenceInB
 	return max_sequence, err
 }
 
+const getMaxSequenceInBayUnified = `-- name: GetMaxSequenceInBayUnified :one
+SELECT COALESCE(MAX(seq), 0)::INTEGER AS max_sequence
+FROM (
+    SELECT sequence AS seq FROM strips          WHERE session = $1 AND bay = $2::TEXT
+    UNION ALL
+    SELECT sequence AS seq FROM tactical_strips WHERE session_id = $1 AND bay = $2::TEXT
+) combined
+`
+
+type GetMaxSequenceInBayUnifiedParams struct {
+	Session int32
+	Bay     string
+}
+
+// Returns the maximum sequence value across BOTH strips and tactical_strips for a bay.
+func (q *Queries) GetMaxSequenceInBayUnified(ctx context.Context, arg GetMaxSequenceInBayUnifiedParams) (int32, error) {
+	row := q.db.QueryRow(ctx, getMaxSequenceInBayUnified, arg.Session, arg.Bay)
+	var max_sequence int32
+	err := row.Scan(&max_sequence)
+	return max_sequence, err
+}
+
 const getMinSequenceInBay = `-- name: GetMinSequenceInBay :one
 SELECT COALESCE(min(sequence), 0)::INTEGER AS min_sequence
 FROM strips
@@ -164,6 +186,92 @@ func (q *Queries) GetNextSequence(ctx context.Context, arg GetNextSequenceParams
 	var sequence int32
 	err := row.Scan(&sequence)
 	return sequence, err
+}
+
+const getNextSequenceUnified = `-- name: GetNextSequenceUnified :one
+SELECT seq::INT AS next_sequence
+FROM (
+    SELECT sequence AS seq FROM strips          WHERE session = $1 AND bay = $2::TEXT AND sequence > $3::INT
+    UNION ALL
+    SELECT sequence AS seq FROM tactical_strips WHERE session_id = $1 AND bay = $2::TEXT AND sequence > $3::INT
+) combined
+ORDER BY seq
+LIMIT 1
+`
+
+type GetNextSequenceUnifiedParams struct {
+	Session int32
+	Bay     string
+	Prev    int32
+}
+
+// Returns the smallest sequence > prev across BOTH strips and tactical_strips in the bay.
+// Returns pgx.ErrNoRows if nothing exists above prev (append to bottom).
+func (q *Queries) GetNextSequenceUnified(ctx context.Context, arg GetNextSequenceUnifiedParams) (int32, error) {
+	row := q.db.QueryRow(ctx, getNextSequenceUnified, arg.Session, arg.Bay, arg.Prev)
+	var next_sequence int32
+	err := row.Scan(&next_sequence)
+	return next_sequence, err
+}
+
+const getPrevSequence = `-- name: GetPrevSequence :one
+SELECT sequence::INT
+FROM strips
+WHERE session = $1 AND bay = $2::TEXT AND sequence < $3::INT AND callsign != $4::TEXT
+ORDER BY sequence DESC
+LIMIT 1
+`
+
+type GetPrevSequenceParams struct {
+	Session         int32
+	Bay             string
+	Seq             int32
+	ExcludeCallsign string
+}
+
+func (q *Queries) GetPrevSequence(ctx context.Context, arg GetPrevSequenceParams) (int32, error) {
+	row := q.db.QueryRow(ctx, getPrevSequence,
+		arg.Session,
+		arg.Bay,
+		arg.Seq,
+		arg.ExcludeCallsign,
+	)
+	var sequence int32
+	err := row.Scan(&sequence)
+	return sequence, err
+}
+
+const getPrevSequenceUnified = `-- name: GetPrevSequenceUnified :one
+SELECT seq::INT AS prev_sequence
+FROM (
+    SELECT sequence AS seq FROM strips          WHERE session = $1 AND bay = $2::TEXT AND sequence < $3::INT AND callsign != $4::TEXT
+    UNION ALL
+    SELECT sequence AS seq FROM tactical_strips WHERE session_id = $1 AND bay = $2::TEXT AND sequence < $3::INT
+) combined
+ORDER BY seq DESC
+LIMIT 1
+`
+
+type GetPrevSequenceUnifiedParams struct {
+	Session         int32
+	Bay             string
+	Seq             int32
+	ExcludeCallsign string
+}
+
+// Returns the largest sequence < seq across BOTH strips and tactical_strips in the bay,
+// excluding a specific callsign from the strips table (the flight strip being moved).
+// Returns pgx.ErrNoRows if nothing exists below seq (strip is already at top).
+func (q *Queries) GetPrevSequenceUnified(ctx context.Context, arg GetPrevSequenceUnifiedParams) (int32, error) {
+	row := q.db.QueryRow(ctx, getPrevSequenceUnified,
+		arg.Session,
+		arg.Bay,
+		arg.Seq,
+		arg.ExcludeCallsign,
+	)
+	var prev_sequence int32
+	err := row.Scan(&prev_sequence)
+	return prev_sequence, err
 }
 
 const getSequence = `-- name: GetSequence :one

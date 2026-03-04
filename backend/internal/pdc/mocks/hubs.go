@@ -4,6 +4,7 @@ import (
 	"FlightStrips/internal/shared"
 	"FlightStrips/pkg/events/euroscope"
 	"FlightStrips/pkg/events/frontend"
+	internalModels "FlightStrips/internal/models"
 
 	"github.com/stretchr/testify/mock"
 )
@@ -127,6 +128,24 @@ func (m *FrontendHub) SendPdcStateChange(session int32, callsign, state string) 
 func (m *FrontendHub) SendRunwayConfiguration(session int32, departure, arrival []string) {
 	m.Called(session, departure, arrival)
 }
+
+func (m *FrontendHub) SendTacticalStripCreated(session int32, strip frontend.TacticalStripPayload) {
+	m.Called(session, strip)
+}
+
+func (m *FrontendHub) SendTacticalStripDeleted(session int32, id int64, bay string) {
+	m.Called(session, id, bay)
+}
+
+func (m *FrontendHub) SendTacticalStripUpdated(session int32, strip frontend.TacticalStripPayload) {
+	m.Called(session, strip)
+}
+
+func (m *FrontendHub) SendTacticalStripMoved(session int32, id int64, bay string, sequence int32) {
+	m.Called(session, id, bay, sequence)
+}
+
+var _ internalModels.TacticalStrip // ensure import used
 
 type EuroscopeHub struct {
 	mock.Mock

@@ -55,6 +55,11 @@ func NewHub(stripService shared.StripService, authenticationService shared.Authe
 	handlers.Add(frontend.IssuePdcClearance, handleIssuePdcClearance)
 	handlers.Add(frontend.PdcManualStateChange, handlePdcManualStateChange)
 	handlers.Add(frontend.RevertToVoice, handleRevertToVoice)
+	handlers.Add(frontend.ActionCreateTacticalStrip, handleCreateTacticalStrip)
+	handlers.Add(frontend.ActionDeleteTacticalStrip, handleDeleteTacticalStrip)
+	handlers.Add(frontend.ActionConfirmTacticalStrip, handleConfirmTacticalStrip)
+	handlers.Add(frontend.ActionStartTacticalTimer, handleStartTacticalTimer)
+	handlers.Add(frontend.ActionMoveTacticalStrip, handleMoveTacticalStrip)
 
 	hub := &Hub{
 		send:                  make(chan internalMessage),
@@ -255,13 +260,28 @@ func (hub *Hub) sendInitialEvent(client *Client) {
 		arrival = make([]string, 0)
 	}
 
+	// Load tactical strips
+	tacticalStripModels := make([]frontend.TacticalStripPayload, 0)
+	tacticalRepo := hub.server.GetTacticalStripRepository()
+	if tacticalRepo != nil {
+		tacticalStrips, err := tacticalRepo.ListBySession(context.Background(), client.session)
+		if err != nil {
+			slog.Error("Failed to list tactical strips", slog.Any("error", err), slog.Int("session", int(client.session)))
+		} else {
+			for _, ts := range tacticalStrips {
+				tacticalStripModels = append(tacticalStripModels, MapTacticalStripToPayload(ts))
+			}
+		}
+	}
+
 	event := frontend.InitialEvent{
-		Contsollers: controllerModels,
-		Strips:      stripModels,
-		Me:          me,
-		Callsign:    client.callsign,
-		Airport:     client.airport,
-		Layout:      layout,
+		Contsollers:    controllerModels,
+		Strips:         stripModels,
+		TacticalStrips: tacticalStripModels,
+		Me:             me,
+		Callsign:       client.callsign,
+		Airport:        client.airport,
+		Layout:         layout,
 		RunwaySetup: frontend.RunwayConfiguration{
 			Departure: departure,
 			Arrival:   arrival,
@@ -270,6 +290,31 @@ func (hub *Hub) sendInitialEvent(client *Client) {
 	}
 
 	client.send <- event
+}
+
+func MapTacticalStripToPayload(ts *internalModels.TacticalStrip) frontend.TacticalStripPayload {
+	aircraft := ""
+	if ts.Aircraft != nil {
+		aircraft = *ts.Aircraft
+	}
+	confirmedBy := ""
+	if ts.ConfirmedBy != nil {
+		confirmedBy = *ts.ConfirmedBy
+	}
+	return frontend.TacticalStripPayload{
+		ID:          ts.ID,
+		SessionID:   ts.SessionID,
+		Type:        ts.Type,
+		Bay:         ts.Bay,
+		Label:       ts.Label,
+		Aircraft:    aircraft,
+		ProducedBy:  ts.ProducedBy,
+		Sequence:    ts.Sequence,
+		TimerStart:  ts.TimerStart,
+		Confirmed:   ts.Confirmed,
+		ConfirmedBy: confirmedBy,
+		CreatedAt:   ts.CreatedAt,
+	}
 }
 
 func MapStripToFrontendModel(strip *internalModels.Strip) frontend.Strip {
@@ -540,6 +585,31 @@ func (hub *Hub) SendRunwayConfiguration(session int32, departure, arrival []stri
 		},
 	}
 	hub.Broadcast(session, event)
+}
+
+func (hub *Hub) SendTacticalStripCreated(session int32, strip frontend.TacticalStripPayload) {
+	hub.Broadcast(session, frontend.TacticalStripCreatedEvent{Strip: strip})
+}
+
+func (hub *Hub) SendTacticalStripDeleted(session int32, id int64, bay string) {
+	hub.Broadcast(session, frontend.TacticalStripDeletedEvent{
+		ID:        id,
+		SessionID: session,
+		Bay:       bay,
+	})
+}
+
+func (hub *Hub) SendTacticalStripUpdated(session int32, strip frontend.TacticalStripPayload) {
+	hub.Broadcast(session, frontend.TacticalStripUpdatedEvent{Strip: strip})
+}
+
+func (hub *Hub) SendTacticalStripMoved(session int32, id int64, bay string, sequence int32) {
+	hub.Broadcast(session, frontend.TacticalStripMovedEvent{
+		ID:        id,
+		SessionID: session,
+		Bay:       bay,
+		Sequence:  sequence,
+	})
 }
 
 func (hub *Hub) SendServerMessage(session int32, message string) {

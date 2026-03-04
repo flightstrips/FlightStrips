@@ -17,11 +17,12 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { useDragState } from "@/components/bays/DragStateContext";
 import { useState, type CSSProperties, type ReactNode } from "react";
+import type { StripRef } from "@/api/models.ts";
 
 interface SortableBayProps {
   strips: { callsign: string }[];
   /** Required when standalone=true (default). Not used when standalone=false. */
-  onReorder?: (callsign: string, before: string | null) => void;
+  onReorder?: (callsign: string, insertAfter: StripRef | null) => void;
   children: (callsign: string) => ReactNode;
   className?: string;
   /** Unique bay identifier. Required when standalone=false so the container is droppable. */
@@ -49,9 +50,18 @@ export function SortableBay({
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;
     if (!over || active.id === over.id || !onReorder) return;
+    const activeIndex = strips.findIndex(s => s.callsign === active.id);
     const overIndex = strips.findIndex(s => s.callsign === over.id);
-    const before = strips[overIndex]?.callsign ?? null;
-    onReorder(active.id as string, before);
+    let insertAfter: StripRef | null;
+    if (activeIndex < overIndex) {
+      // Dragging down: insert after over → insert_after = over (the predecessor)
+      insertAfter = { kind: "flight", callsign: strips[overIndex].callsign };
+    } else {
+      // Dragging up: insert before over → insert_after = strip before over (or null = top)
+      const prevCallsign = strips[overIndex - 1]?.callsign ?? null;
+      insertAfter = prevCallsign ? { kind: "flight", callsign: prevCallsign } : null;
+    }
+    onReorder(active.id as string, insertAfter);
   }
 
   const sortableItems = strips.map(s => s.callsign);
@@ -76,7 +86,7 @@ export function SortableBay({
   // useDroppable makes empty bays valid drop targets.
   return (
     <SortableContext items={sortableItems} strategy={verticalListSortingStrategy}>
-      <DroppableContainer bayId={bayId!} className={className}>
+      <DroppableContainer bayId={bayId!} isEmpty={strips.length === 0} className={className}>
         {strips.map(s => (
           <SortableStrip key={s.callsign} callsign={s.callsign} hideWhenDragging bayId={bayId}>
             {children(s.callsign)}
@@ -89,14 +99,18 @@ export function SortableBay({
 
 function DroppableContainer({
   bayId,
+  isEmpty,
   className,
   children,
 }: {
   bayId: string;
+  /** When false, do NOT register as a droppable — strips handle their own collision detection.
+   *  Register only for empty bays so they remain valid cross-bay drop targets. */
+  isEmpty: boolean;
   className?: string;
   children: ReactNode;
 }) {
-  const { setNodeRef } = useDroppable({ id: bayId });
+  const { setNodeRef } = useDroppable({ id: bayId, disabled: !isEmpty });
   const { activeId, isValidTarget } = useDragState();
   const [isOver, setIsOver] = useState(false);
 

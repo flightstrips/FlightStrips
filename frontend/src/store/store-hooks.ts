@@ -15,6 +15,7 @@ export const useWebSocketStore = <T,>(selector: (state: WebSocketState) => T): T
 
 export const useControllers = () => useWebSocketStore((state) => state.controllers);
 export const useStrips = () => useWebSocketStore((state) => state.strips);
+export const useTacticalStrips = () => useWebSocketStore((state) => state.tacticalStrips);
 export const usePosition = () => useWebSocketStore((state) => state.position);
 export const useAirport = () => useWebSocketStore((state) => state.airport);
 export const useCallsign = () => useWebSocketStore((state) => state.callsign);

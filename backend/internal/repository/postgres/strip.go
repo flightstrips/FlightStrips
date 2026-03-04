@@ -284,6 +284,16 @@ func (r *stripRepository) GetNextSequence(ctx context.Context, session int32, ba
 	})
 }
 
+// GetPrevSequence retrieves the largest sequence below seq in a bay, excluding a callsign
+func (r *stripRepository) GetPrevSequence(ctx context.Context, session int32, bay string, seq int32, excludeCallsign string) (int32, error) {
+	return r.queries.GetPrevSequence(ctx, database.GetPrevSequenceParams{
+		Session:         session,
+		Bay:             bay,
+		Seq:             seq,
+		ExcludeCallsign: excludeCallsign,
+	})
+}
+
 // UpdateSquawk updates the squawk code of a strip
 func (r *stripRepository) UpdateSquawk(ctx context.Context, session int32, callsign string, squawk *string, version *int32) (int64, error) {
 	return r.queries.UpdateStripSquawkByID(ctx, database.UpdateStripSquawkByIDParams{

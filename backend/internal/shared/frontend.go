@@ -32,4 +32,8 @@ type FrontendHub interface {
 	SendCdmWait(session int32, callsign string)
 	SendPdcStateChange(session int32, callsign, state string)
 	SendRunwayConfiguration(session int32, departure, arrival []string)
+	SendTacticalStripCreated(session int32, strip frontend.TacticalStripPayload)
+	SendTacticalStripDeleted(session int32, id int64, bay string)
+	SendTacticalStripUpdated(session int32, strip frontend.TacticalStripPayload)
+	SendTacticalStripMoved(session int32, id int64, bay string, sequence int32)
 }

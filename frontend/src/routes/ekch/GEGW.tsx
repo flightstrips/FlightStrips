@@ -8,6 +8,7 @@ import {
   useStandStrips,
   useTaxiArrStrips,
   useTaxiDepStrips,
+  isFlight,
 } from "@/store/airports/ekch.ts";
 import type { FrontendStrip } from "@/api/models.ts";
 import { Bay } from "@/api/models.ts";
@@ -58,12 +59,12 @@ export default function GEGW() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const finalStrips  = useFinalStrips();
-  const rwyArrStrips = useRwyArrStrips();
-  const twyArrStrips = useTaxiArrStrips();
-  const pushStrips   = usePushbackStrips();
-  const twyDepStrips = useTaxiDepStrips();
-  const standStrips  = useStandStrips();
+  const finalStrips  = useFinalStrips().filter(isFlight);
+  const rwyArrStrips = useRwyArrStrips().filter(isFlight);
+  const twyArrStrips = useTaxiArrStrips().filter(isFlight);
+  const pushStrips   = usePushbackStrips().filter(isFlight);
+  const twyDepStrips = useTaxiDepStrips().filter(isFlight);
+  const standStrips  = useStandStrips().filter(isFlight);
   const updateOrder  = useWebSocketStore(state => state.updateOrder);
   const move         = useWebSocketStore(state => state.move);
 

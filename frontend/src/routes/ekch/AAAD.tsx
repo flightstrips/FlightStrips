@@ -14,6 +14,7 @@ import {
   useStandStrips,
   useTaxiArrStrips,
   useTaxiDepStrips,
+  isFlight,
 } from "@/store/airports/ekch.ts";
 import type { FrontendStrip } from "@/api/models.ts";
 import { Bay } from "@/api/models.ts";
@@ -73,14 +74,14 @@ export default function AAAD() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const finalStrips   = useFinalStrips();
-  const rwyArrStrips  = useRwyArrStrips();
-  const standStrips   = useStandStrips();
-  const twyDepStrips  = useTaxiDepStrips().sort((a, b) => a.sequence - b.sequence);
-  const twyArrStrips  = useTaxiArrStrips();
+  const finalStrips   = useFinalStrips().filter(isFlight);
+  const rwyArrStrips  = useRwyArrStrips().filter(isFlight);
+  const standStrips   = useStandStrips().filter(isFlight);
+  const twyDepStrips  = useTaxiDepStrips().filter(isFlight).sort((a, b) => a.sequence - b.sequence);
+  const twyArrStrips  = useTaxiArrStrips().filter(isFlight);
   const startupStrips = useClearedStrips().sort((a, b) => a.sequence - b.sequence);
-  const pushStrips    = usePushbackStrips();
-  const deIceStrips   = useDeIceStrips();
+  const pushStrips    = usePushbackStrips().filter(isFlight);
+  const deIceStrips   = useDeIceStrips().filter(isFlight);
   const otherStrips   = useOtherBayStrips().sort((a, b) => a.sequence - b.sequence);
   const sasStrips     = useSasBayStrips().sort((a, b) => a.sequence - b.sequence);
   const norStrips     = useNorwegianBayStrips().sort((a, b) => a.sequence - b.sequence);

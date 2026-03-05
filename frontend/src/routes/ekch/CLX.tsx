@@ -1,7 +1,7 @@
 
 import { FlightStrip } from "@/components/strip/FlightStrip.tsx";
 import { Message } from "@/components/Message.tsx";
-import {useClearedStrips, useNorwegianBayStrips, useOtherBayStrips, usePushbackStrips, useSasBayStrips, useTaxiDepStrips} from "@/store/airports/ekch.ts";
+import {useClearedStrips, useNorwegianBayStrips, useOtherBayStrips, usePushbackStrips, useSasBayStrips, useTaxiDepStrips, isFlight} from "@/store/airports/ekch.ts";
 import type {FrontendStrip} from "@/api/models.ts";
 import { useActiveMessages, useMyPosition } from "@/store/store-hooks.ts";
 import { useRef, useEffect } from "react";
@@ -12,8 +12,8 @@ export default function DEL() {
   const norgewianStrips = useNorwegianBayStrips().sort((a, b) => a.sequence - b.sequence);
   const otherStrips = useOtherBayStrips().sort((a, b) => a.sequence - b.sequence);
   const cleared = useClearedStrips().sort((a, b) => a.sequence - b.sequence);
-  const pushback = usePushbackStrips().sort((a, b) => a.sequence - b.sequence);
-  const taxidep = useTaxiDepStrips().sort((a, b) => a.sequence - b.sequence);
+  const pushback = usePushbackStrips().filter(isFlight).sort((a, b) => a.sequence - b.sequence);
+  const taxidep = useTaxiDepStrips().filter(isFlight).sort((a, b) => a.sequence - b.sequence);
   const messages = useActiveMessages();
   const messagesEndRef = useRef<HTMLDivElement>(null);
 

@@ -30,6 +30,7 @@ export function DelStrip({
   arrival,
   selectable,
   marked = false,
+  fullWidth = false,
 }: StripProps) {
   const { isSelected, handleClick } = useStripSelection(callsign, selectable);
   const cellBorderColor = getCellBorderColor(marked);
@@ -39,7 +40,7 @@ export function DelStrip({
       className={`select-none${selectable ? " cursor-pointer" : ""}`}
       style={{
         height: FULL_H,
-        width: "80%",
+        width: fullWidth ? "100%" : "80%",
         ...getFramedStripStyle(marked),
         borderBottom: "1px solid white",
       }}

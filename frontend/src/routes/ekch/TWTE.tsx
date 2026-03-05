@@ -12,6 +12,7 @@ import {
   useTaxiArrStrips,
   useTaxiDepStrips,
   useNonClearedStrips,
+  isFlight,
 } from "@/store/airports/ekch.ts";
 import type { FrontendStrip } from "@/api/models.ts";
 import { Bay } from "@/api/models.ts";
@@ -69,16 +70,16 @@ export default function TWTE() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const finalStrips   = useFinalStrips();
-  const rwyArrStrips  = useRwyArrStrips();
-  const twyArrStrips  = useTaxiArrStrips();
-  const twyDepStrips  = useTaxiDepStrips();
-  const rwyDepStrips  = useDepartStrips();
-  const airborne      = useAirborneStrips();
-  const standStrips   = useStandStrips();
-  const pushStrips    = usePushbackStrips();
+  const finalStrips   = useFinalStrips().filter(isFlight);
+  const rwyArrStrips  = useRwyArrStrips().filter(isFlight);
+  const twyArrStrips  = useTaxiArrStrips().filter(isFlight);
+  const twyDepStrips  = useTaxiDepStrips().filter(isFlight);
+  const rwyDepStrips  = useDepartStrips().filter(isFlight);
+  const airborne      = useAirborneStrips().filter(isFlight);
+  const standStrips   = useStandStrips().filter(isFlight);
+  const pushStrips    = usePushbackStrips().filter(isFlight);
   const nonClearedStrips = useNonClearedStrips();
-  const deIceStrips   = useDeIceStrips();
+  const deIceStrips   = useDeIceStrips().filter(isFlight);
   const updateOrder   = useWebSocketStore(state => state.updateOrder);
   const move          = useWebSocketStore(state => state.move);
 

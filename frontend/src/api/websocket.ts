@@ -24,6 +24,10 @@ import {
   type FrontendSquawkEvent,
   type FrontendStandEvent,
   type FrontendStripUpdateEvent,
+  type FrontendTacticalStripCreatedEvent,
+  type FrontendTacticalStripDeletedEvent,
+  type FrontendTacticalStripUpdatedEvent,
+  type FrontendTacticalStripMovedEvent,
   type WebSocketEvent
 } from "./models";
 
@@ -56,6 +60,10 @@ type EventMap = {
   [EventType.FrontendCoordinationRejectBroadcast]: FrontendCoordinationRejectBroadcastEvent;
   [EventType.FrontendCoordinationFreeBroadcast]: FrontendCoordinationFreeBroadcastEvent;
   [EventType.FrontendRunWayConfiguration]: FrontendRunwayConfigurationEvent;
+  [EventType.FrontendTacticalStripCreated]: FrontendTacticalStripCreatedEvent;
+  [EventType.FrontendTacticalStripDeleted]: FrontendTacticalStripDeletedEvent;
+  [EventType.FrontendTacticalStripUpdated]: FrontendTacticalStripUpdatedEvent;
+  [EventType.FrontendTacticalStripMoved]: FrontendTacticalStripMovedEvent;
 };
 
 type WebSocketClientDelegate = {

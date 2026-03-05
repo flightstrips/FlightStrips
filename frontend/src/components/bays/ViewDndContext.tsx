@@ -10,6 +10,15 @@ import {
 } from "@dnd-kit/core";
 import type { Bay, StripRef } from "@/api/models.ts";
 import { useState, type ReactNode } from "react";
+
+/** Builds a StripRef from a DnD item id, which may be a flight callsign or "tactical-<N>". */
+function makeStripRef(id: string | null | undefined): StripRef | null {
+  if (!id) return null;
+  if (id.startsWith("tactical-")) {
+    return { kind: "tactical", id: parseInt(id.slice("tactical-".length), 10) };
+  }
+  return { kind: "flight", callsign: id };
+}
 import { DragStateContext } from "./DragStateContext";
 import { DragDisabledContext } from "./DragDisabledContext";
 
@@ -103,30 +112,30 @@ export function ViewDndContext({
           const topStrip = targetStrips
             .filter(s => s.callsign !== callsign && s.sequence !== undefined)
             .sort((a, b) => (b.sequence ?? 0) - (a.sequence ?? 0))[0];
-          insertAfter = topStrip ? { kind: "flight", callsign: topStrip.callsign } : null;
+          insertAfter = topStrip ? makeStripRef(topStrip.callsign) : null;
         } else {
           insertAfter = null;
         }
       } else if (activeSeq !== undefined && overSeq !== undefined) {
         if (activeSeq < overSeq) {
           // Moving toward higher seq: over strip becomes the predecessor
-          insertAfter = { kind: "flight", callsign: overId };
+          insertAfter = makeStripRef(overId);
         } else {
           // Moving toward lower seq: find the strip with the highest seq below overSeq
           const prevStrip = targetStrips
             .filter(s => s.callsign !== callsign && s.sequence !== undefined && s.sequence < overSeq)
             .sort((a, b) => (b.sequence ?? 0) - (a.sequence ?? 0))[0];
-          insertAfter = prevStrip ? { kind: "flight", callsign: prevStrip.callsign } : null;
+          insertAfter = prevStrip ? makeStripRef(prevStrip.callsign) : null;
         }
       } else {
         // Fallback: index comparison (ascending-sorted arrays only)
         const activeIndex = targetStrips.findIndex(s => s.callsign === callsign);
         const overIndex = targetStrips.findIndex(s => s.callsign === overId);
         if (activeIndex < overIndex) {
-          insertAfter = { kind: "flight", callsign: overId };
+          insertAfter = makeStripRef(overId);
         } else {
           const prevCallsign = targetStrips[overIndex - 1]?.callsign ?? null;
-          insertAfter = prevCallsign ? { kind: "flight", callsign: prevCallsign } : null;
+          insertAfter = makeStripRef(prevCallsign);
         }
       }
       onReorder(callsign, insertAfter);
@@ -162,9 +171,9 @@ export function ViewDndContext({
       const topStrip = sourceStrips
         .filter(s => s.callsign !== callsign && s.sequence !== undefined)
         .sort((a, b) => (b.sequence ?? 0) - (a.sequence ?? 0))[0];
-      crossInsertAfter = topStrip ? { kind: "flight", callsign: topStrip.callsign } : null;
+      crossInsertAfter = topStrip ? makeStripRef(topStrip.callsign) : null;
     } else {
-      crossInsertAfter = targetStrips.some(s => s.callsign === overId) ? { kind: "flight", callsign: overId } : null;
+      crossInsertAfter = targetStrips.some(s => s.callsign === overId) ? makeStripRef(overId) : null;
     }
     onReorder(callsign, crossInsertAfter);
   }

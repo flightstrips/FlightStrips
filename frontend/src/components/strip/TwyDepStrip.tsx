@@ -24,6 +24,7 @@ const W_SID_DEST   = 80;  // 120 * 2/3
 const W_SMALL      = 53;  // 80 * 2/3 (≈53.33) — used by empty/TWR, runway/HP, FL/heading
 
 const TOTAL_W = W_SI + W_CALLSIGN + W_TYPE_SQ + W_STAND_CTOT + W_SMALL + W_SMALL + W_SMALL + W_SID_DEST;
+export const TWY_DEP_STRIP_WIDTH = TOTAL_W;
 
 // -----------------------------------------------------------------------------
 // TwyDepStrip — TWY-DEP strip for the TETW tower view (status="TWY-DEP").

@@ -23,6 +23,8 @@ const F_STAND    = 25 * (2 / 3);            // ~16.67
 const F_HP       = 25 * (2 / 3) * (2 / 3); // ~11.11
 const F_RWY      = 25 * (2 / 3);            // ~16.67
 
+export const APN_TAXI_DEP_STRIP_WIDTH = "90%";
+
 /**
  * ApnTaxiDepStrip — APN-TAXI-DEP strip (status="TAXI-DEP").
  *
@@ -55,7 +57,7 @@ export function ApnTaxiDepStrip({
       className={`select-none${selectable ? " cursor-pointer" : ""}`}
       style={{
         height: "4.44vh",
-        width: "90%",
+        width: APN_TAXI_DEP_STRIP_WIDTH,
         ...getFramedStripStyle(marked),
       }}
       onClick={handleClick}

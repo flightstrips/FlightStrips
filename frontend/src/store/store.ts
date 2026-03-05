@@ -183,22 +183,32 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
         if (stripIndex === -1) return;
 
         const strip = draft.strips[stripIndex];
-        const bayStrips = draft.strips
-          .filter(s => s.bay === strip.bay && s.callsign !== callsign)
-          .sort((a, b) => a.sequence - b.sequence);
+        const bay = strip.bay;
+
+        // All sequences in the bay except the strip being moved, sorted ascending
+        const baySeqs = [
+          ...draft.strips.filter(s => s.bay === bay && s.callsign !== strip.callsign).map(s => s.sequence),
+          ...draft.tacticalStrips.filter(t => t.bay === bay).map(t => t.sequence),
+        ].sort((a, b) => a - b);
 
         let prevSeq: number;
         let nextSeq: number | null;
 
         if (insertAfter === null) {
           prevSeq = 0;
-          nextSeq = bayStrips[0]?.sequence ?? null;
+          nextSeq = baySeqs[0] ?? null;
         } else if (insertAfter.kind === 'flight' && insertAfter.callsign) {
-          const afterStrip = bayStrips.find(s => s.callsign === insertAfter.callsign);
+          const afterStrip = draft.strips.find(s => s.callsign === insertAfter.callsign);
           if (!afterStrip) return;
           prevSeq = afterStrip.sequence;
-          const afterIdx = bayStrips.indexOf(afterStrip);
-          nextSeq = bayStrips[afterIdx + 1]?.sequence ?? null;
+          const afterIdx = baySeqs.indexOf(prevSeq);
+          nextSeq = baySeqs[afterIdx + 1] ?? null;
+        } else if (insertAfter.kind === 'tactical' && insertAfter.id !== undefined) {
+          const afterTactical = draft.tacticalStrips.find(t => t.id === insertAfter.id);
+          if (!afterTactical) return;
+          prevSeq = afterTactical.sequence;
+          const afterIdx = baySeqs.indexOf(prevSeq);
+          nextSeq = baySeqs[afterIdx + 1] ?? null;
         } else {
           return;
         }
@@ -278,9 +288,48 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     startTacticalTimer: (id) => {
       wsClient.send({ type: ActionType.FrontendStartTacticalTimer, id });
     },
-    moveTacticalStrip: (id, insertAfter) => {
+    moveTacticalStrip: (id, insertAfter) => set((state) => {
       wsClient.send({ type: ActionType.FrontendMoveTacticalStrip, id, insert_after: insertAfter });
-    },
+
+      return produce((draft: WebSocketState) => {
+        const idx = draft.tacticalStrips.findIndex(t => t.id === id);
+        if (idx === -1) return;
+
+        const bay = draft.tacticalStrips[idx].bay;
+
+        // All sequences in the bay except the strip being moved, sorted ascending
+        const baySeqs = [
+          ...draft.strips.filter(s => s.bay === bay).map(s => s.sequence),
+          ...draft.tacticalStrips.filter(t => t.bay === bay && t.id !== id).map(t => t.sequence),
+        ].sort((a, b) => a - b);
+
+        let prevSeq: number;
+        let nextSeq: number | null;
+
+        if (insertAfter === null) {
+          prevSeq = 0;
+          nextSeq = baySeqs[0] ?? null;
+        } else if (insertAfter.kind === 'flight' && insertAfter.callsign) {
+          const afterStrip = draft.strips.find(s => s.callsign === insertAfter.callsign);
+          if (!afterStrip) return;
+          prevSeq = afterStrip.sequence;
+          const afterIdx = baySeqs.indexOf(prevSeq);
+          nextSeq = baySeqs[afterIdx + 1] ?? null;
+        } else if (insertAfter.kind === 'tactical' && insertAfter.id !== undefined) {
+          const afterTactical = draft.tacticalStrips.find(t => t.id === insertAfter.id);
+          if (!afterTactical) return;
+          prevSeq = afterTactical.sequence;
+          const afterIdx = baySeqs.indexOf(prevSeq);
+          nextSeq = baySeqs[afterIdx + 1] ?? null;
+        } else {
+          return;
+        }
+
+        draft.tacticalStrips[idx].sequence = nextSeq === null
+          ? prevSeq + 100
+          : Math.floor((prevSeq + nextSeq) / 2);
+      })(state);
+    }),
   }));
 
   // Private methods to handle WebSocket events

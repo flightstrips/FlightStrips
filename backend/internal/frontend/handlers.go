@@ -536,6 +536,9 @@ func handleCreateTacticalStrip(ctx context.Context, client *Client, message Mess
 	if req.Bay == "" {
 		return errors.New("bay is required")
 	}
+	if req.StripType == "MEMAID" && req.Label == "" {
+		return errors.New("label is required for MEMAID strips")
+	}
 
 	tacticalRepo := client.hub.server.GetTacticalStripRepository()
 	if tacticalRepo == nil {
@@ -615,6 +618,9 @@ func handleConfirmTacticalStrip(ctx context.Context, client *Client, message Mes
 
 	if ts.Type != "MEMAID" && ts.Type != "CROSSING" {
 		return errors.New("confirm is only valid for MEMAID and CROSSING strips")
+	}
+	if ts.ProducedBy == client.position {
+		return errors.New("producer cannot confirm their own MEMAID strip")
 	}
 
 	client.hub.SendTacticalStripUpdated(client.session, MapTacticalStripToPayload(ts))

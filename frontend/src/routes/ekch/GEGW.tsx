@@ -10,18 +10,23 @@ import {
   useTaxiDepStrips,
   isFlight,
 } from "@/store/airports/ekch.ts";
-import type { FrontendStrip } from "@/api/models.ts";
+import type { FrontendStrip, TacticalStrip, StripRef } from "@/api/models.ts";
 import { Bay } from "@/api/models.ts";
 import type { HalfStripVariant, StripStatus } from "@/components/strip/types.ts";
 import { SortableBay, DropIndicatorBay } from "@/components/bays/SortableBay.tsx";
 import { ViewDndContext } from "@/components/bays/ViewDndContext.tsx";
 import { useWebSocketStore, useMyPosition } from "@/store/store-hooks.ts";
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useState, useMemo } from "react";
+import { TacticalMemaidStrip } from "@/components/strip/TacticalMemaidStrip.tsx";
+import { CLX_CLEARED_STRIP_WIDTH } from "@/components/strip/ClxClearedStrip.tsx";
+import { MemaidDialog } from "@/components/strip/MemaidDialog.tsx";
 
 
 export default function GEGW() {
   const myPosition = useMyPosition();
   const messages     = useActiveMessages();
+  const [memaidOpen, setMemaidOpen] = useState(false);
+  const [memaidBay, setMemaidBay] = useState("");
 
   const mapToStrip = (strip: FrontendStrip, status: StripStatus, halfStripVariant?: HalfStripVariant, selectable = true) => (
     <FlightStrip
@@ -59,21 +64,28 @@ export default function GEGW() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const finalStrips  = useFinalStrips().filter(isFlight);
-  const rwyArrStrips = useRwyArrStrips().filter(isFlight);
-  const twyArrStrips = useTaxiArrStrips().filter(isFlight);
-  const pushStrips   = usePushbackStrips().filter(isFlight);
-  const twyDepStrips = useTaxiDepStrips().filter(isFlight);
-  const standStrips  = useStandStrips().filter(isFlight);
-  const updateOrder  = useWebSocketStore(state => state.updateOrder);
-  const move         = useWebSocketStore(state => state.move);
+  const finalStrips  = useFinalStrips().filter(isFlight) as FrontendStrip[];
+  const rwyArrStrips = useRwyArrStrips().filter(isFlight) as FrontendStrip[];
+  const twyArrStrips = useTaxiArrStrips().filter(isFlight) as FrontendStrip[];
+  const pushStrips   = usePushbackStrips().filter(isFlight) as FrontendStrip[];
+  const twyDepAll    = useTaxiDepStrips();
+  const twyDepStrips = twyDepAll.filter(isFlight) as FrontendStrip[];
+  const twyMemaids   = twyDepAll.filter((s): s is TacticalStrip => !isFlight(s) && s.type === "MEMAID");
+  const twyDepMerged = useMemo(() => [
+    ...twyDepStrips.map(s => ({ callsign: s.callsign, sequence: s.sequence })),
+    ...twyMemaids.map(t => ({ callsign: `tactical-${t.id}`, sequence: t.sequence })),
+  ].sort((a, b) => a.sequence - b.sequence), [twyDepStrips, twyMemaids]);
+  const standStrips  = useStandStrips().filter(isFlight) as FrontendStrip[];
+  const updateOrder       = useWebSocketStore(state => state.updateOrder);
+  const move              = useWebSocketStore(state => state.move);
+  const moveTacticalStrip = useWebSocketStore(state => state.moveTacticalStrip);
 
   // PUSHBACK, TWY-DEP-UPR, TWY-DEP-LWR, STAND are all draggable between each other.
   // TWY-DEP-UPR and TWY-DEP-LWR share Bay.Taxi (same backend bay, visual distinction only).
   const bayStripMap = {
     "PUSHBACK":    { strips: pushStrips,   targetBay: Bay.Push },
-    "TWY-DEP-UPR": { strips: twyDepStrips, targetBay: Bay.Taxi },
-    "TWY-DEP-LWR": { strips: twyDepStrips, targetBay: Bay.Taxi },
+    "TWY-DEP-UPR": { strips: twyDepMerged, targetBay: Bay.Taxi },
+    "TWY-DEP-LWR": { strips: twyDepMerged, targetBay: Bay.Taxi },
     "STAND":       { strips: standStrips,  targetBay: Bay.Stand },
   };
 
@@ -84,13 +96,31 @@ export default function GEGW() {
     "STAND":       ["PUSHBACK",    "TWY-DEP-UPR", "TWY-DEP-LWR"],
   };
 
+  const handleReorder = (id: string, insertAfter: StripRef | null) => {
+    if (id.startsWith("tactical-")) {
+      moveTacticalStrip(parseInt(id.slice("tactical-".length), 10), insertAfter);
+    } else {
+      updateOrder(id, insertAfter);
+    }
+  };
+
+  const handleMove = (id: string, bay: Bay) => {
+    if (!id.startsWith("tactical-")) move(id, bay);
+  };
+
   return (
     <ViewDndContext
       bayStripMap={bayStripMap}
       transferRules={transferRules}
-      onReorder={updateOrder}
-      onMove={move}
+      onReorder={handleReorder}
+      onMove={handleMove}
       renderDragOverlay={(callsign) => {
+        if (callsign.startsWith("tactical-")) {
+          const id = parseInt(callsign.slice("tactical-".length), 10);
+          const ts = twyMemaids.find(t => t.id === id);
+          if (ts) return <TacticalMemaidStrip strip={ts} width={CLX_CLEARED_STRIP_WIDTH} />;
+          return null;
+        }
         const push = pushStrips.find(s => s.callsign === callsign);
         if (push) return mapToStrip(push, "HALF", "APN-PUSH");
         const twyDep = twyDepStrips.find(s => s.callsign === callsign);
@@ -129,8 +159,9 @@ export default function GEGW() {
         </DropIndicatorBay>
 
         {/* TWY ARR is SI-only; no manual drag */}
-        <div className="bg-[#393939] h-10 flex items-center px-2 shrink-0">
+        <div className="bg-[#393939] h-10 flex items-center px-2 shrink-0 justify-between">
           <span className="text-white font-bold text-lg">TWY ARR</span>
+          <button className="bg-[#646464] text-white font-bold text-sm px-3 border-2 border-white active:bg-[#424242]" onClick={() => { setMemaidBay(Bay.Taxi); setMemaidOpen(true); }}>MEM AID</button>
         </div>
         <DropIndicatorBay bayId="TWY-ARR" className="flex-1 w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary">
           {twyArrStrips.map(x => mapToStrip(x, "HALF", "APN-ARR"))}
@@ -154,16 +185,22 @@ export default function GEGW() {
           }}
         </SortableBay>
 
-        <div className="bg-[#b3b3b3] h-10 flex items-center px-2 shrink-0">
+        <div className="bg-[#b3b3b3] h-10 flex items-center px-2 shrink-0 justify-between">
           <span className="text-[#393939] font-bold text-lg">TWY DEP UPR</span>
+          <button className="bg-[#646464] text-white font-bold text-sm px-3 border-2 border-white active:bg-[#424242]" onClick={() => { setMemaidBay(Bay.Taxi); setMemaidOpen(true); }}>MEM AID</button>
         </div>
         <SortableBay
-          strips={twyDepStrips}
+          strips={twyDepMerged}
           bayId="TWY-DEP-UPR"
           standalone={false}
           className="h-[35%] w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary"
         >
           {(callsign) => {
+            if (callsign.startsWith("tactical-")) {
+              const id = parseInt(callsign.slice("tactical-".length), 10);
+              const ts = twyMemaids.find(t => t.id === id)!;
+              return <TacticalMemaidStrip strip={ts} width={CLX_CLEARED_STRIP_WIDTH} />;
+            }
             const strip = twyDepStrips.find(s => s.callsign === callsign)!;
             return mapToStrip(strip, "CLROK");
           }}
@@ -173,12 +210,17 @@ export default function GEGW() {
           <span className="text-[#393939] font-bold text-lg">TWY DEP LWR</span>
         </div>
         <SortableBay
-          strips={twyDepStrips}
+          strips={twyDepMerged}
           bayId="TWY-DEP-LWR"
           standalone={false}
           className="flex-1 w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary"
         >
           {(callsign) => {
+            if (callsign.startsWith("tactical-")) {
+              const id = parseInt(callsign.slice("tactical-".length), 10);
+              const ts = twyMemaids.find(t => t.id === id)!;
+              return <TacticalMemaidStrip strip={ts} width={CLX_CLEARED_STRIP_WIDTH} />;
+            }
             const strip = twyDepStrips.find(s => s.callsign === callsign)!;
             return mapToStrip(strip, "CLROK");
           }}
@@ -212,6 +254,7 @@ export default function GEGW() {
       </div>
 
     </div>
+    <MemaidDialog open={memaidOpen} bay={memaidBay} onOpenChange={setMemaidOpen} />
     </ViewDndContext>
   );
 }

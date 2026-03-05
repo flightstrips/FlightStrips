@@ -14,6 +14,8 @@ const ARIAL = "'Arial', sans-serif";
 const FULL_H  = "4.44vh";
 const HALF_H  = "2.22vh";
 
+export const CLX_CLEARED_STRIP_WIDTH = "88.44%";
+
 /**
  * ClxClearedStrip — used in the CLEARED bay on the CLX layout (status="CLROK").
  *
@@ -52,7 +54,7 @@ export function ClxClearedStrip({
       className={`select-none${selectable ? " cursor-pointer" : ""}`}
       style={{
         height: FULL_H,
-        width: fullWidth ? "100%" : "88.44%",
+        width: fullWidth ? "100%" : CLX_CLEARED_STRIP_WIDTH,
         ...getFramedStripStyle(marked),
       }}
       onClick={handleClick}

@@ -27,6 +27,8 @@ import {
   type FrontendStandEvent,
   type FrontendStrip,
   type FrontendStripUpdateEvent,
+  type MessageReceived,
+  type FrontendMessageReceivedEvent,
   type RunwayConfiguration,
   type StripRef,
   type TacticalStrip,
@@ -61,7 +63,7 @@ export interface WebSocketState {
   isInitialized: boolean;
   stripTransfers: Record<string, string>;
 
-  activeMessages: FrontendBroadcastEvent[];
+  messages: MessageReceived[];
 
   selectedCallsign: string | null;
   selectStrip: (callsign: string | null) => void;
@@ -70,7 +72,8 @@ export interface WebSocketState {
   move: (callsign: string, bay: Bay) => void;
   generateSquawk: (callsign: string) => void;
   updateOrder: (callsign: string, insertAfter: StripRef | null) => void;
-  sendMessage: (message: string, to: string | null) => void;
+  sendMessage: (text: string, recipients: string[]) => void;
+  dismissMessage: (id: number) => void;
   updateStrip: (callsign: string, update: UpdateStrip) => void;
   setReleasePoint: (callsign: string, releasePoint: string) => void;
   issuePdcClearance: (callsign: string, remarks: string | null) => void;
@@ -107,7 +110,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     },
     isInitialized: false,
     stripTransfers: {},
-    activeMessages: [],
+    messages: [],
     selectedCallsign: null
   };
 
@@ -218,8 +221,15 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
           : Math.floor((prevSeq + nextSeq) / 2);
       })(state)
     }),
-    sendMessage: (message, to) => {
-      wsClient.send({type: ActionType.FrontendSendMessage, message, to})
+    sendMessage: (text, recipients) => {
+      wsClient.send({type: ActionType.FrontendSendMessage, text, recipients})
+    },
+    dismissMessage: (id) => {
+      store.setState(
+        produce((state: WebSocketState) => {
+          state.messages = state.messages.filter(m => m.id !== id);
+        })
+      );
     },
     setReleasePoint: (callsign, releasePoint) => {
       wsClient.send({type: ActionType.FrontendReleasePoint, callsign: callsign, release_point: releasePoint})
@@ -351,6 +361,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
           transfers[coord.callsign] = coord.to;
         }
         state.stripTransfers = transfers;
+        state.messages = data.messages ?? [];
       })
     );
   };
@@ -533,13 +544,17 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     )
   }
 
-  const handleBroadcastEvent = (data: FrontendBroadcastEvent) => {
+  const handleBroadcastEvent = (_data: FrontendBroadcastEvent) => {
+    // Legacy broadcast event — handled via message_received now
+  }
+
+  const handleMessageReceived = (data: FrontendMessageReceivedEvent) => {
     store.setState(
       produce((state: WebSocketState) => {
-        state.activeMessages.push(data);
+        state.messages = [data, ...state.messages].slice(0, 100);
       })
-    )
-  }
+    );
+  };
 
   const handleCdmUpdateEvent = (data: FrontendCdmDataEvent) => {
     store.setState(
@@ -702,6 +717,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
   wsClient.on(EventType.FrontendTacticalStripDeleted, handleTacticalStripDeletedEvent);
   wsClient.on(EventType.FrontendTacticalStripUpdated, handleTacticalStripUpdatedEvent);
   wsClient.on(EventType.FrontendTacticalStripMoved, handleTacticalStripMovedEvent);
+  wsClient.on(EventType.FrontendMessageReceived, handleMessageReceived);
 
   return store;
 };

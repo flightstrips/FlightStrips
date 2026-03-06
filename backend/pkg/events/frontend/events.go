@@ -53,8 +53,9 @@ const (
 
 	LayoutUpdate = "layout_update"
 
-	Broadcast   EventType = "broadcast"
-	SendMessage EventType = "send_message"
+	Broadcast       EventType = "broadcast"
+	SendMessage     EventType = "send_message"
+	MessageReceived EventType = "message_received"
 
 	CdmWait  EventType = "cdm_wait"
 	CdmData  EventType = "cdm_data"
@@ -136,15 +137,16 @@ type SyncCoordination struct {
 }
 
 type InitialEvent struct {
-	Contsollers    []Controller         `json:"controllers"`
-	Strips         []Strip              `json:"strips"`
-	TacticalStrips []TacticalStripPayload `json:"tactical_strips"`
-	Me             Controller           `json:"me"`
-	Layout         string               `json:"layout"`
-	Airport        string               `json:"airport"`
-	Callsign       string               `json:"callsign"`
-	RunwaySetup    RunwayConfiguration  `json:"runway_setup"`
-	Coordinations  []SyncCoordination   `json:"coordinations"`
+	Contsollers    []Controller              `json:"controllers"`
+	Strips         []Strip                   `json:"strips"`
+	TacticalStrips []TacticalStripPayload    `json:"tactical_strips"`
+	Me             Controller                `json:"me"`
+	Layout         string                    `json:"layout"`
+	Airport        string                    `json:"airport"`
+	Callsign       string                    `json:"callsign"`
+	RunwaySetup    RunwayConfiguration       `json:"runway_setup"`
+	Coordinations  []SyncCoordination        `json:"coordinations"`
+	Messages       []MessageReceivedEvent    `json:"messages"`
 }
 
 func (i InitialEvent) Marshal() ([]byte, error) {
@@ -499,8 +501,24 @@ func (l BroadcastEvent) GetType() EventType {
 }
 
 type SendMessageEvent struct {
-	Message string  `json:"message"`
-	To      *string `json:"to"`
+	Text       string   `json:"text"`
+	Recipients []string `json:"recipients"`
+}
+
+type MessageReceivedEvent struct {
+	ID          int64    `json:"id"`
+	Sender      string   `json:"sender"`
+	Text        string   `json:"text"`
+	IsBroadcast bool     `json:"is_broadcast"`
+	Recipients  []string `json:"recipients"`
+}
+
+func (m MessageReceivedEvent) Marshal() ([]byte, error) {
+	return marshall(m)
+}
+
+func (m MessageReceivedEvent) GetType() EventType {
+	return MessageReceived
 }
 
 type CdmWaitEvent struct {

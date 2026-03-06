@@ -372,6 +372,16 @@ routes:
     active: [04L, 22R]
     path: [TW, GW, AA]
 
+message_areas:
+  CLR-DEL:   [EKCH_DEL, EKCH_A_GND]
+  APRON ARR: [EKCH_A_GND, EKCH_B_GND]
+  APRON DEP: [EKCH_C_GND, EKCH_B_GND]
+  GND WEST:  [EKCH_C_TWR, EKCH_A_TWR, EKCH_D_TWR]
+  GND EAST:  [EKCH_D_TWR, EKCH_A_TWR]
+  TWR-ARR:   [EKCH_A_TWR, EKCH_D_TWR]
+  TWR-DEP:   [EKCH_D_TWR, EKCH_A_TWR]
+  SEQ PLN:   [EKCH_B_GND, EKCH_A_GND]
+
 runways:
   - "04R"
   - "04L"

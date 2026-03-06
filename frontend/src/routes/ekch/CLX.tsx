@@ -1,9 +1,10 @@
 import { Strip } from "@/components/strip/Strip.tsx";
-import { Message } from "@/components/Message.tsx";
+import { MessageStrip } from "@/components/strip/MessageStrip.tsx";
+import { MessageComposeDialog } from "@/components/MessageComposeDialog.tsx";
 import {useClearedStrips, useNorwegianBayStrips, useOtherBayStrips, usePushbackStrips, useSasBayStrips, useTaxiDepStrips, isFlight} from "@/store/airports/ekch.ts";
 import type {FrontendStrip} from "@/api/models.ts";
-import { useActiveMessages, useMyPosition } from "@/store/store-hooks.ts";
-import { useRef, useEffect } from "react";
+import { useMessages, useMyPosition } from "@/store/store-hooks.ts";
+import { useState } from "react";
 
 export default function DEL() {
   const myPosition = useMyPosition();
@@ -13,12 +14,8 @@ export default function DEL() {
   const cleared = useClearedStrips().sort((a, b) => a.sequence - b.sequence);
   const pushback = usePushbackStrips().filter(isFlight).sort((a, b) => a.sequence - b.sequence);
   const taxidep = useTaxiDepStrips().filter(isFlight).sort((a, b) => a.sequence - b.sequence);
-  const messages = useActiveMessages();
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  const messages = useMessages();
+  const [composeOpen, setComposeOpen] = useState(false);
 
   const mapToStrip = (strip: FrontendStrip, status: string) => (
     <Strip
@@ -82,16 +79,15 @@ export default function DEL() {
             {cleared.map(strip => mapToStrip(strip, "CLROK"))}
           </div>
           <div className="bg-primary h-10 flex items-center px-2 justify-between">
-            <span className="text-gray-100 font-bold text-lg">
-              MESSAGES
-            </span>
+            <span className="text-gray-100 font-bold text-lg">MESSAGES</span>
+            <button className="bg-[#646464] text-white font-bold text-sm px-3 border-2 border-white active:bg-[#424242]" onClick={() => setComposeOpen(true)}>FREE TEXT</button>
           </div>
           <div className="h-[calc(33%-6rem)] w-full bg-[#555355] overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary">
-            {messages.map((msg, i) => (
-              <Message key={i} from={msg.from}>{msg.message}</Message>
+            {messages.map(msg => (
+              <MessageStrip key={msg.id} msg={msg} />
             ))}
-            <div ref={messagesEndRef} />
           </div>
+          <MessageComposeDialog open={composeOpen} onClose={() => setComposeOpen(false)} />
         </div>
         <div className="w-1/4 h-full bg-[#555355]">
           <div className="bg-[#b3b3b3] h-10 flex items-center px-2 justify-between">

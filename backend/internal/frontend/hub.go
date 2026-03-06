@@ -10,6 +10,8 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"sync"
+	"sync/atomic"
 
 	gorilla "github.com/gorilla/websocket"
 	"github.com/jackc/pgx/v5"
@@ -33,6 +35,10 @@ type Hub struct {
 	unregister chan *Client
 
 	handlers shared.MessageHandlers[frontend.EventType, *Client]
+
+	msgMu      sync.Mutex
+	msgCounter int64 // accessed atomically
+	messages   map[int32][]frontend.MessageReceivedEvent
 }
 
 func NewHub(stripService shared.StripService, authenticationService shared.AuthenticationService) *Hub {
@@ -69,6 +75,7 @@ func NewHub(stripService shared.StripService, authenticationService shared.Authe
 		handlers:              handlers,
 		stripService:          stripService,
 		authenticationService: authenticationService,
+		messages:              make(map[int32][]frontend.MessageReceivedEvent),
 	}
 
 	go hub.Run()
@@ -274,6 +281,11 @@ func (hub *Hub) sendInitialEvent(client *Client) {
 		}
 	}
 
+	hub.msgMu.Lock()
+	storedMsgs := make([]frontend.MessageReceivedEvent, len(hub.messages[client.session]))
+	copy(storedMsgs, hub.messages[client.session])
+	hub.msgMu.Unlock()
+
 	event := frontend.InitialEvent{
 		Contsollers:    controllerModels,
 		Strips:         stripModels,
@@ -287,6 +299,7 @@ func (hub *Hub) sendInitialEvent(client *Client) {
 			Arrival:   arrival,
 		},
 		Coordinations: coordinationModels,
+		Messages:      storedMsgs,
 	}
 
 	client.send <- event
@@ -624,6 +637,60 @@ func (hub *Hub) SendToPosition(session int32, position string, message frontend.
 	for client := range hub.clients {
 		if client.session == session && client.position == position {
 			client.send <- message
+		}
+	}
+}
+
+func (hub *Hub) NextMessageID() int64 {
+	return atomic.AddInt64(&hub.msgCounter, 1)
+}
+
+func (hub *Hub) storeMessage(sessionID int32, msg frontend.MessageReceivedEvent) {
+	hub.msgMu.Lock()
+	defer hub.msgMu.Unlock()
+	msgs := hub.messages[sessionID]
+	msgs = append([]frontend.MessageReceivedEvent{msg}, msgs...)
+	if len(msgs) > 100 {
+		msgs = msgs[:100]
+	}
+	hub.messages[sessionID] = msgs
+}
+
+func (hub *Hub) dispatchMessage(session int32, msg frontend.MessageReceivedEvent, senderCID string) {
+	if msg.IsBroadcast {
+		hub.Broadcast(session, msg)
+		return
+	}
+
+	// Resolve area names → positions, find first active position per area
+	areaMap := config.GetMessageAreas()
+	recipientPositions := make(map[string]bool)
+	for _, area := range msg.Recipients {
+		positions, ok := areaMap[area]
+		if !ok {
+			continue
+		}
+		for _, pos := range positions {
+			found := false
+			for client := range hub.clients {
+				if client.session == session && client.position == pos {
+					recipientPositions[pos] = true
+					found = true
+					break
+				}
+			}
+			if found {
+				break
+			}
+		}
+	}
+
+	for client := range hub.clients {
+		if client.session != session {
+			continue
+		}
+		if client.user.GetCid() == senderCID || recipientPositions[client.position] {
+			client.send <- msg
 		}
 	}
 }

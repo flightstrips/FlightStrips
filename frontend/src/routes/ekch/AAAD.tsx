@@ -1,9 +1,9 @@
 import { Strip } from "@/components/strip/Strip.tsx";
 import { MemAidButton } from "@/components/strip/TacticalButtons.tsx";
-import { Message } from "@/components/Message.tsx";
-import { useMyPosition } from "@/store/store-hooks.ts";
+import { MessageStrip } from "@/components/strip/MessageStrip.tsx";
+import { MessageComposeDialog } from "@/components/MessageComposeDialog.tsx";
+import { useMyPosition, useMessages } from "@/store/store-hooks.ts";
 import {
-  useActiveMessages,
   useClearedStrips,
   useDeIceStrips,
   useFinalStrips,
@@ -23,7 +23,7 @@ import type { StripStatus } from "@/components/strip/types.ts";
 import { SortableBay, DropIndicatorBay } from "@/components/bays/SortableBay.tsx";
 import { ViewDndContext } from "@/components/bays/ViewDndContext.tsx";
 import { useWebSocketStore } from "@/store/store-hooks.ts";
-import { useRef, useEffect } from "react";
+import { useState } from "react";
 import { APN_TAXI_DEP_STRIP_WIDTH } from "@/components/strip/ApnTaxiDepStrip.tsx";
 
 // Shared header styles
@@ -38,12 +38,8 @@ const btn            = "bg-[#646464] text-white font-bold text-sm px-3 border-2 
 
 export default function AAAD() {
   const myPosition  = useMyPosition();
-  const messages    = useActiveMessages();
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  const messages    = useMessages();
+  const [composeOpen, setComposeOpen] = useState(false);
 
   const finalStrips   = useFinalStrips().filter(isFlight);
   const rwyArrStrips  = useRwyArrStrips().filter(isFlight);
@@ -108,15 +104,16 @@ export default function AAAD() {
       {/* ── Col 1: MESSAGES / FINAL (locked) / RWY ARR (locked) / STAND ── */}
       <div className="w-1/4 h-full bg-[#555355] flex flex-col">
 
-        <div className={primaryHeader}>
+        <div className={primaryHeader + " justify-between"}>
           <span className={primaryLabel}>MESSAGES</span>
+          <button className={btn} onClick={() => setComposeOpen(true)}>FREE TEXT</button>
         </div>
         <div className={`h-[15%] ${scrollArea}`}>
-          {messages.map((msg, i) => (
-            <Message key={i} from={msg.from}>{msg.message}</Message>
+          {messages.map(msg => (
+            <MessageStrip key={msg.id} msg={msg} />
           ))}
-          <div ref={messagesEndRef} />
         </div>
+        <MessageComposeDialog open={composeOpen} onClose={() => setComposeOpen(false)} />
 
         <div className={lockedHeader}>
           <span className={lockedLabel}>FINAL</span>

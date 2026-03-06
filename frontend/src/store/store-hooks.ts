@@ -23,7 +23,9 @@ export const useRunwaySetup = () => useWebSocketStore((state) => state.runwaySet
 export const useStrip = (callsign: string) => useWebSocketStore((state) => state.strips.find(strip => strip.callsign === callsign));
 export const useSelectedCallsign = () => useWebSocketStore((state) => state.selectedCallsign);
 export const useSelectStrip = () => useWebSocketStore((state) => state.selectStrip);
-export const useActiveMessages = () => useWebSocketStore((state) => state.activeMessages);
+export const useMessages = () => useWebSocketStore((state) => state.messages);
+/** @deprecated use useMessages */
+export const useActiveMessages = () => useWebSocketStore((state) => state.messages);
 export const useMyPosition = () => useWebSocketStore((state) => state.position);
 export const useStripTransfers = () => useWebSocketStore((state) => state.stripTransfers);
 

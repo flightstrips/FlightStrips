@@ -18,6 +18,7 @@ type Config struct {
 	AirborneOwners []string                   `yaml:"airborne_owners"`
 	Layouts        map[string][]LayoutVariant `yaml:"layouts"`
 	Runways        []string                   `yaml:"runways"`
+	MessageAreas   map[string][]string        `yaml:"message_areas"`
 }
 
 // TestModeConfig holds test/replay mode configuration
@@ -35,6 +36,7 @@ var positions []Position
 var airborneRoutes []AirborneRoutes
 var layouts map[string][]LayoutVariant
 var runways []string
+var messageAreas map[string][]string
 
 // runwayRoutes maps a runway to all available routes for that runway.
 var runwayRoutes = map[string][]Route{}
@@ -59,8 +61,17 @@ func loadAirportConfig(r io.Reader) error {
 	airborneRoutes = cfg.AirborneRoutes
 	layouts = cfg.Layouts
 	runways = cfg.Runways
+	messageAreas = cfg.MessageAreas
+	if messageAreas == nil {
+		messageAreas = make(map[string][]string)
+	}
 
 	return nil
+}
+
+// GetMessageAreas returns the area→position mapping for the configured airport.
+func GetMessageAreas() map[string][]string {
+	return messageAreas
 }
 
 // GetRunways returns the list of valid runway identifiers for the configured airport.

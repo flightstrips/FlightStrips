@@ -30,6 +30,7 @@ export enum EventType {
   FrontendTacticalStripDeleted = "tactical_strip_deleted",
   FrontendTacticalStripUpdated = "tactical_strip_updated",
   FrontendTacticalStripMoved = "tactical_strip_moved",
+  FrontendMessageReceived = "message_received",
 }
 
 export enum ActionType {
@@ -143,6 +144,14 @@ export interface FrontendController {
   section: string;
 }
 
+export interface MessageReceived {
+  id: number;
+  sender: string;
+  text: string;
+  is_broadcast: boolean;
+  recipients: string[];
+}
+
 export interface FrontendInitialEvent {
   type: EventType.FrontendInitial;
   controllers: FrontendController[];
@@ -154,6 +163,7 @@ export interface FrontendInitialEvent {
   callsign: string;
   runway_setup: RunwayConfiguration;
   coordinations: Array<{ callsign: string; from: string; to: string }>;
+  messages: MessageReceived[];
 }
 
 export interface FrontendStripUpdateEvent {
@@ -387,6 +397,10 @@ export interface FrontendTacticalStripMovedEvent {
   sequence: number;
 }
 
+export interface FrontendMessageReceivedEvent extends MessageReceived {
+  type: EventType.FrontendMessageReceived;
+}
+
 // Union type for all events that can be received
 export type WebSocketEvent =
   | FrontendInitialEvent
@@ -419,7 +433,8 @@ export type WebSocketEvent =
   | FrontendTacticalStripCreatedEvent
   | FrontendTacticalStripDeletedEvent
   | FrontendTacticalStripUpdatedEvent
-  | FrontendTacticalStripMovedEvent;
+  | FrontendTacticalStripMovedEvent
+  | FrontendMessageReceivedEvent;
 
 export interface FrontendMoveEvent {
   type: ActionType.FrontendMove;
@@ -451,8 +466,8 @@ export interface FrontendUpdateOrder {
 
 export interface FrontendSendMessageEvent {
   type: ActionType.FrontendSendMessage;
-  message: string;
-  to: string | null
+  text: string;
+  recipients: string[];
 }
 
 export interface FrontendCdmReadyEvent {

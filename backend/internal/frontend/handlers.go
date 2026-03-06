@@ -409,21 +409,26 @@ func handleUpdateOrder(ctx context.Context, client *Client, message Message) err
 }
 
 func handleSendMessage(ctx context.Context, client *Client, message Message) error {
-	var event frontend.SendMessageEvent
-	if err := message.JsonUnmarshal(&event); err != nil {
+	var req frontend.SendMessageEvent
+	if err := message.JsonUnmarshal(&req); err != nil {
 		return err
 	}
 
-	outgoingEvent := frontend.BroadcastEvent{
-		Message: event.Message,
-		From:    client.position,
+	recipients := req.Recipients
+	if recipients == nil {
+		recipients = []string{}
 	}
 
-	if event.To == nil {
-		client.hub.Broadcast(client.session, outgoingEvent)
-	} else {
-		client.hub.SendToPosition(client.session, *event.To, outgoingEvent)
+	msg := frontend.MessageReceivedEvent{
+		ID:          client.hub.NextMessageID(),
+		Sender:      client.position,
+		Text:        req.Text,
+		IsBroadcast: len(recipients) == 0,
+		Recipients:  recipients,
 	}
+
+	client.hub.storeMessage(client.session, msg)
+	client.hub.dispatchMessage(client.session, msg, client.user.GetCid())
 	return nil
 }
 

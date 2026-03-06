@@ -28,6 +28,9 @@ const scrollAreaBottom = "w-full bg-[#555355] p-1 flex flex-col justify-end gap-
 const darkScrollArea = "w-full bg-[#212121] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary";
 const darkScrollAreaBottom = "w-full bg-[#212121] p-1 flex flex-col justify-end gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary";
 const btn = "bg-[#646464] text-white font-bold text-sm px-3 border-2 border-white active:bg-[#424242]";
+const btnOrange = "bg-[#DD6A12] text-white font-bold text-sm px-3 border-2 border-white active:bg-[#c45a0d]";
+const btnBlue = "bg-[#004FD6] text-white font-bold text-sm px-3 border-2 border-white active:bg-[#003db0]";
+const btnYellow = "bg-[#F3EA1F] text-black font-bold text-sm px-3 border-2 border-white active:bg-[#d4cb14]";
 
 export default function TWTE() {
   const myPosition = useMyPosition();
@@ -139,9 +142,7 @@ export default function TWTE() {
         <div className="bg-[#393939] h-10 flex items-center px-2 shrink-0 justify-between">
           <span className="text-white font-bold text-lg">FINAL</span>
           <span className="flex gap-1">
-            <button className={btn}>NEW</button>
-            <button className={btn}>MEM AID</button>
-            <CrossingButton bay={Bay.Final} className={btn} />
+            <button className={btn}>ARR</button>
           </span>
         </div>
         <SortableBay
@@ -155,8 +156,14 @@ export default function TWTE() {
           )}
         </SortableBay>
 
-        <div className="bg-[#393939] h-10 flex items-center px-2 shrink-0 border-t-4 border-[#A9A9A9]">
+        <div className="bg-[#393939] h-10 flex items-center px-2 shrink-0 border-t-4 border-[#A9A9A9] justify-between">
           <span className="text-white font-bold text-lg">RWY ARR</span>
+          <span className="flex gap-1">
+            <button className={btn}>MISSED APP</button>
+            <LandButton bay={Bay.Final} className={btnOrange} />
+            <StartButton bay={Bay.Final} className={btnOrange} />
+            <CrossingButton bay={Bay.Final} className={btnYellow} />
+          </span>
         </div>
         <SortableBay
           strips={rwyArrFlights}
@@ -172,10 +179,10 @@ export default function TWTE() {
         <div className="bg-[#393939] h-10 flex items-center px-2 shrink-0 border-t-4 border-[#A9A9A9] justify-between">
           <span className="text-white font-bold text-lg">TWY ARR</span>
           <span className="flex gap-1">
-            <MemAidButton bay={Bay.Taxi} className={btn} />
-            <CrossingButton bay={Bay.Taxi} className={btn} />
-            <StartButton bay={Bay.Taxi} className={btn} />
-            <LandButton bay={Bay.Taxi} className={btn} />
+            <MemAidButton bay={Bay.Taxi} className={btnBlue} />
+            <LandButton bay={Bay.Taxi} className={btnOrange} />
+            <StartButton bay={Bay.Taxi} className={btnOrange} />
+            <CrossingButton bay={Bay.Taxi} className={btnYellow} />
           </span>
         </div>
         <div className={`flex-1 ${scrollArea}`}>
@@ -197,10 +204,10 @@ export default function TWTE() {
           <span className="text-white font-bold text-lg">TWY DEP</span>
           <span className="flex gap-1">
             <button className={btn}>STARTUP</button>
-            <MemAidButton bay={Bay.Taxi} className={btn} />
-            <CrossingButton bay={Bay.Taxi} className={btn} />
-            <StartButton bay={Bay.Taxi} className={btn} />
-            <LandButton bay={Bay.Taxi} className={btn} />
+            <MemAidButton bay={Bay.Taxi} className={btnBlue} />
+            <LandButton bay={Bay.Taxi} className={btnOrange} />
+            <StartButton bay={Bay.Taxi} className={btnOrange} />
+            <CrossingButton bay={Bay.Taxi} className={btnYellow} />
           </span>
         </div>
         <SortableBay
@@ -217,11 +224,9 @@ export default function TWTE() {
         <div className="bg-[#393939] h-10 flex items-center px-2 shrink-0 justify-between border-t-4 border-[#A9A9A9]">
           <span className="text-white font-bold text-lg">RWY DEP</span>
           <span className="flex gap-1">
-            <button className={btn}>NEW</button>
-            <button className={btn}>MEM AID</button>
-            <CrossingButton bay={Bay.Depart} className={btn} />
-            <LandButton bay={Bay.Depart} className={btn} />
-            <StartButton bay={Bay.Depart} className={btn} />
+            <LandButton bay={Bay.Depart} className={btnOrange} />
+            <StartButton bay={Bay.Depart} className={btnOrange} />
+            <CrossingButton bay={Bay.Depart} className={btnYellow} />
           </span>
         </div>
         <SortableBay

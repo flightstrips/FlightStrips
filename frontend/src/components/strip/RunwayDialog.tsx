@@ -25,31 +25,27 @@ export function RunwayDialog({ open, bay, type, onOpenChange }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-[#393939] border-2 border-white p-4 w-64">
-        <DialogTitle className="text-white font-bold text-lg mb-2">
-          SELECT RUNWAY — {type}
-        </DialogTitle>
-        {selectedAircraft && (
-          <p className="text-[#aaa] text-xs mb-2">Aircraft: {selectedAircraft}</p>
-        )}
-        <div className="grid grid-cols-3 gap-2">
+      <DialogContent className="bg-[#B3B3B3] border border-black p-0 w-[167px] gap-0 overflow-hidden [&>button]:hidden">
+        <DialogTitle className="sr-only">Select Runway — {type}</DialogTitle>
+        <div className="border border-black mx-[7px] mt-[11px] mb-0 flex flex-col gap-0 p-[9px] pb-0">
           {RUNWAYS.map(rwy => (
-            <button
-              key={rwy}
-              className="bg-[#555355] text-white border-2 border-white px-2 py-2 text-sm font-bold outline-none active:bg-[#424242]"
-              onClick={() => handleSelect(rwy)}
-            >
-              {rwy}
-            </button>
+            <div key={rwy} className="pb-[9px]">
+              <button
+                className="w-full h-[70px] bg-[#CCCCCC] text-black font-semibold text-[28px] font-[Rubik] shadow-[0_4px_4px_rgba(0,0,0,0.25)] outline-none active:brightness-90"
+                onClick={() => handleSelect(rwy)}
+              >
+                {rwy}
+              </button>
+            </div>
           ))}
-        </div>
-        <div className="flex justify-end mt-3">
-          <button
-            className="bg-[#646464] text-white font-bold text-sm px-4 py-1 border-2 border-white active:bg-[#424242]"
-            onClick={() => onOpenChange(false)}
-          >
-            CANCEL
-          </button>
+          <div className="pb-[9px]">
+            <button
+              className="w-full h-[70px] bg-[#3F3F3F] text-white font-semibold text-[28px] font-[Rubik] shadow-[0_4px_4px_rgba(0,0,0,0.25)] outline-none active:brightness-75"
+              onClick={() => onOpenChange(false)}
+            >
+              ESC
+            </button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>

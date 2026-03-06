@@ -1,6 +1,6 @@
 import { useWebSocketStore } from "@/store/store-hooks";
 import { APRON_TAXI_POINTS } from "@/config/ekch";
-import apronTaxi from "@/assets/apron_taxi.png";
+import apronTaxi from "@/assets/apron_taxi.webp";
 import { MAP_BTN_BASE, MapDialogShell, MapEraseControls } from "./MapDialogShell";
 
 interface ApronTaxiMapDialogProps {

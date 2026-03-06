@@ -1,7 +1,7 @@
 import { useWebSocketStore } from "@/store/store-hooks";
 import { Bay } from "@/api/models";
 import { RELEASE_POINTS } from "@/config/ekch";
-import apronPush from "@/assets/apron_push.png";
+import apronPush from "@/assets/apron_push.webp";
 import { MAP_BTN_BASE, MapDialogShell, MapEraseControls } from "./MapDialogShell";
 
 interface PushbackMapDialogProps {

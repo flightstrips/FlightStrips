@@ -1,6 +1,6 @@
 import { useWebSocketStore } from "@/store/store-hooks";
 import { TAXI_MAP_POINTS } from "@/config/ekch";
-import taxiMap from "@/assets/taxi_map.png";
+import taxiMap from "@/assets/taxi_map.webp";
 import { MAP_BTN_BASE, MapDialogShell, MapEraseControls } from "./MapDialogShell";
 
 interface TaxiMapDialogProps {

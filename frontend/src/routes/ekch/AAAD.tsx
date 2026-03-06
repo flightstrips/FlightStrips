@@ -24,6 +24,7 @@ import { ViewDndContext } from "@/components/bays/ViewDndContext.tsx";
 import { useWebSocketStore } from "@/store/store-hooks.ts";
 import { useRef, useEffect, useState, useMemo } from "react";
 import { TacticalMemaidStrip } from "@/components/strip/TacticalMemaidStrip.tsx";
+import { TacticalCrossingStrip } from "@/components/strip/TacticalCrossingStrip.tsx";
 import { APN_TAXI_DEP_STRIP_WIDTH } from "@/components/strip/ApnTaxiDepStrip.tsx";
 import { MemaidDialog } from "@/components/strip/MemaidDialog.tsx";
 
@@ -87,10 +88,12 @@ export default function AAAD() {
   const twyArrAll     = useTaxiArrStrips();
   const twyArrStrips  = twyArrAll.filter(isFlight) as FrontendStrip[];
   const twyMemaids    = twyDepAll.filter((s): s is TacticalStrip => !isFlight(s) && s.type === "MEMAID");
+  const twyCrossings  = twyDepAll.filter((s): s is TacticalStrip => !isFlight(s) && s.type === "CROSSING");
   const twyDepMerged  = useMemo(() => [
     ...twyDepStrips.map(s => ({ callsign: s.callsign, sequence: s.sequence })),
     ...twyMemaids.map(t => ({ callsign: `tactical-${t.id}`, sequence: t.sequence })),
-  ].sort((a, b) => a.sequence - b.sequence), [twyDepStrips, twyMemaids]);
+    ...twyCrossings.map(t => ({ callsign: `tactical-${t.id}`, sequence: t.sequence })),
+  ].sort((a, b) => a.sequence - b.sequence), [twyDepStrips, twyMemaids, twyCrossings]);
   const startupStrips = useClearedStrips().sort((a, b) => a.sequence - b.sequence);
   const pushStrips    = usePushbackStrips().filter(isFlight);
   const deIceStrips   = useDeIceStrips().filter(isFlight);
@@ -138,8 +141,10 @@ export default function AAAD() {
       renderDragOverlay={(callsign) => {
         if (callsign.startsWith("tactical-")) {
           const id = parseInt(callsign.slice("tactical-".length), 10);
-          const ts = twyMemaids.find(t => t.id === id);
-          if (ts) return <TacticalMemaidStrip strip={ts} width={APN_TAXI_DEP_STRIP_WIDTH} />;
+          const memaid = twyMemaids.find(t => t.id === id);
+          if (memaid) return <TacticalMemaidStrip strip={memaid} width={APN_TAXI_DEP_STRIP_WIDTH} />;
+          const crossing = twyCrossings.find(t => t.id === id);
+          if (crossing) return <TacticalCrossingStrip strip={crossing} width={APN_TAXI_DEP_STRIP_WIDTH} />;
           return null;
         }
         const twyDep = twyDepStrips.find(s => s.callsign === callsign);
@@ -213,8 +218,10 @@ export default function AAAD() {
           {(callsign) => {
             if (callsign.startsWith("tactical-")) {
               const id = parseInt(callsign.slice("tactical-".length), 10);
-              const ts = twyMemaids.find(t => t.id === id)!;
-              return <TacticalMemaidStrip strip={ts} width={APN_TAXI_DEP_STRIP_WIDTH} />;
+              const memaid = twyMemaids.find(t => t.id === id);
+              if (memaid) return <TacticalMemaidStrip strip={memaid} width={APN_TAXI_DEP_STRIP_WIDTH} />;
+              const crossing = twyCrossings.find(t => t.id === id)!;
+              return <TacticalCrossingStrip strip={crossing} width={APN_TAXI_DEP_STRIP_WIDTH} />;
             }
             const strip = twyDepStrips.find(s => s.callsign === callsign)!;
             return mapToStrip(strip, "TAXI-DEP");

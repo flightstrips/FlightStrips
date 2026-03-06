@@ -100,16 +100,15 @@ export function MessageComposeDialog({ open, onClose }: Props) {
           background: "#E4E4E4",
           border: "1px solid black",
           color: "#000",
-          // SVG canvas is 1291×824; inner box starts at x=51,y=42
-          width: 1291,
-          maxWidth: "95vw",
-          padding: "20px 51px 20px",
+          // 1300px ≈ SVG 1291px; scales down to 95vw on smaller screens
+          width: "min(1300px, 95vw)",
+          padding: "20px 51px",
           display: "flex",
           flexDirection: "column",
           gap: 0,
         }}
       >
-        {/* FREE TEXT — font-size 24, weight 300, centered */}
+        {/* FREE TEXT — centered title */}
         <div style={{
           textAlign: "center",
           fontFamily: "Rubik, sans-serif",
@@ -120,7 +119,7 @@ export function MessageComposeDialog({ open, onClose }: Props) {
           FREE TEXT
         </div>
 
-        {/* Text input — #FCFCFC, height 113px matching SVG */}
+        {/* Text input — width:100% fills the same content area as the main row below */}
         <textarea
           style={{
             width: "100%",
@@ -141,128 +140,133 @@ export function MessageComposeDialog({ open, onClose }: Props) {
           placeholder="Text can be written down here"
         />
 
-        {/* Main content row: left panel (362px) + 55px gap + right column (707px) */}
-        <div style={{ display: "flex", gap: 55, alignItems: "flex-start" }}>
+        {/* Main row: left (flex 362) + fixed 55px gap + right (flex 707) */}
+        <div style={{
+          display: "flex",
+          gap: 55,
+          alignItems: "flex-start",
+        }}>
 
-          {/* Left panel — #B3B3B3, 362px wide, padded to match SVG button positions */}
-          <div style={{
-            width: 362,
-            flexShrink: 0,
-            background: "#B3B3B3",
-            border: "1px solid black",
-            // inner padding: top=29, left=34, right=22, bottom=19
-            padding: "29px 22px 19px 34px",
-            display: "flex",
-            flexDirection: "column",
-            boxSizing: "border-box",
-          }}>
-            {/* BROADCAST — full inner width (362-34-22=306px), height 55px */}
-            <button
-              style={{
-                ...BTN,
-                width: "100%",
-                height: 55,
-                background: broadcastSelected ? "#70ED45" : "#D6D6D6",
-              }}
-              onClick={handleBroadcast}
-            >
-              BROADCAST
-            </button>
-
-            {/* 25px gap below BROADCAST (larger than between rows) */}
-            <div style={{ height: 25 }} />
-
-            {/* 2-column area grid: 146px columns, 14px gap */}
+            {/* Left panel — #B3B3B3, proportional width (362 parts of 1069) */}
             <div style={{
-              display: "grid",
-              gridTemplateColumns: "146px 146px",
-              gap: 14,
+              flex: "362 0 0",
+              minWidth: 0,
+              background: "#B3B3B3",
+              border: "1px solid black",
+              // padding scaled to match SVG: top=29, left=34, right=22, bottom=19
+              padding: "29px 22px 19px 34px",
+              display: "flex",
+              flexDirection: "column",
+              boxSizing: "border-box",
             }}>
-              {AREA_PAIRS.flatMap(([left, right]) => [
-                <button
-                  key={left}
-                  style={{ ...BTN, height: 55, background: areaBg(left) }}
-                  onClick={() => toggleArea(left)}
-                >
-                  {left}
-                </button>,
-                <button
-                  key={right}
-                  style={{ ...BTN, height: 55, background: areaBg(right) }}
-                  onClick={() => toggleArea(right)}
-                >
-                  {right}
-                </button>,
-              ])}
-            </div>
-          </div>
+              {/* BROADCAST — full inner width, height 55px */}
+              <button
+                style={{
+                  ...BTN,
+                  width: "100%",
+                  height: 55,
+                  background: broadcastSelected ? "#70ED45" : "#D6D6D6",
+                }}
+                onClick={handleBroadcast}
+              >
+                BROADCAST
+              </button>
 
-          {/* Right column: 707px — messages then buttons */}
-          <div style={{ width: 707, flexShrink: 0 }}>
-            {/* 8 predefined messages: height 42px, gap 8px → 392px total */}
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {PREDEFINED_MESSAGES.map((msg, i) => (
+              {/* 25px gap below BROADCAST — larger than between area rows */}
+              <div style={{ height: 25 }} />
+
+              {/* 2-column area grid, equal columns, 14px gap */}
+              <div style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: 14,
+              }}>
+                {AREA_PAIRS.flatMap(([left, right]) => [
+                  <button
+                    key={left}
+                    style={{ ...BTN, height: 55, background: areaBg(left) }}
+                    onClick={() => toggleArea(left)}
+                  >
+                    {left}
+                  </button>,
+                  <button
+                    key={right}
+                    style={{ ...BTN, height: 55, background: areaBg(right) }}
+                    onClick={() => toggleArea(right)}
+                  >
+                    {right}
+                  </button>,
+                ])}
+              </div>
+            </div>
+
+            {/* Right column: proportional width (707 parts of 1069) */}
+            <div style={{ flex: "707 0 0", minWidth: 0 }}>
+              {/* 8 messages: 42px height, 8px gap → all visible, no scroll */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {PREDEFINED_MESSAGES.map((msg, i) => (
+                  <button
+                    key={i}
+                    style={{
+                      textAlign: "left",
+                      padding: "0 12px",
+                      fontFamily: "Rubik, sans-serif",
+                      fontSize: 24,
+                      fontWeight: 400,
+                      border: "none",
+                      cursor: "pointer",
+                      height: 42,
+                      background: selectedPredefined === i ? "#1BFF16" : "#D6D6D6",
+                      color: "#000",
+                      boxShadow: DROP_SHADOW,
+                    }}
+                    onClick={() => handlePredefined(i)}
+                  >
+                    {msg}
+                  </button>
+                ))}
+              </div>
+
+              {/* ERASE + OK: 200px each, 37px apart, 11px below messages */}
+              <div style={{ display: "flex", gap: 37, marginTop: 11 }}>
                 <button
-                  key={i}
                   style={{
-                    textAlign: "left",
-                    padding: "0 12px",
+                    width: 200,
+                    height: 70,
+                    background: "#3F3F3F",
+                    color: "#fff",
                     fontFamily: "Rubik, sans-serif",
-                    fontSize: 24,
-                    fontWeight: 400,
+                    fontWeight: 600,
+                    fontSize: 32,
                     border: "none",
                     cursor: "pointer",
-                    height: 42,
-                    background: selectedPredefined === i ? "#1BFF16" : "#D6D6D6",
-                    color: "#000",
                     boxShadow: DROP_SHADOW,
                   }}
-                  onClick={() => handlePredefined(i)}
+                  onClick={handleErase}
                 >
-                  {msg}
+                  ERASE
                 </button>
-              ))}
+                <button
+                  style={{
+                    width: 200,
+                    height: 70,
+                    background: "#3F3F3F",
+                    color: "#fff",
+                    fontFamily: "Rubik, sans-serif",
+                    fontWeight: 600,
+                    fontSize: 32,
+                    border: "none",
+                    cursor: "pointer",
+                    boxShadow: DROP_SHADOW,
+                  }}
+                  onClick={handleOk}
+                >
+                  OK
+                </button>
+              </div>
             </div>
 
-            {/* 11px gap then ERASE (200px) + 37px gap + OK (200px) */}
-            <div style={{ display: "flex", gap: 37, marginTop: 11 }}>
-              <button
-                style={{
-                  width: 200,
-                  height: 70,
-                  background: "#3F3F3F",
-                  color: "#fff",
-                  fontFamily: "Rubik, sans-serif",
-                  fontWeight: 600,
-                  fontSize: 32,
-                  border: "none",
-                  cursor: "pointer",
-                  boxShadow: DROP_SHADOW,
-                }}
-                onClick={handleErase}
-              >
-                ERASE
-              </button>
-              <button
-                style={{
-                  width: 200,
-                  height: 70,
-                  background: "#3F3F3F",
-                  color: "#fff",
-                  fontFamily: "Rubik, sans-serif",
-                  fontWeight: 600,
-                  fontSize: 32,
-                  border: "none",
-                  cursor: "pointer",
-                  boxShadow: DROP_SHADOW,
-                }}
-                onClick={handleOk}
-              >
-                OK
-              </button>
-            </div>
           </div>
-        </div>
       </DialogContent>
     </Dialog>
   );

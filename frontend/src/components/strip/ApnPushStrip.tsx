@@ -44,6 +44,7 @@ export function ApnPushStrip({
   myPosition,
   selectable,
   marked = false,
+  fullWidth = false,
 }: StripProps) {
   const { isSelected, handleClick } = useStripSelection(callsign, selectable);
   const cellBorderColor = getCellBorderColor(marked);
@@ -54,8 +55,8 @@ export function ApnPushStrip({
     <div
       className={`select-none${selectable ? " cursor-pointer" : ""}`}
       style={{
-        height: "4.44vh",
-        width: "90%",
+        height: 45,
+        width: fullWidth ? "100%" : "90%",
         ...getFramedStripStyle(marked),
       }}
       onClick={handleClick}

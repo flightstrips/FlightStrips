@@ -12,9 +12,10 @@ import {
   useTaxiArrStrips,
   useTaxiDepStrips,
   useNonClearedStrips,
+  useClearedStrips,
   isFlight,
 } from "@/store/airports/ekch.ts";
-import type { AnyStrip, StripRef } from "@/api/models.ts";
+import type { AnyStrip, StripRef, FrontendStrip } from "@/api/models.ts";
 import { Bay } from "@/api/models.ts";
 import type { HalfStripVariant, StripStatus } from "@/components/strip/types.ts";
 import { SortableBay, DropIndicatorBay } from "@/components/bays/SortableBay.tsx";
@@ -22,6 +23,7 @@ import { ViewDndContext } from "@/components/bays/ViewDndContext.tsx";
 import { useWebSocketStore, useMyPosition, useLowerPositionOnline, useAirport, useMessages } from "@/store/store-hooks.ts";
 import { useRef, useEffect, useMemo, useState } from "react";
 import { TWY_DEP_STRIP_WIDTH } from "@/components/strip/TwyDepStrip.tsx";
+import { StripListPopup, type SortMode } from "@/components/StripListPopup.tsx";
 
 const scrollArea = "w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary";
 const scrollAreaBottom = "w-full bg-[#555355] p-1 flex flex-col justify-end gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary";
@@ -36,6 +38,7 @@ export default function TWTE() {
   const myPosition = useMyPosition();
   const messages   = useMessages();
   const [composeOpen, setComposeOpen] = useState(false);
+  const [startupOpen, setStartupOpen] = useState(false);
   const lowerPositionOnline = useLowerPositionOnline();
   const airport = useAirport();
 
@@ -69,10 +72,18 @@ export default function TWTE() {
   const pushStrips   = usePushbackStrips();
   const deIceStrips  = useDeIceStrips();
   const nonClearedStrips = useNonClearedStrips();
+  const clearedStrips    = useClearedStrips();
 
   const updateOrder       = useWebSocketStore(state => state.updateOrder);
   const move              = useWebSocketStore(state => state.move);
   const moveTacticalStrip = useWebSocketStore(state => state.moveTacticalStrip);
+  const assumeStrip       = useWebSocketStore(state => state.assumeStrip);
+
+  const startupSortModes: SortMode<FrontendStrip>[] = [
+    { key: "EOBT",     label: "EOBT",     compareFn: (a, b) => a.eobt.localeCompare(b.eobt) },
+    { key: "CALLSIGN", label: "CALLSIGN", compareFn: (a, b) => a.callsign.localeCompare(b.callsign) },
+    { key: "ADES",     label: "ADES",     compareFn: (a, b) => a.destination.localeCompare(b.destination) },
+  ];
 
   const ALL_ACTIVE = ["FINAL", "RWY-ARR", "TWY-ARR", "TWY-DEP", "RWY-DEP", "AIRBORNE", "STAND", "PUSHBACK", "DE-ICE"] as const;
 
@@ -204,7 +215,7 @@ export default function TWTE() {
         <div className="bg-[#393939] h-10 flex items-center px-2 shrink-0 justify-between">
           <span className="text-white font-bold text-lg">TWY DEP</span>
           <span className="flex gap-1">
-            <button className={btn}>STARTUP</button>
+            <button className={btn} onClick={() => setStartupOpen(true)}>STARTUP</button>
             <MemAidButton bay={Bay.Taxi} className={btnBlue} />
             <LandButton bay={Bay.Taxi} className={btnOrange} />
             <StartButton bay={Bay.Taxi} className={btnOrange} />
@@ -254,6 +265,21 @@ export default function TWTE() {
             <Strip strip={strip} status="TWY-DEP" myPosition={myPosition} width={TWY_DEP_STRIP_WIDTH} />
           )}
         </SortableBay>
+
+        {startupOpen && (
+          <StripListPopup
+            title="STARTUP"
+            strips={clearedStrips}
+            sortModes={startupSortModes}
+            onRowClick={(strip) => {
+              move(strip.callsign, Bay.Push);
+              assumeStrip(strip.callsign);
+              setStartupOpen(false);
+            }}
+            onDismiss={() => setStartupOpen(false)}
+            myPosition={myPosition}
+          />
+        )}
       </div>
 
       {/* Column 3 – CONTROLZONE + PUSHBACK + MESSAGES */}

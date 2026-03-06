@@ -24,9 +24,10 @@ interface StripRenderProps {
   myPosition?: string;
   selectable?: boolean;
   width?: number | string;
+  fullWidth?: boolean;
 }
 
-export function Strip({ strip, status, halfStripVariant, myPosition, selectable, width }: StripRenderProps) {
+export function Strip({ strip, status, halfStripVariant, myPosition, selectable, width, fullWidth }: StripRenderProps) {
   if (!isFlight(strip)) {
     switch (strip.type) {
       case "MEMAID":
@@ -67,6 +68,7 @@ export function Strip({ strip, status, halfStripVariant, myPosition, selectable,
     selectable,
     marked: strip.marked,
     registration: strip.registration,
+    fullWidth,
   };
 
   switch (status) {

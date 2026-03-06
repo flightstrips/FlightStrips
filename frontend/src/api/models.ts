@@ -529,3 +529,9 @@ export interface FrontendMoveTacticalStripAction {
 
 // Union type for all events that can be sent
 export type FrontendSendEvent = FrontendAuthenticationEvent | FrontendMoveEvent | FrontendGenerateSquawkEvent | FrontendUpdateStripDataEvent | FrontendUpdateOrder | FrontendSendMessageEvent | FrontendCdmReadyEvent | FrontendSendReleasePointEvent | FrontendSendMarkedEvent | FrontendIssuePdcClearanceRequest | FrontendRevertToVoiceRequest | FrontendCoordinationTransferRequestEvent | FrontendCoordinationAssumeRequestEvent | FrontendCoordinationFreeRequestEvent | FrontendCoordinationCancelTransferRequestEvent | FrontendCreateTacticalStripAction | FrontendDeleteTacticalStripAction | FrontendConfirmTacticalStripAction | FrontendStartTacticalTimerAction | FrontendMoveTacticalStripAction;
+
+export type AnyStrip = FrontendStrip | TacticalStrip;
+export const isFlight = (s: AnyStrip): s is FrontendStrip => 'callsign' in s;
+/** Stable string ID for DnD frameworks — callsign for flights, "tactical-<id>" for tacticals. */
+export const stripDndId = (s: AnyStrip): string =>
+  isFlight(s) ? s.callsign : `tactical-${s.id}`;

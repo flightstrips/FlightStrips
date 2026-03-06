@@ -17,13 +17,14 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { useDragState } from "@/components/bays/DragStateContext";
 import { useState, type CSSProperties, type ReactNode } from "react";
-import type { StripRef } from "@/api/models.ts";
+import type { AnyStrip, StripRef } from "@/api/models.ts";
+import { stripDndId, isFlight } from "@/api/models.ts";
 
 interface SortableBayProps {
-  strips: { callsign: string }[];
+  strips: AnyStrip[];
   /** Required when standalone=true (default). Not used when standalone=false. */
   onReorder?: (callsign: string, insertAfter: StripRef | null) => void;
-  children: (callsign: string) => ReactNode;
+  children: (strip: AnyStrip) => ReactNode;
   className?: string;
   /** Unique bay identifier. Required when standalone=false so the container is droppable. */
   bayId?: string;
@@ -50,21 +51,30 @@ export function SortableBay({
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;
     if (!over || active.id === over.id || !onReorder) return;
-    const activeIndex = strips.findIndex(s => s.callsign === active.id);
-    const overIndex = strips.findIndex(s => s.callsign === over.id);
+    const activeIndex = strips.findIndex(s => stripDndId(s) === active.id);
+    const overIndex = strips.findIndex(s => stripDndId(s) === over.id);
     let insertAfter: StripRef | null;
     if (activeIndex < overIndex) {
       // Dragging down: insert after over → insert_after = over (the predecessor)
-      insertAfter = { kind: "flight", callsign: strips[overIndex].callsign };
+      const overStrip = strips[overIndex];
+      insertAfter = isFlight(overStrip)
+        ? { kind: "flight", callsign: overStrip.callsign }
+        : { kind: "tactical", id: overStrip.id };
     } else {
       // Dragging up: insert before over → insert_after = strip before over (or null = top)
-      const prevCallsign = strips[overIndex - 1]?.callsign ?? null;
-      insertAfter = prevCallsign ? { kind: "flight", callsign: prevCallsign } : null;
+      const prevStrip = strips[overIndex - 1];
+      if (!prevStrip) {
+        insertAfter = null;
+      } else {
+        insertAfter = isFlight(prevStrip)
+          ? { kind: "flight", callsign: prevStrip.callsign }
+          : { kind: "tactical", id: prevStrip.id };
+      }
     }
     onReorder(active.id as string, insertAfter);
   }
 
-  const sortableItems = strips.map(s => s.callsign);
+  const sortableItems = strips.map(s => stripDndId(s));
 
   if (standalone) {
     return (
@@ -72,8 +82,8 @@ export function SortableBay({
         <SortableContext items={sortableItems} strategy={verticalListSortingStrategy}>
           <div className={className}>
             {strips.map(s => (
-              <SortableStrip key={s.callsign} callsign={s.callsign}>
-                {children(s.callsign)}
+              <SortableStrip key={stripDndId(s)} callsign={stripDndId(s)}>
+                {children(s)}
               </SortableStrip>
             ))}
           </div>
@@ -88,8 +98,8 @@ export function SortableBay({
     <SortableContext items={sortableItems} strategy={verticalListSortingStrategy}>
       <DroppableContainer bayId={bayId!} isEmpty={strips.length === 0} className={className}>
         {strips.map(s => (
-          <SortableStrip key={s.callsign} callsign={s.callsign} hideWhenDragging bayId={bayId}>
-            {children(s.callsign)}
+          <SortableStrip key={stripDndId(s)} callsign={stripDndId(s)} hideWhenDragging bayId={bayId}>
+            {children(s)}
           </SortableStrip>
         ))}
       </DroppableContainer>

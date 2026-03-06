@@ -1,4 +1,5 @@
-import { FlightStrip } from "@/components/strip/FlightStrip.tsx";
+import { Strip } from "@/components/strip/Strip.tsx";
+import { MemAidButton } from "@/components/strip/TacticalButtons.tsx";
 import { Message } from "@/components/Message.tsx";
 import { useMyPosition } from "@/store/store-hooks.ts";
 import {
@@ -16,17 +17,14 @@ import {
   useTaxiDepStrips,
   isFlight,
 } from "@/store/airports/ekch.ts";
-import type { FrontendStrip, TacticalStrip, StripRef } from "@/api/models.ts";
+import type { AnyStrip, StripRef } from "@/api/models.ts";
 import { Bay } from "@/api/models.ts";
-import type { HalfStripVariant, StripStatus } from "@/components/strip/types.ts";
+import type { StripStatus } from "@/components/strip/types.ts";
 import { SortableBay, DropIndicatorBay } from "@/components/bays/SortableBay.tsx";
 import { ViewDndContext } from "@/components/bays/ViewDndContext.tsx";
 import { useWebSocketStore } from "@/store/store-hooks.ts";
-import { useRef, useEffect, useState, useMemo } from "react";
-import { TacticalMemaidStrip } from "@/components/strip/TacticalMemaidStrip.tsx";
-import { TacticalCrossingStrip } from "@/components/strip/TacticalCrossingStrip.tsx";
+import { useRef, useEffect } from "react";
 import { APN_TAXI_DEP_STRIP_WIDTH } from "@/components/strip/ApnTaxiDepStrip.tsx";
-import { MemaidDialog } from "@/components/strip/MemaidDialog.tsx";
 
 // Shared header styles
 const activeHeader   = "bg-[#b3b3b3] h-10 flex items-center px-2 shrink-0";
@@ -40,40 +38,7 @@ const btn            = "bg-[#646464] text-white font-bold text-sm px-3 border-2 
 
 export default function AAAD() {
   const myPosition  = useMyPosition();
-  const messages      = useActiveMessages();
-  const [memaidOpen, setMemaidOpen] = useState(false);
-  const [memaidBay, setMemaidBay] = useState("");
-
-  const mapToStrip = (strip: FrontendStrip, status: StripStatus, halfStripVariant?: HalfStripVariant, selectable = true) => (
-    <FlightStrip
-      key={strip.callsign}
-      callsign={strip.callsign}
-      status={status}
-      halfStripVariant={halfStripVariant}
-      pdcStatus={strip.pdc_state}
-      destination={strip.destination}
-      origin={strip.origin}
-      stand={strip.stand}
-      eobt={strip.eobt}
-      tobt={strip.tobt}
-      tsat={strip.tsat}
-      ctot={strip.ctot}
-      aircraftType={strip.aircraft_type}
-      squawk={strip.squawk}
-      sid={strip.sid}
-      runway={strip.runway}
-      clearedAltitude={strip.cleared_altitude}
-      requestedAltitude={strip.requested_altitude}
-      holdingPoint={strip.release_point}
-      owner={strip.owner}
-      nextControllers={strip.next_controllers}
-      previousControllers={strip.previous_controllers}
-      myPosition={myPosition}
-      selectable={selectable}
-      marked={strip.marked}
-      registration={strip.registration}
-    />
-  );
+  const messages    = useActiveMessages();
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -83,26 +48,18 @@ export default function AAAD() {
   const finalStrips   = useFinalStrips().filter(isFlight);
   const rwyArrStrips  = useRwyArrStrips().filter(isFlight);
   const standStrips   = useStandStrips().filter(isFlight);
-  const twyDepAll     = useTaxiDepStrips();
-  const twyDepStrips  = twyDepAll.filter(isFlight).sort((a, b) => a.sequence - b.sequence) as FrontendStrip[];
-  const twyArrAll     = useTaxiArrStrips();
-  const twyArrStrips  = twyArrAll.filter(isFlight) as FrontendStrip[];
-  const twyMemaids    = twyDepAll.filter((s): s is TacticalStrip => !isFlight(s) && s.type === "MEMAID");
-  const twyCrossings  = twyDepAll.filter((s): s is TacticalStrip => !isFlight(s) && s.type === "CROSSING");
-  const twyDepMerged  = useMemo(() => [
-    ...twyDepStrips.map(s => ({ callsign: s.callsign, sequence: s.sequence })),
-    ...twyMemaids.map(t => ({ callsign: `tactical-${t.id}`, sequence: t.sequence })),
-    ...twyCrossings.map(t => ({ callsign: `tactical-${t.id}`, sequence: t.sequence })),
-  ].sort((a, b) => a.sequence - b.sequence), [twyDepStrips, twyMemaids, twyCrossings]);
+  const twyDepMerged  = useTaxiDepStrips();
+  const twyArrStrips  = useTaxiArrStrips();
   const startupStrips = useClearedStrips().sort((a, b) => a.sequence - b.sequence);
   const pushStrips    = usePushbackStrips().filter(isFlight);
   const deIceStrips   = useDeIceStrips().filter(isFlight);
   const otherStrips   = useOtherBayStrips().sort((a, b) => a.sequence - b.sequence);
   const sasStrips     = useSasBayStrips().sort((a, b) => a.sequence - b.sequence);
   const norStrips     = useNorwegianBayStrips().sort((a, b) => a.sequence - b.sequence);
-  const updateOrder        = useWebSocketStore(state => state.updateOrder);
-  const move               = useWebSocketStore(state => state.move);
-  const moveTacticalStrip  = useWebSocketStore(state => state.moveTacticalStrip);
+
+  const updateOrder       = useWebSocketStore(state => state.updateOrder);
+  const move              = useWebSocketStore(state => state.move);
+  const moveTacticalStrip = useWebSocketStore(state => state.moveTacticalStrip);
 
   const bayStripMap = {
     "TWY-DEP":  { strips: twyDepMerged,  targetBay: Bay.Taxi },
@@ -120,44 +77,30 @@ export default function AAAD() {
     "DE-ICE":   ["TWY-DEP", "STARTUP", "PUSHBACK"],
   };
 
-  const handleReorder = (id: string, insertAfter: StripRef | null) => {
-    if (id.startsWith("tactical-")) {
-      moveTacticalStrip(parseInt(id.slice("tactical-".length), 10), insertAfter);
-    } else {
-      updateOrder(id, insertAfter);
-    }
-  };
-
-  const handleMove = (id: string, bay: Bay) => {
-    if (!id.startsWith("tactical-")) move(id, bay);
+  const statusForBay: Record<string, StripStatus> = {
+    "TWY-DEP": "TAXI-DEP",
+    "TWY-ARR": "ARR",
+    "STARTUP": "PUSH",
+    "PUSHBACK": "PUSH",
+    "DE-ICE": "PUSH",
   };
 
   return (
     <ViewDndContext
       bayStripMap={bayStripMap}
       transferRules={transferRules}
-      onReorder={handleReorder}
-      onMove={handleMove}
-      renderDragOverlay={(callsign) => {
-        if (callsign.startsWith("tactical-")) {
-          const id = parseInt(callsign.slice("tactical-".length), 10);
-          const memaid = twyMemaids.find(t => t.id === id);
-          if (memaid) return <TacticalMemaidStrip strip={memaid} width={APN_TAXI_DEP_STRIP_WIDTH} />;
-          const crossing = twyCrossings.find(t => t.id === id);
-          if (crossing) return <TacticalCrossingStrip strip={crossing} width={APN_TAXI_DEP_STRIP_WIDTH} />;
-          return null;
-        }
-        const twyDep = twyDepStrips.find(s => s.callsign === callsign);
-        if (twyDep) return mapToStrip(twyDep, "TAXI-DEP");
-        const twyArr = twyArrStrips.find(s => s.callsign === callsign);
-        if (twyArr) return mapToStrip(twyArr, "ARR");
-        const startup = startupStrips.find(s => s.callsign === callsign);
-        if (startup) return mapToStrip(startup, "PUSH");
-        const push = pushStrips.find(s => s.callsign === callsign);
-        if (push) return mapToStrip(push, "PUSH");
-        const deIce = deIceStrips.find(s => s.callsign === callsign);
-        if (deIce) return mapToStrip(deIce, "PUSH");
-        return null;
+      onReorder={(activeRef: StripRef, insertAfter: StripRef | null) => {
+        if (activeRef.kind === "tactical") moveTacticalStrip(activeRef.id!, insertAfter);
+        else updateOrder(activeRef.callsign!, insertAfter);
+      }}
+      onMove={(callsign, bay) => move(callsign, bay)}
+      renderDragOverlay={(strip: AnyStrip) => {
+        if (!isFlight(strip)) return <Strip strip={strip} width={APN_TAXI_DEP_STRIP_WIDTH} />;
+        const bayEntry = Object.entries(bayStripMap).find(([, c]) =>
+          c.strips.some(s => isFlight(s) && s.callsign === strip.callsign)
+        );
+        if (!bayEntry) return null;
+        return <Strip strip={strip} status={statusForBay[bayEntry[0]]} myPosition={myPosition} />;
       }}
     >
     <div className="bg-[#A9A9A9] w-screen h-[calc(100vh-4rem)] flex justify-center justify-items-center gap-2">
@@ -179,21 +122,27 @@ export default function AAAD() {
           <span className={lockedLabel}>FINAL</span>
         </div>
         <DropIndicatorBay bayId="FINAL" className={`h-[25%] ${scrollArea}`}>
-          {finalStrips.map(x => mapToStrip(x, "HALF", "LOCKED-ARR", false))}
+          {finalStrips.map(s => (
+            <Strip key={s.callsign} strip={s} status="HALF" halfStripVariant="LOCKED-ARR" selectable={false} myPosition={myPosition} />
+          ))}
         </DropIndicatorBay>
 
         <div className={lockedHeader}>
           <span className={lockedLabel}>RWY ARR</span>
         </div>
         <DropIndicatorBay bayId="RWY-ARR" className={`h-[30%] ${scrollArea}`}>
-          {rwyArrStrips.map(x => mapToStrip(x, "ARR", undefined, false))}
+          {rwyArrStrips.map(s => (
+            <Strip key={s.callsign} strip={s} status="ARR" selectable={false} myPosition={myPosition} />
+          ))}
         </DropIndicatorBay>
 
         <div className={activeHeader}>
           <span className={activeLabel}>STAND</span>
         </div>
         <DropIndicatorBay bayId="STAND" className={`flex-1 ${scrollArea}`}>
-          {standStrips.map(x => mapToStrip(x, "ARR"))}
+          {standStrips.map(s => (
+            <Strip key={s.callsign} strip={s} status="ARR" myPosition={myPosition} />
+          ))}
         </DropIndicatorBay>
 
       </div>
@@ -205,7 +154,7 @@ export default function AAAD() {
           <span className={activeLabel}>TWY DEP</span>
           <span className="flex gap-1">
             <button className={btn}>NEW</button>
-            <button className={btn} onClick={() => { setMemaidBay(Bay.Taxi); setMemaidOpen(true); }}>MEM AID</button>
+            <MemAidButton bay={Bay.Taxi} className={btn} />
           </span>
         </div>
         {/* TWY DEP-UPR + LWR combined, with TW/TE/GW/GE sub-selector */}
@@ -215,17 +164,9 @@ export default function AAAD() {
           standalone={false}
           className={`h-[60%] ${scrollArea}`}
         >
-          {(callsign) => {
-            if (callsign.startsWith("tactical-")) {
-              const id = parseInt(callsign.slice("tactical-".length), 10);
-              const memaid = twyMemaids.find(t => t.id === id);
-              if (memaid) return <TacticalMemaidStrip strip={memaid} width={APN_TAXI_DEP_STRIP_WIDTH} />;
-              const crossing = twyCrossings.find(t => t.id === id)!;
-              return <TacticalCrossingStrip strip={crossing} width={APN_TAXI_DEP_STRIP_WIDTH} />;
-            }
-            const strip = twyDepStrips.find(s => s.callsign === callsign)!;
-            return mapToStrip(strip, "TAXI-DEP");
-          }}
+          {(strip) => (
+            <Strip strip={strip} status="TAXI-DEP" myPosition={myPosition} width={APN_TAXI_DEP_STRIP_WIDTH} />
+          )}
         </SortableBay>
 
         {/* TW / TE / GW / GE bay selector tabs */}
@@ -243,7 +184,7 @@ export default function AAAD() {
         <div className={activeHeader}>
           <span className={activeLabel}>TWY ARR</span>
           <span className="ml-auto">
-            <button className={btn} onClick={() => { setMemaidBay(Bay.Taxi); setMemaidOpen(true); }}>MEM AID</button>
+            <MemAidButton bay={Bay.Taxi} className={btn} />
           </span>
         </div>
         <div className={`flex-1 ${scrollArea}`}>
@@ -252,10 +193,9 @@ export default function AAAD() {
             bayId="TWY-ARR"
             standalone={false}
           >
-            {(callsign) => {
-              const strip = twyArrStrips.find(s => s.callsign === callsign)!;
-              return mapToStrip(strip, "ARR");
-            }}
+            {(strip) => (
+              <Strip strip={strip} status="ARR" myPosition={myPosition} />
+            )}
           </SortableBay>
         </div>
 
@@ -273,10 +213,9 @@ export default function AAAD() {
           standalone={false}
           className={`h-[40%] ${scrollArea}`}
         >
-          {(callsign) => {
-            const strip = startupStrips.find(s => s.callsign === callsign)!;
-            return mapToStrip(strip, "PUSH");
-          }}
+          {(strip) => (
+            <Strip strip={strip} status="PUSH" myPosition={myPosition} />
+          )}
         </SortableBay>
 
         <div className={lockedHeader}>
@@ -288,10 +227,9 @@ export default function AAAD() {
           standalone={false}
           className={`h-[30%] ${scrollArea}`}
         >
-          {(callsign) => {
-            const strip = pushStrips.find(s => s.callsign === callsign)!;
-            return mapToStrip(strip, "PUSH");
-          }}
+          {(strip) => (
+            <Strip strip={strip} status="PUSH" myPosition={myPosition} />
+          )}
         </SortableBay>
 
         <div className={lockedHeader}>
@@ -303,10 +241,9 @@ export default function AAAD() {
           standalone={false}
           className={`flex-1 ${scrollArea}`}
         >
-          {(callsign) => {
-            const strip = deIceStrips.find(s => s.callsign === callsign)!;
-            return mapToStrip(strip, "PUSH");
-          }}
+          {(strip) => (
+            <Strip strip={strip} status="PUSH" myPosition={myPosition} />
+          )}
         </SortableBay>
 
       </div>
@@ -322,27 +259,32 @@ export default function AAAD() {
           </span>
         </div>
         <DropIndicatorBay bayId="SAS" className={`h-[40%] ${scrollArea}`}>
-          {sasStrips.map(x => mapToStrip(x, "CLR", undefined, false))}
+          {sasStrips.map(s => (
+            <Strip key={s.callsign} strip={s} status="CLR" selectable={false} myPosition={myPosition} />
+          ))}
         </DropIndicatorBay>
 
         <div className={lockedHeader}>
           <span className={lockedLabel}>NORWEGIAN</span>
         </div>
         <DropIndicatorBay bayId="NORWEGIAN" className={`h-[30%] ${scrollArea}`}>
-          {norStrips.map(x => mapToStrip(x, "CLR", undefined, false))}
+          {norStrips.map(s => (
+            <Strip key={s.callsign} strip={s} status="CLR" selectable={false} myPosition={myPosition} />
+          ))}
         </DropIndicatorBay>
 
         <div className={lockedHeader}>
           <span className={lockedLabel}>OTHERS</span>
         </div>
         <DropIndicatorBay bayId="OTHERS" className={`flex-1 ${scrollArea}`}>
-          {otherStrips.map(x => mapToStrip(x, "CLR", undefined, false))}
+          {otherStrips.map(s => (
+            <Strip key={s.callsign} strip={s} status="CLR" selectable={false} myPosition={myPosition} />
+          ))}
         </DropIndicatorBay>
 
       </div>
 
     </div>
-    <MemaidDialog open={memaidOpen} bay={memaidBay} onOpenChange={setMemaidOpen} />
     </ViewDndContext>
   );
 }

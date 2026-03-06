@@ -1,5 +1,4 @@
-
-import { FlightStrip } from "@/components/strip/FlightStrip.tsx";
+import { Strip } from "@/components/strip/Strip.tsx";
 import { Message } from "@/components/Message.tsx";
 import {useClearedStrips, useNorwegianBayStrips, useOtherBayStrips, usePushbackStrips, useSasBayStrips, useTaxiDepStrips, isFlight} from "@/store/airports/ekch.ts";
 import type {FrontendStrip} from "@/api/models.ts";
@@ -22,44 +21,17 @@ export default function DEL() {
   }, [messages]);
 
   const mapToStrip = (strip: FrontendStrip, status: string) => (
-    <FlightStrip
+    <Strip
       key={strip.callsign}
-      callsign={strip.callsign}
+      strip={strip}
       status={status as "CLR" | "CLROK" | "HALF"}
-      pdcStatus={strip.pdc_state}
-      destination={strip.destination}
-      origin={strip.origin}
-      stand={strip.stand}
-      eobt={strip.eobt}
-      tobt={strip.tobt}
-      tsat={strip.tsat}
-      ctot={strip.ctot}
-      aircraftType={strip.aircraft_type}
-      squawk={strip.squawk}
-      sid={strip.sid}
-      runway={strip.runway}
-      clearedAltitude={strip.cleared_altitude}
-      requestedAltitude={strip.requested_altitude}
-      holdingPoint={strip.release_point}
-      owner={strip.owner}
-      nextControllers={strip.next_controllers}
-      previousControllers={strip.previous_controllers}
       myPosition={myPosition}
-      marked={strip.marked}
-      registration={strip.registration}
     />
   );
 
   const mapToHalfStrip = (strip: FrontendStrip) => (
-    <FlightStrip key={strip.callsign}
-      callsign={strip.callsign}
-      aircraftType={strip.aircraft_type}
-      runway={strip.runway}
-      sid={strip.sid}
-      stand={strip.stand}
-      status="CLX-HALF"
-      />
-    );
+    <Strip key={strip.callsign} strip={strip} status="CLX-HALF" />
+  );
 
   return (
     <>

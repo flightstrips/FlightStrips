@@ -1,10 +1,8 @@
 import {useMemo} from "react";
 import {useActiveMessages, useAirport, useTacticalStrips, useWebSocketStore} from "@/store/store-hooks.ts";
-import {Bay, type FrontendStrip, type TacticalStrip} from "@/api/models.ts";
+import {Bay, type FrontendStrip, type AnyStrip, isFlight} from "@/api/models.ts";
 
-export type AnyStrip = FrontendStrip | TacticalStrip;
-
-const isFlight = (s: AnyStrip): s is FrontendStrip => 'callsign' in s;
+export type { AnyStrip };
 export { isFlight };
 
 export const useTacticalStripsForBay = (bay: Bay) => {

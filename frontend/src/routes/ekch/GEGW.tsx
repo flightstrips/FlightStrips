@@ -1,4 +1,5 @@
-import { FlightStrip } from "@/components/strip/FlightStrip.tsx";
+import { Strip } from "@/components/strip/Strip.tsx";
+import { MemAidButton, CrossingButton } from "@/components/strip/TacticalButtons.tsx";
 import { Message } from "@/components/Message.tsx";
 import {
   useActiveMessages,
@@ -10,83 +11,35 @@ import {
   useTaxiDepStrips,
   isFlight,
 } from "@/store/airports/ekch.ts";
-import type { FrontendStrip, TacticalStrip, StripRef } from "@/api/models.ts";
+import type { AnyStrip, StripRef } from "@/api/models.ts";
 import { Bay } from "@/api/models.ts";
-import type { HalfStripVariant, StripStatus } from "@/components/strip/types.ts";
 import { SortableBay, DropIndicatorBay } from "@/components/bays/SortableBay.tsx";
 import { ViewDndContext } from "@/components/bays/ViewDndContext.tsx";
 import { useWebSocketStore, useMyPosition } from "@/store/store-hooks.ts";
-import { useRef, useEffect, useState, useMemo } from "react";
-import { TacticalMemaidStrip } from "@/components/strip/TacticalMemaidStrip.tsx";
-import { TacticalCrossingStrip } from "@/components/strip/TacticalCrossingStrip.tsx";
+import { useRef, useEffect } from "react";
 import { CLX_CLEARED_STRIP_WIDTH } from "@/components/strip/ClxClearedStrip.tsx";
-import { MemaidDialog } from "@/components/strip/MemaidDialog.tsx";
 
 
 export default function GEGW() {
   const myPosition = useMyPosition();
-  const messages     = useActiveMessages();
-  const [memaidOpen, setMemaidOpen] = useState(false);
-  const [memaidBay, setMemaidBay] = useState("");
-  const createTacticalStrip = useWebSocketStore(state => state.createTacticalStrip);
-  const selectedAircraft = useWebSocketStore(state => state.selectedCallsign);
-
-  const mapToStrip = (strip: FrontendStrip, status: StripStatus, halfStripVariant?: HalfStripVariant, selectable = true) => (
-    <FlightStrip
-      key={strip.callsign}
-      callsign={strip.callsign}
-      status={status}
-      halfStripVariant={halfStripVariant}
-      pdcStatus={strip.pdc_state}
-      destination={strip.destination}
-      origin={strip.origin}
-      stand={strip.stand}
-      eobt={strip.eobt}
-      tobt={strip.tobt}
-      tsat={strip.tsat}
-      ctot={strip.ctot}
-      aircraftType={strip.aircraft_type}
-      squawk={strip.squawk}
-      sid={strip.sid}
-      runway={strip.runway}
-      clearedAltitude={strip.cleared_altitude}
-      requestedAltitude={strip.requested_altitude}
-      holdingPoint={strip.release_point}
-      owner={strip.owner}
-      nextControllers={strip.next_controllers}
-      previousControllers={strip.previous_controllers}
-      myPosition={myPosition}
-      selectable={selectable}
-      marked={strip.marked}
-      registration={strip.registration}
-    />
-  );
+  const messages   = useActiveMessages();
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const finalStrips  = useFinalStrips().filter(isFlight) as FrontendStrip[];
-  const rwyArrStrips = useRwyArrStrips().filter(isFlight) as FrontendStrip[];
-  const twyArrStrips = useTaxiArrStrips().filter(isFlight) as FrontendStrip[];
-  const pushStrips   = usePushbackStrips().filter(isFlight) as FrontendStrip[];
-  const twyDepAll    = useTaxiDepStrips();
-  const twyDepStrips = twyDepAll.filter(isFlight) as FrontendStrip[];
-  const twyMemaids   = twyDepAll.filter((s): s is TacticalStrip => !isFlight(s) && s.type === "MEMAID");
-  const twyCrossings = twyDepAll.filter((s): s is TacticalStrip => !isFlight(s) && s.type === "CROSSING");
-  const twyDepMerged = useMemo(() => [
-    ...twyDepStrips.map(s => ({ callsign: s.callsign, sequence: s.sequence })),
-    ...twyMemaids.map(t => ({ callsign: `tactical-${t.id}`, sequence: t.sequence })),
-    ...twyCrossings.map(t => ({ callsign: `tactical-${t.id}`, sequence: t.sequence })),
-  ].sort((a, b) => a.sequence - b.sequence), [twyDepStrips, twyMemaids, twyCrossings]);
-  const standStrips  = useStandStrips().filter(isFlight) as FrontendStrip[];
+  const finalStrips  = useFinalStrips();
+  const rwyArrStrips = useRwyArrStrips();
+  const twyArrStrips = useTaxiArrStrips();
+  const pushStrips   = usePushbackStrips();
+  const twyDepMerged = useTaxiDepStrips();
+  const standStrips  = useStandStrips();
+
   const updateOrder       = useWebSocketStore(state => state.updateOrder);
   const move              = useWebSocketStore(state => state.move);
   const moveTacticalStrip = useWebSocketStore(state => state.moveTacticalStrip);
 
-  // PUSHBACK, TWY-DEP-UPR, TWY-DEP-LWR, STAND are all draggable between each other.
-  // TWY-DEP-UPR and TWY-DEP-LWR share Bay.Taxi (same backend bay, visual distinction only).
   const bayStripMap = {
     "PUSHBACK":    { strips: pushStrips,   targetBay: Bay.Push },
     "TWY-DEP-UPR": { strips: twyDepMerged, targetBay: Bay.Taxi },
@@ -101,39 +54,20 @@ export default function GEGW() {
     "STAND":       ["PUSHBACK",    "TWY-DEP-UPR", "TWY-DEP-LWR"],
   };
 
-  const handleReorder = (id: string, insertAfter: StripRef | null) => {
-    if (id.startsWith("tactical-")) {
-      moveTacticalStrip(parseInt(id.slice("tactical-".length), 10), insertAfter);
-    } else {
-      updateOrder(id, insertAfter);
-    }
-  };
-
-  const handleMove = (id: string, bay: Bay) => {
-    if (!id.startsWith("tactical-")) move(id, bay);
-  };
-
   return (
     <ViewDndContext
       bayStripMap={bayStripMap}
       transferRules={transferRules}
-      onReorder={handleReorder}
-      onMove={handleMove}
-      renderDragOverlay={(callsign) => {
-        if (callsign.startsWith("tactical-")) {
-          const id = parseInt(callsign.slice("tactical-".length), 10);
-          const memaid = twyMemaids.find(t => t.id === id);
-          if (memaid) return <TacticalMemaidStrip strip={memaid} width={CLX_CLEARED_STRIP_WIDTH} />;
-          const crossing = twyCrossings.find(t => t.id === id);
-          if (crossing) return <TacticalCrossingStrip strip={crossing} width={CLX_CLEARED_STRIP_WIDTH} />;
-          return null;
-        }
-        const push = pushStrips.find(s => s.callsign === callsign);
-        if (push) return mapToStrip(push, "HALF", "APN-PUSH");
-        const twyDep = twyDepStrips.find(s => s.callsign === callsign);
-        if (twyDep) return mapToStrip(twyDep, "CLROK");
-        const stand = standStrips.find(s => s.callsign === callsign);
-        if (stand) return mapToStrip(stand, "CLROK");
+      onReorder={(activeRef: StripRef, insertAfter: StripRef | null) => {
+        if (activeRef.kind === "tactical") moveTacticalStrip(activeRef.id!, insertAfter);
+        else updateOrder(activeRef.callsign!, insertAfter);
+      }}
+      onMove={(callsign, bay) => move(callsign, bay)}
+      renderDragOverlay={(strip: AnyStrip) => {
+        if (!isFlight(strip)) return <Strip strip={strip} width={CLX_CLEARED_STRIP_WIDTH} />;
+        if (strip.bay === Bay.Push)  return <Strip strip={strip} status="HALF" halfStripVariant="APN-PUSH" myPosition={myPosition} />;
+        if (strip.bay === Bay.Taxi)  return <Strip strip={strip} status="CLROK" myPosition={myPosition} />;
+        if (strip.bay === Bay.Stand) return <Strip strip={strip} status="CLROK" myPosition={myPosition} />;
         return null;
       }}
     >
@@ -155,26 +89,32 @@ export default function GEGW() {
           <span className="text-white font-bold text-lg">FINAL</span>
         </div>
         <DropIndicatorBay bayId="FINAL" className="h-[25%] w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary">
-          {finalStrips.map(x => mapToStrip(x, "HALF", "LOCKED-ARR", false))}
+          {finalStrips.filter(isFlight).map(s => (
+            <Strip key={s.callsign} strip={s} status="HALF" halfStripVariant="LOCKED-ARR" selectable={false} myPosition={myPosition} />
+          ))}
         </DropIndicatorBay>
 
         <div className="bg-[#393939] h-10 flex items-center px-2 shrink-0">
           <span className="text-white font-bold text-lg">RWY ARR</span>
         </div>
         <DropIndicatorBay bayId="RWY-ARR" className="h-[20%] w-full bg-[#212121] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary">
-          {rwyArrStrips.map(x => mapToStrip(x, "HALF", "LOCKED-ARR", false))}
+          {rwyArrStrips.filter(isFlight).map(s => (
+            <Strip key={s.callsign} strip={s} status="HALF" halfStripVariant="LOCKED-ARR" selectable={false} myPosition={myPosition} />
+          ))}
         </DropIndicatorBay>
 
         {/* TWY ARR is SI-only; no manual drag */}
         <div className="bg-[#393939] h-10 flex items-center px-2 shrink-0 justify-between">
           <span className="text-white font-bold text-lg">TWY ARR</span>
           <span className="flex gap-1">
-            <button className="bg-[#646464] text-white font-bold text-sm px-3 border-2 border-white active:bg-[#424242]" onClick={() => { setMemaidBay(Bay.Taxi); setMemaidOpen(true); }}>MEM AID</button>
-            <button className="bg-[#646464] text-white font-bold text-sm px-3 border-2 border-white active:bg-[#424242]" onClick={() => createTacticalStrip("CROSSING", Bay.Taxi, "CROSSING", selectedAircraft ?? "")}>X</button>
+            <MemAidButton bay={Bay.Taxi} className="bg-[#646464] text-white font-bold text-sm px-3 border-2 border-white active:bg-[#424242]" />
+            <CrossingButton bay={Bay.Taxi} className="bg-[#646464] text-white font-bold text-sm px-3 border-2 border-white active:bg-[#424242]" />
           </span>
         </div>
         <DropIndicatorBay bayId="TWY-ARR" className="flex-1 w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary">
-          {twyArrStrips.map(x => mapToStrip(x, "HALF", "APN-ARR"))}
+          {twyArrStrips.filter(isFlight).map(s => (
+            <Strip key={s.callsign} strip={s} status="HALF" halfStripVariant="APN-ARR" myPosition={myPosition} />
+          ))}
         </DropIndicatorBay>
       </div>
 
@@ -189,17 +129,16 @@ export default function GEGW() {
           standalone={false}
           className="h-[20%] w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary"
         >
-          {(callsign) => {
-            const strip = pushStrips.find(s => s.callsign === callsign)!;
-            return mapToStrip(strip, "HALF", "APN-PUSH");
-          }}
+          {(strip) => (
+            <Strip strip={strip} status="HALF" halfStripVariant="APN-PUSH" myPosition={myPosition} />
+          )}
         </SortableBay>
 
         <div className="bg-[#b3b3b3] h-10 flex items-center px-2 shrink-0 justify-between">
           <span className="text-[#393939] font-bold text-lg">TWY DEP UPR</span>
           <span className="flex gap-1">
-            <button className="bg-[#646464] text-white font-bold text-sm px-3 border-2 border-white active:bg-[#424242]" onClick={() => { setMemaidBay(Bay.Taxi); setMemaidOpen(true); }}>MEM AID</button>
-            <button className="bg-[#646464] text-white font-bold text-sm px-3 border-2 border-white active:bg-[#424242]" onClick={() => createTacticalStrip("CROSSING", Bay.Taxi, "CROSSING", selectedAircraft ?? "")}>X</button>
+            <MemAidButton bay={Bay.Taxi} className="bg-[#646464] text-white font-bold text-sm px-3 border-2 border-white active:bg-[#424242]" />
+            <CrossingButton bay={Bay.Taxi} className="bg-[#646464] text-white font-bold text-sm px-3 border-2 border-white active:bg-[#424242]" />
           </span>
         </div>
         <SortableBay
@@ -208,17 +147,9 @@ export default function GEGW() {
           standalone={false}
           className="h-[35%] w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary"
         >
-          {(callsign) => {
-            if (callsign.startsWith("tactical-")) {
-              const id = parseInt(callsign.slice("tactical-".length), 10);
-              const memaid = twyMemaids.find(t => t.id === id);
-              if (memaid) return <TacticalMemaidStrip strip={memaid} width={CLX_CLEARED_STRIP_WIDTH} />;
-              const crossing = twyCrossings.find(t => t.id === id)!;
-              return <TacticalCrossingStrip strip={crossing} width={CLX_CLEARED_STRIP_WIDTH} />;
-            }
-            const strip = twyDepStrips.find(s => s.callsign === callsign)!;
-            return mapToStrip(strip, "CLROK");
-          }}
+          {(strip) => (
+            <Strip strip={strip} status="CLROK" myPosition={myPosition} width={CLX_CLEARED_STRIP_WIDTH} />
+          )}
         </SortableBay>
 
         <div className="bg-[#b3b3b3] h-10 flex items-center px-2 shrink-0">
@@ -230,17 +161,9 @@ export default function GEGW() {
           standalone={false}
           className="flex-1 w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary"
         >
-          {(callsign) => {
-            if (callsign.startsWith("tactical-")) {
-              const id = parseInt(callsign.slice("tactical-".length), 10);
-              const memaid = twyMemaids.find(t => t.id === id);
-              if (memaid) return <TacticalMemaidStrip strip={memaid} width={CLX_CLEARED_STRIP_WIDTH} />;
-              const crossing = twyCrossings.find(t => t.id === id)!;
-              return <TacticalCrossingStrip strip={crossing} width={CLX_CLEARED_STRIP_WIDTH} />;
-            }
-            const strip = twyDepStrips.find(s => s.callsign === callsign)!;
-            return mapToStrip(strip, "CLROK");
-          }}
+          {(strip) => (
+            <Strip strip={strip} status="CLROK" myPosition={myPosition} width={CLX_CLEARED_STRIP_WIDTH} />
+          )}
         </SortableBay>
       </div>
 
@@ -263,15 +186,13 @@ export default function GEGW() {
           standalone={false}
           className="flex-1 w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary"
         >
-          {(callsign) => {
-            const strip = standStrips.find(s => s.callsign === callsign)!;
-            return mapToStrip(strip, "CLROK");
-          }}
+          {(strip) => (
+            <Strip strip={strip} status="CLROK" myPosition={myPosition} />
+          )}
         </SortableBay>
       </div>
 
     </div>
-    <MemaidDialog open={memaidOpen} bay={memaidBay} onOpenChange={setMemaidOpen} />
     </ViewDndContext>
   );
 }

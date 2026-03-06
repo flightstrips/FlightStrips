@@ -8,7 +8,8 @@ import {
   type DragEndEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
-import type { Bay, StripRef } from "@/api/models.ts";
+import type { AnyStrip, Bay, StripRef } from "@/api/models.ts";
+import { stripDndId } from "@/api/models.ts";
 import { useState, type ReactNode } from "react";
 
 /** Builds a StripRef from a DnD item id, which may be a flight callsign or "tactical-<N>". */
@@ -23,7 +24,7 @@ import { DragStateContext } from "./DragStateContext";
 import { DragDisabledContext } from "./DragDisabledContext";
 
 export interface BayConfig {
-  strips: { callsign: string; sequence?: number }[];
+  strips: AnyStrip[];
   /** Backend Bay enum value this visual bay maps to */
   targetBay: Bay;
   /** When true, strips are displayed highest-sequence-first (descending). Affects cross-bay reorder fallback. */
@@ -36,10 +37,10 @@ interface ViewDndContextProps {
   bayStripMap: Record<string, BayConfig>;
   /** Maps source bay ID -> list of bay IDs a strip may be dragged into */
   transferRules: Record<string, string[]>;
-  onReorder: (callsign: string, above: StripRef | null) => void;
+  onReorder: (activeRef: StripRef, above: StripRef | null) => void;
   onMove: (callsign: string, bay: Bay) => void;
   /** Renders the floating drag preview that follows the cursor across bay boundaries. */
-  renderDragOverlay?: (callsign: string) => ReactNode;
+  renderDragOverlay?: (strip: AnyStrip) => ReactNode;
 }
 
 export function ViewDndContext({
@@ -61,7 +62,7 @@ export function ViewDndContext({
   function findBayId(id: string): string | null {
     if (id in bayStripMap) return id;
     for (const [bayId, { strips }] of Object.entries(bayStripMap)) {
-      if (strips.some(s => s.callsign === id)) return bayId;
+      if (strips.some(s => stripDndId(s) === id)) return bayId;
     }
     return null;
   }
@@ -84,11 +85,11 @@ export function ViewDndContext({
     const { active, over } = event;
     if (!over) return;
 
-    const callsign = active.id as string;
+    const dndId = active.id as string;
     const overId = over.id as string;
-    if (callsign === overId) return;
+    if (dndId === overId) return;
 
-    const sourceBayId = findBayId(callsign);
+    const sourceBayId = findBayId(dndId);
     const targetBayId = findBayId(overId);
     if (!sourceBayId || !targetBayId) return;
 
@@ -97,11 +98,11 @@ export function ViewDndContext({
     const targetDescending = bayStripMap[targetBayId].descending ?? false;
 
     if (sourceBayId === targetBayId) {
-      // overId may be a bay container ID (not a strip callsign) when the cursor
+      // overId may be a bay container ID (not a strip dnd id) when the cursor
       // hovers over the empty area of the bay. Handle this case explicitly.
-      const overIsBayContainer = !(targetStrips.some(s => s.callsign === overId));
-      const activeSeq = targetStrips.find(s => s.callsign === callsign)?.sequence;
-      const overSeq = targetStrips.find(s => s.callsign === overId)?.sequence;
+      const overIsBayContainer = !(targetStrips.some(s => stripDndId(s) === overId));
+      const activeSeq = targetStrips.find(s => stripDndId(s) === dndId)?.sequence;
+      const overSeq = targetStrips.find(s => stripDndId(s) === overId)?.sequence;
       let insertAfter: StripRef | null;
       if (overIsBayContainer) {
         // Cursor is over the bay container (not a strip). For descending bays the
@@ -110,9 +111,9 @@ export function ViewDndContext({
         // the container is at the top, so null = new visual top.
         if (targetDescending) {
           const topStrip = targetStrips
-            .filter(s => s.callsign !== callsign && s.sequence !== undefined)
+            .filter(s => stripDndId(s) !== dndId && s.sequence !== undefined)
             .sort((a, b) => (b.sequence ?? 0) - (a.sequence ?? 0))[0];
-          insertAfter = topStrip ? makeStripRef(topStrip.callsign) : null;
+          insertAfter = topStrip ? makeStripRef(stripDndId(topStrip)) : null;
         } else {
           insertAfter = null;
         }
@@ -123,22 +124,22 @@ export function ViewDndContext({
         } else {
           // Moving toward lower seq: find the strip with the highest seq below overSeq
           const prevStrip = targetStrips
-            .filter(s => s.callsign !== callsign && s.sequence !== undefined && s.sequence < overSeq)
+            .filter(s => stripDndId(s) !== dndId && s.sequence !== undefined && s.sequence < overSeq)
             .sort((a, b) => (b.sequence ?? 0) - (a.sequence ?? 0))[0];
-          insertAfter = prevStrip ? makeStripRef(prevStrip.callsign) : null;
+          insertAfter = prevStrip ? makeStripRef(stripDndId(prevStrip)) : null;
         }
       } else {
         // Fallback: index comparison (ascending-sorted arrays only)
-        const activeIndex = targetStrips.findIndex(s => s.callsign === callsign);
-        const overIndex = targetStrips.findIndex(s => s.callsign === overId);
+        const activeIndex = targetStrips.findIndex(s => stripDndId(s) === dndId);
+        const overIndex = targetStrips.findIndex(s => stripDndId(s) === overId);
         if (activeIndex < overIndex) {
           insertAfter = makeStripRef(overId);
         } else {
-          const prevCallsign = targetStrips[overIndex - 1]?.callsign ?? null;
-          insertAfter = makeStripRef(prevCallsign);
+          const prevStrip = targetStrips[overIndex - 1];
+          insertAfter = prevStrip ? makeStripRef(stripDndId(prevStrip)) : null;
         }
       }
-      onReorder(callsign, insertAfter);
+      onReorder(makeStripRef(dndId)!, insertAfter);
       return;
     }
 
@@ -157,7 +158,10 @@ export function ViewDndContext({
     // causing the strip to disappear. Send only FrontendMove; the backend assigns
     // the sequence as part of the move operation.
     if (sourceBay !== targetBay) {
-      onMove(callsign, targetBay);
+      // Only flight strips may cross bays
+      if (!dndId.startsWith("tactical-")) {
+        onMove(dndId, targetBay);
+      }
       return;
     }
     // Same logical bay, different visual bay: use sequence-aware insertion.
@@ -169,13 +173,23 @@ export function ViewDndContext({
     if (sourceDescending) {
       // Find the highest-seq strip in the source bay (excluding the active strip) → that becomes the predecessor for visual top
       const topStrip = sourceStrips
-        .filter(s => s.callsign !== callsign && s.sequence !== undefined)
+        .filter(s => stripDndId(s) !== dndId && s.sequence !== undefined)
         .sort((a, b) => (b.sequence ?? 0) - (a.sequence ?? 0))[0];
-      crossInsertAfter = topStrip ? makeStripRef(topStrip.callsign) : null;
+      crossInsertAfter = topStrip ? makeStripRef(stripDndId(topStrip)) : null;
     } else {
-      crossInsertAfter = targetStrips.some(s => s.callsign === overId) ? makeStripRef(overId) : null;
+      crossInsertAfter = targetStrips.some(s => stripDndId(s) === overId) ? makeStripRef(overId) : null;
     }
-    onReorder(callsign, crossInsertAfter);
+    onReorder(makeStripRef(dndId)!, crossInsertAfter);
+  }
+
+  // Resolve activeId string → AnyStrip for the drag overlay callback
+  function resolveActiveStrip(): AnyStrip | null {
+    if (!activeId) return null;
+    for (const { strips } of Object.values(bayStripMap)) {
+      const found = strips.find(s => stripDndId(s) === activeId);
+      if (found) return found;
+    }
+    return null;
   }
 
   return (
@@ -185,7 +199,10 @@ export function ViewDndContext({
           {children}
           {renderDragOverlay && (
             <DragOverlay style={{ opacity: 0.5 }}>
-              {activeId ? renderDragOverlay(activeId) : null}
+              {activeId ? (() => {
+                const strip = resolveActiveStrip();
+                return strip ? renderDragOverlay(strip) : null;
+              })() : null}
             </DragOverlay>
           )}
         </DragStateContext>

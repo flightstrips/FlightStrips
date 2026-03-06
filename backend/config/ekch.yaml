@@ -372,6 +372,14 @@ routes:
     active: [04L, 22R]
     path: [TW, GW, AA]
 
+runways:
+  - "04R"
+  - "04L"
+  - "12"
+  - "22R"
+  - "22L"
+  - "30"
+
 layouts:
   EKCH_DEL:
     - online: []

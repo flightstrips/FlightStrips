@@ -10,6 +10,7 @@ import { TwyDepStrip } from "./TwyDepStrip";
 import { ClxHalfStrip } from "./ClxHalfStrip";
 import { TacticalMemaidStrip } from "./TacticalMemaidStrip";
 import { TacticalCrossingStrip } from "./TacticalCrossingStrip";
+import { TacticalRwyStrip } from "./TacticalRwyStrip";
 import type { HalfStripVariant, StripProps, StripStatus } from "./types";
 
 export type { StripStatus };
@@ -32,6 +33,9 @@ export function Strip({ strip, status, halfStripVariant, myPosition, selectable,
         return <TacticalMemaidStrip strip={strip} width={width} />;
       case "CROSSING":
         return <TacticalCrossingStrip strip={strip} width={width} />;
+      case "START":
+      case "LAND":
+        return <TacticalRwyStrip strip={strip} width={width} />;
       default:
         return null;
     }

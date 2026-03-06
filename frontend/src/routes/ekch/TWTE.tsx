@@ -1,5 +1,5 @@
 import { Strip } from "@/components/strip/Strip.tsx";
-import { MemAidButton, CrossingButton } from "@/components/strip/TacticalButtons.tsx";
+import { MemAidButton, CrossingButton, StartButton, LandButton } from "@/components/strip/TacticalButtons.tsx";
 import { Message } from "@/components/Message.tsx";
 import {
   useActiveMessages,
@@ -174,6 +174,8 @@ export default function TWTE() {
           <span className="flex gap-1">
             <MemAidButton bay={Bay.Taxi} className={btn} />
             <CrossingButton bay={Bay.Taxi} className={btn} />
+            <StartButton bay={Bay.Taxi} className={btn} />
+            <LandButton bay={Bay.Taxi} className={btn} />
           </span>
         </div>
         <div className={`flex-1 ${scrollArea}`}>
@@ -197,6 +199,8 @@ export default function TWTE() {
             <button className={btn}>STARTUP</button>
             <MemAidButton bay={Bay.Taxi} className={btn} />
             <CrossingButton bay={Bay.Taxi} className={btn} />
+            <StartButton bay={Bay.Taxi} className={btn} />
+            <LandButton bay={Bay.Taxi} className={btn} />
           </span>
         </div>
         <SortableBay
@@ -216,8 +220,8 @@ export default function TWTE() {
             <button className={btn}>NEW</button>
             <button className={btn}>MEM AID</button>
             <CrossingButton bay={Bay.Depart} className={btn} />
-            <button className={btn}>LAND</button>
-            <button className={btn}>START</button>
+            <LandButton bay={Bay.Depart} className={btn} />
+            <StartButton bay={Bay.Depart} className={btn} />
           </span>
         </div>
         <SortableBay

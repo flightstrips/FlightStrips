@@ -2,6 +2,7 @@ package frontend
 
 import (
 	internalModels "FlightStrips/internal/models"
+	"FlightStrips/internal/config"
 	"FlightStrips/internal/shared"
 	"FlightStrips/pkg/events"
 	"FlightStrips/pkg/events/euroscope"
@@ -538,6 +539,22 @@ func handleCreateTacticalStrip(ctx context.Context, client *Client, message Mess
 	}
 	if req.StripType == "MEMAID" && req.Label == "" {
 		return errors.New("label is required for MEMAID strips")
+	}
+	if req.StripType == "START" || req.StripType == "LAND" {
+		if req.Label == "" {
+			return errors.New("runway label is required for START and LAND strips")
+		}
+		validRunways := config.GetRunways()
+		isValid := false
+		for _, rwy := range validRunways {
+			if rwy == req.Label {
+				isValid = true
+				break
+			}
+		}
+		if !isValid {
+			return errors.New("invalid runway: " + req.Label)
+		}
 	}
 
 	tacticalRepo := client.hub.server.GetTacticalStripRepository()

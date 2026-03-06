@@ -1,5 +1,5 @@
 import { Strip } from "@/components/strip/Strip.tsx";
-import { MemAidButton, CrossingButton } from "@/components/strip/TacticalButtons.tsx";
+import { MemAidButton, CrossingButton, StartButton, LandButton } from "@/components/strip/TacticalButtons.tsx";
 import { Message } from "@/components/Message.tsx";
 import {
   useActiveMessages,
@@ -109,6 +109,8 @@ export default function GEGW() {
           <span className="flex gap-1">
             <MemAidButton bay={Bay.Taxi} className="bg-[#646464] text-white font-bold text-sm px-3 border-2 border-white active:bg-[#424242]" />
             <CrossingButton bay={Bay.Taxi} className="bg-[#646464] text-white font-bold text-sm px-3 border-2 border-white active:bg-[#424242]" />
+            <StartButton bay={Bay.Taxi} className="bg-[#646464] text-white font-bold text-sm px-3 border-2 border-white active:bg-[#424242]" />
+            <LandButton bay={Bay.Taxi} className="bg-[#646464] text-white font-bold text-sm px-3 border-2 border-white active:bg-[#424242]" />
           </span>
         </div>
         <DropIndicatorBay bayId="TWY-ARR" className="flex-1 w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary">
@@ -139,6 +141,8 @@ export default function GEGW() {
           <span className="flex gap-1">
             <MemAidButton bay={Bay.Taxi} className="bg-[#646464] text-white font-bold text-sm px-3 border-2 border-white active:bg-[#424242]" />
             <CrossingButton bay={Bay.Taxi} className="bg-[#646464] text-white font-bold text-sm px-3 border-2 border-white active:bg-[#424242]" />
+            <StartButton bay={Bay.Taxi} className="bg-[#646464] text-white font-bold text-sm px-3 border-2 border-white active:bg-[#424242]" />
+            <LandButton bay={Bay.Taxi} className="bg-[#646464] text-white font-bold text-sm px-3 border-2 border-white active:bg-[#424242]" />
           </span>
         </div>
         <SortableBay

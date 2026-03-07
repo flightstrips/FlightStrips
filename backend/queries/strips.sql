@@ -2,16 +2,19 @@
 INSERT INTO strips (version, callsign, session, origin, destination, alternative, route, remarks, assigned_squawk,
                     squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities,
                     communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay,
-                    position_latitude, position_longitude, position_altitude, tobt, eobt)
+                    position_latitude, position_longitude, position_altitude, tobt, eobt, registration)
 VALUES (1, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23,
-        $24, $25, $26, $27, $28, $29);
+        $24, $25, $26, $27, $28, $29, $30);
 
 -- name: UpdateStrip :execrows
 UPDATE strips
-SET (version, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay, position_latitude, position_longitude, position_altitude, tobt, eobt
-        ) = (
-             version + 1, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22,
-             $23, $24, $25, $26, $27, $28, $29)
+SET (version, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude,
+     heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand,
+     sequence, state, cleared, owner, bay, position_latitude, position_longitude, position_altitude, tobt, eobt,
+     registration
+    ) = (
+         version + 1, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22,
+         $23, $24, $25, $26, $27, $28, $29, $30)
 WHERE callsign = $1 AND session = $2;
 
 -- name: GetStrip :one
@@ -164,6 +167,13 @@ SELECT sequence::INT
 FROM strips
 WHERE session = $1 AND bay = sqlc.arg(bay)::TEXT AND sequence > sqlc.arg(sequence)::INT;
 
+-- name: GetPrevSequence :one
+SELECT sequence::INT
+FROM strips
+WHERE session = $1 AND bay = sqlc.arg(bay)::TEXT AND sequence < sqlc.arg(seq)::INT AND callsign != sqlc.arg(exclude_callsign)::TEXT
+ORDER BY sequence DESC
+LIMIT 1;
+
 -- name: GetBay :one
 SELECT bay
 FROM strips
@@ -187,3 +197,49 @@ UPDATE strips SET tobt = $3, tsat = $4, ttot = $5, ctot = $6, aobt = $7, eobt = 
 
 -- name: UpdateReleasePoint :execrows
 UPDATE strips SET release_point = $3 WHERE session = $1 AND callsign = $2;
+
+-- name: UpdateStripMarkedByID :execrows
+UPDATE strips
+SET marked  = $1,
+    version = version + 1
+WHERE callsign = $2 AND session = $3 AND (version = sqlc.narg('version') OR sqlc.narg('version') IS NULL);
+
+-- name: UpdateStripRegistration :execrows
+UPDATE strips
+SET registration = $1,
+    version      = version + 1
+WHERE callsign = $2 AND session = $3;
+
+-- name: GetMaxSequenceInBayUnified :one
+-- Returns the maximum sequence value across BOTH strips and tactical_strips for a bay.
+SELECT COALESCE(MAX(seq), 0)::INTEGER AS max_sequence
+FROM (
+    SELECT sequence AS seq FROM strips          WHERE session = $1 AND bay = sqlc.arg(bay)::TEXT
+    UNION ALL
+    SELECT sequence AS seq FROM tactical_strips WHERE session_id = $1 AND bay = sqlc.arg(bay)::TEXT
+) combined;
+
+-- name: GetNextSequenceUnified :one
+-- Returns the smallest sequence > prev across BOTH strips and tactical_strips in the bay.
+-- Returns pgx.ErrNoRows if nothing exists above prev (append to bottom).
+SELECT seq::INT AS next_sequence
+FROM (
+    SELECT sequence AS seq FROM strips          WHERE session = $1 AND bay = sqlc.arg(bay)::TEXT AND sequence > sqlc.arg(prev)::INT
+    UNION ALL
+    SELECT sequence AS seq FROM tactical_strips WHERE session_id = $1 AND bay = sqlc.arg(bay)::TEXT AND sequence > sqlc.arg(prev)::INT
+) combined
+ORDER BY seq
+LIMIT 1;
+
+-- name: GetPrevSequenceUnified :one
+-- Returns the largest sequence < seq across BOTH strips and tactical_strips in the bay,
+-- excluding a specific callsign from the strips table (the flight strip being moved).
+-- Returns pgx.ErrNoRows if nothing exists below seq (strip is already at top).
+SELECT seq::INT AS prev_sequence
+FROM (
+    SELECT sequence AS seq FROM strips          WHERE session = $1 AND bay = sqlc.arg(bay)::TEXT AND sequence < sqlc.arg(seq)::INT AND callsign != sqlc.arg(exclude_callsign)::TEXT
+    UNION ALL
+    SELECT sequence AS seq FROM tactical_strips WHERE session_id = $1 AND bay = sqlc.arg(bay)::TEXT AND sequence < sqlc.arg(seq)::INT
+) combined
+ORDER BY seq DESC
+LIMIT 1;

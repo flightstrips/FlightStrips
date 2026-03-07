@@ -12,12 +12,23 @@ import {
   type FrontendInitialEvent, type FrontendLayoutUpdateEvent, type FrontendOwnersUpdateEvent,
   type FrontendPdcStateUpdateEvent,
   type FrontendReleasePointEvent,
+  type FrontendMarkedEvent,
+  type FrontendCoordinationTransferBroadcastEvent,
+  type FrontendCoordinationAssumeBroadcastEvent,
+  type FrontendCoordinationRejectBroadcastEvent,
+  type FrontendCoordinationFreeBroadcastEvent,
   type FrontendRequestedAltitudeEvent,
+  type FrontendRunwayConfigurationEvent,
   type FrontendSendEvent,
   type FrontendSetHeadingEvent,
   type FrontendSquawkEvent,
   type FrontendStandEvent,
   type FrontendStripUpdateEvent,
+  type FrontendTacticalStripCreatedEvent,
+  type FrontendTacticalStripDeletedEvent,
+  type FrontendTacticalStripUpdatedEvent,
+  type FrontendTacticalStripMovedEvent,
+  type FrontendMessageReceivedEvent,
   type WebSocketEvent
 } from "./models";
 
@@ -43,7 +54,18 @@ type EventMap = {
   [EventType.FrontendCdmData]: FrontendCdmDataEvent;
   [EventType.FrontendCdmWait]: FrontendCdmWaitEvent;
   [EventType.FrontendReleasePoint]: FrontendReleasePointEvent;
+  [EventType.FrontendMarked]: FrontendMarkedEvent;
   [EventType.FrontendPdcStateChange]: FrontendPdcStateUpdateEvent;
+  [EventType.FrontendCoordinationTransferBroadcast]: FrontendCoordinationTransferBroadcastEvent;
+  [EventType.FrontendCoordinationAssumeBroadcast]: FrontendCoordinationAssumeBroadcastEvent;
+  [EventType.FrontendCoordinationRejectBroadcast]: FrontendCoordinationRejectBroadcastEvent;
+  [EventType.FrontendCoordinationFreeBroadcast]: FrontendCoordinationFreeBroadcastEvent;
+  [EventType.FrontendRunWayConfiguration]: FrontendRunwayConfigurationEvent;
+  [EventType.FrontendTacticalStripCreated]: FrontendTacticalStripCreatedEvent;
+  [EventType.FrontendTacticalStripDeleted]: FrontendTacticalStripDeletedEvent;
+  [EventType.FrontendTacticalStripUpdated]: FrontendTacticalStripUpdatedEvent;
+  [EventType.FrontendTacticalStripMoved]: FrontendTacticalStripMovedEvent;
+  [EventType.FrontendMessageReceived]: FrontendMessageReceivedEvent;
 };
 
 type WebSocketClientDelegate = {

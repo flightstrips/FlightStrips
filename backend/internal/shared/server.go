@@ -41,6 +41,7 @@ type Server interface {
 	GetSessionRepository() repository.SessionRepository
 	GetSectorOwnerRepository() repository.SectorOwnerRepository
 	GetCoordinationRepository() repository.CoordinationRepository
+	GetTacticalStripRepository() repository.TacticalStripRepository
 
 	// TODO move to another service
 	UpdateSectors(sessionId int32) error

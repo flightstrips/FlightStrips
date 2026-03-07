@@ -5,6 +5,7 @@ import "errors"
 type Position struct {
 	Name      string `yaml:"name"`
 	Frequency string `yaml:"frequency"`
+	Section   string `yaml:"section"`
 }
 
 func GetPositionBasedOnFrequency(frequency string) (*Position, error) {

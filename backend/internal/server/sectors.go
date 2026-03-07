@@ -86,13 +86,11 @@ func (s *Server) UpdateSectors(sessionId int32) error {
 		return err
 	}
 
-	for _, owner := range currentOwners {
-		err = sectorRepo.Create(context.Background(), owner)
-		if err != nil {
-			return err
-		}
+	err = sectorRepo.CreateBulk(context.Background(), currentOwners)
+	if err != nil {
+		return err
 	}
-	
+
 	err = tx.Commit(context.Background())
 	if err != nil {
 		return err

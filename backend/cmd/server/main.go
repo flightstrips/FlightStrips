@@ -47,7 +47,7 @@ func healthz(w http.ResponseWriter, _ *http.Request) {
 func main() {
 	flag.Parse()
 
-	logger := slog.New(tint.NewHandler(os.Stdout, &tint.Options{Level: slog.LevelInfo}))
+	logger := slog.New(tint.NewHandler(os.Stdout, &tint.Options{Level: slog.LevelDebug}))
 	slog.SetDefault(logger)
 
 	err := godotenv.Load()
@@ -126,10 +126,13 @@ func main() {
 	sessionRepo := postgres.NewSessionRepository(dbpool)
 	sectorRepo := postgres.NewSectorOwnerRepository(dbpool)
 	coordRepo := postgres.NewCoordinationRepository(dbpool)
+	tacticalStripRepo := postgres.NewTacticalStripRepository(dbpool)
 
 	// Initialize services
 	stripService := services.NewStripService(stripRepo)
 	cdmService := cdm.NewCdmService(cdmClient, stripRepo, sessionRepo)
+
+	stripService.SetTacticalStripRepo(tacticalStripRepo)
 
 	// Initialize PDC Service
 	hoppieLogon := os.Getenv("HOPPIE_LOGON")
@@ -143,17 +146,18 @@ func main() {
 		slog.Warn("PDC Service not initialized - HOPPIE_LOGON")
 	}
 
-	frontendHub := frontend.NewHub(stripService)
-	euroscopeHub := euroscope.NewHub(stripService)
+	frontendHub := frontend.NewHub(stripService, authenticationService)
+	euroscopeHub := euroscope.NewHub(stripService, authenticationService)
 
 	stripService.SetFrontendHub(frontendHub)
 	stripService.SetEuroscopeHub(euroscopeHub)
+	stripService.SetSectorOwnerRepo(sectorRepo)
 	cdmService.SetFrontendHub(frontendHub)
 	if pdcService != nil {
 		pdcService.SetFrontendHub(frontendHub)
 	}
 
-	fsServer := server.NewServer(dbpool, euroscopeHub, frontendHub, cdmService, pdcService, stripRepo, controllerRepo, sessionRepo, sectorRepo, coordRepo)
+	fsServer := server.NewServer(dbpool, euroscopeHub, frontendHub, cdmService, pdcService, stripRepo, controllerRepo, sessionRepo, sectorRepo, coordRepo, tacticalStripRepo)
 
 	frontendHub.SetServer(fsServer)
 	euroscopeHub.SetServer(fsServer)

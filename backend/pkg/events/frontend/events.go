@@ -3,6 +3,7 @@ package frontend
 import (
 	"FlightStrips/pkg/events"
 	"encoding/json"
+	"time"
 )
 
 type EventType string
@@ -14,6 +15,8 @@ const (
 	AirportConfigurationChange EventType = "airport_configuration_change"
 	RunWayConfiguration        EventType = "run_way_configuration"
 	AtisUpdate                 EventType = "atis_update"
+
+	Token EventType = "token"
 
 	Initial            EventType = "initial"
 	StripUpdate        EventType = "strip_update"
@@ -30,10 +33,11 @@ const (
 	SetHeading         EventType = "heading"
 	CommunicationType  EventType = "communication_type"
 
-	CoordinationTransferRequestType EventType = "coordination_transfer_request"
-	CoordinationAssumeRequestType   EventType = "coordination_assume_request"
-	CoordinationRejectRequestType   EventType = "coordination_reject_request"
-	CoordinationFreeRequestType     EventType = "coordination_free_request"
+	CoordinationTransferRequestType   EventType = "coordination_transfer_request"
+	CoordinationAssumeRequestType     EventType = "coordination_assume_request"
+	CoordinationRejectRequestType     EventType = "coordination_reject_request"
+	CoordinationFreeRequestType       EventType = "coordination_free_request"
+	CoordinationCancelTransferRequest EventType = "coordination_cancel_transfer_request"
 
 	Move                              EventType = "move"
 	GenerateSquawk                    EventType = "generate_squawk"
@@ -49,8 +53,9 @@ const (
 
 	LayoutUpdate = "layout_update"
 
-	Broadcast   EventType = "broadcast"
-	SendMessage EventType = "send_message"
+	Broadcast       EventType = "broadcast"
+	SendMessage     EventType = "send_message"
+	MessageReceived EventType = "message_received"
 
 	CdmWait  EventType = "cdm_wait"
 	CdmData  EventType = "cdm_data"
@@ -58,10 +63,18 @@ const (
 
 	ReleasePoint EventType = "release_point"
 
+	Marked EventType = "marked"
+
 	PdcManualStateChange EventType = "pdc_manual_state_change"
 	PdcStateChange       EventType = "pdc_state_change"
 	IssuePdcClearance    EventType = "issue_pdc_clearance"
 	RevertToVoice        EventType = "revert_to_voice"
+
+	// Tactical strip events (broadcast to frontend)
+	TacticalStripCreated EventType = "tactical_strip_created"
+	TacticalStripDeleted EventType = "tactical_strip_deleted"
+	TacticalStripUpdated EventType = "tactical_strip_updated"
+	TacticalStripMoved   EventType = "tactical_strip_moved"
 )
 
 type OutgoingMessage interface {
@@ -106,22 +119,34 @@ type Strip struct {
 	Tsat                string   `json:"tsat"`
 	Ctot                string   `json:"ctot"`
 	PdcState            string   `json:"pdc_state"`
+	Marked              bool     `json:"marked"`
+	Registration        string   `json:"registration"`
 }
 
 type Controller struct {
 	Callsign   string `json:"callsign"`
 	Position   string `json:"position"`
 	Identifier string `json:"identifier"`
+	Section    string `json:"section"`
+}
+
+type SyncCoordination struct {
+	Callsign string `json:"callsign"`
+	From     string `json:"from"`
+	To       string `json:"to"`
 }
 
 type InitialEvent struct {
-	Contsollers []Controller        `json:"controllers"`
-	Strips      []Strip             `json:"strips"`
-	Me          Controller          `json:"me"`
-	Layout      string              `json:"layout"`
-	Airport     string              `json:"airport"`
-	Callsign    string              `json:"callsign"`
-	RunwaySetup RunwayConfiguration `json:"runway_setup"`
+	Contsollers    []Controller              `json:"controllers"`
+	Strips         []Strip                   `json:"strips"`
+	TacticalStrips []TacticalStripPayload    `json:"tactical_strips"`
+	Me             Controller                `json:"me"`
+	Layout         string                    `json:"layout"`
+	Airport        string                    `json:"airport"`
+	Callsign       string                    `json:"callsign"`
+	RunwaySetup    RunwayConfiguration       `json:"runway_setup"`
+	Coordinations  []SyncCoordination        `json:"coordinations"`
+	Messages       []MessageReceivedEvent    `json:"messages"`
 }
 
 func (i InitialEvent) Marshal() ([]byte, error) {
@@ -403,6 +428,13 @@ type CoordinationFreeRequestEvent struct {
 	Callsign string `json:"callsign"`
 }
 
+// ---------- CANCEL TRANSFER ----------
+
+type CoordinationCancelTransferRequestEvent struct {
+	Type     string `json:"type"`
+	Callsign string `json:"callsign"`
+}
+
 type CoordinationFreeBroadcastEvent struct {
 	Callsign string `json:"callsign"`
 }
@@ -417,6 +449,7 @@ func (c CoordinationFreeBroadcastEvent) GetType() EventType {
 
 type OwnersUpdateEvent struct {
 	Callsign       string   `json:"callsign"`
+	Owner          string   `json:"owner"`
 	NextOwners     []string `json:"next_owners"`
 	PreviousOwners []string `json:"previous_owners"`
 }
@@ -430,8 +463,8 @@ func (o OwnersUpdateEvent) GetType() EventType {
 }
 
 type UpdateOrderEvent struct {
-	Callsign string  `json:"callsign"`
-	Before   *string `json:"before"`
+	Callsign    string    `json:"callsign"`
+	InsertAfter *StripRef `json:"insert_after"`
 }
 
 func (o UpdateOrderEvent) Marshal() ([]byte, error) {
@@ -468,8 +501,24 @@ func (l BroadcastEvent) GetType() EventType {
 }
 
 type SendMessageEvent struct {
-	Message string  `json:"message"`
-	To      *string `json:"to"`
+	Text       string   `json:"text"`
+	Recipients []string `json:"recipients"`
+}
+
+type MessageReceivedEvent struct {
+	ID          int64    `json:"id"`
+	Sender      string   `json:"sender"`
+	Text        string   `json:"text"`
+	IsBroadcast bool     `json:"is_broadcast"`
+	Recipients  []string `json:"recipients"`
+}
+
+func (m MessageReceivedEvent) Marshal() ([]byte, error) {
+	return marshall(m)
+}
+
+func (m MessageReceivedEvent) GetType() EventType {
+	return MessageReceived
 }
 
 type CdmWaitEvent struct {
@@ -517,6 +566,19 @@ func (r ReleasePointEvent) GetType() EventType {
 	return ReleasePoint
 }
 
+type MarkedEvent struct {
+	Callsign string `json:"callsign"`
+	Marked   bool   `json:"marked"`
+}
+
+func (m MarkedEvent) Marshal() ([]byte, error) {
+	return marshall(m)
+}
+
+func (m MarkedEvent) GetType() EventType {
+	return Marked
+}
+
 // PDC Events
 
 type PdcStateChangeEvent struct {
@@ -550,3 +612,77 @@ type PdcManualStateChangeRequest struct {
 	Callsign string    `json:"callsign"`
 	State    string    `json:"state"`
 }
+
+type RunwayConfigurationEvent struct {
+	RunwaySetup RunwayConfiguration `json:"runway_setup"`
+}
+
+func (r RunwayConfigurationEvent) Marshal() ([]byte, error) {
+	return marshall(r)
+}
+
+func (r RunwayConfigurationEvent) GetType() EventType {
+	return RunWayConfiguration
+}
+
+// ---------- StripRef (shared type for move actions) ----------
+
+// StripRef identifies a single strip of any type, used as a neighbour reference in move actions.
+// Exactly one of Callsign or ID must be set depending on Kind.
+type StripRef struct {
+	Kind     string  `json:"kind"`               // "flight" | "tactical"
+	Callsign *string `json:"callsign,omitempty"` // set when Kind = "flight"
+	ID       *int64  `json:"id,omitempty"`       // set when Kind = "tactical"
+}
+
+// ---------- Tactical strip payload model ----------
+
+type TacticalStripPayload struct {
+	ID          int64      `json:"id"`
+	SessionID   int32      `json:"session_id"`
+	Type        string     `json:"type"`
+	Bay         string     `json:"bay"`
+	Label       string     `json:"label"`
+	Aircraft    string     `json:"aircraft"`
+	ProducedBy  string     `json:"produced_by"`
+	Sequence    int32      `json:"sequence"`
+	TimerStart  *time.Time `json:"timer_start,omitempty"`
+	Confirmed   bool       `json:"confirmed"`
+	ConfirmedBy string     `json:"confirmed_by"`
+	CreatedAt   time.Time  `json:"created_at"`
+}
+
+// ---------- Tactical strip outgoing events ----------
+
+type TacticalStripCreatedEvent struct {
+	Strip TacticalStripPayload `json:"strip"`
+}
+
+func (e TacticalStripCreatedEvent) Marshal() ([]byte, error) { return marshall(e) }
+func (e TacticalStripCreatedEvent) GetType() EventType       { return TacticalStripCreated }
+
+type TacticalStripDeletedEvent struct {
+	ID        int64  `json:"id"`
+	SessionID int32  `json:"session_id"`
+	Bay       string `json:"bay"`
+}
+
+func (e TacticalStripDeletedEvent) Marshal() ([]byte, error) { return marshall(e) }
+func (e TacticalStripDeletedEvent) GetType() EventType       { return TacticalStripDeleted }
+
+type TacticalStripUpdatedEvent struct {
+	Strip TacticalStripPayload `json:"strip"`
+}
+
+func (e TacticalStripUpdatedEvent) Marshal() ([]byte, error) { return marshall(e) }
+func (e TacticalStripUpdatedEvent) GetType() EventType       { return TacticalStripUpdated }
+
+type TacticalStripMovedEvent struct {
+	ID        int64  `json:"id"`
+	SessionID int32  `json:"session_id"`
+	Bay       string `json:"bay"`
+	Sequence  int32  `json:"sequence"`
+}
+
+func (e TacticalStripMovedEvent) Marshal() ([]byte, error) { return marshall(e) }
+func (e TacticalStripMovedEvent) GetType() EventType       { return TacticalStripMoved }

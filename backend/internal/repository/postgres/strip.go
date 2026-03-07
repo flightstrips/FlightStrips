@@ -67,41 +67,44 @@ func stripToModel(db database.Strip) *models.Strip {
 		PdcRequestedAt:     PgTimestampToTime(db.PdcRequestedAt),
 		PdcMessageSequence: db.PdcMessageSequence,
 		PdcMessageSent:     PgTimestampToTime(db.PdcMessageSent),
+		Marked:             db.Marked,
+		Registration:       db.Registration,
 	}
 }
 
 // Create inserts a new strip
 func (r *stripRepository) Create(ctx context.Context, strip *models.Strip) error {
 	return r.queries.InsertStrip(ctx, database.InsertStripParams{
-		Callsign:           strip.Callsign,
-		Session:            strip.Session,
-		Origin:             strip.Origin,
-		Destination:        strip.Destination,
-		Alternative:        strip.Alternative,
-		Route:              strip.Route,
-		Remarks:            strip.Remarks,
-		AssignedSquawk:     strip.AssignedSquawk,
-		Squawk:             strip.Squawk,
-		Sid:                strip.Sid,
-		ClearedAltitude:    strip.ClearedAltitude,
-		Heading:            strip.Heading,
-		AircraftType:       strip.AircraftType,
-		Runway:             strip.Runway,
-		RequestedAltitude:  strip.RequestedAltitude,
-		Capabilities:       strip.Capabilities,
-		CommunicationType:  strip.CommunicationType,
-		AircraftCategory:   strip.AircraftCategory,
-		Stand:              strip.Stand,
-		Sequence:           strip.Sequence,
-		State:              strip.State,
-		Cleared:            strip.Cleared,
-		Owner:              strip.Owner,
-		Bay:                strip.Bay,
-		PositionLatitude:   strip.PositionLatitude,
-		PositionLongitude:  strip.PositionLongitude,
-		PositionAltitude:   strip.PositionAltitude,
-		Tobt:               strip.Tobt,
-		Eobt:               strip.Eobt,
+		Callsign:          strip.Callsign,
+		Session:           strip.Session,
+		Origin:            strip.Origin,
+		Destination:       strip.Destination,
+		Alternative:       strip.Alternative,
+		Route:             strip.Route,
+		Remarks:           strip.Remarks,
+		AssignedSquawk:    strip.AssignedSquawk,
+		Squawk:            strip.Squawk,
+		Sid:               strip.Sid,
+		ClearedAltitude:   strip.ClearedAltitude,
+		Heading:           strip.Heading,
+		AircraftType:      strip.AircraftType,
+		Runway:            strip.Runway,
+		RequestedAltitude: strip.RequestedAltitude,
+		Capabilities:      strip.Capabilities,
+		CommunicationType: strip.CommunicationType,
+		AircraftCategory:  strip.AircraftCategory,
+		Stand:             strip.Stand,
+		Sequence:          strip.Sequence,
+		State:             strip.State,
+		Cleared:           strip.Cleared,
+		Owner:             strip.Owner,
+		Bay:               strip.Bay,
+		PositionLatitude:  strip.PositionLatitude,
+		PositionLongitude: strip.PositionLongitude,
+		PositionAltitude:  strip.PositionAltitude,
+		Tobt:              strip.Tobt,
+		Eobt:              strip.Eobt,
+		Registration:      strip.Registration,
 	})
 }
 
@@ -134,35 +137,36 @@ func (r *stripRepository) List(ctx context.Context, session int32) ([]*models.St
 // Update updates an existing strip
 func (r *stripRepository) Update(ctx context.Context, strip *models.Strip) (int64, error) {
 	return r.queries.UpdateStrip(ctx, database.UpdateStripParams{
-		Callsign:           strip.Callsign,
-		Session:            strip.Session,
-		Origin:             strip.Origin,
-		Destination:        strip.Destination,
-		Alternative:        strip.Alternative,
-		Route:              strip.Route,
-		Remarks:            strip.Remarks,
-		AssignedSquawk:     strip.AssignedSquawk,
-		Squawk:             strip.Squawk,
-		Sid:                strip.Sid,
-		ClearedAltitude:    strip.ClearedAltitude,
-		Heading:            strip.Heading,
-		AircraftType:       strip.AircraftType,
-		Runway:             strip.Runway,
-		RequestedAltitude:  strip.RequestedAltitude,
-		Capabilities:       strip.Capabilities,
-		CommunicationType:  strip.CommunicationType,
-		AircraftCategory:   strip.AircraftCategory,
-		Stand:              strip.Stand,
-		Sequence:           strip.Sequence,
-		State:              strip.State,
-		Cleared:            strip.Cleared,
-		Owner:              strip.Owner,
-		Bay:                strip.Bay,
-		PositionLatitude:   strip.PositionLatitude,
-		PositionLongitude:  strip.PositionLongitude,
-		PositionAltitude:   strip.PositionAltitude,
-		Tobt:               strip.Tobt,
-		Eobt:               strip.Eobt,
+		Callsign:          strip.Callsign,
+		Session:           strip.Session,
+		Origin:            strip.Origin,
+		Destination:       strip.Destination,
+		Alternative:       strip.Alternative,
+		Route:             strip.Route,
+		Remarks:           strip.Remarks,
+		AssignedSquawk:    strip.AssignedSquawk,
+		Squawk:            strip.Squawk,
+		Sid:               strip.Sid,
+		ClearedAltitude:   strip.ClearedAltitude,
+		Heading:           strip.Heading,
+		AircraftType:      strip.AircraftType,
+		Runway:            strip.Runway,
+		RequestedAltitude: strip.RequestedAltitude,
+		Capabilities:      strip.Capabilities,
+		CommunicationType: strip.CommunicationType,
+		AircraftCategory:  strip.AircraftCategory,
+		Stand:             strip.Stand,
+		Sequence:          strip.Sequence,
+		State:             strip.State,
+		Cleared:           strip.Cleared,
+		Owner:             strip.Owner,
+		Bay:               strip.Bay,
+		PositionLatitude:  strip.PositionLatitude,
+		PositionLongitude: strip.PositionLongitude,
+		PositionAltitude:  strip.PositionAltitude,
+		Tobt:              strip.Tobt,
+		Eobt:              strip.Eobt,
+		Registration:      strip.Registration,
 	})
 }
 
@@ -277,6 +281,16 @@ func (r *stripRepository) GetNextSequence(ctx context.Context, session int32, ba
 		Session:  session,
 		Bay:      bay,
 		Sequence: sequence,
+	})
+}
+
+// GetPrevSequence retrieves the largest sequence below seq in a bay, excluding a callsign
+func (r *stripRepository) GetPrevSequence(ctx context.Context, session int32, bay string, seq int32, excludeCallsign string) (int32, error) {
+	return r.queries.GetPrevSequence(ctx, database.GetPrevSequenceParams{
+		Session:         session,
+		Bay:             bay,
+		Seq:             seq,
+		ExcludeCallsign: excludeCallsign,
 	})
 }
 
@@ -533,4 +547,24 @@ func (r *stripRepository) UpdatePdcStatus(ctx context.Context, session int32, ca
 		Session:  session,
 		PdcState: pdcState,
 	})
+}
+
+// UpdateMarked updates the marked flag of a strip
+func (r *stripRepository) UpdateMarked(ctx context.Context, session int32, callsign string, marked bool, version *int32) (int64, error) {
+	return r.queries.UpdateStripMarkedByID(ctx, database.UpdateStripMarkedByIDParams{
+		Marked:   marked,
+		Callsign: callsign,
+		Session:  session,
+		Version:  version,
+	})
+}
+
+// UpdateRegistration updates the registration for a strip.
+func (r *stripRepository) UpdateRegistration(ctx context.Context, session int32, callsign string, registration string) error {
+	_, err := r.queries.UpdateStripRegistration(ctx, database.UpdateStripRegistrationParams{
+		Registration: &registration,
+		Callsign:     callsign,
+		Session:      session,
+	})
+	return err
 }

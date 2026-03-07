@@ -1,0 +1,37 @@
+import { useContext } from 'react';
+import { useStore } from 'zustand';
+import { type WebSocketState } from './store.ts';
+import { WebSocketStoreContext } from './store-context.ts';
+
+export const useWebSocketStore = <T,>(selector: (state: WebSocketState) => T): T => {
+  const store = useContext(WebSocketStoreContext);
+
+  if (!store) {
+    throw new Error('useWebSocketStore must be used within a WebSocketStoreProvider');
+  }
+
+  return useStore(store, selector);
+};
+
+export const useControllers = () => useWebSocketStore((state) => state.controllers);
+export const useStrips = () => useWebSocketStore((state) => state.strips);
+export const useTacticalStrips = () => useWebSocketStore((state) => state.tacticalStrips);
+export const usePosition = () => useWebSocketStore((state) => state.position);
+export const useAirport = () => useWebSocketStore((state) => state.airport);
+export const useCallsign = () => useWebSocketStore((state) => state.callsign);
+export const useRunwaySetup = () => useWebSocketStore((state) => state.runwaySetup);
+export const useStrip = (callsign: string) => useWebSocketStore((state) => state.strips.find(strip => strip.callsign === callsign));
+export const useSelectedCallsign = () => useWebSocketStore((state) => state.selectedCallsign);
+export const useSelectStrip = () => useWebSocketStore((state) => state.selectStrip);
+export const useMessages = () => useWebSocketStore((state) => state.messages);
+/** @deprecated use useMessages */
+export const useActiveMessages = () => useWebSocketStore((state) => state.messages);
+export const useMyPosition = () => useWebSocketStore((state) => state.position);
+export const useStripTransfers = () => useWebSocketStore((state) => state.stripTransfers);
+
+const LOWER_SECTIONS = new Set(["DEL", "GND"]);
+
+export const useLowerPositionOnline = () =>
+  useWebSocketStore((state) =>
+    state.controllers.some((c) => LOWER_SECTIONS.has(c.section) && c.callsign !== state.callsign)
+  );

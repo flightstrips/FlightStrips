@@ -4,6 +4,7 @@ import (
 	"FlightStrips/internal/shared"
 	"FlightStrips/pkg/events/euroscope"
 	"FlightStrips/pkg/events/frontend"
+	internalModels "FlightStrips/internal/models"
 
 	"github.com/stretchr/testify/mock"
 )
@@ -104,8 +105,8 @@ func (m *FrontendHub) SendCoordinationFree(session int32, callsign string) {
 	m.Called(session, callsign)
 }
 
-func (m *FrontendHub) SendOwnersUpdate(session int32, callsign string, nextOwners []string, previousOwners []string) {
-	m.Called(session, callsign, nextOwners, previousOwners)
+func (m *FrontendHub) SendOwnersUpdate(session int32, callsign string, owner string, nextOwners []string, previousOwners []string) {
+	m.Called(session, callsign, owner, nextOwners, previousOwners)
 }
 
 func (m *FrontendHub) SendLayoutUpdates(session int32, layoutMap map[string]string) {
@@ -123,6 +124,28 @@ func (m *FrontendHub) SendCdmWait(session int32, callsign string) {
 func (m *FrontendHub) SendPdcStateChange(session int32, callsign, state string) {
 	m.Called(session, callsign, state)
 }
+
+func (m *FrontendHub) SendRunwayConfiguration(session int32, departure, arrival []string) {
+	m.Called(session, departure, arrival)
+}
+
+func (m *FrontendHub) SendTacticalStripCreated(session int32, strip frontend.TacticalStripPayload) {
+	m.Called(session, strip)
+}
+
+func (m *FrontendHub) SendTacticalStripDeleted(session int32, id int64, bay string) {
+	m.Called(session, id, bay)
+}
+
+func (m *FrontendHub) SendTacticalStripUpdated(session int32, strip frontend.TacticalStripPayload) {
+	m.Called(session, strip)
+}
+
+func (m *FrontendHub) SendTacticalStripMoved(session int32, id int64, bay string, sequence int32) {
+	m.Called(session, id, bay, sequence)
+}
+
+var _ internalModels.TacticalStrip // ensure import used
 
 type EuroscopeHub struct {
 	mock.Mock

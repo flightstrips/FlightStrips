@@ -23,11 +23,12 @@ type Server struct {
 	pdcService   *pdc.Service
 	
 	// Repositories
-	stripRepo      repository.StripRepository
-	controllerRepo repository.ControllerRepository
-	sessionRepo    repository.SessionRepository
-	sectorRepo     repository.SectorOwnerRepository
-	coordRepo      repository.CoordinationRepository
+	stripRepo         repository.StripRepository
+	controllerRepo    repository.ControllerRepository
+	sessionRepo       repository.SessionRepository
+	sectorRepo        repository.SectorOwnerRepository
+	coordRepo         repository.CoordinationRepository
+	tacticalStripRepo repository.TacticalStripRepository
 }
 
 func NewServer(
@@ -41,18 +42,20 @@ func NewServer(
 	sessionRepo repository.SessionRepository,
 	sectorRepo repository.SectorOwnerRepository,
 	coordRepo repository.CoordinationRepository,
+	tacticalStripRepo repository.TacticalStripRepository,
 ) *Server {
 	server := Server{
-		dbPool:         dbPool,
-		euroscopeHub:   euroscopeHub,
-		frontendHub:    frontendHub,
-		cdmService:     cdmService,
-		pdcService:     pdcService,
-		stripRepo:      stripRepo,
-		controllerRepo: controllerRepo,
-		sessionRepo:    sessionRepo,
-		sectorRepo:     sectorRepo,
-		coordRepo:      coordRepo,
+		dbPool:            dbPool,
+		euroscopeHub:      euroscopeHub,
+		frontendHub:       frontendHub,
+		cdmService:        cdmService,
+		pdcService:        pdcService,
+		stripRepo:         stripRepo,
+		controllerRepo:    controllerRepo,
+		sessionRepo:       sessionRepo,
+		sectorRepo:        sectorRepo,
+		coordRepo:         coordRepo,
+		tacticalStripRepo: tacticalStripRepo,
 	}
 
 	go server.monitorSessions()
@@ -82,6 +85,10 @@ func (s *Server) GetSectorOwnerRepository() repository.SectorOwnerRepository {
 
 func (s *Server) GetCoordinationRepository() repository.CoordinationRepository {
 	return s.coordRepo
+}
+
+func (s *Server) GetTacticalStripRepository() repository.TacticalStripRepository {
+	return s.tacticalStripRepo
 }
 
 func (s *Server) GetEuroscopeHub() shared.EuroscopeHub {

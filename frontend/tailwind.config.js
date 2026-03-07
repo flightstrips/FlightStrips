@@ -9,7 +9,28 @@ const config = {
     darkMode: ["class"],
     theme: {
         extend: {
+            fontFamily: {
+                sans: ['DM Sans', 'sans-serif'],
+                display: ['DM Serif Display', 'serif'],
+            },
             colors: {
+                // Netcompany Airports design tokens
+                nc: {
+                    black: '#0a0a0a',
+                    dark: '#111111',
+                    card: '#161616',
+                    border: '#2a2a2a',
+                    accent: '#e8e0d0',
+                    muted: '#888888',
+                    light: '#f0ece4',
+                    white: '#ffffff',
+                    blue: '#4a7cff',
+                },
+                // FlightStrips brand color
+                fs: {
+                    primary: '#003d48',
+                },
+                // Keep existing tokens for backward compatibility
                 border: "hsl(var(--border))",
                 input: "hsl(var(--input))",
                 ring: "hsl(var(--ring))",

@@ -1,0 +1,137 @@
+import { useState } from "react";
+import type { StripProps } from "./types";
+import {
+  useStripSelection,
+  getFramedStripStyle,
+  getCellBorderColor,
+  SELECTION_COLOR,
+} from "./shared";
+import { SIBox } from "./SIBox";
+import { useStripTransfers } from "@/store/store-hooks";
+import { PushbackMapDialog } from "@/components/map-dialogs/PushbackMapDialog";
+
+const FONT = "'Arial', sans-serif";
+const HALF_H = "2.22vh";    // half of 4.44vh for TSAT/CTOT split
+const TOP_H  = "2.96vh";    // 2/3 of 4.44vh
+const BOT_H  = "1.48vh";    // 1/3 of 4.44vh
+
+// Flex-grow proportions (flex-basis: 0 so space is shared proportionally)
+const F_CALLSIGN = 25;
+const F_TYPE     = 25 * (2 / 3);          // ~16.67
+const F_STAND    = 25 * (2 / 3);          // ~16.67
+const F_TSAT     = 25 * (2 / 3);          // ~16.67
+const F_RWY      = 25 * (2 / 3) * (2 / 3); // ~11.11
+
+/**
+ * ApnPushStrip — APNPUSH strip for STARTUP, PUSH BACK and DE-ICE bays (status="PUSH").
+ *
+ * Width: 90% of bay. Cells use flex proportions:
+ *   SI 8 | Callsign 25 | Type+Reg 25*(2/3) | Stand 25*(2/3) | TSAT/CTOT 25*(2/3) | RWY 25*(2/3)*(2/3)
+ *
+ * Background: cyan (#bef5ef).
+ */
+export function ApnPushStrip({
+  callsign,
+  aircraftType,
+  registration,
+  stand,
+  tsat,
+  ctot,
+  runway,
+  owner,
+  nextControllers,
+  previousControllers,
+  myPosition,
+  selectable,
+  marked = false,
+  fullWidth = false,
+}: StripProps) {
+  const { isSelected, handleClick } = useStripSelection(callsign, selectable);
+  const cellBorderColor = getCellBorderColor(marked);
+  const stripTransfers = useStripTransfers();
+  const [pushbackOpen, setPushbackOpen] = useState(false);
+
+  return (
+    <div
+      className={`select-none${selectable ? " cursor-pointer" : ""}`}
+      style={{
+        height: 45,
+        width: fullWidth ? "100%" : "90%",
+        ...getFramedStripStyle(marked),
+      }}
+      onClick={handleClick}
+    >
+      <div className="flex text-black" style={{ height: "100%", overflow: "hidden", backgroundColor: "#bef5ef" }}>
+        {/* SI / ownership — 8% */}
+        <SIBox
+          callsign={callsign}
+          owner={owner}
+          nextControllers={nextControllers}
+          previousControllers={previousControllers}
+          myPosition={myPosition}
+          transferringTo={stripTransfers[callsign] ?? ""}
+        />
+
+        {/* Callsign — 25%, FONT medium 20, top 2/3 highlighted when selected */}
+        <div
+          className="flex flex-col overflow-hidden border-r-2"
+          style={{ flex: `${F_CALLSIGN} 0 0%`, height: "100%", minWidth: 0, borderRightColor: cellBorderColor }}
+        >
+          <div className="flex items-center pl-2" style={{ height: TOP_H, backgroundColor: isSelected ? SELECTION_COLOR : undefined }}>
+            <span className="truncate w-full" style={{ fontFamily: FONT, fontWeight: "bold", fontSize: 20 }}>
+              {callsign}
+            </span>
+          </div>
+          <div style={{ height: BOT_H }} />
+        </div>
+
+        {/* A/C type / Registration — 25%*(2/3), stacked in top 2/3 */}
+        <div
+          className="flex flex-col items-center justify-center overflow-hidden border-r-2"
+          style={{ flex: `${F_TYPE} 0 0%`, height: "100%", paddingBottom: "1.48vh", minWidth: 0, borderRightColor: cellBorderColor }}
+        >
+          <span className="truncate px-1 leading-tight w-full text-center" style={{ fontFamily: FONT, fontSize: 10 }}>{aircraftType?.split("/")[0]}</span>
+          <span className="truncate px-1 leading-tight w-full text-center" style={{ fontFamily: FONT, fontSize: 10 }}>{registration}</span>
+        </div>
+
+        {/* Stand — 25%*(2/3) */}
+        <div
+          className="flex items-center justify-center overflow-hidden border-r-2 cursor-pointer hover:bg-cyan-200"
+          style={{ flex: `${F_STAND} 0 0%`, height: "100%", paddingBottom: "1.48vh", minWidth: 0, borderRightColor: cellBorderColor }}
+          onClick={(e) => { e.stopPropagation(); setPushbackOpen(true); }}
+        >
+          <span style={{ fontFamily: FONT, fontWeight: 600, fontSize: 20 }}>{stand}</span>
+        </div>
+
+        <PushbackMapDialog
+          open={pushbackOpen}
+          onOpenChange={setPushbackOpen}
+          callsign={callsign}
+        />
+
+        {/* TSAT / CTOT — 25%*(2/3), split in half with border */}
+        <div
+          className="flex flex-col overflow-hidden border-r-2"
+          style={{ flex: `${F_TSAT} 0 0%`, height: "100%", minWidth: 0, borderRightColor: cellBorderColor }}
+        >
+          <div className="flex items-center gap-1 px-1 border-b-2" style={{ height: HALF_H, borderBottomColor: cellBorderColor }}>
+            <span className="shrink-0" style={{ fontFamily: FONT, fontSize: 12 }}>TSAT</span>
+            <span className="truncate" style={{ fontFamily: FONT, fontSize: 12 }}>{tsat}</span>
+          </div>
+          <div className="flex items-center gap-1 px-1" style={{ height: HALF_H }}>
+            <span className="shrink-0" style={{ fontFamily: FONT, fontSize: 12 }}>CTOT</span>
+            <span className="truncate" style={{ fontFamily: FONT, fontSize: 12 }}>{ctot}</span>
+          </div>
+        </div>
+
+        {/* RWY — 25%*(2/3)*(2/3) */}
+        <div
+          className="flex items-center justify-center overflow-hidden"
+          style={{ flex: `${F_RWY} 0 0%`, height: "100%", paddingBottom: "1.48vh", minWidth: 0 }}
+        >
+          <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: 20 }}>{runway}</span>
+        </div>
+      </div>
+    </div>
+  );
+}

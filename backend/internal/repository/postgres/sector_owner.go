@@ -30,11 +30,19 @@ func sectorOwnerToModel(db database.SectorOwner) *models.SectorOwner {
 	}
 }
 
-// Create inserts a new sector owner
-func (r *sectorOwnerRepository) Create(ctx context.Context, owner *models.SectorOwner) error {
-	// This uses copyfrom, which is batch insert - for single insert we'd need a different approach
-	// For now, this is a placeholder
-	return nil
+// CreateBulk inserts multiple sector owners
+func (r *sectorOwnerRepository) CreateBulk(ctx context.Context, owner []*models.SectorOwner) error {
+	dbOwners := make([]database.InsertSectorOwnersParams, len(owner))
+	for i, o := range owner {
+		dbOwners[i] = database.InsertSectorOwnersParams{
+			Session:    o.Session,
+			Sector:     o.Sector,
+			Position:   o.Position,
+			Identifier: o.Identifier,
+		}
+	}
+	_, err := r.queries.InsertSectorOwners(ctx, dbOwners)
+	return err
 }
 
 // GetByID retrieves a sector owner by ID

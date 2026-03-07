@@ -29,6 +29,8 @@ func (s *Server) UpdateRouteForStrip(callsign string, sessionId int32, sendUpdat
 	return s.updateRouteForStripHelper(strip, session, sendUpdate)
 }
 
+// UpdateRoutesForSession recalculates routes for all strips in the session.
+// sendUpdate controls whether frontend clients are notified of the updated route ownership.
 func (s *Server) UpdateRoutesForSession(sessionId int32, sendUpdate bool) error {
 	stripRepo := s.stripRepo
 	sessionRepo := s.sessionRepo
@@ -150,7 +152,11 @@ func (s *Server) updateRouteForStripHelper(strip *models.Strip, session *models.
 	err = s.stripRepo.SetNextOwners(context.Background(), session.ID, strip.Callsign, actualRoute)
 
 	if sendUpdate {
-		s.frontendHub.SendOwnersUpdate(session.ID, strip.Callsign, actualRoute, strip.PreviousOwners)
+		owner := ""
+		if strip.Owner != nil {
+			owner = *strip.Owner
+		}
+		s.frontendHub.SendOwnersUpdate(session.ID, strip.Callsign, owner, actualRoute, strip.PreviousOwners)
 	}
 
 	return err

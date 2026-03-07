@@ -3,6 +3,8 @@ package mocks
 import (
 	"context"
 
+	"FlightStrips/pkg/events/frontend"
+
 	"github.com/stretchr/testify/mock"
 )
 
@@ -25,7 +27,17 @@ func (m *StripService) MoveToBay(ctx context.Context, session int32, callsign st
 	return args.Error(0)
 }
 
-func (m *StripService) MoveStripBetween(ctx context.Context, session int32, callsign string, before *string, bay string) error {
-	args := m.Called(ctx, session, callsign, before, bay)
+func (m *StripService) MoveStripBetween(ctx context.Context, session int32, callsign string, insertAfter *frontend.StripRef, bay string) error {
+	args := m.Called(ctx, session, callsign, insertAfter, bay)
+	return args.Error(0)
+}
+
+func (m *StripService) MoveTacticalStripBetween(ctx context.Context, session int32, id int64, insertAfter *frontend.StripRef, bay string) error {
+	args := m.Called(ctx, session, id, insertAfter, bay)
+	return args.Error(0)
+}
+
+func (m *StripService) AutoAssumeForClearedStrip(ctx context.Context, session int32, callsign string, stripVersion int32) error {
+	args := m.Called(ctx, session, callsign, stripVersion)
 	return args.Error(0)
 }

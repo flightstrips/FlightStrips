@@ -2,15 +2,39 @@ package frontend
 
 import (
 	internalModels "FlightStrips/internal/models"
+	"FlightStrips/internal/config"
 	"FlightStrips/internal/shared"
+	"FlightStrips/pkg/events"
 	"FlightStrips/pkg/events/euroscope"
 	"FlightStrips/pkg/events/frontend"
 	"context"
 	"errors"
+	"log/slog"
 	"slices"
+
+	gorilla "github.com/gorilla/websocket"
 )
 
 type Message = shared.Message[frontend.EventType]
+
+func handleTokenEvent(ctx context.Context, client *Client, message Message) error {
+	var event events.AuthenticationEvent
+	if err := message.JsonUnmarshal(&event); err != nil {
+		return err
+	}
+
+	user, err := client.hub.authenticationService.Validate(event.Token)
+	if err != nil {
+		slog.Info("Token re-validation failed, disconnecting client", slog.String("cid", client.GetCid()), slog.Any("error", err))
+		_ = client.GetConnection().WriteMessage(gorilla.CloseMessage,
+			gorilla.FormatCloseMessage(gorilla.CloseNormalClosure, "token invalid"))
+		client.GetConnection().Close()
+		return err
+	}
+
+	client.SetUser(user)
+	return nil
+}
 
 func handleGenerateSquawk(ctx context.Context, client *Client, message Message) error {
 	var generateSquawk frontend.GenerateSquawkRequest
@@ -57,10 +81,11 @@ func handleMove(ctx context.Context, client *Client, message Message) error {
 
 func handleClearedBayUpdate(ctx context.Context, client *Client, strip *internalModels.Strip, move frontend.MoveEvent, stripRepo shared.StripRepository, es shared.EuroscopeHub) error {
 	isCleared := move.Bay == shared.BAY_CLEARED
-	if strip.Cleared == isCleared {
-		return nil
-	}
 
+	// Always update the bay and cleared flag in DB — the outer handleMove guard
+	// already ensures strip.Bay != move.Bay, so there is always something to update.
+	// Do NOT early-exit based on strip.Cleared alone: handleGeneralBayUpdate does not
+	// reset the cleared flag, so it can be stale after a round-trip through a general bay.
 	count, err := stripRepo.UpdateClearedFlag(
 		ctx,
 		client.session,
@@ -77,7 +102,15 @@ func handleClearedBayUpdate(ctx context.Context, client *Client, strip *internal
 		return errors.New("failed to update strip cleared flag")
 	}
 
-	es.SendClearedFlag(client.session, client.GetCid(), move.Callsign, isCleared)
+	// Only trigger side-effects when the cleared flag actually changed value.
+	if strip.Cleared != isCleared {
+		if isCleared {
+			if err := client.hub.stripService.AutoAssumeForClearedStrip(ctx, client.session, move.Callsign, strip.Version+1); err != nil {
+				slog.Error("Failed to auto-assume cleared strip", slog.Any("error", err))
+			}
+		}
+		es.SendClearedFlag(client.session, client.GetCid(), move.Callsign, isCleared)
+	}
 	return nil
 }
 
@@ -144,6 +177,7 @@ func handleStripUpdate(ctx context.Context, client *Client, message Message) err
 	}
 
 	if event.Eobt != nil && strip.Eobt != event.Eobt {
+		slog.Warn("EOBT updates are currently not supported and will be ignored", slog.String("callsign", event.Callsign))
 		// TODO add support
 	}
 
@@ -167,7 +201,7 @@ func handleCoordinationTransferRequest(ctx context.Context, client *Client, mess
 	s := client.hub.server
 	stripRepo := s.GetStripRepository()
 	coordRepo := s.GetCoordinationRepository()
-	
+
 	strip, err := stripRepo.GetByCallsign(ctx, client.session, req.Callsign)
 	if err != nil {
 		return err
@@ -183,7 +217,7 @@ func handleCoordinationTransferRequest(ctx context.Context, client *Client, mess
 		FromPosition: position,
 		ToPosition:   req.To,
 	}
-	
+
 	err = coordRepo.Create(ctx, coord)
 	if err != nil {
 		return err
@@ -233,7 +267,7 @@ func handleCoordinationAssumeRequest(ctx context.Context, client *Client, messag
 		nextOwners = nextOwners[index+1:]
 	}
 
-	previousOwners := append(strip.PreviousOwners, client.position)
+	previousOwners := append(strip.PreviousOwners, coordination.FromPosition)
 
 	err = stripRepo.SetNextAndPreviousOwners(ctx, client.session, strip.Callsign, nextOwners, previousOwners)
 	if err != nil {
@@ -244,7 +278,7 @@ func handleCoordinationAssumeRequest(ctx context.Context, client *Client, messag
 		return err
 	}
 
-	client.hub.SendOwnersUpdate(client.session, strip.Callsign, nextOwners, previousOwners)
+	client.hub.SendOwnersUpdate(client.session, req.Callsign, client.position, nextOwners, previousOwners)
 	return nil
 }
 
@@ -322,8 +356,33 @@ func handleCoordinationFreeRequest(ctx context.Context, client *Client, message 
 	}
 
 	client.hub.SendCoordinationFree(client.session, req.Callsign)
-	client.hub.SendOwnersUpdate(client.session, strip.Callsign, strip.NextOwners, previousOwners)
+	client.hub.SendOwnersUpdate(client.session, strip.Callsign, "", strip.NextOwners, previousOwners)
 
+	return nil
+}
+
+func handleCoordinationCancelTransferRequest(ctx context.Context, client *Client, message Message) error {
+	var req frontend.CoordinationCancelTransferRequestEvent
+	if err := message.JsonUnmarshal(&req); err != nil {
+		return err
+	}
+	s := client.hub.server
+	coordRepo := s.GetCoordinationRepository()
+
+	coordination, err := coordRepo.GetByStripCallsign(ctx, client.session, req.Callsign)
+	if err != nil {
+		return err
+	}
+
+	if coordination.FromPosition != client.position {
+		return errors.New("cannot cancel a transfer that you did not initiate")
+	}
+
+	if err := coordRepo.Delete(ctx, coordination.ID); err != nil {
+		return err
+	}
+
+	client.hub.SendCoordinationReject(client.session, req.Callsign, client.position)
 	return nil
 }
 
@@ -336,7 +395,7 @@ func handleUpdateOrder(ctx context.Context, client *Client, message Message) err
 
 	s := client.hub.server
 	stripRepo := s.GetStripRepository()
-	
+
 	bay, err := stripRepo.GetBay(ctx, client.session, event.Callsign)
 	if err != nil {
 		return err
@@ -346,25 +405,30 @@ func handleUpdateOrder(ctx context.Context, client *Client, message Message) err
 		return errors.New("cannot update order of a strip which is not in a bay")
 	}
 
-	return client.hub.stripService.MoveStripBetween(ctx, client.session, event.Callsign, event.Before, bay)
+	return client.hub.stripService.MoveStripBetween(ctx, client.session, event.Callsign, event.InsertAfter, bay)
 }
 
 func handleSendMessage(ctx context.Context, client *Client, message Message) error {
-	var event frontend.SendMessageEvent
-	if err := message.JsonUnmarshal(&event); err != nil {
+	var req frontend.SendMessageEvent
+	if err := message.JsonUnmarshal(&req); err != nil {
 		return err
 	}
 
-	outgoingEvent := frontend.BroadcastEvent{
-		Message: event.Message,
-		From:    client.position,
+	recipients := req.Recipients
+	if recipients == nil {
+		recipients = []string{}
 	}
 
-	if event.To == nil {
-		client.hub.Broadcast(client.session, outgoingEvent)
-	} else {
-		client.hub.SendToPosition(client.session, *event.To, outgoingEvent)
+	msg := frontend.MessageReceivedEvent{
+		ID:          client.hub.NextMessageID(),
+		Sender:      client.position,
+		Text:        req.Text,
+		IsBroadcast: len(recipients) == 0,
+		Recipients:  recipients,
 	}
+
+	client.hub.storeMessage(client.session, msg)
+	client.hub.dispatchMessage(client.session, msg, client.user.GetCid())
 	return nil
 }
 
@@ -392,6 +456,26 @@ func handleReleasePoint(ctx context.Context, client *Client, message Message) er
 	}
 	if affected != 1 {
 		return errors.New("failed to update release point")
+	}
+
+	client.hub.Broadcast(client.session, event)
+
+	return nil
+}
+
+func handleMarked(ctx context.Context, client *Client, message Message) error {
+	var event frontend.MarkedEvent
+	if err := message.JsonUnmarshal(&event); err != nil {
+		return err
+	}
+
+	stripRepo := client.hub.server.GetStripRepository()
+	affected, err := stripRepo.UpdateMarked(ctx, client.session, event.Callsign, event.Marked, nil)
+	if err != nil {
+		return err
+	}
+	if affected != 1 {
+		return errors.New("failed to update marked flag")
 	}
 
 	client.hub.Broadcast(client.session, event)
@@ -443,4 +527,184 @@ func handleRevertToVoice(ctx context.Context, client *Client, message Message) e
 	}
 
 	return pdcService.RevertToVoice(ctx, req.Callsign, client.session, client.GetCid())
+}
+
+func handleCreateTacticalStrip(ctx context.Context, client *Client, message Message) error {
+	var req frontend.CreateTacticalStripAction
+	if err := message.JsonUnmarshal(&req); err != nil {
+		return err
+	}
+
+	validTypes := map[string]bool{"MEMAID": true, "CROSSING": true, "START": true, "LAND": true}
+	if !validTypes[req.StripType] {
+		return errors.New("invalid tactical strip type: " + req.StripType)
+	}
+	if req.Bay == "" {
+		return errors.New("bay is required")
+	}
+	if req.StripType == "MEMAID" && req.Label == "" {
+		return errors.New("label is required for MEMAID strips")
+	}
+	if req.StripType == "START" || req.StripType == "LAND" {
+		if req.Label == "" {
+			return errors.New("runway label is required for START and LAND strips")
+		}
+		validRunways := config.GetRunways()
+		isValid := false
+		for _, rwy := range validRunways {
+			if rwy == req.Label {
+				isValid = true
+				break
+			}
+		}
+		if !isValid {
+			return errors.New("invalid runway: " + req.Label)
+		}
+	}
+
+	tacticalRepo := client.hub.server.GetTacticalStripRepository()
+	if tacticalRepo == nil {
+		return errors.New("tactical strip repository not available")
+	}
+
+	maxSeq, err := tacticalRepo.GetMaxSequenceInBayUnified(ctx, client.session, req.Bay)
+	if err != nil {
+		return err
+	}
+
+	sequence := maxSeq + 1000 // InitialOrderSpacing
+
+	var aircraft *string
+	if req.Aircraft != "" {
+		a := req.Aircraft
+		aircraft = &a
+	}
+
+	ts, err := tacticalRepo.Create(ctx, client.session, req.StripType, req.Bay, req.Label, aircraft, client.position, sequence)
+	if err != nil {
+		return err
+	}
+
+	client.hub.SendTacticalStripCreated(client.session, MapTacticalStripToPayload(ts))
+	return nil
+}
+
+func handleDeleteTacticalStrip(ctx context.Context, client *Client, message Message) error {
+	var req frontend.DeleteTacticalStripAction
+	if err := message.JsonUnmarshal(&req); err != nil {
+		return err
+	}
+
+	tacticalRepo := client.hub.server.GetTacticalStripRepository()
+	if tacticalRepo == nil {
+		return errors.New("tactical strip repository not available")
+	}
+
+	// Need the bay for the deleted event
+	// We load it first, then delete
+	strips, err := tacticalRepo.ListBySession(ctx, client.session)
+	if err != nil {
+		return err
+	}
+	bay := ""
+	for _, s := range strips {
+		if s.ID == req.ID {
+			bay = s.Bay
+			break
+		}
+	}
+
+	if err := tacticalRepo.Delete(ctx, req.ID, client.session); err != nil {
+		return err
+	}
+
+	client.hub.SendTacticalStripDeleted(client.session, req.ID, bay)
+	return nil
+}
+
+func handleConfirmTacticalStrip(ctx context.Context, client *Client, message Message) error {
+	var req frontend.ConfirmTacticalStripAction
+	if err := message.JsonUnmarshal(&req); err != nil {
+		return err
+	}
+
+	tacticalRepo := client.hub.server.GetTacticalStripRepository()
+	if tacticalRepo == nil {
+		return errors.New("tactical strip repository not available")
+	}
+
+	ts, err := tacticalRepo.Confirm(ctx, req.ID, client.session, client.position)
+	if err != nil {
+		return err
+	}
+
+	if ts.Type != "MEMAID" && ts.Type != "CROSSING" {
+		return errors.New("confirm is only valid for MEMAID and CROSSING strips")
+	}
+	if ts.ProducedBy == client.position {
+		return errors.New("producer cannot confirm their own MEMAID strip")
+	}
+
+	client.hub.SendTacticalStripUpdated(client.session, MapTacticalStripToPayload(ts))
+	return nil
+}
+
+func handleStartTacticalTimer(ctx context.Context, client *Client, message Message) error {
+	var req frontend.StartTacticalTimerAction
+	if err := message.JsonUnmarshal(&req); err != nil {
+		return err
+	}
+
+	tacticalRepo := client.hub.server.GetTacticalStripRepository()
+	if tacticalRepo == nil {
+		return errors.New("tactical strip repository not available")
+	}
+
+	ts, err := tacticalRepo.StartTimer(ctx, req.ID, client.session)
+	if err != nil {
+		return err
+	}
+
+	if ts.Type != "START" && ts.Type != "LAND" {
+		return errors.New("start timer is only valid for START and LAND strips")
+	}
+
+	client.hub.SendTacticalStripUpdated(client.session, MapTacticalStripToPayload(ts))
+	return nil
+}
+
+func handleMoveTacticalStrip(ctx context.Context, client *Client, message Message) error {
+	var req frontend.MoveTacticalStripAction
+	if err := message.JsonUnmarshal(&req); err != nil {
+		return err
+	}
+
+	tacticalRepo := client.hub.server.GetTacticalStripRepository()
+	if tacticalRepo == nil {
+		return errors.New("tactical strip repository not available")
+	}
+
+	seq, err := tacticalRepo.GetSequenceByID(ctx, req.ID, client.session)
+	if err != nil {
+		return err
+	}
+	_ = seq
+
+	// We need the bay — find it from the session list
+	strips, err := tacticalRepo.ListBySession(ctx, client.session)
+	if err != nil {
+		return err
+	}
+	bay := ""
+	for _, s := range strips {
+		if s.ID == req.ID {
+			bay = s.Bay
+			break
+		}
+	}
+	if bay == "" {
+		return errors.New("tactical strip not found")
+	}
+
+	return client.hub.stripService.MoveTacticalStripBetween(ctx, client.session, req.ID, req.InsertAfter, bay)
 }

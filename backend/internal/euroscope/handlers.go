@@ -4,18 +4,42 @@ import (
 	"FlightStrips/internal/config"
 	"FlightStrips/internal/database"
 	internalModels "FlightStrips/internal/models"
+	"FlightStrips/internal/services"
 	"FlightStrips/internal/shared"
+	"FlightStrips/pkg/events"
 	"FlightStrips/pkg/events/euroscope"
 	"FlightStrips/pkg/models"
 	"context"
 	"errors"
 	"fmt"
 	"log/slog"
+	"regexp"
+	"strings"
 
+	gorilla "github.com/gorilla/websocket"
 	"github.com/jackc/pgx/v5"
 )
 
 type Message = shared.Message[euroscope.EventType]
+
+func handleTokenEvent(ctx context.Context, client *Client, message Message) error {
+	var event events.AuthenticationEvent
+	if err := message.JsonUnmarshal(&event); err != nil {
+		return err
+	}
+
+	user, err := client.hub.authenticationService.Validate(event.Token)
+	if err != nil {
+		slog.Info("Token re-validation failed, disconnecting client", slog.String("cid", client.GetCid()), slog.Any("error", err))
+		_ = client.GetConnection().WriteMessage(gorilla.CloseMessage,
+			gorilla.FormatCloseMessage(gorilla.CloseNormalClosure, "token invalid"))
+		client.GetConnection().Close()
+		return err
+	}
+
+	client.SetUser(user)
+	return nil
+}
 
 func handleControllerOnline(ctx context.Context, client *Client, message Message) error {
 	var event euroscope.ControllerOnlineEvent
@@ -64,6 +88,8 @@ func handleControllerOnline(ctx context.Context, client *Client, message Message
 	if _, err := config.GetPositionBasedOnFrequency(controller.Position); err == nil {
 		shouldUpdate = true
 	}
+
+	slog.Debug("Controller online with updated position", slog.String("callsign", event.Callsign), slog.String("position", event.Position), slog.Bool("shouldUpdate", shouldUpdate))
 
 	if shouldUpdate {
 		err = s.UpdateSectors(client.session)
@@ -311,6 +337,12 @@ func handleClearedFlag(ctx context.Context, client *Client, message Message) err
 		return err
 	}
 
+	if event.Cleared {
+		if err := client.hub.stripService.AutoAssumeForClearedStrip(ctx, session, event.Callsign, existingStrip.Version+1); err != nil {
+			slog.Error("Failed to auto-assume cleared strip from EuroScope", slog.Any("error", err))
+		}
+	}
+
 	if existingStrip.Bay != bay {
 		return client.hub.stripService.MoveToBay(ctx, client.session, event.Callsign, bay, true)
 	}
@@ -430,6 +462,8 @@ func handleSync(ctx context.Context, client *Client, message Message) error {
 	s := client.hub.server
 	session := client.session
 
+	slog.Debug("Received sync event", slog.Int("session", int(session)), slog.String("client", client.callsign))
+
 	controllerRepo := s.GetControllerRepository()
 
 	for _, controller := range event.Controllers {
@@ -525,6 +559,8 @@ func (hub *Hub) handleStripUpdateHelper(ctx context.Context, strip euroscope.Str
 			Bay:               bay,
 			Eobt:              &strip.Eobt,
 		}
+		reg := services.ParseRegistration(strip.Callsign, strip.Remarks)
+		newStrip.Registration = &reg
 		err = stripRepo.Create(ctx, newStrip)
 		if err != nil {
 			return err
@@ -576,12 +612,21 @@ func (hub *Hub) handleStripUpdateHelper(ctx context.Context, strip euroscope.Str
 			Bay:               bay,
 			Tobt:              existingStrip.Tobt,
 			Eobt:              existingStrip.Eobt,
+			Registration:      existingStrip.Registration,
 		}
 		_, err = stripRepo.Update(ctx, updateStrip)
 		if err != nil {
 			return err
 		}
 		slog.Debug("Updated strip", slog.String("callsign", strip.Callsign))
+
+		// If registration is NULL (backfill) or remarks now contain a REG/ token, update registration in DB.
+		if existingStrip.Registration == nil || remarksContainsReg(strip.Remarks) {
+			newReg := services.ParseRegistration(strip.Callsign, strip.Remarks)
+			if err := stripRepo.UpdateRegistration(ctx, session, strip.Callsign, newReg); err != nil {
+				slog.Error("Failed to update registration from remarks", slog.Any("error", err))
+			}
+		}
 	}
 
 	err = server.UpdateRouteForStrip(strip.Callsign, session, false)
@@ -597,6 +642,12 @@ func (hub *Hub) handleStripUpdateHelper(ctx context.Context, strip euroscope.Str
 	server.GetFrontendHub().SendStripUpdate(session, strip.Callsign)
 
 	return nil
+}
+
+var remarksRegRe = regexp.MustCompile(`\bREG/([A-Z0-9-]+)`)
+
+func remarksContainsReg(remarks string) bool {
+	return remarksRegRe.MatchString(strings.ToUpper(remarks))
 }
 
 func handleStripUpdateEvent(ctx context.Context, client *Client, message Message) error {
@@ -616,6 +667,8 @@ func handleRunways(ctx context.Context, client *Client, message Message) error {
 	if err != nil {
 		return err
 	}
+
+	slog.Debug("Received runway configuration change", slog.Int("session", int(client.session)), slog.Any("event", event))
 
 	if master, ok := client.hub.master[client.session]; ok && master == client {
 		s := client.hub.server
@@ -638,20 +691,33 @@ func handleRunways(ctx context.Context, client *Client, message Message) error {
 			ArrivalRunways:   arrival,
 		}
 
-		slog.Debug("Setting active runways", slog.Any("runways", activeRunways), slog.Int("session", int(client.session)))
+		slog.Info("Runway change received",
+			slog.Int("session", int(client.session)),
+			slog.Any("departure", departure),
+			slog.Any("arrival", arrival),
+		)
 
 		err = sessionRepo.UpdateActiveRunways(ctx, client.session, activeRunways)
 		if err != nil {
 			return err
 		}
 
+		s.GetFrontendHub().SendRunwayConfiguration(client.session, departure, arrival)
+
 		err = s.UpdateSectors(client.session)
 		if err != nil {
+			slog.Error("UpdateSectors failed after runway change", slog.Int("session", int(client.session)), slog.Any("error", err))
 			return err
 		}
+		slog.Debug("UpdateSectors completed", slog.Int("session", int(client.session)))
 
 		err = s.UpdateRoutesForSession(client.session, true)
-		return err
+		if err != nil {
+			slog.Error("UpdateRoutesForSession failed after runway change", slog.Int("session", int(client.session)), slog.Any("error", err))
+			return err
+		}
+		slog.Debug("UpdateRoutesForSession completed", slog.Int("session", int(client.session)))
+		return nil
 	}
 
 	return nil

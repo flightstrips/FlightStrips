@@ -1,6 +1,7 @@
 package frontend
 
 import (
+	"FlightStrips/internal/config"
 	internalModels "FlightStrips/internal/models"
 	"FlightStrips/internal/shared"
 	"FlightStrips/pkg/events"
@@ -9,6 +10,8 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"sync"
+	"sync/atomic"
 
 	gorilla "github.com/gorilla/websocket"
 	"github.com/jackc/pgx/v5"
@@ -21,9 +24,10 @@ type internalMessage struct {
 }
 
 type Hub struct {
-	server       shared.Server
-	stripService shared.StripService
-	clients      map[*Client]bool
+	server                shared.Server
+	stripService          shared.StripService
+	authenticationService shared.AuthenticationService
+	clients               map[*Client]bool
 
 	send chan internalMessage
 
@@ -31,33 +35,47 @@ type Hub struct {
 	unregister chan *Client
 
 	handlers shared.MessageHandlers[frontend.EventType, *Client]
+
+	msgMu      sync.Mutex
+	msgCounter int64 // accessed atomically
+	messages   map[int32][]frontend.MessageReceivedEvent
 }
 
-func NewHub(stripService shared.StripService) *Hub {
+func NewHub(stripService shared.StripService, authenticationService shared.AuthenticationService) *Hub {
 	handlers := shared.NewMessageHandlers[frontend.EventType, *Client]()
 
+	handlers.Add(frontend.Token, handleTokenEvent)
 	handlers.Add(frontend.GenerateSquawk, handleGenerateSquawk)
 	handlers.Add(frontend.Move, handleMove)
-	handlers.Add(frontend.StripUpdate, handleStripUpdate)
+	handlers.Add(frontend.UpdateStripData, handleStripUpdate)
 	handlers.Add(frontend.CoordinationTransferRequestType, handleCoordinationTransferRequest)
 	handlers.Add(frontend.CoordinationAssumeRequestType, handleCoordinationAssumeRequest)
 	handlers.Add(frontend.CoordinationRejectRequestType, handleCoordinationRejectRequest)
 	handlers.Add(frontend.CoordinationFreeRequestType, handleCoordinationFreeRequest)
+	handlers.Add(frontend.CoordinationCancelTransferRequest, handleCoordinationCancelTransferRequest)
 	handlers.Add(frontend.UpdateOrder, handleUpdateOrder)
 	handlers.Add(frontend.SendMessage, handleSendMessage)
 	handlers.Add(frontend.CdmReady, handleCdmReady)
 	handlers.Add(frontend.ReleasePoint, handleReleasePoint)
+	handlers.Add(frontend.Marked, handleMarked)
 	handlers.Add(frontend.IssuePdcClearance, handleIssuePdcClearance)
 	handlers.Add(frontend.PdcManualStateChange, handlePdcManualStateChange)
 	handlers.Add(frontend.RevertToVoice, handleRevertToVoice)
+	handlers.Add(frontend.ActionCreateTacticalStrip, handleCreateTacticalStrip)
+	handlers.Add(frontend.ActionDeleteTacticalStrip, handleDeleteTacticalStrip)
+	handlers.Add(frontend.ActionConfirmTacticalStrip, handleConfirmTacticalStrip)
+	handlers.Add(frontend.ActionStartTacticalTimer, handleStartTacticalTimer)
+	handlers.Add(frontend.ActionMoveTacticalStrip, handleMoveTacticalStrip)
 
 	hub := &Hub{
-		send:         make(chan internalMessage),
-		register:     make(chan *Client),
-		unregister:   make(chan *Client),
-		clients:      make(map[*Client]bool),
-		handlers:     handlers,
-		stripService: stripService,
+		send:                  make(chan internalMessage),
+		register:              make(chan *Client),
+		unregister:            make(chan *Client),
+		clients:               make(map[*Client]bool),
+		handlers:              handlers,
+		stripService:          stripService,
+		authenticationService: authenticationService,
+		messages:              make(map[int32][]frontend.MessageReceivedEvent),
 	}
 
 	go hub.Run()
@@ -100,7 +118,7 @@ func (hub *Hub) SetServer(server shared.Server) {
 func (hub *Hub) HandleNewConnection(conn *gorilla.Conn, user shared.AuthenticatedUser) (*Client, error) {
 	controllerRepo := hub.server.GetControllerRepository()
 	sessionRepo := hub.server.GetSessionRepository()
-	
+
 	controller, err := controllerRepo.GetByCid(context.Background(), user.GetCid())
 
 	var session int32
@@ -149,10 +167,17 @@ func (hub *Hub) sendInitialEvent(client *Client) {
 	controllerRepo := hub.server.GetControllerRepository()
 	stripRepo := hub.server.GetStripRepository()
 	sectorRepo := hub.server.GetSectorOwnerRepository()
+	sessionRepo := hub.server.GetSessionRepository()
 
 	controllers, err := controllerRepo.ListBySession(context.Background(), client.session)
 	if err != nil {
 		slog.Error("Failed to list controllers", slog.Any("error", err), slog.Int("session", int(client.session)))
+		return
+	}
+
+	dbSession, err := sessionRepo.GetByID(context.Background(), client.session)
+	if err != nil {
+		slog.Error("Failed to get session", slog.Any("error", err), slog.Int("session", int(client.session)))
 		return
 	}
 
@@ -184,10 +209,15 @@ func (hub *Hub) sendInitialEvent(client *Client) {
 		if sector, ok := sectorsMap[controller.Position]; ok {
 			identifier = sector.Identifier
 		}
+		section := ""
+		if pos, err := config.GetPositionBasedOnFrequency(controller.Position); err == nil {
+			section = pos.Section
+		}
 		c := frontend.Controller{
 			Callsign:   controller.Callsign,
 			Position:   controller.Position,
 			Identifier: identifier,
+			Section:    section,
 		}
 		controllerModels = append(controllerModels, c)
 
@@ -203,20 +233,101 @@ func (hub *Hub) sendInitialEvent(client *Client) {
 		stripModels = append(stripModels, MapStripToFrontendModel(strip))
 	}
 
+	coordRepo := hub.server.GetCoordinationRepository()
+	coordinations, err := coordRepo.ListBySession(context.Background(), client.session)
+	if err != nil {
+		slog.Error("Failed to list coordinations", slog.Any("error", err), slog.Int("session", int(client.session)))
+		return
+	}
+
+	stripCallsignByID := make(map[int32]string)
+	for _, strip := range strips {
+		stripCallsignByID[strip.ID] = strip.Callsign
+	}
+
+	coordinationModels := make([]frontend.SyncCoordination, 0, len(coordinations))
+	for _, coord := range coordinations {
+		callsign, ok := stripCallsignByID[coord.StripID]
+		if !ok {
+			continue
+		}
+		coordinationModels = append(coordinationModels, frontend.SyncCoordination{
+			Callsign: callsign,
+			From:     coord.FromPosition,
+			To:       coord.ToPosition,
+		})
+	}
+
+	departure := dbSession.ActiveRunways.DepartureRunways
+	if departure == nil {
+		departure = make([]string, 0)
+	}
+	arrival := dbSession.ActiveRunways.ArrivalRunways
+	if arrival == nil {
+		arrival = make([]string, 0)
+	}
+
+	// Load tactical strips
+	tacticalStripModels := make([]frontend.TacticalStripPayload, 0)
+	tacticalRepo := hub.server.GetTacticalStripRepository()
+	if tacticalRepo != nil {
+		tacticalStrips, err := tacticalRepo.ListBySession(context.Background(), client.session)
+		if err != nil {
+			slog.Error("Failed to list tactical strips", slog.Any("error", err), slog.Int("session", int(client.session)))
+		} else {
+			for _, ts := range tacticalStrips {
+				tacticalStripModels = append(tacticalStripModels, MapTacticalStripToPayload(ts))
+			}
+		}
+	}
+
+	hub.msgMu.Lock()
+	storedMsgs := make([]frontend.MessageReceivedEvent, len(hub.messages[client.session]))
+	copy(storedMsgs, hub.messages[client.session])
+	hub.msgMu.Unlock()
+
 	event := frontend.InitialEvent{
-		Contsollers: controllerModels,
-		Strips:      stripModels,
-		Me:          me,
-		Callsign:    client.callsign,
-		Airport:     client.airport,
-		Layout:      layout,
+		Contsollers:    controllerModels,
+		Strips:         stripModels,
+		TacticalStrips: tacticalStripModels,
+		Me:             me,
+		Callsign:       client.callsign,
+		Airport:        client.airport,
+		Layout:         layout,
 		RunwaySetup: frontend.RunwayConfiguration{
-			Departure: make([]string, 0),
-			Arrival:   make([]string, 0),
+			Departure: departure,
+			Arrival:   arrival,
 		},
+		Coordinations: coordinationModels,
+		Messages:      storedMsgs,
 	}
 
 	client.send <- event
+}
+
+func MapTacticalStripToPayload(ts *internalModels.TacticalStrip) frontend.TacticalStripPayload {
+	aircraft := ""
+	if ts.Aircraft != nil {
+		aircraft = *ts.Aircraft
+	}
+	confirmedBy := ""
+	if ts.ConfirmedBy != nil {
+		confirmedBy = *ts.ConfirmedBy
+	}
+	return frontend.TacticalStripPayload{
+		ID:          ts.ID,
+		SessionID:   ts.SessionID,
+		Type:        ts.Type,
+		Bay:         ts.Bay,
+		Label:       ts.Label,
+		Aircraft:    aircraft,
+		ProducedBy:  ts.ProducedBy,
+		Sequence:    ts.Sequence,
+		TimerStart:  ts.TimerStart,
+		Confirmed:   ts.Confirmed,
+		ConfirmedBy: confirmedBy,
+		CreatedAt:   ts.CreatedAt,
+	}
 }
 
 func MapStripToFrontendModel(strip *internalModels.Strip) frontend.Strip {
@@ -252,6 +363,8 @@ func MapStripToFrontendModel(strip *internalModels.Strip) frontend.Strip {
 		Tsat:                helpers.ValueOrDefault(strip.Tsat),
 		Ctot:                helpers.ValueOrDefault(strip.Ctot),
 		PdcState:            strip.PdcState,
+		Marked:              strip.Marked,
+		Registration:        helpers.ValueOrDefault(strip.Registration),
 	}
 }
 
@@ -295,22 +408,32 @@ func (hub *Hub) SendStripUpdate(session int32, callsign string) {
 }
 
 func (hub *Hub) SendControllerOnline(session int32, callsign string, position string, identifier string) {
+	section := ""
+	if pos, err := config.GetPositionBasedOnFrequency(position); err == nil {
+		section = pos.Section
+	}
 	event := frontend.ControllerOnlineEvent{
 		Controller: frontend.Controller{
 			Callsign:   callsign,
 			Position:   position,
 			Identifier: identifier,
+			Section:    section,
 		},
 	}
 	hub.Broadcast(session, event)
 }
 
 func (hub *Hub) SendControllerOffline(session int32, callsign string, position string, identifier string) {
+	section := ""
+	if pos, err := config.GetPositionBasedOnFrequency(position); err == nil {
+		section = pos.Section
+	}
 	event := frontend.ControllerOfflineEvent{
 		Controller: frontend.Controller{
 			Callsign:   callsign,
 			Position:   position,
 			Identifier: identifier,
+			Section:    section,
 		},
 	}
 	hub.Broadcast(session, event)
@@ -420,9 +543,10 @@ func (hub *Hub) SendCoordinationFree(session int32, callsign string) {
 	hub.Broadcast(session, event)
 }
 
-func (hub *Hub) SendOwnersUpdate(session int32, callsign string, nextOwners []string, previousOwners []string) {
+func (hub *Hub) SendOwnersUpdate(session int32, callsign, owner string, nextOwners []string, previousOwners []string) {
 	event := frontend.OwnersUpdateEvent{
 		Callsign:       callsign,
+		Owner:          owner,
 		NextOwners:     nextOwners,
 		PreviousOwners: previousOwners,
 	}
@@ -466,6 +590,41 @@ func (hub *Hub) SendPdcStateChange(session int32, callsign, state string) {
 	hub.Broadcast(session, event)
 }
 
+func (hub *Hub) SendRunwayConfiguration(session int32, departure, arrival []string) {
+	event := frontend.RunwayConfigurationEvent{
+		RunwaySetup: frontend.RunwayConfiguration{
+			Departure: departure,
+			Arrival:   arrival,
+		},
+	}
+	hub.Broadcast(session, event)
+}
+
+func (hub *Hub) SendTacticalStripCreated(session int32, strip frontend.TacticalStripPayload) {
+	hub.Broadcast(session, frontend.TacticalStripCreatedEvent{Strip: strip})
+}
+
+func (hub *Hub) SendTacticalStripDeleted(session int32, id int64, bay string) {
+	hub.Broadcast(session, frontend.TacticalStripDeletedEvent{
+		ID:        id,
+		SessionID: session,
+		Bay:       bay,
+	})
+}
+
+func (hub *Hub) SendTacticalStripUpdated(session int32, strip frontend.TacticalStripPayload) {
+	hub.Broadcast(session, frontend.TacticalStripUpdatedEvent{Strip: strip})
+}
+
+func (hub *Hub) SendTacticalStripMoved(session int32, id int64, bay string, sequence int32) {
+	hub.Broadcast(session, frontend.TacticalStripMovedEvent{
+		ID:        id,
+		SessionID: session,
+		Bay:       bay,
+		Sequence:  sequence,
+	})
+}
+
 func (hub *Hub) SendServerMessage(session int32, message string) {
 	event := frontend.BroadcastEvent{
 		Message: message,
@@ -478,6 +637,60 @@ func (hub *Hub) SendToPosition(session int32, position string, message frontend.
 	for client := range hub.clients {
 		if client.session == session && client.position == position {
 			client.send <- message
+		}
+	}
+}
+
+func (hub *Hub) NextMessageID() int64 {
+	return atomic.AddInt64(&hub.msgCounter, 1)
+}
+
+func (hub *Hub) storeMessage(sessionID int32, msg frontend.MessageReceivedEvent) {
+	hub.msgMu.Lock()
+	defer hub.msgMu.Unlock()
+	msgs := hub.messages[sessionID]
+	msgs = append([]frontend.MessageReceivedEvent{msg}, msgs...)
+	if len(msgs) > 100 {
+		msgs = msgs[:100]
+	}
+	hub.messages[sessionID] = msgs
+}
+
+func (hub *Hub) dispatchMessage(session int32, msg frontend.MessageReceivedEvent, senderCID string) {
+	if msg.IsBroadcast {
+		hub.Broadcast(session, msg)
+		return
+	}
+
+	// Resolve area names → positions, find first active position per area
+	areaMap := config.GetMessageAreas()
+	recipientPositions := make(map[string]bool)
+	for _, area := range msg.Recipients {
+		positions, ok := areaMap[area]
+		if !ok {
+			continue
+		}
+		for _, pos := range positions {
+			found := false
+			for client := range hub.clients {
+				if client.session == session && client.position == pos {
+					recipientPositions[pos] = true
+					found = true
+					break
+				}
+			}
+			if found {
+				break
+			}
+		}
+	}
+
+	for client := range hub.clients {
+		if client.session != session {
+			continue
+		}
+		if client.user.GetCid() == senderCID || recipientPositions[client.position] {
+			client.send <- msg
 		}
 	}
 }

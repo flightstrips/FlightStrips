@@ -120,7 +120,7 @@ func (c *Client) SendRawMessage(message interface{}) error {
 // UpdateStrip sends a strip update event
 func (c *Client) UpdateStrip(callsign string, version int32, updates map[string]interface{}) error {
 	event := map[string]interface{}{
-		"type":     "strip_update",
+		"type":     "update_strip_data",
 		"callsign": callsign,
 	}
 

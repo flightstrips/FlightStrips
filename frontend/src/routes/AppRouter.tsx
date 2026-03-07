@@ -1,12 +1,14 @@
 import { useWebSocketStore } from "@/store/store-hooks";
 import EKCHDEL from "@/routes/ekch/CLX";
 import EKCHAAAD from "@/routes/ekch/AAAD";
+import EKCHESET from "@/routes/ekch/ESET";
 import EKCHGEGW from "@/routes/ekch/GEGW";
 import EKCHTWTE from "@/routes/ekch/TWTE";
 
 const LAYOUT_MAP: Record<string, React.ComponentType> = {
   CLX: EKCHDEL,
   AAAD: EKCHAAAD,
+  ESET: EKCHESET,
   GEGW: EKCHGEGW,
   TWTE: EKCHTWTE,
 };

@@ -1,4 +1,4 @@
-import type { PdcStatus } from "@/api/models";
+import type { Bay, PdcStatus } from "@/api/models";
 
 export type StripStatus = "CLR" | "CLROK" | "HALF" | "PUSH" | "ARR" | "CLX-HALF" | "TAXI-DEP" | "TWY-DEP";
 
@@ -14,6 +14,7 @@ export type HalfStripVariant =
 
 export interface StripProps {
   halfStripVariant?: HalfStripVariant;
+  bay?: Bay;
   callsign: string;
   pdcStatus?: PdcStatus;
   destination?: string;

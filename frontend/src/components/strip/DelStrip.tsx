@@ -7,6 +7,9 @@ import {
   getCellBorderColor,
   SELECTION_COLOR,
 } from "./shared";
+import { useWebSocketStore } from "@/store/store-hooks";
+import { useCDMColors } from "@/hooks/useCDMColors";
+import { Bay } from "@/api/models";
 
 const FONT = "'Arial', sans-serif";
 const FULL_H  = "4.44vh";
@@ -21,6 +24,7 @@ const HALF_H  = "2.22vh";
  */
 export function DelStrip({
   callsign,
+  bay,
   pdcStatus,
   destination,
   stand,
@@ -35,6 +39,8 @@ export function DelStrip({
   const { isSelected, handleClick } = useStripSelection(callsign, selectable);
   const isNavyBg = pdcStatus === "CLEARED";
   const cellBorderColor = isNavyBg ? "#FFFFFF" : getCellBorderColor(marked);
+  const cdmReady = useWebSocketStore(s => s.cdmReady);
+  const { tobtBg, tsatBg } = useCDMColors({ bay: bay ?? Bay.Unknown, tsat: tsat ?? "", tobt: tobt ?? "" });
 
   return (
     <div
@@ -93,11 +99,13 @@ export function DelStrip({
 
           {/* TOBT / TSAT — right half, stacked with line between */}
           <div className="flex flex-col" style={{ flex: "1 0 0%", height: "100%" }}>
-            <div className="flex items-center justify-between px-1 border-b-2 overflow-hidden" style={{ height: HALF_H, fontFamily: FONT, fontSize: 14, borderBottomColor: cellBorderColor }}>
+            <div className="flex items-center justify-between px-1 border-b-2 overflow-hidden" style={{ height: HALF_H, fontFamily: FONT, fontSize: 14, borderBottomColor: cellBorderColor, backgroundColor: tobtBg }}>
               <span className={`${isNavyBg ? "text-white" : "text-black"} shrink-0`}>TOBT</span>
               <span>{tobt}</span>
             </div>
-            <div className="flex items-center justify-between px-1 overflow-hidden" style={{ height: HALF_H, fontFamily: FONT, fontSize: 14 }}>
+            <div className="flex items-center justify-between px-1 overflow-hidden" style={{ height: HALF_H, fontFamily: FONT, fontSize: 14, backgroundColor: tsatBg, cursor: "pointer" }}
+              onClick={(e) => { e.stopPropagation(); cdmReady(callsign); }}
+            >
               <span className={`${isNavyBg ? "text-white" : "text-black"} shrink-0`}>TSAT</span>
               <span>{tsat}</span>
             </div>

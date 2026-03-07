@@ -1,5 +1,5 @@
 import type { AnyStrip, PdcStatus } from "@/api/models";
-import { isFlight } from "@/api/models";
+import { Bay, isFlight } from "@/api/models";
 import { ApnArrStrip } from "./ApnArrStrip";
 import { ApnPushStrip } from "./ApnPushStrip";
 import { ApnTaxiDepStrip } from "./ApnTaxiDepStrip";
@@ -44,6 +44,7 @@ export function Strip({ strip, status, halfStripVariant, myPosition, selectable,
 
   const props: StripProps = {
     callsign: strip.callsign,
+    bay: strip.bay as Bay,
     pdcStatus: strip.pdc_state ?? ("NONE" as PdcStatus),
     destination: strip.destination,
     origin: strip.origin,

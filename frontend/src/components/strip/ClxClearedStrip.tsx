@@ -9,7 +9,10 @@ import {
   SELECTION_COLOR,
 } from "./shared";
 import { SIBox } from "./SIBox";
-import { useStripTransfers } from "@/store/store-hooks";
+import { useStripTransfers, useWebSocketStore } from "@/store/store-hooks";
+import { useCDMColors } from "@/hooks/useCDMColors";
+import { useCTOTColor } from "@/hooks/useCTOTColor";
+import { Bay } from "@/api/models";
 
 const ARIAL = "'Arial', sans-serif";
 const FULL_H  = "4.44vh";
@@ -30,6 +33,7 @@ export const CLX_CLEARED_STRIP_WIDTH = "88.44%";
  */
 export function ClxClearedStrip({
   callsign,
+  bay,
   pdcStatus,
   destination,
   stand,
@@ -50,6 +54,9 @@ export function ClxClearedStrip({
   const isNavyBg = pdcStatus === "CLEARED";
   const cellBorderColor = isNavyBg ? "#FFFFFF" : getCellBorderColor(marked);
   const stripTransfers = useStripTransfers();
+  const cdmReady = useWebSocketStore(s => s.cdmReady);
+  const { tobtBg, tsatBg } = useCDMColors({ bay: bay ?? Bay.Unknown, tsat: tsat ?? "", tobt: tobt ?? "" });
+  const { ctotBg, ctotColor, showCtot } = useCTOTColor(ctot ?? "");
 
   const [blinkOn, setBlinkOn] = useState(false);
   const prevPdcStatus = useRef(pdcStatus);
@@ -126,19 +133,21 @@ export function ClxClearedStrip({
               <span className={`${isNavyBg ? "text-white" : "text-black"} shrink-0`}>EOBT</span>
               <span>{eobt}</span>
             </div>
-            <div className="flex items-center justify-between px-1 overflow-hidden" style={{ height: HALF_H, fontFamily: ARIAL, fontSize: 14 }}>
-              <span className={`${isNavyBg ? "text-white" : "text-black"} shrink-0`}>CTOT</span>
-              <span>{ctot}</span>
+            <div className="flex items-center justify-between px-1 overflow-hidden" style={{ height: HALF_H, fontFamily: ARIAL, fontSize: 14, backgroundColor: ctotBg, color: ctotColor }}>
+              <span className="shrink-0">{showCtot ? "CTOT" : ""}</span>
+              <span>{showCtot ? ctot : ""}</span>
             </div>
           </div>
 
           {/* TOBT / TSAT — right half, stacked with line between */}
           <div className="flex flex-col" style={{ flex: "1 0 0%", height: "100%" }}>
-            <div className="flex items-center justify-between px-1 border-b-2 overflow-hidden" style={{ height: HALF_H, fontFamily: ARIAL, fontSize: 14, borderBottomColor: cellBorderColor }}>
+            <div className="flex items-center justify-between px-1 border-b-2 overflow-hidden" style={{ height: HALF_H, fontFamily: ARIAL, fontSize: 14, borderBottomColor: cellBorderColor, backgroundColor: tobtBg }}>
               <span className={`${isNavyBg ? "text-white" : "text-black"} shrink-0`}>TOBT</span>
               <span>{tobt}</span>
             </div>
-            <div className="flex items-center justify-between px-1 overflow-hidden" style={{ height: HALF_H, fontFamily: ARIAL, fontSize: 14 }}>
+            <div className="flex items-center justify-between px-1 overflow-hidden" style={{ height: HALF_H, fontFamily: ARIAL, fontSize: 14, backgroundColor: tsatBg, cursor: "pointer" }}
+              onClick={(e) => { e.stopPropagation(); cdmReady(callsign); }}
+            >
               <span className={`${isNavyBg ? "text-white" : "text-black"} shrink-0`}>TSAT</span>
               <span>{tsat}</span>
             </div>

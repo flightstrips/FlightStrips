@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.1.0...frontend/v0.2.0) (2026-03-07)
+
+
+### Features
+
+* Add CDM colors ([096b2ac](https://github.com/flightstrips/FlightStrips/commit/096b2acabe1caee1b6c8f1176754d5552499d4bc))
+
 ## 0.1.0 (2026-03-07)
 
 

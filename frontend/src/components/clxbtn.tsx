@@ -187,12 +187,24 @@ export function CLXBtn({ callsign, children }: { callsign: string, children?: Re
           <a onClick={() => setOpen(false)} style={{ width: 125, height: 70, backgroundColor: '#3F3F3F', color: '#FFFFFF', fontFamily: FONT_FAMILY, fontWeight: 'bold', fontSize: FONT_SIZE_BUTTON, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>ESC</a>
           <div className="flex flex-row items-center gap-2">
             {strip.pdc_state === "REQUESTED" && (
-              <button onClick={() => clearPdc(strip.callsign, null)} style={{ fontFamily: FONT_FAMILY, fontWeight: 'bold', fontSize: FONT_SIZE_BUTTON, backgroundColor: '#3F3F3F', color: '#FFFFFF', padding: '4px 12px' }}>ISSUE PDC</button>
+              <button
+                onClick={() => { revertToVoice(strip.callsign); setOpen(false); }}
+                style={{ fontFamily: FONT_FAMILY, fontWeight: 'bold', fontSize: FONT_SIZE_BUTTON, backgroundColor: '#FFFB03', color: '#000000', padding: '4px 12px', whiteSpace: 'nowrap' }}
+              >
+                REVERT TO VOICE
+              </button>
             )}
-            {strip.pdc_state === "CONFIRMED" && (
-              <button onClick={() => revertToVoice(strip.callsign)} style={{ fontFamily: FONT_FAMILY, fontWeight: 'bold', fontSize: FONT_SIZE_BUTTON, backgroundColor: '#FFFB03', color: '#000000', padding: '4px 12px', whiteSpace: 'nowrap' }}>REVERT TO VOICE</button>
-            )}
-            <button onClick={() => strip?.pdc_state === "REQUESTED" ? clearPdc(strip.callsign, null) : moveAction(strip.callsign, Bay.Cleared)} style={{ width: 125, height: 70, backgroundColor: '#3F3F3F', color: '#FFFFFF', fontFamily: FONT_FAMILY, fontWeight: 'bold', fontSize: FONT_SIZE_BUTTON, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>CLD</button>
+            <button
+              onClick={() => {
+                strip?.pdc_state === "REQUESTED"
+                  ? clearPdc(strip.callsign, null)
+                  : moveAction(strip.callsign, Bay.Cleared);
+                setOpen(false);
+              }}
+              style={{ width: 125, height: 70, backgroundColor: '#3F3F3F', color: '#FFFFFF', fontFamily: FONT_FAMILY, fontWeight: 'bold', fontSize: FONT_SIZE_BUTTON, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            >
+              CLD
+            </button>
           </div>
         </div>
       </DialogContent>

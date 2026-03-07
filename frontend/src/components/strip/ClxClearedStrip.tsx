@@ -1,3 +1,4 @@
+import { useState, useEffect, useRef } from "react";
 import { CLXBtn } from "@/components/clxbtn";
 import { getStripBg } from "./types";
 import type { StripProps } from "./types";
@@ -46,8 +47,22 @@ export function ClxClearedStrip({
   fullWidth = false,
 }: StripProps) {
   const { isSelected, handleClick } = useStripSelection(callsign, selectable);
-  const cellBorderColor = getCellBorderColor(marked);
+  const isNavyBg = pdcStatus === "CLEARED";
+  const cellBorderColor = isNavyBg ? "#FFFFFF" : getCellBorderColor(marked);
   const stripTransfers = useStripTransfers();
+
+  const [blinkOn, setBlinkOn] = useState(false);
+  const prevPdcStatus = useRef(pdcStatus);
+
+  useEffect(() => {
+    if (pdcStatus === "CLEARED" && prevPdcStatus.current !== "CLEARED") {
+      setBlinkOn(true);
+      const timer = setTimeout(() => setBlinkOn(false), 5000);
+      prevPdcStatus.current = pdcStatus;
+      return () => clearTimeout(timer);
+    }
+    prevPdcStatus.current = pdcStatus;
+  }, [pdcStatus]);
 
   return (
     <div
@@ -60,8 +75,8 @@ export function ClxClearedStrip({
       onClick={handleClick}
     >
       <div
-        className="flex text-black"
-        style={{ height: "100%", overflow: "hidden", backgroundColor: getStripBg(pdcStatus, arrival) }}
+        className={`flex ${isNavyBg ? "text-white" : "text-black"}${blinkOn ? " pdc-cleared-blink" : ""}`}
+        style={{ height: "100%", overflow: "hidden", ...(blinkOn ? {} : { backgroundColor: getStripBg(pdcStatus, arrival) }) }}
       >
         {/* SI / ownership — 8.44% */}
         <SIBox
@@ -108,11 +123,11 @@ export function ClxClearedStrip({
           {/* EOBT / CTOT — left half, stacked */}
           <div className="flex flex-col overflow-hidden border-r-2" style={{ flex: "1 0 0%", height: "100%", minWidth: 0, borderRightColor: cellBorderColor }}>
             <div className="flex items-center justify-between px-1 overflow-hidden" style={{ height: HALF_H, fontFamily: ARIAL, fontSize: 14 }}>
-              <span className="text-black shrink-0">EOBT</span>
+              <span className={`${isNavyBg ? "text-white" : "text-black"} shrink-0`}>EOBT</span>
               <span>{eobt}</span>
             </div>
             <div className="flex items-center justify-between px-1 overflow-hidden" style={{ height: HALF_H, fontFamily: ARIAL, fontSize: 14 }}>
-              <span className="text-black shrink-0">CTOT</span>
+              <span className={`${isNavyBg ? "text-white" : "text-black"} shrink-0`}>CTOT</span>
               <span>{ctot}</span>
             </div>
           </div>
@@ -120,11 +135,11 @@ export function ClxClearedStrip({
           {/* TOBT / TSAT — right half, stacked with line between */}
           <div className="flex flex-col" style={{ flex: "1 0 0%", height: "100%" }}>
             <div className="flex items-center justify-between px-1 border-b-2 overflow-hidden" style={{ height: HALF_H, fontFamily: ARIAL, fontSize: 14, borderBottomColor: cellBorderColor }}>
-              <span className="text-black shrink-0">TOBT</span>
+              <span className={`${isNavyBg ? "text-white" : "text-black"} shrink-0`}>TOBT</span>
               <span>{tobt}</span>
             </div>
             <div className="flex items-center justify-between px-1 overflow-hidden" style={{ height: HALF_H, fontFamily: ARIAL, fontSize: 14 }}>
-              <span className="text-black shrink-0">TSAT</span>
+              <span className={`${isNavyBg ? "text-white" : "text-black"} shrink-0`}>TSAT</span>
               <span>{tsat}</span>
             </div>
           </div>

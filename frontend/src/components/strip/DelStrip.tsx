@@ -33,7 +33,8 @@ export function DelStrip({
   fullWidth = false,
 }: StripProps) {
   const { isSelected, handleClick } = useStripSelection(callsign, selectable);
-  const cellBorderColor = getCellBorderColor(marked);
+  const isNavyBg = pdcStatus === "CLEARED";
+  const cellBorderColor = isNavyBg ? "#FFFFFF" : getCellBorderColor(marked);
 
   return (
     <div
@@ -47,7 +48,7 @@ export function DelStrip({
       onClick={handleClick}
     >
       <div
-        className="flex text-black"
+        className={`flex ${isNavyBg ? "text-white" : "text-black"}`}
         style={{ height: "100%", overflow: "hidden", backgroundColor: getStripBg(pdcStatus, arrival) }}
       >
         {/* ── Left 50% ── */}
@@ -85,7 +86,7 @@ export function DelStrip({
           {/* EOBT — left half */}
           <div className="flex flex-col justify-start overflow-hidden border-r-2" style={{ flex: "1 0 0%", height: "100%", minWidth: 0, borderRightColor: cellBorderColor }}>
             <div className="flex items-center justify-between px-1 overflow-hidden" style={{ height: HALF_H, fontFamily: FONT, fontSize: 14 }}>
-              <span className="text-black shrink-0">EOBT</span>
+              <span className={`${isNavyBg ? "text-white" : "text-black"} shrink-0`}>EOBT</span>
               <span>{eobt}</span>
             </div>
           </div>
@@ -93,11 +94,11 @@ export function DelStrip({
           {/* TOBT / TSAT — right half, stacked with line between */}
           <div className="flex flex-col" style={{ flex: "1 0 0%", height: "100%" }}>
             <div className="flex items-center justify-between px-1 border-b-2 overflow-hidden" style={{ height: HALF_H, fontFamily: FONT, fontSize: 14, borderBottomColor: cellBorderColor }}>
-              <span className="text-black shrink-0">TOBT</span>
+              <span className={`${isNavyBg ? "text-white" : "text-black"} shrink-0`}>TOBT</span>
               <span>{tobt}</span>
             </div>
             <div className="flex items-center justify-between px-1 overflow-hidden" style={{ height: HALF_H, fontFamily: FONT, fontSize: 14 }}>
-              <span className="text-black shrink-0">TSAT</span>
+              <span className={`${isNavyBg ? "text-white" : "text-black"} shrink-0`}>TSAT</span>
               <span>{tsat}</span>
             </div>
           </div>

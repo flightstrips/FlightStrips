@@ -47,6 +47,7 @@ export interface StripProps {
 }
 
 export function getStripBg(pdcStatus?: PdcStatus, isArrival?: boolean): string {
-  if (pdcStatus === "REQUESTED" || pdcStatus === "CLEARED") return "#393455";
+  if (pdcStatus === "REQUESTED") return "#B8860B";
+  if (pdcStatus === "CLEARED")   return "#00154A";
   return isArrival ? "#fff28e" : "#bef5ef";
 }

@@ -10,6 +10,7 @@ import { SIBox } from "./SIBox";
 import { getSimpleAircraftType } from "@/lib/utils";
 import { useStripTransfers } from "@/store/store-hooks";
 import { ApronTaxiMapDialog } from "@/components/map-dialogs/ApronTaxiMapDialog";
+import { useCTOTColor } from "@/hooks/useCTOTColor";
 
 const FONT = "'Arial', sans-serif";
 const TOP_H  = "2.96vh";  // 2/3 of 4.44vh
@@ -40,6 +41,7 @@ export function ApnTaxiDepStrip({
   stand,
   holdingPoint,
   runway,
+  ctot,
   owner,
   nextControllers,
   previousControllers,
@@ -51,6 +53,7 @@ export function ApnTaxiDepStrip({
   const cellBorderColor = getCellBorderColor(marked);
   const stripTransfers = useStripTransfers();
   const [showTaxiMap, setShowTaxiMap] = useState(false);
+  const { ctotBg, ctotColor, showCtot } = useCTOTColor(ctot ?? "");
 
   return (
     <div
@@ -124,8 +127,8 @@ export function ApnTaxiDepStrip({
 
         {/* Runway — 25%*(2/3) */}
         <div
-          className="flex flex-col overflow-hidden"
-          style={{ flex: `${F_RWY} 0 0%`, height: "100%", minWidth: 0 }}
+          className="flex flex-col overflow-hidden border-r-2"
+          style={{ flex: `${F_RWY} 0 0%`, height: "100%", minWidth: 0, borderRightColor: cellBorderColor }}
         >
           <div className="flex" style={{ height: HALF_H }}>
             <div className="flex items-center justify-center" style={{ flex: "2 0 0%", height: "100%" }}>
@@ -134,6 +137,19 @@ export function ApnTaxiDepStrip({
             <div style={{ flexShrink: 0, width: HALF_H, height: "100%", borderLeft: `1px solid ${cellBorderColor}`, borderBottom: `1px solid ${cellBorderColor}` }} />
           </div>
           <div style={{ height: HALF_H }} />
+        </div>
+
+        {/* CTOT — 25%*(2/3) */}
+        <div
+          className="flex flex-col overflow-hidden"
+          style={{ flex: `${F_RWY} 0 0%`, height: "100%", minWidth: 0, backgroundColor: ctotBg, color: ctotColor }}
+        >
+          <div className="flex items-center justify-between px-1 overflow-hidden" style={{ height: HALF_H, fontFamily: FONT, fontSize: 11 }}>
+            <span style={{ opacity: 0.6 }}>{showCtot ? "CTOT" : ""}</span>
+          </div>
+          <div className="flex items-center justify-center overflow-hidden" style={{ height: HALF_H, fontFamily: FONT, fontWeight: "bold", fontSize: 14 }}>
+            <span>{showCtot ? ctot : ""}</span>
+          </div>
         </div>
 
       </div>

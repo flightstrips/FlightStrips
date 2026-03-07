@@ -83,6 +83,7 @@ export interface WebSocketState {
   freeStrip: (callsign: string) => void;
   cancelTransfer: (callsign: string) => void;
   toggleMarked: (callsign: string, marked: boolean) => void;
+  cdmReady: (callsign: string) => void;
 
   // tactical strip actions
   createTacticalStrip: (stripType: TacticalStripType, bay: string, label: string, aircraft: string) => void;
@@ -276,6 +277,9 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     },
     cancelTransfer: (callsign) => {
       wsClient.send({ type: ActionType.FrontendCoordinationCancelTransferRequest, callsign });
+    },
+    cdmReady: (callsign) => {
+      wsClient.send({ type: ActionType.FrontendCdmReady, callsign });
     },
     toggleMarked: (callsign, marked) => {
       wsClient.send({ type: ActionType.FrontendMarked, callsign, marked });

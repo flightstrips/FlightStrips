@@ -187,5 +187,19 @@ export const useHiddenStrips = (): AnyStrip[] => {
   );
 };
 
+export const useInboundStrips = (): FrontendStrip[] => {
+  const strips = useWebSocketStore(state => state.strips);
+  const airport = useAirport();
+  return useMemo(
+    () => strips.filter(x =>
+      x.destination === airport &&
+      x.bay !== Bay.Final &&
+      x.bay !== Bay.Stand &&
+      x.bay !== Bay.Hidden
+    ),
+    [strips, airport]
+  );
+};
+
 export { useActiveMessages };
 

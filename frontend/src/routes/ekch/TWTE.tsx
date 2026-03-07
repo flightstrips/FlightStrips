@@ -14,6 +14,7 @@ import {
   useNonClearedStrips,
   useClearedStrips,
   isFlight,
+  useInboundStrips,
 } from "@/store/airports/ekch.ts";
 import type { AnyStrip, StripRef, FrontendStrip } from "@/api/models.ts";
 import { Bay } from "@/api/models.ts";
@@ -39,6 +40,7 @@ export default function TWTE() {
   const messages   = useMessages();
   const [composeOpen, setComposeOpen] = useState(false);
   const [startupOpen, setStartupOpen] = useState(false);
+  const [arrOpen, setArrOpen] = useState(false);
   const lowerPositionOnline = useLowerPositionOnline();
   const airport = useAirport();
 
@@ -73,6 +75,7 @@ export default function TWTE() {
   const deIceStrips  = useDeIceStrips();
   const nonClearedStrips = useNonClearedStrips();
   const clearedStrips    = useClearedStrips();
+  const inboundStrips    = useInboundStrips();
 
   const updateOrder       = useWebSocketStore(state => state.updateOrder);
   const move              = useWebSocketStore(state => state.move);
@@ -83,6 +86,12 @@ export default function TWTE() {
     { key: "EOBT",     label: "EOBT",     compareFn: (a, b) => a.eobt.localeCompare(b.eobt) },
     { key: "CALLSIGN", label: "CALLSIGN", compareFn: (a, b) => a.callsign.localeCompare(b.callsign) },
     { key: "ADES",     label: "ADES",     compareFn: (a, b) => a.destination.localeCompare(b.destination) },
+  ];
+
+  const arrSortModes: SortMode<FrontendStrip>[] = [
+    { key: "ETA",      label: "ETA",      compareFn: (a, b) => a.eldt.localeCompare(b.eldt) },
+    { key: "CALLSIGN", label: "CALLSIGN", compareFn: (a, b) => a.callsign.localeCompare(b.callsign) },
+    { key: "ADEP",     label: "ADEP",     compareFn: (a, b) => a.origin.localeCompare(b.origin) },
   ];
 
   const ALL_ACTIVE = ["FINAL", "RWY-ARR", "TWY-ARR", "TWY-DEP", "RWY-DEP", "AIRBORNE", "STAND", "PUSHBACK", "DE-ICE"] as const;
@@ -154,7 +163,7 @@ export default function TWTE() {
         <div className="bg-[#393939] h-10 flex items-center px-2 shrink-0 justify-between">
           <span className="text-white font-bold text-lg">FINAL</span>
           <span className="flex gap-1">
-            <button className={btn}>ARR</button>
+            <button className={btn} onClick={() => setArrOpen(true)}>ARR</button>
           </span>
         </div>
         <SortableBay
@@ -277,6 +286,20 @@ export default function TWTE() {
               setStartupOpen(false);
             }}
             onDismiss={() => setStartupOpen(false)}
+            myPosition={myPosition}
+          />
+        )}
+        {arrOpen && (
+          <StripListPopup
+            title="ARR"
+            strips={inboundStrips}
+            sortModes={arrSortModes}
+            onRowClick={(strip) => {
+              move(strip.callsign, Bay.Final);
+              assumeStrip(strip.callsign);
+              setArrOpen(false);
+            }}
+            onDismiss={() => setArrOpen(false)}
             myPosition={myPosition}
           />
         )}

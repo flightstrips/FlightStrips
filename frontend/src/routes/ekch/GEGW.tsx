@@ -4,6 +4,7 @@ import { MessageStrip } from "@/components/strip/MessageStrip.tsx";
 import { MessageComposeDialog } from "@/components/MessageComposeDialog.tsx";
 import {
   useFinalStrips,
+  useInboundStrips,
   usePushbackStrips,
   useRwyArrStrips,
   useStandStrips,
@@ -11,11 +12,12 @@ import {
   useTaxiDepStrips,
   isFlight,
 } from "@/store/airports/ekch.ts";
-import type { AnyStrip, StripRef } from "@/api/models.ts";
+import type { AnyStrip, FrontendStrip, StripRef } from "@/api/models.ts";
 import { Bay } from "@/api/models.ts";
 import { SortableBay, DropIndicatorBay } from "@/components/bays/SortableBay.tsx";
 import { ViewDndContext } from "@/components/bays/ViewDndContext.tsx";
 import { useWebSocketStore, useMyPosition, useMessages } from "@/store/store-hooks.ts";
+import { StripListPopup, type SortMode } from "@/components/StripListPopup.tsx";
 import { useState } from "react";
 import { CLX_CLEARED_STRIP_WIDTH } from "@/components/strip/ClxClearedStrip.tsx";
 
@@ -24,6 +26,7 @@ export default function GEGW() {
   const myPosition = useMyPosition();
   const messages   = useMessages();
   const [composeOpen, setComposeOpen] = useState(false);
+  const [arrOpen, setArrOpen] = useState(false);
 
   const finalStrips  = useFinalStrips();
   const rwyArrStrips = useRwyArrStrips();
@@ -32,9 +35,18 @@ export default function GEGW() {
   const twyDepMerged = useTaxiDepStrips();
   const standStrips  = useStandStrips();
 
+  const inboundStrips = useInboundStrips();
+
   const updateOrder       = useWebSocketStore(state => state.updateOrder);
   const move              = useWebSocketStore(state => state.move);
   const moveTacticalStrip = useWebSocketStore(state => state.moveTacticalStrip);
+  const assumeStrip       = useWebSocketStore(state => state.assumeStrip);
+
+  const arrSortModes: SortMode<FrontendStrip>[] = [
+    { key: "ETA",      label: "ETA",      compareFn: (a, b) => a.eldt.localeCompare(b.eldt) },
+    { key: "CALLSIGN", label: "CALLSIGN", compareFn: (a, b) => a.callsign.localeCompare(b.callsign) },
+    { key: "ADEP",     label: "ADEP",     compareFn: (a, b) => a.origin.localeCompare(b.origin) },
+  ];
 
   const bayStripMap = {
     "PUSHBACK":    { strips: pushStrips,   targetBay: Bay.Push },
@@ -82,8 +94,9 @@ export default function GEGW() {
         </div>
         <MessageComposeDialog open={composeOpen} onClose={() => setComposeOpen(false)} />
 
-        <div className="bg-[#393939] h-10 flex items-center px-2 shrink-0">
+        <div className="bg-[#393939] h-10 flex items-center px-2 shrink-0 justify-between">
           <span className="text-white font-bold text-lg">FINAL</span>
+          <button className="bg-[#646464] text-white font-bold text-sm px-3 border-2 border-white active:bg-[#424242]" onClick={() => setArrOpen(true)}>ARR</button>
         </div>
         <DropIndicatorBay bayId="FINAL" className="h-[25%] w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary">
           {finalStrips.filter(isFlight).map(s => (
@@ -115,6 +128,21 @@ export default function GEGW() {
             <Strip key={s.callsign} strip={s} status="HALF" halfStripVariant="APN-ARR" myPosition={myPosition} />
           ))}
         </DropIndicatorBay>
+
+        {arrOpen && (
+          <StripListPopup
+            title="ARR"
+            strips={inboundStrips}
+            sortModes={arrSortModes}
+            onRowClick={(strip) => {
+              move(strip.callsign, Bay.Final);
+              assumeStrip(strip.callsign);
+              setArrOpen(false);
+            }}
+            onDismiss={() => setArrOpen(false)}
+            myPosition={myPosition}
+          />
+        )}
       </div>
 
       {/* Column 2 (28%) – PUSHBACK + TWY DEP UPR + TWY DEP LWR (all draggable) */}

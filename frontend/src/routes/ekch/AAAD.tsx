@@ -2,11 +2,12 @@ import { Strip } from "@/components/strip/Strip.tsx";
 import { MemAidButton } from "@/components/strip/TacticalButtons.tsx";
 import { MessageStrip } from "@/components/strip/MessageStrip.tsx";
 import { MessageComposeDialog } from "@/components/MessageComposeDialog.tsx";
-import { useMyPosition, useMessages } from "@/store/store-hooks.ts";
+import { useMyPosition, useMessages, useWebSocketStore } from "@/store/store-hooks.ts";
 import {
   useClearedStrips,
   useDeIceStrips,
   useFinalStrips,
+  useInboundStrips,
   useNorwegianBayStrips,
   useOtherBayStrips,
   usePushbackStrips,
@@ -17,12 +18,12 @@ import {
   useTaxiDepStrips,
   isFlight,
 } from "@/store/airports/ekch.ts";
-import type { AnyStrip, StripRef } from "@/api/models.ts";
+import type { AnyStrip, FrontendStrip, StripRef } from "@/api/models.ts";
 import { Bay } from "@/api/models.ts";
 import type { StripStatus } from "@/components/strip/types.ts";
 import { SortableBay, DropIndicatorBay } from "@/components/bays/SortableBay.tsx";
 import { ViewDndContext } from "@/components/bays/ViewDndContext.tsx";
-import { useWebSocketStore } from "@/store/store-hooks.ts";
+import { StripListPopup, type SortMode } from "@/components/StripListPopup.tsx";
 import { useState } from "react";
 import { APN_TAXI_DEP_STRIP_WIDTH } from "@/components/strip/ApnTaxiDepStrip.tsx";
 
@@ -40,6 +41,7 @@ export default function AAAD() {
   const myPosition  = useMyPosition();
   const messages    = useMessages();
   const [composeOpen, setComposeOpen] = useState(false);
+  const [arrOpen, setArrOpen] = useState(false);
 
   const finalStrips   = useFinalStrips().filter(isFlight);
   const rwyArrStrips  = useRwyArrStrips().filter(isFlight);
@@ -53,9 +55,18 @@ export default function AAAD() {
   const sasStrips     = useSasBayStrips().sort((a, b) => a.sequence - b.sequence);
   const norStrips     = useNorwegianBayStrips().sort((a, b) => a.sequence - b.sequence);
 
+  const inboundStrips = useInboundStrips();
+
   const updateOrder       = useWebSocketStore(state => state.updateOrder);
   const move              = useWebSocketStore(state => state.move);
   const moveTacticalStrip = useWebSocketStore(state => state.moveTacticalStrip);
+  const assumeStrip       = useWebSocketStore(state => state.assumeStrip);
+
+  const arrSortModes: SortMode<FrontendStrip>[] = [
+    { key: "ETA",      label: "ETA",      compareFn: (a, b) => a.eldt.localeCompare(b.eldt) },
+    { key: "CALLSIGN", label: "CALLSIGN", compareFn: (a, b) => a.callsign.localeCompare(b.callsign) },
+    { key: "ADEP",     label: "ADEP",     compareFn: (a, b) => a.origin.localeCompare(b.origin) },
+  ];
 
   const bayStripMap = {
     "TWY-DEP":  { strips: twyDepMerged,  targetBay: Bay.Taxi },
@@ -115,8 +126,9 @@ export default function AAAD() {
         </div>
         <MessageComposeDialog open={composeOpen} onClose={() => setComposeOpen(false)} />
 
-        <div className={lockedHeader}>
+        <div className={lockedHeader + " justify-between"}>
           <span className={lockedLabel}>FINAL</span>
+          <button className={btn} onClick={() => setArrOpen(true)}>ARR</button>
         </div>
         <DropIndicatorBay bayId="FINAL" className={`h-[25%] ${scrollArea}`}>
           {finalStrips.map(s => (
@@ -142,6 +154,20 @@ export default function AAAD() {
           ))}
         </DropIndicatorBay>
 
+        {arrOpen && (
+          <StripListPopup
+            title="ARR"
+            strips={inboundStrips}
+            sortModes={arrSortModes}
+            onRowClick={(strip) => {
+              move(strip.callsign, Bay.Final);
+              assumeStrip(strip.callsign);
+              setArrOpen(false);
+            }}
+            onDismiss={() => setArrOpen(false)}
+            myPosition={myPosition}
+          />
+        )}
       </div>
 
       {/* ── Col 2: TWY DEP (UPR+LWR) / TWY ARR ── */}

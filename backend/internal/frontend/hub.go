@@ -365,6 +365,7 @@ func MapStripToFrontendModel(strip *internalModels.Strip) frontend.Strip {
 		PdcState:            strip.PdcState,
 		Marked:              strip.Marked,
 		Registration:        helpers.ValueOrDefault(strip.Registration),
+		TrackingController:  strip.TrackingController,
 	}
 }
 

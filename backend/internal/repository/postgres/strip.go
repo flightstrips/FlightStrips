@@ -69,6 +69,7 @@ func stripToModel(db database.Strip) *models.Strip {
 		PdcMessageSent:     PgTimestampToTime(db.PdcMessageSent),
 		Marked:             db.Marked,
 		Registration:       db.Registration,
+		TrackingController: db.TrackingController,
 	}
 }
 
@@ -94,17 +95,18 @@ func (r *stripRepository) Create(ctx context.Context, strip *models.Strip) error
 		CommunicationType: strip.CommunicationType,
 		AircraftCategory:  strip.AircraftCategory,
 		Stand:             strip.Stand,
-		Sequence:          strip.Sequence,
-		State:             strip.State,
-		Cleared:           strip.Cleared,
-		Owner:             strip.Owner,
-		Bay:               strip.Bay,
-		PositionLatitude:  strip.PositionLatitude,
-		PositionLongitude: strip.PositionLongitude,
-		PositionAltitude:  strip.PositionAltitude,
-		Tobt:              strip.Tobt,
-		Eobt:              strip.Eobt,
-		Registration:      strip.Registration,
+		Sequence:           strip.Sequence,
+		State:              strip.State,
+		Cleared:            strip.Cleared,
+		Owner:              strip.Owner,
+		Bay:                strip.Bay,
+		PositionLatitude:   strip.PositionLatitude,
+		PositionLongitude:  strip.PositionLongitude,
+		PositionAltitude:   strip.PositionAltitude,
+		Tobt:               strip.Tobt,
+		Eobt:               strip.Eobt,
+		Registration:       strip.Registration,
+		TrackingController: strip.TrackingController,
 	})
 }
 
@@ -156,17 +158,18 @@ func (r *stripRepository) Update(ctx context.Context, strip *models.Strip) (int6
 		CommunicationType: strip.CommunicationType,
 		AircraftCategory:  strip.AircraftCategory,
 		Stand:             strip.Stand,
-		Sequence:          strip.Sequence,
-		State:             strip.State,
-		Cleared:           strip.Cleared,
-		Owner:             strip.Owner,
-		Bay:               strip.Bay,
-		PositionLatitude:  strip.PositionLatitude,
-		PositionLongitude: strip.PositionLongitude,
-		PositionAltitude:  strip.PositionAltitude,
-		Tobt:              strip.Tobt,
-		Eobt:              strip.Eobt,
-		Registration:      strip.Registration,
+		Sequence:           strip.Sequence,
+		State:              strip.State,
+		Cleared:            strip.Cleared,
+		Owner:              strip.Owner,
+		Bay:                strip.Bay,
+		PositionLatitude:   strip.PositionLatitude,
+		PositionLongitude:  strip.PositionLongitude,
+		PositionAltitude:   strip.PositionAltitude,
+		Tobt:               strip.Tobt,
+		Eobt:               strip.Eobt,
+		Registration:       strip.Registration,
+		TrackingController: strip.TrackingController,
 	})
 }
 
@@ -379,6 +382,16 @@ func (r *stripRepository) UpdateAircraftPosition(ctx context.Context, session in
 	})
 }
 
+// UpdateBay updates the bay of a strip
+func (r *stripRepository) UpdateBay(ctx context.Context, session int32, callsign string, bay string, version *int32) (int64, error) {
+	return r.queries.UpdateStripBayByID(ctx, database.UpdateStripBayByIDParams{
+		Bay:      bay,
+		Callsign: callsign,
+		Session:  session,
+		Version:  version,
+	})
+}
+
 // UpdateHeading updates the heading of a strip
 func (r *stripRepository) UpdateHeading(ctx context.Context, session int32, callsign string, heading *int32, version *int32) (int64, error) {
 	return r.queries.UpdateStripHeadingByID(ctx, database.UpdateStripHeadingByIDParams{
@@ -567,4 +580,13 @@ func (r *stripRepository) UpdateRegistration(ctx context.Context, session int32,
 		Session:      session,
 	})
 	return err
+}
+
+// UpdateTrackingController updates the tracking_controller field for a strip.
+func (r *stripRepository) UpdateTrackingController(ctx context.Context, session int32, callsign string, trackingController string) (int64, error) {
+	return r.queries.UpdateTrackingController(ctx, database.UpdateTrackingControllerParams{
+		TrackingController: trackingController,
+		Callsign:           callsign,
+		Session:            session,
+	})
 }

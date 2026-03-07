@@ -1,8 +1,8 @@
 package frontend
 
 import (
-	internalModels "FlightStrips/internal/models"
 	"FlightStrips/internal/config"
+	internalModels "FlightStrips/internal/models"
 	"FlightStrips/internal/shared"
 	"FlightStrips/pkg/events"
 	"FlightStrips/pkg/events/euroscope"
@@ -10,7 +10,6 @@ import (
 	"context"
 	"errors"
 	"log/slog"
-	"slices"
 
 	gorilla "github.com/gorilla/websocket"
 )
@@ -76,7 +75,15 @@ func handleMove(ctx context.Context, client *Client, message Message) error {
 		return err
 	}
 
-	return client.hub.stripService.MoveToBay(ctx, client.session, move.Callsign, move.Bay, true)
+	if err := client.hub.stripService.MoveToBay(ctx, client.session, move.Callsign, move.Bay, true); err != nil {
+		return err
+	}
+
+	if strip.Bay != shared.BAY_AIRBORNE && move.Bay == shared.BAY_AIRBORNE {
+		return client.hub.stripService.AutoTransferAirborneStrip(ctx, client.session, move.Callsign)
+	}
+
+	return nil
 }
 
 func handleClearedBayUpdate(ctx context.Context, client *Client, strip *internalModels.Strip, move frontend.MoveEvent, stripRepo shared.StripRepository, es shared.EuroscopeHub) error {
@@ -200,7 +207,6 @@ func handleCoordinationTransferRequest(ctx context.Context, client *Client, mess
 	position := client.position
 	s := client.hub.server
 	stripRepo := s.GetStripRepository()
-	coordRepo := s.GetCoordinationRepository()
 
 	strip, err := stripRepo.GetByCallsign(ctx, client.session, req.Callsign)
 	if err != nil {
@@ -211,19 +217,7 @@ func handleCoordinationTransferRequest(ctx context.Context, client *Client, mess
 		return errors.New("cannot transfer strip which is not assumed")
 	}
 
-	coord := &internalModels.Coordination{
-		Session:      client.session,
-		StripID:      strip.ID,
-		FromPosition: position,
-		ToPosition:   req.To,
-	}
-
-	err = coordRepo.Create(ctx, coord)
-	if err != nil {
-		return err
-	}
-	client.hub.SendCoordinationTransfer(client.session, req.Callsign, position, req.To)
-	return nil
+	return client.hub.stripService.CreateCoordinationTransfer(ctx, client.session, req.Callsign, position, req.To)
 }
 
 func handleCoordinationAssumeRequest(ctx context.Context, client *Client, message Message) error {
@@ -233,68 +227,36 @@ func handleCoordinationAssumeRequest(ctx context.Context, client *Client, messag
 	}
 	s := client.hub.server
 	stripRepo := s.GetStripRepository()
-	coordRepo := s.GetCoordinationRepository()
 
 	strip, err := stripRepo.GetByCallsign(ctx, client.session, req.Callsign)
 	if err != nil {
 		return err
 	}
-	// Strip is not owned by anyone assume it
+
+	// Strip is not owned by anyone — assume it directly without a coordination
 	if strip.Owner == nil || *strip.Owner == "" {
-		err2 := setOwner(ctx, client, stripRepo, req, strip)
-		if err2 != nil {
-			return err2
+		count, err := stripRepo.SetOwner(ctx, client.session, req.Callsign, &client.position, strip.Version)
+		if err != nil {
+			return err
 		}
+		if count != 1 {
+			return errors.New("failed to set strip owner")
+		}
+		client.hub.SendCoordinationAssume(client.session, req.Callsign, client.position)
 		return nil
 	}
+
+	// Validate that the coordination targets this client
+	coordRepo := s.GetCoordinationRepository()
 	coordination, err := coordRepo.GetByStripID(ctx, client.session, strip.ID)
 	if err != nil {
 		return err
 	}
-
 	if coordination.ToPosition != client.position {
 		return errors.New("cannot assume strip which is not transferred to you")
 	}
 
-	err = coordRepo.Delete(ctx, coordination.ID)
-	if err != nil {
-		return err
-	}
-
-	nextOwners := strip.NextOwners
-	index := slices.Index(nextOwners, client.position)
-	if index >= 0 {
-		nextOwners = nextOwners[index+1:]
-	}
-
-	previousOwners := append(strip.PreviousOwners, coordination.FromPosition)
-
-	err = stripRepo.SetNextAndPreviousOwners(ctx, client.session, strip.Callsign, nextOwners, previousOwners)
-	if err != nil {
-		return err
-	}
-
-	if err := setOwner(ctx, client, stripRepo, req, strip); err != nil {
-		return err
-	}
-
-	client.hub.SendOwnersUpdate(client.session, req.Callsign, client.position, nextOwners, previousOwners)
-	return nil
-}
-
-func setOwner(ctx context.Context, client *Client, stripRepo shared.StripRepository, req frontend.CoordinationAssumeRequestEvent, strip *internalModels.Strip) error {
-	count, err := stripRepo.SetOwner(ctx, client.session, req.Callsign, &client.position, strip.Version)
-
-	if err != nil {
-		return err
-	}
-
-	if count != 1 {
-		return errors.New("failed to set strip owner")
-	}
-
-	client.hub.SendCoordinationAssume(client.session, req.Callsign, client.position)
-	return nil
+	return client.hub.stripService.AcceptCoordination(ctx, client.session, req.Callsign, client.position)
 }
 
 func handleCoordinationRejectRequest(ctx context.Context, client *Client, message Message) error {

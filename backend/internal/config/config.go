@@ -1,4 +1,4 @@
-﻿package config
+package config
 
 import (
 	"fmt"
@@ -11,14 +11,15 @@ import (
 )
 
 type Config struct {
-	Routes         []Route                    `yaml:"routes"`
-	AirborneRoutes []AirborneRoutes           `yaml:"airborne_routes"`
-	Positions      []Position                 `yaml:"positions"`
-	Sectors        []Sector                   `yaml:"sectors"`
-	AirborneOwners []string                   `yaml:"airborne_owners"`
-	Layouts        map[string][]LayoutVariant `yaml:"layouts"`
-	Runways        []string                   `yaml:"runways"`
-	MessageAreas   map[string][]string        `yaml:"message_areas"`
+	Routes              []Route                    `yaml:"routes"`
+	AirborneRoutes      []AirborneRoutes           `yaml:"airborne_routes"`
+	Positions           []Position                 `yaml:"positions"`
+	Sectors             []Sector                   `yaml:"sectors"`
+	AirborneOwners      []string                   `yaml:"airborne_owners"`
+	AirborneAltitudeAGL int64                      `yaml:"airborne_altitude_agl"`
+	Layouts             map[string][]LayoutVariant `yaml:"layouts"`
+	Runways             []string                   `yaml:"runways"`
+	MessageAreas        map[string][]string        `yaml:"message_areas"`
 }
 
 // TestModeConfig holds test/replay mode configuration
@@ -34,6 +35,7 @@ var sectors []Sector
 var regions []Region
 var positions []Position
 var airborneRoutes []AirborneRoutes
+var airborneAltitudeAGL int64
 var layouts map[string][]LayoutVariant
 var runways []string
 var messageAreas map[string][]string
@@ -55,10 +57,14 @@ func loadAirportConfig(r io.Reader) error {
 	if err := loadRoutes(cfg); err != nil {
 		return err
 	}
+	if cfg.AirborneAltitudeAGL <= 0 {
+		return fmt.Errorf("airborne_altitude_agl must be greater than 0")
+	}
 
 	positions = cfg.Positions
 	sectors = cfg.Sectors
 	airborneRoutes = cfg.AirborneRoutes
+	airborneAltitudeAGL = cfg.AirborneAltitudeAGL
 	layouts = cfg.Layouts
 	runways = cfg.Runways
 	messageAreas = cfg.MessageAreas
@@ -77,6 +83,10 @@ func GetMessageAreas() map[string][]string {
 // GetRunways returns the list of valid runway identifiers for the configured airport.
 func GetRunways() []string {
 	return runways
+}
+
+func GetAirborneAltitudeAGL() int64 {
+	return airborneAltitudeAGL
 }
 
 func loadRoutes(cfg Config) error {

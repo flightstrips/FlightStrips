@@ -375,8 +375,9 @@ func handlePositionUpdate(ctx context.Context, client *Client, message Message) 
 		Destination: existingStrip.Destination,
 		Cleared:     existingStrip.Cleared,
 		Bay:         existingStrip.Bay,
+		State:       existingStrip.State,
 	}
-	bay := shared.GetDepartureBayFromPosition(event.Lat, event.Lon, event.Altitude, dbStrip)
+	bay := shared.GetDepartureBayFromPosition(event.Lat, event.Lon, event.Altitude, dbStrip, config.GetAirborneAltitudeAGL())
 	intAltitude := int32(event.Altitude)
 
 	_, err = stripRepo.UpdateAircraftPosition(ctx, session, event.Callsign, &event.Lat, &event.Lon, &intAltitude, bay, nil)
@@ -386,7 +387,111 @@ func handlePositionUpdate(ctx context.Context, client *Client, message Message) 
 	}
 
 	if existingStrip.Bay != bay {
-		return client.hub.stripService.MoveToBay(context.Background(), client.session, event.Callsign, bay, true)
+		if err := client.hub.stripService.MoveToBay(context.Background(), client.session, event.Callsign, bay, true); err != nil {
+			return err
+		}
+		if existingStrip.Bay != shared.BAY_AIRBORNE && bay == shared.BAY_AIRBORNE {
+			return client.hub.stripService.AutoTransferAirborneStrip(ctx, client.session, event.Callsign)
+		}
+	}
+
+	return nil
+}
+
+func handleTrackingControllerChanged(ctx context.Context, client *Client, message Message) error {
+	var event euroscope.TrackingControllerChangedEvent
+	if err := message.JsonUnmarshal(&event); err != nil {
+		return err
+	}
+
+	s := client.hub.server
+	stripRepo := s.GetStripRepository()
+
+	if _, err := stripRepo.UpdateTrackingController(ctx, client.session, event.Callsign, event.TrackingController); err != nil {
+		return err
+	}
+
+	// Only act on assumption (non-empty tracking controller)
+	if event.TrackingController == "" {
+		return nil
+	}
+
+	strip, err := stripRepo.GetByCallsign(ctx, client.session, event.Callsign)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil
+		}
+		return err
+	}
+
+	// Resolve the assuming controller's position
+	assumingController, err := s.GetControllerRepository().GetByCallsign(ctx, client.session, event.TrackingController)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return err
+	}
+	assumingPosition := ""
+	if err == nil {
+		assumingPosition = assumingController.Position
+	}
+
+	// Check for a pending coordination on this strip
+	coordination, err := s.GetCoordinationRepository().GetByStripID(ctx, client.session, strip.ID)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return err
+	}
+	hasCoordination := err == nil
+
+	if hasCoordination && assumingPosition == coordination.FromPosition {
+		// The FROM controller assumed the tag to initiate the handover to the TO controller.
+		// Don't move or accept yet — wait for the TO controller to assume.
+		return nil
+	}
+
+	// Accepting: either the TO controller assumed, or there is no coordination (e.g. an
+	// airborne/approach controller grabbed the tag without a formal coordination).
+	if hasCoordination && assumingPosition != "" {
+		if err := client.hub.stripService.AcceptCoordination(ctx, client.session, event.Callsign, assumingPosition); err != nil {
+			slog.Error("Failed to accept coordination on tracking controller change", slog.String("callsign", event.Callsign), slog.Any("error", err))
+		}
+	}
+
+	if strip.Bay != shared.BAY_AIRBORNE {
+		return nil
+	}
+
+	count, err := stripRepo.UpdateBay(ctx, client.session, event.Callsign, shared.BAY_HIDDEN, nil)
+	if err != nil {
+		return err
+	}
+	if count != 1 {
+		return errors.New("failed to move airborne strip to hidden after tracking controller assumption")
+	}
+
+	return client.hub.stripService.MoveToBay(ctx, client.session, event.Callsign, shared.BAY_HIDDEN, true)
+}
+
+func handleCoordinationReceived(ctx context.Context, client *Client, message Message) error {
+	var event euroscope.CoordinationReceivedEvent
+	if err := message.JsonUnmarshal(&event); err != nil {
+		return err
+	}
+
+	s := client.hub.server
+
+	controller, err := s.GetControllerRepository().GetByCallsign(ctx, client.session, event.ControllerCallsign)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			slog.Debug("Controller not found for coordination_received event", slog.String("controller_callsign", event.ControllerCallsign))
+			return nil
+		}
+		return err
+	}
+
+	slog.Debug("Received coordination received event", slog.String("callsign", event.Callsign), slog.String("from_controller", event.ControllerCallsign))
+
+	if controller.Cid != nil && *controller.Cid != "" {
+		slog.Debug("Sending assume and drop for coordination received event", slog.String("callsign", event.Callsign), slog.String("from_controller", event.ControllerCallsign))
+		s.GetEuroscopeHub().SendAssumeAndDrop(client.session, *controller.Cid, event.Callsign)
 	}
 
 	return nil
@@ -528,36 +633,37 @@ func (hub *Hub) handleStripUpdateHelper(ctx context.Context, strip euroscope.Str
 
 	if errors.Is(err, pgx.ErrNoRows) {
 		// Strip doesn't exist, so insert
-		bay = shared.GetDepartureBay(strip, nil)
+		bay = shared.GetDepartureBay(strip, nil, config.GetAirborneAltitudeAGL())
 
 		newStrip := &internalModels.Strip{
-			Callsign:          strip.Callsign,
-			Session:           session,
-			Origin:            strip.Origin,
-			Destination:       strip.Destination,
-			Alternative:       &strip.Alternate,
-			Route:             &strip.Route,
-			Remarks:           &strip.Remarks,
-			Runway:            &strip.Runway,
-			Squawk:            &strip.Squawk,
-			AssignedSquawk:    &strip.AssignedSquawk,
-			Sid:               &strip.Sid,
-			Cleared:           strip.Cleared,
-			State:             &strip.GroundState,
-			ClearedAltitude:   &strip.ClearedAltitude,
-			RequestedAltitude: &strip.RequestedAltitude,
-			Heading:           &strip.Heading,
-			AircraftType:      &strip.AircraftType,
-			AircraftCategory:  &strip.AircraftCategory,
-			PositionLatitude:  &strip.Position.Lat,
-			PositionLongitude: &strip.Position.Lon,
-			PositionAltitude:  &strip.Position.Altitude,
-			Stand:             &strip.Stand,
-			Capabilities:      &strip.Capabilities,
-			CommunicationType: &strip.CommunicationType,
-			Tobt:              &strip.Eobt,
-			Bay:               bay,
-			Eobt:              &strip.Eobt,
+			Callsign:           strip.Callsign,
+			Session:            session,
+			Origin:             strip.Origin,
+			Destination:        strip.Destination,
+			Alternative:        &strip.Alternate,
+			Route:              &strip.Route,
+			Remarks:            &strip.Remarks,
+			Runway:             &strip.Runway,
+			Squawk:             &strip.Squawk,
+			AssignedSquawk:     &strip.AssignedSquawk,
+			Sid:                &strip.Sid,
+			Cleared:            strip.Cleared,
+			State:              &strip.GroundState,
+			ClearedAltitude:    &strip.ClearedAltitude,
+			RequestedAltitude:  &strip.RequestedAltitude,
+			Heading:            &strip.Heading,
+			AircraftType:       &strip.AircraftType,
+			AircraftCategory:   &strip.AircraftCategory,
+			PositionLatitude:   &strip.Position.Lat,
+			PositionLongitude:  &strip.Position.Lon,
+			PositionAltitude:   &strip.Position.Altitude,
+			Stand:              &strip.Stand,
+			Capabilities:       &strip.Capabilities,
+			CommunicationType:  &strip.CommunicationType,
+			Tobt:               &strip.Eobt,
+			Bay:                bay,
+			Eobt:               &strip.Eobt,
+			TrackingController: strip.TrackingController,
 		}
 		reg := services.ParseRegistration(strip.Callsign, strip.Remarks)
 		newStrip.Registration = &reg
@@ -574,9 +680,10 @@ func (hub *Hub) handleStripUpdateHelper(ctx context.Context, strip euroscope.Str
 			Destination: existingStrip.Destination,
 			Cleared:     existingStrip.Cleared,
 			Bay:         existingStrip.Bay,
+			State:       existingStrip.State,
 			Stand:       existingStrip.Stand,
 		}
-		bay = shared.GetDepartureBay(strip, &dbExistingStrip)
+		bay = shared.GetDepartureBay(strip, &dbExistingStrip, config.GetAirborneAltitudeAGL())
 
 		// Do not overwrite with an empty stand
 		stand := existingStrip.Stand
@@ -585,34 +692,35 @@ func (hub *Hub) handleStripUpdateHelper(ctx context.Context, strip euroscope.Str
 		}
 
 		updateStrip := &internalModels.Strip{
-			Callsign:          strip.Callsign,
-			Session:           session,
-			Origin:            strip.Origin,
-			Destination:       strip.Destination,
-			Alternative:       &strip.Alternate,
-			Route:             &strip.Route,
-			Remarks:           &strip.Remarks,
-			AssignedSquawk:    &strip.AssignedSquawk,
-			Squawk:            &strip.Squawk,
-			Sid:               &strip.Sid,
-			ClearedAltitude:   &strip.ClearedAltitude,
-			Heading:           &strip.Heading,
-			AircraftType:      &strip.AircraftType,
-			Runway:            &strip.Runway,
-			RequestedAltitude: &strip.RequestedAltitude,
-			Capabilities:      &strip.Capabilities,
-			CommunicationType: &strip.CommunicationType,
-			AircraftCategory:  &strip.AircraftCategory,
-			Stand:             stand,
-			Cleared:           strip.Cleared,
-			State:             &strip.GroundState,
-			PositionLatitude:  &strip.Position.Lat,
-			PositionLongitude: &strip.Position.Lon,
-			PositionAltitude:  &strip.Position.Altitude,
-			Bay:               bay,
-			Tobt:              existingStrip.Tobt,
-			Eobt:              existingStrip.Eobt,
-			Registration:      existingStrip.Registration,
+			Callsign:           strip.Callsign,
+			Session:            session,
+			Origin:             strip.Origin,
+			Destination:        strip.Destination,
+			Alternative:        &strip.Alternate,
+			Route:              &strip.Route,
+			Remarks:            &strip.Remarks,
+			AssignedSquawk:     &strip.AssignedSquawk,
+			Squawk:             &strip.Squawk,
+			Sid:                &strip.Sid,
+			ClearedAltitude:    &strip.ClearedAltitude,
+			Heading:            &strip.Heading,
+			AircraftType:       &strip.AircraftType,
+			Runway:             &strip.Runway,
+			RequestedAltitude:  &strip.RequestedAltitude,
+			Capabilities:       &strip.Capabilities,
+			CommunicationType:  &strip.CommunicationType,
+			AircraftCategory:   &strip.AircraftCategory,
+			Stand:              stand,
+			Cleared:            strip.Cleared,
+			State:              &strip.GroundState,
+			PositionLatitude:   &strip.Position.Lat,
+			PositionLongitude:  &strip.Position.Lon,
+			PositionAltitude:   &strip.Position.Altitude,
+			Bay:                bay,
+			Tobt:               existingStrip.Tobt,
+			Eobt:               existingStrip.Eobt,
+			Registration:       existingStrip.Registration,
+			TrackingController: strip.TrackingController,
 		}
 		_, err = stripRepo.Update(ctx, updateStrip)
 		if err != nil {

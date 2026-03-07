@@ -1,7 +1,9 @@
-﻿package config
+package config
 
 import (
+	"errors"
 	"fmt"
+	"log/slog"
 	"slices"
 	"strconv"
 	"strings"
@@ -235,11 +237,29 @@ type AirborneRoutes struct {
 	Sids         []string `yaml:"sids"`
 }
 
+var ErrUnknownAirborneRoute = errors.New("unknown airborne route")
+
 func GetAirborneSector(sid string) (string, error) {
 	for _, ar := range airborneRoutes {
 		if slices.Contains(ar.Sids, sid) {
 			return ar.Name, nil
 		}
 	}
-	return "", fmt.Errorf("no airborne controller for SID %q", sid)
+	return "", fmt.Errorf("%w for SID %q", ErrUnknownAirborneRoute, sid)
+}
+
+func GetAirborneControllerPriority(sid string) ([]string, error) {
+	sectorName, err := GetAirborneSector(sid)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, sector := range sectors {
+		if strings.EqualFold(sector.Name, sectorName) {
+			slog.Debug("Found airborne sector for SID, returning owner priority list", slog.String("sid", sid), slog.String("sector", sector.Name), slog.Any("owners", sector.Owner))
+			return slices.Clone(sector.Owner), nil
+		}
+	}
+
+	return nil, fmt.Errorf("no sector owners configured for airborne sector %q", sectorName)
 }

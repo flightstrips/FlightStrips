@@ -104,6 +104,7 @@ type Strip struct {
 	PdcMessageSent     pgtype.Timestamp
 	Marked             bool
 	Registration       *string
+	TrackingController string
 }
 
 type TacticalStrip struct {

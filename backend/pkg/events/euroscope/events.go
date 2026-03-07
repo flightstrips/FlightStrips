@@ -1,4 +1,4 @@
-﻿package euroscope
+package euroscope
 
 import (
 	"FlightStrips/pkg/events"
@@ -8,30 +8,34 @@ import (
 type EventType string
 
 const (
-	Authentication       EventType = "token"
-	Login                EventType = "login"
-	ControllerOnline     EventType = "controller_online"
-	ControllerOffline    EventType = "controller_offline"
-	Sync                 EventType = "sync"
-	AssignedSquawk       EventType = "assigned_squawk"
-	Squawk               EventType = "squawk"
-	RequestedAltitude    EventType = "requested_altitude"
-	ClearedAltitude      EventType = "cleared_altitude"
-	CommunicationType    EventType = "communication_type"
-	GroundState          EventType = "ground_state"
-	ClearedFlag          EventType = "cleared_flag"
-	PositionUpdate       EventType = "aircraft_position_update"
-	SetHeading           EventType = "heading"
-	AircraftDisconnected EventType = "aircraft_disconnect"
-	Stand                EventType = "stand"
-	StripUpdate          EventType = "strip_update"
-	Runway               EventType = "runway"
-	AircraftRunway       EventType = "aircraft_runway"
-	SessionInfo          EventType = "session_info"
-	GenerateSquawk       EventType = "generate_squawk"
-	Route                EventType = "route"
-	Remarks              EventType = "remarks"
-	Sid                  EventType = "sid"
+	Authentication            EventType = "token"
+	Login                     EventType = "login"
+	ControllerOnline          EventType = "controller_online"
+	ControllerOffline         EventType = "controller_offline"
+	Sync                      EventType = "sync"
+	AssignedSquawk            EventType = "assigned_squawk"
+	Squawk                    EventType = "squawk"
+	RequestedAltitude         EventType = "requested_altitude"
+	ClearedAltitude           EventType = "cleared_altitude"
+	CommunicationType         EventType = "communication_type"
+	GroundState               EventType = "ground_state"
+	ClearedFlag               EventType = "cleared_flag"
+	PositionUpdate            EventType = "aircraft_position_update"
+	SetHeading                EventType = "heading"
+	AircraftDisconnected      EventType = "aircraft_disconnect"
+	Stand                     EventType = "stand"
+	StripUpdate               EventType = "strip_update"
+	Runway                    EventType = "runway"
+	AircraftRunway            EventType = "aircraft_runway"
+	SessionInfo               EventType = "session_info"
+	GenerateSquawk            EventType = "generate_squawk"
+	Route                     EventType = "route"
+	Remarks                   EventType = "remarks"
+	Sid                       EventType = "sid"
+	CoordinationHandover      EventType = "coordination_handover"
+	TrackingControllerChanged EventType = "tracking_controller_changed"
+	CoordinationReceived      EventType = "coordination_received"
+	AssumeAndDrop             EventType = "assume_and_drop"
 )
 
 const (
@@ -107,11 +111,12 @@ type Strip struct {
 		Lon      float64 `json:"lon"`
 		Altitude int32   `json:"altitude"`
 	} `json:"position"`
-	Stand             string `json:"stand"`
-	Capabilities      string `json:"capabilities"`
-	CommunicationType string `json:"communication_type"`
-	Eobt              string `json:"eobt"`
-	Eldt              string `json:"eldt"`
+	Stand              string `json:"stand"`
+	Capabilities       string `json:"capabilities"`
+	CommunicationType  string `json:"communication_type"`
+	Eobt               string `json:"eobt"`
+	Eldt               string `json:"eldt"`
+	TrackingController string `json:"tracking_controller"`
 }
 
 type SyncEvent struct {
@@ -171,6 +176,22 @@ type AircraftPositionUpdateEvent struct {
 	Callsign string    `json:"callsign"`
 	Lat      float64   `json:"lat"`
 	Lon      float64   `json:"lon"`
+}
+
+type TrackingControllerChangedEvent struct {
+	Type               EventType `json:"type"`
+	Callsign           string    `json:"callsign"`
+	TrackingController string    `json:"tracking_controller"`
+}
+
+type CoordinationReceivedEvent struct {
+	Type               EventType `json:"type"`
+	Callsign           string    `json:"callsign"`
+	ControllerCallsign string    `json:"controller_callsign"`
+}
+
+type AssumeAndDropEvent struct {
+	Callsign string `json:"callsign"`
 }
 
 type HeadingEvent struct {
@@ -319,6 +340,11 @@ type AircraftRunwayEvent struct {
 	Runway   string `json:"runway"`
 }
 
+type CoordinationHandoverEvent struct {
+	Callsign       string `json:"callsign"`
+	TargetCallsign string `json:"target_callsign"`
+}
+
 func (e RouteEvent) GetType() EventType {
 	return Route
 }
@@ -348,5 +374,29 @@ func (e AircraftRunwayEvent) GetType() EventType {
 }
 
 func (e AircraftRunwayEvent) Marshal() ([]byte, error) {
+	return marshall(e)
+}
+
+func (e TrackingControllerChangedEvent) GetType() EventType {
+	return TrackingControllerChanged
+}
+
+func (e TrackingControllerChangedEvent) Marshal() ([]byte, error) {
+	return marshall(e)
+}
+
+func (e AssumeAndDropEvent) GetType() EventType {
+	return AssumeAndDrop
+}
+
+func (e AssumeAndDropEvent) Marshal() ([]byte, error) {
+	return marshall(e)
+}
+
+func (e CoordinationHandoverEvent) GetType() EventType {
+	return CoordinationHandover
+}
+
+func (e CoordinationHandoverEvent) Marshal() ([]byte, error) {
 	return marshall(e)
 }

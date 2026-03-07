@@ -1,6 +1,8 @@
-﻿package services
+package services
 
 import (
+	"FlightStrips/internal/config"
+	internalModels "FlightStrips/internal/models"
 	"FlightStrips/internal/repository"
 	"FlightStrips/internal/shared"
 	"FlightStrips/pkg/events/frontend"
@@ -109,6 +111,201 @@ func (s *StripService) MoveToBay(ctx context.Context, session int32, callsign st
 
 	order, _ := s.calculateOrderBetween(maxInBay, nil)
 	return s.updateStripSequence(ctx, session, callsign, order, bay, sendNotification)
+}
+
+func (s *StripService) CreateCoordinationTransfer(ctx context.Context, session int32, callsign string, from string, to string) error {
+	if s.frontendHub == nil {
+		return errors.New("frontend hub not configured")
+	}
+
+	server := s.frontendHub.GetServer()
+	if server == nil {
+		return errors.New("server not configured")
+	}
+
+	strip, err := s.stripRepo.GetByCallsign(ctx, session, callsign)
+	if err != nil {
+		return err
+	}
+
+	coord := &internalModels.Coordination{
+		Session:      session,
+		StripID:      strip.ID,
+		FromPosition: from,
+		ToPosition:   to,
+	}
+
+	if err := server.GetCoordinationRepository().Create(ctx, coord); err != nil {
+		return err
+	}
+
+	s.frontendHub.SendCoordinationTransfer(session, callsign, from, to)
+	return nil
+}
+
+// AcceptCoordination accepts a pending coordination for a strip by the given assumingPosition.
+// It deletes the coordination, updates the next/previous owners, sets the strip owner, and
+// sends frontend notifications. Returns nil without error if no coordination exists.
+func (s *StripService) AcceptCoordination(ctx context.Context, session int32, callsign string, assumingPosition string) error {
+	if s.frontendHub == nil {
+		return errors.New("frontend hub not configured")
+	}
+	server := s.frontendHub.GetServer()
+	if server == nil {
+		return errors.New("server not configured")
+	}
+
+	strip, err := s.stripRepo.GetByCallsign(ctx, session, callsign)
+	if err != nil {
+		return err
+	}
+
+	coordination, err := server.GetCoordinationRepository().GetByStripID(ctx, session, strip.ID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+
+	if err := server.GetCoordinationRepository().Delete(ctx, coordination.ID); err != nil {
+		return err
+	}
+
+	nextOwners := strip.NextOwners
+	index := slices.Index(nextOwners, assumingPosition)
+	if index >= 0 {
+		nextOwners = nextOwners[index+1:]
+	}
+
+	previousOwners := append(strip.PreviousOwners, coordination.FromPosition)
+
+	if err := s.stripRepo.SetNextAndPreviousOwners(ctx, session, callsign, nextOwners, previousOwners); err != nil {
+		return err
+	}
+
+	count, err := s.stripRepo.SetOwner(ctx, session, callsign, &assumingPosition, strip.Version)
+	if err != nil {
+		return err
+	}
+	if count != 1 {
+		return errors.New("failed to set strip owner after accepting coordination")
+	}
+
+	s.frontendHub.SendCoordinationAssume(session, callsign, assumingPosition)
+	s.frontendHub.SendOwnersUpdate(session, callsign, assumingPosition, nextOwners, previousOwners)
+	return nil
+}
+
+func (s *StripService) AutoTransferAirborneStrip(ctx context.Context, session int32, callsign string) error {
+	slog.Debug("Attempting automatic AIRBORNE transfer", slog.String("callsign", callsign), slog.Int("session", int(session)))
+	if s.frontendHub == nil {
+		return errors.New("frontend hub not configured")
+	}
+
+	server := s.frontendHub.GetServer()
+	if server == nil {
+		return errors.New("server not configured")
+	}
+
+	strip, err := s.stripRepo.GetByCallsign(ctx, session, callsign)
+	if err != nil {
+		return err
+	}
+
+	if strip.Bay != shared.BAY_AIRBORNE {
+		slog.Debug("Skipping automatic AIRBORNE transfer because strip is not in AIRBORNE bay", slog.String("callsign", callsign))
+		return nil
+	}
+
+	if strip.Owner == nil || *strip.Owner == "" {
+		slog.Debug("Skipping automatic AIRBORNE transfer without strip owner", slog.String("callsign", callsign))
+		return nil
+	}
+
+	// fetch controllers once
+	controllers, err := server.GetControllerRepository().ListBySession(ctx, session)
+	if err != nil {
+		return err
+	}
+
+	targetController, err := s.resolveAirborneController(strip, controllers)
+	if err != nil {
+		return err
+	}
+	if targetController == nil {
+		slog.Debug("No suitable target controller found for automatic AIRBORNE transfer", slog.String("callsign", callsign))
+		return nil
+	}
+
+	var ownerController *internalModels.Controller
+	for _, c := range controllers {
+		if c.Position == *strip.Owner {
+			ownerController = c
+			break
+		}
+	}
+
+	if ownerController == nil || ownerController.Cid == nil || *ownerController.Cid == "" {
+		slog.Debug("Owner controller CID not available; skipping euroscope handover send", slog.String("callsign", callsign))
+		return nil
+	}
+
+	if ownerController.Position == targetController.Position {
+		slog.Debug("Skipping automatic AIRBORNE transfer because target controller is the same as strip owner", slog.String("callsign", callsign))
+		return nil
+	}
+
+	coordination, err := server.GetCoordinationRepository().GetByStripID(ctx, session, strip.ID)
+	if err == nil {
+		slog.Debug("Skipping automatic AIRBORNE transfer because coordination already exists",
+			slog.String("callsign", callsign),
+			slog.String("existing_to", coordination.ToPosition))
+		return nil
+	}
+	if !errors.Is(err, pgx.ErrNoRows) {
+		return err
+	}
+
+	if err := s.CreateCoordinationTransfer(ctx, session, callsign, *strip.Owner, targetController.Position); err != nil {
+		slog.Error("Failed to create coordination transfer for automatic AIRBORNE transfer", slog.String("callsign", callsign), slog.String("from", *strip.Owner), slog.String("to", targetController.Position), slog.Any("error", err))
+		return err
+	}
+
+	if s.euroscopeHub != nil {
+		s.euroscopeHub.SendCoordinationHandover(session, *ownerController.Cid, callsign, targetController.Callsign)
+	}
+
+	return nil
+}
+
+func (s *StripService) resolveAirborneController(strip *internalModels.Strip, controllers []*internalModels.Controller) (*internalModels.Controller, error) {
+	if strip.Sid == nil || *strip.Sid == "" {
+		return nil, nil
+	}
+
+	controllerPriority, err := config.GetAirborneControllerPriority(*strip.Sid)
+	if err != nil {
+		if errors.Is(err, config.ErrUnknownAirborneRoute) {
+			slog.Debug("Unknown SID for AIRBORNE transfer; no controller priority defined", slog.String("sid", *strip.Sid))
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	for _, callsign := range controllerPriority {
+		position, err := config.GetPositionByName(callsign)
+		if err != nil {
+			continue
+		}
+		for _, controller := range controllers {
+			if controller.Position == position.Frequency && controller.Cid != nil && *controller.Cid != "" {
+				return controller, nil
+			}
+		}
+	}
+
+	return nil, nil
 }
 
 // resolveRefSequence returns the current sequence of any strip type.

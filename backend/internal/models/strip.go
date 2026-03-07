@@ -49,4 +49,5 @@ type Strip struct {
 	PdcMessageSent     *time.Time
 	Marked             bool
 	Registration       *string
+	TrackingController string
 }

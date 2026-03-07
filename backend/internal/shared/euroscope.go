@@ -1,4 +1,4 @@
-﻿package shared
+package shared
 
 import (
 	"FlightStrips/pkg/events/euroscope"
@@ -19,4 +19,6 @@ type EuroscopeHub interface {
 	SendRunway(session int32, cid string, callsign string, runway string)
 	SendClearedAltitude(session int32, cid string, callsign string, altitude int32)
 	SendHeading(session int32, cid string, callsign string, heading int32)
+	SendCoordinationHandover(session int32, cid string, callsign string, targetCallsign string)
+	SendAssumeAndDrop(session int32, cid string, callsign string)
 }

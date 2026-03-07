@@ -2,19 +2,20 @@
 INSERT INTO strips (version, callsign, session, origin, destination, alternative, route, remarks, assigned_squawk,
                     squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities,
                     communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay,
-                    position_latitude, position_longitude, position_altitude, tobt, eobt, registration)
+                    position_latitude, position_longitude, position_altitude, tobt, eobt, registration,
+                    tracking_controller)
 VALUES (1, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23,
-        $24, $25, $26, $27, $28, $29, $30);
+        $24, $25, $26, $27, $28, $29, $30, $31);
 
 -- name: UpdateStrip :execrows
 UPDATE strips
 SET (version, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude,
      heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand,
      sequence, state, cleared, owner, bay, position_latitude, position_longitude, position_altitude, tobt, eobt,
-     registration
+     registration, tracking_controller
     ) = (
          version + 1, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22,
-         $23, $24, $25, $26, $27, $28, $29, $30)
+         $23, $24, $25, $26, $27, $28, $29, $30, $31)
 WHERE callsign = $1 AND session = $2;
 
 -- name: GetStrip :one
@@ -79,6 +80,12 @@ SET position_latitude  = $1,
     position_altitude  = $3,
     bay                = $4
 WHERE callsign = $5 AND session = $6 AND (version = sqlc.narg('version') OR sqlc.narg('version') IS NULL);
+
+-- name: UpdateStripBayByID :execrows
+UPDATE strips
+SET bay     = $1,
+    version = version + 1
+WHERE callsign = $2 AND session = $3 AND (version = sqlc.narg('version') OR sqlc.narg('version') IS NULL);
 
 -- name: UpdateStripHeadingByID :execrows
 UPDATE strips
@@ -243,3 +250,8 @@ FROM (
 ) combined
 ORDER BY seq DESC
 LIMIT 1;
+
+-- name: UpdateTrackingController :execrows
+UPDATE strips
+SET tracking_controller = $1
+WHERE callsign = $2 AND session = $3;

@@ -121,6 +121,7 @@ type Strip struct {
 	PdcState            string   `json:"pdc_state"`
 	Marked              bool     `json:"marked"`
 	Registration        string   `json:"registration"`
+	TrackingController  string   `json:"tracking_controller"`
 }
 
 type Controller struct {

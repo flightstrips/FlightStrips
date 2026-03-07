@@ -1,4 +1,4 @@
-﻿package shared
+package shared
 
 import (
 	"FlightStrips/internal/database"
@@ -36,11 +36,10 @@ const (
 	// AirportLongitude The airport longitude for EKCH in feet
 	AirportLongitude = 12.6560
 
-	AltitudeErrorMargin = 200
-	RelevantDistance    = 20
+	RelevantDistance = 20
 )
 
-func GetDepartureBay(strip euroscope.Strip, existing *database.Strip) string {
+func GetDepartureBay(strip euroscope.Strip, existing *database.Strip, airborneAltitudeAGL int64) string {
 	// TODO handle arrivals in this method. Maybe split into two but the entry point should be in this file and the same
 	// for both arrivals and departures.
 	if strip.Origin != "EKCH" {
@@ -74,7 +73,7 @@ func GetDepartureBay(strip euroscope.Strip, existing *database.Strip) string {
 		return BAY_NOT_CLEARED
 	}
 
-	if strip.Position.Altitude < AirportElevation+AltitudeErrorMargin {
+	if int64(strip.Position.Altitude) < int64(AirportElevation)+airborneAltitudeAGL {
 		return BAY_CLEARED
 	}
 
@@ -97,7 +96,7 @@ func GetDepartureBayFromGroundState(state string, existing database.Strip) strin
 	return existing.Bay
 }
 
-func GetDepartureBayFromPosition(lat, lon float64, alt int64, existing database.Strip) string {
+func GetDepartureBayFromPosition(lat, lon float64, alt int64, existing database.Strip, airborneAltitudeAGL int64) string {
 	if GetDistance(lat, lon, AirportLatitude, AirportLongitude) > RelevantDistance {
 		return BAY_HIDDEN
 	}
@@ -108,11 +107,11 @@ func GetDepartureBayFromPosition(lat, lon float64, alt int64, existing database.
 		return bay
 	}
 
-	if bay != BAY_DEPART || existing.State == nil || *existing.State != BAY_AIRBORNE {
+	if bay != BAY_DEPART || existing.State == nil || *existing.State != euroscope.GroundStateDepart {
 		return bay
 	}
 
-	if alt > AirportElevation+AltitudeErrorMargin {
+	if alt > int64(AirportElevation)+airborneAltitudeAGL {
 		return BAY_AIRBORNE
 	}
 

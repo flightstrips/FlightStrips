@@ -1,10 +1,10 @@
 package mocks
 
 import (
+	internalModels "FlightStrips/internal/models"
 	"FlightStrips/internal/shared"
 	"FlightStrips/pkg/events/euroscope"
 	"FlightStrips/pkg/events/frontend"
-	internalModels "FlightStrips/internal/models"
 
 	"github.com/stretchr/testify/mock"
 )
@@ -213,4 +213,12 @@ func (m *EuroscopeHub) SendClearedAltitude(session int32, cid string, callsign s
 
 func (m *EuroscopeHub) SendHeading(session int32, cid string, callsign string, heading int32) {
 	m.Called(session, cid, callsign, heading)
+}
+
+func (m *EuroscopeHub) SendCoordinationHandover(session int32, cid string, callsign string, targetCallsign string) {
+	m.Called(session, cid, callsign, targetCallsign)
+}
+
+func (m *EuroscopeHub) SendAssumeAndDrop(session int32, cid string, callsign string) {
+	m.Called(session, cid, callsign)
 }

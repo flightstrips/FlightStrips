@@ -40,7 +40,7 @@ type Hub struct {
 	master map[int32]*Client
 
 	handlers shared.MessageHandlers[euroscope.EventType, *Client]
-	
+
 	// Recording support
 	recorders map[int32]*recorder.Recorder // One recorder per session
 }
@@ -65,6 +65,8 @@ func NewHub(stripService shared.StripService, authenticationService shared.Authe
 	handlers.Add(euroscope.Sync, handleSync)
 	handlers.Add(euroscope.StripUpdate, handleStripUpdateEvent)
 	handlers.Add(euroscope.Runway, handleRunways)
+	handlers.Add(euroscope.TrackingControllerChanged, handleTrackingControllerChanged)
+	handlers.Add(euroscope.CoordinationReceived, handleCoordinationReceived)
 
 	hub := &Hub{
 		register:              make(chan *Client),
@@ -366,6 +368,19 @@ func (hub *Hub) SendHeading(session int32, cid string, callsign string, heading 
 	hub.Send(session, cid, event)
 }
 
+func (hub *Hub) SendAssumeAndDrop(session int32, cid string, callsign string) {
+	hub.Send(session, cid, euroscope.AssumeAndDropEvent{Callsign: callsign})
+}
+
+func (hub *Hub) SendCoordinationHandover(session int32, cid string, callsign string, targetCallsign string) {
+	event := euroscope.CoordinationHandoverEvent{
+		Callsign:       callsign,
+		TargetCallsign: targetCallsign,
+	}
+
+	hub.Send(session, cid, event)
+}
+
 func (hub *Hub) Run() {
 	for {
 		select {
@@ -414,7 +429,7 @@ func (hub *Hub) StartRecording(sessionID int32, airport, connection, description
 	rec := recorder.NewRecorder(airport, connection, description)
 	rec.Start()
 	hub.recorders[sessionID] = rec
-	
+
 	slog.Info("Started recording", slog.Int("session", int(sessionID)), slog.String("airport", airport))
 	return nil
 }

@@ -20,6 +20,9 @@ jobs:
       backend_release_created: ${{ steps.release.outputs.backend--release_created }}
       backend_tag: ${{ steps.release.outputs.backend--tag_name }}
       backend_version: ${{ steps.release.outputs.backend--version }}
+      frontend_release_created: ${{ steps.release.outputs.frontend--release_created }}
+      frontend_tag: ${{ steps.release.outputs.frontend--tag_name }}
+      frontend_version: ${{ steps.release.outputs.frontend--version }}
     steps:
       - uses: googleapis/release-please-action@v4
         id: release
@@ -112,3 +115,27 @@ jobs:
           tags: |
             ghcr.io/${{ github.repository_owner }}/backend-migrate:${{ needs.release-please.outputs.backend_version }}
             ghcr.io/${{ github.repository_owner }}/backend-migrate:latest
+
+  build-frontend:
+    needs: release-please
+    if: needs.release-please.outputs.frontend_release_created == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push frontend image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/frontend:${{ needs.release-please.outputs.frontend_version }}
+            ghcr.io/${{ github.repository_owner }}/frontend:latest

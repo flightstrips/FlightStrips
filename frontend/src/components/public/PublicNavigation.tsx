@@ -1,7 +1,17 @@
+import { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router";
+import { useAuth0 } from "@auth0/auth0-react";
 
 export function PublicNavigation() {
   const location = useLocation();
+  const { user, isLoading } = useAuth0();
+  const [showOpenApp, setShowOpenApp] = useState(false);
+
+  useEffect(() => {
+    if (!isLoading) {
+      setShowOpenApp(!!user);
+    }
+  }, [user, isLoading]);
 
   return (
     <nav 
@@ -48,11 +58,11 @@ export function PublicNavigation() {
             style={{ transform: 'translateY(4px)' }}
           />
         </Link>
-        <Link 
-          to="/login" 
+        <Link
+          to="/app"
           className="inline-flex items-center gap-2 bg-fs-primary text-white px-7 py-3.5 text-sm font-medium hover:bg-fs-primary/90 transition-colors"
         >
-          Sign In
+          {showOpenApp ? "Open App" : "Sign In"}
           <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" d="M17.25 8.25L21 12m0 0l-3.75 3.75M21 12H3"/>
           </svg>

@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useNavigate, useLocation } from "react-router";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -9,21 +8,23 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import * as VisuallyHidden from "@radix-ui/react-visually-hidden";
+import { useWebSocketStore } from "@/store/store-hooks";
 
 const EKCH_SCOPES = [
-  { label: "CLR DEL", path: "/EKCH/CLX" },
-  { label: "AA + AD", path: "/EKCH/AAAD" },
-  { label: "GE / GW", path: "/EKCH/GEGW" },
-  { label: "TW / TE", path: "/EKCH/TWTE" },
+  { label: "CLR DEL", layout: "CLX" },
+  { label: "AA + AD", layout: "AAAD" },
+  { label: "GE / GW", layout: "GEGW" },
+  { label: "TW / TE", layout: "TWTE" },
 ];
 
 export default function HOMEBTN() {
   const [open, setOpen] = useState(false);
-  const navigate = useNavigate();
-  const location = useLocation();
+  const currentLayout = useWebSocketStore((state) => state.layout);
+  const displayedLayout = useWebSocketStore((state) => state.displayedLayout);
+  const setDisplayedLayout = useWebSocketStore((state) => state.setDisplayedLayout);
 
-  const handleSelect = (path: string) => {
-    navigate(path);
+  const handleSelect = (layout: string) => {
+    setDisplayedLayout(layout);
     setOpen(false);
   };
 
@@ -42,12 +43,14 @@ export default function HOMEBTN() {
           <div className="grid grid-cols-2 gap-2 p-2" style={{ color: "#000" }}>
             {EKCH_SCOPES.map((scope) => (
               <Button
-                key={scope.path}
+                key={scope.layout}
                 variant="trf"
                 className={`font-normal text-base h-fit py-3 ${
-                  location.pathname === scope.path ? "ring-2 ring-yellow-400" : ""
+                  displayedLayout === scope.layout ? "ring-2 ring-yellow-400" : ""
+                } ${
+                  currentLayout === scope.layout && displayedLayout !== scope.layout ? "border-2 border-blue-500" : ""
                 }`}
-                onClick={() => handleSelect(scope.path)}
+                onClick={() => handleSelect(scope.layout)}
               >
                 {scope.label}
               </Button>

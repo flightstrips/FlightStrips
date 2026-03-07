@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useLocation } from "react-router";
 import Time from "@/components/Time";
 import MRKBTN from "./MRKBTN";
 import TRFBRN from "./TRFBRN";
@@ -12,16 +11,16 @@ import { useAirport, useRunwaySetup, useSelectedCallsign, useSelectStrip, useWeb
 import { Bay } from "@/api/models";
 
 const SCOPE_LABELS: Record<string, string> = {
-  "/EKCH/CLX": "CLR DEL",
-  "/EKCH/AAAD": "AA + AD",
-  "/EKCH/GEGW": "GE / GW",
-  "/EKCH/TWTE": "TW / TE",
+  "CLX": "CLR DEL",
+  "AAAD": "AA + AD",
+  "GEGW": "GE / GW",
+  "TWTE": "TW / TE",
 };
 
 export default function CommandBar() {
   const airport = useAirport();
   const { metar } = useMetar(airport || "EKCH");
-  const location = useLocation();
+  const layout = useWebSocketStore((state) => state.layout);
   const runwaySetup = useRunwaySetup();
   const selectedCallsign = useSelectedCallsign();
   const selectStrip = useSelectStrip();
@@ -34,7 +33,7 @@ export default function CommandBar() {
   const depRwy = runwaySetup.departure[0] ?? "—";
   const arrRwy = runwaySetup.arrival[0] ?? "—";
 
-  const scopeLabel = SCOPE_LABELS[location.pathname] ?? location.pathname;
+  const scopeLabel = SCOPE_LABELS[layout] ?? layout;
 
   const isMarked = strip?.marked ?? false;
 

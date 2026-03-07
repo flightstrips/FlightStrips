@@ -394,7 +394,7 @@ layouts:
   EKCH_DEL:
     - online: []
       offline: []
-      layout: CLR DEL
+      layout: CLX
 
   EKCH_A_GND:
     - online: [EKCH_B_GND, EKCH_C_GND]
@@ -405,12 +405,12 @@ layouts:
       layout: AA
     - online: []
       offline: [EKCH_B_GND, EKCH_C_GND]
-      layout: AA+AD
+      layout: AAAD
 
   EKCH_B_GND:
     - online: [EKCH_A_GND, EKCH_C_GND]
       offline: []
-      layout: SEQ PLN
+      layout: SEQPLN
     - online: [EKCH_A_GND]
       offline: [EKCH_C_GND]
       layout: AD
@@ -419,7 +419,7 @@ layouts:
       layout: AA
     - online: []
       offline: [EKCH_B_GND, EKCH_C_GND]
-      layout: AA+AD
+      layout: AAAD
 
   EKCH_C_GND:
     - online: [EKCH_A_GND, EKCH_B_GND]
@@ -433,7 +433,7 @@ layouts:
       layout: AD
     - online: []
       offline: [EKCH_B_GND, EKCH_C_GND]
-      layout: AA+AD
+      layout: AAAD
     - online: [EKCH_A_GND, EKCH_B_GND]
       offline: []
       layout: AD
@@ -445,59 +445,59 @@ layouts:
       layout: AD
     - online: []
       offline: [EKCH_B_GND, EKCH_C_GND]
-      layout: AA+AD
+      layout: AAAD
 
   EKCH_C_TWR:
     - online: [EKCH_A_TWR, EKCH_D_TWR, _GND]
       offline: []
-      layout: GW
+      layout: GEGW
     - online: [EKCH_A_TWR, _GND]
       offline: [EKCH_D_TWR]
-      layout: GW
+      layout: GEGW
     - online: [EKCH_D_TWR, _GND]
       offline: [EKCH_A_TWR]
-      layout: GW
+      layout: GEGW
     - online: [_GND]
       offline: [EKCH_A_TWR, EKCH_D_TWR]
-      layout: TE+TW
+      layout: TWTE
     - online: []
       offline: [_GND]
-      layout: TE+TW
+      layout: TWTE
     - online: [EKCH_A_TWR, EKCH_D_TWR]
       offline: []
-      layout: GW
+      layout: GEGW
     - online: [EKCH_A_TWR]
       offline: [EKCH_D_TWR]
-      layout: GW
+      layout: GEGW
     - online: [EKCH_D_TWR]
       offline: [EKCH_A_TWR]
-      layout: GW
+      layout: GEGW
     - online: []
       offline: [EKCH_A_TWR, EKCH_D_TWR]
-      layout: GW
+      layout: TWTE
 
   EKCH_A_TWR:
     - active: [22L, 22R]
       online: [EKCH_D_TWR]
       offline: []
-      layout: TE
+      layout: TWTE
     - active: [04L, 04R]
       online: [EKCH_D_TWR]
       offline: []
-      layout: TW
+      layout: TWTE
     - online: []
       offline: [EKCH_D_TWR]
-      layout: TE+TW
+      layout: TWTE
 
   EKCH_D_TWR:
     - active: [22L, 22R]
       online: [EKCH_A_TWR]
       offline: []
-      layout: TW
+      layout: TWTE
     - active: [04L, 04R]
       online: [EKCH_A_TWR]
       offline: []
-      layout: TE
+      layout: TWTE
     - online: []
       offline: [EKCH_A_TWR]
-      layout: TE+TW
+      layout: TWTE

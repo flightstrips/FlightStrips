@@ -59,6 +59,7 @@ export interface WebSocketState {
   airport: string;
   callsign: string;
   layout: string;
+  displayedLayout: string;
   runwaySetup: RunwayConfiguration;
   isInitialized: boolean;
   stripTransfers: Record<string, string>;
@@ -67,6 +68,7 @@ export interface WebSocketState {
 
   selectedCallsign: string | null;
   selectStrip: (callsign: string | null) => void;
+  setDisplayedLayout: (layout: string) => void;
 
   // actions
   move: (callsign: string, bay: Bay) => void;
@@ -105,6 +107,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     airport: '',
     callsign: '',
     layout: '',
+    displayedLayout: '',
     runwaySetup: {
       departure: [],
       arrival: []
@@ -119,6 +122,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
   const store = createStore<WebSocketState>()((set) => ({
     ...initialState,
     selectStrip: (callsign) => set({ selectedCallsign: callsign }),
+    setDisplayedLayout: (layout) => set({ displayedLayout: layout }),
     move: (callsign, bay) => set((state) => {
         wsClient.send({type: ActionType.FrontendMove, callsign, bay})
 
@@ -358,6 +362,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
         state.airport = data.airport;
         state.callsign = data.callsign;
         state.layout = data.layout;
+        state.displayedLayout = data.layout;
         state.runwaySetup = data.runway_setup;
         state.isInitialized = true;
         const transfers: Record<string, string> = {};

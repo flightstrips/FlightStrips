@@ -29,7 +29,7 @@ export default function Privacy() {
           </ScrollReveal>
           
           <ScrollReveal delay={0.2}>
-            <p className="text-sm text-nc-muted">Last updated: [Date]</p>
+            <p className="text-sm text-nc-muted">Last updated: 07/03/2026</p>
           </ScrollReveal>
         </div>
       </section>
@@ -63,7 +63,7 @@ export default function Privacy() {
                   We collect information that you provide directly to us, including:
                 </p>
                 <ul className="list-disc list-inside space-y-2 text-gray-400 font-light">
-                  <li>Account information (username, email address)</li>
+                  <li>Account information (Name, Vatsim ID, Vatsim Region/Division/Subdivision and Vatsim Rating)</li>
                   <li>Authentication credentials through Auth0</li>
                   <li>Usage data and system interactions</li>
                   <li>Technical information (IP address, browser type, device information)</li>

@@ -1,10 +1,13 @@
 import { useAuth0 } from "@auth0/auth0-react";
+import { useLocation } from "react-router";
 import { PublicNavigation } from "@/components/public/PublicNavigation";
 import { ScrollProgress } from "@/components/public/ScrollProgress";
 import { ScrollReveal } from "@/components/public/ScrollReveal";
 
 export default function Authentication() {
   const { loginWithRedirect } = useAuth0();
+  const location = useLocation();
+  const returnTo = (location.state as any)?.returnTo || "/app";
 
   return (
     <div className="bg-nc-black min-h-screen text-white">
@@ -83,7 +86,7 @@ export default function Authentication() {
 
                 <ScrollReveal delay={0.3}>
                   <button
-                    onClick={() => loginWithRedirect({ authorizationParams: { connection: "vatsim-dev" } })}
+                    onClick={() => loginWithRedirect({ authorizationParams: { connection: "vatsim-dev" }, appState: { returnTo } })}
                     className="w-full bg-nc-dark border border-nc-border p-6 flex flex-col items-center gap-4 hover:bg-fs-primary/20 transition-colors"
                   >
                     <div className="flex items-center gap-2">

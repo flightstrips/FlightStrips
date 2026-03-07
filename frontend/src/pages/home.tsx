@@ -1,10 +1,20 @@
+import { useEffect, useState } from "react";
 import { PublicNavigation } from "@/components/public/PublicNavigation";
 import { PublicFooter } from "@/components/public/PublicFooter";
 import { ScrollProgress } from "@/components/public/ScrollProgress";
 import { ScrollReveal } from "@/components/public/ScrollReveal";
 import { Link } from "react-router";
+import { useAuth0 } from "@auth0/auth0-react";
 
 export default function Home() {
+  const { user, isLoading } = useAuth0();
+  const [showOpenApp, setShowOpenApp] = useState(false);
+
+  useEffect(() => {
+    if (!isLoading) {
+      setShowOpenApp(!!user);
+    }
+  }, [user, isLoading]);
   return (
     <div className="bg-nc-black min-h-screen text-white">
       <ScrollProgress />
@@ -49,17 +59,17 @@ export default function Home() {
           
           <ScrollReveal delay={0.3}>
             <div className="flex flex-col sm:flex-row gap-4">
-              <Link 
-                to="/login" 
+              <Link
+                to="/app"
                 className="inline-flex items-center gap-2 bg-fs-primary text-white px-7 py-3.5 text-sm font-medium hover:bg-fs-primary/90 transition-colors"
               >
-                Get Started
+                {showOpenApp ? "Open App" : "Get Started"}
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M17.25 8.25L21 12m0 0l-3.75 3.75M21 12H3"/>
                 </svg>
               </Link>
-              <Link 
-                to="/about" 
+              <Link
+                to="/about"
                 className="inline-flex items-center gap-2 border border-white/20 text-white px-7 py-3.5 text-sm font-medium hover:border-white/50 transition-colors"
               >
                 Learn More
@@ -197,11 +207,11 @@ export default function Home() {
           </ScrollReveal>
           
           <ScrollReveal delay={0.3}>
-            <Link 
-              to="/login" 
+            <Link
+              to="/app"
               className="inline-flex items-center gap-2 bg-fs-primary text-white px-7 py-3.5 text-sm font-medium hover:bg-fs-primary/90 transition-colors"
             >
-              Sign In
+              {showOpenApp ? "Open App" : "Sign In"}
               <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M17.25 8.25L21 12m0 0l-3.75 3.75M21 12H3"/>
               </svg>

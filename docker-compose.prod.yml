@@ -1,0 +1,60 @@
+services:
+  postgres:
+    image: postgres:14-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: fs
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: fsdb
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - backend
+
+  migrator:
+    image: ghcr.io/flightstrips/backend-migrate:latest
+    restart: on-failure
+    environment:
+      DATABASE_CONNECTIONSTRING: ${DATABASE_CONNECTIONSTRING}
+    depends_on:
+      postgres:
+        condition: service_started
+    networks:
+      - backend
+
+  backend:
+    image: ghcr.io/flightstrips/backend-api:latest
+    restart: unless-stopped
+    environment:
+      DATABASE_CONNECTIONSTRING: ${DATABASE_CONNECTIONSTRING}
+      OIDC_AUTHORITY: ${OIDC_AUTHORITY}
+      OIDC_SIGNING_ALGO: ${OIDC_SIGNING_ALGO}
+      CDM_KEY: ${CDM_KEY:-}
+      HOPPIE_LOGON: ${HOPPIE_LOGON:-}
+    depends_on:
+      postgres:
+        condition: service_started
+      migrator:
+        condition: service_completed_successfully
+    networks:
+      - backend
+      - flightstrips
+
+  frontend:
+    image: ghcr.io/flightstrips/frontend:latest
+    restart: unless-stopped
+    environment:
+      WS_URL: ${WS_URL}
+    depends_on:
+      - backend
+    networks:
+      - flightstrips
+
+networks:
+  backend:
+  flightstrips:
+    external: true
+    name: flightstrips
+
+volumes:
+  postgres_data:

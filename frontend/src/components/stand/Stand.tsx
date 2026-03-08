@@ -13,8 +13,8 @@ export default function Stand({ label, position, status = 'default', style, onCl
   const colorMap = {
     default: "bg-gray-200 text-black",
     active: "bg-yellow-400 text-black",
-    reserved: "bg-blue-600 text-white",
-    blue: "bg-blue-500 text-white",
+    reserved: "bg-primary text-white",
+    blue: "bg-primary text-white",
   }
 
   return (

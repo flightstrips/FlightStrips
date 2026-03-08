@@ -10,27 +10,24 @@ const config = {
     theme: {
         extend: {
             fontFamily: {
-                sans: ['DM Sans', 'sans-serif'],
-                display: ['DM Serif Display', 'serif'],
+                sans: ['IBM Plex Sans', 'system-ui', 'sans-serif'],
+                display: ['Barlow Semi Condensed', 'system-ui', 'sans-serif'],
             },
             colors: {
-                // Netcompany Airports design tokens
+                // FlightStrips palette (no prefix). primary = green #003d48 via CSS var
+                cream: '#F3EEE8',
+                navy: '#0F1E31',
+                // nc: used by auth, privacy, data-handling
                 nc: {
                     black: '#0a0a0a',
                     dark: '#111111',
                     card: '#161616',
                     border: '#2a2a2a',
-                    accent: '#e8e0d0',
                     muted: '#888888',
-                    light: '#f0ece4',
                     white: '#ffffff',
                     blue: '#4a7cff',
                 },
-                // FlightStrips brand color
-                fs: {
-                    primary: '#003d48',
-                },
-                // Keep existing tokens for backward compatibility
+                // shadcn/semantic tokens
                 border: "hsl(var(--border))",
                 input: "hsl(var(--input))",
                 ring: "hsl(var(--ring))",

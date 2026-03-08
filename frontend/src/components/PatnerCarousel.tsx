@@ -19,7 +19,7 @@ export function PatnerCarousel() {
           <CarouselItem className="basis-1/3 w-full">
             <div className="p-1">
               <Card>
-                <CardContent className="flex aspect-video items-center justify-center p-6 bg-[#003d48] rounded-lg">
+                <CardContent className="flex aspect-video items-center justify-center p-6 bg-primary rounded-lg">
 
                 </CardContent>
               </Card>
@@ -28,7 +28,7 @@ export function PatnerCarousel() {
           <CarouselItem className="md:basis-1/2 lg:basis-1/3 w-full">
             <div className="p-1">
               <Card>
-                <CardContent className="flex aspect-video items-center justify-center p-6 bg-[#003d48] rounded-lg">
+                <CardContent className="flex aspect-video items-center justify-center p-6 bg-primary rounded-lg">
                     <img src="/White.svg" width="265" height="64" alt="VATSIM Scandinavia"/>
                 </CardContent>
               </Card>
@@ -37,7 +37,7 @@ export function PatnerCarousel() {
           <CarouselItem className="md:basis-1/2 lg:basis-1/3 w-full">
             <div className="p-1">
               <Card>
-                <CardContent className="flex aspect-video items-center justify-center p-6 bg-[#003d48] rounded-lg">
+                <CardContent className="flex aspect-video items-center justify-center p-6 bg-primary rounded-lg">
 
                 </CardContent>
               </Card>

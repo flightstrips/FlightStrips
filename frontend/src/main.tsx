@@ -4,6 +4,7 @@ import {BrowserRouter, Routes, Route} from "react-router";
 import './index.css'
 import Home from "@/pages/home";
 import About from "@/pages/about";
+import FaqPage from "@/pages/faq";
 import Privacy from "@/pages/privacy";
 import DataHandling from "@/pages/data-handling";
 import Auth from "@/pages/auth";
@@ -24,6 +25,7 @@ createRoot(document.getElementById('root')!).render(
         <Routes>
           <Route path="/" element={<Home/>}/>
           <Route path="/about" element={<About/>}/>
+          <Route path="/faq" element={<FaqPage/>}/>
           <Route path="/privacy" element={<Privacy/>}/>
           <Route path="/data-handling" element={<DataHandling/>}/>
           <Route path="/login" element={<Auth/>}/>

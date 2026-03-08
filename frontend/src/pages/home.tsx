@@ -5,11 +5,15 @@ import { ScrollReveal } from "@/components/public/ScrollReveal";
 import { Link } from "react-router";
 import { useAuth0 } from "@auth0/auth0-react";
 
+/**
+ * Home page built with Mainline-style blocks (shadcn/ui template).
+ * @see https://github.com/shadcnblocks/mainline-nextjs-template
+ */
 export default function Home() {
   const { user, isLoading } = useAuth0();
   const showOpenApp = !isLoading && !!user;
   return (
-    <div className="bg-nc-black min-h-screen text-white">
+    <div className="min-h-screen bg-cream text-navy">
       <ScrollProgress />
       <PublicNavigation />
       

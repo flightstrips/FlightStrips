@@ -18,7 +18,7 @@ export default function Authentication() {
         <div className="max-w-4xl mx-auto w-full">
           <div className="grid md:grid-cols-2 gap-px bg-nc-border">
             {/* Left Panel - Branding */}
-            <div className="bg-fs-primary/10 p-12 md:p-16 flex flex-col justify-center">
+            <div className="bg-primary/10 p-12 md:p-16 flex flex-col justify-center">
               <ScrollReveal>
                 <div className="flex items-center gap-4 mb-4">
                   <div className="w-8 h-px bg-nc-border"></div>
@@ -71,13 +71,13 @@ export default function Authentication() {
                 <ScrollReveal delay={0.2}>
                   <button
                     disabled={true}
-                    className="w-full bg-nc-dark border border-nc-border p-6 flex flex-col items-center gap-4 hover:bg-fs-primary/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full bg-nc-dark border border-nc-border p-6 flex flex-col items-center gap-4 hover:bg-primary/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <div className="flex items-center gap-2">
                       <div className="w-2 h-2 rounded-full bg-yellow-400"></div>
                       <span className="text-xs font-mono text-nc-muted">LIVE · DISABLED</span>
                     </div>
-                    <div className="aspect-video w-32 bg-gradient-to-br from-blue-900/30 to-nc-card flex items-center justify-center border border-nc-border">
+                    <div className="aspect-video w-32 bg-gradient-to-br from-primary/30 to-nc-card flex items-center justify-center border border-nc-border">
                       <span className="text-xs text-nc-muted uppercase tracking-widest">VATSIM</span>
                     </div>
                     <span className="text-sm text-white font-medium">Live</span>
@@ -93,7 +93,7 @@ export default function Authentication() {
                       <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse"></div>
                       <span className="text-xs font-mono text-nc-muted">DEV · ACTIVE</span>
                     </div>
-                    <div className="aspect-video w-32 bg-gradient-to-br from-blue-900/30 to-nc-card flex items-center justify-center border border-nc-border">
+                    <div className="aspect-video w-32 bg-gradient-to-br from-primary/30 to-nc-card flex items-center justify-center border border-nc-border">
                       <span className="text-xs text-nc-muted uppercase tracking-widest">VATSIM</span>
                     </div>
                     <span className="text-sm text-white font-medium">Local Development</span>
@@ -107,7 +107,7 @@ export default function Authentication() {
                     FlightStrips is a free and open-source project.
                   </p>
                   <p className="text-xs text-nc-muted text-center">
-                    Support via <a href="https://github.com" target="_blank" rel="noopener noreferrer" className="text-nc-blue hover:text-white transition-colors">GitHub</a>
+                    Support via <a href="https://github.com" target="_blank" rel="noopener noreferrer" className="text-primary hover:text-white transition-colors">GitHub</a>
                   </p>
                 </div>
               </ScrollReveal>

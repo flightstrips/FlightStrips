@@ -21,6 +21,7 @@ services:
         condition: service_started
     networks:
       - backend
+    command: /app/bin/migrate --dsn "${DATABASE_CONNECTIONSTRING}" --migrations /app/migrations
 
   backend:
     image: ghcr.io/flightstrips/backend-api:latest

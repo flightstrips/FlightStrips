@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.2.0...frontend/v0.3.0) (2026-03-08)
+
+
+### Features
+
+* Auto layout and adjust privacy page ([5a424cb](https://github.com/flightstrips/FlightStrips/commit/5a424cb3616637be9017cddb96cc516e331d9766))
+* ESET View ([e715a81](https://github.com/flightstrips/FlightStrips/commit/e715a8115fc99a0fd5d245f1d3e7fc6f867167f3))
+
 ## [0.2.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.1.0...frontend/v0.2.0) (2026-03-07)
 
 

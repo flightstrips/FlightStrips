@@ -93,6 +93,9 @@ export enum Bay {
   Final = "FINAL",
   Stand = "STAND",
   Hidden = "HIDDEN",
+  ArrHidden = "ARR_HIDDEN",
+  RwyArr = "RWY_ARR",
+  TwyArr = "TWY_ARR",
 }
 
 // Define interfaces for all event types

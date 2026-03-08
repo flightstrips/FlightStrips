@@ -95,8 +95,8 @@ export const useTaxiArrStrips = (): AnyStrip[] => {
   const airport = useAirport();
   return useMemo(
     () => ([
-      ...strips.filter(x => x.bay === Bay.Taxi && x.destination === airport),
-      ...tacticalStrips.filter(t => t.bay === Bay.Taxi),
+      ...strips.filter(x => x.bay === Bay.TwyArr && x.destination === airport),
+      ...tacticalStrips.filter(t => t.bay === Bay.TwyArr),
     ] as AnyStrip[]).sort((a, b) => a.sequence - b.sequence),
     [strips, tacticalStrips, airport]
   );
@@ -144,8 +144,8 @@ export const useRwyArrStrips = (): AnyStrip[] => {
   const airport = useAirport();
   return useMemo(
     () => ([
-      ...strips.filter(x => x.bay === Bay.Final && x.destination === airport),
-      ...tacticalStrips.filter(t => t.bay === Bay.Final),
+      ...strips.filter(x => x.bay === Bay.RwyArr && x.destination === airport),
+      ...tacticalStrips.filter(t => t.bay === Bay.RwyArr),
     ] as AnyStrip[]).sort((a, b) => a.sequence - b.sequence),
     [strips, tacticalStrips, airport]
   );
@@ -189,15 +189,9 @@ export const useHiddenStrips = (): AnyStrip[] => {
 
 export const useInboundStrips = (): FrontendStrip[] => {
   const strips = useWebSocketStore(state => state.strips);
-  const airport = useAirport();
   return useMemo(
-    () => strips.filter(x =>
-      x.destination === airport &&
-      x.bay !== Bay.Final &&
-      x.bay !== Bay.Stand &&
-      x.bay !== Bay.Hidden
-    ),
-    [strips, airport]
+    () => strips.filter(x => x.bay === Bay.ArrHidden),
+    [strips]
   );
 };
 

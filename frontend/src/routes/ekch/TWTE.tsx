@@ -15,6 +15,7 @@ import {
   useClearedStrips,
   isFlight,
   useInboundStrips,
+  useRwyArrStrips,
 } from "@/store/airports/ekch.ts";
 import type { AnyStrip, StripRef, FrontendStrip } from "@/api/models.ts";
 import { Bay } from "@/api/models.ts";
@@ -42,28 +43,16 @@ export default function TWTE() {
   const [startupOpen, setStartupOpen] = useState(false);
   const [arrOpen, setArrOpen] = useState(false);
   const lowerPositionOnline = useLowerPositionOnline();
-  const airport = useAirport();
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const finalAll = useFinalStrips();
-  const rwyArrFlights = useMemo(
-    () => finalAll.filter(isFlight).filter(s => s.destination === airport),
-    [finalAll, airport]
-  );
-  const rwyArrSet = useMemo(
-    () => new Set(rwyArrFlights.map(s => s.callsign)),
-    [rwyArrFlights]
-  );
-  const finalBayStrips = useMemo(
-    () => finalAll.filter(s => !isFlight(s) || !rwyArrSet.has(s.callsign)),
-    [finalAll, rwyArrSet]
-  );
-
+  const finalStrips = useFinalStrips();
+  const rwyArrStrips = useRwyArrStrips();
   const twyArrStrips = useTaxiArrStrips();
+
   const twyDepAll    = useTaxiDepStrips();
   const twyDepDesc   = useMemo(() => [...twyDepAll].reverse(), [twyDepAll]);
   const rwyDepAll    = useDepartStrips();
@@ -97,9 +86,9 @@ export default function TWTE() {
   const ALL_ACTIVE = ["FINAL", "RWY-ARR", "TWY-ARR", "TWY-DEP", "RWY-DEP", "AIRBORNE", "STAND", "PUSHBACK", "DE-ICE"] as const;
 
   const bayStripMap = {
-    "FINAL":    { strips: finalBayStrips, targetBay: Bay.Final },
-    "RWY-ARR":  { strips: rwyArrFlights,  targetBay: Bay.Final },
-    "TWY-ARR":  { strips: twyArrStrips,   targetBay: Bay.Taxi },
+    "FINAL":    { strips: finalStrips, targetBay: Bay.Final },
+    "RWY-ARR":  { strips: rwyArrStrips,  targetBay: Bay.RwyArr },
+    "TWY-ARR":  { strips: twyArrStrips,   targetBay: Bay.TwyArr },
     "TWY-DEP":  { strips: twyDepDesc,     targetBay: Bay.Taxi,     descending: true },
     "RWY-DEP":  { strips: rwyDepDesc,     targetBay: Bay.Depart,   descending: true },
     "AIRBORNE": { strips: airborneDesc,   targetBay: Bay.Airborne, descending: true },
@@ -167,7 +156,7 @@ export default function TWTE() {
           </span>
         </div>
         <SortableBay
-          strips={finalBayStrips}
+          strips={finalStrips}
           bayId="FINAL"
           standalone={false}
           className={`h-[35%] ${scrollArea}`}
@@ -187,7 +176,7 @@ export default function TWTE() {
           </span>
         </div>
         <SortableBay
-          strips={rwyArrFlights}
+          strips={rwyArrStrips}
           bayId="RWY-ARR"
           standalone={false}
           className={`h-[20%] ${darkScrollArea}`}

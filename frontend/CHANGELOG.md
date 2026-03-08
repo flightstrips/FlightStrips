@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.3.0...frontend/v0.4.0) (2026-03-08)
+
+
+### Features
+
+* More strip designs ([4117ceb](https://github.com/flightstrips/FlightStrips/commit/4117cebb175d692f2a87252d5250b04326352833))
+
 ## [0.3.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.2.0...frontend/v0.3.0) (2026-03-08)
 
 

@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.5.0](https://github.com/flightstrips/FlightStrips/compare/plugin/v0.4.0...plugin/v0.5.0) (2026-03-08)
+
+
+### Features
+
+* Support assuming and transferring tags ([2cf5d1b](https://github.com/flightstrips/FlightStrips/commit/2cf5d1b2f9bcda87b16f933ae6e91988074e4574))
+
+
+### Bug Fixes
+
+* Set correct stand path ([7605f5c](https://github.com/flightstrips/FlightStrips/commit/7605f5c21b871f61df76ec779a8917dace34b271))
+
 ## [0.4.0](https://github.com/flightstrips/FlightStrips/compare/plugin/v0.3.0...plugin/v0.4.0) (2026-03-07)
 
 

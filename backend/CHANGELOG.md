@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.5.0](https://github.com/flightstrips/FlightStrips/compare/backend/v0.4.0...backend/v0.5.0) (2026-03-08)
+
+
+### Features
+
+* Auto handoff ([089c3a6](https://github.com/flightstrips/FlightStrips/commit/089c3a6289363ab31b4f5d3e7b4360f390290142))
+* Auto layout and adjust privacy page ([5a424cb](https://github.com/flightstrips/FlightStrips/commit/5a424cb3616637be9017cddb96cc516e331d9766))
+
 ## [0.4.0](https://github.com/flightstrips/FlightStrips/compare/backend/v0.3.0...backend/v0.4.0) (2026-03-07)
 
 

@@ -42,6 +42,11 @@ func (m *StripService) CreateCoordinationTransfer(ctx context.Context, session i
 	return args.Error(0)
 }
 
+func (m *StripService) CreateEsArrivalCoordination(ctx context.Context, session int32, callsign string, from string, to string, esHandoverCid *string) error {
+	args := m.Called(ctx, session, callsign, from, to, esHandoverCid)
+	return args.Error(0)
+}
+
 func (m *StripService) AcceptCoordination(ctx context.Context, session int32, callsign string, assumingPosition string) error {
 	args := m.Called(ctx, session, callsign, assumingPosition)
 	return args.Error(0)

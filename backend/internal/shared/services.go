@@ -10,6 +10,7 @@ type StripService interface {
 	MoveStripBetween(ctx context.Context, session int32, callsign string, insertAfter *frontend.StripRef, bay string) error
 	MoveTacticalStripBetween(ctx context.Context, session int32, id int64, insertAfter *frontend.StripRef, bay string) error
 	CreateCoordinationTransfer(ctx context.Context, session int32, callsign string, from string, to string) error
+	CreateEsArrivalCoordination(ctx context.Context, session int32, callsign string, from string, to string, esHandoverCid *string) error
 	AcceptCoordination(ctx context.Context, session int32, callsign string, assumingPosition string) error
 	AutoTransferAirborneStrip(ctx context.Context, session int32, callsign string) error
 	ClearStrip(ctx context.Context, session int32, callsign string, cid string) error

@@ -377,7 +377,7 @@ func handlePositionUpdate(ctx context.Context, client *Client, message Message) 
 		Bay:         existingStrip.Bay,
 		State:       existingStrip.State,
 	}
-	bay := shared.GetDepartureBayFromPosition(event.Lat, event.Lon, event.Altitude, dbStrip, config.GetAirborneAltitudeAGL())
+	bay := shared.GetDepartureBayFromPosition(event.Lat, event.Lon, event.Altitude, dbStrip, config.GetAirborneAltitudeAGL(), client.airport)
 	intAltitude := int32(event.Altitude)
 
 	_, err = stripRepo.UpdateAircraftPosition(ctx, session, event.Callsign, &event.Lat, &event.Lon, &intAltitude, bay, nil)
@@ -477,6 +477,21 @@ func handleCoordinationReceived(ctx context.Context, client *Client, message Mes
 	}
 
 	s := client.hub.server
+	stripRepo := s.GetStripRepository()
+
+	strip, err := stripRepo.GetByCallsign(ctx, client.session, event.Callsign)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			slog.Debug("Strip not found for coordination_received event", slog.String("callsign", event.Callsign))
+			return nil
+		}
+		return err
+	}
+
+	if strip.Bay != shared.BAY_ARR_HIDDEN {
+		slog.Debug("coordination_received on strip not in ARR_HIDDEN, ignoring", slog.String("callsign", event.Callsign), slog.String("bay", strip.Bay))
+		return nil
+	}
 
 	controller, err := s.GetControllerRepository().GetByCallsign(ctx, client.session, event.ControllerCallsign)
 	if err != nil {
@@ -489,12 +504,20 @@ func handleCoordinationReceived(ctx context.Context, client *Client, message Mes
 
 	slog.Debug("Received coordination received event", slog.String("callsign", event.Callsign), slog.String("from_controller", event.ControllerCallsign))
 
-	if controller.Cid != nil && *controller.Cid != "" {
-		slog.Debug("Sending assume and drop for coordination received event", slog.String("callsign", event.Callsign), slog.String("from_controller", event.ControllerCallsign))
-		s.GetEuroscopeHub().SendAssumeAndDrop(client.session, *controller.Cid, event.Callsign)
+	if _, err := stripRepo.UpdateBay(ctx, client.session, event.Callsign, shared.BAY_FINAL, nil); err != nil {
+		return err
 	}
 
-	return nil
+	if err := client.hub.stripService.MoveToBay(ctx, client.session, event.Callsign, shared.BAY_FINAL, true); err != nil {
+		return err
+	}
+
+	fromPosition := ""
+	if strip.Owner != nil {
+		fromPosition = *strip.Owner
+	}
+
+	return client.hub.stripService.CreateEsArrivalCoordination(ctx, client.session, event.Callsign, fromPosition, controller.Position, controller.Cid)
 }
 
 func handleSetHeading(ctx context.Context, client *Client, message Message) error {
@@ -611,7 +634,7 @@ func handleSync(ctx context.Context, client *Client, message Message) error {
 	}
 
 	for _, strip := range event.Strips {
-		err = client.hub.handleStripUpdateHelper(ctx, strip, session)
+		err = client.hub.handleStripUpdateHelper(ctx, strip, session, client.airport)
 		if err != nil {
 			return err
 		}
@@ -620,7 +643,7 @@ func handleSync(ctx context.Context, client *Client, message Message) error {
 	return err
 }
 
-func (hub *Hub) handleStripUpdateHelper(ctx context.Context, strip euroscope.Strip, session int32) error {
+func (hub *Hub) handleStripUpdateHelper(ctx context.Context, strip euroscope.Strip, session int32, airport string) error {
 	server := hub.server
 	stripRepo := server.GetStripRepository()
 
@@ -633,7 +656,7 @@ func (hub *Hub) handleStripUpdateHelper(ctx context.Context, strip euroscope.Str
 
 	if errors.Is(err, pgx.ErrNoRows) {
 		// Strip doesn't exist, so insert
-		bay = shared.GetDepartureBay(strip, nil, config.GetAirborneAltitudeAGL())
+		bay = shared.GetDepartureBay(strip, nil, config.GetAirborneAltitudeAGL(), airport)
 
 		newStrip := &internalModels.Strip{
 			Callsign:           strip.Callsign,
@@ -683,7 +706,7 @@ func (hub *Hub) handleStripUpdateHelper(ctx context.Context, strip euroscope.Str
 			State:       existingStrip.State,
 			Stand:       existingStrip.Stand,
 		}
-		bay = shared.GetDepartureBay(strip, &dbExistingStrip, config.GetAirborneAltitudeAGL())
+		bay = shared.GetDepartureBay(strip, &dbExistingStrip, config.GetAirborneAltitudeAGL(), airport)
 
 		// Do not overwrite with an empty stand
 		stand := existingStrip.Stand
@@ -765,7 +788,7 @@ func handleStripUpdateEvent(ctx context.Context, client *Client, message Message
 		return err
 	}
 
-	err = client.hub.handleStripUpdateHelper(ctx, event.Strip, client.session)
+	err = client.hub.handleStripUpdateHelper(ctx, event.Strip, client.session, client.airport)
 	return err
 }
 

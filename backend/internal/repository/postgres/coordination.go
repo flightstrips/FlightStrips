@@ -28,16 +28,20 @@ func coordinationToModel(db database.Coordination) *models.Coordination {
 		FromPosition:  db.FromPosition,
 		ToPosition:    db.ToPosition,
 		CoordinatedAt: PgTimestampToTime(db.CoordinatedAt),
+		FromEs:        db.FromEs,
+		EsHandoverCid: db.EsHandoverCid,
 	}
 }
 
 // Create inserts a new coordination
 func (r *coordinationRepository) Create(ctx context.Context, coordination *models.Coordination) error {
 	_, err := r.queries.CreateCoordination(ctx, database.CreateCoordinationParams{
-		Session:      coordination.Session,
-		StripID:      coordination.StripID,
-		FromPosition: coordination.FromPosition,
-		ToPosition:   coordination.ToPosition,
+		Session:       coordination.Session,
+		StripID:       coordination.StripID,
+		FromPosition:  coordination.FromPosition,
+		ToPosition:    coordination.ToPosition,
+		FromEs:        coordination.FromEs,
+		EsHandoverCid: coordination.EsHandoverCid,
 	})
 	return err
 }

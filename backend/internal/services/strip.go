@@ -143,6 +143,38 @@ func (s *StripService) CreateCoordinationTransfer(ctx context.Context, session i
 	return nil
 }
 
+func (s *StripService) CreateEsArrivalCoordination(ctx context.Context, session int32, callsign string, from string, to string, esHandoverCid *string) error {
+	if s.frontendHub == nil {
+		return errors.New("frontend hub not configured")
+	}
+
+	server := s.frontendHub.GetServer()
+	if server == nil {
+		return errors.New("server not configured")
+	}
+
+	strip, err := s.stripRepo.GetByCallsign(ctx, session, callsign)
+	if err != nil {
+		return err
+	}
+
+	coord := &internalModels.Coordination{
+		Session:       session,
+		StripID:       strip.ID,
+		FromPosition:  from,
+		ToPosition:    to,
+		FromEs:        true,
+		EsHandoverCid: esHandoverCid,
+	}
+
+	if err := server.GetCoordinationRepository().Create(ctx, coord); err != nil {
+		return err
+	}
+
+	s.frontendHub.SendCoordinationTransfer(session, callsign, from, to)
+	return nil
+}
+
 // AcceptCoordination accepts a pending coordination for a strip by the given assumingPosition.
 // It deletes the coordination, updates the next/previous owners, sets the strip owner, and
 // sends frontend notifications. Returns nil without error if no coordination exists.

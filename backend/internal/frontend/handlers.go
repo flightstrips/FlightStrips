@@ -233,7 +233,33 @@ func handleCoordinationAssumeRequest(ctx context.Context, client *Client, messag
 		return err
 	}
 
-	// Strip is not owned by anyone — assume it directly without a coordination
+	// Check for a pending coordination first — this covers both normal transfers and
+	// ES-originated arrivals (which have no strip owner but do have a coordination record).
+	coordRepo := s.GetCoordinationRepository()
+	coordination, err := coordRepo.GetByStripID(ctx, client.session, strip.ID)
+	if err == nil {
+		// Coordination exists — validate it targets this client.
+		if coordination.ToPosition != client.position {
+			return errors.New("cannot assume strip which is not transferred to you")
+		}
+
+		// Capture ES handover fields before AcceptCoordination deletes the record.
+		esHandoverCid := coordination.EsHandoverCid
+		fromEs := coordination.FromEs
+
+		if err := client.hub.stripService.AcceptCoordination(ctx, client.session, req.Callsign, client.position); err != nil {
+			return err
+		}
+
+		// If this coordination originated from an ES push, signal the ES client to assume+drop.
+		if fromEs && esHandoverCid != nil && *esHandoverCid != "" {
+			s.GetEuroscopeHub().SendAssumeAndDrop(client.session, *esHandoverCid, req.Callsign)
+		}
+
+		return nil
+	}
+
+	// Strip is not owned by anyone and has no pending coordination — assume directly.
 	if strip.Owner == nil || *strip.Owner == "" {
 		count, err := stripRepo.SetOwner(ctx, client.session, req.Callsign, &client.position, strip.Version)
 		if err != nil {
@@ -246,17 +272,7 @@ func handleCoordinationAssumeRequest(ctx context.Context, client *Client, messag
 		return nil
 	}
 
-	// Validate that the coordination targets this client
-	coordRepo := s.GetCoordinationRepository()
-	coordination, err := coordRepo.GetByStripID(ctx, client.session, strip.ID)
-	if err != nil {
-		return err
-	}
-	if coordination.ToPosition != client.position {
-		return errors.New("cannot assume strip which is not transferred to you")
-	}
-
-	return client.hub.stripService.AcceptCoordination(ctx, client.session, req.Callsign, client.position)
+	return errors.New("cannot assume strip which is not transferred to you")
 }
 
 func handleCoordinationRejectRequest(ctx context.Context, client *Client, message Message) error {

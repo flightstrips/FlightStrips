@@ -24,8 +24,9 @@ const (
 	// BAY_FINAL Used for arrivals
 	BAY_FINAL = "FINAL"
 	// BAY_STAND Used for arrivals
-	BAY_STAND  = "STAND"
-	BAY_HIDDEN = "HIDDEN"
+	BAY_STAND      = "STAND"
+	BAY_HIDDEN     = "HIDDEN"
+	BAY_ARR_HIDDEN = "ARR_HIDDEN"
 )
 
 const (
@@ -39,16 +40,26 @@ const (
 	RelevantDistance = 20
 )
 
-func GetDepartureBay(strip euroscope.Strip, existing *database.Strip, airborneAltitudeAGL int64) string {
-	// TODO handle arrivals in this method. Maybe split into two but the entry point should be in this file and the same
-	// for both arrivals and departures.
-	if strip.Origin != "EKCH" {
+func GetDepartureBay(strip euroscope.Strip, existing *database.Strip, airborneAltitudeAGL int64, airport string) string {
+	// Arrivals: bay is set once when first seen within range, never changed by this function after that.
+	if strip.Destination == airport {
+		if existing != nil && existing.Bay != "" {
+			return existing.Bay
+		}
+
+		return BAY_ARR_HIDDEN
+	}
+
+	// Strips not departing from this airport: keep existing bay or hide.
+	if strip.Origin != airport {
 		if existing != nil && existing.Bay != "" {
 			return existing.Bay
 		}
 		return BAY_HIDDEN
 	}
 
+	// Departures from this airport.
+	// TODO: airport latitude/longitude should be stored in config, not hardcoded
 	if GetDistance(strip.Position.Lat, strip.Position.Lon, AirportLatitude, AirportLongitude) > RelevantDistance {
 		return BAY_HIDDEN
 	}
@@ -96,16 +107,23 @@ func GetDepartureBayFromGroundState(state string, existing database.Strip) strin
 	return existing.Bay
 }
 
-func GetDepartureBayFromPosition(lat, lon float64, alt int64, existing database.Strip, airborneAltitudeAGL int64) string {
+func GetDepartureBayFromPosition(lat, lon float64, alt int64, existing database.Strip, airborneAltitudeAGL int64, airport string) string {
+	// Arrivals: position updates never change the bay (set once in GetDepartureBay).
+	if existing.Destination == airport {
+		return existing.Bay
+	}
+
+	// Non-departures from this airport: keep existing bay unchanged.
+	if existing.Origin != airport {
+		return existing.Bay
+	}
+
+	// Departures from this airport.
 	if GetDistance(lat, lon, AirportLatitude, AirportLongitude) > RelevantDistance {
 		return BAY_HIDDEN
 	}
 
 	bay := existing.Bay
-
-	if existing.Origin != "EKCH" {
-		return bay
-	}
 
 	if bay != BAY_DEPART || existing.State == nil || *existing.State != euroscope.GroundStateDepart {
 		return bay
@@ -131,8 +149,6 @@ func GetGroundState(bay string) string {
 
 	return euroscope.GroundStateUnknown
 }
-
-// TODO arrival bays. This needs to not auto move the strips as much as strips must be dragged to the runway bay.
 
 func GetDistance(lat1 float64, lon1 float64, lat2 float64, lon2 float64) float64 {
 	const earthRadiusNM = 3440.065 // Earth radius in nautical miles

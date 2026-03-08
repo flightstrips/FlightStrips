@@ -38,6 +38,8 @@ type Coordination struct {
 	FromPosition  string
 	ToPosition    string
 	CoordinatedAt pgtype.Timestamp
+	FromEs        bool
+	EsHandoverCid *string
 }
 
 type SectorOwner struct {

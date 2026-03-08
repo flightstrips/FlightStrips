@@ -29,7 +29,7 @@ export default function DataHandling() {
           </ScrollReveal>
           
           <ScrollReveal delay={0.2}>
-            <p className="text-sm text-nc-muted">Last updated: [Date]</p>
+            <p className="text-sm text-nc-muted">Last updated: 08/03/2026</p>
           </ScrollReveal>
         </div>
       </section>

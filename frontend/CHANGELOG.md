@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.4.0...frontend/v0.5.0) (2026-03-08)
+
+
+### Features
+
+* new public site ([41563b6](https://github.com/flightstrips/FlightStrips/commit/41563b66ef6338f8ae43e57100f4d6c45ad1ad1d))
+
 ## [0.4.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.3.0...frontend/v0.4.0) (2026-03-08)
 
 

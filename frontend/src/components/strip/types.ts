@@ -1,6 +1,6 @@
 import type { Bay, PdcStatus } from "@/api/models";
 
-export type StripStatus = "CLR" | "CLROK" | "HALF" | "PUSH" | "ARR" | "CLX-HALF" | "TAXI-DEP" | "TWY-DEP";
+export type StripStatus = "CLR" | "CLROK" | "HALF" | "PUSH" | "ARR" | "CLX-HALF" | "TAXI-DEP" | "TWY-DEP" | "FINAL-ARR";
 
 export type HalfStripVariant =
   | "APN-PUSH"    // Pushback bays
@@ -46,6 +46,8 @@ export interface StripProps {
   registration?: string;
   fullWidth?: boolean;
 }
+
+export const TWY_DEP_STRIP_WIDTH = 519; // W_SI(40) + W_CALLSIGN(120) + W_TYPE_SQ(60) + W_STAND_CTOT(60) + W_SMALL(53)*3 + W_SID_DEST(80)
 
 export function getStripBg(pdcStatus?: PdcStatus, isArrival?: boolean): string {
   if (pdcStatus === "REQUESTED") return "#B8860B";

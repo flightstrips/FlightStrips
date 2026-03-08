@@ -1,4 +1,3 @@
-import { useEffect, useState } from "react";
 import { PublicNavigation } from "@/components/public/PublicNavigation";
 import { PublicFooter } from "@/components/public/PublicFooter";
 import { ScrollProgress } from "@/components/public/ScrollProgress";
@@ -8,13 +7,7 @@ import { useAuth0 } from "@auth0/auth0-react";
 
 export default function Home() {
   const { user, isLoading } = useAuth0();
-  const [showOpenApp, setShowOpenApp] = useState(false);
-
-  useEffect(() => {
-    if (!isLoading) {
-      setShowOpenApp(!!user);
-    }
-  }, [user, isLoading]);
+  const showOpenApp = !isLoading && !!user;
   return (
     <div className="bg-nc-black min-h-screen text-white">
       <ScrollProgress />

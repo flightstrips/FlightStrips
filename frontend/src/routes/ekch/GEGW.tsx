@@ -100,7 +100,7 @@ export default function GEGW() {
         </div>
         <DropIndicatorBay bayId="FINAL" className="h-[25%] w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary">
           {finalStrips.filter(isFlight).map(s => (
-            <Strip key={s.callsign} strip={s} status="HALF" halfStripVariant="LOCKED-ARR" selectable={false} myPosition={myPosition} />
+            <Strip key={s.callsign} strip={s} status="FINAL-ARR" selectable={false} myPosition={myPosition} />
           ))}
         </DropIndicatorBay>
 
@@ -109,7 +109,7 @@ export default function GEGW() {
         </div>
         <DropIndicatorBay bayId="RWY-ARR" className="h-[20%] w-full bg-[#212121] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary">
           {rwyArrStrips.filter(isFlight).map(s => (
-            <Strip key={s.callsign} strip={s} status="HALF" halfStripVariant="LOCKED-ARR" selectable={false} myPosition={myPosition} />
+            <Strip key={s.callsign} strip={s} status="FINAL-ARR" selectable={false} myPosition={myPosition} />
           ))}
         </DropIndicatorBay>
 
@@ -125,7 +125,7 @@ export default function GEGW() {
         </div>
         <DropIndicatorBay bayId="TWY-ARR" className="flex-1 w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary">
           {twyArrStrips.filter(isFlight).map(s => (
-            <Strip key={s.callsign} strip={s} status="HALF" halfStripVariant="APN-ARR" myPosition={myPosition} />
+            <Strip key={s.callsign} strip={s} status="FINAL-ARR" myPosition={myPosition} />
           ))}
         </DropIndicatorBay>
 

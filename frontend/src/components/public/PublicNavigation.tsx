@@ -1,17 +1,10 @@
-import { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router";
 import { useAuth0 } from "@auth0/auth0-react";
 
 export function PublicNavigation() {
   const location = useLocation();
   const { user, isLoading } = useAuth0();
-  const [showOpenApp, setShowOpenApp] = useState(false);
-
-  useEffect(() => {
-    if (!isLoading) {
-      setShowOpenApp(!!user);
-    }
-  }, [user, isLoading]);
+  const showOpenApp = !isLoading && !!user;
 
   return (
     <nav 

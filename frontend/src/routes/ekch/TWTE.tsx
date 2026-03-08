@@ -19,17 +19,16 @@ import {
 } from "@/store/airports/ekch.ts";
 import type { AnyStrip, StripRef, FrontendStrip } from "@/api/models.ts";
 import { Bay } from "@/api/models.ts";
-import type { HalfStripVariant, StripStatus } from "@/components/strip/types.ts";
+import type { StripStatus } from "@/components/strip/types.ts";
 import { SortableBay, DropIndicatorBay } from "@/components/bays/SortableBay.tsx";
 import { ViewDndContext } from "@/components/bays/ViewDndContext.tsx";
-import { useWebSocketStore, useMyPosition, useLowerPositionOnline, useAirport, useMessages } from "@/store/store-hooks.ts";
+import { useWebSocketStore, useMyPosition, useLowerPositionOnline, useMessages } from "@/store/store-hooks.ts";
 import { useRef, useEffect, useMemo, useState } from "react";
-import { TWY_DEP_STRIP_WIDTH } from "@/components/strip/TwyDepStrip.tsx";
+import { TWY_DEP_STRIP_WIDTH } from "@/components/strip/types";
 import { StripListPopup, type SortMode } from "@/components/StripListPopup.tsx";
 
 const scrollArea = "w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary";
 const scrollAreaBottom = "w-full bg-[#555355] p-1 flex flex-col justify-end gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary";
-const darkScrollArea = "w-full bg-[#212121] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary";
 const darkScrollAreaBottom = "w-full bg-[#212121] p-1 flex flex-col justify-end gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary";
 const btn = "bg-[#646464] text-white font-bold text-sm px-3 border-2 border-white active:bg-[#424242]";
 const btnOrange = "bg-[#DD6A12] text-white font-bold text-sm px-3 border-2 border-white active:bg-[#c45a0d]";
@@ -86,9 +85,9 @@ export default function TWTE() {
   const ALL_ACTIVE = ["FINAL", "RWY-ARR", "TWY-ARR", "TWY-DEP", "RWY-DEP", "AIRBORNE", "STAND", "PUSHBACK", "DE-ICE"] as const;
 
   const bayStripMap = {
-    "FINAL":    { strips: finalStrips, targetBay: Bay.Final },
-    "RWY-ARR":  { strips: rwyArrStrips,  targetBay: Bay.RwyArr },
-    "TWY-ARR":  { strips: twyArrStrips,   targetBay: Bay.TwyArr },
+    "FINAL":    { strips: finalStrips, targetBay: Bay.Final, descending: true },
+    "RWY-ARR":  { strips: rwyArrStrips,  targetBay: Bay.RwyArr, descending: true },
+    "TWY-ARR":  { strips: twyArrStrips,   targetBay: Bay.TwyArr, descending: true },
     "TWY-DEP":  { strips: twyDepDesc,     targetBay: Bay.Taxi,     descending: true },
     "RWY-DEP":  { strips: rwyDepDesc,     targetBay: Bay.Depart,   descending: true },
     "AIRBORNE": { strips: airborneDesc,   targetBay: Bay.Airborne, descending: true },
@@ -110,13 +109,10 @@ export default function TWTE() {
   };
 
   const statusForBay: Record<string, StripStatus> = {
-    "FINAL": "CLROK", "RWY-ARR": "CLROK",
-    "TWY-ARR": "HALF", "TWY-DEP": "TWY-DEP",
+    "FINAL": "FINAL-ARR", "RWY-ARR": "FINAL-ARR",
+    "TWY-ARR": "FINAL-ARR", "TWY-DEP": "TWY-DEP",
     "RWY-DEP": "TWY-DEP", "AIRBORNE": "TWY-DEP",
     "STAND": "CLROK", "PUSHBACK": "PUSH", "DE-ICE": "PUSH",
-  };
-  const halfVariantForBay: Partial<Record<string, HalfStripVariant>> = {
-    "TWY-ARR": "APN-ARR",
   };
 
   return (
@@ -139,7 +135,6 @@ export default function TWTE() {
           <Strip
             strip={strip}
             status={statusForBay[bayId]}
-            halfStripVariant={halfVariantForBay[bayId]}
             myPosition={myPosition}
           />
         );
@@ -159,10 +154,10 @@ export default function TWTE() {
           strips={finalStrips}
           bayId="FINAL"
           standalone={false}
-          className={`h-[35%] ${scrollArea}`}
+          className={`h-[35%] ${scrollAreaBottom}`}
         >
           {(strip) => (
-            <Strip strip={strip} status="CLROK" myPosition={myPosition} width={TWY_DEP_STRIP_WIDTH} />
+            <Strip strip={strip} status="FINAL-ARR" myPosition={myPosition} />
           )}
         </SortableBay>
 
@@ -179,10 +174,10 @@ export default function TWTE() {
           strips={rwyArrStrips}
           bayId="RWY-ARR"
           standalone={false}
-          className={`h-[20%] ${darkScrollArea}`}
+          className={`h-[20%] ${darkScrollAreaBottom}`}
         >
           {(strip) => (
-            <Strip strip={strip} status="CLROK" myPosition={myPosition} />
+            <Strip strip={strip} status="FINAL-ARR" myPosition={myPosition} />
           )}
         </SortableBay>
 
@@ -195,17 +190,16 @@ export default function TWTE() {
             <CrossingButton bay={Bay.Taxi} className={btnYellow} />
           </span>
         </div>
-        <div className={`flex-1 ${scrollArea}`}>
-          <SortableBay
-            strips={twyArrStrips}
-            bayId="TWY-ARR"
-            standalone={false}
-          >
-            {(strip) => (
-              <Strip strip={strip} status="HALF" halfStripVariant="APN-ARR" myPosition={myPosition} />
-            )}
-          </SortableBay>
-        </div>
+        <SortableBay
+          strips={twyArrStrips}
+          bayId="TWY-ARR"
+          standalone={false}
+          className={`flex-1 ${scrollAreaBottom}`}
+        >
+          {(strip) => (
+          <Strip strip={strip} status="FINAL-ARR" myPosition={myPosition} />
+          )}
+        </SortableBay>
       </div>
 
       {/* Column 2 – TWY DEP + RWY DEP + AIRBORNE */}
@@ -346,7 +340,7 @@ export default function TWTE() {
         </div>
         <DropIndicatorBay bayId="CLRDEL" className={`h-[45%] ${scrollArea}`}>
           {nonClearedStrips.map(s => (
-            <Strip key={s.callsign} strip={s} status={lowerPositionOnline ? "CLX-HALF" : "CLROK"} myPosition={myPosition} />
+            <Strip key={s.callsign} strip={s} status={lowerPositionOnline ? "CLX-HALF" : "CLR"} fullWidth={true} myPosition={myPosition} />
           ))}
         </DropIndicatorBay>
 

@@ -7,7 +7,7 @@ import { ScrollReveal } from "@/components/public/ScrollReveal";
 export default function Authentication() {
   const { loginWithRedirect } = useAuth0();
   const location = useLocation();
-  const returnTo = (location.state as any)?.returnTo || "/app";
+  const returnTo = (location.state as { returnTo?: string })?.returnTo ?? "/app";
 
   return (
     <div className="bg-nc-black min-h-screen text-white">

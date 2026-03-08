@@ -2,8 +2,11 @@
 #include "FlightStripsPlugin.h"
 
 #include "Logger.hpp"
+#include "bootstrap/Container.h"
 #include "graphics/InfoScreen.h"
 #include "handlers/FlightPlanEventHandlers.h"
+#include "websocket/Events.h"
+#include "websocket/WebSocketService.h"
 
 using namespace EuroScopePlugIn;
 
@@ -119,7 +122,26 @@ namespace FlightStrips {
         });
     }
 
-    void FlightStripsPlugin::OnFlightPlanFlightStripPushed(EuroScopePlugIn::CFlightPlan, const char *, const char *) {
+    void FlightStripsPlugin::OnFlightPlanFlightStripPushed(EuroScopePlugIn::CFlightPlan FlightPlan,
+                                                           const char *sSenderController,
+                                                           const char *sTargetController) {
+        // Facility 4 = Tower
+        if (ControllerMyself().GetFacility() != 4) return;
+
+        if (!FlightPlan.IsValid()) return;
+
+        const auto me = ControllerMyself();
+        if (_stricmp(FlightPlan.GetHandoffTargetControllerCallsign(), me.GetCallsign()) != 0) return;
+
+        const auto callsign = std::string(FlightPlan.GetCallsign());
+        const auto controllerCallsign = std::string(me.GetCallsign());
+        SafeCall("OnFlightPlanFlightStripPushed", [this, callsign, controllerCallsign] {
+            if (const auto ptr = m_container.lock()) {
+                if (ptr->webSocketService->IsConnected()) {
+                    ptr->webSocketService->SendEvent(CoordinationReceivedEvent(callsign, controllerCallsign));
+                }
+            }
+        });
     }
 
     void FlightStripsPlugin::OnRadarTargetPositionUpdate(EuroScopePlugIn::CRadarTarget RadarTarget) {

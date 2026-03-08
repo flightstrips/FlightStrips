@@ -3,8 +3,8 @@
 namespace FlightStrips::flightplan {
     struct FlightPlan {
     public:
-        std::string squawk;
-        std::string stand;
+        std::string squawk{};
+        std::string stand{};
+        std::string tracking_controller{};
     };
 }
-

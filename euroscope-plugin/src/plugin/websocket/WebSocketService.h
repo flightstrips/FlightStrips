@@ -89,5 +89,7 @@ template void FlightStrips::websocket::WebSocketService::SendEvent<RequestedAlti
 template void FlightStrips::websocket::WebSocketService::SendEvent<RunwayEvent>(const RunwayEvent & event);
 template void FlightStrips::websocket::WebSocketService::SendEvent<SquawkEvent>(const SquawkEvent & event);
 template void FlightStrips::websocket::WebSocketService::SendEvent<StandEvent>(const StandEvent & event);
+template void FlightStrips::websocket::WebSocketService::SendEvent<TrackingControllerChangedEvent>(const TrackingControllerChangedEvent & event);
 template void FlightStrips::websocket::WebSocketService::SendEvent<StripUpdateEvent>(const StripUpdateEvent & event);
 template void FlightStrips::websocket::WebSocketService::SendEvent<SyncEvent>(const SyncEvent & event);
+template void FlightStrips::websocket::WebSocketService::SendEvent<CoordinationReceivedEvent>(const CoordinationReceivedEvent & event);

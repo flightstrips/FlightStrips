@@ -14,8 +14,8 @@ namespace FlightStrips::flightplan {
 class FlightPlanService final : public handlers::FlightPlanEventHandler, public handlers::RadarTargetEventHandler, public handlers::TimedEventHandler  {
     public:
 
-    explicit FlightPlanService(const std::shared_ptr<websocket::WebSocketService> &websocketService, 
-                              const std::shared_ptr<FlightStripsPlugin> &flightStripsPlugin, 
+    explicit FlightPlanService(const std::shared_ptr<websocket::WebSocketService> &websocketService,
+                              const std::shared_ptr<FlightStripsPlugin> &flightStripsPlugin,
                               const std::shared_ptr<stands::StandService>& standService,
                               const std::shared_ptr<configuration::AppConfig>& appConfig);
 

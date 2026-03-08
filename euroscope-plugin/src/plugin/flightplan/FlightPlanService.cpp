@@ -27,7 +27,10 @@ namespace FlightStrips::flightplan {
             }
         }
 
-        FlightPlan plan = {std::string(position.GetSquawk()), stand};
+        FlightPlan plan = {
+            std::string(position.GetSquawk()),
+            stand
+        };
         const auto callsign = std::string(radarTarget.GetCallsign());
 
         const auto [pair, inserted] = this->m_flightPlans.insert({callsign, plan});
@@ -56,7 +59,7 @@ namespace FlightStrips::flightplan {
         }
 
         // Queue position update instead of sending immediately
-        m_pendingPositionUpdates.insert_or_assign(callsign, PositionEvent(callsign, aircraftPosition.m_Latitude, 
+        m_pendingPositionUpdates.insert_or_assign(callsign, PositionEvent(callsign, aircraftPosition.m_Latitude,
                                                                           aircraftPosition.m_Longitude,
                                                                           position.GetPressureAltitude()));
     }
@@ -64,15 +67,12 @@ namespace FlightStrips::flightplan {
     void FlightPlanService::FlightPlanEvent(EuroScopePlugIn::CFlightPlan flightPlan) {
         const auto callsign = std::string(flightPlan.GetCallsign());
         const auto relevantAirport = m_flightStripsPlugin->GetConnectionState().relevant_airport;
+        auto &plan = this->m_flightPlans.try_emplace(callsign).first->second;
+
         auto stand = m_standService->GetStand(flightPlan.GetControllerAssignedData().GetFlightStripAnnotation(6),
                                               relevantAirport);
         if (stand != nullptr) {
-            FlightPlan plan{{}, stand->GetName()};
-            if (const auto [pair, inserted] = this->m_flightPlans.insert({callsign, plan}); !inserted) {
-                if (pair->second.stand != plan.stand) {
-                    pair->second.stand = plan.stand;
-                }
-            }
+            plan.stand = stand->GetName();
         }
 
         if (!m_websocketService->ShouldSend()) return;
@@ -122,7 +122,8 @@ namespace FlightStrips::flightplan {
             {flightPlanData.GetCommunicationType()},
             flightPlanData.GetCapibilities() == 0 ? "?" : std::string{flightPlanData.GetCapibilities()},
             isArrival ? "" : std::string(flightPlanData.GetEstimatedDepartureTime()),
-            isArrival ? GetEstimatedLandingTime(flightPlan) : ""
+            isArrival ? GetEstimatedLandingTime(flightPlan) : "",
+            std::string(flightPlan.GetTrackingControllerCallsign())
         };
         m_websocketService->SendEvent(event);
     }
@@ -160,20 +161,17 @@ namespace FlightStrips::flightplan {
                     HeadingEvent(callsign, flightPlan.GetControllerAssignedData().GetAssignedHeading()));
                 break;
             case EuroScopePlugIn::CTR_DATA_TYPE_SCRATCH_PAD_STRING: {
+                auto &plan = this->m_flightPlans.try_emplace(callsign).first->second;
                 const auto scratch = flightPlan.GetControllerAssignedData().GetScratchPadString();
 
                 if (_strnicmp(scratch, "GRP/S/", 6) != 0) break;
 
                 const auto stand = std::string(scratch).substr(6);
                 // We are not validating the stand here!
-                FlightPlan plan{{}, stand};
-
-                if (const auto [pair, inserted] = this->m_flightPlans.insert({callsign, plan}); !inserted) {
-                    if (pair->second.stand == stand) {
-                        break;
-                    }
-                    pair->second.stand = stand;
+                if (plan.stand == stand) {
+                    break;
                 }
+                plan.stand = stand;
 
                 m_websocketService->SendEvent(StandEvent(callsign, stand));
                 break;
@@ -188,10 +186,11 @@ namespace FlightStrips::flightplan {
 
     void FlightPlanService::FlightPlanDisconnectEvent(EuroScopePlugIn::CFlightPlan flightPlan) {
         const auto callsign = std::string(flightPlan.GetCallsign());
-        
+
         // Remove pending position updates for disconnected aircraft
         m_pendingPositionUpdates.erase(callsign);
-        
+        m_flightPlans.erase(callsign);
+
         if (!m_websocketService->ShouldSend()) return;
         m_websocketService->SendEvent(AircraftDisconnectEvent(callsign));
     }
@@ -224,20 +223,35 @@ namespace FlightStrips::flightplan {
 
     void FlightPlanService::OnTimer(int counter) {
         const auto interval = m_appConfig->GetPositionUpdateIntervalSeconds();
-        
+
         if (counter - m_lastPositionFlushCounter >= interval) {
             FlushPositionUpdates();
             m_lastPositionFlushCounter = counter;
+        }
+
+        // Poll for tracking controller changes every tick.
+        // OnFlightPlanControllerAssignedDataUpdate does not fire when a tracking controller is
+        // assumed or dropped, so we must detect the transition here instead.
+        if (!m_websocketService->ShouldSend()) return;
+        for (auto it = m_flightStripsPlugin->FlightPlanSelectFirst(); it.IsValid();
+             it = m_flightStripsPlugin->FlightPlanSelectNext(it)) {
+            if (it.GetSimulated()) continue;
+            const auto callsign = std::string(it.GetCallsign());
+            const auto trackingController = std::string(it.GetTrackingControllerCallsign());
+            auto &plan = m_flightPlans.try_emplace(callsign).first->second;
+            if (plan.tracking_controller == trackingController) continue;
+            plan.tracking_controller = trackingController;
+            m_websocketService->SendEvent(TrackingControllerChangedEvent(callsign, trackingController));
         }
     }
 
     void FlightPlanService::FlushPositionUpdates() {
         if (!m_websocketService->ShouldSend() || m_pendingPositionUpdates.empty()) return;
-        
+
         for (const auto& [callsign, positionEvent] : m_pendingPositionUpdates) {
             m_websocketService->SendEvent(positionEvent);
         }
-        
+
         m_pendingPositionUpdates.clear();
     }
 }

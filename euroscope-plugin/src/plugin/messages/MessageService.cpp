@@ -3,6 +3,28 @@
 #include "Logger.hpp"
 
 namespace FlightStrips::messages {
+    namespace {
+        bool IsAirborneCapablePosition(const std::string &callsign) {
+            size_t segmentStart = 0;
+            while (segmentStart <= callsign.length()) {
+                const auto separatorIndex = callsign.find('_', segmentStart);
+                const auto segment = callsign.substr(
+                    segmentStart,
+                    separatorIndex == std::string::npos ? std::string::npos : separatorIndex - segmentStart
+                );
+                if (_stricmp(segment.c_str(), "APP") == 0 ||
+                    _stricmp(segment.c_str(), "DEP") == 0 ||
+                    _stricmp(segment.c_str(), "CTR") == 0) {
+                    return true;
+                }
+                if (separatorIndex == std::string::npos) return false;
+                segmentStart = separatorIndex + 1;
+            }
+
+            return false;
+        }
+    }
+
     void MessageService::OnMessages(const std::vector<nlohmann::json> &messages) {
         for (const auto &message: messages) {
             HandleMessage(message);
@@ -11,6 +33,9 @@ namespace FlightStrips::messages {
 
     void MessageService::HandleMessage(const nlohmann::json &message) const {
         const auto type = message["type"].get<std::string>();
+
+        // TODO change to debug
+        Logger::Info("Received message: {}", type);
 
         if (type == EVENT_SESSION_INFO_NAME) {
             HandleSessionInfoEvent(message.get<SessionInfoEvent>());
@@ -40,6 +65,10 @@ namespace FlightStrips::messages {
             HandleSidEvent(message.get<SidEvent>());
         } else if (type == EVENT_AIRCRAFT_RUNWAY_NAME) {
             HandleAircraftRunwayEvent(message.get<AircraftRunwayEvent>());
+        } else if (type == EVENT_COORDINATION_HANDOVER_NAME) {
+            HandleCoordinationHandoverEvent(message.get<CoordinationHandoverEvent>());
+        } else if (type == EVENT_ASSUME_AND_DROP_NAME) {
+            HandleEsAssumeAndDropEvent(message.get<AssumeAndDropEvent>());
         } else {
             Logger::Warning("Unknown message type: {}", type);
         }
@@ -119,7 +148,8 @@ namespace FlightStrips::messages {
                 {flightPlanData.GetCommunicationType()},
                 flightPlanData.GetCapibilities() == 0 ? "?" : std::string {flightPlanData.GetCapibilities()},
                 isArrival ? "" : std::string(flightPlanData.GetEstimatedDepartureTime()),
-                isArrival ? flightplan::FlightPlanService::GetEstimatedLandingTime(it) : ""
+                isArrival ? flightplan::FlightPlanService::GetEstimatedLandingTime(it) : "",
+                std::string(it.GetTrackingControllerCallsign())
             });
         }
 
@@ -237,5 +267,52 @@ namespace FlightStrips::messages {
             Logger::Warning("Failed to amend flight plan {}", event.callsign);
         }
 
+    }
+
+    void MessageService::HandleEsAssumeAndDropEvent(const AssumeAndDropEvent &event) const {
+        auto fp = m_plugin->FlightPlanSelect(event.callsign.c_str());
+        if (!fp.IsValid()) {
+            Logger::Warning("Failed to find flight plan {} for assume_and_drop", event.callsign);
+            return;
+        }
+
+        if (fp.GetState() != EuroScopePlugIn::FLIGHT_PLAN_STATE_TRANSFER_TO_ME_INITIATED) {
+            Logger::Warning("Flight plan {} is not in state TRANSFER_TO_ME_INITIATED for assume_and_drop", event.callsign);
+        }
+
+        fp.AcceptHandoff();
+
+        if (!fp.EndTracking()) {
+            Logger::Warning("Failed to end tracking {} for assume_and_drop", event.callsign);
+        }
+    }
+
+    void MessageService::HandleCoordinationHandoverEvent(const CoordinationHandoverEvent &event) const {
+        auto fp = m_plugin->FlightPlanSelect(event.callsign.c_str());
+        if (!fp.IsValid()) {
+            Logger::Warning("Failed to find flight plan {} for coordination_handover", event.callsign);
+            return;
+        }
+
+        auto targetController = m_plugin->ControllerSelect(event.target_callsign.c_str());
+        if (!targetController.IsValid() || !targetController.IsController()) {
+            Logger::Warning("Failed to find target controller {} for coordination_handover {}", event.target_callsign,
+                            event.callsign);
+            return;
+        }
+
+        if (!fp.GetTrackingControllerIsMe() && !fp.StartTracking()) {
+            Logger::Warning("Failed to start tracking {} for coordination_handover", event.callsign);
+            return;
+        }
+
+        const auto currentHandoffTarget = std::string(fp.GetHandoffTargetControllerCallsign());
+        if (!currentHandoffTarget.empty() && _stricmp(currentHandoffTarget.c_str(), event.target_callsign.c_str()) == 0) {
+            return;
+        }
+
+        if (!fp.InitiateHandoff(event.target_callsign.c_str())) {
+            Logger::Warning("Failed to initiate handoff for {} to {}", event.callsign, event.target_callsign);
+        }
     }
 }

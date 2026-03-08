@@ -20,6 +20,7 @@
 #define EVENT_HEADING_NAME "heading"
 #define EVENT_AIRCRAFT_DISCONNECT_NAME "aircraft_disconnect"
 #define EVENT_STAND_NAME "stand"
+#define EVENT_TRACKING_CONTROLLER_CHANGED_NAME "tracking_controller_changed"
 #define EVENT_STRIP_UPDATE_NAME "strip_update"
 #define EVENT_RUNWAY_NAME "runway"
 #define EVENT_SESSION_INFO_NAME "session_info"
@@ -28,6 +29,9 @@
 #define EVENT_REMARKS_NAME "remarks"
 #define EVENT_SID_NAME "sid"
 #define EVENT_AIRCRAFT_RUNWAY_NAME "aircraft_runway"
+#define EVENT_COORDINATION_HANDOVER_NAME "coordination_handover"
+#define EVENT_COORDINATION_RECEIVED_NAME "coordination_received"
+#define EVENT_ASSUME_AND_DROP_NAME "assume_and_drop"
 
 enum EventType {
     EVENT_UNKNOWN = 0,
@@ -47,6 +51,7 @@ enum EventType {
     EVENT_HEADING,
     EVENT_AIRCRAFT_DISCONNECT,
     EVENT_STAND,
+    EVENT_TRACKING_CONTROLLER_CHANGED,
     EVENT_STRIP_UPDATE,
     EVENT_RUNWAY,
     // Server only events:
@@ -56,6 +61,9 @@ enum EventType {
     EVENT_REMARKS,
     EVENT_SID,
     EVENT_AIRCRAFT_RUNWAY,
+    EVENT_COORDINATION_HANDOVER,
+    EVENT_COORDINATION_RECEIVED,
+    EVENT_ASSUME_AND_DROP,
 };
 
 NLOHMANN_JSON_SERIALIZE_ENUM(EventType, {
@@ -73,18 +81,22 @@ NLOHMANN_JSON_SERIALIZE_ENUM(EventType, {
                              {EVENT_GROUND_STATE, EVENT_GROUND_STATE_NAME},
                              {EVENT_CLEARED_FLAG, EVENT_CLEARED_FLAG_NAME},
                              {EVENT_AIRCRAFT_POSITION_UPDATE, EVENT_AIRCRAFT_POSITION_UPDATE_NAME},
-                             {EVENT_HEADING, EVENT_HEADING_NAME},
-                             {EVENT_AIRCRAFT_DISCONNECT, EVENT_AIRCRAFT_DISCONNECT_NAME},
-                             {EVENT_STAND, EVENT_STAND_NAME},
-                             {EVENT_STRIP_UPDATE, EVENT_STRIP_UPDATE_NAME},
-                             {EVENT_RUNWAY, EVENT_RUNWAY_NAME},
-                             {EVENT_SESSION_INFO, EVENT_SESSION_INFO_NAME},
-                             {EVENT_GENERATE_SQUAWK, EVENT_GENERATE_SQUAWK_NAME},
-                             {EVENT_ROUTE, EVENT_ROUTE_NAME},
-                             {EVENT_REMARKS, EVENT_REMARKS_NAME},
-                             {EVENT_SID, EVENT_SID_NAME},
-                             {EVENT_AIRCRAFT_RUNWAY, EVENT_AIRCRAFT_RUNWAY_NAME},
-                             })
+                              {EVENT_HEADING, EVENT_HEADING_NAME},
+                              {EVENT_AIRCRAFT_DISCONNECT, EVENT_AIRCRAFT_DISCONNECT_NAME},
+                              {EVENT_STAND, EVENT_STAND_NAME},
+                              {EVENT_TRACKING_CONTROLLER_CHANGED, EVENT_TRACKING_CONTROLLER_CHANGED_NAME},
+                              {EVENT_STRIP_UPDATE, EVENT_STRIP_UPDATE_NAME},
+                              {EVENT_RUNWAY, EVENT_RUNWAY_NAME},
+                              {EVENT_SESSION_INFO, EVENT_SESSION_INFO_NAME},
+                              {EVENT_GENERATE_SQUAWK, EVENT_GENERATE_SQUAWK_NAME},
+                              {EVENT_ROUTE, EVENT_ROUTE_NAME},
+                              {EVENT_REMARKS, EVENT_REMARKS_NAME},
+                              {EVENT_SID, EVENT_SID_NAME},
+                              {EVENT_AIRCRAFT_RUNWAY, EVENT_AIRCRAFT_RUNWAY_NAME},
+                              {EVENT_COORDINATION_HANDOVER, EVENT_COORDINATION_HANDOVER_NAME},
+                              {EVENT_COORDINATION_RECEIVED, EVENT_COORDINATION_RECEIVED_NAME},
+                              {EVENT_ASSUME_AND_DROP, EVENT_ASSUME_AND_DROP_NAME},
+                              })
 
 struct Event {
     EventType type{EVENT_UNKNOWN};
@@ -281,7 +293,8 @@ struct StripUpdateEvent final : Event {
           std::string remarks, std::string runway, std::string squawk, std::string assigned_squawk, std::string sid,
           bool cleared, std::string ground_state, int cleared_altitude, int requested_altitude, int heading,
           std::string aircraft_type, std::string aircraft_category, Position position, std::string stand,
-          std::string communication_type, std::string capabilities, std::string eobt, std::string eldt)
+          std::string communication_type, std::string capabilities, std::string eobt, std::string eldt,
+          std::string tracking_controller)
         : Event(EVENT_STRIP_UPDATE), callsign(std::move(callsign)),
           origin(std::move(origin)),
           destination(std::move(destination)),
@@ -304,7 +317,8 @@ struct StripUpdateEvent final : Event {
           communication_type(std::move(communication_type)),
           capabilities(std::move(capabilities)),
           eobt(std::move(eobt)),
-          eldt(std::move(eldt)) {
+          eldt(std::move(eldt)),
+          tracking_controller(std::move(tracking_controller)) {
     }
 
     std::string callsign;
@@ -330,11 +344,12 @@ struct StripUpdateEvent final : Event {
     std::string capabilities;
     std::string eobt;
     std::string eldt;
+    std::string tracking_controller;
 
     NLOHMANN_DEFINE_TYPE_INTRUSIVE(StripUpdateEvent, callsign, origin, destination, alternate, route, remarks, runway, squawk,
                                    assigned_squawk, sid, cleared, ground_state, cleared_altitude, requested_altitude,
                                    heading, aircraft_type, aircraft_category, position, stand, communication_type,
-                                   capabilities, eobt, eldt, type);
+                                   capabilities, eobt, eldt, tracking_controller, type);
 
 };
 
@@ -372,13 +387,27 @@ struct StandEvent final : Event {
     NLOHMANN_DEFINE_TYPE_INTRUSIVE(StandEvent, callsign, stand, type);
 };
 
+struct TrackingControllerChangedEvent final : Event {
+    std::string callsign;
+    std::string tracking_controller;
+
+    TrackingControllerChangedEvent(std::string callsign, std::string trackingController)
+        : Event(EVENT_TRACKING_CONTROLLER_CHANGED),
+          callsign(std::move(callsign)),
+          tracking_controller(std::move(trackingController)) {
+    }
+
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE(TrackingControllerChangedEvent, callsign, tracking_controller, type);
+};
+
 
 struct Strip final {
     Strip(std::string callsign, std::string origin, std::string destination, std::string alternate, std::string route,
           std::string remarks, std::string runway, std::string squawk, std::string assigned_squawk, std::string sid,
           bool cleared, std::string ground_state, int cleared_altitude, int requested_altitude, int heading,
           std::string aircraft_type, std::string aircraft_category, Position position, std::string stand,
-          std::string communication_type, std::string capabilities, std::string eobt, std::string eldt)
+          std::string communication_type, std::string capabilities, std::string eobt, std::string eldt,
+          std::string tracking_controller)
         : callsign(std::move(callsign)),
           origin(std::move(origin)),
           destination(std::move(destination)),
@@ -401,7 +430,8 @@ struct Strip final {
           communication_type(std::move(communication_type)),
           capabilities(std::move(capabilities)),
           eobt(std::move(eobt)),
-          eldt(std::move(eldt)) {
+          eldt(std::move(eldt)),
+          tracking_controller(std::move(tracking_controller)) {
     }
 
     std::string callsign;
@@ -427,11 +457,12 @@ struct Strip final {
     std::string capabilities;
     std::string eobt;
     std::string eldt;
+    std::string tracking_controller;
 
     NLOHMANN_DEFINE_TYPE_INTRUSIVE(Strip, callsign, origin, destination, alternate, route, remarks, runway, squawk,
                                    assigned_squawk, sid, cleared, ground_state, cleared_altitude, requested_altitude,
                                    heading, aircraft_type, aircraft_category, position, stand, communication_type,
-                                   capabilities, eobt, eldt);
+                                   capabilities, eobt, eldt, tracking_controller);
 };
 
 struct Controller final {
@@ -536,6 +567,41 @@ struct AircraftRunwayEvent final : Event {
     AircraftRunwayEvent() = default;
 
     NLOHMANN_DEFINE_TYPE_INTRUSIVE(AircraftRunwayEvent, callsign, runway, type);
+};
+
+struct CoordinationReceivedEvent final : Event {
+    std::string callsign;
+    std::string controller_callsign;
+
+    CoordinationReceivedEvent(std::string callsign, std::string controllerCallsign)
+        : Event(EVENT_COORDINATION_RECEIVED),
+          callsign(std::move(callsign)),
+          controller_callsign(std::move(controllerCallsign)) {
+    }
+
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE(CoordinationReceivedEvent, callsign, controller_callsign, type);
+};
+
+struct AssumeAndDropEvent final : Event {
+    std::string callsign;
+
+    AssumeAndDropEvent() = default;
+
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE(AssumeAndDropEvent, callsign, type);
+};
+
+struct CoordinationHandoverEvent final : Event {
+    std::string callsign;
+    std::string target_callsign;
+
+    CoordinationHandoverEvent(std::string callsign, std::string targetCallsign)
+        : Event(EVENT_COORDINATION_HANDOVER),
+          callsign(std::move(callsign)),
+          target_callsign(std::move(targetCallsign)) {
+    }
+    CoordinationHandoverEvent() = default;
+
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE(CoordinationHandoverEvent, callsign, target_callsign, type);
 };
 
 #endif //EVENTS_H

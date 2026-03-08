@@ -45,6 +45,8 @@ namespace FlightStrips::messages {
         void HandleRemarksEvent(const RemarksEvent& event) const;
         void HandleSidEvent(const SidEvent& event) const;
         void HandleAircraftRunwayEvent(const AircraftRunwayEvent& event) const;
+        void HandleCoordinationHandoverEvent(const CoordinationHandoverEvent& event) const;
+        void HandleEsAssumeAndDropEvent(const AssumeAndDropEvent& event) const;
     };
 
 }

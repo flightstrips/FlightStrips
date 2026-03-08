@@ -5,6 +5,7 @@ import { ApnPushStrip } from "./ApnPushStrip";
 import { ApnTaxiDepStrip } from "./ApnTaxiDepStrip";
 import { ClxClearedStrip } from "./ClxClearedStrip";
 import { DelStrip } from "./DelStrip";
+import { FinalArrStrip } from "./FinalArrStrip";
 import { HalfStrip } from "./HalfStrip";
 import { TwyDepStrip } from "./TwyDepStrip";
 import { ClxHalfStrip } from "./ClxHalfStrip";
@@ -61,6 +62,7 @@ export function Strip({ strip, status, halfStripVariant, myPosition, selectable,
     requestedAltitude: strip.requested_altitude,
     heading: strip.heading,
     holdingPoint: strip.release_point,
+    taxiway: strip.release_point,
     owner: strip.owner,
     nextControllers: strip.next_controllers,
     previousControllers: strip.previous_controllers,
@@ -83,6 +85,8 @@ export function Strip({ strip, status, halfStripVariant, myPosition, selectable,
       return <ApnPushStrip {...props} />;
     case "ARR":
       return <ApnArrStrip {...props} />;
+    case "FINAL-ARR":
+      return <FinalArrStrip {...props} />;
     case "CLX-HALF":
       return <ClxHalfStrip {...props} />;
     case "TAXI-DEP":

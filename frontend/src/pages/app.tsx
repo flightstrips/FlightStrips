@@ -6,7 +6,7 @@ import AppRouter from "@/routes/AppRouter";
 
 export default function AppPage() {
   const { isAuthenticated, isLoading } = useAuth0();
-  const wsUrl = (window as any).__APP_CONFIG__?.wsUrl ?? "ws://localhost:2994/frontEndEvents";
+  const wsUrl = window.__APP_CONFIG__?.wsUrl ?? "ws://localhost:2994/frontEndEvents";
 
   if (isLoading) {
     return (

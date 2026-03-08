@@ -5,7 +5,7 @@ import { ScrollReveal } from "@/components/public/ScrollReveal";
 
 export default function DataHandling() {
   return (
-    <div className="bg-nc-black min-h-screen text-white">
+    <div className="bg-nc-black min-h-screen text-primary">
       <ScrollProgress />
       <PublicNavigation />
       
@@ -21,7 +21,7 @@ export default function DataHandling() {
           
           <ScrollReveal delay={0.1}>
             <h1 
-              className="font-display font-normal text-5xl md:text-7xl mb-6 text-white"
+              className="font-display font-normal text-5xl md:text-7xl mb-6 text-primary"
               style={{ letterSpacing: '-0.02em' }}
             >
               Data Handling
@@ -35,13 +35,13 @@ export default function DataHandling() {
       </section>
 
       {/* Content Section */}
-      <section className="bg-fs-primary/8 border-t border-fs-primary/25 py-20 px-8">
+      <section className="bg-primary/10 border-t border-primary/20 py-20 px-8">
         <div className="max-w-4xl mx-auto">
           <ScrollReveal>
             <div className="space-y-8">
               <div>
                 <h2 
-                  className="font-display font-normal text-2xl md:text-3xl mb-4 text-white"
+                  className="font-display font-normal text-2xl md:text-3xl mb-4 text-primary"
                   style={{ letterSpacing: '-0.01em' }}
                 >
                   Overview
@@ -54,28 +54,28 @@ export default function DataHandling() {
 
               <div>
                 <h2 
-                  className="font-display font-normal text-2xl md:text-3xl mb-4 text-white"
+                  className="font-display font-normal text-2xl md:text-3xl mb-4 text-primary"
                   style={{ letterSpacing: '-0.01em' }}
                 >
                   Types of Data Processed
                 </h2>
                 <div className="space-y-4">
                   <div>
-                    <h3 className="text-lg text-white font-medium mb-2">Flight Strip Data</h3>
+                    <h3 className="text-lg text-primary font-medium mb-2">Flight Strip Data</h3>
                     <p className="font-sans font-light text-base text-gray-400 leading-relaxed">
                       Flight information including callsigns, routes, altitudes, and timing data. This data is 
                       processed in real-time for operational purposes and is not stored permanently.
                     </p>
                   </div>
                   <div>
-                    <h3 className="text-lg text-white font-medium mb-2">User Session Data</h3>
+                    <h3 className="text-lg text-primary font-medium mb-2">User Session Data</h3>
                     <p className="font-sans font-light text-base text-gray-400 leading-relaxed">
                       Authentication tokens, session identifiers, and user preferences. This data is managed 
                       through secure authentication providers.
                     </p>
                   </div>
                   <div>
-                    <h3 className="text-lg text-white font-medium mb-2">System Logs</h3>
+                    <h3 className="text-lg text-primary font-medium mb-2">System Logs</h3>
                     <p className="font-sans font-light text-base text-gray-400 leading-relaxed">
                       Technical logs for system monitoring, error tracking, and performance optimization. Logs 
                       are retained for a limited period for operational purposes.
@@ -86,7 +86,7 @@ export default function DataHandling() {
 
               <div>
                 <h2 
-                  className="font-display font-normal text-2xl md:text-3xl mb-4 text-white"
+                  className="font-display font-normal text-2xl md:text-3xl mb-4 text-primary"
                   style={{ letterSpacing: '-0.01em' }}
                 >
                   Data Processing Principles
@@ -102,7 +102,7 @@ export default function DataHandling() {
 
               <div>
                 <h2 
-                  className="font-display font-normal text-2xl md:text-3xl mb-4 text-white"
+                  className="font-display font-normal text-2xl md:text-3xl mb-4 text-primary"
                   style={{ letterSpacing: '-0.01em' }}
                 >
                   Data Storage and Retention
@@ -120,7 +120,7 @@ export default function DataHandling() {
 
               <div>
                 <h2 
-                  className="font-display font-normal text-2xl md:text-3xl mb-4 text-white"
+                  className="font-display font-normal text-2xl md:text-3xl mb-4 text-primary"
                   style={{ letterSpacing: '-0.01em' }}
                 >
                   Data Security Measures
@@ -139,7 +139,7 @@ export default function DataHandling() {
 
               <div>
                 <h2 
-                  className="font-display font-normal text-2xl md:text-3xl mb-4 text-white"
+                  className="font-display font-normal text-2xl md:text-3xl mb-4 text-primary"
                   style={{ letterSpacing: '-0.01em' }}
                 >
                   Third-Party Services
@@ -153,7 +153,7 @@ export default function DataHandling() {
 
               <div>
                 <h2 
-                  className="font-display font-normal text-2xl md:text-3xl mb-4 text-white"
+                  className="font-display font-normal text-2xl md:text-3xl mb-4 text-primary"
                   style={{ letterSpacing: '-0.01em' }}
                 >
                   User Rights and Requests
@@ -166,7 +166,7 @@ export default function DataHandling() {
 
               <div>
                 <h2 
-                  className="font-display font-normal text-2xl md:text-3xl mb-4 text-white"
+                  className="font-display font-normal text-2xl md:text-3xl mb-4 text-primary"
                   style={{ letterSpacing: '-0.01em' }}
                 >
                   Contact

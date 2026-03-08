@@ -14,6 +14,7 @@ export function SIBox({
   marked,
   flexGrow = F_SI,
   transferringTo,
+  baseBorderColor,
 }: {
   callsign: string;
   owner?: string;
@@ -26,6 +27,8 @@ export function SIBox({
   flexGrow?: number;
   /** Position string of the controller being transferred to. Empty string or undefined means no transfer. */
   transferringTo?: string;
+  /** Base cell border color (defaults to the shared teal). Pass a custom color for strips with different border styling. */
+  baseBorderColor?: string;
 }) {
   const controllers = useControllers();
   const transferStrip = useWebSocketStore(s => s.transferStrip);
@@ -86,7 +89,7 @@ export function SIBox({
         height: "100%",
         background: background,
         minWidth: 0,
-        borderRightColor: getCellBorderColor(!!marked),
+        borderRightColor: getCellBorderColor(!!marked, baseBorderColor),
         fontFamily: "'Arial', sans-serif",
         fontSize: 22,
         color: "#8F8F8F",

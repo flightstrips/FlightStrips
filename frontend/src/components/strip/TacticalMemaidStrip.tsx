@@ -66,7 +66,7 @@ export function TacticalMemaidStrip({ strip, width }: Props) {
 
       {/* Delete button (X) */}
       <div
-        className="flex-shrink-0 flex items-center justify-center border-l-2 text-white cursor-pointer hover:bg-blue-400"
+        className="flex-shrink-0 flex items-center justify-center border-l-2 text-white cursor-pointer hover:bg-primary/80"
         style={{ width: W_BTN, height: "100%", borderLeftColor: "#d9d9d9" }}
         onClick={(e) => { e.stopPropagation(); deleteTacticalStrip(strip.id); }}
       >

@@ -5,7 +5,7 @@ import { ScrollReveal } from "@/components/public/ScrollReveal";
 
 export default function Privacy() {
   return (
-    <div className="bg-nc-black min-h-screen text-white">
+    <div className="bg-nc-black min-h-screen text-primary">
       <ScrollProgress />
       <PublicNavigation />
       
@@ -21,7 +21,7 @@ export default function Privacy() {
           
           <ScrollReveal delay={0.1}>
             <h1 
-              className="font-display font-normal text-5xl md:text-7xl mb-6 text-white"
+              className="font-display font-normal text-5xl md:text-7xl mb-6 text-primary"
               style={{ letterSpacing: '-0.02em' }}
             >
               Privacy Policy
@@ -35,13 +35,13 @@ export default function Privacy() {
       </section>
 
       {/* Content Section */}
-      <section className="bg-fs-primary/8 border-t border-fs-primary/25 py-20 px-8">
+      <section className="bg-primary/10 border-t border-primary/20 py-20 px-8">
         <div className="max-w-4xl mx-auto">
           <ScrollReveal>
             <div className="space-y-8">
               <div>
                 <h2 
-                  className="font-display font-normal text-2xl md:text-3xl mb-4 text-white"
+                  className="font-display font-normal text-2xl md:text-3xl mb-4 text-primary"
                   style={{ letterSpacing: '-0.01em' }}
                 >
                   Introduction
@@ -54,7 +54,7 @@ export default function Privacy() {
 
               <div>
                 <h2 
-                  className="font-display font-normal text-2xl md:text-3xl mb-4 text-white"
+                  className="font-display font-normal text-2xl md:text-3xl mb-4 text-primary"
                   style={{ letterSpacing: '-0.01em' }}
                 >
                   Information We Collect
@@ -72,7 +72,7 @@ export default function Privacy() {
 
               <div>
                 <h2 
-                  className="font-display font-normal text-2xl md:text-3xl mb-4 text-white"
+                  className="font-display font-normal text-2xl md:text-3xl mb-4 text-primary"
                   style={{ letterSpacing: '-0.01em' }}
                 >
                   How We Use Your Information
@@ -90,7 +90,7 @@ export default function Privacy() {
 
               <div>
                 <h2 
-                  className="font-display font-normal text-2xl md:text-3xl mb-4 text-white"
+                  className="font-display font-normal text-2xl md:text-3xl mb-4 text-primary"
                   style={{ letterSpacing: '-0.01em' }}
                 >
                   Data Sharing and Disclosure
@@ -109,7 +109,7 @@ export default function Privacy() {
 
               <div>
                 <h2 
-                  className="font-display font-normal text-2xl md:text-3xl mb-4 text-white"
+                  className="font-display font-normal text-2xl md:text-3xl mb-4 text-primary"
                   style={{ letterSpacing: '-0.01em' }}
                 >
                   Data Security
@@ -123,7 +123,7 @@ export default function Privacy() {
 
               <div>
                 <h2 
-                  className="font-display font-normal text-2xl md:text-3xl mb-4 text-white"
+                  className="font-display font-normal text-2xl md:text-3xl mb-4 text-primary"
                   style={{ letterSpacing: '-0.01em' }}
                 >
                   Your Rights
@@ -142,7 +142,7 @@ export default function Privacy() {
 
               <div>
                 <h2 
-                  className="font-display font-normal text-2xl md:text-3xl mb-4 text-white"
+                  className="font-display font-normal text-2xl md:text-3xl mb-4 text-primary"
                   style={{ letterSpacing: '-0.01em' }}
                 >
                   Contact Us

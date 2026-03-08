@@ -4,6 +4,7 @@ import { ApnPushStrip } from "./ApnPushStrip";
 import { ApnTaxiDepStrip } from "./ApnTaxiDepStrip";
 import { ClxClearedStrip } from "./ClxClearedStrip";
 import { DelStrip } from "./DelStrip";
+import { FinalArrStrip } from "./FinalArrStrip";
 import { HalfStrip } from "./HalfStrip";
 import { TwyDepStrip } from "./TwyDepStrip";
 import type { HalfStripVariant, StripProps, StripStatus } from "./types";
@@ -20,13 +21,14 @@ export interface FlightStripProps extends StripProps {
 /**
  * FlightStrip – top-level strip dispatcher.
  *
- *  - `"CLR"`      → DelStrip        (pre-clearance / UNCLEARED bays)
- *  - `"CLROK"`   → GroundStrip     (ground movement / TWY DEP)
- *  - `"HALF"`    → HalfStrip       (21px compact — FINAL locked strips)
- *  - `"PUSH"`    → ApnPushStrip    (48px — STARTUP / PUSH BACK / DE-ICE)
- *  - `"ARR"`     → ApnArrStrip     (48px yellow — TWY ARR / STAND)
- *  - `"TAXI-DEP"` → ApnTaxiDepStrip (APN-TAXI-DEP bays)
- *  - `"TWY-DEP"`  → TwyDepStrip     (TETW TWY-DEP bay)
+ *  - `"CLR"`        → DelStrip        (pre-clearance / UNCLEARED bays)
+ *  - `"CLROK"`      → GroundStrip     (ground movement / TWY DEP)
+ *  - `"HALF"`       → HalfStrip       (21px compact — FINAL locked strips)
+ *  - `"PUSH"`       → ApnPushStrip    (48px — STARTUP / PUSH BACK / DE-ICE)
+ *  - `"ARR"`        → ApnArrStrip     (48px yellow — TWY ARR / STAND)
+ *  - `"FINAL-ARR"`  → FinalArrStrip   (48px yellow — FINAL / RWY-ARR / TWY-ARR)
+ *  - `"TAXI-DEP"`   → ApnTaxiDepStrip (APN-TAXI-DEP bays)
+ *  - `"TWY-DEP"`    → TwyDepStrip     (TETW TWY-DEP bay)
  */
 export function FlightStrip({ status, pdcStatus, ...rest }: FlightStripProps) {
   const props: StripProps = {
@@ -45,6 +47,8 @@ export function FlightStrip({ status, pdcStatus, ...rest }: FlightStripProps) {
       return <ApnPushStrip {...props} />;
     case "ARR":
       return <ApnArrStrip {...props} />;
+    case "FINAL-ARR":
+      return <FinalArrStrip {...props} />;
     case "CLX-HALF":
       return <ClxHalfStrip {...props} />;
     case "TAXI-DEP":

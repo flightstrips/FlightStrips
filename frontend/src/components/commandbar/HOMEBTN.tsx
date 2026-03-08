@@ -49,7 +49,7 @@ export default function HOMEBTN() {
                 className={`font-normal text-base h-fit py-3 ${
                   displayedLayout === scope.layout ? "ring-2 ring-yellow-400" : ""
                 } ${
-                  currentLayout === scope.layout && displayedLayout !== scope.layout ? "border-2 border-blue-500" : ""
+                  currentLayout === scope.layout && displayedLayout !== scope.layout ? "border-2 border-primary" : ""
                 }`}
                 onClick={() => handleSelect(scope.layout)}
               >

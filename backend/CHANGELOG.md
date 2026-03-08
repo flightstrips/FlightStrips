@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.0](https://github.com/flightstrips/FlightStrips/compare/backend/v0.5.0...backend/v0.6.0) (2026-03-08)
+
+
+### Features
+
+* ES transfer to tower trigger FS coordination ([3c3a0fc](https://github.com/flightstrips/FlightStrips/commit/3c3a0fcb27509ef5397080434b082cfbe22f7f40))
+
 ## [0.5.0](https://github.com/flightstrips/FlightStrips/compare/backend/v0.4.0...backend/v0.5.0) (2026-03-08)
 
 

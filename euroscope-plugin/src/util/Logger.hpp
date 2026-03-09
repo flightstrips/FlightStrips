@@ -86,6 +86,7 @@ public:
         struct EnableMakeShared : Logger {
             EnableMakeShared(const std::string &logPath, const LogLevel level) : Logger(logPath, level) {}
         };
+        spdlog::drop("logger");
         auto instance = std::make_shared<EnableMakeShared>(logPath, level);
         SetInstance(instance);
         return instance;

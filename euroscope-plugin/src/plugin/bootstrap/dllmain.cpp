@@ -29,6 +29,7 @@ CORE_API auto LoadPlugin() -> EuroScopePlugIn::CPlugIn* {
 CORE_API void UnloadPlugin() {
     plugin->EuroScopeCleanup();
     delete plugin;
+    plugin = nullptr;
 }
 
 CORE_API auto GetPluginVersion() -> const char * {
@@ -44,4 +45,5 @@ CORE_API auto GetPluginVersion() -> const char * {
 {
     plugin->EuroScopeCleanup();
     delete plugin;
+    plugin = nullptr;
 }

@@ -31,11 +31,11 @@ EuroScopePlugInInit(EuroScopePlugIn::CPlugIn** ppPlugInInstance)
         }
     }
 
-    loaderDllInstance = loader.LoadPluginDll();
-    if (!loaderDllInstance) return;
-    const auto pluginPtr = FlightStrips::Loader::GetPluginInstance(loaderDllInstance);
+    pluginDllInstance = loader.LoadPluginDll();
+    if (!pluginDllInstance) return;
+    const auto pluginPtr = FlightStrips::Loader::GetPluginInstance(pluginDllInstance);
     if (pluginPtr == nullptr) {
-        FlightStrips::Loader::UnloadPluginDll(loaderDllInstance);
+        FlightStrips::Loader::UnloadPluginDll(pluginDllInstance);
         return;
     }
     *ppPlugInInstance = pluginPtr;

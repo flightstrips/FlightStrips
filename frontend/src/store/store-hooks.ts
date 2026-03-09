@@ -28,6 +28,7 @@ export const useMessages = () => useWebSocketStore((state) => state.messages);
 export const useActiveMessages = () => useWebSocketStore((state) => state.messages);
 export const useMyPosition = () => useWebSocketStore((state) => state.position);
 export const useStripTransfers = () => useWebSocketStore((state) => state.stripTransfers);
+export const useMetar = () => useWebSocketStore((state) => state.metar);
 
 const LOWER_SECTIONS = new Set(["DEL", "GND"]);
 

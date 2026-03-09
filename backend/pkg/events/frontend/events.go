@@ -687,3 +687,10 @@ type TacticalStripMovedEvent struct {
 
 func (e TacticalStripMovedEvent) Marshal() ([]byte, error) { return marshall(e) }
 func (e TacticalStripMovedEvent) GetType() EventType       { return TacticalStripMoved }
+
+type AtisUpdateEvent struct {
+	Metar string `json:"metar"`
+}
+
+func (a AtisUpdateEvent) Marshal() ([]byte, error) { return marshall(a) }
+func (a AtisUpdateEvent) GetType() EventType       { return AtisUpdate }

@@ -5,9 +5,8 @@ import TRFBRN from "./TRFBRN";
 import REQBTN from "./REQBTN";
 import ATIS from "./ATIS";
 import HOMEBTN from "./HOMEBTN";
-import { useMetar } from "@/hooks/use-metar";
 import MetarHelper from "@/components/MetarHelper";
-import { useAirport, useRunwaySetup, useSelectedCallsign, useSelectStrip, useWebSocketStore, useStrip } from "@/store/store-hooks";
+import { useMetar, useRunwaySetup, useSelectedCallsign, useSelectStrip, useWebSocketStore, useStrip } from "@/store/store-hooks";
 import { Bay } from "@/api/models";
 
 const SCOPE_LABELS: Record<string, string> = {
@@ -18,8 +17,7 @@ const SCOPE_LABELS: Record<string, string> = {
 };
 
 export default function CommandBar() {
-  const airport = useAirport();
-  const { metar } = useMetar(airport || "EKCH");
+  const metar = useMetar();
   const layout = useWebSocketStore((state) => state.layout);
   const runwaySetup = useRunwaySetup();
   const selectedCallsign = useSelectedCallsign();

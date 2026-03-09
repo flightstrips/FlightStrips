@@ -31,6 +31,7 @@ export enum EventType {
   FrontendTacticalStripUpdated = "tactical_strip_updated",
   FrontendTacticalStripMoved = "tactical_strip_moved",
   FrontendMessageReceived = "message_received",
+  FrontendAtisUpdate = "atis_update",
 }
 
 export enum ActionType {
@@ -404,6 +405,11 @@ export interface FrontendMessageReceivedEvent extends MessageReceived {
   type: EventType.FrontendMessageReceived;
 }
 
+export interface FrontendAtisUpdateEvent {
+  type: EventType.FrontendAtisUpdate;
+  metar: string;
+}
+
 // Union type for all events that can be received
 export type WebSocketEvent =
   | FrontendInitialEvent
@@ -437,7 +443,8 @@ export type WebSocketEvent =
   | FrontendTacticalStripDeletedEvent
   | FrontendTacticalStripUpdatedEvent
   | FrontendTacticalStripMovedEvent
-  | FrontendMessageReceivedEvent;
+  | FrontendMessageReceivedEvent
+  | FrontendAtisUpdateEvent;
 
 export interface FrontendMoveEvent {
   type: ActionType.FrontendMove;

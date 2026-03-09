@@ -6,6 +6,7 @@ import (
 	"FlightStrips/internal/database"
 	"FlightStrips/internal/euroscope"
 	"FlightStrips/internal/frontend"
+	"FlightStrips/internal/metar"
 	"FlightStrips/internal/pdc"
 	"FlightStrips/internal/repository/postgres"
 	"FlightStrips/internal/server"
@@ -169,6 +170,9 @@ func main() {
 	if pdcService != nil {
 		go pdcService.Start(ctx)
 	}
+
+	metarPoller := metar.NewPoller(sessionRepo, frontendHub)
+	go metarPoller.Start(ctx)
 
 	// TODO remove
 	db := database.New(dbpool)

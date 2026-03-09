@@ -29,6 +29,7 @@ import {
   type FrontendTacticalStripUpdatedEvent,
   type FrontendTacticalStripMovedEvent,
   type FrontendMessageReceivedEvent,
+  type FrontendAtisUpdateEvent,
   type WebSocketEvent
 } from "./models";
 
@@ -66,6 +67,7 @@ type EventMap = {
   [EventType.FrontendTacticalStripUpdated]: FrontendTacticalStripUpdatedEvent;
   [EventType.FrontendTacticalStripMoved]: FrontendTacticalStripMovedEvent;
   [EventType.FrontendMessageReceived]: FrontendMessageReceivedEvent;
+  [EventType.FrontendAtisUpdate]: FrontendAtisUpdateEvent;
 };
 
 type WebSocketClientDelegate = {

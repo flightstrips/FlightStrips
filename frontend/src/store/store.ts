@@ -37,6 +37,7 @@ import {
   type FrontendTacticalStripDeletedEvent,
   type FrontendTacticalStripUpdatedEvent,
   type FrontendTacticalStripMovedEvent,
+  type FrontendAtisUpdateEvent,
 } from '../api/models.ts';
 import {WebSocketClient} from '../api/websocket.ts';
 
@@ -68,6 +69,7 @@ export interface WebSocketState {
   stripTransfers: Record<string, string>;
 
   messages: MessageReceived[];
+  metar: string;
 
   selectedCallsign: string | null;
   selectStrip: (callsign: string | null) => void;
@@ -120,6 +122,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     isInitialized: false,
     stripTransfers: {},
     messages: [],
+    metar: "",
     selectedCallsign: null
   };
 
@@ -742,6 +745,16 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
   wsClient.on(EventType.FrontendTacticalStripUpdated, handleTacticalStripUpdatedEvent);
   wsClient.on(EventType.FrontendTacticalStripMoved, handleTacticalStripMovedEvent);
   wsClient.on(EventType.FrontendMessageReceived, handleMessageReceived);
+
+  const handleAtisUpdateEvent = (data: FrontendAtisUpdateEvent) => {
+    store.setState(
+      produce((state: WebSocketState) => {
+        state.metar = data.metar;
+      })
+    );
+  };
+
+  wsClient.on(EventType.FrontendAtisUpdate, handleAtisUpdateEvent);
 
   return store;
 };

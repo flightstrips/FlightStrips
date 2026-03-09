@@ -634,6 +634,10 @@ func (hub *Hub) SendServerMessage(session int32, message string) {
 	hub.Broadcast(session, event)
 }
 
+func (hub *Hub) SendAtisUpdate(session int32, metar string) {
+	hub.Broadcast(session, frontend.AtisUpdateEvent{Metar: metar})
+}
+
 func (hub *Hub) SendToPosition(session int32, position string, message frontend.OutgoingMessage) {
 	for client := range hub.clients {
 		if client.session == session && client.position == position {

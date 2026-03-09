@@ -92,7 +92,9 @@ func (s *Server) updateRouteForStripHelper(strip *models.Strip, session *models.
 	var path []string
 	var success bool
 	if isArrival {
-		path, success = config.ComputeToStand(allRunways, sector, helpers.ValueOrDefault(strip.Stand))
+		// Use only arrival runways to select the correct arrival route.
+		// Mixing in departure runways can cause the wrong cargo route to match.
+		path, success = config.ComputeToStand(session.ActiveRunways.ArrivalRunways, sector, helpers.ValueOrDefault(strip.Stand))
 	} else {
 		path, success = config.ComputeToRunway(allRunways, sector, helpers.ValueOrDefault(strip.Runway))
 	}

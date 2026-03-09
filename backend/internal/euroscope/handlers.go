@@ -577,6 +577,12 @@ func handleStand(ctx context.Context, client *Client, message Message) error {
 	}
 
 	s.GetFrontendHub().SendStandEvent(session, event.Callsign, event.Stand)
+
+	// Recompute the route now that the stand is known (critical for arrivals).
+	if err := s.UpdateRouteForStrip(event.Callsign, session, true); err != nil {
+		slog.Error("Error updating route after stand assignment", slog.String("callsign", event.Callsign), slog.Any("error", err))
+	}
+
 	return nil
 }
 

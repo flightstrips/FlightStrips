@@ -22,6 +22,7 @@ type StripRepository interface {
 
 	// Sequence management
 	UpdateSequence(ctx context.Context, session int32, callsign string, sequence int32) (int64, error)
+	UpdateBayAndSequence(ctx context.Context, session int32, callsign string, bay string, sequence int32) (int64, error)
 	UpdateSequenceBulk(ctx context.Context, session int32, callsigns []string, sequences []int32) error
 	RecalculateSequences(ctx context.Context, session int32, bay string, spacing int32) error
 	ListSequences(ctx context.Context, session int32, bay string) ([]*models.StripSequence, error)

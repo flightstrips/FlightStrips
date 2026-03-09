@@ -255,3 +255,10 @@ LIMIT 1;
 UPDATE strips
 SET tracking_controller = $1
 WHERE callsign = $2 AND session = $3;
+
+-- name: UpdateStripBayAndSequence :execrows
+UPDATE strips
+SET bay      = sqlc.arg(bay),
+    sequence = sqlc.arg(sequence)::INT,
+    version  = version + 1
+WHERE session = $1 AND callsign = $2;

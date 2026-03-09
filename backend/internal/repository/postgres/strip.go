@@ -215,6 +215,16 @@ func (r *stripRepository) UpdateSequence(ctx context.Context, session int32, cal
 	})
 }
 
+// UpdateBayAndSequence atomically updates both the bay and sequence of a strip.
+func (r *stripRepository) UpdateBayAndSequence(ctx context.Context, session int32, callsign string, bay string, sequence int32) (int64, error) {
+	return r.queries.UpdateStripBayAndSequence(ctx, database.UpdateStripBayAndSequenceParams{
+		Session:  session,
+		Callsign: callsign,
+		Bay:      bay,
+		Sequence: sequence,
+	})
+}
+
 // UpdateSequenceBulk updates multiple strip sequences
 func (r *stripRepository) UpdateSequenceBulk(ctx context.Context, session int32, callsigns []string, sequences []int32) error {
 	return r.queries.UpdateStripSequenceBulk(ctx, database.UpdateStripSequenceBulkParams{

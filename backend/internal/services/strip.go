@@ -84,7 +84,7 @@ func (s *StripService) needsRecalculation(prevOrder, nextOrder int32) bool {
 
 // updateStripSequence updates the sequence of a single strip in the database.
 func (s *StripService) updateStripSequence(ctx context.Context, session int32, callsign string, sequence int32, bay string, sendNotification bool) error {
-	_, err := s.stripRepo.UpdateSequence(ctx, session, callsign, sequence)
+	_, err := s.stripRepo.UpdateBayAndSequence(ctx, session, callsign, bay, sequence)
 	if err != nil {
 		return fmt.Errorf("failed to update strip sequence: %w", err)
 	}

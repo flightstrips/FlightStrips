@@ -970,6 +970,34 @@ func (q *Queries) UpdateStripAssignedSquawkByID(ctx context.Context, arg UpdateS
 	return result.RowsAffected(), nil
 }
 
+const updateStripBayAndSequence = `-- name: UpdateStripBayAndSequence :execrows
+UPDATE strips
+SET bay      = $3,
+    sequence = $4::INT,
+    version  = version + 1
+WHERE session = $1 AND callsign = $2
+`
+
+type UpdateStripBayAndSequenceParams struct {
+	Session  int32
+	Callsign string
+	Bay      string
+	Sequence int32
+}
+
+func (q *Queries) UpdateStripBayAndSequence(ctx context.Context, arg UpdateStripBayAndSequenceParams) (int64, error) {
+	result, err := q.db.Exec(ctx, updateStripBayAndSequence,
+		arg.Session,
+		arg.Callsign,
+		arg.Bay,
+		arg.Sequence,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const updateStripBayByID = `-- name: UpdateStripBayByID :execrows
 UPDATE strips
 SET bay     = $1,

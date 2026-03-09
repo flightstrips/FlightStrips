@@ -35,3 +35,6 @@ export const useLowerPositionOnline = () =>
   useWebSocketStore((state) =>
     state.controllers.some((c) => LOWER_SECTIONS.has(c.section) && c.callsign !== state.callsign)
   );
+
+export const useLayoutChooserOpen = () => useWebSocketStore((state) => state.layoutChooserOpen);
+export const useSetLayoutChooserOpen = () => useWebSocketStore((state) => state.setLayoutChooserOpen);

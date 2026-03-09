@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -19,7 +18,8 @@ const EKCH_SCOPES = [
 ];
 
 export default function HOMEBTN() {
-  const [open, setOpen] = useState(false);
+  const open = useWebSocketStore((state) => state.layoutChooserOpen);
+  const setOpen = useWebSocketStore((state) => state.setLayoutChooserOpen);
   const currentLayout = useWebSocketStore((state) => state.layout);
   const displayedLayout = useWebSocketStore((state) => state.displayedLayout);
   const setDisplayedLayout = useWebSocketStore((state) => state.setDisplayedLayout);

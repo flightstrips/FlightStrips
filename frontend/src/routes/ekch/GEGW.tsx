@@ -157,7 +157,7 @@ export default function GEGW() {
           className="h-[20%] w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary"
         >
           {(strip) => (
-            <Strip strip={strip} status="HALF" halfStripVariant="APN-PUSH" myPosition={myPosition} />
+            <Strip strip={strip} status="HALF" halfStripVariant="APN-PUSH" myPosition={myPosition} selectable={true} />
           )}
         </SortableBay>
 
@@ -177,7 +177,7 @@ export default function GEGW() {
           className="h-[35%] w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary"
         >
           {(strip) => (
-            <Strip strip={strip} status="CLROK" myPosition={myPosition} width={CLX_CLEARED_STRIP_WIDTH} />
+            <Strip strip={strip} status="CLROK" myPosition={myPosition} width={CLX_CLEARED_STRIP_WIDTH} selectable={true} />
           )}
         </SortableBay>
 
@@ -191,7 +191,7 @@ export default function GEGW() {
           className="flex-1 w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary"
         >
           {(strip) => (
-            <Strip strip={strip} status="CLROK" myPosition={myPosition} width={CLX_CLEARED_STRIP_WIDTH} />
+            <Strip strip={strip} status="CLROK" myPosition={myPosition} width={CLX_CLEARED_STRIP_WIDTH} selectable={true} />
           )}
         </SortableBay>
       </div>
@@ -216,7 +216,7 @@ export default function GEGW() {
           className="flex-1 w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary"
         >
           {(strip) => (
-            <Strip strip={strip} status="CLROK" myPosition={myPosition} />
+            <Strip strip={strip} status="CLROK" myPosition={myPosition} selectable={true} />
           )}
         </SortableBay>
       </div>

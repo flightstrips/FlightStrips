@@ -188,7 +188,7 @@ export default function AAAD() {
           className={`h-[60%] ${scrollArea}`}
         >
           {(strip) => (
-            <Strip strip={strip} status="TAXI-DEP" myPosition={myPosition} width={APN_TAXI_DEP_STRIP_WIDTH} />
+            <Strip strip={strip} status="TAXI-DEP" myPosition={myPosition} width={APN_TAXI_DEP_STRIP_WIDTH} selectable={true} />
           )}
         </SortableBay>
 
@@ -217,7 +217,7 @@ export default function AAAD() {
             standalone={false}
           >
             {(strip) => (
-              <Strip strip={strip} status="ARR" myPosition={myPosition} />
+              <Strip strip={strip} status="ARR" myPosition={myPosition} selectable={true} />
             )}
           </SortableBay>
         </div>
@@ -237,7 +237,7 @@ export default function AAAD() {
           className={`h-[40%] ${scrollArea}`}
         >
           {(strip) => (
-            <Strip strip={strip} status="PUSH" myPosition={myPosition} />
+            <Strip strip={strip} status="PUSH" myPosition={myPosition} selectable={true} />
           )}
         </SortableBay>
 
@@ -251,7 +251,7 @@ export default function AAAD() {
           className={`h-[30%] ${scrollArea}`}
         >
           {(strip) => (
-            <Strip strip={strip} status="PUSH" myPosition={myPosition} />
+            <Strip strip={strip} status="PUSH" myPosition={myPosition} selectable={true} />
           )}
         </SortableBay>
 
@@ -265,7 +265,7 @@ export default function AAAD() {
           className={`flex-1 ${scrollArea}`}
         >
           {(strip) => (
-            <Strip strip={strip} status="PUSH" myPosition={myPosition} />
+            <Strip strip={strip} status="PUSH" myPosition={myPosition} selectable={true} />
           )}
         </SortableBay>
 

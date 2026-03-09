@@ -22,6 +22,8 @@ function makeStripRef(id: string | null | undefined): StripRef | null {
 }
 import { DragStateContext } from "./DragStateContext";
 import { DragDisabledContext } from "./DragDisabledContext";
+import { BayClickContext } from "./BayClickContext";
+import { useSelectedCallsign, useSelectStrip } from "@/store/store-hooks";
 
 export interface BayConfig {
   strips: AnyStrip[];
@@ -51,6 +53,9 @@ export function ViewDndContext({
   onMove,
   renderDragOverlay,
 }: ViewDndContextProps) {
+  const selectedCallsign = useSelectedCallsign();
+  const selectStrip = useSelectStrip();
+
   const [dragDisabled, setDragDisabled] = useState(false);
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: dragDisabled ? Infinity : 5 } })
@@ -74,6 +79,23 @@ export function ViewDndContext({
     if (!sourceBayId) return true;
     if (sourceBayId === targetBayId) return true; // reorder within same bay is always ok
     return (transferRules[sourceBayId] ?? []).includes(targetBayId);
+  }
+
+  function handleBayClick(clickedBayId: string) {
+    if (!selectedCallsign) return;
+
+    const sourceBayId = findBayId(selectedCallsign);
+    if (!sourceBayId) return;
+    if (sourceBayId === clickedBayId) return;
+
+    const allowed = transferRules[sourceBayId] ?? [];
+    if (!allowed.includes(clickedBayId)) return;
+
+    const targetConfig = bayStripMap[clickedBayId];
+    if (!targetConfig) return;
+
+    onMove(selectedCallsign, targetConfig.targetBay);
+    selectStrip(null);
   }
 
   function handleDragStart(event: DragStartEvent) {
@@ -193,20 +215,22 @@ export function ViewDndContext({
   }
 
   return (
-    <DragDisabledContext value={{ setDragDisabled }}>
-      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-        <DragStateContext value={{ activeId, isValidTarget }}>
-          {children}
-          {renderDragOverlay && (
-            <DragOverlay style={{ opacity: 0.5 }}>
-              {activeId ? (() => {
-                const strip = resolveActiveStrip();
-                return strip ? renderDragOverlay(strip) : null;
-              })() : null}
-            </DragOverlay>
-          )}
-        </DragStateContext>
-      </DndContext>
-    </DragDisabledContext>
+    <BayClickContext value={{ onBayClick: handleBayClick }}>
+      <DragDisabledContext value={{ setDragDisabled }}>
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+          <DragStateContext value={{ activeId, isValidTarget }}>
+            {children}
+            {renderDragOverlay && (
+              <DragOverlay style={{ opacity: 0.5 }}>
+                {activeId ? (() => {
+                  const strip = resolveActiveStrip();
+                  return strip ? renderDragOverlay(strip) : null;
+                })() : null}
+              </DragOverlay>
+            )}
+          </DragStateContext>
+        </DndContext>
+      </DragDisabledContext>
+    </BayClickContext>
   );
 }

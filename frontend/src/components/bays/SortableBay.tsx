@@ -16,6 +16,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useDragState } from "@/components/bays/DragStateContext";
+import { useBayClick } from "./BayClickContext";
 import { useState, type CSSProperties, type ReactNode } from "react";
 import type { AnyStrip, StripRef } from "@/api/models.ts";
 import { stripDndId, isFlight } from "@/api/models.ts";
@@ -122,6 +123,7 @@ function DroppableContainer({
 }) {
   const { setNodeRef } = useDroppable({ id: bayId, disabled: !isEmpty });
   const { activeId, isValidTarget } = useDragState();
+  const { onBayClick } = useBayClick();
   const [isOver, setIsOver] = useState(false);
 
   useDndMonitor({
@@ -144,7 +146,16 @@ function DroppableContainer({
   }
 
   return (
-    <div ref={setNodeRef} className={className} style={hoverStyle}>
+    <div
+      ref={setNodeRef}
+      className={className}
+      style={hoverStyle}
+      onClick={(e) => {
+        if (!isDragging && e.target === e.currentTarget) {
+          onBayClick(bayId);
+        }
+      }}
+    >
       {children}
     </div>
   );

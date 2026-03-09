@@ -157,7 +157,7 @@ export default function TWTE() {
           className={`h-[35%] ${scrollAreaBottom}`}
         >
           {(strip) => (
-            <Strip strip={strip} status="FINAL-ARR" myPosition={myPosition} />
+            <Strip strip={strip} status="FINAL-ARR" myPosition={myPosition} selectable={true} />
           )}
         </SortableBay>
 
@@ -177,7 +177,7 @@ export default function TWTE() {
           className={`h-[20%] ${darkScrollAreaBottom}`}
         >
           {(strip) => (
-            <Strip strip={strip} status="FINAL-ARR" myPosition={myPosition} />
+            <Strip strip={strip} status="FINAL-ARR" myPosition={myPosition} selectable={true} />
           )}
         </SortableBay>
 
@@ -197,7 +197,7 @@ export default function TWTE() {
           className={`flex-1 ${scrollAreaBottom}`}
         >
           {(strip) => (
-          <Strip strip={strip} status="FINAL-ARR" myPosition={myPosition} />
+          <Strip strip={strip} status="FINAL-ARR" myPosition={myPosition} selectable={true} />
           )}
         </SortableBay>
       </div>
@@ -221,7 +221,7 @@ export default function TWTE() {
           className={`h-[35%] ${scrollAreaBottom}`}
         >
           {(strip) => (
-            <Strip strip={strip} status="TWY-DEP" myPosition={myPosition} width={TWY_DEP_STRIP_WIDTH} />
+            <Strip strip={strip} status="TWY-DEP" myPosition={myPosition} width={TWY_DEP_STRIP_WIDTH} selectable={true} />
           )}
         </SortableBay>
 
@@ -240,7 +240,7 @@ export default function TWTE() {
           className={`h-[20%] ${darkScrollAreaBottom}`}
         >
           {(strip) => (
-            <Strip strip={strip} status="TWY-DEP" myPosition={myPosition} width={TWY_DEP_STRIP_WIDTH} />
+            <Strip strip={strip} status="TWY-DEP" myPosition={myPosition} width={TWY_DEP_STRIP_WIDTH} selectable={true} />
           )}
         </SortableBay>
 
@@ -254,7 +254,7 @@ export default function TWTE() {
           className={`flex-1 ${scrollAreaBottom}`}
         >
           {(strip) => (
-            <Strip strip={strip} status="TWY-DEP" myPosition={myPosition} width={TWY_DEP_STRIP_WIDTH} />
+            <Strip strip={strip} status="TWY-DEP" myPosition={myPosition} width={TWY_DEP_STRIP_WIDTH} selectable={true} />
           )}
         </SortableBay>
 
@@ -309,7 +309,7 @@ export default function TWTE() {
           standalone={false}
           className={`h-[35%] ${scrollArea}`}
         >
-          {(strip) => <Strip strip={strip} status="PUSH" myPosition={myPosition} />}
+          {(strip) => <Strip strip={strip} status="PUSH" myPosition={myPosition} selectable={true} />}
         </SortableBay>
 
         <div className="bg-primary h-10 flex items-center px-2 shrink-0 justify-between border-t-4 border-[#A9A9A9]">
@@ -358,7 +358,7 @@ export default function TWTE() {
           standalone={false}
           className={`h-[25%] ${scrollArea}`}
         >
-          {(strip) => <Strip strip={strip} status="PUSH" myPosition={myPosition} />}
+          {(strip) => <Strip strip={strip} status="PUSH" myPosition={myPosition} selectable={true} />}
         </SortableBay>
 
         <div className="bg-[#393939] h-10 flex items-center px-2 shrink-0 border-t-4 border-[#A9A9A9]">
@@ -370,7 +370,7 @@ export default function TWTE() {
           standalone={false}
           className={`flex-1 ${scrollArea}`}
         >
-          {(strip) => <Strip strip={strip} status="CLROK" myPosition={myPosition} />}
+          {(strip) => <Strip strip={strip} status="CLROK" myPosition={myPosition} selectable={true} />}
         </SortableBay>
       </div>
 

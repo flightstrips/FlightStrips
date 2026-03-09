@@ -68,6 +68,11 @@ func handleControllerOnline(ctx context.Context, client *Client, message Message
 		if err != nil {
 			return err
 		}
+		if err := client.hub.stripService.AutoAssumeForControllerOnline(ctx, client.session, event.Position); err != nil {
+			slog.Error("Failed to auto-assume strips on controller online",
+				slog.String("position", event.Position),
+				slog.Any("error", err))
+		}
 		return s.UpdateLayouts(session)
 	}
 
@@ -96,9 +101,19 @@ func handleControllerOnline(ctx context.Context, client *Client, message Message
 		if err != nil {
 			return err
 		}
+		if err := client.hub.stripService.AutoAssumeForControllerOnline(ctx, client.session, event.Position); err != nil {
+			slog.Error("Failed to auto-assume strips on controller online",
+				slog.String("position", event.Position),
+				slog.Any("error", err))
+		}
 		return s.UpdateLayouts(session)
 	}
 
+	if err := client.hub.stripService.AutoAssumeForControllerOnline(ctx, client.session, event.Position); err != nil {
+		slog.Error("Failed to auto-assume strips on controller online",
+			slog.String("position", event.Position),
+			slog.Any("error", err))
+	}
 	return nil
 }
 
@@ -749,6 +764,7 @@ func (hub *Hub) handleStripUpdateHelper(ctx context.Context, strip euroscope.Str
 			Tobt:               existingStrip.Tobt,
 			Eobt:               existingStrip.Eobt,
 			Registration:       existingStrip.Registration,
+			Owner:              existingStrip.Owner,
 			TrackingController: strip.TrackingController,
 		}
 		_, err = stripRepo.Update(ctx, updateStrip)

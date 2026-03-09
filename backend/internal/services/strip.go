@@ -635,3 +635,43 @@ func (s *StripService) AutoAssumeForClearedStrip(ctx context.Context, session in
 
 	return nil
 }
+
+// AutoAssumeForControllerOnline finds all cleared, unowned strips in the session whose
+// next owner matches controllerPosition and assigns that controller as the strip owner.
+// This is called when a controller comes online so they automatically inherit strips
+// that were already cleared and waiting for them.
+func (s *StripService) AutoAssumeForControllerOnline(ctx context.Context, session int32, controllerPosition string) error {
+	strips, err := s.stripRepo.List(ctx, session)
+	if err != nil {
+		return err
+	}
+
+	for _, strip := range strips {
+		if !strip.Cleared {
+			continue
+		}
+		if strip.Owner != nil {
+			continue
+		}
+		if len(strip.NextOwners) == 0 || strip.NextOwners[0] != controllerPosition {
+			continue
+		}
+
+		count, err := s.stripRepo.SetOwner(ctx, session, strip.Callsign, &controllerPosition, strip.Version)
+		if err != nil {
+			slog.Error("AutoAssumeForControllerOnline: SetOwner failed",
+				slog.String("callsign", strip.Callsign),
+				slog.Any("error", err))
+			continue
+		}
+
+		if count == 1 {
+			slog.Debug("Auto-assumed strip on controller online",
+				slog.String("callsign", strip.Callsign),
+				slog.String("position", controllerPosition))
+			s.frontendHub.SendOwnersUpdate(session, strip.Callsign, controllerPosition, strip.NextOwners, strip.PreviousOwners)
+		}
+	}
+
+	return nil
+}

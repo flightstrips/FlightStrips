@@ -61,3 +61,8 @@ func (m *StripService) AutoAssumeForClearedStrip(ctx context.Context, session in
 	args := m.Called(ctx, session, callsign, stripVersion)
 	return args.Error(0)
 }
+
+func (m *StripService) AutoAssumeForControllerOnline(ctx context.Context, session int32, controllerPosition string) error {
+	args := m.Called(ctx, session, controllerPosition)
+	return args.Error(0)
+}

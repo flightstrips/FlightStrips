@@ -16,4 +16,5 @@ type StripService interface {
 	ClearStrip(ctx context.Context, session int32, callsign string, cid string) error
 	UnclearStrip(ctx context.Context, session int32, callsign string, cid string) error
 	AutoAssumeForClearedStrip(ctx context.Context, session int32, callsign string, stripVersion int32) error
+	AutoAssumeForControllerOnline(ctx context.Context, session int32, controllerPosition string) error
 }

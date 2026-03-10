@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"log/slog"
 	"regexp"
+	"slices"
 	"strings"
 
 	gorilla "github.com/gorilla/websocket"
@@ -671,6 +672,12 @@ func (hub *Hub) handleStripUpdateHelper(ctx context.Context, strip euroscope.Str
 	server := hub.server
 	stripRepo := server.GetStripRepository()
 
+	// Fetch the session so we can read ActiveRunways for runway auto-assignment.
+	sessionObj, err := server.GetSessionRepository().GetByID(ctx, session)
+	if err != nil {
+		return err
+	}
+
 	existingStrip, err := stripRepo.GetByCallsign(ctx, session, strip.Callsign)
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return err
@@ -682,6 +689,13 @@ func (hub *Hub) handleStripUpdateHelper(ctx context.Context, strip euroscope.Str
 		// Strip doesn't exist, so insert
 		bay = shared.GetDepartureBay(strip, nil, config.GetAirborneAltitudeAGL(), airport)
 
+		// Auto-assign runway if EuroScope did not report one.
+		isArrival := strip.Destination == airport
+		runwayForStrip := strip.Runway
+		if runwayForStrip == "" {
+			runwayForStrip = autoAssignRunway(isArrival, sessionObj.ActiveRunways)
+		}
+
 		newStrip := &internalModels.Strip{
 			Callsign:           strip.Callsign,
 			Session:            session,
@@ -690,7 +704,7 @@ func (hub *Hub) handleStripUpdateHelper(ctx context.Context, strip euroscope.Str
 			Alternative:        &strip.Alternate,
 			Route:              &strip.Route,
 			Remarks:            &strip.Remarks,
-			Runway:             &strip.Runway,
+			Runway:             &runwayForStrip,
 			Squawk:             &strip.Squawk,
 			AssignedSquawk:     &strip.AssignedSquawk,
 			Sid:                &strip.Sid,
@@ -738,6 +752,18 @@ func (hub *Hub) handleStripUpdateHelper(ctx context.Context, strip euroscope.Str
 			stand = &strip.Stand
 		}
 
+		// Do not overwrite with a non-empty runway.
+		// If EuroScope reports no runway and the strip has none, auto-assign from session.
+		runway := existingStrip.Runway
+		if strip.Runway != "" {
+			runway = &strip.Runway
+		} else if runway == nil || *runway == "" {
+			isArrivalUpdate := strip.Destination == airport
+			if assigned := autoAssignRunway(isArrivalUpdate, sessionObj.ActiveRunways); assigned != "" {
+				runway = &assigned
+			}
+		}
+
 		updateStrip := &internalModels.Strip{
 			Callsign:           strip.Callsign,
 			Session:            session,
@@ -752,7 +778,7 @@ func (hub *Hub) handleStripUpdateHelper(ctx context.Context, strip euroscope.Str
 			ClearedAltitude:    &strip.ClearedAltitude,
 			Heading:            &strip.Heading,
 			AircraftType:       &strip.AircraftType,
-			Runway:             &strip.Runway,
+			Runway:             runway,
 			RequestedAltitude:  &strip.RequestedAltitude,
 			Capabilities:       &strip.Capabilities,
 			CommunicationType:  &strip.CommunicationType,
@@ -806,6 +832,80 @@ func remarksContainsReg(remarks string) bool {
 	return remarksRegRe.MatchString(strings.ToUpper(remarks))
 }
 
+// autoAssignRunway returns the first active runway for the strip's direction,
+// or "" if no active runways are configured.
+func autoAssignRunway(isArrival bool, activeRunways models.ActiveRunways) string {
+	if isArrival {
+		if len(activeRunways.ArrivalRunways) > 0 {
+			return activeRunways.ArrivalRunways[0]
+		}
+	} else {
+		if len(activeRunways.DepartureRunways) > 0 {
+			return activeRunways.DepartureRunways[0]
+		}
+	}
+	return ""
+}
+
+// propagateRunwayChange updates the runway field of departure and arrival strips
+// that had an auto-assigned runway matching the old active runways.
+// Strips whose runway does not match any old active runway are left untouched.
+func propagateRunwayChange(
+	ctx context.Context,
+	s shared.Server,
+	sessionID int32,
+	airport string,
+	oldRunways models.ActiveRunways,
+	newRunways models.ActiveRunways,
+) error {
+	stripRepo := s.GetStripRepository()
+	strips, err := stripRepo.List(ctx, sessionID)
+	if err != nil {
+		return err
+	}
+
+	for _, strip := range strips {
+		if strip.Runway == nil || *strip.Runway == "" {
+			continue
+		}
+		currentRunway := *strip.Runway
+		isArrival := strip.Destination == airport
+
+		var oldList []string
+		var newList []string
+		if isArrival {
+			oldList = oldRunways.ArrivalRunways
+			newList = newRunways.ArrivalRunways
+		} else {
+			oldList = oldRunways.DepartureRunways
+			newList = newRunways.DepartureRunways
+		}
+
+		if !slices.Contains(oldList, currentRunway) {
+			// Runway was manually set — do not touch.
+			continue
+		}
+		if len(newList) == 0 {
+			// No new active runway to assign — leave strip as-is.
+			continue
+		}
+
+		newRunway := newList[0]
+		if newRunway == currentRunway {
+			continue
+		}
+
+		if _, err := stripRepo.UpdateRunway(ctx, sessionID, strip.Callsign, &newRunway, nil); err != nil {
+			slog.Error("Failed to update auto-assigned runway on strip",
+				slog.String("callsign", strip.Callsign),
+				slog.String("old_runway", currentRunway),
+				slog.String("new_runway", newRunway),
+				slog.Any("error", err))
+		}
+	}
+	return nil
+}
+
 func handleStripUpdateEvent(ctx context.Context, client *Client, message Message) error {
 	var event euroscope.StripUpdateEvent
 	err := message.JsonUnmarshal(&event)
@@ -853,9 +953,24 @@ func handleRunways(ctx context.Context, client *Client, message Message) error {
 			slog.Any("arrival", arrival),
 		)
 
+		// Capture old active runways before overwriting.
+		currentSession, err := sessionRepo.GetByID(ctx, client.session)
+		if err != nil {
+			return err
+		}
+		oldActiveRunways := currentSession.ActiveRunways
+
 		err = sessionRepo.UpdateActiveRunways(ctx, client.session, activeRunways)
 		if err != nil {
 			return err
+		}
+
+		// Update runway on strips that had an auto-assigned runway matching the old
+		// active runways. Strips with a manually-set runway (not matching old active)
+		// are not touched.
+		if err := propagateRunwayChange(ctx, s, client.session, currentSession.Airport, oldActiveRunways, activeRunways); err != nil {
+			slog.Error("Failed to propagate runway change to strips", slog.Int("session", int(client.session)), slog.Any("error", err))
+			// Non-fatal: continue — route recalculation is still attempted below.
 		}
 
 		s.GetFrontendHub().SendRunwayConfiguration(client.session, departure, arrival)

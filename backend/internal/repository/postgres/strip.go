@@ -422,6 +422,15 @@ func (r *stripRepository) UpdateStand(ctx context.Context, session int32, callsi
 	})
 }
 
+func (r *stripRepository) UpdateRunway(ctx context.Context, session int32, callsign string, runway *string, version *int32) (int64, error) {
+	return r.queries.UpdateStripRunwayByID(ctx, database.UpdateStripRunwayByIDParams{
+		Runway:   runway,
+		Callsign: callsign,
+		Session:  session,
+		Version:  version,
+	})
+}
+
 // SetOwner sets the owner of a strip
 func (r *stripRepository) SetOwner(ctx context.Context, session int32, callsign string, owner *string, version int32) (int64, error) {
 	return r.queries.SetStripOwner(ctx, database.SetStripOwnerParams{

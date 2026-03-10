@@ -142,7 +142,10 @@ func (s *Server) updateRouteForStripHelper(strip *models.Strip, session *models.
 	if strip.Owner != nil && *strip.Owner != "" {
 		index := slices.Index(actualRoute, *strip.Owner)
 		if index != -1 {
-			actualRoute = slices.Delete(actualRoute, index, index+1)
+			// Trim everything up to and including the current owner.
+			// The owner already holds the strip, so neither the owner nor any earlier
+			// position in the route should appear in next_owners.
+			actualRoute = actualRoute[index+1:]
 		}
 	}
 

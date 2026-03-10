@@ -99,6 +99,12 @@ SET stand   = $1,
     version = version + 1
 WHERE callsign = $2 AND session = $3 AND (version = sqlc.narg('version') OR sqlc.narg('version') IS NULL);
 
+-- name: UpdateStripRunwayByID :execrows
+UPDATE strips
+SET runway  = $1,
+    version = version + 1
+WHERE callsign = $2 AND session = $3 AND (version = sqlc.narg('version') OR sqlc.narg('version') IS NULL);
+
 -- name: RemoveStripByID :exec
 DELETE
 FROM strips

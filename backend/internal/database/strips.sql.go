@@ -1241,6 +1241,33 @@ func (q *Queries) UpdateStripRequestedAltitudeByID(ctx context.Context, arg Upda
 	return result.RowsAffected(), nil
 }
 
+const updateStripRunwayByID = `-- name: UpdateStripRunwayByID :execrows
+UPDATE strips
+SET runway  = $1,
+    version = version + 1
+WHERE callsign = $2 AND session = $3 AND (version = $4 OR $4 IS NULL)
+`
+
+type UpdateStripRunwayByIDParams struct {
+	Runway   *string
+	Callsign string
+	Session  int32
+	Version  *int32
+}
+
+func (q *Queries) UpdateStripRunwayByID(ctx context.Context, arg UpdateStripRunwayByIDParams) (int64, error) {
+	result, err := q.db.Exec(ctx, updateStripRunwayByID,
+		arg.Runway,
+		arg.Callsign,
+		arg.Session,
+		arg.Version,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const updateStripSequence = `-- name: UpdateStripSequence :execrows
 UPDATE strips
 SET sequence = $3::INT,

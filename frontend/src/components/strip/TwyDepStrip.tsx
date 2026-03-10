@@ -61,6 +61,10 @@ export function TwyDepStrip({
   const cellBorderColor = getCellBorderColor(marked);
   const controllers = useControllers();
   const [showTaxiMap, setShowTaxiMap] = useState(false);
+  // Which map mode was triggered: "cl" from the TWY cell, "hp" from the HP cell.
+  const [taxiMapMode, setTaxiMapMode] = useState<"hp" | "cl">("hp");
+  // Clearance limit is ephemeral local state — never persisted to the backend.
+  const [clearanceLimit, setClearanceLimit] = useState("");
 
   const isAssumed = !!myPosition && owner === myPosition;
 
@@ -147,15 +151,18 @@ export function TwyDepStrip({
         </div>
       </div>
 
-      {/* Empty / TWR label — 53px; whole cell clickable → taxi map; top half empty, bottom half faint "TWR" */}
+      {/* Empty / TWY label — 53px; whole cell clickable → taxi map (CL mode);
+          top half empty, bottom half shows the clearance limit or faint "TWY". */}
       <div
         className="flex-shrink-0 flex flex-col border-r-2 cursor-pointer"
         style={{ width: W_SMALL, height: "100%", borderRightColor: cellBorderColor }}
-        onClick={(e) => { e.stopPropagation(); setShowTaxiMap(true); }}
+        onClick={(e) => { e.stopPropagation(); setTaxiMapMode("cl"); setShowTaxiMap(true); }}
       >
         <div style={{ height: HALF_H }} />
         <div className="flex items-center justify-center" style={{ height: HALF_H }}>
-          <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: 14, opacity: 0.2 }}>TWY</span>
+          <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: 14, opacity: clearanceLimit ? 1 : 0.2 }}>
+            {clearanceLimit || "TWY"}
+          </span>
         </div>
       </div>
 
@@ -173,7 +180,7 @@ export function TwyDepStrip({
         <div
           className="flex items-center justify-center cursor-pointer"
           style={{ height: HALF_H }}
-          onClick={(e) => { e.stopPropagation(); setShowTaxiMap(true); }}
+          onClick={(e) => { e.stopPropagation(); setTaxiMapMode("hp"); setShowTaxiMap(true); }}
         >
           <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: 14, opacity: holdingPoint ? 1 : 0.2 }}>
             {holdingPoint || "HP"}
@@ -217,6 +224,8 @@ export function TwyDepStrip({
       open={showTaxiMap}
       onOpenChange={setShowTaxiMap}
       callsign={callsign}
+      mode={taxiMapMode}
+      onClearanceLimitSelect={(label) => setClearanceLimit(label)}
     />
     </>
   );

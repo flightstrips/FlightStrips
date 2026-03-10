@@ -103,7 +103,7 @@ export function ApnPushStrip({
         >
           {holdingPoint ? (
             <span style={{ fontFamily: FONT, fontWeight: 600, fontSize: 20, color: "#1D4ED8" }}>
-              pr. {holdingPoint}
+              {holdingPoint}
             </span>
           ) : (
             <span style={{ fontFamily: FONT, fontWeight: 600, fontSize: 20 }}>{stand}</span>

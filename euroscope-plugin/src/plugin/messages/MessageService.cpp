@@ -319,6 +319,8 @@ namespace FlightStrips::messages {
     }
 
     void MessageService::HandleBackendSyncEvent(const BackendSyncEvent &event) const {
+        m_plugin->SetAirportCoordinates(event.latitude, event.longitude);
+
         const auto relevantAirport = m_plugin->GetConnectionState().relevant_airport;
         for (const auto &strip : event.strips) {
             const auto fp = m_plugin->FlightPlanSelect(strip.callsign.c_str());

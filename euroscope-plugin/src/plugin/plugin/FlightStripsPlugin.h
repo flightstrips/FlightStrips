@@ -94,7 +94,7 @@ namespace FlightStrips {
 
         [[nodiscard]] bool IsRelevant(EuroScopePlugIn::CFlightPlan flightPlan) const;
 
-        [[nodiscard]] std::pair<double, double> GetAirportCoordinates(const std::string& icao) const;
+        void SetAirportCoordinates(double latitude, double longitude);
 
         ConnectionState& GetConnectionState();
 
@@ -115,6 +115,8 @@ namespace FlightStrips {
 
         ConnectionState m_connectionState = {};
         std::queue<std::string> m_needsSquawk = {};
+        double m_airportLatitude = 0.0;
+        double m_airportLongitude = 0.0;
 
         [[nodiscard]] bool IsWithinRange(EuroScopePlugIn::CFlightPlan flightPlan, float rangeNM) const;
 

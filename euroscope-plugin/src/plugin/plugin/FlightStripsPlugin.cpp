@@ -1,5 +1,4 @@
 #include <format>
-#include <unordered_map>
 #include "FlightStripsPlugin.h"
 
 #include "Logger.hpp"
@@ -192,15 +191,9 @@ namespace FlightStrips {
         return IsWithinRange(flightPlan, 30.0f);
     }
 
-    std::pair<double, double> FlightStripsPlugin::GetAirportCoordinates(const std::string& icao) const {
-        static const std::unordered_map<std::string, std::pair<double, double>> AIRPORT_COORDS = {
-            {"EKCH", {55.6181, 12.6560}},
-        };
-        const auto it = AIRPORT_COORDS.find(icao);
-        if (it != AIRPORT_COORDS.end()) {
-            return it->second;
-        }
-        return {0.0, 0.0};
+    void FlightStripsPlugin::SetAirportCoordinates(const double latitude, const double longitude) {
+        m_airportLatitude = latitude;
+        m_airportLongitude = longitude;
     }
 
     bool FlightStripsPlugin::IsWithinRange(const CFlightPlan flightPlan, const float rangeNM) const {
@@ -208,11 +201,10 @@ namespace FlightStrips {
         if (!radarTarget.IsValid()) return false;
 
         const auto position = radarTarget.GetPosition().GetPosition();
-        const auto coords = GetAirportCoordinates(m_connectionState.relevant_airport);
 
         EuroScopePlugIn::CPosition airportPosition;
-        airportPosition.m_Latitude  = coords.first;
-        airportPosition.m_Longitude = coords.second;
+        airportPosition.m_Latitude  = m_airportLatitude;
+        airportPosition.m_Longitude = m_airportLongitude;
 
         return position.DistanceTo(airportPosition) <= static_cast<double>(rangeNM);
     }

@@ -416,7 +416,9 @@ type BackendSyncStrip struct {
 // immediately before the session_info event. It contains all strips in the session
 // with the state fields that EuroScope must reflect locally.
 type BackendSyncEvent struct {
-	Strips []BackendSyncStrip `json:"strips"`
+	Strips    []BackendSyncStrip `json:"strips"`
+	Latitude  float64            `json:"latitude"`
+	Longitude float64            `json:"longitude"`
 }
 
 func (e BackendSyncEvent) GetType() EventType {

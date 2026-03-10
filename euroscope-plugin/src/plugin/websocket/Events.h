@@ -621,10 +621,12 @@ struct BackendSyncStrip final {
 
 struct BackendSyncEvent final : Event {
     std::vector<BackendSyncStrip> strips;
+    double latitude = 0.0;
+    double longitude = 0.0;
 
     BackendSyncEvent() = default;
 
-    NLOHMANN_DEFINE_TYPE_INTRUSIVE(BackendSyncEvent, strips, type);
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE(BackendSyncEvent, strips, type, latitude, longitude);
 };
 
 #endif //EVENTS_H

@@ -179,7 +179,12 @@ func (hub *Hub) sendBackendSyncIfNeeded(client *Client) {
 		syncStrips = append(syncStrips, entry)
 	}
 
-	client.send <- euroscope.BackendSyncEvent{Strips: syncStrips}
+	lat, lon := config.GetAirportCoordinates()
+	client.send <- euroscope.BackendSyncEvent{
+		Strips:    syncStrips,
+		Latitude:  lat,
+		Longitude: lon,
+	}
 	slog.Debug("Sent backend sync to connecting EuroScope client",
 		slog.String("cid", client.GetCid()),
 		slog.Int("session", int(client.session)),

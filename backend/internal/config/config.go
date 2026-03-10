@@ -11,6 +11,8 @@ import (
 )
 
 type Config struct {
+	Latitude            float64                    `yaml:"latitude"`
+	Longitude           float64                    `yaml:"longitude"`
 	Routes              []Route                    `yaml:"routes"`
 	AirborneRoutes      []AirborneRoutes           `yaml:"airborne_routes"`
 	Positions           []Position                 `yaml:"positions"`
@@ -39,6 +41,8 @@ var airborneAltitudeAGL int64
 var layouts map[string][]LayoutVariant
 var runways []string
 var messageAreas map[string][]string
+var airportLatitude float64
+var airportLongitude float64
 
 // runwayRoutes maps a runway to all available routes for that runway.
 var runwayRoutes = map[string][]Route{}
@@ -67,12 +71,19 @@ func loadAirportConfig(r io.Reader) error {
 	airborneAltitudeAGL = cfg.AirborneAltitudeAGL
 	layouts = cfg.Layouts
 	runways = cfg.Runways
+	airportLatitude = cfg.Latitude
+	airportLongitude = cfg.Longitude
 	messageAreas = cfg.MessageAreas
 	if messageAreas == nil {
 		messageAreas = make(map[string][]string)
 	}
 
 	return nil
+}
+
+// GetAirportCoordinates returns the latitude and longitude of the configured airport.
+func GetAirportCoordinates() (float64, float64) {
+	return airportLatitude, airportLongitude
 }
 
 // GetMessageAreas returns the area→position mapping for the configured airport.

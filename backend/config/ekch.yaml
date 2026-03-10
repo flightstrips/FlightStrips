@@ -1,4 +1,7 @@
-﻿positions:
+﻿latitude: 55.6181
+longitude: 12.6560
+
+positions:
   - name: "EKCH_DEL"
     frequency: "119.905"
     section: "DEL"

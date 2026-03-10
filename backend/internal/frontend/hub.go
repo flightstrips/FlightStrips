@@ -39,6 +39,9 @@ type Hub struct {
 	msgMu      sync.Mutex
 	msgCounter int64 // accessed atomically
 	messages   map[int32][]frontend.MessageReceivedEvent
+
+	metarMu    sync.RWMutex
+	metarCache map[int32]string // session ID → latest METAR string
 }
 
 func NewHub(stripService shared.StripService, authenticationService shared.AuthenticationService) *Hub {
@@ -76,6 +79,7 @@ func NewHub(stripService shared.StripService, authenticationService shared.Authe
 		stripService:          stripService,
 		authenticationService: authenticationService,
 		messages:              make(map[int32][]frontend.MessageReceivedEvent),
+		metarCache:            make(map[int32]string),
 	}
 
 	go hub.Run()
@@ -303,6 +307,14 @@ func (hub *Hub) sendInitialEvent(client *Client) {
 	}
 
 	client.send <- event
+
+	hub.metarMu.RLock()
+	cachedMetar := hub.metarCache[client.session]
+	hub.metarMu.RUnlock()
+
+	if cachedMetar != "" {
+		client.send <- frontend.AtisUpdateEvent{Metar: cachedMetar}
+	}
 }
 
 func MapTacticalStripToPayload(ts *internalModels.TacticalStrip) frontend.TacticalStripPayload {
@@ -635,6 +647,10 @@ func (hub *Hub) SendServerMessage(session int32, message string) {
 }
 
 func (hub *Hub) SendAtisUpdate(session int32, metar string) {
+	hub.metarMu.Lock()
+	hub.metarCache[session] = metar
+	hub.metarMu.Unlock()
+
 	hub.Broadcast(session, frontend.AtisUpdateEvent{Metar: metar})
 }
 

@@ -104,18 +104,27 @@ func GetDepartureBayFromGroundState(state string, existing database.Strip) strin
 		return BAY_DEPART
 	}
 
-	return existing.Bay
+	if existing.Bay != "" {
+		return existing.Bay
+	}
+	return BAY_HIDDEN
 }
 
 func GetDepartureBayFromPosition(lat, lon float64, alt int64, existing database.Strip, airborneAltitudeAGL int64, airport string) string {
+	// Resolve the existing bay, falling back to HIDDEN if it was never set.
+	existingBay := existing.Bay
+	if existingBay == "" {
+		existingBay = BAY_HIDDEN
+	}
+
 	// Arrivals: position updates never change the bay (set once in GetDepartureBay).
 	if existing.Destination == airport {
-		return existing.Bay
+		return existingBay
 	}
 
 	// Non-departures from this airport: keep existing bay unchanged.
 	if existing.Origin != airport {
-		return existing.Bay
+		return existingBay
 	}
 
 	// Departures from this airport.
@@ -123,7 +132,7 @@ func GetDepartureBayFromPosition(lat, lon float64, alt int64, existing database.
 		return BAY_HIDDEN
 	}
 
-	bay := existing.Bay
+	bay := existingBay
 
 	if bay != BAY_DEPART || existing.State == nil || *existing.State != euroscope.GroundStateDepart {
 		return bay

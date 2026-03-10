@@ -346,6 +346,9 @@ func handleClearedFlag(ctx context.Context, client *Client, message Message) err
 	if bay == shared.BAY_NOT_CLEARED || bay == shared.BAY_UNKNOWN {
 		bay = shared.BAY_CLEARED
 	}
+	if bay == "" {
+		bay = shared.BAY_HIDDEN
+	}
 
 	_, err = stripRepo.UpdateClearedFlag(ctx, session, event.Callsign, event.Cleared, bay, nil)
 	if err != nil {

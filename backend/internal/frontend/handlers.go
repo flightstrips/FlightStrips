@@ -16,6 +16,22 @@ import (
 
 type Message = shared.Message[frontend.EventType]
 
+// validBays is the set of bay values that the frontend is permitted to move a strip to.
+// Any move event carrying a bay outside this set is rejected.
+var validBays = map[string]bool{
+	shared.BAY_NOT_CLEARED: true,
+	shared.BAY_CLEARED:     true,
+	shared.BAY_PUSH:        true,
+	shared.BAY_TAXI:        true,
+	shared.BAY_TAXI_TWR:    true,
+	shared.BAY_DEPART:      true,
+	shared.BAY_AIRBORNE:    true,
+	shared.BAY_FINAL:       true,
+	shared.BAY_STAND:       true,
+	shared.BAY_HIDDEN:      true,
+	shared.BAY_ARR_HIDDEN:  true,
+}
+
 func handleTokenEvent(ctx context.Context, client *Client, message Message) error {
 	var event events.AuthenticationEvent
 	if err := message.JsonUnmarshal(&event); err != nil {
@@ -51,6 +67,15 @@ func handleMove(ctx context.Context, client *Client, message Message) error {
 	err := message.JsonUnmarshal(&move)
 	if err != nil {
 		return err
+	}
+
+	if !validBays[move.Bay] {
+		slog.Warn("handleMove: rejecting move event with invalid bay",
+			slog.String("callsign", move.Callsign),
+			slog.String("bay", move.Bay),
+			slog.String("cid", client.GetCid()),
+		)
+		return errors.New("invalid bay value: " + move.Bay)
 	}
 
 	s := client.hub.server

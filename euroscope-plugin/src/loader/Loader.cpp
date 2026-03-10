@@ -32,20 +32,31 @@ bool FlightStrips::Loader::ShouldUpdate(const std::string &latestVersion) const 
 bool FlightStrips::Loader::Update(std::string latestVersion) const {
     Logger::Info("Updating plugin to version {}", latestVersion);
 
+    // Show dialog FIRST — no file operations until the user accepts
+    if (const auto result = MessageBox(GetActiveWindow(),
+        L"Updating the FlightStrips plugin. This will download the latest version of FlightStrips.\r\n\r\nSelect OK to continue.",
+        L"FlightStrips", MB_OKCANCEL | MB_ICONINFORMATION); result != IDOK) return false;
+
+    // User accepted — rename live files to .old
     fileSystem->Rename(pluginDLL, pluginDLLOld);
     fileSystem->Rename(config, configOld);
 
-    if (const auto result = MessageBox(GetActiveWindow(), L"Updating the FlightStrips plugin. This will download the latest version of FlightStrips.\r\n\r\nSelect OK to continue.", L"FlightStrips",  MB_OKCANCEL | MB_ICONINFORMATION); result != IDOK) return false;
-
+    // Download new DLL
     auto downloadUrl = std::format(downloadUrlTemplate, latestVersion, pluginDLL);
     if (!http::Http::DownloadFile(downloadUrl, fileSystem->GetLocalFilePath(pluginDLL).string())) {
         Logger::Error("Failed to download plugin dll from {}", downloadUrl);
+        fileSystem->Rename(pluginDLLOld, pluginDLL);
+        fileSystem->Rename(configOld, config);
         return false;
     }
 
+    // Download new config
     downloadUrl = std::format(downloadUrlTemplate, latestVersion, config);
     if (!http::Http::DownloadFile(downloadUrl, fileSystem->GetLocalFilePath(config).string())) {
         Logger::Error("Failed to download config file from {}", downloadUrl);
+        fileSystem->DeleteFileIfExists(fileSystem->GetLocalFilePath(pluginDLL).string());
+        fileSystem->Rename(pluginDLLOld, pluginDLL);
+        fileSystem->Rename(configOld, config);
         return false;
     }
 

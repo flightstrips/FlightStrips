@@ -23,6 +23,11 @@ type internalMessage struct {
 	cid     *string
 }
 
+type cidOnlineMessage struct {
+	session int32
+	cid     string
+}
+
 type Hub struct {
 	server                shared.Server
 	stripService          shared.StripService
@@ -33,6 +38,7 @@ type Hub struct {
 
 	register   chan *Client
 	unregister chan *Client
+	cidOnline  chan cidOnlineMessage
 
 	handlers shared.MessageHandlers[frontend.EventType, *Client]
 
@@ -74,6 +80,7 @@ func NewHub(stripService shared.StripService, authenticationService shared.Authe
 		send:                  make(chan internalMessage),
 		register:              make(chan *Client),
 		unregister:            make(chan *Client),
+		cidOnline:             make(chan cidOnlineMessage),
 		clients:               make(map[*Client]bool),
 		handlers:              handlers,
 		stripService:          stripService,
@@ -382,16 +389,7 @@ func MapStripToFrontendModel(strip *internalModels.Strip) frontend.Strip {
 }
 
 func (hub *Hub) CidOnline(session int32, cid string) {
-	for client := range hub.clients {
-		if client.user.GetCid() == cid {
-			slog.Debug("Associating frontend client with session",
-				slog.String("cid", cid),
-				slog.Int("session", int(session)))
-			client.session = session
-			hub.sendInitialEvent(client)
-			return
-		}
-	}
+	hub.cidOnline <- cidOnlineMessage{session: session, cid: cid}
 }
 
 func (hub *Hub) CidDisconnect(cid string) {
@@ -737,6 +735,17 @@ func (hub *Hub) Run() {
 			if _, ok := hub.clients[client]; ok {
 				delete(hub.clients, client)
 				client.Close()
+			}
+		case msg := <-hub.cidOnline:
+			for client := range hub.clients {
+				if client.user.GetCid() == msg.cid {
+					slog.Debug("Associating frontend client with session",
+						slog.String("cid", msg.cid),
+						slog.Int("session", int(msg.session)))
+					client.session = msg.session
+					hub.sendInitialEvent(client)
+					break
+				}
 			}
 		case message := <-hub.send:
 			if message.cid != nil {

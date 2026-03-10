@@ -35,6 +35,7 @@ export function ApnPushStrip({
   aircraftType,
   registration,
   stand,
+  holdingPoint,
   tsat,
   ctot,
   runway,
@@ -94,19 +95,26 @@ export function ApnPushStrip({
           <span className="truncate px-1 leading-tight w-full text-center" style={{ fontFamily: FONT, fontSize: 10 }}>{registration}</span>
         </div>
 
-        {/* Stand — 25%*(2/3) */}
+        {/* Stand / Release Point — 25%*(2/3) */}
         <div
           className="flex items-center justify-center overflow-hidden border-r-2 cursor-pointer hover:bg-cyan-200"
           style={{ flex: `${F_STAND} 0 0%`, height: "100%", paddingBottom: "1.48vh", minWidth: 0, borderRightColor: cellBorderColor }}
           onClick={(e) => { e.stopPropagation(); setPushbackOpen(true); }}
         >
-          <span style={{ fontFamily: FONT, fontWeight: 600, fontSize: 20 }}>{stand}</span>
+          {holdingPoint ? (
+            <span style={{ fontFamily: FONT, fontWeight: 600, fontSize: 20, color: "#1D4ED8" }}>
+              pr. {holdingPoint}
+            </span>
+          ) : (
+            <span style={{ fontFamily: FONT, fontWeight: 600, fontSize: 20 }}>{stand}</span>
+          )}
         </div>
 
         <PushbackMapDialog
           open={pushbackOpen}
           onOpenChange={setPushbackOpen}
           callsign={callsign}
+          initialReleasePoint={holdingPoint}
         />
 
         {/* TSAT / CTOT — 25%*(2/3), split in half with border */}

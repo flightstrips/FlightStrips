@@ -8,6 +8,7 @@ interface PushbackMapDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   callsign: string;
+  initialReleasePoint?: string;
 }
 
 const BTN_STYLE: React.CSSProperties = {
@@ -17,7 +18,7 @@ const BTN_STYLE: React.CSSProperties = {
   fontSize: 18,
 };
 
-export function PushbackMapDialog({ open, onOpenChange, callsign }: PushbackMapDialogProps) {
+export function PushbackMapDialog({ open, onOpenChange, callsign, initialReleasePoint }: PushbackMapDialogProps) {
   const setReleasePoint = useWebSocketStore((s) => s.setReleasePoint);
   const move = useWebSocketStore((s) => s.move);
 
@@ -39,6 +40,7 @@ export function PushbackMapDialog({ open, onOpenChange, callsign }: PushbackMapD
       points={RELEASE_POINTS}
       btnStyle={BTN_STYLE}
       onSelect={handleSelect}
+      selectedPoint={initialReleasePoint}
     >
       {/* Controls panel — bottom-left */}
       <div

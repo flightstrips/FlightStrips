@@ -114,6 +114,7 @@ interface MapDialogShellProps {
   points: ClickPoint[];
   btnStyle: React.CSSProperties;
   onSelect: (label: string) => void;
+  selectedPoint?: string;
   /** Controls panel overlay (e.g. arrows + ERASE/OK). Positioned absolutely over the image. */
   children?: React.ReactNode;
 }
@@ -122,6 +123,7 @@ export function MapDialogShell({
   open, onOpenChange, title,
   imageSrc, imageAlt, imgWidth, imgHeight,
   points, btnStyle, onSelect,
+  selectedPoint,
   children,
 }: MapDialogShellProps) {
   const { setDragDisabled } = useDragDisabled();
@@ -164,24 +166,28 @@ export function MapDialogShell({
               style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "fill", display: "block" }}
             />
 
-            {points.map((pt, i) => (
-              <button
-                key={i}
-                onClick={() => onSelect(pt.label)}
-                style={{
-                  ...btnStyle,
-                  position: "absolute",
-                  left: pt.left,
-                  top: pt.top,
-                  transform: "translate(-50%, -50%)",
-                  zIndex: 10,
-                  width: pt.width ?? btnStyle.width,
-                  height: pt.height ?? btnStyle.height,
-                }}
-              >
-                {pt.label}
-              </button>
-            ))}
+            {points.map((pt, i) => {
+              const isSelected = selectedPoint !== undefined && pt.label === selectedPoint;
+              return (
+                <button
+                  key={i}
+                  onClick={() => onSelect(pt.label)}
+                  style={{
+                    ...btnStyle,
+                    position: "absolute",
+                    left: pt.left,
+                    top: pt.top,
+                    transform: "translate(-50%, -50%)",
+                    zIndex: 10,
+                    width: pt.width ?? btnStyle.width,
+                    height: pt.height ?? btnStyle.height,
+                    ...(isSelected ? { backgroundColor: "#1D4ED8", color: "#FFFFFF" } : {}),
+                  }}
+                >
+                  {pt.label}
+                </button>
+              );
+            })}
 
             {children}
           </div>

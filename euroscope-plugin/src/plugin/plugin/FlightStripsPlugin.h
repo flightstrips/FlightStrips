@@ -94,6 +94,8 @@ namespace FlightStrips {
 
         [[nodiscard]] bool IsRelevant(EuroScopePlugIn::CFlightPlan flightPlan) const;
 
+        [[nodiscard]] std::pair<double, double> GetAirportCoordinates(const std::string& icao) const;
+
         ConnectionState& GetConnectionState();
 
         std::vector<Sid> GetSids(const std::string& airport) override;

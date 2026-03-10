@@ -93,7 +93,10 @@ func handleControllerOnline(ctx context.Context, client *Client, message Message
 				}
 			}
 		}
-		return s.UpdateLayouts(session)
+		if err := s.UpdateLayouts(session); err != nil {
+			return err
+		}
+		return s.UpdateRoutesForSession(session, true)
 	}
 
 	// Case B: same position — EuroScope heartbeat, no meaningful change.
@@ -135,7 +138,10 @@ func handleControllerOnline(ctx context.Context, client *Client, message Message
 				}
 			}
 		}
-		return s.UpdateLayouts(session)
+		if err := s.UpdateLayouts(session); err != nil {
+			return err
+		}
+		return s.UpdateRoutesForSession(session, true)
 	}
 
 	if err := client.hub.stripService.AutoAssumeForControllerOnline(ctx, client.session, event.Position); err != nil {
@@ -172,6 +178,7 @@ func handleControllerOffline(ctx context.Context, client *Client, message Messag
 	posConfig, configErr := config.GetPositionBasedOnFrequency(controller.Position)
 	if configErr != nil {
 		// Unknown position — immediate offline handling (no timer).
+		_ = controllerRepo.Delete(ctx, session, event.Callsign)
 		s.GetFrontendHub().SendControllerOffline(session, event.Callsign, controller.Position, "")
 		return nil
 	}

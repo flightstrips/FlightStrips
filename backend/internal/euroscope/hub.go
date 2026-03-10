@@ -130,16 +130,24 @@ func (hub *Hub) OnRegister(client *Client) {
 		}
 	}
 
-	hub.sendBackendSyncIfNeeded(client)
-
+	// Determine master role immediately to avoid race conditions
+	isMaster := false
 	if _, ok := hub.master[client.session]; !ok {
 		slog.Debug("Euroscope client is master", slog.String("cid", client.GetCid()))
 		hub.master[client.session] = client
-		client.send <- euroscope.SessionInfoEvent{Role: euroscope.SessionInfoMaster}
-		return
+		isMaster = true
 	}
 
-	client.send <- euroscope.SessionInfoEvent{Role: euroscope.SessionInfoSlave}
+	// Send BackendSync first, then delay, then SessionInfo
+	go func() {
+		hub.sendBackendSyncIfNeeded(client)
+		time.Sleep(2 * time.Second)
+		if isMaster {
+			client.send <- euroscope.SessionInfoEvent{Role: euroscope.SessionInfoMaster}
+		} else {
+			client.send <- euroscope.SessionInfoEvent{Role: euroscope.SessionInfoSlave}
+		}
+	}()
 }
 
 // sendBackendSyncIfNeeded fetches all existing strips for the client's session
@@ -517,6 +525,11 @@ func (hub *Hub) scheduleOfflineActions(session int32, callsign, positionFreq, po
 			}
 			if err := s.UpdateLayouts(session); err != nil {
 				slog.Error("Failed to update layouts in offline timer",
+					slog.String("callsign", callsign),
+					slog.Any("error", err))
+			}
+			if err := s.UpdateRoutesForSession(session, true); err != nil {
+				slog.Error("Failed to update routes in offline timer",
 					slog.String("callsign", callsign),
 					slog.Any("error", err))
 			}

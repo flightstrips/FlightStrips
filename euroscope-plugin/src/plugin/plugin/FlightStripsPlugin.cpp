@@ -1,4 +1,5 @@
 #include <format>
+#include <unordered_map>
 #include "FlightStripsPlugin.h"
 
 #include "Logger.hpp"
@@ -180,7 +181,26 @@ namespace FlightStrips {
             return false;
         }
         if (IsValidAirports(flightPlan)) return true;
+        // Reject IFR aircraft with a valid flight plan to/from a non-matching airport.
+        // Only VFR or no-FP aircraft are eligible for the range-based fallback.
+        const auto fpData = flightPlan.GetFlightPlanData();
+        const auto origin = std::string(fpData.GetOrigin());
+        const auto destination = std::string(fpData.GetDestination());
+        if (!origin.empty() && !destination.empty() && origin != "ZZZZ" && destination != "ZZZZ") {
+            return false;
+        }
         return IsWithinRange(flightPlan, 30.0f);
+    }
+
+    std::pair<double, double> FlightStripsPlugin::GetAirportCoordinates(const std::string& icao) const {
+        static const std::unordered_map<std::string, std::pair<double, double>> AIRPORT_COORDS = {
+            {"EKCH", {55.6181, 12.6560}},
+        };
+        const auto it = AIRPORT_COORDS.find(icao);
+        if (it != AIRPORT_COORDS.end()) {
+            return it->second;
+        }
+        return {0.0, 0.0};
     }
 
     bool FlightStripsPlugin::IsWithinRange(const CFlightPlan flightPlan, const float rangeNM) const {
@@ -188,10 +208,11 @@ namespace FlightStrips {
         if (!radarTarget.IsValid()) return false;
 
         const auto position = radarTarget.GetPosition().GetPosition();
+        const auto coords = GetAirportCoordinates(m_connectionState.relevant_airport);
 
         EuroScopePlugIn::CPosition airportPosition;
-        airportPosition.m_Latitude  = 55.6181; // EKCH
-        airportPosition.m_Longitude = 12.6560; // EKCH
+        airportPosition.m_Latitude  = coords.first;
+        airportPosition.m_Longitude = coords.second;
 
         return position.DistanceTo(airportPosition) <= static_cast<double>(rangeNM);
     }

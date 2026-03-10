@@ -319,6 +319,7 @@ namespace FlightStrips::messages {
     }
 
     void MessageService::HandleBackendSyncEvent(const BackendSyncEvent &event) const {
+        const auto relevantAirport = m_plugin->GetConnectionState().relevant_airport;
         for (const auto &strip : event.strips) {
             const auto fp = m_plugin->FlightPlanSelect(strip.callsign.c_str());
             if (!fp.IsValid()) {
@@ -339,7 +340,10 @@ namespace FlightStrips::messages {
             }
 
             if (!strip.stand.empty()) {
-                m_plugin->SetArrivalStand(strip.callsign.c_str(), strip.stand);
+                const auto destination = std::string(fp.GetFlightPlanData().GetDestination());
+                if (destination == relevantAirport) {
+                    m_plugin->SetArrivalStand(strip.callsign.c_str(), strip.stand);
+                }
             }
         }
     }

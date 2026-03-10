@@ -22,7 +22,7 @@ import { Bay } from "@/api/models.ts";
 import type { StripStatus } from "@/components/strip/types.ts";
 import { SortableBay, DropIndicatorBay } from "@/components/bays/SortableBay.tsx";
 import { ViewDndContext } from "@/components/bays/ViewDndContext.tsx";
-import { useWebSocketStore, useMyPosition, useLowerPositionOnline, useMessages } from "@/store/store-hooks.ts";
+import { useWebSocketStore, useMyPosition, useLowerPositionOnline, useCtwrOnline, useMessages } from "@/store/store-hooks.ts";
 import { useRef, useEffect, useMemo, useState } from "react";
 import { TWY_DEP_STRIP_WIDTH } from "@/components/strip/types";
 import { StripListPopup, type SortMode } from "@/components/StripListPopup.tsx";
@@ -42,6 +42,9 @@ export default function TWTE() {
   const [startupOpen, setStartupOpen] = useState(false);
   const [arrOpen, setArrOpen] = useState(false);
   const lowerPositionOnline = useLowerPositionOnline();
+  const ctwrOnline = useCtwrOnline();
+  // TE/TW is responsible for clearances only when no lower position AND no CTWR is online.
+  const clrDelActive = !lowerPositionOnline && !ctwrOnline;
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -331,8 +334,11 @@ export default function TWTE() {
 
       {/* Column 4 – CLRDEL + DE-ICE A + STAND */}
       <div className="w-[20.5%] h-full bg-[#555355] flex flex-col">
-        <div className="bg-[#393939] h-10 flex items-center px-2 shrink-0 justify-between">
-          <span className="text-white font-bold text-lg">CLRDEL</span>
+        <div className={(clrDelActive
+            ? "bg-[#b3b3b3] h-10 flex items-center px-2 shrink-0"
+            : "bg-[#393939] h-10 flex items-center px-2 shrink-0"
+          ) + " justify-between"}>
+          <span className={clrDelActive ? "text-[#393939] font-bold text-lg" : "text-white font-bold text-lg"}>CLRDEL</span>
           <span className="flex gap-1">
             <button className={btn}>NEW</button>
             <button className={btn}>PLANNED</button>
@@ -340,7 +346,7 @@ export default function TWTE() {
         </div>
         <DropIndicatorBay bayId="CLRDEL" className={`h-[45%] ${scrollArea}`}>
           {nonClearedStrips.map(s => (
-            <Strip key={s.callsign} strip={s} status={lowerPositionOnline ? "CLX-HALF" : "CLR"} fullWidth={true} myPosition={myPosition} />
+            <Strip key={s.callsign} strip={s} status={clrDelActive ? "CLR" : "CLX-HALF"} fullWidth={true} myPosition={myPosition} />
           ))}
         </DropIndicatorBay>
 

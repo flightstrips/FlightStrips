@@ -2,7 +2,7 @@ import { Strip } from "@/components/strip/Strip.tsx";
 import { MemAidButton } from "@/components/strip/TacticalButtons.tsx";
 import { MessageStrip } from "@/components/strip/MessageStrip.tsx";
 import { MessageComposeDialog } from "@/components/MessageComposeDialog.tsx";
-import { useMyPosition, useMessages, useWebSocketStore } from "@/store/store-hooks.ts";
+import { useMyPosition, useMessages, useWebSocketStore, useDelOnline } from "@/store/store-hooks.ts";
 import {
   useClearedStrips,
   useDeIceStrips,
@@ -42,6 +42,11 @@ export default function AAAD() {
   const messages    = useMessages();
   const [composeOpen, setComposeOpen] = useState(false);
   const [arrOpen, setArrOpen] = useState(false);
+
+  const delOnline = useDelOnline();
+  // When DEL is online, APRON is not responsible for clearances → CLR/DEL panel is inactive.
+  // When DEL is offline, APRON handles clearances → CLR/DEL panel is active.
+  const clrDelActive = !delOnline;
 
   const finalStrips   = useFinalStrips().filter(isFlight);
   const rwyArrStrips  = useRwyArrStrips().filter(isFlight);
@@ -274,8 +279,8 @@ export default function AAAD() {
       {/* ── Col 4: SAS / NORWEGIAN / OTHERS (UNCLEARED) ── */}
       <div className="w-1/4 h-full bg-[#555355] flex flex-col">
 
-        <div className={lockedHeader + " justify-between"}>
-          <span className={lockedLabel}>SAS</span>
+        <div className={(clrDelActive ? activeHeader : lockedHeader) + " justify-between"}>
+          <span className={clrDelActive ? activeLabel : lockedLabel}>SAS</span>
           <span className="flex gap-1">
             <button className={btn}>NEW</button>
             <button className={btn}>PLANNED</button>
@@ -283,25 +288,25 @@ export default function AAAD() {
         </div>
         <DropIndicatorBay bayId="SAS" className={`h-[40%] ${scrollArea}`}>
           {sasStrips.map(s => (
-            <Strip key={s.callsign} strip={s} status="CLR" selectable={false} myPosition={myPosition} />
+            <Strip key={s.callsign} strip={s} status={clrDelActive ? "CLR" : "CLX-HALF"} selectable={false} myPosition={myPosition} />
           ))}
         </DropIndicatorBay>
 
-        <div className={lockedHeader}>
-          <span className={lockedLabel}>NORWEGIAN</span>
+        <div className={clrDelActive ? activeHeader : lockedHeader}>
+          <span className={clrDelActive ? activeLabel : lockedLabel}>NORWEGIAN</span>
         </div>
         <DropIndicatorBay bayId="NORWEGIAN" className={`h-[30%] ${scrollArea}`}>
           {norStrips.map(s => (
-            <Strip key={s.callsign} strip={s} status="CLR" selectable={false} myPosition={myPosition} />
+            <Strip key={s.callsign} strip={s} status={clrDelActive ? "CLR" : "CLX-HALF"} selectable={false} myPosition={myPosition} />
           ))}
         </DropIndicatorBay>
 
-        <div className={lockedHeader}>
-          <span className={lockedLabel}>OTHERS</span>
+        <div className={clrDelActive ? activeHeader : lockedHeader}>
+          <span className={clrDelActive ? activeLabel : lockedLabel}>OTHERS</span>
         </div>
         <DropIndicatorBay bayId="OTHERS" className={`flex-1 ${scrollArea}`}>
           {otherStrips.map(s => (
-            <Strip key={s.callsign} strip={s} status="CLR" selectable={false} myPosition={myPosition} />
+            <Strip key={s.callsign} strip={s} status={clrDelActive ? "CLR" : "CLX-HALF"} selectable={false} myPosition={myPosition} />
           ))}
         </DropIndicatorBay>
 

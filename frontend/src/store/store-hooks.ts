@@ -37,5 +37,52 @@ export const useLowerPositionOnline = () =>
     state.controllers.some((c) => LOWER_SECTIONS.has(c.section) && c.callsign !== state.callsign)
   );
 
+/**
+ * Returns true if EKCH_DEL is currently online (other than the current user).
+ * Falls back to checking callsign when section is empty (controller_online events
+ * do not include section; see store.ts handleControllerOnlineEvent).
+ */
+export const useDelOnline = () =>
+  useWebSocketStore((state) =>
+    state.controllers.some(
+      (c) =>
+        c.callsign !== state.callsign &&
+        (c.section === "DEL" || c.callsign === "EKCH_DEL" || c.position === "EKCH_DEL")
+    )
+  );
+
+/**
+ * Returns true if any APRON (GND) position is currently online (other than the current user).
+ * Falls back to callsign suffix when section is empty.
+ */
+export const useApronOnline = () =>
+  useWebSocketStore((state) =>
+    state.controllers.some(
+      (c) =>
+        c.callsign !== state.callsign &&
+        (c.section === "GND" ||
+          c.callsign === "EKCH_A_GND" ||
+          c.callsign === "EKCH_B_GND" ||
+          c.callsign === "EKCH_C_GND" ||
+          c.position === "EKCH_A_GND" ||
+          c.position === "EKCH_B_GND" ||
+          c.position === "EKCH_C_GND")
+    )
+  );
+
+/**
+ * Returns true if EKCH_C_TWR (CTWR — the position that uses the GEGW layout) is
+ * currently online (other than the current user).
+ * Note: all TWR positions share section "TWR", so we must check the specific callsign.
+ */
+export const useCtwrOnline = () =>
+  useWebSocketStore((state) =>
+    state.controllers.some(
+      (c) =>
+        c.callsign !== state.callsign &&
+        (c.callsign === "EKCH_C_TWR" || c.position === "EKCH_C_TWR")
+    )
+  );
+
 export const useLayoutChooserOpen = () => useWebSocketStore((state) => state.layoutChooserOpen);
 export const useSetLayoutChooserOpen = () => useWebSocketStore((state) => state.setLayoutChooserOpen);

@@ -5,6 +5,7 @@ import { MessageComposeDialog } from "@/components/MessageComposeDialog.tsx";
 import {
   useFinalStrips,
   useInboundStrips,
+  useNonClearedStrips,
   usePushbackStrips,
   useRwyArrStrips,
   useStandStrips,
@@ -16,11 +17,15 @@ import type { AnyStrip, FrontendStrip, StripRef } from "@/api/models.ts";
 import { Bay } from "@/api/models.ts";
 import { SortableBay, DropIndicatorBay } from "@/components/bays/SortableBay.tsx";
 import { ViewDndContext } from "@/components/bays/ViewDndContext.tsx";
-import { useWebSocketStore, useMyPosition, useMessages } from "@/store/store-hooks.ts";
+import { useWebSocketStore, useMyPosition, useMessages, useDelOnline, useApronOnline } from "@/store/store-hooks.ts";
 import { StripListPopup, type SortMode } from "@/components/StripListPopup.tsx";
 import { useState } from "react";
 import { CLX_CLEARED_STRIP_WIDTH } from "@/components/strip/ClxClearedStrip.tsx";
 
+const activeHeader = "bg-[#b3b3b3] h-10 flex items-center px-2 shrink-0";
+const activeLabel  = "text-[#393939] font-bold text-lg";
+const lockedHeader = "bg-[#393939] h-10 flex items-center px-2 shrink-0";
+const lockedLabel  = "text-white font-bold text-lg";
 
 export default function GEGW() {
   const myPosition = useMyPosition();
@@ -47,6 +52,13 @@ export default function GEGW() {
     { key: "CALLSIGN", label: "CALLSIGN", compareFn: (a, b) => a.callsign.localeCompare(b.callsign) },
     { key: "ADEP",     label: "ADEP",     compareFn: (a, b) => a.origin.localeCompare(b.origin) },
   ];
+
+  const delOnline   = useDelOnline();
+  const apronOnline = useApronOnline();
+  // CTWR is responsible for clearances only when neither DEL nor APRON is online.
+  const clrDelActive = !delOnline && !apronOnline;
+
+  const nonClearedStrips = useNonClearedStrips();
 
   const bayStripMap = {
     "PUSHBACK":    { strips: pushStrips,   targetBay: Bay.Push },
@@ -196,12 +208,16 @@ export default function GEGW() {
         </SortableBay>
       </div>
 
-      {/* Column 3 (25%) – CLRDEL (locked, no strips) */}
+      {/* Column 3 (25%) – CLRDEL: active when CTWR owns clearances (no DEL, no APRON online) */}
       <div className="w-1/4 h-full bg-[#555355] flex flex-col">
-        <div className="bg-[#393939] h-10 flex items-center px-2 shrink-0">
-          <span className="text-white font-bold text-lg">CLRDEL</span>
+        <div className={clrDelActive ? activeHeader : lockedHeader}>
+          <span className={clrDelActive ? activeLabel : lockedLabel}>CLRDEL</span>
         </div>
-        <div className="flex-1 w-full bg-[#555355]" />
+        <div className="flex-1 w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary">
+          {clrDelActive && nonClearedStrips.map(s => (
+            <Strip key={s.callsign} strip={s} status="CLR" selectable={false} myPosition={myPosition} />
+          ))}
+        </div>
       </div>
 
       {/* Column 4 (20%) – STAND (draggable) */}

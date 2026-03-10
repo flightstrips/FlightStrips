@@ -427,7 +427,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
             callsign: data.callsign,
             position: data.position,
             identifier: data.identifier,
-            section: "",
+            section: data.section,
           });
         }
       })

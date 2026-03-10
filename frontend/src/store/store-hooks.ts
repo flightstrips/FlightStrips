@@ -30,33 +30,31 @@ export const useMyPosition = () => useWebSocketStore((state) => state.position);
 export const useStripTransfers = () => useWebSocketStore((state) => state.stripTransfers);
 export const useMetar = () => useWebSocketStore((state) => state.metar);
 
-const LOWER_FREQUENCIES = new Set(["119.905", "121.630", "121.905", "121.730"]);
-
 export const useLowerPositionOnline = () =>
   useWebSocketStore((state) =>
-    state.controllers.some((c) => LOWER_FREQUENCIES.has(c.position) && c.position !== state.position)
+    state.controllers.some(
+      (c) => (c.section === "DEL" || c.section === "GND") && c.position !== state.position
+    )
   );
 
 export const useDelOnline = () =>
   useWebSocketStore((state) =>
     state.controllers.some(
-      (c) => c.position !== state.position && c.position === "119.905"
+      (c) => c.section === "DEL" && c.position !== state.position
     )
   );
 
 export const useApronOnline = () =>
   useWebSocketStore((state) =>
     state.controllers.some(
-      (c) =>
-        c.position !== state.position &&
-        (c.position === "121.630" || c.position === "121.905" || c.position === "121.730")
+      (c) => c.section === "GND" && c.position !== state.position
     )
   );
 
 export const useCtwrOnline = () =>
   useWebSocketStore((state) =>
     state.controllers.some(
-      (c) => c.position !== state.position && c.position === "118.580"
+      (c) => c.section === "TWR" && c.position !== state.position
     )
   );
 

@@ -212,6 +212,7 @@ export interface FrontendControllerOnlineEvent {
   callsign: string;
   position: string;
   identifier: string;
+  section: string;
 }
 
 export interface FrontendControllerOfflineEvent {

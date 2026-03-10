@@ -12,6 +12,7 @@ import (
 	"log/slog"
 	"slices"
 	"sort"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -110,7 +111,55 @@ func (s *StripService) MoveToBay(ctx context.Context, session int32, callsign st
 	}
 
 	order, _ := s.calculateOrderBetween(maxInBay, nil)
-	return s.updateStripSequence(ctx, session, callsign, order, bay, sendNotification)
+	if err := s.updateStripSequence(ctx, session, callsign, order, bay, sendNotification); err != nil {
+		return err
+	}
+
+	if bay == shared.BAY_STAND {
+		s.scheduleStandAutoHide(session, callsign)
+	}
+
+	return nil
+}
+
+// scheduleStandAutoHide starts a background goroutine that moves the strip to
+// BAY_HIDDEN after a 15-second delay, provided the strip is still in BAY_STAND
+// when the timer fires. This implements the "brief stand visibility" behaviour
+// described in GitHub issue #33.
+func (s *StripService) scheduleStandAutoHide(session int32, callsign string) {
+	go func() {
+		time.Sleep(15 * time.Second)
+
+		ctx := context.Background()
+
+		strip, err := s.stripRepo.GetByCallsign(ctx, session, callsign)
+		if err != nil {
+			// Strip was deleted while we were waiting — nothing to do.
+			slog.Debug("Auto-hide from STAND: strip not found, skipping",
+				slog.String("callsign", callsign),
+				slog.Int("session", int(session)))
+			return
+		}
+
+		if strip.Bay != shared.BAY_STAND {
+			// Strip was moved to a different bay before the timer fired — do not override.
+			slog.Debug("Auto-hide from STAND: strip already moved, skipping",
+				slog.String("callsign", callsign),
+				slog.String("current_bay", strip.Bay))
+			return
+		}
+
+		slog.Info("Auto-hiding arrival strip from STAND bay after 15 s",
+			slog.String("callsign", callsign),
+			slog.Int("session", int(session)))
+
+		if err := s.MoveToBay(ctx, session, callsign, shared.BAY_HIDDEN, true); err != nil {
+			slog.Error("Auto-hide from STAND: failed to move strip to HIDDEN",
+				slog.String("callsign", callsign),
+				slog.Int("session", int(session)),
+				slog.Any("error", err))
+		}
+	}()
 }
 
 func (s *StripService) CreateCoordinationTransfer(ctx context.Context, session int32, callsign string, from string, to string) error {

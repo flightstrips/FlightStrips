@@ -12,7 +12,7 @@ namespace FlightStrips::flightplan {
                                                                       m_flightPlans({}) {
     }
 
-    void FlightPlanService::RadarTargetPositionEvent(EuroScopePlugIn::CRadarTarget radarTarget) {
+    void FlightPlanService::RadarTargetPositionEvent(EuroScopePlugIn::CRadarTarget radarTarget, const bool isRangeOnly) {
         const auto position = radarTarget.GetPosition();
         const auto fp = radarTarget.GetCorrelatedFlightPlan();
         if (!position.IsValid() || !fp.IsValid()) return;
@@ -32,6 +32,10 @@ namespace FlightStrips::flightplan {
             stand
         };
         const auto callsign = std::string(radarTarget.GetCallsign());
+
+        if (isRangeOnly) {
+            m_rangeTrackedCallsigns.insert(callsign);
+        }
 
         const auto [pair, inserted] = this->m_flightPlans.insert({callsign, plan});
         bool shouldSendSquawkEvent = true;
@@ -187,10 +191,15 @@ namespace FlightStrips::flightplan {
     void FlightPlanService::FlightPlanDisconnectEvent(EuroScopePlugIn::CFlightPlan flightPlan) {
         const auto callsign = std::string(flightPlan.GetCallsign());
 
+        const bool wasTracked = m_flightPlans.count(callsign) > 0 ||
+                                m_rangeTrackedCallsigns.count(callsign) > 0;
+
         // Remove pending position updates for disconnected aircraft
         m_pendingPositionUpdates.erase(callsign);
         m_flightPlans.erase(callsign);
+        m_rangeTrackedCallsigns.erase(callsign);
 
+        if (!wasTracked) return;
         if (!m_websocketService->ShouldSend()) return;
         m_websocketService->SendEvent(AircraftDisconnectEvent(callsign));
     }
@@ -199,6 +208,21 @@ namespace FlightStrips::flightplan {
         const auto flightPlan = m_flightPlans.find(callsign);
         if (flightPlan == m_flightPlans.end()) return nullptr;
         return &(flightPlan->second);
+    }
+
+    void FlightPlanService::RadarTargetOutOfRangeEvent(EuroScopePlugIn::CRadarTarget radarTarget) {
+        const auto callsign = std::string(radarTarget.GetCallsign());
+        if (m_rangeTrackedCallsigns.find(callsign) == m_rangeTrackedCallsigns.end()) return;
+
+        // Only send disconnect if configured to do so — default is to keep the strip until actual disconnect
+        if (m_appConfig->GetDisconnectOnOutOfRange()) {
+            m_rangeTrackedCallsigns.erase(callsign);
+            m_pendingPositionUpdates.erase(callsign);
+            m_flightPlans.erase(callsign);
+
+            if (!m_websocketService->ShouldSend()) return;
+            m_websocketService->SendEvent(AircraftDisconnectEvent(callsign));
+        }
     }
 
     void FlightPlanService::SetStand(const std::string &callsign, const std::string &stand) {

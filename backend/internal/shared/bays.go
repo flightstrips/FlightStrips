@@ -37,7 +37,7 @@ const (
 	// AirportLongitude The airport longitude for EKCH in feet
 	AirportLongitude = 12.6560
 
-	RelevantDistance = 20
+	RelevantDistance = 30
 )
 
 func GetDepartureBay(strip euroscope.Strip, existing *database.Strip, airborneAltitudeAGL int64, airport string) string {

@@ -114,6 +114,8 @@ namespace FlightStrips {
         ConnectionState m_connectionState = {};
         std::queue<std::string> m_needsSquawk = {};
 
+        [[nodiscard]] bool IsWithinRange(EuroScopePlugIn::CFlightPlan flightPlan, float rangeNM) const;
+
         template <typename Func, typename... Args>
         void SafeCall(const std::string& context, Func func, Args&&... args) {
             try {

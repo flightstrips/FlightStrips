@@ -36,6 +36,7 @@ public:
     [[nodiscard]] DeIceConfig& GetDeIceConfig();
     [[nodiscard]] int GetPositionUpdateIntervalSeconds();
     [[nodiscard]] std::string GetStandsFile();
+    [[nodiscard]] bool GetDisconnectOnOutOfRange();
 private:
     CallsignAirportMap callsignAirportMap = {};
     DeIceConfig deIceConfig;

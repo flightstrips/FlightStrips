@@ -93,5 +93,9 @@ namespace FlightStrips::configuration {
     std::string AppConfig::GetStandsFile() {
         return std::string(ini["files"]["stands"] | "GRpluginStands.txt");
     }
+
+    bool AppConfig::GetDisconnectOnOutOfRange() {
+        return ini["api"]["disconnect_on_out_of_range"] | false;
+    }
 } // configuration
 // FlightStrips

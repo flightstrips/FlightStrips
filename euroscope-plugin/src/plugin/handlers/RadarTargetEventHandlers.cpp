@@ -8,9 +8,15 @@ namespace FlightStrips::handlers {
         m_handlers.clear();
     }
 
-    void RadarTargetEventHandlers::RadarTargetPositionEvent(EuroScopePlugIn::CRadarTarget radarTarget) const {
+    void RadarTargetEventHandlers::RadarTargetPositionEvent(EuroScopePlugIn::CRadarTarget radarTarget, const bool isRangeOnly) const {
         for (auto it = this->m_handlers.cbegin(); it != this->m_handlers.cend(); ++it) {
-            (*it)->RadarTargetPositionEvent(radarTarget);
+            (*it)->RadarTargetPositionEvent(radarTarget, isRangeOnly);
+        }
+    }
+
+    void RadarTargetEventHandlers::RadarTargetOutOfRangeEvent(EuroScopePlugIn::CRadarTarget radarTarget) const {
+        for (auto it = this->m_handlers.cbegin(); it != this->m_handlers.cend(); ++it) {
+            (*it)->RadarTargetOutOfRangeEvent(radarTarget);
         }
     }
 }

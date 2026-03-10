@@ -8,7 +8,8 @@ namespace FlightStrips::handlers {
     public:
         void Clear();
 
-        void RadarTargetPositionEvent(EuroScopePlugIn::CRadarTarget radarTarget) const;
+        void RadarTargetPositionEvent(EuroScopePlugIn::CRadarTarget radarTarget, bool isRangeOnly) const;
+        void RadarTargetOutOfRangeEvent(EuroScopePlugIn::CRadarTarget radarTarget) const;
 
         void RegisterHandler(const std::shared_ptr<RadarTargetEventHandler>& handler);
 

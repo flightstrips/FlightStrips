@@ -41,9 +41,7 @@ namespace FlightStrips {
     }
 
     void FlightStripsPlugin::OnFlightPlanDisconnect(EuroScopePlugIn::CFlightPlan FlightPlan) {
-        if (!IsValidAirports(FlightPlan) || !FlightPlan.IsValid()) {
-            return;
-        }
+        if (!FlightPlan.IsValid()) return;
 
         SafeCall("OnFlightPlanDisconnect", [this, FlightPlan] {
             this->m_flightPlanEventHandlerCollection->FlightPlanDisconnectEvent(FlightPlan);
@@ -145,13 +143,28 @@ namespace FlightStrips {
     }
 
     void FlightStripsPlugin::OnRadarTargetPositionUpdate(EuroScopePlugIn::CRadarTarget RadarTarget) {
-        if (const auto flightPlan = RadarTarget.GetCorrelatedFlightPlan(); !RadarTarget.IsValid() || !flightPlan.IsValid() || !IsValidAirports(flightPlan)) {
+        if (!RadarTarget.IsValid()) return;
+
+        const auto flightPlan = RadarTarget.GetCorrelatedFlightPlan();
+        if (!flightPlan.IsValid()) return;
+
+        if (IsValidAirports(flightPlan)) {
+            SafeCall("OnRadarTargetPositionUpdate", [this, RadarTarget] {
+                this->m_radarTargetEventHandlers->RadarTargetPositionEvent(RadarTarget, false);
+            });
             return;
         }
 
-        SafeCall("OnRadarTargetPositionUpdate", [this, RadarTarget] {
-            this->m_radarTargetEventHandlers->RadarTargetPositionEvent(RadarTarget);
-        });
+        if (IsWithinRange(flightPlan, 30.0f)) {
+            SafeCall("OnRadarTargetPositionUpdate", [this, RadarTarget] {
+                this->m_radarTargetEventHandlers->RadarTargetPositionEvent(RadarTarget, true);
+            });
+        } else {
+            // May be out-of-range for a previously range-tracked aircraft — let the service decide
+            SafeCall("OnRadarTargetPositionUpdate", [this, RadarTarget] {
+                this->m_radarTargetEventHandlers->RadarTargetOutOfRangeEvent(RadarTarget);
+            });
+        }
     }
 
     FlightStripsPlugin::~FlightStripsPlugin() = default;
@@ -162,8 +175,25 @@ namespace FlightStrips {
     }
 
     bool FlightStripsPlugin::IsRelevant(const CFlightPlan flightPlan) const {
-        return flightPlan.IsValid() && !flightPlan.GetSimulated() && flightPlan.GetCorrelatedRadarTarget().IsValid() &&
-            IsValidAirports(flightPlan);
+        if (!flightPlan.IsValid() || flightPlan.GetSimulated() ||
+            !flightPlan.GetCorrelatedRadarTarget().IsValid()) {
+            return false;
+        }
+        if (IsValidAirports(flightPlan)) return true;
+        return IsWithinRange(flightPlan, 30.0f);
+    }
+
+    bool FlightStripsPlugin::IsWithinRange(const CFlightPlan flightPlan, const float rangeNM) const {
+        const auto radarTarget = flightPlan.GetCorrelatedRadarTarget();
+        if (!radarTarget.IsValid()) return false;
+
+        const auto position = radarTarget.GetPosition().GetPosition();
+
+        EuroScopePlugIn::CPosition airportPosition;
+        airportPosition.m_Latitude  = 55.6181; // EKCH
+        airportPosition.m_Longitude = 12.6560; // EKCH
+
+        return position.DistanceTo(airportPosition) <= static_cast<double>(rangeNM);
     }
 
     ConnectionState &FlightStripsPlugin::GetConnectionState() {

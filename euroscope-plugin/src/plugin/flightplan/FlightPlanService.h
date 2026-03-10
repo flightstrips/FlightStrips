@@ -2,6 +2,7 @@
 #pragma once
 
 #include <unordered_map>
+#include <unordered_set>
 #include "handlers/RadarTargetEventHandler.h"
 #include "FlightPlan.h"
 #include "handlers/FlightPlanEventHandlers.h"
@@ -19,7 +20,8 @@ class FlightPlanService final : public handlers::FlightPlanEventHandler, public 
                               const std::shared_ptr<stands::StandService>& standService,
                               const std::shared_ptr<configuration::AppConfig>& appConfig);
 
-    void RadarTargetPositionEvent(EuroScopePlugIn::CRadarTarget radarTarget) override;
+    void RadarTargetPositionEvent(EuroScopePlugIn::CRadarTarget radarTarget, bool isRangeOnly) override;
+    void RadarTargetOutOfRangeEvent(EuroScopePlugIn::CRadarTarget radarTarget) override;
 
     void FlightPlanEvent(EuroScopePlugIn::CFlightPlan flightPlan) override;
 
@@ -41,6 +43,7 @@ private:
     std::shared_ptr<configuration::AppConfig> m_appConfig;
     std::unordered_map<std::string, FlightPlan> m_flightPlans = {};
     std::unordered_map<std::string, PositionEvent> m_pendingPositionUpdates = {};
+    std::unordered_set<std::string> m_rangeTrackedCallsigns = {};
     int m_lastPositionFlushCounter = 0;
 
     void FlushPositionUpdates();

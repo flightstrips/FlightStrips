@@ -44,7 +44,7 @@ type Server interface {
 	GetTacticalStripRepository() repository.TacticalStripRepository
 
 	// TODO move to another service
-	UpdateSectors(sessionId int32) error
+	UpdateSectors(sessionId int32) ([]SectorChange, error)
 	UpdateRouteForStrip(callsign string, sessionId int32, sendUpdate bool) error
 	UpdateRoutesForSession(sessionId int32, sendUpdate bool) error
 	UpdateLayouts(sessionId int32) error

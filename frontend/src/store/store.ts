@@ -52,6 +52,12 @@ export interface UpdateStrip {
   stand?: string;
 }
 
+export interface BroadcastNotification {
+  message: string;
+  from: string;
+  receivedAt: number; // Unix timestamp in milliseconds from Date.now()
+}
+
 // Define the state interface for our store
 export interface WebSocketState {
   controllers: FrontendController[];
@@ -69,6 +75,7 @@ export interface WebSocketState {
   stripTransfers: Record<string, string>;
 
   messages: MessageReceived[];
+  broadcastNotifications: BroadcastNotification[];
   metar: string;
 
   selectedCallsign: string | null;
@@ -122,6 +129,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     isInitialized: false,
     stripTransfers: {},
     messages: [],
+    broadcastNotifications: [],
     metar: "",
     selectedCallsign: null
   };
@@ -571,8 +579,19 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     )
   }
 
-  const handleBroadcastEvent = (_data: FrontendBroadcastEvent) => {
-    // Legacy broadcast event — handled via message_received now
+  const handleBroadcastEvent = (data: FrontendBroadcastEvent) => {
+    store.setState(
+      produce((state: WebSocketState) => {
+        state.broadcastNotifications = [
+          {
+            message: data.message,
+            from: data.from,
+            receivedAt: Date.now(),
+          },
+          ...state.broadcastNotifications,
+        ].slice(0, 50);
+      })
+    );
   }
 
   const handleMessageReceived = (data: FrontendMessageReceivedEvent) => {

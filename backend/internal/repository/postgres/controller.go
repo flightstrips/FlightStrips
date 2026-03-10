@@ -98,6 +98,21 @@ func (r *controllerRepository) ListBySession(ctx context.Context, session int32)
 	return r.List(ctx, session)
 }
 
+// GetByPosition retrieves all controllers on the given position frequency for a session
+func (r *controllerRepository) GetByPosition(ctx context.Context, session int32, position string) ([]*models.Controller, error) {
+	all, err := r.List(ctx, session)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]*models.Controller, 0)
+	for _, c := range all {
+		if c.Position == position {
+			result = append(result, c)
+		}
+	}
+	return result, nil
+}
+
 // Delete removes a controller by callsign and session
 func (r *controllerRepository) Delete(ctx context.Context, session int32, callsign string) error {
 	_, err := r.queries.RemoveController(ctx, database.RemoveControllerParams{

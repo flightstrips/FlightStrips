@@ -14,6 +14,8 @@ import (
 	"log/slog"
 	"math/rand"
 	"strconv"
+	"strings"
+	"sync"
 	"time"
 
 	gorilla "github.com/gorilla/websocket"
@@ -43,6 +45,10 @@ type Hub struct {
 
 	// Recording support
 	recorders map[int32]*recorder.Recorder // One recorder per session
+
+	// Offline timer support — cancellable per-position delayed offline processing
+	offlineMu     sync.Mutex
+	offlineTimers map[string]context.CancelFunc // key: "<sessionID>:<positionName>"
 }
 
 func NewHub(stripService shared.StripService, authenticationService shared.AuthenticationService) *Hub {
@@ -78,6 +84,7 @@ func NewHub(stripService shared.StripService, authenticationService shared.Authe
 		stripService:          stripService,
 		authenticationService: authenticationService,
 		recorders:             make(map[int32]*recorder.Recorder),
+		offlineTimers:         make(map[string]context.CancelFunc),
 	}
 
 	go hub.Run()
@@ -449,6 +456,160 @@ func (hub *Hub) Run() {
 			}
 		}
 	}
+}
+
+// scheduleOfflineActions starts a goroutine that, after a 15-second grace period,
+// deletes the controller from the database, notifies all frontend clients that the
+// controller is offline, recalculates sector ownership, and — 5 seconds later —
+// broadcasts a specific sector-change notification.
+//
+// If cancelOfflineTimer is called for the same position key before the 15-second
+// window elapses, the goroutine exits cleanly and none of the above happens.
+func (hub *Hub) scheduleOfflineActions(session int32, callsign, positionFreq, positionName string) {
+	key := fmt.Sprintf("%d:%s", session, positionName)
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	hub.offlineMu.Lock()
+	if existing, ok := hub.offlineTimers[key]; ok {
+		existing()
+	}
+	hub.offlineTimers[key] = cancel
+	hub.offlineMu.Unlock()
+
+	go func() {
+		// Phase 1: 15-second grace period
+		select {
+		case <-ctx.Done():
+			slog.Debug("Controller offline timer cancelled (position came back online)",
+				slog.String("position", positionName),
+				slog.String("callsign", callsign),
+				slog.Int("session", int(session)))
+			return
+		case <-time.After(15 * time.Second):
+		}
+
+		slog.Debug("Controller offline timer fired: processing offline",
+			slog.String("position", positionName),
+			slog.String("callsign", callsign),
+			slog.Int("session", int(session)))
+
+		s := hub.server
+		bgCtx := context.Background()
+
+		controllerRepo := s.GetControllerRepository()
+		if err := controllerRepo.Delete(bgCtx, session, callsign); err != nil {
+			slog.Error("Failed to delete controller record in offline timer",
+				slog.String("callsign", callsign),
+				slog.Any("error", err))
+		}
+
+		s.GetFrontendHub().SendControllerOffline(session, callsign, positionFreq, "")
+
+		var changes []shared.SectorChange
+		if _, configErr := config.GetPositionBasedOnFrequency(positionFreq); configErr == nil {
+			var err error
+			changes, err = s.UpdateSectors(session)
+			if err != nil {
+				slog.Error("Failed to update sectors in offline timer",
+					slog.String("callsign", callsign),
+					slog.Any("error", err))
+			}
+			if err := s.UpdateLayouts(session); err != nil {
+				slog.Error("Failed to update layouts in offline timer",
+					slog.String("callsign", callsign),
+					slog.Any("error", err))
+			}
+		}
+
+		hub.offlineMu.Lock()
+		delete(hub.offlineTimers, key)
+		hub.offlineMu.Unlock()
+
+		if len(changes) == 0 {
+			return
+		}
+
+		// Phase 2: 5-second delay before broadcast notification
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(5 * time.Second):
+		}
+
+		msg := buildOfflineBroadcastMessage(positionName, changes)
+		s.GetFrontendHub().SendBroadcast(session, msg, "SYSTEM")
+	}()
+}
+
+// cancelOfflineTimer cancels a pending offline timer for the given position.
+// Returns true if a timer was found and cancelled, false if none was pending.
+func (hub *Hub) cancelOfflineTimer(session int32, positionName string) bool {
+	key := fmt.Sprintf("%d:%s", session, positionName)
+	hub.offlineMu.Lock()
+	defer hub.offlineMu.Unlock()
+	if cancel, ok := hub.offlineTimers[key]; ok {
+		cancel()
+		delete(hub.offlineTimers, key)
+		slog.Debug("Offline timer cancelled — position came back online",
+			slog.String("position", positionName),
+			slog.Int("session", int(session)))
+		return true
+	}
+	return false
+}
+
+// scheduleOnlineBroadcast fires a broadcast notification 5 seconds after a position
+// first comes online, giving the sector update enough time to propagate to all
+// clients before the message arrives.
+func (hub *Hub) scheduleOnlineBroadcast(session int32, positionName string, changes []shared.SectorChange) {
+	go func() {
+		time.Sleep(5 * time.Second)
+		msg := buildOnlineBroadcastMessage(positionName, changes)
+		hub.server.GetFrontendHub().SendBroadcast(session, msg, "SYSTEM")
+	}()
+}
+
+// buildOnlineBroadcastMessage constructs the human-readable broadcast message for a
+// position coming online, listing each sector that transferred responsibility.
+func buildOnlineBroadcastMessage(positionName string, changes []shared.SectorChange) string {
+	if len(changes) == 1 {
+		c := changes[0]
+		if c.FromPosition == "" {
+			return fmt.Sprintf("%s is now online. Sector %s now has coverage.", positionName, c.SectorName)
+		}
+		return fmt.Sprintf("%s is now online. Sector %s transferred from %s.", positionName, c.SectorName, c.FromPosition)
+	}
+	parts := make([]string, len(changes))
+	for i, c := range changes {
+		if c.FromPosition == "" {
+			parts[i] = fmt.Sprintf("%s (no previous coverage)", c.SectorName)
+		} else {
+			parts[i] = fmt.Sprintf("%s (from %s)", c.SectorName, c.FromPosition)
+		}
+	}
+	return fmt.Sprintf("%s is now online. Sectors: %s.", positionName, strings.Join(parts, ", "))
+}
+
+// buildOfflineBroadcastMessage constructs the human-readable broadcast message for a
+// position going offline, listing each sector that transferred responsibility.
+func buildOfflineBroadcastMessage(positionName string, changes []shared.SectorChange) string {
+	if len(changes) == 1 {
+		c := changes[0]
+		if c.ToPosition == "" {
+			return fmt.Sprintf("%s went offline. Sector %s has no coverage.", positionName, c.SectorName)
+		}
+		return fmt.Sprintf("%s went offline. Sector %s transferred to %s.", positionName, c.SectorName, c.ToPosition)
+	}
+	parts := make([]string, len(changes))
+	for i, c := range changes {
+		if c.ToPosition == "" {
+			parts[i] = fmt.Sprintf("%s (no coverage)", c.SectorName)
+		} else {
+			parts[i] = fmt.Sprintf("%s (to %s)", c.SectorName, c.ToPosition)
+		}
+	}
+	return fmt.Sprintf("%s went offline. Sectors: %s.", positionName, strings.Join(parts, ", "))
 }
 
 // RecordEvent records an event if recording is enabled for the session

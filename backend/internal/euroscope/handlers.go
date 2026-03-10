@@ -51,9 +51,21 @@ func handleControllerOnline(ctx context.Context, client *Client, message Message
 	s := client.hub.server
 	session := client.session
 
+	// Resolve the position Name for the timer key.
+	positionName := ""
+	if posConfig, configErr := config.GetPositionBasedOnFrequency(event.Position); configErr == nil {
+		positionName = posConfig.Name
+	}
+
+	// Cancel any pending offline timer for this position.
+	if positionName != "" {
+		client.hub.cancelOfflineTimer(session, positionName)
+	}
+
 	controllerRepo := s.GetControllerRepository()
 	controller, err := controllerRepo.GetByCallsign(ctx, session, event.Callsign)
 
+	// Case A: new controller (not in database).
 	if errors.Is(err, pgx.ErrNoRows) {
 		newController := &internalModels.Controller{
 			Callsign: event.Callsign,
@@ -65,7 +77,7 @@ func handleControllerOnline(ctx context.Context, client *Client, message Message
 		if err != nil {
 			return err
 		}
-		err = s.UpdateSectors(client.session)
+		changes, err := s.UpdateSectors(client.session)
 		if err != nil {
 			return err
 		}
@@ -74,13 +86,22 @@ func handleControllerOnline(ctx context.Context, client *Client, message Message
 				slog.String("position", event.Position),
 				slog.Any("error", err))
 		}
+		if positionName != "" && len(changes) > 0 {
+			if controllersOnPosition, err := controllerRepo.GetByPosition(ctx, session, event.Position); err == nil {
+				if len(controllersOnPosition) == 1 {
+					client.hub.scheduleOnlineBroadcast(session, positionName, changes)
+				}
+			}
+		}
 		return s.UpdateLayouts(session)
 	}
 
+	// Case B: same position — EuroScope heartbeat, no meaningful change.
 	if controller.Position == event.Position || err != nil {
 		return err
 	}
 
+	// Case C: position changed.
 	_, err = controllerRepo.SetPosition(ctx, session, event.Callsign, event.Position)
 	if err != nil {
 		return err
@@ -98,7 +119,7 @@ func handleControllerOnline(ctx context.Context, client *Client, message Message
 	slog.Debug("Controller online with updated position", slog.String("callsign", event.Callsign), slog.String("position", event.Position), slog.Bool("shouldUpdate", shouldUpdate))
 
 	if shouldUpdate {
-		err = s.UpdateSectors(client.session)
+		changes, err := s.UpdateSectors(client.session)
 		if err != nil {
 			return err
 		}
@@ -106,6 +127,13 @@ func handleControllerOnline(ctx context.Context, client *Client, message Message
 			slog.Error("Failed to auto-assume strips on controller online",
 				slog.String("position", event.Position),
 				slog.Any("error", err))
+		}
+		if positionName != "" && len(changes) > 0 {
+			if controllersOnPosition, err := controllerRepo.GetByPosition(ctx, session, event.Position); err == nil {
+				if len(controllersOnPosition) == 1 {
+					client.hub.scheduleOnlineBroadcast(session, positionName, changes)
+				}
+			}
 		}
 		return s.UpdateLayouts(session)
 	}
@@ -133,25 +161,42 @@ func handleControllerOffline(ctx context.Context, client *Client, message Messag
 		return err
 	}
 
+	// If the controller is not in the database, send the notification immediately.
 	if errors.Is(err, pgx.ErrNoRows) {
 		slog.Debug("Controller going offline does not exist in database", slog.String("callsign", event.Callsign))
 		s.GetFrontendHub().SendControllerOffline(session, event.Callsign, "", "")
 		return nil
 	}
 
-	err = controllerRepo.Delete(ctx, session, event.Callsign)
+	// Resolve the position Name from the frequency.
+	posConfig, configErr := config.GetPositionBasedOnFrequency(controller.Position)
+	if configErr != nil {
+		// Unknown position — immediate offline handling (no timer).
+		s.GetFrontendHub().SendControllerOffline(session, event.Callsign, controller.Position, "")
+		return nil
+	}
+	positionName := posConfig.Name
 
-	s.GetFrontendHub().SendControllerOffline(session, event.Callsign, controller.Position, "")
+	// Check whether any OTHER controller is still on this position.
+	others, err := controllerRepo.GetByPosition(ctx, session, controller.Position)
 	if err != nil {
 		return err
 	}
-
-	if _, err := config.GetPositionBasedOnFrequency(controller.Position); err == nil {
-		if err := s.UpdateSectors(client.session); err != nil {
-			return err
+	for _, other := range others {
+		if other.Callsign != event.Callsign {
+			slog.Debug("Controller offline but position still covered by another controller — skipping timer",
+				slog.String("callsign", event.Callsign),
+				slog.String("position", positionName),
+				slog.String("other", other.Callsign))
+			return nil
 		}
-		return s.UpdateLayouts(client.session)
 	}
+
+	slog.Debug("Controller offline: starting grace period timer",
+		slog.String("callsign", event.Callsign),
+		slog.String("position", positionName))
+
+	client.hub.scheduleOfflineActions(session, event.Callsign, controller.Position, positionName)
 
 	return nil
 }
@@ -649,7 +694,7 @@ func handleSync(ctx context.Context, client *Client, message Message) error {
 		}
 	}
 
-	err = s.UpdateSectors(client.session)
+	_, err = s.UpdateSectors(client.session)
 	if err != nil {
 		return err
 	}
@@ -975,7 +1020,7 @@ func handleRunways(ctx context.Context, client *Client, message Message) error {
 
 		s.GetFrontendHub().SendRunwayConfiguration(client.session, departure, arrival)
 
-		err = s.UpdateSectors(client.session)
+		_, err = s.UpdateSectors(client.session)
 		if err != nil {
 			slog.Error("UpdateSectors failed after runway change", slog.Int("session", int(client.session)), slog.Any("error", err))
 			return err

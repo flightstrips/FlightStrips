@@ -636,6 +636,14 @@ func (hub *Hub) SendTacticalStripMoved(session int32, id int64, bay string, sequ
 	})
 }
 
+func (hub *Hub) SendBroadcast(session int32, message string, from string) {
+	event := frontend.BroadcastEvent{
+		Message: message,
+		From:    from,
+	}
+	hub.Broadcast(session, event)
+}
+
 func (hub *Hub) SendServerMessage(session int32, message string) {
 	event := frontend.BroadcastEvent{
 		Message: message,

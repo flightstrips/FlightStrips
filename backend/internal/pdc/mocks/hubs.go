@@ -145,6 +145,10 @@ func (m *FrontendHub) SendTacticalStripMoved(session int32, id int64, bay string
 	m.Called(session, id, bay, sequence)
 }
 
+func (m *FrontendHub) SendBroadcast(session int32, message string, from string) {
+	m.Called(session, message, from)
+}
+
 var _ internalModels.TacticalStrip // ensure import used
 
 type EuroscopeHub struct {

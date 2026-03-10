@@ -76,6 +76,7 @@ type ControllerRepository interface {
 	Get(ctx context.Context, callsign string, session int32) (*models.Controller, error)
 	GetByCid(ctx context.Context, cid string) (*models.Controller, error)
 	GetByCallsign(ctx context.Context, session int32, callsign string) (*models.Controller, error)
+	GetByPosition(ctx context.Context, session int32, position string) ([]*models.Controller, error)
 	List(ctx context.Context, session int32) ([]*models.Controller, error)
 	ListBySession(ctx context.Context, session int32) ([]*models.Controller, error)
 	Delete(ctx context.Context, session int32, callsign string) error

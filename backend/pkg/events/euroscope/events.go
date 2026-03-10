@@ -36,6 +36,7 @@ const (
 	TrackingControllerChanged EventType = "tracking_controller_changed"
 	CoordinationReceived      EventType = "coordination_received"
 	AssumeAndDrop             EventType = "assume_and_drop"
+	BackendSync               EventType = "backend_sync"
 )
 
 const (
@@ -398,5 +399,30 @@ func (e CoordinationHandoverEvent) GetType() EventType {
 }
 
 func (e CoordinationHandoverEvent) Marshal() ([]byte, error) {
+	return marshall(e)
+}
+
+// BackendSyncStrip holds the backend-authoritative state for a single aircraft
+// that the connecting EuroScope client must apply locally.
+type BackendSyncStrip struct {
+	Callsign       string `json:"callsign"`
+	AssignedSquawk string `json:"assigned_squawk"`
+	Cleared        bool   `json:"cleared"`
+	GroundState    string `json:"ground_state"`
+	Stand          string `json:"stand"`
+}
+
+// BackendSyncEvent is sent by the backend to every connecting EuroScope client
+// immediately before the session_info event. It contains all strips in the session
+// with the state fields that EuroScope must reflect locally.
+type BackendSyncEvent struct {
+	Strips []BackendSyncStrip `json:"strips"`
+}
+
+func (e BackendSyncEvent) GetType() EventType {
+	return BackendSync
+}
+
+func (e BackendSyncEvent) Marshal() ([]byte, error) {
 	return marshall(e)
 }

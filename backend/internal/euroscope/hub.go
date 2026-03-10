@@ -123,6 +123,8 @@ func (hub *Hub) OnRegister(client *Client) {
 		}
 	}
 
+	hub.sendBackendSyncIfNeeded(client)
+
 	if _, ok := hub.master[client.session]; !ok {
 		slog.Debug("Euroscope client is master", slog.String("cid", client.GetCid()))
 		hub.master[client.session] = client
@@ -131,6 +133,43 @@ func (hub *Hub) OnRegister(client *Client) {
 	}
 
 	client.send <- euroscope.SessionInfoEvent{Role: euroscope.SessionInfoSlave}
+}
+
+// sendBackendSyncIfNeeded fetches all existing strips for the client's session
+// and sends a BackendSyncEvent to the client so it can apply the backend-authoritative
+// state to EuroScope before assuming master or slave duties.
+func (hub *Hub) sendBackendSyncIfNeeded(client *Client) {
+	stripRepo := hub.server.GetStripRepository()
+	strips, err := stripRepo.List(context.Background(), client.session)
+	if err != nil {
+		slog.Error("Failed to fetch strips for backend sync", slog.Any("error", err))
+		return
+	}
+
+	syncStrips := make([]euroscope.BackendSyncStrip, 0, len(strips))
+	for _, strip := range strips {
+		entry := euroscope.BackendSyncStrip{
+			Callsign: strip.Callsign,
+			Cleared:  strip.Cleared,
+		}
+		if strip.AssignedSquawk != nil {
+			entry.AssignedSquawk = *strip.AssignedSquawk
+		}
+		if strip.State != nil {
+			entry.GroundState = *strip.State
+		}
+		if strip.Stand != nil {
+			entry.Stand = *strip.Stand
+		}
+		syncStrips = append(syncStrips, entry)
+	}
+
+	client.send <- euroscope.BackendSyncEvent{Strips: syncStrips}
+	slog.Debug("Sent backend sync to connecting EuroScope client",
+		slog.String("cid", client.GetCid()),
+		slog.Int("session", int(client.session)),
+		slog.Int("strips", len(syncStrips)),
+	)
 }
 
 func (hub *Hub) GetMessageHandlers() shared.MessageHandlers[euroscope.EventType, *Client] {

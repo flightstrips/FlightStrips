@@ -32,6 +32,7 @@
 #define EVENT_COORDINATION_HANDOVER_NAME "coordination_handover"
 #define EVENT_COORDINATION_RECEIVED_NAME "coordination_received"
 #define EVENT_ASSUME_AND_DROP_NAME "assume_and_drop"
+#define EVENT_BACKEND_SYNC_NAME "backend_sync"
 
 enum EventType {
     EVENT_UNKNOWN = 0,
@@ -64,6 +65,7 @@ enum EventType {
     EVENT_COORDINATION_HANDOVER,
     EVENT_COORDINATION_RECEIVED,
     EVENT_ASSUME_AND_DROP,
+    EVENT_BACKEND_SYNC,
 };
 
 NLOHMANN_JSON_SERIALIZE_ENUM(EventType, {
@@ -96,6 +98,7 @@ NLOHMANN_JSON_SERIALIZE_ENUM(EventType, {
                               {EVENT_COORDINATION_HANDOVER, EVENT_COORDINATION_HANDOVER_NAME},
                               {EVENT_COORDINATION_RECEIVED, EVENT_COORDINATION_RECEIVED_NAME},
                               {EVENT_ASSUME_AND_DROP, EVENT_ASSUME_AND_DROP_NAME},
+                              {EVENT_BACKEND_SYNC, EVENT_BACKEND_SYNC_NAME},
                               })
 
 struct Event {
@@ -602,6 +605,26 @@ struct CoordinationHandoverEvent final : Event {
     CoordinationHandoverEvent() = default;
 
     NLOHMANN_DEFINE_TYPE_INTRUSIVE(CoordinationHandoverEvent, callsign, target_callsign, type);
+};
+
+struct BackendSyncStrip final {
+    std::string callsign;
+    std::string assigned_squawk;
+    bool cleared;
+    std::string ground_state;
+    std::string stand;
+
+    BackendSyncStrip() = default;
+
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE(BackendSyncStrip, callsign, assigned_squawk, cleared, ground_state, stand);
+};
+
+struct BackendSyncEvent final : Event {
+    std::vector<BackendSyncStrip> strips;
+
+    BackendSyncEvent() = default;
+
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE(BackendSyncEvent, strips, type);
 };
 
 #endif //EVENTS_H

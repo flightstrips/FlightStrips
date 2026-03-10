@@ -69,6 +69,8 @@ namespace FlightStrips::messages {
             HandleCoordinationHandoverEvent(message.get<CoordinationHandoverEvent>());
         } else if (type == EVENT_ASSUME_AND_DROP_NAME) {
             HandleEsAssumeAndDropEvent(message.get<AssumeAndDropEvent>());
+        } else if (type == EVENT_BACKEND_SYNC_NAME) {
+            HandleBackendSyncEvent(message.get<BackendSyncEvent>());
         } else {
             Logger::Warning("Unknown message type: {}", type);
         }
@@ -313,6 +315,32 @@ namespace FlightStrips::messages {
 
         if (!fp.InitiateHandoff(event.target_callsign.c_str())) {
             Logger::Warning("Failed to initiate handoff for {} to {}", event.callsign, event.target_callsign);
+        }
+    }
+
+    void MessageService::HandleBackendSyncEvent(const BackendSyncEvent &event) const {
+        for (const auto &strip : event.strips) {
+            const auto fp = m_plugin->FlightPlanSelect(strip.callsign.c_str());
+            if (!fp.IsValid()) {
+                Logger::Warning("BackendSync: flight plan not found for {}", strip.callsign);
+                continue;
+            }
+
+            if (!strip.assigned_squawk.empty()) {
+                if (!fp.GetControllerAssignedData().SetSquawk(strip.assigned_squawk.c_str())) {
+                    Logger::Warning("BackendSync: failed to set squawk {} for {}", strip.assigned_squawk, strip.callsign);
+                }
+            }
+
+            m_plugin->SetClearenceFlag(strip.callsign, strip.cleared);
+
+            if (!strip.ground_state.empty()) {
+                m_plugin->UpdateViaScratchPad(strip.callsign.c_str(), strip.ground_state.c_str());
+            }
+
+            if (!strip.stand.empty()) {
+                m_plugin->SetArrivalStand(strip.callsign.c_str(), strip.stand);
+            }
         }
     }
 }

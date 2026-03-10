@@ -55,6 +55,9 @@ export function ApnTaxiDepStrip({
   const [showTaxiMap, setShowTaxiMap] = useState(false);
   const { ctotBg, ctotColor, showCtot } = useCTOTColor(ctot ?? "");
 
+  const hpValue = holdingPoint ?? "";
+  const hasTwy = hpValue.includes("/");
+
   return (
     <div
       className={`select-none${selectable ? " cursor-pointer" : ""}`}
@@ -111,17 +114,21 @@ export function ApnTaxiDepStrip({
           <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: 20 }}>{stand}</span>
         </div>
 
-        {/* Holding Point — 25%*(2/3)*(2/3) */}
+        {/* HP / TWY — 25%*(2/3)*(2/3) */}
         <div
           className="flex flex-col overflow-hidden border-r-2"
           style={{ flex: `${F_HP} 0 0%`, height: "100%", minWidth: 0, borderRightColor: cellBorderColor, cursor: "pointer" }}
           onClick={(e) => { e.stopPropagation(); setShowTaxiMap(true); }}
         >
           <div className="flex items-center justify-center border-b-2" style={{ height: HALF_H, borderBottomColor: cellBorderColor }}>
-            <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: 11 }}>{holdingPoint}</span>
+            <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: 11, opacity: hasTwy ? 1 : 0.15 }}>
+              {hasTwy ? hpValue : "TWY"}
+            </span>
           </div>
           <div className="flex items-center justify-center" style={{ height: HALF_H }}>
-            <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: 14, opacity: 0.2 }}>HP</span>
+            <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: 11, opacity: hasTwy ? 0.15 : 1 }}>
+              {hasTwy ? "HP" : hpValue || "HP"}
+            </span>
           </div>
         </div>
 

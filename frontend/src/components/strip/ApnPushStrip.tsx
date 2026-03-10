@@ -9,6 +9,7 @@ import {
 import { SIBox } from "./SIBox";
 import { useStripTransfers } from "@/store/store-hooks";
 import { PushbackMapDialog } from "@/components/map-dialogs/PushbackMapDialog";
+import { ApronTaxiMapDialog } from "@/components/map-dialogs/ApronTaxiMapDialog";
 
 const FONT = "'Arial', sans-serif";
 const HALF_H = "2.22vh";    // half of 4.44vh for TSAT/CTOT split
@@ -17,16 +18,17 @@ const BOT_H  = "1.48vh";    // 1/3 of 4.44vh
 
 // Flex-grow proportions (flex-basis: 0 so space is shared proportionally)
 const F_CALLSIGN = 25;
-const F_TYPE     = 25 * (2 / 3);          // ~16.67
-const F_STAND    = 25 * (2 / 3);          // ~16.67
-const F_TSAT     = 25 * (2 / 3);          // ~16.67
+const F_TYPE     = 25 * (2 / 3);            // ~16.67
+const F_STAND    = 25 * (2 / 3);            // ~16.67
+const F_HP       = 25 * (2 / 3) * (2 / 3); // ~11.11
+const F_TSAT     = 25 * (2 / 3);            // ~16.67
 const F_RWY      = 25 * (2 / 3) * (2 / 3); // ~11.11
 
 /**
  * ApnPushStrip — APNPUSH strip for STARTUP, PUSH BACK and DE-ICE bays (status="PUSH").
  *
  * Width: 90% of bay. Cells use flex proportions:
- *   SI 8 | Callsign 25 | Type+Reg 25*(2/3) | Stand 25*(2/3) | TSAT/CTOT 25*(2/3) | RWY 25*(2/3)*(2/3)
+ *   SI 8 | Callsign 25 | Type+Reg 25*(2/3) | Stand 25*(2/3) | HP/TWY 25*(2/3)*(2/3) | TSAT/CTOT 25*(2/3) | RWY 25*(2/3)*(2/3)
  *
  * Background: cyan (#bef5ef).
  */
@@ -51,6 +53,10 @@ export function ApnPushStrip({
   const cellBorderColor = getCellBorderColor(marked);
   const stripTransfers = useStripTransfers();
   const [pushbackOpen, setPushbackOpen] = useState(false);
+  const [taxiMapOpen, setTaxiMapOpen] = useState(false);
+
+  const hpValue = holdingPoint ?? "";
+  const hasTwy = hpValue.includes("/");
 
   return (
     <div
@@ -115,6 +121,30 @@ export function ApnPushStrip({
           onOpenChange={setPushbackOpen}
           callsign={callsign}
           initialReleasePoint={holdingPoint}
+        />
+
+        {/* HP / TWY — 25%*(2/3)*(2/3) */}
+        <div
+          className="flex flex-col overflow-hidden border-r-2"
+          style={{ flex: `${F_HP} 0 0%`, height: "100%", minWidth: 0, borderRightColor: cellBorderColor, cursor: "pointer" }}
+          onClick={(e) => { e.stopPropagation(); setTaxiMapOpen(true); }}
+        >
+          <div className="flex items-center justify-center border-b-2" style={{ height: HALF_H, borderBottomColor: cellBorderColor }}>
+            <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: 11, opacity: hasTwy ? 1 : 0.15 }}>
+              {hasTwy ? hpValue : "TWY"}
+            </span>
+          </div>
+          <div className="flex items-center justify-center" style={{ height: HALF_H }}>
+            <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: 11, opacity: hasTwy ? 0.15 : 1 }}>
+              {hasTwy ? "HP" : hpValue || "HP"}
+            </span>
+          </div>
+        </div>
+
+        <ApronTaxiMapDialog
+          open={taxiMapOpen}
+          onOpenChange={setTaxiMapOpen}
+          callsign={callsign}
         />
 
         {/* TSAT / CTOT — 25%*(2/3), split in half with border */}

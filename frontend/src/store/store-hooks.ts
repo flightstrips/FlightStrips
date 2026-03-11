@@ -54,7 +54,7 @@ export const useApronOnline = () =>
 export const useCtwrOnline = () =>
   useWebSocketStore((state) =>
     state.controllers.some(
-      (c) => c.section === "TWR" && c.position !== state.position
+      (c) => c.position === "118.580" && c.position !== state.position
     )
   );
 

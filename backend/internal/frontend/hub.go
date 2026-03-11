@@ -566,7 +566,7 @@ func (hub *Hub) SendOwnersUpdate(session int32, callsign, owner string, nextOwne
 
 func (hub *Hub) SendLayoutUpdates(session int32, layoutMap map[string]string) {
 	for client, _ := range hub.clients {
-		if layout, ok := layoutMap[client.callsign]; client.session == session && ok {
+		if layout, ok := layoutMap[client.position]; client.session == session && ok {
 			event := frontend.LayoutUpdateEvent{
 				Layout: layout,
 			}

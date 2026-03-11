@@ -36,12 +36,14 @@ namespace FlightStrips::graphics {
         const int minimizeId = 2;
         const int closeId = 3;
         const int authenticationButtonId = 4;
+        const int statsToggleId = 5;
         const int height = 15;
-        const int width = 135;
+        const int width = 160;
 
         bool isOpen = true;
         bool isMinimized = false;
         bool canClick = true;
+        bool showStats_ = true;
 
         std::shared_ptr<authentication::AuthenticationService> authService;
         std::shared_ptr<configuration::UserConfig> userConfig;

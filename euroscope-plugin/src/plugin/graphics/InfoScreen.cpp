@@ -8,6 +8,13 @@
 #include "plugin/FlightStripsPlugin.h"
 
 namespace FlightStrips::graphics {
+    namespace {
+        std::string FormatCount(const int n) {
+            if (n < 1000) return std::to_string(n);
+            if (n < 1000000) return std::format("{:.1f}K", n / 1000.0);
+            return std::format("{:.1f}M", n / 1000000.0);
+        }
+    }
     InfoScreen::InfoScreen(
         const std::shared_ptr<authentication::AuthenticationService> &authenticationService,
         const std::shared_ptr<configuration::UserConfig> &config,
@@ -33,7 +40,6 @@ namespace FlightStrips::graphics {
             return;
         }
 
-
         if (hdcHandle != hDC) {
             hdcHandle = hDC;
             graphics.SetHandle(hdcHandle);
@@ -41,62 +47,143 @@ namespace FlightStrips::graphics {
 
         AddScreenObject(windowId, "", menubar, true, nullptr);
 
-        const RECT windowRect = {menubar.left, menubar.top, menubar.right, menubar.bottom + 110};
         const RECT closeBth = {menubar.right - 12, menubar.top + 3, menubar.right - 3, menubar.bottom - 3};
         AddScreenObject(closeId, "", closeBth, false, nullptr);
         const RECT minimizeBtn = {menubar.right - 30, menubar.top + 3, menubar.right - 18, menubar.bottom - 3};
         AddScreenObject(minimizeId, "", minimizeBtn, false, nullptr);
 
-        if (!isMinimized) {
-            graphics.FillRect(colors.backgroundBrush.get(), windowRect);
+        // Compute state early so window background can be drawn before the header
+        const auto service = webSocketService.lock();
+        const bool connected = service && service->IsConnected();
+        const bool pending   = service && service->IsPendingConnect();
+        const auto delay     = service ? service->GetDelaySecondsRemaining() : std::nullopt;
+        const auto stats     = service ? service->GetStats() : websocket::Stats{};
+        const auto& cs       = m_plugin->GetConnectionState();
+
+        // Dynamic window height
+        // Base: account(58) + sep-gap(9) + status-row(16) = 83
+        // Always: padding(3) + sep(8) + toggle(14) = 25
+        // Stats open: 3 info rows (13 each) = 39 (if connected) + TX/RX/Q (3+13) = 16
+        // Bottom padding: 5
+        int contentH = 83 + 25 + 5;
+        if (showStats_) {
+            if (connected) contentH += 39;
+            contentH += 16;
         }
+
+        // Draw background first, then header on top so it is never overwritten
+        if (!isMinimized) {
+            const RECT windowRect = {menubar.left, menubar.top, menubar.right, menubar.bottom + contentH};
+            graphics.FillRect(colors.backgroundBrush.get(), windowRect);
+            graphics.DrawRect(colors.backgroundPen.get(), windowRect);
+        }
+
+        const Gdiplus::Brush* dotBrush = connected ? colors.greenBrush.get()
+                                       : pending   ? colors.orangeBrush.get()
+                                                   : colors.redBrush.get();
+
         graphics.FillRect(colors.headerBrush.get(), menubar);
         graphics.DrawString("FlightStrips", menubar, colors.whiteBrush.get(), Gdiplus::StringAlignmentNear);
         graphics.DrawXButton(colors.buttonPen.get(), closeBth);
         graphics.DrawLineButton(colors.buttonPen.get(), minimizeBtn);
+        const RECT headerDot = {menubar.right - 44, menubar.top + 4, menubar.right - 36, menubar.top + 12};
+        graphics.FillEllipse(dotBrush, headerDot);
 
         if (isMinimized) {
             canClick = true;
             return;
         }
-        graphics.DrawRect(colors.backgroundPen.get(), windowRect);
 
-        const RECT rectText = {menubar.left, menubar.bottom + 5, menubar.right, menubar.bottom + 35};
+        const int L = menubar.left + 5;
+        const int R = menubar.right - 5;
+        int y = menubar.bottom;
 
+        // ── Account ──────────────────────────────────────────────
+        const RECT authTextRect = {L, y + 4, R, y + 34};
         std::string btnText;
-
         switch (authService->GetAuthenticationState()) {
             case authentication::LOGIN:
-                graphics.DrawString("Logging in...", rectText, colors.whiteBrush.get(), Gdiplus::StringAlignmentNear);
+                graphics.DrawString("Logging in...", authTextRect, colors.whiteBrush.get(), Gdiplus::StringAlignmentNear);
                 btnText = "Cancel";
                 break;
             case authentication::REFRESH:
-                graphics.DrawString("Refreshing token...", rectText, colors.whiteBrush.get(),
-                                    Gdiplus::StringAlignmentNear);
+                graphics.DrawString("Refreshing token...", authTextRect, colors.whiteBrush.get(), Gdiplus::StringAlignmentNear);
                 btnText = "No action";
                 break;
             case authentication::AUTHENTICATED:
-                graphics.DrawString(std::format("Logged in as:\n{}", authService->GetName()), rectText,
-                                    colors.whiteBrush.get(), Gdiplus::StringAlignmentNear);
+                graphics.DrawString(std::format("Logged in as:\n{}", authService->GetName()), authTextRect, colors.whiteBrush.get(), Gdiplus::StringAlignmentNear);
                 btnText = "Logout";
                 break;
             case authentication::NONE:
             default:
-                graphics.DrawString("Logged out.", rectText, colors.whiteBrush.get(), Gdiplus::StringAlignmentNear);
+                graphics.DrawString("Logged out.", authTextRect, colors.whiteBrush.get(), Gdiplus::StringAlignmentNear);
                 btnText = "Login";
                 break;
         }
 
-        const RECT btnRect = {rectText.left + 10, rectText.bottom + 10, rectText.right - 70, rectText.bottom + 30};
+        const RECT btnRect = {L + 5, y + 38, R - 70, y + 54};
         graphics.FillRect(colors.headerBrush.get(), btnRect);
         graphics.DrawString(btnText, btnRect, colors.whiteBrush.get(), Gdiplus::StringAlignmentCenter);
         AddScreenObject(authenticationButtonId, "", btnRect, false, nullptr);
 
-        if (const auto service = webSocketService.lock()) {
-            const RECT statusRect = {rectText.left, btnRect.bottom + 10, rectText.right, btnRect.bottom + 45};
-            const auto [tx, rx] = service->GetStats();
-            const auto statusText = std::format("{}\nTX: {}\nRX: {}", service->IsConnected() ? "Connected" : "Disconnected", tx, rx);
-            graphics.DrawString(statusText, statusRect, colors.whiteBrush.get(), Gdiplus::StringAlignmentNear);
+        y += 58;
+
+        // ── Separator ─────────────────────────────────────────────
+        graphics.DrawHLine(colors.separatorPen.get(), menubar.left + 3, y + 4, menubar.right - 3);
+        y += 9;
+
+        // ── Connection status ─────────────────────────────────────
+        const std::string statusText = connected ? "Connected"
+                                     : pending   ? (delay.has_value() ? std::format("Syncing  ({}s)", delay.value()) : "Connecting...")
+                                                 : "Disconnected";
+
+        const RECT dotRect = {L, y + 4, L + 8, y + 12};
+        graphics.FillEllipse(dotBrush, dotRect);
+        const RECT statusLabelRect = {L + 13, y, R, y + 16};
+        graphics.DrawString(statusText, statusLabelRect, colors.whiteBrush.get(), Gdiplus::StringAlignmentNear);
+        y += 16;
+
+        y += 3;
+
+        // ── Separator ─────────────────────────────────────────────
+        graphics.DrawHLine(colors.separatorPen.get(), menubar.left + 3, y + 3, menubar.right - 3);
+        y += 8;
+
+        // ── Stats toggle ──────────────────────────────────────────
+        const RECT statsToggleRect = {L, y, R, y + 14};
+        AddScreenObject(statsToggleId, "", statsToggleRect, false, nullptr);
+        graphics.DrawString(showStats_ ? "Stats  [-]" : "Stats  [+]", statsToggleRect, colors.whiteBrush.get(), Gdiplus::StringAlignmentNear);
+        y += 14;
+
+        // ── Stats content ─────────────────────────────────────────
+        if (showStats_ && service) {
+            if (connected) {
+                const std::string connType = cs.connection_type == CONNECTION_TYPE_DIRECT   ? "LIVE"
+                                           : cs.connection_type == CONNECTION_TYPE_SWEATBOX ? "SWX"
+                                                                                            : "PBK";
+                const std::string roleStr  = stats.role == websocket::STATE_MASTER ? "MASTER"
+                                           : stats.role == websocket::STATE_SLAVE  ? "SLAVE"
+                                                                                   : "SYNC";
+
+                const RECT infoRow1 = {L + 2, y, R, y + 13};
+                graphics.DrawString(cs.callsign, infoRow1, colors.whiteBrush.get(), Gdiplus::StringAlignmentNear);
+                y += 13;
+
+                const RECT infoRow2 = {L + 2, y, R, y + 13};
+                graphics.DrawString(std::format("{}  {}", cs.primary_frequency, cs.relevant_airport), infoRow2, colors.whiteBrush.get(), Gdiplus::StringAlignmentNear);
+                y += 13;
+
+                const RECT infoRow3 = {L + 2, y, R, y + 13};
+                graphics.DrawString(std::format("{}  {}", roleStr, connType), infoRow3, colors.whiteBrush.get(), Gdiplus::StringAlignmentNear);
+                y += 13;
+            }
+
+            y += 3;
+            const RECT statsRect = {L + 2, y, R, y + 13};
+            graphics.DrawString(
+                std::format("TX {}   RX {}   Q {}", FormatCount(stats.tx), FormatCount(stats.rx), FormatCount(stats.queued)),
+                statsRect, colors.whiteBrush.get(), Gdiplus::StringAlignmentNear
+            );
         }
 
         canClick = true;
@@ -132,6 +219,9 @@ namespace FlightStrips::graphics {
         } else if (ObjectType == minimizeId) {
             isMinimized = !isMinimized;
             userConfig->SetWindowState({menubar.left, menubar.top, isMinimized});
+            RequestRefresh();
+        } else if (ObjectType == statsToggleId) {
+            showStats_ = !showStats_;
             RequestRefresh();
         } else if (ObjectType == authenticationButtonId) {
             switch (authService->GetAuthenticationState()) {

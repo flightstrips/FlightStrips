@@ -1,4 +1,6 @@
 #pragma once
+#include <chrono>
+#include <optional>
 #include "Events.h"
 #include "Logger.hpp"
 #include "WebSocket.h"
@@ -20,6 +22,8 @@ namespace FlightStrips::websocket {
     struct Stats {
         int tx = 0;
         int rx = 0;
+        int queued = 0;
+        ClientState role = STATE_UNKNOWN;
     };
 
     class WebSocketService final : public handlers::TimedEventHandler, public handlers::AuthenticationEventHandler {
@@ -38,9 +42,11 @@ namespace FlightStrips::websocket {
         template<typename T> requires std::is_base_of_v<Event, T>
         void SendEvent(const T &event);
         bool IsConnected() const;
+        bool IsPendingConnect() const;
         bool ShouldSend() const;
         void SetSessionState(ClientState state);
         Stats GetStats() const;
+        std::optional<int> GetDelaySecondsRemaining() const;
 
     private:
         std::shared_ptr<configuration::AppConfig> m_appConfig;
@@ -52,10 +58,14 @@ namespace FlightStrips::websocket {
         std::string primary;
         ClientState client_state = STATE_UNKNOWN;
 
-        std::mutex message_mutex_;
+        mutable std::mutex message_mutex_;
         std::vector<nlohmann::json> messages_ {};
 
         bool enabled;
+
+        static constexpr int CONNECT_DELAY_SECONDS = 30;
+        std::optional<std::chrono::steady_clock::time_point> connect_after_;
+        bool pending_connect_ = false;
 
         int tx = 0;
         int rx = 0;

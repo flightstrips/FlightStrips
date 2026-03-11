@@ -38,6 +38,17 @@ namespace FlightStrips::websocket {
                                     m_authentication_service->GetAuthenticationState() == authentication::AUTHENTICATED;
         if (should_connect && (webSocket.GetStatus() == WEBSOCKET_STATUS_DISCONNECTED || webSocket.GetStatus() ==
                                WEBSOCKET_STATUS_FAILED)) {
+            const auto now = std::chrono::steady_clock::now();
+            if (!connect_after_.has_value()) {
+                connect_after_ = now + std::chrono::seconds(CONNECT_DELAY_SECONDS);
+                pending_connect_ = true;
+                Logger::Info("Detected online, waiting {}s before connecting to server", CONNECT_DELAY_SECONDS);
+                return;
+            }
+            if (now < connect_after_.value()) {
+                return;
+            }
+            connect_after_.reset();
             primary = state.primary_frequency;
             Logger::Info("Trying to connect to server: {}", m_appConfig->GetBaseUrl());
             webSocket.Connect();
@@ -50,10 +61,18 @@ namespace FlightStrips::websocket {
             std::lock_guard lock(message_mutex_);
             messages_.clear();
             client_state = STATE_UNKNOWN;
+            connect_after_.reset();
+            pending_connect_ = false;
             return;
         }
 
-        if (!should_connect || !IsConnected()) return;
+        if (!should_connect || !IsConnected()) {
+            if (!should_connect) {
+                connect_after_.reset();
+                pending_connect_ = false;
+            }
+            return;
+        }
 
         if (primary != state.primary_frequency) {
             SendLoginEvent();
@@ -80,6 +99,10 @@ namespace FlightStrips::websocket {
         return webSocket.GetStatus() == WEBSOCKET_STATUS_CONNECTED;
     }
 
+    bool WebSocketService::IsPendingConnect() const {
+        return pending_connect_ || webSocket.GetStatus() == WEBSOCKET_STATUS_CONNECTING;
+    }
+
     bool WebSocketService::ShouldSend() const {
         return IsConnected() && client_state == STATE_MASTER;
     }
@@ -89,7 +112,16 @@ namespace FlightStrips::websocket {
     }
 
     Stats WebSocketService::GetStats() const {
-        return Stats(tx, rx);
+        std::lock_guard lock(message_mutex_);
+        return Stats{tx, rx, static_cast<int>(messages_.size()), client_state};
+    }
+
+    std::optional<int> WebSocketService::GetDelaySecondsRemaining() const {
+        if (!connect_after_.has_value()) return std::nullopt;
+        const auto remaining = std::chrono::duration_cast<std::chrono::seconds>(
+            connect_after_.value() - std::chrono::steady_clock::now()).count();
+        if (remaining <= 0) return std::nullopt;
+        return static_cast<int>(remaining);
     }
 
 
@@ -109,6 +141,7 @@ namespace FlightStrips::websocket {
     void WebSocketService::OnConnected() {
         tx = 0;
         rx = 0;
+        pending_connect_ = false;
         const auto token = TokenEvent(m_authentication_service->GetAccessToken());
         SendEvent(token);
         SendLoginEvent();

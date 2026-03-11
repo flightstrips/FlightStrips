@@ -21,9 +21,14 @@ namespace FlightStrips::graphics {
         const std::unique_ptr<const Gdiplus::Brush> redBrush =
             std::make_unique<Gdiplus::SolidBrush>(Gdiplus::Color(244, 58, 58));
 
+        const std::unique_ptr<const Gdiplus::Brush> orangeBrush =
+            std::make_unique<Gdiplus::SolidBrush>(Gdiplus::Color(255, 150, 0));
+
         const std::unique_ptr<const Gdiplus::Pen> backgroundPen =
             std::make_unique<Gdiplus::Pen>(Gdiplus::Color(55, 53, 55), 0.75f);
         const std::unique_ptr<const Gdiplus::Pen> buttonPen =
             std::make_unique<Gdiplus::Pen>(Gdiplus::Color(255, 255, 255), 0.5f);
+        const std::unique_ptr<const Gdiplus::Pen> separatorPen =
+            std::make_unique<Gdiplus::Pen>(Gdiplus::Color(85, 83, 85), 0.75f);
     } Colors;
 }

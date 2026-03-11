@@ -40,6 +40,15 @@ namespace graphics {
         graphics->DrawLine(pen, static_cast<INT>(rect.left), static_cast<INT>(rect.bottom), static_cast<INT>(rect.right), static_cast<INT>(rect.bottom));
     }
 
+    void Graphics::DrawHLine(const Gdiplus::Pen *pen, const int x1, const int y, const int x2) const {
+        graphics->DrawLine(pen, x1, y, x2, y);
+    }
+
+    void Graphics::FillEllipse(const Gdiplus::Brush *brush, const RECT &rect) const {
+        const auto gdi = ToGdiRect(rect);
+        graphics->FillEllipse(brush, gdi);
+    }
+
     Gdiplus::Rect Graphics::ToGdiRect(const RECT &rect) {
         return { static_cast<INT>(rect.left), static_cast<INT>(rect.top), static_cast<INT>(rect.right - rect.left), static_cast<INT>(rect.bottom - rect.top) };
     }

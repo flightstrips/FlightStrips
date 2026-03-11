@@ -41,11 +41,12 @@ const DIALOG_CONTENT_STYLE: React.CSSProperties = {
 
 interface MapEraseControlsProps {
   onOk: (value: string) => void;
+  onErase?: () => void;
   btnStyle: React.CSSProperties;
   maxLength?: number;
 }
 
-export function MapEraseControls({ onOk, btnStyle, maxLength = 6 }: MapEraseControlsProps) {
+export function MapEraseControls({ onOk, onErase, btnStyle, maxLength = 6 }: MapEraseControlsProps) {
   const [typed, setTyped] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -61,7 +62,7 @@ export function MapEraseControls({ onOk, btnStyle, maxLength = 6 }: MapEraseCont
     <>
       <div style={{ display: "flex", gap: 5, alignItems: "center" }}>
         <button
-          onClick={() => { setTyped(""); inputRef.current?.focus(); }}
+          onClick={() => { setTyped(""); onErase?.(); }}
           style={{ ...btnStyle, width: 90, backgroundColor: "#3F3F3F", color: "#FFF" }}
         >
           ERASE

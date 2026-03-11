@@ -5,6 +5,7 @@ import type { StripProps } from "./types";
 import { useStripSelection, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR } from "./shared";
 import { TaxiMapDialog } from "../map-dialogs/TaxiMapDialog";
 import { SIBox } from "./SIBox";
+import { TAXI_MAP_POINTS } from "@/config/ekch";
 
 const FONT = "'Arial', sans-serif";
 
@@ -61,10 +62,14 @@ export function TwyDepStrip({
   const cellBorderColor = getCellBorderColor(marked);
   const controllers = useControllers();
   const [showTaxiMap, setShowTaxiMap] = useState(false);
-  // Which map mode was triggered: "cl" from the TWY cell, "hp" from the HP cell.
-  const [taxiMapMode, setTaxiMapMode] = useState<"hp" | "cl">("hp");
-  // Clearance limit is ephemeral local state — never persisted to the backend.
-  const [clearanceLimit, setClearanceLimit] = useState("");
+
+  // Determine display slot for the release point:
+  // - "cl"-typed points in TAXI_MAP_POINTS → TWY cell
+  // - all others (unknown or non-cl) → HP cell
+  const clLabels = new Set(TAXI_MAP_POINTS.filter(p => p.type === "cl").map(p => p.label));
+  const isCl = holdingPoint ? clLabels.has(holdingPoint) : false;
+  const twyDisplay = isCl ? (holdingPoint ?? "") : "";
+  const hpDisplay = !isCl ? (holdingPoint ?? "") : "";
 
   const isAssumed = !!myPosition && owner === myPosition;
 
@@ -151,17 +156,16 @@ export function TwyDepStrip({
         </div>
       </div>
 
-      {/* Empty / TWY label — 53px; whole cell clickable → taxi map (CL mode);
-          top half empty, bottom half shows the clearance limit or faint "TWY". */}
+      {/* Empty / TWY label — 53px; whole cell clickable → taxi map;
+          top half empty, bottom half shows the clearance-limit point or faint "TWY". */}
       <div
         className="flex-shrink-0 flex flex-col border-r-2 cursor-pointer"
         style={{ width: W_SMALL, height: "100%", borderRightColor: cellBorderColor }}
-        onClick={(e) => { e.stopPropagation(); setTaxiMapMode("cl"); setShowTaxiMap(true); }}
+        onClick={(e) => { e.stopPropagation(); setShowTaxiMap(true); }}
       >
-        <div style={{ height: HALF_H }} />
-        <div className="flex items-center justify-center" style={{ height: HALF_H }}>
-          <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: 14, opacity: clearanceLimit ? 1 : 0.2 }}>
-            {clearanceLimit || "TWY"}
+        <div className="flex items-center justify-center h-full">
+          <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: 14, opacity: twyDisplay ? 1 : 0.2 }}>
+            {twyDisplay || "TWY"}
           </span>
         </div>
       </div>
@@ -180,10 +184,10 @@ export function TwyDepStrip({
         <div
           className="flex items-center justify-center cursor-pointer"
           style={{ height: HALF_H }}
-          onClick={(e) => { e.stopPropagation(); setTaxiMapMode("hp"); setShowTaxiMap(true); }}
+          onClick={(e) => { e.stopPropagation(); setShowTaxiMap(true); }}
         >
-          <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: 14, opacity: holdingPoint ? 1 : 0.2 }}>
-            {holdingPoint || "HP"}
+          <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: 14, opacity: hpDisplay ? 1 : 0.2 }}>
+            {hpDisplay || "HP"}
           </span>
         </div>
       </div>
@@ -224,8 +228,6 @@ export function TwyDepStrip({
       open={showTaxiMap}
       onOpenChange={setShowTaxiMap}
       callsign={callsign}
-      mode={taxiMapMode}
-      onClearanceLimitSelect={(label) => setClearanceLimit(label)}
     />
     </>
   );

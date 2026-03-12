@@ -1,6 +1,7 @@
 package main
 
 import (
+	"FlightStrips/internal/alb"
 	"FlightStrips/internal/cdm"
 	"FlightStrips/internal/config"
 	"FlightStrips/internal/database"
@@ -152,6 +153,7 @@ func main() {
 
 	frontendHub := frontend.NewHub(stripService, authenticationService)
 	euroscopeHub := euroscope.NewHub(stripService, controllerService, authenticationService)
+	albHub := alb.NewHub()
 
 	stripService.SetFrontendHub(frontendHub)
 	stripService.SetEuroscopeHub(euroscopeHub)
@@ -175,6 +177,7 @@ func main() {
 	if pdcService != nil {
 		go pdcService.Start(ctx)
 	}
+	go albHub.Run()
 
 	metarPoller := metar.NewPoller(sessionRepo, frontendHub)
 	go metarPoller.Start(ctx)
@@ -187,6 +190,7 @@ func main() {
 	http.HandleFunc("/healthz", healthz)
 	http.HandleFunc("/euroscopeEvents", euroscopeUpgrader.Upgrade)
 	http.HandleFunc("/frontEndEvents", frontendUpgrader.Upgrade)
+	http.HandleFunc("/albEvents", albHub.Upgrade)
 
 	// Wrap with OTEL HTTP instrumentation
 	var handler http.Handler = http.DefaultServeMux

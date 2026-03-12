@@ -3,7 +3,8 @@
 
 namespace FlightStrips::runway {
     void RunwayService::Online() {
-        SendRunwayEvent();
+        // Runways are sent after session_info is received (via MessageService::HandleSessionInfoEvent),
+        // so we do not send here to avoid a race with master/slave role assignment.
     }
 
     void RunwayService::OnAirportRunwayActivityChanged() {

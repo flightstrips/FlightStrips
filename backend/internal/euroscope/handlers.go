@@ -203,6 +203,12 @@ func handleSync(ctx context.Context, client *Client, message Message) error {
 		}
 	}
 
+	if len(event.Runways) > 0 {
+		if err := applyOrValidateRunways(ctx, client, event.Runways); err != nil {
+			return err
+		}
+	}
+
 	if _, err := s.UpdateSectors(session); err != nil {
 		return err
 	}
@@ -215,6 +221,8 @@ func handleSync(ctx context.Context, client *Client, message Message) error {
 			return err
 		}
 	}
+
+	client.hub.server.GetFrontendHub().CidOnline(session, client.user.GetCid())
 
 	return nil
 }
@@ -239,67 +247,102 @@ func handleRunways(ctx context.Context, client *Client, message Message) error {
 
 	slog.Debug("Received runway configuration change", slog.Int("session", int(client.session)), slog.Any("event", event))
 
+	return applyOrValidateRunways(ctx, client, event.Runways)
+}
+
+// applyOrValidateRunways applies the runway configuration when the client is master,
+// or compares it against the session's current runways and logs a warning if they differ
+// (conflict detection for slave clients).
+func applyOrValidateRunways(ctx context.Context, client *Client, runways []euroscope.SyncRunway) error {
+	s := client.hub.server
+	sessionRepo := s.GetSessionRepository()
+
+	departure := make([]string, 0)
+	arrival := make([]string, 0)
+	for _, runway := range runways {
+		if runway.Arrival {
+			arrival = append(arrival, runway.Name)
+		}
+		if runway.Departure {
+			departure = append(departure, runway.Name)
+		}
+	}
+
+	activeRunways := models.ActiveRunways{
+		DepartureRunways: departure,
+		ArrivalRunways:   arrival,
+	}
+
+	isMaster := false
 	if master, ok := client.hub.master[client.session]; ok && master == client {
-		s := client.hub.server
-		sessionRepo := s.GetSessionRepository()
+		isMaster = true
+	}
 
-		departure := make([]string, 0)
-		arrival := make([]string, 0)
-
-		for _, runway := range event.Runways {
-			if runway.Arrival {
-				arrival = append(arrival, runway.Name)
-			}
-			if runway.Departure {
-				departure = append(departure, runway.Name)
-			}
-		}
-
-		activeRunways := models.ActiveRunways{
-			DepartureRunways: departure,
-			ArrivalRunways:   arrival,
-		}
-
-		slog.Info("Runway change received",
-			slog.Int("session", int(client.session)),
-			slog.Any("departure", departure),
-			slog.Any("arrival", arrival),
-		)
-
-		// Capture old active runways before overwriting.
+	if !isMaster {
 		currentSession, err := sessionRepo.GetByID(ctx, client.session)
 		if err != nil {
 			return err
 		}
-		oldActiveRunways := currentSession.ActiveRunways
-
-		if err = sessionRepo.UpdateActiveRunways(ctx, client.session, activeRunways); err != nil {
-			return err
+		masterDep := currentSession.ActiveRunways.DepartureRunways
+		masterArr := currentSession.ActiveRunways.ArrivalRunways
+		if !slicesEqual(masterDep, departure) || !slicesEqual(masterArr, arrival) {
+			slog.Warn("Slave ES client has different runway configuration than master",
+				slog.Int("session", int(client.session)),
+				slog.String("client", client.callsign),
+				slog.Any("slave_departure", departure),
+				slog.Any("slave_arrival", arrival),
+				slog.Any("master_departure", masterDep),
+				slog.Any("master_arrival", masterArr),
+			)
 		}
-
-		// Update runway on strips that had an auto-assigned runway matching the old
-		// active runways. Strips with a manually-set runway (not matching old active)
-		// are not touched.
-		if err := client.hub.stripService.PropagateRunwayChange(ctx, client.session, currentSession.Airport, oldActiveRunways, activeRunways); err != nil {
-			slog.Error("Failed to propagate runway change to strips", slog.Int("session", int(client.session)), slog.Any("error", err))
-			// Non-fatal: continue — route recalculation is still attempted below.
-		}
-
-		s.GetFrontendHub().SendRunwayConfiguration(client.session, departure, arrival)
-
-		if _, err = s.UpdateSectors(client.session); err != nil {
-			slog.Error("UpdateSectors failed after runway change", slog.Int("session", int(client.session)), slog.Any("error", err))
-			return err
-		}
-		slog.Debug("UpdateSectors completed", slog.Int("session", int(client.session)))
-
-		if err = s.UpdateRoutesForSession(client.session, true); err != nil {
-			slog.Error("UpdateRoutesForSession failed after runway change", slog.Int("session", int(client.session)), slog.Any("error", err))
-			return err
-		}
-		slog.Debug("UpdateRoutesForSession completed", slog.Int("session", int(client.session)))
 		return nil
 	}
 
+	slog.Info("Runway change received",
+		slog.Int("session", int(client.session)),
+		slog.Any("departure", departure),
+		slog.Any("arrival", arrival),
+	)
+
+	currentSession, err := sessionRepo.GetByID(ctx, client.session)
+	if err != nil {
+		return err
+	}
+	oldActiveRunways := currentSession.ActiveRunways
+
+	if err = sessionRepo.UpdateActiveRunways(ctx, client.session, activeRunways); err != nil {
+		return err
+	}
+
+	if err := client.hub.stripService.PropagateRunwayChange(ctx, client.session, currentSession.Airport, oldActiveRunways, activeRunways); err != nil {
+		slog.Error("Failed to propagate runway change to strips", slog.Int("session", int(client.session)), slog.Any("error", err))
+	}
+
+	s.GetFrontendHub().SendRunwayConfiguration(client.session, departure, arrival)
+
+	if _, err = s.UpdateSectors(client.session); err != nil {
+		slog.Error("UpdateSectors failed after runway change", slog.Int("session", int(client.session)), slog.Any("error", err))
+		return err
+	}
+	slog.Debug("UpdateSectors completed", slog.Int("session", int(client.session)))
+
+	if err = s.UpdateRoutesForSession(client.session, true); err != nil {
+		slog.Error("UpdateRoutesForSession failed after runway change", slog.Int("session", int(client.session)), slog.Any("error", err))
+		return err
+	}
+	slog.Debug("UpdateRoutesForSession completed", slog.Int("session", int(client.session)))
+
 	return nil
+}
+
+func slicesEqual(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
 }

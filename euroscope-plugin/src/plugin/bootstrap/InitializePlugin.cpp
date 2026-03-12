@@ -77,7 +77,7 @@ namespace FlightStrips {
         this->container->routeService = std::make_shared<flightplan::RouteService>(this->container->plugin);
         this->container->messageService = std::make_shared<messages::MessageService>(
             this->container->plugin, this->container->webSocketService, this->container->flightPlanService,
-            this->container->standService, this->container->routeService);
+            this->container->standService, this->container->routeService, this->container->runwayService);
         this->container->messageHandlers->RegisterHandler(this->container->messageService);
         this->container->authenticationEventHandlers->RegisterHandler(this->container->webSocketService);
 

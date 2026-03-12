@@ -5,6 +5,7 @@
 #include "plugin/FlightStripsPlugin.h"
 #include "websocket/WebSocketService.h"
 #include "stands/StandService.h"
+#include "runway/RunwayService.h"
 
 namespace FlightStrips::messages {
 
@@ -14,12 +15,14 @@ namespace FlightStrips::messages {
             const std::shared_ptr<websocket::WebSocketService> &m_web_socket_service,
             const std::shared_ptr<flightplan::FlightPlanService> &m_flight_plan_service,
             const std::shared_ptr<stands::StandService> &m_stand_service,
-            const std::shared_ptr<flightplan::RouteService> &m_route_service)
+            const std::shared_ptr<flightplan::RouteService> &m_route_service,
+            const std::shared_ptr<runway::RunwayService> &m_runway_service)
             : m_plugin(m_plugin),
               m_webSocketService(m_web_socket_service),
               m_flightPlanService(m_flight_plan_service),
               m_standService(m_stand_service),
-              m_routeService(m_route_service) {
+              m_routeService(m_route_service),
+              m_runwayService(m_runway_service) {
         }
 
         void OnMessages(const std::vector<nlohmann::json> &messages) override;
@@ -29,6 +32,7 @@ namespace FlightStrips::messages {
         std::shared_ptr<flightplan::FlightPlanService> m_flightPlanService;
         std::shared_ptr<stands::StandService> m_standService;
         std::shared_ptr<flightplan::RouteService> m_routeService;
+        std::shared_ptr<runway::RunwayService> m_runwayService;
 
         void HandleMessage(const nlohmann::json &message) const;
         void HandleSessionInfoEvent(const SessionInfoEvent& event) const;

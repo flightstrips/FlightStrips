@@ -148,6 +148,8 @@ func (hub *Hub) OnRegister(client *Client) {
 			client.send <- euroscope.SessionInfoEvent{Role: euroscope.SessionInfoMaster}
 		} else {
 			client.send <- euroscope.SessionInfoEvent{Role: euroscope.SessionInfoSlave}
+			// For slaves, layouts are already calculated by the master; notify the frontend now.
+			hub.server.GetFrontendHub().CidOnline(client.session, client.user.GetCid())
 		}
 	}()
 }
@@ -287,15 +289,12 @@ func (hub *Hub) handleLogin(msg []byte, user shared.AuthenticatedUser) (event eu
 			return event, session.Id, err
 		}
 
-		hub.server.GetFrontendHub().CidOnline(session.Id, user.GetCid())
-
 		return event, session.Id, nil
 	} else if err != nil {
 		return event, session.Id, err
 	} else {
 		// Set CID
 		controllerRepo.SetCid(context.Background(), session.Id, event.Callsign, &cid)
-		hub.server.GetFrontendHub().CidOnline(session.Id, user.GetCid())
 	}
 
 	if controller.Position != event.Position {

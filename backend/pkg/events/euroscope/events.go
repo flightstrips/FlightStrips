@@ -120,13 +120,20 @@ type Strip struct {
 	TrackingController string `json:"tracking_controller"`
 }
 
+type SyncRunway struct {
+	Arrival   bool   `json:"arrival"`
+	Departure bool   `json:"departure"`
+	Name      string `json:"name"`
+}
+
 type SyncEvent struct {
 	Type        EventType `json:"type"`
 	Controllers []struct {
 		Position string `json:"position"`
 		Callsign string `json:"callsign"`
 	} `json:"controllers"`
-	Strips []Strip `json:"strips"`
+	Strips  []Strip      `json:"strips"`
+	Runways []SyncRunway `json:"runways"`
 }
 
 type AssignedSquawkEvent struct {
@@ -218,12 +225,8 @@ type StripUpdateEvent struct {
 }
 
 type RunwayEvent struct {
-	Type    EventType `json:"type"`
-	Runways []struct {
-		Arrival   bool   `json:"arrival"`
-		Departure bool   `json:"departure"`
-		Name      string `json:"name"`
-	} `json:"runways"`
+	Type    EventType    `json:"type"`
+	Runways []SyncRunway `json:"runways"`
 }
 
 type SessionInfoRole string

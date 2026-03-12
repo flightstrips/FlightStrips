@@ -82,7 +82,15 @@ namespace FlightStrips::messages {
 
         Logger::Debug("Is master: {}", state == websocket::STATE_MASTER);
 
-        if (state != websocket::STATE_MASTER) return;
+        if (state != websocket::STATE_MASTER) {
+            // Send our runway config so the backend can detect conflicts with the master
+            const auto airport = m_plugin->GetConnectionState().relevant_airport;
+            if (!airport.empty()) {
+                const auto runwayEvent = RunwayEvent(m_runwayService->GetActiveRunways(airport.c_str()));
+                m_webSocketService->SendEvent(runwayEvent);
+            }
+            return;
+        }
 
         // send sync event
         std::vector<Controller> controllers;
@@ -155,7 +163,7 @@ namespace FlightStrips::messages {
             });
         }
 
-        const auto syncEvent = SyncEvent(strips, controllers);
+        const auto syncEvent = SyncEvent(strips, controllers, m_runwayService->GetActiveRunways(relevantAirport));
         m_webSocketService->SendEvent(syncEvent);
     }
 

@@ -20,12 +20,12 @@ namespace FlightStrips::runway {
         void Online() override;
         void OnAirportRunwayActivityChanged() override;
 
+        std::vector<Runway> GetActiveRunways(const char* airport) const;
+
     private:
         std::shared_ptr<websocket::WebSocketService> m_websocketService;
         std::shared_ptr<FlightStripsPlugin> m_plugin;
 
-
-        std::vector<Runway> GetActiveRunways(const char* airport) const;
         void SendRunwayEvent() const;
     };
 

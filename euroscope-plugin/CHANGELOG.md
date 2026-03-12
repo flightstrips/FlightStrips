@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.6.0](https://github.com/flightstrips/FlightStrips/compare/plugin/v0.5.0...plugin/v0.6.0) (2026-03-12)
+
+
+### Features
+
+* include VFR/no-FP aircraft within 30NM in EuroScope sync ([11374f1](https://github.com/flightstrips/FlightStrips/commit/11374f13d9d3c556cb1dcde7d3aa4745380c5e9c))
+* receive and apply backend sync event in EuroScope plugin ([c4d216e](https://github.com/flightstrips/FlightStrips/commit/c4d216ea278f178e26d0fe3e40797d1e28c891fb))
+* Wait with connection and better UI ([6233d06](https://github.com/flightstrips/FlightStrips/commit/6233d06ed57bdef4ed9aacc1a75bbc84c4dcc587))
+
+
+### Bug Fixes
+
+* address post-032-044 review feedback ([cbf0714](https://github.com/flightstrips/FlightStrips/commit/cbf0714324b0263f76052d38d84e2984b6ebfdbf))
+* correctly unload plugin ([2257f8b](https://github.com/flightstrips/FlightStrips/commit/2257f8bc726c7969835afd2f2761b0d42e03a859))
+* move airport coordinates from hardcoded plugin map to config file ([91ec78d](https://github.com/flightstrips/FlightStrips/commit/91ec78d3183fb1f0f861e1d9decca3029d8e8d86))
+* show update dialog before renaming plugin files; restore on failure ([28112a4](https://github.com/flightstrips/FlightStrips/commit/28112a4a96bd4a4fca56f39b3c1ca197b6e246d8))
+
 ## [0.5.0](https://github.com/flightstrips/FlightStrips/compare/plugin/v0.4.0...plugin/v0.5.0) (2026-03-08)
 
 

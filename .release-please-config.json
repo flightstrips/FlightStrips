@@ -19,5 +19,5 @@
       "extra-files": ["version.txt"]
     }
   },
-  "separate-pull-requests": true
+  "separate-pull-requests": false
 }

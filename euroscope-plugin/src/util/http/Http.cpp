@@ -13,6 +13,7 @@ namespace FlightStrips::http {
 
     HttpResponse Http::PostUrlEncoded(const std::string &url, const std::string &params){
         const auto curl = curl_easy_init();
+        if (!curl) return {-1, "curl_easy_init failed"};
 
         std::string resultBuffer;
         curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
@@ -36,6 +37,7 @@ namespace FlightStrips::http {
 
     HttpResponse Http::Get(const std::string &url) {
         const auto curl = curl_easy_init();
+        if (!curl) return {-1, "curl_easy_init failed"};
 
         std::string resultBuffer;
         curl_easy_setopt(curl, CURLOPT_URL, url.c_str());

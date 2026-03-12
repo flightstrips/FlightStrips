@@ -183,6 +183,10 @@ namespace FlightStrips::websocket {
         }
 
         X509_STORE* store = X509_STORE_new();
+        if (store == nullptr) {
+            CertCloseStore(hStore, 0);
+            return;
+        }
         PCCERT_CONTEXT pContext = nullptr;
         while ((pContext = CertEnumCertificatesInStore(hStore, pContext)) != nullptr) {
             X509* x509 = d2i_X509(nullptr,

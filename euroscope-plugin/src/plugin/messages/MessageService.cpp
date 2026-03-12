@@ -32,6 +32,8 @@ namespace FlightStrips::messages {
     }
 
     void MessageService::HandleMessage(const nlohmann::json &message) const {
+        try {
+
         const auto type = message["type"].get<std::string>();
 
         // TODO change to debug
@@ -73,6 +75,10 @@ namespace FlightStrips::messages {
             HandleBackendSyncEvent(message.get<BackendSyncEvent>());
         } else {
             Logger::Warning("Unknown message type: {}", type);
+        }
+
+        } catch (const std::exception &e) {
+            Logger::Error("Exception handling message: {}", e.what());
         }
     }
 
@@ -194,6 +200,7 @@ namespace FlightStrips::messages {
     void MessageService::HandleCommunicationTypeEvent(const CommunicationTypeEvent &event) const {
         const auto fp = m_plugin->FlightPlanSelect(event.callsign.c_str());
         if (!fp.IsValid()) return;
+        if (event.communication_type.empty()) return;
         if (!fp.GetControllerAssignedData().SetCommunicationType(event.communication_type[0])) {
             Logger::Warning("Failed to set communication type {} for {}", event.communication_type, event.callsign);
         }

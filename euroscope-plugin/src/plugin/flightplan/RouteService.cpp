@@ -70,7 +70,7 @@ namespace FlightStrips::flightplan {
         if (std::ranges::find(std::as_const(baseSids), nextBase) != baseSids.end()) {
             route.erase(0, nextToken.value().length + 1);
             const auto baseSid = GetNextToken(route);
-            if (!nextToken.has_value() || baseSid.value().token != nextBase) {
+            if (!baseSid.has_value() || baseSid.value().token != nextBase) {
                 route.insert(0, nextBase + ' ');
             }
         }

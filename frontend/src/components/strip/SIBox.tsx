@@ -1,6 +1,9 @@
 import React from "react";
 import { useControllers, useWebSocketStore } from "@/store/store-hooks";
-import { getCellBorderColor } from "./shared";
+import { getCellBorderColor, FONT, COLOR_BTN_ORANGE, COLOR_SI_ASSUMED, COLOR_SI_UNCONCERNED, COLOR_SI_CONCERNED } from "./shared";
+
+/** Text colour for the next-controller identifier label. */
+const COLOR_SI_LABEL = "#8F8F8F";
 
 const F_SI = 8;
 
@@ -68,17 +71,17 @@ export function SIBox({
 
   let background: string;
   if (isSendingTransfer) {
-    background = "linear-gradient(to right, #F0F0F0 50%, #DD6A12 50%)";
+    background = `linear-gradient(to right, ${COLOR_SI_ASSUMED} 50%, ${COLOR_BTN_ORANGE} 50%)`;
   } else if (isReceivingTransfer) {
-    background = "linear-gradient(to right, #E082E7 50%, #F0F0F0 50%)";
+    background = `linear-gradient(to right, ${COLOR_SI_CONCERNED} 50%, ${COLOR_SI_ASSUMED} 50%)`;
   } else if (isAssumed) {
-    background = "#F0F0F0";
+    background = COLOR_SI_ASSUMED;
   } else if (isTransferredAway) {
-    background = "#DD6A12";
+    background = COLOR_BTN_ORANGE;
   } else if (isConcerned) {
-    background = "#E082E7";
+    background = COLOR_SI_CONCERNED;
   } else {
-    background = "#808080";
+    background = COLOR_SI_UNCONCERNED;
   }
 
   return (
@@ -90,9 +93,9 @@ export function SIBox({
         background: background,
         minWidth: 0,
         borderRightColor: getCellBorderColor(!!marked, baseBorderColor),
-        fontFamily: "'Arial', sans-serif",
+        fontFamily: FONT,
         fontSize: 22,
-        color: "#8F8F8F",
+        color: COLOR_SI_LABEL,
         cursor: isClickable ? "pointer" : "default",
       }}
       onClick={isClickable ? handleClick : undefined}

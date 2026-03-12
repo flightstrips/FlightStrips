@@ -26,14 +26,31 @@ import { useWebSocketStore, useMyPosition, useLowerPositionOnline, useCtwrOnline
 import { useRef, useEffect, useMemo, useState } from "react";
 import { TWY_DEP_STRIP_WIDTH } from "@/components/strip/types";
 import { StripListPopup, type SortMode } from "@/components/StripListPopup.tsx";
+import { CLS_BTN, CLS_BTN_ORANGE, CLS_BTN_BLUE, CLS_BTN_YELLOW, CLS_SCROLLBAR, CLS_COL } from "@/components/strip/shared";
 
-const scrollArea = "w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary";
-const scrollAreaBottom = "w-full bg-[#555355] p-1 flex flex-col justify-end gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary";
-const darkScrollAreaBottom = "w-full bg-[#212121] p-1 flex flex-col justify-end gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary";
-const btn = "bg-[#646464] text-white font-bold text-sm px-3 border-2 border-white active:bg-[#424242]";
-const btnOrange = "bg-[#DD6A12] text-white font-bold text-sm px-3 border-2 border-white active:bg-[#c45a0d]";
-const btnBlue = "bg-[#004FD6] text-white font-bold text-sm px-3 border-2 border-white active:bg-[#003db0]";
-const btnYellow = "bg-[#F3EA1F] text-black font-bold text-sm px-3 border-2 border-white active:bg-[#d4cb14]";
+// Column widths
+const W_COL_ARR      = "w-[24.5%]";
+const W_COL_DEP      = "w-[28.5%]";
+const W_COL_CENTER   = "w-[24.5%]";
+const W_COL_RIGHT    = "w-[20.5%]";
+
+// Header class strings
+const lockedHeader = "bg-[#393939] h-10 flex items-center px-2 shrink-0";
+const lockedLabel  = "text-white font-bold text-lg";
+const activeHeader = "bg-[#b3b3b3] h-10 flex items-center px-2 shrink-0";
+const activeLabel  = "text-[#393939] font-bold text-lg";
+
+// Section separator (grey border between sub-sections within a column)
+const colSep      = "border-t-4 border-[#A9A9A9]";
+const pageWrapper = "bg-[#A9A9A9] w-screen h-[calc(100vh-4rem)] flex justify-center justify-items-center gap-2";
+
+const scrollArea           = `w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto ${CLS_SCROLLBAR}`;
+const scrollAreaBottom     = `w-full bg-[#555355] p-1 flex flex-col justify-end gap-px overflow-y-auto ${CLS_SCROLLBAR}`;
+const darkScrollAreaBottom = `w-full bg-[#212121] p-1 flex flex-col justify-end gap-px overflow-y-auto ${CLS_SCROLLBAR}`;
+const btn       = CLS_BTN;
+const btnOrange = CLS_BTN_ORANGE;
+const btnBlue   = CLS_BTN_BLUE;
+const btnYellow = CLS_BTN_YELLOW;
 
 export default function TWTE() {
   const myPosition = useMyPosition();
@@ -143,12 +160,12 @@ export default function TWTE() {
         );
       }}
     >
-    <div className="bg-[#A9A9A9] w-screen h-[calc(100vh-4rem)] flex justify-center justify-items-center gap-2">
+    <div className={pageWrapper}>
 
       {/* Column 1 – FINAL + RWY ARR + TWY ARR */}
-      <div className="w-[24.5%] h-full bg-[#555355] flex flex-col">
-        <div className="bg-[#393939] h-10 flex items-center px-2 shrink-0 justify-between">
-          <span className="text-white font-bold text-lg">FINAL</span>
+      <div className={`${W_COL_ARR} ${CLS_COL}`}>
+        <div className={`${lockedHeader} justify-between`}>
+          <span className={lockedLabel}>FINAL</span>
           <span className="flex gap-1">
             <button className={btn} onClick={() => setArrOpen(true)}>ARR</button>
           </span>
@@ -164,8 +181,8 @@ export default function TWTE() {
           )}
         </SortableBay>
 
-        <div className="bg-[#393939] h-10 flex items-center px-2 shrink-0 border-t-4 border-[#A9A9A9] justify-between">
-          <span className="text-white font-bold text-lg">RWY ARR</span>
+        <div className={`${lockedHeader} ${colSep} justify-between`}>
+          <span className={lockedLabel}>RWY ARR</span>
           <span className="flex gap-1">
             <button className={btn}>MISSED APP</button>
             <LandButton bay={Bay.Final} className={btnOrange} />
@@ -184,8 +201,8 @@ export default function TWTE() {
           )}
         </SortableBay>
 
-        <div className="bg-[#393939] h-10 flex items-center px-2 shrink-0 border-t-4 border-[#A9A9A9] justify-between">
-          <span className="text-white font-bold text-lg">TWY ARR</span>
+        <div className={`${lockedHeader} ${colSep} justify-between`}>
+          <span className={lockedLabel}>TWY ARR</span>
           <span className="flex gap-1">
             <MemAidButton bay={Bay.Taxi} className={btnBlue} />
             <LandButton bay={Bay.Taxi} className={btnOrange} />
@@ -206,9 +223,9 @@ export default function TWTE() {
       </div>
 
       {/* Column 2 – TWY DEP + RWY DEP + AIRBORNE */}
-      <div className="w-[28.5%] h-full bg-[#555355] flex flex-col">
-        <div className="bg-[#393939] h-10 flex items-center px-2 shrink-0 justify-between">
-          <span className="text-white font-bold text-lg">TWY DEP</span>
+      <div className={`${W_COL_DEP} ${CLS_COL}`}>
+        <div className={`${lockedHeader} justify-between`}>
+          <span className={lockedLabel}>TWY DEP</span>
           <span className="flex gap-1">
             <button className={btn} onClick={() => setStartupOpen(true)}>STARTUP</button>
             <MemAidButton bay={Bay.Taxi} className={btnBlue} />
@@ -228,8 +245,8 @@ export default function TWTE() {
           )}
         </SortableBay>
 
-        <div className="bg-[#393939] h-10 flex items-center px-2 shrink-0 justify-between border-t-4 border-[#A9A9A9]">
-          <span className="text-white font-bold text-lg">RWY DEP</span>
+        <div className={`${lockedHeader} ${colSep} justify-between`}>
+          <span className={lockedLabel}>RWY DEP</span>
           <span className="flex gap-1">
             <LandButton bay={Bay.Depart} className={btnOrange} />
             <StartButton bay={Bay.Depart} className={btnOrange} />
@@ -247,8 +264,8 @@ export default function TWTE() {
           )}
         </SortableBay>
 
-        <div className="bg-[#393939] h-10 flex items-center px-2 shrink-0 border-t-4 border-[#A9A9A9]">
-          <span className="text-white font-bold text-lg">AIRBORNE</span>
+        <div className={`${lockedHeader} ${colSep}`}>
+          <span className={lockedLabel}>AIRBORNE</span>
         </div>
         <SortableBay
           strips={airborneDesc}
@@ -292,9 +309,9 @@ export default function TWTE() {
       </div>
 
       {/* Column 3 – CONTROLZONE + PUSHBACK + MESSAGES */}
-      <div className="w-[24.5%] h-full bg-[#555355] flex flex-col">
-        <div className="bg-[#393939] h-10 flex items-center px-2 shrink-0 justify-between">
-          <span className="text-white font-bold text-lg">CONTROLZONE</span>
+      <div className={`${W_COL_CENTER} ${CLS_COL}`}>
+        <div className={`${lockedHeader} justify-between`}>
+          <span className={lockedLabel}>CONTROLZONE</span>
           <span className="flex gap-1">
             <button className={btn}>NEW</button>
             <button className={btn}>FIND</button>
@@ -303,8 +320,8 @@ export default function TWTE() {
         {/* VFR strips – bay TBD with backend */}
         <div className={`h-[35%] ${scrollArea}`} />
 
-        <div className="bg-[#393939] h-10 flex items-center px-2 shrink-0 border-t-4 border-[#A9A9A9]">
-          <span className="text-white font-bold text-lg">PUSHBACK</span>
+        <div className={`${lockedHeader} ${colSep}`}>
+          <span className={lockedLabel}>PUSHBACK</span>
         </div>
         <SortableBay
           strips={pushStrips}
@@ -315,8 +332,8 @@ export default function TWTE() {
           {(strip) => <Strip strip={strip} status="PUSH" myPosition={myPosition} selectable={true} />}
         </SortableBay>
 
-        <div className="bg-primary h-10 flex items-center px-2 shrink-0 justify-between border-t-4 border-[#A9A9A9]">
-          <span className="text-white font-bold text-lg">MESSAGES</span>
+        <div className={`bg-primary h-10 flex items-center px-2 shrink-0 justify-between ${colSep}`}>
+          <span className={lockedLabel}>MESSAGES</span>
           <span className="flex gap-1">
             <button className={btn} onClick={() => setComposeOpen(true)}>INFO</button>
             <button className={btn} onClick={() => setComposeOpen(true)}>MISC.</button>
@@ -333,12 +350,9 @@ export default function TWTE() {
       </div>
 
       {/* Column 4 – CLRDEL + DE-ICE A + STAND */}
-      <div className="w-[20.5%] h-full bg-[#555355] flex flex-col">
-        <div className={(clrDelActive
-            ? "bg-[#b3b3b3] h-10 flex items-center px-2 shrink-0"
-            : "bg-[#393939] h-10 flex items-center px-2 shrink-0"
-          ) + " justify-between"}>
-          <span className={clrDelActive ? "text-[#393939] font-bold text-lg" : "text-white font-bold text-lg"}>CLRDEL</span>
+      <div className={`${W_COL_RIGHT} ${CLS_COL}`}>
+        <div className={`${clrDelActive ? activeHeader : lockedHeader} justify-between`}>
+          <span className={clrDelActive ? activeLabel : lockedLabel}>CLRDEL</span>
           <span className="flex gap-1">
             <button className={btn}>NEW</button>
             <button className={btn}>PLANNED</button>
@@ -350,8 +364,8 @@ export default function TWTE() {
           ))}
         </DropIndicatorBay>
 
-        <div className="bg-[#393939] h-10 flex items-center px-2 shrink-0 justify-between border-t-4 border-[#A9A9A9]">
-          <span className="text-white font-bold text-lg">DE-ICE A</span>
+        <div className={`${lockedHeader} ${colSep} justify-between`}>
+          <span className={lockedLabel}>DE-ICE A</span>
           <span className="flex gap-1">
             <button className={btn}>DI A</button>
             <button className={btn}>DI B</button>
@@ -367,8 +381,8 @@ export default function TWTE() {
           {(strip) => <Strip strip={strip} status="PUSH" myPosition={myPosition} selectable={true} />}
         </SortableBay>
 
-        <div className="bg-[#393939] h-10 flex items-center px-2 shrink-0 border-t-4 border-[#A9A9A9]">
-          <span className="text-white font-bold text-lg">STAND</span>
+        <div className={`${lockedHeader} ${colSep}`}>
+          <span className={lockedLabel}>STAND</span>
         </div>
         <SortableBay
           strips={standStrips}

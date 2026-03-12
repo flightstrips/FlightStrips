@@ -2,12 +2,10 @@ import { useState } from "react";
 import { useControllers, useStripTransfers } from "@/store/store-hooks";
 import { getStripBg } from "./types";
 import type { StripProps } from "./types";
-import { useStripSelection, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR } from "./shared";
+import { useStripSelection, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR, FONT } from "./shared";
 import { TaxiMapDialog } from "../map-dialogs/TaxiMapDialog";
 import { SIBox } from "./SIBox";
 import { TAXI_MAP_POINTS } from "@/config/ekch";
-
-const FONT = "'Arial', sans-serif";
 
 // Heights — 48px total, 2/3 top / 1/3 bottom (used by callsign and SID/dest)
 const TOP_H = 32; // 2/3 of 48px

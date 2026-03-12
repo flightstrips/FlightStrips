@@ -1,16 +1,21 @@
 import type { HalfStripVariant, StripProps } from "./types";
-import { useStripSelection, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR } from "./shared";
+import { useStripSelection, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR, COLOR_ARR_YELLOW, COLOR_ARR_STRIP_BG, COLOR_BTN_BLUE, COLOR_BTN_ORANGE } from "./shared";
+
+// Variant-specific background colours
+const COLOR_HALF_PUSH_BG  = "#bfbfbf"; // compact APN-PUSH half strip (lighter grey)
+const COLOR_MESSAGES_BG   = "#285A5C"; // teal — matches MessageStrip / primary theme
+const COLOR_CROSSING_BG   = "#FFF500"; // bright yellow for crossing tactical strip
 
 /** Background colour per half-strip variant. */
 const VARIANT_BG: Record<HalfStripVariant, string> = {
-  "APN-PUSH":   "#bfbfbf",
-  "APN-ARR":    "#fff28e",
-  "LOCKED-DEP": "#bef5ef",
-  "LOCKED-ARR": "#fff28e",
-  "MESSAGES":   "#285A5C",
-  "MEM-AID":    "#004FD6",
-  "LAND-START": "#DD6A12",
-  "CROSSING":   "#FFF500",
+  "APN-PUSH":   COLOR_HALF_PUSH_BG,
+  "APN-ARR":    COLOR_ARR_YELLOW,
+  "LOCKED-DEP": COLOR_ARR_STRIP_BG,
+  "LOCKED-ARR": COLOR_ARR_YELLOW,
+  "MESSAGES":   COLOR_MESSAGES_BG,
+  "MEM-AID":    COLOR_BTN_BLUE,
+  "LAND-START": COLOR_BTN_ORANGE,
+  "CROSSING":   COLOR_CROSSING_BG,
 };
 
 /** Short label shown in the left identifier box. */

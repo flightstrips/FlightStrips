@@ -7,6 +7,13 @@ import ATIS from "./ATIS";
 import HOMEBTN from "./HOMEBTN";
 import MetarHelper from "@/components/MetarHelper";
 import { useMetar, useRunwaySetup, useSelectedCallsign, useSelectStrip, useWebSocketStore, useStrip } from "@/store/store-hooks";
+import { CLS_CMDBTN } from "@/components/strip/shared";
+
+// CommandBar-specific class constants
+const CLS_BAR        = "h-16 w-screen bg-[#3b3b3b] flex justify-between text-white";
+const CLS_SCOPE_LBL  = "bg-[#1bff16] text-black w-32 flex justify-center items-center m-2 font-bold";
+const CLS_QNH_DARK   = "bg-[#212121] w-18 p-2"; // dark display for QNH value
+const CLS_TIME_BOX   = "w-32 bg-[#646464] flex items-center justify-center h-6/8 border-2";
 import { Bay } from "@/api/models";
 
 const SCOPE_LABELS: Record<string, string> = {
@@ -47,9 +54,9 @@ export default function CommandBar() {
   };
 
   return (
-    <div className="h-16 w-screen bg-[#3b3b3b] flex justify-between text-white">
+    <div className={CLS_BAR}>
       <div className="h-full w-full flex">
-        <div className="bg-[#1bff16] text-black w-32 flex justify-center items-center m-2 font-bold">
+        <div className={CLS_SCOPE_LBL}>
           {scopeLabel}
         </div>
         <div className="flex w-32 text-2xl font-bold m-2 items-center justify-between">
@@ -62,7 +69,7 @@ export default function CommandBar() {
         </div>
         <div className="flex w-fit text-2xl font-bold m-2 items-center justify-between">
           <h1>QNH</h1>
-          <span className="bg-[#212121] w-18 p-2">
+          <span className={CLS_QNH_DARK}>
             <MetarHelper metar={metar} style="qnh" unit={unit} />
           </span>
           <span
@@ -86,12 +93,12 @@ export default function CommandBar() {
         <REQBTN />
         <button
           disabled={!selectedCallsign}
-          className={`bg-[#646464] text-xl font-bold p-2 border-2 ${!selectedCallsign ? "opacity-50 cursor-not-allowed" : ""}`}
+          className={`${CLS_CMDBTN} ${!selectedCallsign ? "opacity-50 cursor-not-allowed" : ""}`}
           onClick={handleDelete}
         >
           X
         </button>
-        <div className="w-32 bg-[#646464] flex items-center justify-center h-6/8 border-2">
+        <div className={CLS_TIME_BOX}>
           <Time />
         </div>
       </div>

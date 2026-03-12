@@ -1,9 +1,8 @@
 import { getSimpleAircraftType } from "@/lib/utils";
 import type { StripProps } from "./types";
+import { FONT, STRIP_FRAME_COLOR, COLOR_ARR_STRIP_BG, COLOR_SHADOW } from "./shared";
 
-
-const CELL_BORDER = "border-r border-[#85b4af]";
-const FONT = "'Arial', sans-serif";
+const CELL_BORDER = "border-r border-[#85b4af]"; // matches STRIP_FRAME_COLOR
 // Flex-grow proportions (flex-basis: 0 so space is shared proportionally)
 const F_SI       = 8;
 const F_CALLSIGN = 25;
@@ -24,19 +23,19 @@ export function ClxHalfStrip({
 }: StripProps) {
 
   return (
-    <div style={{ 
+    <div style={{
       height: "2.22vh",
       width: fullWidth ? "100%" : "80%",
-      backgroundColor: "#85b4af",
+      backgroundColor: STRIP_FRAME_COLOR,
       padding: "1px",
       borderLeft: "2px solid white",
       borderRight: "2px solid white",
       borderTop: "2px solid white",
       borderBottom: "2px solid white",
-      boxShadow: "1px 0 0 0 #2F2F2F, 0 -1px 0 0 #2F2F2F",
+      boxShadow: `1px 0 0 0 ${COLOR_SHADOW}, 0 -1px 0 0 ${COLOR_SHADOW}`,
      }}>
 
-      <div className="flex text-black" style={{ height: "100%", overflow: "hidden", backgroundColor: "#bef5ef" }}>
+      <div className="flex text-black" style={{ height: "100%", overflow: "hidden", backgroundColor: COLOR_ARR_STRIP_BG }}>
 
         {/* OB — 8% */}
         <div className={`flex flex-col overflow-hidden ${CELL_BORDER}`} style={{ flex: `${F_SI} 0 0%`, height: "100%", minWidth: 0 }}>

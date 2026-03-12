@@ -26,16 +26,21 @@ import { ViewDndContext } from "@/components/bays/ViewDndContext.tsx";
 import { StripListPopup, type SortMode } from "@/components/StripListPopup.tsx";
 import { useState } from "react";
 import { APN_TAXI_DEP_STRIP_WIDTH } from "@/components/strip/ApnTaxiDepStrip.tsx";
+import { CLS_BTN, CLS_SCROLLBAR } from "@/components/strip/shared";
 
 // Shared header styles
+const pageWrapper    = "bg-[#A9A9A9] w-screen h-[calc(100vh-4rem)] flex justify-center justify-items-center gap-2";
 const activeHeader   = "bg-[#b3b3b3] h-10 flex items-center px-2 shrink-0";
 const activeLabel    = "text-[#393939] font-bold text-lg";
 const lockedHeader   = "bg-[#393939] h-10 flex items-center px-2 shrink-0";
 const lockedLabel    = "text-white font-bold text-lg";
 const primaryHeader  = "bg-primary h-10 flex items-center px-2 shrink-0";
 const primaryLabel   = "text-white font-bold text-lg";
-const scrollArea     = "w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary";
-const btn            = "bg-[#646464] text-white font-bold text-sm px-3 border-2 border-white active:bg-[#424242]";
+const scrollArea     = `w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto ${CLS_SCROLLBAR}`;
+const col            = "w-1/4 h-full bg-[#555355] flex flex-col";
+const tabBar         = "flex shrink-0 bg-[#393939]";
+const tabBtn         = "flex-1 h-8 bg-[#555355] text-white font-bold text-sm border border-[#393939] hover:bg-[#6a6a6a]";
+const btn            = CLS_BTN;
 
 export default function AAAD() {
   const myPosition  = useMyPosition();
@@ -115,10 +120,10 @@ export default function AAAD() {
         return <Strip strip={strip} status={statusForBay[bayEntry[0]]} myPosition={myPosition} />;
       }}
     >
-    <div className="bg-[#A9A9A9] w-screen h-[calc(100vh-4rem)] flex justify-center justify-items-center gap-2">
+    <div className={pageWrapper}>
 
       {/* ── Col 1: MESSAGES / FINAL (locked) / RWY ARR (locked) / STAND ── */}
-      <div className="w-1/4 h-full bg-[#555355] flex flex-col">
+      <div className=col>
 
         <div className={primaryHeader + " justify-between"}>
           <span className={primaryLabel}>MESSAGES</span>
@@ -176,7 +181,7 @@ export default function AAAD() {
       </div>
 
       {/* ── Col 2: TWY DEP (UPR+LWR) / TWY ARR ── */}
-      <div className="w-1/4 h-full bg-[#555355] flex flex-col">
+      <div className=col>
 
         <div className={activeHeader + " justify-between"}>
           <span className={activeLabel}>TWY DEP</span>
@@ -198,11 +203,11 @@ export default function AAAD() {
         </SortableBay>
 
         {/* TW / TE / GW / GE bay selector tabs */}
-        <div className="flex shrink-0 bg-[#393939]">
+        <div className={tabBar}>
           {["TW", "TE", "GW", "GE"].map(tab => (
             <button
               key={tab}
-              className="flex-1 h-8 bg-[#555355] text-white font-bold text-sm border border-[#393939] hover:bg-[#6a6a6a]"
+              className={tabBtn}
             >
               {tab}
             </button>
@@ -230,7 +235,7 @@ export default function AAAD() {
       </div>
 
       {/* ── Col 3: STARTUP / PUSH BACK / DE-ICE ── */}
-      <div className="w-1/4 h-full bg-[#555355] flex flex-col">
+      <div className=col>
 
         <div className={lockedHeader}>
           <span className={lockedLabel}>STARTUP</span>
@@ -277,7 +282,7 @@ export default function AAAD() {
       </div>
 
       {/* ── Col 4: SAS / NORWEGIAN / OTHERS (UNCLEARED) ── */}
-      <div className="w-1/4 h-full bg-[#555355] flex flex-col">
+      <div className=col>
 
         <div className={(clrDelActive ? activeHeader : lockedHeader) + " justify-between"}>
           <span className={clrDelActive ? activeLabel : lockedLabel}>SAS</span>

@@ -5,6 +5,14 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useSelectedCallsign, useWebSocketStore } from "@/store/store-hooks";
+import { CLS_BTN } from "@/components/strip/shared";
+
+// Tailwind class constants (hex must be literal strings for JIT)
+const CLS_DIALOG_BG  = "bg-[#393939] border-2 border-white p-4 w-80"; // dark panel bg
+const CLS_HINT_TEXT  = "text-[#aaa] text-xs mb-1"; // muted hint text
+const CLS_INPUT      = "w-full bg-[#555355] text-white border-2 border-white px-2 py-1 text-sm font-bold outline-none mb-3";
+const CLS_PRESET_BTN = "w-full bg-[#555355] text-white border-2 border-white px-2 py-1 text-sm font-bold outline-none mb-3 active:bg-[#424242]";
+const CLS_CANCEL_BTN = `${CLS_BTN} py-1`; // standard btn + py-1
 
 interface Props {
   open: boolean;
@@ -34,10 +42,10 @@ export function MemaidDialog({ open, bay, onOpenChange }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-[#393939] border-2 border-white p-4 w-80">
+      <DialogContent className={CLS_DIALOG_BG}>
         <DialogTitle className="text-white font-bold text-lg mb-2">NEW MEMAID</DialogTitle>
         {selectedAircraft && (
-          <p className="text-[#aaa] text-xs mb-1">Aircraft: {selectedAircraft}</p>
+          <p className={CLS_HINT_TEXT}>Aircraft: {selectedAircraft}</p>
         )}
         <input
           autoFocus
@@ -48,16 +56,16 @@ export function MemaidDialog({ open, bay, onOpenChange }: Props) {
             if (e.key === "Escape") handleCancel();
           }}
           placeholder="Memory aid message…"
-          className="w-full bg-[#555355] text-white border-2 border-white px-2 py-1 text-sm font-bold outline-none mb-3"
+          className={CLS_INPUT}
         />
-        { configuredLabels.map(l => 
+        { configuredLabels.map(l =>
           <div>
-            <button className="w-full bg-[#555355] text-white border-2 border-white px-2 py-1 text-sm font-bold outline-none mb-3 active:bg-[#424242]" onClick={() => handleSubmit(l)}>{l}</button>
+            <button className={CLS_PRESET_BTN} onClick={() => handleSubmit(l)}>{l}</button>
           </div>
         ) }
         <div className="flex gap-2 justify-end">
           <button
-            className="bg-[#646464] text-white font-bold text-sm px-4 py-1 border-2 border-white active:bg-[#424242]"
+            className={CLS_CANCEL_BTN}
             onClick={handleCancel}
           >
             CANCEL

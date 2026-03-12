@@ -6,6 +6,17 @@ import {
   DialogContent,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { COLOR_ARR_STRIP_BG } from "@/components/strip/shared";
+
+// StripListPopup color constants
+const COLOR_POPUP_BG      = "#D5D5D5"; // main popup background
+const COLOR_BADGE_BG      = "#C3C3C3"; // count badge background
+const COLOR_BADGE_BORDER  = "#5A5A5A"; // badge border
+const COLOR_BTN_BG        = "#B3B3B3"; // sort / dismiss button background
+const COLOR_GUTTER_BG     = "#989898"; // scrollbar gutter
+const COLOR_SORT_SELECTED = "#1BFF16"; // active sort mode highlight
+const COLOR_SORT_BTN_BG   = "#D6D6D6"; // inactive sort mode button
+const COLOR_DARK_BTN      = "#3F3F3F"; // OK / ESC dark buttons
 
 export type SortMode<T> = {
   key: string;
@@ -61,14 +72,14 @@ export function StripListPopup<T extends FrontendStrip>({
           style={{
             width: 494,
             height: "calc(100vh - 80px)",
-            background: "#D5D5D5",
+            background: COLOR_POPUP_BG,
           }}
           onMouseDown={e => e.stopPropagation()}
         >
           {/* Top title area — 71px, as per design */}
           <div
             className="flex items-center justify-center shrink-0"
-            style={{ height: 71, background: "#D5D5D5" }}
+            style={{ height: 71, background: COLOR_POPUP_BG }}
           >
             {title && (
               <span style={{ fontFamily: "Rubik, sans-serif", fontWeight: 700, fontSize: 28, color: "black" }}>
@@ -84,9 +95,9 @@ export function StripListPopup<T extends FrontendStrip>({
               className="flex items-center justify-center"
               style={{
                 width: 122,
-                background: "#C3C3C3",
-                borderLeft: "1px solid #5A5A5A",
-                borderRight: "1px solid #5A5A5A",
+                background: COLOR_BADGE_BG,
+                borderLeft: `1px solid ${COLOR_BADGE_BORDER}`,
+                borderRight: `1px solid ${COLOR_BADGE_BORDER}`,
               }}
             >
               <span style={{ fontFamily: "Rubik, sans-serif", fontWeight: 700, fontSize: 24, color: "black" }}>
@@ -102,7 +113,7 @@ export function StripListPopup<T extends FrontendStrip>({
               className="flex items-center justify-center"
               style={{
                 width: 136,
-                background: "#B3B3B3",
+                background: COLOR_BTN_BG,
                 border: "1px solid black",
               }}
               onClick={handleSortOpen}
@@ -119,7 +130,7 @@ export function StripListPopup<T extends FrontendStrip>({
             <button
               className="flex flex-1 items-center justify-center"
               style={{
-                background: "#B3B3B3",
+                background: COLOR_BTN_BG,
                 border: "1px solid black",
               }}
               onClick={onDismiss}
@@ -131,23 +142,23 @@ export function StripListPopup<T extends FrontendStrip>({
           </div>
 
           {/* 8px gap between header and strip list */}
-          <div style={{ height: 8, background: "#D5D5D5", flexShrink: 0 }} />
+          <div style={{ height: 8, background: COLOR_POPUP_BG, flexShrink: 0 }} />
 
           {/* Body — flex-1 so it fills remaining height */}
           <div className="flex flex-1 overflow-hidden">
             {/* 10px left margin */}
-            <div style={{ width: 10, background: "#D5D5D5", flexShrink: 0 }} />
+            <div style={{ width: 10, background: COLOR_POPUP_BG, flexShrink: 0 }} />
 
             {/* Grey scrollbar gutter — 29px */}
-            <div style={{ width: 29, background: "#989898", flexShrink: 0 }} />
+            <div style={{ width: 29, background: COLOR_GUTTER_BG, flexShrink: 0 }} />
 
             {/* Strip list — scrollable */}
-            <div className="flex-1 overflow-y-auto flex flex-col" style={{ gap: 2, background: "#D5D5D5" }}>
+            <div className="flex-1 overflow-y-auto flex flex-col" style={{ gap: 2, background: COLOR_POPUP_BG }}>
               {sortedStrips.map(strip => (
                 <div
                   key={strip.callsign}
                   className="cursor-pointer shrink-0"
-                  style={{ background: "#BEF5EF", height: 45, overflow: "hidden" }}
+                  style={{ background: COLOR_ARR_STRIP_BG, height: 45, overflow: "hidden" }}
                   onClick={() => onRowClick(strip)}
                 >
                   <Strip strip={strip} status="PUSH" myPosition={myPosition} selectable={false} fullWidth={true} />
@@ -164,7 +175,7 @@ export function StripListPopup<T extends FrontendStrip>({
           className="p-0 overflow-hidden"
           style={{
             width: 299,
-            background: "#B3B3B3",
+            background: COLOR_BTN_BG,
             border: "1px solid black",
             borderRadius: 0,
           }}
@@ -178,7 +189,7 @@ export function StripListPopup<T extends FrontendStrip>({
                 style={{
                   height: 55,
                   width: 210,
-                  background: pendingSortKey === mode.key ? "#1BFF16" : "#D6D6D6",
+                  background: pendingSortKey === mode.key ? COLOR_SORT_SELECTED : COLOR_SORT_BTN_BG,
                   color: "black",
                   fontFamily: "Rubik, sans-serif",
                   fontWeight: 700,
@@ -197,7 +208,7 @@ export function StripListPopup<T extends FrontendStrip>({
                 style={{
                   width: 99,
                   height: 55,
-                  background: "#3F3F3F",
+                  background: COLOR_DARK_BTN,
                   color: "white",
                   fontFamily: "Rubik, sans-serif",
                   fontWeight: 700,
@@ -214,7 +225,7 @@ export function StripListPopup<T extends FrontendStrip>({
                 style={{
                   width: 99,
                   height: 55,
-                  background: "#3F3F3F",
+                  background: COLOR_DARK_BTN,
                   color: "white",
                   fontFamily: "Rubik, sans-serif",
                   fontWeight: 700,

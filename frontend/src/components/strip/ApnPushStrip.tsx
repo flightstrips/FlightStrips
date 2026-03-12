@@ -5,22 +5,29 @@ import {
   getFramedStripStyle,
   getCellBorderColor,
   SELECTION_COLOR,
+  FONT,
+  COLOR_ARR_STRIP_BG,
 } from "./shared";
 import { SIBox } from "./SIBox";
 import { useStripTransfers } from "@/store/store-hooks";
 import { PushbackMapDialog } from "@/components/map-dialogs/PushbackMapDialog";
 
-const FONT = "'Arial', sans-serif";
+/** Blue text colour for the holding-point release label. */
+const COLOR_HP_TEXT = "#1D4ED8"; // Tailwind blue-700
+
+// Height: 45px fixed (intentional — matches APN push strip spec)
 const HALF_H = "2.22vh";    // half of 4.44vh for TSAT/CTOT split
 const TOP_H  = "2.96vh";    // 2/3 of 4.44vh
 const BOT_H  = "1.48vh";    // 1/3 of 4.44vh
 
-// Flex-grow proportions (flex-basis: 0 so space is shared proportionally)
-const F_CALLSIGN = 25;
-const F_TYPE     = 25 * (2 / 3);            // ~16.67
-const F_STAND    = 25 * (2 / 3);            // ~16.67
-const F_TSAT     = 25 * (2 / 3);            // ~16.67
-const F_RWY      = 25 * (2 / 3) * (2 / 3); // ~11.11
+// Flex-grow proportions (flex-basis: 0 so space is shared proportionally).
+// Base flex unit. Each cell is a fraction of this base.
+const F_BASE     = 25;
+const F_CALLSIGN = F_BASE;                   // full width
+const F_TYPE     = F_BASE * (2 / 3);         // 2/3 of callsign width  ~16.67
+const F_STAND    = F_BASE * (2 / 3);         // 2/3 of callsign width  ~16.67
+const F_TSAT     = F_BASE * (2 / 3);         // 2/3 of callsign width  ~16.67
+const F_RWY      = F_BASE * (2 / 3) * (2 / 3); // 4/9 of callsign width ~11.11
 
 /**
  * ApnPushStrip — APNPUSH strip for STARTUP, PUSH BACK and DE-ICE bays (status="PUSH").
@@ -56,13 +63,13 @@ export function ApnPushStrip({
     <div
       className={`select-none${selectable ? " cursor-pointer" : ""}`}
       style={{
-        height: 45,
+        height: 45, // 45px fixed — intentional APN push strip height
         width: fullWidth ? "100%" : "90%",
         ...getFramedStripStyle(marked),
       }}
       onClick={handleClick}
     >
-      <div className="flex text-black" style={{ height: "100%", overflow: "hidden", backgroundColor: "#bef5ef" }}>
+      <div className="flex text-black" style={{ height: "100%", overflow: "hidden", backgroundColor: COLOR_ARR_STRIP_BG }}>
         {/* SI / ownership — 8% */}
         <SIBox
           callsign={callsign}
@@ -102,7 +109,7 @@ export function ApnPushStrip({
           onClick={(e) => { e.stopPropagation(); setPushbackOpen(true); }}
         >
           {holdingPoint ? (
-            <span style={{ fontFamily: FONT, fontWeight: 600, fontSize: 20, color: "#1D4ED8" }}>
+            <span style={{ fontFamily: FONT, fontWeight: 600, fontSize: 20, color: COLOR_HP_TEXT }}>
               {holdingPoint}
             </span>
           ) : (

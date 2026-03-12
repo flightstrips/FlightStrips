@@ -4,13 +4,19 @@ import * as VisuallyHidden from "@radix-ui/react-visually-hidden";
 import { useDragDisabled } from "@/components/bays/DragDisabledContext";
 import type { ClickPoint } from "@/config/ekch";
 
+// Map dialog color constants (used in CSSProperties style objects)
+const COLOR_MAP_BTN_BG    = "#D6D6D6"; // light grey button background
+const COLOR_MAP_BTN_DARK  = "#3F3F3F"; // dark button (OK/ERASE)
+const COLOR_MAP_INPUT_BG  = "#D6D6D6"; // text input background (same as button)
+const COLOR_DIALOG_BORDER = "#888";    // dialog shell border
+
 /** Shared button base — each dialog extends this with its own width/height/fontSize. */
 // eslint-disable-next-line react-refresh/only-export-components
 export const MAP_BTN_BASE: React.CSSProperties = {
-  backgroundColor: "#D6D6D6",
+  backgroundColor: COLOR_MAP_BTN_BG,
   fontFamily: "Arial, sans-serif",
   fontWeight: "bold",
-  color: "#000",
+  color: "black",
   border: "none",
   cursor: "pointer",
   display: "flex",
@@ -28,7 +34,7 @@ const DIALOG_CONTENT_STYLE: React.CSSProperties = {
   top: "50%",
   transform: "translateY(-50%)",
   zIndex: 51,
-  border: "1px solid #888",
+  border: `1px solid ${COLOR_DIALOG_BORDER}`,
   outline: "none",
   overflow: "hidden",
   maxHeight: "calc(100vh - 20px)",
@@ -63,7 +69,7 @@ export function MapEraseControls({ onOk, onErase, btnStyle, maxLength = 6 }: Map
       <div style={{ display: "flex", gap: 5, alignItems: "center" }}>
         <button
           onClick={() => { setTyped(""); onErase?.(); }}
-          style={{ ...btnStyle, width: 90, backgroundColor: "#3F3F3F", color: "#FFF" }}
+          style={{ ...btnStyle, width: 90, backgroundColor: COLOR_MAP_BTN_DARK, color: "white" }}
         >
           ERASE
         </button>
@@ -84,13 +90,13 @@ export function MapEraseControls({ onOk, onErase, btnStyle, maxLength = 6 }: Map
             outline: "none",
             margin: 0,
             padding: 0,
-            backgroundColor: "#D6D6D6",
+            backgroundColor: COLOR_MAP_INPUT_BG,
             textTransform: "uppercase",
           }}
         />
       </div>
       <div style={{ display: "flex", justifyContent: "flex-end", gap: 5 }}>
-        <button onClick={handleOk} style={{ ...btnStyle, backgroundColor: "#3F3F3F", color: "#FFF", width: 80 }}>
+        <button onClick={handleOk} style={{ ...btnStyle, backgroundColor: COLOR_MAP_BTN_DARK, color: "white", width: 80 }}>
           OK
         </button>
       </div>

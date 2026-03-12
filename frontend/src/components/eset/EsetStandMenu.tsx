@@ -4,6 +4,10 @@ import { Button } from "@/components/ui/button";
 import { formatTimeLabel } from "@/components/eset/metadata";
 import type { FrontendStrip } from "@/api/models";
 
+// Tailwind class constants (hex must be literal strings for JIT)
+const CLS_POPUP   = "absolute w-[190px] border border-black bg-[#B3B3B3] p-2 shadow-2xl";
+const CLS_CDM_TAG = CLS_CDM_TAG; // CDM green for TOBT/TSAT tags
+
 export interface EsetMenuAnchor {
   top: number;
   left: number;
@@ -81,7 +85,7 @@ export default function EsetStandMenu({
   return (
     <div className="fixed inset-0 z-40" onMouseDown={onClose}>
       <div
-        className="absolute w-[190px] border border-black bg-[#B3B3B3] p-2 shadow-2xl"
+        className={CLS_POPUP}
         style={position}
         onMouseDown={(event) => event.stopPropagation()}
       >
@@ -89,8 +93,8 @@ export default function EsetStandMenu({
           <div className="bg-white px-2 py-1 text-center text-lg">{strip.stand}</div>
           <div className="mt-1 bg-white px-2 py-1 text-center text-lg">{strip.callsign}</div>
           <div className="mt-1 grid grid-cols-2 gap-1 text-xs font-semibold">
-            <div className="bg-[#2CBB00] px-2 py-1 text-center">TOBT {formatTimeLabel(strip.tobt)}</div>
-            <div className="bg-[#2CBB00] px-2 py-1 text-center">TSAT {formatTimeLabel(strip.tsat)}</div>
+            <div className=CLS_CDM_TAG>TOBT {formatTimeLabel(strip.tobt)}</div>
+            <div className=CLS_CDM_TAG>TSAT {formatTimeLabel(strip.tsat)}</div>
           </div>
           <Button
             variant="trf"

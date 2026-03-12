@@ -5,6 +5,24 @@ import {useClearedStrips, useNorwegianBayStrips, useOtherBayStrips, usePushbackS
 import type {FrontendStrip} from "@/api/models.ts";
 import { useMessages, useMyPosition } from "@/store/store-hooks.ts";
 import { useState } from "react";
+import { CLS_BTN, CLS_SCROLLBAR } from "@/components/strip/shared";
+
+// Column widths — all four columns are equal
+const W_COL = "w-1/4";
+const col         = `${W_COL} h-full bg-[#555355]`; // column wrapper (no flex-col; each column manages its own layout)
+const pageWrapper = "bg-[#A9A9A9] w-screen h-[calc(100vh-4rem)] flex justify-center justify-items-center gap-2 aspect-video";
+
+// Header class strings
+const lockedHeader  = "bg-[#393939] h-10 flex items-center px-2 justify-between";
+const lockedLabel   = "text-white font-bold text-lg";
+const activeHeader  = "bg-[#b3b3b3] h-10 flex items-center px-2 justify-between";
+const activeLabel   = "text-[#393939] font-bold text-lg";
+const primaryHeader = "bg-primary h-10 flex items-center px-2 justify-between";
+const primaryLabel  = "text-gray-100 font-bold text-lg";
+
+// Scroll container classes
+const scrollArea    = `w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto ${CLS_SCROLLBAR}`;
+const scrollAreaRaw = `w-full bg-[#555355] overflow-y-auto ${CLS_SCROLLBAR}`;
 
 export default function DEL() {
   const myPosition = useMyPosition();
@@ -32,84 +50,67 @@ export default function DEL() {
 
   return (
     <>
-      <div className="bg-[#A9A9A9] w-screen h-[calc(100vh-4rem)] flex justify-center justify-items-center gap-2 aspect-video">
-        <div className="w-1/4 h-full bg-[#555355]">
-          <div className="bg-[#393939] h-10 flex items-center px-2 justify-between">
-            <span className="text-white font-bold text-lg">
-              OTHERS
-            </span>
+      <div className={pageWrapper}>
+        <div className={col}>
+          <div className={lockedHeader}>
+            <span className={lockedLabel}>OTHERS</span>
             <span className="flex gap-2">
-              <button className="bg-[#646464] text-white font-bold text-lg px-4 border-2 border-white active:bg-[#424242]">
-                NEW
-              </button>
-              <button className="bg-[#646464] text-white font-bold text-lg px-4 border-2 border-white active:bg-[#424242]">
-                PLANNED
-              </button>
+              <button className={CLS_BTN}>NEW</button>
+              <button className={CLS_BTN}>PLANNED</button>
             </span>
           </div>
-          <div className="h-[calc(100%-2.5rem)] w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary">
+          <div className={`h-[calc(100%-2.5rem)] ${scrollArea}`}>
             {otherStrips.map(strip => mapToStrip(strip, "CLR"))}
           </div>
         </div>
-        <div className="w-1/4 h-full bg-[#555355]">
-          <div className="bg-[#393939] h-10 flex items-center px-2 justify-between">
-            <span className="text-white font-bold text-lg">
-              SAS
-            </span>
+        <div className={col}>
+          <div className={lockedHeader}>
+            <span className={lockedLabel}>SAS</span>
           </div>
-          <div className="h-[calc(67%-2.5rem)] w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary">
+          <div className={`h-[calc(67%-2.5rem)] ${scrollArea}`}>
             {sasStrips.map(strip => mapToStrip(strip, "CLR"))}
           </div>
-          <div className="bg-[#393939] h-10 flex items-center px-2 justify-between">
-            <span className="text-white font-bold text-lg">
-              NORWEGIAN
-            </span>
+          <div className={lockedHeader}>
+            <span className={lockedLabel}>NORWEGIAN</span>
           </div>
-          <div className="h-[calc(33%-2.5rem)] w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary">
+          <div className={`h-[calc(33%-2.5rem)] ${scrollArea}`}>
             {norgewianStrips.map(strip => mapToStrip(strip, "CLR"))}
           </div>
         </div>
-        <div className="w-1/4 h-full bg-[#555355]">
-          <div className="bg-[#393939] h-10 flex items-center px-2 justify-between">
-            <span className="text-gray-100 font-bold text-lg">
-              CLEARED
-            </span>
+        <div className={col}>
+          <div className={lockedHeader}>
+            <span className={primaryLabel}>CLEARED</span>
           </div>
-          <div className="h-[calc(67%-2.5rem)] w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary">
+          <div className={`h-[calc(67%-2.5rem)] ${scrollArea}`}>
             {cleared.map(strip => mapToStrip(strip, "CLROK"))}
           </div>
-          <div className="bg-primary h-10 flex items-center px-2 justify-between">
-            <span className="text-gray-100 font-bold text-lg">MESSAGES</span>
-            <button className="bg-[#646464] text-white font-bold text-sm px-3 border-2 border-white active:bg-[#424242]" onClick={() => setComposeOpen(true)}>FREE TEXT</button>
+          <div className={primaryHeader}>
+            <span className={primaryLabel}>MESSAGES</span>
+            <button className={CLS_BTN} onClick={() => setComposeOpen(true)}>FREE TEXT</button>
           </div>
-          <div className="h-[calc(33%-6rem)] w-full bg-[#555355] overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary">
+          <div className={`h-[calc(33%-6rem)] ${scrollAreaRaw}`}>
             {messages.map(msg => (
               <MessageStrip key={msg.id} msg={msg} />
             ))}
           </div>
           <MessageComposeDialog open={composeOpen} onClose={() => setComposeOpen(false)} />
         </div>
-        <div className="w-1/4 h-full bg-[#555355]">
-          <div className="bg-[#b3b3b3] h-10 flex items-center px-2 justify-between">
-            <span className="text-[#393939] font-bold text-lg">
-              PUSHBACK
-            </span>
+        <div className={col}>
+          <div className={activeHeader}>
+            <span className={activeLabel}>PUSHBACK</span>
           </div>
-          <div className="h-2/5 w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary">
+          <div className={`h-2/5 ${scrollArea}`}>
             {pushback.map(strip => mapToHalfStrip(strip))}
-
           </div>
-          <div className="bg-[#b3b3b3] h-10 flex items-center px-2 justify-between">
-            <span className="text-[#393939] font-bold text-lg">
-              TWY DEP
-            </span>
+          <div className={activeHeader}>
+            <span className={activeLabel}>TWY DEP</span>
           </div>
-          <div className="h-[calc(60%-5rem)] w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary">
+          <div className={`h-[calc(60%-5rem)] ${scrollArea}`}>
             {taxidep.map(strip => mapToHalfStrip(strip))}
           </div>
         </div>
       </div>
-      
+
     </>
   );
 }

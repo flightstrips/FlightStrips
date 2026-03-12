@@ -6,12 +6,12 @@ import {
   getFramedStripStyle,
   getCellBorderColor,
   SELECTION_COLOR,
+  FONT,
+  CLS_CALLSIGN_ACTIVE,
 } from "./shared";
 import { useWebSocketStore } from "@/store/store-hooks";
 import { useCDMColors } from "@/hooks/useCDMColors";
 import { Bay } from "@/api/models";
-
-const FONT = "'Arial', sans-serif";
 const FULL_H  = "4.44vh";
 const HALF_H  = "2.22vh";
 
@@ -38,7 +38,7 @@ export function DelStrip({
 }: StripProps) {
   const { isSelected, handleClick } = useStripSelection(callsign, selectable);
   const isNavyBg = pdcStatus === "CLEARED";
-  const cellBorderColor = isNavyBg ? "#FFFFFF" : getCellBorderColor(marked);
+  const cellBorderColor = isNavyBg ? "white" : getCellBorderColor(marked);
   const cdmReady = useWebSocketStore(s => s.cdmReady);
   const { tobtBg, tsatBg } = useCDMColors({ bay: bay ?? Bay.Unknown, tsat: tsat ?? "", tobt: tobt ?? "" });
 
@@ -61,7 +61,7 @@ export function DelStrip({
 
         {/* Callsign — 2/3 of left half */}
         <button
-          className="flex items-center justify-start overflow-hidden active:bg-[#F237AA] border-r-2"
+          className={`flex items-center justify-start overflow-hidden ${CLS_CALLSIGN_ACTIVE} border-r-2`}
           style={{ flex: "2 0 0%", height: "100%", minWidth: 0, fontFamily: FONT, fontWeight: "bold", fontSize: 24, textAlign: "left", paddingLeft: "4px", borderRightColor: cellBorderColor, backgroundColor: isSelected ? SELECTION_COLOR : undefined }}
         >
           <span className="truncate w-full">{callsign}</span>

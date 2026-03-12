@@ -6,6 +6,9 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { useAirport, useMetar } from "@/store/store-hooks"
+import { CLS_CMDBTN } from "@/components/strip/shared";
+
+const CLS_DIALOG = "bg-[#e4e4e4] w-[42rem] border-4 border-primary"; // ATIS dialog — light grey
 
 export default function ATIS() {
     const airport = useAirport();
@@ -14,11 +17,11 @@ export default function ATIS() {
     return (
         <Dialog>
         <DialogTrigger asChild>
-            <button className="bg-[#646464] text-xl font-bold p-2 border-2">
+            <button className={CLS_CMDBTN}>
                 ATIS
             </button>
         </DialogTrigger>
-        <DialogContent className="bg-[#e4e4e4] w-[42rem] border-4 border-primary">
+        <DialogContent className={CLS_DIALOG}>
           <DialogHeader>
             <DialogTitle className="text-primary font-semibold text-xl">
               METAR — {airport || "EKCH"}

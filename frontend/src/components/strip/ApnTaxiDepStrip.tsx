@@ -5,14 +5,14 @@ import {
   getFramedStripStyle,
   getCellBorderColor,
   SELECTION_COLOR,
+  FONT,
+  COLOR_ARR_STRIP_BG,
 } from "./shared";
 import { SIBox } from "./SIBox";
 import { getSimpleAircraftType } from "@/lib/utils";
 import { useStripTransfers } from "@/store/store-hooks";
 import { ApronTaxiMapDialog } from "@/components/map-dialogs/ApronTaxiMapDialog";
 import { useCTOTColor } from "@/hooks/useCTOTColor";
-
-const FONT = "'Arial', sans-serif";
 const TOP_H  = "2.96vh";  // 2/3 of 4.44vh
 const BOT_H  = "1.48vh";  // 1/3 of 4.44vh
 const HALF_H = "calc(2.22vh - 3px)";  // 1/2 of inner content height (4.44vh - 2px border - 1px padding each side)
@@ -68,7 +68,7 @@ export function ApnTaxiDepStrip({
       }}
       onClick={handleClick}
     >
-      <div className="flex text-black" style={{ height: "100%", overflow: "hidden", backgroundColor: "#bef5ef" }}>
+      <div className="flex text-black" style={{ height: "100%", overflow: "hidden", backgroundColor: COLOR_ARR_STRIP_BG }}>
 
         {/* SI / ownership — 8% */}
         <SIBox

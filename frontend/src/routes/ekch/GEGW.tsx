@@ -21,11 +21,21 @@ import { useWebSocketStore, useMyPosition, useMessages, useDelOnline, useApronOn
 import { StripListPopup, type SortMode } from "@/components/StripListPopup.tsx";
 import { useState } from "react";
 import { CLX_CLEARED_STRIP_WIDTH } from "@/components/strip/ClxClearedStrip.tsx";
+import { CLS_BTN, CLS_SCROLLBAR, CLS_COL } from "@/components/strip/shared";
 
+// Column widths
+const W_COL_ARR      = "w-[27%]";
+const W_COL_DEP      = "w-[28%]";
+const W_COL_CLRDEL   = "w-1/4";
+const W_COL_STAND    = "w-1/5";
+
+const pageWrapper  = "bg-[#A9A9A9] w-screen h-[calc(100vh-4rem)] flex justify-center justify-items-center gap-2";
 const activeHeader = "bg-[#b3b3b3] h-10 flex items-center px-2 shrink-0";
 const activeLabel  = "text-[#393939] font-bold text-lg";
 const lockedHeader = "bg-[#393939] h-10 flex items-center px-2 shrink-0";
 const lockedLabel  = "text-white font-bold text-lg";
+const scrollArea   = `w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto ${CLS_SCROLLBAR}`;
+const darkScrollArea = `w-full bg-[#212121] p-1 flex flex-col gap-px overflow-y-auto ${CLS_SCROLLBAR}`;
 
 export default function GEGW() {
   const myPosition = useMyPosition();
@@ -91,51 +101,51 @@ export default function GEGW() {
         return null;
       }}
     >
-    <div className="bg-[#A9A9A9] w-screen h-[calc(100vh-4rem)] flex justify-center justify-items-center gap-2">
+    <div className={pageWrapper}>
 
       {/* Column 1 (27%) – MESSAGES + FINAL + RWY ARR + TWY ARR */}
-      <div className="w-[27%] h-full bg-[#555355] flex flex-col">
+      <div className={`${W_COL_ARR} ${CLS_COL}`}>
         <div className="bg-primary h-10 flex items-center px-2 shrink-0 justify-between">
           <span className="text-white font-bold text-lg">MESSAGES</span>
-          <button className="bg-[#646464] text-white font-bold text-sm px-3 border-2 border-white active:bg-[#424242]" onClick={() => setComposeOpen(true)}>FREE TEXT</button>
+          <button className={CLS_BTN} onClick={() => setComposeOpen(true)}>FREE TEXT</button>
         </div>
-        <div className="h-[15%] w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary">
+        <div className={`h-[15%] ${scrollArea}`}>
           {messages.map(msg => (
             <MessageStrip key={msg.id} msg={msg} />
           ))}
         </div>
         <MessageComposeDialog open={composeOpen} onClose={() => setComposeOpen(false)} />
 
-        <div className="bg-[#393939] h-10 flex items-center px-2 shrink-0 justify-between">
-          <span className="text-white font-bold text-lg">FINAL</span>
-          <button className="bg-[#646464] text-white font-bold text-sm px-3 border-2 border-white active:bg-[#424242]" onClick={() => setArrOpen(true)}>ARR</button>
+        <div className={`${lockedHeader} justify-between`}>
+          <span className={lockedLabel}>FINAL</span>
+          <button className={CLS_BTN} onClick={() => setArrOpen(true)}>ARR</button>
         </div>
-        <DropIndicatorBay bayId="FINAL" className="h-[25%] w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary">
+        <DropIndicatorBay bayId="FINAL" className={`h-[25%] ${scrollArea}`}>
           {finalStrips.filter(isFlight).map(s => (
             <Strip key={s.callsign} strip={s} status="FINAL-ARR" selectable={false} myPosition={myPosition} />
           ))}
         </DropIndicatorBay>
 
-        <div className="bg-[#393939] h-10 flex items-center px-2 shrink-0">
-          <span className="text-white font-bold text-lg">RWY ARR</span>
+        <div className={lockedHeader}>
+          <span className={lockedLabel}>RWY ARR</span>
         </div>
-        <DropIndicatorBay bayId="RWY-ARR" className="h-[20%] w-full bg-[#212121] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary">
+        <DropIndicatorBay bayId="RWY-ARR" className={`h-[20%] ${darkScrollArea}`}>
           {rwyArrStrips.filter(isFlight).map(s => (
             <Strip key={s.callsign} strip={s} status="FINAL-ARR" selectable={false} myPosition={myPosition} />
           ))}
         </DropIndicatorBay>
 
         {/* TWY ARR is SI-only; no manual drag */}
-        <div className="bg-[#393939] h-10 flex items-center px-2 shrink-0 justify-between">
-          <span className="text-white font-bold text-lg">TWY ARR</span>
+        <div className={`${lockedHeader} justify-between`}>
+          <span className={lockedLabel}>TWY ARR</span>
           <span className="flex gap-1">
-            <MemAidButton bay={Bay.Taxi} className="bg-[#646464] text-white font-bold text-sm px-3 border-2 border-white active:bg-[#424242]" />
-            <CrossingButton bay={Bay.Taxi} className="bg-[#646464] text-white font-bold text-sm px-3 border-2 border-white active:bg-[#424242]" />
-            <StartButton bay={Bay.Taxi} className="bg-[#646464] text-white font-bold text-sm px-3 border-2 border-white active:bg-[#424242]" />
-            <LandButton bay={Bay.Taxi} className="bg-[#646464] text-white font-bold text-sm px-3 border-2 border-white active:bg-[#424242]" />
+            <MemAidButton bay={Bay.Taxi} className={CLS_BTN} />
+            <CrossingButton bay={Bay.Taxi} className={CLS_BTN} />
+            <StartButton bay={Bay.Taxi} className={CLS_BTN} />
+            <LandButton bay={Bay.Taxi} className={CLS_BTN} />
           </span>
         </div>
-        <DropIndicatorBay bayId="TWY-ARR" className="flex-1 w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary">
+        <DropIndicatorBay bayId="TWY-ARR" className={`flex-1 ${scrollArea}`}>
           {twyArrStrips.filter(isFlight).map(s => (
             <Strip key={s.callsign} strip={s} status="FINAL-ARR" myPosition={myPosition} />
           ))}
@@ -158,49 +168,49 @@ export default function GEGW() {
       </div>
 
       {/* Column 2 (28%) – PUSHBACK + TWY DEP UPR + TWY DEP LWR (all draggable) */}
-      <div className="w-[28%] h-full bg-[#555355] flex flex-col">
-        <div className="bg-[#b3b3b3] h-10 flex items-center px-2 shrink-0">
-          <span className="text-[#393939] font-bold text-lg">PUSHBACK</span>
+      <div className={`${W_COL_DEP} ${CLS_COL}`}>
+        <div className={activeHeader}>
+          <span className={activeLabel}>PUSHBACK</span>
         </div>
         <SortableBay
           strips={pushStrips}
           bayId="PUSHBACK"
           standalone={false}
-          className="h-[20%] w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary"
+          className={`h-[20%] ${scrollArea}`}
         >
           {(strip) => (
             <Strip strip={strip} status="HALF" halfStripVariant="APN-PUSH" myPosition={myPosition} selectable={true} />
           )}
         </SortableBay>
 
-        <div className="bg-[#b3b3b3] h-10 flex items-center px-2 shrink-0 justify-between">
-          <span className="text-[#393939] font-bold text-lg">TWY DEP UPR</span>
+        <div className={`${activeHeader} justify-between`}>
+          <span className={activeLabel}>TWY DEP UPR</span>
           <span className="flex gap-1">
-            <MemAidButton bay={Bay.Taxi} className="bg-[#646464] text-white font-bold text-sm px-3 border-2 border-white active:bg-[#424242]" />
-            <CrossingButton bay={Bay.Taxi} className="bg-[#646464] text-white font-bold text-sm px-3 border-2 border-white active:bg-[#424242]" />
-            <StartButton bay={Bay.Taxi} className="bg-[#646464] text-white font-bold text-sm px-3 border-2 border-white active:bg-[#424242]" />
-            <LandButton bay={Bay.Taxi} className="bg-[#646464] text-white font-bold text-sm px-3 border-2 border-white active:bg-[#424242]" />
+            <MemAidButton bay={Bay.Taxi} className={CLS_BTN} />
+            <CrossingButton bay={Bay.Taxi} className={CLS_BTN} />
+            <StartButton bay={Bay.Taxi} className={CLS_BTN} />
+            <LandButton bay={Bay.Taxi} className={CLS_BTN} />
           </span>
         </div>
         <SortableBay
           strips={twyDepMerged}
           bayId="TWY-DEP-UPR"
           standalone={false}
-          className="h-[35%] w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary"
+          className={`h-[35%] ${scrollArea}`}
         >
           {(strip) => (
             <Strip strip={strip} status="CLROK" myPosition={myPosition} width={CLX_CLEARED_STRIP_WIDTH} selectable={true} />
           )}
         </SortableBay>
 
-        <div className="bg-[#b3b3b3] h-10 flex items-center px-2 shrink-0">
-          <span className="text-[#393939] font-bold text-lg">TWY DEP LWR</span>
+        <div className={activeHeader}>
+          <span className={activeLabel}>TWY DEP LWR</span>
         </div>
         <SortableBay
           strips={twyDepMerged}
           bayId="TWY-DEP-LWR"
           standalone={false}
-          className="flex-1 w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary"
+          className={`flex-1 ${scrollArea}`}
         >
           {(strip) => (
             <Strip strip={strip} status="CLROK" myPosition={myPosition} width={CLX_CLEARED_STRIP_WIDTH} selectable={true} />
@@ -209,11 +219,11 @@ export default function GEGW() {
       </div>
 
       {/* Column 3 (25%) – CLRDEL: active when CTWR owns clearances (no DEL, no APRON online) */}
-      <div className="w-1/4 h-full bg-[#555355] flex flex-col">
+      <div className={`${W_COL_CLRDEL} ${CLS_COL}`}>
         <div className={clrDelActive ? activeHeader : lockedHeader}>
           <span className={clrDelActive ? activeLabel : lockedLabel}>CLRDEL</span>
         </div>
-        <div className="flex-1 w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary">
+        <div className={`flex-1 ${scrollArea}`}>
           {clrDelActive && nonClearedStrips.map(s => (
             <Strip key={s.callsign} strip={s} status="CLR" selectable={false} myPosition={myPosition} />
           ))}
@@ -221,15 +231,15 @@ export default function GEGW() {
       </div>
 
       {/* Column 4 (20%) – STAND (draggable) */}
-      <div className="w-1/5 h-full bg-[#555355] flex flex-col">
-        <div className="bg-[#393939] h-10 flex items-center px-2 shrink-0">
-          <span className="text-white font-bold text-lg">STAND</span>
+      <div className={`${W_COL_STAND} ${CLS_COL}`}>
+        <div className={lockedHeader}>
+          <span className={lockedLabel}>STAND</span>
         </div>
         <SortableBay
           strips={standStrips}
           bayId="STAND"
           standalone={false}
-          className="flex-1 w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary"
+          className={`flex-1 ${scrollArea}`}
         >
           {(strip) => (
             <Strip strip={strip} status="CLROK" myPosition={myPosition} selectable={true} />

@@ -7,6 +7,10 @@ import type { EsetMenuAnchor } from "@/components/eset/EsetStandMenu";
 
 const MENU_WIDTH = 190;
 
+// Tailwind class constants (hex must be literal strings for JIT)
+const CLS_POPUP     = "absolute w-[190px] border border-black bg-[#B3B3B3] p-2 shadow-2xl";
+const CLS_LIST_BTN  = "w-full border-b border-black/10 px-2 py-1.5 text-left hover:bg-[#e7e7e7]";
+
 interface EsetStandStatusDialogProps {
   open: boolean;
   stand: string;
@@ -72,7 +76,7 @@ export default function EsetStandStatusDialog({
   return (
     <div className="fixed inset-0 z-40" onMouseDown={onClose}>
       <div
-        className="absolute w-[190px] border border-black bg-[#B3B3B3] p-2 shadow-2xl"
+        className={CLS_POPUP}
         style={position}
         onMouseDown={(event) => event.stopPropagation()}
       >
@@ -107,7 +111,7 @@ export default function EsetStandStatusDialog({
                 <button
                   key={plannedStrip.callsign}
                   type="button"
-                  className="w-full border-b border-black/10 px-2 py-1.5 text-left hover:bg-[#e7e7e7]"
+                  className={CLS_LIST_BTN}
                   onClick={() => onAssignPlannedDeparture(plannedStrip)}
                 >
                   {plannedStrip.callsign} — {plannedStrip.aircraft_type || "—"} — {formatTimeLabel(plannedStrip.tobt)}

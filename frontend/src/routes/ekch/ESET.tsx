@@ -16,6 +16,9 @@ import {
 import { useNonClearedStrips } from "@/store/airports/ekch.ts";
 import { useWebSocketStore } from "@/store/store-hooks.ts";
 
+const PAGE_BG           = "bg-[#767676]";  // ESET uses a lighter panel grey than other views
+const COLOR_LABEL_DEFAULT = "#202020";       // default label color for ESET background boxes
+
 type ActionOverride = {
   callsign: string;
   blinking: boolean;
@@ -350,7 +353,7 @@ export default function ESET() {
   }
 
   return (
-    <div className="h-[calc(100vh-4rem)] w-full overflow-hidden bg-[#767676] px-2 py-1">
+    <div className={`h-[calc(100vh-4rem)] w-full overflow-hidden ${PAGE_BG} px-2 py-1`}>
       <div ref={boardFrameRef} className="relative h-full w-full overflow-hidden">
         <div
           className="absolute left-1/2 top-1/2"
@@ -379,7 +382,7 @@ export default function ESET() {
                   height: box.height,
                   borderRadius: box.radius ?? 0,
                   backgroundColor: box.fill,
-                  color: box.labelColor ?? "#202020",
+                  color: box.labelColor ?? COLOR_LABEL_DEFAULT,
                   fontSize: box.label ? 32 : undefined,
                 }}
               >

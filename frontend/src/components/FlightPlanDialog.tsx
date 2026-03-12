@@ -15,6 +15,22 @@ const FONT_SIZE_FIELD = 20;
 const FONT_SIZE_LABEL = 16;
 const FONT_SIZE_BUTTON = 24;
 
+// Tailwind class constants (hex must be literal strings for JIT)
+const CLS_DIALOG         = "bg-[#d4d4d4] rounded-none p-[25px] flex flex-col gap-0";
+const CLS_DIALOG_LABEL   = CLS_DIALOG_LABEL;
+const CLS_BTN_DISABLED      = CLS_BTN_DISABLED;
+const CLS_BTN_DISABLED_BDR  = CLS_BTN_DISABLED_BDR;
+const CLS_BTN_DISABLED_LEFT = CLS_BTN_DISABLED_LEFT;
+const CLS_BTN_DISABLED_NRM  = CLS_BTN_DISABLED_NRM;
+const CLS_BTN_EDITABLE      = "border border-black rounded-none bg-[#ededed] text-black font-bold h-[50px] text-center";
+const CLS_BTN_EDITABLE_LOCK = "border border-black rounded-none bg-[#ededed] text-black font-bold disabled:opacity-100 h-[50px] text-center select-none hover:bg-[#ededed]";
+const CLS_TEXTAREA_EDITABLE = "border border-black rounded-none bg-[#ededed] text-black font-normal text-center h-[80px] break-words resize-none w-full";
+const CLS_CLX_DIALOG        = "w-[360px] rounded-none border border-black bg-[#B3B3B3] p-4 text-black";
+const CLS_CLX_PANEL         = "border border-black bg-[#D6D6D6] p-4";
+// Style-prop color constants (used in CSSProperties, not Tailwind)
+const COLOR_DARK_BTN        = "#3F3F3F"; // dark ESC/CLD button
+const COLOR_REVERT_BTN      = "#FFFB03"; // yellow revert-to-voice button
+
 function useEditableField(value: string | number | undefined | null) {
   const [fieldValue, setFieldValue] = useState(value?.toString() ?? "");
   const [focused, setFocused] = useState(false);
@@ -67,7 +83,7 @@ export default function FlightPlanDialog({
       {children ? <DialogTrigger asChild>{children}</DialogTrigger> : null}
       {strip ? (
         <DialogContent
-          className="bg-[#d4d4d4] rounded-none p-[25px] flex flex-col gap-0"
+          className={CLS_DIALOG}
           style={{ width: 1000, maxWidth: 1000, height: 925, maxHeight: 925 }}
         >
           <VisuallyHidden.Root>
@@ -75,10 +91,10 @@ export default function FlightPlanDialog({
           </VisuallyHidden.Root>
           <div
             className="relative border-2 border-black flex-1 flex flex-col items-center gap-[30px] min-h-0"
-            style={{ paddingTop: 30, paddingBottom: 30, color: "#000" }}
+            style={{ paddingTop: 30, paddingBottom: 30, color: "black" }}
           >
           <span
-            className="absolute font-bold text-base bg-[#d4d4d4] px-2"
+            className=CLS_DIALOG_LABEL
             style={{ top: -11, left: "50%", transform: "translateX(-50%)", whiteSpace: "nowrap" }}
           >
             FLIGHT PLAN
@@ -90,7 +106,7 @@ export default function FlightPlanDialog({
               <Input
                 value={strip.callsign}
                 disabled
-                className="border-black rounded-none disabled:bg-[#9e989c] text-black font-bold disabled:opacity-100 text-center h-[50px]"
+                className=CLS_BTN_DISABLED
                 style={{ width: 180, fontFamily: FONT_FAMILY, fontSize: FONT_SIZE_FIELD }}
               />
             </div>
@@ -99,7 +115,7 @@ export default function FlightPlanDialog({
               <Input
                 value={strip.destination}
                 disabled
-                className="border-black rounded-none disabled:bg-[#9e989c] text-black font-bold disabled:opacity-100 text-center h-[50px]"
+                className=CLS_BTN_DISABLED
                 style={{ width: 100, fontFamily: FONT_FAMILY, fontSize: FONT_SIZE_FIELD }}
               />
             </div>
@@ -108,7 +124,7 @@ export default function FlightPlanDialog({
               <Input
                 value={strip.capabilities}
                 disabled
-                className="border-black rounded-none disabled:bg-[#9e989c] text-black font-bold disabled:opacity-100 text-center h-[50px]"
+                className=CLS_BTN_DISABLED
                 style={{ width: 75, fontFamily: FONT_FAMILY, fontSize: FONT_SIZE_FIELD }}
               />
             </div>
@@ -123,14 +139,14 @@ export default function FlightPlanDialog({
                   updateStrip(callsign, { sid });
                 }}
                 onKeyDown={(event) => event.key === "Enter" && updateStrip(callsign, { sid })}
-                className="border border-black rounded-none bg-[#ededed] text-black font-bold h-[50px] text-center"
+                className=CLS_BTN_EDITABLE
                 style={{ width: 150, fontFamily: FONT_FAMILY, fontSize: FONT_SIZE_FIELD }}
               />
             </div>
             <div className="grid items-center gap-[5px]">
               <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>SSR</Label>
               <Button
-                className="border border-black rounded-none bg-[#ededed] text-black font-bold disabled:opacity-100 h-[50px] text-center select-none hover:bg-[#ededed]"
+                className={CLS_BTN_EDITABLE_LOCK}
                 style={{ width: 100, fontFamily: FONT_FAMILY, fontSize: FONT_SIZE_FIELD }}
                 onClick={() => generateSquawk(callsign)}
               >
@@ -142,7 +158,7 @@ export default function FlightPlanDialog({
               <input
                 placeholder=""
                 disabled
-                className="border border-black rounded-none disabled:bg-[#9e989c] text-black font-bold disabled:opacity-100 text-center h-[50px]"
+                className=CLS_BTN_DISABLED_BDR
                 style={{ width: 100, fontFamily: FONT_FAMILY, fontSize: FONT_SIZE_FIELD }}
               />
             </div>
@@ -151,7 +167,7 @@ export default function FlightPlanDialog({
               <input
                 value={strip.ctot}
                 disabled
-                className="border border-black rounded-none disabled:bg-[#9e989c] text-black font-bold disabled:opacity-100 text-center h-[50px]"
+                className=CLS_BTN_DISABLED_BDR
                 style={{ width: 100, fontFamily: FONT_FAMILY, fontSize: FONT_SIZE_FIELD }}
               />
             </div>
@@ -170,7 +186,7 @@ export default function FlightPlanDialog({
                     updateStrip(callsign, { eobt });
                   }}
                   onKeyDown={(event) => event.key === "Enter" && updateStrip(callsign, { eobt })}
-                  className="border border-black rounded-none bg-[#ededed] text-black font-bold h-[50px] text-center"
+                  className=CLS_BTN_EDITABLE
                   style={{ width: 100, fontFamily: FONT_FAMILY, fontSize: FONT_SIZE_FIELD }}
                 />
               </div>
@@ -179,7 +195,7 @@ export default function FlightPlanDialog({
                 <Input
                   value={strip.tobt}
                   disabled
-                  className="border-black rounded-none disabled:bg-[#9e989c] text-black font-bold disabled:opacity-100 text-center h-[50px]"
+                  className=CLS_BTN_DISABLED
                   style={{ width: 100, fontFamily: FONT_FAMILY, fontSize: FONT_SIZE_FIELD }}
                 />
               </div>
@@ -188,7 +204,7 @@ export default function FlightPlanDialog({
                 <Input
                   value={strip.tsat}
                   disabled
-                  className="border-black rounded-none disabled:bg-[#9e989c] text-black font-bold disabled:opacity-100 text-center h-[50px]"
+                  className=CLS_BTN_DISABLED
                   style={{ width: 100, fontFamily: FONT_FAMILY, fontSize: FONT_SIZE_FIELD }}
                 />
               </div>
@@ -197,7 +213,7 @@ export default function FlightPlanDialog({
                 <Input
                   value={strip.runway}
                   disabled
-                  className="border-black rounded-none disabled:bg-[#9e989c] text-black font-bold disabled:opacity-100 text-center h-[50px]"
+                  className=CLS_BTN_DISABLED
                   style={{ width: 150, fontFamily: FONT_FAMILY, fontSize: FONT_SIZE_FIELD }}
                 />
               </div>
@@ -207,7 +223,7 @@ export default function FlightPlanDialog({
               <Input
                 value={strip.release_point}
                 disabled
-                className="border-black rounded-none disabled:bg-[#9e989c] text-black font-bold disabled:opacity-100 text-center h-[50px]"
+                className=CLS_BTN_DISABLED
                 style={{ width: 100, fontFamily: FONT_FAMILY, fontSize: FONT_SIZE_FIELD }}
               />
             </div>
@@ -219,7 +235,7 @@ export default function FlightPlanDialog({
               <Input
                 value={getSimpleAircraftType(strip.aircraft_type)}
                 disabled
-                className="border-black rounded-none disabled:bg-[#9e989c] text-black font-bold disabled:opacity-100 text-left pl-2 h-[50px]"
+                className=CLS_BTN_DISABLED_LEFT
                 style={{ width: 200, fontFamily: FONT_FAMILY, fontSize: FONT_SIZE_FIELD }}
               />
             </div>
@@ -228,7 +244,7 @@ export default function FlightPlanDialog({
               <Input
                 value={strip.requested_altitude ? Math.floor(strip.requested_altitude / 100).toString() : ""}
                 disabled
-                className="border-black rounded-none disabled:bg-[#9e989c] text-black font-bold disabled:opacity-100 text-left pl-2 h-[50px]"
+                className=CLS_BTN_DISABLED_LEFT
                 style={{ width: 100, fontFamily: FONT_FAMILY, fontSize: FONT_SIZE_FIELD }}
               />
             </div>
@@ -237,7 +253,7 @@ export default function FlightPlanDialog({
               <Input
                 defaultValue=""
                 disabled
-                className="border-black rounded-none disabled:bg-[#9e989c] text-black font-bold disabled:opacity-100 text-left pl-2 h-[50px]"
+                className=CLS_BTN_DISABLED_LEFT
                 style={{ width: 100, fontFamily: FONT_FAMILY, fontSize: FONT_SIZE_FIELD }}
               />
             </div>
@@ -246,7 +262,7 @@ export default function FlightPlanDialog({
               <Input
                 defaultValue=""
                 disabled
-                className="border-black rounded-none disabled:bg-[#9e989c] text-black font-bold disabled:opacity-100 text-center h-[50px]"
+                className=CLS_BTN_DISABLED
                 style={{ width: 420, fontFamily: FONT_FAMILY, fontSize: FONT_SIZE_FIELD }}
               />
             </div>
@@ -263,7 +279,7 @@ export default function FlightPlanDialog({
                 updateStrip(callsign, { route });
               }}
               onKeyDown={(event) => event.key === "Enter" && !event.shiftKey && updateStrip(callsign, { route })}
-              className="border border-black rounded-none bg-[#ededed] text-black font-normal text-center h-[80px] break-words resize-none w-full"
+              className={CLS_TEXTAREA_EDITABLE}
               style={{ fontFamily: FONT_FAMILY, fontSize: FONT_SIZE_FIELD }}
             />
           </div>
@@ -273,7 +289,7 @@ export default function FlightPlanDialog({
             <Input
               value={strip.remarks}
               disabled
-              className="border-black rounded-none disabled:bg-[#9e989c] text-black font-normal disabled:opacity-100 text-center h-[50px] w-full"
+              className={`${CLS_BTN_DISABLED_NRM} w-full`}
               style={{ fontFamily: FONT_FAMILY, fontSize: FONT_SIZE_FIELD }}
             />
           </div>
@@ -284,7 +300,7 @@ export default function FlightPlanDialog({
               <Input
                 defaultValue=""
                 disabled
-                className="border-black rounded-none disabled:bg-[#9e989c] text-black font-normal disabled:opacity-100 text-center h-[50px]"
+                className=CLS_BTN_DISABLED_NRM
                 style={{ width: 700, fontFamily: FONT_FAMILY, fontSize: FONT_SIZE_FIELD }}
               />
             </div>
@@ -293,7 +309,7 @@ export default function FlightPlanDialog({
               <Input
                 defaultValue=""
                 disabled
-                className="border-black rounded-none disabled:bg-[#9e989c] text-black font-bold disabled:opacity-100 text-center h-[50px]"
+                className=CLS_BTN_DISABLED
                 style={{ width: 130, fontFamily: FONT_FAMILY, fontSize: FONT_SIZE_FIELD }}
               />
             </div>
@@ -305,7 +321,7 @@ export default function FlightPlanDialog({
               <Input
                 defaultValue=""
                 disabled
-                className="border-black rounded-none disabled:bg-[#9e989c] text-black font-bold disabled:opacity-100 text-center h-[50px]"
+                className=CLS_BTN_DISABLED
                 style={{ width: 125, fontFamily: FONT_FAMILY, fontSize: FONT_SIZE_FIELD }}
               />
             </div>
@@ -320,7 +336,7 @@ export default function FlightPlanDialog({
                   updateStrip(callsign, { heading: hdg ? Number(hdg) : undefined });
                 }}
                 onKeyDown={(event) => event.key === "Enter" && updateStrip(callsign, { heading: hdg ? Number(hdg) : undefined })}
-                className="border border-black rounded-none bg-[#ededed] text-black font-bold h-[50px] text-center"
+                className=CLS_BTN_EDITABLE
                 style={{ width: 125, fontFamily: FONT_FAMILY, fontSize: FONT_SIZE_FIELD }}
               />
             </div>
@@ -335,7 +351,7 @@ export default function FlightPlanDialog({
                   updateStrip(callsign, { altitude: alt ? Number(alt) : undefined });
                 }}
                 onKeyDown={(event) => event.key === "Enter" && updateStrip(callsign, { altitude: alt ? Number(alt) : undefined })}
-                className="border border-black rounded-none bg-[#ededed] text-black font-bold h-[50px] text-center"
+                className=CLS_BTN_EDITABLE
                 style={{ width: 125, fontFamily: FONT_FAMILY, fontSize: FONT_SIZE_FIELD }}
               />
             </div>
@@ -344,7 +360,7 @@ export default function FlightPlanDialog({
               <Input
                 defaultValue=""
                 disabled
-                className="border-black rounded-none disabled:bg-[#9e989c] text-black font-bold disabled:opacity-100 text-center h-[50px]"
+                className=CLS_BTN_DISABLED
                 style={{ width: 125, fontFamily: FONT_FAMILY, fontSize: FONT_SIZE_FIELD }}
               />
             </div>
@@ -353,7 +369,7 @@ export default function FlightPlanDialog({
               <Input
                 defaultValue=""
                 disabled
-                className="border-black rounded-none disabled:bg-[#9e989c] text-black font-bold disabled:opacity-100 text-center h-[50px]"
+                className=CLS_BTN_DISABLED
                 style={{ width: 125, fontFamily: FONT_FAMILY, fontSize: FONT_SIZE_FIELD }}
               />
             </div>
@@ -369,8 +385,8 @@ export default function FlightPlanDialog({
               style={{
                 width: 125,
                 height: 70,
-                backgroundColor: "#3F3F3F",
-                color: "#FFFFFF",
+                backgroundColor: COLOR_DARK_BTN,
+                color: "white",
                 fontFamily: FONT_FAMILY,
                 fontWeight: "bold",
                 fontSize: FONT_SIZE_BUTTON,
@@ -393,8 +409,8 @@ export default function FlightPlanDialog({
                     fontFamily: FONT_FAMILY,
                     fontWeight: "bold",
                     fontSize: FONT_SIZE_BUTTON,
-                    backgroundColor: "#FFFB03",
-                    color: "#000000",
+                    backgroundColor: COLOR_REVERT_BTN,
+                    color: "black",
                     padding: "4px 12px",
                     whiteSpace: "nowrap",
                   }}
@@ -431,11 +447,11 @@ export default function FlightPlanDialog({
           </div>
         </DialogContent>
       ) : (
-        <DialogContent className="w-[360px] rounded-none border border-black bg-[#B3B3B3] p-4 text-black">
+        <DialogContent className={CLS_CLX_DIALOG}>
           <VisuallyHidden.Root>
             <DialogTitle>Flight plan unavailable</DialogTitle>
           </VisuallyHidden.Root>
-          <div className="border border-black bg-[#D6D6D6] p-4">
+          <div className={CLS_CLX_PANEL}>
             <div className="bg-white px-4 py-3 text-center text-xl font-semibold">
               Flight plan unavailable
             </div>

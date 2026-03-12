@@ -8,6 +8,9 @@ import {
 } from "@/components/ui/dialog";
 import * as VisuallyHidden from "@radix-ui/react-visually-hidden";
 import { useWebSocketStore } from "@/store/store-hooks";
+import { CLS_CMDBTN } from "@/components/strip/shared";
+
+const CLS_DIALOG = "sm:max-w-[300px] bg-[#b3b3b3]"; // active-header bg
 
 const EKCH_SCOPES = [
   { label: "CLR DEL", layout: "CLX" },
@@ -32,16 +35,16 @@ export default function HOMEBTN() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <button className="bg-[#646464] text-xl font-bold p-2 border-2">
+        <button className={CLS_CMDBTN}>
           <img src="/home.svg" width="39" height="39" alt="home icon" />
         </button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[300px] bg-[#b3b3b3]">
+      <DialogContent className={CLS_DIALOG}>
         <VisuallyHidden.Root>
           <DialogTitle>Select View</DialogTitle>
         </VisuallyHidden.Root>
         <div className="border-2 border-black">
-          <div className="grid grid-cols-2 gap-2 p-2" style={{ color: "#000" }}>
+          <div className="grid grid-cols-2 gap-2 p-2" style={{ color: "black" }}>
             {EKCH_SCOPES.map((scope) => (
               <Button
                 key={scope.layout}

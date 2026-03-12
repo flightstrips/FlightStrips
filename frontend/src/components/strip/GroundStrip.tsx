@@ -1,6 +1,6 @@
 import { getStripBg } from "./types";
 import type { StripProps } from "./types";
-import { useStripSelection, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR } from "./shared";
+import { useStripSelection, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR, COLOR_BTN_ORANGE, COLOR_SI_ASSUMED, COLOR_SI_UNCONCERNED, COLOR_SI_CONCERNED } from "./shared";
 import { useControllers } from "@/store/store-hooks";
 
 const TOP_H = 32; // 2/3 of 48px
@@ -39,10 +39,10 @@ export function GroundStrip({
   const isTransferredAway = !!myPosition && !!previousControllers?.includes(myPosition);
   const isConcerned = !!myPosition && !!nextControllers?.includes(myPosition);
 
-  let siBg = "#808080"; // unconcerned
-  if (isAssumed) siBg = "#F0F0F0";
-  else if (isTransferredAway) siBg = "#DD6A12";
-  else if (isConcerned) siBg = "#E082E7";
+  let siBg = COLOR_SI_UNCONCERNED;
+  if (isAssumed) siBg = COLOR_SI_ASSUMED;
+  else if (isTransferredAway) siBg = COLOR_BTN_ORANGE;
+  else if (isConcerned) siBg = COLOR_SI_CONCERNED;
 
   const nextPosition = nextControllers?.find(pos => pos !== myPosition);
   const nextController = controllers.find(c => c.position === nextPosition);

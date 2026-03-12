@@ -1,14 +1,15 @@
 import { useStripTransfers } from "@/store/store-hooks";
 import type { StripProps } from "./types";
-import { useStripSelection, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR } from "./shared";
+import { useStripSelection, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR, FONT, COLOR_ARR_YELLOW } from "./shared";
 import { SIBox } from "./SIBox";
-
-const FONT = "'Arial', sans-serif";
 
 /** Gold cell borders — matches the yellow arrival strip design. */
 const CELL_BORDER = "#FFD100";
 
-// Heights — 48px total, 2/3 top / 1/3 bottom
+/** Subdued text color for the holding point secondary row. */
+const COLOR_HP_TEXT = "#5F5F5F";
+
+// Heights — 48px total fixed (intentional — ATC arrival strip spec), 2/3 top / 1/3 bottom
 const TOP_H = 32;
 const BOT_H = 16;
 
@@ -53,9 +54,9 @@ export function FinalArrStrip({
     <div
       className={`flex text-black select-none${selectable ? " cursor-pointer" : ""}`}
       style={{
-        height: 48,
+        height: 48, // 48px fixed — intentional ATC arrival strip height
         width: TOTAL_W,
-        backgroundColor: "#fff28e",
+        backgroundColor: COLOR_ARR_YELLOW,
         ...getFlatStripBorderStyle(),
       }}
       onClick={handleClick}
@@ -134,7 +135,7 @@ export function FinalArrStrip({
           </span>
         </div>
         <div className="flex items-center justify-center" style={{ height: BOT_H }}>
-          <span style={{ fontFamily: FONT, fontSize: 12, color: "#5F5F5F" }}>
+          <span style={{ fontFamily: FONT, fontSize: 12, color: COLOR_HP_TEXT }}>
             {holdingPoint}
           </span>
         </div>

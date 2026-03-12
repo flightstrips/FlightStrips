@@ -1,5 +1,6 @@
 import { useSelectedCallsign, usePosition, useStrip, useWebSocketStore } from "@/store/store-hooks";
 import { Bay } from "@/api/models";
+import { CLS_CMDBTN } from "@/components/strip/shared";
 
 export default function REQBTN() {
   const selectedCallsign = useSelectedCallsign();
@@ -12,7 +13,7 @@ export default function REQBTN() {
   return (
     <button
       disabled={!canReq}
-      className={`bg-[#646464] text-xl font-bold p-2 border-2 ${!canReq ? "opacity-50 cursor-not-allowed" : ""}`}
+      className={`${CLS_CMDBTN} ${!canReq ? "opacity-50 cursor-not-allowed" : ""}`}
       onClick={() => canReq && move(selectedCallsign!, Bay.Unknown)}
     >
       REQ

@@ -9,6 +9,9 @@ import {
 } from "@/components/ui/dialog";
 import * as VisuallyHidden from "@radix-ui/react-visually-hidden";
 import { useControllers, useSelectedCallsign, useWebSocketStore } from "@/store/store-hooks";
+import { CLS_CMDBTN } from "@/components/strip/shared";
+
+const CLS_DIALOG = "sm:max-w-[425px] bg-[#b3b3b3]"; // active-header bg
 
 export default function TRFBRN() {
   const [open, setOpen] = useState(false);
@@ -28,13 +31,13 @@ export default function TRFBRN() {
       <DialogTrigger asChild>
         <button
           disabled={disabled}
-          className={`bg-[#646464] text-xl font-bold p-2 border-2 ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}
+          className={`${CLS_CMDBTN} ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}
           onClick={() => !disabled && setOpen(true)}
         >
           TRF
         </button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[425px] bg-[#b3b3b3]">
+      <DialogContent className={CLS_DIALOG}>
         <VisuallyHidden.Root>
           <DialogTitle>Transfer Strip</DialogTitle>
         </VisuallyHidden.Root>

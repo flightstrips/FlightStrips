@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.6.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.5.0...frontend/v0.6.0) (2026-03-12)
+
+
+### Features
+
+* add HP/TWY column to push strip and fix split display in taxi dep strip ([526dbdb](https://github.com/flightstrips/FlightStrips/commit/526dbdb04aac14eb3a5cdf9470ee0865eeffa767))
+* controller online/offline grace period and broadcast notifications ([a901d0d](https://github.com/flightstrips/FlightStrips/commit/a901d0d9d19557365beac24c741722fc3c83895b))
+* dynamic active/inactive CLR/DEL panel based on controller online status ([663dc14](https://github.com/flightstrips/FlightStrips/commit/663dc1424b17f74316a2ef13fb8a6e2cdff8a85e))
+* handle unknown layout with chooser dialog ([f0c37b1](https://github.com/flightstrips/FlightStrips/commit/f0c37b15e920520923af56d4a55af7aa4b78df45))
+* push METAR from backend via atis_update event ([aa02a09](https://github.com/flightstrips/FlightStrips/commit/aa02a09cdc9c69d325dcd38e99e952a9f49d5dae))
+* show release point in push strip stand cell ([1826b60](https://github.com/flightstrips/FlightStrips/commit/1826b609beaf32018d819dcd5a447f06757bbe16))
+* strip selection and click-to-move bay transfer ([b1d383e](https://github.com/flightstrips/FlightStrips/commit/b1d383e86e6c42aaa1c116ebc55b8960e2815e4d))
+
+
+### Bug Fixes
+
+* address post-032-044 review feedback ([cbf0714](https://github.com/flightstrips/FlightStrips/commit/cbf0714324b0263f76052d38d84e2984b6ebfdbf))
+* Build errors ([502b900](https://github.com/flightstrips/FlightStrips/commit/502b900ddfc99797d5bca50255d89a6e9e0e32d7))
+* Correctly set eihter TWY or HP ([27b3c8d](https://github.com/flightstrips/FlightStrips/commit/27b3c8d897e5f224ae3ad800edbbb413b83cef44))
+* distinguish clearance limits from holding points in taxi map ([40defaf](https://github.com/flightstrips/FlightStrips/commit/40defaf6de0db7098754d9216f952d06bebcccdb))
+* Incorrect detection of CTWR ([6962d5a](https://github.com/flightstrips/FlightStrips/commit/6962d5a7913ec99401bda78e2903464590079f8a))
+* Remove 'pr' from holding point ([0bcbfad](https://github.com/flightstrips/FlightStrips/commit/0bcbfada7f41b664038956d0c34abc2044684241))
+* use section (DEL/GND/TWR) instead of frequency strings in frontend controller hooks ([2579523](https://github.com/flightstrips/FlightStrips/commit/25795236b198510c6f0dc8b3251843f290c748c4))
+
 ## [0.5.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.4.0...frontend/v0.5.0) (2026-03-08)
 
 

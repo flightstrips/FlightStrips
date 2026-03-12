@@ -34,7 +34,6 @@ const DIALOG_CONTENT_STYLE: React.CSSProperties = {
   top: "50%",
   transform: "translateY(-50%)",
   zIndex: 51,
-  border: `1px solid ${COLOR_DIALOG_BORDER}`,
   outline: "none",
   overflow: "hidden",
   maxHeight: "calc(100vh - 20px)",
@@ -124,6 +123,12 @@ interface MapDialogShellProps {
   selectedPoint?: string;
   /** Controls panel overlay (e.g. arrows + ERASE/OK). Positioned absolutely over the image. */
   children?: React.ReactNode;
+  /**
+   * "height" (default) — scales so the dialog fits within the viewport height.
+   * "width" — scales so the dialog matches imgWidth pixels at a 1920px-wide viewport,
+   *            shrinking proportionally on narrower screens (still capped by viewport height).
+   */
+  scaleMode?: "height" | "width";
 }
 
 export function MapDialogShell({
@@ -132,6 +137,7 @@ export function MapDialogShell({
   points, btnStyle, onSelect,
   selectedPoint,
   children,
+  scaleMode = "height",
 }: MapDialogShellProps) {
   const { setDragDisabled } = useDragDisabled();
 
@@ -162,8 +168,12 @@ export function MapDialogShell({
               width: "100%",
               aspectRatio: `${imgWidth} / ${imgHeight}`,
               maxHeight: "calc(100vh - 20px)",
-              maxWidth: `calc((100vh - 20px) * ${imgWidth} / ${imgHeight})`,
+              maxWidth: scaleMode === "width"
+                ? `min(calc(100vw * ${imgWidth} / 1920), calc((100vh - 20px) * ${imgWidth} / ${imgHeight}))`
+                : `calc((100vh - 20px) * ${imgWidth} / ${imgHeight})`,
               margin: "0 auto",
+              border: `1px solid ${COLOR_DIALOG_BORDER}`,
+              overflow: "hidden",
             }}
           >
             <img

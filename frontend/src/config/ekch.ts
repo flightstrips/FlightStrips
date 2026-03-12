@@ -120,7 +120,10 @@ export const APRON_TAXI_POINTS: ClickPoint[] = [
  * EKCH TWR taxi map points positioned over taxi_map.png.
  * Positions are percentages relative to the image content area (1801×1013).
  * Derived from SVG layout: (cx - 40) / 1801 and (cy - 40) / 1013.
- * Labels are placeholders (TD001–TD046) — replace with actual taxiway names.
+ *
+ * type "cl" — clearance limit / taxiway intersection
+ * type "hp" — runway / ILS holding point
+ * Omitted type defaults to "cl".
  */
 export const TAXI_MAP_POINTS: ClickPoint[] = [
   { label: "K1/K",   left: "13.16%", top: "5.38%",  type: "cl" },
@@ -128,24 +131,24 @@ export const TAXI_MAP_POINTS: ClickPoint[] = [
   { label: "K2/K",   left: "20.12%", top: "10.73%", type: "cl" },
   { label: "K2/12",  left: "20.12%", top: "17.81%", type: "cl" },
   { label: "K3/Z",   left: "26.13%", top: "13.58%", type: "cl" },
-  { label: "A4",     left: "26.13%", top: "84.76%" },
+  { label: "A4",     left: "26.13%", top: "84.76%", type: "hp" },
   { label: "K3/12",  left: "26.83%", top: "22.74%", type: "cl" },
   { label: "LINE 3", left: "27.03%", top: "47.74%", width: "80px" },
   { label: "LINE 2", left: "27.03%", top: "51.91%", width: "80px" },
   { label: "LINE 1", left: "27.03%", top: "56.08%", width: "80px" },
-  { label: "A3",     left: "28.79%", top: "78.92%", type: "cl" },
-  { label: "A2",     left: "31.44%", top: "73.51%", type: "cl" },
+  { label: "A3",     left: "28.79%", top: "78.92%", type: "hp" },
+  { label: "A2",     left: "31.44%", top: "73.51%", type: "hp" },
   { label: "F2/30",  left: "32.42%", top: "35.38%", type: "cl" },
   { label: "A/A1",   left: "33.88%", top: "62.14%" },
-  { label: "A1",     left: "34.29%", top: "67.47%", type: "cl" },
+  { label: "A1",     left: "34.29%", top: "67.47%", type: "hp" },
   { label: "A/D",    left: "35.82%", top: "52.05%" },
-  { label: "B1",     left: "36.29%", top: "97.24%", type: "cl" },
-  { label: "B2",     left: "38.67%", top: "92.69%", type: "cl" },
-  { label: "E1",     left: "38.83%", top: "76.01%", type: "cl" },
+  { label: "B1",     left: "36.29%", top: "97.24%", type: "hp" },
+  { label: "B2",     left: "38.67%", top: "92.69%", type: "hp" },
+  { label: "E1",     left: "38.83%", top: "76.01%", type: "hp" },
   { label: "D/A",    left: "39.22%", top: "57.05%" },
   { label: "A/30",   left: "40.00%", top: "28.37%", type: "cl" },
   { label: "C/30",   left: "40.04%", top: "44.86%", type: "cl" },
-  { label: "B3",     left: "40.67%", top: "88.10%", type: "cl" },
+  { label: "B3",     left: "40.67%", top: "88.10%", type: "hp" },
   { label: "30/A",   left: "41.95%", top: "39.27%" },
   { label: "B/C",    left: "42.26%", top: "80.60%" },
   { label: "C/D",    left: "43.12%", top: "62.05%" },
@@ -154,7 +157,7 @@ export const TAXI_MAP_POINTS: ClickPoint[] = [
   { label: "30/D",   left: "46.56%", top: "44.20%" },
   { label: "B/C",    left: "46.83%", top: "67.05%" },
   { label: "C/22L",  left: "47.54%", top: "91.26%", type: "cl" },
-  { label: "B4",     left: "47.56%", top: "97.29%", type: "cl" },
+  { label: "B4",     left: "47.56%", top: "97.29%", type: "hp" },
   { label: "D/Z",    left: "47.81%", top: "37.47%" },
   { label: "B/30",   left: "50.43%", top: "55.72%", type: "cl" },
   { label: "B/Z",    left: "55.00%", top: "43.51%" },
@@ -162,10 +165,98 @@ export const TAXI_MAP_POINTS: ClickPoint[] = [
   { label: "V/S",    left: "62.30%", top: "32.53%" },
   { label: "12/22L", left: "62.34%", top: "59.90%", width: "80px", type: "cl" },
   { label: "30/22L", left: "70.03%", top: "68.16%", width: "80px", type: "cl" },
-  { label: "V2",     left: "75.62%", top: "30.38%", type: "cl" },
-  { label: "N2/30",  left: "76.36%", top: "84.06%", type: "cl" },
-  { label: "I/22L",  left: "79.84%", top: "46.35%", type: "cl" },
-  { label: "G2/30",  left: "81.13%", top: "68.16%", type: "cl" },
-  { label: "V1",     left: "84.33%", top: "8.58%", type: "cl" },
-  { label: "G1",     left: "97.61%", top: "87.60%", type: "cl" },
+  { label: "V2",     left: "75.62%", top: "30.38%", type: "hp" },
+  { label: "N2/30",  left: "76.36%", top: "84.06%", type: "hp" },
+  { label: "I/22L",  left: "79.84%", top: "46.35%", type: "hp" },
+  { label: "G2/30",  left: "81.13%", top: "68.16%", type: "hp" },
+  { label: "V1",     left: "84.33%", top: "8.58%",  type: "hp" },
+  { label: "G1",     left: "97.61%", top: "87.60%", type: "hp" },
+];
+
+/**
+ * EKCH runway holding points, organized per runway, for the HoldingPointDialog.
+ * Image dimensions and button positions derived from the design-doc SVG.
+ * Each position is a percentage of the runway image dimensions.
+ */
+export interface HoldingPointRunway {
+  runway: string;
+  imageSrc: string;
+  imgWidth: number;
+  imgHeight: number;
+  points: ClickPoint[];
+}
+
+export const HOLDING_POINT_RUNWAYS: HoldingPointRunway[] = [
+  {
+    runway: "04L",
+    imageSrc: "/holding_points/04L.png",
+    imgWidth: 1281,
+    imgHeight: 284,
+    points: [
+      { label: "A10", left: "37.7%", top: "40.7%" },
+      { label: "A9",  left: "90.4%", top: "40.7%" },
+    ],
+  },
+  {
+    runway: "04R",
+    imageSrc: "/holding_points/04R.png",
+    imgWidth: 1281,
+    imgHeight: 245,
+    points: [
+      { label: "B1", left: "7.5%",  top: "42.3%" },
+      { label: "B2", left: "16.4%", top: "42.3%" },
+      { label: "B3", left: "41.3%", top: "42.3%" },
+      { label: "B4", left: "85.5%", top: "42.3%" },
+      { label: "C",  left: "95.8%", top: "42.3%" },
+    ],
+  },
+  {
+    runway: "12",
+    imageSrc: "/holding_points/12.png",
+    imgWidth: 1267,
+    imgHeight: 334,
+    points: [
+      { label: "K1", left: "4.4%",  top: "45.1%" },
+      { label: "K2", left: "28.8%", top: "45.1%" },
+      { label: "K3", left: "40.5%", top: "37.3%" },
+      { label: "D",  left: "91.9%", top: "37.0%" },
+      { label: "F1", left: "5.3%",  top: "85.2%" },
+      { label: "F2", left: "61.8%", top: "87.9%" },
+    ],
+  },
+  {
+    runway: "22L",
+    imageSrc: "/holding_points/22L.png",
+    imgWidth: 1281,
+    imgHeight: 423,
+    points: [
+      { label: "V2", left: "53.5%", top: "27.5%" },
+      { label: "V1", left: "92.4%", top: "27.5%" },
+      { label: "I",  left: "41.6%", top: "89.0%" },
+    ],
+  },
+  {
+    runway: "22R",
+    imageSrc: "/holding_points/22R.png",
+    imgWidth: 1271,
+    imgHeight: 423,
+    points: [
+      { label: "A4", left: "14.2%", top: "30.1%" },
+      { label: "A3", left: "30.4%", top: "30.1%" },
+      { label: "A2", left: "45.6%", top: "30.1%" },
+      { label: "A1", left: "59.6%", top: "30.1%" },
+      { label: "E1", left: "51.4%", top: "91.1%" },
+    ],
+  },
+  {
+    runway: "30",
+    imageSrc: "/holding_points/30.png",
+    imgWidth: 1267,
+    imgHeight: 392,
+    points: [
+      { label: "G2", left: "16.2%", top: "43.2%" },
+      { label: "G1", left: "82.0%", top: "43.2%" },
+      { label: "N2", left: "18.4%", top: "88.7%" },
+    ],
+  },
 ];

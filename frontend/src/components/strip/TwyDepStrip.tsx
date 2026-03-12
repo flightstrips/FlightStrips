@@ -4,6 +4,7 @@ import { getStripBg } from "./types";
 import type { StripProps } from "./types";
 import { useStripSelection, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR, FONT } from "./shared";
 import { TaxiMapDialog } from "../map-dialogs/TaxiMapDialog";
+import { HoldingPointDialog } from "../map-dialogs/HoldingPointDialog";
 import { SIBox } from "./SIBox";
 import { TAXI_MAP_POINTS } from "@/config/ekch";
 
@@ -60,14 +61,15 @@ export function TwyDepStrip({
   const cellBorderColor = getCellBorderColor(marked);
   const controllers = useControllers();
   const [showTaxiMap, setShowTaxiMap] = useState(false);
+  const [showHpMap, setShowHpMap] = useState(false);
 
   // Determine display slot for the release point:
-  // - "cl"-typed points in TAXI_MAP_POINTS → TWY cell
-  // - all others (unknown or non-cl) → HP cell
-  const clLabels = new Set(TAXI_MAP_POINTS.filter(p => p.type === "cl").map(p => p.label));
-  const isCl = holdingPoint ? clLabels.has(holdingPoint) : false;
-  const twyDisplay = isCl ? (holdingPoint ?? "") : "";
-  const hpDisplay = !isCl ? (holdingPoint ?? "") : "";
+  // - "hp"-typed points → HP cell
+  // - "cl"-typed or untyped points → TWY cell
+  const hpLabels = new Set(TAXI_MAP_POINTS.filter(p => p.type === "hp").map(p => p.label));
+  const isHp = holdingPoint ? hpLabels.has(holdingPoint) : false;
+  const hpDisplay = isHp ? (holdingPoint ?? "") : "";
+  const twyDisplay = !isHp ? (holdingPoint ?? "") : "";
 
   const isAssumed = !!myPosition && owner === myPosition;
 
@@ -182,7 +184,7 @@ export function TwyDepStrip({
         <div
           className="flex items-center justify-center cursor-pointer"
           style={{ height: HALF_H }}
-          onClick={(e) => { e.stopPropagation(); setShowTaxiMap(true); }}
+          onClick={(e) => { e.stopPropagation(); setShowHpMap(true); }}
         >
           <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: 14, opacity: hpDisplay ? 1 : 0.2 }}>
             {hpDisplay || "HP"}
@@ -226,6 +228,12 @@ export function TwyDepStrip({
       open={showTaxiMap}
       onOpenChange={setShowTaxiMap}
       callsign={callsign}
+    />
+    <HoldingPointDialog
+      open={showHpMap}
+      onOpenChange={setShowHpMap}
+      callsign={callsign}
+      runway={runway}
     />
     </>
   );

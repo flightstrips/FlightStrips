@@ -123,7 +123,7 @@ export default function AAAD() {
     <div className={pageWrapper}>
 
       {/* ── Col 1: MESSAGES / FINAL (locked) / RWY ARR (locked) / STAND ── */}
-      <div className=col>
+      <div className={col}>
 
         <div className={primaryHeader + " justify-between"}>
           <span className={primaryLabel}>MESSAGES</span>
@@ -181,7 +181,7 @@ export default function AAAD() {
       </div>
 
       {/* ── Col 2: TWY DEP (UPR+LWR) / TWY ARR ── */}
-      <div className=col>
+      <div className={col}>
 
         <div className={activeHeader + " justify-between"}>
           <span className={activeLabel}>TWY DEP</span>
@@ -235,7 +235,7 @@ export default function AAAD() {
       </div>
 
       {/* ── Col 3: STARTUP / PUSH BACK / DE-ICE ── */}
-      <div className=col>
+      <div className={col}>
 
         <div className={lockedHeader}>
           <span className={lockedLabel}>STARTUP</span>
@@ -282,7 +282,7 @@ export default function AAAD() {
       </div>
 
       {/* ── Col 4: SAS / NORWEGIAN / OTHERS (UNCLEARED) ── */}
-      <div className=col>
+      <div className={col}>
 
         <div className={(clrDelActive ? activeHeader : lockedHeader) + " justify-between"}>
           <span className={clrDelActive ? activeLabel : lockedLabel}>SAS</span>

@@ -1,7 +1,6 @@
 import { useWebSocketStore } from "@/store/store-hooks";
 import { Bay } from "@/api/models";
 import { RELEASE_POINTS } from "@/config/ekch";
-import apronPush from "@/assets/apron_push.webp";
 import { MAP_BTN_BASE, MapDialogShell, MapEraseControls } from "./MapDialogShell";
 
 interface PushbackMapDialogProps {
@@ -33,7 +32,7 @@ export function PushbackMapDialog({ open, onOpenChange, callsign, initialRelease
       open={open}
       onOpenChange={onOpenChange}
       title="Select Release Point"
-      imageSrc={apronPush}
+      imageSrc="/apron_push.webp"
       imageAlt="Apron pushback map"
       imgWidth={1920}
       imgHeight={768}

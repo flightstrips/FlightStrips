@@ -1,6 +1,5 @@
 import { useWebSocketStore } from "@/store/store-hooks";
 import { APRON_TAXI_POINTS } from "@/config/ekch";
-import apronTaxi from "@/assets/apron_taxi.webp";
 import { MAP_BTN_BASE, MapDialogShell, MapEraseControls } from "./MapDialogShell";
 
 interface ApronTaxiMapDialogProps {
@@ -29,7 +28,7 @@ export function ApronTaxiMapDialog({ open, onOpenChange, callsign }: ApronTaxiMa
       open={open}
       onOpenChange={onOpenChange}
       title="Select Taxi Route"
-      imageSrc={apronTaxi}
+      imageSrc="/apron_taxi.webp"
       imageAlt="Apron taxi map"
       imgWidth={1859}
       imgHeight={903}

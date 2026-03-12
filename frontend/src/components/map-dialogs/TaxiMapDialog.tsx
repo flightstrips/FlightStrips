@@ -1,6 +1,5 @@
 import { useWebSocketStore } from "@/store/store-hooks";
 import { TAXI_MAP_POINTS } from "@/config/ekch";
-import taxiMap from "@/assets/taxi_map.webp";
 import { MAP_BTN_BASE, MapDialogShell, MapEraseControls } from "./MapDialogShell";
 
 interface TaxiMapDialogProps {
@@ -37,7 +36,7 @@ export function TaxiMapDialog({
       open={open}
       onOpenChange={onOpenChange}
       title="Select Taxi Route"
-      imageSrc={taxiMap}
+      imageSrc="/taxi_map.webp"
       imageAlt="TWR taxi map"
       imgWidth={1801}
       imgHeight={1013}

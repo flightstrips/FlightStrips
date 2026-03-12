@@ -1,5 +1,31 @@
 # Changelog
 
+## [0.7.0](https://github.com/flightstrips/FlightStrips/compare/backend/v0.6.0...backend/v0.7.0) (2026-03-12)
+
+
+### Features
+
+* auto-hide arrival strip from STAND bay after 15 seconds ([78fc8f2](https://github.com/flightstrips/FlightStrips/commit/78fc8f28a0e617e34ab11c00d485d54620fd1f6a))
+* controller online/offline grace period and broadcast notifications ([a901d0d](https://github.com/flightstrips/FlightStrips/commit/a901d0d9d19557365beac24c741722fc3c83895b))
+* include VFR/no-FP aircraft within 30NM in EuroScope sync ([11374f1](https://github.com/flightstrips/FlightStrips/commit/11374f13d9d3c556cb1dcde7d3aa4745380c5e9c))
+* Initial support for ALB ([862846e](https://github.com/flightstrips/FlightStrips/commit/862846e3544a4199406e6b463217a16b3d4f67d4))
+* push METAR from backend via atis_update event ([aa02a09](https://github.com/flightstrips/FlightStrips/commit/aa02a09cdc9c69d325dcd38e99e952a9f49d5dae))
+* runway auto-assignment, update on config change, fix route trimming ([d1a0893](https://github.com/flightstrips/FlightStrips/commit/d1a089304d01008ec88cf8e7d163e30d60f54f60))
+* send backend sync event to connecting EuroScope clients ([d03dc13](https://github.com/flightstrips/FlightStrips/commit/d03dc132d0ca34506be0eb490ed3a75ca7cc8612))
+
+
+### Bug Fixes
+
+* address post-032-044 review feedback ([cbf0714](https://github.com/flightstrips/FlightStrips/commit/cbf0714324b0263f76052d38d84e2984b6ebfdbf))
+* auto-assume logic for cleared strips and controller online ([facefe4](https://github.com/flightstrips/FlightStrips/commit/facefe436bea8a5c68f155c88f50480e35e56653))
+* cache METAR in hub and send atis_update on initial connect ([fc8ace3](https://github.com/flightstrips/FlightStrips/commit/fc8ace3c2b404a6390ef7560c2b6fecfef8d5813))
+* controller path computation for inbound and cargo stands ([eebe82a](https://github.com/flightstrips/FlightStrips/commit/eebe82a657c296bf53fb19d6addd22df39c1eb86))
+* Fix layouts not getting sent to the frontend ([ee41dfc](https://github.com/flightstrips/FlightStrips/commit/ee41dfcff6db639d4e7fdf49c5a03bee0468bccf))
+* move airport coordinates from hardcoded plugin map to config file ([91ec78d](https://github.com/flightstrips/FlightStrips/commit/91ec78d3183fb1f0f861e1d9decca3029d8e8d86))
+* prevent empty-string bay from being persisted ([22e6d9b](https://github.com/flightstrips/FlightStrips/commit/22e6d9b86ccd25247a94256740df45aec728d5d3))
+* route CidOnline through hub channel to prevent data race ([388d452](https://github.com/flightstrips/FlightStrips/commit/388d45282907ade77490a493ec534c592d3b3fb3))
+* update bay field when moving strip to bay ([60a8453](https://github.com/flightstrips/FlightStrips/commit/60a845322ccfd7ba20f37301c3ac8f4619e14a7c))
+
 ## [0.6.0](https://github.com/flightstrips/FlightStrips/compare/backend/v0.5.0...backend/v0.6.0) (2026-03-08)
 
 

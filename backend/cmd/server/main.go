@@ -131,9 +131,12 @@ func main() {
 
 	// Initialize services
 	stripService := services.NewStripService(stripRepo)
+	controllerService := services.NewControllerService(controllerRepo)
 	cdmService := cdm.NewCdmService(cdmClient, stripRepo, sessionRepo)
 
 	stripService.SetTacticalStripRepo(tacticalStripRepo)
+	stripService.SetCoordinationRepo(coordRepo)
+	stripService.SetControllerRepo(controllerRepo)
 
 	// Initialize PDC Service
 	hoppieLogon := os.Getenv("HOPPIE_LOGON")
@@ -148,7 +151,7 @@ func main() {
 	}
 
 	frontendHub := frontend.NewHub(stripService, authenticationService)
-	euroscopeHub := euroscope.NewHub(stripService, authenticationService)
+	euroscopeHub := euroscope.NewHub(stripService, controllerService, authenticationService)
 
 	stripService.SetFrontendHub(frontendHub)
 	stripService.SetEuroscopeHub(euroscopeHub)
@@ -162,6 +165,8 @@ func main() {
 
 	frontendHub.SetServer(fsServer)
 	euroscopeHub.SetServer(fsServer)
+	controllerService.SetServer(fsServer)
+	controllerService.SetStripService(stripService)
 
 	frontendUpgrader := websocket.NewConnectionUpgrader[pkgFrontend.EventType, *frontend.Client](frontendHub, authenticationService)
 	euroscopeUpgrader := websocket.NewConnectionUpgrader[pkgEuroscope.EventType, *euroscope.Client](euroscopeHub, authenticationService)

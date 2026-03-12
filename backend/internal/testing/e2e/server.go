@@ -116,12 +116,16 @@ func StartTestServer() (*TestServer, error) {
 
 	// Initialize services
 	stripService := services.NewStripService(stripRepo)
+	controllerService := services.NewControllerService(controllerRepo)
 	cdmClient := cdm.NewClient(cdm.WithAPIKey(""))
 	cdmService := cdm.NewCdmService(cdmClient, stripRepo, sessionRepo)
 
+	stripService.SetCoordinationRepo(coordRepo)
+	stripService.SetControllerRepo(controllerRepo)
+
 	// Initialize hubs
 	frontendHub := frontend.NewHub(stripService, authService)
-	euroscopeHub := euroscope.NewHub(stripService, authService)
+	euroscopeHub := euroscope.NewHub(stripService, controllerService, authService)
 
 	stripService.SetFrontendHub(frontendHub)
 	stripService.SetEuroscopeHub(euroscopeHub)
@@ -133,6 +137,8 @@ func StartTestServer() (*TestServer, error) {
 
 	frontendHub.SetServer(fsServer)
 	euroscopeHub.SetServer(fsServer)
+	controllerService.SetServer(fsServer)
+	controllerService.SetStripService(stripService)
 
 	// Create WebSocket upgraders
 	frontendUpgrader := websocket.NewConnectionUpgrader[pkgFrontend.EventType, *frontend.Client](frontendHub, authService)

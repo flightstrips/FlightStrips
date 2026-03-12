@@ -2,16 +2,21 @@ package services
 
 import (
 	"FlightStrips/internal/config"
+	"FlightStrips/internal/database"
 	internalModels "FlightStrips/internal/models"
 	"FlightStrips/internal/repository"
 	"FlightStrips/internal/shared"
+	"FlightStrips/pkg/events/euroscope"
 	"FlightStrips/pkg/events/frontend"
+	"FlightStrips/pkg/models"
 	"context"
 	"errors"
 	"fmt"
 	"log/slog"
+	"regexp"
 	"slices"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -30,6 +35,8 @@ type StripService struct {
 	sectorOwnerRepo repository.SectorOwnerRepository
 	frontendHub     shared.FrontendHub
 	euroscopeHub    shared.EuroscopeHub
+	coordRepo       repository.CoordinationRepository
+	controllerRepo  repository.ControllerRepository
 }
 
 func NewStripService(stripRepo repository.StripRepository) *StripService {
@@ -52,6 +59,14 @@ func (s *StripService) SetSectorOwnerRepo(sectorOwnerRepo repository.SectorOwner
 
 func (s *StripService) SetTacticalStripRepo(tacticalRepo repository.TacticalStripRepository) {
 	s.tacticalRepo = tacticalRepo
+}
+
+func (s *StripService) SetCoordinationRepo(coordRepo repository.CoordinationRepository) {
+	s.coordRepo = coordRepo
+}
+
+func (s *StripService) SetControllerRepo(controllerRepo repository.ControllerRepository) {
+	s.controllerRepo = controllerRepo
 }
 
 // calculateOrderBetween calculates the order value for a strip being inserted between two existing strips.
@@ -723,4 +738,797 @@ func (s *StripService) AutoAssumeForControllerOnline(ctx context.Context, sessio
 	}
 
 	return nil
+}
+
+// UpdateAssignedSquawk updates the assigned squawk for a strip and notifies the frontend.
+func (s *StripService) UpdateAssignedSquawk(ctx context.Context, session int32, callsign string, squawk string) error {
+	count, err := s.stripRepo.UpdateAssignedSquawk(ctx, session, callsign, &squawk, nil)
+	if err != nil {
+		return err
+	}
+	if count != 1 {
+		slog.Debug("Strip being updated does not exist in database", slog.String("callsign", callsign), slog.String("event", "AssignedSquawk"))
+	} else {
+		s.frontendHub.SendAssignedSquawkEvent(session, callsign, squawk)
+	}
+	return nil
+}
+
+// UpdateSquawk updates the current squawk for a strip and notifies the frontend.
+func (s *StripService) UpdateSquawk(ctx context.Context, session int32, callsign string, squawk string) error {
+	count, err := s.stripRepo.UpdateSquawk(ctx, session, callsign, &squawk, nil)
+	if err != nil {
+		return err
+	}
+	if count != 1 {
+		slog.Debug("Strip being updated does not exist in database", slog.String("callsign", callsign), slog.String("event", "Squawk"))
+	} else {
+		s.frontendHub.SendSquawkEvent(session, callsign, squawk)
+	}
+	return nil
+}
+
+// UpdateRequestedAltitude updates the requested altitude for a strip and notifies the frontend.
+func (s *StripService) UpdateRequestedAltitude(ctx context.Context, session int32, callsign string, altitude int32) error {
+	count, err := s.stripRepo.UpdateRequestedAltitude(ctx, session, callsign, &altitude, nil)
+	if err != nil {
+		return err
+	}
+	if count != 1 {
+		slog.Debug("Strip being updated does not exist in database", slog.String("callsign", callsign), slog.String("event", "RequestedAltitude"))
+	} else {
+		s.frontendHub.SendRequestedAltitudeEvent(session, callsign, altitude)
+	}
+	return nil
+}
+
+// UpdateClearedAltitude updates the cleared altitude for a strip and notifies the frontend.
+func (s *StripService) UpdateClearedAltitude(ctx context.Context, session int32, callsign string, altitude int32) error {
+	count, err := s.stripRepo.UpdateClearedAltitude(ctx, session, callsign, &altitude, nil)
+	if err != nil {
+		return err
+	}
+	if count != 1 {
+		slog.Debug("Strip being updated does not exist in database", slog.String("callsign", callsign), slog.String("event", "ClearedAltitude"))
+	} else {
+		s.frontendHub.SendClearedAltitudeEvent(session, callsign, altitude)
+	}
+	return nil
+}
+
+// UpdateCommunicationType updates the communication type for a strip and notifies the frontend.
+func (s *StripService) UpdateCommunicationType(ctx context.Context, session int32, callsign string, commType string) error {
+	count, err := s.stripRepo.UpdateCommunicationType(ctx, session, callsign, &commType, nil)
+	if err != nil {
+		return err
+	}
+	if count != 1 {
+		slog.Debug("Strip being updated does not exist in database", slog.String("callsign", callsign), slog.String("event", "CommunicationType"))
+		return nil
+	}
+	s.frontendHub.SendCommunicationTypeEvent(session, callsign, commType)
+	return nil
+}
+
+// UpdateHeading updates the heading for a strip and notifies the frontend.
+func (s *StripService) UpdateHeading(ctx context.Context, session int32, callsign string, heading int32) error {
+	count, err := s.stripRepo.UpdateHeading(ctx, session, callsign, &heading, nil)
+	if err != nil {
+		return err
+	}
+	if count != 1 {
+		slog.Debug("Strip being updated does not exist in database", slog.String("callsign", callsign), slog.String("event", "SetHeading"))
+		return nil
+	}
+	s.frontendHub.SendSetHeadingEvent(session, callsign, heading)
+	return nil
+}
+
+// DeleteStrip removes a strip from the database and notifies the frontend.
+func (s *StripService) DeleteStrip(ctx context.Context, session int32, callsign string) error {
+	err := s.stripRepo.Delete(ctx, session, callsign)
+	s.frontendHub.SendAircraftDisconnect(session, callsign)
+	return err
+}
+
+// UpdateGroundState updates the ground state for a strip, recomputes the bay, and moves
+// the strip if the bay changed.
+func (s *StripService) UpdateGroundState(ctx context.Context, session int32, callsign string, groundState string, airport string) error {
+	existingStrip, err := s.stripRepo.GetByCallsign(ctx, session, callsign)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			slog.Debug("Strip being updated does not exist in database", slog.String("callsign", callsign), slog.String("event", "GroundState"))
+			return nil
+		}
+		return err
+	}
+
+	if existingStrip.State != nil && *existingStrip.State == groundState {
+		return nil
+	}
+
+	dbStrip := database.Strip{
+		Origin:      existingStrip.Origin,
+		Destination: existingStrip.Destination,
+		Cleared:     existingStrip.Cleared,
+	}
+	bay := shared.GetDepartureBayFromGroundState(groundState, dbStrip)
+
+	_, err = s.stripRepo.UpdateGroundState(ctx, session, callsign, &groundState, bay, nil)
+	if err != nil {
+		return err
+	}
+
+	if existingStrip.Bay != bay {
+		return s.MoveToBay(context.Background(), session, callsign, bay, true)
+	}
+
+	return nil
+}
+
+// UpdateClearedFlag updates the cleared flag for a strip, recomputes the bay,
+// triggers auto-assumption if cleared, and moves the strip if the bay changed.
+func (s *StripService) UpdateClearedFlag(ctx context.Context, session int32, callsign string, cleared bool) error {
+	existingStrip, err := s.stripRepo.GetByCallsign(ctx, session, callsign)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			slog.Debug("Strip being updated does not exist in database", slog.String("callsign", callsign), slog.String("event", "FlightStripOnline"))
+			return nil
+		}
+		return err
+	}
+
+	if existingStrip.Cleared == cleared {
+		return nil
+	}
+
+	bay := existingStrip.Bay
+	if bay == shared.BAY_NOT_CLEARED || bay == shared.BAY_UNKNOWN {
+		bay = shared.BAY_CLEARED
+	}
+	if bay == "" {
+		bay = shared.BAY_HIDDEN
+	}
+
+	_, err = s.stripRepo.UpdateClearedFlag(ctx, session, callsign, cleared, bay, nil)
+	if err != nil {
+		return err
+	}
+
+	if cleared {
+		if err := s.AutoAssumeForClearedStrip(ctx, session, callsign, existingStrip.Version+1); err != nil {
+			slog.Error("Failed to auto-assume cleared strip from EuroScope", slog.Any("error", err))
+		}
+	}
+
+	if existingStrip.Bay != bay {
+		return s.MoveToBay(ctx, session, callsign, bay, true)
+	}
+
+	return nil
+}
+
+// UpdateStand updates the stand for a strip, notifies the frontend, and triggers route recalculation.
+func (s *StripService) UpdateStand(ctx context.Context, session int32, callsign string, stand string) error {
+	count, err := s.stripRepo.UpdateStand(ctx, session, callsign, &stand, nil)
+	if err != nil {
+		return err
+	}
+	if count != 1 {
+		slog.Debug("Strip being updated does not exist in database", slog.String("callsign", callsign), slog.String("event", "Stand"))
+		return nil
+	}
+	s.frontendHub.SendStandEvent(session, callsign, stand)
+
+	server := s.frontendHub.GetServer()
+	if server != nil {
+		if err := server.UpdateRouteForStrip(callsign, session, true); err != nil {
+			slog.Error("Error updating route after stand assignment", slog.String("callsign", callsign), slog.Any("error", err))
+		}
+	}
+	return nil
+}
+
+// UpdateAircraftPosition updates the aircraft position and moves the strip to a new bay if needed.
+func (s *StripService) UpdateAircraftPosition(ctx context.Context, session int32, callsign string, lat, lon float64, altitude int32, airport string) error {
+	existingStrip, err := s.stripRepo.GetByCallsign(ctx, session, callsign)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			slog.Debug("Strip being updated does not exist in database", slog.String("callsign", callsign), slog.String("event", "FlightStripOffline"))
+			return nil
+		}
+		return err
+	}
+
+	dbStrip := database.Strip{
+		Origin:      existingStrip.Origin,
+		Destination: existingStrip.Destination,
+		Cleared:     existingStrip.Cleared,
+		Bay:         existingStrip.Bay,
+		State:       existingStrip.State,
+	}
+	bay := shared.GetDepartureBayFromPosition(lat, lon, int64(altitude), dbStrip, config.GetAirborneAltitudeAGL(), airport)
+
+	_, err = s.stripRepo.UpdateAircraftPosition(ctx, session, callsign, &lat, &lon, &altitude, bay, nil)
+	if err != nil {
+		return err
+	}
+
+	if existingStrip.Bay != bay {
+		if err := s.MoveToBay(context.Background(), session, callsign, bay, true); err != nil {
+			return err
+		}
+		if existingStrip.Bay != shared.BAY_AIRBORNE && bay == shared.BAY_AIRBORNE {
+			return s.AutoTransferAirborneStrip(ctx, session, callsign)
+		}
+	}
+
+	return nil
+}
+
+// HandleTrackingControllerChanged processes a tracking controller change event,
+// potentially accepting a coordination and moving the strip if it becomes airborne.
+func (s *StripService) HandleTrackingControllerChanged(ctx context.Context, session int32, callsign string, trackingController string) error {
+	if s.controllerRepo == nil {
+		return errors.New("controller repository not configured")
+	}
+	if s.coordRepo == nil {
+		return errors.New("coordination repository not configured")
+	}
+
+	if _, err := s.stripRepo.UpdateTrackingController(ctx, session, callsign, trackingController); err != nil {
+		return err
+	}
+
+	// Only act on assumption (non-empty tracking controller).
+	if trackingController == "" {
+		return nil
+	}
+
+	strip, err := s.stripRepo.GetByCallsign(ctx, session, callsign)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil
+		}
+		return err
+	}
+
+	// Resolve the assuming controller's position.
+	assumingController, err := s.controllerRepo.GetByCallsign(ctx, session, trackingController)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return err
+	}
+	assumingPosition := ""
+	if err == nil {
+		assumingPosition = assumingController.Position
+	}
+
+	// Check for a pending coordination on this strip.
+	coordination, err := s.coordRepo.GetByStripID(ctx, session, strip.ID)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return err
+	}
+	hasCoordination := err == nil
+
+	if hasCoordination && assumingPosition == coordination.FromPosition {
+		// The FROM controller assumed the tag to initiate the handover to the TO controller.
+		// Don't move or accept yet — wait for the TO controller to assume.
+		return nil
+	}
+
+	// Accepting: either the TO controller assumed, or there is no coordination.
+	if hasCoordination && assumingPosition != "" {
+		if err := s.AcceptCoordination(ctx, session, callsign, assumingPosition); err != nil {
+			slog.Error("Failed to accept coordination on tracking controller change", slog.String("callsign", callsign), slog.Any("error", err))
+		}
+	}
+
+	if strip.Bay != shared.BAY_AIRBORNE {
+		return nil
+	}
+
+	count, err := s.stripRepo.UpdateBay(ctx, session, callsign, shared.BAY_HIDDEN, nil)
+	if err != nil {
+		return err
+	}
+	if count != 1 {
+		return errors.New("failed to move airborne strip to hidden after tracking controller assumption")
+	}
+
+	return s.MoveToBay(ctx, session, callsign, shared.BAY_HIDDEN, true)
+}
+
+// HandleCoordinationReceived processes an EuroScope coordination-received event,
+// moving the strip from ARR_HIDDEN to FINAL and creating an arrival coordination record.
+func (s *StripService) HandleCoordinationReceived(ctx context.Context, session int32, callsign string, controllerCallsign string) error {
+	if s.controllerRepo == nil {
+		return errors.New("controller repository not configured")
+	}
+
+	strip, err := s.stripRepo.GetByCallsign(ctx, session, callsign)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			slog.Debug("Strip not found for coordination_received event", slog.String("callsign", callsign))
+			return nil
+		}
+		return err
+	}
+
+	if strip.Bay != shared.BAY_ARR_HIDDEN {
+		slog.Debug("coordination_received on strip not in ARR_HIDDEN, ignoring", slog.String("callsign", callsign), slog.String("bay", strip.Bay))
+		return nil
+	}
+
+	controller, err := s.controllerRepo.GetByCallsign(ctx, session, controllerCallsign)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			slog.Debug("Controller not found for coordination_received event", slog.String("controller_callsign", controllerCallsign))
+			return nil
+		}
+		return err
+	}
+
+	slog.Debug("Received coordination received event", slog.String("callsign", callsign), slog.String("from_controller", controllerCallsign))
+
+	if _, err := s.stripRepo.UpdateBay(ctx, session, callsign, shared.BAY_FINAL, nil); err != nil {
+		return err
+	}
+
+	if err := s.MoveToBay(ctx, session, callsign, shared.BAY_FINAL, true); err != nil {
+		return err
+	}
+
+	fromPosition := ""
+	if strip.Owner != nil {
+		fromPosition = *strip.Owner
+	}
+
+	return s.CreateEsArrivalCoordination(ctx, session, callsign, fromPosition, controller.Position, controller.Cid)
+}
+
+// AssumeStripCoordination handles the full frontend assume flow:
+// accepts a pending coordination, or directly assumes an unowned strip.
+func (s *StripService) AssumeStripCoordination(ctx context.Context, session int32, callsign string, position string) error {
+	if s.coordRepo == nil {
+		return errors.New("coordination repository not configured")
+	}
+
+	strip, err := s.stripRepo.GetByCallsign(ctx, session, callsign)
+	if err != nil {
+		return err
+	}
+
+	// Check for a pending coordination first.
+	coordination, err := s.coordRepo.GetByStripID(ctx, session, strip.ID)
+	if err == nil {
+		// Coordination exists — validate it targets this position.
+		if coordination.ToPosition != position {
+			return errors.New("cannot assume strip which is not transferred to you")
+		}
+
+		// Capture ES handover fields before AcceptCoordination deletes the record.
+		esHandoverCid := coordination.EsHandoverCid
+		fromEs := coordination.FromEs
+
+		if err := s.AcceptCoordination(ctx, session, callsign, position); err != nil {
+			return err
+		}
+
+		// If this coordination originated from an ES push, signal the ES client to assume+drop.
+		if fromEs && esHandoverCid != nil && *esHandoverCid != "" && s.euroscopeHub != nil {
+			s.euroscopeHub.SendAssumeAndDrop(session, *esHandoverCid, callsign)
+		}
+
+		return nil
+	}
+
+	// Strip is not owned by anyone and has no pending coordination — assume directly.
+	if strip.Owner == nil || *strip.Owner == "" {
+		count, err := s.stripRepo.SetOwner(ctx, session, callsign, &position, strip.Version)
+		if err != nil {
+			return err
+		}
+		if count != 1 {
+			return errors.New("failed to set strip owner")
+		}
+		s.frontendHub.SendCoordinationAssume(session, callsign, position)
+		return nil
+	}
+
+	return errors.New("cannot assume strip which is not transferred to you")
+}
+
+// RejectCoordination rejects a pending coordination transfer.
+func (s *StripService) RejectCoordination(ctx context.Context, session int32, callsign string, position string) error {
+	if s.coordRepo == nil {
+		return errors.New("coordination repository not configured")
+	}
+
+	coordination, err := s.coordRepo.GetByStripCallsign(ctx, session, callsign)
+	if err != nil {
+		return err
+	}
+
+	if coordination.ToPosition != position {
+		return errors.New("cannot reject strip which is not transferred to you")
+	}
+
+	if err = s.coordRepo.Delete(ctx, coordination.ID); err != nil {
+		return err
+	}
+	s.frontendHub.SendCoordinationReject(session, callsign, position)
+	return nil
+}
+
+// CancelCoordinationTransfer cancels a pending coordination transfer initiated by the caller.
+func (s *StripService) CancelCoordinationTransfer(ctx context.Context, session int32, callsign string, position string) error {
+	if s.coordRepo == nil {
+		return errors.New("coordination repository not configured")
+	}
+
+	coordination, err := s.coordRepo.GetByStripCallsign(ctx, session, callsign)
+	if err != nil {
+		return err
+	}
+
+	if coordination.FromPosition != position {
+		return errors.New("cannot cancel a transfer that you did not initiate")
+	}
+
+	if err := s.coordRepo.Delete(ctx, coordination.ID); err != nil {
+		return err
+	}
+	s.frontendHub.SendCoordinationReject(session, callsign, position)
+	return nil
+}
+
+// FreeStrip releases ownership of a strip and notifies all frontend clients.
+func (s *StripService) FreeStrip(ctx context.Context, session int32, callsign string, position string) error {
+	strip, err := s.stripRepo.GetByCallsign(ctx, session, callsign)
+	if err != nil {
+		return err
+	}
+
+	if strip.Owner == nil || *strip.Owner != position {
+		return errors.New("cannot free strip which is not owned by you")
+	}
+
+	previousOwners := append(strip.PreviousOwners, position)
+
+	if err := s.stripRepo.SetPreviousOwners(ctx, session, callsign, previousOwners); err != nil {
+		return err
+	}
+
+	count, err := s.stripRepo.SetOwner(ctx, session, callsign, nil, strip.Version)
+	if err != nil {
+		return err
+	}
+	if count != 1 {
+		return errors.New("failed to set strip owner")
+	}
+
+	s.frontendHub.SendCoordinationFree(session, callsign)
+	s.frontendHub.SendOwnersUpdate(session, callsign, "", strip.NextOwners, previousOwners)
+	return nil
+}
+
+// UpdateClearedFlagForMove handles the frontend "move to cleared/not-cleared bay" action.
+// It updates the cleared flag and bay in the DB, triggers auto-assumption, and notifies EuroScope.
+func (s *StripService) UpdateClearedFlagForMove(ctx context.Context, session int32, callsign string, isCleared bool, bay string, cid string) error {
+	strip, err := s.stripRepo.GetByCallsign(ctx, session, callsign)
+	if err != nil {
+		return err
+	}
+
+	count, err := s.stripRepo.UpdateClearedFlag(ctx, session, callsign, isCleared, bay, nil)
+	if err != nil {
+		return err
+	}
+	if count != 1 {
+		return errors.New("failed to update strip cleared flag")
+	}
+
+	// Only trigger side-effects when the cleared flag actually changed value.
+	if strip.Cleared != isCleared {
+		if isCleared {
+			if err := s.AutoAssumeForClearedStrip(ctx, session, callsign, strip.Version+1); err != nil {
+				slog.Error("Failed to auto-assume cleared strip", slog.Any("error", err))
+			}
+		}
+		if s.euroscopeHub != nil {
+			s.euroscopeHub.SendClearedFlag(session, cid, callsign, isCleared)
+		}
+	}
+	return nil
+}
+
+// UpdateGroundStateForMove handles the frontend "move to general bay" action.
+// It computes the new ground state, updates the DB, and notifies EuroScope.
+func (s *StripService) UpdateGroundStateForMove(ctx context.Context, session int32, callsign string, bay string, cid string, airport string) error {
+	strip, err := s.stripRepo.GetByCallsign(ctx, session, callsign)
+	if err != nil {
+		return err
+	}
+
+	state := strip.State
+	if strip.Origin == airport {
+		groundState := shared.GetGroundState(bay)
+		if groundState != euroscope.GroundStateUnknown {
+			state = &groundState
+		}
+	}
+
+	count, err := s.stripRepo.UpdateGroundState(ctx, session, callsign, state, bay, nil)
+	if err != nil {
+		return err
+	}
+	if count != 1 {
+		return errors.New("failed to update strip bay/ground state")
+	}
+
+	if state != strip.State && state != nil && s.euroscopeHub != nil {
+		s.euroscopeHub.SendGroundState(session, cid, callsign, *state)
+	}
+	return nil
+}
+
+// UpdateReleasePoint updates the release point for a strip and broadcasts to all frontend clients.
+func (s *StripService) UpdateReleasePoint(ctx context.Context, session int32, callsign string, releasePoint string) error {
+	affected, err := s.stripRepo.UpdateReleasePoint(ctx, session, callsign, &releasePoint)
+	if err != nil {
+		return err
+	}
+	if affected != 1 {
+		return errors.New("failed to update release point")
+	}
+	s.frontendHub.Broadcast(session, frontend.ReleasePointEvent{
+		Callsign:     callsign,
+		ReleasePoint: releasePoint,
+	})
+	return nil
+}
+
+// UpdateMarked updates the marked flag for a strip and broadcasts to all frontend clients.
+func (s *StripService) UpdateMarked(ctx context.Context, session int32, callsign string, marked bool) error {
+	affected, err := s.stripRepo.UpdateMarked(ctx, session, callsign, marked, nil)
+	if err != nil {
+		return err
+	}
+	if affected != 1 {
+		return errors.New("failed to update marked flag")
+	}
+	s.frontendHub.Broadcast(session, frontend.MarkedEvent{
+		Callsign: callsign,
+		Marked:   marked,
+	})
+	return nil
+}
+
+// PropagateRunwayChange updates the runway on strips that had an auto-assigned runway
+// matching the old active runways.
+func (s *StripService) PropagateRunwayChange(ctx context.Context, session int32, airport string, oldRunways models.ActiveRunways, newRunways models.ActiveRunways) error {
+	strips, err := s.stripRepo.List(ctx, session)
+	if err != nil {
+		return err
+	}
+
+	for _, strip := range strips {
+		if strip.Runway == nil || *strip.Runway == "" {
+			continue
+		}
+		currentRunway := *strip.Runway
+		isArrival := strip.Destination == airport
+
+		var oldList []string
+		var newList []string
+		if isArrival {
+			oldList = oldRunways.ArrivalRunways
+			newList = newRunways.ArrivalRunways
+		} else {
+			oldList = oldRunways.DepartureRunways
+			newList = newRunways.DepartureRunways
+		}
+
+		if !slices.Contains(oldList, currentRunway) {
+			continue
+		}
+		if len(newList) == 0 {
+			continue
+		}
+
+		newRunway := newList[0]
+		if newRunway == currentRunway {
+			continue
+		}
+
+		if _, err := s.stripRepo.UpdateRunway(ctx, session, strip.Callsign, &newRunway, nil); err != nil {
+			slog.Error("Failed to update auto-assigned runway on strip",
+				slog.String("callsign", strip.Callsign),
+				slog.String("old_runway", currentRunway),
+				slog.String("new_runway", newRunway),
+				slog.Any("error", err))
+		}
+	}
+	return nil
+}
+
+// SyncStrip creates or updates a strip from an EuroScope sync/strip-update event.
+// The strip parameter must be of type euroscope.Strip.
+func (s *StripService) SyncStrip(ctx context.Context, session int32, strip interface{}, airport string) error {
+	esStrip, ok := strip.(euroscope.Strip)
+	if !ok {
+		return fmt.Errorf("SyncStrip: unexpected strip type %T", strip)
+	}
+	return s.syncEuroscopeStrip(ctx, session, esStrip, airport)
+}
+
+func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, strip euroscope.Strip, airport string) error {
+	server := s.frontendHub.GetServer()
+	if server == nil {
+		return errors.New("server not configured")
+	}
+
+	// Fetch the session so we can read ActiveRunways for runway auto-assignment.
+	sessionObj, err := server.GetSessionRepository().GetByID(ctx, session)
+	if err != nil {
+		return err
+	}
+
+	existingStrip, err := s.stripRepo.GetByCallsign(ctx, session, strip.Callsign)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return err
+	}
+
+	var bay string
+
+	if errors.Is(err, pgx.ErrNoRows) {
+		// Strip doesn't exist, so insert
+		bay = shared.GetDepartureBay(strip, nil, config.GetAirborneAltitudeAGL(), airport)
+
+		isArrival := strip.Destination == airport
+		runwayForStrip := strip.Runway
+		if runwayForStrip == "" {
+			runwayForStrip = autoAssignRunway(isArrival, sessionObj.ActiveRunways)
+		}
+
+		newStrip := &internalModels.Strip{
+			Callsign:           strip.Callsign,
+			Session:            session,
+			Origin:             strip.Origin,
+			Destination:        strip.Destination,
+			Alternative:        &strip.Alternate,
+			Route:              &strip.Route,
+			Remarks:            &strip.Remarks,
+			Runway:             &runwayForStrip,
+			Squawk:             &strip.Squawk,
+			AssignedSquawk:     &strip.AssignedSquawk,
+			Sid:                &strip.Sid,
+			Cleared:            strip.Cleared,
+			State:              &strip.GroundState,
+			ClearedAltitude:    &strip.ClearedAltitude,
+			RequestedAltitude:  &strip.RequestedAltitude,
+			Heading:            &strip.Heading,
+			AircraftType:       &strip.AircraftType,
+			AircraftCategory:   &strip.AircraftCategory,
+			PositionLatitude:   &strip.Position.Lat,
+			PositionLongitude:  &strip.Position.Lon,
+			PositionAltitude:   &strip.Position.Altitude,
+			Stand:              &strip.Stand,
+			Capabilities:       &strip.Capabilities,
+			CommunicationType:  &strip.CommunicationType,
+			Tobt:               &strip.Eobt,
+			Bay:                bay,
+			Eobt:               &strip.Eobt,
+			TrackingController: strip.TrackingController,
+		}
+		reg := ParseRegistration(strip.Callsign, strip.Remarks)
+		newStrip.Registration = &reg
+		if err = s.stripRepo.Create(ctx, newStrip); err != nil {
+			return err
+		}
+		slog.Debug("Inserted strip", slog.String("callsign", strip.Callsign))
+	} else {
+		// Strip exists, update it
+		dbExistingStrip := database.Strip{
+			Origin:      existingStrip.Origin,
+			Destination: existingStrip.Destination,
+			Cleared:     existingStrip.Cleared,
+			Bay:         existingStrip.Bay,
+			State:       existingStrip.State,
+			Stand:       existingStrip.Stand,
+		}
+		bay = shared.GetDepartureBay(strip, &dbExistingStrip, config.GetAirborneAltitudeAGL(), airport)
+
+		stand := existingStrip.Stand
+		if strip.Stand != "" {
+			stand = &strip.Stand
+		}
+
+		runway := existingStrip.Runway
+		if strip.Runway != "" {
+			runway = &strip.Runway
+		} else if runway == nil || *runway == "" {
+			isArrivalUpdate := strip.Destination == airport
+			if assigned := autoAssignRunway(isArrivalUpdate, sessionObj.ActiveRunways); assigned != "" {
+				runway = &assigned
+			}
+		}
+
+		updateStrip := &internalModels.Strip{
+			Callsign:           strip.Callsign,
+			Session:            session,
+			Origin:             strip.Origin,
+			Destination:        strip.Destination,
+			Alternative:        &strip.Alternate,
+			Route:              &strip.Route,
+			Remarks:            &strip.Remarks,
+			AssignedSquawk:     &strip.AssignedSquawk,
+			Squawk:             &strip.Squawk,
+			Sid:                &strip.Sid,
+			ClearedAltitude:    &strip.ClearedAltitude,
+			Heading:            &strip.Heading,
+			AircraftType:       &strip.AircraftType,
+			Runway:             runway,
+			RequestedAltitude:  &strip.RequestedAltitude,
+			Capabilities:       &strip.Capabilities,
+			CommunicationType:  &strip.CommunicationType,
+			AircraftCategory:   &strip.AircraftCategory,
+			Stand:              stand,
+			Cleared:            strip.Cleared,
+			State:              &strip.GroundState,
+			PositionLatitude:   &strip.Position.Lat,
+			PositionLongitude:  &strip.Position.Lon,
+			PositionAltitude:   &strip.Position.Altitude,
+			Bay:                bay,
+			Tobt:               existingStrip.Tobt,
+			Eobt:               existingStrip.Eobt,
+			Registration:       existingStrip.Registration,
+			Owner:              existingStrip.Owner,
+			TrackingController: strip.TrackingController,
+		}
+		if _, err = s.stripRepo.Update(ctx, updateStrip); err != nil {
+			return err
+		}
+		slog.Debug("Updated strip", slog.String("callsign", strip.Callsign))
+
+		if existingStrip.Registration == nil || remarksContainsRegService(strip.Remarks) {
+			newReg := ParseRegistration(strip.Callsign, strip.Remarks)
+			if err := s.stripRepo.UpdateRegistration(ctx, session, strip.Callsign, newReg); err != nil {
+				slog.Error("Failed to update registration from remarks", slog.Any("error", err))
+			}
+		}
+	}
+
+	if err := server.UpdateRouteForStrip(strip.Callsign, session, false); err != nil {
+		slog.Error("Error updating route for strip", slog.String("callsign", strip.Callsign), slog.Any("error", err))
+	}
+
+	if err := s.MoveToBay(ctx, session, strip.Callsign, bay, false); err != nil {
+		slog.Error("Error moving bay for strip", slog.String("callsign", strip.Callsign), slog.Any("error", err))
+	}
+
+	s.frontendHub.SendStripUpdate(session, strip.Callsign)
+
+	return nil
+}
+
+var remarksRegReService = regexp.MustCompile(`\bREG/([A-Z0-9-]+)`)
+
+func remarksContainsRegService(remarks string) bool {
+	return remarksRegReService.MatchString(strings.ToUpper(remarks))
+}
+
+// autoAssignRunway returns the first active runway for the strip's direction,
+// or "" if no active runways are configured.
+func autoAssignRunway(isArrival bool, activeRunways models.ActiveRunways) string {
+	if isArrival {
+		if len(activeRunways.ArrivalRunways) > 0 {
+			return activeRunways.ArrivalRunways[0]
+		}
+	} else {
+		if len(activeRunways.DepartureRunways) > 0 {
+			return activeRunways.DepartureRunways[0]
+		}
+	}
+	return ""
 }

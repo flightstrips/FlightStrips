@@ -31,6 +31,7 @@ type internalMessage struct {
 type Hub struct {
 	server                shared.Server
 	stripService          shared.StripService
+	controllerService     shared.ControllerService
 	authenticationService shared.AuthenticationService
 	clients               map[*Client]bool
 
@@ -51,7 +52,7 @@ type Hub struct {
 	offlineTimers map[string]context.CancelFunc // key: "<sessionID>:<positionName>"
 }
 
-func NewHub(stripService shared.StripService, authenticationService shared.AuthenticationService) *Hub {
+func NewHub(stripService shared.StripService, controllerService shared.ControllerService, authenticationService shared.AuthenticationService) *Hub {
 	handlers := shared.NewMessageHandlers[euroscope.EventType, *Client]()
 
 	handlers.Add(euroscope.Authentication, handleTokenEvent)
@@ -82,6 +83,7 @@ func NewHub(stripService shared.StripService, authenticationService shared.Authe
 		master:                make(map[int32]*Client),
 		handlers:              handlers,
 		stripService:          stripService,
+		controllerService:     controllerService,
 		authenticationService: authenticationService,
 		recorders:             make(map[int32]*recorder.Recorder),
 		offlineTimers:         make(map[string]context.CancelFunc),
@@ -202,6 +204,10 @@ func (hub *Hub) GetServer() shared.Server {
 
 func (hub *Hub) SetServer(server shared.Server) {
 	hub.server = server
+}
+
+func (hub *Hub) SetControllerService(controllerService shared.ControllerService) {
+	hub.controllerService = controllerService
 }
 
 func (hub *Hub) HandleNewConnection(conn *gorilla.Conn, user shared.AuthenticatedUser) (*Client, error) {

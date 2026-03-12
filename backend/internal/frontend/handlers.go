@@ -2,10 +2,8 @@ package frontend
 
 import (
 	"FlightStrips/internal/config"
-	internalModels "FlightStrips/internal/models"
 	"FlightStrips/internal/shared"
 	"FlightStrips/pkg/events"
-	"FlightStrips/pkg/events/euroscope"
 	"FlightStrips/pkg/events/frontend"
 	"context"
 	"errors"
@@ -91,89 +89,24 @@ func handleMove(ctx context.Context, client *Client, message Message) error {
 	}
 
 	if move.Bay == shared.BAY_NOT_CLEARED || move.Bay == shared.BAY_CLEARED {
-		err = handleClearedBayUpdate(ctx, client, strip, move, stripRepo, s.GetEuroscopeHub())
+		isCleared := move.Bay == shared.BAY_CLEARED
+		if err := client.hub.stripService.UpdateClearedFlagForMove(ctx, client.session, move.Callsign, isCleared, move.Bay, client.GetCid()); err != nil {
+			return err
+		}
 	} else {
-		err = handleGeneralBayUpdate(ctx, client, strip, move, stripRepo, s.GetEuroscopeHub())
-	}
-
-	if err != nil {
-		return err
+		if err := client.hub.stripService.UpdateGroundStateForMove(ctx, client.session, move.Callsign, move.Bay, client.GetCid(), client.airport); err != nil {
+			return err
+		}
 	}
 
 	if err := client.hub.stripService.MoveToBay(ctx, client.session, move.Callsign, move.Bay, true); err != nil {
 		return err
 	}
 
-	if strip.Bay != shared.BAY_AIRBORNE && move.Bay == shared.BAY_AIRBORNE {
+	if move.Bay == shared.BAY_AIRBORNE {
 		return client.hub.stripService.AutoTransferAirborneStrip(ctx, client.session, move.Callsign)
 	}
 
-	return nil
-}
-
-func handleClearedBayUpdate(ctx context.Context, client *Client, strip *internalModels.Strip, move frontend.MoveEvent, stripRepo shared.StripRepository, es shared.EuroscopeHub) error {
-	isCleared := move.Bay == shared.BAY_CLEARED
-
-	// Always update the bay and cleared flag in DB — the outer handleMove guard
-	// already ensures strip.Bay != move.Bay, so there is always something to update.
-	// Do NOT early-exit based on strip.Cleared alone: handleGeneralBayUpdate does not
-	// reset the cleared flag, so it can be stale after a round-trip through a general bay.
-	count, err := stripRepo.UpdateClearedFlag(
-		ctx,
-		client.session,
-		move.Callsign,
-		isCleared,
-		move.Bay,
-		nil)
-
-	if err != nil {
-		return err
-	}
-
-	if count != 1 {
-		return errors.New("failed to update strip cleared flag")
-	}
-
-	// Only trigger side-effects when the cleared flag actually changed value.
-	if strip.Cleared != isCleared {
-		if isCleared {
-			if err := client.hub.stripService.AutoAssumeForClearedStrip(ctx, client.session, move.Callsign, strip.Version+1); err != nil {
-				slog.Error("Failed to auto-assume cleared strip", slog.Any("error", err))
-			}
-		}
-		es.SendClearedFlag(client.session, client.GetCid(), move.Callsign, isCleared)
-	}
-	return nil
-}
-
-func handleGeneralBayUpdate(ctx context.Context, client *Client, strip *internalModels.Strip, move frontend.MoveEvent, stripRepo shared.StripRepository, es shared.EuroscopeHub) error {
-	state := strip.State
-	if strip.Origin == client.airport {
-		groundState := shared.GetGroundState(move.Bay)
-		if groundState != euroscope.GroundStateUnknown {
-			state = &groundState
-		}
-	}
-
-	count, err := stripRepo.UpdateGroundState(
-		ctx,
-		client.session,
-		move.Callsign,
-		state,
-		move.Bay,
-		nil)
-
-	if err != nil {
-		return err
-	}
-
-	if count != 1 {
-		return errors.New("failed to update strip bay/ground state")
-	}
-
-	if state != strip.State && state != nil {
-		es.SendGroundState(client.session, client.GetCid(), move.Callsign, *state)
-	}
 	return nil
 }
 
@@ -250,54 +183,7 @@ func handleCoordinationAssumeRequest(ctx context.Context, client *Client, messag
 	if err := message.JsonUnmarshal(&req); err != nil {
 		return err
 	}
-	s := client.hub.server
-	stripRepo := s.GetStripRepository()
-
-	strip, err := stripRepo.GetByCallsign(ctx, client.session, req.Callsign)
-	if err != nil {
-		return err
-	}
-
-	// Check for a pending coordination first — this covers both normal transfers and
-	// ES-originated arrivals (which have no strip owner but do have a coordination record).
-	coordRepo := s.GetCoordinationRepository()
-	coordination, err := coordRepo.GetByStripID(ctx, client.session, strip.ID)
-	if err == nil {
-		// Coordination exists — validate it targets this client.
-		if coordination.ToPosition != client.position {
-			return errors.New("cannot assume strip which is not transferred to you")
-		}
-
-		// Capture ES handover fields before AcceptCoordination deletes the record.
-		esHandoverCid := coordination.EsHandoverCid
-		fromEs := coordination.FromEs
-
-		if err := client.hub.stripService.AcceptCoordination(ctx, client.session, req.Callsign, client.position); err != nil {
-			return err
-		}
-
-		// If this coordination originated from an ES push, signal the ES client to assume+drop.
-		if fromEs && esHandoverCid != nil && *esHandoverCid != "" {
-			s.GetEuroscopeHub().SendAssumeAndDrop(client.session, *esHandoverCid, req.Callsign)
-		}
-
-		return nil
-	}
-
-	// Strip is not owned by anyone and has no pending coordination — assume directly.
-	if strip.Owner == nil || *strip.Owner == "" {
-		count, err := stripRepo.SetOwner(ctx, client.session, req.Callsign, &client.position, strip.Version)
-		if err != nil {
-			return err
-		}
-		if count != 1 {
-			return errors.New("failed to set strip owner")
-		}
-		client.hub.SendCoordinationAssume(client.session, req.Callsign, client.position)
-		return nil
-	}
-
-	return errors.New("cannot assume strip which is not transferred to you")
+	return client.hub.stripService.AssumeStripCoordination(ctx, client.session, req.Callsign, client.position)
 }
 
 func handleCoordinationRejectRequest(ctx context.Context, client *Client, message Message) error {
@@ -305,24 +191,7 @@ func handleCoordinationRejectRequest(ctx context.Context, client *Client, messag
 	if err := message.JsonUnmarshal(&req); err != nil {
 		return err
 	}
-	s := client.hub.server
-	coordRepo := s.GetCoordinationRepository()
-
-	coordination, err := coordRepo.GetByStripCallsign(ctx, client.session, req.Callsign)
-	if err != nil {
-		return err
-	}
-
-	if coordination.ToPosition != client.position {
-		return errors.New("cannot reject strip which is not transferred to you")
-	}
-
-	err = coordRepo.Delete(ctx, coordination.ID)
-	if err != nil {
-		return err
-	}
-	client.hub.SendCoordinationReject(client.session, req.Callsign, client.position)
-	return nil
+	return client.hub.stripService.RejectCoordination(ctx, client.session, req.Callsign, client.position)
 }
 
 func handleCoordinationFreeRequest(ctx context.Context, client *Client, message Message) error {
@@ -330,38 +199,7 @@ func handleCoordinationFreeRequest(ctx context.Context, client *Client, message 
 	if err := message.JsonUnmarshal(&req); err != nil {
 		return err
 	}
-	s := client.hub.server
-	stripRepo := s.GetStripRepository()
-
-	strip, err := stripRepo.GetByCallsign(ctx, client.session, req.Callsign)
-	if err != nil {
-		return err
-	}
-
-	if strip.Owner == nil || *strip.Owner != client.position {
-		return errors.New("cannot free strip which is not owned by you")
-	}
-
-	previousOwners := append(strip.PreviousOwners, client.position)
-
-	if err := stripRepo.SetPreviousOwners(ctx, client.session, strip.Callsign, previousOwners); err != nil {
-		return err
-	}
-
-	count, err := stripRepo.SetOwner(ctx, client.session, req.Callsign, nil, strip.Version)
-
-	if err != nil {
-		return err
-	}
-
-	if count != 1 {
-		return errors.New("failed to set strip owner")
-	}
-
-	client.hub.SendCoordinationFree(client.session, req.Callsign)
-	client.hub.SendOwnersUpdate(client.session, strip.Callsign, "", strip.NextOwners, previousOwners)
-
-	return nil
+	return client.hub.stripService.FreeStrip(ctx, client.session, req.Callsign, client.position)
 }
 
 func handleCoordinationCancelTransferRequest(ctx context.Context, client *Client, message Message) error {
@@ -369,24 +207,7 @@ func handleCoordinationCancelTransferRequest(ctx context.Context, client *Client
 	if err := message.JsonUnmarshal(&req); err != nil {
 		return err
 	}
-	s := client.hub.server
-	coordRepo := s.GetCoordinationRepository()
-
-	coordination, err := coordRepo.GetByStripCallsign(ctx, client.session, req.Callsign)
-	if err != nil {
-		return err
-	}
-
-	if coordination.FromPosition != client.position {
-		return errors.New("cannot cancel a transfer that you did not initiate")
-	}
-
-	if err := coordRepo.Delete(ctx, coordination.ID); err != nil {
-		return err
-	}
-
-	client.hub.SendCoordinationReject(client.session, req.Callsign, client.position)
-	return nil
+	return client.hub.stripService.CancelCoordinationTransfer(ctx, client.session, req.Callsign, client.position)
 }
 
 func handleUpdateOrder(ctx context.Context, client *Client, message Message) error {
@@ -450,20 +271,7 @@ func handleReleasePoint(ctx context.Context, client *Client, message Message) er
 	if err := message.JsonUnmarshal(&event); err != nil {
 		return err
 	}
-
-	stripRepo := client.hub.server.GetStripRepository()
-	affected, err := stripRepo.UpdateReleasePoint(ctx, client.session, event.Callsign, &event.ReleasePoint)
-
-	if err != nil {
-		return err
-	}
-	if affected != 1 {
-		return errors.New("failed to update release point")
-	}
-
-	client.hub.Broadcast(client.session, event)
-
-	return nil
+	return client.hub.stripService.UpdateReleasePoint(ctx, client.session, event.Callsign, event.ReleasePoint)
 }
 
 func handleMarked(ctx context.Context, client *Client, message Message) error {
@@ -471,19 +279,7 @@ func handleMarked(ctx context.Context, client *Client, message Message) error {
 	if err := message.JsonUnmarshal(&event); err != nil {
 		return err
 	}
-
-	stripRepo := client.hub.server.GetStripRepository()
-	affected, err := stripRepo.UpdateMarked(ctx, client.session, event.Callsign, event.Marked, nil)
-	if err != nil {
-		return err
-	}
-	if affected != 1 {
-		return errors.New("failed to update marked flag")
-	}
-
-	client.hub.Broadcast(client.session, event)
-
-	return nil
+	return client.hub.stripService.UpdateMarked(ctx, client.session, event.Callsign, event.Marked)
 }
 
 func handleIssuePdcClearance(ctx context.Context, client *Client, message Message) error {

@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.6.0...frontend/v0.7.0) (2026-03-12)
+
+
+### Features
+
+* Runway holding points ([b8dd6f0](https://github.com/flightstrips/FlightStrips/commit/b8dd6f06928a68bf662ad388a0d00678f409be58))
+
 ## [0.6.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.5.0...frontend/v0.6.0) (2026-03-12)
 
 

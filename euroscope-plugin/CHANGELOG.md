@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.6.1](https://github.com/flightstrips/FlightStrips/compare/plugin/v0.6.0...plugin/v0.6.1) (2026-03-12)
+
+
+### Bug Fixes
+
+* potential crashes ([d5aa56a](https://github.com/flightstrips/FlightStrips/commit/d5aa56a5768e62db84cdd187d07fcead3e124263))
+* Runway sync ([6f6fd0b](https://github.com/flightstrips/FlightStrips/commit/6f6fd0b6a0f399bc883ea2c682bdcbe7aa7a5275))
+
 ## [0.6.0](https://github.com/flightstrips/FlightStrips/compare/plugin/v0.5.0...plugin/v0.6.0) (2026-03-12)
 
 

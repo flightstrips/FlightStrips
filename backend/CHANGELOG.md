@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.1](https://github.com/flightstrips/FlightStrips/compare/backend/v0.7.0...backend/v0.7.1) (2026-03-12)
+
+
+### Bug Fixes
+
+* Runway sync ([6f6fd0b](https://github.com/flightstrips/FlightStrips/commit/6f6fd0b6a0f399bc883ea2c682bdcbe7aa7a5275))
+
 ## [0.7.0](https://github.com/flightstrips/FlightStrips/compare/backend/v0.6.0...backend/v0.7.0) (2026-03-12)
 
 

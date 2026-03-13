@@ -19,7 +19,7 @@ const (
 	// BAY_TAXI_LWR Used for departures at final hold short (TWY DEP-LWR — visible to apron and TWR)
 	BAY_TAXI_LWR = "TAXI_LWR"
 	BAY_TAXI_TWR = "TAXI_TWR"
-	// BAY_DEPART Used for departures
+	// BAY_DEPART Used for departures (lined up / runway dep — TWR scope)
 	BAY_DEPART = "DEPART"
 	// BAY_AIRBORNE Used for departures
 	BAY_AIRBORNE = "AIRBORNE"

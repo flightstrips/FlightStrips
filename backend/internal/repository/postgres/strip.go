@@ -70,6 +70,7 @@ func stripToModel(db database.Strip) *models.Strip {
 		Marked:             db.Marked,
 		Registration:       db.Registration,
 		TrackingController: db.TrackingController,
+		RunwayCleared:      db.RunwayCleared,
 	}
 }
 
@@ -607,5 +608,13 @@ func (r *stripRepository) UpdateTrackingController(ctx context.Context, session 
 		TrackingController: trackingController,
 		Callsign:           callsign,
 		Session:            session,
+	})
+}
+
+// UpdateRunwayClearance moves a strip from DEPART to RWY_DEP (if applicable) and sets runway_cleared = true.
+func (r *stripRepository) UpdateRunwayClearance(ctx context.Context, session int32, callsign string) (int64, error) {
+	return r.queries.UpdateRunwayClearance(ctx, database.UpdateRunwayClearanceParams{
+		Callsign: callsign,
+		Session:  session,
 	})
 }

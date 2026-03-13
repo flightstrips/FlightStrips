@@ -1,13 +1,13 @@
 import { useState } from "react";
-import { useControllers, useStripTransfers } from "@/store/store-hooks";
+import { useControllers, useStrips, useStripTransfers, useWebSocketStore } from "@/store/store-hooks";
 import { getStripBg } from "./types";
 import type { StripProps } from "./types";
 import { useStripSelection, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR, FONT } from "./shared";
 import { TaxiMapDialog } from "../map-dialogs/TaxiMapDialog";
 import { HoldingPointDialog } from "../map-dialogs/HoldingPointDialog";
-import { RunwayDialog } from "./RunwayDialog";
 import { SIBox } from "./SIBox";
 import { TAXI_MAP_POINTS } from "@/config/ekch";
+import { Bay } from "@/api/models";
 
 // Heights — 48px total, 2/3 top / 1/3 bottom (used by callsign and SID/dest)
 const TOP_H = 32; // 2/3 of 48px
@@ -39,6 +39,7 @@ const TOTAL_W = W_SI + W_CALLSIGN + W_TYPE_SQ + W_STAND_CTOT + W_SMALL + W_SMALL
 
 export function TwyDepStrip({
   callsign,
+  bay,
   pdcStatus,
   aircraftType,
   squawk,
@@ -56,6 +57,7 @@ export function TwyDepStrip({
   myPosition,
   selectable,
   marked = false,
+  runwayCleared = false,
 }: StripProps) {
   const { isSelected, handleClick } = useStripSelection(callsign, selectable);
   const stripTransfers = useStripTransfers();
@@ -63,7 +65,26 @@ export function TwyDepStrip({
   const controllers = useControllers();
   const [showTaxiMap, setShowTaxiMap] = useState(false);
   const [showHpMap, setShowHpMap] = useState(false);
-  const [runwayOpen, setRunwayOpen] = useState(false);
+  const runwayClearance = useWebSocketStore(s => s.runwayClearance);
+  const allStrips = useStrips();
+
+  // Count ALL strips in DEPART bay (including this one)
+  const allInDepart = allStrips.filter(s => s.bay === Bay.Depart);
+
+  // RWY cell background color logic (only when strip is in DEPART bay):
+  // - runway_cleared = false: blue (in bay, awaiting clearance)
+  // - runway_cleared = true, sole aircraft in bay: green
+  // - runway_cleared = true, others also in bay: red
+  let rwyColor: string | undefined;
+  if (bay === Bay.Depart) {
+    if (!runwayCleared) {
+      rwyColor = "#BEF5EF";
+    } else if (allInDepart.length <= 1) {
+      rwyColor = "#70ED45";
+    } else {
+      rwyColor = "#F43A3A";
+    }
+  }
 
   // Determine display slot for the release point:
   // - "hp"-typed points → HP cell
@@ -178,9 +199,9 @@ export function TwyDepStrip({
         style={{ width: W_SMALL, height: "100%", borderRightColor: cellBorderColor }}
       >
         <div
-          className="flex items-center justify-center border-b-2 cursor-pointer hover:bg-cyan-200"
-          style={{ height: HALF_H, borderBottomColor: cellBorderColor }}
-          onClick={(e) => { e.stopPropagation(); setRunwayOpen(true); }}
+          className="flex items-center justify-center border-b-2 cursor-pointer"
+          style={{ height: HALF_H, borderBottomColor: cellBorderColor, backgroundColor: rwyColor }}
+          onClick={(e) => { e.stopPropagation(); runwayClearance(callsign); }}
         >
           <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: 14 }}>{runway}</span>
         </div>
@@ -237,14 +258,6 @@ export function TwyDepStrip({
       onOpenChange={setShowHpMap}
       callsign={callsign}
       runway={runway}
-    />
-    <RunwayDialog
-      open={runwayOpen}
-      onOpenChange={setRunwayOpen}
-      mode="ASSIGN"
-      callsign={callsign}
-      direction="departure"
-      currentRunway={runway}
     />
     </>
   );

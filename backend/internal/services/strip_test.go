@@ -410,6 +410,71 @@ func TestAcceptCoordination_UpdatesOwner(t *testing.T) {
 	require.Len(t, hub.OwnersUpdates, 1)
 }
 
+// ---- RunwayClearance ----
+
+func TestRunwayClearance_Success(t *testing.T) {
+	ctx := context.Background()
+	const session = int32(1)
+	const callsign = "SAS456"
+
+	var repoSession int32
+	var repoCallsign string
+
+	stripRepo := &testutil.MockStripRepository{
+		UpdateRunwayClearanceFn: func(_ context.Context, s int32, cs string) (int64, error) {
+			repoSession = s
+			repoCallsign = cs
+			return 1, nil
+		},
+	}
+
+	hub := &testutil.MockFrontendHub{}
+	svc := NewStripService(stripRepo)
+	svc.SetFrontendHub(hub)
+
+	err := svc.RunwayClearance(ctx, session, callsign)
+	require.NoError(t, err)
+	assert.Equal(t, session, repoSession)
+	assert.Equal(t, callsign, repoCallsign)
+	require.Len(t, hub.StripUpdates, 1)
+	assert.Equal(t, session, hub.StripUpdates[0].Session)
+	assert.Equal(t, callsign, hub.StripUpdates[0].Callsign)
+}
+
+func TestRunwayClearance_StripNotFound(t *testing.T) {
+	ctx := context.Background()
+
+	stripRepo := &testutil.MockStripRepository{
+		UpdateRunwayClearanceFn: func(_ context.Context, _ int32, _ string) (int64, error) {
+			return 0, nil // no rows affected
+		},
+	}
+
+	hub := &testutil.MockFrontendHub{}
+	svc := NewStripService(stripRepo)
+	svc.SetFrontendHub(hub)
+
+	err := svc.RunwayClearance(ctx, 1, "XXX000")
+	require.Error(t, err)
+	assert.Empty(t, hub.StripUpdates, "no strip update should be broadcast when strip not found")
+}
+
+func TestRunwayClearance_RepositoryError(t *testing.T) {
+	ctx := context.Background()
+	dbErr := errors.New("database error")
+
+	stripRepo := &testutil.MockStripRepository{
+		UpdateRunwayClearanceFn: func(_ context.Context, _ int32, _ string) (int64, error) {
+			return 0, dbErr
+		},
+	}
+
+	svc := NewStripService(stripRepo)
+	err := svc.RunwayClearance(ctx, 1, "SAS789")
+	require.Error(t, err)
+	assert.Equal(t, dbErr, err)
+}
+
 func TestAcceptCoordination_NoCoordination(t *testing.T) {
 	ctx := context.Background()
 	const session = int32(1)

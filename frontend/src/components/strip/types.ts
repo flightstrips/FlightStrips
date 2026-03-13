@@ -43,6 +43,7 @@ export interface StripProps {
   myPosition?: string;
   selectable?: boolean;
   marked?: boolean;
+  runwayCleared?: boolean;
   registration?: string;
   fullWidth?: boolean;
 }

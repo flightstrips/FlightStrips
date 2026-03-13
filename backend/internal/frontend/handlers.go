@@ -287,6 +287,14 @@ func handleMarked(ctx context.Context, client *Client, message Message) error {
 	return client.hub.stripService.UpdateMarked(ctx, client.session, event.Callsign, event.Marked)
 }
 
+func handleRunwayClearance(ctx context.Context, client *Client, message Message) error {
+	var event frontend.RunwayClearanceEvent
+	if err := message.JsonUnmarshal(&event); err != nil {
+		return err
+	}
+	return client.hub.stripService.RunwayClearance(ctx, client.session, event.Callsign)
+}
+
 func handleIssuePdcClearance(ctx context.Context, client *Client, message Message) error {
 	var req frontend.IssuePdcClearanceRequest
 	if err := message.JsonUnmarshal(&req); err != nil {

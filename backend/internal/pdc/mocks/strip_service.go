@@ -178,6 +178,11 @@ func (m *StripService) UpdateMarked(ctx context.Context, session int32, callsign
 	return args.Error(0)
 }
 
+func (m *StripService) RunwayClearance(ctx context.Context, session int32, callsign string) error {
+	args := m.Called(ctx, session, callsign)
+	return args.Error(0)
+}
+
 func (m *StripService) PropagateRunwayChange(ctx context.Context, session int32, airport string, oldRunways models.ActiveRunways, newRunways models.ActiveRunways) error {
 	args := m.Called(ctx, session, airport, oldRunways, newRunways)
 	return args.Error(0)

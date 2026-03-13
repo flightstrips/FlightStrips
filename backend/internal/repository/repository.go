@@ -48,6 +48,7 @@ type StripRepository interface {
 	UpdateMarked(ctx context.Context, session int32, callsign string, marked bool, version *int32) (int64, error)
 	UpdateRegistration(ctx context.Context, session int32, callsign string, registration string) error
 	UpdateTrackingController(ctx context.Context, session int32, callsign string, trackingController string) (int64, error)
+	UpdateRunwayClearance(ctx context.Context, session int32, callsign string) (int64, error)
 
 	// Owner management
 	SetOwner(ctx context.Context, session int32, callsign string, owner *string, version int32) (int64, error)

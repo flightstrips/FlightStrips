@@ -56,6 +56,12 @@ type AircraftDisconnectCall struct {
 	Callsign string
 }
 
+// StripUpdateCall records arguments to SendStripUpdate.
+type StripUpdateCall struct {
+	Session  int32
+	Callsign string
+}
+
 // MockFrontendHub is a configurable mock for shared.FrontendHub.
 // It records calls for assertion in tests.
 type MockFrontendHub struct {
@@ -68,6 +74,7 @@ type MockFrontendHub struct {
 	CoordinationRejects   []CoordinationRejectCall
 	CoordinationFrees     []CoordinationFreeCall
 	AircraftDisconnects   []AircraftDisconnectCall
+	StripUpdates          []StripUpdateCall
 }
 
 func (m *MockFrontendHub) GetServer() shared.Server {
@@ -86,7 +93,9 @@ func (m *MockFrontendHub) CidOnline(session int32, cid string) {}
 
 func (m *MockFrontendHub) CidDisconnect(cid string) {}
 
-func (m *MockFrontendHub) SendStripUpdate(session int32, callsign string) {}
+func (m *MockFrontendHub) SendStripUpdate(session int32, callsign string) {
+	m.StripUpdates = append(m.StripUpdates, StripUpdateCall{session, callsign})
+}
 
 func (m *MockFrontendHub) SendControllerOnline(session int32, callsign string, position string, identifier string) {
 }

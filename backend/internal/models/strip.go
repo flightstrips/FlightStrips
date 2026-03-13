@@ -50,4 +50,5 @@ type Strip struct {
 	Marked             bool
 	Registration       *string
 	TrackingController string
+	RunwayCleared      bool
 }

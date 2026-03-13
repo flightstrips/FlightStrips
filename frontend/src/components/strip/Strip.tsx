@@ -70,6 +70,7 @@ export function Strip({ strip, status, halfStripVariant, myPosition, selectable,
     myPosition,
     selectable,
     marked: strip.marked,
+    runwayCleared: strip.runway_cleared,
     registration: strip.registration,
     fullWidth,
   };

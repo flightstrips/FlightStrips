@@ -98,6 +98,7 @@ export interface WebSocketState {
   freeStrip: (callsign: string) => void;
   cancelTransfer: (callsign: string) => void;
   toggleMarked: (callsign: string, marked: boolean) => void;
+  runwayClearance: (callsign: string) => void;
   cdmReady: (callsign: string) => void;
   assignRunway: (callsign: string, runway: string) => void;
 
@@ -321,7 +322,19 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
         })
       );
     },
-    createTacticalStrip: (stripType, bay, label, aircraft) => {
+    runwayClearance: (callsign) => {
+      wsClient.send({ type: ActionType.FrontendRunwayClearance, callsign });
+      store.setState(
+        produce((state: WebSocketState) => {
+          const idx = state.strips.findIndex(s => s.callsign === callsign);
+          if (idx !== -1) {
+            state.strips[idx].runway_cleared = true;
+            if (state.strips[idx].bay === Bay.TaxiLwr) state.strips[idx].bay = Bay.Depart;
+          }
+        })
+      );
+    },
+    createTacticalStrip:(stripType, bay, label, aircraft) => {
       wsClient.send({ type: ActionType.FrontendCreateTacticalStrip, strip_type: stripType, bay, label, aircraft });
     },
     deleteTacticalStrip: (id) => {

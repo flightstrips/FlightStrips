@@ -44,6 +44,7 @@ export enum ActionType {
   FrontendCdmReady = "cdm_ready",
   FrontendReleasePoint = "release_point",
   FrontendMarked = "marked",
+  FrontendRunwayClearance = "runway_clearance",
   FrontendIssuePdcClearanceRequest = "issue_pdc_clearance",
   FrontendRevertToVoiceRequest = "revert_to_voice",
   FrontendCoordinationTransferRequest = "coordination_transfer_request",
@@ -96,6 +97,7 @@ export enum Bay {
   Stand = "STAND",
   Hidden = "HIDDEN",
   ArrHidden = "ARR_HIDDEN",
+  RwyDep = Depart, // alias — kept for backwards compat, same value
   RwyArr = "RWY_ARR",
   TwyArr = "TWY_ARR",
 }
@@ -139,6 +141,7 @@ export interface FrontendStrip {
   owner: string;
   pdc_state: PdcStatus;
   marked: boolean;
+  runway_cleared: boolean;
   registration: string;
 }
 
@@ -205,6 +208,7 @@ export interface FrontendStripUpdateEvent {
   owner: string;
   pdc_state: PdcStatus;
   marked: boolean;
+  runway_cleared: boolean;
   registration: string;
 }
 
@@ -343,6 +347,11 @@ export interface FrontendSendMarkedEvent {
   type: ActionType.FrontendMarked;
   callsign: string;
   marked: boolean;
+}
+
+export interface FrontendSendRunwayClearanceEvent {
+  type: ActionType.FrontendRunwayClearance;
+  callsign: string;
 }
 
 export interface FrontendPdcStateUpdateEvent {
@@ -556,7 +565,7 @@ export interface FrontendMoveTacticalStripAction {
 }
 
 // Union type for all events that can be sent
-export type FrontendSendEvent = FrontendAuthenticationEvent | FrontendMoveEvent | FrontendGenerateSquawkEvent | FrontendUpdateStripDataEvent | FrontendUpdateOrder | FrontendSendMessageEvent | FrontendCdmReadyEvent | FrontendSendReleasePointEvent | FrontendSendMarkedEvent | FrontendIssuePdcClearanceRequest | FrontendRevertToVoiceRequest | FrontendCoordinationTransferRequestEvent | FrontendCoordinationAssumeRequestEvent | FrontendCoordinationFreeRequestEvent | FrontendCoordinationCancelTransferRequestEvent | FrontendCreateTacticalStripAction | FrontendDeleteTacticalStripAction | FrontendConfirmTacticalStripAction | FrontendStartTacticalTimerAction | FrontendMoveTacticalStripAction;
+export type FrontendSendEvent = FrontendAuthenticationEvent | FrontendMoveEvent | FrontendGenerateSquawkEvent | FrontendUpdateStripDataEvent | FrontendUpdateOrder | FrontendSendMessageEvent | FrontendCdmReadyEvent | FrontendSendReleasePointEvent | FrontendSendMarkedEvent | FrontendSendRunwayClearanceEvent | FrontendIssuePdcClearanceRequest | FrontendRevertToVoiceRequest | FrontendCoordinationTransferRequestEvent | FrontendCoordinationAssumeRequestEvent | FrontendCoordinationFreeRequestEvent | FrontendCoordinationCancelTransferRequestEvent | FrontendCreateTacticalStripAction | FrontendDeleteTacticalStripAction | FrontendConfirmTacticalStripAction | FrontendStartTacticalTimerAction | FrontendMoveTacticalStripAction;
 
 export type AnyStrip = FrontendStrip | TacticalStrip;
 export const isFlight = (s: AnyStrip): s is FrontendStrip => 'callsign' in s;

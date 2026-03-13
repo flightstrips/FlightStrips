@@ -65,6 +65,8 @@ const (
 
 	Marked EventType = "marked"
 
+	RunwayClearance EventType = "runway_clearance"
+
 	PdcManualStateChange EventType = "pdc_manual_state_change"
 	PdcStateChange       EventType = "pdc_state_change"
 	IssuePdcClearance    EventType = "issue_pdc_clearance"
@@ -122,6 +124,7 @@ type Strip struct {
 	Marked              bool     `json:"marked"`
 	Registration        string   `json:"registration"`
 	TrackingController  string   `json:"tracking_controller"`
+	RunwayCleared       bool     `json:"runway_cleared"`
 }
 
 type Controller struct {
@@ -579,6 +582,18 @@ func (m MarkedEvent) Marshal() ([]byte, error) {
 
 func (m MarkedEvent) GetType() EventType {
 	return Marked
+}
+
+type RunwayClearanceEvent struct {
+	Callsign string `json:"callsign"`
+}
+
+func (r RunwayClearanceEvent) Marshal() ([]byte, error) {
+	return marshall(r)
+}
+
+func (r RunwayClearanceEvent) GetType() EventType {
+	return RunwayClearance
 }
 
 // PDC Events

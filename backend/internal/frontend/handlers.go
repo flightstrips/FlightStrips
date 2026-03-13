@@ -141,6 +141,10 @@ func handleStripUpdate(ctx context.Context, client *Client, message Message) err
 		s.GetEuroscopeHub().SendStand(client.session, client.GetCid(), event.Callsign, *event.Stand)
 	}
 
+	if event.Runway != nil && strip.Runway != event.Runway {
+		s.GetEuroscopeHub().SendRunway(client.session, client.GetCid(), event.Callsign, *event.Runway)
+	}
+
 	if event.Eobt != nil && strip.Eobt != event.Eobt {
 		slog.Warn("EOBT updates are currently not supported and will be ignored", slog.String("callsign", event.Callsign))
 		// TODO add support

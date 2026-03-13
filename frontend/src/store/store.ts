@@ -99,6 +99,7 @@ export interface WebSocketState {
   cancelTransfer: (callsign: string) => void;
   toggleMarked: (callsign: string, marked: boolean) => void;
   cdmReady: (callsign: string) => void;
+  assignRunway: (callsign: string, runway: string) => void;
 
   // tactical strip actions
   createTacticalStrip: (stripType: TacticalStripType, bay: string, label: string, aircraft: string) => void;
@@ -301,6 +302,15 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     },
     cdmReady: (callsign) => {
       wsClient.send({ type: ActionType.FrontendCdmReady, callsign });
+    },
+    assignRunway: (callsign, runway) => {
+      wsClient.send({ type: ActionType.FrontendUpdateStripData, callsign, runway });
+      store.setState(
+        produce((state: WebSocketState) => {
+          const idx = state.strips.findIndex(s => s.callsign === callsign);
+          if (idx !== -1) state.strips[idx].runway = runway;
+        })
+      );
     },
     toggleMarked: (callsign, marked) => {
       wsClient.send({ type: ActionType.FrontendMarked, callsign, marked });

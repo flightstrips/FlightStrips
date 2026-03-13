@@ -11,6 +11,7 @@ import {
 import { SIBox } from "./SIBox";
 import { useStripTransfers } from "@/store/store-hooks";
 import { PushbackMapDialog } from "@/components/map-dialogs/PushbackMapDialog";
+import { RunwayDialog } from "./RunwayDialog";
 
 /** Blue text colour for the holding-point release label. */
 const COLOR_HP_TEXT = "#1D4ED8"; // Tailwind blue-700
@@ -58,6 +59,7 @@ export function ApnPushStrip({
   const cellBorderColor = getCellBorderColor(marked);
   const stripTransfers = useStripTransfers();
   const [pushbackOpen, setPushbackOpen] = useState(false);
+  const [runwayOpen, setRunwayOpen] = useState(false);
 
   return (
     <div
@@ -141,12 +143,21 @@ export function ApnPushStrip({
 
         {/* RWY — 25%*(2/3)*(2/3) */}
         <div
-          className="flex items-center justify-center overflow-hidden"
+          className="flex items-center justify-center overflow-hidden cursor-pointer hover:bg-cyan-200"
           style={{ flex: `${F_RWY} 0 0%`, height: "100%", paddingBottom: "1.48vh", minWidth: 0 }}
+          onClick={(e) => { e.stopPropagation(); setRunwayOpen(true); }}
         >
           <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: 20 }}>{runway}</span>
         </div>
       </div>
+
+      <RunwayDialog
+        open={runwayOpen}
+        onOpenChange={setRunwayOpen}
+        mode="ASSIGN"
+        callsign={callsign}
+        direction="departure"
+      />
     </div>
   );
 }

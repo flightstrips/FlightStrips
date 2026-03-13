@@ -5,6 +5,7 @@ import type { StripProps } from "./types";
 import { useStripSelection, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR, FONT } from "./shared";
 import { TaxiMapDialog } from "../map-dialogs/TaxiMapDialog";
 import { HoldingPointDialog } from "../map-dialogs/HoldingPointDialog";
+import { RunwayDialog } from "./RunwayDialog";
 import { SIBox } from "./SIBox";
 import { TAXI_MAP_POINTS } from "@/config/ekch";
 
@@ -62,6 +63,7 @@ export function TwyDepStrip({
   const controllers = useControllers();
   const [showTaxiMap, setShowTaxiMap] = useState(false);
   const [showHpMap, setShowHpMap] = useState(false);
+  const [runwayOpen, setRunwayOpen] = useState(false);
 
   // Determine display slot for the release point:
   // - "hp"-typed points → HP cell
@@ -176,8 +178,9 @@ export function TwyDepStrip({
         style={{ width: W_SMALL, height: "100%", borderRightColor: cellBorderColor }}
       >
         <div
-          className="flex items-center justify-center border-b-2"
+          className="flex items-center justify-center border-b-2 cursor-pointer hover:bg-cyan-200"
           style={{ height: HALF_H, borderBottomColor: cellBorderColor }}
+          onClick={(e) => { e.stopPropagation(); setRunwayOpen(true); }}
         >
           <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: 14 }}>{runway}</span>
         </div>
@@ -234,6 +237,13 @@ export function TwyDepStrip({
       onOpenChange={setShowHpMap}
       callsign={callsign}
       runway={runway}
+    />
+    <RunwayDialog
+      open={runwayOpen}
+      onOpenChange={setRunwayOpen}
+      mode="ASSIGN"
+      callsign={callsign}
+      direction="departure"
     />
     </>
   );

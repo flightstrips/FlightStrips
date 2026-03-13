@@ -467,6 +467,7 @@ export interface FrontendUpdateStripDataEvent {
   heading?: number;
   altitude?: number;
   stand?: string;
+  runway?: string;
 }
 
 export interface FrontendUpdateOrder {

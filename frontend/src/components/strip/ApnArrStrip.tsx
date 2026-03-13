@@ -1,6 +1,8 @@
+import { useState } from "react";
 import type { StripProps } from "./types";
 import { useStripSelection, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR, COLOR_ARR_YELLOW, COLOR_BTN_ORANGE } from "./shared";
 import { useControllers } from "@/store/store-hooks";
+import { RunwayDialog } from "./RunwayDialog";
 
 // Height: 48px fixed (intentional — matches FinalArrStrip ATC arrival strip spec)
 const TOP_H = 32; // 2/3 of 48px
@@ -37,6 +39,7 @@ export function ApnArrStrip({
   const { isSelected, handleClick } = useStripSelection(callsign, selectable);
   const cellBorderColor = getCellBorderColor(marked);
   const controllers = useControllers();
+  const [runwayOpen, setRunwayOpen] = useState(false);
 
   const isAssumed = !!myPosition && owner === myPosition;
   const isTransferredAway = !!myPosition && !!previousControllers?.includes(myPosition);
@@ -52,6 +55,7 @@ export function ApnArrStrip({
   const nextLabel = isAssumed && nextController ? nextController.identifier : "";
 
   return (
+    <>
     <div
       className={`flex text-black select-none${selectable ? " cursor-pointer" : ""}`}
       style={{
@@ -87,7 +91,11 @@ export function ApnArrStrip({
       </div>
 
       {/* RWY — 54px */}
-      <div className="flex-shrink-0 flex flex-col overflow-hidden border-r-2" style={{ width: 54, height: "100%", borderRightColor: cellBorderColor }}>
+      <div
+        className="flex-shrink-0 flex flex-col overflow-hidden border-r-2 cursor-pointer hover:brightness-95"
+        style={{ width: 54, height: "100%", borderRightColor: cellBorderColor }}
+        onClick={(e) => { e.stopPropagation(); setRunwayOpen(true); }}
+      >
         <div className="flex items-center justify-center" style={{ height: TOP_H }}>
           <span className="font-bold text-xl truncate">{runway}</span>
         </div>
@@ -110,5 +118,14 @@ export function ApnArrStrip({
         <div style={{ height: BOT_H }} />
       </div>
     </div>
+
+    <RunwayDialog
+      open={runwayOpen}
+      onOpenChange={setRunwayOpen}
+      mode="ASSIGN"
+      callsign={callsign}
+      direction="arrival"
+    />
+    </>
   );
 }

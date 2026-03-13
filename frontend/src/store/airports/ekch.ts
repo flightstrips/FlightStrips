@@ -89,6 +89,19 @@ export const useTaxiDepStrips = (): AnyStrip[] => {
   );
 };
 
+export const useTaxiDepLwrStrips = (): AnyStrip[] => {
+  const strips = useWebSocketStore(state => state.strips);
+  const tacticalStrips = useTacticalStrips();
+  const airport = useAirport();
+  return useMemo(
+    () => ([
+      ...strips.filter(x => x.bay === Bay.TaxiLwr && x.origin === airport),
+      ...tacticalStrips.filter(t => t.bay === Bay.TaxiLwr),
+    ] as AnyStrip[]).sort((a, b) => a.sequence - b.sequence),
+    [strips, tacticalStrips, airport]
+  );
+};
+
 export const useTaxiArrStrips = (): AnyStrip[] => {
   const strips = useWebSocketStore(state => state.strips);
   const tacticalStrips = useTacticalStrips();

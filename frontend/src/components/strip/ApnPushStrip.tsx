@@ -157,6 +157,7 @@ export function ApnPushStrip({
         mode="ASSIGN"
         callsign={callsign}
         direction="departure"
+        currentRunway={runway}
       />
     </div>
   );

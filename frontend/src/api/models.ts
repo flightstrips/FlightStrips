@@ -88,6 +88,7 @@ export enum Bay {
   Cleared = "CLEARED",
   Push = "PUSH",
   Taxi = "TAXI",
+  TaxiLwr = "TAXI_LWR",
   DeIce = "DE_ICE",
   Depart = "DEPART",
   Airborne = "AIRBORNE",

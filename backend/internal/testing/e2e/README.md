@@ -50,7 +50,7 @@ Tests use **testcontainers-go** to automatically:
 - Sets up TEST_MODE environment
 - Initializes configuration
 - Starts PostgreSQL test container with migrations
-- Starts test server on port 2994
+- Starts test server on port 8090
 - Runs all tests
 - Tears down server and container after completion
 
@@ -95,7 +95,7 @@ func TestMyScenario(t *testing.T) {
 
 ## Limitations
 
-- Server runs on fixed port 2994
+- Server runs on fixed port 8090
 - Database assertion helpers are placeholder (need query methods)
 - Tests run sequentially (server is shared)
 - Each test run creates a new database container (isolated and clean)
@@ -135,7 +135,7 @@ Add to GitHub Actions workflow:
 ## Troubleshooting
 
 ### Port already in use
-If port 2994 is already in use, stop the development server or change the port in `e2e/server.go`.
+If port 8090 is already in use, stop the development server or change the port in `e2e/server.go`.
 
 ### Docker not available
 Ensure Docker Desktop is running. Test containers require Docker to be accessible.

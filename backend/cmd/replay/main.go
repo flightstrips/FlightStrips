@@ -19,7 +19,7 @@ func main() {
 		sessionFile    = flag.String("session", "", "Path to recorded session JSON file (required)")
 		mode           = flag.String("mode", "time", "Replay mode: 'time' for time-based or 'fast' for fast replay")
 		speed          = flag.Float64("speed", 1.0, "Speed multiplier for time-based mode (e.g., 10.0 = 10x speed)")
-		serverURL      = flag.String("server", "ws://localhost:2994/euroscopeEvents", "WebSocket server URL")
+		serverURL      = flag.String("server", "ws://localhost:8090/euroscopeEvents", "WebSocket server URL")
 		minDelay       = flag.Int("min-delay", 10, "Minimum delay between events in fast mode (milliseconds)")
 		stopOnError    = flag.Bool("stop-on-error", true, "Stop replay on first error")
 		verbose        = flag.Bool("verbose", false, "Enable verbose logging")

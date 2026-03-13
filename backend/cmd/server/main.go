@@ -40,7 +40,7 @@ import (
 	"go.opentelemetry.io/otel"
 )
 
-var addr = flag.String("addr", "0.0.0.0:2994", "http service address")
+var addr = flag.String("addr", "127.0.0.1:8090", "http service address")
 
 func healthz(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(http.StatusOK)

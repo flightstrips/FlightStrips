@@ -11,4 +11,4 @@ RUN go build -ldflags '-w -s' -a -o ./bin/api ./cmd/server
 #    && go build -ldflags '-w -s' -a -o ./bin/migrate ./cmd/migrate
 
 CMD ["/myapp/bin/api"]
-EXPOSE 2994
+EXPOSE 8090

@@ -11,6 +11,7 @@ import {
   useStandStrips,
   useTaxiArrStrips,
   useTaxiDepStrips,
+  useTaxiDepLwrStrips,
   isFlight,
 } from "@/store/airports/ekch.ts";
 import type { AnyStrip, FrontendStrip, StripRef } from "@/api/models.ts";
@@ -47,7 +48,8 @@ export default function GEGW() {
   const rwyArrStrips = useRwyArrStrips();
   const twyArrStrips = useTaxiArrStrips();
   const pushStrips   = usePushbackStrips();
-  const twyDepMerged = useTaxiDepStrips();
+  const twyDepUpr = useTaxiDepStrips();
+  const twyDepLwr = useTaxiDepLwrStrips();
   const standStrips  = useStandStrips();
 
   const inboundStrips = useInboundStrips();
@@ -71,10 +73,10 @@ export default function GEGW() {
   const nonClearedStrips = useNonClearedStrips();
 
   const bayStripMap = {
-    "PUSHBACK":    { strips: pushStrips,   targetBay: Bay.Push },
-    "TWY-DEP-UPR": { strips: twyDepMerged, targetBay: Bay.Taxi },
-    "TWY-DEP-LWR": { strips: twyDepMerged, targetBay: Bay.Taxi },
-    "STAND":       { strips: standStrips,  targetBay: Bay.Stand },
+    "PUSHBACK":    { strips: pushStrips,  targetBay: Bay.Push },
+    "TWY-DEP-UPR": { strips: twyDepUpr,  targetBay: Bay.Taxi },
+    "TWY-DEP-LWR": { strips: twyDepLwr,  targetBay: Bay.TaxiLwr },
+    "STAND":       { strips: standStrips, targetBay: Bay.Stand },
   };
 
   const transferRules: Record<string, string[]> = {
@@ -95,9 +97,10 @@ export default function GEGW() {
       onMove={(callsign, bay) => move(callsign, bay)}
       renderDragOverlay={(strip: AnyStrip) => {
         if (!isFlight(strip)) return <Strip strip={strip} width={CLX_CLEARED_STRIP_WIDTH} />;
-        if (strip.bay === Bay.Push)  return <Strip strip={strip} status="HALF" halfStripVariant="APN-PUSH" myPosition={myPosition} />;
-        if (strip.bay === Bay.Taxi)  return <Strip strip={strip} status="CLROK" myPosition={myPosition} />;
-        if (strip.bay === Bay.Stand) return <Strip strip={strip} status="CLROK" myPosition={myPosition} />;
+        if (strip.bay === Bay.Push)     return <Strip strip={strip} status="HALF" halfStripVariant="APN-PUSH" myPosition={myPosition} />;
+        if (strip.bay === Bay.Taxi)     return <Strip strip={strip} status="CLROK" myPosition={myPosition} />;
+        if (strip.bay === Bay.TaxiLwr) return <Strip strip={strip} status="CLROK" myPosition={myPosition} />;
+        if (strip.bay === Bay.Stand)   return <Strip strip={strip} status="CLROK" myPosition={myPosition} />;
         return null;
       }}
     >
@@ -193,7 +196,7 @@ export default function GEGW() {
           </span>
         </div>
         <SortableBay
-          strips={twyDepMerged}
+          strips={twyDepUpr}
           bayId="TWY-DEP-UPR"
           standalone={false}
           className={`h-[35%] ${scrollArea}`}
@@ -207,7 +210,7 @@ export default function GEGW() {
           <span className={activeLabel}>TWY DEP LWR</span>
         </div>
         <SortableBay
-          strips={twyDepMerged}
+          strips={twyDepLwr}
           bayId="TWY-DEP-LWR"
           standalone={false}
           className={`flex-1 ${scrollArea}`}

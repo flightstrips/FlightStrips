@@ -244,6 +244,7 @@ export function TwyDepStrip({
       mode="ASSIGN"
       callsign={callsign}
       direction="departure"
+      currentRunway={runway}
     />
     </>
   );

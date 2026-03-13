@@ -3,14 +3,15 @@ import {
   DialogContent,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { useRunwaySetup, useSelectedCallsign, useWebSocketStore } from "@/store/store-hooks";
+import { useSelectedCallsign, useWebSocketStore } from "@/store/store-hooks";
 
 const RUNWAYS = ["04R", "04L", "12", "22R", "22L", "30"];
 
 // Tailwind class constants (hex must be literal strings for JIT)
-const CLS_DIALOG_BG  = "bg-[#B3B3B3] border border-black p-0 w-[167px] gap-0 overflow-hidden [&>button]:hidden";
-const CLS_RWY_BTN    = "w-full h-[70px] bg-[#CCCCCC] text-black font-semibold text-[28px] font-[Rubik] shadow-[0_4px_4px_rgba(0,0,0,0.25)] outline-none active:brightness-90";
-const CLS_ESC_BTN    = "w-full h-[70px] bg-[#3F3F3F] text-white font-semibold text-[28px] font-[Rubik] shadow-[0_4px_4px_rgba(0,0,0,0.25)] outline-none active:brightness-75";
+const CLS_DIALOG_BG      = "bg-[#B3B3B3] border border-black p-0 w-[167px] gap-0 overflow-hidden [&>button]:hidden";
+const CLS_RWY_BTN        = "w-full h-[70px] bg-[#CCCCCC] text-black font-semibold text-[28px] font-[Rubik] shadow-[0_4px_4px_rgba(0,0,0,0.25)] outline-none active:brightness-90";
+const CLS_RWY_BTN_ACTIVE = "w-full h-[70px] bg-[#2CBB00] text-white font-semibold text-[28px] font-[Rubik] shadow-[0_4px_4px_rgba(0,0,0,0.25)] outline-none active:brightness-90";
+const CLS_ESC_BTN        = "w-full h-[70px] bg-[#3F3F3F] text-white font-semibold text-[28px] font-[Rubik] shadow-[0_4px_4px_rgba(0,0,0,0.25)] outline-none active:brightness-75";
 
 interface TacticalProps {
   open: boolean;
@@ -26,6 +27,7 @@ interface AssignProps {
   mode: "ASSIGN";
   callsign: string;
   direction: "departure" | "arrival";
+  currentRunway?: string;
 }
 
 type Props = TacticalProps | AssignProps;
@@ -35,13 +37,14 @@ export function RunwayDialog(props: Props) {
   const createTacticalStrip = useWebSocketStore(s => s.createTacticalStrip);
   const assignRunway = useWebSocketStore(s => s.assignRunway);
   const selectedAircraft = useSelectedCallsign();
-  const runwaySetup = useRunwaySetup();
+  //const runwaySetup = useRunwaySetup();
 
-  const runways = props.mode === "ASSIGN"
+  const runways = /*props.mode === "ASSIGN"
     ? (props.direction === "departure" ? runwaySetup.departure : runwaySetup.arrival)
-    : RUNWAYS;
+    :*/ RUNWAYS;
 
   const title = props.mode === "ASSIGN" ? "Assign Runway" : props.type;
+  const currentRunway = props.mode === "ASSIGN" ? props.currentRunway : undefined;
 
   function handleSelect(runway: string) {
     if (props.mode === "ASSIGN") {
@@ -60,7 +63,7 @@ export function RunwayDialog(props: Props) {
           {runways.map(rwy => (
             <div key={rwy} className="pb-[9px]">
               <button
-                className={CLS_RWY_BTN}
+                className={rwy === currentRunway ? CLS_RWY_BTN_ACTIVE : CLS_RWY_BTN}
                 onClick={() => handleSelect(rwy)}
               >
                 {rwy}

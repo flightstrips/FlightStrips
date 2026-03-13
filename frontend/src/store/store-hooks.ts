@@ -58,5 +58,12 @@ export const useCtwrOnline = () =>
     )
   );
 
+export const useTwrOnline = () =>
+  useWebSocketStore((state) =>
+    state.controllers.some(
+      (c) => c.section === "TWR" && c.position !== state.position
+    )
+  );
+
 export const useLayoutChooserOpen = () => useWebSocketStore((state) => state.layoutChooserOpen);
 export const useSetLayoutChooserOpen = () => useWebSocketStore((state) => state.setLayoutChooserOpen);

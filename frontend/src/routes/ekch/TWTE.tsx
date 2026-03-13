@@ -10,7 +10,7 @@ import {
   usePushbackStrips,
   useStandStrips,
   useTaxiArrStrips,
-  useTaxiDepStrips,
+  useTaxiDepLwrStrips,
   useNonClearedStrips,
   useClearedStrips,
   isFlight,
@@ -72,7 +72,7 @@ export default function TWTE() {
   const rwyArrStrips = useRwyArrStrips();
   const twyArrStrips = useTaxiArrStrips();
 
-  const twyDepAll    = useTaxiDepStrips();
+  const twyDepAll    = useTaxiDepLwrStrips();
   const twyDepDesc   = useMemo(() => [...twyDepAll].reverse(), [twyDepAll]);
   const rwyDepAll    = useDepartStrips();
   const rwyDepDesc   = useMemo(() => [...rwyDepAll].reverse(), [rwyDepAll]);
@@ -108,7 +108,7 @@ export default function TWTE() {
     "FINAL":    { strips: finalStrips, targetBay: Bay.Final, descending: true },
     "RWY-ARR":  { strips: rwyArrStrips,  targetBay: Bay.RwyArr, descending: true },
     "TWY-ARR":  { strips: twyArrStrips,   targetBay: Bay.TwyArr, descending: true },
-    "TWY-DEP":  { strips: twyDepDesc,     targetBay: Bay.Taxi,     descending: true },
+    "TWY-DEP":  { strips: twyDepDesc,     targetBay: Bay.TaxiLwr,  descending: true },
     "RWY-DEP":  { strips: rwyDepDesc,     targetBay: Bay.Depart,   descending: true },
     "AIRBORNE": { strips: airborneDesc,   targetBay: Bay.Airborne, descending: true },
     "STAND":    { strips: standStrips,    targetBay: Bay.Stand },

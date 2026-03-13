@@ -44,7 +44,7 @@ func DefaultConfig() Config {
 	return Config{
 		Mode:            ModeTimeBased,
 		SpeedMultiplier: 1.0,
-		ServerURL:       "ws://localhost:2994/euroscopeEvents",
+		ServerURL:       "ws://localhost:8090/euroscopeEvents",
 		MinEventDelay:   10 * time.Millisecond,
 		StopOnError:     true,
 		Verbose:         false,

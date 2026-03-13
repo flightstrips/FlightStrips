@@ -30,13 +30,13 @@ type Replayer struct {
 
 // ReplayStats tracks statistics during replay
 type ReplayStats struct {
-	StartTime           time.Time
-	EndTime             time.Time
-	EventsReplayed      int
-	EventsFailed        int
-	FrontendActionsRun  int
-	TotalEvents         int
-	Errors              []*ReplayError
+	StartTime          time.Time
+	EndTime            time.Time
+	EventsReplayed     int
+	EventsFailed       int
+	FrontendActionsRun int
+	TotalEvents        int
+	Errors             []*ReplayError
 }
 
 // Duration returns the replay duration
@@ -150,7 +150,7 @@ func (r *Replayer) Replay(ctx context.Context) error {
 
 // connectFrontendClient connects a frontend client for simulating frontend actions
 func (r *Replayer) connectFrontendClient(ctx context.Context) error {
-	frontendURL := "ws://localhost:2994/frontEndEvents"
+	frontendURL := "ws://localhost:8090/frontEndEvents"
 	if r.config.ServerURL != "" {
 		// Try to derive frontend URL from euroscope URL
 		frontendURL = strings.Replace(r.config.ServerURL, "/euroscopeEvents", "/frontEndEvents", 1)
@@ -186,7 +186,7 @@ func (r *Replayer) sendLoginEvent() error {
 		"callsign":   r.session.Metadata.Callsign,
 		"range":      r.session.Metadata.Range,
 	}
-	
+
 	// Use default values if not set in metadata
 	if loginEvent["position"] == "" {
 		loginEvent["position"] = "REPLAY_POS"
@@ -201,7 +201,7 @@ func (r *Replayer) sendLoginEvent() error {
 	if r.config.Verbose {
 		slog.Info("Sending synthesized login event", slog.Any("event", loginEvent))
 	}
-	
+
 	return r.client.SendRawMessage(loginEvent)
 }
 
@@ -285,7 +285,7 @@ func (r *Replayer) replayEvents(ctx context.Context) error {
 		if actions, ok := frontendActionMap[i]; ok && r.frontendClient != nil {
 			// Give backend time to process the event before frontend actions
 			time.Sleep(100 * time.Millisecond)
-			
+
 			for _, action := range actions {
 				if err := r.executeFrontendAction(ctx, action); err != nil {
 					slog.Error("Failed to execute frontend action",
@@ -425,19 +425,19 @@ func (r *Replayer) printProgress(current int) {
 	percent := float64(current) / float64(r.stats.TotalEvents) * 100
 	elapsed := time.Since(r.stats.StartTime)
 	eventsPerSec := float64(current) / elapsed.Seconds()
-	
+
 	// Calculate ETA
 	remaining := r.stats.TotalEvents - current
 	eta := time.Duration(0)
 	if eventsPerSec > 0 {
 		eta = time.Duration(float64(remaining)/eventsPerSec) * time.Second
 	}
-	
+
 	// Create progress bar
 	barWidth := 30
 	filled := int(percent / 100 * float64(barWidth))
 	bar := strings.Repeat("█", filled) + strings.Repeat("░", barWidth-filled)
-	
+
 	// Print on same line using \r
 	fmt.Printf("\rReplaying: [%s] %d/%d (%.1f%%) | %.1f ev/s | ETA: %s",
 		bar, current, r.stats.TotalEvents, percent, eventsPerSec, eta.Round(time.Second))

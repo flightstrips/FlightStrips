@@ -16,6 +16,7 @@ import {
   useStandStrips,
   useTaxiArrStrips,
   useTaxiDepStrips,
+  useTaxiDepLwrStrips,
   isFlight,
 } from "@/store/airports/ekch.ts";
 import type { AnyStrip, FrontendStrip, StripRef } from "@/api/models.ts";
@@ -56,7 +57,8 @@ export default function AAAD() {
   const finalStrips   = useFinalStrips().filter(isFlight);
   const rwyArrStrips  = useRwyArrStrips().filter(isFlight);
   const standStrips   = useStandStrips().filter(isFlight);
-  const twyDepMerged  = useTaxiDepStrips();
+  const twyDepUpr    = useTaxiDepStrips();
+  const twyDepLwr    = useTaxiDepLwrStrips();
   const twyArrStrips  = useTaxiArrStrips();
   const startupStrips = useClearedStrips().sort((a, b) => a.sequence - b.sequence);
   const pushStrips    = usePushbackStrips().filter(isFlight);
@@ -79,27 +81,30 @@ export default function AAAD() {
   ];
 
   const bayStripMap = {
-    "TWY-DEP":  { strips: twyDepMerged,  targetBay: Bay.Taxi },
-    "TWY-ARR":  { strips: twyArrStrips,  targetBay: Bay.Taxi },
-    "STARTUP":  { strips: startupStrips, targetBay: Bay.Cleared },
-    "PUSHBACK": { strips: pushStrips,    targetBay: Bay.Push },
-    "DE-ICE":   { strips: deIceStrips,   targetBay: Bay.DeIce },
+    "TWY-DEP-UPR": { strips: twyDepUpr,    targetBay: Bay.Taxi },
+    "TWY-DEP-LWR": { strips: twyDepLwr,    targetBay: Bay.TaxiLwr },
+    "TWY-ARR":     { strips: twyArrStrips, targetBay: Bay.TwyArr },
+    "STARTUP":     { strips: startupStrips, targetBay: Bay.Cleared },
+    "PUSHBACK":    { strips: pushStrips,    targetBay: Bay.Push },
+    "DE-ICE":      { strips: deIceStrips,   targetBay: Bay.DeIce },
   };
 
   const transferRules: Record<string, string[]> = {
-    "TWY-DEP":  ["TWY-ARR", "STARTUP", "PUSHBACK", "DE-ICE"],
-    "TWY-ARR":  ["TWY-DEP", "STARTUP", "PUSHBACK"],
-    "STARTUP":  ["TWY-DEP", "TWY-ARR", "PUSHBACK", "DE-ICE"],
-    "PUSHBACK": ["TWY-DEP", "TWY-ARR", "STARTUP", "DE-ICE"],
-    "DE-ICE":   ["TWY-DEP", "STARTUP", "PUSHBACK"],
+    "TWY-DEP-UPR": ["TWY-DEP-LWR", "TWY-ARR", "STARTUP", "PUSHBACK", "DE-ICE"],
+    "TWY-DEP-LWR": ["TWY-DEP-UPR", "TWY-ARR", "STARTUP", "PUSHBACK", "DE-ICE"],
+    "TWY-ARR":     ["TWY-DEP-UPR", "TWY-DEP-LWR", "STARTUP", "PUSHBACK"],
+    "STARTUP":     ["TWY-DEP-UPR", "TWY-DEP-LWR", "TWY-ARR", "PUSHBACK", "DE-ICE"],
+    "PUSHBACK":    ["TWY-DEP-UPR", "TWY-DEP-LWR", "TWY-ARR", "STARTUP", "DE-ICE"],
+    "DE-ICE":      ["TWY-DEP-UPR", "TWY-DEP-LWR", "STARTUP", "PUSHBACK"],
   };
 
   const statusForBay: Record<string, StripStatus> = {
-    "TWY-DEP": "TAXI-DEP",
-    "TWY-ARR": "ARR",
-    "STARTUP": "PUSH",
+    "TWY-DEP-UPR": "TAXI-DEP",
+    "TWY-DEP-LWR": "TAXI-DEP",
+    "TWY-ARR":  "ARR",
+    "STARTUP":  "PUSH",
     "PUSHBACK": "PUSH",
-    "DE-ICE": "PUSH",
+    "DE-ICE":   "PUSH",
   };
 
   return (
@@ -190,12 +195,12 @@ export default function AAAD() {
             <MemAidButton bay={Bay.Taxi} className={btn} />
           </span>
         </div>
-        {/* TWY DEP-UPR + LWR combined, with TW/TE/GW/GE sub-selector */}
+        {/* TWY DEP-UPR (intermediate hold short, TAXI bay) */}
         <SortableBay
-          strips={twyDepMerged}
-          bayId="TWY-DEP"
+          strips={twyDepUpr}
+          bayId="TWY-DEP-UPR"
           standalone={false}
-          className={`h-[60%] ${scrollArea}`}
+          className={`h-[30%] ${scrollArea}`}
         >
           {(strip) => (
             <Strip strip={strip} status="TAXI-DEP" myPosition={myPosition} width={APN_TAXI_DEP_STRIP_WIDTH} selectable={true} />
@@ -213,6 +218,18 @@ export default function AAAD() {
             </button>
           ))}
         </div>
+
+        {/* TWY DEP-LWR (final hold short, TAXI_LWR bay) — no header */}
+        <SortableBay
+          strips={twyDepLwr}
+          bayId="TWY-DEP-LWR"
+          standalone={false}
+          className={`h-[30%] ${scrollArea}`}
+        >
+          {(strip) => (
+            <Strip strip={strip} status="TAXI-DEP" myPosition={myPosition} width={APN_TAXI_DEP_STRIP_WIDTH} selectable={true} />
+          )}
+        </SortableBay>
 
         <div className={activeHeader}>
           <span className={activeLabel}>TWY ARR</span>

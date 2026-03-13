@@ -125,6 +125,7 @@ export function ApnArrStrip({
       mode="ASSIGN"
       callsign={callsign}
       direction="arrival"
+      currentRunway={runway}
     />
     </>
   );

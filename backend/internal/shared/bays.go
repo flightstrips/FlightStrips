@@ -14,8 +14,10 @@ const (
 	BAY_CLEARED = "CLEARED"
 	// BAY_PUSH Used for departures
 	BAY_PUSH = "PUSH"
-	// BAY_TAXI Used for departures and arrivals
-	BAY_TAXI     = "TAXI"
+	// BAY_TAXI Used for departures (TWY DEP-UPR — intermediate hold short, apron-only)
+	BAY_TAXI = "TAXI"
+	// BAY_TAXI_LWR Used for departures at final hold short (TWY DEP-LWR — visible to apron and TWR)
+	BAY_TAXI_LWR = "TAXI_LWR"
 	BAY_TAXI_TWR = "TAXI_TWR"
 	// BAY_DEPART Used for departures
 	BAY_DEPART = "DEPART"
@@ -149,7 +151,7 @@ func GetGroundState(bay string) string {
 	if bay == BAY_PUSH {
 		return euroscope.GroundStatePush
 	}
-	if bay == BAY_TAXI || bay == BAY_TAXI_TWR {
+	if bay == BAY_TAXI || bay == BAY_TAXI_LWR || bay == BAY_TAXI_TWR {
 		return euroscope.GroundStateTaxi
 	}
 	if bay == BAY_DEPART {

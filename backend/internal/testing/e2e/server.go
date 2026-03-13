@@ -155,8 +155,8 @@ func StartTestServer() (*TestServer, error) {
 	mux.HandleFunc("/euroscopeEvents", euroscopeUpgrader.Upgrade)
 	mux.HandleFunc("/frontEndEvents", frontendUpgrader.Upgrade)
 
-	// Use fixed port 2994 for testing (same as dev server)
-	addr := "127.0.0.1:2994"
+	// Use fixed port 8090 for testing (same as dev server)
+	addr := "127.0.0.1:8090"
 	httpServer := &http.Server{
 		Addr:    addr,
 		Handler: mux,
@@ -235,7 +235,7 @@ func (ts *TestServer) CleanupDatabase() error {
 
 	// Delete in order to respect foreign key constraints
 	// Note: Only delete from tables that exist
-	
+
 	if _, err := ts.DBPool.Exec(ctx, "DELETE FROM strips"); err != nil {
 		return fmt.Errorf("failed to cleanup strips: %w", err)
 	}

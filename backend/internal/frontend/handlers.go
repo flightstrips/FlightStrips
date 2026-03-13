@@ -21,6 +21,7 @@ var validBays = map[string]bool{
 	shared.BAY_CLEARED:     true,
 	shared.BAY_PUSH:        true,
 	shared.BAY_TAXI:        true,
+	shared.BAY_TAXI_LWR:    true,
 	shared.BAY_TAXI_TWR:    true,
 	shared.BAY_DEPART:      true,
 	shared.BAY_AIRBORNE:    true,

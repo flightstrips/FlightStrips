@@ -3,21 +3,21 @@ package main
 import (
 	"bufio"
 	"fmt"
-	"github.com/gorilla/websocket"
 	"log"
 	"os"
 	"os/signal"
+
+	"github.com/gorilla/websocket"
 )
 
 func main() {
 	// Connect to the WebSocket server.
-	serverAddr := "ws://localhost:2994/frontEndEvents"
+	serverAddr := "ws://localhost:8090/frontEndEvents"
 	c, _, err := websocket.DefaultDialer.Dial(serverAddr, nil)
 	if err != nil {
 		log.Fatal("dial:", err)
 	}
 	defer c.Close()
-
 
 	// Handle interrupt signal for cleanup.
 	interrupt := make(chan os.Signal, 1)

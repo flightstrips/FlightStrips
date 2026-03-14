@@ -222,6 +222,23 @@ func handleSync(ctx context.Context, client *Client, message Message) error {
 		}
 	}
 
+	// Auto-assume for all controllers visible in the sync, plus the local (master) controller.
+	// The local controller is not included in event.Controllers (which only lists remote controllers),
+	// but its strips may be waiting for assumption.
+	positionsToAssume := make(map[string]bool)
+	for _, controller := range event.Controllers {
+		positionsToAssume[controller.Position] = true
+	}
+	if client.position != "" {
+		positionsToAssume[client.position] = true
+	}
+	for position := range positionsToAssume {
+		if err := client.hub.stripService.AutoAssumeForControllerOnline(ctx, session, position); err != nil {
+			slog.Error("AutoAssumeForControllerOnline failed during sync",
+				slog.String("position", position), slog.Any("error", err))
+		}
+	}
+
 	client.hub.server.GetFrontendHub().CidOnline(session, client.user.GetCid())
 
 	return nil

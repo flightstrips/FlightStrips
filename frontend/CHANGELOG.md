@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.11.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.10.0...frontend/v0.11.0) (2026-03-14)
+
+
+### Features
+
+* Added favicon ([116a163](https://github.com/flightstrips/FlightStrips/commit/116a163d03ee22f0e9ebf4766afb518959da11a1))
+
 ## [0.10.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.9.0...frontend/v0.10.0) (2026-03-14)
 
 

@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.8.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.7.0...frontend/v0.8.0) (2026-03-14)
+
+
+### Features
+
+* Allow assuming strip with no owner ([eabca16](https://github.com/flightstrips/FlightStrips/commit/eabca16e641e60fc8d75f6b363b2af5c3f721a0c))
+* Assign runway ([1c21816](https://github.com/flightstrips/FlightStrips/commit/1c21816cd0ed25407964d70a1bd7991c0be0175c))
+* Controller changes ([0052835](https://github.com/flightstrips/FlightStrips/commit/00528350aff4da5d719e4c7f9fa9a1ea74751074))
+* proactive token refresh based on JWT expiry ([f956034](https://github.com/flightstrips/FlightStrips/commit/f9560342d7c8021df8ce19288442d06b0a7f0837))
+* Runway arrival ([a5d4044](https://github.com/flightstrips/FlightStrips/commit/a5d4044f17be50b3f1867d417c4381b164f11676))
+* Runway clearence ([138c40a](https://github.com/flightstrips/FlightStrips/commit/138c40a5a1ee36bd5f57df481de39bb173f48965))
+* select stand ([82f0890](https://github.com/flightstrips/FlightStrips/commit/82f0890621b9afc3aa1c105fdb919fc22632cbac))
+* Unexpected changes highlight ([f8afab8](https://github.com/flightstrips/FlightStrips/commit/f8afab868df4637a0ec345f1a8c3311ccfa7a6b5))
+* UPR+LWR TWY DEP ([6115e59](https://github.com/flightstrips/FlightStrips/commit/6115e59cc15d5acbaae518f81bc5656a6991e02c))
+
+
+### Bug Fixes
+
+* add missing email contact ([a69844c](https://github.com/flightstrips/FlightStrips/commit/a69844c41613fc9e1cf6d6df22566bd9c2b8f944))
+* move strip to correct twy dep when setting taxi point ([5367572](https://github.com/flightstrips/FlightStrips/commit/53675720caed9c13153d13a5fc7207a8f4b8b146))
+* next controllor ([7798394](https://github.com/flightstrips/FlightStrips/commit/7798394e08ffbffe5fa8c3ee3e06674236bf8273))
+* online / offline messages ([e367ea1](https://github.com/flightstrips/FlightStrips/commit/e367ea1a48eb9c8c42f581e02a6d7b457b6e1d12))
+
 ## [0.7.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.6.0...frontend/v0.7.0) (2026-03-12)
 
 

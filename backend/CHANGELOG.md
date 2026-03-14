@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.8.0](https://github.com/flightstrips/FlightStrips/compare/backend/v0.7.1...backend/v0.8.0) (2026-03-14)
+
+
+### Features
+
+* Allow assuming strip with no owner ([eabca16](https://github.com/flightstrips/FlightStrips/commit/eabca16e641e60fc8d75f6b363b2af5c3f721a0c))
+* Assign runway ([1c21816](https://github.com/flightstrips/FlightStrips/commit/1c21816cd0ed25407964d70a1bd7991c0be0175c))
+* Controller changes ([0052835](https://github.com/flightstrips/FlightStrips/commit/00528350aff4da5d719e4c7f9fa9a1ea74751074))
+* Mark non-owner changes as unexpected ([471d2ee](https://github.com/flightstrips/FlightStrips/commit/471d2ee2d8cb9d62097962ad0224a6afcb83cc5a))
+* Runway arrival ([a5d4044](https://github.com/flightstrips/FlightStrips/commit/a5d4044f17be50b3f1867d417c4381b164f11676))
+* Runway clearence ([138c40a](https://github.com/flightstrips/FlightStrips/commit/138c40a5a1ee36bd5f57df481de39bb173f48965))
+* Unexpected changes highlight ([f8afab8](https://github.com/flightstrips/FlightStrips/commit/f8afab868df4637a0ec345f1a8c3311ccfa7a6b5))
+* UPR+LWR TWY DEP ([6115e59](https://github.com/flightstrips/FlightStrips/commit/6115e59cc15d5acbaae518f81bc5656a6991e02c))
+
+
+### Bug Fixes
+
+* auto-assume correctly picks up controllers ([cf61fda](https://github.com/flightstrips/FlightStrips/commit/cf61fda5187483673ddd855d40192ab062038df9))
+* better route computation ([8ac2e33](https://github.com/flightstrips/FlightStrips/commit/8ac2e3305d213505a8012fccaa9c563b77009146))
+* increase auto hide time ([00fbd70](https://github.com/flightstrips/FlightStrips/commit/00fbd70821800a52cac6b58d2ef026ad293f1249))
+* online / offline messages ([e367ea1](https://github.com/flightstrips/FlightStrips/commit/e367ea1a48eb9c8c42f581e02a6d7b457b6e1d12))
+* reduce app container image size ([e574a8f](https://github.com/flightstrips/FlightStrips/commit/e574a8f342b6f6823d51b9bc7bab1902ed422ee8))
+* unable to assume strip if it had no owner ([35e1707](https://github.com/flightstrips/FlightStrips/commit/35e1707e19be88f8082e33e24513d4f513e5de57))
+
 ## [0.7.1](https://github.com/flightstrips/FlightStrips/compare/backend/v0.7.0...backend/v0.7.1) (2026-03-12)
 
 

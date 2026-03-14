@@ -99,7 +99,7 @@ export function TwyDepStrip({
   // Next position frequency — controller.position IS the frequency string (e.g. "118.105")
   const nextPosition = nextControllers?.find(pos => pos !== myPosition);
   const nextController = controllers.find(c => c.position === nextPosition);
-  const nextFreq = isAssumed && nextController ? `:${nextController.position}` : "";
+  const nextFreq = nextController ? `:${nextController.position}` : "";
 
   // Cleared FL — altitude in feet → FL (e.g. 12000 → "FL120")
   const fl = clearedAltitude ? `FL${Math.floor(clearedAltitude / 100)}` : "";

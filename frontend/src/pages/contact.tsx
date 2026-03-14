@@ -1,4 +1,3 @@
-import { Link } from "react-router";
 import { PublicNavigation } from "@/components/public/PublicNavigation";
 import { PublicFooter } from "@/components/public/PublicFooter";
 import { ScrollProgress } from "@/components/public/ScrollProgress";

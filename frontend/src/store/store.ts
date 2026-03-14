@@ -627,6 +627,18 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
           },
           ...state.broadcastNotifications,
         ].slice(0, 50);
+
+        // Also push into the messages panel so it is visible in the view.
+        state.messages = [
+          {
+            id: Date.now(),
+            sender: data.from,
+            text: data.message,
+            is_broadcast: true,
+            recipients: [],
+          },
+          ...state.messages,
+        ].slice(0, 100);
       })
     );
   }

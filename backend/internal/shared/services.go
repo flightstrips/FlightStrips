@@ -13,6 +13,9 @@ type ControllerOnlineResult struct {
 	SectorChanges []SectorChange
 	// SingleOnPosition is true when this controller is the only one on the position.
 	SingleOnPosition bool
+	// NotifyOnline is true when the frontend should be sent a controller_online event.
+	// False for heartbeat events where the position did not change.
+	NotifyOnline bool
 }
 
 // ControllerOfflineResult describes whether the handler should schedule an offline timer.

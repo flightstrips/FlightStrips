@@ -43,7 +43,7 @@ export function MessageStrip({ msg }: MessageStripProps) {
   return (
     <div
       className="flex items-stretch shrink-0"
-      style={{ height: 48, background: COLOR_STRIP_BG }}
+      style={{ minHeight: 48, background: COLOR_STRIP_BG }}
     >
       {/* SI box */}
       <div
@@ -55,10 +55,10 @@ export function MessageStrip({ msg }: MessageStripProps) {
 
       {/* Message text */}
       <div
-        className="flex-1 flex items-center px-2 overflow-hidden"
+        className="flex-1 flex items-center px-2 py-2"
         style={{ fontFamily: "Rubik, sans-serif", fontSize: 14, color: COLOR_TEXT_MAIN }}
       >
-        <span className="truncate">{msg.text}</span>
+        <span className="break-words min-w-0 w-full">{msg.text}</span>
       </div>
 
       {/* X button */}

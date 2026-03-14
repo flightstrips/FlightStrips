@@ -159,6 +159,96 @@ func TestControllerOffline_UnknownPosition_DeletesImmediately(t *testing.T) {
 	assert.False(t, result.ShouldScheduleTimer)
 }
 
+func TestControllerOnline_New_SendsOnlineEvent(t *testing.T) {
+	ctx := context.Background()
+	const session = int32(1)
+	const callsign = "EKCH_N_GND"
+	const position = "121.900"
+
+	ctrlRepo := &testutil.MockControllerRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Controller, error) {
+			return nil, pgx.ErrNoRows
+		},
+		CreateFn: func(_ context.Context, _ *models.Controller) error { return nil },
+	}
+
+	hub := &testutil.MockFrontendHub{}
+	mockServer := &testutil.MockServer{FrontendHubVal: hub}
+	svc := NewControllerService(ctrlRepo)
+	svc.SetServer(mockServer)
+
+	result, err := svc.ControllerOnline(ctx, session, callsign, position, "")
+	require.NoError(t, err)
+	assert.True(t, result.NotifyOnline, "new controller should trigger online notification")
+}
+
+func TestControllerOnline_SamePosition_DoesNotSendOnlineEvent(t *testing.T) {
+	ctx := context.Background()
+	const session = int32(1)
+	const callsign = "EKCH_TWR"
+	const position = "119.350"
+
+	ctrlRepo := &testutil.MockControllerRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Controller, error) {
+			return &models.Controller{Callsign: callsign, Session: session, Position: position}, nil
+		},
+	}
+
+	svc := NewControllerService(ctrlRepo)
+	result, err := svc.ControllerOnline(ctx, session, callsign, position, "")
+	require.NoError(t, err)
+	assert.False(t, result.NotifyOnline, "heartbeat should not trigger online notification")
+}
+
+func TestControllerOnline_PositionChanged_SendsOnlineEvent(t *testing.T) {
+	ctx := context.Background()
+	const session = int32(1)
+	const callsign = "EKCH_N_GND"
+	const oldPosition = "121.900"
+	const newPosition = "121.750"
+
+	ctrlRepo := &testutil.MockControllerRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Controller, error) {
+			return &models.Controller{Callsign: callsign, Session: session, Position: oldPosition}, nil
+		},
+		SetPositionFn: func(_ context.Context, _ int32, _ string, _ string) (int64, error) {
+			return 1, nil
+		},
+	}
+
+	hub := &testutil.MockFrontendHub{}
+	mockServer := &testutil.MockServer{FrontendHubVal: hub}
+	svc := NewControllerService(ctrlRepo)
+	svc.SetServer(mockServer)
+
+	result, err := svc.ControllerOnline(ctx, session, callsign, newPosition, "")
+	require.NoError(t, err)
+	assert.True(t, result.NotifyOnline, "position change should trigger online notification")
+}
+
+func TestControllerOffline_NotFound_SendsOfflineEvent(t *testing.T) {
+	ctx := context.Background()
+	const session = int32(1)
+	const callsign = "GHOST"
+
+	ctrlRepo := &testutil.MockControllerRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Controller, error) {
+			return nil, pgx.ErrNoRows
+		},
+	}
+
+	hub := &testutil.MockFrontendHub{}
+	mockServer := &testutil.MockServer{FrontendHubVal: hub}
+	svc := NewControllerService(ctrlRepo)
+	svc.SetServer(mockServer)
+
+	result, err := svc.ControllerOffline(ctx, session, callsign)
+	require.NoError(t, err)
+	assert.False(t, result.ShouldScheduleTimer)
+	require.Len(t, hub.ControllerOfflines, 1, "frontend should receive controller_offline event even for unknown controller")
+	assert.Equal(t, callsign, hub.ControllerOfflines[0].Callsign)
+}
+
 // ---- UpsertController ----
 
 func TestUpsertController_CreatesIfNotExists(t *testing.T) {

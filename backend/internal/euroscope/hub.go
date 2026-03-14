@@ -549,10 +549,6 @@ func (hub *Hub) scheduleOfflineActions(session int32, callsign, positionFreq, po
 		delete(hub.offlineTimers, key)
 		hub.offlineMu.Unlock()
 
-		if len(changes) == 0 {
-			return
-		}
-
 		// Phase 2: 5-second delay before broadcast notification
 		select {
 		case <-ctx.Done():
@@ -561,6 +557,11 @@ func (hub *Hub) scheduleOfflineActions(session int32, callsign, positionFreq, po
 		}
 
 		msg := buildOfflineBroadcastMessage(positionName, changes)
+		slog.Info("Sending offline broadcast message",
+			slog.String("position", positionName),
+			slog.String("callsign", callsign),
+			slog.String("message", msg),
+			slog.Int("session", int(session)))
 		s.GetFrontendHub().SendBroadcast(session, msg, "SYSTEM")
 	}()
 }
@@ -589,6 +590,10 @@ func (hub *Hub) scheduleOnlineBroadcast(session int32, positionName string, chan
 	go func() {
 		time.Sleep(5 * time.Second)
 		msg := buildOnlineBroadcastMessage(positionName, changes)
+		slog.Info("Sending online broadcast message",
+			slog.String("position", positionName),
+			slog.String("message", msg),
+			slog.Int("session", int(session)))
 		hub.server.GetFrontendHub().SendBroadcast(session, msg, "SYSTEM")
 	}()
 }
@@ -596,6 +601,9 @@ func (hub *Hub) scheduleOnlineBroadcast(session int32, positionName string, chan
 // buildOnlineBroadcastMessage constructs the human-readable broadcast message for a
 // position coming online, listing each sector that transferred responsibility.
 func buildOnlineBroadcastMessage(positionName string, changes []shared.SectorChange) string {
+	if len(changes) == 0 {
+		return fmt.Sprintf("%s is now online.", positionName)
+	}
 	if len(changes) == 1 {
 		c := changes[0]
 		if c.FromPosition == "" {
@@ -617,6 +625,9 @@ func buildOnlineBroadcastMessage(positionName string, changes []shared.SectorCha
 // buildOfflineBroadcastMessage constructs the human-readable broadcast message for a
 // position going offline, listing each sector that transferred responsibility.
 func buildOfflineBroadcastMessage(positionName string, changes []shared.SectorChange) string {
+	if len(changes) == 0 {
+		return fmt.Sprintf("%s went offline.", positionName)
+	}
 	if len(changes) == 1 {
 		c := changes[0]
 		if c.ToPosition == "" {

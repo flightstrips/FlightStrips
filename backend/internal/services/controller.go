@@ -49,7 +49,12 @@ func (cs *ControllerService) ControllerOnline(ctx context.Context, session int32
 		if err = cs.controllerRepo.Create(ctx, newController); err != nil {
 			return shared.ControllerOnlineResult{}, err
 		}
-		return cs.performOnlineOrchestration(ctx, session, position, positionName)
+		result, err := cs.performOnlineOrchestration(ctx, session, position, positionName)
+		if err != nil {
+			return shared.ControllerOnlineResult{}, err
+		}
+		result.NotifyOnline = true
+		return result, nil
 	}
 
 	if err != nil {
@@ -58,7 +63,7 @@ func (cs *ControllerService) ControllerOnline(ctx context.Context, session int32
 
 	// Case B: same position — EuroScope heartbeat, no meaningful change.
 	if controller.Position == position {
-		return shared.ControllerOnlineResult{}, nil
+		return shared.ControllerOnlineResult{NotifyOnline: false}, nil
 	}
 
 	// Case C: position changed.
@@ -87,7 +92,7 @@ func (cs *ControllerService) ControllerOnline(ctx context.Context, session int32
 	}
 
 	if !shouldUpdate {
-		return shared.ControllerOnlineResult{}, nil
+		return shared.ControllerOnlineResult{NotifyOnline: true}, nil
 	}
 
 	changes, err := s.UpdateSectors(session)
@@ -96,10 +101,15 @@ func (cs *ControllerService) ControllerOnline(ctx context.Context, session int32
 	}
 
 	var singleOnPosition bool
-	if positionName != "" && len(changes) > 0 {
+	if positionName != "" {
 		controllers, err := cs.controllerRepo.GetByPosition(ctx, session, position)
 		if err == nil {
 			singleOnPosition = len(controllers) == 1
+			slog.Debug("Controller online (position change): single-on-position check",
+				slog.String("callsign", callsign),
+				slog.String("position", positionName),
+				slog.Int("controllersOnPosition", len(controllers)),
+				slog.Bool("singleOnPosition", singleOnPosition))
 		}
 	}
 
@@ -113,6 +123,7 @@ func (cs *ControllerService) ControllerOnline(ctx context.Context, session int32
 	return shared.ControllerOnlineResult{
 		SectorChanges:    changes,
 		SingleOnPosition: singleOnPosition,
+		NotifyOnline:     true,
 	}, nil
 }
 
@@ -134,10 +145,14 @@ func (cs *ControllerService) performOnlineOrchestration(ctx context.Context, ses
 	}
 
 	var singleOnPosition bool
-	if positionName != "" && len(changes) > 0 {
+	if positionName != "" {
 		controllers, err := cs.controllerRepo.GetByPosition(ctx, session, position)
 		if err == nil {
 			singleOnPosition = len(controllers) == 1
+			slog.Debug("Controller online (new): single-on-position check",
+				slog.String("position", positionName),
+				slog.Int("controllersOnPosition", len(controllers)),
+				slog.Bool("singleOnPosition", singleOnPosition))
 		}
 	}
 
@@ -151,6 +166,7 @@ func (cs *ControllerService) performOnlineOrchestration(ctx context.Context, ses
 	return shared.ControllerOnlineResult{
 		SectorChanges:    changes,
 		SingleOnPosition: singleOnPosition,
+		NotifyOnline:     true,
 	}, nil
 }
 
@@ -187,10 +203,12 @@ func (cs *ControllerService) ControllerOffline(ctx context.Context, session int3
 	}
 	for _, other := range others {
 		if other.Callsign != callsign {
-			slog.Debug("Controller offline but position still covered by another controller — skipping timer",
+			slog.Debug("Controller offline but position still covered by another controller — deleting and notifying immediately",
 				slog.String("callsign", callsign),
 				slog.String("position", positionName),
 				slog.String("other", other.Callsign))
+			_ = cs.controllerRepo.Delete(ctx, session, callsign)
+			cs.server.GetFrontendHub().SendControllerOffline(session, callsign, controller.Position, "")
 			return shared.ControllerOfflineResult{ShouldScheduleTimer: false}, nil
 		}
 	}

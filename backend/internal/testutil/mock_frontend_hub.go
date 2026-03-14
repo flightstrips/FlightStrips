@@ -5,6 +5,22 @@ import (
 	"FlightStrips/pkg/events/frontend"
 )
 
+// ControllerOnlineCall records arguments to SendControllerOnline.
+type ControllerOnlineCall struct {
+	Session    int32
+	Callsign   string
+	Position   string
+	Identifier string
+}
+
+// ControllerOfflineCall records arguments to SendControllerOffline.
+type ControllerOfflineCall struct {
+	Session    int32
+	Callsign   string
+	Position   string
+	Identifier string
+}
+
 // BayEventCall records arguments to SendBayEvent.
 type BayEventCall struct {
 	Session  int32
@@ -75,6 +91,8 @@ type MockFrontendHub struct {
 	CoordinationFrees     []CoordinationFreeCall
 	AircraftDisconnects   []AircraftDisconnectCall
 	StripUpdates          []StripUpdateCall
+	ControllerOnlines     []ControllerOnlineCall
+	ControllerOfflines    []ControllerOfflineCall
 }
 
 func (m *MockFrontendHub) GetServer() shared.Server {
@@ -98,9 +116,11 @@ func (m *MockFrontendHub) SendStripUpdate(session int32, callsign string) {
 }
 
 func (m *MockFrontendHub) SendControllerOnline(session int32, callsign string, position string, identifier string) {
+	m.ControllerOnlines = append(m.ControllerOnlines, ControllerOnlineCall{session, callsign, position, identifier})
 }
 
 func (m *MockFrontendHub) SendControllerOffline(session int32, callsign string, position string, identifier string) {
+	m.ControllerOfflines = append(m.ControllerOfflines, ControllerOfflineCall{session, callsign, position, identifier})
 }
 
 func (m *MockFrontendHub) SendAssignedSquawkEvent(session int32, callsign string, squawk string) {}

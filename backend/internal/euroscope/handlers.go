@@ -56,7 +56,23 @@ func handleControllerOnline(ctx context.Context, client *Client, message Message
 		return err
 	}
 
-	if result.SingleOnPosition && positionName != "" && len(result.SectorChanges) > 0 {
+	slog.Debug("Controller online result",
+		slog.String("callsign", event.Callsign),
+		slog.String("position", event.Position),
+		slog.String("positionName", positionName),
+		slog.Bool("notifyOnline", result.NotifyOnline),
+		slog.Bool("singleOnPosition", result.SingleOnPosition),
+		slog.Int("sectorChanges", len(result.SectorChanges)))
+
+	if result.NotifyOnline {
+		client.hub.server.GetFrontendHub().SendControllerOnline(session, event.Callsign, event.Position, "")
+	}
+
+	if result.SingleOnPosition && positionName != "" {
+		slog.Info("Scheduling online broadcast",
+			slog.String("position", positionName),
+			slog.String("callsign", event.Callsign),
+			slog.Int("session", int(session)))
 		client.hub.scheduleOnlineBroadcast(session, positionName, result.SectorChanges)
 	}
 
@@ -75,7 +91,17 @@ func handleControllerOffline(ctx context.Context, client *Client, message Messag
 		return err
 	}
 
+	slog.Debug("Controller offline result",
+		slog.String("callsign", event.Callsign),
+		slog.Bool("shouldScheduleTimer", result.ShouldScheduleTimer),
+		slog.String("positionName", result.PositionName),
+		slog.Int("session", int(session)))
+
 	if result.ShouldScheduleTimer {
+		slog.Info("Scheduling offline grace period timer",
+			slog.String("callsign", event.Callsign),
+			slog.String("position", result.PositionName),
+			slog.Int("session", int(session)))
 		client.hub.scheduleOfflineActions(session, event.Callsign, result.PositionFrequency, result.PositionName)
 	}
 

@@ -1,5 +1,6 @@
-FROM golang:1.25-alpine
-WORKDIR /myapp
+# Build stage
+FROM golang:1.25-alpine AS builder
+WORKDIR /app
 
 RUN apk add --no-cache gcc musl-dev
 
@@ -8,7 +9,15 @@ RUN go mod download
 COPY . .
 
 RUN go build -ldflags '-w -s' -a -o ./bin/api ./cmd/server
-#    && go build -ldflags '-w -s' -a -o ./bin/migrate ./cmd/migrate
 
-CMD ["/myapp/bin/api"]
+# Final stage
+FROM alpine:latest
+WORKDIR /app
+
+RUN apk --no-cache add ca-certificates
+
+COPY --from=builder /app/bin/api ./bin/api
+COPY ./config ./config
+
+CMD ["/app/bin/api"]
 EXPOSE 8090

@@ -6,23 +6,23 @@ import { ScrollReveal } from "@/components/public/ScrollReveal";
 
 export default function Privacy() {
   return (
-    <div className="min-h-screen bg-cream text-navy flex flex-col">
+    <div className="min-h-screen bg-cream dark:bg-background text-navy dark:text-cream flex flex-col">
       <ScrollProgress />
       <PublicNavigation />
 
       {/* Hero Section */}
-      <section className="py-28 px-8 border-b border-navy/10">
+      <section className="py-28 px-8 border-b border-navy/10 dark:border-cream/20">
         <div className="max-w-7xl mx-auto">
           <ScrollReveal>
             <div className="flex items-center gap-4 mb-4">
-              <div className="w-8 h-px bg-navy/20" />
-              <p className="text-xs tracking-widest uppercase text-navy/60">Legal</p>
+              <div className="w-8 h-px bg-navy/20 dark:bg-cream/30" />
+              <p className="text-xs tracking-widest uppercase text-navy/60 dark:text-cream/60">Legal</p>
             </div>
           </ScrollReveal>
 
           <ScrollReveal delay={0.1}>
             <h1
-              className="font-display font-normal text-5xl md:text-7xl mb-6 text-navy"
+              className="font-display font-normal text-5xl md:text-7xl mb-6 text-navy dark:text-cream"
               style={{ letterSpacing: "-0.02em" }}
             >
               Privacy Policy
@@ -30,7 +30,7 @@ export default function Privacy() {
           </ScrollReveal>
 
           <ScrollReveal delay={0.2}>
-            <p className="text-sm text-navy/60">Last updated: 14/03/2026</p>
+            <p className="text-sm text-navy/60 dark:text-cream/60">Last updated: 14/03/2026</p>
           </ScrollReveal>
         </div>
       </section>
@@ -42,12 +42,12 @@ export default function Privacy() {
             <div className="space-y-8">
               <div>
                 <h2
-                  className="font-display font-normal text-2xl md:text-3xl mb-4 text-navy"
+                  className="font-display font-normal text-2xl md:text-3xl mb-4 text-navy dark:text-cream"
                   style={{ letterSpacing: "-0.01em" }}
                 >
                   Introduction
                 </h2>
-                <p className="font-sans font-light text-base text-navy/80 leading-relaxed">
+                <p className="font-sans font-light text-base text-navy/80 dark:text-cream/80 leading-relaxed">
                   FlightStrips is committed to protecting your privacy. This Privacy Policy explains how we
                   collect, use, disclose, and safeguard your information when you use our service.
                 </p>
@@ -55,15 +55,15 @@ export default function Privacy() {
 
               <div>
                 <h2
-                  className="font-display font-normal text-2xl md:text-3xl mb-4 text-navy"
+                  className="font-display font-normal text-2xl md:text-3xl mb-4 text-navy dark:text-cream"
                   style={{ letterSpacing: "-0.01em" }}
                 >
                   Information We Collect
                 </h2>
-                <p className="font-sans font-light text-base text-navy/80 leading-relaxed mb-4">
+                <p className="font-sans font-light text-base text-navy/80 dark:text-cream/80 leading-relaxed mb-4">
                   We collect information that you provide directly to us, including:
                 </p>
-                <ul className="list-disc list-inside space-y-2 text-navy/80 font-light">
+                <ul className="list-disc list-inside space-y-2 text-navy/80 dark:text-cream/80 font-light">
                   <li>
                     Account information (Name, Vatsim ID, Vatsim Region/Division/Subdivision and Vatsim
                     Rating)
@@ -76,15 +76,15 @@ export default function Privacy() {
 
               <div>
                 <h2
-                  className="font-display font-normal text-2xl md:text-3xl mb-4 text-navy"
+                  className="font-display font-normal text-2xl md:text-3xl mb-4 text-navy dark:text-cream"
                   style={{ letterSpacing: "-0.01em" }}
                 >
                   How We Use Your Information
                 </h2>
-                <p className="font-sans font-light text-base text-navy/80 leading-relaxed mb-4">
+                <p className="font-sans font-light text-base text-navy/80 dark:text-cream/80 leading-relaxed mb-4">
                   We use the information we collect to:
                 </p>
-                <ul className="list-disc list-inside space-y-2 text-navy/80 font-light">
+                <ul className="list-disc list-inside space-y-2 text-navy/80 dark:text-cream/80 font-light">
                   <li>Provide, maintain, and improve our services</li>
                   <li>Authenticate users and manage accounts</li>
                   <li>Monitor and analyze usage patterns</li>
@@ -94,16 +94,16 @@ export default function Privacy() {
 
               <div>
                 <h2
-                  className="font-display font-normal text-2xl md:text-3xl mb-4 text-navy"
+                  className="font-display font-normal text-2xl md:text-3xl mb-4 text-navy dark:text-cream"
                   style={{ letterSpacing: "-0.01em" }}
                 >
                   Data Sharing and Disclosure
                 </h2>
-                <p className="font-sans font-light text-base text-navy/80 leading-relaxed">
+                <p className="font-sans font-light text-base text-navy/80 dark:text-cream/80 leading-relaxed">
                   We do not sell, trade, or rent your personal information to third parties. We may share
                   information only in the following circumstances:
                 </p>
-                <ul className="list-disc list-inside space-y-2 text-navy/80 font-light mt-4">
+                <ul className="list-disc list-inside space-y-2 text-navy/80 dark:text-cream/80 font-light mt-4">
                   <li>With your explicit consent</li>
                   <li>To comply with legal obligations</li>
                   <li>To protect our rights and safety</li>
@@ -113,12 +113,12 @@ export default function Privacy() {
 
               <div>
                 <h2
-                  className="font-display font-normal text-2xl md:text-3xl mb-4 text-navy"
+                  className="font-display font-normal text-2xl md:text-3xl mb-4 text-navy dark:text-cream"
                   style={{ letterSpacing: "-0.01em" }}
                 >
                   Data Security
                 </h2>
-                <p className="font-sans font-light text-base text-navy/80 leading-relaxed">
+                <p className="font-sans font-light text-base text-navy/80 dark:text-cream/80 leading-relaxed">
                   We implement appropriate technical and organizational measures to protect your personal
                   information against unauthorized access, alteration, disclosure, or destruction. However, no
                   method of transmission over the internet is 100% secure.
@@ -127,15 +127,15 @@ export default function Privacy() {
 
               <div>
                 <h2
-                  className="font-display font-normal text-2xl md:text-3xl mb-4 text-navy"
+                  className="font-display font-normal text-2xl md:text-3xl mb-4 text-navy dark:text-cream"
                   style={{ letterSpacing: "-0.01em" }}
                 >
                   Your Rights
                 </h2>
-                <p className="font-sans font-light text-base text-navy/80 leading-relaxed mb-4">
+                <p className="font-sans font-light text-base text-navy/80 dark:text-cream/80 leading-relaxed mb-4">
                   You have the right to:
                 </p>
-                <ul className="list-disc list-inside space-y-2 text-navy/80 font-light">
+                <ul className="list-disc list-inside space-y-2 text-navy/80 dark:text-cream/80 font-light">
                   <li>Access your personal information</li>
                   <li>Correct inaccurate data</li>
                   <li>Request deletion of your data</li>
@@ -144,7 +144,7 @@ export default function Privacy() {
                 </ul>
               </div>
 
-              <p className="text-sm text-navy/70 font-light">
+              <p className="text-sm text-navy/70 dark:text-cream/70 font-light">
                 For any enquiries, please use our{" "}
                 <Link to="/contact" className="text-primary hover:underline font-medium">
                   Contact

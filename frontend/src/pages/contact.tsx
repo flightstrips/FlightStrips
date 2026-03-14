@@ -13,24 +13,24 @@ const CONTRIBUTORS = [
 
 export default function Contact() {
   return (
-    <div className="min-h-screen bg-cream text-navy flex flex-col">
+    <div className="min-h-screen bg-cream dark:bg-background text-navy dark:text-cream flex flex-col">
       <ScrollProgress />
       <PublicNavigation />
 
       {/* Hero */}
-      <section className="py-28 px-8 border-b border-navy/10">
+      <section className="py-28 px-8 border-b border-navy/10 dark:border-cream/20">
         <div className="max-w-7xl mx-auto">
           <ScrollReveal>
             <div className="flex items-center gap-4 mb-4">
-              <div className="w-8 h-px bg-navy/20" />
-              <p className="text-xs tracking-widest uppercase text-navy/60">
+              <div className="w-8 h-px bg-navy/20 dark:bg-cream/30" />
+              <p className="text-xs tracking-widest uppercase text-navy/60 dark:text-cream/60">
                 Get in touch
               </p>
             </div>
           </ScrollReveal>
           <ScrollReveal delay={0.1}>
             <h1
-              className="font-display font-normal text-5xl md:text-7xl mb-6 text-navy"
+              className="font-display font-normal text-5xl md:text-7xl mb-6 text-navy dark:text-cream"
               style={{ letterSpacing: "-0.02em" }}
             >
               Contact
@@ -45,12 +45,12 @@ export default function Contact() {
           <ScrollReveal>
             <div>
               <h2
-                className="font-display font-normal text-2xl md:text-3xl mb-4 text-navy"
+                className="font-display font-normal text-2xl md:text-3xl mb-4 text-navy dark:text-cream"
                 style={{ letterSpacing: "-0.01em" }}
               >
                 Email
               </h2>
-              <p className="font-sans font-light text-base text-navy/80 leading-relaxed mb-2">
+              <p className="font-sans font-light text-base text-navy/80 dark:text-cream/80 leading-relaxed mb-2">
                 For general enquiries, support, or feedback:
               </p>
               <a
@@ -65,12 +65,12 @@ export default function Contact() {
           <ScrollReveal delay={0.1}>
             <div>
               <h2
-                className="font-display font-normal text-2xl md:text-3xl mb-4 text-navy"
+                className="font-display font-normal text-2xl md:text-3xl mb-4 text-navy dark:text-cream"
                 style={{ letterSpacing: "-0.01em" }}
               >
                 Contributors
               </h2>
-              <p className="font-sans font-light text-base text-navy/80 leading-relaxed mb-6">
+              <p className="font-sans font-light text-base text-navy/80 dark:text-cream/80 leading-relaxed mb-6">
                 FlightStrips is an open-source project. Thanks to everyone who
                 contributes.
               </p>
@@ -78,13 +78,13 @@ export default function Contact() {
                 {CONTRIBUTORS.map((name) => (
                   <li
                     key={name}
-                    className="font-sans text-navy font-medium"
+                    className="font-sans text-navy dark:text-cream font-medium"
                   >
                     {name}
                   </li>
                 ))}
               </ul>
-              <p className="mt-6 text-sm text-navy/60">
+              <p className="mt-6 text-sm text-navy/60 dark:text-cream/60">
                 See the{" "}
                 <a
                   href="https://github.com/flightstrips"

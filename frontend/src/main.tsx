@@ -16,12 +16,14 @@ import Dashboard from "@/pages/dashboard";
 import AppPage from "@/pages/app";
 import { withAuthenticationRequired } from '@auth0/auth0-react';
 import DocsRouter from "@/pages/docs/DocsRouter";
+import { ThemeSync } from "@/components/public/ThemeSync";
 
 const MyProtectedComponent = withAuthenticationRequired(Layout);
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <BrowserRouter>
+      <ThemeSync />
       <Auth0ProviderWithNavigate>
         <Routes>
           <Route path="/" element={<Home/>}/>

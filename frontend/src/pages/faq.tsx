@@ -5,7 +5,7 @@ import { Faq } from "@/components/blocks/Faq";
 
 export default function FaqPage() {
   return (
-    <div className="min-h-screen bg-cream text-navy">
+    <div className="min-h-screen bg-cream dark:bg-background text-navy dark:text-foreground">
       <ScrollProgress />
       <PublicNavigation />
       <Faq />

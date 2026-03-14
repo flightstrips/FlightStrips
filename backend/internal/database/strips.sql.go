@@ -9,6 +9,23 @@ import (
 	"context"
 )
 
+const appendControllerModifiedField = `-- name: AppendControllerModifiedField :exec
+UPDATE strips
+SET controller_modified_fields = array_append(controller_modified_fields, $3)
+WHERE session = $1 AND callsign = $2 AND NOT ($3 = ANY(controller_modified_fields))
+`
+
+type AppendControllerModifiedFieldParams struct {
+	Session     int32
+	Callsign    string
+	ArrayAppend interface{}
+}
+
+func (q *Queries) AppendControllerModifiedField(ctx context.Context, arg AppendControllerModifiedFieldParams) error {
+	_, err := q.db.Exec(ctx, appendControllerModifiedField, arg.Session, arg.Callsign, arg.ArrayAppend)
+	return err
+}
+
 const appendUnexpectedChangeField = `-- name: AppendUnexpectedChangeField :exec
 UPDATE strips
 SET unexpected_change_fields = array_append(unexpected_change_fields, $3)
@@ -312,7 +329,7 @@ func (q *Queries) GetSequence(ctx context.Context, arg GetSequenceParams) (int32
 }
 
 const getStrip = `-- name: GetStrip :one
-SELECT id, version, callsign, session, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay, position_latitude, position_longitude, position_altitude, tobt, tsat, ttot, ctot, aobt, asat, eobt, next_owners, previous_owners, cdm_status, release_point, pdc_state, pdc_requested_at, pdc_message_sequence, pdc_message_sent, marked, registration, tracking_controller, runway_cleared, unexpected_change_fields
+SELECT id, version, callsign, session, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay, position_latitude, position_longitude, position_altitude, tobt, tsat, ttot, ctot, aobt, asat, eobt, next_owners, previous_owners, cdm_status, release_point, pdc_state, pdc_requested_at, pdc_message_sequence, pdc_message_sent, marked, registration, tracking_controller, runway_cleared, unexpected_change_fields, controller_modified_fields
 FROM strips
 WHERE callsign = $1 AND session = $2
 `
@@ -375,6 +392,7 @@ func (q *Queries) GetStrip(ctx context.Context, arg GetStripParams) (Strip, erro
 		&i.TrackingController,
 		&i.RunwayCleared,
 		&i.UnexpectedChangeFields,
+		&i.ControllerModifiedFields,
 	)
 	return i, err
 }
@@ -498,7 +516,7 @@ func (q *Queries) ListStripSequences(ctx context.Context, arg ListStripSequences
 }
 
 const listStrips = `-- name: ListStrips :many
-SELECT id, version, callsign, session, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay, position_latitude, position_longitude, position_altitude, tobt, tsat, ttot, ctot, aobt, asat, eobt, next_owners, previous_owners, cdm_status, release_point, pdc_state, pdc_requested_at, pdc_message_sequence, pdc_message_sent, marked, registration, tracking_controller, runway_cleared, unexpected_change_fields
+SELECT id, version, callsign, session, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay, position_latitude, position_longitude, position_altitude, tobt, tsat, ttot, ctot, aobt, asat, eobt, next_owners, previous_owners, cdm_status, release_point, pdc_state, pdc_requested_at, pdc_message_sequence, pdc_message_sent, marked, registration, tracking_controller, runway_cleared, unexpected_change_fields, controller_modified_fields
 FROM strips
 WHERE session = $1
 ORDER BY callsign
@@ -563,6 +581,7 @@ func (q *Queries) ListStrips(ctx context.Context, session int32) ([]Strip, error
 			&i.TrackingController,
 			&i.RunwayCleared,
 			&i.UnexpectedChangeFields,
+			&i.ControllerModifiedFields,
 		); err != nil {
 			return nil, err
 		}
@@ -575,7 +594,7 @@ func (q *Queries) ListStrips(ctx context.Context, session int32) ([]Strip, error
 }
 
 const listStripsByOrigin = `-- name: ListStripsByOrigin :many
-SELECT id, version, callsign, session, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay, position_latitude, position_longitude, position_altitude, tobt, tsat, ttot, ctot, aobt, asat, eobt, next_owners, previous_owners, cdm_status, release_point, pdc_state, pdc_requested_at, pdc_message_sequence, pdc_message_sent, marked, registration, tracking_controller, runway_cleared, unexpected_change_fields
+SELECT id, version, callsign, session, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay, position_latitude, position_longitude, position_altitude, tobt, tsat, ttot, ctot, aobt, asat, eobt, next_owners, previous_owners, cdm_status, release_point, pdc_state, pdc_requested_at, pdc_message_sequence, pdc_message_sent, marked, registration, tracking_controller, runway_cleared, unexpected_change_fields, controller_modified_fields
 FROM strips
 WHERE origin = $1 AND session = $2
 ORDER BY callsign
@@ -645,6 +664,7 @@ func (q *Queries) ListStripsByOrigin(ctx context.Context, arg ListStripsByOrigin
 			&i.TrackingController,
 			&i.RunwayCleared,
 			&i.UnexpectedChangeFields,
+			&i.ControllerModifiedFields,
 		); err != nil {
 			return nil, err
 		}

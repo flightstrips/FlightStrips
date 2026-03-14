@@ -147,14 +147,23 @@ func handleStripUpdate(ctx context.Context, client *Client, message Message) err
 
 	if event.Sid != nil && strip.Sid != event.Sid {
 		s.GetEuroscopeHub().SendSid(client.session, client.GetCid(), event.Callsign, *event.Sid)
+		if err := stripRepo.AppendControllerModifiedField(ctx, client.session, event.Callsign, "sid"); err != nil {
+			return err
+		}
 	}
 
 	if event.Stand != nil && strip.Stand != event.Stand {
 		s.GetEuroscopeHub().SendStand(client.session, client.GetCid(), event.Callsign, *event.Stand)
+		if err := stripRepo.AppendControllerModifiedField(ctx, client.session, event.Callsign, "stand"); err != nil {
+			return err
+		}
 	}
 
 	if event.Runway != nil && strip.Runway != event.Runway {
 		s.GetEuroscopeHub().SendRunway(client.session, client.GetCid(), event.Callsign, *event.Runway)
+		if err := stripRepo.AppendControllerModifiedField(ctx, client.session, event.Callsign, "runway"); err != nil {
+			return err
+		}
 	}
 
 	if event.Eobt != nil && strip.Eobt != event.Eobt {
@@ -164,10 +173,16 @@ func handleStripUpdate(ctx context.Context, client *Client, message Message) err
 
 	if event.Altitude != nil && strip.ClearedAltitude != event.Altitude {
 		s.GetEuroscopeHub().SendClearedAltitude(client.session, client.GetCid(), event.Callsign, *event.Altitude)
+		if err := stripRepo.AppendControllerModifiedField(ctx, client.session, event.Callsign, "cleared_altitude"); err != nil {
+			return err
+		}
 	}
 
 	if event.Heading != nil && strip.Heading != event.Heading {
 		s.GetEuroscopeHub().SendHeading(client.session, client.GetCid(), event.Callsign, *event.Heading)
+		if err := stripRepo.AppendControllerModifiedField(ctx, client.session, event.Callsign, "heading"); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -287,7 +302,10 @@ func handleReleasePoint(ctx context.Context, client *Client, message Message) er
 	if err := message.JsonUnmarshal(&event); err != nil {
 		return err
 	}
-	return client.hub.stripService.ApplyReleasePoint(ctx, client.session, event.Callsign, event.ReleasePoint, client.position)
+	if err := client.hub.stripService.ApplyReleasePoint(ctx, client.session, event.Callsign, event.ReleasePoint, client.position); err != nil {
+		return err
+	}
+	return client.hub.server.GetStripRepository().AppendControllerModifiedField(ctx, client.session, event.Callsign, "release_point")
 }
 
 func handleAcknowledgeUnexpectedChange(ctx context.Context, client *Client, message Message) error {
@@ -297,7 +315,11 @@ func handleAcknowledgeUnexpectedChange(ctx context.Context, client *Client, mess
 	}
 
 	s := client.hub.server
-	if err := s.GetStripRepository().RemoveUnexpectedChangeField(ctx, client.session, event.Callsign, event.FieldName); err != nil {
+	stripRepo := s.GetStripRepository()
+	if err := stripRepo.RemoveUnexpectedChangeField(ctx, client.session, event.Callsign, event.FieldName); err != nil {
+		return err
+	}
+	if err := stripRepo.AppendControllerModifiedField(ctx, client.session, event.Callsign, event.FieldName); err != nil {
 		return err
 	}
 	client.hub.SendStripUpdate(client.session, event.Callsign)

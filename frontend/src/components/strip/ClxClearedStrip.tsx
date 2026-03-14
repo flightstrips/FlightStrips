@@ -10,6 +10,7 @@ import {
   FONT,
   CLS_CALLSIGN_ACTIVE,
   COLOR_UNEXPECTED_YELLOW,
+  getCellTextColor,
 } from "./shared";
 import { SIBox } from "./SIBox";
 import { useStripTransfers, useWebSocketStore } from "@/store/store-hooks";
@@ -59,6 +60,7 @@ export function ClxClearedStrip({
   marked = false,
   fullWidth = false,
   unexpectedChangeFields,
+  controllerModifiedFields,
 }: StripProps) {
   const { isSelected, handleClick } = useStripSelection(callsign, selectable);
   const isNavyBg = pdcStatus === "CLEARED";
@@ -129,7 +131,7 @@ export function ClxClearedStrip({
             </div>
             <div
               className="flex items-center justify-center overflow-hidden"
-              style={{ height: HALF_H, fontFamily: FONT, fontWeight: "bold", fontSize: 14, backgroundColor: standYellow ? COLOR_UNEXPECTED_YELLOW : undefined, cursor: standYellow ? "pointer" : undefined }}
+              style={{ height: HALF_H, fontFamily: FONT, fontWeight: "bold", fontSize: 14, backgroundColor: standYellow ? COLOR_UNEXPECTED_YELLOW : undefined, cursor: standYellow ? "pointer" : undefined, color: getCellTextColor("stand", controllerModifiedFields) }}
               onClick={standYellow ? (e) => { e.stopPropagation(); acknowledgeUnexpectedChange(callsign, "stand"); } : undefined}
             >
               {stand}

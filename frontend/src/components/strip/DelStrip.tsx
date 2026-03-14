@@ -9,6 +9,7 @@ import {
   FONT,
   CLS_CALLSIGN_ACTIVE,
   COLOR_UNEXPECTED_YELLOW,
+  getCellTextColor,
 } from "./shared";
 import { useWebSocketStore } from "@/store/store-hooks";
 import { useCDMColors } from "@/hooks/useCDMColors";
@@ -37,6 +38,7 @@ export function DelStrip({
   marked = false,
   fullWidth = false,
   unexpectedChangeFields,
+  controllerModifiedFields,
 }: StripProps) {
   const { isSelected, handleClick } = useStripSelection(callsign, selectable);
   const isNavyBg = pdcStatus === "CLEARED";
@@ -82,7 +84,7 @@ export function DelStrip({
             </div>
             <div
               className="flex items-center justify-center overflow-hidden"
-              style={{ height: HALF_H, fontFamily: FONT, fontWeight: "bold", fontSize: 14, backgroundColor: standYellow ? COLOR_UNEXPECTED_YELLOW : undefined, cursor: standYellow ? "pointer" : undefined }}
+              style={{ height: HALF_H, fontFamily: FONT, fontWeight: "bold", fontSize: 14, backgroundColor: standYellow ? COLOR_UNEXPECTED_YELLOW : undefined, cursor: standYellow ? "pointer" : undefined, color: getCellTextColor("stand", controllerModifiedFields) }}
               onClick={standYellow ? (e) => { e.stopPropagation(); acknowledgeUnexpectedChange(callsign, "stand"); } : undefined}
             >
               {stand}

@@ -71,7 +71,8 @@ func stripToModel(db database.Strip) *models.Strip {
 		Registration:           db.Registration,
 		TrackingController:     db.TrackingController,
 		RunwayCleared:          db.RunwayCleared,
-		UnexpectedChangeFields: db.UnexpectedChangeFields,
+		UnexpectedChangeFields:  db.UnexpectedChangeFields,
+		ControllerModifiedFields: db.ControllerModifiedFields,
 	}
 }
 
@@ -615,6 +616,15 @@ func (r *stripRepository) UpdateTrackingController(ctx context.Context, session 
 // AppendUnexpectedChangeField marks a field as unexpectedly changed on a strip.
 func (r *stripRepository) AppendUnexpectedChangeField(ctx context.Context, session int32, callsign string, fieldName string) error {
 	return r.queries.AppendUnexpectedChangeField(ctx, database.AppendUnexpectedChangeFieldParams{
+		Session:     session,
+		Callsign:    callsign,
+		ArrayAppend: fieldName,
+	})
+}
+
+// AppendControllerModifiedField marks a field as controller-modified on a strip.
+func (r *stripRepository) AppendControllerModifiedField(ctx context.Context, session int32, callsign string, fieldName string) error {
+	return r.queries.AppendControllerModifiedField(ctx, database.AppendControllerModifiedFieldParams{
 		Session:     session,
 		Callsign:    callsign,
 		ArrayAppend: fieldName,

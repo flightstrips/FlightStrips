@@ -145,6 +145,7 @@ export interface FrontendStrip {
   runway_cleared: boolean;
   registration: string;
   unexpected_change_fields?: string[];
+  controller_modified_fields?: string[];
 }
 
 export interface FrontendController {
@@ -213,6 +214,7 @@ export interface FrontendStripUpdateEvent {
   runway_cleared: boolean;
   registration: string;
   unexpected_change_fields?: string[];
+  controller_modified_fields?: string[];
 }
 
 export interface FrontendControllerOnlineEvent {

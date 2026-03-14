@@ -52,4 +52,5 @@ type Strip struct {
 	TrackingController      string
 	RunwayCleared           bool
 	UnexpectedChangeFields  []string
+	ControllerModifiedFields []string
 }

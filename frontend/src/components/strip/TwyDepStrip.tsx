@@ -3,7 +3,7 @@ import { useControllers, useStrips, useStripTransfers, useWebSocketStore } from 
 import { COLOR_UNEXPECTED_YELLOW } from "./shared";
 import { getStripBg } from "./types";
 import type { StripProps } from "./types";
-import { useStripSelection, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR, FONT } from "./shared";
+import { useStripSelection, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR, FONT, getCellTextColor } from "./shared";
 import { TaxiMapDialog } from "../map-dialogs/TaxiMapDialog";
 import { HoldingPointDialog } from "../map-dialogs/HoldingPointDialog";
 import { SIBox } from "./SIBox";
@@ -60,6 +60,7 @@ export function TwyDepStrip({
   marked = false,
   runwayCleared = false,
   unexpectedChangeFields,
+  controllerModifiedFields,
 }: StripProps) {
   const { isSelected, handleClick } = useStripSelection(callsign, selectable);
   const stripTransfers = useStripTransfers();
@@ -175,7 +176,7 @@ export function TwyDepStrip({
           style={{ height: HALF_H, backgroundColor: standYellow ? COLOR_UNEXPECTED_YELLOW : undefined, cursor: standYellow ? "pointer" : undefined }}
           onClick={standYellow ? (e) => { e.stopPropagation(); acknowledgeUnexpectedChange(callsign, "stand"); } : undefined}
         >
-          <span className="truncate px-1" style={{ fontFamily: FONT, fontWeight: "bold", fontSize: 13 }}>
+          <span className="truncate px-1" style={{ fontFamily: FONT, fontWeight: "bold", fontSize: 13, color: getCellTextColor("stand", controllerModifiedFields) }}>
             {stand}
           </span>
         </div>
@@ -194,7 +195,7 @@ export function TwyDepStrip({
         onClick={(e) => { e.stopPropagation(); if (releasePointYellow) { acknowledgeUnexpectedChange(callsign, "release_point"); } else { setShowTaxiMap(true); } }}
       >
         <div className="flex items-center justify-center h-full">
-          <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: 14, opacity: twyDisplay ? 1 : 0.2 }}>
+          <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: 14, opacity: twyDisplay ? 1 : 0.2, color: getCellTextColor("release_point", controllerModifiedFields) }}>
             {twyDisplay || "TWY"}
           </span>
         </div>
@@ -210,14 +211,14 @@ export function TwyDepStrip({
           style={{ height: HALF_H, borderBottomColor: cellBorderColor, backgroundColor: rwyColor }}
           onClick={(e) => { e.stopPropagation(); runwayClearance(callsign); }}
         >
-          <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: 14 }}>{runway}</span>
+          <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: 14, color: getCellTextColor("runway", controllerModifiedFields) }}>{runway}</span>
         </div>
         <div
           className="flex items-center justify-center cursor-pointer"
           style={{ height: HALF_H }}
           onClick={(e) => { e.stopPropagation(); setShowHpMap(true); }}
         >
-          <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: 14, opacity: hpDisplay ? 1 : 0.2 }}>
+          <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: 14, opacity: hpDisplay ? 1 : 0.2, color: getCellTextColor("release_point", controllerModifiedFields) }}>
             {hpDisplay || "HP"}
           </span>
         </div>
@@ -242,7 +243,7 @@ export function TwyDepStrip({
         style={{ width: W_SID_DEST, height: "100%" }}
       >
         <div className="flex items-center justify-center pl-1 overflow-hidden" style={{ height: TOP_H / 2 }}>
-          <span className="truncate" style={{ fontFamily: FONT, fontWeight: "normal", fontSize: 12 }}>
+          <span className="truncate" style={{ fontFamily: FONT, fontWeight: "normal", fontSize: 12, color: getCellTextColor("sid", controllerModifiedFields) }}>
             {sid}
           </span>
         </div>

@@ -1,5 +1,5 @@
 import type { HalfStripVariant, StripProps } from "./types";
-import { useStripSelection, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR, COLOR_ARR_YELLOW, COLOR_ARR_STRIP_BG, COLOR_BTN_BLUE, COLOR_BTN_ORANGE, COLOR_UNEXPECTED_YELLOW } from "./shared";
+import { useStripSelection, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR, COLOR_ARR_YELLOW, COLOR_ARR_STRIP_BG, COLOR_BTN_BLUE, COLOR_BTN_ORANGE, COLOR_UNEXPECTED_YELLOW, getCellTextColor } from "./shared";
 import { useWebSocketStore } from "@/store/store-hooks";
 
 // Variant-specific background colours
@@ -57,6 +57,7 @@ export function HalfStrip({
   halfStripVariant = "APN-PUSH",
   marked = false,
   unexpectedChangeFields,
+  controllerModifiedFields,
 }: StripProps) {
   const isLocked = LOCKED_VARIANTS.includes(halfStripVariant);
   const isFreeText = FREE_TEXT_VARIANTS.includes(halfStripVariant);
@@ -133,7 +134,7 @@ export function HalfStrip({
           </div>
           <div
             className={`h-full w-14 flex items-center justify-center font-bold ${textColor}`}
-            style={{ backgroundColor: standYellow ? COLOR_UNEXPECTED_YELLOW : undefined, cursor: standYellow ? "pointer" : undefined }}
+            style={{ backgroundColor: standYellow ? COLOR_UNEXPECTED_YELLOW : undefined, cursor: standYellow ? "pointer" : undefined, color: getCellTextColor("stand", controllerModifiedFields) }}
             onClick={standYellow ? (e) => { e.stopPropagation(); acknowledgeUnexpectedChange(callsign, "stand"); } : undefined}
           >
             {stand}

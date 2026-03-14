@@ -69,6 +69,9 @@ type StripRepository interface {
 	AppendUnexpectedChangeField(ctx context.Context, session int32, callsign string, fieldName string) error
 	RemoveUnexpectedChangeField(ctx context.Context, session int32, callsign string, fieldName string) error
 
+	// Controller-modified field tracking
+	AppendControllerModifiedField(ctx context.Context, session int32, callsign string, fieldName string) error
+
 	// PDC methods
 	SetPdcRequested(ctx context.Context, session int32, callsign string, pdcState string, pdcRequestedAt *time.Time) error
 	SetPdcMessageSent(ctx context.Context, session int32, callsign string, pdcState string, pdcMessageSequence *int32, pdcMessageSent *time.Time) error

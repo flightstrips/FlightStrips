@@ -289,3 +289,8 @@ WHERE session = $1 AND callsign = $2 AND NOT ($3 = ANY(unexpected_change_fields)
 UPDATE strips
 SET unexpected_change_fields = array_remove(unexpected_change_fields, $3)
 WHERE session = $1 AND callsign = $2;
+
+-- name: AppendControllerModifiedField :exec
+UPDATE strips
+SET controller_modified_fields = array_append(controller_modified_fields, $3)
+WHERE session = $1 AND callsign = $2 AND NOT ($3 = ANY(controller_modified_fields));

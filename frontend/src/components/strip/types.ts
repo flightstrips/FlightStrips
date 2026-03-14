@@ -21,6 +21,7 @@ export interface StripProps {
   origin?: string;
   stand?: string;
   unexpectedChangeFields?: string[];
+  controllerModifiedFields?: string[];
   eobt?: string;
   tobt?: string;
   tsat?: string;

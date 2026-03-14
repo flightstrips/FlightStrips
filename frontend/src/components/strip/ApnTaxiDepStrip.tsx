@@ -8,6 +8,7 @@ import {
   FONT,
   COLOR_ARR_STRIP_BG,
   COLOR_UNEXPECTED_YELLOW,
+  getCellTextColor,
 } from "./shared";
 import { SIBox } from "./SIBox";
 import { getSimpleAircraftType } from "@/lib/utils";
@@ -50,6 +51,7 @@ export function ApnTaxiDepStrip({
   selectable,
   marked = false,
   unexpectedChangeFields,
+  controllerModifiedFields,
 }: StripProps) {
   const { isSelected, handleClick } = useStripSelection(callsign, selectable);
   const cellBorderColor = getCellBorderColor(marked);
@@ -118,7 +120,7 @@ export function ApnTaxiDepStrip({
           style={{ flex: `${F_STAND} 0 0%`, height: "100%", paddingBottom: BOT_H, minWidth: 0, borderRightColor: cellBorderColor, backgroundColor: standYellow ? COLOR_UNEXPECTED_YELLOW : undefined, cursor: standYellow ? "pointer" : undefined }}
           onClick={standYellow ? (e) => { e.stopPropagation(); acknowledgeUnexpectedChange(callsign, "stand"); } : undefined}
         >
-          <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: 20 }}>{stand}</span>
+          <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: 20, color: getCellTextColor("stand", controllerModifiedFields) }}>{stand}</span>
         </div>
 
         {/* HP / TWY — 25%*(2/3)*(2/3) */}
@@ -128,12 +130,12 @@ export function ApnTaxiDepStrip({
           onClick={(e) => { e.stopPropagation(); if (releasePointYellow) { acknowledgeUnexpectedChange(callsign, "release_point"); } else { setShowTaxiMap(true); } }}
         >
           <div className="flex items-center justify-center border-b-2" style={{ height: HALF_H, borderBottomColor: cellBorderColor }}>
-            <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: 11, opacity: hasTwy ? 1 : 0.15 }}>
+            <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: 11, opacity: hasTwy ? 1 : 0.15, color: getCellTextColor("release_point", controllerModifiedFields) }}>
               {hasTwy ? hpValue : "TWY"}
             </span>
           </div>
           <div className="flex items-center justify-center" style={{ height: HALF_H }}>
-            <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: 11, opacity: hasTwy ? 0.15 : 1 }}>
+            <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: 11, opacity: hasTwy ? 0.15 : 1, color: getCellTextColor("release_point", controllerModifiedFields) }}>
               {hasTwy ? "HP" : hpValue || "HP"}
             </span>
           </div>
@@ -147,7 +149,7 @@ export function ApnTaxiDepStrip({
         >
           <div className="flex" style={{ height: HALF_H }}>
             <div className="flex items-center justify-center" style={{ flex: "2 0 0%", height: "100%" }}>
-              <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: 14 }}>{runway}</span>
+              <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: 14, color: getCellTextColor("runway", controllerModifiedFields) }}>{runway}</span>
             </div>
             <div style={{ flexShrink: 0, width: HALF_H, height: "100%", borderLeft: `1px solid ${cellBorderColor}`, borderBottom: `1px solid ${cellBorderColor}` }} />
           </div>

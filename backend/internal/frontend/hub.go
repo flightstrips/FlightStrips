@@ -388,7 +388,8 @@ func MapStripToFrontendModel(strip *internalModels.Strip) frontend.Strip {
 		Registration:           helpers.ValueOrDefault(strip.Registration),
 		TrackingController:     strip.TrackingController,
 		RunwayCleared:          strip.RunwayCleared,
-		UnexpectedChangeFields: strip.UnexpectedChangeFields,
+		UnexpectedChangeFields:  strip.UnexpectedChangeFields,
+		ControllerModifiedFields: strip.ControllerModifiedFields,
 	}
 }
 

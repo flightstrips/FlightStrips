@@ -53,6 +53,7 @@ type MockStripRepository struct {
 	UpdateReleasePointFn              func(ctx context.Context, session int32, callsign string, releasePoint *string) (int64, error)
 	AppendUnexpectedChangeFieldFn     func(ctx context.Context, session int32, callsign string, fieldName string) error
 	RemoveUnexpectedChangeFieldFn     func(ctx context.Context, session int32, callsign string, fieldName string) error
+	AppendControllerModifiedFieldFn   func(ctx context.Context, session int32, callsign string, fieldName string) error
 	SetPdcRequestedFn                 func(ctx context.Context, session int32, callsign string, pdcState string, pdcRequestedAt *time.Time) error
 	SetPdcMessageSentFn         func(ctx context.Context, session int32, callsign string, pdcState string, pdcMessageSequence *int32, pdcMessageSent *time.Time) error
 	UpdatePdcStatusFn           func(ctx context.Context, session int32, callsign string, pdcState string) error
@@ -364,6 +365,13 @@ func (m *MockStripRepository) RemoveUnexpectedChangeField(ctx context.Context, s
 		panic("unexpected call to MockStripRepository.RemoveUnexpectedChangeField")
 	}
 	return m.RemoveUnexpectedChangeFieldFn(ctx, session, callsign, fieldName)
+}
+
+func (m *MockStripRepository) AppendControllerModifiedField(ctx context.Context, session int32, callsign string, fieldName string) error {
+	if m.AppendControllerModifiedFieldFn == nil {
+		panic("unexpected call to MockStripRepository.AppendControllerModifiedField")
+	}
+	return m.AppendControllerModifiedFieldFn(ctx, session, callsign, fieldName)
 }
 
 func (m *MockStripRepository) SetPdcRequested(ctx context.Context, session int32, callsign string, pdcState string, pdcRequestedAt *time.Time) error {

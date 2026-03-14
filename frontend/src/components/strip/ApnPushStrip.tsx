@@ -8,6 +8,7 @@ import {
   FONT,
   COLOR_ARR_STRIP_BG,
   COLOR_UNEXPECTED_YELLOW,
+  getCellTextColor,
 } from "./shared";
 import { useWebSocketStore } from "@/store/store-hooks";
 import { SIBox } from "./SIBox";
@@ -55,6 +56,7 @@ export function ApnPushStrip({
   marked = false,
   fullWidth = false,
   unexpectedChangeFields,
+  controllerModifiedFields,
 }: StripProps) {
   const { isSelected, handleClick } = useStripSelection(callsign, selectable);
   const cellBorderColor = getCellBorderColor(marked);
@@ -115,7 +117,7 @@ export function ApnPushStrip({
           style={{ flex: `${F_STAND} 0 0%`, height: "100%", paddingBottom: "1.48vh", minWidth: 0, borderRightColor: cellBorderColor, backgroundColor: standYellow ? COLOR_UNEXPECTED_YELLOW : undefined }}
           onClick={(e) => { e.stopPropagation(); if (standYellow) { acknowledgeUnexpectedChange(callsign, "stand"); } else if (holdingPoint) { setApronTaxiOpen(true); } else { setPushbackOpen(true); } }}
         >
-          <span style={{ fontFamily: FONT, fontWeight: 600, fontSize: 20 }}>
+          <span style={{ fontFamily: FONT, fontWeight: 600, fontSize: 20, color: getCellTextColor("stand", controllerModifiedFields) }}>
             {holdingPoint || stand}
           </span>
         </div>
@@ -153,7 +155,7 @@ export function ApnPushStrip({
           style={{ flex: `${F_RWY} 0 0%`, height: "100%", paddingBottom: "1.48vh", minWidth: 0, backgroundColor: runwayYellow ? COLOR_UNEXPECTED_YELLOW : undefined }}
           onClick={(e) => { e.stopPropagation(); if (runwayYellow) { acknowledgeUnexpectedChange(callsign, "runway"); } else { setRunwayOpen(true); } }}
         >
-          <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: 20 }}>{runway}</span>
+          <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: 20, color: getCellTextColor("runway", controllerModifiedFields) }}>{runway}</span>
         </div>
       </div>
 

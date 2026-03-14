@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { StripProps } from "./types";
-import { useStripSelection, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR, COLOR_ARR_YELLOW, COLOR_BTN_ORANGE, COLOR_UNEXPECTED_YELLOW } from "./shared";
+import { useStripSelection, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR, COLOR_ARR_YELLOW, COLOR_BTN_ORANGE, COLOR_UNEXPECTED_YELLOW, getCellTextColor } from "./shared";
 import { useControllers, useWebSocketStore } from "@/store/store-hooks";
 import { RunwayDialog } from "./RunwayDialog";
 
@@ -36,6 +36,7 @@ export function ApnArrStrip({
   selectable,
   marked = false,
   unexpectedChangeFields,
+  controllerModifiedFields,
 }: StripProps) {
   const { isSelected, handleClick } = useStripSelection(callsign, selectable);
   const cellBorderColor = getCellBorderColor(marked);
@@ -121,7 +122,7 @@ export function ApnArrStrip({
         onClick={standYellow ? (e) => { e.stopPropagation(); acknowledgeUnexpectedChange(callsign, "stand"); } : undefined}
       >
         <div className="flex items-center justify-center" style={{ height: TOP_H }}>
-          <span className="font-bold text-xl truncate">{stand}</span>
+          <span className="font-bold text-xl truncate" style={{ color: getCellTextColor("stand", controllerModifiedFields) }}>{stand}</span>
         </div>
         <div style={{ height: BOT_H }} />
       </div>

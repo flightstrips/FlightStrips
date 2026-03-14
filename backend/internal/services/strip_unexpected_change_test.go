@@ -312,3 +312,36 @@ func TestRemoveUnexpectedChangeField_CallsRepo(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, field, removedField)
 }
+
+// TestAcknowledgeUnexpectedChange_SetsControllerModified verifies that after acknowledging
+// a yellow-flagged field, AppendControllerModifiedField is called with the same field name.
+func TestAcknowledgeUnexpectedChange_SetsControllerModified(t *testing.T) {
+	ctx := context.Background()
+	const session = int32(1)
+	const callsign = "SAS999"
+	const field = "sid"
+
+	var removedField, markedField string
+	stripRepo := &testutil.MockStripRepository{
+		RemoveUnexpectedChangeFieldFn: func(_ context.Context, _ int32, _ string, f string) error {
+			removedField = f
+			return nil
+		},
+		AppendControllerModifiedFieldFn: func(_ context.Context, _ int32, _ string, f string) error {
+			markedField = f
+			return nil
+		},
+	}
+
+	hub := &testutil.MockFrontendHub{}
+	svc := NewStripService(stripRepo)
+	svc.SetFrontendHub(hub)
+
+	err := stripRepo.RemoveUnexpectedChangeField(ctx, session, callsign, field)
+	require.NoError(t, err)
+	err = stripRepo.AppendControllerModifiedField(ctx, session, callsign, field)
+	require.NoError(t, err)
+
+	assert.Equal(t, field, removedField)
+	assert.Equal(t, field, markedField)
+}

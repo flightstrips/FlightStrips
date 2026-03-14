@@ -102,6 +102,14 @@ export const COLOR_ARR_STRIP_BG  = "#bef5ef";
 export const COLOR_ARR_YELLOW    = "#fff28e";
 /** Yellow background for unexpected/overwritten field cells. */
 export const COLOR_UNEXPECTED_YELLOW = "#FFD700";
+/** Blue text for fields intentionally modified by the controller. */
+export const COLOR_CONTROLLER_MODIFIED_BLUE = "#2751A3";
+
+/** Returns the text color for a cell if the field was controller-modified, otherwise undefined. */
+export function getCellTextColor(fieldName: string, controllerModifiedFields?: string[]): string | undefined {
+  if (controllerModifiedFields?.includes(fieldName)) return COLOR_CONTROLLER_MODIFIED_BLUE;
+  return undefined;
+}
 
 // ── SI ownership indicator colours ───────────────────────────────────────────
 /** SI box — strip assumed by the current position. */

@@ -40,7 +40,7 @@ import (
 	"go.opentelemetry.io/otel"
 )
 
-var addr = flag.String("addr", "127.0.0.1:8090", "http service address")
+var addr = flag.String("addr", "", "http service address (overrides SERVER_ADDR env var)")
 
 func healthz(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(http.StatusOK)
@@ -48,6 +48,10 @@ func healthz(w http.ResponseWriter, _ *http.Request) {
 
 func main() {
 	flag.Parse()
+
+	if *addr == "" {
+		*addr = getEnv("SERVER_ADDR", "127.0.0.1:8090")
+	}
 
 	logger := slog.New(tint.NewHandler(os.Stdout, &tint.Options{Level: slog.LevelDebug}))
 	slog.SetDefault(logger)

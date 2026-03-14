@@ -39,7 +39,7 @@ export default function Contact() {
         </div>
       </section>
 
-      {/* Content */}
+      {/* Content  */}
       <section className="py-20 px-8 flex-1">
         <div className="max-w-4xl mx-auto space-y-16">
           <ScrollReveal>

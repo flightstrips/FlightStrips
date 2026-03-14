@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { StripProps } from "./types";
-import { useStripSelection, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR, COLOR_ARR_YELLOW, COLOR_BTN_ORANGE } from "./shared";
-import { useControllers } from "@/store/store-hooks";
+import { useStripSelection, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR, COLOR_ARR_YELLOW, COLOR_BTN_ORANGE, COLOR_UNEXPECTED_YELLOW } from "./shared";
+import { useControllers, useWebSocketStore } from "@/store/store-hooks";
 import { RunwayDialog } from "./RunwayDialog";
 
 // Height: 48px fixed (intentional — matches FinalArrStrip ATC arrival strip spec)
@@ -35,11 +35,15 @@ export function ApnArrStrip({
   myPosition,
   selectable,
   marked = false,
+  unexpectedChangeFields,
 }: StripProps) {
   const { isSelected, handleClick } = useStripSelection(callsign, selectable);
   const cellBorderColor = getCellBorderColor(marked);
   const controllers = useControllers();
   const [runwayOpen, setRunwayOpen] = useState(false);
+  const acknowledgeUnexpectedChange = useWebSocketStore(s => s.acknowledgeUnexpectedChange);
+  const standYellow = unexpectedChangeFields?.includes("stand");
+  const runwayYellow = unexpectedChangeFields?.includes("runway");
 
   const isAssumed = !!myPosition && owner === myPosition;
   const isTransferredAway = !!myPosition && !!previousControllers?.includes(myPosition);
@@ -93,8 +97,8 @@ export function ApnArrStrip({
       {/* RWY — 54px */}
       <div
         className="flex-shrink-0 flex flex-col overflow-hidden border-r-2 cursor-pointer hover:brightness-95"
-        style={{ width: 54, height: "100%", borderRightColor: cellBorderColor }}
-        onClick={(e) => { e.stopPropagation(); setRunwayOpen(true); }}
+        style={{ width: 54, height: "100%", borderRightColor: cellBorderColor, backgroundColor: runwayYellow ? COLOR_UNEXPECTED_YELLOW : undefined }}
+        onClick={(e) => { e.stopPropagation(); if (runwayYellow) { acknowledgeUnexpectedChange(callsign, "runway"); } else { setRunwayOpen(true); } }}
       >
         <div className="flex items-center justify-center" style={{ height: TOP_H }}>
           <span className="font-bold text-xl truncate">{runway}</span>
@@ -111,7 +115,11 @@ export function ApnArrStrip({
       </div>
 
       {/* Stand — 80px */}
-      <div className="flex-shrink-0 flex flex-col overflow-hidden" style={{ width: 80, height: "100%" }}>
+      <div
+        className="flex-shrink-0 flex flex-col overflow-hidden"
+        style={{ width: 80, height: "100%", backgroundColor: standYellow ? COLOR_UNEXPECTED_YELLOW : undefined, cursor: standYellow ? "pointer" : undefined }}
+        onClick={standYellow ? (e) => { e.stopPropagation(); acknowledgeUnexpectedChange(callsign, "stand"); } : undefined}
+      >
         <div className="flex items-center justify-center" style={{ height: TOP_H }}>
           <span className="font-bold text-xl truncate">{stand}</span>
         </div>

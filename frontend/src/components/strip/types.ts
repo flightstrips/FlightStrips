@@ -20,7 +20,7 @@ export interface StripProps {
   destination?: string;
   origin?: string;
   stand?: string;
-  standChanged?: boolean;
+  unexpectedChangeFields?: string[];
   eobt?: string;
   tobt?: string;
   tsat?: string;

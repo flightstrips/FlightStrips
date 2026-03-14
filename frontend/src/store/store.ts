@@ -102,6 +102,8 @@ export interface WebSocketState {
   cdmReady: (callsign: string) => void;
   assignRunway: (callsign: string, runway: string) => void;
 
+  acknowledgeUnexpectedChange: (callsign: string, fieldName: string) => void;
+
   // tactical strip actions
   createTacticalStrip: (stripType: TacticalStripType, bay: string, label: string, aircraft: string) => void;
   deleteTacticalStrip: (id: number) => void;
@@ -331,6 +333,17 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
             state.strips[idx].runway_cleared = true;
             if (state.strips[idx].bay === Bay.TaxiLwr) state.strips[idx].bay = Bay.Depart;
             if (state.strips[idx].bay === Bay.Final) state.strips[idx].bay = Bay.RwyArr;
+          }
+        })
+      );
+    },
+    acknowledgeUnexpectedChange: (callsign, fieldName) => {
+      wsClient.send({ type: ActionType.FrontendAcknowledgeUnexpectedChange, callsign, field_name: fieldName });
+      store.setState(
+        produce((state: WebSocketState) => {
+          const idx = state.strips.findIndex(s => s.callsign === callsign);
+          if (idx !== -1) {
+            state.strips[idx].unexpected_change_fields = (state.strips[idx].unexpected_change_fields ?? []).filter(f => f !== fieldName);
           }
         })
       );

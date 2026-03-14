@@ -1,5 +1,6 @@
 import type { HalfStripVariant, StripProps } from "./types";
-import { useStripSelection, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR, COLOR_ARR_YELLOW, COLOR_ARR_STRIP_BG, COLOR_BTN_BLUE, COLOR_BTN_ORANGE } from "./shared";
+import { useStripSelection, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR, COLOR_ARR_YELLOW, COLOR_ARR_STRIP_BG, COLOR_BTN_BLUE, COLOR_BTN_ORANGE, COLOR_UNEXPECTED_YELLOW } from "./shared";
+import { useWebSocketStore } from "@/store/store-hooks";
 
 // Variant-specific background colours
 const COLOR_HALF_PUSH_BG  = "#bfbfbf"; // compact APN-PUSH half strip (lighter grey)
@@ -55,12 +56,15 @@ export function HalfStrip({
   selectable,
   halfStripVariant = "APN-PUSH",
   marked = false,
+  unexpectedChangeFields,
 }: StripProps) {
   const isLocked = LOCKED_VARIANTS.includes(halfStripVariant);
   const isFreeText = FREE_TEXT_VARIANTS.includes(halfStripVariant);
   // Locked variants are never selectable regardless of the prop
   const isSelectable = selectable && !isLocked;
   const { isSelected, handleClick } = useStripSelection(callsign, isSelectable);
+  const acknowledgeUnexpectedChange = useWebSocketStore(s => s.acknowledgeUnexpectedChange);
+  const standYellow = unexpectedChangeFields?.includes("stand");
 
   const cellBorderColor = getCellBorderColor(marked, HALF_CELL_BASE);
 
@@ -127,7 +131,11 @@ export function HalfStrip({
           >
             {holdingPoint}
           </div>
-          <div className={`h-full w-14 flex items-center justify-center font-bold ${textColor}`}>
+          <div
+            className={`h-full w-14 flex items-center justify-center font-bold ${textColor}`}
+            style={{ backgroundColor: standYellow ? COLOR_UNEXPECTED_YELLOW : undefined, cursor: standYellow ? "pointer" : undefined }}
+            onClick={standYellow ? (e) => { e.stopPropagation(); acknowledgeUnexpectedChange(callsign, "stand"); } : undefined}
+          >
             {stand}
           </div>
         </>

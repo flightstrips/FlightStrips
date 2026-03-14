@@ -20,6 +20,11 @@ sql:
               pointer: false
               type: "string"
               slice: true
+          - column: "strips.unexpected_change_fields"
+            go_type:
+              pointer: false
+              type: "string"
+              slice: true
           - column: "sector_owners.sector"
             go_type:
               pointer: false

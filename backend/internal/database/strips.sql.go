@@ -9,6 +9,23 @@ import (
 	"context"
 )
 
+const appendUnexpectedChangeField = `-- name: AppendUnexpectedChangeField :exec
+UPDATE strips
+SET unexpected_change_fields = array_append(unexpected_change_fields, $3)
+WHERE session = $1 AND callsign = $2 AND NOT ($3 = ANY(unexpected_change_fields))
+`
+
+type AppendUnexpectedChangeFieldParams struct {
+	Session     int32
+	Callsign    string
+	ArrayAppend interface{}
+}
+
+func (q *Queries) AppendUnexpectedChangeField(ctx context.Context, arg AppendUnexpectedChangeFieldParams) error {
+	_, err := q.db.Exec(ctx, appendUnexpectedChangeField, arg.Session, arg.Callsign, arg.ArrayAppend)
+	return err
+}
+
 const getBay = `-- name: GetBay :one
 SELECT bay
 FROM strips
@@ -295,7 +312,7 @@ func (q *Queries) GetSequence(ctx context.Context, arg GetSequenceParams) (int32
 }
 
 const getStrip = `-- name: GetStrip :one
-SELECT id, version, callsign, session, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay, position_latitude, position_longitude, position_altitude, tobt, tsat, ttot, ctot, aobt, asat, eobt, next_owners, previous_owners, cdm_status, release_point, pdc_state, pdc_requested_at, pdc_message_sequence, pdc_message_sent, marked, registration, tracking_controller, runway_cleared
+SELECT id, version, callsign, session, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay, position_latitude, position_longitude, position_altitude, tobt, tsat, ttot, ctot, aobt, asat, eobt, next_owners, previous_owners, cdm_status, release_point, pdc_state, pdc_requested_at, pdc_message_sequence, pdc_message_sent, marked, registration, tracking_controller, runway_cleared, unexpected_change_fields
 FROM strips
 WHERE callsign = $1 AND session = $2
 `
@@ -357,6 +374,7 @@ func (q *Queries) GetStrip(ctx context.Context, arg GetStripParams) (Strip, erro
 		&i.Registration,
 		&i.TrackingController,
 		&i.RunwayCleared,
+		&i.UnexpectedChangeFields,
 	)
 	return i, err
 }
@@ -480,7 +498,7 @@ func (q *Queries) ListStripSequences(ctx context.Context, arg ListStripSequences
 }
 
 const listStrips = `-- name: ListStrips :many
-SELECT id, version, callsign, session, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay, position_latitude, position_longitude, position_altitude, tobt, tsat, ttot, ctot, aobt, asat, eobt, next_owners, previous_owners, cdm_status, release_point, pdc_state, pdc_requested_at, pdc_message_sequence, pdc_message_sent, marked, registration, tracking_controller, runway_cleared
+SELECT id, version, callsign, session, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay, position_latitude, position_longitude, position_altitude, tobt, tsat, ttot, ctot, aobt, asat, eobt, next_owners, previous_owners, cdm_status, release_point, pdc_state, pdc_requested_at, pdc_message_sequence, pdc_message_sent, marked, registration, tracking_controller, runway_cleared, unexpected_change_fields
 FROM strips
 WHERE session = $1
 ORDER BY callsign
@@ -544,6 +562,7 @@ func (q *Queries) ListStrips(ctx context.Context, session int32) ([]Strip, error
 			&i.Registration,
 			&i.TrackingController,
 			&i.RunwayCleared,
+			&i.UnexpectedChangeFields,
 		); err != nil {
 			return nil, err
 		}
@@ -556,7 +575,7 @@ func (q *Queries) ListStrips(ctx context.Context, session int32) ([]Strip, error
 }
 
 const listStripsByOrigin = `-- name: ListStripsByOrigin :many
-SELECT id, version, callsign, session, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay, position_latitude, position_longitude, position_altitude, tobt, tsat, ttot, ctot, aobt, asat, eobt, next_owners, previous_owners, cdm_status, release_point, pdc_state, pdc_requested_at, pdc_message_sequence, pdc_message_sent, marked, registration, tracking_controller, runway_cleared
+SELECT id, version, callsign, session, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay, position_latitude, position_longitude, position_altitude, tobt, tsat, ttot, ctot, aobt, asat, eobt, next_owners, previous_owners, cdm_status, release_point, pdc_state, pdc_requested_at, pdc_message_sequence, pdc_message_sent, marked, registration, tracking_controller, runway_cleared, unexpected_change_fields
 FROM strips
 WHERE origin = $1 AND session = $2
 ORDER BY callsign
@@ -625,6 +644,7 @@ func (q *Queries) ListStripsByOrigin(ctx context.Context, arg ListStripsByOrigin
 			&i.Registration,
 			&i.TrackingController,
 			&i.RunwayCleared,
+			&i.UnexpectedChangeFields,
 		); err != nil {
 			return nil, err
 		}
@@ -673,6 +693,23 @@ type RemoveStripByIDParams struct {
 
 func (q *Queries) RemoveStripByID(ctx context.Context, arg RemoveStripByIDParams) error {
 	_, err := q.db.Exec(ctx, removeStripByID, arg.Callsign, arg.Session)
+	return err
+}
+
+const removeUnexpectedChangeField = `-- name: RemoveUnexpectedChangeField :exec
+UPDATE strips
+SET unexpected_change_fields = array_remove(unexpected_change_fields, $3)
+WHERE session = $1 AND callsign = $2
+`
+
+type RemoveUnexpectedChangeFieldParams struct {
+	Session     int32
+	Callsign    string
+	ArrayRemove interface{}
+}
+
+func (q *Queries) RemoveUnexpectedChangeField(ctx context.Context, arg RemoveUnexpectedChangeFieldParams) error {
+	_, err := q.db.Exec(ctx, removeUnexpectedChangeField, arg.Session, arg.Callsign, arg.ArrayRemove)
 	return err
 }
 
@@ -819,6 +856,31 @@ type UpdateReleasePointParams struct {
 
 func (q *Queries) UpdateReleasePoint(ctx context.Context, arg UpdateReleasePointParams) (int64, error) {
 	result, err := q.db.Exec(ctx, updateReleasePoint, arg.Session, arg.Callsign, arg.ReleasePoint)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const updateRunwayClearance = `-- name: UpdateRunwayClearance :execrows
+UPDATE strips
+SET bay            = CASE
+                       WHEN bay = 'TAXI_LWR' THEN 'DEPART'
+                       WHEN bay = 'FINAL'    THEN 'RWY_ARR'
+                       ELSE bay
+                     END,
+    runway_cleared = true,
+    version        = version + 1
+WHERE callsign = $1 AND session = $2
+`
+
+type UpdateRunwayClearanceParams struct {
+	Callsign string
+	Session  int32
+}
+
+func (q *Queries) UpdateRunwayClearance(ctx context.Context, arg UpdateRunwayClearanceParams) (int64, error) {
+	result, err := q.db.Exec(ctx, updateRunwayClearance, arg.Callsign, arg.Session)
 	if err != nil {
 		return 0, err
 	}
@@ -1211,31 +1273,6 @@ type UpdateStripRegistrationParams struct {
 
 func (q *Queries) UpdateStripRegistration(ctx context.Context, arg UpdateStripRegistrationParams) (int64, error) {
 	result, err := q.db.Exec(ctx, updateStripRegistration, arg.Registration, arg.Callsign, arg.Session)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected(), nil
-}
-
-const updateRunwayClearance = `-- name: UpdateRunwayClearance :execrows
-UPDATE strips
-SET bay            = CASE
-                       WHEN bay = 'TAXI_LWR' THEN 'DEPART'
-                       WHEN bay = 'FINAL'    THEN 'RWY_ARR'
-                       ELSE bay
-                     END,
-    runway_cleared = true,
-    version        = version + 1
-WHERE callsign = $1 AND session = $2
-`
-
-type UpdateRunwayClearanceParams struct {
-	Callsign string
-	Session  int32
-}
-
-func (q *Queries) UpdateRunwayClearance(ctx context.Context, arg UpdateRunwayClearanceParams) (int64, error) {
-	result, err := q.db.Exec(ctx, updateRunwayClearance, arg.Callsign, arg.Session)
 	if err != nil {
 		return 0, err
 	}

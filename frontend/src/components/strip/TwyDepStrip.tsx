@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useControllers, useStrips, useStripTransfers, useWebSocketStore } from "@/store/store-hooks";
+import { COLOR_UNEXPECTED_YELLOW } from "./shared";
 import { getStripBg } from "./types";
 import type { StripProps } from "./types";
 import { useStripSelection, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR, FONT } from "./shared";
@@ -58,6 +59,7 @@ export function TwyDepStrip({
   selectable,
   marked = false,
   runwayCleared = false,
+  unexpectedChangeFields,
 }: StripProps) {
   const { isSelected, handleClick } = useStripSelection(callsign, selectable);
   const stripTransfers = useStripTransfers();
@@ -66,7 +68,10 @@ export function TwyDepStrip({
   const [showTaxiMap, setShowTaxiMap] = useState(false);
   const [showHpMap, setShowHpMap] = useState(false);
   const runwayClearance = useWebSocketStore(s => s.runwayClearance);
+  const acknowledgeUnexpectedChange = useWebSocketStore(s => s.acknowledgeUnexpectedChange);
   const allStrips = useStrips();
+  const standYellow = unexpectedChangeFields?.includes("stand");
+  const releasePointYellow = unexpectedChangeFields?.includes("release_point");
 
   // Count only CLEARED strips in DEPART bay.
   const clearedInDepart = allStrips.filter(s => s.bay === Bay.Depart && s.runway_cleared);
@@ -93,8 +98,6 @@ export function TwyDepStrip({
   const isHp = holdingPoint ? hpLabels.has(holdingPoint) : false;
   const hpDisplay = isHp ? (holdingPoint ?? "") : "";
   const twyDisplay = !isHp ? (holdingPoint ?? "") : "";
-
-  const isAssumed = !!myPosition && owner === myPosition;
 
   // Next position frequency — controller.position IS the frequency string (e.g. "118.105")
   const nextPosition = nextControllers?.find(pos => pos !== myPosition);
@@ -167,7 +170,11 @@ export function TwyDepStrip({
         className="flex-shrink-0 flex flex-col border-r-2"
         style={{ width: W_STAND_CTOT, height: "100%", borderRightColor: cellBorderColor }}
       >
-        <div className="flex items-center justify-center overflow-hidden" style={{ height: HALF_H }}>
+        <div
+          className="flex items-center justify-center overflow-hidden"
+          style={{ height: HALF_H, backgroundColor: standYellow ? COLOR_UNEXPECTED_YELLOW : undefined, cursor: standYellow ? "pointer" : undefined }}
+          onClick={standYellow ? (e) => { e.stopPropagation(); acknowledgeUnexpectedChange(callsign, "stand"); } : undefined}
+        >
           <span className="truncate px-1" style={{ fontFamily: FONT, fontWeight: "bold", fontSize: 13 }}>
             {stand}
           </span>
@@ -183,8 +190,8 @@ export function TwyDepStrip({
           top half empty, bottom half shows the clearance-limit point or faint "TWY". */}
       <div
         className="flex-shrink-0 flex flex-col border-r-2 cursor-pointer"
-        style={{ width: W_SMALL, height: "100%", borderRightColor: cellBorderColor }}
-        onClick={(e) => { e.stopPropagation(); setShowTaxiMap(true); }}
+        style={{ width: W_SMALL, height: "100%", borderRightColor: cellBorderColor, backgroundColor: releasePointYellow ? COLOR_UNEXPECTED_YELLOW : undefined }}
+        onClick={(e) => { e.stopPropagation(); if (releasePointYellow) { acknowledgeUnexpectedChange(callsign, "release_point"); } else { setShowTaxiMap(true); } }}
       >
         <div className="flex items-center justify-center h-full">
           <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: 14, opacity: twyDisplay ? 1 : 0.2 }}>

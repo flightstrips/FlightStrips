@@ -8,6 +8,7 @@ import {
   SELECTION_COLOR,
   FONT,
   CLS_CALLSIGN_ACTIVE,
+  COLOR_UNEXPECTED_YELLOW,
 } from "./shared";
 import { useWebSocketStore } from "@/store/store-hooks";
 import { useCDMColors } from "@/hooks/useCDMColors";
@@ -35,12 +36,15 @@ export function DelStrip({
   selectable,
   marked = false,
   fullWidth = false,
+  unexpectedChangeFields,
 }: StripProps) {
   const { isSelected, handleClick } = useStripSelection(callsign, selectable);
   const isNavyBg = pdcStatus === "CLEARED";
   const cellBorderColor = isNavyBg ? "white" : getCellBorderColor(marked);
   const cdmReady = useWebSocketStore(s => s.cdmReady);
+  const acknowledgeUnexpectedChange = useWebSocketStore(s => s.acknowledgeUnexpectedChange);
   const { tobtBg, tsatBg } = useCDMColors({ bay: bay ?? Bay.Unknown, tsat: tsat ?? "", tobt: tobt ?? "" });
+  const standYellow = unexpectedChangeFields?.includes("stand");
 
   return (
     <div
@@ -76,7 +80,11 @@ export function DelStrip({
             <div className="flex items-center justify-center overflow-hidden" style={{ height: HALF_H, fontFamily: FONT, fontWeight: "bold", fontSize: 14 }}>
               {destination}
             </div>
-            <div className="flex items-center justify-center overflow-hidden" style={{ height: HALF_H, fontFamily: FONT, fontWeight: "bold", fontSize: 14 }}>
+            <div
+              className="flex items-center justify-center overflow-hidden"
+              style={{ height: HALF_H, fontFamily: FONT, fontWeight: "bold", fontSize: 14, backgroundColor: standYellow ? COLOR_UNEXPECTED_YELLOW : undefined, cursor: standYellow ? "pointer" : undefined }}
+              onClick={standYellow ? (e) => { e.stopPropagation(); acknowledgeUnexpectedChange(callsign, "stand"); } : undefined}
+            >
               {stand}
             </div>
           </CLXBtn>

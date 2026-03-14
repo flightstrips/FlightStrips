@@ -67,10 +67,11 @@ func stripToModel(db database.Strip) *models.Strip {
 		PdcRequestedAt:     PgTimestampToTime(db.PdcRequestedAt),
 		PdcMessageSequence: db.PdcMessageSequence,
 		PdcMessageSent:     PgTimestampToTime(db.PdcMessageSent),
-		Marked:             db.Marked,
-		Registration:       db.Registration,
-		TrackingController: db.TrackingController,
-		RunwayCleared:      db.RunwayCleared,
+		Marked:                 db.Marked,
+		Registration:           db.Registration,
+		TrackingController:     db.TrackingController,
+		RunwayCleared:          db.RunwayCleared,
+		UnexpectedChangeFields: db.UnexpectedChangeFields,
 	}
 }
 
@@ -608,6 +609,24 @@ func (r *stripRepository) UpdateTrackingController(ctx context.Context, session 
 		TrackingController: trackingController,
 		Callsign:           callsign,
 		Session:            session,
+	})
+}
+
+// AppendUnexpectedChangeField marks a field as unexpectedly changed on a strip.
+func (r *stripRepository) AppendUnexpectedChangeField(ctx context.Context, session int32, callsign string, fieldName string) error {
+	return r.queries.AppendUnexpectedChangeField(ctx, database.AppendUnexpectedChangeFieldParams{
+		Session:     session,
+		Callsign:    callsign,
+		ArrayAppend: fieldName,
+	})
+}
+
+// RemoveUnexpectedChangeField clears the unexpected-change marker for a field on a strip.
+func (r *stripRepository) RemoveUnexpectedChangeField(ctx context.Context, session int32, callsign string, fieldName string) error {
+	return r.queries.RemoveUnexpectedChangeField(ctx, database.RemoveUnexpectedChangeFieldParams{
+		Session:     session,
+		Callsign:    callsign,
+		ArrayRemove: fieldName,
 	})
 }
 

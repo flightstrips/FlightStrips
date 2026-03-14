@@ -65,6 +65,10 @@ type StripRepository interface {
 	// Release point
 	UpdateReleasePoint(ctx context.Context, session int32, callsign string, releasePoint *string) (int64, error)
 
+	// Unexpected change tracking
+	AppendUnexpectedChangeField(ctx context.Context, session int32, callsign string, fieldName string) error
+	RemoveUnexpectedChangeField(ctx context.Context, session int32, callsign string, fieldName string) error
+
 	// PDC methods
 	SetPdcRequested(ctx context.Context, session int32, callsign string, pdcState string, pdcRequestedAt *time.Time) error
 	SetPdcMessageSent(ctx context.Context, session int32, callsign string, pdcState string, pdcMessageSequence *int32, pdcMessageSent *time.Time) error

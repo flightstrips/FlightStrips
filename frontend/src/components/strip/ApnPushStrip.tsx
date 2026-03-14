@@ -7,7 +7,9 @@ import {
   SELECTION_COLOR,
   FONT,
   COLOR_ARR_STRIP_BG,
+  COLOR_UNEXPECTED_YELLOW,
 } from "./shared";
+import { useWebSocketStore } from "@/store/store-hooks";
 import { SIBox } from "./SIBox";
 import { useStripTransfers } from "@/store/store-hooks";
 import { PushbackMapDialog } from "@/components/map-dialogs/PushbackMapDialog";
@@ -54,12 +56,16 @@ export function ApnPushStrip({
   selectable,
   marked = false,
   fullWidth = false,
+  unexpectedChangeFields,
 }: StripProps) {
   const { isSelected, handleClick } = useStripSelection(callsign, selectable);
   const cellBorderColor = getCellBorderColor(marked);
   const stripTransfers = useStripTransfers();
   const [pushbackOpen, setPushbackOpen] = useState(false);
   const [runwayOpen, setRunwayOpen] = useState(false);
+  const acknowledgeUnexpectedChange = useWebSocketStore(s => s.acknowledgeUnexpectedChange);
+  const standYellow = unexpectedChangeFields?.includes("stand");
+  const runwayYellow = unexpectedChangeFields?.includes("runway");
 
   return (
     <div
@@ -107,8 +113,8 @@ export function ApnPushStrip({
         {/* Stand / Release Point — 25%*(2/3) */}
         <div
           className="flex items-center justify-center overflow-hidden border-r-2 cursor-pointer hover:bg-cyan-200"
-          style={{ flex: `${F_STAND} 0 0%`, height: "100%", paddingBottom: "1.48vh", minWidth: 0, borderRightColor: cellBorderColor }}
-          onClick={(e) => { e.stopPropagation(); setPushbackOpen(true); }}
+          style={{ flex: `${F_STAND} 0 0%`, height: "100%", paddingBottom: "1.48vh", minWidth: 0, borderRightColor: cellBorderColor, backgroundColor: standYellow ? COLOR_UNEXPECTED_YELLOW : undefined }}
+          onClick={(e) => { e.stopPropagation(); if (standYellow) { acknowledgeUnexpectedChange(callsign, "stand"); } else { setPushbackOpen(true); } }}
         >
           {holdingPoint ? (
             <span style={{ fontFamily: FONT, fontWeight: 600, fontSize: 20, color: COLOR_HP_TEXT }}>
@@ -144,8 +150,8 @@ export function ApnPushStrip({
         {/* RWY — 25%*(2/3)*(2/3) */}
         <div
           className="flex items-center justify-center overflow-hidden cursor-pointer hover:bg-cyan-200"
-          style={{ flex: `${F_RWY} 0 0%`, height: "100%", paddingBottom: "1.48vh", minWidth: 0 }}
-          onClick={(e) => { e.stopPropagation(); setRunwayOpen(true); }}
+          style={{ flex: `${F_RWY} 0 0%`, height: "100%", paddingBottom: "1.48vh", minWidth: 0, backgroundColor: runwayYellow ? COLOR_UNEXPECTED_YELLOW : undefined }}
+          onClick={(e) => { e.stopPropagation(); if (runwayYellow) { acknowledgeUnexpectedChange(callsign, "runway"); } else { setRunwayOpen(true); } }}
         >
           <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: 20 }}>{runway}</span>
         </div>

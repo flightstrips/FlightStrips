@@ -73,6 +73,7 @@ export function Strip({ strip, status, halfStripVariant, myPosition, selectable,
     runwayCleared: strip.runway_cleared,
     registration: strip.registration,
     fullWidth,
+    unexpectedChangeFields: strip.unexpected_change_fields,
   };
 
   switch (status) {

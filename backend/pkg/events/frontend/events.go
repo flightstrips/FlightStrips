@@ -42,6 +42,7 @@ const (
 	Move                              EventType = "move"
 	GenerateSquawk                    EventType = "generate_squawk"
 	UpdateStripData                   EventType = "update_strip_data"
+	AcknowledgeUnexpectedChange       EventType = "acknowledge_unexpected_change"
 	CoordinationAssumeBroadcastType   EventType = "coordination_assume_broadcast"
 	CoordinationRejectBroadcastType   EventType = "coordination_reject_broadcast"
 	CoordinationTransferBroadcastType EventType = "coordination_transfer_broadcast"
@@ -121,10 +122,11 @@ type Strip struct {
 	Tsat                string   `json:"tsat"`
 	Ctot                string   `json:"ctot"`
 	PdcState            string   `json:"pdc_state"`
-	Marked              bool     `json:"marked"`
-	Registration        string   `json:"registration"`
-	TrackingController  string   `json:"tracking_controller"`
-	RunwayCleared       bool     `json:"runway_cleared"`
+	Marked                 bool     `json:"marked"`
+	Registration           string   `json:"registration"`
+	TrackingController     string   `json:"tracking_controller"`
+	RunwayCleared          bool     `json:"runway_cleared"`
+	UnexpectedChangeFields []string `json:"unexpected_change_fields"`
 }
 
 type Controller struct {
@@ -350,6 +352,12 @@ type MoveEvent struct {
 type GenerateSquawkRequest struct {
 	Type     EventType `json:"type"`
 	Callsign string    `json:"callsign"`
+}
+
+type AcknowledgeUnexpectedChangeEvent struct {
+	Type      EventType `json:"type"`
+	Callsign  string    `json:"callsign"`
+	FieldName string    `json:"field_name"`
 }
 
 type UpdateStripDataEvent struct {

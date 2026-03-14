@@ -12,6 +12,7 @@ type MockServer struct {
 	FrontendHubVal    shared.FrontendHub
 	CoordRepoVal      repository.CoordinationRepository
 	ControllerRepoVal repository.ControllerRepository
+	SessionRepoVal    repository.SessionRepository
 
 	UpdateSectorsFn          func(sessionId int32) ([]shared.SectorChange, error)
 	UpdateRouteForStripFn    func(callsign string, sessionId int32, sendUpdate bool) error
@@ -39,7 +40,7 @@ func (m *MockServer) GetControllerRepository() repository.ControllerRepository {
 	return m.ControllerRepoVal
 }
 
-func (m *MockServer) GetSessionRepository() repository.SessionRepository { return nil }
+func (m *MockServer) GetSessionRepository() repository.SessionRepository { return m.SessionRepoVal }
 
 func (m *MockServer) GetSectorOwnerRepository() repository.SectorOwnerRepository { return nil }
 

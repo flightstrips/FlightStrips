@@ -100,6 +100,8 @@ export const COLOR_BTN_YELLOW    = "#F3EA1F";
 export const COLOR_ARR_STRIP_BG  = "#bef5ef";
 /** Yellow background for arrival strips (FinalArrStrip, ApnArrStrip). */
 export const COLOR_ARR_YELLOW    = "#fff28e";
+/** Yellow background for unexpected/overwritten field cells. */
+export const COLOR_UNEXPECTED_YELLOW = "#FFD700";
 
 // ── SI ownership indicator colours ───────────────────────────────────────────
 /** SI box — strip assumed by the current position. */

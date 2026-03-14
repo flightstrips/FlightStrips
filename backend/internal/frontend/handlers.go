@@ -278,7 +278,40 @@ func handleReleasePoint(ctx context.Context, client *Client, message Message) er
 	if err := message.JsonUnmarshal(&event); err != nil {
 		return err
 	}
-	return client.hub.stripService.UpdateReleasePoint(ctx, client.session, event.Callsign, event.ReleasePoint)
+
+	// Mark release_point as unexpected change when a non-owner overwrites an existing value.
+	unexpectedChange := false
+	s := client.hub.server
+	if strip, err := s.GetStripRepository().GetByCallsign(ctx, client.session, event.Callsign); err == nil {
+		if strip.Owner != nil && *strip.Owner != "" && *strip.Owner != client.position &&
+			strip.ReleasePoint != nil && *strip.ReleasePoint != "" && *strip.ReleasePoint != event.ReleasePoint {
+			_ = s.GetStripRepository().AppendUnexpectedChangeField(ctx, client.session, event.Callsign, "release_point")
+			unexpectedChange = true
+		}
+	}
+
+	if err := client.hub.stripService.UpdateReleasePoint(ctx, client.session, event.Callsign, event.ReleasePoint); err != nil {
+		return err
+	}
+
+	if unexpectedChange {
+		client.hub.SendStripUpdate(client.session, event.Callsign)
+	}
+	return nil
+}
+
+func handleAcknowledgeUnexpectedChange(ctx context.Context, client *Client, message Message) error {
+	var event frontend.AcknowledgeUnexpectedChangeEvent
+	if err := message.JsonUnmarshal(&event); err != nil {
+		return err
+	}
+
+	s := client.hub.server
+	if err := s.GetStripRepository().RemoveUnexpectedChangeField(ctx, client.session, event.Callsign, event.FieldName); err != nil {
+		return err
+	}
+	client.hub.SendStripUpdate(client.session, event.Callsign)
+	return nil
 }
 
 func handleMarked(ctx context.Context, client *Client, message Message) error {

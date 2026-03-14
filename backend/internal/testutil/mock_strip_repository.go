@@ -50,8 +50,10 @@ type MockStripRepository struct {
 	GetCdmDataForCallsignFn     func(ctx context.Context, session int32, callsign string) (*models.CdmData, error)
 	UpdateCdmDataFn             func(ctx context.Context, session int32, callsign string, tobt *string, tsat *string, ttot *string, ctot *string, aobt *string, eobt *string, cdmStatus *string) (int64, error)
 	SetCdmStatusFn              func(ctx context.Context, session int32, callsign string, cdmStatus *string) (int64, error)
-	UpdateReleasePointFn        func(ctx context.Context, session int32, callsign string, releasePoint *string) (int64, error)
-	SetPdcRequestedFn           func(ctx context.Context, session int32, callsign string, pdcState string, pdcRequestedAt *time.Time) error
+	UpdateReleasePointFn              func(ctx context.Context, session int32, callsign string, releasePoint *string) (int64, error)
+	AppendUnexpectedChangeFieldFn     func(ctx context.Context, session int32, callsign string, fieldName string) error
+	RemoveUnexpectedChangeFieldFn     func(ctx context.Context, session int32, callsign string, fieldName string) error
+	SetPdcRequestedFn                 func(ctx context.Context, session int32, callsign string, pdcState string, pdcRequestedAt *time.Time) error
 	SetPdcMessageSentFn         func(ctx context.Context, session int32, callsign string, pdcState string, pdcMessageSequence *int32, pdcMessageSent *time.Time) error
 	UpdatePdcStatusFn           func(ctx context.Context, session int32, callsign string, pdcState string) error
 }
@@ -348,6 +350,20 @@ func (m *MockStripRepository) UpdateReleasePoint(ctx context.Context, session in
 		panic("unexpected call to MockStripRepository.UpdateReleasePoint")
 	}
 	return m.UpdateReleasePointFn(ctx, session, callsign, releasePoint)
+}
+
+func (m *MockStripRepository) AppendUnexpectedChangeField(ctx context.Context, session int32, callsign string, fieldName string) error {
+	if m.AppendUnexpectedChangeFieldFn == nil {
+		panic("unexpected call to MockStripRepository.AppendUnexpectedChangeField")
+	}
+	return m.AppendUnexpectedChangeFieldFn(ctx, session, callsign, fieldName)
+}
+
+func (m *MockStripRepository) RemoveUnexpectedChangeField(ctx context.Context, session int32, callsign string, fieldName string) error {
+	if m.RemoveUnexpectedChangeFieldFn == nil {
+		panic("unexpected call to MockStripRepository.RemoveUnexpectedChangeField")
+	}
+	return m.RemoveUnexpectedChangeFieldFn(ctx, session, callsign, fieldName)
 }
 
 func (m *MockStripRepository) SetPdcRequested(ctx context.Context, session int32, callsign string, pdcState string, pdcRequestedAt *time.Time) error {

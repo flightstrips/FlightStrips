@@ -7,10 +7,11 @@ import {
   SELECTION_COLOR,
   FONT,
   COLOR_ARR_STRIP_BG,
+  COLOR_UNEXPECTED_YELLOW,
 } from "./shared";
 import { SIBox } from "./SIBox";
 import { getSimpleAircraftType } from "@/lib/utils";
-import { useStripTransfers } from "@/store/store-hooks";
+import { useStripTransfers, useWebSocketStore } from "@/store/store-hooks";
 import { ApronTaxiMapDialog } from "@/components/map-dialogs/ApronTaxiMapDialog";
 import { useCTOTColor } from "@/hooks/useCTOTColor";
 const TOP_H  = "2.96vh";  // 2/3 of 4.44vh
@@ -48,12 +49,17 @@ export function ApnTaxiDepStrip({
   myPosition,
   selectable,
   marked = false,
+  unexpectedChangeFields,
 }: StripProps) {
   const { isSelected, handleClick } = useStripSelection(callsign, selectable);
   const cellBorderColor = getCellBorderColor(marked);
   const stripTransfers = useStripTransfers();
   const [showTaxiMap, setShowTaxiMap] = useState(false);
   const { ctotBg, ctotColor, showCtot } = useCTOTColor(ctot ?? "");
+  const acknowledgeUnexpectedChange = useWebSocketStore(s => s.acknowledgeUnexpectedChange);
+  const standYellow = unexpectedChangeFields?.includes("stand");
+  const runwayYellow = unexpectedChangeFields?.includes("runway");
+  const releasePointYellow = unexpectedChangeFields?.includes("release_point");
 
   const hpValue = holdingPoint ?? "";
   const hasTwy = hpValue.includes("/");
@@ -109,7 +115,8 @@ export function ApnTaxiDepStrip({
         {/* Stand — 25%*(2/3), value in top 2/3 */}
         <div
           className="flex items-center justify-center overflow-hidden border-r-2"
-          style={{ flex: `${F_STAND} 0 0%`, height: "100%", paddingBottom: BOT_H, minWidth: 0, borderRightColor: cellBorderColor }}
+          style={{ flex: `${F_STAND} 0 0%`, height: "100%", paddingBottom: BOT_H, minWidth: 0, borderRightColor: cellBorderColor, backgroundColor: standYellow ? COLOR_UNEXPECTED_YELLOW : undefined, cursor: standYellow ? "pointer" : undefined }}
+          onClick={standYellow ? (e) => { e.stopPropagation(); acknowledgeUnexpectedChange(callsign, "stand"); } : undefined}
         >
           <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: 20 }}>{stand}</span>
         </div>
@@ -117,8 +124,8 @@ export function ApnTaxiDepStrip({
         {/* HP / TWY — 25%*(2/3)*(2/3) */}
         <div
           className="flex flex-col overflow-hidden border-r-2"
-          style={{ flex: `${F_HP} 0 0%`, height: "100%", minWidth: 0, borderRightColor: cellBorderColor, cursor: "pointer" }}
-          onClick={(e) => { e.stopPropagation(); setShowTaxiMap(true); }}
+          style={{ flex: `${F_HP} 0 0%`, height: "100%", minWidth: 0, borderRightColor: cellBorderColor, cursor: "pointer", backgroundColor: releasePointYellow ? COLOR_UNEXPECTED_YELLOW : undefined }}
+          onClick={(e) => { e.stopPropagation(); if (releasePointYellow) { acknowledgeUnexpectedChange(callsign, "release_point"); } else { setShowTaxiMap(true); } }}
         >
           <div className="flex items-center justify-center border-b-2" style={{ height: HALF_H, borderBottomColor: cellBorderColor }}>
             <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: 11, opacity: hasTwy ? 1 : 0.15 }}>
@@ -135,7 +142,8 @@ export function ApnTaxiDepStrip({
         {/* Runway — 25%*(2/3) */}
         <div
           className="flex flex-col overflow-hidden border-r-2"
-          style={{ flex: `${F_RWY} 0 0%`, height: "100%", minWidth: 0, borderRightColor: cellBorderColor }}
+          style={{ flex: `${F_RWY} 0 0%`, height: "100%", minWidth: 0, borderRightColor: cellBorderColor, backgroundColor: runwayYellow ? COLOR_UNEXPECTED_YELLOW : undefined, cursor: runwayYellow ? "pointer" : undefined }}
+          onClick={runwayYellow ? (e) => { e.stopPropagation(); acknowledgeUnexpectedChange(callsign, "runway"); } : undefined}
         >
           <div className="flex" style={{ height: HALF_H }}>
             <div className="flex items-center justify-center" style={{ flex: "2 0 0%", height: "100%" }}>

@@ -1505,6 +1505,19 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, st
 		}
 		slog.Debug("Updated strip", slog.String("callsign", strip.Callsign))
 
+		// Mark unexpected changes: stand is always unexpected when overwriting a non-empty value.
+		// Runway is unexpected only for apron bays (not CLX/DEL/TWR).
+		if strip.Stand != "" && existingStrip.Stand != nil && *existingStrip.Stand != "" && *existingStrip.Stand != strip.Stand {
+			if err := s.stripRepo.AppendUnexpectedChangeField(ctx, session, strip.Callsign, "stand"); err != nil {
+				slog.Warn("Failed to mark stand as unexpected change", slog.String("callsign", strip.Callsign), slog.Any("error", err))
+			}
+		}
+		if strip.Runway != "" && existingStrip.Runway != nil && *existingStrip.Runway != "" && *existingStrip.Runway != strip.Runway && isApronBay(bay) {
+			if err := s.stripRepo.AppendUnexpectedChangeField(ctx, session, strip.Callsign, "runway"); err != nil {
+				slog.Warn("Failed to mark runway as unexpected change", slog.String("callsign", strip.Callsign), slog.Any("error", err))
+			}
+		}
+
 		if existingStrip.Registration == nil || remarksContainsRegService(strip.Remarks) {
 			newReg := ParseRegistration(strip.Callsign, strip.Remarks)
 			if err := s.stripRepo.UpdateRegistration(ctx, session, strip.Callsign, newReg); err != nil {
@@ -1530,6 +1543,19 @@ var remarksRegReService = regexp.MustCompile(`\bREG/([A-Z0-9-]+)`)
 
 func remarksContainsRegService(remarks string) bool {
 	return remarksRegReService.MatchString(strings.ToUpper(remarks))
+}
+
+// isApronBay returns true if the bay is managed by the apron controller
+// (i.e., not CLX/DEL bays and not the TWR departure lineup bay).
+// Runway unexpected-change marking is only applied for apron bays.
+func isApronBay(bay string) bool {
+	switch bay {
+	case shared.BAY_PUSH, shared.BAY_TAXI, shared.BAY_TAXI_LWR, shared.BAY_TAXI_TWR,
+		shared.BAY_TWY_ARR, shared.BAY_STAND:
+		return true
+	default:
+		return false
+	}
 }
 
 // autoAssignRunway returns the first active runway for the strip's direction,

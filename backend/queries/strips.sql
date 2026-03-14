@@ -279,3 +279,13 @@ SET bay      = sqlc.arg(bay),
     sequence = sqlc.arg(sequence)::INT,
     version  = version + 1
 WHERE session = $1 AND callsign = $2;
+
+-- name: AppendUnexpectedChangeField :exec
+UPDATE strips
+SET unexpected_change_fields = array_append(unexpected_change_fields, $3)
+WHERE session = $1 AND callsign = $2 AND NOT ($3 = ANY(unexpected_change_fields));
+
+-- name: RemoveUnexpectedChangeField :exec
+UPDATE strips
+SET unexpected_change_fields = array_remove(unexpected_change_fields, $3)
+WHERE session = $1 AND callsign = $2;

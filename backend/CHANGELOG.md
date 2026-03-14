@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.1](https://github.com/flightstrips/FlightStrips/compare/backend/v0.8.0...backend/v0.8.1) (2026-03-14)
+
+
+### Bug Fixes
+
+* missing .env ([e9c1c00](https://github.com/flightstrips/FlightStrips/commit/e9c1c009a73eb22040ca3c354552cb2c391c747c))
+
 ## [0.8.0](https://github.com/flightstrips/FlightStrips/compare/backend/v0.7.1...backend/v0.8.0) (2026-03-14)
 
 

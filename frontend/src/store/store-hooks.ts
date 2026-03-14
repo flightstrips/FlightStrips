@@ -65,5 +65,10 @@ export const useTwrOnline = () =>
     )
   );
 
+export const useIsTwr = () =>
+  useWebSocketStore((state) =>
+    state.controllers.find((c) => c.position === state.position)?.section === "TWR"
+  );
+
 export const useLayoutChooserOpen = () => useWebSocketStore((state) => state.layoutChooserOpen);
 export const useSetLayoutChooserOpen = () => useWebSocketStore((state) => state.setLayoutChooserOpen);

@@ -13,10 +13,8 @@ import { useWebSocketStore } from "@/store/store-hooks";
 import { SIBox } from "./SIBox";
 import { useStripTransfers } from "@/store/store-hooks";
 import { PushbackMapDialog } from "@/components/map-dialogs/PushbackMapDialog";
+import { ApronTaxiMapDialog } from "@/components/map-dialogs/ApronTaxiMapDialog";
 import { RunwayDialog } from "./RunwayDialog";
-
-/** Blue text colour for the holding-point release label. */
-const COLOR_HP_TEXT = "#1D4ED8"; // Tailwind blue-700
 
 // Height: 45px fixed (intentional — matches APN push strip spec)
 const HALF_H = "2.22vh";    // half of 4.44vh for TSAT/CTOT split
@@ -62,6 +60,7 @@ export function ApnPushStrip({
   const cellBorderColor = getCellBorderColor(marked);
   const stripTransfers = useStripTransfers();
   const [pushbackOpen, setPushbackOpen] = useState(false);
+  const [apronTaxiOpen, setApronTaxiOpen] = useState(false);
   const [runwayOpen, setRunwayOpen] = useState(false);
   const acknowledgeUnexpectedChange = useWebSocketStore(s => s.acknowledgeUnexpectedChange);
   const standYellow = unexpectedChangeFields?.includes("stand");
@@ -114,15 +113,11 @@ export function ApnPushStrip({
         <div
           className="flex items-center justify-center overflow-hidden border-r-2 cursor-pointer hover:bg-cyan-200"
           style={{ flex: `${F_STAND} 0 0%`, height: "100%", paddingBottom: "1.48vh", minWidth: 0, borderRightColor: cellBorderColor, backgroundColor: standYellow ? COLOR_UNEXPECTED_YELLOW : undefined }}
-          onClick={(e) => { e.stopPropagation(); if (standYellow) { acknowledgeUnexpectedChange(callsign, "stand"); } else { setPushbackOpen(true); } }}
+          onClick={(e) => { e.stopPropagation(); if (standYellow) { acknowledgeUnexpectedChange(callsign, "stand"); } else if (holdingPoint) { setApronTaxiOpen(true); } else { setPushbackOpen(true); } }}
         >
-          {holdingPoint ? (
-            <span style={{ fontFamily: FONT, fontWeight: 600, fontSize: 20, color: COLOR_HP_TEXT }}>
-              {holdingPoint}
-            </span>
-          ) : (
-            <span style={{ fontFamily: FONT, fontWeight: 600, fontSize: 20 }}>{stand}</span>
-          )}
+          <span style={{ fontFamily: FONT, fontWeight: 600, fontSize: 20 }}>
+            {holdingPoint || stand}
+          </span>
         </div>
 
         <PushbackMapDialog
@@ -130,6 +125,11 @@ export function ApnPushStrip({
           onOpenChange={setPushbackOpen}
           callsign={callsign}
           initialReleasePoint={holdingPoint}
+        />
+        <ApronTaxiMapDialog
+          open={apronTaxiOpen}
+          onOpenChange={setApronTaxiOpen}
+          callsign={callsign}
         />
 
         {/* TSAT / CTOT — 25%*(2/3), split in half with border */}

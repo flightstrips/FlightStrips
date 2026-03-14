@@ -1,4 +1,4 @@
-import { useWebSocketStore, useApronOnline, useTwrOnline } from "@/store/store-hooks";
+import { useWebSocketStore, useApronOnline, useTwrOnline, useIsTwr } from "@/store/store-hooks";
 import { APRON_TAXI_POINTS } from "@/config/ekch";
 import { MAP_BTN_BASE, MapDialogShell, MapEraseControls } from "./MapDialogShell";
 import { Bay } from "@/api/models";
@@ -24,15 +24,17 @@ export function ApronTaxiMapDialog({ open, onOpenChange, callsign }: ApronTaxiMa
   const move = useWebSocketStore((s) => s.move);
   const apronOnline = useApronOnline();
   const twrOnline = useTwrOnline();
+  const isTwr = useIsTwr();
 
   const handleSelect = (label: string) => {
     setReleasePoint(callsign, label);
 
-    // AUTO-LOCAL routing: strip goes to TWY DEP-LWR only when both apron AND TWR
-    // are staffed separately and the selected hold short point is a final hold.
-    // When running tower solo (no separate TWR), or for non-final hold points → TWY DEP-UPR.
+    // AUTO-LOCAL routing:
+    // - Solo TWR (no separate apron): all points → TWY DEP-LWR so TWR can see them.
+    // - Split ops (separate apron or TWR online): final hold points → TWY DEP-LWR, others → TWY DEP-UPR.
     const splitOps = apronOnline || twrOnline;
-    const targetBay = (splitOps && LWR_HOLD_POINTS.has(label))
+    const soloTwr = isTwr && !apronOnline;
+    const targetBay = (soloTwr || (splitOps && LWR_HOLD_POINTS.has(label)))
       ? Bay.TaxiLwr
       : Bay.Taxi;
     move(callsign, targetBay);

@@ -568,3 +568,70 @@ func TestRejectCoordination_WrongPosition(t *testing.T) {
 	require.Error(t, err)
 	assert.Empty(t, hub.CoordinationRejects)
 }
+
+// ---- UpdateStand ----
+
+func TestUpdateStand_TriggersRouteRecalculation(t *testing.T) {
+	ctx := context.Background()
+	const session = int32(1)
+	const callsign = "SAS123"
+	const stand = "A15"
+
+	stripRepo := &testutil.MockStripRepository{
+		UpdateStandFn: func(_ context.Context, _ int32, cs string, s *string, _ *int32) (int64, error) {
+			assert.Equal(t, callsign, cs)
+			assert.Equal(t, stand, *s)
+			return 1, nil
+		},
+	}
+
+	var routeUpdateCallsign string
+	var routeUpdateSession int32
+	var routeUpdateSendUpdate bool
+	mockServer := &testutil.MockServer{
+		UpdateRouteForStripFn: func(cs string, sess int32, sendUpdate bool) error {
+			routeUpdateCallsign = cs
+			routeUpdateSession = sess
+			routeUpdateSendUpdate = sendUpdate
+			return nil
+		},
+	}
+
+	hub := &testutil.MockFrontendHub{}
+	hub.SetServer(mockServer)
+	svc := NewStripService(stripRepo)
+	svc.SetFrontendHub(hub)
+
+	err := svc.UpdateStand(ctx, session, callsign, stand)
+	require.NoError(t, err)
+	assert.Equal(t, callsign, routeUpdateCallsign)
+	assert.Equal(t, session, routeUpdateSession)
+	assert.True(t, routeUpdateSendUpdate, "UpdateStand must send owner update to frontend")
+}
+
+func TestUpdateStand_NoRouteUpdateWhenStripNotFound(t *testing.T) {
+	ctx := context.Background()
+
+	stripRepo := &testutil.MockStripRepository{
+		UpdateStandFn: func(_ context.Context, _ int32, _ string, _ *string, _ *int32) (int64, error) {
+			return 0, nil // strip not found
+		},
+	}
+
+	routeUpdateCalled := false
+	mockServer := &testutil.MockServer{
+		UpdateRouteForStripFn: func(_ string, _ int32, _ bool) error {
+			routeUpdateCalled = true
+			return nil
+		},
+	}
+
+	hub := &testutil.MockFrontendHub{}
+	hub.SetServer(mockServer)
+	svc := NewStripService(stripRepo)
+	svc.SetFrontendHub(hub)
+
+	err := svc.UpdateStand(ctx, 1, "SAS999", "B5")
+	require.NoError(t, err)
+	assert.False(t, routeUpdateCalled, "route should not be recalculated when strip is not found")
+}

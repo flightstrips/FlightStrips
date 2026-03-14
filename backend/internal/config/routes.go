@@ -248,6 +248,23 @@ func GetAirborneSector(sid string) (string, error) {
 	return "", fmt.Errorf("%w for SID %q", ErrUnknownAirborneRoute, sid)
 }
 
+// GetArrivalTowerSector returns the first sector in any arrival route that is
+// valid under the given active runways. For EKCH this is always TE or TW —
+// the receiving tower sector — and is used to ensure arrival strips have at
+// least the tower controller as a next owner even before a stand is assigned.
+func GetArrivalTowerSector(active []string) (string, bool) {
+	for _, r := range standRoutes {
+		if len(r.ForStandRanges) == 0 || len(r.Path) == 0 {
+			continue
+		}
+		if !hasAnyActive(active, r.Active) {
+			continue
+		}
+		return r.Path[0], true
+	}
+	return "", false
+}
+
 func GetAirborneControllerPriority(sid string) ([]string, error) {
 	sectorName, err := GetAirborneSector(sid)
 	if err != nil {

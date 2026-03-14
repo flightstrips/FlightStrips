@@ -10,7 +10,7 @@ import { AboutContent } from "@/components/blocks/AboutContent";
  */
 export default function About() {
   return (
-    <div className="min-h-screen bg-cream text-navy">
+    <div className="min-h-screen bg-cream text-navy flex flex-col">
       <ScrollProgress />
       <PublicNavigation />
       <AboutHero />

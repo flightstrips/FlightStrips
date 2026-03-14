@@ -3,6 +3,7 @@ import type { StripProps } from "./types";
 import { useStripSelection, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR, COLOR_ARR_YELLOW, COLOR_BTN_ORANGE, COLOR_UNEXPECTED_YELLOW, getCellTextColor } from "./shared";
 import { useControllers, useWebSocketStore } from "@/store/store-hooks";
 import { RunwayDialog } from "./RunwayDialog";
+import { ArrStandDialog } from "./ArrStandDialog";
 
 // Height: 48px fixed (intentional — matches FinalArrStrip ATC arrival strip spec)
 const TOP_H = 32; // 2/3 of 48px
@@ -42,6 +43,7 @@ export function ApnArrStrip({
   const cellBorderColor = getCellBorderColor(marked);
   const controllers = useControllers();
   const [runwayOpen, setRunwayOpen] = useState(false);
+  const [standOpen, setStandOpen] = useState(false);
   const acknowledgeUnexpectedChange = useWebSocketStore(s => s.acknowledgeUnexpectedChange);
   const standYellow = unexpectedChangeFields?.includes("stand");
   const runwayYellow = unexpectedChangeFields?.includes("runway");
@@ -117,9 +119,16 @@ export function ApnArrStrip({
 
       {/* Stand — 80px */}
       <div
-        className="flex-shrink-0 flex flex-col overflow-hidden"
-        style={{ width: 80, height: "100%", backgroundColor: standYellow ? COLOR_UNEXPECTED_YELLOW : undefined, cursor: standYellow ? "pointer" : undefined }}
-        onClick={standYellow ? (e) => { e.stopPropagation(); acknowledgeUnexpectedChange(callsign, "stand"); } : undefined}
+        className="flex-shrink-0 flex flex-col overflow-hidden cursor-pointer hover:brightness-95"
+        style={{ width: 80, height: "100%", backgroundColor: standYellow ? COLOR_UNEXPECTED_YELLOW : undefined }}
+        onClick={(e) => {
+          e.stopPropagation();
+          if (standYellow) {
+            acknowledgeUnexpectedChange(callsign, "stand");
+          } else {
+            setStandOpen(true);
+          }
+        }}
       >
         <div className="flex items-center justify-center" style={{ height: TOP_H }}>
           <span className="font-bold text-xl truncate" style={{ color: getCellTextColor("stand", controllerModifiedFields) }}>{stand}</span>
@@ -135,6 +144,12 @@ export function ApnArrStrip({
       callsign={callsign}
       direction="arrival"
       currentRunway={runway}
+    />
+    <ArrStandDialog
+      open={standOpen}
+      onOpenChange={setStandOpen}
+      callsign={callsign}
+      currentStand={stand}
     />
     </>
   );

@@ -1,8 +1,10 @@
+import { useState } from "react";
 import { useStrips, useStripTransfers, useWebSocketStore } from "@/store/store-hooks";
 import { Bay } from "@/api/models";
 import type { StripProps } from "./types";
 import { useStripSelection, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR, FONT, COLOR_ARR_YELLOW } from "./shared";
 import { SIBox } from "./SIBox";
+import { ArrStandDialog } from "./ArrStandDialog";
 
 /** Gold cell borders — matches the yellow arrival strip design. */
 const CELL_BORDER = "#FFD100";
@@ -54,6 +56,7 @@ export function FinalArrStrip({
   const stripTransfers = useStripTransfers();
   const runwayClearance = useWebSocketStore(s => s.runwayClearance);
   const allStrips = useStrips();
+  const [standOpen, setStandOpen] = useState(false);
 
   // Count cleared strips in RWY_ARR bay (to determine green vs red).
   const clearedInRwyArr = allStrips.filter(s => s.bay === Bay.RwyArr && s.runway_cleared);
@@ -68,6 +71,7 @@ export function FinalArrStrip({
   }
 
   return (
+    <>
     <div
       className={`flex text-black select-none${selectable ? " cursor-pointer" : ""}`}
       style={{
@@ -123,10 +127,11 @@ export function FinalArrStrip({
         </div>
       </div>
 
-      {/* Taxiway — 80px; bottom row reserved for ETA when available */}
+      {/* Stand (left of runway) — 80px; bottom row shows taxiway when available */}
       <div
-        className="flex-shrink-0 flex flex-col border-r-2"
+        className="flex-shrink-0 flex flex-col border-r-2 cursor-pointer hover:brightness-95"
         style={{ width: W_TAXIWAY, height: "100%", borderRightColor: cellBorderColor }}
+        onClick={(e) => { e.stopPropagation(); setStandOpen(true); }}
       >
         <div className="flex items-center justify-center" style={{ height: TOP_H }}>
           <span className="truncate px-1" style={{ fontFamily: FONT, fontWeight: 600, fontSize: 16 }}>
@@ -159,18 +164,19 @@ export function FinalArrStrip({
         </div>
       </div>
 
-      {/* Stand — 80px */}
+      {/* Stand — 80px (reserved, currently unused) */}
       <div
         className="flex-shrink-0 flex flex-col overflow-hidden"
         style={{ width: W_STAND, height: "100%" }}
-      >
-        <div className="flex items-center justify-center" style={{ height: TOP_H }}>
-          <span className="truncate px-1" style={{ fontFamily: FONT, fontSize: 14 }}>
-            NONE
-          </span>
-        </div>
-        <div style={{ height: BOT_H }} />
-      </div>
+      />
     </div>
+
+    <ArrStandDialog
+      open={standOpen}
+      onOpenChange={setStandOpen}
+      callsign={callsign}
+      currentStand={stand}
+    />
+    </>
   );
 }

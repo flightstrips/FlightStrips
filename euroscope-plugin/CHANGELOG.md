@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.2](https://github.com/flightstrips/FlightStrips/compare/plugin/v0.6.1...plugin/v0.6.2) (2026-03-14)
+
+
+### Bug Fixes
+
+* loaclhost port ([7eea0de](https://github.com/flightstrips/FlightStrips/commit/7eea0de1c167f6453983556ca693b567468935ce))
+
 ## [0.6.1](https://github.com/flightstrips/FlightStrips/compare/plugin/v0.6.0...plugin/v0.6.1) (2026-03-12)
 
 

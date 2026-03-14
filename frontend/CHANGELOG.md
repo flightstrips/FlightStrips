@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.8.0...frontend/v0.9.0) (2026-03-14)
+
+
+### Features
+
+* push site ([67d0d3f](https://github.com/flightstrips/FlightStrips/commit/67d0d3fc7d3969d2ac9b822fa40d646ef697a5b2))
+
 ## [0.8.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.7.0...frontend/v0.8.0) (2026-03-14)
 
 

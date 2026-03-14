@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.10.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.9.0...frontend/v0.10.0) (2026-03-14)
+
+
+### Features
+
+* added darkmode for the web page ([182f68e](https://github.com/flightstrips/FlightStrips/commit/182f68e964ad47bfbc2c002d2c192e7babe30333))
+
 ## [0.9.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.8.0...frontend/v0.9.0) (2026-03-14)
 
 

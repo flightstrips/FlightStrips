@@ -138,12 +138,11 @@ func (s *StripService) MoveToBay(ctx context.Context, session int32, callsign st
 }
 
 // scheduleStandAutoHide starts a background goroutine that moves the strip to
-// BAY_HIDDEN after a 15-second delay, provided the strip is still in BAY_STAND
-// when the timer fires. This implements the "brief stand visibility" behaviour
-// described in GitHub issue #33.
+// BAY_HIDDEN after a 240-second delay, provided the strip is still in BAY_STAND
+// when the timer fires.
 func (s *StripService) scheduleStandAutoHide(session int32, callsign string) {
 	go func() {
-		time.Sleep(15 * time.Second)
+		time.Sleep(240 * time.Second)
 
 		ctx := context.Background()
 

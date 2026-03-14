@@ -28,12 +28,6 @@ export function PublicFooter() {
             )
           )}
           <Link
-            to="/login"
-            className="text-cream/80 hover:text-cream transition-colors"
-          >
-            Login
-          </Link>
-          <Link
             to="/privacy"
             className="text-cream/80 hover:text-cream transition-colors"
           >

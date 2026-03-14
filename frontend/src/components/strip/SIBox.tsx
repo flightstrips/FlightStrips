@@ -44,6 +44,7 @@ export function SIBox({
 
   const isSendingTransfer = isAssumed && !!transferringTo;
   const isReceivingTransfer = !!myPosition && !!transferringTo && transferringTo === myPosition && !isAssumed;
+  const isUnownedAndNext = !owner && isConcerned;
 
   const nextPosition = nextControllers?.find(pos => pos !== myPosition);
 
@@ -58,7 +59,7 @@ export function SIBox({
 
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (isReceivingTransfer) {
+    if (isReceivingTransfer || isUnownedAndNext) {
       assumeStrip(callsign);
     } else if (isSendingTransfer) {
       cancelTransfer(callsign);
@@ -67,12 +68,12 @@ export function SIBox({
     }
   };
 
-  const isClickable = isReceivingTransfer || isSendingTransfer || (isAssumed && !!nextPosition);
+  const isClickable = isReceivingTransfer || isUnownedAndNext || isSendingTransfer || (isAssumed && !!nextPosition);
 
   let background: string;
   if (isSendingTransfer) {
     background = `linear-gradient(to right, ${COLOR_SI_ASSUMED} 50%, ${COLOR_BTN_ORANGE} 50%)`;
-  } else if (isReceivingTransfer) {
+  } else if (isReceivingTransfer || isUnownedAndNext) {
     background = `linear-gradient(to right, ${COLOR_SI_CONCERNED} 50%, ${COLOR_SI_ASSUMED} 50%)`;
   } else if (isAssumed) {
     background = COLOR_SI_ASSUMED;

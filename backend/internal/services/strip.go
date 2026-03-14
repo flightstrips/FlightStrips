@@ -1102,6 +1102,21 @@ func (s *StripService) AssumeStripCoordination(ctx context.Context, session int3
 	if err == nil {
 		// Coordination exists — validate it targets this position.
 		if coordination.ToPosition != position {
+			// Special case: strip is unowned and this position is next in line.
+			// The coordination is stale (e.g. from an ES arrival push to a different position).
+			// Delete it and allow direct assumption.
+			if (strip.Owner == nil || *strip.Owner == "") && slices.Contains(strip.NextOwners, position) {
+				_ = s.coordRepo.Delete(ctx, coordination.ID)
+				count, err := s.stripRepo.SetOwner(ctx, session, callsign, &position, strip.Version)
+				if err != nil {
+					return err
+				}
+				if count != 1 {
+					return errors.New("failed to set strip owner")
+				}
+				s.frontendHub.SendCoordinationAssume(session, callsign, position)
+				return nil
+			}
 			return errors.New("cannot assume strip which is not transferred to you")
 		}
 

@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.2](https://github.com/flightstrips/FlightStrips/compare/backend/v0.8.1...backend/v0.8.2) (2026-03-14)
+
+
+### Bug Fixes
+
+* server address ([981dae5](https://github.com/flightstrips/FlightStrips/commit/981dae56e7b1b38eff6838dec3bfbc5c994ce16f))
+
 ## [0.8.1](https://github.com/flightstrips/FlightStrips/compare/backend/v0.8.0...backend/v0.8.1) (2026-03-14)
 
 

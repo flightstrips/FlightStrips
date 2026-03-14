@@ -1107,6 +1107,17 @@ func (s *StripService) AssumeStripCoordination(ctx context.Context, session int3
 			// Delete it and allow direct assumption.
 			if (strip.Owner == nil || *strip.Owner == "") && slices.Contains(strip.NextOwners, position) {
 				_ = s.coordRepo.Delete(ctx, coordination.ID)
+
+				nextOwners := strip.NextOwners
+				index := slices.Index(nextOwners, position)
+				if index >= 0 {
+					nextOwners = nextOwners[index+1:]
+				}
+
+				if err := s.stripRepo.SetNextAndPreviousOwners(ctx, session, callsign, nextOwners, strip.PreviousOwners); err != nil {
+					return err
+				}
+
 				count, err := s.stripRepo.SetOwner(ctx, session, callsign, &position, strip.Version)
 				if err != nil {
 					return err
@@ -1115,6 +1126,7 @@ func (s *StripService) AssumeStripCoordination(ctx context.Context, session int3
 					return errors.New("failed to set strip owner")
 				}
 				s.frontendHub.SendCoordinationAssume(session, callsign, position)
+				s.frontendHub.SendOwnersUpdate(session, callsign, position, nextOwners, strip.PreviousOwners)
 				return nil
 			}
 			return errors.New("cannot assume strip which is not transferred to you")
@@ -1138,6 +1150,16 @@ func (s *StripService) AssumeStripCoordination(ctx context.Context, session int3
 
 	// Strip is not owned by anyone and has no pending coordination — assume directly.
 	if strip.Owner == nil || *strip.Owner == "" {
+		nextOwners := strip.NextOwners
+		index := slices.Index(nextOwners, position)
+		if index >= 0 {
+			nextOwners = nextOwners[index+1:]
+		}
+
+		if err := s.stripRepo.SetNextAndPreviousOwners(ctx, session, callsign, nextOwners, strip.PreviousOwners); err != nil {
+			return err
+		}
+
 		count, err := s.stripRepo.SetOwner(ctx, session, callsign, &position, strip.Version)
 		if err != nil {
 			return err
@@ -1146,6 +1168,7 @@ func (s *StripService) AssumeStripCoordination(ctx context.Context, session int3
 			return errors.New("failed to set strip owner")
 		}
 		s.frontendHub.SendCoordinationAssume(session, callsign, position)
+		s.frontendHub.SendOwnersUpdate(session, callsign, position, nextOwners, strip.PreviousOwners)
 		return nil
 	}
 

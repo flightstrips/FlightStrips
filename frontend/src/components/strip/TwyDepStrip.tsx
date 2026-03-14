@@ -68,18 +68,18 @@ export function TwyDepStrip({
   const runwayClearance = useWebSocketStore(s => s.runwayClearance);
   const allStrips = useStrips();
 
-  // Count ALL strips in DEPART bay (including this one)
-  const allInDepart = allStrips.filter(s => s.bay === Bay.Depart);
+  // Count only CLEARED strips in DEPART bay.
+  const clearedInDepart = allStrips.filter(s => s.bay === Bay.Depart && s.runway_cleared);
 
   // RWY cell background color logic (only when strip is in DEPART bay):
   // - runway_cleared = false: blue (in bay, awaiting clearance)
-  // - runway_cleared = true, sole aircraft in bay: green
-  // - runway_cleared = true, others also in bay: red
+  // - runway_cleared = true, sole cleared aircraft in bay: green
+  // - runway_cleared = true, other cleared aircraft also in bay: red
   let rwyColor: string | undefined;
   if (bay === Bay.Depart) {
     if (!runwayCleared) {
       rwyColor = "#BEF5EF";
-    } else if (allInDepart.length <= 1) {
+    } else if (clearedInDepart.length <= 1) {
       rwyColor = "#70ED45";
     } else {
       rwyColor = "#F43A3A";

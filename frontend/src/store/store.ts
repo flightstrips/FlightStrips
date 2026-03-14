@@ -330,6 +330,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
           if (idx !== -1) {
             state.strips[idx].runway_cleared = true;
             if (state.strips[idx].bay === Bay.TaxiLwr) state.strips[idx].bay = Bay.Depart;
+            if (state.strips[idx].bay === Bay.Final) state.strips[idx].bay = Bay.RwyArr;
           }
         })
       );

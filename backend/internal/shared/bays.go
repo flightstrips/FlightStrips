@@ -25,6 +25,10 @@ const (
 	BAY_AIRBORNE = "AIRBORNE"
 	// BAY_FINAL Used for arrivals
 	BAY_FINAL = "FINAL"
+	// BAY_RWY_ARR Used for arrivals (TWR scope — runway cleared for landing)
+	BAY_RWY_ARR = "RWY_ARR"
+	// BAY_TWY_ARR Used for arrivals (vacated runway, taxiing to stand)
+	BAY_TWY_ARR = "TWY_ARR"
 	// BAY_STAND Used for arrivals
 	BAY_STAND      = "STAND"
 	BAY_HIDDEN     = "HIDDEN"

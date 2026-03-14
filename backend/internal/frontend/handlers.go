@@ -26,6 +26,8 @@ var validBays = map[string]bool{
 	shared.BAY_DEPART:      true,
 	shared.BAY_AIRBORNE:    true,
 	shared.BAY_FINAL:       true,
+	shared.BAY_RWY_ARR:     true,
+	shared.BAY_TWY_ARR:     true,
 	shared.BAY_STAND:       true,
 	shared.BAY_HIDDEN:      true,
 	shared.BAY_ARR_HIDDEN:  true,

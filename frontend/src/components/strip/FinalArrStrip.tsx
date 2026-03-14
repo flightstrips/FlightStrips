@@ -1,4 +1,5 @@
-import { useStripTransfers } from "@/store/store-hooks";
+import { useStrips, useStripTransfers, useWebSocketStore } from "@/store/store-hooks";
+import { Bay } from "@/api/models";
 import type { StripProps } from "./types";
 import { useStripSelection, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR, FONT, COLOR_ARR_YELLOW } from "./shared";
 import { SIBox } from "./SIBox";
@@ -33,6 +34,7 @@ export const TOTAL_W = 40 + W_CALLSIGN + W_TYPE + W_TAXIWAY + W_RWY + W_STAND;
  */
 export function FinalArrStrip({
   callsign,
+  bay,
   aircraftType,
   squawk,
   runway,
@@ -45,10 +47,25 @@ export function FinalArrStrip({
   myPosition,
   selectable,
   marked = false,
+  runwayCleared = false,
 }: StripProps) {
   const { isSelected, handleClick } = useStripSelection(callsign, selectable);
   const cellBorderColor = getCellBorderColor(marked, CELL_BORDER);
   const stripTransfers = useStripTransfers();
+  const runwayClearance = useWebSocketStore(s => s.runwayClearance);
+  const allStrips = useStrips();
+
+  // Count cleared strips in RWY_ARR bay (to determine green vs red).
+  const clearedInRwyArr = allStrips.filter(s => s.bay === Bay.RwyArr && s.runway_cleared);
+
+  // RWY cell color — only when cleared in RWY_ARR bay:
+  // - sole cleared aircraft: green
+  // - other cleared aircraft also in bay: red
+  // - not yet cleared: no background (default strip color)
+  let rwyColor: string | undefined;
+  if (bay === Bay.RwyArr && runwayCleared) {
+    rwyColor = clearedInRwyArr.length <= 1 ? "#70ED45" : "#F43A3A";
+  }
 
   return (
     <div
@@ -126,8 +143,9 @@ export function FinalArrStrip({
 
       {/* Runway / Holding Point — 54px */}
       <div
-        className="flex-shrink-0 flex flex-col border-r-2"
-        style={{ width: W_RWY, height: "100%", borderRightColor: cellBorderColor }}
+        className={`flex-shrink-0 flex flex-col border-r-2${bay === Bay.Final || bay === Bay.RwyArr ? " cursor-pointer" : ""}`}
+        style={{ width: W_RWY, height: "100%", borderRightColor: cellBorderColor, backgroundColor: rwyColor }}
+        onClick={bay === Bay.Final || bay === Bay.RwyArr ? (e) => { e.stopPropagation(); runwayClearance(callsign); } : undefined}
       >
         <div className="flex items-center justify-center" style={{ height: TOP_H }}>
           <span className="truncate" style={{ fontFamily: FONT, fontWeight: "bold", fontSize: 18 }}>

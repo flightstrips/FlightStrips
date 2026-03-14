@@ -225,7 +225,11 @@ WHERE callsign = $2 AND session = $3;
 
 -- name: UpdateRunwayClearance :execrows
 UPDATE strips
-SET bay            = CASE WHEN bay = 'TAXI_LWR' THEN 'DEPART' ELSE bay END,
+SET bay            = CASE
+                       WHEN bay = 'TAXI_LWR' THEN 'DEPART'
+                       WHEN bay = 'FINAL'    THEN 'RWY_ARR'
+                       ELSE bay
+                     END,
     runway_cleared = true,
     version        = version + 1
 WHERE callsign = $1 AND session = $2;

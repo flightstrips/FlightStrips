@@ -134,7 +134,7 @@ export function AboutContent() {
             who share our vision for better strip management.
           </p>
           <a
-            href="https://github.com"
+            href="https://github.com/flightstrips/FlightStrips"
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-2 bg-primary text-white px-6 py-3 text-sm font-medium rounded-sm hover:opacity-95 transition-opacity"

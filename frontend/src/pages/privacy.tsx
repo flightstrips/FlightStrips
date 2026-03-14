@@ -29,7 +29,7 @@ export default function Privacy() {
           </ScrollReveal>
           
           <ScrollReveal delay={0.2}>
-            <p className="text-sm text-nc-muted">Last updated: 07/03/2026</p>
+            <p className="text-sm text-nc-muted">Last updated: 14/03/2026</p>
           </ScrollReveal>
         </div>
       </section>
@@ -148,8 +148,7 @@ export default function Privacy() {
                   Contact Us
                 </h2>
                 <p className="font-sans font-light text-base text-gray-400 leading-relaxed">
-                  If you have questions about this Privacy Policy, please contact us through our GitHub repository 
-                  or support channels.
+                  If you have questions about this Privacy Policy, please contact us through our GitHub repository, support channels, or by sending an email to <a href="mailto:flightstripsdevelopment@gmail.com" className="text-primary underline">flightstripsdevelopment@gmail.com</a>.
                 </p>
               </div>
             </div>

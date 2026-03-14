@@ -29,7 +29,7 @@ export default function DataHandling() {
           </ScrollReveal>
           
           <ScrollReveal delay={0.2}>
-            <p className="text-sm text-nc-muted">Last updated: 08/03/2026</p>
+            <p className="text-sm text-nc-muted">Last updated: 14/03/2026</p>
           </ScrollReveal>
         </div>
       </section>
@@ -159,8 +159,8 @@ export default function DataHandling() {
                   User Rights and Requests
                 </h2>
                 <p className="font-sans font-light text-base text-gray-400 leading-relaxed mb-4">
-                  Users may request information about their data or request data deletion by contacting us 
-                  through our support channels. We will respond to such requests within a reasonable timeframe.
+                  Users may request information about their data or request data deletion by 
+                  sending an email to <a href="mailto:flightstripsdevelopment@gmail.com" className="text-primary underline">flightstripsdevelopment@gmail.com</a>.
                 </p>
               </div>
 
@@ -172,8 +172,7 @@ export default function DataHandling() {
                   Contact
                 </h2>
                 <p className="font-sans font-light text-base text-gray-400 leading-relaxed">
-                  For questions about data handling practices, please contact us through our GitHub repository 
-                  or support channels.
+                  For questions about data handling practices, please contact us through our GitHub repository, support channels or by sending an email to <a href="mailto:flightstripsdevelopment@gmail.com" className="text-primary underline">flightstripsdevelopment@gmail.com</a>.
                 </p>
               </div>
             </div>

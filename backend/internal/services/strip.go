@@ -1287,6 +1287,43 @@ func (s *StripService) UpdateReleasePoint(ctx context.Context, session int32, ca
 	return nil
 }
 
+// ApplyReleasePoint updates the release point with ownership enforcement and broadcasts.
+// Non-owners may overwrite an existing value (marks the cell yellow for both controllers).
+// Non-owners setting a value on a strip that has none are rejected.
+func (s *StripService) ApplyReleasePoint(ctx context.Context, session int32, callsign string, releasePoint string, clientPosition string) error {
+	strip, err := s.stripRepo.GetByCallsign(ctx, session, callsign)
+	if err != nil {
+		return err
+	}
+
+	isOwner := strip.Owner == nil || *strip.Owner == "" || *strip.Owner == clientPosition
+	unexpectedChange := false
+
+	if !isOwner {
+		hasExisting := strip.ReleasePoint != nil && *strip.ReleasePoint != ""
+		if hasExisting && *strip.ReleasePoint != releasePoint {
+			// Non-owner overwriting existing value — allow, mark as unexpected change.
+			if err := s.stripRepo.AppendUnexpectedChangeField(ctx, session, callsign, "release_point"); err != nil {
+				return err
+			}
+			unexpectedChange = true
+		} else if !hasExisting {
+			// Non-owner setting a value that didn't exist — reject.
+			return errors.New("cannot modify holding point on unowned strip")
+		}
+		// Non-owner setting same value as existing — silently allow.
+	}
+
+	if err := s.UpdateReleasePoint(ctx, session, callsign, releasePoint); err != nil {
+		return err
+	}
+
+	if unexpectedChange {
+		s.frontendHub.SendStripUpdate(session, callsign)
+	}
+	return nil
+}
+
 // UpdateMarked updates the marked flag for a strip and broadcasts to all frontend clients.
 func (s *StripService) UpdateMarked(ctx context.Context, session int32, callsign string, marked bool) error {
 	affected, err := s.stripRepo.UpdateMarked(ctx, session, callsign, marked, nil)

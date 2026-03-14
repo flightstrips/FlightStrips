@@ -132,6 +132,15 @@ func handleStripUpdate(ctx context.Context, client *Client, message Message) err
 		return err
 	}
 
+	isOwner := strip.Owner == nil || *strip.Owner == "" || *strip.Owner == client.position
+	if !isOwner {
+		// Non-owners may not modify EuroScope-forwarded fields (SID, route, stand, runway, altitude, heading).
+		if event.Sid != nil || event.Route != nil || event.Stand != nil || event.Runway != nil || event.Altitude != nil || event.Heading != nil {
+			return errors.New("non-owner cannot modify strip fields")
+		}
+		return nil
+	}
+
 	if event.Route != nil && strip.Route != event.Route {
 		s.GetEuroscopeHub().SendRoute(client.session, client.GetCid(), event.Callsign, *event.Route)
 	}
@@ -278,26 +287,7 @@ func handleReleasePoint(ctx context.Context, client *Client, message Message) er
 	if err := message.JsonUnmarshal(&event); err != nil {
 		return err
 	}
-
-	// Mark release_point as unexpected change when a non-owner overwrites an existing value.
-	unexpectedChange := false
-	s := client.hub.server
-	if strip, err := s.GetStripRepository().GetByCallsign(ctx, client.session, event.Callsign); err == nil {
-		if strip.Owner != nil && *strip.Owner != "" && *strip.Owner != client.position &&
-			strip.ReleasePoint != nil && *strip.ReleasePoint != "" && *strip.ReleasePoint != event.ReleasePoint {
-			_ = s.GetStripRepository().AppendUnexpectedChangeField(ctx, client.session, event.Callsign, "release_point")
-			unexpectedChange = true
-		}
-	}
-
-	if err := client.hub.stripService.UpdateReleasePoint(ctx, client.session, event.Callsign, event.ReleasePoint); err != nil {
-		return err
-	}
-
-	if unexpectedChange {
-		client.hub.SendStripUpdate(client.session, event.Callsign)
-	}
-	return nil
+	return client.hub.stripService.ApplyReleasePoint(ctx, client.session, event.Callsign, event.ReleasePoint, client.position)
 }
 
 func handleAcknowledgeUnexpectedChange(ctx context.Context, client *Client, message Message) error {

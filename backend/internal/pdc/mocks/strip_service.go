@@ -173,6 +173,11 @@ func (m *StripService) UpdateReleasePoint(ctx context.Context, session int32, ca
 	return args.Error(0)
 }
 
+func (m *StripService) ApplyReleasePoint(ctx context.Context, session int32, callsign string, releasePoint string, clientPosition string) error {
+	args := m.Called(ctx, session, callsign, releasePoint, clientPosition)
+	return args.Error(0)
+}
+
 func (m *StripService) UpdateMarked(ctx context.Context, session int32, callsign string, marked bool) error {
 	args := m.Called(ctx, session, callsign, marked)
 	return args.Error(0)

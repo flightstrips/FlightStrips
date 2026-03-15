@@ -9,7 +9,7 @@ namespace FlightStrips::websocket {
 
 namespace FlightStrips::runway {
 
-    class RunwayService final : public handlers::ConnectionEventHandler, handlers::AirportRunwaysChangedEvent {
+    class RunwayService final : public handlers::ConnectionEventHandler, public handlers::AirportRunwaysChangedEvent {
     public:
         RunwayService(const std::shared_ptr<websocket::WebSocketService> &m_websocket_service,
             const std::shared_ptr<FlightStripsPlugin> &m_plugin)

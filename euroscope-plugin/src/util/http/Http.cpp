@@ -22,6 +22,8 @@ namespace FlightStrips::http {
         curl_easy_setopt(curl, CURLOPT_WRITEDATA, &resultBuffer);
         curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
         curl_easy_setopt(curl, CURLOPT_USERAGENT, GetUserAgent());
+        curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 10L);
+        curl_easy_setopt(curl, CURLOPT_TIMEOUT, 15L);
 
         if (const auto result = curl_easy_perform(curl); result != CURLE_OK) {
             curl_easy_cleanup(curl);
@@ -45,6 +47,8 @@ namespace FlightStrips::http {
         curl_easy_setopt(curl, CURLOPT_WRITEDATA, &resultBuffer);
         curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
         curl_easy_setopt(curl, CURLOPT_USERAGENT, GetUserAgent());
+        curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 10L);
+        curl_easy_setopt(curl, CURLOPT_TIMEOUT, 15L);
 
         const auto result = curl_easy_perform(curl);
 
@@ -88,6 +92,8 @@ namespace FlightStrips::http {
         curl_easy_setopt(curl, CURLOPT_WRITEDATA, &outFile);
         curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
         curl_easy_setopt(curl, CURLOPT_USERAGENT, GetUserAgent());
+        curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 10L);
+        curl_easy_setopt(curl, CURLOPT_TIMEOUT, 60L);
 
         const auto result = curl_easy_perform(curl);
 

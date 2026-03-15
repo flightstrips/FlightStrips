@@ -56,6 +56,12 @@ namespace FlightStrips::websocket {
                 m_endpoint.stop_perpetual();
                 Logger::Debug("WebSocket: Stopping");
                 TryDisconnect();
+                // Forcefully stop the ASIO io_service. Without this, stop_perpetual() alone
+                // only removes the keep-alive work item — pending ASIO operations (TCP connect,
+                // TLS handshake, DNS resolution) are each allowed to run until their own timers
+                // expire (up to ~16 s total). Calling stop() immediately cancels all of them so
+                // join() returns in milliseconds rather than hanging while EuroScope shuts down.
+                m_endpoint.stop();
                 status_ = WEBSOCKET_STATUS_DISCONNECTED;
                 Logger::Debug("WebSocket: Waiting for thread to join...");
                 m_thread->join();

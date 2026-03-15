@@ -19,9 +19,12 @@ namespace FlightStrips::authentication {
     }
 
     AuthenticationService::~AuthenticationService() {
-        CancelAuthentication();
+        // Cancel any in-progress authentication or token refresh before joining
+        const auto currentState = state.load();
+        if (currentState == LOGIN || currentState == REFRESH) {
+            state = NONE;
+        }
 
-        // Cleanup
         if (token_thread.joinable()) {
             token_thread.join();
         }
@@ -265,9 +268,17 @@ namespace FlightStrips::authentication {
     }
 
     bool AuthenticationService::WaitForResult(const std::future<std::optional<std::string> > &future) const {
-        auto result = future.wait_for(std::chrono::milliseconds(10));
+        constexpr auto kPollInterval = std::chrono::milliseconds(100);
+        constexpr auto kMaxWait = std::chrono::minutes(5);
+        const auto deadline = std::chrono::steady_clock::now() + kMaxWait;
+
+        auto result = future.wait_for(kPollInterval);
         while (result == std::future_status::timeout && this->state == LOGIN) {
-            result = future.wait_for(std::chrono::milliseconds(10));
+            if (std::chrono::steady_clock::now() >= deadline) {
+                Logger::Warning("Authentication timed out waiting for browser callback");
+                break;
+            }
+            result = future.wait_for(kPollInterval);
         }
 
         return result == std::future_status::ready;

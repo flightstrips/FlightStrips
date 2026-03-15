@@ -850,6 +850,7 @@ func (s *StripService) UpdateGroundState(ctx context.Context, session int32, cal
 		Origin:      existingStrip.Origin,
 		Destination: existingStrip.Destination,
 		Cleared:     existingStrip.Cleared,
+		Bay:         existingStrip.Bay,
 	}
 	bay := shared.GetDepartureBayFromGroundState(groundState, dbStrip)
 

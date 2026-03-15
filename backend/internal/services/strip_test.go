@@ -8,6 +8,7 @@ import (
 	"FlightStrips/internal/models"
 	"FlightStrips/internal/shared"
 	"FlightStrips/internal/testutil"
+	"FlightStrips/pkg/events/euroscope"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/stretchr/testify/assert"
@@ -634,4 +635,49 @@ func TestUpdateStand_NoRouteUpdateWhenStripNotFound(t *testing.T) {
 	err := svc.UpdateStand(ctx, 1, "SAS999", "B5")
 	require.NoError(t, err)
 	assert.False(t, routeUpdateCalled, "route should not be recalculated when strip is not found")
+}
+
+// ---- UpdateGroundState ----
+
+// TestUpdateGroundState_DepartToEmptyKeepsBayDepart verifies that when the ground state
+// clears (aircraft lifts off), the strip stays in BAY_DEPART so that the next position
+// update can still detect the altitude threshold and transition to BAY_AIRBORNE.
+// Regression test: previously dbStrip was built without Bay, causing GetDepartureBayFromGroundState
+// to return BAY_HIDDEN and the strip to disappear before airborne detection could fire.
+func TestUpdateGroundState_DepartToEmptyKeepsBayDepart(t *testing.T) {
+	ctx := context.Background()
+	const session = int32(1)
+	const callsign = "SAS001"
+
+	departState := euroscope.GroundStateDepart
+	strip := &models.Strip{
+		Callsign: callsign,
+		Bay:      shared.BAY_DEPART,
+		State:    &departState,
+		Origin:   "EKCH",
+	}
+
+	var savedBay string
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			return strip, nil
+		},
+		UpdateGroundStateFn: func(_ context.Context, _ int32, _ string, _ *string, bay string, _ *int32) (int64, error) {
+			savedBay = bay
+			return 1, nil
+		},
+	}
+
+	hub := &testutil.MockFrontendHub{}
+	svc := NewStripService(stripRepo)
+	svc.SetFrontendHub(hub)
+
+	// Ground state clears when the aircraft lifts off.
+	err := svc.UpdateGroundState(ctx, session, callsign, "", "EKCH")
+	require.NoError(t, err)
+
+	// Bay must remain DEPART, not be moved to HIDDEN.
+	assert.Equal(t, shared.BAY_DEPART, savedBay,
+		"bay must stay DEPART when ground state clears so position updates can detect airborne")
+	assert.Empty(t, hub.BayEvents, "no bay change event should be sent when bay did not change")
 }

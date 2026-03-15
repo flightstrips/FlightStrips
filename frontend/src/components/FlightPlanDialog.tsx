@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { getSimpleAircraftType } from "@/lib/utils";
 import { ArrStandDialog } from "@/components/strip/ArrStandDialog";
+import { AltSelectDialog } from "@/components/strip/AltSelectDialog";
 import { HdgSelectDialog } from "@/components/strip/HdgSelectDialog";
 import { SidSelectDialog } from "@/components/strip/SidSelectDialog";
 import { useAvailableSids, useStrip, useWebSocketStore } from "@/store/store-hooks.ts";
@@ -91,7 +92,7 @@ export default function FlightPlanDialog({
   }
   const [route, setRoute, _routeFocused, setRouteFocused] = useEditableField(strip?.route);
   const [hdgDialogOpen, setHdgDialogOpen] = useState(false);
-  const [alt, setAlt, _altFocused, setAltFocused] = useEditableField(strip?.cleared_altitude);
+  const [altDialogOpen, setAltDialogOpen] = useState(false);
 
   return (
     <>
@@ -372,17 +373,19 @@ export default function FlightPlanDialog({
             </div>
             <div className="grid items-center gap-[5px]">
               <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>ALT</Label>
-              <input
-                value={alt}
-                onChange={(event) => setAlt(event.target.value)}
-                onFocus={() => setAltFocused(true)}
-                onBlur={() => {
-                  setAltFocused(false);
-                  updateStrip(callsign, { altitude: alt ? Number(alt) : undefined });
-                }}
-                onKeyDown={(event) => event.key === "Enter" && updateStrip(callsign, { altitude: alt ? Number(alt) : undefined })}
+              <button
+                type="button"
+                onClick={() => setAltDialogOpen(true)}
                 className={CLS_BTN_EDITABLE}
                 style={{ width: 125, fontFamily: FONT_FAMILY, fontSize: FONT_SIZE_FIELD }}
+              >
+                {strip.cleared_altitude != null ? String(strip.cleared_altitude) : ""}
+              </button>
+              <AltSelectDialog
+                open={altDialogOpen}
+                onOpenChange={setAltDialogOpen}
+                value={strip.cleared_altitude}
+                onSelect={(altitude) => updateStrip(callsign, { altitude })}
               />
             </div>
             <div className="grid items-center gap-[5px]">

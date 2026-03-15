@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.11.1](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.11.0...frontend/v0.11.1) (2026-03-15)
+
+
+### Bug Fixes
+
+* build again ([ab47d3a](https://github.com/flightstrips/FlightStrips/commit/ab47d3abc83d71080460e6e441ab2a9e7f46ba41))
+* build and lint problems ([15fb5e4](https://github.com/flightstrips/FlightStrips/commit/15fb5e4fa0766d463d8f85decf1092c143efb1cc))
+* Vatsim auth ([95993da](https://github.com/flightstrips/FlightStrips/commit/95993da6755b263eb18c3b75fec1ccb3c6120302))
+
 ## [0.11.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.10.0...frontend/v0.11.0) (2026-03-14)
 
 

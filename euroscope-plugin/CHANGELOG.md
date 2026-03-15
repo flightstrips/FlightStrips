@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.3](https://github.com/flightstrips/FlightStrips/compare/plugin/v0.6.2...plugin/v0.6.3) (2026-03-15)
+
+
+### Bug Fixes
+
+* Vatsim auth ([95993da](https://github.com/flightstrips/FlightStrips/commit/95993da6755b263eb18c3b75fec1ccb3c6120302))
+
 ## [0.6.2](https://github.com/flightstrips/FlightStrips/compare/plugin/v0.6.1...plugin/v0.6.2) (2026-03-14)
 
 

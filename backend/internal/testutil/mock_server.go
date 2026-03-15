@@ -13,6 +13,7 @@ type MockServer struct {
 	CoordRepoVal      repository.CoordinationRepository
 	ControllerRepoVal repository.ControllerRepository
 	SessionRepoVal    repository.SessionRepository
+	StripRepoVal      repository.StripRepository
 
 	UpdateSectorsFn          func(sessionId int32) ([]shared.SectorChange, error)
 	UpdateRouteForStripFn    func(callsign string, sessionId int32, sendUpdate bool) error
@@ -34,7 +35,7 @@ func (m *MockServer) GetCdmService() shared.CdmService { return nil }
 
 func (m *MockServer) GetPdcService() shared.PdcService { return nil }
 
-func (m *MockServer) GetStripRepository() repository.StripRepository { return nil }
+func (m *MockServer) GetStripRepository() repository.StripRepository { return m.StripRepoVal }
 
 func (m *MockServer) GetControllerRepository() repository.ControllerRepository {
 	return m.ControllerRepoVal

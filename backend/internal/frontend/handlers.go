@@ -107,10 +107,6 @@ func handleMove(ctx context.Context, client *Client, message Message) error {
 		return err
 	}
 
-	if move.Bay == shared.BAY_AIRBORNE {
-		return client.hub.stripService.AutoTransferAirborneStrip(ctx, client.session, move.Callsign)
-	}
-
 	return nil
 }
 

@@ -756,6 +756,28 @@ func (hub *Hub) Run() {
 						slog.String("cid", msg.cid),
 						slog.Int("session", int(msg.session)))
 					client.session = msg.session
+
+					// Populate callsign, position, and airport from DB so that
+					// sendInitialEvent can find the correct controller and layout.
+					// These fields are empty when the client connected before ES.
+					if client.callsign == WaitingForEuroscopeConnectionCallsign {
+						controllerRepo := hub.server.GetControllerRepository()
+						sessionRepo := hub.server.GetSessionRepository()
+						if controller, err := controllerRepo.GetByCid(context.Background(), msg.cid); err == nil {
+							if dbSession, err := sessionRepo.GetByID(context.Background(), controller.Session); err == nil {
+								client.callsign = controller.Callsign
+								client.position = controller.Position
+								client.airport = dbSession.Airport
+							} else {
+								slog.Error("Failed to get session for CID online client",
+									slog.String("cid", msg.cid), slog.Any("error", err))
+							}
+						} else {
+							slog.Error("Failed to get controller for CID online client",
+								slog.String("cid", msg.cid), slog.Any("error", err))
+						}
+					}
+
 					hub.sendInitialEvent(client)
 					break
 				}

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import * as VisuallyHidden from "@radix-ui/react-visually-hidden";
 
 import { Bay } from "@/api/models.ts";
@@ -74,7 +74,13 @@ export default function FlightPlanDialog({
   const setDialogOpen = onOpenChange ?? setInternalOpen;
 
   const [sidDialogOpen, setSidDialogOpen] = useState(false);
+  const [ssrGenerating, setSsrGenerating] = useState(false);
   const [eobt, setEobt, _eobtFocused, setEobtFocused] = useEditableField(strip?.eobt);
+
+  // Clear SSR loading state when the backend updates assigned_squawk
+  useEffect(() => {
+    if (ssrGenerating) setSsrGenerating(false);
+  }, [strip?.assigned_squawk]);
   const [route, setRoute, _routeFocused, setRouteFocused] = useEditableField(strip?.route);
   const [hdg, setHdg, _hdgFocused, setHdgFocused] = useEditableField(strip?.heading);
   const [alt, setAlt, _altFocused, setAltFocused] = useEditableField(strip?.cleared_altitude);
@@ -150,8 +156,17 @@ export default function FlightPlanDialog({
               <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>SSR</Label>
               <Button
                 className={CLS_BTN_EDITABLE_LOCK}
-                style={{ width: 100, fontFamily: FONT_FAMILY, fontSize: FONT_SIZE_FIELD }}
-                onClick={() => generateSquawk(callsign)}
+                style={{
+                  width: 100,
+                  fontFamily: FONT_FAMILY,
+                  fontSize: FONT_SIZE_FIELD,
+                  opacity: ssrGenerating ? 0.5 : 1,
+                }}
+                disabled={ssrGenerating}
+                onClick={() => {
+                  setSsrGenerating(true);
+                  generateSquawk(callsign);
+                }}
               >
                 {strip.assigned_squawk}
               </Button>

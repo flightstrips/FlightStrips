@@ -440,9 +440,14 @@ func TestAssumeStripCoordination_DirectAssume_UnownedStrip(t *testing.T) {
 	}
 
 	var ownerSet string
+	var nextOwnersSet []string
 	stripRepo := &testutil.MockStripRepository{
 		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
 			return strip, nil
+		},
+		SetNextAndPreviousOwnersFn: func(_ context.Context, _ int32, _ string, next []string, _ []string) error {
+			nextOwnersSet = next
+			return nil
 		},
 		SetOwnerFn: func(_ context.Context, _ int32, _ string, o *string, v int32) (int64, error) {
 			assert.NotNil(t, o)
@@ -461,6 +466,7 @@ func TestAssumeStripCoordination_DirectAssume_UnownedStrip(t *testing.T) {
 	err := svc.AssumeStripCoordination(ctx, session, callsign, position)
 	require.NoError(t, err)
 	assert.Equal(t, position, ownerSet)
+	assert.Empty(t, nextOwnersSet)
 	require.Len(t, hub.CoordinationAssumes, 1)
 	assert.Equal(t, position, hub.CoordinationAssumes[0].Position)
 }

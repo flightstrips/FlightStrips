@@ -57,9 +57,11 @@ export function AltSelectDialog({
   const currentAlt = value ?? undefined;
   const [customInput, setCustomInput] = useState("");
   const [customInvalid, setCustomInvalid] = useState(false);
+  const [prevOpen, setPrevOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
+  if (prevOpen !== open) {
+    setPrevOpen(open);
     if (open) {
       const presetMatch =
         currentAlt != null && ALT_PRESETS.some((p) => p.value === currentAlt);
@@ -67,9 +69,14 @@ export function AltSelectDialog({
         currentAlt != null && !presetMatch ? String(currentAlt) : ""
       );
       setCustomInvalid(false);
+    }
+  }
+
+  useEffect(() => {
+    if (open) {
       inputRef.current?.focus();
     }
-  }, [open, currentAlt]);
+  }, [open]);
 
   function handleSelect(alt: number) {
     onSelect(alt);

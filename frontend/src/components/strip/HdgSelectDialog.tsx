@@ -54,16 +54,24 @@ export function HdgSelectDialog({
   const currentHdg = value ?? undefined;
   const [customInput, setCustomInput] = useState("");
   const [customInvalid, setCustomInvalid] = useState(false);
+  const [prevOpen, setPrevOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Reset custom input when dialog opens and focus it if no preset matches
-  useEffect(() => {
+  if (prevOpen !== open) {
+    setPrevOpen(open);
     if (open) {
       const presetMatch = HDG_PRESETS.includes(currentHdg ?? -1);
       setCustomInput(
         currentHdg != null && !presetMatch ? formatHdg(currentHdg) : ""
       );
       setCustomInvalid(false);
+    }
+  }
+
+  // Focus input when dialog opens
+  useEffect(() => {
+    if (open) {
+      const presetMatch = HDG_PRESETS.includes(currentHdg ?? -1);
       if (currentHdg == null || presetMatch) {
         inputRef.current?.focus();
       }

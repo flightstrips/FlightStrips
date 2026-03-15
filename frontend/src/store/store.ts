@@ -206,10 +206,10 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
             if (update.route !== undefined) {
               draft.strips[stripIndex].route = update.route;
             }
-            if ("heading" in update) {
+            if ("heading" in update && update.heading !== undefined) {
               draft.strips[stripIndex].heading = update.heading;
             }
-            if ("altitude" in update) {
+            if ("altitude" in update && update.altitude !== undefined) {
               draft.strips[stripIndex].cleared_altitude = update.altitude;
             }
             if (update.stand !== undefined) {

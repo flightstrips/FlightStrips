@@ -15,16 +15,17 @@ const TestFrontendToken = "__TEST_FRONTEND_TOKEN__"
 type AuthenticationService struct {
 	authSigningAlgorithm string
 	authServerUrl        string
+	requiredAudience     string
 	serverKeyfunc        keyfunc.Keyfunc
 }
 
-func NewAuthenticationService(authSigningAlgorithm string, authServerUrl string) (*AuthenticationService, error) {
+func NewAuthenticationService(authSigningAlgorithm string, authServerUrl string, requiredAudience string) (*AuthenticationService, error) {
 	k, err := keyfunc.NewDefault([]string{authServerUrl})
 	if err != nil {
 		return nil, err
 	}
 
-	return &AuthenticationService{authSigningAlgorithm, authServerUrl, k}, nil
+	return &AuthenticationService{authSigningAlgorithm, authServerUrl, requiredAudience, k}, nil
 }
 
 // NewTestAuthenticationService creates an authentication service for testing (no real validation)
@@ -32,6 +33,7 @@ func NewTestAuthenticationService() *AuthenticationService {
 	return &AuthenticationService{
 		authSigningAlgorithm: "test",
 		authServerUrl:        "test",
+		requiredAudience:     "test",
 		serverKeyfunc:        nil,
 	}
 }
@@ -48,7 +50,7 @@ func (a AuthenticationService) Validate(jwtToken string) (shared.AuthenticatedUs
 	}
 
 	options := jwt.WithValidMethods([]string{a.authSigningAlgorithm})
-	token, err := jwt.Parse(jwtToken, a.serverKeyfunc.Keyfunc, options)
+	token, err := jwt.Parse(jwtToken, a.serverKeyfunc.Keyfunc, options, jwt.WithAudience(a.requiredAudience))
 	if err != nil {
 		return shared.AuthenticatedUser{}, err
 	}

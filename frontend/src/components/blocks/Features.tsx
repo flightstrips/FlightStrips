@@ -1,6 +1,6 @@
 import { ChevronRight } from "lucide-react";
-import { Link } from "react-router";
 import { DashedLine } from "./DashedLine";
+import { useAuth0 } from "@auth0/auth0-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
@@ -32,6 +32,7 @@ const items = [
 ];
 
 export function Features() {
+  const { loginWithRedirect } = useAuth0();
   return (
     <section className="py-24 px-6 sm:px-8 bg-white">
       <div className="max-w-5xl mx-auto">
@@ -73,10 +74,10 @@ export function Features() {
                 </p>
                 {i === 0 && (
                   <Button asChild variant="ghost" size="sm" className="mt-4 text-primary p-0 h-auto hover:bg-transparent">
-                    <Link to="/login" className="inline-flex items-center gap-1">
+                    <button onClick={() => loginWithRedirect()} className="inline-flex items-center gap-1">
                       Learn more
                       <ChevronRight className="h-4 w-4" />
-                    </Link>
+                    </button>
                   </Button>
                 )}
               </CardContent>

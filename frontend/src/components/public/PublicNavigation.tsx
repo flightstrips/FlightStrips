@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router";
+import { useAuth0 } from "@auth0/auth0-react";
 import { Menu, Sun, Moon } from "lucide-react";
 import {
   NavigationMenu,
@@ -28,6 +29,7 @@ const linkClassName =
   " bg-transparent hover:bg-navy/5 dark:hover:bg-white/10 focus:bg-transparent data-[active]:bg-transparent text-navy dark:text-foreground";
 
 export function PublicNavigation() {
+  const { isAuthenticated, loginWithRedirect, logout } = useAuth0();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [theme, setTheme] = useState<PublicTheme>(() => getStoredPublicTheme());
 
@@ -92,9 +94,20 @@ export function PublicNavigation() {
             <Moon className="h-5 w-5" />
           )}
         </Button>
-        <Button asChild variant="default">
-          <Link to="/login">Login</Link>
-        </Button>
+        {isAuthenticated ? (
+          <>
+            <Button asChild variant="outline">
+              <Link to="/app">Open App</Link>
+            </Button>
+            <Button variant="default" onClick={() => logout({ logoutParams: { returnTo: window.location.origin } })}>
+              Sign Out
+            </Button>
+          </>
+        ) : (
+          <Button variant="default" onClick={() => loginWithRedirect()}>
+            Sign In
+          </Button>
+        )}
       </div>
 
       {/* Mobile menu */}
@@ -155,11 +168,20 @@ export function PublicNavigation() {
                     <Moon className="h-5 w-5" />
                   )}
                 </Button>
-                <Button asChild variant="default" className="flex-1">
-                  <Link to="/login" onClick={() => setMobileOpen(false)}>
-                    Login
-                  </Link>
-                </Button>
+                {isAuthenticated ? (
+                  <>
+                    <Button asChild variant="outline" className="flex-1" onClick={() => setMobileOpen(false)}>
+                      <Link to="/app">Open App</Link>
+                    </Button>
+                    <Button variant="default" className="flex-1" onClick={() => { setMobileOpen(false); logout({ logoutParams: { returnTo: window.location.origin } }); }}>
+                      Sign Out
+                    </Button>
+                  </>
+                ) : (
+                  <Button variant="default" className="flex-1" onClick={() => { setMobileOpen(false); loginWithRedirect(); }}>
+                    Sign In
+                  </Button>
+                )}
               </div>
             </div>
           </SheetContent>

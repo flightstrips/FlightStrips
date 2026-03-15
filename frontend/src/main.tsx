@@ -8,7 +8,6 @@ import FaqPage from "@/pages/faq";
 import Privacy from "@/pages/privacy";
 import DataHandling from "@/pages/data-handling";
 import Contact from "@/pages/contact";
-import Auth from "@/pages/auth";
 import {Auth0ProviderWithNavigate} from "@/providers/auth-provider";
 import Profile from "@/pages/profile";
 import Layout from "@/pages/layout";
@@ -32,7 +31,6 @@ createRoot(document.getElementById('root')!).render(
           <Route path="/privacy" element={<Privacy/>}/>
           <Route path="/data-handling" element={<DataHandling/>}/>
           <Route path="/contact" element={<Contact/>}/>
-          <Route path="/login" element={<Auth/>}/>
           <Route path="/app" element={<AppPage />}/>
           <Route element={<MyProtectedComponent/>}>
             <Route index path="/dashboard" element={<Dashboard/>}/>

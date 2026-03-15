@@ -117,7 +117,7 @@ func main() {
 		}
 	}
 
-	authenticationService, err := services.NewAuthenticationService(os.Getenv("OIDC_SIGNING_ALGO"), os.Getenv("OIDC_AUTHORITY"))
+	authenticationService, err := services.NewAuthenticationService(os.Getenv("OIDC_SIGNING_ALGO"), os.Getenv("OIDC_AUTHORITY"), getEnv("OIDC_AUDIENCE", "backend-dev"))
 	if err != nil {
 		slog.Error("Failed to initialize authentication service", slog.Any("error", err))
 		os.Exit(1)

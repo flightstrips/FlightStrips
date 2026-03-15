@@ -137,7 +137,7 @@ export function AboutContent() {
             href="https://github.com/flightstrips/FlightStrips"
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 bg-primary text-white px-6 py-3 text-sm font-medium rounded-sm hover:opacity-95 transition-opacity"
+            className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-6 py-3 text-sm font-medium rounded-sm hover:opacity-95 transition-opacity"
           >
             View on GitHub
             <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">

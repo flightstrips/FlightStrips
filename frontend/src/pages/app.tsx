@@ -1,11 +1,10 @@
 import { useAuth0 } from "@auth0/auth0-react";
-import { Navigate } from "react-router";
 import { WebSocketProvider } from "@/providers/websocket-provider";
 import CommandBar from "@/components/commandbar/CommandBar";
 import AppRouter from "@/routes/AppRouter";
 
 export default function AppPage() {
-  const { isAuthenticated, isLoading } = useAuth0();
+  const { isAuthenticated, isLoading, loginWithRedirect } = useAuth0();
   const wsUrl = window.__APP_CONFIG__?.wsUrl ?? "ws://localhost:8090/frontEndEvents";
 
   if (isLoading) {
@@ -17,7 +16,8 @@ export default function AppPage() {
   }
 
   if (!isAuthenticated) {
-    return <Navigate to="/login" state={{ returnTo: "/app" }} />;
+    loginWithRedirect({ appState: { returnTo: "/app" } });
+    return null;
   }
 
   return (

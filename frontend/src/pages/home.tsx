@@ -1,5 +1,6 @@
-import { Link } from "react-router";
 import { ArrowRight, Radio, MapPin, MessageSquare, Smartphone, GitBranch, Layers } from "lucide-react";
+import { Link } from "react-router";
+import { useAuth0 } from "@auth0/auth0-react";
 import { PublicNavigation } from "@/components/public/PublicNavigation";
 import { PublicFooter } from "@/components/public/PublicFooter";
 import { DashedLine } from "@/components/blocks/DashedLine";
@@ -46,6 +47,7 @@ const features = [
 ];
 
 export default function Home() {
+  const { isAuthenticated, loginWithRedirect } = useAuth0();
   return (
     <div className="min-h-screen bg-cream dark:bg-background text-navy dark:text-foreground flex flex-col">
       <PublicNavigation />
@@ -179,12 +181,19 @@ export default function Home() {
             <p className="font-sans font-light text-navy/80 dark:text-muted-foreground mb-10 leading-relaxed">
               FlightStrips is free and open-source (GPL-3.0), built by and for the virtual ATC community. Compatible with Windows, Mac, and Linux. Use it for simulation and training — no lists, no clutter, just strips.
             </p>
-            <Button asChild size="lg" className="bg-primary hover:bg-primary/90 text-white dark:text-navy  rounded-sm shadow-sm">
-              <Link to="/login">
+            {isAuthenticated ? (
+              <Button asChild size="lg" className="bg-primary hover:bg-primary/90 text-white dark:text-navy rounded-sm shadow-sm">
+                <Link to="/app">
+                  Open App
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Link>
+              </Button>
+            ) : (
+              <Button size="lg" className="bg-primary hover:bg-primary/90 text-white dark:text-navy rounded-sm shadow-sm" onClick={() => loginWithRedirect()}>
                 Sign in to get started
                 <ArrowRight className="ml-2 h-4 w-4" />
-              </Link>
-            </Button>
+              </Button>
+            )}
           </div>
         </section>
       </main>

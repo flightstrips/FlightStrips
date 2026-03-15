@@ -5,7 +5,9 @@ import React from "react";
 export const Auth0ProviderWithNavigate = ({ children }: React.PropsWithChildren) => {
   const navigate = useNavigate();
   const domain = "auth.flightstrips.dk";
-  const clientId = "mIjRYlbKHpTwnNAkhcu9plQP541Klwvn";
+  const clientId = window.__APP_CONFIG__?.clientId ?? "mIjRYlbKHpTwnNAkhcu9plQP541Klwvn";
+  const audience = window.__APP_CONFIG__?.audience ?? "backend-dev";
+  const connection = window.__APP_CONFIG__?.connection ?? "vatsim-dev";
   const redirectUri = window.location.origin;
 
   const onRedirectCallback = (appState?: AppState) => {
@@ -23,7 +25,8 @@ export const Auth0ProviderWithNavigate = ({ children }: React.PropsWithChildren)
       authorizationParams={{
         redirect_uri: redirectUri,
         scope: "openid profile email offline_access",
-        audience: "backend-dev"
+        audience: audience,
+        connection: connection
       }}
       onRedirectCallback={onRedirectCallback}
       cacheLocation="localstorage"

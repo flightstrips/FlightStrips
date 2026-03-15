@@ -5,9 +5,9 @@ import {
   MessageSquare,
   Smartphone,
 } from "lucide-react";
-import { Link } from "react-router";
 import { DashedLine } from "./DashedLine";
 import { Button } from "@/components/ui/button";
+import { useAuth0 } from "@auth0/auth0-react";
 
 const features = [
   {
@@ -33,6 +33,7 @@ const features = [
 ];
 
 export function Hero() {
+  const { isAuthenticated, loginWithRedirect } = useAuth0();
   return (
     <section
       className="relative min-h-[90vh] flex flex-col lg:flex-row items-stretch gap-0"
@@ -55,12 +56,19 @@ export function Hero() {
           Datalink clearance, pushback & holding points, internal comms. Runs on any device—no Euroscope required.
         </p>
         <div className="flex flex-col sm:flex-row gap-4">
-          <Button asChild size="lg" className="text-white rounded-sm shadow-sm w-fit">
-            <Link to="/login">
+          {isAuthenticated ? (
+            <Button asChild size="lg" className="text-white rounded-sm shadow-sm w-fit">
+              <Link to="/app">
+                Open App
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Link>
+            </Button>
+          ) : (
+            <Button size="lg" className="text-white rounded-sm shadow-sm w-fit" onClick={() => loginWithRedirect()}>
               Get Started
               <ArrowRight className="ml-2 h-4 w-4" />
-            </Link>
-          </Button>
+            </Button>
+          )}
           <Button asChild variant="outline" size="lg" className="border-2 border-primary/50 text-primary hover:bg-primary/10 rounded-sm w-fit">
             <Link to="/about">Learn More</Link>
           </Button>

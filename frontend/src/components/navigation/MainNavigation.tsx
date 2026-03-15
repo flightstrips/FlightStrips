@@ -53,7 +53,7 @@ const components: { title: string; href: string; description: string }[] = [
 ]
 
 export function MainNavigation() {
-  const { isAuthenticated, logout } = useAuth0()
+  const { isAuthenticated, loginWithRedirect, logout } = useAuth0()
   return (
     <NavigationMenu>
       <NavigationMenuList>
@@ -126,11 +126,9 @@ export function MainNavigation() {
               </Button>
             </div>
             :
-            <Link to="/login">
-              <Button variant={"outline"} className="bg-transparent">
-                Login
-              </Button>
-            </Link>
+            <Button onClick={() => loginWithRedirect()} variant={"outline"} className="bg-transparent">
+              Login
+            </Button>
           }
         </NavigationMenuItem>
       </NavigationMenuList>

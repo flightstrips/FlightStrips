@@ -453,6 +453,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
         }
         state.stripTransfers = transfers;
         state.messages = data.messages ?? [];
+        state.availableSids = data.available_sids ?? [];
       })
     );
   };

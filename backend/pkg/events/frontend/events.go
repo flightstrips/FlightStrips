@@ -167,6 +167,7 @@ type InitialEvent struct {
 	RunwaySetup    RunwayConfiguration       `json:"runway_setup"`
 	Coordinations  []SyncCoordination        `json:"coordinations"`
 	Messages       []MessageReceivedEvent    `json:"messages"`
+	AvailableSids  []string                  `json:"available_sids"`
 }
 
 func (i InitialEvent) Marshal() ([]byte, error) {

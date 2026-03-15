@@ -318,6 +318,12 @@ func (hub *Hub) sendInitialEvent(client *Client) {
 	copy(storedMsgs, hub.messages[client.session])
 	hub.msgMu.Unlock()
 
+	sids, err := sessionRepo.GetSessionSids(context.Background(), client.session)
+	if err != nil {
+		slog.Error("Failed to load available SIDs on connect", slog.Any("error", err), slog.Int("session", int(client.session)))
+		sids = []string{}
+	}
+
 	event := frontend.InitialEvent{
 		Contsollers:    controllerModels,
 		Strips:         stripModels,
@@ -332,6 +338,7 @@ func (hub *Hub) sendInitialEvent(client *Client) {
 		},
 		Coordinations: coordinationModels,
 		Messages:      storedMsgs,
+		AvailableSids: sids,
 	}
 
 	client.send <- event
@@ -342,14 +349,6 @@ func (hub *Hub) sendInitialEvent(client *Client) {
 
 	if cachedMetar != "" {
 		client.send <- frontend.AtisUpdateEvent{Metar: cachedMetar}
-	}
-
-	// Send available SIDs if any have been stored for this session.
-	sids, err := sessionRepo.GetSessionSids(context.Background(), client.session)
-	if err != nil {
-		slog.Error("Failed to load available SIDs on connect", slog.Any("error", err), slog.Int("session", int(client.session)))
-	} else if len(sids) > 0 {
-		client.send <- frontend.AvailableSidsEvent{Sids: sids}
 	}
 }
 

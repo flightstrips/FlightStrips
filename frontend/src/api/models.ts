@@ -182,6 +182,7 @@ export interface FrontendInitialEvent {
   runway_setup: RunwayConfiguration;
   coordinations: Array<{ callsign: string; from: string; to: string }>;
   messages: MessageReceived[];
+  available_sids: string[];
 }
 
 export interface FrontendStripUpdateEvent {

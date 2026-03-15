@@ -37,7 +37,8 @@ const (
 	CoordinationAssumeRequestType     EventType = "coordination_assume_request"
 	CoordinationRejectRequestType     EventType = "coordination_reject_request"
 	CoordinationFreeRequestType       EventType = "coordination_free_request"
-	CoordinationCancelTransferRequest EventType = "coordination_cancel_transfer_request"
+	CoordinationCancelTransferRequest      EventType = "coordination_cancel_transfer_request"
+	CoordinationForceAssumeRequestType     EventType = "coordination_force_assume_request"
 
 	Move                              EventType = "move"
 	GenerateSquawk                    EventType = "generate_squawk"
@@ -452,6 +453,11 @@ type CoordinationFreeRequestEvent struct {
 // ---------- CANCEL TRANSFER ----------
 
 type CoordinationCancelTransferRequestEvent struct {
+	Type     string `json:"type"`
+	Callsign string `json:"callsign"`
+}
+
+type CoordinationForceAssumeRequestEvent struct {
 	Type     string `json:"type"`
 	Callsign string `json:"callsign"`
 }

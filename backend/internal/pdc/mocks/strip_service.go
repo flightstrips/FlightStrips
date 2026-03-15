@@ -192,3 +192,8 @@ func (m *StripService) PropagateRunwayChange(ctx context.Context, session int32,
 	args := m.Called(ctx, session, airport, oldRunways, newRunways)
 	return args.Error(0)
 }
+
+func (m *StripService) ForceAssumeStrip(ctx context.Context, session int32, callsign string, position string) error {
+	args := m.Called(ctx, session, callsign, position)
+	return args.Error(0)
+}

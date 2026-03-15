@@ -238,6 +238,14 @@ func handleCoordinationCancelTransferRequest(ctx context.Context, client *Client
 	return client.hub.stripService.CancelCoordinationTransfer(ctx, client.session, req.Callsign, client.position)
 }
 
+func handleCoordinationForceAssumeRequest(ctx context.Context, client *Client, message Message) error {
+	var req frontend.CoordinationForceAssumeRequestEvent
+	if err := message.JsonUnmarshal(&req); err != nil {
+		return err
+	}
+	return client.hub.stripService.ForceAssumeStrip(ctx, client.session, req.Callsign, client.position)
+}
+
 func handleUpdateOrder(ctx context.Context, client *Client, message Message) error {
 	var event frontend.UpdateOrderEvent
 	err := message.JsonUnmarshal(&event)

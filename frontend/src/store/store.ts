@@ -314,9 +314,9 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     assumeStrip: (callsign) => {
       wsClient.send({ type: ActionType.FrontendCoordinationAssumeRequest, callsign });
     },
-    // forceAssumeStrip: takes ownership of an unowned strip (Task 045 will extend this)
+    // forceAssumeStrip: takes ownership of an unowned strip, bypassing the next-owners check
     forceAssumeStrip: (callsign) => {
-      wsClient.send({ type: ActionType.FrontendCoordinationAssumeRequest, callsign });
+      wsClient.send({ type: ActionType.FrontendCoordinationForceAssumeRequest, callsign });
     },
     freeStrip: (callsign) => {
       wsClient.send({ type: ActionType.FrontendCoordinationFreeRequest, callsign });

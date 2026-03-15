@@ -62,6 +62,7 @@ func NewHub(stripService shared.StripService, authenticationService shared.Authe
 	handlers.Add(frontend.CoordinationRejectRequestType, handleCoordinationRejectRequest)
 	handlers.Add(frontend.CoordinationFreeRequestType, handleCoordinationFreeRequest)
 	handlers.Add(frontend.CoordinationCancelTransferRequest, handleCoordinationCancelTransferRequest)
+	handlers.Add(frontend.CoordinationForceAssumeRequestType, handleCoordinationForceAssumeRequest)
 	handlers.Add(frontend.UpdateOrder, handleUpdateOrder)
 	handlers.Add(frontend.SendMessage, handleSendMessage)
 	handlers.Add(frontend.CdmReady, handleCdmReady)

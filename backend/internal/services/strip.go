@@ -1187,6 +1187,49 @@ func (s *StripService) AssumeStripCoordination(ctx context.Context, session int3
 	return errors.New("cannot assume strip which is not transferred to you")
 }
 
+// ForceAssumeStrip forcibly takes ownership of a strip that has no owner.
+// Unlike AssumeStripCoordination it does not check NextOwners — any controller
+// may force-assume an unowned strip. It rejects if the strip already has an owner.
+func (s *StripService) ForceAssumeStrip(ctx context.Context, session int32, callsign string, position string) error {
+	strip, err := s.stripRepo.GetByCallsign(ctx, session, callsign)
+	if err != nil {
+		return err
+	}
+
+	if strip.Owner != nil && *strip.Owner != "" {
+		return errors.New("cannot force assume: strip already has an owner")
+	}
+
+	// Delete any stale coordination so it does not block future operations.
+	if s.coordRepo != nil {
+		if coord, err := s.coordRepo.GetByStripID(ctx, session, strip.ID); err == nil {
+			_ = s.coordRepo.Delete(ctx, coord.ID)
+		}
+	}
+
+	nextOwners := strip.NextOwners
+	index := slices.Index(nextOwners, position)
+	if index >= 0 {
+		nextOwners = nextOwners[index+1:]
+	}
+
+	if err := s.stripRepo.SetNextAndPreviousOwners(ctx, session, callsign, nextOwners, strip.PreviousOwners); err != nil {
+		return err
+	}
+
+	count, err := s.stripRepo.SetOwner(ctx, session, callsign, &position, strip.Version)
+	if err != nil {
+		return err
+	}
+	if count != 1 {
+		return errors.New("failed to set strip owner")
+	}
+
+	s.frontendHub.SendCoordinationAssume(session, callsign, position)
+	s.frontendHub.SendOwnersUpdate(session, callsign, position, nextOwners, strip.PreviousOwners)
+	return nil
+}
+
 // RejectCoordination rejects a pending coordination transfer.
 func (s *StripService) RejectCoordination(ctx context.Context, session int32, callsign string, position string) error {
 	if s.coordRepo == nil {

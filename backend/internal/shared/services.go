@@ -54,6 +54,7 @@ type StripService interface {
 	CreateEsArrivalCoordination(ctx context.Context, session int32, callsign string, from string, to string, esHandoverCid *string) error
 	AcceptCoordination(ctx context.Context, session int32, callsign string, assumingPosition string) error
 	AssumeStripCoordination(ctx context.Context, session int32, callsign string, position string) error
+	ForceAssumeStrip(ctx context.Context, session int32, callsign string, position string) error
 	RejectCoordination(ctx context.Context, session int32, callsign string, position string) error
 	CancelCoordinationTransfer(ctx context.Context, session int32, callsign string, position string) error
 	FreeStrip(ctx context.Context, session int32, callsign string, position string) error

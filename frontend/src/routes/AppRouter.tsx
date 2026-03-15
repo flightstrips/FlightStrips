@@ -5,6 +5,7 @@ import EKCHAAAD from "@/routes/ekch/AAAD";
 import EKCHESET from "@/routes/ekch/ESET";
 import EKCHGEGW from "@/routes/ekch/GEGW";
 import EKCHTWTE from "@/routes/ekch/TWTE";
+import ChooseLayoutScreen from "@/components/ChooseLayoutScreen";
 
 const LAYOUT_MAP: Record<string, React.ComponentType> = {
   CLX: EKCHDEL,
@@ -25,10 +26,9 @@ export default function AppRouter() {
     }
   }, [Component, setLayoutChooserOpen]);
 
+  // No valid layout is active — force the controller to choose before proceeding.
   if (!Component) {
-    return (
-      <div className="w-screen min-h-svh bg-primary" />
-    );
+    return <ChooseLayoutScreen />;
   }
 
   return <Component />;

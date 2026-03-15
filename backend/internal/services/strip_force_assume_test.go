@@ -12,26 +12,42 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestForceAssumeStrip_AlreadyOwned verifies that ForceAssumeStrip rejects a strip that already has an owner.
-func TestForceAssumeStrip_AlreadyOwned(t *testing.T) {
-	owner := "EKCH_A_TWR"
+// TestForceAssumeStrip_OwnedStrip verifies that ForceAssumeStrip succeeds even when the strip already has an owner.
+func TestForceAssumeStrip_OwnedStrip(t *testing.T) {
+	existingOwner := "EKCH_A_TWR"
 	strip := &models.Strip{
-		ID:       1,
-		Callsign: "SAS123",
-		Owner:    &owner,
-		Version:  1,
+		ID:             1,
+		Callsign:       "SAS123",
+		Owner:          &existingOwner,
+		NextOwners:     []string{},
+		PreviousOwners: []string{},
+		Version:        1,
 	}
+
+	setOwnerCalled := false
+	hub := &testutil.MockFrontendHub{}
 
 	svc := NewStripService(&testutil.MockStripRepository{
 		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
 			return strip, nil
 		},
+		SetNextAndPreviousOwnersFn: func(_ context.Context, _ int32, _ string, _ []string, _ []string) error {
+			return nil
+		},
+		SetOwnerFn: func(_ context.Context, _ int32, _ string, owner *string, _ int32) (int64, error) {
+			setOwnerCalled = true
+			require.NotNil(t, owner)
+			assert.Equal(t, "EKCH_D_TWR", *owner)
+			return 1, nil
+		},
 	})
-	svc.SetFrontendHub(&testutil.MockFrontendHub{})
+	svc.SetFrontendHub(hub)
 
 	err := svc.ForceAssumeStrip(context.Background(), 1, "SAS123", "EKCH_D_TWR")
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "already has an owner")
+	require.NoError(t, err)
+	assert.True(t, setOwnerCalled)
+	require.Len(t, hub.CoordinationAssumes, 1)
+	assert.Equal(t, "EKCH_D_TWR", hub.CoordinationAssumes[0].Position)
 }
 
 // TestForceAssumeStrip_UnownedNoCoordination verifies that an unowned strip with no coordination is assumed successfully.

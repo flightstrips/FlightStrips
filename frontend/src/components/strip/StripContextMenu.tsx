@@ -64,8 +64,8 @@ export function StripContextMenu({ callsign, position, onClose }: StripContextMe
   const [showFpl, setShowFpl] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  // FORCE ASSUME: disabled when strip has any owner or active transfer
-  const forceAssumeDisabled = !!strip?.owner || !!stripTransfers[callsign];
+  // FORCE ASSUME: disabled if you already own the strip or there is an active transfer
+  const forceAssumeDisabled = strip?.owner === myPosition || !!stripTransfers[callsign];
 
   // RECALL: enabled when I am the owner and there's an outgoing transfer
   const recallDisabled = !(

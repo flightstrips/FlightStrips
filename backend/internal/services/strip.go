@@ -1212,17 +1212,13 @@ func (s *StripService) AssumeStripCoordination(ctx context.Context, session int3
 	return errors.New("cannot assume strip which is not transferred to you")
 }
 
-// ForceAssumeStrip forcibly takes ownership of a strip that has no owner.
+// ForceAssumeStrip forcibly takes ownership of a strip, overriding any existing owner.
 // Unlike AssumeStripCoordination it does not check NextOwners — any controller
-// may force-assume an unowned strip. It rejects if the strip already has an owner.
+// may force-assume any strip regardless of current ownership.
 func (s *StripService) ForceAssumeStrip(ctx context.Context, session int32, callsign string, position string) error {
 	strip, err := s.stripRepo.GetByCallsign(ctx, session, callsign)
 	if err != nil {
 		return err
-	}
-
-	if strip.Owner != nil && *strip.Owner != "" {
-		return errors.New("cannot force assume: strip already has an owner")
 	}
 
 	// Delete any stale coordination so it does not block future operations.

@@ -388,6 +388,11 @@ func (s *StripService) resolveAirborneController(strip *internalModels.Strip, co
 		return nil, err
 	}
 
+	slog.Debug("Resolving airborne controller",
+		slog.String("sid", *strip.Sid),
+		slog.Any("priority_list", controllerPriority),
+	)
+
 	for _, callsign := range controllerPriority {
 		position, err := config.GetPositionByName(callsign)
 		if err != nil {
@@ -395,11 +400,17 @@ func (s *StripService) resolveAirborneController(strip *internalModels.Strip, co
 		}
 		for _, controller := range controllers {
 			if controller.Position == position.Frequency && controller.Cid != nil && *controller.Cid != "" {
+				slog.Debug("Matched airborne controller",
+					slog.String("sid", *strip.Sid),
+					slog.String("matched_callsign", callsign),
+					slog.String("controller_position", controller.Position),
+				)
 				return controller, nil
 			}
 		}
 	}
 
+	slog.Debug("No online controller found for AIRBORNE transfer", slog.String("sid", *strip.Sid))
 	return nil, nil
 }
 

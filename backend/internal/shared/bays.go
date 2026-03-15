@@ -33,6 +33,7 @@ const (
 	BAY_STAND      = "STAND"
 	BAY_HIDDEN     = "HIDDEN"
 	BAY_ARR_HIDDEN = "ARR_HIDDEN"
+	BAY_CONTROLZONE = "CONTROLZONE"
 )
 
 const (

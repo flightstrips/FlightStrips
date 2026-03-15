@@ -101,6 +101,7 @@ export enum Bay {
   RwyDep = Depart, // alias — kept for backwards compat, same value
   RwyArr = "RWY_ARR",
   TwyArr = "TWY_ARR",
+  Controlzone = "CONTROLZONE",
 }
 
 // Define interfaces for all event types

@@ -6,6 +6,7 @@ import {
   useAirborneStrips,
   useDepartStrips,
   useDeIceStrips,
+  useControlzoneStrips,
   useFinalStrips,
   usePushbackStrips,
   useStandStrips,
@@ -81,6 +82,7 @@ export default function TWTE() {
   const standStrips  = useStandStrips();
   const pushStrips   = usePushbackStrips();
   const deIceStrips  = useDeIceStrips();
+  const controlzoneStrips = useControlzoneStrips();
   const nonClearedStrips = useNonClearedStrips();
   const clearedStrips    = useClearedStrips();
   const inboundStrips    = useInboundStrips();
@@ -102,30 +104,32 @@ export default function TWTE() {
     { key: "ADEP",     label: "ADEP",     compareFn: (a, b) => a.origin.localeCompare(b.origin) },
   ];
 
-  const ALL_ACTIVE = ["FINAL", "RWY-ARR", "TWY-ARR", "TWY-DEP", "RWY-DEP", "AIRBORNE", "STAND", "PUSHBACK", "DE-ICE"] as const;
+  const ALL_ACTIVE = ["FINAL", "RWY-ARR", "TWY-ARR", "TWY-DEP", "RWY-DEP", "AIRBORNE", "STAND", "PUSHBACK", "DE-ICE", "CONTROLZONE"] as const;
 
   const bayStripMap = {
-    "FINAL":    { strips: finalStrips, targetBay: Bay.Final, descending: true },
-    "RWY-ARR":  { strips: rwyArrStrips,  targetBay: Bay.RwyArr, descending: true },
-    "TWY-ARR":  { strips: twyArrStrips,   targetBay: Bay.TwyArr, descending: true },
-    "TWY-DEP":  { strips: twyDepDesc,     targetBay: Bay.TaxiLwr,  descending: true },
-    "RWY-DEP":  { strips: rwyDepDesc,     targetBay: Bay.Depart,   descending: true },
-    "AIRBORNE": { strips: airborneDesc,   targetBay: Bay.Airborne, descending: true },
-    "STAND":    { strips: standStrips,    targetBay: Bay.Stand },
-    "PUSHBACK": { strips: pushStrips,     targetBay: Bay.Push },
-    "DE-ICE":   { strips: deIceStrips,    targetBay: Bay.DeIce },
+    "FINAL":       { strips: finalStrips,       targetBay: Bay.Final,       descending: true },
+    "RWY-ARR":     { strips: rwyArrStrips,       targetBay: Bay.RwyArr,      descending: true },
+    "TWY-ARR":     { strips: twyArrStrips,       targetBay: Bay.TwyArr,      descending: true },
+    "TWY-DEP":     { strips: twyDepDesc,         targetBay: Bay.TaxiLwr,     descending: true },
+    "RWY-DEP":     { strips: rwyDepDesc,         targetBay: Bay.Depart,      descending: true },
+    "AIRBORNE":    { strips: airborneDesc,       targetBay: Bay.Airborne,    descending: true },
+    "STAND":       { strips: standStrips,        targetBay: Bay.Stand },
+    "PUSHBACK":    { strips: pushStrips,         targetBay: Bay.Push },
+    "DE-ICE":      { strips: deIceStrips,        targetBay: Bay.DeIce },
+    "CONTROLZONE": { strips: controlzoneStrips,  targetBay: Bay.Controlzone },
   };
 
   const transferRules: Record<string, string[]> = {
-    "FINAL":    ["RWY-ARR", "TWY-ARR"],
-    "RWY-ARR":  ALL_ACTIVE.filter(b => b !== "RWY-ARR"),
-    "TWY-ARR":  ALL_ACTIVE.filter(b => b !== "TWY-ARR"),
-    "TWY-DEP":  ALL_ACTIVE.filter(b => b !== "TWY-DEP"),
-    "RWY-DEP":  ALL_ACTIVE.filter(b => b !== "RWY-DEP"),
-    "AIRBORNE": ALL_ACTIVE.filter(b => b !== "AIRBORNE"),
-    "STAND":    ALL_ACTIVE.filter(b => b !== "STAND"),
-    "PUSHBACK": ["TWY-DEP", "DE-ICE", "TWY-ARR"],
-    "DE-ICE":   ["PUSHBACK", "TWY-DEP"],
+    "FINAL":       ["RWY-ARR", "TWY-ARR"],
+    "RWY-ARR":     ALL_ACTIVE.filter(b => b !== "RWY-ARR"),
+    "TWY-ARR":     ALL_ACTIVE.filter(b => b !== "TWY-ARR"),
+    "TWY-DEP":     ALL_ACTIVE.filter(b => b !== "TWY-DEP"),
+    "RWY-DEP":     ALL_ACTIVE.filter(b => b !== "RWY-DEP"),
+    "AIRBORNE":    ALL_ACTIVE.filter(b => b !== "AIRBORNE"),
+    "STAND":       ALL_ACTIVE.filter(b => b !== "STAND"),
+    "PUSHBACK":    ["TWY-DEP", "DE-ICE", "TWY-ARR"],
+    "DE-ICE":      ["PUSHBACK", "TWY-DEP"],
+    "CONTROLZONE": [],
   };
 
   const statusForBay: Record<string, StripStatus> = {
@@ -133,6 +137,7 @@ export default function TWTE() {
     "TWY-ARR": "FINAL-ARR", "TWY-DEP": "TWY-DEP",
     "RWY-DEP": "TWY-DEP", "AIRBORNE": "TWY-DEP",
     "STAND": "CLROK", "PUSHBACK": "PUSH", "DE-ICE": "PUSH",
+    "CONTROLZONE": "CLR",
   };
 
   return (
@@ -317,8 +322,14 @@ export default function TWTE() {
             <button className={btn}>FIND</button>
           </span>
         </div>
-        {/* VFR strips – bay TBD with backend */}
-        <div className={`h-[35%] ${scrollArea}`} />
+        <SortableBay
+          strips={controlzoneStrips}
+          bayId="CONTROLZONE"
+          standalone={false}
+          className={`h-[35%] ${scrollArea}`}
+        >
+          {(strip) => <Strip strip={strip} status="CLR" myPosition={myPosition} selectable={true} />}
+        </SortableBay>
 
         <div className={`${lockedHeader} ${colSep}`}>
           <span className={lockedLabel}>PUSHBACK</span>

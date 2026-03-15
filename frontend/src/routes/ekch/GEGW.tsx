@@ -3,6 +3,7 @@ import { MemAidButton, CrossingButton, StartButton, LandButton } from "@/compone
 import { MessageStrip } from "@/components/strip/MessageStrip.tsx";
 import { MessageComposeDialog } from "@/components/MessageComposeDialog.tsx";
 import {
+  useClearedStrips,
   useFinalStrips,
   useInboundStrips,
   useNonClearedStrips,
@@ -44,13 +45,14 @@ export default function GEGW() {
   const [composeOpen, setComposeOpen] = useState(false);
   const [arrOpen, setArrOpen] = useState(false);
 
-  const finalStrips  = useFinalStrips();
-  const rwyArrStrips = useRwyArrStrips();
-  const twyArrStrips = useTaxiArrStrips();
-  const pushStrips   = usePushbackStrips();
-  const twyDepUpr = useTaxiDepStrips();
-  const twyDepLwr = useTaxiDepLwrStrips();
-  const standStrips  = useStandStrips();
+  const finalStrips   = useFinalStrips();
+  const rwyArrStrips  = useRwyArrStrips();
+  const twyArrStrips  = useTaxiArrStrips();
+  const pushStrips    = usePushbackStrips();
+  const startupStrips = useClearedStrips();
+  const twyDepUpr     = useTaxiDepStrips();
+  const twyDepLwr     = useTaxiDepLwrStrips();
+  const standStrips   = useStandStrips();
 
   const inboundStrips = useInboundStrips();
 
@@ -73,17 +75,19 @@ export default function GEGW() {
   const nonClearedStrips = useNonClearedStrips();
 
   const bayStripMap = {
-    "PUSHBACK":    { strips: pushStrips,  targetBay: Bay.Push },
-    "TWY-DEP-UPR": { strips: twyDepUpr,  targetBay: Bay.Taxi },
-    "TWY-DEP-LWR": { strips: twyDepLwr,  targetBay: Bay.TaxiLwr },
-    "STAND":       { strips: standStrips, targetBay: Bay.Stand },
+    "STARTUP":     { strips: startupStrips, targetBay: Bay.Cleared },
+    "PUSHBACK":    { strips: pushStrips,    targetBay: Bay.Push },
+    "TWY-DEP-UPR": { strips: twyDepUpr,    targetBay: Bay.Taxi },
+    "TWY-DEP-LWR": { strips: twyDepLwr,    targetBay: Bay.TaxiLwr },
+    "STAND":       { strips: standStrips,   targetBay: Bay.Stand },
   };
 
   const transferRules: Record<string, string[]> = {
-    "PUSHBACK":    ["TWY-DEP-UPR", "TWY-DEP-LWR", "STAND"],
-    "TWY-DEP-UPR": ["PUSHBACK",    "TWY-DEP-LWR", "STAND"],
-    "TWY-DEP-LWR": ["PUSHBACK",    "TWY-DEP-UPR", "STAND"],
-    "STAND":       ["PUSHBACK",    "TWY-DEP-UPR", "TWY-DEP-LWR"],
+    "STARTUP":     ["PUSHBACK", "TWY-DEP-UPR", "TWY-DEP-LWR", "STAND"],
+    "PUSHBACK":    ["STARTUP",  "TWY-DEP-UPR", "TWY-DEP-LWR", "STAND"],
+    "TWY-DEP-UPR": ["STARTUP",  "PUSHBACK",    "TWY-DEP-LWR", "STAND"],
+    "TWY-DEP-LWR": ["STARTUP",  "PUSHBACK",    "TWY-DEP-UPR", "STAND"],
+    "STAND":       ["STARTUP",  "PUSHBACK",    "TWY-DEP-UPR", "TWY-DEP-LWR"],
   };
 
   return (
@@ -97,6 +101,7 @@ export default function GEGW() {
       onMove={(callsign, bay) => move(callsign, bay)}
       renderDragOverlay={(strip: AnyStrip) => {
         if (!isFlight(strip)) return <Strip strip={strip} width={CLX_CLEARED_STRIP_WIDTH} />;
+        if (strip.bay === Bay.Cleared)  return <Strip strip={strip} status="PUSH" myPosition={myPosition} />;
         if (strip.bay === Bay.Push)     return <Strip strip={strip} status="HALF" halfStripVariant="APN-PUSH" myPosition={myPosition} />;
         if (strip.bay === Bay.Taxi)     return <Strip strip={strip} status="CLROK" myPosition={myPosition} />;
         if (strip.bay === Bay.TaxiLwr) return <Strip strip={strip} status="CLROK" myPosition={myPosition} />;
@@ -170,8 +175,22 @@ export default function GEGW() {
         )}
       </div>
 
-      {/* Column 2 (28%) – PUSHBACK + TWY DEP UPR + TWY DEP LWR (all draggable) */}
+      {/* Column 2 (28%) – STARTUP + PUSHBACK + TWY DEP UPR + TWY DEP LWR (all draggable) */}
       <div className={`${W_COL_DEP} ${CLS_COL}`}>
+        <div className={activeHeader}>
+          <span className={activeLabel}>STARTUP</span>
+        </div>
+        <SortableBay
+          strips={startupStrips}
+          bayId="STARTUP"
+          standalone={false}
+          className={`h-[15%] ${scrollArea}`}
+        >
+          {(strip) => (
+            <Strip strip={strip} status="PUSH" myPosition={myPosition} selectable={true} />
+          )}
+        </SortableBay>
+
         <div className={activeHeader}>
           <span className={activeLabel}>PUSHBACK</span>
         </div>
@@ -179,7 +198,7 @@ export default function GEGW() {
           strips={pushStrips}
           bayId="PUSHBACK"
           standalone={false}
-          className={`h-[20%] ${scrollArea}`}
+          className={`h-[15%] ${scrollArea}`}
         >
           {(strip) => (
             <Strip strip={strip} status="HALF" halfStripVariant="APN-PUSH" myPosition={myPosition} selectable={true} />

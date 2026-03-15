@@ -31,6 +31,7 @@ var validBays = map[string]bool{
 	shared.BAY_STAND:       true,
 	shared.BAY_HIDDEN:      true,
 	shared.BAY_ARR_HIDDEN:  true,
+	shared.BAY_CONTROLZONE: true,
 }
 
 func handleTokenEvent(ctx context.Context, client *Client, message Message) error {

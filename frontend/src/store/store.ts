@@ -193,32 +193,34 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
         ob: update.ob,
       })
 
-      return produce((state: WebSocketState) => {
-        const stripIndex = state.strips.findIndex(strip => strip.callsign === callsign);
-        if (stripIndex !== -1) {
-          if (update.sid) {
-            state.strips[stripIndex].sid = update.sid;
+      set((state) =>
+        produce(state, (draft: WebSocketState) => {
+          const stripIndex = draft.strips.findIndex(strip => strip.callsign === callsign);
+          if (stripIndex !== -1) {
+            if (update.sid !== undefined) {
+              draft.strips[stripIndex].sid = update.sid;
+            }
+            if (update.eobt !== undefined) {
+              draft.strips[stripIndex].eobt = update.eobt;
+            }
+            if (update.route !== undefined) {
+              draft.strips[stripIndex].route = update.route;
+            }
+            if ("heading" in update) {
+              draft.strips[stripIndex].heading = update.heading;
+            }
+            if (update.altitude !== undefined) {
+              draft.strips[stripIndex].cleared_altitude = update.altitude;
+            }
+            if (update.stand !== undefined) {
+              draft.strips[stripIndex].stand = update.stand;
+            }
+            if (update.ob !== undefined) {
+              draft.strips[stripIndex].ob = update.ob;
+            }
           }
-          if (update.eobt) {
-            state.strips[stripIndex].eobt = update.eobt;
-          }
-          if (update.route) {
-            state.strips[stripIndex].route = update.route;
-          }
-          if (update.heading) {
-            state.strips[stripIndex].heading = update.heading;
-          }
-          if (update.altitude) {
-            state.strips[stripIndex].cleared_altitude = update.altitude;
-          }
-          if (update.stand) {
-            state.strips[stripIndex].stand = update.stand;
-          }
-          if (update.ob !== undefined) {
-            state.strips[stripIndex].ob = update.ob;
-          }
-        }
-      })
+        })
+      );
     },
     updateOrder: (callsign, insertAfter) => set((state) => {
       wsClient.send({type: ActionType.FrontendUpdateOrder, callsign: callsign, insert_after: insertAfter})

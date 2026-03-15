@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { getSimpleAircraftType } from "@/lib/utils";
 import { ArrStandDialog } from "@/components/strip/ArrStandDialog";
+import { HdgSelectDialog } from "@/components/strip/HdgSelectDialog";
 import { SidSelectDialog } from "@/components/strip/SidSelectDialog";
 import { useAvailableSids, useStrip, useWebSocketStore } from "@/store/store-hooks.ts";
 
@@ -89,7 +90,7 @@ export default function FlightPlanDialog({
     if (ssrGenerating) setSsrGenerating(false);
   }
   const [route, setRoute, _routeFocused, setRouteFocused] = useEditableField(strip?.route);
-  const [hdg, setHdg, _hdgFocused, setHdgFocused] = useEditableField(strip?.heading);
+  const [hdgDialogOpen, setHdgDialogOpen] = useState(false);
   const [alt, setAlt, _altFocused, setAltFocused] = useEditableField(strip?.cleared_altitude);
 
   return (
@@ -354,17 +355,19 @@ export default function FlightPlanDialog({
             </div>
             <div className="grid items-center gap-[5px]">
               <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>HDG</Label>
-              <input
-                value={hdg}
-                onChange={(event) => setHdg(event.target.value)}
-                onFocus={() => setHdgFocused(true)}
-                onBlur={() => {
-                  setHdgFocused(false);
-                  updateStrip(callsign, { heading: hdg ? Number(hdg) : undefined });
-                }}
-                onKeyDown={(event) => event.key === "Enter" && updateStrip(callsign, { heading: hdg ? Number(hdg) : undefined })}
+              <button
+                type="button"
+                onClick={() => setHdgDialogOpen(true)}
                 className={CLS_BTN_EDITABLE}
                 style={{ width: 125, fontFamily: FONT_FAMILY, fontSize: FONT_SIZE_FIELD }}
+              >
+                {strip.heading != null ? strip.heading.toString().padStart(3, "0") : ""}
+              </button>
+              <HdgSelectDialog
+                open={hdgDialogOpen}
+                onOpenChange={setHdgDialogOpen}
+                value={strip.heading}
+                onSelect={(heading) => updateStrip(callsign, { heading })}
               />
             </div>
             <div className="grid items-center gap-[5px]">

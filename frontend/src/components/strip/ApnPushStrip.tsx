@@ -65,6 +65,7 @@ export function ApnPushStrip({
   const [apronTaxiOpen, setApronTaxiOpen] = useState(false);
   const [runwayOpen, setRunwayOpen] = useState(false);
   const acknowledgeUnexpectedChange = useWebSocketStore(s => s.acknowledgeUnexpectedChange);
+  const openStripContextMenu = useWebSocketStore(s => s.openStripContextMenu);
   const standYellow = unexpectedChangeFields?.includes("stand");
   const runwayYellow = unexpectedChangeFields?.includes("runway");
 
@@ -77,6 +78,7 @@ export function ApnPushStrip({
         ...getFramedStripStyle(marked),
       }}
       onClick={handleClick}
+      onContextMenu={(e) => { e.preventDefault(); openStripContextMenu(callsign, { x: e.clientX, y: e.clientY }); }}
     >
       <div className="flex text-black" style={{ height: "100%", overflow: "hidden", backgroundColor: COLOR_ARR_STRIP_BG }}>
         {/* SI / ownership — 8% */}

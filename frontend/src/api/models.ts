@@ -145,6 +145,7 @@ export interface FrontendStrip {
   marked: boolean;
   runway_cleared: boolean;
   registration: string;
+  ob?: boolean;
   unexpected_change_fields?: string[];
   controller_modified_fields?: string[];
 }
@@ -484,6 +485,7 @@ export interface FrontendUpdateStripDataEvent {
   altitude?: number;
   stand?: string;
   runway?: string;
+  ob?: boolean;
 }
 
 export interface FrontendUpdateOrder {

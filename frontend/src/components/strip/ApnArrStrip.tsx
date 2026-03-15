@@ -45,6 +45,7 @@ export function ApnArrStrip({
   const [runwayOpen, setRunwayOpen] = useState(false);
   const [standOpen, setStandOpen] = useState(false);
   const acknowledgeUnexpectedChange = useWebSocketStore(s => s.acknowledgeUnexpectedChange);
+  const openStripContextMenu = useWebSocketStore(s => s.openStripContextMenu);
   const standYellow = unexpectedChangeFields?.includes("stand");
   const runwayYellow = unexpectedChangeFields?.includes("runway");
 
@@ -72,6 +73,7 @@ export function ApnArrStrip({
         ...getFlatStripBorderStyle(),
       }}
       onClick={handleClick}
+      onContextMenu={(e) => { e.preventDefault(); openStripContextMenu(callsign, { x: e.clientX, y: e.clientY }); }}
     >
       {/* SI / ownership — 40px */}
       <div

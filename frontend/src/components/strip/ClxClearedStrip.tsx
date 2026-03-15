@@ -68,6 +68,7 @@ export function ClxClearedStrip({
   const stripTransfers = useStripTransfers();
   const cdmReady = useWebSocketStore(s => s.cdmReady);
   const acknowledgeUnexpectedChange = useWebSocketStore(s => s.acknowledgeUnexpectedChange);
+  const openStripContextMenu = useWebSocketStore(s => s.openStripContextMenu);
   const standYellow = unexpectedChangeFields?.includes("stand");
   const { tobtBg, tsatBg } = useCDMColors({ bay: bay ?? Bay.Unknown, tsat: tsat ?? "", tobt: tobt ?? "" });
   const { ctotBg, ctotColor, showCtot } = useCTOTColor(ctot ?? "");
@@ -94,6 +95,7 @@ export function ClxClearedStrip({
         ...getFramedStripStyle(marked),
       }}
       onClick={handleClick}
+      onContextMenu={(e) => { e.preventDefault(); openStripContextMenu(callsign, { x: e.clientX, y: e.clientY }); }}
     >
       <div
         className={`flex ${isNavyBg ? "text-white" : "text-black"}${blinkOn ? " pdc-cleared-blink" : ""}`}

@@ -55,6 +55,7 @@ export function FinalArrStrip({
   const cellBorderColor = getCellBorderColor(marked, CELL_BORDER);
   const stripTransfers = useStripTransfers();
   const runwayClearance = useWebSocketStore(s => s.runwayClearance);
+  const openStripContextMenu = useWebSocketStore(s => s.openStripContextMenu);
   const allStrips = useStrips();
   const [standOpen, setStandOpen] = useState(false);
 
@@ -81,6 +82,7 @@ export function FinalArrStrip({
         ...getFlatStripBorderStyle(),
       }}
       onClick={handleClick}
+      onContextMenu={(e) => { e.preventDefault(); openStripContextMenu(callsign, { x: e.clientX, y: e.clientY }); }}
     >
       {/* SI / ownership — 40px (fills via SIBox flex-grow) */}
       <SIBox

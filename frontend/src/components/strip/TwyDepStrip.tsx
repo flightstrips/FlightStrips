@@ -70,6 +70,7 @@ export function TwyDepStrip({
   const [showHpMap, setShowHpMap] = useState(false);
   const runwayClearance = useWebSocketStore(s => s.runwayClearance);
   const acknowledgeUnexpectedChange = useWebSocketStore(s => s.acknowledgeUnexpectedChange);
+  const openStripContextMenu = useWebSocketStore(s => s.openStripContextMenu);
   const allStrips = useStrips();
   const standYellow = unexpectedChangeFields?.includes("stand");
   const releasePointYellow = unexpectedChangeFields?.includes("release_point");
@@ -120,6 +121,7 @@ export function TwyDepStrip({
         ...getFlatStripBorderStyle({ borderBottom: "1px solid white" }),
       }}
       onClick={handleClick}
+      onContextMenu={(e) => { e.preventDefault(); openStripContextMenu(callsign, { x: e.clientX, y: e.clientY }); }}
     >
       {/* SI / ownership — 40px */}
       <SIBox

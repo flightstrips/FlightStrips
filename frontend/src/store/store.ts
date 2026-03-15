@@ -50,6 +50,7 @@ export interface UpdateStrip {
   heading?: number;
   altitude?: number;
   stand?: string;
+  ob?: boolean;
 }
 
 export interface BroadcastNotification {
@@ -83,6 +84,10 @@ export interface WebSocketState {
   setDisplayedLayout: (layout: string) => void;
   setLayoutChooserOpen: (open: boolean) => void;
 
+  contextMenu: { callsign: string; x: number; y: number } | null;
+  openStripContextMenu: (callsign: string, pos: { x: number; y: number }) => void;
+  closeStripContextMenu: () => void;
+
   // actions
   move: (callsign: string, bay: Bay) => void;
   generateSquawk: (callsign: string) => void;
@@ -95,6 +100,7 @@ export interface WebSocketState {
   revertToVoice: (callsign: string) => void;
   transferStrip: (callsign: string, toPosition: string) => void;
   assumeStrip: (callsign: string) => void;
+  forceAssumeStrip: (callsign: string) => void;
   freeStrip: (callsign: string) => void;
   cancelTransfer: (callsign: string) => void;
   toggleMarked: (callsign: string, marked: boolean) => void;
@@ -135,7 +141,8 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     messages: [],
     broadcastNotifications: [],
     metar: "",
-    selectedCallsign: null
+    selectedCallsign: null,
+    contextMenu: null
   };
 
   // Create the store
@@ -144,6 +151,8 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     selectStrip: (callsign) => set({ selectedCallsign: callsign }),
     setDisplayedLayout: (layout) => set({ displayedLayout: layout }),
     setLayoutChooserOpen: (open) => set({ layoutChooserOpen: open }),
+    openStripContextMenu: (callsign, pos) => set({ contextMenu: { callsign, x: pos.x, y: pos.y } }),
+    closeStripContextMenu: () => set({ contextMenu: null }),
     move: (callsign, bay) => set((state) => {
         wsClient.send({type: ActionType.FrontendMove, callsign, bay})
 
@@ -177,6 +186,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
         heading: update.heading,
         altitude: update.altitude,
         stand: update.stand,
+        ob: update.ob,
       })
 
       return produce((state: WebSocketState) => {
@@ -199,6 +209,9 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
           }
           if (update.stand) {
             state.strips[stripIndex].stand = update.stand;
+          }
+          if (update.ob !== undefined) {
+            state.strips[stripIndex].ob = update.ob;
           }
         }
       })
@@ -295,6 +308,10 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
       });
     },
     assumeStrip: (callsign) => {
+      wsClient.send({ type: ActionType.FrontendCoordinationAssumeRequest, callsign });
+    },
+    // forceAssumeStrip: takes ownership of an unowned strip (Task 045 will extend this)
+    forceAssumeStrip: (callsign) => {
       wsClient.send({ type: ActionType.FrontendCoordinationAssumeRequest, callsign });
     },
     freeStrip: (callsign) => {

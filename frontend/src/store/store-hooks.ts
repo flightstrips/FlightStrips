@@ -72,3 +72,6 @@ export const useIsTwr = () =>
 
 export const useLayoutChooserOpen = () => useWebSocketStore((state) => state.layoutChooserOpen);
 export const useSetLayoutChooserOpen = () => useWebSocketStore((state) => state.setLayoutChooserOpen);
+export const useContextMenu = () => useWebSocketStore((state) => state.contextMenu);
+export const useOpenStripContextMenu = () => useWebSocketStore((state) => state.openStripContextMenu);
+export const useCloseStripContextMenu = () => useWebSocketStore((state) => state.closeStripContextMenu);

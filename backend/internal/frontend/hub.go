@@ -515,6 +515,10 @@ func (hub *Hub) SendBayEvent(session int32, callsign string, bay string, sequenc
 	hub.Broadcast(session, event)
 }
 
+func (hub *Hub) SendBulkBayEvent(session int32, bay string, strips []frontend.BulkBayEntry) {
+	hub.Broadcast(session, frontend.BulkBayEvent{Bay: bay, Strips: strips})
+}
+
 func (hub *Hub) SendAircraftDisconnect(session int32, callsign string) {
 	event := frontend.AircraftDisconnectEvent{
 		Callsign: callsign,

@@ -73,6 +73,10 @@ func (m *FrontendHub) SendBayEvent(session int32, callsign string, bay string, s
 	m.Called(session, callsign, bay, sequence)
 }
 
+func (m *FrontendHub) SendBulkBayEvent(session int32, bay string, strips []frontend.BulkBayEntry) {
+	m.Called(session, bay, strips)
+}
+
 func (m *FrontendHub) SendAircraftDisconnect(session int32, callsign string) {
 	m.Called(session, callsign)
 }

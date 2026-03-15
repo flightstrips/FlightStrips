@@ -27,6 +27,7 @@ const (
 	RequestedAltitude  EventType = "requested_altitude"
 	ClearedAltitude    EventType = "cleared_altitude"
 	Bay                EventType = "bay"
+	BulkBay            EventType = "bulk_bay"
 	Disconnect         EventType = "disconnect"
 	AircraftDisconnect EventType = "aircraft_disconnect"
 	Stand              EventType = "stand"
@@ -289,6 +290,27 @@ func (b BayEvent) Marshal() ([]byte, error) {
 
 func (b BayEvent) GetType() EventType {
 	return Bay
+}
+
+// BulkBayEntry holds the sequence update for a single flight strip in a BulkBayEvent.
+type BulkBayEntry struct {
+	Callsign string `json:"callsign"`
+	Sequence int32  `json:"sequence"`
+}
+
+// BulkBayEvent broadcasts a batch of sequence updates for strips in a single bay atomically,
+// preventing temporary ordering inconsistencies on the frontend when many strips are recalculated.
+type BulkBayEvent struct {
+	Bay    string         `json:"bay"`
+	Strips []BulkBayEntry `json:"strips"`
+}
+
+func (b BulkBayEvent) Marshal() ([]byte, error) {
+	return marshall(b)
+}
+
+func (b BulkBayEvent) GetType() EventType {
+	return BulkBay
 }
 
 type DisconnectEvent struct{}

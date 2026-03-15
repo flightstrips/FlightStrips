@@ -603,12 +603,12 @@ func (s *StripService) recalculateFlightStripsOnly(ctx context.Context, session 
 		return fmt.Errorf("failed to list strip sequences: %w", err)
 	}
 
-	callsigns := make([]string, len(sequences))
-	seqs := make([]int32, len(sequences))
-	for i, seq := range sequences {
+	callsigns := make([]string, 0, len(sequences))
+	seqs := make([]int32, 0, len(sequences))
+	for _, seq := range sequences {
 		if seq.Sequence != nil {
-			callsigns[i] = seq.Callsign
-			seqs[i] = *seq.Sequence
+			callsigns = append(callsigns, seq.Callsign)
+			seqs = append(seqs, *seq.Sequence)
 		}
 	}
 
@@ -625,10 +625,13 @@ func (s *StripService) sendBulkSequenceUpdate(session int32, callsigns []string,
 		return
 	}
 
+	// Send a single atomic bulk event so all frontends apply all sequence changes
+	// in one setState call, preventing transient ordering inconsistencies.
+	entries := make([]frontend.BulkBayEntry, len(callsigns))
 	for i, callsign := range callsigns {
-		seq := sequences[i]
-		s.frontendHub.SendBayEvent(session, callsign, bay, seq)
+		entries[i] = frontend.BulkBayEntry{Callsign: callsign, Sequence: sequences[i]}
 	}
+	s.frontendHub.SendBulkBayEvent(session, bay, entries)
 }
 
 // ClearStrip moves strip to cleared bay and notifies EuroScope to set cleared flag

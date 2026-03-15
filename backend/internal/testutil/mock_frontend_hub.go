@@ -78,12 +78,20 @@ type StripUpdateCall struct {
 	Callsign string
 }
 
+// BulkBayCall records arguments to SendBulkBayEvent.
+type BulkBayCall struct {
+	Session int32
+	Bay     string
+	Strips  []frontend.BulkBayEntry
+}
+
 // MockFrontendHub is a configurable mock for shared.FrontendHub.
 // It records calls for assertion in tests.
 type MockFrontendHub struct {
 	server shared.Server
 
 	BayEvents             []BayEventCall
+	BulkBayEvents         []BulkBayCall
 	OwnersUpdates         []OwnersUpdateCall
 	CoordinationTransfers []CoordinationTransferCall
 	CoordinationAssumes   []CoordinationAssumeCall
@@ -133,6 +141,10 @@ func (m *MockFrontendHub) SendClearedAltitudeEvent(session int32, callsign strin
 
 func (m *MockFrontendHub) SendBayEvent(session int32, callsign string, bay string, sequence int32) {
 	m.BayEvents = append(m.BayEvents, BayEventCall{session, callsign, bay, sequence})
+}
+
+func (m *MockFrontendHub) SendBulkBayEvent(session int32, bay string, strips []frontend.BulkBayEntry) {
+	m.BulkBayEvents = append(m.BulkBayEvents, BulkBayCall{session, bay, strips})
 }
 
 func (m *MockFrontendHub) SendAircraftDisconnect(session int32, callsign string) {

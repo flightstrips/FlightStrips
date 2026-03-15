@@ -7,7 +7,7 @@ import {
   type ActionRejectedEvent,
   type FrontendAircraftDisconnectEvent,
   type FrontendAssignedSquawkEvent,
-  type FrontendBayEvent, type FrontendBroadcastEvent, type FrontendCdmDataEvent, type FrontendCdmWaitEvent,
+  type FrontendBayEvent, type FrontendBroadcastEvent, type FrontendBulkBayEvent, type FrontendCdmDataEvent, type FrontendCdmWaitEvent,
   type FrontendClearedAltitudeEvent,
   type FrontendCommunicationTypeEvent,
   type FrontendController,
@@ -566,6 +566,25 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     );
   };
 
+  // Handle all sequence updates for a bay in a single setState call to prevent
+  // transient ordering inconsistencies when strips are recalculated in bulk.
+  const handleBulkBayEvent = (data: FrontendBulkBayEvent) => {
+    store.setState(
+      produce((state: WebSocketState) => {
+        for (const entry of data.strips) {
+          const stripIndex = state.strips.findIndex(s => s.callsign === entry.callsign);
+          if (stripIndex !== -1) {
+            state.strips[stripIndex].bay = data.bay;
+            state.strips[stripIndex].sequence = entry.sequence;
+          }
+          if (state.selectedCallsign === entry.callsign) {
+            state.selectedCallsign = null;
+          }
+        }
+      })
+    );
+  };
+
   const handleDisconnectEvent = () => {
     store.setState({...initialState})
   }
@@ -811,6 +830,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
   wsClient.on(EventType.FrontendRequestedAltitude, handleRequestedAltitudeEvent);
   wsClient.on(EventType.FrontendClearedAltitude, handleClearedAltitudeEvent);
   wsClient.on(EventType.FrontendBay, handleBayEvent);
+  wsClient.on(EventType.FrontendBulkBay, handleBulkBayEvent);
   wsClient.on(EventType.FrontendDisconnect, handleDisconnectEvent);
   wsClient.on(EventType.FrontendAircraftDisconnect, handleAircraftDisconnectEvent);
   wsClient.on(EventType.FrontendStand, handleStandEvent);

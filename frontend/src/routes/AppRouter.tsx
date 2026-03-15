@@ -1,4 +1,3 @@
-import { useEffect } from "react";
 import { useWebSocketStore } from "@/store/store-hooks";
 import EKCHDEL from "@/routes/ekch/CLX";
 import EKCHAAAD from "@/routes/ekch/AAAD";
@@ -17,16 +16,8 @@ const LAYOUT_MAP: Record<string, React.ComponentType> = {
 
 export default function AppRouter() {
   const displayedLayout = useWebSocketStore((s) => s.displayedLayout);
-  const setLayoutChooserOpen = useWebSocketStore((s) => s.setLayoutChooserOpen);
   const Component = LAYOUT_MAP[displayedLayout];
 
-  useEffect(() => {
-    if (!Component) {
-      setLayoutChooserOpen(true);
-    }
-  }, [Component, setLayoutChooserOpen]);
-
-  // No valid layout is active — force the controller to choose before proceeding.
   if (!Component) {
     return <ChooseLayoutScreen />;
   }

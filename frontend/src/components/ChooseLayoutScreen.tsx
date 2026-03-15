@@ -23,20 +23,26 @@ export default function ChooseLayoutScreen() {
   }
 
   return (
-    <div className="w-screen h-screen fixed inset-0 z-50 flex items-center justify-center bg-primary">
-      <div className="bg-[#b3b3b3] p-6 border-2 border-black w-72">
-        <h2 className="text-black font-bold text-lg mb-4 text-center">SELECT VIEW</h2>
-        <div className="grid grid-cols-2 gap-2">
-          {EKCH_SCOPES.map((scope) => (
-            <Button
-              key={scope.layout}
-              variant="trf"
-              className="font-normal text-base h-fit py-3"
-              onClick={() => handleSelect(scope.layout)}
-            >
-              {scope.label}
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-primary">
+      <div className="bg-[#b3b3b3] border border-border shadow-lg w-[300px]">
+        <div className="border-2 border-black">
+          <div className="flex justify-center w-full h-14">
+            <Button variant="darkaction" className="w-full rounded-none" disabled>
+              SELECT VIEW
             </Button>
-          ))}
+          </div>
+          <div className="grid grid-cols-2 gap-2 p-2">
+            {EKCH_SCOPES.map((scope) => (
+              <Button
+                key={scope.layout}
+                variant="trf"
+                className="font-normal text-base h-fit py-3"
+                onClick={() => handleSelect(scope.layout)}
+              >
+                {scope.label}
+              </Button>
+            ))}
+          </div>
         </div>
       </div>
     </div>

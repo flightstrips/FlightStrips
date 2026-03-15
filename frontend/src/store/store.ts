@@ -4,6 +4,7 @@ import {
   ActionType,
   Bay,
   EventType,
+  type ActionRejectedEvent,
   type FrontendAircraftDisconnectEvent,
   type FrontendAssignedSquawkEvent,
   type FrontendBayEvent, type FrontendBroadcastEvent, type FrontendCdmDataEvent, type FrontendCdmWaitEvent,
@@ -840,6 +841,14 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
   };
 
   wsClient.on(EventType.FrontendAtisUpdate, handleAtisUpdateEvent);
+
+  const handleActionRejectedEvent = (_data: ActionRejectedEvent) => {
+    // Reconnect to receive a fresh initial event from the server,
+    // which overwrites any optimistic updates that were rejected.
+    wsClient.reconnect();
+  };
+
+  wsClient.on(EventType.FrontendActionRejected, handleActionRejectedEvent);
 
   return store;
 };

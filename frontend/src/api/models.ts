@@ -32,6 +32,7 @@ export enum EventType {
   FrontendTacticalStripMoved = "tactical_strip_moved",
   FrontendMessageReceived = "message_received",
   FrontendAtisUpdate = "atis_update",
+  FrontendActionRejected = "action_rejected",
 }
 
 export enum ActionType {
@@ -462,7 +463,14 @@ export type WebSocketEvent =
   | FrontendTacticalStripUpdatedEvent
   | FrontendTacticalStripMovedEvent
   | FrontendMessageReceivedEvent
-  | FrontendAtisUpdateEvent;
+  | FrontendAtisUpdateEvent
+  | ActionRejectedEvent;
+
+export interface ActionRejectedEvent {
+  type: EventType.FrontendActionRejected;
+  action: string;
+  reason: string;
+}
 
 export interface FrontendMoveEvent {
   type: ActionType.FrontendMove;

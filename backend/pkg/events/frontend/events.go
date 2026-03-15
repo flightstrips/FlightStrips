@@ -78,6 +78,9 @@ const (
 	TacticalStripDeleted EventType = "tactical_strip_deleted"
 	TacticalStripUpdated EventType = "tactical_strip_updated"
 	TacticalStripMoved   EventType = "tactical_strip_moved"
+
+	// Sent to the originating client when a frontend action is rejected by the backend
+	ActionRejected EventType = "action_rejected"
 )
 
 type OutgoingMessage interface {
@@ -719,3 +722,11 @@ type AtisUpdateEvent struct {
 
 func (a AtisUpdateEvent) Marshal() ([]byte, error) { return marshall(a) }
 func (a AtisUpdateEvent) GetType() EventType       { return AtisUpdate }
+
+type ActionRejectedEvent struct {
+	Action string `json:"action"` // the action type string that was rejected
+	Reason string `json:"reason"` // human-readable reason
+}
+
+func (e ActionRejectedEvent) Marshal() ([]byte, error) { return marshall(e) }
+func (e ActionRejectedEvent) GetType() EventType       { return ActionRejected }

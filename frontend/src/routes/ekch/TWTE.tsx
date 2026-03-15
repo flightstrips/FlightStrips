@@ -178,6 +178,7 @@ export default function TWTE() {
         <SortableBay
           strips={finalStrips}
           bayId="FINAL"
+          isDragDisabled={(strip) => isFlight(strip) && !!strip.owner && strip.owner !== myPosition}
           standalone={false}
           className={`h-[35%] ${scrollAreaBottom}`}
         >
@@ -198,6 +199,7 @@ export default function TWTE() {
         <SortableBay
           strips={rwyArrStrips}
           bayId="RWY-ARR"
+          isDragDisabled={(strip) => isFlight(strip) && !!strip.owner && strip.owner !== myPosition}
           standalone={false}
           className={`h-[20%] ${darkScrollAreaBottom}`}
         >
@@ -218,6 +220,7 @@ export default function TWTE() {
         <SortableBay
           strips={twyArrStrips}
           bayId="TWY-ARR"
+          isDragDisabled={(strip) => isFlight(strip) && !!strip.owner && strip.owner !== myPosition}
           standalone={false}
           className={`flex-1 ${scrollAreaBottom}`}
         >
@@ -242,6 +245,7 @@ export default function TWTE() {
         <SortableBay
           strips={twyDepDesc}
           bayId="TWY-DEP"
+          isDragDisabled={(strip) => isFlight(strip) && !!strip.owner && strip.owner !== myPosition}
           standalone={false}
           className={`h-[35%] ${scrollAreaBottom}`}
         >
@@ -261,6 +265,7 @@ export default function TWTE() {
         <SortableBay
           strips={rwyDepDesc}
           bayId="RWY-DEP"
+          isDragDisabled={(strip) => isFlight(strip) && !!strip.owner && strip.owner !== myPosition}
           standalone={false}
           className={`h-[20%] ${darkScrollAreaBottom}`}
         >
@@ -275,6 +280,7 @@ export default function TWTE() {
         <SortableBay
           strips={airborneDesc}
           bayId="AIRBORNE"
+          isDragDisabled={(strip) => isFlight(strip) && !!strip.owner && strip.owner !== myPosition}
           standalone={false}
           className={`flex-1 ${scrollAreaBottom}`}
         >
@@ -325,6 +331,7 @@ export default function TWTE() {
         <SortableBay
           strips={controlzoneStrips}
           bayId="CONTROLZONE"
+          isDragDisabled={(strip) => isFlight(strip) && !!strip.owner && strip.owner !== myPosition}
           standalone={false}
           className={`h-[35%] ${scrollArea}`}
         >
@@ -337,6 +344,7 @@ export default function TWTE() {
         <SortableBay
           strips={pushStrips}
           bayId="PUSHBACK"
+          isDragDisabled={(strip) => isFlight(strip) && !!strip.owner && strip.owner !== myPosition}
           standalone={false}
           className={`h-[35%] ${scrollArea}`}
         >
@@ -386,6 +394,7 @@ export default function TWTE() {
         <SortableBay
           strips={deIceStrips}
           bayId="DE-ICE"
+          isDragDisabled={(strip) => isFlight(strip) && !!strip.owner && strip.owner !== myPosition}
           standalone={false}
           className={`h-[25%] ${scrollArea}`}
         >
@@ -398,6 +407,7 @@ export default function TWTE() {
         <SortableBay
           strips={standStrips}
           bayId="STAND"
+          isDragDisabled={(strip) => isFlight(strip) && !!strip.owner && strip.owner !== myPosition}
           standalone={false}
           className={`flex-1 ${scrollArea}`}
         >

@@ -34,6 +34,8 @@ interface SortableBayProps {
    * When false, relies on a parent ViewDndContext; bayId must be provided.
    */
   standalone?: boolean;
+  /** Optional predicate; when it returns true the strip's drag handle is disabled. */
+  isDragDisabled?: (strip: AnyStrip) => boolean;
 }
 
 export function SortableBay({
@@ -43,6 +45,7 @@ export function SortableBay({
   className,
   bayId,
   standalone = true,
+  isDragDisabled,
 }: SortableBayProps) {
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
@@ -83,7 +86,7 @@ export function SortableBay({
         <SortableContext items={sortableItems} strategy={verticalListSortingStrategy}>
           <div className={className}>
             {strips.map(s => (
-              <SortableStrip key={stripDndId(s)} callsign={stripDndId(s)}>
+              <SortableStrip key={stripDndId(s)} callsign={stripDndId(s)} dragDisabled={isDragDisabled?.(s)}>
                 {children(s)}
               </SortableStrip>
             ))}
@@ -99,7 +102,7 @@ export function SortableBay({
     <SortableContext items={sortableItems} strategy={verticalListSortingStrategy}>
       <DroppableContainer bayId={bayId!} isEmpty={strips.length === 0} className={className}>
         {strips.map(s => (
-          <SortableStrip key={stripDndId(s)} callsign={stripDndId(s)} hideWhenDragging bayId={bayId}>
+          <SortableStrip key={stripDndId(s)} callsign={stripDndId(s)} hideWhenDragging bayId={bayId} dragDisabled={isDragDisabled?.(s)}>
             {children(s)}
           </SortableStrip>
         ))}
@@ -209,20 +212,25 @@ export function SortableStrip({
   children,
   hideWhenDragging = false,
   bayId,
+  dragDisabled = false,
 }: {
   callsign: string;
   children: ReactNode;
   hideWhenDragging?: boolean;
   bayId?: string;
+  /** When true, dragging is disabled for this strip (e.g. owned by another controller). */
+  dragDisabled?: boolean;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: callsign,
     data: bayId != null ? { bayId } : undefined,
+    disabled: dragDisabled,
   });
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? (hideWhenDragging ? 0 : 0.5) : 1,
+    cursor: dragDisabled ? "not-allowed" : undefined,
   };
   return (
     <div ref={setNodeRef} style={style} {...attributes} {...listeners}>

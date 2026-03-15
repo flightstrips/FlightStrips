@@ -88,6 +88,20 @@ func handleMove(ctx context.Context, client *Client, message Message) error {
 		return err
 	}
 
+	// Ownership enforcement: reject the move if the strip is owned by someone else,
+	// unless the target bay is an arrival bay (FINAL/RWY_ARR/TWY_ARR) or the client
+	// holds an active coordination transfer for this strip.
+	if strip.Owner != nil && *strip.Owner != "" && *strip.Owner != client.position {
+		isArrivalBay := move.Bay == shared.BAY_FINAL || move.Bay == shared.BAY_RWY_ARR || move.Bay == shared.BAY_TWY_ARR
+		if !isArrivalBay {
+			coordRepo := client.hub.server.GetCoordinationRepository()
+			coord, coordErr := coordRepo.GetByStripCallsign(ctx, client.session, move.Callsign)
+			if coordErr != nil || coord == nil || coord.ToPosition != client.position {
+				return errors.New("not authorized: strip is owned by another controller")
+			}
+		}
+	}
+
 	if strip.Bay == move.Bay {
 		return nil
 	}

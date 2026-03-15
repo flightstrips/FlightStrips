@@ -183,6 +183,7 @@ export default function GEGW() {
         <SortableBay
           strips={startupStrips}
           bayId="STARTUP"
+          isDragDisabled={(strip) => isFlight(strip) && !!strip.owner && strip.owner !== myPosition}
           standalone={false}
           className={`h-[15%] ${scrollArea}`}
         >
@@ -197,6 +198,7 @@ export default function GEGW() {
         <SortableBay
           strips={pushStrips}
           bayId="PUSHBACK"
+          isDragDisabled={(strip) => isFlight(strip) && !!strip.owner && strip.owner !== myPosition}
           standalone={false}
           className={`h-[15%] ${scrollArea}`}
         >
@@ -217,6 +219,7 @@ export default function GEGW() {
         <SortableBay
           strips={twyDepUpr}
           bayId="TWY-DEP-UPR"
+          isDragDisabled={(strip) => isFlight(strip) && !!strip.owner && strip.owner !== myPosition}
           standalone={false}
           className={`h-[35%] ${scrollArea}`}
         >
@@ -231,6 +234,7 @@ export default function GEGW() {
         <SortableBay
           strips={twyDepLwr}
           bayId="TWY-DEP-LWR"
+          isDragDisabled={(strip) => isFlight(strip) && !!strip.owner && strip.owner !== myPosition}
           standalone={false}
           className={`flex-1 ${scrollArea}`}
         >
@@ -260,6 +264,7 @@ export default function GEGW() {
         <SortableBay
           strips={standStrips}
           bayId="STAND"
+          isDragDisabled={(strip) => isFlight(strip) && !!strip.owner && strip.owner !== myPosition}
           standalone={false}
           className={`flex-1 ${scrollArea}`}
         >

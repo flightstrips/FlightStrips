@@ -199,6 +199,7 @@ export default function AAAD() {
         <SortableBay
           strips={twyDepUpr}
           bayId="TWY-DEP-UPR"
+          isDragDisabled={(strip) => isFlight(strip) && !!strip.owner && strip.owner !== myPosition}
           standalone={false}
           className={`h-[30%] ${scrollArea}`}
         >
@@ -223,6 +224,7 @@ export default function AAAD() {
         <SortableBay
           strips={twyDepLwr}
           bayId="TWY-DEP-LWR"
+          isDragDisabled={(strip) => isFlight(strip) && !!strip.owner && strip.owner !== myPosition}
           standalone={false}
           className={`h-[30%] ${scrollArea}`}
         >
@@ -241,6 +243,7 @@ export default function AAAD() {
           <SortableBay
             strips={twyArrStrips}
             bayId="TWY-ARR"
+            isDragDisabled={(strip) => isFlight(strip) && !!strip.owner && strip.owner !== myPosition}
             standalone={false}
           >
             {(strip) => (
@@ -260,6 +263,7 @@ export default function AAAD() {
         <SortableBay
           strips={startupStrips}
           bayId="STARTUP"
+          isDragDisabled={(strip) => isFlight(strip) && !!strip.owner && strip.owner !== myPosition}
           standalone={false}
           className={`h-[40%] ${scrollArea}`}
         >
@@ -274,6 +278,7 @@ export default function AAAD() {
         <SortableBay
           strips={pushStrips}
           bayId="PUSHBACK"
+          isDragDisabled={(strip) => isFlight(strip) && !!strip.owner && strip.owner !== myPosition}
           standalone={false}
           className={`h-[30%] ${scrollArea}`}
         >
@@ -288,6 +293,7 @@ export default function AAAD() {
         <SortableBay
           strips={deIceStrips}
           bayId="DE-ICE"
+          isDragDisabled={(strip) => isFlight(strip) && !!strip.owner && strip.owner !== myPosition}
           standalone={false}
           className={`flex-1 ${scrollArea}`}
         >

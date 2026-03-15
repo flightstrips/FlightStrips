@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.8.3](https://github.com/flightstrips/FlightStrips/compare/backend/v0.8.2...backend/v0.8.3) (2026-03-15)
+
+
+### Bug Fixes
+
+* departure getting wrong bay ([a7a9e01](https://github.com/flightstrips/FlightStrips/commit/a7a9e013eb6b74b9dad0c77e9f9134412f6a2e4c))
+* Vatsim auth ([95993da](https://github.com/flightstrips/FlightStrips/commit/95993da6755b263eb18c3b75fec1ccb3c6120302))
+
 ## [0.8.2](https://github.com/flightstrips/FlightStrips/compare/backend/v0.8.1...backend/v0.8.2) (2026-03-14)
 
 

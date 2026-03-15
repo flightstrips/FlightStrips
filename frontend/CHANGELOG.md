@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.12.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.11.1...frontend/v0.12.0) (2026-03-15)
+
+
+### Features
+
+* Added sid selection mockup in flightplan view ([374574d](https://github.com/flightstrips/FlightStrips/commit/374574dbbb9566ea7d2dfccdad34d42189dc777c))
+* Added UX feedback for new SSR codes ([f22f4c3](https://github.com/flightstrips/FlightStrips/commit/f22f4c35279ef8c10c4372eb1e3d5e4018bb348a))
+* flightplan dialog, stand change is now possible ([bc73d65](https://github.com/flightstrips/FlightStrips/commit/bc73d657eaa3d863fa8812e4105d8db2d88d72f9))
+* refactored ATIS ([c2a2fa2](https://github.com/flightstrips/FlightStrips/commit/c2a2fa2a8fd42580ce4a15730f401b330acac93f))
+
+
+### Bug Fixes
+
+* refactor sid selector ([10bbfe5](https://github.com/flightstrips/FlightStrips/commit/10bbfe5a2a11c13e03a49f8bfe970201c451a7c8))
+* Runway dialog box fonts ([4a4cc30](https://github.com/flightstrips/FlightStrips/commit/4a4cc3026652393bcd69dd0b0af7f349274c22c8))
+
 ## [0.11.1](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.11.0...frontend/v0.11.1) (2026-03-15)
 
 

@@ -80,6 +80,8 @@ export interface WebSocketState {
   broadcastNotifications: BroadcastNotification[];
   metar: string;
 
+  connectionRejectedReason: string | null;
+
   selectedCallsign: string | null;
   selectStrip: (callsign: string | null) => void;
   setDisplayedLayout: (layout: string) => void;
@@ -142,6 +144,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     messages: [],
     broadcastNotifications: [],
     metar: "",
+    connectionRejectedReason: null,
     selectedCallsign: null,
     contextMenu: null
   };
@@ -849,6 +852,11 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
   };
 
   wsClient.on(EventType.FrontendActionRejected, handleActionRejectedEvent);
+
+  wsClient.on(EventType.ConnectRejected, (data) => {
+    store.setState({ connectionRejectedReason: data.reason });
+    wsClient.disconnect();
+  });
 
   return store;
 };

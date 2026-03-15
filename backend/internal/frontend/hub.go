@@ -159,6 +159,24 @@ func (hub *Hub) HandleNewConnection(conn *gorilla.Conn, user shared.Authenticate
 		callsign = controller.Callsign
 	}
 
+	// Gate: reject the connection if no EuroScope client is currently online for this airport.
+	// Clients waiting for an ES connection (airport == "") are allowed through without checking.
+	if airport != WaitingForEuroscopeConnectionAirport {
+		esHub := hub.server.GetEuroscopeHub()
+		if esHub != nil && !esHub.HasActiveClientForAirport(airport) {
+			slog.Info("Rejecting frontend connection: no EuroScope client online",
+				slog.String("cid", user.GetCid()),
+				slog.String("airport", airport),
+			)
+			rejection := frontend.ConnectRejectedEvent{Reason: "no EuroScope client connected"}
+			if data, err := rejection.Marshal(); err == nil {
+				_ = conn.WriteMessage(gorilla.TextMessage, data)
+			}
+			_ = conn.Close()
+			return nil, errors.New("no EuroScope client connected for airport: " + airport)
+		}
+	}
+
 	// Create and return the client
 	client := &Client{
 		conn:     conn,

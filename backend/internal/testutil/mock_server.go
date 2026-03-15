@@ -10,6 +10,7 @@ import (
 // MockServer is a configurable mock for shared.Server.
 type MockServer struct {
 	FrontendHubVal    shared.FrontendHub
+	EuroscopeHubVal   shared.EuroscopeHub
 	CoordRepoVal      repository.CoordinationRepository
 	ControllerRepoVal repository.ControllerRepository
 	SessionRepoVal    repository.SessionRepository
@@ -23,7 +24,7 @@ type MockServer struct {
 
 func (m *MockServer) GetDatabasePool() *pgxpool.Pool { return nil }
 
-func (m *MockServer) GetEuroscopeHub() shared.EuroscopeHub { return nil }
+func (m *MockServer) GetEuroscopeHub() shared.EuroscopeHub { return m.EuroscopeHubVal }
 
 func (m *MockServer) GetFrontendHub() shared.FrontendHub { return m.FrontendHubVal }
 

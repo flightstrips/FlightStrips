@@ -2,9 +2,10 @@ import {
   ActionType,
   EventType,
   type ActionRejectedEvent,
+  type ConnectRejectedEvent,
   type FrontendAircraftDisconnectEvent,
   type FrontendAssignedSquawkEvent,
-  type FrontendBayEvent, type FrontendBroadcastEvent, type FrontendCdmDataEvent, type FrontendCdmWaitEvent,
+  type FrontendBayEvent, type FrontendBroadcastEvent, type FrontendBulkBayEvent, type FrontendCdmDataEvent, type FrontendCdmWaitEvent,
   type FrontendClearedAltitudeEvent,
   type FrontendCommunicationTypeEvent,
   type FrontendControllerOfflineEvent,
@@ -45,6 +46,7 @@ type EventMap = {
   [EventType.FrontendRequestedAltitude]: FrontendRequestedAltitudeEvent;
   [EventType.FrontendClearedAltitude]: FrontendClearedAltitudeEvent;
   [EventType.FrontendBay]: FrontendBayEvent;
+  [EventType.FrontendBulkBay]: FrontendBulkBayEvent;
   [EventType.FrontendDisconnect]: FrontendDisconnectEvent;
   [EventType.FrontendAircraftDisconnect]: FrontendAircraftDisconnectEvent;
   [EventType.FrontendStand]: FrontendStandEvent;
@@ -70,6 +72,7 @@ type EventMap = {
   [EventType.FrontendMessageReceived]: FrontendMessageReceivedEvent;
   [EventType.FrontendAtisUpdate]: FrontendAtisUpdateEvent;
   [EventType.FrontendActionRejected]: ActionRejectedEvent;
+  [EventType.ConnectRejected]: ConnectRejectedEvent;
 };
 
 type WebSocketClientDelegate = {

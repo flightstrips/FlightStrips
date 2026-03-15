@@ -6,6 +6,7 @@ import (
 
 type EuroscopeHub interface {
 	ServerInjectable
+	HasActiveClientForAirport(airport string) bool
 	Broadcast(session int32, message euroscope.OutgoingMessage)
 	Send(session int32, cid string, message euroscope.OutgoingMessage)
 	SendGenerateSquawk(session int32, cid string, callsign string)

@@ -13,6 +13,19 @@ export const WebSocketStoreProvider = ({ children, wsClient }: WebSocketStorePro
   const [store] = useState(() => createWebSocketStore(wsClient));
 
   const initialized = useStore(store, state => state.isInitialized);
+  const connectionRejectedReason = useStore(store, state => state.connectionRejectedReason);
+
+  if (connectionRejectedReason) {
+    return (
+      <div className="w-screen min-h-svh flex flex-col justify-center items-center bg-red-800 text-white">
+        <div className="flex flex-col items-center gap-4">
+          <span className="text-4xl font-bold">Connection Rejected</span>
+          <span className="text-xl">{connectionRejectedReason}</span>
+          <span className="text-sm text-red-200">Start EuroScope and reconnect to continue.</span>
+        </div>
+      </div>
+    );
+  }
 
   if (!initialized) {
     return (

@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { getSimpleAircraftType } from "@/lib/utils";
 import StandDialog from "@/components/stand/StandDialog";
+import { SidSelectDialog } from "@/components/strip/SidSelectDialog";
 import { useStrip, useWebSocketStore } from "@/store/store-hooks.ts";
 
 const FONT_FAMILY = "Arial";
@@ -72,7 +73,7 @@ export default function FlightPlanDialog({
   const dialogOpen = open ?? internalOpen;
   const setDialogOpen = onOpenChange ?? setInternalOpen;
 
-  const [sid, setSid, _sidFocused, setSidFocused] = useEditableField(strip?.sid);
+  const [sidDialogOpen, setSidDialogOpen] = useState(false);
   const [eobt, setEobt, _eobtFocused, setEobtFocused] = useEditableField(strip?.eobt);
   const [route, setRoute, _routeFocused, setRouteFocused] = useEditableField(strip?.route);
   const [hdg, setHdg, _hdgFocused, setHdgFocused] = useEditableField(strip?.heading);
@@ -130,17 +131,19 @@ export default function FlightPlanDialog({
             </div>
             <div className="grid items-center gap-[5px]">
               <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>SID</Label>
-              <input
-                value={sid}
-                onChange={(event) => setSid(event.target.value)}
-                onFocus={() => setSidFocused(true)}
-                onBlur={() => {
-                  setSidFocused(false);
-                  updateStrip(callsign, { sid });
-                }}
-                onKeyDown={(event) => event.key === "Enter" && updateStrip(callsign, { sid })}
+              <button
+                type="button"
+                onClick={() => setSidDialogOpen(true)}
                 className={CLS_BTN_EDITABLE}
                 style={{ width: 150, fontFamily: FONT_FAMILY, fontSize: FONT_SIZE_FIELD }}
+              >
+                {strip.sid ?? ""}
+              </button>
+              <SidSelectDialog
+                open={sidDialogOpen}
+                onOpenChange={setSidDialogOpen}
+                value={strip.sid}
+                onSelect={(sid) => updateStrip(callsign, { sid })}
               />
             </div>
             <div className="grid items-center gap-[5px]">

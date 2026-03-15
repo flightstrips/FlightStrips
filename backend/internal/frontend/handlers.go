@@ -398,6 +398,9 @@ func handleCreateTacticalStrip(ctx context.Context, client *Client, message Mess
 	if req.Bay == "" {
 		return errors.New("bay is required")
 	}
+	if !validBays[req.Bay] {
+		return errors.New("invalid bay: " + req.Bay)
+	}
 	if req.StripType == "MEMAID" && req.Label == "" {
 		return errors.New("label is required for MEMAID strips")
 	}

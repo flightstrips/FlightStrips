@@ -40,9 +40,10 @@ namespace FlightStrips::websocket {
                                WEBSOCKET_STATUS_FAILED)) {
             const auto now = std::chrono::steady_clock::now();
             if (!connect_after_.has_value()) {
-                connect_after_ = now + std::chrono::seconds(CONNECT_DELAY_SECONDS);
+                const auto delay = has_been_offline_ ? CONNECT_DELAY_SECONDS : FAST_CONNECT_DELAY_SECONDS;
+                connect_after_ = now + std::chrono::seconds(delay);
                 pending_connect_ = true;
-                Logger::Info("Detected online, waiting {}s before connecting to server", CONNECT_DELAY_SECONDS);
+                Logger::Info("Detected online, waiting {}s before connecting to server", delay);
                 return;
             }
             if (now < connect_after_.value()) {
@@ -63,6 +64,7 @@ namespace FlightStrips::websocket {
             client_state = STATE_UNKNOWN;
             connect_after_.reset();
             pending_connect_ = false;
+            has_been_offline_ = true;
             return;
         }
 
@@ -70,6 +72,7 @@ namespace FlightStrips::websocket {
             if (!should_connect) {
                 connect_after_.reset();
                 pending_connect_ = false;
+                has_been_offline_ = true;
             }
             return;
         }

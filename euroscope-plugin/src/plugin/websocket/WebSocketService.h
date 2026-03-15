@@ -64,8 +64,10 @@ namespace FlightStrips::websocket {
         bool enabled;
 
         static constexpr int CONNECT_DELAY_SECONDS = 30;
+        static constexpr int FAST_CONNECT_DELAY_SECONDS = 5;
         std::optional<std::chrono::steady_clock::time_point> connect_after_;
         bool pending_connect_ = false;
+        bool has_been_offline_ = false;
 
         int tx = 0;
         int rx = 0;

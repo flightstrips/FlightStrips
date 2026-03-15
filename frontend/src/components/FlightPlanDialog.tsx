@@ -54,6 +54,7 @@ interface FlightPlanDialogProps {
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
   children?: React.ReactNode;
+  mode?: "clearance" | "view";
 }
 
 export default function FlightPlanDialog({
@@ -61,7 +62,9 @@ export default function FlightPlanDialog({
   open,
   onOpenChange,
   children,
+  mode = "clearance",
 }: FlightPlanDialogProps) {
+  const isViewMode = mode === "view";
   const strip = useStrip(callsign);
   const moveAction = useWebSocketStore((state) => state.move);
   const generateSquawk = useWebSocketStore((state) => state.generateSquawk);
@@ -96,20 +99,20 @@ export default function FlightPlanDialog({
         {strip ? (
         <DialogContent
           className={CLS_DIALOG}
-          style={{ width: 1000, maxWidth: 1000, height: 925, maxHeight: 925 }}
+          style={{ width: 1000, maxWidth: 1000, height: isViewMode ? 1015 : 925, maxHeight: isViewMode ? 1015 : 925 }}
         >
           <VisuallyHidden.Root>
             <DialogTitle>Flight plan</DialogTitle>
           </VisuallyHidden.Root>
           <div
-            className="relative border-2 border-black flex-1 flex flex-col items-center gap-[30px] min-h-0"
+            className={`relative border-2 border-black flex flex-col items-center gap-[30px] ${isViewMode ? "" : "flex-1 min-h-0"}`}
             style={{ paddingTop: 30, paddingBottom: 30, color: "black" }}
           >
           <span
             className={CLS_DIALOG_LABEL}
             style={{ top: -11, left: "50%", transform: "translateX(-50%)", whiteSpace: "nowrap" }}
           >
-            FLIGHT PLAN
+            {isViewMode ? "DEPARTURE" : "FLIGHT PLAN"}
           </span>
 
           <div className="flex gap-[5px]" style={{ width: 835 }}>
@@ -416,72 +419,155 @@ export default function FlightPlanDialog({
           </div>
         </div>
 
-
-          <div className="flex flex-row items-center justify-between pt-3">
-            <button
-              onClick={() => setDialogOpen(false)}
-              style={{
-                width: 125,
-                height: 70,
-                backgroundColor: COLOR_DARK_BTN,
-                color: "white",
-                fontFamily: FONT_FAMILY,
-                fontWeight: "bold",
-                fontSize: FONT_SIZE_BUTTON,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                cursor: "pointer",
-              }}
+          {isViewMode && (
+            <div
+              className="relative border-2 border-black flex flex-col items-center border-t-0"
+              style={{ paddingTop: 20, paddingBottom: 20, color: "black" }}
             >
-              ESC
-            </button>
-            <div className="flex flex-row items-center gap-2">
-              {strip.pdc_state === "REQUESTED" && (
-                <button
-                  onClick={() => {
-                    revertToVoice(strip.callsign);
-                    setDialogOpen(false);
-                  }}
-                  style={{
-                    fontFamily: FONT_FAMILY,
-                    fontWeight: "bold",
-                    fontSize: FONT_SIZE_BUTTON,
-                    backgroundColor: COLOR_REVERT_BTN,
-                    color: "black",
-                    padding: "4px 12px",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  REVERT TO VOICE
-                </button>
-              )}
-              <button
-                onClick={() => {
-                  if (strip.pdc_state === "REQUESTED") {
-                    clearPdc(strip.callsign, null);
-                  } else {
-                    moveAction(strip.callsign, Bay.Cleared);
-                  }
+              <span
+                className={CLS_DIALOG_LABEL}
+                style={{ top: -11, left: "50%", transform: "translateX(-50%)", whiteSpace: "nowrap" }}
+              >
+                ARRIVAL
+              </span>
+              <div className="flex justify-between" style={{ width: 835 }}>
+                <div className="grid items-center gap-[5px]">
+                  <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>ADEP</Label>
+                  <Input
+                    value={strip.origin}
+                    disabled
+                    className={CLS_BTN_DISABLED}
+                    style={{ width: 150, fontFamily: FONT_FAMILY, fontSize: FONT_SIZE_FIELD }}
+                  />
+                </div>
+                <div className="grid items-center gap-[5px]">
+                  <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>STAR</Label>
+                  <Input
+                    defaultValue=""
+                    disabled
+                    className={CLS_BTN_DISABLED}
+                    style={{ width: 150, fontFamily: FONT_FAMILY, fontSize: FONT_SIZE_FIELD }}
+                  />
+                </div>
+                <div className="grid items-center gap-[5px]">
+                  <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>RWY</Label>
+                  <Input
+                    defaultValue=""
+                    disabled
+                    className={CLS_BTN_DISABLED}
+                    style={{ width: 150, fontFamily: FONT_FAMILY, fontSize: FONT_SIZE_FIELD }}
+                  />
+                </div>
+                <div className="grid items-center gap-[5px]">
+                  <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>ETA</Label>
+                  <Input
+                    value={strip.eldt ?? ""}
+                    disabled
+                    className={CLS_BTN_DISABLED}
+                    style={{ width: 150, fontFamily: FONT_FAMILY, fontSize: FONT_SIZE_FIELD }}
+                  />
+                </div>
+                <div className="grid items-center gap-[5px]">
+                  <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>AOBT</Label>
+                  <Input
+                    defaultValue=""
+                    disabled
+                    className={CLS_BTN_DISABLED}
+                    style={{ width: 150, fontFamily: FONT_FAMILY, fontSize: FONT_SIZE_FIELD }}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
 
-                  setDialogOpen(false);
-                }}
+          <div className={`flex flex-row items-center justify-center ${isViewMode ? "pt-2" : "pt-3"}`}>
+            {isViewMode ? (
+              <button
+                onClick={() => setDialogOpen(false)}
                 style={{
                   width: 125,
                   height: 70,
-                  backgroundColor: "#3F3F3F",
-                  color: "#FFFFFF",
+                  backgroundColor: COLOR_DARK_BTN,
+                  color: "white",
                   fontFamily: FONT_FAMILY,
                   fontWeight: "bold",
                   fontSize: FONT_SIZE_BUTTON,
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
+                  cursor: "pointer",
                 }}
               >
-                CLD
+                OK
               </button>
-            </div>
+            ) : (
+              <>
+                <button
+                  onClick={() => setDialogOpen(false)}
+                  style={{
+                    width: 125,
+                    height: 70,
+                    backgroundColor: COLOR_DARK_BTN,
+                    color: "white",
+                    fontFamily: FONT_FAMILY,
+                    fontWeight: "bold",
+                    fontSize: FONT_SIZE_BUTTON,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    cursor: "pointer",
+                  }}
+                >
+                  ESC
+                </button>
+                <div className="flex flex-row items-center gap-2 ml-auto">
+                  {strip.pdc_state === "REQUESTED" && (
+                    <button
+                      onClick={() => {
+                        revertToVoice(strip.callsign);
+                        setDialogOpen(false);
+                      }}
+                      style={{
+                        fontFamily: FONT_FAMILY,
+                        fontWeight: "bold",
+                        fontSize: FONT_SIZE_BUTTON,
+                        backgroundColor: COLOR_REVERT_BTN,
+                        color: "black",
+                        padding: "4px 12px",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      REVERT TO VOICE
+                    </button>
+                  )}
+                  <button
+                    onClick={() => {
+                      if (strip.pdc_state === "REQUESTED") {
+                        clearPdc(strip.callsign, null);
+                      } else {
+                        moveAction(strip.callsign, Bay.Cleared);
+                      }
+
+                      setDialogOpen(false);
+                    }}
+                    style={{
+                      width: 125,
+                      height: 70,
+                      backgroundColor: "#3F3F3F",
+                      color: "#FFFFFF",
+                      fontFamily: FONT_FAMILY,
+                      fontWeight: "bold",
+                      fontSize: FONT_SIZE_BUTTON,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    CLD
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </DialogContent>
         ) : (

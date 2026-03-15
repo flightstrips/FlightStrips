@@ -118,6 +118,7 @@ export function StripContextMenu({ callsign, position, onClose }: StripContextMe
     return (
       <FlightPlanDialog
         callsign={callsign}
+        mode="view"
         open={true}
         onOpenChange={(open) => {
           if (!open) onClose();

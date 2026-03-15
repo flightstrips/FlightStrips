@@ -439,8 +439,6 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
         state.layout = data.layout;
         if (KNOWN_LAYOUTS.has(data.layout)) {
           state.displayedLayout = data.layout;
-        } else {
-          state.layoutChooserOpen = true;
         }
         state.runwaySetup = data.runway_setup;
         state.isInitialized = true;
@@ -651,7 +649,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
         if (KNOWN_LAYOUTS.has(data.layout)) {
           state.displayedLayout = data.layout;
         } else {
-          state.layoutChooserOpen = true;
+          state.displayedLayout = "";
         }
       })
     )

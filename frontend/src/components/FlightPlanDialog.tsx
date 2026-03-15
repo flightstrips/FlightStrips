@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { getSimpleAircraftType } from "@/lib/utils";
-import StandDialog from "@/components/stand/StandDialog";
+import { ArrStandDialog } from "@/components/strip/ArrStandDialog";
 import { SidSelectDialog } from "@/components/strip/SidSelectDialog";
 import { useStrip, useWebSocketStore } from "@/store/store-hooks.ts";
 
@@ -75,6 +75,7 @@ export default function FlightPlanDialog({
 
   const [sidDialogOpen, setSidDialogOpen] = useState(false);
   const [ssrGenerating, setSsrGenerating] = useState(false);
+  const [standOpen, setStandOpen] = useState(false);
   const [eobt, setEobt, _eobtFocused, setEobtFocused] = useEditableField(strip?.eobt);
 
   // Clear SSR loading state when the backend updates assigned_squawk
@@ -86,9 +87,10 @@ export default function FlightPlanDialog({
   const [alt, setAlt, _altFocused, setAltFocused] = useEditableField(strip?.cleared_altitude);
 
   return (
-    <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-      {children ? <DialogTrigger asChild>{children}</DialogTrigger> : null}
-      {strip ? (
+    <>
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        {children ? <DialogTrigger asChild>{children}</DialogTrigger> : null}
+        {strip ? (
         <DialogContent
           className={CLS_DIALOG}
           style={{ width: 1000, maxWidth: 1000, height: 925, maxHeight: 925 }}
@@ -391,11 +393,25 @@ export default function FlightPlanDialog({
                 style={{ width: 125, fontFamily: FONT_FAMILY, fontSize: FONT_SIZE_FIELD }}
               />
             </div>
-            <div style={{ width: 125 }}>
-              <StandDialog value={strip.stand} onSelect={(stand) => updateStrip(callsign, { stand })} />
+            <div className="grid items-center gap-[5px]" style={{ width: 125 }}>
+              <Label htmlFor="stand" className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>
+                Stand
+              </Label>
+              <Input
+                id="stand"
+                value={strip.stand ?? ""}
+                readOnly
+                onClick={() => {
+                  setDialogOpen(false);
+                  setStandOpen(true);
+                }}
+                className="border-black rounded-none text-black font-bold text-[18px] w-full text-center cursor-pointer h-[50px]"
+                style={{ fontFamily: FONT_FAMILY }}
+              />
             </div>
           </div>
         </div>
+
 
           <div className="flex flex-row items-center justify-between pt-3">
             <button
@@ -464,7 +480,7 @@ export default function FlightPlanDialog({
             </div>
           </div>
         </DialogContent>
-      ) : (
+        ) : (
         <DialogContent className={CLS_CLX_DIALOG}>
           <VisuallyHidden.Root>
             <DialogTitle>Flight plan unavailable</DialogTitle>
@@ -483,8 +499,18 @@ export default function FlightPlanDialog({
             </div>
           </div>
         </DialogContent>
+        )}
+      </Dialog>
+
+      {strip && (
+        <ArrStandDialog
+          open={standOpen}
+          onOpenChange={setStandOpen}
+          callsign={callsign}
+          currentStand={strip.stand}
+        />
       )}
-    </Dialog>
+    </>
   );
 }
 

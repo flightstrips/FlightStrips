@@ -9,9 +9,9 @@ const RUNWAYS = ["04R", "04L", "12", "22R", "22L", "30"];
 
 // Tailwind class constants (hex must be literal strings for JIT)
 const CLS_DIALOG_BG      = "bg-[#B3B3B3] border border-black p-0 w-[167px] gap-0 overflow-hidden [&>button]:hidden";
-const CLS_RWY_BTN        = "w-full h-[70px] bg-[#CCCCCC] text-black font-semibold text-[28px] font-[Rubik] shadow-[0_4px_4px_rgba(0,0,0,0.25)] outline-none active:brightness-90";
-const CLS_RWY_BTN_ACTIVE = "w-full h-[70px] bg-[#2CBB00] text-white font-semibold text-[28px] font-[Rubik] shadow-[0_4px_4px_rgba(0,0,0,0.25)] outline-none active:brightness-90";
-const CLS_ESC_BTN        = "w-full h-[70px] bg-[#3F3F3F] text-white font-semibold text-[28px] font-[Rubik] shadow-[0_4px_4px_rgba(0,0,0,0.25)] outline-none active:brightness-75";
+const CLS_RWY_BTN        = "w-full h-[70px] bg-[#CCCCCC] text-black font-semibold text-[28px] shadow-[0_4px_4px_rgba(0,0,0,0.25)] outline-none active:brightness-90";
+const CLS_RWY_BTN_ACTIVE = "w-full h-[70px] bg-[#2CBB00] text-white font-semibold text-[28px] shadow-[0_4px_4px_rgba(0,0,0,0.25)] outline-none active:brightness-90";
+const CLS_ESC_BTN        = "w-full h-[70px] bg-[#3F3F3F] text-white font-semibold text-[28px] shadow-[0_4px_4px_rgba(0,0,0,0.25)] outline-none active:brightness-75";
 
 interface TacticalProps {
   open: boolean;

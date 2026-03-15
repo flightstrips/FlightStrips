@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Link } from "react-router";
 import { useAuth0 } from "@auth0/auth0-react";
 import { Menu, Sun, Moon } from "lucide-react";
@@ -32,10 +32,6 @@ export function PublicNavigation() {
   const { isAuthenticated, loginWithRedirect, logout } = useAuth0();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [theme, setTheme] = useState<PublicTheme>(() => getStoredPublicTheme());
-
-  useEffect(() => {
-    setTheme(getStoredPublicTheme());
-  }, []);
 
   const toggleTheme = () => {
     const next = theme === "light" ? "dark" : "light";

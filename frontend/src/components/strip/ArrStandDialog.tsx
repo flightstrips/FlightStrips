@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import EsetStandCell from "@/components/eset/EsetStandCell";
 import {
   ESET_BACKGROUND_BOXES,
@@ -23,7 +23,7 @@ export function ArrStandDialog({ open, onOpenChange, callsign, currentStand }: P
   const strips = useStrips();
   const [boardScale, setBoardScale] = useState(1);
   const boardFrameRef = useRef<HTMLDivElement>(null);
-  const nowMs = Date.now();
+  const [nowMs] = useState(() => Date.now());
 
   useEffect(() => {
     if (!open) {

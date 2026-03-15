@@ -9,7 +9,7 @@ import {
   type DragStartEvent,
 } from "@dnd-kit/core";
 import type { AnyStrip, Bay, StripRef } from "@/api/models.ts";
-import { stripDndId } from "@/api/models.ts";
+import { isFlight, stripDndId } from "@/api/models.ts";
 import { useState, type ReactNode } from "react";
 
 /** Builds a StripRef from a DnD item id, which may be a flight callsign or "tactical-<N>". */
@@ -23,7 +23,7 @@ function makeStripRef(id: string | null | undefined): StripRef | null {
 import { DragStateContext } from "./DragStateContext";
 import { DragDisabledContext } from "./DragDisabledContext";
 import { BayClickContext } from "./BayClickContext";
-import { useSelectedCallsign, useSelectStrip } from "@/store/store-hooks";
+import { useMyPosition, useSelectedCallsign, useSelectStrip } from "@/store/store-hooks";
 
 export interface BayConfig {
   strips: AnyStrip[];
@@ -55,6 +55,7 @@ export function ViewDndContext({
 }: ViewDndContextProps) {
   const selectedCallsign = useSelectedCallsign();
   const selectStrip = useSelectStrip();
+  const myPosition = useMyPosition();
 
   const [dragDisabled, setDragDisabled] = useState(false);
   const sensors = useSensors(
@@ -86,6 +87,10 @@ export function ViewDndContext({
 
     const sourceBayId = findBayId(selectedCallsign);
     if (!sourceBayId) return;
+
+    const strip = bayStripMap[sourceBayId]?.strips.find(s => stripDndId(s) === selectedCallsign);
+    if (strip && isFlight(strip) && strip.owner !== myPosition) return;
+
     if (sourceBayId === clickedBayId) return;
 
     const allowed = transferRules[sourceBayId] ?? [];

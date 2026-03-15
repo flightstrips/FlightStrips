@@ -40,6 +40,9 @@ export default function CommandBar() {
 
   const scopeLabel = SCOPE_LABELS[layout] ?? layout;
 
+  const myPosition = useWebSocketStore((state) => state.position);
+  const isOwner = !!selectedCallsign && !!myPosition && strip?.owner === myPosition;
+
   const isMarked = strip?.marked ?? false;
 
   const handleMark = () => {
@@ -48,7 +51,7 @@ export default function CommandBar() {
   };
 
   const handleDelete = () => {
-    if (!selectedCallsign) return;
+    if (!selectedCallsign || !isOwner) return;
     move(selectedCallsign, Bay.Hidden);
     selectStrip(null);
   };
@@ -92,8 +95,8 @@ export default function CommandBar() {
         <MRKBTN isMarked={isMarked} disabled={!selectedCallsign} onClick={handleMark} />
         <REQBTN />
         <button
-          disabled={!selectedCallsign}
-          className={`${CLS_CMDBTN} ${!selectedCallsign ? "opacity-50 cursor-not-allowed" : ""}`}
+          disabled={!isOwner}
+          className={`${CLS_CMDBTN} ${!isOwner ? "opacity-50 cursor-not-allowed" : ""}`}
           onClick={handleDelete}
         >
           X

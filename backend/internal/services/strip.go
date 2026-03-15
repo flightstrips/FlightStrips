@@ -203,6 +203,28 @@ func (s *StripService) CreateCoordinationTransfer(ctx context.Context, session i
 	}
 
 	s.frontendHub.SendCoordinationTransfer(session, callsign, from, to)
+
+	// For strips in the AIRBORNE bay, also send an ES handover so the owning
+	// EuroScope client initiates the transfer to the target controller.
+	if strip.Bay == shared.BAY_AIRBORNE && s.euroscopeHub != nil {
+		controllers, err := server.GetControllerRepository().ListBySession(ctx, session)
+		if err == nil {
+			var ownerCid *string
+			var targetCallsign string
+			for _, c := range controllers {
+				if c.Position == from && c.Cid != nil && *c.Cid != "" {
+					ownerCid = c.Cid
+				}
+				if c.Position == to {
+					targetCallsign = c.Callsign
+				}
+			}
+			if ownerCid != nil && targetCallsign != "" {
+				s.euroscopeHub.SendCoordinationHandover(session, *ownerCid, callsign, targetCallsign)
+			}
+		}
+	}
+
 	return nil
 }
 

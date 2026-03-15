@@ -340,6 +340,92 @@ func TestCreateCoordinationTransfer_StripNotFound(t *testing.T) {
 	assert.Empty(t, hub.CoordinationTransfers)
 }
 
+func TestCreateCoordinationTransfer_AirborneBay_SendsEsHandover(t *testing.T) {
+	ctx := context.Background()
+	const session = int32(1)
+	const callsign = "SAS123"
+	const fromPos = "TWR_N"
+	const toPos = "APP_N"
+	const ownerCid = "1234567"
+	const targetCallsign = "ENGM_APP"
+
+	strip := &models.Strip{ID: 10, Callsign: callsign, Bay: shared.BAY_AIRBORNE}
+
+	coordRepo := &testutil.MockCoordinationRepository{
+		CreateFn: func(_ context.Context, _ *models.Coordination) error { return nil },
+	}
+
+	controllerRepo := &testutil.MockControllerRepository{
+		ListBySessionFn: func(_ context.Context, _ int32) ([]*models.Controller, error) {
+			cid := ownerCid
+			return []*models.Controller{
+				{Position: fromPos, Cid: &cid},
+				{Position: toPos, Callsign: targetCallsign},
+			}, nil
+		},
+	}
+
+	mockServer := &testutil.MockServer{CoordRepoVal: coordRepo, ControllerRepoVal: controllerRepo}
+	hub := &testutil.MockFrontendHub{}
+	hub.SetServer(mockServer)
+
+	esHub := &testutil.MockEuroscopeHub{}
+
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			return strip, nil
+		},
+	}
+
+	svc := NewStripService(stripRepo)
+	svc.SetFrontendHub(hub)
+	svc.SetEuroscopeHub(esHub)
+
+	err := svc.CreateCoordinationTransfer(ctx, session, callsign, fromPos, toPos)
+	require.NoError(t, err)
+
+	require.Len(t, esHub.CoordinationHandovers, 1)
+	h := esHub.CoordinationHandovers[0]
+	assert.Equal(t, session, h.Session)
+	assert.Equal(t, ownerCid, h.Cid)
+	assert.Equal(t, callsign, h.Callsign)
+	assert.Equal(t, targetCallsign, h.TargetCallsign)
+}
+
+func TestCreateCoordinationTransfer_NonAirborneBay_NoEsHandover(t *testing.T) {
+	ctx := context.Background()
+	const session = int32(1)
+	const callsign = "SAS456"
+	const fromPos = "DEL_N"
+	const toPos = "GND_N"
+
+	strip := &models.Strip{ID: 42, Callsign: callsign, Bay: shared.BAY_CLEARED}
+
+	coordRepo := &testutil.MockCoordinationRepository{
+		CreateFn: func(_ context.Context, _ *models.Coordination) error { return nil },
+	}
+
+	mockServer := &testutil.MockServer{CoordRepoVal: coordRepo}
+	hub := &testutil.MockFrontendHub{}
+	hub.SetServer(mockServer)
+
+	esHub := &testutil.MockEuroscopeHub{}
+
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			return strip, nil
+		},
+	}
+
+	svc := NewStripService(stripRepo)
+	svc.SetFrontendHub(hub)
+	svc.SetEuroscopeHub(esHub)
+
+	err := svc.CreateCoordinationTransfer(ctx, session, callsign, fromPos, toPos)
+	require.NoError(t, err)
+	assert.Empty(t, esHub.CoordinationHandovers)
+}
+
 // ---- AcceptCoordination ----
 
 func TestAcceptCoordination_UpdatesOwner(t *testing.T) {

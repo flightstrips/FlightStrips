@@ -15,10 +15,18 @@ type ClearedFlagCall struct {
 
 // GroundStateCall records arguments to SendGroundState.
 type GroundStateCall struct {
-	Session    int32
-	Cid        string
-	Callsign   string
+	Session     int32
+	Cid         string
+	Callsign    string
 	GroundState string
+}
+
+// CoordinationHandoverCall records arguments to SendCoordinationHandover.
+type CoordinationHandoverCall struct {
+	Session        int32
+	Cid            string
+	Callsign       string
+	TargetCallsign string
 }
 
 // MockEuroscopeHub is a configurable mock for shared.EuroscopeHub.
@@ -28,8 +36,9 @@ type MockEuroscopeHub struct {
 
 	HasActiveClientForAirportFn func(airport string) bool
 
-	ClearedFlags  []ClearedFlagCall
-	GroundStates  []GroundStateCall
+	ClearedFlags          []ClearedFlagCall
+	GroundStates          []GroundStateCall
+	CoordinationHandovers []CoordinationHandoverCall
 }
 
 func (m *MockEuroscopeHub) GetServer() shared.Server { return m.server }
@@ -76,6 +85,7 @@ func (m *MockEuroscopeHub) SendClearedAltitude(session int32, cid string, callsi
 func (m *MockEuroscopeHub) SendHeading(session int32, cid string, callsign string, heading int32) {}
 
 func (m *MockEuroscopeHub) SendCoordinationHandover(session int32, cid string, callsign string, targetCallsign string) {
+	m.CoordinationHandovers = append(m.CoordinationHandovers, CoordinationHandoverCall{session, cid, callsign, targetCallsign})
 }
 
 func (m *MockEuroscopeHub) SendAssumeAndDrop(session int32, cid string, callsign string) {}

@@ -9,7 +9,8 @@ import (
 
 // MockSessionRepository is a configurable mock for repository.SessionRepository.
 type MockSessionRepository struct {
-	GetByIDFn func(ctx context.Context, id int32) (*models.Session, error)
+	GetByIDFn             func(ctx context.Context, id int32) (*models.Session, error)
+	UpdateActiveRunwaysFn func(ctx context.Context, id int32, activeRunways pkgModels.ActiveRunways) error
 }
 
 func (m *MockSessionRepository) Create(ctx context.Context, session *models.Session) (int32, error) {
@@ -48,7 +49,10 @@ func (m *MockSessionRepository) Delete(ctx context.Context, id int32) (int64, er
 }
 
 func (m *MockSessionRepository) UpdateActiveRunways(ctx context.Context, id int32, activeRunways pkgModels.ActiveRunways) error {
-	panic("unexpected call to MockSessionRepository.UpdateActiveRunways")
+	if m.UpdateActiveRunwaysFn != nil {
+		return m.UpdateActiveRunwaysFn(ctx, id, activeRunways)
+	}
+	return nil
 }
 
 func (m *MockSessionRepository) IncrementPdcSequence(ctx context.Context, id int32) (int32, error) {

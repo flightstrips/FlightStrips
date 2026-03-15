@@ -375,6 +375,14 @@ func applyOrValidateRunways(ctx context.Context, client *Client, runways []euros
 	}
 	slog.Debug("UpdateRoutesForSession completed", slog.Int("session", int(client.session)))
 
+	// Recalculate and broadcast per-controller layouts after runway change.
+	// Do not return on failure — a layout error must not block the runway change.
+	if err = s.UpdateLayouts(client.session); err != nil {
+		slog.Error("Failed to update layouts after runway change",
+			slog.Int("session", int(client.session)),
+			slog.Any("error", err))
+	}
+
 	return nil
 }
 

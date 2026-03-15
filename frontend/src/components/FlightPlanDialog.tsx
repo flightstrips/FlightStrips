@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useRef, useState } from "react";
 import * as VisuallyHidden from "@radix-ui/react-visually-hidden";
 
 import { Bay } from "@/api/models.ts";
@@ -79,9 +79,11 @@ export default function FlightPlanDialog({
   const [eobt, setEobt, _eobtFocused, setEobtFocused] = useEditableField(strip?.eobt);
 
   // Clear SSR loading state when the backend updates assigned_squawk
-  useEffect(() => {
+  const prevSquawkRef = useRef(strip?.assigned_squawk);
+  if (prevSquawkRef.current !== strip?.assigned_squawk) {
+    prevSquawkRef.current = strip?.assigned_squawk;
     if (ssrGenerating) setSsrGenerating(false);
-  }, [strip?.assigned_squawk]);
+  }
   const [route, setRoute, _routeFocused, setRouteFocused] = useEditableField(strip?.route);
   const [hdg, setHdg, _hdgFocused, setHdgFocused] = useEditableField(strip?.heading);
   const [alt, setAlt, _altFocused, setAltFocused] = useEditableField(strip?.cleared_altitude);

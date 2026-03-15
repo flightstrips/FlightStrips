@@ -647,3 +647,11 @@ func (r *stripRepository) UpdateRunwayClearance(ctx context.Context, session int
 		Session:  session,
 	})
 }
+
+// ResetRunwayClearance clears runway_cleared back to false (e.g. when a strip is moved backward from rwy-dep).
+func (r *stripRepository) ResetRunwayClearance(ctx context.Context, session int32, callsign string) (int64, error) {
+	return r.queries.ResetRunwayClearance(ctx, database.ResetRunwayClearanceParams{
+		Callsign: callsign,
+		Session:  session,
+	})
+}

@@ -95,6 +95,6 @@ type StripService interface {
 	// setting a value on a strip that has none are rejected.
 	ApplyReleasePoint(ctx context.Context, session int32, callsign string, releasePoint string, clientPosition string) error
 	UpdateMarked(ctx context.Context, session int32, callsign string, marked bool) error
-	RunwayClearance(ctx context.Context, session int32, callsign string) error
+	RunwayClearance(ctx context.Context, session int32, callsign string, cid string, airport string) error
 	PropagateRunwayChange(ctx context.Context, session int32, airport string, oldRunways models.ActiveRunways, newRunways models.ActiveRunways) error
 }

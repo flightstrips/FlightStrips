@@ -389,10 +389,6 @@ func (s *StripService) AutoTransferAirborneStrip(ctx context.Context, session in
 		return err
 	}
 
-	if s.euroscopeHub != nil {
-		s.euroscopeHub.SendCoordinationHandover(session, *ownerController.Cid, callsign, targetController.Callsign)
-	}
-
 	return nil
 }
 
@@ -985,16 +981,34 @@ func (s *StripService) UpdateAircraftPosition(ctx context.Context, session int32
 	}
 	bay := shared.GetDepartureBayFromPosition(lat, lon, int64(altitude), dbStrip, config.GetAirborneAltitudeAGL(), airport)
 
+	existingState := "<nil>"
+	if existingStrip.State != nil {
+		existingState = *existingStrip.State
+	}
+	slog.Debug("UpdateAircraftPosition",
+		slog.String("callsign", callsign),
+		slog.String("current_bay", existingStrip.Bay),
+		slog.String("current_state", existingState),
+		slog.Int("altitude", int(altitude)),
+		slog.Int64("airborne_threshold_agl", config.GetAirborneAltitudeAGL()),
+		slog.String("computed_bay", bay),
+	)
+
 	_, err = s.stripRepo.UpdateAircraftPosition(ctx, session, callsign, &lat, &lon, &altitude, bay, nil)
 	if err != nil {
 		return err
 	}
 
 	if existingStrip.Bay != bay {
+		slog.Debug("UpdateAircraftPosition: bay changed, moving strip",
+			slog.String("callsign", callsign),
+			slog.String("from_bay", existingStrip.Bay),
+			slog.String("to_bay", bay),
+		)
 		if err := s.MoveToBay(context.Background(), session, callsign, bay, true); err != nil {
 			return err
 		}
-		if existingStrip.Bay != shared.BAY_AIRBORNE && bay == shared.BAY_AIRBORNE {
+		if existingStrip.Bay == shared.BAY_DEPART && bay == shared.BAY_AIRBORNE {
 			return s.AutoTransferAirborneStrip(ctx, session, callsign)
 		}
 	}
@@ -1215,6 +1229,11 @@ func (s *StripService) AssumeStripCoordination(ctx context.Context, session int3
 // ForceAssumeStrip forcibly takes ownership of a strip, overriding any existing owner.
 // Unlike AssumeStripCoordination it does not check NextOwners — any controller
 // may force-assume any strip regardless of current ownership.
+//
+// After assuming:
+//   - The route is recalculated starting from the new owner.
+//   - The displaced owner is removed from previous controllers.
+//   - Any controllers that appear in the recalculated next owners are removed from previous controllers.
 func (s *StripService) ForceAssumeStrip(ctx context.Context, session int32, callsign string, position string) error {
 	strip, err := s.stripRepo.GetByCallsign(ctx, session, callsign)
 	if err != nil {
@@ -1228,13 +1247,22 @@ func (s *StripService) ForceAssumeStrip(ctx context.Context, session int32, call
 		}
 	}
 
+	// The displaced owner must not appear in previous controllers.
+	previousOwners := make([]string, 0, len(strip.PreviousOwners))
+	for _, p := range strip.PreviousOwners {
+		if strip.Owner == nil || *strip.Owner != p {
+			previousOwners = append(previousOwners, p)
+		}
+	}
+
+	// Trim NextOwners: remove the new owner and all positions before it.
 	nextOwners := strip.NextOwners
 	index := slices.Index(nextOwners, position)
 	if index >= 0 {
 		nextOwners = nextOwners[index+1:]
 	}
 
-	if err := s.stripRepo.SetNextAndPreviousOwners(ctx, session, callsign, nextOwners, strip.PreviousOwners); err != nil {
+	if err := s.stripRepo.SetNextAndPreviousOwners(ctx, session, callsign, nextOwners, previousOwners); err != nil {
 		return err
 	}
 
@@ -1246,8 +1274,37 @@ func (s *StripService) ForceAssumeStrip(ctx context.Context, session int32, call
 		return errors.New("failed to set strip owner")
 	}
 
+	// Recalculate the route starting from the new owner. This updates NextOwners in the
+	// DB. We pass sendUpdate=false because we send the owners update ourselves below with
+	// the fully cleaned previous owners.
+	if s.frontendHub != nil {
+		if server := s.frontendHub.GetServer(); server != nil {
+			_ = server.UpdateRouteForStrip(callsign, session, false)
+
+			// Re-read to pick up the recalculated NextOwners.
+			if updated, err := s.stripRepo.GetByCallsign(ctx, session, callsign); err == nil {
+				nextOwners = updated.NextOwners
+			}
+		}
+	}
+
+	// Any controller that now appears in NextOwners must be removed from PreviousOwners
+	// — they are upcoming controllers, not past ones.
+	cleanedPrevious := make([]string, 0, len(previousOwners))
+	for _, p := range previousOwners {
+		if !slices.Contains(nextOwners, p) {
+			cleanedPrevious = append(cleanedPrevious, p)
+		}
+	}
+	if !slices.Equal(cleanedPrevious, previousOwners) {
+		if err := s.stripRepo.SetPreviousOwners(ctx, session, callsign, cleanedPrevious); err != nil {
+			return err
+		}
+		previousOwners = cleanedPrevious
+	}
+
 	s.frontendHub.SendCoordinationAssume(session, callsign, position)
-	s.frontendHub.SendOwnersUpdate(session, callsign, position, nextOwners, strip.PreviousOwners)
+	s.frontendHub.SendOwnersUpdate(session, callsign, position, nextOwners, previousOwners)
 	return nil
 }
 
@@ -1382,6 +1439,15 @@ func (s *StripService) UpdateGroundStateForMove(ctx context.Context, session int
 	if state != strip.State && state != nil && s.euroscopeHub != nil {
 		s.euroscopeHub.SendGroundState(session, cid, callsign, *state)
 	}
+
+	// If the strip is moved backward from rwy-dep to a non-airborne bay, reset runway_cleared.
+	if strip.Bay == shared.BAY_DEPART && bay != shared.BAY_DEPART && bay != shared.BAY_AIRBORNE && strip.RunwayCleared {
+		if _, err := s.stripRepo.ResetRunwayClearance(ctx, session, callsign); err != nil {
+			return err
+		}
+		s.frontendHub.SendStripUpdate(session, callsign)
+	}
+
 	return nil
 }
 
@@ -1454,9 +1520,16 @@ func (s *StripService) UpdateMarked(ctx context.Context, session int32, callsign
 	return nil
 }
 
-// RunwayClearance marks a strip as runway-cleared, moving it from DEPART to RWY_DEP if needed,
+// RunwayClearance marks a strip as runway-cleared, moving it from TAXI_LWR to DEPART (if applicable),
 // then broadcasts the full updated strip to all clients in the session.
-func (s *StripService) RunwayClearance(ctx context.Context, session int32, callsign string) error {
+// For departures from this airport in TAXI_LWR or DEPART bay, the ground state is set to 'DEPA'
+// and sent to EuroScope.
+func (s *StripService) RunwayClearance(ctx context.Context, session int32, callsign string, cid string, airport string) error {
+	strip, err := s.stripRepo.GetByCallsign(ctx, session, callsign)
+	if err != nil {
+		return err
+	}
+
 	affected, err := s.stripRepo.UpdateRunwayClearance(ctx, session, callsign)
 	if err != nil {
 		return err
@@ -1464,6 +1537,19 @@ func (s *StripService) RunwayClearance(ctx context.Context, session int32, calls
 	if affected != 1 {
 		return errors.New("failed to update runway clearance")
 	}
+
+	// For departures moving to or already at rwy-dep, set state to DEPA and notify ES.
+	isAtOrMovingToDepart := strip.Bay == shared.BAY_DEPART || strip.Bay == shared.BAY_TAXI_LWR
+	if isAtOrMovingToDepart && strip.Origin == airport {
+		state := euroscope.GroundStateDepart
+		if _, err := s.stripRepo.UpdateGroundState(ctx, session, callsign, &state, shared.BAY_DEPART, nil); err != nil {
+			return err
+		}
+		if s.euroscopeHub != nil {
+			s.euroscopeHub.SendGroundState(session, cid, callsign, state)
+		}
+	}
+
 	s.frontendHub.SendStripUpdate(session, callsign)
 	return nil
 }

@@ -87,6 +87,15 @@ func GetDepartureBay(strip euroscope.Strip, existing *database.Strip, airborneAl
 		return BAY_DEPART
 	}
 
+	// If the strip is already at rwy-dep, preserve it and only allow a forward
+	// transition to AIRBORNE. Never fall back to CLEARED based on the cleared flag.
+	if existing != nil && existing.Bay == BAY_DEPART {
+		if int64(strip.Position.Altitude) > int64(AirportElevation)+airborneAltitudeAGL {
+			return BAY_AIRBORNE
+		}
+		return BAY_DEPART
+	}
+
 	if !strip.Cleared {
 		return BAY_NOT_CLEARED
 	}
@@ -107,7 +116,7 @@ func GetDepartureBayFromGroundState(state string, existing database.Strip) strin
 		return BAY_TAXI
 	}
 
-	if state == euroscope.GroundStateDepart {
+	if state == euroscope.GroundStateDepart || state == euroscope.GroundStateLineup {
 		return BAY_DEPART
 	}
 
@@ -141,7 +150,7 @@ func GetDepartureBayFromPosition(lat, lon float64, alt int64, existing database.
 
 	bay := existingBay
 
-	if bay != BAY_DEPART || existing.State == nil || *existing.State != euroscope.GroundStateDepart {
+	if bay != BAY_DEPART {
 		return bay
 	}
 
@@ -159,8 +168,9 @@ func GetGroundState(bay string) string {
 	if bay == BAY_TAXI || bay == BAY_TAXI_LWR || bay == BAY_TAXI_TWR {
 		return euroscope.GroundStateTaxi
 	}
+	// Drag-and-drop to rwy-dep sets LINEUP. DEPA is only set once runway_cleared is triggered.
 	if bay == BAY_DEPART {
-		return euroscope.GroundStateDepart
+		return euroscope.GroundStateLineup
 	}
 
 	return euroscope.GroundStateUnknown

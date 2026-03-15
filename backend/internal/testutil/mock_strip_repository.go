@@ -40,6 +40,7 @@ type MockStripRepository struct {
 	UpdateRunwayFn              func(ctx context.Context, session int32, callsign string, runway *string, version *int32) (int64, error)
 	UpdateMarkedFn              func(ctx context.Context, session int32, callsign string, marked bool, version *int32) (int64, error)
 	UpdateRunwayClearanceFn     func(ctx context.Context, session int32, callsign string) (int64, error)
+	ResetRunwayClearanceFn      func(ctx context.Context, session int32, callsign string) (int64, error)
 	UpdateRegistrationFn        func(ctx context.Context, session int32, callsign string, registration string) error
 	UpdateTrackingControllerFn  func(ctx context.Context, session int32, callsign string, trackingController string) (int64, error)
 	SetOwnerFn                  func(ctx context.Context, session int32, callsign string, owner *string, version int32) (int64, error)
@@ -274,6 +275,13 @@ func (m *MockStripRepository) UpdateRunwayClearance(ctx context.Context, session
 		panic("unexpected call to MockStripRepository.UpdateRunwayClearance")
 	}
 	return m.UpdateRunwayClearanceFn(ctx, session, callsign)
+}
+
+func (m *MockStripRepository) ResetRunwayClearance(ctx context.Context, session int32, callsign string) (int64, error) {
+	if m.ResetRunwayClearanceFn == nil {
+		panic("unexpected call to MockStripRepository.ResetRunwayClearance")
+	}
+	return m.ResetRunwayClearanceFn(ctx, session, callsign)
 }
 
 func (m *MockStripRepository) UpdateRegistration(ctx context.Context, session int32, callsign string, registration string) error {

@@ -50,6 +50,152 @@ func TestForceAssumeStrip_OwnedStrip(t *testing.T) {
 	assert.Equal(t, "EKCH_D_TWR", hub.CoordinationAssumes[0].Position)
 }
 
+// TestForceAssumeStrip_DisplacedOwnerRemovedFromPrevious verifies that the displaced owner is
+// removed from previous controllers after a force assume.
+func TestForceAssumeStrip_DisplacedOwnerRemovedFromPrevious(t *testing.T) {
+	existingOwner := "EKCH_A_TWR"
+	strip := &models.Strip{
+		ID:             1,
+		Callsign:       "SAS123",
+		Owner:          &existingOwner,
+		NextOwners:     []string{},
+		PreviousOwners: []string{"EKCH_APP", "EKCH_A_TWR"},
+		Version:        1,
+	}
+
+	var savedPreviousOwners []string
+	hub := &testutil.MockFrontendHub{}
+
+	svc := NewStripService(&testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			return strip, nil
+		},
+		SetNextAndPreviousOwnersFn: func(_ context.Context, _ int32, _ string, _ []string, prevOwners []string) error {
+			savedPreviousOwners = prevOwners
+			return nil
+		},
+		SetOwnerFn: func(_ context.Context, _ int32, _ string, _ *string, _ int32) (int64, error) {
+			return 1, nil
+		},
+	})
+	svc.SetFrontendHub(hub)
+
+	err := svc.ForceAssumeStrip(context.Background(), 1, "SAS123", "EKCH_D_TWR")
+	require.NoError(t, err)
+	assert.Equal(t, []string{"EKCH_APP"}, savedPreviousOwners, "displaced owner must be removed from previous controllers")
+}
+
+// TestForceAssumeStrip_RouteRecalculated verifies that UpdateRouteForStrip is called on the server
+// after a force assume so the route starts from the new owner.
+func TestForceAssumeStrip_RouteRecalculated(t *testing.T) {
+	existingOwner := "EKCH_A_TWR"
+	strip := &models.Strip{
+		ID:             1,
+		Callsign:       "SAS123",
+		Owner:          &existingOwner,
+		NextOwners:     []string{},
+		PreviousOwners: []string{},
+		Version:        1,
+	}
+
+	routeRecalculated := false
+	mockServer := &testutil.MockServer{
+		UpdateRouteForStripFn: func(callsign string, sessionId int32, sendUpdate bool) error {
+			assert.Equal(t, "SAS123", callsign)
+			assert.Equal(t, int32(1), sessionId)
+			assert.False(t, sendUpdate, "route recalculation must not send its own update")
+			routeRecalculated = true
+			return nil
+		},
+	}
+
+	hub := &testutil.MockFrontendHub{}
+	hub.SetServer(mockServer)
+
+	svc := NewStripService(&testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			return strip, nil
+		},
+		SetNextAndPreviousOwnersFn: func(_ context.Context, _ int32, _ string, _ []string, _ []string) error {
+			return nil
+		},
+		SetOwnerFn: func(_ context.Context, _ int32, _ string, _ *string, _ int32) (int64, error) {
+			return 1, nil
+		},
+	})
+	svc.SetFrontendHub(hub)
+
+	err := svc.ForceAssumeStrip(context.Background(), 1, "SAS123", "EKCH_D_TWR")
+	require.NoError(t, err)
+	assert.True(t, routeRecalculated, "route must be recalculated after force assume")
+}
+
+// TestForceAssumeStrip_NextOwnersFilteredFromPrevious verifies that any controller appearing in the
+// recalculated next owners is removed from previous controllers.
+func TestForceAssumeStrip_NextOwnersFilteredFromPrevious(t *testing.T) {
+	existingOwner := "EKCH_A_TWR"
+	strip := &models.Strip{
+		ID:             1,
+		Callsign:       "SAS123",
+		Owner:          &existingOwner,
+		NextOwners:     []string{},
+		PreviousOwners: []string{"EKCH_APP", "EKCH_CTR"},
+		Version:        1,
+	}
+
+	// Simulate route recalculation putting EKCH_APP back in NextOwners.
+	recalculatedStrip := &models.Strip{
+		ID:             1,
+		Callsign:       "SAS123",
+		Owner:          &existingOwner,
+		NextOwners:     []string{"EKCH_APP"},
+		PreviousOwners: []string{"EKCH_APP", "EKCH_CTR"},
+		Version:        1,
+	}
+
+	callCount := 0
+	var savedPreviousOwners []string
+	hub := &testutil.MockFrontendHub{}
+
+	mockServer := &testutil.MockServer{
+		UpdateRouteForStripFn: func(_ string, _ int32, _ bool) error { return nil },
+	}
+	hub.SetServer(mockServer)
+
+	svc := NewStripService(&testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			callCount++
+			if callCount == 1 {
+				return strip, nil
+			}
+			return recalculatedStrip, nil
+		},
+		SetNextAndPreviousOwnersFn: func(_ context.Context, _ int32, _ string, _ []string, _ []string) error {
+			return nil
+		},
+		SetOwnerFn: func(_ context.Context, _ int32, _ string, _ *string, _ int32) (int64, error) {
+			return 1, nil
+		},
+		SetPreviousOwnersFn: func(_ context.Context, _ int32, _ string, prevOwners []string) error {
+			savedPreviousOwners = prevOwners
+			return nil
+		},
+	})
+	svc.SetFrontendHub(hub)
+
+	err := svc.ForceAssumeStrip(context.Background(), 1, "SAS123", "EKCH_D_TWR")
+	require.NoError(t, err)
+
+	// EKCH_APP is now in NextOwners so it must be removed from PreviousOwners.
+	// EKCH_CTR is not in NextOwners so it stays. EKCH_A_TWR (displaced owner) was already removed.
+	assert.Equal(t, []string{"EKCH_CTR"}, savedPreviousOwners)
+
+	// The owners update notification must reflect the recalculated next owners and cleaned previous owners.
+	require.Len(t, hub.OwnersUpdates, 1)
+	assert.Equal(t, []string{"EKCH_APP"}, hub.OwnersUpdates[0].NextOwners)
+	assert.Equal(t, []string{"EKCH_CTR"}, hub.OwnersUpdates[0].PreviousOwners)
+}
+
 // TestForceAssumeStrip_UnownedNoCoordination verifies that an unowned strip with no coordination is assumed successfully.
 func TestForceAssumeStrip_UnownedNoCoordination(t *testing.T) {
 	strip := &models.Strip{

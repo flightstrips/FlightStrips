@@ -499,41 +499,95 @@ func TestAcceptCoordination_UpdatesOwner(t *testing.T) {
 
 // ---- RunwayClearance ----
 
-func TestRunwayClearance_Success(t *testing.T) {
+func TestRunwayClearance_TaxiLwrBaySetsGroundStateAndNotifiesES(t *testing.T) {
 	ctx := context.Background()
 	const session = int32(1)
 	const callsign = "SAS456"
 
+	strip := &models.Strip{Callsign: callsign, Bay: shared.BAY_TAXI_LWR, Origin: "EKCH"}
+
 	var repoSession int32
 	var repoCallsign string
+	groundStateUpdated := false
 
 	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			return strip, nil
+		},
 		UpdateRunwayClearanceFn: func(_ context.Context, s int32, cs string) (int64, error) {
 			repoSession = s
 			repoCallsign = cs
 			return 1, nil
 		},
+		UpdateGroundStateFn: func(_ context.Context, _ int32, _ string, state *string, _ string, _ *int32) (int64, error) {
+			groundStateUpdated = true
+			require.NotNil(t, state)
+			assert.Equal(t, euroscope.GroundStateDepart, *state)
+			return 1, nil
+		},
 	}
 
+	esHub := &testutil.MockEuroscopeHub{}
 	hub := &testutil.MockFrontendHub{}
 	svc := NewStripService(stripRepo)
 	svc.SetFrontendHub(hub)
+	svc.SetEuroscopeHub(esHub)
 
-	err := svc.RunwayClearance(ctx, session, callsign)
+	err := svc.RunwayClearance(ctx, session, callsign, "CID123", "EKCH")
 	require.NoError(t, err)
 	assert.Equal(t, session, repoSession)
 	assert.Equal(t, callsign, repoCallsign)
+	assert.True(t, groundStateUpdated, "ground state must be updated in DB")
+	require.Len(t, esHub.GroundStates, 1)
+	assert.Equal(t, euroscope.GroundStateDepart, esHub.GroundStates[0].GroundState)
 	require.Len(t, hub.StripUpdates, 1)
-	assert.Equal(t, session, hub.StripUpdates[0].Session)
-	assert.Equal(t, callsign, hub.StripUpdates[0].Callsign)
+}
+
+func TestRunwayClearance_DepartBaySetsGroundStateAndNotifiesES(t *testing.T) {
+	ctx := context.Background()
+	const session = int32(1)
+	const callsign = "SAS456"
+
+	strip := &models.Strip{Callsign: callsign, Bay: shared.BAY_DEPART, Origin: "EKCH"}
+
+	var groundStateSent string
+	groundStateUpdated := false
+
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			return strip, nil
+		},
+		UpdateRunwayClearanceFn: func(_ context.Context, _ int32, _ string) (int64, error) {
+			return 1, nil
+		},
+		UpdateGroundStateFn: func(_ context.Context, _ int32, _ string, state *string, _ string, _ *int32) (int64, error) {
+			groundStateUpdated = true
+			require.NotNil(t, state)
+			groundStateSent = *state
+			return 1, nil
+		},
+	}
+
+	esHub := &testutil.MockEuroscopeHub{}
+	hub := &testutil.MockFrontendHub{}
+	svc := NewStripService(stripRepo)
+	svc.SetFrontendHub(hub)
+	svc.SetEuroscopeHub(esHub)
+
+	err := svc.RunwayClearance(ctx, session, callsign, "CID123", "EKCH")
+	require.NoError(t, err)
+	assert.True(t, groundStateUpdated, "ground state must be updated in DB")
+	assert.Equal(t, euroscope.GroundStateDepart, groundStateSent)
+	require.Len(t, esHub.GroundStates, 1)
+	assert.Equal(t, euroscope.GroundStateDepart, esHub.GroundStates[0].GroundState)
 }
 
 func TestRunwayClearance_StripNotFound(t *testing.T) {
 	ctx := context.Background()
 
 	stripRepo := &testutil.MockStripRepository{
-		UpdateRunwayClearanceFn: func(_ context.Context, _ int32, _ string) (int64, error) {
-			return 0, nil // no rows affected
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			return nil, pgx.ErrNoRows
 		},
 	}
 
@@ -541,7 +595,7 @@ func TestRunwayClearance_StripNotFound(t *testing.T) {
 	svc := NewStripService(stripRepo)
 	svc.SetFrontendHub(hub)
 
-	err := svc.RunwayClearance(ctx, 1, "XXX000")
+	err := svc.RunwayClearance(ctx, 1, "XXX000", "", "")
 	require.Error(t, err)
 	assert.Empty(t, hub.StripUpdates, "no strip update should be broadcast when strip not found")
 }
@@ -550,14 +604,19 @@ func TestRunwayClearance_RepositoryError(t *testing.T) {
 	ctx := context.Background()
 	dbErr := errors.New("database error")
 
+	strip := &models.Strip{Callsign: "SAS789", Bay: shared.BAY_TAXI_LWR, Origin: "EKCH"}
 	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			return strip, nil
+		},
 		UpdateRunwayClearanceFn: func(_ context.Context, _ int32, _ string) (int64, error) {
 			return 0, dbErr
 		},
 	}
 
 	svc := NewStripService(stripRepo)
-	err := svc.RunwayClearance(ctx, 1, "SAS789")
+	svc.SetFrontendHub(&testutil.MockFrontendHub{})
+	err := svc.RunwayClearance(ctx, 1, "SAS789", "", "")
 	require.Error(t, err)
 	assert.Equal(t, dbErr, err)
 }

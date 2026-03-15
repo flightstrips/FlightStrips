@@ -183,8 +183,8 @@ func (m *StripService) UpdateMarked(ctx context.Context, session int32, callsign
 	return args.Error(0)
 }
 
-func (m *StripService) RunwayClearance(ctx context.Context, session int32, callsign string) error {
-	args := m.Called(ctx, session, callsign)
+func (m *StripService) RunwayClearance(ctx context.Context, session int32, callsign string, cid string, airport string) error {
+	args := m.Called(ctx, session, callsign, cid, airport)
 	return args.Error(0)
 }
 

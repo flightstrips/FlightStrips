@@ -44,6 +44,7 @@ const (
 	GroundStateStartup = "ST-UP"
 	GroundStatePush    = "PUSH"
 	GroundStateTaxi    = "TAXI"
+	GroundStateLineup  = "LINEUP"
 	GroundStateDepart  = "DEPA"
 )
 

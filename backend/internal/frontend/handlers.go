@@ -358,7 +358,7 @@ func handleRunwayClearance(ctx context.Context, client *Client, message Message)
 	if err := message.JsonUnmarshal(&event); err != nil {
 		return err
 	}
-	return client.hub.stripService.RunwayClearance(ctx, client.session, event.Callsign)
+	return client.hub.stripService.RunwayClearance(ctx, client.session, event.Callsign, client.GetCid(), client.airport)
 }
 
 func handleIssuePdcClearance(ctx context.Context, client *Client, message Message) error {

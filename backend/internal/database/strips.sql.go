@@ -733,6 +733,26 @@ func (q *Queries) RemoveUnexpectedChangeField(ctx context.Context, arg RemoveUne
 	return err
 }
 
+const resetRunwayClearance = `-- name: ResetRunwayClearance :execrows
+UPDATE strips
+SET runway_cleared = false,
+    version        = version + 1
+WHERE callsign = $1 AND session = $2
+`
+
+type ResetRunwayClearanceParams struct {
+	Callsign string
+	Session  int32
+}
+
+func (q *Queries) ResetRunwayClearance(ctx context.Context, arg ResetRunwayClearanceParams) (int64, error) {
+	result, err := q.db.Exec(ctx, resetRunwayClearance, arg.Callsign, arg.Session)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const setCdmStatus = `-- name: SetCdmStatus :execrows
 UPDATE strips SET cdm_status = $3 WHERE session = $1 AND callsign = $2
 `

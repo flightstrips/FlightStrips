@@ -234,6 +234,12 @@ SET bay            = CASE
     version        = version + 1
 WHERE callsign = $1 AND session = $2;
 
+-- name: ResetRunwayClearance :execrows
+UPDATE strips
+SET runway_cleared = false,
+    version        = version + 1
+WHERE callsign = $1 AND session = $2;
+
 -- name: GetMaxSequenceInBayUnified :one
 -- Returns the maximum sequence value across BOTH strips and tactical_strips for a bay.
 SELECT COALESCE(MAX(seq), 0)::INTEGER AS max_sequence

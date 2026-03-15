@@ -28,11 +28,9 @@ func TestGetDepartureBayUsesConfiguredAirborneThreshold(t *testing.T) {
 }
 
 func TestGetDepartureBayFromPositionTransitionsToAirborne(t *testing.T) {
-	state := euroscope.GroundStateDepart
 	existing := database.Strip{
 		Origin: "EKCH",
 		Bay:    BAY_DEPART,
-		State:  &state,
 	}
 
 	bay := GetDepartureBayFromPosition(AirportLatitude, AirportLongitude, int64(AirportElevation+600), existing, 500, "EKCH")
@@ -41,17 +39,33 @@ func TestGetDepartureBayFromPositionTransitionsToAirborne(t *testing.T) {
 	}
 }
 
-func TestGetDepartureBayFromPositionStaysInDepartForNonDepartureState(t *testing.T) {
-	state := euroscope.GroundStateTaxi
+// TestGetDepartureBayFromPositionTransitionsToAirborne_NilState verifies that a strip
+// in BAY_DEPART transitions to AIRBORNE above the altitude threshold even when the
+// ground state is nil — the frontend does not always set the state when moving to rwy-dep.
+func TestGetDepartureBayFromPositionTransitionsToAirborne_NilState(t *testing.T) {
 	existing := database.Strip{
 		Origin: "EKCH",
 		Bay:    BAY_DEPART,
-		State:  &state,
+		State:  nil,
 	}
 
 	bay := GetDepartureBayFromPosition(AirportLatitude, AirportLongitude, int64(AirportElevation+600), existing, 500, "EKCH")
+	if bay != BAY_AIRBORNE {
+		t.Fatalf("expected AIRBORNE with nil state, got %s", bay)
+	}
+}
+
+// TestGetDepartureBayFromPositionStaysInDepartBelowThreshold verifies that a strip in
+// BAY_DEPART below the altitude threshold does not prematurely transition to AIRBORNE.
+func TestGetDepartureBayFromPositionStaysInDepartBelowThreshold(t *testing.T) {
+	existing := database.Strip{
+		Origin: "EKCH",
+		Bay:    BAY_DEPART,
+	}
+
+	bay := GetDepartureBayFromPosition(AirportLatitude, AirportLongitude, int64(AirportElevation+100), existing, 500, "EKCH")
 	if bay != BAY_DEPART {
-		t.Fatalf("expected DEPART to remain unchanged, got %s", bay)
+		t.Fatalf("expected DEPART below threshold, got %s", bay)
 	}
 }
 
@@ -82,7 +96,7 @@ func TestGetGroundState_NonTaxiBaysDoNotMapTaxi(t *testing.T) {
 		expected string
 	}{
 		{BAY_PUSH, euroscope.GroundStatePush},
-		{BAY_DEPART, euroscope.GroundStateDepart},
+		{BAY_DEPART, euroscope.GroundStateLineup},
 		{BAY_CLEARED, euroscope.GroundStateUnknown},
 		{BAY_HIDDEN, euroscope.GroundStateUnknown},
 	}
@@ -94,11 +108,34 @@ func TestGetGroundState_NonTaxiBaysDoNotMapTaxi(t *testing.T) {
 	}
 }
 
+func TestGetGroundState_DepartMapsLineup(t *testing.T) {
+	state := GetGroundState(BAY_DEPART)
+	if state != euroscope.GroundStateLineup {
+		t.Fatalf("expected GroundStateLineup for BAY_DEPART (drag-and-drop), got %s", state)
+	}
+}
+
 func TestGetDepartureBayFromGroundState_TaxiReturnsTaxi(t *testing.T) {
 	existing := database.Strip{Bay: BAY_TAXI_LWR}
 	bay := GetDepartureBayFromGroundState(euroscope.GroundStateTaxi, existing)
 	if bay != BAY_TAXI {
 		t.Fatalf("expected BAY_TAXI from GroundStateTaxi, got %s", bay)
+	}
+}
+
+func TestGetDepartureBayFromGroundState_LineupReturnsDepart(t *testing.T) {
+	existing := database.Strip{Bay: BAY_TAXI_LWR}
+	bay := GetDepartureBayFromGroundState(euroscope.GroundStateLineup, existing)
+	if bay != BAY_DEPART {
+		t.Fatalf("expected BAY_DEPART from GroundStateLineup, got %s", bay)
+	}
+}
+
+func TestGetDepartureBayFromGroundState_DepartReturnsDepart(t *testing.T) {
+	existing := database.Strip{Bay: BAY_TAXI_LWR}
+	bay := GetDepartureBayFromGroundState(euroscope.GroundStateDepart, existing)
+	if bay != BAY_DEPART {
+		t.Fatalf("expected BAY_DEPART from GroundStateDepart, got %s", bay)
 	}
 }
 

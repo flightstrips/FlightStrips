@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import EsetStandCell from "@/components/eset/EsetStandCell";
 import {
   ESET_BACKGROUND_BOXES,

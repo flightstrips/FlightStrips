@@ -32,7 +32,8 @@ import {
   type FrontendTacticalStripMovedEvent,
   type FrontendMessageReceivedEvent,
   type FrontendAtisUpdateEvent,
-  type WebSocketEvent
+  type WebSocketEvent,
+  type AvailableSidsEvent,
 } from "./models";
 
 
@@ -73,6 +74,7 @@ type EventMap = {
   [EventType.FrontendAtisUpdate]: FrontendAtisUpdateEvent;
   [EventType.FrontendActionRejected]: ActionRejectedEvent;
   [EventType.ConnectRejected]: ConnectRejectedEvent;
+  [EventType.FrontendAvailableSids]: AvailableSidsEvent;
 };
 
 type WebSocketClientDelegate = {

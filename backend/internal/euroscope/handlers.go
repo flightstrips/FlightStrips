@@ -267,6 +267,15 @@ func handleSync(ctx context.Context, client *Client, message Message) error {
 
 	client.hub.server.GetFrontendHub().CidOnline(session, client.user.GetCid())
 
+	if len(event.Sids) > 0 {
+		sessionRepo := s.GetSessionRepository()
+		if err := sessionRepo.UpdateSessionSids(ctx, session, event.Sids); err != nil {
+			slog.Error("Failed to persist available SIDs", slog.Any("error", err))
+			// non-fatal — do not return
+		}
+		s.GetFrontendHub().SendAvailableSids(session, event.Sids)
+	}
+
 	return nil
 }
 

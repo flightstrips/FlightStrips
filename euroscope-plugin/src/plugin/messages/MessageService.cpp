@@ -169,7 +169,13 @@ namespace FlightStrips::messages {
             });
         }
 
-        const auto syncEvent = SyncEvent(strips, controllers, m_runwayService->GetActiveRunways(relevantAirport));
+        const auto syncEvent = SyncEvent(strips, controllers, m_runwayService->GetActiveRunways(relevantAirport), [&] {
+            std::vector<std::string> sidNames;
+            for (const auto& sid : m_plugin->GetSids(relevantAirport)) {
+                sidNames.push_back(sid.name);
+            }
+            return sidNames;
+        }());
         m_webSocketService->SendEvent(syncEvent);
     }
 

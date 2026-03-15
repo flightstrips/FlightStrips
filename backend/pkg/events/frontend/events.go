@@ -87,6 +87,10 @@ const (
 	// Sent immediately before closing the WebSocket when a frontend connection is refused
 	// because no EuroScope client is currently online for the airport.
 	ConnectRejected EventType = "connect_rejected"
+
+	// AvailableSids is broadcast to all frontend clients when the master EuroScope client
+	// sends a sync event containing SIDs, and on new frontend connects.
+	AvailableSids EventType = "available_sids"
 )
 
 type OutgoingMessage interface {
@@ -769,3 +773,10 @@ type ConnectRejectedEvent struct {
 
 func (e ConnectRejectedEvent) Marshal() ([]byte, error) { return marshall(e) }
 func (e ConnectRejectedEvent) GetType() EventType       { return ConnectRejected }
+
+type AvailableSidsEvent struct {
+	Sids []string `json:"sids"`
+}
+
+func (e AvailableSidsEvent) Marshal() ([]byte, error) { return marshall(e) }
+func (e AvailableSidsEvent) GetType() EventType       { return AvailableSids }

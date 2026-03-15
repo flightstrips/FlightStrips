@@ -30,6 +30,8 @@ export const useMyPosition = () => useWebSocketStore((state) => state.position);
 export const useStripTransfers = () => useWebSocketStore((state) => state.stripTransfers);
 export const useMetar = () => useWebSocketStore((state) => state.metar);
 
+export const useAvailableSids = () => useWebSocketStore((state) => state.availableSids);
+
 export const useLowerPositionOnline = () =>
   useWebSocketStore((state) =>
     state.controllers.some(

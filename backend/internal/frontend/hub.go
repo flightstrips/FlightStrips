@@ -343,6 +343,14 @@ func (hub *Hub) sendInitialEvent(client *Client) {
 	if cachedMetar != "" {
 		client.send <- frontend.AtisUpdateEvent{Metar: cachedMetar}
 	}
+
+	// Send available SIDs if any have been stored for this session.
+	sids, err := sessionRepo.GetSessionSids(context.Background(), client.session)
+	if err != nil {
+		slog.Error("Failed to load available SIDs on connect", slog.Any("error", err), slog.Int("session", int(client.session)))
+	} else if len(sids) > 0 {
+		client.send <- frontend.AvailableSidsEvent{Sids: sids}
+	}
 }
 
 func MapTacticalStripToPayload(ts *internalModels.TacticalStrip) frontend.TacticalStripPayload {
@@ -698,6 +706,10 @@ func (hub *Hub) SendToPosition(session int32, position string, message frontend.
 
 func (hub *Hub) NextMessageID() int64 {
 	return atomic.AddInt64(&hub.msgCounter, 1)
+}
+
+func (hub *Hub) SendAvailableSids(session int32, sids []string) {
+	hub.Broadcast(session, frontend.AvailableSidsEvent{Sids: sids})
 }
 
 func (hub *Hub) storeMessage(sessionID int32, msg frontend.MessageReceivedEvent) {

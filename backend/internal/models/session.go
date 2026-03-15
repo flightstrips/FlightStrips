@@ -9,4 +9,5 @@ type Session struct {
 	ActiveRunways      models.ActiveRunways
 	PdcSequence        int32
 	PdcMessageSequence int32
+	AvailableSids      models.AvailableSids
 }

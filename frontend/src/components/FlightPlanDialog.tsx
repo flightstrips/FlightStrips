@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { getSimpleAircraftType } from "@/lib/utils";
 import { ArrStandDialog } from "@/components/strip/ArrStandDialog";
 import { SidSelectDialog } from "@/components/strip/SidSelectDialog";
-import { useStrip, useWebSocketStore } from "@/store/store-hooks.ts";
+import { useAvailableSids, useStrip, useWebSocketStore } from "@/store/store-hooks.ts";
 
 const FONT_FAMILY = "Arial";
 const FONT_SIZE_FIELD = 20;
@@ -74,6 +74,7 @@ export default function FlightPlanDialog({
   const setDialogOpen = onOpenChange ?? setInternalOpen;
 
   const [sidDialogOpen, setSidDialogOpen] = useState(false);
+  const availableSids = useAvailableSids();
   const [ssrGenerating, setSsrGenerating] = useState(false);
   const [standOpen, setStandOpen] = useState(false);
   const [eobt, setEobt, _eobtFocused, setEobtFocused] = useEditableField(strip?.eobt);
@@ -154,6 +155,7 @@ export default function FlightPlanDialog({
                 onOpenChange={setSidDialogOpen}
                 value={strip.sid}
                 onSelect={(sid) => updateStrip(callsign, { sid })}
+                sids={availableSids.length > 0 ? availableSids : undefined}
               />
             </div>
             <div className="grid items-center gap-[5px]">

@@ -38,4 +38,5 @@ type FrontendHub interface {
 	SendTacticalStripUpdated(session int32, strip frontend.TacticalStripPayload)
 	SendTacticalStripMoved(session int32, id int64, bay string, sequence int32)
 	SendBroadcast(session int32, message string, from string)
+	SendAvailableSids(session int32, sids []string)
 }

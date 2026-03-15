@@ -35,6 +35,7 @@ export enum EventType {
   FrontendAtisUpdate = "atis_update",
   FrontendActionRejected = "action_rejected",
   ConnectRejected = "connect_rejected",
+  FrontendAvailableSids = "available_sids",
 }
 
 export enum ActionType {
@@ -620,3 +621,8 @@ export const isFlight = (s: AnyStrip): s is FrontendStrip => 'callsign' in s;
 /** Stable string ID for DnD frameworks — callsign for flights, "tactical-<id>" for tacticals. */
 export const stripDndId = (s: AnyStrip): string =>
   isFlight(s) ? s.callsign : `tactical-${s.id}`;
+
+export interface AvailableSidsEvent {
+  type: EventType.FrontendAvailableSids;
+  sids: string[];
+}

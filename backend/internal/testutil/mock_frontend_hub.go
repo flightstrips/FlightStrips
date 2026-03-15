@@ -200,3 +200,5 @@ func (m *MockFrontendHub) SendTacticalStripMoved(session int32, id int64, bay st
 }
 
 func (m *MockFrontendHub) SendBroadcast(session int32, message string, from string) {}
+
+func (m *MockFrontendHub) SendAvailableSids(session int32, sids []string) {}

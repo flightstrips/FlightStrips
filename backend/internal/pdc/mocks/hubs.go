@@ -153,6 +153,8 @@ func (m *FrontendHub) SendBroadcast(session int32, message string, from string) 
 	m.Called(session, message, from)
 }
 
+func (m *FrontendHub) SendAvailableSids(session int32, sids []string) {}
+
 var _ internalModels.TacticalStrip // ensure import used
 
 type EuroscopeHub struct {

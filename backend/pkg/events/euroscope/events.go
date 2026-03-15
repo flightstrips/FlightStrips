@@ -134,6 +134,7 @@ type SyncEvent struct {
 	} `json:"controllers"`
 	Strips  []Strip      `json:"strips"`
 	Runways []SyncRunway `json:"runways"`
+	Sids    []string     `json:"sids"`
 }
 
 type AssignedSquawkEvent struct {

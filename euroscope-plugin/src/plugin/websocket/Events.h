@@ -483,17 +483,19 @@ struct Controller final {
 
 
 struct SyncEvent final : Event {
-    SyncEvent(std::vector<Strip> strips, std::vector<Controller> controllers, std::vector<Runway> runways)
+    SyncEvent(std::vector<Strip> strips, std::vector<Controller> controllers, std::vector<Runway> runways, std::vector<std::string> sids)
         : Event(EVENT_SYNC), strips(std::move(strips)),
           controllers(std::move(controllers)),
-          runways(std::move(runways)) {
+          runways(std::move(runways)),
+          sids(std::move(sids)) {
     }
 
     std::vector<Strip> strips;
     std::vector<Controller> controllers;
     std::vector<Runway> runways;
+    std::vector<std::string> sids;
 
-    NLOHMANN_DEFINE_TYPE_INTRUSIVE(SyncEvent, strips, controllers, runways, type);
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE(SyncEvent, strips, controllers, runways, sids, type);
 };
 
 /**

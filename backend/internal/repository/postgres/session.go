@@ -30,6 +30,7 @@ func sessionToModel(db database.Session) *models.Session {
 		ActiveRunways:      db.ActiveRunways,
 		PdcSequence:        db.PdcSequence,
 		PdcMessageSequence: db.PdcMessageSequence,
+		AvailableSids:      db.AvailableSids,
 	}
 }
 
@@ -124,6 +125,23 @@ func (r *sessionRepository) UpdateActiveRunways(ctx context.Context, id int32, a
 		ID:            id,
 		ActiveRunways: activeRunways,
 	})
+}
+
+// UpdateSessionSids persists the list of available SIDs for a session.
+func (r *sessionRepository) UpdateSessionSids(ctx context.Context, id int32, sids []string) error {
+	return r.queries.UpdateSessionSids(ctx, database.UpdateSessionSidsParams{
+		ID:            id,
+		AvailableSids: pkgModels.AvailableSids(sids),
+	})
+}
+
+// GetSessionSids retrieves the list of available SIDs for a session.
+func (r *sessionRepository) GetSessionSids(ctx context.Context, id int32) ([]string, error) {
+	sids, err := r.queries.GetSessionSids(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	return []string(sids), nil
 }
 
 // IncrementPdcSequence increments and returns the PDC sequence

@@ -36,3 +36,9 @@ SELECT * FROM sessions;
 
 -- name: GetSessionsByNames :many
 SELECT * FROM sessions WHERE name = $1;
+
+-- name: UpdateSessionSids :exec
+UPDATE sessions SET available_sids = $2 WHERE id = $1;
+
+-- name: GetSessionSids :one
+SELECT available_sids FROM sessions WHERE id = $1;

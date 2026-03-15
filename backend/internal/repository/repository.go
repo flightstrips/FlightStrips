@@ -108,6 +108,8 @@ type SessionRepository interface {
 	Delete(ctx context.Context, id int32) (int64, error)
 
 	UpdateActiveRunways(ctx context.Context, id int32, activeRunways pkgModels.ActiveRunways) error
+	UpdateSessionSids(ctx context.Context, id int32, sids []string) error
+	GetSessionSids(ctx context.Context, id int32) ([]string, error)
 	IncrementPdcSequence(ctx context.Context, id int32) (int32, error)
 	IncrementPdcMessageSequence(ctx context.Context, id int32) (int32, error)
 }

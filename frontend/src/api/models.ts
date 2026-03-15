@@ -34,7 +34,6 @@ export enum EventType {
   FrontendMessageReceived = "message_received",
   FrontendAtisUpdate = "atis_update",
   FrontendActionRejected = "action_rejected",
-  ConnectRejected = "connect_rejected",
   FrontendAvailableSids = "available_sids",
 }
 
@@ -481,17 +480,11 @@ export type WebSocketEvent =
   | FrontendMessageReceivedEvent
   | FrontendAtisUpdateEvent
   | ActionRejectedEvent
-  | ConnectRejectedEvent
   | FrontendBulkBayEvent;
 
 export interface ActionRejectedEvent {
   type: EventType.FrontendActionRejected;
   action: string;
-  reason: string;
-}
-
-export interface ConnectRejectedEvent {
-  type: EventType.ConnectRejected;
   reason: string;
 }
 

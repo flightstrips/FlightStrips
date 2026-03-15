@@ -2,7 +2,6 @@ import {
   ActionType,
   EventType,
   type ActionRejectedEvent,
-  type ConnectRejectedEvent,
   type FrontendAircraftDisconnectEvent,
   type FrontendAssignedSquawkEvent,
   type FrontendBayEvent, type FrontendBroadcastEvent, type FrontendBulkBayEvent, type FrontendCdmDataEvent, type FrontendCdmWaitEvent,
@@ -73,7 +72,6 @@ type EventMap = {
   [EventType.FrontendMessageReceived]: FrontendMessageReceivedEvent;
   [EventType.FrontendAtisUpdate]: FrontendAtisUpdateEvent;
   [EventType.FrontendActionRejected]: ActionRejectedEvent;
-  [EventType.ConnectRejected]: ConnectRejectedEvent;
   [EventType.FrontendAvailableSids]: AvailableSidsEvent;
 };
 

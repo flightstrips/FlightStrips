@@ -191,9 +191,9 @@ export default function TWTE() {
           <span className={lockedLabel}>RWY ARR</span>
           <span className="flex gap-1">
             <button className={btn}>MISSED APP</button>
-            <LandButton bay={Bay.Final} className={btnOrange} />
-            <StartButton bay={Bay.Final} className={btnOrange} />
-            <CrossingButton bay={Bay.Final} className={btnYellow} />
+            <LandButton bay={Bay.RwyArr} className={btnOrange} />
+            <StartButton bay={Bay.RwyArr} className={btnOrange} />
+            <CrossingButton bay={Bay.RwyArr} className={btnYellow} />
           </span>
         </div>
         <SortableBay
@@ -211,10 +211,10 @@ export default function TWTE() {
         <div className={`${lockedHeader} ${colSep} justify-between`}>
           <span className={lockedLabel}>TWY ARR</span>
           <span className="flex gap-1">
-            <MemAidButton bay={Bay.Taxi} className={btnBlue} />
-            <LandButton bay={Bay.Taxi} className={btnOrange} />
-            <StartButton bay={Bay.Taxi} className={btnOrange} />
-            <CrossingButton bay={Bay.Taxi} className={btnYellow} />
+            <MemAidButton bay={Bay.TwyArr} className={btnBlue} />
+            <LandButton bay={Bay.TwyArr} className={btnOrange} />
+            <StartButton bay={Bay.TwyArr} className={btnOrange} />
+            <CrossingButton bay={Bay.TwyArr} className={btnYellow} />
           </span>
         </div>
         <SortableBay
@@ -236,10 +236,10 @@ export default function TWTE() {
           <span className={lockedLabel}>TWY DEP</span>
           <span className="flex gap-1">
             <button className={btn} onClick={() => setStartupOpen(true)}>STARTUP</button>
-            <MemAidButton bay={Bay.Taxi} className={btnBlue} />
-            <LandButton bay={Bay.Taxi} className={btnOrange} />
-            <StartButton bay={Bay.Taxi} className={btnOrange} />
-            <CrossingButton bay={Bay.Taxi} className={btnYellow} />
+            <MemAidButton bay={Bay.TaxiLwr} className={btnBlue} />
+            <LandButton bay={Bay.TaxiLwr} className={btnOrange} />
+            <StartButton bay={Bay.TaxiLwr} className={btnOrange} />
+            <CrossingButton bay={Bay.TaxiLwr} className={btnYellow} />
           </span>
         </div>
         <SortableBay

@@ -236,7 +236,7 @@ export default function AAAD() {
         <div className={activeHeader}>
           <span className={activeLabel}>TWY ARR</span>
           <span className="ml-auto">
-            <MemAidButton bay={Bay.Taxi} className={btn} />
+            <MemAidButton bay={Bay.TwyArr} className={btn} />
           </span>
         </div>
         <div className={`flex-1 ${scrollArea}`}>

@@ -16,7 +16,7 @@ import {
   isFlight,
 } from "@/store/airports/ekch.ts";
 import type { AnyStrip, FrontendStrip, StripRef } from "@/api/models.ts";
-import { Bay } from "@/api/models.ts";
+import { Bay, stripDndId } from "@/api/models.ts";
 import { SortableBay, DropIndicatorBay } from "@/components/bays/SortableBay.tsx";
 import { ViewDndContext } from "@/components/bays/ViewDndContext.tsx";
 import { useWebSocketStore, useMyPosition, useMessages, useDelOnline, useApronOnline } from "@/store/store-hooks.ts";
@@ -147,15 +147,15 @@ export default function GEGW() {
         <div className={`${lockedHeader} justify-between`}>
           <span className={lockedLabel}>TWY ARR</span>
           <span className="flex gap-1">
-            <MemAidButton bay={Bay.Taxi} className={CLS_BTN} />
-            <CrossingButton bay={Bay.Taxi} className={CLS_BTN} />
-            <StartButton bay={Bay.Taxi} className={CLS_BTN} />
-            <LandButton bay={Bay.Taxi} className={CLS_BTN} />
+            <MemAidButton bay={Bay.TwyArr} className={CLS_BTN} />
+            <CrossingButton bay={Bay.TwyArr} className={CLS_BTN} />
+            <StartButton bay={Bay.TwyArr} className={CLS_BTN} />
+            <LandButton bay={Bay.TwyArr} className={CLS_BTN} />
           </span>
         </div>
         <DropIndicatorBay bayId="TWY-ARR" className={`flex-1 ${scrollArea}`}>
-          {twyArrStrips.filter(isFlight).map(s => (
-            <Strip key={s.callsign} strip={s} status="FINAL-ARR" myPosition={myPosition} />
+          {twyArrStrips.map(s => (
+            <Strip key={stripDndId(s)} strip={s} status="FINAL-ARR" myPosition={myPosition} />
           ))}
         </DropIndicatorBay>
 

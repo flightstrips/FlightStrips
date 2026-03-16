@@ -1,7 +1,7 @@
 import { useEffect, useMemo } from "react";
 
 import { Button } from "@/components/ui/button";
-import type { FrontendStrip } from "@/api/models";
+import { Bay, type FrontendStrip } from "@/api/models";
 import { useCDMColors } from "@/hooks/useCDMColors";
 
 // Tailwind class constants (hex must be literal strings for JIT)
@@ -78,7 +78,7 @@ export default function EsetStandMenu({
     return { left, top };
   }, [anchor]);
 
-  const { tobtBg, tsatBg } = useCDMColors({ bay: strip.bay, tsat: strip.tsat, tobt: strip.tobt });
+  const { tobtBg, tsatBg } = useCDMColors({ bay: strip.bay as Bay, tsat: strip.tsat, tobt: strip.tobt });
 
   if (!open || !anchor) {
     return null;

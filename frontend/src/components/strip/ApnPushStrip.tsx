@@ -13,6 +13,9 @@ import {
 import { useWebSocketStore } from "@/store/store-hooks";
 import { SIBox } from "./SIBox";
 import { useStripTransfers } from "@/store/store-hooks";
+import { useCDMColors } from "@/hooks/useCDMColors";
+import { useCTOTColor } from "@/hooks/useCTOTColor";
+import { Bay } from "@/api/models";
 import { PushbackMapDialog } from "@/components/map-dialogs/PushbackMapDialog";
 import { ApronTaxiMapDialog } from "@/components/map-dialogs/ApronTaxiMapDialog";
 import { RunwayDialog } from "./RunwayDialog";
@@ -41,11 +44,13 @@ const F_RWY      = F_BASE * (2 / 3) * (2 / 3); // 4/9 of callsign width ~11.11
  */
 export function ApnPushStrip({
   callsign,
+  bay,
   aircraftType,
   registration,
   stand,
   holdingPoint,
   tsat,
+  tobt,
   ctot,
   runway,
   owner,
@@ -69,6 +74,8 @@ export function ApnPushStrip({
   const openStripContextMenu = useWebSocketStore(s => s.openStripContextMenu);
   const standYellow = unexpectedChangeFields?.includes("stand");
   const runwayYellow = unexpectedChangeFields?.includes("runway");
+  const { tsatBg } = useCDMColors({ bay: bay ?? Bay.Unknown, tsat: tsat ?? "", tobt: tobt ?? "" });
+  const { ctotBg, ctotColor, showCtot } = useCTOTColor(ctot ?? "");
 
   return (
     <div
@@ -143,13 +150,13 @@ export function ApnPushStrip({
           className="flex flex-col overflow-hidden border-r-2"
           style={{ flex: `${F_TSAT} 0 0%`, height: "100%", minWidth: 0, borderRightColor: cellBorderColor }}
         >
-          <div className="flex items-center gap-1 px-1 border-b-2" style={{ height: HALF_H, borderBottomColor: cellBorderColor }}>
+          <div className="flex items-center gap-1 px-1 border-b-2" style={{ height: HALF_H, borderBottomColor: cellBorderColor, backgroundColor: tsatBg || undefined }}>
             <span className="shrink-0" style={{ fontFamily: FONT, fontSize: 12 }}>TSAT</span>
             <span className="truncate" style={{ fontFamily: FONT, fontSize: 12 }}>{tsat}</span>
           </div>
-          <div className="flex items-center gap-1 px-1" style={{ height: HALF_H }}>
-            <span className="shrink-0" style={{ fontFamily: FONT, fontSize: 12 }}>CTOT</span>
-            <span className="truncate" style={{ fontFamily: FONT, fontSize: 12 }}>{ctot}</span>
+          <div className="flex items-center gap-1 px-1" style={{ height: HALF_H, backgroundColor: ctotBg || undefined, color: ctotColor }}>
+            <span className="shrink-0" style={{ fontFamily: FONT, fontSize: 12 }}>{showCtot ? "CTOT" : ""}</span>
+            <span className="truncate" style={{ fontFamily: FONT, fontSize: 12 }}>{showCtot ? ctot : ""}</span>
           </div>
         </div>
 

@@ -3,6 +3,7 @@ import type { CSSProperties } from "react";
 import { Bay, type FrontendStrip } from "@/api/models";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { computeCDMColors, computeCTOTColors } from "@/lib/cdmColors";
 
 import {
   ESET_CELL_HEIGHT,
@@ -10,11 +11,8 @@ import {
   formatTimeLabel,
   getBridgeStatus,
   getVgdsStatus,
-  parseTimestampMs,
   type EsetCanvasStand,
 } from "@/components/eset/metadata";
-
-const MINUTE_MS = 60_000;
 
 // Pixel offsets derived from SVG design (cell height 128px, width 74px)
 const LABEL_TOP = 18;
@@ -84,23 +82,13 @@ export default function EsetStandCell({
     textClass = "text-black";
   }
 
-  const tsatMs = strip ? parseTimestampMs(strip.tsat) : null;
-  const tobtMs = strip ? parseTimestampMs(strip.tobt) : null;
+  const { tobtBg: tobtBarColor, tsatBg: tsatBarColor } = strip && isClearedDeparture
+    ? computeCDMColors(strip.tsat, strip.tobt, nowMs, strip.bay as Bay)
+    : { tobtBg: "", tsatBg: "" };
 
-  // Indicator bar colors — only for cleared departures
-  let tobtBarColor = "";
-  let tsatBarColor = "";
-  if (isClearedDeparture && tsatMs !== null) {
-    if (nowMs < tsatMs - 6 * MINUTE_MS && tobtMs !== null && Math.abs(tsatMs - tobtMs) > 5 * MINUTE_MS) {
-      tobtBarColor = "#DD6A12"; // orange: far from TOBT/TSAT with CTOT
-    } else if (nowMs >= tsatMs - 5 * MINUTE_MS && nowMs < tsatMs) {
-      tsatBarColor = "#2CBB00"; // green: within 5 min of TSAT
-    } else if (nowMs > tsatMs + 4 * MINUTE_MS && nowMs <= tsatMs + 5 * MINUTE_MS) {
-      tsatBarColor = "#F3EA1F"; // yellow: TSAT+4min
-    } else if (nowMs > tsatMs + 5 * MINUTE_MS) {
-      tobtBarColor = "#BB1600"; // red: TSAT+6min
-    }
-  }
+  const { ctotBg: ctotBarColor } = strip && isClearedDeparture
+    ? computeCTOTColors(strip.ctot, nowMs)
+    : { ctotBg: "" };
 
   const showTobt = isDeparture && !!strip && strip.tobt !== "";
   const showTsat = isDeparture && !!strip && strip.tsat !== "";
@@ -114,7 +102,7 @@ export default function EsetStandCell({
 
   const showMark = isClearedDeparture && !!strip?.marked;
   const showBottomBar = showMark || (isClearedDeparture && !!ctotLabel);
-  const bottomBarColor = showMark ? "#EB01FB" : "#0000FF";
+  const bottomBarColor = showMark ? "#EB01FB" : ctotBarColor;
 
   return (
     <div style={containerStyle ?? gridStyle} className="relative">

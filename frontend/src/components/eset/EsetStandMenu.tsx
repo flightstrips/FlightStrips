@@ -1,12 +1,12 @@
 import { useEffect, useMemo } from "react";
 
 import { Button } from "@/components/ui/button";
-import { formatTimeLabel } from "@/components/eset/metadata";
 import type { FrontendStrip } from "@/api/models";
+import { useCDMColors } from "@/hooks/useCDMColors";
 
 // Tailwind class constants (hex must be literal strings for JIT)
 const CLS_POPUP   = "absolute w-[190px] border border-black bg-[#B3B3B3] p-2 shadow-2xl";
-const CLS_CDM_TAG = "bg-[#2CBB00] text-white font-bold px-1 py-0.5 text-xs"; // CDM green for TOBT/TSAT tags
+const CLS_CDM_TAG = "font-bold px-1 py-0.5 text-xs";
 
 export interface EsetMenuAnchor {
   top: number;
@@ -78,6 +78,8 @@ export default function EsetStandMenu({
     return { left, top };
   }, [anchor]);
 
+  const { tobtBg, tsatBg } = useCDMColors({ bay: strip.bay, tsat: strip.tsat, tobt: strip.tobt });
+
   if (!open || !anchor) {
     return null;
   }
@@ -93,8 +95,8 @@ export default function EsetStandMenu({
           <div className="bg-white px-2 py-1 text-center text-lg">{strip.stand}</div>
           <div className="mt-1 bg-white px-2 py-1 text-center text-lg">{strip.callsign}</div>
           <div className="mt-1 grid grid-cols-2 gap-1 text-xs font-semibold">
-            <div className={CLS_CDM_TAG}>TOBT {formatTimeLabel(strip.tobt)}</div>
-            <div className={CLS_CDM_TAG}>TSAT {formatTimeLabel(strip.tsat)}</div>
+            <div className={CLS_CDM_TAG} style={{ backgroundColor: tobtBg || "#9E9E9E", color: tobtBg ? "white" : "black" }}>TOBT {strip.tobt}</div>
+            <div className={CLS_CDM_TAG} style={{ backgroundColor: tsatBg || "#9E9E9E", color: tsatBg ? "white" : "black" }}>TSAT {strip.tsat}</div>
           </div>
           <Button
             variant="trf"

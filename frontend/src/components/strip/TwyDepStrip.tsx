@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useControllers, useStrips, useStripTransfers, useWebSocketStore } from "@/store/store-hooks";
+import { useCTOTColor } from "@/hooks/useCTOTColor";
 import { COLOR_UNEXPECTED_YELLOW } from "./shared";
 import { getStripBg } from "./types";
 import type { StripProps } from "./types";
@@ -64,6 +65,7 @@ export function TwyDepStrip({
 }: StripProps) {
   const { isSelected, handleClick } = useStripSelection(callsign, selectable);
   const stripTransfers = useStripTransfers();
+  const { ctotBg, ctotColor, showCtot } = useCTOTColor(ctot ?? "");
   const isTagRequest = !!stripTransfers[callsign]?.isTagRequest;
   const cellBorderColor = getCellBorderColor(marked);
   const controllers = useControllers();
@@ -184,9 +186,9 @@ export function TwyDepStrip({
             {stand}
           </span>
         </div>
-        <div className="flex items-center justify-center overflow-hidden" style={{ height: HALF_H }}>
+        <div className="flex items-center justify-center overflow-hidden" style={{ height: HALF_H, backgroundColor: ctotBg || undefined, color: ctotColor }}>
           <span className="truncate px-1" style={{ fontFamily: FONT, fontWeight: 300, fontSize: 13 }}>
-            {ctot}
+            {showCtot ? ctot : ""}
           </span>
         </div>
       </div>

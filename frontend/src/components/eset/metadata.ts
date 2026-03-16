@@ -256,12 +256,18 @@ export function parseTimestamp(value: string) {
     return null;
   }
 
+  // Try compact HHMM first — new Date("1423") parses as year 1423, not 14:23
+  const compact = parseCompactTime(value);
+  if (compact) {
+    return compact;
+  }
+
   const direct = new Date(value);
   if (!Number.isNaN(direct.getTime())) {
     return direct;
   }
 
-  return parseCompactTime(value);
+  return null;
 }
 
 export function parseTimestampMs(value: string) {

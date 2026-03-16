@@ -328,3 +328,79 @@ func TestForceAssumeStrip_SetOwnerFails(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "db error")
 }
+
+// TestForceAssumeStrip_AssumeInNextList_OwnerAppendedToPrevious verifies that when the assuming
+// controller was already in NextOwners, the displaced owner is appended to PreviousOwners (expected
+// handoff path). The existing previous owners must be preserved.
+func TestForceAssumeStrip_AssumeInNextList_OwnerAppendedToPrevious(t *testing.T) {
+	existingOwner := "EKCH_A_TWR"
+	strip := &models.Strip{
+		ID:             1,
+		Callsign:       "SAS123",
+		Owner:          &existingOwner,
+		NextOwners:     []string{"EKCH_D_TWR", "EKCH_APP"},
+		PreviousOwners: []string{"EKCH_DEL"},
+		Version:        1,
+	}
+
+	var savedPreviousOwners []string
+	hub := &testutil.MockFrontendHub{}
+
+	svc := NewStripService(&testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			return strip, nil
+		},
+		SetNextAndPreviousOwnersFn: func(_ context.Context, _ int32, _ string, _ []string, prevOwners []string) error {
+			savedPreviousOwners = prevOwners
+			return nil
+		},
+		SetOwnerFn: func(_ context.Context, _ int32, _ string, _ *string, _ int32) (int64, error) {
+			return 1, nil
+		},
+	})
+	svc.SetFrontendHub(hub)
+
+	err := svc.ForceAssumeStrip(context.Background(), 1, "SAS123", "EKCH_D_TWR")
+	require.NoError(t, err)
+	// Existing previous owners preserved + displaced owner appended.
+	assert.Equal(t, []string{"EKCH_DEL", "EKCH_A_TWR"}, savedPreviousOwners,
+		"displaced owner must be appended when assuming controller was in next list")
+}
+
+// TestForceAssumeStrip_AssumeNotInNextList_OwnerNotAppendedToPrevious verifies that when the
+// assuming controller was NOT in NextOwners (unexpected force-assume), the displaced owner is
+// removed from previous controllers and not re-appended.
+func TestForceAssumeStrip_AssumeNotInNextList_OwnerNotAppendedToPrevious(t *testing.T) {
+	existingOwner := "EKCH_A_TWR"
+	strip := &models.Strip{
+		ID:             1,
+		Callsign:       "SAS123",
+		Owner:          &existingOwner,
+		NextOwners:     []string{"EKCH_APP"}, // EKCH_D_TWR not in list
+		PreviousOwners: []string{"EKCH_DEL", "EKCH_A_TWR"},
+		Version:        1,
+	}
+
+	var savedPreviousOwners []string
+	hub := &testutil.MockFrontendHub{}
+
+	svc := NewStripService(&testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			return strip, nil
+		},
+		SetNextAndPreviousOwnersFn: func(_ context.Context, _ int32, _ string, _ []string, prevOwners []string) error {
+			savedPreviousOwners = prevOwners
+			return nil
+		},
+		SetOwnerFn: func(_ context.Context, _ int32, _ string, _ *string, _ int32) (int64, error) {
+			return 1, nil
+		},
+	})
+	svc.SetFrontendHub(hub)
+
+	err := svc.ForceAssumeStrip(context.Background(), 1, "SAS123", "EKCH_D_TWR")
+	require.NoError(t, err)
+	// Displaced owner removed; not re-appended because this was an unexpected force-assume.
+	assert.Equal(t, []string{"EKCH_DEL"}, savedPreviousOwners,
+		"displaced owner must not be appended when force-assuming outside of next list")
+}

@@ -58,6 +58,8 @@ type StripService interface {
 	RejectCoordination(ctx context.Context, session int32, callsign string, position string) error
 	CancelCoordinationTransfer(ctx context.Context, session int32, callsign string, position string) error
 	FreeStrip(ctx context.Context, session int32, callsign string, position string) error
+	CreateTagRequest(ctx context.Context, session int32, callsign string, requesterPosition string) error
+	AcceptTagRequest(ctx context.Context, session int32, callsign string, ownerPosition string) error
 	AutoTransferAirborneStrip(ctx context.Context, session int32, callsign string) error
 
 	// Cleared bay operations

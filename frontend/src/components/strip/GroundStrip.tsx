@@ -1,7 +1,7 @@
 import { getStripBg } from "./types";
 import type { StripProps } from "./types";
 import { useStripSelection, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR, COLOR_BTN_ORANGE, COLOR_SI_ASSUMED, COLOR_SI_UNCONCERNED, COLOR_SI_CONCERNED } from "./shared";
-import { useControllers, useWebSocketStore } from "@/store/store-hooks";
+import { useControllers, useStripTransfers, useWebSocketStore } from "@/store/store-hooks";
 
 const TOP_H = 32; // 2/3 of 48px
 const BOT_H = 16; // 1/3 of 48px
@@ -34,6 +34,8 @@ export function GroundStrip({
   const { isSelected, handleClick } = useStripSelection(callsign, selectable);
   const cellBorderColor = getCellBorderColor(marked);
   const controllers = useControllers();
+  const stripTransfers = useStripTransfers();
+  const isTagRequest = !!stripTransfers[callsign]?.isTagRequest;
   const openStripContextMenu = useWebSocketStore(s => s.openStripContextMenu);
 
   const isAssumed = !!myPosition && owner === myPosition;
@@ -55,7 +57,7 @@ export function GroundStrip({
       style={{
         height: 48,
         width: 480,
-        backgroundColor: getStripBg(pdcStatus, arrival),
+        backgroundColor: isTagRequest ? SELECTION_COLOR : getStripBg(pdcStatus, arrival),
         ...getFlatStripBorderStyle({ borderBottom: "1px solid white" }),
       }}
       onClick={handleClick}

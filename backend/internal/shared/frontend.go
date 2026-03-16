@@ -27,6 +27,7 @@ type FrontendHub interface {
 	SendCoordinationAssume(session int32, callsign, position string)
 	SendCoordinationReject(session int32, callsign, position string)
 	SendCoordinationFree(session int32, callsign string)
+	SendCoordinationTagRequest(session int32, callsign, from, to string)
 	SendOwnersUpdate(session int32, callsign string, owner string, nextOwners []string, previousOwners []string)
 	SendLayoutUpdates(session int32, layoutMap map[string]string)
 	SendCdmUpdate(session int32, callsign, eobt, tobt, tsat, ctot string)

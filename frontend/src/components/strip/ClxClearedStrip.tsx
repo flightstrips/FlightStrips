@@ -66,6 +66,7 @@ export function ClxClearedStrip({
   const isNavyBg = pdcStatus === "CLEARED";
   const cellBorderColor = isNavyBg ? "white" : getCellBorderColor(marked);
   const stripTransfers = useStripTransfers();
+  const isTagRequest = !!stripTransfers[callsign]?.isTagRequest;
   const cdmReady = useWebSocketStore(s => s.cdmReady);
   const acknowledgeUnexpectedChange = useWebSocketStore(s => s.acknowledgeUnexpectedChange);
   const openStripContextMenu = useWebSocketStore(s => s.openStripContextMenu);
@@ -99,7 +100,7 @@ export function ClxClearedStrip({
     >
       <div
         className={`flex ${isNavyBg ? "text-white" : "text-black"}${blinkOn ? " pdc-cleared-blink" : ""}`}
-        style={{ height: "100%", overflow: "hidden", ...(blinkOn ? {} : { backgroundColor: getStripBg(pdcStatus, arrival) }) }}
+        style={{ height: "100%", overflow: "hidden", ...(blinkOn ? {} : { backgroundColor: isTagRequest ? SELECTION_COLOR : getStripBg(pdcStatus, arrival) }) }}
       >
         {/* SI / ownership — 8.44% */}
         <SIBox
@@ -109,7 +110,8 @@ export function ClxClearedStrip({
           previousControllers={previousControllers}
           myPosition={myPosition}
           flexGrow={8.44}
-          transferringTo={stripTransfers[callsign] ?? ""}
+          transferringTo={stripTransfers[callsign]?.to ?? ""}
+          isTagRequest={isTagRequest}
         />
 
         {/* ── Left half of 80% ── */}

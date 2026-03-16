@@ -64,6 +64,7 @@ export function TwyDepStrip({
 }: StripProps) {
   const { isSelected, handleClick } = useStripSelection(callsign, selectable);
   const stripTransfers = useStripTransfers();
+  const isTagRequest = !!stripTransfers[callsign]?.isTagRequest;
   const cellBorderColor = getCellBorderColor(marked);
   const controllers = useControllers();
   const [showTaxiMap, setShowTaxiMap] = useState(false);
@@ -117,7 +118,7 @@ export function TwyDepStrip({
       style={{
         height: 48,
         width: TOTAL_W,
-        backgroundColor: getStripBg(pdcStatus),
+        backgroundColor: isTagRequest ? SELECTION_COLOR : getStripBg(pdcStatus),
         ...getFlatStripBorderStyle({ borderBottom: "1px solid white" }),
       }}
       onClick={handleClick}
@@ -130,7 +131,8 @@ export function TwyDepStrip({
         nextControllers={nextControllers}
         previousControllers={previousControllers}
         myPosition={myPosition}
-        transferringTo={stripTransfers[callsign] ?? ""}
+        transferringTo={stripTransfers[callsign]?.to ?? ""}
+        isTagRequest={isTagRequest}
       />
 
       {/* Callsign — 120px; top 2/3 = callsign, bottom 1/3 = :freq */}

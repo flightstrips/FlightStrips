@@ -66,6 +66,14 @@ type CoordinationFreeCall struct {
 	Callsign string
 }
 
+// CoordinationTagRequestCall records arguments to SendCoordinationTagRequest.
+type CoordinationTagRequestCall struct {
+	Session  int32
+	Callsign string
+	From     string
+	To       string
+}
+
 // AircraftDisconnectCall records arguments to SendAircraftDisconnect.
 type AircraftDisconnectCall struct {
 	Session  int32
@@ -90,17 +98,18 @@ type BulkBayCall struct {
 type MockFrontendHub struct {
 	server shared.Server
 
-	BayEvents             []BayEventCall
-	BulkBayEvents         []BulkBayCall
-	OwnersUpdates         []OwnersUpdateCall
-	CoordinationTransfers []CoordinationTransferCall
-	CoordinationAssumes   []CoordinationAssumeCall
-	CoordinationRejects   []CoordinationRejectCall
-	CoordinationFrees     []CoordinationFreeCall
-	AircraftDisconnects   []AircraftDisconnectCall
-	StripUpdates          []StripUpdateCall
-	ControllerOnlines     []ControllerOnlineCall
-	ControllerOfflines    []ControllerOfflineCall
+	BayEvents                []BayEventCall
+	BulkBayEvents            []BulkBayCall
+	OwnersUpdates            []OwnersUpdateCall
+	CoordinationTransfers    []CoordinationTransferCall
+	CoordinationAssumes      []CoordinationAssumeCall
+	CoordinationRejects      []CoordinationRejectCall
+	CoordinationFrees        []CoordinationFreeCall
+	CoordinationTagRequests  []CoordinationTagRequestCall
+	AircraftDisconnects      []AircraftDisconnectCall
+	StripUpdates             []StripUpdateCall
+	ControllerOnlines        []ControllerOnlineCall
+	ControllerOfflines       []ControllerOfflineCall
 }
 
 func (m *MockFrontendHub) GetServer() shared.Server {
@@ -200,5 +209,9 @@ func (m *MockFrontendHub) SendTacticalStripMoved(session int32, id int64, bay st
 }
 
 func (m *MockFrontendHub) SendBroadcast(session int32, message string, from string) {}
+
+func (m *MockFrontendHub) SendCoordinationTagRequest(session int32, callsign, from, to string) {
+	m.CoordinationTagRequests = append(m.CoordinationTagRequests, CoordinationTagRequestCall{session, callsign, from, to})
+}
 
 func (m *MockFrontendHub) SendAvailableSids(session int32, sids []string) {}

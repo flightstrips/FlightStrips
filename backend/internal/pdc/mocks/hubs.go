@@ -153,6 +153,10 @@ func (m *FrontendHub) SendBroadcast(session int32, message string, from string) 
 	m.Called(session, message, from)
 }
 
+func (m *FrontendHub) SendCoordinationTagRequest(session int32, callsign, from, to string) {
+	m.Called(session, callsign, from, to)
+}
+
 func (m *FrontendHub) SendAvailableSids(session int32, sids []string) {}
 
 var _ internalModels.TacticalStrip // ensure import used

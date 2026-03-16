@@ -88,6 +88,16 @@ func (m *StripService) FreeStrip(ctx context.Context, session int32, callsign st
 	return args.Error(0)
 }
 
+func (m *StripService) CreateTagRequest(ctx context.Context, session int32, callsign string, requesterPosition string) error {
+	args := m.Called(ctx, session, callsign, requesterPosition)
+	return args.Error(0)
+}
+
+func (m *StripService) AcceptTagRequest(ctx context.Context, session int32, callsign string, ownerPosition string) error {
+	args := m.Called(ctx, session, callsign, ownerPosition)
+	return args.Error(0)
+}
+
 func (m *StripService) UpdateAssignedSquawk(ctx context.Context, session int32, callsign string, squawk string) error {
 	args := m.Called(ctx, session, callsign, squawk)
 	return args.Error(0)

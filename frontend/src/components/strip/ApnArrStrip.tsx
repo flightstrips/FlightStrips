@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { StripProps } from "./types";
 import { useStripSelection, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR, COLOR_ARR_YELLOW, COLOR_BTN_ORANGE, COLOR_UNEXPECTED_YELLOW, getCellTextColor } from "./shared";
-import { useControllers, useWebSocketStore } from "@/store/store-hooks";
+import { useControllers, useStripTransfers, useWebSocketStore } from "@/store/store-hooks";
 import { RunwayDialog } from "./RunwayDialog";
 import { ArrStandDialog } from "./ArrStandDialog";
 
@@ -42,6 +42,8 @@ export function ApnArrStrip({
   const { isSelected, handleClick } = useStripSelection(callsign, selectable);
   const cellBorderColor = getCellBorderColor(marked);
   const controllers = useControllers();
+  const stripTransfers = useStripTransfers();
+  const isTagRequest = !!stripTransfers[callsign]?.isTagRequest;
   const [runwayOpen, setRunwayOpen] = useState(false);
   const [standOpen, setStandOpen] = useState(false);
   const acknowledgeUnexpectedChange = useWebSocketStore(s => s.acknowledgeUnexpectedChange);
@@ -69,7 +71,7 @@ export function ApnArrStrip({
       style={{
         height: 48, // 48px fixed — intentional ATC arrival strip height
         width: 428,
-        backgroundColor: COLOR_ARR_YELLOW,
+        backgroundColor: isTagRequest ? SELECTION_COLOR : COLOR_ARR_YELLOW,
         ...getFlatStripBorderStyle(),
       }}
       onClick={handleClick}

@@ -40,6 +40,7 @@ type Coordination struct {
 	CoordinatedAt pgtype.Timestamp
 	FromEs        bool
 	EsHandoverCid *string
+	IsTagRequest  bool
 }
 
 type SectorOwner struct {

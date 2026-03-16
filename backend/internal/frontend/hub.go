@@ -63,6 +63,8 @@ func NewHub(stripService shared.StripService, authenticationService shared.Authe
 	handlers.Add(frontend.CoordinationFreeRequestType, handleCoordinationFreeRequest)
 	handlers.Add(frontend.CoordinationCancelTransferRequest, handleCoordinationCancelTransferRequest)
 	handlers.Add(frontend.CoordinationForceAssumeRequestType, handleCoordinationForceAssumeRequest)
+	handlers.Add(frontend.CoordinationTagRequestType, handleCoordinationTagRequest)
+	handlers.Add(frontend.CoordinationAcceptTagRequestType, handleCoordinationAcceptTagRequest)
 	handlers.Add(frontend.UpdateOrder, handleUpdateOrder)
 	handlers.Add(frontend.SendMessage, handleSendMessage)
 	handlers.Add(frontend.CdmReady, handleCdmReady)
@@ -282,9 +284,10 @@ func (hub *Hub) sendInitialEvent(client *Client) {
 			continue
 		}
 		coordinationModels = append(coordinationModels, frontend.SyncCoordination{
-			Callsign: callsign,
-			From:     coord.FromPosition,
-			To:       coord.ToPosition,
+			Callsign:     callsign,
+			From:         coord.FromPosition,
+			To:           coord.ToPosition,
+			IsTagRequest: coord.IsTagRequest,
 		})
 	}
 
@@ -703,6 +706,15 @@ func (hub *Hub) SendToPosition(session int32, position string, message frontend.
 
 func (hub *Hub) NextMessageID() int64 {
 	return atomic.AddInt64(&hub.msgCounter, 1)
+}
+
+func (hub *Hub) SendCoordinationTagRequest(session int32, callsign, from, to string) {
+	event := frontend.CoordinationTagRequestBroadcastEvent{
+		Callsign: callsign,
+		From:     from,
+		To:       to,
+	}
+	hub.Broadcast(session, event)
 }
 
 func (hub *Hub) SendAvailableSids(session int32, sids []string) {

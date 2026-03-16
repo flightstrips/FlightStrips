@@ -18,6 +18,7 @@ import {
   type FrontendCoordinationAssumeBroadcastEvent,
   type FrontendCoordinationRejectBroadcastEvent,
   type FrontendCoordinationFreeBroadcastEvent,
+  type FrontendCoordinationTagRequestBroadcastEvent,
   type FrontendRequestedAltitudeEvent,
   type FrontendRunwayConfigurationEvent,
   type FrontendSendEvent,
@@ -64,6 +65,7 @@ type EventMap = {
   [EventType.FrontendCoordinationAssumeBroadcast]: FrontendCoordinationAssumeBroadcastEvent;
   [EventType.FrontendCoordinationRejectBroadcast]: FrontendCoordinationRejectBroadcastEvent;
   [EventType.FrontendCoordinationFreeBroadcast]: FrontendCoordinationFreeBroadcastEvent;
+  [EventType.FrontendCoordinationTagRequestBroadcast]: FrontendCoordinationTagRequestBroadcastEvent;
   [EventType.FrontendRunWayConfiguration]: FrontendRunwayConfigurationEvent;
   [EventType.FrontendTacticalStripCreated]: FrontendTacticalStripCreatedEvent;
   [EventType.FrontendTacticalStripDeleted]: FrontendTacticalStripDeletedEvent;

@@ -35,6 +35,7 @@ export enum EventType {
   FrontendAtisUpdate = "atis_update",
   FrontendActionRejected = "action_rejected",
   FrontendAvailableSids = "available_sids",
+  FrontendCoordinationTagRequestBroadcast = "coordination_tag_request_broadcast",
 }
 
 export enum ActionType {
@@ -61,6 +62,8 @@ export enum ActionType {
   FrontendStartTacticalTimer = "start_tactical_timer",
   FrontendMoveTacticalStrip = "move_tactical_strip",
   FrontendAcknowledgeUnexpectedChange = "acknowledge_unexpected_change",
+  FrontendCoordinationTagRequest = "coordination_tag_request",
+  FrontendCoordinationAcceptTagRequest = "coordination_accept_tag_request",
 }
 
 export type PdcStatus = "NONE" | "REQUESTED" | "CLEARED" | "CONFIRMED" | "NO_RESPONSE" | "FAILED" | "REVERT_TO_VOICE";
@@ -179,7 +182,7 @@ export interface FrontendInitialEvent {
   layout: string;
   callsign: string;
   runway_setup: RunwayConfiguration;
-  coordinations: Array<{ callsign: string; from: string; to: string }>;
+  coordinations: Array<{ callsign: string; from: string; to: string; is_tag_request: boolean }>;
   messages: MessageReceived[];
   available_sids: string[];
 }
@@ -407,6 +410,13 @@ export interface FrontendCoordinationFreeBroadcastEvent {
   callsign: string;
 }
 
+export interface FrontendCoordinationTagRequestBroadcastEvent {
+  type: EventType.FrontendCoordinationTagRequestBroadcast;
+  callsign: string;
+  from: string;
+  to: string;
+}
+
 export interface FrontendRunwayConfigurationEvent {
   type: EventType.FrontendRunWayConfiguration;
   runway_setup: RunwayConfiguration;
@@ -472,6 +482,7 @@ export type WebSocketEvent =
   | FrontendCoordinationAssumeBroadcastEvent
   | FrontendCoordinationRejectBroadcastEvent
   | FrontendCoordinationFreeBroadcastEvent
+  | FrontendCoordinationTagRequestBroadcastEvent
   | FrontendRunwayConfigurationEvent
   | FrontendTacticalStripCreatedEvent
   | FrontendTacticalStripDeletedEvent
@@ -572,6 +583,16 @@ export interface FrontendCoordinationCancelTransferRequestEvent {
   callsign: string;
 }
 
+export interface FrontendCoordinationTagRequestEvent {
+  type: ActionType.FrontendCoordinationTagRequest;
+  callsign: string;
+}
+
+export interface FrontendCoordinationAcceptTagRequestEvent {
+  type: ActionType.FrontendCoordinationAcceptTagRequest;
+  callsign: string;
+}
+
 export interface FrontendCreateTacticalStripAction {
   type: ActionType.FrontendCreateTacticalStrip;
   strip_type: TacticalStripType;
@@ -608,7 +629,7 @@ export interface FrontendAcknowledgeUnexpectedChangeEvent {
 }
 
 // Union type for all events that can be sent
-export type FrontendSendEvent = FrontendAuthenticationEvent | FrontendMoveEvent | FrontendGenerateSquawkEvent | FrontendUpdateStripDataEvent | FrontendUpdateOrder | FrontendSendMessageEvent | FrontendCdmReadyEvent | FrontendSendReleasePointEvent | FrontendSendMarkedEvent | FrontendSendRunwayClearanceEvent | FrontendIssuePdcClearanceRequest | FrontendRevertToVoiceRequest | FrontendCoordinationTransferRequestEvent | FrontendCoordinationAssumeRequestEvent | FrontendCoordinationForceAssumeRequestEvent | FrontendCoordinationFreeRequestEvent | FrontendCoordinationCancelTransferRequestEvent | FrontendCreateTacticalStripAction | FrontendDeleteTacticalStripAction | FrontendConfirmTacticalStripAction | FrontendStartTacticalTimerAction | FrontendMoveTacticalStripAction | FrontendAcknowledgeUnexpectedChangeEvent;
+export type FrontendSendEvent = FrontendAuthenticationEvent | FrontendMoveEvent | FrontendGenerateSquawkEvent | FrontendUpdateStripDataEvent | FrontendUpdateOrder | FrontendSendMessageEvent | FrontendCdmReadyEvent | FrontendSendReleasePointEvent | FrontendSendMarkedEvent | FrontendSendRunwayClearanceEvent | FrontendIssuePdcClearanceRequest | FrontendRevertToVoiceRequest | FrontendCoordinationTransferRequestEvent | FrontendCoordinationAssumeRequestEvent | FrontendCoordinationForceAssumeRequestEvent | FrontendCoordinationFreeRequestEvent | FrontendCoordinationCancelTransferRequestEvent | FrontendCoordinationTagRequestEvent | FrontendCoordinationAcceptTagRequestEvent | FrontendCreateTacticalStripAction | FrontendDeleteTacticalStripAction | FrontendConfirmTacticalStripAction | FrontendStartTacticalTimerAction | FrontendMoveTacticalStripAction | FrontendAcknowledgeUnexpectedChangeEvent;
 
 export type AnyStrip = FrontendStrip | TacticalStrip;
 export const isFlight = (s: AnyStrip): s is FrontendStrip => 'callsign' in s;

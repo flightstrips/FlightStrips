@@ -34,12 +34,14 @@ const (
 	SetHeading         EventType = "heading"
 	CommunicationType  EventType = "communication_type"
 
-	CoordinationTransferRequestType   EventType = "coordination_transfer_request"
-	CoordinationAssumeRequestType     EventType = "coordination_assume_request"
-	CoordinationRejectRequestType     EventType = "coordination_reject_request"
-	CoordinationFreeRequestType       EventType = "coordination_free_request"
-	CoordinationCancelTransferRequest      EventType = "coordination_cancel_transfer_request"
-	CoordinationForceAssumeRequestType     EventType = "coordination_force_assume_request"
+	CoordinationTransferRequestType    EventType = "coordination_transfer_request"
+	CoordinationAssumeRequestType      EventType = "coordination_assume_request"
+	CoordinationRejectRequestType      EventType = "coordination_reject_request"
+	CoordinationFreeRequestType        EventType = "coordination_free_request"
+	CoordinationCancelTransferRequest  EventType = "coordination_cancel_transfer_request"
+	CoordinationForceAssumeRequestType EventType = "coordination_force_assume_request"
+	CoordinationTagRequestType         EventType = "coordination_tag_request"
+	CoordinationAcceptTagRequestType   EventType = "coordination_accept_tag_request"
 
 	Move                              EventType = "move"
 	GenerateSquawk                    EventType = "generate_squawk"
@@ -49,6 +51,7 @@ const (
 	CoordinationRejectBroadcastType   EventType = "coordination_reject_broadcast"
 	CoordinationTransferBroadcastType EventType = "coordination_transfer_broadcast"
 	CoordinationFreeBroadcastType     EventType = "coordination_free_broadcast"
+	CoordinationTagRequestBroadcastType EventType = "coordination_tag_request_broadcast"
 
 	OwnersUpdate EventType = "owners_update"
 
@@ -147,9 +150,10 @@ type Controller struct {
 }
 
 type SyncCoordination struct {
-	Callsign string `json:"callsign"`
-	From     string `json:"from"`
-	To       string `json:"to"`
+	Callsign     string `json:"callsign"`
+	From         string `json:"from"`
+	To           string `json:"to"`
+	IsTagRequest bool   `json:"is_tag_request"`
 }
 
 type InitialEvent struct {
@@ -483,6 +487,32 @@ type CoordinationCancelTransferRequestEvent struct {
 type CoordinationForceAssumeRequestEvent struct {
 	Type     string `json:"type"`
 	Callsign string `json:"callsign"`
+}
+
+// ---------- TAG REQUEST ----------
+
+type CoordinationTagRequestEvent struct {
+	Type     string `json:"type"`
+	Callsign string `json:"callsign"`
+}
+
+type CoordinationAcceptTagRequestEvent struct {
+	Type     string `json:"type"`
+	Callsign string `json:"callsign"`
+}
+
+type CoordinationTagRequestBroadcastEvent struct {
+	From     string `json:"from"`
+	To       string `json:"to"`
+	Callsign string `json:"callsign"`
+}
+
+func (c CoordinationTagRequestBroadcastEvent) Marshal() ([]byte, error) {
+	return marshall(c)
+}
+
+func (c CoordinationTagRequestBroadcastEvent) GetType() EventType {
+	return CoordinationTagRequestBroadcastType
 }
 
 type CoordinationFreeBroadcastEvent struct {

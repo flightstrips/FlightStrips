@@ -61,6 +61,7 @@ export function ApnPushStrip({
   const { isSelected, handleClick } = useStripSelection(callsign, selectable);
   const cellBorderColor = getCellBorderColor(marked);
   const stripTransfers = useStripTransfers();
+  const isTagRequest = !!stripTransfers[callsign]?.isTagRequest;
   const [pushbackOpen, setPushbackOpen] = useState(false);
   const [apronTaxiOpen, setApronTaxiOpen] = useState(false);
   const [runwayOpen, setRunwayOpen] = useState(false);
@@ -80,7 +81,7 @@ export function ApnPushStrip({
       onClick={handleClick}
       onContextMenu={(e) => { e.preventDefault(); openStripContextMenu(callsign, { x: e.clientX, y: e.clientY }); }}
     >
-      <div className="flex text-black" style={{ height: "100%", overflow: "hidden", backgroundColor: COLOR_ARR_STRIP_BG }}>
+      <div className="flex text-black" style={{ height: "100%", overflow: "hidden", backgroundColor: isTagRequest ? SELECTION_COLOR : COLOR_ARR_STRIP_BG }}>
         {/* SI / ownership — 8% */}
         <SIBox
           callsign={callsign}
@@ -88,7 +89,8 @@ export function ApnPushStrip({
           nextControllers={nextControllers}
           previousControllers={previousControllers}
           myPosition={myPosition}
-          transferringTo={stripTransfers[callsign] ?? ""}
+          transferringTo={stripTransfers[callsign]?.to ?? ""}
+          isTagRequest={isTagRequest}
         />
 
         {/* Callsign — 25%, FONT medium 20, top 2/3 highlighted when selected */}

@@ -1,0 +1,1 @@
+ALTER TABLE coordinations ADD COLUMN is_tag_request BOOLEAN NOT NULL DEFAULT FALSE;

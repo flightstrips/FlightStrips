@@ -54,6 +54,7 @@ export function FinalArrStrip({
   const { isSelected, handleClick } = useStripSelection(callsign, selectable);
   const cellBorderColor = getCellBorderColor(marked, CELL_BORDER);
   const stripTransfers = useStripTransfers();
+  const isTagRequest = !!stripTransfers[callsign]?.isTagRequest;
   const runwayClearance = useWebSocketStore(s => s.runwayClearance);
   const openStripContextMenu = useWebSocketStore(s => s.openStripContextMenu);
   const allStrips = useStrips();
@@ -78,7 +79,7 @@ export function FinalArrStrip({
       style={{
         height: 48, // 48px fixed — intentional ATC arrival strip height
         width: TOTAL_W,
-        backgroundColor: COLOR_ARR_YELLOW,
+        backgroundColor: isTagRequest ? SELECTION_COLOR : COLOR_ARR_YELLOW,
         ...getFlatStripBorderStyle(),
       }}
       onClick={handleClick}
@@ -92,7 +93,8 @@ export function FinalArrStrip({
         previousControllers={previousControllers}
         myPosition={myPosition}
         marked={marked}
-        transferringTo={stripTransfers[callsign] ?? ""}
+        transferringTo={stripTransfers[callsign]?.to ?? ""}
+        isTagRequest={isTagRequest}
         baseBorderColor={CELL_BORDER}
       />
 

@@ -10,8 +10,8 @@ import (
 )
 
 const createCoordination = `-- name: CreateCoordination :one
-INSERT INTO coordinations (session, strip_id, from_position, to_position, from_es, es_handover_cid)
-VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, session, strip_id, from_position, to_position, coordinated_at, from_es, es_handover_cid
+INSERT INTO coordinations (session, strip_id, from_position, to_position, from_es, es_handover_cid, is_tag_request)
+VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id, session, strip_id, from_position, to_position, coordinated_at, from_es, es_handover_cid, is_tag_request
 `
 
 type CreateCoordinationParams struct {
@@ -21,6 +21,7 @@ type CreateCoordinationParams struct {
 	ToPosition    string
 	FromEs        bool
 	EsHandoverCid *string
+	IsTagRequest  bool
 }
 
 func (q *Queries) CreateCoordination(ctx context.Context, arg CreateCoordinationParams) (Coordination, error) {
@@ -31,6 +32,7 @@ func (q *Queries) CreateCoordination(ctx context.Context, arg CreateCoordination
 		arg.ToPosition,
 		arg.FromEs,
 		arg.EsHandoverCid,
+		arg.IsTagRequest,
 	)
 	var i Coordination
 	err := row.Scan(
@@ -42,6 +44,7 @@ func (q *Queries) CreateCoordination(ctx context.Context, arg CreateCoordination
 		&i.CoordinatedAt,
 		&i.FromEs,
 		&i.EsHandoverCid,
+		&i.IsTagRequest,
 	)
 	return i, err
 }
@@ -61,7 +64,7 @@ func (q *Queries) DeleteCoordinationByID(ctx context.Context, id int32) (int64, 
 }
 
 const getCoordinationByStripCallsign = `-- name: GetCoordinationByStripCallsign :one
-SELECT c.id, c.session, c.strip_id, c.from_position, c.to_position, c.coordinated_at, c.from_es, c.es_handover_cid
+SELECT c.id, c.session, c.strip_id, c.from_position, c.to_position, c.coordinated_at, c.from_es, c.es_handover_cid, c.is_tag_request
 FROM coordinations c
          JOIN strips s ON s.id = c.strip_id
 WHERE s.session = $1
@@ -85,12 +88,13 @@ func (q *Queries) GetCoordinationByStripCallsign(ctx context.Context, arg GetCoo
 		&i.CoordinatedAt,
 		&i.FromEs,
 		&i.EsHandoverCid,
+		&i.IsTagRequest,
 	)
 	return i, err
 }
 
 const getCoordinationByStripID = `-- name: GetCoordinationByStripID :one
-SELECT id, session, strip_id, from_position, to_position, coordinated_at, from_es, es_handover_cid
+SELECT id, session, strip_id, from_position, to_position, coordinated_at, from_es, es_handover_cid, is_tag_request
 FROM coordinations
 WHERE session = $1 AND strip_id = $2
 `
@@ -112,12 +116,13 @@ func (q *Queries) GetCoordinationByStripID(ctx context.Context, arg GetCoordinat
 		&i.CoordinatedAt,
 		&i.FromEs,
 		&i.EsHandoverCid,
+		&i.IsTagRequest,
 	)
 	return i, err
 }
 
 const listCoordinationsBySession = `-- name: ListCoordinationsBySession :many
-SELECT id, session, strip_id, from_position, to_position, coordinated_at, from_es, es_handover_cid
+SELECT id, session, strip_id, from_position, to_position, coordinated_at, from_es, es_handover_cid, is_tag_request
 FROM coordinations
 WHERE session = $1
 ORDER BY coordinated_at DESC
@@ -141,6 +146,7 @@ func (q *Queries) ListCoordinationsBySession(ctx context.Context, session int32)
 			&i.CoordinatedAt,
 			&i.FromEs,
 			&i.EsHandoverCid,
+			&i.IsTagRequest,
 		); err != nil {
 			return nil, err
 		}

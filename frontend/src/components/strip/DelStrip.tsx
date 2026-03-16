@@ -11,7 +11,7 @@ import {
   COLOR_UNEXPECTED_YELLOW,
   getCellTextColor,
 } from "./shared";
-import { useWebSocketStore } from "@/store/store-hooks";
+import { useStripTransfers, useWebSocketStore } from "@/store/store-hooks";
 import { useCDMColors } from "@/hooks/useCDMColors";
 import { Bay } from "@/api/models";
 const FULL_H  = "4.44vh";
@@ -46,6 +46,8 @@ export function DelStrip({
   const cdmReady = useWebSocketStore(s => s.cdmReady);
   const acknowledgeUnexpectedChange = useWebSocketStore(s => s.acknowledgeUnexpectedChange);
   const openStripContextMenu = useWebSocketStore(s => s.openStripContextMenu);
+  const stripTransfers = useStripTransfers();
+  const isTagRequest = !!stripTransfers[callsign]?.isTagRequest;
   const { tobtBg, tsatBg } = useCDMColors({ bay: bay ?? Bay.Unknown, tsat: tsat ?? "", tobt: tobt ?? "" });
   const standYellow = unexpectedChangeFields?.includes("stand");
 
@@ -63,7 +65,7 @@ export function DelStrip({
     >
       <div
         className={`flex ${isNavyBg ? "text-white" : "text-black"}`}
-        style={{ height: "100%", overflow: "hidden", backgroundColor: getStripBg(pdcStatus, arrival) }}
+        style={{ height: "100%", overflow: "hidden", backgroundColor: isTagRequest ? SELECTION_COLOR : getStripBg(pdcStatus, arrival) }}
       >
         {/* ── Left 50% ── */}
 

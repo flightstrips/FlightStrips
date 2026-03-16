@@ -260,6 +260,22 @@ func handleCoordinationForceAssumeRequest(ctx context.Context, client *Client, m
 	return client.hub.stripService.ForceAssumeStrip(ctx, client.session, req.Callsign, client.position)
 }
 
+func handleCoordinationTagRequest(ctx context.Context, client *Client, message Message) error {
+	var req frontend.CoordinationTagRequestEvent
+	if err := message.JsonUnmarshal(&req); err != nil {
+		return err
+	}
+	return client.hub.stripService.CreateTagRequest(ctx, client.session, req.Callsign, client.position)
+}
+
+func handleCoordinationAcceptTagRequest(ctx context.Context, client *Client, message Message) error {
+	var req frontend.CoordinationAcceptTagRequestEvent
+	if err := message.JsonUnmarshal(&req); err != nil {
+		return err
+	}
+	return client.hub.stripService.AcceptTagRequest(ctx, client.session, req.Callsign, client.position)
+}
+
 func handleUpdateOrder(ctx context.Context, client *Client, message Message) error {
 	var event frontend.UpdateOrderEvent
 	err := message.JsonUnmarshal(&event)

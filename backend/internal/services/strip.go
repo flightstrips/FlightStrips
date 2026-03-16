@@ -1247,19 +1247,25 @@ func (s *StripService) ForceAssumeStrip(ctx context.Context, session int32, call
 		}
 	}
 
-	// The displaced owner must not appear in previous controllers.
-	previousOwners := make([]string, 0, len(strip.PreviousOwners))
+	// Trim NextOwners: remove the new owner and all positions before it.
+	nextOwners := strip.NextOwners
+	index := slices.Index(nextOwners, position)
+	isExpectedHandoff := index >= 0
+	if isExpectedHandoff {
+		nextOwners = nextOwners[index+1:]
+	}
+
+	// Build the new previous owners list.
+	// Filter out the displaced owner first (avoids duplicates), then — for an
+	// expected handoff — append them so they appear as a past controller.
+	previousOwners := make([]string, 0, len(strip.PreviousOwners)+1)
 	for _, p := range strip.PreviousOwners {
 		if strip.Owner == nil || *strip.Owner != p {
 			previousOwners = append(previousOwners, p)
 		}
 	}
-
-	// Trim NextOwners: remove the new owner and all positions before it.
-	nextOwners := strip.NextOwners
-	index := slices.Index(nextOwners, position)
-	if index >= 0 {
-		nextOwners = nextOwners[index+1:]
+	if isExpectedHandoff && strip.Owner != nil && *strip.Owner != "" {
+		previousOwners = append(previousOwners, *strip.Owner)
 	}
 
 	if err := s.stripRepo.SetNextAndPreviousOwners(ctx, session, callsign, nextOwners, previousOwners); err != nil {
@@ -1327,6 +1333,148 @@ func (s *StripService) RejectCoordination(ctx context.Context, session int32, ca
 		return err
 	}
 	s.frontendHub.SendCoordinationReject(session, callsign, position)
+	return nil
+}
+
+// CreateTagRequest creates a tag-request coordination, allowing a non-owner to request the strip tag from the current owner.
+func (s *StripService) CreateTagRequest(ctx context.Context, session int32, callsign string, requesterPosition string) error {
+	if s.frontendHub == nil {
+		return errors.New("frontend hub not configured")
+	}
+	server := s.frontendHub.GetServer()
+	if server == nil {
+		return errors.New("server not configured")
+	}
+
+	strip, err := s.stripRepo.GetByCallsign(ctx, session, callsign)
+	if err != nil {
+		return err
+	}
+
+	if strip.Owner == nil || *strip.Owner == "" {
+		return errors.New("cannot request tag of an unowned strip")
+	}
+
+	if *strip.Owner == requesterPosition {
+		return errors.New("cannot request tag of a strip you already own")
+	}
+
+	coordRepo := server.GetCoordinationRepository()
+
+	// Check no active coordination already exists
+	if _, err := coordRepo.GetByStripCallsign(ctx, session, callsign); err == nil {
+		return errors.New("an active coordination already exists for this strip")
+	}
+
+	coord := &internalModels.Coordination{
+		Session:      session,
+		StripID:      strip.ID,
+		FromPosition: *strip.Owner,
+		ToPosition:   requesterPosition,
+		IsTagRequest: true,
+	}
+
+	if err := coordRepo.Create(ctx, coord); err != nil {
+		return err
+	}
+
+	s.frontendHub.SendCoordinationTagRequest(session, callsign, *strip.Owner, requesterPosition)
+	return nil
+}
+
+// AcceptTagRequest allows the strip owner to accept a pending tag request, transferring ownership to the requester.
+func (s *StripService) AcceptTagRequest(ctx context.Context, session int32, callsign string, ownerPosition string) error {
+	if s.frontendHub == nil {
+		return errors.New("frontend hub not configured")
+	}
+	server := s.frontendHub.GetServer()
+	if server == nil {
+		return errors.New("server not configured")
+	}
+
+	strip, err := s.stripRepo.GetByCallsign(ctx, session, callsign)
+	if err != nil {
+		return err
+	}
+
+	if strip.Owner == nil || *strip.Owner != ownerPosition {
+		return errors.New("only the strip owner can accept a tag request")
+	}
+
+	coordRepo := server.GetCoordinationRepository()
+	coordination, err := coordRepo.GetByStripCallsign(ctx, session, callsign)
+	if err != nil {
+		return err
+	}
+
+	if !coordination.IsTagRequest {
+		return errors.New("no pending tag request for this strip")
+	}
+
+	requesterPosition := coordination.ToPosition
+
+	if err := coordRepo.Delete(ctx, coordination.ID); err != nil {
+		return err
+	}
+
+	// Trim next owners: remove the requester and all positions before it.
+	nextOwners := strip.NextOwners
+	index := slices.Index(nextOwners, requesterPosition)
+	isExpectedHandoff := index >= 0
+	if isExpectedHandoff {
+		nextOwners = nextOwners[index+1:]
+	}
+
+	// Build the new previous owners list.
+	// Filter out the displaced owner first (avoids duplicates), then — for an
+	// expected handoff — append them so they appear as a past controller.
+	previousOwners := make([]string, 0, len(strip.PreviousOwners)+1)
+	for _, p := range strip.PreviousOwners {
+		if p != ownerPosition {
+			previousOwners = append(previousOwners, p)
+		}
+	}
+	if isExpectedHandoff {
+		previousOwners = append(previousOwners, ownerPosition)
+	}
+
+	if err := s.stripRepo.SetNextAndPreviousOwners(ctx, session, callsign, nextOwners, previousOwners); err != nil {
+		return err
+	}
+
+	count, err := s.stripRepo.SetOwner(ctx, session, callsign, &requesterPosition, strip.Version)
+	if err != nil {
+		return err
+	}
+	if count != 1 {
+		return errors.New("failed to set strip owner after accepting tag request")
+	}
+
+	// Recalculate route from the new owner (same as ForceAssumeStrip).
+	if server := s.frontendHub.GetServer(); server != nil {
+		_ = server.UpdateRouteForStrip(callsign, session, false)
+
+		if updated, err := s.stripRepo.GetByCallsign(ctx, session, callsign); err == nil {
+			nextOwners = updated.NextOwners
+		}
+	}
+
+	// Remove from previous owners anyone who now appears in next owners.
+	cleanedPrevious := make([]string, 0, len(previousOwners))
+	for _, p := range previousOwners {
+		if !slices.Contains(nextOwners, p) {
+			cleanedPrevious = append(cleanedPrevious, p)
+		}
+	}
+	if !slices.Equal(cleanedPrevious, previousOwners) {
+		if err := s.stripRepo.SetPreviousOwners(ctx, session, callsign, cleanedPrevious); err != nil {
+			return err
+		}
+		previousOwners = cleanedPrevious
+	}
+
+	s.frontendHub.SendCoordinationAssume(session, callsign, requesterPosition)
+	s.frontendHub.SendOwnersUpdate(session, callsign, requesterPosition, nextOwners, previousOwners)
 	return nil
 }
 

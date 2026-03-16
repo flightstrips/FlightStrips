@@ -45,6 +45,12 @@ func (s *NoOpStripService) CancelCoordinationTransfer(_ context.Context, _ int32
 func (s *NoOpStripService) FreeStrip(_ context.Context, _ int32, _ string, _ string) error {
 	return nil
 }
+func (s *NoOpStripService) CreateTagRequest(_ context.Context, _ int32, _ string, _ string) error {
+	return nil
+}
+func (s *NoOpStripService) AcceptTagRequest(_ context.Context, _ int32, _ string, _ string) error {
+	return nil
+}
 func (s *NoOpStripService) AutoTransferAirborneStrip(_ context.Context, _ int32, _ string) error {
 	return nil
 }

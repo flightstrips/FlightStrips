@@ -56,6 +56,7 @@ export function ApnTaxiDepStrip({
   const { isSelected, handleClick } = useStripSelection(callsign, selectable);
   const cellBorderColor = getCellBorderColor(marked);
   const stripTransfers = useStripTransfers();
+  const isTagRequest = !!stripTransfers[callsign]?.isTagRequest;
   const [showTaxiMap, setShowTaxiMap] = useState(false);
   const { ctotBg, ctotColor, showCtot } = useCTOTColor(ctot ?? "");
   const acknowledgeUnexpectedChange = useWebSocketStore(s => s.acknowledgeUnexpectedChange);
@@ -78,7 +79,7 @@ export function ApnTaxiDepStrip({
       onClick={handleClick}
       onContextMenu={(e) => { e.preventDefault(); openStripContextMenu(callsign, { x: e.clientX, y: e.clientY }); }}
     >
-      <div className="flex text-black" style={{ height: "100%", overflow: "hidden", backgroundColor: COLOR_ARR_STRIP_BG }}>
+      <div className="flex text-black" style={{ height: "100%", overflow: "hidden", backgroundColor: isTagRequest ? SELECTION_COLOR : COLOR_ARR_STRIP_BG }}>
 
         {/* SI / ownership — 8% */}
         <SIBox
@@ -87,7 +88,8 @@ export function ApnTaxiDepStrip({
           nextControllers={nextControllers}
           previousControllers={previousControllers}
           myPosition={myPosition}
-          transferringTo={stripTransfers[callsign] ?? ""}
+          transferringTo={stripTransfers[callsign]?.to ?? ""}
+          isTagRequest={isTagRequest}
         />
 
         {/* Callsign — 25%, FONT medium 20, top 2/3 highlighted when selected */}

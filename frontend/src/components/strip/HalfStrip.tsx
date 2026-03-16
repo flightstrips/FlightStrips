@@ -1,6 +1,6 @@
 import type { HalfStripVariant, StripProps } from "./types";
 import { useStripSelection, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR, COLOR_ARR_YELLOW, COLOR_ARR_STRIP_BG, COLOR_BTN_BLUE, COLOR_BTN_ORANGE, COLOR_UNEXPECTED_YELLOW, getCellTextColor } from "./shared";
-import { useWebSocketStore } from "@/store/store-hooks";
+import { useStripTransfers, useWebSocketStore } from "@/store/store-hooks";
 
 // Variant-specific background colours
 const COLOR_HALF_PUSH_BG  = "#bfbfbf"; // compact APN-PUSH half strip (lighter grey)
@@ -65,6 +65,8 @@ export function HalfStrip({
   const isSelectable = selectable && !isLocked;
   const { isSelected, handleClick } = useStripSelection(callsign, isSelectable);
   const acknowledgeUnexpectedChange = useWebSocketStore(s => s.acknowledgeUnexpectedChange);
+  const stripTransfers = useStripTransfers();
+  const isTagRequest = !!stripTransfers[callsign]?.isTagRequest;
   const standYellow = unexpectedChangeFields?.includes("stand");
 
   const cellBorderColor = getCellBorderColor(marked, HALF_CELL_BASE);
@@ -81,7 +83,7 @@ export function HalfStrip({
       className={`w-fit flex text-sm select-none${isSelectable ? " cursor-pointer" : ""}`}
       style={{
         height: "21px",
-        backgroundColor: bg,
+        backgroundColor: isTagRequest ? SELECTION_COLOR : bg,
         ...getFlatStripBorderStyle({ borderBottom: "1px solid white" }),
       }}
       onClick={handleClick}

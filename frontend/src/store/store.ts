@@ -21,6 +21,7 @@ import {
   type FrontendCoordinationAssumeBroadcastEvent,
   type FrontendCoordinationRejectBroadcastEvent,
   type FrontendCoordinationFreeBroadcastEvent,
+  type FrontendCoordinationTagRequestBroadcastEvent,
   type FrontendRunwayConfigurationEvent,
   type FrontendRequestedAltitudeEvent,
   type FrontendSetHeadingEvent,
@@ -74,7 +75,7 @@ export interface WebSocketState {
   layoutChooserOpen: boolean;
   runwaySetup: RunwayConfiguration;
   isInitialized: boolean;
-  stripTransfers: Record<string, string>;
+  stripTransfers: Record<string, { from: string; to: string; isTagRequest: boolean }>;
 
   messages: MessageReceived[];
   broadcastNotifications: BroadcastNotification[];
@@ -106,6 +107,8 @@ export interface WebSocketState {
   forceAssumeStrip: (callsign: string) => void;
   freeStrip: (callsign: string) => void;
   cancelTransfer: (callsign: string) => void;
+  requestTag: (callsign: string) => void;
+  acceptTagRequest: (callsign: string) => void;
   toggleMarked: (callsign: string, marked: boolean) => void;
   runwayClearance: (callsign: string) => void;
   cdmReady: (callsign: string) => void;
@@ -326,6 +329,12 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     cancelTransfer: (callsign) => {
       wsClient.send({ type: ActionType.FrontendCoordinationCancelTransferRequest, callsign });
     },
+    requestTag: (callsign) => {
+      wsClient.send({ type: ActionType.FrontendCoordinationTagRequest, callsign });
+    },
+    acceptTagRequest: (callsign) => {
+      wsClient.send({ type: ActionType.FrontendCoordinationAcceptTagRequest, callsign });
+    },
     cdmReady: (callsign) => {
       wsClient.send({ type: ActionType.FrontendCdmReady, callsign });
     },
@@ -444,9 +453,9 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
         }
         state.runwaySetup = data.runway_setup;
         state.isInitialized = true;
-        const transfers: Record<string, string> = {};
+        const transfers: Record<string, { from: string; to: string; isTagRequest: boolean }> = {};
         for (const coord of data.coordinations) {
-          transfers[coord.callsign] = coord.to;
+          transfers[coord.callsign] = { from: coord.from, to: coord.to, isTagRequest: coord.is_tag_request };
         }
         state.stripTransfers = transfers;
         state.messages = data.messages ?? [];
@@ -745,7 +754,15 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
   const handleCoordinationTransferBroadcastEvent = (data: FrontendCoordinationTransferBroadcastEvent) => {
     store.setState(
       produce((state: WebSocketState) => {
-        state.stripTransfers[data.callsign] = data.to;
+        state.stripTransfers[data.callsign] = { from: data.from, to: data.to, isTagRequest: false };
+      })
+    );
+  };
+
+  const handleCoordinationTagRequestBroadcastEvent = (data: FrontendCoordinationTagRequestBroadcastEvent) => {
+    store.setState(
+      produce((state: WebSocketState) => {
+        state.stripTransfers[data.callsign] = { from: data.from, to: data.to, isTagRequest: true };
       })
     );
   };
@@ -849,6 +866,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
   wsClient.on(EventType.FrontendCoordinationAssumeBroadcast, handleCoordinationAssumeBroadcastEvent);
   wsClient.on(EventType.FrontendCoordinationRejectBroadcast, handleCoordinationRejectBroadcastEvent);
   wsClient.on(EventType.FrontendCoordinationFreeBroadcast, handleCoordinationFreeBroadcastEvent);
+  wsClient.on(EventType.FrontendCoordinationTagRequestBroadcast, handleCoordinationTagRequestBroadcastEvent);
   wsClient.on(EventType.FrontendRunWayConfiguration, handleRunwayConfigurationEvent);
   wsClient.on(EventType.FrontendTacticalStripCreated, handleTacticalStripCreatedEvent);
   wsClient.on(EventType.FrontendTacticalStripDeleted, handleTacticalStripDeletedEvent);

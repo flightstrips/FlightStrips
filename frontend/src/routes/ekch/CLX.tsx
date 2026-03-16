@@ -41,6 +41,7 @@ export default function DEL() {
       strip={strip}
       status={status as "CLR" | "CLROK" | "HALF"}
       myPosition={myPosition}
+      selectable={status !== "HALF"}
     />
   );
 

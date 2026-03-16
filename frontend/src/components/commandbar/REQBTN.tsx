@@ -1,5 +1,6 @@
 import { useSelectedCallsign, usePosition, useStrip, useStripTransfers, useWebSocketStore } from "@/store/store-hooks";
 import { CLS_CMDBTN } from "@/components/strip/shared";
+import { Bay } from "@/api/models";
 
 export default function REQBTN() {
   const selectedCallsign = useSelectedCallsign();
@@ -12,7 +13,8 @@ export default function REQBTN() {
   const isOwner = !!position && strip?.owner === position;
   const isUnowned = !strip?.owner;
 
-  const canReq = !!selectedCallsign && !isOwner && !isUnowned && !hasActiveCoordination;
+  const isCleared = strip?.bay === Bay.Cleared;
+  const canReq = !!selectedCallsign && isCleared && !isOwner && !isUnowned && !hasActiveCoordination;
 
   return (
     <button

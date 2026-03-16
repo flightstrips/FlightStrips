@@ -1,6 +1,17 @@
 import { useState, useEffect } from "react";
 import { Bay } from "@/api/models";
 
+/** Parse a HHMM string into a Date on the same UTC day as `ref`, rolling over midnight if needed. */
+function parseHHMM(hhmm: string, ref: Date): Date {
+  const h = parseInt(hhmm.slice(0, 2), 10);
+  const m = parseInt(hhmm.slice(2, 4), 10);
+  const d = new Date(ref);
+  d.setUTCHours(h, m, 0, 0);
+  // If the result is more than 12 hours in the past, it's next day
+  if (ref.getTime() - d.getTime() > 12 * 60 * 60 * 1000) d.setUTCDate(d.getUTCDate() + 1);
+  return d;
+}
+
 interface CDMColorInput {
   bay: Bay;
   tsat: string;
@@ -20,8 +31,8 @@ export function useCDMColors(strip: CDMColorInput): { tobtBg: string; tsatBg: st
     return { tobtBg: "transparent", tsatBg: "transparent" };
   }
 
-  const tsat = new Date(strip.tsat);
-  const tobt = strip.tobt ? new Date(strip.tobt) : null;
+  const tsat = parseHHMM(strip.tsat, now);
+  const tobt = strip.tobt ? parseHHMM(strip.tobt, now) : null;
   const diffMs = now.getTime() - tsat.getTime(); // positive = past TSAT
 
   if (diffMs > 5 * 60 * 1000) {

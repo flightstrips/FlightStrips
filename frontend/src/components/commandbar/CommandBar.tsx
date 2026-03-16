@@ -5,6 +5,7 @@ import TRFBRN from "./TRFBRN";
 import REQBTN from "./REQBTN";
 import ATIS from "./ATIS";
 import HOMEBTN from "./HOMEBTN";
+import CDMSIM from "./CDMSIM";
 import MetarHelper from "@/components/MetarHelper";
 import { useMetar, useRunwaySetup, useSelectedCallsign, useSelectStrip, useWebSocketStore, useStrip } from "@/store/store-hooks";
 import { CLS_CMDBTN } from "@/components/strip/shared";
@@ -94,6 +95,7 @@ export default function CommandBar() {
         <TRFBRN />
         <MRKBTN isMarked={isMarked} disabled={!selectedCallsign} onClick={handleMark} />
         <REQBTN />
+        {import.meta.env.VITE_CDM_SIM === 'true' && <CDMSIM />}
         <button
           disabled={!isOwner}
           className={`${CLS_CMDBTN} ${!isOwner ? "opacity-50 cursor-not-allowed" : ""}`}

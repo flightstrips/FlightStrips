@@ -80,7 +80,7 @@ export function FinalArrStrip({
         height: 48, // 48px fixed — intentional ATC arrival strip height
         width: TOTAL_W,
         backgroundColor: isTagRequest ? SELECTION_COLOR : COLOR_ARR_YELLOW,
-        ...getFlatStripBorderStyle(),
+        ...getFlatStripBorderStyle({}, CELL_BORDER),
       }}
       onClick={handleClick}
       onContextMenu={(e) => { e.preventDefault(); openStripContextMenu(callsign, { x: e.clientX, y: e.clientY }); }}

@@ -58,15 +58,19 @@ export function getFramedStripStyle(marked: boolean): CSSProperties {
 }
 
 /**
- * Outer border/shadow style for flat strips (no teal padding frame).
- * The white border is always 2px — only cell border colours change on selection.
+ * Outer border/shadow style for flat strips.
+ * 2px white outer border + 1px colored outline (painted on top of all children, matching the
+ * visual frame of framed strips without changing the box model or requiring DOM restructuring).
+ * Pass `frameColor` to override the default teal frame (e.g. gold for arrival strips).
  */
-export function getFlatStripBorderStyle(overrides?: Pick<CSSProperties, "borderBottom">): CSSProperties {
+export function getFlatStripBorderStyle(overrides?: Pick<CSSProperties, "borderBottom">, frameColor = STRIP_FRAME_COLOR): CSSProperties {
   return {
     borderLeft: "2px solid white",
     borderRight: "2px solid white",
     borderTop: "2px solid white",
     borderBottom: "2px solid white",
+    outline: `1px solid ${frameColor}`,
+    outlineOffset: "-2px",
     boxShadow: `1px 0 0 0 ${COLOR_SHADOW}, 0 -1px 0 0 ${COLOR_SHADOW}`,
     ...overrides,
   };

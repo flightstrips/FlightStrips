@@ -506,3 +506,19 @@ layouts:
     - online: []
       offline: [EKCH_A_TWR]
       layout: TWTE
+
+pdc_validation:
+  eobt_window_min: 10
+  eobt_window_max: 30
+  heavy_runway_restriction:
+    aircraft_types: ["A380", "A388", "B748", "AN12"]
+    allowed_runways: ["04R", "22L"]
+  sid_restrictions:
+    - sid: "NEXEN"
+      engine_types: ["J"]
+    - sid: "LANGO"
+      engine_types: ["J"]
+    - sid: "KOPEX"
+      engine_types: ["P", "T"]
+    - sid: "BETUD"
+      engine_types: []

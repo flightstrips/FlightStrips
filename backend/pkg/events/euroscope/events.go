@@ -119,6 +119,7 @@ type Strip struct {
 	Eobt               string `json:"eobt"`
 	Eldt               string `json:"eldt"`
 	TrackingController string `json:"tracking_controller"`
+	EngineType         string `json:"engine_type"`
 }
 
 type SyncRunway struct {

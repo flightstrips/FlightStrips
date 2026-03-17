@@ -107,7 +107,10 @@ func TestIssueClearanceFlow(t *testing.T) {
 
 	// Setup expectations
 	suite.mockHoppie.On("SendCPDLC", mock.Anything, mock.Anything, callsign, mock.MatchedBy(func(msg string) bool {
-		return strings.Contains(msg, "CLRD TO") && strings.Contains(msg, "ESSA") && strings.Contains(msg, "118.105") && strings.Contains(msg, remarks)
+		return strings.Contains(msg, "CLRD TO") && strings.Contains(msg, "ESSA") &&
+			strings.Contains(msg, "NEXT FRQ: @118.105@") &&
+			strings.Contains(msg, "Departure frequency: @124.980@") &&
+			strings.Contains(msg, remarks)
 	})).Return(nil)
 
 	suite.mockStrip.On("ClearStrip", mock.Anything, sessionID, callsign, cid).Return(nil)
@@ -157,6 +160,7 @@ func TestHandleWilcoFlow(t *testing.T) {
 	require.NoError(t, err)
 
 	// Now handle WILCO
+	suite.mockStrip.On("AutoAssumeForClearedStrip", mock.Anything, sessionID, callsign).Return(nil)
 	suite.mockFrontend.On("SendPdcStateChange", sessionID, callsign, "CONFIRMED").Return()
 
 	incomingMsg := &IncomingMessage{
@@ -407,13 +411,24 @@ func TestProcessPDCRequest_Success(t *testing.T) {
 	ctx := context.Background()
 
 	callsign := "SAS123"
+	cid := ""
 
-	// Expect ACK message to pilot
+	// Expect ACK message to pilot (STANDBY)
 	suite.mockHoppie.On("SendCPDLC", mock.Anything, mock.Anything, callsign, mock.MatchedBy(func(msg string) bool {
 		return strings.Contains(msg, "STANDBY")
 	})).Return(nil)
 
-	suite.mockFrontend.On("SendPdcStateChange", int32(1), callsign, "REQUESTED").Return()
+	// Since strip has clearance data set, IssueClearance will auto-issue
+	// Expect clearance message
+	suite.mockHoppie.On("SendCPDLC", mock.Anything, mock.Anything, callsign, mock.MatchedBy(func(msg string) bool {
+		return strings.Contains(msg, "CLRD TO")
+	})).Return(nil)
+
+	// ClearStrip called by IssueClearance
+	suite.mockStrip.On("ClearStrip", mock.Anything, int32(1), callsign, cid).Return(nil)
+
+	// State goes to CLEARED after auto-issue
+	suite.mockFrontend.On("SendPdcStateChange", int32(1), callsign, "CLEARED").Return()
 
 	incomingMsg := &IncomingMessage{
 		Type:       MsgPDCRequest,
@@ -431,11 +446,11 @@ func TestProcessPDCRequest_Success(t *testing.T) {
 	err := suite.service.ProcessPDCRequest(ctx, incomingMsg, session)
 	require.NoError(t, err)
 
-	// Verify database state
+	// Verify database state — strip should be CLEARED after auto-issue
 	strip, err := suite.queries.GetStrip(context.Background(), database.GetStripParams{
 		Session:  1,
 		Callsign: callsign,
 	})
 	require.NoError(t, err)
-	assert.Equal(t, "REQUESTED", strip.PdcState)
+	assert.Equal(t, "CLEARED", strip.PdcState)
 }

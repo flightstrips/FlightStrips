@@ -63,8 +63,6 @@ export function ClxClearedStrip({
   controllerModifiedFields,
 }: StripProps) {
   const { isSelected, handleClick } = useStripSelection(callsign, selectable);
-  const isNavyBg = pdcStatus === "CLEARED";
-  const cellBorderColor = isNavyBg ? "white" : getCellBorderColor(marked);
   const stripTransfers = useStripTransfers();
   const isTagRequest = !!stripTransfers[callsign]?.isTagRequest;
   const cdmReady = useWebSocketStore(s => s.cdmReady);
@@ -74,18 +72,35 @@ export function ClxClearedStrip({
   const { tobtBg, tsatBg } = useCDMColors({ bay: bay ?? Bay.Unknown, tsat: tsat ?? "", tobt: tobt ?? "" });
   const { ctotBg, ctotColor, showCtot } = useCTOTColor(ctot ?? "");
 
-  const [blinkOn, setBlinkOn] = useState(false);
+  // Blink logic: fires once for 5 seconds when pdc_state transitions into CLEARED.
+  // JS interval alternates phase every 500ms so text + borders alternate in sync with background.
+  const [blinkPhase, setBlinkPhase] = useState<"off" | "dark" | "light">("off");
   const prevPdcStatus = useRef(pdcStatus);
 
   useEffect(() => {
     if (pdcStatus === "CLEARED" && prevPdcStatus.current !== "CLEARED") {
-      setBlinkOn(true);
-      const timer = setTimeout(() => setBlinkOn(false), 5000);
+      setBlinkPhase("dark");
+      let phase: "dark" | "light" = "dark";
+      const interval = setInterval(() => {
+        phase = phase === "dark" ? "light" : "dark";
+        setBlinkPhase(phase);
+      }, 500);
+      const timeout = setTimeout(() => {
+        clearInterval(interval);
+        setBlinkPhase("off");
+      }, 5000);
       prevPdcStatus.current = pdcStatus;
-      return () => clearTimeout(timer);
+      return () => { clearInterval(interval); clearTimeout(timeout); };
     }
     prevPdcStatus.current = pdcStatus;
   }, [pdcStatus]);
+
+  // During blink: phase controls colors (dark=navy/white, light=cyan/black).
+  // After blink: pdcStatus=CLEARED → always navy.
+  const isBlinking = blinkPhase !== "off";
+  const isNavyBg = isBlinking ? blinkPhase === "dark" : pdcStatus === "CLEARED";
+  const cellBorderColor = isNavyBg ? "white" : getCellBorderColor(marked);
+  const blinkBg = blinkPhase === "dark" ? "#00154A" : blinkPhase === "light" ? "#bef5ef" : undefined;
 
   return (
     <div
@@ -99,8 +114,8 @@ export function ClxClearedStrip({
       onContextMenu={(e) => { e.preventDefault(); openStripContextMenu(callsign, { x: e.clientX, y: e.clientY }); }}
     >
       <div
-        className={`flex ${isNavyBg ? "text-white" : "text-black"}${blinkOn ? " pdc-cleared-blink" : ""}`}
-        style={{ height: "100%", overflow: "hidden", ...(blinkOn ? {} : { backgroundColor: isTagRequest ? SELECTION_COLOR : getStripBg(pdcStatus, arrival) }) }}
+        className={`flex ${isNavyBg ? "text-white" : "text-black"}`}
+        style={{ height: "100%", overflow: "hidden", backgroundColor: blinkBg ?? (isTagRequest ? SELECTION_COLOR : getStripBg(pdcStatus, arrival)) }}
       >
         {/* SI / ownership — 8.44% */}
         <SIBox

@@ -60,7 +60,7 @@ func (s *NoOpStripService) ClearStrip(_ context.Context, _ int32, _ string, _ st
 func (s *NoOpStripService) UnclearStrip(_ context.Context, _ int32, _ string, _ string) error {
 	return nil
 }
-func (s *NoOpStripService) AutoAssumeForClearedStrip(_ context.Context, _ int32, _ string, _ int32) error {
+func (s *NoOpStripService) AutoAssumeForClearedStrip(_ context.Context, _ int32, _ string) error {
 	return nil
 }
 func (s *NoOpStripService) AutoAssumeForControllerOnline(_ context.Context, _ int32, _ string) error {

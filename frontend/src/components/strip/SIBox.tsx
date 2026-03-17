@@ -85,11 +85,11 @@ export function SIBox({
     // Owner side of a tag request: white+orange gradient (sending-away appearance)
     background = `linear-gradient(to right, ${COLOR_SI_ASSUMED} 50%, ${COLOR_BTN_ORANGE} 50%)`;
   } else if (isTagRequestRequester) {
-    // Requester side: purple+white gradient (receiving appearance), non-clickable
-    background = `linear-gradient(to right, ${COLOR_SI_CONCERNED} 50%, ${COLOR_SI_ASSUMED} 50%)`;
+    // Unassumed tag requests keep the normal concerned appearance rather than the split transfer layout.
+    background = COLOR_SI_CONCERNED;
   } else if (isSendingTransfer) {
     background = `linear-gradient(to right, ${COLOR_SI_ASSUMED} 50%, ${COLOR_BTN_ORANGE} 50%)`;
-  } else if (isReceivingTransfer || isUnownedAndNext) {
+  } else if (isReceivingTransfer) {
     background = `linear-gradient(to right, ${COLOR_SI_CONCERNED} 50%, ${COLOR_SI_ASSUMED} 50%)`;
   } else if (isAssumed) {
     background = COLOR_SI_ASSUMED;

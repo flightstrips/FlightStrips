@@ -165,7 +165,8 @@ namespace FlightStrips::messages {
                 flightPlanData.GetCapibilities() == 0 ? "?" : std::string {flightPlanData.GetCapibilities()},
                 isArrival ? "" : std::string(flightPlanData.GetEstimatedDepartureTime()),
                 isArrival ? flightplan::FlightPlanService::GetEstimatedLandingTime(it) : "",
-                std::string(it.GetTrackingControllerCallsign())
+                std::string(it.GetTrackingControllerCallsign()),
+                {flightPlanData.GetEngineType()}
             });
         }
 

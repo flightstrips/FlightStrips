@@ -58,8 +58,8 @@ func (m *StripService) AutoTransferAirborneStrip(ctx context.Context, session in
 	return args.Error(0)
 }
 
-func (m *StripService) AutoAssumeForClearedStrip(ctx context.Context, session int32, callsign string, stripVersion int32) error {
-	args := m.Called(ctx, session, callsign, stripVersion)
+func (m *StripService) AutoAssumeForClearedStrip(ctx context.Context, session int32, callsign string) error {
+	args := m.Called(ctx, session, callsign)
 	return args.Error(0)
 }
 

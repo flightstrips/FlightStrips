@@ -130,7 +130,7 @@ func TestAutoAssume_ClearedStrip(t *testing.T) {
 	svc.SetFrontendHub(hub)
 	svc.SetSectorOwnerRepo(sectorRepo)
 
-	err := svc.AutoAssumeForClearedStrip(ctx, session, callsign, stripVersion)
+	err := svc.AutoAssumeForClearedStrip(ctx, session, callsign)
 	require.NoError(t, err)
 	require.Len(t, hub.OwnersUpdates, 1)
 	assert.Equal(t, sqPosition, hub.OwnersUpdates[0].Owner)
@@ -156,7 +156,7 @@ func TestAutoAssume_NoMatchingController(t *testing.T) {
 	svc.SetFrontendHub(hub)
 	svc.SetSectorOwnerRepo(sectorRepo)
 
-	err := svc.AutoAssumeForClearedStrip(ctx, session, callsign, 1)
+	err := svc.AutoAssumeForClearedStrip(ctx, session, callsign)
 	require.NoError(t, err)
 	assert.Empty(t, hub.OwnersUpdates, "no owner update should be sent when no SQ/DEL controller is found")
 }
@@ -194,7 +194,7 @@ func TestAutoAssume_FallbackToDel(t *testing.T) {
 	svc.SetFrontendHub(hub)
 	svc.SetSectorOwnerRepo(sectorRepo)
 
-	err := svc.AutoAssumeForClearedStrip(ctx, session, callsign, stripVersion)
+	err := svc.AutoAssumeForClearedStrip(ctx, session, callsign)
 	require.NoError(t, err)
 	require.Len(t, hub.OwnersUpdates, 1)
 	assert.Equal(t, delPosition, hub.OwnersUpdates[0].Owner)

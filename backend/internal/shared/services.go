@@ -67,7 +67,7 @@ type StripService interface {
 	UnclearStrip(ctx context.Context, session int32, callsign string, cid string) error
 
 	// Auto-assumption
-	AutoAssumeForClearedStrip(ctx context.Context, session int32, callsign string, stripVersion int32) error
+	AutoAssumeForClearedStrip(ctx context.Context, session int32, callsign string) error
 	AutoAssumeForControllerOnline(ctx context.Context, session int32, controllerPosition string) error
 
 	// EuroScope field updates — each method reads, applies business rules, persists, and notifies frontend.

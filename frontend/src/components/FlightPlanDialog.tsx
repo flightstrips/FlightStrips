@@ -527,13 +527,14 @@ export default function FlightPlanDialog({
                   ESC
                 </button>
                 <div className="flex flex-row items-center gap-2 ml-auto">
-                  {strip.pdc_state === "REQUESTED" && (
+                  {(strip.pdc_state === "REQUESTED" || strip.pdc_state === "REQUESTED_WITH_FAULTS") && (
                     <button
                       onClick={() => {
                         revertToVoice(strip.callsign);
                         setDialogOpen(false);
                       }}
                       style={{
+                        height: 70,
                         fontFamily: FONT_FAMILY,
                         fontWeight: "bold",
                         fontSize: FONT_SIZE_BUTTON,
@@ -548,7 +549,7 @@ export default function FlightPlanDialog({
                   )}
                   <button
                     onClick={() => {
-                      if (strip.pdc_state === "REQUESTED") {
+                      if (strip.pdc_state === "REQUESTED" || strip.pdc_state === "REQUESTED_WITH_FAULTS") {
                         clearPdc(strip.callsign, null);
                       } else {
                         moveAction(strip.callsign, Bay.Cleared);

@@ -658,6 +658,10 @@ func (s *StripService) ClearStrip(ctx context.Context, session int32, callsign s
 		return fmt.Errorf("failed to move strip to cleared bay: %w", err)
 	}
 
+	if _, err := s.stripRepo.UpdateClearedFlag(ctx, session, callsign, true, shared.BAY_CLEARED, nil); err != nil {
+		slog.ErrorContext(ctx, "ClearStrip: failed to update cleared flag", slog.Any("error", err))
+	}
+
 	if s.euroscopeHub != nil {
 		s.euroscopeHub.SendClearedFlag(session, cid, callsign, true)
 	}
@@ -671,6 +675,10 @@ func (s *StripService) UnclearStrip(ctx context.Context, session int32, callsign
 		return fmt.Errorf("failed to move strip to not-cleared bay: %w", err)
 	}
 
+	if _, err := s.stripRepo.UpdateClearedFlag(ctx, session, callsign, false, shared.BAY_NOT_CLEARED, nil); err != nil {
+		slog.ErrorContext(ctx, "UnclearStrip: failed to update cleared flag", slog.Any("error", err))
+	}
+
 	if s.euroscopeHub != nil {
 		s.euroscopeHub.SendClearedFlag(session, cid, callsign, false)
 	}
@@ -681,7 +689,7 @@ func (s *StripService) UnclearStrip(ctx context.Context, session int32, callsign
 // AutoAssumeForClearedStrip finds the SQ (or fallback DEL) sector owner for the
 // session and assigns them as the strip owner. It sends an owners update broadcast
 // to all frontend clients. If no SQ/DEL owner is found, the strip is left unowned.
-func (s *StripService) AutoAssumeForClearedStrip(ctx context.Context, session int32, callsign string, stripVersion int32) error {
+func (s *StripService) AutoAssumeForClearedStrip(ctx context.Context, session int32, callsign string) error {
 	if s.sectorOwnerRepo == nil {
 		return nil
 	}
@@ -719,7 +727,7 @@ func (s *StripService) AutoAssumeForClearedStrip(ctx context.Context, session in
 		return err
 	}
 
-	count, err := s.stripRepo.SetOwner(ctx, session, callsign, &sqPosition, stripVersion)
+	count, err := s.stripRepo.SetOwner(ctx, session, callsign, &sqPosition, strip.Version)
 	if err != nil {
 		return err
 	}
@@ -928,8 +936,11 @@ func (s *StripService) UpdateClearedFlag(ctx context.Context, session int32, cal
 	}
 
 	if cleared {
-		if err := s.AutoAssumeForClearedStrip(ctx, session, callsign, existingStrip.Version+1); err != nil {
-			slog.Error("Failed to auto-assume cleared strip from EuroScope", slog.Any("error", err))
+		// Skip auto-assume if PDC clearance is pending pilot WILCO (strip is in CLEARED pdc state)
+		if existingStrip.PdcState != "CLEARED" {
+			if err := s.AutoAssumeForClearedStrip(ctx, session, callsign); err != nil {
+				slog.Error("Failed to auto-assume cleared strip from EuroScope", slog.Any("error", err))
+			}
 		}
 	}
 
@@ -1549,7 +1560,7 @@ func (s *StripService) UpdateClearedFlagForMove(ctx context.Context, session int
 	// Only trigger side-effects when the cleared flag actually changed value.
 	if strip.Cleared != isCleared {
 		if isCleared {
-			if err := s.AutoAssumeForClearedStrip(ctx, session, callsign, strip.Version+1); err != nil {
+			if err := s.AutoAssumeForClearedStrip(ctx, session, callsign); err != nil {
 				slog.Error("Failed to auto-assume cleared strip", slog.Any("error", err))
 			}
 		}
@@ -1818,6 +1829,7 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, st
 			Bay:                bay,
 			Eobt:               &strip.Eobt,
 			TrackingController: strip.TrackingController,
+			EngineType:         strip.EngineType,
 		}
 		reg := ParseRegistration(strip.Callsign, strip.Remarks)
 		newStrip.Registration = &reg
@@ -1883,6 +1895,7 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, st
 			Registration:       existingStrip.Registration,
 			Owner:              existingStrip.Owner,
 			TrackingController: strip.TrackingController,
+			EngineType:         strip.EngineType,
 		}
 		if _, err = s.stripRepo.Update(ctx, updateStrip); err != nil {
 			return err

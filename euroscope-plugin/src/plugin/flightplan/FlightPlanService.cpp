@@ -127,7 +127,8 @@ namespace FlightStrips::flightplan {
             flightPlanData.GetCapibilities() == 0 ? "?" : std::string{flightPlanData.GetCapibilities()},
             isArrival ? "" : std::string(flightPlanData.GetEstimatedDepartureTime()),
             isArrival ? GetEstimatedLandingTime(flightPlan) : "",
-            std::string(flightPlan.GetTrackingControllerCallsign())
+            std::string(flightPlan.GetTrackingControllerCallsign()),
+            {flightPlanData.GetEngineType()}
         };
         m_websocketService->SendEvent(event);
     }

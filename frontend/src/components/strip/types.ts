@@ -53,6 +53,7 @@ export const TWY_DEP_STRIP_WIDTH = 519; // W_SI(40) + W_CALLSIGN(120) + W_TYPE_S
 
 export function getStripBg(pdcStatus?: PdcStatus, isArrival?: boolean): string {
   if (pdcStatus === "REQUESTED") return "#B8860B";
+  if (pdcStatus === "REQUESTED_WITH_FAULTS") return "#FFD700";
   if (pdcStatus === "CLEARED")   return "#00154A";
   return isArrival ? "#fff28e" : "#bef5ef";
 }

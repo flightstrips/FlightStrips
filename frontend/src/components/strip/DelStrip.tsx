@@ -1,3 +1,4 @@
+import { useState, useEffect, useRef } from "react";
 import { CLXBtn } from "@/components/clxbtn";
 import { getStripBg } from "./types";
 import type { StripProps } from "./types";
@@ -41,8 +42,6 @@ export function DelStrip({
   controllerModifiedFields,
 }: StripProps) {
   const { isSelected, handleClick } = useStripSelection(callsign, selectable);
-  const isNavyBg = pdcStatus === "CLEARED";
-  const cellBorderColor = isNavyBg ? "white" : getCellBorderColor(marked);
   const cdmReady = useWebSocketStore(s => s.cdmReady);
   const acknowledgeUnexpectedChange = useWebSocketStore(s => s.acknowledgeUnexpectedChange);
   const openStripContextMenu = useWebSocketStore(s => s.openStripContextMenu);
@@ -50,6 +49,36 @@ export function DelStrip({
   const isTagRequest = !!stripTransfers[callsign]?.isTagRequest;
   const { tobtBg, tsatBg } = useCDMColors({ bay: bay ?? Bay.Unknown, tsat: tsat ?? "", tobt: tobt ?? "" });
   const standYellow = unexpectedChangeFields?.includes("stand");
+
+  // Blink logic: fires once for 5 seconds when pdc_state transitions into REQUESTED_WITH_FAULTS.
+  // JS interval alternates phase every 500ms so text + borders alternate in sync with background.
+  const [faultBlinkPhase, setFaultBlinkPhase] = useState<"off" | "dark" | "light">("off");
+  const prevPdcStatus = useRef(pdcStatus);
+
+  useEffect(() => {
+    if (pdcStatus === "REQUESTED_WITH_FAULTS" && prevPdcStatus.current !== "REQUESTED_WITH_FAULTS") {
+      setFaultBlinkPhase("dark");
+      let phase: "dark" | "light" = "dark";
+      const interval = setInterval(() => {
+        phase = phase === "dark" ? "light" : "dark";
+        setFaultBlinkPhase(phase);
+      }, 500);
+      const timeout = setTimeout(() => {
+        clearInterval(interval);
+        setFaultBlinkPhase("off");
+      }, 5000);
+      prevPdcStatus.current = pdcStatus;
+      return () => { clearInterval(interval); clearTimeout(timeout); };
+    }
+    prevPdcStatus.current = pdcStatus;
+  }, [pdcStatus]);
+
+  // During blink: phase controls colors (dark=navy/white, light=cyan/black).
+  // After blink: CLEARED stays navy; REQUESTED_WITH_FAULTS shows yellow with normal colors.
+  const isBlinking = faultBlinkPhase !== "off";
+  const isNavyBg = isBlinking ? faultBlinkPhase === "dark" : pdcStatus === "CLEARED";
+  const cellBorderColor = isNavyBg ? "white" : getCellBorderColor(marked);
+  const blinkBg = faultBlinkPhase === "dark" ? "#00154A" : faultBlinkPhase === "light" ? "#bef5ef" : undefined;
 
   return (
     <div
@@ -65,7 +94,7 @@ export function DelStrip({
     >
       <div
         className={`flex ${isNavyBg ? "text-white" : "text-black"}`}
-        style={{ height: "100%", overflow: "hidden", backgroundColor: isTagRequest ? SELECTION_COLOR : getStripBg(pdcStatus, arrival) }}
+        style={{ height: "100%", overflow: "hidden", backgroundColor: blinkBg ?? (isTagRequest ? SELECTION_COLOR : getStripBg(pdcStatus, arrival)) }}
       >
         {/* ── Left 50% ── */}
 

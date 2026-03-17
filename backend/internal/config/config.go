@@ -22,6 +22,7 @@ type Config struct {
 	Layouts             map[string][]LayoutVariant `yaml:"layouts"`
 	Runways             []string                   `yaml:"runways"`
 	MessageAreas        map[string][]string        `yaml:"message_areas"`
+	PDCValidation       PDCValidationConfig        `yaml:"pdc_validation"`
 }
 
 // TestModeConfig holds test/replay mode configuration
@@ -36,6 +37,7 @@ var testMode TestModeConfig
 var sectors []Sector
 var regions []Region
 var positions []Position
+var airborneOwners []string
 var airborneRoutes []AirborneRoutes
 var airborneAltitudeAGL int64
 var layouts map[string][]LayoutVariant
@@ -67,6 +69,7 @@ func loadAirportConfig(r io.Reader) error {
 
 	positions = cfg.Positions
 	sectors = cfg.Sectors
+	airborneOwners = cfg.AirborneOwners
 	airborneRoutes = cfg.AirborneRoutes
 	airborneAltitudeAGL = cfg.AirborneAltitudeAGL
 	layouts = cfg.Layouts
@@ -77,6 +80,7 @@ func loadAirportConfig(r io.Reader) error {
 	if messageAreas == nil {
 		messageAreas = make(map[string][]string)
 	}
+	pdcValidationConfig = cfg.PDCValidation
 
 	return nil
 }

@@ -50,6 +50,7 @@ type Strip struct {
 	Marked                  bool
 	Registration            *string
 	TrackingController      string
+	EngineType              string
 	RunwayCleared           bool
 	UnexpectedChangeFields  []string
 	ControllerModifiedFields []string

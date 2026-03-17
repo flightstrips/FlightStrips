@@ -66,7 +66,7 @@ export enum ActionType {
   FrontendCoordinationAcceptTagRequest = "coordination_accept_tag_request",
 }
 
-export type PdcStatus = "NONE" | "REQUESTED" | "CLEARED" | "CONFIRMED" | "NO_RESPONSE" | "FAILED" | "REVERT_TO_VOICE";
+export type PdcStatus = "NONE" | "REQUESTED" | "REQUESTED_WITH_FAULTS" | "CLEARED" | "CONFIRMED" | "NO_RESPONSE" | "FAILED" | "REVERT_TO_VOICE";
 
 export type TacticalStripType = "MEMAID" | "CROSSING" | "START" | "LAND";
 
@@ -383,7 +383,7 @@ export interface FrontendSendRunwayClearanceEvent {
 export interface FrontendPdcStateUpdateEvent {
   type: EventType.FrontendPdcStateChange;
   callsign: string;
-  state: "NONE" | "REQUESTED" | "CLEARED" | "CONFIRMED" | "NO_RESPONSE" | "FAILED";
+  state: PdcStatus;
 }
 
 export interface FrontendCoordinationTransferBroadcastEvent {

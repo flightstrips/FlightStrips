@@ -21,6 +21,11 @@ func GetPositionBasedOnFrequency(frequency string) (*Position, error) {
 	return nil, errors.New("unknown position")
 }
 
+// GetAirborneOwners returns the ordered list of airborne position names (priority = first).
+func GetAirborneOwners() []string {
+	return airborneOwners
+}
+
 func GetPositionByName(name string) (*Position, error) {
 	for _, pos := range positions {
 		if strings.EqualFold(pos.Name, name) {

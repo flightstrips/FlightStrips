@@ -1,6 +1,8 @@
 package pdc
 
 import (
+	"FlightStrips/internal/config"
+	"FlightStrips/internal/models"
 	"FlightStrips/internal/repository"
 	"FlightStrips/internal/shared"
 	"context"
@@ -219,20 +221,36 @@ func (s *Service) ProcessPDCRequest(ctx context.Context, msg *IncomingMessage, s
 			func(seq int32) string { return buildInvalidAircraftType(seq, strip.Origin, req.Callsign) })
 	}
 
-	now := time.Now().UTC()
-	err = s.stripRepo.SetPdcRequested(ctx, session.id, strip.Callsign, string(StateRequested), &now)
-	if err != nil {
-		return fmt.Errorf("failed to set PDC requested: %w", err)
+	faults := s.validatePDCFlightPlan(strip)
+	if len(faults) > 0 {
+		now := time.Now().UTC()
+		if err := s.stripRepo.SetPdcRequested(ctx, session.id, strip.Callsign, string(StateRequestedWithFaults), &now); err != nil {
+			return fmt.Errorf("failed to set PDC requested with faults: %w", err)
+		}
+		s.notifyFrontendStateChange(session.id, req.Callsign, StateRequestedWithFaults)
+		if err := s.SendStatusAck(ctx, session, req.Callsign, req.Departure); err != nil {
+			return fmt.Errorf("failed to send status ack: %w", err)
+		}
+		slog.InfoContext(ctx, "PDC Service: PDC request has faults", slog.String("callsign", req.Callsign), slog.Any("faults", faults))
+		return nil
 	}
 
-	// Send status acknowledgement
+	// No faults — send ACK then auto-issue clearance
 	if err := s.SendStatusAck(ctx, session, req.Callsign, req.Departure); err != nil {
 		return fmt.Errorf("failed to send status ack: %w", err)
 	}
 
-	s.notifyFrontendStateChange(session.id, req.Callsign, StateRequested)
-
-	slog.InfoContext(ctx, "PDC Service: PDC request acknowledged", slog.String("callsign", req.Callsign))
+	if issueErr := s.IssueClearance(ctx, strip.Callsign, "", "", session.id); issueErr != nil {
+		// Clearance fields not set yet — fall back to REQUESTED state
+		now := time.Now().UTC()
+		if err := s.stripRepo.SetPdcRequested(ctx, session.id, strip.Callsign, string(StateRequested), &now); err != nil {
+			return fmt.Errorf("failed to set PDC requested: %w", err)
+		}
+		s.notifyFrontendStateChange(session.id, req.Callsign, StateRequested)
+		slog.InfoContext(ctx, "PDC Service: PDC request acknowledged (clearance fields not ready)", slog.String("callsign", req.Callsign))
+	} else {
+		slog.InfoContext(ctx, "PDC Service: PDC clearance auto-issued", slog.String("callsign", req.Callsign))
+	}
 	return nil
 }
 
@@ -271,6 +289,8 @@ func (s *Service) IssueClearance(ctx context.Context, callsign, remarks, cid str
 		return fmt.Errorf("failed to get next frequency: %w", err)
 	}
 
+	departureFreq := s.getAirborneFrequency(ctx, sessionInfo.id)
+
 	nextPdcSeq, err := s.sessionRepo.IncrementPdcSequence(ctx, sessionInfo.id)
 	if err != nil {
 		return fmt.Errorf("failed to get next PDC sequence: %w", err)
@@ -288,8 +308,9 @@ func (s *Service) IssueClearance(ctx context.Context, callsign, remarks, cid str
 		Atis:          "A",
 		Runway:        *strip.Runway,
 		Squawk:        *strip.Squawk,
-		NextFrequency: nextFreq,
-		Sequence:      nextSeq,
+		NextFrequency:      nextFreq,
+		DepartureFrequency: departureFreq,
+		Sequence:           nextSeq,
 		PdcSequence:   nextPdcSeq,
 		Remarks:       remarks,
 	}
@@ -379,7 +400,7 @@ func (s *Service) getNextFrequency(ctx context.Context, sessionID int32) (string
 		return "", fmt.Errorf("failed to get sector owners: %w", err)
 	}
 
-	// Find the owner of SQ
+	// Find the owner of SQ (sequence controller).
 	nextFrequency := ""
 	for _, owner := range owners {
 		if slices.Contains(owner.Sector, "SQ") {
@@ -387,6 +408,7 @@ func (s *Service) getNextFrequency(ctx context.Context, sessionID int32) (string
 		}
 	}
 
+	// Fallback: DEL sector owner.
 	if nextFrequency == "" {
 		for _, owner := range owners {
 			if slices.Contains(owner.Sector, "DEL") {
@@ -400,6 +422,32 @@ func (s *Service) getNextFrequency(ctx context.Context, sessionID int32) (string
 	}
 
 	return nextFrequency, nil
+}
+
+// getAirborneFrequency returns the frequency of the highest-priority airborne controller
+// that is currently online, or "122.8" (UNICOM) if none is online.
+func (s *Service) getAirborneFrequency(ctx context.Context, sessionID int32) string {
+	owners, err := s.sectorRepo.ListBySession(ctx, sessionID)
+	if err != nil {
+		return "122.8"
+	}
+
+	onlineFreqs := make(map[string]struct{}, len(owners))
+	for _, owner := range owners {
+		onlineFreqs[owner.Position] = struct{}{}
+	}
+
+	for _, posName := range config.GetAirborneOwners() {
+		pos, err := config.GetPositionByName(posName)
+		if err != nil {
+			continue
+		}
+		if _, online := onlineFreqs[pos.Frequency]; online {
+			return pos.Frequency
+		}
+	}
+
+	return "122.8"
 }
 
 // HandleWilco processes pilot WILCO response
@@ -446,6 +494,12 @@ func (s *Service) HandleWilco(ctx context.Context, message *IncomingMessage, ses
 	}
 
 	s.CancelTimeout(callsign, session.id)
+
+	if s.stripService != nil {
+		if err := s.stripService.AutoAssumeForClearedStrip(ctx, session.id, callsign); err != nil {
+			slog.WarnContext(ctx, "PDC: failed to auto-assume on WILCO", slog.Any("error", err))
+		}
+	}
 
 	s.notifyFrontendStateChange(session.id, callsign, StateConfirmed)
 
@@ -629,4 +683,104 @@ func (s *Service) setPdcFailed(ctx context.Context, callsign string, sessionId i
 	s.notifyFrontendStateChange(sessionId, callsign, state)
 
 	return nil
+}
+
+// validatePDCFlightPlan validates a strip's flight plan against PDC validation config.
+// Returns a list of fault descriptions (empty = no faults).
+func (s *Service) validatePDCFlightPlan(strip *models.Strip) []string {
+	cfg := config.GetPDCValidationConfig()
+	var faults []string
+
+	// Check SID restrictions
+	if strip.Sid != nil {
+		sidUpper := strings.ToUpper(*strip.Sid)
+		for _, restriction := range cfg.SIDRestrictions {
+			if strings.ToUpper(restriction.SID) == sidUpper {
+				if len(restriction.EngineTypes) == 0 {
+					// Always an error
+					faults = append(faults, fmt.Sprintf("SID %s is not available via PDC", restriction.SID))
+				} else {
+					// Check if engine type is allowed
+					engineType := strings.ToUpper(strip.EngineType)
+					allowed := false
+					for _, et := range restriction.EngineTypes {
+						if strings.ToUpper(et) == engineType {
+							allowed = true
+							break
+						}
+					}
+					if !allowed {
+						faults = append(faults, fmt.Sprintf("SID %s is not available for engine type %s", restriction.SID, strip.EngineType))
+					}
+				}
+				break
+			}
+		}
+	}
+
+	// Check heavy runway restriction
+	if strip.AircraftType != nil && strip.Runway != nil {
+		acType := strings.ToUpper(*strip.AircraftType)
+		runway := strings.ToUpper(*strip.Runway)
+		isHeavy := false
+		for _, heavyType := range cfg.HeavyRunwayRestriction.AircraftTypes {
+			if strings.ToUpper(heavyType) == acType {
+				isHeavy = true
+				break
+			}
+		}
+		if isHeavy {
+			allowed := false
+			for _, r := range cfg.HeavyRunwayRestriction.AllowedRunways {
+				if strings.ToUpper(r) == runway {
+					allowed = true
+					break
+				}
+			}
+			if !allowed {
+				faults = append(faults, fmt.Sprintf("Aircraft type %s is not allowed on runway %s", *strip.AircraftType, *strip.Runway))
+			}
+		}
+	}
+
+	// Check EOBT timing
+	if strip.Eobt != nil && *strip.Eobt != "" {
+		eobtStr := *strip.Eobt
+		// Parse HHMM format
+		if len(eobtStr) >= 4 {
+			hourStr := eobtStr[:2]
+			minStr := eobtStr[2:4]
+			hour := 0
+			min := 0
+			fmt.Sscanf(hourStr, "%d", &hour)
+			fmt.Sscanf(minStr, "%d", &min)
+
+			now := time.Now().UTC()
+			eobtTime := time.Date(now.Year(), now.Month(), now.Day(), hour, min, 0, 0, time.UTC)
+			// Handle midnight crossing
+			if eobtTime.Before(now.Add(-12 * time.Hour)) {
+				eobtTime = eobtTime.Add(24 * time.Hour)
+			}
+
+			windowMin := cfg.EOBTWindowMin
+			if windowMin <= 0 {
+				windowMin = 10
+			}
+			windowMax := cfg.EOBTWindowMax
+			if windowMax <= 0 {
+				windowMax = 30
+			}
+
+			earliest := now.Add(time.Duration(windowMin) * time.Minute)
+			latest := now.Add(time.Duration(windowMax) * time.Minute)
+
+			if eobtTime.Before(earliest) {
+				faults = append(faults, fmt.Sprintf("EOBT %s is too early (minimum %d minutes from now)", eobtStr, windowMin))
+			} else if eobtTime.After(latest) {
+				faults = append(faults, fmt.Sprintf("EOBT %s is too late (maximum %d minutes from now)", eobtStr, windowMax))
+			}
+		}
+	}
+
+	return faults
 }

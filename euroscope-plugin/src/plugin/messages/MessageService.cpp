@@ -170,6 +170,50 @@ namespace FlightStrips::messages {
             });
         }
 
+        // Include no-FP (VFR) aircraft in range. FlightPlanSelectFirst only yields aircraft with a
+        // correlated flight plan, so no-FP radar targets must be iterated separately. Without this,
+        // the backend never receives a strip_update for them and every subsequent position event
+        // is silently dropped with "strip does not exist".
+        for (auto rt = m_plugin->RadarTargetSelectFirst(); rt.IsValid(); rt = m_plugin->RadarTargetSelectNext(rt)) {
+            // Skip only if a received FP exists — those are handled by the FlightPlanSelectFirst loop above.
+            // An auto-correlated FP with IsReceived()=false has no real origin/destination and must be
+            // treated as no-FP here so the strip record gets created.
+            const auto rtFp = rt.GetCorrelatedFlightPlan();
+            if (rtFp.IsValid() && rtFp.GetFlightPlanData().IsReceived()) continue;
+
+            const auto position = rt.GetPosition();
+            if (!position.IsValid()) continue;
+
+            const auto callsign = std::string(rt.GetCallsign());
+            const auto pos = position.GetPosition();
+            const auto info = m_flightPlanService->GetFlightPlan(callsign);
+            std::string stand;
+            if (info != nullptr && !info->stand.empty()) {
+                stand = info->stand;
+            } else if (position.GetPressureAltitude() < 1000) {
+                if (const auto s = m_standService->GetStand(pos); s != nullptr) {
+                    stand = s->GetName();
+                    m_flightPlanService->SetStand(callsign, stand);
+                }
+            }
+
+            strips.push_back({
+                callsign,
+                "", "",  // origin, destination — unknown for VFR
+                "", "", "", "",  // alternate, route, remarks, runway
+                std::string(position.GetSquawk()), "", "",  // squawk, assigned_squawk, sid
+                false, "",   // cleared, ground_state
+                0, 0, 0,    // cleared_altitude, requested_altitude, heading
+                "", "",     // aircraft_type, aircraft_category
+                Position{pos.m_Latitude, pos.m_Longitude, position.GetPressureAltitude()},
+                stand,
+                "", "", "",  // communication_type, capabilities, eobt
+                "",          // eldt
+                "",          // tracking_controller
+                ""           // engine_type
+            });
+        }
+
         const auto syncEvent = SyncEvent(strips, controllers, m_runwayService->GetActiveRunways(relevantAirport), [&] {
             std::vector<std::string> sidNames;
             for (const auto& sid : m_plugin->GetSids(relevantAirport)) {

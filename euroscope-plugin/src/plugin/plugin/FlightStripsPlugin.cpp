@@ -146,7 +146,12 @@ namespace FlightStrips {
         if (!RadarTarget.IsValid()) return;
 
         const auto flightPlan = RadarTarget.GetCorrelatedFlightPlan();
-        if (!flightPlan.IsValid()) return;
+
+        if (!flightPlan.IsValid()) {
+            // No correlated flight plan — VFR/no-FP aircraft. Use radar target position for range check.
+            DispatchRangeCheck(RadarTarget);
+            return;
+        }
 
         if (IsValidAirports(flightPlan)) {
             SafeCall("OnRadarTargetPositionUpdate", [this, RadarTarget] {
@@ -155,14 +160,18 @@ namespace FlightStrips {
             return;
         }
 
-        if (IsWithinRange(flightPlan, 30.0f)) {
-            SafeCall("OnRadarTargetPositionUpdate", [this, RadarTarget] {
-                this->m_radarTargetEventHandlers->RadarTargetPositionEvent(RadarTarget, true);
+        DispatchRangeCheck(RadarTarget);
+    }
+
+    void FlightStripsPlugin::DispatchRangeCheck(const CRadarTarget radarTarget) {
+        if (IsWithinRange(radarTarget, 30.0f)) {
+            SafeCall("OnRadarTargetPositionUpdate", [this, radarTarget] {
+                this->m_radarTargetEventHandlers->RadarTargetPositionEvent(radarTarget, true);
             });
         } else {
             // May be out-of-range for a previously range-tracked aircraft — let the service decide
-            SafeCall("OnRadarTargetPositionUpdate", [this, RadarTarget] {
-                this->m_radarTargetEventHandlers->RadarTargetOutOfRangeEvent(RadarTarget);
+            SafeCall("OnRadarTargetPositionUpdate", [this, radarTarget] {
+                this->m_radarTargetEventHandlers->RadarTargetOutOfRangeEvent(radarTarget);
             });
         }
     }
@@ -188,7 +197,7 @@ namespace FlightStrips {
         if (!origin.empty() && !destination.empty() && origin != "ZZZZ" && destination != "ZZZZ") {
             return false;
         }
-        return IsWithinRange(flightPlan, 30.0f);
+        return IsWithinRange(flightPlan.GetCorrelatedRadarTarget(), 30.0f);
     }
 
     void FlightStripsPlugin::SetAirportCoordinates(const double latitude, const double longitude) {
@@ -196,8 +205,7 @@ namespace FlightStrips {
         m_airportLongitude = longitude;
     }
 
-    bool FlightStripsPlugin::IsWithinRange(const CFlightPlan flightPlan, const float rangeNM) const {
-        const auto radarTarget = flightPlan.GetCorrelatedRadarTarget();
+    bool FlightStripsPlugin::IsWithinRange(const CRadarTarget radarTarget, const float rangeNM) const {
         if (!radarTarget.IsValid()) return false;
 
         const auto position = radarTarget.GetPosition().GetPosition();

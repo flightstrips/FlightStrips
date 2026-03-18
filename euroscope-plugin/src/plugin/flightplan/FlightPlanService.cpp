@@ -14,10 +14,16 @@ namespace FlightStrips::flightplan {
 
     void FlightPlanService::RadarTargetPositionEvent(EuroScopePlugIn::CRadarTarget radarTarget, const bool isRangeOnly) {
         const auto position = radarTarget.GetPosition();
+        if (!position.IsValid()) return;
+
         const auto fp = radarTarget.GetCorrelatedFlightPlan();
-        if (!position.IsValid() || !fp.IsValid()) return;
-        const auto isArrival = strcmp(fp.GetFlightPlanData().GetDestination(),
-                                      m_flightStripsPlugin->GetConnectionState().relevant_airport.c_str()) == 0;
+        // Treat auto-correlated FPs with no received data (VFR squawk correlation) as no-FP.
+        const bool hasFp = fp.IsValid() && fp.GetFlightPlanData().IsReceived();
+        const auto isArrival = hasFp
+            ? strcmp(fp.GetFlightPlanData().GetDestination(),
+                     m_flightStripsPlugin->GetConnectionState().relevant_airport.c_str()) == 0
+            : false;
+
         const auto aircraftPosition = position.GetPosition();
         std::string stand;
         // TODO get airport height
@@ -55,6 +61,29 @@ namespace FlightStrips::flightplan {
             }
         }
         if (!m_websocketService->ShouldSend()) return;
+
+        // For no-FP aircraft, on first encounter send a minimal StripUpdateEvent so the backend
+        // creates a record. Without this, all subsequent position/squawk events are silently dropped.
+        if (inserted && !hasFp) {
+            const auto event = StripUpdateEvent{
+                callsign,
+                "",  // origin — unknown for VFR
+                "",  // destination — unknown for VFR
+                "", "", "", "",  // alternate, route, remarks, runway
+                std::string(position.GetSquawk()), "", "",  // squawk, assigned_squawk, sid
+                false, "",   // cleared, ground_state
+                0, 0, 0,    // cleared_altitude, requested_altitude, heading
+                "", "",     // aircraft_type, aircraft_category
+                Position{aircraftPosition.m_Latitude, aircraftPosition.m_Longitude, position.GetPressureAltitude()},
+                stand,
+                "", "", "",  // communication_type, capabilities, eobt
+                "",          // eldt
+                "",          // tracking_controller
+                ""           // engine_type
+            };
+            m_websocketService->SendEvent(event);
+        }
+
         if (shouldSendSquawkEvent) {
             m_websocketService->SendEvent(SquawkEvent(callsign, plan.squawk));
         }

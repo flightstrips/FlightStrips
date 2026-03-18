@@ -118,7 +118,8 @@ namespace FlightStrips {
         double m_airportLatitude = 0.0;
         double m_airportLongitude = 0.0;
 
-        [[nodiscard]] bool IsWithinRange(EuroScopePlugIn::CFlightPlan flightPlan, float rangeNM) const;
+        [[nodiscard]] bool IsWithinRange(EuroScopePlugIn::CRadarTarget radarTarget, float rangeNM) const;
+        void DispatchRangeCheck(EuroScopePlugIn::CRadarTarget radarTarget);
 
         template <typename Func, typename... Args>
         void SafeCall(const std::string& context, Func func, Args&&... args) {

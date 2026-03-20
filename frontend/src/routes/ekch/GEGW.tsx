@@ -109,7 +109,7 @@ export default function GEGW() {
         if (strip.bay === Bay.Push)     return <Strip strip={strip} status="HALF" halfStripVariant="APN-PUSH" myPosition={myPosition} />;
         if (strip.bay === Bay.Taxi)     return <Strip strip={strip} status="CLROK" myPosition={myPosition} />;
         if (strip.bay === Bay.TaxiLwr) return <Strip strip={strip} status="CLROK" myPosition={myPosition} />;
-        if (strip.bay === Bay.Stand)   return <Strip strip={strip} status="CLROK" myPosition={myPosition} />;
+        if (strip.bay === Bay.Stand)   return <Strip strip={strip} status="ARR" myPosition={myPosition} />;
         return null;
       }}
     >
@@ -279,7 +279,7 @@ export default function GEGW() {
           className={`flex-1 ${scrollArea}`}
         >
           {(strip) => (
-            <Strip strip={strip} status="CLROK" myPosition={myPosition} selectable={true} />
+            <Strip strip={strip} status="ARR" myPosition={myPosition} selectable={true} />
           )}
         </SortableBay>
       </div>

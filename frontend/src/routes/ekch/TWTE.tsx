@@ -144,7 +144,7 @@ export default function TWTE() {
     "FINAL": "FINAL-ARR", "RWY-ARR": "FINAL-ARR",
     "TWY-ARR": "FINAL-ARR", "TWY-DEP": "TWY-DEP",
     "RWY-DEP": "TWY-DEP", "AIRBORNE": "TWY-DEP",
-    "STAND": "CLROK", "PUSHBACK": "PUSH", "DE-ICE": "PUSH",
+    "STAND": "ARR", "PUSHBACK": "PUSH", "DE-ICE": "PUSH",
     "CONTROLZONE": "CLR",
   };
 
@@ -419,7 +419,7 @@ export default function TWTE() {
           standalone={false}
           className={`flex-1 ${scrollArea}`}
         >
-          {(strip) => <Strip strip={strip} status="CLROK" myPosition={myPosition} selectable={true} />}
+          {(strip) => <Strip strip={strip} status="ARR" myPosition={myPosition} selectable={true} />}
         </SortableBay>
       </div>
 

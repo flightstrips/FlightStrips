@@ -1,5 +1,37 @@
 # Changelog
 
+## [0.9.0](https://github.com/flightstrips/FlightStrips/compare/backend/v0.8.3...backend/v0.9.0) (2026-03-20)
+
+
+### Features
+
+* add debug logging in airborne controller resolution ([cfe9974](https://github.com/flightstrips/FlightStrips/commit/cfe9974f15ba1cfd3ad192020aac06c91853eda6))
+* add force assume strip command ([f3c68a9](https://github.com/flightstrips/FlightStrips/commit/f3c68a920aed45662a749032eee66a33abdcce87))
+* Correct PDC ([8930e27](https://github.com/flightstrips/FlightStrips/commit/8930e27512f251c756ce38395989be0f2a5666c5))
+* Create IFR / VFR flightplan ([07a158b](https://github.com/flightstrips/FlightStrips/commit/07a158b4fc96059fcf77e3002f1ea517f914c443))
+* enforce strip ownership when moving strips ([2fb702d](https://github.com/flightstrips/FlightStrips/commit/2fb702df44cbc011655a7b88dca167743c2918d1))
+* gate frontend connections behind active euroscope client ([4f06f3d](https://github.com/flightstrips/FlightStrips/commit/4f06f3dae917c312bfff3f5be95453014994e07c))
+* Pull ATIS if available ([92fa0b2](https://github.com/flightstrips/FlightStrips/commit/92fa0b22e75f3f8ace6501785d23c645a6dba76b))
+* Request strips ([a9d1a46](https://github.com/flightstrips/FlightStrips/commit/a9d1a46407e75708e0b3f35776672bbb7b8e4771))
+* **sids:** source available SIDs from EuroScope sync event ([43a1f1f](https://github.com/flightstrips/FlightStrips/commit/43a1f1f6eaa82bbb854a4967f7a5bf8e5705e8bd))
+* trigger layout update after active runway change ([2089ad7](https://github.com/flightstrips/FlightStrips/commit/2089ad76b9439aec3152e0920d8d309df1c6f8f3))
+
+
+### Bug Fixes
+
+* align de-ice bay constant and validate tactical strip bay ([cd16578](https://github.com/flightstrips/FlightStrips/commit/cd16578a38aa2b15778f952bd02eb8eb22861449))
+* allow frontend to wait for ES connection ([c4641ea](https://github.com/flightstrips/FlightStrips/commit/c4641eaeee43ca08619cbc401a611e707b3afd1b))
+* backend tests ([0a27a70](https://github.com/flightstrips/FlightStrips/commit/0a27a70d7bcc450bad6f0b5f6bcd415c7b461284))
+* broadcast bulk bay event on strip sequence recalculation ([2e1c0ca](https://github.com/flightstrips/FlightStrips/commit/2e1c0ca091ffedb092c214bb68ae638c966ce92c))
+* correct bay names ([fc1f085](https://github.com/flightstrips/FlightStrips/commit/fc1f085ea3318359d7c83feff67c0c144d53900c))
+* disingenuous between FP and no FP ([aa87d4f](https://github.com/flightstrips/FlightStrips/commit/aa87d4f39661a2286cee90e09d647af10b7a5cd1))
+* force assume ([de96249](https://github.com/flightstrips/FlightStrips/commit/de9624995a38ecbf11a0301d3325943368570798))
+* ground states + force assume ([ee57f72](https://github.com/flightstrips/FlightStrips/commit/ee57f7267fa2fb319c31e4da59eb5d8ae780a130))
+* handle errors on backend and frontend ([a8cda2a](https://github.com/flightstrips/FlightStrips/commit/a8cda2a610f2980efa5e42a56f6d4f24eda77649))
+* missing layout ([297af2f](https://github.com/flightstrips/FlightStrips/commit/297af2f82ab069d1c50d04548f05e54f9bcd0a4b))
+* service test ([66c63c5](https://github.com/flightstrips/FlightStrips/commit/66c63c5744f86bf37eda06233d3ed7aeeb53a591))
+* transfer to airborne did not work for manual transfer ([815a176](https://github.com/flightstrips/FlightStrips/commit/815a176b7aeabca9c9641f1910e6b7a11c4f097a))
+
 ## [0.8.3](https://github.com/flightstrips/FlightStrips/compare/backend/v0.8.2...backend/v0.8.3) (2026-03-15)
 
 

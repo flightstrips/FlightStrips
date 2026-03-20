@@ -1,4 +1,3 @@
-import { useState } from "react";
 import Time from "@/components/Time";
 import MRKBTN from "./MRKBTN";
 import TRFBRN from "./TRFBRN";
@@ -7,7 +6,7 @@ import ATIS from "./ATIS";
 import HOMEBTN from "./HOMEBTN";
 import CDMSIM from "./CDMSIM";
 import MetarHelper from "@/components/MetarHelper";
-import { useMetar, useRunwaySetup, useSelectedCallsign, useSelectStrip, useWebSocketStore, useStrip } from "@/store/store-hooks";
+import { useAtisCode, useMetar, useRunwaySetup, useSelectedCallsign, useSelectStrip, useWebSocketStore, useStrip } from "@/store/store-hooks";
 import { CLS_CMDBTN } from "@/components/strip/shared";
 
 // CommandBar-specific class constants
@@ -26,6 +25,7 @@ const SCOPE_LABELS: Record<string, string> = {
 
 export default function CommandBar() {
   const metar = useMetar();
+  const atisCode = useAtisCode();
   const layout = useWebSocketStore((state) => state.layout);
   const runwaySetup = useRunwaySetup();
   const selectedCallsign = useSelectedCallsign();
@@ -33,8 +33,6 @@ export default function CommandBar() {
   const move = useWebSocketStore((state) => state.move);
   const toggleMarked = useWebSocketStore((state) => state.toggleMarked);
   const strip = useStrip(selectedCallsign ?? "");
-
-  const [unit, setUnit] = useState<"hPa" | "inHg">("hPa");
 
   const depRwy = runwaySetup.departure[0] ?? "—";
   const arrRwy = runwaySetup.arrival[0] ?? "—";
@@ -71,18 +69,17 @@ export default function CommandBar() {
           <h1>ARR</h1>
           <span className="bg-white text-black w-16 p-2">{arrRwy}</span>
         </div>
-        <div className="flex w-fit text-2xl font-bold m-2 items-center justify-between">
+        <div className="flex w-fit text-2xl font-bold m-2 items-center justify-between gap-2">
           <h1>QNH</h1>
           <span className={CLS_QNH_DARK}>
-            <MetarHelper metar={metar} style="qnh" unit={unit} />
+            <MetarHelper metar={metar} style="qnh" unit="hPa" />
           </span>
-          <span
-            className="bg-white text-black w-12 p-2 mx-2 text-center cursor-pointer select-none"
-            onClick={() => setUnit((u) => (u === "hPa" ? "inHg" : "hPa"))}
-          >
-            {unit === "hPa" ? "D" : "I"}
-          </span>
-          <span className="bg-white text-black w-32 p-2 mx-2 text-center text-xl">
+          {atisCode && (
+            <span className="bg-[#212121] text-white w-10 p-2 text-center">
+              {atisCode}
+            </span>
+          )}
+          <span className="bg-white text-black w-32 p-2 text-center text-xl">
             <MetarHelper metar={metar} style="winds" />
           </span>
         </div>

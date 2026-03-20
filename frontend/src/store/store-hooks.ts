@@ -29,6 +29,7 @@ export const useActiveMessages = () => useWebSocketStore((state) => state.messag
 export const useMyPosition = () => useWebSocketStore((state) => state.position);
 export const useStripTransfers = () => useWebSocketStore((state) => state.stripTransfers);
 export const useMetar = () => useWebSocketStore((state) => state.metar);
+export const useAtisCode = () => useWebSocketStore((state) => state.atisCode);
 
 export const useAvailableSids = () => useWebSocketStore((state) => state.availableSids);
 

@@ -81,6 +81,7 @@ export interface WebSocketState {
   messages: MessageReceived[];
   broadcastNotifications: BroadcastNotification[];
   metar: string;
+  atisCode: string;
 
   availableSids: SidInfo[];
 
@@ -152,6 +153,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     messages: [],
     broadcastNotifications: [],
     metar: "",
+    atisCode: "",
     availableSids: [],
     selectedCallsign: null,
     contextMenu: null
@@ -889,6 +891,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     store.setState(
       produce((state: WebSocketState) => {
         state.metar = data.metar;
+        state.atisCode = data.atis_code;
       })
     );
   };

@@ -464,6 +464,7 @@ export interface FrontendMessageReceivedEvent extends MessageReceived {
 export interface FrontendAtisUpdateEvent {
   type: EventType.FrontendAtisUpdate;
   metar: string;
+  atis_code: string;
 }
 
 // Union type for all events that can be received

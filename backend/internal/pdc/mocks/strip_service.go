@@ -207,3 +207,13 @@ func (m *StripService) ForceAssumeStrip(ctx context.Context, session int32, call
 	args := m.Called(ctx, session, callsign, position)
 	return args.Error(0)
 }
+
+func (m *StripService) CreateManualFPL(ctx context.Context, session int32, req frontend.CreateManualFPLAction, cid string, airport string) error {
+	args := m.Called(ctx, session, req, cid, airport)
+	return args.Error(0)
+}
+
+func (m *StripService) CreateVFRFPL(ctx context.Context, session int32, req frontend.CreateVFRFPLAction, cid string) error {
+	args := m.Called(ctx, session, req, cid)
+	return args.Error(0)
+}

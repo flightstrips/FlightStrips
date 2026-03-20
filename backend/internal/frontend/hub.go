@@ -47,8 +47,9 @@ type Hub struct {
 	msgCounter int64 // accessed atomically
 	messages   map[int32][]frontend.MessageReceivedEvent
 
-	metarMu    sync.RWMutex
-	metarCache map[int32]string // session ID → latest METAR string
+	metarMu      sync.RWMutex
+	metarCache   map[int32]string // session ID → latest METAR string
+	atisCodeCache map[int32]string // session ID → latest ATIS code letter
 }
 
 func NewHub(stripService shared.StripService, authenticationService shared.AuthenticationService) *Hub {
@@ -95,6 +96,7 @@ func NewHub(stripService shared.StripService, authenticationService shared.Authe
 		authenticationService: authenticationService,
 		messages:              make(map[int32][]frontend.MessageReceivedEvent),
 		metarCache:            make(map[int32]string),
+		atisCodeCache:         make(map[int32]string),
 	}
 
 	go hub.Run()
@@ -349,10 +351,11 @@ func (hub *Hub) sendInitialEvent(client *Client) {
 
 	hub.metarMu.RLock()
 	cachedMetar := hub.metarCache[client.session]
+	cachedAtisCode := hub.atisCodeCache[client.session]
 	hub.metarMu.RUnlock()
 
 	if cachedMetar != "" {
-		client.send <- frontend.AtisUpdateEvent{Metar: cachedMetar}
+		client.send <- frontend.AtisUpdateEvent{Metar: cachedMetar, AtisCode: cachedAtisCode}
 	}
 }
 
@@ -696,12 +699,13 @@ func (hub *Hub) SendServerMessage(session int32, message string) {
 	hub.Broadcast(session, event)
 }
 
-func (hub *Hub) SendAtisUpdate(session int32, metar string) {
+func (hub *Hub) SendAtisUpdate(session int32, metar string, atisCode string) {
 	hub.metarMu.Lock()
 	hub.metarCache[session] = metar
+	hub.atisCodeCache[session] = atisCode
 	hub.metarMu.Unlock()
 
-	hub.Broadcast(session, frontend.AtisUpdateEvent{Metar: metar})
+	hub.Broadcast(session, frontend.AtisUpdateEvent{Metar: metar, AtisCode: atisCode})
 }
 
 func (hub *Hub) SendToPosition(session int32, position string, message frontend.OutgoingMessage) {

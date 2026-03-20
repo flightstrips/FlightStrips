@@ -11,6 +11,7 @@ import { ArrStandDialog } from "@/components/strip/ArrStandDialog";
 import { AltSelectDialog } from "@/components/strip/AltSelectDialog";
 import { HdgSelectDialog } from "@/components/strip/HdgSelectDialog";
 import { SidSelectDialog } from "@/components/strip/SidSelectDialog";
+import { RunwayDialog } from "@/components/strip/RunwayDialog";
 import { useAvailableSids, useStrip, useWebSocketStore } from "@/store/store-hooks.ts";
 
 const FONT_FAMILY = "Arial";
@@ -79,6 +80,7 @@ export default function FlightPlanDialog({
   const setDialogOpen = onOpenChange ?? setInternalOpen;
 
   const [sidDialogOpen, setSidDialogOpen] = useState(false);
+  const [rwyDialogOpen, setRwyDialogOpen] = useState(false);
   const availableSids = useAvailableSids();
   const [ssrGenerating, setSsrGenerating] = useState(false);
   const [standOpen, setStandOpen] = useState(false);
@@ -160,7 +162,7 @@ export default function FlightPlanDialog({
                 onOpenChange={setSidDialogOpen}
                 value={strip.sid}
                 onSelect={(sid) => updateStrip(callsign, { sid })}
-                sids={availableSids.length > 0 ? availableSids : undefined}
+                sids={availableSids.length > 0 ? availableSids.filter(s => s.runway === strip.runway).map(s => s.name) : undefined}
               />
             </div>
             <div className="grid items-center gap-[5px]">
@@ -239,11 +241,21 @@ export default function FlightPlanDialog({
               </div>
               <div className="grid items-center gap-[5px]">
                 <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>RWY</Label>
-                <Input
-                  value={strip.runway}
-                  disabled
-                  className={CLS_BTN_DISABLED}
+                <button
+                  type="button"
+                  onClick={() => setRwyDialogOpen(true)}
+                  className={CLS_BTN_EDITABLE}
                   style={{ width: 150, fontFamily: FONT_FAMILY, fontSize: FONT_SIZE_FIELD }}
+                >
+                  {strip.runway}
+                </button>
+                <RunwayDialog
+                  mode="ASSIGN"
+                  open={rwyDialogOpen}
+                  onOpenChange={setRwyDialogOpen}
+                  callsign={callsign}
+                  direction="departure"
+                  currentRunway={strip.runway}
                 />
               </div>
             </div>

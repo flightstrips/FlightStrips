@@ -6,6 +6,8 @@ import type {FrontendStrip} from "@/api/models.ts";
 import { useMessages, useMyPosition } from "@/store/store-hooks.ts";
 import { useState } from "react";
 import { CLS_BTN, CLS_SCROLLBAR } from "@/components/strip/shared";
+import { NewIfrDialog } from "@/components/strip/NewIfrDialog";
+import { PlannedDialog } from "@/components/strip/PlannedDialog";
 
 // Column widths — all four columns are equal
 const W_COL = "w-1/4";
@@ -34,6 +36,8 @@ export default function DEL() {
   const taxidep = useTaxiDepStrips().filter(isFlight).sort((a, b) => a.sequence - b.sequence);
   const messages = useMessages();
   const [composeOpen, setComposeOpen] = useState(false);
+  const [newOpen, setNewOpen] = useState(false);
+  const [plannedOpen, setPlannedOpen] = useState(false);
 
   const mapToStrip = (strip: FrontendStrip, status: string) => (
     <Strip
@@ -56,8 +60,8 @@ export default function DEL() {
           <div className={lockedHeader}>
             <span className={lockedLabel}>OTHERS</span>
             <span className="flex gap-2">
-              <button className={CLS_BTN}>NEW</button>
-              <button className={CLS_BTN}>PLANNED</button>
+              <button className={CLS_BTN} onClick={() => setNewOpen(true)}>NEW</button>
+              <button className={CLS_BTN} onClick={() => setPlannedOpen(true)}>PLANNED</button>
             </span>
           </div>
           <div className={`h-[calc(100%-2.5rem)] ${scrollArea}`}>
@@ -112,6 +116,8 @@ export default function DEL() {
         </div>
       </div>
 
+      <NewIfrDialog open={newOpen} onOpenChange={setNewOpen} />
+      <PlannedDialog open={plannedOpen} onOpenChange={setPlannedOpen} />
     </>
   );
 }

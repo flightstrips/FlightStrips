@@ -3,6 +3,7 @@ package testutil
 import (
 	"FlightStrips/internal/shared"
 	"FlightStrips/pkg/events/frontend"
+	pkgModels "FlightStrips/pkg/models"
 )
 
 // ControllerOnlineCall records arguments to SendControllerOnline.
@@ -214,4 +215,4 @@ func (m *MockFrontendHub) SendCoordinationTagRequest(session int32, callsign, fr
 	m.CoordinationTagRequests = append(m.CoordinationTagRequests, CoordinationTagRequestCall{session, callsign, from, to})
 }
 
-func (m *MockFrontendHub) SendAvailableSids(session int32, sids []string) {}
+func (m *MockFrontendHub) SendAvailableSids(session int32, sids pkgModels.AvailableSids) {}

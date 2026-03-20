@@ -605,3 +605,19 @@ func handleMoveTacticalStrip(ctx context.Context, client *Client, message Messag
 
 	return client.hub.stripService.MoveTacticalStripBetween(ctx, client.session, req.ID, req.InsertAfter, bay)
 }
+
+func handleCreateManualFPL(ctx context.Context, client *Client, message Message) error {
+	var req frontend.CreateManualFPLAction
+	if err := message.JsonUnmarshal(&req); err != nil {
+		return err
+	}
+	return client.hub.stripService.CreateManualFPL(ctx, client.session, req, client.GetCid(), client.airport)
+}
+
+func handleCreateVFRFPL(ctx context.Context, client *Client, message Message) error {
+	var req frontend.CreateVFRFPLAction
+	if err := message.JsonUnmarshal(&req); err != nil {
+		return err
+	}
+	return client.hub.stripService.CreateVFRFPL(ctx, client.session, req, client.GetCid())
+}

@@ -124,7 +124,14 @@ func (r *stripRepository) GetByCallsign(ctx context.Context, session int32, call
 	if err != nil {
 		return nil, err
 	}
-	return stripToModel(dbStrip), nil
+	strip := stripToModel(dbStrip)
+	if manual, err := r.queries.GetManualFPLFields(ctx, session, callsign); err == nil {
+		strip.IsManual = manual.IsManual
+		strip.PersonsOnBoard = manual.PersonsOnBoard
+		strip.FplType = manual.FplType
+		strip.Language = manual.Language
+	}
+	return strip, nil
 }
 
 // List retrieves all strips for a session
@@ -134,11 +141,57 @@ func (r *stripRepository) List(ctx context.Context, session int32) ([]*models.St
 		return nil, err
 	}
 
+	// Bulk-fetch manual FPL fields to avoid N+1.
+	manualRows, _ := r.queries.ListManualFPLFieldsBySession(ctx, session)
+	manualMap := make(map[string]database.ManualFPLFieldsRow, len(manualRows))
+	for _, row := range manualRows {
+		manualMap[row.Callsign] = row
+	}
+
 	strips := make([]*models.Strip, len(dbStrips))
 	for i, dbStrip := range dbStrips {
-		strips[i] = stripToModel(dbStrip)
+		s := stripToModel(dbStrip)
+		if m, ok := manualMap[s.Callsign]; ok {
+			s.IsManual = m.IsManual
+			s.PersonsOnBoard = m.PersonsOnBoard
+			s.FplType = m.FplType
+			s.Language = m.Language
+		}
+		strips[i] = s
 	}
 	return strips, nil
+}
+
+// UpdateIFRManualFPLFields sets IFR FPL fields on an existing strip.
+func (r *stripRepository) UpdateIFRManualFPLFields(ctx context.Context, session int32, callsign string, destination string, sid *string, assignedSquawk *string, eobt *string, aircraftType *string, requestedAltitude *int32, route *string, stand *string, runway *string) (int64, error) {
+	return r.queries.UpdateIFRManualFPLFields(ctx, database.UpdateIFRManualFPLFieldsParams{
+		Session:           session,
+		Callsign:          callsign,
+		Destination:       destination,
+		Sid:               sid,
+		AssignedSquawk:    assignedSquawk,
+		Eobt:              eobt,
+		AircraftType:      aircraftType,
+		RequestedAltitude: requestedAltitude,
+		Route:             route,
+		Stand:             stand,
+		Runway:            runway,
+	})
+}
+
+// UpdateVFRManualFPLFields sets VFR FPL fields and moves the strip to the given bay.
+func (r *stripRepository) UpdateVFRManualFPLFields(ctx context.Context, session int32, callsign string, aircraftType *string, personsOnBoard *int32, assignedSquawk string, fplType *string, language *string, remarks *string, bay string) (int64, error) {
+	return r.queries.UpdateVFRManualFPLFields(ctx, database.UpdateVFRManualFPLFieldsParams{
+		Session:        session,
+		Callsign:       callsign,
+		AircraftType:   aircraftType,
+		PersonsOnBoard: personsOnBoard,
+		AssignedSquawk: assignedSquawk,
+		FplType:        fplType,
+		Language:       language,
+		Remarks:        remarks,
+		Bay:            bay,
+	})
 }
 
 // Update updates an existing strip

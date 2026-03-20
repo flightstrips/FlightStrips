@@ -24,6 +24,8 @@ import { StripListPopup, type SortMode } from "@/components/StripListPopup.tsx";
 import { useState } from "react";
 import { CLX_CLEARED_STRIP_WIDTH } from "@/components/strip/ClxClearedStrip.tsx";
 import { CLS_BTN, CLS_SCROLLBAR, CLS_COL } from "@/components/strip/shared";
+import { NewIfrDialog } from "@/components/strip/NewIfrDialog";
+import { PlannedDialog } from "@/components/strip/PlannedDialog";
 
 // Column widths
 const W_COL_ARR      = "w-[27%]";
@@ -44,6 +46,8 @@ export default function GEGW() {
   const messages   = useMessages();
   const [composeOpen, setComposeOpen] = useState(false);
   const [arrOpen, setArrOpen] = useState(false);
+  const [newOpen, setNewOpen] = useState(false);
+  const [plannedOpen, setPlannedOpen] = useState(false);
 
   const finalStrips   = useFinalStrips();
   const rwyArrStrips  = useRwyArrStrips();
@@ -177,8 +181,9 @@ export default function GEGW() {
 
       {/* Column 2 (28%) – STARTUP + PUSHBACK + TWY DEP UPR + TWY DEP LWR (all draggable) */}
       <div className={`${W_COL_DEP} ${CLS_COL}`}>
-        <div className={activeHeader}>
+        <div className={`${activeHeader} justify-between`}>
           <span className={activeLabel}>STARTUP</span>
+          <button className={CLS_BTN} onClick={() => setNewOpen(true)}>NEW</button>
         </div>
         <SortableBay
           strips={startupStrips}
@@ -210,6 +215,7 @@ export default function GEGW() {
         <div className={`${activeHeader} justify-between`}>
           <span className={activeLabel}>TWY DEP UPR</span>
           <span className="flex gap-1">
+            <button className={CLS_BTN} onClick={() => setNewOpen(true)}>NEW</button>
             <MemAidButton bay={Bay.Taxi} className={CLS_BTN} />
             <CrossingButton bay={Bay.Taxi} className={CLS_BTN} />
             <StartButton bay={Bay.Taxi} className={CLS_BTN} />
@@ -246,8 +252,12 @@ export default function GEGW() {
 
       {/* Column 3 (25%) – CLRDEL: active when CTWR owns clearances (no DEL, no APRON online) */}
       <div className={`${W_COL_CLRDEL} ${CLS_COL}`}>
-        <div className={clrDelActive ? activeHeader : lockedHeader}>
+        <div className={`${clrDelActive ? activeHeader : lockedHeader} justify-between`}>
           <span className={clrDelActive ? activeLabel : lockedLabel}>CLRDEL</span>
+          <span className="flex gap-1">
+            <button className={CLS_BTN} onClick={() => setNewOpen(true)}>NEW</button>
+            <button className={CLS_BTN} onClick={() => setPlannedOpen(true)}>PLANNED</button>
+          </span>
         </div>
         <div className={`flex-1 ${scrollArea}`}>
           {clrDelActive && nonClearedStrips.map(s => (
@@ -275,6 +285,8 @@ export default function GEGW() {
       </div>
 
     </div>
+    <NewIfrDialog open={newOpen} onOpenChange={setNewOpen} />
+    <PlannedDialog open={plannedOpen} onOpenChange={setPlannedOpen} />
     </ViewDndContext>
   );
 }

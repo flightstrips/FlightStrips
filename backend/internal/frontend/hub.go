@@ -7,6 +7,7 @@ import (
 	"FlightStrips/pkg/events"
 	"FlightStrips/pkg/events/frontend"
 	"FlightStrips/pkg/helpers"
+	pkgModels "FlightStrips/pkg/models"
 	"context"
 	"errors"
 	"log/slog"
@@ -80,6 +81,8 @@ func NewHub(stripService shared.StripService, authenticationService shared.Authe
 	handlers.Add(frontend.ActionConfirmTacticalStrip, handleConfirmTacticalStrip)
 	handlers.Add(frontend.ActionStartTacticalTimer, handleStartTacticalTimer)
 	handlers.Add(frontend.ActionMoveTacticalStrip, handleMoveTacticalStrip)
+	handlers.Add(frontend.ActionCreateManualFPL, handleCreateManualFPL)
+	handlers.Add(frontend.ActionCreateVFRFPL, handleCreateVFRFPL)
 
 	hub := &Hub{
 		send:                  make(chan internalMessage),
@@ -322,7 +325,7 @@ func (hub *Hub) sendInitialEvent(client *Client) {
 	sids, err := sessionRepo.GetSessionSids(context.Background(), client.session)
 	if err != nil {
 		slog.Error("Failed to load available SIDs on connect", slog.Any("error", err), slog.Int("session", int(client.session)))
-		sids = []string{}
+		sids = pkgModels.AvailableSids{}
 	}
 
 	event := frontend.InitialEvent{
@@ -417,6 +420,10 @@ func MapStripToFrontendModel(strip *internalModels.Strip) frontend.Strip {
 		RunwayCleared:          strip.RunwayCleared,
 		UnexpectedChangeFields:  strip.UnexpectedChangeFields,
 		ControllerModifiedFields: strip.ControllerModifiedFields,
+		IsManual:               strip.IsManual,
+		PersonsOnBoard:         helpers.ValueOrDefault(strip.PersonsOnBoard),
+		FplType:                helpers.ValueOrDefault(strip.FplType),
+		Language:               helpers.ValueOrDefault(strip.Language),
 	}
 }
 
@@ -717,7 +724,7 @@ func (hub *Hub) SendCoordinationTagRequest(session int32, callsign, from, to str
 	hub.Broadcast(session, event)
 }
 
-func (hub *Hub) SendAvailableSids(session int32, sids []string) {
+func (hub *Hub) SendAvailableSids(session int32, sids pkgModels.AvailableSids) {
 	hub.Broadcast(session, frontend.AvailableSidsEvent{Sids: sids})
 }
 

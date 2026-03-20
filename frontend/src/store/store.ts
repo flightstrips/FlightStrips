@@ -40,6 +40,7 @@ import {
   type FrontendTacticalStripUpdatedEvent,
   type FrontendTacticalStripMovedEvent,
   type FrontendAtisUpdateEvent,
+  type SidInfo,
 } from '../api/models.ts';
 import {WebSocketClient} from '../api/websocket.ts';
 
@@ -81,7 +82,7 @@ export interface WebSocketState {
   broadcastNotifications: BroadcastNotification[];
   metar: string;
 
-  availableSids: string[];
+  availableSids: SidInfo[];
 
   selectedCallsign: string | null;
   selectStrip: (callsign: string | null) => void;
@@ -115,6 +116,10 @@ export interface WebSocketState {
   assignRunway: (callsign: string, runway: string) => void;
 
   acknowledgeUnexpectedChange: (callsign: string, fieldName: string) => void;
+
+  // manual FPL actions
+  createManualFPL: (callsign: string, ades: string, sid: string, ssr: string, eobt: string, aircraftType: string, fl: string, route: string, stand: string, rwyDep: string) => void;
+  createVFRFPL: (callsign: string, aircraftType: string, personsOnBoard: number, ssr: string, fplType: string, language: string, remarks: string) => void;
 
   // tactical strip actions
   createTacticalStrip: (stripType: TacticalStripType, bay: string, label: string, aircraft: string) => void;
@@ -379,6 +384,12 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
           }
         })
       );
+    },
+    createManualFPL: (callsign, ades, sid, ssr, eobt, aircraftType, fl, route, stand, rwyDep) => {
+      wsClient.send({ type: ActionType.FrontendCreateManualFPL, callsign, ades, sid, ssr, eobt, aircraft_type: aircraftType, fl, route, stand, rwy_dep: rwyDep });
+    },
+    createVFRFPL: (callsign, aircraftType, personsOnBoard, ssr, fplType, language, remarks) => {
+      wsClient.send({ type: ActionType.FrontendCreateVFRFPL, callsign, aircraft_type: aircraftType, persons_on_board: personsOnBoard, ssr, fpl_type: fplType, language, remarks });
     },
     createTacticalStrip:(stripType, bay, label, aircraft) => {
       wsClient.send({ type: ActionType.FrontendCreateTacticalStrip, strip_type: stripType, bay, label, aircraft });

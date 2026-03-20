@@ -2,6 +2,7 @@ package frontend
 
 import (
 	"FlightStrips/pkg/events"
+	pkgModels "FlightStrips/pkg/models"
 	"encoding/json"
 	"time"
 )
@@ -140,6 +141,10 @@ type Strip struct {
 	RunwayCleared          bool     `json:"runway_cleared"`
 	UnexpectedChangeFields  []string `json:"unexpected_change_fields"`
 	ControllerModifiedFields []string `json:"controller_modified_fields"`
+	IsManual               bool     `json:"is_manual"`
+	PersonsOnBoard         int32    `json:"persons_on_board"`
+	FplType                string   `json:"fpl_type"`
+	Language               string   `json:"language"`
 }
 
 type Controller struct {
@@ -167,7 +172,7 @@ type InitialEvent struct {
 	RunwaySetup    RunwayConfiguration       `json:"runway_setup"`
 	Coordinations  []SyncCoordination        `json:"coordinations"`
 	Messages       []MessageReceivedEvent    `json:"messages"`
-	AvailableSids  []string                  `json:"available_sids"`
+	AvailableSids  pkgModels.AvailableSids   `json:"available_sids"`
 }
 
 func (i InitialEvent) Marshal() ([]byte, error) {
@@ -795,7 +800,7 @@ func (e ActionRejectedEvent) Marshal() ([]byte, error) { return marshall(e) }
 func (e ActionRejectedEvent) GetType() EventType       { return ActionRejected }
 
 type AvailableSidsEvent struct {
-	Sids []string `json:"sids"`
+	Sids pkgModels.AvailableSids `json:"sids"`
 }
 
 func (e AvailableSidsEvent) Marshal() ([]byte, error) { return marshall(e) }

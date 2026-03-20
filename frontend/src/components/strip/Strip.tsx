@@ -75,6 +75,7 @@ export function Strip({ strip, status, halfStripVariant, myPosition, selectable,
     fullWidth,
     unexpectedChangeFields: strip.unexpected_change_fields,
     controllerModifiedFields: strip.controller_modified_fields,
+    isManual: strip.is_manual,
   };
 
   switch (status) {

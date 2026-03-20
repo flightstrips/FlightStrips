@@ -8,6 +8,7 @@ import {
   FONT,
   COLOR_ARR_STRIP_BG,
   COLOR_UNEXPECTED_YELLOW,
+  COLOR_MANUAL_BLUE,
   getCellTextColor,
 } from "./shared";
 import { useWebSocketStore } from "@/store/store-hooks";
@@ -62,9 +63,11 @@ export function ApnPushStrip({
   fullWidth = false,
   unexpectedChangeFields,
   controllerModifiedFields,
+  isManual = false,
 }: StripProps) {
   const { isSelected, handleClick } = useStripSelection(callsign, selectable);
   const cellBorderColor = getCellBorderColor(marked);
+  const manualBlue = isManual ? COLOR_MANUAL_BLUE : undefined;
   const stripTransfers = useStripTransfers();
   const isTagRequest = !!stripTransfers[callsign]?.isTagRequest;
   const [pushbackOpen, setPushbackOpen] = useState(false);
@@ -106,7 +109,7 @@ export function ApnPushStrip({
           style={{ flex: `${F_CALLSIGN} 0 0%`, height: "100%", minWidth: 0, borderRightColor: cellBorderColor }}
         >
           <div className="flex items-center pl-2" style={{ height: TOP_H, backgroundColor: isSelected ? SELECTION_COLOR : undefined }}>
-            <span className="truncate w-full" style={{ fontFamily: FONT, fontWeight: "bold", fontSize: 20 }}>
+            <span className="truncate w-full" style={{ fontFamily: FONT, fontWeight: "bold", fontSize: 20, color: manualBlue }}>
               {callsign}
             </span>
           </div>

@@ -108,6 +108,8 @@ export const COLOR_ARR_YELLOW    = "#fff28e";
 export const COLOR_UNEXPECTED_YELLOW = "#FFD700";
 /** Blue text for fields intentionally modified by the controller. */
 export const COLOR_CONTROLLER_MODIFIED_BLUE = "#2751A3";
+/** Blue text/background for fields on manually-created strips (is_manual = true). */
+export const COLOR_MANUAL_BLUE = "#21326A";
 
 /** Returns the text color for a cell if the field was controller-modified, otherwise undefined. */
 export function getCellTextColor(fieldName: string, controllerModifiedFields?: string[]): string | undefined {

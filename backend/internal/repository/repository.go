@@ -73,6 +73,10 @@ type StripRepository interface {
 	// Controller-modified field tracking
 	AppendControllerModifiedField(ctx context.Context, session int32, callsign string, fieldName string) error
 
+	// Manual FPL creation
+	UpdateIFRManualFPLFields(ctx context.Context, session int32, callsign string, destination string, sid *string, assignedSquawk *string, eobt *string, aircraftType *string, requestedAltitude *int32, route *string, stand *string, runway *string) (int64, error)
+	UpdateVFRManualFPLFields(ctx context.Context, session int32, callsign string, aircraftType *string, personsOnBoard *int32, assignedSquawk string, fplType *string, language *string, remarks *string, bay string) (int64, error)
+
 	// PDC methods
 	SetPdcRequested(ctx context.Context, session int32, callsign string, pdcState string, pdcRequestedAt *time.Time) error
 	SetPdcMessageSent(ctx context.Context, session int32, callsign string, pdcState string, pdcMessageSequence *int32, pdcMessageSent *time.Time) error
@@ -109,8 +113,8 @@ type SessionRepository interface {
 	Delete(ctx context.Context, id int32) (int64, error)
 
 	UpdateActiveRunways(ctx context.Context, id int32, activeRunways pkgModels.ActiveRunways) error
-	UpdateSessionSids(ctx context.Context, id int32, sids []string) error
-	GetSessionSids(ctx context.Context, id int32) ([]string, error)
+	UpdateSessionSids(ctx context.Context, id int32, sids pkgModels.AvailableSids) error
+	GetSessionSids(ctx context.Context, id int32) (pkgModels.AvailableSids, error)
 	IncrementPdcSequence(ctx context.Context, id int32) (int32, error)
 	IncrementPdcMessageSequence(ctx context.Context, id int32) (int32, error)
 }

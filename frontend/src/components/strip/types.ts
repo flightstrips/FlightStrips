@@ -47,6 +47,7 @@ export interface StripProps {
   runwayCleared?: boolean;
   registration?: string;
   fullWidth?: boolean;
+  isManual?: boolean;
 }
 
 export const TWY_DEP_STRIP_WIDTH = 519; // W_SI(40) + W_CALLSIGN(120) + W_TYPE_SQ(60) + W_STAND_CTOT(60) + W_SMALL(53)*3 + W_SID_DEST(80)

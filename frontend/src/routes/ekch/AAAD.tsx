@@ -28,6 +28,8 @@ import { StripListPopup, type SortMode } from "@/components/StripListPopup.tsx";
 import { useState } from "react";
 import { APN_TAXI_DEP_STRIP_WIDTH } from "@/components/strip/ApnTaxiDepStrip.tsx";
 import { CLS_BTN, CLS_SCROLLBAR } from "@/components/strip/shared";
+import { NewIfrDialog } from "@/components/strip/NewIfrDialog";
+import { PlannedDialog } from "@/components/strip/PlannedDialog";
 
 // Shared header styles
 const pageWrapper    = "bg-[#A9A9A9] w-screen h-[calc(100vh-4rem)] flex justify-center justify-items-center gap-2";
@@ -48,6 +50,8 @@ export default function AAAD() {
   const messages    = useMessages();
   const [composeOpen, setComposeOpen] = useState(false);
   const [arrOpen, setArrOpen] = useState(false);
+  const [newOpen, setNewOpen] = useState(false);
+  const [plannedOpen, setPlannedOpen] = useState(false);
 
   const delOnline = useDelOnline();
   // When DEL is online, APRON is not responsible for clearances → CLR/DEL panel is inactive.
@@ -191,7 +195,8 @@ export default function AAAD() {
         <div className={activeHeader + " justify-between"}>
           <span className={activeLabel}>TWY DEP</span>
           <span className="flex gap-1">
-            <button className={btn}>NEW</button>
+            <button className={btn} onClick={() => setNewOpen(true)}>NEW</button>
+            <button className={btn} onClick={() => setPlannedOpen(true)}>PLANNED</button>
             <MemAidButton bay={Bay.Taxi} className={btn} />
           </span>
         </div>
@@ -341,6 +346,8 @@ export default function AAAD() {
       </div>
 
     </div>
+    <NewIfrDialog open={newOpen} onOpenChange={setNewOpen} />
+    <PlannedDialog open={plannedOpen} onOpenChange={setPlannedOpen} />
     </ViewDndContext>
   );
 }

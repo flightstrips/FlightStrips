@@ -56,8 +56,10 @@ type MockStripRepository struct {
 	RemoveUnexpectedChangeFieldFn     func(ctx context.Context, session int32, callsign string, fieldName string) error
 	AppendControllerModifiedFieldFn   func(ctx context.Context, session int32, callsign string, fieldName string) error
 	SetPdcRequestedFn                 func(ctx context.Context, session int32, callsign string, pdcState string, pdcRequestedAt *time.Time) error
-	SetPdcMessageSentFn         func(ctx context.Context, session int32, callsign string, pdcState string, pdcMessageSequence *int32, pdcMessageSent *time.Time) error
-	UpdatePdcStatusFn           func(ctx context.Context, session int32, callsign string, pdcState string) error
+	SetPdcMessageSentFn           func(ctx context.Context, session int32, callsign string, pdcState string, pdcMessageSequence *int32, pdcMessageSent *time.Time) error
+	UpdatePdcStatusFn             func(ctx context.Context, session int32, callsign string, pdcState string) error
+	UpdateIFRManualFPLFieldsFn    func(ctx context.Context, session int32, callsign string, destination string, sid *string, assignedSquawk *string, eobt *string, aircraftType *string, requestedAltitude *int32, route *string, stand *string, runway *string) (int64, error)
+	UpdateVFRManualFPLFieldsFn    func(ctx context.Context, session int32, callsign string, aircraftType *string, personsOnBoard *int32, assignedSquawk string, fplType *string, language *string, remarks *string, bay string) (int64, error)
 }
 
 func (m *MockStripRepository) Create(ctx context.Context, strip *models.Strip) error {
@@ -401,4 +403,18 @@ func (m *MockStripRepository) UpdatePdcStatus(ctx context.Context, session int32
 		panic("unexpected call to MockStripRepository.UpdatePdcStatus")
 	}
 	return m.UpdatePdcStatusFn(ctx, session, callsign, pdcState)
+}
+
+func (m *MockStripRepository) UpdateIFRManualFPLFields(ctx context.Context, session int32, callsign string, destination string, sid *string, assignedSquawk *string, eobt *string, aircraftType *string, requestedAltitude *int32, route *string, stand *string, runway *string) (int64, error) {
+	if m.UpdateIFRManualFPLFieldsFn == nil {
+		panic("unexpected call to MockStripRepository.UpdateIFRManualFPLFields")
+	}
+	return m.UpdateIFRManualFPLFieldsFn(ctx, session, callsign, destination, sid, assignedSquawk, eobt, aircraftType, requestedAltitude, route, stand, runway)
+}
+
+func (m *MockStripRepository) UpdateVFRManualFPLFields(ctx context.Context, session int32, callsign string, aircraftType *string, personsOnBoard *int32, assignedSquawk string, fplType *string, language *string, remarks *string, bay string) (int64, error) {
+	if m.UpdateVFRManualFPLFieldsFn == nil {
+		panic("unexpected call to MockStripRepository.UpdateVFRManualFPLFields")
+	}
+	return m.UpdateVFRManualFPLFieldsFn(ctx, session, callsign, aircraftType, personsOnBoard, assignedSquawk, fplType, language, remarks, bay)
 }

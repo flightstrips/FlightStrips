@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { StripProps } from "./types";
-import { useStripSelection, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR, COLOR_ARR_YELLOW, COLOR_BTN_ORANGE, COLOR_UNEXPECTED_YELLOW, getCellTextColor } from "./shared";
+import { useStripSelection, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR, COLOR_ARR_YELLOW, COLOR_BTN_ORANGE, COLOR_UNEXPECTED_YELLOW, COLOR_MANUAL_BLUE, getCellTextColor } from "./shared";
 import { useControllers, useStripTransfers, useWebSocketStore } from "@/store/store-hooks";
 import { RunwayDialog } from "./RunwayDialog";
 import { ArrStandDialog } from "./ArrStandDialog";
@@ -38,9 +38,11 @@ export function ApnArrStrip({
   marked = false,
   unexpectedChangeFields,
   controllerModifiedFields,
+  isManual = false,
 }: StripProps) {
   const { isSelected, handleClick } = useStripSelection(callsign, selectable);
   const cellBorderColor = getCellBorderColor(marked);
+  const manualBlue = isManual ? COLOR_MANUAL_BLUE : undefined;
   const controllers = useControllers();
   const stripTransfers = useStripTransfers();
   const isTagRequest = !!stripTransfers[callsign]?.isTagRequest;
@@ -88,7 +90,7 @@ export function ApnArrStrip({
       {/* Callsign — 120px */}
       <div className="flex-shrink-0 flex flex-col border-r-2" style={{ width: 120, height: "100%", borderRightColor: cellBorderColor }}>
         <div className="flex items-center pl-2" style={{ height: TOP_H, backgroundColor: isSelected ? SELECTION_COLOR : undefined }}>
-          <span className="font-bold text-xl truncate w-full">{callsign}</span>
+          <span className="font-bold text-xl truncate w-full" style={{ color: manualBlue }}>{callsign}</span>
         </div>
         <div style={{ height: BOT_H }} />
       </div>

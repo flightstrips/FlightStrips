@@ -54,4 +54,8 @@ type Strip struct {
 	RunwayCleared           bool
 	UnexpectedChangeFields  []string
 	ControllerModifiedFields []string
+	IsManual                bool
+	PersonsOnBoard          *int32
+	FplType                 *string
+	Language                *string
 }

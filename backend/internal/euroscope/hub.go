@@ -472,6 +472,10 @@ func (hub *Hub) SendCoordinationHandover(session int32, cid string, callsign str
 	hub.Send(session, cid, event)
 }
 
+func (hub *Hub) SendCreateFPL(session int32, cid string, event euroscope.CreateFPLEvent) {
+	hub.Send(session, cid, event)
+}
+
 func (hub *Hub) Run() {
 	for {
 		select {

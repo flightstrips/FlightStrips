@@ -1890,8 +1890,18 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, st
 			PositionLongitude:  &strip.Position.Lon,
 			PositionAltitude:   &strip.Position.Altitude,
 			Bay:                bay,
-			Tobt:               existingStrip.Tobt,
-			Eobt:               existingStrip.Eobt,
+			Tobt: func() *string {
+				if strip.Eobt != "" {
+					return &strip.Eobt
+				}
+				return existingStrip.Tobt
+			}(),
+			Eobt: func() *string {
+				if strip.Eobt != "" {
+					return &strip.Eobt
+				}
+				return existingStrip.Eobt
+			}(),
 			Registration:       existingStrip.Registration,
 			Owner:              existingStrip.Owner,
 			TrackingController: strip.TrackingController,

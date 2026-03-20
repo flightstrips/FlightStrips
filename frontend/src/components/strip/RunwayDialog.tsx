@@ -33,7 +33,15 @@ interface AssignProps {
   currentRunway?: string;
 }
 
-type Props = TacticalProps | AssignProps;
+interface SelectProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  mode: "SELECT";
+  currentRunway?: string;
+  onSelect: (runway: string) => void;
+}
+
+type Props = TacticalProps | AssignProps | SelectProps;
 
 export function RunwayDialog(props: Props) {
   const { open, onOpenChange } = props;
@@ -46,12 +54,14 @@ export function RunwayDialog(props: Props) {
     ? (props.direction === "departure" ? runwaySetup.departure : runwaySetup.arrival)
     :*/ RUNWAYS;
 
-  const title = props.mode === "ASSIGN" ? "Assign Runway" : props.type;
-  const currentRunway = props.mode === "ASSIGN" ? props.currentRunway : undefined;
+  const title = props.mode === "ASSIGN" ? "Assign Runway" : props.mode === "SELECT" ? "Select Runway" : props.type;
+  const currentRunway = props.mode === "ASSIGN" || props.mode === "SELECT" ? props.currentRunway : undefined;
 
   function handleSelect(runway: string) {
     if (props.mode === "ASSIGN") {
       assignRunway(props.callsign, runway);
+    } else if (props.mode === "SELECT") {
+      props.onSelect(runway);
     } else {
       createTacticalStrip(props.type, props.bay, runway, selectedAircraft ?? "");
     }

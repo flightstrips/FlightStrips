@@ -10,6 +10,7 @@ import {
   FONT,
   CLS_CALLSIGN_ACTIVE,
   COLOR_UNEXPECTED_YELLOW,
+  COLOR_MANUAL_BLUE,
   getCellTextColor,
 } from "./shared";
 import { useStripTransfers, useWebSocketStore } from "@/store/store-hooks";
@@ -40,6 +41,7 @@ export function DelStrip({
   fullWidth = false,
   unexpectedChangeFields,
   controllerModifiedFields,
+  isManual = false,
 }: StripProps) {
   const { isSelected, handleClick } = useStripSelection(callsign, selectable);
   const cdmReady = useWebSocketStore(s => s.cdmReady);
@@ -79,6 +81,7 @@ export function DelStrip({
   const isNavyBg = isBlinking ? faultBlinkPhase === "dark" : pdcStatus === "CLEARED";
   const cellBorderColor = isNavyBg ? "white" : getCellBorderColor(marked);
   const blinkBg = faultBlinkPhase === "dark" ? "#00154A" : faultBlinkPhase === "light" ? "#bef5ef" : undefined;
+  const manualBlue = isManual && !isNavyBg ? COLOR_MANUAL_BLUE : undefined;
 
   return (
     <div
@@ -101,7 +104,7 @@ export function DelStrip({
         {/* Callsign — 2/3 of left half */}
         <button
           className={`flex items-center justify-start overflow-hidden ${CLS_CALLSIGN_ACTIVE} border-r-2`}
-          style={{ flex: "2 0 0%", height: "100%", minWidth: 0, fontFamily: FONT, fontWeight: "bold", fontSize: 24, textAlign: "left", paddingLeft: "4px", borderRightColor: cellBorderColor, backgroundColor: isSelected ? SELECTION_COLOR : undefined }}
+          style={{ flex: "2 0 0%", height: "100%", minWidth: 0, fontFamily: FONT, fontWeight: "bold", fontSize: 24, textAlign: "left", paddingLeft: "4px", borderRightColor: cellBorderColor, backgroundColor: isSelected ? SELECTION_COLOR : undefined, color: manualBlue }}
         >
           <span className="truncate w-full">{callsign}</span>
         </button>
@@ -112,12 +115,12 @@ export function DelStrip({
           style={{ flex: "1 0 0%", height: "100%", minWidth: 0, borderRightColor: cellBorderColor }}
         >
           <CLXBtn callsign={callsign}>
-            <div className="flex items-center justify-center overflow-hidden" style={{ height: HALF_H, fontFamily: FONT, fontWeight: "bold", fontSize: 14 }}>
+            <div className="flex items-center justify-center overflow-hidden" style={{ height: HALF_H, fontFamily: FONT, fontWeight: "bold", fontSize: 14, color: manualBlue }}>
               {destination}
             </div>
             <div
               className="flex items-center justify-center overflow-hidden"
-              style={{ height: HALF_H, fontFamily: FONT, fontWeight: "bold", fontSize: 14, backgroundColor: standYellow ? COLOR_UNEXPECTED_YELLOW : undefined, cursor: standYellow ? "pointer" : undefined, color: getCellTextColor("stand", controllerModifiedFields) }}
+              style={{ height: HALF_H, fontFamily: FONT, fontWeight: "bold", fontSize: 14, backgroundColor: standYellow ? COLOR_UNEXPECTED_YELLOW : undefined, cursor: standYellow ? "pointer" : undefined, color: manualBlue ?? getCellTextColor("stand", controllerModifiedFields) }}
               onClick={standYellow ? (e) => { e.stopPropagation(); acknowledgeUnexpectedChange(callsign, "stand"); } : undefined}
             >
               {stand}
@@ -136,7 +139,7 @@ export function DelStrip({
           <div className="flex flex-col justify-start overflow-hidden border-r-2" style={{ flex: "1 0 0%", height: "100%", minWidth: 0, borderRightColor: cellBorderColor }}>
             <div className="flex items-center justify-between px-1 overflow-hidden" style={{ height: HALF_H, fontFamily: FONT, fontSize: 14 }}>
               <span className={`${isNavyBg ? "text-white" : "text-black"} shrink-0`}>EOBT</span>
-              <span>{eobt}</span>
+              <span style={{ color: manualBlue }}>{eobt}</span>
             </div>
           </div>
 

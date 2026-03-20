@@ -73,6 +73,8 @@ namespace FlightStrips::messages {
             HandleEsAssumeAndDropEvent(message.get<AssumeAndDropEvent>());
         } else if (type == EVENT_BACKEND_SYNC_NAME) {
             HandleBackendSyncEvent(message.get<BackendSyncEvent>());
+        } else if (type == EVENT_CREATE_FPL_NAME) {
+            HandleCreateFPLEvent(message.get<CreateFPLEvent>());
         } else {
             Logger::Warning("Unknown message type: {}", type);
         }
@@ -215,11 +217,11 @@ namespace FlightStrips::messages {
         }
 
         const auto syncEvent = SyncEvent(strips, controllers, m_runwayService->GetActiveRunways(relevantAirport), [&] {
-            std::vector<std::string> sidNames;
+            std::vector<SidEntry> sidEntries;
             for (const auto& sid : m_plugin->GetSids(relevantAirport)) {
-                sidNames.push_back(sid.name);
+                sidEntries.push_back(SidEntry{sid.name, sid.runway});
             }
-            return sidNames;
+            return sidEntries;
         }());
         m_webSocketService->SendEvent(syncEvent);
     }
@@ -387,6 +389,7 @@ namespace FlightStrips::messages {
     void MessageService::HandleBackendSyncEvent(const BackendSyncEvent &event) const {
         m_plugin->SetAirportCoordinates(event.latitude, event.longitude);
 
+
         const auto relevantAirport = m_plugin->GetConnectionState().relevant_airport;
         for (const auto &strip : event.strips) {
             const auto fp = m_plugin->FlightPlanSelect(strip.callsign.c_str());
@@ -412,6 +415,87 @@ namespace FlightStrips::messages {
                 if (destination == relevantAirport) {
                     m_plugin->SetArrivalStand(strip.callsign.c_str(), strip.stand);
                 }
+            }
+        }
+    }
+
+    void MessageService::HandleCreateFPLEvent(const CreateFPLEvent &event) const {
+        const auto fp = m_plugin->FlightPlanSelect(event.callsign.c_str());
+        if (!fp.IsValid()) {
+            Logger::Warning("create_fpl: flight plan not found for {}", event.callsign);
+            return;
+        }
+
+        const auto airport = m_plugin->GetConnectionState().relevant_airport;
+        auto fpData = fp.GetFlightPlanData();
+
+        if (!event.origin.empty()) {
+            if (!fpData.SetOrigin(event.origin.c_str())) {
+                Logger::Warning("create_fpl: failed to set origin {} for {}", event.origin, event.callsign);
+            }
+        }
+
+        // Set flight rules: "I" for IFR (fpl_type empty), "V" for VFR
+        const auto planType = event.fpl_type.empty() ? "I" : "V";
+        if (!fpData.SetPlanType(planType)) {
+            Logger::Warning("create_fpl: failed to set plan type {} for {}", planType, event.callsign);
+        }
+
+        if (!event.destination.empty()) {
+            if (!fpData.SetDestination(event.destination.c_str())) {
+                Logger::Warning("create_fpl: failed to set destination {} for {}", event.destination, event.callsign);
+            }
+        }
+
+        if (!event.eobt.empty()) {
+            if (!fpData.SetEstimatedDepartureTime(event.eobt.c_str())) {
+                Logger::Warning("create_fpl: failed to set EOBT {} for {}", event.eobt, event.callsign);
+            }
+        }
+
+        if (!event.aircraft_type.empty()) {
+            if (!fpData.SetAircraftInfo(event.aircraft_type.c_str())) {
+                Logger::Warning("create_fpl: failed to set aircraft type {} for {}", event.aircraft_type, event.callsign);
+            }
+        }
+
+        if (!event.remarks.empty()) {
+            if (!fpData.SetRemarks(event.remarks.c_str())) {
+                Logger::Warning("create_fpl: failed to set remarks for {}", event.callsign);
+            }
+        }
+
+        // Build route: start from the event route, then inject SID and departure runway
+        auto route = event.route.empty() ? std::string(fpData.GetRoute()) : event.route;
+
+        if (!event.sid.empty()) {
+            m_routeService->SetSid(route, event.sid, airport);
+        }
+
+        if (!event.runway.empty()) {
+            m_routeService->SetDepartureRunway(route, event.runway, airport);
+        }
+
+        if (!route.empty()) {
+            if (!fpData.SetRoute(route.c_str())) {
+                Logger::Warning("create_fpl: failed to set route for {}", event.callsign);
+            }
+        }
+
+        if (!fpData.AmendFlightPlan()) {
+            Logger::Warning("create_fpl: failed to amend flight plan for {}", event.callsign);
+        }
+
+        // Set controller-assigned data after amending the flight plan
+        if (!event.assigned_squawk.empty()) {
+            if (!fp.GetControllerAssignedData().SetSquawk(event.assigned_squawk.c_str())) {
+                Logger::Warning("create_fpl: failed to set squawk {} for {}", event.assigned_squawk, event.callsign);
+            }
+        }
+
+        if (event.requested_altitude > 0) {
+            if (!fp.GetControllerAssignedData().SetFinalAltitude(event.requested_altitude)) {
+                Logger::Warning("create_fpl: failed to set requested altitude {} for {}", event.requested_altitude, event.callsign);
             }
         }
     }

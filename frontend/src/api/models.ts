@@ -64,6 +64,8 @@ export enum ActionType {
   FrontendAcknowledgeUnexpectedChange = "acknowledge_unexpected_change",
   FrontendCoordinationTagRequest = "coordination_tag_request",
   FrontendCoordinationAcceptTagRequest = "coordination_accept_tag_request",
+  FrontendCreateManualFPL = "create_manual_fpl",
+  FrontendCreateVFRFPL = "create_vfr_fpl",
 }
 
 export type PdcStatus = "NONE" | "REQUESTED" | "REQUESTED_WITH_FAULTS" | "CLEARED" | "CONFIRMED" | "NO_RESPONSE" | "FAILED" | "REVERT_TO_VOICE";
@@ -155,6 +157,10 @@ export interface FrontendStrip {
   ob?: boolean;
   unexpected_change_fields?: string[];
   controller_modified_fields?: string[];
+  is_manual?: boolean;
+  persons_on_board?: number;
+  fpl_type?: string;
+  language?: string;
 }
 
 export interface FrontendController {
@@ -172,6 +178,11 @@ export interface MessageReceived {
   recipients: string[];
 }
 
+export interface SidInfo {
+  name: string;
+  runway: string;
+}
+
 export interface FrontendInitialEvent {
   type: EventType.FrontendInitial;
   controllers: FrontendController[];
@@ -184,7 +195,7 @@ export interface FrontendInitialEvent {
   runway_setup: RunwayConfiguration;
   coordinations: Array<{ callsign: string; from: string; to: string; is_tag_request: boolean }>;
   messages: MessageReceived[];
-  available_sids: string[];
+  available_sids: SidInfo[];
 }
 
 export interface FrontendStripUpdateEvent {
@@ -628,8 +639,33 @@ export interface FrontendAcknowledgeUnexpectedChangeEvent {
   field_name: string;
 }
 
+export interface FrontendCreateManualFPLAction {
+  type: ActionType.FrontendCreateManualFPL;
+  callsign: string;
+  ades: string;
+  sid: string;
+  ssr: string;
+  eobt: string;
+  aircraft_type: string;
+  fl: string;
+  route: string;
+  stand: string;
+  rwy_dep: string;
+}
+
+export interface FrontendCreateVFRFPLAction {
+  type: ActionType.FrontendCreateVFRFPL;
+  callsign: string;
+  aircraft_type: string;
+  persons_on_board: number;
+  ssr: string;
+  fpl_type: string;
+  language: string;
+  remarks: string;
+}
+
 // Union type for all events that can be sent
-export type FrontendSendEvent = FrontendAuthenticationEvent | FrontendMoveEvent | FrontendGenerateSquawkEvent | FrontendUpdateStripDataEvent | FrontendUpdateOrder | FrontendSendMessageEvent | FrontendCdmReadyEvent | FrontendSendReleasePointEvent | FrontendSendMarkedEvent | FrontendSendRunwayClearanceEvent | FrontendIssuePdcClearanceRequest | FrontendRevertToVoiceRequest | FrontendCoordinationTransferRequestEvent | FrontendCoordinationAssumeRequestEvent | FrontendCoordinationForceAssumeRequestEvent | FrontendCoordinationFreeRequestEvent | FrontendCoordinationCancelTransferRequestEvent | FrontendCoordinationTagRequestEvent | FrontendCoordinationAcceptTagRequestEvent | FrontendCreateTacticalStripAction | FrontendDeleteTacticalStripAction | FrontendConfirmTacticalStripAction | FrontendStartTacticalTimerAction | FrontendMoveTacticalStripAction | FrontendAcknowledgeUnexpectedChangeEvent;
+export type FrontendSendEvent = FrontendCreateManualFPLAction | FrontendCreateVFRFPLAction |FrontendAuthenticationEvent | FrontendMoveEvent | FrontendGenerateSquawkEvent | FrontendUpdateStripDataEvent | FrontendUpdateOrder | FrontendSendMessageEvent | FrontendCdmReadyEvent | FrontendSendReleasePointEvent | FrontendSendMarkedEvent | FrontendSendRunwayClearanceEvent | FrontendIssuePdcClearanceRequest | FrontendRevertToVoiceRequest | FrontendCoordinationTransferRequestEvent | FrontendCoordinationAssumeRequestEvent | FrontendCoordinationForceAssumeRequestEvent | FrontendCoordinationFreeRequestEvent | FrontendCoordinationCancelTransferRequestEvent | FrontendCoordinationTagRequestEvent | FrontendCoordinationAcceptTagRequestEvent | FrontendCreateTacticalStripAction | FrontendDeleteTacticalStripAction | FrontendConfirmTacticalStripAction | FrontendStartTacticalTimerAction | FrontendMoveTacticalStripAction | FrontendAcknowledgeUnexpectedChangeEvent;
 
 export type AnyStrip = FrontendStrip | TacticalStrip;
 export const isFlight = (s: AnyStrip): s is FrontendStrip => 'callsign' in s;
@@ -639,5 +675,5 @@ export const stripDndId = (s: AnyStrip): string =>
 
 export interface AvailableSidsEvent {
   type: EventType.FrontendAvailableSids;
-  sids: string[];
+  sids: SidInfo[];
 }

@@ -5,6 +5,7 @@ import (
 	"FlightStrips/internal/shared"
 	"FlightStrips/pkg/events/euroscope"
 	"FlightStrips/pkg/events/frontend"
+	pkgModels "FlightStrips/pkg/models"
 
 	"github.com/stretchr/testify/mock"
 )
@@ -157,7 +158,7 @@ func (m *FrontendHub) SendCoordinationTagRequest(session int32, callsign, from, 
 	m.Called(session, callsign, from, to)
 }
 
-func (m *FrontendHub) SendAvailableSids(session int32, sids []string) {}
+func (m *FrontendHub) SendAvailableSids(session int32, sids pkgModels.AvailableSids) {}
 
 var _ internalModels.TacticalStrip // ensure import used
 

@@ -28,6 +28,10 @@ import { useRef, useEffect, useMemo, useState } from "react";
 import { TWY_DEP_STRIP_WIDTH } from "@/components/strip/types";
 import { StripListPopup, type SortMode } from "@/components/StripListPopup.tsx";
 import { CLS_BTN, CLS_BTN_ORANGE, CLS_BTN_BLUE, CLS_BTN_YELLOW, CLS_SCROLLBAR, CLS_COL } from "@/components/strip/shared";
+import { NewIfrDialog } from "@/components/strip/NewIfrDialog";
+import { NewVfrDialog } from "@/components/strip/NewVfrDialog";
+import { PlannedDialog } from "@/components/strip/PlannedDialog";
+import { FindDialog } from "@/components/strip/FindDialog";
 
 // Column widths
 const W_COL_ARR      = "w-[24.5%]";
@@ -59,6 +63,10 @@ export default function TWTE() {
   const [composeOpen, setComposeOpen] = useState(false);
   const [startupOpen, setStartupOpen] = useState(false);
   const [arrOpen, setArrOpen] = useState(false);
+  const [newIfrOpen, setNewIfrOpen] = useState(false);
+  const [plannedOpen, setPlannedOpen] = useState(false);
+  const [newVfrOpen, setNewVfrOpen] = useState(false);
+  const [findOpen, setFindOpen] = useState(false);
   const lowerPositionOnline = useLowerPositionOnline();
   const ctwrOnline = useCtwrOnline();
   // TE/TW is responsible for clearances only when no lower position AND no CTWR is online.
@@ -324,8 +332,8 @@ export default function TWTE() {
         <div className={`${lockedHeader} justify-between`}>
           <span className={lockedLabel}>CONTROLZONE</span>
           <span className="flex gap-1">
-            <button className={btn}>NEW</button>
-            <button className={btn}>FIND</button>
+            <button className={btn} onClick={() => setNewVfrOpen(true)}>NEW</button>
+            <button className={btn} onClick={() => setFindOpen(true)}>FIND</button>
           </span>
         </div>
         <SortableBay
@@ -373,8 +381,8 @@ export default function TWTE() {
         <div className={`${clrDelActive ? activeHeader : lockedHeader} justify-between`}>
           <span className={clrDelActive ? activeLabel : lockedLabel}>CLRDEL</span>
           <span className="flex gap-1">
-            <button className={btn}>NEW</button>
-            <button className={btn}>PLANNED</button>
+            <button className={btn} onClick={() => setNewIfrOpen(true)}>NEW</button>
+            <button className={btn} onClick={() => setPlannedOpen(true)}>PLANNED</button>
           </span>
         </div>
         <DropIndicatorBay bayId="CLRDEL" className={`h-[45%] ${scrollArea}`}>
@@ -416,6 +424,10 @@ export default function TWTE() {
       </div>
 
     </div>
+    <NewIfrDialog open={newIfrOpen} onOpenChange={setNewIfrOpen} />
+    <PlannedDialog open={plannedOpen} onOpenChange={setPlannedOpen} />
+    <NewVfrDialog open={newVfrOpen} onOpenChange={setNewVfrOpen} />
+    <FindDialog open={findOpen} onOpenChange={setFindOpen} />
     </ViewDndContext>
   );
 }

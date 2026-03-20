@@ -109,10 +109,14 @@ type Strip struct {
 	Marked                   bool
 	Registration             *string
 	TrackingController       string
-	EngineType               string
 	RunwayCleared            bool
 	UnexpectedChangeFields   []string
 	ControllerModifiedFields []string
+	EngineType               string
+	IsManual                 bool
+	PersonsOnBoard           *int32
+	FplType                  *string
+	Language                 *string
 }
 
 type TacticalStrip struct {

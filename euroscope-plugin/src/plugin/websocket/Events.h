@@ -33,6 +33,7 @@
 #define EVENT_COORDINATION_RECEIVED_NAME "coordination_received"
 #define EVENT_ASSUME_AND_DROP_NAME "assume_and_drop"
 #define EVENT_BACKEND_SYNC_NAME "backend_sync"
+#define EVENT_CREATE_FPL_NAME "create_fpl"
 
 enum EventType {
     EVENT_UNKNOWN = 0,
@@ -66,6 +67,7 @@ enum EventType {
     EVENT_COORDINATION_RECEIVED,
     EVENT_ASSUME_AND_DROP,
     EVENT_BACKEND_SYNC,
+    EVENT_CREATE_FPL,
 };
 
 NLOHMANN_JSON_SERIALIZE_ENUM(EventType, {
@@ -99,6 +101,7 @@ NLOHMANN_JSON_SERIALIZE_ENUM(EventType, {
                               {EVENT_COORDINATION_RECEIVED, EVENT_COORDINATION_RECEIVED_NAME},
                               {EVENT_ASSUME_AND_DROP, EVENT_ASSUME_AND_DROP_NAME},
                               {EVENT_BACKEND_SYNC, EVENT_BACKEND_SYNC_NAME},
+                              {EVENT_CREATE_FPL, EVENT_CREATE_FPL_NAME},
                               })
 
 struct Event {
@@ -144,6 +147,12 @@ struct Runway final {
     bool departure;
     bool arrival;
     NLOHMANN_DEFINE_TYPE_INTRUSIVE(Runway, name, departure, arrival);
+};
+
+struct SidEntry final {
+    std::string name;
+    std::string runway;
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE(SidEntry, name, runway);
 };
 
 struct RunwayEvent final : Event {
@@ -487,7 +496,7 @@ struct Controller final {
 
 
 struct SyncEvent final : Event {
-    SyncEvent(std::vector<Strip> strips, std::vector<Controller> controllers, std::vector<Runway> runways, std::vector<std::string> sids)
+    SyncEvent(std::vector<Strip> strips, std::vector<Controller> controllers, std::vector<Runway> runways, std::vector<SidEntry> sids)
         : Event(EVENT_SYNC), strips(std::move(strips)),
           controllers(std::move(controllers)),
           runways(std::move(runways)),
@@ -497,7 +506,7 @@ struct SyncEvent final : Event {
     std::vector<Strip> strips;
     std::vector<Controller> controllers;
     std::vector<Runway> runways;
-    std::vector<std::string> sids;
+    std::vector<SidEntry> sids;
 
     NLOHMANN_DEFINE_TYPE_INTRUSIVE(SyncEvent, strips, controllers, runways, sids, type);
 };
@@ -635,6 +644,31 @@ struct BackendSyncEvent final : Event {
     BackendSyncEvent() = default;
 
     NLOHMANN_DEFINE_TYPE_INTRUSIVE(BackendSyncEvent, strips, type, latitude, longitude);
+};
+
+struct CreateFPLEvent final : Event {
+    std::string callsign;
+    std::string origin;
+    std::string destination;
+    std::string alternate_ad;
+    std::string sid;
+    std::string assigned_squawk;
+    std::string eobt;
+    std::string aircraft_type;
+    int requested_altitude = 0;
+    std::string route;
+    std::string stand;
+    std::string runway;
+    std::string remarks;
+    int persons_on_board = 0;
+    std::string fpl_type;
+    std::string language;
+
+    CreateFPLEvent() = default;
+
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE(CreateFPLEvent, callsign, origin, destination, alternate_ad, sid, assigned_squawk,
+                                   eobt, aircraft_type, requested_altitude, route, stand, runway, remarks,
+                                   persons_on_board, fpl_type, language, type);
 };
 
 #endif //EVENTS_H

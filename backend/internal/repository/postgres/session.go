@@ -128,20 +128,20 @@ func (r *sessionRepository) UpdateActiveRunways(ctx context.Context, id int32, a
 }
 
 // UpdateSessionSids persists the list of available SIDs for a session.
-func (r *sessionRepository) UpdateSessionSids(ctx context.Context, id int32, sids []string) error {
+func (r *sessionRepository) UpdateSessionSids(ctx context.Context, id int32, sids pkgModels.AvailableSids) error {
 	return r.queries.UpdateSessionSids(ctx, database.UpdateSessionSidsParams{
 		ID:            id,
-		AvailableSids: pkgModels.AvailableSids(sids),
+		AvailableSids: sids,
 	})
 }
 
 // GetSessionSids retrieves the list of available SIDs for a session.
-func (r *sessionRepository) GetSessionSids(ctx context.Context, id int32) ([]string, error) {
+func (r *sessionRepository) GetSessionSids(ctx context.Context, id int32) (pkgModels.AvailableSids, error) {
 	sids, err := r.queries.GetSessionSids(ctx, id)
 	if err != nil {
 		return nil, err
 	}
-	return []string(sids), nil
+	return sids, nil
 }
 
 // IncrementPdcSequence increments and returns the PDC sequence

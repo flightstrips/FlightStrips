@@ -130,3 +130,9 @@ func (s *NoOpStripService) PropagateRunwayChange(ctx context.Context, session in
 	}
 	return nil
 }
+func (s *NoOpStripService) CreateManualFPL(_ context.Context, _ int32, _ frontend.CreateManualFPLAction, _ string, _ string) error {
+	return nil
+}
+func (s *NoOpStripService) CreateVFRFPL(_ context.Context, _ int32, _ frontend.CreateVFRFPLAction, _ string) error {
+	return nil
+}

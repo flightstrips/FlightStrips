@@ -39,6 +39,7 @@ type MockEuroscopeHub struct {
 	ClearedFlags          []ClearedFlagCall
 	GroundStates          []GroundStateCall
 	CoordinationHandovers []CoordinationHandoverCall
+	CreateFPLCalls        []CreateFPLCall
 }
 
 func (m *MockEuroscopeHub) GetServer() shared.Server { return m.server }
@@ -89,3 +90,14 @@ func (m *MockEuroscopeHub) SendCoordinationHandover(session int32, cid string, c
 }
 
 func (m *MockEuroscopeHub) SendAssumeAndDrop(session int32, cid string, callsign string) {}
+
+// CreateFPLCall records arguments to SendCreateFPL.
+type CreateFPLCall struct {
+	Session int32
+	Cid     string
+	Event   euroscope.CreateFPLEvent
+}
+
+func (m *MockEuroscopeHub) SendCreateFPL(session int32, cid string, event euroscope.CreateFPLEvent) {
+	m.CreateFPLCalls = append(m.CreateFPLCalls, CreateFPLCall{session, cid, event})
+}

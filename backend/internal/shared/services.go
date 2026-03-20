@@ -99,4 +99,8 @@ type StripService interface {
 	UpdateMarked(ctx context.Context, session int32, callsign string, marked bool) error
 	RunwayClearance(ctx context.Context, session int32, callsign string, cid string, airport string) error
 	PropagateRunwayChange(ctx context.Context, session int32, airport string, oldRunways models.ActiveRunways, newRunways models.ActiveRunways) error
+
+	// Manual FPL creation
+	CreateManualFPL(ctx context.Context, session int32, req frontend.CreateManualFPLAction, cid string, airport string) error
+	CreateVFRFPL(ctx context.Context, session int32, req frontend.CreateVFRFPLAction, cid string) error
 }

@@ -55,12 +55,12 @@ func (m *MockSessionRepository) UpdateActiveRunways(ctx context.Context, id int3
 	return nil
 }
 
-func (m *MockSessionRepository) UpdateSessionSids(ctx context.Context, id int32, sids []string) error {
+func (m *MockSessionRepository) UpdateSessionSids(ctx context.Context, id int32, sids pkgModels.AvailableSids) error {
 	return nil
 }
 
-func (m *MockSessionRepository) GetSessionSids(ctx context.Context, id int32) ([]string, error) {
-	return []string{}, nil
+func (m *MockSessionRepository) GetSessionSids(ctx context.Context, id int32) (pkgModels.AvailableSids, error) {
+	return pkgModels.AvailableSids{}, nil
 }
 
 func (m *MockSessionRepository) IncrementPdcSequence(ctx context.Context, id int32) (int32, error) {

@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.7.0](https://github.com/flightstrips/FlightStrips/compare/plugin/v0.6.3...plugin/v0.7.0) (2026-03-20)
+
+
+### Features
+
+* Add tests for ES plugin ([9c84e0a](https://github.com/flightstrips/FlightStrips/commit/9c84e0a28d339cc0f6472e07b8d98baf3e68fd5d))
+* Correct PDC ([8930e27](https://github.com/flightstrips/FlightStrips/commit/8930e27512f251c756ce38395989be0f2a5666c5))
+* Create IFR / VFR flightplan ([07a158b](https://github.com/flightstrips/FlightStrips/commit/07a158b4fc96059fcf77e3002f1ea517f914c443))
+* Send all aircrafts even if they have no FP ([756a1c8](https://github.com/flightstrips/FlightStrips/commit/756a1c861307e698718f7e41d703128aeb12a0de))
+* **sids:** source available SIDs from EuroScope sync event ([43a1f1f](https://github.com/flightstrips/FlightStrips/commit/43a1f1f6eaa82bbb854a4967f7a5bf8e5705e8bd))
+
+
+### Bug Fixes
+
+* disingenuous between FP and no FP ([aa87d4f](https://github.com/flightstrips/FlightStrips/commit/aa87d4f39661a2286cee90e09d647af10b7a5cd1))
+* euroscope does not send runway events ([7e1b776](https://github.com/flightstrips/FlightStrips/commit/7e1b77665baa6ff719fc9945ec15964f64c4d61c))
+* possible hangs ([b0e8b52](https://github.com/flightstrips/FlightStrips/commit/b0e8b52e010fb3dc5852bb07d8b3e80d6967de70))
+* reduce sync time when already online ([6d0f447](https://github.com/flightstrips/FlightStrips/commit/6d0f4471fb83bfc4c1e956720eb6de994a61a781))
+
 ## [0.6.3](https://github.com/flightstrips/FlightStrips/compare/plugin/v0.6.2...plugin/v0.6.3) (2026-03-15)
 
 

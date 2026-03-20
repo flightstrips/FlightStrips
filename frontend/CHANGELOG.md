@@ -1,5 +1,42 @@
 # Changelog
 
+## [0.13.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.12.0...frontend/v0.13.0) (2026-03-20)
+
+
+### Features
+
+* add force assume strip command ([f3c68a9](https://github.com/flightstrips/FlightStrips/commit/f3c68a920aed45662a749032eee66a33abdcce87))
+* add non-dismissable layout chooser screen ([29beb55](https://github.com/flightstrips/FlightStrips/commit/29beb55a0d4071ed738b810df58dd2be8ccdabe3))
+* Adde AHDG dropdown and updated store ([2890d2e](https://github.com/flightstrips/FlightStrips/commit/2890d2e947f84209cc8c10cc81dcbfb9c09f99fb))
+* Added ALT dropdown & updated store ([0ab16ba](https://github.com/flightstrips/FlightStrips/commit/0ab16ba363beb92beacd353f4b911836c8da506f))
+* Correct PDC ([8930e27](https://github.com/flightstrips/FlightStrips/commit/8930e27512f251c756ce38395989be0f2a5666c5))
+* Create IFR / VFR flightplan ([07a158b](https://github.com/flightstrips/FlightStrips/commit/07a158b4fc96059fcf77e3002f1ea517f914c443))
+* enforce strip ownership when moving strips ([2fb702d](https://github.com/flightstrips/FlightStrips/commit/2fb702df44cbc011655a7b88dca167743c2918d1))
+* gate frontend connections behind active euroscope client ([4f06f3d](https://github.com/flightstrips/FlightStrips/commit/4f06f3dae917c312bfff3f5be95453014994e07c))
+* Pull ATIS if available ([92fa0b2](https://github.com/flightstrips/FlightStrips/commit/92fa0b22e75f3f8ace6501785d23c645a6dba76b))
+* Request strips ([a9d1a46](https://github.com/flightstrips/FlightStrips/commit/a9d1a46407e75708e0b3f35776672bbb7b8e4771))
+* right-click ([e23e8a2](https://github.com/flightstrips/FlightStrips/commit/e23e8a2afdef6bbc9b0732390a511be250385221))
+* **sids:** source available SIDs from EuroScope sync event ([43a1f1f](https://github.com/flightstrips/FlightStrips/commit/43a1f1f6eaa82bbb854a4967f7a5bf8e5705e8bd))
+* Simulate CDM ([8999c0e](https://github.com/flightstrips/FlightStrips/commit/8999c0e6f743f238080354af96daa7d7e793de92))
+* veiw flightplan ([30102dc](https://github.com/flightstrips/FlightStrips/commit/30102dc97d51b4b3bc0b0dceb512518fdde0a945))
+
+
+### Bug Fixes
+
+* able to move non-owned strip ([6f18fba](https://github.com/flightstrips/FlightStrips/commit/6f18fba7ec71ddfdbfc7634e1562240e6ff2aa80))
+* allow frontend to wait for ES connection ([c4641ea](https://github.com/flightstrips/FlightStrips/commit/c4641eaeee43ca08619cbc401a611e707b3afd1b))
+* border colors ([1626539](https://github.com/flightstrips/FlightStrips/commit/162653969e50940a1d0ecca767723fbb0309050a))
+* broadcast bulk bay event on strip sequence recalculation ([2e1c0ca](https://github.com/flightstrips/FlightStrips/commit/2e1c0ca091ffedb092c214bb68ae638c966ce92c))
+* CDM colors ([7c26519](https://github.com/flightstrips/FlightStrips/commit/7c26519457a9143167ee899016d85ab61b58e3ea))
+* correct bay names ([fc1f085](https://github.com/flightstrips/FlightStrips/commit/fc1f085ea3318359d7c83feff67c0c144d53900c))
+* disingenuous between FP and no FP ([aa87d4f](https://github.com/flightstrips/FlightStrips/commit/aa87d4f39661a2286cee90e09d647af10b7a5cd1))
+* force assume ([de96249](https://github.com/flightstrips/FlightStrips/commit/de9624995a38ecbf11a0301d3325943368570798))
+* handle errors on backend and frontend ([a8cda2a](https://github.com/flightstrips/FlightStrips/commit/a8cda2a610f2980efa5e42a56f6d4f24eda77649))
+* lint issues ([5d27cd2](https://github.com/flightstrips/FlightStrips/commit/5d27cd2fce95ecba3981f290111b6ae50ddfb1bd))
+* tactical strip size ([e3ad819](https://github.com/flightstrips/FlightStrips/commit/e3ad819b4419fb26acbb51ab072991f47b7d10e6))
+* unknown layout screen ([c1d227d](https://github.com/flightstrips/FlightStrips/commit/c1d227d05b9a19d8dd47e9d47276d996f5efbc9f))
+* wrong strip color for stand bay ([049bcf4](https://github.com/flightstrips/FlightStrips/commit/049bcf4e65afd1f30768bbb96cd8bae08940d6c5))
+
 ## [0.12.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.11.1...frontend/v0.12.0) (2026-03-15)
 
 

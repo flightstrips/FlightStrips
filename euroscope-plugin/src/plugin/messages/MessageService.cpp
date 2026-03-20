@@ -212,7 +212,8 @@ namespace FlightStrips::messages {
                 "", "", "",  // communication_type, capabilities, eobt
                 "",          // eldt
                 "",          // tracking_controller
-                ""           // engine_type
+                "",          // engine_type
+                false        // has_fp — no flight plan received
             });
         }
 

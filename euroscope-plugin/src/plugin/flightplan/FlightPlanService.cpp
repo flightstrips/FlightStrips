@@ -79,7 +79,8 @@ namespace FlightStrips::flightplan {
                 "", "", "",  // communication_type, capabilities, eobt
                 "",          // eldt
                 "",          // tracking_controller
-                ""           // engine_type
+                "",          // engine_type
+                false        // has_fp — no flight plan received
             };
             m_websocketService->SendEvent(event);
         }

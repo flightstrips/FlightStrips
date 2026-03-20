@@ -306,7 +306,7 @@ struct StripUpdateEvent final : Event {
           bool cleared, std::string ground_state, int cleared_altitude, int requested_altitude, int heading,
           std::string aircraft_type, std::string aircraft_category, Position position, std::string stand,
           std::string communication_type, std::string capabilities, std::string eobt, std::string eldt,
-          std::string tracking_controller, std::string engine_type)
+          std::string tracking_controller, std::string engine_type, bool has_fp = true)
         : Event(EVENT_STRIP_UPDATE), callsign(std::move(callsign)),
           origin(std::move(origin)),
           destination(std::move(destination)),
@@ -331,7 +331,8 @@ struct StripUpdateEvent final : Event {
           eobt(std::move(eobt)),
           eldt(std::move(eldt)),
           tracking_controller(std::move(tracking_controller)),
-          engine_type(std::move(engine_type)) {
+          engine_type(std::move(engine_type)),
+          has_fp(has_fp) {
     }
 
     std::string callsign;
@@ -359,11 +360,12 @@ struct StripUpdateEvent final : Event {
     std::string eldt;
     std::string tracking_controller;
     std::string engine_type;
+    bool has_fp;
 
     NLOHMANN_DEFINE_TYPE_INTRUSIVE(StripUpdateEvent, callsign, origin, destination, alternate, route, remarks, runway, squawk,
                                    assigned_squawk, sid, cleared, ground_state, cleared_altitude, requested_altitude,
                                    heading, aircraft_type, aircraft_category, position, stand, communication_type,
-                                   capabilities, eobt, eldt, tracking_controller, engine_type, type);
+                                   capabilities, eobt, eldt, tracking_controller, engine_type, has_fp, type);
 
 };
 
@@ -421,7 +423,7 @@ struct Strip final {
           bool cleared, std::string ground_state, int cleared_altitude, int requested_altitude, int heading,
           std::string aircraft_type, std::string aircraft_category, Position position, std::string stand,
           std::string communication_type, std::string capabilities, std::string eobt, std::string eldt,
-          std::string tracking_controller, std::string engine_type)
+          std::string tracking_controller, std::string engine_type, bool has_fp = true)
         : callsign(std::move(callsign)),
           origin(std::move(origin)),
           destination(std::move(destination)),
@@ -446,7 +448,8 @@ struct Strip final {
           eobt(std::move(eobt)),
           eldt(std::move(eldt)),
           tracking_controller(std::move(tracking_controller)),
-          engine_type(std::move(engine_type)) {
+          engine_type(std::move(engine_type)),
+          has_fp(has_fp) {
     }
 
     std::string callsign;
@@ -474,11 +477,12 @@ struct Strip final {
     std::string eldt;
     std::string tracking_controller;
     std::string engine_type;
+    bool has_fp;
 
     NLOHMANN_DEFINE_TYPE_INTRUSIVE(Strip, callsign, origin, destination, alternate, route, remarks, runway, squawk,
                                    assigned_squawk, sid, cleared, ground_state, cleared_altitude, requested_altitude,
                                    heading, aircraft_type, aircraft_category, position, stand, communication_type,
-                                   capabilities, eobt, eldt, tracking_controller, engine_type);
+                                   capabilities, eobt, eldt, tracking_controller, engine_type, has_fp);
 };
 
 struct Controller final {

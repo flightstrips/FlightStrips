@@ -130,6 +130,7 @@ func (r *stripRepository) GetByCallsign(ctx context.Context, session int32, call
 		strip.PersonsOnBoard = manual.PersonsOnBoard
 		strip.FplType = manual.FplType
 		strip.Language = manual.Language
+		strip.HasFP = manual.HasFP
 	}
 	return strip, nil
 }
@@ -156,6 +157,7 @@ func (r *stripRepository) List(ctx context.Context, session int32) ([]*models.St
 			s.PersonsOnBoard = m.PersonsOnBoard
 			s.FplType = m.FplType
 			s.Language = m.Language
+			s.HasFP = m.HasFP
 		}
 		strips[i] = s
 	}
@@ -192,6 +194,11 @@ func (r *stripRepository) UpdateVFRManualFPLFields(ctx context.Context, session 
 		Remarks:        remarks,
 		Bay:            bay,
 	})
+}
+
+// SetHasFP sets the has_fp flag on a strip.
+func (r *stripRepository) SetHasFP(ctx context.Context, session int32, callsign string, hasFP bool) error {
+	return r.queries.SetHasFP(ctx, session, callsign, hasFP)
 }
 
 // Update updates an existing strip

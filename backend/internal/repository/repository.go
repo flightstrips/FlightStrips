@@ -76,6 +76,7 @@ type StripRepository interface {
 	// Manual FPL creation
 	UpdateIFRManualFPLFields(ctx context.Context, session int32, callsign string, destination string, sid *string, assignedSquawk *string, eobt *string, aircraftType *string, requestedAltitude *int32, route *string, stand *string, runway *string) (int64, error)
 	UpdateVFRManualFPLFields(ctx context.Context, session int32, callsign string, aircraftType *string, personsOnBoard *int32, assignedSquawk string, fplType *string, language *string, remarks *string, bay string) (int64, error)
+	SetHasFP(ctx context.Context, session int32, callsign string, hasFP bool) error
 
 	// PDC methods
 	SetPdcRequested(ctx context.Context, session int32, callsign string, pdcState string, pdcRequestedAt *time.Time) error

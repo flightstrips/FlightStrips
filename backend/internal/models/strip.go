@@ -58,4 +58,5 @@ type Strip struct {
 	PersonsOnBoard          *int32
 	FplType                 *string
 	Language                *string
+	HasFP                   bool
 }

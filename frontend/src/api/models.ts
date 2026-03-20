@@ -161,6 +161,7 @@ export interface FrontendStrip {
   persons_on_board?: number;
   fpl_type?: string;
   language?: string;
+  has_fp?: boolean;
 }
 
 export interface FrontendController {

@@ -74,7 +74,7 @@ namespace FlightStrips {
             const auto connectionType = static_cast<ConnectionType>(GetConnectionType());
 
             if (m_connectionState.connection_type != connectionType) {
-                Logger::Debug("Connection type change to: {}", static_cast<int>(connectionType));
+                Logger::Info("Connection type changed: {} -> {}", static_cast<int>(m_connectionState.connection_type), static_cast<int>(connectionType));
                 m_connectionState.callsign = "";
                 m_connectionState.primary_frequency = "";
                 m_connectionState.range = 0;
@@ -87,31 +87,34 @@ namespace FlightStrips {
                 const auto me = ControllerMyself();
 
                 if (strcmp(me.GetCallsign(), m_connectionState.callsign.c_str()) != 0) {
+                    Logger::Info("Callsign changed: '{}' -> '{}'", m_connectionState.callsign, me.GetCallsign());
                     m_connectionState.callsign = {me.GetCallsign()};
-                    Logger::Debug("Setting callsign: {}", m_connectionState.callsign);
                     m_connectionState.relevant_airport = "";
                     // Get relevant airport
                     for (const auto& [airport, prefixes]: m_appConfig->GetCallsignAirportMap()) {
                         for (const auto& prefix: prefixes) {
                             if (_strnicmp(m_connectionState.callsign.c_str(), prefix.c_str(), prefix.length()) == 0) {
                                 m_connectionState.relevant_airport = airport;
-                                Logger::Debug("Found relevant airport: {}", m_connectionState.relevant_airport);
+                                Logger::Info("Found relevant airport: {}", m_connectionState.relevant_airport);
                                 break;
                             }
                         }
                         if (!m_connectionState.relevant_airport.empty()) break;
                     }
+                    if (m_connectionState.relevant_airport.empty()) {
+                        Logger::Warning("No relevant airport found for callsign '{}'", m_connectionState.callsign);
+                    }
                 }
 
                 const auto primaryFrequency = std::format("{:.3f}", me.GetPrimaryFrequency());
                 if (strcmp(primaryFrequency.c_str(), m_connectionState.primary_frequency.c_str()) != 0) {
+                    Logger::Info("Primary frequency changed: '{}' -> '{}'", m_connectionState.primary_frequency, primaryFrequency);
                     m_connectionState.primary_frequency = primaryFrequency;
-                    Logger::Debug("Setting primary frequency: {}", m_connectionState.primary_frequency);
                 }
 
                 if (me.GetRange() != m_connectionState.range) {
+                    Logger::Debug("Range changed: {} -> {}", m_connectionState.range, me.GetRange());
                     m_connectionState.range = me.GetRange();
-                    Logger::Debug("Setting range: {}", m_connectionState.range);
                 }
             }
 

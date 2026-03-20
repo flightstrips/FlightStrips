@@ -145,11 +145,6 @@ export function NewIfrDialog({ open, onOpenChange, initialCallsign = "" }: Props
                 onBlur={handleCallsignBlur}
                 autoFocus
               />
-              {callsignError && (
-                <span style={{ color: "#cc0000", fontSize: 11, fontFamily: FONT_FAMILY }}>
-                  {callsignError}
-                </span>
-              )}
             </div>
             <div className="grid items-center gap-[5px]">
               <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>ADES</Label>
@@ -275,7 +270,12 @@ export function NewIfrDialog({ open, onOpenChange, initialCallsign = "" }: Props
           <div className="flex gap-[5px]" style={{ width: 835 }}>
             <div className="grid items-center gap-[5px]">
               <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>NITOS REMARKS</Label>
-              <Input disabled className={CLS_DISABLED} style={{ width: 700, ...F }} />
+              <Input
+                disabled
+                className={CLS_DISABLED}
+                style={{ width: 700, ...F, color: callsignError ? "#cc0000" : undefined }}
+                value={callsignError ?? ""}
+              />
             </div>
             <div className="grid items-center gap-[5px]">
               <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>IATA TYPE</Label>

@@ -31,11 +31,24 @@ namespace FlightStrips::websocket {
     void WebSocketService::OnTimer(int time) {
         if (!enabled) return;
         const auto &state = m_plugin->GetConnectionState();
-        const bool should_connect = !state.primary_frequency.empty() && state.primary_frequency != "199.998" && !state.
-                                    relevant_airport.empty() && (
-                                        state.connection_type == CONNECTION_TYPE_SWEATBOX || state.connection_type ==
-                                        CONNECTION_TYPE_DIRECT || state.connection_type == CONNECTION_TYPE_PLAYBACK) &&
-                                    m_authentication_service->GetAuthenticationState() == authentication::AUTHENTICATED;
+
+        const bool freq_ok = !state.primary_frequency.empty() && state.primary_frequency != "199.998";
+        const bool airport_ok = !state.relevant_airport.empty();
+        const bool conn_ok = state.connection_type == CONNECTION_TYPE_SWEATBOX || state.connection_type ==
+                             CONNECTION_TYPE_DIRECT || state.connection_type == CONNECTION_TYPE_PLAYBACK;
+        const bool auth_ok = m_authentication_service->GetAuthenticationState() == authentication::AUTHENTICATED
+                          || m_authentication_service->GetAuthenticationState() == authentication::REFRESH;
+        const bool should_connect = freq_ok && airport_ok && conn_ok && auth_ok;
+
+        if (!should_connect && IsConnected()) {
+            Logger::Warning("Disconnecting from server: {} — reason: freq_ok={} (freq='{}') airport_ok={} (airport='{}') conn_ok={} (type={}) auth_ok={}",
+                m_appConfig->GetBaseUrl(),
+                freq_ok, state.primary_frequency,
+                airport_ok, state.relevant_airport,
+                conn_ok, static_cast<int>(state.connection_type),
+                auth_ok);
+        }
+
         if (should_connect && (webSocket.GetStatus() == WEBSOCKET_STATUS_DISCONNECTED || webSocket.GetStatus() ==
                                WEBSOCKET_STATUS_FAILED)) {
             const auto now = std::chrono::steady_clock::now();
@@ -57,7 +70,6 @@ namespace FlightStrips::websocket {
         }
 
         if (!should_connect && IsConnected()) {
-            Logger::Info("Disconnecting from server: {}", m_appConfig->GetBaseUrl());
             webSocket.Disconnect();
             std::lock_guard lock(message_mutex_);
             messages_.clear();

@@ -2,46 +2,58 @@ import { useState } from "react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { useStrips } from "@/store/store-hooks";
 import { NewVfrDialog } from "./NewVfrDialog";
+import FlightPlanDialog from "@/components/FlightPlanDialog";
 
 const DROP_SHADOW = "0 4px 4px rgba(0,0,0,0.25)";
 
 const S: Record<string, React.CSSProperties> = {
   root: {
-    background: "#B3B3B3",
+    background: "#E4E4E4",
     border: "1px solid black",
     color: "#000",
-    width: "min(360px, 95vw)",
-    padding: "16px 20px",
+    width: 378,
+    padding: "13px 15px 17px",
     display: "flex",
     flexDirection: "column",
-    gap: 10,
-    fontFamily: "'Arial', sans-serif",
+    gap: 0,
+    fontFamily: "'Rubik', sans-serif",
   },
-  title: { fontWeight: "bold", fontSize: 18, textAlign: "center", marginBottom: 4 },
-  row: { display: "flex", alignItems: "center", gap: 8 },
+  title: { fontWeight: 300, fontSize: 24, textAlign: "center", marginBottom: 8 },
+  inner: {
+    border: "1px solid black",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 16,
+    padding: "20px 16px",
+    minHeight: 180,
+  },
+  label: { fontSize: 20, fontWeight: 300, textAlign: "center" as const, alignSelf: "flex-start" },
   input: {
-    flex: 1,
-    height: 36,
+    width: "100%",
+    height: 50,
     background: "#FCFCFC",
     border: "1px solid black",
-    fontSize: 16,
+    fontSize: 24,
     padding: "0 8px",
     boxShadow: DROP_SHADOW,
     textTransform: "uppercase" as const,
+    fontFamily: "'Rubik', sans-serif",
   },
-  notFound: { color: "#cc0000", fontSize: 14, textAlign: "center" as const },
+  noFpl: { color: "#FF0000", fontSize: 32, textAlign: "center" as const, lineHeight: 1.4, fontWeight: 400 },
   btn: {
-    height: 36,
-    minWidth: 80,
-    fontSize: 14,
-    fontWeight: "bold",
-    border: "2px solid white",
-    background: "#646464",
+    height: 70,
+    width: 149,
+    fontSize: 32,
+    fontWeight: 600,
+    border: "none",
+    background: "#3F3F3F",
     color: "#fff",
     cursor: "pointer",
     boxShadow: DROP_SHADOW,
   },
-  btnRow: { display: "flex", gap: 12, justifyContent: "center" },
+  btnRow: { display: "flex", gap: 0, justifyContent: "space-between", width: "100%", paddingTop: 8 },
 };
 
 interface Props {
@@ -49,12 +61,13 @@ interface Props {
   onOpenChange: (open: boolean) => void;
 }
 
-type State = "idle" | "not_found";
+type State = "idle" | "no_fp" | "open_fp";
 
 export function FindDialog({ open, onOpenChange }: Props) {
   const strips = useStrips();
   const [callsign, setCallsign] = useState("");
   const [state, setState] = useState<State>("idle");
+  const [foundCallsign, setFoundCallsign] = useState("");
   const [newOpen, setNewOpen] = useState(false);
   const [newCallsign, setNewCallsign] = useState("");
 
@@ -62,18 +75,18 @@ export function FindDialog({ open, onOpenChange }: Props) {
     const cs = callsign.trim().toUpperCase();
     if (!cs) return;
     const found = strips.find(s => s.callsign.toUpperCase() === cs);
-    if (found) {
-      onOpenChange(false);
-      setCallsign("");
-      setState("idle");
+    if (found && found.has_fp !== false) {
+      setFoundCallsign(cs);
+      setState("open_fp");
     } else {
-      setState("not_found");
+      setState("no_fp");
     }
   }
 
   function handleClose() {
     setCallsign("");
     setState("idle");
+    setFoundCallsign("");
     onOpenChange(false);
   }
 
@@ -81,6 +94,7 @@ export function FindDialog({ open, onOpenChange }: Props) {
     setNewCallsign(callsign.trim().toUpperCase());
     setCallsign("");
     setState("idle");
+    setFoundCallsign("");
     onOpenChange(false);
     setNewOpen(true);
   }
@@ -89,39 +103,61 @@ export function FindDialog({ open, onOpenChange }: Props) {
     if (e.key === "Enter") handleSearch();
   }
 
+  if (state === "open_fp") {
+    return (
+      <>
+        <FlightPlanDialog
+          callsign={foundCallsign}
+          open={true}
+          onOpenChange={(v) => {
+            if (!v) {
+              setState("idle");
+              setCallsign("");
+              setFoundCallsign("");
+              onOpenChange(false);
+            }
+          }}
+        />
+        <NewVfrDialog open={newOpen} onOpenChange={setNewOpen} initialCallsign={newCallsign} />
+      </>
+    );
+  }
+
   return (
     <>
       <Dialog open={open} onOpenChange={(v) => { if (!v) handleClose(); }}>
         <DialogContent style={S.root}>
-          <DialogTitle style={S.title}>FIND (VFR)</DialogTitle>
+          <DialogTitle style={S.title}>CREATE/EDIT</DialogTitle>
+          <div style={S.inner}>
+            {state !== "no_fp" && (
+              <>
+                <div style={S.label}>C/S</div>
+                <input
+                  style={S.input}
+                  value={callsign}
+                  onChange={e => { setCallsign(e.target.value.toUpperCase()); setState("idle"); }}
+                  onKeyDown={handleKeyDown}
+                  autoFocus
+                />
+              </>
+            )}
 
-          <div style={S.row}>
-            <input
-              style={S.input}
-              value={callsign}
-              onChange={e => { setCallsign(e.target.value.toUpperCase()); setState("idle"); }}
-              onKeyDown={handleKeyDown}
-              placeholder="Callsign"
-              autoFocus
-            />
-            <button style={S.btn} onClick={handleSearch}>SEARCH</button>
-          </div>
-
-          {state === "not_found" && (
-            <>
-              <div style={S.notFound}>Not found</div>
-              <div style={S.btnRow}>
-                <button style={S.btn} onClick={handleClose}>CLOSE</button>
-                <button style={S.btn} onClick={handleNew}>NEW</button>
+            {state === "no_fp" && (
+              <div style={S.noFpl}>
+                No FPL in system<br />
+                Press NEW to make a<br />
+                new FPL
               </div>
-            </>
-          )}
+            )}
 
-          {state === "idle" && (
             <div style={S.btnRow}>
-              <button style={S.btn} onClick={handleClose}>CLOSE</button>
+              <button style={S.btn} onClick={handleClose}>ESC</button>
+              {state === "no_fp"
+                ? <button style={S.btn} onClick={handleNew}>NEW</button>
+                : <button style={S.btn} onClick={handleSearch}>SEARCH</button>
+              }
             </div>
-          )}
+          </div>
         </DialogContent>
       </Dialog>
 

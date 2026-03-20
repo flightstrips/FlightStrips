@@ -1836,6 +1836,11 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, st
 		if err = s.stripRepo.Create(ctx, newStrip); err != nil {
 			return err
 		}
+		if strip.HasFP {
+			if err = s.stripRepo.SetHasFP(ctx, session, strip.Callsign, true); err != nil {
+				slog.Warn("Failed to set has_fp on new strip", slog.String("callsign", strip.Callsign), slog.Any("error", err))
+			}
+		}
 		slog.Debug("Inserted strip", slog.String("callsign", strip.Callsign))
 	} else {
 		// Strip exists, update it
@@ -1909,6 +1914,11 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, st
 		}
 		if _, err = s.stripRepo.Update(ctx, updateStrip); err != nil {
 			return err
+		}
+		if strip.HasFP != existingStrip.HasFP {
+			if err = s.stripRepo.SetHasFP(ctx, session, strip.Callsign, strip.HasFP); err != nil {
+				slog.Warn("Failed to update has_fp on strip", slog.String("callsign", strip.Callsign), slog.Any("error", err))
+			}
 		}
 		slog.Debug("Updated strip", slog.String("callsign", strip.Callsign))
 

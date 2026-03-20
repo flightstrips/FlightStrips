@@ -122,6 +122,7 @@ type Strip struct {
 	Eldt               string `json:"eldt"`
 	TrackingController string `json:"tracking_controller"`
 	EngineType         string `json:"engine_type"`
+	HasFP              bool   `json:"has_fp"`
 }
 
 type SyncRunway struct {

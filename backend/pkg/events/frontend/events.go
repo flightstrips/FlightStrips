@@ -145,6 +145,7 @@ type Strip struct {
 	PersonsOnBoard         int32    `json:"persons_on_board"`
 	FplType                string   `json:"fpl_type"`
 	Language               string   `json:"language"`
+	HasFP                  bool     `json:"has_fp"`
 }
 
 type Controller struct {

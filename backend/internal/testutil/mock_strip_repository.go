@@ -60,6 +60,7 @@ type MockStripRepository struct {
 	UpdatePdcStatusFn             func(ctx context.Context, session int32, callsign string, pdcState string) error
 	UpdateIFRManualFPLFieldsFn    func(ctx context.Context, session int32, callsign string, destination string, sid *string, assignedSquawk *string, eobt *string, aircraftType *string, requestedAltitude *int32, route *string, stand *string, runway *string) (int64, error)
 	UpdateVFRManualFPLFieldsFn    func(ctx context.Context, session int32, callsign string, aircraftType *string, personsOnBoard *int32, assignedSquawk string, fplType *string, language *string, remarks *string, bay string) (int64, error)
+	SetHasFPFn                    func(ctx context.Context, session int32, callsign string, hasFP bool) error
 }
 
 func (m *MockStripRepository) Create(ctx context.Context, strip *models.Strip) error {
@@ -417,4 +418,11 @@ func (m *MockStripRepository) UpdateVFRManualFPLFields(ctx context.Context, sess
 		panic("unexpected call to MockStripRepository.UpdateVFRManualFPLFields")
 	}
 	return m.UpdateVFRManualFPLFieldsFn(ctx, session, callsign, aircraftType, personsOnBoard, assignedSquawk, fplType, language, remarks, bay)
+}
+
+func (m *MockStripRepository) SetHasFP(ctx context.Context, session int32, callsign string, hasFP bool) error {
+	if m.SetHasFPFn != nil {
+		return m.SetHasFPFn(ctx, session, callsign, hasFP)
+	}
+	return nil
 }

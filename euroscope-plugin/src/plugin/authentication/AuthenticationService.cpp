@@ -151,6 +151,7 @@ namespace FlightStrips::authentication {
     void AuthenticationService::StartRefresh() {
         if (state != AUTHENTICATED) return;
         state = REFRESH;
+        Logger::Info("Starting token refresh (state -> REFRESH)");
 
         if (token_thread.joinable()) {
             token_thread.join();
@@ -160,7 +161,7 @@ namespace FlightStrips::authentication {
     }
 
     void AuthenticationService::DoRefreshFlow() {
-        Logger::Debug(std::format("Refreshing authentication token."));
+        Logger::Info("Token refresh: sending HTTP request");
         const auto token_url = std::format("{}/oauth/token", this->appConfig->GetAuthority());
         std::ostringstream token_params;
 
@@ -181,7 +182,7 @@ namespace FlightStrips::authentication {
             return;
         }
 
-        Logger::Debug(std::format("Refreshing authentication token completed."));
+        Logger::Info("Token refresh completed successfully (state -> AUTHENTICATED)");
     }
 
     bool AuthenticationService::ParseAndSetToken(const std::string &content) {

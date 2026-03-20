@@ -424,6 +424,7 @@ func MapStripToFrontendModel(strip *internalModels.Strip) frontend.Strip {
 		PersonsOnBoard:         helpers.ValueOrDefault(strip.PersonsOnBoard),
 		FplType:                helpers.ValueOrDefault(strip.FplType),
 		Language:               helpers.ValueOrDefault(strip.Language),
+		HasFP:                  strip.HasFP,
 	}
 }
 

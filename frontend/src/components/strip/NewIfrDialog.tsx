@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -37,6 +37,7 @@ export function NewIfrDialog({ open, onOpenChange, initialCallsign = "" }: Props
   const runwaySetup     = useRunwaySetup();
   const createManualFPL = useWebSocketStore(s => s.createManualFPL);
 
+  const [prevOpen, setPrevOpen]           = useState(false);
   const [callsign, setCallsign]           = useState(initialCallsign);
   const [callsignError, setCallsignError] = useState<string | null>(null);
   const [ades, setAdes]                   = useState("");
@@ -57,7 +58,8 @@ export function NewIfrDialog({ open, onOpenChange, initialCallsign = "" }: Props
   const [hdgOpen, setHdgOpen] = useState(false);
   const [altOpen, setAltOpen] = useState(false);
 
-  useEffect(() => {
+  if (open !== prevOpen) {
+    setPrevOpen(open);
     if (open) {
       const cs = initialCallsign.toUpperCase();
       setCallsign(cs);
@@ -67,8 +69,7 @@ export function NewIfrDialog({ open, onOpenChange, initialCallsign = "" }: Props
       setRwyDep(runwaySetup.departure[0] ?? RUNWAYS[0]); setHdg(undefined); setAlt(undefined);
       if (cs) populateFromStrip(cs);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, initialCallsign]);
+  }
 
   function populateFromStrip(cs: string) {
     const strip = strips.find(s => s.callsign.toUpperCase() === cs.toUpperCase());

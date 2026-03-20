@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { useStrips, useWebSocketStore, useMetar } from "@/store/store-hooks";
 import { decodeMetar } from "@/lib/metarDecode";
@@ -181,6 +181,7 @@ export function NewVfrDialog({ open, onOpenChange, initialCallsign = "" }: Props
   const createVFRFPL = useWebSocketStore(s => s.createVFRFPL);
   const rawMetar = useMetar();
 
+  const [prevOpen, setPrevOpen] = useState(false);
   const [callsign, setCallsign] = useState(initialCallsign);
   const [callsignError, setCallsignError] = useState<string | null>(null);
   const [aircraftType, setAircraftType] = useState("");
@@ -191,7 +192,8 @@ export function NewVfrDialog({ open, onOpenChange, initialCallsign = "" }: Props
   const [remarks, setRemarks] = useState("");
   const [qnhDisplay, setQnhDisplay] = useState("XXXX");
 
-  useEffect(() => {
+  if (open !== prevOpen) {
+    setPrevOpen(open);
     if (open) {
       const cs = initialCallsign.toUpperCase();
       setCallsign(cs);
@@ -205,8 +207,7 @@ export function NewVfrDialog({ open, onOpenChange, initialCallsign = "" }: Props
       refreshQnh();
       if (cs) validateCallsign(cs);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, initialCallsign]);
+  }
 
   function refreshQnh() {
     const decoded = decodeMetar(rawMetar);

@@ -30,9 +30,9 @@ const (
 	// BAY_TWY_ARR Used for arrivals (vacated runway, taxiing to stand)
 	BAY_TWY_ARR = "TWY_ARR"
 	// BAY_STAND Used for arrivals
-	BAY_STAND      = "STAND"
-	BAY_HIDDEN     = "HIDDEN"
-	BAY_ARR_HIDDEN = "ARR_HIDDEN"
+	BAY_STAND       = "STAND"
+	BAY_HIDDEN      = "HIDDEN"
+	BAY_ARR_HIDDEN  = "ARR_HIDDEN"
 	BAY_CONTROLZONE = "CONTROLZONE"
 )
 

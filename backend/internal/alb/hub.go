@@ -81,9 +81,9 @@ func (h *Hub) Upgrade(w http.ResponseWriter, r *http.Request) {
 	go client.ReadPump()
 }
 
-// BroadcastA2A relays an A2A event to all connected ALB clients (excluding the
-// sender) when receiver is "all", or to the specific client identified by callsign.
-func (h *Hub) BroadcastA2A(sender *Client, event pkgAlb.A2AEvent) {
+// BroadcastA2A relays an A2A event to all connected ALB clients when receiver
+// is "all", or to the specific client identified by callsign.
+func (h *Hub) BroadcastA2A(event pkgAlb.A2AEvent) {
 	bytes, err := event.Marshal()
 	if err != nil {
 		slog.Error("ALB failed to marshal A2A event", slog.Any("error", err))
@@ -91,10 +91,7 @@ func (h *Hub) BroadcastA2A(sender *Client, event pkgAlb.A2AEvent) {
 	}
 
 	for client := range h.clients {
-		if client == sender {
-			continue
-		}
-		if event.Receiver == "all" || client.callsign == event.Receiver {
+		if event.Receiver == "all" || client.callsign == event.Receiver || client.callsign == event.Sender {
 			select {
 			case client.send <- bytes:
 			default:

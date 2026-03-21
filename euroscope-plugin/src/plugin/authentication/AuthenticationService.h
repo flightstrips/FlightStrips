@@ -3,7 +3,6 @@
 #include <optional>
 #include <nlohmann/json.hpp>
 
-#include "IAuthenticationService.h"
 #include "configuration/AppConfig.h"
 #include "configuration/UserConfig.h"
 #include "handlers/AuthenticationEventHandlers.h"
@@ -19,9 +18,14 @@ static constexpr char base64_url_alphabet[] = {
     '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '-', '_'
 };
 
-// AuthenticationState is defined in IAuthenticationService.h
+enum AuthenticationState {
+    NONE = 0,
+    LOGIN = 1,
+    REFRESH = 2,
+    AUTHENTICATED = 3
+};
 
-class AuthenticationService : public handlers::TimedEventHandler, public IAuthenticationService {
+class AuthenticationService : public handlers::TimedEventHandler{
 public:
     AuthenticationService(const std::shared_ptr<configuration::AppConfig> &appConfig, const std::shared_ptr<configuration::UserConfig> &userConfig, const std::shared_ptr<handlers::AuthenticationEventHandlers> &handlers);
     ~AuthenticationService() override;
@@ -29,9 +33,10 @@ public:
     void Logout();
     void StartAuthentication();
     void CancelAuthentication();
-    [[nodiscard]] AuthenticationState GetAuthenticationState() const override;
+    [[nodiscard]] AuthenticationState GetAuthenticationState() const;
     [[nodiscard]] std::string GetName() const;
-    [[nodiscard]] std::string GetAccessToken() const override;
+    [[nodiscard]] std::string GetAccessToken() const;
+
 
     void OnTimer(int time) override;
     static std::optional<nlohmann::json> GetTokenPayload(const std::string &access_token);
@@ -60,6 +65,7 @@ private:
     [[nodiscard]] std::string GetAuthorizeUrl(const std::string& code_challenge, const std::string& client_id, const std::string& redirect_uri) const;
 
     static void OpenBrowser(const std::string& url);
+
 
     std::thread token_thread;
 

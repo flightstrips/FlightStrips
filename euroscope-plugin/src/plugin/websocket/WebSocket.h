@@ -42,10 +42,8 @@ namespace FlightStrips::websocket {
 
         static void add_windows_root_certs(const std::shared_ptr<asio::ssl::context>& context);
 
-        // Test seam: construct with a pre-built ImplBase (e.g. a mock).
-        explicit WebSocket(std::unique_ptr<ImplBase> impl) : impl_(std::move(impl)) {}
-
     private:
+
         std::unique_ptr<ImplBase> impl_;
 
         static bool is_tls_endpoint(const std::string& endpoint);

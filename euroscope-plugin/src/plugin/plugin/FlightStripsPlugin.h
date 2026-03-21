@@ -18,14 +18,31 @@
 #include "handlers/ControllerEventHandlers.h"
 #include "handlers/TimedEventHandlers.h"
 #include "handlers/AirportRunwaysChangedEventHandlers.h"
-#include "IFlightStripsPlugin.h"
 
 // TODO move
 #define CLEARED "CLEA"
 #define NOT_CLEARED "NOTC"
 
 namespace FlightStrips {
-    class FlightStripsPlugin final : public EuroScopePlugIn::CPlugIn, public FlightStripsPluginInterface, public IFlightStripsPlugin {
+    enum ConnectionType {
+        CONNECTION_TYPE_NO               = 0,
+        CONNECTION_TYPE_DIRECT           = 1,
+        CONNECTION_TYPE_VIA_PROXY        = 2,
+        CONNECTION_TYPE_SIMULATOR_SERVER = 3,
+        CONNECTION_TYPE_PLAYBACK         = 4,
+        CONNECTION_TYPE_SIMULATOR_CLIENT = 5,
+        CONNECTION_TYPE_SWEATBOX         = 6
+    };
+
+    struct ConnectionState {
+        int range;
+        ConnectionType connection_type;
+        std::string primary_frequency;
+        std::string callsign;
+        std::string relevant_airport;
+    };
+
+    class FlightStripsPlugin final : public EuroScopePlugIn::CPlugIn, public FlightStripsPluginInterface {
     public:
         FlightStripsPlugin(
                 const std::shared_ptr<handlers::FlightPlanEventHandlers> &mFlightPlanEventHandlerCollection,
@@ -79,7 +96,7 @@ namespace FlightStrips {
 
         void SetAirportCoordinates(double latitude, double longitude);
 
-        ConnectionState& GetConnectionState() override;
+        ConnectionState& GetConnectionState();
 
         std::vector<Sid> GetSids(const std::string& airport) override;
 

@@ -28,20 +28,14 @@ namespace FlightStrips::stands {
             return nullptr;
         }
 
-        // Format: "GRP/S/<name>" or "GRP/S/<name>/" — split on '/' and take the third segment.
-        std::string::size_type first = standString.find('/');
-        if (first == std::string::npos) {
+        std::string::size_type first = standString.find_first_of("s/");
+        std::string::size_type last = standString.find_last_of("s/");
+
+        if (first == last || first == std::string::npos || last == std::string::npos) {
             return nullptr;
         }
-        std::string::size_type second = standString.find('/', first + 1);
-        if (second == std::string::npos) {
-            return nullptr;
-        }
-        std::string::size_type end = standString.find('/', second + 1);
-        auto stand = standString.substr(second + 1, end == std::string::npos ? std::string::npos : end - second - 1);
-        if (stand.empty()) {
-            return nullptr;
-        }
+
+        auto stand = standString.substr(first + 2, last - first - 3);
 
         auto matches = [airport, stand](Stand &item) {
             return std::strcmp(item.GetAirport().c_str(), airport.c_str()) == 0 &&

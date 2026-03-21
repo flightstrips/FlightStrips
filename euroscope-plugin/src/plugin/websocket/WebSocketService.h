@@ -4,13 +4,13 @@
 #include "Events.h"
 #include "Logger.hpp"
 #include "WebSocket.h"
-#include "authentication/IAuthenticationService.h"
+#include "authentication/AuthenticationService.h"
 #include "configuration/AppConfig.h"
 #include "handlers/AuthenticationEventHandler.h"
 #include "handlers/ConnectionEventHandlers.h"
 #include "handlers/MessageHandlers.h"
 #include "handlers/TimedEventHandler.h"
-#include "plugin/IFlightStripsPlugin.h"
+#include "plugin/FlightStripsPlugin.h"
 
 namespace FlightStrips::websocket {
     enum ClientState {
@@ -26,11 +26,11 @@ namespace FlightStrips::websocket {
         ClientState role = STATE_UNKNOWN;
     };
 
-    class WebSocketService : public handlers::TimedEventHandler, public handlers::AuthenticationEventHandler {
+    class WebSocketService final : public handlers::TimedEventHandler, public handlers::AuthenticationEventHandler {
     public:
         explicit WebSocketService(const std::shared_ptr<configuration::AppConfig> &appConfig,
-                                  const std::shared_ptr<authentication::IAuthenticationService> &authentication_service,
-                                  const std::shared_ptr<IFlightStripsPlugin> &plugin,
+                                  const std::shared_ptr<authentication::AuthenticationService> &authentication_service,
+                                  const std::shared_ptr<FlightStripsPlugin> &plugin,
                                   const std::shared_ptr<handlers::ConnectionEventHandlers> &event_handlers,
                                   const std::shared_ptr<handlers::MessageHandlers> &message_handlers);
 
@@ -48,22 +48,13 @@ namespace FlightStrips::websocket {
         Stats GetStats() const;
         std::optional<int> GetDelaySecondsRemaining() const;
 
-    protected:
-        // Test seam: construct with a pre-built WebSocket (e.g. wrapping a mock ImplBase).
-        WebSocketService(const std::shared_ptr<authentication::IAuthenticationService> &authentication_service,
-                         const std::shared_ptr<IFlightStripsPlugin> &plugin,
-                         const std::shared_ptr<handlers::ConnectionEventHandlers> &event_handlers,
-                         const std::shared_ptr<handlers::MessageHandlers> &message_handlers,
-                         std::unique_ptr<WebSocket> webSocket,
-                         bool enabled);
-
     private:
         std::shared_ptr<configuration::AppConfig> m_appConfig;
-        std::shared_ptr<authentication::IAuthenticationService> m_authentication_service;
-        std::shared_ptr<IFlightStripsPlugin> m_plugin;
+        std::shared_ptr<authentication::AuthenticationService> m_authentication_service;
+        std::shared_ptr<FlightStripsPlugin> m_plugin;
         std::shared_ptr<handlers::ConnectionEventHandlers> m_connection_handlers;
         std::shared_ptr<handlers::MessageHandlers> m_messageHandlers;
-        std::unique_ptr<WebSocket> webSocket;
+        WebSocket webSocket;
         std::string primary;
         ClientState client_state = STATE_UNKNOWN;
 
@@ -92,7 +83,7 @@ void FlightStrips::websocket::WebSocketService::SendEvent(const T &event) {
     ++tx;
     const nlohmann::json json = event;
     const auto json_str = json.dump();
-    webSocket->Send(json_str);
+    webSocket.Send(json_str);
     Logger::Debug("Sending event: {}", json_str);
 }
 

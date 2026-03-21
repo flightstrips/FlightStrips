@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { getSimpleAircraftType } from "@/lib/utils";
 import { useStrips, useStripTransfers, useWebSocketStore } from "@/store/store-hooks";
 import { Bay } from "@/api/models";
 import type { StripProps } from "./types";
@@ -121,7 +122,7 @@ export function FinalArrStrip({
       >
         <div className="flex items-center justify-center" style={{ height: TOP_H }}>
           <span className="truncate px-1" style={{ fontFamily: FONT, fontWeight: 600, fontSize: 12 }}>
-            {aircraftType}
+            {getSimpleAircraftType(aircraftType)}
           </span>
         </div>
         <div className="flex items-center justify-center" style={{ height: BOT_H }}>

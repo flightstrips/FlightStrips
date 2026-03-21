@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { getSimpleAircraftType } from "@/lib/utils";
 import type { StripProps } from "./types";
 import { useStripSelection, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR, COLOR_ARR_YELLOW, COLOR_BTN_ORANGE, COLOR_UNEXPECTED_YELLOW, COLOR_MANUAL_BLUE, getCellTextColor } from "./shared";
 import { useControllers, useStripTransfers, useWebSocketStore } from "@/store/store-hooks";
@@ -98,7 +99,7 @@ export function ApnArrStrip({
       {/* A/C type / Registration — 80px */}
       <div className="flex-shrink-0 flex flex-col border-r-2" style={{ width: 80, height: "100%", borderRightColor: cellBorderColor }}>
         <div className="flex items-center justify-center" style={{ height: TOP_H }}>
-          <span className="text-xs font-semibold truncate px-1">{aircraftType}</span>
+          <span className="text-xs font-semibold truncate px-1">{getSimpleAircraftType(aircraftType)}</span>
         </div>
         <div style={{ height: BOT_H }} />
       </div>

@@ -1,3 +1,4 @@
+import { getSimpleAircraftType } from "@/lib/utils";
 import { getStripBg } from "./types";
 import type { StripProps } from "./types";
 import { useStripSelection, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR, COLOR_BTN_ORANGE, COLOR_SI_ASSUMED, COLOR_SI_UNCONCERNED, COLOR_SI_CONCERNED } from "./shared";
@@ -82,7 +83,7 @@ export function GroundStrip({
       {/* A/C type — 80px split (bottom reserved for registration) */}
       <div className="flex-shrink-0 flex flex-col border-r-2" style={{ width: 80, height: "100%", borderRightColor: cellBorderColor }}>
         <div className="flex items-center justify-center border-b-2" style={{ height: TOP_H, borderBottomColor: cellBorderColor }}>
-          <span className="text-xs font-semibold truncate px-1">{aircraftType}</span>
+          <span className="text-xs font-semibold truncate px-1">{getSimpleAircraftType(aircraftType)}</span>
         </div>
         <div style={{ height: BOT_H }} />
       </div>

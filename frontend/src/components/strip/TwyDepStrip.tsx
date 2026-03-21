@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { getSimpleAircraftType } from "@/lib/utils";
 import { useControllers, useStrips, useStripTransfers, useWebSocketStore } from "@/store/store-hooks";
 import { useCTOTColor } from "@/hooks/useCTOTColor";
 import { COLOR_UNEXPECTED_YELLOW } from "./shared";
@@ -162,7 +163,7 @@ export function TwyDepStrip({
       >
         <div className="flex items-center justify-center overflow-hidden" style={{ height: HALF_H }}>
           <span className="truncate px-1" style={{ fontFamily: FONT, fontWeight: "bold", fontSize: 13 }}>
-            {aircraftType}
+            {getSimpleAircraftType(aircraftType)}
           </span>
         </div>
         <div className="flex items-center justify-center overflow-hidden" style={{ height: HALF_H }}>

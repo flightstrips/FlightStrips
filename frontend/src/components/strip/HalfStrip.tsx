@@ -1,3 +1,4 @@
+import { getSimpleAircraftType } from "@/lib/utils";
 import type { HalfStripVariant, StripProps } from "./types";
 import { useStripSelection, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR, COLOR_ARR_YELLOW, COLOR_ARR_STRIP_BG, COLOR_BTN_BLUE, COLOR_BTN_ORANGE, COLOR_UNEXPECTED_YELLOW, COLOR_MANUAL_BLUE, getCellTextColor } from "./shared";
 import { useStripTransfers, useWebSocketStore } from "@/store/store-hooks";
@@ -116,7 +117,7 @@ export function HalfStrip({
             className={`h-full w-14 border-r-2 flex items-center justify-center text-xs ${textColor}`}
             style={{ borderRightColor: cellBorderColor }}
           >
-            {aircraftType}
+            {getSimpleAircraftType(aircraftType)}
           </div>
           <div
             className={`h-full w-14 border-r-2 flex items-center justify-center font-bold ${textColor}`}

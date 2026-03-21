@@ -1,4 +1,3 @@
-
 #pragma once
 
 #include <unordered_map>
@@ -10,6 +9,7 @@
 #include "websocket/WebSocketService.h"
 #include "websocket/Events.h"
 #include "handlers/TimedEventHandler.h"
+#include "plugin/FlightStripsPlugin.h"
 
 namespace FlightStrips::flightplan {
 class FlightPlanService final : public handlers::FlightPlanEventHandler, public handlers::RadarTargetEventHandler, public handlers::TimedEventHandler  {

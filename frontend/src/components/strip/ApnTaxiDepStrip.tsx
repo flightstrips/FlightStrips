@@ -98,9 +98,7 @@ export function ApnTaxiDepStrip({
           style={{ flex: `${F_CALLSIGN} 0 0%`, height: "100%", minWidth: 0, borderRightColor: cellBorderColor }}
         >
           <div className="flex items-center pl-2" style={{ height: TOP_H, backgroundColor: isSelected ? SELECTION_COLOR : undefined }}>
-            <span className="truncate w-full" style={{ fontFamily: FONT, fontWeight: "bold", fontSize: 20 }}>
-              {callsign}
-            </span>
+            <span className="font-bold text-xl truncate w-full">{callsign}</span>
           </div>
           <div style={{ height: BOT_H }} />
         </div>
@@ -118,13 +116,18 @@ export function ApnTaxiDepStrip({
           </span>
         </div>
 
-        {/* Stand — 25%*(2/3), value in top 2/3 */}
+        {/* Stand — 25%*(2/3), stand in top 2/3, ctot in bottom 1/3 */}
         <div
-          className="flex items-center justify-center overflow-hidden border-r-2"
-          style={{ flex: `${F_STAND} 0 0%`, height: "100%", paddingBottom: BOT_H, minWidth: 0, borderRightColor: cellBorderColor, backgroundColor: standYellow ? COLOR_UNEXPECTED_YELLOW : undefined, cursor: standYellow ? "pointer" : undefined }}
+          className="flex flex-col overflow-hidden border-r-2"
+          style={{ flex: `${F_STAND} 0 0%`, height: "100%", minWidth: 0, borderRightColor: cellBorderColor, backgroundColor: standYellow ? COLOR_UNEXPECTED_YELLOW : undefined, cursor: standYellow ? "pointer" : undefined }}
           onClick={standYellow ? (e) => { e.stopPropagation(); acknowledgeUnexpectedChange(callsign, "stand"); } : undefined}
         >
-          <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: 20, color: getCellTextColor("stand", controllerModifiedFields) }}>{stand}</span>
+          <div className="flex items-center justify-center" style={{ height: TOP_H }}>
+            <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: 20, color: getCellTextColor("stand", controllerModifiedFields) }}>{stand}</span>
+          </div>
+          <div className="flex items-center justify-center" style={{ height: BOT_H }}>
+            {showCtot && <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: 10, backgroundColor: ctotBg, color: ctotColor, padding: "0 2px" }}>{ctot}</span>}
+          </div>
         </div>
 
         {/* HP / TWY — 25%*(2/3)*(2/3) */}
@@ -148,7 +151,7 @@ export function ApnTaxiDepStrip({
         {/* Runway — 25%*(2/3) */}
         <div
           className="flex flex-col overflow-hidden border-r-2"
-          style={{ flex: `${F_RWY} 0 0%`, height: "100%", minWidth: 0, borderRightColor: cellBorderColor, backgroundColor: runwayYellow ? COLOR_UNEXPECTED_YELLOW : undefined, cursor: runwayYellow ? "pointer" : undefined }}
+          style={{ flex: `${F_RWY} 0 0%`, height: "100%", minWidth: 0, borderRight: 0, backgroundColor: runwayYellow ? COLOR_UNEXPECTED_YELLOW : undefined, cursor: runwayYellow ? "pointer" : undefined }}
           onClick={runwayYellow ? (e) => { e.stopPropagation(); acknowledgeUnexpectedChange(callsign, "runway"); } : undefined}
         >
           <div className="flex" style={{ height: HALF_H }}>
@@ -158,19 +161,6 @@ export function ApnTaxiDepStrip({
             <div style={{ flexShrink: 0, width: HALF_H, height: "100%", borderLeft: `1px solid ${cellBorderColor}`, borderBottom: `1px solid ${cellBorderColor}` }} />
           </div>
           <div style={{ height: HALF_H }} />
-        </div>
-
-        {/* CTOT — 25%*(2/3) */}
-        <div
-          className="flex flex-col overflow-hidden"
-          style={{ flex: `${F_RWY} 0 0%`, height: "100%", minWidth: 0, backgroundColor: ctotBg, color: ctotColor }}
-        >
-          <div className="flex items-center justify-between px-1 overflow-hidden" style={{ height: HALF_H, fontFamily: FONT, fontSize: 11 }}>
-            <span style={{ opacity: 0.6 }}>{showCtot ? "CTOT" : ""}</span>
-          </div>
-          <div className="flex items-center justify-center overflow-hidden" style={{ height: HALF_H, fontFamily: FONT, fontWeight: "bold", fontSize: 14 }}>
-            <span>{showCtot ? ctot : ""}</span>
-          </div>
         </div>
 
       </div>

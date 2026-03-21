@@ -40,8 +40,8 @@ const primaryLabel  = "text-white font-bold text-lg";
 const colSep        = "border-t-4 border-[#A9A9A9]";
 const scrollArea    = `w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto ${CLS_SCROLLBAR}`;
 const col           = "w-1/4 h-full bg-[#555355] flex flex-col";
-const tabBar        = "flex shrink-0 bg-[#393939]";
-const tabBtn        = "flex-1 h-8 bg-[#555355] text-white font-bold text-sm border border-[#393939] hover:bg-[#6a6a6a]";
+const tabBar        = "flex shrink-0 border-t-8 border-[#A9A9A9]";
+const tabBtn        = "flex-1 bg-[#393939] text-white font-bold text-sm border border-white hover:bg-[#4a4a4a]";
 const btn           = CLS_BTN;
 const btnBlue       = CLS_BTN_BLUE;
 

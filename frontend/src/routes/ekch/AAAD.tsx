@@ -88,6 +88,7 @@ export default function AAAD() {
     "TWY-DEP-UPR": { strips: twyDepUpr,    targetBay: Bay.Taxi },
     "TWY-DEP-LWR": { strips: twyDepLwr,    targetBay: Bay.TaxiLwr },
     "TWY-ARR":     { strips: twyArrStrips, targetBay: Bay.TwyArr },
+    "STAND":       { strips: standStrips,  targetBay: Bay.Stand },
     "STARTUP":     { strips: startupStrips, targetBay: Bay.Cleared },
     "PUSHBACK":    { strips: pushStrips,    targetBay: Bay.Push },
     "DE-ICE":      { strips: deIceStrips,   targetBay: Bay.DeIce },
@@ -96,7 +97,8 @@ export default function AAAD() {
   const transferRules: Record<string, string[]> = {
     "TWY-DEP-UPR": ["TWY-DEP-LWR", "TWY-ARR", "STARTUP", "PUSHBACK", "DE-ICE"],
     "TWY-DEP-LWR": ["TWY-DEP-UPR", "TWY-ARR", "STARTUP", "PUSHBACK", "DE-ICE"],
-    "TWY-ARR":     ["TWY-DEP-UPR", "TWY-DEP-LWR", "STARTUP", "PUSHBACK"],
+    "TWY-ARR":     ["TWY-DEP-UPR", "TWY-DEP-LWR", "STAND", "STARTUP", "PUSHBACK"],
+    "STAND":       ["TWY-ARR"],
     "STARTUP":     ["TWY-DEP-UPR", "TWY-DEP-LWR", "TWY-ARR", "PUSHBACK", "DE-ICE"],
     "PUSHBACK":    ["TWY-DEP-UPR", "TWY-DEP-LWR", "TWY-ARR", "STARTUP", "DE-ICE"],
     "DE-ICE":      ["TWY-DEP-UPR", "TWY-DEP-LWR", "STARTUP", "PUSHBACK"],
@@ -106,6 +108,7 @@ export default function AAAD() {
     "TWY-DEP-UPR": "TAXI-DEP",
     "TWY-DEP-LWR": "TAXI-DEP",
     "TWY-ARR":  "ARR",
+    "STAND":    "ARR",
     "STARTUP":  "PUSH",
     "PUSHBACK": "PUSH",
     "DE-ICE":   "PUSH",
@@ -167,11 +170,17 @@ export default function AAAD() {
         <div className={`${header} ${colSep}`}>
           <span className={label}>STAND</span>
         </div>
-        <DropIndicatorBay bayId="STAND" className={`flex-1 ${scrollArea}`}>
-          {standStrips.map(s => (
-            <Strip key={s.callsign} strip={s} status="ARR" myPosition={myPosition} />
-          ))}
-        </DropIndicatorBay>
+        <SortableBay
+          strips={standStrips}
+          bayId="STAND"
+          isDragDisabled={(strip) => isFlight(strip) && !!strip.owner && strip.owner !== myPosition}
+          standalone={false}
+          className={`flex-1 ${scrollArea}`}
+        >
+          {(strip) => (
+            <Strip strip={strip} status="ARR" myPosition={myPosition} />
+          )}
+        </SortableBay>
 
         {arrOpen && (
           <StripListPopup
@@ -244,18 +253,17 @@ export default function AAAD() {
             <MemAidButton bay={Bay.TwyArr} className={btnBlue} />
           </span>
         </div>
-        <div className={`flex-1 ${scrollArea}`}>
-          <SortableBay
-            strips={twyArrStrips}
-            bayId="TWY-ARR"
-            isDragDisabled={(strip) => isFlight(strip) && !!strip.owner && strip.owner !== myPosition}
-            standalone={false}
-          >
-            {(strip) => (
-              <Strip strip={strip} status="ARR" myPosition={myPosition} selectable={true} />
-            )}
-          </SortableBay>
-        </div>
+        <SortableBay
+          strips={twyArrStrips}
+          bayId="TWY-ARR"
+          isDragDisabled={(strip) => isFlight(strip) && !!strip.owner && strip.owner !== myPosition}
+          standalone={false}
+          className={`flex-1 ${scrollArea}`}
+        >
+          {(strip) => (
+            <Strip strip={strip} status="ARR" myPosition={myPosition} selectable={true} />
+          )}
+        </SortableBay>
 
       </div>
 

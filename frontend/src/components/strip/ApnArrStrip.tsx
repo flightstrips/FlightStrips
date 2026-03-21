@@ -5,10 +5,14 @@ import { useStripSelection, getCellBorderColor, getFlatStripBorderStyle, SELECTI
 import { useControllers, useStripTransfers, useWebSocketStore } from "@/store/store-hooks";
 import { RunwayDialog } from "./RunwayDialog";
 import { ArrStandDialog } from "./ArrStandDialog";
+import { ApronTaxiMapDialog } from "../map-dialogs/ApronTaxiMapDialog";
 
 // Height: 48px fixed (intentional — matches FinalArrStrip ATC arrival strip spec)
 const TOP_H = 32; // 2/3 of 48px
 const BOT_H = 16; // 1/3 of 48px
+
+/** Gold cell borders — matches the yellow arrival strip design (same as FinalArrStrip). */
+const CELL_BORDER = "#FFD100";
 
 // SI box background colors indicating strip ownership state
 const COLOR_SI_UNCONCERNED    = "#808080";
@@ -42,13 +46,14 @@ export function ApnArrStrip({
   isManual = false,
 }: StripProps) {
   const { isSelected, handleClick } = useStripSelection(callsign, selectable);
-  const cellBorderColor = getCellBorderColor(marked);
+  const cellBorderColor = getCellBorderColor(marked, CELL_BORDER);
   const manualBlue = isManual ? COLOR_MANUAL_BLUE : undefined;
   const controllers = useControllers();
   const stripTransfers = useStripTransfers();
   const isTagRequest = !!stripTransfers[callsign]?.isTagRequest;
   const [runwayOpen, setRunwayOpen] = useState(false);
   const [standOpen, setStandOpen] = useState(false);
+  const [taxiMapOpen, setTaxiMapOpen] = useState(false);
   const acknowledgeUnexpectedChange = useWebSocketStore(s => s.acknowledgeUnexpectedChange);
   const openStripContextMenu = useWebSocketStore(s => s.openStripContextMenu);
   const standYellow = unexpectedChangeFields?.includes("stand");
@@ -75,7 +80,7 @@ export function ApnArrStrip({
         height: 48, // 48px fixed — intentional ATC arrival strip height
         width: 428,
         backgroundColor: isTagRequest ? SELECTION_COLOR : COLOR_ARR_YELLOW,
-        ...getFlatStripBorderStyle(),
+        ...getFlatStripBorderStyle({}, CELL_BORDER),
       }}
       onClick={handleClick}
       onContextMenu={(e) => { e.preventDefault(); openStripContextMenu(callsign, { x: e.clientX, y: e.clientY }); }}
@@ -117,7 +122,11 @@ export function ApnArrStrip({
       </div>
 
       {/* HS / Taxiway — 54px */}
-      <div className="flex-shrink-0 flex flex-col overflow-hidden border-r-2" style={{ width: 54, height: "100%", borderRightColor: cellBorderColor }}>
+      <div
+        className="flex-shrink-0 flex flex-col overflow-hidden border-r-2 cursor-pointer hover:brightness-95"
+        style={{ width: 54, height: "100%", borderRightColor: cellBorderColor }}
+        onClick={(e) => { e.stopPropagation(); setTaxiMapOpen(true); }}
+      >
         <div className="flex items-center justify-center" style={{ height: TOP_H }}>
           <span className="font-bold text-xl truncate">{taxiway ?? holdingPoint}</span>
         </div>
@@ -157,6 +166,12 @@ export function ApnArrStrip({
       onOpenChange={setStandOpen}
       callsign={callsign}
       currentStand={stand}
+    />
+    <ApronTaxiMapDialog
+      open={taxiMapOpen}
+      onOpenChange={setTaxiMapOpen}
+      callsign={callsign}
+      noMove
     />
     </>
   );

@@ -40,10 +40,8 @@ const W_COL_CENTER   = "w-[24.5%]";
 const W_COL_RIGHT    = "w-[20.5%]";
 
 // Header class strings
-const lockedHeader = "bg-[#393939] h-10 flex items-center px-2 shrink-0";
-const lockedLabel  = "text-white font-bold text-lg";
-const activeHeader = "bg-[#b3b3b3] h-10 flex items-center px-2 shrink-0";
-const activeLabel  = "text-[#393939] font-bold text-lg";
+const header = "bg-[#393939] h-10 flex items-center px-2 shrink-0";
+const label  = "text-white font-bold text-lg";
 
 // Section separator (grey border between sub-sections within a column)
 const colSep      = "border-t-4 border-[#A9A9A9]";
@@ -177,8 +175,8 @@ export default function TWTE() {
 
       {/* Column 1 – FINAL + RWY ARR + TWY ARR */}
       <div className={`${W_COL_ARR} ${CLS_COL}`}>
-        <div className={`${lockedHeader} justify-between`}>
-          <span className={lockedLabel}>FINAL</span>
+        <div className={`${header} justify-between`}>
+          <span className={label}>FINAL</span>
           <span className="flex gap-1">
             <button className={btn} onClick={() => setArrOpen(true)}>ARR</button>
           </span>
@@ -195,8 +193,8 @@ export default function TWTE() {
           )}
         </SortableBay>
 
-        <div className={`${lockedHeader} ${colSep} justify-between`}>
-          <span className={lockedLabel}>RWY ARR</span>
+        <div className={`${header} ${colSep} justify-between`}>
+          <span className={label}>RWY ARR</span>
           <span className="flex gap-1">
             <button className={btn}>MISSED APP</button>
             <LandButton bay={Bay.RwyArr} className={btnOrange} />
@@ -216,8 +214,8 @@ export default function TWTE() {
           )}
         </SortableBay>
 
-        <div className={`${lockedHeader} ${colSep} justify-between`}>
-          <span className={lockedLabel}>TWY ARR</span>
+        <div className={`${header} ${colSep} justify-between`}>
+          <span className={label}>TWY ARR</span>
           <span className="flex gap-1">
             <MemAidButton bay={Bay.TwyArr} className={btnBlue} />
             <LandButton bay={Bay.TwyArr} className={btnOrange} />
@@ -240,8 +238,8 @@ export default function TWTE() {
 
       {/* Column 2 – TWY DEP + RWY DEP + AIRBORNE */}
       <div className={`${W_COL_DEP} ${CLS_COL}`}>
-        <div className={`${lockedHeader} justify-between`}>
-          <span className={lockedLabel}>TWY DEP</span>
+        <div className={`${header} justify-between`}>
+          <span className={label}>TWY DEP</span>
           <span className="flex gap-1">
             <button className={btn} onClick={() => setStartupOpen(true)}>STARTUP</button>
             <MemAidButton bay={Bay.TaxiLwr} className={btnBlue} />
@@ -262,8 +260,8 @@ export default function TWTE() {
           )}
         </SortableBay>
 
-        <div className={`${lockedHeader} ${colSep} justify-between`}>
-          <span className={lockedLabel}>RWY DEP</span>
+        <div className={`${header} ${colSep} justify-between`}>
+          <span className={label}>RWY DEP</span>
           <span className="flex gap-1">
             <LandButton bay={Bay.Depart} className={btnOrange} />
             <StartButton bay={Bay.Depart} className={btnOrange} />
@@ -282,8 +280,8 @@ export default function TWTE() {
           )}
         </SortableBay>
 
-        <div className={`${lockedHeader} ${colSep}`}>
-          <span className={lockedLabel}>AIRBORNE</span>
+        <div className={`${header} ${colSep}`}>
+          <span className={label}>AIRBORNE</span>
         </div>
         <SortableBay
           strips={airborneDesc}
@@ -329,8 +327,8 @@ export default function TWTE() {
 
       {/* Column 3 – CONTROLZONE + PUSHBACK + MESSAGES */}
       <div className={`${W_COL_CENTER} ${CLS_COL}`}>
-        <div className={`${lockedHeader} justify-between`}>
-          <span className={lockedLabel}>CONTROLZONE</span>
+        <div className={`${header} justify-between`}>
+          <span className={label}>CONTROLZONE</span>
           <span className="flex gap-1">
             <button className={btn} onClick={() => setNewVfrOpen(true)}>NEW</button>
             <button className={btn} onClick={() => setFindOpen(true)}>FIND</button>
@@ -346,8 +344,8 @@ export default function TWTE() {
           {(strip) => <Strip strip={strip} status="CLR" myPosition={myPosition} selectable={true} />}
         </SortableBay>
 
-        <div className={`${lockedHeader} ${colSep}`}>
-          <span className={lockedLabel}>PUSHBACK</span>
+        <div className={`${header} ${colSep}`}>
+          <span className={label}>PUSHBACK</span>
         </div>
         <SortableBay
           strips={pushStrips}
@@ -360,7 +358,7 @@ export default function TWTE() {
         </SortableBay>
 
         <div className={`bg-primary h-10 flex items-center px-2 shrink-0 justify-between ${colSep}`}>
-          <span className={lockedLabel}>MESSAGES</span>
+          <span className={label}>MESSAGES</span>
           <span className="flex gap-1">
             <button className={btn} onClick={() => setComposeOpen(true)}>INFO</button>
             <button className={btn} onClick={() => setComposeOpen(true)}>MISC.</button>
@@ -378,8 +376,8 @@ export default function TWTE() {
 
       {/* Column 4 – CLRDEL + DE-ICE A + STAND */}
       <div className={`${W_COL_RIGHT} ${CLS_COL}`}>
-        <div className={`${clrDelActive ? activeHeader : lockedHeader} justify-between`}>
-          <span className={clrDelActive ? activeLabel : lockedLabel}>CLRDEL</span>
+        <div className={`${header} justify-between`}>
+          <span className={label}>CLRDEL</span>
           <span className="flex gap-1">
             <button className={btn} onClick={() => setNewIfrOpen(true)}>NEW</button>
             <button className={btn} onClick={() => setPlannedOpen(true)}>PLANNED</button>
@@ -391,8 +389,8 @@ export default function TWTE() {
           ))}
         </DropIndicatorBay>
 
-        <div className={`${lockedHeader} ${colSep} justify-between`}>
-          <span className={lockedLabel}>DE-ICE A</span>
+        <div className={`${header} ${colSep} justify-between`}>
+          <span className={label}>DE-ICE A</span>
           <span className="flex gap-1">
             <button className={btn}>DI A</button>
             <button className={btn}>DI B</button>
@@ -409,8 +407,8 @@ export default function TWTE() {
           {(strip) => <Strip strip={strip} status="PUSH" myPosition={myPosition} selectable={true} />}
         </SortableBay>
 
-        <div className={`${lockedHeader} ${colSep}`}>
-          <span className={lockedLabel}>STAND</span>
+        <div className={`${header} ${colSep}`}>
+          <span className={label}>STAND</span>
         </div>
         <SortableBay
           strips={standStrips}

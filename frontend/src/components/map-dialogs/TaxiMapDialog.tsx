@@ -1,5 +1,6 @@
-import { useWebSocketStore } from "@/store/store-hooks";
+import { useWebSocketStore, useRunwaySetup, useApronOnline, useTwrOnline, useIsTwr } from "@/store/store-hooks";
 import { TAXI_MAP_POINTS } from "@/config/ekch";
+import type { VisibilityContext } from "@/config/ekch";
 import { MAP_BTN_BASE, MapDialogShell, MapEraseControls } from "./MapDialogShell";
 
 interface TaxiMapDialogProps {
@@ -20,6 +21,25 @@ export function TaxiMapDialog({
   callsign,
 }: TaxiMapDialogProps) {
   const setReleasePoint = useWebSocketStore((s) => s.setReleasePoint);
+  const runwaySetup = useRunwaySetup();
+  const apronOnline = useApronOnline();
+  const twrOnline   = useTwrOnline();
+  const isTwr       = useIsTwr();
+  const strip   = useWebSocketStore((s) => s.strips.find((x) => x.callsign === callsign));
+  const airport = useWebSocketStore((s) => s.airport);
+
+  const stripType = strip?.origin === airport ? "dep"
+    : strip?.destination === airport ? "arr"
+    : undefined;
+
+  const visibilityContext: VisibilityContext = {
+    dep: runwaySetup.departure,
+    arr: runwaySetup.arrival,
+    stripType,
+    apronOnline,
+    twrOnline,
+    isTwr: isTwr ?? false,
+  };
 
   const handleSelect = (label: string) => {
     setReleasePoint(callsign, label);
@@ -43,6 +63,7 @@ export function TaxiMapDialog({
       points={TAXI_MAP_POINTS}
       btnStyle={BTN_STYLE}
       onSelect={handleSelect}
+      visibilityContext={visibilityContext}
     >
       {/* Controls panel — bottom-left */}
       <div

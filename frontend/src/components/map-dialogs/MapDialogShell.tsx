@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import * as VisuallyHidden from "@radix-ui/react-visually-hidden";
 import { useDragDisabled } from "@/components/bays/DragDisabledContext";
-import type { ClickPoint } from "@/config/ekch";
+import type { ClickPoint, VisibilityContext } from "@/config/ekch";
 
 // Map dialog color constants (used in CSSProperties style objects)
 const COLOR_MAP_BTN_BG    = "#D6D6D6"; // light grey button background
@@ -129,6 +129,12 @@ interface MapDialogShellProps {
    *            shrinking proportionally on narrower screens (still capped by viewport height).
    */
   scaleMode?: "height" | "width";
+  /**
+   * When provided, points with a `visible` predicate are filtered against this context,
+   * and points with a function `label` are resolved to a string.
+   * When omitted, all points render with their static label (backwards compatible).
+   */
+  visibilityContext?: VisibilityContext;
 }
 
 export function MapDialogShell({
@@ -138,6 +144,7 @@ export function MapDialogShell({
   selectedPoint,
   children,
   scaleMode = "height",
+  visibilityContext,
 }: MapDialogShellProps) {
   const { setDragDisabled } = useDragDisabled();
 
@@ -183,12 +190,18 @@ export function MapDialogShell({
               style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "fill", display: "block" }}
             />
 
-            {points.map((pt, i) => {
-              const isSelected = selectedPoint !== undefined && pt.label === selectedPoint;
+            {(visibilityContext
+              ? points.filter((pt) => !pt.visible || pt.visible(visibilityContext))
+              : points
+            ).map((pt, i) => {
+              const effectiveLabel = typeof pt.label === "function"
+                ? (visibilityContext ? pt.label(visibilityContext) : "")
+                : pt.label;
+              const isSelected = selectedPoint !== undefined && effectiveLabel === selectedPoint;
               return (
                 <button
                   key={i}
-                  onClick={() => onSelect(pt.label)}
+                  onClick={() => onSelect(effectiveLabel)}
                   style={{
                     ...btnStyle,
                     position: "absolute",
@@ -201,7 +214,7 @@ export function MapDialogShell({
                     ...(isSelected ? { backgroundColor: "#1D4ED8", color: "#FFFFFF" } : {}),
                   }}
                 >
-                  {pt.label}
+                  {effectiveLabel}
                 </button>
               );
             })}

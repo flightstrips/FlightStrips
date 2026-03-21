@@ -139,9 +139,10 @@ set(ALL_FILES
 )
 
 ################################################################################
-# Target
+# Target - OBJECT library so the plugin core has no external DLL dependencies.
+# The actual DLL is produced by the FlightStripsPluginCoreDll target below.
 ################################################################################
-add_library(${PROJECT_NAME} SHARED ${ALL_FILES})
+add_library(${PROJECT_NAME} OBJECT ${ALL_FILES})
 
 target_precompile_headers(${PROJECT_NAME} PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${CMAKE_CURRENT_SOURCE_DIR}/pch/pch.h>")
 
@@ -150,23 +151,6 @@ set(ROOT_NAMESPACE FlightStrips)
 
 set_target_properties(${PROJECT_NAME} PROPERTIES
         VS_GLOBAL_KEYWORD "Win32Proj"
-)
-
-################################################################################
-# Target name
-################################################################################
-set_target_properties(${PROJECT_NAME} PROPERTIES
-        TARGET_NAME_DEBUG "FlightStripsPluginCore"
-        TARGET_NAME_RELEASE "FlightStripsPluginCore"
-)
-
-################################################################################
-# Output directory
-################################################################################
-set_target_properties(${PROJECT_NAME} PROPERTIES
-        OUTPUT_DIRECTORY_DEBUG "${CMAKE_BINARY_DIR}/bin/"
-        OUTPUT_DIRECTORY_RELEASE "${CMAKE_BINARY_DIR}/bin/"
-        INTERPROCEDURAL_OPTIMIZATION_RELEASE "TRUE"
 )
 
 ################################################################################
@@ -228,7 +212,55 @@ if (MSVC)
                 /Zm200;
                 ${DEFAULT_CXX_EXCEPTION_HANDLING}
         )
-        target_link_options(${PROJECT_NAME} PRIVATE
+endif ()
+
+################################################################################
+# Dependencies
+################################################################################
+
+# Link with other targets.
+target_link_libraries(${PROJECT_NAME} PUBLIC
+        FlightStripsPluginUtils
+)
+
+################################################################################
+# DLL wrapper target — produces FlightStripsPluginCore.dll.
+# All external DLL / import-library dependencies live here so that the
+# OBJECT library (plugin core) remains dependency-free.
+################################################################################
+set(DLL_TARGET FlightStripsPluginCoreDll)
+
+add_library(${DLL_TARGET} SHARED $<TARGET_OBJECTS:${PROJECT_NAME}>)
+
+use_props(${DLL_TARGET} "${CMAKE_CONFIGURATION_TYPES}" "${DEFAULT_CXX_PROPS}")
+
+set_target_properties(${DLL_TARGET} PROPERTIES
+        OUTPUT_NAME "FlightStripsPluginCore"
+        VS_GLOBAL_KEYWORD "Win32Proj"
+)
+
+set_target_properties(${DLL_TARGET} PROPERTIES
+        TARGET_NAME_DEBUG   "FlightStripsPluginCore"
+        TARGET_NAME_RELEASE "FlightStripsPluginCore"
+)
+
+set_target_properties(${DLL_TARGET} PROPERTIES
+        OUTPUT_DIRECTORY_DEBUG   "${CMAKE_BINARY_DIR}/bin/"
+        OUTPUT_DIRECTORY_RELEASE "${CMAKE_BINARY_DIR}/bin/"
+        INTERPROCEDURAL_OPTIMIZATION_RELEASE "TRUE"
+)
+
+get_property(MSVC_RUNTIME_LIBRARY_DEFAULT TARGET ${DLL_TARGET} PROPERTY MSVC_RUNTIME_LIBRARY)
+string(CONCAT "MSVC_RUNTIME_LIBRARY_STR_DLL"
+        $<$<CONFIG:Debug>:MultiThreadedDebugDLL>
+        $<$<CONFIG:Release>:MultiThreadedDLL>
+        $<$<NOT:$<OR:$<CONFIG:Debug>,$<CONFIG:Release>>>:${MSVC_RUNTIME_LIBRARY_DEFAULT}>
+)
+set_target_properties(${DLL_TARGET} PROPERTIES MSVC_RUNTIME_LIBRARY ${MSVC_RUNTIME_LIBRARY_STR_DLL})
+set_property(TARGET ${DLL_TARGET} PROPERTY CXX_STANDARD 20)
+
+if (MSVC)
+        target_link_options(${DLL_TARGET} PRIVATE
                 $<$<CONFIG:Debug>:
                 /DEBUG:FULL;
                 /INCREMENTAL
@@ -245,17 +277,8 @@ if (MSVC)
         )
 endif ()
 
-################################################################################
-# Dependencies
-################################################################################
-add_dependencies(${PROJECT_NAME}
-        FlightStripsPluginUtils
-)
-
-# Link with other targets.
-target_link_libraries(${PROJECT_NAME} PUBLIC
-        FlightStripsPluginUtils
-)
+# Inherit include dirs and FlightStripsPluginUtils from the OBJECT library.
+target_link_libraries(${DLL_TARGET} PUBLIC ${PROJECT_NAME})
 
 set(ADDITIONAL_LIBRARY_DEPENDENCIES
         "kernel32"
@@ -281,19 +304,19 @@ set(ADDITIONAL_LIBRARY_DEPENDENCIES
         "comctl32"
 )
 
-target_link_libraries(${PROJECT_NAME} PRIVATE libcrypto.lib libssl.lib libcurl_a.lib)
+target_link_libraries(${DLL_TARGET} PRIVATE libcrypto.lib libssl.lib libcurl_a.lib)
 
-target_link_libraries(${PROJECT_NAME} PUBLIC ${ADDITIONAL_LIBRARY_DEPENDENCIES})
+target_link_libraries(${DLL_TARGET} PUBLIC ${ADDITIONAL_LIBRARY_DEPENDENCIES})
 
 
 add_custom_command(
-        TARGET ${PROJECT_NAME} POST_BUILD
+        TARGET ${DLL_TARGET} POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy
         ${CMAKE_SOURCE_DIR}/src/config.ini
         ${PROJECT_BINARY_DIR}/bin/$<IF:$<CONFIG:Debug>,flightstrips_config_prod.ini,flightstrips_config.ini>)
 
 add_custom_command(
-        TARGET ${PROJECT_NAME} POST_BUILD
+        TARGET ${DLL_TARGET} POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy
         ${CMAKE_SOURCE_DIR}/src/config_dev.ini
         ${PROJECT_BINARY_DIR}/bin/$<IF:$<CONFIG:Debug>,flightstrips_config.ini,flightstrips_config_dev.ini>)

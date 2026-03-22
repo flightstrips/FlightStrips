@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.2](https://github.com/flightstrips/FlightStrips/compare/backend/v0.9.1...backend/v0.9.2) (2026-03-22)
+
+
+### Bug Fixes
+
+* atis ([63e0b23](https://github.com/flightstrips/FlightStrips/commit/63e0b230ba629365c2d63e9f68bcab866b8f5e97))
+
 ## [0.9.1](https://github.com/flightstrips/FlightStrips/compare/backend/v0.9.0...backend/v0.9.1) (2026-03-22)
 
 

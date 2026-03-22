@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.14.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.13.1...frontend/v0.14.0) (2026-03-22)
+
+
+### Features
+
+* GEGW, commandbar + small fixes ([bf4d091](https://github.com/flightstrips/FlightStrips/commit/bf4d0910fc39baf35538b0b1da5d931f15963fc6))
+
+
+### Bug Fixes
+
+* atis ([63e0b23](https://github.com/flightstrips/FlightStrips/commit/63e0b230ba629365c2d63e9f68bcab866b8f5e97))
+* display TWY on click point ([0037c9f](https://github.com/flightstrips/FlightStrips/commit/0037c9f37e6e46367c66da67b1ef8a076175357e))
+* small fixes on GEGW view ([4516ad3](https://github.com/flightstrips/FlightStrips/commit/4516ad35c7e551c25281b05921c8e2f4509be41a))
+
 ## [0.13.1](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.13.0...frontend/v0.13.1) (2026-03-22)
 
 

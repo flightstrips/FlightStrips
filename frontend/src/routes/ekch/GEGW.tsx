@@ -11,7 +11,6 @@ import {
   useRwyArrStrips,
   useStandStrips,
   useTaxiArrStrips,
-  useTaxiDepStrips,
   useTaxiDepLwrStrips,
   useDeIceStrips,
   useAirborneStrips,
@@ -19,13 +18,14 @@ import {
   isFlight,
 } from "@/store/airports/ekch.ts";
 import type { AnyStrip, FrontendStrip, StripRef } from "@/api/models.ts";
-import { Bay, stripDndId } from "@/api/models.ts";
-import { SortableBay, DropIndicatorBay } from "@/components/bays/SortableBay.tsx";
+import { Bay } from "@/api/models.ts";
+import { SortableBay } from "@/components/bays/SortableBay.tsx";
 import { ViewDndContext } from "@/components/bays/ViewDndContext.tsx";
 import { useWebSocketStore, useMyPosition, useMessages, useDelOnline, useApronOnline } from "@/store/store-hooks.ts";
 import { StripListPopup, type SortMode } from "@/components/StripListPopup.tsx";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { CLX_CLEARED_STRIP_WIDTH } from "@/components/strip/ClxClearedStrip.tsx";
+import { TWY_DEP_STRIP_WIDTH } from "@/components/strip/types";
 import { CLS_BTN, CLS_BTN_ORANGE, CLS_BTN_BLUE, CLS_BTN_YELLOW, CLS_SCROLLBAR, CLS_COL } from "@/components/strip/shared";
 import { NewIfrDialog } from "@/components/strip/NewIfrDialog";
 import { PlannedDialog } from "@/components/strip/PlannedDialog";
@@ -40,8 +40,9 @@ const pageWrapper  = "bg-[#A9A9A9] w-screen h-[calc(100vh-60px)] flex justify-ce
 const header       = "bg-[#393939] h-10 flex items-center px-2 shrink-0";
 const label        = "text-white font-bold text-lg";
 const colSep       = "border-t-4 border-[#A9A9A9]";
-const scrollArea     = `w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto ${CLS_SCROLLBAR}`;
-const darkScrollArea = `w-full bg-[#212121] p-1 flex flex-col gap-px overflow-y-auto ${CLS_SCROLLBAR}`;
+const scrollArea           = `w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto ${CLS_SCROLLBAR}`;
+const scrollAreaBottom     = `w-full bg-[#555355] p-1 flex flex-col justify-end gap-px overflow-y-auto ${CLS_SCROLLBAR}`;
+const darkScrollArea       = `w-full bg-[#212121] p-1 flex flex-col gap-px overflow-y-auto ${CLS_SCROLLBAR}`;
 
 export default function GEGW() {
   const myPosition = useMyPosition();
@@ -56,8 +57,8 @@ export default function GEGW() {
   const twyArrStrips   = useTaxiArrStrips();
   const pushStrips     = usePushbackStrips();
   const startupStrips  = useClearedStrips();
-  const twyDepUpr      = useTaxiDepStrips();
-  const twyDepLwr      = useTaxiDepLwrStrips();
+  const twyDepAll      = useTaxiDepLwrStrips();
+  const twyDepDesc     = useMemo(() => [...twyDepAll].reverse(), [twyDepAll]);
   const rwyDepStrips   = useDepartStrips();
   const airborneStrips = useAirborneStrips();
   const deIceStrips    = useDeIceStrips();
@@ -84,25 +85,26 @@ export default function GEGW() {
   const nonClearedStrips = useNonClearedStrips();
 
   const bayStripMap = {
-    "STARTUP":     { strips: startupStrips,  targetBay: Bay.Cleared },
-    "PUSHBACK":    { strips: pushStrips,      targetBay: Bay.Push },
-    "TWY-DEP-UPR": { strips: twyDepUpr,      targetBay: Bay.Taxi },
-    "TWY-DEP-LWR": { strips: twyDepLwr,      targetBay: Bay.TaxiLwr },
-    "RWY-DEP":     { strips: rwyDepStrips,   targetBay: Bay.Depart },
-    "AIRBORNE":    { strips: airborneStrips, targetBay: Bay.Airborne },
-    "DE-ICE":      { strips: deIceStrips,    targetBay: Bay.DeIce },
-    "STAND":       { strips: standStrips,    targetBay: Bay.Stand },
+    "STARTUP":  { strips: startupStrips,               targetBay: Bay.Cleared },
+    "PUSHBACK": { strips: pushStrips,                  targetBay: Bay.Push },
+    "TWY-DEP":  { strips: twyDepDesc,                  targetBay: Bay.TaxiLwr,  descending: true },
+    "RWY-DEP":  { strips: rwyDepStrips,               targetBay: Bay.Depart },
+    "AIRBORNE": { strips: airborneStrips,              targetBay: Bay.Airborne },
+    "DE-ICE":   { strips: deIceStrips,                targetBay: Bay.DeIce },
+    "STAND":    { strips: standStrips,                targetBay: Bay.Stand },
+    "FINAL":    { strips: finalStrips.filter(isFlight),    targetBay: Bay.Final },
+    "RWY-ARR":  { strips: rwyArrStrips.filter(isFlight),   targetBay: Bay.RwyArr },
+    "TWY-ARR":  { strips: twyArrStrips,               targetBay: Bay.TwyArr },
   };
 
   const transferRules: Record<string, string[]> = {
-    "STARTUP":     ["PUSHBACK", "TWY-DEP-UPR", "TWY-DEP-LWR", "DE-ICE", "STAND"],
-    "PUSHBACK":    ["STARTUP",  "TWY-DEP-UPR", "TWY-DEP-LWR", "DE-ICE", "STAND"],
-    "TWY-DEP-UPR": ["STARTUP",  "PUSHBACK",    "TWY-DEP-LWR", "DE-ICE", "STAND"],
-    "TWY-DEP-LWR": ["STARTUP",  "PUSHBACK",    "TWY-DEP-UPR", "DE-ICE", "STAND"],
-    "RWY-DEP":     ["TWY-DEP-UPR", "TWY-DEP-LWR", "AIRBORNE"],
-    "AIRBORNE":    ["RWY-DEP"],
-    "DE-ICE":      ["STARTUP",  "PUSHBACK",    "TWY-DEP-UPR", "TWY-DEP-LWR"],
-    "STAND":       ["STARTUP",  "PUSHBACK",    "TWY-DEP-UPR", "TWY-DEP-LWR"],
+    "STARTUP":  ["PUSHBACK", "TWY-DEP", "DE-ICE", "STAND"],
+    "PUSHBACK": ["STARTUP",  "TWY-DEP", "DE-ICE", "STAND"],
+    "TWY-DEP":  ["STARTUP",  "PUSHBACK", "DE-ICE", "STAND"],
+    "RWY-DEP":  ["TWY-DEP",  "AIRBORNE"],
+    "AIRBORNE": ["RWY-DEP"],
+    "DE-ICE":   ["STARTUP",  "PUSHBACK", "TWY-DEP"],
+    "STAND":    ["STARTUP",  "PUSHBACK", "TWY-DEP"],
   };
 
   return (
@@ -118,12 +120,14 @@ export default function GEGW() {
         if (!isFlight(strip)) return <Strip strip={strip} width={CLX_CLEARED_STRIP_WIDTH} />;
         if (strip.bay === Bay.Cleared)   return <Strip strip={strip} status="PUSH" myPosition={myPosition} />;
         if (strip.bay === Bay.Push)      return <Strip strip={strip} status="HALF" halfStripVariant="APN-PUSH" myPosition={myPosition} />;
-        if (strip.bay === Bay.Taxi)      return <Strip strip={strip} status="CLROK" myPosition={myPosition} />;
-        if (strip.bay === Bay.TaxiLwr)   return <Strip strip={strip} status="CLROK" myPosition={myPosition} />;
+        if (strip.bay === Bay.TaxiLwr)   return <div style={{ width: TWY_DEP_STRIP_WIDTH }}><Strip strip={strip} status="TWY-DEP" myPosition={myPosition} fullWidth /></div>;
         if (strip.bay === Bay.Depart)    return <Strip strip={strip} status="CLROK" myPosition={myPosition} />;
         if (strip.bay === Bay.Airborne)  return <Strip strip={strip} status="CLROK" myPosition={myPosition} />;
         if (strip.bay === Bay.DeIce)     return <Strip strip={strip} status="PUSH" myPosition={myPosition} />;
         if (strip.bay === Bay.Stand)     return <Strip strip={strip} status="ARR" myPosition={myPosition} />;
+        if (strip.bay === Bay.Final)     return <Strip strip={strip} status="FINAL-ARR" myPosition={myPosition} />;
+        if (strip.bay === Bay.RwyArr)    return <Strip strip={strip} status="FINAL-ARR" myPosition={myPosition} />;
+        if (strip.bay === Bay.TwyArr)    return <Strip strip={strip} status="FINAL-ARR" myPosition={myPosition} />;
         return null;
       }}
     >
@@ -135,20 +139,32 @@ export default function GEGW() {
           <span className={label}>FINAL</span>
           <button className={CLS_BTN} onClick={() => setArrOpen(true)}>ARR</button>
         </div>
-        <DropIndicatorBay bayId="FINAL" className={`h-[25%] ${scrollArea}`}>
-          {finalStrips.filter(isFlight).map(s => (
-            <Strip key={s.callsign} strip={s} status="FINAL-ARR" selectable={false} myPosition={myPosition} />
-          ))}
-        </DropIndicatorBay>
+        <SortableBay
+          strips={finalStrips.filter(isFlight)}
+          bayId="FINAL"
+          isDragDisabled={(strip) => isFlight(strip) && !!strip.owner && strip.owner !== myPosition}
+          standalone={false}
+          className={`h-[25%] ${scrollArea}`}
+        >
+          {(strip) => (
+            <Strip strip={strip} status="FINAL-ARR" selectable={false} myPosition={myPosition} />
+          )}
+        </SortableBay>
 
         <div className={`${header} ${colSep}`}>
           <span className={label}>RWY ARR</span>
         </div>
-        <DropIndicatorBay bayId="RWY-ARR" className={`h-[20%] ${darkScrollArea}`}>
-          {rwyArrStrips.filter(isFlight).map(s => (
-            <Strip key={s.callsign} strip={s} status="FINAL-ARR" selectable={false} myPosition={myPosition} />
-          ))}
-        </DropIndicatorBay>
+        <SortableBay
+          strips={rwyArrStrips.filter(isFlight)}
+          bayId="RWY-ARR"
+          isDragDisabled={(strip) => isFlight(strip) && !!strip.owner && strip.owner !== myPosition}
+          standalone={false}
+          className={`h-[20%] ${darkScrollArea}`}
+        >
+          {(strip) => (
+            <Strip strip={strip} status="FINAL-ARR" selectable={false} myPosition={myPosition} />
+          )}
+        </SortableBay>
 
         <div className={`${header} ${colSep} justify-between`}>
           <span className={label}>TWY ARR</span>
@@ -159,11 +175,17 @@ export default function GEGW() {
             <CrossingButton bay={Bay.TwyArr} className={CLS_BTN_YELLOW} />
           </span>
         </div>
-        <DropIndicatorBay bayId="TWY-ARR" className={`flex-1 ${scrollArea}`}>
-          {twyArrStrips.map(s => (
-            <Strip key={stripDndId(s)} strip={s} status="FINAL-ARR" myPosition={myPosition} />
-          ))}
-        </DropIndicatorBay>
+        <SortableBay
+          strips={twyArrStrips}
+          bayId="TWY-ARR"
+          isDragDisabled={(strip) => isFlight(strip) && !!strip.owner && strip.owner !== myPosition}
+          standalone={false}
+          className={`flex-1 ${scrollArea}`}
+        >
+          {(strip) => (
+            <Strip strip={strip} status="FINAL-ARR" myPosition={myPosition} />
+          )}
+        </SortableBay>
 
         {arrOpen && (
           <StripListPopup
@@ -202,32 +224,21 @@ export default function GEGW() {
           <span className={label}>TWY DEP</span>
           <span className="flex gap-1">
             <button className={CLS_BTN} onClick={() => setNewOpen(true)}>NEW</button>
-            <MemAidButton bay={Bay.Taxi} className={CLS_BTN_BLUE} />
-            <LandButton bay={Bay.Taxi} className={CLS_BTN_ORANGE} />
-            <StartButton bay={Bay.Taxi} className={CLS_BTN_ORANGE} />
-            <CrossingButton bay={Bay.Taxi} className={CLS_BTN_YELLOW} />
+            <MemAidButton bay={Bay.TaxiLwr} className={CLS_BTN_BLUE} />
+            <LandButton bay={Bay.TaxiLwr} className={CLS_BTN_ORANGE} />
+            <StartButton bay={Bay.TaxiLwr} className={CLS_BTN_ORANGE} />
+            <CrossingButton bay={Bay.TaxiLwr} className={CLS_BTN_YELLOW} />
           </span>
         </div>
         <SortableBay
-          strips={twyDepUpr}
-          bayId="TWY-DEP-UPR"
+          strips={twyDepDesc}
+          bayId="TWY-DEP"
           isDragDisabled={(strip) => isFlight(strip) && !!strip.owner && strip.owner !== myPosition}
           standalone={false}
-          className={`h-[30%] ${scrollArea}`}
+          className={`h-[35%] ${scrollAreaBottom}`}
         >
           {(strip) => (
-            <Strip strip={strip} status="CLROK" myPosition={myPosition} width={CLX_CLEARED_STRIP_WIDTH} selectable={true} />
-          )}
-        </SortableBay>
-        <SortableBay
-          strips={twyDepLwr}
-          bayId="TWY-DEP-LWR"
-          isDragDisabled={(strip) => isFlight(strip) && !!strip.owner && strip.owner !== myPosition}
-          standalone={false}
-          className={`h-[15%] ${scrollArea}`}
-        >
-          {(strip) => (
-            <Strip strip={strip} status="CLROK" myPosition={myPosition} width={CLX_CLEARED_STRIP_WIDTH} selectable={true} />
+            <Strip strip={strip} status="TWY-DEP" myPosition={myPosition} width={TWY_DEP_STRIP_WIDTH} selectable={true} />
           )}
         </SortableBay>
 

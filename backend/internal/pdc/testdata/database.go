@@ -125,6 +125,7 @@ func SeedTestStrip(t *testing.T, queries *database.Queries, sessionID int32, cal
 		Squawk:         ptr("2401"),
 		AssignedSquawk: ptr("2401"),
 		Bay:            "NOT_CLEARED",
+		CdmData:        []byte(`{"canonical":{}}`),
 	})
 	require.NoError(t, err)
 }

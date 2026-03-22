@@ -91,16 +91,8 @@ type Strip struct {
 	PositionLatitude         *float64
 	PositionLongitude        *float64
 	PositionAltitude         *int32
-	Tobt                     *string
-	Tsat                     *string
-	Ttot                     *string
-	Ctot                     *string
-	Aobt                     *string
-	Asat                     *string
-	Eobt                     *string
 	NextOwners               []string
 	PreviousOwners           []string
-	CdmStatus                *string
 	ReleasePoint             *string
 	PdcState                 string
 	PdcRequestedAt           pgtype.Timestamp
@@ -117,6 +109,8 @@ type Strip struct {
 	PersonsOnBoard           *int32
 	FplType                  *string
 	Language                 *string
+	HasFp                    bool
+	CdmData                  []byte
 }
 
 type TacticalStrip struct {

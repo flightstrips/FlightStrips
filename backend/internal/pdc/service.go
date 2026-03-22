@@ -302,17 +302,17 @@ func (s *Service) IssueClearance(ctx context.Context, callsign, remarks, cid str
 	}
 
 	options := ClearanceOptions{
-		Callsign:      strip.Callsign,
-		Origin:        strip.Origin,
-		Destination:   strip.Destination,
-		Atis:          "A",
-		Runway:        *strip.Runway,
-		Squawk:        *strip.Squawk,
+		Callsign:           strip.Callsign,
+		Origin:             strip.Origin,
+		Destination:        strip.Destination,
+		Atis:               "A",
+		Runway:             *strip.Runway,
+		Squawk:             *strip.Squawk,
 		NextFrequency:      nextFreq,
 		DepartureFrequency: departureFreq,
 		Sequence:           nextSeq,
-		PdcSequence:   nextPdcSeq,
-		Remarks:       remarks,
+		PdcSequence:        nextPdcSeq,
+		Remarks:            remarks,
 	}
 
 	if strip.Heading != nil && *strip.Heading != 0 && strip.ClearedAltitude != nil && *strip.ClearedAltitude > 0 {
@@ -744,8 +744,8 @@ func (s *Service) validatePDCFlightPlan(strip *models.Strip) []string {
 	}
 
 	// Check EOBT timing
-	if strip.Eobt != nil && *strip.Eobt != "" {
-		eobtStr := *strip.Eobt
+	if strip.EffectiveEobt() != nil && *strip.EffectiveEobt() != "" {
+		eobtStr := *strip.EffectiveEobt()
 		// Parse HHMM format
 		if len(eobtStr) >= 4 {
 			hourStr := eobtStr[:2]

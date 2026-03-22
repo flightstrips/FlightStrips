@@ -58,10 +58,9 @@ type StripRepository interface {
 	SetNextAndPreviousOwners(ctx context.Context, session int32, callsign string, nextOwners []string, previousOwners []string) error
 
 	// CDM data
-	GetCdmData(ctx context.Context, session int32) ([]*models.CdmData, error)
+	GetCdmData(ctx context.Context, session int32) ([]*models.CdmDataRow, error)
 	GetCdmDataForCallsign(ctx context.Context, session int32, callsign string) (*models.CdmData, error)
-	UpdateCdmData(ctx context.Context, session int32, callsign string, tobt *string, tsat *string, ttot *string, ctot *string, aobt *string, eobt *string, cdmStatus *string) (int64, error)
-	SetCdmStatus(ctx context.Context, session int32, callsign string, cdmStatus *string) (int64, error)
+	SetCdmData(ctx context.Context, session int32, callsign string, data *models.CdmData) (int64, error)
 
 	// Release point
 	UpdateReleasePoint(ctx context.Context, session int32, callsign string, releasePoint *string) (int64, error)

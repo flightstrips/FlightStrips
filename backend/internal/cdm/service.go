@@ -39,7 +39,7 @@ func (s *Service) SetReady(ctx context.Context, session int32, callsign string) 
 		return err
 	}
 
-	if cdmData.CdmStatus != nil && *cdmData.CdmStatus == "REA" {
+	if cdmData.EffectiveStatus() != nil && *cdmData.EffectiveStatus() == "REA" {
 		return nil
 	}
 
@@ -48,7 +48,9 @@ func (s *Service) SetReady(ctx context.Context, session int32, callsign string) 
 	}
 
 	rea := "REA"
-	rows, err := s.stripRepo.SetCdmStatus(ctx, session, callsign, &rea)
+	updated := cdmData.Clone()
+	updated.Canonical.Status = &rea
+	rows, err := s.stripRepo.SetCdmData(ctx, session, callsign, updated)
 	if err != nil {
 		return err
 	}
@@ -76,7 +78,7 @@ func (s *Service) RequestBetterTobt(ctx context.Context, session int32, callsign
 		return err
 	}
 
-	if cdmData.CdmStatus != nil && *cdmData.CdmStatus == status {
+	if cdmData.EffectiveStatus() != nil && *cdmData.EffectiveStatus() == status {
 		return nil
 	}
 
@@ -85,7 +87,9 @@ func (s *Service) RequestBetterTobt(ctx context.Context, session int32, callsign
 		return err
 	}
 
-	rows, err := s.stripRepo.SetCdmStatus(ctx, session, callsign, &status)
+	updated := cdmData.Clone()
+	updated.Canonical.Status = &status
+	rows, err := s.stripRepo.SetCdmData(ctx, session, callsign, updated)
 	if err != nil {
 		return err
 	}
@@ -142,7 +146,7 @@ func (s *Service) syncCdmData(ctx context.Context, session *models.Session) erro
 
 	lookup := make(map[string]*models.CdmData)
 	for _, row := range currentData {
-		lookup[row.Callsign] = row
+		lookup[row.Callsign] = row.Data
 	}
 
 	newData, err := s.client.IFPSByDepartureAirport(ctx, airport)
@@ -160,19 +164,51 @@ func (s *Service) syncCdmData(ctx context.Context, session *models.Session) erro
 			if len(ttot) > 4 {
 				ttot = ttot[:4]
 			}
-			if helpers.ValueOrDefault(flight.CdmStatus) != row.CDMStatus ||
-				helpers.ValueOrDefault(flight.Aobt) != row.AOBT ||
-				helpers.ValueOrDefault(flight.Eobt) != row.EOBT ||
-				helpers.ValueOrDefault(flight.Ctot) != row.CTOT ||
-				helpers.ValueOrDefault(flight.Tobt) != row.TOBT ||
-				helpers.ValueOrDefault(flight.Tsat) != tsat ||
-				helpers.ValueOrDefault(flight.Ttot) != ttot {
-				_, err = s.stripRepo.UpdateCdmData(ctx, session.ID, row.Callsign, &row.TOBT, &tsat, &ttot, &row.CTOT, &row.AOBT, &row.EOBT, &row.CDMStatus)
-				if err != nil {
+			if helpers.ValueOrDefault(flight.Canonical.Status) != row.CDMStatus ||
+				helpers.ValueOrDefault(flight.Canonical.Aobt) != row.AOBT ||
+				helpers.ValueOrDefault(flight.Canonical.Eobt) != row.EOBT ||
+				helpers.ValueOrDefault(flight.Canonical.Ctot) != row.CTOT ||
+				helpers.ValueOrDefault(flight.Canonical.Tobt) != row.TOBT ||
+				helpers.ValueOrDefault(flight.Canonical.Tsat) != tsat ||
+				helpers.ValueOrDefault(flight.Canonical.Ttot) != ttot {
+				previousEffectiveEobt := helpers.ValueOrDefault(flight.EffectiveEobt())
+				previousEffectiveTobt := helpers.ValueOrDefault(flight.EffectiveTobt())
+				previousEffectiveTsat := helpers.ValueOrDefault(flight.EffectiveTsat())
+				previousEffectiveCtot := helpers.ValueOrDefault(flight.EffectiveCtot())
+
+				updated := flight.Clone()
+				updated.Canonical.Tobt = &row.TOBT
+				updated.Canonical.Tsat = &tsat
+				updated.Canonical.Ttot = &ttot
+				updated.Canonical.Ctot = &row.CTOT
+				updated.Canonical.Aobt = &row.AOBT
+				updated.Canonical.Eobt = &row.EOBT
+				updated.Canonical.Status = &row.CDMStatus
+				updated.Canonical.Source = "ifps"
+				now := time.Now().UTC()
+				updated.Canonical.UpdatedAt = &now
+				updated.ClearMatchingLocalOverride("tobt", updated.Canonical.Tobt)
+				updated.ClearMatchingLocalOverride("tsat", updated.Canonical.Tsat)
+				updated.ClearMatchingLocalOverride("ttot", updated.Canonical.Ttot)
+				updated.ClearMatchingLocalOverride("ctot", updated.Canonical.Ctot)
+
+				if _, err = s.stripRepo.SetCdmData(ctx, session.ID, row.Callsign, updated); err != nil {
 					return err
 				}
 
-				s.frontendHub.SendCdmUpdate(session.ID, row.Callsign, row.EOBT, row.TOBT, tsat, row.CTOT)
+				if previousEffectiveEobt != helpers.ValueOrDefault(updated.EffectiveEobt()) ||
+					previousEffectiveTobt != helpers.ValueOrDefault(updated.EffectiveTobt()) ||
+					previousEffectiveTsat != helpers.ValueOrDefault(updated.EffectiveTsat()) ||
+					previousEffectiveCtot != helpers.ValueOrDefault(updated.EffectiveCtot()) {
+					s.frontendHub.SendCdmUpdate(
+						session.ID,
+						row.Callsign,
+						helpers.ValueOrDefault(updated.EffectiveEobt()),
+						helpers.ValueOrDefault(updated.EffectiveTobt()),
+						helpers.ValueOrDefault(updated.EffectiveTsat()),
+						helpers.ValueOrDefault(updated.EffectiveCtot()),
+					)
+				}
 			}
 		}
 	}

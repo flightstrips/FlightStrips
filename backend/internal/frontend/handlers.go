@@ -177,7 +177,7 @@ func handleStripUpdate(ctx context.Context, client *Client, message Message) err
 		}
 	}
 
-	if event.Eobt != nil && strip.Eobt != event.Eobt {
+	if event.Eobt != nil && strip.EffectiveEobt() != event.Eobt {
 		slog.Warn("EOBT updates are currently not supported and will be ignored", slog.String("callsign", event.Callsign))
 		// TODO add support
 	}

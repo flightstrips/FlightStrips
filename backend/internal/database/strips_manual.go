@@ -42,7 +42,20 @@ UPDATE strips
 SET destination        = $3,
     sid                = COALESCE($4, sid),
     assigned_squawk    = COALESCE($5, assigned_squawk),
-    eobt               = COALESCE($6, eobt),
+    cdm_data           = CASE
+                           WHEN $6 IS NULL THEN cdm_data
+                           ELSE jsonb_set(
+                               jsonb_set(
+                                   cdm_data,
+                                   '{canonical}',
+                                   COALESCE(cdm_data->'canonical', '{}'::jsonb),
+                                   true
+                               ),
+                               '{canonical,eobt}',
+                               to_jsonb($6::text),
+                               true
+                           )
+                         END,
     aircraft_type      = COALESCE($7, aircraft_type),
     requested_altitude = COALESCE($8, requested_altitude),
     route              = COALESCE($9, route),

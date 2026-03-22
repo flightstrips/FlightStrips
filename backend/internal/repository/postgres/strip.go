@@ -4,6 +4,7 @@ import (
 	"FlightStrips/internal/database"
 	"FlightStrips/internal/models"
 	"context"
+	"encoding/json"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -20,85 +21,105 @@ func NewStripRepository(db *pgxpool.Pool) *stripRepository {
 	}
 }
 
-// stripToModel converts database.Strip to models.Strip
-func stripToModel(db database.Strip) *models.Strip {
-	return &models.Strip{
-		ID:                 db.ID,
-		Version:            db.Version,
-		Callsign:           db.Callsign,
-		Session:            db.Session,
-		Origin:             db.Origin,
-		Destination:        db.Destination,
-		Alternative:        db.Alternative,
-		Route:              db.Route,
-		Remarks:            db.Remarks,
-		AssignedSquawk:     db.AssignedSquawk,
-		Squawk:             db.Squawk,
-		Sid:                db.Sid,
-		ClearedAltitude:    db.ClearedAltitude,
-		Heading:            db.Heading,
-		AircraftType:       db.AircraftType,
-		Runway:             db.Runway,
-		RequestedAltitude:  db.RequestedAltitude,
-		Capabilities:       db.Capabilities,
-		CommunicationType:  db.CommunicationType,
-		AircraftCategory:   db.AircraftCategory,
-		Stand:              db.Stand,
-		Sequence:           db.Sequence,
-		State:              db.State,
-		Cleared:            db.Cleared,
-		Owner:              db.Owner,
-		Bay:                db.Bay,
-		PositionLatitude:   db.PositionLatitude,
-		PositionLongitude:  db.PositionLongitude,
-		PositionAltitude:   db.PositionAltitude,
-		Tobt:               db.Tobt,
-		Tsat:               db.Tsat,
-		Ttot:               db.Ttot,
-		Ctot:               db.Ctot,
-		Aobt:               db.Aobt,
-		Asat:               db.Asat,
-		Eobt:               db.Eobt,
-		NextOwners:         db.NextOwners,
-		PreviousOwners:     db.PreviousOwners,
-		CdmStatus:          db.CdmStatus,
-		ReleasePoint:       db.ReleasePoint,
-		PdcState:           db.PdcState,
-		PdcRequestedAt:     PgTimestampToTime(db.PdcRequestedAt),
-		PdcMessageSequence: db.PdcMessageSequence,
-		PdcMessageSent:     PgTimestampToTime(db.PdcMessageSent),
-		Marked:                 db.Marked,
-		Registration:           db.Registration,
-		TrackingController:     db.TrackingController,
-		EngineType:             db.EngineType,
-		RunwayCleared:          db.RunwayCleared,
-		UnexpectedChangeFields:  db.UnexpectedChangeFields,
-		ControllerModifiedFields: db.ControllerModifiedFields,
+func marshalCdmData(data *models.CdmData) ([]byte, error) {
+	return json.Marshal(data.Normalize())
+}
+
+func unmarshalCdmData(raw []byte) (*models.CdmData, error) {
+	if len(raw) == 0 {
+		return (&models.CdmData{}).Normalize(), nil
 	}
+
+	var data models.CdmData
+	if err := json.Unmarshal(raw, &data); err != nil {
+		return nil, err
+	}
+
+	return data.Normalize(), nil
+}
+
+// stripToModel converts database.Strip to models.Strip
+func stripToModel(db database.Strip) (*models.Strip, error) {
+	cdmData, err := unmarshalCdmData(db.CdmData)
+	if err != nil {
+		return nil, err
+	}
+
+	return &models.Strip{
+		ID:                       db.ID,
+		Version:                  db.Version,
+		Callsign:                 db.Callsign,
+		Session:                  db.Session,
+		Origin:                   db.Origin,
+		Destination:              db.Destination,
+		Alternative:              db.Alternative,
+		Route:                    db.Route,
+		Remarks:                  db.Remarks,
+		AssignedSquawk:           db.AssignedSquawk,
+		Squawk:                   db.Squawk,
+		Sid:                      db.Sid,
+		ClearedAltitude:          db.ClearedAltitude,
+		Heading:                  db.Heading,
+		AircraftType:             db.AircraftType,
+		Runway:                   db.Runway,
+		RequestedAltitude:        db.RequestedAltitude,
+		Capabilities:             db.Capabilities,
+		CommunicationType:        db.CommunicationType,
+		AircraftCategory:         db.AircraftCategory,
+		Stand:                    db.Stand,
+		Sequence:                 db.Sequence,
+		State:                    db.State,
+		Cleared:                  db.Cleared,
+		Owner:                    db.Owner,
+		Bay:                      db.Bay,
+		PositionLatitude:         db.PositionLatitude,
+		PositionLongitude:        db.PositionLongitude,
+		PositionAltitude:         db.PositionAltitude,
+		CdmData:                  cdmData,
+		NextOwners:               db.NextOwners,
+		PreviousOwners:           db.PreviousOwners,
+		ReleasePoint:             db.ReleasePoint,
+		PdcState:                 db.PdcState,
+		PdcRequestedAt:           PgTimestampToTime(db.PdcRequestedAt),
+		PdcMessageSequence:       db.PdcMessageSequence,
+		PdcMessageSent:           PgTimestampToTime(db.PdcMessageSent),
+		Marked:                   db.Marked,
+		Registration:             db.Registration,
+		TrackingController:       db.TrackingController,
+		EngineType:               db.EngineType,
+		RunwayCleared:            db.RunwayCleared,
+		UnexpectedChangeFields:   db.UnexpectedChangeFields,
+		ControllerModifiedFields: db.ControllerModifiedFields,
+	}, nil
 }
 
 // Create inserts a new strip
 func (r *stripRepository) Create(ctx context.Context, strip *models.Strip) error {
+	cdmData, err := marshalCdmData(strip.CdmData)
+	if err != nil {
+		return err
+	}
+
 	return r.queries.InsertStrip(ctx, database.InsertStripParams{
-		Callsign:          strip.Callsign,
-		Session:           strip.Session,
-		Origin:            strip.Origin,
-		Destination:       strip.Destination,
-		Alternative:       strip.Alternative,
-		Route:             strip.Route,
-		Remarks:           strip.Remarks,
-		AssignedSquawk:    strip.AssignedSquawk,
-		Squawk:            strip.Squawk,
-		Sid:               strip.Sid,
-		ClearedAltitude:   strip.ClearedAltitude,
-		Heading:           strip.Heading,
-		AircraftType:      strip.AircraftType,
-		Runway:            strip.Runway,
-		RequestedAltitude: strip.RequestedAltitude,
-		Capabilities:      strip.Capabilities,
-		CommunicationType: strip.CommunicationType,
-		AircraftCategory:  strip.AircraftCategory,
-		Stand:             strip.Stand,
+		Callsign:           strip.Callsign,
+		Session:            strip.Session,
+		Origin:             strip.Origin,
+		Destination:        strip.Destination,
+		Alternative:        strip.Alternative,
+		Route:              strip.Route,
+		Remarks:            strip.Remarks,
+		AssignedSquawk:     strip.AssignedSquawk,
+		Squawk:             strip.Squawk,
+		Sid:                strip.Sid,
+		ClearedAltitude:    strip.ClearedAltitude,
+		Heading:            strip.Heading,
+		AircraftType:       strip.AircraftType,
+		Runway:             strip.Runway,
+		RequestedAltitude:  strip.RequestedAltitude,
+		Capabilities:       strip.Capabilities,
+		CommunicationType:  strip.CommunicationType,
+		AircraftCategory:   strip.AircraftCategory,
+		Stand:              strip.Stand,
 		Sequence:           strip.Sequence,
 		State:              strip.State,
 		Cleared:            strip.Cleared,
@@ -107,8 +128,7 @@ func (r *stripRepository) Create(ctx context.Context, strip *models.Strip) error
 		PositionLatitude:   strip.PositionLatitude,
 		PositionLongitude:  strip.PositionLongitude,
 		PositionAltitude:   strip.PositionAltitude,
-		Tobt:               strip.Tobt,
-		Eobt:               strip.Eobt,
+		CdmData:            cdmData,
 		Registration:       strip.Registration,
 		TrackingController: strip.TrackingController,
 		EngineType:         strip.EngineType,
@@ -124,7 +144,10 @@ func (r *stripRepository) GetByCallsign(ctx context.Context, session int32, call
 	if err != nil {
 		return nil, err
 	}
-	strip := stripToModel(dbStrip)
+	strip, err := stripToModel(dbStrip)
+	if err != nil {
+		return nil, err
+	}
 	if manual, err := r.queries.GetManualFPLFields(ctx, session, callsign); err == nil {
 		strip.IsManual = manual.IsManual
 		strip.PersonsOnBoard = manual.PersonsOnBoard
@@ -151,7 +174,10 @@ func (r *stripRepository) List(ctx context.Context, session int32) ([]*models.St
 
 	strips := make([]*models.Strip, len(dbStrips))
 	for i, dbStrip := range dbStrips {
-		s := stripToModel(dbStrip)
+		s, err := stripToModel(dbStrip)
+		if err != nil {
+			return nil, err
+		}
 		if m, ok := manualMap[s.Callsign]; ok {
 			s.IsManual = m.IsManual
 			s.PersonsOnBoard = m.PersonsOnBoard
@@ -203,26 +229,31 @@ func (r *stripRepository) SetHasFP(ctx context.Context, session int32, callsign 
 
 // Update updates an existing strip
 func (r *stripRepository) Update(ctx context.Context, strip *models.Strip) (int64, error) {
+	cdmData, err := marshalCdmData(strip.CdmData)
+	if err != nil {
+		return 0, err
+	}
+
 	return r.queries.UpdateStrip(ctx, database.UpdateStripParams{
-		Callsign:          strip.Callsign,
-		Session:           strip.Session,
-		Origin:            strip.Origin,
-		Destination:       strip.Destination,
-		Alternative:       strip.Alternative,
-		Route:             strip.Route,
-		Remarks:           strip.Remarks,
-		AssignedSquawk:    strip.AssignedSquawk,
-		Squawk:            strip.Squawk,
-		Sid:               strip.Sid,
-		ClearedAltitude:   strip.ClearedAltitude,
-		Heading:           strip.Heading,
-		AircraftType:      strip.AircraftType,
-		Runway:            strip.Runway,
-		RequestedAltitude: strip.RequestedAltitude,
-		Capabilities:      strip.Capabilities,
-		CommunicationType: strip.CommunicationType,
-		AircraftCategory:  strip.AircraftCategory,
-		Stand:             strip.Stand,
+		Callsign:           strip.Callsign,
+		Session:            strip.Session,
+		Origin:             strip.Origin,
+		Destination:        strip.Destination,
+		Alternative:        strip.Alternative,
+		Route:              strip.Route,
+		Remarks:            strip.Remarks,
+		AssignedSquawk:     strip.AssignedSquawk,
+		Squawk:             strip.Squawk,
+		Sid:                strip.Sid,
+		ClearedAltitude:    strip.ClearedAltitude,
+		Heading:            strip.Heading,
+		AircraftType:       strip.AircraftType,
+		Runway:             strip.Runway,
+		RequestedAltitude:  strip.RequestedAltitude,
+		Capabilities:       strip.Capabilities,
+		CommunicationType:  strip.CommunicationType,
+		AircraftCategory:   strip.AircraftCategory,
+		Stand:              strip.Stand,
 		Sequence:           strip.Sequence,
 		State:              strip.State,
 		Cleared:            strip.Cleared,
@@ -231,8 +262,7 @@ func (r *stripRepository) Update(ctx context.Context, strip *models.Strip) (int6
 		PositionLatitude:   strip.PositionLatitude,
 		PositionLongitude:  strip.PositionLongitude,
 		PositionAltitude:   strip.PositionAltitude,
-		Tobt:               strip.Tobt,
-		Eobt:               strip.Eobt,
+		CdmData:            cdmData,
 		Registration:       strip.Registration,
 		TrackingController: strip.TrackingController,
 		EngineType:         strip.EngineType,
@@ -259,7 +289,11 @@ func (r *stripRepository) ListByOrigin(ctx context.Context, session int32, origi
 
 	strips := make([]*models.Strip, len(dbStrips))
 	for i, dbStrip := range dbStrips {
-		strips[i] = stripToModel(dbStrip)
+		strip, err := stripToModel(dbStrip)
+		if err != nil {
+			return nil, err
+		}
+		strips[i] = strip
 	}
 	return strips, nil
 }
@@ -536,25 +570,22 @@ func (r *stripRepository) SetNextAndPreviousOwners(ctx context.Context, session 
 }
 
 // GetCdmData retrieves CDM data for all strips in a session
-func (r *stripRepository) GetCdmData(ctx context.Context, session int32) ([]*models.CdmData, error) {
+func (r *stripRepository) GetCdmData(ctx context.Context, session int32) ([]*models.CdmDataRow, error) {
 	rows, err := r.queries.GetCdmData(ctx, session)
 	if err != nil {
 		return nil, err
 	}
 
-	result := make([]*models.CdmData, len(rows))
+	result := make([]*models.CdmDataRow, len(rows))
 
 	for i, row := range rows {
-		result[i] = &models.CdmData{
-			Callsign:  row.Callsign,
-			Tobt:      row.Tobt,
-			Tsat:      row.Tsat,
-			Ttot:      row.Ttot,
-			Ctot:      row.Ctot,
-			Aobt:      row.Aobt,
-			Asat:      row.Asat,
-			Eobt:      row.Eobt,
-			CdmStatus: row.CdmStatus,
+		cdmData, err := unmarshalCdmData(row.CdmData)
+		if err != nil {
+			return nil, err
+		}
+		result[i] = &models.CdmDataRow{
+			Callsign: row.Callsign,
+			Data:     cdmData,
 		}
 	}
 	return result, nil
@@ -570,41 +601,24 @@ func (r *stripRepository) GetCdmDataForCallsign(ctx context.Context, session int
 		return nil, err
 	}
 
-	result := &models.CdmData{
-		Callsign:  row.Callsign,
-		Tobt:      row.Tobt,
-		Tsat:      row.Tsat,
-		Ttot:      row.Ttot,
-		Ctot:      row.Ctot,
-		Aobt:      row.Aobt,
-		Asat:      row.Asat,
-		Eobt:      row.Eobt,
-		CdmStatus: row.CdmStatus,
+	result, err := unmarshalCdmData(row.CdmData)
+	if err != nil {
+		return nil, err
 	}
 	return result, nil
 }
 
-// UpdateCdmData updates CDM data for a strip
-func (r *stripRepository) UpdateCdmData(ctx context.Context, session int32, callsign string, tobt *string, tsat *string, ttot *string, ctot *string, aobt *string, eobt *string, cdmStatus *string) (int64, error) {
-	return r.queries.UpdateCdmData(ctx, database.UpdateCdmDataParams{
-		Session:   session,
-		Callsign:  callsign,
-		Tobt:      tobt,
-		Tsat:      tsat,
-		Ttot:      ttot,
-		Ctot:      ctot,
-		Aobt:      aobt,
-		Eobt:      eobt,
-		CdmStatus: cdmStatus,
-	})
-}
+// SetCdmData replaces the persisted CDM document for a strip.
+func (r *stripRepository) SetCdmData(ctx context.Context, session int32, callsign string, data *models.CdmData) (int64, error) {
+	cdmData, err := marshalCdmData(data)
+	if err != nil {
+		return 0, err
+	}
 
-// SetCdmStatus sets the CDM status of a strip
-func (r *stripRepository) SetCdmStatus(ctx context.Context, session int32, callsign string, cdmStatus *string) (int64, error) {
-	return r.queries.SetCdmStatus(ctx, database.SetCdmStatusParams{
-		Session:   session,
-		Callsign:  callsign,
-		CdmStatus: cdmStatus,
+	return r.queries.SetCdmData(ctx, database.SetCdmDataParams{
+		Session:  session,
+		Callsign: callsign,
+		CdmData:  cdmData,
 	})
 }
 

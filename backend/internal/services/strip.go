@@ -1825,9 +1825,8 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, st
 			Stand:              &strip.Stand,
 			Capabilities:       &strip.Capabilities,
 			CommunicationType:  &strip.CommunicationType,
-			Tobt:               &strip.Eobt,
+			CdmData:            internalModels.NewLegacyCdmData(&strip.Eobt, nil, nil, nil, nil, nil, &strip.Eobt, nil),
 			Bay:                bay,
-			Eobt:               &strip.Eobt,
 			TrackingController: strip.TrackingController,
 			EngineType:         strip.EngineType,
 		}
@@ -1870,42 +1869,38 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, st
 		}
 
 		updateStrip := &internalModels.Strip{
-			Callsign:           strip.Callsign,
-			Session:            session,
-			Origin:             strip.Origin,
-			Destination:        strip.Destination,
-			Alternative:        &strip.Alternate,
-			Route:              &strip.Route,
-			Remarks:            &strip.Remarks,
-			AssignedSquawk:     &strip.AssignedSquawk,
-			Squawk:             &strip.Squawk,
-			Sid:                &strip.Sid,
-			ClearedAltitude:    &strip.ClearedAltitude,
-			Heading:            &strip.Heading,
-			AircraftType:       &strip.AircraftType,
-			Runway:             runway,
-			RequestedAltitude:  &strip.RequestedAltitude,
-			Capabilities:       &strip.Capabilities,
-			CommunicationType:  &strip.CommunicationType,
-			AircraftCategory:   &strip.AircraftCategory,
-			Stand:              stand,
-			Cleared:            strip.Cleared,
-			State:              &strip.GroundState,
-			PositionLatitude:   &strip.Position.Lat,
-			PositionLongitude:  &strip.Position.Lon,
-			PositionAltitude:   &strip.Position.Altitude,
-			Bay:                bay,
-			Tobt: func() *string {
+			Callsign:          strip.Callsign,
+			Session:           session,
+			Origin:            strip.Origin,
+			Destination:       strip.Destination,
+			Alternative:       &strip.Alternate,
+			Route:             &strip.Route,
+			Remarks:           &strip.Remarks,
+			AssignedSquawk:    &strip.AssignedSquawk,
+			Squawk:            &strip.Squawk,
+			Sid:               &strip.Sid,
+			ClearedAltitude:   &strip.ClearedAltitude,
+			Heading:           &strip.Heading,
+			AircraftType:      &strip.AircraftType,
+			Runway:            runway,
+			RequestedAltitude: &strip.RequestedAltitude,
+			Capabilities:      &strip.Capabilities,
+			CommunicationType: &strip.CommunicationType,
+			AircraftCategory:  &strip.AircraftCategory,
+			Stand:             stand,
+			Cleared:           strip.Cleared,
+			State:             &strip.GroundState,
+			PositionLatitude:  &strip.Position.Lat,
+			PositionLongitude: &strip.Position.Lon,
+			PositionAltitude:  &strip.Position.Altitude,
+			Bay:               bay,
+			CdmData: func() *internalModels.CdmData {
+				cdmData := existingStrip.CdmData.Clone()
 				if strip.Eobt != "" {
-					return &strip.Eobt
+					cdmData.Canonical.Tobt = &strip.Eobt
+					cdmData.Canonical.Eobt = &strip.Eobt
 				}
-				return existingStrip.Tobt
-			}(),
-			Eobt: func() *string {
-				if strip.Eobt != "" {
-					return &strip.Eobt
-				}
-				return existingStrip.Eobt
+				return cdmData
 			}(),
 			Registration:       existingStrip.Registration,
 			Owner:              existingStrip.Owner,

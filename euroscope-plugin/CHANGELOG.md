@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.1](https://github.com/flightstrips/FlightStrips/compare/plugin/v0.7.0...plugin/v0.7.1) (2026-03-22)
+
+
+### Bug Fixes
+
+* Revert ES tests ([72f63a4](https://github.com/flightstrips/FlightStrips/commit/72f63a49a6cc715f6d3d3c95ef576f64ccc4a581))
+
 ## [0.7.0](https://github.com/flightstrips/FlightStrips/compare/plugin/v0.6.3...plugin/v0.7.0) (2026-03-20)
 
 

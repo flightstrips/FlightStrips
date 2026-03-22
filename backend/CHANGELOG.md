@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.1](https://github.com/flightstrips/FlightStrips/compare/backend/v0.9.0...backend/v0.9.1) (2026-03-22)
+
+
+### Bug Fixes
+
+* broadcast ALB event to sender as well ([b2a494d](https://github.com/flightstrips/FlightStrips/commit/b2a494dee0eafe1143ba375ef27ee846f821377d))
+
 ## [0.9.0](https://github.com/flightstrips/FlightStrips/compare/backend/v0.8.3...backend/v0.9.0) (2026-03-20)
 
 

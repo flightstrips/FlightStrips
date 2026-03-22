@@ -93,8 +93,8 @@ export default function CommandBar() {
         {/* ATIS button — width overridden in ATIS.tsx */}
         <ATIS atisCode={atisCode} />
 
-        {/* Wind: [D] label + compact value */}
-        <span className={`${CLS_VAL_WHITE} w-[64px] mx-1`}>D</span>
+        {/* Wind: ATIS code + compact value */}
+        <span className={`${CLS_VAL_WHITE} w-[64px] mx-1`}>{atisCode || "—"}</span>
         <span className={`${CLS_VAL_WHITE} w-[160px] px-2`}>{parseWindCompact(metar)}</span>
       </div>
 

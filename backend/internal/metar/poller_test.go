@@ -22,79 +22,159 @@ func newTestPoller(metarSrv, atisSrv *httptest.Server) *Poller {
 		p.httpClient = metarSrv.Client()
 	}
 	if atisSrv != nil {
-		p.atisBaseURL = atisSrv.URL
+		p.atisDataURL = atisSrv.URL
 		p.httpClient = atisSrv.Client()
 	}
 	return p
 }
 
-// --- fetchAtisCode ---
+// --- parseAtisCallsign ---
 
-func TestFetchAtisCode_ReturnsCode(t *testing.T) {
+func TestParseAtisCallsign_General(t *testing.T) {
+	icao, kind := parseAtisCallsign("KJFK_ATIS")
+	assert.Equal(t, "KJFK", icao)
+	assert.Equal(t, "general", kind)
+}
+
+func TestParseAtisCallsign_Arrival(t *testing.T) {
+	icao, kind := parseAtisCallsign("KJFK_A_ATIS")
+	assert.Equal(t, "KJFK", icao)
+	assert.Equal(t, "arr", kind)
+}
+
+func TestParseAtisCallsign_Departure(t *testing.T) {
+	icao, kind := parseAtisCallsign("KJFK_D_ATIS")
+	assert.Equal(t, "KJFK", icao)
+	assert.Equal(t, "dep", kind)
+}
+
+func TestParseAtisCallsign_LowercaseIsNormalised(t *testing.T) {
+	icao, kind := parseAtisCallsign("egll_atis")
+	assert.Equal(t, "EGLL", icao)
+	assert.Equal(t, "general", kind)
+}
+
+func TestParseAtisCallsign_NotAtis_ReturnsEmpty(t *testing.T) {
+	icao, kind := parseAtisCallsign("KJFK_TWR")
+	assert.Equal(t, "", icao)
+	assert.Equal(t, "", kind)
+}
+
+func TestParseAtisCallsign_NoSuffix_ReturnsEmpty(t *testing.T) {
+	icao, kind := parseAtisCallsign("KJFK")
+	assert.Equal(t, "", icao)
+	assert.Equal(t, "", kind)
+}
+
+// --- fetchAllAtisData ---
+
+func TestFetchAllAtisData_SeparateArrDep(t *testing.T) {
+	feed := []afvAtisEntry{
+		{Callsign: "KJFK_A_ATIS", AtisCode: "A"},
+		{Callsign: "KJFK_D_ATIS", AtisCode: "B"},
+	}
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/EGKK", r.URL.Path)
-		json.NewEncoder(w).Encode([]vatsimAtisStation{{AtisCode: "B"}})
+		json.NewEncoder(w).Encode(feed)
 	}))
 	defer srv.Close()
 
 	p := newTestPoller(nil, srv)
-	code, err := p.fetchAtisCode(context.Background(), "EGKK")
+	result, err := p.fetchAllAtisData(context.Background())
 
 	require.NoError(t, err)
-	assert.Equal(t, "B", code)
+	assert.Equal(t, "A", result["KJFK"].arr)
+	assert.Equal(t, "B", result["KJFK"].dep)
 }
 
-func TestFetchAtisCode_EmptyArray_ReturnsEmptyString(t *testing.T) {
+func TestFetchAllAtisData_GeneralFillsBothSlots(t *testing.T) {
+	feed := []afvAtisEntry{
+		{Callsign: "EGLL_ATIS", AtisCode: "C"},
+	}
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode([]vatsimAtisStation{})
+		json.NewEncoder(w).Encode(feed)
 	}))
 	defer srv.Close()
 
 	p := newTestPoller(nil, srv)
-	code, err := p.fetchAtisCode(context.Background(), "EGKK")
+	result, err := p.fetchAllAtisData(context.Background())
 
 	require.NoError(t, err)
-	assert.Equal(t, "", code)
+	assert.Equal(t, "C", result["EGLL"].arr)
+	assert.Equal(t, "C", result["EGLL"].dep)
 }
 
-func TestFetchAtisCode_MultipleStations_ReturnsFirst(t *testing.T) {
+func TestFetchAllAtisData_GeneralDoesNotOverwriteSpecific(t *testing.T) {
+	// Specific arr already set; general should not overwrite it
+	feed := []afvAtisEntry{
+		{Callsign: "EGLL_A_ATIS", AtisCode: "X"},
+		{Callsign: "EGLL_ATIS", AtisCode: "Y"},
+	}
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode([]vatsimAtisStation{{AtisCode: "D"}, {AtisCode: "E"}})
+		json.NewEncoder(w).Encode(feed)
 	}))
 	defer srv.Close()
 
 	p := newTestPoller(nil, srv)
-	code, err := p.fetchAtisCode(context.Background(), "EGKK")
+	result, err := p.fetchAllAtisData(context.Background())
 
 	require.NoError(t, err)
-	assert.Equal(t, "D", code)
+	assert.Equal(t, "X", result["EGLL"].arr)
+	assert.Equal(t, "Y", result["EGLL"].dep) // general fills empty dep slot
 }
 
-func TestFetchAtisCode_InvalidJSON_ReturnsError(t *testing.T) {
+func TestFetchAllAtisData_EmptyFeed(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		json.NewEncoder(w).Encode([]afvAtisEntry{})
+	}))
+	defer srv.Close()
+
+	p := newTestPoller(nil, srv)
+	result, err := p.fetchAllAtisData(context.Background())
+
+	require.NoError(t, err)
+	assert.Empty(t, result)
+}
+
+func TestFetchAllAtisData_InvalidJSON_ReturnsError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("not json"))
 	}))
 	defer srv.Close()
 
 	p := newTestPoller(nil, srv)
-	_, err := p.fetchAtisCode(context.Background(), "EGKK")
+	_, err := p.fetchAllAtisData(context.Background())
 
-	assert.ErrorContains(t, err, "parse ATIS response")
+	assert.ErrorContains(t, err, "parse ATIS feed")
 }
 
-func TestFetchAtisCode_UsesCaseSensitiveICAO(t *testing.T) {
-	var gotPath string
+func TestFetchAllAtisData_NonOKStatus_ReturnsError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		gotPath = r.URL.Path
-		json.NewEncoder(w).Encode([]vatsimAtisStation{{AtisCode: "A"}})
+		w.WriteHeader(http.StatusServiceUnavailable)
 	}))
 	defer srv.Close()
 
 	p := newTestPoller(nil, srv)
-	_, err := p.fetchAtisCode(context.Background(), "KJFK")
+	_, err := p.fetchAllAtisData(context.Background())
+
+	assert.ErrorContains(t, err, "503")
+}
+
+func TestFetchAllAtisData_IgnoresNonAtisCallsigns(t *testing.T) {
+	feed := []afvAtisEntry{
+		{Callsign: "KJFK_TWR", AtisCode: "A"},
+		{Callsign: "KJFK_ATIS", AtisCode: "B"},
+	}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		json.NewEncoder(w).Encode(feed)
+	}))
+	defer srv.Close()
+
+	p := newTestPoller(nil, srv)
+	result, err := p.fetchAllAtisData(context.Background())
 
 	require.NoError(t, err)
-	assert.Equal(t, "/KJFK", gotPath)
+	assert.Len(t, result, 1)
+	assert.Equal(t, "B", result["KJFK"].dep)
 }
 
 // --- fetch (METAR) ---

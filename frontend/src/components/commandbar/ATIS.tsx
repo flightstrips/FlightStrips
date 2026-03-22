@@ -225,7 +225,7 @@ export default function ATIS({ atisCode }: { atisCode?: string | null }) {
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <button className={`${CLS_CMDBTN} !w-auto px-5`}>ATIS{atisCode ? ` ${atisCode}` : ""}</button>
+        <button className={`${CLS_CMDBTN} !w-auto px-5`}>ATIS</button>
       </DialogTrigger>
       <DialogContent className={CLS_DIALOG}>
         <DialogHeader>

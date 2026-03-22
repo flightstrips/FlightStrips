@@ -14,12 +14,19 @@ import (
 
 // FrontendHub is the minimal interface required by the poller to send ATIS updates.
 type FrontendHub interface {
-	SendAtisUpdate(session int32, metar string, atisCode string)
+	SendAtisUpdate(session int32, metar string, arrAtisCode string, depAtisCode string)
 }
 
-// vatsimAtisStation holds the fields we need from a VATSIM ATIS station entry.
-type vatsimAtisStation struct {
+// afvAtisEntry holds the fields we need from a single AFV ATIS data entry.
+type afvAtisEntry struct {
+	Callsign string `json:"callsign"`
 	AtisCode string `json:"atis_code"`
+}
+
+// atisInfo holds arrival and departure ATIS codes for an airport.
+type atisInfo struct {
+	arr string
+	dep string
 }
 
 // Poller fetches METAR data for all active sessions and pushes it to connected frontend clients.
@@ -29,7 +36,7 @@ type Poller struct {
 	interval     time.Duration
 	httpClient   *http.Client
 	metarBaseURL string
-	atisBaseURL  string
+	atisDataURL  string
 }
 
 // NewPoller creates a new METAR poller.
@@ -40,7 +47,7 @@ func NewPoller(sessionRepo repository.SessionRepository, hub FrontendHub) *Polle
 		interval:     2 * time.Minute,
 		httpClient:   &http.Client{Timeout: 10 * time.Second},
 		metarBaseURL: "https://metar.vatsim.net",
-		atisBaseURL:  "https://api.vatsim.net/v2/atis",
+		atisDataURL:  "https://data.vatsim.net/v3/afv-atis-data.json",
 	}
 }
 
@@ -69,6 +76,12 @@ func (p *Poller) poll(ctx context.Context) {
 		return
 	}
 
+	atisMap, err := p.fetchAllAtisData(ctx)
+	if err != nil {
+		slog.Warn("metar poller: failed to fetch ATIS data", slog.Any("error", err))
+		atisMap = map[string]atisInfo{}
+	}
+
 	for _, session := range sessions {
 		airport := session.Airport
 		metar, err := p.fetch(ctx, airport)
@@ -80,16 +93,8 @@ func (p *Poller) poll(ctx context.Context) {
 			continue
 		}
 
-		atisCode, err := p.fetchAtisCode(ctx, airport)
-		if err != nil {
-			slog.Warn("metar poller: failed to fetch ATIS code",
-				slog.String("airport", airport),
-				slog.Any("error", err),
-			)
-			atisCode = ""
-		}
-
-		p.hub.SendAtisUpdate(session.ID, metar, atisCode)
+		info := atisMap[strings.ToUpper(airport)]
+		p.hub.SendAtisUpdate(session.ID, metar, info.arr, info.dep)
 	}
 }
 
@@ -114,34 +119,83 @@ func (p *Poller) fetch(ctx context.Context, icao string) (string, error) {
 	return strings.TrimSpace(string(body)), nil
 }
 
-// fetchAtisCode queries the VATSIM API for the current ATIS code letter for the given ICAO.
-// Returns an empty string when no ATIS station is online for the airport.
-func (p *Poller) fetchAtisCode(ctx context.Context, icao string) (string, error) {
-	url := fmt.Sprintf("%s/%s", p.atisBaseURL, icao)
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+// fetchAllAtisData fetches the full VATSIM AFV ATIS feed and returns a map of
+// uppercase ICAO → atisInfo with arrival and departure codes.
+// Callsign formats: KJFK_ATIS (general), KJFK_A_ATIS (arrival), KJFK_D_ATIS (departure).
+// General ATIS is used for both arr and dep when no specific codes are present.
+func (p *Poller) fetchAllAtisData(ctx context.Context) (map[string]atisInfo, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, p.atisDataURL, nil)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	resp, err := p.httpClient.Do(req)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("ATIS feed returned status %d", resp.StatusCode)
+	}
+
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	var stations []vatsimAtisStation
-	if err := json.Unmarshal(body, &stations); err != nil {
-		return "", fmt.Errorf("parse ATIS response: %w", err)
+	var entries []afvAtisEntry
+	if err := json.Unmarshal(body, &entries); err != nil {
+		return nil, fmt.Errorf("parse ATIS feed: %w", err)
 	}
 
-	if len(stations) == 0 {
-		return "", nil
+	result := make(map[string]atisInfo)
+	for _, e := range entries {
+		icao, kind := parseAtisCallsign(e.Callsign)
+		if icao == "" {
+			continue
+		}
+		info := result[icao]
+		switch kind {
+		case "arr":
+			info.arr = e.AtisCode
+		case "dep":
+			info.dep = e.AtisCode
+		default: // general: fill whichever slots are still empty
+			if info.arr == "" {
+				info.arr = e.AtisCode
+			}
+			if info.dep == "" {
+				info.dep = e.AtisCode
+			}
+		}
+		result[icao] = info
 	}
 
-	return stations[0].AtisCode, nil
+	return result, nil
+}
+
+// parseAtisCallsign parses a VATSIM ATIS callsign and returns the ICAO and kind.
+// Kind is "arr", "dep", or "general". Returns empty ICAO for non-ATIS callsigns.
+func parseAtisCallsign(callsign string) (icao, kind string) {
+	upper := strings.ToUpper(callsign)
+	parts := strings.Split(upper, "_")
+	n := len(parts)
+	if n < 2 || parts[n-1] != "ATIS" {
+		return "", ""
+	}
+	icao = parts[0]
+	if n == 3 {
+		switch parts[1] {
+		case "A":
+			kind = "arr"
+		case "D":
+			kind = "dep"
+		default:
+			kind = "general"
+		}
+	} else {
+		kind = "general"
+	}
+	return icao, kind
 }

@@ -786,8 +786,9 @@ func (e TacticalStripMovedEvent) Marshal() ([]byte, error) { return marshall(e) 
 func (e TacticalStripMovedEvent) GetType() EventType       { return TacticalStripMoved }
 
 type AtisUpdateEvent struct {
-	Metar    string `json:"metar"`
-	AtisCode string `json:"atis_code"`
+	Metar       string `json:"metar"`
+	ArrAtisCode string `json:"arr_atis_code"`
+	DepAtisCode string `json:"dep_atis_code"`
 }
 
 func (a AtisUpdateEvent) Marshal() ([]byte, error) { return marshall(a) }

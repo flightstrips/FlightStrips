@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.14.1](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.14.0...frontend/v0.14.1) (2026-03-22)
+
+
+### Bug Fixes
+
+* build problems ([063ce9e](https://github.com/flightstrips/FlightStrips/commit/063ce9eaeddc6d017da3f196fdce7a7cc137a4c9))
+
 ## [0.14.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.13.1...frontend/v0.14.0) (2026-03-22)
 
 

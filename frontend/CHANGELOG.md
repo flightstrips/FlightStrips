@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.13.1](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.13.0...frontend/v0.13.1) (2026-03-22)
+
+
+### Bug Fixes
+
+* AAAD bay widths ([08e48dc](https://github.com/flightstrips/FlightStrips/commit/08e48dc923bb5262e52ff8cc52390ee9b090d757))
+* AAAD headers view ([10609c7](https://github.com/flightstrips/FlightStrips/commit/10609c7b255965277783e5f5e8464aeab9ca91fc))
+* AAAD TWY DEP strip design ([cf6899f](https://github.com/flightstrips/FlightStrips/commit/cf6899fc9af07ff0dcd42360615b2cdf4efeb8cf))
+* minor ui improvements and twr taxi map ([6440a85](https://github.com/flightstrips/FlightStrips/commit/6440a8512ff73e73973d68e41b11e9efa99b826e))
+* only render simple part of aircraft type ([df2635e](https://github.com/flightstrips/FlightStrips/commit/df2635ec670c42a8dcf3dceb12c718b7c32fc879))
+
 ## [0.13.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.12.0...frontend/v0.13.0) (2026-03-20)
 
 

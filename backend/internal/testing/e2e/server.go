@@ -119,7 +119,7 @@ func StartTestServer() (*TestServer, error) {
 	stripService := services.NewStripService(stripRepo)
 	controllerService := services.NewControllerService(controllerRepo)
 	cdmClient := cdm.NewClient(cdm.WithAPIKey(""))
-	cdmService := cdm.NewCdmService(cdmClient, stripRepo, sessionRepo)
+	cdmService := cdm.NewCdmService(cdmClient, stripRepo, sessionRepo, controllerRepo)
 
 	stripService.SetCoordinationRepo(coordRepo)
 	stripService.SetControllerRepo(controllerRepo)
@@ -132,6 +132,7 @@ func StartTestServer() (*TestServer, error) {
 	stripService.SetEuroscopeHub(euroscopeHub)
 	stripService.SetSectorOwnerRepo(sectorRepo)
 	cdmService.SetFrontendHub(frontendHub)
+	cdmService.SetEuroscopeHub(euroscopeHub)
 
 	// Initialize server
 	fsServer := server.NewServer(dbpool, euroscopeHub, frontendHub, cdmService, nil, stripRepo, controllerRepo, sessionRepo, sectorRepo, coordRepo, nil)

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 )
 
 type BulkIFPSData []IFPSData
@@ -86,4 +87,24 @@ func (c *Client) IFPSByDepartureAirport(ctx context.Context, airport string) (Bu
 		return nil, err
 	}
 	return result, nil
+}
+
+func (c *Client) AirportMasters(ctx context.Context) ([]AirportMaster, error) {
+	now := time.Now()
+	if masters, ok := c.airportMastersFromCache(now); ok {
+		return masters, nil
+	}
+
+	bytes, err := c.doRequest(ctx, "GET", "/airport", nil, nil, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var result []AirportMaster
+	if err := json.Unmarshal(bytes, &result); err != nil {
+		return nil, err
+	}
+
+	c.storeAirportMasters(now, result)
+	return append([]AirportMaster(nil), result...), nil
 }

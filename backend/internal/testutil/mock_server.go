@@ -11,6 +11,7 @@ import (
 type MockServer struct {
 	FrontendHubVal    shared.FrontendHub
 	EuroscopeHubVal   shared.EuroscopeHub
+	CdmServiceVal     shared.CdmService
 	CoordRepoVal      repository.CoordinationRepository
 	ControllerRepoVal repository.ControllerRepository
 	SessionRepoVal    repository.SessionRepository
@@ -32,7 +33,7 @@ func (m *MockServer) GetOrCreateSession(airport string, name string) (shared.Ses
 	return shared.Session{}, nil
 }
 
-func (m *MockServer) GetCdmService() shared.CdmService { return nil }
+func (m *MockServer) GetCdmService() shared.CdmService { return m.CdmServiceVal }
 
 func (m *MockServer) GetPdcService() shared.PdcService { return nil }
 

@@ -6,6 +6,7 @@
 #include "Colors.h"
 #include "Graphics.h"
 #include "authentication/AuthenticationService.h"
+#include "messages/CdmReadyTrigger.h"
 #include "websocket/WebSocketService.h"
 
 namespace FlightStrips {
@@ -13,7 +14,7 @@ namespace FlightStrips {
 }
 
 namespace FlightStrips::graphics {
-    class InfoScreen : public EuroScopePlugIn::CRadarScreen {
+    class InfoScreen : public EuroScopePlugIn::CRadarScreen, public messages::TagFunctionInvoker {
     public:
         explicit InfoScreen(const std::shared_ptr<authentication::AuthenticationService> &authenticationService,
                             const std::shared_ptr<configuration::UserConfig> &config,
@@ -30,6 +31,16 @@ namespace FlightStrips::graphics {
         void OnClickScreenObject(int ObjectType, const char *sObjectId, POINT Pt, RECT Area, int Button) override;
 
         bool OnCompileCommand(const char * sCommandLine ) override;
+
+        bool SelectActiveAircraft(const std::string& callsign) override;
+
+        void InvokeTagFunction(
+            const std::string& itemString,
+            const std::string& menuName,
+            int menuItemCode,
+            const std::string& parameter,
+            const std::string& targetPluginName,
+            int targetFunctionId) override;
 
     private:
         const int windowId = 1;
@@ -48,6 +59,7 @@ namespace FlightStrips::graphics {
         std::shared_ptr<authentication::AuthenticationService> authService;
         std::shared_ptr<configuration::UserConfig> userConfig;
         std::weak_ptr<websocket::WebSocketService> webSocketService;
+        messages::CdmReadyTrigger cdmReadyTrigger;
         FlightStripsPlugin *m_plugin;
 
         RECT menubar;

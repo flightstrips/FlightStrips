@@ -361,6 +361,10 @@ func (hub *Hub) SendGenerateSquawk(session int32, cid string, callsign string) {
 	hub.Send(session, cid, event)
 }
 
+func (hub *Hub) SendCdmReadyRequest(session int32, cid string, callsign string) {
+	hub.Send(session, cid, euroscope.CdmReadyRequestEvent{Callsign: callsign})
+}
+
 func (hub *Hub) SendGroundState(session int32, cid string, callsign string, state string) {
 	event := euroscope.GroundStateEvent{
 		Callsign:    callsign,

@@ -8,7 +8,6 @@
 #include "runway/RunwayService.h"
 
 namespace FlightStrips::messages {
-
     class MessageService final : public handlers::MessageHandler {
     public:
         MessageService(const std::shared_ptr<FlightStripsPlugin> &m_plugin,
@@ -35,6 +34,7 @@ namespace FlightStrips::messages {
         std::shared_ptr<runway::RunwayService> m_runwayService;
 
         void HandleMessage(const nlohmann::json &message) const;
+        void HandleCdmReadyRequestEvent(const CdmReadyRequestEvent& event) const;
         void HandleSessionInfoEvent(const SessionInfoEvent& event) const;
         void HandleAssignedSquawkEvent(const AssignedSquawkEvent& event) const;
         void HandleRequestedAltitudeEvent(const RequestedAltitudeEvent& event) const;

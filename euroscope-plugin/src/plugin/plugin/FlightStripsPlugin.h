@@ -85,6 +85,8 @@ namespace FlightStrips {
 
         void AddNeedsSquawk(const std::string &callsign);
         std::optional<std::string> GetNeedsSquawk();
+        void AddNeedsCdmReady(const std::string &callsign);
+        std::optional<std::string> GetNeedsCdmReady();
 
     private:
         const std::shared_ptr<handlers::FlightPlanEventHandlers> m_flightPlanEventHandlerCollection;
@@ -98,6 +100,7 @@ namespace FlightStrips {
 
         ConnectionState m_connectionState = {};
         std::queue<std::string> m_needsSquawk = {};
+        std::queue<std::string> m_needsCdmReady = {};
         double m_airportLatitude = 0.0;
         double m_airportLongitude = 0.0;
 

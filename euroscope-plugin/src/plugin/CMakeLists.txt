@@ -110,6 +110,8 @@ set(src__controller
 source_group("src\\controller" FILES ${src__controller})
 
 set(src__messages
+        messages/CdmReadyTrigger.cpp
+        messages/CdmReadyTrigger.h
         messages/MessageService.cpp
         messages/MessageService.h)
 source_group("src\\messages" FILES ${src__messages})

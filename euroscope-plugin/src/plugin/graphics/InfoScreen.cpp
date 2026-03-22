@@ -20,7 +20,10 @@ namespace FlightStrips::graphics {
         const std::shared_ptr<configuration::UserConfig> &config,
         const std::weak_ptr<websocket::WebSocketService> &webSocketService,
         FlightStripsPlugin *plugin) : authService(
-                                          authenticationService), userConfig(config), webSocketService(webSocketService), m_plugin(plugin) {
+                                          authenticationService),
+                                      userConfig(config),
+                                      webSocketService(webSocketService),
+                                      m_plugin(plugin) {
         const auto state = userConfig->GetWindowState();
         menubar = {state.x, state.y, state.x + width, state.y + height};
         isMinimized = state.minimized;
@@ -34,6 +37,10 @@ namespace FlightStrips::graphics {
         const auto needsSquawk = m_plugin->GetNeedsSquawk();
         if (needsSquawk.has_value()) {
             StartTagFunction("", "TopSky plugin", 0, needsSquawk.value().c_str(), "TopSky plugin", 667, {}, {});
+        }
+        const auto needsCdmReady = m_plugin->GetNeedsCdmReady();
+        if (needsCdmReady.has_value()) {
+            cdmReadyTrigger.Trigger(*this, needsCdmReady.value());
         }
 
         if (!isOpen) {
@@ -194,6 +201,34 @@ namespace FlightStrips::graphics {
             hdcHandle = nullptr;
         }
         delete this;
+    }
+
+    bool InfoScreen::SelectActiveAircraft(const std::string& callsign) {
+        const auto flightPlan = m_plugin->FlightPlanSelect(callsign.c_str());
+        if (!flightPlan.IsValid()) {
+            return false;
+        }
+
+        m_plugin->SetASELAircraft(flightPlan);
+        return true;
+    }
+
+    void InfoScreen::InvokeTagFunction(
+        const std::string& itemString,
+        const std::string& menuName,
+        const int menuItemCode,
+        const std::string& parameter,
+        const std::string& targetPluginName,
+        const int targetFunctionId) {
+        CRadarScreen::StartTagFunction(
+            itemString.c_str(),
+            menuName.c_str(),
+            menuItemCode,
+            parameter.c_str(),
+            targetPluginName.c_str(),
+            targetFunctionId,
+            {},
+            {});
     }
 
     void InfoScreen::OnMoveScreenObject(int ObjectType, const char *sObjectId, POINT Pt, RECT Area, bool Released) {

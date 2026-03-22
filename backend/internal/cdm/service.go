@@ -6,28 +6,123 @@ import (
 	"FlightStrips/internal/shared"
 	"FlightStrips/pkg/helpers"
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"time"
+
+	"github.com/jackc/pgx/v5"
 )
 
 type Service struct {
-	client      *Client
-	stripRepo   repository.StripRepository
-	sessionRepo repository.SessionRepository
-	frontendHub shared.FrontendHub
+	client         *Client
+	stripRepo      repository.StripRepository
+	sessionRepo    repository.SessionRepository
+	controllerRepo repository.ControllerRepository
+	frontendHub    shared.FrontendHub
+	euroscopeHub   shared.EuroscopeHub
 }
 
-func NewCdmService(client *Client, stripRepo repository.StripRepository, sessionRepo repository.SessionRepository) *Service {
+type canonicalCdmState struct {
+	Tobt   string
+	Tsat   string
+	Ttot   string
+	Ctot   string
+	Aobt   string
+	Eobt   string
+	Status string
+	Source string
+}
+
+func NewCdmService(client *Client, stripRepo repository.StripRepository, sessionRepo repository.SessionRepository, controllerRepo repository.ControllerRepository) *Service {
 	return &Service{
-		client:      client,
-		stripRepo:   stripRepo,
-		sessionRepo: sessionRepo,
+		client:         client,
+		stripRepo:      stripRepo,
+		sessionRepo:    sessionRepo,
+		controllerRepo: controllerRepo,
 	}
 }
 
 func (s *Service) SetFrontendHub(frontendHub shared.FrontendHub) {
 	s.frontendHub = frontendHub
+}
+
+func (s *Service) SetEuroscopeHub(euroscopeHub shared.EuroscopeHub) {
+	s.euroscopeHub = euroscopeHub
+}
+
+func (s *Service) HandleReadyRequest(ctx context.Context, session int32, callsign string) error {
+	if !s.client.isValid {
+		return nil
+	}
+
+	sessionData, err := s.sessionRepo.GetByID(ctx, session)
+	if err != nil {
+		return err
+	}
+
+	airportMaster, err := s.client.AirportMasterByICAO(ctx, sessionData.Airport)
+	if err != nil {
+		return err
+	}
+
+	if airportMaster == nil {
+		slog.Info("CDM ready request skipped: no external CDM master configured for airport",
+			slog.Int("session", int(session)),
+			slog.String("airport", sessionData.Airport),
+			slog.String("callsign", callsign),
+			slog.String("branch", "no-master"),
+		)
+		return nil
+	}
+
+	slog.Info("Resolved external CDM master for airport",
+		slog.Int("session", int(session)),
+		slog.String("airport", sessionData.Airport),
+		slog.String("callsign", callsign),
+		slog.String("master_position", airportMaster.Position),
+	)
+
+	controller, err := s.controllerRepo.GetByCallsign(ctx, session, airportMaster.Position)
+	switch {
+	case err == nil && controller.Cid != nil && *controller.Cid != "" && s.euroscopeHub != nil:
+		slog.Info("Handling CDM ready request via targeted EuroScope fast path",
+			slog.Int("session", int(session)),
+			slog.String("airport", sessionData.Airport),
+			slog.String("callsign", callsign),
+			slog.String("branch", "fast-es"),
+			slog.String("target_position", airportMaster.Position),
+			slog.String("target_cid", *controller.Cid),
+		)
+
+		if err := s.persistPendingReadyRequest(ctx, session, callsign, "euroscope", &airportMaster.Position); err != nil {
+			return err
+		}
+
+		if s.frontendHub != nil {
+			s.frontendHub.SendCdmWait(session, callsign)
+		}
+
+		s.euroscopeHub.SendCdmReadyRequest(session, *controller.Cid, callsign)
+		slog.Info("Sent targeted CDM ready request to EuroScope client",
+			slog.Int("session", int(session)),
+			slog.String("callsign", callsign),
+			slog.String("target_position", airportMaster.Position),
+			slog.String("target_cid", *controller.Cid),
+		)
+		return nil
+	case err != nil && !errors.Is(err, pgx.ErrNoRows):
+		return err
+	default:
+		slog.Info("Falling back to IFPS CDM ready request: external master not connected locally",
+			slog.Int("session", int(session)),
+			slog.String("airport", sessionData.Airport),
+			slog.String("callsign", callsign),
+			slog.String("branch", "fallback-api"),
+			slog.String("target_position", airportMaster.Position),
+		)
+		return s.RequestBetterTobt(ctx, session, callsign)
+	}
 }
 
 func (s *Service) SetReady(ctx context.Context, session int32, callsign string) error {
@@ -103,6 +198,77 @@ func (s *Service) RequestBetterTobt(ctx context.Context, session int32, callsign
 	return nil
 }
 
+func (s *Service) persistPendingReadyRequest(ctx context.Context, session int32, callsign string, via string, targetPosition *string) error {
+	cdmData, err := s.stripRepo.GetCdmDataForCallsign(ctx, session, callsign)
+	if err != nil {
+		return err
+	}
+
+	updated := cdmData.Clone()
+	now := time.Now().UTC()
+	updated.Pending = &models.CdmPendingRequest{
+		RequestedAt:    &now,
+		Via:            via,
+		TargetPosition: targetPosition,
+	}
+
+	rows, err := s.stripRepo.SetCdmData(ctx, session, callsign, updated)
+	if err != nil {
+		return err
+	}
+
+	if rows != 1 {
+		return fmt.Errorf("failed to persist pending CDM request for %s session %d", callsign, session)
+	}
+
+	return nil
+}
+
+func (s *Service) applyCanonicalCdmState(ctx context.Context, session int32, callsign string, flight *models.CdmData, next canonicalCdmState) error {
+	previousEffectiveEobt := helpers.ValueOrDefault(flight.EffectiveEobt())
+	previousEffectiveTobt := helpers.ValueOrDefault(flight.EffectiveTobt())
+	previousEffectiveTsat := helpers.ValueOrDefault(flight.EffectiveTsat())
+	previousEffectiveCtot := helpers.ValueOrDefault(flight.EffectiveCtot())
+
+	updated := flight.Clone()
+	updated.Canonical.Tobt = &next.Tobt
+	updated.Canonical.Tsat = &next.Tsat
+	updated.Canonical.Ttot = &next.Ttot
+	updated.Canonical.Ctot = &next.Ctot
+	updated.Canonical.Aobt = &next.Aobt
+	updated.Canonical.Eobt = &next.Eobt
+	updated.Canonical.Status = &next.Status
+	updated.Canonical.Source = next.Source
+	now := time.Now().UTC()
+	updated.Canonical.UpdatedAt = &now
+	updated.Pending = nil
+	updated.ClearMatchingLocalOverride("tobt", updated.Canonical.Tobt)
+	updated.ClearMatchingLocalOverride("tsat", updated.Canonical.Tsat)
+	updated.ClearMatchingLocalOverride("ttot", updated.Canonical.Ttot)
+	updated.ClearMatchingLocalOverride("ctot", updated.Canonical.Ctot)
+
+	if _, err := s.stripRepo.SetCdmData(ctx, session, callsign, updated); err != nil {
+		return err
+	}
+
+	if s.frontendHub != nil &&
+		(previousEffectiveEobt != helpers.ValueOrDefault(updated.EffectiveEobt()) ||
+			previousEffectiveTobt != helpers.ValueOrDefault(updated.EffectiveTobt()) ||
+			previousEffectiveTsat != helpers.ValueOrDefault(updated.EffectiveTsat()) ||
+			previousEffectiveCtot != helpers.ValueOrDefault(updated.EffectiveCtot())) {
+		s.frontendHub.SendCdmUpdate(
+			session,
+			callsign,
+			helpers.ValueOrDefault(updated.EffectiveEobt()),
+			helpers.ValueOrDefault(updated.EffectiveTobt()),
+			helpers.ValueOrDefault(updated.EffectiveTsat()),
+			helpers.ValueOrDefault(updated.EffectiveCtot()),
+		)
+	}
+
+	return nil
+}
+
 func (s *Service) Start(ctx context.Context) {
 	if !s.client.isValid {
 		slog.Warn("CDM client is not valid, CDM data will not be synced")
@@ -156,62 +322,37 @@ func (s *Service) syncCdmData(ctx context.Context, session *models.Session) erro
 
 	for _, row := range newData {
 		if flight, ok := lookup[row.Callsign]; ok {
-			tsat := row.CDMData.TSAT
-			ttot := row.CDMData.TTOT
-			if len(tsat) > 4 {
-				tsat = tsat[:4]
+			next := canonicalCdmState{
+				Tobt:   row.TOBT,
+				Tsat:   truncateCDMClockValue(row.CDMData.TSAT),
+				Ttot:   truncateCDMClockValue(row.CDMData.TTOT),
+				Ctot:   row.CTOT,
+				Aobt:   row.AOBT,
+				Eobt:   row.EOBT,
+				Status: row.CDMStatus,
+				Source: "ifps",
 			}
-			if len(ttot) > 4 {
-				ttot = ttot[:4]
-			}
-			if helpers.ValueOrDefault(flight.Canonical.Status) != row.CDMStatus ||
-				helpers.ValueOrDefault(flight.Canonical.Aobt) != row.AOBT ||
-				helpers.ValueOrDefault(flight.Canonical.Eobt) != row.EOBT ||
-				helpers.ValueOrDefault(flight.Canonical.Ctot) != row.CTOT ||
-				helpers.ValueOrDefault(flight.Canonical.Tobt) != row.TOBT ||
-				helpers.ValueOrDefault(flight.Canonical.Tsat) != tsat ||
-				helpers.ValueOrDefault(flight.Canonical.Ttot) != ttot {
-				previousEffectiveEobt := helpers.ValueOrDefault(flight.EffectiveEobt())
-				previousEffectiveTobt := helpers.ValueOrDefault(flight.EffectiveTobt())
-				previousEffectiveTsat := helpers.ValueOrDefault(flight.EffectiveTsat())
-				previousEffectiveCtot := helpers.ValueOrDefault(flight.EffectiveCtot())
-
-				updated := flight.Clone()
-				updated.Canonical.Tobt = &row.TOBT
-				updated.Canonical.Tsat = &tsat
-				updated.Canonical.Ttot = &ttot
-				updated.Canonical.Ctot = &row.CTOT
-				updated.Canonical.Aobt = &row.AOBT
-				updated.Canonical.Eobt = &row.EOBT
-				updated.Canonical.Status = &row.CDMStatus
-				updated.Canonical.Source = "ifps"
-				now := time.Now().UTC()
-				updated.Canonical.UpdatedAt = &now
-				updated.ClearMatchingLocalOverride("tobt", updated.Canonical.Tobt)
-				updated.ClearMatchingLocalOverride("tsat", updated.Canonical.Tsat)
-				updated.ClearMatchingLocalOverride("ttot", updated.Canonical.Ttot)
-				updated.ClearMatchingLocalOverride("ctot", updated.Canonical.Ctot)
-
-				if _, err = s.stripRepo.SetCdmData(ctx, session.ID, row.Callsign, updated); err != nil {
+			if helpers.ValueOrDefault(flight.Canonical.Status) != next.Status ||
+				helpers.ValueOrDefault(flight.Canonical.Aobt) != next.Aobt ||
+				helpers.ValueOrDefault(flight.Canonical.Eobt) != next.Eobt ||
+				helpers.ValueOrDefault(flight.Canonical.Ctot) != next.Ctot ||
+				helpers.ValueOrDefault(flight.Canonical.Tobt) != next.Tobt ||
+				helpers.ValueOrDefault(flight.Canonical.Tsat) != next.Tsat ||
+				helpers.ValueOrDefault(flight.Canonical.Ttot) != next.Ttot {
+				if err := s.applyCanonicalCdmState(ctx, session.ID, row.Callsign, flight, next); err != nil {
 					return err
-				}
-
-				if previousEffectiveEobt != helpers.ValueOrDefault(updated.EffectiveEobt()) ||
-					previousEffectiveTobt != helpers.ValueOrDefault(updated.EffectiveTobt()) ||
-					previousEffectiveTsat != helpers.ValueOrDefault(updated.EffectiveTsat()) ||
-					previousEffectiveCtot != helpers.ValueOrDefault(updated.EffectiveCtot()) {
-					s.frontendHub.SendCdmUpdate(
-						session.ID,
-						row.Callsign,
-						helpers.ValueOrDefault(updated.EffectiveEobt()),
-						helpers.ValueOrDefault(updated.EffectiveTobt()),
-						helpers.ValueOrDefault(updated.EffectiveTsat()),
-						helpers.ValueOrDefault(updated.EffectiveCtot()),
-					)
 				}
 			}
 		}
 	}
 
 	return nil
+}
+
+func truncateCDMClockValue(value string) string {
+	if len(value) > 4 {
+		return value[:4]
+	}
+
+	return value
 }

@@ -29,6 +29,7 @@ const (
 	Runway                    EventType = "runway"
 	AircraftRunway            EventType = "aircraft_runway"
 	SessionInfo               EventType = "session_info"
+	CdmReadyRequest           EventType = "cdm_ready_request"
 	GenerateSquawk            EventType = "generate_squawk"
 	Route                     EventType = "route"
 	Remarks                   EventType = "remarks"
@@ -137,9 +138,9 @@ type SyncEvent struct {
 		Position string `json:"position"`
 		Callsign string `json:"callsign"`
 	} `json:"controllers"`
-	Strips  []Strip           `json:"strips"`
-	Runways []SyncRunway      `json:"runways"`
-	Sids    []models.SidInfo  `json:"sids"`
+	Strips  []Strip          `json:"strips"`
+	Runways []SyncRunway     `json:"runways"`
+	Sids    []models.SidInfo `json:"sids"`
 }
 
 type AssignedSquawkEvent struct {
@@ -256,6 +257,18 @@ func (e SessionInfoEvent) Marshal() ([]byte, error) {
 
 type GenerateSquawkEvent struct {
 	Callsign string `json:"callsign"`
+}
+
+type CdmReadyRequestEvent struct {
+	Callsign string `json:"callsign"`
+}
+
+func (e CdmReadyRequestEvent) GetType() EventType {
+	return CdmReadyRequest
+}
+
+func (e CdmReadyRequestEvent) Marshal() ([]byte, error) {
+	return marshall(e)
 }
 
 func (e GenerateSquawkEvent) GetType() EventType {

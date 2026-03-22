@@ -8,19 +8,33 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
+	"sync"
 	"time"
 )
 
-const DefaultBaseURL = "https://cdm-server-production.up.railway.app"
+const DefaultBaseURL = "https://viff-system.network"
+
+const defaultAirportMasterCacheTTL = 5 * time.Second
 
 type Client struct {
 	baseURL    string
 	apiKey     string
 	httpClient *http.Client
 	isValid    bool
+
+	airportMasterCacheMu      sync.Mutex
+	airportMasterCacheTTL     time.Duration
+	airportMasterCacheUntil   time.Time
+	airportMasterCacheEntries []AirportMaster
 }
 
 type Option func(*Client)
+
+type AirportMaster struct {
+	ICAO     string `json:"icao"`
+	Position string `json:"position"`
+}
 
 func WithAPIKey(key string) Option {
 	return func(c *Client) {
@@ -41,12 +55,19 @@ func WithBaseURL(url string) Option {
 	}
 }
 
+func WithAirportMasterCacheTTL(ttl time.Duration) Option {
+	return func(c *Client) {
+		c.airportMasterCacheTTL = ttl
+	}
+}
+
 func NewClient(opts ...Option) *Client {
 	c := &Client{
 		baseURL: DefaultBaseURL,
 		httpClient: &http.Client{
 			Timeout: 15 * time.Second,
 		},
+		airportMasterCacheTTL: defaultAirportMasterCacheTTL,
 	}
 
 	for _, opt := range opts {
@@ -54,6 +75,45 @@ func NewClient(opts ...Option) *Client {
 	}
 
 	return c
+}
+
+func (c *Client) airportMastersFromCache(now time.Time) ([]AirportMaster, bool) {
+	c.airportMasterCacheMu.Lock()
+	defer c.airportMasterCacheMu.Unlock()
+
+	if c.airportMasterCacheTTL <= 0 || now.After(c.airportMasterCacheUntil) {
+		return nil, false
+	}
+
+	return append([]AirportMaster(nil), c.airportMasterCacheEntries...), true
+}
+
+func (c *Client) storeAirportMasters(now time.Time, masters []AirportMaster) {
+	if c.airportMasterCacheTTL <= 0 {
+		return
+	}
+
+	c.airportMasterCacheMu.Lock()
+	defer c.airportMasterCacheMu.Unlock()
+
+	c.airportMasterCacheEntries = append([]AirportMaster(nil), masters...)
+	c.airportMasterCacheUntil = now.Add(c.airportMasterCacheTTL)
+}
+
+func (c *Client) AirportMasterByICAO(ctx context.Context, icao string) (*AirportMaster, error) {
+	masters, err := c.AirportMasters(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, master := range masters {
+		if strings.EqualFold(master.ICAO, icao) {
+			match := master
+			return &match, nil
+		}
+	}
+
+	return nil, nil
 }
 
 func (c *Client) doRequest(

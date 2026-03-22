@@ -258,6 +258,20 @@ namespace FlightStrips {
         return needsSquawk;
     }
 
+    void FlightStripsPlugin::AddNeedsCdmReady(const std::string &callsign) {
+        m_needsCdmReady.push(callsign);
+    }
+
+    std::optional<std::string> FlightStripsPlugin::GetNeedsCdmReady() {
+        if (m_needsCdmReady.empty()) {
+            return {};
+        }
+
+        auto needsCdmReady = m_needsCdmReady.front();
+        m_needsCdmReady.pop();
+        return needsCdmReady;
+    }
+
     void FlightStripsPlugin::OnAirportRunwayActivityChanged() {
         SafeCall("OnAirportRunwayActivityChanged", [this] {
             m_airportRunwayChangedEventHandlers->OnAirportRunwayActivityChanged();
@@ -294,7 +308,11 @@ namespace FlightStrips {
             return nullptr;
         }
         if (const auto ptr = m_container.lock()) {
-            return new graphics::InfoScreen(ptr->authenticationService, ptr->userConfig, ptr->webSocketService, this);
+            return new graphics::InfoScreen(
+                ptr->authenticationService,
+                ptr->userConfig,
+                ptr->webSocketService,
+                this);
         }
 
         return nullptr;

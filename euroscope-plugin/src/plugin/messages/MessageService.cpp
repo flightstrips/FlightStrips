@@ -41,6 +41,8 @@ namespace FlightStrips::messages {
 
         if (type == EVENT_SESSION_INFO_NAME) {
             HandleSessionInfoEvent(message.get<SessionInfoEvent>());
+        } else if (type == EVENT_CDM_READY_REQUEST_NAME) {
+            HandleCdmReadyRequestEvent(message.get<CdmReadyRequestEvent>());
         } else if (type == EVENT_ASSIGNED_SQUAWK_NAME) {
             HandleAssignedSquawkEvent(message.get<AssignedSquawkEvent>());
         } else if (type == EVENT_REQUESTED_ALTITUDE_NAME) {
@@ -82,6 +84,17 @@ namespace FlightStrips::messages {
         } catch (const std::exception &e) {
             Logger::Error("Exception handling message: {}", e.what());
         }
+    }
+
+    void MessageService::HandleCdmReadyRequestEvent(const CdmReadyRequestEvent &event) const {
+        const auto fp = m_plugin->FlightPlanSelect(event.callsign.c_str());
+        if (!fp.IsValid()) {
+            Logger::Warning("cdm_ready_request: flight plan not found for {}", event.callsign);
+            return;
+        }
+
+        m_plugin->AddNeedsCdmReady(std::string(fp.GetCallsign()));
+        Logger::Info("cdm_ready_request: queued external CDM ready trigger for {}", event.callsign);
     }
 
     void MessageService::HandleSessionInfoEvent(const SessionInfoEvent &event) const {

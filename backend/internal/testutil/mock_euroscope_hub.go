@@ -29,6 +29,12 @@ type CoordinationHandoverCall struct {
 	TargetCallsign string
 }
 
+type CdmReadyRequestCall struct {
+	Session  int32
+	Cid      string
+	Callsign string
+}
+
 // MockEuroscopeHub is a configurable mock for shared.EuroscopeHub.
 // It records calls for assertion in tests.
 type MockEuroscopeHub struct {
@@ -39,6 +45,7 @@ type MockEuroscopeHub struct {
 	ClearedFlags          []ClearedFlagCall
 	GroundStates          []GroundStateCall
 	CoordinationHandovers []CoordinationHandoverCall
+	CdmReadyRequests      []CdmReadyRequestCall
 	CreateFPLCalls        []CreateFPLCall
 }
 
@@ -56,6 +63,10 @@ func (m *MockEuroscopeHub) HasActiveClientForAirport(airport string) bool {
 func (m *MockEuroscopeHub) Broadcast(session int32, message euroscope.OutgoingMessage) {}
 
 func (m *MockEuroscopeHub) Send(session int32, cid string, message euroscope.OutgoingMessage) {}
+
+func (m *MockEuroscopeHub) SendCdmReadyRequest(session int32, cid string, callsign string) {
+	m.CdmReadyRequests = append(m.CdmReadyRequests, CdmReadyRequestCall{Session: session, Cid: cid, Callsign: callsign})
+}
 
 func (m *MockEuroscopeHub) SendGenerateSquawk(session int32, cid string, callsign string) {}
 

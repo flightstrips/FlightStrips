@@ -34,6 +34,7 @@
 #define EVENT_ASSUME_AND_DROP_NAME "assume_and_drop"
 #define EVENT_BACKEND_SYNC_NAME "backend_sync"
 #define EVENT_CREATE_FPL_NAME "create_fpl"
+#define EVENT_CDM_READY_REQUEST_NAME "cdm_ready_request"
 
 enum EventType {
     EVENT_UNKNOWN = 0,
@@ -68,6 +69,7 @@ enum EventType {
     EVENT_ASSUME_AND_DROP,
     EVENT_BACKEND_SYNC,
     EVENT_CREATE_FPL,
+    EVENT_CDM_READY_REQUEST,
 };
 
 NLOHMANN_JSON_SERIALIZE_ENUM(EventType, {
@@ -99,10 +101,11 @@ NLOHMANN_JSON_SERIALIZE_ENUM(EventType, {
                               {EVENT_AIRCRAFT_RUNWAY, EVENT_AIRCRAFT_RUNWAY_NAME},
                               {EVENT_COORDINATION_HANDOVER, EVENT_COORDINATION_HANDOVER_NAME},
                               {EVENT_COORDINATION_RECEIVED, EVENT_COORDINATION_RECEIVED_NAME},
-                              {EVENT_ASSUME_AND_DROP, EVENT_ASSUME_AND_DROP_NAME},
-                              {EVENT_BACKEND_SYNC, EVENT_BACKEND_SYNC_NAME},
-                              {EVENT_CREATE_FPL, EVENT_CREATE_FPL_NAME},
-                              })
+                               {EVENT_ASSUME_AND_DROP, EVENT_ASSUME_AND_DROP_NAME},
+                               {EVENT_BACKEND_SYNC, EVENT_BACKEND_SYNC_NAME},
+                               {EVENT_CREATE_FPL, EVENT_CREATE_FPL_NAME},
+                               {EVENT_CDM_READY_REQUEST, EVENT_CDM_READY_REQUEST_NAME},
+                               })
 
 struct Event {
     EventType type{EVENT_UNKNOWN};
@@ -162,6 +165,16 @@ struct RunwayEvent final : Event {
     }
 
     NLOHMANN_DEFINE_TYPE_INTRUSIVE(RunwayEvent, runways, type);
+};
+
+struct CdmReadyRequestEvent final : Event {
+    std::string callsign;
+
+    explicit CdmReadyRequestEvent(std::string callsign) : Event(EVENT_CDM_READY_REQUEST), callsign(std::move(callsign)) {
+    }
+    CdmReadyRequestEvent() = default;
+
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE(CdmReadyRequestEvent, callsign, type);
 };
 
 struct AssignedSquawkEvent final : Event {

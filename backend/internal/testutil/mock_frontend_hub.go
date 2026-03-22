@@ -87,6 +87,11 @@ type StripUpdateCall struct {
 	Callsign string
 }
 
+type CdmWaitCall struct {
+	Session  int32
+	Callsign string
+}
+
 // BulkBayCall records arguments to SendBulkBayEvent.
 type BulkBayCall struct {
 	Session int32
@@ -99,18 +104,19 @@ type BulkBayCall struct {
 type MockFrontendHub struct {
 	server shared.Server
 
-	BayEvents                []BayEventCall
-	BulkBayEvents            []BulkBayCall
-	OwnersUpdates            []OwnersUpdateCall
-	CoordinationTransfers    []CoordinationTransferCall
-	CoordinationAssumes      []CoordinationAssumeCall
-	CoordinationRejects      []CoordinationRejectCall
-	CoordinationFrees        []CoordinationFreeCall
-	CoordinationTagRequests  []CoordinationTagRequestCall
-	AircraftDisconnects      []AircraftDisconnectCall
-	StripUpdates             []StripUpdateCall
-	ControllerOnlines        []ControllerOnlineCall
-	ControllerOfflines       []ControllerOfflineCall
+	BayEvents               []BayEventCall
+	BulkBayEvents           []BulkBayCall
+	OwnersUpdates           []OwnersUpdateCall
+	CoordinationTransfers   []CoordinationTransferCall
+	CoordinationAssumes     []CoordinationAssumeCall
+	CoordinationRejects     []CoordinationRejectCall
+	CoordinationFrees       []CoordinationFreeCall
+	CoordinationTagRequests []CoordinationTagRequestCall
+	AircraftDisconnects     []AircraftDisconnectCall
+	StripUpdates            []StripUpdateCall
+	ControllerOnlines       []ControllerOnlineCall
+	ControllerOfflines      []ControllerOfflineCall
+	CdmWaits                []CdmWaitCall
 }
 
 func (m *MockFrontendHub) GetServer() shared.Server {
@@ -145,7 +151,8 @@ func (m *MockFrontendHub) SendAssignedSquawkEvent(session int32, callsign string
 
 func (m *MockFrontendHub) SendSquawkEvent(session int32, callsign string, squawk string) {}
 
-func (m *MockFrontendHub) SendRequestedAltitudeEvent(session int32, callsign string, altitude int32) {}
+func (m *MockFrontendHub) SendRequestedAltitudeEvent(session int32, callsign string, altitude int32) {
+}
 
 func (m *MockFrontendHub) SendClearedAltitudeEvent(session int32, callsign string, altitude int32) {}
 
@@ -192,7 +199,9 @@ func (m *MockFrontendHub) SendLayoutUpdates(session int32, layoutMap map[string]
 
 func (m *MockFrontendHub) SendCdmUpdate(session int32, callsign, eobt, tobt, tsat, ctot string) {}
 
-func (m *MockFrontendHub) SendCdmWait(session int32, callsign string) {}
+func (m *MockFrontendHub) SendCdmWait(session int32, callsign string) {
+	m.CdmWaits = append(m.CdmWaits, CdmWaitCall{Session: session, Callsign: callsign})
+}
 
 func (m *MockFrontendHub) SendPdcStateChange(session int32, callsign, state string) {}
 

@@ -329,7 +329,7 @@ func handleCdmReady(ctx context.Context, client *Client, message Message) error 
 	}
 
 	cdmService := client.hub.server.GetCdmService()
-	return cdmService.RequestBetterTobt(ctx, client.session, event.Callsign)
+	return cdmService.HandleReadyRequest(ctx, client.session, event.Callsign)
 }
 
 func handleReleasePoint(ctx context.Context, client *Client, message Message) error {

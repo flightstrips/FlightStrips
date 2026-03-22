@@ -41,6 +41,7 @@ set(ALL_FILES
         controller/ControllerServiceTest.cpp
 
         # Messages
+        messages/CdmReadyTriggerTest.cpp
         messages/MessageServiceTest.cpp
 
         # Handlers

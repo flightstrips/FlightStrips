@@ -12,7 +12,7 @@ import { PlannedDialog } from "@/components/strip/PlannedDialog";
 // Column widths — all four columns are equal
 const W_COL = "w-1/4";
 const col         = `${W_COL} h-full bg-[#555355]`; // column wrapper (no flex-col; each column manages its own layout)
-const pageWrapper = "bg-[#A9A9A9] w-screen h-[calc(100vh-4rem)] flex justify-center justify-items-center gap-2 aspect-video";
+const pageWrapper = "bg-[#A9A9A9] w-screen h-[calc(100vh-60px)] flex justify-center justify-items-center gap-2 aspect-video";
 
 // Header class strings
 const lockedHeader  = "bg-[#393939] h-10 flex items-center px-2 justify-between";

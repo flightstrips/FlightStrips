@@ -115,7 +115,7 @@ export function DelStrip({
           style={{ flex: "1 0 0%", height: "100%", minWidth: 0, borderRightColor: cellBorderColor }}
         >
           <CLXBtn callsign={callsign}>
-            <div className="flex items-center justify-center overflow-hidden" style={{ height: HALF_H, fontFamily: FONT, fontWeight: "bold", fontSize: 14, color: manualBlue }}>
+            <div className="flex items-center justify-center border-b-2 overflow-hidden" style={{ height: HALF_H, fontFamily: FONT, fontWeight: "bold", fontSize: 14, color: manualBlue, borderBottomColor: "transparent" }}>
               {destination}
             </div>
             <div
@@ -136,8 +136,8 @@ export function DelStrip({
           style={{ flex: "3 0 0%", height: "100%", minWidth: 0, borderRightColor: cellBorderColor }}
         >
           {/* EOBT — left half */}
-          <div className="flex flex-col justify-start overflow-hidden border-r-2" style={{ flex: "1 0 0%", height: "100%", minWidth: 0, borderRightColor: cellBorderColor }}>
-            <div className="flex items-center justify-between px-1 overflow-hidden" style={{ height: HALF_H, fontFamily: FONT, fontSize: 14 }}>
+          <div className="flex flex-col overflow-hidden border-r-2" style={{ flex: "1 0 0%", height: "100%", minWidth: 0, borderRightColor: cellBorderColor }}>
+            <div className="flex items-center justify-between px-1 border-b-2 overflow-hidden" style={{ height: "50%", fontFamily: FONT, fontSize: 14, borderBottomColor: "transparent" }}>
               <span className={`${isNavyBg ? "text-white" : "text-black"} shrink-0`}>EOBT</span>
               <span style={{ color: manualBlue }}>{eobt}</span>
             </div>

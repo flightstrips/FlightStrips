@@ -45,7 +45,7 @@ const label  = "text-white font-bold text-lg";
 
 // Section separator (grey border between sub-sections within a column)
 const colSep      = "border-t-4 border-[#A9A9A9]";
-const pageWrapper = "bg-[#A9A9A9] w-screen h-[calc(100vh-4rem)] flex justify-center justify-items-center gap-2";
+const pageWrapper = "bg-[#A9A9A9] w-screen h-[calc(100vh-60px)] flex justify-center justify-items-center gap-2";
 
 const scrollArea           = `w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto ${CLS_SCROLLBAR}`;
 const scrollAreaBottom     = `w-full bg-[#555355] p-1 flex flex-col justify-end gap-px overflow-y-auto ${CLS_SCROLLBAR}`;

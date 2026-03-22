@@ -217,7 +217,7 @@ function buildReadout(decoded: MetarDecoded): string {
   return parts.join(" ");
 }
 
-export default function ATIS() {
+export default function ATIS({ atisCode }: { atisCode?: string | null }) {
   const airport = useAirport();
   const metar = useMetar();
   const decoded = decodeMetar(metar ?? undefined);
@@ -225,7 +225,7 @@ export default function ATIS() {
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <button className={CLS_CMDBTN}>ATIS</button>
+        <button className={`${CLS_CMDBTN} !w-auto px-5`}>ATIS{atisCode ? ` ${atisCode}` : ""}</button>
       </DialogTrigger>
       <DialogContent className={CLS_DIALOG}>
         <DialogHeader>

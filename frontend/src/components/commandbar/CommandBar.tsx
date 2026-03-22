@@ -21,6 +21,7 @@ const CLS_LABEL     = "text-2xl font-bold text-[#e4e4e4] px-3";
 const SCOPE_LABELS: Record<string, string> = {
   "CLX":  "CLR DEL",
   "AAAD": "AA + AD",
+  "AD":   "APRON DEP",
   "GEGW": "GE / GW",
   "TWTE": "TW / TE",
 };

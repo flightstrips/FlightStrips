@@ -44,7 +44,7 @@ import {
 } from '../api/models.ts';
 import {WebSocketClient} from '../api/websocket.ts';
 
-const KNOWN_LAYOUTS = new Set(["CLX", "AAAD", "ESET", "GEGW", "TWTE"]);
+const KNOWN_LAYOUTS = new Set(["CLX", "AAAD", "AD", "ESET", "GEGW", "TWTE"]);
 
 export interface UpdateStrip {
   sid?: string

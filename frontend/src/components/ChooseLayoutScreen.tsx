@@ -4,6 +4,8 @@ import { useWebSocketStore } from "@/store/store-hooks";
 const EKCH_SCOPES = [
   { label: "CLR DEL", layout: "CLX" },
   { label: "AA + AD", layout: "AAAD" },
+  { label: "APRON ARR", layout: "AA" },
+  { label: "APRON DEP", layout: "AD" },
   { label: "ESET", layout: "ESET" },
   { label: "GE / GW", layout: "GEGW" },
   { label: "TW / TE", layout: "TWTE" },

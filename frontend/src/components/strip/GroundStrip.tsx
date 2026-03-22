@@ -1,7 +1,7 @@
 import { getSimpleAircraftType } from "@/lib/utils";
 import { getStripBg } from "./types";
 import type { StripProps } from "./types";
-import { useStripSelection, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR, COLOR_BTN_ORANGE, COLOR_SI_ASSUMED, COLOR_SI_UNCONCERNED, COLOR_SI_CONCERNED } from "./shared";
+import { useStripSelection, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR, COLOR_BTN_ORANGE, COLOR_SI_ASSUMED, COLOR_SI_UNCONCERNED, COLOR_SI_CONCERNED, getStripOwnership, resolveStripBg } from "./shared";
 import { useControllers, useStripTransfers, useWebSocketStore } from "@/store/store-hooks";
 
 const TOP_H = 32; // 2/3 of 48px
@@ -39,9 +39,7 @@ export function GroundStrip({
   const isTagRequest = !!stripTransfers[callsign]?.isTagRequest;
   const openStripContextMenu = useWebSocketStore(s => s.openStripContextMenu);
 
-  const isAssumed = !!myPosition && owner === myPosition;
-  const isTransferredAway = !!myPosition && !!previousControllers?.includes(myPosition);
-  const isConcerned = !!myPosition && !!nextControllers?.includes(myPosition);
+  const { isAssumed, isTransferredAway, isConcerned, isUnconcerned } = getStripOwnership(myPosition, owner, nextControllers, previousControllers);
 
   let siBg = COLOR_SI_UNCONCERNED;
   if (isAssumed) siBg = COLOR_SI_ASSUMED;
@@ -58,7 +56,7 @@ export function GroundStrip({
       style={{
         height: 48,
         width: 480,
-        backgroundColor: isTagRequest ? SELECTION_COLOR : getStripBg(pdcStatus, arrival),
+        backgroundColor: resolveStripBg(getStripBg(pdcStatus, arrival), isTagRequest, isUnconcerned),
         ...getFlatStripBorderStyle({ borderBottom: "1px solid white" }),
       }}
       onClick={handleClick}

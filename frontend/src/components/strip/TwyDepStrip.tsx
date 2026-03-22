@@ -5,7 +5,7 @@ import { useCTOTColor } from "@/hooks/useCTOTColor";
 import { COLOR_UNEXPECTED_YELLOW } from "./shared";
 import { getStripBg } from "./types";
 import type { StripProps } from "./types";
-import { useStripSelection, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR, FONT, getCellTextColor } from "./shared";
+import { useStripSelection, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR, FONT, getStripOwnership, resolveStripBg, getCellTextColor } from "./shared";
 import { TaxiMapDialog } from "../map-dialogs/TaxiMapDialog";
 import { HoldingPointDialog } from "../map-dialogs/HoldingPointDialog";
 import { SIBox } from "./SIBox";
@@ -69,6 +69,7 @@ export function TwyDepStrip({
   const { ctotBg, ctotColor, showCtot } = useCTOTColor(ctot ?? "");
   const isTagRequest = !!stripTransfers[callsign]?.isTagRequest;
   const cellBorderColor = getCellBorderColor(marked);
+  const { isUnconcerned } = getStripOwnership(myPosition, owner, nextControllers, previousControllers);
   const controllers = useControllers();
   const [showTaxiMap, setShowTaxiMap] = useState(false);
   const [showHpMap, setShowHpMap] = useState(false);
@@ -121,7 +122,7 @@ export function TwyDepStrip({
       style={{
         height: 48,
         width: TOTAL_W,
-        backgroundColor: isTagRequest ? SELECTION_COLOR : getStripBg(pdcStatus),
+        backgroundColor: resolveStripBg(getStripBg(pdcStatus), isTagRequest, isUnconcerned),
         ...getFlatStripBorderStyle({ borderBottom: "1px solid white" }),
       }}
       onClick={handleClick}

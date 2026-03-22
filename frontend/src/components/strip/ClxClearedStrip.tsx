@@ -11,6 +11,8 @@ import {
   CLS_CALLSIGN_ACTIVE,
   COLOR_UNEXPECTED_YELLOW,
   COLOR_MANUAL_BLUE,
+  getStripOwnership,
+  resolveStripBg,
   getCellTextColor,
 } from "./shared";
 import { SIBox } from "./SIBox";
@@ -67,6 +69,7 @@ export function ClxClearedStrip({
   const { isSelected, handleClick } = useStripSelection(callsign, selectable);
   const stripTransfers = useStripTransfers();
   const isTagRequest = !!stripTransfers[callsign]?.isTagRequest;
+  const { isUnconcerned } = getStripOwnership(myPosition, owner, nextControllers, previousControllers);
   const cdmReady = useWebSocketStore(s => s.cdmReady);
   const acknowledgeUnexpectedChange = useWebSocketStore(s => s.acknowledgeUnexpectedChange);
   const openStripContextMenu = useWebSocketStore(s => s.openStripContextMenu);
@@ -118,7 +121,7 @@ export function ClxClearedStrip({
     >
       <div
         className={`flex ${isNavyBg ? "text-white" : "text-black"}`}
-        style={{ height: "100%", overflow: "hidden", backgroundColor: blinkBg ?? (isTagRequest ? SELECTION_COLOR : getStripBg(pdcStatus, arrival)) }}
+        style={{ height: "100%", overflow: "hidden", backgroundColor: blinkBg ?? resolveStripBg(getStripBg(pdcStatus, arrival), isTagRequest, isUnconcerned) }}
       >
         {/* SI / ownership — 8.44% */}
         <SIBox

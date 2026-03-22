@@ -110,6 +110,37 @@ export const COLOR_UNEXPECTED_YELLOW = "#FFD700";
 export const COLOR_CONTROLLER_MODIFIED_BLUE = "#2751A3";
 /** Blue text/background for fields on manually-created strips (is_manual = true). */
 export const COLOR_MANUAL_BLUE = "#21326A";
+/** Strip background when the strip is unconcerned (not assumed, concerned, or transferred). */
+export const COLOR_UNCONCERNED_BG = "#cccccc";
+
+// ── Ownership helpers ─────────────────────────────────────────────────────────
+
+/**
+ * Derives strip ownership state from controller position data.
+ * Use this instead of repeating the same four boolean computations in every strip.
+ */
+export function getStripOwnership(
+  myPosition: string | undefined,
+  owner: string | undefined,
+  nextControllers: string[] | undefined,
+  previousControllers: string[] | undefined,
+) {
+  const isAssumed       = !!myPosition && owner === myPosition;
+  const isTransferredAway = !!myPosition && !!previousControllers?.includes(myPosition);
+  const isConcerned     = !!myPosition && !!nextControllers?.includes(myPosition);
+  const isUnconcerned   = !!myPosition && !isAssumed && !isTransferredAway && !isConcerned;
+  return { isAssumed, isTransferredAway, isConcerned, isUnconcerned };
+}
+
+/**
+ * Resolves the final strip background colour, applying overrides in priority order:
+ *   tag-request (pink) → unconcerned (grey) → caller-supplied normal colour.
+ */
+export function resolveStripBg(normalBg: string, isTagRequest: boolean, isUnconcerned: boolean): string {
+  if (isTagRequest)  return SELECTION_COLOR;
+  if (isUnconcerned) return COLOR_UNCONCERNED_BG;
+  return normalBg;
+}
 
 /** Returns the text color for a cell if the field was controller-modified, otherwise undefined. */
 export function getCellTextColor(fieldName: string, controllerModifiedFields?: string[]): string | undefined {

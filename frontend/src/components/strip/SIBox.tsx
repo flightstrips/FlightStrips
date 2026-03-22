@@ -1,6 +1,6 @@
 import React from "react";
 import { useControllers, useWebSocketStore } from "@/store/store-hooks";
-import { getCellBorderColor, FONT, COLOR_BTN_ORANGE, COLOR_SI_ASSUMED, COLOR_SI_UNCONCERNED, COLOR_SI_CONCERNED } from "./shared";
+import { getCellBorderColor, FONT, COLOR_BTN_ORANGE, COLOR_SI_ASSUMED, COLOR_SI_UNCONCERNED, COLOR_SI_CONCERNED, getStripOwnership } from "./shared";
 
 /** Text colour for the next-controller identifier label. */
 const COLOR_SI_LABEL = "#8F8F8F";
@@ -42,9 +42,7 @@ export function SIBox({
   const cancelTransfer = useWebSocketStore(s => s.cancelTransfer);
   const acceptTagRequest = useWebSocketStore(s => s.acceptTagRequest);
 
-  const isAssumed = !!myPosition && owner === myPosition;
-  const isTransferredAway = !!myPosition && !!previousControllers?.includes(myPosition);
-  const isConcerned = !!myPosition && !!nextControllers?.includes(myPosition);
+  const { isAssumed, isTransferredAway, isConcerned } = getStripOwnership(myPosition, owner, nextControllers, previousControllers);
 
   const isSendingTransfer = isAssumed && !!transferringTo && !isTagRequest;
   const isReceivingTransfer = !!myPosition && !!transferringTo && transferringTo === myPosition && !isAssumed && !isTagRequest;

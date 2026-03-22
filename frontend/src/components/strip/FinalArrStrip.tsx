@@ -3,7 +3,7 @@ import { getSimpleAircraftType } from "@/lib/utils";
 import { useStrips, useStripTransfers, useWebSocketStore } from "@/store/store-hooks";
 import { Bay } from "@/api/models";
 import type { StripProps } from "./types";
-import { useStripSelection, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR, FONT, COLOR_ARR_YELLOW } from "./shared";
+import { useStripSelection, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR, FONT, COLOR_ARR_YELLOW, getStripOwnership, resolveStripBg } from "./shared";
 import { SIBox } from "./SIBox";
 import { ArrStandDialog } from "./ArrStandDialog";
 import { TaxiMapDialog } from "@/components/map-dialogs/TaxiMapDialog";
@@ -53,6 +53,7 @@ export function FinalArrStrip({
   const cellBorderColor = getCellBorderColor(marked, CELL_BORDER);
   const stripTransfers = useStripTransfers();
   const isTagRequest = !!stripTransfers[callsign]?.isTagRequest;
+  const { isUnconcerned } = getStripOwnership(myPosition, owner, nextControllers, previousControllers);
   const runwayClearance = useWebSocketStore(s => s.runwayClearance);
   const openStripContextMenu = useWebSocketStore(s => s.openStripContextMenu);
   const allStrips = useStrips();
@@ -78,7 +79,7 @@ export function FinalArrStrip({
       style={{
         height: 48, // 48px fixed — intentional ATC arrival strip height
         width: TOTAL_W,
-        backgroundColor: isTagRequest ? SELECTION_COLOR : COLOR_ARR_YELLOW,
+        backgroundColor: resolveStripBg(COLOR_ARR_YELLOW, isTagRequest, isUnconcerned),
         ...getFlatStripBorderStyle({}, CELL_BORDER),
       }}
       onClick={handleClick}

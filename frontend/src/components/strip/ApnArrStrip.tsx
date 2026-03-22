@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { getSimpleAircraftType } from "@/lib/utils";
 import type { StripProps } from "./types";
-import { useStripSelection, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR, COLOR_ARR_YELLOW, COLOR_BTN_ORANGE, COLOR_UNEXPECTED_YELLOW, COLOR_MANUAL_BLUE, getCellTextColor } from "./shared";
+import { useStripSelection, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR, COLOR_ARR_YELLOW, COLOR_BTN_ORANGE, COLOR_UNEXPECTED_YELLOW, COLOR_MANUAL_BLUE, getStripOwnership, resolveStripBg, getCellTextColor } from "./shared";
 import { useControllers, useStripTransfers, useWebSocketStore } from "@/store/store-hooks";
 import { RunwayDialog } from "./RunwayDialog";
 import { ArrStandDialog } from "./ArrStandDialog";
@@ -59,9 +59,7 @@ export function ApnArrStrip({
   const standYellow = unexpectedChangeFields?.includes("stand");
   const runwayYellow = unexpectedChangeFields?.includes("runway");
 
-  const isAssumed = !!myPosition && owner === myPosition;
-  const isTransferredAway = !!myPosition && !!previousControllers?.includes(myPosition);
-  const isConcerned = !!myPosition && !!nextControllers?.includes(myPosition);
+  const { isAssumed, isTransferredAway, isConcerned, isUnconcerned } = getStripOwnership(myPosition, owner, nextControllers, previousControllers);
 
   let siBg = COLOR_SI_UNCONCERNED;
   if (isAssumed) siBg = COLOR_SI_ASSUMED;
@@ -79,7 +77,7 @@ export function ApnArrStrip({
       style={{
         height: 48, // 48px fixed — intentional ATC arrival strip height
         width: 428,
-        backgroundColor: isTagRequest ? SELECTION_COLOR : COLOR_ARR_YELLOW,
+        backgroundColor: resolveStripBg(COLOR_ARR_YELLOW, isTagRequest, isUnconcerned),
         ...getFlatStripBorderStyle({}, CELL_BORDER),
       }}
       onClick={handleClick}

@@ -30,6 +30,7 @@ const (
 	AircraftRunway            EventType = "aircraft_runway"
 	SessionInfo               EventType = "session_info"
 	CdmReadyRequest           EventType = "cdm_ready_request"
+	CdmLocalData              EventType = "cdm_local_data"
 	GenerateSquawk            EventType = "generate_squawk"
 	Route                     EventType = "route"
 	Remarks                   EventType = "remarks"
@@ -261,6 +262,19 @@ type GenerateSquawkEvent struct {
 
 type CdmReadyRequestEvent struct {
 	Callsign string `json:"callsign"`
+}
+
+type CdmLocalDataEvent struct {
+	Callsign       string `json:"callsign"`
+	SourcePosition string `json:"source_position"`
+	SourceRole     string `json:"source_role"`
+	Tobt           string `json:"tobt,omitempty"`
+	Tsat           string `json:"tsat,omitempty"`
+	Ttot           string `json:"ttot,omitempty"`
+	Ctot           string `json:"ctot,omitempty"`
+	Asrt           string `json:"asrt,omitempty"`
+	Tsac           string `json:"tsac,omitempty"`
+	ManualCtot     string `json:"manual_ctot,omitempty"`
 }
 
 func (e CdmReadyRequestEvent) GetType() EventType {

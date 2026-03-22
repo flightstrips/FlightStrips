@@ -4,11 +4,13 @@ import (
 	"FlightStrips/internal/models"
 	"FlightStrips/internal/repository"
 	"FlightStrips/internal/shared"
+	euroscopeEvents "FlightStrips/pkg/events/euroscope"
 	"FlightStrips/pkg/helpers"
 	"context"
 	"errors"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -34,6 +36,15 @@ type canonicalCdmState struct {
 	Source string
 }
 
+type effectiveCdmSnapshot struct {
+	Eobt string
+	Tobt string
+	Tsat string
+	Ctot string
+}
+
+const localOverrideTTL = 10 * time.Minute
+
 func NewCdmService(client *Client, stripRepo repository.StripRepository, sessionRepo repository.SessionRepository, controllerRepo repository.ControllerRepository) *Service {
 	return &Service{
 		client:         client,
@@ -49,6 +60,92 @@ func (s *Service) SetFrontendHub(frontendHub shared.FrontendHub) {
 
 func (s *Service) SetEuroscopeHub(euroscopeHub shared.EuroscopeHub) {
 	s.euroscopeHub = euroscopeHub
+}
+
+func (s *Service) HandleLocalObservation(ctx context.Context, session int32, observation euroscopeEvents.CdmLocalDataEvent) error {
+	callsign := strings.TrimSpace(observation.Callsign)
+	sourcePosition := strings.TrimSpace(observation.SourcePosition)
+	sourceRole := strings.TrimSpace(observation.SourceRole)
+
+	if callsign == "" {
+		slog.Warn("Rejected local CDM observation without callsign",
+			slog.Int("session", int(session)),
+			slog.String("source_position", sourcePosition),
+			slog.String("source_role", sourceRole),
+		)
+		return nil
+	}
+
+	cdmData, err := s.stripRepo.GetCdmDataForCallsign(ctx, session, callsign)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			slog.Warn("Rejected local CDM observation for unknown strip",
+				slog.Int("session", int(session)),
+				slog.String("callsign", callsign),
+				slog.String("source_position", sourcePosition),
+				slog.String("source_role", sourceRole),
+			)
+			return nil
+		}
+		return err
+	}
+
+	before := snapshotEffectiveCdm(cdmData)
+	updated := cdmData.Clone()
+	now := time.Now().UTC()
+	expiresAt := now.Add(localOverrideTTL)
+
+	appliedOverrides := make([]string, 0, 4)
+	pluginUpdates := make([]string, 0, 3)
+
+	applyLocalOverride(updated, "tobt", strings.TrimSpace(observation.Tobt), sourcePosition, sourceRole, now, expiresAt, &appliedOverrides)
+	applyLocalOverride(updated, "tsat", strings.TrimSpace(observation.Tsat), sourcePosition, sourceRole, now, expiresAt, &appliedOverrides)
+	applyLocalOverride(updated, "ttot", strings.TrimSpace(observation.Ttot), sourcePosition, sourceRole, now, expiresAt, &appliedOverrides)
+	applyLocalOverride(updated, "ctot", strings.TrimSpace(observation.Ctot), sourcePosition, sourceRole, now, expiresAt, &appliedOverrides)
+
+	setPluginField(&updated.Plugin.Asrt, strings.TrimSpace(observation.Asrt), "asrt", &pluginUpdates)
+	setPluginField(&updated.Plugin.Tsac, strings.TrimSpace(observation.Tsac), "tsac", &pluginUpdates)
+	setPluginField(&updated.Plugin.ManualCtot, strings.TrimSpace(observation.ManualCtot), "manual_ctot", &pluginUpdates)
+
+	if len(appliedOverrides) == 0 && len(pluginUpdates) == 0 {
+		slog.Debug("Suppressed duplicate/no-op local CDM observation",
+			slog.Int("session", int(session)),
+			slog.String("callsign", callsign),
+			slog.String("source_position", sourcePosition),
+			slog.String("source_role", sourceRole),
+		)
+		return nil
+	}
+
+	if len(appliedOverrides) > 0 {
+		updated.Pending = nil
+	}
+
+	rows, err := s.stripRepo.SetCdmData(ctx, session, callsign, updated.Normalize())
+	if err != nil {
+		return err
+	}
+
+	if rows != 1 {
+		return fmt.Errorf("failed to persist local CDM observation for %s session %d", callsign, session)
+	}
+
+	slog.Info("Merged local CDM observation",
+		slog.Int("session", int(session)),
+		slog.String("callsign", callsign),
+		slog.String("source_position", sourcePosition),
+		slog.String("source_role", sourceRole),
+		slog.Any("applied_overrides", appliedOverrides),
+		slog.Any("plugin_updates", pluginUpdates),
+		slog.String("tobt", helpers.ValueOrDefault(updated.EffectiveTobt())),
+		slog.String("tsat", helpers.ValueOrDefault(updated.EffectiveTsat())),
+		slog.String("ttot", helpers.ValueOrDefault(updated.EffectiveTtot())),
+		slog.String("ctot", helpers.ValueOrDefault(updated.EffectiveCtot())),
+	)
+
+	s.broadcastEffectiveCdmIfChanged(session, callsign, before, snapshotEffectiveCdm(updated))
+
+	return nil
 }
 
 func (s *Service) HandleReadyRequest(ctx context.Context, session int32, callsign string) error {
@@ -225,11 +322,7 @@ func (s *Service) persistPendingReadyRequest(ctx context.Context, session int32,
 }
 
 func (s *Service) applyCanonicalCdmState(ctx context.Context, session int32, callsign string, flight *models.CdmData, next canonicalCdmState) error {
-	previousEffectiveEobt := helpers.ValueOrDefault(flight.EffectiveEobt())
-	previousEffectiveTobt := helpers.ValueOrDefault(flight.EffectiveTobt())
-	previousEffectiveTsat := helpers.ValueOrDefault(flight.EffectiveTsat())
-	previousEffectiveCtot := helpers.ValueOrDefault(flight.EffectiveCtot())
-
+	before := snapshotEffectiveCdm(flight)
 	updated := flight.Clone()
 	updated.Canonical.Tobt = &next.Tobt
 	updated.Canonical.Tsat = &next.Tsat
@@ -242,29 +335,27 @@ func (s *Service) applyCanonicalCdmState(ctx context.Context, session int32, cal
 	now := time.Now().UTC()
 	updated.Canonical.UpdatedAt = &now
 	updated.Pending = nil
-	updated.ClearMatchingLocalOverride("tobt", updated.Canonical.Tobt)
-	updated.ClearMatchingLocalOverride("tsat", updated.Canonical.Tsat)
-	updated.ClearMatchingLocalOverride("ttot", updated.Canonical.Ttot)
-	updated.ClearMatchingLocalOverride("ctot", updated.Canonical.Ctot)
+	clearedOverrides := make([]string, 0, 4)
+	clearMatchingOverride(updated, "tobt", updated.Canonical.Tobt, &clearedOverrides)
+	clearMatchingOverride(updated, "tsat", updated.Canonical.Tsat, &clearedOverrides)
+	clearMatchingOverride(updated, "ttot", updated.Canonical.Ttot, &clearedOverrides)
+	clearMatchingOverride(updated, "ctot", updated.Canonical.Ctot, &clearedOverrides)
+	logExpiredOverrides(session, callsign, updated, now)
 
-	if _, err := s.stripRepo.SetCdmData(ctx, session, callsign, updated); err != nil {
+	if _, err := s.stripRepo.SetCdmData(ctx, session, callsign, updated.Normalize()); err != nil {
 		return err
 	}
 
-	if s.frontendHub != nil &&
-		(previousEffectiveEobt != helpers.ValueOrDefault(updated.EffectiveEobt()) ||
-			previousEffectiveTobt != helpers.ValueOrDefault(updated.EffectiveTobt()) ||
-			previousEffectiveTsat != helpers.ValueOrDefault(updated.EffectiveTsat()) ||
-			previousEffectiveCtot != helpers.ValueOrDefault(updated.EffectiveCtot())) {
-		s.frontendHub.SendCdmUpdate(
-			session,
-			callsign,
-			helpers.ValueOrDefault(updated.EffectiveEobt()),
-			helpers.ValueOrDefault(updated.EffectiveTobt()),
-			helpers.ValueOrDefault(updated.EffectiveTsat()),
-			helpers.ValueOrDefault(updated.EffectiveCtot()),
+	if len(clearedOverrides) > 0 {
+		slog.Info("Cleared reconciled local CDM overrides",
+			slog.Int("session", int(session)),
+			slog.String("callsign", callsign),
+			slog.Any("cleared_overrides", clearedOverrides),
+			slog.String("source", next.Source),
 		)
 	}
+
+	s.broadcastEffectiveCdmIfChanged(session, callsign, before, snapshotEffectiveCdm(updated))
 
 	return nil
 }
@@ -355,4 +446,112 @@ func truncateCDMClockValue(value string) string {
 	}
 
 	return value
+}
+
+func snapshotEffectiveCdm(data *models.CdmData) effectiveCdmSnapshot {
+	return effectiveCdmSnapshot{
+		Eobt: helpers.ValueOrDefault(data.EffectiveEobt()),
+		Tobt: helpers.ValueOrDefault(data.EffectiveTobt()),
+		Tsat: helpers.ValueOrDefault(data.EffectiveTsat()),
+		Ctot: helpers.ValueOrDefault(data.EffectiveCtot()),
+	}
+}
+
+func (s *Service) broadcastEffectiveCdmIfChanged(session int32, callsign string, before, after effectiveCdmSnapshot) {
+	if s.frontendHub == nil {
+		return
+	}
+
+	if before == after {
+		return
+	}
+
+	s.frontendHub.SendCdmUpdate(session, callsign, after.Eobt, after.Tobt, after.Tsat, after.Ctot)
+}
+
+func applyLocalOverride(
+	data *models.CdmData,
+	field string,
+	value string,
+	sourcePosition string,
+	sourceRole string,
+	observedAt time.Time,
+	expiresAt time.Time,
+	appliedFields *[]string,
+) {
+	if value == "" {
+		return
+	}
+
+	if existing, ok := data.LocalOverrides[field]; ok &&
+		existing.Value == value &&
+		existing.SourcePosition == sourcePosition &&
+		existing.SourceRole == sourceRole {
+		return
+	}
+
+	if data.LocalOverrides == nil {
+		data.LocalOverrides = make(map[string]models.CdmFieldOverride)
+	}
+
+	expiresAtCopy := expiresAt
+	data.LocalOverrides[field] = models.CdmFieldOverride{
+		Value:          value,
+		ObservedAt:     observedAt,
+		SourcePosition: sourcePosition,
+		SourceRole:     sourceRole,
+		ExpiresAt:      &expiresAtCopy,
+	}
+	*appliedFields = append(*appliedFields, field)
+}
+
+func setPluginField(target **string, value string, fieldName string, changedFields *[]string) {
+	if value == "" {
+		return
+	}
+
+	if *target != nil && **target == value {
+		return
+	}
+
+	next := value
+	*target = &next
+	*changedFields = append(*changedFields, fieldName)
+}
+
+func clearMatchingOverride(data *models.CdmData, field string, canonical *string, clearedFields *[]string) {
+	if data == nil || len(data.LocalOverrides) == 0 || canonical == nil {
+		return
+	}
+
+	override, ok := data.LocalOverrides[field]
+	if !ok || override.Value != *canonical {
+		return
+	}
+
+	data.ClearMatchingLocalOverride(field, canonical)
+	*clearedFields = append(*clearedFields, field)
+}
+
+func logExpiredOverrides(session int32, callsign string, data *models.CdmData, now time.Time) {
+	if data == nil {
+		return
+	}
+
+	for field, override := range data.LocalOverrides {
+		if override.ExpiresAt == nil || now.Before(*override.ExpiresAt) {
+			continue
+		}
+
+		slog.Warn("Local CDM override is past TTL and awaiting reconciliation",
+			slog.Int("session", int(session)),
+			slog.String("callsign", callsign),
+			slog.String("field", field),
+			slog.String("value", override.Value),
+			slog.String("source_position", override.SourcePosition),
+			slog.String("source_role", override.SourceRole),
+			slog.Time("observed_at", override.ObservedAt),
+			slog.Time("expires_at", *override.ExpiresAt),
+		)
+	}
 }

@@ -76,6 +76,7 @@ func NewHub(stripService shared.StripService, controllerService shared.Controlle
 	handlers.Add(euroscope.Sync, handleSync)
 	handlers.Add(euroscope.StripUpdate, handleStripUpdateEvent)
 	handlers.Add(euroscope.Runway, handleRunways)
+	handlers.Add(euroscope.CdmLocalData, handleCdmLocalData)
 	handlers.Add(euroscope.TrackingControllerChanged, handleTrackingControllerChanged)
 	handlers.Add(euroscope.CoordinationReceived, handleCoordinationReceived)
 

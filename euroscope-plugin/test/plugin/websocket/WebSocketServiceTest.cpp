@@ -281,6 +281,22 @@ TEST_F(WebSocketServiceOnTimerTest, ShouldSend_WhenConnectedAndMaster_ReturnsTru
     EXPECT_TRUE(svc->ShouldSend());
 }
 
+TEST_F(WebSocketServiceOnTimerTest, CanSendLocalCdmObservation_WhenDisconnected_ReturnsFalse) {
+    EXPECT_FALSE(svc->CanSendLocalCdmObservation());
+}
+
+TEST_F(WebSocketServiceOnTimerTest, CanSendLocalCdmObservation_WhenConnectedAndSlave_ReturnsTrue) {
+    ON_CALL(*mockImpl, GetStatus()).WillByDefault(Return(WEBSOCKET_STATUS_CONNECTED));
+    svc->SetSessionState(STATE_SLAVE);
+    EXPECT_TRUE(svc->CanSendLocalCdmObservation());
+}
+
+TEST_F(WebSocketServiceOnTimerTest, CanSendLocalCdmObservation_WhenConnectedAndMaster_ReturnsTrue) {
+    ON_CALL(*mockImpl, GetStatus()).WillByDefault(Return(WEBSOCKET_STATUS_CONNECTED));
+    svc->SetSessionState(STATE_MASTER);
+    EXPECT_TRUE(svc->CanSendLocalCdmObservation());
+}
+
 TEST_F(WebSocketServiceOnTimerTest, GetStats_Initial_AllZero) {
     const auto stats = svc->GetStats();
     EXPECT_EQ(stats.tx,     0);
@@ -670,6 +686,32 @@ TEST(GenerateSquawkEventTest, DefaultConstruction_DoesNotCrash) {
     GenerateSquawkEvent e;
     const nlohmann::json j = e;
     SUCCEED(); // default ctor leaves type as EVENT_UNKNOWN
+}
+
+TEST(CdmLocalDataEventTest, Serializes_AllFields) {
+    CdmLocalDataEvent e;
+    e.callsign = "SAS123";
+    e.source_position = "EKCH_B_GND";
+    e.source_role = "slave";
+    e.tobt = "1210";
+    e.tsat = "1214";
+    e.ttot = "1218";
+    e.asrt = "1204";
+    e.tsac = "1206";
+    e.manual_ctot = "1222";
+
+    const nlohmann::json j = e;
+
+    EXPECT_EQ(j["type"], EVENT_CDM_LOCAL_DATA_NAME);
+    EXPECT_EQ(j["callsign"], "SAS123");
+    EXPECT_EQ(j["source_position"], "EKCH_B_GND");
+    EXPECT_EQ(j["source_role"], "slave");
+    EXPECT_EQ(j["tobt"], "1210");
+    EXPECT_EQ(j["tsat"], "1214");
+    EXPECT_EQ(j["ttot"], "1218");
+    EXPECT_EQ(j["asrt"], "1204");
+    EXPECT_EQ(j["tsac"], "1206");
+    EXPECT_EQ(j["manual_ctot"], "1222");
 }
 
 // ---------------------------------------------------------------------------

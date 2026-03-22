@@ -44,6 +44,7 @@ namespace FlightStrips::websocket {
         bool IsConnected() const;
         bool IsPendingConnect() const;
         bool ShouldSend() const;
+        bool CanSendLocalCdmObservation() const;
         void SetSessionState(ClientState state);
         Stats GetStats() const;
         std::optional<int> GetDelaySecondsRemaining() const;
@@ -108,6 +109,7 @@ template void FlightStrips::websocket::WebSocketService::SendEvent<HeadingEvent>
 template void FlightStrips::websocket::WebSocketService::SendEvent<PositionEvent>(const PositionEvent & event);
 template void FlightStrips::websocket::WebSocketService::SendEvent<RequestedAltitudeEvent>(const RequestedAltitudeEvent & event);
 template void FlightStrips::websocket::WebSocketService::SendEvent<RunwayEvent>(const RunwayEvent & event);
+template void FlightStrips::websocket::WebSocketService::SendEvent<CdmLocalDataEvent>(const CdmLocalDataEvent & event);
 template void FlightStrips::websocket::WebSocketService::SendEvent<SquawkEvent>(const SquawkEvent & event);
 template void FlightStrips::websocket::WebSocketService::SendEvent<StandEvent>(const StandEvent & event);
 template void FlightStrips::websocket::WebSocketService::SendEvent<TrackingControllerChangedEvent>(const TrackingControllerChangedEvent & event);

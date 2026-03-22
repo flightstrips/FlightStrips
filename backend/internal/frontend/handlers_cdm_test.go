@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"FlightStrips/internal/testutil"
+	euroscopeEvents "FlightStrips/pkg/events/euroscope"
 	frontendEvents "FlightStrips/pkg/events/frontend"
 
 	"github.com/stretchr/testify/assert"
@@ -23,6 +24,10 @@ func (s *spyCdmService) HandleReadyRequest(_ context.Context, session int32, cal
 	s.session = session
 	s.callsign = callsign
 	return nil
+}
+
+func (s *spyCdmService) HandleLocalObservation(_ context.Context, _ int32, _ euroscopeEvents.CdmLocalDataEvent) error {
+	panic("HandleLocalObservation should not be called directly from handleCdmReady")
 }
 
 func (s *spyCdmService) RequestBetterTobt(_ context.Context, _ int32, _ string) error {

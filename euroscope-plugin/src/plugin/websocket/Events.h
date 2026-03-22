@@ -35,6 +35,7 @@
 #define EVENT_BACKEND_SYNC_NAME "backend_sync"
 #define EVENT_CREATE_FPL_NAME "create_fpl"
 #define EVENT_CDM_READY_REQUEST_NAME "cdm_ready_request"
+#define EVENT_CDM_LOCAL_DATA_NAME "cdm_local_data"
 
 enum EventType {
     EVENT_UNKNOWN = 0,
@@ -70,6 +71,7 @@ enum EventType {
     EVENT_BACKEND_SYNC,
     EVENT_CREATE_FPL,
     EVENT_CDM_READY_REQUEST,
+    EVENT_CDM_LOCAL_DATA,
 };
 
 NLOHMANN_JSON_SERIALIZE_ENUM(EventType, {
@@ -102,10 +104,11 @@ NLOHMANN_JSON_SERIALIZE_ENUM(EventType, {
                               {EVENT_COORDINATION_HANDOVER, EVENT_COORDINATION_HANDOVER_NAME},
                               {EVENT_COORDINATION_RECEIVED, EVENT_COORDINATION_RECEIVED_NAME},
                                {EVENT_ASSUME_AND_DROP, EVENT_ASSUME_AND_DROP_NAME},
-                               {EVENT_BACKEND_SYNC, EVENT_BACKEND_SYNC_NAME},
-                               {EVENT_CREATE_FPL, EVENT_CREATE_FPL_NAME},
-                               {EVENT_CDM_READY_REQUEST, EVENT_CDM_READY_REQUEST_NAME},
-                               })
+                                {EVENT_BACKEND_SYNC, EVENT_BACKEND_SYNC_NAME},
+                                {EVENT_CREATE_FPL, EVENT_CREATE_FPL_NAME},
+                                {EVENT_CDM_READY_REQUEST, EVENT_CDM_READY_REQUEST_NAME},
+                                {EVENT_CDM_LOCAL_DATA, EVENT_CDM_LOCAL_DATA_NAME},
+                                })
 
 struct Event {
     EventType type{EVENT_UNKNOWN};
@@ -175,6 +178,38 @@ struct CdmReadyRequestEvent final : Event {
     CdmReadyRequestEvent() = default;
 
     NLOHMANN_DEFINE_TYPE_INTRUSIVE(CdmReadyRequestEvent, callsign, type);
+};
+
+struct CdmLocalDataEvent final : Event {
+    std::string callsign;
+    std::string source_position;
+    std::string source_role;
+    std::string tobt;
+    std::string tsat;
+    std::string ttot;
+    std::string ctot;
+    std::string asrt;
+    std::string tsac;
+    std::string manual_ctot;
+
+    CdmLocalDataEvent()
+        : Event(EVENT_CDM_LOCAL_DATA) {
+    }
+
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE(
+        CdmLocalDataEvent,
+        callsign,
+        source_position,
+        source_role,
+        tobt,
+        tsat,
+        ttot,
+        ctot,
+        asrt,
+        tsac,
+        manual_ctot,
+        type
+    );
 };
 
 struct AssignedSquawkEvent final : Event {

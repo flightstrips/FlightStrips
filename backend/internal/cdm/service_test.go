@@ -10,6 +10,7 @@ import (
 
 	"FlightStrips/internal/models"
 	"FlightStrips/internal/testutil"
+	euroscopeEvents "FlightStrips/pkg/events/euroscope"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -178,4 +179,122 @@ func TestHandleReadyRequest_FallbacksToAPIWhenMasterNotConnected(t *testing.T) {
 
 func stringPtr(value string) *string {
 	return &value
+}
+
+func TestHandleLocalObservation_PersistsOverridesAndBroadcastsEffectiveValues(t *testing.T) {
+	const sessionID = int32(22)
+	const callsign = "SAS999"
+	const sourcePosition = "EKCH_B_GND"
+
+	existing := &models.CdmData{
+		Canonical: models.CdmCanonical{
+			Eobt: stringPtr("1200"),
+			Tobt: stringPtr("1205"),
+			Tsat: stringPtr("1210"),
+			Ctot: stringPtr("1220"),
+		},
+		Pending: &models.CdmPendingRequest{
+			Via: "euroscope",
+		},
+	}
+
+	var persisted *models.CdmData
+	stripRepo := &testutil.MockStripRepository{
+		GetCdmDataForCallsignFn: func(_ context.Context, session int32, cs string) (*models.CdmData, error) {
+			assert.Equal(t, sessionID, session)
+			assert.Equal(t, callsign, cs)
+			return existing.Clone(), nil
+		},
+		SetCdmDataFn: func(_ context.Context, session int32, cs string, data *models.CdmData) (int64, error) {
+			assert.Equal(t, sessionID, session)
+			assert.Equal(t, callsign, cs)
+			persisted = data.Clone()
+			return 1, nil
+		},
+	}
+
+	frontendHub := &testutil.MockFrontendHub{}
+	service := NewCdmService(newTestClientWithAirportMasters(nil), stripRepo, &testutil.MockSessionRepository{}, &testutil.MockControllerRepository{})
+	service.SetFrontendHub(frontendHub)
+
+	err := service.HandleLocalObservation(context.Background(), sessionID, euroscopeEvents.CdmLocalDataEvent{
+		Callsign:       callsign,
+		SourcePosition: sourcePosition,
+		SourceRole:     "slave",
+		Tobt:           "1207",
+		Tsat:           "1213",
+		Ttot:           "1218",
+		Asrt:           "1201",
+		Tsac:           "1202",
+		ManualCtot:     "1225",
+	})
+	require.NoError(t, err)
+
+	require.NotNil(t, persisted)
+	require.Nil(t, persisted.Pending)
+	require.Contains(t, persisted.LocalOverrides, "tobt")
+	require.Contains(t, persisted.LocalOverrides, "tsat")
+	require.Contains(t, persisted.LocalOverrides, "ttot")
+	assert.Equal(t, "1207", persisted.LocalOverrides["tobt"].Value)
+	assert.Equal(t, sourcePosition, persisted.LocalOverrides["tobt"].SourcePosition)
+	assert.Equal(t, "slave", persisted.LocalOverrides["tobt"].SourceRole)
+	require.NotNil(t, persisted.LocalOverrides["tobt"].ExpiresAt)
+	assert.Equal(t, "1201", *persisted.Plugin.Asrt)
+	assert.Equal(t, "1202", *persisted.Plugin.Tsac)
+	assert.Equal(t, "1225", *persisted.Plugin.ManualCtot)
+
+	require.Len(t, frontendHub.CdmUpdates, 1)
+	assert.Equal(t, testutil.CdmUpdateCall{
+		Session:  sessionID,
+		Callsign: callsign,
+		Eobt:     "1200",
+		Tobt:     "1207",
+		Tsat:     "1213",
+		Ctot:     "1220",
+	}, frontendHub.CdmUpdates[0])
+}
+
+func TestHandleLocalObservation_SuppressesDuplicateNoOp(t *testing.T) {
+	const sessionID = int32(23)
+	const callsign = "SAS111"
+
+	now := time.Now().UTC()
+	expiresAt := now.Add(10 * time.Minute)
+	stripRepo := &testutil.MockStripRepository{
+		GetCdmDataForCallsignFn: func(_ context.Context, session int32, cs string) (*models.CdmData, error) {
+			assert.Equal(t, sessionID, session)
+			assert.Equal(t, callsign, cs)
+			return (&models.CdmData{
+				Canonical: models.CdmCanonical{
+					Eobt: stringPtr("1200"),
+				},
+				LocalOverrides: map[string]models.CdmFieldOverride{
+					"tobt": {
+						Value:          "1207",
+						ObservedAt:     now,
+						SourcePosition: "EKCH_B_GND",
+						SourceRole:     "master",
+						ExpiresAt:      &expiresAt,
+					},
+				},
+			}).Normalize(), nil
+		},
+		SetCdmDataFn: func(_ context.Context, _ int32, _ string, _ *models.CdmData) (int64, error) {
+			t.Fatalf("SetCdmData should not be called for duplicate local observation")
+			return 0, nil
+		},
+	}
+
+	frontendHub := &testutil.MockFrontendHub{}
+	service := NewCdmService(newTestClientWithAirportMasters(nil), stripRepo, &testutil.MockSessionRepository{}, &testutil.MockControllerRepository{})
+	service.SetFrontendHub(frontendHub)
+
+	err := service.HandleLocalObservation(context.Background(), sessionID, euroscopeEvents.CdmLocalDataEvent{
+		Callsign:       callsign,
+		SourcePosition: "EKCH_B_GND",
+		SourceRole:     "master",
+		Tobt:           "1207",
+	})
+	require.NoError(t, err)
+	assert.Empty(t, frontendHub.CdmUpdates)
 }

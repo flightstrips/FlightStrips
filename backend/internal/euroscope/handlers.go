@@ -188,6 +188,27 @@ func handleStand(ctx context.Context, client *Client, message Message) error {
 	return client.hub.stripService.UpdateStand(ctx, client.session, event.Callsign, event.Stand)
 }
 
+func handleCdmLocalData(ctx context.Context, client *Client, message Message) error {
+	var event euroscope.CdmLocalDataEvent
+	if err := message.JsonUnmarshal(&event); err != nil {
+		return err
+	}
+
+	if event.SourcePosition == "" {
+		event.SourcePosition = client.callsign
+	}
+
+	if event.SourceRole == "" {
+		if master, ok := client.hub.master[client.session]; ok && master == client {
+			event.SourceRole = "master"
+		} else {
+			event.SourceRole = "slave"
+		}
+	}
+
+	return client.hub.server.GetCdmService().HandleLocalObservation(ctx, client.session, event)
+}
+
 func handlePositionUpdate(ctx context.Context, client *Client, message Message) error {
 	var event euroscope.AircraftPositionUpdateEvent
 	if err := message.JsonUnmarshal(&event); err != nil {

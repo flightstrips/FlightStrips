@@ -1,10 +1,69 @@
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
+#include <memory>
+#include <tuple>
+#include <utility>
+#include <vector>
 #include "flightplan/FlightPlanService.h"
 #include "flightplan/FlightPlan.h"
 
 using FlightStrips::flightplan::FlightPlanService;
 using FlightStrips::flightplan::FlightPlan;
+
+namespace FlightStrips::flightplan {
+    class FlightPlanServiceLocalCdmTestAccessor {
+    public:
+        static auto ParseFields(const std::string& annotation) -> std::tuple<std::string, std::string, std::string, std::string, std::string, std::string> {
+            const auto snapshot = FlightPlanService::ParseLocalCdmAnnotation(annotation);
+            return {
+                snapshot.asrt,
+                snapshot.tsac,
+                snapshot.tobt,
+                snapshot.tsat,
+                snapshot.ttot,
+                snapshot.manual_ctot
+            };
+        }
+
+        static auto SplitSlashFields(const std::string& value) -> std::vector<std::string> {
+            return FlightPlanService::SplitSlashFields(value);
+        }
+
+        static auto TrimWhitespace(std::string value) -> std::string {
+            return FlightPlanService::TrimWhitespace(std::move(value));
+        }
+
+        static auto HasSendableValues(
+            const std::string& tobt,
+            const std::string& tsat,
+            const std::string& ttot,
+            const std::string& ctot,
+            const std::string& manualCtot = ""
+        ) -> bool {
+            FlightPlanService::LocalCdmSnapshot snapshot;
+            snapshot.tobt = tobt;
+            snapshot.tsat = tsat;
+            snapshot.ttot = ttot;
+            snapshot.ctot = ctot;
+            snapshot.manual_ctot = manualCtot;
+            return snapshot.HasSendableValues();
+        }
+
+        static auto HasActiveObservationWindow(const FlightPlanService& service, const std::string& callsign) -> bool {
+            return service.HasActiveLocalCdmObservationWindow(callsign);
+        }
+
+        static void RefreshObservationWindow(FlightPlanService& service, const std::string& callsign, const std::string& reason) {
+            service.RefreshLocalCdmObservationWindow(callsign, reason);
+        }
+
+        static void ForgetLocalCdmState(FlightPlanService& service, const std::string& callsign) {
+            service.ForgetLocalCdmState(callsign);
+        }
+    };
+}
+
+using FlightStrips::flightplan::FlightPlanServiceLocalCdmTestAccessor;
 
 // ---------------------------------------------------------------------------
 // GetEstimatedLandingTime
@@ -73,6 +132,91 @@ TEST(FlightPlanServiceStaticTest, GetEstimatedLandingTime_AllDigits) {
         EXPECT_TRUE(std::isdigit(static_cast<unsigned char>(c)))
             << "Non-digit character '" << c << "' in result: " << result;
     }
+}
+
+TEST(FlightPlanServiceLocalCdmTest, ParseLocalCdmAnnotation_MapsSlashSeparatedFields) {
+    const auto [asrt, tsac, tobt, tsat, ttot, manualCtot] =
+        FlightPlanServiceLocalCdmTestAccessor::ParseFields("ASRT/TSAC/1210/1214/1218/deIce/ecfmp/1222");
+
+    EXPECT_EQ(asrt, "ASRT");
+    EXPECT_EQ(tsac, "TSAC");
+    EXPECT_EQ(tobt, "1210");
+    EXPECT_EQ(tsat, "1214");
+    EXPECT_EQ(ttot, "1218");
+    EXPECT_EQ(manualCtot, "1222");
+}
+
+TEST(FlightPlanServiceLocalCdmTest, ParseLocalCdmAnnotation_PreservesEmptyIntermediateFields) {
+    const auto [asrt, tsac, tobt, tsat, ttot, manualCtot] =
+        FlightPlanServiceLocalCdmTestAccessor::ParseFields("ASRT//1210///deIce/ecfmp/");
+
+    EXPECT_EQ(asrt, "ASRT");
+    EXPECT_EQ(tsac, "");
+    EXPECT_EQ(tobt, "1210");
+    EXPECT_EQ(tsat, "");
+    EXPECT_EQ(ttot, "");
+    EXPECT_EQ(manualCtot, "");
+}
+
+TEST(FlightPlanServiceLocalCdmTest, SplitSlashFields_PreservesTrailingEmptySegment) {
+    const auto fields = FlightPlanServiceLocalCdmTestAccessor::SplitSlashFields("A/B/");
+
+    ASSERT_EQ(fields.size(), 3u);
+    EXPECT_EQ(fields[0], "A");
+    EXPECT_EQ(fields[1], "B");
+    EXPECT_EQ(fields[2], "");
+}
+
+TEST(FlightPlanServiceLocalCdmTest, TrimWhitespace_RemovesLeadingAndTrailingWhitespace) {
+    EXPECT_EQ(FlightPlanServiceLocalCdmTestAccessor::TrimWhitespace("  1210 \t"), "1210");
+}
+
+TEST(FlightPlanServiceLocalCdmTest, LocalCdmSnapshotHasSendableValues_OnlyForTimingFields) {
+    EXPECT_TRUE(FlightPlanServiceLocalCdmTestAccessor::HasSendableValues("1210", "", "", ""));
+    EXPECT_TRUE(FlightPlanServiceLocalCdmTestAccessor::HasSendableValues("", "1214", "", ""));
+    EXPECT_TRUE(FlightPlanServiceLocalCdmTestAccessor::HasSendableValues("", "", "1218", ""));
+    EXPECT_TRUE(FlightPlanServiceLocalCdmTestAccessor::HasSendableValues("", "", "", "1222"));
+    EXPECT_FALSE(FlightPlanServiceLocalCdmTestAccessor::HasSendableValues("", "", "", "", "1222"));
+}
+
+TEST(FlightPlanServiceLocalCdmTest, ObservationWindow_IsInactiveUntilBackendRequestStartsIt) {
+    FlightPlanService service(
+        std::shared_ptr<FlightStrips::websocket::WebSocketService>{},
+        std::shared_ptr<FlightStrips::FlightStripsPlugin>{},
+        std::shared_ptr<FlightStrips::stands::StandService>{},
+        std::shared_ptr<FlightStrips::configuration::AppConfig>{}
+    );
+
+    EXPECT_FALSE(FlightPlanServiceLocalCdmTestAccessor::HasActiveObservationWindow(service, "SAS123"));
+}
+
+TEST(FlightPlanServiceLocalCdmTest, ObservationWindow_BecomesActiveOnlyAfterExplicitRefresh) {
+    FlightPlanService service(
+        std::shared_ptr<FlightStrips::websocket::WebSocketService>{},
+        std::shared_ptr<FlightStrips::FlightStripsPlugin>{},
+        std::shared_ptr<FlightStrips::stands::StandService>{},
+        std::shared_ptr<FlightStrips::configuration::AppConfig>{}
+    );
+
+    FlightPlanServiceLocalCdmTestAccessor::RefreshObservationWindow(service, "SAS123", "ready-request");
+
+    EXPECT_TRUE(FlightPlanServiceLocalCdmTestAccessor::HasActiveObservationWindow(service, "SAS123"));
+}
+
+TEST(FlightPlanServiceLocalCdmTest, ForgetLocalCdmState_ClearsRequestedObservationWindow) {
+    FlightPlanService service(
+        std::shared_ptr<FlightStrips::websocket::WebSocketService>{},
+        std::shared_ptr<FlightStrips::FlightStripsPlugin>{},
+        std::shared_ptr<FlightStrips::stands::StandService>{},
+        std::shared_ptr<FlightStrips::configuration::AppConfig>{}
+    );
+
+    FlightPlanServiceLocalCdmTestAccessor::RefreshObservationWindow(service, "SAS123", "ready-request");
+    ASSERT_TRUE(FlightPlanServiceLocalCdmTestAccessor::HasActiveObservationWindow(service, "SAS123"));
+
+    FlightPlanServiceLocalCdmTestAccessor::ForgetLocalCdmState(service, "SAS123");
+
+    EXPECT_FALSE(FlightPlanServiceLocalCdmTestAccessor::HasActiveObservationWindow(service, "SAS123"));
 }
 
 // ---------------------------------------------------------------------------

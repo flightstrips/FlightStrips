@@ -92,6 +92,15 @@ type CdmWaitCall struct {
 	Callsign string
 }
 
+type CdmUpdateCall struct {
+	Session  int32
+	Callsign string
+	Eobt     string
+	Tobt     string
+	Tsat     string
+	Ctot     string
+}
+
 // BulkBayCall records arguments to SendBulkBayEvent.
 type BulkBayCall struct {
 	Session int32
@@ -117,6 +126,7 @@ type MockFrontendHub struct {
 	ControllerOnlines       []ControllerOnlineCall
 	ControllerOfflines      []ControllerOfflineCall
 	CdmWaits                []CdmWaitCall
+	CdmUpdates              []CdmUpdateCall
 }
 
 func (m *MockFrontendHub) GetServer() shared.Server {
@@ -197,7 +207,16 @@ func (m *MockFrontendHub) SendOwnersUpdate(session int32, callsign string, owner
 
 func (m *MockFrontendHub) SendLayoutUpdates(session int32, layoutMap map[string]string) {}
 
-func (m *MockFrontendHub) SendCdmUpdate(session int32, callsign, eobt, tobt, tsat, ctot string) {}
+func (m *MockFrontendHub) SendCdmUpdate(session int32, callsign, eobt, tobt, tsat, ctot string) {
+	m.CdmUpdates = append(m.CdmUpdates, CdmUpdateCall{
+		Session:  session,
+		Callsign: callsign,
+		Eobt:     eobt,
+		Tobt:     tobt,
+		Tsat:     tsat,
+		Ctot:     ctot,
+	})
+}
 
 func (m *MockFrontendHub) SendCdmWait(session int32, callsign string) {
 	m.CdmWaits = append(m.CdmWaits, CdmWaitCall{Session: session, Callsign: callsign})

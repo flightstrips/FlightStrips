@@ -163,8 +163,8 @@ export function FinalArrStrip({
           style={{ height: BOT_H }}
           onClick={(e) => { e.stopPropagation(); setTaxiMapOpen(true); }}
         >
-          <span style={{ fontFamily: FONT, fontSize: 12 }}>
-            {holdingPoint}
+          <span style={{ fontFamily: FONT, fontSize: 12, opacity: holdingPoint ? 1 : 0.2 }}>
+            {holdingPoint || "TWY"}
           </span>
         </div>
       </div>

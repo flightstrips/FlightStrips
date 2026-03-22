@@ -128,7 +128,7 @@ export function ApnArrStrip({
         onClick={(e) => { e.stopPropagation(); setTaxiMapOpen(true); }}
       >
         <div className="flex items-center justify-center" style={{ height: TOP_H }}>
-          <span className="font-bold text-xl truncate">{taxiway ?? holdingPoint}</span>
+          {(() => { const twy = taxiway ?? holdingPoint; return <span className="font-bold text-xl truncate" style={{ opacity: twy ? 1 : 0.2 }}>{twy || "TWY"}</span>; })()}
         </div>
         <div style={{ height: BOT_H }} />
       </div>

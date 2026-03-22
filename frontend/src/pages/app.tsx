@@ -44,7 +44,7 @@ export default function AppPage() {
         <AppRouter />
         <CommandBar />
         <ContextMenuOverlay />
-        <CustomCursor />
+        {/* <CustomCursor /> */}
       </div>
     </WebSocketProvider>
   );

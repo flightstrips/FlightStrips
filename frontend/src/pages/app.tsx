@@ -4,7 +4,6 @@ import CommandBar from "@/components/commandbar/CommandBar";
 import AppRouter from "@/routes/AppRouter";
 import { StripContextMenu } from "@/components/strip/StripContextMenu";
 import { useContextMenu, useCloseStripContextMenu } from "@/store/store-hooks";
-import { CustomCursor } from "@/components/CustomCursor";
 
 function ContextMenuOverlay() {
   const contextMenu = useContextMenu();

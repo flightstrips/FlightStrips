@@ -217,7 +217,7 @@ function buildReadout(decoded: MetarDecoded): string {
   return parts.join(" ");
 }
 
-export default function ATIS({ atisCode }: { atisCode?: string | null }) {
+export default function ATIS() {
   const airport = useAirport();
   const metar = useMetar();
   const decoded = decodeMetar(metar ?? undefined);

@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.8.0](https://github.com/flightstrips/FlightStrips/compare/plugin/v0.7.1...plugin/v0.8.0) (2026-03-23)
+
+
+### Features
+
+* enable ES plugin by default ([2aaab99](https://github.com/flightstrips/FlightStrips/commit/2aaab9982f0c77e2f7a8c31ca7fe4502ca76e218))
+* Fast CDM ready ([6e3f3ae](https://github.com/flightstrips/FlightStrips/commit/6e3f3ae6f80e913f0dfcf566c22f7ae1ee616b02))
+* Sync ES CDM data to backend ([5a4111c](https://github.com/flightstrips/FlightStrips/commit/5a4111c10eee4f86b4dc7284d0989a76b94db7bf))
+
+
+### Bug Fixes
+
+* change fast path to write to strip annotation ([3b72dc8](https://github.com/flightstrips/FlightStrips/commit/3b72dc89dc8f550a043bf5828345b75e67676877))
+
 ## [0.7.1](https://github.com/flightstrips/FlightStrips/compare/plugin/v0.7.0...plugin/v0.7.1) (2026-03-22)
 
 

@@ -292,6 +292,7 @@ namespace FlightStrips::flightplan {
     void FlightPlanService::OnTimer(int counter) {
         ObserveQueuedLocalCdmRequests();
         PollLocalCdmObservationWindows();
+        ProcessPendingCdmAnnotationReads();
 
         const auto interval = m_appConfig->GetPositionUpdateIntervalSeconds();
 
@@ -332,16 +333,72 @@ namespace FlightStrips::flightplan {
 
     void FlightPlanService::ObserveQueuedLocalCdmRequests() {
         while (const auto callsign = m_flightStripsPlugin->GetNeedsCdmReady()) {
-            RefreshLocalCdmObservationWindow(*callsign, "ready-request");
-
             const auto fp = m_flightStripsPlugin->FlightPlanSelect(callsign->c_str());
             if (!fp.IsValid()) {
-                Logger::Warning("Local CDM observation window queued for unknown flight plan {}", *callsign);
+                Logger::Warning("cdm_ready_request: flight plan not found for {}", *callsign);
                 continue;
             }
 
-            ObserveLocalCdmFlightPlan(fp, "ready-request");
+            if (WriteReadyCdmAnnotation(fp)) {
+                m_pendingCdmAnnotationRead[*callsign] = 2;
+            }
         }
+    }
+
+    void FlightPlanService::ProcessPendingCdmAnnotationReads() {
+        for (auto it = m_pendingCdmAnnotationRead.begin(); it != m_pendingCdmAnnotationRead.end();) {
+            if (it->second > 0) {
+                it->second--;
+                ++it;
+                continue;
+            }
+
+            const auto& callsign = it->first;
+            const auto fp = m_flightStripsPlugin->FlightPlanSelect(callsign.c_str());
+            if (fp.IsValid()) {
+                RefreshLocalCdmObservationWindow(callsign, "cdm-ready-annotation-read");
+                ObserveLocalCdmFlightPlan(fp, "cdm-ready-annotation-read");
+            } else {
+                Logger::Warning("cdm_ready_request: flight plan disappeared before read for {}", callsign);
+            }
+
+            it = m_pendingCdmAnnotationRead.erase(it);
+        }
+    }
+
+    bool FlightPlanService::WriteReadyCdmAnnotation(EuroScopePlugIn::CFlightPlan fp) {
+        time_t rawtime;
+        tm ptm;
+        time(&rawtime);
+        gmtime_s(&ptm, &rawtime);
+        const auto hhmm = std::format("{:0>2}{:0>2}", ptm.tm_hour, ptm.tm_min);
+
+        const auto current = std::string(fp.GetControllerAssignedData().GetFlightStripAnnotation(0));
+        const auto result = BuildReadyAnnotation(current, hhmm);
+
+        if (!fp.GetControllerAssignedData().SetFlightStripAnnotation(0, result.c_str())) {
+            Logger::Warning("cdm_ready_request: failed to write annotation for {}", fp.GetCallsign());
+            return false;
+        }
+
+        Logger::Info("cdm_ready_request: wrote TOBT/ASRT={} annotation for {}, reading back in 2 ticks",
+            hhmm, fp.GetCallsign());
+        return true;
+    }
+
+    std::string FlightPlanService::BuildReadyAnnotation(const std::string& current, const std::string& hhmm) {
+        auto fields = SplitSlashFields(current.empty() ? "////////" : current);
+        while (fields.size() < 8) fields.emplace_back("");
+
+        fields[0] = hhmm;  // ASRT
+        fields[2] = hhmm;  // TOBT
+
+        std::string result;
+        for (size_t i = 0; i < 8; i++) {
+            result += fields[i];
+            result += '/';
+        }
+        return result;
     }
 
     void FlightPlanService::PollLocalCdmObservationWindows() {
@@ -454,6 +511,7 @@ namespace FlightStrips::flightplan {
     void FlightPlanService::ForgetLocalCdmState(const std::string& callsign) {
         m_lastSentLocalCdm.erase(callsign);
         m_localCdmObservationWindows.erase(callsign);
+        m_pendingCdmAnnotationRead.erase(callsign);
     }
 
     auto FlightPlanService::ParseLocalCdmAnnotation(const std::string& annotation) -> LocalCdmSnapshot {

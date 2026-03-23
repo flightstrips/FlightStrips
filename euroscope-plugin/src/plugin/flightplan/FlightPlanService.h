@@ -71,16 +71,20 @@ private:
     std::unordered_set<std::string> m_rangeTrackedCallsigns = {};
     std::unordered_map<std::string, LocalCdmSnapshot> m_lastSentLocalCdm = {};
     std::unordered_map<std::string, LocalCdmObservationWindow> m_localCdmObservationWindows = {};
+    std::unordered_map<std::string, int> m_pendingCdmAnnotationRead = {};
     int m_lastPositionFlushCounter = 0;
 
     void FlushPositionUpdates();
     void ObserveQueuedLocalCdmRequests();
     void PollLocalCdmObservationWindows();
+    void ProcessPendingCdmAnnotationReads();
+    bool WriteReadyCdmAnnotation(EuroScopePlugIn::CFlightPlan fp);
     [[nodiscard]] bool HasActiveLocalCdmObservationWindow(const std::string& callsign) const;
     void RefreshLocalCdmObservationWindow(const std::string& callsign, const std::string& reason);
     LocalCdmSnapshot ObserveLocalCdmFlightPlan(EuroScopePlugIn::CFlightPlan flightPlan, const std::string& reason);
     void ForgetLocalCdmState(const std::string& callsign);
     static LocalCdmSnapshot ParseLocalCdmAnnotation(const std::string& annotation);
+    static std::string BuildReadyAnnotation(const std::string& current, const std::string& hhmm);
     static std::string TrimWhitespace(std::string value);
     static std::vector<std::string> SplitSlashFields(const std::string& value);
 

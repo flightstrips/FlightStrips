@@ -60,6 +60,10 @@ namespace FlightStrips::flightplan {
         static void ForgetLocalCdmState(FlightPlanService& service, const std::string& callsign) {
             service.ForgetLocalCdmState(callsign);
         }
+
+        static auto BuildReadyAnnotation(const std::string& current, const std::string& hhmm) -> std::string {
+            return FlightPlanService::BuildReadyAnnotation(current, hhmm);
+        }
     };
 }
 
@@ -246,4 +250,67 @@ TEST(FlightPlanStructTest, FieldAssignment_RoundTrips) {
     EXPECT_EQ(fp.squawk,               "7700");
     EXPECT_EQ(fp.stand,                "A1");
     EXPECT_EQ(fp.tracking_controller,  "EK_APP");
+}
+
+// ---------------------------------------------------------------------------
+// BuildReadyAnnotation
+// ---------------------------------------------------------------------------
+
+TEST(BuildReadyAnnotationTest, SetsAsrtAndTobtOnEmptyAnnotation) {
+    const auto result = FlightPlanServiceLocalCdmTestAccessor::BuildReadyAnnotation("", "1430");
+
+    const auto [asrt, tsac, tobt, tsat, ttot, manualCtot] =
+        FlightPlanServiceLocalCdmTestAccessor::ParseFields(result);
+
+    EXPECT_EQ(asrt, "1430");
+    EXPECT_EQ(tobt, "1430");
+}
+
+TEST(BuildReadyAnnotationTest, PreservesExistingFieldsOtherThanAsrtAndTobt) {
+    const auto result = FlightPlanServiceLocalCdmTestAccessor::BuildReadyAnnotation(
+        "/existing_tsac/old_tobt/1435/1440/deice/ecfmp/1/", "1430");
+
+    const auto [asrt, tsac, tobt, tsat, ttot, manualCtot] =
+        FlightPlanServiceLocalCdmTestAccessor::ParseFields(result);
+
+    EXPECT_EQ(asrt,       "1430");
+    EXPECT_EQ(tsac,       "existing_tsac");
+    EXPECT_EQ(tobt,       "1430");
+    EXPECT_EQ(tsat,       "1435");
+    EXPECT_EQ(ttot,       "1440");
+    EXPECT_EQ(manualCtot, "1");
+}
+
+TEST(BuildReadyAnnotationTest, OutputHasExactlyEightSlashTerminatedFields) {
+    const auto result = FlightPlanServiceLocalCdmTestAccessor::BuildReadyAnnotation("", "1430");
+
+    // Eight fields each followed by '/' → exactly 8 slashes, trailing slash included
+    const auto slashCount = std::count(result.begin(), result.end(), '/');
+    EXPECT_EQ(slashCount, 8);
+    EXPECT_EQ(result.back(), '/');
+}
+
+TEST(BuildReadyAnnotationTest, PadsShortAnnotationToEightFields) {
+    // Only 3 fields provided — remaining must be padded with empty strings
+    const auto result = FlightPlanServiceLocalCdmTestAccessor::BuildReadyAnnotation(
+        "old_asrt/tsac/old_tobt/", "1430");
+
+    const auto fields = FlightPlanServiceLocalCdmTestAccessor::SplitSlashFields(result);
+    // SplitSlashFields on "a/b/.../h/" yields 9 elements (trailing empty after last '/')
+    ASSERT_GE(fields.size(), 8u);
+    EXPECT_EQ(fields[0], "1430");  // ASRT overwritten
+    EXPECT_EQ(fields[1], "tsac");  // preserved
+    EXPECT_EQ(fields[2], "1430");  // TOBT overwritten
+    EXPECT_EQ(fields[3], "");      // padded
+}
+
+TEST(BuildReadyAnnotationTest, OverwritesExistingAsrtAndTobt) {
+    const auto result = FlightPlanServiceLocalCdmTestAccessor::BuildReadyAnnotation(
+        "0900/tsac/0900/tsat/ttot/deice/ecfmp/0/", "1430");
+
+    const auto [asrt, tsac, tobt, tsat, ttot, manualCtot] =
+        FlightPlanServiceLocalCdmTestAccessor::ParseFields(result);
+
+    EXPECT_EQ(asrt, "1430");
+    EXPECT_EQ(tobt, "1430");
 }

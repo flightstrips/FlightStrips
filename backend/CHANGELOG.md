@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.10.0](https://github.com/flightstrips/FlightStrips/compare/backend/v0.9.2...backend/v0.10.0) (2026-03-23)
+
+
+### Features
+
+* Fast CDM ready ([6e3f3ae](https://github.com/flightstrips/FlightStrips/commit/6e3f3ae6f80e913f0dfcf566c22f7ae1ee616b02))
+* Sync ES CDM data to backend ([5a4111c](https://github.com/flightstrips/FlightStrips/commit/5a4111c10eee4f86b4dc7284d0989a76b94db7bf))
+
+
+### Bug Fixes
+
+* able to disable fast CDM path ([ca186d6](https://github.com/flightstrips/FlightStrips/commit/ca186d6578bf91cfc00c327995e1c150b74c7925))
+* auto-handover no longer requires airborne controller to be connected to FS ([deb2b23](https://github.com/flightstrips/FlightStrips/commit/deb2b23aa6af7ff87c04a28314f6f76071cd11e3))
+
 ## [0.9.2](https://github.com/flightstrips/FlightStrips/compare/backend/v0.9.1...backend/v0.9.2) (2026-03-22)
 
 

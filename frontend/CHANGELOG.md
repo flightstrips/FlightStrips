@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.15.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.14.1...frontend/v0.15.0) (2026-03-23)
+
+
+### Features
+
+* AD + AA views ([cca9e87](https://github.com/flightstrips/FlightStrips/commit/cca9e871ee6d11626e5c2afd87da2742d0ed16bc))
+* highlight wrong squawks ([de7a780](https://github.com/flightstrips/FlightStrips/commit/de7a780cb6756637a23cf68fd0e51f1f85006677))
+* Unconcerned strips ([c8ec0e0](https://github.com/flightstrips/FlightStrips/commit/c8ec0e09b8a13c57bd6eee7f72fe9c0b73876045))
+
 ## [0.14.1](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.14.0...frontend/v0.14.1) (2026-03-22)
 
 

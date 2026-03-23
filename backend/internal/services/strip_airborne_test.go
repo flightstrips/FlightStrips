@@ -172,6 +172,55 @@ func TestUpdateAircraftPosition_AutoHandoverTriggeredFromDepartBay(t *testing.T)
 		"controller list must be queried when a strip transitions from DEPART to AIRBORNE")
 }
 
+// TestCreateCoordinationTransfer_EsHandoverSentWhenTargetHasNoEsConnection verifies that
+// an ES handover is sent to the owner (tower) controller even when the target (receiving)
+// controller has no CID — i.e., no active ES connection to the backend. The handover is
+// initiated by the tower's EuroScope client, which handles delivery to the target; the
+// receiving controller does not need its own backend connection.
+func TestCreateCoordinationTransfer_EsHandoverSentWhenTargetHasNoEsConnection(t *testing.T) {
+	ctx := context.Background()
+	const session = int32(1)
+	const callsign = "SAS001"
+
+	ownerCid := "123456"
+	controllers := []*models.Controller{
+		{Position: "EKCH_TWR", Callsign: "EKCH_TWR_ES", Cid: &ownerCid},
+		{Position: "EKCH_APP", Callsign: "EKCH_APP_ES", Cid: nil}, // no ES connection to backend
+	}
+
+	esHub := &testutil.MockEuroscopeHub{}
+
+	frontendHub := &testutil.MockFrontendHub{}
+	frontendHub.SetServer(&testutil.MockServer{
+		CoordRepoVal: &testutil.MockCoordinationRepository{
+			CreateFn: func(_ context.Context, _ *models.Coordination) error { return nil },
+		},
+		ControllerRepoVal: &testutil.MockControllerRepository{
+			ListBySessionFn: func(_ context.Context, _ int32) ([]*models.Controller, error) {
+				return controllers, nil
+			},
+		},
+	})
+
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			return &models.Strip{ID: 1, Callsign: callsign, Bay: shared.BAY_AIRBORNE}, nil
+		},
+	}
+
+	svc := NewStripService(stripRepo)
+	svc.SetFrontendHub(frontendHub)
+	svc.SetEuroscopeHub(esHub)
+
+	err := svc.CreateCoordinationTransfer(ctx, session, callsign, "EKCH_TWR", "EKCH_APP")
+	require.NoError(t, err)
+
+	require.Len(t, esHub.CoordinationHandovers, 1,
+		"ES handover must be sent to the owner controller even when the target has no ES backend connection")
+	assert.Equal(t, ownerCid, esHub.CoordinationHandovers[0].Cid)
+	assert.Equal(t, "EKCH_APP_ES", esHub.CoordinationHandovers[0].TargetCallsign)
+}
+
 // TestUpdateAircraftPosition_NoAutoHandoverWhenAlreadyAirborne verifies that a strip
 // already in the AIRBORNE bay does not trigger auto-handover on position updates.
 // Handover for already-airborne strips must only happen via explicit manual transfer.

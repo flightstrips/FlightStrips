@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"os"
 	"strings"
 	"time"
 
@@ -182,7 +183,7 @@ func (s *Service) HandleReadyRequest(ctx context.Context, session int32, callsig
 
 	controller, err := s.controllerRepo.GetByCallsign(ctx, session, airportMaster.Position)
 	switch {
-	case err == nil && controller.Cid != nil && *controller.Cid != "" && s.euroscopeHub != nil:
+	case err == nil && controller.Cid != nil && *controller.Cid != "" && s.euroscopeHub != nil && os.Getenv("CDM_ES_FAST_PATH") == "true":
 		slog.Info("Handling CDM ready request via targeted EuroScope fast path",
 			slog.Int("session", int(session)),
 			slog.String("airport", sessionData.Airport),

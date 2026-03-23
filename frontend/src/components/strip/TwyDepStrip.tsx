@@ -46,6 +46,7 @@ export function TwyDepStrip({
   pdcStatus,
   aircraftType,
   squawk,
+  assignedSquawk,
   stand,
   ctot,
   runway,
@@ -167,9 +168,12 @@ export function TwyDepStrip({
             {getSimpleAircraftType(aircraftType)}
           </span>
         </div>
-        <div className="flex items-center justify-center overflow-hidden" style={{ height: HALF_H }}>
+        <div
+          className="flex items-center justify-center overflow-hidden"
+          style={{ height: HALF_H, backgroundColor: assignedSquawk && squawk && assignedSquawk !== squawk ? "#F43A3A" : undefined }}
+        >
           <span className="truncate px-1" style={{ fontFamily: FONT, fontWeight: 300, fontSize: 13 }}>
-            {squawk}
+            {assignedSquawk ?? squawk}
           </span>
         </div>
       </div>

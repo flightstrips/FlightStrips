@@ -38,6 +38,7 @@ export function FinalArrStrip({
   bay,
   aircraftType,
   squawk,
+  assignedSquawk,
   runway,
   holdingPoint,
   stand,
@@ -124,9 +125,12 @@ export function FinalArrStrip({
             {getSimpleAircraftType(aircraftType)}
           </span>
         </div>
-        <div className="flex items-center justify-center" style={{ height: BOT_H }}>
+        <div
+          className="flex items-center justify-center"
+          style={{ height: BOT_H, backgroundColor: assignedSquawk && squawk && assignedSquawk !== squawk ? "#F43A3A" : undefined }}
+        >
           <span className="truncate px-1" style={{ fontFamily: FONT, fontSize: 12 }}>
-            {squawk}
+            {assignedSquawk ?? squawk}
           </span>
         </div>
       </div>

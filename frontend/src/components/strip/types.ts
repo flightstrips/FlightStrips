@@ -28,6 +28,7 @@ export interface StripProps {
   ctot?: string;
   aircraftType?: string;
   squawk?: string;
+  assignedSquawk?: string;
   sid?: string;
   runway?: string;
   clearedAltitude?: number;

@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.10.4](https://github.com/flightstrips/FlightStrips/compare/backend/v0.10.3...backend/v0.10.4) (2026-03-24)
+
+
+### Bug Fixes
+
+* arrivals not going in the correct bay ([41234a9](https://github.com/flightstrips/FlightStrips/commit/41234a95d35fcf8c12f7786f3ba7208132ceea2b))
+
 ## [0.10.3](https://github.com/flightstrips/FlightStrips/compare/backend/v0.10.2...backend/v0.10.3) (2026-03-24)
 
 

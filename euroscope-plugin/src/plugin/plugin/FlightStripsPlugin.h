@@ -18,31 +18,14 @@
 #include "handlers/ControllerEventHandlers.h"
 #include "handlers/TimedEventHandlers.h"
 #include "handlers/AirportRunwaysChangedEventHandlers.h"
+#include "IFlightStripsPlugin.h"
 
 // TODO move
 #define CLEARED "CLEA"
 #define NOT_CLEARED "NOTC"
 
 namespace FlightStrips {
-    enum ConnectionType {
-        CONNECTION_TYPE_NO               = 0,
-        CONNECTION_TYPE_DIRECT           = 1,
-        CONNECTION_TYPE_VIA_PROXY        = 2,
-        CONNECTION_TYPE_SIMULATOR_SERVER = 3,
-        CONNECTION_TYPE_PLAYBACK         = 4,
-        CONNECTION_TYPE_SIMULATOR_CLIENT = 5,
-        CONNECTION_TYPE_SWEATBOX         = 6
-    };
-
-    struct ConnectionState {
-        int range;
-        ConnectionType connection_type;
-        std::string primary_frequency;
-        std::string callsign;
-        std::string relevant_airport;
-    };
-
-    class FlightStripsPlugin final : public EuroScopePlugIn::CPlugIn, public FlightStripsPluginInterface {
+    class FlightStripsPlugin final : public EuroScopePlugIn::CPlugIn, public FlightStripsPluginInterface, public IFlightStripsPlugin {
     public:
         FlightStripsPlugin(
                 const std::shared_ptr<handlers::FlightPlanEventHandlers> &mFlightPlanEventHandlerCollection,
@@ -96,12 +79,14 @@ namespace FlightStrips {
 
         void SetAirportCoordinates(double latitude, double longitude);
 
-        ConnectionState& GetConnectionState();
+        ConnectionState& GetConnectionState() override;
 
         std::vector<Sid> GetSids(const std::string& airport) override;
 
         void AddNeedsSquawk(const std::string &callsign);
         std::optional<std::string> GetNeedsSquawk();
+        void AddNeedsCdmReady(const std::string &callsign);
+        std::optional<std::string> GetNeedsCdmReady();
 
     private:
         const std::shared_ptr<handlers::FlightPlanEventHandlers> m_flightPlanEventHandlerCollection;
@@ -115,10 +100,12 @@ namespace FlightStrips {
 
         ConnectionState m_connectionState = {};
         std::queue<std::string> m_needsSquawk = {};
+        std::queue<std::string> m_needsCdmReady = {};
         double m_airportLatitude = 0.0;
         double m_airportLongitude = 0.0;
 
-        [[nodiscard]] bool IsWithinRange(EuroScopePlugIn::CFlightPlan flightPlan, float rangeNM) const;
+        [[nodiscard]] bool IsWithinRange(EuroScopePlugIn::CRadarTarget radarTarget, float rangeNM) const;
+        void DispatchRangeCheck(EuroScopePlugIn::CRadarTarget radarTarget);
 
         template <typename Func, typename... Args>
         void SafeCall(const std::string& context, Func func, Args&&... args) {

@@ -5,6 +5,7 @@ import (
 	"FlightStrips/internal/shared"
 	"FlightStrips/pkg/events/euroscope"
 	"FlightStrips/pkg/events/frontend"
+	pkgModels "FlightStrips/pkg/models"
 
 	"github.com/stretchr/testify/mock"
 )
@@ -71,6 +72,10 @@ func (m *FrontendHub) SendClearedAltitudeEvent(session int32, callsign string, a
 
 func (m *FrontendHub) SendBayEvent(session int32, callsign string, bay string, sequence int32) {
 	m.Called(session, callsign, bay, sequence)
+}
+
+func (m *FrontendHub) SendBulkBayEvent(session int32, bay string, strips []frontend.BulkBayEntry) {
+	m.Called(session, bay, strips)
 }
 
 func (m *FrontendHub) SendAircraftDisconnect(session int32, callsign string) {
@@ -148,6 +153,12 @@ func (m *FrontendHub) SendTacticalStripMoved(session int32, id int64, bay string
 func (m *FrontendHub) SendBroadcast(session int32, message string, from string) {
 	m.Called(session, message, from)
 }
+
+func (m *FrontendHub) SendCoordinationTagRequest(session int32, callsign, from, to string) {
+	m.Called(session, callsign, from, to)
+}
+
+func (m *FrontendHub) SendAvailableSids(session int32, sids pkgModels.AvailableSids) {}
 
 var _ internalModels.TacticalStrip // ensure import used
 

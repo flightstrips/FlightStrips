@@ -8,11 +8,17 @@ import {
   FONT,
   COLOR_ARR_STRIP_BG,
   COLOR_UNEXPECTED_YELLOW,
+  COLOR_MANUAL_BLUE,
+  getStripOwnership,
+  resolveStripBg,
   getCellTextColor,
 } from "./shared";
 import { useWebSocketStore } from "@/store/store-hooks";
 import { SIBox } from "./SIBox";
 import { useStripTransfers } from "@/store/store-hooks";
+import { useCDMColors } from "@/hooks/useCDMColors";
+import { useCTOTColor } from "@/hooks/useCTOTColor";
+import { Bay } from "@/api/models";
 import { PushbackMapDialog } from "@/components/map-dialogs/PushbackMapDialog";
 import { ApronTaxiMapDialog } from "@/components/map-dialogs/ApronTaxiMapDialog";
 import { RunwayDialog } from "./RunwayDialog";
@@ -41,11 +47,13 @@ const F_RWY      = F_BASE * (2 / 3) * (2 / 3); // 4/9 of callsign width ~11.11
  */
 export function ApnPushStrip({
   callsign,
+  bay,
   aircraftType,
   registration,
   stand,
   holdingPoint,
   tsat,
+  tobt,
   ctot,
   runway,
   owner,
@@ -57,16 +65,23 @@ export function ApnPushStrip({
   fullWidth = false,
   unexpectedChangeFields,
   controllerModifiedFields,
+  isManual = false,
 }: StripProps) {
   const { isSelected, handleClick } = useStripSelection(callsign, selectable);
   const cellBorderColor = getCellBorderColor(marked);
+  const manualBlue = isManual ? COLOR_MANUAL_BLUE : undefined;
   const stripTransfers = useStripTransfers();
+  const isTagRequest = !!stripTransfers[callsign]?.isTagRequest;
+  const { isUnconcerned } = getStripOwnership(myPosition, owner, nextControllers, previousControllers);
   const [pushbackOpen, setPushbackOpen] = useState(false);
   const [apronTaxiOpen, setApronTaxiOpen] = useState(false);
   const [runwayOpen, setRunwayOpen] = useState(false);
   const acknowledgeUnexpectedChange = useWebSocketStore(s => s.acknowledgeUnexpectedChange);
+  const openStripContextMenu = useWebSocketStore(s => s.openStripContextMenu);
   const standYellow = unexpectedChangeFields?.includes("stand");
   const runwayYellow = unexpectedChangeFields?.includes("runway");
+  const { tsatBg } = useCDMColors({ bay: bay ?? Bay.Unknown, tsat: tsat ?? "", tobt: tobt ?? "" });
+  const { ctotBg, ctotColor, showCtot } = useCTOTColor(ctot ?? "");
 
   return (
     <div
@@ -77,8 +92,9 @@ export function ApnPushStrip({
         ...getFramedStripStyle(marked),
       }}
       onClick={handleClick}
+      onContextMenu={(e) => { e.preventDefault(); openStripContextMenu(callsign, { x: e.clientX, y: e.clientY }); }}
     >
-      <div className="flex text-black" style={{ height: "100%", overflow: "hidden", backgroundColor: COLOR_ARR_STRIP_BG }}>
+      <div className="flex text-black" style={{ height: "100%", overflow: "hidden", backgroundColor: resolveStripBg(COLOR_ARR_STRIP_BG, isTagRequest, isUnconcerned) }}>
         {/* SI / ownership — 8% */}
         <SIBox
           callsign={callsign}
@@ -86,7 +102,8 @@ export function ApnPushStrip({
           nextControllers={nextControllers}
           previousControllers={previousControllers}
           myPosition={myPosition}
-          transferringTo={stripTransfers[callsign] ?? ""}
+          transferringTo={stripTransfers[callsign]?.to ?? ""}
+          isTagRequest={isTagRequest}
         />
 
         {/* Callsign — 25%, FONT medium 20, top 2/3 highlighted when selected */}
@@ -95,7 +112,7 @@ export function ApnPushStrip({
           style={{ flex: `${F_CALLSIGN} 0 0%`, height: "100%", minWidth: 0, borderRightColor: cellBorderColor }}
         >
           <div className="flex items-center pl-2" style={{ height: TOP_H, backgroundColor: isSelected ? SELECTION_COLOR : undefined }}>
-            <span className="truncate w-full" style={{ fontFamily: FONT, fontWeight: "bold", fontSize: 20 }}>
+            <span className="truncate w-full" style={{ fontFamily: FONT, fontWeight: "bold", fontSize: 20, color: manualBlue }}>
               {callsign}
             </span>
           </div>
@@ -139,13 +156,13 @@ export function ApnPushStrip({
           className="flex flex-col overflow-hidden border-r-2"
           style={{ flex: `${F_TSAT} 0 0%`, height: "100%", minWidth: 0, borderRightColor: cellBorderColor }}
         >
-          <div className="flex items-center gap-1 px-1 border-b-2" style={{ height: HALF_H, borderBottomColor: cellBorderColor }}>
+          <div className="flex items-center gap-1 px-1 border-b-2" style={{ height: HALF_H, borderBottomColor: cellBorderColor, backgroundColor: tsatBg || undefined }}>
             <span className="shrink-0" style={{ fontFamily: FONT, fontSize: 12 }}>TSAT</span>
             <span className="truncate" style={{ fontFamily: FONT, fontSize: 12 }}>{tsat}</span>
           </div>
-          <div className="flex items-center gap-1 px-1" style={{ height: HALF_H }}>
-            <span className="shrink-0" style={{ fontFamily: FONT, fontSize: 12 }}>CTOT</span>
-            <span className="truncate" style={{ fontFamily: FONT, fontSize: 12 }}>{ctot}</span>
+          <div className="flex items-center gap-1 px-1" style={{ height: HALF_H, backgroundColor: ctotBg || undefined, color: ctotColor }}>
+            <span className="shrink-0" style={{ fontFamily: FONT, fontSize: 12 }}>{showCtot ? "CTOT" : ""}</span>
+            <span className="truncate" style={{ fontFamily: FONT, fontSize: 12 }}>{showCtot ? ctot : ""}</span>
           </div>
         </div>
 

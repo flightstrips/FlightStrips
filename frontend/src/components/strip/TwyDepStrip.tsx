@@ -1,9 +1,11 @@
 import { useState } from "react";
+import { getSimpleAircraftType } from "@/lib/utils";
 import { useControllers, useStrips, useStripTransfers, useWebSocketStore } from "@/store/store-hooks";
+import { useCTOTColor } from "@/hooks/useCTOTColor";
 import { COLOR_UNEXPECTED_YELLOW } from "./shared";
 import { getStripBg } from "./types";
 import type { StripProps } from "./types";
-import { useStripSelection, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR, FONT, getCellTextColor } from "./shared";
+import { useStripSelection, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR, FONT, getStripOwnership, resolveStripBg, getCellTextColor } from "./shared";
 import { TaxiMapDialog } from "../map-dialogs/TaxiMapDialog";
 import { HoldingPointDialog } from "../map-dialogs/HoldingPointDialog";
 import { SIBox } from "./SIBox";
@@ -44,6 +46,7 @@ export function TwyDepStrip({
   pdcStatus,
   aircraftType,
   squawk,
+  assignedSquawk,
   stand,
   ctot,
   runway,
@@ -64,12 +67,16 @@ export function TwyDepStrip({
 }: StripProps) {
   const { isSelected, handleClick } = useStripSelection(callsign, selectable);
   const stripTransfers = useStripTransfers();
+  const { ctotBg, ctotColor, showCtot } = useCTOTColor(ctot ?? "");
+  const isTagRequest = !!stripTransfers[callsign]?.isTagRequest;
   const cellBorderColor = getCellBorderColor(marked);
+  const { isUnconcerned } = getStripOwnership(myPosition, owner, nextControllers, previousControllers);
   const controllers = useControllers();
   const [showTaxiMap, setShowTaxiMap] = useState(false);
   const [showHpMap, setShowHpMap] = useState(false);
   const runwayClearance = useWebSocketStore(s => s.runwayClearance);
   const acknowledgeUnexpectedChange = useWebSocketStore(s => s.acknowledgeUnexpectedChange);
+  const openStripContextMenu = useWebSocketStore(s => s.openStripContextMenu);
   const allStrips = useStrips();
   const standYellow = unexpectedChangeFields?.includes("stand");
   const releasePointYellow = unexpectedChangeFields?.includes("release_point");
@@ -116,10 +123,11 @@ export function TwyDepStrip({
       style={{
         height: 48,
         width: TOTAL_W,
-        backgroundColor: getStripBg(pdcStatus),
+        backgroundColor: resolveStripBg(getStripBg(pdcStatus), isTagRequest, isUnconcerned),
         ...getFlatStripBorderStyle({ borderBottom: "1px solid white" }),
       }}
       onClick={handleClick}
+      onContextMenu={(e) => { e.preventDefault(); openStripContextMenu(callsign, { x: e.clientX, y: e.clientY }); }}
     >
       {/* SI / ownership — 40px */}
       <SIBox
@@ -128,7 +136,8 @@ export function TwyDepStrip({
         nextControllers={nextControllers}
         previousControllers={previousControllers}
         myPosition={myPosition}
-        transferringTo={stripTransfers[callsign] ?? ""}
+        transferringTo={stripTransfers[callsign]?.to ?? ""}
+        isTagRequest={isTagRequest}
       />
 
       {/* Callsign — 120px; top 2/3 = callsign, bottom 1/3 = :freq */}
@@ -156,12 +165,15 @@ export function TwyDepStrip({
       >
         <div className="flex items-center justify-center overflow-hidden" style={{ height: HALF_H }}>
           <span className="truncate px-1" style={{ fontFamily: FONT, fontWeight: "bold", fontSize: 13 }}>
-            {aircraftType}
+            {getSimpleAircraftType(aircraftType)}
           </span>
         </div>
-        <div className="flex items-center justify-center overflow-hidden" style={{ height: HALF_H }}>
+        <div
+          className="flex items-center justify-center overflow-hidden"
+          style={{ height: HALF_H, backgroundColor: assignedSquawk && squawk && assignedSquawk !== squawk ? "#F43A3A" : undefined }}
+        >
           <span className="truncate px-1" style={{ fontFamily: FONT, fontWeight: 300, fontSize: 13 }}>
-            {squawk}
+            {assignedSquawk ?? squawk}
           </span>
         </div>
       </div>
@@ -180,9 +192,9 @@ export function TwyDepStrip({
             {stand}
           </span>
         </div>
-        <div className="flex items-center justify-center overflow-hidden" style={{ height: HALF_H }}>
+        <div className="flex items-center justify-center overflow-hidden" style={{ height: HALF_H, backgroundColor: ctotBg || undefined, color: ctotColor }}>
           <span className="truncate px-1" style={{ fontFamily: FONT, fontWeight: 300, fontSize: 13 }}>
-            {ctot}
+            {showCtot ? ctot : ""}
           </span>
         </div>
       </div>

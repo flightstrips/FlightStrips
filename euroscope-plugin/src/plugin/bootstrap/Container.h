@@ -1,8 +1,6 @@
 #pragma once
 
-namespace FlightStrips::messages {
-    class MessageService;
-}
+namespace FlightStrips::messages { class MessageService; }
 
 namespace FlightStrips::controller {
     class ControllerService;

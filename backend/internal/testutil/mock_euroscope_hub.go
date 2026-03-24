@@ -15,10 +15,24 @@ type ClearedFlagCall struct {
 
 // GroundStateCall records arguments to SendGroundState.
 type GroundStateCall struct {
-	Session    int32
-	Cid        string
-	Callsign   string
+	Session     int32
+	Cid         string
+	Callsign    string
 	GroundState string
+}
+
+// CoordinationHandoverCall records arguments to SendCoordinationHandover.
+type CoordinationHandoverCall struct {
+	Session        int32
+	Cid            string
+	Callsign       string
+	TargetCallsign string
+}
+
+type CdmReadyRequestCall struct {
+	Session  int32
+	Cid      string
+	Callsign string
 }
 
 // MockEuroscopeHub is a configurable mock for shared.EuroscopeHub.
@@ -26,17 +40,33 @@ type GroundStateCall struct {
 type MockEuroscopeHub struct {
 	server shared.Server
 
-	ClearedFlags  []ClearedFlagCall
-	GroundStates  []GroundStateCall
+	HasActiveClientForAirportFn func(airport string) bool
+
+	ClearedFlags          []ClearedFlagCall
+	GroundStates          []GroundStateCall
+	CoordinationHandovers []CoordinationHandoverCall
+	CdmReadyRequests      []CdmReadyRequestCall
+	CreateFPLCalls        []CreateFPLCall
 }
 
 func (m *MockEuroscopeHub) GetServer() shared.Server { return m.server }
 
 func (m *MockEuroscopeHub) SetServer(server shared.Server) { m.server = server }
 
+func (m *MockEuroscopeHub) HasActiveClientForAirport(airport string) bool {
+	if m.HasActiveClientForAirportFn != nil {
+		return m.HasActiveClientForAirportFn(airport)
+	}
+	return true // default: assume ES client is present so existing tests are not affected
+}
+
 func (m *MockEuroscopeHub) Broadcast(session int32, message euroscope.OutgoingMessage) {}
 
 func (m *MockEuroscopeHub) Send(session int32, cid string, message euroscope.OutgoingMessage) {}
+
+func (m *MockEuroscopeHub) SendCdmReadyRequest(session int32, cid string, callsign string) {
+	m.CdmReadyRequests = append(m.CdmReadyRequests, CdmReadyRequestCall{Session: session, Cid: cid, Callsign: callsign})
+}
 
 func (m *MockEuroscopeHub) SendGenerateSquawk(session int32, cid string, callsign string) {}
 
@@ -67,6 +97,18 @@ func (m *MockEuroscopeHub) SendClearedAltitude(session int32, cid string, callsi
 func (m *MockEuroscopeHub) SendHeading(session int32, cid string, callsign string, heading int32) {}
 
 func (m *MockEuroscopeHub) SendCoordinationHandover(session int32, cid string, callsign string, targetCallsign string) {
+	m.CoordinationHandovers = append(m.CoordinationHandovers, CoordinationHandoverCall{session, cid, callsign, targetCallsign})
 }
 
 func (m *MockEuroscopeHub) SendAssumeAndDrop(session int32, cid string, callsign string) {}
+
+// CreateFPLCall records arguments to SendCreateFPL.
+type CreateFPLCall struct {
+	Session int32
+	Cid     string
+	Event   euroscope.CreateFPLEvent
+}
+
+func (m *MockEuroscopeHub) SendCreateFPL(session int32, cid string, event euroscope.CreateFPLEvent) {
+	m.CreateFPLCalls = append(m.CreateFPLCalls, CreateFPLCall{session, cid, event})
+}

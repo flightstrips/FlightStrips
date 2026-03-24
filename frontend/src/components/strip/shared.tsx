@@ -58,15 +58,19 @@ export function getFramedStripStyle(marked: boolean): CSSProperties {
 }
 
 /**
- * Outer border/shadow style for flat strips (no teal padding frame).
- * The white border is always 2px — only cell border colours change on selection.
+ * Outer border/shadow style for flat strips.
+ * 2px white outer border + 1px colored outline (painted on top of all children, matching the
+ * visual frame of framed strips without changing the box model or requiring DOM restructuring).
+ * Pass `frameColor` to override the default teal frame (e.g. gold for arrival strips).
  */
-export function getFlatStripBorderStyle(overrides?: Pick<CSSProperties, "borderBottom">): CSSProperties {
+export function getFlatStripBorderStyle(overrides?: Pick<CSSProperties, "borderBottom">, frameColor = STRIP_FRAME_COLOR): CSSProperties {
   return {
     borderLeft: "2px solid white",
     borderRight: "2px solid white",
     borderTop: "2px solid white",
     borderBottom: "2px solid white",
+    outline: `1px solid ${frameColor}`,
+    outlineOffset: "-2px",
     boxShadow: `1px 0 0 0 ${COLOR_SHADOW}, 0 -1px 0 0 ${COLOR_SHADOW}`,
     ...overrides,
   };
@@ -104,6 +108,39 @@ export const COLOR_ARR_YELLOW    = "#fff28e";
 export const COLOR_UNEXPECTED_YELLOW = "#FFD700";
 /** Blue text for fields intentionally modified by the controller. */
 export const COLOR_CONTROLLER_MODIFIED_BLUE = "#2751A3";
+/** Blue text/background for fields on manually-created strips (is_manual = true). */
+export const COLOR_MANUAL_BLUE = "#21326A";
+/** Strip background when the strip is unconcerned (not assumed, concerned, or transferred). */
+export const COLOR_UNCONCERNED_BG = "#cccccc";
+
+// ── Ownership helpers ─────────────────────────────────────────────────────────
+
+/**
+ * Derives strip ownership state from controller position data.
+ * Use this instead of repeating the same four boolean computations in every strip.
+ */
+export function getStripOwnership(
+  myPosition: string | undefined,
+  owner: string | undefined,
+  nextControllers: string[] | undefined,
+  previousControllers: string[] | undefined,
+) {
+  const isAssumed       = !!myPosition && owner === myPosition;
+  const isTransferredAway = !!myPosition && !!previousControllers?.includes(myPosition);
+  const isConcerned     = !!myPosition && !!nextControllers?.includes(myPosition);
+  const isUnconcerned   = !!myPosition && !isAssumed && !isTransferredAway && !isConcerned;
+  return { isAssumed, isTransferredAway, isConcerned, isUnconcerned };
+}
+
+/**
+ * Resolves the final strip background colour, applying overrides in priority order:
+ *   tag-request (pink) → unconcerned (grey) → caller-supplied normal colour.
+ */
+export function resolveStripBg(normalBg: string, isTagRequest: boolean, isUnconcerned: boolean): string {
+  if (isTagRequest)  return SELECTION_COLOR;
+  if (isUnconcerned) return COLOR_UNCONCERNED_BG;
+  return normalBg;
+}
 
 /** Returns the text color for a cell if the field was controller-modified, otherwise undefined. */
 export function getCellTextColor(fieldName: string, controllerModifiedFields?: string[]): string | undefined {
@@ -140,7 +177,7 @@ export const CLS_CALLSIGN_ACTIVE = "active:bg-[#F237AA]";
 // ── Button class variants ─────────────────────────────────────────────────────
 
 /** Large variant used in the CommandBar toolbar. */
-export const CLS_CMDBTN = "bg-[#646464] text-xl font-bold p-2 border-2";
+export const CLS_CMDBTN = "bg-[#646464] text-2xl font-bold h-[46px] my-[7px] w-[80px] flex items-center justify-center shadow-[inset_2px_0_0_#d3d3d3,_inset_0_2px_0_#d3d3d3] outline-none";
 export const CLS_BTN        = "bg-[#646464] text-white font-bold text-sm px-3 border-2 border-white active:bg-[#424242]";
 export const CLS_BTN_ORANGE = "bg-[#DD6A12] text-white font-bold text-sm px-3 border-2 border-white active:bg-[#424242]";
 export const CLS_BTN_BLUE   = "bg-[#004FD6] text-white font-bold text-sm px-3 border-2 border-white active:bg-[#424242]";

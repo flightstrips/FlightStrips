@@ -1,13 +1,18 @@
 import { useState } from "react";
+import { getSimpleAircraftType } from "@/lib/utils";
 import type { StripProps } from "./types";
-import { useStripSelection, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR, COLOR_ARR_YELLOW, COLOR_BTN_ORANGE, COLOR_UNEXPECTED_YELLOW, getCellTextColor } from "./shared";
-import { useControllers, useWebSocketStore } from "@/store/store-hooks";
+import { useStripSelection, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR, COLOR_ARR_YELLOW, COLOR_BTN_ORANGE, COLOR_UNEXPECTED_YELLOW, COLOR_MANUAL_BLUE, getStripOwnership, resolveStripBg, getCellTextColor } from "./shared";
+import { useControllers, useStripTransfers, useWebSocketStore } from "@/store/store-hooks";
 import { RunwayDialog } from "./RunwayDialog";
 import { ArrStandDialog } from "./ArrStandDialog";
+import { ApronTaxiMapDialog } from "../map-dialogs/ApronTaxiMapDialog";
 
 // Height: 48px fixed (intentional — matches FinalArrStrip ATC arrival strip spec)
 const TOP_H = 32; // 2/3 of 48px
 const BOT_H = 16; // 1/3 of 48px
+
+/** Gold cell borders — matches the yellow arrival strip design (same as FinalArrStrip). */
+const CELL_BORDER = "#FFD100";
 
 // SI box background colors indicating strip ownership state
 const COLOR_SI_UNCONCERNED    = "#808080";
@@ -38,19 +43,23 @@ export function ApnArrStrip({
   marked = false,
   unexpectedChangeFields,
   controllerModifiedFields,
+  isManual = false,
 }: StripProps) {
   const { isSelected, handleClick } = useStripSelection(callsign, selectable);
-  const cellBorderColor = getCellBorderColor(marked);
+  const cellBorderColor = getCellBorderColor(marked, CELL_BORDER);
+  const manualBlue = isManual ? COLOR_MANUAL_BLUE : undefined;
   const controllers = useControllers();
+  const stripTransfers = useStripTransfers();
+  const isTagRequest = !!stripTransfers[callsign]?.isTagRequest;
   const [runwayOpen, setRunwayOpen] = useState(false);
   const [standOpen, setStandOpen] = useState(false);
+  const [taxiMapOpen, setTaxiMapOpen] = useState(false);
   const acknowledgeUnexpectedChange = useWebSocketStore(s => s.acknowledgeUnexpectedChange);
+  const openStripContextMenu = useWebSocketStore(s => s.openStripContextMenu);
   const standYellow = unexpectedChangeFields?.includes("stand");
   const runwayYellow = unexpectedChangeFields?.includes("runway");
 
-  const isAssumed = !!myPosition && owner === myPosition;
-  const isTransferredAway = !!myPosition && !!previousControllers?.includes(myPosition);
-  const isConcerned = !!myPosition && !!nextControllers?.includes(myPosition);
+  const { isAssumed, isTransferredAway, isConcerned, isUnconcerned } = getStripOwnership(myPosition, owner, nextControllers, previousControllers);
 
   let siBg = COLOR_SI_UNCONCERNED;
   if (isAssumed) siBg = COLOR_SI_ASSUMED;
@@ -68,10 +77,11 @@ export function ApnArrStrip({
       style={{
         height: 48, // 48px fixed — intentional ATC arrival strip height
         width: 428,
-        backgroundColor: COLOR_ARR_YELLOW,
-        ...getFlatStripBorderStyle(),
+        backgroundColor: resolveStripBg(COLOR_ARR_YELLOW, isTagRequest, isUnconcerned),
+        ...getFlatStripBorderStyle({}, CELL_BORDER),
       }}
       onClick={handleClick}
+      onContextMenu={(e) => { e.preventDefault(); openStripContextMenu(callsign, { x: e.clientX, y: e.clientY }); }}
     >
       {/* SI / ownership — 40px */}
       <div
@@ -84,7 +94,7 @@ export function ApnArrStrip({
       {/* Callsign — 120px */}
       <div className="flex-shrink-0 flex flex-col border-r-2" style={{ width: 120, height: "100%", borderRightColor: cellBorderColor }}>
         <div className="flex items-center pl-2" style={{ height: TOP_H, backgroundColor: isSelected ? SELECTION_COLOR : undefined }}>
-          <span className="font-bold text-xl truncate w-full">{callsign}</span>
+          <span className="font-bold text-xl truncate w-full" style={{ color: manualBlue }}>{callsign}</span>
         </div>
         <div style={{ height: BOT_H }} />
       </div>
@@ -92,7 +102,7 @@ export function ApnArrStrip({
       {/* A/C type / Registration — 80px */}
       <div className="flex-shrink-0 flex flex-col border-r-2" style={{ width: 80, height: "100%", borderRightColor: cellBorderColor }}>
         <div className="flex items-center justify-center" style={{ height: TOP_H }}>
-          <span className="text-xs font-semibold truncate px-1">{aircraftType}</span>
+          <span className="text-xs font-semibold truncate px-1">{getSimpleAircraftType(aircraftType)}</span>
         </div>
         <div style={{ height: BOT_H }} />
       </div>
@@ -110,9 +120,13 @@ export function ApnArrStrip({
       </div>
 
       {/* HS / Taxiway — 54px */}
-      <div className="flex-shrink-0 flex flex-col overflow-hidden border-r-2" style={{ width: 54, height: "100%", borderRightColor: cellBorderColor }}>
+      <div
+        className="flex-shrink-0 flex flex-col overflow-hidden border-r-2 cursor-pointer hover:brightness-95"
+        style={{ width: 54, height: "100%", borderRightColor: cellBorderColor }}
+        onClick={(e) => { e.stopPropagation(); setTaxiMapOpen(true); }}
+      >
         <div className="flex items-center justify-center" style={{ height: TOP_H }}>
-          <span className="font-bold text-xl truncate">{taxiway ?? holdingPoint}</span>
+          {(() => { const twy = taxiway ?? holdingPoint; return <span className="font-bold text-xl truncate" style={{ opacity: twy ? 1 : 0.2 }}>{twy || "TWY"}</span>; })()}
         </div>
         <div style={{ height: BOT_H }} />
       </div>
@@ -150,6 +164,12 @@ export function ApnArrStrip({
       onOpenChange={setStandOpen}
       callsign={callsign}
       currentStand={stand}
+    />
+    <ApronTaxiMapDialog
+      open={taxiMapOpen}
+      onOpenChange={setTaxiMapOpen}
+      callsign={callsign}
+      noMove
     />
     </>
   );

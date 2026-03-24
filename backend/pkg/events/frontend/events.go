@@ -2,6 +2,7 @@ package frontend
 
 import (
 	"FlightStrips/pkg/events"
+	pkgModels "FlightStrips/pkg/models"
 	"encoding/json"
 	"time"
 )
@@ -27,17 +28,21 @@ const (
 	RequestedAltitude  EventType = "requested_altitude"
 	ClearedAltitude    EventType = "cleared_altitude"
 	Bay                EventType = "bay"
+	BulkBay            EventType = "bulk_bay"
 	Disconnect         EventType = "disconnect"
 	AircraftDisconnect EventType = "aircraft_disconnect"
 	Stand              EventType = "stand"
 	SetHeading         EventType = "heading"
 	CommunicationType  EventType = "communication_type"
 
-	CoordinationTransferRequestType   EventType = "coordination_transfer_request"
-	CoordinationAssumeRequestType     EventType = "coordination_assume_request"
-	CoordinationRejectRequestType     EventType = "coordination_reject_request"
-	CoordinationFreeRequestType       EventType = "coordination_free_request"
-	CoordinationCancelTransferRequest EventType = "coordination_cancel_transfer_request"
+	CoordinationTransferRequestType    EventType = "coordination_transfer_request"
+	CoordinationAssumeRequestType      EventType = "coordination_assume_request"
+	CoordinationRejectRequestType      EventType = "coordination_reject_request"
+	CoordinationFreeRequestType        EventType = "coordination_free_request"
+	CoordinationCancelTransferRequest  EventType = "coordination_cancel_transfer_request"
+	CoordinationForceAssumeRequestType EventType = "coordination_force_assume_request"
+	CoordinationTagRequestType         EventType = "coordination_tag_request"
+	CoordinationAcceptTagRequestType   EventType = "coordination_accept_tag_request"
 
 	Move                              EventType = "move"
 	GenerateSquawk                    EventType = "generate_squawk"
@@ -47,6 +52,7 @@ const (
 	CoordinationRejectBroadcastType   EventType = "coordination_reject_broadcast"
 	CoordinationTransferBroadcastType EventType = "coordination_transfer_broadcast"
 	CoordinationFreeBroadcastType     EventType = "coordination_free_broadcast"
+	CoordinationTagRequestBroadcastType EventType = "coordination_tag_request_broadcast"
 
 	OwnersUpdate EventType = "owners_update"
 
@@ -78,6 +84,13 @@ const (
 	TacticalStripDeleted EventType = "tactical_strip_deleted"
 	TacticalStripUpdated EventType = "tactical_strip_updated"
 	TacticalStripMoved   EventType = "tactical_strip_moved"
+
+	// Sent to the originating client when a frontend action is rejected by the backend
+	ActionRejected EventType = "action_rejected"
+
+	// AvailableSids is broadcast to all frontend clients when the master EuroScope client
+	// sends a sync event containing SIDs, and on new frontend connects.
+	AvailableSids EventType = "available_sids"
 )
 
 type OutgoingMessage interface {
@@ -128,6 +141,11 @@ type Strip struct {
 	RunwayCleared          bool     `json:"runway_cleared"`
 	UnexpectedChangeFields  []string `json:"unexpected_change_fields"`
 	ControllerModifiedFields []string `json:"controller_modified_fields"`
+	IsManual               bool     `json:"is_manual"`
+	PersonsOnBoard         int32    `json:"persons_on_board"`
+	FplType                string   `json:"fpl_type"`
+	Language               string   `json:"language"`
+	HasFP                  bool     `json:"has_fp"`
 }
 
 type Controller struct {
@@ -138,9 +156,10 @@ type Controller struct {
 }
 
 type SyncCoordination struct {
-	Callsign string `json:"callsign"`
-	From     string `json:"from"`
-	To       string `json:"to"`
+	Callsign     string `json:"callsign"`
+	From         string `json:"from"`
+	To           string `json:"to"`
+	IsTagRequest bool   `json:"is_tag_request"`
 }
 
 type InitialEvent struct {
@@ -154,6 +173,7 @@ type InitialEvent struct {
 	RunwaySetup    RunwayConfiguration       `json:"runway_setup"`
 	Coordinations  []SyncCoordination        `json:"coordinations"`
 	Messages       []MessageReceivedEvent    `json:"messages"`
+	AvailableSids  pkgModels.AvailableSids   `json:"available_sids"`
 }
 
 func (i InitialEvent) Marshal() ([]byte, error) {
@@ -281,6 +301,27 @@ func (b BayEvent) Marshal() ([]byte, error) {
 
 func (b BayEvent) GetType() EventType {
 	return Bay
+}
+
+// BulkBayEntry holds the sequence update for a single flight strip in a BulkBayEvent.
+type BulkBayEntry struct {
+	Callsign string `json:"callsign"`
+	Sequence int32  `json:"sequence"`
+}
+
+// BulkBayEvent broadcasts a batch of sequence updates for strips in a single bay atomically,
+// preventing temporary ordering inconsistencies on the frontend when many strips are recalculated.
+type BulkBayEvent struct {
+	Bay    string         `json:"bay"`
+	Strips []BulkBayEntry `json:"strips"`
+}
+
+func (b BulkBayEvent) Marshal() ([]byte, error) {
+	return marshall(b)
+}
+
+func (b BulkBayEvent) GetType() EventType {
+	return BulkBay
 }
 
 type DisconnectEvent struct{}
@@ -447,6 +488,37 @@ type CoordinationFreeRequestEvent struct {
 type CoordinationCancelTransferRequestEvent struct {
 	Type     string `json:"type"`
 	Callsign string `json:"callsign"`
+}
+
+type CoordinationForceAssumeRequestEvent struct {
+	Type     string `json:"type"`
+	Callsign string `json:"callsign"`
+}
+
+// ---------- TAG REQUEST ----------
+
+type CoordinationTagRequestEvent struct {
+	Type     string `json:"type"`
+	Callsign string `json:"callsign"`
+}
+
+type CoordinationAcceptTagRequestEvent struct {
+	Type     string `json:"type"`
+	Callsign string `json:"callsign"`
+}
+
+type CoordinationTagRequestBroadcastEvent struct {
+	From     string `json:"from"`
+	To       string `json:"to"`
+	Callsign string `json:"callsign"`
+}
+
+func (c CoordinationTagRequestBroadcastEvent) Marshal() ([]byte, error) {
+	return marshall(c)
+}
+
+func (c CoordinationTagRequestBroadcastEvent) GetType() EventType {
+	return CoordinationTagRequestBroadcastType
 }
 
 type CoordinationFreeBroadcastEvent struct {
@@ -714,8 +786,25 @@ func (e TacticalStripMovedEvent) Marshal() ([]byte, error) { return marshall(e) 
 func (e TacticalStripMovedEvent) GetType() EventType       { return TacticalStripMoved }
 
 type AtisUpdateEvent struct {
-	Metar string `json:"metar"`
+	Metar       string `json:"metar"`
+	ArrAtisCode string `json:"arr_atis_code"`
+	DepAtisCode string `json:"dep_atis_code"`
 }
 
 func (a AtisUpdateEvent) Marshal() ([]byte, error) { return marshall(a) }
 func (a AtisUpdateEvent) GetType() EventType       { return AtisUpdate }
+
+type ActionRejectedEvent struct {
+	Action string `json:"action"` // the action type string that was rejected
+	Reason string `json:"reason"` // human-readable reason
+}
+
+func (e ActionRejectedEvent) Marshal() ([]byte, error) { return marshall(e) }
+func (e ActionRejectedEvent) GetType() EventType       { return ActionRejected }
+
+type AvailableSidsEvent struct {
+	Sids pkgModels.AvailableSids `json:"sids"`
+}
+
+func (e AvailableSidsEvent) Marshal() ([]byte, error) { return marshall(e) }
+func (e AvailableSidsEvent) GetType() EventType       { return AvailableSids }

@@ -1,6 +1,7 @@
+import { getSimpleAircraftType } from "@/lib/utils";
 import type { HalfStripVariant, StripProps } from "./types";
-import { useStripSelection, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR, COLOR_ARR_YELLOW, COLOR_ARR_STRIP_BG, COLOR_BTN_BLUE, COLOR_BTN_ORANGE, COLOR_UNEXPECTED_YELLOW, getCellTextColor } from "./shared";
-import { useWebSocketStore } from "@/store/store-hooks";
+import { useStripSelection, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR, COLOR_ARR_YELLOW, COLOR_ARR_STRIP_BG, COLOR_BTN_BLUE, COLOR_BTN_ORANGE, COLOR_UNEXPECTED_YELLOW, COLOR_MANUAL_BLUE, getCellTextColor } from "./shared";
+import { useStripTransfers, useWebSocketStore } from "@/store/store-hooks";
 
 // Variant-specific background colours
 const COLOR_HALF_PUSH_BG  = "#bfbfbf"; // compact APN-PUSH half strip (lighter grey)
@@ -58,6 +59,7 @@ export function HalfStrip({
   marked = false,
   unexpectedChangeFields,
   controllerModifiedFields,
+  isManual = false,
 }: StripProps) {
   const isLocked = LOCKED_VARIANTS.includes(halfStripVariant);
   const isFreeText = FREE_TEXT_VARIANTS.includes(halfStripVariant);
@@ -65,9 +67,12 @@ export function HalfStrip({
   const isSelectable = selectable && !isLocked;
   const { isSelected, handleClick } = useStripSelection(callsign, isSelectable);
   const acknowledgeUnexpectedChange = useWebSocketStore(s => s.acknowledgeUnexpectedChange);
+  const stripTransfers = useStripTransfers();
+  const isTagRequest = !!stripTransfers[callsign]?.isTagRequest;
   const standYellow = unexpectedChangeFields?.includes("stand");
 
   const cellBorderColor = getCellBorderColor(marked, HALF_CELL_BASE);
+  const manualBlue = isManual ? COLOR_MANUAL_BLUE : undefined;
 
   const bg = VARIANT_BG[halfStripVariant];
   const label = VARIANT_LABEL[halfStripVariant];
@@ -81,7 +86,7 @@ export function HalfStrip({
       className={`w-fit flex text-sm select-none${isSelectable ? " cursor-pointer" : ""}`}
       style={{
         height: "21px",
-        backgroundColor: bg,
+        backgroundColor: isTagRequest ? SELECTION_COLOR : bg,
         ...getFlatStripBorderStyle({ borderBottom: "1px solid white" }),
       }}
       onClick={handleClick}
@@ -104,7 +109,7 @@ export function HalfStrip({
         <>
           <div
             className={`h-full w-[130px] border-r-2 flex items-center pl-2 font-bold truncate ${textColor}`}
-            style={{ borderRightColor: cellBorderColor, backgroundColor: isSelected ? SELECTION_COLOR : undefined }}
+            style={{ borderRightColor: cellBorderColor, backgroundColor: isSelected ? SELECTION_COLOR : undefined, color: manualBlue }}
           >
             {callsign}
           </div>
@@ -112,7 +117,7 @@ export function HalfStrip({
             className={`h-full w-14 border-r-2 flex items-center justify-center text-xs ${textColor}`}
             style={{ borderRightColor: cellBorderColor }}
           >
-            {aircraftType}
+            {getSimpleAircraftType(aircraftType)}
           </div>
           <div
             className={`h-full w-14 border-r-2 flex items-center justify-center font-bold ${textColor}`}

@@ -68,14 +68,30 @@ func SetupTestDB(t *testing.T) (*pgxpool.Pool, *database.Queries) {
 	return pool, queries
 }
 
-// SeedTestSession inserts a test session with required sector owners
+// SeedTestSession inserts a test session with realistic sector owners including an
+// airborne controller (EKCH_K_DEP, 124.980) so PDC frequency lookup works correctly.
 func SeedTestSession(t *testing.T, queries *database.Queries) int32 {
+	return SeedTestSessionWithSectors(t, queries, []database.InsertSectorOwnersParams{
+		{
+			Sector:     []string{"AA", "AD", "DEL", "GW", "SQ", "TE", "TW"},
+			Position:   "118.105", // EKCH_A_TWR
+			Identifier: "TE",
+		},
+		{
+			Sector:     []string{"K_DEP"},
+			Position:   "124.980", // EKCH_K_DEP (airborne)
+			Identifier: "K_DEP",
+		},
+	})
+}
+
+// SeedTestSessionWithSectors inserts a test session with the provided sector owners.
+func SeedTestSessionWithSectors(t *testing.T, queries *database.Queries, sectors []database.InsertSectorOwnersParams) int32 {
 	ctx := context.Background()
 
 	// First insert the airport (required by foreign key)
 	err := queries.InsertAirport(ctx, "EKCH")
 	if err != nil {
-		// Ignore error if airport already exists
 		t.Logf("Airport insert warning (may already exist): %v", err)
 	}
 
@@ -85,16 +101,10 @@ func SeedTestSession(t *testing.T, queries *database.Queries) int32 {
 	})
 	require.NoError(t, err)
 
-	// Insert sector owners for PDC frequency lookup
-	// Based on EKCH configuration: SQ and DEL sectors assigned to tower
-	_, err = queries.InsertSectorOwners(ctx, []database.InsertSectorOwnersParams{
-		{
-			Session:    sessionID,
-			Sector:     []string{"AA", "AD", "DEL", "GW", "SQ", "TE", "TW"},
-			Position:   "118.105", // Position name (max 7 chars)
-			Identifier: "TE",      // Frequency identifier
-		},
-	})
+	for i := range sectors {
+		sectors[i].Session = sessionID
+	}
+	_, err = queries.InsertSectorOwners(ctx, sectors)
 	require.NoError(t, err)
 
 	return sessionID
@@ -115,6 +125,7 @@ func SeedTestStrip(t *testing.T, queries *database.Queries, sessionID int32, cal
 		Squawk:         ptr("2401"),
 		AssignedSquawk: ptr("2401"),
 		Bay:            "NOT_CLEARED",
+		CdmData:        []byte(`{"canonical":{}}`),
 	})
 	require.NoError(t, err)
 }

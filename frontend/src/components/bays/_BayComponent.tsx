@@ -1,6 +1,6 @@
 export default function BayComponent() {
     return (<>
-        <div className="bg-[#A9A9A9] w-screen h-[calc(100vh-4rem)] flex justify-center justify-items-center gap-2">
+        <div className="bg-[#A9A9A9] w-screen h-[calc(100vh-60px)] flex justify-center justify-items-center gap-2">
             <div className="w-full h-full bg-[#555355]">
                 <div className="bg-[#393939] h-10 flex items-center px-2 justify-between">
                     <span className="text-white font-bold text-lg">

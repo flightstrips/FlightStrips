@@ -11,4 +11,5 @@ type Coordination struct {
 	CoordinatedAt  *time.Time
 	FromEs         bool
 	EsHandoverCid  *string
+	IsTagRequest   bool
 }

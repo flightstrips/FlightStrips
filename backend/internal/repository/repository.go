@@ -49,6 +49,7 @@ type StripRepository interface {
 	UpdateRegistration(ctx context.Context, session int32, callsign string, registration string) error
 	UpdateTrackingController(ctx context.Context, session int32, callsign string, trackingController string) (int64, error)
 	UpdateRunwayClearance(ctx context.Context, session int32, callsign string) (int64, error)
+	ResetRunwayClearance(ctx context.Context, session int32, callsign string) (int64, error)
 
 	// Owner management
 	SetOwner(ctx context.Context, session int32, callsign string, owner *string, version int32) (int64, error)
@@ -57,10 +58,9 @@ type StripRepository interface {
 	SetNextAndPreviousOwners(ctx context.Context, session int32, callsign string, nextOwners []string, previousOwners []string) error
 
 	// CDM data
-	GetCdmData(ctx context.Context, session int32) ([]*models.CdmData, error)
+	GetCdmData(ctx context.Context, session int32) ([]*models.CdmDataRow, error)
 	GetCdmDataForCallsign(ctx context.Context, session int32, callsign string) (*models.CdmData, error)
-	UpdateCdmData(ctx context.Context, session int32, callsign string, tobt *string, tsat *string, ttot *string, ctot *string, aobt *string, eobt *string, cdmStatus *string) (int64, error)
-	SetCdmStatus(ctx context.Context, session int32, callsign string, cdmStatus *string) (int64, error)
+	SetCdmData(ctx context.Context, session int32, callsign string, data *models.CdmData) (int64, error)
 
 	// Release point
 	UpdateReleasePoint(ctx context.Context, session int32, callsign string, releasePoint *string) (int64, error)
@@ -71,6 +71,11 @@ type StripRepository interface {
 
 	// Controller-modified field tracking
 	AppendControllerModifiedField(ctx context.Context, session int32, callsign string, fieldName string) error
+
+	// Manual FPL creation
+	UpdateIFRManualFPLFields(ctx context.Context, session int32, callsign string, destination string, sid *string, assignedSquawk *string, eobt *string, aircraftType *string, requestedAltitude *int32, route *string, stand *string, runway *string) (int64, error)
+	UpdateVFRManualFPLFields(ctx context.Context, session int32, callsign string, aircraftType *string, personsOnBoard *int32, assignedSquawk string, fplType *string, language *string, remarks *string, bay string) (int64, error)
+	SetHasFP(ctx context.Context, session int32, callsign string, hasFP bool) error
 
 	// PDC methods
 	SetPdcRequested(ctx context.Context, session int32, callsign string, pdcState string, pdcRequestedAt *time.Time) error
@@ -108,6 +113,8 @@ type SessionRepository interface {
 	Delete(ctx context.Context, id int32) (int64, error)
 
 	UpdateActiveRunways(ctx context.Context, id int32, activeRunways pkgModels.ActiveRunways) error
+	UpdateSessionSids(ctx context.Context, id int32, sids pkgModels.AvailableSids) error
+	GetSessionSids(ctx context.Context, id int32) (pkgModels.AvailableSids, error)
 	IncrementPdcSequence(ctx context.Context, id int32) (int32, error)
 	IncrementPdcMessageSequence(ctx context.Context, id int32) (int32, error)
 }

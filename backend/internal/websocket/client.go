@@ -4,6 +4,7 @@ import (
 	"FlightStrips/internal/shared"
 	"FlightStrips/pkg/constants"
 	"FlightStrips/pkg/events"
+	frontend "FlightStrips/pkg/events/frontend"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -93,6 +94,10 @@ func ReadPump[TType comparable, TClient Client, THub Hub[TType, TClient]](hub TH
 			span.SetStatus(codes.Error, err.Error())
 			span.RecordError(err)
 			slog.ErrorContext(ctx, "Failed to handle message", slog.Any("error", err), slog.String("message", string(message)))
+			client.GetSendChannel() <- frontend.ActionRejectedEvent{
+				Action: fmt.Sprintf("%v", parsedMessage.Type),
+				Reason: err.Error(),
+			}
 		} else {
 			span.SetStatus(codes.Ok, "")
 		}

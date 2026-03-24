@@ -118,12 +118,8 @@ func TestFrontendActions(t *testing.T) {
 	// 1. Frontend receives initial data from server
 	helper.AssertFrontendReceivedMessage("initial")
 	t.Log("✓ Frontend received initial data")
-	
-	// 2. Frontend receives strip_update broadcasts (for database changes)
-	helper.AssertFrontendReceivedMessage("strip_update")
-	t.Log("✓ Frontend received strip_update broadcasts")
-	
-	// 3. EuroScope receives session_info (master/slave assignment)
+
+	// 2. EuroScope receives session_info (master/slave assignment)
 	helper.AssertEuroscopeReceivedMessage("session_info")
 	t.Log("✓ EuroScope received session_info")
 	

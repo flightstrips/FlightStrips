@@ -1,6 +1,6 @@
 import React from "react";
 import { useControllers, useWebSocketStore } from "@/store/store-hooks";
-import { getCellBorderColor, FONT, COLOR_BTN_ORANGE, COLOR_SI_ASSUMED, COLOR_SI_UNCONCERNED, COLOR_SI_CONCERNED } from "./shared";
+import { getCellBorderColor, FONT, COLOR_BTN_ORANGE, COLOR_SI_ASSUMED, COLOR_SI_UNCONCERNED, COLOR_SI_CONCERNED, getStripOwnership } from "./shared";
 
 /** Text colour for the next-controller identifier label. */
 const COLOR_SI_LABEL = "#8F8F8F";
@@ -17,6 +17,7 @@ export function SIBox({
   marked,
   flexGrow = F_SI,
   transferringTo,
+  isTagRequest,
   baseBorderColor,
 }: {
   callsign: string;
@@ -30,6 +31,8 @@ export function SIBox({
   flexGrow?: number;
   /** Position string of the controller being transferred to. Empty string or undefined means no transfer. */
   transferringTo?: string;
+  /** True when the active coordination is a tag request (REQ) rather than a normal transfer. */
+  isTagRequest?: boolean;
   /** Base cell border color (defaults to the shared teal). Pass a custom color for strips with different border styling. */
   baseBorderColor?: string;
 }) {
@@ -37,29 +40,34 @@ export function SIBox({
   const transferStrip = useWebSocketStore(s => s.transferStrip);
   const assumeStrip = useWebSocketStore(s => s.assumeStrip);
   const cancelTransfer = useWebSocketStore(s => s.cancelTransfer);
+  const acceptTagRequest = useWebSocketStore(s => s.acceptTagRequest);
 
-  const isAssumed = !!myPosition && owner === myPosition;
-  const isTransferredAway = !!myPosition && !!previousControllers?.includes(myPosition);
-  const isConcerned = !!myPosition && !!nextControllers?.includes(myPosition);
+  const { isAssumed, isTransferredAway, isConcerned } = getStripOwnership(myPosition, owner, nextControllers, previousControllers);
 
-  const isSendingTransfer = isAssumed && !!transferringTo;
-  const isReceivingTransfer = !!myPosition && !!transferringTo && transferringTo === myPosition && !isAssumed;
+  const isSendingTransfer = isAssumed && !!transferringTo && !isTagRequest;
+  const isReceivingTransfer = !!myPosition && !!transferringTo && transferringTo === myPosition && !isAssumed && !isTagRequest;
   const isUnownedAndNext = !owner && isConcerned;
+
+  // Tag request states
+  const isTagRequestOwner = isAssumed && !!transferringTo && isTagRequest;
+  const isTagRequestRequester = !!myPosition && !!transferringTo && transferringTo === myPosition && !isAssumed && isTagRequest;
 
   const nextPosition = nextControllers?.find(pos => pos !== myPosition);
 
   let nextLabel = "";
-  if (isSendingTransfer) {
+  if (isSendingTransfer || isTagRequestOwner) {
     const targetController = controllers.find(c => c.position === transferringTo);
     nextLabel = targetController ? targetController.identifier : "";
-  } else if (isAssumed) {
+  } else if (isAssumed && !isTagRequestOwner) {
     const nextController = controllers.find(c => c.position === nextPosition);
     nextLabel = nextController ? nextController.identifier : "";
   }
 
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (isReceivingTransfer || isUnownedAndNext) {
+    if (isTagRequestOwner) {
+      acceptTagRequest(callsign);
+    } else if (isReceivingTransfer || isUnownedAndNext) {
       assumeStrip(callsign);
     } else if (isSendingTransfer) {
       cancelTransfer(callsign);
@@ -68,12 +76,18 @@ export function SIBox({
     }
   };
 
-  const isClickable = isReceivingTransfer || isUnownedAndNext || isSendingTransfer || (isAssumed && !!nextPosition);
+  const isClickable = isTagRequestOwner || isReceivingTransfer || isUnownedAndNext || isSendingTransfer || (isAssumed && !!nextPosition && !isTagRequestOwner);
 
   let background: string;
-  if (isSendingTransfer) {
+  if (isTagRequestOwner) {
+    // Owner side of a tag request: white+orange gradient (sending-away appearance)
     background = `linear-gradient(to right, ${COLOR_SI_ASSUMED} 50%, ${COLOR_BTN_ORANGE} 50%)`;
-  } else if (isReceivingTransfer || isUnownedAndNext) {
+  } else if (isTagRequestRequester) {
+    // Unassumed tag requests keep the normal concerned appearance rather than the split transfer layout.
+    background = COLOR_SI_CONCERNED;
+  } else if (isSendingTransfer) {
+    background = `linear-gradient(to right, ${COLOR_SI_ASSUMED} 50%, ${COLOR_BTN_ORANGE} 50%)`;
+  } else if (isReceivingTransfer) {
     background = `linear-gradient(to right, ${COLOR_SI_CONCERNED} 50%, ${COLOR_SI_ASSUMED} 50%)`;
   } else if (isAssumed) {
     background = COLOR_SI_ASSUMED;

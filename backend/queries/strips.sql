@@ -2,8 +2,8 @@
 INSERT INTO strips (version, callsign, session, origin, destination, alternative, route, remarks, assigned_squawk,
                     squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities,
                     communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay,
-                    position_latitude, position_longitude, position_altitude, tobt, eobt, registration,
-                    tracking_controller)
+                    position_latitude, position_longitude, position_altitude, cdm_data, registration,
+                    tracking_controller, engine_type)
 VALUES (1, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23,
         $24, $25, $26, $27, $28, $29, $30, $31);
 
@@ -11,8 +11,8 @@ VALUES (1, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16
 UPDATE strips
 SET (version, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude,
      heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand,
-     sequence, state, cleared, owner, bay, position_latitude, position_longitude, position_altitude, tobt, eobt,
-     registration, tracking_controller
+     sequence, state, cleared, owner, bay, position_latitude, position_longitude, position_altitude, cdm_data,
+     registration, tracking_controller, engine_type
     ) = (
          version + 1, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22,
          $23, $24, $25, $26, $27, $28, $29, $30, $31)
@@ -195,18 +195,14 @@ WHERE session = $1 AND callsign = $2;
 -- name: SetPreviousOwners :exec
 UPDATE strips SET previous_owners = $3 WHERE session = $1 AND callsign = $2;
 
--- name: SetCdmStatus :execrows
-UPDATE strips SET cdm_status = $3 WHERE session = $1 AND callsign = $2;
+-- name: SetCdmData :execrows
+UPDATE strips SET cdm_data = $3 WHERE session = $1 AND callsign = $2;
 
 -- name: GetCdmData :many
-SELECT callsign, tobt, tsat, ttot, ctot, aobt, asat, eobt, cdm_status FROM strips WHERE session = $1;
+SELECT callsign, cdm_data FROM strips WHERE session = $1;
 
 -- name: GetCdmDataForCallsign :one
-SELECT callsign, tobt, tsat, ttot, ctot, aobt, asat, eobt, cdm_status FROM strips WHERE session = $1 and callsign = $2;
-
--- name: UpdateCdmData :execrows
-UPDATE strips SET tobt = $3, tsat = $4, ttot = $5, ctot = $6, aobt = $7, eobt = $8, cdm_status = $9
-              WHERE session = $1 AND callsign = $2;
+SELECT callsign, cdm_data FROM strips WHERE session = $1 and callsign = $2;
 
 -- name: UpdateReleasePoint :execrows
 UPDATE strips SET release_point = $3 WHERE session = $1 AND callsign = $2;
@@ -231,6 +227,12 @@ SET bay            = CASE
                        ELSE bay
                      END,
     runway_cleared = true,
+    version        = version + 1
+WHERE callsign = $1 AND session = $2;
+
+-- name: ResetRunwayClearance :execrows
+UPDATE strips
+SET runway_cleared = false,
     version        = version + 1
 WHERE callsign = $1 AND session = $2;
 

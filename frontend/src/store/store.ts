@@ -4,9 +4,10 @@ import {
   ActionType,
   Bay,
   EventType,
+  type ActionRejectedEvent,
   type FrontendAircraftDisconnectEvent,
   type FrontendAssignedSquawkEvent,
-  type FrontendBayEvent, type FrontendBroadcastEvent, type FrontendCdmDataEvent, type FrontendCdmWaitEvent,
+  type FrontendBayEvent, type FrontendBroadcastEvent, type FrontendBulkBayEvent, type FrontendCdmDataEvent, type FrontendCdmWaitEvent,
   type FrontendClearedAltitudeEvent,
   type FrontendCommunicationTypeEvent,
   type FrontendController,
@@ -20,6 +21,7 @@ import {
   type FrontendCoordinationAssumeBroadcastEvent,
   type FrontendCoordinationRejectBroadcastEvent,
   type FrontendCoordinationFreeBroadcastEvent,
+  type FrontendCoordinationTagRequestBroadcastEvent,
   type FrontendRunwayConfigurationEvent,
   type FrontendRequestedAltitudeEvent,
   type FrontendSetHeadingEvent,
@@ -38,10 +40,11 @@ import {
   type FrontendTacticalStripUpdatedEvent,
   type FrontendTacticalStripMovedEvent,
   type FrontendAtisUpdateEvent,
+  type SidInfo,
 } from '../api/models.ts';
 import {WebSocketClient} from '../api/websocket.ts';
 
-const KNOWN_LAYOUTS = new Set(["CLX", "AAAD", "ESET", "GEGW", "TWTE"]);
+const KNOWN_LAYOUTS = new Set(["CLX", "AAAD", "AD", "ESET", "GEGW", "TWTE"]);
 
 export interface UpdateStrip {
   sid?: string
@@ -50,6 +53,7 @@ export interface UpdateStrip {
   heading?: number;
   altitude?: number;
   stand?: string;
+  ob?: boolean;
 }
 
 export interface BroadcastNotification {
@@ -72,16 +76,24 @@ export interface WebSocketState {
   layoutChooserOpen: boolean;
   runwaySetup: RunwayConfiguration;
   isInitialized: boolean;
-  stripTransfers: Record<string, string>;
+  stripTransfers: Record<string, { from: string; to: string; isTagRequest: boolean }>;
 
   messages: MessageReceived[];
   broadcastNotifications: BroadcastNotification[];
   metar: string;
+  arrAtisCode: string;
+  depAtisCode: string;
+
+  availableSids: SidInfo[];
 
   selectedCallsign: string | null;
   selectStrip: (callsign: string | null) => void;
   setDisplayedLayout: (layout: string) => void;
   setLayoutChooserOpen: (open: boolean) => void;
+
+  contextMenu: { callsign: string; x: number; y: number } | null;
+  openStripContextMenu: (callsign: string, pos: { x: number; y: number }) => void;
+  closeStripContextMenu: () => void;
 
   // actions
   move: (callsign: string, bay: Bay) => void;
@@ -95,14 +107,21 @@ export interface WebSocketState {
   revertToVoice: (callsign: string) => void;
   transferStrip: (callsign: string, toPosition: string) => void;
   assumeStrip: (callsign: string) => void;
+  forceAssumeStrip: (callsign: string) => void;
   freeStrip: (callsign: string) => void;
   cancelTransfer: (callsign: string) => void;
+  requestTag: (callsign: string) => void;
+  acceptTagRequest: (callsign: string) => void;
   toggleMarked: (callsign: string, marked: boolean) => void;
   runwayClearance: (callsign: string) => void;
   cdmReady: (callsign: string) => void;
   assignRunway: (callsign: string, runway: string) => void;
 
   acknowledgeUnexpectedChange: (callsign: string, fieldName: string) => void;
+
+  // manual FPL actions
+  createManualFPL: (callsign: string, ades: string, sid: string, ssr: string, eobt: string, aircraftType: string, fl: string, route: string, stand: string, rwyDep: string) => void;
+  createVFRFPL: (callsign: string, aircraftType: string, personsOnBoard: number, ssr: string, fplType: string, language: string, remarks: string) => void;
 
   // tactical strip actions
   createTacticalStrip: (stripType: TacticalStripType, bay: string, label: string, aircraft: string) => void;
@@ -135,7 +154,11 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     messages: [],
     broadcastNotifications: [],
     metar: "",
-    selectedCallsign: null
+    arrAtisCode: "",
+    depAtisCode: "",
+    availableSids: [],
+    selectedCallsign: null,
+    contextMenu: null
   };
 
   // Create the store
@@ -144,6 +167,8 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     selectStrip: (callsign) => set({ selectedCallsign: callsign }),
     setDisplayedLayout: (layout) => set({ displayedLayout: layout }),
     setLayoutChooserOpen: (open) => set({ layoutChooserOpen: open }),
+    openStripContextMenu: (callsign, pos) => set({ contextMenu: { callsign, x: pos.x, y: pos.y } }),
+    closeStripContextMenu: () => set({ contextMenu: null }),
     move: (callsign, bay) => set((state) => {
         wsClient.send({type: ActionType.FrontendMove, callsign, bay})
 
@@ -177,31 +202,37 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
         heading: update.heading,
         altitude: update.altitude,
         stand: update.stand,
+        ob: update.ob,
       })
 
-      return produce((state: WebSocketState) => {
-        const stripIndex = state.strips.findIndex(strip => strip.callsign === callsign);
-        if (stripIndex !== -1) {
-          if (update.sid) {
-            state.strips[stripIndex].sid = update.sid;
+      set((state) =>
+        produce(state, (draft: WebSocketState) => {
+          const stripIndex = draft.strips.findIndex(strip => strip.callsign === callsign);
+          if (stripIndex !== -1) {
+            if (update.sid !== undefined) {
+              draft.strips[stripIndex].sid = update.sid;
+            }
+            if (update.eobt !== undefined) {
+              draft.strips[stripIndex].eobt = update.eobt;
+            }
+            if (update.route !== undefined) {
+              draft.strips[stripIndex].route = update.route;
+            }
+            if ("heading" in update && update.heading !== undefined) {
+              draft.strips[stripIndex].heading = update.heading;
+            }
+            if ("altitude" in update && update.altitude !== undefined) {
+              draft.strips[stripIndex].cleared_altitude = update.altitude;
+            }
+            if (update.stand !== undefined) {
+              draft.strips[stripIndex].stand = update.stand;
+            }
+            if (update.ob !== undefined) {
+              draft.strips[stripIndex].ob = update.ob;
+            }
           }
-          if (update.eobt) {
-            state.strips[stripIndex].eobt = update.eobt;
-          }
-          if (update.route) {
-            state.strips[stripIndex].route = update.route;
-          }
-          if (update.heading) {
-            state.strips[stripIndex].heading = update.heading;
-          }
-          if (update.altitude) {
-            state.strips[stripIndex].cleared_altitude = update.altitude;
-          }
-          if (update.stand) {
-            state.strips[stripIndex].stand = update.stand;
-          }
-        }
-      })
+        })
+      );
     },
     updateOrder: (callsign, insertAfter) => set((state) => {
       wsClient.send({type: ActionType.FrontendUpdateOrder, callsign: callsign, insert_after: insertAfter})
@@ -297,11 +328,21 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     assumeStrip: (callsign) => {
       wsClient.send({ type: ActionType.FrontendCoordinationAssumeRequest, callsign });
     },
+    // forceAssumeStrip: takes ownership of an unowned strip, bypassing the next-owners check
+    forceAssumeStrip: (callsign) => {
+      wsClient.send({ type: ActionType.FrontendCoordinationForceAssumeRequest, callsign });
+    },
     freeStrip: (callsign) => {
       wsClient.send({ type: ActionType.FrontendCoordinationFreeRequest, callsign });
     },
     cancelTransfer: (callsign) => {
       wsClient.send({ type: ActionType.FrontendCoordinationCancelTransferRequest, callsign });
+    },
+    requestTag: (callsign) => {
+      wsClient.send({ type: ActionType.FrontendCoordinationTagRequest, callsign });
+    },
+    acceptTagRequest: (callsign) => {
+      wsClient.send({ type: ActionType.FrontendCoordinationAcceptTagRequest, callsign });
     },
     cdmReady: (callsign) => {
       wsClient.send({ type: ActionType.FrontendCdmReady, callsign });
@@ -347,6 +388,12 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
           }
         })
       );
+    },
+    createManualFPL: (callsign, ades, sid, ssr, eobt, aircraftType, fl, route, stand, rwyDep) => {
+      wsClient.send({ type: ActionType.FrontendCreateManualFPL, callsign, ades, sid, ssr, eobt, aircraft_type: aircraftType, fl, route, stand, rwy_dep: rwyDep });
+    },
+    createVFRFPL: (callsign, aircraftType, personsOnBoard, ssr, fplType, language, remarks) => {
+      wsClient.send({ type: ActionType.FrontendCreateVFRFPL, callsign, aircraft_type: aircraftType, persons_on_board: personsOnBoard, ssr, fpl_type: fplType, language, remarks });
     },
     createTacticalStrip:(stripType, bay, label, aircraft) => {
       wsClient.send({ type: ActionType.FrontendCreateTacticalStrip, strip_type: stripType, bay, label, aircraft });
@@ -418,17 +465,16 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
         state.layout = data.layout;
         if (KNOWN_LAYOUTS.has(data.layout)) {
           state.displayedLayout = data.layout;
-        } else {
-          state.layoutChooserOpen = true;
         }
         state.runwaySetup = data.runway_setup;
         state.isInitialized = true;
-        const transfers: Record<string, string> = {};
+        const transfers: Record<string, { from: string; to: string; isTagRequest: boolean }> = {};
         for (const coord of data.coordinations) {
-          transfers[coord.callsign] = coord.to;
+          transfers[coord.callsign] = { from: coord.from, to: coord.to, isTagRequest: coord.is_tag_request };
         }
         state.stripTransfers = transfers;
         state.messages = data.messages ?? [];
+        state.availableSids = data.available_sids ?? [];
       })
     );
   };
@@ -545,6 +591,25 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     );
   };
 
+  // Handle all sequence updates for a bay in a single setState call to prevent
+  // transient ordering inconsistencies when strips are recalculated in bulk.
+  const handleBulkBayEvent = (data: FrontendBulkBayEvent) => {
+    store.setState(
+      produce((state: WebSocketState) => {
+        for (const entry of data.strips) {
+          const stripIndex = state.strips.findIndex(s => s.callsign === entry.callsign);
+          if (stripIndex !== -1) {
+            state.strips[stripIndex].bay = data.bay;
+            state.strips[stripIndex].sequence = entry.sequence;
+          }
+          if (state.selectedCallsign === entry.callsign) {
+            state.selectedCallsign = null;
+          }
+        }
+      })
+    );
+  };
+
   const handleDisconnectEvent = () => {
     store.setState({...initialState})
   }
@@ -610,7 +675,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
         if (KNOWN_LAYOUTS.has(data.layout)) {
           state.displayedLayout = data.layout;
         } else {
-          state.layoutChooserOpen = true;
+          state.displayedLayout = "";
         }
       })
     )
@@ -704,7 +769,15 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
   const handleCoordinationTransferBroadcastEvent = (data: FrontendCoordinationTransferBroadcastEvent) => {
     store.setState(
       produce((state: WebSocketState) => {
-        state.stripTransfers[data.callsign] = data.to;
+        state.stripTransfers[data.callsign] = { from: data.from, to: data.to, isTagRequest: false };
+      })
+    );
+  };
+
+  const handleCoordinationTagRequestBroadcastEvent = (data: FrontendCoordinationTagRequestBroadcastEvent) => {
+    store.setState(
+      produce((state: WebSocketState) => {
+        state.stripTransfers[data.callsign] = { from: data.from, to: data.to, isTagRequest: true };
       })
     );
   };
@@ -790,6 +863,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
   wsClient.on(EventType.FrontendRequestedAltitude, handleRequestedAltitudeEvent);
   wsClient.on(EventType.FrontendClearedAltitude, handleClearedAltitudeEvent);
   wsClient.on(EventType.FrontendBay, handleBayEvent);
+  wsClient.on(EventType.FrontendBulkBay, handleBulkBayEvent);
   wsClient.on(EventType.FrontendDisconnect, handleDisconnectEvent);
   wsClient.on(EventType.FrontendAircraftDisconnect, handleAircraftDisconnectEvent);
   wsClient.on(EventType.FrontendStand, handleStandEvent);
@@ -807,6 +881,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
   wsClient.on(EventType.FrontendCoordinationAssumeBroadcast, handleCoordinationAssumeBroadcastEvent);
   wsClient.on(EventType.FrontendCoordinationRejectBroadcast, handleCoordinationRejectBroadcastEvent);
   wsClient.on(EventType.FrontendCoordinationFreeBroadcast, handleCoordinationFreeBroadcastEvent);
+  wsClient.on(EventType.FrontendCoordinationTagRequestBroadcast, handleCoordinationTagRequestBroadcastEvent);
   wsClient.on(EventType.FrontendRunWayConfiguration, handleRunwayConfigurationEvent);
   wsClient.on(EventType.FrontendTacticalStripCreated, handleTacticalStripCreatedEvent);
   wsClient.on(EventType.FrontendTacticalStripDeleted, handleTacticalStripDeletedEvent);
@@ -818,11 +893,25 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     store.setState(
       produce((state: WebSocketState) => {
         state.metar = data.metar;
+        state.arrAtisCode = data.arr_atis_code;
+        state.depAtisCode = data.dep_atis_code;
       })
     );
   };
 
   wsClient.on(EventType.FrontendAtisUpdate, handleAtisUpdateEvent);
+
+  const handleActionRejectedEvent = (_data: ActionRejectedEvent) => {
+    // Reconnect to receive a fresh initial event from the server,
+    // which overwrites any optimistic updates that were rejected.
+    wsClient.reconnect();
+  };
+
+  wsClient.on(EventType.FrontendActionRejected, handleActionRejectedEvent);
+
+  wsClient.on(EventType.FrontendAvailableSids, (data) => {
+    store.setState({ availableSids: data.sids });
+  });
 
   return store;
 };

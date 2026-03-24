@@ -2,6 +2,7 @@
 
 import (
 	"FlightStrips/pkg/events/frontend"
+	pkgModels "FlightStrips/pkg/models"
 )
 
 type FrontendHub interface {
@@ -18,6 +19,7 @@ type FrontendHub interface {
 	SendRequestedAltitudeEvent(session int32, callsign string, altitude int32)
 	SendClearedAltitudeEvent(session int32, callsign string, altitude int32)
 	SendBayEvent(session int32, callsign string, bay string, sequence int32)
+	SendBulkBayEvent(session int32, bay string, strips []frontend.BulkBayEntry)
 	SendAircraftDisconnect(session int32, callsign string)
 	SendStandEvent(session int32, callsign string, stand string)
 	SendSetHeadingEvent(session int32, callsign string, heading int32)
@@ -26,6 +28,7 @@ type FrontendHub interface {
 	SendCoordinationAssume(session int32, callsign, position string)
 	SendCoordinationReject(session int32, callsign, position string)
 	SendCoordinationFree(session int32, callsign string)
+	SendCoordinationTagRequest(session int32, callsign, from, to string)
 	SendOwnersUpdate(session int32, callsign string, owner string, nextOwners []string, previousOwners []string)
 	SendLayoutUpdates(session int32, layoutMap map[string]string)
 	SendCdmUpdate(session int32, callsign, eobt, tobt, tsat, ctot string)
@@ -37,4 +40,5 @@ type FrontendHub interface {
 	SendTacticalStripUpdated(session int32, strip frontend.TacticalStripPayload)
 	SendTacticalStripMoved(session int32, id int64, bay string, sequence int32)
 	SendBroadcast(session int32, message string, from string)
+	SendAvailableSids(session int32, sids pkgModels.AvailableSids)
 }

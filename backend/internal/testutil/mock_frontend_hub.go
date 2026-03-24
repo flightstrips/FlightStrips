@@ -3,6 +3,7 @@ package testutil
 import (
 	"FlightStrips/internal/shared"
 	"FlightStrips/pkg/events/frontend"
+	pkgModels "FlightStrips/pkg/models"
 )
 
 // ControllerOnlineCall records arguments to SendControllerOnline.
@@ -66,6 +67,14 @@ type CoordinationFreeCall struct {
 	Callsign string
 }
 
+// CoordinationTagRequestCall records arguments to SendCoordinationTagRequest.
+type CoordinationTagRequestCall struct {
+	Session  int32
+	Callsign string
+	From     string
+	To       string
+}
+
 // AircraftDisconnectCall records arguments to SendAircraftDisconnect.
 type AircraftDisconnectCall struct {
 	Session  int32
@@ -78,21 +87,46 @@ type StripUpdateCall struct {
 	Callsign string
 }
 
+type CdmWaitCall struct {
+	Session  int32
+	Callsign string
+}
+
+type CdmUpdateCall struct {
+	Session  int32
+	Callsign string
+	Eobt     string
+	Tobt     string
+	Tsat     string
+	Ctot     string
+}
+
+// BulkBayCall records arguments to SendBulkBayEvent.
+type BulkBayCall struct {
+	Session int32
+	Bay     string
+	Strips  []frontend.BulkBayEntry
+}
+
 // MockFrontendHub is a configurable mock for shared.FrontendHub.
 // It records calls for assertion in tests.
 type MockFrontendHub struct {
 	server shared.Server
 
-	BayEvents             []BayEventCall
-	OwnersUpdates         []OwnersUpdateCall
-	CoordinationTransfers []CoordinationTransferCall
-	CoordinationAssumes   []CoordinationAssumeCall
-	CoordinationRejects   []CoordinationRejectCall
-	CoordinationFrees     []CoordinationFreeCall
-	AircraftDisconnects   []AircraftDisconnectCall
-	StripUpdates          []StripUpdateCall
-	ControllerOnlines     []ControllerOnlineCall
-	ControllerOfflines    []ControllerOfflineCall
+	BayEvents               []BayEventCall
+	BulkBayEvents           []BulkBayCall
+	OwnersUpdates           []OwnersUpdateCall
+	CoordinationTransfers   []CoordinationTransferCall
+	CoordinationAssumes     []CoordinationAssumeCall
+	CoordinationRejects     []CoordinationRejectCall
+	CoordinationFrees       []CoordinationFreeCall
+	CoordinationTagRequests []CoordinationTagRequestCall
+	AircraftDisconnects     []AircraftDisconnectCall
+	StripUpdates            []StripUpdateCall
+	ControllerOnlines       []ControllerOnlineCall
+	ControllerOfflines      []ControllerOfflineCall
+	CdmWaits                []CdmWaitCall
+	CdmUpdates              []CdmUpdateCall
 }
 
 func (m *MockFrontendHub) GetServer() shared.Server {
@@ -127,12 +161,17 @@ func (m *MockFrontendHub) SendAssignedSquawkEvent(session int32, callsign string
 
 func (m *MockFrontendHub) SendSquawkEvent(session int32, callsign string, squawk string) {}
 
-func (m *MockFrontendHub) SendRequestedAltitudeEvent(session int32, callsign string, altitude int32) {}
+func (m *MockFrontendHub) SendRequestedAltitudeEvent(session int32, callsign string, altitude int32) {
+}
 
 func (m *MockFrontendHub) SendClearedAltitudeEvent(session int32, callsign string, altitude int32) {}
 
 func (m *MockFrontendHub) SendBayEvent(session int32, callsign string, bay string, sequence int32) {
 	m.BayEvents = append(m.BayEvents, BayEventCall{session, callsign, bay, sequence})
+}
+
+func (m *MockFrontendHub) SendBulkBayEvent(session int32, bay string, strips []frontend.BulkBayEntry) {
+	m.BulkBayEvents = append(m.BulkBayEvents, BulkBayCall{session, bay, strips})
 }
 
 func (m *MockFrontendHub) SendAircraftDisconnect(session int32, callsign string) {
@@ -168,9 +207,20 @@ func (m *MockFrontendHub) SendOwnersUpdate(session int32, callsign string, owner
 
 func (m *MockFrontendHub) SendLayoutUpdates(session int32, layoutMap map[string]string) {}
 
-func (m *MockFrontendHub) SendCdmUpdate(session int32, callsign, eobt, tobt, tsat, ctot string) {}
+func (m *MockFrontendHub) SendCdmUpdate(session int32, callsign, eobt, tobt, tsat, ctot string) {
+	m.CdmUpdates = append(m.CdmUpdates, CdmUpdateCall{
+		Session:  session,
+		Callsign: callsign,
+		Eobt:     eobt,
+		Tobt:     tobt,
+		Tsat:     tsat,
+		Ctot:     ctot,
+	})
+}
 
-func (m *MockFrontendHub) SendCdmWait(session int32, callsign string) {}
+func (m *MockFrontendHub) SendCdmWait(session int32, callsign string) {
+	m.CdmWaits = append(m.CdmWaits, CdmWaitCall{Session: session, Callsign: callsign})
+}
 
 func (m *MockFrontendHub) SendPdcStateChange(session int32, callsign, state string) {}
 
@@ -188,3 +238,9 @@ func (m *MockFrontendHub) SendTacticalStripMoved(session int32, id int64, bay st
 }
 
 func (m *MockFrontendHub) SendBroadcast(session int32, message string, from string) {}
+
+func (m *MockFrontendHub) SendCoordinationTagRequest(session int32, callsign, from, to string) {
+	m.CoordinationTagRequests = append(m.CoordinationTagRequests, CoordinationTagRequestCall{session, callsign, from, to})
+}
+
+func (m *MockFrontendHub) SendAvailableSids(session int32, sids pkgModels.AvailableSids) {}

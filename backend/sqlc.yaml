@@ -35,3 +35,8 @@ sql:
               pointer: false
               import: "FlightStrips/pkg/models"
               type: "ActiveRunways"
+          - column: "sessions.available_sids"
+            go_type:
+              pointer: false
+              import: "FlightStrips/pkg/models"
+              type: "AvailableSids"

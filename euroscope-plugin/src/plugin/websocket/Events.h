@@ -33,6 +33,9 @@
 #define EVENT_COORDINATION_RECEIVED_NAME "coordination_received"
 #define EVENT_ASSUME_AND_DROP_NAME "assume_and_drop"
 #define EVENT_BACKEND_SYNC_NAME "backend_sync"
+#define EVENT_CREATE_FPL_NAME "create_fpl"
+#define EVENT_CDM_READY_REQUEST_NAME "cdm_ready_request"
+#define EVENT_CDM_LOCAL_DATA_NAME "cdm_local_data"
 
 enum EventType {
     EVENT_UNKNOWN = 0,
@@ -66,6 +69,9 @@ enum EventType {
     EVENT_COORDINATION_RECEIVED,
     EVENT_ASSUME_AND_DROP,
     EVENT_BACKEND_SYNC,
+    EVENT_CREATE_FPL,
+    EVENT_CDM_READY_REQUEST,
+    EVENT_CDM_LOCAL_DATA,
 };
 
 NLOHMANN_JSON_SERIALIZE_ENUM(EventType, {
@@ -97,9 +103,12 @@ NLOHMANN_JSON_SERIALIZE_ENUM(EventType, {
                               {EVENT_AIRCRAFT_RUNWAY, EVENT_AIRCRAFT_RUNWAY_NAME},
                               {EVENT_COORDINATION_HANDOVER, EVENT_COORDINATION_HANDOVER_NAME},
                               {EVENT_COORDINATION_RECEIVED, EVENT_COORDINATION_RECEIVED_NAME},
-                              {EVENT_ASSUME_AND_DROP, EVENT_ASSUME_AND_DROP_NAME},
-                              {EVENT_BACKEND_SYNC, EVENT_BACKEND_SYNC_NAME},
-                              })
+                               {EVENT_ASSUME_AND_DROP, EVENT_ASSUME_AND_DROP_NAME},
+                                {EVENT_BACKEND_SYNC, EVENT_BACKEND_SYNC_NAME},
+                                {EVENT_CREATE_FPL, EVENT_CREATE_FPL_NAME},
+                                {EVENT_CDM_READY_REQUEST, EVENT_CDM_READY_REQUEST_NAME},
+                                {EVENT_CDM_LOCAL_DATA, EVENT_CDM_LOCAL_DATA_NAME},
+                                })
 
 struct Event {
     EventType type{EVENT_UNKNOWN};
@@ -146,6 +155,12 @@ struct Runway final {
     NLOHMANN_DEFINE_TYPE_INTRUSIVE(Runway, name, departure, arrival);
 };
 
+struct SidEntry final {
+    std::string name;
+    std::string runway;
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE(SidEntry, name, runway);
+};
+
 struct RunwayEvent final : Event {
     std::vector<Runway> runways;
 
@@ -153,6 +168,48 @@ struct RunwayEvent final : Event {
     }
 
     NLOHMANN_DEFINE_TYPE_INTRUSIVE(RunwayEvent, runways, type);
+};
+
+struct CdmReadyRequestEvent final : Event {
+    std::string callsign;
+
+    explicit CdmReadyRequestEvent(std::string callsign) : Event(EVENT_CDM_READY_REQUEST), callsign(std::move(callsign)) {
+    }
+    CdmReadyRequestEvent() = default;
+
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE(CdmReadyRequestEvent, callsign, type);
+};
+
+struct CdmLocalDataEvent final : Event {
+    std::string callsign;
+    std::string source_position;
+    std::string source_role;
+    std::string tobt;
+    std::string tsat;
+    std::string ttot;
+    std::string ctot;
+    std::string asrt;
+    std::string tsac;
+    std::string manual_ctot;
+
+    CdmLocalDataEvent()
+        : Event(EVENT_CDM_LOCAL_DATA) {
+    }
+
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE(
+        CdmLocalDataEvent,
+        callsign,
+        source_position,
+        source_role,
+        tobt,
+        tsat,
+        ttot,
+        ctot,
+        asrt,
+        tsac,
+        manual_ctot,
+        type
+    );
 };
 
 struct AssignedSquawkEvent final : Event {
@@ -297,7 +354,7 @@ struct StripUpdateEvent final : Event {
           bool cleared, std::string ground_state, int cleared_altitude, int requested_altitude, int heading,
           std::string aircraft_type, std::string aircraft_category, Position position, std::string stand,
           std::string communication_type, std::string capabilities, std::string eobt, std::string eldt,
-          std::string tracking_controller)
+          std::string tracking_controller, std::string engine_type, bool has_fp = true)
         : Event(EVENT_STRIP_UPDATE), callsign(std::move(callsign)),
           origin(std::move(origin)),
           destination(std::move(destination)),
@@ -321,7 +378,9 @@ struct StripUpdateEvent final : Event {
           capabilities(std::move(capabilities)),
           eobt(std::move(eobt)),
           eldt(std::move(eldt)),
-          tracking_controller(std::move(tracking_controller)) {
+          tracking_controller(std::move(tracking_controller)),
+          engine_type(std::move(engine_type)),
+          has_fp(has_fp) {
     }
 
     std::string callsign;
@@ -348,11 +407,13 @@ struct StripUpdateEvent final : Event {
     std::string eobt;
     std::string eldt;
     std::string tracking_controller;
+    std::string engine_type;
+    bool has_fp;
 
     NLOHMANN_DEFINE_TYPE_INTRUSIVE(StripUpdateEvent, callsign, origin, destination, alternate, route, remarks, runway, squawk,
                                    assigned_squawk, sid, cleared, ground_state, cleared_altitude, requested_altitude,
                                    heading, aircraft_type, aircraft_category, position, stand, communication_type,
-                                   capabilities, eobt, eldt, tracking_controller, type);
+                                   capabilities, eobt, eldt, tracking_controller, engine_type, has_fp, type);
 
 };
 
@@ -410,7 +471,7 @@ struct Strip final {
           bool cleared, std::string ground_state, int cleared_altitude, int requested_altitude, int heading,
           std::string aircraft_type, std::string aircraft_category, Position position, std::string stand,
           std::string communication_type, std::string capabilities, std::string eobt, std::string eldt,
-          std::string tracking_controller)
+          std::string tracking_controller, std::string engine_type, bool has_fp = true)
         : callsign(std::move(callsign)),
           origin(std::move(origin)),
           destination(std::move(destination)),
@@ -434,7 +495,9 @@ struct Strip final {
           capabilities(std::move(capabilities)),
           eobt(std::move(eobt)),
           eldt(std::move(eldt)),
-          tracking_controller(std::move(tracking_controller)) {
+          tracking_controller(std::move(tracking_controller)),
+          engine_type(std::move(engine_type)),
+          has_fp(has_fp) {
     }
 
     std::string callsign;
@@ -461,11 +524,13 @@ struct Strip final {
     std::string eobt;
     std::string eldt;
     std::string tracking_controller;
+    std::string engine_type;
+    bool has_fp;
 
     NLOHMANN_DEFINE_TYPE_INTRUSIVE(Strip, callsign, origin, destination, alternate, route, remarks, runway, squawk,
                                    assigned_squawk, sid, cleared, ground_state, cleared_altitude, requested_altitude,
                                    heading, aircraft_type, aircraft_category, position, stand, communication_type,
-                                   capabilities, eobt, eldt, tracking_controller);
+                                   capabilities, eobt, eldt, tracking_controller, engine_type, has_fp);
 };
 
 struct Controller final {
@@ -483,17 +548,19 @@ struct Controller final {
 
 
 struct SyncEvent final : Event {
-    SyncEvent(std::vector<Strip> strips, std::vector<Controller> controllers, std::vector<Runway> runways)
+    SyncEvent(std::vector<Strip> strips, std::vector<Controller> controllers, std::vector<Runway> runways, std::vector<SidEntry> sids)
         : Event(EVENT_SYNC), strips(std::move(strips)),
           controllers(std::move(controllers)),
-          runways(std::move(runways)) {
+          runways(std::move(runways)),
+          sids(std::move(sids)) {
     }
 
     std::vector<Strip> strips;
     std::vector<Controller> controllers;
     std::vector<Runway> runways;
+    std::vector<SidEntry> sids;
 
-    NLOHMANN_DEFINE_TYPE_INTRUSIVE(SyncEvent, strips, controllers, runways, type);
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE(SyncEvent, strips, controllers, runways, sids, type);
 };
 
 /**
@@ -629,6 +696,31 @@ struct BackendSyncEvent final : Event {
     BackendSyncEvent() = default;
 
     NLOHMANN_DEFINE_TYPE_INTRUSIVE(BackendSyncEvent, strips, type, latitude, longitude);
+};
+
+struct CreateFPLEvent final : Event {
+    std::string callsign;
+    std::string origin;
+    std::string destination;
+    std::string alternate_ad;
+    std::string sid;
+    std::string assigned_squawk;
+    std::string eobt;
+    std::string aircraft_type;
+    int requested_altitude = 0;
+    std::string route;
+    std::string stand;
+    std::string runway;
+    std::string remarks;
+    int persons_on_board = 0;
+    std::string fpl_type;
+    std::string language;
+
+    CreateFPLEvent() = default;
+
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE(CreateFPLEvent, callsign, origin, destination, alternate_ad, sid, assigned_squawk,
+                                   eobt, aircraft_type, requested_altitude, route, stand, runway, remarks,
+                                   persons_on_board, fpl_type, language, type);
 };
 
 #endif //EVENTS_H

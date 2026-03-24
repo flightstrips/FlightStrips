@@ -6,6 +6,7 @@ import {
   useAirborneStrips,
   useDepartStrips,
   useDeIceStrips,
+  useControlzoneStrips,
   useFinalStrips,
   usePushbackStrips,
   useStandStrips,
@@ -27,6 +28,10 @@ import { useRef, useEffect, useMemo, useState } from "react";
 import { TWY_DEP_STRIP_WIDTH } from "@/components/strip/types";
 import { StripListPopup, type SortMode } from "@/components/StripListPopup.tsx";
 import { CLS_BTN, CLS_BTN_ORANGE, CLS_BTN_BLUE, CLS_BTN_YELLOW, CLS_SCROLLBAR, CLS_COL } from "@/components/strip/shared";
+import { NewIfrDialog } from "@/components/strip/NewIfrDialog";
+import { NewVfrDialog } from "@/components/strip/NewVfrDialog";
+import { PlannedDialog } from "@/components/strip/PlannedDialog";
+import { FindDialog } from "@/components/strip/FindDialog";
 
 // Column widths
 const W_COL_ARR      = "w-[24.5%]";
@@ -35,14 +40,12 @@ const W_COL_CENTER   = "w-[24.5%]";
 const W_COL_RIGHT    = "w-[20.5%]";
 
 // Header class strings
-const lockedHeader = "bg-[#393939] h-10 flex items-center px-2 shrink-0";
-const lockedLabel  = "text-white font-bold text-lg";
-const activeHeader = "bg-[#b3b3b3] h-10 flex items-center px-2 shrink-0";
-const activeLabel  = "text-[#393939] font-bold text-lg";
+const header = "bg-[#393939] h-10 flex items-center px-2 shrink-0";
+const label  = "text-white font-bold text-lg";
 
 // Section separator (grey border between sub-sections within a column)
 const colSep      = "border-t-4 border-[#A9A9A9]";
-const pageWrapper = "bg-[#A9A9A9] w-screen h-[calc(100vh-4rem)] flex justify-center justify-items-center gap-2";
+const pageWrapper = "bg-[#A9A9A9] w-screen h-[calc(100vh-60px)] flex justify-center justify-items-center gap-2";
 
 const scrollArea           = `w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto ${CLS_SCROLLBAR}`;
 const scrollAreaBottom     = `w-full bg-[#555355] p-1 flex flex-col justify-end gap-px overflow-y-auto ${CLS_SCROLLBAR}`;
@@ -58,6 +61,10 @@ export default function TWTE() {
   const [composeOpen, setComposeOpen] = useState(false);
   const [startupOpen, setStartupOpen] = useState(false);
   const [arrOpen, setArrOpen] = useState(false);
+  const [newIfrOpen, setNewIfrOpen] = useState(false);
+  const [plannedOpen, setPlannedOpen] = useState(false);
+  const [newVfrOpen, setNewVfrOpen] = useState(false);
+  const [findOpen, setFindOpen] = useState(false);
   const lowerPositionOnline = useLowerPositionOnline();
   const ctwrOnline = useCtwrOnline();
   // TE/TW is responsible for clearances only when no lower position AND no CTWR is online.
@@ -81,6 +88,7 @@ export default function TWTE() {
   const standStrips  = useStandStrips();
   const pushStrips   = usePushbackStrips();
   const deIceStrips  = useDeIceStrips();
+  const controlzoneStrips = useControlzoneStrips();
   const nonClearedStrips = useNonClearedStrips();
   const clearedStrips    = useClearedStrips();
   const inboundStrips    = useInboundStrips();
@@ -102,37 +110,40 @@ export default function TWTE() {
     { key: "ADEP",     label: "ADEP",     compareFn: (a, b) => a.origin.localeCompare(b.origin) },
   ];
 
-  const ALL_ACTIVE = ["FINAL", "RWY-ARR", "TWY-ARR", "TWY-DEP", "RWY-DEP", "AIRBORNE", "STAND", "PUSHBACK", "DE-ICE"] as const;
+  const ALL_ACTIVE = ["FINAL", "RWY-ARR", "TWY-ARR", "TWY-DEP", "RWY-DEP", "AIRBORNE", "STAND", "PUSHBACK", "DE-ICE", "CONTROLZONE"] as const;
 
   const bayStripMap = {
-    "FINAL":    { strips: finalStrips, targetBay: Bay.Final, descending: true },
-    "RWY-ARR":  { strips: rwyArrStrips,  targetBay: Bay.RwyArr, descending: true },
-    "TWY-ARR":  { strips: twyArrStrips,   targetBay: Bay.TwyArr, descending: true },
-    "TWY-DEP":  { strips: twyDepDesc,     targetBay: Bay.TaxiLwr,  descending: true },
-    "RWY-DEP":  { strips: rwyDepDesc,     targetBay: Bay.Depart,   descending: true },
-    "AIRBORNE": { strips: airborneDesc,   targetBay: Bay.Airborne, descending: true },
-    "STAND":    { strips: standStrips,    targetBay: Bay.Stand },
-    "PUSHBACK": { strips: pushStrips,     targetBay: Bay.Push },
-    "DE-ICE":   { strips: deIceStrips,    targetBay: Bay.DeIce },
+    "FINAL":       { strips: finalStrips,       targetBay: Bay.Final,       descending: true },
+    "RWY-ARR":     { strips: rwyArrStrips,       targetBay: Bay.RwyArr,      descending: true },
+    "TWY-ARR":     { strips: twyArrStrips,       targetBay: Bay.TwyArr,      descending: true },
+    "TWY-DEP":     { strips: twyDepDesc,         targetBay: Bay.TaxiLwr,     descending: true },
+    "RWY-DEP":     { strips: rwyDepDesc,         targetBay: Bay.Depart,      descending: true },
+    "AIRBORNE":    { strips: airborneDesc,       targetBay: Bay.Airborne,    descending: true },
+    "STAND":       { strips: standStrips,        targetBay: Bay.Stand },
+    "PUSHBACK":    { strips: pushStrips,         targetBay: Bay.Push },
+    "DE-ICE":      { strips: deIceStrips,        targetBay: Bay.DeIce },
+    "CONTROLZONE": { strips: controlzoneStrips,  targetBay: Bay.Controlzone },
   };
 
   const transferRules: Record<string, string[]> = {
-    "FINAL":    ["RWY-ARR", "TWY-ARR"],
-    "RWY-ARR":  ALL_ACTIVE.filter(b => b !== "RWY-ARR"),
-    "TWY-ARR":  ALL_ACTIVE.filter(b => b !== "TWY-ARR"),
-    "TWY-DEP":  ALL_ACTIVE.filter(b => b !== "TWY-DEP"),
-    "RWY-DEP":  ALL_ACTIVE.filter(b => b !== "RWY-DEP"),
-    "AIRBORNE": ALL_ACTIVE.filter(b => b !== "AIRBORNE"),
-    "STAND":    ALL_ACTIVE.filter(b => b !== "STAND"),
-    "PUSHBACK": ["TWY-DEP", "DE-ICE", "TWY-ARR"],
-    "DE-ICE":   ["PUSHBACK", "TWY-DEP"],
+    "FINAL":       ["RWY-ARR", "TWY-ARR"],
+    "RWY-ARR":     ALL_ACTIVE.filter(b => b !== "RWY-ARR"),
+    "TWY-ARR":     ALL_ACTIVE.filter(b => b !== "TWY-ARR"),
+    "TWY-DEP":     ALL_ACTIVE.filter(b => b !== "TWY-DEP"),
+    "RWY-DEP":     ALL_ACTIVE.filter(b => b !== "RWY-DEP"),
+    "AIRBORNE":    ALL_ACTIVE.filter(b => b !== "AIRBORNE"),
+    "STAND":       ALL_ACTIVE.filter(b => b !== "STAND"),
+    "PUSHBACK":    ["TWY-DEP", "DE-ICE", "TWY-ARR"],
+    "DE-ICE":      ["PUSHBACK", "TWY-DEP"],
+    "CONTROLZONE": [],
   };
 
   const statusForBay: Record<string, StripStatus> = {
     "FINAL": "FINAL-ARR", "RWY-ARR": "FINAL-ARR",
     "TWY-ARR": "FINAL-ARR", "TWY-DEP": "TWY-DEP",
     "RWY-DEP": "TWY-DEP", "AIRBORNE": "TWY-DEP",
-    "STAND": "CLROK", "PUSHBACK": "PUSH", "DE-ICE": "PUSH",
+    "STAND": "ARR", "PUSHBACK": "PUSH", "DE-ICE": "PUSH",
+    "CONTROLZONE": "CLR",
   };
 
   return (
@@ -164,8 +175,8 @@ export default function TWTE() {
 
       {/* Column 1 – FINAL + RWY ARR + TWY ARR */}
       <div className={`${W_COL_ARR} ${CLS_COL}`}>
-        <div className={`${lockedHeader} justify-between`}>
-          <span className={lockedLabel}>FINAL</span>
+        <div className={`${header} justify-between`}>
+          <span className={label}>FINAL</span>
           <span className="flex gap-1">
             <button className={btn} onClick={() => setArrOpen(true)}>ARR</button>
           </span>
@@ -173,6 +184,7 @@ export default function TWTE() {
         <SortableBay
           strips={finalStrips}
           bayId="FINAL"
+          isDragDisabled={(strip) => isFlight(strip) && !!strip.owner && strip.owner !== myPosition}
           standalone={false}
           className={`h-[35%] ${scrollAreaBottom}`}
         >
@@ -181,18 +193,19 @@ export default function TWTE() {
           )}
         </SortableBay>
 
-        <div className={`${lockedHeader} ${colSep} justify-between`}>
-          <span className={lockedLabel}>RWY ARR</span>
+        <div className={`${header} ${colSep} justify-between`}>
+          <span className={label}>RWY ARR</span>
           <span className="flex gap-1">
             <button className={btn}>MISSED APP</button>
-            <LandButton bay={Bay.Final} className={btnOrange} />
-            <StartButton bay={Bay.Final} className={btnOrange} />
-            <CrossingButton bay={Bay.Final} className={btnYellow} />
+            <LandButton bay={Bay.RwyArr} className={btnOrange} />
+            <StartButton bay={Bay.RwyArr} className={btnOrange} />
+            <CrossingButton bay={Bay.RwyArr} className={btnYellow} />
           </span>
         </div>
         <SortableBay
           strips={rwyArrStrips}
           bayId="RWY-ARR"
+          isDragDisabled={(strip) => isFlight(strip) && !!strip.owner && strip.owner !== myPosition}
           standalone={false}
           className={`h-[20%] ${darkScrollAreaBottom}`}
         >
@@ -201,18 +214,19 @@ export default function TWTE() {
           )}
         </SortableBay>
 
-        <div className={`${lockedHeader} ${colSep} justify-between`}>
-          <span className={lockedLabel}>TWY ARR</span>
+        <div className={`${header} ${colSep} justify-between`}>
+          <span className={label}>TWY ARR</span>
           <span className="flex gap-1">
-            <MemAidButton bay={Bay.Taxi} className={btnBlue} />
-            <LandButton bay={Bay.Taxi} className={btnOrange} />
-            <StartButton bay={Bay.Taxi} className={btnOrange} />
-            <CrossingButton bay={Bay.Taxi} className={btnYellow} />
+            <MemAidButton bay={Bay.TwyArr} className={btnBlue} />
+            <LandButton bay={Bay.TwyArr} className={btnOrange} />
+            <StartButton bay={Bay.TwyArr} className={btnOrange} />
+            <CrossingButton bay={Bay.TwyArr} className={btnYellow} />
           </span>
         </div>
         <SortableBay
           strips={twyArrStrips}
           bayId="TWY-ARR"
+          isDragDisabled={(strip) => isFlight(strip) && !!strip.owner && strip.owner !== myPosition}
           standalone={false}
           className={`flex-1 ${scrollAreaBottom}`}
         >
@@ -224,19 +238,20 @@ export default function TWTE() {
 
       {/* Column 2 – TWY DEP + RWY DEP + AIRBORNE */}
       <div className={`${W_COL_DEP} ${CLS_COL}`}>
-        <div className={`${lockedHeader} justify-between`}>
-          <span className={lockedLabel}>TWY DEP</span>
+        <div className={`${header} justify-between`}>
+          <span className={label}>TWY DEP</span>
           <span className="flex gap-1">
             <button className={btn} onClick={() => setStartupOpen(true)}>STARTUP</button>
-            <MemAidButton bay={Bay.Taxi} className={btnBlue} />
-            <LandButton bay={Bay.Taxi} className={btnOrange} />
-            <StartButton bay={Bay.Taxi} className={btnOrange} />
-            <CrossingButton bay={Bay.Taxi} className={btnYellow} />
+            <MemAidButton bay={Bay.TaxiLwr} className={btnBlue} />
+            <LandButton bay={Bay.TaxiLwr} className={btnOrange} />
+            <StartButton bay={Bay.TaxiLwr} className={btnOrange} />
+            <CrossingButton bay={Bay.TaxiLwr} className={btnYellow} />
           </span>
         </div>
         <SortableBay
           strips={twyDepDesc}
           bayId="TWY-DEP"
+          isDragDisabled={(strip) => isFlight(strip) && !!strip.owner && strip.owner !== myPosition}
           standalone={false}
           className={`h-[35%] ${scrollAreaBottom}`}
         >
@@ -245,8 +260,8 @@ export default function TWTE() {
           )}
         </SortableBay>
 
-        <div className={`${lockedHeader} ${colSep} justify-between`}>
-          <span className={lockedLabel}>RWY DEP</span>
+        <div className={`${header} ${colSep} justify-between`}>
+          <span className={label}>RWY DEP</span>
           <span className="flex gap-1">
             <LandButton bay={Bay.Depart} className={btnOrange} />
             <StartButton bay={Bay.Depart} className={btnOrange} />
@@ -256,6 +271,7 @@ export default function TWTE() {
         <SortableBay
           strips={rwyDepDesc}
           bayId="RWY-DEP"
+          isDragDisabled={(strip) => isFlight(strip) && !!strip.owner && strip.owner !== myPosition}
           standalone={false}
           className={`h-[20%] ${darkScrollAreaBottom}`}
         >
@@ -264,12 +280,13 @@ export default function TWTE() {
           )}
         </SortableBay>
 
-        <div className={`${lockedHeader} ${colSep}`}>
-          <span className={lockedLabel}>AIRBORNE</span>
+        <div className={`${header} ${colSep}`}>
+          <span className={label}>AIRBORNE</span>
         </div>
         <SortableBay
           strips={airborneDesc}
           bayId="AIRBORNE"
+          isDragDisabled={(strip) => isFlight(strip) && !!strip.owner && strip.owner !== myPosition}
           standalone={false}
           className={`flex-1 ${scrollAreaBottom}`}
         >
@@ -310,22 +327,30 @@ export default function TWTE() {
 
       {/* Column 3 – CONTROLZONE + PUSHBACK + MESSAGES */}
       <div className={`${W_COL_CENTER} ${CLS_COL}`}>
-        <div className={`${lockedHeader} justify-between`}>
-          <span className={lockedLabel}>CONTROLZONE</span>
+        <div className={`${header} justify-between`}>
+          <span className={label}>CONTROLZONE</span>
           <span className="flex gap-1">
-            <button className={btn}>NEW</button>
-            <button className={btn}>FIND</button>
+            <button className={btn} onClick={() => setNewVfrOpen(true)}>NEW</button>
+            <button className={btn} onClick={() => setFindOpen(true)}>FIND</button>
           </span>
         </div>
-        {/* VFR strips – bay TBD with backend */}
-        <div className={`h-[35%] ${scrollArea}`} />
+        <SortableBay
+          strips={controlzoneStrips}
+          bayId="CONTROLZONE"
+          isDragDisabled={(strip) => isFlight(strip) && !!strip.owner && strip.owner !== myPosition}
+          standalone={false}
+          className={`h-[35%] ${scrollArea}`}
+        >
+          {(strip) => <Strip strip={strip} status="CLR" myPosition={myPosition} selectable={true} />}
+        </SortableBay>
 
-        <div className={`${lockedHeader} ${colSep}`}>
-          <span className={lockedLabel}>PUSHBACK</span>
+        <div className={`${header} ${colSep}`}>
+          <span className={label}>PUSHBACK</span>
         </div>
         <SortableBay
           strips={pushStrips}
           bayId="PUSHBACK"
+          isDragDisabled={(strip) => isFlight(strip) && !!strip.owner && strip.owner !== myPosition}
           standalone={false}
           className={`h-[35%] ${scrollArea}`}
         >
@@ -333,7 +358,7 @@ export default function TWTE() {
         </SortableBay>
 
         <div className={`bg-primary h-10 flex items-center px-2 shrink-0 justify-between ${colSep}`}>
-          <span className={lockedLabel}>MESSAGES</span>
+          <span className={label}>MESSAGES</span>
           <span className="flex gap-1">
             <button className={btn} onClick={() => setComposeOpen(true)}>INFO</button>
             <button className={btn} onClick={() => setComposeOpen(true)}>MISC.</button>
@@ -351,11 +376,11 @@ export default function TWTE() {
 
       {/* Column 4 – CLRDEL + DE-ICE A + STAND */}
       <div className={`${W_COL_RIGHT} ${CLS_COL}`}>
-        <div className={`${clrDelActive ? activeHeader : lockedHeader} justify-between`}>
-          <span className={clrDelActive ? activeLabel : lockedLabel}>CLRDEL</span>
+        <div className={`${header} justify-between`}>
+          <span className={label}>CLRDEL</span>
           <span className="flex gap-1">
-            <button className={btn}>NEW</button>
-            <button className={btn}>PLANNED</button>
+            <button className={btn} onClick={() => setNewIfrOpen(true)}>NEW</button>
+            <button className={btn} onClick={() => setPlannedOpen(true)}>PLANNED</button>
           </span>
         </div>
         <DropIndicatorBay bayId="CLRDEL" className={`h-[45%] ${scrollArea}`}>
@@ -364,8 +389,8 @@ export default function TWTE() {
           ))}
         </DropIndicatorBay>
 
-        <div className={`${lockedHeader} ${colSep} justify-between`}>
-          <span className={lockedLabel}>DE-ICE A</span>
+        <div className={`${header} ${colSep} justify-between`}>
+          <span className={label}>DE-ICE A</span>
           <span className="flex gap-1">
             <button className={btn}>DI A</button>
             <button className={btn}>DI B</button>
@@ -375,26 +400,32 @@ export default function TWTE() {
         <SortableBay
           strips={deIceStrips}
           bayId="DE-ICE"
+          isDragDisabled={(strip) => isFlight(strip) && !!strip.owner && strip.owner !== myPosition}
           standalone={false}
           className={`h-[25%] ${scrollArea}`}
         >
           {(strip) => <Strip strip={strip} status="PUSH" myPosition={myPosition} selectable={true} />}
         </SortableBay>
 
-        <div className={`${lockedHeader} ${colSep}`}>
-          <span className={lockedLabel}>STAND</span>
+        <div className={`${header} ${colSep}`}>
+          <span className={label}>STAND</span>
         </div>
         <SortableBay
           strips={standStrips}
           bayId="STAND"
+          isDragDisabled={(strip) => isFlight(strip) && !!strip.owner && strip.owner !== myPosition}
           standalone={false}
           className={`flex-1 ${scrollArea}`}
         >
-          {(strip) => <Strip strip={strip} status="CLROK" myPosition={myPosition} selectable={true} />}
+          {(strip) => <Strip strip={strip} status="ARR" myPosition={myPosition} selectable={true} />}
         </SortableBay>
       </div>
 
     </div>
+    <NewIfrDialog open={newIfrOpen} onOpenChange={setNewIfrOpen} />
+    <PlannedDialog open={plannedOpen} onOpenChange={setPlannedOpen} />
+    <NewVfrDialog open={newVfrOpen} onOpenChange={setNewVfrOpen} />
+    <FindDialog open={findOpen} onOpenChange={setFindOpen} />
     </ViewDndContext>
   );
 }

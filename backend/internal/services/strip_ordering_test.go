@@ -56,7 +56,6 @@ func TestRecalculateSequence_AssignsGaps(t *testing.T) {
 
 	var capturedCallsigns []string
 	var capturedSeqs []int32
-	var bayEventCalls []testutil.BayEventCall
 
 	stripRepo := &testutil.MockStripRepository{
 		RecalculateSequencesFn: func(_ context.Context, s int32, b string, spacing int32) error {
@@ -81,15 +80,17 @@ func TestRecalculateSequence_AssignsGaps(t *testing.T) {
 	err := svc.recalculateFlightStripsOnly(ctx, session, bay)
 	require.NoError(t, err)
 
-	// Capture what was broadcast
-	bayEventCalls = hub.BayEvents
-	// recalculateFlightStripsOnly calls sendBulkSequenceUpdate which calls SendBayEvent per strip
-	require.Len(t, bayEventCalls, 3)
+	// recalculateFlightStripsOnly calls sendBulkSequenceUpdate which sends one bulk event
+	require.Len(t, hub.BulkBayEvents, 1)
+	bulkEvent := hub.BulkBayEvents[0]
+	assert.Equal(t, bay, bulkEvent.Bay)
+	require.Len(t, bulkEvent.Strips, 3)
 
 	// The sequences from ListSequences are returned as-is (RecalculateSequences is the DB op)
-	// sendBulkSequenceUpdate uses the values from ListSequences
-	capturedCallsigns = []string{bayEventCalls[0].Callsign, bayEventCalls[1].Callsign, bayEventCalls[2].Callsign}
-	capturedSeqs = []int32{bayEventCalls[0].Sequence, bayEventCalls[1].Sequence, bayEventCalls[2].Sequence}
+	for _, entry := range bulkEvent.Strips {
+		capturedCallsigns = append(capturedCallsigns, entry.Callsign)
+		capturedSeqs = append(capturedSeqs, entry.Sequence)
+	}
 
 	assert.Equal(t, []string{"AAA001", "AAA002", "AAA003"}, capturedCallsigns)
 	assert.Equal(t, []int32{100, 200, 300}, capturedSeqs)

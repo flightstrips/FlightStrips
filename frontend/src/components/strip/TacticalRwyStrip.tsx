@@ -47,7 +47,7 @@ export function TacticalRwyStrip({ strip, width }: Props) {
       className="flex select-none"
       style={{
         height: HEIGHT,
-        width: width ?? "fit-content",
+        width: width ?? "100%",
         backgroundColor: COLOR_BTN_ORANGE,
         ...getFlatStripBorderStyle({ borderBottom: `1px solid ${CELL_BORDER_CLR}` }),
       }}

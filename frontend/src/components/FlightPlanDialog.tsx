@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useRef, useState } from "react";
 import * as VisuallyHidden from "@radix-ui/react-visually-hidden";
 
 import { Bay } from "@/api/models.ts";
@@ -8,8 +8,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { getSimpleAircraftType } from "@/lib/utils";
 import { ArrStandDialog } from "@/components/strip/ArrStandDialog";
+import { AltSelectDialog } from "@/components/strip/AltSelectDialog";
+import { HdgSelectDialog } from "@/components/strip/HdgSelectDialog";
 import { SidSelectDialog } from "@/components/strip/SidSelectDialog";
-import { useStrip, useWebSocketStore } from "@/store/store-hooks.ts";
+import { RunwayDialog } from "@/components/strip/RunwayDialog";
+import { useAvailableSids, useStrip, useWebSocketStore } from "@/store/store-hooks.ts";
 
 const FONT_FAMILY = "Arial";
 const FONT_SIZE_FIELD = 20;
@@ -54,6 +57,7 @@ interface FlightPlanDialogProps {
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
   children?: React.ReactNode;
+  mode?: "clearance" | "view";
 }
 
 export default function FlightPlanDialog({
@@ -61,7 +65,9 @@ export default function FlightPlanDialog({
   open,
   onOpenChange,
   children,
+  mode = "clearance",
 }: FlightPlanDialogProps) {
+  const isViewMode = mode === "view";
   const strip = useStrip(callsign);
   const moveAction = useWebSocketStore((state) => state.move);
   const generateSquawk = useWebSocketStore((state) => state.generateSquawk);
@@ -74,17 +80,21 @@ export default function FlightPlanDialog({
   const setDialogOpen = onOpenChange ?? setInternalOpen;
 
   const [sidDialogOpen, setSidDialogOpen] = useState(false);
+  const [rwyDialogOpen, setRwyDialogOpen] = useState(false);
+  const availableSids = useAvailableSids();
   const [ssrGenerating, setSsrGenerating] = useState(false);
   const [standOpen, setStandOpen] = useState(false);
   const [eobt, setEobt, _eobtFocused, setEobtFocused] = useEditableField(strip?.eobt);
 
   // Clear SSR loading state when the backend updates assigned_squawk
-  useEffect(() => {
+  const prevSquawkRef = useRef(strip?.assigned_squawk);
+  if (prevSquawkRef.current !== strip?.assigned_squawk) {
+    prevSquawkRef.current = strip?.assigned_squawk;
     if (ssrGenerating) setSsrGenerating(false);
-  }, [strip?.assigned_squawk]);
+  }
   const [route, setRoute, _routeFocused, setRouteFocused] = useEditableField(strip?.route);
-  const [hdg, setHdg, _hdgFocused, setHdgFocused] = useEditableField(strip?.heading);
-  const [alt, setAlt, _altFocused, setAltFocused] = useEditableField(strip?.cleared_altitude);
+  const [hdgDialogOpen, setHdgDialogOpen] = useState(false);
+  const [altDialogOpen, setAltDialogOpen] = useState(false);
 
   return (
     <>
@@ -93,20 +103,20 @@ export default function FlightPlanDialog({
         {strip ? (
         <DialogContent
           className={CLS_DIALOG}
-          style={{ width: 1000, maxWidth: 1000, height: 925, maxHeight: 925 }}
+          style={{ width: 1000, maxWidth: 1000, height: isViewMode ? 1015 : 925, maxHeight: isViewMode ? 1015 : 925 }}
         >
           <VisuallyHidden.Root>
             <DialogTitle>Flight plan</DialogTitle>
           </VisuallyHidden.Root>
           <div
-            className="relative border-2 border-black flex-1 flex flex-col items-center gap-[30px] min-h-0"
+            className={`relative border-2 border-black flex flex-col items-center gap-[30px] ${isViewMode ? "" : "flex-1 min-h-0"}`}
             style={{ paddingTop: 30, paddingBottom: 30, color: "black" }}
           >
           <span
             className={CLS_DIALOG_LABEL}
             style={{ top: -11, left: "50%", transform: "translateX(-50%)", whiteSpace: "nowrap" }}
           >
-            FLIGHT PLAN
+            {isViewMode ? "DEPARTURE" : "FLIGHT PLAN"}
           </span>
 
           <div className="flex gap-[5px]" style={{ width: 835 }}>
@@ -152,6 +162,7 @@ export default function FlightPlanDialog({
                 onOpenChange={setSidDialogOpen}
                 value={strip.sid}
                 onSelect={(sid) => updateStrip(callsign, { sid })}
+                sids={availableSids.length > 0 ? availableSids.filter(s => s.runway === strip.runway).map(s => s.name) : undefined}
               />
             </div>
             <div className="grid items-center gap-[5px]">
@@ -230,11 +241,21 @@ export default function FlightPlanDialog({
               </div>
               <div className="grid items-center gap-[5px]">
                 <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>RWY</Label>
-                <Input
-                  value={strip.runway}
-                  disabled
-                  className={CLS_BTN_DISABLED}
+                <button
+                  type="button"
+                  onClick={() => setRwyDialogOpen(true)}
+                  className={CLS_BTN_EDITABLE}
                   style={{ width: 150, fontFamily: FONT_FAMILY, fontSize: FONT_SIZE_FIELD }}
+                >
+                  {strip.runway}
+                </button>
+                <RunwayDialog
+                  mode="ASSIGN"
+                  open={rwyDialogOpen}
+                  onOpenChange={setRwyDialogOpen}
+                  callsign={callsign}
+                  direction="departure"
+                  currentRunway={strip.runway}
                 />
               </div>
             </div>
@@ -347,32 +368,36 @@ export default function FlightPlanDialog({
             </div>
             <div className="grid items-center gap-[5px]">
               <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>HDG</Label>
-              <input
-                value={hdg}
-                onChange={(event) => setHdg(event.target.value)}
-                onFocus={() => setHdgFocused(true)}
-                onBlur={() => {
-                  setHdgFocused(false);
-                  updateStrip(callsign, { heading: hdg ? Number(hdg) : undefined });
-                }}
-                onKeyDown={(event) => event.key === "Enter" && updateStrip(callsign, { heading: hdg ? Number(hdg) : undefined })}
+              <button
+                type="button"
+                onClick={() => setHdgDialogOpen(true)}
                 className={CLS_BTN_EDITABLE}
                 style={{ width: 125, fontFamily: FONT_FAMILY, fontSize: FONT_SIZE_FIELD }}
+              >
+                {strip.heading != null ? strip.heading.toString().padStart(3, "0") : ""}
+              </button>
+              <HdgSelectDialog
+                open={hdgDialogOpen}
+                onOpenChange={setHdgDialogOpen}
+                value={strip.heading}
+                onSelect={(heading) => updateStrip(callsign, { heading })}
               />
             </div>
             <div className="grid items-center gap-[5px]">
               <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>ALT</Label>
-              <input
-                value={alt}
-                onChange={(event) => setAlt(event.target.value)}
-                onFocus={() => setAltFocused(true)}
-                onBlur={() => {
-                  setAltFocused(false);
-                  updateStrip(callsign, { altitude: alt ? Number(alt) : undefined });
-                }}
-                onKeyDown={(event) => event.key === "Enter" && updateStrip(callsign, { altitude: alt ? Number(alt) : undefined })}
+              <button
+                type="button"
+                onClick={() => setAltDialogOpen(true)}
                 className={CLS_BTN_EDITABLE}
                 style={{ width: 125, fontFamily: FONT_FAMILY, fontSize: FONT_SIZE_FIELD }}
+              >
+                {strip.cleared_altitude != null ? String(strip.cleared_altitude) : ""}
+              </button>
+              <AltSelectDialog
+                open={altDialogOpen}
+                onOpenChange={setAltDialogOpen}
+                value={strip.cleared_altitude}
+                onSelect={(altitude) => updateStrip(callsign, { altitude })}
               />
             </div>
             <div className="grid items-center gap-[5px]">
@@ -412,72 +437,156 @@ export default function FlightPlanDialog({
           </div>
         </div>
 
-
-          <div className="flex flex-row items-center justify-between pt-3">
-            <button
-              onClick={() => setDialogOpen(false)}
-              style={{
-                width: 125,
-                height: 70,
-                backgroundColor: COLOR_DARK_BTN,
-                color: "white",
-                fontFamily: FONT_FAMILY,
-                fontWeight: "bold",
-                fontSize: FONT_SIZE_BUTTON,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                cursor: "pointer",
-              }}
+          {isViewMode && (
+            <div
+              className="relative border-2 border-black flex flex-col items-center border-t-0"
+              style={{ paddingTop: 20, paddingBottom: 20, color: "black" }}
             >
-              ESC
-            </button>
-            <div className="flex flex-row items-center gap-2">
-              {strip.pdc_state === "REQUESTED" && (
-                <button
-                  onClick={() => {
-                    revertToVoice(strip.callsign);
-                    setDialogOpen(false);
-                  }}
-                  style={{
-                    fontFamily: FONT_FAMILY,
-                    fontWeight: "bold",
-                    fontSize: FONT_SIZE_BUTTON,
-                    backgroundColor: COLOR_REVERT_BTN,
-                    color: "black",
-                    padding: "4px 12px",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  REVERT TO VOICE
-                </button>
-              )}
-              <button
-                onClick={() => {
-                  if (strip.pdc_state === "REQUESTED") {
-                    clearPdc(strip.callsign, null);
-                  } else {
-                    moveAction(strip.callsign, Bay.Cleared);
-                  }
+              <span
+                className={CLS_DIALOG_LABEL}
+                style={{ top: -11, left: "50%", transform: "translateX(-50%)", whiteSpace: "nowrap" }}
+              >
+                ARRIVAL
+              </span>
+              <div className="flex justify-between" style={{ width: 835 }}>
+                <div className="grid items-center gap-[5px]">
+                  <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>ADEP</Label>
+                  <Input
+                    value={strip.origin}
+                    disabled
+                    className={CLS_BTN_DISABLED}
+                    style={{ width: 150, fontFamily: FONT_FAMILY, fontSize: FONT_SIZE_FIELD }}
+                  />
+                </div>
+                <div className="grid items-center gap-[5px]">
+                  <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>STAR</Label>
+                  <Input
+                    defaultValue=""
+                    disabled
+                    className={CLS_BTN_DISABLED}
+                    style={{ width: 150, fontFamily: FONT_FAMILY, fontSize: FONT_SIZE_FIELD }}
+                  />
+                </div>
+                <div className="grid items-center gap-[5px]">
+                  <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>RWY</Label>
+                  <Input
+                    defaultValue=""
+                    disabled
+                    className={CLS_BTN_DISABLED}
+                    style={{ width: 150, fontFamily: FONT_FAMILY, fontSize: FONT_SIZE_FIELD }}
+                  />
+                </div>
+                <div className="grid items-center gap-[5px]">
+                  <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>ETA</Label>
+                  <Input
+                    value={strip.eldt ?? ""}
+                    disabled
+                    className={CLS_BTN_DISABLED}
+                    style={{ width: 150, fontFamily: FONT_FAMILY, fontSize: FONT_SIZE_FIELD }}
+                  />
+                </div>
+                <div className="grid items-center gap-[5px]">
+                  <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>AOBT</Label>
+                  <Input
+                    defaultValue=""
+                    disabled
+                    className={CLS_BTN_DISABLED}
+                    style={{ width: 150, fontFamily: FONT_FAMILY, fontSize: FONT_SIZE_FIELD }}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
 
-                  setDialogOpen(false);
-                }}
+          <div className={`flex flex-row items-center justify-center ${isViewMode ? "pt-2" : "pt-3"}`}>
+            {isViewMode ? (
+              <button
+                onClick={() => setDialogOpen(false)}
                 style={{
                   width: 125,
                   height: 70,
-                  backgroundColor: "#3F3F3F",
-                  color: "#FFFFFF",
+                  backgroundColor: COLOR_DARK_BTN,
+                  color: "white",
                   fontFamily: FONT_FAMILY,
                   fontWeight: "bold",
                   fontSize: FONT_SIZE_BUTTON,
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
+                  cursor: "pointer",
                 }}
               >
-                CLD
+                OK
               </button>
-            </div>
+            ) : (
+              <>
+                <button
+                  onClick={() => setDialogOpen(false)}
+                  style={{
+                    width: 125,
+                    height: 70,
+                    backgroundColor: COLOR_DARK_BTN,
+                    color: "white",
+                    fontFamily: FONT_FAMILY,
+                    fontWeight: "bold",
+                    fontSize: FONT_SIZE_BUTTON,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    cursor: "pointer",
+                  }}
+                >
+                  ESC
+                </button>
+                <div className="flex flex-row items-center gap-2 ml-auto">
+                  {(strip.pdc_state === "REQUESTED" || strip.pdc_state === "REQUESTED_WITH_FAULTS") && (
+                    <button
+                      onClick={() => {
+                        revertToVoice(strip.callsign);
+                        setDialogOpen(false);
+                      }}
+                      style={{
+                        height: 70,
+                        fontFamily: FONT_FAMILY,
+                        fontWeight: "bold",
+                        fontSize: FONT_SIZE_BUTTON,
+                        backgroundColor: COLOR_REVERT_BTN,
+                        color: "black",
+                        padding: "4px 12px",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      REVERT TO VOICE
+                    </button>
+                  )}
+                  <button
+                    onClick={() => {
+                      if (strip.pdc_state === "REQUESTED" || strip.pdc_state === "REQUESTED_WITH_FAULTS") {
+                        clearPdc(strip.callsign, null);
+                      } else {
+                        moveAction(strip.callsign, Bay.Cleared);
+                      }
+
+                      setDialogOpen(false);
+                    }}
+                    style={{
+                      width: 125,
+                      height: 70,
+                      backgroundColor: "#3F3F3F",
+                      color: "#FFFFFF",
+                      fontFamily: FONT_FAMILY,
+                      fontWeight: "bold",
+                      fontSize: FONT_SIZE_BUTTON,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    CLD
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </DialogContent>
         ) : (

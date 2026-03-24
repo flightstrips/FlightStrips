@@ -137,7 +137,7 @@ func main() {
 	// Initialize services
 	stripService := services.NewStripService(stripRepo)
 	controllerService := services.NewControllerService(controllerRepo)
-	cdmService := cdm.NewCdmService(cdmClient, stripRepo, sessionRepo)
+	cdmService := cdm.NewCdmService(cdmClient, stripRepo, sessionRepo, controllerRepo)
 
 	stripService.SetTacticalStripRepo(tacticalStripRepo)
 	stripService.SetCoordinationRepo(coordRepo)
@@ -163,6 +163,7 @@ func main() {
 	stripService.SetEuroscopeHub(euroscopeHub)
 	stripService.SetSectorOwnerRepo(sectorRepo)
 	cdmService.SetFrontendHub(frontendHub)
+	cdmService.SetEuroscopeHub(euroscopeHub)
 	if pdcService != nil {
 		pdcService.SetFrontendHub(frontendHub)
 	}

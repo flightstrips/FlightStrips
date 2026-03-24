@@ -15,6 +15,8 @@ const CLS_DIALOG = "sm:max-w-[300px] bg-[#b3b3b3]"; // active-header bg
 const EKCH_SCOPES = [
   { label: "CLR DEL", layout: "CLX" },
   { label: "AA + AD", layout: "AAAD" },
+  { label: "APRON ARR", layout: "AA" },
+  { label: "APRON DEP", layout: "AD" },
   { label: "ESET", layout: "ESET" },
   { label: "GE / GW", layout: "GEGW" },
   { label: "TW / TE", layout: "TWTE" },
@@ -35,7 +37,7 @@ export default function HOMEBTN() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <button className={CLS_CMDBTN}>
+        <button className={`${CLS_CMDBTN} !w-auto px-3`}>
           <img src="/home.svg" width="39" height="39" alt="home icon" />
         </button>
       </DialogTrigger>

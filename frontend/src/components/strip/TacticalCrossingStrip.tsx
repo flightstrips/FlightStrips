@@ -29,7 +29,7 @@ export function TacticalCrossingStrip({ strip, width }: Props) {
       className="flex select-none"
       style={{
         height: HEIGHT,
-        width: width ?? "fit-content",
+        width: width ?? "100%",
         backgroundColor: STRIP_BG,
         ...getFlatStripBorderStyle({ borderBottom: `1px solid ${CELL_BORDER_CLR}` }),
       }}

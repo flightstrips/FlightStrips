@@ -2,6 +2,7 @@ package euroscope
 
 import (
 	"FlightStrips/pkg/events"
+	"FlightStrips/pkg/models"
 	"encoding/json"
 )
 
@@ -28,6 +29,8 @@ const (
 	Runway                    EventType = "runway"
 	AircraftRunway            EventType = "aircraft_runway"
 	SessionInfo               EventType = "session_info"
+	CdmReadyRequest           EventType = "cdm_ready_request"
+	CdmLocalData              EventType = "cdm_local_data"
 	GenerateSquawk            EventType = "generate_squawk"
 	Route                     EventType = "route"
 	Remarks                   EventType = "remarks"
@@ -37,6 +40,7 @@ const (
 	CoordinationReceived      EventType = "coordination_received"
 	AssumeAndDrop             EventType = "assume_and_drop"
 	BackendSync               EventType = "backend_sync"
+	CreateFPL                 EventType = "create_fpl"
 )
 
 const (
@@ -44,6 +48,7 @@ const (
 	GroundStateStartup = "ST-UP"
 	GroundStatePush    = "PUSH"
 	GroundStateTaxi    = "TAXI"
+	GroundStateLineup  = "LINEUP"
 	GroundStateDepart  = "DEPA"
 )
 
@@ -118,6 +123,8 @@ type Strip struct {
 	Eobt               string `json:"eobt"`
 	Eldt               string `json:"eldt"`
 	TrackingController string `json:"tracking_controller"`
+	EngineType         string `json:"engine_type"`
+	HasFP              bool   `json:"has_fp"`
 }
 
 type SyncRunway struct {
@@ -132,8 +139,9 @@ type SyncEvent struct {
 		Position string `json:"position"`
 		Callsign string `json:"callsign"`
 	} `json:"controllers"`
-	Strips  []Strip      `json:"strips"`
-	Runways []SyncRunway `json:"runways"`
+	Strips  []Strip          `json:"strips"`
+	Runways []SyncRunway     `json:"runways"`
+	Sids    []models.SidInfo `json:"sids"`
 }
 
 type AssignedSquawkEvent struct {
@@ -250,6 +258,31 @@ func (e SessionInfoEvent) Marshal() ([]byte, error) {
 
 type GenerateSquawkEvent struct {
 	Callsign string `json:"callsign"`
+}
+
+type CdmReadyRequestEvent struct {
+	Callsign string `json:"callsign"`
+}
+
+type CdmLocalDataEvent struct {
+	Callsign       string `json:"callsign"`
+	SourcePosition string `json:"source_position"`
+	SourceRole     string `json:"source_role"`
+	Tobt           string `json:"tobt,omitempty"`
+	Tsat           string `json:"tsat,omitempty"`
+	Ttot           string `json:"ttot,omitempty"`
+	Ctot           string `json:"ctot,omitempty"`
+	Asrt           string `json:"asrt,omitempty"`
+	Tsac           string `json:"tsac,omitempty"`
+	ManualCtot     string `json:"manual_ctot,omitempty"`
+}
+
+func (e CdmReadyRequestEvent) GetType() EventType {
+	return CdmReadyRequest
+}
+
+func (e CdmReadyRequestEvent) Marshal() ([]byte, error) {
+	return marshall(e)
 }
 
 func (e GenerateSquawkEvent) GetType() EventType {
@@ -429,5 +462,33 @@ func (e BackendSyncEvent) GetType() EventType {
 }
 
 func (e BackendSyncEvent) Marshal() ([]byte, error) {
+	return marshall(e)
+}
+
+// CreateFPLEvent instructs EuroScope to create a flight plan in its session.
+type CreateFPLEvent struct {
+	Callsign          string `json:"callsign"`
+	Origin            string `json:"origin"`
+	Destination       string `json:"destination"`
+	AlternateAD       string `json:"alternate_ad"`
+	Sid               string `json:"sid"`
+	AssignedSquawk    string `json:"assigned_squawk"`
+	Eobt              string `json:"eobt"`
+	AircraftType      string `json:"aircraft_type"`
+	RequestedAltitude int32  `json:"requested_altitude"`
+	Route             string `json:"route"`
+	Stand             string `json:"stand"`
+	Runway            string `json:"runway"`
+	Remarks           string `json:"remarks"`
+	PersonsOnBoard    int    `json:"persons_on_board"`
+	FplType           string `json:"fpl_type"`
+	Language          string `json:"language"`
+}
+
+func (e CreateFPLEvent) GetType() EventType {
+	return CreateFPL
+}
+
+func (e CreateFPLEvent) Marshal() ([]byte, error) {
 	return marshall(e)
 }

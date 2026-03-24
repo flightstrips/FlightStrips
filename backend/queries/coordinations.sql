@@ -1,6 +1,6 @@
 -- name: CreateCoordination :one
-INSERT INTO coordinations (session, strip_id, from_position, to_position, from_es, es_handover_cid)
-VALUES ($1, $2, $3, $4, $5, $6) RETURNING *;
+INSERT INTO coordinations (session, strip_id, from_position, to_position, from_es, es_handover_cid, is_tag_request)
+VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *;
 
 -- name: ListCoordinationsBySession :many
 SELECT *

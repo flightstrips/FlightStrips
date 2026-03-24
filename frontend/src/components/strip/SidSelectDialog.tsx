@@ -3,16 +3,7 @@ import {
   DialogContent,
   DialogTitle,
 } from "@/components/ui/dialog";
-
-/** Mock SIDs for the active departure runway. Replace with backend data when available. */
-export const MOCK_SIDS = [
-  "LANGO2C",
-  "GOLGA2C",
-  "KEMAX2C",
-  "SIMEG9C",
-  "SALLO1C",
-  "ODDON2C",
-];
+import { MOCK_SIDS } from "./sidConstants";
 
 // Tailwind class constants (hex must be literal strings for JIT) — styled to match SIDS.svg
 const CLS_DIALOG_BG      = "bg-[#B3B3B3] border border-black p-0 w-[288px] max-w-none max-h-none gap-0 overflow-hidden [&>button]:hidden";

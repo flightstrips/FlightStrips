@@ -62,8 +62,13 @@ namespace FlightStrips::flightplan {
 
         const auto nextToken = GetNextToken(route);
         if (!nextToken.has_value()) {
-            // Weird case where route only included the airport
-            route = runwayToken;
+            // Route is either empty (only had the airport) or a single token (e.g. just a SID).
+            if (route.empty()) {
+                route = runwayToken;
+            } else {
+                route.insert(0, " ");
+                route.insert(0, runwayToken);
+            }
             return;
         }
         const auto nextBase = GetBaseSid(nextToken.value().token);

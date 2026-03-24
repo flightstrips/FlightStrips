@@ -9,54 +9,57 @@ import (
 // MockStripRepository is a configurable mock for repository.StripRepository.
 // Set function fields before each test; unset fields panic on call.
 type MockStripRepository struct {
-	CreateFn                    func(ctx context.Context, strip *models.Strip) error
-	GetByCallsignFn             func(ctx context.Context, session int32, callsign string) (*models.Strip, error)
-	ListFn                      func(ctx context.Context, session int32) ([]*models.Strip, error)
-	UpdateFn                    func(ctx context.Context, strip *models.Strip) (int64, error)
-	DeleteFn                    func(ctx context.Context, session int32, callsign string) error
-	ListByOriginFn              func(ctx context.Context, session int32, origin string) ([]*models.Strip, error)
-	GetBayFn                    func(ctx context.Context, session int32, callsign string) (string, error)
-	UpdateSequenceFn            func(ctx context.Context, session int32, callsign string, sequence int32) (int64, error)
-	UpdateBayAndSequenceFn      func(ctx context.Context, session int32, callsign string, bay string, sequence int32) (int64, error)
-	UpdateSequenceBulkFn        func(ctx context.Context, session int32, callsigns []string, sequences []int32) error
-	RecalculateSequencesFn      func(ctx context.Context, session int32, bay string, spacing int32) error
-	ListSequencesFn             func(ctx context.Context, session int32, bay string) ([]*models.StripSequence, error)
-	GetSequenceFn               func(ctx context.Context, session int32, callsign string, bay string) (int32, error)
-	GetMaxSequenceInBayFn       func(ctx context.Context, session int32, bay string) (int32, error)
-	GetMinSequenceInBayFn       func(ctx context.Context, session int32, bay string) (int32, error)
-	GetNextSequenceFn           func(ctx context.Context, session int32, bay string, sequence int32) (int32, error)
-	GetPrevSequenceFn           func(ctx context.Context, session int32, bay string, sequence int32, excludeCallsign string) (int32, error)
-	UpdateSquawkFn              func(ctx context.Context, session int32, callsign string, squawk *string, version *int32) (int64, error)
-	UpdateAssignedSquawkFn      func(ctx context.Context, session int32, callsign string, assignedSquawk *string, version *int32) (int64, error)
-	UpdateClearedAltitudeFn     func(ctx context.Context, session int32, callsign string, altitude *int32, version *int32) (int64, error)
-	UpdateRequestedAltitudeFn   func(ctx context.Context, session int32, callsign string, altitude *int32, version *int32) (int64, error)
-	UpdateCommunicationTypeFn   func(ctx context.Context, session int32, callsign string, commType *string, version *int32) (int64, error)
-	UpdateGroundStateFn         func(ctx context.Context, session int32, callsign string, state *string, bay string, version *int32) (int64, error)
-	UpdateClearedFlagFn         func(ctx context.Context, session int32, callsign string, cleared bool, bay string, version *int32) (int64, error)
-	UpdateAircraftPositionFn    func(ctx context.Context, session int32, callsign string, lat *float64, lon *float64, alt *int32, bay string, version *int32) (int64, error)
-	UpdateBayFn                 func(ctx context.Context, session int32, callsign string, bay string, version *int32) (int64, error)
-	UpdateHeadingFn             func(ctx context.Context, session int32, callsign string, heading *int32, version *int32) (int64, error)
-	UpdateStandFn               func(ctx context.Context, session int32, callsign string, stand *string, version *int32) (int64, error)
-	UpdateRunwayFn              func(ctx context.Context, session int32, callsign string, runway *string, version *int32) (int64, error)
-	UpdateMarkedFn              func(ctx context.Context, session int32, callsign string, marked bool, version *int32) (int64, error)
-	UpdateRunwayClearanceFn     func(ctx context.Context, session int32, callsign string) (int64, error)
-	UpdateRegistrationFn        func(ctx context.Context, session int32, callsign string, registration string) error
-	UpdateTrackingControllerFn  func(ctx context.Context, session int32, callsign string, trackingController string) (int64, error)
-	SetOwnerFn                  func(ctx context.Context, session int32, callsign string, owner *string, version int32) (int64, error)
-	SetNextOwnersFn             func(ctx context.Context, session int32, callsign string, nextOwners []string) error
-	SetPreviousOwnersFn         func(ctx context.Context, session int32, callsign string, previousOwners []string) error
-	SetNextAndPreviousOwnersFn  func(ctx context.Context, session int32, callsign string, nextOwners []string, previousOwners []string) error
-	GetCdmDataFn                func(ctx context.Context, session int32) ([]*models.CdmData, error)
-	GetCdmDataForCallsignFn     func(ctx context.Context, session int32, callsign string) (*models.CdmData, error)
-	UpdateCdmDataFn             func(ctx context.Context, session int32, callsign string, tobt *string, tsat *string, ttot *string, ctot *string, aobt *string, eobt *string, cdmStatus *string) (int64, error)
-	SetCdmStatusFn              func(ctx context.Context, session int32, callsign string, cdmStatus *string) (int64, error)
-	UpdateReleasePointFn              func(ctx context.Context, session int32, callsign string, releasePoint *string) (int64, error)
-	AppendUnexpectedChangeFieldFn     func(ctx context.Context, session int32, callsign string, fieldName string) error
-	RemoveUnexpectedChangeFieldFn     func(ctx context.Context, session int32, callsign string, fieldName string) error
-	AppendControllerModifiedFieldFn   func(ctx context.Context, session int32, callsign string, fieldName string) error
-	SetPdcRequestedFn                 func(ctx context.Context, session int32, callsign string, pdcState string, pdcRequestedAt *time.Time) error
-	SetPdcMessageSentFn         func(ctx context.Context, session int32, callsign string, pdcState string, pdcMessageSequence *int32, pdcMessageSent *time.Time) error
-	UpdatePdcStatusFn           func(ctx context.Context, session int32, callsign string, pdcState string) error
+	CreateFn                        func(ctx context.Context, strip *models.Strip) error
+	GetByCallsignFn                 func(ctx context.Context, session int32, callsign string) (*models.Strip, error)
+	ListFn                          func(ctx context.Context, session int32) ([]*models.Strip, error)
+	UpdateFn                        func(ctx context.Context, strip *models.Strip) (int64, error)
+	DeleteFn                        func(ctx context.Context, session int32, callsign string) error
+	ListByOriginFn                  func(ctx context.Context, session int32, origin string) ([]*models.Strip, error)
+	GetBayFn                        func(ctx context.Context, session int32, callsign string) (string, error)
+	UpdateSequenceFn                func(ctx context.Context, session int32, callsign string, sequence int32) (int64, error)
+	UpdateBayAndSequenceFn          func(ctx context.Context, session int32, callsign string, bay string, sequence int32) (int64, error)
+	UpdateSequenceBulkFn            func(ctx context.Context, session int32, callsigns []string, sequences []int32) error
+	RecalculateSequencesFn          func(ctx context.Context, session int32, bay string, spacing int32) error
+	ListSequencesFn                 func(ctx context.Context, session int32, bay string) ([]*models.StripSequence, error)
+	GetSequenceFn                   func(ctx context.Context, session int32, callsign string, bay string) (int32, error)
+	GetMaxSequenceInBayFn           func(ctx context.Context, session int32, bay string) (int32, error)
+	GetMinSequenceInBayFn           func(ctx context.Context, session int32, bay string) (int32, error)
+	GetNextSequenceFn               func(ctx context.Context, session int32, bay string, sequence int32) (int32, error)
+	GetPrevSequenceFn               func(ctx context.Context, session int32, bay string, sequence int32, excludeCallsign string) (int32, error)
+	UpdateSquawkFn                  func(ctx context.Context, session int32, callsign string, squawk *string, version *int32) (int64, error)
+	UpdateAssignedSquawkFn          func(ctx context.Context, session int32, callsign string, assignedSquawk *string, version *int32) (int64, error)
+	UpdateClearedAltitudeFn         func(ctx context.Context, session int32, callsign string, altitude *int32, version *int32) (int64, error)
+	UpdateRequestedAltitudeFn       func(ctx context.Context, session int32, callsign string, altitude *int32, version *int32) (int64, error)
+	UpdateCommunicationTypeFn       func(ctx context.Context, session int32, callsign string, commType *string, version *int32) (int64, error)
+	UpdateGroundStateFn             func(ctx context.Context, session int32, callsign string, state *string, bay string, version *int32) (int64, error)
+	UpdateClearedFlagFn             func(ctx context.Context, session int32, callsign string, cleared bool, bay string, version *int32) (int64, error)
+	UpdateAircraftPositionFn        func(ctx context.Context, session int32, callsign string, lat *float64, lon *float64, alt *int32, bay string, version *int32) (int64, error)
+	UpdateBayFn                     func(ctx context.Context, session int32, callsign string, bay string, version *int32) (int64, error)
+	UpdateHeadingFn                 func(ctx context.Context, session int32, callsign string, heading *int32, version *int32) (int64, error)
+	UpdateStandFn                   func(ctx context.Context, session int32, callsign string, stand *string, version *int32) (int64, error)
+	UpdateRunwayFn                  func(ctx context.Context, session int32, callsign string, runway *string, version *int32) (int64, error)
+	UpdateMarkedFn                  func(ctx context.Context, session int32, callsign string, marked bool, version *int32) (int64, error)
+	UpdateRunwayClearanceFn         func(ctx context.Context, session int32, callsign string) (int64, error)
+	ResetRunwayClearanceFn          func(ctx context.Context, session int32, callsign string) (int64, error)
+	UpdateRegistrationFn            func(ctx context.Context, session int32, callsign string, registration string) error
+	UpdateTrackingControllerFn      func(ctx context.Context, session int32, callsign string, trackingController string) (int64, error)
+	SetOwnerFn                      func(ctx context.Context, session int32, callsign string, owner *string, version int32) (int64, error)
+	SetNextOwnersFn                 func(ctx context.Context, session int32, callsign string, nextOwners []string) error
+	SetPreviousOwnersFn             func(ctx context.Context, session int32, callsign string, previousOwners []string) error
+	SetNextAndPreviousOwnersFn      func(ctx context.Context, session int32, callsign string, nextOwners []string, previousOwners []string) error
+	GetCdmDataFn                    func(ctx context.Context, session int32) ([]*models.CdmDataRow, error)
+	GetCdmDataForCallsignFn         func(ctx context.Context, session int32, callsign string) (*models.CdmData, error)
+	SetCdmDataFn                    func(ctx context.Context, session int32, callsign string, data *models.CdmData) (int64, error)
+	UpdateReleasePointFn            func(ctx context.Context, session int32, callsign string, releasePoint *string) (int64, error)
+	AppendUnexpectedChangeFieldFn   func(ctx context.Context, session int32, callsign string, fieldName string) error
+	RemoveUnexpectedChangeFieldFn   func(ctx context.Context, session int32, callsign string, fieldName string) error
+	AppendControllerModifiedFieldFn func(ctx context.Context, session int32, callsign string, fieldName string) error
+	SetPdcRequestedFn               func(ctx context.Context, session int32, callsign string, pdcState string, pdcRequestedAt *time.Time) error
+	SetPdcMessageSentFn             func(ctx context.Context, session int32, callsign string, pdcState string, pdcMessageSequence *int32, pdcMessageSent *time.Time) error
+	UpdatePdcStatusFn               func(ctx context.Context, session int32, callsign string, pdcState string) error
+	UpdateIFRManualFPLFieldsFn      func(ctx context.Context, session int32, callsign string, destination string, sid *string, assignedSquawk *string, eobt *string, aircraftType *string, requestedAltitude *int32, route *string, stand *string, runway *string) (int64, error)
+	UpdateVFRManualFPLFieldsFn      func(ctx context.Context, session int32, callsign string, aircraftType *string, personsOnBoard *int32, assignedSquawk string, fplType *string, language *string, remarks *string, bay string) (int64, error)
+	SetHasFPFn                      func(ctx context.Context, session int32, callsign string, hasFP bool) error
 }
 
 func (m *MockStripRepository) Create(ctx context.Context, strip *models.Strip) error {
@@ -276,6 +279,13 @@ func (m *MockStripRepository) UpdateRunwayClearance(ctx context.Context, session
 	return m.UpdateRunwayClearanceFn(ctx, session, callsign)
 }
 
+func (m *MockStripRepository) ResetRunwayClearance(ctx context.Context, session int32, callsign string) (int64, error) {
+	if m.ResetRunwayClearanceFn == nil {
+		panic("unexpected call to MockStripRepository.ResetRunwayClearance")
+	}
+	return m.ResetRunwayClearanceFn(ctx, session, callsign)
+}
+
 func (m *MockStripRepository) UpdateRegistration(ctx context.Context, session int32, callsign string, registration string) error {
 	if m.UpdateRegistrationFn == nil {
 		panic("unexpected call to MockStripRepository.UpdateRegistration")
@@ -318,7 +328,7 @@ func (m *MockStripRepository) SetNextAndPreviousOwners(ctx context.Context, sess
 	return m.SetNextAndPreviousOwnersFn(ctx, session, callsign, nextOwners, previousOwners)
 }
 
-func (m *MockStripRepository) GetCdmData(ctx context.Context, session int32) ([]*models.CdmData, error) {
+func (m *MockStripRepository) GetCdmData(ctx context.Context, session int32) ([]*models.CdmDataRow, error) {
 	if m.GetCdmDataFn == nil {
 		panic("unexpected call to MockStripRepository.GetCdmData")
 	}
@@ -332,18 +342,11 @@ func (m *MockStripRepository) GetCdmDataForCallsign(ctx context.Context, session
 	return m.GetCdmDataForCallsignFn(ctx, session, callsign)
 }
 
-func (m *MockStripRepository) UpdateCdmData(ctx context.Context, session int32, callsign string, tobt *string, tsat *string, ttot *string, ctot *string, aobt *string, eobt *string, cdmStatus *string) (int64, error) {
-	if m.UpdateCdmDataFn == nil {
-		panic("unexpected call to MockStripRepository.UpdateCdmData")
+func (m *MockStripRepository) SetCdmData(ctx context.Context, session int32, callsign string, data *models.CdmData) (int64, error) {
+	if m.SetCdmDataFn == nil {
+		panic("unexpected call to MockStripRepository.SetCdmData")
 	}
-	return m.UpdateCdmDataFn(ctx, session, callsign, tobt, tsat, ttot, ctot, aobt, eobt, cdmStatus)
-}
-
-func (m *MockStripRepository) SetCdmStatus(ctx context.Context, session int32, callsign string, cdmStatus *string) (int64, error) {
-	if m.SetCdmStatusFn == nil {
-		panic("unexpected call to MockStripRepository.SetCdmStatus")
-	}
-	return m.SetCdmStatusFn(ctx, session, callsign, cdmStatus)
+	return m.SetCdmDataFn(ctx, session, callsign, data)
 }
 
 func (m *MockStripRepository) UpdateReleasePoint(ctx context.Context, session int32, callsign string, releasePoint *string) (int64, error) {
@@ -393,4 +396,25 @@ func (m *MockStripRepository) UpdatePdcStatus(ctx context.Context, session int32
 		panic("unexpected call to MockStripRepository.UpdatePdcStatus")
 	}
 	return m.UpdatePdcStatusFn(ctx, session, callsign, pdcState)
+}
+
+func (m *MockStripRepository) UpdateIFRManualFPLFields(ctx context.Context, session int32, callsign string, destination string, sid *string, assignedSquawk *string, eobt *string, aircraftType *string, requestedAltitude *int32, route *string, stand *string, runway *string) (int64, error) {
+	if m.UpdateIFRManualFPLFieldsFn == nil {
+		panic("unexpected call to MockStripRepository.UpdateIFRManualFPLFields")
+	}
+	return m.UpdateIFRManualFPLFieldsFn(ctx, session, callsign, destination, sid, assignedSquawk, eobt, aircraftType, requestedAltitude, route, stand, runway)
+}
+
+func (m *MockStripRepository) UpdateVFRManualFPLFields(ctx context.Context, session int32, callsign string, aircraftType *string, personsOnBoard *int32, assignedSquawk string, fplType *string, language *string, remarks *string, bay string) (int64, error) {
+	if m.UpdateVFRManualFPLFieldsFn == nil {
+		panic("unexpected call to MockStripRepository.UpdateVFRManualFPLFields")
+	}
+	return m.UpdateVFRManualFPLFieldsFn(ctx, session, callsign, aircraftType, personsOnBoard, assignedSquawk, fplType, language, remarks, bay)
+}
+
+func (m *MockStripRepository) SetHasFP(ctx context.Context, session int32, callsign string, hasFP bool) error {
+	if m.SetHasFPFn != nil {
+		return m.SetHasFPFn(ctx, session, callsign, hasFP)
+	}
+	return nil
 }

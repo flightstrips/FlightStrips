@@ -19,9 +19,12 @@ namespace FlightStrips::authentication {
     }
 
     AuthenticationService::~AuthenticationService() {
-        CancelAuthentication();
+        // Cancel any in-progress authentication or token refresh before joining
+        const auto currentState = state.load();
+        if (currentState == LOGIN || currentState == REFRESH) {
+            state = NONE;
+        }
 
-        // Cleanup
         if (token_thread.joinable()) {
             token_thread.join();
         }
@@ -148,6 +151,7 @@ namespace FlightStrips::authentication {
     void AuthenticationService::StartRefresh() {
         if (state != AUTHENTICATED) return;
         state = REFRESH;
+        Logger::Info("Starting token refresh (state -> REFRESH)");
 
         if (token_thread.joinable()) {
             token_thread.join();
@@ -157,7 +161,7 @@ namespace FlightStrips::authentication {
     }
 
     void AuthenticationService::DoRefreshFlow() {
-        Logger::Debug(std::format("Refreshing authentication token."));
+        Logger::Info("Token refresh: sending HTTP request");
         const auto token_url = std::format("{}/oauth/token", this->appConfig->GetAuthority());
         std::ostringstream token_params;
 
@@ -178,7 +182,7 @@ namespace FlightStrips::authentication {
             return;
         }
 
-        Logger::Debug(std::format("Refreshing authentication token completed."));
+        Logger::Info("Token refresh completed successfully (state -> AUTHENTICATED)");
     }
 
     bool AuthenticationService::ParseAndSetToken(const std::string &content) {
@@ -265,9 +269,17 @@ namespace FlightStrips::authentication {
     }
 
     bool AuthenticationService::WaitForResult(const std::future<std::optional<std::string> > &future) const {
-        auto result = future.wait_for(std::chrono::milliseconds(10));
+        constexpr auto kPollInterval = std::chrono::milliseconds(100);
+        constexpr auto kMaxWait = std::chrono::minutes(5);
+        const auto deadline = std::chrono::steady_clock::now() + kMaxWait;
+
+        auto result = future.wait_for(kPollInterval);
         while (result == std::future_status::timeout && this->state == LOGIN) {
-            result = future.wait_for(std::chrono::milliseconds(10));
+            if (std::chrono::steady_clock::now() >= deadline) {
+                Logger::Warning("Authentication timed out waiting for browser callback");
+                break;
+            }
+            result = future.wait_for(kPollInterval);
         }
 
         return result == std::future_status::ready;

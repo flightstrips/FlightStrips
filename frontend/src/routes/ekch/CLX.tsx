@@ -6,11 +6,13 @@ import type {FrontendStrip} from "@/api/models.ts";
 import { useMessages, useMyPosition } from "@/store/store-hooks.ts";
 import { useState } from "react";
 import { CLS_BTN, CLS_SCROLLBAR } from "@/components/strip/shared";
+import { NewIfrDialog } from "@/components/strip/NewIfrDialog";
+import { PlannedDialog } from "@/components/strip/PlannedDialog";
 
 // Column widths — all four columns are equal
 const W_COL = "w-1/4";
 const col         = `${W_COL} h-full bg-[#555355]`; // column wrapper (no flex-col; each column manages its own layout)
-const pageWrapper = "bg-[#A9A9A9] w-screen h-[calc(100vh-4rem)] flex justify-center justify-items-center gap-2 aspect-video";
+const pageWrapper = "bg-[#A9A9A9] w-screen h-[calc(100vh-60px)] flex justify-center justify-items-center gap-2 aspect-video";
 
 // Header class strings
 const lockedHeader  = "bg-[#393939] h-10 flex items-center px-2 justify-between";
@@ -34,6 +36,8 @@ export default function DEL() {
   const taxidep = useTaxiDepStrips().filter(isFlight).sort((a, b) => a.sequence - b.sequence);
   const messages = useMessages();
   const [composeOpen, setComposeOpen] = useState(false);
+  const [newOpen, setNewOpen] = useState(false);
+  const [plannedOpen, setPlannedOpen] = useState(false);
 
   const mapToStrip = (strip: FrontendStrip, status: string) => (
     <Strip
@@ -41,6 +45,7 @@ export default function DEL() {
       strip={strip}
       status={status as "CLR" | "CLROK" | "HALF"}
       myPosition={myPosition}
+      selectable={status !== "HALF"}
     />
   );
 
@@ -55,8 +60,8 @@ export default function DEL() {
           <div className={lockedHeader}>
             <span className={lockedLabel}>OTHERS</span>
             <span className="flex gap-2">
-              <button className={CLS_BTN}>NEW</button>
-              <button className={CLS_BTN}>PLANNED</button>
+              <button className={CLS_BTN} onClick={() => setNewOpen(true)}>NEW</button>
+              <button className={CLS_BTN} onClick={() => setPlannedOpen(true)}>PLANNED</button>
             </span>
           </div>
           <div className={`h-[calc(100%-2.5rem)] ${scrollArea}`}>
@@ -111,6 +116,8 @@ export default function DEL() {
         </div>
       </div>
 
+      <NewIfrDialog open={newOpen} onOpenChange={setNewOpen} />
+      <PlannedDialog open={plannedOpen} onOpenChange={setPlannedOpen} />
     </>
   );
 }

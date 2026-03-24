@@ -31,6 +31,7 @@ var validBays = map[string]bool{
 	shared.BAY_STAND:       true,
 	shared.BAY_HIDDEN:      true,
 	shared.BAY_ARR_HIDDEN:  true,
+	shared.BAY_CONTROLZONE: true,
 }
 
 func handleTokenEvent(ctx context.Context, client *Client, message Message) error {
@@ -87,6 +88,20 @@ func handleMove(ctx context.Context, client *Client, message Message) error {
 		return err
 	}
 
+	// Ownership enforcement: reject the move if the strip is owned by someone else,
+	// unless the target bay is an arrival bay (FINAL/RWY_ARR/TWY_ARR) or the client
+	// holds an active coordination transfer for this strip.
+	if strip.Owner != nil && *strip.Owner != "" && *strip.Owner != client.position {
+		isArrivalBay := move.Bay == shared.BAY_FINAL || move.Bay == shared.BAY_RWY_ARR || move.Bay == shared.BAY_TWY_ARR
+		if !isArrivalBay {
+			coordRepo := client.hub.server.GetCoordinationRepository()
+			coord, coordErr := coordRepo.GetByStripCallsign(ctx, client.session, move.Callsign)
+			if coordErr != nil || coord == nil || coord.ToPosition != client.position {
+				return errors.New("not authorized: strip is owned by another controller")
+			}
+		}
+	}
+
 	if strip.Bay == move.Bay {
 		return nil
 	}
@@ -104,10 +119,6 @@ func handleMove(ctx context.Context, client *Client, message Message) error {
 
 	if err := client.hub.stripService.MoveToBay(ctx, client.session, move.Callsign, move.Bay, true); err != nil {
 		return err
-	}
-
-	if move.Bay == shared.BAY_AIRBORNE {
-		return client.hub.stripService.AutoTransferAirborneStrip(ctx, client.session, move.Callsign)
 	}
 
 	return nil
@@ -166,7 +177,7 @@ func handleStripUpdate(ctx context.Context, client *Client, message Message) err
 		}
 	}
 
-	if event.Eobt != nil && strip.Eobt != event.Eobt {
+	if event.Eobt != nil && strip.EffectiveEobt() != event.Eobt {
 		slog.Warn("EOBT updates are currently not supported and will be ignored", slog.String("callsign", event.Callsign))
 		// TODO add support
 	}
@@ -241,6 +252,30 @@ func handleCoordinationCancelTransferRequest(ctx context.Context, client *Client
 	return client.hub.stripService.CancelCoordinationTransfer(ctx, client.session, req.Callsign, client.position)
 }
 
+func handleCoordinationForceAssumeRequest(ctx context.Context, client *Client, message Message) error {
+	var req frontend.CoordinationForceAssumeRequestEvent
+	if err := message.JsonUnmarshal(&req); err != nil {
+		return err
+	}
+	return client.hub.stripService.ForceAssumeStrip(ctx, client.session, req.Callsign, client.position)
+}
+
+func handleCoordinationTagRequest(ctx context.Context, client *Client, message Message) error {
+	var req frontend.CoordinationTagRequestEvent
+	if err := message.JsonUnmarshal(&req); err != nil {
+		return err
+	}
+	return client.hub.stripService.CreateTagRequest(ctx, client.session, req.Callsign, client.position)
+}
+
+func handleCoordinationAcceptTagRequest(ctx context.Context, client *Client, message Message) error {
+	var req frontend.CoordinationAcceptTagRequestEvent
+	if err := message.JsonUnmarshal(&req); err != nil {
+		return err
+	}
+	return client.hub.stripService.AcceptTagRequest(ctx, client.session, req.Callsign, client.position)
+}
+
 func handleUpdateOrder(ctx context.Context, client *Client, message Message) error {
 	var event frontend.UpdateOrderEvent
 	err := message.JsonUnmarshal(&event)
@@ -294,7 +329,7 @@ func handleCdmReady(ctx context.Context, client *Client, message Message) error 
 	}
 
 	cdmService := client.hub.server.GetCdmService()
-	return cdmService.RequestBetterTobt(ctx, client.session, event.Callsign)
+	return cdmService.HandleReadyRequest(ctx, client.session, event.Callsign)
 }
 
 func handleReleasePoint(ctx context.Context, client *Client, message Message) error {
@@ -339,7 +374,7 @@ func handleRunwayClearance(ctx context.Context, client *Client, message Message)
 	if err := message.JsonUnmarshal(&event); err != nil {
 		return err
 	}
-	return client.hub.stripService.RunwayClearance(ctx, client.session, event.Callsign)
+	return client.hub.stripService.RunwayClearance(ctx, client.session, event.Callsign, client.GetCid(), client.airport)
 }
 
 func handleIssuePdcClearance(ctx context.Context, client *Client, message Message) error {
@@ -400,6 +435,9 @@ func handleCreateTacticalStrip(ctx context.Context, client *Client, message Mess
 	}
 	if req.Bay == "" {
 		return errors.New("bay is required")
+	}
+	if !validBays[req.Bay] {
+		return errors.New("invalid bay: " + req.Bay)
 	}
 	if req.StripType == "MEMAID" && req.Label == "" {
 		return errors.New("label is required for MEMAID strips")
@@ -566,4 +604,20 @@ func handleMoveTacticalStrip(ctx context.Context, client *Client, message Messag
 	}
 
 	return client.hub.stripService.MoveTacticalStripBetween(ctx, client.session, req.ID, req.InsertAfter, bay)
+}
+
+func handleCreateManualFPL(ctx context.Context, client *Client, message Message) error {
+	var req frontend.CreateManualFPLAction
+	if err := message.JsonUnmarshal(&req); err != nil {
+		return err
+	}
+	return client.hub.stripService.CreateManualFPL(ctx, client.session, req, client.GetCid(), client.airport)
+}
+
+func handleCreateVFRFPL(ctx context.Context, client *Client, message Message) error {
+	var req frontend.CreateVFRFPLAction
+	if err := message.JsonUnmarshal(&req); err != nil {
+		return err
+	}
+	return client.hub.stripService.CreateVFRFPL(ctx, client.session, req, client.GetCid())
 }

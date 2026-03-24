@@ -203,6 +203,28 @@ func (s *StripService) CreateCoordinationTransfer(ctx context.Context, session i
 	}
 
 	s.frontendHub.SendCoordinationTransfer(session, callsign, from, to)
+
+	// For strips in the AIRBORNE bay, also send an ES handover so the owning
+	// EuroScope client initiates the transfer to the target controller.
+	if strip.Bay == shared.BAY_AIRBORNE && s.euroscopeHub != nil {
+		controllers, err := server.GetControllerRepository().ListBySession(ctx, session)
+		if err == nil {
+			var ownerCid *string
+			var targetCallsign string
+			for _, c := range controllers {
+				if c.Position == from && c.Cid != nil && *c.Cid != "" {
+					ownerCid = c.Cid
+				}
+				if c.Position == to {
+					targetCallsign = c.Callsign
+				}
+			}
+			if ownerCid != nil && targetCallsign != "" {
+				s.euroscopeHub.SendCoordinationHandover(session, *ownerCid, callsign, targetCallsign)
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -367,10 +389,6 @@ func (s *StripService) AutoTransferAirborneStrip(ctx context.Context, session in
 		return err
 	}
 
-	if s.euroscopeHub != nil {
-		s.euroscopeHub.SendCoordinationHandover(session, *ownerController.Cid, callsign, targetController.Callsign)
-	}
-
 	return nil
 }
 
@@ -388,18 +406,29 @@ func (s *StripService) resolveAirborneController(strip *internalModels.Strip, co
 		return nil, err
 	}
 
+	slog.Debug("Resolving airborne controller",
+		slog.String("sid", *strip.Sid),
+		slog.Any("priority_list", controllerPriority),
+	)
+
 	for _, callsign := range controllerPriority {
 		position, err := config.GetPositionByName(callsign)
 		if err != nil {
 			continue
 		}
 		for _, controller := range controllers {
-			if controller.Position == position.Frequency && controller.Cid != nil && *controller.Cid != "" {
+			if controller.Position == position.Frequency {
+				slog.Debug("Matched airborne controller",
+					slog.String("sid", *strip.Sid),
+					slog.String("matched_callsign", callsign),
+					slog.String("controller_position", controller.Position),
+				)
 				return controller, nil
 			}
 		}
 	}
 
+	slog.Debug("No controller found for AIRBORNE transfer", slog.String("sid", *strip.Sid))
 	return nil, nil
 }
 
@@ -592,12 +621,12 @@ func (s *StripService) recalculateFlightStripsOnly(ctx context.Context, session 
 		return fmt.Errorf("failed to list strip sequences: %w", err)
 	}
 
-	callsigns := make([]string, len(sequences))
-	seqs := make([]int32, len(sequences))
-	for i, seq := range sequences {
+	callsigns := make([]string, 0, len(sequences))
+	seqs := make([]int32, 0, len(sequences))
+	for _, seq := range sequences {
 		if seq.Sequence != nil {
-			callsigns[i] = seq.Callsign
-			seqs[i] = *seq.Sequence
+			callsigns = append(callsigns, seq.Callsign)
+			seqs = append(seqs, *seq.Sequence)
 		}
 	}
 
@@ -614,16 +643,23 @@ func (s *StripService) sendBulkSequenceUpdate(session int32, callsigns []string,
 		return
 	}
 
+	// Send a single atomic bulk event so all frontends apply all sequence changes
+	// in one setState call, preventing transient ordering inconsistencies.
+	entries := make([]frontend.BulkBayEntry, len(callsigns))
 	for i, callsign := range callsigns {
-		seq := sequences[i]
-		s.frontendHub.SendBayEvent(session, callsign, bay, seq)
+		entries[i] = frontend.BulkBayEntry{Callsign: callsign, Sequence: sequences[i]}
 	}
+	s.frontendHub.SendBulkBayEvent(session, bay, entries)
 }
 
 // ClearStrip moves strip to cleared bay and notifies EuroScope to set cleared flag
 func (s *StripService) ClearStrip(ctx context.Context, session int32, callsign string, cid string) error {
 	if err := s.MoveToBay(ctx, session, callsign, shared.BAY_CLEARED, true); err != nil {
 		return fmt.Errorf("failed to move strip to cleared bay: %w", err)
+	}
+
+	if _, err := s.stripRepo.UpdateClearedFlag(ctx, session, callsign, true, shared.BAY_CLEARED, nil); err != nil {
+		slog.ErrorContext(ctx, "ClearStrip: failed to update cleared flag", slog.Any("error", err))
 	}
 
 	if s.euroscopeHub != nil {
@@ -639,6 +675,10 @@ func (s *StripService) UnclearStrip(ctx context.Context, session int32, callsign
 		return fmt.Errorf("failed to move strip to not-cleared bay: %w", err)
 	}
 
+	if _, err := s.stripRepo.UpdateClearedFlag(ctx, session, callsign, false, shared.BAY_NOT_CLEARED, nil); err != nil {
+		slog.ErrorContext(ctx, "UnclearStrip: failed to update cleared flag", slog.Any("error", err))
+	}
+
 	if s.euroscopeHub != nil {
 		s.euroscopeHub.SendClearedFlag(session, cid, callsign, false)
 	}
@@ -649,7 +689,7 @@ func (s *StripService) UnclearStrip(ctx context.Context, session int32, callsign
 // AutoAssumeForClearedStrip finds the SQ (or fallback DEL) sector owner for the
 // session and assigns them as the strip owner. It sends an owners update broadcast
 // to all frontend clients. If no SQ/DEL owner is found, the strip is left unowned.
-func (s *StripService) AutoAssumeForClearedStrip(ctx context.Context, session int32, callsign string, stripVersion int32) error {
+func (s *StripService) AutoAssumeForClearedStrip(ctx context.Context, session int32, callsign string) error {
 	if s.sectorOwnerRepo == nil {
 		return nil
 	}
@@ -687,7 +727,7 @@ func (s *StripService) AutoAssumeForClearedStrip(ctx context.Context, session in
 		return err
 	}
 
-	count, err := s.stripRepo.SetOwner(ctx, session, callsign, &sqPosition, stripVersion)
+	count, err := s.stripRepo.SetOwner(ctx, session, callsign, &sqPosition, strip.Version)
 	if err != nil {
 		return err
 	}
@@ -896,8 +936,11 @@ func (s *StripService) UpdateClearedFlag(ctx context.Context, session int32, cal
 	}
 
 	if cleared {
-		if err := s.AutoAssumeForClearedStrip(ctx, session, callsign, existingStrip.Version+1); err != nil {
-			slog.Error("Failed to auto-assume cleared strip from EuroScope", slog.Any("error", err))
+		// Skip auto-assume if PDC clearance is pending pilot WILCO (strip is in CLEARED pdc state)
+		if existingStrip.PdcState != "CLEARED" {
+			if err := s.AutoAssumeForClearedStrip(ctx, session, callsign); err != nil {
+				slog.Error("Failed to auto-assume cleared strip from EuroScope", slog.Any("error", err))
+			}
 		}
 	}
 
@@ -949,16 +992,34 @@ func (s *StripService) UpdateAircraftPosition(ctx context.Context, session int32
 	}
 	bay := shared.GetDepartureBayFromPosition(lat, lon, int64(altitude), dbStrip, config.GetAirborneAltitudeAGL(), airport)
 
+	existingState := "<nil>"
+	if existingStrip.State != nil {
+		existingState = *existingStrip.State
+	}
+	slog.Debug("UpdateAircraftPosition",
+		slog.String("callsign", callsign),
+		slog.String("current_bay", existingStrip.Bay),
+		slog.String("current_state", existingState),
+		slog.Int("altitude", int(altitude)),
+		slog.Int64("airborne_threshold_agl", config.GetAirborneAltitudeAGL()),
+		slog.String("computed_bay", bay),
+	)
+
 	_, err = s.stripRepo.UpdateAircraftPosition(ctx, session, callsign, &lat, &lon, &altitude, bay, nil)
 	if err != nil {
 		return err
 	}
 
 	if existingStrip.Bay != bay {
+		slog.Debug("UpdateAircraftPosition: bay changed, moving strip",
+			slog.String("callsign", callsign),
+			slog.String("from_bay", existingStrip.Bay),
+			slog.String("to_bay", bay),
+		)
 		if err := s.MoveToBay(context.Background(), session, callsign, bay, true); err != nil {
 			return err
 		}
-		if existingStrip.Bay != shared.BAY_AIRBORNE && bay == shared.BAY_AIRBORNE {
+		if existingStrip.Bay == shared.BAY_DEPART && bay == shared.BAY_AIRBORNE {
 			return s.AutoTransferAirborneStrip(ctx, session, callsign)
 		}
 	}
@@ -1176,6 +1237,94 @@ func (s *StripService) AssumeStripCoordination(ctx context.Context, session int3
 	return errors.New("cannot assume strip which is not transferred to you")
 }
 
+// ForceAssumeStrip forcibly takes ownership of a strip, overriding any existing owner.
+// Unlike AssumeStripCoordination it does not check NextOwners — any controller
+// may force-assume any strip regardless of current ownership.
+//
+// After assuming:
+//   - The route is recalculated starting from the new owner.
+//   - The displaced owner is removed from previous controllers.
+//   - Any controllers that appear in the recalculated next owners are removed from previous controllers.
+func (s *StripService) ForceAssumeStrip(ctx context.Context, session int32, callsign string, position string) error {
+	strip, err := s.stripRepo.GetByCallsign(ctx, session, callsign)
+	if err != nil {
+		return err
+	}
+
+	// Delete any stale coordination so it does not block future operations.
+	if s.coordRepo != nil {
+		if coord, err := s.coordRepo.GetByStripID(ctx, session, strip.ID); err == nil {
+			_ = s.coordRepo.Delete(ctx, coord.ID)
+		}
+	}
+
+	// Trim NextOwners: remove the new owner and all positions before it.
+	nextOwners := strip.NextOwners
+	index := slices.Index(nextOwners, position)
+	isExpectedHandoff := index >= 0
+	if isExpectedHandoff {
+		nextOwners = nextOwners[index+1:]
+	}
+
+	// Build the new previous owners list.
+	// Filter out the displaced owner first (avoids duplicates), then — for an
+	// expected handoff — append them so they appear as a past controller.
+	previousOwners := make([]string, 0, len(strip.PreviousOwners)+1)
+	for _, p := range strip.PreviousOwners {
+		if strip.Owner == nil || *strip.Owner != p {
+			previousOwners = append(previousOwners, p)
+		}
+	}
+	if isExpectedHandoff && strip.Owner != nil && *strip.Owner != "" {
+		previousOwners = append(previousOwners, *strip.Owner)
+	}
+
+	if err := s.stripRepo.SetNextAndPreviousOwners(ctx, session, callsign, nextOwners, previousOwners); err != nil {
+		return err
+	}
+
+	count, err := s.stripRepo.SetOwner(ctx, session, callsign, &position, strip.Version)
+	if err != nil {
+		return err
+	}
+	if count != 1 {
+		return errors.New("failed to set strip owner")
+	}
+
+	// Recalculate the route starting from the new owner. This updates NextOwners in the
+	// DB. We pass sendUpdate=false because we send the owners update ourselves below with
+	// the fully cleaned previous owners.
+	if s.frontendHub != nil {
+		if server := s.frontendHub.GetServer(); server != nil {
+			_ = server.UpdateRouteForStrip(callsign, session, false)
+
+			// Re-read to pick up the recalculated NextOwners.
+			if updated, err := s.stripRepo.GetByCallsign(ctx, session, callsign); err == nil {
+				nextOwners = updated.NextOwners
+			}
+		}
+	}
+
+	// Any controller that now appears in NextOwners must be removed from PreviousOwners
+	// — they are upcoming controllers, not past ones.
+	cleanedPrevious := make([]string, 0, len(previousOwners))
+	for _, p := range previousOwners {
+		if !slices.Contains(nextOwners, p) {
+			cleanedPrevious = append(cleanedPrevious, p)
+		}
+	}
+	if !slices.Equal(cleanedPrevious, previousOwners) {
+		if err := s.stripRepo.SetPreviousOwners(ctx, session, callsign, cleanedPrevious); err != nil {
+			return err
+		}
+		previousOwners = cleanedPrevious
+	}
+
+	s.frontendHub.SendCoordinationAssume(session, callsign, position)
+	s.frontendHub.SendOwnersUpdate(session, callsign, position, nextOwners, previousOwners)
+	return nil
+}
+
 // RejectCoordination rejects a pending coordination transfer.
 func (s *StripService) RejectCoordination(ctx context.Context, session int32, callsign string, position string) error {
 	if s.coordRepo == nil {
@@ -1195,6 +1344,148 @@ func (s *StripService) RejectCoordination(ctx context.Context, session int32, ca
 		return err
 	}
 	s.frontendHub.SendCoordinationReject(session, callsign, position)
+	return nil
+}
+
+// CreateTagRequest creates a tag-request coordination, allowing a non-owner to request the strip tag from the current owner.
+func (s *StripService) CreateTagRequest(ctx context.Context, session int32, callsign string, requesterPosition string) error {
+	if s.frontendHub == nil {
+		return errors.New("frontend hub not configured")
+	}
+	server := s.frontendHub.GetServer()
+	if server == nil {
+		return errors.New("server not configured")
+	}
+
+	strip, err := s.stripRepo.GetByCallsign(ctx, session, callsign)
+	if err != nil {
+		return err
+	}
+
+	if strip.Owner == nil || *strip.Owner == "" {
+		return errors.New("cannot request tag of an unowned strip")
+	}
+
+	if *strip.Owner == requesterPosition {
+		return errors.New("cannot request tag of a strip you already own")
+	}
+
+	coordRepo := server.GetCoordinationRepository()
+
+	// Check no active coordination already exists
+	if _, err := coordRepo.GetByStripCallsign(ctx, session, callsign); err == nil {
+		return errors.New("an active coordination already exists for this strip")
+	}
+
+	coord := &internalModels.Coordination{
+		Session:      session,
+		StripID:      strip.ID,
+		FromPosition: *strip.Owner,
+		ToPosition:   requesterPosition,
+		IsTagRequest: true,
+	}
+
+	if err := coordRepo.Create(ctx, coord); err != nil {
+		return err
+	}
+
+	s.frontendHub.SendCoordinationTagRequest(session, callsign, *strip.Owner, requesterPosition)
+	return nil
+}
+
+// AcceptTagRequest allows the strip owner to accept a pending tag request, transferring ownership to the requester.
+func (s *StripService) AcceptTagRequest(ctx context.Context, session int32, callsign string, ownerPosition string) error {
+	if s.frontendHub == nil {
+		return errors.New("frontend hub not configured")
+	}
+	server := s.frontendHub.GetServer()
+	if server == nil {
+		return errors.New("server not configured")
+	}
+
+	strip, err := s.stripRepo.GetByCallsign(ctx, session, callsign)
+	if err != nil {
+		return err
+	}
+
+	if strip.Owner == nil || *strip.Owner != ownerPosition {
+		return errors.New("only the strip owner can accept a tag request")
+	}
+
+	coordRepo := server.GetCoordinationRepository()
+	coordination, err := coordRepo.GetByStripCallsign(ctx, session, callsign)
+	if err != nil {
+		return err
+	}
+
+	if !coordination.IsTagRequest {
+		return errors.New("no pending tag request for this strip")
+	}
+
+	requesterPosition := coordination.ToPosition
+
+	if err := coordRepo.Delete(ctx, coordination.ID); err != nil {
+		return err
+	}
+
+	// Trim next owners: remove the requester and all positions before it.
+	nextOwners := strip.NextOwners
+	index := slices.Index(nextOwners, requesterPosition)
+	isExpectedHandoff := index >= 0
+	if isExpectedHandoff {
+		nextOwners = nextOwners[index+1:]
+	}
+
+	// Build the new previous owners list.
+	// Filter out the displaced owner first (avoids duplicates), then — for an
+	// expected handoff — append them so they appear as a past controller.
+	previousOwners := make([]string, 0, len(strip.PreviousOwners)+1)
+	for _, p := range strip.PreviousOwners {
+		if p != ownerPosition {
+			previousOwners = append(previousOwners, p)
+		}
+	}
+	if isExpectedHandoff {
+		previousOwners = append(previousOwners, ownerPosition)
+	}
+
+	if err := s.stripRepo.SetNextAndPreviousOwners(ctx, session, callsign, nextOwners, previousOwners); err != nil {
+		return err
+	}
+
+	count, err := s.stripRepo.SetOwner(ctx, session, callsign, &requesterPosition, strip.Version)
+	if err != nil {
+		return err
+	}
+	if count != 1 {
+		return errors.New("failed to set strip owner after accepting tag request")
+	}
+
+	// Recalculate route from the new owner (same as ForceAssumeStrip).
+	if server := s.frontendHub.GetServer(); server != nil {
+		_ = server.UpdateRouteForStrip(callsign, session, false)
+
+		if updated, err := s.stripRepo.GetByCallsign(ctx, session, callsign); err == nil {
+			nextOwners = updated.NextOwners
+		}
+	}
+
+	// Remove from previous owners anyone who now appears in next owners.
+	cleanedPrevious := make([]string, 0, len(previousOwners))
+	for _, p := range previousOwners {
+		if !slices.Contains(nextOwners, p) {
+			cleanedPrevious = append(cleanedPrevious, p)
+		}
+	}
+	if !slices.Equal(cleanedPrevious, previousOwners) {
+		if err := s.stripRepo.SetPreviousOwners(ctx, session, callsign, cleanedPrevious); err != nil {
+			return err
+		}
+		previousOwners = cleanedPrevious
+	}
+
+	s.frontendHub.SendCoordinationAssume(session, callsign, requesterPosition)
+	s.frontendHub.SendOwnersUpdate(session, callsign, requesterPosition, nextOwners, previousOwners)
 	return nil
 }
 
@@ -1269,7 +1560,7 @@ func (s *StripService) UpdateClearedFlagForMove(ctx context.Context, session int
 	// Only trigger side-effects when the cleared flag actually changed value.
 	if strip.Cleared != isCleared {
 		if isCleared {
-			if err := s.AutoAssumeForClearedStrip(ctx, session, callsign, strip.Version+1); err != nil {
+			if err := s.AutoAssumeForClearedStrip(ctx, session, callsign); err != nil {
 				slog.Error("Failed to auto-assume cleared strip", slog.Any("error", err))
 			}
 		}
@@ -1307,6 +1598,15 @@ func (s *StripService) UpdateGroundStateForMove(ctx context.Context, session int
 	if state != strip.State && state != nil && s.euroscopeHub != nil {
 		s.euroscopeHub.SendGroundState(session, cid, callsign, *state)
 	}
+
+	// If the strip is moved backward from rwy-dep to a non-airborne bay, reset runway_cleared.
+	if strip.Bay == shared.BAY_DEPART && bay != shared.BAY_DEPART && bay != shared.BAY_AIRBORNE && strip.RunwayCleared {
+		if _, err := s.stripRepo.ResetRunwayClearance(ctx, session, callsign); err != nil {
+			return err
+		}
+		s.frontendHub.SendStripUpdate(session, callsign)
+	}
+
 	return nil
 }
 
@@ -1379,9 +1679,16 @@ func (s *StripService) UpdateMarked(ctx context.Context, session int32, callsign
 	return nil
 }
 
-// RunwayClearance marks a strip as runway-cleared, moving it from DEPART to RWY_DEP if needed,
+// RunwayClearance marks a strip as runway-cleared, moving it from TAXI_LWR to DEPART (if applicable),
 // then broadcasts the full updated strip to all clients in the session.
-func (s *StripService) RunwayClearance(ctx context.Context, session int32, callsign string) error {
+// For departures from this airport in TAXI_LWR or DEPART bay, the ground state is set to 'DEPA'
+// and sent to EuroScope.
+func (s *StripService) RunwayClearance(ctx context.Context, session int32, callsign string, cid string, airport string) error {
+	strip, err := s.stripRepo.GetByCallsign(ctx, session, callsign)
+	if err != nil {
+		return err
+	}
+
 	affected, err := s.stripRepo.UpdateRunwayClearance(ctx, session, callsign)
 	if err != nil {
 		return err
@@ -1389,6 +1696,19 @@ func (s *StripService) RunwayClearance(ctx context.Context, session int32, calls
 	if affected != 1 {
 		return errors.New("failed to update runway clearance")
 	}
+
+	// For departures moving to or already at rwy-dep, set state to DEPA and notify ES.
+	isAtOrMovingToDepart := strip.Bay == shared.BAY_DEPART || strip.Bay == shared.BAY_TAXI_LWR
+	if isAtOrMovingToDepart && strip.Origin == airport {
+		state := euroscope.GroundStateDepart
+		if _, err := s.stripRepo.UpdateGroundState(ctx, session, callsign, &state, shared.BAY_DEPART, nil); err != nil {
+			return err
+		}
+		if s.euroscopeHub != nil {
+			s.euroscopeHub.SendGroundState(session, cid, callsign, state)
+		}
+	}
+
 	s.frontendHub.SendStripUpdate(session, callsign)
 	return nil
 }
@@ -1505,15 +1825,20 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, st
 			Stand:              &strip.Stand,
 			Capabilities:       &strip.Capabilities,
 			CommunicationType:  &strip.CommunicationType,
-			Tobt:               &strip.Eobt,
+			CdmData:            internalModels.NewLegacyCdmData(&strip.Eobt, nil, nil, nil, nil, nil, &strip.Eobt, nil),
 			Bay:                bay,
-			Eobt:               &strip.Eobt,
 			TrackingController: strip.TrackingController,
+			EngineType:         strip.EngineType,
 		}
 		reg := ParseRegistration(strip.Callsign, strip.Remarks)
 		newStrip.Registration = &reg
 		if err = s.stripRepo.Create(ctx, newStrip); err != nil {
 			return err
+		}
+		if strip.HasFP {
+			if err = s.stripRepo.SetHasFP(ctx, session, strip.Callsign, true); err != nil {
+				slog.Warn("Failed to set has_fp on new strip", slog.String("callsign", strip.Callsign), slog.Any("error", err))
+			}
 		}
 		slog.Debug("Inserted strip", slog.String("callsign", strip.Callsign))
 	} else {
@@ -1544,39 +1869,51 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, st
 		}
 
 		updateStrip := &internalModels.Strip{
-			Callsign:           strip.Callsign,
-			Session:            session,
-			Origin:             strip.Origin,
-			Destination:        strip.Destination,
-			Alternative:        &strip.Alternate,
-			Route:              &strip.Route,
-			Remarks:            &strip.Remarks,
-			AssignedSquawk:     &strip.AssignedSquawk,
-			Squawk:             &strip.Squawk,
-			Sid:                &strip.Sid,
-			ClearedAltitude:    &strip.ClearedAltitude,
-			Heading:            &strip.Heading,
-			AircraftType:       &strip.AircraftType,
-			Runway:             runway,
-			RequestedAltitude:  &strip.RequestedAltitude,
-			Capabilities:       &strip.Capabilities,
-			CommunicationType:  &strip.CommunicationType,
-			AircraftCategory:   &strip.AircraftCategory,
-			Stand:              stand,
-			Cleared:            strip.Cleared,
-			State:              &strip.GroundState,
-			PositionLatitude:   &strip.Position.Lat,
-			PositionLongitude:  &strip.Position.Lon,
-			PositionAltitude:   &strip.Position.Altitude,
-			Bay:                bay,
-			Tobt:               existingStrip.Tobt,
-			Eobt:               existingStrip.Eobt,
+			Callsign:          strip.Callsign,
+			Session:           session,
+			Origin:            strip.Origin,
+			Destination:       strip.Destination,
+			Alternative:       &strip.Alternate,
+			Route:             &strip.Route,
+			Remarks:           &strip.Remarks,
+			AssignedSquawk:    &strip.AssignedSquawk,
+			Squawk:            &strip.Squawk,
+			Sid:               &strip.Sid,
+			ClearedAltitude:   &strip.ClearedAltitude,
+			Heading:           &strip.Heading,
+			AircraftType:      &strip.AircraftType,
+			Runway:            runway,
+			RequestedAltitude: &strip.RequestedAltitude,
+			Capabilities:      &strip.Capabilities,
+			CommunicationType: &strip.CommunicationType,
+			AircraftCategory:  &strip.AircraftCategory,
+			Stand:             stand,
+			Cleared:           strip.Cleared,
+			State:             &strip.GroundState,
+			PositionLatitude:  &strip.Position.Lat,
+			PositionLongitude: &strip.Position.Lon,
+			PositionAltitude:  &strip.Position.Altitude,
+			Bay:               bay,
+			CdmData: func() *internalModels.CdmData {
+				cdmData := existingStrip.CdmData.Clone()
+				if strip.Eobt != "" {
+					cdmData.Canonical.Tobt = &strip.Eobt
+					cdmData.Canonical.Eobt = &strip.Eobt
+				}
+				return cdmData
+			}(),
 			Registration:       existingStrip.Registration,
 			Owner:              existingStrip.Owner,
 			TrackingController: strip.TrackingController,
+			EngineType:         strip.EngineType,
 		}
 		if _, err = s.stripRepo.Update(ctx, updateStrip); err != nil {
 			return err
+		}
+		if strip.HasFP != existingStrip.HasFP {
+			if err = s.stripRepo.SetHasFP(ctx, session, strip.Callsign, strip.HasFP); err != nil {
+				slog.Warn("Failed to update has_fp on strip", slog.String("callsign", strip.Callsign), slog.Any("error", err))
+			}
 		}
 		slog.Debug("Updated strip", slog.String("callsign", strip.Callsign))
 

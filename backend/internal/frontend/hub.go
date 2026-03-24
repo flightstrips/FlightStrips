@@ -7,6 +7,7 @@ import (
 	"FlightStrips/pkg/events"
 	"FlightStrips/pkg/events/frontend"
 	"FlightStrips/pkg/helpers"
+	pkgModels "FlightStrips/pkg/models"
 	"context"
 	"errors"
 	"log/slog"
@@ -46,8 +47,10 @@ type Hub struct {
 	msgCounter int64 // accessed atomically
 	messages   map[int32][]frontend.MessageReceivedEvent
 
-	metarMu    sync.RWMutex
-	metarCache map[int32]string // session ID → latest METAR string
+	metarMu          sync.RWMutex
+	metarCache       map[int32]string // session ID → latest METAR string
+	arrAtisCodeCache map[int32]string // session ID → latest arrival ATIS code
+	depAtisCodeCache map[int32]string // session ID → latest departure ATIS code
 }
 
 func NewHub(stripService shared.StripService, authenticationService shared.AuthenticationService) *Hub {
@@ -62,6 +65,9 @@ func NewHub(stripService shared.StripService, authenticationService shared.Authe
 	handlers.Add(frontend.CoordinationRejectRequestType, handleCoordinationRejectRequest)
 	handlers.Add(frontend.CoordinationFreeRequestType, handleCoordinationFreeRequest)
 	handlers.Add(frontend.CoordinationCancelTransferRequest, handleCoordinationCancelTransferRequest)
+	handlers.Add(frontend.CoordinationForceAssumeRequestType, handleCoordinationForceAssumeRequest)
+	handlers.Add(frontend.CoordinationTagRequestType, handleCoordinationTagRequest)
+	handlers.Add(frontend.CoordinationAcceptTagRequestType, handleCoordinationAcceptTagRequest)
 	handlers.Add(frontend.UpdateOrder, handleUpdateOrder)
 	handlers.Add(frontend.SendMessage, handleSendMessage)
 	handlers.Add(frontend.CdmReady, handleCdmReady)
@@ -77,6 +83,8 @@ func NewHub(stripService shared.StripService, authenticationService shared.Authe
 	handlers.Add(frontend.ActionConfirmTacticalStrip, handleConfirmTacticalStrip)
 	handlers.Add(frontend.ActionStartTacticalTimer, handleStartTacticalTimer)
 	handlers.Add(frontend.ActionMoveTacticalStrip, handleMoveTacticalStrip)
+	handlers.Add(frontend.ActionCreateManualFPL, handleCreateManualFPL)
+	handlers.Add(frontend.ActionCreateVFRFPL, handleCreateVFRFPL)
 
 	hub := &Hub{
 		send:                  make(chan internalMessage),
@@ -89,6 +97,8 @@ func NewHub(stripService shared.StripService, authenticationService shared.Authe
 		authenticationService: authenticationService,
 		messages:              make(map[int32][]frontend.MessageReceivedEvent),
 		metarCache:            make(map[int32]string),
+		arrAtisCodeCache:      make(map[int32]string),
+		depAtisCodeCache:      make(map[int32]string),
 	}
 
 	go hub.Run()
@@ -157,6 +167,22 @@ func (hub *Hub) HandleNewConnection(conn *gorilla.Conn, user shared.Authenticate
 		position = controller.Position
 		airport = dbSession.Airport
 		callsign = controller.Callsign
+	}
+
+	// If no EuroScope client is currently online for this airport, put the frontend client into
+	// the waiting state. CidOnline will associate it with the session when ES connects.
+	if airport != WaitingForEuroscopeConnectionAirport {
+		esHub := hub.server.GetEuroscopeHub()
+		if esHub != nil && !esHub.HasActiveClientForAirport(airport) {
+			slog.Info("No EuroScope client online; frontend will wait",
+				slog.String("cid", user.GetCid()),
+				slog.String("airport", airport),
+			)
+			session = WaitingForEuroscopeConnectionSessionId
+			position = WaitingForEuroscopeConnectionPosition
+			airport = WaitingForEuroscopeConnectionAirport
+			callsign = WaitingForEuroscopeConnectionCallsign
+		}
 	}
 
 	// Create and return the client
@@ -265,9 +291,10 @@ func (hub *Hub) sendInitialEvent(client *Client) {
 			continue
 		}
 		coordinationModels = append(coordinationModels, frontend.SyncCoordination{
-			Callsign: callsign,
-			From:     coord.FromPosition,
-			To:       coord.ToPosition,
+			Callsign:     callsign,
+			From:         coord.FromPosition,
+			To:           coord.ToPosition,
+			IsTagRequest: coord.IsTagRequest,
 		})
 	}
 
@@ -299,6 +326,12 @@ func (hub *Hub) sendInitialEvent(client *Client) {
 	copy(storedMsgs, hub.messages[client.session])
 	hub.msgMu.Unlock()
 
+	sids, err := sessionRepo.GetSessionSids(context.Background(), client.session)
+	if err != nil {
+		slog.Error("Failed to load available SIDs on connect", slog.Any("error", err), slog.Int("session", int(client.session)))
+		sids = pkgModels.AvailableSids{}
+	}
+
 	event := frontend.InitialEvent{
 		Contsollers:    controllerModels,
 		Strips:         stripModels,
@@ -313,16 +346,19 @@ func (hub *Hub) sendInitialEvent(client *Client) {
 		},
 		Coordinations: coordinationModels,
 		Messages:      storedMsgs,
+		AvailableSids: sids,
 	}
 
 	client.send <- event
 
 	hub.metarMu.RLock()
 	cachedMetar := hub.metarCache[client.session]
+	cachedArr := hub.arrAtisCodeCache[client.session]
+	cachedDep := hub.depAtisCodeCache[client.session]
 	hub.metarMu.RUnlock()
 
 	if cachedMetar != "" {
-		client.send <- frontend.AtisUpdateEvent{Metar: cachedMetar}
+		client.send <- frontend.AtisUpdateEvent{Metar: cachedMetar, ArrAtisCode: cachedArr, DepAtisCode: cachedDep}
 	}
 }
 
@@ -354,42 +390,47 @@ func MapTacticalStripToPayload(ts *internalModels.TacticalStrip) frontend.Tactic
 func MapStripToFrontendModel(strip *internalModels.Strip) frontend.Strip {
 
 	return frontend.Strip{
-		Callsign:            strip.Callsign,
-		Origin:              strip.Origin,
-		Destination:         strip.Destination,
-		Alternate:           helpers.ValueOrDefault(strip.Alternative),
-		Route:               helpers.ValueOrDefault(strip.Route),
-		Remarks:             helpers.ValueOrDefault(strip.Remarks),
-		Runway:              helpers.ValueOrDefault(strip.Runway),
-		Squawk:              helpers.ValueOrDefault(strip.Squawk),
-		AssignedSquawk:      helpers.ValueOrDefault(strip.AssignedSquawk),
-		Sid:                 helpers.ValueOrDefault(strip.Sid),
-		ClearedAltitude:     helpers.ValueOrDefault(strip.ClearedAltitude),
-		RequestedAltitude:   helpers.ValueOrDefault(strip.RequestedAltitude),
-		Heading:             helpers.ValueOrDefault(strip.Heading),
-		AircraftType:        helpers.ValueOrDefault(strip.AircraftType),
-		AircraftCategory:    helpers.ValueOrDefault(strip.AircraftCategory),
-		Stand:               helpers.ValueOrDefault(strip.Stand),
-		Capabilities:        helpers.ValueOrDefault(strip.Capabilities),
-		CommunicationType:   helpers.ValueOrDefault(strip.CommunicationType),
-		Bay:                 strip.Bay,
-		ReleasePoint:        helpers.ValueOrDefault(strip.ReleasePoint),
-		Version:             strip.Version,
-		Sequence:            helpers.ValueOrDefault(strip.Sequence),
-		NextControllers:     strip.NextOwners,
-		PreviousControllers: strip.PreviousOwners,
-		Owner:               helpers.ValueOrDefault(strip.Owner),
-		Eobt:                helpers.ValueOrDefault(strip.Eobt),
-		Tobt:                helpers.ValueOrDefault(strip.Tobt),
-		Tsat:                helpers.ValueOrDefault(strip.Tsat),
-		Ctot:                helpers.ValueOrDefault(strip.Ctot),
-		PdcState:            strip.PdcState,
-		Marked:                 strip.Marked,
-		Registration:           helpers.ValueOrDefault(strip.Registration),
-		TrackingController:     strip.TrackingController,
-		RunwayCleared:          strip.RunwayCleared,
-		UnexpectedChangeFields:  strip.UnexpectedChangeFields,
+		Callsign:                 strip.Callsign,
+		Origin:                   strip.Origin,
+		Destination:              strip.Destination,
+		Alternate:                helpers.ValueOrDefault(strip.Alternative),
+		Route:                    helpers.ValueOrDefault(strip.Route),
+		Remarks:                  helpers.ValueOrDefault(strip.Remarks),
+		Runway:                   helpers.ValueOrDefault(strip.Runway),
+		Squawk:                   helpers.ValueOrDefault(strip.Squawk),
+		AssignedSquawk:           helpers.ValueOrDefault(strip.AssignedSquawk),
+		Sid:                      helpers.ValueOrDefault(strip.Sid),
+		ClearedAltitude:          helpers.ValueOrDefault(strip.ClearedAltitude),
+		RequestedAltitude:        helpers.ValueOrDefault(strip.RequestedAltitude),
+		Heading:                  helpers.ValueOrDefault(strip.Heading),
+		AircraftType:             helpers.ValueOrDefault(strip.AircraftType),
+		AircraftCategory:         helpers.ValueOrDefault(strip.AircraftCategory),
+		Stand:                    helpers.ValueOrDefault(strip.Stand),
+		Capabilities:             helpers.ValueOrDefault(strip.Capabilities),
+		CommunicationType:        helpers.ValueOrDefault(strip.CommunicationType),
+		Bay:                      strip.Bay,
+		ReleasePoint:             helpers.ValueOrDefault(strip.ReleasePoint),
+		Version:                  strip.Version,
+		Sequence:                 helpers.ValueOrDefault(strip.Sequence),
+		NextControllers:          strip.NextOwners,
+		PreviousControllers:      strip.PreviousOwners,
+		Owner:                    helpers.ValueOrDefault(strip.Owner),
+		Eobt:                     helpers.ValueOrDefault(strip.EffectiveEobt()),
+		Tobt:                     helpers.ValueOrDefault(strip.EffectiveTobt()),
+		Tsat:                     helpers.ValueOrDefault(strip.EffectiveTsat()),
+		Ctot:                     helpers.ValueOrDefault(strip.EffectiveCtot()),
+		PdcState:                 strip.PdcState,
+		Marked:                   strip.Marked,
+		Registration:             helpers.ValueOrDefault(strip.Registration),
+		TrackingController:       strip.TrackingController,
+		RunwayCleared:            strip.RunwayCleared,
+		UnexpectedChangeFields:   strip.UnexpectedChangeFields,
 		ControllerModifiedFields: strip.ControllerModifiedFields,
+		IsManual:                 strip.IsManual,
+		PersonsOnBoard:           helpers.ValueOrDefault(strip.PersonsOnBoard),
+		FplType:                  helpers.ValueOrDefault(strip.FplType),
+		Language:                 helpers.ValueOrDefault(strip.Language),
+		HasFP:                    strip.HasFP,
 	}
 }
 
@@ -494,6 +535,10 @@ func (hub *Hub) SendBayEvent(session int32, callsign string, bay string, sequenc
 		Sequence: sequence,
 	}
 	hub.Broadcast(session, event)
+}
+
+func (hub *Hub) SendBulkBayEvent(session int32, bay string, strips []frontend.BulkBayEntry) {
+	hub.Broadcast(session, frontend.BulkBayEvent{Bay: bay, Strips: strips})
 }
 
 func (hub *Hub) SendAircraftDisconnect(session int32, callsign string) {
@@ -657,12 +702,14 @@ func (hub *Hub) SendServerMessage(session int32, message string) {
 	hub.Broadcast(session, event)
 }
 
-func (hub *Hub) SendAtisUpdate(session int32, metar string) {
+func (hub *Hub) SendAtisUpdate(session int32, metar string, arrAtisCode string, depAtisCode string) {
 	hub.metarMu.Lock()
 	hub.metarCache[session] = metar
+	hub.arrAtisCodeCache[session] = arrAtisCode
+	hub.depAtisCodeCache[session] = depAtisCode
 	hub.metarMu.Unlock()
 
-	hub.Broadcast(session, frontend.AtisUpdateEvent{Metar: metar})
+	hub.Broadcast(session, frontend.AtisUpdateEvent{Metar: metar, ArrAtisCode: arrAtisCode, DepAtisCode: depAtisCode})
 }
 
 func (hub *Hub) SendToPosition(session int32, position string, message frontend.OutgoingMessage) {
@@ -675,6 +722,19 @@ func (hub *Hub) SendToPosition(session int32, position string, message frontend.
 
 func (hub *Hub) NextMessageID() int64 {
 	return atomic.AddInt64(&hub.msgCounter, 1)
+}
+
+func (hub *Hub) SendCoordinationTagRequest(session int32, callsign, from, to string) {
+	event := frontend.CoordinationTagRequestBroadcastEvent{
+		Callsign: callsign,
+		From:     from,
+		To:       to,
+	}
+	hub.Broadcast(session, event)
+}
+
+func (hub *Hub) SendAvailableSids(session int32, sids pkgModels.AvailableSids) {
+	hub.Broadcast(session, frontend.AvailableSidsEvent{Sids: sids})
 }
 
 func (hub *Hub) storeMessage(sessionID int32, msg frontend.MessageReceivedEvent) {
@@ -756,6 +816,28 @@ func (hub *Hub) Run() {
 						slog.String("cid", msg.cid),
 						slog.Int("session", int(msg.session)))
 					client.session = msg.session
+
+					// Populate callsign, position, and airport from DB so that
+					// sendInitialEvent can find the correct controller and layout.
+					// These fields are empty when the client connected before ES.
+					if client.callsign == WaitingForEuroscopeConnectionCallsign {
+						controllerRepo := hub.server.GetControllerRepository()
+						sessionRepo := hub.server.GetSessionRepository()
+						if controller, err := controllerRepo.GetByCid(context.Background(), msg.cid); err == nil {
+							if dbSession, err := sessionRepo.GetByID(context.Background(), controller.Session); err == nil {
+								client.callsign = controller.Callsign
+								client.position = controller.Position
+								client.airport = dbSession.Airport
+							} else {
+								slog.Error("Failed to get session for CID online client",
+									slog.String("cid", msg.cid), slog.Any("error", err))
+							}
+						} else {
+							slog.Error("Failed to get controller for CID online client",
+								slog.String("cid", msg.cid), slog.Any("error", err))
+						}
+					}
+
 					hub.sendInitialEvent(client)
 					break
 				}

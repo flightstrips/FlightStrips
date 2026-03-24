@@ -8,7 +8,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import * as VisuallyHidden from "@radix-ui/react-visually-hidden";
-import { useControllers, useSelectedCallsign, useWebSocketStore } from "@/store/store-hooks";
+import { useControllers, useMyPosition, useSelectedCallsign, useStrip, useWebSocketStore } from "@/store/store-hooks";
 import { CLS_CMDBTN } from "@/components/strip/shared";
 
 const CLS_DIALOG = "sm:max-w-[425px] bg-[#b3b3b3]"; // active-header bg
@@ -16,10 +16,13 @@ const CLS_DIALOG = "sm:max-w-[425px] bg-[#b3b3b3]"; // active-header bg
 export default function TRFBRN() {
   const [open, setOpen] = useState(false);
   const selectedCallsign = useSelectedCallsign();
+  const myPosition = useMyPosition();
+  const strip = useStrip(selectedCallsign ?? "");
   const controllers = useControllers();
   const transferStrip = useWebSocketStore((state) => state.transferStrip);
 
-  const disabled = !selectedCallsign;
+  const isOwner = !!selectedCallsign && !!myPosition && strip?.owner === myPosition;
+  const disabled = !isOwner;
 
   const handleTransfer = (callsign: string, toPosition: string) => {
     transferStrip(callsign, toPosition);

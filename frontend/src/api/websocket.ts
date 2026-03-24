@@ -1,9 +1,10 @@
 import {
   ActionType,
   EventType,
+  type ActionRejectedEvent,
   type FrontendAircraftDisconnectEvent,
   type FrontendAssignedSquawkEvent,
-  type FrontendBayEvent, type FrontendBroadcastEvent, type FrontendCdmDataEvent, type FrontendCdmWaitEvent,
+  type FrontendBayEvent, type FrontendBroadcastEvent, type FrontendBulkBayEvent, type FrontendCdmDataEvent, type FrontendCdmWaitEvent,
   type FrontendClearedAltitudeEvent,
   type FrontendCommunicationTypeEvent,
   type FrontendControllerOfflineEvent,
@@ -17,6 +18,7 @@ import {
   type FrontendCoordinationAssumeBroadcastEvent,
   type FrontendCoordinationRejectBroadcastEvent,
   type FrontendCoordinationFreeBroadcastEvent,
+  type FrontendCoordinationTagRequestBroadcastEvent,
   type FrontendRequestedAltitudeEvent,
   type FrontendRunwayConfigurationEvent,
   type FrontendSendEvent,
@@ -30,7 +32,8 @@ import {
   type FrontendTacticalStripMovedEvent,
   type FrontendMessageReceivedEvent,
   type FrontendAtisUpdateEvent,
-  type WebSocketEvent
+  type WebSocketEvent,
+  type AvailableSidsEvent,
 } from "./models";
 
 
@@ -44,6 +47,7 @@ type EventMap = {
   [EventType.FrontendRequestedAltitude]: FrontendRequestedAltitudeEvent;
   [EventType.FrontendClearedAltitude]: FrontendClearedAltitudeEvent;
   [EventType.FrontendBay]: FrontendBayEvent;
+  [EventType.FrontendBulkBay]: FrontendBulkBayEvent;
   [EventType.FrontendDisconnect]: FrontendDisconnectEvent;
   [EventType.FrontendAircraftDisconnect]: FrontendAircraftDisconnectEvent;
   [EventType.FrontendStand]: FrontendStandEvent;
@@ -61,6 +65,7 @@ type EventMap = {
   [EventType.FrontendCoordinationAssumeBroadcast]: FrontendCoordinationAssumeBroadcastEvent;
   [EventType.FrontendCoordinationRejectBroadcast]: FrontendCoordinationRejectBroadcastEvent;
   [EventType.FrontendCoordinationFreeBroadcast]: FrontendCoordinationFreeBroadcastEvent;
+  [EventType.FrontendCoordinationTagRequestBroadcast]: FrontendCoordinationTagRequestBroadcastEvent;
   [EventType.FrontendRunWayConfiguration]: FrontendRunwayConfigurationEvent;
   [EventType.FrontendTacticalStripCreated]: FrontendTacticalStripCreatedEvent;
   [EventType.FrontendTacticalStripDeleted]: FrontendTacticalStripDeletedEvent;
@@ -68,6 +73,8 @@ type EventMap = {
   [EventType.FrontendTacticalStripMoved]: FrontendTacticalStripMovedEvent;
   [EventType.FrontendMessageReceived]: FrontendMessageReceivedEvent;
   [EventType.FrontendAtisUpdate]: FrontendAtisUpdateEvent;
+  [EventType.FrontendActionRejected]: ActionRejectedEvent;
+  [EventType.FrontendAvailableSids]: AvailableSidsEvent;
 };
 
 type WebSocketClientDelegate = {
@@ -100,9 +107,10 @@ export class WebSocketClient {
   connect(): Promise<void> {
     return new Promise((resolve,) => {
       this.manuallyClosed = false;
-      this.socket = new WebSocket(this.url);
+      const socket = new WebSocket(this.url);
+      this.socket = socket;
 
-      this.socket.onopen = () => {
+      socket.onopen = () => {
         console.log('WebSocket connection established');
         this.reconnectAttempts = 0;
         if (this.token) {
@@ -114,11 +122,13 @@ export class WebSocketClient {
         resolve();
       };
 
-      this.socket.onerror = (error) => {
+      socket.onerror = (error) => {
         console.error('WebSocket error:', error);
       };
 
-      this.socket.onclose = (event) => {
+      socket.onclose = (event) => {
+        // Ignore close events from a socket that has already been replaced (e.g. during reconnect)
+        if (this.socket !== socket) return;
         console.log('WebSocket connection closed:', event.code, event.reason);
         if (this.delegate?.onDisconnected) {
           this.delegate.onDisconnected();
@@ -128,7 +138,7 @@ export class WebSocketClient {
         }
       };
 
-      this.socket.onmessage = (event) => {
+      socket.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data) as WebSocketEvent;
           const handlers = this.eventHandlers.get(data.type);
@@ -139,6 +149,20 @@ export class WebSocketClient {
           console.error('Error parsing WebSocket message:', error);
         }
       };
+    });
+  }
+
+  reconnect(): void {
+    if (this.reconnectTimeout) {
+      clearTimeout(this.reconnectTimeout);
+      this.reconnectTimeout = null;
+    }
+    if (this.socket) {
+      this.socket.close();
+      this.socket = null;
+    }
+    this.connect().catch(() => {
+      // Connection errors are handled by socket.onerror; retryConnection kicks in via onclose
     });
   }
 

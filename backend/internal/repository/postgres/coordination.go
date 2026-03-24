@@ -30,6 +30,7 @@ func coordinationToModel(db database.Coordination) *models.Coordination {
 		CoordinatedAt: PgTimestampToTime(db.CoordinatedAt),
 		FromEs:        db.FromEs,
 		EsHandoverCid: db.EsHandoverCid,
+		IsTagRequest:  db.IsTagRequest,
 	}
 }
 
@@ -42,6 +43,7 @@ func (r *coordinationRepository) Create(ctx context.Context, coordination *model
 		ToPosition:    coordination.ToPosition,
 		FromEs:        coordination.FromEs,
 		EsHandoverCid: coordination.EsHandoverCid,
+		IsTagRequest:  coordination.IsTagRequest,
 	})
 	return err
 }

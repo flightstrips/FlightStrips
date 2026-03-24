@@ -6,8 +6,10 @@ import (
 
 type EuroscopeHub interface {
 	ServerInjectable
+	HasActiveClientForAirport(airport string) bool
 	Broadcast(session int32, message euroscope.OutgoingMessage)
 	Send(session int32, cid string, message euroscope.OutgoingMessage)
+	SendCdmReadyRequest(session int32, cid string, callsign string)
 	SendGenerateSquawk(session int32, cid string, callsign string)
 	SendGroundState(session int32, cid string, callsign string, state string)
 	SendClearedFlag(session int32, cid string, callsign string, flag bool)
@@ -21,4 +23,5 @@ type EuroscopeHub interface {
 	SendHeading(session int32, cid string, callsign string, heading int32)
 	SendCoordinationHandover(session int32, cid string, callsign string, targetCallsign string)
 	SendAssumeAndDrop(session int32, cid string, callsign string)
+	SendCreateFPL(session int32, cid string, event euroscope.CreateFPLEvent)
 }

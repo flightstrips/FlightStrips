@@ -1,25 +1,13 @@
 import { useState, useEffect } from "react";
+import { computeCTOTColors, type CTOTColors } from "@/lib/cdmColors";
 
-export function useCTOTColor(ctot: string): { ctotBg: string; ctotColor: string; showCtot: boolean } {
-  const [now, setNow] = useState(() => new Date());
+export function useCTOTColor(ctot: string): CTOTColors {
+  const [nowMs, setNowMs] = useState(Date.now);
 
   useEffect(() => {
-    const interval = setInterval(() => setNow(new Date()), 1000);
+    const interval = setInterval(() => setNowMs(Date.now()), 1000);
     return () => clearInterval(interval);
   }, []);
 
-  if (!ctot) {
-    return { ctotBg: "transparent", ctotColor: "black", showCtot: false };
-  }
-
-  const ctotTime = new Date(ctot);
-  const diffMs = now.getTime() - ctotTime.getTime(); // positive = past CTOT
-
-  if (diffMs < -5 * 60 * 1000) {
-    return { ctotBg: "yellow", ctotColor: "black", showCtot: true };
-  }
-  if (diffMs <= 10 * 60 * 1000) {
-    return { ctotBg: "#00008B", ctotColor: "white", showCtot: true };
-  }
-  return { ctotBg: "transparent", ctotColor: "black", showCtot: false };
+  return computeCTOTColors(ctot, nowMs);
 }

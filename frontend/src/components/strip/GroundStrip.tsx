@@ -1,7 +1,8 @@
+import { getSimpleAircraftType } from "@/lib/utils";
 import { getStripBg } from "./types";
 import type { StripProps } from "./types";
-import { useStripSelection, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR, COLOR_BTN_ORANGE, COLOR_SI_ASSUMED, COLOR_SI_UNCONCERNED, COLOR_SI_CONCERNED } from "./shared";
-import { useControllers } from "@/store/store-hooks";
+import { useStripSelection, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR, COLOR_BTN_ORANGE, COLOR_SI_ASSUMED, COLOR_SI_UNCONCERNED, COLOR_SI_CONCERNED, getStripOwnership, resolveStripBg } from "./shared";
+import { useControllers, useStripTransfers, useWebSocketStore } from "@/store/store-hooks";
 
 const TOP_H = 32; // 2/3 of 48px
 const BOT_H = 16; // 1/3 of 48px
@@ -34,10 +35,11 @@ export function GroundStrip({
   const { isSelected, handleClick } = useStripSelection(callsign, selectable);
   const cellBorderColor = getCellBorderColor(marked);
   const controllers = useControllers();
+  const stripTransfers = useStripTransfers();
+  const isTagRequest = !!stripTransfers[callsign]?.isTagRequest;
+  const openStripContextMenu = useWebSocketStore(s => s.openStripContextMenu);
 
-  const isAssumed = !!myPosition && owner === myPosition;
-  const isTransferredAway = !!myPosition && !!previousControllers?.includes(myPosition);
-  const isConcerned = !!myPosition && !!nextControllers?.includes(myPosition);
+  const { isAssumed, isTransferredAway, isConcerned, isUnconcerned } = getStripOwnership(myPosition, owner, nextControllers, previousControllers);
 
   let siBg = COLOR_SI_UNCONCERNED;
   if (isAssumed) siBg = COLOR_SI_ASSUMED;
@@ -54,10 +56,11 @@ export function GroundStrip({
       style={{
         height: 48,
         width: 480,
-        backgroundColor: getStripBg(pdcStatus, arrival),
+        backgroundColor: resolveStripBg(getStripBg(pdcStatus, arrival), isTagRequest, isUnconcerned),
         ...getFlatStripBorderStyle({ borderBottom: "1px solid white" }),
       }}
       onClick={handleClick}
+      onContextMenu={(e) => { e.preventDefault(); openStripContextMenu(callsign, { x: e.clientX, y: e.clientY }); }}
     >
       {/* SI / ownership — 40px */}
       <div
@@ -78,7 +81,7 @@ export function GroundStrip({
       {/* A/C type — 80px split (bottom reserved for registration) */}
       <div className="flex-shrink-0 flex flex-col border-r-2" style={{ width: 80, height: "100%", borderRightColor: cellBorderColor }}>
         <div className="flex items-center justify-center border-b-2" style={{ height: TOP_H, borderBottomColor: cellBorderColor }}>
-          <span className="text-xs font-semibold truncate px-1">{aircraftType}</span>
+          <span className="text-xs font-semibold truncate px-1">{getSimpleAircraftType(aircraftType)}</span>
         </div>
         <div style={{ height: BOT_H }} />
       </div>

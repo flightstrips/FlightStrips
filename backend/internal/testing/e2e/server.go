@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
 	"path/filepath"
 	"runtime"
@@ -118,7 +119,7 @@ func StartTestServer() (*TestServer, error) {
 	stripService := services.NewStripService(stripRepo)
 	controllerService := services.NewControllerService(controllerRepo)
 	cdmClient := cdm.NewClient(cdm.WithAPIKey(""))
-	cdmService := cdm.NewCdmService(cdmClient, stripRepo, sessionRepo)
+	cdmService := cdm.NewCdmService(cdmClient, stripRepo, sessionRepo, controllerRepo)
 
 	stripService.SetCoordinationRepo(coordRepo)
 	stripService.SetControllerRepo(controllerRepo)
@@ -131,6 +132,7 @@ func StartTestServer() (*TestServer, error) {
 	stripService.SetEuroscopeHub(euroscopeHub)
 	stripService.SetSectorOwnerRepo(sectorRepo)
 	cdmService.SetFrontendHub(frontendHub)
+	cdmService.SetEuroscopeHub(euroscopeHub)
 
 	// Initialize server
 	fsServer := server.NewServer(dbpool, euroscopeHub, frontendHub, cdmService, nil, stripRepo, controllerRepo, sessionRepo, sectorRepo, coordRepo, nil)
@@ -155,8 +157,15 @@ func StartTestServer() (*TestServer, error) {
 	mux.HandleFunc("/euroscopeEvents", euroscopeUpgrader.Upgrade)
 	mux.HandleFunc("/frontEndEvents", frontendUpgrader.Upgrade)
 
-	// Use fixed port 8090 for testing (same as dev server)
-	addr := "127.0.0.1:8090"
+	// Bind on :0 so the OS assigns a free port, avoiding conflicts when tests run in parallel.
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		dbpool.Close()
+		cancel()
+		return nil, fmt.Errorf("failed to bind listener: %w", err)
+	}
+	addr := listener.Addr().String()
+
 	httpServer := &http.Server{
 		Addr:    addr,
 		Handler: mux,
@@ -166,15 +175,12 @@ func StartTestServer() (*TestServer, error) {
 	serverErr := make(chan error, 1)
 
 	go func() {
-		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		if err := httpServer.Serve(listener); err != nil && err != http.ErrServerClosed {
 			serverErr <- err
 		}
 	}()
 
-	// Give server time to start
-	time.Sleep(200 * time.Millisecond)
-
-	// Check if server started successfully
+	// Check if server started successfully (non-blocking — Serve returns immediately on error)
 	select {
 	case err := <-serverErr:
 		dbpool.Close()

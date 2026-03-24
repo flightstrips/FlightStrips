@@ -36,17 +36,18 @@ type Wilco struct {
 type ClearanceState string
 
 const (
-	StateNone          ClearanceState = "NONE"
-	StateRequested     ClearanceState = "REQUESTED"
-	StateCleared       ClearanceState = "CLEARED"
-	StateConfirmed     ClearanceState = "CONFIRMED"
-	StateNoResponse    ClearanceState = "NO_RESPONSE"
-	StateRevertToVoice ClearanceState = "REVERT_TO_VOICE"
-	StateFailed        ClearanceState = "FAILED"
+	StateNone                ClearanceState = "NONE"
+	StateRequested           ClearanceState = "REQUESTED"
+	StateRequestedWithFaults ClearanceState = "REQUESTED_WITH_FAULTS"
+	StateCleared             ClearanceState = "CLEARED"
+	StateConfirmed           ClearanceState = "CONFIRMED"
+	StateNoResponse          ClearanceState = "NO_RESPONSE"
+	StateRevertToVoice       ClearanceState = "REVERT_TO_VOICE"
+	StateFailed              ClearanceState = "FAILED"
 )
 
 func (s ClearanceState) IsActive() bool {
-	return s == StateRequested
+	return s == StateRequested || s == StateRequestedWithFaults
 }
 
 type IncomingMessage struct {

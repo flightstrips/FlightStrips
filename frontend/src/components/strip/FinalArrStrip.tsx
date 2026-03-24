@@ -1,16 +1,15 @@
 import { useState } from "react";
+import { getSimpleAircraftType } from "@/lib/utils";
 import { useStrips, useStripTransfers, useWebSocketStore } from "@/store/store-hooks";
 import { Bay } from "@/api/models";
 import type { StripProps } from "./types";
-import { useStripSelection, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR, FONT, COLOR_ARR_YELLOW } from "./shared";
+import { useStripSelection, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR, FONT, COLOR_ARR_YELLOW, getStripOwnership, resolveStripBg } from "./shared";
 import { SIBox } from "./SIBox";
 import { ArrStandDialog } from "./ArrStandDialog";
+import { TaxiMapDialog } from "@/components/map-dialogs/TaxiMapDialog";
 
 /** Gold cell borders — matches the yellow arrival strip design. */
 const CELL_BORDER = "#FFD100";
-
-/** Subdued text color for the holding point secondary row. */
-const COLOR_HP_TEXT = "#5F5F5F";
 
 // Heights — 48px total fixed (intentional — ATC arrival strip spec), 2/3 top / 1/3 bottom
 const TOP_H = 32;
@@ -30,7 +29,7 @@ export const TOTAL_W = 40 + W_CALLSIGN + W_TYPE + W_TAXIWAY + W_RWY + W_STAND;
  *
  * 48px strip with 2/3 (32px) top row / 1/3 (16px) bottom row vertical layout:
  *   [40px SI] | [120px callsign] | [80px type↑ / squawk↓] |
- *   [80px taxiway↑] | [54px runway↑ / HP↓] | [80px stand]
+ *   [80px stand] | [54px runway↑ / release point↓] | [80px stand (reserved)]
  *
  * Background: yellow (#fff28e). Cell borders: gold (#FFD100).
  */
@@ -39,8 +38,8 @@ export function FinalArrStrip({
   bay,
   aircraftType,
   squawk,
+  assignedSquawk,
   runway,
-  taxiway,
   holdingPoint,
   stand,
   owner,
@@ -54,9 +53,13 @@ export function FinalArrStrip({
   const { isSelected, handleClick } = useStripSelection(callsign, selectable);
   const cellBorderColor = getCellBorderColor(marked, CELL_BORDER);
   const stripTransfers = useStripTransfers();
+  const isTagRequest = !!stripTransfers[callsign]?.isTagRequest;
+  const { isUnconcerned } = getStripOwnership(myPosition, owner, nextControllers, previousControllers);
   const runwayClearance = useWebSocketStore(s => s.runwayClearance);
+  const openStripContextMenu = useWebSocketStore(s => s.openStripContextMenu);
   const allStrips = useStrips();
   const [standOpen, setStandOpen] = useState(false);
+  const [taxiMapOpen, setTaxiMapOpen] = useState(false);
 
   // Count cleared strips in RWY_ARR bay (to determine green vs red).
   const clearedInRwyArr = allStrips.filter(s => s.bay === Bay.RwyArr && s.runway_cleared);
@@ -77,10 +80,11 @@ export function FinalArrStrip({
       style={{
         height: 48, // 48px fixed — intentional ATC arrival strip height
         width: TOTAL_W,
-        backgroundColor: COLOR_ARR_YELLOW,
-        ...getFlatStripBorderStyle(),
+        backgroundColor: resolveStripBg(COLOR_ARR_YELLOW, isTagRequest, isUnconcerned),
+        ...getFlatStripBorderStyle({}, CELL_BORDER),
       }}
       onClick={handleClick}
+      onContextMenu={(e) => { e.preventDefault(); openStripContextMenu(callsign, { x: e.clientX, y: e.clientY }); }}
     >
       {/* SI / ownership — 40px (fills via SIBox flex-grow) */}
       <SIBox
@@ -90,7 +94,8 @@ export function FinalArrStrip({
         previousControllers={previousControllers}
         myPosition={myPosition}
         marked={marked}
-        transferringTo={stripTransfers[callsign] ?? ""}
+        transferringTo={stripTransfers[callsign]?.to ?? ""}
+        isTagRequest={isTagRequest}
         baseBorderColor={CELL_BORDER}
       />
 
@@ -117,17 +122,20 @@ export function FinalArrStrip({
       >
         <div className="flex items-center justify-center" style={{ height: TOP_H }}>
           <span className="truncate px-1" style={{ fontFamily: FONT, fontWeight: 600, fontSize: 12 }}>
-            {aircraftType}
+            {getSimpleAircraftType(aircraftType)}
           </span>
         </div>
-        <div className="flex items-center justify-center" style={{ height: BOT_H }}>
+        <div
+          className="flex items-center justify-center"
+          style={{ height: BOT_H, backgroundColor: assignedSquawk && squawk && assignedSquawk !== squawk ? "#F43A3A" : undefined }}
+        >
           <span className="truncate px-1" style={{ fontFamily: FONT, fontSize: 12 }}>
-            {squawk}
+            {assignedSquawk ?? squawk}
           </span>
         </div>
       </div>
 
-      {/* Stand (left of runway) — 80px; bottom row shows taxiway when available */}
+      {/* Stand (left of runway) — 80px; stand in top 2/3, bottom 1/3 empty */}
       <div
         className="flex-shrink-0 flex flex-col border-r-2 cursor-pointer hover:brightness-95"
         style={{ width: W_TAXIWAY, height: "100%", borderRightColor: cellBorderColor }}
@@ -138,28 +146,30 @@ export function FinalArrStrip({
             {stand}
           </span>
         </div>
-        <div className="flex items-center justify-center" style={{ height: BOT_H }}>
-          <span className="truncate px-1" style={{ fontFamily: FONT, fontWeight: "bold", fontSize: 14 }}>
-            {taxiway}
-          </span>
-        </div>
         <div style={{ height: BOT_H }} />
       </div>
 
       {/* Runway / Holding Point — 54px */}
       <div
-        className={`flex-shrink-0 flex flex-col border-r-2${bay === Bay.Final || bay === Bay.RwyArr ? " cursor-pointer" : ""}`}
+        className="flex-shrink-0 flex flex-col border-r-2"
         style={{ width: W_RWY, height: "100%", borderRightColor: cellBorderColor, backgroundColor: rwyColor }}
-        onClick={bay === Bay.Final || bay === Bay.RwyArr ? (e) => { e.stopPropagation(); runwayClearance(callsign); } : undefined}
       >
-        <div className="flex items-center justify-center" style={{ height: TOP_H }}>
+        <div
+          className={`flex items-center justify-center${bay === Bay.Final || bay === Bay.RwyArr ? " cursor-pointer" : ""}`}
+          style={{ height: TOP_H }}
+          onClick={bay === Bay.Final || bay === Bay.RwyArr ? (e) => { e.stopPropagation(); runwayClearance(callsign); } : undefined}
+        >
           <span className="truncate" style={{ fontFamily: FONT, fontWeight: "bold", fontSize: 18 }}>
             {runway}
           </span>
         </div>
-        <div className="flex items-center justify-center" style={{ height: BOT_H }}>
-          <span style={{ fontFamily: FONT, fontSize: 12, color: COLOR_HP_TEXT }}>
-            {holdingPoint}
+        <div
+          className="flex items-center justify-center cursor-pointer"
+          style={{ height: BOT_H }}
+          onClick={(e) => { e.stopPropagation(); setTaxiMapOpen(true); }}
+        >
+          <span style={{ fontFamily: FONT, fontSize: 12, opacity: holdingPoint ? 1 : 0.2 }}>
+            {holdingPoint || "TWY"}
           </span>
         </div>
       </div>
@@ -176,6 +186,11 @@ export function FinalArrStrip({
       onOpenChange={setStandOpen}
       callsign={callsign}
       currentStand={stand}
+    />
+    <TaxiMapDialog
+      open={taxiMapOpen}
+      onOpenChange={setTaxiMapOpen}
+      callsign={callsign}
     />
     </>
   );

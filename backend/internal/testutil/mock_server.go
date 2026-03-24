@@ -10,9 +10,12 @@ import (
 // MockServer is a configurable mock for shared.Server.
 type MockServer struct {
 	FrontendHubVal    shared.FrontendHub
+	EuroscopeHubVal   shared.EuroscopeHub
+	CdmServiceVal     shared.CdmService
 	CoordRepoVal      repository.CoordinationRepository
 	ControllerRepoVal repository.ControllerRepository
 	SessionRepoVal    repository.SessionRepository
+	StripRepoVal      repository.StripRepository
 
 	UpdateSectorsFn          func(sessionId int32) ([]shared.SectorChange, error)
 	UpdateRouteForStripFn    func(callsign string, sessionId int32, sendUpdate bool) error
@@ -22,7 +25,7 @@ type MockServer struct {
 
 func (m *MockServer) GetDatabasePool() *pgxpool.Pool { return nil }
 
-func (m *MockServer) GetEuroscopeHub() shared.EuroscopeHub { return nil }
+func (m *MockServer) GetEuroscopeHub() shared.EuroscopeHub { return m.EuroscopeHubVal }
 
 func (m *MockServer) GetFrontendHub() shared.FrontendHub { return m.FrontendHubVal }
 
@@ -30,11 +33,11 @@ func (m *MockServer) GetOrCreateSession(airport string, name string) (shared.Ses
 	return shared.Session{}, nil
 }
 
-func (m *MockServer) GetCdmService() shared.CdmService { return nil }
+func (m *MockServer) GetCdmService() shared.CdmService { return m.CdmServiceVal }
 
 func (m *MockServer) GetPdcService() shared.PdcService { return nil }
 
-func (m *MockServer) GetStripRepository() repository.StripRepository { return nil }
+func (m *MockServer) GetStripRepository() repository.StripRepository { return m.StripRepoVal }
 
 func (m *MockServer) GetControllerRepository() repository.ControllerRepository {
 	return m.ControllerRepoVal

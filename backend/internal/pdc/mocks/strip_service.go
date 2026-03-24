@@ -58,8 +58,8 @@ func (m *StripService) AutoTransferAirborneStrip(ctx context.Context, session in
 	return args.Error(0)
 }
 
-func (m *StripService) AutoAssumeForClearedStrip(ctx context.Context, session int32, callsign string, stripVersion int32) error {
-	args := m.Called(ctx, session, callsign, stripVersion)
+func (m *StripService) AutoAssumeForClearedStrip(ctx context.Context, session int32, callsign string) error {
+	args := m.Called(ctx, session, callsign)
 	return args.Error(0)
 }
 
@@ -85,6 +85,16 @@ func (m *StripService) CancelCoordinationTransfer(ctx context.Context, session i
 
 func (m *StripService) FreeStrip(ctx context.Context, session int32, callsign string, position string) error {
 	args := m.Called(ctx, session, callsign, position)
+	return args.Error(0)
+}
+
+func (m *StripService) CreateTagRequest(ctx context.Context, session int32, callsign string, requesterPosition string) error {
+	args := m.Called(ctx, session, callsign, requesterPosition)
+	return args.Error(0)
+}
+
+func (m *StripService) AcceptTagRequest(ctx context.Context, session int32, callsign string, ownerPosition string) error {
+	args := m.Called(ctx, session, callsign, ownerPosition)
 	return args.Error(0)
 }
 
@@ -183,12 +193,27 @@ func (m *StripService) UpdateMarked(ctx context.Context, session int32, callsign
 	return args.Error(0)
 }
 
-func (m *StripService) RunwayClearance(ctx context.Context, session int32, callsign string) error {
-	args := m.Called(ctx, session, callsign)
+func (m *StripService) RunwayClearance(ctx context.Context, session int32, callsign string, cid string, airport string) error {
+	args := m.Called(ctx, session, callsign, cid, airport)
 	return args.Error(0)
 }
 
 func (m *StripService) PropagateRunwayChange(ctx context.Context, session int32, airport string, oldRunways models.ActiveRunways, newRunways models.ActiveRunways) error {
 	args := m.Called(ctx, session, airport, oldRunways, newRunways)
+	return args.Error(0)
+}
+
+func (m *StripService) ForceAssumeStrip(ctx context.Context, session int32, callsign string, position string) error {
+	args := m.Called(ctx, session, callsign, position)
+	return args.Error(0)
+}
+
+func (m *StripService) CreateManualFPL(ctx context.Context, session int32, req frontend.CreateManualFPLAction, cid string, airport string) error {
+	args := m.Called(ctx, session, req, cid, airport)
+	return args.Error(0)
+}
+
+func (m *StripService) CreateVFRFPL(ctx context.Context, session int32, req frontend.CreateVFRFPLAction, cid string) error {
+	args := m.Called(ctx, session, req, cid)
 	return args.Error(0)
 }

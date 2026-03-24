@@ -84,7 +84,6 @@ func ParseIncomingMessage(from, to, raw string) (*IncomingMessage, error) {
 	}, nil
 }
 
-
 func buildRequestAck(sequence int32, origin, callsign string) string {
 	payload := fmt.Sprintf(
 		"DEPART REQUEST STATUS . FSM %s %s %s @%s@ RCD RECEIVED @REQUEST BEING PROCESSED @STANDBY",
@@ -102,9 +101,10 @@ type ClearanceOptions struct {
 	Destination string
 	Atis        string
 
-	Runway        string
-	Squawk        string
-	NextFrequency string
+	Runway             string
+	Squawk             string
+	NextFrequency      string
+	DepartureFrequency string
 
 	Sequence    int32
 	PdcSequence int32
@@ -177,6 +177,9 @@ func buildPDCClearance(options ClearanceOptions) string {
 	sb.WriteString("@ NEXT FRQ: @")
 	sb.WriteString(options.NextFrequency)
 	sb.WriteString("@")
+	sb.WriteString(" Departure frequency: @")
+	sb.WriteString(options.DepartureFrequency)
+	sb.WriteString("@. Check charts for confirmation.")
 
 	if options.Remarks != "" {
 		sb.WriteString(" @")
@@ -237,4 +240,3 @@ func buildInvalidAircraftType(sequence int32, airport, callsign string) string {
 	payload := fmt.Sprintf("DEPART REQUEST STATUS . FSM %s %s %s @%s@ RCD REJECTED @TYPE MISMATCH @UPDATE RCD AND RESEND", timeStr, dateStr, airport, callsign)
 	return buildHoppieMessage(sequence, payload, MsgInvalidAircraftType)
 }
-

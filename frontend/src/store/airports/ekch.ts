@@ -13,10 +13,17 @@ export const useTacticalStripsForBay = (bay: Bay) => {
   );
 };
 
-const isSasStrip = (strip: FrontendStrip) =>
-  strip.callsign.toUpperCase().startsWith("SAS");
-const isNorwegianStrip = (strip: FrontendStrip) =>
-  strip.callsign.toUpperCase().startsWith("NSZ");
+const SAS_PREFIXES = ["SAS", "SZS"];
+const NORWEGIAN_PREFIXES = ["NAX", "NOZ", "NZS", "IBK"];
+
+const isSasStrip = (strip: FrontendStrip) => {
+  const cs = strip.callsign.toUpperCase();
+  return SAS_PREFIXES.some(p => cs.startsWith(p));
+};
+const isNorwegianStrip = (strip: FrontendStrip) => {
+  const cs = strip.callsign.toUpperCase();
+  return NORWEGIAN_PREFIXES.some(p => cs.startsWith(p));
+};
 
 export const useSasBayStrips = () => {
   const strips = useWebSocketStore(state => state.strips);
@@ -183,6 +190,18 @@ export const useDeIceStrips = (): AnyStrip[] => {
     () => ([
       ...strips.filter(x => x.bay === Bay.DeIce),
       ...tacticalStrips.filter(t => t.bay === Bay.DeIce),
+    ] as AnyStrip[]).sort((a, b) => a.sequence - b.sequence),
+    [strips, tacticalStrips]
+  );
+};
+
+export const useControlzoneStrips = (): AnyStrip[] => {
+  const strips = useWebSocketStore(state => state.strips);
+  const tacticalStrips = useTacticalStrips();
+  return useMemo(
+    () => ([
+      ...strips.filter(x => x.bay === Bay.Controlzone),
+      ...tacticalStrips.filter(t => t.bay === Bay.Controlzone),
     ] as AnyStrip[]).sort((a, b) => a.sequence - b.sequence),
     [strips, tacticalStrips]
   );

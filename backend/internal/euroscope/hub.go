@@ -35,6 +35,10 @@ type Hub struct {
 	authenticationService shared.AuthenticationService
 	clients               map[*Client]bool
 
+	// airportClientsMu guards airportClientCount for concurrent reads from other goroutines.
+	airportClientsMu   sync.RWMutex
+	airportClientCount map[string]int // airport → number of connected ES clients
+
 	send chan internalMessage
 
 	register   chan *Client
@@ -72,6 +76,7 @@ func NewHub(stripService shared.StripService, controllerService shared.Controlle
 	handlers.Add(euroscope.Sync, handleSync)
 	handlers.Add(euroscope.StripUpdate, handleStripUpdateEvent)
 	handlers.Add(euroscope.Runway, handleRunways)
+	handlers.Add(euroscope.CdmLocalData, handleCdmLocalData)
 	handlers.Add(euroscope.TrackingControllerChanged, handleTrackingControllerChanged)
 	handlers.Add(euroscope.CoordinationReceived, handleCoordinationReceived)
 
@@ -87,6 +92,7 @@ func NewHub(stripService shared.StripService, controllerService shared.Controlle
 		authenticationService: authenticationService,
 		recorders:             make(map[int32]*recorder.Recorder),
 		offlineTimers:         make(map[string]context.CancelFunc),
+		airportClientCount:    make(map[string]int),
 	}
 
 	go hub.Run()
@@ -119,6 +125,10 @@ func (hub *Hub) Send(session int32, cid string, message euroscope.OutgoingMessag
 }
 
 func (hub *Hub) OnRegister(client *Client) {
+	// Track per-airport client count for HasActiveClientForAirport queries.
+	hub.airportClientsMu.Lock()
+	hub.airportClientCount[client.airport]++
+	hub.airportClientsMu.Unlock()
 	// Start recording if in record mode and not already recording this session
 	if config.IsRecordMode() && !hub.IsRecording(client.session) {
 		err := hub.StartRecording(client.session, client.airport, "LIVE", "Auto-recorded session")
@@ -309,6 +319,16 @@ func (hub *Hub) handleLogin(msg []byte, user shared.AuthenticatedUser) (event eu
 }
 
 func (hub *Hub) OnUnregister(client *Client) {
+	// Update per-airport client count.
+	hub.airportClientsMu.Lock()
+	if hub.airportClientCount[client.airport] > 0 {
+		hub.airportClientCount[client.airport]--
+		if hub.airportClientCount[client.airport] == 0 {
+			delete(hub.airportClientCount, client.airport)
+		}
+	}
+	hub.airportClientsMu.Unlock()
+
 	server := hub.server
 	controllerRepo := server.GetControllerRepository()
 	count, err := controllerRepo.SetCid(context.Background(), client.session, client.callsign, nil)
@@ -340,6 +360,10 @@ func (hub *Hub) SendGenerateSquawk(session int32, cid string, callsign string) {
 		Callsign: callsign,
 	}
 	hub.Send(session, cid, event)
+}
+
+func (hub *Hub) SendCdmReadyRequest(session int32, cid string, callsign string) {
+	hub.Send(session, cid, euroscope.CdmReadyRequestEvent{Callsign: callsign})
 }
 
 func (hub *Hub) SendGroundState(session int32, cid string, callsign string, state string) {
@@ -436,12 +460,24 @@ func (hub *Hub) SendAssumeAndDrop(session int32, cid string, callsign string) {
 	hub.Send(session, cid, euroscope.AssumeAndDropEvent{Callsign: callsign})
 }
 
+// HasActiveClientForAirport returns true if at least one ES client is currently
+// connected for the given airport. This is safe to call from any goroutine.
+func (hub *Hub) HasActiveClientForAirport(airport string) bool {
+	hub.airportClientsMu.RLock()
+	defer hub.airportClientsMu.RUnlock()
+	return hub.airportClientCount[airport] > 0
+}
+
 func (hub *Hub) SendCoordinationHandover(session int32, cid string, callsign string, targetCallsign string) {
 	event := euroscope.CoordinationHandoverEvent{
 		Callsign:       callsign,
 		TargetCallsign: targetCallsign,
 	}
 
+	hub.Send(session, cid, event)
+}
+
+func (hub *Hub) SendCreateFPL(session int32, cid string, event euroscope.CreateFPLEvent) {
 	hub.Send(session, cid, event)
 }
 

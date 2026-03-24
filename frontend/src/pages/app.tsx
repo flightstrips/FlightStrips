@@ -2,6 +2,23 @@ import { useAuth0 } from "@auth0/auth0-react";
 import { WebSocketProvider } from "@/providers/websocket-provider";
 import CommandBar from "@/components/commandbar/CommandBar";
 import AppRouter from "@/routes/AppRouter";
+import { StripContextMenu } from "@/components/strip/StripContextMenu";
+import { useContextMenu, useCloseStripContextMenu } from "@/store/store-hooks";
+
+function ContextMenuOverlay() {
+  const contextMenu = useContextMenu();
+  const closeStripContextMenu = useCloseStripContextMenu();
+
+  if (!contextMenu) return null;
+
+  return (
+    <StripContextMenu
+      callsign={contextMenu.callsign}
+      position={{ x: contextMenu.x, y: contextMenu.y }}
+      onClose={closeStripContextMenu}
+    />
+  );
+}
 
 export default function AppPage() {
   const { isAuthenticated, isLoading, loginWithRedirect } = useAuth0();
@@ -25,6 +42,8 @@ export default function AppPage() {
       <div>
         <AppRouter />
         <CommandBar />
+        <ContextMenuOverlay />
+        {/* <CustomCursor /> */}
       </div>
     </WebSocketProvider>
   );

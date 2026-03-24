@@ -54,9 +54,12 @@ type StripService interface {
 	CreateEsArrivalCoordination(ctx context.Context, session int32, callsign string, from string, to string, esHandoverCid *string) error
 	AcceptCoordination(ctx context.Context, session int32, callsign string, assumingPosition string) error
 	AssumeStripCoordination(ctx context.Context, session int32, callsign string, position string) error
+	ForceAssumeStrip(ctx context.Context, session int32, callsign string, position string) error
 	RejectCoordination(ctx context.Context, session int32, callsign string, position string) error
 	CancelCoordinationTransfer(ctx context.Context, session int32, callsign string, position string) error
 	FreeStrip(ctx context.Context, session int32, callsign string, position string) error
+	CreateTagRequest(ctx context.Context, session int32, callsign string, requesterPosition string) error
+	AcceptTagRequest(ctx context.Context, session int32, callsign string, ownerPosition string) error
 	AutoTransferAirborneStrip(ctx context.Context, session int32, callsign string) error
 
 	// Cleared bay operations
@@ -64,7 +67,7 @@ type StripService interface {
 	UnclearStrip(ctx context.Context, session int32, callsign string, cid string) error
 
 	// Auto-assumption
-	AutoAssumeForClearedStrip(ctx context.Context, session int32, callsign string, stripVersion int32) error
+	AutoAssumeForClearedStrip(ctx context.Context, session int32, callsign string) error
 	AutoAssumeForControllerOnline(ctx context.Context, session int32, controllerPosition string) error
 
 	// EuroScope field updates — each method reads, applies business rules, persists, and notifies frontend.
@@ -94,6 +97,10 @@ type StripService interface {
 	// setting a value on a strip that has none are rejected.
 	ApplyReleasePoint(ctx context.Context, session int32, callsign string, releasePoint string, clientPosition string) error
 	UpdateMarked(ctx context.Context, session int32, callsign string, marked bool) error
-	RunwayClearance(ctx context.Context, session int32, callsign string) error
+	RunwayClearance(ctx context.Context, session int32, callsign string, cid string, airport string) error
 	PropagateRunwayChange(ctx context.Context, session int32, airport string, oldRunways models.ActiveRunways, newRunways models.ActiveRunways) error
+
+	// Manual FPL creation
+	CreateManualFPL(ctx context.Context, session int32, req frontend.CreateManualFPLAction, cid string, airport string) error
+	CreateVFRFPL(ctx context.Context, session int32, req frontend.CreateVFRFPLAction, cid string) error
 }

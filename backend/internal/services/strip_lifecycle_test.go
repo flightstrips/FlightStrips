@@ -148,6 +148,9 @@ func TestClearStrip_MovesToClearedBay(t *testing.T) {
 			movedToBay = b
 			return 1, nil
 		},
+		UpdateClearedFlagFn: func(_ context.Context, _ int32, _ string, _ bool, _ string, _ *int32) (int64, error) {
+			return 1, nil
+		},
 	}
 
 	hub := &testutil.MockFrontendHub{}
@@ -180,6 +183,9 @@ func TestUnclearStrip_MovesToNotClearedBay(t *testing.T) {
 			movedToBay = b
 			return 1, nil
 		},
+		UpdateClearedFlagFn: func(_ context.Context, _ int32, _ string, _ bool, _ string, _ *int32) (int64, error) {
+			return 1, nil
+		},
 	}
 
 	hub := &testutil.MockFrontendHub{}
@@ -204,6 +210,9 @@ func TestClearStrip_NoEuroscopeHub(t *testing.T) {
 			return int32(0), nil
 		},
 		UpdateBayAndSequenceFn: func(_ context.Context, _ int32, _ string, _ string, _ int32) (int64, error) {
+			return 1, nil
+		},
+		UpdateClearedFlagFn: func(_ context.Context, _ int32, _ string, _ bool, _ string, _ *int32) (int64, error) {
 			return 1, nil
 		},
 	}
@@ -440,9 +449,14 @@ func TestAssumeStripCoordination_DirectAssume_UnownedStrip(t *testing.T) {
 	}
 
 	var ownerSet string
+	var nextOwnersSet []string
 	stripRepo := &testutil.MockStripRepository{
 		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
 			return strip, nil
+		},
+		SetNextAndPreviousOwnersFn: func(_ context.Context, _ int32, _ string, next []string, _ []string) error {
+			nextOwnersSet = next
+			return nil
 		},
 		SetOwnerFn: func(_ context.Context, _ int32, _ string, o *string, v int32) (int64, error) {
 			assert.NotNil(t, o)
@@ -461,6 +475,7 @@ func TestAssumeStripCoordination_DirectAssume_UnownedStrip(t *testing.T) {
 	err := svc.AssumeStripCoordination(ctx, session, callsign, position)
 	require.NoError(t, err)
 	assert.Equal(t, position, ownerSet)
+	assert.Empty(t, nextOwnersSet)
 	require.Len(t, hub.CoordinationAssumes, 1)
 	assert.Equal(t, position, hub.CoordinationAssumes[0].Position)
 }
@@ -638,7 +653,7 @@ func TestAutoAssumeForClearedStrip_NilSectorOwnerRepo_ReturnsNil(t *testing.T) {
 	ctx := context.Background()
 	svc := NewStripService(&testutil.MockStripRepository{})
 	// sectorOwnerRepo is not set — should be a no-op
-	err := svc.AutoAssumeForClearedStrip(ctx, 1, "ANY", 1)
+	err := svc.AutoAssumeForClearedStrip(ctx, 1, "ANY")
 	require.NoError(t, err)
 }
 
@@ -673,7 +688,7 @@ func TestAutoAssumeForClearedStrip_SetOwnerVersionConflict_NoUpdate(t *testing.T
 	svc.SetFrontendHub(hub)
 	svc.SetSectorOwnerRepo(sectorRepo)
 
-	err := svc.AutoAssumeForClearedStrip(ctx, session, callsign, 5)
+	err := svc.AutoAssumeForClearedStrip(ctx, session, callsign)
 	require.NoError(t, err)
 	assert.Empty(t, hub.OwnersUpdates, "no update should be sent when SetOwner returns 0 rows")
 }

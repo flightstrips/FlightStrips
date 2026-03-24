@@ -40,6 +40,7 @@ type Coordination struct {
 	CoordinatedAt pgtype.Timestamp
 	FromEs        bool
 	EsHandoverCid *string
+	IsTagRequest  bool
 }
 
 type SectorOwner struct {
@@ -57,6 +58,7 @@ type Session struct {
 	ActiveRunways      models.ActiveRunways
 	PdcSequence        int32
 	PdcMessageSequence int32
+	AvailableSids      models.AvailableSids
 }
 
 type Strip struct {
@@ -89,16 +91,8 @@ type Strip struct {
 	PositionLatitude         *float64
 	PositionLongitude        *float64
 	PositionAltitude         *int32
-	Tobt                     *string
-	Tsat                     *string
-	Ttot                     *string
-	Ctot                     *string
-	Aobt                     *string
-	Asat                     *string
-	Eobt                     *string
 	NextOwners               []string
 	PreviousOwners           []string
-	CdmStatus                *string
 	ReleasePoint             *string
 	PdcState                 string
 	PdcRequestedAt           pgtype.Timestamp
@@ -110,6 +104,13 @@ type Strip struct {
 	RunwayCleared            bool
 	UnexpectedChangeFields   []string
 	ControllerModifiedFields []string
+	EngineType               string
+	IsManual                 bool
+	PersonsOnBoard           *int32
+	FplType                  *string
+	Language                 *string
+	HasFp                    bool
+	CdmData                  []byte
 }
 
 type TacticalStrip struct {

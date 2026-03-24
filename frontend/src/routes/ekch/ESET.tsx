@@ -353,7 +353,7 @@ export default function ESET() {
   }
 
   return (
-    <div className={`h-[calc(100vh-4rem)] w-full overflow-hidden ${PAGE_BG} px-2 py-1`}>
+    <div className={`h-[calc(100vh-60px)] w-full overflow-hidden ${PAGE_BG} px-2 py-1`}>
       <div ref={boardFrameRef} className="relative h-full w-full overflow-hidden">
         <div
           className="absolute left-1/2 top-1/2"

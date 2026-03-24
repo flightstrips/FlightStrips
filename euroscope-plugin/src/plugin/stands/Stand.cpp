@@ -25,19 +25,19 @@ namespace FlightStrips {
         return {name, airport, pos, radius};
     }
 
-    std::string stands::Stand::GetAirport() {
+    std::string stands::Stand::GetAirport() const {
         return this->airport;
     }
 
-    EuroScopePlugIn::CPosition stands::Stand::GetPosition() {
+    EuroScopePlugIn::CPosition stands::Stand::GetPosition() const {
         return this->position;
     }
 
-    std::string stands::Stand::GetName() {
+    std::string stands::Stand::GetName() const {
         return this->name;
     }
 
-    double stands::Stand::GetRadius() {
+    double stands::Stand::GetRadius() const {
         return this->radius;
     }
 }

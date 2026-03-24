@@ -29,6 +29,12 @@ export const useActiveMessages = () => useWebSocketStore((state) => state.messag
 export const useMyPosition = () => useWebSocketStore((state) => state.position);
 export const useStripTransfers = () => useWebSocketStore((state) => state.stripTransfers);
 export const useMetar = () => useWebSocketStore((state) => state.metar);
+export const useArrAtisCode = () => useWebSocketStore((state) => state.arrAtisCode);
+export const useDepAtisCode = () => useWebSocketStore((state) => state.depAtisCode);
+/** @deprecated use useDepAtisCode or useArrAtisCode */
+export const useAtisCode = () => useWebSocketStore((state) => state.depAtisCode);
+
+export const useAvailableSids = () => useWebSocketStore((state) => state.availableSids);
 
 export const useLowerPositionOnline = () =>
   useWebSocketStore((state) =>
@@ -72,3 +78,6 @@ export const useIsTwr = () =>
 
 export const useLayoutChooserOpen = () => useWebSocketStore((state) => state.layoutChooserOpen);
 export const useSetLayoutChooserOpen = () => useWebSocketStore((state) => state.setLayoutChooserOpen);
+export const useContextMenu = () => useWebSocketStore((state) => state.contextMenu);
+export const useOpenStripContextMenu = () => useWebSocketStore((state) => state.openStripContextMenu);
+export const useCloseStripContextMenu = () => useWebSocketStore((state) => state.closeStripContextMenu);

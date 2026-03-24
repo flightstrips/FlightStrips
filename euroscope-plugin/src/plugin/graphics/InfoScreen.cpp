@@ -20,7 +20,10 @@ namespace FlightStrips::graphics {
         const std::shared_ptr<configuration::UserConfig> &config,
         const std::weak_ptr<websocket::WebSocketService> &webSocketService,
         FlightStripsPlugin *plugin) : authService(
-                                          authenticationService), userConfig(config), webSocketService(webSocketService), m_plugin(plugin) {
+                                          authenticationService),
+                                      userConfig(config),
+                                      webSocketService(webSocketService),
+                                      m_plugin(plugin) {
         const auto state = userConfig->GetWindowState();
         menubar = {state.x, state.y, state.x + width, state.y + height};
         isMinimized = state.minimized;

@@ -56,6 +56,7 @@ export function Strip({ strip, status, halfStripVariant, myPosition, selectable,
     ctot: strip.ctot,
     aircraftType: strip.aircraft_type,
     squawk: strip.squawk,
+    assignedSquawk: strip.assigned_squawk,
     sid: strip.sid,
     runway: strip.runway,
     clearedAltitude: strip.cleared_altitude,
@@ -75,6 +76,7 @@ export function Strip({ strip, status, halfStripVariant, myPosition, selectable,
     fullWidth,
     unexpectedChangeFields: strip.unexpected_change_fields,
     controllerModifiedFields: strip.controller_modified_fields,
+    isManual: strip.is_manual,
   };
 
   switch (status) {

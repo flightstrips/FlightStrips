@@ -7,6 +7,7 @@ interface ApronTaxiMapDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   callsign: string;
+  noMove?: boolean;
 }
 
 const BTN_STYLE: React.CSSProperties = {
@@ -19,7 +20,7 @@ const BTN_STYLE: React.CSSProperties = {
 // Hold short points that correspond to the final hold (TWY DEP-LWR / TAXI_LWR).
 const LWR_HOLD_POINTS = new Set(["B", "D", "F", "A", "K3", "K2", "K1", "V2", "V1"]);
 
-export function ApronTaxiMapDialog({ open, onOpenChange, callsign }: ApronTaxiMapDialogProps) {
+export function ApronTaxiMapDialog({ open, onOpenChange, callsign, noMove = false }: ApronTaxiMapDialogProps) {
   const setReleasePoint = useWebSocketStore((s) => s.setReleasePoint);
   const move = useWebSocketStore((s) => s.move);
   const apronOnline = useApronOnline();
@@ -29,15 +30,17 @@ export function ApronTaxiMapDialog({ open, onOpenChange, callsign }: ApronTaxiMa
   const handleSelect = (label: string) => {
     setReleasePoint(callsign, label);
 
-    // AUTO-LOCAL routing:
-    // - Solo TWR (no separate apron): all points → TWY DEP-LWR so TWR can see them.
-    // - Split ops (separate apron or TWR online): final hold points → TWY DEP-LWR, others → TWY DEP-UPR.
-    const splitOps = apronOnline || twrOnline;
-    const soloTwr = isTwr && !apronOnline;
-    const targetBay = (soloTwr || (splitOps && LWR_HOLD_POINTS.has(label)))
-      ? Bay.TaxiLwr
-      : Bay.Taxi;
-    move(callsign, targetBay);
+    if (!noMove) {
+      // AUTO-LOCAL routing:
+      // - Solo TWR (no separate apron): all points → TWY DEP-LWR so TWR can see them.
+      // - Split ops (separate apron or TWR online): final hold points → TWY DEP-LWR, others → TWY DEP-UPR.
+      const splitOps = apronOnline || twrOnline;
+      const soloTwr = isTwr && !apronOnline;
+      const targetBay = (soloTwr || (splitOps && LWR_HOLD_POINTS.has(label)))
+        ? Bay.TaxiLwr
+        : Bay.Taxi;
+      move(callsign, targetBay);
+    }
 
     onOpenChange(false);
   };

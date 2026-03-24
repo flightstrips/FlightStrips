@@ -1,20 +1,26 @@
-import { useSelectedCallsign, usePosition, useStrip, useWebSocketStore } from "@/store/store-hooks";
-import { Bay } from "@/api/models";
+import { useSelectedCallsign, usePosition, useStrip, useStripTransfers, useWebSocketStore } from "@/store/store-hooks";
 import { CLS_CMDBTN } from "@/components/strip/shared";
+import { Bay } from "@/api/models";
 
 export default function REQBTN() {
   const selectedCallsign = useSelectedCallsign();
   const position = usePosition();
   const strip = useStrip(selectedCallsign ?? "");
-  const move = useWebSocketStore((state) => state.move);
+  const stripTransfers = useStripTransfers();
+  const requestTag = useWebSocketStore((state) => state.requestTag);
 
-  const canReq = !!selectedCallsign && strip?.owner !== position;
+  const hasActiveCoordination = !!selectedCallsign && !!stripTransfers[selectedCallsign];
+  const isOwner = !!position && strip?.owner === position;
+  const isUnowned = !strip?.owner;
+
+  const isCleared = strip?.bay === Bay.Cleared;
+  const canReq = !!selectedCallsign && isCleared && !isOwner && !isUnowned && !hasActiveCoordination;
 
   return (
     <button
       disabled={!canReq}
       className={`${CLS_CMDBTN} ${!canReq ? "opacity-50 cursor-not-allowed" : ""}`}
-      onClick={() => canReq && move(selectedCallsign!, Bay.Unknown)}
+      onClick={() => canReq && requestTag(selectedCallsign!)}
     >
       REQ
     </button>

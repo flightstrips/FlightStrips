@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.1](https://github.com/flightstrips/FlightStrips/compare/plugin/v0.8.0...plugin/v0.8.1) (2026-03-24)
+
+
+### Bug Fixes
+
+* only set tobt on ready message ([0667dfe](https://github.com/flightstrips/FlightStrips/commit/0667dfe29baaa46155781fc271955d1ee0d28541))
+
 ## [0.8.0](https://github.com/flightstrips/FlightStrips/compare/plugin/v0.7.1...plugin/v0.8.0) (2026-03-23)
 
 

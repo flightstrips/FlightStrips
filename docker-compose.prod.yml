@@ -57,6 +57,12 @@ services:
     networks:
       - flightstrips
 
+  docs:
+    image: ghcr.io/flightstrips/docs:latest
+    restart: unless-stopped
+    networks:
+      - flightstrips
+
 networks:
   backend:
   flightstrips:

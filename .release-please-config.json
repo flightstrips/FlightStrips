@@ -17,6 +17,12 @@
       "component": "frontend",
       "tag-separator": "/",
       "extra-files": ["version.txt"]
+    },
+    "docs": {
+      "release-type": "simple",
+      "component": "docs",
+      "tag-separator": "/",
+      "extra-files": ["version.txt"]
     }
   },
   "separate-pull-requests": false

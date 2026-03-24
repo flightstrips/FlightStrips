@@ -14,6 +14,7 @@ export default defineConfig({
 					items: [
 						// Each item here is one entry in the navigation menu.
 						{ label: 'Introduction', slug: 'getting-started/intro' },
+						{ label: 'Features', slug: 'getting-started/features' },
 						{ label: 'EuroScope plugin', slug: 'getting-started/es-plugion' },
 					],
 				},

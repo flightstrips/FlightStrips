@@ -112,6 +112,10 @@ func SeedTestSessionWithSectors(t *testing.T, queries *database.Queries, sectors
 
 // SeedTestStrip inserts a test strip
 func SeedTestStrip(t *testing.T, queries *database.Queries, sessionID int32, callsign string) {
+	SeedTestStripWithSquawks(t, queries, sessionID, callsign, ptr("2401"), ptr("2401"))
+}
+
+func SeedTestStripWithSquawks(t *testing.T, queries *database.Queries, sessionID int32, callsign string, squawk, assignedSquawk *string) {
 	ctx := context.Background()
 
 	err := queries.InsertStrip(ctx, database.InsertStripParams{
@@ -122,8 +126,8 @@ func SeedTestStrip(t *testing.T, queries *database.Queries, sessionID int32, cal
 		AircraftType:   ptr("A320"),
 		Runway:         ptr("22L"),
 		Sid:            ptr("VEMBO2E"),
-		Squawk:         ptr("2401"),
-		AssignedSquawk: ptr("2401"),
+		Squawk:         squawk,
+		AssignedSquawk: assignedSquawk,
 		Bay:            "NOT_CLEARED",
 		CdmData:        []byte(`{"canonical":{}}`),
 	})

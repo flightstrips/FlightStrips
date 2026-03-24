@@ -35,25 +35,27 @@ type sessionInformation struct {
 }
 
 type Service struct {
-	client        HoppieClientInterface
-	sessionRepo   repository.SessionRepository
-	stripRepo     repository.StripRepository
-	sectorRepo    repository.SectorOwnerRepository
-	frontendHub   shared.FrontendHub
-	stripService  shared.StripService
-	timeouts      map[string]*timeoutTracker
-	timeoutsMutex sync.RWMutex
-	timeoutConfig time.Duration
+	client         HoppieClientInterface
+	sessionRepo    repository.SessionRepository
+	stripRepo      repository.StripRepository
+	sectorRepo     repository.SectorOwnerRepository
+	controllerRepo repository.ControllerRepository
+	frontendHub    shared.FrontendHub
+	stripService   shared.StripService
+	timeouts       map[string]*timeoutTracker
+	timeoutsMutex  sync.RWMutex
+	timeoutConfig  time.Duration
 }
 
-func NewPDCService(client *Client, sessionRepo repository.SessionRepository, stripRepo repository.StripRepository, sectorRepo repository.SectorOwnerRepository) *Service {
+func NewPDCService(client *Client, sessionRepo repository.SessionRepository, stripRepo repository.StripRepository, sectorRepo repository.SectorOwnerRepository, controllerRepo repository.ControllerRepository) *Service {
 	return &Service{
-		client:        client,
-		sessionRepo:   sessionRepo,
-		stripRepo:     stripRepo,
-		sectorRepo:    sectorRepo,
-		timeouts:      make(map[string]*timeoutTracker),
-		timeoutConfig: 10 * time.Minute, // Default 10 minutes
+		client:         client,
+		sessionRepo:    sessionRepo,
+		stripRepo:      stripRepo,
+		sectorRepo:     sectorRepo,
+		controllerRepo: controllerRepo,
+		timeouts:       make(map[string]*timeoutTracker),
+		timeoutConfig:  10 * time.Minute, // Default 10 minutes
 	}
 }
 
@@ -284,8 +286,13 @@ func (s *Service) IssueClearance(ctx context.Context, callsign, remarks, cid str
 	}
 
 	// Validate required clearance fields are present in strip
-	if strip.Runway == nil || strip.Squawk == nil || (strip.Sid == nil && strip.Heading == nil) || strip.AssignedSquawk == nil {
-		return fmt.Errorf("strip missing required clearance data (runway/squawk/sid/squawk)")
+	if strip.Runway == nil || (strip.Sid == nil && strip.Heading == nil) {
+		return fmt.Errorf("strip missing required clearance data (runway and SID or heading)")
+	}
+
+	clearanceSquawk, err := getAssignedPDCSquawk(strip)
+	if err != nil {
+		return fmt.Errorf("strip missing required clearance data: %w", err)
 	}
 
 	nextFreq, err := s.getNextFrequency(ctx, sessionInfo.id)
@@ -311,7 +318,7 @@ func (s *Service) IssueClearance(ctx context.Context, callsign, remarks, cid str
 		Destination:        strip.Destination,
 		Atis:               "A",
 		Runway:             *strip.Runway,
-		Squawk:             *strip.Squawk,
+		Squawk:             clearanceSquawk,
 		NextFrequency:      nextFreq,
 		DepartureFrequency: departureFreq,
 		Sequence:           nextSeq,
@@ -431,27 +438,89 @@ func (s *Service) getNextFrequency(ctx context.Context, sessionID int32) (string
 // getAirborneFrequency returns the frequency of the highest-priority airborne controller
 // that is currently online, or "122.8" (UNICOM) if none is online.
 func (s *Service) getAirborneFrequency(ctx context.Context, sessionID int32) string {
-	owners, err := s.sectorRepo.ListBySession(ctx, sessionID)
-	if err != nil {
-		return "122.8"
-	}
-
-	onlineFreqs := make(map[string]struct{}, len(owners))
-	for _, owner := range owners {
-		onlineFreqs[owner.Position] = struct{}{}
-	}
+	onlineFreqs := s.getOnlineControllerFrequencies(ctx, sessionID)
 
 	for _, posName := range config.GetAirborneOwners() {
 		pos, err := config.GetPositionByName(posName)
 		if err != nil {
 			continue
 		}
-		if _, online := onlineFreqs[pos.Frequency]; online {
+		if _, online := onlineFreqs[normalizeFrequency(pos.Frequency)]; online {
 			return pos.Frequency
 		}
 	}
 
 	return "122.8"
+}
+
+func (s *Service) getOnlineControllerFrequencies(ctx context.Context, sessionID int32) map[string]struct{} {
+	onlineFreqs := make(map[string]struct{})
+
+	if s.controllerRepo != nil {
+		controllers, err := s.controllerRepo.ListBySession(ctx, sessionID)
+		if err == nil {
+			for _, controller := range controllers {
+				if frequency := normalizeFrequency(controller.Position); frequency != "" {
+					onlineFreqs[frequency] = struct{}{}
+				}
+			}
+		}
+		if len(onlineFreqs) > 0 {
+			return onlineFreqs
+		}
+	}
+
+	owners, err := s.sectorRepo.ListBySession(ctx, sessionID)
+	if err != nil {
+		return onlineFreqs
+	}
+
+	for _, owner := range owners {
+		if frequency := normalizeFrequency(owner.Position); frequency != "" {
+			onlineFreqs[frequency] = struct{}{}
+		}
+	}
+
+	return onlineFreqs
+}
+
+func getAssignedPDCSquawk(strip *models.Strip) (string, error) {
+	if strip.AssignedSquawk == nil {
+		return "", errors.New("assigned squawk not set")
+	}
+
+	squawk := strings.TrimSpace(*strip.AssignedSquawk)
+	if squawk == "" {
+		return "", errors.New("assigned squawk not set")
+	}
+	if !isValidPDCSquawk(squawk) {
+		return "", fmt.Errorf("assigned squawk %q is not valid for PDC", squawk)
+	}
+
+	return squawk, nil
+}
+
+func isValidPDCSquawk(squawk string) bool {
+	if len(squawk) != 4 || squawk == "2000" {
+		return false
+	}
+
+	for _, digit := range squawk {
+		if digit < '0' || digit > '7' {
+			return false
+		}
+	}
+
+	return true
+}
+
+func normalizeFrequency(frequency string) string {
+	normalized := strings.TrimSpace(frequency)
+	if strings.Contains(normalized, ".") {
+		normalized = strings.TrimRight(normalized, "0")
+		normalized = strings.TrimRight(normalized, ".")
+	}
+	return normalized
 }
 
 // HandleWilco processes pilot WILCO response

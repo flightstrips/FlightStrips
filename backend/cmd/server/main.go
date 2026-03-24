@@ -148,7 +148,7 @@ func main() {
 	var pdcService *pdc.Service
 	if hoppieLogon != "" {
 		hoppieClient := pdc.NewClient(hoppieLogon)
-		pdcService = pdc.NewPDCService(hoppieClient, sessionRepo, stripRepo, sectorRepo)
+		pdcService = pdc.NewPDCService(hoppieClient, sessionRepo, stripRepo, sectorRepo, controllerRepo)
 		pdcService.SetStripService(stripService)
 		slog.Info("PDC Service initialized")
 	} else {

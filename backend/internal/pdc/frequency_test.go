@@ -3,8 +3,10 @@ package pdc
 import (
 	"FlightStrips/internal/config"
 	"FlightStrips/internal/database"
+	"FlightStrips/internal/models"
 	"FlightStrips/internal/pdc/testdata"
 	"FlightStrips/internal/repository/postgres"
+	"FlightStrips/internal/testutil"
 	"context"
 	"os"
 	"testing"
@@ -127,4 +129,30 @@ func TestGetAirborneFrequency_Priority(t *testing.T) {
 
 	freq := svc.getAirborneFrequency(context.Background(), sessionID)
 	assert.Equal(t, "119.805", freq) // EKCH_W_APP is first in airborne_owners
+}
+
+func TestGetAirborneFrequency_UsesOnlineControllersWhenSectorOwnersAreStale(t *testing.T) {
+	t.Parallel()
+
+	dbPool, queries := testdata.SetupTestDB(t)
+
+	sessionID := testdata.SeedTestSessionWithSectors(t, queries, []database.InsertSectorOwnersParams{
+		{Sector: []string{"SQ", "DEL"}, Position: "119.905", Identifier: "DEL"},
+	})
+
+	controllerRepo := &testutil.MockControllerRepository{
+		ListBySessionFn: func(ctx context.Context, session int32) ([]*models.Controller, error) {
+			return []*models.Controller{
+				{Session: session, Position: "119.8050"},
+			}, nil
+		},
+	}
+
+	svc := &Service{
+		sectorRepo:     postgres.NewSectorOwnerRepository(dbPool),
+		controllerRepo: controllerRepo,
+	}
+
+	freq := svc.getAirborneFrequency(context.Background(), sessionID)
+	assert.Equal(t, "119.805", freq)
 }

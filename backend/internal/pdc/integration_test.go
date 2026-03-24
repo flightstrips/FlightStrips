@@ -50,6 +50,10 @@ type PDCIntegrationTestSuite struct {
 	queries       *database.Queries
 }
 
+func stringPtr(value string) *string {
+	return &value
+}
+
 func (suite *PDCIntegrationTestSuite) SetupTest(t *testing.T) {
 	// Create mocks
 	suite.mockHoppie = new(mocks.HoppieClient)
@@ -139,6 +143,28 @@ func TestIssueClearanceFlow(t *testing.T) {
 	})
 	require.NoError(t, err)
 	assert.Equal(t, "CLEARED", strip.PdcState)
+}
+
+func TestIssueClearance_UsesAssignedSquawkInMessage(t *testing.T) {
+	t.Parallel()
+	suite := &PDCIntegrationTestSuite{}
+	suite.SetupTest(t)
+
+	callsign := "SAS124"
+	cid := "CID124"
+	sessionID := int32(1)
+	ctx := context.Background()
+
+	testdata.SeedTestStripWithSquawks(t, suite.queries, sessionID, callsign, stringPtr("2000"), stringPtr("2401"))
+
+	suite.mockHoppie.On("SendCPDLC", mock.Anything, mock.Anything, callsign, mock.MatchedBy(func(msg string) bool {
+		return strings.Contains(msg, "CLRD TO") && strings.Contains(msg, "SQK: @2401@") && !strings.Contains(msg, "SQK: @2000@")
+	})).Return(nil)
+	suite.mockStrip.On("ClearStrip", mock.Anything, sessionID, callsign, cid).Return(nil)
+	suite.mockFrontend.On("SendPdcStateChange", sessionID, callsign, "CLEARED").Return()
+
+	err := suite.service.IssueClearance(ctx, callsign, "", cid, sessionID)
+	require.NoError(t, err)
 }
 
 func TestHandleWilcoFlow(t *testing.T) {
@@ -499,4 +525,42 @@ func TestProcessPDCRequest_Success(t *testing.T) {
 	})
 	require.NoError(t, err)
 	assert.Equal(t, "CLEARED", strip.PdcState)
+}
+
+func TestProcessPDCRequest_InvalidAssignedSquawkDoesNotAutoIssue(t *testing.T) {
+	t.Parallel()
+	suite := &PDCIntegrationTestSuite{}
+	suite.SetupTest(t)
+	ctx := context.Background()
+
+	callsign := "SAS125"
+	testdata.SeedTestStripWithSquawks(t, suite.queries, 1, callsign, stringPtr("2000"), stringPtr(""))
+
+	suite.mockHoppie.On("SendCPDLC", mock.Anything, mock.Anything, callsign, mock.MatchedBy(func(msg string) bool {
+		return strings.Contains(msg, "STANDBY")
+	})).Return(nil).Once()
+	suite.mockFrontend.On("SendPdcStateChange", int32(1), callsign, "REQUESTED").Return()
+
+	incomingMsg := &IncomingMessage{
+		Type:       MsgPDCRequest,
+		From:       callsign,
+		To:         "EKCH",
+		Payload:    "REQUEST PREDEP CLEARANCE " + callsign + " A320 TO ESSA AT EKCH STAND A10 ATIS A",
+		RawMessage: callsign + " EKCH telex {REQUEST PREDEP CLEARANCE " + callsign + " A320 TO ESSA AT EKCH STAND A10 ATIS A}",
+	}
+
+	session := sessionInformation{
+		id:       1,
+		callsign: "EKCH",
+	}
+
+	err := suite.service.ProcessPDCRequest(ctx, incomingMsg, session)
+	require.NoError(t, err)
+
+	strip, err := suite.queries.GetStrip(context.Background(), database.GetStripParams{
+		Session:  1,
+		Callsign: callsign,
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "REQUESTED", strip.PdcState)
 }

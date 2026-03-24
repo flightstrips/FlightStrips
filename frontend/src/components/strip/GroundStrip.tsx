@@ -1,8 +1,9 @@
 import { getSimpleAircraftType } from "@/lib/utils";
 import { getStripBg } from "./types";
 import type { StripProps } from "./types";
-import { useStripSelection, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR, COLOR_BTN_ORANGE, COLOR_SI_ASSUMED, COLOR_SI_UNCONCERNED, COLOR_SI_CONCERNED, getStripOwnership, resolveStripBg } from "./shared";
-import { useControllers, useStripTransfers, useWebSocketStore } from "@/store/store-hooks";
+import { useStripSelection, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR, getStripOwnership, resolveStripBg } from "./shared";
+import { useStripTransfers, useWebSocketStore } from "@/store/store-hooks";
+import { SIBox } from "./SIBox";
 
 const TOP_H = 32; // 2/3 of 48px
 const BOT_H = 16; // 1/3 of 48px
@@ -34,21 +35,11 @@ export function GroundStrip({
 }: StripProps) {
   const { isSelected, handleClick } = useStripSelection(callsign, selectable);
   const cellBorderColor = getCellBorderColor(marked);
-  const controllers = useControllers();
   const stripTransfers = useStripTransfers();
   const isTagRequest = !!stripTransfers[callsign]?.isTagRequest;
   const openStripContextMenu = useWebSocketStore(s => s.openStripContextMenu);
 
-  const { isAssumed, isTransferredAway, isConcerned, isUnconcerned } = getStripOwnership(myPosition, owner, nextControllers, previousControllers);
-
-  let siBg = COLOR_SI_UNCONCERNED;
-  if (isAssumed) siBg = COLOR_SI_ASSUMED;
-  else if (isTransferredAway) siBg = COLOR_BTN_ORANGE;
-  else if (isConcerned) siBg = COLOR_SI_CONCERNED;
-
-  const nextPosition = nextControllers?.find(pos => pos !== myPosition);
-  const nextController = controllers.find(c => c.position === nextPosition);
-  const nextLabel = isAssumed && nextController ? nextController.identifier : "";
+  const { isUnconcerned } = getStripOwnership(myPosition, owner, nextControllers, previousControllers);
 
   return (
     <div
@@ -62,13 +53,16 @@ export function GroundStrip({
       onClick={handleClick}
       onContextMenu={(e) => { e.preventDefault(); openStripContextMenu(callsign, { x: e.clientX, y: e.clientY }); }}
     >
-      {/* SI / ownership — 40px */}
-      <div
-        className="flex-shrink-0 flex items-center justify-center text-sm font-bold border-r-2"
-        style={{ width: 40, height: "100%", backgroundColor: siBg, borderRightColor: cellBorderColor }}
-      >
-        {nextLabel}
-      </div>
+      <SIBox
+        callsign={callsign}
+        owner={owner}
+        nextControllers={nextControllers}
+        previousControllers={previousControllers}
+        myPosition={myPosition}
+        marked={marked}
+        transferringTo={stripTransfers[callsign]?.to ?? ""}
+        isTagRequest={isTagRequest}
+      />
 
       {/* Callsign — 120px */}
       <div className="flex-shrink-0 flex flex-col border-r-2" style={{ width: 120, height: "100%", borderRightColor: cellBorderColor }}>

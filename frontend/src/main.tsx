@@ -16,6 +16,9 @@ import AppPage from "@/pages/app";
 import { withAuthenticationRequired } from '@auth0/auth0-react';
 import DocsRouter from "@/pages/docs/DocsRouter";
 import { ThemeSync } from "@/components/public/ThemeSync";
+import { registerSW } from "virtual:pwa-register";
+
+registerSW({ immediate: true });
 
 const MyProtectedComponent = withAuthenticationRequired(Layout);
 

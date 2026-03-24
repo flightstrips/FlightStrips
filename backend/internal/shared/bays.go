@@ -127,15 +127,18 @@ func GetDepartureBayFromGroundState(state string, existing database.Strip) strin
 }
 
 func GetDepartureBayFromPosition(lat, lon float64, alt int64, existing database.Strip, airborneAltitudeAGL int64, airport string) string {
+	// Arrivals: position updates never change the bay (set once in GetDepartureBay).
+	if existing.Destination == airport {
+		if existing.Bay != "" {
+			return existing.Bay
+		}
+		return BAY_ARR_HIDDEN
+	}
+
 	// Resolve the existing bay, falling back to HIDDEN if it was never set.
 	existingBay := existing.Bay
 	if existingBay == "" {
 		existingBay = BAY_HIDDEN
-	}
-
-	// Arrivals: position updates never change the bay (set once in GetDepartureBay).
-	if existing.Destination == airport {
-		return existingBay
 	}
 
 	// Non-departures from this airport: keep existing bay unchanged.

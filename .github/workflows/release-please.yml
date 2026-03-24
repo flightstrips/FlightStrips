@@ -23,6 +23,9 @@ jobs:
       frontend_release_created: ${{ steps.release.outputs.frontend--release_created }}
       frontend_tag: ${{ steps.release.outputs.frontend--tag_name }}
       frontend_version: ${{ steps.release.outputs.frontend--version }}
+      docs_release_created: ${{ steps.release.outputs.docs--release_created }}
+      docs_tag: ${{ steps.release.outputs.docs--tag_name }}
+      docs_version: ${{ steps.release.outputs.docs--version }}
     steps:
       - uses: googleapis/release-please-action@v4
         id: release
@@ -140,11 +143,35 @@ jobs:
             ghcr.io/${{ github.repository_owner }}/frontend:${{ needs.release-please.outputs.frontend_version }}
             ghcr.io/${{ github.repository_owner }}/frontend:latest
 
+  build-docs:
+    needs: release-please
+    if: needs.release-please.outputs.docs_release_created == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push docs image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./docs
+          file: ./docs/Dockerfile
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/docs:${{ needs.release-please.outputs.docs_version }}
+            ghcr.io/${{ github.repository_owner }}/docs:latest
+
   deploy:
-    needs: [build-backend, build-frontend]
+    needs: [build-backend, build-frontend, build-docs]
     if: |
       always() &&
-      (needs.build-backend.result == 'success' || needs.build-frontend.result == 'success')
+      (needs.build-backend.result == 'success' || needs.build-frontend.result == 'success' || needs.build-docs.result == 'success')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3

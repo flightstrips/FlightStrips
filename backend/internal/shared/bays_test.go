@@ -172,33 +172,45 @@ func TestGetGroundState_DepartMapsLineup(t *testing.T) {
 }
 
 func TestGetDepartureBayFromGroundState_TaxiReturnsTaxi(t *testing.T) {
-	existing := database.Strip{Bay: BAY_TAXI_LWR}
-	bay := GetDepartureBayFromGroundState(euroscope.GroundStateTaxi, existing)
+	existing := database.Strip{Origin: "EKCH", Bay: BAY_TAXI_LWR}
+	bay := GetDepartureBayFromGroundState(euroscope.GroundStateTaxi, existing, "EKCH")
 	if bay != BAY_TAXI {
 		t.Fatalf("expected BAY_TAXI from GroundStateTaxi, got %s", bay)
 	}
 }
 
 func TestGetDepartureBayFromGroundState_LineupReturnsDepart(t *testing.T) {
-	existing := database.Strip{Bay: BAY_TAXI_LWR}
-	bay := GetDepartureBayFromGroundState(euroscope.GroundStateLineup, existing)
+	existing := database.Strip{Origin: "EKCH", Bay: BAY_TAXI_LWR}
+	bay := GetDepartureBayFromGroundState(euroscope.GroundStateLineup, existing, "EKCH")
 	if bay != BAY_DEPART {
 		t.Fatalf("expected BAY_DEPART from GroundStateLineup, got %s", bay)
 	}
 }
 
 func TestGetDepartureBayFromGroundState_DepartReturnsDepart(t *testing.T) {
-	existing := database.Strip{Bay: BAY_TAXI_LWR}
-	bay := GetDepartureBayFromGroundState(euroscope.GroundStateDepart, existing)
+	existing := database.Strip{Origin: "EKCH", Bay: BAY_TAXI_LWR}
+	bay := GetDepartureBayFromGroundState(euroscope.GroundStateDepart, existing, "EKCH")
 	if bay != BAY_DEPART {
 		t.Fatalf("expected BAY_DEPART from GroundStateDepart, got %s", bay)
 	}
 }
 
 func TestGetDepartureBayFromGroundState_UnknownFallsBackToExisting(t *testing.T) {
-	existing := database.Strip{Bay: BAY_TAXI_LWR}
-	bay := GetDepartureBayFromGroundState("UNKNOWN_STATE", existing)
+	existing := database.Strip{Origin: "EKCH", Bay: BAY_TAXI_LWR}
+	bay := GetDepartureBayFromGroundState("UNKNOWN_STATE", existing, "EKCH")
 	if bay != BAY_TAXI_LWR {
 		t.Fatalf("expected existing bay BAY_TAXI_LWR, got %s", bay)
+	}
+}
+
+func TestGetDepartureBayFromGroundState_ArrivalPreservesExistingBay(t *testing.T) {
+	existing := database.Strip{
+		Destination: "EKCH",
+		Bay:         BAY_FINAL,
+	}
+
+	bay := GetDepartureBayFromGroundState(euroscope.GroundStateDepart, existing, "EKCH")
+	if bay != BAY_FINAL {
+		t.Fatalf("expected arrival to keep BAY_FINAL, got %s", bay)
 	}
 }

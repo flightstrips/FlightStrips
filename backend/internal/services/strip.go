@@ -922,7 +922,7 @@ func (s *StripService) UpdateGroundState(ctx context.Context, session int32, cal
 		Cleared:     existingStrip.Cleared,
 		Bay:         existingStrip.Bay,
 	}
-	bay := shared.GetDepartureBayFromGroundState(groundState, dbStrip)
+	bay := shared.GetDepartureBayFromGroundState(groundState, dbStrip, airport)
 
 	_, err = s.stripRepo.UpdateGroundState(ctx, session, callsign, &groundState, bay, nil)
 	if err != nil {

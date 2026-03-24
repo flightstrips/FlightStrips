@@ -126,7 +126,23 @@ func GetDepartureBay(strip euroscope.Strip, existing *database.Strip, airborneAl
 	return BAY_AIRBORNE
 }
 
-func GetDepartureBayFromGroundState(state string, existing database.Strip) string {
+func GetDepartureBayFromGroundState(state string, existing database.Strip, airport string) string {
+	// Arrivals keep their existing arrival bay; ground-state updates are only used
+	// to advance departures through departure-tracking bays.
+	if existing.Destination == airport {
+		if existing.Bay != "" {
+			return existing.Bay
+		}
+		return BAY_ARR_HIDDEN
+	}
+
+	if existing.Origin != airport {
+		if existing.Bay != "" {
+			return existing.Bay
+		}
+		return BAY_HIDDEN
+	}
+
 	if state == euroscope.GroundStatePush {
 		return BAY_PUSH
 	}

@@ -647,6 +647,47 @@ func TestUpdateGroundState_NewState_UpdatesAndMovesBay(t *testing.T) {
 	assert.Equal(t, shared.BAY_PUSH, movedToBay, "strip should be moved to PUSH bay")
 }
 
+func TestUpdateGroundState_ArrivalPreservesArrivalBay(t *testing.T) {
+	ctx := context.Background()
+	oldState := ""
+	strip := &models.Strip{
+		Callsign:    "SAS321",
+		State:       &oldState,
+		Bay:         shared.BAY_FINAL,
+		Destination: "EKCH",
+	}
+
+	var updatedState string
+	var updatedBay string
+	moved := false
+
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			return strip, nil
+		},
+		UpdateGroundStateFn: func(_ context.Context, _ int32, _ string, state *string, bay string, _ *int32) (int64, error) {
+			if state != nil {
+				updatedState = *state
+			}
+			updatedBay = bay
+			return 1, nil
+		},
+		GetMaxSequenceInBayFn: func(_ context.Context, _ int32, _ string) (int32, error) {
+			moved = true
+			return 0, nil
+		},
+	}
+
+	svc := NewStripService(stripRepo)
+	svc.SetFrontendHub(&testutil.MockFrontendHub{})
+
+	err := svc.UpdateGroundState(ctx, 1, "SAS321", "DEPA", "EKCH")
+	require.NoError(t, err)
+	assert.Equal(t, "DEPA", updatedState)
+	assert.Equal(t, shared.BAY_FINAL, updatedBay)
+	assert.False(t, moved, "arrival strips should not be re-sequenced into a departure bay on ground-state updates")
+}
+
 // ---- AutoAssumeForClearedStrip edge cases ----
 
 func TestAutoAssumeForClearedStrip_NilSectorOwnerRepo_ReturnsNil(t *testing.T) {

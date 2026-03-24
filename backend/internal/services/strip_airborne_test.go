@@ -172,6 +172,50 @@ func TestUpdateAircraftPosition_AutoHandoverTriggeredFromDepartBay(t *testing.T)
 		"controller list must be queried when a strip transitions from DEPART to AIRBORNE")
 }
 
+func TestUpdateAircraftPosition_ArrivalHiddenRemainsHidden(t *testing.T) {
+	ctx := context.Background()
+	const session = int32(1)
+	const callsign = "DLH8LL"
+	departState := euroscope.GroundStateDepart
+
+	moveCalled := false
+	var savedBay string
+
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			return &models.Strip{
+				Callsign:    callsign,
+				Origin:      "EDDF",
+				Destination: "EKCH",
+				Bay:         shared.BAY_HIDDEN,
+				State:       &departState,
+			}, nil
+		},
+		UpdateAircraftPositionFn: func(_ context.Context, _ int32, _ string, _ *float64, _ *float64, _ *int32, bay string, _ *int32) (int64, error) {
+			savedBay = bay
+			return 1, nil
+		},
+		GetMaxSequenceInBayFn: func(_ context.Context, _ int32, _ string) (int32, error) {
+			moveCalled = true
+			return 0, nil
+		},
+		UpdateBayAndSequenceFn: func(_ context.Context, _ int32, _ string, _ string, _ int32) (int64, error) {
+			moveCalled = true
+			return 1, nil
+		},
+	}
+
+	svc := NewStripService(stripRepo)
+	svc.SetFrontendHub(&testutil.MockFrontendHub{})
+
+	err := svc.UpdateAircraftPosition(ctx, session, callsign,
+		shared.AirportLatitude, shared.AirportLongitude, 10042, "EKCH")
+	require.NoError(t, err)
+	assert.Equal(t, shared.BAY_HIDDEN, savedBay,
+		"already-hidden arrivals must stay HIDDEN so valid post-STAND auto-hide is preserved")
+	assert.False(t, moveCalled, "no bay move should be triggered when the arrival remains in HIDDEN")
+}
+
 // TestCreateCoordinationTransfer_EsHandoverSentWhenTargetHasNoEsConnection verifies that
 // an ES handover is sent to the owner (tower) controller even when the target (receiving)
 // controller has no CID — i.e., no active ES connection to the backend. The handover is

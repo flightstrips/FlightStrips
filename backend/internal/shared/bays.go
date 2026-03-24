@@ -61,9 +61,11 @@ func bayTracksGroundState(bay string) bool {
 }
 
 func GetDepartureBay(strip euroscope.Strip, existing *database.Strip, airborneAltitudeAGL int64, airport string) string {
-	// Arrivals: bay is set once when first seen within range, never changed by this function after that.
+	// Arrivals keep their existing bay only if the strip was already classified as
+	// an arrival. If a strip transitions from a non-arrival into an arrival, start
+	// it in ARR_HIDDEN rather than preserving a stale non-arrival bay like HIDDEN.
 	if strip.Destination == airport {
-		if existing != nil && existing.Bay != "" {
+		if existing != nil && existing.Destination == airport && existing.Bay != "" {
 			return existing.Bay
 		}
 

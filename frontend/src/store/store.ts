@@ -44,7 +44,7 @@ import {
 } from '../api/models.ts';
 import {WebSocketClient} from '../api/websocket.ts';
 
-const KNOWN_LAYOUTS = new Set(["CLX", "AAAD", "AD", "ESET", "GEGW", "TWTE"]);
+const KNOWN_LAYOUTS = new Set(["CLX", "AAAD", "AA", "AD", "ESET", "GEGW", "TWTE"]);
 
 export interface UpdateStrip {
   sid?: string
@@ -73,6 +73,7 @@ export interface WebSocketState {
   callsign: string;
   layout: string;
   displayedLayout: string;
+  followRecommendedLayout: boolean;
   layoutChooserOpen: boolean;
   runwaySetup: RunwayConfiguration;
   isInitialized: boolean;
@@ -144,6 +145,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     callsign: '',
     layout: '',
     displayedLayout: '',
+    followRecommendedLayout: true,
     layoutChooserOpen: false,
     runwaySetup: {
       departure: [],
@@ -162,10 +164,13 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
   };
 
   // Create the store
-  const store = createStore<WebSocketState>()((set) => ({
+  const store = createStore<WebSocketState>()((set, get) => ({
     ...initialState,
     selectStrip: (callsign) => set({ selectedCallsign: callsign }),
-    setDisplayedLayout: (layout) => set({ displayedLayout: layout }),
+    setDisplayedLayout: (layout) => set({
+      displayedLayout: layout,
+      followRecommendedLayout: layout === get().layout,
+    }),
     setLayoutChooserOpen: (open) => set({ layoutChooserOpen: open }),
     openStripContextMenu: (callsign, pos) => set({ contextMenu: { callsign, x: pos.x, y: pos.y } }),
     closeStripContextMenu: () => set({ contextMenu: null }),
@@ -465,6 +470,10 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
         state.layout = data.layout;
         if (KNOWN_LAYOUTS.has(data.layout)) {
           state.displayedLayout = data.layout;
+          state.followRecommendedLayout = true;
+        } else {
+          state.displayedLayout = "";
+          state.followRecommendedLayout = true;
         }
         state.runwaySetup = data.runway_setup;
         state.isInitialized = true;
@@ -673,9 +682,13 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
       produce((state: WebSocketState) => {
         state.layout = data.layout;
         if (KNOWN_LAYOUTS.has(data.layout)) {
-          state.displayedLayout = data.layout;
+          if (state.followRecommendedLayout) {
+            state.displayedLayout = data.layout;
+          }
         } else {
-          state.displayedLayout = "";
+          if (state.followRecommendedLayout) {
+            state.displayedLayout = "";
+          }
         }
       })
     )

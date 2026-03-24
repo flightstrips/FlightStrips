@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.10.3](https://github.com/flightstrips/FlightStrips/compare/backend/v0.10.2...backend/v0.10.3) (2026-03-24)
+
+
+### Bug Fixes
+
+* change runway? ([a25ed18](https://github.com/flightstrips/FlightStrips/commit/a25ed180774d8f00d467a80db748dc13afb138d8))
+* delivery next freq ([6f90531](https://github.com/flightstrips/FlightStrips/commit/6f905313261ce24f176d1c6884c0895da9d3dd0f))
+
 ## [0.10.2](https://github.com/flightstrips/FlightStrips/compare/backend/v0.10.1...backend/v0.10.2) (2026-03-24)
 
 

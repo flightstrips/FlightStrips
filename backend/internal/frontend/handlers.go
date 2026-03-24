@@ -172,6 +172,9 @@ func handleStripUpdate(ctx context.Context, client *Client, message Message) err
 
 	if event.Runway != nil && strip.Runway != event.Runway {
 		s.GetEuroscopeHub().SendRunway(client.session, client.GetCid(), event.Callsign, *event.Runway)
+		if _, err := stripRepo.UpdateRunway(ctx, client.session, event.Callsign, event.Runway, nil); err != nil {
+			return err
+		}
 		if err := stripRepo.AppendControllerModifiedField(ctx, client.session, event.Callsign, "runway"); err != nil {
 			return err
 		}

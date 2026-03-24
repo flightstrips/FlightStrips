@@ -566,10 +566,24 @@ func (s *Service) HandleWilco(ctx context.Context, message *IncomingMessage, ses
 		return fmt.Errorf("failed to update PDC status: %w", err)
 	}
 
+	key := fmt.Sprintf("%s_%d", callsign, session.id)
+	clearanceCid := ""
+	s.timeoutsMutex.RLock()
+	if tracker, exists := s.timeouts[key]; exists {
+		clearanceCid = tracker.cid
+	}
+	s.timeoutsMutex.RUnlock()
+
 	s.CancelTimeout(callsign, session.id)
 
 	if s.stripService != nil {
-		if err := s.stripService.AutoAssumeForClearedStrip(ctx, session.id, callsign); err != nil {
+		var err error
+		if clearanceCid != "" {
+			err = s.stripService.AutoAssumeForClearedStripByCid(ctx, session.id, callsign, clearanceCid)
+		} else {
+			err = s.stripService.AutoAssumeForClearedStrip(ctx, session.id, callsign)
+		}
+		if err != nil {
 			slog.WarnContext(ctx, "PDC: failed to auto-assume on WILCO", slog.Any("error", err))
 		}
 	}

@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.15.2](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.15.1...frontend/v0.15.2) (2026-03-24)
+
+
+### Bug Fixes
+
+* only change layout first time ([9a95ac9](https://github.com/flightstrips/FlightStrips/commit/9a95ac93c8ca1459cc727ebfc4bde3595497fad8))
+
 ## [0.15.1](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.15.0...frontend/v0.15.1) (2026-03-24)
 
 

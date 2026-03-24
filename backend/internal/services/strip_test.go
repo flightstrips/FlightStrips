@@ -108,6 +108,12 @@ func TestAutoAssume_ClearedStrip(t *testing.T) {
 		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
 			return strip, nil
 		},
+		SetNextAndPreviousOwnersFn: func(_ context.Context, _ int32, cs string, nextOwners []string, previousOwners []string) error {
+			assert.Equal(t, callsign, cs)
+			assert.Equal(t, []string{"APP"}, nextOwners)
+			assert.Empty(t, previousOwners)
+			return nil
+		},
 		SetOwnerFn: func(_ context.Context, _ int32, cs string, owner *string, version int32) (int64, error) {
 			assert.Equal(t, callsign, cs)
 			assert.NotNil(t, owner)
@@ -134,6 +140,63 @@ func TestAutoAssume_ClearedStrip(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, hub.OwnersUpdates, 1)
 	assert.Equal(t, sqPosition, hub.OwnersUpdates[0].Owner)
+}
+
+func TestAutoAssume_ClearedStrip_AppendsDisplacedOwnerToPrevious(t *testing.T) {
+	ctx := context.Background()
+	const session = int32(1)
+	const callsign = "DLH789"
+	const stripVersion = int32(4)
+	const newOwner = "GND_N"
+	deliveryOwner := "DEL_N"
+
+	strip := &models.Strip{
+		ID:             11,
+		Callsign:       callsign,
+		Version:        stripVersion,
+		Owner:          &deliveryOwner,
+		NextOwners:     []string{newOwner, "TWR_N"},
+		PreviousOwners: []string{"CLX_N"},
+	}
+
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			return strip, nil
+		},
+		SetNextAndPreviousOwnersFn: func(_ context.Context, _ int32, cs string, nextOwners []string, previousOwners []string) error {
+			assert.Equal(t, callsign, cs)
+			assert.Equal(t, []string{"TWR_N"}, nextOwners)
+			assert.Equal(t, []string{"CLX_N", deliveryOwner}, previousOwners)
+			return nil
+		},
+		SetOwnerFn: func(_ context.Context, _ int32, cs string, owner *string, version int32) (int64, error) {
+			assert.Equal(t, callsign, cs)
+			assert.NotNil(t, owner)
+			assert.Equal(t, newOwner, *owner)
+			assert.Equal(t, stripVersion, version)
+			return 1, nil
+		},
+	}
+
+	sectorRepo := &testutil.MockSectorOwnerRepository{
+		ListBySessionFn: func(_ context.Context, _ int32) ([]*models.SectorOwner, error) {
+			return []*models.SectorOwner{
+				{Position: newOwner, Sector: []string{"SQ"}},
+			}, nil
+		},
+	}
+
+	hub := &testutil.MockFrontendHub{}
+	svc := NewStripService(stripRepo)
+	svc.SetFrontendHub(hub)
+	svc.SetSectorOwnerRepo(sectorRepo)
+
+	err := svc.AutoAssumeForClearedStrip(ctx, session, callsign)
+	require.NoError(t, err)
+	require.Len(t, hub.OwnersUpdates, 1)
+	assert.Equal(t, newOwner, hub.OwnersUpdates[0].Owner)
+	assert.Equal(t, []string{"TWR_N"}, hub.OwnersUpdates[0].NextOwners)
+	assert.Equal(t, []string{"CLX_N", deliveryOwner}, hub.OwnersUpdates[0].PreviousOwners)
 }
 
 func TestAutoAssume_NoMatchingController(t *testing.T) {
@@ -173,6 +236,11 @@ func TestAutoAssume_FallbackToDel(t *testing.T) {
 	stripRepo := &testutil.MockStripRepository{
 		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
 			return strip, nil
+		},
+		SetNextAndPreviousOwnersFn: func(_ context.Context, _ int32, _ string, nextOwners []string, previousOwners []string) error {
+			assert.Empty(t, nextOwners)
+			assert.Empty(t, previousOwners)
+			return nil
 		},
 		SetOwnerFn: func(_ context.Context, _ int32, _ string, owner *string, _ int32) (int64, error) {
 			assert.Equal(t, delPosition, *owner)

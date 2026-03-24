@@ -727,16 +727,46 @@ func (s *StripService) AutoAssumeForClearedStrip(ctx context.Context, session in
 		return err
 	}
 
+	nextOwners, previousOwners := prepareOwnersForAutomaticTransfer(strip, sqPosition)
+
+	if err := s.stripRepo.SetNextAndPreviousOwners(ctx, session, callsign, nextOwners, previousOwners); err != nil {
+		return err
+	}
+
 	count, err := s.stripRepo.SetOwner(ctx, session, callsign, &sqPosition, strip.Version)
 	if err != nil {
 		return err
 	}
 
 	if count == 1 {
-		s.frontendHub.SendOwnersUpdate(session, callsign, sqPosition, strip.NextOwners, strip.PreviousOwners)
+		s.frontendHub.SendOwnersUpdate(session, callsign, sqPosition, nextOwners, previousOwners)
 	}
 
 	return nil
+}
+
+func prepareOwnersForAutomaticTransfer(strip *internalModels.Strip, newOwner string) ([]string, []string) {
+	nextOwners := strip.NextOwners
+	if index := slices.Index(nextOwners, newOwner); index >= 0 {
+		nextOwners = nextOwners[index+1:]
+	}
+
+	previousOwners := make([]string, 0, len(strip.PreviousOwners)+1)
+	for _, owner := range strip.PreviousOwners {
+		if owner == newOwner {
+			continue
+		}
+		if strip.Owner != nil && *strip.Owner == owner {
+			continue
+		}
+		previousOwners = append(previousOwners, owner)
+	}
+
+	if strip.Owner != nil && *strip.Owner != "" && *strip.Owner != newOwner {
+		previousOwners = append(previousOwners, *strip.Owner)
+	}
+
+	return nextOwners, previousOwners
 }
 
 // AutoAssumeForControllerOnline finds all cleared, unowned strips in the session whose

@@ -8,8 +8,8 @@ import (
 	"FlightStrips/internal/models"
 	"FlightStrips/internal/shared"
 	"FlightStrips/internal/testutil"
-	pkgModels "FlightStrips/pkg/models"
 	"FlightStrips/pkg/events/frontend"
+	pkgModels "FlightStrips/pkg/models"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/stretchr/testify/assert"
@@ -29,7 +29,7 @@ func TestMoveStripBetween_AppendAtEnd(t *testing.T) {
 	stripRepo := &testutil.MockStripRepository{
 		GetNextSequenceFn: func(_ context.Context, _ int32, _ string, prev int32) (int32, error) {
 			assert.Equal(t, int32(0), prev) // no insertAfter → prev=0
-			return 0, pgx.ErrNoRows        // nothing after
+			return 0, pgx.ErrNoRows         // nothing after
 		},
 		UpdateBayAndSequenceFn: func(_ context.Context, _ int32, _ string, _ string, seq int32) (int64, error) {
 			savedSeq = seq
@@ -539,10 +539,10 @@ func TestAssumeStripCoordination_AlreadyOwned_ReturnsError(t *testing.T) {
 	ctx := context.Background()
 	other := "TWR_N"
 	strip := &models.Strip{
-		ID:      70,
+		ID:       70,
 		Callsign: "EZY700",
-		Owner:   &other,
-		Version: 1,
+		Owner:    &other,
+		Version:  1,
 	}
 
 	coordRepo := &testutil.MockCoordinationRepository{
@@ -669,6 +669,11 @@ func TestAutoAssumeForClearedStrip_SetOwnerVersionConflict_NoUpdate(t *testing.T
 	stripRepo := &testutil.MockStripRepository{
 		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
 			return strip, nil
+		},
+		SetNextAndPreviousOwnersFn: func(_ context.Context, _ int32, _ string, nextOwners []string, previousOwners []string) error {
+			assert.Empty(t, nextOwners)
+			assert.Empty(t, previousOwners)
+			return nil
 		},
 		SetOwnerFn: func(_ context.Context, _ int32, _ string, _ *string, _ int32) (int64, error) {
 			return 0, nil // version conflict — no rows updated
@@ -828,10 +833,10 @@ func TestUpdateClearedFlagForMove_FlagChangesToCleared_TriggersAutoAssume(t *tes
 	const sqPosition = "GND_N"
 
 	strip := &models.Strip{
-		Callsign: callsign,
-		Cleared:  false, // currently NOT cleared
-		Version:  int32(7),
-		NextOwners: []string{},
+		Callsign:       callsign,
+		Cleared:        false, // currently NOT cleared
+		Version:        int32(7),
+		NextOwners:     []string{},
 		PreviousOwners: []string{},
 	}
 
@@ -843,7 +848,12 @@ func TestUpdateClearedFlagForMove_FlagChangesToCleared_TriggersAutoAssume(t *tes
 			assert.True(t, cleared)
 			return 1, nil
 		},
-		// AutoAssumeForClearedStrip calls GetByCallsign + SetOwner
+		// AutoAssumeForClearedStrip updates owners before setting the owner.
+		SetNextAndPreviousOwnersFn: func(_ context.Context, _ int32, _ string, nextOwners []string, previousOwners []string) error {
+			assert.Empty(t, nextOwners)
+			assert.Empty(t, previousOwners)
+			return nil
+		},
 		SetOwnerFn: func(_ context.Context, _ int32, _ string, owner *string, _ int32) (int64, error) {
 			assert.Equal(t, sqPosition, *owner)
 			return 1, nil
@@ -904,4 +914,3 @@ func TestUpdateClearedFlagForMove_FlagUnchanged_NoSideEffects(t *testing.T) {
 	assert.Empty(t, hub.OwnersUpdates, "no auto-assume when flag didn't change")
 	assert.Empty(t, esHub.ClearedFlags, "no EuroScope notification when flag didn't change")
 }
-

@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.10.2](https://github.com/flightstrips/FlightStrips/compare/backend/v0.10.1...backend/v0.10.2) (2026-03-24)
+
+
+### Bug Fixes
+
+* arrival routes ([bf6d33c](https://github.com/flightstrips/FlightStrips/commit/bf6d33c11068a254510c84eba3f627828c6d0492))
+* arrivals should always come into arr_hidden ([3556122](https://github.com/flightstrips/FlightStrips/commit/355612229d065553e3ce1893620a187160c6fa21))
+* prev_owner added for delivery after they give clearance ([ea51f4d](https://github.com/flightstrips/FlightStrips/commit/ea51f4d9df616134f134394fd738cd4b5d14e4eb))
+* push strips to noncleared bay ([59b0f83](https://github.com/flightstrips/FlightStrips/commit/59b0f833bd8597932a2ed518b6a7538913458f04))
+* sending invalid pdcs ([ccf3e6b](https://github.com/flightstrips/FlightStrips/commit/ccf3e6b1751c6c14fe067f9b782d47c5bc106183))
+
 ## [0.10.1](https://github.com/flightstrips/FlightStrips/compare/backend/v0.10.0...backend/v0.10.1) (2026-03-24)
 
 

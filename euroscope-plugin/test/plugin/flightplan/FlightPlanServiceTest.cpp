@@ -256,24 +256,23 @@ TEST(FlightPlanStructTest, FieldAssignment_RoundTrips) {
 // BuildReadyAnnotation
 // ---------------------------------------------------------------------------
 
-TEST(BuildReadyAnnotationTest, SetsAsrtAndTobtOnEmptyAnnotation) {
+TEST(BuildReadyAnnotationTest, SetsTobtOnEmptyAnnotation) {
     const auto result = FlightPlanServiceLocalCdmTestAccessor::BuildReadyAnnotation("", "1430");
 
     const auto [asrt, tsac, tobt, tsat, ttot, manualCtot] =
         FlightPlanServiceLocalCdmTestAccessor::ParseFields(result);
 
-    EXPECT_EQ(asrt, "1430");
     EXPECT_EQ(tobt, "1430");
 }
 
-TEST(BuildReadyAnnotationTest, PreservesExistingFieldsOtherThanAsrtAndTobt) {
+TEST(BuildReadyAnnotationTest, PreservesExistingFieldsOtherThanTobt) {
     const auto result = FlightPlanServiceLocalCdmTestAccessor::BuildReadyAnnotation(
-        "/existing_tsac/old_tobt/1435/1440/deice/ecfmp/1/", "1430");
+        "existing_asrt/existing_tsac/old_tobt/1435/1440/deice/ecfmp/1/", "1430");
 
     const auto [asrt, tsac, tobt, tsat, ttot, manualCtot] =
         FlightPlanServiceLocalCdmTestAccessor::ParseFields(result);
 
-    EXPECT_EQ(asrt,       "1430");
+    EXPECT_EQ(asrt,       "existing_asrt");
     EXPECT_EQ(tsac,       "existing_tsac");
     EXPECT_EQ(tobt,       "1430");
     EXPECT_EQ(tsat,       "1435");
@@ -298,19 +297,18 @@ TEST(BuildReadyAnnotationTest, PadsShortAnnotationToEightFields) {
     const auto fields = FlightPlanServiceLocalCdmTestAccessor::SplitSlashFields(result);
     // SplitSlashFields on "a/b/.../h/" yields 9 elements (trailing empty after last '/')
     ASSERT_GE(fields.size(), 8u);
-    EXPECT_EQ(fields[0], "1430");  // ASRT overwritten
+    EXPECT_EQ(fields[0], "old_asrt");  // ASRT overwritten
     EXPECT_EQ(fields[1], "tsac");  // preserved
     EXPECT_EQ(fields[2], "1430");  // TOBT overwritten
     EXPECT_EQ(fields[3], "");      // padded
 }
 
-TEST(BuildReadyAnnotationTest, OverwritesExistingAsrtAndTobt) {
+TEST(BuildReadyAnnotationTest, OverwritesExistingTobt) {
     const auto result = FlightPlanServiceLocalCdmTestAccessor::BuildReadyAnnotation(
         "0900/tsac/0900/tsat/ttot/deice/ecfmp/0/", "1430");
 
     const auto [asrt, tsac, tobt, tsat, ttot, manualCtot] =
         FlightPlanServiceLocalCdmTestAccessor::ParseFields(result);
 
-    EXPECT_EQ(asrt, "1430");
     EXPECT_EQ(tobt, "1430");
 }

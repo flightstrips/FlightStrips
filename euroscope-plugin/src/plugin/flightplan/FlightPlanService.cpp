@@ -390,7 +390,6 @@ namespace FlightStrips::flightplan {
         auto fields = SplitSlashFields(current.empty() ? "////////" : current);
         while (fields.size() < 8) fields.emplace_back("");
 
-        fields[0] = hhmm;  // ASRT
         fields[2] = hhmm;  // TOBT
 
         std::string result;

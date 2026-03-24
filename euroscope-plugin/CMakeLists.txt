@@ -91,6 +91,8 @@ set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 ################################################################################
 # Sub-projects
 ################################################################################
+enable_testing()
+
 add_subdirectory(src/util)
 add_subdirectory(src/plugin)
 add_subdirectory(src/loader)

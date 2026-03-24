@@ -23,6 +23,10 @@ export default defineConfig({
 					autogenerate: { directory: 'ekch' }
 				},
 				{
+					label: 'Development',
+					autogenerate: { directory: 'dev' }
+				},
+				{
 					label: 'Reference',
 					autogenerate: { directory: 'reference' },
 				},

@@ -247,9 +247,6 @@ endforeach()
 ################################################################################
 include(GoogleTest)
 
-# WORKING_DIRECTORY ensures the exe is run from bin/ at both discovery time
-# and ctest time, so Windows finds the EuroScope DLLs that live alongside it.
 gtest_discover_tests(${PROJECT_NAME}
     WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
-    DISCOVERY_MODE PRE_TEST
 )

@@ -41,7 +41,7 @@ jobs:
       # Run the test suite
       - name: Run Tests
         working-directory: ./euroscope-plugin/build
-        run: ctest --output-on-failure --build-config Release
+        run: ctest --output-on-failure --build-config Release -j8
 
       - uses: actions/upload-artifact@v4
         with:

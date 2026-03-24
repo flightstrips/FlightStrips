@@ -76,49 +76,58 @@ func (s *Server) updateRouteForStripHelper(strip *models.Strip, session *models.
 	} else {
 		region, err := config.GetRegionForPosition(helpers.ValueOrDefault(strip.PositionLatitude), helpers.ValueOrDefault(strip.PositionLongitude))
 		if errors.Is(err, config.ErrUnsupportedRegion) {
-			return nil
-		}
-		if err != nil {
+			if !isArrival {
+				return nil
+			}
+			// Arrival is still airborne (outside known ground regions) but already has
+			// a stand assigned. Fall back to the tower sector so the strip always has
+			// at least the receiving tower controller as its next owner.
+			towerSector, ok := config.GetArrivalTowerSector(session.ActiveRunways.ArrivalRunways)
+			if !ok {
+				return nil
+			}
+			path = []string{towerSector}
+		} else if err != nil {
 			return err
-		}
-
-		sector, err := config.GetSectorFromRegion(region, isArrival)
-		if err != nil {
-			slog.Warn("Sector not found based on region", slog.String("callsign", strip.Callsign), slog.String("region", region.Name))
-			return nil
-		}
-
-		allRunways := session.ActiveRunways.GetAllActiveRunways()
-
-		var success bool
-		if isArrival {
-			// Use only arrival runways to select the correct arrival route.
-			// Mixing in departure runways can cause the wrong cargo route to match.
-			path, success = config.ComputeToStand(session.ActiveRunways.ArrivalRunways, sector, helpers.ValueOrDefault(strip.Stand))
 		} else {
-			path, success = config.ComputeToRunway(allRunways, sector, helpers.ValueOrDefault(strip.Runway))
-		}
+			sector, err := config.GetSectorFromRegion(region, isArrival)
+			if err != nil {
+				slog.Warn("Sector not found based on region", slog.String("callsign", strip.Callsign), slog.String("region", region.Name))
+				return nil
+			}
 
-		if !success {
-			runway := helpers.ValueOrDefault(strip.Runway)
-			stand := helpers.ValueOrDefault(strip.Stand)
-			slog.Warn("Could not compute route for strip",
-				slog.String("callsign", strip.Callsign),
-				slog.String("sector", sector),
-				slog.Bool("is_arrival", isArrival),
-				slog.String("runway", runway),
-				slog.String("stand", stand))
+			allRunways := session.ActiveRunways.GetAllActiveRunways()
 
+			var success bool
 			if isArrival {
-				// Fall back to the tower sector so arrivals always have at least
-				// the receiving tower controller, even when the full route fails.
-				if towerSector, ok := config.GetArrivalTowerSector(session.ActiveRunways.ArrivalRunways); ok {
-					path = []string{towerSector}
+				// Use only arrival runways to select the correct arrival route.
+				// Mixing in departure runways can cause the wrong cargo route to match.
+				path, success = config.ComputeToStand(session.ActiveRunways.ArrivalRunways, sector, helpers.ValueOrDefault(strip.Stand))
+			} else {
+				path, success = config.ComputeToRunway(allRunways, sector, helpers.ValueOrDefault(strip.Runway))
+			}
+
+			if !success {
+				runway := helpers.ValueOrDefault(strip.Runway)
+				stand := helpers.ValueOrDefault(strip.Stand)
+				slog.Warn("Could not compute route for strip",
+					slog.String("callsign", strip.Callsign),
+					slog.String("sector", sector),
+					slog.Bool("is_arrival", isArrival),
+					slog.String("runway", runway),
+					slog.String("stand", stand))
+
+				if isArrival {
+					// Fall back to the tower sector so arrivals always have at least
+					// the receiving tower controller, even when the full route fails.
+					if towerSector, ok := config.GetArrivalTowerSector(session.ActiveRunways.ArrivalRunways); ok {
+						path = []string{towerSector}
+					} else {
+						return nil
+					}
 				} else {
 					return nil
 				}
-			} else {
-				return nil
 			}
 		}
 	}

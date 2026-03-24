@@ -2,6 +2,7 @@ package cdm
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -16,9 +17,24 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) {
+	return f(r)
+}
+
+func newFailingHTTPClient() *http.Client {
+	return &http.Client{
+		Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+			return nil, fmt.Errorf("unexpected outbound HTTP request during test: %s %s", r.Method, r.URL.String())
+		}),
+	}
+}
+
 func newTestClientWithAirportMasters(masters []AirportMaster) *Client {
 	client := NewClient(
 		WithAPIKey("test-key"),
+		WithHTTPClient(newFailingHTTPClient()),
 		WithAirportMasterCacheTTL(time.Minute),
 	)
 	client.storeAirportMasters(time.Now(), masters)
@@ -49,6 +65,8 @@ func TestHandleReadyRequest_NoAirportMaster_DoesNothing(t *testing.T) {
 }
 
 func TestHandleReadyRequest_FastPathTargetsConnectedMaster(t *testing.T) {
+	t.Setenv("CDM_ES_FAST_PATH", "true")
+
 	const sessionID = int32(7)
 	const callsign = "SAS123"
 	const targetPosition = "EKCH_B_GND"

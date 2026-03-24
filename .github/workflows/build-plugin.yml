@@ -38,6 +38,11 @@ jobs:
         working-directory: ./euroscope-plugin/build
         run: ninja
 
+      # Run the test suite
+      - name: Run Tests
+        working-directory: ./euroscope-plugin/build
+        run: ctest --output-on-failure --build-config Release
+
       - uses: actions/upload-artifact@v4
         with:
           name: Plugin

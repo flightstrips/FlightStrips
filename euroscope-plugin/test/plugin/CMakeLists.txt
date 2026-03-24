@@ -251,4 +251,5 @@ include(GoogleTest)
 # and ctest time, so Windows finds the EuroScope DLLs that live alongside it.
 gtest_discover_tests(${PROJECT_NAME}
     WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+    DISCOVERY_MODE PRE_TEST
 )

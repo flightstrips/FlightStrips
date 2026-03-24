@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.0](https://github.com/flightstrips/FlightStrips/compare/docs/v0.2.0...docs/v0.3.0) (2026-03-24)
+
+
+### Features
+
+* added new docs ([aa70b49](https://github.com/flightstrips/FlightStrips/commit/aa70b499e849d194185013d48df4801daa76bb22))
+
 ## [0.2.0](https://github.com/flightstrips/FlightStrips/compare/docs/v0.1.0...docs/v0.2.0) (2026-03-24)
 
 

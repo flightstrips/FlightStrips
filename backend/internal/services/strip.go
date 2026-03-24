@@ -1919,7 +1919,12 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, st
 				slog.Warn("Failed to set has_fp on new strip", slog.String("callsign", strip.Callsign), slog.Any("error", err))
 			}
 		}
-		slog.Debug("Inserted strip", slog.String("callsign", strip.Callsign))
+		slog.Debug("Inserted strip",
+			slog.String("callsign", strip.Callsign),
+			slog.String("origin", strip.Origin),
+			slog.String("destination", strip.Destination),
+			slog.String("bay", bay),
+		)
 	} else {
 		// Strip exists, update it
 		dbExistingStrip := database.Strip{

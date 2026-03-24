@@ -71,6 +71,21 @@ func TestGetDepartureBayReevaluatesHiddenDepartureWithoutPosition(t *testing.T) 
 	}
 }
 
+func TestGetDepartureBayArrivalTransitionFromHiddenNonArrivalReturnsArrivalHidden(t *testing.T) {
+	existing := &database.Strip{
+		Origin: "ESSA",
+		Bay:    BAY_HIDDEN,
+	}
+	strip := euroscope.Strip{
+		Destination: "EKCH",
+	}
+
+	bay := GetDepartureBay(strip, existing, 500, "EKCH")
+	if bay != BAY_ARR_HIDDEN {
+		t.Fatalf("expected reclassified arrival to start in ARR_HIDDEN, got %s", bay)
+	}
+}
+
 func TestGetDepartureBayFromPositionTransitionsToAirborne(t *testing.T) {
 	existing := database.Strip{
 		Origin: "EKCH",
@@ -122,6 +137,18 @@ func TestGetDepartureBayFromPositionWithoutPositionKeepsExistingBay(t *testing.T
 	bay := GetDepartureBayFromPosition(0, 0, int64(AirportElevation), existing, 500, "EKCH")
 	if bay != BAY_NOT_CLEARED {
 		t.Fatalf("expected existing bay without position, got %s", bay)
+	}
+}
+
+func TestGetDepartureBayFromPositionArrivalHiddenPreserved(t *testing.T) {
+	existing := database.Strip{
+		Destination: "EKCH",
+		Bay:         BAY_HIDDEN,
+	}
+
+	bay := GetDepartureBayFromPosition(AirportLatitude, AirportLongitude, int64(AirportElevation), existing, 500, "EKCH")
+	if bay != BAY_HIDDEN {
+		t.Fatalf("expected auto-hidden arrival to remain HIDDEN, got %s", bay)
 	}
 }
 
@@ -212,5 +239,17 @@ func TestGetDepartureBayFromGroundState_ArrivalPreservesExistingBay(t *testing.T
 	bay := GetDepartureBayFromGroundState(euroscope.GroundStateDepart, existing, "EKCH")
 	if bay != BAY_FINAL {
 		t.Fatalf("expected arrival to keep BAY_FINAL, got %s", bay)
+	}
+}
+
+func TestGetDepartureBayFromGroundState_ArrivalHiddenPreserved(t *testing.T) {
+	existing := database.Strip{
+		Destination: "EKCH",
+		Bay:         BAY_HIDDEN,
+	}
+
+	bay := GetDepartureBayFromGroundState(euroscope.GroundStateDepart, existing, "EKCH")
+	if bay != BAY_HIDDEN {
+		t.Fatalf("expected auto-hidden arrival to remain HIDDEN, got %s", bay)
 	}
 }

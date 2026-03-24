@@ -27,6 +27,50 @@ func TestGetDepartureBayUsesConfiguredAirborneThreshold(t *testing.T) {
 	}
 }
 
+func TestGetDepartureBayWithoutPosition_UnclearedDepartureReturnsNotCleared(t *testing.T) {
+	strip := euroscope.Strip{
+		Origin:  "EKCH",
+		Cleared: false,
+	}
+
+	bay := GetDepartureBay(strip, nil, 500, "EKCH")
+	if bay != BAY_NOT_CLEARED {
+		t.Fatalf("expected NOT_CLEARED without position, got %s", bay)
+	}
+}
+
+func TestGetDepartureBayWithoutPosition_ClearedDepartureReturnsCleared(t *testing.T) {
+	strip := euroscope.Strip{
+		Origin:  "EKCH",
+		Cleared: true,
+	}
+
+	bay := GetDepartureBay(strip, nil, 500, "EKCH")
+	if bay != BAY_CLEARED {
+		t.Fatalf("expected CLEARED without position, got %s", bay)
+	}
+}
+
+func TestGetDepartureBayReevaluatesHiddenDepartureWithoutPosition(t *testing.T) {
+	groundState := euroscope.GroundStateUnknown
+	existing := &database.Strip{
+		Origin:  "EKCH",
+		Bay:     BAY_HIDDEN,
+		Cleared: false,
+		State:   &groundState,
+	}
+	strip := euroscope.Strip{
+		Origin:      "EKCH",
+		Cleared:     false,
+		GroundState: euroscope.GroundStateUnknown,
+	}
+
+	bay := GetDepartureBay(strip, existing, 500, "EKCH")
+	if bay != BAY_NOT_CLEARED {
+		t.Fatalf("expected hidden departure to be reclassified as NOT_CLEARED, got %s", bay)
+	}
+}
+
 func TestGetDepartureBayFromPositionTransitionsToAirborne(t *testing.T) {
 	existing := database.Strip{
 		Origin: "EKCH",
@@ -66,6 +110,18 @@ func TestGetDepartureBayFromPositionStaysInDepartBelowThreshold(t *testing.T) {
 	bay := GetDepartureBayFromPosition(AirportLatitude, AirportLongitude, int64(AirportElevation+100), existing, 500, "EKCH")
 	if bay != BAY_DEPART {
 		t.Fatalf("expected DEPART below threshold, got %s", bay)
+	}
+}
+
+func TestGetDepartureBayFromPositionWithoutPositionKeepsExistingBay(t *testing.T) {
+	existing := database.Strip{
+		Origin: "EKCH",
+		Bay:    BAY_NOT_CLEARED,
+	}
+
+	bay := GetDepartureBayFromPosition(0, 0, int64(AirportElevation), existing, 500, "EKCH")
+	if bay != BAY_NOT_CLEARED {
+		t.Fatalf("expected existing bay without position, got %s", bay)
 	}
 }
 

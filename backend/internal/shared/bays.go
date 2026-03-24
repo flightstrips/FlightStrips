@@ -47,6 +47,19 @@ const (
 	RelevantDistance = 30
 )
 
+func hasKnownPosition(lat, lon float64) bool {
+	return lat != 0 || lon != 0
+}
+
+func bayTracksGroundState(bay string) bool {
+	switch bay {
+	case BAY_PUSH, BAY_TAXI, BAY_TAXI_LWR, BAY_TAXI_TWR, BAY_DEPART, BAY_AIRBORNE:
+		return true
+	default:
+		return false
+	}
+}
+
 func GetDepartureBay(strip euroscope.Strip, existing *database.Strip, airborneAltitudeAGL int64, airport string) string {
 	// Arrivals: bay is set once when first seen within range, never changed by this function after that.
 	if strip.Destination == airport {
@@ -67,11 +80,13 @@ func GetDepartureBay(strip euroscope.Strip, existing *database.Strip, airborneAl
 
 	// Departures from this airport.
 	// TODO: airport latitude/longitude should be stored in config, not hardcoded
-	if GetDistance(strip.Position.Lat, strip.Position.Lon, AirportLatitude, AirportLongitude) > RelevantDistance {
+	if hasKnownPosition(strip.Position.Lat, strip.Position.Lon) &&
+		GetDistance(strip.Position.Lat, strip.Position.Lon, AirportLatitude, AirportLongitude) > RelevantDistance {
 		return BAY_HIDDEN
 	}
 
-	if existing != nil && existing.Bay != "" && existing.State != nil && strip.GroundState == *existing.State {
+	if existing != nil && existing.Bay != "" && existing.State != nil &&
+		strip.GroundState == *existing.State && bayTracksGroundState(existing.Bay) {
 		return existing.Bay
 	}
 
@@ -98,6 +113,10 @@ func GetDepartureBay(strip euroscope.Strip, existing *database.Strip, airborneAl
 
 	if !strip.Cleared {
 		return BAY_NOT_CLEARED
+	}
+
+	if !hasKnownPosition(strip.Position.Lat, strip.Position.Lon) {
+		return BAY_CLEARED
 	}
 
 	if int64(strip.Position.Altitude) < int64(AirportElevation)+airborneAltitudeAGL {
@@ -147,6 +166,10 @@ func GetDepartureBayFromPosition(lat, lon float64, alt int64, existing database.
 	}
 
 	// Departures from this airport.
+	if !hasKnownPosition(lat, lon) {
+		return existingBay
+	}
+
 	if GetDistance(lat, lon, AirportLatitude, AirportLongitude) > RelevantDistance {
 		return BAY_HIDDEN
 	}

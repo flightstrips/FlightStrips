@@ -925,6 +925,76 @@ func TestUpdateClearedFlagForMove_FlagChangesToCleared_TriggersAutoAssume(t *tes
 	assert.True(t, esHub.ClearedFlags[0].Flag)
 }
 
+func TestUpdateClearedFlagForMove_UnownedStripTracksClearingPositionInPreviousOwners(t *testing.T) {
+	ctx := context.Background()
+	const session = int32(1)
+	const callsign = "SAS011"
+	const cid = "111222"
+	const deliveryPosition = "EKCH_DEL"
+	const sqPosition = "GND_N"
+
+	strip := &models.Strip{
+		Callsign:       callsign,
+		Cleared:        false,
+		Version:        int32(8),
+		NextOwners:     []string{sqPosition, "EKCH_TWR"},
+		PreviousOwners: []string{},
+	}
+
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			return strip, nil
+		},
+		UpdateClearedFlagFn: func(_ context.Context, _ int32, _ string, cleared bool, bay string, _ *int32) (int64, error) {
+			assert.True(t, cleared)
+			assert.Equal(t, shared.BAY_CLEARED, bay)
+			return 1, nil
+		},
+		SetNextAndPreviousOwnersFn: func(_ context.Context, _ int32, _ string, nextOwners []string, previousOwners []string) error {
+			assert.Equal(t, []string{"EKCH_TWR"}, nextOwners)
+			assert.Equal(t, []string{deliveryPosition}, previousOwners)
+			return nil
+		},
+		SetOwnerFn: func(_ context.Context, _ int32, _ string, owner *string, _ int32) (int64, error) {
+			require.NotNil(t, owner)
+			assert.Equal(t, sqPosition, *owner)
+			return 1, nil
+		},
+	}
+
+	controllerRepo := &testutil.MockControllerRepository{
+		GetByCidFn: func(_ context.Context, gotCid string) (*models.Controller, error) {
+			assert.Equal(t, cid, gotCid)
+			return &models.Controller{Position: deliveryPosition}, nil
+		},
+	}
+
+	sectorRepo := &testutil.MockSectorOwnerRepository{
+		ListBySessionFn: func(_ context.Context, _ int32) ([]*models.SectorOwner, error) {
+			return []*models.SectorOwner{
+				{Position: sqPosition, Sector: []string{"SQ"}},
+			}, nil
+		},
+	}
+
+	hub := &testutil.MockFrontendHub{}
+	esHub := &testutil.MockEuroscopeHub{}
+	svc := NewStripService(stripRepo)
+	svc.SetFrontendHub(hub)
+	svc.SetEuroscopeHub(esHub)
+	svc.SetSectorOwnerRepo(sectorRepo)
+	svc.SetControllerRepo(controllerRepo)
+
+	err := svc.UpdateClearedFlagForMove(ctx, session, callsign, true, shared.BAY_CLEARED, cid)
+	require.NoError(t, err)
+	require.Len(t, hub.OwnersUpdates, 1)
+	assert.Equal(t, sqPosition, hub.OwnersUpdates[0].Owner)
+	assert.Equal(t, []string{"EKCH_TWR"}, hub.OwnersUpdates[0].NextOwners)
+	assert.Equal(t, []string{deliveryPosition}, hub.OwnersUpdates[0].PreviousOwners)
+	require.Len(t, esHub.ClearedFlags, 1)
+	assert.True(t, esHub.ClearedFlags[0].Flag)
+}
+
 func TestUpdateClearedFlagForMove_FlagUnchanged_NoSideEffects(t *testing.T) {
 	ctx := context.Background()
 

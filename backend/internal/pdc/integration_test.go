@@ -186,7 +186,7 @@ func TestHandleWilcoFlow(t *testing.T) {
 	require.NoError(t, err)
 
 	// Now handle WILCO
-	suite.mockStrip.On("AutoAssumeForClearedStrip", mock.Anything, sessionID, callsign).Return(nil)
+	suite.mockStrip.On("AutoAssumeForClearedStripByCid", mock.Anything, sessionID, callsign, cid).Return(nil)
 	suite.mockFrontend.On("SendPdcStateChange", sessionID, callsign, "CONFIRMED").Return()
 
 	incomingMsg := &IncomingMessage{

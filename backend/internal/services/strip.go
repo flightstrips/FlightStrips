@@ -690,6 +690,19 @@ func (s *StripService) UnclearStrip(ctx context.Context, session int32, callsign
 // session and assigns them as the strip owner. It sends an owners update broadcast
 // to all frontend clients. If no SQ/DEL owner is found, the strip is left unowned.
 func (s *StripService) AutoAssumeForClearedStrip(ctx context.Context, session int32, callsign string) error {
+	return s.autoAssumeForClearedStrip(ctx, session, callsign, "")
+}
+
+func (s *StripService) AutoAssumeForClearedStripByCid(ctx context.Context, session int32, callsign string, cid string) error {
+	actingPosition, err := s.resolveControllerPositionByCid(ctx, cid)
+	if err != nil {
+		return err
+	}
+
+	return s.autoAssumeForClearedStrip(ctx, session, callsign, actingPosition)
+}
+
+func (s *StripService) autoAssumeForClearedStrip(ctx context.Context, session int32, callsign string, actingPosition string) error {
 	if s.sectorOwnerRepo == nil {
 		return nil
 	}
@@ -727,7 +740,7 @@ func (s *StripService) AutoAssumeForClearedStrip(ctx context.Context, session in
 		return err
 	}
 
-	nextOwners, previousOwners := prepareOwnersForAutomaticTransfer(strip, sqPosition)
+	nextOwners, previousOwners := prepareOwnersForAutomaticTransfer(strip, sqPosition, actingPosition)
 
 	if err := s.stripRepo.SetNextAndPreviousOwners(ctx, session, callsign, nextOwners, previousOwners); err != nil {
 		return err
@@ -745,13 +758,46 @@ func (s *StripService) AutoAssumeForClearedStrip(ctx context.Context, session in
 	return nil
 }
 
-func prepareOwnersForAutomaticTransfer(strip *internalModels.Strip, newOwner string) ([]string, []string) {
+func (s *StripService) resolveControllerPositionByCid(ctx context.Context, cid string) (string, error) {
+	if cid == "" {
+		return "", nil
+	}
+
+	controllerRepo := s.controllerRepo
+	if controllerRepo == nil && s.frontendHub != nil {
+		if server := s.frontendHub.GetServer(); server != nil {
+			controllerRepo = server.GetControllerRepository()
+		}
+	}
+	if controllerRepo == nil {
+		return "", nil
+	}
+
+	controller, err := controllerRepo.GetByCid(ctx, cid)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return "", nil
+		}
+		return "", err
+	}
+
+	return controller.Position, nil
+}
+
+func prepareOwnersForAutomaticTransfer(strip *internalModels.Strip, newOwner string, additionalPreviousOwners ...string) ([]string, []string) {
 	nextOwners := strip.NextOwners
 	if index := slices.Index(nextOwners, newOwner); index >= 0 {
 		nextOwners = nextOwners[index+1:]
 	}
 
-	previousOwners := make([]string, 0, len(strip.PreviousOwners)+1)
+	previousOwners := make([]string, 0, len(strip.PreviousOwners)+1+len(additionalPreviousOwners))
+	appendPreviousOwner := func(position string) {
+		if position == "" || position == newOwner || slices.Contains(previousOwners, position) {
+			return
+		}
+		previousOwners = append(previousOwners, position)
+	}
+
 	for _, owner := range strip.PreviousOwners {
 		if owner == newOwner {
 			continue
@@ -763,7 +809,10 @@ func prepareOwnersForAutomaticTransfer(strip *internalModels.Strip, newOwner str
 	}
 
 	if strip.Owner != nil && *strip.Owner != "" && *strip.Owner != newOwner {
-		previousOwners = append(previousOwners, *strip.Owner)
+		appendPreviousOwner(*strip.Owner)
+	}
+	for _, owner := range additionalPreviousOwners {
+		appendPreviousOwner(owner)
 	}
 
 	return nextOwners, previousOwners
@@ -1590,7 +1639,7 @@ func (s *StripService) UpdateClearedFlagForMove(ctx context.Context, session int
 	// Only trigger side-effects when the cleared flag actually changed value.
 	if strip.Cleared != isCleared {
 		if isCleared {
-			if err := s.AutoAssumeForClearedStrip(ctx, session, callsign); err != nil {
+			if err := s.AutoAssumeForClearedStripByCid(ctx, session, callsign, cid); err != nil {
 				slog.Error("Failed to auto-assume cleared strip", slog.Any("error", err))
 			}
 		}

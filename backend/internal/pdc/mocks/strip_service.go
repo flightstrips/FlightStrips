@@ -63,6 +63,11 @@ func (m *StripService) AutoAssumeForClearedStrip(ctx context.Context, session in
 	return args.Error(0)
 }
 
+func (m *StripService) AutoAssumeForClearedStripByCid(ctx context.Context, session int32, callsign string, cid string) error {
+	args := m.Called(ctx, session, callsign, cid)
+	return args.Error(0)
+}
+
 func (m *StripService) AutoAssumeForControllerOnline(ctx context.Context, session int32, controllerPosition string) error {
 	args := m.Called(ctx, session, controllerPosition)
 	return args.Error(0)

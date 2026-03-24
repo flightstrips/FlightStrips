@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.15.1](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.15.0...frontend/v0.15.1) (2026-03-24)
+
+
+### Bug Fixes
+
+* use SI box component for all strips ([7e99857](https://github.com/flightstrips/FlightStrips/commit/7e998578e3989c5fa3374607355ffc1d54dd5cbc))
+
 ## [0.15.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.14.1...frontend/v0.15.0) (2026-03-23)
 
 

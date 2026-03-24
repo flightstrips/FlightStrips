@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.2](https://github.com/flightstrips/FlightStrips/compare/plugin/v0.8.1...plugin/v0.8.2) (2026-03-24)
+
+
+### Bug Fixes
+
+* ES build ([#115](https://github.com/flightstrips/FlightStrips/issues/115)) ([c8211fa](https://github.com/flightstrips/FlightStrips/commit/c8211fae1ae4978b12796c27f99d82f5f931de5c))
+
 ## [0.8.1](https://github.com/flightstrips/FlightStrips/compare/plugin/v0.8.0...plugin/v0.8.1) (2026-03-24)
 
 

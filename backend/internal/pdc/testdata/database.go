@@ -132,6 +132,26 @@ func SeedTestStrip(t *testing.T, queries *database.Queries, sessionID int32, cal
 
 func ptr[T any](v T) *T { return &v }
 
+// SeedTestStripWithAircraftType inserts a test strip with a custom aircraft type
+func SeedTestStripWithAircraftType(t *testing.T, queries *database.Queries, sessionID int32, callsign, aircraftType string) {
+	ctx := context.Background()
+
+	err := queries.InsertStrip(ctx, database.InsertStripParams{
+		Callsign:       callsign,
+		Session:        sessionID,
+		Origin:         "EKCH",
+		Destination:    "ESSA",
+		AircraftType:   ptr(aircraftType),
+		Runway:         ptr("22L"),
+		Sid:            ptr("VEMBO2E"),
+		Squawk:         ptr("2401"),
+		AssignedSquawk: ptr("2401"),
+		Bay:            "NOT_CLEARED",
+		CdmData:        []byte(`{"canonical":{}}`),
+	})
+	require.NoError(t, err)
+}
+
 // CleanupTestSession removes test session and all related data
 func CleanupTestSession(t *testing.T, queries *database.Queries, sessionID int32) {
 	ctx := context.Background()

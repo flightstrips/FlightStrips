@@ -5,12 +5,24 @@ description: Toolchain, run commands, and wiring for backend, frontend, EuroScop
 
 | Part | Platform |
 | --- | --- |
-| Backend | Windows — Docker and/or Go; Postgres required |
+| Backend | Windows |
 | EuroScope plugin | Windows x86 (Win32) — MSVC |
-| Frontend | Node 22.x wherever Node runs (`frontend/package.json` `engines`) |
-| Docs | Node (Starlight / Astro), same as frontend |
+| Frontend | Windows, Linux & Mac |
+| Docs | Windows, Linux & Mac |
 
-Install **Docker Desktop**, **Go** (matching `backend/go.mod`), **Node 22**, and **Git**. For the plugin, use **Visual Studio 2022** (Desktop development with C++) or **Build Tools** plus **CMake** and **Ninja**. CI builds **Win32** (`cmake` fails on x64 targets); open an **x86** MSVC dev shell when building so the toolchain matches EuroScope’s 32-bit host.
+### Host requirements
+
+| Requirement | Used for | Notes |
+| --- | --- | --- |
+| Docker Desktop | Backend | Compose for Postgres, migrator, optional full API image |
+| Go | Backend | Version per `backend/go.mod`; host `go run` when DB runs in Docker |
+| Node.js 22.x | Frontend, docs | Locked in `frontend/package.json` `engines` |
+| Git | Repo | Standard clone/submodule workflow |
+| Visual Studio 2022 **or** Build Tools (C++ workload) | EuroScope plugin | MSVC for Win32 |
+| CMake ≥ 3.15 | EuroScope plugin | Configure step |
+| Ninja | EuroScope plugin | Generator used in CI; same as local builds |
+
+**Plugin builds:** the target is **Win32** (x86). Open an **x86 Native Tools** (or equivalent) MSVC prompt before `cmake` / `cmake --build` so links match EuroScope’s 32-bit host; an x64-only toolchain will fail CMake or produce the wrong architecture.
 
 ## Backend
 

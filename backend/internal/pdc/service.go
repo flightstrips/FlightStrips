@@ -215,9 +215,13 @@ func (s *Service) ProcessPDCRequest(ctx context.Context, msg *IncomingMessage, s
 			func(seq int32) string { return buildFlightPlanNotHeld(seq, strip.Origin, req.Callsign) })
 	}
 
-	if strip.AircraftType == nil || !strings.EqualFold(*strip.AircraftType, req.Aircraft) {
+	stripAircraftType := ""
+	if strip.AircraftType != nil {
+		stripAircraftType = strings.SplitN(*strip.AircraftType, "/", 2)[0]
+	}
+	if strip.AircraftType == nil || !strings.EqualFold(stripAircraftType, req.Aircraft) {
 		return s.sendErrorAndReturn(ctx, session, req.Callsign,
-			fmt.Errorf("aircraft type mismatch: expected %s, got %s", *strip.AircraftType, req.Aircraft),
+			fmt.Errorf("aircraft type mismatch: expected %s, got %s", stripAircraftType, req.Aircraft),
 			func(seq int32) string { return buildInvalidAircraftType(seq, strip.Origin, req.Callsign) })
 	}
 

@@ -404,6 +404,52 @@ func TestProcessPDCRequest_InvalidAircraftType(t *testing.T) {
 	suite.mockHoppie.AssertCalled(t, "SendCPDLC", mock.Anything, mock.Anything, callsign, mock.Anything)
 }
 
+func TestProcessPDCRequest_AircraftTypeWithEquipmentSuffix(t *testing.T) {
+	t.Parallel()
+	suite := &PDCIntegrationTestSuite{}
+	suite.SetupTest(t)
+	ctx := context.Background()
+
+	callsign := "DLH6LK"
+	cid := ""
+
+	// Seed strip with full ICAO aircraft type including equipment suffix
+	testdata.SeedTestStripWithAircraftType(t, suite.queries, 1, callsign, "A321/M-SDE3FGHIRWY/LB1")
+
+	// Expect ACK (STANDBY) then auto-issued clearance
+	suite.mockHoppie.On("SendCPDLC", mock.Anything, mock.Anything, callsign, mock.MatchedBy(func(msg string) bool {
+		return strings.Contains(msg, "STANDBY")
+	})).Return(nil)
+	suite.mockHoppie.On("SendCPDLC", mock.Anything, mock.Anything, callsign, mock.MatchedBy(func(msg string) bool {
+		return strings.Contains(msg, "CLRD TO")
+	})).Return(nil)
+	suite.mockStrip.On("ClearStrip", mock.Anything, int32(1), callsign, cid).Return(nil)
+	suite.mockFrontend.On("SendPdcStateChange", int32(1), callsign, "CLEARED").Return()
+
+	incomingMsg := &IncomingMessage{
+		Type:       MsgPDCRequest,
+		From:       callsign,
+		To:         "EKCH",
+		Payload:    fmt.Sprintf("REQUEST PREDEP CLEARANCE %s A321 TO ESSA AT EKCH STAND A10 ATIS A", callsign),
+		RawMessage: fmt.Sprintf("%s EKCH telex {REQUEST PREDEP CLEARANCE %s A321 TO ESSA AT EKCH STAND A10 ATIS A}", callsign, callsign),
+	}
+
+	session := sessionInformation{
+		id:       1,
+		callsign: "EKCH",
+	}
+
+	err := suite.service.ProcessPDCRequest(ctx, incomingMsg, session)
+	require.NoError(t, err)
+
+	strip, err := suite.queries.GetStrip(ctx, database.GetStripParams{
+		Session:  1,
+		Callsign: callsign,
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "CLEARED", strip.PdcState)
+}
+
 func TestProcessPDCRequest_Success(t *testing.T) {
 	t.Parallel()
 	suite := &PDCIntegrationTestSuite{}

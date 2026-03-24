@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.3](https://github.com/flightstrips/FlightStrips/compare/plugin/v0.8.2...plugin/v0.8.3) (2026-03-24)
+
+
+### Bug Fixes
+
+* disable ES plugin ([d2ac362](https://github.com/flightstrips/FlightStrips/commit/d2ac362dee0ac0c59a3477faca118bb4bf7bae5e))
+
 ## [0.8.2](https://github.com/flightstrips/FlightStrips/compare/plugin/v0.8.1...plugin/v0.8.2) (2026-03-24)
 
 

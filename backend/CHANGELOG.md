@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.10.1](https://github.com/flightstrips/FlightStrips/compare/backend/v0.10.0...backend/v0.10.1) (2026-03-24)
+
+
+### Bug Fixes
+
+* arrivals not showing up ([899c2b4](https://github.com/flightstrips/FlightStrips/commit/899c2b4ea0682628f01f7b746ec9ffdaf569da5f))
+* missing airborne controller ([4b812a5](https://github.com/flightstrips/FlightStrips/commit/4b812a57847115886fd7bdad2b8aa25d247ec42b))
+* pdc required to specfic aircraft type ([e58ba94](https://github.com/flightstrips/FlightStrips/commit/e58ba9496297cc4ca4de367f58136dd37c8eba09))
+
 ## [0.10.0](https://github.com/flightstrips/FlightStrips/compare/backend/v0.9.2...backend/v0.10.0) (2026-03-23)
 
 

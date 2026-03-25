@@ -45,23 +45,26 @@ func matchesControllers(controllers []*Position, required []string, offline bool
 		return true
 	}
 
+	// Work on a copy to avoid mutating the original slice stored in global config state.
+	remaining := slices.Clone(required)
+
 	for _, c := range controllers {
 		if strings.Contains(c.Name, "_GND") {
-			if index := slices.Index(required, "_GND"); index != -1 {
+			if index := slices.Index(remaining, "_GND"); index != -1 {
 				if offline {
 					return false
 				}
-				required = slices.Delete(required, index, index+1)
+				remaining = slices.Delete(remaining, index, index+1)
 			}
 		}
-		if index := slices.Index(required, c.Name); index != -1 {
+		if index := slices.Index(remaining, c.Name); index != -1 {
 			if offline {
 				return false
 			}
-			required = slices.Delete(required, index, index+1)
+			remaining = slices.Delete(remaining, index, index+1)
 		}
 
-		if len(required) == 0 {
+		if len(remaining) == 0 {
 			return true
 		}
 	}

@@ -425,7 +425,7 @@ layouts:
       offline: [EKCH_A_GND]
       layout: AA
     - online: []
-      offline: [EKCH_B_GND, EKCH_C_GND]
+      offline: [EKCH_A_GND, EKCH_C_GND]
       layout: AAAD
 
   EKCH_C_GND:
@@ -439,19 +439,7 @@ layouts:
       offline: [EKCH_B_GND]
       layout: AD
     - online: []
-      offline: [EKCH_B_GND, EKCH_C_GND]
-      layout: AAAD
-    - online: [EKCH_A_GND, EKCH_B_GND]
-      offline: []
-      layout: AD
-    - online: [EKCH_B_GND]
-      offline: [EKCH_A_GND]
-      layout: AD
-    - online: [EKCH_A_GND]
-      offline: [EKCH_B_GND]
-      layout: AD
-    - online: []
-      offline: [EKCH_B_GND, EKCH_C_GND]
+      offline: [EKCH_A_GND, EKCH_B_GND]
       layout: AAAD
 
   EKCH_C_TWR:

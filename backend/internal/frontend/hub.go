@@ -265,6 +265,10 @@ func (hub *Hub) sendInitialEvent(client *Client) {
 			if controller.Layout != nil {
 				layout = *controller.Layout
 			}
+		} else if controller.Position == client.position && layout == "" && controller.Layout != nil {
+			// Dual-login: another controller at the same position already has a layout;
+			// use it as a fallback so the second client isn't left without a layout.
+			layout = *controller.Layout
 		}
 	}
 

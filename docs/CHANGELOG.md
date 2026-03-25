@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.6.0](https://github.com/flightstrips/FlightStrips/compare/docs/v0.5.0...docs/v0.6.0) (2026-03-25)
+
+
+### Features
+
+* added simple docs for writeing docs ([0ec2942](https://github.com/flightstrips/FlightStrips/commit/0ec29424fbe7d6bc5103b629e5876780930145e4))
+* updated docs on ownership to remove tech terms ([3db41e9](https://github.com/flightstrips/FlightStrips/commit/3db41e996cd57e483afc192f1969834fc4f26b3b))
+
 ## [0.5.0](https://github.com/flightstrips/FlightStrips/compare/docs/v0.4.0...docs/v0.5.0) (2026-03-25)
 
 

@@ -88,6 +88,7 @@ func stripToModel(db database.Strip) (*models.Strip, error) {
 		TrackingController:       db.TrackingController,
 		EngineType:               db.EngineType,
 		RunwayCleared:            db.RunwayCleared,
+		RunwayConfirmed:          db.RunwayConfirmed,
 		UnexpectedChangeFields:   db.UnexpectedChangeFields,
 		ControllerModifiedFields: db.ControllerModifiedFields,
 	}, nil
@@ -718,8 +719,17 @@ func (r *stripRepository) RemoveUnexpectedChangeField(ctx context.Context, sessi
 }
 
 // UpdateRunwayClearance moves a strip from DEPART to RWY_DEP (if applicable) and sets runway_cleared = true.
+// It also auto-confirms (runway_confirmed = true) if no other confirmed strips exist in the session.
 func (r *stripRepository) UpdateRunwayClearance(ctx context.Context, session int32, callsign string) (int64, error) {
 	return r.queries.UpdateRunwayClearance(ctx, database.UpdateRunwayClearanceParams{
+		Callsign: callsign,
+		Session:  session,
+	})
+}
+
+// UpdateRunwayConfirmation marks a strip as runway-confirmed (green indicator).
+func (r *stripRepository) UpdateRunwayConfirmation(ctx context.Context, session int32, callsign string) (int64, error) {
+	return r.queries.UpdateRunwayConfirmation(ctx, database.UpdateRunwayConfirmationParams{
 		Callsign: callsign,
 		Session:  session,
 	})

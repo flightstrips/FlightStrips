@@ -111,6 +111,7 @@ type Strip struct {
 	Language                 *string
 	HasFp                    bool
 	CdmData                  []byte
+	RunwayConfirmed          bool
 }
 
 type TacticalStrip struct {

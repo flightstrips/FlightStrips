@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { getSimpleAircraftType } from "@/lib/utils";
-import { useStrips, useStripTransfers, useWebSocketStore } from "@/store/store-hooks";
+import { useStripTransfers, useWebSocketStore } from "@/store/store-hooks";
 import { Bay } from "@/api/models";
 import type { StripProps } from "./types";
 import { useStripSelection, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR, FONT, COLOR_ARR_YELLOW, getStripOwnership, resolveStripBg } from "./shared";
@@ -49,6 +49,7 @@ export function FinalArrStrip({
   selectable,
   marked = false,
   runwayCleared = false,
+  runwayConfirmed = false,
 }: StripProps) {
   const { isSelected, handleClick } = useStripSelection(callsign, selectable);
   const cellBorderColor = getCellBorderColor(marked, CELL_BORDER);
@@ -56,21 +57,18 @@ export function FinalArrStrip({
   const isTagRequest = !!stripTransfers[callsign]?.isTagRequest;
   const { isUnconcerned } = getStripOwnership(myPosition, owner, nextControllers, previousControllers);
   const runwayClearance = useWebSocketStore(s => s.runwayClearance);
+  const runwayConfirmation = useWebSocketStore(s => s.runwayConfirmation);
   const openStripContextMenu = useWebSocketStore(s => s.openStripContextMenu);
-  const allStrips = useStrips();
   const [standOpen, setStandOpen] = useState(false);
   const [taxiMapOpen, setTaxiMapOpen] = useState(false);
 
-  // Count cleared strips in RWY_ARR bay (to determine green vs red).
-  const clearedInRwyArr = allStrips.filter(s => s.bay === Bay.RwyArr && s.runway_cleared);
-
   // RWY cell color — only when cleared in RWY_ARR bay:
-  // - sole cleared aircraft: green
-  // - other cleared aircraft also in bay: red
+  // - runway_confirmed = true: green (controller acknowledged)
+  // - runway_cleared = true, runway_confirmed = false: red (new/incoming, needs attention)
   // - not yet cleared: no background (default strip color)
   let rwyColor: string | undefined;
   if (bay === Bay.RwyArr && runwayCleared) {
-    rwyColor = clearedInRwyArr.length <= 1 ? "#70ED45" : "#F43A3A";
+    rwyColor = runwayConfirmed ? "#70ED45" : "#F43A3A";
   }
 
   return (
@@ -157,7 +155,7 @@ export function FinalArrStrip({
         <div
           className={`flex items-center justify-center${bay === Bay.Final || bay === Bay.RwyArr ? " cursor-pointer" : ""}`}
           style={{ height: TOP_H }}
-          onClick={bay === Bay.Final || bay === Bay.RwyArr ? (e) => { e.stopPropagation(); runwayClearance(callsign); } : undefined}
+          onClick={bay === Bay.Final || bay === Bay.RwyArr ? (e) => { e.stopPropagation(); if (runwayCleared && !runwayConfirmed) { runwayConfirmation(callsign); } else { runwayClearance(callsign); } } : undefined}
         >
           <span className="truncate" style={{ fontFamily: FONT, fontWeight: "bold", fontSize: 18 }}>
             {runway}

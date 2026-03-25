@@ -380,6 +380,14 @@ func handleRunwayClearance(ctx context.Context, client *Client, message Message)
 	return client.hub.stripService.RunwayClearance(ctx, client.session, event.Callsign, client.GetCid(), client.airport)
 }
 
+func handleRunwayConfirmation(ctx context.Context, client *Client, message Message) error {
+	var event frontend.RunwayConfirmationEvent
+	if err := message.JsonUnmarshal(&event); err != nil {
+		return err
+	}
+	return client.hub.stripService.RunwayConfirmation(ctx, client.session, event.Callsign)
+}
+
 func handleIssuePdcClearance(ctx context.Context, client *Client, message Message) error {
 	var req frontend.IssuePdcClearanceRequest
 	if err := message.JsonUnmarshal(&req); err != nil {

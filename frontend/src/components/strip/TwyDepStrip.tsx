@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { getSimpleAircraftType } from "@/lib/utils";
-import { useControllers, useStrips, useStripTransfers, useWebSocketStore } from "@/store/store-hooks";
+import { useControllers, useStripTransfers, useWebSocketStore } from "@/store/store-hooks";
 import { useCTOTColor } from "@/hooks/useCTOTColor";
 import { COLOR_UNEXPECTED_YELLOW } from "./shared";
 import { getStripBg } from "./types";
@@ -62,6 +62,7 @@ export function TwyDepStrip({
   selectable,
   marked = false,
   runwayCleared = false,
+  runwayConfirmed = false,
   unexpectedChangeFields,
   controllerModifiedFields,
 }: StripProps) {
@@ -75,24 +76,21 @@ export function TwyDepStrip({
   const [showTaxiMap, setShowTaxiMap] = useState(false);
   const [showHpMap, setShowHpMap] = useState(false);
   const runwayClearance = useWebSocketStore(s => s.runwayClearance);
+  const runwayConfirmation = useWebSocketStore(s => s.runwayConfirmation);
   const acknowledgeUnexpectedChange = useWebSocketStore(s => s.acknowledgeUnexpectedChange);
   const openStripContextMenu = useWebSocketStore(s => s.openStripContextMenu);
-  const allStrips = useStrips();
   const standYellow = unexpectedChangeFields?.includes("stand");
   const releasePointYellow = unexpectedChangeFields?.includes("release_point");
 
-  // Count only CLEARED strips in DEPART bay.
-  const clearedInDepart = allStrips.filter(s => s.bay === Bay.Depart && s.runway_cleared);
-
-  // RWY cell background color logic (only when strip is in DEPART bay):
-  // - runway_cleared = false: blue (in bay, awaiting clearance)
-  // - runway_cleared = true, sole cleared aircraft in bay: green
-  // - runway_cleared = true, other cleared aircraft also in bay: red
+  // RWY cell background color (only when strip is in DEPART bay):
+  // - runway_cleared = false: blue/cyan (in bay, awaiting clearance)
+  // - runway_cleared = true, runway_confirmed = true: green (controller acknowledged)
+  // - runway_cleared = true, runway_confirmed = false: red (new/incoming, needs attention)
   let rwyColor: string | undefined;
   if (bay === Bay.Depart) {
     if (!runwayCleared) {
       rwyColor = "#BEF5EF";
-    } else if (clearedInDepart.length <= 1) {
+    } else if (runwayConfirmed) {
       rwyColor = "#70ED45";
     } else {
       rwyColor = "#F43A3A";
@@ -221,7 +219,7 @@ export function TwyDepStrip({
         <div
           className="flex items-center justify-center border-b-2 cursor-pointer"
           style={{ height: HALF_H, borderBottomColor: cellBorderColor, backgroundColor: rwyColor }}
-          onClick={(e) => { e.stopPropagation(); runwayClearance(callsign); }}
+          onClick={(e) => { e.stopPropagation(); if (runwayCleared && !runwayConfirmed) { runwayConfirmation(callsign); } else { runwayClearance(callsign); } }}
         >
           <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: 14, color: getCellTextColor("runway", controllerModifiedFields) }}>{runway}</span>
         </div>

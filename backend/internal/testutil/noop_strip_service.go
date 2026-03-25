@@ -127,6 +127,9 @@ func (s *NoOpStripService) UpdateMarked(_ context.Context, _ int32, _ string, _ 
 func (s *NoOpStripService) RunwayClearance(_ context.Context, _ int32, _ string, _ string, _ string) error {
 	return nil
 }
+func (s *NoOpStripService) RunwayConfirmation(_ context.Context, _ int32, _ string) error {
+	return nil
+}
 func (s *NoOpStripService) PropagateRunwayChange(ctx context.Context, session int32, airport string, oldRunways models.ActiveRunways, newRunways models.ActiveRunways) error {
 	if s.PropagateRunwayChangeFn != nil {
 		return s.PropagateRunwayChangeFn(ctx, session, airport, oldRunways, newRunways)

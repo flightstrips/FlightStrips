@@ -1813,6 +1813,20 @@ func (s *StripService) RunwayClearance(ctx context.Context, session int32, calls
 	return nil
 }
 
+// RunwayConfirmation marks a cleared strip as runway-confirmed (green) and broadcasts the update.
+// A strip that is already confirmed stays confirmed; non-cleared strips are unaffected.
+func (s *StripService) RunwayConfirmation(ctx context.Context, session int32, callsign string) error {
+	affected, err := s.stripRepo.UpdateRunwayConfirmation(ctx, session, callsign)
+	if err != nil {
+		return err
+	}
+	if affected != 1 {
+		return errors.New("failed to update runway confirmation")
+	}
+	s.frontendHub.SendStripUpdate(session, callsign)
+	return nil
+}
+
 // PropagateRunwayChange updates the runway on strips that had an auto-assigned runway
 // matching the old active runways.
 func (s *StripService) PropagateRunwayChange(ctx context.Context, session int32, airport string, oldRunways models.ActiveRunways, newRunways models.ActiveRunways) error {

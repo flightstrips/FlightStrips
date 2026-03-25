@@ -45,6 +45,7 @@ type Strip struct {
 	TrackingController       string
 	EngineType               string
 	RunwayCleared            bool
+	RunwayConfirmed          bool
 	UnexpectedChangeFields   []string
 	ControllerModifiedFields []string
 	IsManual                 bool

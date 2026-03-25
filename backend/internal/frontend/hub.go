@@ -74,6 +74,7 @@ func NewHub(stripService shared.StripService, authenticationService shared.Authe
 	handlers.Add(frontend.ReleasePoint, handleReleasePoint)
 	handlers.Add(frontend.Marked, handleMarked)
 	handlers.Add(frontend.RunwayClearance, handleRunwayClearance)
+	handlers.Add(frontend.RunwayConfirmation, handleRunwayConfirmation)
 	handlers.Add(frontend.AcknowledgeUnexpectedChange, handleAcknowledgeUnexpectedChange)
 	handlers.Add(frontend.IssuePdcClearance, handleIssuePdcClearance)
 	handlers.Add(frontend.PdcManualStateChange, handlePdcManualStateChange)
@@ -428,6 +429,7 @@ func MapStripToFrontendModel(strip *internalModels.Strip) frontend.Strip {
 		Registration:             helpers.ValueOrDefault(strip.Registration),
 		TrackingController:       strip.TrackingController,
 		RunwayCleared:            strip.RunwayCleared,
+		RunwayConfirmed:          strip.RunwayConfirmed,
 		UnexpectedChangeFields:   strip.UnexpectedChangeFields,
 		ControllerModifiedFields: strip.ControllerModifiedFields,
 		IsManual:                 strip.IsManual,

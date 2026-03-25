@@ -115,6 +115,7 @@ export interface WebSocketState {
   acceptTagRequest: (callsign: string) => void;
   toggleMarked: (callsign: string, marked: boolean) => void;
   runwayClearance: (callsign: string) => void;
+  runwayConfirmation: (callsign: string) => void;
   cdmReady: (callsign: string) => void;
   assignRunway: (callsign: string, runway: string) => void;
 
@@ -376,9 +377,23 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
         produce((state: WebSocketState) => {
           const idx = state.strips.findIndex(s => s.callsign === callsign);
           if (idx !== -1) {
+            // Auto-confirm if no other strips are already confirmed in the session.
+            const hasConfirmed = state.strips.some(s => s.callsign !== callsign && s.runway_confirmed);
             state.strips[idx].runway_cleared = true;
+            state.strips[idx].runway_confirmed = !hasConfirmed;
             if (state.strips[idx].bay === Bay.TaxiLwr) state.strips[idx].bay = Bay.Depart;
             if (state.strips[idx].bay === Bay.Final) state.strips[idx].bay = Bay.RwyArr;
+          }
+        })
+      );
+    },
+    runwayConfirmation: (callsign) => {
+      wsClient.send({ type: ActionType.FrontendRunwayConfirmation, callsign });
+      store.setState(
+        produce((state: WebSocketState) => {
+          const idx = state.strips.findIndex(s => s.callsign === callsign);
+          if (idx !== -1) {
+            state.strips[idx].runway_confirmed = true;
           }
         })
       );

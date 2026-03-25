@@ -72,7 +72,8 @@ const (
 
 	Marked EventType = "marked"
 
-	RunwayClearance EventType = "runway_clearance"
+	RunwayClearance    EventType = "runway_clearance"
+	RunwayConfirmation EventType = "runway_confirmation"
 
 	PdcManualStateChange EventType = "pdc_manual_state_change"
 	PdcStateChange       EventType = "pdc_state_change"
@@ -138,7 +139,8 @@ type Strip struct {
 	Marked                 bool     `json:"marked"`
 	Registration           string   `json:"registration"`
 	TrackingController     string   `json:"tracking_controller"`
-	RunwayCleared          bool     `json:"runway_cleared"`
+	RunwayCleared           bool     `json:"runway_cleared"`
+	RunwayConfirmed         bool     `json:"runway_confirmed"`
 	UnexpectedChangeFields  []string `json:"unexpected_change_fields"`
 	ControllerModifiedFields []string `json:"controller_modified_fields"`
 	IsManual               bool     `json:"is_manual"`
@@ -675,6 +677,18 @@ func (r RunwayClearanceEvent) Marshal() ([]byte, error) {
 
 func (r RunwayClearanceEvent) GetType() EventType {
 	return RunwayClearance
+}
+
+type RunwayConfirmationEvent struct {
+	Callsign string `json:"callsign"`
+}
+
+func (r RunwayConfirmationEvent) Marshal() ([]byte, error) {
+	return marshall(r)
+}
+
+func (r RunwayConfirmationEvent) GetType() EventType {
+	return RunwayConfirmation
 }
 
 // PDC Events

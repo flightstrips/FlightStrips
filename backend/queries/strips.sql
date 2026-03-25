@@ -226,14 +226,29 @@ SET bay            = CASE
                        WHEN bay = 'FINAL'    THEN 'RWY_ARR'
                        ELSE bay
                      END,
-    runway_cleared = true,
+    runway_cleared    = true,
+    runway_confirmed  = NOT EXISTS (
+                          SELECT 1
+                          FROM strips AS s2
+                          WHERE s2.session = $2
+                            AND s2.callsign != $1
+                            AND s2.runway_confirmed = true
+                            AND s2.bay IN ('DEPART', 'RWY_ARR')
+                        ),
     version        = version + 1
+WHERE callsign = $1 AND session = $2;
+
+-- name: UpdateRunwayConfirmation :execrows
+UPDATE strips
+SET runway_confirmed = true,
+    version          = version + 1
 WHERE callsign = $1 AND session = $2;
 
 -- name: ResetRunwayClearance :execrows
 UPDATE strips
-SET runway_cleared = false,
-    version        = version + 1
+SET runway_cleared   = false,
+    runway_confirmed = false,
+    version          = version + 1
 WHERE callsign = $1 AND session = $2;
 
 -- name: GetMaxSequenceInBayUnified :one

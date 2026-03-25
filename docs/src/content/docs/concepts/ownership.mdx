@@ -1,0 +1,107 @@
+---
+title: Ownership
+description: Who controls a strip and how control transfers
+---
+
+import TransferOwnershipDemo from "../../../components/TransferOwnershipDemo.astro";
+
+## What ownership means
+
+Every strip has controller state that every client renders:
+
+- `owner`: who currently controls the strip.
+- `next_controllers`: controllers who are expected to take over next (handoff order).
+- `previous_controllers`: controllers who have already held the strip.
+
+In addition to those controller lists, the UI also renders pending handoffs from the backend coordination state:
+
+- Normal transfers and tag requests appear as pending coordination until the server broadcasts completion (assume) or removal (reject/free).
+- The frontend tracks this pending coordination in `stripTransfers` and clears it when it receives the relevant websocket broadcasts.
+
+## How ownership is shown in the UI
+
+The SI / ownership indicator (`SIBox`) visualizes how *your* position relates to the strip:
+
+- White: you are the current `owner` (assumed).
+- Purple: you are in `next_controllers` but not the owner (concerned / next-up).
+- Orange: your position is in `previous_controllers` (transferred away).
+- Grey: you are neither owner, next, nor previous (unconcerned).
+
+When a coordination is pending, the SIBox may switch to split gradients to show:
+
+- Sending: owner side of a pending transfer
+- Receiving: target side of a pending transfer
+
+<TransferOwnershipDemo />
+
+
+### 1) Initiate a normal transfer (owner only)
+
+Initiate a normal transfer using the `TRF` button in the command bar.
+
+In the current frontend, `TRF` is enabled only when you are the current strip owner (`strip.owner === myPosition`).
+
+When you pick a target controller position, the frontend sends `coordination_transfer_request`.
+
+When the server broadcasts `coordination_transfer_broadcast`, the frontend sets `stripTransfers[callsign]`, and the SIBox displays the pending coordination.
+
+### 2) Owner side: sending / recall (cancel)
+
+While a normal transfer is pending and you are the sending owner:
+
+- Your SIBox shows a white+orange sending-away split.
+- Clicking the SIBox cancels the transfer by calling `cancelTransfer()` (`coordination_cancel_transfer_request`).
+
+The strip context menu also exposes `RECALL`, which is only enabled when you own the strip and an outgoing transfer exists.
+
+When the server clears the coordination (reject/free/assume), the frontend clears `stripTransfers` and the SIBox returns to the normal assumed/concerned/unconcerned coloring.
+
+### 3) Target side: receiving / assume (completion)
+
+When a normal transfer is pending and your position matches the target (`stripTransfers[callsign].to === myPosition`):
+
+- Your SIBox becomes clickable and clicking it calls `assumeStrip()` (`coordination_assume_request`).
+
+On `coordination_assume_broadcast`, the frontend clears the pending coordination (`stripTransfers`), and subsequent strip updates update `owner`, `next_controllers`, and `previous_controllers` so the timeline matches for everyone.
+
+## Assuming without a pending transfer
+
+### Direct assume when unowned
+
+If a strip is unowned (`owner` is empty) and your position appears in `next_controllers`, you can assume directly:
+
+- Your SIBox shows the concerned (purple) state.
+- Clicking it calls `assumeStrip()` without creating a pending coordination first.
+
+## Tag requests (REQ)
+
+A tag request uses the same pending coordination UI, but with `isTagRequest = true`.
+
+- The `REQ` button is only enabled when the selected strip is in `Bay.Cleared`, the strip is not unowned, you are not the current owner, and there is no active coordination.
+- Pressing `REQ` sends `coordination_tag_request`.
+
+While pending:
+
+- The current owner side becomes clickable and clicking the SIBox calls `acceptTagRequest()` (`coordination_accept_tag_request`).
+- After acceptance, the pending tag request coordination is cleared by the normal websocket lifecycle.
+
+## Force assume (manual ownership correction)
+
+`FORCE ASSUME` is the escape hatch when things get out of sync (unexpected routing, stale pending coordination, etc.).
+
+In the current frontend:
+
+- `FORCE ASSUME` is a strip context-menu action
+- it is disabled when you already own the strip, or when there is an active pending coordination (`stripTransfers[callsign]` exists)
+
+When allowed, the frontend calls `forceAssumeStrip()` (`coordination_force_assume_request`), bypassing the normal "next owner" constraint.
+
+## Freeing a strip (releasing ownership)
+
+The frontend supports freeing via `freeStrip()`:
+
+- it sends `coordination_free_request`
+- when `coordination_free_broadcast` is received, the frontend clears any pending coordination indicator (`stripTransfers`)
+
+After the backend processes the free, `owner` becomes empty/unowned and its next/previous controller lists update via normal strip updates.
+

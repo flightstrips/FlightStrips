@@ -7,6 +7,7 @@ export default defineConfig({
 	integrations: [
 		starlight({
 			title: 'FlightStrips Docs',
+			customCss: ['./src/tailwind.css'],
 			social: [{ icon: 'github', label: 'GitHub', href: 'https://github.com/flightstrips' }],
 			sidebar: [
 				{
@@ -17,6 +18,10 @@ export default defineConfig({
 						{ label: 'Features', slug: 'getting-started/features' },
 						{ label: 'EuroScope plugin', slug: 'getting-started/es-plugion' },
 					],
+				},
+				{
+					label: 'Concepts',
+					autogenerate: { directory: 'concepts' }
 				},
 				{
 					label: 'Kastrup',

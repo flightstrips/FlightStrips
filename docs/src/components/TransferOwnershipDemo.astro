@@ -1,20 +1,101 @@
-<div class="flex border-2 border-[#CBF3EF] bg-[#CBF3EF] h-16 w-fit">
-  <span class="h-16 w-16 m-2 bg-white border border-r-2 border-[#81A6A3]"></span>
-  <span class="h-16 w-42 m-2 font-bold text-2xl border border-r-2 border-[#81A6A3] pl-2 pt-1">SAS1234</span>
-  <span class="h-16 w-32 m-2 border border-r-2 border-[#81A6A3] flex flex-col items-center">
-    <p class="p-0 m-0 text-center text-sm">
-      A320 <br />
-      OY-KAU
-    </p>
-  </span>
-  <span class="h-16 w-28 m-2 font-bold text-2xl border border-r-2 border-[#81A6A3] pl-2 pt-1 text-center">
-    B19
-  </span>
-  <div class="h-16 w-32 m-2 border border-r-2 border-[#81A6A3] flex flex-col">
-    <span class="border-b-2 border-[#81A6A3] w-full pl-2 font-semibold">TSAT</span>
-    <span class="pl-2 font-semibold">CTOT</span>
+<div class="flex flex-col gap-2">
+  <div class="text-sm font-semibold text-[#21326A]">Your station perspective</div>
+  <div class="flex border-2 border-[#CBF3EF] bg-[#CBF3EF] h-16 w-fit">
+    <span
+      class="h-16 w-16 m-2 border border-r-2 border-[#81A6A3]"
+      id="tranfer"
+      title="Click to simulate a pending transfer"
+      aria-label="Your SI box (sending owner): click to start/cancel pending transfer"
+    ></span>
+    <span class="h-16 w-42 m-2 font-bold text-2xl border border-r-2 border-[#81A6A3] pl-2 pt-1">SAS1234</span>
+    <span class="h-16 w-32 m-2 border border-r-2 border-[#81A6A3] flex flex-col items-center">
+      <p class="p-0 m-0 text-center text-sm">
+        A320 <br />
+        OY-KAU
+      </p>
+    </span>
+    <span class="h-16 w-28 m-2 font-bold text-2xl border border-r-2 border-[#81A6A3] pl-2 pt-1 text-center">B19</span>
+    <div class="h-16 w-32 m-2 border border-r-2 border-[#81A6A3] flex flex-col">
+      <span class="border-b-2 border-[#81A6A3] w-full pl-2 font-semibold">TSAT</span>
+      <span class="pl-2 font-semibold">CTOT</span>
+    </div>
+    <span class="h-16 w-24 m-2 font-bold text-2xl border border-r-2 border-[#81A6A3] pl-2 pt-1 text-center">22R</span>
   </div>
-  <span class="h-16 w-24 m-2 font-bold text-2xl border border-r-2 border-[#81A6A3] pl-2 pt-1 text-center">
-    22R
-  </span>
+
+  <div class="text-sm font-semibold text-[#21326A]">Other station perspective</div>
+  <div class="flex border-2 border-[#CBF3EF] bg-[#CBF3EF] h-16 w-fit">
+    <span
+      class="h-16 w-16 m-2 border border-r-2 border-[#81A6A3]"
+      id="tranfer-other"
+      title="Click after transfer starts to complete"
+      aria-label="Other station SI box (receiving target): click to complete pending transfer"
+    ></span>
+    <span class="h-16 w-42 m-2 font-bold text-2xl border border-r-2 border-[#81A6A3] pl-2 pt-1">SAS1234</span>
+    <span class="h-16 w-32 m-2 border border-r-2 border-[#81A6A3] flex flex-col items-center">
+      <p class="p-0 m-0 text-center text-sm">
+        A320 <br />
+        OY-KAU
+      </p>
+    </span>
+    <span class="h-16 w-28 m-2 font-bold text-2xl border border-r-2 border-[#81A6A3] pl-2 pt-1 text-center">B19</span>
+    <div class="h-16 w-32 m-2 border border-r-2 border-[#81A6A3] flex flex-col">
+      <span class="border-b-2 border-[#81A6A3] w-full pl-2 font-semibold">TSAT</span>
+      <span class="pl-2 font-semibold">CTOT</span>
+    </div>
+    <span class="h-16 w-24 m-2 font-bold text-2xl border border-r-2 border-[#81A6A3] pl-2 pt-1 text-center">22R</span>
+  </div>
 </div>
+
+<script>
+  (() => {
+    // Colors match the frontend `SIBox` ownership indicator.
+    const COLOR_SI_ASSUMED = "#F0F0F0"; // white
+    const COLOR_SI_CONCERNED = "#E082E7"; // purple/concerned
+    const COLOR_BTN_ORANGE = "#DD6A12"; // orange/transferred-away
+
+    const ownerEl = document.getElementById("tranfer");
+    const otherEl = document.getElementById("tranfer-other");
+    if (!ownerEl || !otherEl) return;
+
+    // idle -> pending (owner sending) -> complete (transfer completed)
+    let state = "idle";
+
+    const setCursor = () => {
+      ownerEl.style.cursor = state === "idle" || state === "pending" ? "pointer" : "default";
+      otherEl.style.cursor = state === "pending" ? "pointer" : "default";
+    };
+
+    const update = () => {
+      if (state === "idle") {
+        // Owner perspective: assumed (white)
+        ownerEl.style.background = COLOR_SI_ASSUMED;
+        // Other perspective: next-up (concerned / purple)
+        otherEl.style.background = COLOR_SI_CONCERNED;
+      } else if (state === "pending") {
+        // Owner perspective: sending-away split (white | orange) with orange on the right.
+        ownerEl.style.background = `linear-gradient(to right, ${COLOR_SI_ASSUMED} 50%, ${COLOR_BTN_ORANGE} 50%)`;
+        // Other perspective: receiving split (purple | white)
+        otherEl.style.background = `linear-gradient(to right, ${COLOR_SI_CONCERNED} 50%, ${COLOR_SI_ASSUMED} 50%)`;
+      } else {
+        // complete
+        ownerEl.style.background = COLOR_BTN_ORANGE;
+        otherEl.style.background = COLOR_SI_ASSUMED;
+      }
+      setCursor();
+    };
+
+    ownerEl.addEventListener("click", () => {
+      if (state === "complete") state = "idle";
+      else state = state === "idle" ? "pending" : "idle"; // pending click cancels back to idle
+      update();
+    });
+
+    otherEl.addEventListener("click", () => {
+      if (state !== "pending") return;
+      state = "complete";
+      update();
+    });
+
+    update();
+  })();
+</script>

@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.5.0](https://github.com/flightstrips/FlightStrips/compare/docs/v0.4.0...docs/v0.5.0) (2026-03-25)
+
+
+### Features
+
+* added ownership article ([56f12b3](https://github.com/flightstrips/FlightStrips/commit/56f12b37b0a4fc31dd0a2eab9ab19fcde2278ec1))
+* added transfer demo ([13a4b8d](https://github.com/flightstrips/FlightStrips/commit/13a4b8da665acc4f2d14bfc473a973454f611e64))
+
 ## [0.4.0](https://github.com/flightstrips/FlightStrips/compare/docs/v0.3.0...docs/v0.4.0) (2026-03-24)
 
 

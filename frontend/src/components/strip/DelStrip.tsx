@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, type MouseEvent } from "react";
 import { CLXBtn } from "@/components/clxbtn";
 import { getStripBg } from "./types";
 import type { StripProps } from "./types";
@@ -13,7 +13,7 @@ import {
   COLOR_MANUAL_BLUE,
   getCellTextColor,
 } from "./shared";
-import { useStripTransfers, useWebSocketStore } from "@/store/store-hooks";
+import { useIsClrDel, useStripTransfers, useWebSocketStore } from "@/store/store-hooks";
 import { useCDMColors } from "@/hooks/useCDMColors";
 import { Bay } from "@/api/models";
 const FULL_H  = "4.44vh";
@@ -44,6 +44,7 @@ export function DelStrip({
   isManual = false,
 }: StripProps) {
   const { isSelected, handleClick } = useStripSelection(callsign, selectable);
+  const isClrDel = useIsClrDel();
   const cdmReady = useWebSocketStore(s => s.cdmReady);
   const acknowledgeUnexpectedChange = useWebSocketStore(s => s.acknowledgeUnexpectedChange);
   const openStripContextMenu = useWebSocketStore(s => s.openStripContextMenu);
@@ -85,14 +86,16 @@ export function DelStrip({
 
   return (
     <div
-      className={`select-none${selectable ? " cursor-pointer" : ""}`}
+      className={`select-none${(selectable || isClrDel) ? " cursor-pointer" : ""}`}
       style={{
         height: FULL_H,
         width: fullWidth ? "100%" : "80%",
         ...getFramedStripStyle(marked),
         borderBottom: "1px solid white",
       }}
-      onClick={handleClick}
+      onClick={isClrDel
+        ? (e: MouseEvent) => { openStripContextMenu(callsign, { x: e.clientX, y: e.clientY }); }
+        : handleClick}
       onContextMenu={(e) => { e.preventDefault(); openStripContextMenu(callsign, { x: e.clientX, y: e.clientY }); }}
     >
       <div

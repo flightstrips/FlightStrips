@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useStrip, useStripTransfers, useWebSocketStore } from "@/store/store-hooks";
+import { useIsClrDel, useStrip, useStripTransfers, useWebSocketStore } from "@/store/store-hooks";
 import FlightPlanDialog from "@/components/FlightPlanDialog";
 
 export interface StripContextMenuProps {
@@ -61,11 +61,13 @@ export function StripContextMenu({ callsign, position, onClose }: StripContextMe
   const cancelTransfer = useWebSocketStore((s) => s.cancelTransfer);
   const updateStrip = useWebSocketStore((s) => s.updateStrip);
 
+  const isClrDel = useIsClrDel();
   const [showFpl, setShowFpl] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  // FORCE ASSUME: disabled if you already own the strip or there is an active transfer
-  const forceAssumeDisabled = strip?.owner === myPosition || !!stripTransfers[callsign];
+  // FORCE ASSUME: always disabled in CLR DEL (never owns strips); also disabled if already
+  // owning the strip or there is an active transfer.
+  const forceAssumeDisabled = isClrDel || strip?.owner === myPosition || !!stripTransfers[callsign];
 
   // RECALL: enabled when I am the owner and there's an outgoing transfer
   const recallDisabled = !(

@@ -76,6 +76,11 @@ export const useIsTwr = () =>
     state.controllers.find((c) => c.position === state.position)?.section === "TWR"
   );
 
+export const useIsClrDel = () =>
+  useWebSocketStore((state) =>
+    state.controllers.find((c) => c.position === state.position)?.section === "DEL"
+  );
+
 export const useLayoutChooserOpen = () => useWebSocketStore((state) => state.layoutChooserOpen);
 export const useSetLayoutChooserOpen = () => useWebSocketStore((state) => state.setLayoutChooserOpen);
 export const useContextMenu = () => useWebSocketStore((state) => state.contextMenu);

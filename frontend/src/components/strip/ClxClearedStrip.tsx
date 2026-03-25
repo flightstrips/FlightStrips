@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, type MouseEvent } from "react";
 import { CLXBtn } from "@/components/clxbtn";
 import { getStripBg } from "./types";
 import type { StripProps } from "./types";
@@ -16,7 +16,7 @@ import {
   getCellTextColor,
 } from "./shared";
 import { SIBox } from "./SIBox";
-import { useStripTransfers, useWebSocketStore } from "@/store/store-hooks";
+import { useIsClrDel, useStripTransfers, useWebSocketStore } from "@/store/store-hooks";
 import { useCDMColors } from "@/hooks/useCDMColors";
 import { useCTOTColor } from "@/hooks/useCTOTColor";
 import { Bay } from "@/api/models";
@@ -67,6 +67,7 @@ export function ClxClearedStrip({
   isManual = false,
 }: StripProps) {
   const { isSelected, handleClick } = useStripSelection(callsign, selectable);
+  const isClrDel = useIsClrDel();
   const stripTransfers = useStripTransfers();
   const isTagRequest = !!stripTransfers[callsign]?.isTagRequest;
   const { isUnconcerned } = getStripOwnership(myPosition, owner, nextControllers, previousControllers);
@@ -110,13 +111,15 @@ export function ClxClearedStrip({
 
   return (
     <div
-      className={`select-none${selectable ? " cursor-pointer" : ""}`}
+      className={`select-none${(selectable || isClrDel) ? " cursor-pointer" : ""}`}
       style={{
         height: FULL_H,
         width: fullWidth ? "100%" : CLX_CLEARED_STRIP_WIDTH,
         ...getFramedStripStyle(marked),
       }}
-      onClick={handleClick}
+      onClick={isClrDel
+        ? (e: MouseEvent) => { openStripContextMenu(callsign, { x: e.clientX, y: e.clientY }); }
+        : handleClick}
       onContextMenu={(e) => { e.preventDefault(); openStripContextMenu(callsign, { x: e.clientX, y: e.clientY }); }}
     >
       <div

@@ -1226,6 +1226,23 @@ func (s *StripService) HandleCoordinationReceived(ctx context.Context, session i
 	return s.CreateEsArrivalCoordination(ctx, session, callsign, fromPosition, controller.Position, controller.Cid)
 }
 
+// maybeMoveToLowerTwyDep moves a strip from TAXI (upper TWY DEP) to TAXI_LWR (lower TWY DEP)
+// when it is assumed by a tower controller. This reflects the real-world handover flow where
+// GND pushes a strip up to upper TWY DEP and TWR pulls it down to the lower bay.
+func (s *StripService) maybeMoveToLowerTwyDep(ctx context.Context, session int32, callsign string, stripBay string, assumingPosition string) {
+	if stripBay != shared.BAY_TAXI {
+		return
+	}
+	pos, err := config.GetPositionBasedOnFrequency(assumingPosition)
+	if err != nil || pos.Section != "TWR" {
+		return
+	}
+	if err := s.MoveToBay(ctx, session, callsign, shared.BAY_TAXI_LWR, true); err != nil {
+		slog.Error("Failed to move strip from TAXI to TAXI_LWR on tower assumption",
+			slog.String("callsign", callsign), slog.Any("error", err))
+	}
+}
+
 // AssumeStripCoordination handles the full frontend assume flow:
 // accepts a pending coordination, or directly assumes an unowned strip.
 func (s *StripService) AssumeStripCoordination(ctx context.Context, session int32, callsign string, position string) error {
@@ -1268,6 +1285,7 @@ func (s *StripService) AssumeStripCoordination(ctx context.Context, session int3
 				}
 				s.frontendHub.SendCoordinationAssume(session, callsign, position)
 				s.frontendHub.SendOwnersUpdate(session, callsign, position, nextOwners, strip.PreviousOwners)
+				s.maybeMoveToLowerTwyDep(ctx, session, callsign, strip.Bay, position)
 				return nil
 			}
 			return errors.New("cannot assume strip which is not transferred to you")
@@ -1280,6 +1298,8 @@ func (s *StripService) AssumeStripCoordination(ctx context.Context, session int3
 		if err := s.AcceptCoordination(ctx, session, callsign, position); err != nil {
 			return err
 		}
+
+		s.maybeMoveToLowerTwyDep(ctx, session, callsign, strip.Bay, position)
 
 		// If this coordination originated from an ES push, signal the ES client to assume+drop.
 		if fromEs && esHandoverCid != nil && *esHandoverCid != "" && s.euroscopeHub != nil {
@@ -1310,6 +1330,7 @@ func (s *StripService) AssumeStripCoordination(ctx context.Context, session int3
 		}
 		s.frontendHub.SendCoordinationAssume(session, callsign, position)
 		s.frontendHub.SendOwnersUpdate(session, callsign, position, nextOwners, strip.PreviousOwners)
+		s.maybeMoveToLowerTwyDep(ctx, session, callsign, strip.Bay, position)
 		return nil
 	}
 

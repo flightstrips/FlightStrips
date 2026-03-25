@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.16.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.15.2...frontend/v0.16.0) (2026-03-24)
+
+
+### Features
+
+* Add PWA ([1239c3a](https://github.com/flightstrips/FlightStrips/commit/1239c3a1cf2f9e1fbeb43cdfd8d5f22244ea2778))
+
 ## [0.15.2](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.15.1...frontend/v0.15.2) (2026-03-24)
 
 

@@ -150,6 +150,11 @@ func GetDepartureBayFromGroundState(state string, existing database.Strip, airpo
 	}
 
 	if state == euroscope.GroundStateTaxi {
+		// Preserve a more specific taxi position — don't move backward from
+		// TWY DEP LWR or TAXI_TWR to the generic upper TAXI bay.
+		if existing.Bay == BAY_TAXI_LWR || existing.Bay == BAY_TAXI_TWR {
+			return existing.Bay
+		}
 		return BAY_TAXI
 	}
 

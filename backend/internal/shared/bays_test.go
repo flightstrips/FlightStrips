@@ -199,10 +199,29 @@ func TestGetGroundState_DepartMapsLineup(t *testing.T) {
 }
 
 func TestGetDepartureBayFromGroundState_TaxiReturnsTaxi(t *testing.T) {
-	existing := database.Strip{Origin: "EKCH", Bay: BAY_TAXI_LWR}
+	// When the existing bay is a plain TAXI/PUSH state, TAXI ground state should assign BAY_TAXI.
+	existing := database.Strip{Origin: "EKCH", Bay: BAY_PUSH}
 	bay := GetDepartureBayFromGroundState(euroscope.GroundStateTaxi, existing, "EKCH")
 	if bay != BAY_TAXI {
-		t.Fatalf("expected BAY_TAXI from GroundStateTaxi, got %s", bay)
+		t.Fatalf("expected BAY_TAXI from GroundStateTaxi with PUSH existing bay, got %s", bay)
+	}
+}
+
+func TestGetDepartureBayFromGroundState_TaxiLwrPreserved(t *testing.T) {
+	// Task 078: when the strip is already in TAXI_LWR, a TAXI ground state must not move it backward.
+	existing := database.Strip{Origin: "EKCH", Bay: BAY_TAXI_LWR}
+	bay := GetDepartureBayFromGroundState(euroscope.GroundStateTaxi, existing, "EKCH")
+	if bay != BAY_TAXI_LWR {
+		t.Fatalf("expected TAXI_LWR to be preserved on TAXI ground state, got %s", bay)
+	}
+}
+
+func TestGetDepartureBayFromGroundState_TaxiTwrPreserved(t *testing.T) {
+	// Task 078: when the strip is already in TAXI_TWR, a TAXI ground state must not move it backward.
+	existing := database.Strip{Origin: "EKCH", Bay: BAY_TAXI_TWR}
+	bay := GetDepartureBayFromGroundState(euroscope.GroundStateTaxi, existing, "EKCH")
+	if bay != BAY_TAXI_TWR {
+		t.Fatalf("expected TAXI_TWR to be preserved on TAXI ground state, got %s", bay)
 	}
 }
 

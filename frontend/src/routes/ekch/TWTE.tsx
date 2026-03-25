@@ -24,7 +24,7 @@ import type { StripStatus } from "@/components/strip/types.ts";
 import { SortableBay, DropIndicatorBay } from "@/components/bays/SortableBay.tsx";
 import { ViewDndContext } from "@/components/bays/ViewDndContext.tsx";
 import { useWebSocketStore, useMyPosition, useLowerPositionOnline, useCtwrOnline, useMessages } from "@/store/store-hooks.ts";
-import { useRef, useEffect, useMemo, useState } from "react";
+import { useRef, useEffect, useState } from "react";
 import { TWY_DEP_STRIP_WIDTH } from "@/components/strip/types";
 import { StripListPopup, type SortMode } from "@/components/StripListPopup.tsx";
 import { CLS_BTN, CLS_BTN_ORANGE, CLS_BTN_BLUE, CLS_BTN_YELLOW, CLS_SCROLLBAR, CLS_COL } from "@/components/strip/shared";
@@ -79,12 +79,9 @@ export default function TWTE() {
   const rwyArrStrips = useRwyArrStrips();
   const twyArrStrips = useTaxiArrStrips();
 
-  const twyDepAll    = useTaxiDepLwrStrips();
-  const twyDepDesc   = useMemo(() => [...twyDepAll].reverse(), [twyDepAll]);
-  const rwyDepAll    = useDepartStrips();
-  const rwyDepDesc   = useMemo(() => [...rwyDepAll].reverse(), [rwyDepAll]);
-  const airborneAll  = useAirborneStrips();
-  const airborneDesc = useMemo(() => [...airborneAll].reverse(), [airborneAll]);
+  const twyDepDesc   = useTaxiDepLwrStrips();
+  const rwyDepDesc   = useDepartStrips();
+  const airborneDesc = useAirborneStrips();
   const standStrips  = useStandStrips();
   const pushStrips   = usePushbackStrips();
   const deIceStrips  = useDeIceStrips();
@@ -119,10 +116,10 @@ export default function TWTE() {
     "TWY-DEP":     { strips: twyDepDesc,         targetBay: Bay.TaxiLwr,     descending: true },
     "RWY-DEP":     { strips: rwyDepDesc,         targetBay: Bay.Depart,      descending: true },
     "AIRBORNE":    { strips: airborneDesc,       targetBay: Bay.Airborne,    descending: true },
-    "STAND":       { strips: standStrips,        targetBay: Bay.Stand },
-    "PUSHBACK":    { strips: pushStrips,         targetBay: Bay.Push },
-    "DE-ICE":      { strips: deIceStrips,        targetBay: Bay.DeIce },
-    "CONTROLZONE": { strips: controlzoneStrips,  targetBay: Bay.Controlzone },
+    "STAND":       { strips: standStrips,        targetBay: Bay.Stand,        descending: true },
+    "PUSHBACK":    { strips: pushStrips,         targetBay: Bay.Push,         descending: true },
+    "DE-ICE":      { strips: deIceStrips,        targetBay: Bay.DeIce,        descending: true },
+    "CONTROLZONE": { strips: controlzoneStrips,  targetBay: Bay.Controlzone,  descending: true },
   };
 
   const transferRules: Record<string, string[]> = {

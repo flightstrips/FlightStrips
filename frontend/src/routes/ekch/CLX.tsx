@@ -32,8 +32,8 @@ export default function DEL() {
   const norgewianStrips = useNorwegianBayStrips().sort((a, b) => a.sequence - b.sequence);
   const otherStrips = useOtherBayStrips().sort((a, b) => a.sequence - b.sequence);
   const cleared = useClearedStrips().sort((a, b) => a.sequence - b.sequence);
-  const pushback = usePushbackStrips().filter(isFlight).sort((a, b) => a.sequence - b.sequence);
-  const taxidep = useTaxiDepStrips().filter(isFlight).sort((a, b) => a.sequence - b.sequence);
+  const pushback = usePushbackStrips().filter(isFlight);
+  const taxidep = useTaxiDepStrips().filter(isFlight);
   const messages = useMessages();
   const [composeOpen, setComposeOpen] = useState(false);
   const [newOpen, setNewOpen] = useState(false);

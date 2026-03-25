@@ -85,13 +85,13 @@ export default function AAAD() {
   ];
 
   const bayStripMap = {
-    "TWY-DEP-UPR": { strips: twyDepUpr,    targetBay: Bay.Taxi },
-    "TWY-DEP-LWR": { strips: twyDepLwr,    targetBay: Bay.TaxiLwr },
-    "TWY-ARR":     { strips: twyArrStrips, targetBay: Bay.TwyArr },
-    "STAND":       { strips: standStrips,  targetBay: Bay.Stand },
+    "TWY-DEP-UPR": { strips: twyDepUpr,    targetBay: Bay.Taxi,     descending: true },
+    "TWY-DEP-LWR": { strips: twyDepLwr,    targetBay: Bay.TaxiLwr,  descending: true },
+    "TWY-ARR":     { strips: twyArrStrips, targetBay: Bay.TwyArr,   descending: true },
+    "STAND":       { strips: standStrips,  targetBay: Bay.Stand,    descending: true },
     "STARTUP":     { strips: startupStrips, targetBay: Bay.Cleared },
-    "PUSHBACK":    { strips: pushStrips,    targetBay: Bay.Push },
-    "DE-ICE":      { strips: deIceStrips,   targetBay: Bay.DeIce },
+    "PUSHBACK":    { strips: pushStrips,    targetBay: Bay.Push,     descending: true },
+    "DE-ICE":      { strips: deIceStrips,   targetBay: Bay.DeIce,    descending: true },
   };
 
   const transferRules: Record<string, string[]> = {

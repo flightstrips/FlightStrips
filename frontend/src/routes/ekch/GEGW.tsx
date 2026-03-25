@@ -23,7 +23,7 @@ import { SortableBay } from "@/components/bays/SortableBay.tsx";
 import { ViewDndContext } from "@/components/bays/ViewDndContext.tsx";
 import { useWebSocketStore, useMyPosition, useMessages, useDelOnline, useApronOnline } from "@/store/store-hooks.ts";
 import { StripListPopup, type SortMode } from "@/components/StripListPopup.tsx";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { CLX_CLEARED_STRIP_WIDTH } from "@/components/strip/ClxClearedStrip.tsx";
 import { TWY_DEP_STRIP_WIDTH } from "@/components/strip/types";
 import { CLS_BTN, CLS_BTN_ORANGE, CLS_BTN_BLUE, CLS_BTN_YELLOW, CLS_SCROLLBAR, CLS_COL } from "@/components/strip/shared";
@@ -57,8 +57,7 @@ export default function GEGW() {
   const twyArrStrips   = useTaxiArrStrips();
   const pushStrips     = usePushbackStrips();
   const startupStrips  = useClearedStrips();
-  const twyDepAll      = useTaxiDepLwrStrips();
-  const twyDepDesc     = useMemo(() => [...twyDepAll].reverse(), [twyDepAll]);
+  const twyDepDesc     = useTaxiDepLwrStrips();
   const rwyDepStrips   = useDepartStrips();
   const airborneStrips = useAirborneStrips();
   const deIceStrips    = useDeIceStrips();
@@ -85,16 +84,16 @@ export default function GEGW() {
   const nonClearedStrips = useNonClearedStrips();
 
   const bayStripMap = {
-    "STARTUP":  { strips: startupStrips,               targetBay: Bay.Cleared },
-    "PUSHBACK": { strips: pushStrips,                  targetBay: Bay.Push },
-    "TWY-DEP":  { strips: twyDepDesc,                  targetBay: Bay.TaxiLwr,  descending: true },
-    "RWY-DEP":  { strips: rwyDepStrips,               targetBay: Bay.Depart },
-    "AIRBORNE": { strips: airborneStrips,              targetBay: Bay.Airborne },
-    "DE-ICE":   { strips: deIceStrips,                targetBay: Bay.DeIce },
-    "STAND":    { strips: standStrips,                targetBay: Bay.Stand },
-    "FINAL":    { strips: finalStrips.filter(isFlight),    targetBay: Bay.Final },
-    "RWY-ARR":  { strips: rwyArrStrips.filter(isFlight),   targetBay: Bay.RwyArr },
-    "TWY-ARR":  { strips: twyArrStrips,               targetBay: Bay.TwyArr },
+    "STARTUP":  { strips: startupStrips,                    targetBay: Bay.Cleared },
+    "PUSHBACK": { strips: pushStrips,                       targetBay: Bay.Push,      descending: true },
+    "TWY-DEP":  { strips: twyDepDesc,                       targetBay: Bay.TaxiLwr,   descending: true },
+    "RWY-DEP":  { strips: rwyDepStrips,                     targetBay: Bay.Depart,    descending: true },
+    "AIRBORNE": { strips: airborneStrips,                   targetBay: Bay.Airborne,  descending: true },
+    "DE-ICE":   { strips: deIceStrips,                      targetBay: Bay.DeIce,     descending: true },
+    "STAND":    { strips: standStrips,                      targetBay: Bay.Stand,     descending: true },
+    "FINAL":    { strips: finalStrips.filter(isFlight),     targetBay: Bay.Final,     descending: true },
+    "RWY-ARR":  { strips: rwyArrStrips.filter(isFlight),    targetBay: Bay.RwyArr,    descending: true },
+    "TWY-ARR":  { strips: twyArrStrips,                     targetBay: Bay.TwyArr,    descending: true },
   };
 
   const transferRules: Record<string, string[]> = {

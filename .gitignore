@@ -8,6 +8,8 @@
 *.recording
 .env.recording
 
+# Frontend build
+/frontend/dev-dist/
 
 # build output
 docs/dist/

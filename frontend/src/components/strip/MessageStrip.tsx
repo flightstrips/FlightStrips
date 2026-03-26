@@ -43,7 +43,7 @@ export function MessageStrip({ msg }: MessageStripProps) {
   return (
     <div
       className="flex items-stretch shrink-0"
-      style={{ minHeight: 48, background: COLOR_STRIP_BG }}
+      style={{ minHeight: "4.72vh", background: COLOR_STRIP_BG }}
     >
       {/* SI box */}
       <div

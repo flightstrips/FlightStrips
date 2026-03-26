@@ -17,9 +17,9 @@ import { getSimpleAircraftType } from "@/lib/utils";
 import { useStripTransfers, useWebSocketStore } from "@/store/store-hooks";
 import { ApronTaxiMapDialog } from "@/components/map-dialogs/ApronTaxiMapDialog";
 import { useCTOTColor } from "@/hooks/useCTOTColor";
-const TOP_H  = "2.96vh";  // 2/3 of 4.44vh
-const BOT_H  = "1.48vh";  // 1/3 of 4.44vh
-const HALF_H = "calc(2.22vh - 3px)";  // 1/2 of inner content height (4.44vh - 2px border - 1px padding each side)
+const TOP_H  = "3.15vh";  // 2/3 of 4.72vh
+const BOT_H  = "1.57vh";  // 1/3 of 4.72vh
+const HALF_H = "calc(2.36vh - 3px)";  // 1/2 of inner content height (4.72vh - 2px border - 1px padding each side)
 
 // Flex-grow proportions (flex-basis: 0 so space is shared proportionally)
 const F_CALLSIGN = 25;

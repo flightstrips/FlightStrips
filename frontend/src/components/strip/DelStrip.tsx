@@ -16,8 +16,8 @@ import {
 import { useIsClrDel, useStripTransfers, useWebSocketStore } from "@/store/store-hooks";
 import { useCDMColors } from "@/hooks/useCDMColors";
 import { Bay } from "@/api/models";
-const FULL_H  = "4.44vh";
-const HALF_H  = "2.22vh";
+const FULL_H  = "4.72vh";
+const HALF_H  = "2.36vh";
 
 /**
  * DelStrip - shown before departure clearance is issued (status="CLR").

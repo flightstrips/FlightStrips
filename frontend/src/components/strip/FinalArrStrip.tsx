@@ -11,25 +11,25 @@ import { TaxiMapDialog } from "@/components/map-dialogs/TaxiMapDialog";
 /** Gold cell borders — matches the yellow arrival strip design. */
 const CELL_BORDER = "#FFD100";
 
-// Heights — 48px total fixed (intentional — ATC arrival strip spec), 2/3 top / 1/3 bottom
-const TOP_H = 32;
-const BOT_H = 16;
+// Heights — 4.72vh total (51px at 1080p), 2/3 top / 1/3 bottom
+const TOP_H = "3.15vh";
+const BOT_H = "1.57vh";
 
-// Fixed cell widths (SI fills the remaining 40px via SIBox flex-grow)
-const W_CALLSIGN = 120;
-const W_TYPE     = 80;
-const W_TAXIWAY  = 80;
-const W_RWY      = 54;
-const W_STAND    = 80;
-
-export const TOTAL_W = 40 + W_CALLSIGN + W_TYPE + W_TAXIWAY + W_RWY + W_STAND;
+// Flex-grow proportions (flex-basis: 0 so space is shared proportionally).
+// Values match the original pixel widths: SI=40, Callsign=120, Type=80, Taxiway=80, RWY=54, Stand=80
+const F_SI       = 40;
+const F_CALLSIGN = 120;
+const F_TYPE     = 80;
+const F_TAXIWAY  = 80;
+const F_RWY      = 54;
+const F_STAND    = 80;
 
 /**
  * FinalArrStrip — strip for FINAL, RWY-ARR, and TWY-ARR bays (status="FINAL-ARR").
  *
- * 48px strip with 2/3 (32px) top row / 1/3 (16px) bottom row vertical layout:
- *   [40px SI] | [120px callsign] | [80px type↑ / squawk↓] |
- *   [80px stand] | [54px runway↑ / release point↓] | [80px stand (reserved)]
+ * 4.72vh strip (51px at 1080p), 95% of bay width, with 2/3 top row / 1/3 bottom row:
+ *   [SI] | [callsign] | [type↑ / squawk↓] |
+ *   [stand] | [runway↑ / holding point↓] | [stand (reserved)]
  *
  * Background: yellow (#fff28e). Cell borders: gold (#FFD100).
  */
@@ -76,15 +76,15 @@ export function FinalArrStrip({
     <div
       className={`flex text-black select-none${selectable ? " cursor-pointer" : ""}`}
       style={{
-        height: 48, // 48px fixed — intentional ATC arrival strip height
-        width: TOTAL_W,
+        height: "4.72vh",
+        width: "95%",
         backgroundColor: resolveStripBg(COLOR_ARR_YELLOW, isTagRequest, isUnconcerned),
         ...getFlatStripBorderStyle({}, CELL_BORDER),
       }}
       onClick={handleClick}
       onContextMenu={(e) => { e.preventDefault(); openStripContextMenu(callsign, { x: e.clientX, y: e.clientY }); }}
     >
-      {/* SI / ownership — 40px (fills via SIBox flex-grow) */}
+      {/* SI / ownership */}
       <SIBox
         callsign={callsign}
         owner={owner}
@@ -92,15 +92,16 @@ export function FinalArrStrip({
         previousControllers={previousControllers}
         myPosition={myPosition}
         marked={marked}
+        flexGrow={F_SI}
         transferringTo={stripTransfers[callsign]?.to ?? ""}
         isTagRequest={isTagRequest}
         baseBorderColor={CELL_BORDER}
       />
 
-      {/* Callsign — 120px; top 2/3 = callsign (2/3 cell height per spec) */}
+      {/* Callsign; top 2/3 = callsign */}
       <div
-        className="flex-shrink-0 flex flex-col border-r-2"
-        style={{ width: W_CALLSIGN, height: "100%", borderRightColor: cellBorderColor }}
+        className="flex flex-col border-r-2 min-w-0"
+        style={{ flexGrow: F_CALLSIGN, flexBasis: 0, height: "100%", borderRightColor: cellBorderColor }}
       >
         <div
           className="flex items-center pl-2 overflow-hidden"
@@ -113,10 +114,10 @@ export function FinalArrStrip({
         <div style={{ height: BOT_H }} />
       </div>
 
-      {/* Type / Squawk — 80px */}
+      {/* Type / Squawk */}
       <div
-        className="flex-shrink-0 flex flex-col border-r-2"
-        style={{ width: W_TYPE, height: "100%", borderRightColor: cellBorderColor }}
+        className="flex flex-col border-r-2 min-w-0"
+        style={{ flexGrow: F_TYPE, flexBasis: 0, height: "100%", borderRightColor: cellBorderColor }}
       >
         <div className="flex items-center justify-center" style={{ height: TOP_H }}>
           <span className="truncate px-1" style={{ fontFamily: FONT, fontWeight: 600, fontSize: 12 }}>
@@ -133,10 +134,10 @@ export function FinalArrStrip({
         </div>
       </div>
 
-      {/* Stand (left of runway) — 80px; stand in top 2/3, bottom 1/3 empty */}
+      {/* Stand (left of runway); stand in top 2/3, bottom 1/3 empty */}
       <div
-        className="flex-shrink-0 flex flex-col border-r-2 cursor-pointer hover:brightness-95"
-        style={{ width: W_TAXIWAY, height: "100%", borderRightColor: cellBorderColor }}
+        className="flex flex-col border-r-2 min-w-0 cursor-pointer hover:brightness-95"
+        style={{ flexGrow: F_TAXIWAY, flexBasis: 0, height: "100%", borderRightColor: cellBorderColor }}
         onClick={(e) => { e.stopPropagation(); setStandOpen(true); }}
       >
         <div className="flex items-center justify-center" style={{ height: TOP_H }}>
@@ -147,10 +148,10 @@ export function FinalArrStrip({
         <div style={{ height: BOT_H }} />
       </div>
 
-      {/* Runway / Holding Point — 54px */}
+      {/* Runway / Holding Point */}
       <div
-        className="flex-shrink-0 flex flex-col border-r-2"
-        style={{ width: W_RWY, height: "100%", borderRightColor: cellBorderColor, backgroundColor: rwyColor }}
+        className="flex flex-col border-r-2 min-w-0"
+        style={{ flexGrow: F_RWY, flexBasis: 0, height: "100%", borderRightColor: cellBorderColor, backgroundColor: rwyColor }}
       >
         <div
           className={`flex items-center justify-center${bay === Bay.Final || bay === Bay.RwyArr ? " cursor-pointer" : ""}`}
@@ -172,10 +173,10 @@ export function FinalArrStrip({
         </div>
       </div>
 
-      {/* Stand — 80px (reserved, currently unused) */}
+      {/* Stand (reserved, currently unused) */}
       <div
-        className="flex-shrink-0 flex flex-col overflow-hidden"
-        style={{ width: W_STAND, height: "100%" }}
+        className="flex flex-col overflow-hidden min-w-0"
+        style={{ flexGrow: F_STAND, flexBasis: 0, height: "100%" }}
       />
     </div>
 

@@ -23,10 +23,10 @@ import { PushbackMapDialog } from "@/components/map-dialogs/PushbackMapDialog";
 import { ApronTaxiMapDialog } from "@/components/map-dialogs/ApronTaxiMapDialog";
 import { RunwayDialog } from "./RunwayDialog";
 
-// Height: 45px fixed (intentional — matches APN push strip spec)
-const HALF_H = "2.22vh";    // half of 4.44vh for TSAT/CTOT split
-const TOP_H  = "2.96vh";    // 2/3 of 4.44vh
-const BOT_H  = "1.48vh";    // 1/3 of 4.44vh
+// Height: 4.72vh (51px at 1080p)
+const HALF_H = "2.36vh";    // half of 4.72vh for TSAT/CTOT split
+const TOP_H  = "3.15vh";    // 2/3 of 4.72vh
+const BOT_H  = "1.57vh";    // 1/3 of 4.72vh
 
 // Flex-grow proportions (flex-basis: 0 so space is shared proportionally).
 // Base flex unit. Each cell is a fraction of this base.
@@ -87,7 +87,7 @@ export function ApnPushStrip({
     <div
       className={`select-none${selectable ? " cursor-pointer" : ""}`}
       style={{
-        height: 45, // 45px fixed — intentional APN push strip height
+        height: "4.72vh",
         width: fullWidth ? "100%" : "90%",
         ...getFramedStripStyle(marked),
       }}

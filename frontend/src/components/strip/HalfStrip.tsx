@@ -85,7 +85,7 @@ export function HalfStrip({
     <div
       className={`w-fit flex text-sm select-none${isSelectable ? " cursor-pointer" : ""}`}
       style={{
-        height: "21px",
+        height: "2.36vh",
         backgroundColor: isTagRequest ? SELECTION_COLOR : bg,
         ...getFlatStripBorderStyle({ borderBottom: "1px solid white" }),
       }}

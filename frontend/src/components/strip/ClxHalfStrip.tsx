@@ -24,7 +24,7 @@ export function ClxHalfStrip({
 
   return (
     <div style={{
-      height: "2.22vh",
+      height: "2.36vh",
       width: fullWidth ? "100%" : "80%",
       backgroundColor: STRIP_FRAME_COLOR,
       padding: "1px",

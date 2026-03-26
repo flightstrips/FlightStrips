@@ -12,30 +12,30 @@ import { SIBox } from "./SIBox";
 import { TAXI_MAP_POINTS } from "@/config/ekch";
 import { Bay } from "@/api/models";
 
-// Heights — 48px total, 2/3 top / 1/3 bottom (used by callsign and SID/dest)
-const TOP_H = 32; // 2/3 of 48px
-const BOT_H = 16; // 1/3 of 48px
+// Heights — 4.72vh total (51px at 1080p), 2/3 top / 1/3 bottom (used by callsign and SID/dest)
+const TOP_H      = "3.15vh";  // 2/3 of 4.72vh
+const BOT_H      = "1.57vh";  // 1/3 of 4.72vh
+const TOP_HALF_H = "1.575vh"; // half of TOP_H — used by SID/dest two-line split
 
-// Equal halves — used by type/squawk, stand/ctot, empty/TWR, runway/HP, FL/heading
-const HALF_H = 24; // 1/2 of 48px
+// Equal halves — used by type/squawk, stand/ctot, TWY, runway/HP, FL/heading
+const HALF_H = "2.36vh"; // 1/2 of 4.72vh
 
-// Fixed cell widths
-const W_SI         = 40;
-const W_CALLSIGN   = 120;
-const W_TYPE_SQ    = 60;  // 120 / 2
-const W_STAND_CTOT = 60;  // 120 / 2
-const W_SID_DEST   = 80;  // 120 * 2/3
-const W_SMALL      = 53;  // 80 * 2/3 (≈53.33) — used by empty/TWR, runway/HP, FL/heading
-
-const TOTAL_W = W_SI + W_CALLSIGN + W_TYPE_SQ + W_STAND_CTOT + W_SMALL + W_SMALL + W_SMALL + W_SID_DEST;
+// Flex-grow proportions (flex-basis: 0 so space is shared proportionally).
+// Values match the original pixel widths: SI=40, Callsign=120, Type/Squawk=60, Stand/CTOT=60, Small×3=53, SID/Dest=80
+const F_SI         = 40;
+const F_CALLSIGN   = 120;
+const F_TYPE_SQ    = 60;
+const F_STAND_CTOT = 60;
+const F_SMALL      = 53;
+const F_SID_DEST   = 80;
 
 // -----------------------------------------------------------------------------
 // TwyDepStrip — TWY-DEP strip for the TETW tower view (status="TWY-DEP").
 //
-// 48px height, fixed width. Cells left → right:
-//   [40px SI] | [120px callsign + :freq] | [60px type / squawk] |
-//   [60px stand / ctot] | [53px empty / TWR label] |
-//   [53px runway / HP] | [53px FL / heading] | [80px SID / dest]
+// 4.72vh height (51px at 1080p), scales to 95% of bay width. Cells left → right:
+//   [SI] | [callsign + :freq] | [type / squawk] |
+//   [stand / ctot] | [TWY label] |
+//   [runway / HP] | [FL / heading] | [SID / dest]
 //
 // Background: cyan (#bef5ef).
 // -----------------------------------------------------------------------------
@@ -119,29 +119,30 @@ export function TwyDepStrip({
     <div
       className={`flex text-black select-none${selectable ? " cursor-pointer" : ""}`}
       style={{
-        height: 48,
-        width: TOTAL_W,
+        height: "4.72vh",
+        width: "95%",
         backgroundColor: resolveStripBg(getStripBg(pdcStatus), isTagRequest, isUnconcerned),
         ...getFlatStripBorderStyle({ borderBottom: "1px solid white" }),
       }}
       onClick={handleClick}
       onContextMenu={(e) => { e.preventDefault(); openStripContextMenu(callsign, { x: e.clientX, y: e.clientY }); }}
     >
-      {/* SI / ownership — 40px */}
+      {/* SI / ownership */}
       <SIBox
         callsign={callsign}
         owner={owner}
         nextControllers={nextControllers}
         previousControllers={previousControllers}
         myPosition={myPosition}
+        flexGrow={F_SI}
         transferringTo={stripTransfers[callsign]?.to ?? ""}
         isTagRequest={isTagRequest}
       />
 
-      {/* Callsign — 120px; top 2/3 = callsign, bottom 1/3 = :freq */}
+      {/* Callsign; top 2/3 = callsign, bottom 1/3 = :freq */}
       <div
-        className="flex-shrink-0 flex flex-col border-r-2"
-        style={{ width: W_CALLSIGN, height: "100%", borderRightColor: cellBorderColor }}
+        className="flex flex-col border-r-2 min-w-0"
+        style={{ flexGrow: F_CALLSIGN, flexBasis: 0, height: "100%", borderRightColor: cellBorderColor }}
       >
         <div
           className="flex items-center pl-2 overflow-hidden"
@@ -156,10 +157,10 @@ export function TwyDepStrip({
         </div>
       </div>
 
-      {/* Type / Squawk — 60px, no dividing line; bold type, light squawk */}
+      {/* Type / Squawk; bold type, light squawk */}
       <div
-        className="flex-shrink-0 flex flex-col border-r-2"
-        style={{ width: W_TYPE_SQ, height: "100%", borderRightColor: cellBorderColor }}
+        className="flex flex-col border-r-2 min-w-0"
+        style={{ flexGrow: F_TYPE_SQ, flexBasis: 0, height: "100%", borderRightColor: cellBorderColor }}
       >
         <div className="flex items-center justify-center overflow-hidden" style={{ height: HALF_H }}>
           <span className="truncate px-1" style={{ fontFamily: FONT, fontWeight: "bold", fontSize: 13 }}>
@@ -176,10 +177,10 @@ export function TwyDepStrip({
         </div>
       </div>
 
-      {/* Stand / CTOT — 60px, no dividing line; bold stand, light ctot */}
+      {/* Stand / CTOT; bold stand, light ctot */}
       <div
-        className="flex-shrink-0 flex flex-col border-r-2"
-        style={{ width: W_STAND_CTOT, height: "100%", borderRightColor: cellBorderColor }}
+        className="flex flex-col border-r-2 min-w-0"
+        style={{ flexGrow: F_STAND_CTOT, flexBasis: 0, height: "100%", borderRightColor: cellBorderColor }}
       >
         <div
           className="flex items-center justify-center overflow-hidden"
@@ -197,11 +198,10 @@ export function TwyDepStrip({
         </div>
       </div>
 
-      {/* Empty / TWY label — 53px; whole cell clickable → taxi map;
-          top half empty, bottom half shows the clearance-limit point or faint "TWY". */}
+      {/* TWY label; whole cell clickable → taxi map */}
       <div
-        className="flex-shrink-0 flex flex-col border-r-2 cursor-pointer"
-        style={{ width: W_SMALL, height: "100%", borderRightColor: cellBorderColor, backgroundColor: releasePointYellow ? COLOR_UNEXPECTED_YELLOW : undefined }}
+        className="flex flex-col border-r-2 min-w-0 cursor-pointer"
+        style={{ flexGrow: F_SMALL, flexBasis: 0, height: "100%", borderRightColor: cellBorderColor, backgroundColor: releasePointYellow ? COLOR_UNEXPECTED_YELLOW : undefined }}
         onClick={(e) => { e.stopPropagation(); if (releasePointYellow) { acknowledgeUnexpectedChange(callsign, "release_point"); } else { setShowTaxiMap(true); } }}
       >
         <div className="flex items-center justify-center h-full">
@@ -211,10 +211,10 @@ export function TwyDepStrip({
         </div>
       </div>
 
-      {/* Runway / HP — 53px, dividing line between; bold runway, plain holding point */}
+      {/* Runway / HP; dividing line between; bold runway, plain holding point */}
       <div
-        className="flex-shrink-0 flex flex-col border-r-2"
-        style={{ width: W_SMALL, height: "100%", borderRightColor: cellBorderColor }}
+        className="flex flex-col border-r-2 min-w-0"
+        style={{ flexGrow: F_SMALL, flexBasis: 0, height: "100%", borderRightColor: cellBorderColor }}
       >
         <div
           className="flex items-center justify-center border-b-2 cursor-pointer"
@@ -234,10 +234,10 @@ export function TwyDepStrip({
         </div>
       </div>
 
-      {/* Cleared FL / Heading — 53px, no dividing line; both bold */}
+      {/* Cleared FL / Heading; both bold */}
       <div
-        className="flex-shrink-0 flex flex-col border-r-2"
-        style={{ width: W_SMALL, height: "100%", borderRightColor: cellBorderColor }}
+        className="flex flex-col border-r-2 min-w-0"
+        style={{ flexGrow: F_SMALL, flexBasis: 0, height: "100%", borderRightColor: cellBorderColor }}
       >
         <div className="flex items-center justify-center" style={{ height: HALF_H }}>
           <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: 13 }}>{fl}</span>
@@ -247,17 +247,17 @@ export function TwyDepStrip({
         </div>
       </div>
 
-      {/* SID / Destination — 80px; two lines in top 2/3 (16px each), bottom 1/3 empty */}
+      {/* SID / Destination; two lines in top 2/3, bottom 1/3 empty */}
       <div
-        className="flex-shrink-0 flex flex-col overflow-hidden"
-        style={{ width: W_SID_DEST, height: "100%" }}
+        className="flex flex-col overflow-hidden min-w-0"
+        style={{ flexGrow: F_SID_DEST, flexBasis: 0, height: "100%" }}
       >
-        <div className="flex items-center justify-center pl-1 overflow-hidden" style={{ height: TOP_H / 2 }}>
+        <div className="flex items-center justify-center pl-1 overflow-hidden" style={{ height: TOP_HALF_H }}>
           <span className="truncate" style={{ fontFamily: FONT, fontWeight: "normal", fontSize: 12, color: getCellTextColor("sid", controllerModifiedFields) }}>
             {sid}
           </span>
         </div>
-        <div className="flex items-center justify-center pl-1 overflow-hidden" style={{ height: TOP_H / 2 }}>
+        <div className="flex items-center justify-center pl-1 overflow-hidden" style={{ height: TOP_HALF_H }}>
           <span className="truncate" style={{ fontFamily: FONT, fontWeight: "normal", fontSize: 12 }}>
             {destination}
           </span>

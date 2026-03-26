@@ -535,6 +535,71 @@ func TestAssumeStripCoordination_WithCoordination_AcceptsIt(t *testing.T) {
 	assert.Equal(t, position, hub.CoordinationAssumes[0].Position)
 }
 
+func TestAssumeStripCoordination_WithTowerCoordination_DoesNotMoveToLowerTaxiBay(t *testing.T) {
+	ctx := context.Background()
+	const session = int32(1)
+	const callsign = "SAS654"
+	const position = "118.105"
+	const fromPos = "121.630"
+
+	strip := &models.Strip{
+		ID:             61,
+		Callsign:       callsign,
+		Bay:            shared.BAY_TAXI,
+		Version:        int32(4),
+		NextOwners:     []string{position},
+		PreviousOwners: []string{},
+	}
+
+	coord := &models.Coordination{
+		ID:           89,
+		Session:      session,
+		StripID:      strip.ID,
+		FromPosition: fromPos,
+		ToPosition:   position,
+	}
+
+	moved := false
+	coordRepo := &testutil.MockCoordinationRepository{
+		GetByStripIDFn: func(_ context.Context, _ int32, _ int32) (*models.Coordination, error) {
+			return coord, nil
+		},
+		DeleteFn: func(_ context.Context, _ int32) error { return nil },
+	}
+
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			return strip, nil
+		},
+		SetNextAndPreviousOwnersFn: func(_ context.Context, _ int32, _ string, _ []string, _ []string) error {
+			return nil
+		},
+		SetOwnerFn: func(_ context.Context, _ int32, _ string, _ *string, _ int32) (int64, error) {
+			return 1, nil
+		},
+		GetMaxSequenceInBayFn: func(_ context.Context, _ int32, _ string) (int32, error) {
+			moved = true
+			return 0, nil
+		},
+		UpdateBayAndSequenceFn: func(_ context.Context, _ int32, _ string, _ string, _ int32) (int64, error) {
+			moved = true
+			return 1, nil
+		},
+	}
+
+	hub := &testutil.MockFrontendHub{}
+	hub.SetServer(&testutil.MockServer{CoordRepoVal: coordRepo})
+	svc := NewStripService(stripRepo)
+	svc.SetFrontendHub(hub)
+	svc.SetCoordinationRepo(coordRepo)
+
+	err := svc.AssumeStripCoordination(ctx, session, callsign, position)
+	require.NoError(t, err)
+	assert.False(t, moved)
+	require.Len(t, hub.CoordinationAssumes, 1)
+	assert.Equal(t, position, hub.CoordinationAssumes[0].Position)
+}
+
 func TestAssumeStripCoordination_AlreadyOwned_ReturnsError(t *testing.T) {
 	ctx := context.Background()
 	other := "TWR_N"

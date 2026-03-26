@@ -164,9 +164,9 @@ func TestUpdateAircraftPosition_AutoHandoverTriggeredFromDepartBay(t *testing.T)
 	svc := NewStripService(stripRepo)
 	svc.SetFrontendHub(hub)
 
-	// EKCH coordinates, altitude 200 ft — above the 17 ft airborne threshold used in tests.
+	// EKCH coordinates, altitude 250 ft — above the configured 200 ft airborne threshold.
 	err := svc.UpdateAircraftPosition(ctx, session, callsign,
-		shared.AirportLatitude, shared.AirportLongitude, 200, "EKCH")
+		shared.AirportLatitude, shared.AirportLongitude, 250, "EKCH")
 	require.NoError(t, err)
 	assert.True(t, listBySessionCalled,
 		"controller list must be queried when a strip transitions from DEPART to AIRBORNE")

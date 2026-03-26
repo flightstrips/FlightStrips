@@ -386,6 +386,93 @@ func TestCreateCoordinationTransfer_Success(t *testing.T) {
 	assert.Equal(t, toPos, ct.To)
 }
 
+func TestCreateCoordinationTransfer_TaxiBayToTower_MovesToLowerTaxiBay(t *testing.T) {
+	ctx := context.Background()
+	const session = int32(1)
+	const callsign = "SAS789"
+	const fromPos = "121.630"
+	const toPos = "118.105"
+
+	strip := &models.Strip{ID: 77, Callsign: callsign, Bay: shared.BAY_TAXI}
+
+	var movedBay string
+	var movedSequence int32
+
+	coordRepo := &testutil.MockCoordinationRepository{
+		CreateFn: func(_ context.Context, c *models.Coordination) error {
+			assert.Equal(t, strip.ID, c.StripID)
+			assert.Equal(t, fromPos, c.FromPosition)
+			assert.Equal(t, toPos, c.ToPosition)
+			return nil
+		},
+	}
+
+	mockServer := &testutil.MockServer{CoordRepoVal: coordRepo}
+	hub := &testutil.MockFrontendHub{}
+	hub.SetServer(mockServer)
+
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			return strip, nil
+		},
+		GetMaxSequenceInBayFn: func(_ context.Context, gotSession int32, bay string) (int32, error) {
+			assert.Equal(t, session, gotSession)
+			assert.Equal(t, shared.BAY_TAXI_LWR, bay)
+			return 1000, nil
+		},
+		UpdateBayAndSequenceFn: func(_ context.Context, gotSession int32, gotCallsign string, bay string, sequence int32) (int64, error) {
+			assert.Equal(t, session, gotSession)
+			assert.Equal(t, callsign, gotCallsign)
+			movedBay = bay
+			movedSequence = sequence
+			return 1, nil
+		},
+	}
+
+	svc := NewStripService(stripRepo)
+	svc.SetFrontendHub(hub)
+
+	err := svc.CreateCoordinationTransfer(ctx, session, callsign, fromPos, toPos)
+	require.NoError(t, err)
+	assert.Equal(t, shared.BAY_TAXI_LWR, movedBay)
+	assert.Equal(t, int32(1000+InitialOrderSpacing), movedSequence)
+	require.Len(t, hub.BayEvents, 1)
+	assert.Equal(t, shared.BAY_TAXI_LWR, hub.BayEvents[0].Bay)
+	require.Len(t, hub.CoordinationTransfers, 1)
+}
+
+func TestCreateCoordinationTransfer_TaxiBayToNonTower_DoesNotMoveToLowerTaxiBay(t *testing.T) {
+	ctx := context.Background()
+	const session = int32(1)
+	const callsign = "DLH321"
+	const fromPos = "121.630"
+	const toPos = "119.805"
+
+	strip := &models.Strip{ID: 78, Callsign: callsign, Bay: shared.BAY_TAXI}
+
+	coordRepo := &testutil.MockCoordinationRepository{
+		CreateFn: func(_ context.Context, _ *models.Coordination) error { return nil },
+	}
+
+	mockServer := &testutil.MockServer{CoordRepoVal: coordRepo}
+	hub := &testutil.MockFrontendHub{}
+	hub.SetServer(mockServer)
+
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			return strip, nil
+		},
+	}
+
+	svc := NewStripService(stripRepo)
+	svc.SetFrontendHub(hub)
+
+	err := svc.CreateCoordinationTransfer(ctx, session, callsign, fromPos, toPos)
+	require.NoError(t, err)
+	assert.Empty(t, hub.BayEvents)
+	require.Len(t, hub.CoordinationTransfers, 1)
+}
+
 func TestCreateCoordinationTransfer_StripNotFound(t *testing.T) {
 	ctx := context.Background()
 

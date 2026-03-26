@@ -174,10 +174,6 @@ namespace FlightStrips::websocket {
         return IsConnected() && client_state == STATE_MASTER;
     }
 
-    bool WebSocketService::CanSendLocalCdmObservation() const {
-        return IsConnected() && (client_state == STATE_MASTER || client_state == STATE_SLAVE);
-    }
-
     void WebSocketService::SetSessionState(const ClientState state) {
         client_state = state;
     }

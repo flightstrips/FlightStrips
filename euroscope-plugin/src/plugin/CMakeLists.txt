@@ -120,6 +120,8 @@ set(src__tag_items
         tag_items/TagItemHandlers.cpp
         tag_items/TagItemHandlers.h
         tag_items/TagItemHandler.h
+        tag_items/CdmStateHandler.cpp
+        tag_items/CdmStateHandler.h
         tag_items/DeIceHandler.cpp
         tag_items/DeIceHandler.h)
 

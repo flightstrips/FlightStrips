@@ -118,6 +118,7 @@ type SessionRepository interface {
 	UpdateActiveRunways(ctx context.Context, id int32, activeRunways pkgModels.ActiveRunways) error
 	UpdateSessionSids(ctx context.Context, id int32, sids pkgModels.AvailableSids) error
 	GetSessionSids(ctx context.Context, id int32) (pkgModels.AvailableSids, error)
+	UpdateCdmMaster(ctx context.Context, id int32, master bool) error
 	IncrementPdcSequence(ctx context.Context, id int32) (int32, error)
 	IncrementPdcMessageSequence(ctx context.Context, id int32) (int32, error)
 }

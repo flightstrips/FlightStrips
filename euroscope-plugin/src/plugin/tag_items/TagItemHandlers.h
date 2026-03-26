@@ -1,5 +1,6 @@
 #pragma once
-#include "Constants.h"
+#include <unordered_map>
+
 #include "TagItemHandler.h"
 
 
@@ -14,7 +15,6 @@ namespace FlightStrips::TagItems
                     EuroScopePlugIn::CRadarTarget radarTarget, int itemCode, int tagData, char sItemString[16], int *pColorCode,
                     COLORREF *pRGB, double *pFontSize) const;
     private:
-        std::shared_ptr<TagItemHandler> _handlers[NUMBER_OF_TAG_ITEMS];
+        std::unordered_map<int, std::shared_ptr<TagItemHandler>> _handlers;
     };
 }
-

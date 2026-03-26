@@ -109,9 +109,16 @@ func NewHub(stripService shared.StripService, controllerService shared.Controlle
 	handlers.Add(euroscope.Sync, handleSync)
 	handlers.Add(euroscope.StripUpdate, handleStripUpdateEvent)
 	handlers.Add(euroscope.Runway, handleRunways)
-	handlers.Add(euroscope.CdmLocalData, handleCdmLocalData)
+	handlers.Add(euroscope.CdmTobtUpdate, handleCdmTobtUpdate)
+	handlers.Add(euroscope.CdmDeiceUpdate, handleCdmDeiceUpdate)
+	handlers.Add(euroscope.CdmManualCtot, handleCdmManualCtot)
+	handlers.Add(euroscope.CdmCtotRemove, handleCdmCtotRemove)
+	handlers.Add(euroscope.CdmApproveReqTobt, handleCdmApproveReqTobt)
+	handlers.Add(euroscope.CdmAsrtToggle, handleCdmAsrtToggle)
+	handlers.Add(euroscope.CdmTsacUpdate, handleCdmTsacUpdate)
 	handlers.Add(euroscope.TrackingControllerChanged, handleTrackingControllerChanged)
 	handlers.Add(euroscope.CoordinationReceived, handleCoordinationReceived)
+	handlers.Add(euroscope.CdmMasterToggle, handleCdmMasterToggle)
 
 	hub := &Hub{
 		register:              make(chan *Client),
@@ -168,7 +175,7 @@ func (hub *Hub) OnRegister(client *Client) {
 	if config.IsRecordMode() && !hub.IsRecording(client.session) {
 		err := hub.StartRecording(client.session, client.airport, "LIVE", "Auto-recorded session")
 		if err != nil {
-			slog.Warn("Failed to start recording", slog.Any("error", err))
+			slog.Error("Failed to start recording", slog.Any("error", err))
 		} else {
 			// Set login info in the recorder
 			if rec, ok := hub.recorders[client.session]; ok {
@@ -180,7 +187,7 @@ func (hub *Hub) OnRegister(client *Client) {
 	// Determine master role immediately to avoid race conditions
 	isMaster := false
 	if _, ok := hub.master[client.session]; !ok {
-		slog.Info("EuroScope client is master", slog.String("cid", client.GetCid()))
+		slog.Debug("Euroscope client is master", slog.String("cid", client.GetCid()))
 		hub.master[client.session] = client
 		isMaster = true
 	}
@@ -225,6 +232,25 @@ func (hub *Hub) sendBackendSyncIfNeeded(client *Client) {
 		if strip.Stand != nil {
 			entry.Stand = *strip.Stand
 		}
+		if strip.CdmData != nil {
+			entry.Cdm = euroscope.BackendSyncCdmData{
+				Eobt:       valueOrEmpty(strip.CdmData.EffectiveEobt()),
+				Tobt:       valueOrEmpty(strip.CdmData.EffectiveTobt()),
+				TobtSetBy:       valueOrEmpty(strip.CdmData.TobtSetBy),
+				TobtConfirmedBy: valueOrEmpty(strip.CdmData.TobtConfirmedBy),
+				ReqTobt:    valueOrEmpty(strip.CdmData.EffectiveReqTobt()),
+				Tsat:       truncateCDMClockValue(valueOrEmpty(strip.CdmData.EffectiveTsat())),
+				Ttot:       truncateCDMClockValue(valueOrEmpty(strip.CdmData.EffectiveTtot())),
+				Ctot:       valueOrEmpty(strip.CdmData.EffectiveCtot()),
+				CtotSource: valueOrEmpty(strip.CdmData.CtotSource),
+				Asat:       valueOrEmpty(strip.CdmData.EffectiveAsat()),
+				Asrt:       valueOrEmpty(strip.CdmData.Asrt),
+				Tsac:       valueOrEmpty(strip.CdmData.Tsac),
+				Status:     valueOrEmpty(strip.CdmData.EffectiveStatus()),
+				EcfmpID:    valueOrEmpty(strip.CdmData.EcfmpID),
+				Phase:      valueOrEmpty(strip.CdmData.EffectivePhase()),
+			}
+		}
 		syncStrips = append(syncStrips, entry)
 	}
 
@@ -239,6 +265,20 @@ func (hub *Hub) sendBackendSyncIfNeeded(client *Client) {
 		slog.Int("session", int(client.session)),
 		slog.Int("strips", len(syncStrips)),
 	)
+}
+
+func valueOrEmpty(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return *value
+}
+
+func truncateCDMClockValue(value string) string {
+	if len(value) > 4 {
+		return value[:4]
+	}
+	return value
 }
 
 func (hub *Hub) GetMessageHandlers() shared.MessageHandlers[euroscope.EventType, *Client] {
@@ -258,7 +298,7 @@ func (hub *Hub) SetControllerService(controllerService shared.ControllerService)
 }
 
 func (hub *Hub) HandleNewConnection(conn *gorilla.Conn, user shared.AuthenticatedUser) (*Client, error) {
-	slog.Info("EuroScope client connected", slog.String("cid", user.GetCid()))
+	slog.Debug("Euroscope client connected", slog.String("cid", user.GetCid()))
 	// Read the login message
 	_, msg, err := conn.ReadMessage()
 	if err != nil {
@@ -272,7 +312,7 @@ func (hub *Hub) HandleNewConnection(conn *gorilla.Conn, user shared.Authenticate
 	}
 
 	// Recalculate layouts since the login is sent both on first logon and when a
-	// position/frequency changes — the new position must be reflected immediately.
+	// position/frequency changes - the new position must be reflected immediately.
 	if layoutErr := hub.server.UpdateLayouts(sessionID); layoutErr != nil {
 		slog.Error("Failed to update layouts after ES login", slog.String("cid", user.GetCid()), slog.Any("error", layoutErr))
 	}
@@ -309,7 +349,7 @@ func (hub *Hub) handleLogin(msg []byte, user shared.AuthenticatedUser) (event eu
 		sessionName = sessionName + "_" + strconv.Itoa(rand.Int())
 	}
 
-	slog.Info("EuroScope client logged in", slog.String("cid", user.GetCid()), slog.String("session", sessionName))
+	slog.Debug("Euroscope client logged in", slog.String("cid", user.GetCid()), slog.String("session", sessionName))
 
 	session, err := hub.server.GetOrCreateSession(event.Airport, sessionName)
 	if err != nil {
@@ -360,12 +400,6 @@ func (hub *Hub) handleLogin(msg []byte, user shared.AuthenticatedUser) (event eu
 }
 
 func (hub *Hub) OnUnregister(client *Client) {
-	slog.Info("EuroScope client disconnected",
-		slog.String("cid", client.GetCid()),
-		slog.String("callsign", client.callsign),
-		slog.String("airport", client.airport),
-	)
-
 	// Update per-airport client count.
 	hub.airportClientsMu.Lock()
 	if hub.airportClientCount[client.airport] > 0 {
@@ -397,7 +431,6 @@ func (hub *Hub) OnUnregister(client *Client) {
 	// TODO better master selection. For now just use the next available client
 	for newMaster := range hub.clients {
 		hub.master[client.session] = newMaster
-		slog.Info("EuroScope master role transferred", slog.String("new_master_cid", newMaster.GetCid()))
 		newMaster.send <- euroscope.SessionInfoEvent{Role: euroscope.SessionInfoMaster}
 		break
 	}
@@ -412,10 +445,6 @@ func (hub *Hub) SendGenerateSquawk(session int32, cid string, callsign string) {
 		Callsign: callsign,
 	}
 	hub.Send(session, cid, event)
-}
-
-func (hub *Hub) SendCdmReadyRequest(session int32, cid string, callsign string) {
-	hub.Send(session, cid, euroscope.CdmReadyRequestEvent{Callsign: callsign})
 }
 
 func (hub *Hub) SendGroundState(session int32, cid string, callsign string, state string) {
@@ -498,7 +527,6 @@ func (hub *Hub) SendClearedAltitude(session int32, cid string, callsign string, 
 
 	hub.Send(session, cid, event)
 }
-
 
 func (hub *Hub) SendHeading(session int32, cid string, callsign string, heading int32) {
 	event := euroscope.HeadingEvent{

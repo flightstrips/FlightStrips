@@ -55,6 +55,7 @@ set(ALL_FILES
         handlers/AuthenticationEventHandlersTest.cpp
 
         # Tag Items
+        tag_items/CdmStateHandlerTest.cpp
         tag_items/DeIceHandlerTest.cpp
 
         # WebSocket

@@ -15,6 +15,59 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+type spyStripCdmService struct {
+	callsign        string
+	groundState     string
+	recalcAirport   string
+	recalcSession   int32
+	called          bool
+	recalcTriggered bool
+}
+
+func (s *spyStripCdmService) TriggerRecalculate(_ context.Context, session int32, airport string) {
+	s.recalcTriggered = true
+	s.recalcSession = session
+	s.recalcAirport = airport
+}
+
+func (s *spyStripCdmService) HandleReadyRequest(_ context.Context, _ int32, _ string) error {
+	panic("unexpected")
+}
+func (s *spyStripCdmService) HandleTobtUpdate(_ context.Context, _ int32, _ string, _ string, _ string, _ string) error {
+	panic("unexpected")
+}
+func (s *spyStripCdmService) HandleDeiceUpdate(_ context.Context, _ int32, _ string, _ string) error {
+	panic("unexpected")
+}
+func (s *spyStripCdmService) HandleAsrtToggle(_ context.Context, _ int32, _ string, _ string) error {
+	panic("unexpected")
+}
+func (s *spyStripCdmService) HandleTsacUpdate(_ context.Context, _ int32, _ string, _ string) error {
+	panic("unexpected")
+}
+func (s *spyStripCdmService) HandleManualCtot(_ context.Context, _ int32, _ string, _ string) error {
+	panic("unexpected")
+}
+func (s *spyStripCdmService) HandleCtotRemove(_ context.Context, _ int32, _ string) error {
+	panic("unexpected")
+}
+func (s *spyStripCdmService) HandleApproveReqTobt(_ context.Context, _ int32, _ string, _ string, _ string) error {
+	panic("unexpected")
+}
+func (s *spyStripCdmService) SyncAsatForGroundState(_ context.Context, _ int32, callsign string, groundState string) error {
+	s.called = true
+	s.callsign = callsign
+	s.groundState = groundState
+	return nil
+}
+func (s *spyStripCdmService) RequestBetterTobt(_ context.Context, _ int32, _ string) error {
+	panic("unexpected")
+}
+
+func (s *spyStripCdmService) SetSessionCdmMaster(_ context.Context, _ int32, _ bool) error {
+	panic("SetSessionCdmMaster should not be called in this test")
+}
+
 // ---- MoveToBay ----
 
 func TestMoveToBay_Success(t *testing.T) {
@@ -1037,4 +1090,41 @@ func TestUpdateGroundState_DepartToEmptyKeepsBayDepart(t *testing.T) {
 	assert.Equal(t, shared.BAY_DEPART, savedBay,
 		"bay must stay DEPART when ground state clears so position updates can detect airborne")
 	assert.Empty(t, hub.BayEvents, "no bay change event should be sent when bay did not change")
+}
+
+func TestUpdateGroundState_SyncsAsatAfterPersist(t *testing.T) {
+	ctx := context.Background()
+	state := ""
+	strip := &models.Strip{
+		Callsign: "SAS555",
+		State:    &state,
+		Bay:      shared.BAY_CLEARED,
+		Origin:   "EKCH",
+	}
+
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			return strip, nil
+		},
+		UpdateGroundStateFn: func(_ context.Context, _ int32, _ string, _ *string, _ string, _ *int32) (int64, error) {
+			return 1, nil
+		},
+		GetMaxSequenceInBayFn: func(_ context.Context, _ int32, _ string) (int32, error) {
+			return 0, nil
+		},
+		UpdateBayAndSequenceFn: func(_ context.Context, _ int32, _ string, _ string, _ int32) (int64, error) {
+			return 1, nil
+		},
+	}
+
+	cdmService := &spyStripCdmService{}
+	svc := NewStripService(stripRepo)
+	svc.SetFrontendHub(&testutil.MockFrontendHub{})
+	svc.SetCdmService(cdmService)
+
+	err := svc.UpdateGroundState(ctx, 1, "SAS555", "PUSH", "EKCH")
+	require.NoError(t, err)
+	assert.True(t, cdmService.called)
+	assert.Equal(t, "SAS555", cdmService.callsign)
+	assert.Equal(t, "PUSH", cdmService.groundState)
 }

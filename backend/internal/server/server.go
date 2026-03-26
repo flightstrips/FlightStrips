@@ -153,6 +153,13 @@ func (s *Server) monitorSessions() {
 
 		for _, session := range sessions {
 			slog.Info("Removing expired session", slog.Int("session", int(session.ID)))
+
+			if session.CdmMaster {
+				if err := s.cdmService.SetSessionCdmMaster(context.Background(), session.ID, false); err != nil {
+					slog.Error("Failed to deregister CDM master for expired session", slog.Int("session", int(session.ID)), slog.Any("error", err))
+				}
+			}
+
 			count, err := sessionRepo.Delete(context.Background(), session.ID)
 			if err != nil {
 				slog.Error("Failed to remove expired session", slog.Int("session", int(session.ID)), slog.Any("error", err))

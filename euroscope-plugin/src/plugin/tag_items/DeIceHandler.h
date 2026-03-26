@@ -3,6 +3,7 @@
 
 #include "TagItemHandler.h"
 #include "handlers/FlightPlanEventHandler.h"
+#include "flightplan/FlightPlanService.h"
 #include "stands/StandsBootstrapper.h"
 
 
@@ -18,6 +19,12 @@ namespace FlightStrips::TagItems
         {
         }
 
+        void SetFlightPlanService(const std::shared_ptr<flightplan::FlightPlanService>& flightPlanService) {
+            m_flightPlanService = flightPlanService;
+        }
+
+        static auto DefaultDisplayColor() -> COLORREF;
+
         void Handle(EuroScopePlugIn::CFlightPlan FlightPlan, EuroScopePlugIn::CRadarTarget RadarTarget, int ItemCode, int TagData, char sItemString[16], int* pColorCode, COLORREF* pRGB, double* pFontSize) override;
         void FlightPlanDisconnectEvent(EuroScopePlugIn::CFlightPlan flightPlan) override;
         void ControllerFlightPlanDataEvent(EuroScopePlugIn::CFlightPlan flightPlan, int dataType) override {}
@@ -25,6 +32,7 @@ namespace FlightStrips::TagItems
     private:
         std::shared_ptr<stands::StandService> m_standService;
         std::shared_ptr<configuration::AppConfig> m_appConfig;
+        std::shared_ptr<flightplan::FlightPlanService> m_flightPlanService;
 
         std::unordered_map<std::string, std::string> m_deiceLookup = {};
     };

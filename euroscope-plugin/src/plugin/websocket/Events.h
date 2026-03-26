@@ -34,8 +34,15 @@
 #define EVENT_ASSUME_AND_DROP_NAME "assume_and_drop"
 #define EVENT_BACKEND_SYNC_NAME "backend_sync"
 #define EVENT_CREATE_FPL_NAME "create_fpl"
-#define EVENT_CDM_READY_REQUEST_NAME "cdm_ready_request"
-#define EVENT_CDM_LOCAL_DATA_NAME "cdm_local_data"
+#define EVENT_CDM_UPDATE_NAME "cdm_update"
+#define EVENT_CDM_TOBT_UPDATE_NAME "cdm_tobt_update"
+#define EVENT_CDM_ASRT_TOGGLE_NAME "cdm_asrt_toggle"
+#define EVENT_CDM_TSAC_UPDATE_NAME "cdm_tsac_update"
+#define EVENT_CDM_DEICE_UPDATE_NAME "cdm_deice_update"
+#define EVENT_CDM_MANUAL_CTOT_NAME "cdm_manual_ctot"
+#define EVENT_CDM_CTOT_REMOVE_NAME "cdm_ctot_remove"
+#define EVENT_CDM_APPROVE_REQ_TOBT_NAME "cdm_approve_req_tobt"
+#define EVENT_CDM_MASTER_TOGGLE_NAME "cdm_master_toggle"
 
 enum EventType {
     EVENT_UNKNOWN = 0,
@@ -70,8 +77,15 @@ enum EventType {
     EVENT_ASSUME_AND_DROP,
     EVENT_BACKEND_SYNC,
     EVENT_CREATE_FPL,
-    EVENT_CDM_READY_REQUEST,
-    EVENT_CDM_LOCAL_DATA,
+    EVENT_CDM_UPDATE,
+    EVENT_CDM_TOBT_UPDATE,
+    EVENT_CDM_ASRT_TOGGLE,
+    EVENT_CDM_TSAC_UPDATE,
+    EVENT_CDM_DEICE_UPDATE,
+    EVENT_CDM_MANUAL_CTOT,
+    EVENT_CDM_CTOT_REMOVE,
+    EVENT_CDM_APPROVE_REQ_TOBT,
+    EVENT_CDM_MASTER_TOGGLE,
 };
 
 NLOHMANN_JSON_SERIALIZE_ENUM(EventType, {
@@ -105,10 +119,17 @@ NLOHMANN_JSON_SERIALIZE_ENUM(EventType, {
                               {EVENT_COORDINATION_RECEIVED, EVENT_COORDINATION_RECEIVED_NAME},
                                {EVENT_ASSUME_AND_DROP, EVENT_ASSUME_AND_DROP_NAME},
                                 {EVENT_BACKEND_SYNC, EVENT_BACKEND_SYNC_NAME},
-                                {EVENT_CREATE_FPL, EVENT_CREATE_FPL_NAME},
-                                {EVENT_CDM_READY_REQUEST, EVENT_CDM_READY_REQUEST_NAME},
-                                {EVENT_CDM_LOCAL_DATA, EVENT_CDM_LOCAL_DATA_NAME},
-                                })
+                                 {EVENT_CREATE_FPL, EVENT_CREATE_FPL_NAME},
+                                  {EVENT_CDM_UPDATE, EVENT_CDM_UPDATE_NAME},
+                                  {EVENT_CDM_TOBT_UPDATE, EVENT_CDM_TOBT_UPDATE_NAME},
+                                  {EVENT_CDM_ASRT_TOGGLE, EVENT_CDM_ASRT_TOGGLE_NAME},
+                                  {EVENT_CDM_TSAC_UPDATE, EVENT_CDM_TSAC_UPDATE_NAME},
+                                  {EVENT_CDM_DEICE_UPDATE, EVENT_CDM_DEICE_UPDATE_NAME},
+                                  {EVENT_CDM_MANUAL_CTOT, EVENT_CDM_MANUAL_CTOT_NAME},
+                                  {EVENT_CDM_CTOT_REMOVE, EVENT_CDM_CTOT_REMOVE_NAME},
+                                 {EVENT_CDM_APPROVE_REQ_TOBT, EVENT_CDM_APPROVE_REQ_TOBT_NAME},
+                                 {EVENT_CDM_MASTER_TOGGLE, EVENT_CDM_MASTER_TOGGLE_NAME},
+                                 })
 
 struct Event {
     EventType type{EVENT_UNKNOWN};
@@ -170,45 +191,211 @@ struct RunwayEvent final : Event {
     NLOHMANN_DEFINE_TYPE_INTRUSIVE(RunwayEvent, runways, type);
 };
 
-struct CdmReadyRequestEvent final : Event {
+struct CdmUpdateEvent final : Event {
     std::string callsign;
-
-    explicit CdmReadyRequestEvent(std::string callsign) : Event(EVENT_CDM_READY_REQUEST), callsign(std::move(callsign)) {
-    }
-    CdmReadyRequestEvent() = default;
-
-    NLOHMANN_DEFINE_TYPE_INTRUSIVE(CdmReadyRequestEvent, callsign, type);
-};
-
-struct CdmLocalDataEvent final : Event {
-    std::string callsign;
-    std::string source_position;
-    std::string source_role;
+    std::string eobt;
     std::string tobt;
+    std::string req_tobt;
+    std::string req_tobt_source;
+    std::string tobt_confirmed_by;
     std::string tsat;
     std::string ttot;
     std::string ctot;
     std::string asrt;
     std::string tsac;
+    std::string asat;
+    std::string status;
     std::string manual_ctot;
+    std::string deice_type;
+    std::string ecfmp_id;
+    std::string phase;
 
-    CdmLocalDataEvent()
-        : Event(EVENT_CDM_LOCAL_DATA) {
+    CdmUpdateEvent()
+        : Event(EVENT_CDM_UPDATE) {
     }
 
-    NLOHMANN_DEFINE_TYPE_INTRUSIVE(
-        CdmLocalDataEvent,
+    CdmUpdateEvent(
+        std::string callsign,
+        std::string eobt,
+        std::string tobt,
+        std::string req_tobt,
+        std::string req_tobt_source,
+        std::string tsat,
+        std::string ttot,
+        std::string ctot,
+        std::string asrt,
+        std::string tsac,
+        std::string asat,
+        std::string status,
+        std::string manual_ctot,
+        std::string deice_type,
+        std::string ecfmp_id,
+        std::string phase = {},
+        std::string tobt_confirmed_by = {}
+    ) : Event(EVENT_CDM_UPDATE),
+        callsign(std::move(callsign)),
+        eobt(std::move(eobt)),
+        tobt(std::move(tobt)),
+        req_tobt(std::move(req_tobt)),
+        req_tobt_source(std::move(req_tobt_source)),
+        tobt_confirmed_by(std::move(tobt_confirmed_by)),
+        tsat(std::move(tsat)),
+        ttot(std::move(ttot)),
+        ctot(std::move(ctot)),
+        asrt(std::move(asrt)),
+        tsac(std::move(tsac)),
+        asat(std::move(asat)),
+        status(std::move(status)),
+        manual_ctot(std::move(manual_ctot)),
+        deice_type(std::move(deice_type)),
+        ecfmp_id(std::move(ecfmp_id)),
+        phase(std::move(phase)) {
+    }
+
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE_WITH_DEFAULT(
+        CdmUpdateEvent,
         callsign,
-        source_position,
-        source_role,
+        eobt,
         tobt,
+        req_tobt,
+        req_tobt_source,
+        tobt_confirmed_by,
         tsat,
         ttot,
         ctot,
         asrt,
         tsac,
+        asat,
+        status,
         manual_ctot,
+        deice_type,
+        ecfmp_id,
+        phase,
         type
+    );
+};
+
+struct CdmTobtUpdateEvent final : Event {
+    std::string callsign;
+    std::string tobt;
+
+    CdmTobtUpdateEvent() : Event(EVENT_CDM_TOBT_UPDATE) {}
+    CdmTobtUpdateEvent(std::string callsign, std::string tobt)
+        : Event(EVENT_CDM_TOBT_UPDATE), callsign(std::move(callsign)), tobt(std::move(tobt)) {}
+
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE(CdmTobtUpdateEvent, callsign, tobt, type);
+};
+
+struct CdmAsrtToggleEvent final : Event {
+    std::string callsign;
+    std::string asrt;
+
+    CdmAsrtToggleEvent() : Event(EVENT_CDM_ASRT_TOGGLE) {}
+    CdmAsrtToggleEvent(std::string callsign, std::string asrt)
+        : Event(EVENT_CDM_ASRT_TOGGLE), callsign(std::move(callsign)), asrt(std::move(asrt)) {}
+
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE(CdmAsrtToggleEvent, callsign, asrt, type);
+};
+
+struct CdmTsacUpdateEvent final : Event {
+    std::string callsign;
+    std::string tsac;
+
+    CdmTsacUpdateEvent() : Event(EVENT_CDM_TSAC_UPDATE) {}
+    CdmTsacUpdateEvent(std::string callsign, std::string tsac)
+        : Event(EVENT_CDM_TSAC_UPDATE), callsign(std::move(callsign)), tsac(std::move(tsac)) {}
+
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE(CdmTsacUpdateEvent, callsign, tsac, type);
+};
+
+struct CdmDeiceUpdateEvent final : Event {
+    std::string callsign;
+    std::string deice_type;
+
+    CdmDeiceUpdateEvent() : Event(EVENT_CDM_DEICE_UPDATE) {}
+    CdmDeiceUpdateEvent(std::string callsign, std::string deiceType)
+        : Event(EVENT_CDM_DEICE_UPDATE), callsign(std::move(callsign)), deice_type(std::move(deiceType)) {}
+
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE(CdmDeiceUpdateEvent, callsign, deice_type, type);
+};
+
+struct CdmManualCtotEvent final : Event {
+    std::string callsign;
+    std::string ctot;
+
+    CdmManualCtotEvent() : Event(EVENT_CDM_MANUAL_CTOT) {}
+    CdmManualCtotEvent(std::string callsign, std::string ctot)
+        : Event(EVENT_CDM_MANUAL_CTOT), callsign(std::move(callsign)), ctot(std::move(ctot)) {}
+
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE(CdmManualCtotEvent, callsign, ctot, type);
+};
+
+struct CdmCtotRemoveEvent final : Event {
+    std::string callsign;
+
+    CdmCtotRemoveEvent() : Event(EVENT_CDM_CTOT_REMOVE) {}
+    explicit CdmCtotRemoveEvent(std::string callsign)
+        : Event(EVENT_CDM_CTOT_REMOVE), callsign(std::move(callsign)) {}
+
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE(CdmCtotRemoveEvent, callsign, type);
+};
+
+struct CdmApproveReqTobtEvent final : Event {
+    std::string callsign;
+
+    CdmApproveReqTobtEvent() : Event(EVENT_CDM_APPROVE_REQ_TOBT) {}
+    explicit CdmApproveReqTobtEvent(std::string callsign)
+        : Event(EVENT_CDM_APPROVE_REQ_TOBT), callsign(std::move(callsign)) {}
+
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE(CdmApproveReqTobtEvent, callsign, type);
+};
+
+struct CdmMasterToggleEvent final : Event {
+    bool master{false};
+
+    CdmMasterToggleEvent() : Event(EVENT_CDM_MASTER_TOGGLE) {}
+    explicit CdmMasterToggleEvent(const bool master)
+        : Event(EVENT_CDM_MASTER_TOGGLE), master(master) {}
+
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE(CdmMasterToggleEvent, master, type);
+};
+
+struct BackendSyncCdmData final {
+    std::string eobt;
+    std::string tobt;
+    std::string req_tobt;
+    std::string req_tobt_source;
+    std::string tobt_confirmed_by;
+    std::string tsat;
+    std::string ttot;
+    std::string ctot;
+    std::string asrt;
+    std::string tsac;
+    std::string asat;
+    std::string status;
+    std::string manual_ctot;
+    std::string deice_type;
+    std::string ecfmp_id;
+    std::string phase;
+
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE_WITH_DEFAULT(
+        BackendSyncCdmData,
+        eobt,
+        tobt,
+        req_tobt,
+        req_tobt_source,
+        tobt_confirmed_by,
+        tsat,
+        ttot,
+        ctot,
+        asrt,
+        tsac,
+        asat,
+        status,
+        manual_ctot,
+        deice_type,
+        ecfmp_id,
+        phase
     );
 };
 
@@ -682,10 +869,11 @@ struct BackendSyncStrip final {
     bool cleared;
     std::string ground_state;
     std::string stand;
+    BackendSyncCdmData cdm{};
 
     BackendSyncStrip() = default;
 
-    NLOHMANN_DEFINE_TYPE_INTRUSIVE(BackendSyncStrip, callsign, assigned_squawk, cleared, ground_state, stand);
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE_WITH_DEFAULT(BackendSyncStrip, callsign, assigned_squawk, cleared, ground_state, stand, cdm);
 };
 
 struct BackendSyncEvent final : Event {
@@ -695,7 +883,7 @@ struct BackendSyncEvent final : Event {
 
     BackendSyncEvent() = default;
 
-    NLOHMANN_DEFINE_TYPE_INTRUSIVE(BackendSyncEvent, strips, type, latitude, longitude);
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE_WITH_DEFAULT(BackendSyncEvent, strips, type, latitude, longitude);
 };
 
 struct CreateFPLEvent final : Event {

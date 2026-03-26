@@ -1,47 +1,33 @@
 package models
 
-import "time"
+const (
+	CtotSourceManual = "Manual"
+	CtotSourceEvent  = "EVENT"
+	CtotSourceATFCM  = "ATFCM"
 
-type CdmFieldOverride struct {
-	Value          string     `json:"value"`
-	ObservedAt     time.Time  `json:"observedAt"`
-	SourcePosition string     `json:"sourcePosition"`
-	SourceRole     string     `json:"sourceRole"`
-	ExpiresAt      *time.Time `json:"expiresAt,omitempty"`
-}
-
-type CdmCanonical struct {
-	Tobt      *string    `json:"tobt,omitempty"`
-	Tsat      *string    `json:"tsat,omitempty"`
-	Ttot      *string    `json:"ttot,omitempty"`
-	Ctot      *string    `json:"ctot,omitempty"`
-	Aobt      *string    `json:"aobt,omitempty"`
-	Asat      *string    `json:"asat,omitempty"`
-	Eobt      *string    `json:"eobt,omitempty"`
-	Status    *string    `json:"status,omitempty"`
-	Source    string     `json:"source,omitempty"`
-	UpdatedAt *time.Time `json:"updatedAt,omitempty"`
-}
-
-type CdmPluginData struct {
-	Asrt       *string `json:"asrt,omitempty"`
-	Tsac       *string `json:"tsac,omitempty"`
-	DeIce      *string `json:"deIce,omitempty"`
-	EcfmpID    *string `json:"ecfmpId,omitempty"`
-	ManualCtot *string `json:"manualCtot,omitempty"`
-}
-
-type CdmPendingRequest struct {
-	RequestedAt    *time.Time `json:"requestedAt,omitempty"`
-	Via            string     `json:"via,omitempty"`
-	TargetPosition *string    `json:"targetPosition,omitempty"`
-}
+	TobtConfirmedByATC   = "ATC"
+	TobtConfirmedByPilot = "Pilot"
+)
 
 type CdmData struct {
-	Canonical      CdmCanonical                `json:"canonical"`
-	LocalOverrides map[string]CdmFieldOverride `json:"localOverrides,omitempty"`
-	Plugin         CdmPluginData               `json:"plugin,omitempty"`
-	Pending        *CdmPendingRequest          `json:"pending,omitempty"`
+	Tobt            *string `json:"tobt,omitempty"`
+	TobtSetBy       *string `json:"tobtSetBy,omitempty"`
+	TobtConfirmedBy *string `json:"tobtConfirmedBy,omitempty"`
+	ReqTobt     *string `json:"reqTobt,omitempty"`
+	Tsat        *string `json:"tsat,omitempty"`
+	Ttot        *string `json:"ttot,omitempty"`
+	Ctot        *string `json:"ctot,omitempty"`
+	CtotSource  *string `json:"ctotSource,omitempty"`
+	Aobt        *string `json:"aobt,omitempty"`
+	Asat        *string `json:"asat,omitempty"`
+	Asrt        *string `json:"asrt,omitempty"`
+	Tsac        *string `json:"tsac,omitempty"`
+	Eobt        *string `json:"eobt,omitempty"`
+	Status      *string `json:"status,omitempty"`
+	DeIce       *string `json:"deIce,omitempty"`
+	EcfmpID     *string `json:"ecfmpId,omitempty"`
+	Phase       *string `json:"phase,omitempty"`
+	Recalculate bool    `json:"recalculate,omitempty"`
 }
 
 type CdmDataRow struct {
@@ -49,110 +35,129 @@ type CdmDataRow struct {
 	Data     *CdmData
 }
 
+// NewLegacyCdmData creates CdmData with basic fields. Kept for test convenience.
 func NewLegacyCdmData(tobt, tsat, ttot, ctot, aobt, asat, eobt, status *string) *CdmData {
-	return (&CdmData{
-		Canonical: CdmCanonical{
-			Tobt:   tobt,
-			Tsat:   tsat,
-			Ttot:   ttot,
-			Ctot:   ctot,
-			Aobt:   aobt,
-			Asat:   asat,
-			Eobt:   eobt,
-			Status: status,
-		},
-	}).Normalize()
+	return &CdmData{
+		Tobt:   tobt,
+		Tsat:   tsat,
+		Ttot:   ttot,
+		Ctot:   ctot,
+		Aobt:   aobt,
+		Asat:   asat,
+		Eobt:   eobt,
+		Status: status,
+	}
 }
 
 func (d *CdmData) Clone() *CdmData {
 	if d == nil {
-		return (&CdmData{}).Normalize()
+		return &CdmData{}
 	}
-
 	clone := *d
-	if d.Pending != nil {
-		pending := *d.Pending
-		clone.Pending = &pending
-	}
-	if d.LocalOverrides != nil {
-		clone.LocalOverrides = make(map[string]CdmFieldOverride, len(d.LocalOverrides))
-		for key, value := range d.LocalOverrides {
-			clone.LocalOverrides[key] = value
-		}
-	}
-
-	return (&clone).Normalize()
+	return &clone
 }
 
+// Normalize is a no-op on the flat struct, kept for call-site compatibility.
 func (d *CdmData) Normalize() *CdmData {
 	if d == nil {
 		return &CdmData{}
-	}
-	if len(d.LocalOverrides) == 0 {
-		d.LocalOverrides = nil
 	}
 	return d
 }
 
 func (d *CdmData) EffectiveTobt() *string {
-	return d.effectiveValue("tobt", d.Canonical.Tobt)
+	if d == nil {
+		return nil
+	}
+	return d.Tobt
+}
+
+func (d *CdmData) EffectiveReqTobt() *string {
+	if d == nil {
+		return nil
+	}
+	return d.ReqTobt
 }
 
 func (d *CdmData) EffectiveTsat() *string {
-	return d.effectiveValue("tsat", d.Canonical.Tsat)
+	if d == nil {
+		return nil
+	}
+	return d.Tsat
 }
 
 func (d *CdmData) EffectiveTtot() *string {
-	return d.effectiveValue("ttot", d.Canonical.Ttot)
+	if d == nil {
+		return nil
+	}
+	return d.Ttot
 }
 
 func (d *CdmData) EffectiveCtot() *string {
-	return d.effectiveValue("ctot", d.Canonical.Ctot)
+	if d == nil {
+		return nil
+	}
+	return d.Ctot
 }
 
 func (d *CdmData) EffectiveAobt() *string {
-	return d.effectiveValue("aobt", d.Canonical.Aobt)
+	if d == nil {
+		return nil
+	}
+	return d.Aobt
 }
 
 func (d *CdmData) EffectiveAsat() *string {
-	return d.effectiveValue("asat", d.Canonical.Asat)
+	if d == nil {
+		return nil
+	}
+	return d.Asat
 }
 
 func (d *CdmData) EffectiveEobt() *string {
-	return d.effectiveValue("eobt", d.Canonical.Eobt)
+	if d == nil {
+		return nil
+	}
+	return d.Eobt
 }
 
 func (d *CdmData) EffectiveStatus() *string {
 	if d == nil {
 		return nil
 	}
-	return d.Canonical.Status
+	return d.Status
 }
 
-func (d *CdmData) ClearMatchingLocalOverride(field string, canonical *string) {
-	if d == nil || len(d.LocalOverrides) == 0 || canonical == nil {
-		return
-	}
-
-	override, ok := d.LocalOverrides[field]
-	if !ok || override.Value != *canonical {
-		return
-	}
-
-	delete(d.LocalOverrides, field)
-	if len(d.LocalOverrides) == 0 {
-		d.LocalOverrides = nil
-	}
+func (d *CdmData) NeedsLocalRecalculation() bool {
+	return d != nil && d.Recalculate
 }
 
-func (d *CdmData) effectiveValue(field string, canonical *string) *string {
-	if d != nil {
-		if override, ok := d.LocalOverrides[field]; ok && override.Value != "" {
-			return stringPointer(override.Value)
-		}
+func (d *CdmData) MarkLocalRecalculationPending() {
+	if d == nil {
+		return
 	}
+	d.Recalculate = true
+}
 
-	return canonical
+func (d *CdmData) ClearLocalRecalculationPending() {
+	if d == nil {
+		return
+	}
+	d.Recalculate = false
+}
+
+func (d *CdmData) HasManualCtot() bool {
+	if d == nil {
+		return false
+	}
+	return d.CtotSource != nil && *d.CtotSource == CtotSourceManual && d.Ctot != nil && *d.Ctot != ""
+}
+
+func (d *CdmData) EffectivePhase() *string {
+	if d == nil {
+		return nil
+	}
+	return d.Phase
 }
 
 func stringPointer(value string) *string {

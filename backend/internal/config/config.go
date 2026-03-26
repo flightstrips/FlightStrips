@@ -10,6 +10,28 @@ import (
 	"go.yaml.in/yaml/v4"
 )
 
+type CdmDeicePlatformConfig struct {
+	Name string `yaml:"name"`
+	Time int    `yaml:"time"`
+}
+
+type CdmDeiceConfig struct {
+	Light    int                      `yaml:"light"`
+	Medium   int                      `yaml:"medium"`
+	Heavy    int                      `yaml:"heavy"`
+	Super    int                      `yaml:"super"`
+	Platform []CdmDeicePlatformConfig `yaml:"platform"`
+}
+
+type CdmConfig struct {
+	Rate           int            `yaml:"rate"`
+	RateLvo        int            `yaml:"rateLvo"`
+	RateUri        string         `yaml:"rateUri"`
+	SidIntervalUri string         `yaml:"sidIntervalUri"`
+	TaxizonesUri   string         `yaml:"taxizonesUri"`
+	Deice          CdmDeiceConfig `yaml:"deice"`
+}
+
 type Config struct {
 	Latitude            float64                    `yaml:"latitude"`
 	Longitude           float64                    `yaml:"longitude"`
@@ -26,6 +48,7 @@ type Config struct {
 	MissedApproachHandover map[string]string          `yaml:"missed_approach_handover"`
 	TransitionAltitude     int                        `yaml:"transition_altitude"`
 	RunwayInitialCFL       map[string]int             `yaml:"runway_initial_cfl"`
+	Cdm                    CdmConfig                  `yaml:"cdm"`
 }
 
 // TestModeConfig holds test/replay mode configuration
@@ -36,6 +59,8 @@ type TestModeConfig struct {
 }
 
 var testMode TestModeConfig
+
+var cdmConfig CdmConfig
 
 var sectors []Sector
 var regions []Region
@@ -99,6 +124,7 @@ func loadAirportConfig(r io.Reader) error {
 	if runwayInitialCFL == nil {
 		runwayInitialCFL = make(map[string]int)
 	}
+	cdmConfig = cfg.Cdm
 
 	return nil
 }
@@ -132,6 +158,16 @@ func GetAirborneAltitudeAGL() int64 {
 // GetTransitionAltitude returns the transition altitude (in feet) for the configured airport.
 func GetTransitionAltitude() int {
 	return transitionAltitude
+}
+
+// GetCdmConfig returns the CDM configuration parsed from the airport YAML.
+func GetCdmConfig() CdmConfig {
+	return cdmConfig
+}
+
+// GetConfigDir returns the base directory used for resolving relative CDM URIs.
+func GetConfigDir() string {
+	return "config"
 }
 
 // GetInitialCFLForRunway returns the initial cleared altitude (in feet) to auto-assign

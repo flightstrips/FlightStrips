@@ -8,6 +8,7 @@ import (
 	"FlightStrips/pkg/models"
 	"context"
 	"log/slog"
+	"regexp"
 
 	gorilla "github.com/gorilla/websocket"
 )
@@ -29,6 +30,8 @@ func handleLoginEvent(ctx context.Context, client *Client, message Message) erro
 
 	return nil
 }
+
+var hhmmPattern = regexp.MustCompile(`^(?:[01]\d|2[0-3])[0-5]\d$`)
 
 func handleTokenEvent(ctx context.Context, client *Client, message Message) error {
 	var event events.AuthenticationEvent
@@ -205,25 +208,71 @@ func handleStand(ctx context.Context, client *Client, message Message) error {
 	return client.hub.stripService.UpdateStand(ctx, client.session, event.Callsign, event.Stand)
 }
 
-func handleCdmLocalData(ctx context.Context, client *Client, message Message) error {
-	var event euroscope.CdmLocalDataEvent
+func handleCdmTobtUpdate(ctx context.Context, client *Client, message Message) error {
+	var event euroscope.CdmTobtUpdateEvent
 	if err := message.JsonUnmarshal(&event); err != nil {
 		return err
 	}
-
-	if event.SourcePosition == "" {
-		event.SourcePosition = client.callsign
+	if !hhmmPattern.MatchString(event.Tobt) {
+		return nil
 	}
+	return client.hub.server.GetCdmService().HandleTobtUpdate(ctx, client.session, event.Callsign, event.Tobt, client.callsign, clientRole(client))
+}
 
-	if event.SourceRole == "" {
-		if master, ok := client.hub.master[client.session]; ok && master == client {
-			event.SourceRole = "master"
-		} else {
-			event.SourceRole = "slave"
-		}
+func handleCdmDeiceUpdate(ctx context.Context, client *Client, message Message) error {
+	var event euroscope.CdmDeiceUpdateEvent
+	if err := message.JsonUnmarshal(&event); err != nil {
+		return err
 	}
+	switch event.DeiceType {
+	case "", "L", "M", "H", "J":
+	default:
+		return nil
+	}
+	return client.hub.server.GetCdmService().HandleDeiceUpdate(ctx, client.session, event.Callsign, event.DeiceType)
+}
 
-	return client.hub.server.GetCdmService().HandleLocalObservation(ctx, client.session, event)
+func handleCdmAsrtToggle(ctx context.Context, client *Client, message Message) error {
+	var event euroscope.CdmAsrtToggleEvent
+	if err := message.JsonUnmarshal(&event); err != nil {
+		return err
+	}
+	return client.hub.server.GetCdmService().HandleAsrtToggle(ctx, client.session, event.Callsign, event.Asrt)
+}
+
+func handleCdmTsacUpdate(ctx context.Context, client *Client, message Message) error {
+	var event euroscope.CdmTsacUpdateEvent
+	if err := message.JsonUnmarshal(&event); err != nil {
+		return err
+	}
+	return client.hub.server.GetCdmService().HandleTsacUpdate(ctx, client.session, event.Callsign, event.Tsac)
+}
+
+func handleCdmManualCtot(ctx context.Context, client *Client, message Message) error {
+	var event euroscope.CdmManualCtotEvent
+	if err := message.JsonUnmarshal(&event); err != nil {
+		return err
+	}
+	if !hhmmPattern.MatchString(event.Ctot) {
+		return nil
+	}
+	return client.hub.server.GetCdmService().HandleManualCtot(ctx, client.session, event.Callsign, event.Ctot)
+}
+
+func handleCdmCtotRemove(ctx context.Context, client *Client, message Message) error {
+	var event euroscope.CdmCtotRemoveEvent
+	if err := message.JsonUnmarshal(&event); err != nil {
+		return err
+	}
+	return client.hub.server.GetCdmService().HandleCtotRemove(ctx, client.session, event.Callsign)
+}
+
+func handleCdmApproveReqTobt(ctx context.Context, client *Client, message Message) error {
+	var event euroscope.CdmApproveReqTobtEvent
+	if err := message.JsonUnmarshal(&event); err != nil {
+		return err
+	}
+	return client.hub.server.GetCdmService().HandleApproveReqTobt(ctx, client.session, event.Callsign, client.callsign, clientRole(client))
 }
 
 func handlePositionUpdate(ctx context.Context, client *Client, message Message) error {
@@ -472,7 +521,6 @@ func applyOrValidateRunways(ctx context.Context, client *Client, runways []euros
 		ArrivalRunways:   arrival,
 	}
 
-	// Note: runway status is populated below from the current session after master check.
 	isMaster := false
 	if master, ok := client.hub.master[client.session]; ok && master == client {
 		isMaster = true
@@ -557,3 +605,19 @@ func slicesEqual(a, b []string) bool {
 	}
 	return true
 }
+
+func clientRole(client *Client) string {
+	if master, ok := client.hub.master[client.session]; ok && master == client {
+		return "master"
+	}
+	return "slave"
+}
+
+func handleCdmMasterToggle(ctx context.Context, client *Client, message Message) error {
+	var event euroscope.CdmMasterToggleEvent
+	if err := message.JsonUnmarshal(&event); err != nil {
+		return err
+	}
+	return client.hub.server.GetCdmService().SetSessionCdmMaster(ctx, client.session, event.Master)
+}
+

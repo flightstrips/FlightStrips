@@ -18,6 +18,7 @@
 #include "handlers/ConnectionEventHandlers.h"
 #include "messages/MessageService.h"
 #include "runway/RunwayService.h"
+#include "tag_items/CdmStateHandler.h"
 #include "tag_items/DeIceHandler.h"
 #include "websocket/WebSocketService.h"
 
@@ -70,6 +71,75 @@ namespace FlightStrips {
             this->container->authenticationService, this->container->plugin,
             this->container->connectionEventHandlers, this->container->messageHandlers);
         flightplan::FlightPlanBootstrapper::Bootstrap(*this->container);
+        this->container->deIceHandler->SetFlightPlanService(this->container->flightPlanService);
+        this->container->tagItemHandlers->RegisterHandler(
+            std::make_shared<TagItems::CdmStateHandler>(this->container->flightPlanService, TagItems::CdmStateHandler::Field::Eobt),
+            TAG_ITEM_CDM_EOBT
+        );
+        this->container->tagItemHandlers->RegisterHandler(
+            std::make_shared<TagItems::CdmStateHandler>(this->container->flightPlanService, TagItems::CdmStateHandler::Field::Phase),
+            TAG_ITEM_CDM_PHASE
+        );
+        this->container->tagItemHandlers->RegisterHandler(
+            std::make_shared<TagItems::CdmStateHandler>(this->container->flightPlanService, TagItems::CdmStateHandler::Field::Tobt),
+            TAG_ITEM_CDM_TOBT
+        );
+        this->container->tagItemHandlers->RegisterHandler(
+            std::make_shared<TagItems::CdmStateHandler>(this->container->flightPlanService, TagItems::CdmStateHandler::Field::ReqTobt),
+            TAG_ITEM_CDM_REQ_TOBT
+        );
+        this->container->tagItemHandlers->RegisterHandler(
+            std::make_shared<TagItems::CdmStateHandler>(this->container->flightPlanService, TagItems::CdmStateHandler::Field::Tsat),
+            TAG_ITEM_CDM_TSAT
+        );
+        this->container->tagItemHandlers->RegisterHandler(
+            std::make_shared<TagItems::CdmStateHandler>(this->container->flightPlanService, TagItems::CdmStateHandler::Field::TsatTobtDiff),
+            TAG_ITEM_CDM_TSAT_TOBT_DIFF
+        );
+        this->container->tagItemHandlers->RegisterHandler(
+            std::make_shared<TagItems::CdmStateHandler>(this->container->flightPlanService, TagItems::CdmStateHandler::Field::Ttg),
+            TAG_ITEM_CDM_TTG
+        );
+        this->container->tagItemHandlers->RegisterHandler(
+            std::make_shared<TagItems::CdmStateHandler>(this->container->flightPlanService, TagItems::CdmStateHandler::Field::Ttot),
+            TAG_ITEM_CDM_TTOT
+        );
+        this->container->tagItemHandlers->RegisterHandler(
+            std::make_shared<TagItems::CdmStateHandler>(this->container->flightPlanService, TagItems::CdmStateHandler::Field::Ctot),
+            TAG_ITEM_CDM_CTOT
+        );
+        this->container->tagItemHandlers->RegisterHandler(
+            std::make_shared<TagItems::CdmStateHandler>(this->container->flightPlanService, TagItems::CdmStateHandler::Field::FlowMessage),
+            TAG_ITEM_CDM_FLOW_MESSAGE
+        );
+        this->container->tagItemHandlers->RegisterHandler(
+            std::make_shared<TagItems::CdmStateHandler>(this->container->flightPlanService, TagItems::CdmStateHandler::Field::Status),
+            TAG_ITEM_CDM_STATUS
+        );
+        this->container->tagItemHandlers->RegisterHandler(
+            std::make_shared<TagItems::CdmStateHandler>(this->container->flightPlanService, TagItems::CdmStateHandler::Field::Status),
+            TAG_ITEM_CDM_NETWORK_STATUS
+        );
+        this->container->tagItemHandlers->RegisterHandler(
+            std::make_shared<TagItems::CdmStateHandler>(this->container->flightPlanService, TagItems::CdmStateHandler::Field::TobtConfirmedBy),
+            TAG_ITEM_CDM_TOBT_CONFIRMED_BY
+        );
+        this->container->tagItemHandlers->RegisterHandler(
+            std::make_shared<TagItems::CdmStateHandler>(this->container->flightPlanService, TagItems::CdmStateHandler::Field::Asrt),
+            TAG_ITEM_CDM_ASRT
+        );
+        this->container->tagItemHandlers->RegisterHandler(
+            std::make_shared<TagItems::CdmStateHandler>(this->container->flightPlanService, TagItems::CdmStateHandler::Field::ReadyStartup),
+            TAG_ITEM_CDM_READY_STARTUP
+        );
+        this->container->tagItemHandlers->RegisterHandler(
+            std::make_shared<TagItems::CdmStateHandler>(this->container->flightPlanService, TagItems::CdmStateHandler::Field::Tsac),
+            TAG_ITEM_CDM_TSAC
+        );
+        this->container->tagItemHandlers->RegisterHandler(
+            std::make_shared<TagItems::CdmStateHandler>(this->container->flightPlanService, TagItems::CdmStateHandler::Field::Asat),
+            TAG_ITEM_CDM_ASAT
+        );
         this->container->controllerService = std::make_shared<controller::ControllerService>(
             this->container->webSocketService);
         this->container->controllerEventHandlers->RegisterHandler(this->container->controllerService);

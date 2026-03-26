@@ -5,10 +5,29 @@
 
 namespace FlightStrips::TagItems
 {
+    namespace {
+        constexpr int TAG_COLOR_RGB_DEFINED_VALUE = 1;
+    }
+
+    auto DeIceHandler::DefaultDisplayColor() -> COLORREF {
+        return RGB(212, 214, 7);
+    }
+
     void DeIceHandler::Handle(EuroScopePlugIn::CFlightPlan FlightPlan, EuroScopePlugIn::CRadarTarget RadarTarget,
         int ItemCode, int TagData, char sItemString[16], int* pColorCode, COLORREF* pRGB, double* pFontSize)
     {
+        if (pColorCode != nullptr) *pColorCode = TAG_COLOR_RGB_DEFINED_VALUE;
+        if (pRGB != nullptr) *pRGB = DefaultDisplayColor();
+
         const auto callsign = std::string(FlightPlan.GetCallsign());
+
+        if (m_flightPlanService != nullptr) {
+            if (const auto plan = m_flightPlanService->GetFlightPlan(callsign); plan != nullptr && !plan->cdm.deice_type.empty()) {
+                const auto len = plan->cdm.deice_type.copy(sItemString, 15);
+                sItemString[len] = '\0';
+                return;
+            }
+        }
 
         if (const auto entry = m_deiceLookup.find(callsign); entry != m_deiceLookup.end()) {
             const auto len = entry->second.copy(sItemString, 15);

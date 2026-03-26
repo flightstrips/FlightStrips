@@ -12,6 +12,9 @@ WHERE id = $1;
 INSERT INTO sessions (name, airport)
 VALUES ($1, $2) RETURNING id;
 
+-- name: UpdateCdmMaster :exec
+UPDATE sessions SET cdm_master = $2 WHERE id = $1;
+
 -- name: GetSession :one
 SELECT *
 FROM sessions

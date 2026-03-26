@@ -41,8 +41,8 @@ namespace FlightStrips::messages {
 
         if (type == EVENT_SESSION_INFO_NAME) {
             HandleSessionInfoEvent(message.get<SessionInfoEvent>());
-        } else if (type == EVENT_CDM_READY_REQUEST_NAME) {
-            HandleCdmReadyRequestEvent(message.get<CdmReadyRequestEvent>());
+        } else if (type == EVENT_CDM_UPDATE_NAME) {
+            HandleCdmUpdateEvent(message.get<CdmUpdateEvent>());
         } else if (type == EVENT_ASSIGNED_SQUAWK_NAME) {
             HandleAssignedSquawkEvent(message.get<AssignedSquawkEvent>());
         } else if (type == EVENT_REQUESTED_ALTITUDE_NAME) {
@@ -88,15 +88,8 @@ namespace FlightStrips::messages {
         }
     }
 
-    void MessageService::HandleCdmReadyRequestEvent(const CdmReadyRequestEvent &event) const {
-        const auto fp = m_plugin->FlightPlanSelect(event.callsign.c_str());
-        if (!fp.IsValid()) {
-            Logger::Warning("cdm_ready_request: flight plan not found for {}", event.callsign);
-            return;
-        }
-
-        m_plugin->AddNeedsCdmReady(std::string(fp.GetCallsign()));
-        Logger::Info("cdm_ready_request: queued external CDM ready trigger for {}", event.callsign);
+    void MessageService::HandleCdmUpdateEvent(const CdmUpdateEvent &event) const {
+        m_flightPlanService->ApplyCdmUpdate(event);
     }
 
     void MessageService::HandleSessionInfoEvent(const SessionInfoEvent &event) const {
@@ -432,7 +425,51 @@ namespace FlightStrips::messages {
                     m_plugin->SetArrivalStand(strip.callsign.c_str(), strip.stand);
                 }
             }
+
+            m_flightPlanService->ApplyBackendSyncCdm(strip.callsign, strip.cdm);
         }
+    }
+
+    bool MessageService::SendCdmTobtUpdate(const std::string& callsign, const std::string& tobt) const {
+        if (!m_webSocketService->IsConnected()) return false;
+        m_webSocketService->SendEvent(CdmTobtUpdateEvent(callsign, tobt));
+        return true;
+    }
+
+    bool MessageService::SendCdmAsrtToggle(const std::string& callsign, const std::string& asrt) const {
+        if (!m_webSocketService->IsConnected()) return false;
+        m_webSocketService->SendEvent(CdmAsrtToggleEvent(callsign, asrt));
+        return true;
+    }
+
+    bool MessageService::SendCdmTsacUpdate(const std::string& callsign, const std::string& tsac) const {
+        if (!m_webSocketService->IsConnected()) return false;
+        m_webSocketService->SendEvent(CdmTsacUpdateEvent(callsign, tsac));
+        return true;
+    }
+
+    bool MessageService::SendCdmDeiceUpdate(const std::string& callsign, const std::string& deiceType) const {
+        if (!m_webSocketService->IsConnected()) return false;
+        m_webSocketService->SendEvent(CdmDeiceUpdateEvent(callsign, deiceType));
+        return true;
+    }
+
+    bool MessageService::SendCdmManualCtot(const std::string& callsign, const std::string& ctot) const {
+        if (!m_webSocketService->IsConnected()) return false;
+        m_webSocketService->SendEvent(CdmManualCtotEvent(callsign, ctot));
+        return true;
+    }
+
+    bool MessageService::SendCdmCtotRemove(const std::string& callsign) const {
+        if (!m_webSocketService->IsConnected()) return false;
+        m_webSocketService->SendEvent(CdmCtotRemoveEvent(callsign));
+        return true;
+    }
+
+    bool MessageService::SendCdmApproveReqTobt(const std::string& callsign) const {
+        if (!m_webSocketService->IsConnected()) return false;
+        m_webSocketService->SendEvent(CdmApproveReqTobtEvent(callsign));
+        return true;
     }
 
     void MessageService::HandleCreateFPLEvent(const CreateFPLEvent &event) const {

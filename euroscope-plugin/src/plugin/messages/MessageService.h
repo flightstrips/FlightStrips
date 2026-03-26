@@ -25,6 +25,13 @@ namespace FlightStrips::messages {
         }
 
         void OnMessages(const std::vector<nlohmann::json> &messages) override;
+        bool SendCdmTobtUpdate(const std::string& callsign, const std::string& tobt) const;
+        bool SendCdmAsrtToggle(const std::string& callsign, const std::string& asrt) const;
+        bool SendCdmTsacUpdate(const std::string& callsign, const std::string& tsac) const;
+        bool SendCdmDeiceUpdate(const std::string& callsign, const std::string& deiceType) const;
+        bool SendCdmManualCtot(const std::string& callsign, const std::string& ctot) const;
+        bool SendCdmCtotRemove(const std::string& callsign) const;
+        bool SendCdmApproveReqTobt(const std::string& callsign) const;
     private:
         std::shared_ptr<FlightStripsPlugin> m_plugin;
         std::shared_ptr<websocket::WebSocketService> m_webSocketService;
@@ -34,7 +41,7 @@ namespace FlightStrips::messages {
         std::shared_ptr<runway::RunwayService> m_runwayService;
 
         void HandleMessage(const nlohmann::json &message) const;
-        void HandleCdmReadyRequestEvent(const CdmReadyRequestEvent& event) const;
+        void HandleCdmUpdateEvent(const CdmUpdateEvent& event) const;
         void HandleSessionInfoEvent(const SessionInfoEvent& event) const;
         void HandleAssignedSquawkEvent(const AssignedSquawkEvent& event) const;
         void HandleRequestedAltitudeEvent(const RequestedAltitudeEvent& event) const;

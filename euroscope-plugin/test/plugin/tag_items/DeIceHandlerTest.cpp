@@ -30,6 +30,7 @@ TEST(DeIceHandlerTest, ConstructWithEmptyDependencies_DoesNotThrow) {
     EXPECT_NO_THROW({
         DeIceHandler handler(MakeEmptyStandService(), MakeEmptyAppConfig());
     });
+    EXPECT_EQ(DeIceHandler::DefaultDisplayColor(), RGB(212, 214, 7));
 }
 
 // ---------------------------------------------------------------------------
@@ -82,6 +83,8 @@ TEST(DeIceHandlerTest, Handle_EmptyConfig_WritesFallbackToBuffer) {
 
     // Fallback is "" → first byte should be '\0' (empty string).
     EXPECT_EQ(sItemString[0], '\0');
+    EXPECT_EQ(colorCode, 1);
+    EXPECT_EQ(rgb, DeIceHandler::DefaultDisplayColor());
 }
 
 TEST(DeIceHandlerTest, Handle_CalledTwice_DoesNotCrash) {

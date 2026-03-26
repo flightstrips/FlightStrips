@@ -29,8 +29,15 @@ const (
 	Runway                    EventType = "runway"
 	AircraftRunway            EventType = "aircraft_runway"
 	SessionInfo               EventType = "session_info"
-	CdmReadyRequest           EventType = "cdm_ready_request"
-	CdmLocalData              EventType = "cdm_local_data"
+	CdmUpdate                 EventType = "cdm_update"
+	CdmTobtUpdate             EventType = "cdm_tobt_update"
+	CdmDeiceUpdate            EventType = "cdm_deice_update"
+	CdmManualCtot             EventType = "cdm_manual_ctot"
+	CdmCtotRemove             EventType = "cdm_ctot_remove"
+	CdmApproveReqTobt         EventType = "cdm_approve_req_tobt"
+	CdmAsrtToggle             EventType = "cdm_asrt_toggle"
+	CdmTsacUpdate             EventType = "cdm_tsac_update"
+	CdmMasterToggle           EventType = "cdm_master_toggle"
 	GenerateSquawk            EventType = "generate_squawk"
 	Route                     EventType = "route"
 	Remarks                   EventType = "remarks"
@@ -261,28 +268,149 @@ type GenerateSquawkEvent struct {
 	Callsign string `json:"callsign"`
 }
 
-type CdmReadyRequestEvent struct {
+type CdmUpdateEvent struct {
+	Callsign        string `json:"callsign"`
+	Eobt            string `json:"eobt,omitempty"`
+	Tobt            string `json:"tobt,omitempty"`
+	TobtSetBy       string `json:"tobt_set_by,omitempty"`
+	TobtConfirmedBy string `json:"tobt_confirmed_by,omitempty"`
+	ReqTobt         string `json:"req_tobt,omitempty"`
+	Tsat       string `json:"tsat,omitempty"`
+	Ttot       string `json:"ttot,omitempty"`
+	Ctot       string `json:"ctot,omitempty"`
+	CtotSource string `json:"ctot_source,omitempty"`
+	Asat       string `json:"asat,omitempty"`
+	Asrt       string `json:"asrt,omitempty"`
+	Tsac       string `json:"tsac,omitempty"`
+	Status     string `json:"status,omitempty"`
+	EcfmpID    string `json:"ecfmp_id,omitempty"`
+	Phase      string `json:"phase,omitempty"`
+}
+
+type CdmTobtUpdateEvent struct {
+	Callsign string `json:"callsign"`
+	Tobt     string `json:"tobt"`
+}
+
+type CdmDeiceUpdateEvent struct {
+	Callsign  string `json:"callsign"`
+	DeiceType string `json:"deice_type"`
+}
+
+type CdmManualCtotEvent struct {
+	Callsign string `json:"callsign"`
+	Ctot     string `json:"ctot"`
+}
+
+type CdmCtotRemoveEvent struct {
 	Callsign string `json:"callsign"`
 }
 
-type CdmLocalDataEvent struct {
-	Callsign       string `json:"callsign"`
-	SourcePosition string `json:"source_position"`
-	SourceRole     string `json:"source_role"`
-	Tobt           string `json:"tobt,omitempty"`
-	Tsat           string `json:"tsat,omitempty"`
-	Ttot           string `json:"ttot,omitempty"`
-	Ctot           string `json:"ctot,omitempty"`
-	Asrt           string `json:"asrt,omitempty"`
-	Tsac           string `json:"tsac,omitempty"`
-	ManualCtot     string `json:"manual_ctot,omitempty"`
+type CdmApproveReqTobtEvent struct {
+	Callsign string `json:"callsign"`
 }
 
-func (e CdmReadyRequestEvent) GetType() EventType {
-	return CdmReadyRequest
+type CdmMasterToggleEvent struct {
+	Master bool `json:"master"`
 }
 
-func (e CdmReadyRequestEvent) Marshal() ([]byte, error) {
+type BackendSyncCdmData struct {
+	Eobt            string `json:"eobt,omitempty"`
+	Tobt            string `json:"tobt,omitempty"`
+	TobtSetBy       string `json:"tobt_set_by,omitempty"`
+	TobtConfirmedBy string `json:"tobt_confirmed_by,omitempty"`
+	ReqTobt         string `json:"req_tobt,omitempty"`
+	Tsat       string `json:"tsat,omitempty"`
+	Ttot       string `json:"ttot,omitempty"`
+	Ctot       string `json:"ctot,omitempty"`
+	CtotSource string `json:"ctot_source,omitempty"`
+	Asat       string `json:"asat,omitempty"`
+	Asrt       string `json:"asrt,omitempty"`
+	Tsac       string `json:"tsac,omitempty"`
+	Status     string `json:"status,omitempty"`
+	EcfmpID    string `json:"ecfmp_id,omitempty"`
+	Phase      string `json:"phase,omitempty"`
+}
+
+type CdmAsrtToggleEvent struct {
+	Callsign string `json:"callsign"`
+	Asrt     string `json:"asrt"`
+}
+
+type CdmTsacUpdateEvent struct {
+	Callsign string `json:"callsign"`
+	Tsac     string `json:"tsac"`
+}
+
+func (e CdmAsrtToggleEvent) GetType() EventType {
+	return CdmAsrtToggle
+}
+
+func (e CdmAsrtToggleEvent) Marshal() ([]byte, error) {
+	return marshall(e)
+}
+
+func (e CdmTsacUpdateEvent) GetType() EventType {
+	return CdmTsacUpdate
+}
+
+func (e CdmTsacUpdateEvent) Marshal() ([]byte, error) {
+	return marshall(e)
+}
+
+func (e CdmUpdateEvent) GetType() EventType {
+	return CdmUpdate
+}
+
+func (e CdmUpdateEvent) Marshal() ([]byte, error) {
+	return marshall(e)
+}
+
+func (e CdmTobtUpdateEvent) GetType() EventType {
+	return CdmTobtUpdate
+}
+
+func (e CdmTobtUpdateEvent) Marshal() ([]byte, error) {
+	return marshall(e)
+}
+
+func (e CdmDeiceUpdateEvent) GetType() EventType {
+	return CdmDeiceUpdate
+}
+
+func (e CdmDeiceUpdateEvent) Marshal() ([]byte, error) {
+	return marshall(e)
+}
+
+func (e CdmManualCtotEvent) GetType() EventType {
+	return CdmManualCtot
+}
+
+func (e CdmManualCtotEvent) Marshal() ([]byte, error) {
+	return marshall(e)
+}
+
+func (e CdmCtotRemoveEvent) GetType() EventType {
+	return CdmCtotRemove
+}
+
+func (e CdmCtotRemoveEvent) Marshal() ([]byte, error) {
+	return marshall(e)
+}
+
+func (e CdmApproveReqTobtEvent) GetType() EventType {
+	return CdmApproveReqTobt
+}
+
+func (e CdmApproveReqTobtEvent) Marshal() ([]byte, error) {
+	return marshall(e)
+}
+
+func (e CdmMasterToggleEvent) GetType() EventType {
+	return CdmMasterToggle
+}
+
+func (e CdmMasterToggleEvent) Marshal() ([]byte, error) {
 	return marshall(e)
 }
 
@@ -442,11 +570,12 @@ func (e CoordinationHandoverEvent) Marshal() ([]byte, error) {
 // BackendSyncStrip holds the backend-authoritative state for a single aircraft
 // that the connecting EuroScope client must apply locally.
 type BackendSyncStrip struct {
-	Callsign       string `json:"callsign"`
-	AssignedSquawk string `json:"assigned_squawk"`
-	Cleared        bool   `json:"cleared"`
-	GroundState    string `json:"ground_state"`
-	Stand          string `json:"stand"`
+	Callsign       string             `json:"callsign"`
+	AssignedSquawk string             `json:"assigned_squawk"`
+	Cleared        bool               `json:"cleared"`
+	GroundState    string             `json:"ground_state"`
+	Stand          string             `json:"stand"`
+	Cdm            BackendSyncCdmData `json:"cdm"`
 }
 
 // BackendSyncEvent is sent by the backend to every connecting EuroScope client

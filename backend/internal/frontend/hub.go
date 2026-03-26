@@ -397,7 +397,6 @@ func MapTacticalStripToPayload(ts *internalModels.TacticalStrip) frontend.Tactic
 }
 
 func MapStripToFrontendModel(strip *internalModels.Strip) frontend.Strip {
-
 	return frontend.Strip{
 		Callsign:                 strip.Callsign,
 		Origin:                   strip.Origin,
@@ -424,10 +423,10 @@ func MapStripToFrontendModel(strip *internalModels.Strip) frontend.Strip {
 		NextControllers:          strip.NextOwners,
 		PreviousControllers:      strip.PreviousOwners,
 		Owner:                    helpers.ValueOrDefault(strip.Owner),
-		Eobt:                     helpers.ValueOrDefault(strip.EffectiveEobt()),
-		Tobt:                     helpers.ValueOrDefault(strip.EffectiveTobt()),
-		Tsat:                     helpers.ValueOrDefault(strip.EffectiveTsat()),
-		Ctot:                     helpers.ValueOrDefault(strip.EffectiveCtot()),
+		Eobt:                     truncateFrontendClockValue(helpers.ValueOrDefault(strip.EffectiveEobt())),
+		Tobt:                     truncateFrontendClockValue(helpers.ValueOrDefault(strip.EffectiveTobt())),
+		Tsat:                     truncateFrontendClockValue(helpers.ValueOrDefault(strip.EffectiveTsat())),
+		Ctot:                     effectiveFrontendStripCtot(strip),
 		PdcState:                 strip.PdcState,
 		Marked:                   strip.Marked,
 		Registration:             helpers.ValueOrDefault(strip.Registration),
@@ -442,6 +441,25 @@ func MapStripToFrontendModel(strip *internalModels.Strip) frontend.Strip {
 		Language:                 helpers.ValueOrDefault(strip.Language),
 		HasFP:                    strip.HasFP,
 	}
+}
+
+func truncateFrontendClockValue(value string) string {
+	if len(value) > 4 {
+		return value[:4]
+	}
+	return value
+}
+
+func effectiveFrontendStripCtot(strip *internalModels.Strip) string {
+	if strip == nil || strip.CdmData == nil {
+		return ""
+	}
+
+	if ctot := truncateFrontendClockValue(helpers.ValueOrDefault(strip.EffectiveCtot())); ctot != "" {
+		return ctot
+	}
+
+	return ""
 }
 
 func (hub *Hub) CidOnline(session int32, cid string) {
@@ -638,10 +656,10 @@ func (hub *Hub) SendLayoutUpdates(session int32, layoutMap map[string]string) {
 func (hub *Hub) SendCdmUpdate(session int32, callsign, eobt, tobt, tsat, ctot string) {
 	event := frontend.CdmDataEvent{
 		Callsign: callsign,
-		Eobt:     eobt,
-		Tobt:     tobt,
-		Tsat:     tsat,
-		Ctot:     ctot,
+		Eobt:     truncateFrontendClockValue(eobt),
+		Tobt:     truncateFrontendClockValue(tobt),
+		Tsat:     truncateFrontendClockValue(tsat),
+		Ctot:     truncateFrontendClockValue(ctot),
 	}
 	hub.Broadcast(session, event)
 }
@@ -799,14 +817,14 @@ func (hub *Hub) dispatchMessage(session int32, msg frontend.MessageReceivedEvent
 }
 
 func (hub *Hub) OnRegister(client *Client) {
-	slog.Info("Frontend client connected", slog.String("cid", client.user.GetCid()))
+	slog.Debug("Client registered", slog.String("cid", client.user.GetCid()))
 	if client.session != WaitingForEuroscopeConnectionSessionId {
 		hub.sendInitialEvent(client)
 	}
 }
 
 func (hub *Hub) OnUnregister(client *Client) {
-	slog.Info("Frontend client disconnected", slog.String("cid", client.user.GetCid()))
+	slog.Debug("Client unregistered", slog.String("cid", client.user.GetCid()))
 }
 
 func (hub *Hub) Run() {

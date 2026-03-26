@@ -55,6 +55,7 @@ type MockEuroscopeHub struct {
 	CoordinationHandovers []CoordinationHandoverCall
 	CdmReadyRequests      []CdmReadyRequestCall
 	ClearedAltitudes      []ClearedAltitudeCall
+	Broadcasts            []euroscope.OutgoingMessage
 	CreateFPLCalls        []CreateFPLCall
 }
 
@@ -69,7 +70,9 @@ func (m *MockEuroscopeHub) HasActiveClientForAirport(airport string) bool {
 	return true // default: assume ES client is present so existing tests are not affected
 }
 
-func (m *MockEuroscopeHub) Broadcast(session int32, message euroscope.OutgoingMessage) {}
+func (m *MockEuroscopeHub) Broadcast(session int32, message euroscope.OutgoingMessage) {
+	m.Broadcasts = append(m.Broadcasts, message)
+}
 
 func (m *MockEuroscopeHub) Send(session int32, cid string, message euroscope.OutgoingMessage) {}
 

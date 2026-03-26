@@ -10,4 +10,5 @@ type Session struct {
 	PdcSequence        int32
 	PdcMessageSequence int32
 	AvailableSids      models.AvailableSids
+	CdmMaster          bool
 }

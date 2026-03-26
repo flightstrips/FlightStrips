@@ -31,6 +31,7 @@ func sessionToModel(db database.Session) *models.Session {
 		PdcSequence:        db.PdcSequence,
 		PdcMessageSequence: db.PdcMessageSequence,
 		AvailableSids:      db.AvailableSids,
+		CdmMaster:          db.CdmMaster,
 	}
 }
 
@@ -124,6 +125,14 @@ func (r *sessionRepository) UpdateActiveRunways(ctx context.Context, id int32, a
 	return r.queries.UpdateActiveRunways(ctx, database.UpdateActiveRunwaysParams{
 		ID:            id,
 		ActiveRunways: activeRunways,
+	})
+}
+
+// UpdateCdmMaster sets whether this session acts as CDM master.
+func (r *sessionRepository) UpdateCdmMaster(ctx context.Context, id int32, master bool) error {
+	return r.queries.UpdateCdmMaster(ctx, database.UpdateCdmMasterParams{
+		ID:        id,
+		CdmMaster: master,
 	})
 }
 

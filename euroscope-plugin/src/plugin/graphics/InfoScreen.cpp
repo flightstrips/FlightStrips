@@ -6,6 +6,7 @@
 
 #include "Colors.h"
 #include "plugin/FlightStripsPlugin.h"
+#include "websocket/Events.h"
 
 namespace FlightStrips::graphics {
     namespace {
@@ -257,6 +258,20 @@ namespace FlightStrips::graphics {
 
         if (_stricmp(sCommandLine, COMMAND_CLOSE) == 0) {
             isOpen = false;
+            return true;
+        }
+
+        if (_stricmp(sCommandLine, COMMAND_CDM_MASTER) == 0) {
+            if (const auto ws = webSocketService.lock()) {
+                ws->SendEvent(CdmMasterToggleEvent(true));
+            }
+            return true;
+        }
+
+        if (_stricmp(sCommandLine, COMMAND_CDM_SLAVE) == 0) {
+            if (const auto ws = webSocketService.lock()) {
+                ws->SendEvent(CdmMasterToggleEvent(false));
+            }
             return true;
         }
 

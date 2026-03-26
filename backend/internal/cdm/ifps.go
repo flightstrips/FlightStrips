@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strings"
 	"time"
 )
 
@@ -37,28 +36,106 @@ type CDMData struct {
 	Reason      string `json:"reason"`
 	ReqTOBT     string `json:"reqTobt"`
 	ReqTOBTType string `json:"reqTobtType,omitempty"`
+	ReqASRT     string `json:"reqAsrt,omitempty"`
 	ID          string `json:"_id"`
 }
 
-func (c *Client) IFPSSetCDMStatus(ctx context.Context, callsign, status string) error {
-	bytes, err := c.doRequest(ctx, "POST", "/ifps/setCdmStatus",
+func (c *Client) IFPSDpi(ctx context.Context, callsign, value string) error {
+	_, err := c.doRequest(ctx, "POST", "/ifps/dpi",
 		map[string]string{
 			"callsign": callsign,
-			"cdmSts":   status,
+			"value":    value,
 		},
 		nil,
 		nil,
 	)
+	return err
+}
 
+type SetCdmDataParams struct {
+	Callsign string
+	Tobt     string
+	Tsat     string
+	Ttot     string
+	Ctot     string
+	Reason   string // ECFMP flow reason ID
+	Asrt     string
+	DepInfo  string // e.g. departure runway
+}
+
+func (c *Client) IFPSSetCdmData(ctx context.Context, p SetCdmDataParams) error {
+	_, err := c.doRequest(ctx, "POST", "/ifps/setCdmData",
+		map[string]string{
+			"callsign": p.Callsign,
+			"tobt":     p.Tobt,
+			"tsat":     p.Tsat,
+			"ttot":     p.Ttot,
+			"ctot":     p.Ctot,
+			"reason":   p.Reason,
+			"asrt":     p.Asrt,
+			"depInfo":  p.DepInfo,
+		},
+		nil,
+		nil,
+	)
+	return err
+}
+
+func (c *Client) SetMasterAirport(ctx context.Context, airport, position string) error {
+	_, err := c.doRequest(ctx, "POST", "/airport/setMaster",
+		map[string]string{
+			"airport":  airport,
+			"position": position,
+		},
+		nil,
+		nil,
+	)
+	return err
+}
+
+type DepartureRestriction struct {
+	Airport string `json:"airport"`
+	Rate    int    `json:"rate"`
+	RateLvo int    `json:"rateLvo,omitempty"`
+}
+
+func (c *Client) ClearMasterAirport(ctx context.Context, airport, position string) error {
+	_, err := c.doRequest(ctx, "POST", "/airport/clearMaster",
+		map[string]string{
+			"airport":  airport,
+			"position": position,
+		},
+		nil,
+		nil,
+	)
+	return err
+}
+
+func (c *Client) GetDepartureRestrictions(ctx context.Context) ([]DepartureRestriction, error) {
+	bytes, err := c.doRequest(ctx, "GET", "/etfms/restrictions",
+		map[string]string{"type": "DEP"},
+		nil,
+		nil,
+	)
 	if err != nil {
-		return err
+		return nil, err
 	}
-
-	result := string(bytes)
-	if strings.ToLower(result) != "true" {
-		return fmt.Errorf("set CDM status '%s' failed for callsign: %s", status, callsign)
+	var result []DepartureRestriction
+	if err := json.Unmarshal(bytes, &result); err != nil {
+		return nil, err
 	}
+	return result, nil
+}
 
+func (c *Client) IFPSSetTobt(ctx context.Context, callsign, tobt string, taxiMinutes int) error {
+	_, err := c.doRequest(ctx, "POST", "/ifps/dpi",
+		map[string]string{
+			"callsign": callsign,
+			"value":    fmt.Sprintf("TOBT/%s/%d", tobt, taxiMinutes),
+		},
+		nil,
+		nil,
+	)
 	return err
 }
 

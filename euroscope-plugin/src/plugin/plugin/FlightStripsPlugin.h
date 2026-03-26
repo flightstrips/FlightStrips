@@ -65,6 +65,7 @@ namespace FlightStrips {
         void OnControllerDisconnect (EuroScopePlugIn::CController Controller ) override;
 
         void OnGetTagItem(EuroScopePlugIn::CFlightPlan FlightPlan, EuroScopePlugIn::CRadarTarget RadarTarget, int ItemCode, int TagData, char sItemString[16], int *pColorCode, COLORREF *pRGB, double *pFontSize) override;
+        void OnFunctionCall(int FunctionId, const char* ItemString, POINT Pt, RECT Area) override;
 
         void OnTimer(int Counter) override;
 
@@ -88,8 +89,6 @@ namespace FlightStrips {
 
         void AddNeedsSquawk(const std::string &callsign);
         std::optional<std::string> GetNeedsSquawk();
-        void AddNeedsCdmReady(const std::string &callsign);
-        std::optional<std::string> GetNeedsCdmReady();
 
     private:
         const std::shared_ptr<handlers::FlightPlanEventHandlers> m_flightPlanEventHandlerCollection;
@@ -103,12 +102,12 @@ namespace FlightStrips {
 
         ConnectionState m_connectionState = {};
         std::queue<std::string> m_needsSquawk = {};
-        std::queue<std::string> m_needsCdmReady = {};
         double m_airportLatitude = 0.0;
         double m_airportLongitude = 0.0;
 
         [[nodiscard]] bool IsWithinRange(EuroScopePlugIn::CRadarTarget radarTarget, float rangeNM) const;
         void DispatchRangeCheck(EuroScopePlugIn::CRadarTarget radarTarget);
+        static bool IsValidHhmm(const std::string& value);
 
         template <typename Func, typename... Args>
         void SafeCall(const std::string& context, Func func, Args&&... args) {

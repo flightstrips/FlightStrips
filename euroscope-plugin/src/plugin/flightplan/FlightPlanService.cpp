@@ -2,11 +2,6 @@
 
 #include <algorithm>
 
-namespace {
-    constexpr auto LOCAL_CDM_OBSERVATION_WINDOW = std::chrono::seconds(15);
-    constexpr int LOCAL_CDM_STABLE_POLLS = 3;
-}
-
 namespace FlightStrips::flightplan {
     FlightPlanService::FlightPlanService(
         const std::shared_ptr<websocket::WebSocketService> &websocketService,
@@ -172,10 +167,6 @@ namespace FlightStrips::flightplan {
 
     void FlightPlanService::ControllerFlightPlanDataEvent(EuroScopePlugIn::CFlightPlan flightPlan, int dataType) {
         const auto callsign = std::string(flightPlan.GetCallsign());
-        if (HasActiveLocalCdmObservationWindow(callsign)) {
-            ObserveLocalCdmFlightPlan(flightPlan, "controller-assigned-data-update");
-        }
-
         if (!m_websocketService->ShouldSend()) return;
 
         switch (dataType) {
@@ -240,7 +231,6 @@ namespace FlightStrips::flightplan {
         m_pendingPositionUpdates.erase(callsign);
         m_flightPlans.erase(callsign);
         m_rangeTrackedCallsigns.erase(callsign);
-        ForgetLocalCdmState(callsign);
 
         if (!wasTracked) return;
         if (!m_websocketService->ShouldSend()) return;
@@ -262,7 +252,6 @@ namespace FlightStrips::flightplan {
             m_rangeTrackedCallsigns.erase(callsign);
             m_pendingPositionUpdates.erase(callsign);
             m_flightPlans.erase(callsign);
-            ForgetLocalCdmState(callsign);
 
             if (!m_websocketService->ShouldSend()) return;
             m_websocketService->SendEvent(AircraftDisconnectEvent(callsign));
@@ -278,6 +267,48 @@ namespace FlightStrips::flightplan {
         }
     }
 
+    void FlightPlanService::ApplyCdmUpdate(const CdmUpdateEvent& event) {
+        auto& plan = m_flightPlans.try_emplace(event.callsign).first->second;
+        plan.cdm.eobt = event.eobt;
+        plan.cdm.tobt = event.tobt;
+        plan.cdm.req_tobt = event.req_tobt;
+        plan.cdm.req_tobt_source = event.req_tobt_source;
+        plan.cdm.tobt_confirmed_by = event.tobt_confirmed_by;
+        plan.cdm.tsat = event.tsat;
+        plan.cdm.ttot = event.ttot;
+        plan.cdm.ctot = event.ctot;
+        plan.cdm.asrt = event.asrt;
+        plan.cdm.tsac = event.tsac;
+        plan.cdm.asat = event.asat;
+        plan.cdm.status = event.status;
+        plan.cdm.manual_ctot = event.manual_ctot;
+        plan.cdm.deice_type = event.deice_type;
+        plan.cdm.ecfmp_id = event.ecfmp_id;
+        plan.cdm.phase = event.phase;
+    }
+
+    void FlightPlanService::ApplyBackendSyncCdm(const std::string& callsign, const BackendSyncCdmData& cdmData) {
+        ApplyCdmUpdate(CdmUpdateEvent{
+            callsign,
+            cdmData.eobt,
+            cdmData.tobt,
+            cdmData.req_tobt,
+            cdmData.req_tobt_source,
+            cdmData.tsat,
+            cdmData.ttot,
+            cdmData.ctot,
+            cdmData.asrt,
+            cdmData.tsac,
+            cdmData.asat,
+            cdmData.status,
+            cdmData.manual_ctot,
+            cdmData.deice_type,
+            cdmData.ecfmp_id,
+            cdmData.phase,
+            cdmData.tobt_confirmed_by
+        });
+    }
+
     std::string FlightPlanService::GetEstimatedLandingTime(const EuroScopePlugIn::CFlightPlan &flightPlan) {
         time_t rawtime;
         tm ptm;
@@ -290,10 +321,6 @@ namespace FlightStrips::flightplan {
     }
 
     void FlightPlanService::OnTimer(int counter) {
-        ObserveQueuedLocalCdmRequests();
-        PollLocalCdmObservationWindows();
-        ProcessPendingCdmAnnotationReads();
-
         const auto interval = m_appConfig->GetPositionUpdateIntervalSeconds();
 
         if (counter - m_lastPositionFlushCounter >= interval) {
@@ -325,231 +352,5 @@ namespace FlightStrips::flightplan {
         }
 
         m_pendingPositionUpdates.clear();
-    }
-
-    bool FlightPlanService::LocalCdmSnapshot::HasSendableValues() const {
-        return !tobt.empty() || !tsat.empty() || !ttot.empty() || !ctot.empty();
-    }
-
-    void FlightPlanService::ObserveQueuedLocalCdmRequests() {
-        while (const auto callsign = m_flightStripsPlugin->GetNeedsCdmReady()) {
-            const auto fp = m_flightStripsPlugin->FlightPlanSelect(callsign->c_str());
-            if (!fp.IsValid()) {
-                Logger::Warning("cdm_ready_request: flight plan not found for {}", *callsign);
-                continue;
-            }
-
-            if (WriteReadyCdmAnnotation(fp)) {
-                m_pendingCdmAnnotationRead[*callsign] = 2;
-            }
-        }
-    }
-
-    void FlightPlanService::ProcessPendingCdmAnnotationReads() {
-        for (auto it = m_pendingCdmAnnotationRead.begin(); it != m_pendingCdmAnnotationRead.end();) {
-            if (it->second > 0) {
-                it->second--;
-                ++it;
-                continue;
-            }
-
-            const auto& callsign = it->first;
-            const auto fp = m_flightStripsPlugin->FlightPlanSelect(callsign.c_str());
-            if (fp.IsValid()) {
-                RefreshLocalCdmObservationWindow(callsign, "cdm-ready-annotation-read");
-                ObserveLocalCdmFlightPlan(fp, "cdm-ready-annotation-read");
-            } else {
-                Logger::Warning("cdm_ready_request: flight plan disappeared before read for {}", callsign);
-            }
-
-            it = m_pendingCdmAnnotationRead.erase(it);
-        }
-    }
-
-    bool FlightPlanService::WriteReadyCdmAnnotation(EuroScopePlugIn::CFlightPlan fp) {
-        time_t rawtime;
-        tm ptm;
-        time(&rawtime);
-        gmtime_s(&ptm, &rawtime);
-        const auto hhmm = std::format("{:0>2}{:0>2}", ptm.tm_hour, ptm.tm_min);
-
-        const auto current = std::string(fp.GetControllerAssignedData().GetFlightStripAnnotation(0));
-        const auto result = BuildReadyAnnotation(current, hhmm);
-
-        if (!fp.GetControllerAssignedData().SetFlightStripAnnotation(0, result.c_str())) {
-            Logger::Warning("cdm_ready_request: failed to write annotation for {}", fp.GetCallsign());
-            return false;
-        }
-
-        Logger::Info("cdm_ready_request: wrote TOBT/ASRT={} annotation for {}, reading back in 2 ticks",
-            hhmm, fp.GetCallsign());
-        return true;
-    }
-
-    std::string FlightPlanService::BuildReadyAnnotation(const std::string& current, const std::string& hhmm) {
-        auto fields = SplitSlashFields(current.empty() ? "////////" : current);
-        while (fields.size() < 8) fields.emplace_back("");
-
-        fields[2] = hhmm;  // TOBT
-
-        std::string result;
-        for (size_t i = 0; i < 8; i++) {
-            result += fields[i];
-            result += '/';
-        }
-        return result;
-    }
-
-    void FlightPlanService::PollLocalCdmObservationWindows() {
-        const auto now = std::chrono::steady_clock::now();
-
-        for (auto it = m_localCdmObservationWindows.begin(); it != m_localCdmObservationWindows.end();) {
-            const auto callsign = it->first;
-            auto& window = it->second;
-
-            if (now >= window.expires_at) {
-                Logger::Info("Local CDM observation window expired for {}", callsign);
-                it = m_localCdmObservationWindows.erase(it);
-                continue;
-            }
-
-            const auto fp = m_flightStripsPlugin->FlightPlanSelect(callsign.c_str());
-            if (!fp.IsValid()) {
-                Logger::Warning("Local CDM observation window removed because flight plan disappeared for {}", callsign);
-                it = m_localCdmObservationWindows.erase(it);
-                continue;
-            }
-
-            const auto snapshot = ObserveLocalCdmFlightPlan(fp, "window-poll");
-            if (snapshot.HasSendableValues()) {
-                if (window.has_observation && window.last_observed == snapshot) {
-                    window.stable_polls++;
-                } else {
-                    window.last_observed = snapshot;
-                    window.has_observation = true;
-                    window.stable_polls = 0;
-                }
-
-                if (window.stable_polls >= LOCAL_CDM_STABLE_POLLS) {
-                    Logger::Info("Local CDM observation window stabilized for {}", callsign);
-                    it = m_localCdmObservationWindows.erase(it);
-                    continue;
-                }
-            }
-
-            ++it;
-        }
-    }
-
-    bool FlightPlanService::HasActiveLocalCdmObservationWindow(const std::string& callsign) const {
-        return m_localCdmObservationWindows.contains(callsign);
-    }
-
-    void FlightPlanService::RefreshLocalCdmObservationWindow(const std::string& callsign, const std::string& reason) {
-        const bool existed = m_localCdmObservationWindows.contains(callsign);
-        auto& window = m_localCdmObservationWindows[callsign];
-        window.expires_at = std::chrono::steady_clock::now() + LOCAL_CDM_OBSERVATION_WINDOW;
-        window.stable_polls = 0;
-        if (existed) {
-            Logger::Debug("Refreshed local CDM observation window for {} ({})", callsign, reason);
-        } else {
-            Logger::Info("Tracking local CDM observation window for {} ({})", callsign, reason);
-        }
-    }
-
-    auto FlightPlanService::ObserveLocalCdmFlightPlan(EuroScopePlugIn::CFlightPlan flightPlan, const std::string& reason)
-        -> LocalCdmSnapshot {
-        const auto callsign = std::string(flightPlan.GetCallsign());
-        const auto snapshot = ParseLocalCdmAnnotation(
-            std::string(flightPlan.GetControllerAssignedData().GetFlightStripAnnotation(0)));
-
-        if (!snapshot.HasSendableValues()) {
-            return snapshot;
-        }
-
-        if (!m_websocketService->CanSendLocalCdmObservation()) {
-            Logger::Debug("Skipping local CDM observation send for {} because websocket role is not ready", callsign);
-            return snapshot;
-        }
-
-        if (const auto emitted = m_lastSentLocalCdm.find(callsign);
-            emitted != m_lastSentLocalCdm.end() && emitted->second == snapshot) {
-            Logger::Debug("Suppressed duplicate local CDM observation for {} ({})", callsign, reason);
-            return snapshot;
-        }
-
-        CdmLocalDataEvent event;
-        event.callsign = callsign;
-        event.source_position = m_flightStripsPlugin->GetConnectionState().callsign;
-        event.source_role = m_websocketService->ShouldSend() ? "master" : "slave";
-        event.tobt = snapshot.tobt;
-        event.tsat = snapshot.tsat;
-        event.ttot = snapshot.ttot;
-        event.ctot = snapshot.ctot;
-        event.asrt = snapshot.asrt;
-        event.tsac = snapshot.tsac;
-        event.manual_ctot = snapshot.manual_ctot;
-
-        m_websocketService->SendEvent(event);
-        m_lastSentLocalCdm[callsign] = snapshot;
-
-        Logger::Info(
-            "Sent local CDM observation for {} from {} ({}) reason={} TOBT='{}' TSAT='{}' TTOT='{}'",
-            callsign,
-            event.source_position,
-            event.source_role,
-            reason,
-            event.tobt,
-            event.tsat,
-            event.ttot
-        );
-
-        return snapshot;
-    }
-
-    void FlightPlanService::ForgetLocalCdmState(const std::string& callsign) {
-        m_lastSentLocalCdm.erase(callsign);
-        m_localCdmObservationWindows.erase(callsign);
-        m_pendingCdmAnnotationRead.erase(callsign);
-    }
-
-    auto FlightPlanService::ParseLocalCdmAnnotation(const std::string& annotation) -> LocalCdmSnapshot {
-        LocalCdmSnapshot snapshot;
-        const auto fields = SplitSlashFields(annotation);
-
-        if (fields.size() > 0) snapshot.asrt = TrimWhitespace(fields[0]);
-        if (fields.size() > 1) snapshot.tsac = TrimWhitespace(fields[1]);
-        if (fields.size() > 2) snapshot.tobt = TrimWhitespace(fields[2]);
-        if (fields.size() > 3) snapshot.tsat = TrimWhitespace(fields[3]);
-        if (fields.size() > 4) snapshot.ttot = TrimWhitespace(fields[4]);
-        if (fields.size() > 7) snapshot.manual_ctot = TrimWhitespace(fields[7]);
-
-        return snapshot;
-    }
-
-    std::string FlightPlanService::TrimWhitespace(std::string value) {
-        const auto first = value.find_first_not_of(" \t\r\n");
-        if (first == std::string::npos) {
-            return {};
-        }
-
-        const auto last = value.find_last_not_of(" \t\r\n");
-        return value.substr(first, last - first + 1);
-    }
-
-    std::vector<std::string> FlightPlanService::SplitSlashFields(const std::string& value) {
-        std::vector<std::string> result;
-        size_t start = 0;
-
-        while (true) {
-            const auto separator = value.find('/', start);
-            result.push_back(value.substr(start, separator == std::string::npos ? std::string::npos : separator - start));
-            if (separator == std::string::npos) {
-                break;
-            }
-            start = separator + 1;
-        }
-
-        return result;
     }
 }

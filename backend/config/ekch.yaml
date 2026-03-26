@@ -11,6 +11,25 @@ runway_initial_cfl:
   "04L": 7000
   "22R": 7000
 
+cdm:
+  rate: 40
+  rateLvo: 10
+  rateUri: ekch/rate.txt
+  sidIntervalUri: ekch/sidInterval.txt
+  taxizonesUri: ekch/taxizones.txt
+  deice:
+    light: 3
+    medium: 5
+    heavy: 7
+    super: 9
+    platform:
+      - name: A
+        time: 5
+      - name: B
+        time: 6
+      - name: V
+        time: 10
+
 positions:
   - name: "EKCH_DEL"
     frequency: "119.905"

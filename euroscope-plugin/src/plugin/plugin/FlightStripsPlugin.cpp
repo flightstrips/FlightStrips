@@ -1,16 +1,28 @@
 #include <format>
+#include <cctype>
 #include "FlightStripsPlugin.h"
 
 #include "Logger.hpp"
 #include "bootstrap/Container.h"
 #include "graphics/InfoScreen.h"
 #include "handlers/FlightPlanEventHandlers.h"
+#include "messages/MessageService.h"
 #include "websocket/Events.h"
 #include "websocket/WebSocketService.h"
 
 using namespace EuroScopePlugIn;
 
 namespace FlightStrips {
+    namespace {
+        auto CurrentUtcHHMM() -> std::string {
+            time_t rawtime;
+            tm ptm;
+            time(&rawtime);
+            gmtime_s(&ptm, &rawtime);
+            return std::format("{:0>2}{:0>2}", ptm.tm_hour, ptm.tm_min);
+        }
+    }
+
     FlightStripsPlugin::FlightStripsPlugin(
         const std::shared_ptr<handlers::FlightPlanEventHandlers> &mFlightPlanEventHandlerCollection,
         const std::shared_ptr<handlers::RadarTargetEventHandlers> &mRadarTargetEventHandlers,
@@ -30,6 +42,53 @@ namespace FlightStrips {
           m_tagItemHandlers(mTagItemHandlers),
           m_container(mContainer) {
         RegisterTagItemType("DE-ICE", TAG_ITEM_DEICING_DESIGNATOR);
+        RegisterTagItemType("EOBT", TAG_ITEM_CDM_EOBT);
+        RegisterTagItemType("E", TAG_ITEM_CDM_PHASE);
+        RegisterTagItemType("TOBT", TAG_ITEM_CDM_TOBT);
+        RegisterTagItemType("REQ-TOBT", TAG_ITEM_CDM_REQ_TOBT);
+        RegisterTagItemType("TSAT", TAG_ITEM_CDM_TSAT);
+        RegisterTagItemType("TSAT/TOBT-DIFF", TAG_ITEM_CDM_TSAT_TOBT_DIFF);
+        RegisterTagItemType("TTG", TAG_ITEM_CDM_TTG);
+        RegisterTagItemType("TTOT", TAG_ITEM_CDM_TTOT);
+        RegisterTagItemType("CTOT", TAG_ITEM_CDM_CTOT);
+        RegisterTagItemType("Flow Message", TAG_ITEM_CDM_FLOW_MESSAGE);
+        RegisterTagItemType("Network Sts", TAG_ITEM_CDM_NETWORK_STATUS);
+        RegisterTagItemType("STATUS", TAG_ITEM_CDM_STATUS);
+        RegisterTagItemType("TOBT Confirmed by", TAG_ITEM_CDM_TOBT_CONFIRMED_BY);
+        RegisterTagItemType("ASRT", TAG_ITEM_CDM_ASRT);
+        RegisterTagItemType("RDY", TAG_ITEM_CDM_READY_STARTUP);
+        RegisterTagItemType("TSAC", TAG_ITEM_CDM_TSAC);
+        RegisterTagItemType("ASAT", TAG_ITEM_CDM_ASAT);
+
+        RegisterTagItemFunction("Edit EOBT", TAG_FUNC_CDM_EOBT_ACTION);
+        RegisterTagItemFunction("EOBT Options", TAG_FUNC_CDM_EOBT_ACTION);
+        RegisterTagItemFunction("EOBT to TOBT", TAG_FUNC_CDM_EOBT_TO_TOBT);
+        RegisterTagItemFunction("Edit TOBT", TAG_FUNC_CDM_EDIT_TOBT);
+        RegisterTagItemFunction("Ready TOBT", TAG_FUNC_CDM_READY_TOBT);
+        RegisterTagItemFunction("TOBT Options", TAG_FUNC_CDM_TOBT_OPTIONS);
+        RegisterTagItemFunction("Set TOBT", TAG_FUNC_CDM_SET_TOBT);
+        RegisterTagItemFunction("Toggle ASRT", TAG_FUNC_CDM_TOGGLE_ASRT);
+        RegisterTagItemFunction("Edit DE-ICE", TAG_FUNC_CDM_EDIT_DEICE);
+        RegisterTagItemFunction("DE-ICE Options", TAG_FUNC_CDM_DEICE_OPTIONS);
+        RegisterTagItemFunction("Set DE-ICE", TAG_FUNC_CDM_SET_DEICE);
+        RegisterTagItemFunction("Edit Manual CTOT", TAG_FUNC_CDM_EDIT_MANUAL_CTOT);
+        RegisterTagItemFunction("CTOT Options", TAG_FUNC_CDM_CTOT_OPTIONS);
+        RegisterTagItemFunction("Set Manual CTOT", TAG_FUNC_CDM_SET_MANUAL_CTOT);
+        RegisterTagItemFunction("Remove Manual CTOT", TAG_FUNC_CDM_REMOVE_MANUAL_CTOT);
+        RegisterTagItemFunction("Approve Req TOBT", TAG_FUNC_CDM_APPROVE_REQ_TOBT);
+        RegisterTagItemFunction("Options", TAG_FUNC_CDM_OPTIONS);
+        RegisterTagItemFunction("CDM Options", TAG_FUNC_CDM_OPTIONS);
+        RegisterTagItemFunction("Get FM as text", TAG_FUNC_CDM_FLOW_MESSAGE_AS_TEXT);
+        RegisterTagItemFunction("Network Sts Options", TAG_FUNC_CDM_NETWORK_STATUS_OPTIONS);
+        RegisterTagItemFunction("Remove DE-ICE", TAG_FUNC_CDM_CLEAR_DEICE);
+        RegisterTagItemFunction("Set DE-ICE L", TAG_FUNC_CDM_SET_DEICE_LIGHT);
+        RegisterTagItemFunction("Set DE-ICE M", TAG_FUNC_CDM_SET_DEICE_MEDIUM);
+        RegisterTagItemFunction("Set DE-ICE H", TAG_FUNC_CDM_SET_DEICE_HEAVY);
+        RegisterTagItemFunction("Set DE-ICE J", TAG_FUNC_CDM_SET_DEICE_JUMBO);
+        RegisterTagItemFunction("TSAC Options", TAG_FUNC_CDM_TSAC_OPTIONS);
+        RegisterTagItemFunction("Add TSAT to TSAC", TAG_FUNC_CDM_TOGGLE_TSAC);
+        RegisterTagItemFunction("Remove TSAC", TAG_FUNC_CDM_TOGGLE_TSAC);
+        RegisterTagItemFunction("Edit TSAC", TAG_FUNC_CDM_EDIT_TSAC);
     }
 
     void FlightStripsPlugin::Information(const std::string &message) {
@@ -266,20 +325,6 @@ namespace FlightStrips {
         return needsSquawk;
     }
 
-    void FlightStripsPlugin::AddNeedsCdmReady(const std::string &callsign) {
-        m_needsCdmReady.push(callsign);
-    }
-
-    std::optional<std::string> FlightStripsPlugin::GetNeedsCdmReady() {
-        if (m_needsCdmReady.empty()) {
-            return {};
-        }
-
-        auto needsCdmReady = m_needsCdmReady.front();
-        m_needsCdmReady.pop();
-        return needsCdmReady;
-    }
-
     void FlightStripsPlugin::OnAirportRunwayActivityChanged() {
         SafeCall("OnAirportRunwayActivityChanged", [this] {
             m_airportRunwayChangedEventHandlers->OnAirportRunwayActivityChanged();
@@ -357,8 +402,210 @@ namespace FlightStrips {
         });
     }
 
+    void FlightStripsPlugin::OnFunctionCall(int FunctionId, const char* ItemString, POINT, RECT Area) {
+        const auto fp = FlightPlanSelectASEL();
+        if (!fp.IsValid()) return;
+
+        const auto callsign = std::string(fp.GetCallsign());
+        const auto container = m_container.lock();
+        if (container == nullptr || container->messageService == nullptr) return;
+
+        const auto tracked = container->flightPlanService->GetFlightPlan(callsign);
+        const auto currentEobt = tracked == nullptr ? "" : tracked->cdm.eobt;
+        const auto currentTobt = tracked == nullptr ? "" : tracked->cdm.tobt;
+        const auto currentReqTobt = tracked == nullptr ? "" : tracked->cdm.req_tobt;
+        const auto currentManualCtot = tracked == nullptr ? "" : tracked->cdm.manual_ctot;
+        const auto currentAsrt = tracked == nullptr ? "" : tracked->cdm.asrt;
+        const auto currentTsat = tracked == nullptr ? "" : tracked->cdm.tsat;
+        const auto currentTsac = tracked == nullptr ? "" : tracked->cdm.tsac;
+        const auto currentDeice = tracked == nullptr ? "" : tracked->cdm.deice_type;
+        const auto currentFlowMessage = tracked == nullptr ? "" : tracked->cdm.ecfmp_id;
+
+        const auto openEobtActions = [&] {
+            OpenPopupList(Area, "EOBT Actions", 1);
+            if (IsValidHhmm(currentEobt)) {
+                AddPopupListElement("Copy EOBT to TOBT", "", TAG_FUNC_CDM_EOBT_TO_TOBT, false, 2, false);
+            }
+            AddPopupListElement("Edit TOBT", "", TAG_FUNC_CDM_EDIT_TOBT, false, 2, false);
+        };
+
+        const auto openTobtOptions = [&] {
+            OpenPopupList(Area, "TOBT Options", 1);
+            AddPopupListElement("Ready TOBT", "", TAG_FUNC_CDM_READY_TOBT, false, 2, false);
+            AddPopupListElement("Edit TOBT", "", TAG_FUNC_CDM_EDIT_TOBT, false, 2, false);
+            if (!currentReqTobt.empty()) {
+                AddPopupListElement("Approve Req TOBT", "", TAG_FUNC_CDM_APPROVE_REQ_TOBT, false, 2, false);
+            }
+        };
+
+        const auto openCtotOptions = [&] {
+            OpenPopupList(Area, "CTOT Options", 1);
+            AddPopupListElement(currentManualCtot.empty() ? "Set Manual CTOT" : "Edit Manual CTOT", "", TAG_FUNC_CDM_EDIT_MANUAL_CTOT, false, 2, false);
+            if (!currentManualCtot.empty()) {
+                AddPopupListElement("Remove Manual CTOT", "", TAG_FUNC_CDM_REMOVE_MANUAL_CTOT, false, 2, false);
+            }
+        };
+
+        const auto openDeiceOptions = [&] {
+            OpenPopupList(Area, "DE-ICE Options", 1);
+            AddPopupListElement("Remove DE-ICE", "", TAG_FUNC_CDM_CLEAR_DEICE, false, 2, false);
+            AddPopupListElement("Set DE-ICE L", "", TAG_FUNC_CDM_SET_DEICE_LIGHT, false, 2, false);
+            AddPopupListElement("Set DE-ICE M", "", TAG_FUNC_CDM_SET_DEICE_MEDIUM, false, 2, false);
+            AddPopupListElement("Set DE-ICE H", "", TAG_FUNC_CDM_SET_DEICE_HEAVY, false, 2, false);
+            AddPopupListElement("Set DE-ICE J", "", TAG_FUNC_CDM_SET_DEICE_JUMBO, false, 2, false);
+        };
+
+        const auto openTsacOptions = [&] {
+            OpenPopupList(Area, "TSAC Options", 1);
+            AddPopupListElement(currentTsac.empty() ? "Add TSAT to TSAC" : "Remove TSAC", "", TAG_FUNC_CDM_TOGGLE_TSAC, false, 2, false);
+            AddPopupListElement("Edit TSAC", "", TAG_FUNC_CDM_EDIT_TSAC, false, 2, false);
+        };
+
+        const auto openGlobalOptions = [&] {
+            OpenPopupList(Area, "CDM Options", 1);
+            AddPopupListElement("EOBT Options", "", TAG_FUNC_CDM_EOBT_ACTION, false, 2, false);
+            AddPopupListElement("TOBT Options", "", TAG_FUNC_CDM_TOBT_OPTIONS, false, 2, false);
+            AddPopupListElement("CTOT Options", "", TAG_FUNC_CDM_CTOT_OPTIONS, false, 2, false);
+            AddPopupListElement("TSAC Options", "", TAG_FUNC_CDM_TSAC_OPTIONS, false, 2, false);
+            AddPopupListElement("DE-ICE Options", "", TAG_FUNC_CDM_DEICE_OPTIONS, false, 2, false);
+            AddPopupListElement(currentAsrt.empty() ? "Set ASRT" : "Clear ASRT", "", TAG_FUNC_CDM_TOGGLE_ASRT, false, 2, false);
+            if (!currentReqTobt.empty()) {
+                AddPopupListElement("Approve Req TOBT", "", TAG_FUNC_CDM_APPROVE_REQ_TOBT, false, 2, false);
+            }
+        };
+
+        switch (FunctionId) {
+            case TAG_FUNC_CDM_EOBT_ACTION:
+                openEobtActions();
+                break;
+            case TAG_FUNC_CDM_EOBT_TO_TOBT:
+                if (IsValidHhmm(currentEobt)) {
+                    container->messageService->SendCdmTobtUpdate(callsign, currentEobt);
+                }
+                break;
+            case TAG_FUNC_CDM_EDIT_TOBT:
+                OpenPopupEdit(Area, TAG_FUNC_CDM_SET_TOBT, currentTobt.c_str());
+                break;
+            case TAG_FUNC_CDM_READY_TOBT:
+                container->messageService->SendCdmTobtUpdate(callsign, CurrentUtcHHMM());
+                break;
+            case TAG_FUNC_CDM_TOBT_OPTIONS:
+                openTobtOptions();
+                break;
+            case TAG_FUNC_CDM_SET_TOBT:
+                if (ItemString != nullptr && IsValidHhmm(ItemString)) {
+                    container->messageService->SendCdmTobtUpdate(callsign, ItemString);
+                }
+                break;
+            case TAG_FUNC_CDM_TOGGLE_ASRT: {
+                if (currentAsrt.empty()) {
+                    container->messageService->SendCdmAsrtToggle(callsign, CurrentUtcHHMM());
+                } else {
+                    container->messageService->SendCdmAsrtToggle(callsign, "");
+                }
+                break;
+            }
+            case TAG_FUNC_CDM_TSAC_OPTIONS:
+                openTsacOptions();
+                break;
+            case TAG_FUNC_CDM_TOGGLE_TSAC:
+                if (currentTsac.empty()) {
+                    if (IsValidHhmm(currentTsat)) {
+                        container->messageService->SendCdmTsacUpdate(callsign, currentTsat);
+                    }
+                } else {
+                    container->messageService->SendCdmTsacUpdate(callsign, "");
+                }
+                break;
+            case TAG_FUNC_CDM_EDIT_TSAC:
+                OpenPopupEdit(Area, TAG_FUNC_CDM_SET_TSAC, currentTsac.c_str());
+                break;
+            case TAG_FUNC_CDM_SET_TSAC:
+                if (ItemString != nullptr) {
+                    const auto value = std::string(ItemString);
+                    if (value.empty() || IsValidHhmm(value)) {
+                        container->messageService->SendCdmTsacUpdate(callsign, value);
+                    }
+                }
+                break;
+            case TAG_FUNC_CDM_EDIT_DEICE:
+                OpenPopupEdit(Area, TAG_FUNC_CDM_SET_DEICE, currentDeice.c_str());
+                break;
+            case TAG_FUNC_CDM_DEICE_OPTIONS:
+                openDeiceOptions();
+                break;
+            case TAG_FUNC_CDM_CLEAR_DEICE:
+                container->messageService->SendCdmDeiceUpdate(callsign, "");
+                break;
+            case TAG_FUNC_CDM_SET_DEICE_LIGHT:
+                container->messageService->SendCdmDeiceUpdate(callsign, "L");
+                break;
+            case TAG_FUNC_CDM_SET_DEICE_MEDIUM:
+                container->messageService->SendCdmDeiceUpdate(callsign, "M");
+                break;
+            case TAG_FUNC_CDM_SET_DEICE_HEAVY:
+                container->messageService->SendCdmDeiceUpdate(callsign, "H");
+                break;
+            case TAG_FUNC_CDM_SET_DEICE_JUMBO:
+                container->messageService->SendCdmDeiceUpdate(callsign, "J");
+                break;
+            case TAG_FUNC_CDM_SET_DEICE: {
+                const auto value = ItemString == nullptr ? std::string{} : std::string(ItemString);
+                if (value.empty() || value == "L" || value == "M" || value == "H" || value == "J") {
+                    container->messageService->SendCdmDeiceUpdate(callsign, value);
+                }
+                break;
+            }
+            case TAG_FUNC_CDM_EDIT_MANUAL_CTOT:
+                OpenPopupEdit(Area, TAG_FUNC_CDM_SET_MANUAL_CTOT, currentManualCtot.c_str());
+                break;
+            case TAG_FUNC_CDM_CTOT_OPTIONS:
+                openCtotOptions();
+                break;
+            case TAG_FUNC_CDM_SET_MANUAL_CTOT:
+                if (ItemString != nullptr && IsValidHhmm(ItemString)) {
+                    container->messageService->SendCdmManualCtot(callsign, ItemString);
+                }
+                break;
+            case TAG_FUNC_CDM_REMOVE_MANUAL_CTOT:
+                container->messageService->SendCdmCtotRemove(callsign);
+                break;
+            case TAG_FUNC_CDM_APPROVE_REQ_TOBT:
+                if (!currentReqTobt.empty()) {
+                    container->messageService->SendCdmApproveReqTobt(callsign);
+                }
+                break;
+            case TAG_FUNC_CDM_OPTIONS:
+                openGlobalOptions();
+                break;
+            case TAG_FUNC_CDM_FLOW_MESSAGE_AS_TEXT:
+                Information(currentFlowMessage.empty() ? "No flow message available." : currentFlowMessage);
+                break;
+            case TAG_FUNC_CDM_NETWORK_STATUS_OPTIONS:
+                if (!currentReqTobt.empty()) {
+                    OpenPopupList(Area, "Network Sts Options", 1);
+                    AddPopupListElement("Approve Req TOBT", "", TAG_FUNC_CDM_APPROVE_REQ_TOBT, false, 2, false);
+                } else {
+                    Information("Network status is backend-driven.");
+                }
+                break;
+            default:
+                break;
+        }
+    }
+
     bool FlightStripsPlugin::ControllerIsMe(EuroScopePlugIn::CController controller, EuroScopePlugIn::CController me) {
         return controller.IsValid() && strcmp(controller.GetFullName(), me.GetFullName()) == 0 &&
                controller.GetCallsign() == me.GetCallsign();
+    }
+
+    bool FlightStripsPlugin::IsValidHhmm(const std::string& value) {
+        if (value.size() != 4) return false;
+        for (const char c : value) {
+            if (!std::isdigit(static_cast<unsigned char>(c))) return false;
+        }
+        const auto hour = std::stoi(value.substr(0, 2));
+        const auto minute = std::stoi(value.substr(2, 2));
+        return hour >= 0 && hour < 24 && minute >= 0 && minute < 60;
     }
 }

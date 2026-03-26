@@ -130,3 +130,56 @@ func TestSyncEuroscopeStrip_ExistingArrivalAutoHiddenRemainsHidden(t *testing.T)
 	assert.Equal(t, shared.BAY_HIDDEN, updatedStrip.Bay)
 	assert.Equal(t, shared.BAY_HIDDEN, movedToBay)
 }
+
+func TestSyncEuroscopeStrip_LocalDepartureTriggersCdmRecalculation(t *testing.T) {
+	ctx := context.Background()
+	const session = int32(1)
+
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			return nil, pgx.ErrNoRows
+		},
+		CreateFn: func(_ context.Context, strip *models.Strip) error {
+			return nil
+		},
+	}
+
+	svc, _, _ := newSyncTestFixture(t, nil, stripRepo)
+	cdmService := &spyStripCdmService{}
+	svc.SetCdmService(cdmService)
+
+	err := svc.syncEuroscopeStrip(ctx, session, "", euroscope.Strip{
+		Callsign: "SAS123",
+		Origin:   "EKCH",
+	}, "EKCH")
+	require.NoError(t, err)
+	assert.True(t, cdmService.recalcTriggered)
+	assert.Equal(t, session, cdmService.recalcSession)
+	assert.Equal(t, "EKCH", cdmService.recalcAirport)
+}
+
+func TestSyncEuroscopeStrip_ArrivalDoesNotTriggerCdmRecalculation(t *testing.T) {
+	ctx := context.Background()
+	const session = int32(1)
+
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			return nil, pgx.ErrNoRows
+		},
+		CreateFn: func(_ context.Context, strip *models.Strip) error {
+			return nil
+		},
+	}
+
+	svc, _, _ := newSyncTestFixture(t, nil, stripRepo)
+	cdmService := &spyStripCdmService{}
+	svc.SetCdmService(cdmService)
+
+	err := svc.syncEuroscopeStrip(ctx, session, "", euroscope.Strip{
+		Callsign:    "DLH432",
+		Origin:      "EDDF",
+		Destination: "EKCH",
+	}, "EKCH")
+	require.NoError(t, err)
+	assert.False(t, cdmService.recalcTriggered)
+}

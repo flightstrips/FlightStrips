@@ -10,7 +10,9 @@ import (
 // MockSessionRepository is a configurable mock for repository.SessionRepository.
 type MockSessionRepository struct {
 	GetByIDFn             func(ctx context.Context, id int32) (*models.Session, error)
+	ListFn                func(ctx context.Context) ([]*models.Session, error)
 	UpdateActiveRunwaysFn func(ctx context.Context, id int32, activeRunways pkgModels.ActiveRunways) error
+	UpdateCdmMasterFn     func(ctx context.Context, id int32, master bool) error
 }
 
 func (m *MockSessionRepository) Create(ctx context.Context, session *models.Session) (int32, error) {
@@ -41,7 +43,10 @@ func (m *MockSessionRepository) GetExpiredSessions(ctx context.Context, expiredB
 }
 
 func (m *MockSessionRepository) List(ctx context.Context) ([]*models.Session, error) {
-	panic("unexpected call to MockSessionRepository.List")
+	if m.ListFn == nil {
+		panic("unexpected call to MockSessionRepository.List")
+	}
+	return m.ListFn(ctx)
 }
 
 func (m *MockSessionRepository) Delete(ctx context.Context, id int32) (int64, error) {
@@ -51,6 +56,13 @@ func (m *MockSessionRepository) Delete(ctx context.Context, id int32) (int64, er
 func (m *MockSessionRepository) UpdateActiveRunways(ctx context.Context, id int32, activeRunways pkgModels.ActiveRunways) error {
 	if m.UpdateActiveRunwaysFn != nil {
 		return m.UpdateActiveRunwaysFn(ctx, id, activeRunways)
+	}
+	return nil
+}
+
+func (m *MockSessionRepository) UpdateCdmMaster(ctx context.Context, id int32, master bool) error {
+	if m.UpdateCdmMasterFn != nil {
+		return m.UpdateCdmMasterFn(ctx, id, master)
 	}
 	return nil
 }

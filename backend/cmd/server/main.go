@@ -23,6 +23,8 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -154,6 +156,7 @@ func main() {
 	stripService.SetTacticalStripRepo(tacticalStripRepo)
 	stripService.SetCoordinationRepo(coordRepo)
 	stripService.SetControllerRepo(controllerRepo)
+	stripService.SetCdmService(cdmService)
 
 	// Initialize PDC Service
 	hoppieLogon := os.Getenv("HOPPIE_LOGON")
@@ -176,6 +179,46 @@ func main() {
 	stripService.SetSectorOwnerRepo(sectorRepo)
 	cdmService.SetFrontendHub(frontendHub)
 	cdmService.SetEuroscopeHub(euroscopeHub)
+
+	cdmCfg := config.GetCdmConfig()
+	resolveURI := func(uri string) string {
+		if uri == "" || strings.HasPrefix(uri, "http://") || strings.HasPrefix(uri, "https://") {
+			return uri
+		}
+		return filepath.Join(config.GetConfigDir(), uri)
+	}
+	configStore := cdm.NewCdmConfigStore(
+		resolveURI(cdmCfg.RateUri),
+		resolveURI(cdmCfg.SidIntervalUri),
+		resolveURI(cdmCfg.TaxizonesUri),
+		envDuration("CDM_CONFIG_REFRESH_INTERVAL", 15*time.Minute),
+		cdm.CdmConfigDefaults{
+			Rate:        cdmCfg.Rate,
+			RateLvo:     cdmCfg.RateLvo,
+			TaxiMinutes: cdm.DefaultCDMTaxiMinutes,
+		},
+		nil,
+	)
+	// Seed deice config and default rates from YAML before first refresh.
+	configStore.SeedAirportConfig("EKCH", cdmCfg.Rate, cdmCfg.RateLvo, cdm.CdmDeiceConfig{
+		Light:  cdmCfg.Deice.Light,
+		Medium: cdmCfg.Deice.Medium,
+		Heavy:  cdmCfg.Deice.Heavy,
+		Super:  cdmCfg.Deice.Super,
+		Platform: func() []cdm.CdmDeicePlatformConfig {
+			platforms := make([]cdm.CdmDeicePlatformConfig, len(cdmCfg.Deice.Platform))
+			for i, p := range cdmCfg.Deice.Platform {
+				platforms[i] = cdm.CdmDeicePlatformConfig{Name: p.Name, Time: p.Time}
+			}
+			return platforms
+		}(),
+	})
+	sequenceService := cdm.NewSequenceService(stripRepo, sessionRepo, configStore, frontendHub, euroscopeHub)
+	cdmService.SetConfigProvider(configStore)
+	cdmService.SetSequenceService(sequenceService)
+	go configStore.Start(ctx)
+	slog.Info("CDM local calculation enabled", slog.String("rateUri", resolveURI(cdmCfg.RateUri)))
+
 	if pdcService != nil {
 		pdcService.SetFrontendHub(frontendHub)
 	}
@@ -252,4 +295,30 @@ func getEnv(key, fallback string) string {
 		return value
 	}
 	return fallback
+}
+
+func envBool(key string, fallback bool) bool {
+	value := strings.TrimSpace(os.Getenv(key))
+	if value == "" {
+		return fallback
+	}
+
+	parsed, err := strconv.ParseBool(value)
+	if err != nil {
+		return fallback
+	}
+	return parsed
+}
+
+func envDuration(key string, fallback time.Duration) time.Duration {
+	value := strings.TrimSpace(os.Getenv(key))
+	if value == "" {
+		return fallback
+	}
+
+	parsed, err := time.ParseDuration(value)
+	if err != nil {
+		return fallback
+	}
+	return parsed
 }

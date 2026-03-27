@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.16.1](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.16.0...frontend/v0.16.1) (2026-03-27)
+
+
+### Bug Fixes
+
+* bay ordering ([d81cd5c](https://github.com/flightstrips/FlightStrips/commit/d81cd5c5bbffcfd4f40e5622b0674966b30edba9))
+* bay ordering ([9c0c640](https://github.com/flightstrips/FlightStrips/commit/9c0c640eb55aecf306e249dea1b87469d1c82c2a))
+* confirmed runway strips no longer turn red when new strip arrives ([bf87d57](https://github.com/flightstrips/FlightStrips/commit/bf87d57bfd6b6e373c1c237fa51bbd5af37473e2))
+* Disable Callsign Selection in CLR DEL ([82c172f](https://github.com/flightstrips/FlightStrips/commit/82c172f5a42449f3518636348b28011e0e1ddc74))
+* make command bar smaller ([2cec0f9](https://github.com/flightstrips/FlightStrips/commit/2cec0f94ec216f181ec4c94334943ffc380dff56))
+* remove selection from non-cleared strips ([e351d36](https://github.com/flightstrips/FlightStrips/commit/e351d36eca060e753bff69e1191d09ed722d55e9))
+* strip sizes ([26d2454](https://github.com/flightstrips/FlightStrips/commit/26d2454761a15538d4bf78356bbfb786862b501e))
+
 ## [0.16.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.15.2...frontend/v0.16.0) (2026-03-24)
 
 

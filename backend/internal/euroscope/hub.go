@@ -236,6 +236,12 @@ func (hub *Hub) HandleNewConnection(conn *gorilla.Conn, user shared.Authenticate
 		return nil, fmt.Errorf("login failed: %w", err)
 	}
 
+	// Recalculate layouts since the login is sent both on first logon and when a
+	// position/frequency changes — the new position must be reflected immediately.
+	if layoutErr := hub.server.UpdateLayouts(sessionID); layoutErr != nil {
+		slog.Error("Failed to update layouts after ES login", slog.String("cid", user.GetCid()), slog.Any("error", layoutErr))
+	}
+
 	client := &Client{
 		conn:     conn,
 		session:  sessionID,

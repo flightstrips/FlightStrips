@@ -31,7 +31,7 @@ import { MessageStrip } from "@/components/strip/MessageStrip.tsx";
 import { MessageComposeDialog } from "@/components/MessageComposeDialog.tsx";
 
 // Shared header styles
-const pageWrapper   = "bg-[#A9A9A9] w-screen h-[calc(100vh-60px)] flex justify-center justify-items-center gap-2";
+const pageWrapper   = "bg-[#A9A9A9] w-screen h-[95.28vh] flex justify-center justify-items-center gap-2";
 const header        = "bg-[#393939] h-10 flex items-center px-2 shrink-0";
 const label         = "text-white font-bold text-lg";
 const primaryHeader = "bg-primary h-10 flex items-center px-2 shrink-0";

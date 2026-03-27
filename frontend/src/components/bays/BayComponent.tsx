@@ -4,7 +4,7 @@ import CommandBar from "../commandbar/CommandBar";
 
 export default function BayComponent() {
     return (<>
-        <div className="bg-[#A9A9A9] w-screen h-[calc(100vh-60px)] flex justify-center justify-items-center gap-2 aspect-video">
+        <div className="bg-[#A9A9A9] w-screen h-[95.28vh] flex justify-center justify-items-center gap-2 aspect-video">
             <div className="w-1/4 h-full bg-[#555355]">
                 <div className="bg-[#393939] h-10 flex items-center px-2 justify-between">
                     <span className="text-white font-bold text-lg">

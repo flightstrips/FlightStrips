@@ -177,7 +177,7 @@ export const CLS_CALLSIGN_ACTIVE = "active:bg-[#F237AA]";
 // ── Button class variants ─────────────────────────────────────────────────────
 
 /** Large variant used in the CommandBar toolbar. */
-export const CLS_CMDBTN = "bg-[#646464] text-2xl font-bold h-[46px] my-[7px] w-[80px] flex items-center justify-center shadow-[inset_2px_0_0_#d3d3d3,_inset_0_2px_0_#d3d3d3] outline-none";
+export const CLS_CMDBTN = "bg-[#646464] text-2xl font-bold h-[calc(4.72vh-14px)] my-[7px] w-[80px] flex items-center justify-center shadow-[inset_2px_0_0_#d3d3d3,_inset_0_2px_0_#d3d3d3] outline-none";
 export const CLS_BTN        = "bg-[#646464] text-white font-bold text-sm px-3 border-2 border-white active:bg-[#424242]";
 export const CLS_BTN_ORANGE = "bg-[#DD6A12] text-white font-bold text-sm px-3 border-2 border-white active:bg-[#424242]";
 export const CLS_BTN_BLUE   = "bg-[#004FD6] text-white font-bold text-sm px-3 border-2 border-white active:bg-[#424242]";

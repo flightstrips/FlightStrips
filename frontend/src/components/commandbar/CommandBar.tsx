@@ -10,12 +10,12 @@ import { useAtisCode, useMetar, useRunwaySetup, useSelectedCallsign, useSelectSt
 import { CLS_CMDBTN } from "@/components/strip/shared";
 import { Bay } from "@/api/models";
 
-// Bar: 60px total. Inner elements: 46px height + 7px top/bottom margin = 60px.
-const CLS_BAR = "h-[60px] w-screen bg-[#3c3c3c] flex justify-between text-white items-center";
+// Bar height matches strip height (4.72vh). Inner elements: calc(4.72vh - 14px) + 7px top/bottom margin.
+const CLS_BAR = "h-[4.72vh] w-screen bg-[#3c3c3c] flex justify-between text-white items-center";
 
 // Inner value boxes — same margin rhythm as CLS_CMDBTN
-const CLS_VAL_WHITE = "bg-[#e4e4e4] text-black text-2xl font-bold h-[46px] my-[7px] flex items-center justify-center";
-const CLS_VAL_DARK  = "bg-[#212121] text-white  text-2xl font-bold h-[46px] my-[7px] flex items-center justify-center";
+const CLS_VAL_WHITE = "bg-[#e4e4e4] text-black text-2xl font-bold h-[calc(4.72vh-14px)] my-[7px] flex items-center justify-center";
+const CLS_VAL_DARK  = "bg-[#212121] text-white  text-2xl font-bold h-[calc(4.72vh-14px)] my-[7px] flex items-center justify-center";
 const CLS_LABEL     = "text-2xl font-bold text-[#e4e4e4] px-3";
 
 const SCOPE_LABELS: Record<string, string> = {
@@ -72,7 +72,7 @@ export default function CommandBar() {
       <div className="flex items-center h-full">
 
         {/* Scope — green station box */}
-        <div className="bg-[#1bff16] text-black flex flex-col justify-center items-center mx-2 font-bold h-[46px] my-[7px] min-w-[190px] px-3 text-center leading-tight">
+        <div className="bg-[#1bff16] text-black flex flex-col justify-center items-center mx-2 font-bold h-[calc(4.72vh-14px)] my-[7px] min-w-[190px] px-3 text-center leading-tight">
           <span className="text-sm font-semibold">{scopeLabel}</span>
           {myPosition && <span className="text-xs font-medium">{myPosition}</span>}
         </div>
@@ -115,7 +115,7 @@ export default function CommandBar() {
           X
         </button>
         {/* Time — white box, double gap before it */}
-        <div className="bg-[#e4e4e4] text-black h-[46px] my-[7px] w-[96px] ml-[5px] mr-3 flex items-center justify-center text-sm font-bold shadow-[inset_2px_0_0_#d3d3d3,_inset_0_2px_0_#d3d3d3]">
+        <div className="bg-[#e4e4e4] text-black h-[calc(4.72vh-14px)] my-[7px] w-[96px] ml-[5px] mr-3 flex items-center justify-center text-sm font-bold shadow-[inset_2px_0_0_#d3d3d3,_inset_0_2px_0_#d3d3d3]">
           <Time />
         </div>
       </div>

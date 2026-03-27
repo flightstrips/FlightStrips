@@ -38,7 +38,7 @@ export default function HOMEBTN() {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <button className={`${CLS_CMDBTN} !w-auto px-3`}>
-          <img src="/home.svg" width="39" height="39" alt="home icon" />
+          <img src="/home.svg" className="h-[calc(4.72vh-20px)] w-auto" alt="home icon" />
         </button>
       </DialogTrigger>
       <DialogContent className={CLS_DIALOG}>

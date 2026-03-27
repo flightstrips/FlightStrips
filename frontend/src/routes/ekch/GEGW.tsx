@@ -36,7 +36,7 @@ const W_COL_DEP      = "w-[28%]";
 const W_COL_CLRDEL   = "w-1/4";
 const W_COL_STAND    = "w-1/5";
 
-const pageWrapper  = "bg-[#A9A9A9] w-screen h-[calc(100vh-60px)] flex justify-center justify-items-center gap-2";
+const pageWrapper  = "bg-[#A9A9A9] w-screen h-[95.28vh] flex justify-center justify-items-center gap-2";
 const header       = "bg-[#393939] h-10 flex items-center px-2 shrink-0";
 const label        = "text-white font-bold text-lg";
 const colSep       = "border-t-4 border-[#A9A9A9]";

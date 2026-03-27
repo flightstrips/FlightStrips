@@ -42,7 +42,7 @@ const label        = "text-white font-bold text-lg";
 const colSep       = "border-t-4 border-[#A9A9A9]";
 const scrollArea           = `w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto ${CLS_SCROLLBAR}`;
 const scrollAreaBottom     = `w-full bg-[#555355] p-1 flex flex-col justify-end gap-px overflow-y-auto ${CLS_SCROLLBAR}`;
-const darkScrollArea       = `w-full bg-[#212121] p-1 flex flex-col gap-px overflow-y-auto ${CLS_SCROLLBAR}`;
+const darkScrollAreaBottom = `w-full bg-[#212121] p-1 flex flex-col justify-end gap-px overflow-y-auto ${CLS_SCROLLBAR}`;
 
 export default function GEGW() {
   const myPosition = useMyPosition();
@@ -52,16 +52,16 @@ export default function GEGW() {
   const [newOpen, setNewOpen] = useState(false);
   const [plannedOpen, setPlannedOpen] = useState(false);
 
-  const finalStrips    = useFinalStrips();
-  const rwyArrStrips   = useRwyArrStrips();
-  const twyArrStrips   = useTaxiArrStrips();
-  const pushStrips     = usePushbackStrips();
+  const finalStrips    = useFinalStrips().sort((a, b) => b.sequence - a.sequence);
+  const rwyArrStrips   = useRwyArrStrips().sort((a, b) => b.sequence - a.sequence);
+  const twyArrStrips   = useTaxiArrStrips().sort((a, b) => b.sequence - a.sequence);
+  const pushStrips     = usePushbackStrips().sort((a, b) => b.sequence - a.sequence);
   const startupStrips  = useClearedStrips();
-  const twyDepDesc     = useTaxiDepLwrStrips();
-  const rwyDepStrips   = useDepartStrips();
-  const airborneStrips = useAirborneStrips();
-  const deIceStrips    = useDeIceStrips();
-  const standStrips    = useStandStrips();
+  const twyDepDesc     = useTaxiDepLwrStrips().sort((a, b) => b.sequence - a.sequence);
+  const rwyDepStrips   = useDepartStrips().sort((a, b) => b.sequence - a.sequence);
+  const airborneStrips = useAirborneStrips().sort((a, b) => b.sequence - a.sequence);
+  const deIceStrips    = useDeIceStrips().sort((a, b) => b.sequence - a.sequence);
+  const standStrips    = useStandStrips().sort((a, b) => b.sequence - a.sequence);
 
   const inboundStrips = useInboundStrips();
 
@@ -143,7 +143,7 @@ export default function GEGW() {
           bayId="FINAL"
           isDragDisabled={(strip) => isFlight(strip) && !!strip.owner && strip.owner !== myPosition}
           standalone={false}
-          className={`h-[25%] ${scrollArea}`}
+          className={`h-[25%] ${scrollAreaBottom}`}
         >
           {(strip) => (
             <Strip strip={strip} status="FINAL-ARR" selectable={false} myPosition={myPosition} />
@@ -158,7 +158,7 @@ export default function GEGW() {
           bayId="RWY-ARR"
           isDragDisabled={(strip) => isFlight(strip) && !!strip.owner && strip.owner !== myPosition}
           standalone={false}
-          className={`h-[20%] ${darkScrollArea}`}
+          className={`h-[20%] ${darkScrollAreaBottom}`}
         >
           {(strip) => (
             <Strip strip={strip} status="FINAL-ARR" selectable={false} myPosition={myPosition} />
@@ -179,7 +179,7 @@ export default function GEGW() {
           bayId="TWY-ARR"
           isDragDisabled={(strip) => isFlight(strip) && !!strip.owner && strip.owner !== myPosition}
           standalone={false}
-          className={`flex-1 ${scrollArea}`}
+          className={`flex-1 ${scrollAreaBottom}`}
         >
           {(strip) => (
             <Strip strip={strip} status="FINAL-ARR" myPosition={myPosition} />
@@ -212,7 +212,7 @@ export default function GEGW() {
           bayId="PUSHBACK"
           isDragDisabled={(strip) => isFlight(strip) && !!strip.owner && strip.owner !== myPosition}
           standalone={false}
-          className={`h-[12%] ${scrollArea}`}
+          className={`h-[12%] ${scrollAreaBottom}`}
         >
           {(strip) => (
             <Strip strip={strip} status="HALF" halfStripVariant="APN-PUSH" myPosition={myPosition} selectable={true} />
@@ -249,7 +249,7 @@ export default function GEGW() {
           bayId="RWY-DEP"
           isDragDisabled={(strip) => isFlight(strip) && !!strip.owner && strip.owner !== myPosition}
           standalone={false}
-          className={`h-[15%] ${darkScrollArea}`}
+          className={`h-[15%] ${darkScrollAreaBottom}`}
         >
           {(strip) => (
             <Strip strip={strip} status="CLROK" myPosition={myPosition} selectable={true} />
@@ -264,7 +264,7 @@ export default function GEGW() {
           bayId="AIRBORNE"
           isDragDisabled={(strip) => isFlight(strip) && !!strip.owner && strip.owner !== myPosition}
           standalone={false}
-          className={`flex-1 ${darkScrollArea}`}
+          className={`flex-1 ${darkScrollAreaBottom}`}
         >
           {(strip) => (
             <Strip strip={strip} status="CLROK" myPosition={myPosition} selectable={true} />
@@ -298,7 +298,7 @@ export default function GEGW() {
           bayId="DE-ICE"
           isDragDisabled={(strip) => isFlight(strip) && !!strip.owner && strip.owner !== myPosition}
           standalone={false}
-          className={`h-[33%] ${scrollArea}`}
+          className={`h-[33%] ${scrollAreaBottom}`}
         >
           {(strip) => (
             <Strip strip={strip} status="PUSH" myPosition={myPosition} selectable={true} />
@@ -344,7 +344,7 @@ export default function GEGW() {
           bayId="STAND"
           isDragDisabled={(strip) => isFlight(strip) && !!strip.owner && strip.owner !== myPosition}
           standalone={false}
-          className={`flex-1 ${scrollArea}`}
+          className={`flex-1 ${scrollAreaBottom}`}
         >
           {(strip) => (
             <Strip strip={strip} status="ARR" myPosition={myPosition} selectable={true} />

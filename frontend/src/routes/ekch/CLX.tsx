@@ -23,7 +23,8 @@ const primaryHeader = "bg-primary h-10 flex items-center px-2 justify-between";
 const primaryLabel  = "text-gray-100 font-bold text-lg";
 
 // Scroll container classes
-const scrollArea    = `w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto ${CLS_SCROLLBAR}`;
+const scrollArea       = `w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto ${CLS_SCROLLBAR}`;
+const scrollAreaBottom = `w-full bg-[#555355] p-1 flex flex-col justify-end gap-px overflow-y-auto ${CLS_SCROLLBAR}`;
 const scrollAreaRaw = `w-full bg-[#555355] overflow-y-auto ${CLS_SCROLLBAR}`;
 
 export default function DEL() {
@@ -32,8 +33,8 @@ export default function DEL() {
   const norgewianStrips = useNorwegianBayStrips().sort((a, b) => a.sequence - b.sequence);
   const otherStrips = useOtherBayStrips().sort((a, b) => a.sequence - b.sequence);
   const cleared = useClearedStrips().sort((a, b) => a.sequence - b.sequence);
-  const pushback = usePushbackStrips().filter(isFlight);
-  const taxidep = useTaxiDepStrips().filter(isFlight);
+  const pushback = usePushbackStrips().filter(isFlight).sort((a, b) => b.sequence - a.sequence);
+  const taxidep = useTaxiDepStrips().filter(isFlight).sort((a, b) => b.sequence - a.sequence);
   const messages = useMessages();
   const [composeOpen, setComposeOpen] = useState(false);
   const [newOpen, setNewOpen] = useState(false);
@@ -104,13 +105,13 @@ export default function DEL() {
           <div className={activeHeader}>
             <span className={activeLabel}>PUSHBACK</span>
           </div>
-          <div className={`h-2/5 ${scrollArea}`}>
+          <div className={`h-2/5 ${scrollAreaBottom}`}>
             {pushback.map(strip => mapToHalfStrip(strip))}
           </div>
           <div className={activeHeader}>
             <span className={activeLabel}>TWY DEP</span>
           </div>
-          <div className={`h-[calc(60%-5rem)] ${scrollArea}`}>
+          <div className={`h-[calc(60%-5rem)] ${scrollAreaBottom}`}>
             {taxidep.map(strip => mapToHalfStrip(strip))}
           </div>
         </div>

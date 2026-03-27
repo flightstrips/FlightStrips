@@ -75,17 +75,17 @@ export default function TWTE() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const finalStrips = useFinalStrips();
-  const rwyArrStrips = useRwyArrStrips();
-  const twyArrStrips = useTaxiArrStrips();
+  const finalStrips   = useFinalStrips().sort((a, b) => b.sequence - a.sequence);
+  const rwyArrStrips  = useRwyArrStrips().sort((a, b) => b.sequence - a.sequence);
+  const twyArrStrips  = useTaxiArrStrips().sort((a, b) => b.sequence - a.sequence);
 
-  const twyDepDesc   = useTaxiDepLwrStrips();
-  const rwyDepDesc   = useDepartStrips();
-  const airborneDesc = useAirborneStrips();
-  const standStrips  = useStandStrips();
-  const pushStrips   = usePushbackStrips();
-  const deIceStrips  = useDeIceStrips();
-  const controlzoneStrips = useControlzoneStrips();
+  const twyDepDesc    = useTaxiDepLwrStrips().sort((a, b) => b.sequence - a.sequence);
+  const rwyDepDesc    = useDepartStrips().sort((a, b) => b.sequence - a.sequence);
+  const airborneDesc  = useAirborneStrips().sort((a, b) => b.sequence - a.sequence);
+  const standStrips   = useStandStrips().sort((a, b) => b.sequence - a.sequence);
+  const pushStrips    = usePushbackStrips().sort((a, b) => b.sequence - a.sequence);
+  const deIceStrips   = useDeIceStrips().sort((a, b) => b.sequence - a.sequence);
+  const controlzoneStrips = useControlzoneStrips().sort((a, b) => b.sequence - a.sequence);
   const nonClearedStrips = useNonClearedStrips();
   const clearedStrips    = useClearedStrips();
   const inboundStrips    = useInboundStrips();
@@ -336,7 +336,7 @@ export default function TWTE() {
           bayId="CONTROLZONE"
           isDragDisabled={(strip) => isFlight(strip) && !!strip.owner && strip.owner !== myPosition}
           standalone={false}
-          className={`h-[35%] ${scrollArea}`}
+          className={`h-[35%] ${scrollAreaBottom}`}
         >
           {(strip) => <Strip strip={strip} status="CLR" myPosition={myPosition} selectable={true} />}
         </SortableBay>
@@ -349,7 +349,7 @@ export default function TWTE() {
           bayId="PUSHBACK"
           isDragDisabled={(strip) => isFlight(strip) && !!strip.owner && strip.owner !== myPosition}
           standalone={false}
-          className={`h-[35%] ${scrollArea}`}
+          className={`h-[35%] ${scrollAreaBottom}`}
         >
           {(strip) => <Strip strip={strip} status="PUSH" myPosition={myPosition} selectable={true} />}
         </SortableBay>
@@ -399,7 +399,7 @@ export default function TWTE() {
           bayId="DE-ICE"
           isDragDisabled={(strip) => isFlight(strip) && !!strip.owner && strip.owner !== myPosition}
           standalone={false}
-          className={`h-[25%] ${scrollArea}`}
+          className={`h-[25%] ${scrollAreaBottom}`}
         >
           {(strip) => <Strip strip={strip} status="PUSH" myPosition={myPosition} selectable={true} />}
         </SortableBay>
@@ -412,7 +412,7 @@ export default function TWTE() {
           bayId="STAND"
           isDragDisabled={(strip) => isFlight(strip) && !!strip.owner && strip.owner !== myPosition}
           standalone={false}
-          className={`flex-1 ${scrollArea}`}
+          className={`flex-1 ${scrollAreaBottom}`}
         >
           {(strip) => <Strip strip={strip} status="ARR" myPosition={myPosition} selectable={true} />}
         </SortableBay>

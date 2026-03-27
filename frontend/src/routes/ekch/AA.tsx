@@ -33,7 +33,8 @@ const pageWrapper   = "bg-[#A9A9A9] w-screen h-[calc(100vh-60px)] flex justify-c
 const header        = "bg-[#393939] h-10 flex items-center px-2 shrink-0";
 const label         = "text-white font-bold text-lg";
 const colSep        = "border-t-4 border-[#A9A9A9]";
-const scrollArea    = `w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto ${CLS_SCROLLBAR}`;
+const scrollArea       = `w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto ${CLS_SCROLLBAR}`;
+const scrollAreaBottom = `w-full bg-[#555355] p-1 flex flex-col justify-end gap-px overflow-y-auto ${CLS_SCROLLBAR}`;
 const col           = "flex-1 h-full bg-[#555355] flex flex-col min-w-0";
 const tabBar        = "flex shrink-0 border-t-8 border-[#A9A9A9]";
 const tabBtn        = "flex-1 bg-[#393939] text-white font-bold text-sm border border-white hover:bg-[#4a4a4a]";
@@ -51,14 +52,14 @@ export default function AA() {
   // When DEL is offline, APRON handles clearances → CLR/DEL panel is active.
   const clrDelActive = !delOnline;
 
-  const finalStrips   = useFinalStrips().filter(isFlight);
-  const rwyArrStrips  = useRwyArrStrips().filter(isFlight);
-  const standStrips   = useStandStrips().filter(isFlight);
-  const twyDepUpr     = useTaxiDepStrips();
-  const twyDepLwr     = useTaxiDepLwrStrips();
-  const twyArrStrips  = useTaxiArrStrips();
-  const pushStrips    = usePushbackStrips().filter(isFlight);
-  const deIceStrips   = useDeIceStrips().filter(isFlight);
+  const finalStrips   = useFinalStrips().filter(isFlight).sort((a, b) => b.sequence - a.sequence);
+  const rwyArrStrips  = useRwyArrStrips().filter(isFlight).sort((a, b) => b.sequence - a.sequence);
+  const standStrips   = useStandStrips().filter(isFlight).sort((a, b) => b.sequence - a.sequence);
+  const twyDepUpr     = useTaxiDepStrips().sort((a, b) => b.sequence - a.sequence);
+  const twyDepLwr     = useTaxiDepLwrStrips().sort((a, b) => b.sequence - a.sequence);
+  const twyArrStrips  = useTaxiArrStrips().sort((a, b) => b.sequence - a.sequence);
+  const pushStrips    = usePushbackStrips().filter(isFlight).sort((a, b) => b.sequence - a.sequence);
+  const deIceStrips   = useDeIceStrips().filter(isFlight).sort((a, b) => b.sequence - a.sequence);
   const otherStrips   = useOtherBayStrips().sort((a, b) => a.sequence - b.sequence);
   const sasStrips     = useSasBayStrips().sort((a, b) => a.sequence - b.sequence);
   const norStrips     = useNorwegianBayStrips().sort((a, b) => a.sequence - b.sequence);
@@ -130,7 +131,7 @@ export default function AA() {
           <span className={label}>FINAL</span>
           <button className={btn} onClick={() => setArrOpen(true)}>ARR</button>
         </div>
-        <DropIndicatorBay bayId="FINAL" className={`h-[30%] ${scrollArea}`}>
+        <DropIndicatorBay bayId="FINAL" className={`h-[30%] ${scrollAreaBottom}`}>
           {finalStrips.map(s => (
             <Strip key={s.callsign} strip={s} status="HALF" halfStripVariant="LOCKED-ARR" selectable={false} myPosition={myPosition} />
           ))}
@@ -139,7 +140,7 @@ export default function AA() {
         <div className={`${header} ${colSep}`}>
           <span className={label}>RWY ARR</span>
         </div>
-        <DropIndicatorBay bayId="RWY-ARR" className={`h-[25%] ${scrollArea}`}>
+        <DropIndicatorBay bayId="RWY-ARR" className={`h-[25%] ${scrollAreaBottom}`}>
           {rwyArrStrips.map(s => (
             <Strip key={s.callsign} strip={s} status="ARR" selectable={false} myPosition={myPosition} />
           ))}
@@ -153,7 +154,7 @@ export default function AA() {
           bayId="STAND"
           isDragDisabled={(strip) => isFlight(strip) && !!strip.owner && strip.owner !== myPosition}
           standalone={false}
-          className={`flex-1 ${scrollArea}`}
+          className={`flex-1 ${scrollAreaBottom}`}
         >
           {(strip) => (
             <Strip strip={strip} status="ARR" myPosition={myPosition} />
@@ -187,7 +188,7 @@ export default function AA() {
           bayId="DE-ICE"
           isDragDisabled={(strip) => isFlight(strip) && !!strip.owner && strip.owner !== myPosition}
           standalone={false}
-          className={`h-[20%] ${scrollArea}`}
+          className={`h-[20%] ${scrollAreaBottom}`}
         >
           {(strip) => (
             <Strip strip={strip} status="PUSH" myPosition={myPosition} selectable={true} />
@@ -203,7 +204,7 @@ export default function AA() {
           bayId="TWY-ARR"
           isDragDisabled={(strip) => isFlight(strip) && !!strip.owner && strip.owner !== myPosition}
           standalone={false}
-          className={`flex-1 ${scrollArea}`}
+          className={`flex-1 ${scrollAreaBottom}`}
         >
           {(strip) => (
             <Strip strip={strip} status="ARR" myPosition={myPosition} selectable={true} />
@@ -223,7 +224,7 @@ export default function AA() {
           bayId="PUSHBACK"
           isDragDisabled={(strip) => isFlight(strip) && !!strip.owner && strip.owner !== myPosition}
           standalone={false}
-          className={`h-[35%] ${scrollArea}`}
+          className={`h-[35%] ${scrollAreaBottom}`}
         >
           {(strip) => (
             <Strip strip={strip} status="PUSH" myPosition={myPosition} selectable={true} />
@@ -244,7 +245,7 @@ export default function AA() {
           bayId="TWY-DEP-UPR"
           isDragDisabled={(strip) => isFlight(strip) && !!strip.owner && strip.owner !== myPosition}
           standalone={false}
-          className={`h-[25%] ${scrollArea}`}
+          className={`h-[25%] ${scrollAreaBottom}`}
         >
           {(strip) => (
             <Strip strip={strip} status="TAXI-DEP" myPosition={myPosition} width={APN_TAXI_DEP_STRIP_WIDTH} selectable={true} />
@@ -269,7 +270,7 @@ export default function AA() {
           bayId="TWY-DEP-LWR"
           isDragDisabled={(strip) => isFlight(strip) && !!strip.owner && strip.owner !== myPosition}
           standalone={false}
-          className={`flex-1 ${scrollArea}`}
+          className={`flex-1 ${scrollAreaBottom}`}
         >
           {(strip) => (
             <Strip strip={strip} status="TAXI-DEP" myPosition={myPosition} width={APN_TAXI_DEP_STRIP_WIDTH} selectable={true} />

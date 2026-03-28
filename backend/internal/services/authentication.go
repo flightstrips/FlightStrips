@@ -66,14 +66,12 @@ func (a AuthenticationService) Validate(jwtToken string) (shared.AuthenticatedUs
 		return shared.AuthenticatedUser{}, errors.New("missing CID claim")
 	}
 
-	/*
-		rating, ok := claims["vatsim/rating"].(int)
+	ratingFloat, ok := claims["vatsim/rating"].(float64)
 
-		if !ok {
-			return shared.AuthenticatedUser{}, errors.New("missing Rating claim")
-		}
-	*/
+	if !ok {
+		return shared.AuthenticatedUser{}, errors.New("missing Rating claim")
+	}
 
-	esUser := shared.NewAuthenticatedUser(cid, 0, token)
+	esUser := shared.NewAuthenticatedUser(cid, int(ratingFloat), token)
 	return esUser, nil
 }

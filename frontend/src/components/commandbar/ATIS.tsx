@@ -21,7 +21,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { useAirport, useAtisCode, useMetar } from "@/store/store-hooks";
+import { useAirport, useAtisCode, useMetar, useUserRating } from "@/store/store-hooks";
 import { CLS_CMDBTN } from "@/components/strip/shared";
 import {
   decodeMetar,
@@ -222,6 +222,8 @@ export default function ATIS() {
   const metar = useMetar();
   const atisCode = useAtisCode();
   const decoded = decodeMetar(metar ?? undefined);
+  const rating = useUserRating();
+  const showDecoded = rating >= 4;
 
   return (
     <Dialog>
@@ -237,16 +239,22 @@ export default function ATIS() {
           </DialogTitle>
         </DialogHeader>
         <div className="flex flex-col gap-5">
-          <DecodedGrid decoded={decoded} />
+          {showDecoded && <DecodedGrid decoded={decoded} />}
           <div className="rounded border-2 border-gray-300 bg-gray-50 p-4">
-            <div className="text-gray-600 font-medium text-sm mb-2">Readout</div>
-            <p className="text-xl font-medium leading-relaxed text-black">
-              {decoded.parsed ? buildReadout(decoded) : "No METAR available."}
-            </p>
-            {metar && (
-              <pre className="mt-3 font-mono text-xs text-gray-500 whitespace-pre-wrap break-words pt-3 border-t border-gray-200">
+            {showDecoded && (
+              <>
+                <div className="text-gray-600 font-medium text-sm mb-2">Readout</div>
+                <p className="text-xl font-medium leading-relaxed text-black">
+                  {decoded.parsed ? buildReadout(decoded) : "No METAR available."}
+                </p>
+              </>
+            )}
+            {metar ? (
+              <pre className={`font-mono text-xs text-gray-500 whitespace-pre-wrap break-words${showDecoded ? " mt-3 pt-3 border-t border-gray-200" : ""}`}>
                 {metar}
               </pre>
+            ) : (
+              !showDecoded && <p className="text-gray-500 text-sm">No METAR available.</p>
             )}
           </div>
         </div>

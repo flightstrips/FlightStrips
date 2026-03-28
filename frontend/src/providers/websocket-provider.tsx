@@ -1,6 +1,7 @@
 import {type ReactNode, useCallback, useEffect, useRef, useState} from 'react';
 import {WebSocketClient, createWebSocketClient} from '@/api/websocket';
 import {WebSocketStoreProvider} from '@/store/store-provider';
+import {UserRatingContext} from '@/store/user-rating-context';
 import {useAuth0} from '@auth0/auth0-react';
 
 interface WebSocketProviderProps {
@@ -11,19 +12,31 @@ interface WebSocketProviderProps {
 // How early to refresh before the token expires, matching the EuroScope plugin behaviour.
 const REFRESH_BUFFER_MS = 30 * 60 * 1000;
 
-// Decode the JWT payload and return the expiry as a Unix timestamp (ms), or null on failure.
-function getTokenExpiryMs(token: string): number | null {
+function decodeJwtPayload(token: string): Record<string, unknown> | null {
   try {
     const base64Url = token.split('.')[1];
     const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-    const payload = JSON.parse(atob(base64)) as Record<string, unknown>;
-    if (typeof payload.exp === 'number') {
-      return payload.exp * 1000;
-    }
-    return null;
+    return JSON.parse(atob(base64)) as Record<string, unknown>;
   } catch {
     return null;
   }
+}
+
+// Decode the JWT payload and return the expiry as a Unix timestamp (ms), or null on failure.
+function getTokenExpiryMs(token: string): number | null {
+  const payload = decodeJwtPayload(token);
+  if (payload && typeof payload.exp === 'number') {
+    return payload.exp * 1000;
+  }
+  return null;
+}
+
+function getTokenRating(token: string): number {
+  const payload = decodeJwtPayload(token);
+  if (payload && typeof payload['vatsim/rating'] === 'number') {
+    return payload['vatsim/rating'] as number;
+  }
+  return 0;
 }
 
 export const WebSocketProvider = ({children, url}: WebSocketProviderProps) => {
@@ -31,6 +44,7 @@ export const WebSocketProvider = ({children, url}: WebSocketProviderProps) => {
   const {getAccessTokenSilently, isAuthenticated, isLoading} = useAuth0();
 
   const [wsConnected, setWsConnected] = useState(false);
+  const [userRating, setUserRating] = useState(0);
 
   // Create the WebSocket client only once using lazy state initialization
   const [wsClient] = useState<WebSocketClient>(() => createWebSocketClient(url, {
@@ -68,6 +82,7 @@ export const WebSocketProvider = ({children, url}: WebSocketProviderProps) => {
     try {
       const token = await getAccessTokenSilently();
       wsClient.setToken(token);
+      setUserRating(getTokenRating(token));
       scheduleTokenRefresh(token);
     } catch (error) {
       console.error('Error refreshing access token:', error);
@@ -86,6 +101,7 @@ export const WebSocketProvider = ({children, url}: WebSocketProviderProps) => {
         try {
           const token = await getAccessTokenSilently();
           wsClient.setToken(token);
+          setUserRating(getTokenRating(token));
           scheduleTokenRefresh(token);
 
           if (!wsClient.isConnected()) {
@@ -129,8 +145,10 @@ export const WebSocketProvider = ({children, url}: WebSocketProviderProps) => {
 
   // Provide both the WebSocket client and the store
   return (
-    <WebSocketStoreProvider wsClient={wsClient}>
-      {children}
-    </WebSocketStoreProvider>
+    <UserRatingContext.Provider value={userRating}>
+      <WebSocketStoreProvider wsClient={wsClient}>
+        {children}
+      </WebSocketStoreProvider>
+    </UserRatingContext.Provider>
   );
 };

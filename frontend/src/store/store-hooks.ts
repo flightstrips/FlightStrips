@@ -2,6 +2,7 @@ import { useContext } from 'react';
 import { useStore } from 'zustand';
 import { type WebSocketState } from './store.ts';
 import { WebSocketStoreContext } from './store-context.ts';
+export { useUserRating } from './user-rating-context.ts';
 
 export const useWebSocketStore = <T,>(selector: (state: WebSocketState) => T): T => {
   const store = useContext(WebSocketStoreContext);

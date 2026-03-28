@@ -84,6 +84,7 @@ func NewHub(stripService shared.StripService, authenticationService shared.Authe
 	handlers.Add(frontend.ActionConfirmTacticalStrip, handleConfirmTacticalStrip)
 	handlers.Add(frontend.ActionStartTacticalTimer, handleStartTacticalTimer)
 	handlers.Add(frontend.ActionMoveTacticalStrip, handleMoveTacticalStrip)
+	handlers.Add(frontend.MissedApproachRequestType, handleMissedApproach)
 	handlers.Add(frontend.ActionCreateManualFPL, handleCreateManualFPL)
 	handlers.Add(frontend.ActionCreateVFRFPL, handleCreateVFRFPL)
 

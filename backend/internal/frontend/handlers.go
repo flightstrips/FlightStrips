@@ -617,6 +617,14 @@ func handleMoveTacticalStrip(ctx context.Context, client *Client, message Messag
 	return client.hub.stripService.MoveTacticalStripBetween(ctx, client.session, req.ID, req.InsertAfter, bay)
 }
 
+func handleMissedApproach(ctx context.Context, client *Client, message Message) error {
+	var req frontend.MissedApproachRequestEvent
+	if err := message.JsonUnmarshal(&req); err != nil {
+		return err
+	}
+	return client.hub.stripService.MissedApproach(ctx, client.session, req.Callsign, client.position)
+}
+
 func handleCreateManualFPL(ctx context.Context, client *Client, message Message) error {
 	var req frontend.CreateManualFPLAction
 	if err := message.JsonUnmarshal(&req); err != nil {

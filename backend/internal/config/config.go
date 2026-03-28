@@ -22,7 +22,8 @@ type Config struct {
 	Layouts             map[string][]LayoutVariant `yaml:"layouts"`
 	Runways             []string                   `yaml:"runways"`
 	MessageAreas        map[string][]string        `yaml:"message_areas"`
-	PDCValidation       PDCValidationConfig        `yaml:"pdc_validation"`
+	PDCValidation            PDCValidationConfig        `yaml:"pdc_validation"`
+	MissedApproachHandover   map[string]string          `yaml:"missed_approach_handover"`
 }
 
 // TestModeConfig holds test/replay mode configuration
@@ -51,6 +52,10 @@ var runwayRoutes = map[string][]Route{}
 
 // standRoutes lists all stand-based routes (ranges are matched at runtime).
 var standRoutes []Route
+
+// missedApproachHandover maps a landing runway to the approach controller position that should
+// receive a missed approach handover for that runway.
+var missedApproachHandover map[string]string
 
 func loadAirportConfig(r io.Reader) error {
 	var cfg Config
@@ -81,8 +86,19 @@ func loadAirportConfig(r io.Reader) error {
 		messageAreas = make(map[string][]string)
 	}
 	pdcValidationConfig = cfg.PDCValidation
+	missedApproachHandover = cfg.MissedApproachHandover
+	if missedApproachHandover == nil {
+		missedApproachHandover = make(map[string]string)
+	}
 
 	return nil
+}
+
+// GetMissedApproachHandoverPosition returns the approach controller position that should receive
+// a missed approach handover for the given landing runway. Returns ("", false) if not configured.
+func GetMissedApproachHandoverPosition(runway string) (string, bool) {
+	pos, ok := missedApproachHandover[runway]
+	return pos, ok && pos != ""
 }
 
 // GetAirportCoordinates returns the latitude and longitude of the configured airport.

@@ -1,11 +1,13 @@
 import Time from "@/components/Time";
 import MRKBTN from "./MRKBTN";
+import MUTEBTN from "./MUTEBTN";
 import TRFBRN from "./TRFBRN";
 import REQBTN from "./REQBTN";
 import ATIS from "./ATIS";
 import HOMEBTN from "./HOMEBTN";
 import CDMSIM from "./CDMSIM";
 import MetarHelper from "@/components/MetarHelper";
+import { useAudioSettings } from "@/hooks/useAudioSettings";
 import { useAtisCode, useMetar, useRunwaySetup, useSelectedCallsign, useSelectStrip, useWebSocketStore, useStrip } from "@/store/store-hooks";
 import { CLS_CMDBTN } from "@/components/strip/shared";
 import { Bay } from "@/api/models";
@@ -37,6 +39,7 @@ function parseWindCompact(metar: string | null): string {
 }
 
 export default function CommandBar() {
+  const { muted, toggleMute } = useAudioSettings();
   const metar = useMetar();
   const atisCode = useAtisCode();
   const layout = useWebSocketStore((state) => state.layout);
@@ -115,6 +118,7 @@ export default function CommandBar() {
           X
         </button>
         {/* Time — white box, double gap before it */}
+        <MUTEBTN muted={muted} onClick={toggleMute} />
         <div className="bg-[#e4e4e4] text-black h-[calc(4.72vh-14px)] my-[7px] w-[96px] ml-[5px] mr-3 flex items-center justify-center text-sm font-bold shadow-[inset_2px_0_0_#d3d3d3,_inset_0_2px_0_#d3d3d3]">
           <Time />
         </div>

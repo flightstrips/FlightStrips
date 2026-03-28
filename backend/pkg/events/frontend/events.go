@@ -86,6 +86,8 @@ const (
 	TacticalStripUpdated EventType = "tactical_strip_updated"
 	TacticalStripMoved   EventType = "tactical_strip_moved"
 
+	MissedApproachRequestType EventType = "missed_approach"
+
 	// Sent to the originating client when a frontend action is rejected by the backend
 	ActionRejected EventType = "action_rejected"
 
@@ -822,3 +824,10 @@ type AvailableSidsEvent struct {
 
 func (e AvailableSidsEvent) Marshal() ([]byte, error) { return marshall(e) }
 func (e AvailableSidsEvent) GetType() EventType       { return AvailableSids }
+
+// ---------- MISSED APPROACH ----------
+
+type MissedApproachRequestEvent struct {
+	Type     EventType `json:"type"`
+	Callsign string    `json:"callsign"`
+}

@@ -61,6 +61,7 @@ type StripService interface {
 	CreateTagRequest(ctx context.Context, session int32, callsign string, requesterPosition string) error
 	AcceptTagRequest(ctx context.Context, session int32, callsign string, ownerPosition string) error
 	AutoTransferAirborneStrip(ctx context.Context, session int32, callsign string) error
+	MissedApproach(ctx context.Context, session int32, callsign string, position string) error
 
 	// Cleared bay operations
 	ClearStrip(ctx context.Context, session int32, callsign string, cid string) error

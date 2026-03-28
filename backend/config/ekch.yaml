@@ -497,6 +497,14 @@ layouts:
       offline: [EKCH_A_TWR]
       layout: TWTE
 
+missed_approach_handover:
+  "04L": "EKCH_W_APP"
+  "04R": "EKCH_W_APP"
+  "12":  "EKCH_W_APP"
+  "22L": "EKCH_O_APP"
+  "22R": "EKCH_O_APP"
+  "30":  "EKCH_O_APP"
+
 pdc_validation:
   eobt_window_min: 10
   eobt_window_max: 30

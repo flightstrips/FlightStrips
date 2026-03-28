@@ -23,8 +23,10 @@ import { Bay } from "@/api/models.ts";
 import type { StripStatus } from "@/components/strip/types.ts";
 import { SortableBay, DropIndicatorBay } from "@/components/bays/SortableBay.tsx";
 import { ViewDndContext } from "@/components/bays/ViewDndContext.tsx";
-import { useWebSocketStore, useMyPosition, useLowerPositionOnline, useCtwrOnline, useMessages } from "@/store/store-hooks.ts";
-import { useRef, useEffect, useState } from "react";
+import { useWebSocketStore, useMyPosition, useLowerPositionOnline, useCtwrOnline, useMessages, useSelectedCallsign, useSelectStrip, useAirport } from "@/store/store-hooks.ts";
+import { useRef, useEffect, useState, useCallback } from "react";
+import missedApproachSound from "@/assets/missed_approach.mp3";
+import { isAudioMuted } from "@/lib/audio-settings";
 import { TWY_DEP_STRIP_WIDTH } from "@/components/strip/types";
 import { StripListPopup, type SortMode } from "@/components/StripListPopup.tsx";
 import { CLS_BTN, CLS_BTN_ORANGE, CLS_BTN_BLUE, CLS_BTN_YELLOW, CLS_SCROLLBAR, CLS_COL } from "@/components/strip/shared";
@@ -57,6 +59,7 @@ const btnYellow = CLS_BTN_YELLOW;
 
 export default function TWTE() {
   const myPosition = useMyPosition();
+  const airport    = useAirport();
   const messages   = useMessages();
   const [composeOpen, setComposeOpen] = useState(false);
   const [startupOpen, setStartupOpen] = useState(false);
@@ -94,6 +97,23 @@ export default function TWTE() {
   const move              = useWebSocketStore(state => state.move);
   const moveTacticalStrip = useWebSocketStore(state => state.moveTacticalStrip);
   const assumeStrip       = useWebSocketStore(state => state.assumeStrip);
+  const missedApproach    = useWebSocketStore(state => state.missedApproach);
+
+  const selectedCallsign  = useSelectedCallsign();
+  const selectStrip       = useSelectStrip();
+
+  // A strip is eligible for MISSED APP if it's in FINAL or RWY ARR and owned by us.
+  const selectedStrip = selectedCallsign
+    ? [...finalStrips, ...rwyArrStrips].find(s => isFlight(s) && s.callsign === selectedCallsign) as FrontendStrip | undefined
+    : undefined;
+  const canMissedApproach = !!selectedStrip && selectedStrip.owner === myPosition;
+
+  const handleMissedApproach = useCallback(() => {
+    if (!selectedStrip || !canMissedApproach) return;
+    if (!isAudioMuted()) new Audio(missedApproachSound).play().catch(() => {});
+    missedApproach(selectedStrip.callsign);
+    selectStrip(null);
+  }, [selectedStrip, canMissedApproach, missedApproach, selectStrip]);
 
   const startupSortModes: SortMode<FrontendStrip>[] = [
     { key: "EOBT",     label: "EOBT",     compareFn: (a, b) => a.eobt.localeCompare(b.eobt) },
@@ -193,7 +213,11 @@ export default function TWTE() {
         <div className={`${header} ${colSep} justify-between`}>
           <span className={label}>RWY ARR</span>
           <span className="flex gap-1">
-            <button className={btn}>MISSED APP</button>
+            <button
+              className={canMissedApproach ? btn : `${btn} opacity-40 cursor-not-allowed`}
+              onClick={handleMissedApproach}
+              disabled={!canMissedApproach}
+            >MISSED APP</button>
             <LandButton bay={Bay.RwyArr} className={btnOrange} />
             <StartButton bay={Bay.RwyArr} className={btnOrange} />
             <CrossingButton bay={Bay.RwyArr} className={btnYellow} />
@@ -287,9 +311,12 @@ export default function TWTE() {
           standalone={false}
           className={`flex-1 ${scrollAreaBottom}`}
         >
-          {(strip) => (
-            <Strip strip={strip} status="TWY-DEP" myPosition={myPosition} width={TWY_DEP_STRIP_WIDTH} selectable={true} />
-          )}
+          {(strip) => {
+            const isArrival = isFlight(strip) && strip.destination === airport;
+            return isArrival
+              ? <Strip strip={strip} status="FINAL-ARR" myPosition={myPosition} selectable={true} />
+              : <Strip strip={strip} status="TWY-DEP" myPosition={myPosition} width={TWY_DEP_STRIP_WIDTH} selectable={true} />;
+          }}
         </SortableBay>
 
         {startupOpen && (

@@ -142,3 +142,6 @@ func (s *NoOpStripService) CreateManualFPL(_ context.Context, _ int32, _ fronten
 func (s *NoOpStripService) CreateVFRFPL(_ context.Context, _ int32, _ frontend.CreateVFRFPLAction, _ string) error {
 	return nil
 }
+func (s *NoOpStripService) MissedApproach(_ context.Context, _ int32, _ string, _ string) error {
+	return nil
+}

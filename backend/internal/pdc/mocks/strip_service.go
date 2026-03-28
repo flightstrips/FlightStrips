@@ -227,3 +227,7 @@ func (m *StripService) CreateVFRFPL(ctx context.Context, session int32, req fron
 	args := m.Called(ctx, session, req, cid)
 	return args.Error(0)
 }
+
+func (m *StripService) MissedApproach(_ context.Context, _ int32, _ string, _ string) error {
+	return nil
+}

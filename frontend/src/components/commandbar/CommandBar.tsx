@@ -22,7 +22,7 @@ import * as VisuallyHidden from "@radix-ui/react-visually-hidden";
 import { Button } from "@/components/ui/button";
 
 // Bar height matches strip height (4.72vh). Inner elements: calc(4.72vh - 14px) + 7px top/bottom margin.
-const CLS_BAR = "h-[4.72vh] w-screen bg-[#3c3c3c] flex justify-between text-white items-center";
+const CLS_BAR = "h-[4.72vh] w-screen bg-[#3c3c3c] flex justify-between text-white items-center border-y-2 border-[#A9A9A9]";
 
 // Inner value boxes — same margin rhythm as CLS_CMDBTN
 // Font sizes derived from SVG (2560px base): large values 36px→1.41vw, labels 24px→0.94vw

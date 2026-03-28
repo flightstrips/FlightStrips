@@ -29,12 +29,12 @@ import { NewIfrDialog } from "@/components/strip/NewIfrDialog";
 import { PlannedDialog } from "@/components/strip/PlannedDialog";
 
 // Shared header styles
-const pageWrapper   = "bg-[#A9A9A9] w-screen h-[95.28vh] flex justify-center justify-items-center gap-2";
+const pageWrapper   = "bg-[#A9A9A9] w-screen h-[95.28vh] flex divide-x-[6px] divide-[#A9A9A9] border-x-2 border-[#A9A9A9]";
 const header        = "bg-[#393939] h-10 flex items-center px-2 shrink-0";
 const label         = "text-white font-bold text-lg";
-const colSep        = "border-t-4 border-[#A9A9A9]";
-const scrollArea       = `w-full bg-[#555355] shadow-[inset_0_0_0_2px_#555355] p-0.5 flex flex-col gap-px overflow-y-auto ${CLS_SCROLLBAR}`;
-const scrollAreaBottom = `w-full bg-[#555355] shadow-[inset_0_0_0_2px_#555355] p-0.5 flex flex-col justify-end gap-px overflow-y-auto ${CLS_SCROLLBAR}`;
+const colSep        = "border-t-[6px] border-[#A9A9A9]";
+const scrollArea       = `w-full bg-[#555355] shadow-[inset_2px_2px_4px_rgba(0,0,0,0.55),inset_-1px_-1px_2px_rgba(255,255,255,0.07)] p-0.5 flex flex-col gap-px overflow-y-auto ${CLS_SCROLLBAR}`;
+const scrollAreaBottom = `w-full bg-[#555355] shadow-[inset_2px_2px_4px_rgba(0,0,0,0.55),inset_-1px_-1px_2px_rgba(255,255,255,0.07)] p-0.5 flex flex-col justify-end gap-px overflow-y-auto ${CLS_SCROLLBAR}`;
 const col           = "flex-1 h-full bg-[#555355] flex flex-col min-w-0";
 const tabBar        = "flex shrink-0 border-t-8 border-[#A9A9A9]";
 const tabBtn        = "flex-1 bg-[#393939] text-white font-bold text-sm border border-white hover:bg-[#4a4a4a]";

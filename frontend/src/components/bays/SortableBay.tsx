@@ -141,7 +141,8 @@ function DroppableContainer({
   const isDragging = activeId !== null;
   const canDrop = isValidTarget(bayId);
 
-  let hoverStyle: CSSProperties = { boxShadow: "inset 0 0 0 2px #555355" };
+  const depthShadow = "inset 2px 2px 4px rgba(0,0,0,0.55), inset -1px -1px 2px rgba(255,255,255,0.07)";
+  let hoverStyle: CSSProperties = { boxShadow: depthShadow };
   if (isDragging && isOver) {
     hoverStyle = canDrop
       ? { boxShadow: "inset 0 0 0 2px #FFFB03" }
@@ -193,7 +194,8 @@ export function DropIndicatorBay({
   const isDragging = activeId !== null;
   const canDrop = isValidTarget(bayId);
 
-  let hoverStyle: CSSProperties = { boxShadow: "inset 0 0 0 2px #555355" };
+  const depthShadow = "inset 2px 2px 4px rgba(0,0,0,0.55), inset -1px -1px 2px rgba(255,255,255,0.07)";
+  let hoverStyle: CSSProperties = { boxShadow: depthShadow };
   if (isDragging && isOver) {
     hoverStyle = canDrop
       ? { boxShadow: "inset 0 0 0 2px #FFFB03" }

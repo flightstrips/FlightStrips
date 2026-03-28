@@ -12,7 +12,7 @@ import { PlannedDialog } from "@/components/strip/PlannedDialog";
 // Column widths — all four columns are equal
 const W_COL = "w-1/4";
 const col         = `${W_COL} h-full bg-[#555355]`; // column wrapper (no flex-col; each column manages its own layout)
-const pageWrapper = "bg-[#A9A9A9] w-screen h-[95.28vh] flex justify-center justify-items-center gap-2 aspect-video";
+const pageWrapper = "bg-[#A9A9A9] w-screen h-[95.28vh] flex divide-x-[6px] divide-[#A9A9A9] border-x-2 border-[#A9A9A9] aspect-video";
 
 // Header class strings
 const lockedHeader  = "bg-[#393939] h-10 flex items-center px-2 justify-between";
@@ -23,8 +23,8 @@ const primaryHeader = "bg-primary h-10 flex items-center px-2 justify-between";
 const primaryLabel  = "text-gray-100 font-bold text-lg";
 
 // Scroll container classes
-const scrollArea       = `w-full bg-[#555355] shadow-[inset_0_0_0_2px_#555355] p-0.5 flex flex-col gap-px overflow-y-auto ${CLS_SCROLLBAR}`;
-const scrollAreaBottom = `w-full bg-[#555355] shadow-[inset_0_0_0_2px_#555355] p-0.5 flex flex-col justify-end gap-px overflow-y-auto ${CLS_SCROLLBAR}`;
+const scrollArea       = `w-full bg-[#555355] shadow-[inset_2px_2px_4px_rgba(0,0,0,0.55),inset_-1px_-1px_2px_rgba(255,255,255,0.07)] p-0.5 flex flex-col gap-px overflow-y-auto ${CLS_SCROLLBAR}`;
+const scrollAreaBottom = `w-full bg-[#555355] shadow-[inset_2px_2px_4px_rgba(0,0,0,0.55),inset_-1px_-1px_2px_rgba(255,255,255,0.07)] p-0.5 flex flex-col justify-end gap-px overflow-y-auto ${CLS_SCROLLBAR}`;
 const scrollAreaRaw = `w-full bg-[#555355] overflow-y-auto ${CLS_SCROLLBAR}`;
 
 export default function DEL() {

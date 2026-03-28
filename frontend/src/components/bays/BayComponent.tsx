@@ -19,7 +19,7 @@ export default function BayComponent() {
                         </button>
                     </span>
                 </div>
-                <div className="h-[calc(100%-2.5rem)] w-full bg-[#555355] p-1 flex flex-col gap-[2px] overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-[#285a5c]">
+                <div className="h-[calc(100%-2.5rem)] w-full bg-[#444244] p-1 flex flex-col gap-[2px] overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-[#285a5c] shadow-[inset_3px_3px_6px_rgba(0,0,0,0.7),inset_-1px_-1px_3px_rgba(255,255,255,0.08)]">
                     <FlightStrip callsign="DAT3676" taxiway="D" holdingPoint="E1" destination={'EKYT'} stand={'D3'} tsat={'1312'} status="CLR"/>
                     <FlightStrip callsign="BAW1234" taxiway="A" holdingPoint="B1" destination={'EGLL'} stand={'A6'} tsat={'1400'} status="CLR"/>
                     <FlightStrip callsign="DLH5678" taxiway="B" holdingPoint="C2" destination={'EDDF'} stand={'B9'} tsat={'1415'} status="CLR"/>
@@ -58,7 +58,7 @@ export default function BayComponent() {
                         SAS
                     </span>
                 </div>
-                <div className="h-[calc(50%-2.5rem)] w-full bg-[#555355] p-1 flex flex-col gap-[2px] overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-[#285a5c]">
+                <div className="h-[calc(50%-2.5rem)] w-full bg-[#444244] p-1 flex flex-col gap-[2px] overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-[#285a5c] shadow-[inset_3px_3px_6px_rgba(0,0,0,0.7),inset_-1px_-1px_3px_rgba(255,255,255,0.08)]">
                 <FlightStrip callsign="OYYSB" taxiway="D" holdingPoint="E1" destination={'EKYT'} stand={'D3'} tsat={'1312'} status="CLR"/>
                     <FlightStrip callsign="SAS1234" taxiway="A" holdingPoint="B1" destination={'ESSA'} stand={'A6'} tsat={'1400'} status="CLR"/>
                     <FlightStrip callsign="SAS5678" taxiway="B" holdingPoint="C2" destination={'ENGM'} stand={'B9'} tsat={'1415'} status="CLR"/>
@@ -77,7 +77,7 @@ export default function BayComponent() {
                         NORWEGIAN
                     </span>
                 </div>
-                <div className="h-[calc(50%-2.5rem)] w-full bg-[#555355] p-1 flex flex-col gap-[2px] overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-[#285a5c]">
+                <div className="h-[calc(50%-2.5rem)] w-full bg-[#444244] p-1 flex flex-col gap-[2px] overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-[#285a5c] shadow-[inset_3px_3px_6px_rgba(0,0,0,0.7),inset_-1px_-1px_3px_rgba(255,255,255,0.08)]">
                     <FlightStrip callsign="NSZ3676" taxiway="D" holdingPoint="E1" destination={'EKYT'} stand={'D3'} tsat={'1312'} status="CLR"/>
                     <FlightStrip callsign="NSZ1234" taxiway="A" holdingPoint="B1" destination={'ESSA'} stand={'A6'} tsat={'1400'} status="CLR"/>
                     <FlightStrip callsign="NAX5678" taxiway="B" holdingPoint="C2" destination={'ENGM'} stand={'B9'} tsat={'1415'} status="CLR"/>
@@ -98,7 +98,7 @@ export default function BayComponent() {
                         CLEARED
                     </span>
                 </div>
-                <div className="h-1/2 w-full bg-[#555355] p-1 flex flex-col gap-[2px] overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-[#285a5c]">
+                <div className="h-1/2 w-full bg-[#444244] p-1 flex flex-col gap-[2px] overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-[#285a5c] shadow-[inset_3px_3px_6px_rgba(0,0,0,0.7),inset_-1px_-1px_3px_rgba(255,255,255,0.08)]">
                 <FlightStrip callsign="NSZ3676" clearances taxiway="D" holdingPoint="E1" destination={'EKYT'} stand={'D3'} tsat={'1312'} status="CLROK"/>
                 <FlightStrip callsign="NSZ1234" clearances taxiway="A" holdingPoint="B1" destination={'ESSA'} stand={'A6'} tsat={'1400'} status="CLROK"/>
                 </div>
@@ -119,7 +119,7 @@ export default function BayComponent() {
                         PUSHBACK
                     </span>
                 </div>
-                <div className="h-2/5 w-full bg-[#555355] p-1 flex flex-col gap-[2px] overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-[#285a5c]">
+                <div className="h-2/5 w-full bg-[#444244] p-1 flex flex-col gap-[2px] overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-[#285a5c] shadow-[inset_3px_3px_6px_rgba(0,0,0,0.7),inset_-1px_-1px_3px_rgba(255,255,255,0.08)]">
                     <FlightStrip callsign="NSZ1234" clearances taxiway="A" holdingPoint="B1" destination={'ESSA'} stand={'A6'} tsat={'1400'} status="HALF"/>
                     <FlightStrip callsign="NSZ1234" clearances taxiway="A" holdingPoint="B1" destination={'ESSA'} stand={'A6'} tsat={'1400'} status="HALF"/>
                     <FlightStrip callsign="NSZ1234" clearances taxiway="A" holdingPoint="B1" destination={'ESSA'} stand={'A6'} tsat={'1400'} status="HALF"/>
@@ -131,7 +131,7 @@ export default function BayComponent() {
                         TWY DEP
                     </span>
                 </div>
-                <div className="h-[calc(60%-5rem)] w-full bg-[#555355] p-1 flex flex-col gap-[2px] overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-[#285a5c]">
+                <div className="h-[calc(60%-5rem)] w-full bg-[#444244] p-1 flex flex-col gap-[2px] overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-[#285a5c] shadow-[inset_3px_3px_6px_rgba(0,0,0,0.7),inset_-1px_-1px_3px_rgba(255,255,255,0.08)]">
                 <FlightStrip callsign="NSZ1234" clearances taxiway="A" holdingPoint="B1" destination={'ESSA'} stand={'A6'} tsat={'1400'} status="HALF"/>
                     <FlightStrip callsign="NSZ1234" clearances taxiway="A" holdingPoint="B1" destination={'ESSA'} stand={'A6'} tsat={'1400'} status="HALF"/>
                     <FlightStrip callsign="NSZ1234" clearances taxiway="A" holdingPoint="B1" destination={'ESSA'} stand={'A6'} tsat={'1400'} status="HALF"/>

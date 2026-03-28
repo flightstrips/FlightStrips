@@ -211,7 +211,7 @@ export default function AD() {
           bayId="DE-ICE-V"
           isDragDisabled={(strip) => isFlight(strip) && !!strip.owner && strip.owner !== myPosition}
           standalone={false}
-          className={`h-[13%] ${scrollAreaBottom}`}
+          className={`h-[7.08vh] ${scrollAreaBottom}`}
         >
           {(strip) => (
             <Strip strip={strip} status="PUSH" myPosition={myPosition} selectable={true} />
@@ -226,7 +226,7 @@ export default function AD() {
           bayId="DE-ICE-B"
           isDragDisabled={() => false}
           standalone={false}
-          className={`h-[13%] ${scrollAreaBottom}`}
+          className={`h-[7.08vh] ${scrollAreaBottom}`}
         >
           {(strip) => (
             <Strip strip={strip} status="PUSH" myPosition={myPosition} selectable={true} />

@@ -152,7 +152,7 @@ export function getCellTextColor(fieldName: string, controllerModifiedFields?: s
 /** SI box — strip assumed by the current position. */
 export const COLOR_SI_ASSUMED     = "#F0F0F0";
 /** SI box — strip not relevant to current position. */
-export const COLOR_SI_UNCONCERNED = "#808080";
+export const COLOR_SI_UNCONCERNED = "#DD6A12";
 /** SI box — strip in the current position's concern list. */
 export const COLOR_SI_CONCERNED   = "#E082E7";
 

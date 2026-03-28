@@ -233,6 +233,7 @@ export function SortableStrip({
     transition,
     opacity: isDragging ? (hideWhenDragging ? 0 : 0.5) : 1,
     cursor: dragDisabled ? "not-allowed" : undefined,
+    touchAction: dragDisabled ? "pan-y" : "none",
   };
   return (
     <div ref={setNodeRef} style={style} {...attributes} {...listeners}>

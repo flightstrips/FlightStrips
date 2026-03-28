@@ -226,7 +226,7 @@ export function ViewDndContext({
           <DragStateContext value={{ activeId, isValidTarget }}>
             {children}
             {renderDragOverlay && (
-              <DragOverlay style={{ opacity: 0.5 }}>
+              <DragOverlay style={{ opacity: 0.5, touchAction: "none" }}>
                 {activeId ? (() => {
                   const strip = resolveActiveStrip();
                   return strip ? renderDragOverlay(strip) : null;

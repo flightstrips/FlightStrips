@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.17.1](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.17.0...frontend/v0.17.1) (2026-03-28)
+
+
+### Bug Fixes
+
+* touch hot-fix ([a87e4aa](https://github.com/flightstrips/FlightStrips/commit/a87e4aaa3dae15525384afe8b07dddf4cbac2eb6))
+
 ## [0.17.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.16.1...frontend/v0.17.0) (2026-03-28)
 
 

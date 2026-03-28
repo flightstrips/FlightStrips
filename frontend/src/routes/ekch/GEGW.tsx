@@ -26,7 +26,7 @@ import { StripListPopup, type SortMode } from "@/components/StripListPopup.tsx";
 import { useState } from "react";
 import { CLX_CLEARED_STRIP_WIDTH } from "@/components/strip/ClxClearedStrip.tsx";
 import { TWY_DEP_STRIP_WIDTH } from "@/components/strip/types";
-import { CLS_BTN, CLS_BTN_ORANGE, CLS_BTN_BLUE, CLS_BTN_YELLOW, CLS_SCROLLBAR, CLS_COL, CLS_HEADER_SHADOW } from "@/components/strip/shared";
+import { CLS_BTN, CLS_BTN_ORANGE, CLS_BTN_BLUE, CLS_BTN_YELLOW, CLS_LABEL } from "@/components/strip/shared";
 import { NewIfrDialog } from "@/components/strip/NewIfrDialog";
 import { PlannedDialog } from "@/components/strip/PlannedDialog";
 
@@ -35,14 +35,6 @@ const W_COL_ARR      = "w-[27%]";
 const W_COL_DEP      = "w-[28%]";
 const W_COL_CLRDEL   = "w-1/4";
 const W_COL_STAND    = "w-1/5";
-
-const pageWrapper  = "bg-bay-border w-screen h-[95.28vh] flex divide-x-[6px] divide-bay-border border-x-2 border-t-2 border-bay-border";
-const header       = `bg-[#393939] h-10 flex items-center px-2 shrink-0 ${CLS_HEADER_SHADOW}`;
-const label        = "text-white font-bold text-lg";
-const colSep       = "border-t-[6px] border-bay-border";
-const scrollArea           = `w-full bg-[#555355] shadow-[inset_2px_2px_4px_rgba(0,0,0,0.55),inset_-1px_-1px_2px_rgba(255,255,255,0.07)] p-0.5 flex flex-col gap-px overflow-y-auto ${CLS_SCROLLBAR}`;
-const scrollAreaBottom     = `w-full bg-[#555355] shadow-[inset_2px_2px_4px_rgba(0,0,0,0.55),inset_-1px_-1px_2px_rgba(255,255,255,0.07)] p-0.5 flex flex-col justify-end gap-px overflow-y-auto ${CLS_SCROLLBAR}`;
-const darkScrollAreaBottom = `w-full bg-[#212121] shadow-[inset_3px_3px_7px_rgba(0,0,0,0.85),inset_-1px_-1px_3px_rgba(255,255,255,0.05)] p-0.5 flex flex-col justify-end gap-px overflow-y-auto ${CLS_SCROLLBAR}`;
 
 export default function GEGW() {
   const myPosition = useMyPosition();
@@ -130,12 +122,12 @@ export default function GEGW() {
         return null;
       }}
     >
-    <div className={pageWrapper}>
+    <div className="bay-page-wrapper">
 
       {/* Column 1 (27%) – FINAL + RWY ARR + TWY ARR */}
-      <div className={`${W_COL_ARR} ${CLS_COL}`}>
-        <div className={`${header} justify-between`}>
-          <span className={label}>FINAL</span>
+      <div className={`${W_COL_ARR} bay-col`}>
+        <div className="bay-col-header justify-between">
+          <span className={CLS_LABEL}>FINAL</span>
           <button className={CLS_BTN} onClick={() => setArrOpen(true)}>ARR</button>
         </div>
         <SortableBay
@@ -143,30 +135,30 @@ export default function GEGW() {
           bayId="FINAL"
           isDragDisabled={(strip) => isFlight(strip) && !!strip.owner && strip.owner !== myPosition}
           standalone={false}
-          className={`h-[25%] ${scrollAreaBottom}`}
+          className="h-[25%] bay-scroll-area-bottom"
         >
           {(strip) => (
             <Strip strip={strip} status="FINAL-ARR" selectable={false} myPosition={myPosition} />
           )}
         </SortableBay>
 
-        <div className={`${header} ${colSep}`}>
-          <span className={label}>RWY ARR</span>
+        <div className="bay-col-header bay-col-sep">
+          <span className={CLS_LABEL}>RWY ARR</span>
         </div>
         <SortableBay
           strips={rwyArrStrips.filter(isFlight)}
           bayId="RWY-ARR"
           isDragDisabled={(strip) => isFlight(strip) && !!strip.owner && strip.owner !== myPosition}
           standalone={false}
-          className={`h-[20%] ${darkScrollAreaBottom}`}
+          className="h-[20%] bay-scroll-area-dark"
         >
           {(strip) => (
             <Strip strip={strip} status="FINAL-ARR" selectable={false} myPosition={myPosition} />
           )}
         </SortableBay>
 
-        <div className={`${header} ${colSep} justify-between`}>
-          <span className={label}>TWY ARR</span>
+        <div className="bay-col-header bay-col-sep justify-between">
+          <span className={CLS_LABEL}>TWY ARR</span>
           <span className="flex gap-1">
             <MemAidButton bay={Bay.TwyArr} className={CLS_BTN_BLUE} />
             <LandButton bay={Bay.TwyArr} className={CLS_BTN_ORANGE} />
@@ -179,7 +171,7 @@ export default function GEGW() {
           bayId="TWY-ARR"
           isDragDisabled={(strip) => isFlight(strip) && !!strip.owner && strip.owner !== myPosition}
           standalone={false}
-          className={`flex-1 ${scrollAreaBottom}`}
+          className="flex-1 bay-scroll-area-bottom"
         >
           {(strip) => (
             <Strip strip={strip} status="FINAL-ARR" myPosition={myPosition} />
@@ -203,24 +195,24 @@ export default function GEGW() {
       </div>
 
       {/* Column 2 (28%) – PUSHBACK + TWY DEP + RWY DEP + AIRBORNE */}
-      <div className={`${W_COL_DEP} ${CLS_COL}`}>
-        <div className={header}>
-          <span className={label}>PUSHBACK</span>
+      <div className={`${W_COL_DEP} bay-col`}>
+        <div className="bay-col-header">
+          <span className={CLS_LABEL}>PUSHBACK</span>
         </div>
         <SortableBay
           strips={pushStrips}
           bayId="PUSHBACK"
           isDragDisabled={(strip) => isFlight(strip) && !!strip.owner && strip.owner !== myPosition}
           standalone={false}
-          className={`h-[12%] ${scrollAreaBottom}`}
+          className="h-[12%] bay-scroll-area-bottom"
         >
           {(strip) => (
             <Strip strip={strip} status="HALF" halfStripVariant="APN-PUSH" myPosition={myPosition} selectable={true} />
           )}
         </SortableBay>
 
-        <div className={`${header} ${colSep} justify-between`}>
-          <span className={label}>TWY DEP</span>
+        <div className="bay-col-header bay-col-sep justify-between">
+          <span className={CLS_LABEL}>TWY DEP</span>
           <span className="flex gap-1">
             <button className={CLS_BTN} onClick={() => setNewOpen(true)}>NEW</button>
             <MemAidButton bay={Bay.TaxiLwr} className={CLS_BTN_BLUE} />
@@ -234,37 +226,37 @@ export default function GEGW() {
           bayId="TWY-DEP"
           isDragDisabled={(strip) => isFlight(strip) && !!strip.owner && strip.owner !== myPosition}
           standalone={false}
-          className={`h-[35%] ${scrollAreaBottom}`}
+          className="h-[35%] bay-scroll-area-bottom"
         >
           {(strip) => (
             <Strip strip={strip} status="TWY-DEP" myPosition={myPosition} width={TWY_DEP_STRIP_WIDTH} selectable={true} />
           )}
         </SortableBay>
 
-        <div className={`${header} ${colSep}`}>
-          <span className={label}>RWY DEP</span>
+        <div className="bay-col-header bay-col-sep">
+          <span className={CLS_LABEL}>RWY DEP</span>
         </div>
         <SortableBay
           strips={rwyDepStrips}
           bayId="RWY-DEP"
           isDragDisabled={(strip) => isFlight(strip) && !!strip.owner && strip.owner !== myPosition}
           standalone={false}
-          className={`h-[15%] ${darkScrollAreaBottom}`}
+          className="h-[15%] bay-scroll-area-dark"
         >
           {(strip) => (
             <Strip strip={strip} status="CLROK" myPosition={myPosition} selectable={true} />
           )}
         </SortableBay>
 
-        <div className={`${header} ${colSep}`}>
-          <span className={label}>AIRBORNE</span>
+        <div className="bay-col-header bay-col-sep">
+          <span className={CLS_LABEL}>AIRBORNE</span>
         </div>
         <SortableBay
           strips={airborneStrips}
           bayId="AIRBORNE"
           isDragDisabled={(strip) => isFlight(strip) && !!strip.owner && strip.owner !== myPosition}
           standalone={false}
-          className={`flex-1 ${darkScrollAreaBottom}`}
+          className="flex-1 bay-scroll-area-dark"
         >
           {(strip) => (
             <Strip strip={strip} status="CLROK" myPosition={myPosition} selectable={true} />
@@ -273,9 +265,9 @@ export default function GEGW() {
       </div>
 
       {/* Column 3 (25%) – STARTUP + DE-ICE A + MESSAGES */}
-      <div className={`${W_COL_CLRDEL} ${CLS_COL}`}>
-        <div className={`${header} justify-between`}>
-          <span className={label}>STARTUP</span>
+      <div className={`${W_COL_CLRDEL} bay-col`}>
+        <div className="bay-col-header justify-between">
+          <span className={CLS_LABEL}>STARTUP</span>
           <button className={CLS_BTN} onClick={() => setNewOpen(true)}>NEW</button>
         </div>
         <SortableBay
@@ -283,29 +275,29 @@ export default function GEGW() {
           bayId="STARTUP"
           isDragDisabled={(strip) => isFlight(strip) && !!strip.owner && strip.owner !== myPosition}
           standalone={false}
-          className={`h-[33%] ${scrollArea}`}
+          className="h-[33%] bay-scroll-area"
         >
           {(strip) => (
             <Strip strip={strip} status="PUSH" myPosition={myPosition} selectable={true} />
           )}
         </SortableBay>
 
-        <div className={`${header} ${colSep}`}>
-          <span className={label}>DE-ICE A</span>
+        <div className="bay-col-header bay-col-sep">
+          <span className={CLS_LABEL}>DE-ICE A</span>
         </div>
         <SortableBay
           strips={deIceStrips}
           bayId="DE-ICE"
           isDragDisabled={(strip) => isFlight(strip) && !!strip.owner && strip.owner !== myPosition}
           standalone={false}
-          className={`h-[33%] ${scrollAreaBottom}`}
+          className="h-[33%] bay-scroll-area-bottom"
         >
           {(strip) => (
             <Strip strip={strip} status="PUSH" myPosition={myPosition} selectable={true} />
           )}
         </SortableBay>
 
-        <div className={`bg-primary h-10 flex items-center px-2 shrink-0 justify-between ${CLS_HEADER_SHADOW} ${colSep}`}>
+        <div className="bay-col-header-primary bay-col-sep justify-between">
           <span className="text-white font-bold text-lg">MESSAGES</span>
           <span className="flex gap-1">
             <button className={CLS_BTN}>INFO</button>
@@ -313,7 +305,7 @@ export default function GEGW() {
             <button className={CLS_BTN}>EQUIP</button>
           </span>
         </div>
-        <div className={`flex-1 ${scrollArea}`}>
+        <div className="flex-1 bay-scroll-area">
           {messages.map(msg => (
             <MessageStrip key={msg.id} msg={msg} />
           ))}
@@ -322,29 +314,29 @@ export default function GEGW() {
       </div>
 
       {/* Column 4 (20%) – CLRDEL + STAND */}
-      <div className={`${W_COL_STAND} ${CLS_COL}`}>
-        <div className={`${header} justify-between`}>
-          <span className={label}>CLRDEL</span>
+      <div className={`${W_COL_STAND} bay-col`}>
+        <div className="bay-col-header justify-between">
+          <span className={CLS_LABEL}>CLRDEL</span>
           <span className="flex gap-1">
             <button className={CLS_BTN} onClick={() => setNewOpen(true)}>NEW</button>
             <button className={CLS_BTN} onClick={() => setPlannedOpen(true)}>PLANNED</button>
           </span>
         </div>
-        <div className={`h-[75%] ${scrollArea}`}>
+        <div className="h-[75%] bay-scroll-area">
           {clrDelActive && nonClearedStrips.map(s => (
             <Strip key={s.callsign} strip={s} status="CLR" selectable={false} myPosition={myPosition} fullWidth />
           ))}
         </div>
 
-        <div className={`${header} ${colSep}`}>
-          <span className={label}>STAND</span>
+        <div className="bay-col-header bay-col-sep">
+          <span className={CLS_LABEL}>STAND</span>
         </div>
         <SortableBay
           strips={standStrips}
           bayId="STAND"
           isDragDisabled={(strip) => isFlight(strip) && !!strip.owner && strip.owner !== myPosition}
           standalone={false}
-          className={`flex-1 ${scrollAreaBottom}`}
+          className="flex-1 bay-scroll-area-bottom"
         >
           {(strip) => (
             <Strip strip={strip} status="ARR" myPosition={myPosition} selectable={true} />

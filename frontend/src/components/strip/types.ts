@@ -55,8 +55,8 @@ export interface StripProps {
 export const TWY_DEP_STRIP_WIDTH = 519; // W_SI(40) + W_CALLSIGN(120) + W_TYPE_SQ(60) + W_STAND_CTOT(60) + W_SMALL(53)*3 + W_SID_DEST(80)
 
 export function getStripBg(pdcStatus?: PdcStatus, isArrival?: boolean): string {
-  if (pdcStatus === "REQUESTED") return "#B8860B";
-  if (pdcStatus === "REQUESTED_WITH_FAULTS") return "#FFD700";
-  if (pdcStatus === "CLEARED")   return "#00154A";
-  return isArrival ? "#fff28e" : "#bef5ef";
+  if (pdcStatus === "REQUESTED") return "var(--color-pdc-requested)";
+  if (pdcStatus === "REQUESTED_WITH_FAULTS") return "var(--color-pdc-faults)";
+  if (pdcStatus === "CLEARED")   return "var(--color-pdc-cleared)";
+  return isArrival ? "var(--color-strip-arr-bg)" : "var(--color-strip-dep-bg)";
 }

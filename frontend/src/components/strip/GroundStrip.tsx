@@ -14,7 +14,7 @@ const BOT_H = 16; // 1/3 of 48px
 // 48px strip with 2/3 (32px) top row / 1/3 (16px) bottom row vertical layout:
 //   [40px SI] | [120px callsign] | [80px actype/reg] | [80px stand] | [80px clearance limit] | [80px RWY] | [27px box]
 //
-// Background: cyan (#bef5ef).
+// Background: cyan (var(--color-strip-dep-bg)).
 // -----------------------------------------------------------------------------
 
 export function GroundStrip({

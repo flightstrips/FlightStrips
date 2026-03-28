@@ -5,27 +5,15 @@ import {useClearedStrips, useNorwegianBayStrips, useOtherBayStrips, usePushbackS
 import type {FrontendStrip} from "@/api/models.ts";
 import { useMessages, useMyPosition } from "@/store/store-hooks.ts";
 import { useState } from "react";
-import { CLS_BTN, CLS_SCROLLBAR, CLS_HEADER_SHADOW } from "@/components/strip/shared";
+import { CLS_BTN } from "@/components/strip/shared";
 import { NewIfrDialog } from "@/components/strip/NewIfrDialog";
 import { PlannedDialog } from "@/components/strip/PlannedDialog";
 
-// Column widths — all four columns are equal
-const W_COL = "w-1/4";
-const col         = `${W_COL} h-full bg-[#555355]`; // column wrapper (no flex-col; each column manages its own layout)
-const pageWrapper = "bg-bay-border w-screen h-[95.28vh] flex divide-x-[6px] divide-bay-border border-x-2 border-t-2 border-bay-border aspect-video";
-
-// Header class strings
-const lockedHeader  = `bg-[#393939] h-10 flex items-center px-2 justify-between ${CLS_HEADER_SHADOW}`;
-const lockedLabel   = "text-white font-bold text-lg";
-const activeHeader  = `bg-[#b3b3b3] h-10 flex items-center px-2 justify-between ${CLS_HEADER_SHADOW}`;
-const activeLabel   = "text-[#393939] font-bold text-lg";
-const primaryHeader = `bg-primary h-10 flex items-center px-2 justify-between ${CLS_HEADER_SHADOW}`;
-const primaryLabel  = "text-gray-100 font-bold text-lg";
-
-// Scroll container classes
-const scrollArea       = `w-full bg-[#555355] shadow-[inset_2px_2px_4px_rgba(0,0,0,0.55),inset_-1px_-1px_2px_rgba(255,255,255,0.07)] p-0.5 flex flex-col gap-px overflow-y-auto ${CLS_SCROLLBAR}`;
-const scrollAreaBottom = `w-full bg-[#555355] shadow-[inset_2px_2px_4px_rgba(0,0,0,0.55),inset_-1px_-1px_2px_rgba(255,255,255,0.07)] p-0.5 flex flex-col justify-end gap-px overflow-y-auto ${CLS_SCROLLBAR}`;
-const scrollAreaRaw = `w-full bg-[#555355] overflow-y-auto ${CLS_SCROLLBAR}`;
+const col         = "w-1/4 h-full bg-bay-panel";
+const lockedLabel  = "text-white font-bold text-lg";
+const activeLabel  = "text-bay-header font-bold text-lg";
+const primaryLabel = "text-gray-100 font-bold text-lg";
+const scrollAreaRaw = "w-full bg-bay-panel overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary";
 
 export default function DEL() {
   const myPosition = useMyPosition();
@@ -56,41 +44,41 @@ export default function DEL() {
 
   return (
     <>
-      <div className={pageWrapper}>
+      <div className="bay-page-wrapper aspect-video">
         <div className={col}>
-          <div className={lockedHeader}>
+          <div className="bay-col-header justify-between">
             <span className={lockedLabel}>OTHERS</span>
             <span className="flex gap-2">
               <button className={CLS_BTN} onClick={() => setNewOpen(true)}>NEW</button>
               <button className={CLS_BTN} onClick={() => setPlannedOpen(true)}>PLANNED</button>
             </span>
           </div>
-          <div className={`h-[calc(100%-2.5rem)] ${scrollArea}`}>
+          <div className="h-[calc(100%-2.5rem)] bay-scroll-area">
             {otherStrips.map(strip => mapToStrip(strip, "CLR"))}
           </div>
         </div>
         <div className={col}>
-          <div className={lockedHeader}>
+          <div className="bay-col-header justify-between">
             <span className={lockedLabel}>SAS</span>
           </div>
-          <div className={`h-[calc(67%-2.5rem)] ${scrollArea}`}>
+          <div className="h-[calc(67%-2.5rem)] bay-scroll-area">
             {sasStrips.map(strip => mapToStrip(strip, "CLR"))}
           </div>
-          <div className={lockedHeader}>
+          <div className="bay-col-header bay-col-sep justify-between">
             <span className={lockedLabel}>NORWEGIAN</span>
           </div>
-          <div className={`h-[calc(33%-2.5rem)] ${scrollArea}`}>
+          <div className="h-[calc(33%-2.5rem)] bay-scroll-area">
             {norgewianStrips.map(strip => mapToStrip(strip, "CLR"))}
           </div>
         </div>
         <div className={col}>
-          <div className={lockedHeader}>
+          <div className="bay-col-header justify-between">
             <span className={primaryLabel}>CLEARED</span>
           </div>
-          <div className={`h-[calc(67%-2.5rem)] ${scrollArea}`}>
+          <div className="h-[calc(67%-2.5rem)] bay-scroll-area">
             {cleared.map(strip => mapToStrip(strip, "CLROK"))}
           </div>
-          <div className={primaryHeader}>
+          <div className="bay-col-header-primary bay-col-sep justify-between">
             <span className={primaryLabel}>MESSAGES</span>
             <button className={CLS_BTN} onClick={() => setComposeOpen(true)}>FREE TEXT</button>
           </div>
@@ -102,16 +90,16 @@ export default function DEL() {
           <MessageComposeDialog open={composeOpen} onClose={() => setComposeOpen(false)} />
         </div>
         <div className={col}>
-          <div className={activeHeader}>
+          <div className="bay-col-header-light justify-between">
             <span className={activeLabel}>PUSHBACK</span>
           </div>
-          <div className={`h-2/5 ${scrollAreaBottom}`}>
+          <div className="h-2/5 bay-scroll-area-bottom">
             {pushback.map(strip => mapToHalfStrip(strip))}
           </div>
-          <div className={activeHeader}>
+          <div className="bay-col-header-light bay-col-sep justify-between">
             <span className={activeLabel}>TWY DEP</span>
           </div>
-          <div className={`h-[calc(60%-5rem)] ${scrollAreaBottom}`}>
+          <div className="h-[calc(60%-5rem)] bay-scroll-area-bottom">
             {taxidep.map(strip => mapToHalfStrip(strip))}
           </div>
         </div>

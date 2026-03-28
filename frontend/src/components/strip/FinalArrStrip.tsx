@@ -10,7 +10,7 @@ import { ArrStandDialog } from "./ArrStandDialog";
 import { TaxiMapDialog } from "@/components/map-dialogs/TaxiMapDialog";
 
 /** Gold cell borders — matches the yellow arrival strip design. */
-const CELL_BORDER = "#FFD100";
+const CELL_BORDER = "var(--color-cell-border-arr)";
 
 // Heights — 4.72vh total (51px at 1080p), 2/3 top / 1/3 bottom
 const TOP_H = "3.15vh";
@@ -32,7 +32,7 @@ const F_STAND    = 80;
  *   [SI] | [callsign] | [type↑ / squawk↓] |
  *   [stand] | [runway↑ / holding point↓] | [stand (reserved)]
  *
- * Background: yellow (#fff28e). Cell borders: gold (#FFD100).
+ * Background: yellow (var(--color-strip-arr-bg)). Cell borders: gold (var(--color-cell-border-arr)).
  */
 export function FinalArrStrip({
   callsign,
@@ -71,7 +71,7 @@ export function FinalArrStrip({
   // - not yet cleared: no background (default strip color)
   let rwyColor: string | undefined;
   if (bay === Bay.RwyArr && runwayCleared) {
-    rwyColor = runwayConfirmed ? "#70ED45" : "#F43A3A";
+    rwyColor = runwayConfirmed ? "var(--color-runway-confirmed)" : "var(--color-runway-closed)";
   }
 
   return (
@@ -129,7 +129,7 @@ export function FinalArrStrip({
         </div>
         <div
           className="flex items-center justify-center"
-          style={{ height: BOT_H, backgroundColor: assignedSquawk && squawk && assignedSquawk !== squawk ? "#F43A3A" : undefined }}
+          style={{ height: BOT_H, backgroundColor: assignedSquawk && squawk && assignedSquawk !== squawk ? "var(--color-runway-closed)" : undefined }}
         >
           <span className="truncate px-1" style={{ fontFamily: FONT, fontSize: 12 }}>
             {assignedSquawk ?? squawk}

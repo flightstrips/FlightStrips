@@ -108,7 +108,7 @@ export function ClxClearedStrip({
   const isBlinking = blinkPhase !== "off";
   const isNavyBg = isBlinking ? blinkPhase === "dark" : pdcStatus === "CLEARED";
   const cellBorderColor = isNavyBg ? "white" : getCellBorderColor(marked);
-  const blinkBg = blinkPhase === "dark" ? "#00154A" : blinkPhase === "light" ? "#bef5ef" : undefined;
+  const blinkBg = blinkPhase === "dark" ? "var(--color-pdc-cleared)" : blinkPhase === "light" ? "var(--color-strip-dep-bg)" : undefined;
   const manualBlue = isManual && !isNavyBg ? COLOR_MANUAL_BLUE : undefined;
 
   return (

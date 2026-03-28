@@ -38,7 +38,7 @@ const F_SID_DEST   = 80;
 //   [stand / ctot] | [TWY label] |
 //   [runway / HP] | [FL / heading] | [SID / dest]
 //
-// Background: cyan (#bef5ef).
+// Background: cyan (var(--color-strip-dep-bg)).
 // -----------------------------------------------------------------------------
 
 export function TwyDepStrip({
@@ -92,11 +92,11 @@ export function TwyDepStrip({
   let rwyColor: string | undefined;
   if (bay === Bay.Depart) {
     if (!runwayCleared) {
-      rwyColor = "#BEF5EF";
+      rwyColor = "var(--color-strip-dep-bg)";
     } else if (runwayConfirmed) {
-      rwyColor = "#70ED45";
+      rwyColor = "var(--color-runway-confirmed)";
     } else {
-      rwyColor = "#F43A3A";
+      rwyColor = "var(--color-runway-closed)";
     }
   }
 
@@ -172,7 +172,7 @@ export function TwyDepStrip({
         </div>
         <div
           className="flex items-center justify-center overflow-hidden"
-          style={{ height: HALF_H, backgroundColor: assignedSquawk && squawk && assignedSquawk !== squawk ? "#F43A3A" : undefined }}
+          style={{ height: HALF_H, backgroundColor: assignedSquawk && squawk && assignedSquawk !== squawk ? "var(--color-runway-closed)" : undefined }}
         >
           <span className="truncate px-1" style={{ fontFamily: FONT, fontWeight: 300, fontSize: 13 }}>
             {assignedSquawk ?? squawk}

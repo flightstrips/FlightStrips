@@ -22,13 +22,13 @@ import * as VisuallyHidden from "@radix-ui/react-visually-hidden";
 import { Button } from "@/components/ui/button";
 
 // Bar height matches strip height (4.72vh). Inner elements: calc(4.72vh - 14px) + 7px top/bottom margin.
-const CLS_BAR = "h-[4.72vh] w-screen bg-[#3c3c3c] flex justify-between text-white items-center border-y-2 border-bay-border";
+const CLS_BAR = "h-[4.72vh] w-screen bg-bay-commandbar flex justify-between text-white items-center border-y-2 border-bay-border";
 
 // Inner value boxes — same margin rhythm as CLS_CMDBTN
 // Font sizes derived from SVG (2560px base): large values 36px→1.41vw, labels 24px→0.94vw
-const CLS_VAL_WHITE = "bg-[#e4e4e4] text-black text-[1.41vw] font-bold h-[calc(4.72vh-14px)] my-[7px] flex items-center justify-center";
-const CLS_VAL_DARK  = "bg-[#212121] text-white  text-[1.41vw] font-bold h-[calc(4.72vh-14px)] my-[7px] flex items-center justify-center";
-const CLS_LABEL     = "text-[0.94vw] font-bold text-[#e4e4e4] px-3";
+const CLS_VAL_WHITE = "bg-bay-light text-black text-[1.41vw] font-bold h-[calc(4.72vh-14px)] my-[7px] flex items-center justify-center";
+const CLS_VAL_DARK  = "bg-bay-dark text-white  text-[1.41vw] font-bold h-[calc(4.72vh-14px)] my-[7px] flex items-center justify-center";
+const CLS_LABEL     = "text-[0.94vw] font-bold text-bay-light px-3";
 
 const SCOPE_LABELS: Record<string, string> = {
   "CLX":  "CLR DEL",
@@ -166,7 +166,7 @@ export default function CommandBar() {
               key={pair}
               onClick={() => setRwyDlgPair(pair)}
               style={{ backgroundColor: bg, width: vw }}
-              className="text-white text-[0.94vw] font-bold h-[calc(4.72vh-14px)] my-[7px] flex items-center justify-center shadow-[inset_2px_0_0_#d3d3d3,_inset_-2px_0_0_#d3d3d3,_inset_0_2px_0_#d3d3d3,_inset_0_-2px_0_#d3d3d3] outline-none"
+              className="text-white text-[0.94vw] font-bold h-[calc(4.72vh-14px)] my-[7px] flex items-center justify-center shadow-[inset_2px_0_0_var(--color-bay-shadow),_inset_-2px_0_0_var(--color-bay-shadow),_inset_0_2px_0_var(--color-bay-shadow),_inset_0_-2px_0_var(--color-bay-shadow)] outline-none"
             >
               {pair}
             </button>
@@ -189,14 +189,14 @@ export default function CommandBar() {
         </button>
         {/* Time — white box, double gap before it */}
         <MUTEBTN muted={muted} onClick={toggleMute} />
-        <div className="bg-[#e4e4e4] text-black h-[calc(4.72vh-14px)] my-[7px] w-[5.08vw] ml-[5px] mr-3 flex items-center justify-center text-[0.75vw] font-bold shadow-[inset_2px_0_0_#d3d3d3,_inset_0_2px_0_#d3d3d3]">
+        <div className="bg-bay-light text-black h-[calc(4.72vh-14px)] my-[7px] w-[5.08vw] ml-[5px] mr-3 flex items-center justify-center text-[0.75vw] font-bold shadow-[inset_2px_0_0_var(--color-bay-shadow),_inset_0_2px_0_var(--color-bay-shadow)]">
           <Time />
         </div>
       </div>
 
       {/* ── Layout chooser dialog (dismissable) ───────────── */}
       <Dialog open={layoutOpen} onOpenChange={setLayoutOpen}>
-        <DialogContent className="sm:max-w-[300px] bg-[#b3b3b3]">
+        <DialogContent className="sm:max-w-[300px] bg-bay-header-light">
           <VisuallyHidden.Root>
             <DialogTitle>Select View</DialogTitle>
           </VisuallyHidden.Root>

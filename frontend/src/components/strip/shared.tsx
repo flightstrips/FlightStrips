@@ -5,8 +5,8 @@
 import { useSelectedCallsign, useSelectStrip, useRunwaySetup } from "@/store/store-hooks";
 import type { CSSProperties } from "react";
 
-export const SELECTION_COLOR = "#FF00F5";
-export const STRIP_FRAME_COLOR = "#85b4af";
+export const SELECTION_COLOR = "var(--color-strip-selection)";
+export const STRIP_FRAME_COLOR = "var(--color-strip-frame)";
 
 /** Returns the border color for cell dividers within a strip. Pass `marked` when that state is available. */
 export function getCellBorderColor(marked: boolean, baseColor = STRIP_FRAME_COLOR): string {
@@ -83,35 +83,35 @@ export const FONT = "'Arial', sans-serif";
 // ── Shared palette ────────────────────────────────────────────────────────────
 
 /** Outer background of the ATC view pages. */
-export const COLOR_PAGE_BG       = "#A9A9A9";
+export const COLOR_PAGE_BG       = "var(--color-bay-page)";
 /** Bay header — locked / dark state. */
 export const COLOR_HEADER_LOCKED = "#393939";
 /** Bay header — active / light state. */
 export const COLOR_HEADER_ACTIVE = "#b3b3b3";
 /** Standard panel / column background. */
-export const COLOR_PANEL_BG      = "#555355";
+export const COLOR_PANEL_BG      = "var(--color-bay-panel)";
 /** Dark panel background (e.g. RWY DEP bay). */
 export const COLOR_PANEL_DARK    = "#212121";
 /** Default button background (grey). */
 export const COLOR_BTN_DEFAULT   = "#646464";
 /** Orange accent button background. */
-export const COLOR_BTN_ORANGE    = "#DD6A12";
+export const COLOR_BTN_ORANGE    = "var(--color-si-unconcerned)";
 /** Blue accent button background. */
-export const COLOR_BTN_BLUE      = "#004FD6";
+export const COLOR_BTN_BLUE      = "var(--color-half-mem-aid)";
 /** Yellow accent button background. */
 export const COLOR_BTN_YELLOW    = "#F3EA1F";
-/** Cyan background for push / startup strips (ApnPushStrip). */
-export const COLOR_ARR_STRIP_BG  = "#bef5ef";
+/** Cyan background for departure / push strips (ApnPushStrip, ApnTaxiDepStrip, HalfStrip). */
+export const COLOR_DEP_STRIP_BG  = "var(--color-strip-dep-bg)";
 /** Yellow background for arrival strips (FinalArrStrip, ApnArrStrip). */
-export const COLOR_ARR_YELLOW    = "#fff28e";
+export const COLOR_ARR_YELLOW    = "var(--color-strip-arr-bg)";
 /** Yellow background for unexpected/overwritten field cells. */
-export const COLOR_UNEXPECTED_YELLOW = "#FFD700";
+export const COLOR_UNEXPECTED_YELLOW = "var(--color-pdc-faults)";
 /** Blue text for fields intentionally modified by the controller. */
-export const COLOR_CONTROLLER_MODIFIED_BLUE = "#2751A3";
+export const COLOR_CONTROLLER_MODIFIED_BLUE = "var(--color-field-modified)";
 /** Blue text/background for fields on manually-created strips (is_manual = true). */
-export const COLOR_MANUAL_BLUE = "#21326A";
+export const COLOR_MANUAL_BLUE = "var(--color-field-manual)";
 /** Strip background when the strip is unconcerned (not assumed, concerned, or transferred). */
-export const COLOR_UNCONCERNED_BG = "#cccccc";
+export const COLOR_UNCONCERNED_BG = "var(--color-strip-unconcerned)";
 
 // ── Ownership helpers ─────────────────────────────────────────────────────────
 
@@ -156,7 +156,7 @@ export function isRunwayClosed(runway: string | undefined, runwayStatus: Record<
  *   tag-request (pink) → unconcerned (grey) → caller-supplied normal colour.
  */
 /** Red used for strips whose assigned runway is CLOSED — matches the CLOSED button in the runway status dialog. */
-export const COLOR_CLOSED_RWY = "#F43A3A";
+export const COLOR_CLOSED_RWY = "var(--color-runway-closed)";
 
 export function resolveStripBg(normalBg: string, isTagRequest: boolean, isUnconcerned: boolean, isClosedRunway = false): string {
   if (isTagRequest)   return SELECTION_COLOR;
@@ -192,23 +192,36 @@ export function getCellTextColor(fieldName: string, controllerModifiedFields?: s
 
 // ── SI ownership indicator colours ───────────────────────────────────────────
 /** SI box — strip assumed by the current position. */
-export const COLOR_SI_ASSUMED     = "#F0F0F0";
+export const COLOR_SI_ASSUMED     = "var(--color-si-assumed)";
 /** SI box — strip not relevant to current position. */
-export const COLOR_SI_UNCONCERNED = "#DD6A12";
+export const COLOR_SI_UNCONCERNED = "var(--color-si-unconcerned)";
 /** SI box — strip in the current position's concern list. */
-export const COLOR_SI_CONCERNED   = "#E082E7";
+export const COLOR_SI_CONCERNED   = "var(--color-si-concerned)";
 
 // ── Shadow colour ─────────────────────────────────────────────────────────────
 /** Drop-shadow colour used on strip outer borders. */
-export const COLOR_SHADOW = "#2F2F2F";
+export const COLOR_SHADOW = "var(--color-strip-shadow)";
 
 // ── Shared column layout ──────────────────────────────────────────────────────
-/** Standard bay column — full height, panel background, vertical flex. */
-export const CLS_COL = "h-full bg-[#555355] flex flex-col";
+/** Standard bay column — full height, panel background, vertical flex. Fixed-width variant. */
+export const CLS_COL = "h-full bg-bay-panel flex flex-col";
+/** Flex-grow bay column — fills available space. Used in views with equal-width columns. */
+export const CLS_COL_FLEX = "flex-1 h-full bg-bay-panel flex flex-col min-w-0";
 
 /** Shadow applied to every bay section header — controls the depth effect.
  *  Change here to update all views at once. */
 export const CLS_HEADER_SHADOW = "shadow-[inset_6px_0_8px_rgba(0,0,0,0.4),inset_0_4px_8px_rgba(0,0,0,0.4),0_1px_0_rgba(0,0,0,0.9)] relative z-10";
+
+/** Dark section header bar. */
+export const CLS_HEADER = `bg-bay-header h-10 flex items-center px-2 shrink-0 ${CLS_HEADER_SHADOW}`;
+/** Standard header label text. */
+export const CLS_LABEL = "text-white font-bold text-lg";
+
+/** Horizontal separator between sections within a column. */
+export const CLS_COL_SEP = "border-t-[6px] border-bay-border";
+
+/** Full-width page wrapper for all bay views. */
+export const CLS_PAGE_WRAPPER = "bg-bay-border w-screen h-[95.28vh] flex divide-x-[6px] divide-bay-border border-x-2 border-t-2 border-bay-border";
 
 // ── Scrollbar utility ─────────────────────────────────────────────────────────
 
@@ -216,15 +229,27 @@ export const CLS_HEADER_SHADOW = "shadow-[inset_6px_0_8px_rgba(0,0,0,0.4),inset_
 export const CLS_SCROLLBAR =
   "[&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary";
 
+/** Standard bay scroll area — strips stack top-to-bottom. */
+export const CLS_SCROLL_AREA = `w-full bg-bay-panel shadow-[inset_2px_2px_4px_rgba(0,0,0,0.55),inset_-1px_-1px_2px_rgba(255,255,255,0.07)] p-0.5 flex flex-col gap-px overflow-y-auto ${CLS_SCROLLBAR}`;
+/** Bay scroll area — strips stack from bottom (newest at bottom). */
+export const CLS_SCROLL_AREA_BOTTOM = `w-full bg-bay-panel shadow-[inset_2px_2px_4px_rgba(0,0,0,0.55),inset_-1px_-1px_2px_rgba(255,255,255,0.07)] p-0.5 flex flex-col justify-end gap-px overflow-y-auto ${CLS_SCROLLBAR}`;
+/** Dark scroll area (e.g. de-ice bay). */
+export const CLS_SCROLL_AREA_DARK = `w-full bg-bay-dark shadow-[inset_3px_3px_7px_rgba(0,0,0,0.85),inset_-1px_-1px_3px_rgba(255,255,255,0.05)] p-0.5 flex flex-col justify-end gap-px overflow-y-auto ${CLS_SCROLLBAR}`;
+
+/** Tab bar shown below bay columns. */
+export const CLS_TAB_BAR = "flex shrink-0 border-t-8 border-bay-border";
+/** Individual tab button within a tab bar. */
+export const CLS_TAB_BTN = "flex-1 bg-bay-header text-white font-bold text-sm border border-white hover:bg-[#4a4a4a]";
+
 // ── Callsign button active-press colour ───────────────────────────────────────
 /** Tailwind active-state class for the callsign button press highlight. */
-export const CLS_CALLSIGN_ACTIVE = "active:bg-[#F237AA]";
+export const CLS_CALLSIGN_ACTIVE = "active:bg-[var(--color-strip-callsign)]";
 
 // ── Button class variants ─────────────────────────────────────────────────────
 
 /** Large variant used in the CommandBar toolbar. */
-export const CLS_CMDBTN = "bg-[#646464] text-[1.41vw] font-bold h-[calc(4.72vh-14px)] my-[7px] w-[3.52vw] flex items-center justify-center shadow-[inset_2px_0_0_#d3d3d3,_inset_0_2px_0_#d3d3d3] outline-none";
-export const CLS_BTN        = "bg-[#646464] text-white font-bold text-sm px-3 border-2 border-white active:bg-[#424242]";
-export const CLS_BTN_ORANGE = "bg-[#DD6A12] text-white font-bold text-sm px-3 border-2 border-white active:bg-[#424242]";
-export const CLS_BTN_BLUE   = "bg-[#004FD6] text-white font-bold text-sm px-3 border-2 border-white active:bg-[#424242]";
-export const CLS_BTN_YELLOW = "bg-[#F3EA1F] text-black font-bold text-sm px-3 border-2 border-white active:bg-[#424242]";
+export const CLS_CMDBTN = "bg-bay-btn text-[1.41vw] font-bold h-[calc(4.72vh-14px)] my-[7px] w-[3.52vw] flex items-center justify-center shadow-[inset_2px_0_0_var(--color-bay-shadow),_inset_0_2px_0_var(--color-bay-shadow)] outline-none";
+export const CLS_BTN        = "bg-bay-btn text-white font-bold text-sm px-3 border-2 border-white active:bg-[#424242]";
+export const CLS_BTN_ORANGE = "bg-runway-low-vis text-white font-bold text-sm px-3 border-2 border-white active:bg-[#424242]";
+export const CLS_BTN_BLUE   = "bg-[var(--color-half-mem-aid)] text-white font-bold text-sm px-3 border-2 border-white active:bg-[#424242]";
+export const CLS_BTN_YELLOW = "bg-btn-yellow text-black font-bold text-sm px-3 border-2 border-white active:bg-[#424242]";

@@ -84,7 +84,7 @@ export function DelStrip({
   const isBlinking = faultBlinkPhase !== "off";
   const isNavyBg = isBlinking ? faultBlinkPhase === "dark" : pdcStatus === "CLEARED";
   const cellBorderColor = isNavyBg ? "white" : getCellBorderColor(marked);
-  const blinkBg = faultBlinkPhase === "dark" ? "#00154A" : faultBlinkPhase === "light" ? "#bef5ef" : undefined;
+  const blinkBg = faultBlinkPhase === "dark" ? "var(--color-pdc-cleared)" : faultBlinkPhase === "light" ? "var(--color-strip-dep-bg)" : undefined;
   const manualBlue = isManual && !isNavyBg ? COLOR_MANUAL_BLUE : undefined;
 
   return (

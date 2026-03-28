@@ -6,7 +6,7 @@ import {
   DialogContent,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { COLOR_ARR_STRIP_BG } from "@/components/strip/shared";
+import { COLOR_DEP_STRIP_BG } from "@/components/strip/shared";
 
 // StripListPopup color constants
 const COLOR_POPUP_BG      = "#D5D5D5"; // main popup background
@@ -158,7 +158,7 @@ export function StripListPopup<T extends FrontendStrip>({
                 <div
                   key={strip.callsign}
                   className="cursor-pointer shrink-0"
-                  style={{ background: COLOR_ARR_STRIP_BG, height: 45, overflow: "hidden" }}
+                  style={{ background: COLOR_DEP_STRIP_BG, height: 45, overflow: "hidden" }}
                   onClick={() => onRowClick(strip)}
                 >
                   <Strip strip={strip} status="PUSH" myPosition={myPosition} selectable={false} fullWidth={true} />

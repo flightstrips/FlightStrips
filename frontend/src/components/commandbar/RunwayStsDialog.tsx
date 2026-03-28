@@ -29,7 +29,7 @@ export default function RunwayStsDialog({ open, onClose, onSelect }: Props) {
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
       <DialogContent
-        className="p-0 bg-[#b3b3b3] border border-black shadow-[0_4px_4px_rgba(0,0,0,0.25)] [&>button.absolute]:hidden"
+        className="p-0 bg-bay-header-light border border-black shadow-[0_4px_4px_rgba(0,0,0,0.25)] [&>button.absolute]:hidden"
         style={{ width: "10.5vw", maxWidth: "10.5vw" }}
       >
         <VisuallyHidden.Root>
@@ -58,7 +58,7 @@ export default function RunwayStsDialog({ open, onClose, onSelect }: Props) {
               style={{ top: "-0.39vw" }}
             >
               <span
-                className="bg-[#b3b3b3] text-black font-light leading-none select-none"
+                className="bg-bay-header-light text-black font-light leading-none select-none"
                 style={{ fontSize: "0.78vw", paddingLeft: "0.35vw", paddingRight: "0.35vw" }}
               >
                 RWY STS
@@ -72,7 +72,7 @@ export default function RunwayStsDialog({ open, onClose, onSelect }: Props) {
             >
               <button
                 onClick={() => { onSelect("OPEN"); onClose(); }}
-                className="flex items-center justify-center bg-[#212121] text-white font-semibold"
+                className="flex items-center justify-center bg-bay-dark text-white font-semibold"
                 style={{ width: "6.4vw", height: "4.86vh", fontSize: "1.25vw" }}
               >
                 OPEN
@@ -80,7 +80,7 @@ export default function RunwayStsDialog({ open, onClose, onSelect }: Props) {
 
               <button
                 onClick={() => { onSelect("LOW_VIS"); onClose(); }}
-                className="flex items-center justify-center bg-[#DD6A12] text-black font-semibold"
+                className="flex items-center justify-center bg-runway-low-vis text-black font-semibold"
                 style={{ width: "6.4vw", height: "4.86vh", fontSize: "1.25vw" }}
               >
                 LOW VIS
@@ -88,7 +88,7 @@ export default function RunwayStsDialog({ open, onClose, onSelect }: Props) {
 
               <button
                 onClick={() => { onSelect("CLOSED"); onClose(); }}
-                className="flex items-center justify-center bg-[#F43A3A] text-white font-semibold"
+                className="flex items-center justify-center bg-runway-closed text-white font-semibold"
                 style={{ width: "6.4vw", height: "4.86vh", fontSize: "1.25vw" }}
               >
                 CLOSED

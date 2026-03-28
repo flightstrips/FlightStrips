@@ -6,7 +6,7 @@ import {
   getCellBorderColor,
   SELECTION_COLOR,
   FONT,
-  COLOR_ARR_STRIP_BG,
+  COLOR_DEP_STRIP_BG,
   COLOR_UNEXPECTED_YELLOW,
   COLOR_MANUAL_BLUE,
   getStripOwnership,
@@ -44,7 +44,7 @@ const F_RWY      = F_BASE * (2 / 3) * (2 / 3); // 4/9 of callsign width ~11.11
  * Width: 90% of bay. Cells use flex proportions:
  *   SI 8 | Callsign 25 | Type+Reg 25*(2/3) | Stand 25*(2/3) | TSAT/CTOT 25*(2/3) | RWY 25*(2/3)*(2/3)
  *
- * Background: cyan (#bef5ef).
+ * Background: cyan (var(--color-strip-dep-bg)).
  */
 export function ApnPushStrip({
   callsign,
@@ -74,7 +74,7 @@ export function ApnPushStrip({
   const stripTransfers = useStripTransfers();
   const isTagRequest = !!stripTransfers[callsign]?.isTagRequest;
   const { isUnconcerned } = getStripOwnership(myPosition, owner, nextControllers, previousControllers);
-  const { bg, textWhite } = useStripBg(runway, COLOR_ARR_STRIP_BG, isTagRequest, isUnconcerned);
+  const { bg, textWhite } = useStripBg(runway, COLOR_DEP_STRIP_BG, isTagRequest, isUnconcerned);
   const [pushbackOpen, setPushbackOpen] = useState(false);
   const [apronTaxiOpen, setApronTaxiOpen] = useState(false);
   const [runwayOpen, setRunwayOpen] = useState(false);

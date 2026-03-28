@@ -145,8 +145,8 @@ function DroppableContainer({
   let hoverStyle: CSSProperties = { boxShadow: depthShadow };
   if (isDragging && isOver) {
     hoverStyle = canDrop
-      ? { boxShadow: "inset 0 0 0 2px #FFFB03" }
-      : { boxShadow: "inset 0 0 0 2px #ef4444" };
+      ? { boxShadow: "inset 0 0 0 2px var(--color-drop-valid)" }
+      : { boxShadow: "inset 0 0 0 2px var(--color-drop-invalid)" };
   }
 
   return (
@@ -198,8 +198,8 @@ export function DropIndicatorBay({
   let hoverStyle: CSSProperties = { boxShadow: depthShadow };
   if (isDragging && isOver) {
     hoverStyle = canDrop
-      ? { boxShadow: "inset 0 0 0 2px #FFFB03" }
-      : { boxShadow: "inset 0 0 0 2px #ef4444" };
+      ? { boxShadow: "inset 0 0 0 2px var(--color-drop-valid)" }
+      : { boxShadow: "inset 0 0 0 2px var(--color-drop-invalid)" };
   }
 
   return (

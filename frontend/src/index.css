@@ -2,12 +2,144 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme {
-  --color-bay-border: #CCCCCC; /* Bay/column border color — change here to update all borders */
+  /* ── Bay structural colors ─────────────────────────── */
+  --color-bay-border:       #CCCCCC; /* column/section borders + command bar borders */
+  --color-bay-panel:        #555355; /* main bay column background */
+  --color-bay-panel-dark:   #444244; /* darkened panel (3D inset effect) */
+  --color-bay-header:       #393939; /* dark section headers */
+  --color-bay-commandbar:   #3c3c3c; /* command bar background */
+  --color-bay-dark:         #212121; /* dark bay areas (e.g. de-ice) */
+  --color-bay-teal:         #285a5c; /* messages header / scrollbar thumb */
+  --color-bay-header-light: #b3b3b3; /* light section headers */
+  --color-bay-light:        #e4e4e4; /* light UI elements (cmd bar value boxes) */
+  --color-bay-btn:          #646464; /* bay button background */
+  --color-bay-shadow:       #d3d3d3; /* button highlight / inset shadow */
+  --color-bay-page:         #A9A9A9; /* page background (gap between columns) */
+  --color-bay-eset:         #767676; /* ESET view lighter panel */
+
+  /* ── Strip background colors ───────────────────────── */
+  --color-strip-frame:       #85b4af; /* strip frame / border (teal) */
+  --color-strip-dep-bg:      #bef5ef; /* departure strip background */
+  --color-strip-arr-bg:      #fff28e; /* arrival strip background */
+  --color-strip-unconcerned: #cccccc; /* unconcerned strip background */
+  --color-strip-push-bg:     #bfbfbf; /* half-strip pushback background */
+  --color-strip-shadow:      #2F2F2F; /* strip drop-shadow color */
+
+  /* ── PDC status colors ──────────────────────────────── */
+  --color-pdc-requested:     #B8860B; /* PDC clearance requested */
+  --color-pdc-faults:        #FFD700; /* PDC requested with faults */
+  --color-pdc-cleared:       #00154A; /* PDC clearance confirmed */
+
+  /* ── Strip selection / interaction ──────────────────── */
+  --color-strip-selection:   #FF00F5; /* selected strip / tag request */
+  --color-strip-callsign:    #F237AA; /* callsign button active press */
+
+  /* ── Strip cell border colors ───────────────────────── */
+  --color-cell-border-arr:   #FFD100; /* arrival strip cell borders */
+
+  /* ── Strip text colors ───────────────────────────────── */
+  --color-field-modified:    #2751A3; /* controller-modified field text */
+  --color-field-manual:      #21326A; /* manually entered field text */
+
+  /* ── SI (position ownership) indicator colors ────────── */
+  --color-si-assumed:        #F0F0F0; /* strip assumed by current controller */
+  --color-si-unconcerned:    #DD6A12; /* strip not relevant to position */
+  --color-si-concerned:      #E082E7; /* strip in next position's list */
+
+  /* ── Half-strip variant colors ───────────────────────── */
+  --color-half-mem-aid:      #004FD6; /* memory aid half-strip */
+  --color-half-crossing:     #FFF500; /* crossing half-strip */
+
+  /* ── Runway / clearance status colors ───────────────── */
+  --color-runway-closed:     #F43A3A; /* runway closed */
+  --color-runway-low-vis:    #DD6A12; /* runway low visibility */
+  --color-runway-confirmed:  #70ED45; /* runway cleared and confirmed */
+
+  /* ── Button colors ───────────────────────────────────── */
+  --color-btn-blue:          #004FD6; /* blue action button */
+  --color-btn-yellow:        #F3EA1F; /* yellow action button */
+
+  /* ── Drag-and-drop target colors ─────────────────────── */
+  --color-drop-valid:        #FFFB03; /* valid drop target highlight */
+  --color-drop-invalid:      #ef4444; /* invalid drop target highlight */
 }
 
 body {
   font-family: 'IBM Plex Sans', system-ui, sans-serif;
   --asd: 0.5rem;
+}
+
+@layer components {
+  /* ── Bay page wrapper ───────────────────────────────────────────────────── */
+  .bay-page-wrapper {
+    @apply bg-bay-border w-screen h-[95.28vh] flex divide-x-[6px] divide-bay-border border-x-2 border-t-2 border-bay-border;
+  }
+
+  /* ── Bay column layout ──────────────────────────────────────────────────── */
+  .bay-col {
+    @apply h-full bg-bay-panel flex flex-col;
+  }
+  .bay-col-flex {
+    @apply flex-1 h-full bg-bay-panel flex flex-col min-w-0;
+  }
+
+  /* ── Section headers ────────────────────────────────────────────────────── */
+  .bay-col-header {
+    @apply bg-bay-header h-10 flex items-center px-2 shrink-0 relative z-10;
+    box-shadow:
+      inset 6px 0 8px rgba(0,0,0,0.4),
+      inset 0 4px 8px rgba(0,0,0,0.4),
+      0 1px 0 rgba(0,0,0,0.9);
+  }
+  .bay-col-header-light {
+    @apply bg-bay-header-light h-10 flex items-center px-2 shrink-0 relative z-10;
+    box-shadow:
+      inset 6px 0 8px rgba(0,0,0,0.4),
+      inset 0 4px 8px rgba(0,0,0,0.4),
+      0 1px 0 rgba(0,0,0,0.9);
+  }
+  .bay-col-header-teal {
+    @apply bg-bay-teal h-10 flex items-center px-2 shrink-0 relative z-10;
+    box-shadow:
+      inset 6px 0 8px rgba(0,0,0,0.4),
+      inset 0 4px 8px rgba(0,0,0,0.4),
+      0 1px 0 rgba(0,0,0,0.9);
+  }
+  .bay-col-header-primary {
+    @apply bg-primary h-10 flex items-center px-2 shrink-0 relative z-10;
+    box-shadow:
+      inset 6px 0 8px rgba(0,0,0,0.4),
+      inset 0 4px 8px rgba(0,0,0,0.4),
+      0 1px 0 rgba(0,0,0,0.9);
+  }
+  .bay-col-sep {
+    @apply border-t-[6px] border-bay-border;
+  }
+
+  /* ── Scroll areas ───────────────────────────────────────────────────────── */
+  .bay-scroll-area {
+    @apply w-full bg-bay-panel p-0.5 flex flex-col gap-px overflow-y-auto;
+    @apply [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary;
+    box-shadow: inset 2px 2px 4px rgba(0,0,0,0.55), inset -1px -1px 2px rgba(255,255,255,0.07);
+  }
+  .bay-scroll-area-bottom {
+    @apply w-full bg-bay-panel p-0.5 flex flex-col justify-end gap-px overflow-y-auto;
+    @apply [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary;
+    box-shadow: inset 2px 2px 4px rgba(0,0,0,0.55), inset -1px -1px 2px rgba(255,255,255,0.07);
+  }
+  .bay-scroll-area-dark {
+    @apply w-full bg-bay-dark p-0.5 flex flex-col justify-end gap-px overflow-y-auto;
+    @apply [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary;
+    box-shadow: inset 3px 3px 7px rgba(0,0,0,0.85), inset -1px -1px 3px rgba(255,255,255,0.05);
+  }
+
+  /* ── Tab bar ────────────────────────────────────────────────────────────── */
+  .bay-tab-bar {
+    @apply flex shrink-0 border-t-8 border-bay-border;
+  }
+  .bay-tab-btn {
+    @apply flex-1 bg-bay-header text-white font-bold text-sm border border-white hover:bg-[#4a4a4a];
+  }
 }
 
 /* Subtle grain overlay for depth (control-room aesthetic) */

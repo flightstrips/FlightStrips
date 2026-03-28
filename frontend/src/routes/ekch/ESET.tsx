@@ -16,7 +16,7 @@ import {
 import { useNonClearedStrips } from "@/store/airports/ekch.ts";
 import { useWebSocketStore } from "@/store/store-hooks.ts";
 
-const PAGE_BG           = "bg-[#767676]";  // ESET uses a lighter panel grey than other views
+const PAGE_BG           = "bg-bay-eset";  // ESET uses a lighter panel grey than other views
 const COLOR_LABEL_DEFAULT = "#202020";       // default label color for ESET background boxes
 
 type ActionOverride = {

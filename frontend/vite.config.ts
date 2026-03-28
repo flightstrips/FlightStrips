@@ -51,9 +51,7 @@ export default defineConfig({
         skipWaiting: true,
       },
       devOptions: {
-        enabled: true,
-        type: 'module',
-        navigateFallback: 'index.html',
+        enabled: false,
       },
     }),
   ],

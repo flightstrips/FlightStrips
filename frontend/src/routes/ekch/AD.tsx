@@ -24,26 +24,16 @@ import { ViewDndContext } from "@/components/bays/ViewDndContext.tsx";
 import { StripListPopup, type SortMode } from "@/components/StripListPopup.tsx";
 import { useState } from "react";
 import { APN_TAXI_DEP_STRIP_WIDTH } from "@/components/strip/ApnTaxiDepStrip.tsx";
-import { CLS_BTN, CLS_BTN_BLUE, CLS_SCROLLBAR, CLS_HEADER_SHADOW } from "@/components/strip/shared";
+import { CLS_BTN, CLS_BTN_BLUE, CLS_LABEL } from "@/components/strip/shared";
 import { NewIfrDialog } from "@/components/strip/NewIfrDialog";
 import { PlannedDialog } from "@/components/strip/PlannedDialog";
 import { MessageStrip } from "@/components/strip/MessageStrip.tsx";
 import { MessageComposeDialog } from "@/components/MessageComposeDialog.tsx";
 
-// Shared header styles
-const pageWrapper   = "bg-bay-border w-screen h-[95.28vh] flex divide-x-[6px] divide-bay-border border-x-2 border-t-2 border-bay-border";
-const header        = `bg-[#393939] h-10 flex items-center px-2 shrink-0 ${CLS_HEADER_SHADOW}`;
-const label         = "text-white font-bold text-lg";
-const primaryHeader = `bg-primary h-10 flex items-center px-2 shrink-0 ${CLS_HEADER_SHADOW}`;
+const primaryHeader = `bg-primary h-10 flex items-center px-2 shrink-0`;
 const primaryLabel  = "text-white font-bold text-lg";
-const colSep        = "border-t-[6px] border-bay-border";
-const scrollArea       = `w-full bg-[#555355] shadow-[inset_2px_2px_4px_rgba(0,0,0,0.55),inset_-1px_-1px_2px_rgba(255,255,255,0.07)] p-0.5 flex flex-col gap-px overflow-y-auto ${CLS_SCROLLBAR}`;
-const scrollAreaBottom = `w-full bg-[#555355] shadow-[inset_2px_2px_4px_rgba(0,0,0,0.55),inset_-1px_-1px_2px_rgba(255,255,255,0.07)] p-0.5 flex flex-col justify-end gap-px overflow-y-auto ${CLS_SCROLLBAR}`;
-const col           = "flex-1 h-full bg-[#555355] flex flex-col min-w-0";
-const tabBar        = "flex shrink-0 border-t-8 border-bay-border";
-const tabBtn        = "flex-1 bg-[#393939] text-white font-bold text-sm border border-white hover:bg-[#4a4a4a]";
-const btn           = CLS_BTN;
-const btnBlue       = CLS_BTN_BLUE;
+const btn     = CLS_BTN;
+const btnBlue = CLS_BTN_BLUE;
 
 export default function AD() {
   const myPosition  = useMyPosition();
@@ -131,43 +121,43 @@ export default function AD() {
         return <Strip strip={strip} status={statusForBay[bayEntry[0]]} myPosition={myPosition} />;
       }}
     >
-    <div className={pageWrapper}>
+    <div className="bay-page-wrapper">
 
       {/* ── Col 1: MESSAGES / FINAL (locked) / RWY ARR (locked) / TWY ARR ── */}
-      <div className={col}>
+      <div className="bay-col-flex">
 
         <div className={primaryHeader + " justify-between"}>
           <span className={primaryLabel}>MESSAGES</span>
           <button className={btn} onClick={() => setComposeOpen(true)}>FREE TEXT</button>
         </div>
-        <div className={`h-[15%] ${scrollArea}`}>
+        <div className="h-[15%] bay-scroll-area">
           {messages.map(msg => (
             <MessageStrip key={msg.id} msg={msg} />
           ))}
         </div>
         <MessageComposeDialog open={composeOpen} onClose={() => setComposeOpen(false)} />
 
-        <div className={`${header} ${colSep} justify-between`}>
-          <span className={label}>FINAL</span>
+        <div className="bay-col-header bay-col-sep justify-between">
+          <span className={CLS_LABEL}>FINAL</span>
           <button className={btn} onClick={() => setArrOpen(true)}>ARR</button>
         </div>
-        <DropIndicatorBay bayId="FINAL" className={`h-[25%] ${scrollAreaBottom}`}>
+        <DropIndicatorBay bayId="FINAL" className="h-[25%] bay-scroll-area-bottom">
           {finalStrips.map(s => (
             <Strip key={s.callsign} strip={s} status="HALF" halfStripVariant="LOCKED-ARR" selectable={false} myPosition={myPosition} />
           ))}
         </DropIndicatorBay>
 
-        <div className={`${header} ${colSep}`}>
-          <span className={label}>RWY ARR</span>
+        <div className="bay-col-header bay-col-sep">
+          <span className={CLS_LABEL}>RWY ARR</span>
         </div>
-        <DropIndicatorBay bayId="RWY-ARR" className={`h-[20%] ${scrollAreaBottom}`}>
+        <DropIndicatorBay bayId="RWY-ARR" className="h-[20%] bay-scroll-area-bottom">
           {rwyArrStrips.map(s => (
             <Strip key={s.callsign} strip={s} status="ARR" selectable={false} myPosition={myPosition} />
           ))}
         </DropIndicatorBay>
 
-        <div className={`${header} ${colSep}`}>
-          <span className={label}>TWY ARR</span>
+        <div className="bay-col-header bay-col-sep">
+          <span className={CLS_LABEL}>TWY ARR</span>
           <span className="ml-auto">
             <MemAidButton bay={Bay.TwyArr} className={btnBlue} />
           </span>
@@ -177,7 +167,7 @@ export default function AD() {
           bayId="TWY-ARR"
           isDragDisabled={(strip) => isFlight(strip) && !!strip.owner && strip.owner !== myPosition}
           standalone={false}
-          className={`flex-1 ${scrollAreaBottom}`}
+          className="flex-1 bay-scroll-area-bottom"
         >
           {(strip) => (
             <Strip strip={strip} status="ARR" myPosition={myPosition} selectable={true} />
@@ -201,40 +191,40 @@ export default function AD() {
       </div>
 
       {/* ── Col 2: DE-ICE V / DE-ICE B / TWY DEP (UPR + LWR) ── */}
-      <div className={col}>
+      <div className="bay-col-flex">
 
-        <div className={header}>
-          <span className={label}>DE-ICE V</span>
+        <div className="bay-col-header">
+          <span className={CLS_LABEL}>DE-ICE V</span>
         </div>
         <SortableBay
           strips={deIceStrips}
           bayId="DE-ICE-V"
           isDragDisabled={(strip) => isFlight(strip) && !!strip.owner && strip.owner !== myPosition}
           standalone={false}
-          className={`h-[7.08vh] ${scrollAreaBottom}`}
+          className="h-[7.08vh] bay-scroll-area-bottom"
         >
           {(strip) => (
             <Strip strip={strip} status="PUSH" myPosition={myPosition} selectable={true} />
           )}
         </SortableBay>
 
-        <div className={`${header} ${colSep}`}>
-          <span className={label}>DE-ICE B</span>
+        <div className="bay-col-header bay-col-sep">
+          <span className={CLS_LABEL}>DE-ICE B</span>
         </div>
         <SortableBay
           strips={[]}
           bayId="DE-ICE-B"
           isDragDisabled={() => false}
           standalone={false}
-          className={`h-[7.08vh] ${scrollAreaBottom}`}
+          className="h-[7.08vh] bay-scroll-area-bottom"
         >
           {(strip) => (
             <Strip strip={strip} status="PUSH" myPosition={myPosition} selectable={true} />
           )}
         </SortableBay>
 
-        <div className={`${header} ${colSep} justify-between`}>
-          <span className={label}>TWY DEP</span>
+        <div className="bay-col-header bay-col-sep justify-between">
+          <span className={CLS_LABEL}>TWY DEP</span>
           <span className="flex gap-1">
             <button className={btn} onClick={() => setNewOpen(true)}>NEW</button>
             <button className={btn} onClick={() => setPlannedOpen(true)}>PLANNED</button>
@@ -247,7 +237,7 @@ export default function AD() {
           bayId="TWY-DEP-UPR"
           isDragDisabled={(strip) => isFlight(strip) && !!strip.owner && strip.owner !== myPosition}
           standalone={false}
-          className={`h-[30%] ${scrollAreaBottom}`}
+          className="h-[30%] bay-scroll-area-bottom"
         >
           {(strip) => (
             <Strip strip={strip} status="TAXI-DEP" myPosition={myPosition} width={APN_TAXI_DEP_STRIP_WIDTH} selectable={true} />
@@ -255,11 +245,11 @@ export default function AD() {
         </SortableBay>
 
         {/* TW / TE / GW / GE bay selector tabs */}
-        <div className={tabBar}>
+        <div className="bay-tab-bar">
           {["TW", "TE", "GW", "GE"].map(tab => (
             <button
               key={tab}
-              className={tabBtn}
+              className="bay-tab-btn"
             >
               {tab}
             </button>
@@ -272,7 +262,7 @@ export default function AD() {
           bayId="TWY-DEP-LWR"
           isDragDisabled={(strip) => isFlight(strip) && !!strip.owner && strip.owner !== myPosition}
           standalone={false}
-          className={`flex-1 ${scrollAreaBottom}`}
+          className="flex-1 bay-scroll-area-bottom"
         >
           {(strip) => (
             <Strip strip={strip} status="TAXI-DEP" myPosition={myPosition} width={APN_TAXI_DEP_STRIP_WIDTH} selectable={true} />
@@ -282,32 +272,32 @@ export default function AD() {
       </div>
 
       {/* ── Col 3: STARTUP / PUSH BACK ── */}
-      <div className={col}>
+      <div className="bay-col-flex">
 
-        <div className={header}>
-          <span className={label}>STARTUP</span>
+        <div className="bay-col-header">
+          <span className={CLS_LABEL}>STARTUP</span>
         </div>
         <SortableBay
           strips={startupStrips}
           bayId="STARTUP"
           isDragDisabled={(strip) => isFlight(strip) && !!strip.owner && strip.owner !== myPosition}
           standalone={false}
-          className={`h-[40%] ${scrollArea}`}
+          className="h-[40%] bay-scroll-area"
         >
           {(strip) => (
             <Strip strip={strip} status="PUSH" myPosition={myPosition} selectable={true} />
           )}
         </SortableBay>
 
-        <div className={`${header} ${colSep}`}>
-          <span className={label}>PUSH BACK</span>
+        <div className="bay-col-header bay-col-sep">
+          <span className={CLS_LABEL}>PUSH BACK</span>
         </div>
         <SortableBay
           strips={pushStrips}
           bayId="PUSHBACK"
           isDragDisabled={(strip) => isFlight(strip) && !!strip.owner && strip.owner !== myPosition}
           standalone={false}
-          className={`flex-1 ${scrollAreaBottom}`}
+          className="flex-1 bay-scroll-area-bottom"
         >
           {(strip) => (
             <Strip strip={strip} status="PUSH" myPosition={myPosition} selectable={true} />
@@ -317,34 +307,34 @@ export default function AD() {
       </div>
 
       {/* ── Col 4: CLRDEL / NORWEGIAN / OTHERS (UNCLEARED) ── */}
-      <div className={col}>
+      <div className="bay-col-flex">
 
-        <div className={`${header}`}>
-          <span className={label}>CLRDEL</span>
+        <div className="bay-col-header">
+          <span className={CLS_LABEL}>CLRDEL</span>
         </div>
-        <DropIndicatorBay bayId="CLRDEL" className={`h-[40%] ${scrollArea}`}>
+        <DropIndicatorBay bayId="CLRDEL" className="h-[40%] bay-scroll-area">
           {sasStrips.map(s => (
             <Strip key={s.callsign} strip={s} status={clrDelActive ? "CLR" : "CLX-HALF"} selectable={false} myPosition={myPosition} />
           ))}
         </DropIndicatorBay>
 
-        <div className={`${header} ${colSep}`}>
-          <span className={label}>NORWEGIAN</span>
+        <div className="bay-col-header bay-col-sep">
+          <span className={CLS_LABEL}>NORWEGIAN</span>
         </div>
-        <DropIndicatorBay bayId="NORWEGIAN" className={`h-[30%] ${scrollArea}`}>
+        <DropIndicatorBay bayId="NORWEGIAN" className="h-[30%] bay-scroll-area">
           {norStrips.map(s => (
             <Strip key={s.callsign} strip={s} status={clrDelActive ? "CLR" : "CLX-HALF"} selectable={false} myPosition={myPosition} />
           ))}
         </DropIndicatorBay>
 
-        <div className={`${header} ${colSep} justify-between`}>
-          <span className={label}>OTHERS</span>
+        <div className="bay-col-header bay-col-sep justify-between">
+          <span className={CLS_LABEL}>OTHERS</span>
           <span className="flex gap-1">
             <button className={btn} onClick={() => setNewOpen(true)}>NEW</button>
             <button className={btn} onClick={() => setPlannedOpen(true)}>PLANNED</button>
           </span>
         </div>
-        <DropIndicatorBay bayId="OTHERS" className={`flex-1 ${scrollArea}`}>
+        <DropIndicatorBay bayId="OTHERS" className="flex-1 bay-scroll-area">
           {otherStrips.map(s => (
             <Strip key={s.callsign} strip={s} status={clrDelActive ? "CLR" : "CLX-HALF"} selectable={false} myPosition={myPosition} />
           ))}

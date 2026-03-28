@@ -1,18 +1,18 @@
 import { getSimpleAircraftType } from "@/lib/utils";
 import type { HalfStripVariant, StripProps } from "./types";
-import { useStripSelection, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR, COLOR_ARR_YELLOW, COLOR_ARR_STRIP_BG, COLOR_BTN_BLUE, COLOR_BTN_ORANGE, COLOR_UNEXPECTED_YELLOW, COLOR_MANUAL_BLUE, getCellTextColor, useStripBg } from "./shared";
+import { useStripSelection, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR, COLOR_ARR_YELLOW, COLOR_DEP_STRIP_BG, COLOR_BTN_BLUE, COLOR_BTN_ORANGE, COLOR_UNEXPECTED_YELLOW, COLOR_MANUAL_BLUE, getCellTextColor, useStripBg } from "./shared";
 import { useStripTransfers, useWebSocketStore } from "@/store/store-hooks";
 
 // Variant-specific background colours
-const COLOR_HALF_PUSH_BG  = "#bfbfbf"; // compact APN-PUSH half strip (lighter grey)
+const COLOR_HALF_PUSH_BG  = "var(--color-strip-push-bg)"; // compact APN-PUSH half strip (lighter grey)
 const COLOR_MESSAGES_BG   = "#285A5C"; // teal — matches MessageStrip / primary theme
-const COLOR_CROSSING_BG   = "#FFF500"; // bright yellow for crossing tactical strip
+const COLOR_CROSSING_BG   = "var(--color-half-crossing)"; // bright yellow for crossing tactical strip
 
 /** Background colour per half-strip variant. */
 const VARIANT_BG: Record<HalfStripVariant, string> = {
   "APN-PUSH":   COLOR_HALF_PUSH_BG,
   "APN-ARR":    COLOR_ARR_YELLOW,
-  "LOCKED-DEP": COLOR_ARR_STRIP_BG,
+  "LOCKED-DEP": COLOR_DEP_STRIP_BG,
   "LOCKED-ARR": COLOR_ARR_YELLOW,
   "MESSAGES":   COLOR_MESSAGES_BG,
   "MEM-AID":    COLOR_BTN_BLUE,

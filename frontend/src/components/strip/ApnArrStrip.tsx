@@ -14,7 +14,7 @@ const TOP_H = "3.15vh"; // 2/3 of 4.72vh
 const BOT_H = "1.57vh"; // 1/3 of 4.72vh
 
 /** Gold cell borders — matches the yellow arrival strip design (same as FinalArrStrip). */
-const CELL_BORDER = "#FFD100";
+const CELL_BORDER = "var(--color-cell-border-arr)";
 
 // Flex-grow proportions (flex-basis: 0 so space is shared proportionally).
 // Values match the original pixel widths: SI=40, Callsign=120, Type=80, RWY=54, HS=54, Stand=80
@@ -31,7 +31,7 @@ const F_STAND    = 80;
  * 4.72vh strip (51px at 1080p), 90% of bay width, with 2/3 top row / 1/3 bottom row:
  *   [SI] | [callsign] | [actype↑ / reg↓] | [RWY] | [HS] | [stand]
  *
- * Background: yellow (#fff28e).
+ * Background: yellow (var(--color-strip-arr-bg)).
  */
 export function ApnArrStrip({
   callsign,

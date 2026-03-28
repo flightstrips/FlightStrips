@@ -1,5 +1,6 @@
 #include "WebSocket.h"
 
+#include "ExceptionHandling.h"
 #include "Logger.hpp"
 
 #include <asio/asio/ssl.hpp>
@@ -122,31 +123,39 @@ namespace FlightStrips::websocket {
             }
 
             void OnMessage(const websocketpp::connection_hdl&, const typename ClientT::message_ptr& msg) const {
-                auto payload = msg->get_payload();
-                Logger::Debug("Got message from server: {}", payload);
-                message_cb(payload);
+                exceptions::RunGuarded("WebSocket::OnMessage", [this, &msg] {
+                    auto payload = msg->get_payload();
+                    Logger::Debug("Got message from server: {}", payload);
+                    message_cb(payload);
+                });
             }
 
             void OnFailure(const websocketpp::connection_hdl& hdl) {
-                status_ = WEBSOCKET_STATUS_FAILED;
-                const auto con = m_endpoint.get_con_from_hdl(hdl);
-                const auto reason = con->get_ec().message();
-                Logger::Warning("Failed to connect to server: {}", reason);
+                exceptions::RunGuarded("WebSocket::OnFailure", [this, &hdl] {
+                    status_ = WEBSOCKET_STATUS_FAILED;
+                    const auto con = m_endpoint.get_con_from_hdl(hdl);
+                    const auto reason = con->get_ec().message();
+                    Logger::Warning("Failed to connect to server: {}", reason);
+                });
             }
 
             void OnOpen(const websocketpp::connection_hdl& hdl) {
-                status_ = WEBSOCKET_STATUS_CONNECTED;
-                const auto con = m_endpoint.get_con_from_hdl(hdl);
-                auto server = con->get_response_header("Server");
-                Logger::Info("Connected to server: {}", server);
-                on_connected_cb();
+                exceptions::RunGuarded("WebSocket::OnOpen", [this, &hdl] {
+                    status_ = WEBSOCKET_STATUS_CONNECTED;
+                    const auto con = m_endpoint.get_con_from_hdl(hdl);
+                    auto server = con->get_response_header("Server");
+                    Logger::Info("Connected to server: {}", server);
+                    on_connected_cb();
+                });
             }
 
             void OnClose(const websocketpp::connection_hdl& hdl) {
-                status_ = WEBSOCKET_STATUS_DISCONNECTED;
-                const auto con = m_endpoint.get_con_from_hdl(hdl);
-                const auto reason = con->get_ec().message();
-                Logger::Debug("Connection to server closed. Reason: {}", reason);
+                exceptions::RunGuarded("WebSocket::OnClose", [this, &hdl] {
+                    status_ = WEBSOCKET_STATUS_DISCONNECTED;
+                    const auto con = m_endpoint.get_con_from_hdl(hdl);
+                    const auto reason = con->get_ec().message();
+                    Logger::Debug("Connection to server closed. Reason: {}", reason);
+                });
             }
 
             WebSocketStatus status_ = WEBSOCKET_STATUS_DISCONNECTED;

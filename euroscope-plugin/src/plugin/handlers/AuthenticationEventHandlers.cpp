@@ -1,5 +1,7 @@
 #include "AuthenticationEventHandlers.h"
 
+#include "ExceptionHandling.h"
+
 namespace FlightStrips::handlers {
     void AuthenticationEventHandlers::Clear() {
         m_handlers.clear();
@@ -7,7 +9,9 @@ namespace FlightStrips::handlers {
 
     void AuthenticationEventHandlers::OnTokenUpdate(const std::string &token) const {
         for (const auto & m_handler : this->m_handlers) {
-            m_handler->OnTokenUpdate(token);
+            exceptions::RunGuarded("AuthenticationEventHandlers::OnTokenUpdate", [m_handler, &token] {
+                m_handler->OnTokenUpdate(token);
+            });
         }
     }
 

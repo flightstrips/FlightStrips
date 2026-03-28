@@ -2,6 +2,7 @@
 
 #include <nlohmann/json.hpp>
 
+#include "ExceptionHandling.h"
 #include "Events.h"
 #include "Logger.hpp"
 
@@ -118,9 +119,11 @@ namespace FlightStrips::websocket {
     }
 
     void WebSocketService::OnTokenUpdate(const std::string &token) {
-        if (!IsConnected()) return;
-        const auto event = TokenEvent(token);
-        SendEvent(event);
+        exceptions::RunGuarded("WebSocketService::OnTokenUpdate", [this, &token] {
+            if (!IsConnected()) return;
+            const auto event = TokenEvent(token);
+            SendEvent(event);
+        });
     }
 
     bool WebSocketService::IsConnected() const {
@@ -159,26 +162,30 @@ namespace FlightStrips::websocket {
 
 
     void WebSocketService::OnMessage(const std::string &message) {
-        rx++;
-        const auto json = nlohmann::json::parse(message, nullptr, false, false);
-        if (json.is_discarded()) {
-            Logger::Warning("Invalid JSON message: {}", message);
-            return;
-        }
+        exceptions::RunGuarded("WebSocketService::OnMessage", [this, &message] {
+            rx++;
+            const auto json = nlohmann::json::parse(message, nullptr, false, false);
+            if (json.is_discarded()) {
+                Logger::Warning("Invalid JSON message: {}", message);
+                return;
+            }
 
-        std::lock_guard lock(message_mutex_);
-        messages_.push_back(json);
+            std::lock_guard lock(message_mutex_);
+            messages_.push_back(json);
+        });
     }
 
     void WebSocketService::OnConnected() {
-        tx = 0;
-        rx = 0;
-        pending_connect_ = false;
-        const auto token = TokenEvent(m_authentication_service->GetAccessToken());
-        SendEvent(token);
-        SendLoginEvent();
+        exceptions::RunGuarded("WebSocketService::OnConnected", [this] {
+            tx = 0;
+            rx = 0;
+            pending_connect_ = false;
+            const auto token = TokenEvent(m_authentication_service->GetAccessToken());
+            SendEvent(token);
+            SendLoginEvent();
 
-        m_connection_handlers->OnOnline();
+            m_connection_handlers->OnOnline();
+        });
     }
 
     void WebSocketService::SendLoginEvent() {

@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
+#include <stdexcept>
 #include "handlers/AuthenticationEventHandlers.h"
 #include "mock/MockAuthenticationEventHandler.h"
 
@@ -50,4 +51,20 @@ TEST_F(AuthenticationEventHandlersTest, RegisterSameHandlerTwice_CallsItTwice) {
     handlers.RegisterHandler(h);
     handlers.RegisterHandler(h);
     handlers.OnTokenUpdate("t");
+}
+
+TEST_F(AuthenticationEventHandlersTest, ThrowingHandler_DoesNotPropagateAndStillCallsRemainingHandlers) {
+    auto throwingHandler = std::make_shared<StrictMock<MockAuthenticationEventHandler>>();
+    auto nextHandler = std::make_shared<StrictMock<MockAuthenticationEventHandler>>();
+
+    EXPECT_CALL(*throwingHandler, OnTokenUpdate("token"))
+        .WillOnce(::testing::Invoke([](const std::string&) {
+            throw std::runtime_error("boom");
+        }));
+    EXPECT_CALL(*nextHandler, OnTokenUpdate("token")).Times(1);
+
+    handlers.RegisterHandler(throwingHandler);
+    handlers.RegisterHandler(nextHandler);
+
+    EXPECT_NO_THROW(handlers.OnTokenUpdate("token"));
 }

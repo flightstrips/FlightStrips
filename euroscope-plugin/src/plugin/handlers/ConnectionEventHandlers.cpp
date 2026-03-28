@@ -1,5 +1,7 @@
 #include "ConnectionEventHandlers.h"
 
+#include "ExceptionHandling.h"
+
 namespace FlightStrips::handlers {
     void ConnectionEventHandlers::Clear() {
         m_handlers.clear();
@@ -7,7 +9,9 @@ namespace FlightStrips::handlers {
 
     void ConnectionEventHandlers::OnOnline() const {
         for (const auto & m_handler : this->m_handlers) {
-            m_handler->Online();
+            exceptions::RunGuarded("ConnectionEventHandlers::OnOnline", [m_handler] {
+                m_handler->Online();
+            });
         }
     }
 

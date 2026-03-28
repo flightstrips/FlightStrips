@@ -13,7 +13,12 @@ set(src__filesystem
         filesystem/FileSystem.cpp)
 source_group("src\\filesystem" FILES ${src__filesystem})
 
-set(ALL_FILES ${src__http} ${src__filesystem} Logger.hpp )
+set(src__exceptions
+        ExceptionHandling.h
+        ExceptionHandling.cpp)
+source_group("src\\exceptions" FILES ${src__exceptions})
+
+set(ALL_FILES ${src__http} ${src__filesystem} ${src__exceptions} Logger.hpp )
 
 # Read version from file
 file(READ "${CMAKE_SOURCE_DIR}/VERSION.txt" PLUGIN_VERSION)

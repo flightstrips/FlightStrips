@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
+#include <stdexcept>
 #include "handlers/ConnectionEventHandlers.h"
 #include "mock/MockConnectionEventHandler.h"
 
@@ -42,4 +43,20 @@ TEST_F(ConnectionEventHandlersTest, RegisterSameHandlerTwice_CallsItTwice) {
     handlers.RegisterHandler(h);
     handlers.RegisterHandler(h);
     handlers.OnOnline();
+}
+
+TEST_F(ConnectionEventHandlersTest, ThrowingHandler_DoesNotPropagateAndStillCallsRemainingHandlers) {
+    auto throwingHandler = std::make_shared<StrictMock<MockConnectionEventHandler>>();
+    auto nextHandler = std::make_shared<StrictMock<MockConnectionEventHandler>>();
+
+    EXPECT_CALL(*throwingHandler, Online())
+        .WillOnce(::testing::InvokeWithoutArgs([] {
+            throw std::runtime_error("boom");
+        }));
+    EXPECT_CALL(*nextHandler, Online()).Times(1);
+
+    handlers.RegisterHandler(throwingHandler);
+    handlers.RegisterHandler(nextHandler);
+
+    EXPECT_NO_THROW(handlers.OnOnline());
 }

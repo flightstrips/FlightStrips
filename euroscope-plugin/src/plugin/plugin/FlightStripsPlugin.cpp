@@ -36,8 +36,16 @@ namespace FlightStrips {
         DisplayUserMessage("FlightStrips", PLUGIN_NAME, message.c_str(), true, false, false, false, false);
     }
 
+    void FlightStripsPlugin::Information(const char *message) {
+        DisplayUserMessage("FlightStrips", PLUGIN_NAME, message, true, false, false, false, false);
+    }
+
     void FlightStripsPlugin::Error(const std::string &message) {
         DisplayUserMessage("FlightStrips", PLUGIN_NAME, message.c_str(), true, true, true, true, true);
+    }
+
+    void FlightStripsPlugin::Error(const char *message) {
+        DisplayUserMessage("FlightStrips", PLUGIN_NAME, message, true, true, true, true, true);
     }
 
     void FlightStripsPlugin::OnFlightPlanDisconnect(EuroScopePlugIn::CFlightPlan FlightPlan) {
@@ -307,15 +315,20 @@ namespace FlightStrips {
         if (!m_appConfig->GetApiEnabled()) {
             return nullptr;
         }
-        if (const auto ptr = m_container.lock()) {
-            return new graphics::InfoScreen(
-                ptr->authenticationService,
-                ptr->userConfig,
-                ptr->webSocketService,
-                this);
-        }
 
-        return nullptr;
+        return exceptions::RunGuardedOr<CRadarScreen*>("OnRadarScreenCreated", nullptr, [this]() -> CRadarScreen* {
+            if (const auto ptr = m_container.lock()) {
+                return new graphics::InfoScreen(
+                    ptr->authenticationService,
+                    ptr->userConfig,
+                    ptr->webSocketService,
+                    this);
+            }
+
+            return nullptr;
+        }, [this](const exceptions::ExceptionDetails&) noexcept {
+            Error("FlightStrips failed to create the radar screen. See the log for details.");
+        });
     }
 
     void FlightStripsPlugin::OnControllerPositionUpdate(EuroScopePlugIn::CController Controller) {

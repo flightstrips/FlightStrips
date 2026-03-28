@@ -4,6 +4,7 @@
 #include <thread>
 #include <future>
 #include <optional>
+#include <atomic>
 
 namespace FlightStrips::authentication {
 
@@ -19,8 +20,10 @@ private:
     httplib::Server server;
     std::thread backgroundThread;
     std::promise<std::optional<std::string>> resultPromise;
+    std::atomic_bool resultSet = false;
 
     void BackgroundThread();
+    void TrySetResult(std::optional<std::string> value, const std::string& context);
 };
 
 } // authentication

@@ -5,6 +5,7 @@
 #include <openssl/sha.h>
 #include <nlohmann/json.hpp>
 #include "AuthenticationRedirectListener.h"
+#include "ExceptionHandling.h"
 #include "Logger.hpp"
 #include "http/Http.h"
 
@@ -48,8 +49,14 @@ namespace FlightStrips::authentication {
             token_thread.join();
         }
 
-        state = true;
-        this->token_thread = std::thread(&AuthenticationService::DoAuthenticationFlow, this);
+        state = LOGIN;
+
+        try {
+            this->token_thread = std::thread(&AuthenticationService::DoAuthenticationFlow, this);
+        } catch (...) {
+            state = NONE;
+            exceptions::LogCurrentException("AuthenticationService::StartAuthentication");
+        }
     }
 
     void AuthenticationService::CancelAuthentication() {
@@ -123,6 +130,9 @@ namespace FlightStrips::authentication {
         } catch (const std::exception &e) {
             Logger::Error(std::format("Failed to parse payload part of token: {}", e.what()));
             return {};
+        } catch (...) {
+            Logger::Error("Failed to parse payload part of token due to an unknown exception.");
+            return {};
         }
     }
 
@@ -157,68 +167,89 @@ namespace FlightStrips::authentication {
             token_thread.join();
         }
 
-        token_thread = std::thread(&AuthenticationService::DoRefreshFlow, this);
+        try {
+            token_thread = std::thread(&AuthenticationService::DoRefreshFlow, this);
+        } catch (...) {
+            state = AUTHENTICATED;
+            exceptions::LogCurrentException("AuthenticationService::StartRefresh");
+        }
     }
 
     void AuthenticationService::DoRefreshFlow() {
-        Logger::Info("Token refresh: sending HTTP request");
-        const auto token_url = std::format("{}/oauth/token", this->appConfig->GetAuthority());
-        std::ostringstream token_params;
+        try {
+            Logger::Info("Token refresh: sending HTTP request");
+            const auto token_url = std::format("{}/oauth/token", this->appConfig->GetAuthority());
+            std::ostringstream token_params;
 
-        token_params << "grant_type=refresh_token"
-                << "&client_id=" << this->appConfig->GetClientId()
-                << "&refresh_token=" << refreshToken;
+            token_params << "grant_type=refresh_token"
+                    << "&client_id=" << this->appConfig->GetClientId()
+                    << "&refresh_token=" << refreshToken;
 
-        const auto [status_code, content] = http::Http::PostUrlEncoded(token_url, token_params.str());
-        if (status_code != 200) {
-            Logger::Error(std::format("Failed to refresh token. HTTP response code: {}. Content: {}", status_code,
-                                      content));
-            Logout();
-            return;
+            const auto [status_code, content] = http::Http::PostUrlEncoded(token_url, token_params.str());
+            if (status_code != 200) {
+                Logger::Error(std::format("Failed to refresh token. HTTP response code: {}. Content: {}", status_code,
+                                          content));
+                Logout();
+                return;
+            }
+
+            if (!ParseAndSetToken(content)) {
+                Logout();
+                return;
+            }
+
+            Logger::Info("Token refresh completed successfully (state -> AUTHENTICATED)");
+        } catch (...) {
+            exceptions::LogCurrentException("AuthenticationService::DoRefreshFlow");
+
+            try {
+                Logout();
+            } catch (...) {
+                exceptions::LogCurrentException("AuthenticationService::DoRefreshFlow::Logout");
+                state = NONE;
+            }
         }
-
-        if (!ParseAndSetToken(content)) {
-            Logout();
-            return;
-        }
-
-        Logger::Info("Token refresh completed successfully (state -> AUTHENTICATED)");
     }
 
     bool AuthenticationService::ParseAndSetToken(const std::string &content) {
-        nlohmann::json token_json;
-        try {
-            token_json = nlohmann::json::parse(content);
-        } catch (const std::exception &e) {
-            Logger::Error(std::format("Failed to parse authentication token endpoint JSON. Error: {}", e.what()));
-            return false;
-        }
+        return exceptions::RunGuardedOr<bool>("AuthenticationService::ParseAndSetToken", false, [this, &content] {
+            nlohmann::json token_json;
+            try {
+                token_json = nlohmann::json::parse(content);
+            } catch (const std::exception &e) {
+                Logger::Error(std::format("Failed to parse authentication token endpoint JSON. Error: {}", e.what()));
+                return false;
+            } catch (...) {
+                Logger::Error("Failed to parse authentication token endpoint JSON due to an unknown exception.");
+                return false;
+            }
 
-        std::string access_token = token_json["access_token"];
-        std::string refresh_token = refreshToken;
-        if (token_json.contains("refresh_token")) {
-            refresh_token = token_json["refresh_token"];
-        }
-        std::string id_token = token_json["id_token"];
-        auto access_token_payload = GetTokenPayload(access_token);
-        auto id_token_payload = GetTokenPayload(id_token);
-        if (!access_token_payload.has_value() || !id_token_payload.has_value()) {
-            return false;
-        }
+            std::string access_token = token_json["access_token"];
+            std::string refresh_token = refreshToken;
+            if (token_json.contains("refresh_token")) {
+                refresh_token = token_json["refresh_token"];
+            }
+            std::string id_token = token_json["id_token"];
+            auto access_token_payload = GetTokenPayload(access_token);
+            auto id_token_payload = GetTokenPayload(id_token);
+            if (!access_token_payload.has_value() || !id_token_payload.has_value()) {
+                return false;
+            }
 
-        const int exp = access_token_payload.value()["exp"];
+            const int exp = access_token_payload.value()["exp"];
 
-        configuration::Token token = {access_token, refresh_token, id_token, exp};
-        userConfig->SetToken(token);
-        authEventHandlers->OnTokenUpdate(access_token);
+            configuration::Token token = {access_token, refresh_token, id_token, exp};
+            userConfig->SetToken(token);
+            authEventHandlers->OnTokenUpdate(access_token);
 
-        this->accessToken = access_token;
-        this->refreshToken = refresh_token;
-        this->name = id_token_payload.value()["name"];
-        this->expirationTime = exp;
-        state = AUTHENTICATED;
+            this->accessToken = access_token;
+            this->refreshToken = refresh_token;
+            this->name = id_token_payload.value()["name"];
+            this->expirationTime = exp;
+            state = AUTHENTICATED;
 
-        return true;
+            return true;
+        });
     }
 
     void AuthenticationService::DoAuthenticationFlowImpl() {
@@ -263,7 +294,12 @@ namespace FlightStrips::authentication {
     }
 
     void AuthenticationService::DoAuthenticationFlow() {
-        DoAuthenticationFlowImpl();
+        try {
+            DoAuthenticationFlowImpl();
+        } catch (...) {
+            exceptions::LogCurrentException("AuthenticationService::DoAuthenticationFlow");
+        }
+
         if (state == AUTHENTICATED) return;
         state = NONE;
     }

@@ -83,6 +83,8 @@ namespace FlightStrips::messages {
 
         } catch (const std::exception &e) {
             Logger::Error("Exception handling message: {}", e.what());
+        } catch (...) {
+            Logger::Error("Unknown exception handling message");
         }
     }
 

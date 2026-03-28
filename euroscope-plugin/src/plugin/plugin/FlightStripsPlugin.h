@@ -6,6 +6,7 @@
 #define PLUGIN_AUTHOR "Frederik Rosenberg"
 #define PLUGIN_COPYRIGHT "GPLv3 License, Copyright (c) 2025 Frederik Rosenberg"
 #define GITHUB_LINK "https://github.com/flightstrips/FlightStrips"
+#include "ExceptionHandling.h"
 #include "FlightStripsPluginInterface.h"
 #include "Logger.hpp"
 #include "bootstrap/Container.h"
@@ -42,7 +43,9 @@ namespace FlightStrips {
         bool IsValidAirports(EuroScopePlugIn::CFlightPlan flightPlan) const;
 
         void Information(const std::string &message);
+        void Information(const char *message);
         void Error(const std::string &message);
+        void Error(const char *message);
 
         void OnFlightPlanDisconnect (EuroScopePlugIn::CFlightPlan FlightPlan ) override;
 
@@ -113,10 +116,18 @@ namespace FlightStrips {
                 func(std::forward<Args>(args)...);
             } catch (const std::exception& e) {
                 Logger::Error("Exception in {}: {}", context, e.what());
-                Error(std::format("Internal error in {}: {}", context, e.what()));
+                try {
+                    Error(std::format("Internal error in {}: {}", context, e.what()));
+                } catch (...) {
+                    Error("FlightStrips encountered an internal error. See the log for details.");
+                }
             } catch (...) {
                 Logger::Error("Unknown exception in {}", context);
-                Error(std::format("Unknown internal error in {}", context));
+                try {
+                    Error(std::format("Unknown internal error in {}", context));
+                } catch (...) {
+                    Error("FlightStrips encountered an unknown internal error. See the log for details.");
+                }
             }
         }
     };

@@ -1,5 +1,6 @@
 ﻿// dllmain.cpp
 
+#include "ExceptionHandling.h"
 #include "InitializePlugin.h"
 #include "version.h"
 
@@ -20,15 +21,34 @@ HINSTANCE dllInstance;
 }
 
 CORE_API auto LoadPlugin() -> EuroScopePlugIn::CPlugIn* {
-    plugin = new FlightStrips::InitializePlugin;
-    plugin->PostInit(dllInstance);
+    try {
+        plugin = new FlightStrips::InitializePlugin;
+        plugin->PostInit(dllInstance);
 
-    return plugin->GetPlugin();
+        return plugin->GetPlugin();
+    } catch (...) {
+        FlightStrips::exceptions::LogCurrentException("LoadPlugin");
+        delete plugin;
+        plugin = nullptr;
+        return nullptr;
+    }
 }
 
 CORE_API void UnloadPlugin() {
-    plugin->EuroScopeCleanup();
-    delete plugin;
+    if (plugin == nullptr) {
+        return;
+    }
+
+    FlightStrips::exceptions::RunGuarded("UnloadPlugin::EuroScopeCleanup", [] {
+        plugin->EuroScopeCleanup();
+    });
+
+    try {
+        delete plugin;
+    } catch (...) {
+        FlightStrips::exceptions::LogCurrentException("UnloadPlugin::DeletePlugin");
+    }
+
     plugin = nullptr;
 }
 
@@ -38,12 +58,14 @@ CORE_API auto GetPluginVersion() -> const char * {
 
 [[maybe_unused]] CORE_API_DIRECT void EuroScopePlugInInit(EuroScopePlugIn::CPlugIn** ppPlugInInstance)
 {
+    if (ppPlugInInstance == nullptr) {
+        return;
+    }
+
     *ppPlugInInstance = LoadPlugin();
 }
 
 [[maybe_unused]] CORE_API_DIRECT void EuroScopePlugInExit(void)
 {
-    plugin->EuroScopeCleanup();
-    delete plugin;
-    plugin = nullptr;
+    UnloadPlugin();
 }

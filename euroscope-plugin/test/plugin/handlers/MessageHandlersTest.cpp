@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
+#include <stdexcept>
 #include "handlers/MessageHandlers.h"
 #include "mock/MockMessageHandler.h"
 
@@ -55,4 +56,21 @@ TEST_F(MessageHandlersTest, RegisterSameHandlerTwice_CallsItTwice) {
     handlers.RegisterHandler(h);
     handlers.RegisterHandler(h);
     handlers.OnMessages(msgs);
+}
+
+TEST_F(MessageHandlersTest, ThrowingHandler_DoesNotPropagateAndStillCallsRemainingHandlers) {
+    auto throwingHandler = std::make_shared<StrictMock<MockMessageHandler>>();
+    auto nextHandler = std::make_shared<StrictMock<MockMessageHandler>>();
+    std::vector<nlohmann::json> msgs = {nlohmann::json{{"type", "test"}}};
+
+    EXPECT_CALL(*throwingHandler, OnMessages(msgs))
+        .WillOnce(::testing::Invoke([](const std::vector<nlohmann::json>&) {
+            throw std::runtime_error("boom");
+        }));
+    EXPECT_CALL(*nextHandler, OnMessages(msgs)).Times(1);
+
+    handlers.RegisterHandler(throwingHandler);
+    handlers.RegisterHandler(nextHandler);
+
+    EXPECT_NO_THROW(handlers.OnMessages(msgs));
 }

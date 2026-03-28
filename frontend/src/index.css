@@ -40,6 +40,7 @@
   /* ── Strip text colors ───────────────────────────────── */
   --color-field-modified:    #2751A3; /* controller-modified field text */
   --color-field-manual:      #21326A; /* manually entered field text */
+  --color-type-heavy:        #DD6A12; /* heavy WTC aircraft type text */
 
   /* ── SI (position ownership) indicator colors ────────── */
   --color-si-assumed:        #F0F0F0; /* strip assumed by current controller */

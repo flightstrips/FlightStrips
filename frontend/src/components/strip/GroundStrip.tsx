@@ -1,7 +1,7 @@
-import { getSimpleAircraftType } from "@/lib/utils";
+import { getAircraftTypeWithWtc } from "@/lib/utils";
 import { getStripBg } from "./types";
 import type { StripProps } from "./types";
-import { useStripSelection, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR, getStripOwnership, useStripBg } from "./shared";
+import { useStripSelection, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR, COLOR_TYPE_HEAVY, getStripOwnership, useStripBg } from "./shared";
 import { useStripTransfers, useWebSocketStore } from "@/store/store-hooks";
 import { SIBox } from "./SIBox";
 
@@ -21,6 +21,7 @@ export function GroundStrip({
   callsign,
   pdcStatus,
   aircraftType,
+  aircraftCategory,
   stand,
   taxiway,
   holdingPoint,
@@ -77,7 +78,7 @@ export function GroundStrip({
       {/* A/C type — 80px split (bottom reserved for registration) */}
       <div className="flex-shrink-0 flex flex-col border-r-2" style={{ width: 80, height: "100%", borderRightColor: cellBorderColor }}>
         <div className="flex items-center justify-center border-b-2" style={{ height: TOP_H, borderBottomColor: cellBorderColor }}>
-          <span className="text-xs font-semibold truncate px-1">{getSimpleAircraftType(aircraftType)}</span>
+          <span className="text-xs font-semibold truncate px-1" style={{ color: aircraftCategory === "H" ? COLOR_TYPE_HEAVY : undefined }}>{getAircraftTypeWithWtc(aircraftType, aircraftCategory)}</span>
         </div>
         <div style={{ height: BOT_H }} />
       </div>

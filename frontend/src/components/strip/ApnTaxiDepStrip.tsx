@@ -9,12 +9,13 @@ import {
   FONT,
   COLOR_DEP_STRIP_BG,
   COLOR_UNEXPECTED_YELLOW,
+  COLOR_TYPE_HEAVY,
   getStripOwnership,
   getCellTextColor,
   useStripBg,
 } from "./shared";
 import { SIBox } from "./SIBox";
-import { getSimpleAircraftType } from "@/lib/utils";
+import { getAircraftTypeWithWtc } from "@/lib/utils";
 import { useStripTransfers, useWebSocketStore } from "@/store/store-hooks";
 import { ApronTaxiMapDialog } from "@/components/map-dialogs/ApronTaxiMapDialog";
 import { useCTOTColor } from "@/hooks/useCTOTColor";
@@ -42,6 +43,7 @@ export const APN_TAXI_DEP_STRIP_WIDTH = "90%";
 export function ApnTaxiDepStrip({
   callsign,
   aircraftType,
+  aircraftCategory,
   registration,
   stand,
   holdingPoint,
@@ -115,8 +117,8 @@ export function ApnTaxiDepStrip({
           style={{ flex: `${F_TYPE} 0 0%`, height: "100%", paddingBottom: BOT_H, minWidth: 0, borderRightColor: cellBorderColor }}
           onClick={(e) => { e.stopPropagation(); setFplOpen(true); }}
         >
-          <span className="truncate px-1 leading-tight w-full text-center" style={{ fontFamily: FONT, fontSize: 10 }}>
-            {getSimpleAircraftType(aircraftType)}
+          <span className="truncate px-1 leading-tight w-full text-center" style={{ fontFamily: FONT, fontSize: 10, color: aircraftCategory === "H" ? COLOR_TYPE_HEAVY : undefined }}>
+            {getAircraftTypeWithWtc(aircraftType, aircraftCategory)}
           </span>
           <span className="truncate px-1 leading-tight w-full text-center" style={{ fontFamily: FONT, fontSize: 10 }}>
             {registration}

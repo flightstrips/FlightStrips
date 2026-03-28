@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { getSimpleAircraftType } from "@/lib/utils";
+import { getAircraftTypeWithWtc } from "@/lib/utils";
 import { ArrStandDialog } from "@/components/strip/ArrStandDialog";
 import { AltSelectDialog } from "@/components/strip/AltSelectDialog";
 import { HdgSelectDialog } from "@/components/strip/HdgSelectDialog";
@@ -274,7 +274,7 @@ export default function FlightPlanDialog({
             <div className="grid items-center gap-[5px]">
               <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>TYPE</Label>
               <Input
-                value={getSimpleAircraftType(strip.aircraft_type)}
+                value={getAircraftTypeWithWtc(strip.aircraft_type, strip.aircraft_category)}
                 disabled
                 className={CLS_BTN_DISABLED_LEFT}
                 style={{ width: 200, fontFamily: FONT_FAMILY, fontSize: FONT_SIZE_FIELD }}

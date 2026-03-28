@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 
-import { getSimpleAircraftType } from "@/lib/utils";
+import { getAircraftTypeWithWtc } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { formatTimeLabel } from "@/components/eset/metadata";
 import type { FrontendStrip } from "@/api/models";
@@ -115,7 +115,7 @@ export default function EsetStandStatusDialog({
                   className={CLS_LIST_BTN}
                   onClick={() => onAssignPlannedDeparture(plannedStrip)}
                 >
-                  {plannedStrip.callsign} — {getSimpleAircraftType(plannedStrip.aircraft_type) || "—"} — {formatTimeLabel(plannedStrip.tobt)}
+                  {plannedStrip.callsign} — {getAircraftTypeWithWtc(plannedStrip.aircraft_type, plannedStrip.aircraft_category) || "—"} — {formatTimeLabel(plannedStrip.tobt)}
                 </button>
               ))}
               {nonClearedStrips.length === 0 && (

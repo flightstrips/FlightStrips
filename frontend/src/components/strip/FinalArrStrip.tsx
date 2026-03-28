@@ -1,10 +1,10 @@
 import { useState } from "react";
-import { getSimpleAircraftType } from "@/lib/utils";
+import { getAircraftTypeWithWtc } from "@/lib/utils";
 import { useStripTransfers, useWebSocketStore } from "@/store/store-hooks";
 import FlightPlanDialog from "@/components/FlightPlanDialog";
 import { Bay } from "@/api/models";
 import type { StripProps } from "./types";
-import { useStripSelection, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR, FONT, COLOR_ARR_YELLOW, getStripOwnership, useStripBg } from "./shared";
+import { useStripSelection, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR, FONT, COLOR_ARR_YELLOW, COLOR_TYPE_HEAVY, getStripOwnership, useStripBg } from "./shared";
 import { SIBox } from "./SIBox";
 import { ArrStandDialog } from "./ArrStandDialog";
 import { TaxiMapDialog } from "@/components/map-dialogs/TaxiMapDialog";
@@ -38,6 +38,7 @@ export function FinalArrStrip({
   callsign,
   bay,
   aircraftType,
+  aircraftCategory,
   squawk,
   assignedSquawk,
   runway,
@@ -123,8 +124,8 @@ export function FinalArrStrip({
         style={{ flexGrow: F_TYPE, flexBasis: 0, height: "100%", borderRightColor: cellBorderColor }}
       >
         <div className="flex items-center justify-center" style={{ height: TOP_H }}>
-          <span className="truncate px-1" style={{ fontFamily: FONT, fontWeight: 600, fontSize: 12 }}>
-            {getSimpleAircraftType(aircraftType)}
+          <span className="truncate px-1" style={{ fontFamily: FONT, fontWeight: 600, fontSize: 12, color: aircraftCategory === "H" ? COLOR_TYPE_HEAVY : undefined }}>
+            {getAircraftTypeWithWtc(aircraftType, aircraftCategory)}
           </span>
         </div>
         <div

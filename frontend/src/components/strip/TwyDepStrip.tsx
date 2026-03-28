@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { getSimpleAircraftType } from "@/lib/utils";
+import { getAircraftTypeWithWtc } from "@/lib/utils";
 import { useControllers, useStripTransfers, useWebSocketStore } from "@/store/store-hooks";
 import FlightPlanDialog from "@/components/FlightPlanDialog";
 import { useCTOTColor } from "@/hooks/useCTOTColor";
-import { COLOR_UNEXPECTED_YELLOW } from "./shared";
+import { COLOR_UNEXPECTED_YELLOW, COLOR_TYPE_HEAVY } from "./shared";
 import { getStripBg } from "./types";
 import type { StripProps } from "./types";
 import { useStripSelection, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR, FONT, getStripOwnership, getCellTextColor, useStripBg } from "./shared";
@@ -46,6 +46,7 @@ export function TwyDepStrip({
   bay,
   pdcStatus,
   aircraftType,
+  aircraftCategory,
   squawk,
   assignedSquawk,
   stand,
@@ -166,8 +167,8 @@ export function TwyDepStrip({
         style={{ flexGrow: F_TYPE_SQ, flexBasis: 0, height: "100%", borderRightColor: cellBorderColor }}
       >
         <div className="flex items-center justify-center overflow-hidden" style={{ height: HALF_H }}>
-          <span className="truncate px-1" style={{ fontFamily: FONT, fontWeight: "bold", fontSize: 13 }}>
-            {getSimpleAircraftType(aircraftType)}
+          <span className="truncate px-1" style={{ fontFamily: FONT, fontWeight: "bold", fontSize: 13, color: aircraftCategory === "H" ? COLOR_TYPE_HEAVY : undefined }}>
+            {getAircraftTypeWithWtc(aircraftType, aircraftCategory)}
           </span>
         </div>
         <div

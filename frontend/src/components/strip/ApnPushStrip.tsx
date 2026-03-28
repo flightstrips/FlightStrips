@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { getAircraftTypeWithWtc } from "@/lib/utils";
 import type { StripProps } from "./types";
 import {
   useStripSelection,
@@ -9,6 +10,7 @@ import {
   COLOR_DEP_STRIP_BG,
   COLOR_UNEXPECTED_YELLOW,
   COLOR_MANUAL_BLUE,
+  COLOR_TYPE_HEAVY,
   getStripOwnership,
   getCellTextColor,
   useStripBg,
@@ -50,6 +52,7 @@ export function ApnPushStrip({
   callsign,
   bay,
   aircraftType,
+  aircraftCategory,
   registration,
   stand,
   holdingPoint,
@@ -128,7 +131,7 @@ export function ApnPushStrip({
           style={{ flex: `${F_TYPE} 0 0%`, height: "100%", paddingBottom: "1.48vh", minWidth: 0, borderRightColor: cellBorderColor }}
           onClick={(e) => { e.stopPropagation(); setFplOpen(true); }}
         >
-          <span className="truncate px-1 leading-tight w-full text-center" style={{ fontFamily: FONT, fontSize: 10 }}>{aircraftType?.split("/")[0]}</span>
+          <span className="truncate px-1 leading-tight w-full text-center" style={{ fontFamily: FONT, fontSize: 10, color: aircraftCategory === "H" ? COLOR_TYPE_HEAVY : undefined }}>{getAircraftTypeWithWtc(aircraftType, aircraftCategory)}</span>
           <span className="truncate px-1 leading-tight w-full text-center" style={{ fontFamily: FONT, fontSize: 10 }}>{registration}</span>
         </div>
 

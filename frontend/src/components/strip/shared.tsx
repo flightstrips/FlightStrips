@@ -98,6 +98,8 @@ export const COLOR_BTN_DEFAULT   = "#646464";
 export const COLOR_BTN_ORANGE    = "var(--color-si-unconcerned)";
 /** Blue accent button background. */
 export const COLOR_BTN_BLUE      = "var(--color-half-mem-aid)";
+/** Heavy WTC aircraft type text color. */
+export const COLOR_TYPE_HEAVY    = "var(--color-type-heavy)";
 /** Yellow accent button background. */
 export const COLOR_BTN_YELLOW    = "#F3EA1F";
 /** Cyan background for departure / push strips (ApnPushStrip, ApnTaxiDepStrip, HalfStrip). */

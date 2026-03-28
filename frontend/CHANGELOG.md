@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.17.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.16.1...frontend/v0.17.0) (2026-03-28)
+
+
+### Features
+
+* borders and shadows ([00bcc8c](https://github.com/flightstrips/FlightStrips/commit/00bcc8cacaffeb5344dc1085eafd64ced0cf0cbc))
+* gaurd metar decoding behind S3 rating or higher ([e7bcf94](https://github.com/flightstrips/FlightStrips/commit/e7bcf94e4d57f9221001fd47d1466f20fbae7deb))
+* missed approach ([c12e3b5](https://github.com/flightstrips/FlightStrips/commit/c12e3b503b46a04749245f967bf5296e6c4097f3))
+* open FPL on all strips ([2c7dfec](https://github.com/flightstrips/FlightStrips/commit/2c7dfecb383e421674fe89fdb2f803860f29e8d8))
+* Runway status ([3514fa6](https://github.com/flightstrips/FlightStrips/commit/3514fa6b7feae51b6db9044c7560c7d6318a841e))
+
+
+### Bug Fixes
+
+* bay colors ([6926e02](https://github.com/flightstrips/FlightStrips/commit/6926e023ef9b85e93894a1de4e85d7246eea8915))
+* borders on bays ([e062850](https://github.com/flightstrips/FlightStrips/commit/e062850eef69400461a236661bddea520c931439))
+* click point for callsign ([bdb6893](https://github.com/flightstrips/FlightStrips/commit/bdb6893f4ab47988b583c6786f9a2e1bbb184359))
+* de-ice bay heights ([4b469a3](https://github.com/flightstrips/FlightStrips/commit/4b469a3ad29ed2a5d04fdcd4b2ee3277c4822437))
+* header borders and shadows ([eee0486](https://github.com/flightstrips/FlightStrips/commit/eee048687f0dbb4da7e8af73eacd71306afcfb9f))
+* SI unconcerned color ([3f44eff](https://github.com/flightstrips/FlightStrips/commit/3f44effbd4c4cd00968f5fe89ee2e2a58f0535fc))
+
 ## [0.16.1](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.16.0...frontend/v0.16.1) (2026-03-27)
 
 

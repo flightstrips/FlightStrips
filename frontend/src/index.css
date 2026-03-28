@@ -67,6 +67,8 @@
 body {
   font-family: 'IBM Plex Sans', system-ui, sans-serif;
   --asd: 0.5rem;
+  touch-action: none;
+  overflow: hidden;
 }
 
 @layer components {

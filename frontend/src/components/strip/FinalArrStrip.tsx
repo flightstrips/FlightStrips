@@ -74,15 +74,13 @@ export function FinalArrStrip({
   return (
     <>
     <div
-      className={`flex text-black select-none${selectable ? " cursor-pointer" : ""}`}
+      className="flex text-black select-none"
       style={{
         height: "4.72vh",
         width: "95%",
         backgroundColor: resolveStripBg(COLOR_ARR_YELLOW, isTagRequest, isUnconcerned),
         ...getFlatStripBorderStyle({}, CELL_BORDER),
       }}
-      onClick={handleClick}
-      onContextMenu={(e) => { e.preventDefault(); openStripContextMenu(callsign, { x: e.clientX, y: e.clientY }); }}
     >
       {/* SI / ownership */}
       <SIBox
@@ -100,8 +98,10 @@ export function FinalArrStrip({
 
       {/* Callsign; top 2/3 = callsign */}
       <div
-        className="flex flex-col border-r-2 min-w-0"
+        className="flex flex-col border-r-2 min-w-0 cursor-pointer"
         style={{ flexGrow: F_CALLSIGN, flexBasis: 0, height: "100%", borderRightColor: cellBorderColor }}
+        onClick={handleClick}
+        onContextMenu={(e) => { e.preventDefault(); openStripContextMenu(callsign, { x: e.clientX, y: e.clientY }); }}
       >
         <div
           className="flex items-center pl-2 overflow-hidden"

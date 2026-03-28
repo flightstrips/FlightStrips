@@ -43,15 +43,13 @@ export function GroundStrip({
 
   return (
     <div
-      className={`flex text-black select-none${selectable ? " cursor-pointer" : ""}`}
+      className="flex text-black select-none"
       style={{
         height: 48,
         width: 480,
         backgroundColor: resolveStripBg(getStripBg(pdcStatus, arrival), isTagRequest, isUnconcerned),
         ...getFlatStripBorderStyle({ borderBottom: "1px solid white" }),
       }}
-      onClick={handleClick}
-      onContextMenu={(e) => { e.preventDefault(); openStripContextMenu(callsign, { x: e.clientX, y: e.clientY }); }}
     >
       <SIBox
         callsign={callsign}
@@ -65,7 +63,10 @@ export function GroundStrip({
       />
 
       {/* Callsign — 120px */}
-      <div className="flex-shrink-0 flex flex-col border-r-2" style={{ width: 120, height: "100%", borderRightColor: cellBorderColor }}>
+      <div className="flex-shrink-0 flex flex-col border-r-2 cursor-pointer" style={{ width: 120, height: "100%", borderRightColor: cellBorderColor }}
+        onClick={handleClick}
+        onContextMenu={(e) => { e.preventDefault(); openStripContextMenu(callsign, { x: e.clientX, y: e.clientY }); }}
+      >
         <div className="flex items-center pl-2" style={{ height: TOP_H, backgroundColor: isSelected ? SELECTION_COLOR : undefined }}>
           <span className="font-bold text-xl truncate w-full">{callsign}</span>
         </div>

@@ -85,14 +85,12 @@ export function ApnPushStrip({
 
   return (
     <div
-      className={`select-none${selectable ? " cursor-pointer" : ""}`}
+      className="select-none"
       style={{
         height: "4.72vh",
         width: fullWidth ? "100%" : "90%",
         ...getFramedStripStyle(marked),
       }}
-      onClick={handleClick}
-      onContextMenu={(e) => { e.preventDefault(); openStripContextMenu(callsign, { x: e.clientX, y: e.clientY }); }}
     >
       <div className="flex text-black" style={{ height: "100%", overflow: "hidden", backgroundColor: resolveStripBg(COLOR_ARR_STRIP_BG, isTagRequest, isUnconcerned) }}>
         {/* SI / ownership — 8% */}
@@ -108,8 +106,10 @@ export function ApnPushStrip({
 
         {/* Callsign — 25%, FONT medium 20, top 2/3 highlighted when selected */}
         <div
-          className="flex flex-col overflow-hidden border-r-2"
+          className="flex flex-col overflow-hidden border-r-2 cursor-pointer"
           style={{ flex: `${F_CALLSIGN} 0 0%`, height: "100%", minWidth: 0, borderRightColor: cellBorderColor }}
+          onClick={handleClick}
+          onContextMenu={(e) => { e.preventDefault(); openStripContextMenu(callsign, { x: e.clientX, y: e.clientY }); }}
         >
           <div className="flex items-center pl-2" style={{ height: TOP_H, backgroundColor: isSelected ? SELECTION_COLOR : undefined }}>
             <span className="truncate w-full" style={{ fontFamily: FONT, fontWeight: "bold", fontSize: 20, color: manualBlue }}>

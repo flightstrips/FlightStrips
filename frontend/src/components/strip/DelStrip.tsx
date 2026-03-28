@@ -86,17 +86,13 @@ export function DelStrip({
 
   return (
     <div
-      className={`select-none cursor-pointer`}
+      className="select-none"
       style={{
         height: FULL_H,
         width: fullWidth ? "100%" : "80%",
         ...getFramedStripStyle(marked),
         borderBottom: "1px solid white",
       }}
-      onClick={isClrDel || !selectable
-        ? (e: MouseEvent) => { openStripContextMenu(callsign, { x: e.clientX, y: e.clientY }); }
-        : handleClick}
-      onContextMenu={(e) => { e.preventDefault(); openStripContextMenu(callsign, { x: e.clientX, y: e.clientY }); }}
     >
       <div
         className={`flex ${isNavyBg ? "text-white" : "text-black"}`}
@@ -106,8 +102,12 @@ export function DelStrip({
 
         {/* Callsign — 2/3 of left half */}
         <button
-          className={`flex items-center justify-start overflow-hidden ${selectable && !isClrDel ? CLS_CALLSIGN_ACTIVE : ""} border-r-2`}
+          className={`flex items-center justify-start overflow-hidden ${selectable && !isClrDel ? CLS_CALLSIGN_ACTIVE : ""} border-r-2 cursor-pointer`}
           style={{ flex: "2 0 0%", height: "100%", minWidth: 0, fontFamily: FONT, fontWeight: "bold", fontSize: 24, textAlign: "left", paddingLeft: "4px", borderRightColor: cellBorderColor, backgroundColor: isSelected ? SELECTION_COLOR : undefined, color: manualBlue }}
+          onClick={isClrDel || !selectable
+            ? (e: MouseEvent) => { openStripContextMenu(callsign, { x: e.clientX, y: e.clientY }); }
+            : handleClick}
+          onContextMenu={(e) => { e.preventDefault(); openStripContextMenu(callsign, { x: e.clientX, y: e.clientY }); }}
         >
           <span className="truncate w-full">{callsign}</span>
         </button>

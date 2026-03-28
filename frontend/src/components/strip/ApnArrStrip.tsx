@@ -67,15 +67,13 @@ export function ApnArrStrip({
   return (
     <>
     <div
-      className={`flex text-black select-none${selectable ? " cursor-pointer" : ""}`}
+      className="flex text-black select-none"
       style={{
         height: "4.72vh",
         width: "90%",
         backgroundColor: resolveStripBg(COLOR_ARR_YELLOW, isTagRequest, isUnconcerned),
         ...getFlatStripBorderStyle({}, CELL_BORDER),
       }}
-      onClick={handleClick}
-      onContextMenu={(e) => { e.preventDefault(); openStripContextMenu(callsign, { x: e.clientX, y: e.clientY }); }}
     >
       <SIBox
         callsign={callsign}
@@ -91,7 +89,10 @@ export function ApnArrStrip({
       />
 
       {/* Callsign */}
-      <div className="flex flex-col border-r-2 min-w-0" style={{ flexGrow: F_CALLSIGN, flexBasis: 0, height: "100%", borderRightColor: cellBorderColor }}>
+      <div className="flex flex-col border-r-2 min-w-0 cursor-pointer" style={{ flexGrow: F_CALLSIGN, flexBasis: 0, height: "100%", borderRightColor: cellBorderColor }}
+        onClick={handleClick}
+        onContextMenu={(e) => { e.preventDefault(); openStripContextMenu(callsign, { x: e.clientX, y: e.clientY }); }}
+      >
         <div className="flex items-center pl-2" style={{ height: TOP_H, backgroundColor: isSelected ? SELECTION_COLOR : undefined }}>
           <span className="font-bold text-xl truncate w-full" style={{ color: manualBlue }}>{callsign}</span>
         </div>

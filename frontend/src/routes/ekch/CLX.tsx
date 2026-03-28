@@ -23,8 +23,8 @@ const primaryHeader = "bg-primary h-10 flex items-center px-2 justify-between";
 const primaryLabel  = "text-gray-100 font-bold text-lg";
 
 // Scroll container classes
-const scrollArea       = `w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto ${CLS_SCROLLBAR}`;
-const scrollAreaBottom = `w-full bg-[#555355] p-1 flex flex-col justify-end gap-px overflow-y-auto ${CLS_SCROLLBAR}`;
+const scrollArea       = `w-full bg-[#555355] shadow-[inset_0_0_0_2px_#555355] p-0.5 flex flex-col gap-px overflow-y-auto ${CLS_SCROLLBAR}`;
+const scrollAreaBottom = `w-full bg-[#555355] shadow-[inset_0_0_0_2px_#555355] p-0.5 flex flex-col justify-end gap-px overflow-y-auto ${CLS_SCROLLBAR}`;
 const scrollAreaRaw = `w-full bg-[#555355] overflow-y-auto ${CLS_SCROLLBAR}`;
 
 export default function DEL() {

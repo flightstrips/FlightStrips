@@ -40,9 +40,9 @@ const pageWrapper  = "bg-[#A9A9A9] w-screen h-[95.28vh] flex justify-center just
 const header       = "bg-[#393939] h-10 flex items-center px-2 shrink-0";
 const label        = "text-white font-bold text-lg";
 const colSep       = "border-t-4 border-[#A9A9A9]";
-const scrollArea           = `w-full bg-[#555355] p-1 flex flex-col gap-px overflow-y-auto ${CLS_SCROLLBAR}`;
-const scrollAreaBottom     = `w-full bg-[#555355] p-1 flex flex-col justify-end gap-px overflow-y-auto ${CLS_SCROLLBAR}`;
-const darkScrollAreaBottom = `w-full bg-[#212121] p-1 flex flex-col justify-end gap-px overflow-y-auto ${CLS_SCROLLBAR}`;
+const scrollArea           = `w-full bg-[#555355] shadow-[inset_0_0_0_2px_#555355] p-0.5 flex flex-col gap-px overflow-y-auto ${CLS_SCROLLBAR}`;
+const scrollAreaBottom     = `w-full bg-[#555355] shadow-[inset_0_0_0_2px_#555355] p-0.5 flex flex-col justify-end gap-px overflow-y-auto ${CLS_SCROLLBAR}`;
+const darkScrollAreaBottom = `w-full bg-[#212121] shadow-[inset_0_0_0_2px_#212121] p-0.5 flex flex-col justify-end gap-px overflow-y-auto ${CLS_SCROLLBAR}`;
 
 export default function GEGW() {
   const myPosition = useMyPosition();

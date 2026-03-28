@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.17.2](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.17.1...frontend/v0.17.2) (2026-03-28)
+
+
+### Bug Fixes
+
+* another hotfix ([273eaed](https://github.com/flightstrips/FlightStrips/commit/273eaedd48dc1be62a2eee873558fb7838549b80))
+
 ## [0.17.1](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.17.0...frontend/v0.17.1) (2026-03-28)
 
 

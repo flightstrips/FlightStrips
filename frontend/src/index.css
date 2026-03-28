@@ -1,6 +1,10 @@
 @import "tailwindcss";
 @custom-variant dark (&:is(.dark *));
 
+@theme {
+  --color-bay-border: #CCCCCC; /* Bay/column border color — change here to update all borders */
+}
+
 body {
   font-family: 'IBM Plex Sans', system-ui, sans-serif;
   --asd: 0.5rem;

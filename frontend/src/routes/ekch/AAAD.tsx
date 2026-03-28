@@ -27,21 +27,21 @@ import { ViewDndContext } from "@/components/bays/ViewDndContext.tsx";
 import { StripListPopup, type SortMode } from "@/components/StripListPopup.tsx";
 import { useState } from "react";
 import { APN_TAXI_DEP_STRIP_WIDTH } from "@/components/strip/ApnTaxiDepStrip.tsx";
-import { CLS_BTN, CLS_BTN_BLUE, CLS_SCROLLBAR } from "@/components/strip/shared";
+import { CLS_BTN, CLS_BTN_BLUE, CLS_SCROLLBAR, CLS_HEADER_SHADOW } from "@/components/strip/shared";
 import { NewIfrDialog } from "@/components/strip/NewIfrDialog";
 import { PlannedDialog } from "@/components/strip/PlannedDialog";
 
 // Shared header styles
-const pageWrapper   = "bg-[#A9A9A9] w-screen h-[95.28vh] flex divide-x-[6px] divide-[#A9A9A9] border-x-2 border-[#A9A9A9]";
-const header        = "bg-[#393939] h-10 flex items-center px-2 shrink-0 shadow-[inset_3px_0_4px_rgba(0,0,0,0.4),inset_0_2px_4px_rgba(0,0,0,0.4),0_2px_3px_rgba(0,0,0,0.6)] relative z-10";
+const pageWrapper   = "bg-bay-border w-screen h-[95.28vh] flex divide-x-[6px] divide-bay-border border-x-2 border-t-2 border-bay-border";
+const header        = `bg-[#393939] h-10 flex items-center px-2 shrink-0 ${CLS_HEADER_SHADOW}`;
 const label         = "text-white font-bold text-lg";
-const primaryHeader = "bg-primary h-10 flex items-center px-2 shrink-0";
+const primaryHeader = `bg-primary h-10 flex items-center px-2 shrink-0 ${CLS_HEADER_SHADOW}`;
 const primaryLabel  = "text-white font-bold text-lg";
-const colSep        = "border-t-[6px] border-[#A9A9A9]";
+const colSep        = "border-t-[6px] border-bay-border";
 const scrollArea       = `w-full bg-[#555355] shadow-[inset_2px_2px_4px_rgba(0,0,0,0.55),inset_-1px_-1px_2px_rgba(255,255,255,0.07)] p-0.5 flex flex-col gap-px overflow-y-auto ${CLS_SCROLLBAR}`;
 const scrollAreaBottom = `w-full bg-[#555355] shadow-[inset_2px_2px_4px_rgba(0,0,0,0.55),inset_-1px_-1px_2px_rgba(255,255,255,0.07)] p-0.5 flex flex-col justify-end gap-px overflow-y-auto ${CLS_SCROLLBAR}`;
 const col           = "flex-1 h-full bg-[#555355] flex flex-col min-w-0";
-const tabBar        = "flex shrink-0 border-t-8 border-[#A9A9A9]";
+const tabBar        = "flex shrink-0 border-t-8 border-bay-border";
 const tabBtn        = "flex-1 bg-[#393939] text-white font-bold text-sm border border-white hover:bg-[#4a4a4a]";
 const btn           = CLS_BTN;
 const btnBlue       = CLS_BTN_BLUE;

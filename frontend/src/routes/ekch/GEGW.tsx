@@ -26,7 +26,7 @@ import { StripListPopup, type SortMode } from "@/components/StripListPopup.tsx";
 import { useState } from "react";
 import { CLX_CLEARED_STRIP_WIDTH } from "@/components/strip/ClxClearedStrip.tsx";
 import { TWY_DEP_STRIP_WIDTH } from "@/components/strip/types";
-import { CLS_BTN, CLS_BTN_ORANGE, CLS_BTN_BLUE, CLS_BTN_YELLOW, CLS_SCROLLBAR, CLS_COL } from "@/components/strip/shared";
+import { CLS_BTN, CLS_BTN_ORANGE, CLS_BTN_BLUE, CLS_BTN_YELLOW, CLS_SCROLLBAR, CLS_COL, CLS_HEADER_SHADOW } from "@/components/strip/shared";
 import { NewIfrDialog } from "@/components/strip/NewIfrDialog";
 import { PlannedDialog } from "@/components/strip/PlannedDialog";
 
@@ -36,10 +36,10 @@ const W_COL_DEP      = "w-[28%]";
 const W_COL_CLRDEL   = "w-1/4";
 const W_COL_STAND    = "w-1/5";
 
-const pageWrapper  = "bg-[#A9A9A9] w-screen h-[95.28vh] flex divide-x-[6px] divide-[#A9A9A9] border-x-2 border-[#A9A9A9]";
-const header       = "bg-[#393939] h-10 flex items-center px-2 shrink-0 shadow-[inset_3px_0_4px_rgba(0,0,0,0.4),inset_0_2px_4px_rgba(0,0,0,0.4),0_2px_3px_rgba(0,0,0,0.6)] relative z-10";
+const pageWrapper  = "bg-bay-border w-screen h-[95.28vh] flex divide-x-[6px] divide-bay-border border-x-2 border-t-2 border-bay-border";
+const header       = `bg-[#393939] h-10 flex items-center px-2 shrink-0 ${CLS_HEADER_SHADOW}`;
 const label        = "text-white font-bold text-lg";
-const colSep       = "border-t-[6px] border-[#A9A9A9]";
+const colSep       = "border-t-[6px] border-bay-border";
 const scrollArea           = `w-full bg-[#555355] shadow-[inset_2px_2px_4px_rgba(0,0,0,0.55),inset_-1px_-1px_2px_rgba(255,255,255,0.07)] p-0.5 flex flex-col gap-px overflow-y-auto ${CLS_SCROLLBAR}`;
 const scrollAreaBottom     = `w-full bg-[#555355] shadow-[inset_2px_2px_4px_rgba(0,0,0,0.55),inset_-1px_-1px_2px_rgba(255,255,255,0.07)] p-0.5 flex flex-col justify-end gap-px overflow-y-auto ${CLS_SCROLLBAR}`;
 const darkScrollAreaBottom = `w-full bg-[#212121] shadow-[inset_3px_3px_7px_rgba(0,0,0,0.85),inset_-1px_-1px_3px_rgba(255,255,255,0.05)] p-0.5 flex flex-col justify-end gap-px overflow-y-auto ${CLS_SCROLLBAR}`;
@@ -305,7 +305,7 @@ export default function GEGW() {
           )}
         </SortableBay>
 
-        <div className={`bg-primary h-10 flex items-center px-2 shrink-0 justify-between ${colSep}`}>
+        <div className={`bg-primary h-10 flex items-center px-2 shrink-0 justify-between ${CLS_HEADER_SHADOW} ${colSep}`}>
           <span className="text-white font-bold text-lg">MESSAGES</span>
           <span className="flex gap-1">
             <button className={CLS_BTN}>INFO</button>

@@ -5,21 +5,21 @@ import {useClearedStrips, useNorwegianBayStrips, useOtherBayStrips, usePushbackS
 import type {FrontendStrip} from "@/api/models.ts";
 import { useMessages, useMyPosition } from "@/store/store-hooks.ts";
 import { useState } from "react";
-import { CLS_BTN, CLS_SCROLLBAR } from "@/components/strip/shared";
+import { CLS_BTN, CLS_SCROLLBAR, CLS_HEADER_SHADOW } from "@/components/strip/shared";
 import { NewIfrDialog } from "@/components/strip/NewIfrDialog";
 import { PlannedDialog } from "@/components/strip/PlannedDialog";
 
 // Column widths — all four columns are equal
 const W_COL = "w-1/4";
 const col         = `${W_COL} h-full bg-[#555355]`; // column wrapper (no flex-col; each column manages its own layout)
-const pageWrapper = "bg-[#A9A9A9] w-screen h-[95.28vh] flex divide-x-[6px] divide-[#A9A9A9] border-x-2 border-[#A9A9A9] aspect-video";
+const pageWrapper = "bg-bay-border w-screen h-[95.28vh] flex divide-x-[6px] divide-bay-border border-x-2 border-t-2 border-bay-border aspect-video";
 
 // Header class strings
-const lockedHeader  = "bg-[#393939] h-10 flex items-center px-2 justify-between shadow-[inset_3px_0_4px_rgba(0,0,0,0.4),inset_0_2px_4px_rgba(0,0,0,0.4),0_2px_3px_rgba(0,0,0,0.6)] relative z-10";
+const lockedHeader  = `bg-[#393939] h-10 flex items-center px-2 justify-between ${CLS_HEADER_SHADOW}`;
 const lockedLabel   = "text-white font-bold text-lg";
-const activeHeader  = "bg-[#b3b3b3] h-10 flex items-center px-2 justify-between shadow-[inset_3px_0_4px_rgba(0,0,0,0.4),inset_0_2px_4px_rgba(0,0,0,0.4),0_2px_3px_rgba(0,0,0,0.6)] relative z-10";
+const activeHeader  = `bg-[#b3b3b3] h-10 flex items-center px-2 justify-between ${CLS_HEADER_SHADOW}`;
 const activeLabel   = "text-[#393939] font-bold text-lg";
-const primaryHeader = "bg-primary h-10 flex items-center px-2 justify-between shadow-[inset_3px_0_4px_rgba(0,0,0,0.4),inset_0_2px_4px_rgba(0,0,0,0.4),0_2px_3px_rgba(0,0,0,0.6)] relative z-10";
+const primaryHeader = `bg-primary h-10 flex items-center px-2 justify-between ${CLS_HEADER_SHADOW}`;
 const primaryLabel  = "text-gray-100 font-bold text-lg";
 
 // Scroll container classes

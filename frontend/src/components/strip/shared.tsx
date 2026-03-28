@@ -206,6 +206,10 @@ export const COLOR_SHADOW = "#2F2F2F";
 /** Standard bay column — full height, panel background, vertical flex. */
 export const CLS_COL = "h-full bg-[#555355] flex flex-col";
 
+/** Shadow applied to every bay section header — controls the depth effect.
+ *  Change here to update all views at once. */
+export const CLS_HEADER_SHADOW = "shadow-[inset_6px_0_8px_rgba(0,0,0,0.4),inset_0_4px_8px_rgba(0,0,0,0.4),0_1px_0_rgba(0,0,0,0.9)] relative z-10";
+
 // ── Scrollbar utility ─────────────────────────────────────────────────────────
 
 /** Webkit scrollbar styling used in every bay scroll container. */

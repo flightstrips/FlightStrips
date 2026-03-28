@@ -42,7 +42,7 @@ const W_COL_CENTER   = "w-1/4";
 const W_COL_RIGHT    = "w-[21%]";
 
 // Header class strings
-const header = "bg-[#393939] h-10 flex items-center px-2 shrink-0";
+const header = "bg-[#393939] h-10 flex items-center px-2 shrink-0 shadow-[inset_3px_0_4px_rgba(0,0,0,0.4),inset_0_2px_4px_rgba(0,0,0,0.4),0_2px_3px_rgba(0,0,0,0.6)] relative z-10";
 const label  = "text-white font-bold text-lg";
 
 // Section separator (grey border between sub-sections within a column)

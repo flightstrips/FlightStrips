@@ -32,7 +32,7 @@ import { MessageComposeDialog } from "@/components/MessageComposeDialog.tsx";
 
 // Shared header styles
 const pageWrapper   = "bg-[#A9A9A9] w-screen h-[95.28vh] flex divide-x-[6px] divide-[#A9A9A9] border-x-2 border-[#A9A9A9]";
-const header        = "bg-[#393939] h-10 flex items-center px-2 shrink-0";
+const header        = "bg-[#393939] h-10 flex items-center px-2 shrink-0 shadow-[inset_3px_0_4px_rgba(0,0,0,0.4),inset_0_2px_4px_rgba(0,0,0,0.4),0_2px_3px_rgba(0,0,0,0.6)] relative z-10";
 const label         = "text-white font-bold text-lg";
 const primaryHeader = "bg-primary h-10 flex items-center px-2 shrink-0";
 const primaryLabel  = "text-white font-bold text-lg";

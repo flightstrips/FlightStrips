@@ -37,7 +37,7 @@ const W_COL_CLRDEL   = "w-1/4";
 const W_COL_STAND    = "w-1/5";
 
 const pageWrapper  = "bg-[#A9A9A9] w-screen h-[95.28vh] flex divide-x-[6px] divide-[#A9A9A9] border-x-2 border-[#A9A9A9]";
-const header       = "bg-[#393939] h-10 flex items-center px-2 shrink-0";
+const header       = "bg-[#393939] h-10 flex items-center px-2 shrink-0 shadow-[inset_3px_0_4px_rgba(0,0,0,0.4),inset_0_2px_4px_rgba(0,0,0,0.4),0_2px_3px_rgba(0,0,0,0.6)] relative z-10";
 const label        = "text-white font-bold text-lg";
 const colSep       = "border-t-[6px] border-[#A9A9A9]";
 const scrollArea           = `w-full bg-[#555355] shadow-[inset_2px_2px_4px_rgba(0,0,0,0.55),inset_-1px_-1px_2px_rgba(255,255,255,0.07)] p-0.5 flex flex-col gap-px overflow-y-auto ${CLS_SCROLLBAR}`;

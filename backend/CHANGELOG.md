@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.12.0](https://github.com/flightstrips/FlightStrips/compare/backend/v0.11.0...backend/v0.12.0) (2026-03-28)
+
+
+### Features
+
+* gaurd metar decoding behind S3 rating or higher ([e7bcf94](https://github.com/flightstrips/FlightStrips/commit/e7bcf94e4d57f9221001fd47d1466f20fbae7deb))
+* missed approach ([c12e3b5](https://github.com/flightstrips/FlightStrips/commit/c12e3b503b46a04749245f967bf5296e6c4097f3))
+* Runway status ([3514fa6](https://github.com/flightstrips/FlightStrips/commit/3514fa6b7feae51b6db9044c7560c7d6318a841e))
+
 ## [0.11.0](https://github.com/flightstrips/FlightStrips/compare/backend/v0.10.4...backend/v0.11.0) (2026-03-27)
 
 

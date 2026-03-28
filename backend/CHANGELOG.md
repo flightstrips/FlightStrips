@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.11.0](https://github.com/flightstrips/FlightStrips/compare/backend/v0.10.4...backend/v0.11.0) (2026-03-27)
+
+
+### Features
+
+* upper TWY DEP strip moves to lower bay when assumed by tower ([299cd45](https://github.com/flightstrips/FlightStrips/commit/299cd45509ca0486dd253602fecfe9008cce0d91))
+
+
+### Bug Fixes
+
+* apron single controller always gets AAAD layout ([e6f4a13](https://github.com/flightstrips/FlightStrips/commit/e6f4a13a914c5dd7a46b5f2d5c3975370fa0082e))
+* confirmed runway strips no longer turn red when new strip arrives ([bf87d57](https://github.com/flightstrips/FlightStrips/commit/bf87d57bfd6b6e373c1c237fa51bbd5af37473e2))
+* dual login same position receives correct layout on connect ([44b547a](https://github.com/flightstrips/FlightStrips/commit/44b547aedc05cdf5b6927b7d0ca48bf260189a4f))
+* move strip when transfering to tower from hidden tower bay ([94e6e52](https://github.com/flightstrips/FlightStrips/commit/94e6e526343fda371ded247b93eb82483a990302))
+* taxi bay no longer reverts when ground state is TAXI ([9ef5173](https://github.com/flightstrips/FlightStrips/commit/9ef517355eb19e7328f8830e74b4974f6e3a6e94))
+* update layout on freqency change ([280dea2](https://github.com/flightstrips/FlightStrips/commit/280dea29200fa3eee5c8d25234387b1e17217a95))
+
 ## [0.10.4](https://github.com/flightstrips/FlightStrips/compare/backend/v0.10.3...backend/v0.10.4) (2026-03-24)
 
 

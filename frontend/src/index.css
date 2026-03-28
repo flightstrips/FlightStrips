@@ -64,10 +64,26 @@
   --color-drop-invalid:      #ef4444; /* invalid drop target highlight */
 }
 
+/* Contain scroll to inner panels (bay lists), not the viewport — avoids iOS whole-page bounce */
+html {
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
 body {
   font-family: 'IBM Plex Sans', system-ui, sans-serif;
   --asd: 0.5rem;
+  height: 100%;
   overflow: hidden;
+  overscroll-behavior: none;
+}
+
+#root {
+  height: 100%;
+  min-height: 100dvh;
+  overflow: hidden;
+  overscroll-behavior: none;
 }
 
 @layer components {
@@ -119,17 +135,17 @@ body {
 
   /* ── Scroll areas ───────────────────────────────────────────────────────── */
   .bay-scroll-area {
-    @apply w-full bg-bay-panel p-0.5 flex flex-col gap-px overflow-y-auto touch-pan-y;
+    @apply w-full bg-bay-panel p-0.5 flex flex-col gap-px overflow-y-auto overscroll-y-contain;
     @apply [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary;
     box-shadow: inset 2px 2px 4px rgba(0,0,0,0.55), inset -1px -1px 2px rgba(255,255,255,0.07);
   }
   .bay-scroll-area-bottom {
-    @apply w-full bg-bay-panel p-0.5 flex flex-col justify-end gap-px overflow-y-auto touch-pan-y;
+    @apply w-full bg-bay-panel p-0.5 flex flex-col justify-end gap-px overflow-y-auto overscroll-y-contain;
     @apply [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary;
     box-shadow: inset 2px 2px 4px rgba(0,0,0,0.55), inset -1px -1px 2px rgba(255,255,255,0.07);
   }
   .bay-scroll-area-dark {
-    @apply w-full bg-bay-dark p-0.5 flex flex-col justify-end gap-px overflow-y-auto touch-pan-y;
+    @apply w-full bg-bay-dark p-0.5 flex flex-col justify-end gap-px overflow-y-auto overscroll-y-contain;
     @apply [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary;
     box-shadow: inset 3px 3px 7px rgba(0,0,0,0.85), inset -1px -1px 3px rgba(255,255,255,0.05);
   }

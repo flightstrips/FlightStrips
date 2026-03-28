@@ -85,7 +85,7 @@ export default function TWTE() {
   const updateOrder       = useWebSocketStore(state => state.updateOrder);
   const move              = useWebSocketStore(state => state.move);
   const moveTacticalStrip = useWebSocketStore(state => state.moveTacticalStrip);
-  const assumeStrip       = useWebSocketStore(state => state.assumeStrip);
+  const pickupStrip       = useWebSocketStore(state => state.pickupStrip);
   const missedApproach    = useWebSocketStore(state => state.missedApproach);
 
   const selectedCallsign  = useSelectedCallsign();
@@ -314,8 +314,7 @@ export default function TWTE() {
             strips={clearedStrips}
             sortModes={startupSortModes}
             onRowClick={(strip) => {
-              move(strip.callsign, Bay.Push);
-              assumeStrip(strip.callsign);
+              pickupStrip(strip.callsign, Bay.Push);
               setStartupOpen(false);
             }}
             onDismiss={() => setStartupOpen(false)}
@@ -328,8 +327,7 @@ export default function TWTE() {
             strips={inboundStrips}
             sortModes={arrSortModes}
             onRowClick={(strip) => {
-              move(strip.callsign, Bay.Final);
-              assumeStrip(strip.callsign);
+              pickupStrip(strip.callsign, Bay.Final);
               setArrOpen(false);
             }}
             onDismiss={() => setArrOpen(false)}

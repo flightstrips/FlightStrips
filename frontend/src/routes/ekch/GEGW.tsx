@@ -60,7 +60,7 @@ export default function GEGW() {
   const updateOrder       = useWebSocketStore(state => state.updateOrder);
   const move              = useWebSocketStore(state => state.move);
   const moveTacticalStrip = useWebSocketStore(state => state.moveTacticalStrip);
-  const assumeStrip       = useWebSocketStore(state => state.assumeStrip);
+  const pickupStrip       = useWebSocketStore(state => state.pickupStrip);
 
   const arrSortModes: SortMode<FrontendStrip>[] = [
     { key: "ETA",      label: "ETA",      compareFn: (a, b) => a.eldt.localeCompare(b.eldt) },
@@ -184,8 +184,7 @@ export default function GEGW() {
             strips={inboundStrips}
             sortModes={arrSortModes}
             onRowClick={(strip) => {
-              move(strip.callsign, Bay.Final);
-              assumeStrip(strip.callsign);
+              pickupStrip(strip.callsign, Bay.Final);
               setArrOpen(false);
             }}
             onDismiss={() => setArrOpen(false)}

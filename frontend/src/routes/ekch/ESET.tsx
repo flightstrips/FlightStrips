@@ -101,7 +101,7 @@ export default function ESET() {
   const strips = useWebSocketStore((state) => state.strips);
   const move = useWebSocketStore((state) => state.move);
   const updateStrip = useWebSocketStore((state) => state.updateStrip);
-  const assumeStrip = useWebSocketStore((state) => state.assumeStrip);
+  const pickupStrip = useWebSocketStore((state) => state.pickupStrip);
   const transferStrip = useWebSocketStore((state) => state.transferStrip);
   const toggleMarked = useWebSocketStore((state) => state.toggleMarked);
   const cdmReady = useWebSocketStore((state) => state.cdmReady);
@@ -266,8 +266,7 @@ export default function ESET() {
     }
 
     setActionState(menuState.stand, menuStrip);
-    assumeStrip(menuStrip.callsign);
-    move(menuStrip.callsign, Bay.Push);
+    pickupStrip(menuStrip.callsign, Bay.Push);
     closeMenu();
   }
 
@@ -277,8 +276,7 @@ export default function ESET() {
     }
 
     setActionState(menuState.stand, menuStrip);
-    assumeStrip(menuStrip.callsign);
-    move(menuStrip.callsign, Bay.Taxi);
+    pickupStrip(menuStrip.callsign, Bay.Taxi);
     closeMenu();
   }
 

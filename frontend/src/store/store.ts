@@ -109,6 +109,7 @@ export interface WebSocketState {
   transferStrip: (callsign: string, toPosition: string) => void;
   assumeStrip: (callsign: string) => void;
   forceAssumeStrip: (callsign: string) => void;
+  pickupStrip: (callsign: string, bay: Bay) => void;
   freeStrip: (callsign: string) => void;
   cancelTransfer: (callsign: string) => void;
   requestTag: (callsign: string) => void;
@@ -340,6 +341,11 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     // forceAssumeStrip: takes ownership of an unowned strip, bypassing the next-owners check
     forceAssumeStrip: (callsign) => {
       wsClient.send({ type: ActionType.FrontendCoordinationForceAssumeRequest, callsign });
+    },
+    // pickupStrip: force-assume and move to bay in one action (used when selecting from ARR/startup popups)
+    pickupStrip: (callsign, bay) => {
+      get().forceAssumeStrip(callsign);
+      get().move(callsign, bay);
     },
     freeStrip: (callsign) => {
       wsClient.send({ type: ActionType.FrontendCoordinationFreeRequest, callsign });

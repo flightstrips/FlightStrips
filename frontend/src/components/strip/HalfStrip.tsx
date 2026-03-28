@@ -1,6 +1,6 @@
 import { getSimpleAircraftType } from "@/lib/utils";
 import type { HalfStripVariant, StripProps } from "./types";
-import { useStripSelection, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR, COLOR_ARR_YELLOW, COLOR_ARR_STRIP_BG, COLOR_BTN_BLUE, COLOR_BTN_ORANGE, COLOR_UNEXPECTED_YELLOW, COLOR_MANUAL_BLUE, getCellTextColor } from "./shared";
+import { useStripSelection, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR, COLOR_ARR_YELLOW, COLOR_ARR_STRIP_BG, COLOR_BTN_BLUE, COLOR_BTN_ORANGE, COLOR_UNEXPECTED_YELLOW, COLOR_MANUAL_BLUE, getCellTextColor, useStripBg } from "./shared";
 import { useStripTransfers, useWebSocketStore } from "@/store/store-hooks";
 
 // Variant-specific background colours
@@ -74,12 +74,12 @@ export function HalfStrip({
   const cellBorderColor = getCellBorderColor(marked, HALF_CELL_BASE);
   const manualBlue = isManual ? COLOR_MANUAL_BLUE : undefined;
 
-  const bg = VARIANT_BG[halfStripVariant];
   const label = VARIANT_LABEL[halfStripVariant];
 
   // Use light text on dark backgrounds for readability
   const darkBg = ["MESSAGES", "MEM-AID", "LAND-START"].includes(halfStripVariant);
-  const textColor = darkBg ? "text-white" : "text-black";
+  const { bg, textWhite } = useStripBg(runway, VARIANT_BG[halfStripVariant], isTagRequest, false);
+  const textColor = (darkBg || textWhite) ? "text-white" : "text-black";
 
   return (
     <div

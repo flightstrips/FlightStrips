@@ -347,6 +347,7 @@ func applyOrValidateRunways(ctx context.Context, client *Client, runways []euros
 		ArrivalRunways:   arrival,
 	}
 
+	// Note: runway status is populated below from the current session after master check.
 	isMaster := false
 	if master, ok := client.hub.master[client.session]; ok && master == client {
 		isMaster = true
@@ -384,6 +385,9 @@ func applyOrValidateRunways(ctx context.Context, client *Client, runways []euros
 	}
 	oldActiveRunways := currentSession.ActiveRunways
 
+	// Preserve any frontend-set runway status when EuroScope pushes a runway change.
+	activeRunways.RunwayStatus = currentSession.ActiveRunways.RunwayStatus
+
 	if err = sessionRepo.UpdateActiveRunways(ctx, client.session, activeRunways); err != nil {
 		return err
 	}
@@ -392,7 +396,7 @@ func applyOrValidateRunways(ctx context.Context, client *Client, runways []euros
 		slog.Error("Failed to propagate runway change to strips", slog.Int("session", int(client.session)), slog.Any("error", err))
 	}
 
-	s.GetFrontendHub().SendRunwayConfiguration(client.session, departure, arrival)
+	s.GetFrontendHub().SendRunwayConfiguration(client.session, departure, arrival, activeRunways.RunwayStatus)
 
 	if _, err = s.UpdateSectors(client.session); err != nil {
 		slog.Error("UpdateSectors failed after runway change", slog.Int("session", int(client.session)), slog.Any("error", err))

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { getSimpleAircraftType } from "@/lib/utils";
 import type { StripProps } from "./types";
-import { useStripSelection, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR, COLOR_ARR_YELLOW, COLOR_UNEXPECTED_YELLOW, COLOR_MANUAL_BLUE, getStripOwnership, resolveStripBg, getCellTextColor } from "./shared";
+import { useStripSelection, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR, COLOR_ARR_YELLOW, COLOR_UNEXPECTED_YELLOW, COLOR_MANUAL_BLUE, getStripOwnership, getCellTextColor, useStripBg } from "./shared";
 import { useStripTransfers, useWebSocketStore } from "@/store/store-hooks";
 import { RunwayDialog } from "./RunwayDialog";
 import { ArrStandDialog } from "./ArrStandDialog";
@@ -63,15 +63,16 @@ export function ApnArrStrip({
   const runwayYellow = unexpectedChangeFields?.includes("runway");
 
   const { isUnconcerned } = getStripOwnership(myPosition, owner, nextControllers, previousControllers);
+  const { bg, textWhite } = useStripBg(runway, COLOR_ARR_YELLOW, isTagRequest, isUnconcerned);
 
   return (
     <>
     <div
-      className="flex text-black select-none"
+      className={`flex ${textWhite ? "text-white" : "text-black"} select-none`}
       style={{
         height: "4.72vh",
         width: "90%",
-        backgroundColor: resolveStripBg(COLOR_ARR_YELLOW, isTagRequest, isUnconcerned),
+        backgroundColor: bg,
         ...getFlatStripBorderStyle({}, CELL_BORDER),
       }}
     >

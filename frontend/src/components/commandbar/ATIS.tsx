@@ -21,7 +21,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { useAirport, useMetar } from "@/store/store-hooks";
+import { useAirport, useAtisCode, useMetar } from "@/store/store-hooks";
 import { CLS_CMDBTN } from "@/components/strip/shared";
 import {
   decodeMetar,
@@ -220,12 +220,15 @@ function buildReadout(decoded: MetarDecoded): string {
 export default function ATIS() {
   const airport = useAirport();
   const metar = useMetar();
+  const atisCode = useAtisCode();
   const decoded = decodeMetar(metar ?? undefined);
 
   return (
     <Dialog>
-      <DialogTrigger asChild>
-        <button className={`${CLS_CMDBTN} !w-auto px-5`}>ATIS</button>
+      <DialogTrigger
+        className={`${CLS_CMDBTN} !w-[4.45vw]${atisCode === '' ? ' !bg-[#F43A3A]' : ''}`}
+      >
+        ATIS
       </DialogTrigger>
       <DialogContent className={CLS_DIALOG}>
         <DialogHeader>

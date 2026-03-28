@@ -9,8 +9,8 @@ import {
   COLOR_ARR_STRIP_BG,
   COLOR_UNEXPECTED_YELLOW,
   getStripOwnership,
-  resolveStripBg,
   getCellTextColor,
+  useStripBg,
 } from "./shared";
 import { SIBox } from "./SIBox";
 import { getSimpleAircraftType } from "@/lib/utils";
@@ -60,6 +60,7 @@ export function ApnTaxiDepStrip({
   const stripTransfers = useStripTransfers();
   const isTagRequest = !!stripTransfers[callsign]?.isTagRequest;
   const { isUnconcerned } = getStripOwnership(myPosition, owner, nextControllers, previousControllers);
+  const { bg, textWhite } = useStripBg(runway, COLOR_ARR_STRIP_BG, isTagRequest, isUnconcerned);
   const [showTaxiMap, setShowTaxiMap] = useState(false);
   const { ctotBg, ctotColor, showCtot } = useCTOTColor(ctot ?? "");
   const acknowledgeUnexpectedChange = useWebSocketStore(s => s.acknowledgeUnexpectedChange);
@@ -80,7 +81,7 @@ export function ApnTaxiDepStrip({
         ...getFramedStripStyle(marked),
       }}
     >
-      <div className="flex text-black" style={{ height: "100%", overflow: "hidden", backgroundColor: resolveStripBg(COLOR_ARR_STRIP_BG, isTagRequest, isUnconcerned) }}>
+      <div className={`flex ${textWhite ? "text-white" : "text-black"}`} style={{ height: "100%", overflow: "hidden", backgroundColor: bg }}>
 
         {/* SI / ownership — 8% */}
         <SIBox

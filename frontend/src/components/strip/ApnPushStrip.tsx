@@ -10,8 +10,8 @@ import {
   COLOR_UNEXPECTED_YELLOW,
   COLOR_MANUAL_BLUE,
   getStripOwnership,
-  resolveStripBg,
   getCellTextColor,
+  useStripBg,
 } from "./shared";
 import { useWebSocketStore } from "@/store/store-hooks";
 import { SIBox } from "./SIBox";
@@ -73,6 +73,7 @@ export function ApnPushStrip({
   const stripTransfers = useStripTransfers();
   const isTagRequest = !!stripTransfers[callsign]?.isTagRequest;
   const { isUnconcerned } = getStripOwnership(myPosition, owner, nextControllers, previousControllers);
+  const { bg, textWhite } = useStripBg(runway, COLOR_ARR_STRIP_BG, isTagRequest, isUnconcerned);
   const [pushbackOpen, setPushbackOpen] = useState(false);
   const [apronTaxiOpen, setApronTaxiOpen] = useState(false);
   const [runwayOpen, setRunwayOpen] = useState(false);
@@ -92,7 +93,7 @@ export function ApnPushStrip({
         ...getFramedStripStyle(marked),
       }}
     >
-      <div className="flex text-black" style={{ height: "100%", overflow: "hidden", backgroundColor: resolveStripBg(COLOR_ARR_STRIP_BG, isTagRequest, isUnconcerned) }}>
+      <div className={`flex ${textWhite ? "text-white" : "text-black"}`} style={{ height: "100%", overflow: "hidden", backgroundColor: bg }}>
         {/* SI / ownership — 8% */}
         <SIBox
           callsign={callsign}

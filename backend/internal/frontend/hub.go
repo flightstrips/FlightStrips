@@ -87,6 +87,7 @@ func NewHub(stripService shared.StripService, authenticationService shared.Authe
 	handlers.Add(frontend.MissedApproachRequestType, handleMissedApproach)
 	handlers.Add(frontend.ActionCreateManualFPL, handleCreateManualFPL)
 	handlers.Add(frontend.ActionCreateVFRFPL, handleCreateVFRFPL)
+	handlers.Add(frontend.UpdateRunwayStatus, handleUpdateRunwayStatus)
 
 	hub := &Hub{
 		send:                  make(chan internalMessage),
@@ -347,8 +348,9 @@ func (hub *Hub) sendInitialEvent(client *Client) {
 		Airport:        client.airport,
 		Layout:         layout,
 		RunwaySetup: frontend.RunwayConfiguration{
-			Departure: departure,
-			Arrival:   arrival,
+			Departure:    departure,
+			Arrival:      arrival,
+			RunwayStatus: dbSession.ActiveRunways.RunwayStatus,
 		},
 		Coordinations: coordinationModels,
 		Messages:      storedMsgs,
@@ -658,11 +660,12 @@ func (hub *Hub) SendPdcStateChange(session int32, callsign, state string) {
 	hub.Broadcast(session, event)
 }
 
-func (hub *Hub) SendRunwayConfiguration(session int32, departure, arrival []string) {
+func (hub *Hub) SendRunwayConfiguration(session int32, departure, arrival []string, status map[string]string) {
 	event := frontend.RunwayConfigurationEvent{
 		RunwaySetup: frontend.RunwayConfiguration{
-			Departure: departure,
-			Arrival:   arrival,
+			Departure:    departure,
+			Arrival:      arrival,
+			RunwayStatus: status,
 		},
 	}
 	hub.Broadcast(session, event)

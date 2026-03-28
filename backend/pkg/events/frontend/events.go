@@ -88,6 +88,8 @@ const (
 
 	MissedApproachRequestType EventType = "missed_approach"
 
+	UpdateRunwayStatus EventType = "update_runway_status"
+
 	// Sent to the originating client when a frontend action is rejected by the backend
 	ActionRejected EventType = "action_rejected"
 
@@ -102,8 +104,9 @@ type OutgoingMessage interface {
 }
 
 type RunwayConfiguration struct {
-	Departure []string `json:"departure"`
-	Arrival   []string `json:"arrival"`
+	Departure    []string          `json:"departure"`
+	Arrival      []string          `json:"arrival"`
+	RunwayStatus map[string]string `json:"runway_status,omitempty"`
 }
 
 type Strip struct {
@@ -691,6 +694,19 @@ func (r RunwayConfirmationEvent) Marshal() ([]byte, error) {
 
 func (r RunwayConfirmationEvent) GetType() EventType {
 	return RunwayConfirmation
+}
+
+type UpdateRunwayStatusAction struct {
+	Pair   string `json:"pair"`   // e.g. "04L-22R"
+	Status string `json:"status"` // "OPEN" | "LOW_VIS" | "CLOSED"
+}
+
+func (e UpdateRunwayStatusAction) Marshal() ([]byte, error) {
+	return marshall(e)
+}
+
+func (e UpdateRunwayStatusAction) GetType() EventType {
+	return UpdateRunwayStatus
 }
 
 // PDC Events

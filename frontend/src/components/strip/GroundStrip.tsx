@@ -1,7 +1,7 @@
 import { getSimpleAircraftType } from "@/lib/utils";
 import { getStripBg } from "./types";
 import type { StripProps } from "./types";
-import { useStripSelection, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR, getStripOwnership, resolveStripBg } from "./shared";
+import { useStripSelection, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR, getStripOwnership, useStripBg } from "./shared";
 import { useStripTransfers, useWebSocketStore } from "@/store/store-hooks";
 import { SIBox } from "./SIBox";
 
@@ -40,14 +40,15 @@ export function GroundStrip({
   const openStripContextMenu = useWebSocketStore(s => s.openStripContextMenu);
 
   const { isUnconcerned } = getStripOwnership(myPosition, owner, nextControllers, previousControllers);
+  const { bg, textWhite } = useStripBg(runway, getStripBg(pdcStatus, arrival), isTagRequest, isUnconcerned);
 
   return (
     <div
-      className="flex text-black select-none"
+      className={`flex ${textWhite ? "text-white" : "text-black"} select-none`}
       style={{
         height: 48,
         width: 480,
-        backgroundColor: resolveStripBg(getStripBg(pdcStatus, arrival), isTagRequest, isUnconcerned),
+        backgroundColor: bg,
         ...getFlatStripBorderStyle({ borderBottom: "1px solid white" }),
       }}
     >

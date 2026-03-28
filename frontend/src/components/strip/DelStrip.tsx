@@ -12,6 +12,7 @@ import {
   COLOR_UNEXPECTED_YELLOW,
   COLOR_MANUAL_BLUE,
   getCellTextColor,
+  useStripBg,
 } from "./shared";
 import { useIsClrDel, useStripTransfers, useWebSocketStore } from "@/store/store-hooks";
 import { useCDMColors } from "@/hooks/useCDMColors";
@@ -36,6 +37,7 @@ export function DelStrip({
   tobt,
   tsat,
   arrival,
+  runway,
   selectable,
   marked = false,
   fullWidth = false,
@@ -50,6 +52,7 @@ export function DelStrip({
   const openStripContextMenu = useWebSocketStore(s => s.openStripContextMenu);
   const stripTransfers = useStripTransfers();
   const isTagRequest = !!stripTransfers[callsign]?.isTagRequest;
+  const { bg, textWhite } = useStripBg(runway, getStripBg(pdcStatus, arrival), isTagRequest, false);
   const { tobtBg, tsatBg } = useCDMColors({ bay: bay ?? Bay.Unknown, tsat: tsat ?? "", tobt: tobt ?? "" });
   const standYellow = unexpectedChangeFields?.includes("stand");
 
@@ -95,8 +98,8 @@ export function DelStrip({
       }}
     >
       <div
-        className={`flex ${isNavyBg ? "text-white" : "text-black"}`}
-        style={{ height: "100%", overflow: "hidden", backgroundColor: blinkBg ?? (isTagRequest ? SELECTION_COLOR : getStripBg(pdcStatus, arrival)) }}
+        className={`flex ${isNavyBg || (!blinkBg && textWhite) ? "text-white" : "text-black"}`}
+        style={{ height: "100%", overflow: "hidden", backgroundColor: blinkBg ?? bg }}
       >
         {/* ── Left 50% ── */}
 
@@ -141,7 +144,7 @@ export function DelStrip({
           {/* EOBT — left half */}
           <div className="flex flex-col overflow-hidden border-r-2" style={{ flex: "1 0 0%", height: "100%", minWidth: 0, borderRightColor: cellBorderColor }}>
             <div className="flex items-center justify-between px-1 border-b-2 overflow-hidden" style={{ height: "50%", fontFamily: FONT, fontSize: 14, borderBottomColor: "transparent" }}>
-              <span className={`${isNavyBg ? "text-white" : "text-black"} shrink-0`}>EOBT</span>
+              <span className="shrink-0">EOBT</span>
               <span style={{ color: manualBlue }}>{eobt}</span>
             </div>
           </div>
@@ -149,13 +152,13 @@ export function DelStrip({
           {/* TOBT / TSAT — right half, stacked with line between */}
           <div className="flex flex-col" style={{ flex: "1 0 0%", height: "100%" }}>
             <div className="flex items-center justify-between px-1 border-b-2 overflow-hidden" style={{ height: HALF_H, fontFamily: FONT, fontSize: 14, borderBottomColor: cellBorderColor, backgroundColor: tobtBg }}>
-              <span className={`${isNavyBg ? "text-white" : "text-black"} shrink-0`}>TOBT</span>
+              <span className="shrink-0">TOBT</span>
               <span>{tobt}</span>
             </div>
             <div className="flex items-center justify-between px-1 overflow-hidden" style={{ height: HALF_H, fontFamily: FONT, fontSize: 14, backgroundColor: tsatBg, cursor: "pointer" }}
               onClick={(e) => { e.stopPropagation(); cdmReady(callsign); }}
             >
-              <span className={`${isNavyBg ? "text-white" : "text-black"} shrink-0`}>TSAT</span>
+              <span className="shrink-0">TSAT</span>
               <span>{tsat}</span>
             </div>
           </div>

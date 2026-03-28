@@ -224,7 +224,8 @@ func (m *MockFrontendHub) SendCdmWait(session int32, callsign string) {
 
 func (m *MockFrontendHub) SendPdcStateChange(session int32, callsign, state string) {}
 
-func (m *MockFrontendHub) SendRunwayConfiguration(session int32, departure, arrival []string) {}
+func (m *MockFrontendHub) SendRunwayConfiguration(session int32, departure, arrival []string, status map[string]string) {
+}
 
 func (m *MockFrontendHub) SendTacticalStripCreated(session int32, strip frontend.TacticalStripPayload) {
 }

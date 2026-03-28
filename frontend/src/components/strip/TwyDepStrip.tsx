@@ -5,7 +5,7 @@ import { useCTOTColor } from "@/hooks/useCTOTColor";
 import { COLOR_UNEXPECTED_YELLOW } from "./shared";
 import { getStripBg } from "./types";
 import type { StripProps } from "./types";
-import { useStripSelection, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR, FONT, getStripOwnership, resolveStripBg, getCellTextColor } from "./shared";
+import { useStripSelection, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR, FONT, getStripOwnership, getCellTextColor, useStripBg } from "./shared";
 import { TaxiMapDialog } from "../map-dialogs/TaxiMapDialog";
 import { HoldingPointDialog } from "../map-dialogs/HoldingPointDialog";
 import { SIBox } from "./SIBox";
@@ -72,6 +72,7 @@ export function TwyDepStrip({
   const isTagRequest = !!stripTransfers[callsign]?.isTagRequest;
   const cellBorderColor = getCellBorderColor(marked);
   const { isUnconcerned } = getStripOwnership(myPosition, owner, nextControllers, previousControllers);
+  const { bg, textWhite } = useStripBg(runway, getStripBg(pdcStatus), isTagRequest, isUnconcerned);
   const controllers = useControllers();
   const [showTaxiMap, setShowTaxiMap] = useState(false);
   const [showHpMap, setShowHpMap] = useState(false);
@@ -117,11 +118,11 @@ export function TwyDepStrip({
   return (
     <>
     <div
-      className="flex text-black select-none"
+      className={`flex ${textWhite ? "text-white" : "text-black"} select-none`}
       style={{
         height: "4.72vh",
         width: "95%",
-        backgroundColor: resolveStripBg(getStripBg(pdcStatus), isTagRequest, isUnconcerned),
+        backgroundColor: bg,
         ...getFlatStripBorderStyle({ borderBottom: "1px solid white" }),
       }}
     >

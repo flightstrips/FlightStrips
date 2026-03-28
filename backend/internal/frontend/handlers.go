@@ -640,3 +640,38 @@ func handleCreateVFRFPL(ctx context.Context, client *Client, message Message) er
 	}
 	return client.hub.stripService.CreateVFRFPL(ctx, client.session, req, client.GetCid())
 }
+
+func handleUpdateRunwayStatus(ctx context.Context, client *Client, message Message) error {
+	var event frontend.UpdateRunwayStatusAction
+	if err := message.JsonUnmarshal(&event); err != nil {
+		return err
+	}
+
+	validStatuses := map[string]bool{"OPEN": true, "LOW_VIS": true, "CLOSED": true}
+	if !validStatuses[event.Status] {
+		return errors.New("invalid runway status")
+	}
+
+	sessionRepo := client.hub.server.GetSessionRepository()
+	session, err := sessionRepo.GetByID(ctx, client.session)
+	if err != nil {
+		return err
+	}
+
+	if session.ActiveRunways.RunwayStatus == nil {
+		session.ActiveRunways.RunwayStatus = make(map[string]string)
+	}
+	session.ActiveRunways.RunwayStatus[event.Pair] = event.Status
+
+	if err = sessionRepo.UpdateActiveRunways(ctx, client.session, session.ActiveRunways); err != nil {
+		return err
+	}
+
+	client.hub.SendRunwayConfiguration(
+		client.session,
+		session.ActiveRunways.DepartureRunways,
+		session.ActiveRunways.ArrivalRunways,
+		session.ActiveRunways.RunwayStatus,
+	)
+	return nil
+}

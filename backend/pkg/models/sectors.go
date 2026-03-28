@@ -1,8 +1,9 @@
 ﻿package models
 
 type ActiveRunways struct {
-	DepartureRunways []string `json:"departure_runways"`
-	ArrivalRunways   []string `json:"arrival_runways"`
+	DepartureRunways []string          `json:"departure_runways"`
+	ArrivalRunways   []string          `json:"arrival_runways"`
+	RunwayStatus     map[string]string `json:"runway_status,omitempty"` // pair → "OPEN"|"LOW_VIS"|"CLOSED"
 }
 
 func (active ActiveRunways) GetAllActiveRunways() []string {

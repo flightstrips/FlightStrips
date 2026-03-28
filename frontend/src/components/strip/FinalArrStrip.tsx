@@ -3,7 +3,7 @@ import { getSimpleAircraftType } from "@/lib/utils";
 import { useStripTransfers, useWebSocketStore } from "@/store/store-hooks";
 import { Bay } from "@/api/models";
 import type { StripProps } from "./types";
-import { useStripSelection, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR, FONT, COLOR_ARR_YELLOW, getStripOwnership, resolveStripBg } from "./shared";
+import { useStripSelection, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR, FONT, COLOR_ARR_YELLOW, getStripOwnership, useStripBg } from "./shared";
 import { SIBox } from "./SIBox";
 import { ArrStandDialog } from "./ArrStandDialog";
 import { TaxiMapDialog } from "@/components/map-dialogs/TaxiMapDialog";
@@ -56,6 +56,7 @@ export function FinalArrStrip({
   const stripTransfers = useStripTransfers();
   const isTagRequest = !!stripTransfers[callsign]?.isTagRequest;
   const { isUnconcerned } = getStripOwnership(myPosition, owner, nextControllers, previousControllers);
+  const { bg, textWhite } = useStripBg(runway, COLOR_ARR_YELLOW, isTagRequest, isUnconcerned);
   const runwayClearance = useWebSocketStore(s => s.runwayClearance);
   const runwayConfirmation = useWebSocketStore(s => s.runwayConfirmation);
   const openStripContextMenu = useWebSocketStore(s => s.openStripContextMenu);
@@ -74,11 +75,11 @@ export function FinalArrStrip({
   return (
     <>
     <div
-      className="flex text-black select-none"
+      className={`flex ${textWhite ? "text-white" : "text-black"} select-none`}
       style={{
         height: "4.72vh",
         width: "95%",
-        backgroundColor: resolveStripBg(COLOR_ARR_YELLOW, isTagRequest, isUnconcerned),
+        backgroundColor: bg,
         ...getFlatStripBorderStyle({}, CELL_BORDER),
       }}
     >

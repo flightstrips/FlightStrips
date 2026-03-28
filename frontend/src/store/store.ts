@@ -122,6 +122,7 @@ export interface WebSocketState {
   acknowledgeUnexpectedChange: (callsign: string, fieldName: string) => void;
 
   missedApproach: (callsign: string) => void;
+  updateRunwayStatus: (pair: string, status: string) => void;
 
   // manual FPL actions
   createManualFPL: (callsign: string, ades: string, sid: string, ssr: string, eobt: string, aircraftType: string, fl: string, route: string, stand: string, rwyDep: string) => void;
@@ -413,6 +414,9 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     },
     missedApproach: (callsign) => {
       wsClient.send({ type: ActionType.FrontendMissedApproach, callsign });
+    },
+    updateRunwayStatus: (pair, status) => {
+      wsClient.send({ type: ActionType.FrontendUpdateRunwayStatus, pair, status });
     },
     createManualFPL: (callsign, ades, sid, ssr, eobt, aircraftType, fl, route, stand, rwyDep) => {
       wsClient.send({ type: ActionType.FrontendCreateManualFPL, callsign, ades, sid, ssr, eobt, aircraft_type: aircraftType, fl, route, stand, rwy_dep: rwyDep });

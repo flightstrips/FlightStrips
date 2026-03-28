@@ -2,7 +2,7 @@
  * Shared strip sub-components and helpers used across multiple strip variants.
  */
 
-import { useSelectedCallsign, useSelectStrip } from "@/store/store-hooks";
+import { useSelectedCallsign, useSelectStrip, useRunwaySetup } from "@/store/store-hooks";
 import type { CSSProperties } from "react";
 
 export const SELECTION_COLOR = "#FF00F5";
@@ -132,14 +132,56 @@ export function getStripOwnership(
   return { isAssumed, isTransferredAway, isConcerned, isUnconcerned };
 }
 
+// Maps each runway pair label → constituent runway designators.
+const RUNWAY_PAIR_MAP: Record<string, string[]> = {
+  "04L-22R": ["04L", "22R"],
+  "04R-22L": ["04R", "22L"],
+  "12-30":   ["12",  "30"],
+};
+
+/**
+ * Returns true if the given runway belongs to a pair whose status is "CLOSED".
+ * Pass `runwayStatus` from `useRunwaySetup().runway_status`.
+ */
+export function isRunwayClosed(runway: string | undefined, runwayStatus: Record<string, string> | undefined): boolean {
+  if (!runway || !runwayStatus) return false;
+  for (const [pair, status] of Object.entries(runwayStatus)) {
+    if (status === "CLOSED" && RUNWAY_PAIR_MAP[pair]?.includes(runway)) return true;
+  }
+  return false;
+}
+
 /**
  * Resolves the final strip background colour, applying overrides in priority order:
  *   tag-request (pink) → unconcerned (grey) → caller-supplied normal colour.
  */
-export function resolveStripBg(normalBg: string, isTagRequest: boolean, isUnconcerned: boolean): string {
-  if (isTagRequest)  return SELECTION_COLOR;
-  if (isUnconcerned) return COLOR_UNCONCERNED_BG;
+/** Red used for strips whose assigned runway is CLOSED — matches the CLOSED button in the runway status dialog. */
+export const COLOR_CLOSED_RWY = "#F43A3A";
+
+export function resolveStripBg(normalBg: string, isTagRequest: boolean, isUnconcerned: boolean, isClosedRunway = false): string {
+  if (isTagRequest)   return SELECTION_COLOR;
+  if (isClosedRunway) return COLOR_CLOSED_RWY;
+  if (isUnconcerned)  return COLOR_UNCONCERNED_BG;
   return normalBg;
+}
+
+/**
+ * Hook that resolves strip background colour and whether text should be white.
+ * Encapsulates runway-status lookup, closed-runway check, and resolveStripBg — one call per strip.
+ *
+ * Priority: tag-request (pink) → closed runway (red) → unconcerned (grey) → normalBg.
+ * `textWhite` is true only when the closed-runway override is active.
+ */
+export function useStripBg(
+  runway: string | undefined,
+  normalBg: string,
+  isTagRequest: boolean,
+  isUnconcerned: boolean,
+): { bg: string; textWhite: boolean } {
+  const runwaySetup = useRunwaySetup();
+  const closedRwy = isRunwayClosed(runway, runwaySetup.runway_status);
+  const bg = resolveStripBg(normalBg, isTagRequest, isUnconcerned, closedRwy);
+  return { bg, textWhite: closedRwy && !isTagRequest };
 }
 
 /** Returns the text color for a cell if the field was controller-modified, otherwise undefined. */
@@ -177,7 +219,7 @@ export const CLS_CALLSIGN_ACTIVE = "active:bg-[#F237AA]";
 // ── Button class variants ─────────────────────────────────────────────────────
 
 /** Large variant used in the CommandBar toolbar. */
-export const CLS_CMDBTN = "bg-[#646464] text-2xl font-bold h-[calc(4.72vh-14px)] my-[7px] w-[80px] flex items-center justify-center shadow-[inset_2px_0_0_#d3d3d3,_inset_0_2px_0_#d3d3d3] outline-none";
+export const CLS_CMDBTN = "bg-[#646464] text-[1.41vw] font-bold h-[calc(4.72vh-14px)] my-[7px] w-[3.52vw] flex items-center justify-center shadow-[inset_2px_0_0_#d3d3d3,_inset_0_2px_0_#d3d3d3] outline-none";
 export const CLS_BTN        = "bg-[#646464] text-white font-bold text-sm px-3 border-2 border-white active:bg-[#424242]";
 export const CLS_BTN_ORANGE = "bg-[#DD6A12] text-white font-bold text-sm px-3 border-2 border-white active:bg-[#424242]";
 export const CLS_BTN_BLUE   = "bg-[#004FD6] text-white font-bold text-sm px-3 border-2 border-white active:bg-[#424242]";

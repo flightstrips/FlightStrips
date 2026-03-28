@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { getSimpleAircraftType } from "@/lib/utils";
 import { useStripTransfers, useWebSocketStore } from "@/store/store-hooks";
+import FlightPlanDialog from "@/components/FlightPlanDialog";
 import { Bay } from "@/api/models";
 import type { StripProps } from "./types";
 import { useStripSelection, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR, FONT, COLOR_ARR_YELLOW, getStripOwnership, useStripBg } from "./shared";
@@ -62,6 +63,7 @@ export function FinalArrStrip({
   const openStripContextMenu = useWebSocketStore(s => s.openStripContextMenu);
   const [standOpen, setStandOpen] = useState(false);
   const [taxiMapOpen, setTaxiMapOpen] = useState(false);
+  const [fplOpen, setFplOpen] = useState(false);
 
   // RWY cell color — only when cleared in RWY_ARR bay:
   // - runway_confirmed = true: green (controller acknowledged)
@@ -174,10 +176,11 @@ export function FinalArrStrip({
         </div>
       </div>
 
-      {/* Stand (reserved, currently unused) */}
+      {/* Stand (reserved) — clickable to open flight plan */}
       <div
-        className="flex flex-col overflow-hidden min-w-0"
+        className="flex flex-col overflow-hidden min-w-0 cursor-pointer hover:brightness-95"
         style={{ flexGrow: F_STAND, flexBasis: 0, height: "100%" }}
+        onClick={(e) => { e.stopPropagation(); setFplOpen(true); }}
       />
     </div>
 
@@ -192,6 +195,7 @@ export function FinalArrStrip({
       onOpenChange={setTaxiMapOpen}
       callsign={callsign}
     />
+    <FlightPlanDialog callsign={callsign} open={fplOpen} onOpenChange={setFplOpen} mode="view" />
     </>
   );
 }

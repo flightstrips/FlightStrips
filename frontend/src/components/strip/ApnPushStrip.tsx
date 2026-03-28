@@ -22,6 +22,7 @@ import { Bay } from "@/api/models";
 import { PushbackMapDialog } from "@/components/map-dialogs/PushbackMapDialog";
 import { ApronTaxiMapDialog } from "@/components/map-dialogs/ApronTaxiMapDialog";
 import { RunwayDialog } from "./RunwayDialog";
+import FlightPlanDialog from "@/components/FlightPlanDialog";
 
 // Height: 4.72vh (51px at 1080p)
 const HALF_H = "2.36vh";    // half of 4.72vh for TSAT/CTOT split
@@ -77,6 +78,7 @@ export function ApnPushStrip({
   const [pushbackOpen, setPushbackOpen] = useState(false);
   const [apronTaxiOpen, setApronTaxiOpen] = useState(false);
   const [runwayOpen, setRunwayOpen] = useState(false);
+  const [fplOpen, setFplOpen] = useState(false);
   const acknowledgeUnexpectedChange = useWebSocketStore(s => s.acknowledgeUnexpectedChange);
   const openStripContextMenu = useWebSocketStore(s => s.openStripContextMenu);
   const standYellow = unexpectedChangeFields?.includes("stand");
@@ -122,8 +124,9 @@ export function ApnPushStrip({
 
         {/* A/C type / Registration — 25%*(2/3), stacked in top 2/3 */}
         <div
-          className="flex flex-col items-center justify-center overflow-hidden border-r-2"
+          className="flex flex-col items-center justify-center overflow-hidden border-r-2 cursor-pointer hover:brightness-95"
           style={{ flex: `${F_TYPE} 0 0%`, height: "100%", paddingBottom: "1.48vh", minWidth: 0, borderRightColor: cellBorderColor }}
+          onClick={(e) => { e.stopPropagation(); setFplOpen(true); }}
         >
           <span className="truncate px-1 leading-tight w-full text-center" style={{ fontFamily: FONT, fontSize: 10 }}>{aircraftType?.split("/")[0]}</span>
           <span className="truncate px-1 leading-tight w-full text-center" style={{ fontFamily: FONT, fontSize: 10 }}>{registration}</span>
@@ -185,6 +188,7 @@ export function ApnPushStrip({
         direction="departure"
         currentRunway={runway}
       />
+      <FlightPlanDialog callsign={callsign} open={fplOpen} onOpenChange={setFplOpen} mode="view" />
     </div>
   );
 }

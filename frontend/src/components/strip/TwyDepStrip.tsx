@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { getSimpleAircraftType } from "@/lib/utils";
 import { useControllers, useStripTransfers, useWebSocketStore } from "@/store/store-hooks";
+import FlightPlanDialog from "@/components/FlightPlanDialog";
 import { useCTOTColor } from "@/hooks/useCTOTColor";
 import { COLOR_UNEXPECTED_YELLOW } from "./shared";
 import { getStripBg } from "./types";
@@ -76,6 +77,7 @@ export function TwyDepStrip({
   const controllers = useControllers();
   const [showTaxiMap, setShowTaxiMap] = useState(false);
   const [showHpMap, setShowHpMap] = useState(false);
+  const [fplOpen, setFplOpen] = useState(false);
   const runwayClearance = useWebSocketStore(s => s.runwayClearance);
   const runwayConfirmation = useWebSocketStore(s => s.runwayConfirmation);
   const acknowledgeUnexpectedChange = useWebSocketStore(s => s.acknowledgeUnexpectedChange);
@@ -250,8 +252,9 @@ export function TwyDepStrip({
 
       {/* SID / Destination; two lines in top 2/3, bottom 1/3 empty */}
       <div
-        className="flex flex-col overflow-hidden min-w-0"
+        className="flex flex-col overflow-hidden min-w-0 cursor-pointer hover:brightness-95"
         style={{ flexGrow: F_SID_DEST, flexBasis: 0, height: "100%" }}
+        onClick={(e) => { e.stopPropagation(); setFplOpen(true); }}
       >
         <div className="flex items-center justify-center pl-1 overflow-hidden" style={{ height: TOP_HALF_H }}>
           <span className="truncate" style={{ fontFamily: FONT, fontWeight: "normal", fontSize: 12, color: getCellTextColor("sid", controllerModifiedFields) }}>
@@ -278,6 +281,7 @@ export function TwyDepStrip({
       callsign={callsign}
       runway={runway}
     />
+    <FlightPlanDialog callsign={callsign} open={fplOpen} onOpenChange={setFplOpen} mode="view" />
     </>
   );
 }

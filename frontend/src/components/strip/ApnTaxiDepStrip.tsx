@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { StripProps } from "./types";
+import FlightPlanDialog from "@/components/FlightPlanDialog";
 import {
   useStripSelection,
   getFramedStripStyle,
@@ -62,6 +63,7 @@ export function ApnTaxiDepStrip({
   const { isUnconcerned } = getStripOwnership(myPosition, owner, nextControllers, previousControllers);
   const { bg, textWhite } = useStripBg(runway, COLOR_ARR_STRIP_BG, isTagRequest, isUnconcerned);
   const [showTaxiMap, setShowTaxiMap] = useState(false);
+  const [fplOpen, setFplOpen] = useState(false);
   const { ctotBg, ctotColor, showCtot } = useCTOTColor(ctot ?? "");
   const acknowledgeUnexpectedChange = useWebSocketStore(s => s.acknowledgeUnexpectedChange);
   const openStripContextMenu = useWebSocketStore(s => s.openStripContextMenu);
@@ -109,8 +111,9 @@ export function ApnTaxiDepStrip({
 
         {/* A/C type / Registration — 25%*(2/3), stacked in top 2/3 */}
         <div
-          className="flex flex-col items-center justify-center overflow-hidden border-r-2"
+          className="flex flex-col items-center justify-center overflow-hidden border-r-2 cursor-pointer hover:brightness-95"
           style={{ flex: `${F_TYPE} 0 0%`, height: "100%", paddingBottom: BOT_H, minWidth: 0, borderRightColor: cellBorderColor }}
+          onClick={(e) => { e.stopPropagation(); setFplOpen(true); }}
         >
           <span className="truncate px-1 leading-tight w-full text-center" style={{ fontFamily: FONT, fontSize: 10 }}>
             {getSimpleAircraftType(aircraftType)}
@@ -174,6 +177,7 @@ export function ApnTaxiDepStrip({
         onOpenChange={setShowTaxiMap}
         callsign={callsign}
       />
+      <FlightPlanDialog callsign={callsign} open={fplOpen} onOpenChange={setFplOpen} mode="view" />
     </div>
   );
 }

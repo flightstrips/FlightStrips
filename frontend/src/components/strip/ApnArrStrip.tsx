@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { getSimpleAircraftType } from "@/lib/utils";
 import type { StripProps } from "./types";
+import FlightPlanDialog from "@/components/FlightPlanDialog";
 import { useStripSelection, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR, COLOR_ARR_YELLOW, COLOR_UNEXPECTED_YELLOW, COLOR_MANUAL_BLUE, getStripOwnership, getCellTextColor, useStripBg } from "./shared";
 import { useStripTransfers, useWebSocketStore } from "@/store/store-hooks";
 import { RunwayDialog } from "./RunwayDialog";
@@ -57,6 +58,7 @@ export function ApnArrStrip({
   const [runwayOpen, setRunwayOpen] = useState(false);
   const [standOpen, setStandOpen] = useState(false);
   const [taxiMapOpen, setTaxiMapOpen] = useState(false);
+  const [fplOpen, setFplOpen] = useState(false);
   const acknowledgeUnexpectedChange = useWebSocketStore(s => s.acknowledgeUnexpectedChange);
   const openStripContextMenu = useWebSocketStore(s => s.openStripContextMenu);
   const standYellow = unexpectedChangeFields?.includes("stand");
@@ -172,6 +174,7 @@ export function ApnArrStrip({
       callsign={callsign}
       noMove
     />
+    <FlightPlanDialog callsign={callsign} open={fplOpen} onOpenChange={setFplOpen} mode="view" />
     </>
   );
 }

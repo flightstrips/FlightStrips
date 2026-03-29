@@ -7,6 +7,7 @@ import REQBTN from "./REQBTN";
 import ATIS from "./ATIS";
 import CDMSIM from "./CDMSIM";
 import RunwayStsDialog, { type RunwayStatus } from "./RunwayStsDialog";
+import DeleteConfirmDialog from "./DeleteConfirmDialog";
 import MetarHelper from "@/components/MetarHelper";
 import { useAudioSettings } from "@/hooks/useAudioSettings";
 import { useAtisCode, useMetar, useRunwaySetup, useSelectedCallsign, useSelectStrip, useWebSocketStore, useStrip } from "@/store/store-hooks";
@@ -94,6 +95,9 @@ export default function CommandBar() {
   // Runway status dialog
   const [rwyDlgPair, setRwyDlgPair] = useState<string | null>(null);
 
+  // Delete confirmation dialog
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+
   const handleMark = () => {
     if (!selectedCallsign) return;
     toggleMarked(selectedCallsign, !isMarked);
@@ -101,8 +105,14 @@ export default function CommandBar() {
 
   const handleDelete = () => {
     if (!selectedCallsign || !isOwner) return;
+    setDeleteConfirmOpen(true);
+  };
+
+  const handleDeleteConfirm = () => {
+    if (!selectedCallsign || !isOwner) return;
     move(selectedCallsign, Bay.Hidden);
     selectStrip(null);
+    setDeleteConfirmOpen(false);
   };
 
   const handleLayoutSelect = (l: string) => {
@@ -255,6 +265,14 @@ export default function CommandBar() {
             </div>
           </div>
         </>
+      )}
+
+      {/* ── Delete confirmation dialog ────────────────────── */}
+      {deleteConfirmOpen && (
+        <DeleteConfirmDialog
+          onConfirm={handleDeleteConfirm}
+          onCancel={() => setDeleteConfirmOpen(false)}
+        />
       )}
 
       {/* ── Runway status dialog ───────────────────────────── */}

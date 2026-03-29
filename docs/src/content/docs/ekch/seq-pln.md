@@ -5,7 +5,7 @@ sidebar:
   order: 4
 ---
 
-# Kastrup Sequence Planner (SEQ PLN)
+# Kastrup Sequence Planner
 
 ![Kastrup Sequence Planner](../../../assets/ekch/est.jpg)
 

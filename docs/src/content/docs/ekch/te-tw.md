@@ -5,7 +5,7 @@ sidebar:
   order: 7
 ---
 
-# Kastrup Tower East + West (TE + TW)
+# Kastrup Tower East + West
 
 ![Kastrup Tower East + West](../../../assets/ekch/tw-te.jpg)
 

@@ -5,7 +5,7 @@ sidebar:
   order: 6
 ---
 
-# Kastrup Ground East + West (GE + GW)
+# Kastrup Ground East + West
 
 ![Kastrup Ground East + West](../../../assets/ekch/ge-gw.jpg)
 

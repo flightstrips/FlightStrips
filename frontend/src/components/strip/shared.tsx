@@ -4,6 +4,7 @@
 
 import { useSelectedCallsign, useSelectStrip, useRunwaySetup } from "@/store/store-hooks";
 import type { CSSProperties } from "react";
+import type { PdcStatus } from "./types";
 
 export const SELECTION_COLOR = "var(--color-strip-selection)";
 export const STRIP_FRAME_COLOR = "var(--color-strip-frame)";
@@ -179,11 +180,14 @@ export function useStripBg(
   normalBg: string,
   isTagRequest: boolean,
   isUnconcerned: boolean,
+  pdcStatus?: PdcStatus,
 ): { bg: string; textWhite: boolean } {
   const runwaySetup = useRunwaySetup();
   const closedRwy = isRunwayClosed(runway, runwaySetup.runway_status);
   const bg = resolveStripBg(normalBg, isTagRequest, isUnconcerned, closedRwy);
-  return { bg, textWhite: closedRwy && !isTagRequest };
+  const pdcDarkBg = (pdcStatus === "REQUESTED" || pdcStatus === "CLEARED")
+    && !isTagRequest && !closedRwy && !isUnconcerned;
+  return { bg, textWhite: (closedRwy && !isTagRequest) || pdcDarkBg };
 }
 
 /** Returns the text color for a cell if the field was controller-modified, otherwise undefined. */

@@ -25,7 +25,7 @@ export function ClxHalfStrip({
   arrival,
   fullWidth
 }: StripProps) {
-  const { bg, textWhite } = useStripBg(runway, getStripBg(pdcStatus, arrival), false, false);
+  const { bg, textWhite } = useStripBg(runway, getStripBg(pdcStatus, arrival), false, false, pdcStatus);
 
   return (
     <div style={{

@@ -41,7 +41,7 @@ export function GroundStrip({
   const openStripContextMenu = useWebSocketStore(s => s.openStripContextMenu);
 
   const { isUnconcerned } = getStripOwnership(myPosition, owner, nextControllers, previousControllers);
-  const { bg, textWhite } = useStripBg(runway, getStripBg(pdcStatus, arrival), isTagRequest, isUnconcerned);
+  const { bg, textWhite } = useStripBg(runway, getStripBg(pdcStatus, arrival), isTagRequest, isUnconcerned, pdcStatus);
 
   return (
     <div

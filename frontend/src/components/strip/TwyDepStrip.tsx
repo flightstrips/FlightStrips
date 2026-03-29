@@ -75,7 +75,7 @@ export function TwyDepStrip({
   const isTagRequest = !!stripTransfers[callsign]?.isTagRequest;
   const cellBorderColor = getCellBorderColor(marked);
   const { isUnconcerned } = getStripOwnership(myPosition, owner, nextControllers, previousControllers);
-  const { bg, textWhite } = useStripBg(runway, getStripBg(pdcStatus), isTagRequest, isUnconcerned);
+  const { bg, textWhite } = useStripBg(runway, getStripBg(pdcStatus), isTagRequest, isUnconcerned, pdcStatus);
   const controllers = useControllers();
   const transitionAltitude = useTransitionAltitude();
   const [showTaxiMap, setShowTaxiMap] = useState(false);

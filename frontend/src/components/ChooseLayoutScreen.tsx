@@ -6,7 +6,7 @@ const EKCH_SCOPES = [
   { label: "AA + AD", layout: "AAAD" },
   { label: "APRON ARR", layout: "AA" },
   { label: "APRON DEP", layout: "AD" },
-  { label: "EST", layout: "ESET" },
+  { label: "EST", layout: "EST" },
   { label: "GE / GW", layout: "GEGW" },
   { label: "TW / TE", layout: "TWTE" },
 ];

@@ -1,7 +1,7 @@
 import type { FrontendStrip } from "@/api/models";
 
-export type EsetView = "MAIN" | "CARGO";
-export type EsetViewButtonId = "HANGAR" | "CARGO" | "TWY_C";
+export type EstView = "MAIN" | "CARGO";
+export type EstViewButtonId = "HANGAR" | "CARGO" | "TWY_C";
 
 interface RawStandDefinition {
   label: string;
@@ -9,12 +9,12 @@ interface RawStandDefinition {
   y: number;
 }
 
-export interface EsetCanvasStand extends RawStandDefinition {
+export interface EstCanvasStand extends RawStandDefinition {
   left: number;
   top: number;
 }
 
-export interface EsetBackgroundBox {
+export interface EstBackgroundBox {
   x: number;
   y: number;
   width: number;
@@ -25,16 +25,16 @@ export interface EsetBackgroundBox {
   labelColor?: string;
 }
 
-export interface EsetViewButton extends EsetBackgroundBox {
-  id: EsetViewButtonId;
+export interface EstViewButton extends EstBackgroundBox {
+  id: EstViewButtonId;
   label: string;
   disabled?: boolean;
 }
 
-export const ESET_BOARD_WIDTH = 2560;
-export const ESET_BOARD_HEIGHT = 1440;
-export const ESET_CELL_WIDTH = 85.3701;
-export const ESET_CELL_HEIGHT = 148.313;
+export const EST_BOARD_WIDTH = 2560;
+export const EST_BOARD_HEIGHT = 1440;
+export const EST_CELL_WIDTH = 85.3701;
+export const EST_CELL_HEIGHT = 148.313;
 
 const RAW_STANDS: RawStandDefinition[] = [
   { label: "A18", x: 461.851, y: 229 },
@@ -146,19 +146,19 @@ const RAW_STANDS: RawStandDefinition[] = [
   { label: "A34", x: 13, y: 56 },
 ];
 
-export const ESET_STANDS: EsetCanvasStand[] = RAW_STANDS.map((stand) => ({
+export const EST_STANDS: EstCanvasStand[] = RAW_STANDS.map((stand) => ({
   ...stand,
   left: stand.x,
   top: stand.y,
 }));
 
-export const ESET_BACKGROUND_BOXES: EsetBackgroundBox[] = [
+export const EST_BACKGROUND_BOXES: EstBackgroundBox[] = [
   { x: 552.221, y: 229, width: 551.699, height: 148.043, radius: 12, fill: "#959595" },
   { x: 1393.41, y: 14, width: 85.4775, height: 148, radius: 12, fill: "#959595" },
   { x: 1845.37, y: 14, width: 85.4775, height: 148, radius: 12, fill: "#959595" },
 ];
 
-export const ESET_VIEW_BUTTONS: EsetViewButton[] = [
+export const EST_VIEW_BUTTONS: EstViewButton[] = [
   {
     id: "HANGAR",
     x: 296,
@@ -202,10 +202,10 @@ export function isCargoStand(stand: string) {
   return CARGO_STAND_PATTERN.test(stand);
 }
 
-export function getEsetStandsForView(view: EsetView) {
+export function getEstStandsForView(view: EstView) {
   return view === "CARGO"
-    ? ESET_STANDS.filter((stand) => isCargoStand(stand.label))
-    : ESET_STANDS;
+    ? EST_STANDS.filter((stand) => isCargoStand(stand.label))
+    : EST_STANDS;
 }
 
 export function getVgdsStatus(stand: string): string | null {

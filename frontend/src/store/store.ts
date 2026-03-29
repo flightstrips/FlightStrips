@@ -44,10 +44,10 @@ import {
 } from '../api/models.ts';
 import {WebSocketClient} from '../api/websocket.ts';
 
-const KNOWN_LAYOUTS = new Set(["CLX", "AAAD", "AA", "AD", "ESET", "GEGW", "TWTE"]);
+const KNOWN_LAYOUTS = new Set(["CLX", "AAAD", "AA", "AD", "EST", "GEGW", "TWTE"]);
 
 function normalizeLayout(layout: string) {
-  return layout === "EST" ? "ESET" : layout;
+  return layout;
 }
 
 export interface UpdateStrip {

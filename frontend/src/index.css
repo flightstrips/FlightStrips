@@ -15,7 +15,7 @@
   --color-bay-btn:          #646464; /* bay button background */
   --color-bay-shadow:       #d3d3d3; /* button highlight / inset shadow */
   --color-bay-page:         #A9A9A9; /* page background (gap between columns) */
-  --color-bay-eset:         #767676; /* ESET view lighter panel */
+  --color-bay-est:         #767676; /* EST view lighter panel */
 
   /* ── Strip background colors ───────────────────────── */
   --color-strip-frame:       #85b4af; /* strip frame / border (teal) */

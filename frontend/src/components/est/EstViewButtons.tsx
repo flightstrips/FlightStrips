@@ -1,15 +1,15 @@
 import {
-  ESET_VIEW_BUTTONS,
-  type EsetView,
-  type EsetViewButtonId,
-} from "@/components/eset/metadata";
+  EST_VIEW_BUTTONS,
+  type EstView,
+  type EstViewButtonId,
+} from "@/components/est/metadata";
 
-interface EsetViewButtonsProps {
-  view: EsetView;
-  onViewChange: (view: EsetView) => void;
+interface EstViewButtonsProps {
+  view: EstView;
+  onViewChange: (view: EstView) => void;
 }
 
-function getNextView(buttonId: EsetViewButtonId, currentView: EsetView) {
+function getNextView(buttonId: EstViewButtonId, currentView: EstView) {
   if (buttonId === "CARGO") {
     return currentView === "CARGO" ? "MAIN" : "CARGO";
   }
@@ -17,10 +17,10 @@ function getNextView(buttonId: EsetViewButtonId, currentView: EsetView) {
   return currentView;
 }
 
-export default function EsetViewButtons({ view, onViewChange }: EsetViewButtonsProps) {
+export default function EstViewButtons({ view, onViewChange }: EstViewButtonsProps) {
   return (
     <>
-      {ESET_VIEW_BUTTONS.map((button) => {
+      {EST_VIEW_BUTTONS.map((button) => {
         const active = button.id === "CARGO" && view === "CARGO";
         const disabled = !!button.disabled;
 

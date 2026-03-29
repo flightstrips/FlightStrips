@@ -6,25 +6,25 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { computeCDMColors, computeCTOTColors } from "@/lib/cdmColors";
 
 import {
-  ESET_CELL_HEIGHT,
-  ESET_CELL_WIDTH,
+  EST_CELL_HEIGHT,
+  EST_CELL_WIDTH,
   formatTimeLabel,
   getBridgeStatus,
   getVgdsStatus,
-  type EsetCanvasStand,
-} from "@/components/eset/metadata";
+  type EstCanvasStand,
+} from "@/components/est/metadata";
 
-const LABEL_TOP = ESET_CELL_HEIGHT * 0.14;
-const CALLSIGN_TOP = ESET_CELL_HEIGHT * 0.31;
-const TOBT_ROW_TOP = ESET_CELL_HEIGHT * 0.555;
-const TSAT_ROW_TOP = ESET_CELL_HEIGHT * 0.673;
-const CTOT_ROW_TOP = ESET_CELL_HEIGHT * 0.797;
-const ROW_HEIGHT = ESET_CELL_HEIGHT * 0.108;
+const LABEL_TOP = EST_CELL_HEIGHT * 0.14;
+const CALLSIGN_TOP = EST_CELL_HEIGHT * 0.31;
+const TOBT_ROW_TOP = EST_CELL_HEIGHT * 0.555;
+const TSAT_ROW_TOP = EST_CELL_HEIGHT * 0.673;
+const CTOT_ROW_TOP = EST_CELL_HEIGHT * 0.797;
+const ROW_HEIGHT = EST_CELL_HEIGHT * 0.108;
 const LABEL_FONT_SIZE = 20;
 const CONTENT_FONT_SIZE = 13;
 
-interface EsetStandCellProps {
-  stand: { label: string; column?: number; row?: number } | EsetCanvasStand;
+interface EstStandCellProps {
+  stand: { label: string; column?: number; row?: number } | EstCanvasStand;
   strip?: FrontendStrip;
   blocked: boolean;
   actionActive: boolean;
@@ -35,7 +35,7 @@ interface EsetStandCellProps {
   onClick: (stand: string, strip: FrontendStrip | undefined, element: HTMLButtonElement) => void;
 }
 
-export default function EsetStandCell({
+export default function EstStandCell({
   stand,
   strip,
   blocked,
@@ -45,7 +45,7 @@ export default function EsetStandCell({
   nowMs,
   containerStyle,
   onClick,
-}: EsetStandCellProps) {
+}: EstStandCellProps) {
   const vgdsStatus = getVgdsStatus(stand.label);
   const bridgeStatus = getBridgeStatus(stand.label);
   const tooltipContent = [vgdsStatus, bridgeStatus].filter(Boolean).join(" \u2022 ");
@@ -118,7 +118,7 @@ export default function EsetStandCell({
               textClass,
               blinking && "animate-pulse ring-4 ring-[#EB01FB]",
             )}
-            style={{ width: ESET_CELL_WIDTH, height: ESET_CELL_HEIGHT }}
+            style={{ width: EST_CELL_WIDTH, height: EST_CELL_HEIGHT }}
           >
             {/* Indicator bars (rendered behind text via DOM order) */}
             {tobtBarColor && (

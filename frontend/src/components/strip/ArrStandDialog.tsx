@@ -1,14 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import EsetStandCell from "@/components/eset/EsetStandCell";
-import EsetViewButtons from "@/components/eset/EsetViewButtons";
+import EstStandCell from "@/components/est/EstStandCell";
+import EstViewButtons from "@/components/est/EstViewButtons";
 import {
-  ESET_BACKGROUND_BOXES,
-  ESET_BOARD_HEIGHT,
-  ESET_BOARD_WIDTH,
-  getEsetStandsForView,
+  EST_BACKGROUND_BOXES,
+  EST_BOARD_HEIGHT,
+  EST_BOARD_WIDTH,
+  getEstStandsForView,
   isCargoStand,
-  type EsetView,
-} from "@/components/eset/metadata";
+  type EstView,
+} from "@/components/est/metadata";
 import { Bay, type FrontendStrip } from "@/api/models";
 import { useStrips, useWebSocketStore } from "@/store/store-hooks";
 
@@ -25,10 +25,10 @@ export function ArrStandDialog({ open, onOpenChange, callsign, currentStand }: P
   const updateStrip = useWebSocketStore(s => s.updateStrip);
   const strips = useStrips();
   const [boardScale, setBoardScale] = useState(1);
-  const [boardViewOverride, setBoardViewOverride] = useState<EsetView | null>(null);
+  const [boardViewOverride, setBoardViewOverride] = useState<EstView | null>(null);
   const boardFrameRef = useRef<HTMLDivElement>(null);
   const [nowMs] = useState(() => Date.now());
-  const defaultBoardView: EsetView = currentStand && isCargoStand(currentStand) ? "CARGO" : "MAIN";
+  const defaultBoardView: EstView = currentStand && isCargoStand(currentStand) ? "CARGO" : "MAIN";
   const boardView = boardViewOverride ?? defaultBoardView;
 
   useEffect(() => {
@@ -61,7 +61,7 @@ export function ArrStandDialog({ open, onOpenChange, callsign, currentStand }: P
       if (!width || !height) {
         return;
       }
-      setBoardScale(Math.min(width / ESET_BOARD_WIDTH, height / ESET_BOARD_HEIGHT));
+      setBoardScale(Math.min(width / EST_BOARD_WIDTH, height / EST_BOARD_HEIGHT));
     };
 
     updateScale();
@@ -86,7 +86,7 @@ export function ArrStandDialog({ open, onOpenChange, callsign, currentStand }: P
     }
     return mapping;
   }, [strips]);
-  const visibleStands = useMemo(() => getEsetStandsForView(boardView), [boardView]);
+  const visibleStands = useMemo(() => getEstStandsForView(boardView), [boardView]);
 
   if (!open) {
     return null;
@@ -115,20 +115,20 @@ export function ArrStandDialog({ open, onOpenChange, callsign, currentStand }: P
         <div
           className="absolute left-1/2 top-1/2"
           style={{
-            width: ESET_BOARD_WIDTH * boardScale,
-            height: ESET_BOARD_HEIGHT * boardScale,
+            width: EST_BOARD_WIDTH * boardScale,
+            height: EST_BOARD_HEIGHT * boardScale,
             transform: "translate(-50%, -50%)",
           }}
         >
           <div
             className="relative origin-top-left"
             style={{
-              width: ESET_BOARD_WIDTH,
-              height: ESET_BOARD_HEIGHT,
+              width: EST_BOARD_WIDTH,
+              height: EST_BOARD_HEIGHT,
               transform: `scale(${boardScale})`,
             }}
           >
-            {ESET_BACKGROUND_BOXES.map((box) => (
+            {EST_BACKGROUND_BOXES.map((box) => (
               <div
                 key={`${box.x}-${box.y}`}
                 className="absolute flex items-center justify-center font-bold"
@@ -147,7 +147,7 @@ export function ArrStandDialog({ open, onOpenChange, callsign, currentStand }: P
                 </div>
               ))}
 
-            <EsetViewButtons
+            <EstViewButtons
               view={boardView}
               onViewChange={(nextView) => setBoardViewOverride(nextView === defaultBoardView ? null : nextView)}
             />
@@ -157,7 +157,7 @@ export function ArrStandDialog({ open, onOpenChange, callsign, currentStand }: P
               const isCurrent = stand.label === currentStand;
 
               return (
-                <EsetStandCell
+                <EstStandCell
                   key={stand.label}
                   stand={stand}
                   strip={strip}

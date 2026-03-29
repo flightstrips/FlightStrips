@@ -2,23 +2,23 @@ import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 
 import { Bay, type FrontendStrip } from "@/api/models";
 import FlightPlanDialog from "@/components/FlightPlanDialog";
-import EsetDeIceDialog from "@/components/eset/EsetDeIceDialog";
-import EsetStandCell from "@/components/eset/EsetStandCell";
-import EsetStandMenu, { type EsetMenuAnchor } from "@/components/eset/EsetStandMenu";
-import EsetStandStatusDialog from "@/components/eset/EsetStandStatusDialog";
-import EsetViewButtons from "@/components/eset/EsetViewButtons";
+import EstDeIceDialog from "@/components/est/EstDeIceDialog";
+import EstStandCell from "@/components/est/EstStandCell";
+import EstStandMenu, { type EstMenuAnchor } from "@/components/est/EstStandMenu";
+import EstStandStatusDialog from "@/components/est/EstStandStatusDialog";
+import EstViewButtons from "@/components/est/EstViewButtons";
 import {
-  ESET_BACKGROUND_BOXES,
-  ESET_BOARD_HEIGHT,
-  ESET_BOARD_WIDTH,
-  getEsetStandsForView,
+  EST_BACKGROUND_BOXES,
+  EST_BOARD_HEIGHT,
+  EST_BOARD_WIDTH,
+  getEstStandsForView,
   parseTimestampMs,
-  type EsetView,
-} from "@/components/eset/metadata";
+  type EstView,
+} from "@/components/est/metadata";
 import { useNonClearedStrips } from "@/store/airports/ekch.ts";
 import { useWebSocketStore } from "@/store/store-hooks.ts";
 
-const PAGE_BG = "bg-bay-eset";
+const PAGE_BG = "bg-bay-est";
 const COLOR_LABEL_DEFAULT = "#202020";
 
 type ActionOverride = {
@@ -88,7 +88,7 @@ function actionOverrideReducer(state: ActionOverrideMap, action: ActionOverrideA
   return next;
 }
 
-function toMenuAnchor(element: HTMLButtonElement): EsetMenuAnchor {
+function toMenuAnchor(element: HTMLButtonElement): EstMenuAnchor {
   const rect = element.getBoundingClientRect();
 
   return {
@@ -99,7 +99,7 @@ function toMenuAnchor(element: HTMLButtonElement): EsetMenuAnchor {
   };
 }
 
-export default function ESET() {
+export default function EST() {
   const strips = useWebSocketStore((state) => state.strips);
   const move = useWebSocketStore((state) => state.move);
   const updateStrip = useWebSocketStore((state) => state.updateStrip);
@@ -109,15 +109,15 @@ export default function ESET() {
   const cdmReady = useWebSocketStore((state) => state.cdmReady);
   const nonClearedStrips = useNonClearedStrips();
 
-  const [menuState, setMenuState] = useState<{ stand: string; anchor: EsetMenuAnchor } | null>(null);
+  const [menuState, setMenuState] = useState<{ stand: string; anchor: EstMenuAnchor } | null>(null);
   const [statusStand, setStatusStand] = useState<string | null>(null);
-  const [statusAnchor, setStatusAnchor] = useState<EsetMenuAnchor | null>(null);
+  const [statusAnchor, setStatusAnchor] = useState<EstMenuAnchor | null>(null);
   const [deIceOpen, setDeIceOpen] = useState(false);
   const [flightPlanCallsign, setFlightPlanCallsign] = useState<string | null>(null);
   const [blockedStands, setBlockedStands] = useState<Record<string, true>>({});
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [boardScale, setBoardScale] = useState(1);
-  const [boardView, setBoardView] = useState<EsetView>("MAIN");
+  const [boardView, setBoardView] = useState<EstView>("MAIN");
   const [ctotState, updateCtotState] = useReducer(ctotReducer, {
     previous: {},
     flags: {},
@@ -143,7 +143,7 @@ export default function ESET() {
         return;
       }
 
-      setBoardScale(Math.min(width / ESET_BOARD_WIDTH, height / ESET_BOARD_HEIGHT));
+      setBoardScale(Math.min(width / EST_BOARD_WIDTH, height / EST_BOARD_HEIGHT));
     };
 
     updateScale();
@@ -187,7 +187,7 @@ export default function ESET() {
 
   const menuStrip = menuState ? stripByStand.get(menuState.stand) : undefined;
   const statusStrip = statusStand ? stripByStand.get(statusStand) : undefined;
-  const visibleStands = useMemo(() => getEsetStandsForView(boardView), [boardView]);
+  const visibleStands = useMemo(() => getEstStandsForView(boardView), [boardView]);
 
   function closeMenu() {
     setMenuState(null);
@@ -202,7 +202,7 @@ export default function ESET() {
     setFlightPlanCallsign(null);
   }
 
-  function handleBoardViewChange(nextView: EsetView) {
+  function handleBoardViewChange(nextView: EstView) {
     closeAllOverlays();
     setBoardView(nextView);
   }
@@ -365,20 +365,20 @@ export default function ESET() {
         <div
           className="absolute left-1/2 top-1/2"
           style={{
-            width: ESET_BOARD_WIDTH * boardScale,
-            height: ESET_BOARD_HEIGHT * boardScale,
+            width: EST_BOARD_WIDTH * boardScale,
+            height: EST_BOARD_HEIGHT * boardScale,
             transform: "translate(-50%, -50%)",
           }}
         >
           <div
             className="relative origin-top-left"
             style={{
-              width: ESET_BOARD_WIDTH,
-              height: ESET_BOARD_HEIGHT,
+              width: EST_BOARD_WIDTH,
+              height: EST_BOARD_HEIGHT,
               transform: `scale(${boardScale})`,
             }}
           >
-            {ESET_BACKGROUND_BOXES.map((box) => (
+            {EST_BACKGROUND_BOXES.map((box) => (
               <div
                 key={`${box.x}-${box.y}-${box.width}-${box.height}`}
                 className="absolute flex items-center justify-center font-bold"
@@ -397,7 +397,7 @@ export default function ESET() {
                 </div>
               ))}
 
-            <EsetViewButtons view={boardView} onViewChange={handleBoardViewChange} />
+            <EstViewButtons view={boardView} onViewChange={handleBoardViewChange} />
 
             {visibleStands.map((stand) => {
               const strip = stripByStand.get(stand.label);
@@ -405,7 +405,7 @@ export default function ESET() {
               const actionActive = !!actionOverride && !!strip && actionOverride.callsign === strip.callsign;
 
               return (
-                <EsetStandCell
+                <EstStandCell
                   key={stand.label}
                   stand={stand}
                   strip={strip}
@@ -428,7 +428,7 @@ export default function ESET() {
       </div>
 
       {menuState && menuStrip && (
-        <EsetStandMenu
+        <EstStandMenu
           open
           anchor={menuState.anchor}
           strip={menuStrip}
@@ -449,7 +449,7 @@ export default function ESET() {
       )}
 
       {statusStand && (
-        <EsetStandStatusDialog
+        <EstStandStatusDialog
           key={statusStand}
           open
           stand={statusStand}
@@ -467,7 +467,7 @@ export default function ESET() {
         />
       )}
 
-      <EsetDeIceDialog
+      <EstDeIceDialog
         open={deIceOpen}
         strip={menuStrip}
         onOpenChange={setDeIceOpen}

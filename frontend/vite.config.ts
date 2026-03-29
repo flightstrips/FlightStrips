@@ -62,6 +62,12 @@ export default defineConfig({
   },
   server: {
     host: '127.0.0.1',
-    port: 8080
+    port: 8080,
+    proxy: {
+      '/api': {
+        target: 'http://127.0.0.1:8090',
+        changeOrigin: true,
+      },
+    },
   }
 })

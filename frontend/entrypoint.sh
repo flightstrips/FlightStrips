@@ -2,6 +2,7 @@
 cat > /usr/share/nginx/html/config.js <<EOF
 window.__APP_CONFIG__ = {
   wsUrl: "${WS_URL}",
+  apiBaseUrl: "${API_BASE_URL:-}",
   clientId: "${OIDC_FRONTEND_CLIENT_ID}",
   audience: "${OIDC_AUDIENCE}",
   connection: "${OIDC_CONNECTION}",

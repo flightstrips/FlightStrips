@@ -33,6 +33,8 @@ The flight plan contains three field types:
 ### Datalink/ Pre-Departure Clearance
 When a pilot submits a PDC/DCL to the FlightStrips system, the strip will turn either purple or yellow.
 
+For strip states, Web PDC, faults, and coordination in one place, see [Pre-departure clearance (PDC)](/ekch/pre-departure-clearance/).
+
 #### Automatic DLC
 
 

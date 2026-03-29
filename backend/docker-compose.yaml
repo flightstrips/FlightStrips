@@ -52,6 +52,7 @@ services:
       - SLEEP_TIME=30
       - OTEL_EXPORTER_OTLP_ENDPOINT=aspire-dashboard:18889
       - ENVIRONMENT=docker
+      - SERVER_ADDR=0.0.0.0:8090
     networks:
       - flightstrips
     restart: unless-stopped

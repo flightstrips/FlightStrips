@@ -16,6 +16,7 @@ import {
 } from "./shared";
 import { useIsClrDel, useStripTransfers, useWebSocketStore } from "@/store/store-hooks";
 import { useCDMColors } from "@/hooks/useCDMColors";
+import { useCTOTColor } from "@/hooks/useCTOTColor";
 import { Bay } from "@/api/models";
 const FULL_H  = "4.72vh";
 const HALF_H  = "2.36vh";
@@ -36,6 +37,7 @@ export function DelStrip({
   eobt,
   tobt,
   tsat,
+  ctot,
   arrival,
   runway,
   selectable,
@@ -54,6 +56,7 @@ export function DelStrip({
   const isTagRequest = !!stripTransfers[callsign]?.isTagRequest;
   const { bg, textWhite } = useStripBg(runway, getStripBg(pdcStatus, arrival), isTagRequest, false);
   const { tobtBg, tsatBg } = useCDMColors({ bay: bay ?? Bay.Unknown, tsat: tsat ?? "", tobt: tobt ?? "" });
+  const { ctotBg, ctotColor, showCtot } = useCTOTColor(ctot ?? "");
   const standYellow = unexpectedChangeFields?.includes("stand");
 
   // Blink logic: fires once for 5 seconds when pdc_state transitions into REQUESTED_WITH_FAULTS.
@@ -141,11 +144,15 @@ export function DelStrip({
           className="flex flex-row overflow-hidden border-r-2"
           style={{ flex: "3 0 0%", height: "100%", minWidth: 0, borderRightColor: cellBorderColor }}
         >
-          {/* EOBT — left half */}
+          {/* EOBT / CTOT — left half, stacked */}
           <div className="flex flex-col overflow-hidden border-r-2" style={{ flex: "1 0 0%", height: "100%", minWidth: 0, borderRightColor: cellBorderColor }}>
-            <div className="flex items-center justify-between px-1 border-b-2 overflow-hidden" style={{ height: "50%", fontFamily: FONT, fontSize: 14, borderBottomColor: "transparent" }}>
+            <div className="flex items-center justify-between px-1 border-b-2 overflow-hidden" style={{ height: HALF_H, fontFamily: FONT, fontSize: 14, borderBottomColor: "transparent" }}>
               <span className="shrink-0">EOBT</span>
               <span style={{ color: manualBlue }}>{eobt}</span>
+            </div>
+            <div className="flex items-center justify-between px-1 overflow-hidden" style={{ height: HALF_H, fontFamily: FONT, fontSize: 14, backgroundColor: ctotBg, color: ctotColor }}>
+              <span className="shrink-0">{showCtot ? "CTOT" : ""}</span>
+              <span>{showCtot ? ctot : ""}</span>
             </div>
           </div>
 

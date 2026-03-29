@@ -1,6 +1,7 @@
 import { getAircraftTypeWithWtc } from "@/lib/utils";
 import type { StripProps } from "./types";
-import { FONT, STRIP_FRAME_COLOR, COLOR_DEP_STRIP_BG, COLOR_SHADOW, COLOR_TYPE_HEAVY, useStripBg } from "./shared";
+import { getStripBg } from "./types";
+import { FONT, STRIP_FRAME_COLOR, COLOR_SHADOW, COLOR_TYPE_HEAVY, useStripBg } from "./shared";
 
 const CELL_BORDER = "border-r border-[var(--color-strip-frame)]"; // matches STRIP_FRAME_COLOR
 // Flex-grow proportions (flex-basis: 0 so space is shared proportionally)
@@ -20,9 +21,11 @@ export function ClxHalfStrip({
   runway,
   sid,
   stand,
+  pdcStatus,
+  arrival,
   fullWidth
 }: StripProps) {
-  const { bg, textWhite } = useStripBg(runway, COLOR_DEP_STRIP_BG, false, false);
+  const { bg, textWhite } = useStripBg(runway, getStripBg(pdcStatus, arrival), false, false);
 
   return (
     <div style={{

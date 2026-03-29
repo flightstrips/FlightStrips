@@ -1,6 +1,8 @@
 ---
 title: Clerance Delivery
 description: How to issue departure clearance from the strip view.
+sidebar:
+  order: 1
 ---
 ![Clerance Delivery View](../../../assets/ekch-clr-del-view.jpg)
 

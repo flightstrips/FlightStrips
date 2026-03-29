@@ -72,7 +72,7 @@ export default function RunwayStsDialog({ open, onClose, onSelect }: Props) {
             >
               <button
                 onClick={() => { onSelect("OPEN"); onClose(); }}
-                className="flex items-center justify-center bg-bay-dark text-white font-semibold"
+                className="flex items-center justify-center bg-bay-dark text-white font-semibold shadow-[0_4px_4px_rgba(0,0,0,0.25)]"
                 style={{ width: "6.4vw", height: "4.86vh", fontSize: "1.25vw" }}
               >
                 OPEN
@@ -80,7 +80,7 @@ export default function RunwayStsDialog({ open, onClose, onSelect }: Props) {
 
               <button
                 onClick={() => { onSelect("LOW_VIS"); onClose(); }}
-                className="flex items-center justify-center bg-runway-low-vis text-black font-semibold"
+                className="flex items-center justify-center bg-runway-low-vis text-black font-semibold shadow-[0_4px_4px_rgba(0,0,0,0.25)]"
                 style={{ width: "6.4vw", height: "4.86vh", fontSize: "1.25vw" }}
               >
                 LOW VIS
@@ -88,7 +88,7 @@ export default function RunwayStsDialog({ open, onClose, onSelect }: Props) {
 
               <button
                 onClick={() => { onSelect("CLOSED"); onClose(); }}
-                className="flex items-center justify-center bg-runway-closed text-white font-semibold"
+                className="flex items-center justify-center bg-runway-closed text-white font-semibold shadow-[0_4px_4px_rgba(0,0,0,0.25)]"
                 style={{ width: "6.4vw", height: "4.86vh", fontSize: "1.25vw" }}
               >
                 CLOSED
@@ -103,7 +103,7 @@ export default function RunwayStsDialog({ open, onClose, onSelect }: Props) {
           >
             <button
               onClick={onClose}
-              className="flex items-center justify-center bg-[#3F3F3F] text-white font-semibold"
+              className="flex items-center justify-center bg-[#3F3F3F] text-white font-semibold shadow-[0_4px_4px_rgba(0,0,0,0.25)]"
               style={{ width: "4.88vw", height: "4.86vh", fontSize: "1.25vw" }}
             >
               OK

@@ -1,9 +1,10 @@
 ---
-title: Clerance Delivery
-description: How to issue departure clearance from the strip view.
+title: CLR DEL
+description: Kastrp Clearance Delivery
 sidebar:
   order: 1
 ---
+# Kastrp Clearance Delivery
 ![Clerance Delivery View](../../../assets/ekch-clr-del-view.jpg)
 
 Use this workflow when you need to issue a new clearance to an aircraft.

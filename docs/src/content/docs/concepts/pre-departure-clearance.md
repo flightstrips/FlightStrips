@@ -1,8 +1,7 @@
 ---
-title: Pre-departure clearance
+title: Pre-Departure Clearance
 description: Purple, yellow, and navy PDC strip states for EKCH controllers.
-sidebar:
-  order: 2
+
 ---
 
 When a pilot requests a **pre-departure clearance** through datalink, the strip colour tells you what to do next.

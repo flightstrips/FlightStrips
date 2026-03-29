@@ -1,4 +1,4 @@
-﻿package shared
+package shared
 
 import (
 	"FlightStrips/internal/repository"
@@ -18,8 +18,19 @@ type Session struct {
 	Airport string
 }
 
+// PdcIssueClearanceParams configures IssueClearance (CPDLC and/or web delivery).
+type PdcIssueClearanceParams struct {
+	Callsign     string
+	Remarks      string
+	CID          string
+	SessionID    int32
+	Atis         string // empty defaults to "A" in implementation
+	SkipCPDLC    bool   // when true, do not send Hoppie CPDLC (e.g. web-only pilot)
+	WebRequestID *int64 // when set with SkipCPDLC, persist clearance text to this row
+}
+
 type PdcService interface {
-	IssueClearance(ctx context.Context, callsign, remarks, cid string, sessionID int32) error
+	IssueClearance(ctx context.Context, p PdcIssueClearanceParams) error
 	ManualStateChange(ctx context.Context, callsign string, sessionID int32, newState string) error
 	RevertToVoice(ctx context.Context, callsign string, sessionID int32, cid string) error
 }

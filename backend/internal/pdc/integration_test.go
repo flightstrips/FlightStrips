@@ -5,6 +5,7 @@ import (
 	"FlightStrips/internal/pdc/mocks"
 	"FlightStrips/internal/pdc/testdata"
 	"FlightStrips/internal/repository/postgres"
+	"FlightStrips/internal/shared"
 	"context"
 	"fmt"
 	"strings"
@@ -65,22 +66,25 @@ func (suite *PDCIntegrationTestSuite) SetupTest(t *testing.T) {
 	dbPool, queries := testdata.SetupTestDB(t)
 	suite.queries = queries
 
-	// Create repositories
+	// Create repositories (queries must be set before Service — used for web PDC persistence in tests)
 	sessionRepo := postgres.NewSessionRepository(dbPool)
 	stripRepo := postgres.NewStripRepository(dbPool)
 	sectorRepo := postgres.NewSectorOwnerRepository(dbPool)
+	controllerRepo := postgres.NewControllerRepository(dbPool)
 
 	// Create service with mocks
 	adapter := &hoppieClientAdapter{HoppieClient: suite.mockHoppie}
 	suite.service = &Service{
-		client:        adapter,
-		sessionRepo:   sessionRepo,
-		stripRepo:     stripRepo,
-		sectorRepo:    sectorRepo,
-		frontendHub:   suite.mockFrontend,
-		stripService:  suite.mockStrip,
-		timeouts:      make(map[string]*timeoutTracker),
-		timeoutConfig: 30 * time.Second, // Long timeout to prevent firing during test
+		client:         adapter,
+		sessionRepo:    sessionRepo,
+		stripRepo:      stripRepo,
+		sectorRepo:     sectorRepo,
+		controllerRepo: controllerRepo,
+		queries:        suite.queries,
+		frontendHub:    suite.mockFrontend,
+		stripService:   suite.mockStrip,
+		timeouts:       make(map[string]*timeoutTracker),
+		timeoutConfig:  30 * time.Second, // Long timeout to prevent firing during test
 	}
 
 	// Seed test data
@@ -122,7 +126,12 @@ func TestIssueClearanceFlow(t *testing.T) {
 	suite.mockFrontend.On("SendPdcStateChange", sessionID, callsign, "CLEARED").Return()
 
 	// Execute
-	err := suite.service.IssueClearance(ctx, callsign, remarks, cid, sessionID)
+	err := suite.service.IssueClearance(ctx, shared.PdcIssueClearanceParams{
+		Callsign:  callsign,
+		Remarks:   remarks,
+		CID:       cid,
+		SessionID: sessionID,
+	})
 	require.NoError(t, err)
 
 	// Verify timeout was started with CID
@@ -163,7 +172,11 @@ func TestIssueClearance_UsesAssignedSquawkInMessage(t *testing.T) {
 	suite.mockStrip.On("ClearStrip", mock.Anything, sessionID, callsign, cid).Return(nil)
 	suite.mockFrontend.On("SendPdcStateChange", sessionID, callsign, "CLEARED").Return()
 
-	err := suite.service.IssueClearance(ctx, callsign, "", cid, sessionID)
+	err := suite.service.IssueClearance(ctx, shared.PdcIssueClearanceParams{
+		Callsign:  callsign,
+		CID:       cid,
+		SessionID: sessionID,
+	})
 	require.NoError(t, err)
 }
 
@@ -182,7 +195,11 @@ func TestHandleWilcoFlow(t *testing.T) {
 	suite.mockStrip.On("ClearStrip", mock.Anything, sessionID, callsign, cid).Return(nil)
 	suite.mockFrontend.On("SendPdcStateChange", sessionID, callsign, "CLEARED").Return()
 
-	err := suite.service.IssueClearance(ctx, callsign, "", cid, sessionID)
+	err := suite.service.IssueClearance(ctx, shared.PdcIssueClearanceParams{
+		Callsign:  callsign,
+		CID:       cid,
+		SessionID: sessionID,
+	})
 	require.NoError(t, err)
 
 	// Now handle WILCO
@@ -240,7 +257,11 @@ func TestHandleUnableFlow(t *testing.T) {
 	suite.mockStrip.On("ClearStrip", mock.Anything, sessionID, callsign, cid).Return(nil)
 	suite.mockFrontend.On("SendPdcStateChange", sessionID, callsign, "CLEARED").Return()
 
-	err := suite.service.IssueClearance(ctx, callsign, "", cid, sessionID)
+	err := suite.service.IssueClearance(ctx, shared.PdcIssueClearanceParams{
+		Callsign:  callsign,
+		CID:       cid,
+		SessionID: sessionID,
+	})
 	require.NoError(t, err)
 
 	// Now handle UNABLE - expect UnclearStrip with the CID
@@ -293,7 +314,11 @@ func TestTimeoutExpiryFlow(t *testing.T) {
 	suite.mockStrip.On("ClearStrip", mock.Anything, sessionID, callsign, cid).Return(nil)
 	suite.mockFrontend.On("SendPdcStateChange", sessionID, callsign, "CLEARED").Return()
 
-	err := suite.service.IssueClearance(ctx, callsign, "", cid, sessionID)
+	err := suite.service.IssueClearance(ctx, shared.PdcIssueClearanceParams{
+		Callsign:  callsign,
+		CID:       cid,
+		SessionID: sessionID,
+	})
 	require.NoError(t, err)
 
 	// Wait for timeout - expect UnclearStrip and no-response message
@@ -336,7 +361,11 @@ func TestRevertToVoiceFlow(t *testing.T) {
 	suite.mockStrip.On("ClearStrip", mock.Anything, sessionID, callsign, cid).Return(nil)
 	suite.mockFrontend.On("SendPdcStateChange", sessionID, callsign, "CLEARED").Return()
 
-	err := suite.service.IssueClearance(ctx, callsign, "", cid, sessionID)
+	err := suite.service.IssueClearance(ctx, shared.PdcIssueClearanceParams{
+		Callsign:  callsign,
+		CID:       cid,
+		SessionID: sessionID,
+	})
 	require.NoError(t, err)
 
 	// Revert to voice - use newCid

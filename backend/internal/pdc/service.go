@@ -2,6 +2,7 @@ package pdc
 
 import (
 	"FlightStrips/internal/config"
+	"FlightStrips/internal/database"
 	"FlightStrips/internal/models"
 	"FlightStrips/internal/repository"
 	"FlightStrips/internal/shared"
@@ -14,6 +15,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/jackc/pgx/v5"
 )
 
 type HoppieClientInterface interface {
@@ -40,6 +43,7 @@ type Service struct {
 	stripRepo      repository.StripRepository
 	sectorRepo     repository.SectorOwnerRepository
 	controllerRepo repository.ControllerRepository
+	queries        *database.Queries
 	frontendHub    shared.FrontendHub
 	stripService   shared.StripService
 	timeouts       map[string]*timeoutTracker
@@ -47,13 +51,14 @@ type Service struct {
 	timeoutConfig  time.Duration
 }
 
-func NewPDCService(client *Client, sessionRepo repository.SessionRepository, stripRepo repository.StripRepository, sectorRepo repository.SectorOwnerRepository, controllerRepo repository.ControllerRepository) *Service {
+func NewPDCService(client HoppieClientInterface, sessionRepo repository.SessionRepository, stripRepo repository.StripRepository, sectorRepo repository.SectorOwnerRepository, controllerRepo repository.ControllerRepository, queries *database.Queries) *Service {
 	return &Service{
 		client:         client,
 		sessionRepo:    sessionRepo,
 		stripRepo:      stripRepo,
 		sectorRepo:     sectorRepo,
 		controllerRepo: controllerRepo,
+		queries:        queries,
 		timeouts:       make(map[string]*timeoutTracker),
 		timeoutConfig:  10 * time.Minute, // Default 10 minutes
 	}
@@ -246,7 +251,10 @@ func (s *Service) ProcessPDCRequest(ctx context.Context, msg *IncomingMessage, s
 		return fmt.Errorf("failed to send status ack: %w", err)
 	}
 
-	if issueErr := s.IssueClearance(ctx, strip.Callsign, "", "", session.id); issueErr != nil {
+	if issueErr := s.IssueClearance(ctx, shared.PdcIssueClearanceParams{
+		Callsign:  strip.Callsign,
+		SessionID: session.id,
+	}); issueErr != nil {
 		// Clearance fields not set yet — fall back to REQUESTED state
 		now := time.Now().UTC()
 		if err := s.stripRepo.SetPdcRequested(ctx, session.id, strip.Callsign, string(StateRequested), &now); err != nil {
@@ -271,9 +279,23 @@ func (s *Service) SendStatusAck(ctx context.Context, session sessionInformation,
 	return s.client.SendCPDLC(ctx, session.callsign, callsign, msg)
 }
 
-// IssueClearance sends a PDC clearance to a pilot
-// The clearance data (runway, sid, squawk) should already be in the strip table
-func (s *Service) IssueClearance(ctx context.Context, callsign, remarks, cid string, sessionID int32) error {
+// IssueClearance sends a PDC clearance to a pilot (CPDLC and/or web persistence).
+// The clearance data (runway, sid, squawk) should already be in the strip table.
+func (s *Service) IssueClearance(ctx context.Context, p shared.PdcIssueClearanceParams) error {
+	p, err := s.applyPendingWebDelivery(ctx, p)
+	if err != nil {
+		return err
+	}
+
+	callsign := p.Callsign
+	remarks := p.Remarks
+	cid := p.CID
+	sessionID := p.SessionID
+	atis := p.Atis
+	if atis == "" {
+		atis = "A"
+	}
+
 	sessionInfo, err := s.getSessionInfo(ctx, sessionID)
 	if err != nil {
 		return err
@@ -316,7 +338,7 @@ func (s *Service) IssueClearance(ctx context.Context, callsign, remarks, cid str
 		Callsign:           strip.Callsign,
 		Origin:             strip.Origin,
 		Destination:        strip.Destination,
-		Atis:               "A",
+		Atis:               atis,
 		Runway:             *strip.Runway,
 		Squawk:             clearanceSquawk,
 		NextFrequency:      nextFreq,
@@ -341,8 +363,21 @@ func (s *Service) IssueClearance(ctx context.Context, callsign, remarks, cid str
 
 	clearance := buildPDCClearance(options)
 
-	if err := s.client.SendCPDLC(ctx, sessionInfo.callsign, callsign, clearance); err != nil {
-		return fmt.Errorf("failed to send clearance: %w", err)
+	if !p.SkipCPDLC {
+		if err := s.client.SendCPDLC(ctx, sessionInfo.callsign, callsign, clearance); err != nil {
+			return fmt.Errorf("failed to send clearance: %w", err)
+		}
+	}
+
+	if p.SkipCPDLC && p.WebRequestID != nil && s.queries != nil {
+		ct := clearance
+		if err := s.queries.UpdatePdcWebRequestClearance(ctx, database.UpdatePdcWebRequestClearanceParams{
+			ID:            *p.WebRequestID,
+			Status:        "cleared",
+			ClearanceText: &ct,
+		}); err != nil {
+			return fmt.Errorf("failed to persist web clearance: %w", err)
+		}
 	}
 
 	now := time.Now().UTC()
@@ -364,6 +399,28 @@ func (s *Service) IssueClearance(ctx context.Context, callsign, remarks, cid str
 
 	slog.DebugContext(ctx, "PDC Service: Clearance issued", slog.String("callsign", callsign), slog.Int("sequence", int(nextSeq)))
 	return nil
+}
+
+func (s *Service) applyPendingWebDelivery(ctx context.Context, p shared.PdcIssueClearanceParams) (shared.PdcIssueClearanceParams, error) {
+	if s.queries == nil || p.SkipCPDLC {
+		return p, nil
+	}
+	wr, err := s.queries.GetAwaitingWebPdcBySessionCallsign(ctx, database.GetAwaitingWebPdcBySessionCallsignParams{
+		SessionID: p.SessionID,
+		Callsign:  p.Callsign,
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return p, nil
+		}
+		return p, fmt.Errorf("pending web request lookup: %w", err)
+	}
+	p.SkipCPDLC = true
+	p.WebRequestID = &wr.ID
+	if wr.Atis != "" {
+		p.Atis = wr.Atis
+	}
+	return p, nil
 }
 
 func (s *Service) RevertToVoice(ctx context.Context, callsign string, sessionId int32, cid string) error {

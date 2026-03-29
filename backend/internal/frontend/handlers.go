@@ -400,8 +400,13 @@ func handleIssuePdcClearance(ctx context.Context, client *Client, message Messag
 		return errors.New("PDC service not available")
 	}
 
-	// Issue clearance
-	return pdcService.IssueClearance(ctx, req.Callsign, req.Remarks, client.GetCid(), client.session)
+	// Issue clearance (pending web request is detected inside PDC service)
+	return pdcService.IssueClearance(ctx, shared.PdcIssueClearanceParams{
+		Callsign:  req.Callsign,
+		Remarks:   req.Remarks,
+		CID:       client.GetCid(),
+		SessionID: client.session,
+	})
 }
 
 func handlePdcManualStateChange(ctx context.Context, client *Client, message Message) error {

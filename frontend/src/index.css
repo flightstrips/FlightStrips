@@ -72,6 +72,14 @@ html {
   overscroll-behavior: none;
 }
 
+html.public-content-page {
+  height: auto;
+  min-height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: auto;
+}
+
 body {
   font-family: 'IBM Plex Sans', system-ui, sans-serif;
   --asd: 0.5rem;
@@ -80,11 +88,26 @@ body {
   overscroll-behavior: none;
 }
 
+body.public-content-page {
+  height: auto;
+  min-height: 100%;
+  overflow-x: hidden;
+  overflow-y: visible;
+  overscroll-behavior: auto;
+}
+
 #root {
   height: 100%;
   min-height: 100dvh;
   overflow: hidden;
   overscroll-behavior: none;
+}
+
+#root.public-content-page {
+  height: auto;
+  min-height: 100dvh;
+  overflow: visible;
+  overscroll-behavior: auto;
 }
 
 @layer components {
@@ -356,7 +379,23 @@ body {
 @layer base {
   * {
     @apply border-border outline-ring/50;
+    -webkit-user-select: none;
+    user-select: none;
   }
+
+  html.public-content-page body,
+  html.public-content-page body * {
+    -webkit-user-select: text;
+    user-select: text;
+  }
+
+  input,
+  textarea,
+  [contenteditable]:not([contenteditable="false"]) {
+    -webkit-user-select: text;
+    user-select: text;
+  }
+
   body {
     @apply bg-background text-foreground;
     background-color: #F3EEE8;

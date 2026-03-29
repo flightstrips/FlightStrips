@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.13.0](https://github.com/flightstrips/FlightStrips/compare/backend/v0.12.0...backend/v0.13.0) (2026-03-29)
+
+
+### Features
+
+* added web-pdc ([6fdc590](https://github.com/flightstrips/FlightStrips/commit/6fdc5904a91e51dd1d595983b0137d9adadb8379))
+* auto set altitude ([e0332a5](https://github.com/flightstrips/FlightStrips/commit/e0332a5abb15d001e36361a55b40e381cdb9bc5a))
+
 ## [0.12.0](https://github.com/flightstrips/FlightStrips/compare/backend/v0.11.0...backend/v0.12.0) (2026-03-28)
 
 

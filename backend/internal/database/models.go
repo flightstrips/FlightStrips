@@ -134,19 +134,3 @@ type Version struct {
 	Name      string
 	AppliedAt pgtype.Timestamp
 }
-
-type PdcWebRequest struct {
-	ID                    int64
-	SessionID             int32
-	Callsign              string
-	VatsimCid             string
-	Atis                  string
-	Stand                 *string
-	Remarks               *string
-	Status                string
-	ClearanceText         *string
-	ErrorMessage          *string
-	CreatedAt             pgtype.Timestamptz
-	ExpiresAt             pgtype.Timestamptz
-	PilotAcknowledgedAt   pgtype.Timestamptz
-}

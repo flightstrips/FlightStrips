@@ -17,19 +17,10 @@ import { withAuthenticationRequired } from '@auth0/auth0-react';
 import DocsRouter from "@/pages/docs/DocsRouter";
 import { ThemeSync } from "@/components/public/ThemeSync";
 import { registerSW } from "virtual:pwa-register";
-import PdcPage from "@/pages/pdc";
 
 registerSW({ immediate: true });
 
 const MyProtectedComponent = withAuthenticationRequired(Layout);
-
-const PdcProtected = withAuthenticationRequired(PdcPage, {
-  onRedirecting: () => (
-    <div className="min-h-svh bg-zinc-950 text-zinc-300 flex items-center justify-center text-sm">
-      Signing in…
-    </div>
-  ),
-});
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -43,7 +34,6 @@ createRoot(document.getElementById('root')!).render(
           <Route path="/privacy" element={<Privacy/>}/>
           <Route path="/data-handling" element={<DataHandling/>}/>
           <Route path="/contact" element={<Contact/>}/>
-          <Route path="/pdc" element={<PdcProtected />}/>
           <Route path="/app" element={<AppPage />}/>
           <Route element={<MyProtectedComponent/>}>
             <Route index path="/dashboard" element={<Dashboard/>}/>

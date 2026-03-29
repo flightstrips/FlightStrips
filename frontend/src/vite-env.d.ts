@@ -3,7 +3,6 @@
 
 interface AppConfig {
   wsUrl?: string;
-  apiBaseUrl?: string;
   clientId?: string;
   audience?: string;
   connection?: string;

@@ -143,23 +143,17 @@ func main() {
 	stripService.SetCoordinationRepo(coordRepo)
 	stripService.SetControllerRepo(controllerRepo)
 
-	// Initialize PDC Service (Hoppie optional; web PDC uses noop client when unset)
+	// Initialize PDC Service
 	hoppieLogon := os.Getenv("HOPPIE_LOGON")
-	dbQueries := database.New(dbpool)
-	var hoppieClient pdc.HoppieClientInterface
+	var pdcService *pdc.Service
 	if hoppieLogon != "" {
-		hoppieClient = pdc.NewClient(hoppieLogon)
-		slog.Info("PDC Hoppie client configured")
+		hoppieClient := pdc.NewClient(hoppieLogon)
+		pdcService = pdc.NewPDCService(hoppieClient, sessionRepo, stripRepo, sectorRepo, controllerRepo)
+		pdcService.SetStripService(stripService)
+		slog.Info("PDC Service initialized")
 	} else {
-		hoppieClient = pdc.NoopHoppie{}
-		slog.Warn("HOPPIE_LOGON unset — CPDLC polling disabled; web PDC still available")
+		slog.Warn("PDC Service not initialized - HOPPIE_LOGON")
 	}
-	pdcService := pdc.NewPDCService(hoppieClient, sessionRepo, stripRepo, sectorRepo, controllerRepo, dbQueries)
-	pdcService.SetStripService(stripService)
-	slog.Info("PDC Service initialized")
-
-	pdcWebAPI := &pdc.WebAPI{Auth: authenticationService, Pdc: pdcService}
-	pdcWebAPI.RegisterHTTP(http.DefaultServeMux)
 
 	frontendHub := frontend.NewHub(stripService, authenticationService)
 	euroscopeHub := euroscope.NewHub(stripService, controllerService, authenticationService)
@@ -170,7 +164,9 @@ func main() {
 	stripService.SetSectorOwnerRepo(sectorRepo)
 	cdmService.SetFrontendHub(frontendHub)
 	cdmService.SetEuroscopeHub(euroscopeHub)
-	pdcService.SetFrontendHub(frontendHub)
+	if pdcService != nil {
+		pdcService.SetFrontendHub(frontendHub)
+	}
 
 	fsServer := server.NewServer(dbpool, euroscopeHub, frontendHub, cdmService, pdcService, stripRepo, controllerRepo, sessionRepo, sectorRepo, coordRepo, tacticalStripRepo)
 
@@ -183,7 +179,7 @@ func main() {
 	euroscopeUpgrader := websocket.NewConnectionUpgrader[pkgEuroscope.EventType, *euroscope.Client](euroscopeHub, authenticationService)
 
 	go cdmService.Start(ctx)
-	if hoppieLogon != "" {
+	if pdcService != nil {
 		go pdcService.Start(ctx)
 	}
 	go albHub.Run()
@@ -192,7 +188,8 @@ func main() {
 	go metarPoller.Start(ctx)
 
 	// TODO remove
-	_ = dbQueries.InsertAirport(context.Background(), "EKCH")
+	db := database.New(dbpool)
+	_ = db.InsertAirport(context.Background(), "EKCH")
 
 	// Health Function for local Dev
 	http.HandleFunc("/healthz", healthz)

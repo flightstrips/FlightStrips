@@ -4,7 +4,7 @@
 
 import { useSelectedCallsign, useSelectStrip, useRunwaySetup } from "@/store/store-hooks";
 import type { CSSProperties } from "react";
-import type { PdcStatus } from "./types";
+import type { PdcStatus } from "@/api/models";
 
 export const SELECTION_COLOR = "var(--color-strip-selection)";
 export const STRIP_FRAME_COLOR = "var(--color-strip-frame)";

@@ -14,13 +14,14 @@ import {
   type EsetCanvasStand,
 } from "@/components/eset/metadata";
 
-// Pixel offsets derived from SVG design (cell height 128px, width 74px)
-const LABEL_TOP = 18;
-const CALLSIGN_TOP = 40;
-const TOBT_ROW_TOP = 71;
-const TSAT_ROW_TOP = 86;
-const CTOT_ROW_TOP = 102;
-const ROW_HEIGHT = 14;
+const LABEL_TOP = ESET_CELL_HEIGHT * 0.14;
+const CALLSIGN_TOP = ESET_CELL_HEIGHT * 0.31;
+const TOBT_ROW_TOP = ESET_CELL_HEIGHT * 0.555;
+const TSAT_ROW_TOP = ESET_CELL_HEIGHT * 0.673;
+const CTOT_ROW_TOP = ESET_CELL_HEIGHT * 0.797;
+const ROW_HEIGHT = ESET_CELL_HEIGHT * 0.108;
+const LABEL_FONT_SIZE = 20;
+const CONTENT_FONT_SIZE = 13;
 
 interface EsetStandCellProps {
   stand: { label: string; column?: number; row?: number } | EsetCanvasStand;
@@ -140,51 +141,51 @@ export default function EsetStandCell({
             )}
 
             {/* Stand label */}
-            <div
-              className="absolute left-0 right-0 text-center font-bold"
-              style={{ top: LABEL_TOP, fontSize: 18, lineHeight: "18px" }}
-            >
-              {stand.label}
-            </div>
+             <div
+               className="absolute left-0 right-0 text-center font-bold"
+               style={{ top: LABEL_TOP, fontSize: LABEL_FONT_SIZE, lineHeight: `${LABEL_FONT_SIZE}px` }}
+             >
+               {stand.label}
+             </div>
 
             {/* Callsign */}
             {strip && !blocked && (
-              <div
-                className="absolute left-0 right-0 truncate px-0.5 text-center"
-                style={{ top: CALLSIGN_TOP, fontSize: 12, lineHeight: "12px" }}
-              >
-                {strip.callsign}
-              </div>
+               <div
+                 className="absolute left-0 right-0 truncate px-0.5 text-center"
+                 style={{ top: CALLSIGN_TOP, fontSize: CONTENT_FONT_SIZE, lineHeight: `${CONTENT_FONT_SIZE}px` }}
+               >
+                 {strip.callsign}
+               </div>
             )}
 
             {/* TOBT row */}
             {showTobt && (
-              <div
-                className="absolute left-0 right-0 flex items-center justify-center"
-                style={{ top: TOBT_ROW_TOP, height: ROW_HEIGHT, fontSize: 12 }}
-              >
-                {`TOBT: ${formatTimeLabel(strip!.tobt).replace(":", "")}`}
-              </div>
+               <div
+                 className="absolute left-0 right-0 flex items-center justify-center"
+                 style={{ top: TOBT_ROW_TOP, height: ROW_HEIGHT, fontSize: CONTENT_FONT_SIZE }}
+               >
+                 {`TOBT: ${formatTimeLabel(strip!.tobt).replace(":", "")}`}
+               </div>
             )}
 
             {/* TSAT row */}
             {showTsat && (
-              <div
-                className="absolute left-0 right-0 flex items-center justify-center"
-                style={{ top: TSAT_ROW_TOP, height: ROW_HEIGHT, fontSize: 12 }}
-              >
-                {`TSAT: ${formatTimeLabel(strip!.tsat).replace(":", "")}`}
-              </div>
+               <div
+                 className="absolute left-0 right-0 flex items-center justify-center"
+                 style={{ top: TSAT_ROW_TOP, height: ROW_HEIGHT, fontSize: CONTENT_FONT_SIZE }}
+               >
+                 {`TSAT: ${formatTimeLabel(strip!.tsat).replace(":", "")}`}
+               </div>
             )}
 
             {/* CTOT / MARK bottom bar text */}
             {showBottomBar && (
-              <div
-                className="absolute left-0 right-0 flex items-center justify-center text-white"
-                style={{ top: CTOT_ROW_TOP, height: ROW_HEIGHT, fontSize: 12 }}
-              >
-                {!showMark ? ctotLabel : null}
-              </div>
+               <div
+                 className="absolute left-0 right-0 flex items-center justify-center text-white"
+                 style={{ top: CTOT_ROW_TOP, height: ROW_HEIGHT, fontSize: CONTENT_FONT_SIZE }}
+               >
+                 {!showMark ? ctotLabel : null}
+               </div>
             )}
           </button>
         </TooltipTrigger>

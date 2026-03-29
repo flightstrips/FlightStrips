@@ -6,18 +6,20 @@ import EsetDeIceDialog from "@/components/eset/EsetDeIceDialog";
 import EsetStandCell from "@/components/eset/EsetStandCell";
 import EsetStandMenu, { type EsetMenuAnchor } from "@/components/eset/EsetStandMenu";
 import EsetStandStatusDialog from "@/components/eset/EsetStandStatusDialog";
+import EsetViewButtons from "@/components/eset/EsetViewButtons";
 import {
   ESET_BACKGROUND_BOXES,
   ESET_BOARD_HEIGHT,
   ESET_BOARD_WIDTH,
-  ESET_STANDS,
+  getEsetStandsForView,
   parseTimestampMs,
+  type EsetView,
 } from "@/components/eset/metadata";
 import { useNonClearedStrips } from "@/store/airports/ekch.ts";
 import { useWebSocketStore } from "@/store/store-hooks.ts";
 
-const PAGE_BG           = "bg-bay-eset";  // ESET uses a lighter panel grey than other views
-const COLOR_LABEL_DEFAULT = "#202020";       // default label color for ESET background boxes
+const PAGE_BG = "bg-bay-eset";
+const COLOR_LABEL_DEFAULT = "#202020";
 
 type ActionOverride = {
   callsign: string;
@@ -115,6 +117,7 @@ export default function ESET() {
   const [blockedStands, setBlockedStands] = useState<Record<string, true>>({});
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [boardScale, setBoardScale] = useState(1);
+  const [boardView, setBoardView] = useState<EsetView>("MAIN");
   const [ctotState, updateCtotState] = useReducer(ctotReducer, {
     previous: {},
     flags: {},
@@ -184,6 +187,7 @@ export default function ESET() {
 
   const menuStrip = menuState ? stripByStand.get(menuState.stand) : undefined;
   const statusStrip = statusStand ? stripByStand.get(statusStand) : undefined;
+  const visibleStands = useMemo(() => getEsetStandsForView(boardView), [boardView]);
 
   function closeMenu() {
     setMenuState(null);
@@ -196,6 +200,11 @@ export default function ESET() {
     setStatusAnchor(null);
     setDeIceOpen(false);
     setFlightPlanCallsign(null);
+  }
+
+  function handleBoardViewChange(nextView: EsetView) {
+    closeAllOverlays();
+    setBoardView(nextView);
   }
 
   function setActionState(stand: string, strip: FrontendStrip, blinking = false) {
@@ -383,12 +392,14 @@ export default function ESET() {
                   color: box.labelColor ?? COLOR_LABEL_DEFAULT,
                   fontSize: box.label ? 32 : undefined,
                 }}
-              >
-                {box.label}
-              </div>
-            ))}
+                >
+                  {box.label}
+                </div>
+              ))}
 
-            {ESET_STANDS.map((stand) => {
+            <EsetViewButtons view={boardView} onViewChange={handleBoardViewChange} />
+
+            {visibleStands.map((stand) => {
               const strip = stripByStand.get(stand.label);
               const actionOverride = strip ? actionOverrides[stand.label] : undefined;
               const actionActive = !!actionOverride && !!strip && actionOverride.callsign === strip.callsign;

@@ -1,10 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import EsetStandCell from "@/components/eset/EsetStandCell";
+import EsetViewButtons from "@/components/eset/EsetViewButtons";
 import {
   ESET_BACKGROUND_BOXES,
   ESET_BOARD_HEIGHT,
   ESET_BOARD_WIDTH,
-  ESET_STANDS,
+  getEsetStandsForView,
+  isCargoStand,
+  type EsetView,
 } from "@/components/eset/metadata";
 import { Bay, type FrontendStrip } from "@/api/models";
 import { useStrips, useWebSocketStore } from "@/store/store-hooks";
@@ -22,8 +25,11 @@ export function ArrStandDialog({ open, onOpenChange, callsign, currentStand }: P
   const updateStrip = useWebSocketStore(s => s.updateStrip);
   const strips = useStrips();
   const [boardScale, setBoardScale] = useState(1);
+  const [boardViewOverride, setBoardViewOverride] = useState<EsetView | null>(null);
   const boardFrameRef = useRef<HTMLDivElement>(null);
   const [nowMs] = useState(() => Date.now());
+  const defaultBoardView: EsetView = currentStand && isCargoStand(currentStand) ? "CARGO" : "MAIN";
+  const boardView = boardViewOverride ?? defaultBoardView;
 
   useEffect(() => {
     if (!open) {
@@ -32,6 +38,7 @@ export function ArrStandDialog({ open, onOpenChange, callsign, currentStand }: P
 
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
+        setBoardViewOverride(null);
         onOpenChange(false);
       }
     };
@@ -79,18 +86,27 @@ export function ArrStandDialog({ open, onOpenChange, callsign, currentStand }: P
     }
     return mapping;
   }, [strips]);
+  const visibleStands = useMemo(() => getEsetStandsForView(boardView), [boardView]);
 
   if (!open) {
     return null;
   }
 
+  function handleOpenChange(nextOpen: boolean) {
+    if (!nextOpen) {
+      setBoardViewOverride(null);
+    }
+
+    onOpenChange(nextOpen);
+  }
+
   function handleStandClick(stand: string) {
     updateStrip(callsign, { stand });
-    onOpenChange(false);
+    handleOpenChange(false);
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-[#767676]" onMouseDown={() => onOpenChange(false)}>
+    <div className="fixed inset-0 z-50 bg-[#767676]" onMouseDown={() => handleOpenChange(false)}>
       <div
         ref={boardFrameRef}
         className="relative h-full w-full overflow-hidden"
@@ -126,12 +142,17 @@ export function ArrStandDialog({ open, onOpenChange, callsign, currentStand }: P
                   color: box.labelColor ?? COLOR_LABEL_DEFAULT,
                   fontSize: box.label ? 32 : undefined,
                 }}
-              >
-                {box.label}
-              </div>
-            ))}
+                >
+                  {box.label}
+                </div>
+              ))}
 
-            {ESET_STANDS.map((stand) => {
+            <EsetViewButtons
+              view={boardView}
+              onViewChange={(nextView) => setBoardViewOverride(nextView === defaultBoardView ? null : nextView)}
+            />
+
+            {visibleStands.map((stand) => {
               const strip = stripByStand.get(stand.label);
               const isCurrent = stand.label === currentStand;
 

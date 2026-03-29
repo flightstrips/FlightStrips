@@ -112,8 +112,8 @@ export default function GEGW() {
         if (strip.bay === Bay.Cleared)   return <Strip strip={strip} status="PUSH" myPosition={myPosition} />;
         if (strip.bay === Bay.Push)      return <Strip strip={strip} status="HALF" halfStripVariant="APN-PUSH" myPosition={myPosition} />;
         if (strip.bay === Bay.TaxiLwr)   return <div style={{ width: TWY_DEP_STRIP_WIDTH }}><Strip strip={strip} status="TWY-DEP" myPosition={myPosition} fullWidth /></div>;
-        if (strip.bay === Bay.Depart)    return <Strip strip={strip} status="CLROK" myPosition={myPosition} />;
-        if (strip.bay === Bay.Airborne)  return <Strip strip={strip} status="CLROK" myPosition={myPosition} />;
+        if (strip.bay === Bay.Depart)    return <div style={{ width: TWY_DEP_STRIP_WIDTH }}><Strip strip={strip} status="TWY-DEP" myPosition={myPosition} fullWidth /></div>;
+        if (strip.bay === Bay.Airborne)  return <div style={{ width: TWY_DEP_STRIP_WIDTH }}><Strip strip={strip} status="TWY-DEP" myPosition={myPosition} fullWidth /></div>;
         if (strip.bay === Bay.DeIce)     return <Strip strip={strip} status="PUSH" myPosition={myPosition} />;
         if (strip.bay === Bay.Stand)     return <Strip strip={strip} status="ARR" myPosition={myPosition} />;
         if (strip.bay === Bay.Final)     return <Strip strip={strip} status="FINAL-ARR" myPosition={myPosition} />;
@@ -243,7 +243,7 @@ export default function GEGW() {
           className="h-[15%] bay-scroll-area-dark"
         >
           {(strip) => (
-            <Strip strip={strip} status="CLROK" myPosition={myPosition} selectable={true} />
+            <Strip strip={strip} status="TWY-DEP" myPosition={myPosition} width={TWY_DEP_STRIP_WIDTH} selectable={true} />
           )}
         </SortableBay>
 
@@ -258,7 +258,7 @@ export default function GEGW() {
           className="flex-1 bay-scroll-area-dark"
         >
           {(strip) => (
-            <Strip strip={strip} status="CLROK" myPosition={myPosition} selectable={true} />
+            <Strip strip={strip} status="TWY-DEP" myPosition={myPosition} width={TWY_DEP_STRIP_WIDTH} selectable={true} />
           )}
         </SortableBay>
       </div>

@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.7.0](https://github.com/flightstrips/FlightStrips/compare/docs/v0.6.0...docs/v0.7.0) (2026-03-29)
+
+
+### Features
+
+* added web-pdc ([6fdc590](https://github.com/flightstrips/FlightStrips/commit/6fdc5904a91e51dd1d595983b0137d9adadb8379))
+* fixed docs ([83a0351](https://github.com/flightstrips/FlightStrips/commit/83a0351bd02dfc787162aa3b7c3571171d2af604))
+
 ## [0.6.0](https://github.com/flightstrips/FlightStrips/compare/docs/v0.5.0...docs/v0.6.0) (2026-03-25)
 
 

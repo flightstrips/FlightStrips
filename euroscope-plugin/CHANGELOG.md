@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.4](https://github.com/flightstrips/FlightStrips/compare/plugin/v0.8.3...plugin/v0.8.4) (2026-03-29)
+
+
+### Bug Fixes
+
+* potential crashes ([e31bed9](https://github.com/flightstrips/FlightStrips/commit/e31bed9285d2b92d265cd943348b440f90a5a665))
+
 ## [0.8.3](https://github.com/flightstrips/FlightStrips/compare/plugin/v0.8.2...plugin/v0.8.3) (2026-03-24)
 
 

@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.18.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.17.3...frontend/v0.18.0) (2026-03-29)
+
+
+### Features
+
+* add category type aicraft type ([d858a4f](https://github.com/flightstrips/FlightStrips/commit/d858a4f404a1d87d8bb2ff66b902cd8fd5d76d13))
+* added web-pdc ([6fdc590](https://github.com/flightstrips/FlightStrips/commit/6fdc5904a91e51dd1d595983b0137d9adadb8379))
+* Adjust EST view ([c2b607c](https://github.com/flightstrips/FlightStrips/commit/c2b607cc19c2e4348280ef6330ee1458187f5305))
+* auto set altitude ([e0332a5](https://github.com/flightstrips/FlightStrips/commit/e0332a5abb15d001e36361a55b40e381cdb9bc5a))
+* confirm delete strip ([cb4837c](https://github.com/flightstrips/FlightStrips/commit/cb4837c0fd1178204b5caf5291c2954bd6874120))
+
+
+### Bug Fixes
+
+* correct labels for TETW, GEGW ([6bce70a](https://github.com/flightstrips/FlightStrips/commit/6bce70a02a4eff81b5e4747bf1375694e445053f))
+* missing ctot and missing pdc status color ([b035326](https://github.com/flightstrips/FlightStrips/commit/b03532604f74491617f8b4d26aff6e26180e321b))
+* pdc text color ([d749ed7](https://github.com/flightstrips/FlightStrips/commit/d749ed791101b43631b59afbf8ede19c7fc4446f))
+* reloading when moving strips from arr or startup ([15e4ea8](https://github.com/flightstrips/FlightStrips/commit/15e4ea875c50ded49acc08005129ae79bf9d5f43))
+* scroll main pages and disable select for most page ([8a16ceb](https://github.com/flightstrips/FlightStrips/commit/8a16ceb68dddea5e31e6288423ae64604d469add))
+* switch everything to view based sizes ([22b3eda](https://github.com/flightstrips/FlightStrips/commit/22b3eda9ef3f79054addb11d0bff1051dcca2f5b))
+* use correct strip on GEGW view [#132](https://github.com/flightstrips/FlightStrips/issues/132) ([d11d7b3](https://github.com/flightstrips/FlightStrips/commit/d11d7b3c8ac0e3788b889f8d34b3c4ffc19dec1b))
+
 ## [0.17.3](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.17.2...frontend/v0.17.3) (2026-03-28)
 
 

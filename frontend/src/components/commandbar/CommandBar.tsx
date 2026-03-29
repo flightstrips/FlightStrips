@@ -12,14 +12,6 @@ import { useAudioSettings } from "@/hooks/useAudioSettings";
 import { useAtisCode, useMetar, useRunwaySetup, useSelectedCallsign, useSelectStrip, useWebSocketStore, useStrip } from "@/store/store-hooks";
 import { CLS_CMDBTN } from "@/components/strip/shared";
 import { Bay } from "@/api/models";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import * as VisuallyHidden from "@radix-ui/react-visually-hidden";
-import { Button } from "@/components/ui/button";
 
 // Bar height matches strip height (4.72vh). Inner elements: calc(4.72vh - 14px) + 7px top/bottom margin.
 const CLS_BAR = "h-[4.72vh] w-screen bg-bay-commandbar flex justify-between text-white items-center border-y-2 border-bay-border";
@@ -34,19 +26,19 @@ const SCOPE_LABELS: Record<string, string> = {
   "CLX":  "CLR DEL",
   "AAAD": "AA + AD",
   "AD":   "APRON DEP",
-  "EST": "EST",
-  "GEGW": "GE / GW",
-  "TWTE": "TW / TE",
+  "EST":  "SEQ PLN",
+  "GEGW": "GE + GW",
+  "TWTE": "TE + TW",
 };
 
 const EKCH_SCOPES = [
   { label: "CLR DEL",    layout: "CLX" },
-  { label: "AA + AD",    layout: "AAAD" },
-  { label: "APRON ARR",  layout: "AA" },
+  { label: "SEQ PLN",    layout: "EST" },
   { label: "APRON DEP",  layout: "AD" },
-  { label: "EST",        layout: "EST" },
-  { label: "GE / GW",    layout: "GEGW" },
-  { label: "TW / TE",    layout: "TWTE" },
+  { label: "APRON ARR",  layout: "AA" },
+  { label: "AA + AD",    layout: "AAAD" },
+  { label: "GE + GW",    layout: "GEGW" },
+  { label: "TE + TW",    layout: "TWTE" },
 ];
 
 // EKCH runway pairs with vw widths derived from SVG (canvas: 2560px).
@@ -77,7 +69,6 @@ export default function CommandBar() {
   const { muted, toggleMute } = useAudioSettings();
   const metar = useMetar();
   const atisCode = useAtisCode();
-  const layout = useWebSocketStore((state) => state.layout);
   const currentLayout = useWebSocketStore((state) => state.displayedLayout);
   const setDisplayedLayout = useWebSocketStore((state) => state.setDisplayedLayout);
   const runwaySetup = useRunwaySetup();
@@ -90,7 +81,7 @@ export default function CommandBar() {
 
   const depRwy = runwaySetup.departure[0] ?? "—";
   const arrRwy = runwaySetup.arrival[0] ?? "—";
-  const scopeLabel = SCOPE_LABELS[layout] ?? layout;
+  const scopeLabel = SCOPE_LABELS[currentLayout] ?? currentLayout;
   const runwayStatus = runwaySetup.runway_status ?? {};
 
   const myPosition = useWebSocketStore((state) => state.position);
@@ -195,37 +186,76 @@ export default function CommandBar() {
         </div>
       </div>
 
-      {/* ── Layout chooser dialog (dismissable) ───────────── */}
-      <Dialog open={layoutOpen} onOpenChange={setLayoutOpen}>
-        <DialogContent className="sm:max-w-[300px] bg-bay-header-light">
-          <VisuallyHidden.Root>
-            <DialogTitle>Select View</DialogTitle>
-          </VisuallyHidden.Root>
-          <div className="border-2 border-black">
-            <div className="grid grid-cols-2 gap-2 p-2" style={{ color: "black" }}>
-              {EKCH_SCOPES.map((scope) => (
-                <Button
-                  key={scope.layout}
-                  variant="trf"
-                  className={`font-normal text-base h-fit py-3 ${
-                    currentLayout === scope.layout ? "ring-2 ring-yellow-400" : ""
-                  } ${
-                    layout === scope.layout && currentLayout !== scope.layout ? "border-2 border-primary" : ""
-                  }`}
-                  onClick={() => handleLayoutSelect(scope.layout)}
-                >
-                  {scope.label}
-                </Button>
-              ))}
+      {/* ── Layout chooser popup (anchored just above commandbar) ───── */}
+      {layoutOpen && (
+        <>
+          {/* Transparent backdrop — click to close */}
+          <div className="fixed inset-0 z-40" onClick={() => setLayoutOpen(false)} />
+
+          {/* Popup panel — matches Scope selector.svg (2512×254 design, 2560px vw base, 2160px vh base) */}
+          <div
+            className="fixed z-50"
+            style={{
+              bottom: "calc(4.72vh + 0.5vh)",
+              left: "1vw",
+              right: "1vw",
+              height: "11.76vh",
+              background: "#B3B3B3",
+              border: "1px solid black",
+            }}
+          >
+            {/* Inner border inset (SVG: 15.5px sides / 16.5px top-bottom at 2512×254) */}
+            <div
+              className="absolute flex items-center"
+              style={{
+                inset: "0.76vh 0.60vw",
+                border: "1px solid black",
+              }}
+            >
+              {/* Scope buttons */}
+              <div className="flex items-center gap-[1.56vw] pl-[0.66vw] h-full py-[0.74vh]">
+                {EKCH_SCOPES.map((scope) => (
+                  <button
+                    key={scope.layout}
+                    onClick={() => handleLayoutSelect(scope.layout)}
+                    style={{
+                      width: "9.50vw",
+                      background: currentLayout === scope.layout ? "#1BFF16" : "#D6D6D6",
+                      color: "black",
+                      fontSize: "0.96vw",
+                      fontWeight: 500,
+                      height: "100%",
+                      boxShadow: "2px 4px 4px rgba(0,0,0,0.25)",
+                      fontFamily: "Rubik, sans-serif",
+                    }}
+                  >
+                    {scope.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* OK button — right-aligned, dark */}
+              <button
+                onClick={() => setLayoutOpen(false)}
+                style={{
+                  marginLeft: "auto",
+                  marginRight: "0.66vw",
+                  width: "7.42vw",
+                  height: "calc(100% - 1.48vh)",
+                  background: "#3F3F3F",
+                  color: "white",
+                  fontSize: "1.25vw",
+                  fontWeight: 600,
+                  boxShadow: "2px 4px 4px rgba(0,0,0,0.25)",
+                  fontFamily: "Rubik, sans-serif",
+                }}
+              >
+                OK
+              </button>
             </div>
-            <DialogFooter className="flex justify-center w-full h-14">
-              <Button variant="darkaction" className="w-4/5" onClick={() => setLayoutOpen(false)}>
-                ESC
-              </Button>
-            </DialogFooter>
           </div>
-        </DialogContent>
-      </Dialog>
+        </>
+      )}
 
       {/* ── Runway status dialog ───────────────────────────── */}
       {rwyDlgPair && (

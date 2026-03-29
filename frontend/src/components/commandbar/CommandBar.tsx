@@ -34,6 +34,7 @@ const SCOPE_LABELS: Record<string, string> = {
   "CLX":  "CLR DEL",
   "AAAD": "AA + AD",
   "AD":   "APRON DEP",
+  "EST": "EST",
   "GEGW": "GE / GW",
   "TWTE": "TW / TE",
 };
@@ -43,7 +44,7 @@ const EKCH_SCOPES = [
   { label: "AA + AD",    layout: "AAAD" },
   { label: "APRON ARR",  layout: "AA" },
   { label: "APRON DEP",  layout: "AD" },
-  { label: "ESET",       layout: "ESET" },
+  { label: "EST",        layout: "EST" },
   { label: "GE / GW",    layout: "GEGW" },
   { label: "TW / TE",    layout: "TWTE" },
 ];

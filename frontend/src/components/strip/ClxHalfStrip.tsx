@@ -1,6 +1,7 @@
 import { getAircraftTypeWithWtc } from "@/lib/utils";
 import type { StripProps } from "./types";
-import { FONT, STRIP_FRAME_COLOR, COLOR_DEP_STRIP_BG, COLOR_SHADOW, COLOR_TYPE_HEAVY, useStripBg } from "./shared";
+import { getStripBg } from "./types";
+import { FONT, STRIP_FRAME_COLOR, COLOR_SHADOW, COLOR_TYPE_HEAVY, useStripBg } from "./shared";
 
 const CELL_BORDER = "border-r border-[var(--color-strip-frame)]"; // matches STRIP_FRAME_COLOR
 // Flex-grow proportions (flex-basis: 0 so space is shared proportionally)
@@ -11,7 +12,7 @@ const F_RUNWAY   = 25 * (1 / 2);
 const F_SID      = 25 * (3 / 4);
 const F_STAND    = 25 * (1 / 2);
 
-const FONT_SIZE = 12;
+const FONT_SIZE = "0.63vw";
 
 export function ClxHalfStrip({
   callsign,
@@ -20,9 +21,11 @@ export function ClxHalfStrip({
   runway,
   sid,
   stand,
+  pdcStatus,
+  arrival,
   fullWidth
 }: StripProps) {
-  const { bg, textWhite } = useStripBg(runway, COLOR_DEP_STRIP_BG, false, false);
+  const { bg, textWhite } = useStripBg(runway, getStripBg(pdcStatus, arrival), false, false);
 
   return (
     <div style={{
@@ -53,7 +56,7 @@ export function ClxHalfStrip({
           className={`flex flex-col overflow-hidden ${CELL_BORDER}`}
           style={{ flex: `${F_CALLSIGN} 0 0%`, height: "100%", minWidth: 0 }}
         >
-          <div className="flex items-center pl-2" style={{ height: "100%" }}>
+          <div className="flex items-center pl-[0.42vw]" style={{ height: "100%" }}>
             <span className="truncate w-full" style={{ fontFamily: FONT, fontWeight: "bold", fontSize: FONT_SIZE }}>
               {callsign}
             </span>

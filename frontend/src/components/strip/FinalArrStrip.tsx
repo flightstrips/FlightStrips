@@ -108,10 +108,10 @@ export function FinalArrStrip({
         onContextMenu={(e) => { e.preventDefault(); openStripContextMenu(callsign, { x: e.clientX, y: e.clientY }); }}
       >
         <div
-          className="flex items-center pl-2 overflow-hidden"
+          className="flex items-center pl-[0.42vw] overflow-hidden"
           style={{ height: TOP_H, backgroundColor: isSelected ? SELECTION_COLOR : undefined }}
         >
-          <span className="truncate w-full" style={{ fontFamily: FONT, fontWeight: "bold", fontSize: 20 }}>
+          <span className="truncate w-full" style={{ fontFamily: FONT, fontWeight: "bold", fontSize: "1.04vw" }}>
             {callsign}
           </span>
         </div>
@@ -124,7 +124,7 @@ export function FinalArrStrip({
         style={{ flexGrow: F_TYPE, flexBasis: 0, height: "100%", borderRightColor: cellBorderColor }}
       >
         <div className="flex items-center justify-center" style={{ height: TOP_H }}>
-          <span className="truncate px-1" style={{ fontFamily: FONT, fontWeight: 600, fontSize: 12, color: aircraftCategory === "H" ? COLOR_TYPE_HEAVY : undefined }}>
+          <span className="truncate px-[0.21vw]" style={{ fontFamily: FONT, fontWeight: 600, fontSize: "0.63vw", color: aircraftCategory === "H" ? COLOR_TYPE_HEAVY : undefined }}>
             {getAircraftTypeWithWtc(aircraftType, aircraftCategory)}
           </span>
         </div>
@@ -132,7 +132,7 @@ export function FinalArrStrip({
           className="flex items-center justify-center"
           style={{ height: BOT_H, backgroundColor: assignedSquawk && squawk && assignedSquawk !== squawk ? "var(--color-runway-closed)" : undefined }}
         >
-          <span className="truncate px-1" style={{ fontFamily: FONT, fontSize: 12 }}>
+          <span className="truncate px-[0.21vw]" style={{ fontFamily: FONT, fontSize: "0.63vw" }}>
             {assignedSquawk ?? squawk}
           </span>
         </div>
@@ -145,7 +145,7 @@ export function FinalArrStrip({
         onClick={(e) => { e.stopPropagation(); setStandOpen(true); }}
       >
         <div className="flex items-center justify-center" style={{ height: TOP_H }}>
-          <span className="truncate px-1" style={{ fontFamily: FONT, fontWeight: 600, fontSize: 16 }}>
+          <span className="truncate px-[0.21vw]" style={{ fontFamily: FONT, fontWeight: 600, fontSize: "0.83vw" }}>
             {stand}
           </span>
         </div>
@@ -162,7 +162,7 @@ export function FinalArrStrip({
           style={{ height: TOP_H }}
           onClick={bay === Bay.Final || bay === Bay.RwyArr ? (e) => { e.stopPropagation(); if (runwayCleared && !runwayConfirmed) { runwayConfirmation(callsign); } else { runwayClearance(callsign); } } : undefined}
         >
-          <span className="truncate" style={{ fontFamily: FONT, fontWeight: "bold", fontSize: 18 }}>
+          <span className="truncate" style={{ fontFamily: FONT, fontWeight: "bold", fontSize: "0.94vw" }}>
             {runway}
           </span>
         </div>
@@ -171,7 +171,7 @@ export function FinalArrStrip({
           style={{ height: BOT_H }}
           onClick={(e) => { e.stopPropagation(); setTaxiMapOpen(true); }}
         >
-          <span style={{ fontFamily: FONT, fontSize: 12, opacity: holdingPoint ? 1 : 0.2 }}>
+          <span style={{ fontFamily: FONT, fontSize: "0.63vw", opacity: holdingPoint ? 1 : 0.2 }}>
             {holdingPoint || "TWY"}
           </span>
         </div>

@@ -21,7 +21,7 @@ import { ApronTaxiMapDialog } from "@/components/map-dialogs/ApronTaxiMapDialog"
 import { useCTOTColor } from "@/hooks/useCTOTColor";
 const TOP_H  = "3.15vh";  // 2/3 of 4.72vh
 const BOT_H  = "1.57vh";  // 1/3 of 4.72vh
-const HALF_H = "calc(2.36vh - 3px)";  // 1/2 of inner content height (4.72vh - 2px border - 1px padding each side)
+const HALF_H = "2.08vh";  // 1/2 of inner content height (4.72vh - 2px border - 1px padding each side)
 
 // Flex-grow proportions (flex-basis: 0 so space is shared proportionally)
 const F_CALLSIGN = 25;
@@ -105,8 +105,8 @@ export function ApnTaxiDepStrip({
           onClick={handleClick}
           onContextMenu={(e) => { e.preventDefault(); openStripContextMenu(callsign, { x: e.clientX, y: e.clientY }); }}
         >
-          <div className="flex items-center pl-2" style={{ height: TOP_H, backgroundColor: isSelected ? SELECTION_COLOR : undefined }}>
-            <span className="font-bold text-xl truncate w-full">{callsign}</span>
+          <div className="flex items-center pl-[0.42vw]" style={{ height: TOP_H, backgroundColor: isSelected ? SELECTION_COLOR : undefined }}>
+            <span className="truncate w-full" style={{ fontFamily: FONT, fontWeight: "bold", fontSize: "1.04vw" }}>{callsign}</span>
           </div>
           <div style={{ height: BOT_H }} />
         </div>
@@ -117,10 +117,10 @@ export function ApnTaxiDepStrip({
           style={{ flex: `${F_TYPE} 0 0%`, height: "100%", paddingBottom: BOT_H, minWidth: 0, borderRightColor: cellBorderColor }}
           onClick={(e) => { e.stopPropagation(); setFplOpen(true); }}
         >
-          <span className="truncate px-1 leading-tight w-full text-center" style={{ fontFamily: FONT, fontSize: 10, color: aircraftCategory === "H" ? COLOR_TYPE_HEAVY : undefined }}>
+          <span className="truncate px-[0.21vw] leading-tight w-full text-center" style={{ fontFamily: FONT, fontSize: "0.52vw", color: aircraftCategory === "H" ? COLOR_TYPE_HEAVY : undefined }}>
             {getAircraftTypeWithWtc(aircraftType, aircraftCategory)}
           </span>
-          <span className="truncate px-1 leading-tight w-full text-center" style={{ fontFamily: FONT, fontSize: 10 }}>
+          <span className="truncate px-[0.21vw] leading-tight w-full text-center" style={{ fontFamily: FONT, fontSize: "0.52vw" }}>
             {registration}
           </span>
         </div>
@@ -132,10 +132,10 @@ export function ApnTaxiDepStrip({
           onClick={standYellow ? (e) => { e.stopPropagation(); acknowledgeUnexpectedChange(callsign, "stand"); } : undefined}
         >
           <div className="flex items-center justify-center" style={{ height: TOP_H }}>
-            <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: 20, color: getCellTextColor("stand", controllerModifiedFields) }}>{stand}</span>
+            <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: "1.04vw", color: getCellTextColor("stand", controllerModifiedFields) }}>{stand}</span>
           </div>
           <div className="flex items-center justify-center" style={{ height: BOT_H }}>
-            {showCtot && <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: 10, backgroundColor: ctotBg, color: ctotColor, padding: "0 2px" }}>{ctot}</span>}
+            {showCtot && <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: "0.52vw", backgroundColor: ctotBg, color: ctotColor, padding: "0 0.1vw" }}>{ctot}</span>}
           </div>
         </div>
 
@@ -146,12 +146,12 @@ export function ApnTaxiDepStrip({
           onClick={(e) => { e.stopPropagation(); if (releasePointYellow) { acknowledgeUnexpectedChange(callsign, "release_point"); } else { setShowTaxiMap(true); } }}
         >
           <div className="flex items-center justify-center border-b-2" style={{ height: HALF_H, borderBottomColor: cellBorderColor }}>
-            <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: 11, opacity: hasTwy ? 1 : 0.15, color: getCellTextColor("release_point", controllerModifiedFields) }}>
+            <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: "0.57vw", opacity: hasTwy ? 1 : 0.15, color: getCellTextColor("release_point", controllerModifiedFields) }}>
               {hasTwy ? hpValue : "TWY"}
             </span>
           </div>
           <div className="flex items-center justify-center" style={{ height: HALF_H }}>
-            <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: 11, opacity: hasTwy ? 0.15 : 1, color: getCellTextColor("release_point", controllerModifiedFields) }}>
+            <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: "0.57vw", opacity: hasTwy ? 0.15 : 1, color: getCellTextColor("release_point", controllerModifiedFields) }}>
               {hasTwy ? "HP" : hpValue || "HP"}
             </span>
           </div>
@@ -165,7 +165,7 @@ export function ApnTaxiDepStrip({
         >
           <div className="flex" style={{ height: HALF_H }}>
             <div className="flex items-center justify-center" style={{ flex: "2 0 0%", height: "100%" }}>
-              <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: 14, color: getCellTextColor("runway", controllerModifiedFields) }}>{runway}</span>
+              <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: "0.73vw", color: getCellTextColor("runway", controllerModifiedFields) }}>{runway}</span>
             </div>
             <div style={{ flexShrink: 0, width: HALF_H, height: "100%", borderLeft: `1px solid ${cellBorderColor}`, borderBottom: `1px solid ${cellBorderColor}` }} />
           </div>

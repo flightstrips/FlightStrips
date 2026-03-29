@@ -15,7 +15,7 @@
   --color-bay-btn:          #646464; /* bay button background */
   --color-bay-shadow:       #d3d3d3; /* button highlight / inset shadow */
   --color-bay-page:         #A9A9A9; /* page background (gap between columns) */
-  --color-bay-eset:         #767676; /* ESET view lighter panel */
+  --color-bay-est:         #767676; /* EST view lighter panel */
 
   /* ── Strip background colors ───────────────────────── */
   --color-strip-frame:       #85b4af; /* strip frame / border (teal) */
@@ -72,6 +72,14 @@ html {
   overscroll-behavior: none;
 }
 
+html.public-content-page {
+  height: auto;
+  min-height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: auto;
+}
+
 body {
   font-family: 'IBM Plex Sans', system-ui, sans-serif;
   --asd: 0.5rem;
@@ -80,11 +88,26 @@ body {
   overscroll-behavior: none;
 }
 
+body.public-content-page {
+  height: auto;
+  min-height: 100%;
+  overflow-x: hidden;
+  overflow-y: visible;
+  overscroll-behavior: auto;
+}
+
 #root {
   height: 100%;
   min-height: 100dvh;
   overflow: hidden;
   overscroll-behavior: none;
+}
+
+#root.public-content-page {
+  height: auto;
+  min-height: 100dvh;
+  overflow: visible;
+  overscroll-behavior: auto;
 }
 
 @layer components {
@@ -103,28 +126,28 @@ body {
 
   /* ── Section headers ────────────────────────────────────────────────────── */
   .bay-col-header {
-    @apply bg-bay-header h-10 flex items-center px-2 shrink-0 relative z-10;
+    @apply bg-bay-header h-[3.7vh] flex items-center px-[0.42vw] shrink-0 relative z-10;
     box-shadow:
       inset 6px 0 8px rgba(0,0,0,0.4),
       inset 0 4px 8px rgba(0,0,0,0.4),
       0 1px 0 rgba(0,0,0,0.9);
   }
   .bay-col-header-light {
-    @apply bg-bay-header-light h-10 flex items-center px-2 shrink-0 relative z-10;
+    @apply bg-bay-header-light h-[3.7vh] flex items-center px-[0.42vw] shrink-0 relative z-10;
     box-shadow:
       inset 6px 0 8px rgba(0,0,0,0.4),
       inset 0 4px 8px rgba(0,0,0,0.4),
       0 1px 0 rgba(0,0,0,0.9);
   }
   .bay-col-header-teal {
-    @apply bg-bay-teal h-10 flex items-center px-2 shrink-0 relative z-10;
+    @apply bg-bay-teal h-[3.7vh] flex items-center px-[0.42vw] shrink-0 relative z-10;
     box-shadow:
       inset 6px 0 8px rgba(0,0,0,0.4),
       inset 0 4px 8px rgba(0,0,0,0.4),
       0 1px 0 rgba(0,0,0,0.9);
   }
   .bay-col-header-primary {
-    @apply bg-primary h-10 flex items-center px-2 shrink-0 relative z-10;
+    @apply bg-primary h-[3.7vh] flex items-center px-[0.42vw] shrink-0 relative z-10;
     box-shadow:
       inset 6px 0 8px rgba(0,0,0,0.4),
       inset 0 4px 8px rgba(0,0,0,0.4),
@@ -356,7 +379,23 @@ body {
 @layer base {
   * {
     @apply border-border outline-ring/50;
+    -webkit-user-select: none;
+    user-select: none;
   }
+
+  html.public-content-page body,
+  html.public-content-page body * {
+    -webkit-user-select: text;
+    user-select: text;
+  }
+
+  input,
+  textarea,
+  [contenteditable]:not([contenteditable="false"]) {
+    -webkit-user-select: text;
+    user-select: text;
+  }
+
   body {
     @apply bg-background text-foreground;
     background-color: #F3EEE8;

@@ -97,8 +97,8 @@ export function ApnArrStrip({
         onClick={handleClick}
         onContextMenu={(e) => { e.preventDefault(); openStripContextMenu(callsign, { x: e.clientX, y: e.clientY }); }}
       >
-        <div className="flex items-center pl-2" style={{ height: TOP_H, backgroundColor: isSelected ? SELECTION_COLOR : undefined }}>
-          <span className="font-bold text-xl truncate w-full" style={{ color: manualBlue }}>{callsign}</span>
+        <div className="flex items-center pl-[0.42vw]" style={{ height: TOP_H, backgroundColor: isSelected ? SELECTION_COLOR : undefined }}>
+          <span className="truncate w-full" style={{ fontWeight: "bold", fontSize: "1.04vw", color: manualBlue }}>{callsign}</span>
         </div>
         <div style={{ height: BOT_H }} />
       </div>
@@ -106,7 +106,7 @@ export function ApnArrStrip({
       {/* A/C type / Registration */}
       <div className="flex flex-col border-r-2 min-w-0" style={{ flexGrow: F_TYPE, flexBasis: 0, height: "100%", borderRightColor: cellBorderColor }}>
         <div className="flex items-center justify-center" style={{ height: TOP_H }}>
-          <span className="text-xs font-semibold truncate px-1" style={{ color: aircraftCategory === "H" ? COLOR_TYPE_HEAVY : undefined }}>{getAircraftTypeWithWtc(aircraftType, aircraftCategory)}</span>
+          <span className="truncate px-[0.21vw]" style={{ fontWeight: 600, fontSize: "0.63vw", color: aircraftCategory === "H" ? COLOR_TYPE_HEAVY : undefined }}>{getAircraftTypeWithWtc(aircraftType, aircraftCategory)}</span>
         </div>
         <div style={{ height: BOT_H }} />
       </div>
@@ -118,7 +118,7 @@ export function ApnArrStrip({
         onClick={(e) => { e.stopPropagation(); if (runwayYellow) { acknowledgeUnexpectedChange(callsign, "runway"); } else { setRunwayOpen(true); } }}
       >
         <div className="flex items-center justify-center" style={{ height: TOP_H }}>
-          <span className="font-bold text-xl truncate">{runway}</span>
+          <span className="truncate" style={{ fontWeight: "bold", fontSize: "1.04vw" }}>{runway}</span>
         </div>
         <div style={{ height: BOT_H }} />
       </div>
@@ -130,7 +130,7 @@ export function ApnArrStrip({
         onClick={(e) => { e.stopPropagation(); setTaxiMapOpen(true); }}
       >
         <div className="flex items-center justify-center" style={{ height: TOP_H }}>
-          {(() => { const twy = taxiway ?? holdingPoint; return <span className="font-bold text-xl truncate" style={{ opacity: twy ? 1 : 0.2 }}>{twy || "TWY"}</span>; })()}
+          {(() => { const twy = taxiway ?? holdingPoint; return <span className="truncate" style={{ fontWeight: "bold", fontSize: "1.04vw", opacity: twy ? 1 : 0.2 }}>{twy || "TWY"}</span>; })()}
         </div>
         <div style={{ height: BOT_H }} />
       </div>
@@ -149,7 +149,7 @@ export function ApnArrStrip({
         }}
       >
         <div className="flex items-center justify-center" style={{ height: TOP_H }}>
-          <span className="font-bold text-xl truncate" style={{ color: getCellTextColor("stand", controllerModifiedFields) }}>{stand}</span>
+          <span className="truncate" style={{ fontWeight: "bold", fontSize: "1.04vw", color: getCellTextColor("stand", controllerModifiedFields) }}>{stand}</span>
         </div>
         <div style={{ height: BOT_H }} />
       </div>

@@ -44,7 +44,11 @@ import {
 } from '../api/models.ts';
 import {WebSocketClient} from '../api/websocket.ts';
 
-const KNOWN_LAYOUTS = new Set(["CLX", "AAAD", "AA", "AD", "ESET", "GEGW", "TWTE"]);
+const KNOWN_LAYOUTS = new Set(["CLX", "AAAD", "AA", "AD", "EST", "GEGW", "TWTE"]);
+
+function normalizeLayout(layout: string) {
+  return layout;
+}
 
 export interface UpdateStrip {
   sid?: string
@@ -172,10 +176,13 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
   const store = createStore<WebSocketState>()((set, get) => ({
     ...initialState,
     selectStrip: (callsign) => set({ selectedCallsign: callsign }),
-    setDisplayedLayout: (layout) => set({
-      displayedLayout: layout,
-      followRecommendedLayout: layout === get().layout,
-    }),
+    setDisplayedLayout: (layout) => {
+      const normalizedLayout = normalizeLayout(layout);
+      set({
+        displayedLayout: normalizedLayout,
+        followRecommendedLayout: normalizedLayout === get().layout,
+      });
+    },
     setLayoutChooserOpen: (open) => set({ layoutChooserOpen: open }),
     openStripContextMenu: (callsign, pos) => set({ contextMenu: { callsign, x: pos.x, y: pos.y } }),
     closeStripContextMenu: () => set({ contextMenu: null }),
@@ -497,9 +504,10 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
         state.identifier = data.me.identifier;
         state.airport = data.airport;
         state.callsign = data.callsign;
-        state.layout = data.layout;
-        if (KNOWN_LAYOUTS.has(data.layout)) {
-          state.displayedLayout = data.layout;
+        const normalizedLayout = normalizeLayout(data.layout);
+        state.layout = normalizedLayout;
+        if (KNOWN_LAYOUTS.has(normalizedLayout)) {
+          state.displayedLayout = normalizedLayout;
           state.followRecommendedLayout = true;
         } else {
           state.displayedLayout = "";
@@ -710,10 +718,11 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
   const handleLayoutUpdateEvent = (data: FrontendLayoutUpdateEvent) => {
     store.setState(
       produce((state: WebSocketState) => {
-        state.layout = data.layout;
-        if (KNOWN_LAYOUTS.has(data.layout)) {
+        const normalizedLayout = normalizeLayout(data.layout);
+        state.layout = normalizedLayout;
+        if (KNOWN_LAYOUTS.has(normalizedLayout)) {
           if (state.followRecommendedLayout) {
-            state.displayedLayout = data.layout;
+            state.displayedLayout = normalizedLayout;
           }
         } else {
           if (state.followRecommendedLayout) {

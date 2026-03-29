@@ -149,15 +149,15 @@ export function TwyDepStrip({
         onContextMenu={(e) => { e.preventDefault(); openStripContextMenu(callsign, { x: e.clientX, y: e.clientY }); }}
       >
         <div
-          className="flex items-center pl-2 overflow-hidden"
+          className="flex items-center pl-[0.42vw] overflow-hidden"
           style={{ height: TOP_H, backgroundColor: isSelected ? SELECTION_COLOR : undefined }}
         >
-          <span className="truncate w-full" style={{ fontFamily: FONT, fontWeight: "bold", fontSize: 20 }}>
+          <span className="truncate w-full" style={{ fontFamily: FONT, fontWeight: "bold", fontSize: "1.04vw" }}>
             {callsign}
           </span>
         </div>
-        <div className="flex items-center pl-2" style={{ height: BOT_H }}>
-          <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: 11 }}>{nextFreq}</span>
+        <div className="flex items-center pl-[0.42vw]" style={{ height: BOT_H }}>
+          <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: "0.57vw" }}>{nextFreq}</span>
         </div>
       </div>
 
@@ -167,7 +167,7 @@ export function TwyDepStrip({
         style={{ flexGrow: F_TYPE_SQ, flexBasis: 0, height: "100%", borderRightColor: cellBorderColor }}
       >
         <div className="flex items-center justify-center overflow-hidden" style={{ height: HALF_H }}>
-          <span className="truncate px-1" style={{ fontFamily: FONT, fontWeight: "bold", fontSize: 13, color: aircraftCategory === "H" ? COLOR_TYPE_HEAVY : undefined }}>
+          <span className="truncate px-[0.21vw]" style={{ fontFamily: FONT, fontWeight: "bold", fontSize: "0.68vw", color: aircraftCategory === "H" ? COLOR_TYPE_HEAVY : undefined }}>
             {getAircraftTypeWithWtc(aircraftType, aircraftCategory)}
           </span>
         </div>
@@ -175,7 +175,7 @@ export function TwyDepStrip({
           className="flex items-center justify-center overflow-hidden"
           style={{ height: HALF_H, backgroundColor: assignedSquawk && squawk && assignedSquawk !== squawk ? "var(--color-runway-closed)" : undefined }}
         >
-          <span className="truncate px-1" style={{ fontFamily: FONT, fontWeight: 300, fontSize: 13 }}>
+          <span className="truncate px-[0.21vw]" style={{ fontFamily: FONT, fontWeight: 300, fontSize: "0.68vw" }}>
             {assignedSquawk ?? squawk}
           </span>
         </div>
@@ -191,12 +191,12 @@ export function TwyDepStrip({
           style={{ height: HALF_H, backgroundColor: standYellow ? COLOR_UNEXPECTED_YELLOW : undefined, cursor: standYellow ? "pointer" : undefined }}
           onClick={standYellow ? (e) => { e.stopPropagation(); acknowledgeUnexpectedChange(callsign, "stand"); } : undefined}
         >
-          <span className="truncate px-1" style={{ fontFamily: FONT, fontWeight: "bold", fontSize: 13, color: getCellTextColor("stand", controllerModifiedFields) }}>
+          <span className="truncate px-[0.21vw]" style={{ fontFamily: FONT, fontWeight: "bold", fontSize: "0.68vw", color: getCellTextColor("stand", controllerModifiedFields) }}>
             {stand}
           </span>
         </div>
         <div className="flex items-center justify-center overflow-hidden" style={{ height: HALF_H, backgroundColor: ctotBg || undefined, color: ctotColor }}>
-          <span className="truncate px-1" style={{ fontFamily: FONT, fontWeight: 300, fontSize: 13 }}>
+          <span className="truncate px-[0.21vw]" style={{ fontFamily: FONT, fontWeight: 300, fontSize: "0.68vw" }}>
             {showCtot ? ctot : ""}
           </span>
         </div>
@@ -209,7 +209,7 @@ export function TwyDepStrip({
         onClick={(e) => { e.stopPropagation(); if (releasePointYellow) { acknowledgeUnexpectedChange(callsign, "release_point"); } else { setShowTaxiMap(true); } }}
       >
         <div className="flex items-center justify-center h-full">
-          <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: 14, opacity: twyDisplay ? 1 : 0.2, color: getCellTextColor("release_point", controllerModifiedFields) }}>
+          <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: "0.73vw", opacity: twyDisplay ? 1 : 0.2, color: getCellTextColor("release_point", controllerModifiedFields) }}>
             {twyDisplay || "TWY"}
           </span>
         </div>
@@ -225,14 +225,14 @@ export function TwyDepStrip({
           style={{ height: HALF_H, borderBottomColor: cellBorderColor, backgroundColor: rwyColor }}
           onClick={(e) => { e.stopPropagation(); if (runwayCleared && !runwayConfirmed) { runwayConfirmation(callsign); } else { runwayClearance(callsign); } }}
         >
-          <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: 14, color: getCellTextColor("runway", controllerModifiedFields) }}>{runway}</span>
+          <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: "0.73vw", color: getCellTextColor("runway", controllerModifiedFields) }}>{runway}</span>
         </div>
         <div
           className="flex items-center justify-center cursor-pointer"
           style={{ height: HALF_H }}
           onClick={(e) => { e.stopPropagation(); setShowHpMap(true); }}
         >
-          <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: 14, opacity: hpDisplay ? 1 : 0.2, color: getCellTextColor("release_point", controllerModifiedFields) }}>
+          <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: "0.73vw", opacity: hpDisplay ? 1 : 0.2, color: getCellTextColor("release_point", controllerModifiedFields) }}>
             {hpDisplay || "HP"}
           </span>
         </div>
@@ -244,10 +244,10 @@ export function TwyDepStrip({
         style={{ flexGrow: F_SMALL, flexBasis: 0, height: "100%", borderRightColor: cellBorderColor }}
       >
         <div className="flex items-center justify-center" style={{ height: HALF_H }}>
-          <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: 13 }}>{fl}</span>
+          <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: "0.68vw" }}>{fl}</span>
         </div>
         <div className="flex items-center justify-center" style={{ height: HALF_H }}>
-          <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: 13 }}>{hdg}</span>
+          <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: "0.68vw" }}>{hdg}</span>
         </div>
       </div>
 
@@ -257,13 +257,13 @@ export function TwyDepStrip({
         style={{ flexGrow: F_SID_DEST, flexBasis: 0, height: "100%" }}
         onClick={(e) => { e.stopPropagation(); setFplOpen(true); }}
       >
-        <div className="flex items-center justify-center pl-1 overflow-hidden" style={{ height: TOP_HALF_H }}>
-          <span className="truncate" style={{ fontFamily: FONT, fontWeight: "normal", fontSize: 12, color: getCellTextColor("sid", controllerModifiedFields) }}>
+        <div className="flex items-center justify-center pl-[0.21vw] overflow-hidden" style={{ height: TOP_HALF_H }}>
+          <span className="truncate" style={{ fontFamily: FONT, fontWeight: "normal", fontSize: "0.63vw", color: getCellTextColor("sid", controllerModifiedFields) }}>
             {sid}
           </span>
         </div>
-        <div className="flex items-center justify-center pl-1 overflow-hidden" style={{ height: TOP_HALF_H }}>
-          <span className="truncate" style={{ fontFamily: FONT, fontWeight: "normal", fontSize: 12 }}>
+        <div className="flex items-center justify-center pl-[0.21vw] overflow-hidden" style={{ height: TOP_HALF_H }}>
+          <span className="truncate" style={{ fontFamily: FONT, fontWeight: "normal", fontSize: "0.63vw" }}>
             {destination}
           </span>
         </div>

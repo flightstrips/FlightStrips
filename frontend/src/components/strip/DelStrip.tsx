@@ -109,7 +109,7 @@ export function DelStrip({
         {/* Callsign — 2/3 of left half */}
         <button
           className={`flex items-center justify-start overflow-hidden ${selectable && !isClrDel ? CLS_CALLSIGN_ACTIVE : ""} border-r-2 cursor-pointer`}
-          style={{ flex: "2 0 0%", height: "100%", minWidth: 0, fontFamily: FONT, fontWeight: "bold", fontSize: 24, textAlign: "left", paddingLeft: "4px", borderRightColor: cellBorderColor, backgroundColor: isSelected ? SELECTION_COLOR : undefined, color: manualBlue }}
+          style={{ flex: "2 0 0%", height: "100%", minWidth: 0, fontFamily: FONT, fontWeight: "bold", fontSize: "1.25vw", textAlign: "left", paddingLeft: "0.21vw", borderRightColor: cellBorderColor, backgroundColor: isSelected ? SELECTION_COLOR : undefined, color: manualBlue }}
           onClick={isClrDel || !selectable
             ? (e: MouseEvent) => { openStripContextMenu(callsign, { x: e.clientX, y: e.clientY }); }
             : handleClick}
@@ -124,12 +124,12 @@ export function DelStrip({
           style={{ flex: "1 0 0%", height: "100%", minWidth: 0, borderRightColor: cellBorderColor }}
         >
           <CLXBtn callsign={callsign}>
-            <div className="flex items-center justify-center border-b-2 overflow-hidden" style={{ height: HALF_H, fontFamily: FONT, fontWeight: "bold", fontSize: 14, color: manualBlue, borderBottomColor: "transparent" }}>
+            <div className="flex items-center justify-center border-b-2 overflow-hidden" style={{ height: HALF_H, fontFamily: FONT, fontWeight: "bold", fontSize: "0.73vw", color: manualBlue, borderBottomColor: "transparent" }}>
               {destination}
             </div>
             <div
               className="flex items-center justify-center overflow-hidden"
-              style={{ height: HALF_H, fontFamily: FONT, fontWeight: "bold", fontSize: 14, backgroundColor: standYellow ? COLOR_UNEXPECTED_YELLOW : undefined, cursor: standYellow ? "pointer" : undefined, color: manualBlue ?? getCellTextColor("stand", controllerModifiedFields) }}
+              style={{ height: HALF_H, fontFamily: FONT, fontWeight: "bold", fontSize: "0.73vw", backgroundColor: standYellow ? COLOR_UNEXPECTED_YELLOW : undefined, cursor: standYellow ? "pointer" : undefined, color: manualBlue ?? getCellTextColor("stand", controllerModifiedFields) }}
               onClick={standYellow ? (e) => { e.stopPropagation(); acknowledgeUnexpectedChange(callsign, "stand"); } : undefined}
             >
               {stand}
@@ -146,11 +146,11 @@ export function DelStrip({
         >
           {/* EOBT / CTOT — left half, stacked */}
           <div className="flex flex-col overflow-hidden border-r-2" style={{ flex: "1 0 0%", height: "100%", minWidth: 0, borderRightColor: cellBorderColor }}>
-            <div className="flex items-center justify-between px-1 border-b-2 overflow-hidden" style={{ height: HALF_H, fontFamily: FONT, fontSize: 14, borderBottomColor: "transparent" }}>
+            <div className="flex items-center justify-between px-[0.21vw] border-b-2 overflow-hidden" style={{ height: HALF_H, fontFamily: FONT, fontSize: "0.73vw", borderBottomColor: "transparent" }}>
               <span className="shrink-0">EOBT</span>
               <span style={{ color: manualBlue }}>{eobt}</span>
             </div>
-            <div className="flex items-center justify-between px-1 overflow-hidden" style={{ height: HALF_H, fontFamily: FONT, fontSize: 14, backgroundColor: ctotBg, color: ctotColor }}>
+            <div className="flex items-center justify-between px-[0.21vw] overflow-hidden" style={{ height: HALF_H, fontFamily: FONT, fontSize: "0.73vw", backgroundColor: ctotBg, color: ctotColor }}>
               <span className="shrink-0">{showCtot ? "CTOT" : ""}</span>
               <span>{showCtot ? ctot : ""}</span>
             </div>
@@ -158,11 +158,11 @@ export function DelStrip({
 
           {/* TOBT / TSAT — right half, stacked with line between */}
           <div className="flex flex-col" style={{ flex: "1 0 0%", height: "100%" }}>
-            <div className="flex items-center justify-between px-1 border-b-2 overflow-hidden" style={{ height: HALF_H, fontFamily: FONT, fontSize: 14, borderBottomColor: cellBorderColor, backgroundColor: tobtBg }}>
+            <div className="flex items-center justify-between px-[0.21vw] border-b-2 overflow-hidden" style={{ height: HALF_H, fontFamily: FONT, fontSize: "0.73vw", borderBottomColor: cellBorderColor, backgroundColor: tobtBg }}>
               <span className="shrink-0">TOBT</span>
               <span>{tobt}</span>
             </div>
-            <div className="flex items-center justify-between px-1 overflow-hidden" style={{ height: HALF_H, fontFamily: FONT, fontSize: 14, backgroundColor: tsatBg, cursor: "pointer" }}
+            <div className="flex items-center justify-between px-[0.21vw] overflow-hidden" style={{ height: HALF_H, fontFamily: FONT, fontSize: "0.73vw", backgroundColor: tsatBg, cursor: "pointer" }}
               onClick={(e) => { e.stopPropagation(); cdmReady(callsign); }}
             >
               <span className="shrink-0">TSAT</span>

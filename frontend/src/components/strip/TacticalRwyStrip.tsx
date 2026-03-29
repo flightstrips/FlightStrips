@@ -4,8 +4,8 @@ import { useMyPosition, useWebSocketStore } from "@/store/store-hooks";
 import { getFlatStripBorderStyle, FONT, COLOR_BTN_ORANGE } from "./shared";
 
 const HEIGHT = "2.36vh";
-const W_SI = 34;
-const W_BTN = 24;
+const W_SI = "1.77vw";
+const W_BTN = "1.25vw";
 
 const CELL_BORDER_CLR = "#a04a00"; // dark burnt-orange cell borders on rwy strip
 const COLOR_PRODUCER  = "white";   // SI box when strip produced by current position
@@ -60,8 +60,8 @@ export function TacticalRwyStrip({ strip, width }: Props) {
 
       {/* Label */}
       <div
-        className="flex-1 flex items-center pl-2 overflow-hidden text-white font-bold text-xs"
-        style={{ fontFamily: FONT }}
+        className="flex-1 flex items-center pl-[0.42vw] overflow-hidden text-white font-bold"
+        style={{ fontFamily: FONT, fontSize: "0.63vw" }}
       >
         <span className="truncate">{label}</span>
       </div>
@@ -70,14 +70,14 @@ export function TacticalRwyStrip({ strip, width }: Props) {
       <div
         className="flex-shrink-0 flex items-center justify-center border-l-2 text-white"
         style={{
-          width: strip.timer_start ? 48 : W_BTN,
+          width: strip.timer_start ? "2.5vw" : W_BTN,
           height: "100%",
           borderLeftColor: CELL_BORDER_CLR,
           cursor: strip.timer_start ? "default" : "pointer",
         }}
         onClick={strip.timer_start ? undefined : (e) => { e.stopPropagation(); startTacticalTimer(strip.id); }}
       >
-        <span style={{ fontFamily: FONT, fontSize: strip.timer_start ? 11 : 13, letterSpacing: 0 }}>
+        <span style={{ fontFamily: FONT, fontSize: strip.timer_start ? "0.57vw" : "0.68vw", letterSpacing: 0 }}>
           {timerText ?? "⌛"}
         </span>
       </div>
@@ -88,7 +88,7 @@ export function TacticalRwyStrip({ strip, width }: Props) {
         style={{ width: W_BTN, height: "100%", borderLeftColor: CELL_BORDER_CLR }}
         onClick={(e) => { e.stopPropagation(); deleteTacticalStrip(strip.id); }}
       >
-        <span style={{ fontFamily: FONT, fontSize: 13 }}>✕</span>
+        <span style={{ fontFamily: FONT, fontSize: "0.68vw" }}>✕</span>
       </div>
     </div>
   );

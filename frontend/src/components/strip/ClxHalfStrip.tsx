@@ -12,7 +12,7 @@ const F_RUNWAY   = 25 * (1 / 2);
 const F_SID      = 25 * (3 / 4);
 const F_STAND    = 25 * (1 / 2);
 
-const FONT_SIZE = 12;
+const FONT_SIZE = "0.63vw";
 
 export function ClxHalfStrip({
   callsign,
@@ -56,7 +56,7 @@ export function ClxHalfStrip({
           className={`flex flex-col overflow-hidden ${CELL_BORDER}`}
           style={{ flex: `${F_CALLSIGN} 0 0%`, height: "100%", minWidth: 0 }}
         >
-          <div className="flex items-center pl-2" style={{ height: "100%" }}>
+          <div className="flex items-center pl-[0.42vw]" style={{ height: "100%" }}>
             <span className="truncate w-full" style={{ fontFamily: FONT, fontWeight: "bold", fontSize: FONT_SIZE }}>
               {callsign}
             </span>

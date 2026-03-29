@@ -3,8 +3,8 @@ import { useMyPosition, useWebSocketStore } from "@/store/store-hooks";
 import { getFlatStripBorderStyle, FONT } from "./shared";
 
 const HEIGHT = "2.36vh";
-const W_SI = 34;
-const W_BTN = 24;
+const W_SI = "1.77vw";
+const W_BTN = "1.25vw";
 
 const STRIP_BG        = "#fcc800"; // amber/gold crossing strip background
 const CELL_BORDER_CLR = "#b39200"; // darker gold for cell borders / bottom border
@@ -42,8 +42,8 @@ export function TacticalCrossingStrip({ strip, width }: Props) {
 
       {/* Label */}
       <div
-        className="flex-1 flex items-center justify-center pl-2 overflow-hidden font-bold text-xs"
-        style={{ fontFamily: FONT, color: "black" }}
+        className="flex-1 flex items-center justify-center pl-[0.42vw] overflow-hidden font-bold"
+        style={{ fontFamily: FONT, color: "black", fontSize: "0.63vw" }}
       >
         <span className="truncate">{label}</span>
       </div>
@@ -54,7 +54,7 @@ export function TacticalCrossingStrip({ strip, width }: Props) {
         style={{ width: W_BTN, height: "100%", borderLeftColor: CELL_BORDER_CLR, color: "black" }}
         onClick={(e) => { e.stopPropagation(); deleteTacticalStrip(strip.id); }}
       >
-        <span style={{ fontFamily: FONT, fontSize: 13 }}>✕</span>
+        <span style={{ fontFamily: FONT, fontSize: "0.68vw" }}>✕</span>
       </div>
     </div>
   );

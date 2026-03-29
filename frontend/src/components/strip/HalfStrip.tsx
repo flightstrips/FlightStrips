@@ -84,7 +84,7 @@ export function HalfStrip({
 
   return (
     <div
-      className={`w-fit flex text-sm select-none${isSelectable ? " cursor-pointer" : ""}`}
+      className={`w-fit flex text-[0.73vw] select-none${isSelectable ? " cursor-pointer" : ""}`}
       style={{
         height: "2.36vh",
         backgroundColor: isTagRequest ? SELECTION_COLOR : bg,
@@ -94,7 +94,7 @@ export function HalfStrip({
     >
       {/* Left identifier box */}
       <div
-        className={`h-full w-8 border-r-2 flex items-center justify-center font-bold text-xs ${textColor}`}
+        className={`h-full w-[1.67vw] border-r-2 flex items-center justify-center font-bold text-[0.63vw] ${textColor}`}
         style={{ borderRightColor: cellBorderColor }}
       >
         {label}
@@ -102,20 +102,20 @@ export function HalfStrip({
 
       {isFreeText ? (
         /* Free-text variants: single flexible content area */
-        <div className={`h-full w-[394px] flex items-center pl-2 text-xs ${textColor} truncate`}>
+        <div className={`h-full w-[20.5vw] flex items-center pl-[0.42vw] text-[0.63vw] ${textColor} truncate`}>
           {callsign}
         </div>
       ) : (
         /* Structured variants: callsign + flight data cells */
         <>
           <div
-            className={`h-full w-[130px] border-r-2 flex items-center pl-2 font-bold truncate ${textColor}`}
+            className={`h-full w-[6.77vw] border-r-2 flex items-center pl-[0.42vw] font-bold truncate ${textColor}`}
             style={{ borderRightColor: cellBorderColor, backgroundColor: isSelected ? SELECTION_COLOR : undefined, color: manualBlue }}
           >
             {callsign}
           </div>
           <div
-            className={`h-full w-14 border-r-2 flex items-center justify-center text-xs ${textColor}`}
+            className={`h-full w-[2.92vw] border-r-2 flex items-center justify-center text-[0.63vw] ${textColor}`}
             style={{ borderRightColor: cellBorderColor }}
           >
             <span style={{ color: aircraftCategory === "H" ? COLOR_TYPE_HEAVY : undefined }}>
@@ -123,25 +123,25 @@ export function HalfStrip({
             </span>
           </div>
           <div
-            className={`h-full w-14 border-r-2 flex items-center justify-center font-bold ${textColor}`}
+            className={`h-full w-[2.92vw] border-r-2 flex items-center justify-center font-bold ${textColor}`}
             style={{ borderRightColor: cellBorderColor }}
           >
             {runway}
           </div>
           <div
-            className={`h-full w-14 border-r-2 flex items-center justify-center font-bold ${textColor}`}
+            className={`h-full w-[2.92vw] border-r-2 flex items-center justify-center font-bold ${textColor}`}
             style={{ borderRightColor: cellBorderColor }}
           >
             {taxiway}
           </div>
           <div
-            className={`h-full w-10 border-r-2 flex items-center justify-center text-xs ${textColor}`}
+            className={`h-full w-[2.08vw] border-r-2 flex items-center justify-center text-[0.63vw] ${textColor}`}
             style={{ borderRightColor: cellBorderColor }}
           >
             {holdingPoint}
           </div>
           <div
-            className={`h-full w-14 flex items-center justify-center font-bold ${textColor}`}
+            className={`h-full w-[2.92vw] flex items-center justify-center font-bold ${textColor}`}
             style={{ backgroundColor: standYellow ? COLOR_UNEXPECTED_YELLOW : undefined, cursor: standYellow ? "pointer" : undefined, color: getCellTextColor("stand", controllerModifiedFields) }}
             onClick={standYellow ? (e) => { e.stopPropagation(); acknowledgeUnexpectedChange(callsign, "stand"); } : undefined}
           >

@@ -101,7 +101,7 @@ export function SIBox({
 
   return (
     <div
-      className="flex items-center justify-center text-sm font-bold border-r-2"
+      className="flex items-center justify-center font-bold border-r-2"
       style={{
         flex: `${flexGrow} 0 0%`,
         height: "100%",
@@ -109,7 +109,7 @@ export function SIBox({
         minWidth: 0,
         borderRightColor: getCellBorderColor(!!marked, baseBorderColor),
         fontFamily: FONT,
-        fontSize: 22,
+        fontSize: "1.15vw",
         color: COLOR_SI_LABEL,
         cursor: isClickable ? "pointer" : "default",
       }}

@@ -119,8 +119,8 @@ export function ApnPushStrip({
           onClick={handleClick}
           onContextMenu={(e) => { e.preventDefault(); openStripContextMenu(callsign, { x: e.clientX, y: e.clientY }); }}
         >
-          <div className="flex items-center pl-2" style={{ height: TOP_H, backgroundColor: isSelected ? SELECTION_COLOR : undefined }}>
-            <span className="truncate w-full" style={{ fontFamily: FONT, fontWeight: "bold", fontSize: 20, color: manualBlue }}>
+          <div className="flex items-center pl-[0.42vw]" style={{ height: TOP_H, backgroundColor: isSelected ? SELECTION_COLOR : undefined }}>
+            <span className="truncate w-full" style={{ fontFamily: FONT, fontWeight: "bold", fontSize: "1.04vw", color: manualBlue }}>
               {callsign}
             </span>
           </div>
@@ -133,8 +133,8 @@ export function ApnPushStrip({
           style={{ flex: `${F_TYPE} 0 0%`, height: "100%", paddingBottom: "1.48vh", minWidth: 0, borderRightColor: cellBorderColor }}
           onClick={(e) => { e.stopPropagation(); setFplOpen(true); }}
         >
-          <span className="truncate px-1 leading-tight w-full text-center" style={{ fontFamily: FONT, fontSize: 10, color: aircraftCategory === "H" ? COLOR_TYPE_HEAVY : undefined }}>{getAircraftTypeWithWtc(aircraftType, aircraftCategory)}</span>
-          <span className="truncate px-1 leading-tight w-full text-center" style={{ fontFamily: FONT, fontSize: 10 }}>{registration}</span>
+          <span className="truncate px-[0.21vw] leading-tight w-full text-center" style={{ fontFamily: FONT, fontSize: "0.52vw", color: aircraftCategory === "H" ? COLOR_TYPE_HEAVY : undefined }}>{getAircraftTypeWithWtc(aircraftType, aircraftCategory)}</span>
+          <span className="truncate px-[0.21vw] leading-tight w-full text-center" style={{ fontFamily: FONT, fontSize: "0.52vw" }}>{registration}</span>
         </div>
 
         {/* Stand / Release Point — 25%*(2/3) */}
@@ -143,7 +143,7 @@ export function ApnPushStrip({
           style={{ flex: `${F_STAND} 0 0%`, height: "100%", paddingBottom: "1.48vh", minWidth: 0, borderRightColor: cellBorderColor, backgroundColor: standYellow ? COLOR_UNEXPECTED_YELLOW : undefined }}
           onClick={(e) => { e.stopPropagation(); if (standYellow) { acknowledgeUnexpectedChange(callsign, "stand"); } else if (holdingPoint) { setApronTaxiOpen(true); } else { setPushbackOpen(true); } }}
         >
-          <span style={{ fontFamily: FONT, fontWeight: 600, fontSize: 20, color: getCellTextColor("stand", controllerModifiedFields) }}>
+          <span style={{ fontFamily: FONT, fontWeight: 600, fontSize: "1.04vw", color: getCellTextColor("stand", controllerModifiedFields) }}>
             {holdingPoint || stand}
           </span>
         </div>
@@ -165,13 +165,13 @@ export function ApnPushStrip({
           className="flex flex-col overflow-hidden border-r-2"
           style={{ flex: `${F_TSAT} 0 0%`, height: "100%", minWidth: 0, borderRightColor: cellBorderColor }}
         >
-          <div className="flex items-center gap-1 px-1 border-b-2" style={{ height: HALF_H, borderBottomColor: cellBorderColor, backgroundColor: tsatBg || undefined }}>
-            <span className="shrink-0" style={{ fontFamily: FONT, fontSize: 12 }}>TSAT</span>
-            <span className="truncate" style={{ fontFamily: FONT, fontSize: 12 }}>{tsat}</span>
+          <div className="flex items-center gap-[0.21vw] px-[0.21vw] border-b-2" style={{ height: HALF_H, borderBottomColor: cellBorderColor, backgroundColor: tsatBg || undefined }}>
+            <span className="shrink-0" style={{ fontFamily: FONT, fontSize: "0.63vw" }}>TSAT</span>
+            <span className="truncate" style={{ fontFamily: FONT, fontSize: "0.63vw" }}>{tsat}</span>
           </div>
-          <div className="flex items-center gap-1 px-1" style={{ height: HALF_H, backgroundColor: ctotBg || undefined, color: ctotColor }}>
-            <span className="shrink-0" style={{ fontFamily: FONT, fontSize: 12 }}>{showCtot ? "CTOT" : ""}</span>
-            <span className="truncate" style={{ fontFamily: FONT, fontSize: 12 }}>{showCtot ? ctot : ""}</span>
+          <div className="flex items-center gap-[0.21vw] px-[0.21vw]" style={{ height: HALF_H, backgroundColor: ctotBg || undefined, color: ctotColor }}>
+            <span className="shrink-0" style={{ fontFamily: FONT, fontSize: "0.63vw" }}>{showCtot ? "CTOT" : ""}</span>
+            <span className="truncate" style={{ fontFamily: FONT, fontSize: "0.63vw" }}>{showCtot ? ctot : ""}</span>
           </div>
         </div>
 
@@ -181,7 +181,7 @@ export function ApnPushStrip({
           style={{ flex: `${F_RWY} 0 0%`, height: "100%", paddingBottom: "1.48vh", minWidth: 0, backgroundColor: runwayYellow ? COLOR_UNEXPECTED_YELLOW : undefined }}
           onClick={(e) => { e.stopPropagation(); if (runwayYellow) { acknowledgeUnexpectedChange(callsign, "runway"); } else { setRunwayOpen(true); } }}
         >
-          <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: 20, color: getCellTextColor("runway", controllerModifiedFields) }}>{runway}</span>
+          <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: "1.04vw", color: getCellTextColor("runway", controllerModifiedFields) }}>{runway}</span>
         </div>
       </div>
 

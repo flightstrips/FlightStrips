@@ -103,28 +103,28 @@ body {
 
   /* ── Section headers ────────────────────────────────────────────────────── */
   .bay-col-header {
-    @apply bg-bay-header h-10 flex items-center px-2 shrink-0 relative z-10;
+    @apply bg-bay-header h-[3.7vh] flex items-center px-[0.42vw] shrink-0 relative z-10;
     box-shadow:
       inset 6px 0 8px rgba(0,0,0,0.4),
       inset 0 4px 8px rgba(0,0,0,0.4),
       0 1px 0 rgba(0,0,0,0.9);
   }
   .bay-col-header-light {
-    @apply bg-bay-header-light h-10 flex items-center px-2 shrink-0 relative z-10;
+    @apply bg-bay-header-light h-[3.7vh] flex items-center px-[0.42vw] shrink-0 relative z-10;
     box-shadow:
       inset 6px 0 8px rgba(0,0,0,0.4),
       inset 0 4px 8px rgba(0,0,0,0.4),
       0 1px 0 rgba(0,0,0,0.9);
   }
   .bay-col-header-teal {
-    @apply bg-bay-teal h-10 flex items-center px-2 shrink-0 relative z-10;
+    @apply bg-bay-teal h-[3.7vh] flex items-center px-[0.42vw] shrink-0 relative z-10;
     box-shadow:
       inset 6px 0 8px rgba(0,0,0,0.4),
       inset 0 4px 8px rgba(0,0,0,0.4),
       0 1px 0 rgba(0,0,0,0.9);
   }
   .bay-col-header-primary {
-    @apply bg-primary h-10 flex items-center px-2 shrink-0 relative z-10;
+    @apply bg-primary h-[3.7vh] flex items-center px-[0.42vw] shrink-0 relative z-10;
     box-shadow:
       inset 6px 0 8px rgba(0,0,0,0.4),
       inset 0 4px 8px rgba(0,0,0,0.4),

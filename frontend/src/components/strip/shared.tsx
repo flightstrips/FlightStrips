@@ -215,9 +215,9 @@ export const CLS_COL_FLEX = "flex-1 h-full bg-bay-panel flex flex-col min-w-0";
 export const CLS_HEADER_SHADOW = "shadow-[inset_6px_0_8px_rgba(0,0,0,0.4),inset_0_4px_8px_rgba(0,0,0,0.4),0_1px_0_rgba(0,0,0,0.9)] relative z-10";
 
 /** Dark section header bar. */
-export const CLS_HEADER = `bg-bay-header h-10 flex items-center px-2 shrink-0 ${CLS_HEADER_SHADOW}`;
+export const CLS_HEADER = `bg-bay-header h-[3.7vh] flex items-center px-[0.42vw] shrink-0 ${CLS_HEADER_SHADOW}`;
 /** Standard header label text. */
-export const CLS_LABEL = "text-white font-bold text-lg";
+export const CLS_LABEL = "text-white font-bold text-[0.94vw]";
 
 /** Horizontal separator between sections within a column. */
 export const CLS_COL_SEP = "border-t-[6px] border-bay-border";
@@ -241,7 +241,7 @@ export const CLS_SCROLL_AREA_DARK = `w-full bg-bay-dark shadow-[inset_3px_3px_7p
 /** Tab bar shown below bay columns. */
 export const CLS_TAB_BAR = "flex shrink-0 border-t-8 border-bay-border";
 /** Individual tab button within a tab bar. */
-export const CLS_TAB_BTN = "flex-1 bg-bay-header text-white font-bold text-sm border border-white hover:bg-[#4a4a4a]";
+export const CLS_TAB_BTN = "flex-1 bg-bay-header text-white font-bold text-[0.73vw] border border-white hover:bg-[#4a4a4a]";
 
 // ── Callsign button active-press colour ───────────────────────────────────────
 /** Tailwind active-state class for the callsign button press highlight. */
@@ -250,8 +250,9 @@ export const CLS_CALLSIGN_ACTIVE = "active:bg-[var(--color-strip-callsign)]";
 // ── Button class variants ─────────────────────────────────────────────────────
 
 /** Large variant used in the CommandBar toolbar. */
-export const CLS_CMDBTN = "bg-bay-btn text-[1.41vw] font-bold h-[calc(4.72vh-14px)] my-[7px] w-[3.52vw] flex items-center justify-center shadow-[inset_2px_0_0_var(--color-bay-shadow),_inset_0_2px_0_var(--color-bay-shadow)] outline-none";
-export const CLS_BTN        = "bg-bay-btn text-white font-bold text-sm px-3 border-2 border-white active:bg-[#424242]";
-export const CLS_BTN_ORANGE = "bg-runway-low-vis text-white font-bold text-sm px-3 border-2 border-white active:bg-[#424242]";
-export const CLS_BTN_BLUE   = "bg-[var(--color-half-mem-aid)] text-white font-bold text-sm px-3 border-2 border-white active:bg-[#424242]";
-export const CLS_BTN_YELLOW = "bg-btn-yellow text-black font-bold text-sm px-3 border-2 border-white active:bg-[#424242]";
+export const CLS_CMDBTN = "bg-bay-btn text-[1.41vw] font-bold h-[3.42vh] my-[0.65vh] w-[3.52vw] flex items-center justify-center shadow-[inset_2px_0_0_var(--color-bay-shadow),_inset_0_2px_0_var(--color-bay-shadow)] outline-none";
+const CLS_HEADER_BTN_BASE = "inline-flex h-[2.22vh] items-center justify-center whitespace-nowrap border-2 px-[0.625vw] text-[0.73vw] leading-[1.04vw] font-bold";
+export const CLS_BTN        = `${CLS_HEADER_BTN_BASE} bg-bay-btn text-white border-white active:bg-[#424242]`;
+export const CLS_BTN_ORANGE = `${CLS_HEADER_BTN_BASE} bg-runway-low-vis text-white border-white active:bg-[#424242]`;
+export const CLS_BTN_BLUE   = `${CLS_HEADER_BTN_BASE} bg-[var(--color-half-mem-aid)] text-white border-white active:bg-[#424242]`;
+export const CLS_BTN_YELLOW = `${CLS_HEADER_BTN_BASE} bg-btn-yellow text-black border-white active:bg-[#424242]`;

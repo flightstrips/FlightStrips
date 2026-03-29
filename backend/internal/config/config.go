@@ -22,8 +22,10 @@ type Config struct {
 	Layouts             map[string][]LayoutVariant `yaml:"layouts"`
 	Runways             []string                   `yaml:"runways"`
 	MessageAreas        map[string][]string        `yaml:"message_areas"`
-	PDCValidation            PDCValidationConfig        `yaml:"pdc_validation"`
-	MissedApproachHandover   map[string]string          `yaml:"missed_approach_handover"`
+	PDCValidation          PDCValidationConfig        `yaml:"pdc_validation"`
+	MissedApproachHandover map[string]string          `yaml:"missed_approach_handover"`
+	TransitionAltitude     int                        `yaml:"transition_altitude"`
+	RunwayInitialCFL       map[string]int             `yaml:"runway_initial_cfl"`
 }
 
 // TestModeConfig holds test/replay mode configuration
@@ -56,6 +58,8 @@ var standRoutes []Route
 // missedApproachHandover maps a landing runway to the approach controller position that should
 // receive a missed approach handover for that runway.
 var missedApproachHandover map[string]string
+var transitionAltitude int
+var runwayInitialCFL map[string]int
 
 func loadAirportConfig(r io.Reader) error {
 	var cfg Config
@@ -90,6 +94,11 @@ func loadAirportConfig(r io.Reader) error {
 	if missedApproachHandover == nil {
 		missedApproachHandover = make(map[string]string)
 	}
+	transitionAltitude = cfg.TransitionAltitude
+	runwayInitialCFL = cfg.RunwayInitialCFL
+	if runwayInitialCFL == nil {
+		runwayInitialCFL = make(map[string]int)
+	}
 
 	return nil
 }
@@ -118,6 +127,19 @@ func GetRunways() []string {
 
 func GetAirborneAltitudeAGL() int64 {
 	return airborneAltitudeAGL
+}
+
+// GetTransitionAltitude returns the transition altitude (in feet) for the configured airport.
+func GetTransitionAltitude() int {
+	return transitionAltitude
+}
+
+// GetInitialCFLForRunway returns the initial cleared altitude (in feet) to auto-assign
+// to departures entering the NOT_CLEARED bay for the given runway. Returns (0, false) if
+// not configured for that runway.
+func GetInitialCFLForRunway(runway string) (int, bool) {
+	cfl, ok := runwayInitialCFL[runway]
+	return cfl, ok
 }
 
 func loadRoutes(cfg Config) error {

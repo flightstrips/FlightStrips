@@ -2116,6 +2116,13 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, st
 			runwayForStrip = autoAssignRunway(isArrival, sessionObj.ActiveRunways)
 		}
 
+		// Auto-set CFL for departures entering NOT_CLEARED with no CFL assigned.
+		if bay == shared.BAY_NOT_CLEARED && strip.ClearedAltitude == 0 {
+			if cfl, ok := config.GetInitialCFLForRunway(runwayForStrip); ok {
+				strip.ClearedAltitude = int32(cfl)
+			}
+		}
+
 		newStrip := &internalModels.Strip{
 			Callsign:           strip.Callsign,
 			Session:            session,
@@ -2186,6 +2193,17 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, st
 			isArrivalUpdate := strip.Destination == airport
 			if assigned := autoAssignRunway(isArrivalUpdate, sessionObj.ActiveRunways); assigned != "" {
 				runway = &assigned
+			}
+		}
+
+		// Auto-set CFL for departures in NOT_CLEARED with no CFL assigned.
+		if bay == shared.BAY_NOT_CLEARED && strip.ClearedAltitude == 0 {
+			rwy := ""
+			if runway != nil {
+				rwy = *runway
+			}
+			if cfl, ok := config.GetInitialCFLForRunway(rwy); ok {
+				strip.ClearedAltitude = int32(cfl)
 			}
 		}
 

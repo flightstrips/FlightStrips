@@ -170,17 +170,18 @@ type SyncCoordination struct {
 }
 
 type InitialEvent struct {
-	Contsollers    []Controller              `json:"controllers"`
-	Strips         []Strip                   `json:"strips"`
-	TacticalStrips []TacticalStripPayload    `json:"tactical_strips"`
-	Me             Controller                `json:"me"`
-	Layout         string                    `json:"layout"`
-	Airport        string                    `json:"airport"`
-	Callsign       string                    `json:"callsign"`
-	RunwaySetup    RunwayConfiguration       `json:"runway_setup"`
-	Coordinations  []SyncCoordination        `json:"coordinations"`
-	Messages       []MessageReceivedEvent    `json:"messages"`
-	AvailableSids  pkgModels.AvailableSids   `json:"available_sids"`
+	Contsollers        []Controller              `json:"controllers"`
+	Strips             []Strip                   `json:"strips"`
+	TacticalStrips     []TacticalStripPayload    `json:"tactical_strips"`
+	Me                 Controller                `json:"me"`
+	Layout             string                    `json:"layout"`
+	Airport            string                    `json:"airport"`
+	Callsign           string                    `json:"callsign"`
+	RunwaySetup        RunwayConfiguration       `json:"runway_setup"`
+	Coordinations      []SyncCoordination        `json:"coordinations"`
+	Messages           []MessageReceivedEvent    `json:"messages"`
+	AvailableSids      pkgModels.AvailableSids   `json:"available_sids"`
+	TransitionAltitude int32                     `json:"transition_altitude"`
 }
 
 func (i InitialEvent) Marshal() ([]byte, error) {

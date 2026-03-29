@@ -352,9 +352,10 @@ func (hub *Hub) sendInitialEvent(client *Client) {
 			Arrival:      arrival,
 			RunwayStatus: dbSession.ActiveRunways.RunwayStatus,
 		},
-		Coordinations: coordinationModels,
-		Messages:      storedMsgs,
-		AvailableSids: sids,
+		Coordinations:      coordinationModels,
+		Messages:           storedMsgs,
+		AvailableSids:      sids,
+		TransitionAltitude: int32(config.GetTransitionAltitude()),
 	}
 
 	client.send <- event

@@ -6,13 +6,13 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { getAircraftTypeWithWtc } from "@/lib/utils";
+import { formatAltitude, getAircraftTypeWithWtc } from "@/lib/utils";
 import { ArrStandDialog } from "@/components/strip/ArrStandDialog";
 import { AltSelectDialog } from "@/components/strip/AltSelectDialog";
 import { HdgSelectDialog } from "@/components/strip/HdgSelectDialog";
 import { SidSelectDialog } from "@/components/strip/SidSelectDialog";
 import { RunwayDialog } from "@/components/strip/RunwayDialog";
-import { useAvailableSids, useStrip, useWebSocketStore } from "@/store/store-hooks.ts";
+import { useAvailableSids, useStrip, useTransitionAltitude, useWebSocketStore } from "@/store/store-hooks.ts";
 
 const FONT_FAMILY = "Arial";
 const FONT_SIZE_FIELD = 20;
@@ -69,6 +69,7 @@ export default function FlightPlanDialog({
 }: FlightPlanDialogProps) {
   const isViewMode = mode === "view";
   const strip = useStrip(callsign);
+  const transitionAltitude = useTransitionAltitude();
   const moveAction = useWebSocketStore((state) => state.move);
   const generateSquawk = useWebSocketStore((state) => state.generateSquawk);
   const clearPdc = useWebSocketStore((state) => state.issuePdcClearance);
@@ -391,7 +392,7 @@ export default function FlightPlanDialog({
                 className={CLS_BTN_EDITABLE}
                 style={{ width: 125, fontFamily: FONT_FAMILY, fontSize: FONT_SIZE_FIELD }}
               >
-                {strip.cleared_altitude != null ? String(strip.cleared_altitude) : ""}
+                {strip.cleared_altitude ? formatAltitude(strip.cleared_altitude, transitionAltitude) : ""}
               </button>
               <AltSelectDialog
                 open={altDialogOpen}

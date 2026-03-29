@@ -202,6 +202,7 @@ export interface FrontendInitialEvent {
   coordinations: Array<{ callsign: string; from: string; to: string; is_tag_request: boolean }>;
   messages: MessageReceived[];
   available_sids: SidInfo[];
+  transition_altitude: number;
 }
 
 export interface FrontendStripUpdateEvent {

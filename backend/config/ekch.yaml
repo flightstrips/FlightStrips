@@ -1,6 +1,16 @@
 ﻿latitude: 55.6181
 longitude: 12.6560
 
+transition_altitude: 5000
+
+runway_initial_cfl:
+  "12": 4000
+  "30": 4000
+  "04R": 7000
+  "22L": 7000
+  "04L": 7000
+  "22R": 7000
+
 positions:
   - name: "EKCH_DEL"
     frequency: "119.905"

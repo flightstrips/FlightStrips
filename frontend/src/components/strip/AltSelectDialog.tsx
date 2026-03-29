@@ -4,16 +4,11 @@ import {
   DialogContent,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { useTransitionAltitude } from "@/store/store-hooks";
+import { formatAltitude } from "@/lib/utils";
 
-// Pre-defined altitudes from ALT.svg (1500, 2500, 3000, 4000, 5000, FL70) in 2-column layout. Values in feet.
-const ALT_PRESETS: { value: number; label: string }[] = [
-  { value: 1500, label: "1500" },
-  { value: 2500, label: "2500" },
-  { value: 3000, label: "3000" },
-  { value: 4000, label: "4000" },
-  { value: 5000, label: "5000" },
-  { value: 7000, label: "FL70" },
-];
+// Pre-defined altitude values in feet (1500, 2500, 3000, 4000, 5000, 7000).
+const ALT_PRESET_VALUES = [1500, 2500, 3000, 4000, 5000, 7000];
 
 // Tailwind class constants (hex must be literal strings for JIT) — styled to match ALT.svg
 const CLS_DIALOG_BG =
@@ -55,6 +50,7 @@ export function AltSelectDialog({
   onSelect,
 }: AltSelectDialogProps) {
   const currentAlt = value ?? undefined;
+  const transitionAltitude = useTransitionAltitude();
   const [customInput, setCustomInput] = useState("");
   const [customInvalid, setCustomInvalid] = useState(false);
   const [prevOpen, setPrevOpen] = useState(false);
@@ -64,7 +60,7 @@ export function AltSelectDialog({
     setPrevOpen(open);
     if (open) {
       const presetMatch =
-        currentAlt != null && ALT_PRESETS.some((p) => p.value === currentAlt);
+        currentAlt != null && ALT_PRESET_VALUES.includes(currentAlt);
       setCustomInput(
         currentAlt != null && !presetMatch ? String(currentAlt) : ""
       );
@@ -105,7 +101,7 @@ export function AltSelectDialog({
         <DialogTitle className="sr-only">Select altitude</DialogTitle>
         <div className={CLS_PANEL}>
           <div className={CLS_GRID}>
-            {ALT_PRESETS.map(({ value: alt, label }) => (
+            {ALT_PRESET_VALUES.map((alt) => (
               <button
                 key={alt}
                 type="button"
@@ -114,7 +110,7 @@ export function AltSelectDialog({
                 }
                 onClick={() => handleSelect(alt)}
               >
-                {label}
+                {formatAltitude(alt, transitionAltitude)}
               </button>
             ))}
           </div>

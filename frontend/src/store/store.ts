@@ -80,6 +80,7 @@ export interface WebSocketState {
   followRecommendedLayout: boolean;
   layoutChooserOpen: boolean;
   runwaySetup: RunwayConfiguration;
+  transitionAltitude: number;
   isInitialized: boolean;
   stripTransfers: Record<string, { from: string; to: string; isTagRequest: boolean }>;
 
@@ -160,6 +161,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
       departure: [],
       arrival: []
     },
+    transitionAltitude: 0,
     isInitialized: false,
     stripTransfers: {},
     messages: [],
@@ -514,6 +516,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
           state.followRecommendedLayout = true;
         }
         state.runwaySetup = data.runway_setup;
+        state.transitionAltitude = data.transition_altitude ?? 0;
         state.isInitialized = true;
         const transfers: Record<string, { from: string; to: string; isTagRequest: boolean }> = {};
         for (const coord of data.coordinations) {

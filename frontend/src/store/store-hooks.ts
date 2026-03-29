@@ -36,6 +36,7 @@ export const useDepAtisCode = () => useWebSocketStore((state) => state.depAtisCo
 export const useAtisCode = () => useWebSocketStore((state) => state.depAtisCode);
 
 export const useAvailableSids = () => useWebSocketStore((state) => state.availableSids);
+export const useTransitionAltitude = () => useWebSocketStore((state) => state.transitionAltitude);
 
 export const useLowerPositionOnline = () =>
   useWebSocketStore((state) =>

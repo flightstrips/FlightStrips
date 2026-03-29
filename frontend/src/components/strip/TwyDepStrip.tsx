@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { getAircraftTypeWithWtc } from "@/lib/utils";
-import { useControllers, useStripTransfers, useWebSocketStore } from "@/store/store-hooks";
+import { useControllers, useStripTransfers, useTransitionAltitude, useWebSocketStore } from "@/store/store-hooks";
+import { formatAltitude } from "@/lib/utils";
 import FlightPlanDialog from "@/components/FlightPlanDialog";
 import { useCTOTColor } from "@/hooks/useCTOTColor";
 import { COLOR_UNEXPECTED_YELLOW, COLOR_TYPE_HEAVY } from "./shared";
@@ -76,6 +77,7 @@ export function TwyDepStrip({
   const { isUnconcerned } = getStripOwnership(myPosition, owner, nextControllers, previousControllers);
   const { bg, textWhite } = useStripBg(runway, getStripBg(pdcStatus), isTagRequest, isUnconcerned);
   const controllers = useControllers();
+  const transitionAltitude = useTransitionAltitude();
   const [showTaxiMap, setShowTaxiMap] = useState(false);
   const [showHpMap, setShowHpMap] = useState(false);
   const [fplOpen, setFplOpen] = useState(false);
@@ -114,8 +116,8 @@ export function TwyDepStrip({
   const nextController = controllers.find(c => c.position === nextPosition);
   const nextFreq = nextController ? `:${nextController.position}` : "";
 
-  // Cleared FL — altitude in feet → FL (e.g. 12000 → "FL120")
-  const fl = clearedAltitude ? `FL${Math.floor(clearedAltitude / 100)}` : "";
+  // Cleared altitude display: use FL notation above transition altitude, feet below.
+  const fl = clearedAltitude ? formatAltitude(clearedAltitude, transitionAltitude) : "";
   const hdg = heading ? String(heading) : "";
 
   return (

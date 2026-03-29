@@ -13,3 +13,12 @@ export function getAircraftTypeWithWtc(actype: string | null | undefined, wtc: s
   const simple = getSimpleAircraftType(actype);
   return wtc ? `${simple}/${wtc}` : simple;
 }
+
+/** Format an altitude (feet) for display using the airport transition altitude.
+ *  Values above the transition altitude are shown as FL (e.g. FL70);
+ *  values at or below are shown as feet (e.g. 4000). */
+export function formatAltitude(feet: number, transitionAltitude: number): string {
+  return feet > transitionAltitude
+    ? `FL${Math.floor(feet / 100)}`
+    : String(feet);
+}

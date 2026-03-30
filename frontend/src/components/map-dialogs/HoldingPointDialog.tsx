@@ -1,4 +1,4 @@
-import { useWebSocketStore } from "@/store/store-hooks";
+import { useMyPosition, useStrip, useWebSocketStore } from "@/store/store-hooks";
 import { HOLDING_POINT_RUNWAYS } from "@/config/ekch";
 import { MAP_BTN_BASE, MapDialogShell } from "./MapDialogShell";
 
@@ -8,6 +8,7 @@ interface HoldingPointDialogProps {
   callsign: string;
   /** Pre-select the runway matching the strip's assigned runway (e.g. "22R"). */
   runway?: string;
+  coordinationMode?: boolean;
 }
 
 const BTN_STYLE: React.CSSProperties = {
@@ -20,14 +21,29 @@ export function HoldingPointDialog({
   onOpenChange,
   callsign,
   runway,
+  coordinationMode = false,
 }: HoldingPointDialogProps) {
   const setReleasePoint = useWebSocketStore((s) => s.setReleasePoint);
+  const acknowledgeUnexpectedChange = useWebSocketStore((s) => s.acknowledgeUnexpectedChange);
+  const strip = useStrip(callsign);
+  const myPosition = useMyPosition();
 
   const activeRunway = HOLDING_POINT_RUNWAYS.find((r) => r.runway === runway)
     ?? HOLDING_POINT_RUNWAYS[0];
 
+  const shouldAcknowledgeReleasePoint =
+    coordinationMode
+    && strip?.unexpected_change_fields?.includes("release_point")
+    && !!myPosition
+    && strip.owner === myPosition;
+
   const handleSelect = (label: string) => {
-    setReleasePoint(callsign, label);
+    if (label !== strip?.release_point) {
+      setReleasePoint(callsign, label);
+    }
+    if (shouldAcknowledgeReleasePoint) {
+      acknowledgeUnexpectedChange(callsign, "release_point");
+    }
     onOpenChange(false);
   };
 
@@ -43,6 +59,7 @@ export function HoldingPointDialog({
       points={activeRunway.points}
       btnStyle={BTN_STYLE}
       onSelect={handleSelect}
+      selectedPoint={strip?.release_point}
       scaleMode="width"
     />
   );

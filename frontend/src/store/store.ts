@@ -423,6 +423,12 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
           const idx = state.strips.findIndex(s => s.callsign === callsign);
           if (idx !== -1) {
             state.strips[idx].unexpected_change_fields = (state.strips[idx].unexpected_change_fields ?? []).filter(f => f !== fieldName);
+            if (!(state.strips[idx].controller_modified_fields ?? []).includes(fieldName)) {
+              state.strips[idx].controller_modified_fields = [
+                ...(state.strips[idx].controller_modified_fields ?? []),
+                fieldName,
+              ];
+            }
           }
         })
       );

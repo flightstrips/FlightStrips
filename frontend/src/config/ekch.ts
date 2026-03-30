@@ -169,6 +169,12 @@ export const APRON_TAXI_POINTS: ClickPoint[] = [
   { label: "V1", left: "96.26%", top: "35.22%", type: "cl" },
 ];
 
+const COORDINATION_APRON_TAXI_POINT_LABELS = new Set(["A", "F", "D", "B", "K1", "K2", "K3"]);
+
+export const COORDINATION_APRON_TAXI_POINTS: ClickPoint[] = APRON_TAXI_POINTS.filter(
+  (point) => typeof point.label === "string" && COORDINATION_APRON_TAXI_POINT_LABELS.has(point.label),
+);
+
 /**
  * EKCH TWR taxi map points positioned over taxi_map.png.
  * Positions are percentages relative to the image content area (1801×1013).
@@ -209,13 +215,11 @@ export const APRON_TAXI_POINTS: ClickPoint[] = [
  *   label: (ctx) => ctx.dep[0] ? `K3/${ctx.dep[0]}` : "K3"
  */
 export const TAXI_MAP_POINTS: ClickPoint[] = [
-  { label: "K1/K",   left: "13.16%", top: "5.38%",  type: "cl" },
+  { label: "K1",   left: "13.16%", top: "5.38%",  type: "hp" },
   { label: "A5",     left: "18.98%", top: "96.84%", type: "hp", visible: onDep("22R") },
-  { label: "K2/K",   left: "20.12%", top: "10.73%", type: "cl" },
-  { label: "K2/12",  left: "20.12%", top: "17.81%", type: "cl" },
-  { label: "K3/Z",   left: "26.13%", top: "13.58%", type: "cl" },
+  { label: "K2",   left: "20.12%", top: "10.73%", type: "hp" },
+  { label: "K3",   left: "26.13%", top: "13.58%", type: "hp" },
   { label: "A4",     left: "26.13%", top: "84.76%", type: "hp", visible: onDep("22R") },
-  { label: "K3/12",  left: "26.83%", top: "22.74%", type: "cl" },
   { label: "Y/L",    left: "31.44%", top: "9.62%",  type: "cl", visible: not(isApronOnline) },
   { label: "Y/M",    left: "38.83%", top: "17.82%", type: "cl", visible: not(isApronOnline) },
   { label: "P/Y",    left: "44.57%", top: "16.49%", type: "cl", visible: not(isApronOnline) },
@@ -231,7 +235,7 @@ export const TAXI_MAP_POINTS: ClickPoint[] = [
   { label: "LINE 1", left: "27.03%", top: "56.08%", width: "80px" },
   { label: "A3",     left: "28.79%", top: "78.92%", type: "hp", visible: onDep("22R") },
   { label: "A2",     left: "31.44%", top: "73.51%", type: "hp", visible: onDep("22R") },
-  { label: "F2/30",  left: "32.42%", top: "35.38%", type: "cl" },
+  { label: "F2",     left: "32.42%", top: "35.38%", type: "hp" },
   { label: "A/A1",   left: "33.88%", top: "62.14%" },
   { label: "A1",     left: "34.29%", top: "67.47%", type: "hp", visible: onDep("22R") },
   { label: "A/D",    left: "35.82%", top: "52.05%" },
@@ -239,32 +243,38 @@ export const TAXI_MAP_POINTS: ClickPoint[] = [
   { label: "B2",     left: "38.67%", top: "92.69%", type: "hp", visible: onDep("04R") },
   { label: "E1",     left: "38.83%", top: "76.01%", type: "hp", visible: onDep("22R") },
   { label: "D/A",    left: "39.22%", top: "57.05%" },
-  { label: (ctx) => isDep(ctx) ? "A/30" : "A/Z", left: "40.00%", top: "28.37%", type: "cl" },
-  { label: "C/30",   left: "40.04%", top: "44.86%", type: "cl" },
+  { label: "A",      left: "40.00%", top: "28.37%", type: "hp" },
+  { label: "C",      left: "40.04%", top: "44.86%", type: "hp" },
   { label: "B3",     left: "40.67%", top: "88.10%", type: "hp", visible: onDep("04R") },
   { label: "30/A",   left: "41.95%", top: "39.27%" },
   { label: "B/C",    left: "42.26%", top: "80.60%", visible: onArr("22L") },
   { label: "C/D",    left: "43.12%", top: "62.05%" },
-  { label: (ctx) => isDep(ctx) ?"F/30" : "F/Z", left: "43.90%", top: "32.47%", type: "cl" },
-  { label: "D/30",   left: "43.90%", top: "50.52%", type: "cl" },
+  { label: "F",      left: "43.90%", top: "32.47%", type: "hp" },
+  { label: "D",      left: "43.90%", top: "50.52%", type: "hp", visible: isArr },
   { label: "30/D",   left: "46.56%", top: "44.20%" },
   { label: "B/C",    left: "46.83%", top: "67.05%" },
   { label: (ctx) => onRwy("04R")(ctx) ? "C/04R" : "C/22L",  left: "47.54%", top: "91.26%", type: "cl" },
   { label: "B4",     left: "47.56%", top: "97.29%", type: "hp", visible: onDep("04R") },
-  { label: (ctx) => isDep(ctx) ? "D/30" : "D/Z",    left: "47.81%", top: "37.47%" },
-  { label: "B/30",   left: "50.43%", top: "55.72%", type: "cl" },
-  { label: (ctx) => isDep(ctx) ? "B/30" : "B/Z", left: "55.00%", top: "43.51%" },
+  { label: "D",      left: "47.81%", top: "37.47%", type: "hp", visible: isDep },
+  { label: "B",      left: "50.43%", top: "55.72%", type: "hp", visible: isArr },
+  { label: "B",      left: "55.00%", top: "43.51%", type: "hp", visible: isDep },
   { label: "30/B",   left: "55.82%", top: "52.81%" },
   { label: "V/S",    left: "62.30%", top: "32.53%" },
   { label: (ctx) => onRwy("04R")(ctx) ? "12/04R" : "12/22L", left: "62.34%", top: "59.90%", width: "80px", type: "cl" },
   { label: (ctx) => onRwy("04R")(ctx) ? "30/04R" : "30/22L", left: "70.03%", top: "68.16%", width: "80px", type: "cl" },
   { label: "V2",     left: "75.62%", top: "30.38%", type: "hp" },
-  { label: "N2/30",  left: "76.36%", top: "84.06%", type: "hp" },
+  { label: "N2",  left: "76.36%", top: "84.06%", type: "hp" },
   { label: (ctx) => onRwy("04R")(ctx) ? "I/04R" : "I/22L",  left: "79.84%", top: "46.35%", type: "hp" },
-  { label: "G2/30",  left: "81.13%", top: "68.16%", type: "hp" },
+  { label: "G2",  left: "81.13%", top: "68.16%", type: "hp" },
   { label: "V1",     left: "84.33%", top: "8.58%",  type: "hp" },
   { label: "G1",     left: "97.61%", top: "87.60%", type: "hp" },
 ];
+
+const COORDINATION_TWR_TAXI_POINT_LABELS = new Set(["A1", "A2", "A3", "A4", "A5", "E1", "B1", "B2", "B3", "B4", "V1", "V2"]);
+
+export const COORDINATION_WITH_APRON_TAXI_MAP_POINTS: ClickPoint[] = TAXI_MAP_POINTS.filter((point) => typeof point.label === "string" && COORDINATION_APRON_TAXI_POINT_LABELS.has(point.label));
+
+export const COORDINATION_WITH_TWR_TAXI_MAP_POINTS: ClickPoint[] = TAXI_MAP_POINTS.filter((point) => typeof point.label === "string" && COORDINATION_TWR_TAXI_POINT_LABELS.has(point.label));
 
 /**
  * EKCH runway holding points, organized per runway, for the HoldingPointDialog.

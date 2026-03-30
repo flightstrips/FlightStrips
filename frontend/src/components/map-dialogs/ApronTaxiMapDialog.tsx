@@ -1,5 +1,5 @@
-import { useWebSocketStore, useApronOnline, useTwrOnline, useIsTwr } from "@/store/store-hooks";
-import { APRON_TAXI_POINTS } from "@/config/ekch";
+import { useWebSocketStore, useApronOnline, useTwrOnline, useIsTwr, useMyPosition, useStrip } from "@/store/store-hooks";
+import { APRON_TAXI_POINTS, COORDINATION_APRON_TAXI_POINTS } from "@/config/ekch";
 import { MAP_BTN_BASE, MapDialogShell, MapEraseControls } from "./MapDialogShell";
 import { Bay } from "@/api/models";
 
@@ -8,6 +8,7 @@ interface ApronTaxiMapDialogProps {
   onOpenChange: (open: boolean) => void;
   callsign: string;
   noMove?: boolean;
+  coordinationMode?: boolean;
 }
 
 const BTN_STYLE: React.CSSProperties = {
@@ -20,15 +21,29 @@ const BTN_STYLE: React.CSSProperties = {
 // Hold short points that correspond to the final hold (TWY DEP-LWR / TAXI_LWR).
 const LWR_HOLD_POINTS = new Set(["B", "D", "F", "A", "K3", "K2", "K1", "V2", "V1"]);
 
-export function ApronTaxiMapDialog({ open, onOpenChange, callsign, noMove = false }: ApronTaxiMapDialogProps) {
+export function ApronTaxiMapDialog({
+  open,
+  onOpenChange,
+  callsign,
+  noMove = false,
+  coordinationMode = false,
+}: ApronTaxiMapDialogProps) {
   const setReleasePoint = useWebSocketStore((s) => s.setReleasePoint);
+  const acknowledgeUnexpectedChange = useWebSocketStore((s) => s.acknowledgeUnexpectedChange);
   const move = useWebSocketStore((s) => s.move);
   const apronOnline = useApronOnline();
   const twrOnline = useTwrOnline();
   const isTwr = useIsTwr();
+  const strip = useStrip(callsign);
+  const myPosition = useMyPosition();
+
+  const shouldAcknowledgeReleasePoint =
+    strip?.unexpected_change_fields?.includes("release_point") && !!myPosition && strip.owner === myPosition;
 
   const handleSelect = (label: string) => {
-    setReleasePoint(callsign, label);
+    if (label !== strip?.release_point) {
+      setReleasePoint(callsign, label);
+    }
 
     if (!noMove) {
       // AUTO-LOCAL routing:
@@ -40,6 +55,10 @@ export function ApronTaxiMapDialog({ open, onOpenChange, callsign, noMove = fals
         ? Bay.TaxiLwr
         : Bay.Taxi;
       move(callsign, targetBay);
+    }
+
+    if (shouldAcknowledgeReleasePoint) {
+      acknowledgeUnexpectedChange(callsign, "release_point");
     }
 
     onOpenChange(false);
@@ -54,10 +73,11 @@ export function ApronTaxiMapDialog({ open, onOpenChange, callsign, noMove = fals
       imageAlt="Apron taxi map"
       imgWidth={1859}
       imgHeight={903}
-      points={APRON_TAXI_POINTS}
-      btnStyle={BTN_STYLE}
-      onSelect={handleSelect}
-    >
+        points={coordinationMode ? COORDINATION_APRON_TAXI_POINTS : APRON_TAXI_POINTS}
+        btnStyle={BTN_STYLE}
+        onSelect={handleSelect}
+        selectedPoint={strip?.release_point}
+      >
       {/* Controls panel — bottom-left */}
       <div
         style={{

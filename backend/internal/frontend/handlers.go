@@ -340,8 +340,16 @@ func handleReleasePoint(ctx context.Context, client *Client, message Message) er
 	if err := message.JsonUnmarshal(&event); err != nil {
 		return err
 	}
+	strip, err := client.hub.server.GetStripRepository().GetByCallsign(ctx, client.session, event.Callsign)
+	if err != nil {
+		return err
+	}
 	if err := client.hub.stripService.ApplyReleasePoint(ctx, client.session, event.Callsign, event.ReleasePoint, client.position); err != nil {
 		return err
+	}
+	isOwner := strip.Owner == nil || *strip.Owner == "" || *strip.Owner == client.position
+	if !isOwner {
+		return nil
 	}
 	return client.hub.server.GetStripRepository().AppendControllerModifiedField(ctx, client.session, event.Callsign, "release_point")
 }

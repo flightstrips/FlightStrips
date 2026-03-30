@@ -72,6 +72,7 @@ export function ApnTaxiDepStrip({
   const standYellow = unexpectedChangeFields?.includes("stand");
   const runwayYellow = unexpectedChangeFields?.includes("runway");
   const releasePointYellow = unexpectedChangeFields?.includes("release_point");
+  const isCoordinationMode = (!!owner && !!myPosition && owner !== myPosition) || !!releasePointYellow;
 
   const hpValue = holdingPoint ?? "";
   const hasTwy = hpValue.includes("/");
@@ -143,7 +144,7 @@ export function ApnTaxiDepStrip({
         <div
           className="flex flex-col overflow-hidden border-r-2"
           style={{ flex: `${F_HP} 0 0%`, height: "100%", minWidth: 0, borderRightColor: cellBorderColor, cursor: "pointer", backgroundColor: releasePointYellow ? COLOR_UNEXPECTED_YELLOW : undefined }}
-          onClick={(e) => { e.stopPropagation(); if (releasePointYellow) { acknowledgeUnexpectedChange(callsign, "release_point"); } else { setShowTaxiMap(true); } }}
+          onClick={(e) => { e.stopPropagation(); setShowTaxiMap(true); }}
         >
           <div className="flex items-center justify-center border-b-2" style={{ height: HALF_H, borderBottomColor: cellBorderColor }}>
             <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: "0.57vw", opacity: hasTwy ? 1 : 0.15, color: getCellTextColor("release_point", controllerModifiedFields) }}>
@@ -178,6 +179,7 @@ export function ApnTaxiDepStrip({
         open={showTaxiMap}
         onOpenChange={setShowTaxiMap}
         callsign={callsign}
+        coordinationMode={isCoordinationMode}
       />
       <FlightPlanDialog callsign={callsign} open={fplOpen} onOpenChange={setFplOpen} mode="view" />
     </div>

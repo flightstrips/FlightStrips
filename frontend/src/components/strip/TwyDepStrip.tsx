@@ -87,6 +87,7 @@ export function TwyDepStrip({
   const openStripContextMenu = useWebSocketStore(s => s.openStripContextMenu);
   const standYellow = unexpectedChangeFields?.includes("stand");
   const releasePointYellow = unexpectedChangeFields?.includes("release_point");
+  const isCoordinationMode = (!!owner && !!myPosition && owner !== myPosition) || !!releasePointYellow;
 
   // RWY cell background color (only when strip is in DEPART bay):
   // - runway_cleared = false: blue/cyan (in bay, awaiting clearance)
@@ -207,8 +208,14 @@ export function TwyDepStrip({
       {/* TWY label; whole cell clickable → taxi map */}
       <div
         className="flex flex-col border-r-2 min-w-0 cursor-pointer"
-        style={{ flexGrow: F_SMALL, flexBasis: 0, height: "100%", borderRightColor: cellBorderColor, backgroundColor: releasePointYellow ? COLOR_UNEXPECTED_YELLOW : undefined }}
-        onClick={(e) => { e.stopPropagation(); if (releasePointYellow) { acknowledgeUnexpectedChange(callsign, "release_point"); } else { setShowTaxiMap(true); } }}
+        style={{
+          flexGrow: F_SMALL,
+          flexBasis: 0,
+          height: "100%",
+          borderRightColor: cellBorderColor,
+          backgroundColor: releasePointYellow && !isHp ? COLOR_UNEXPECTED_YELLOW : undefined,
+        }}
+        onClick={(e) => { e.stopPropagation(); setShowTaxiMap(true); }}
       >
         <div className="flex items-center justify-center h-full">
           <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: "0.73vw", opacity: twyDisplay ? 1 : 0.2, color: getCellTextColor("release_point", controllerModifiedFields) }}>
@@ -231,7 +238,7 @@ export function TwyDepStrip({
         </div>
         <div
           className="flex items-center justify-center cursor-pointer"
-          style={{ height: HALF_H }}
+          style={{ height: HALF_H, backgroundColor: releasePointYellow && isHp ? COLOR_UNEXPECTED_YELLOW : undefined }}
           onClick={(e) => { e.stopPropagation(); setShowHpMap(true); }}
         >
           <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: "0.73vw", opacity: hpDisplay ? 1 : 0.2, color: getCellTextColor("release_point", controllerModifiedFields) }}>
@@ -277,12 +284,14 @@ export function TwyDepStrip({
       open={showTaxiMap}
       onOpenChange={setShowTaxiMap}
       callsign={callsign}
+      coordinationMode={isCoordinationMode}
     />
     <HoldingPointDialog
       open={showHpMap}
       onOpenChange={setShowHpMap}
       callsign={callsign}
       runway={runway}
+      coordinationMode={isCoordinationMode}
     />
     <FlightPlanDialog callsign={callsign} open={fplOpen} onOpenChange={setFplOpen} mode="view" />
     </>

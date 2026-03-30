@@ -10,10 +10,11 @@ interface TaxiMapDialogProps {
   coordinationMode?: boolean;
 }
 
+// Sizes expressed as % of image container (1801×1013 reference) so they scale with the dialog.
 const BTN_STYLE: React.CSSProperties = {
   ...MAP_BTN_BASE,
-  width: 70,
-  height: 40,
+  width: "3.89%",  // 70px at 1801px wide
+  height: "3.95cqh", // 40px at 1013px tall
 };
 
 export function TaxiMapDialog({
@@ -100,7 +101,7 @@ export function TaxiMapDialog({
           zIndex: 20,
           display: "flex",
           flexDirection: "column",
-          gap: 4,
+          gap: "0.39cqh",
         }}
       >
         <MapEraseControls onOk={handleSelect} onErase={handleErase} btnStyle={BTN_STYLE} />

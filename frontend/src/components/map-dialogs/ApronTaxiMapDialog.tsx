@@ -11,11 +11,12 @@ interface ApronTaxiMapDialogProps {
   coordinationMode?: boolean;
 }
 
+// Sizes expressed as % of image container (1859×903 reference) so they scale with the dialog.
 const BTN_STYLE: React.CSSProperties = {
   ...MAP_BTN_BASE,
-  width: 75,
-  height: 45,
-  fontSize: 22,
+  width: "4.03%",      // 75px at 1859px wide
+  height: "4.98cqh",   // 45px at 903px tall
+  fontSize: "2.44cqh", // 22px at 903px tall
 };
 
 // Hold short points that correspond to the final hold (TWY DEP-LWR / TAXI_LWR).
@@ -87,7 +88,7 @@ export function ApronTaxiMapDialog({
           zIndex: 20,
           display: "flex",
           flexDirection: "column",
-          gap: 4,
+          gap: "0.44cqh",
         }}
       >
         <MapEraseControls onOk={handleSelect} btnStyle={BTN_STYLE} />

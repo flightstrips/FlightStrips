@@ -65,10 +65,10 @@ export function MapEraseControls({ onOk, onErase, btnStyle, maxLength = 6 }: Map
 
   return (
     <>
-      <div style={{ display: "flex", gap: 5, alignItems: "center" }}>
+      <div style={{ display: "flex", gap: "0.52cqh", alignItems: "center" }}>
         <button
           onClick={() => { setTyped(""); onErase?.(); }}
-          style={{ ...btnStyle, width: 90, backgroundColor: COLOR_MAP_BTN_DARK, color: "white" }}
+          style={{ ...btnStyle, width: "4.69cqw", backgroundColor: COLOR_MAP_BTN_DARK, color: "white" }}
         >
           ERASE
         </button>
@@ -79,11 +79,11 @@ export function MapEraseControls({ onOk, onErase, btnStyle, maxLength = 6 }: Map
           onKeyDown={(e) => e.key === "Enter" && handleOk()}
           maxLength={maxLength}
           style={{
-            width: 80,
+            width: "4.17cqw",
             height: btnStyle.height,
             fontFamily: "Arial, sans-serif",
             fontWeight: "bold",
-            fontSize: 16,
+            fontSize: "2cqh",
             textAlign: "center",
             border: "none",
             outline: "none",
@@ -94,8 +94,8 @@ export function MapEraseControls({ onOk, onErase, btnStyle, maxLength = 6 }: Map
           }}
         />
       </div>
-      <div style={{ display: "flex", justifyContent: "flex-end", gap: 5 }}>
-        <button onClick={handleOk} style={{ ...btnStyle, backgroundColor: COLOR_MAP_BTN_DARK, color: "white", width: 80 }}>
+      <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.52cqh" }}>
+        <button onClick={handleOk} style={{ ...btnStyle, backgroundColor: COLOR_MAP_BTN_DARK, color: "white", width: "4.17cqw" }}>
           OK
         </button>
       </div>
@@ -181,6 +181,7 @@ export function MapDialogShell({
               margin: "0 auto",
               border: `1px solid ${COLOR_DIALOG_BORDER}`,
               overflow: "hidden",
+              containerType: "size",
             }}
           >
             <img

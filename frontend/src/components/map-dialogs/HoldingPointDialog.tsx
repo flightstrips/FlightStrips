@@ -11,11 +11,6 @@ interface HoldingPointDialogProps {
   coordinationMode?: boolean;
 }
 
-const BTN_STYLE: React.CSSProperties = {
-  ...MAP_BTN_BASE,
-  width: 70,
-  height: 40,
-};
 export function HoldingPointDialog({
   open,
   onOpenChange,
@@ -30,6 +25,13 @@ export function HoldingPointDialog({
 
   const activeRunway = HOLDING_POINT_RUNWAYS.find((r) => r.runway === runway)
     ?? HOLDING_POINT_RUNWAYS[0];
+
+  // Sizes as % of the container so they scale with the dialog (70×40px reference per runway).
+  const btnStyle: React.CSSProperties = {
+    ...MAP_BTN_BASE,
+    width: `${(70 / activeRunway.imgWidth * 100).toFixed(2)}%`,
+    height: `${(40 / activeRunway.imgHeight * 100).toFixed(2)}cqh`,
+  };
 
   const shouldAcknowledgeReleasePoint =
     coordinationMode
@@ -57,7 +59,7 @@ export function HoldingPointDialog({
       imgWidth={activeRunway.imgWidth}
       imgHeight={activeRunway.imgHeight}
       points={activeRunway.points}
-      btnStyle={BTN_STYLE}
+      btnStyle={btnStyle}
       onSelect={handleSelect}
       selectedPoint={strip?.release_point}
       scaleMode="width"

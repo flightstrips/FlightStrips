@@ -10,11 +10,12 @@ interface PushbackMapDialogProps {
   initialReleasePoint?: string;
 }
 
+// Sizes expressed as % of image container (1920×768 reference) so they scale with the dialog.
 const BTN_STYLE: React.CSSProperties = {
   ...MAP_BTN_BASE,
-  width: 55,
-  height: 30,
-  fontSize: 18,
+  width: "2.86%",      // 55px at 1920px wide
+  height: "3.91cqh",   // 30px at 768px tall
+  fontSize: "2.34cqh", // 18px at 768px tall
 };
 
 export function PushbackMapDialog({ open, onOpenChange, callsign, initialReleasePoint }: PushbackMapDialogProps) {
@@ -51,13 +52,13 @@ export function PushbackMapDialog({ open, onOpenChange, callsign, initialRelease
           display: "flex",
           flexDirection: "row",
           alignItems: "flex-start",
-          gap: 12,
+          gap: "0.63cqw",
         }}
       >
         {/* Arrow cross */}
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "0.52cqh" }}>
           <button onClick={() => handleSelect("N")} style={BTN_STYLE}>↑</button>
-          <div style={{ display: "flex", gap: 4 }}>
+          <div style={{ display: "flex", gap: "0.52cqh" }}>
             <button onClick={() => handleSelect("W")} style={BTN_STYLE}>←</button>
             <button onClick={() => handleSelect("E")} style={BTN_STYLE}>→</button>
           </div>
@@ -65,7 +66,7 @@ export function PushbackMapDialog({ open, onOpenChange, callsign, initialRelease
         </div>
 
         {/* ERASE / input / OK — offset down to align with ← → row */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 34 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: "0.52cqh", marginTop: "4.43cqh" }}>
           <MapEraseControls onOk={handleSelect} btnStyle={BTN_STYLE} maxLength={4} />
         </div>
       </div>

@@ -156,6 +156,35 @@ func SeedTestStripWithAircraftType(t *testing.T, queries *database.Queries, sess
 	require.NoError(t, err)
 }
 
+// SeedClearedTestStrip inserts a test strip that has already been cleared (bay = CLEARED, cleared = true)
+func SeedClearedTestStrip(t *testing.T, queries *database.Queries, sessionID int32, callsign string) {
+	ctx := context.Background()
+
+	err := queries.InsertStrip(ctx, database.InsertStripParams{
+		Callsign:       callsign,
+		Session:        sessionID,
+		Origin:         "EKCH",
+		Destination:    "ESSA",
+		AircraftType:   ptr("A320"),
+		Runway:         ptr("22L"),
+		Sid:            ptr("VEMBO2E"),
+		Squawk:         ptr("2401"),
+		AssignedSquawk: ptr("2401"),
+		Bay:            "CLEARED",
+		CdmData:        []byte(`{"canonical":{}}`),
+	})
+	require.NoError(t, err)
+
+	_, err = queries.UpdateStripClearedFlagByID(ctx, database.UpdateStripClearedFlagByIDParams{
+		Cleared:  true,
+		Bay:      "CLEARED",
+		Callsign: callsign,
+		Session:  sessionID,
+		Version:  nil,
+	})
+	require.NoError(t, err)
+}
+
 // CleanupTestSession removes test session and all related data
 func CleanupTestSession(t *testing.T, queries *database.Queries, sessionID int32) {
 	ctx := context.Background()

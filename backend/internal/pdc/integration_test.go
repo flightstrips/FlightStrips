@@ -564,3 +564,38 @@ func TestProcessPDCRequest_InvalidAssignedSquawkDoesNotAutoIssue(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "REQUESTED", strip.PdcState)
 }
+
+func TestProcessPDCRequest_AlreadyCleared(t *testing.T) {
+	t.Parallel()
+	suite := &PDCIntegrationTestSuite{}
+	suite.SetupTest(t)
+	ctx := context.Background()
+
+	callsign := "SAS126"
+	sessionID := int32(1)
+
+	// Seed a strip that is already cleared
+	testdata.SeedClearedTestStrip(t, suite.queries, sessionID, callsign)
+
+	// Expect the "already cleared" rejection to be sent back to the pilot
+	suite.mockHoppie.On("SendCPDLC", mock.Anything, mock.Anything, callsign, mock.MatchedBy(func(msg string) bool {
+		return strings.Contains(msg, "CLEARANCE ALREADY ISSUED")
+	})).Return(nil)
+
+	incomingMsg := &IncomingMessage{
+		Type:       MsgPDCRequest,
+		From:       callsign,
+		To:         "EKCH",
+		Payload:    "REQUEST PREDEP CLEARANCE " + callsign + " A320 TO ESSA AT EKCH STAND A10 ATIS A",
+		RawMessage: callsign + " EKCH telex {REQUEST PREDEP CLEARANCE " + callsign + " A320 TO ESSA AT EKCH STAND A10 ATIS A}",
+	}
+
+	session := sessionInformation{
+		id:       sessionID,
+		callsign: "EKCH",
+	}
+
+	err := suite.service.ProcessPDCRequest(ctx, incomingMsg, session)
+	assert.Error(t, err, "should return error for already-cleared aircraft")
+	suite.mockHoppie.AssertCalled(t, "SendCPDLC", mock.Anything, mock.Anything, callsign, mock.Anything)
+}

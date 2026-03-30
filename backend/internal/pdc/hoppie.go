@@ -233,6 +233,14 @@ func buildPDCUnavailable(sequence int32) string {
 	return buildHoppieMessage(sequence, payload, MsgPDCUnavailable)
 }
 
+func buildAlreadyCleared(sequence int32, airport, callsign string) string {
+	now := time.Now()
+	timeStr := now.Format("1504")
+	dateStr := now.Format("020106")
+	payload := fmt.Sprintf("DEPART REQUEST STATUS . FSM %s %s %s @%s@ RCD REJECTED @CLEARANCE ALREADY ISSUED @REVERT TO VOICE PROCEDURES", timeStr, dateStr, airport, callsign)
+	return buildHoppieMessage(sequence, payload, MsgFlightPlanNotHeld)
+}
+
 func buildInvalidAircraftType(sequence int32, airport, callsign string) string {
 	now := time.Now()
 	timeStr := now.Format("1504")

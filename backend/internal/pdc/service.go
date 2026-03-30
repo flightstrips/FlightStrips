@@ -211,6 +211,12 @@ func (s *Service) ProcessPDCRequest(ctx context.Context, msg *IncomingMessage, s
 		return s.sendErrorAndReturn(ctx, session, req.Callsign, err, buildPDCUnavailable)
 	}
 
+	if strip.Cleared {
+		return s.sendErrorAndReturn(ctx, session, req.Callsign,
+			fmt.Errorf("aircraft already cleared"),
+			func(seq int32) string { return buildAlreadyCleared(seq, strip.Origin, req.Callsign) })
+	}
+
 	if !strings.EqualFold(strip.Origin, req.Departure) || !strings.EqualFold(strip.Destination, req.Destination) {
 		return s.sendErrorAndReturn(ctx, session, req.Callsign,
 			fmt.Errorf("invalid PDC request: origin/destination mismatch"),

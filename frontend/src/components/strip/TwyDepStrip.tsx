@@ -284,7 +284,6 @@ export function TwyDepStrip({
       open={showTaxiMap}
       onOpenChange={setShowTaxiMap}
       callsign={callsign}
-      coordinationMode={isCoordinationMode}
     />
     <HoldingPointDialog
       open={showHpMap}

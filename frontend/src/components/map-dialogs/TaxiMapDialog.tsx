@@ -7,7 +7,6 @@ interface TaxiMapDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   callsign: string;
-  coordinationMode?: boolean;
 }
 
 // Sizes expressed as % of image container (1801×1013 reference) so they scale with the dialog.
@@ -21,7 +20,6 @@ export function TaxiMapDialog({
   open,
   onOpenChange,
   callsign,
-  coordinationMode = false,
 }: TaxiMapDialogProps) {
   const setReleasePoint = useWebSocketStore((s) => s.setReleasePoint);
   const acknowledgeUnexpectedChange = useWebSocketStore((s) => s.acknowledgeUnexpectedChange);

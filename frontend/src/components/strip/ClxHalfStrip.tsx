@@ -16,6 +16,7 @@ const FONT_SIZE = "0.63vw";
 
 export function ClxHalfStrip({
   callsign,
+  bay,
   aircraftType,
   aircraftCategory,
   runway,
@@ -25,7 +26,7 @@ export function ClxHalfStrip({
   arrival,
   fullWidth
 }: StripProps) {
-  const { bg, textWhite } = useStripBg(runway, getStripBg(pdcStatus, arrival), false, false, pdcStatus);
+  const { bg, textWhite } = useStripBg(runway, getStripBg(pdcStatus, arrival, bay), false, false, pdcStatus, bay);
 
   return (
     <div style={{

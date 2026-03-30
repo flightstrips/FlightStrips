@@ -79,7 +79,7 @@ export function ApnPushStrip({
   const stripTransfers = useStripTransfers();
   const isTagRequest = !!stripTransfers[callsign]?.isTagRequest;
   const { isUnconcerned } = getStripOwnership(myPosition, owner, nextControllers, previousControllers);
-  const { bg, textWhite } = useStripBg(runway, getStripBg(pdcStatus, arrival), isTagRequest, isUnconcerned, pdcStatus);
+  const { bg, textWhite } = useStripBg(runway, getStripBg(pdcStatus, arrival, bay), isTagRequest, isUnconcerned, pdcStatus, bay);
   const [pushbackOpen, setPushbackOpen] = useState(false);
   const [apronTaxiOpen, setApronTaxiOpen] = useState(false);
   const [runwayOpen, setRunwayOpen] = useState(false);

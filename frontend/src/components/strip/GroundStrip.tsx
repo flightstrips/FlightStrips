@@ -19,6 +19,7 @@ const BOT_H = "1.48vh"; // 1/3 of 48px
 
 export function GroundStrip({
   callsign,
+  bay,
   pdcStatus,
   aircraftType,
   aircraftCategory,
@@ -41,7 +42,7 @@ export function GroundStrip({
   const openStripContextMenu = useWebSocketStore(s => s.openStripContextMenu);
 
   const { isUnconcerned } = getStripOwnership(myPosition, owner, nextControllers, previousControllers);
-  const { bg, textWhite } = useStripBg(runway, getStripBg(pdcStatus, arrival), isTagRequest, isUnconcerned, pdcStatus);
+  const { bg, textWhite } = useStripBg(runway, getStripBg(pdcStatus, arrival, bay), isTagRequest, isUnconcerned, pdcStatus, bay);
 
   return (
     <div

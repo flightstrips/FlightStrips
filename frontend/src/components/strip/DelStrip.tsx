@@ -54,7 +54,7 @@ export function DelStrip({
   const openStripContextMenu = useWebSocketStore(s => s.openStripContextMenu);
   const stripTransfers = useStripTransfers();
   const isTagRequest = !!stripTransfers[callsign]?.isTagRequest;
-  const { bg, textWhite } = useStripBg(runway, getStripBg(pdcStatus, arrival), isTagRequest, false);
+  const { bg, textWhite } = useStripBg(runway, getStripBg(pdcStatus, arrival, bay), isTagRequest, false, pdcStatus, bay);
   const { tobtBg, tsatBg } = useCDMColors({ bay: bay ?? Bay.Unknown, tsat: tsat ?? "", tobt: tobt ?? "" });
   const { ctotBg, ctotColor, showCtot } = useCTOTColor(ctot ?? "");
   const standYellow = unexpectedChangeFields?.includes("stand");

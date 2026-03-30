@@ -4,6 +4,7 @@
 
 import { useSelectedCallsign, useSelectStrip, useRunwaySetup } from "@/store/store-hooks";
 import type { CSSProperties } from "react";
+import { Bay } from "@/api/models";
 import type { PdcStatus } from "@/api/models";
 
 export const SELECTION_COLOR = "var(--color-strip-selection)";
@@ -181,11 +182,13 @@ export function useStripBg(
   isTagRequest: boolean,
   isUnconcerned: boolean,
   pdcStatus?: PdcStatus,
+  bay?: Bay,
 ): { bg: string; textWhite: boolean } {
   const runwaySetup = useRunwaySetup();
   const closedRwy = isRunwayClosed(runway, runwaySetup.runway_status);
   const bg = resolveStripBg(normalBg, isTagRequest, isUnconcerned, closedRwy);
-  const pdcDarkBg = (pdcStatus === "REQUESTED" || pdcStatus === "CLEARED")
+  const pdcAllowed = !bay || bay === Bay.NotCleared || bay === Bay.Cleared;
+  const pdcDarkBg = pdcAllowed && (pdcStatus === "REQUESTED" || pdcStatus === "CLEARED")
     && !isTagRequest && !closedRwy && !isUnconcerned;
   return { bg, textWhite: (closedRwy && !isTagRequest) || pdcDarkBg };
 }

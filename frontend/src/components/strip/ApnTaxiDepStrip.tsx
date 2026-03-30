@@ -126,17 +126,17 @@ export function ApnTaxiDepStrip({
           </span>
         </div>
 
-        {/* Stand — 25%*(2/3), stand in top 2/3, ctot in bottom 1/3 */}
+        {/* Stand — 25%*(2/3), stand name centered in upper area, ctot row anchored to bottom */}
         <div
-          className="flex flex-col overflow-hidden border-r-2"
-          style={{ flex: `${F_STAND} 0 0%`, height: "100%", minWidth: 0, borderRightColor: cellBorderColor, backgroundColor: standYellow ? COLOR_UNEXPECTED_YELLOW : undefined, cursor: standYellow ? "pointer" : undefined }}
+          className="overflow-hidden border-r-2"
+          style={{ flex: `${F_STAND} 0 0%`, height: "100%", minWidth: 0, borderRightColor: cellBorderColor, backgroundColor: standYellow ? COLOR_UNEXPECTED_YELLOW : undefined, cursor: standYellow ? "pointer" : undefined, position: "relative" }}
           onClick={standYellow ? (e) => { e.stopPropagation(); acknowledgeUnexpectedChange(callsign, "stand"); } : undefined}
         >
-          <div className="flex items-center justify-center" style={{ height: TOP_H }}>
+          <div className="flex items-center justify-center" style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: BOT_H }}>
             <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: "1.04vw", color: getCellTextColor("stand", controllerModifiedFields) }}>{stand}</span>
           </div>
-          <div className="flex items-center justify-center" style={{ height: BOT_H }}>
-            {showCtot && <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: "0.52vw", backgroundColor: ctotBg, color: ctotColor, padding: "0 0.1vw" }}>{ctot}</span>}
+          <div className="flex items-center justify-center" style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: BOT_H, backgroundColor: showCtot ? ctotBg || undefined : undefined, color: showCtot ? ctotColor : undefined }}>
+            {ctot && <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: "0.52vw" }}>{ctot}</span>}
           </div>
         </div>
 

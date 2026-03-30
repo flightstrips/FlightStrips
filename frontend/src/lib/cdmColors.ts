@@ -34,7 +34,7 @@ export interface CDMColors {
  * Returns empty string (no colour) when a cell should be transparent.
  *
  * Rules (first match wins):
- *   - Not in CLEARED/PUSH bay, or no tsat → ""  /  ""
+ *   - Not in NOT_CLEARED/CLEARED bay, or no tsat → ""  /  ""
  *   - now > TSAT + 5 min                  → red / ""
  *   - now > TSAT + 4 min                  → green / yellow
  *   - now >= TSAT - 5 min                 → green / green
@@ -45,17 +45,18 @@ export function computeCDMColors(
   tsat: string,
   tobt: string,
   nowMs: number,
-  _bay?: Bay,
+  bay?: Bay,
 ): CDMColors {
   if (!tsat) return { tobtBg: "", tsatBg: "" };
+  if (bay !== Bay.NotCleared && bay !== Bay.Cleared) return { tobtBg: "", tsatBg: "" };
 
   const tsatMs = parseHHMM(tsat, nowMs);
   const tobtMs = tobt ? parseHHMM(tobt, nowMs) : null;
   const diffMs = nowMs - tsatMs;
 
   if (diffMs > 5 * MINUTE_MS)  return { tobtBg: CDM_RED,    tsatBg: ""          };
-  if (diffMs > 4 * MINUTE_MS)  return { tobtBg: CDM_GREEN,  tsatBg: CDM_YELLOW  };
-  if (diffMs > -5 * MINUTE_MS) return { tobtBg: CDM_GREEN,  tsatBg: CDM_GREEN   };
+  if (diffMs > 4 * MINUTE_MS)  return { tobtBg: "",          tsatBg: CDM_YELLOW  };
+  if (diffMs > -5 * MINUTE_MS) return { tobtBg: "",          tsatBg: CDM_GREEN   };
   if (tobtMs !== null && Math.abs(tsatMs - tobtMs) > 5 * MINUTE_MS)
     return { tobtBg: CDM_ORANGE, tsatBg: "" };
   return { tobtBg: "", tsatBg: "" };

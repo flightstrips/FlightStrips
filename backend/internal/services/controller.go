@@ -116,9 +116,19 @@ func (cs *ControllerService) ControllerOnline(ctx context.Context, session int32
 	if err := s.UpdateLayouts(session); err != nil {
 		return shared.ControllerOnlineResult{}, err
 	}
+	slog.Debug("Controller online: recalculating routes for session",
+		slog.Int("session", int(session)),
+		slog.String("callsign", callsign),
+		slog.String("position", position),
+		slog.String("trigger", "position_changed"))
 	if err := s.UpdateRoutesForSession(session, true); err != nil {
 		return shared.ControllerOnlineResult{}, err
 	}
+	slog.Debug("Controller online: route recalculation completed",
+		slog.Int("session", int(session)),
+		slog.String("callsign", callsign),
+		slog.String("position", position),
+		slog.String("trigger", "position_changed"))
 
 	return shared.ControllerOnlineResult{
 		SectorChanges:    changes,
@@ -159,9 +169,17 @@ func (cs *ControllerService) performOnlineOrchestration(ctx context.Context, ses
 	if err := s.UpdateLayouts(session); err != nil {
 		return shared.ControllerOnlineResult{}, err
 	}
+	slog.Debug("Controller online: recalculating routes for session",
+		slog.Int("session", int(session)),
+		slog.String("position", position),
+		slog.String("trigger", "new_controller"))
 	if err := s.UpdateRoutesForSession(session, true); err != nil {
 		return shared.ControllerOnlineResult{}, err
 	}
+	slog.Debug("Controller online: route recalculation completed",
+		slog.Int("session", int(session)),
+		slog.String("position", position),
+		slog.String("trigger", "new_controller"))
 
 	return shared.ControllerOnlineResult{
 		SectorChanges:    changes,

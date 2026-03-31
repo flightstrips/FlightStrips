@@ -6,6 +6,7 @@ import (
 	"FlightStrips/pkg/events/frontend"
 	"context"
 	"fmt"
+	"log/slog"
 	"strconv"
 )
 
@@ -57,6 +58,10 @@ func (s *StripService) CreateManualFPL(ctx context.Context, session int32, req f
 	// Move to bay (sends bay event).
 	if err := s.MoveToBay(ctx, session, req.Callsign, targetBay, true); err != nil {
 		return fmt.Errorf("MoveToBay: %w", err)
+	}
+
+	if err := s.recalculateRouteForStrip(session, req.Callsign); err != nil {
+		slog.Error("Error updating route after manual FPL update", slog.String("callsign", req.Callsign), slog.Any("error", err))
 	}
 
 	// Broadcast full strip update to all frontend clients.

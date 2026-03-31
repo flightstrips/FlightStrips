@@ -134,6 +134,54 @@ func TestCreateManualFPL_FLConversion(t *testing.T) {
 	assert.Equal(t, int32(33000), *capturedAlt)
 }
 
+func TestCreateManualFPL_RecalculatesRouteAfterStandAssignment(t *testing.T) {
+	const session int32 = 7
+	const callsign = "SAS789"
+
+	strip := &models.Strip{Callsign: callsign, Session: session, Origin: "ESSA", Bay: shared.BAY_NOT_CLEARED}
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, cs string) (*models.Strip, error) {
+			assert.Equal(t, callsign, cs)
+			return strip, nil
+		},
+		UpdateIFRManualFPLFieldsFn: func(_ context.Context, _ int32, cs string, dest string, _ *string, _ *string, _ *string, _ *string, _ *int32, _ *string, stand *string, _ *string) (int64, error) {
+			assert.Equal(t, callsign, cs)
+			assert.Equal(t, "EKCH", dest)
+			require.NotNil(t, stand)
+			assert.Equal(t, "A12", *stand)
+			return 1, nil
+		},
+		GetSequenceFn: func(_ context.Context, _ int32, _ string, _ string) (int32, error) {
+			return 0, errors.New("not found")
+		},
+	}
+
+	esHub := &testutil.MockEuroscopeHub{}
+	fHub := &testutil.MockFrontendHub{}
+	routeRecalculated := false
+	fHub.SetServer(&testutil.MockServer{
+		UpdateRouteForStripFn: func(cs string, sess int32, sendUpdate bool) error {
+			assert.Equal(t, callsign, cs)
+			assert.Equal(t, session, sess)
+			assert.False(t, sendUpdate)
+			routeRecalculated = true
+			return nil
+		},
+	})
+	svc := buildManualFPLService(t, stripRepo, esHub, fHub)
+
+	err := svc.CreateManualFPL(context.Background(), session, frontend.CreateManualFPLAction{
+		Callsign: callsign,
+		ADES:     "EKCH",
+		Stand:    "A12",
+	}, "cid1", "EKCH")
+
+	require.NoError(t, err)
+	assert.True(t, routeRecalculated, "manual FPL updates with stand assignment must recalculate route")
+	require.Len(t, fHub.StripUpdates, 1)
+	assert.Equal(t, callsign, fHub.StripUpdates[0].Callsign)
+}
+
 // --- CreateVFRFPL tests ---
 
 func TestCreateVFRFPL_CallsignNotFound_ReturnsError(t *testing.T) {

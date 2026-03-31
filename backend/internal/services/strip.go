@@ -69,6 +69,34 @@ func (s *StripService) SetControllerRepo(controllerRepo repository.ControllerRep
 	s.controllerRepo = controllerRepo
 }
 
+func (s *StripService) recalculateRouteForStrip(session int32, callsign string) error {
+	if s.frontendHub == nil {
+		return nil
+	}
+
+	server := s.frontendHub.GetServer()
+	if server == nil {
+		return nil
+	}
+
+	return server.UpdateRouteForStrip(callsign, session, false)
+}
+
+func (s *StripService) refreshNextOwnersAfterRouteRecalc(ctx context.Context, session int32, callsign string, nextOwners []string, failureMessage string) []string {
+	if err := s.recalculateRouteForStrip(session, callsign); err != nil {
+		slog.Error(failureMessage, slog.String("callsign", callsign), slog.Any("error", err))
+		return nextOwners
+	}
+
+	updated, err := s.stripRepo.GetByCallsign(ctx, session, callsign)
+	if err != nil {
+		slog.Error("Failed to reload strip after route recalculation", slog.String("callsign", callsign), slog.Any("error", err))
+		return nextOwners
+	}
+
+	return updated.NextOwners
+}
+
 // calculateOrderBetween calculates the order value for a strip being inserted between two existing strips.
 // prevOrder is the order of the strip before the insertion point (use 0 if inserting at the beginning).
 // nextOrder is the order of the strip after the insertion point (use nil if inserting at the end).
@@ -753,6 +781,7 @@ func (s *StripService) autoAssumeForClearedStrip(ctx context.Context, session in
 	}
 
 	if count == 1 {
+		nextOwners = s.refreshNextOwnersAfterRouteRecalc(ctx, session, callsign, nextOwners, "Error updating route after auto-assume for cleared strip")
 		s.frontendHub.SendOwnersUpdate(session, callsign, sqPosition, nextOwners, previousOwners)
 	}
 
@@ -852,7 +881,8 @@ func (s *StripService) AutoAssumeForControllerOnline(ctx context.Context, sessio
 			slog.Debug("Auto-assumed strip on controller online",
 				slog.String("callsign", strip.Callsign),
 				slog.String("position", controllerPosition))
-			s.frontendHub.SendOwnersUpdate(session, strip.Callsign, controllerPosition, strip.NextOwners, strip.PreviousOwners)
+			nextOwners := s.refreshNextOwnersAfterRouteRecalc(ctx, session, strip.Callsign, strip.NextOwners, "Error updating route after auto-assume on controller online")
+			s.frontendHub.SendOwnersUpdate(session, strip.Callsign, controllerPosition, nextOwners, strip.PreviousOwners)
 		}
 	}
 
@@ -1033,6 +1063,11 @@ func (s *StripService) UpdateClearedFlag(ctx context.Context, session int32, cal
 
 // UpdateStand updates the stand for a strip, notifies the frontend, and triggers route recalculation.
 func (s *StripService) UpdateStand(ctx context.Context, session int32, callsign string, stand string) error {
+	slog.Debug("Stand update received",
+		slog.Int("session", int(session)),
+		slog.String("callsign", callsign),
+		slog.String("stand", stand))
+
 	count, err := s.stripRepo.UpdateStand(ctx, session, callsign, &stand, nil)
 	if err != nil {
 		return err
@@ -1045,9 +1080,23 @@ func (s *StripService) UpdateStand(ctx context.Context, session int32, callsign 
 
 	server := s.frontendHub.GetServer()
 	if server != nil {
+		slog.Debug("Stand update: triggering route recalculation",
+			slog.Int("session", int(session)),
+			slog.String("callsign", callsign),
+			slog.String("stand", stand))
 		if err := server.UpdateRouteForStrip(callsign, session, true); err != nil {
 			slog.Error("Error updating route after stand assignment", slog.String("callsign", callsign), slog.Any("error", err))
+		} else {
+			slog.Debug("Stand update: route recalculation completed",
+				slog.Int("session", int(session)),
+				slog.String("callsign", callsign),
+				slog.String("stand", stand))
 		}
+	} else {
+		slog.Warn("Stand update: route recalculation skipped because server is unavailable",
+			slog.Int("session", int(session)),
+			slog.String("callsign", callsign),
+			slog.String("stand", stand))
 	}
 	return nil
 }
@@ -1397,6 +1446,9 @@ func (s *StripService) AssumeStripCoordination(ctx context.Context, session int3
 		if count != 1 {
 			return errors.New("failed to set strip owner")
 		}
+
+		nextOwners = s.refreshNextOwnersAfterRouteRecalc(ctx, session, callsign, nextOwners, "Error updating route after direct assume")
+
 		s.frontendHub.SendCoordinationAssume(session, callsign, position)
 		s.frontendHub.SendOwnersUpdate(session, callsign, position, nextOwners, strip.PreviousOwners)
 		return nil
@@ -1462,16 +1514,7 @@ func (s *StripService) ForceAssumeStrip(ctx context.Context, session int32, call
 	// Recalculate the route starting from the new owner. This updates NextOwners in the
 	// DB. We pass sendUpdate=false because we send the owners update ourselves below with
 	// the fully cleaned previous owners.
-	if s.frontendHub != nil {
-		if server := s.frontendHub.GetServer(); server != nil {
-			_ = server.UpdateRouteForStrip(callsign, session, false)
-
-			// Re-read to pick up the recalculated NextOwners.
-			if updated, err := s.stripRepo.GetByCallsign(ctx, session, callsign); err == nil {
-				nextOwners = updated.NextOwners
-			}
-		}
-	}
+	nextOwners = s.refreshNextOwnersAfterRouteRecalc(ctx, session, callsign, nextOwners, "Error updating route after force assume")
 
 	// Any controller that now appears in NextOwners must be removed from PreviousOwners
 	// — they are upcoming controllers, not past ones.
@@ -1630,13 +1673,7 @@ func (s *StripService) AcceptTagRequest(ctx context.Context, session int32, call
 	}
 
 	// Recalculate route from the new owner (same as ForceAssumeStrip).
-	if server := s.frontendHub.GetServer(); server != nil {
-		_ = server.UpdateRouteForStrip(callsign, session, false)
-
-		if updated, err := s.stripRepo.GetByCallsign(ctx, session, callsign); err == nil {
-			nextOwners = updated.NextOwners
-		}
-	}
+	nextOwners = s.refreshNextOwnersAfterRouteRecalc(ctx, session, callsign, nextOwners, "Error updating route after accepting tag request")
 
 	// Remove from previous owners anyone who now appears in next owners.
 	cleanedPrevious := make([]string, 0, len(previousOwners))

@@ -441,6 +441,7 @@ func TestAssumeStripCoordination_DirectAssume_UnownedStrip(t *testing.T) {
 		Owner:    nil,
 		Version:  int32(2),
 	}
+	var getByCallsignCalls int
 
 	coordRepo := &testutil.MockCoordinationRepository{
 		GetByStripIDFn: func(_ context.Context, _ int32, _ int32) (*models.Coordination, error) {
@@ -450,9 +451,14 @@ func TestAssumeStripCoordination_DirectAssume_UnownedStrip(t *testing.T) {
 
 	var ownerSet string
 	var nextOwnersSet []string
+	routeRecalculated := false
 	stripRepo := &testutil.MockStripRepository{
 		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
-			return strip, nil
+			getByCallsignCalls++
+			if getByCallsignCalls == 1 {
+				return strip, nil
+			}
+			return &models.Strip{Callsign: callsign, NextOwners: []string{"APP_N"}}, nil
 		},
 		SetNextAndPreviousOwnersFn: func(_ context.Context, _ int32, _ string, next []string, _ []string) error {
 			nextOwnersSet = next
@@ -467,7 +473,16 @@ func TestAssumeStripCoordination_DirectAssume_UnownedStrip(t *testing.T) {
 	}
 
 	hub := &testutil.MockFrontendHub{}
-	hub.SetServer(&testutil.MockServer{CoordRepoVal: coordRepo})
+	hub.SetServer(&testutil.MockServer{
+		CoordRepoVal: coordRepo,
+		UpdateRouteForStripFn: func(cs string, sess int32, sendUpdate bool) error {
+			assert.Equal(t, callsign, cs)
+			assert.Equal(t, session, sess)
+			assert.False(t, sendUpdate)
+			routeRecalculated = true
+			return nil
+		},
+	})
 	svc := NewStripService(stripRepo)
 	svc.SetFrontendHub(hub)
 	svc.SetCoordinationRepo(coordRepo)
@@ -478,6 +493,9 @@ func TestAssumeStripCoordination_DirectAssume_UnownedStrip(t *testing.T) {
 	assert.Empty(t, nextOwnersSet)
 	require.Len(t, hub.CoordinationAssumes, 1)
 	assert.Equal(t, position, hub.CoordinationAssumes[0].Position)
+	require.Len(t, hub.OwnersUpdates, 1)
+	assert.Equal(t, []string{"APP_N"}, hub.OwnersUpdates[0].NextOwners)
+	assert.True(t, routeRecalculated, "route must be recalculated after directly assuming an unowned strip")
 }
 
 func TestAssumeStripCoordination_WithCoordination_AcceptsIt(t *testing.T) {
@@ -822,6 +840,9 @@ func TestAutoAssumeForControllerOnline_MultipleMatchingStrips(t *testing.T) {
 		ListFn: func(_ context.Context, _ int32) ([]*models.Strip, error) {
 			return strips, nil
 		},
+		GetByCallsignFn: func(_ context.Context, _ int32, cs string) (*models.Strip, error) {
+			return &models.Strip{Callsign: cs, NextOwners: []string{"APP_N"}}, nil
+		},
 		SetOwnerFn: func(_ context.Context, _ int32, cs string, _ *string, _ int32) (int64, error) {
 			assumedCallsigns[cs] = true
 			return 1, nil
@@ -1005,10 +1026,19 @@ func TestUpdateClearedFlagForMove_UnownedStripTracksClearingPositionInPreviousOw
 		NextOwners:     []string{sqPosition, "EKCH_TWR"},
 		PreviousOwners: []string{},
 	}
+	getByCallsignCalls := 0
 
 	stripRepo := &testutil.MockStripRepository{
 		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
-			return strip, nil
+			getByCallsignCalls++
+			if getByCallsignCalls == 1 {
+				return strip, nil
+			}
+			return &models.Strip{
+				Callsign:       callsign,
+				NextOwners:     []string{"EKCH_TWR"},
+				PreviousOwners: []string{deliveryPosition},
+			}, nil
 		},
 		UpdateClearedFlagFn: func(_ context.Context, _ int32, _ string, cleared bool, bay string, _ *int32) (int64, error) {
 			assert.True(t, cleared)

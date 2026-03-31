@@ -95,6 +95,7 @@ func TestAutoAssume_ClearedStrip(t *testing.T) {
 	const callsign = "DLH456"
 	const stripVersion = int32(3)
 	const sqPosition = "GND_N"
+	var getByCallsignCalls int
 
 	strip := &models.Strip{
 		ID:             10,
@@ -106,7 +107,11 @@ func TestAutoAssume_ClearedStrip(t *testing.T) {
 
 	stripRepo := &testutil.MockStripRepository{
 		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
-			return strip, nil
+			getByCallsignCalls++
+			if getByCallsignCalls == 1 {
+				return strip, nil
+			}
+			return &models.Strip{Callsign: callsign, NextOwners: []string{"TWR_N"}}, nil
 		},
 		SetNextAndPreviousOwnersFn: func(_ context.Context, _ int32, cs string, nextOwners []string, previousOwners []string) error {
 			assert.Equal(t, callsign, cs)
@@ -131,7 +136,18 @@ func TestAutoAssume_ClearedStrip(t *testing.T) {
 		},
 	}
 
+	var routeUpdateCallsign string
+	var routeUpdateSession int32
+	var routeUpdateSendUpdate bool
 	hub := &testutil.MockFrontendHub{}
+	hub.SetServer(&testutil.MockServer{
+		UpdateRouteForStripFn: func(cs string, sess int32, sendUpdate bool) error {
+			routeUpdateCallsign = cs
+			routeUpdateSession = sess
+			routeUpdateSendUpdate = sendUpdate
+			return nil
+		},
+	})
 	svc := NewStripService(stripRepo)
 	svc.SetFrontendHub(hub)
 	svc.SetSectorOwnerRepo(sectorRepo)
@@ -140,6 +156,10 @@ func TestAutoAssume_ClearedStrip(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, hub.OwnersUpdates, 1)
 	assert.Equal(t, sqPosition, hub.OwnersUpdates[0].Owner)
+	assert.Equal(t, []string{"TWR_N"}, hub.OwnersUpdates[0].NextOwners)
+	assert.Equal(t, callsign, routeUpdateCallsign)
+	assert.Equal(t, session, routeUpdateSession)
+	assert.False(t, routeUpdateSendUpdate)
 }
 
 func TestAutoAssume_ClearedStrip_AppendsDisplacedOwnerToPrevious(t *testing.T) {
@@ -149,6 +169,7 @@ func TestAutoAssume_ClearedStrip_AppendsDisplacedOwnerToPrevious(t *testing.T) {
 	const stripVersion = int32(4)
 	const newOwner = "GND_N"
 	deliveryOwner := "DEL_N"
+	var getByCallsignCalls int
 
 	strip := &models.Strip{
 		ID:             11,
@@ -161,7 +182,11 @@ func TestAutoAssume_ClearedStrip_AppendsDisplacedOwnerToPrevious(t *testing.T) {
 
 	stripRepo := &testutil.MockStripRepository{
 		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
-			return strip, nil
+			getByCallsignCalls++
+			if getByCallsignCalls == 1 {
+				return strip, nil
+			}
+			return &models.Strip{Callsign: callsign, NextOwners: []string{"TWR_N"}}, nil
 		},
 		SetNextAndPreviousOwnersFn: func(_ context.Context, _ int32, cs string, nextOwners []string, previousOwners []string) error {
 			assert.Equal(t, callsign, cs)
@@ -230,12 +255,17 @@ func TestAutoAssume_FallbackToDel(t *testing.T) {
 	const callsign = "KLM321"
 	const delPosition = "DEL_W"
 	const stripVersion = int32(1)
+	var getByCallsignCalls int
 
 	strip := &models.Strip{Callsign: callsign, Version: stripVersion, NextOwners: []string{}, PreviousOwners: []string{}}
 
 	stripRepo := &testutil.MockStripRepository{
 		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
-			return strip, nil
+			getByCallsignCalls++
+			if getByCallsignCalls == 1 {
+				return strip, nil
+			}
+			return &models.Strip{Callsign: callsign, NextOwners: []string{}}, nil
 		},
 		SetNextAndPreviousOwnersFn: func(_ context.Context, _ int32, _ string, nextOwners []string, previousOwners []string) error {
 			assert.Empty(t, nextOwners)
@@ -258,6 +288,14 @@ func TestAutoAssume_FallbackToDel(t *testing.T) {
 	}
 
 	hub := &testutil.MockFrontendHub{}
+	hub.SetServer(&testutil.MockServer{
+		UpdateRouteForStripFn: func(cs string, sess int32, sendUpdate bool) error {
+			assert.Equal(t, callsign, cs)
+			assert.Equal(t, session, sess)
+			assert.False(t, sendUpdate)
+			return nil
+		},
+	})
 	svc := NewStripService(stripRepo)
 	svc.SetFrontendHub(hub)
 	svc.SetSectorOwnerRepo(sectorRepo)
@@ -274,6 +312,7 @@ func TestAutoAssumeForControllerOnline_AssumesMatchingStrip(t *testing.T) {
 	ctx := context.Background()
 	const session = int32(1)
 	const position = "GND_N"
+	refreshedNextOwners := []string{"TWR_N"}
 
 	owner := ""
 	strips := []*models.Strip{
@@ -300,6 +339,15 @@ func TestAutoAssumeForControllerOnline_AssumesMatchingStrip(t *testing.T) {
 		ListFn: func(_ context.Context, _ int32) ([]*models.Strip, error) {
 			return strips, nil
 		},
+		GetByCallsignFn: func(_ context.Context, _ int32, cs string) (*models.Strip, error) {
+			assert.Equal(t, "SAS100", cs)
+			if len(refreshedNextOwners) == 0 {
+				return strips[0], nil
+			}
+			nextOwners := refreshedNextOwners
+			refreshedNextOwners = nil
+			return &models.Strip{Callsign: cs, NextOwners: nextOwners}, nil
+		},
 		SetOwnerFn: func(_ context.Context, _ int32, cs string, o *string, _ int32) (int64, error) {
 			assumedCallsign = cs
 			return 1, nil
@@ -307,6 +355,14 @@ func TestAutoAssumeForControllerOnline_AssumesMatchingStrip(t *testing.T) {
 	}
 
 	hub := &testutil.MockFrontendHub{}
+	hub.SetServer(&testutil.MockServer{
+		UpdateRouteForStripFn: func(cs string, sess int32, sendUpdate bool) error {
+			assert.Equal(t, "SAS100", cs)
+			assert.Equal(t, session, sess)
+			assert.False(t, sendUpdate)
+			return nil
+		},
+	})
 	svc := NewStripService(stripRepo)
 	svc.SetFrontendHub(hub)
 
@@ -316,6 +372,7 @@ func TestAutoAssumeForControllerOnline_AssumesMatchingStrip(t *testing.T) {
 	assert.Equal(t, "SAS100", assumedCallsign)
 	require.Len(t, hub.OwnersUpdates, 1)
 	assert.Equal(t, "SAS100", hub.OwnersUpdates[0].Callsign)
+	assert.Equal(t, []string{"TWR_N"}, hub.OwnersUpdates[0].NextOwners)
 }
 
 func TestAutoAssumeForControllerOnline_NoMatchingStrips(t *testing.T) {

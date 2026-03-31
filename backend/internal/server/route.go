@@ -1,4 +1,4 @@
-﻿package server
+package server
 
 import (
 	"FlightStrips/internal/config"
@@ -16,6 +16,11 @@ func (s *Server) UpdateRouteForStrip(callsign string, sessionId int32, sendUpdat
 	stripRepo := s.stripRepo
 	sessionRepo := s.sessionRepo
 
+	slog.Debug("Route recalculation requested for strip",
+		slog.Int("session", int(sessionId)),
+		slog.String("callsign", callsign),
+		slog.Bool("send_update", sendUpdate))
+
 	strip, err := stripRepo.GetByCallsign(context.Background(), sessionId, callsign)
 	if err != nil {
 		return err
@@ -26,7 +31,14 @@ func (s *Server) UpdateRouteForStrip(callsign string, sessionId int32, sendUpdat
 		return err
 	}
 
-	return s.updateRouteForStripHelper(strip, session, sendUpdate)
+	err = s.updateRouteForStripHelper(strip, session, sendUpdate)
+	if err == nil {
+		slog.Debug("Route recalculation finished for strip",
+			slog.Int("session", int(sessionId)),
+			slog.String("callsign", callsign),
+			slog.Bool("send_update", sendUpdate))
+	}
+	return err
 }
 
 // UpdateRoutesForSession recalculates routes for all strips in the session.
@@ -34,6 +46,10 @@ func (s *Server) UpdateRouteForStrip(callsign string, sessionId int32, sendUpdat
 func (s *Server) UpdateRoutesForSession(sessionId int32, sendUpdate bool) error {
 	stripRepo := s.stripRepo
 	sessionRepo := s.sessionRepo
+
+	slog.Debug("Route recalculation requested for session",
+		slog.Int("session", int(sessionId)),
+		slog.Bool("send_update", sendUpdate))
 
 	strips, err := stripRepo.List(context.Background(), sessionId)
 	if err != nil {
@@ -45,6 +61,11 @@ func (s *Server) UpdateRoutesForSession(sessionId int32, sendUpdate bool) error 
 		return err
 	}
 
+	slog.Debug("Route recalculation loaded strips for session",
+		slog.Int("session", int(sessionId)),
+		slog.Int("strip_count", len(strips)),
+		slog.Bool("send_update", sendUpdate))
+
 	for _, strip := range strips {
 		err := s.updateRouteForStripHelper(strip, session, sendUpdate)
 		if err != nil {
@@ -52,14 +73,35 @@ func (s *Server) UpdateRoutesForSession(sessionId int32, sendUpdate bool) error 
 		}
 	}
 
+	slog.Debug("Route recalculation completed for session",
+		slog.Int("session", int(sessionId)),
+		slog.Int("strip_count", len(strips)),
+		slog.Bool("send_update", sendUpdate))
+
 	return nil
 }
 
 func (s *Server) updateRouteForStripHelper(strip *models.Strip, session *models.Session, sendUpdate bool) error {
 	isArrival := strip.Destination == session.Airport
+	currentOwner := helpers.ValueOrDefault(strip.Owner)
+	currentStand := helpers.ValueOrDefault(strip.Stand)
+	currentRunway := helpers.ValueOrDefault(strip.Runway)
+
+	slog.Debug("Recalculating strip route",
+		slog.Int("session", int(session.ID)),
+		slog.String("callsign", strip.Callsign),
+		slog.Bool("is_arrival", isArrival),
+		slog.String("owner", currentOwner),
+		slog.String("stand", currentStand),
+		slog.String("runway", currentRunway),
+		slog.Any("current_next_owners", strip.NextOwners),
+		slog.Bool("send_update", sendUpdate))
 
 	// Departures require a runway to compute a route.
 	if !isArrival && (strip.Runway == nil || *strip.Runway == "") {
+		slog.Debug("Skipping route recalculation for departure without runway",
+			slog.Int("session", int(session.ID)),
+			slog.String("callsign", strip.Callsign))
 		return nil
 	}
 
@@ -70,23 +112,52 @@ func (s *Server) updateRouteForStripHelper(strip *models.Strip, session *models.
 		// at least the tower controller as its next owner.
 		towerSector, ok := config.GetArrivalTowerSector(session.ActiveRunways.ArrivalRunways)
 		if !ok {
+			slog.Warn("Skipping arrival route recalculation because no arrival tower sector is configured",
+				slog.Int("session", int(session.ID)),
+				slog.String("callsign", strip.Callsign))
 			return nil
 		}
+		slog.Debug("Arrival route recalculation is using tower fallback because stand is empty",
+			slog.Int("session", int(session.ID)),
+			slog.String("callsign", strip.Callsign))
 		path = []string{towerSector}
 	} else {
 		region, err := config.GetRegionForPosition(helpers.ValueOrDefault(strip.PositionLatitude), helpers.ValueOrDefault(strip.PositionLongitude))
 		if errors.Is(err, config.ErrUnsupportedRegion) {
 			if !isArrival {
+				slog.Debug("Skipping departure route recalculation because aircraft position is outside supported regions",
+					slog.Int("session", int(session.ID)),
+					slog.String("callsign", strip.Callsign))
 				return nil
 			}
 			// Arrival is still airborne (outside known ground regions) but already has
-			// a stand assigned. Fall back to the tower sector so the strip always has
-			// at least the receiving tower controller as its next owner.
+			// a stand assigned. Use the receiving tower sector as the start of the
+			// stand route so the route can still continue onward to apron/ground.
 			towerSector, ok := config.GetArrivalTowerSector(session.ActiveRunways.ArrivalRunways)
 			if !ok {
+				slog.Warn("Skipping arrival route recalculation because no arrival tower sector is configured for airborne fallback",
+					slog.Int("session", int(session.ID)),
+					slog.String("callsign", strip.Callsign),
+					slog.String("stand", currentStand))
 				return nil
 			}
-			path = []string{towerSector}
+
+			slog.Debug("Arrival route recalculation is using tower fallback as route start because aircraft position is outside supported regions",
+				slog.Int("session", int(session.ID)),
+				slog.String("callsign", strip.Callsign),
+				slog.String("stand", currentStand),
+				slog.String("tower_sector", towerSector))
+
+			var success bool
+			path, success = config.ComputeToStand(session.ActiveRunways.ArrivalRunways, towerSector, currentStand)
+			if !success {
+				slog.Warn("Arrival route recalculation could not build full route from tower fallback start; using tower-only fallback",
+					slog.Int("session", int(session.ID)),
+					slog.String("callsign", strip.Callsign),
+					slog.String("stand", currentStand),
+					slog.String("tower_sector", towerSector))
+				path = []string{towerSector}
+			}
 		} else if err != nil {
 			return err
 		} else {
@@ -154,7 +225,7 @@ func (s *Server) updateRouteForStripHelper(strip *models.Strip, session *models.
 	if !isArrival && strip.Sid != nil && *strip.Sid != "" {
 		as, err := config.GetAirborneSector(*strip.Sid)
 		if err != nil {
-			slog.Info("Error getting airborne frequency", slog.String("sid", *strip.Sid), slog.Any("error", err))
+			slog.Debug("Error getting airborne frequency", slog.String("sid", *strip.Sid), slog.Any("error", err))
 		} else if owner, ok := sectorToOnwer[as]; ok && !slices.Contains(actualRoute, owner) {
 			actualRoute = append(actualRoute, owner)
 		}
@@ -171,9 +242,18 @@ func (s *Server) updateRouteForStripHelper(strip *models.Strip, session *models.
 	}
 
 	if slices.Equal(strip.NextOwners, actualRoute) {
-		// No need to update
+		slog.Debug("Route recalculation produced no owner-chain change",
+			slog.Int("session", int(session.ID)),
+			slog.String("callsign", strip.Callsign),
+			slog.Any("next_owners", actualRoute))
 		return nil
 	}
+
+	slog.Debug("Route recalculation updated owner chain",
+		slog.Int("session", int(session.ID)),
+		slog.String("callsign", strip.Callsign),
+		slog.Any("previous_next_owners", strip.NextOwners),
+		slog.Any("next_owners", actualRoute))
 
 	err = s.stripRepo.SetNextOwners(context.Background(), session.ID, strip.Callsign, actualRoute)
 

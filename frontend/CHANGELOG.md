@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.19.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.18.0...frontend/v0.19.0) (2026-03-31)
+
+
+### Features
+
+* cargo stands ([373a9c3](https://github.com/flightstrips/FlightStrips/commit/373a9c315a9ec5020faaeefb5a9dd35ea9d995ce))
+* enable movement of tactical strips ([1528c8d](https://github.com/flightstrips/FlightStrips/commit/1528c8df2d968f15048ae1de46bd8566088acacf))
+
+
+### Bug Fixes
+
+* coordination of points ([89e40a2](https://github.com/flightstrips/FlightStrips/commit/89e40a2828d287f0fce150ebadf0d369ec649df8))
+* CTOT display and TOBT color ([429f6be](https://github.com/flightstrips/FlightStrips/commit/429f6be1bef2b250ae65b9b53a079f57634a2fe5))
+* only display PDC backend in certain bays ([42b2bbc](https://github.com/flightstrips/FlightStrips/commit/42b2bbc32c00b9f5e9efd14d2c65c545bd11c313))
+* remove shadows from bay headers [#145](https://github.com/flightstrips/FlightStrips/issues/145) ([aedacfb](https://github.com/flightstrips/FlightStrips/commit/aedacfb90f1962b27f4c353dc7e82559e5fc5f53))
+* style memaid popup ([e1f615d](https://github.com/flightstrips/FlightStrips/commit/e1f615d186f0f5d58f76690de86d77018e6a79cb))
+* tactical strip length ([a8cb157](https://github.com/flightstrips/FlightStrips/commit/a8cb15709b2a5ab3beba3c875da58bf217f4cad3))
+* taxi maps ([abe59b6](https://github.com/flightstrips/FlightStrips/commit/abe59b6670bc46337b93b7f548369c88673ea820))
+
 ## [0.18.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.17.3...frontend/v0.18.0) (2026-03-29)
 
 

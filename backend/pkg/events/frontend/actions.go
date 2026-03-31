@@ -43,11 +43,11 @@ type CreateVFRFPLAction struct {
 // ---------- Tactical strip action payloads ----------
 
 type CreateTacticalStripAction struct {
-	Type     EventType `json:"type"`
-	StripType string   `json:"strip_type"` // "MEMAID" | "CROSSING" | "START" | "LAND"
-	Bay      string    `json:"bay"`
-	Label    string    `json:"label"`
-	Aircraft string    `json:"aircraft"`
+	Type      EventType `json:"type"`
+	StripType string    `json:"strip_type"` // "MEMAID" | "CROSSING" | "START" | "LAND"
+	Bay       string    `json:"bay"`
+	Label     string    `json:"label"`
+	Aircraft  string    `json:"aircraft"`
 }
 
 type DeleteTacticalStripAction struct {
@@ -65,10 +65,11 @@ type StartTacticalTimerAction struct {
 	ID   int64     `json:"id"`
 }
 
-// MoveTacticalStripAction moves a tactical strip within a bay.
+// MoveTacticalStripAction moves a tactical strip within or between bays.
 // InsertAfter is the strip immediately above the drop point (nil = move to top).
 type MoveTacticalStripAction struct {
 	Type        EventType `json:"type"`
 	ID          int64     `json:"id"`
 	InsertAfter *StripRef `json:"insert_after"`
+	Bay         string    `json:"bay,omitempty"`
 }

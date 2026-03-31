@@ -139,7 +139,7 @@ export interface WebSocketState {
   deleteTacticalStrip: (id: number) => void;
   confirmTacticalStrip: (id: number) => void;
   startTacticalTimer: (id: number) => void;
-  moveTacticalStrip: (id: number, insertAfter: StripRef | null) => void;
+  moveTacticalStrip: (id: number, insertAfter: StripRef | null, bay?: Bay) => void;
 }
 
 // Create the store using createVanilla
@@ -457,19 +457,19 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     startTacticalTimer: (id) => {
       wsClient.send({ type: ActionType.FrontendStartTacticalTimer, id });
     },
-    moveTacticalStrip: (id, insertAfter) => set((state) => {
-      wsClient.send({ type: ActionType.FrontendMoveTacticalStrip, id, insert_after: insertAfter });
+    moveTacticalStrip: (id, insertAfter, bay) => set((state) => {
+      wsClient.send({ type: ActionType.FrontendMoveTacticalStrip, id, insert_after: insertAfter, bay });
 
       return produce((draft: WebSocketState) => {
         const idx = draft.tacticalStrips.findIndex(t => t.id === id);
         if (idx === -1) return;
 
-        const bay = draft.tacticalStrips[idx].bay;
+        const targetBay = bay ?? draft.tacticalStrips[idx].bay;
 
         // All sequences in the bay except the strip being moved, sorted ascending
         const baySeqs = [
-          ...draft.strips.filter(s => s.bay === bay).map(s => s.sequence),
-          ...draft.tacticalStrips.filter(t => t.bay === bay && t.id !== id).map(t => t.sequence),
+          ...draft.strips.filter(s => s.bay === targetBay).map(s => s.sequence),
+          ...draft.tacticalStrips.filter(t => t.bay === targetBay && t.id !== id).map(t => t.sequence),
         ].sort((a, b) => a - b);
 
         let prevSeq: number;
@@ -494,6 +494,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
           return;
         }
 
+        draft.tacticalStrips[idx].bay = targetBay;
         draft.tacticalStrips[idx].sequence = nextSeq === null
           ? prevSeq + 100
           : Math.floor((prevSeq + nextSeq) / 2);

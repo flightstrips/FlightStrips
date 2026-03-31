@@ -40,7 +40,7 @@ interface ViewDndContextProps {
   /** Maps source bay ID -> list of bay IDs a strip may be dragged into */
   transferRules: Record<string, string[]>;
   onReorder: (activeRef: StripRef, above: StripRef | null) => void;
-  onMove: (callsign: string, bay: Bay) => void;
+  onMove: (strip: StripRef, bay: Bay) => void;
   /** Renders the floating drag preview that follows the cursor across bay boundaries. */
   renderDragOverlay?: (strip: AnyStrip) => ReactNode;
 }
@@ -99,7 +99,7 @@ export function ViewDndContext({
     const targetConfig = bayStripMap[clickedBayId];
     if (!targetConfig) return;
 
-    onMove(selectedCallsign, targetConfig.targetBay);
+    onMove({ kind: "flight", callsign: selectedCallsign }, targetConfig.targetBay);
     selectStrip(null);
   }
 
@@ -185,10 +185,7 @@ export function ViewDndContext({
     // causing the strip to disappear. Send only FrontendMove; the backend assigns
     // the sequence as part of the move operation.
     if (sourceBay !== targetBay) {
-      // Only flight strips may cross bays
-      if (!dndId.startsWith("tactical-")) {
-        onMove(dndId, targetBay);
-      }
+      onMove(makeStripRef(dndId)!, targetBay);
       return;
     }
     // Same logical bay, different visual bay: use sequence-aware insertion.

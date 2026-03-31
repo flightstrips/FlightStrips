@@ -106,7 +106,10 @@ export default function GEGW() {
         if (activeRef.kind === "tactical") moveTacticalStrip(activeRef.id!, insertAfter);
         else updateOrder(activeRef.callsign!, insertAfter);
       }}
-      onMove={(callsign, bay) => move(callsign, bay)}
+      onMove={(activeRef, bay) => {
+        if (activeRef.kind === "tactical") moveTacticalStrip(activeRef.id!, null, bay);
+        else move(activeRef.callsign!, bay);
+      }}
       renderDragOverlay={(strip: AnyStrip) => {
         if (!isFlight(strip)) return <Strip strip={strip} width={CLX_CLEARED_STRIP_WIDTH} />;
         if (strip.bay === Bay.Cleared)   return <Strip strip={strip} status="PUSH" myPosition={myPosition} />;

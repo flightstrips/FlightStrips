@@ -108,6 +108,13 @@ type BulkBayCall struct {
 	Strips  []frontend.BulkBayEntry
 }
 
+type TacticalStripMovedCall struct {
+	Session  int32
+	ID       int64
+	Bay      string
+	Sequence int32
+}
+
 // MockFrontendHub is a configurable mock for shared.FrontendHub.
 // It records calls for assertion in tests.
 type MockFrontendHub struct {
@@ -127,6 +134,7 @@ type MockFrontendHub struct {
 	ControllerOfflines      []ControllerOfflineCall
 	CdmWaits                []CdmWaitCall
 	CdmUpdates              []CdmUpdateCall
+	TacticalStripMoves      []TacticalStripMovedCall
 }
 
 func (m *MockFrontendHub) GetServer() shared.Server {
@@ -236,6 +244,12 @@ func (m *MockFrontendHub) SendTacticalStripUpdated(session int32, strip frontend
 }
 
 func (m *MockFrontendHub) SendTacticalStripMoved(session int32, id int64, bay string, sequence int32) {
+	m.TacticalStripMoves = append(m.TacticalStripMoves, TacticalStripMovedCall{
+		Session:  session,
+		ID:       id,
+		Bay:      bay,
+		Sequence: sequence,
+	})
 }
 
 func (m *MockFrontendHub) SendBroadcast(session int32, message string, from string) {}

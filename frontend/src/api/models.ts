@@ -646,6 +646,7 @@ export interface FrontendMoveTacticalStripAction {
   type: ActionType.FrontendMoveTacticalStrip;
   id: number;
   insert_after: StripRef | null;
+  bay?: Bay;
 }
 
 export interface FrontendAcknowledgeUnexpectedChangeEvent {

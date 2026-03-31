@@ -34,6 +34,13 @@ SET sequence = sqlc.arg(sequence)::INT
 WHERE id = $1 AND session_id = $2
 RETURNING *;
 
+-- name: UpdateTacticalStripBayAndSequence :one
+UPDATE tactical_strips
+SET bay = sqlc.arg(bay)::TEXT,
+    sequence = sqlc.arg(sequence)::INT
+WHERE id = $1 AND session_id = $2
+RETURNING *;
+
 -- name: GetTacticalStripSequenceByID :one
 SELECT sequence::INT FROM tactical_strips WHERE id = $1 AND session_id = $2;
 

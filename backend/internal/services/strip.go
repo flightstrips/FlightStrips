@@ -530,16 +530,16 @@ func (s *StripService) MoveTacticalStripBetween(ctx context.Context, session int
 
 	newOrder, needsRecalc := s.calculateOrderBetween(prev, next)
 	if needsRecalc {
-		_, err := s.tacticalRepo.UpdateSequence(ctx, id, session, newOrder)
+		_, err := s.tacticalRepo.UpdateBayAndSequence(ctx, id, session, bay, newOrder)
 		if err != nil {
-			return fmt.Errorf("failed to update tactical strip sequence: %w", err)
+			return fmt.Errorf("failed to update tactical strip bay and sequence: %w", err)
 		}
 		return s.recalculateAllStripSequences(ctx, session, bay)
 	}
 
-	_, err = s.tacticalRepo.UpdateSequence(ctx, id, session, newOrder)
+	_, err = s.tacticalRepo.UpdateBayAndSequence(ctx, id, session, bay, newOrder)
 	if err != nil {
-		return fmt.Errorf("failed to update tactical strip sequence: %w", err)
+		return fmt.Errorf("failed to update tactical strip bay and sequence: %w", err)
 	}
 	s.frontendHub.SendTacticalStripMoved(session, id, bay, newOrder)
 	return nil

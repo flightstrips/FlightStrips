@@ -114,6 +114,19 @@ func (r *tacticalStripRepository) UpdateSequence(ctx context.Context, id int64, 
 	return tacticalStripToModel(result), nil
 }
 
+func (r *tacticalStripRepository) UpdateBayAndSequence(ctx context.Context, id int64, sessionID int32, bay string, sequence int32) (*models.TacticalStrip, error) {
+	result, err := r.queries.UpdateTacticalStripBayAndSequence(ctx, database.UpdateTacticalStripBayAndSequenceParams{
+		ID:        id,
+		SessionID: sessionID,
+		Bay:       bay,
+		Sequence:  sequence,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return tacticalStripToModel(result), nil
+}
+
 func (r *tacticalStripRepository) GetSequenceByID(ctx context.Context, id int64, sessionID int32) (int32, error) {
 	return r.queries.GetTacticalStripSequenceByID(ctx, database.GetTacticalStripSequenceByIDParams{
 		ID:        id,

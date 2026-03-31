@@ -7,7 +7,9 @@ import (
 	"FlightStrips/internal/models"
 	"FlightStrips/internal/shared"
 	"FlightStrips/internal/testutil"
+	frontendEvents "FlightStrips/pkg/events/frontend"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -136,4 +138,94 @@ func TestMoveToBay_CalculatesCorrectSequence(t *testing.T) {
 	assert.Equal(t, int32(1000+InitialOrderSpacing), capturedSeq)
 	require.Len(t, hub.BayEvents, 1)
 	assert.Equal(t, callsign, hub.BayEvents[0].Callsign)
+}
+
+func TestMoveTacticalStripBetween_UpdatesTargetBayAndSequence(t *testing.T) {
+	ctx := context.Background()
+	const session = int32(1)
+	const stripID = int64(42)
+	const targetBay = shared.BAY_TAXI
+
+	var capturedBay string
+	var capturedSequence int32
+
+	tacticalRepo := &testutil.MockTacticalStripRepository{
+		GetNextSequenceUnifiedFn: func(_ context.Context, s int32, bay string, prev int32) (int32, error) {
+			assert.Equal(t, session, s)
+			assert.Equal(t, targetBay, bay)
+			assert.Equal(t, int32(0), prev)
+			return 0, pgx.ErrNoRows
+		},
+		UpdateBayAndSequenceFn: func(_ context.Context, id int64, s int32, bay string, sequence int32) (*models.TacticalStrip, error) {
+			assert.Equal(t, stripID, id)
+			assert.Equal(t, session, s)
+			capturedBay = bay
+			capturedSequence = sequence
+			return &models.TacticalStrip{ID: id, SessionID: s, Bay: bay, Sequence: sequence}, nil
+		},
+	}
+
+	hub := &testutil.MockFrontendHub{}
+	svc := NewStripService(&testutil.MockStripRepository{})
+	svc.SetTacticalStripRepo(tacticalRepo)
+	svc.SetFrontendHub(hub)
+
+	err := svc.MoveTacticalStripBetween(ctx, session, stripID, nil, targetBay)
+	require.NoError(t, err)
+
+	assert.Equal(t, targetBay, capturedBay)
+	assert.Equal(t, int32(InitialOrderSpacing), capturedSequence)
+	require.Len(t, hub.TacticalStripMoves, 1)
+	assert.Equal(t, stripID, hub.TacticalStripMoves[0].ID)
+	assert.Equal(t, targetBay, hub.TacticalStripMoves[0].Bay)
+	assert.Equal(t, int32(InitialOrderSpacing), hub.TacticalStripMoves[0].Sequence)
+}
+
+func TestMoveTacticalStripBetween_UsesInsertAfterSequenceInTargetBay(t *testing.T) {
+	ctx := context.Background()
+	const session = int32(1)
+	const stripID = int64(51)
+	const targetBay = shared.BAY_TAXI_LWR
+
+	afterCallsign := "SAS123"
+
+	stripRepo := &testutil.MockStripRepository{
+		GetSequenceFn: func(_ context.Context, s int32, callsign string, bay string) (int32, error) {
+			assert.Equal(t, session, s)
+			assert.Equal(t, afterCallsign, callsign)
+			assert.Equal(t, targetBay, bay)
+			return 1000, nil
+		},
+	}
+
+	tacticalRepo := &testutil.MockTacticalStripRepository{
+		GetNextSequenceUnifiedFn: func(_ context.Context, s int32, bay string, prev int32) (int32, error) {
+			assert.Equal(t, session, s)
+			assert.Equal(t, targetBay, bay)
+			assert.Equal(t, int32(1000), prev)
+			return 2000, nil
+		},
+		UpdateBayAndSequenceFn: func(_ context.Context, id int64, s int32, bay string, sequence int32) (*models.TacticalStrip, error) {
+			assert.Equal(t, stripID, id)
+			assert.Equal(t, session, s)
+			assert.Equal(t, targetBay, bay)
+			assert.Equal(t, int32(1500), sequence)
+			return &models.TacticalStrip{ID: id, SessionID: s, Bay: bay, Sequence: sequence}, nil
+		},
+	}
+
+	hub := &testutil.MockFrontendHub{}
+	svc := NewStripService(stripRepo)
+	svc.SetTacticalStripRepo(tacticalRepo)
+	svc.SetFrontendHub(hub)
+
+	err := svc.MoveTacticalStripBetween(ctx, session, stripID, &frontendEvents.StripRef{
+		Kind:     "flight",
+		Callsign: &afterCallsign,
+	}, targetBay)
+	require.NoError(t, err)
+
+	require.Len(t, hub.TacticalStripMoves, 1)
+	assert.Equal(t, targetBay, hub.TacticalStripMoves[0].Bay)
+	assert.Equal(t, int32(1500), hub.TacticalStripMoves[0].Sequence)
 }

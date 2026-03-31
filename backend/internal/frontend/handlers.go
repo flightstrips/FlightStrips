@@ -600,26 +600,28 @@ func handleMoveTacticalStrip(ctx context.Context, client *Client, message Messag
 		return errors.New("tactical strip repository not available")
 	}
 
-	seq, err := tacticalRepo.GetSequenceByID(ctx, req.ID, client.session)
-	if err != nil {
-		return err
-	}
-	_ = seq
-
-	// We need the bay — find it from the session list
-	strips, err := tacticalRepo.ListBySession(ctx, client.session)
-	if err != nil {
-		return err
-	}
-	bay := ""
-	for _, s := range strips {
-		if s.ID == req.ID {
-			bay = s.Bay
-			break
+	bay := req.Bay
+	if bay != "" {
+		if !validBays[bay] {
+			slog.Warn("handleMoveTacticalStrip: rejecting move event with invalid bay",
+				slog.Int64("id", req.ID),
+				slog.String("bay", bay))
+			return errors.New("invalid bay: " + bay)
 		}
-	}
-	if bay == "" {
-		return errors.New("tactical strip not found")
+	} else {
+		strips, err := tacticalRepo.ListBySession(ctx, client.session)
+		if err != nil {
+			return err
+		}
+		for _, s := range strips {
+			if s.ID == req.ID {
+				bay = s.Bay
+				break
+			}
+		}
+		if bay == "" {
+			return errors.New("tactical strip not found")
+		}
 	}
 
 	return client.hub.stripService.MoveTacticalStripBetween(ctx, client.session, req.ID, req.InsertAfter, bay)

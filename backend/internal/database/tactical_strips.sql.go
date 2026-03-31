@@ -267,6 +267,46 @@ func (q *Queries) StartTacticalStripTimer(ctx context.Context, arg StartTactical
 	return i, err
 }
 
+const updateTacticalStripBayAndSequence = `-- name: UpdateTacticalStripBayAndSequence :one
+UPDATE tactical_strips
+SET bay = $3::TEXT,
+    sequence = $4::INT
+WHERE id = $1 AND session_id = $2
+RETURNING id, session_id, type, bay, label, aircraft, produced_by, sequence, timer_start, confirmed, confirmed_by, created_at
+`
+
+type UpdateTacticalStripBayAndSequenceParams struct {
+	ID        int64
+	SessionID int32
+	Bay       string
+	Sequence  int32
+}
+
+func (q *Queries) UpdateTacticalStripBayAndSequence(ctx context.Context, arg UpdateTacticalStripBayAndSequenceParams) (TacticalStrip, error) {
+	row := q.db.QueryRow(ctx, updateTacticalStripBayAndSequence,
+		arg.ID,
+		arg.SessionID,
+		arg.Bay,
+		arg.Sequence,
+	)
+	var i TacticalStrip
+	err := row.Scan(
+		&i.ID,
+		&i.SessionID,
+		&i.Type,
+		&i.Bay,
+		&i.Label,
+		&i.Aircraft,
+		&i.ProducedBy,
+		&i.Sequence,
+		&i.TimerStart,
+		&i.Confirmed,
+		&i.ConfirmedBy,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const updateTacticalStripSequence = `-- name: UpdateTacticalStripSequence :one
 UPDATE tactical_strips
 SET sequence = $3::INT

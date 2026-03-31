@@ -35,6 +35,14 @@ type CdmReadyRequestCall struct {
 	Callsign string
 }
 
+// ClearedAltitudeCall records arguments to SendClearedAltitude.
+type ClearedAltitudeCall struct {
+	Session  int32
+	Cid      string
+	Callsign string
+	Altitude int32
+}
+
 // MockEuroscopeHub is a configurable mock for shared.EuroscopeHub.
 // It records calls for assertion in tests.
 type MockEuroscopeHub struct {
@@ -46,6 +54,7 @@ type MockEuroscopeHub struct {
 	GroundStates          []GroundStateCall
 	CoordinationHandovers []CoordinationHandoverCall
 	CdmReadyRequests      []CdmReadyRequestCall
+	ClearedAltitudes      []ClearedAltitudeCall
 	CreateFPLCalls        []CreateFPLCall
 }
 
@@ -92,6 +101,7 @@ func (m *MockEuroscopeHub) SendAssignedSquawk(session int32, cid string, callsig
 func (m *MockEuroscopeHub) SendRunway(session int32, cid string, callsign string, runway string) {}
 
 func (m *MockEuroscopeHub) SendClearedAltitude(session int32, cid string, callsign string, altitude int32) {
+	m.ClearedAltitudes = append(m.ClearedAltitudes, ClearedAltitudeCall{session, cid, callsign, altitude})
 }
 
 func (m *MockEuroscopeHub) SendHeading(session int32, cid string, callsign string, heading int32) {}

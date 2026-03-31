@@ -453,6 +453,7 @@ func (hub *Hub) SendClearedAltitude(session int32, cid string, callsign string, 
 	hub.Send(session, cid, event)
 }
 
+
 func (hub *Hub) SendHeading(session int32, cid string, callsign string, heading int32) {
 	event := euroscope.HeadingEvent{
 		Callsign: callsign,

@@ -30,9 +30,9 @@ func TestSyncEuroscopeStrip_NewLocalDepartureWithoutPositionStartsInNotCleared(t
 		},
 	}
 
-	svc, _ := newSyncTestFixture(t, nil, stripRepo)
+	svc, _, _ := newSyncTestFixture(t, nil, stripRepo)
 
-	err := svc.syncEuroscopeStrip(ctx, session, euroscope.Strip{
+	err := svc.syncEuroscopeStrip(ctx, session, "", euroscope.Strip{
 		Callsign: callsign,
 		Origin:   "EKCH",
 	}, "EKCH")
@@ -71,9 +71,9 @@ func TestSyncEuroscopeStrip_ExistingHiddenNonArrivalBecomesArrivalStartsInArrHid
 		},
 	}
 
-	svc, hub := newSyncTestFixture(t, existingStrip, stripRepo)
+	svc, hub, _ := newSyncTestFixture(t, existingStrip, stripRepo)
 
-	err := svc.syncEuroscopeStrip(ctx, session, euroscope.Strip{
+	err := svc.syncEuroscopeStrip(ctx, session, "", euroscope.Strip{
 		Callsign:    callsign,
 		Origin:      "EDDF",
 		Destination: "EKCH",
@@ -117,9 +117,9 @@ func TestSyncEuroscopeStrip_ExistingArrivalAutoHiddenRemainsHidden(t *testing.T)
 		},
 	}
 
-	svc, _ := newSyncTestFixture(t, existingStrip, stripRepo)
+	svc, _, _ := newSyncTestFixture(t, existingStrip, stripRepo)
 
-	err := svc.syncEuroscopeStrip(ctx, session, euroscope.Strip{
+	err := svc.syncEuroscopeStrip(ctx, session, "", euroscope.Strip{
 		Callsign:    callsign,
 		Origin:      "ESSA",
 		Destination: "EKCH",

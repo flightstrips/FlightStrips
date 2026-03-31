@@ -86,7 +86,7 @@ type StripService interface {
 	UpdateAircraftPosition(ctx context.Context, session int32, callsign string, lat, lon float64, altitude int32, airport string) error
 	HandleTrackingControllerChanged(ctx context.Context, session int32, callsign string, trackingController string) error
 	HandleCoordinationReceived(ctx context.Context, session int32, callsign string, controllerCallsign string) error
-	SyncStrip(ctx context.Context, session int32, strip interface{}, airport string) error
+	SyncStrip(ctx context.Context, session int32, cid string, strip interface{}, airport string) error
 
 	// Frontend move operations — called when a frontend user drags a strip to a new bay.
 	UpdateClearedFlagForMove(ctx context.Context, session int32, callsign string, isCleared bool, bay string, cid string) error

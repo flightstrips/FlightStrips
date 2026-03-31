@@ -264,7 +264,7 @@ func handleSync(ctx context.Context, client *Client, message Message) error {
 	}
 
 	for _, strip := range event.Strips {
-		if err := client.hub.stripService.SyncStrip(ctx, session, strip, client.airport); err != nil {
+		if err := client.hub.stripService.SyncStrip(ctx, session, client.GetCid(), strip, client.airport); err != nil {
 			return err
 		}
 	}
@@ -301,16 +301,12 @@ func handleSync(ctx context.Context, client *Client, message Message) error {
 	return nil
 }
 
-func (hub *Hub) handleStripUpdateHelper(ctx context.Context, strip euroscope.Strip, session int32, airport string) error {
-	return hub.stripService.SyncStrip(ctx, session, strip, airport)
-}
-
 func handleStripUpdateEvent(ctx context.Context, client *Client, message Message) error {
 	var event euroscope.StripUpdateEvent
 	if err := message.JsonUnmarshal(&event); err != nil {
 		return err
 	}
-	return client.hub.handleStripUpdateHelper(ctx, event.Strip, client.session, client.airport)
+	return client.hub.stripService.SyncStrip(ctx, client.session, client.GetCid(), event.Strip, client.airport)
 }
 
 func handleRunways(ctx context.Context, client *Client, message Message) error {

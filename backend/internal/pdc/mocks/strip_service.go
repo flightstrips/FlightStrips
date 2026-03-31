@@ -168,8 +168,8 @@ func (m *StripService) HandleCoordinationReceived(ctx context.Context, session i
 	return args.Error(0)
 }
 
-func (m *StripService) SyncStrip(ctx context.Context, session int32, strip interface{}, airport string) error {
-	args := m.Called(ctx, session, strip, airport)
+func (m *StripService) SyncStrip(ctx context.Context, session int32, cid string, strip interface{}, airport string) error {
+	args := m.Called(ctx, session, cid, strip, airport)
 	return args.Error(0)
 }
 

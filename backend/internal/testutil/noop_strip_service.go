@@ -106,7 +106,7 @@ func (s *NoOpStripService) HandleTrackingControllerChanged(_ context.Context, _ 
 func (s *NoOpStripService) HandleCoordinationReceived(_ context.Context, _ int32, _ string, _ string) error {
 	return nil
 }
-func (s *NoOpStripService) SyncStrip(_ context.Context, _ int32, _ interface{}, _ string) error {
+func (s *NoOpStripService) SyncStrip(_ context.Context, _ int32, _ string, _ interface{}, _ string) error {
 	return nil
 }
 func (s *NoOpStripService) UpdateClearedFlagForMove(_ context.Context, _ int32, _ string, _ bool, _ string, _ string) error {

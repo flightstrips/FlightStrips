@@ -17,7 +17,7 @@ import (
 // helpers to build a minimal syncEuroscopeStrip setup.
 // Returns (svc, stripRepo, hub) wired together with a session repository that
 // returns an empty ActiveRunways so that autoAssignRunway is a no-op.
-func newSyncTestFixture(t *testing.T, _ *models.Strip, stripRepo *testutil.MockStripRepository) (*StripService, *testutil.MockFrontendHub) {
+func newSyncTestFixture(t *testing.T, _ *models.Strip, stripRepo *testutil.MockStripRepository) (*StripService, *testutil.MockFrontendHub, *testutil.MockEuroscopeHub) {
 	t.Helper()
 
 	sessionRepo := &testutil.MockSessionRepository{
@@ -32,6 +32,9 @@ func newSyncTestFixture(t *testing.T, _ *models.Strip, stripRepo *testutil.MockS
 
 	hub := &testutil.MockFrontendHub{}
 	hub.SetServer(mockServer)
+
+	esHub := &testutil.MockEuroscopeHub{}
+	esHub.SetServer(mockServer)
 
 	// MoveToBay needs GetMaxSequenceInBayFn; provide a safe default.
 	if stripRepo.GetMaxSequenceInBayFn == nil {
@@ -53,8 +56,9 @@ func newSyncTestFixture(t *testing.T, _ *models.Strip, stripRepo *testutil.MockS
 
 	svc := NewStripService(stripRepo)
 	svc.SetFrontendHub(hub)
+	svc.SetEuroscopeHub(esHub)
 
-	return svc, hub
+	return svc, hub, esHub
 }
 
 // buildEuroscopeStrip builds a minimal euroscope.Strip for testing.
@@ -94,10 +98,10 @@ func TestSyncEuroscopeStrip_StandOverwrite_SetsUnexpectedChange(t *testing.T) {
 		},
 	}
 
-	svc, hub := newSyncTestFixture(t, existingStrip, stripRepo)
+	svc, hub, _ := newSyncTestFixture(t, existingStrip, stripRepo)
 
 	esStrip := buildEuroscopeStrip(callsign, "B9", "") // stand changed A6 → B9
-	err := svc.syncEuroscopeStrip(ctx, session, esStrip, "EKCH")
+	err := svc.syncEuroscopeStrip(ctx, session, "", esStrip, "EKCH")
 	require.NoError(t, err)
 
 	assert.Equal(t, "stand", appendedField, "expected stand to be marked as unexpected change")
@@ -127,10 +131,10 @@ func TestSyncEuroscopeStrip_StandFirstSet_NoUnexpectedChange(t *testing.T) {
 		// AppendUnexpectedChangeFieldFn intentionally NOT set — panics if called
 	}
 
-	svc, _ := newSyncTestFixture(t, existingStrip, stripRepo)
+	svc, _, _ := newSyncTestFixture(t, existingStrip, stripRepo)
 
 	esStrip := buildEuroscopeStrip(callsign, "A3", "") // first stand assignment
-	err := svc.syncEuroscopeStrip(ctx, session, esStrip, "EKCH")
+	err := svc.syncEuroscopeStrip(ctx, session, "", esStrip, "EKCH")
 	require.NoError(t, err)
 	// No panic → AppendUnexpectedChangeField was not called
 }
@@ -157,10 +161,10 @@ func TestSyncEuroscopeStrip_StandSameValue_NoUnexpectedChange(t *testing.T) {
 		// AppendUnexpectedChangeFieldFn intentionally NOT set — panics if called
 	}
 
-	svc, _ := newSyncTestFixture(t, existingStrip, stripRepo)
+	svc, _, _ := newSyncTestFixture(t, existingStrip, stripRepo)
 
 	esStrip := buildEuroscopeStrip(callsign, "D3", "") // same stand value
-	err := svc.syncEuroscopeStrip(ctx, session, esStrip, "EKCH")
+	err := svc.syncEuroscopeStrip(ctx, session, "", esStrip, "EKCH")
 	require.NoError(t, err)
 }
 
@@ -192,10 +196,10 @@ func TestSyncEuroscopeStrip_RunwayOverwrite_ApronBay_SetsUnexpectedChange(t *tes
 		},
 	}
 
-	svc, _ := newSyncTestFixture(t, existingStrip, stripRepo)
+	svc, _, _ := newSyncTestFixture(t, existingStrip, stripRepo)
 
 	esStrip := buildEuroscopeStrip(callsign, "", "22R") // runway changed 04L → 22R
-	err := svc.syncEuroscopeStrip(ctx, session, esStrip, "EKCH")
+	err := svc.syncEuroscopeStrip(ctx, session, "", esStrip, "EKCH")
 	require.NoError(t, err)
 
 	assert.Equal(t, "runway", appendedField)
@@ -223,10 +227,10 @@ func TestSyncEuroscopeStrip_RunwayOverwrite_NonApronBay_NoUnexpectedChange(t *te
 		// AppendUnexpectedChangeFieldFn intentionally NOT set — panics if called
 	}
 
-	svc, _ := newSyncTestFixture(t, existingStrip, stripRepo)
+	svc, _, _ := newSyncTestFixture(t, existingStrip, stripRepo)
 
 	esStrip := buildEuroscopeStrip(callsign, "", "22R")
-	err := svc.syncEuroscopeStrip(ctx, session, esStrip, "EKCH")
+	err := svc.syncEuroscopeStrip(ctx, session, "", esStrip, "EKCH")
 	require.NoError(t, err)
 }
 
@@ -252,10 +256,10 @@ func TestSyncEuroscopeStrip_RunwayFirstSet_NoUnexpectedChange(t *testing.T) {
 		// AppendUnexpectedChangeFieldFn intentionally NOT set
 	}
 
-	svc, _ := newSyncTestFixture(t, existingStrip, stripRepo)
+	svc, _, _ := newSyncTestFixture(t, existingStrip, stripRepo)
 
 	esStrip := buildEuroscopeStrip(callsign, "", "04L")
-	err := svc.syncEuroscopeStrip(ctx, session, esStrip, "EKCH")
+	err := svc.syncEuroscopeStrip(ctx, session, "", esStrip, "EKCH")
 	require.NoError(t, err)
 }
 
@@ -281,10 +285,10 @@ func TestSyncEuroscopeStrip_RunwaySameValue_NoUnexpectedChange(t *testing.T) {
 		// AppendUnexpectedChangeFieldFn intentionally NOT set
 	}
 
-	svc, _ := newSyncTestFixture(t, existingStrip, stripRepo)
+	svc, _, _ := newSyncTestFixture(t, existingStrip, stripRepo)
 
 	esStrip := buildEuroscopeStrip(callsign, "", "22R") // same runway value
-	err := svc.syncEuroscopeStrip(ctx, session, esStrip, "EKCH")
+	err := svc.syncEuroscopeStrip(ctx, session, "", esStrip, "EKCH")
 	require.NoError(t, err)
 }
 

@@ -107,7 +107,7 @@ func TestHandleStripUpdate_EuroscopeClient_StandChange_NoControllerModified(t *t
 		Stand:    newStand,
 	}
 	// syncEuroscopeStrip must not panic (AppendControllerModifiedField not set).
-	err := svc.syncEuroscopeStrip(context.Background(), session, esStrip, "EKCH")
+	err := svc.syncEuroscopeStrip(context.Background(), session, "", esStrip, "EKCH")
 	require.NoError(t, err)
 }
 

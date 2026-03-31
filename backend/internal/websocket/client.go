@@ -47,13 +47,13 @@ func ReadPump[TType comparable, TClient Client, THub Hub[TType, TClient]](hub TH
 
 	err := client.GetConnection().SetReadDeadline(time.Now().Add(constants.PongWait))
 	if err != nil {
-		slog.Info("Failed to set read deadline", slog.Any("error", err))
+		slog.Warn("Failed to set read deadline", slog.Any("error", err))
 		return
 	}
 	client.GetConnection().SetPongHandler(func(string) error {
 		err := client.GetConnection().SetReadDeadline(time.Now().Add(constants.PongWait))
 		if err != nil {
-			slog.Info("Failed to set read deadline in pong handler", slog.Any("error", err))
+			slog.Warn("Failed to set read deadline in pong handler", slog.Any("error", err))
 			return err
 		}
 		return client.HandlePong()
@@ -63,7 +63,7 @@ func ReadPump[TType comparable, TClient Client, THub Hub[TType, TClient]](hub TH
 		_, message, err := client.GetConnection().ReadMessage()
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				slog.Info("Unexpected websocket close", slog.Any("error", err))
+				slog.Warn("Unexpected websocket close", slog.Any("error", err))
 			}
 			break
 		}
@@ -73,7 +73,7 @@ func ReadPump[TType comparable, TClient Client, THub Hub[TType, TClient]](hub TH
 		
 		parsedMessage, err := parseMessage[TType](message)
 		if err != nil {
-			slog.Info("Failed to parse message", slog.Any("error", err))
+			slog.Warn("Failed to parse message", slog.Any("error", err))
 			continue
 		}
 
@@ -137,14 +137,14 @@ func WritePump[TClient Client](client TClient) {
 		case message, ok := <-client.GetSendChannel():
 			err := client.GetConnection().SetWriteDeadline(time.Now().Add(constants.WriteWait))
 			if err != nil {
-				slog.Info("Failed to set write deadline", slog.Any("error", err))
+				slog.Warn("Failed to set write deadline", slog.Any("error", err))
 				return
 			}
 			if !ok {
 				// The hub closed the channel.
 				err := client.GetConnection().WriteMessage(websocket.CloseMessage, []byte{})
 				if err != nil {
-					slog.Info("Failed to close connection", slog.Any("error", err))
+					slog.Warn("Failed to close connection", slog.Any("error", err))
 				}
 				return
 			}

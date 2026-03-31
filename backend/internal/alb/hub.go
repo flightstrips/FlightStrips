@@ -55,14 +55,14 @@ func (h *Hub) Upgrade(w http.ResponseWriter, r *http.Request) {
 
 	_, rawLogin, err := conn.ReadMessage()
 	if err != nil {
-		slog.Info("ALB failed to read login message", slog.Any("error", err))
+		slog.Warn("ALB failed to read login message", slog.Any("error", err))
 		conn.Close()
 		return
 	}
 
 	var loginEvent pkgAlb.LoginEvent
 	if err := json.Unmarshal(rawLogin, &loginEvent); err != nil || loginEvent.Type != pkgAlb.Login {
-		slog.Info("ALB first message was not a login event")
+		slog.Warn("ALB first message was not a login event")
 		conn.Close()
 		return
 	}

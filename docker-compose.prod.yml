@@ -34,6 +34,7 @@ services:
       CDM_KEY: ${CDM_KEY:-}
       HOPPIE_LOGON: ${HOPPIE_LOGON:-}
       CDM_ES_FAST_PATH: ${CDM_ES_FAST_PATH:-false}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
       SERVER_ADDR: "0.0.0.0:80"
     depends_on:
       postgres:

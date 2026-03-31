@@ -133,7 +133,7 @@ func (hub *Hub) OnRegister(client *Client) {
 	if config.IsRecordMode() && !hub.IsRecording(client.session) {
 		err := hub.StartRecording(client.session, client.airport, "LIVE", "Auto-recorded session")
 		if err != nil {
-			slog.Error("Failed to start recording", slog.Any("error", err))
+			slog.Warn("Failed to start recording", slog.Any("error", err))
 		} else {
 			// Set login info in the recorder
 			if rec, ok := hub.recorders[client.session]; ok {
@@ -145,7 +145,7 @@ func (hub *Hub) OnRegister(client *Client) {
 	// Determine master role immediately to avoid race conditions
 	isMaster := false
 	if _, ok := hub.master[client.session]; !ok {
-		slog.Debug("Euroscope client is master", slog.String("cid", client.GetCid()))
+		slog.Info("EuroScope client is master", slog.String("cid", client.GetCid()))
 		hub.master[client.session] = client
 		isMaster = true
 	}
@@ -223,7 +223,7 @@ func (hub *Hub) SetControllerService(controllerService shared.ControllerService)
 }
 
 func (hub *Hub) HandleNewConnection(conn *gorilla.Conn, user shared.AuthenticatedUser) (*Client, error) {
-	slog.Debug("Euroscope client connected", slog.String("cid", user.GetCid()))
+	slog.Info("EuroScope client connected", slog.String("cid", user.GetCid()))
 	// Read the login message
 	_, msg, err := conn.ReadMessage()
 	if err != nil {
@@ -274,7 +274,7 @@ func (hub *Hub) handleLogin(msg []byte, user shared.AuthenticatedUser) (event eu
 		sessionName = sessionName + "_" + strconv.Itoa(rand.Int())
 	}
 
-	slog.Debug("Euroscope client logged in", slog.String("cid", user.GetCid()), slog.String("session", sessionName))
+	slog.Info("EuroScope client logged in", slog.String("cid", user.GetCid()), slog.String("session", sessionName))
 
 	session, err := hub.server.GetOrCreateSession(event.Airport, sessionName)
 	if err != nil {
@@ -325,6 +325,12 @@ func (hub *Hub) handleLogin(msg []byte, user shared.AuthenticatedUser) (event eu
 }
 
 func (hub *Hub) OnUnregister(client *Client) {
+	slog.Info("EuroScope client disconnected",
+		slog.String("cid", client.GetCid()),
+		slog.String("callsign", client.callsign),
+		slog.String("airport", client.airport),
+	)
+
 	// Update per-airport client count.
 	hub.airportClientsMu.Lock()
 	if hub.airportClientCount[client.airport] > 0 {
@@ -356,6 +362,7 @@ func (hub *Hub) OnUnregister(client *Client) {
 	// TODO better master selection. For now just use the next available client
 	for newMaster := range hub.clients {
 		hub.master[client.session] = newMaster
+		slog.Info("EuroScope master role transferred", slog.String("new_master_cid", newMaster.GetCid()))
 		newMaster.send <- euroscope.SessionInfoEvent{Role: euroscope.SessionInfoMaster}
 		break
 	}

@@ -134,7 +134,7 @@ func (s *StripService) updateStripSequence(ctx context.Context, session int32, c
 	}
 
 	if sendNotification {
-		slog.Debug("Strip moved to bay", slog.String("callsign", callsign), slog.String("bay", bay), slog.Int("sequence", int(sequence)))
+		slog.Info("Strip moved to bay", slog.String("callsign", callsign), slog.String("bay", bay), slog.Int("sequence", int(sequence)))
 		// Send update notification
 		s.sendStripUpdate(session, callsign, sequence, bay)
 	}
@@ -230,6 +230,7 @@ func (s *StripService) CreateCoordinationTransfer(ctx context.Context, session i
 		return err
 	}
 
+	slog.Info("Coordination transfer created", slog.String("callsign", callsign), slog.String("from", from), slog.String("to", to))
 	s.maybeMoveToLowerTwyDepOnTowerTransfer(ctx, session, callsign, strip.Bay, to)
 	s.frontendHub.SendCoordinationTransfer(session, callsign, from, to)
 
@@ -285,6 +286,7 @@ func (s *StripService) CreateEsArrivalCoordination(ctx context.Context, session 
 		return err
 	}
 
+	slog.Info("ES arrival coordination created", slog.String("callsign", callsign), slog.String("from", from), slog.String("to", to))
 	s.frontendHub.SendCoordinationTransfer(session, callsign, from, to)
 	return nil
 }
@@ -338,6 +340,7 @@ func (s *StripService) AcceptCoordination(ctx context.Context, session int32, ca
 		return errors.New("failed to set strip owner after accepting coordination")
 	}
 
+	slog.Info("Coordination accepted", slog.String("callsign", callsign), slog.String("assuming_position", assumingPosition))
 	s.frontendHub.SendCoordinationAssume(session, callsign, assumingPosition)
 	s.frontendHub.SendOwnersUpdate(session, callsign, assumingPosition, nextOwners, previousOwners)
 	return nil
@@ -418,6 +421,7 @@ func (s *StripService) AutoTransferAirborneStrip(ctx context.Context, session in
 		return err
 	}
 
+	slog.Info("Automatic AIRBORNE transfer initiated", slog.String("callsign", callsign), slog.String("from", *strip.Owner), slog.String("to", targetController.Position))
 	return nil
 }
 
@@ -554,7 +558,7 @@ func (s *StripService) MoveTacticalStripBetween(ctx context.Context, session int
 		next = &nextSeq
 	}
 
-	slog.Debug("Moving tactical strip", slog.Int64("id", id), slog.String("bay", bay), slog.Int("prev", int(prev)), slog.Any("next", next))
+	slog.Info("Moving tactical strip", slog.Int64("id", id), slog.String("bay", bay), slog.Int("prev", int(prev)), slog.Any("next", next))
 
 	newOrder, needsRecalc := s.calculateOrderBetween(prev, next)
 	if needsRecalc {
@@ -762,7 +766,7 @@ func (s *StripService) autoAssumeForClearedStrip(ctx context.Context, session in
 		return nil
 	}
 
-	slog.Debug("Auto-assuming cleared strip", slog.String("callsign", callsign), slog.String("position", sqPosition))
+	slog.Info("Auto-assuming cleared strip", slog.String("callsign", callsign), slog.String("position", sqPosition))
 
 	strip, err := s.stripRepo.GetByCallsign(ctx, session, callsign)
 	if err != nil {
@@ -878,7 +882,7 @@ func (s *StripService) AutoAssumeForControllerOnline(ctx context.Context, sessio
 		}
 
 		if count == 1 {
-			slog.Debug("Auto-assumed strip on controller online",
+			slog.Info("Auto-assumed strip on controller online",
 				slog.String("callsign", strip.Callsign),
 				slog.String("position", controllerPosition))
 			nextOwners := s.refreshNextOwnersAfterRouteRecalc(ctx, session, strip.Callsign, strip.NextOwners, "Error updating route after auto-assume on controller online")
@@ -975,6 +979,7 @@ func (s *StripService) UpdateHeading(ctx context.Context, session int32, callsig
 
 // DeleteStrip removes a strip from the database and notifies the frontend.
 func (s *StripService) DeleteStrip(ctx context.Context, session int32, callsign string) error {
+	slog.Info("Aircraft disconnected, removing strip", slog.String("callsign", callsign), slog.Int("session", int(session)))
 	err := s.stripRepo.Delete(ctx, session, callsign)
 	s.frontendHub.SendAircraftDisconnect(session, callsign)
 	return err
@@ -2205,7 +2210,7 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 				slog.Warn("Failed to set has_fp on new strip", slog.String("callsign", strip.Callsign), slog.Any("error", err))
 			}
 		}
-		slog.Debug("Inserted strip",
+		slog.Info("Inserted strip",
 			slog.String("callsign", strip.Callsign),
 			slog.String("origin", strip.Origin),
 			slog.String("destination", strip.Destination),

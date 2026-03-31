@@ -799,14 +799,14 @@ func (hub *Hub) dispatchMessage(session int32, msg frontend.MessageReceivedEvent
 }
 
 func (hub *Hub) OnRegister(client *Client) {
-	slog.Debug("Client registered", slog.String("cid", client.user.GetCid()))
+	slog.Info("Frontend client connected", slog.String("cid", client.user.GetCid()))
 	if client.session != WaitingForEuroscopeConnectionSessionId {
 		hub.sendInitialEvent(client)
 	}
 }
 
 func (hub *Hub) OnUnregister(client *Client) {
-	slog.Debug("Client unregistered", slog.String("cid", client.user.GetCid()))
+	slog.Info("Frontend client disconnected", slog.String("cid", client.user.GetCid()))
 }
 
 func (hub *Hub) Run() {

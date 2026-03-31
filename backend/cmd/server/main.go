@@ -23,6 +23,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -53,7 +54,18 @@ func main() {
 		*addr = getEnv("SERVER_ADDR", "127.0.0.1:8090")
 	}
 
-	logger := slog.New(tint.NewHandler(os.Stdout, &tint.Options{Level: slog.LevelDebug}))
+	var logLevel slog.LevelVar
+	switch strings.ToUpper(os.Getenv("LOG_LEVEL")) {
+	case "DEBUG":
+		logLevel.Set(slog.LevelDebug)
+	case "WARN":
+		logLevel.Set(slog.LevelWarn)
+	case "ERROR":
+		logLevel.Set(slog.LevelError)
+	default: // "INFO" or unset
+		logLevel.Set(slog.LevelInfo)
+	}
+	logger := slog.New(tint.NewHandler(os.Stdout, &tint.Options{Level: &logLevel}))
 	slog.SetDefault(logger)
 
 	err := godotenv.Load()

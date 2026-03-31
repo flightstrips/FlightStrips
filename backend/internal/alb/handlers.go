@@ -9,7 +9,7 @@ import (
 func handleLogin(client *Client, msg []byte) {
 	var event pkgAlb.LoginEvent
 	if err := json.Unmarshal(msg, &event); err != nil {
-		slog.Info("ALB failed to parse login event", slog.Any("error", err))
+		slog.Warn("ALB failed to parse login event", slog.Any("error", err))
 		return
 	}
 	client.callsign = event.Callsign
@@ -19,7 +19,7 @@ func handleLogin(client *Client, msg []byte) {
 func handleQuery(client *Client, msg []byte) {
 	var event pkgAlb.QueryEvent
 	if err := json.Unmarshal(msg, &event); err != nil {
-		slog.Info("ALB failed to parse query event", slog.Any("error", err))
+		slog.Warn("ALB failed to parse query event", slog.Any("error", err))
 		return
 	}
 
@@ -53,7 +53,7 @@ func handleQuery(client *Client, msg []byte) {
 func handleA2A(_ *Client, hub *Hub, msg []byte) {
 	var event pkgAlb.A2AEvent
 	if err := json.Unmarshal(msg, &event); err != nil {
-		slog.Info("ALB failed to parse a2a event", slog.Any("error", err))
+		slog.Warn("ALB failed to parse a2a event", slog.Any("error", err))
 		return
 	}
 	hub.BroadcastA2A(event)

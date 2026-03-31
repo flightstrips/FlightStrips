@@ -128,7 +128,7 @@ export function ArrStandDialog({ open, onOpenChange, callsign, currentStand }: P
               transform: `scale(${boardScale})`,
             }}
           >
-            {EST_BACKGROUND_BOXES.map((box) => (
+            {boardView !== "CARGO" && EST_BACKGROUND_BOXES.map((box) => (
               <div
                 key={`${box.x}-${box.y}`}
                 className="absolute flex items-center justify-center font-bold"
@@ -158,7 +158,7 @@ export function ArrStandDialog({ open, onOpenChange, callsign, currentStand }: P
 
               return (
                 <EstStandCell
-                  key={stand.label}
+                  key={`${stand.label}-${stand.left}-${stand.top}`}
                   stand={stand}
                   strip={strip}
                   blocked={false}

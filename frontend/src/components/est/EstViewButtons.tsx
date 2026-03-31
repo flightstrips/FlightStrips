@@ -49,7 +49,7 @@ export default function EstViewButtons({ view, onViewChange }: EstViewButtonsPro
               cursor: disabled ? "not-allowed" : "pointer",
             }}
           >
-            {button.label}
+            {button.id === "CARGO" && view === "CARGO" ? "APRON" : button.label}
           </button>
         );
       })}

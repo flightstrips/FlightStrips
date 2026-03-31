@@ -202,10 +202,37 @@ export function isCargoStand(stand: string) {
   return CARGO_STAND_PATTERN.test(stand);
 }
 
+// Cargo apron stand positions — EST board coordinates (SVG design coords minus 40 px board margin)
+const CARGO_VIEW_STANDS: EstCanvasStand[] = [
+  // Top row — G120–G137 left to right
+  { label: 'G120', x: 501,  y: 27,  left: 501,  top: 27  },
+  { label: 'G121', x: 591,  y: 64,  left: 591,  top: 64  },
+  { label: 'G122', x: 681,  y: 27,  left: 681,  top: 27  },
+  { label: 'G123', x: 791,  y: 27,  left: 791,  top: 27  },
+  { label: 'G124', x: 881,  y: 64,  left: 881,  top: 64  },
+  { label: 'G125', x: 971,  y: 27,  left: 971,  top: 27  },
+  { label: 'G126', x: 1081, y: 27,  left: 1081, top: 27  },
+  { label: 'G127', x: 1171, y: 64,  left: 1171, top: 64  },
+  { label: 'G128', x: 1261, y: 27,  left: 1261, top: 27  },
+  { label: 'G129', x: 1371, y: 27,  left: 1371, top: 27  },
+  { label: 'G130', x: 1461, y: 64,  left: 1461, top: 64  },
+  { label: 'G131', x: 1551, y: 27,  left: 1551, top: 27  },
+  { label: 'G132', x: 1661, y: 27,  left: 1661, top: 27  },
+  { label: 'G133', x: 1751, y: 64,  left: 1751, top: 64  },
+  { label: 'G134', x: 1841, y: 27,  left: 1841, top: 27  },
+  { label: 'G135', x: 1951, y: 27,  left: 1951, top: 27  },
+  { label: 'G136', x: 2041, y: 64,  left: 2041, top: 64  },
+  { label: 'G137', x: 2131, y: 27,  left: 2131, top: 27  },
+  // Left column
+  { label: 'G114', x: 65,   y: 363, left: 65,   top: 363 },
+  { label: 'G113', x: 64,   y: 522, left: 64,   top: 522 },
+  { label: 'G112', x: 63,   y: 681, left: 63,   top: 681 },
+  { label: 'G111', x: 31,   y: 839, left: 31,   top: 839 },
+  { label: 'G110', x: 32,   y: 997, left: 32,   top: 997 },
+];
+
 export function getEstStandsForView(view: EstView) {
-  return view === "CARGO"
-    ? EST_STANDS.filter((stand) => isCargoStand(stand.label))
-    : EST_STANDS;
+  return view === "CARGO" ? CARGO_VIEW_STANDS : EST_STANDS;
 }
 
 export function getVgdsStatus(stand: string): string | null {

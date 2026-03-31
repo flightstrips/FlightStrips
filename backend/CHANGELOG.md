@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.14.0](https://github.com/flightstrips/FlightStrips/compare/backend/v0.13.0...backend/v0.14.0) (2026-03-31)
+
+
+### Features
+
+* enable movement of tactical strips ([1528c8d](https://github.com/flightstrips/FlightStrips/commit/1528c8df2d968f15048ae1de46bd8566088acacf))
+
+
+### Bug Fixes
+
+* adjust log levels ([d78163a](https://github.com/flightstrips/FlightStrips/commit/d78163a4739124d49703831215c2ec470e897e8c))
+* arrival route calculation ([18ebc3d](https://github.com/flightstrips/FlightStrips/commit/18ebc3d4e2e6f9bbc1d24ce385ba2028d29151f0))
+* coordination of points ([89e40a2](https://github.com/flightstrips/FlightStrips/commit/89e40a2828d287f0fce150ebadf0d369ec649df8))
+* do not process pdc if strip is already cleared ([e004f51](https://github.com/flightstrips/FlightStrips/commit/e004f51a019656d17e7b4e02b868d3615d57d68b))
+* send default altitude back to ES if set ([77301b0](https://github.com/flightstrips/FlightStrips/commit/77301b0e5274063db07104cd25c6b400c1ace7af))
+
 ## [0.13.0](https://github.com/flightstrips/FlightStrips/compare/backend/v0.12.0...backend/v0.13.0) (2026-03-29)
 
 

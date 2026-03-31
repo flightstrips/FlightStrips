@@ -28,16 +28,30 @@ interface StripRenderProps {
   fullWidth?: boolean;
 }
 
+// Maps each strip status to the internal width used by the corresponding flight strip component.
+// Used so tactical strips (memaid, crossing, etc.) match the width of flight strips in the same bay.
+const STATUS_DEFAULT_WIDTH: Partial<Record<StripStatus, string>> = {
+  "ARR":      "90%",   // ApnArrStrip
+  "FINAL-ARR":"95%",   // FinalArrStrip
+  "PUSH":     "90%",   // ApnPushStrip (non-fullWidth)
+  "TWY-DEP":  "95%",   // TwyDepStrip
+  "TAXI-DEP": "90%",   // ApnTaxiDepStrip
+  "CLR":      "80%",   // DelStrip (non-fullWidth)
+  "CLX-HALF": "80%",   // ClxHalfStrip (non-fullWidth)
+  "CLROK":    "88.44%",// ClxClearedStrip (non-fullWidth)
+};
+
 export function Strip({ strip, status, halfStripVariant, myPosition, selectable, width, fullWidth }: StripRenderProps) {
   if (!isFlight(strip)) {
+    const effectiveWidth = width ?? (status ? STATUS_DEFAULT_WIDTH[status] : undefined);
     switch (strip.type) {
       case "MEMAID":
-        return <TacticalMemaidStrip strip={strip} width={width} />;
+        return <TacticalMemaidStrip strip={strip} width={effectiveWidth} />;
       case "CROSSING":
-        return <TacticalCrossingStrip strip={strip} width={width} />;
+        return <TacticalCrossingStrip strip={strip} width={effectiveWidth} />;
       case "START":
       case "LAND":
-        return <TacticalRwyStrip strip={strip} width={width} />;
+        return <TacticalRwyStrip strip={strip} width={effectiveWidth} />;
       default:
         return null;
     }

@@ -221,6 +221,9 @@ func GetGroundState(bay string) string {
 	if bay == BAY_DEPART {
 		return euroscope.GroundStateLineup
 	}
+	if bay == BAY_STAND {
+		return euroscope.GroundStateParked
+	}
 
 	return euroscope.GroundStateUnknown
 }

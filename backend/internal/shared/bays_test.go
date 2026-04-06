@@ -198,6 +198,13 @@ func TestGetGroundState_DepartMapsLineup(t *testing.T) {
 	}
 }
 
+func TestGetGroundState_StandMapsParked(t *testing.T) {
+	state := GetGroundState(BAY_STAND)
+	if state != euroscope.GroundStateParked {
+		t.Fatalf("expected GroundStateParked for BAY_STAND, got %s", state)
+	}
+}
+
 func TestGetDepartureBayFromGroundState_TaxiReturnsTaxi(t *testing.T) {
 	// When the existing bay is a plain TAXI/PUSH state, TAXI ground state should assign BAY_TAXI.
 	existing := database.Strip{Origin: "EKCH", Bay: BAY_PUSH}

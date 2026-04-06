@@ -1926,9 +1926,12 @@ func (s *StripService) UpdateGroundStateForMove(ctx context.Context, session int
 	state := strip.State
 	if strip.Origin == airport {
 		groundState := shared.GetGroundState(bay)
-		if groundState != euroscope.GroundStateUnknown {
+		if groundState != euroscope.GroundStateUnknown && bay != shared.BAY_STAND {
 			state = &groundState
 		}
+	} else if strip.Destination == airport && bay == shared.BAY_STAND {
+		parked := euroscope.GroundStateParked
+		state = &parked
 	}
 
 	count, err := s.stripRepo.UpdateGroundState(ctx, session, callsign, state, bay, nil)

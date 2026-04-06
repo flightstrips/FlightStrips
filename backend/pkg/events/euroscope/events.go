@@ -50,6 +50,7 @@ const (
 	GroundStateTaxi    = "TAXI"
 	GroundStateLineup  = "LINEUP"
 	GroundStateDepart  = "DEPA"
+	GroundStateParked  = "PARK"
 )
 
 type OutgoingMessage interface {

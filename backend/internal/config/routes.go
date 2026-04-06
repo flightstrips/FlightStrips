@@ -156,28 +156,39 @@ type Route struct {
 	ForRunway      string       `yaml:"forRunway"`      // e.g., "RWY27" or "27" (case-insensitive)
 	ForStandRanges []StandRange `yaml:"forStandRanges"` // e.g., A10-A20, B5-B10, or single stands like W1 (From=To=1)
 	Path           []string     `yaml:"path"`           // ordered Sector names from general origin area to destination
-	Active         []string     `yaml:"active"`         // all of these "active" flags must be present to use this route
+	Active         []string     `yaml:"active"`         // runways that must be active for this route to match
+	RequireAll     bool         `yaml:"require_all"`    // if true, all Active runways must be present (default: any)
 }
 
-// ComputeToRunway selects a route to the given runway that is valid under the current
-// active Sector flags and contains the aircraft's current Sector within its path.
-// Returns the subsequence of config from the current Sector to the end of the route.
+// ComputeToRunway selects the best-matching route to the given runway under the
+// current active flags and containing the aircraft's current Sector in its path.
+// "Best" means the route whose active list has the most runways in common with
+// the current active set (same scoring as sector selection). A route with an
+// empty active list is a catch-all (score 0) and loses to any specific match.
+// Returns the subsequence of path from the current Sector to the end.
 func ComputeToRunway(active []string, currentSector string, runway string) ([]string, bool) {
 	candidates := runwayRoutes[normalizeRunway(runway)]
 	if len(candidates) == 0 {
 		return nil, false
 	}
+	bestScore := -1
+	var bestPath []string
 	for _, r := range candidates {
-		if !hasAnyActive(active, r.Active) {
+		score := scoreActive(r.Active, active, r.RequireAll)
+		if score < 0 || score <= bestScore {
 			continue
 		}
 		startIdx := indexOfSector(r.Path, currentSector)
 		if startIdx < 0 {
 			continue
 		}
-		return r.Path[startIdx:], true
+		bestScore = score
+		bestPath = r.Path[startIdx:]
 	}
-	return nil, false
+	if bestScore < 0 {
+		return nil, false
+	}
+	return bestPath, true
 }
 
 // ComputeToStand selects a route to the given destination stand that is valid under
@@ -189,11 +200,12 @@ func ComputeToStand(active []string, currentSector string, standStr string) ([]s
 	if err != nil {
 		return nil, false
 	}
+	bestScore := -1
+	var bestPath []string
 	for _, r := range standRoutes {
 		if len(r.ForStandRanges) == 0 {
 			continue
 		}
-		// must match at least one configured range (including singletons)
 		matched := false
 		for _, sr := range r.ForStandRanges {
 			if sr.Contains(st) {
@@ -204,18 +216,21 @@ func ComputeToStand(active []string, currentSector string, standStr string) ([]s
 		if !matched {
 			continue
 		}
-		if !hasAnyActive(active, r.Active) {
+		score := scoreActive(r.Active, active, r.RequireAll)
+		if score < 0 || score <= bestScore {
 			continue
 		}
 		startIdx := indexOfSector(r.Path, currentSector)
 		if startIdx < 0 {
 			continue
 		}
-		// Without coverage mapping, the route's Path is assumed to lead to the stands;
-		// return from current Sector to the end of the path.
-		return r.Path[startIdx:], true
+		bestScore = score
+		bestPath = r.Path[startIdx:]
 	}
-	return nil, false
+	if bestScore < 0 {
+		return nil, false
+	}
+	return bestPath, true
 }
 
 func normalizeRunway(rwy string) string {
@@ -253,16 +268,23 @@ func GetAirborneSector(sid string) (string, error) {
 // the receiving tower sector — and is used to ensure arrival strips have at
 // least the tower controller as a next owner even before a stand is assigned.
 func GetArrivalTowerSector(active []string) (string, bool) {
+	bestScore := -1
+	bestSector := ""
 	for _, r := range standRoutes {
 		if len(r.ForStandRanges) == 0 || len(r.Path) == 0 {
 			continue
 		}
-		if !hasAnyActive(active, r.Active) {
+		score := scoreActive(r.Active, active, r.RequireAll)
+		if score < 0 || score <= bestScore {
 			continue
 		}
-		return r.Path[0], true
+		bestScore = score
+		bestSector = r.Path[0]
 	}
-	return "", false
+	if bestScore < 0 {
+		return "", false
+	}
+	return bestSector, true
 }
 
 func GetAirborneControllerPriority(sid string) ([]string, error) {

@@ -79,6 +79,73 @@ func TestGetArrivalTowerSector_ReturnsFalseWhenNoStandRoutes(t *testing.T) {
 	}
 }
 
+func TestGetArrivalTowerSector_TieBreaksByFirstInFile(t *testing.T) {
+	original := standRoutes
+	t.Cleanup(func() { standRoutes = original })
+
+	// Both routes score 1 for active runway "22L" — first must win.
+	standRoutes = []Route{
+		{
+			ForStandRanges: []StandRange{{Prefix: "A", From: 1, To: 99}},
+			Active:         []string{"22L"},
+			Path:           []string{"TE", "GW", "AA"},
+		},
+		{
+			ForStandRanges: []StandRange{{Prefix: "A", From: 1, To: 99}},
+			Active:         []string{"22L"},
+			Path:           []string{"TW", "GW", "AA"},
+		},
+	}
+
+	sector, ok := GetArrivalTowerSector([]string{"22L"})
+	if !ok {
+		t.Fatal("expected a tower sector to be found")
+	}
+	if sector != "TE" {
+		t.Fatalf("expected first route (TE) to win tie, got %q", sector)
+	}
+}
+
+func TestComputeToRunway_RequireAll_MatchesWhenAllPresent(t *testing.T) {
+	original := runwayRoutes
+	t.Cleanup(func() { runwayRoutes = original })
+
+	runwayRoutes = map[string][]Route{
+		"22R": {
+			{Active: []string{}, Path: []string{"AD", "GW", "TW"}, ForRunway: "22R"},
+			{Active: []string{"22R", "04L"}, RequireAll: true, Path: []string{"AD", "TW"}, ForRunway: "22R"},
+		},
+	}
+
+	path, ok := ComputeToRunway([]string{"22R", "04L"}, "AD", "22R")
+	if !ok {
+		t.Fatal("expected a route to be found")
+	}
+	if len(path) != 2 || path[1] != "TW" {
+		t.Fatalf("expected require_all route [AD TW], got %v", path)
+	}
+}
+
+func TestComputeToRunway_RequireAll_FallsBackWhenPartialMatch(t *testing.T) {
+	original := runwayRoutes
+	t.Cleanup(func() { runwayRoutes = original })
+
+	runwayRoutes = map[string][]Route{
+		"22R": {
+			{Active: []string{}, Path: []string{"AD", "GW", "TW"}, ForRunway: "22R"},
+			{Active: []string{"22R", "04L"}, RequireAll: true, Path: []string{"AD", "TW"}, ForRunway: "22R"},
+		},
+	}
+
+	path, ok := ComputeToRunway([]string{"22R"}, "AD", "22R")
+	if !ok {
+		t.Fatal("expected fallback route to be found")
+	}
+	if len(path) != 3 || path[1] != "GW" {
+		t.Fatalf("expected fallback route [AD GW TW], got %v", path)
+	}
+}
+
 func TestGetAirborneControllerPriority(t *testing.T) {
 	originalRoutes := airborneRoutes
 	originalSectors := sectors

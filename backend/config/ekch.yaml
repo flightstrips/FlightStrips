@@ -197,6 +197,7 @@ sectors:
       - "EKCH_DEL"
       - "EKCH_A_GND"
       - "EKCH_B_GND"
+      - "EKCH_C_GND"
       - "EKCH_C_TWR"
       - "EKCH_D_TWR"
       - "EKCH_A_TWR"
@@ -223,6 +224,7 @@ sectors:
     owner:
       - "EKCH_A_GND"
       - "EKCH_B_GND"
+      - "EKCH_C_GND"
       - "EKCH_C_TWR"
       - "EKCH_D_TWR"
       - "EKCH_A_TWR"
@@ -237,14 +239,6 @@ sectors:
       - "EKCH_C_GND"
       - "EKCH_B_GND"
       - "EKCH_A_GND"
-      - "EKCH_C_TWR"
-      - "EKCH_D_TWR"
-      - "EKCH_A_TWR"
-  - name: GW
-    name_priority: 40
-    active: [ ]
-    region: [GROUND_WEST]
-    owner:
       - "EKCH_C_TWR"
       - "EKCH_D_TWR"
       - "EKCH_A_TWR"
@@ -284,6 +278,63 @@ sectors:
       - "EKCH_A_TWR"
       - "EKCH_D_TWR"
       - "EKCH_C_TWR"
+
+  # Towers 30
+  - name: TE
+    name_priority: 50
+    active: ["30"]
+    region: [TOWER_12_EAST]
+    owner:
+      - "EKCH_A_TWR"
+      - "EKCH_D_TWR"
+      - "EKCH_C_TWR"
+  - name: GW
+    name_priority: 40
+    active: ["30"]
+    region: [GROUND_12_30_WEST, TOWER_WEST]
+    owner:
+      - "EKCH_C_TWR"
+      - "EKCH_D_TWR"
+      - "EKCH_A_TWR"
+
+  # Towers 30/22R
+  - name: TE
+    name_priority: 50
+    active: ["30", "22R"]
+    require_all: true
+    region: [TOWER_12_EAST]
+    owner:
+      - "EKCH_A_TWR"
+      - "EKCH_D_TWR"
+      - "EKCH_C_TWR"
+  - name: TW
+    name_priority: 50
+    active: ["30", "22R"]
+    require_all: true
+    region: [TOWER_WEST]
+    owner:
+      - "EKCH_D_TWR"
+      - "EKCH_A_TWR"
+      - "EKCH_C_TWR"
+  - name: GW
+    name_priority: 40
+    active: ["30", "22R"]
+    require_all: true
+    region: [GROUND_12_30_WEST]
+    owner:
+      - "EKCH_C_TWR"
+      - "EKCH_D_TWR"
+      - "EKCH_A_TWR"
+
+  # Fallback
+  - name: GW
+    name_priority: 40
+    active: [ "22L", "22R", "04L", "04R", "12", "30" ]
+    region: [GROUND_WEST]
+    owner:
+      - "EKCH_C_TWR"
+      - "EKCH_D_TWR"
+      - "EKCH_A_TWR"
 
   # Airborne
   - name: K_DEP
@@ -337,7 +388,31 @@ routes:
     forRunway: 04R
     active: [04R]
     path: [TW]
+  - name: Stands to Runway 30
+    forRunway: "30"
+    active: ["30"]
+    path: [AD, GW, TE]
+  - name: Stands to Runway 22R cargo
+    forRunway: "30"
+    active: ["30"]
+    path: [GW, TE]
   # TODO rest of the runways
+  - name: Runway 30 to cargo
+    forStandRanges:
+      - G110-G137
+    active: ["30"]
+    path: [TE, AA, GW]
+  - name: Runway 30 to rest
+    forStandRanges:
+      - A1-A33
+      - B3-B19
+      - C10-C39
+      - D1-D4
+      - E20-E90
+      - F1-F99
+      - H101-H106
+    active: ["30"]
+    path: [TE, AA]
   - name: Runway 22L/04R to high A stands
     forStandRanges:
       - A17-A33

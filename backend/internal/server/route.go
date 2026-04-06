@@ -217,7 +217,11 @@ func (s *Server) updateRouteForStripHelper(strip *models.Strip, session *models.
 
 	actualRoute := make([]string, 0)
 	for _, s := range path {
-		if owner, ok := sectorToOnwer[s]; ok && !slices.Contains(actualRoute, owner) {
+		owner, ok := sectorToOnwer[s]
+		if !ok {
+			continue
+		}
+		if len(actualRoute) == 0 || actualRoute[len(actualRoute)-1] != owner {
 			actualRoute = append(actualRoute, owner)
 		}
 	}

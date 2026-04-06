@@ -2,7 +2,6 @@
 
 import (
 	"errors"
-	"slices"
 	"strings"
 )
 
@@ -17,6 +16,7 @@ type Sector struct {
 	Region       []string     `yaml:"region"`
 	Constraints  *constraints `yaml:"constraints"`
 	Active       []string     `yaml:"active"`
+	RequireAll   bool         `yaml:"require_all"`
 	Owner        []string     `yaml:"owner"`
 }
 
@@ -46,11 +46,24 @@ func GetControllerSectors(controllers []*Position, active []string) map[string][
 		lookup[c.Name] = c.Frequency
 	}
 
+	// Group sectors by name, then pick the most specific match per group.
+	type scored struct {
+		sector Sector
+		score  int
+	}
+	byName := make(map[string]scored)
 	for _, s := range sectors {
-		if !isActive(s, active) {
+		score := matchScore(s, active)
+		if score < 0 {
 			continue
 		}
+		if prev, seen := byName[s.Name]; !seen || score > prev.score {
+			byName[s.Name] = scored{s, score}
+		}
+	}
 
+	for _, entry := range byName {
+		s := entry.sector
 		for _, owner := range s.Owner {
 			if _, ok := result[lookup[owner]]; ok {
 				result[lookup[owner]] = append(result[lookup[owner]], s)
@@ -62,14 +75,9 @@ func GetControllerSectors(controllers []*Position, active []string) map[string][
 	return result
 }
 
-func isActive(sector Sector, active []string) bool {
-	if len(sector.Active) == 0 {
-		return true
-	}
-	for _, a := range active {
-		if slices.Contains(sector.Active, a) {
-			return true
-		}
-	}
-	return false
+// matchScore returns how many of the sector's active runways are in the
+// current active set. A sector with an empty active list always matches
+// with score 0. Returns -1 if the sector has no match at all.
+func matchScore(sector Sector, active []string) int {
+	return scoreActive(sector.Active, active, sector.RequireAll)
 }

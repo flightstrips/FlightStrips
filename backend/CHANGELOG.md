@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.15.0](https://github.com/flightstrips/FlightStrips/compare/backend/v0.14.0...backend/v0.15.0) (2026-04-06)
+
+
+### Features
+
+* Set aircraft state to PARKED when in STAND bay ([a0ef3ea](https://github.com/flightstrips/FlightStrips/commit/a0ef3eae8a6a194e7d642c181d6e1a04d3466233))
+* Support 30/22R runway configuration ([07739c6](https://github.com/flightstrips/FlightStrips/commit/07739c66fca2f60f474d07fcfb07147e2a3a989b))
+
 ## [0.14.0](https://github.com/flightstrips/FlightStrips/compare/backend/v0.13.0...backend/v0.14.0) (2026-03-31)
 
 

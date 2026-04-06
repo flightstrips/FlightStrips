@@ -57,7 +57,7 @@ export function FinalArrStrip({
   const cellBorderColor = getCellBorderColor(marked, CELL_BORDER);
   const stripTransfers = useStripTransfers();
   const isTagRequest = !!stripTransfers[callsign]?.isTagRequest;
-  const { isUnconcerned } = getStripOwnership(myPosition, owner, nextControllers, previousControllers);
+  const { isUnconcerned, isAssumed } = getStripOwnership(myPosition, owner, nextControllers, previousControllers);
   const { bg, textWhite } = useStripBg(runway, COLOR_ARR_YELLOW, isTagRequest, isUnconcerned);
   const runwayClearance = useWebSocketStore(s => s.runwayClearance);
   const runwayConfirmation = useWebSocketStore(s => s.runwayConfirmation);
@@ -142,7 +142,7 @@ export function FinalArrStrip({
       <div
         className="flex flex-col border-r-2 min-w-0 cursor-pointer hover:brightness-95"
         style={{ flexGrow: F_TAXIWAY, flexBasis: 0, height: "100%", borderRightColor: cellBorderColor }}
-        onClick={(e) => { e.stopPropagation(); setStandOpen(true); }}
+        onClick={isAssumed ? (e) => { e.stopPropagation(); setStandOpen(true); } : undefined}
       >
         <div className="flex items-center justify-center" style={{ height: TOP_H }}>
           <span className="truncate px-[0.21vw]" style={{ fontFamily: FONT, fontWeight: 600, fontSize: "0.83vw" }}>
@@ -160,7 +160,7 @@ export function FinalArrStrip({
         <div
           className={`flex items-center justify-center${bay === Bay.Final || bay === Bay.RwyArr ? " cursor-pointer" : ""}`}
           style={{ height: TOP_H }}
-          onClick={bay === Bay.Final || bay === Bay.RwyArr ? (e) => { e.stopPropagation(); if (runwayCleared && !runwayConfirmed) { runwayConfirmation(callsign); } else { runwayClearance(callsign); } } : undefined}
+          onClick={(bay === Bay.Final || bay === Bay.RwyArr) && isAssumed ? (e) => { e.stopPropagation(); if (runwayCleared && !runwayConfirmed) { runwayConfirmation(callsign); } else { runwayClearance(callsign); } } : undefined}
         >
           <span className="truncate" style={{ fontFamily: FONT, fontWeight: "bold", fontSize: "0.94vw" }}>
             {runway}

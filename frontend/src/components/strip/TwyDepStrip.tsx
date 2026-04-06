@@ -74,7 +74,7 @@ export function TwyDepStrip({
   const { ctotBg, ctotColor, showCtot } = useCTOTColor(ctot ?? "");
   const isTagRequest = !!stripTransfers[callsign]?.isTagRequest;
   const cellBorderColor = getCellBorderColor(marked);
-  const { isUnconcerned } = getStripOwnership(myPosition, owner, nextControllers, previousControllers);
+  const { isUnconcerned, isAssumed } = getStripOwnership(myPosition, owner, nextControllers, previousControllers);
   const { bg, textWhite } = useStripBg(runway, getStripBg(pdcStatus, undefined, bay), isTagRequest, isUnconcerned, pdcStatus, bay);
   const controllers = useControllers();
   const transitionAltitude = useTransitionAltitude();
@@ -232,7 +232,7 @@ export function TwyDepStrip({
         <div
           className="flex items-center justify-center border-b-2 cursor-pointer"
           style={{ height: HALF_H, borderBottomColor: cellBorderColor, backgroundColor: rwyColor }}
-          onClick={(e) => { e.stopPropagation(); if (runwayCleared && !runwayConfirmed) { runwayConfirmation(callsign); } else { runwayClearance(callsign); } }}
+          onClick={(e) => { e.stopPropagation(); if (!isAssumed) return; if (runwayCleared && !runwayConfirmed) { runwayConfirmation(callsign); } else { runwayClearance(callsign); } }}
         >
           <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: "0.73vw", color: getCellTextColor("runway", controllerModifiedFields) }}>{runway}</span>
         </div>

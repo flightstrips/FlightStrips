@@ -92,7 +92,7 @@ template<typename T> requires std::is_base_of_v<Event, T>
 void FlightStrips::websocket::WebSocketService::SendEvent(const T &event) {
     ++tx;
     const nlohmann::json json = event;
-    const auto json_str = json.dump();
+    const auto json_str = json.dump(-1, ' ', false, nlohmann::detail::error_handler_t::ignore);
     webSocket->Send(json_str);
     Logger::Debug("Sending event: {}", json_str);
 }

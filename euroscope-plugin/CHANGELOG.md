@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.8.5](https://github.com/flightstrips/FlightStrips/compare/plugin/v0.8.4...plugin/v0.8.5) (2026-04-06)
+
+
+### Bug Fixes
+
+* Drop invalid UTF-8 chars ([fec2329](https://github.com/flightstrips/FlightStrips/commit/fec2329c1a10b530473ba40b24820b2ad2c6b6a3))
+* enable ES plugin ([da48c67](https://github.com/flightstrips/FlightStrips/commit/da48c674d0af2713e0835bc6231141606779d469))
+
 ## [0.8.4](https://github.com/flightstrips/FlightStrips/compare/plugin/v0.8.3...plugin/v0.8.4) (2026-03-29)
 
 

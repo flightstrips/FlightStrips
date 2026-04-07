@@ -77,12 +77,14 @@ func (s *Server) UpdateSectors(sessionId int32) ([]shared.SectorChange, error) {
 		}
 		defer tx.Rollback(context.Background())
 
-		err = sectorRepo.RemoveBySession(context.Background(), sessionId)
+		txSectorRepo := sectorRepo.WithTx(tx)
+
+		err = txSectorRepo.RemoveBySession(context.Background(), sessionId)
 		if err != nil {
 			return nil, err
 		}
 
-		err = sectorRepo.CreateBulk(context.Background(), currentOwners)
+		err = txSectorRepo.CreateBulk(context.Background(), currentOwners)
 		if err != nil {
 			return nil, err
 		}

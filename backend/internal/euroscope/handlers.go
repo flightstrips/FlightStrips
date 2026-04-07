@@ -102,7 +102,7 @@ func handleControllerOffline(ctx context.Context, client *Client, message Messag
 			slog.String("callsign", event.Callsign),
 			slog.String("position", result.PositionName),
 			slog.Int("session", int(session)))
-		client.hub.scheduleOfflineActions(session, event.Callsign, result.PositionFrequency, result.PositionName)
+		client.hub.scheduleOfflineActions(session, event.Callsign, result.PositionFrequency, result.PositionName, offlineGracePeriod)
 	}
 
 	return nil
@@ -177,7 +177,8 @@ func handleAircraftDisconnected(ctx context.Context, client *Client, message Mes
 	if err := message.JsonUnmarshal(&event); err != nil {
 		return err
 	}
-	return client.hub.stripService.DeleteStrip(ctx, client.session, event.Callsign)
+	client.hub.scheduleAircraftDisconnect(client.session, event.Callsign, offlineGracePeriod)
+	return nil
 }
 
 func handleStand(ctx context.Context, client *Client, message Message) error {
@@ -244,10 +245,14 @@ func handleSync(ctx context.Context, client *Client, message Message) error {
 
 	slog.Debug("Received sync event", slog.Int("session", int(session)), slog.String("client", client.callsign))
 
-	for _, controller := range event.Controllers {
-		if err := client.hub.controllerService.UpsertController(ctx, session, controller.Callsign, controller.Position); err != nil {
-			return err
-		}
+	// Convert the anonymous struct slice to the named helper type.
+	controllers := make([]syncController, len(event.Controllers))
+	for i, c := range event.Controllers {
+		controllers[i] = syncController{Position: c.Position, Callsign: c.Callsign}
+	}
+
+	if err := syncControllersFromEvent(ctx, client, session, controllers); err != nil {
+		return err
 	}
 
 	if len(event.Runways) > 0 {
@@ -263,42 +268,150 @@ func handleSync(ctx context.Context, client *Client, message Message) error {
 		return err
 	}
 
-	for _, strip := range event.Strips {
+	if err := syncStripsFromEvent(ctx, client, session, event.Strips); err != nil {
+		return err
+	}
+
+	autoAssumeForSync(ctx, client, session, controllers)
+
+	s.GetFrontendHub().CidOnline(session, client.user.GetCid())
+
+	// Only the master client can authoritatively declare what is live.
+	if master, ok := client.hub.master[client.session]; ok && master == client {
+		reconcileDBState(ctx, client, session, event)
+	}
+
+	if len(event.Sids) > 0 {
+		persistSIDs(ctx, client, session, models.AvailableSids(event.Sids))
+	}
+
+	return nil
+}
+
+// syncController mirrors the anonymous struct inside euroscope.SyncEvent.Controllers.
+type syncController struct {
+	Position string `json:"position"`
+	Callsign string `json:"callsign"`
+}
+
+// syncControllersFromEvent upserts each controller from the sync and cancels any
+// pending offline timer for its position.
+func syncControllersFromEvent(ctx context.Context, client *Client, session int32, controllers []syncController) error {
+	for _, controller := range controllers {
+		if err := client.hub.controllerService.UpsertController(ctx, session, controller.Callsign, controller.Position); err != nil {
+			return err
+		}
+		if pos, err := config.GetPositionBasedOnFrequency(controller.Position); err == nil {
+			client.hub.cancelOfflineTimer(session, pos.Name)
+		}
+	}
+	return nil
+}
+
+// syncStripsFromEvent syncs each strip to the DB and cancels any pending aircraft-disconnect timer.
+func syncStripsFromEvent(ctx context.Context, client *Client, session int32, strips []euroscope.Strip) error {
+	for _, strip := range strips {
 		if err := client.hub.stripService.SyncStrip(ctx, session, client.GetCid(), strip, client.airport); err != nil {
 			return err
 		}
+		client.hub.cancelAircraftDisconnect(session, strip.Callsign)
 	}
+	return nil
+}
 
-	// Auto-assume for all controllers visible in the sync, plus the local (master) controller.
-	// The local controller is not included in event.Controllers (which only lists remote controllers),
-	// but its strips may be waiting for assumption.
-	positionsToAssume := make(map[string]bool)
-	for _, controller := range event.Controllers {
-		positionsToAssume[controller.Position] = true
+// autoAssumeForSync triggers AutoAssumeForControllerOnline for every position seen in
+// the sync event plus the master's own position. Errors are logged but not returned
+// because a failing auto-assume must not abort the sync.
+func autoAssumeForSync(ctx context.Context, client *Client, session int32, controllers []syncController) {
+	positions := make(map[string]bool)
+	for _, c := range controllers {
+		positions[c.Position] = true
 	}
 	if client.position != "" {
-		positionsToAssume[client.position] = true
+		positions[client.position] = true
 	}
-	for position := range positionsToAssume {
+	for position := range positions {
 		if err := client.hub.stripService.AutoAssumeForControllerOnline(ctx, session, position); err != nil {
 			slog.Error("AutoAssumeForControllerOnline failed during sync",
 				slog.String("position", position), slog.Any("error", err))
 		}
 	}
+}
 
-	client.hub.server.GetFrontendHub().CidOnline(session, client.user.GetCid())
+// reconcileDBState compares the DB against the sync event and schedules grace-period
+// timers for any stale controllers or strips the master did not report as live.
+func reconcileDBState(ctx context.Context, client *Client, session int32, event euroscope.SyncEvent) {
+	// Build the set of known-live controller callsigns. The master's own callsign is
+	// never in event.Controllers (remote-only list) so we add it explicitly.
+	knownControllers := make(map[string]bool, len(event.Controllers)+1)
+	for _, c := range event.Controllers {
+		knownControllers[c.Callsign] = true
+	}
+	knownControllers[client.callsign] = true
 
-	if len(event.Sids) > 0 {
-		sessionRepo := s.GetSessionRepository()
-		availSids := models.AvailableSids(event.Sids)
-		if err := sessionRepo.UpdateSessionSids(ctx, session, availSids); err != nil {
-			slog.Error("Failed to persist available SIDs", slog.Any("error", err))
-			// non-fatal — do not return
-		}
-		s.GetFrontendHub().SendAvailableSids(session, availSids)
+	reconcileStaleControllers(ctx, client, session, knownControllers)
+
+	knownStrips := make(map[string]bool, len(event.Strips))
+	for _, s := range event.Strips {
+		knownStrips[s.Callsign] = true
 	}
 
-	return nil
+	reconcileStaleStrips(ctx, client, session, knownStrips)
+}
+
+// reconcileStaleControllers schedules offline timers for any DB controllers whose
+// callsign is absent from knownCallsigns. Errors fetching the DB list are logged only.
+func reconcileStaleControllers(ctx context.Context, client *Client, session int32, knownCallsigns map[string]bool) {
+	dbControllers, err := client.hub.server.GetControllerRepository().List(ctx, session)
+	if err != nil {
+		slog.Error("Sync reconciliation: failed to list controllers", slog.Any("error", err))
+		return
+	}
+	for _, dbCtrl := range dbControllers {
+		if knownCallsigns[dbCtrl.Callsign] {
+			continue
+		}
+		posFreq := dbCtrl.Position
+		posName := ""
+		if pos, posErr := config.GetPositionBasedOnFrequency(dbCtrl.Position); posErr == nil {
+			posFreq = pos.Frequency
+			posName = pos.Name
+		}
+		slog.Info("Sync reconciliation: scheduling offline for missing controller",
+			slog.String("callsign", dbCtrl.Callsign),
+			slog.Int("session", int(session)))
+		client.hub.scheduleOfflineActions(session, dbCtrl.Callsign, posFreq, posName, offlineGracePeriod)
+	}
+}
+
+// reconcileStaleStrips schedules aircraft-disconnect timers for any DB strips whose
+// callsign is absent from knownCallsigns. Errors fetching the DB list are logged only.
+func reconcileStaleStrips(ctx context.Context, client *Client, session int32, knownCallsigns map[string]bool) {
+	dbStrips, err := client.hub.server.GetStripRepository().List(ctx, session)
+	if err != nil {
+		slog.Error("Sync reconciliation: failed to list strips", slog.Any("error", err))
+		return
+	}
+	for _, dbStrip := range dbStrips {
+		if knownCallsigns[dbStrip.Callsign] {
+			continue
+		}
+		slog.Info("Sync reconciliation: scheduling disconnect for missing strip",
+			slog.String("callsign", dbStrip.Callsign),
+			slog.Int("session", int(session)))
+		client.hub.scheduleAircraftDisconnect(session, dbStrip.Callsign, offlineGracePeriod)
+	}
+}
+
+// persistSIDs saves the available SIDs from the sync event and broadcasts to the frontend.
+// Errors are logged only — a SID persistence failure must not abort the sync.
+func persistSIDs(ctx context.Context, client *Client, session int32, sids models.AvailableSids) {
+	s := client.hub.server
+	availSids := sids
+	if err := s.GetSessionRepository().UpdateSessionSids(ctx, session, availSids); err != nil {
+		slog.Error("Failed to persist available SIDs", slog.Any("error", err))
+	}
+	s.GetFrontendHub().SendAvailableSids(session, availSids)
 }
 
 func handleStripUpdateEvent(ctx context.Context, client *Client, message Message) error {

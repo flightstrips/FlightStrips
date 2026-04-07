@@ -3,8 +3,10 @@ package postgres
 import (
 	"FlightStrips/internal/database"
 	"FlightStrips/internal/models"
+	"FlightStrips/internal/repository"
 	"context"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -79,4 +81,9 @@ func (r *sectorOwnerRepository) DeleteAllBySession(ctx context.Context, session 
 // RemoveBySession is an alias for DeleteAllBySession
 func (r *sectorOwnerRepository) RemoveBySession(ctx context.Context, session int32) error {
 	return r.DeleteAllBySession(ctx, session)
+}
+
+// WithTx returns a new SectorOwnerRepository that uses the given transaction.
+func (r *sectorOwnerRepository) WithTx(tx pgx.Tx) repository.SectorOwnerRepository {
+	return &sectorOwnerRepository{queries: r.queries.WithTx(tx)}
 }

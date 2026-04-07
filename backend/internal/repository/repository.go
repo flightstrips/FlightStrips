@@ -5,6 +5,8 @@ import (
 	pkgModels "FlightStrips/pkg/models"
 	"context"
 	"time"
+
+	"github.com/jackc/pgx/v5"
 )
 
 // StripRepository defines the interface for strip data access
@@ -139,6 +141,7 @@ type SectorOwnerRepository interface {
 	Delete(ctx context.Context, id int32) error
 	DeleteAllBySession(ctx context.Context, session int32) error
 	RemoveBySession(ctx context.Context, session int32) error
+	WithTx(tx pgx.Tx) SectorOwnerRepository
 }
 
 // TacticalStripRepository defines the interface for tactical strip data access

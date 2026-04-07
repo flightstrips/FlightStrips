@@ -28,6 +28,29 @@ type internalMessage struct {
 	cid     *string
 }
 
+// offlineTimerEntry holds the cancel function and metadata for a pending position offline timer.
+type offlineTimerEntry struct {
+	cancel       context.CancelFunc
+	session      int32
+	callsign     string
+	positionFreq string
+	positionName string
+}
+
+// aircraftDisconnectEntry holds the cancel function and metadata for a pending aircraft disconnect timer.
+type aircraftDisconnectEntry struct {
+	cancel   context.CancelFunc
+	session  int32
+	callsign string
+}
+
+// sessionUpdatePending batches UpdateSectors/UpdateLayouts/UpdateRoutes calls
+// that would otherwise fire concurrently from multiple offline timers.
+type sessionUpdatePending struct {
+	timer     *time.Timer
+	positions []string // offline position names gathered in this debounce window
+}
+
 type Hub struct {
 	server                shared.Server
 	stripService          shared.StripService
@@ -53,7 +76,16 @@ type Hub struct {
 
 	// Offline timer support — cancellable per-position delayed offline processing
 	offlineMu     sync.Mutex
-	offlineTimers map[string]context.CancelFunc // key: "<sessionID>:<positionName>"
+	offlineTimers map[string]*offlineTimerEntry // key: "<sessionID>:<positionName>"
+
+	// Aircraft disconnect timer support — delays strip removal to survive master transitions
+	aircraftDisconnectMu     sync.Mutex
+	aircraftDisconnectTimers map[string]*aircraftDisconnectEntry // key: "<sessionID>:<callsign>"
+
+	// Session update debouncer — batches UpdateSectors/UpdateLayouts/UpdateRoutes calls
+	// so concurrent offline timers produce a single recalculation per session.
+	sessionUpdateMu     sync.Mutex
+	sessionUpdateTimers map[int32]*sessionUpdatePending
 }
 
 func NewHub(stripService shared.StripService, controllerService shared.ControllerService, authenticationService shared.AuthenticationService) *Hub {
@@ -91,8 +123,10 @@ func NewHub(stripService shared.StripService, controllerService shared.Controlle
 		controllerService:     controllerService,
 		authenticationService: authenticationService,
 		recorders:             make(map[int32]*recorder.Recorder),
-		offlineTimers:         make(map[string]context.CancelFunc),
-		airportClientCount:    make(map[string]int),
+		offlineTimers:            make(map[string]*offlineTimerEntry),
+		aircraftDisconnectTimers: make(map[string]*aircraftDisconnectEntry),
+		sessionUpdateTimers:      make(map[int32]*sessionUpdatePending),
+		airportClientCount:       make(map[string]int),
 	}
 
 	go hub.Run()
@@ -366,6 +400,10 @@ func (hub *Hub) OnUnregister(client *Client) {
 		newMaster.send <- euroscope.SessionInfoEvent{Role: euroscope.SessionInfoMaster}
 		break
 	}
+
+	// Extend pending offline and aircraft-disconnect timers so the new master has
+	// time to send a SyncEvent that cancels them before they fire.
+	hub.extendSessionTimers(client.session)
 }
 
 func (hub *Hub) SendGenerateSquawk(session int32, cid string, callsign string) {
@@ -526,27 +564,38 @@ func (hub *Hub) Run() {
 	}
 }
 
-// scheduleOfflineActions starts a goroutine that, after a 15-second grace period,
+const (
+	offlineGracePeriod        = 15 * time.Second
+	masterTransferGracePeriod = 45 * time.Second
+)
+
+// scheduleOfflineActions starts a goroutine that, after the given grace period,
 // deletes the controller from the database, notifies all frontend clients that the
 // controller is offline, recalculates sector ownership, and — 5 seconds later —
 // broadcasts a specific sector-change notification.
 //
-// If cancelOfflineTimer is called for the same position key before the 15-second
-// window elapses, the goroutine exits cleanly and none of the above happens.
-func (hub *Hub) scheduleOfflineActions(session int32, callsign, positionFreq, positionName string) {
+// If cancelOfflineTimer is called for the same position key before the grace period
+// elapses, the goroutine exits cleanly and none of the above happens.
+func (hub *Hub) scheduleOfflineActions(session int32, callsign, positionFreq, positionName string, delay time.Duration) {
 	key := fmt.Sprintf("%d:%s", session, positionName)
 
 	ctx, cancel := context.WithCancel(context.Background())
 
 	hub.offlineMu.Lock()
 	if existing, ok := hub.offlineTimers[key]; ok {
-		existing()
+		existing.cancel()
 	}
-	hub.offlineTimers[key] = cancel
+	hub.offlineTimers[key] = &offlineTimerEntry{
+		cancel:       cancel,
+		session:      session,
+		callsign:     callsign,
+		positionFreq: positionFreq,
+		positionName: positionName,
+	}
 	hub.offlineMu.Unlock()
 
 	go func() {
-		// Phase 1: 15-second grace period
+		// Phase 1: grace period
 		select {
 		case <-ctx.Done():
 			slog.Debug("Controller offline timer cancelled (position came back online)",
@@ -554,7 +603,7 @@ func (hub *Hub) scheduleOfflineActions(session int32, callsign, positionFreq, po
 				slog.String("callsign", callsign),
 				slog.Int("session", int(session)))
 			return
-		case <-time.After(15 * time.Second):
+		case <-time.After(delay):
 		}
 
 		slog.Debug("Controller offline timer fired: processing offline",
@@ -574,45 +623,13 @@ func (hub *Hub) scheduleOfflineActions(session int32, callsign, positionFreq, po
 
 		s.GetFrontendHub().SendControllerOffline(session, callsign, positionFreq, "")
 
-		var changes []shared.SectorChange
-		if _, configErr := config.GetPositionBasedOnFrequency(positionFreq); configErr == nil {
-			var err error
-			changes, err = s.UpdateSectors(session)
-			if err != nil {
-				slog.Error("Failed to update sectors in offline timer",
-					slog.String("callsign", callsign),
-					slog.Any("error", err))
-			}
-			if err := s.UpdateLayouts(session); err != nil {
-				slog.Error("Failed to update layouts in offline timer",
-					slog.String("callsign", callsign),
-					slog.Any("error", err))
-			}
-			if err := s.UpdateRoutesForSession(session, true); err != nil {
-				slog.Error("Failed to update routes in offline timer",
-					slog.String("callsign", callsign),
-					slog.Any("error", err))
-			}
-		}
-
 		hub.offlineMu.Lock()
 		delete(hub.offlineTimers, key)
 		hub.offlineMu.Unlock()
 
-		// Phase 2: 5-second delay before broadcast notification
-		select {
-		case <-ctx.Done():
-			return
-		case <-time.After(5 * time.Second):
-		}
-
-		msg := buildOfflineBroadcastMessage(positionName, changes)
-		slog.Info("Sending offline broadcast message",
-			slog.String("position", positionName),
-			slog.String("callsign", callsign),
-			slog.String("message", msg),
-			slog.Int("session", int(session)))
-		s.GetFrontendHub().SendBroadcast(session, msg, "SYSTEM")
+		// Signal the per-session debouncer to recalculate sectors/layouts/routes.
+		// Multiple concurrent offline timers collapse into a single update run.
+		hub.scheduleSessionUpdate(session, positionName)
 	}()
 }
 
@@ -622,8 +639,8 @@ func (hub *Hub) cancelOfflineTimer(session int32, positionName string) bool {
 	key := fmt.Sprintf("%d:%s", session, positionName)
 	hub.offlineMu.Lock()
 	defer hub.offlineMu.Unlock()
-	if cancel, ok := hub.offlineTimers[key]; ok {
-		cancel()
+	if entry, ok := hub.offlineTimers[key]; ok {
+		entry.cancel()
 		delete(hub.offlineTimers, key)
 		slog.Debug("Offline timer cancelled — position came back online",
 			slog.String("position", positionName),
@@ -631,6 +648,87 @@ func (hub *Hub) cancelOfflineTimer(session int32, positionName string) bool {
 		return true
 	}
 	return false
+}
+
+// scheduleAircraftDisconnect starts a goroutine that removes the strip after the given
+// delay, unless cancelAircraftDisconnect is called first (e.g. because the new master's
+// SyncEvent confirms the aircraft is still alive).
+func (hub *Hub) scheduleAircraftDisconnect(session int32, callsign string, delay time.Duration) {
+	key := fmt.Sprintf("%d:%s", session, callsign)
+	ctx, cancel := context.WithCancel(context.Background())
+
+	hub.aircraftDisconnectMu.Lock()
+	if existing, ok := hub.aircraftDisconnectTimers[key]; ok {
+		existing.cancel()
+	}
+	hub.aircraftDisconnectTimers[key] = &aircraftDisconnectEntry{cancel: cancel, session: session, callsign: callsign}
+	hub.aircraftDisconnectMu.Unlock()
+
+	go func() {
+		select {
+		case <-ctx.Done():
+			slog.Debug("Aircraft disconnect timer cancelled (aircraft still alive)",
+				slog.String("callsign", callsign),
+				slog.Int("session", int(session)))
+			return
+		case <-time.After(delay):
+		}
+
+		hub.aircraftDisconnectMu.Lock()
+		delete(hub.aircraftDisconnectTimers, key)
+		hub.aircraftDisconnectMu.Unlock()
+
+		slog.Info("Aircraft disconnected, removing strip",
+			slog.String("callsign", callsign),
+			slog.Int("session", int(session)))
+		if err := hub.stripService.DeleteStrip(context.Background(), session, callsign); err != nil {
+			slog.Error("Failed to delete strip in aircraft disconnect timer",
+				slog.String("callsign", callsign),
+				slog.Any("error", err))
+		}
+	}()
+}
+
+// cancelAircraftDisconnect cancels a pending aircraft disconnect timer.
+func (hub *Hub) cancelAircraftDisconnect(session int32, callsign string) {
+	key := fmt.Sprintf("%d:%s", session, callsign)
+	hub.aircraftDisconnectMu.Lock()
+	defer hub.aircraftDisconnectMu.Unlock()
+	if entry, ok := hub.aircraftDisconnectTimers[key]; ok {
+		entry.cancel()
+		delete(hub.aircraftDisconnectTimers, key)
+	}
+}
+
+// extendSessionTimers extends all pending position offline timers and aircraft disconnect
+// timers for the session to masterTransferGracePeriod. Called when the master role is
+// transferred so that slaves still on VATSIM have time to sync and cancel the timers.
+func (hub *Hub) extendSessionTimers(session int32) {
+	hub.offlineMu.Lock()
+	posEntries := make([]*offlineTimerEntry, 0)
+	for _, e := range hub.offlineTimers {
+		if e.session == session {
+			posEntries = append(posEntries, e)
+		}
+	}
+	hub.offlineMu.Unlock()
+
+	for _, e := range posEntries {
+		hub.scheduleOfflineActions(e.session, e.callsign, e.positionFreq, e.positionName, masterTransferGracePeriod)
+	}
+
+	hub.aircraftDisconnectMu.Lock()
+	acEntries := make([]*aircraftDisconnectEntry, 0)
+	for _, e := range hub.aircraftDisconnectTimers {
+		if e.session == session {
+			acEntries = append(acEntries, e)
+		}
+	}
+	hub.aircraftDisconnectMu.Unlock()
+
+	for _, e := range acEntries {
+		hub.scheduleAircraftDisconnect(e.session, e.callsign, masterTransferGracePeriod)
+	}
 }
 
 // scheduleOnlineBroadcast fires a broadcast notification 5 seconds after a position
@@ -645,6 +743,88 @@ func (hub *Hub) scheduleOnlineBroadcast(session int32, positionName string, chan
 			slog.String("message", msg),
 			slog.Int("session", int(session)))
 		hub.server.GetFrontendHub().SendBroadcast(session, msg, "SYSTEM")
+	}()
+}
+
+// scheduleSessionUpdate debounces calls to UpdateSectors/UpdateLayouts/UpdateRoutes
+// for a session. Multiple calls within the debounce window (300 ms) are collapsed
+// into a single run. If new offline events arrive while the run is in progress, a
+// second run is automatically scheduled.
+//
+// positionName is the human-readable position name that went offline; pass "" when
+// triggering an update that is not tied to a specific position going offline.
+func (hub *Hub) scheduleSessionUpdate(session int32, positionName string) {
+	hub.sessionUpdateMu.Lock()
+	defer hub.sessionUpdateMu.Unlock()
+
+	if pending, ok := hub.sessionUpdateTimers[session]; ok {
+		// Timer is still pending — append the position and reset the window.
+		if positionName != "" {
+			pending.positions = append(pending.positions, positionName)
+		}
+		pending.timer.Reset(300 * time.Millisecond)
+		return
+	}
+
+	positions := make([]string, 0, 1)
+	if positionName != "" {
+		positions = append(positions, positionName)
+	}
+	pending := &sessionUpdatePending{positions: positions}
+	pending.timer = time.AfterFunc(300*time.Millisecond, func() {
+		hub.sessionUpdateMu.Lock()
+		// Guard against the AfterFunc-Reset race: if this pending has already
+		// been consumed or replaced, skip this run.
+		cur, ok := hub.sessionUpdateTimers[session]
+		if !ok || cur != pending {
+			hub.sessionUpdateMu.Unlock()
+			return
+		}
+		pos := pending.positions
+		delete(hub.sessionUpdateTimers, session)
+		hub.sessionUpdateMu.Unlock()
+
+		hub.runSessionUpdate(session, pos)
+	})
+	hub.sessionUpdateTimers[session] = pending
+}
+
+// runSessionUpdate executes the combined UpdateSectors/UpdateLayouts/UpdateRoutes
+// recalculation for a session and sends the broadcast notification.
+// positions holds the names of any positions that went offline in this window.
+func (hub *Hub) runSessionUpdate(session int32, positions []string) {
+	s := hub.server
+	changes, err := s.UpdateSectors(session)
+	if err != nil {
+		slog.Error("Failed to update sectors in session update",
+			slog.Int("session", int(session)), slog.Any("error", err))
+	}
+	if err := s.UpdateLayouts(session); err != nil {
+		slog.Error("Failed to update layouts in session update",
+			slog.Int("session", int(session)), slog.Any("error", err))
+	}
+	if err := s.UpdateRoutesForSession(session, true); err != nil {
+		slog.Error("Failed to update routes in session update",
+			slog.Int("session", int(session)), slog.Any("error", err))
+	}
+
+	if len(positions) == 0 {
+		return
+	}
+
+	// Broadcast after a short delay so clients have received the sector update first.
+	go func() {
+		time.Sleep(5 * time.Second)
+		var msg string
+		if len(positions) == 1 {
+			msg = buildOfflineBroadcastMessage(positions[0], changes)
+		} else {
+			msg = buildMultipleOfflineBroadcastMessage(positions, changes)
+		}
+		slog.Info("Sending session update broadcast",
+			slog.Int("session", int(session)),
+			slog.String("message", msg))
+		s.GetFrontendHub().SendBroadcast(session, msg, "SYSTEM")
 	}()
 }
 
@@ -670,6 +850,24 @@ func buildOnlineBroadcastMessage(positionName string, changes []shared.SectorCha
 		}
 	}
 	return fmt.Sprintf("%s is now online. Sectors: %s.", positionName, strings.Join(parts, ", "))
+}
+
+// buildMultipleOfflineBroadcastMessage constructs a combined offline message when
+// several positions went offline in the same debounce window.
+func buildMultipleOfflineBroadcastMessage(positions []string, changes []shared.SectorChange) string {
+	names := strings.Join(positions, ", ")
+	if len(changes) == 0 {
+		return fmt.Sprintf("%s went offline.", names)
+	}
+	parts := make([]string, len(changes))
+	for i, c := range changes {
+		if c.ToPosition == "" {
+			parts[i] = fmt.Sprintf("%s (no coverage)", c.SectorName)
+		} else {
+			parts[i] = fmt.Sprintf("%s (to %s)", c.SectorName, c.ToPosition)
+		}
+	}
+	return fmt.Sprintf("%s went offline. Sectors: %s.", names, strings.Join(parts, ", "))
 }
 
 // buildOfflineBroadcastMessage constructs the human-readable broadcast message for a

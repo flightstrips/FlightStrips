@@ -2,7 +2,10 @@ package testutil
 
 import (
 	"FlightStrips/internal/models"
+	"FlightStrips/internal/repository"
 	"context"
+
+	"github.com/jackc/pgx/v5"
 )
 
 // MockSectorOwnerRepository is a configurable mock for repository.SectorOwnerRepository.
@@ -13,6 +16,7 @@ type MockSectorOwnerRepository struct {
 	DeleteFn             func(ctx context.Context, id int32) error
 	DeleteAllBySessionFn func(ctx context.Context, session int32) error
 	RemoveBySessionFn    func(ctx context.Context, session int32) error
+	WithTxFn             func(tx pgx.Tx) repository.SectorOwnerRepository
 }
 
 func (m *MockSectorOwnerRepository) CreateBulk(ctx context.Context, owner []*models.SectorOwner) error {
@@ -55,4 +59,11 @@ func (m *MockSectorOwnerRepository) RemoveBySession(ctx context.Context, session
 		panic("unexpected call to MockSectorOwnerRepository.RemoveBySession")
 	}
 	return m.RemoveBySessionFn(ctx, session)
+}
+
+func (m *MockSectorOwnerRepository) WithTx(tx pgx.Tx) repository.SectorOwnerRepository {
+	if m.WithTxFn == nil {
+		panic("unexpected call to MockSectorOwnerRepository.WithTx")
+	}
+	return m.WithTxFn(tx)
 }

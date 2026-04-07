@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.19.1](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.19.0...frontend/v0.19.1) (2026-04-07)
+
+
+### Bug Fixes
+
+* able to move when not owned ([605a05f](https://github.com/flightstrips/FlightStrips/commit/605a05f0691ade43842eef82acbc8745de2d1284))
+* wrong callsign prefix for norwegian bay ([a727f1e](https://github.com/flightstrips/FlightStrips/commit/a727f1e68c75077b782a24b1848775ad757fd884))
+
 ## [0.19.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.18.0...frontend/v0.19.0) (2026-03-31)
 
 

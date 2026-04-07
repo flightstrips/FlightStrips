@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.6](https://github.com/flightstrips/FlightStrips/compare/plugin/v0.8.5...plugin/v0.8.6) (2026-04-07)
+
+
+### Bug Fixes
+
+* faster reconnects ([f09d3ee](https://github.com/flightstrips/FlightStrips/commit/f09d3ee0dceaf974bc8aba4da165c117a8010595))
+
 ## [0.8.5](https://github.com/flightstrips/FlightStrips/compare/plugin/v0.8.4...plugin/v0.8.5) (2026-04-06)
 
 

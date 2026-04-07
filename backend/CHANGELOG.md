@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.15.1](https://github.com/flightstrips/FlightStrips/compare/backend/v0.15.0...backend/v0.15.1) (2026-04-07)
+
+
+### Bug Fixes
+
+* breaking when switching master with a lot of controllers online ([2b2cf90](https://github.com/flightstrips/FlightStrips/commit/2b2cf90c1dc56df6c8a0c567355205e0587adb55))
+* support login event ([704a211](https://github.com/flightstrips/FlightStrips/commit/704a211c5af9a21f2ce7d1b7c6e225e5f17f7e58))
+
 ## [0.15.0](https://github.com/flightstrips/FlightStrips/compare/backend/v0.14.0...backend/v0.15.0) (2026-04-06)
 
 

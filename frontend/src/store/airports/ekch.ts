@@ -14,7 +14,7 @@ export const useTacticalStripsForBay = (bay: Bay) => {
 };
 
 const SAS_PREFIXES = ["SAS", "SZS"];
-const NORWEGIAN_PREFIXES = ["NAX", "NOZ", "NZS", "IBK"];
+const NORWEGIAN_PREFIXES = ["NAX", "NOZ", "NSZ", "IBK"];
 
 const isSasStrip = (strip: FrontendStrip) => {
   const cs = strip.callsign.toUpperCase();

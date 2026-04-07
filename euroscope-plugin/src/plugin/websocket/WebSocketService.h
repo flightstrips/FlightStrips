@@ -1,11 +1,12 @@
 #pragma once
+#include <array>
 #include <chrono>
 #include <optional>
+#include <string>
 #include "Events.h"
 #include "Logger.hpp"
 #include "WebSocket.h"
 #include "authentication/IAuthenticationService.h"
-#include "configuration/AppConfig.h"
 #include "handlers/AuthenticationEventHandler.h"
 #include "handlers/ConnectionEventHandlers.h"
 #include "handlers/MessageHandlers.h"
@@ -28,7 +29,8 @@ namespace FlightStrips::websocket {
 
     class WebSocketService : public handlers::TimedEventHandler, public handlers::AuthenticationEventHandler {
     public:
-        explicit WebSocketService(const std::shared_ptr<configuration::AppConfig> &appConfig,
+        explicit WebSocketService(std::string baseUrl,
+                                  bool apiEnabled,
                                   const std::shared_ptr<authentication::IAuthenticationService> &authentication_service,
                                   const std::shared_ptr<IFlightStripsPlugin> &plugin,
                                   const std::shared_ptr<handlers::ConnectionEventHandlers> &event_handlers,
@@ -43,6 +45,7 @@ namespace FlightStrips::websocket {
         void SendEvent(const T &event);
         bool IsConnected() const;
         bool IsPendingConnect() const;
+        bool IsBackingOff() const;
         bool ShouldSend() const;
         bool CanSendLocalCdmObservation() const;
         void SetSessionState(ClientState state);
@@ -58,8 +61,11 @@ namespace FlightStrips::websocket {
                          std::unique_ptr<WebSocket> webSocket,
                          bool enabled);
 
+        void OnConnected();
+        std::optional<std::chrono::steady_clock::time_point> online_without_primary_since_;
+
     private:
-        std::shared_ptr<configuration::AppConfig> m_appConfig;
+        std::string m_base_url;
         std::shared_ptr<authentication::IAuthenticationService> m_authentication_service;
         std::shared_ptr<IFlightStripsPlugin> m_plugin;
         std::shared_ptr<handlers::ConnectionEventHandlers> m_connection_handlers;
@@ -73,17 +79,21 @@ namespace FlightStrips::websocket {
 
         bool enabled;
 
-        static constexpr int CONNECT_DELAY_SECONDS = 30;
         static constexpr int FAST_CONNECT_DELAY_SECONDS = 5;
+        static constexpr int ONLINE_WITHOUT_PRIMARY_THRESHOLD_SECONDS = 30;
+        static constexpr std::array<int, 7> BACKOFF_MS = {500, 1000, 2000, 5000, 10000, 15000, 30000};
+
+        enum class ConnectReadiness { FIRST_CONNECT, RECONNECT };
+        ConnectReadiness connect_readiness_ = ConnectReadiness::FIRST_CONNECT;
+
         std::optional<std::chrono::steady_clock::time_point> connect_after_;
         bool pending_connect_ = false;
-        bool has_been_offline_ = false;
+        int fail_count_ = 0;
 
         int tx = 0;
         int rx = 0;
 
         void OnMessage(const std::string &message);
-        void OnConnected();
         void SendLoginEvent();
     };
 }

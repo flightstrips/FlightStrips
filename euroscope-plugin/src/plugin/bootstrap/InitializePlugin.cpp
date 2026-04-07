@@ -66,7 +66,8 @@ namespace FlightStrips {
                                                                        this->container->appConfig,
                                                                        this->container->tagItemHandlers);
         this->container->webSocketService = std::make_shared<websocket::WebSocketService>(
-            this->container->appConfig, this->container->authenticationService, this->container->plugin,
+            this->container->appConfig->GetBaseUrl(), this->container->appConfig->GetApiEnabled(),
+            this->container->authenticationService, this->container->plugin,
             this->container->connectionEventHandlers, this->container->messageHandlers);
         flightplan::FlightPlanBootstrapper::Bootstrap(*this->container);
         this->container->controllerService = std::make_shared<controller::ControllerService>(

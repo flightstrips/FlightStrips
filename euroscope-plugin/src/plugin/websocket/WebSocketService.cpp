@@ -7,23 +7,24 @@
 #include "Logger.hpp"
 
 namespace FlightStrips::websocket {
-    WebSocketService::WebSocketService(const std::shared_ptr<configuration::AppConfig> &appConfig,
+    WebSocketService::WebSocketService(std::string baseUrl,
+                                       const bool apiEnabled,
                                        const std::shared_ptr<authentication::IAuthenticationService> &
                                        authentication_service,
                                        const std::shared_ptr<IFlightStripsPlugin> &plugin,
                                        const std::shared_ptr<handlers::ConnectionEventHandlers> & event_handlers,
                                        const std::shared_ptr<handlers::MessageHandlers>& message_handlers) :
-                                                         m_appConfig(appConfig),
+                                                         m_base_url(baseUrl),
                                                          m_authentication_service(authentication_service),
                                                          m_plugin(plugin),
                                                          m_connection_handlers(event_handlers),
                                                          m_messageHandlers(message_handlers),
                                                          webSocket(std::make_unique<WebSocket>(
-                                                             appConfig->GetBaseUrl(),
+                                                             std::move(baseUrl),
                                                              [this](const std::string &message) {
                                                                  this->OnMessage(message);
-                                                             }, [this] { this->OnConnected(); })) {
-        enabled = appConfig->GetApiEnabled();
+                                                             }, [this] { this->OnConnected(); })),
+                                                         enabled(apiEnabled) {
     }
 
     WebSocketService::WebSocketService(const std::shared_ptr<authentication::IAuthenticationService> &authentication_service,
@@ -46,6 +47,7 @@ namespace FlightStrips::websocket {
     void WebSocketService::OnTimer(int time) {
         if (!enabled) return;
         const auto &state = m_plugin->GetConnectionState();
+        const auto now = std::chrono::steady_clock::now();
 
         const bool freq_ok = !state.primary_frequency.empty() && state.primary_frequency != "199.998";
         const bool airport_ok = !state.relevant_airport.empty();
@@ -54,6 +56,22 @@ namespace FlightStrips::websocket {
         const bool auth_ok = m_authentication_service->GetAuthenticationState() == authentication::AUTHENTICATED
                           || m_authentication_service->GetAuthenticationState() == authentication::REFRESH;
         const bool should_connect = freq_ok && airport_ok && conn_ok && auth_ok;
+
+        // Track how long we've been online (network+airport+auth) but without a primary frequency.
+        // If a primary is selected after ≥30s in this state, skip the connect delay.
+        const bool online_but_no_freq = !freq_ok && airport_ok && conn_ok && auth_ok;
+        const auto online_without_primary_elapsed = online_without_primary_since_.has_value()
+            ? std::chrono::duration_cast<std::chrono::seconds>(now - online_without_primary_since_.value()).count()
+            : 0LL;
+        const bool skip_delay_for_primary = should_connect &&
+            online_without_primary_elapsed >= ONLINE_WITHOUT_PRIMARY_THRESHOLD_SECONDS;
+
+        if (online_but_no_freq && !IsConnected()) {
+            if (!online_without_primary_since_.has_value())
+                online_without_primary_since_ = now;
+        } else {
+            online_without_primary_since_.reset();
+        }
 
         if (!should_connect && IsConnected()) {
             Logger::Warning("Disconnecting from server — reason: freq_ok={} (freq='{}') airport_ok={} (airport='{}') conn_ok={} (type={}) auth_ok={}",
@@ -65,20 +83,32 @@ namespace FlightStrips::websocket {
 
         if (should_connect && (webSocket->GetStatus() == WEBSOCKET_STATUS_DISCONNECTED || webSocket->GetStatus() ==
                                WEBSOCKET_STATUS_FAILED)) {
-            const auto now = std::chrono::steady_clock::now();
+            if (skip_delay_for_primary)
+                connect_readiness_ = ConnectReadiness::RECONNECT;
+
             if (!connect_after_.has_value()) {
-                const auto delay = has_been_offline_ ? CONNECT_DELAY_SECONDS : FAST_CONNECT_DELAY_SECONDS;
-                connect_after_ = now + std::chrono::seconds(delay);
                 pending_connect_ = true;
-                Logger::Info("Detected online, waiting {}s before connecting to server", delay);
-                return;
+                if (webSocket->GetStatus() == WEBSOCKET_STATUS_FAILED) {
+                    const auto delay_ms = BACKOFF_MS[std::min(fail_count_, static_cast<int>(BACKOFF_MS.size()) - 1)];
+                    fail_count_++;
+                    connect_after_ = now + std::chrono::milliseconds(delay_ms);
+                    Logger::Info("Connect failed (attempt {}), retrying in {}ms", fail_count_, delay_ms);
+                    return;
+                }
+                if (connect_readiness_ == ConnectReadiness::RECONNECT) {
+                    Logger::Info("Connecting immediately");
+                } else {
+                    connect_after_ = now + std::chrono::seconds(FAST_CONNECT_DELAY_SECONDS);
+                    Logger::Info("Detected online, waiting {}s before connecting to server", FAST_CONNECT_DELAY_SECONDS);
+                    return;
+                }
             }
-            if (now < connect_after_.value()) {
+            if (connect_after_.has_value() && now < connect_after_.value()) {
                 return;
             }
             connect_after_.reset();
             primary = state.primary_frequency;
-            Logger::Info("Trying to connect to server: {}", m_appConfig->GetBaseUrl());
+            Logger::Info("Trying to connect to server: {}", m_base_url);
             webSocket->Connect();
             return;
         }
@@ -90,7 +120,8 @@ namespace FlightStrips::websocket {
             client_state = STATE_UNKNOWN;
             connect_after_.reset();
             pending_connect_ = false;
-            has_been_offline_ = true;
+            fail_count_ = 0;
+            connect_readiness_ = ConnectReadiness::RECONNECT;
             return;
         }
 
@@ -98,7 +129,8 @@ namespace FlightStrips::websocket {
             if (!should_connect) {
                 connect_after_.reset();
                 pending_connect_ = false;
-                has_been_offline_ = true;
+                fail_count_ = 0;
+                connect_readiness_ = ConnectReadiness::RECONNECT;
             }
             return;
         }
@@ -132,6 +164,10 @@ namespace FlightStrips::websocket {
 
     bool WebSocketService::IsPendingConnect() const {
         return pending_connect_ || webSocket->GetStatus() == WEBSOCKET_STATUS_CONNECTING;
+    }
+
+    bool WebSocketService::IsBackingOff() const {
+        return fail_count_ > 0 && connect_after_.has_value();
     }
 
     bool WebSocketService::ShouldSend() const {
@@ -180,6 +216,9 @@ namespace FlightStrips::websocket {
             tx = 0;
             rx = 0;
             pending_connect_ = false;
+            fail_count_ = 0;
+            connect_after_.reset();
+            connect_readiness_ = ConnectReadiness::RECONNECT;
             const auto token = TokenEvent(m_authentication_service->GetAccessToken());
             SendEvent(token);
             SendLoginEvent();

@@ -56,12 +56,13 @@ namespace FlightStrips::graphics {
         AddScreenObject(minimizeId, "", minimizeBtn, false, nullptr);
 
         // Compute state early so window background can be drawn before the header
-        const auto service = webSocketService.lock();
-        const bool connected = service && service->IsConnected();
-        const bool pending   = service && service->IsPendingConnect();
-        const auto delay     = service ? service->GetDelaySecondsRemaining() : std::nullopt;
-        const auto stats     = service ? service->GetStats() : websocket::Stats{};
-        const auto& cs       = m_plugin->GetConnectionState();
+        const auto service    = webSocketService.lock();
+        const bool connected  = service && service->IsConnected();
+        const bool backingOff = service && service->IsBackingOff();
+        const bool pending    = service && service->IsPendingConnect();
+        const auto delay      = service ? service->GetDelaySecondsRemaining() : std::nullopt;
+        const auto stats      = service ? service->GetStats() : websocket::Stats{};
+        const auto& cs        = m_plugin->GetConnectionState();
 
         // Dynamic window height
         // Base: account(58) + sep-gap(9) + status-row(16) = 83
@@ -81,9 +82,10 @@ namespace FlightStrips::graphics {
             graphics.DrawRect(colors.backgroundPen.get(), windowRect);
         }
 
-        const Gdiplus::Brush* dotBrush = connected ? colors.greenBrush.get()
-                                       : pending   ? colors.orangeBrush.get()
-                                                   : colors.redBrush.get();
+        const Gdiplus::Brush* dotBrush = connected  ? colors.greenBrush.get()
+                                       : backingOff ? colors.redBrush.get()
+                                       : pending    ? colors.orangeBrush.get()
+                                                    : colors.redBrush.get();
 
         graphics.FillRect(colors.headerBrush.get(), menubar);
         graphics.DrawString("FlightStrips", menubar, colors.whiteBrush.get(), Gdiplus::StringAlignmentNear);
@@ -136,9 +138,10 @@ namespace FlightStrips::graphics {
         y += 9;
 
         // ── Connection status ─────────────────────────────────────
-        const std::string statusText = connected ? "Connected"
-                                     : pending   ? (delay.has_value() ? std::format("Syncing  ({}s)", delay.value()) : "Connecting...")
-                                                 : "Disconnected";
+        const std::string statusText = connected  ? "Connected"
+                                     : backingOff ? (delay.has_value() ? std::format("Retry in {}s", delay.value()) : "Retrying...")
+                                     : pending    ? (delay.has_value() ? std::format("Syncing  ({}s)", delay.value()) : "Connecting...")
+                                                  : "Disconnected";
 
         const RECT dotRect = {L, y + 4, L + 8, y + 12};
         graphics.FillEllipse(dotBrush, dotRect);

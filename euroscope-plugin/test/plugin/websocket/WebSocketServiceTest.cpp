@@ -262,6 +262,197 @@ TEST_F(WebSocketServiceOnTimerTest, OnTimer_ConditionsLost_WhileConnected_Clears
 }
 
 // ---------------------------------------------------------------------------
+// Immediate reconnect — connect_readiness_ state-machine transitions
+// ---------------------------------------------------------------------------
+
+// Extended seam that exposes the two protected members needed for reconnect tests.
+class ReconnectSeam : public WebSocketService {
+public:
+    ReconnectSeam(std::shared_ptr<authentication::IAuthenticationService> a,
+                  std::shared_ptr<IFlightStripsPlugin> p,
+                  std::shared_ptr<handlers::ConnectionEventHandlers> c,
+                  std::shared_ptr<handlers::MessageHandlers> m,
+                  std::unique_ptr<WebSocket> ws)
+        : WebSocketService(std::move(a), std::move(p), std::move(c),
+                           std::move(m), std::move(ws), /*enabled=*/true) {}
+
+    void SimulateConnected() { OnConnected(); }
+
+    void BackdateOnlineWithoutPrimary(int seconds) {
+        online_without_primary_since_ =
+            std::chrono::steady_clock::now() - std::chrono::seconds(seconds);
+    }
+};
+
+class WebSocketServiceReconnectTest : public ::testing::Test {
+protected:
+    ConnectionState state{};
+    MockWebSocketImpl* mockImpl{nullptr};
+
+    std::shared_ptr<NiceMock<MockAuthenticationService>>  mockAuth;
+    std::shared_ptr<NiceMock<MockFlightStripsPlugin>>     mockPlugin;
+    std::shared_ptr<handlers::ConnectionEventHandlers>    connHandlers;
+    std::shared_ptr<handlers::MessageHandlers>            msgHandlers;
+
+    ReconnectSeam* svc{nullptr};
+    std::unique_ptr<ReconnectSeam> svcOwner;
+
+    void SetUp() override {
+        mockAuth     = std::make_shared<NiceMock<MockAuthenticationService>>();
+        mockPlugin   = std::make_shared<NiceMock<MockFlightStripsPlugin>>();
+        connHandlers = std::make_shared<handlers::ConnectionEventHandlers>();
+        msgHandlers  = std::make_shared<handlers::MessageHandlers>();
+
+        ON_CALL(*mockPlugin, GetConnectionState()).WillByDefault(ReturnRef(state));
+        ON_CALL(*mockAuth,   GetAuthenticationState()).WillByDefault(Return(NONE));
+        ON_CALL(*mockAuth,   GetAccessToken()).WillByDefault(Return(""));
+
+        auto implOwned = std::make_unique<NiceMock<MockWebSocketImpl>>();
+        mockImpl = implOwned.get();
+        ON_CALL(*mockImpl, GetStatus()).WillByDefault(Return(WEBSOCKET_STATUS_DISCONNECTED));
+
+        auto ws = std::unique_ptr<WebSocket>(new WebSocket(std::move(implOwned)));
+        svcOwner = std::make_unique<ReconnectSeam>(
+            mockAuth, mockPlugin, connHandlers, msgHandlers, std::move(ws));
+        svc = svcOwner.get();
+    }
+
+    void SetShouldConnect() {
+        state.primary_frequency = "121.500";
+        state.relevant_airport  = "EKCH";
+        state.connection_type   = CONNECTION_TYPE_DIRECT;
+        ON_CALL(*mockAuth, GetAuthenticationState()).WillByDefault(Return(AUTHENTICATED));
+    }
+};
+
+// Conditions were lost while the WebSocket was connected; next reconnect is immediate.
+TEST_F(WebSocketServiceReconnectTest, OnTimer_AfterConditionsLost_NextConnectIsImmediate) {
+    SetShouldConnect();
+    ON_CALL(*mockImpl, GetStatus()).WillByDefault(Return(WEBSOCKET_STATUS_CONNECTED));
+    state.relevant_airport = "";          // lose airport while connected
+    svc->OnTimer(1);                      // → Disconnect(), connect_readiness_ = RECONNECT
+
+    ON_CALL(*mockImpl, GetStatus()).WillByDefault(Return(WEBSOCKET_STATUS_DISCONNECTED));
+    state.relevant_airport = "EKCH";     // conditions restored
+
+    EXPECT_CALL(*mockImpl, Connect()).Times(1);
+    svc->OnTimer(1);
+    EXPECT_FALSE(svc->GetDelaySecondsRemaining().has_value());
+}
+
+// WebSocket drops while ES conditions are still met (server restart / blip); reconnect is immediate.
+TEST_F(WebSocketServiceReconnectTest, OnTimer_AfterServerDrop_ConnectIsImmediate) {
+    SetShouldConnect();
+    svc->SimulateConnected();            // OnConnected → connect_readiness_ = RECONNECT
+
+    // Status drops to DISCONNECTED; conditions unchanged.
+    ON_CALL(*mockImpl, GetStatus()).WillByDefault(Return(WEBSOCKET_STATUS_DISCONNECTED));
+
+    EXPECT_CALL(*mockImpl, Connect()).Times(1);
+    svc->OnTimer(1);
+    EXPECT_FALSE(svc->GetDelaySecondsRemaining().has_value());
+}
+
+// Primary selected after ≥30 s online without one: connect immediately.
+TEST_F(WebSocketServiceReconnectTest, OnTimer_PrimarySelectedAfter30sOnline_ConnectsImmediately) {
+    state.relevant_airport = "EKCH";
+    state.connection_type  = CONNECTION_TYPE_DIRECT;
+    ON_CALL(*mockAuth, GetAuthenticationState()).WillByDefault(Return(AUTHENTICATED));
+    svc->BackdateOnlineWithoutPrimary(35);
+
+    state.primary_frequency = "121.500"; // primary now selected
+
+    EXPECT_CALL(*mockImpl, Connect()).Times(1);
+    svc->OnTimer(1);
+    EXPECT_FALSE(svc->GetDelaySecondsRemaining().has_value());
+}
+
+// Primary selected after <30 s online without one: normal 5 s delay still applies.
+TEST_F(WebSocketServiceReconnectTest, OnTimer_PrimarySelectedBefore30sOnline_StillDelayed) {
+    state.relevant_airport = "EKCH";
+    state.connection_type  = CONNECTION_TYPE_DIRECT;
+    ON_CALL(*mockAuth, GetAuthenticationState()).WillByDefault(Return(AUTHENTICATED));
+    svc->BackdateOnlineWithoutPrimary(20);
+
+    state.primary_frequency = "121.500"; // primary now selected
+
+    EXPECT_CALL(*mockImpl, Connect()).Times(0);
+    svc->OnTimer(1);
+    EXPECT_TRUE(svc->GetDelaySecondsRemaining().has_value());
+}
+
+// ---------------------------------------------------------------------------
+// Backoff on repeated connection failures
+// ---------------------------------------------------------------------------
+
+// First failure schedules a backoff delay; Connect() is not called again immediately.
+TEST_F(WebSocketServiceReconnectTest, OnTimer_FirstConnectFailure_SetsBackoffAndNoCalls) {
+    SetShouldConnect();
+    ON_CALL(*mockImpl, GetStatus()).WillByDefault(Return(WEBSOCKET_STATUS_FAILED));
+
+    EXPECT_CALL(*mockImpl, Connect()).Times(0);
+    svc->OnTimer(1);
+    EXPECT_TRUE(svc->IsBackingOff());
+}
+
+// While a backoff delay is pending, both IsBackingOff and IsPendingConnect are true.
+TEST_F(WebSocketServiceReconnectTest, OnTimer_WhileBackingOff_StateFlags) {
+    SetShouldConnect();
+    ON_CALL(*mockImpl, GetStatus()).WillByDefault(Return(WEBSOCKET_STATUS_FAILED));
+    svc->OnTimer(1);
+
+    EXPECT_TRUE(svc->IsBackingOff());
+    EXPECT_TRUE(svc->IsPendingConnect());
+}
+
+// Repeated ticks during a backoff delay do not trigger a retry.
+TEST_F(WebSocketServiceReconnectTest, OnTimer_BackoffDelayPending_DoesNotRetryEarly) {
+    SetShouldConnect();
+    ON_CALL(*mockImpl, GetStatus()).WillByDefault(Return(WEBSOCKET_STATUS_FAILED));
+    svc->OnTimer(1);  // schedules 500 ms backoff
+
+    EXPECT_CALL(*mockImpl, Connect()).Times(0);
+    svc->OnTimer(1);
+    svc->OnTimer(1);
+}
+
+// Successful connection resets backoff; next failure restarts from the first table step.
+TEST_F(WebSocketServiceReconnectTest, OnTimer_SuccessAfterFailure_ResetsBackoff) {
+    SetShouldConnect();
+    ON_CALL(*mockImpl, GetStatus()).WillByDefault(Return(WEBSOCKET_STATUS_FAILED));
+    svc->OnTimer(1);
+    EXPECT_TRUE(svc->IsBackingOff());
+
+    svc->SimulateConnected();           // resets fail_count_ and connect_after_
+    EXPECT_FALSE(svc->IsBackingOff());
+
+    // Next failure reschedules from the first step (500 ms).
+    svc->OnTimer(1);
+    EXPECT_TRUE(svc->IsBackingOff());
+}
+
+// Conditions dropping while backing off resets fail count; next reconnect is immediate.
+TEST_F(WebSocketServiceReconnectTest, OnTimer_ConditionsDropDuringBackoff_ResetsFailCount) {
+    SetShouldConnect();
+    ON_CALL(*mockImpl, GetStatus()).WillByDefault(Return(WEBSOCKET_STATUS_FAILED));
+    svc->OnTimer(1);
+    EXPECT_TRUE(svc->IsBackingOff());
+
+    // Conditions drop while backing off — triggers intentional disconnect path.
+    ON_CALL(*mockImpl, GetStatus()).WillByDefault(Return(WEBSOCKET_STATUS_CONNECTED));
+    state.relevant_airport = "";
+    svc->OnTimer(1);
+
+    // Conditions restored; socket DISCONNECTED — expect immediate connect, no backoff.
+    ON_CALL(*mockImpl, GetStatus()).WillByDefault(Return(WEBSOCKET_STATUS_DISCONNECTED));
+    state.relevant_airport = "EKCH";
+
+    EXPECT_FALSE(svc->IsBackingOff());
+    EXPECT_CALL(*mockImpl, Connect()).Times(1);
+    svc->OnTimer(1);
+}
+
+// ---------------------------------------------------------------------------
 // GetStats / ShouldSend accessors
 // ---------------------------------------------------------------------------
 

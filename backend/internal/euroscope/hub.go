@@ -91,6 +91,7 @@ type Hub struct {
 func NewHub(stripService shared.StripService, controllerService shared.ControllerService, authenticationService shared.AuthenticationService) *Hub {
 	handlers := shared.NewMessageHandlers[euroscope.EventType, *Client]()
 
+	handlers.Add(euroscope.Login, handleLoginEvent)
 	handlers.Add(euroscope.Authentication, handleTokenEvent)
 	handlers.Add(euroscope.ControllerOnline, handleControllerOnline)
 	handlers.Add(euroscope.ControllerOffline, handleControllerOffline)

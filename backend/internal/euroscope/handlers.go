@@ -14,6 +14,22 @@ import (
 
 type Message = shared.Message[euroscope.EventType]
 
+func handleLoginEvent(ctx context.Context, client *Client, message Message) error {
+	event, _, err := client.hub.handleLogin(message.Message, client.user)
+	if err != nil {
+		return err
+	}
+
+	client.position = event.Position
+	client.callsign = event.Callsign
+
+	if layoutErr := client.hub.server.UpdateLayouts(client.session); layoutErr != nil {
+		slog.Error("Failed to update layouts after ES re-login", slog.String("cid", client.GetCid()), slog.Any("error", layoutErr))
+	}
+
+	return nil
+}
+
 func handleTokenEvent(ctx context.Context, client *Client, message Message) error {
 	var event events.AuthenticationEvent
 	if err := message.JsonUnmarshal(&event); err != nil {

@@ -979,7 +979,6 @@ func (s *StripService) UpdateHeading(ctx context.Context, session int32, callsig
 
 // DeleteStrip removes a strip from the database and notifies the frontend.
 func (s *StripService) DeleteStrip(ctx context.Context, session int32, callsign string) error {
-	slog.Info("Aircraft disconnected, removing strip", slog.String("callsign", callsign), slog.Int("session", int(session)))
 	err := s.stripRepo.Delete(ctx, session, callsign)
 	s.frontendHub.SendAircraftDisconnect(session, callsign)
 	return err

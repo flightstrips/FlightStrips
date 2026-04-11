@@ -1151,7 +1151,89 @@ func (s *StripService) UpdateAircraftPosition(ctx context.Context, session int32
 		}
 	}
 
+	if existingStrip.Destination == airport {
+		s.handleArrivalPositionUpdate(ctx, session, callsign, lat, lon, int64(altitude), existingStrip)
+	}
+
 	return nil
+}
+
+// handleArrivalPositionUpdate detects landing and runway-vacated transitions for
+// arrival strips using S2 runway polygon containment + altitude threshold.
+func (s *StripService) handleArrivalPositionUpdate(ctx context.Context, session int32, callsign string, lat, lon float64, altitude int64, strip *internalModels.Strip) {
+	const logPrefix = "handleArrivalPositionUpdate"
+
+	landingThreshold := int64(shared.AirportElevation) + config.GetLandingAltitudeAGL()
+	onGround := altitude < landingThreshold
+
+	runwayRegion, inRunway := config.GetRunwayRegionForPosition(lat, lon)
+
+	// If the strip has an assigned runway, only recognise the polygon for that runway.
+	if inRunway && strip.Runway != nil && *strip.Runway != "" {
+		if !slices.Contains(runwayRegion.Runways, strings.ToUpper(*strip.Runway)) {
+			inRunway = false
+		}
+	}
+
+	alreadyLanded := strip.CdmData != nil && strip.CdmData.Aldt != nil
+
+	// Phase 1: aircraft enters runway polygon at landing altitude → touchdown.
+	if inRunway && onGround && !alreadyLanded {
+		aldt := time.Now().UTC().Format("1504")
+		newCdm := strip.CdmData.Clone()
+		newCdm.Aldt = &aldt
+		if _, err := s.stripRepo.SetCdmData(ctx, session, callsign, newCdm); err != nil {
+			slog.Error(logPrefix+": failed to set ALDT", slog.String("callsign", callsign), slog.Any("error", err))
+		} else {
+			slog.Info("ALDT recorded", slog.String("callsign", callsign), slog.String("aldt", aldt), slog.String("runway", runwayRegion.Name))
+			s.notifyStripUpdate(session, callsign)
+		}
+		s.autoAcceptPendingCoordination(ctx, session, strip)
+		return
+	}
+
+	// Phase 2: aircraft exits runway polygon on the ground → strip vacated runway.
+	if !inRunway && onGround && alreadyLanded {
+		switch strip.Bay {
+		case shared.BAY_FINAL, shared.BAY_RWY_ARR, shared.BAY_ARR_HIDDEN:
+			slog.Info("Arrival vacated runway, moving to TWY_ARR", slog.String("callsign", callsign))
+			if err := s.MoveToBay(ctx, session, callsign, shared.BAY_TWY_ARR, true); err != nil {
+				slog.Error(logPrefix+": failed to move to TWY_ARR", slog.String("callsign", callsign), slog.Any("error", err))
+			}
+		}
+	}
+}
+
+// notifyStripUpdate broadcasts a strip_update to frontend clients.
+func (s *StripService) notifyStripUpdate(session int32, callsign string) {
+	if s.frontendHub == nil {
+		return
+	}
+	s.frontendHub.SendStripUpdate(session, callsign)
+}
+
+// autoAcceptPendingCoordination accepts any pending coordination for the strip automatically,
+// e.g. when the aircraft is detected landing on the runway.
+func (s *StripService) autoAcceptPendingCoordination(ctx context.Context, session int32, strip *internalModels.Strip) {
+	if s.coordRepo == nil {
+		return
+	}
+	coordination, err := s.coordRepo.GetByStripID(ctx, session, strip.ID)
+	if err != nil {
+		return // no coordination pending
+	}
+
+	esHandoverCid := coordination.EsHandoverCid
+	fromEs := coordination.FromEs
+
+	if err := s.AcceptCoordination(ctx, session, strip.Callsign, coordination.ToPosition); err != nil {
+		slog.Error("autoAcceptPendingCoordination: failed to accept", slog.String("callsign", strip.Callsign), slog.Any("error", err))
+		return
+	}
+
+	if fromEs && esHandoverCid != nil && *esHandoverCid != "" && s.euroscopeHub != nil {
+		s.euroscopeHub.SendAssumeAndDrop(session, *esHandoverCid, strip.Callsign)
+	}
 }
 
 func isMissedApproachReturn(fromPosition string, assumingPosition string) bool {
@@ -1303,8 +1385,8 @@ func (s *StripService) HandleCoordinationReceived(ctx context.Context, session i
 		return err
 	}
 
-	if strip.Bay != shared.BAY_ARR_HIDDEN && strip.Bay != shared.BAY_FINAL {
-		slog.Debug("coordination_received on strip not in ARR_HIDDEN/FINAL, ignoring", slog.String("callsign", callsign), slog.String("bay", strip.Bay))
+	if strip.Bay != shared.BAY_ARR_HIDDEN && strip.Bay != shared.BAY_FINAL && strip.Bay != shared.BAY_RWY_ARR {
+		slog.Debug("coordination_received on strip not in arrival bay, ignoring", slog.String("callsign", callsign), slog.String("bay", strip.Bay))
 		return nil
 	}
 

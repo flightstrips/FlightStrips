@@ -23,6 +23,7 @@ type CdmData struct {
 	Asrt        *string `json:"asrt,omitempty"`
 	Tsac        *string `json:"tsac,omitempty"`
 	Eobt        *string `json:"eobt,omitempty"`
+	Aldt        *string `json:"aldt,omitempty"`
 	Status      *string `json:"status,omitempty"`
 	DeIce       *string `json:"deIce,omitempty"`
 	EcfmpID     *string `json:"ecfmpId,omitempty"`
@@ -126,6 +127,13 @@ func (d *CdmData) EffectiveStatus() *string {
 		return nil
 	}
 	return d.Status
+}
+
+func (d *CdmData) EffectiveAldt() *string {
+	if d == nil {
+		return nil
+	}
+	return d.Aldt
 }
 
 func (d *CdmData) NeedsLocalRecalculation() bool {

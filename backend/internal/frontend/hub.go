@@ -433,6 +433,7 @@ func MapStripToFrontendModel(strip *internalModels.Strip) frontend.Strip {
 		TrackingController:       strip.TrackingController,
 		RunwayCleared:            strip.RunwayCleared,
 		RunwayConfirmed:          strip.RunwayConfirmed,
+		Aldt:                     truncateFrontendClockValue(helpers.ValueOrDefault(strip.EffectiveAldt())),
 		UnexpectedChangeFields:   strip.UnexpectedChangeFields,
 		ControllerModifiedFields: strip.ControllerModifiedFields,
 		IsManual:                 strip.IsManual,

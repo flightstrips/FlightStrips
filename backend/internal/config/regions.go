@@ -1,9 +1,10 @@
-﻿package config
+package config
 
 import (
 	"encoding/json"
 	"errors"
 	"io"
+	"strings"
 
 	"github.com/golang/geo/s2"
 )
@@ -20,15 +21,17 @@ type feature struct {
 		Coordinates coordinates `json:"coordinates"`
 	} `json:"geometry"`
 	Properties struct {
-		Name string `json:"name"`
+		Name    string   `json:"name"`
+		Runways []string `json:"runways"`
 	} `json:"properties"`
 }
 
 type coordinates [][][]float64
 
 type Region struct {
-	Name   string
-	Region *s2.Loop
+	Name    string
+	Runways []string // populated for runway regions; empty for ground regions
+	Region  *s2.Loop
 }
 
 var ErrUnsupportedRegion = errors.New("unsupported region")
@@ -44,6 +47,18 @@ func GetRegionForPosition(lat, lon float64) (*Region, error) {
 	return nil, ErrUnsupportedRegion
 }
 
+// GetRunwayRegionForPosition checks only runway regions and returns the region (with its
+// Runways list) if the position falls inside one, or nil and false otherwise.
+func GetRunwayRegionForPosition(lat, lon float64) (*Region, bool) {
+	point := s2.PointFromLatLng(s2.LatLngFromDegrees(lat, lon))
+	for i, region := range runwayRegions {
+		if region.Region.ContainsPoint(point) {
+			return &runwayRegions[i], true
+		}
+	}
+	return nil, false
+}
+
 func loadRegions(f io.Reader) error {
 	var features featureCollection
 	decoder := json.NewDecoder(f)
@@ -53,6 +68,7 @@ func loadRegions(f io.Reader) error {
 	}
 
 	regions = make([]Region, 0)
+	runwayRegions = make([]Region, 0)
 	for _, feature := range features.Features {
 		if feature.Type != "Feature" || feature.Geometry.Type != "Polygon" {
 			return errors.New("invalid feature type")
@@ -67,7 +83,12 @@ func loadRegions(f io.Reader) error {
 		}
 
 		loop := s2.LoopFromPoints(points)
-		regions = append(regions, Region{name, loop})
+		region := Region{Name: name, Runways: feature.Properties.Runways, Region: loop}
+		if strings.HasPrefix(name, "RWY_") {
+			runwayRegions = append(runwayRegions, region)
+		} else {
+			regions = append(regions, region)
+		}
 	}
 
 	return nil

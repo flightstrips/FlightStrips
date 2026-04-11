@@ -146,6 +146,7 @@ type Strip struct {
 	TrackingController     string   `json:"tracking_controller"`
 	RunwayCleared           bool     `json:"runway_cleared"`
 	RunwayConfirmed         bool     `json:"runway_confirmed"`
+	Aldt                    string   `json:"aldt"`
 	UnexpectedChangeFields  []string `json:"unexpected_change_fields"`
 	ControllerModifiedFields []string `json:"controller_modified_fields"`
 	IsManual               bool     `json:"is_manual"`

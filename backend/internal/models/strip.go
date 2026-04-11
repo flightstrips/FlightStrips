@@ -110,3 +110,10 @@ func (s *Strip) EffectiveCdmStatus() *string {
 	}
 	return s.CdmData.EffectiveStatus()
 }
+
+func (s *Strip) EffectiveAldt() *string {
+	if s == nil || s.CdmData == nil {
+		return nil
+	}
+	return s.CdmData.EffectiveAldt()
+}

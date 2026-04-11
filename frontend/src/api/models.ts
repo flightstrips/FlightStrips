@@ -147,6 +147,7 @@ export interface FrontendStrip {
   tsat: string;
   ctot: string;
   eldt: string;
+  aldt?: string;
   bay: string;
   release_point: string;
   version: number;
@@ -230,6 +231,7 @@ export interface FrontendStripUpdateEvent {
   tsat: string;
   ctot: string;
   eldt: string;
+  aldt?: string;
   bay: string;
   release_point: string;
   version: number;

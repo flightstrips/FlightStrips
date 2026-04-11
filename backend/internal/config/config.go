@@ -64,6 +64,7 @@ var cdmConfig CdmConfig
 
 var sectors []Sector
 var regions []Region
+var runwayRegions []Region
 var positions []Position
 var airborneOwners []string
 var airborneRoutes []AirborneRoutes
@@ -153,6 +154,12 @@ func GetRunways() []string {
 
 func GetAirborneAltitudeAGL() int64 {
 	return airborneAltitudeAGL
+}
+
+// GetLandingAltitudeAGL returns the AGL threshold (feet) below which an aircraft
+// inside a runway polygon is considered to have touched down.
+func GetLandingAltitudeAGL() int64 {
+	return 50
 }
 
 // GetTransitionAltitude returns the transition altitude (in feet) for the configured airport.

@@ -1,5 +1,26 @@
 package config
 
+import "github.com/golang/geo/s2"
+
+// SetRunwayRegionsForTest replaces the package-level runwayRegions slice for testing.
+// Returns a cleanup function that restores the original value.
+func SetRunwayRegionsForTest(r []Region) func() {
+	old := runwayRegions
+	runwayRegions = r
+	return func() { runwayRegions = old }
+}
+
+// MakeTestRunwayRegion builds a Region from a list of [lon, lat] coordinate pairs,
+// matching the GeoJSON convention used in ekch_regions.json.
+// runways lists the individual runway identifiers covered by this polygon (e.g. ["22L", "04R"]).
+func MakeTestRunwayRegion(name string, runways []string, coords [][2]float64) Region {
+	points := make([]s2.Point, len(coords))
+	for i, c := range coords {
+		points[i] = s2.PointFromLatLng(s2.LatLngFromDegrees(c[1], c[0]))
+	}
+	return Region{Name: name, Runways: runways, Region: s2.LoopFromPoints(points)}
+}
+
 // SetPositionsForTest replaces the package-level positions slice for testing.
 // Returns a cleanup function that restores the original value.
 func SetPositionsForTest(ps []Position) func() {

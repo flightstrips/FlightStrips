@@ -20,7 +20,7 @@ namespace FlightStrips::flightplan {
 
         const auto fp = radarTarget.GetCorrelatedFlightPlan();
         // Treat auto-correlated FPs with no received data (VFR squawk correlation) as no-FP.
-        const bool hasFp = fp.IsValid() && fp.GetFlightPlanData().IsReceived();
+        const bool hasFp = fp.IsValid();
         const auto isArrival = hasFp
             ? strcmp(fp.GetFlightPlanData().GetDestination(),
                      m_flightStripsPlugin->GetConnectionState().relevant_airport.c_str()) == 0
@@ -113,7 +113,6 @@ namespace FlightStrips::flightplan {
 
         if (!m_websocketService->ShouldSend()) return;
         const auto flightPlanData = flightPlan.GetFlightPlanData();
-        if (!flightPlanData.IsReceived()) return;
         const auto trackPosition = flightPlan.GetFPTrackPosition();
         if (!trackPosition.IsValid()) return;
         const auto position = trackPosition.GetPosition();

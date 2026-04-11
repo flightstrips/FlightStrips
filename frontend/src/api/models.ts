@@ -1,5 +1,6 @@
 export enum EventType {
   FrontendInitial = "initial",
+  FrontendGoAround = "go_around",
   FrontendStripUpdate = "strip_update",
   FrontendControllerOnline = "controller_online",
   FrontendControllerOffline = "controller_offline",
@@ -486,6 +487,7 @@ export interface FrontendAtisUpdateEvent {
 // Union type for all events that can be received
 export type WebSocketEvent =
   | FrontendInitialEvent
+  | FrontendGoAroundEvent
   | FrontendStripUpdateEvent
   | FrontendControllerOnlineEvent
   | FrontendControllerOfflineEvent
@@ -526,6 +528,11 @@ export interface ActionRejectedEvent {
   type: EventType.FrontendActionRejected;
   action: string;
   reason: string;
+}
+
+export interface FrontendGoAroundEvent {
+  type: EventType.FrontendGoAround;
+  callsign: string;
 }
 
 export interface FrontendMoveEvent {

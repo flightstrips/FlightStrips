@@ -10,6 +10,7 @@ import {
   type FrontendControllerOfflineEvent,
   type FrontendControllerOnlineEvent,
   type FrontendDisconnectEvent,
+  type FrontendGoAroundEvent,
   type FrontendInitialEvent, type FrontendLayoutUpdateEvent, type FrontendOwnersUpdateEvent,
   type FrontendPdcStateUpdateEvent,
   type FrontendReleasePointEvent,
@@ -39,6 +40,7 @@ import {
 
 type EventMap = {
   [EventType.FrontendInitial]: FrontendInitialEvent;
+  [EventType.FrontendGoAround]: FrontendGoAroundEvent;
   [EventType.FrontendStripUpdate]: FrontendStripUpdateEvent;
   [EventType.FrontendControllerOnline]: FrontendControllerOnlineEvent;
   [EventType.FrontendControllerOffline]: FrontendControllerOfflineEvent;

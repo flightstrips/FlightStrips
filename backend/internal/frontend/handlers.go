@@ -632,7 +632,12 @@ func handleMissedApproach(ctx context.Context, client *Client, message Message) 
 	if err := message.JsonUnmarshal(&req); err != nil {
 		return err
 	}
-	return client.hub.stripService.MissedApproach(ctx, client.session, req.Callsign, client.position)
+	if err := client.hub.stripService.MissedApproach(ctx, client.session, req.Callsign, client.position); err != nil {
+		return err
+	}
+
+	client.hub.SendGoAround(client.session, req.Callsign)
+	return nil
 }
 
 func handleCreateManualFPL(ctx context.Context, client *Client, message Message) error {

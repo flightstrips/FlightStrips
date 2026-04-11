@@ -730,6 +730,12 @@ func (hub *Hub) SendBroadcast(session int32, message string, from string) {
 	hub.Broadcast(session, event)
 }
 
+func (hub *Hub) SendGoAround(session int32, callsign string) {
+	hub.Broadcast(session, frontend.GoAroundEvent{
+		Callsign: callsign,
+	})
+}
+
 func (hub *Hub) SendServerMessage(session int32, message string) {
 	event := frontend.BroadcastEvent{
 		Message: message,

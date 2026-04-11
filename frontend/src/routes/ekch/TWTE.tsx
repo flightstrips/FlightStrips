@@ -25,8 +25,6 @@ import { SortableBay, DropIndicatorBay } from "@/components/bays/SortableBay.tsx
 import { ViewDndContext } from "@/components/bays/ViewDndContext.tsx";
 import { useWebSocketStore, useMyPosition, useLowerPositionOnline, useCtwrOnline, useMessages, useSelectedCallsign, useSelectStrip, useAirport } from "@/store/store-hooks.ts";
 import { useRef, useEffect, useState, useCallback } from "react";
-import missedApproachSound from "@/assets/missed_approach.mp3";
-import { isAudioMuted } from "@/lib/audio-settings";
 import { TWY_DEP_STRIP_WIDTH } from "@/components/strip/types";
 import { StripListPopup, type SortMode } from "@/components/StripListPopup.tsx";
 import { CLS_BTN, CLS_BTN_ORANGE, CLS_BTN_BLUE, CLS_BTN_YELLOW, CLS_LABEL } from "@/components/strip/shared";
@@ -99,7 +97,6 @@ export default function TWTE() {
 
   const handleMissedApproach = useCallback(() => {
     if (!selectedStrip || !canMissedApproach) return;
-    if (!isAudioMuted()) new Audio(missedApproachSound).play().catch(() => {});
     missedApproach(selectedStrip.callsign);
     selectStrip(null);
   }, [selectedStrip, canMissedApproach, missedApproach, selectStrip]);

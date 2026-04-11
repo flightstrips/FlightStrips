@@ -13,6 +13,7 @@ import {
   type FrontendController,
   type FrontendControllerOfflineEvent,
   type FrontendControllerOnlineEvent,
+  type FrontendGoAroundEvent,
   type FrontendInitialEvent,
   type FrontendLayoutUpdateEvent,
   type FrontendOwnersUpdateEvent, type FrontendPdcStateUpdateEvent, type FrontendReleasePointEvent,
@@ -43,6 +44,8 @@ import {
   type SidInfo,
 } from '../api/models.ts';
 import {WebSocketClient} from '../api/websocket.ts';
+import missedApproachSound from "@/assets/missed_approach.mp3";
+import { isAudioMuted } from "@/lib/audio-settings";
 
 const KNOWN_LAYOUTS = new Set(["CLX", "AAAD", "AA", "AD", "EST", "GEGW", "TWTE"]);
 
@@ -918,8 +921,15 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     );
   };
 
+  const handleGoAroundEvent = (_data: FrontendGoAroundEvent) => {
+    if (!isAudioMuted()) {
+      new Audio(missedApproachSound).play().catch(() => {});
+    }
+  };
+
   // Register event handlers
   wsClient.on(EventType.FrontendInitial, handleInitialEvent);
+  wsClient.on(EventType.FrontendGoAround, handleGoAroundEvent);
   wsClient.on(EventType.FrontendStripUpdate, handleStripUpdateEvent);
   wsClient.on(EventType.FrontendControllerOnline, handleControllerOnlineEvent);
   wsClient.on(EventType.FrontendControllerOffline, handleControllerOfflineEvent);

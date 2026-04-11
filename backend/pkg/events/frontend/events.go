@@ -844,6 +844,13 @@ type AvailableSidsEvent struct {
 func (e AvailableSidsEvent) Marshal() ([]byte, error) { return marshall(e) }
 func (e AvailableSidsEvent) GetType() EventType       { return AvailableSids }
 
+type GoAroundEvent struct {
+	Callsign string `json:"callsign"`
+}
+
+func (e GoAroundEvent) Marshal() ([]byte, error) { return marshall(e) }
+func (e GoAroundEvent) GetType() EventType       { return GoAround }
+
 // ---------- MISSED APPROACH ----------
 
 type MissedApproachRequestEvent struct {

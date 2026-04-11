@@ -771,6 +771,101 @@ func TestUpdateGroundState_ArrivalPreservesArrivalBay(t *testing.T) {
 	assert.False(t, moved, "arrival strips should not be re-sequenced into a departure bay on ground-state updates")
 }
 
+func TestUpdateGroundState_TaxiNoGndOnline_MovesToTaxiLwr(t *testing.T) {
+	ctx := context.Background()
+	oldState := ""
+	strip := &models.Strip{
+		Callsign: "SAS400",
+		State:    &oldState,
+		Bay:      shared.BAY_PUSH,
+		Origin:   "EKCH",
+	}
+
+	var updatedBay string
+	var movedToBay string
+
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			return strip, nil
+		},
+		UpdateGroundStateFn: func(_ context.Context, _ int32, _ string, _ *string, bay string, _ *int32) (int64, error) {
+			updatedBay = bay
+			return 1, nil
+		},
+		GetMaxSequenceInBayFn: func(_ context.Context, _ int32, _ string) (int32, error) {
+			return 0, nil
+		},
+		UpdateBayAndSequenceFn: func(_ context.Context, _ int32, _ string, b string, _ int32) (int64, error) {
+			movedToBay = b
+			return 1, nil
+		},
+	}
+
+	// No GND controllers online — only TWR
+	controllerRepo := &testutil.MockControllerRepository{
+		ListBySessionFn: func(_ context.Context, _ int32) ([]*models.Controller, error) {
+			return []*models.Controller{
+				{Position: "118.105"}, // EKCH_M_TWR (TWR section)
+			}, nil
+		},
+	}
+
+	svc := NewStripService(stripRepo)
+	svc.SetFrontendHub(&testutil.MockFrontendHub{})
+	svc.SetControllerRepo(controllerRepo)
+
+	err := svc.UpdateGroundState(ctx, 1, "SAS400", "TAXI", "EKCH")
+	require.NoError(t, err)
+	assert.Equal(t, shared.BAY_TAXI_LWR, updatedBay, "no GND online → should assign TAXI_LWR")
+	assert.Equal(t, shared.BAY_TAXI_LWR, movedToBay, "strip should move to TAXI_LWR")
+}
+
+func TestUpdateGroundState_TaxiGndOnline_MovesToTaxi(t *testing.T) {
+	ctx := context.Background()
+	oldState := ""
+	strip := &models.Strip{
+		Callsign: "SAS401",
+		State:    &oldState,
+		Bay:      shared.BAY_PUSH,
+		Origin:   "EKCH",
+	}
+
+	var updatedBay string
+
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			return strip, nil
+		},
+		UpdateGroundStateFn: func(_ context.Context, _ int32, _ string, _ *string, bay string, _ *int32) (int64, error) {
+			updatedBay = bay
+			return 1, nil
+		},
+		GetMaxSequenceInBayFn: func(_ context.Context, _ int32, _ string) (int32, error) {
+			return 0, nil
+		},
+		UpdateBayAndSequenceFn: func(_ context.Context, _ int32, _ string, _ string, _ int32) (int64, error) {
+			return 1, nil
+		},
+	}
+
+	// GND is online — split ops
+	controllerRepo := &testutil.MockControllerRepository{
+		ListBySessionFn: func(_ context.Context, _ int32) ([]*models.Controller, error) {
+			return []*models.Controller{
+				{Position: "121.630"}, // EKCH_A_GND (GND section)
+			}, nil
+		},
+	}
+
+	svc := NewStripService(stripRepo)
+	svc.SetFrontendHub(&testutil.MockFrontendHub{})
+	svc.SetControllerRepo(controllerRepo)
+
+	err := svc.UpdateGroundState(ctx, 1, "SAS401", "TAXI", "EKCH")
+	require.NoError(t, err)
+	assert.Equal(t, shared.BAY_TAXI, updatedBay, "GND online → should assign upper TAXI bay")
+}
+
 // ---- AutoAssumeForClearedStrip edge cases ----
 
 func TestAutoAssumeForClearedStrip_NilSectorOwnerRepo_ReturnsNil(t *testing.T) {

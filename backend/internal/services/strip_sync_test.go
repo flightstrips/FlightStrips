@@ -183,3 +183,76 @@ func TestSyncEuroscopeStrip_ArrivalDoesNotTriggerCdmRecalculation(t *testing.T) 
 	require.NoError(t, err)
 	assert.False(t, cdmService.recalcTriggered)
 }
+
+func TestSyncEuroscopeStrip_NewStrip_TaxiNoGndOnline_InsertsTaxiLwr(t *testing.T) {
+	ctx := context.Background()
+	const session = int32(1)
+
+	var createdBay string
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			return nil, pgx.ErrNoRows
+		},
+		CreateFn: func(_ context.Context, strip *models.Strip) error {
+			createdBay = strip.Bay
+			return nil
+		},
+	}
+
+	svc, _, _ := newSyncTestFixture(t, nil, stripRepo)
+	svc.SetControllerRepo(&testutil.MockControllerRepository{
+		ListBySessionFn: func(_ context.Context, _ int32) ([]*models.Controller, error) {
+			return []*models.Controller{
+				{Position: "118.105"}, // EKCH_A_TWR — no GND
+			}, nil
+		},
+	})
+
+	err := svc.syncEuroscopeStrip(ctx, session, "", euroscope.Strip{
+		Callsign:    "SAS500",
+		Origin:      "EKCH",
+		GroundState: "TAXI",
+	}, "EKCH")
+	require.NoError(t, err)
+	assert.Equal(t, shared.BAY_TAXI_LWR, createdBay, "no GND online → new TAXI strip should be inserted at TAXI_LWR")
+}
+
+func TestSyncEuroscopeStrip_ExistingStrip_TaxiNoGndOnline_UpdatesTaxiLwr(t *testing.T) {
+	ctx := context.Background()
+	const session = int32(1)
+	pushState := "PUSH"
+	existingStrip := &models.Strip{
+		Callsign: "SAS501",
+		Origin:   "EKCH",
+		Bay:      shared.BAY_PUSH,
+		State:    &pushState,
+	}
+
+	var updatedBay string
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			return existingStrip, nil
+		},
+		UpdateFn: func(_ context.Context, strip *models.Strip) (int64, error) {
+			updatedBay = strip.Bay
+			return 1, nil
+		},
+	}
+
+	svc, _, _ := newSyncTestFixture(t, existingStrip, stripRepo)
+	svc.SetControllerRepo(&testutil.MockControllerRepository{
+		ListBySessionFn: func(_ context.Context, _ int32) ([]*models.Controller, error) {
+			return []*models.Controller{
+				{Position: "118.105"}, // EKCH_A_TWR — no GND
+			}, nil
+		},
+	})
+
+	err := svc.syncEuroscopeStrip(ctx, session, "", euroscope.Strip{
+		Callsign:    "SAS501",
+		Origin:      "EKCH",
+		GroundState: "TAXI",
+	}, "EKCH")
+	require.NoError(t, err)
+	assert.Equal(t, shared.BAY_TAXI_LWR, updatedBay, "no GND online → PUSH→TAXI transition should land in TAXI_LWR")
+}

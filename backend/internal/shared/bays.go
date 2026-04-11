@@ -60,7 +60,7 @@ func bayTracksGroundState(bay string) bool {
 	}
 }
 
-func GetDepartureBay(strip euroscope.Strip, existing *database.Strip, airborneAltitudeAGL int64, airport string) string {
+func GetDepartureBay(strip euroscope.Strip, existing *database.Strip, airborneAltitudeAGL int64, airport string, gndOnline bool) string {
 	// Arrivals keep their existing bay only if the strip was already classified as
 	// an arrival. If a strip transitions from a non-arrival into an arrival, start
 	// it in ARR_HIDDEN rather than preserving a stale non-arrival bay like HIDDEN.
@@ -97,7 +97,7 @@ func GetDepartureBay(strip euroscope.Strip, existing *database.Strip, airborneAl
 	}
 
 	if strip.GroundState == euroscope.GroundStateTaxi {
-		return BAY_TAXI
+		return PromoteTaxiBayForSoloTwr(BAY_TAXI, gndOnline)
 	}
 
 	if strip.GroundState == euroscope.GroundStateDepart {
@@ -128,7 +128,7 @@ func GetDepartureBay(strip euroscope.Strip, existing *database.Strip, airborneAl
 	return BAY_AIRBORNE
 }
 
-func GetDepartureBayFromGroundState(state string, existing database.Strip, airport string) string {
+func GetDepartureBayFromGroundState(state string, existing database.Strip, airport string, gndOnline bool) string {
 	// Arrivals keep their existing arrival bay; ground-state updates are only used
 	// to advance departures through departure-tracking bays.
 	if existing.Destination == airport {
@@ -155,7 +155,7 @@ func GetDepartureBayFromGroundState(state string, existing database.Strip, airpo
 		if existing.Bay == BAY_TAXI_LWR || existing.Bay == BAY_TAXI_TWR {
 			return existing.Bay
 		}
-		return BAY_TAXI
+		return PromoteTaxiBayForSoloTwr(BAY_TAXI, gndOnline)
 	}
 
 	if state == euroscope.GroundStateDepart || state == euroscope.GroundStateLineup {
@@ -207,6 +207,16 @@ func GetDepartureBayFromPosition(lat, lon float64, alt int64, existing database.
 		return BAY_AIRBORNE
 	}
 
+	return bay
+}
+
+// PromoteTaxiBayForSoloTwr promotes BAY_TAXI to BAY_TAXI_LWR when no GND position
+// is online (solo TWR mode), mirroring the frontend's "soloTwr" routing path.
+// Returns bay unchanged for all other bays or when GND is online.
+func PromoteTaxiBayForSoloTwr(bay string, gndOnline bool) string {
+	if bay == BAY_TAXI && !gndOnline {
+		return BAY_TAXI_LWR
+	}
 	return bay
 }
 

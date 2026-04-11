@@ -1011,7 +1011,7 @@ func (s *StripService) UpdateGroundState(ctx context.Context, session int32, cal
 		Cleared:     existingStrip.Cleared,
 		Bay:         existingStrip.Bay,
 	}
-	bay := shared.GetDepartureBayFromGroundState(groundState, dbStrip, airport)
+	bay := shared.GetDepartureBayFromGroundState(groundState, dbStrip, airport, s.isGndOnline(ctx, session))
 
 	_, err = s.stripRepo.UpdateGroundState(ctx, session, callsign, &groundState, bay, nil)
 	if err != nil {
@@ -1323,6 +1323,25 @@ func (s *StripService) HandleCoordinationReceived(ctx context.Context, session i
 	}
 
 	return s.CreateEsArrivalCoordination(ctx, session, callsign, fromPosition, controller.Position, controller.Cid)
+}
+
+// isGndOnline returns true if at least one GND-section controller is active in the
+// session, or if controllerRepo is not configured (safe default: no promotion).
+func (s *StripService) isGndOnline(ctx context.Context, session int32) bool {
+	if s.controllerRepo == nil {
+		return true
+	}
+	controllers, err := s.controllerRepo.ListBySession(ctx, session)
+	if err != nil {
+		return true
+	}
+	for _, c := range controllers {
+		pos, posErr := config.GetPositionBasedOnFrequency(c.Position)
+		if posErr == nil && pos.Section == "GND" {
+			return true
+		}
+	}
+	return false
 }
 
 // maybeMoveToLowerTwyDepOnTowerTransfer moves a strip from TAXI (upper TWY DEP) to TAXI_LWR
@@ -2168,10 +2187,11 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 	}
 
 	var bay string
+	gndOnline := s.isGndOnline(ctx, session)
 
 	if errors.Is(err, pgx.ErrNoRows) {
 		// Strip doesn't exist, so insert
-		bay = shared.GetDepartureBay(strip, nil, config.GetAirborneAltitudeAGL(), airport)
+		bay = shared.GetDepartureBay(strip, nil, config.GetAirborneAltitudeAGL(), airport, gndOnline)
 
 		isArrival := strip.Destination == airport
 		runwayForStrip := strip.Runway
@@ -2245,7 +2265,7 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 			State:       existingStrip.State,
 			Stand:       existingStrip.Stand,
 		}
-		bay = shared.GetDepartureBay(strip, &dbExistingStrip, config.GetAirborneAltitudeAGL(), airport)
+		bay = shared.GetDepartureBay(strip, &dbExistingStrip, config.GetAirborneAltitudeAGL(), airport, gndOnline)
 
 		stand := existingStrip.Stand
 		if strip.Stand != "" {

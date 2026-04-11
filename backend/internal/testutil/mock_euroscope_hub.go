@@ -53,6 +53,12 @@ type CdmReadyRequestCall struct {
 	Callsign string
 }
 
+type GenerateSquawkCall struct {
+	Session  int32
+	Cid      string
+	Callsign string
+}
+
 // ClearedAltitudeCall records arguments to SendClearedAltitude.
 type ClearedAltitudeCall struct {
 	Session  int32
@@ -75,6 +81,7 @@ type MockEuroscopeHub struct {
 	AssumeAndDrops        []AssumeAndDropCall
 	DropTrackings         []DropTrackingCall
 	CdmReadyRequests      []CdmReadyRequestCall
+	GenerateSquawks       []GenerateSquawkCall
 	ClearedAltitudes      []ClearedAltitudeCall
 	Broadcasts            []euroscope.OutgoingMessage
 	CreateFPLCalls        []CreateFPLCall
@@ -101,7 +108,9 @@ func (m *MockEuroscopeHub) SendCdmReadyRequest(session int32, cid string, callsi
 	m.CdmReadyRequests = append(m.CdmReadyRequests, CdmReadyRequestCall{Session: session, Cid: cid, Callsign: callsign})
 }
 
-func (m *MockEuroscopeHub) SendGenerateSquawk(session int32, cid string, callsign string) {}
+func (m *MockEuroscopeHub) SendGenerateSquawk(session int32, cid string, callsign string) {
+	m.GenerateSquawks = append(m.GenerateSquawks, GenerateSquawkCall{Session: session, Cid: cid, Callsign: callsign})
+}
 
 func (m *MockEuroscopeHub) SendGroundState(session int32, cid string, callsign string, state string) {
 	m.GroundStates = append(m.GroundStates, GroundStateCall{session, cid, callsign, state})

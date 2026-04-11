@@ -256,3 +256,105 @@ func TestSyncEuroscopeStrip_ExistingStrip_TaxiNoGndOnline_UpdatesTaxiLwr(t *test
 	require.NoError(t, err)
 	assert.Equal(t, shared.BAY_TAXI_LWR, updatedBay, "no GND online → PUSH→TAXI transition should land in TAXI_LWR")
 }
+
+func TestSyncEuroscopeStrip_NewLocalDepartureWithReservedAssignedSquawk_GeneratesSquawk(t *testing.T) {
+	ctx := context.Background()
+	const session = int32(1)
+
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			return nil, pgx.ErrNoRows
+		},
+		CreateFn: func(_ context.Context, _ *models.Strip) error {
+			return nil
+		},
+	}
+
+	svc, _, esHub := newSyncTestFixture(t, nil, stripRepo)
+
+	err := svc.syncEuroscopeStrip(ctx, session, "", euroscope.Strip{
+		Callsign:       "SAS777",
+		Origin:         "EKCH",
+		AssignedSquawk: "2000",
+	}, "EKCH")
+	require.NoError(t, err)
+	require.Len(t, esHub.GenerateSquawks, 1)
+	assert.Equal(t, session, esHub.GenerateSquawks[0].Session)
+	assert.Equal(t, "SAS777", esHub.GenerateSquawks[0].Callsign)
+	assert.Equal(t, "", esHub.GenerateSquawks[0].Cid)
+}
+
+func TestSyncEuroscopeStrip_NewLocalDepartureWithReservedAssignedSquawkAndCleared_DoesNotGenerateSquawk(t *testing.T) {
+	ctx := context.Background()
+	const session = int32(1)
+
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			return nil, pgx.ErrNoRows
+		},
+		CreateFn: func(_ context.Context, _ *models.Strip) error {
+			return nil
+		},
+	}
+
+	svc, _, esHub := newSyncTestFixture(t, nil, stripRepo)
+
+	err := svc.syncEuroscopeStrip(ctx, session, "", euroscope.Strip{
+		Callsign:       "SAS778",
+		Origin:         "EKCH",
+		AssignedSquawk: "2000",
+		Cleared:        true,
+	}, "EKCH")
+	require.NoError(t, err)
+	assert.Empty(t, esHub.GenerateSquawks)
+}
+
+func TestSyncEuroscopeStrip_NewLocalDepartureWithReservedAssignedSquawkAndTaxiState_DoesNotGenerateSquawk(t *testing.T) {
+	ctx := context.Background()
+	const session = int32(1)
+
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			return nil, pgx.ErrNoRows
+		},
+		CreateFn: func(_ context.Context, _ *models.Strip) error {
+			return nil
+		},
+	}
+
+	svc, _, esHub := newSyncTestFixture(t, nil, stripRepo)
+
+	err := svc.syncEuroscopeStrip(ctx, session, "", euroscope.Strip{
+		Callsign:       "SAS779",
+		Origin:         "EKCH",
+		AssignedSquawk: "2000",
+		GroundState:    euroscope.GroundStateTaxi,
+	}, "EKCH")
+	require.NoError(t, err)
+	assert.Empty(t, esHub.GenerateSquawks)
+}
+
+func TestSyncEuroscopeStrip_NewArrivalWithReservedAssignedSquawk_DoesNotGenerateSquawk(t *testing.T) {
+	ctx := context.Background()
+	const session = int32(1)
+
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			return nil, pgx.ErrNoRows
+		},
+		CreateFn: func(_ context.Context, _ *models.Strip) error {
+			return nil
+		},
+	}
+
+	svc, _, esHub := newSyncTestFixture(t, nil, stripRepo)
+
+	err := svc.syncEuroscopeStrip(ctx, session, "", euroscope.Strip{
+		Callsign:       "DLH777",
+		Origin:         "EDDF",
+		Destination:    "EKCH",
+		AssignedSquawk: "2000",
+	}, "EKCH")
+	require.NoError(t, err)
+	assert.Empty(t, esHub.GenerateSquawks)
+}

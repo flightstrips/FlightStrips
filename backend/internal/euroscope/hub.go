@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"log/slog"
 	"math/rand"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -86,6 +87,8 @@ type Hub struct {
 	// so concurrent offline timers produce a single recalculation per session.
 	sessionUpdateMu     sync.Mutex
 	sessionUpdateTimers map[int32]*sessionUpdatePending
+
+	squawkThrottle *squawkThrottle
 }
 
 func NewHub(stripService shared.StripService, controllerService shared.ControllerService, authenticationService shared.AuthenticationService) *Hub {
@@ -136,6 +139,7 @@ func NewHub(stripService shared.StripService, controllerService shared.Controlle
 		sessionUpdateTimers:      make(map[int32]*sessionUpdatePending),
 		airportClientCount:       make(map[string]int),
 	}
+	hub.squawkThrottle = newSquawkThrottle(defaultSquawkRequestInterval, hub.readAssignedSquawk, hub.dispatchGenerateSquawkRequest)
 
 	go hub.Run()
 
@@ -444,10 +448,54 @@ func (hub *Hub) OnUnregister(client *Client) {
 }
 
 func (hub *Hub) SendGenerateSquawk(session int32, cid string, callsign string) {
-	event := euroscope.GenerateSquawkEvent{
-		Callsign: callsign,
+	hub.squawkThrottle.Enqueue(session, queuedSquawkRequest{
+		cid:      cid,
+		callsign: callsign,
+	})
+}
+
+func (hub *Hub) resolveGenerateSquawkCid(ctx context.Context, session int32) string {
+	if hub.server != nil {
+		sectorRepo := hub.server.GetSectorOwnerRepository()
+		controllerRepo := hub.server.GetControllerRepository()
+		if sectorRepo != nil && controllerRepo != nil {
+			owners, err := sectorRepo.ListBySession(ctx, session)
+			if err != nil {
+				slog.Warn("Failed to load sector owners for squawk generation",
+					slog.Int("session", int(session)),
+					slog.Any("error", err),
+				)
+			} else {
+				for _, owner := range owners {
+					if !slices.Contains(owner.Sector, "DEL") {
+						continue
+					}
+
+					controllers, err := controllerRepo.GetByPosition(ctx, session, owner.Position)
+					if err != nil {
+						slog.Warn("Failed to load DEL controllers for squawk generation",
+							slog.Int("session", int(session)),
+							slog.String("position", owner.Position),
+							slog.Any("error", err),
+						)
+						continue
+					}
+
+					for _, controller := range controllers {
+						if controller.Cid != nil && *controller.Cid != "" {
+							return *controller.Cid
+						}
+					}
+				}
+			}
+		}
 	}
-	hub.Send(session, cid, event)
+
+	if master, ok := hub.master[session]; ok && master != nil {
+		return master.GetCid()
+	}
+
+	return ""
 }
 
 func (hub *Hub) SendGroundState(session int32, cid string, callsign string, state string) {

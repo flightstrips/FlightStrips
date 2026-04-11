@@ -5,6 +5,7 @@ import (
 	"FlightStrips/internal/models"
 	"FlightStrips/internal/repository"
 	"FlightStrips/internal/shared"
+	"FlightStrips/pkg/helpers"
 	"context"
 	"database/sql"
 	"errors"
@@ -233,7 +234,12 @@ func (s *Service) ProcessPDCRequest(ctx context.Context, msg *IncomingMessage, s
 			func(seq int32) string { return buildInvalidAircraftType(seq, strip.Origin, req.Callsign) })
 	}
 
-	faults := s.validatePDCFlightPlan(strip)
+	currentSession, err := s.sessionRepo.GetByID(ctx, session.id)
+	if err != nil {
+		return s.sendErrorAndReturn(ctx, session, req.Callsign, err, buildPDCUnavailable)
+	}
+
+	faults := s.validatePDCFlightPlan(strip, currentSession.ActiveRunways.DepartureRunways)
 	if len(faults) > 0 {
 		now := time.Now().UTC()
 		if err := s.stripRepo.SetPdcRequested(ctx, session.id, strip.Callsign, string(StateRequestedWithFaults), &now); err != nil {
@@ -507,17 +513,7 @@ func getAssignedPDCSquawk(strip *models.Strip) (string, error) {
 }
 
 func isValidPDCSquawk(squawk string) bool {
-	if len(squawk) != 4 || squawk == "2000" {
-		return false
-	}
-
-	for _, digit := range squawk {
-		if digit < '0' || digit > '7' {
-			return false
-		}
-	}
-
-	return true
+	return helpers.IsValidAssignedSquawk(squawk)
 }
 
 func normalizeFrequency(frequency string) string {
@@ -780,7 +776,7 @@ func (s *Service) setPdcFailed(ctx context.Context, callsign string, sessionId i
 
 // validatePDCFlightPlan validates a strip's flight plan against PDC validation config.
 // Returns a list of fault descriptions (empty = no faults).
-func (s *Service) validatePDCFlightPlan(strip *models.Strip) []string {
+func (s *Service) validatePDCFlightPlan(strip *models.Strip, activeDepartureRunways []string) []string {
 	cfg := config.GetPDCValidationConfig()
 	var faults []string
 
@@ -811,21 +807,29 @@ func (s *Service) validatePDCFlightPlan(strip *models.Strip) []string {
 		}
 	}
 
-	// Check heavy runway restriction
+	aircraftType := ""
+	if strip.AircraftType != nil {
+		aircraftType = strings.ToUpper(strings.SplitN(strings.TrimSpace(*strip.AircraftType), "/", 2)[0])
+	}
+
+	runway := ""
+	if strip.Runway != nil {
+		runway = strings.ToUpper(strings.TrimSpace(*strip.Runway))
+	}
+
+	hasSpecificRunwayRequirement := false
 	if strip.AircraftType != nil && strip.Runway != nil {
-		acType := strings.ToUpper(*strip.AircraftType)
-		runway := strings.ToUpper(*strip.Runway)
-		isHeavy := false
 		for _, heavyType := range cfg.HeavyRunwayRestriction.AircraftTypes {
-			if strings.ToUpper(heavyType) == acType {
-				isHeavy = true
+			if strings.ToUpper(strings.TrimSpace(heavyType)) == aircraftType {
+				hasSpecificRunwayRequirement = true
 				break
 			}
 		}
-		if isHeavy {
+
+		if hasSpecificRunwayRequirement {
 			allowed := false
 			for _, r := range cfg.HeavyRunwayRestriction.AllowedRunways {
-				if strings.ToUpper(r) == runway {
+				if strings.ToUpper(strings.TrimSpace(r)) == runway {
 					allowed = true
 					break
 				}
@@ -833,6 +837,19 @@ func (s *Service) validatePDCFlightPlan(strip *models.Strip) []string {
 			if !allowed {
 				faults = append(faults, fmt.Sprintf("Aircraft type %s is not allowed on runway %s", *strip.AircraftType, *strip.Runway))
 			}
+		}
+	}
+
+	if runway != "" && len(activeDepartureRunways) > 0 && !hasSpecificRunwayRequirement {
+		isActiveDepartureRunway := false
+		for _, activeRunway := range activeDepartureRunways {
+			if strings.EqualFold(strings.TrimSpace(activeRunway), runway) {
+				isActiveDepartureRunway = true
+				break
+			}
+		}
+		if !isActiveDepartureRunway {
+			faults = append(faults, fmt.Sprintf("Runway %s is not an active departure runway", *strip.Runway))
 		}
 	}
 

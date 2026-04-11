@@ -8,6 +8,7 @@ import (
 	"FlightStrips/internal/shared"
 	"FlightStrips/pkg/events/euroscope"
 	"FlightStrips/pkg/events/frontend"
+	"FlightStrips/pkg/helpers"
 	"FlightStrips/pkg/models"
 	"context"
 	"errors"
@@ -2417,6 +2418,9 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 		if newClearedAlt != strip.ClearedAltitude && s.euroscopeHub != nil {
 			s.euroscopeHub.SendClearedAltitude(session, cid, strip.Callsign, newClearedAlt)
 		}
+		if shouldGenerateDepartureSquawk(strip, airport, bay) && s.euroscopeHub != nil {
+			s.euroscopeHub.SendGenerateSquawk(session, "", strip.Callsign)
+		}
 	} else {
 		// Strip exists, update it
 		dbExistingStrip := database.Strip{
@@ -2549,6 +2553,18 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 	s.frontendHub.SendStripUpdate(session, strip.Callsign)
 
 	return nil
+}
+
+func shouldGenerateDepartureSquawk(strip euroscope.Strip, airport string, bay string) bool {
+	if !strings.EqualFold(strings.TrimSpace(strip.Origin), strings.TrimSpace(airport)) {
+		return false
+	}
+
+	if bay != shared.BAY_NOT_CLEARED {
+		return false
+	}
+
+	return !helpers.IsValidAssignedSquawk(strip.AssignedSquawk)
 }
 
 var remarksRegReService = regexp.MustCompile(`\bREG/([A-Z0-9-]+)`)

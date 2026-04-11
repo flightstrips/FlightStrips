@@ -14,6 +14,7 @@ type MockServer struct {
 	CdmServiceVal     shared.CdmService
 	CoordRepoVal      repository.CoordinationRepository
 	ControllerRepoVal repository.ControllerRepository
+	SectorRepoVal     repository.SectorOwnerRepository
 	SessionRepoVal    repository.SessionRepository
 	StripRepoVal      repository.StripRepository
 
@@ -49,7 +50,9 @@ func (m *MockServer) GetControllerRepository() repository.ControllerRepository {
 
 func (m *MockServer) GetSessionRepository() repository.SessionRepository { return m.SessionRepoVal }
 
-func (m *MockServer) GetSectorOwnerRepository() repository.SectorOwnerRepository { return nil }
+func (m *MockServer) GetSectorOwnerRepository() repository.SectorOwnerRepository {
+	return m.SectorRepoVal
+}
 
 func (m *MockServer) GetCoordinationRepository() repository.CoordinationRepository {
 	return m.CoordRepoVal

@@ -5,6 +5,7 @@ import (
 	"FlightStrips/internal/pdc/mocks"
 	"FlightStrips/internal/pdc/testdata"
 	"FlightStrips/internal/repository/postgres"
+	pkgModels "FlightStrips/pkg/models"
 	"context"
 	"fmt"
 	"strings"
@@ -563,6 +564,50 @@ func TestProcessPDCRequest_InvalidAssignedSquawkDoesNotAutoIssue(t *testing.T) {
 	})
 	require.NoError(t, err)
 	assert.Equal(t, "REQUESTED", strip.PdcState)
+}
+
+func TestProcessPDCRequest_InactiveDepartureRunwayCreatesFault(t *testing.T) {
+	t.Parallel()
+	suite := &PDCIntegrationTestSuite{}
+	suite.SetupTest(t)
+	ctx := context.Background()
+
+	callsign := "SAS127"
+	testdata.SeedTestStrip(t, suite.queries, 1, callsign)
+	require.NoError(t, suite.queries.UpdateActiveRunways(ctx, database.UpdateActiveRunwaysParams{
+		ID: 1,
+		ActiveRunways: pkgModels.ActiveRunways{
+			DepartureRunways: []string{"22R"},
+		},
+	}))
+
+	suite.mockHoppie.On("SendCPDLC", mock.Anything, mock.Anything, callsign, mock.MatchedBy(func(msg string) bool {
+		return strings.Contains(msg, "STANDBY")
+	})).Return(nil).Once()
+	suite.mockFrontend.On("SendPdcStateChange", int32(1), callsign, "REQUESTED_WITH_FAULTS").Return()
+
+	incomingMsg := &IncomingMessage{
+		Type:       MsgPDCRequest,
+		From:       callsign,
+		To:         "EKCH",
+		Payload:    "REQUEST PREDEP CLEARANCE " + callsign + " A320 TO ESSA AT EKCH STAND A10 ATIS A",
+		RawMessage: callsign + " EKCH telex {REQUEST PREDEP CLEARANCE " + callsign + " A320 TO ESSA AT EKCH STAND A10 ATIS A}",
+	}
+
+	session := sessionInformation{
+		id:       1,
+		callsign: "EKCH",
+	}
+
+	err := suite.service.ProcessPDCRequest(ctx, incomingMsg, session)
+	require.NoError(t, err)
+
+	strip, err := suite.queries.GetStrip(context.Background(), database.GetStripParams{
+		Session:  1,
+		Callsign: callsign,
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "REQUESTED_WITH_FAULTS", strip.PdcState)
 }
 
 func TestProcessPDCRequest_AlreadyCleared(t *testing.T) {

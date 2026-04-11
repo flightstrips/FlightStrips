@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.20.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.19.1...frontend/v0.20.0) (2026-04-11)
+
+
+### Features
+
+* Detect landing and move strip to TWY ARR when vacated ([a12892d](https://github.com/flightstrips/FlightStrips/commit/a12892d29032ff3b30a10df2a125cf27ae2ed1b6))
+* erase heading, cleared altitude ([37c2360](https://github.com/flightstrips/FlightStrips/commit/37c236046edf6545ed5e35ca1f625561cfce7f73))
+
+
+### Bug Fixes
+
+* MRK Btn size ([254d8f8](https://github.com/flightstrips/FlightStrips/commit/254d8f89cb7ef5565d3b5bddca633d834650865a))
+* remove commandbar buttom border ([5390b17](https://github.com/flightstrips/FlightStrips/commit/5390b179effde170b082802335868ee9ecd434fd))
+
 ## [0.19.1](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.19.0...frontend/v0.19.1) (2026-04-07)
 
 

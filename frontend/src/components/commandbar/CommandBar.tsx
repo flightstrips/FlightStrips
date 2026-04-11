@@ -15,7 +15,7 @@ import { CLS_CMDBTN } from "@/components/strip/shared";
 import { Bay } from "@/api/models";
 
 // Bar height matches strip height (4.72vh). Inner elements: calc(4.72vh - 14px) + 7px top/bottom margin.
-const CLS_BAR = "h-[4.72vh] w-screen bg-bay-commandbar flex justify-between text-white items-center border-y-2 border-bay-border";
+const CLS_BAR = "h-[4.72vh] w-screen bg-bay-commandbar flex justify-between text-white items-center border-t-2 border-bay-border";
 
 // Inner value boxes — same margin rhythm as CLS_CMDBTN
 // Font sizes derived from SVG (2560px base): large values 36px→1.41vw, labels 24px→0.94vw

@@ -88,9 +88,9 @@ func buildAssumeAfterMissedSvc(
 	return svc, hub, res
 }
 
-// TestAssumeAfterMissedApproach_MovesToArrHidden verifies that when an APP controller
-// assumes an AIRBORNE strip transferred from TWR, the strip moves to ARR_HIDDEN.
-func TestAssumeAfterMissedApproach_MovesToArrHidden(t *testing.T) {
+// TestAssumeAfterMissedApproach_MovesToFinal verifies that when an APP controller
+// assumes an AIRBORNE strip transferred from TWR, the strip moves back to FINAL.
+func TestAssumeAfterMissedApproach_MovesToFinal(t *testing.T) {
 	t.Cleanup(config.SetPositionsForTest([]config.Position{
 		{Name: "EKCH_M_TWR", Frequency: "118.105", Section: "TWR"},
 		{Name: "EKCH_W_APP", Frequency: "119.805", Section: "APP"},
@@ -112,7 +112,7 @@ func TestAssumeAfterMissedApproach_MovesToArrHidden(t *testing.T) {
 	svc, _, res := buildAssumeAfterMissedSvc(t, strip, coord)
 	require.NoError(t, svc.AssumeStripCoordination(context.Background(), 1, "SAS001", "119.805"))
 
-	assert.Equal(t, shared.BAY_ARR_HIDDEN, res.movedToBay)
+	assert.Equal(t, shared.BAY_FINAL, res.movedToBay)
 }
 
 // TestAssumeAfterMissedApproach_TWRRemovedFromPreviousOwners verifies that after the
@@ -408,6 +408,72 @@ func buildTrackingChangedSvcWithCoord(
 	return svc, res
 }
 
+type coordinationReceivedResult struct {
+	updatedBay string
+	movedToBay string
+	created    *models.Coordination
+}
+
+func buildCoordinationReceivedSvc(
+	t *testing.T,
+	strip *models.Strip,
+	controller *models.Controller,
+) (*StripService, *testutil.MockFrontendHub, *coordinationReceivedResult) {
+	t.Helper()
+
+	res := &coordinationReceivedResult{}
+	cur := *strip
+
+	coordRepo := &testutil.MockCoordinationRepository{
+		CreateFn: func(_ context.Context, coordination *models.Coordination) error {
+			copy := *coordination
+			res.created = &copy
+			return nil
+		},
+	}
+
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			copy := cur
+			return &copy, nil
+		},
+		UpdateBayFn: func(_ context.Context, _ int32, _ string, bay string, _ *int32) (int64, error) {
+			res.updatedBay = bay
+			cur.Bay = bay
+			return 1, nil
+		},
+		GetMaxSequenceInBayFn: func(_ context.Context, _ int32, _ string) (int32, error) {
+			return 0, nil
+		},
+		UpdateBayAndSequenceFn: func(_ context.Context, _ int32, _ string, bay string, _ int32) (int64, error) {
+			res.movedToBay = bay
+			cur.Bay = bay
+			return 1, nil
+		},
+	}
+
+	controllerRepo := &testutil.MockControllerRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, callsign string) (*models.Controller, error) {
+			if callsign != controller.Callsign {
+				return nil, pgx.ErrNoRows
+			}
+			return controller, nil
+		},
+	}
+
+	hub := &testutil.MockFrontendHub{}
+	hub.SetServer(&testutil.MockServer{
+		CoordRepoVal: coordRepo,
+	})
+
+	svc := NewStripService(stripRepo)
+	svc.SetFrontendHub(hub)
+	svc.SetControllerRepo(controllerRepo)
+	svc.SetCoordinationRepo(coordRepo)
+
+	return svc, hub, res
+}
+
 // TestHandleTrackingControllerChanged_ArrivalGoesToArrHidden verifies that an AIRBORNE
 // arrival strip is moved to ARR_HIDDEN when the ES tracking controller changes.
 func TestHandleTrackingControllerChanged_ArrivalGoesToArrHidden(t *testing.T) {
@@ -417,6 +483,30 @@ func TestHandleTrackingControllerChanged_ArrivalGoesToArrHidden(t *testing.T) {
 	require.NoError(t, svc.HandleTrackingControllerChanged(context.Background(), 1, "THA951", "EKCH_W_APP"))
 	assert.Equal(t, shared.BAY_ARR_HIDDEN, res.updateBayArg)
 	assert.Equal(t, shared.BAY_ARR_HIDDEN, res.moveToBayArg)
+}
+
+// TestHandleTrackingControllerChanged_MissedApproachGoesToFinal verifies that an
+// AIRBORNE missed-approach strip returns to FINAL when APP assumes it in ES.
+func TestHandleTrackingControllerChanged_MissedApproachGoesToFinal(t *testing.T) {
+	t.Cleanup(config.SetPositionsForTest([]config.Position{
+		{Name: "EKCH_M_TWR", Frequency: "118.105", Section: "TWR"},
+		{Name: "EKCH_W_APP", Frequency: "119.805", Section: "APP"},
+	}))
+
+	strip := &models.Strip{
+		ID: 24, Callsign: "THA952", Bay: shared.BAY_AIRBORNE,
+		Destination: "EKCH", PreviousOwners: []string{},
+	}
+	coord := &models.Coordination{
+		ID: 7, Session: 1, StripID: strip.ID,
+		FromPosition: "118.105", ToPosition: "119.805",
+	}
+
+	svc, res := buildTrackingChangedSvcWithCoord(t, strip, coord, "EKCH")
+	require.NoError(t, svc.HandleTrackingControllerChanged(context.Background(), 1, "THA952", "119.805"))
+
+	assert.Equal(t, shared.BAY_FINAL, res.updateBayArg)
+	assert.Equal(t, shared.BAY_FINAL, res.moveToBayArg)
 }
 
 // TestHandleTrackingControllerChanged_DepartureGoesToHidden verifies that an AIRBORNE
@@ -431,8 +521,13 @@ func TestHandleTrackingControllerChanged_DepartureGoesToHidden(t *testing.T) {
 }
 
 // TestHandleTrackingControllerChanged_ArrivalTWRRemovedFromPreviousOwners verifies that
-// when an arrival is auto-hidden to ARR_HIDDEN, TWR is removed from PreviousOwners.
+// when a missed-approach arrival returns to FINAL, TWR is removed from PreviousOwners.
 func TestHandleTrackingControllerChanged_ArrivalTWRRemovedFromPreviousOwners(t *testing.T) {
+	t.Cleanup(config.SetPositionsForTest([]config.Position{
+		{Name: "EKCH_M_TWR", Frequency: "118.105", Section: "TWR"},
+		{Name: "EKCH_W_APP", Frequency: "119.805", Section: "APP"},
+	}))
+
 	const twr = "118.105"
 	strip := &models.Strip{
 		ID: 22, Callsign: "THA951", Bay: shared.BAY_AIRBORNE,
@@ -452,6 +547,11 @@ func TestHandleTrackingControllerChanged_ArrivalTWRRemovedFromPreviousOwners(t *
 // TestHandleTrackingControllerChanged_ArrivalRouteRecalculated verifies that
 // UpdateRouteForStrip is called after the missed-approach ES assume.
 func TestHandleTrackingControllerChanged_ArrivalRouteRecalculated(t *testing.T) {
+	t.Cleanup(config.SetPositionsForTest([]config.Position{
+		{Name: "EKCH_M_TWR", Frequency: "118.105", Section: "TWR"},
+		{Name: "EKCH_W_APP", Frequency: "119.805", Section: "APP"},
+	}))
+
 	strip := &models.Strip{
 		ID: 23, Callsign: "THA951", Bay: shared.BAY_AIRBORNE,
 		Destination: "EKCH", PreviousOwners: []string{},
@@ -465,4 +565,44 @@ func TestHandleTrackingControllerChanged_ArrivalRouteRecalculated(t *testing.T) 
 	require.NoError(t, svc.HandleTrackingControllerChanged(context.Background(), 1, "THA951", "119.805"))
 
 	assert.Equal(t, 1, res.routeRecalcCount, "UpdateRouteForStrip must be called once after missed approach ES assume")
+}
+
+func TestHandleCoordinationReceived_ArrHiddenMovesToFinalAndStartsTransfer(t *testing.T) {
+	strip := &models.Strip{
+		ID: 30, Callsign: "SAS005", Bay: shared.BAY_ARR_HIDDEN,
+		Owner: strPtr("119.805"),
+	}
+	controller := &models.Controller{Callsign: "EKCH_M_TWR", Position: "118.105"}
+
+	svc, hub, res := buildCoordinationReceivedSvc(t, strip, controller)
+	require.NoError(t, svc.HandleCoordinationReceived(context.Background(), 1, "SAS005", "EKCH_M_TWR"))
+
+	assert.Equal(t, shared.BAY_FINAL, res.updatedBay)
+	assert.Equal(t, shared.BAY_FINAL, res.movedToBay)
+	require.NotNil(t, res.created)
+	assert.Equal(t, "119.805", res.created.FromPosition)
+	assert.Equal(t, "118.105", res.created.ToPosition)
+	require.Len(t, hub.CoordinationTransfers, 1)
+	assert.Equal(t, "119.805", hub.CoordinationTransfers[0].From)
+	assert.Equal(t, "118.105", hub.CoordinationTransfers[0].To)
+}
+
+func TestHandleCoordinationReceived_FinalStartsTransferWithoutMovingBay(t *testing.T) {
+	strip := &models.Strip{
+		ID: 31, Callsign: "SAS006", Bay: shared.BAY_FINAL,
+		Owner: strPtr("119.805"),
+	}
+	controller := &models.Controller{Callsign: "EKCH_M_TWR", Position: "118.105"}
+
+	svc, hub, res := buildCoordinationReceivedSvc(t, strip, controller)
+	require.NoError(t, svc.HandleCoordinationReceived(context.Background(), 1, "SAS006", "EKCH_M_TWR"))
+
+	assert.Empty(t, res.updatedBay)
+	assert.Empty(t, res.movedToBay)
+	require.NotNil(t, res.created)
+	assert.Equal(t, "119.805", res.created.FromPosition)
+	assert.Equal(t, "118.105", res.created.ToPosition)
+	require.Len(t, hub.CoordinationTransfers, 1)
+	assert.Equal(t, "119.805", hub.CoordinationTransfers[0].From)
+	assert.Equal(t, "118.105", hub.CoordinationTransfers[0].To)
 }

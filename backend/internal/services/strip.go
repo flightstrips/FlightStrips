@@ -1154,8 +1154,14 @@ func (s *StripService) UpdateAircraftPosition(ctx context.Context, session int32
 	return nil
 }
 
+func isMissedApproachReturn(fromPosition string, assumingPosition string) bool {
+	fromPos, fromErr := config.GetPositionBasedOnFrequency(fromPosition)
+	assumingPos, assumingErr := config.GetPositionBasedOnFrequency(assumingPosition)
+	return fromErr == nil && assumingErr == nil && fromPos.Section == "TWR" && assumingPos.Section == "APP"
+}
+
 // applyMissedApproachOwnerFix cleans up owners after a missed-approach assume:
-//   - removes towerPosition from PreviousOwners (TWR will be in NextOwners on the next approach)
+//   - removes towerPosition from PreviousOwners (TWR should become next controller again)
 //   - recalculates NextOwners via UpdateRouteForStrip
 func (s *StripService) applyMissedApproachOwnerFix(ctx context.Context, session int32, callsign string, assumingPosition string, towerPosition string) {
 	updated, err := s.stripRepo.GetByCallsign(ctx, session, callsign)
@@ -1247,30 +1253,34 @@ func (s *StripService) HandleTrackingControllerChanged(ctx context.Context, sess
 		return nil
 	}
 
-	// Arrivals that go AIRBORNE after a missed approach must land in ARR_HIDDEN so
-	// the APP controller can work them again. Departures use the regular HIDDEN bay.
-	hiddenBay := shared.BAY_HIDDEN
+	// Arrivals that go AIRBORNE normally land in ARR_HIDDEN so the APP controller can
+	// work them again. For missed-approach TWR->APP assumptions, restore the strip to
+	// FINAL so TWR becomes the next controller again. Departures use the regular HIDDEN bay.
+	targetBay := shared.BAY_HIDDEN
 	if s.frontendHub != nil {
 		if srv := s.frontendHub.GetServer(); srv != nil {
 			if sess, sessErr := srv.GetSessionRepository().GetByID(ctx, session); sessErr == nil && strip.Destination == sess.Airport {
-				hiddenBay = shared.BAY_ARR_HIDDEN
+				targetBay = shared.BAY_ARR_HIDDEN
 			}
 		}
 	}
+	if targetBay == shared.BAY_ARR_HIDDEN && coordFromPosition != "" && isMissedApproachReturn(coordFromPosition, assumingPosition) {
+		targetBay = shared.BAY_FINAL
+	}
 
-	count, err := s.stripRepo.UpdateBay(ctx, session, callsign, hiddenBay, nil)
+	count, err := s.stripRepo.UpdateBay(ctx, session, callsign, targetBay, nil)
 	if err != nil {
 		return err
 	}
 	if count != 1 {
-		return errors.New("failed to move airborne strip to hidden after tracking controller assumption")
+		return errors.New("failed to move airborne strip after tracking controller assumption")
 	}
 
-	if err := s.MoveToBay(ctx, session, callsign, hiddenBay, true); err != nil {
+	if err := s.MoveToBay(ctx, session, callsign, targetBay, true); err != nil {
 		return err
 	}
 
-	if hiddenBay == shared.BAY_ARR_HIDDEN && coordFromPosition != "" {
+	if targetBay == shared.BAY_FINAL && coordFromPosition != "" {
 		s.applyMissedApproachOwnerFix(ctx, session, callsign, assumingPosition, coordFromPosition)
 	}
 
@@ -1278,7 +1288,7 @@ func (s *StripService) HandleTrackingControllerChanged(ctx context.Context, sess
 }
 
 // HandleCoordinationReceived processes an EuroScope coordination-received event,
-// moving the strip from ARR_HIDDEN to FINAL and creating an arrival coordination record.
+// ensuring the strip is in FINAL and creating an arrival coordination record.
 func (s *StripService) HandleCoordinationReceived(ctx context.Context, session int32, callsign string, controllerCallsign string) error {
 	if s.controllerRepo == nil {
 		return errors.New("controller repository not configured")
@@ -1293,8 +1303,8 @@ func (s *StripService) HandleCoordinationReceived(ctx context.Context, session i
 		return err
 	}
 
-	if strip.Bay != shared.BAY_ARR_HIDDEN {
-		slog.Debug("coordination_received on strip not in ARR_HIDDEN, ignoring", slog.String("callsign", callsign), slog.String("bay", strip.Bay))
+	if strip.Bay != shared.BAY_ARR_HIDDEN && strip.Bay != shared.BAY_FINAL {
+		slog.Debug("coordination_received on strip not in ARR_HIDDEN/FINAL, ignoring", slog.String("callsign", callsign), slog.String("bay", strip.Bay))
 		return nil
 	}
 
@@ -1309,12 +1319,14 @@ func (s *StripService) HandleCoordinationReceived(ctx context.Context, session i
 
 	slog.Debug("Received coordination received event", slog.String("callsign", callsign), slog.String("from_controller", controllerCallsign))
 
-	if _, err := s.stripRepo.UpdateBay(ctx, session, callsign, shared.BAY_FINAL, nil); err != nil {
-		return err
-	}
+	if strip.Bay == shared.BAY_ARR_HIDDEN {
+		if _, err := s.stripRepo.UpdateBay(ctx, session, callsign, shared.BAY_FINAL, nil); err != nil {
+			return err
+		}
 
-	if err := s.MoveToBay(ctx, session, callsign, shared.BAY_FINAL, true); err != nil {
-		return err
+		if err := s.MoveToBay(ctx, session, callsign, shared.BAY_FINAL, true); err != nil {
+			return err
+		}
 	}
 
 	fromPosition := ""
@@ -1420,19 +1432,15 @@ func (s *StripService) AssumeStripCoordination(ctx context.Context, session int3
 		}
 
 		// Missed approach return: if an APP controller assumes an AIRBORNE strip that was
-		// handed over by a TWR controller, automatically move it to ARR_HIDDEN so it
-		// sits in the arrival hidden queue (not back on final) until worked again.
-		if strip.Bay == shared.BAY_AIRBORNE {
-			fromPos, fromErr := config.GetPositionBasedOnFrequency(coordination.FromPosition)
-			assumingPos, assumingErr := config.GetPositionBasedOnFrequency(position)
-			if fromErr == nil && assumingErr == nil && fromPos.Section == "TWR" && assumingPos.Section == "APP" {
-				if moveErr := s.MoveToBay(ctx, session, callsign, shared.BAY_ARR_HIDDEN, true); moveErr != nil {
-					slog.Warn("missed approach assume: failed to auto-move strip to ARR_HIDDEN",
-						slog.String("callsign", callsign),
-						slog.Any("error", moveErr))
-				} else {
-					s.applyMissedApproachOwnerFix(ctx, session, callsign, position, coordination.FromPosition)
-				}
+		// handed over by a TWR controller, automatically move it back to FINAL so TWR
+		// becomes the next controller again on the next approach.
+		if strip.Bay == shared.BAY_AIRBORNE && isMissedApproachReturn(coordination.FromPosition, position) {
+			if moveErr := s.MoveToBay(ctx, session, callsign, shared.BAY_FINAL, true); moveErr != nil {
+				slog.Warn("missed approach assume: failed to auto-move strip to FINAL",
+					slog.String("callsign", callsign),
+					slog.Any("error", moveErr))
+			} else {
+				s.applyMissedApproachOwnerFix(ctx, session, callsign, position, coordination.FromPosition)
 			}
 		}
 

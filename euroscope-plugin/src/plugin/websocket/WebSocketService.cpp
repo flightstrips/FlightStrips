@@ -135,6 +135,12 @@ namespace FlightStrips::websocket {
             return;
         }
 
+        if (!session_name.empty() && session_name != GetEffectiveSessionName(state)) {
+            Logger::Info("Session mode changed: '{}' -> '{}', reconnecting", session_name, GetEffectiveSessionName(state));
+            Reconnect();
+            return;
+        }
+
         if (primary != state.primary_frequency) {
             SendLoginEvent();
         }
@@ -172,6 +178,23 @@ namespace FlightStrips::websocket {
 
     bool WebSocketService::ShouldSend() const {
         return IsConnected() && client_state == STATE_MASTER;
+    }
+
+    void WebSocketService::Reconnect() {
+        connect_after_.reset();
+        pending_connect_ = false;
+        fail_count_ = 0;
+        connect_readiness_ = ConnectReadiness::RECONNECT;
+        primary.clear();
+        session_name.clear();
+
+        if (IsConnected()) {
+            webSocket->Disconnect();
+        }
+
+        std::lock_guard lock(message_mutex_);
+        messages_.clear();
+        client_state = STATE_UNKNOWN;
     }
 
     void WebSocketService::SetSessionState(const ClientState state) {
@@ -224,11 +247,11 @@ namespace FlightStrips::websocket {
     }
 
     void WebSocketService::SendLoginEvent() {
-        const auto &[range, connection_type, primary_frequency, callsign, relevant_airport] = m_plugin->GetConnectionState();
-        primary = primary_frequency;
+        const auto& state = m_plugin->GetConnectionState();
+        primary = state.primary_frequency;
+        session_name = GetEffectiveSessionName(state);
 
-        const auto connection = connection_type == CONNECTION_TYPE_DIRECT ? "LIVE" : connection_type == CONNECTION_TYPE_SWEATBOX ? "SWEATBOX" : "PLAYBACK";
-        const auto login = LoginEvent(relevant_airport, connection, primary_frequency, callsign, range);
+        const auto login = LoginEvent(state.relevant_airport, session_name, state.primary_frequency, state.callsign, state.range);
         SendEvent(login);
     }
 }

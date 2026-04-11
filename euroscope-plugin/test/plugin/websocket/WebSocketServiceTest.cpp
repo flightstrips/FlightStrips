@@ -10,6 +10,8 @@
 using namespace FlightStrips;
 using namespace FlightStrips::websocket;
 using namespace FlightStrips::authentication;
+using ::testing::_;
+using ::testing::Invoke;
 using ::testing::NiceMock;
 using ::testing::Return;
 using ::testing::ReturnRef;
@@ -450,6 +452,48 @@ TEST_F(WebSocketServiceReconnectTest, OnTimer_ConditionsDropDuringBackoff_Resets
     EXPECT_FALSE(svc->IsBackingOff());
     EXPECT_CALL(*mockImpl, Connect()).Times(1);
     svc->OnTimer(1);
+}
+
+TEST_F(WebSocketServiceReconnectTest, OnConnected_DirectConnection_UsesSelectedSweatboxSessionInLoginEvent) {
+    state.range = 150;
+    state.connection_type = CONNECTION_TYPE_DIRECT;
+    state.primary_frequency = "121.500";
+    state.callsign = "EKCH_GND";
+    state.relevant_airport = "EKCH";
+    state.prefer_sweatbox = true;
+    ON_CALL(*mockAuth, GetAccessToken()).WillByDefault(Return("token-123"));
+
+    std::vector<nlohmann::json> sent;
+    EXPECT_CALL(*mockImpl, Send(_)).Times(2).WillRepeatedly(Invoke([&sent](const std::string& payload) {
+        sent.push_back(nlohmann::json::parse(payload));
+    }));
+
+    svc->SimulateConnected();
+
+    ASSERT_EQ(sent.size(), 2u);
+    EXPECT_EQ(sent[1]["type"], EVENT_LOGIN_NAME);
+    EXPECT_EQ(sent[1]["connection"], "SWEATBOX");
+}
+
+TEST_F(WebSocketServiceReconnectTest, OnConnected_PlaybackConnection_OverridesManualPreferenceInLoginEvent) {
+    state.range = 150;
+    state.connection_type = CONNECTION_TYPE_PLAYBACK;
+    state.primary_frequency = "121.500";
+    state.callsign = "EKCH_GND";
+    state.relevant_airport = "EKCH";
+    state.prefer_sweatbox = false;
+    ON_CALL(*mockAuth, GetAccessToken()).WillByDefault(Return("token-123"));
+
+    std::vector<nlohmann::json> sent;
+    EXPECT_CALL(*mockImpl, Send(_)).Times(2).WillRepeatedly(Invoke([&sent](const std::string& payload) {
+        sent.push_back(nlohmann::json::parse(payload));
+    }));
+
+    svc->SimulateConnected();
+
+    ASSERT_EQ(sent.size(), 2u);
+    EXPECT_EQ(sent[1]["type"], EVENT_LOGIN_NAME);
+    EXPECT_EQ(sent[1]["connection"], "PLAYBACK");
 }
 
 // ---------------------------------------------------------------------------

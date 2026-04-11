@@ -41,6 +41,10 @@ namespace FlightStrips {
           m_appConfig(mAppConfig),
           m_tagItemHandlers(mTagItemHandlers),
           m_container(mContainer) {
+        if (const auto container = m_container.lock(); container && container->userConfig) {
+            m_connectionState.prefer_sweatbox = container->userConfig->GetPreferSweatboxSession();
+        }
+
         RegisterTagItemType("DE-ICE", TAG_ITEM_DEICING_DESIGNATOR);
         RegisterTagItemType("EOBT", TAG_ITEM_CDM_EOBT);
         RegisterTagItemType("E", TAG_ITEM_CDM_PHASE);

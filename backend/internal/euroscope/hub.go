@@ -344,7 +344,10 @@ func (hub *Hub) handleLogin(msg []byte, user shared.AuthenticatedUser) (event eu
 		return
 	}
 
-	sessionName := "LIVE"
+	sessionName := strings.ToUpper(strings.TrimSpace(event.Connection))
+	if sessionName == "" {
+		sessionName = "LIVE"
+	}
 	if sessionName == "PLAYBACK" {
 		sessionName = sessionName + "_" + strconv.Itoa(rand.Int())
 	}

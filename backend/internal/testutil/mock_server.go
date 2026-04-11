@@ -17,6 +17,7 @@ type MockServer struct {
 	SessionRepoVal    repository.SessionRepository
 	StripRepoVal      repository.StripRepository
 
+	GetOrCreateSessionFn     func(airport string, name string) (shared.Session, error)
 	UpdateSectorsFn          func(sessionId int32) ([]shared.SectorChange, error)
 	UpdateRouteForStripFn    func(callsign string, sessionId int32, sendUpdate bool) error
 	UpdateRoutesForSessionFn func(sessionId int32, sendUpdate bool) error
@@ -30,6 +31,9 @@ func (m *MockServer) GetEuroscopeHub() shared.EuroscopeHub { return m.EuroscopeH
 func (m *MockServer) GetFrontendHub() shared.FrontendHub { return m.FrontendHubVal }
 
 func (m *MockServer) GetOrCreateSession(airport string, name string) (shared.Session, error) {
+	if m.GetOrCreateSessionFn != nil {
+		return m.GetOrCreateSessionFn(airport, name)
+	}
 	return shared.Session{}, nil
 }
 

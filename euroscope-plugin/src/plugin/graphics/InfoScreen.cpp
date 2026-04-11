@@ -15,6 +15,18 @@ namespace FlightStrips::graphics {
             if (n < 1000000) return std::format("{:.1f}K", n / 1000.0);
             return std::format("{:.1f}M", n / 1000000.0);
         }
+
+        void SetPreferredSessionMode(const std::shared_ptr<configuration::UserConfig>& userConfig,
+                                     FlightStripsPlugin* plugin,
+                                     const bool preferSweatbox) {
+            auto& state = plugin->GetConnectionState();
+            if (IsConnectionSessionForced(state.connection_type) || state.prefer_sweatbox == preferSweatbox) {
+                return;
+            }
+
+            state.prefer_sweatbox = preferSweatbox;
+            userConfig->SetPreferSweatboxSession(preferSweatbox);
+        }
     }
     InfoScreen::InfoScreen(
         const std::shared_ptr<authentication::AuthenticationService> &authenticationService,
@@ -64,13 +76,16 @@ namespace FlightStrips::graphics {
         const auto delay      = service ? service->GetDelaySecondsRemaining() : std::nullopt;
         const auto stats      = service ? service->GetStats() : websocket::Stats{};
         const auto& cs        = m_plugin->GetConnectionState();
+        const bool sessionSelectable = !IsConnectionSessionForced(cs.connection_type);
+        const auto effectiveSession = GetEffectiveSessionName(cs);
 
         // Dynamic window height
         // Base: account(58) + sep-gap(9) + status-row(16) = 83
+        // Session block: selectable label+buttons(28) or forced label(16)
         // Always: padding(3) + sep(8) + toggle(14) = 25
         // Stats open: 3 info rows (13 each) = 39 (if connected) + TX/RX/Q (3+13) = 16
         // Bottom padding: 5
-        int contentH = 83 + 25 + 5;
+        int contentH = 83 + (sessionSelectable ? 28 : 16) + 25 + 5;
         if (showStats_) {
             if (connected) contentH += 39;
             contentH += 16;
@@ -138,11 +153,39 @@ namespace FlightStrips::graphics {
         graphics.DrawHLine(colors.separatorPen.get(), menubar.left + 3, y + 4, menubar.right - 3);
         y += 9;
 
+        // ── Session selector / effective mode ────────────────────
+        if (sessionSelectable) {
+            const RECT sessionLabelRect = {L, y, R, y + 12};
+            graphics.DrawString("Session mode", sessionLabelRect, colors.whiteBrush.get(), Gdiplus::StringAlignmentNear);
+            y += 12;
+
+            const RECT liveBtnRect = {L, y, L + 70, y + 16};
+            const RECT sweatboxBtnRect = {L + 74, y, R, y + 16};
+            const bool liveSelected = !cs.prefer_sweatbox;
+            const bool sweatboxSelected = cs.prefer_sweatbox;
+
+            const auto drawModeButton = [this](const RECT& rect, const char* text, const bool selected) {
+                graphics.FillRect(selected ? colors.greenBrush.get() : colors.backgroundBrush.get(), rect);
+                graphics.DrawRect(colors.buttonPen.get(), rect);
+                graphics.DrawString(text, rect, selected ? colors.backgroundBrush.get() : colors.whiteBrush.get(), Gdiplus::StringAlignmentCenter);
+            };
+
+            drawModeButton(liveBtnRect, "LIVE", liveSelected);
+            drawModeButton(sweatboxBtnRect, "SWEATBOX", sweatboxSelected);
+            AddScreenObject(sessionLiveButtonId, "", liveBtnRect, false, nullptr);
+            AddScreenObject(sessionSweatboxButtonId, "", sweatboxBtnRect, false, nullptr);
+            y += 16;
+        } else {
+            const RECT sessionRect = {L, y, R, y + 16};
+            graphics.DrawString(std::format("Session  {}", effectiveSession), sessionRect, colors.whiteBrush.get(), Gdiplus::StringAlignmentNear);
+            y += 16;
+        }
+
         // ── Connection status ─────────────────────────────────────
         const std::string statusText = connected  ? "Connected"
                                      : backingOff ? (delay.has_value() ? std::format("Retry in {}s", delay.value()) : "Retrying...")
                                      : pending    ? (delay.has_value() ? std::format("Syncing  ({}s)", delay.value()) : "Connecting...")
-                                                  : "Disconnected";
+                                                   : "Disconnected";
 
         const RECT dotRect = {L, y + 4, L + 8, y + 12};
         graphics.FillEllipse(dotBrush, dotRect);
@@ -165,9 +208,7 @@ namespace FlightStrips::graphics {
         // ── Stats content ─────────────────────────────────────────
         if (showStats_ && service) {
             if (connected) {
-                const std::string connType = cs.connection_type == CONNECTION_TYPE_DIRECT   ? "LIVE"
-                                           : cs.connection_type == CONNECTION_TYPE_SWEATBOX ? "SWX"
-                                                                                            : "PBK";
+                const std::string connType = GetEffectiveSessionShortName(cs);
                 const std::string roleStr  = stats.role == websocket::STATE_MASTER ? "MASTER"
                                            : stats.role == websocket::STATE_SLAVE  ? "SLAVE"
                                                                                    : "SYNC";
@@ -226,6 +267,18 @@ namespace FlightStrips::graphics {
         } else if (ObjectType == minimizeId) {
             isMinimized = !isMinimized;
             userConfig->SetWindowState({menubar.left, menubar.top, isMinimized});
+            RequestRefresh();
+        } else if (ObjectType == sessionLiveButtonId) {
+            SetPreferredSessionMode(userConfig, m_plugin, false);
+            if (const auto ws = webSocketService.lock()) {
+                ws->Reconnect();
+            }
+            RequestRefresh();
+        } else if (ObjectType == sessionSweatboxButtonId) {
+            SetPreferredSessionMode(userConfig, m_plugin, true);
+            if (const auto ws = webSocketService.lock()) {
+                ws->Reconnect();
+            }
             RequestRefresh();
         } else if (ObjectType == statsToggleId) {
             showStats_ = !showStats_;

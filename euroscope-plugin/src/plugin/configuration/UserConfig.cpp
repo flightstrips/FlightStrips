@@ -41,5 +41,16 @@ namespace configuration {
         section["minimized"] = state.minimized;
         save();
     }
+
+    bool UserConfig::GetPreferSweatboxSession() {
+        const auto section = ini[SessionSection];
+        return section["prefer_sweatbox"] | false;
+    }
+
+    void UserConfig::SetPreferSweatboxSession(const bool preferSweatbox) {
+        const auto section = ini[SessionSection];
+        section["prefer_sweatbox"] = preferSweatbox;
+        save();
+    }
 } // configuration
 } // FlightStrips

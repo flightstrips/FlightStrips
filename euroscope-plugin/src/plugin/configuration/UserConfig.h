@@ -33,9 +33,13 @@ public:
     [[nodiscard]] WindowState GetWindowState();
     void SetWindowState(const WindowState& state);
 
+    [[nodiscard]] bool GetPreferSweatboxSession();
+    void SetPreferSweatboxSession(bool preferSweatbox);
+
 private:
     const char* TokenSection = "token";
     const char* WindowSection = "window";
+    const char* SessionSection = "session";
 
 
 };

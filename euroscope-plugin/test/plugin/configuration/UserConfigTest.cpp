@@ -136,3 +136,29 @@ TEST(UserConfigTest, GetWindowState_Default_NotMinimized) {
     auto cfg = MakeDefault();
     EXPECT_FALSE(cfg.GetWindowState().minimized);
 }
+
+TEST(UserConfigTest, GetPreferSweatboxSession_DefaultsFalse) {
+    auto cfg = MakeDefault();
+    EXPECT_FALSE(cfg.GetPreferSweatboxSession());
+}
+
+TEST_F(UserConfigRoundTripTest, SetPreferSweatboxSession_ThenGetPreferSweatboxSession_RoundTrips) {
+    {
+        UserConfig cfg(tmpPath);
+        cfg.SetPreferSweatboxSession(true);
+    }
+
+    UserConfig cfg2(tmpPath);
+    EXPECT_TRUE(cfg2.GetPreferSweatboxSession());
+}
+
+TEST_F(UserConfigRoundTripTest, SetPreferSweatboxSession_False_RoundTrips) {
+    {
+        UserConfig cfg(tmpPath);
+        cfg.SetPreferSweatboxSession(true);
+        cfg.SetPreferSweatboxSession(false);
+    }
+
+    UserConfig cfg2(tmpPath);
+    EXPECT_FALSE(cfg2.GetPreferSweatboxSession());
+}

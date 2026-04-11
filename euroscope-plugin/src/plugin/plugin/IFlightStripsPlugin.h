@@ -18,7 +18,29 @@ namespace FlightStrips {
         std::string primary_frequency;
         std::string callsign;
         std::string relevant_airport;
+        bool prefer_sweatbox = false;
     };
+
+    inline bool IsConnectionSessionForced(const ConnectionType connectionType) {
+        return connectionType == CONNECTION_TYPE_PLAYBACK || connectionType == CONNECTION_TYPE_SWEATBOX;
+    }
+
+    inline std::string GetEffectiveSessionName(const ConnectionState& state) {
+        if (state.connection_type == CONNECTION_TYPE_PLAYBACK) {
+            return "PLAYBACK";
+        }
+        if (state.connection_type == CONNECTION_TYPE_SWEATBOX) {
+            return "SWEATBOX";
+        }
+        return state.prefer_sweatbox ? "SWEATBOX" : "LIVE";
+    }
+
+    inline std::string GetEffectiveSessionShortName(const ConnectionState& state) {
+        if (state.connection_type == CONNECTION_TYPE_PLAYBACK) {
+            return "PBK";
+        }
+        return GetEffectiveSessionName(state) == "SWEATBOX" ? "SWX" : "LIVE";
+    }
 
     class IFlightStripsPlugin {
     public:

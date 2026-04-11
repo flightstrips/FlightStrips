@@ -47,6 +47,7 @@ namespace FlightStrips::websocket {
         bool IsPendingConnect() const;
         bool IsBackingOff() const;
         bool ShouldSend() const;
+        void Reconnect();
         void SetSessionState(ClientState state);
         Stats GetStats() const;
         std::optional<int> GetDelaySecondsRemaining() const;
@@ -71,6 +72,7 @@ namespace FlightStrips::websocket {
         std::shared_ptr<handlers::MessageHandlers> m_messageHandlers;
         std::unique_ptr<WebSocket> webSocket;
         std::string primary;
+        std::string session_name;
         ClientState client_state = STATE_UNKNOWN;
 
         mutable std::mutex message_mutex_;

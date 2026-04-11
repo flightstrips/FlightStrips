@@ -37,6 +37,8 @@ namespace FlightStrips::graphics {
         const int closeId = 3;
         const int authenticationButtonId = 4;
         const int statsToggleId = 5;
+        const int sessionLiveButtonId = 6;
+        const int sessionSweatboxButtonId = 7;
         const int height = 15;
         const int width = 160;
 

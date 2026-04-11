@@ -61,7 +61,6 @@ namespace FlightStrips {
         RegisterTagItemType("ASAT", TAG_ITEM_CDM_ASAT);
 
         RegisterTagItemFunction("Edit EOBT", TAG_FUNC_CDM_EOBT_ACTION);
-        RegisterTagItemFunction("EOBT Options", TAG_FUNC_CDM_EOBT_ACTION);
         RegisterTagItemFunction("EOBT to TOBT", TAG_FUNC_CDM_EOBT_TO_TOBT);
         RegisterTagItemFunction("Edit TOBT", TAG_FUNC_CDM_EDIT_TOBT);
         RegisterTagItemFunction("Ready TOBT", TAG_FUNC_CDM_READY_TOBT);
@@ -421,16 +420,14 @@ namespace FlightStrips {
         const auto currentDeice = tracked == nullptr ? "" : tracked->cdm.deice_type;
         const auto currentFlowMessage = tracked == nullptr ? "" : tracked->cdm.ecfmp_id;
 
-        const auto openEobtActions = [&] {
-            OpenPopupList(Area, "EOBT Actions", 1);
+        const auto addEobtActions = [&] {
             if (IsValidHhmm(currentEobt)) {
                 AddPopupListElement("Copy EOBT to TOBT", "", TAG_FUNC_CDM_EOBT_TO_TOBT, false, 2, false);
             }
             AddPopupListElement("Edit TOBT", "", TAG_FUNC_CDM_EDIT_TOBT, false, 2, false);
         };
 
-        const auto openTobtOptions = [&] {
-            OpenPopupList(Area, "TOBT Options", 1);
+        const auto addTobtOptions = [&] {
             AddPopupListElement("Ready TOBT", "", TAG_FUNC_CDM_READY_TOBT, false, 2, false);
             AddPopupListElement("Edit TOBT", "", TAG_FUNC_CDM_EDIT_TOBT, false, 2, false);
             if (!currentReqTobt.empty()) {
@@ -438,16 +435,14 @@ namespace FlightStrips {
             }
         };
 
-        const auto openCtotOptions = [&] {
-            OpenPopupList(Area, "CTOT Options", 1);
+        const auto addCtotOptions = [&] {
             AddPopupListElement(currentManualCtot.empty() ? "Set Manual CTOT" : "Edit Manual CTOT", "", TAG_FUNC_CDM_EDIT_MANUAL_CTOT, false, 2, false);
             if (!currentManualCtot.empty()) {
                 AddPopupListElement("Remove Manual CTOT", "", TAG_FUNC_CDM_REMOVE_MANUAL_CTOT, false, 2, false);
             }
         };
 
-        const auto openDeiceOptions = [&] {
-            OpenPopupList(Area, "DE-ICE Options", 1);
+        const auto addDeiceOptions = [&] {
             AddPopupListElement("Remove DE-ICE", "", TAG_FUNC_CDM_CLEAR_DEICE, false, 2, false);
             AddPopupListElement("Set DE-ICE L", "", TAG_FUNC_CDM_SET_DEICE_LIGHT, false, 2, false);
             AddPopupListElement("Set DE-ICE M", "", TAG_FUNC_CDM_SET_DEICE_MEDIUM, false, 2, false);
@@ -455,23 +450,53 @@ namespace FlightStrips {
             AddPopupListElement("Set DE-ICE J", "", TAG_FUNC_CDM_SET_DEICE_JUMBO, false, 2, false);
         };
 
-        const auto openTsacOptions = [&] {
-            OpenPopupList(Area, "TSAC Options", 1);
+        const auto addTsacOptions = [&] {
             AddPopupListElement(currentTsac.empty() ? "Add TSAT to TSAC" : "Remove TSAC", "", TAG_FUNC_CDM_TOGGLE_TSAC, false, 2, false);
             AddPopupListElement("Edit TSAC", "", TAG_FUNC_CDM_EDIT_TSAC, false, 2, false);
         };
 
+        const auto addOptionsSeparator = [&] {
+            AddPopupListElement("---", "", TAG_ITEM_FUNCTION_NO, false, 2, true);
+        };
+
+        const auto openEobtActions = [&] {
+            OpenPopupList(Area, "EOBT Actions", 1);
+            addEobtActions();
+        };
+
+        const auto openTobtOptions = [&] {
+            OpenPopupList(Area, "TOBT Options", 1);
+            addTobtOptions();
+        };
+
+        const auto openCtotOptions = [&] {
+            OpenPopupList(Area, "CTOT Options", 1);
+            addCtotOptions();
+        };
+
+        const auto openDeiceOptions = [&] {
+            OpenPopupList(Area, "DE-ICE Options", 1);
+            addDeiceOptions();
+        };
+
+        const auto openTsacOptions = [&] {
+            OpenPopupList(Area, "TSAC Options", 1);
+            addTsacOptions();
+        };
+
         const auto openGlobalOptions = [&] {
             OpenPopupList(Area, "CDM Options", 1);
-            AddPopupListElement("EOBT Options", "", TAG_FUNC_CDM_EOBT_ACTION, false, 2, false);
-            AddPopupListElement("TOBT Options", "", TAG_FUNC_CDM_TOBT_OPTIONS, false, 2, false);
-            AddPopupListElement("CTOT Options", "", TAG_FUNC_CDM_CTOT_OPTIONS, false, 2, false);
-            AddPopupListElement("TSAC Options", "", TAG_FUNC_CDM_TSAC_OPTIONS, false, 2, false);
-            AddPopupListElement("DE-ICE Options", "", TAG_FUNC_CDM_DEICE_OPTIONS, false, 2, false);
+            addEobtActions();
+            addOptionsSeparator();
+            addTobtOptions();
+            addOptionsSeparator();
+            addCtotOptions();
+            addOptionsSeparator();
+            addTsacOptions();
+            addOptionsSeparator();
+            addDeiceOptions();
+            addOptionsSeparator();
             AddPopupListElement(currentAsrt.empty() ? "Set ASRT" : "Clear ASRT", "", TAG_FUNC_CDM_TOGGLE_ASRT, false, 2, false);
-            if (!currentReqTobt.empty()) {
-                AddPopupListElement("Approve Req TOBT", "", TAG_FUNC_CDM_APPROVE_REQ_TOBT, false, 2, false);
-            }
         };
 
         switch (FunctionId) {

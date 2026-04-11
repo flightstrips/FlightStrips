@@ -45,7 +45,9 @@ const (
 	CoordinationHandover      EventType = "coordination_handover"
 	TrackingControllerChanged EventType = "tracking_controller_changed"
 	CoordinationReceived      EventType = "coordination_received"
+	AssumeOnly                EventType = "assume_only"
 	AssumeAndDrop             EventType = "assume_and_drop"
+	DropTracking              EventType = "drop_tracking"
 	BackendSync               EventType = "backend_sync"
 	CreateFPL                 EventType = "create_fpl"
 )
@@ -214,7 +216,15 @@ type CoordinationReceivedEvent struct {
 	ControllerCallsign string    `json:"controller_callsign"`
 }
 
+type AssumeOnlyEvent struct {
+	Callsign string `json:"callsign"`
+}
+
 type AssumeAndDropEvent struct {
+	Callsign string `json:"callsign"`
+}
+
+type DropTrackingEvent struct {
 	Callsign string `json:"callsign"`
 }
 
@@ -275,16 +285,16 @@ type CdmUpdateEvent struct {
 	TobtSetBy       string `json:"tobt_set_by,omitempty"`
 	TobtConfirmedBy string `json:"tobt_confirmed_by,omitempty"`
 	ReqTobt         string `json:"req_tobt,omitempty"`
-	Tsat       string `json:"tsat,omitempty"`
-	Ttot       string `json:"ttot,omitempty"`
-	Ctot       string `json:"ctot,omitempty"`
-	CtotSource string `json:"ctot_source,omitempty"`
-	Asat       string `json:"asat,omitempty"`
-	Asrt       string `json:"asrt,omitempty"`
-	Tsac       string `json:"tsac,omitempty"`
-	Status     string `json:"status,omitempty"`
-	EcfmpID    string `json:"ecfmp_id,omitempty"`
-	Phase      string `json:"phase,omitempty"`
+	Tsat            string `json:"tsat,omitempty"`
+	Ttot            string `json:"ttot,omitempty"`
+	Ctot            string `json:"ctot,omitempty"`
+	CtotSource      string `json:"ctot_source,omitempty"`
+	Asat            string `json:"asat,omitempty"`
+	Asrt            string `json:"asrt,omitempty"`
+	Tsac            string `json:"tsac,omitempty"`
+	Status          string `json:"status,omitempty"`
+	EcfmpID         string `json:"ecfmp_id,omitempty"`
+	Phase           string `json:"phase,omitempty"`
 }
 
 type CdmTobtUpdateEvent struct {
@@ -320,16 +330,16 @@ type BackendSyncCdmData struct {
 	TobtSetBy       string `json:"tobt_set_by,omitempty"`
 	TobtConfirmedBy string `json:"tobt_confirmed_by,omitempty"`
 	ReqTobt         string `json:"req_tobt,omitempty"`
-	Tsat       string `json:"tsat,omitempty"`
-	Ttot       string `json:"ttot,omitempty"`
-	Ctot       string `json:"ctot,omitempty"`
-	CtotSource string `json:"ctot_source,omitempty"`
-	Asat       string `json:"asat,omitempty"`
-	Asrt       string `json:"asrt,omitempty"`
-	Tsac       string `json:"tsac,omitempty"`
-	Status     string `json:"status,omitempty"`
-	EcfmpID    string `json:"ecfmp_id,omitempty"`
-	Phase      string `json:"phase,omitempty"`
+	Tsat            string `json:"tsat,omitempty"`
+	Ttot            string `json:"ttot,omitempty"`
+	Ctot            string `json:"ctot,omitempty"`
+	CtotSource      string `json:"ctot_source,omitempty"`
+	Asat            string `json:"asat,omitempty"`
+	Asrt            string `json:"asrt,omitempty"`
+	Tsac            string `json:"tsac,omitempty"`
+	Status          string `json:"status,omitempty"`
+	EcfmpID         string `json:"ecfmp_id,omitempty"`
+	Phase           string `json:"phase,omitempty"`
 }
 
 type CdmAsrtToggleEvent struct {
@@ -551,11 +561,27 @@ func (e TrackingControllerChangedEvent) Marshal() ([]byte, error) {
 	return marshall(e)
 }
 
+func (e AssumeOnlyEvent) GetType() EventType {
+	return AssumeOnly
+}
+
+func (e AssumeOnlyEvent) Marshal() ([]byte, error) {
+	return marshall(e)
+}
+
 func (e AssumeAndDropEvent) GetType() EventType {
 	return AssumeAndDrop
 }
 
 func (e AssumeAndDropEvent) Marshal() ([]byte, error) {
+	return marshall(e)
+}
+
+func (e DropTrackingEvent) GetType() EventType {
+	return DropTracking
+}
+
+func (e DropTrackingEvent) Marshal() ([]byte, error) {
 	return marshall(e)
 }
 

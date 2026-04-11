@@ -70,6 +70,20 @@ func (s *StripService) SetControllerRepo(controllerRepo repository.ControllerRep
 	s.controllerRepo = controllerRepo
 }
 
+func (s *StripService) getControllerRepository() repository.ControllerRepository {
+	if s.controllerRepo != nil {
+		return s.controllerRepo
+	}
+	if s.frontendHub == nil {
+		return nil
+	}
+	server := s.frontendHub.GetServer()
+	if server == nil {
+		return nil
+	}
+	return server.GetControllerRepository()
+}
+
 func (s *StripService) recalculateRouteForStrip(session int32, callsign string) error {
 	if s.frontendHub == nil {
 		return nil
@@ -148,11 +162,81 @@ func (s *StripService) MoveToBay(ctx context.Context, session int32, callsign st
 		return err
 	}
 
+	if bay == shared.BAY_TWY_ARR {
+		s.maybeDropArrivalTrackingInEuroscope(ctx, session, callsign)
+	}
+
 	if bay == shared.BAY_STAND {
 		s.scheduleStandAutoHide(session, callsign)
 	}
 
 	return nil
+}
+
+func positionHasSection(position string, sections ...string) bool {
+	configPosition, err := config.GetPositionBasedOnFrequency(position)
+	if err != nil {
+		return false
+	}
+	return slices.Contains(sections, configPosition.Section)
+}
+
+func isTowerOrGroundPosition(position string) bool {
+	return positionHasSection(position, "TWR", "GND")
+}
+
+func (s *StripService) maybeSyncEsCoordinationAcceptance(session int32, callsign string, coordination *internalModels.Coordination, assumingPosition string) {
+	if coordination == nil || !coordination.FromEs || coordination.EsHandoverCid == nil || *coordination.EsHandoverCid == "" || s.euroscopeHub == nil {
+		return
+	}
+
+	s.euroscopeHub.SendAssumeOnly(session, *coordination.EsHandoverCid, callsign)
+}
+
+func (s *StripService) maybeDropArrivalTrackingInEuroscope(ctx context.Context, session int32, callsign string) {
+	if s.euroscopeHub == nil {
+		return
+	}
+
+	controllerRepo := s.getControllerRepository()
+	if controllerRepo == nil {
+		return
+	}
+
+	strip, err := s.stripRepo.GetByCallsign(ctx, session, callsign)
+	if err != nil {
+		slog.Warn("Failed to re-read TWY_ARR strip before EuroScope drop",
+			slog.String("callsign", callsign),
+			slog.Any("error", err))
+		return
+	}
+
+	if strip.Bay != shared.BAY_TWY_ARR || strip.Owner == nil || *strip.Owner == "" || !isTowerOrGroundPosition(*strip.Owner) {
+		return
+	}
+
+	controllers, err := controllerRepo.ListBySession(ctx, session)
+	if err != nil {
+		slog.Warn("Failed to list controllers for TWY_ARR EuroScope drop",
+			slog.String("callsign", callsign),
+			slog.Any("error", err))
+		return
+	}
+
+	sent := false
+	for _, controller := range controllers {
+		if controller.Position != *strip.Owner || controller.Cid == nil || *controller.Cid == "" {
+			continue
+		}
+		s.euroscopeHub.SendDropTracking(session, *controller.Cid, callsign)
+		sent = true
+	}
+
+	if !sent {
+		slog.Debug("No matching EuroScope client found for TWY_ARR drop",
+			slog.String("callsign", callsign),
+			slog.String("owner", *strip.Owner))
+	}
 }
 
 // scheduleStandAutoHide starts a background goroutine that moves the strip to
@@ -1223,17 +1307,12 @@ func (s *StripService) autoAcceptPendingCoordination(ctx context.Context, sessio
 		return // no coordination pending
 	}
 
-	esHandoverCid := coordination.EsHandoverCid
-	fromEs := coordination.FromEs
-
 	if err := s.AcceptCoordination(ctx, session, strip.Callsign, coordination.ToPosition); err != nil {
 		slog.Error("autoAcceptPendingCoordination: failed to accept", slog.String("callsign", strip.Callsign), slog.Any("error", err))
 		return
 	}
 
-	if fromEs && esHandoverCid != nil && *esHandoverCid != "" && s.euroscopeHub != nil {
-		s.euroscopeHub.SendAssumeAndDrop(session, *esHandoverCid, strip.Callsign)
-	}
+	s.maybeSyncEsCoordinationAcceptance(session, strip.Callsign, coordination, coordination.ToPosition)
 }
 
 func isMissedApproachReturn(fromPosition string, assumingPosition string) bool {
@@ -1505,10 +1584,6 @@ func (s *StripService) AssumeStripCoordination(ctx context.Context, session int3
 			return errors.New("cannot assume strip which is not transferred to you")
 		}
 
-		// Capture ES handover fields before AcceptCoordination deletes the record.
-		esHandoverCid := coordination.EsHandoverCid
-		fromEs := coordination.FromEs
-
 		if err := s.AcceptCoordination(ctx, session, callsign, position); err != nil {
 			return err
 		}
@@ -1526,10 +1601,7 @@ func (s *StripService) AssumeStripCoordination(ctx context.Context, session int3
 			}
 		}
 
-		// If this coordination originated from an ES push, signal the ES client to assume+drop.
-		if fromEs && esHandoverCid != nil && *esHandoverCid != "" && s.euroscopeHub != nil {
-			s.euroscopeHub.SendAssumeAndDrop(session, *esHandoverCid, callsign)
-		}
+		s.maybeSyncEsCoordinationAcceptance(session, callsign, coordination, position)
 
 		return nil
 	}

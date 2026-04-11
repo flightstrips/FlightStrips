@@ -121,16 +121,16 @@ func NewHub(stripService shared.StripService, controllerService shared.Controlle
 	handlers.Add(euroscope.CdmMasterToggle, handleCdmMasterToggle)
 
 	hub := &Hub{
-		register:              make(chan *Client),
-		unregister:            make(chan *Client),
-		clients:               make(map[*Client]bool),
-		send:                  make(chan internalMessage),
-		master:                make(map[int32]*Client),
-		handlers:              handlers,
-		stripService:          stripService,
-		controllerService:     controllerService,
-		authenticationService: authenticationService,
-		recorders:             make(map[int32]*recorder.Recorder),
+		register:                 make(chan *Client),
+		unregister:               make(chan *Client),
+		clients:                  make(map[*Client]bool),
+		send:                     make(chan internalMessage),
+		master:                   make(map[int32]*Client),
+		handlers:                 handlers,
+		stripService:             stripService,
+		controllerService:        controllerService,
+		authenticationService:    authenticationService,
+		recorders:                make(map[int32]*recorder.Recorder),
 		offlineTimers:            make(map[string]*offlineTimerEntry),
 		aircraftDisconnectTimers: make(map[string]*aircraftDisconnectEntry),
 		sessionUpdateTimers:      make(map[int32]*sessionUpdatePending),
@@ -234,21 +234,21 @@ func (hub *Hub) sendBackendSyncIfNeeded(client *Client) {
 		}
 		if strip.CdmData != nil {
 			entry.Cdm = euroscope.BackendSyncCdmData{
-				Eobt:       valueOrEmpty(strip.CdmData.EffectiveEobt()),
-				Tobt:       valueOrEmpty(strip.CdmData.EffectiveTobt()),
+				Eobt:            valueOrEmpty(strip.CdmData.EffectiveEobt()),
+				Tobt:            valueOrEmpty(strip.CdmData.EffectiveTobt()),
 				TobtSetBy:       valueOrEmpty(strip.CdmData.TobtSetBy),
 				TobtConfirmedBy: valueOrEmpty(strip.CdmData.TobtConfirmedBy),
-				ReqTobt:    valueOrEmpty(strip.CdmData.EffectiveReqTobt()),
-				Tsat:       truncateCDMClockValue(valueOrEmpty(strip.CdmData.EffectiveTsat())),
-				Ttot:       truncateCDMClockValue(valueOrEmpty(strip.CdmData.EffectiveTtot())),
-				Ctot:       valueOrEmpty(strip.CdmData.EffectiveCtot()),
-				CtotSource: valueOrEmpty(strip.CdmData.CtotSource),
-				Asat:       valueOrEmpty(strip.CdmData.EffectiveAsat()),
-				Asrt:       valueOrEmpty(strip.CdmData.Asrt),
-				Tsac:       valueOrEmpty(strip.CdmData.Tsac),
-				Status:     valueOrEmpty(strip.CdmData.EffectiveStatus()),
-				EcfmpID:    valueOrEmpty(strip.CdmData.EcfmpID),
-				Phase:      valueOrEmpty(strip.CdmData.EffectivePhase()),
+				ReqTobt:         valueOrEmpty(strip.CdmData.EffectiveReqTobt()),
+				Tsat:            truncateCDMClockValue(valueOrEmpty(strip.CdmData.EffectiveTsat())),
+				Ttot:            truncateCDMClockValue(valueOrEmpty(strip.CdmData.EffectiveTtot())),
+				Ctot:            valueOrEmpty(strip.CdmData.EffectiveCtot()),
+				CtotSource:      valueOrEmpty(strip.CdmData.CtotSource),
+				Asat:            valueOrEmpty(strip.CdmData.EffectiveAsat()),
+				Asrt:            valueOrEmpty(strip.CdmData.Asrt),
+				Tsac:            valueOrEmpty(strip.CdmData.Tsac),
+				Status:          valueOrEmpty(strip.CdmData.EffectiveStatus()),
+				EcfmpID:         valueOrEmpty(strip.CdmData.EcfmpID),
+				Phase:           valueOrEmpty(strip.CdmData.EffectivePhase()),
 			}
 		}
 		syncStrips = append(syncStrips, entry)
@@ -539,6 +539,14 @@ func (hub *Hub) SendHeading(session int32, cid string, callsign string, heading 
 
 func (hub *Hub) SendAssumeAndDrop(session int32, cid string, callsign string) {
 	hub.Send(session, cid, euroscope.AssumeAndDropEvent{Callsign: callsign})
+}
+
+func (hub *Hub) SendAssumeOnly(session int32, cid string, callsign string) {
+	hub.Send(session, cid, euroscope.AssumeOnlyEvent{Callsign: callsign})
+}
+
+func (hub *Hub) SendDropTracking(session int32, cid string, callsign string) {
+	hub.Send(session, cid, euroscope.DropTrackingEvent{Callsign: callsign})
 }
 
 // HasActiveClientForAirport returns true if at least one ES client is currently

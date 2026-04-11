@@ -234,6 +234,14 @@ func (m *EuroscopeHub) SendCoordinationHandover(session int32, cid string, calls
 	m.Called(session, cid, callsign, targetCallsign)
 }
 
+func (m *EuroscopeHub) SendAssumeOnly(session int32, cid string, callsign string) {
+	m.Called(session, cid, callsign)
+}
+
 func (m *EuroscopeHub) SendAssumeAndDrop(session int32, cid string, callsign string) {
+	m.Called(session, cid, callsign)
+}
+
+func (m *EuroscopeHub) SendDropTracking(session int32, cid string, callsign string) {
 	m.Called(session, cid, callsign)
 }

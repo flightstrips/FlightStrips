@@ -21,6 +21,8 @@ type EuroscopeHub interface {
 	SendClearedAltitude(session int32, cid string, callsign string, altitude int32)
 	SendHeading(session int32, cid string, callsign string, heading int32)
 	SendCoordinationHandover(session int32, cid string, callsign string, targetCallsign string)
+	SendAssumeOnly(session int32, cid string, callsign string)
 	SendAssumeAndDrop(session int32, cid string, callsign string)
+	SendDropTracking(session int32, cid string, callsign string)
 	SendCreateFPL(session int32, cid string, event euroscope.CreateFPLEvent)
 }

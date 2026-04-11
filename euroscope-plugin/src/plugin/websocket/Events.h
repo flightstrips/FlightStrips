@@ -31,7 +31,9 @@
 #define EVENT_AIRCRAFT_RUNWAY_NAME "aircraft_runway"
 #define EVENT_COORDINATION_HANDOVER_NAME "coordination_handover"
 #define EVENT_COORDINATION_RECEIVED_NAME "coordination_received"
+#define EVENT_ASSUME_ONLY_NAME "assume_only"
 #define EVENT_ASSUME_AND_DROP_NAME "assume_and_drop"
+#define EVENT_DROP_TRACKING_NAME "drop_tracking"
 #define EVENT_BACKEND_SYNC_NAME "backend_sync"
 #define EVENT_CREATE_FPL_NAME "create_fpl"
 #define EVENT_CDM_UPDATE_NAME "cdm_update"
@@ -74,7 +76,9 @@ enum EventType {
     EVENT_AIRCRAFT_RUNWAY,
     EVENT_COORDINATION_HANDOVER,
     EVENT_COORDINATION_RECEIVED,
+    EVENT_ASSUME_ONLY,
     EVENT_ASSUME_AND_DROP,
+    EVENT_DROP_TRACKING,
     EVENT_BACKEND_SYNC,
     EVENT_CREATE_FPL,
     EVENT_CDM_UPDATE,
@@ -114,13 +118,15 @@ NLOHMANN_JSON_SERIALIZE_ENUM(EventType, {
                               {EVENT_ROUTE, EVENT_ROUTE_NAME},
                               {EVENT_REMARKS, EVENT_REMARKS_NAME},
                               {EVENT_SID, EVENT_SID_NAME},
-                              {EVENT_AIRCRAFT_RUNWAY, EVENT_AIRCRAFT_RUNWAY_NAME},
-                              {EVENT_COORDINATION_HANDOVER, EVENT_COORDINATION_HANDOVER_NAME},
-                              {EVENT_COORDINATION_RECEIVED, EVENT_COORDINATION_RECEIVED_NAME},
-                               {EVENT_ASSUME_AND_DROP, EVENT_ASSUME_AND_DROP_NAME},
-                                {EVENT_BACKEND_SYNC, EVENT_BACKEND_SYNC_NAME},
-                                 {EVENT_CREATE_FPL, EVENT_CREATE_FPL_NAME},
-                                  {EVENT_CDM_UPDATE, EVENT_CDM_UPDATE_NAME},
+                               {EVENT_AIRCRAFT_RUNWAY, EVENT_AIRCRAFT_RUNWAY_NAME},
+                               {EVENT_COORDINATION_HANDOVER, EVENT_COORDINATION_HANDOVER_NAME},
+                               {EVENT_COORDINATION_RECEIVED, EVENT_COORDINATION_RECEIVED_NAME},
+                               {EVENT_ASSUME_ONLY, EVENT_ASSUME_ONLY_NAME},
+                                {EVENT_ASSUME_AND_DROP, EVENT_ASSUME_AND_DROP_NAME},
+                                {EVENT_DROP_TRACKING, EVENT_DROP_TRACKING_NAME},
+                                 {EVENT_BACKEND_SYNC, EVENT_BACKEND_SYNC_NAME},
+                                  {EVENT_CREATE_FPL, EVENT_CREATE_FPL_NAME},
+                                   {EVENT_CDM_UPDATE, EVENT_CDM_UPDATE_NAME},
                                   {EVENT_CDM_TOBT_UPDATE, EVENT_CDM_TOBT_UPDATE_NAME},
                                   {EVENT_CDM_ASRT_TOGGLE, EVENT_CDM_ASRT_TOGGLE_NAME},
                                   {EVENT_CDM_TSAC_UPDATE, EVENT_CDM_TSAC_UPDATE_NAME},
@@ -845,8 +851,30 @@ struct AssumeAndDropEvent final : Event {
     std::string callsign;
 
     AssumeAndDropEvent() = default;
+    explicit AssumeAndDropEvent(std::string callsign) : Event(EVENT_ASSUME_AND_DROP), callsign(std::move(callsign)) {
+    }
 
     NLOHMANN_DEFINE_TYPE_INTRUSIVE(AssumeAndDropEvent, callsign, type);
+};
+
+struct AssumeOnlyEvent final : Event {
+    std::string callsign;
+
+    AssumeOnlyEvent() = default;
+    explicit AssumeOnlyEvent(std::string callsign) : Event(EVENT_ASSUME_ONLY), callsign(std::move(callsign)) {
+    }
+
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE(AssumeOnlyEvent, callsign, type);
+};
+
+struct DropTrackingEvent final : Event {
+    std::string callsign;
+
+    DropTrackingEvent() = default;
+    explicit DropTrackingEvent(std::string callsign) : Event(EVENT_DROP_TRACKING), callsign(std::move(callsign)) {
+    }
+
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE(DropTrackingEvent, callsign, type);
 };
 
 struct CoordinationHandoverEvent final : Event {

@@ -57,7 +57,9 @@ namespace FlightStrips::messages {
         void HandleSidEvent(const SidEvent& event) const;
         void HandleAircraftRunwayEvent(const AircraftRunwayEvent& event) const;
         void HandleCoordinationHandoverEvent(const CoordinationHandoverEvent& event) const;
+        void HandleEsAssumeOnlyEvent(const AssumeOnlyEvent& event) const;
         void HandleEsAssumeAndDropEvent(const AssumeAndDropEvent& event) const;
+        void HandleEsDropTrackingEvent(const DropTrackingEvent& event) const;
         void HandleBackendSyncEvent(const BackendSyncEvent& event) const;
         void HandleCreateFPLEvent(const CreateFPLEvent& event) const;
     };

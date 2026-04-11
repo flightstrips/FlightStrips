@@ -71,8 +71,12 @@ namespace FlightStrips::messages {
             HandleAircraftRunwayEvent(message.get<AircraftRunwayEvent>());
         } else if (type == EVENT_COORDINATION_HANDOVER_NAME) {
             HandleCoordinationHandoverEvent(message.get<CoordinationHandoverEvent>());
+        } else if (type == EVENT_ASSUME_ONLY_NAME) {
+            HandleEsAssumeOnlyEvent(message.get<AssumeOnlyEvent>());
         } else if (type == EVENT_ASSUME_AND_DROP_NAME) {
             HandleEsAssumeAndDropEvent(message.get<AssumeAndDropEvent>());
+        } else if (type == EVENT_DROP_TRACKING_NAME) {
+            HandleEsDropTrackingEvent(message.get<DropTrackingEvent>());
         } else if (type == EVENT_BACKEND_SYNC_NAME) {
             HandleBackendSyncEvent(message.get<BackendSyncEvent>());
         } else if (type == EVENT_CREATE_FPL_NAME) {
@@ -348,21 +352,34 @@ namespace FlightStrips::messages {
 
     }
 
-    void MessageService::HandleEsAssumeAndDropEvent(const AssumeAndDropEvent &event) const {
+    void MessageService::HandleEsAssumeOnlyEvent(const AssumeOnlyEvent &event) const {
         auto fp = m_plugin->FlightPlanSelect(event.callsign.c_str());
         if (!fp.IsValid()) {
-            Logger::Warning("Failed to find flight plan {} for assume_and_drop", event.callsign);
+            Logger::Warning("Failed to find flight plan {} for assume_only", event.callsign);
             return;
         }
 
         if (fp.GetState() != EuroScopePlugIn::FLIGHT_PLAN_STATE_TRANSFER_TO_ME_INITIATED) {
-            Logger::Warning("Flight plan {} is not in state TRANSFER_TO_ME_INITIATED for assume_and_drop", event.callsign);
+            Logger::Warning("Flight plan {} is not in state TRANSFER_TO_ME_INITIATED for assume_only", event.callsign);
         }
 
         fp.AcceptHandoff();
+    }
+
+    void MessageService::HandleEsAssumeAndDropEvent(const AssumeAndDropEvent &event) const {
+        HandleEsAssumeOnlyEvent(AssumeOnlyEvent{event.callsign});
+        HandleEsDropTrackingEvent(DropTrackingEvent{event.callsign});
+    }
+
+    void MessageService::HandleEsDropTrackingEvent(const DropTrackingEvent &event) const {
+        auto fp = m_plugin->FlightPlanSelect(event.callsign.c_str());
+        if (!fp.IsValid()) {
+            Logger::Warning("Failed to find flight plan {} for drop_tracking", event.callsign);
+            return;
+        }
 
         if (!fp.EndTracking()) {
-            Logger::Warning("Failed to end tracking {} for assume_and_drop", event.callsign);
+            Logger::Warning("Failed to end tracking {} for drop_tracking", event.callsign);
         }
     }
 

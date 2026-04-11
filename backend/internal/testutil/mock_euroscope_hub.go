@@ -29,6 +29,24 @@ type CoordinationHandoverCall struct {
 	TargetCallsign string
 }
 
+type AssumeOnlyCall struct {
+	Session  int32
+	Cid      string
+	Callsign string
+}
+
+type AssumeAndDropCall struct {
+	Session  int32
+	Cid      string
+	Callsign string
+}
+
+type DropTrackingCall struct {
+	Session  int32
+	Cid      string
+	Callsign string
+}
+
 type CdmReadyRequestCall struct {
 	Session  int32
 	Cid      string
@@ -53,6 +71,9 @@ type MockEuroscopeHub struct {
 	ClearedFlags          []ClearedFlagCall
 	GroundStates          []GroundStateCall
 	CoordinationHandovers []CoordinationHandoverCall
+	AssumeOnlys           []AssumeOnlyCall
+	AssumeAndDrops        []AssumeAndDropCall
+	DropTrackings         []DropTrackingCall
 	CdmReadyRequests      []CdmReadyRequestCall
 	ClearedAltitudes      []ClearedAltitudeCall
 	Broadcasts            []euroscope.OutgoingMessage
@@ -113,7 +134,17 @@ func (m *MockEuroscopeHub) SendCoordinationHandover(session int32, cid string, c
 	m.CoordinationHandovers = append(m.CoordinationHandovers, CoordinationHandoverCall{session, cid, callsign, targetCallsign})
 }
 
-func (m *MockEuroscopeHub) SendAssumeAndDrop(session int32, cid string, callsign string) {}
+func (m *MockEuroscopeHub) SendAssumeOnly(session int32, cid string, callsign string) {
+	m.AssumeOnlys = append(m.AssumeOnlys, AssumeOnlyCall{Session: session, Cid: cid, Callsign: callsign})
+}
+
+func (m *MockEuroscopeHub) SendAssumeAndDrop(session int32, cid string, callsign string) {
+	m.AssumeAndDrops = append(m.AssumeAndDrops, AssumeAndDropCall{Session: session, Cid: cid, Callsign: callsign})
+}
+
+func (m *MockEuroscopeHub) SendDropTracking(session int32, cid string, callsign string) {
+	m.DropTrackings = append(m.DropTrackings, DropTrackingCall{Session: session, Cid: cid, Callsign: callsign})
+}
 
 // CreateFPLCall records arguments to SendCreateFPL.
 type CreateFPLCall struct {

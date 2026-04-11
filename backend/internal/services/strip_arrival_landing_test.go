@@ -365,3 +365,259 @@ func TestHandleArrivalPositionUpdate_AutoAcceptsCoordinationOnTouchdown(t *testi
 	require.Len(t, hub.CoordinationAssumes, 1)
 	assert.Equal(t, toPos, hub.CoordinationAssumes[0].Position)
 }
+
+func TestHandleArrivalPositionUpdate_AutoAcceptsEsArrivalCoordinationWithAssumeOnly(t *testing.T) {
+	t.Cleanup(config.SetPositionsForTest([]config.Position{
+		{Name: "EKCH_W_APP", Frequency: "119.805", Section: "APP"},
+		{Name: "EKCH_M_TWR", Frequency: "118.105", Section: "TWR"},
+	}))
+	injectTestRunway(t)
+
+	const fromPos = "119.805"
+	const toPos = "118.105"
+	const handoverCid = "CID-TWR"
+
+	strip := &models.Strip{
+		ID:          71,
+		Callsign:    "NAX301",
+		Bay:         shared.BAY_FINAL,
+		Destination: "EKCH",
+		NextOwners:  []string{toPos},
+		Version:     1,
+	}
+	coord := &models.Coordination{
+		ID:           101,
+		FromPosition: fromPos,
+		ToPosition:   toPos,
+		FromEs:       true,
+		EsHandoverCid: func() *string {
+			cid := handoverCid
+			return &cid
+		}(),
+	}
+
+	cur := *strip
+	coordExists := true
+
+	coordRepo := &testutil.MockCoordinationRepository{
+		GetByStripIDFn: func(_ context.Context, _ int32, _ int32) (*models.Coordination, error) {
+			if coordExists {
+				return coord, nil
+			}
+			return nil, pgx.ErrNoRows
+		},
+		DeleteFn: func(_ context.Context, _ int32) error {
+			coordExists = false
+			return nil
+		},
+	}
+
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			copy := cur
+			return &copy, nil
+		},
+		SetCdmDataFn: func(_ context.Context, _ int32, _ string, data *models.CdmData) (int64, error) {
+			cp := *data
+			cur.CdmData = &cp
+			return 1, nil
+		},
+		SetNextAndPreviousOwnersFn: func(_ context.Context, _ int32, _ string, next []string, prev []string) error {
+			cur.NextOwners = next
+			cur.PreviousOwners = prev
+			return nil
+		},
+		SetOwnerFn: func(_ context.Context, _ int32, _ string, owner *string, _ int32) (int64, error) {
+			cur.Owner = owner
+			return 1, nil
+		},
+	}
+
+	hub := &testutil.MockFrontendHub{}
+	hub.SetServer(&testutil.MockServer{CoordRepoVal: coordRepo})
+	esHub := &testutil.MockEuroscopeHub{}
+
+	svc := NewStripService(stripRepo)
+	svc.SetFrontendHub(hub)
+	svc.SetCoordinationRepo(coordRepo)
+	svc.SetEuroscopeHub(esHub)
+
+	svc.handleArrivalPositionUpdate(context.Background(), landingTestSession, strip.Callsign, insideLat, insideLon, int64(lowAltitude), strip)
+
+	require.Len(t, esHub.AssumeOnlys, 1)
+	assert.Equal(t, handoverCid, esHub.AssumeOnlys[0].Cid)
+	assert.Equal(t, strip.Callsign, esHub.AssumeOnlys[0].Callsign)
+	assert.Empty(t, esHub.AssumeAndDrops, "arrival APP->TWR touchdown must not drop tracking in ES")
+}
+
+func TestAssumeStripCoordination_EsArrivalUsesAssumeOnly(t *testing.T) {
+	const session = int32(1)
+	const callsign = "NAX302"
+	const toPos = "118.105"
+	const handoverCid = "CID-TWR"
+
+	strip := &models.Strip{
+		ID:         72,
+		Callsign:   callsign,
+		Bay:        shared.BAY_FINAL,
+		Version:    1,
+		NextOwners: []string{toPos},
+	}
+	coord := &models.Coordination{
+		ID:           102,
+		Session:      session,
+		StripID:      strip.ID,
+		FromPosition: "",
+		ToPosition:   toPos,
+		FromEs:       true,
+		EsHandoverCid: func() *string {
+			cid := handoverCid
+			return &cid
+		}(),
+	}
+
+	cur := *strip
+
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			copy := cur
+			return &copy, nil
+		},
+		SetNextAndPreviousOwnersFn: func(_ context.Context, _ int32, _ string, next []string, prev []string) error {
+			cur.NextOwners = next
+			cur.PreviousOwners = prev
+			return nil
+		},
+		SetOwnerFn: func(_ context.Context, _ int32, _ string, owner *string, _ int32) (int64, error) {
+			cur.Owner = owner
+			return 1, nil
+		},
+	}
+
+	coordRepo := &testutil.MockCoordinationRepository{
+		GetByStripIDFn: func(_ context.Context, _ int32, _ int32) (*models.Coordination, error) {
+			return coord, nil
+		},
+		DeleteFn: func(_ context.Context, _ int32) error {
+			return nil
+		},
+	}
+
+	hub := &testutil.MockFrontendHub{}
+	hub.SetServer(&testutil.MockServer{CoordRepoVal: coordRepo})
+	esHub := &testutil.MockEuroscopeHub{}
+
+	svc := NewStripService(stripRepo)
+	svc.SetFrontendHub(hub)
+	svc.SetCoordinationRepo(coordRepo)
+	svc.SetEuroscopeHub(esHub)
+
+	require.NoError(t, svc.AssumeStripCoordination(context.Background(), session, callsign, toPos))
+
+	require.Len(t, esHub.AssumeOnlys, 1)
+	assert.Equal(t, handoverCid, esHub.AssumeOnlys[0].Cid)
+	assert.Equal(t, callsign, esHub.AssumeOnlys[0].Callsign)
+	assert.Empty(t, esHub.AssumeAndDrops, "manual FS assume for ES arrival must not drop tracking in ES")
+}
+
+func TestMoveToBay_TwyArrDropsTrackingInEsForTowerOwner(t *testing.T) {
+	t.Cleanup(config.SetPositionsForTest([]config.Position{
+		{Name: "EKCH_M_TWR", Frequency: "118.105", Section: "TWR"},
+	}))
+
+	const ownerPos = "118.105"
+	const ownerCid = "CID-TWR"
+
+	cur := models.Strip{
+		ID:          80,
+		Callsign:    "NAX400",
+		Bay:         shared.BAY_RWY_ARR,
+		Destination: "EKCH",
+		Owner:       strPtr(ownerPos),
+	}
+
+	stripRepo := &testutil.MockStripRepository{
+		GetMaxSequenceInBayFn: func(_ context.Context, _ int32, _ string) (int32, error) {
+			return 0, nil
+		},
+		UpdateBayAndSequenceFn: func(_ context.Context, _ int32, _ string, bay string, _ int32) (int64, error) {
+			cur.Bay = bay
+			return 1, nil
+		},
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			copy := cur
+			return &copy, nil
+		},
+	}
+
+	controllerRepo := &testutil.MockControllerRepository{
+		ListBySessionFn: func(_ context.Context, _ int32) ([]*models.Controller, error) {
+			return []*models.Controller{{Position: ownerPos, Cid: strPtr(ownerCid)}}, nil
+		},
+	}
+
+	hub := &testutil.MockFrontendHub{}
+	esHub := &testutil.MockEuroscopeHub{}
+
+	svc := NewStripService(stripRepo)
+	svc.SetFrontendHub(hub)
+	svc.SetControllerRepo(controllerRepo)
+	svc.SetEuroscopeHub(esHub)
+
+	require.NoError(t, svc.MoveToBay(context.Background(), 1, cur.Callsign, shared.BAY_TWY_ARR, true))
+
+	require.Len(t, esHub.DropTrackings, 1)
+	assert.Equal(t, ownerCid, esHub.DropTrackings[0].Cid)
+	assert.Equal(t, cur.Callsign, esHub.DropTrackings[0].Callsign)
+}
+
+func TestMoveToBay_TwyArrDropsTrackingInEsForGroundOwner(t *testing.T) {
+	t.Cleanup(config.SetPositionsForTest([]config.Position{
+		{Name: "EKCH_A_GND", Frequency: "121.805", Section: "GND"},
+	}))
+
+	const ownerPos = "121.805"
+	const ownerCid = "CID-GND"
+
+	cur := models.Strip{
+		ID:          81,
+		Callsign:    "NAX401",
+		Bay:         shared.BAY_RWY_ARR,
+		Destination: "EKCH",
+		Owner:       strPtr(ownerPos),
+	}
+
+	stripRepo := &testutil.MockStripRepository{
+		GetMaxSequenceInBayFn: func(_ context.Context, _ int32, _ string) (int32, error) {
+			return 0, nil
+		},
+		UpdateBayAndSequenceFn: func(_ context.Context, _ int32, _ string, bay string, _ int32) (int64, error) {
+			cur.Bay = bay
+			return 1, nil
+		},
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			copy := cur
+			return &copy, nil
+		},
+	}
+
+	controllerRepo := &testutil.MockControllerRepository{
+		ListBySessionFn: func(_ context.Context, _ int32) ([]*models.Controller, error) {
+			return []*models.Controller{{Position: ownerPos, Cid: strPtr(ownerCid)}}, nil
+		},
+	}
+
+	hub := &testutil.MockFrontendHub{}
+	esHub := &testutil.MockEuroscopeHub{}
+
+	svc := NewStripService(stripRepo)
+	svc.SetFrontendHub(hub)
+	svc.SetControllerRepo(controllerRepo)
+	svc.SetEuroscopeHub(esHub)
+
+	require.NoError(t, svc.MoveToBay(context.Background(), 1, cur.Callsign, shared.BAY_TWY_ARR, true))
+
+	require.Len(t, esHub.DropTrackings, 1)
+	assert.Equal(t, ownerCid, esHub.DropTrackings[0].Cid)
+	assert.Equal(t, cur.Callsign, esHub.DropTrackings[0].Callsign)
+}

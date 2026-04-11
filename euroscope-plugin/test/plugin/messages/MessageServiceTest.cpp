@@ -59,3 +59,15 @@ TEST(MessageServiceEventsTest, CdmTsacUpdateEventSerializesExpectedShape) {
     EXPECT_EQ(json.at("callsign").get<std::string>(), "EIN123");
     EXPECT_EQ(json.at("tsac").get<std::string>(), "1030");
 }
+
+TEST(MessageServiceEventsTest, AssumeOnlyEventSerializesExpectedShape) {
+    const nlohmann::json json = AssumeOnlyEvent{"EIN123"};
+    EXPECT_EQ(json.at("type").get<std::string>(), EVENT_ASSUME_ONLY_NAME);
+    EXPECT_EQ(json.at("callsign").get<std::string>(), "EIN123");
+}
+
+TEST(MessageServiceEventsTest, DropTrackingEventSerializesExpectedShape) {
+    const nlohmann::json json = DropTrackingEvent{"EIN123"};
+    EXPECT_EQ(json.at("type").get<std::string>(), EVENT_DROP_TRACKING_NAME);
+    EXPECT_EQ(json.at("callsign").get<std::string>(), "EIN123");
+}

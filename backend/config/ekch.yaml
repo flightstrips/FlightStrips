@@ -362,8 +362,8 @@ sectors:
     owner:
       - EKCH_K_DEP
       - EKCH_R_DEP
-      - EKCH_W_APP
       - EKCH_O_APP
+      - EKCH_W_APP
       - EKDK_I_CTR
       - EKDK_B_CTR
       - EKDK_E_CTR

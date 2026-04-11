@@ -1,0 +1,18 @@
+---
+title: Alone as Tower
+description: test
+---
+import { Image } from 'astro:assets';
+import { Aside } from '@astrojs/starlight/components';
+import ModalImage from "../../../assets/clr_pushback_modal.png"
+import twy_dep from "../../../assets/twy_dep.jpg"
+
+
+
+<Aside>When on a `TWR` position with no `GND/SEQ`</Aside>
+
+After issueing a clearance to an aircraft, the tag will now show up in the `TW + TE` view to save space.
+When the aircraft calls for `PUSH & START` use the `STARTUP` button in the `TWY DEP` bay.
+<Image src={twy_dep} alt="A bird." />
+<Image src={ModalImage} alt="A bird." width="250px" />
+Click the `CALLSIGN` of the aircraft requesting `PUSH & START` to make them show up in `PUSHBACK` bay.

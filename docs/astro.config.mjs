@@ -24,6 +24,10 @@ export default defineConfig({
 					autogenerate: { directory: 'concepts' }
 				},
 				{
+					label: 'Procedures',
+					autogenerate: { directory: 'procedures' }
+				},
+				{
 					label: 'Kastrup',
 					autogenerate: { directory: 'ekch' }
 				},

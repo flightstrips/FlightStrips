@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.9.0](https://github.com/flightstrips/FlightStrips/compare/plugin/v0.8.6...plugin/v0.9.0) (2026-04-11)
+
+
+### Features
+
+* Add connection selector ([c3b0ebf](https://github.com/flightstrips/FlightStrips/commit/c3b0ebfc2b2c1ff8d845e31e449aab477be98682))
+* delay tag drop to after aircraft has landed ([be217b2](https://github.com/flightstrips/FlightStrips/commit/be217b2d0277c039e1518f8c6fb185015fd7db06))
+* Implement CDM backend and EuroScope flow ([51d6a77](https://github.com/flightstrips/FlightStrips/commit/51d6a77676da6e211e5df9a274d067db1c02c529))
+
+
+### Bug Fixes
+
+* CDM options tag function ([f10be8f](https://github.com/flightstrips/FlightStrips/commit/f10be8ff18b2765847c4f27fcd849353b900b90a))
+* remove IsReceived check ([8ccd66e](https://github.com/flightstrips/FlightStrips/commit/8ccd66e516ec891e3cce71030cf13860070431f0))
+
 ## [0.8.6](https://github.com/flightstrips/FlightStrips/compare/plugin/v0.8.5...plugin/v0.8.6) (2026-04-07)
 
 

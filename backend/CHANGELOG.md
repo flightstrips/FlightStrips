@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.16.0](https://github.com/flightstrips/FlightStrips/compare/backend/v0.15.1...backend/v0.16.0) (2026-04-11)
+
+
+### Features
+
+* Add connection selector ([c3b0ebf](https://github.com/flightstrips/FlightStrips/commit/c3b0ebfc2b2c1ff8d845e31e449aab477be98682))
+* delay tag drop to after aircraft has landed ([be217b2](https://github.com/flightstrips/FlightStrips/commit/be217b2d0277c039e1518f8c6fb185015fd7db06))
+* Detect landing and move strip to TWY ARR when vacated ([a12892d](https://github.com/flightstrips/FlightStrips/commit/a12892d29032ff3b30a10df2a125cf27ae2ed1b6))
+* erase heading, cleared altitude ([37c2360](https://github.com/flightstrips/FlightStrips/commit/37c236046edf6545ed5e35ca1f625561cfce7f73))
+* Implement CDM backend and EuroScope flow ([51d6a77](https://github.com/flightstrips/FlightStrips/commit/51d6a77676da6e211e5df9a274d067db1c02c529))
+
+
+### Bug Fixes
+
+* correctly handle assume after missed ([991c324](https://github.com/flightstrips/FlightStrips/commit/991c324fb153cd4510a5be11a53be074bbd81c3f))
+* ensure only twy-lwr bay is used when only tower is online ([d598054](https://github.com/flightstrips/FlightStrips/commit/d59805413de5b5c6dc20fe3f3bf3e10dd2bd20a3))
+* remove duplicate log ([43f25dd](https://github.com/flightstrips/FlightStrips/commit/43f25dd8b8b597c74ccb557ff237afb9cb36c988))
+
 ## [0.15.1](https://github.com/flightstrips/FlightStrips/compare/backend/v0.15.0...backend/v0.15.1) (2026-04-07)
 
 

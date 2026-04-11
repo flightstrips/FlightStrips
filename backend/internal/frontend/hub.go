@@ -339,6 +339,11 @@ func (hub *Hub) sendInitialEvent(client *Client) {
 		sids = pkgModels.AvailableSids{}
 	}
 
+	initialCFLByRunway := make(map[string]int32)
+	for runway, cfl := range config.GetInitialCFLByRunway() {
+		initialCFLByRunway[runway] = int32(cfl)
+	}
+
 	event := frontend.InitialEvent{
 		Contsollers:    controllerModels,
 		Strips:         stripModels,
@@ -355,6 +360,7 @@ func (hub *Hub) sendInitialEvent(client *Client) {
 		Coordinations:      coordinationModels,
 		Messages:           storedMsgs,
 		AvailableSids:      sids,
+		InitialCFLByRunway: initialCFLByRunway,
 		TransitionAltitude: int32(config.GetTransitionAltitude()),
 	}
 

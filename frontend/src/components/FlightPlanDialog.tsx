@@ -12,7 +12,7 @@ import { AltSelectDialog } from "@/components/strip/AltSelectDialog";
 import { HdgSelectDialog } from "@/components/strip/HdgSelectDialog";
 import { SidSelectDialog } from "@/components/strip/SidSelectDialog";
 import { RunwayDialog } from "@/components/strip/RunwayDialog";
-import { useAvailableSids, useStrip, useTransitionAltitude, useWebSocketStore } from "@/store/store-hooks.ts";
+import { useAvailableSids, useInitialCflByRunway, useStrip, useTransitionAltitude, useWebSocketStore } from "@/store/store-hooks.ts";
 
 const FONT_FAMILY = "Arial";
 const FONT_SIZE_FIELD = 20;
@@ -69,6 +69,7 @@ export default function FlightPlanDialog({
 }: FlightPlanDialogProps) {
   const isViewMode = mode === "view";
   const strip = useStrip(callsign);
+  const initialCflByRunway = useInitialCflByRunway();
   const transitionAltitude = useTransitionAltitude();
   const moveAction = useWebSocketStore((state) => state.move);
   const generateSquawk = useWebSocketStore((state) => state.generateSquawk);
@@ -96,6 +97,7 @@ export default function FlightPlanDialog({
   const [route, setRoute, _routeFocused, setRouteFocused] = useEditableField(strip?.route);
   const [hdgDialogOpen, setHdgDialogOpen] = useState(false);
   const [altDialogOpen, setAltDialogOpen] = useState(false);
+  const defaultClearedAltitude = strip?.runway ? initialCflByRunway[strip.runway] : undefined;
 
   return (
     <>
@@ -375,13 +377,13 @@ export default function FlightPlanDialog({
                 className={CLS_BTN_EDITABLE}
                 style={{ width: 125, fontFamily: FONT_FAMILY, fontSize: FONT_SIZE_FIELD }}
               >
-                {strip.heading != null ? strip.heading.toString().padStart(3, "0") : ""}
+                {strip.heading ? strip.heading.toString().padStart(3, "0") : ""}
               </button>
               <HdgSelectDialog
                 open={hdgDialogOpen}
                 onOpenChange={setHdgDialogOpen}
                 value={strip.heading}
-                onSelect={(heading) => updateStrip(callsign, { heading })}
+                onSelect={(heading) => updateStrip(callsign, { heading: heading ?? 0 })}
               />
             </div>
             <div className="grid items-center gap-[5px]">
@@ -398,7 +400,11 @@ export default function FlightPlanDialog({
                 open={altDialogOpen}
                 onOpenChange={setAltDialogOpen}
                 value={strip.cleared_altitude}
-                onSelect={(altitude) => updateStrip(callsign, { altitude })}
+                onSelect={(altitude) => {
+                  updateStrip(callsign, {
+                    altitude: altitude ?? defaultClearedAltitude ?? strip.cleared_altitude,
+                  });
+                }}
               />
             </div>
             <div className="grid items-center gap-[5px]">
@@ -623,4 +629,3 @@ export default function FlightPlanDialog({
     </>
   );
 }
-

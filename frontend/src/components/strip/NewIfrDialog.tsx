@@ -84,8 +84,8 @@ export function NewIfrDialog({ open, onOpenChange, initialCallsign = "" }: Props
     if (strip.route)              setRoute(strip.route);
     if (strip.stand)              setStand(strip.stand);
     if (strip.runway)             setRwyDep(strip.runway);
-    if (strip.heading != null)    setHdg(strip.heading);
-    if (strip.cleared_altitude != null) setAlt(strip.cleared_altitude);
+    if (strip.heading)            setHdg(strip.heading);
+    if (strip.cleared_altitude)   setAlt(strip.cleared_altitude);
   }
 
   function handleCallsignBlur() {

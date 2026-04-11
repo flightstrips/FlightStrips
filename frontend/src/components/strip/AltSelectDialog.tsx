@@ -49,7 +49,7 @@ export function AltSelectDialog({
   value,
   onSelect,
 }: AltSelectDialogProps) {
-  const currentAlt = value ?? undefined;
+  const currentAlt = value && value > 0 ? value : undefined;
   const transitionAltitude = useTransitionAltitude();
   const [customInput, setCustomInput] = useState("");
   const [customInvalid, setCustomInvalid] = useState(false);

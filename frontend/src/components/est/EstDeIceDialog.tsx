@@ -7,8 +7,10 @@ import type { FrontendStrip } from "@/api/models";
 interface EstDeIceDialogProps {
   open: boolean;
   strip: FrontendStrip | undefined;
+  selectedPlatform?: string;
   onOpenChange: (open: boolean) => void;
   onSelectPlatform: (platform: string) => void;
+  onErase: () => void;
 }
 
 const PLATFORMS = ["DE-ICE 1", "DE-ICE 2", "DE-ICE 3", "DE-ICE 4"];
@@ -20,8 +22,10 @@ const CLS_PANEL  = "border border-black bg-[#D6D6D6] p-4";
 export default function EstDeIceDialog({
   open,
   strip,
+  selectedPlatform,
   onOpenChange,
   onSelectPlatform,
+  onErase,
 }: EstDeIceDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -36,6 +40,9 @@ export default function EstDeIceDialog({
             <div>
               De-Ice Operator: <span className="font-normal">{strip?.remarks || "—"}</span>
             </div>
+            <div>
+              Current platform: <span className="font-normal">{selectedPlatform || "—"}</span>
+            </div>
             <div className="pt-2 text-base">SEM PLAT</div>
           </div>
 
@@ -44,7 +51,7 @@ export default function EstDeIceDialog({
               <Button
                 key={platform}
                 variant="trf"
-                className="h-12 text-sm font-semibold"
+                className={`h-12 text-sm font-semibold ${selectedPlatform === platform ? "bg-[#1BFF16] hover:bg-[#17d912]" : ""}`}
                 onClick={() => onSelectPlatform(platform)}
               >
                 {platform}
@@ -52,8 +59,11 @@ export default function EstDeIceDialog({
             ))}
           </div>
 
-          <div className="mt-4">
-            <Button variant="darkaction" className="h-12 w-full" onClick={() => onOpenChange(false)}>
+          <div className="mt-4 flex gap-2">
+            <Button variant="darkaction" className="h-12 flex-1" onClick={onErase}>
+              ERASE
+            </Button>
+            <Button variant="darkaction" className="h-12 flex-1" onClick={() => onOpenChange(false)}>
               ESC
             </Button>
           </div>

@@ -20,9 +20,9 @@ func TestGetInitialCFLForRunway_ReturnsConfiguredValue(t *testing.T) {
 	}
 
 	tests := []struct {
-		runway   string
-		wantCFL  int
-		wantOk   bool
+		runway  string
+		wantCFL int
+		wantOk  bool
 	}{
 		{"04R", 7000, true},
 		{"22L", 7000, true},
@@ -47,4 +47,23 @@ func TestGetTransitionAltitude_ReturnsConfiguredValue(t *testing.T) {
 
 	transitionAltitude = 5000
 	assert.Equal(t, 5000, GetTransitionAltitude())
+}
+
+func TestGetInitialCFLByRunway_ReturnsCopy(t *testing.T) {
+	orig := runwayInitialCFL
+	t.Cleanup(func() { runwayInitialCFL = orig })
+
+	runwayInitialCFL = map[string]int{
+		"04R": 7000,
+		"12":  4000,
+	}
+
+	got := GetInitialCFLByRunway()
+	assert.Equal(t, map[string]int{
+		"04R": 7000,
+		"12":  4000,
+	}, got)
+
+	got["04R"] = 1234
+	assert.Equal(t, 7000, runwayInitialCFL["04R"])
 }

@@ -51,7 +51,7 @@ export function HdgSelectDialog({
   value,
   onSelect,
 }: HdgSelectDialogProps) {
-  const currentHdg = value ?? undefined;
+  const currentHdg = value && value > 0 ? value : undefined;
   const [customInput, setCustomInput] = useState("");
   const [customInvalid, setCustomInvalid] = useState(false);
   const [prevOpen, setPrevOpen] = useState(false);

@@ -203,6 +203,7 @@ export interface FrontendInitialEvent {
   coordinations: Array<{ callsign: string; from: string; to: string; is_tag_request: boolean }>;
   messages: MessageReceived[];
   available_sids: SidInfo[];
+  initial_cfl_by_runway: Record<string, number>;
   transition_altitude: number;
 }
 

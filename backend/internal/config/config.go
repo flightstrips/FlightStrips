@@ -33,17 +33,17 @@ type CdmConfig struct {
 }
 
 type Config struct {
-	Latitude            float64                    `yaml:"latitude"`
-	Longitude           float64                    `yaml:"longitude"`
-	Routes              []Route                    `yaml:"routes"`
-	AirborneRoutes      []AirborneRoutes           `yaml:"airborne_routes"`
-	Positions           []Position                 `yaml:"positions"`
-	Sectors             []Sector                   `yaml:"sectors"`
-	AirborneOwners      []string                   `yaml:"airborne_owners"`
-	AirborneAltitudeAGL int64                      `yaml:"airborne_altitude_agl"`
-	Layouts             map[string][]LayoutVariant `yaml:"layouts"`
-	Runways             []string                   `yaml:"runways"`
-	MessageAreas        map[string][]string        `yaml:"message_areas"`
+	Latitude               float64                    `yaml:"latitude"`
+	Longitude              float64                    `yaml:"longitude"`
+	Routes                 []Route                    `yaml:"routes"`
+	AirborneRoutes         []AirborneRoutes           `yaml:"airborne_routes"`
+	Positions              []Position                 `yaml:"positions"`
+	Sectors                []Sector                   `yaml:"sectors"`
+	AirborneOwners         []string                   `yaml:"airborne_owners"`
+	AirborneAltitudeAGL    int64                      `yaml:"airborne_altitude_agl"`
+	Layouts                map[string][]LayoutVariant `yaml:"layouts"`
+	Runways                []string                   `yaml:"runways"`
+	MessageAreas           map[string][]string        `yaml:"message_areas"`
 	PDCValidation          PDCValidationConfig        `yaml:"pdc_validation"`
 	MissedApproachHandover map[string]string          `yaml:"missed_approach_handover"`
 	TransitionAltitude     int                        `yaml:"transition_altitude"`
@@ -183,6 +183,14 @@ func GetConfigDir() string {
 func GetInitialCFLForRunway(runway string) (int, bool) {
 	cfl, ok := runwayInitialCFL[runway]
 	return cfl, ok
+}
+
+func GetInitialCFLByRunway() map[string]int {
+	result := make(map[string]int, len(runwayInitialCFL))
+	for runway, cfl := range runwayInitialCFL {
+		result[runway] = cfl
+	}
+	return result
 }
 
 func loadRoutes(cfg Config) error {

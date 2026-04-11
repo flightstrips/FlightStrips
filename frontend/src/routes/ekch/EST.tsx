@@ -113,6 +113,7 @@ export default function EST() {
   const [statusStand, setStatusStand] = useState<string | null>(null);
   const [statusAnchor, setStatusAnchor] = useState<EstMenuAnchor | null>(null);
   const [deIceOpen, setDeIceOpen] = useState(false);
+  const [deIcePlatforms, setDeIcePlatforms] = useState<Record<string, string>>({});
   const [flightPlanCallsign, setFlightPlanCallsign] = useState<string | null>(null);
   const [blockedStands, setBlockedStands] = useState<Record<string, true>>({});
   const [nowMs, setNowMs] = useState(() => Date.now());
@@ -354,8 +355,23 @@ export default function EST() {
       return;
     }
 
-    // TODO: send de-ice platform assignment to backend
-    console.log("Selected de-ice platform", { platform, callsign: menuStrip.callsign });
+    setDeIcePlatforms((current) => ({
+      ...current,
+      [menuStrip.callsign]: platform,
+    }));
+    closeAllOverlays();
+  }
+
+  function handleEraseDeIcePlatform() {
+    if (!menuStrip) {
+      return;
+    }
+
+    setDeIcePlatforms((current) => {
+      const next = { ...current };
+      delete next[menuStrip.callsign];
+      return next;
+    });
     closeAllOverlays();
   }
 
@@ -470,8 +486,10 @@ export default function EST() {
       <EstDeIceDialog
         open={deIceOpen}
         strip={menuStrip}
+        selectedPlatform={menuStrip ? deIcePlatforms[menuStrip.callsign] : undefined}
         onOpenChange={setDeIceOpen}
         onSelectPlatform={handleSelectDeIcePlatform}
+        onErase={handleEraseDeIcePlatform}
       />
 
       {flightPlanCallsign && (

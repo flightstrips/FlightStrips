@@ -23,6 +23,14 @@ namespace FlightStrips::messages {
 
             return false;
         }
+
+        bool ShouldMirrorClearedFlagToEuroScope(const flightplan::FlightPlan* plan, const bool cleared) {
+            if (!cleared || plan == nullptr) {
+                return true;
+            }
+
+            return !plan->KeepsEuroScopeStripUncleared();
+        }
     }
 
     void MessageService::OnMessages(const std::vector<nlohmann::json> &messages) {
@@ -81,6 +89,8 @@ namespace FlightStrips::messages {
             HandleBackendSyncEvent(message.get<BackendSyncEvent>());
         } else if (type == EVENT_CREATE_FPL_NAME) {
             HandleCreateFPLEvent(message.get<CreateFPLEvent>());
+        } else if (type == EVENT_PDC_STATE_CHANGE_NAME) {
+            HandlePdcStateChangeEvent(message.get<PdcStateChangeEvent>());
         } else {
             Logger::Warning("Unknown message type: {}", type);
         }
@@ -277,6 +287,10 @@ namespace FlightStrips::messages {
     }
 
     void MessageService::HandleClearedFlagEvent(const ClearedFlagEvent &event) const {
+        const auto* trackedPlan = m_flightPlanService->GetFlightPlan(event.callsign);
+        if (!ShouldMirrorClearedFlagToEuroScope(trackedPlan, event.cleared)) {
+            return;
+        }
         m_plugin->SetClearenceFlag(event.callsign, event.cleared);
     }
 
@@ -430,7 +444,16 @@ namespace FlightStrips::messages {
                 }
             }
 
-            m_plugin->SetClearenceFlag(strip.callsign, strip.cleared);
+            if (!strip.pdc_state.empty()) {
+                m_flightPlanService->ApplyPdcStateChange(strip.callsign, strip.pdc_state);
+            }
+
+            const auto* trackedPlan = m_flightPlanService->GetFlightPlan(strip.callsign);
+            if (ShouldMirrorClearedFlagToEuroScope(trackedPlan, strip.cleared)) {
+                m_plugin->SetClearenceFlag(strip.callsign, strip.cleared);
+            } else if (fp.GetClearenceFlag()) {
+                m_plugin->SetClearenceFlag(strip.callsign, false);
+            }
 
             if (!strip.ground_state.empty()) {
                 m_plugin->UpdateViaScratchPad(strip.callsign.c_str(), strip.ground_state.c_str());
@@ -444,6 +467,20 @@ namespace FlightStrips::messages {
             }
 
             m_flightPlanService->ApplyBackendSyncCdm(strip.callsign, strip.cdm);
+        }
+    }
+
+    void MessageService::HandlePdcStateChangeEvent(const PdcStateChangeEvent &event) const {
+        m_flightPlanService->ApplyPdcStateChange(event.callsign, event.state);
+
+        const auto* trackedPlan = m_flightPlanService->GetFlightPlan(event.callsign);
+        if (trackedPlan == nullptr || !trackedPlan->KeepsEuroScopeStripUncleared()) {
+            return;
+        }
+
+        const auto fp = m_plugin->FlightPlanSelect(event.callsign.c_str());
+        if (fp.IsValid() && fp.GetClearenceFlag()) {
+            m_plugin->SetClearenceFlag(event.callsign, false);
         }
     }
 

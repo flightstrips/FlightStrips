@@ -25,4 +25,5 @@ type EuroscopeHub interface {
 	SendAssumeAndDrop(session int32, cid string, callsign string)
 	SendDropTracking(session int32, cid string, callsign string)
 	SendCreateFPL(session int32, cid string, event euroscope.CreateFPLEvent)
+	SendPdcStateChange(session int32, callsign, state string)
 }

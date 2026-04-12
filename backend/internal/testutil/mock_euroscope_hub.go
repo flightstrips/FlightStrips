@@ -165,3 +165,5 @@ type CreateFPLCall struct {
 func (m *MockEuroscopeHub) SendCreateFPL(session int32, cid string, event euroscope.CreateFPLEvent) {
 	m.CreateFPLCalls = append(m.CreateFPLCalls, CreateFPLCall{session, cid, event})
 }
+
+func (m *MockEuroscopeHub) SendPdcStateChange(session int32, callsign, state string) {}

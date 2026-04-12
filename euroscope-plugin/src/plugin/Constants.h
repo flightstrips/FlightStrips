@@ -55,3 +55,6 @@ constexpr int TAG_FUNC_CDM_TSAC_OPTIONS = 2025;
 constexpr int TAG_FUNC_CDM_TOGGLE_TSAC = 2026;
 constexpr int TAG_FUNC_CDM_EDIT_TSAC = 2027;
 constexpr int TAG_FUNC_CDM_SET_TSAC = 2028;
+
+constexpr int TAG_ITEM_PDC_STATUS          = 110;
+constexpr int TAG_FUNC_PDC_OPTIONS         = 2029;

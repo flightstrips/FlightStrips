@@ -122,6 +122,8 @@ func NewHub(stripService shared.StripService, controllerService shared.Controlle
 	handlers.Add(euroscope.TrackingControllerChanged, handleTrackingControllerChanged)
 	handlers.Add(euroscope.CoordinationReceived, handleCoordinationReceived)
 	handlers.Add(euroscope.CdmMasterToggle, handleCdmMasterToggle)
+	handlers.Add(euroscope.IssuePdcClearance, handleIssuePdcClearance)
+	handlers.Add(euroscope.PdcRevertToVoice, handlePdcRevertToVoice)
 
 	hub := &Hub{
 		register:                 make(chan *Client),
@@ -254,6 +256,9 @@ func (hub *Hub) sendBackendSyncIfNeeded(client *Client) {
 				EcfmpID:         valueOrEmpty(strip.CdmData.EcfmpID),
 				Phase:           valueOrEmpty(strip.CdmData.EffectivePhase()),
 			}
+		}
+		if strip.PdcState != "" {
+			entry.PdcState = strip.PdcState
 		}
 		syncStrips = append(syncStrips, entry)
 	}
@@ -619,6 +624,13 @@ func (hub *Hub) SendCoordinationHandover(session int32, cid string, callsign str
 
 func (hub *Hub) SendCreateFPL(session int32, cid string, event euroscope.CreateFPLEvent) {
 	hub.Send(session, cid, event)
+}
+
+func (hub *Hub) SendPdcStateChange(session int32, callsign, state string) {
+	hub.Broadcast(session, euroscope.PdcStateChangeEvent{
+		Callsign: callsign,
+		State:    state,
+	})
 }
 
 func (hub *Hub) Run() {

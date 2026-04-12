@@ -621,3 +621,27 @@ func handleCdmMasterToggle(ctx context.Context, client *Client, message Message)
 	return client.hub.server.GetCdmService().SetSessionCdmMaster(ctx, client.session, event.Master)
 }
 
+func handleIssuePdcClearance(ctx context.Context, client *Client, message Message) error {
+	var event euroscope.IssuePdcClearanceEvent
+	if err := message.JsonUnmarshal(&event); err != nil {
+		return err
+	}
+	pdcService := client.hub.server.GetPdcService()
+	if pdcService == nil {
+		return nil
+	}
+	return pdcService.IssueClearance(ctx, event.Callsign, "", client.GetCid(), client.session)
+}
+
+func handlePdcRevertToVoice(ctx context.Context, client *Client, message Message) error {
+	var event euroscope.PdcRevertToVoiceEvent
+	if err := message.JsonUnmarshal(&event); err != nil {
+		return err
+	}
+	pdcService := client.hub.server.GetPdcService()
+	if pdcService == nil {
+		return nil
+	}
+	return pdcService.RevertToVoice(ctx, event.Callsign, client.session, client.GetCid())
+}
+

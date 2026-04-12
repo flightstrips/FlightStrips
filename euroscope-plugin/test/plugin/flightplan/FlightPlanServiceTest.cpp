@@ -85,6 +85,13 @@ TEST(FlightPlanStructTest, DefaultConstruction_CdmStateIsEmpty) {
     EXPECT_EQ(fp.cdm.deice_type, "");
 }
 
+TEST(FlightPlanStructTest, DefaultConstruction_PdcStateIsNotManaged) {
+    FlightPlan fp;
+    EXPECT_FALSE(fp.IsPdcCleared());
+    EXPECT_FALSE(fp.IsPdcConfirmed());
+    EXPECT_FALSE(fp.KeepsEuroScopeStripUncleared());
+}
+
 TEST(FlightPlanStructTest, FieldAssignment_RoundTrips) {
     FlightPlan fp;
     fp.squawk = "7700";
@@ -151,4 +158,21 @@ TEST(FlightPlanServiceStateTest, ApplyBackendSyncCdm_SeedsCdmState) {
     EXPECT_EQ(flightPlan->cdm.asat, "1042");
     EXPECT_EQ(flightPlan->cdm.deice_type, "H");
     EXPECT_EQ(flightPlan->cdm.ecfmp_id, "ATFM");
+}
+
+TEST(FlightPlanServiceStateTest, ApplyPdcStateChange_SeedsTrackedState) {
+    FlightPlanService service(
+        std::shared_ptr<FlightStrips::websocket::WebSocketService>{},
+        std::shared_ptr<FlightStrips::FlightStripsPlugin>{},
+        std::shared_ptr<FlightStrips::stands::StandService>{},
+        std::shared_ptr<FlightStrips::configuration::AppConfig>{}
+    );
+
+    service.ApplyPdcStateChange("SAS321", "CLEARED");
+
+    const auto* flightPlan = service.GetFlightPlan("SAS321");
+    ASSERT_NE(flightPlan, nullptr);
+    EXPECT_EQ(flightPlan->pdc_state, "CLEARED");
+    EXPECT_TRUE(flightPlan->IsPdcCleared());
+    EXPECT_TRUE(flightPlan->KeepsEuroScopeStripUncleared());
 }

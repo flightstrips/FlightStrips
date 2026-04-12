@@ -88,8 +88,14 @@ set(src__authentication
 source_group("src\\authentication" FILES ${src__authentication})
 
 set(src__graphics
+        graphics/InfoPanel.cpp
+        graphics/InfoPanel.h
         graphics/InfoScreen.cpp
         graphics/InfoScreen.h
+        graphics/InfoScreenObjectIds.h
+        graphics/PdcClearancePopupState.h
+        graphics/PdcPopup.cpp
+        graphics/PdcPopup.h
         graphics/Colors.h
         graphics/Graphics.cpp
         graphics/Graphics.h)
@@ -123,7 +129,9 @@ set(src__tag_items
         tag_items/CdmStateHandler.cpp
         tag_items/CdmStateHandler.h
         tag_items/DeIceHandler.cpp
-        tag_items/DeIceHandler.h)
+        tag_items/DeIceHandler.h
+        tag_items/PdcStateHandler.cpp
+        tag_items/PdcStateHandler.h)
 
 set(ALL_FILES
         ${src__plugin}

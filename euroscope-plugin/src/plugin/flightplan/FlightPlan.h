@@ -26,5 +26,18 @@ namespace FlightStrips::flightplan {
         std::string stand{};
         std::string tracking_controller{};
         CdmState cdm{};
+        std::string pdc_state{};
+
+        [[nodiscard]] bool IsPdcCleared() const {
+            return pdc_state == "CLEARED";
+        }
+
+        [[nodiscard]] bool IsPdcConfirmed() const {
+            return pdc_state == "CONFIRMED";
+        }
+
+        [[nodiscard]] bool KeepsEuroScopeStripUncleared() const {
+            return IsPdcCleared();
+        }
     };
 }

@@ -30,7 +30,7 @@ TEST(DeIceHandlerTest, ConstructWithEmptyDependencies_DoesNotThrow) {
     EXPECT_NO_THROW({
         DeIceHandler handler(MakeEmptyStandService(), MakeEmptyAppConfig());
     });
-    EXPECT_EQ(DeIceHandler::DefaultDisplayColor(), RGB(212, 214, 7));
+    EXPECT_EQ(DeIceHandler::DefaultDisplayColor(), RGB(108, 108, 108));
 }
 
 // ---------------------------------------------------------------------------

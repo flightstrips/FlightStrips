@@ -45,6 +45,9 @@
 #define EVENT_CDM_CTOT_REMOVE_NAME "cdm_ctot_remove"
 #define EVENT_CDM_APPROVE_REQ_TOBT_NAME "cdm_approve_req_tobt"
 #define EVENT_CDM_MASTER_TOGGLE_NAME "cdm_master_toggle"
+#define EVENT_PDC_STATE_CHANGE_NAME "pdc_state_change"
+#define EVENT_ISSUE_PDC_CLEARANCE_NAME "issue_pdc_clearance"
+#define EVENT_PDC_REVERT_TO_VOICE_NAME "pdc_revert_to_voice"
 
 enum EventType {
     EVENT_UNKNOWN = 0,
@@ -90,6 +93,9 @@ enum EventType {
     EVENT_CDM_CTOT_REMOVE,
     EVENT_CDM_APPROVE_REQ_TOBT,
     EVENT_CDM_MASTER_TOGGLE,
+    EVENT_PDC_STATE_CHANGE,
+    EVENT_ISSUE_PDC_CLEARANCE,
+    EVENT_PDC_REVERT_TO_VOICE,
 };
 
 NLOHMANN_JSON_SERIALIZE_ENUM(EventType, {
@@ -135,6 +141,9 @@ NLOHMANN_JSON_SERIALIZE_ENUM(EventType, {
                                   {EVENT_CDM_CTOT_REMOVE, EVENT_CDM_CTOT_REMOVE_NAME},
                                  {EVENT_CDM_APPROVE_REQ_TOBT, EVENT_CDM_APPROVE_REQ_TOBT_NAME},
                                  {EVENT_CDM_MASTER_TOGGLE, EVENT_CDM_MASTER_TOGGLE_NAME},
+                                 {EVENT_PDC_STATE_CHANGE, EVENT_PDC_STATE_CHANGE_NAME},
+                                 {EVENT_ISSUE_PDC_CLEARANCE, EVENT_ISSUE_PDC_CLEARANCE_NAME},
+                                 {EVENT_PDC_REVERT_TO_VOICE, EVENT_PDC_REVERT_TO_VOICE_NAME},
                                  })
 
 struct Event {
@@ -898,10 +907,11 @@ struct BackendSyncStrip final {
     std::string ground_state;
     std::string stand;
     BackendSyncCdmData cdm{};
+    std::string pdc_state{};
 
     BackendSyncStrip() = default;
 
-    NLOHMANN_DEFINE_TYPE_INTRUSIVE_WITH_DEFAULT(BackendSyncStrip, callsign, assigned_squawk, cleared, ground_state, stand, cdm);
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE_WITH_DEFAULT(BackendSyncStrip, callsign, assigned_squawk, cleared, ground_state, stand, cdm, pdc_state);
 };
 
 struct BackendSyncEvent final : Event {
@@ -937,6 +947,37 @@ struct CreateFPLEvent final : Event {
     NLOHMANN_DEFINE_TYPE_INTRUSIVE(CreateFPLEvent, callsign, origin, destination, alternate_ad, sid, assigned_squawk,
                                    eobt, aircraft_type, requested_altitude, route, stand, runway, remarks,
                                    persons_on_board, fpl_type, language, type);
+};
+
+struct PdcStateChangeEvent final : Event {
+    std::string callsign;
+    std::string state;
+
+    PdcStateChangeEvent() = default;
+    PdcStateChangeEvent(std::string callsign, std::string state)
+        : Event(EVENT_PDC_STATE_CHANGE), callsign(std::move(callsign)), state(std::move(state)) {}
+
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE_WITH_DEFAULT(PdcStateChangeEvent, callsign, state, type);
+};
+
+struct IssuePdcClearanceEvent final : Event {
+    std::string callsign;
+
+    IssuePdcClearanceEvent() = default;
+    explicit IssuePdcClearanceEvent(std::string callsign)
+        : Event(EVENT_ISSUE_PDC_CLEARANCE), callsign(std::move(callsign)) {}
+
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE(IssuePdcClearanceEvent, callsign, type);
+};
+
+struct PdcRevertToVoiceEvent final : Event {
+    std::string callsign;
+
+    PdcRevertToVoiceEvent() = default;
+    explicit PdcRevertToVoiceEvent(std::string callsign)
+        : Event(EVENT_PDC_REVERT_TO_VOICE), callsign(std::move(callsign)) {}
+
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE(PdcRevertToVoiceEvent, callsign, type);
 };
 
 #endif //EVENTS_H

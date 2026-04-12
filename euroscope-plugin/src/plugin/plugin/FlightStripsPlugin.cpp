@@ -7,6 +7,7 @@
 #include "graphics/InfoScreen.h"
 #include "handlers/FlightPlanEventHandlers.h"
 #include "messages/MessageService.h"
+#include "runway/RunwayService.h"
 #include "websocket/Events.h"
 #include "websocket/WebSocketService.h"
 
@@ -20,6 +21,10 @@ namespace FlightStrips {
             time(&rawtime);
             gmtime_s(&ptm, &rawtime);
             return std::format("{:0>2}{:0>2}", ptm.tm_hour, ptm.tm_min);
+        }
+
+        bool EqualsIgnoreCase(const std::string& lhs, const char* rhs) {
+            return _stricmp(lhs.c_str(), rhs) == 0;
         }
     }
 
@@ -92,6 +97,9 @@ namespace FlightStrips {
         RegisterTagItemFunction("Add TSAT to TSAC", TAG_FUNC_CDM_TOGGLE_TSAC);
         RegisterTagItemFunction("Remove TSAC", TAG_FUNC_CDM_TOGGLE_TSAC);
         RegisterTagItemFunction("Edit TSAC", TAG_FUNC_CDM_EDIT_TSAC);
+
+        RegisterTagItemType("PDC", TAG_ITEM_PDC_STATUS);
+        RegisterTagItemFunction("PDC Options", TAG_FUNC_PDC_OPTIONS);
     }
 
     void FlightStripsPlugin::Information(const std::string &message) {
@@ -370,6 +378,9 @@ namespace FlightStrips {
                     ptr->authenticationService,
                     ptr->userConfig,
                     ptr->webSocketService,
+                    ptr->flightPlanService,
+                    ptr->runwayService,
+                    ptr->pdcPopup,
                     this);
             }
 
@@ -405,7 +416,7 @@ namespace FlightStrips {
         });
     }
 
-    void FlightStripsPlugin::OnFunctionCall(int FunctionId, const char* ItemString, POINT, RECT Area) {
+    void FlightStripsPlugin::OnFunctionCall(int FunctionId, const char* ItemString, POINT Pt, RECT Area) {
         const auto fp = FlightPlanSelectASEL();
         if (!fp.IsValid()) return;
 
@@ -501,6 +512,19 @@ namespace FlightStrips {
             addDeiceOptions();
             addOptionsSeparator();
             AddPopupListElement(currentAsrt.empty() ? "Set ASRT" : "Clear ASRT", "", TAG_FUNC_CDM_TOGGLE_ASRT, false, 2, false);
+        };
+
+        const auto openPdcClearanceDialog = [&] {
+            if (container->pdcPopup == nullptr) {
+                return false;
+            }
+
+            auto& popup = *container->pdcPopup;
+            popup.callsign = callsign;
+            popup.posX = Pt.x;
+            popup.posY = Pt.y;
+            popup.isOpen = true;
+            return true;
         };
 
         switch (FunctionId) {
@@ -607,6 +631,10 @@ namespace FlightStrips {
             case TAG_FUNC_CDM_OPTIONS:
                 openGlobalOptions();
                 break;
+            case TAG_FUNC_PDC_OPTIONS: {
+                openPdcClearanceDialog();
+                break;
+            }
             case TAG_FUNC_CDM_FLOW_MESSAGE_AS_TEXT:
                 Information(currentFlowMessage.empty() ? "No flow message available." : currentFlowMessage);
                 break;

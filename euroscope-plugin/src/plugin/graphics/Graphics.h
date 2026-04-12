@@ -16,7 +16,9 @@ namespace FlightStrips::graphics {
         void DrawXButton(const Gdiplus::Pen* pen, const RECT& rect) const;
         void DrawLineButton(const Gdiplus::Pen* pen, const RECT& rect) const;
         void DrawHLine(const Gdiplus::Pen* pen, int x1, int y, int x2) const;
+        void DrawVLine(const Gdiplus::Pen* pen, int x, int y1, int y2) const;
         void FillEllipse(const Gdiplus::Brush* brush, const RECT& rect) const;
+        [[nodiscard]] std::string FitStringToWidth(const std::string& text, const RECT& rect) const;
 
     private:
         std::unique_ptr<Gdiplus::Graphics> graphics;
@@ -26,5 +28,6 @@ namespace FlightStrips::graphics {
 
         static Gdiplus::Rect ToGdiRect(const RECT &rect);
         static Gdiplus::RectF ToGdiRectF(const RECT &rect);
+        [[nodiscard]] auto MeasureStringWidth(const std::string& text) const -> Gdiplus::REAL;
     };
 }

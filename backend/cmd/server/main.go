@@ -221,6 +221,7 @@ func main() {
 
 	if pdcService != nil {
 		pdcService.SetFrontendHub(frontendHub)
+		pdcService.SetEuroscopeHub(euroscopeHub)
 	}
 
 	fsServer := server.NewServer(dbpool, euroscopeHub, frontendHub, cdmService, pdcService, stripRepo, controllerRepo, sessionRepo, sectorRepo, coordRepo, tacticalStripRepo)

@@ -10,7 +10,7 @@ namespace FlightStrips::TagItems
     }
 
     auto DeIceHandler::DefaultDisplayColor() -> COLORREF {
-        return RGB(212, 214, 7);
+        return RGB(108, 108, 108);
     }
 
     void DeIceHandler::Handle(EuroScopePlugIn::CFlightPlan FlightPlan, EuroScopePlugIn::CRadarTarget RadarTarget,

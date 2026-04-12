@@ -42,6 +42,7 @@ type Service struct {
 	sectorRepo     repository.SectorOwnerRepository
 	controllerRepo repository.ControllerRepository
 	frontendHub    shared.FrontendHub
+	euroscopeHub   shared.EuroscopeHub
 	stripService   shared.StripService
 	timeouts       map[string]*timeoutTracker
 	timeoutsMutex  sync.RWMutex
@@ -62,6 +63,10 @@ func NewPDCService(client *Client, sessionRepo repository.SessionRepository, str
 
 func (s *Service) SetFrontendHub(frontendHub shared.FrontendHub) {
 	s.frontendHub = frontendHub
+}
+
+func (s *Service) SetEuroscopeHub(euroscopeHub shared.EuroscopeHub) {
+	s.euroscopeHub = euroscopeHub
 }
 
 func (s *Service) SetStripService(stripService shared.StripService) {
@@ -103,10 +108,13 @@ func (s *Service) sendErrorAndReturn(ctx context.Context, session sessionInforma
 	return originalErr
 }
 
-// notifyFrontendStateChange sends PDC state change notification to frontend
-func (s *Service) notifyFrontendStateChange(sessionID int32, callsign string, state ClearanceState) {
+// notifyStateChange sends PDC state change notification to frontend and EuroScope clients
+func (s *Service) notifyStateChange(sessionID int32, callsign string, state ClearanceState) {
 	if s.frontendHub != nil {
 		s.frontendHub.SendPdcStateChange(sessionID, callsign, string(state))
+	}
+	if s.euroscopeHub != nil {
+		s.euroscopeHub.SendPdcStateChange(sessionID, callsign, string(state))
 	}
 }
 
@@ -128,7 +136,7 @@ func (s *Service) Start(ctx context.Context) {
 }
 
 func (s *Service) pollAndProcess(ctx context.Context) error {
-	sessions, err := s.sessionRepo.GetByNames(ctx, "LIVE")
+	sessions, err := s.sessionRepo.GetByNames(ctx, "SWEATBOX")
 	if err != nil {
 		return fmt.Errorf("failed to get sessions: %w", err)
 	}
@@ -245,7 +253,7 @@ func (s *Service) ProcessPDCRequest(ctx context.Context, msg *IncomingMessage, s
 		if err := s.stripRepo.SetPdcRequested(ctx, session.id, strip.Callsign, string(StateRequestedWithFaults), &now); err != nil {
 			return fmt.Errorf("failed to set PDC requested with faults: %w", err)
 		}
-		s.notifyFrontendStateChange(session.id, req.Callsign, StateRequestedWithFaults)
+		s.notifyStateChange(session.id, req.Callsign, StateRequestedWithFaults)
 		if err := s.SendStatusAck(ctx, session, req.Callsign, req.Departure); err != nil {
 			return fmt.Errorf("failed to send status ack: %w", err)
 		}
@@ -264,7 +272,7 @@ func (s *Service) ProcessPDCRequest(ctx context.Context, msg *IncomingMessage, s
 		if err := s.stripRepo.SetPdcRequested(ctx, session.id, strip.Callsign, string(StateRequested), &now); err != nil {
 			return fmt.Errorf("failed to set PDC requested: %w", err)
 		}
-		s.notifyFrontendStateChange(session.id, req.Callsign, StateRequested)
+		s.notifyStateChange(session.id, req.Callsign, StateRequested)
 		slog.InfoContext(ctx, "PDC Service: PDC request acknowledged (clearance fields not ready)", slog.String("callsign", req.Callsign))
 	} else {
 		slog.InfoContext(ctx, "PDC Service: PDC clearance auto-issued", slog.String("callsign", req.Callsign))
@@ -372,7 +380,7 @@ func (s *Service) IssueClearance(ctx context.Context, callsign, remarks, cid str
 
 	s.StartClearanceTimeout(ctx, strip.Origin, callsign, nextSeq, sessionInfo, cid)
 
-	s.notifyFrontendStateChange(sessionInfo.id, callsign, StateCleared)
+	s.notifyStateChange(sessionInfo.id, callsign, StateCleared)
 
 	slog.DebugContext(ctx, "PDC Service: Clearance issued", slog.String("callsign", callsign), slog.Int("sequence", int(nextSeq)))
 	return nil
@@ -411,7 +419,7 @@ func (s *Service) RevertToVoice(ctx context.Context, callsign string, sessionId 
 		return fmt.Errorf("failed to set PDC failed: %w", err)
 	}
 
-	s.notifyFrontendStateChange(sessionInfo.id, callsign, StateRevertToVoice)
+	s.notifyStateChange(sessionInfo.id, callsign, StateRevertToVoice)
 
 	slog.DebugContext(ctx, "PDC Service: Reverting to voice", slog.String("callsign", callsign))
 	return nil
@@ -590,7 +598,7 @@ func (s *Service) HandleWilco(ctx context.Context, message *IncomingMessage, ses
 		}
 	}
 
-	s.notifyFrontendStateChange(session.id, callsign, StateConfirmed)
+	s.notifyStateChange(session.id, callsign, StateConfirmed)
 
 	slog.DebugContext(ctx, "PDC Service: WILCO received", slog.String("callsign", callsign))
 	return nil
@@ -769,7 +777,7 @@ func (s *Service) setPdcFailed(ctx context.Context, callsign string, sessionId i
 		}
 	}
 
-	s.notifyFrontendStateChange(sessionId, callsign, state)
+	s.notifyStateChange(sessionId, callsign, state)
 
 	return nil
 }

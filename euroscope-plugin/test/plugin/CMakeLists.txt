@@ -57,6 +57,11 @@ set(ALL_FILES
         # Tag Items
         tag_items/CdmStateHandlerTest.cpp
         tag_items/DeIceHandlerTest.cpp
+        tag_items/PdcStateHandlerTest.cpp
+
+        # Graphics
+        graphics/InfoPanelTest.cpp
+        graphics/PdcPopupTest.cpp
 
         # WebSocket
         websocket/WebSocketServiceTest.cpp

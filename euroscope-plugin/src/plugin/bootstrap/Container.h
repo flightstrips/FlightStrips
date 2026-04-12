@@ -47,6 +47,9 @@ namespace FlightStrips {
         class TagItemHandlers;
         class DeIceHandler;
     }
+    namespace graphics {
+        struct PdcClearancePopupState;
+    }
 }
 
 namespace EuroScopePlugIn {
@@ -88,6 +91,9 @@ namespace FlightStrips {
 
         // tag items
         std::shared_ptr<TagItems::DeIceHandler> deIceHandler;
+
+        // PDC clearance popup shared state
+        std::shared_ptr<graphics::PdcClearancePopupState> pdcPopup;
 
         // flight plan
         std::shared_ptr<flightplan::FlightPlanService> flightPlanService;

@@ -50,6 +50,9 @@ const (
 	DropTracking              EventType = "drop_tracking"
 	BackendSync               EventType = "backend_sync"
 	CreateFPL                 EventType = "create_fpl"
+	PdcStateChange            EventType = "pdc_state_change"
+	IssuePdcClearance         EventType = "issue_pdc_clearance"
+	PdcRevertToVoice          EventType = "pdc_revert_to_voice"
 )
 
 const (
@@ -602,6 +605,7 @@ type BackendSyncStrip struct {
 	GroundState    string             `json:"ground_state"`
 	Stand          string             `json:"stand"`
 	Cdm            BackendSyncCdmData `json:"cdm"`
+	PdcState       string             `json:"pdc_state,omitempty"`
 }
 
 // BackendSyncEvent is sent by the backend to every connecting EuroScope client
@@ -647,4 +651,28 @@ func (e CreateFPLEvent) GetType() EventType {
 
 func (e CreateFPLEvent) Marshal() ([]byte, error) {
 	return marshall(e)
+}
+
+// PdcStateChangeEvent is sent by the backend to EuroScope clients when PDC state changes.
+type PdcStateChangeEvent struct {
+	Callsign string `json:"callsign"`
+	State    string `json:"state"`
+}
+
+func (e PdcStateChangeEvent) GetType() EventType {
+	return PdcStateChange
+}
+
+func (e PdcStateChangeEvent) Marshal() ([]byte, error) {
+	return marshall(e)
+}
+
+// IssuePdcClearanceEvent is sent by the EuroScope plugin to issue a PDC clearance.
+type IssuePdcClearanceEvent struct {
+	Callsign string `json:"callsign"`
+}
+
+// PdcRevertToVoiceEvent is sent by the EuroScope plugin to revert PDC to voice.
+type PdcRevertToVoiceEvent struct {
+	Callsign string `json:"callsign"`
 }

@@ -77,23 +77,60 @@ func TestGetNextFrequency_NoSQOrDEL_ReturnsError(t *testing.T) {
 	assert.Error(t, err)
 }
 
-// ── getAirborneFrequency (Departure frequency in clearance = airborne controller) ─
+// ── getAirborneFrequency (Departure frequency in clearance = SID-specific airborne sector) ─
 
-func TestGetAirborneFrequency_AirborneOnline(t *testing.T) {
+func TestGetAirborneFrequency_UsesSidSpecificSectorPriority(t *testing.T) {
 	t.Parallel()
 
 	dbPool, queries := testdata.SetupTestDB(t)
 
-	// EKCH_K_DEP (priority 4 in airborne_owners) is the only airborne controller online.
 	sessionID := testdata.SeedTestSessionWithSectors(t, queries, []database.InsertSectorOwnersParams{
 		{Sector: []string{"K_DEP"}, Position: "124.980", Identifier: "K_DEP"},
+		{Sector: []string{"R_DEP"}, Position: "120.255", Identifier: "R_DEP"},
 		{Sector: []string{"SQ", "DEL"}, Position: "119.905", Identifier: "DEL"}, // not airborne
 	})
 
 	svc := &Service{sectorRepo: postgres.NewSectorOwnerRepository(dbPool)}
+	sid := "BETUD2A"
 
-	freq := svc.getAirborneFrequency(context.Background(), sessionID)
+	freq, err := svc.getAirborneFrequency(context.Background(), sessionID, &sid)
+	require.NoError(t, err)
 	assert.Equal(t, "124.980", freq)
+}
+
+func TestGetAirborneFrequency_UsesDifferentSidSpecificSectorPriority(t *testing.T) {
+	t.Parallel()
+
+	dbPool, queries := testdata.SetupTestDB(t)
+
+	sessionID := testdata.SeedTestSessionWithSectors(t, queries, []database.InsertSectorOwnersParams{
+		{Sector: []string{"K_DEP"}, Position: "124.980", Identifier: "K_DEP"},
+		{Sector: []string{"R_DEP"}, Position: "120.255", Identifier: "R_DEP"},
+	})
+
+	svc := &Service{sectorRepo: postgres.NewSectorOwnerRepository(dbPool)}
+	sid := "GOLGA2C"
+
+	freq, err := svc.getAirborneFrequency(context.Background(), sessionID, &sid)
+	require.NoError(t, err)
+	assert.Equal(t, "120.255", freq)
+}
+
+func TestGetAirborneFrequency_FallsBackWithinSidSpecificPriority(t *testing.T) {
+	t.Parallel()
+
+	dbPool, queries := testdata.SetupTestDB(t)
+
+	sessionID := testdata.SeedTestSessionWithSectors(t, queries, []database.InsertSectorOwnersParams{
+		{Sector: []string{"R_DEP"}, Position: "120.255", Identifier: "R_DEP"},
+	})
+
+	svc := &Service{sectorRepo: postgres.NewSectorOwnerRepository(dbPool)}
+	sid := "BETUD2A"
+
+	freq, err := svc.getAirborneFrequency(context.Background(), sessionID, &sid)
+	require.NoError(t, err)
+	assert.Equal(t, "120.255", freq)
 }
 
 func TestGetAirborneFrequency_NoAirborneOnline_ReturnsUNICOM(t *testing.T) {
@@ -101,34 +138,34 @@ func TestGetAirborneFrequency_NoAirborneOnline_ReturnsUNICOM(t *testing.T) {
 
 	dbPool, queries := testdata.SetupTestDB(t)
 
-	// Only ground/tower — none are in airborne_owners.
 	sessionID := testdata.SeedTestSessionWithSectors(t, queries, []database.InsertSectorOwnersParams{
 		{Sector: []string{"SQ", "DEL"}, Position: "119.905", Identifier: "DEL"},
 		{Sector: []string{"TE", "TW"}, Position: "118.105", Identifier: "TE"},
 	})
 
 	svc := &Service{sectorRepo: postgres.NewSectorOwnerRepository(dbPool)}
+	sid := "BETUD2A"
 
-	freq := svc.getAirborneFrequency(context.Background(), sessionID)
+	freq, err := svc.getAirborneFrequency(context.Background(), sessionID, &sid)
+	require.NoError(t, err)
 	assert.Equal(t, "122.8", freq)
 }
 
-func TestGetAirborneFrequency_Priority(t *testing.T) {
+func TestGetAirborneFrequency_UsesDefaultSectorWhenSidMissing(t *testing.T) {
 	t.Parallel()
 
 	dbPool, queries := testdata.SetupTestDB(t)
 
-	// Both EKCH_W_APP (priority 1) and EKCH_K_DEP (priority 4) are online.
-	// EKCH_W_APP must win.
 	sessionID := testdata.SeedTestSessionWithSectors(t, queries, []database.InsertSectorOwnersParams{
 		{Sector: []string{"K_DEP"}, Position: "124.980", Identifier: "K_DEP"},
-		{Sector: []string{"W_APP"}, Position: "119.805", Identifier: "W_APP"},
+		{Sector: []string{"R_DEP"}, Position: "120.255", Identifier: "R_DEP"},
 	})
 
 	svc := &Service{sectorRepo: postgres.NewSectorOwnerRepository(dbPool)}
 
-	freq := svc.getAirborneFrequency(context.Background(), sessionID)
-	assert.Equal(t, "119.805", freq) // EKCH_W_APP is first in airborne_owners
+	freq, err := svc.getAirborneFrequency(context.Background(), sessionID, nil)
+	require.NoError(t, err)
+	assert.Equal(t, "124.980", freq)
 }
 
 func TestGetAirborneFrequency_UsesOnlineControllersWhenSectorOwnersAreStale(t *testing.T) {
@@ -143,7 +180,7 @@ func TestGetAirborneFrequency_UsesOnlineControllersWhenSectorOwnersAreStale(t *t
 	controllerRepo := &testutil.MockControllerRepository{
 		ListBySessionFn: func(ctx context.Context, session int32) ([]*models.Controller, error) {
 			return []*models.Controller{
-				{Session: session, Position: "119.8050"},
+				{Session: session, Position: "120.2550"},
 			}, nil
 		},
 	}
@@ -152,7 +189,27 @@ func TestGetAirborneFrequency_UsesOnlineControllersWhenSectorOwnersAreStale(t *t
 		sectorRepo:     postgres.NewSectorOwnerRepository(dbPool),
 		controllerRepo: controllerRepo,
 	}
+	sid := "GOLGA2C"
 
-	freq := svc.getAirborneFrequency(context.Background(), sessionID)
-	assert.Equal(t, "119.805", freq)
+	freq, err := svc.getAirborneFrequency(context.Background(), sessionID, &sid)
+	require.NoError(t, err)
+	assert.Equal(t, "120.255", freq)
+}
+
+func TestGetAirborneFrequency_UsesDefaultSectorForUnknownSid(t *testing.T) {
+	t.Parallel()
+
+	dbPool, queries := testdata.SetupTestDB(t)
+
+	sessionID := testdata.SeedTestSessionWithSectors(t, queries, []database.InsertSectorOwnersParams{
+		{Sector: []string{"K_DEP"}, Position: "124.980", Identifier: "K_DEP"},
+		{Sector: []string{"R_DEP"}, Position: "120.255", Identifier: "R_DEP"},
+	})
+
+	svc := &Service{sectorRepo: postgres.NewSectorOwnerRepository(dbPool)}
+	sid := "UNKNOWN1A"
+
+	freq, err := svc.getAirborneFrequency(context.Background(), sessionID, &sid)
+	require.NoError(t, err)
+	assert.Equal(t, "124.980", freq)
 }

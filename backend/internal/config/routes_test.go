@@ -183,3 +183,44 @@ func TestGetAirborneControllerPriorityReturnsErrorForUnknownSid(t *testing.T) {
 		t.Fatal("expected error for unknown SID")
 	}
 }
+
+func TestGetDefaultAirborneControllerPriority(t *testing.T) {
+	originalRoutes := airborneRoutes
+	originalSectors := sectors
+	t.Cleanup(func() {
+		airborneRoutes = originalRoutes
+		sectors = originalSectors
+	})
+
+	airborneRoutes = []AirborneRoutes{
+		{Name: "K_DEP", UseAsDefault: true},
+		{Name: "R_DEP"},
+	}
+	sectors = []Sector{
+		{Name: "K_DEP", Owner: []string{"EKCH_K_DEP", "EKCH_R_DEP"}},
+	}
+
+	owners, err := GetDefaultAirborneControllerPriority()
+	if err != nil {
+		t.Fatalf("expected default owners, got error: %v", err)
+	}
+
+	if len(owners) != 2 || owners[0] != "EKCH_K_DEP" || owners[1] != "EKCH_R_DEP" {
+		t.Fatalf("unexpected default airborne owner priority: %#v", owners)
+	}
+}
+
+func TestGetDefaultAirborneControllerPriorityReturnsErrorWithoutDefaultRoute(t *testing.T) {
+	originalRoutes := airborneRoutes
+	t.Cleanup(func() {
+		airborneRoutes = originalRoutes
+	})
+
+	airborneRoutes = []AirborneRoutes{
+		{Name: "K_DEP"},
+	}
+
+	if _, err := GetDefaultAirborneControllerPriority(); err == nil {
+		t.Fatal("expected error without default airborne route")
+	}
+}

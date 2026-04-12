@@ -100,14 +100,8 @@ positions:
   - name: "EKDK_C_CTR"
     frequency: "128.215"
     section: "CTR"
-  - name: "EKDK_CTR"
-    frequency: "136.485"
-    section: "CTR"
-  - name: "EKDK_OE_CTR"
+  - name: "EKDK_UC_CTR"
     frequency: "127.865"
-    section: "CTR"
-  - name: "EKDK_WE_CTR"
-    frequency: "126.055"
     section: "CTR"
 
 
@@ -120,9 +114,8 @@ airborne_owners:
   - EKDK_B_CTR
   - EKDK_E_CTR
   - EKDK_D_CTR
-  - EKDK_OE_CTR
-  - EKDK_WE_CTR
-  - EKDK_CTR
+  - EKDK_UC_CTR
+  - EKDK_UN_CTR
 
 airborne_altitude_agl: 200
 
@@ -368,10 +361,8 @@ sectors:
       - EKDK_B_CTR
       - EKDK_E_CTR
       - EKDK_D_CTR
-      - EKDK_OE_CTR
-      - EKDK_WE_CTR
+      - EKDK_UC_CTR
       - EKDK_UN_CTR
-      - EKDK_CTR
 
   - name: R_DEP
     active: [ ]
@@ -385,10 +376,8 @@ sectors:
       - EKDK_B_CTR
       - EKDK_E_CTR
       - EKDK_D_CTR
-      - EKDK_OE_CTR
-      - EKDK_WE_CTR
+      - EKDK_UC_CTR
       - EKDK_UN_CTR
-      - EKDK_CTR
 
 routes:
   - name: Stands to Runway 22R

@@ -339,7 +339,10 @@ func (s *Service) IssueClearance(ctx context.Context, callsign, remarks, cid str
 		return fmt.Errorf("failed to get next frequency: %w", err)
 	}
 
-	departureFreq := s.getAirborneFrequency(ctx, sessionInfo.id)
+	departureFreq, err := s.getAirborneFrequency(ctx, sessionInfo.id, strip.Sid)
+	if err != nil {
+		return fmt.Errorf("failed to get departure frequency: %w", err)
+	}
 
 	nextPdcSeq, err := s.sessionRepo.IncrementPdcSequence(ctx, sessionInfo.id)
 	if err != nil {
@@ -474,22 +477,43 @@ func (s *Service) getNextFrequency(ctx context.Context, sessionID int32) (string
 	return nextFrequency, nil
 }
 
-// getAirborneFrequency returns the frequency of the highest-priority airborne controller
-// that is currently online, or "122.8" (UNICOM) if none is online.
-func (s *Service) getAirborneFrequency(ctx context.Context, sessionID int32) string {
+// getAirborneFrequency returns the frequency of the highest-priority controller
+// for the strip's airborne sector, or "122.8" (UNICOM) if none is online.
+func (s *Service) getAirborneFrequency(ctx context.Context, sessionID int32, sid *string) (string, error) {
 	onlineFreqs := s.getOnlineControllerFrequencies(ctx, sessionID)
+	controllerPriority, err := getPdcAirborneControllerPriority(sid)
+	if err != nil {
+		return "", err
+	}
 
-	for _, posName := range config.GetAirborneOwners() {
+	for _, posName := range controllerPriority {
 		pos, err := config.GetPositionByName(posName)
 		if err != nil {
 			continue
 		}
 		if _, online := onlineFreqs[normalizeFrequency(pos.Frequency)]; online {
-			return pos.Frequency
+			return pos.Frequency, nil
 		}
 	}
 
-	return "122.8"
+	return "122.8", nil
+}
+
+func getPdcAirborneControllerPriority(sid *string) ([]string, error) {
+	if sid != nil {
+		normalizedSID := strings.TrimSpace(*sid)
+		if normalizedSID != "" {
+			controllerPriority, err := config.GetAirborneControllerPriority(normalizedSID)
+			if err == nil {
+				return controllerPriority, nil
+			}
+			if !errors.Is(err, config.ErrUnknownAirborneRoute) {
+				return nil, err
+			}
+		}
+	}
+
+	return config.GetDefaultAirborneControllerPriority()
 }
 
 func (s *Service) getOnlineControllerFrequencies(ctx context.Context, sessionID int32) map[string]struct{} {

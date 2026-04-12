@@ -253,6 +253,7 @@ type AirborneRoutes struct {
 }
 
 var ErrUnknownAirborneRoute = errors.New("unknown airborne route")
+var ErrNoDefaultAirborneRoute = errors.New("no default airborne route configured")
 
 func GetAirborneSector(sid string) (string, error) {
 	for _, ar := range airborneRoutes {
@@ -293,9 +294,23 @@ func GetAirborneControllerPriority(sid string) ([]string, error) {
 		return nil, err
 	}
 
+	return getAirborneControllerPriorityForSector(sectorName)
+}
+
+func GetDefaultAirborneControllerPriority() ([]string, error) {
+	for _, ar := range airborneRoutes {
+		if ar.UseAsDefault {
+			return getAirborneControllerPriorityForSector(ar.Name)
+		}
+	}
+
+	return nil, ErrNoDefaultAirborneRoute
+}
+
+func getAirborneControllerPriorityForSector(sectorName string) ([]string, error) {
 	for _, sector := range sectors {
 		if strings.EqualFold(sector.Name, sectorName) {
-			slog.Debug("Found airborne sector for SID, returning owner priority list", slog.String("sid", sid), slog.String("sector", sector.Name), slog.Any("owners", sector.Owner))
+			slog.Debug("Found airborne sector, returning owner priority list", slog.String("sector", sector.Name), slog.Any("owners", sector.Owner))
 			return slices.Clone(sector.Owner), nil
 		}
 	}

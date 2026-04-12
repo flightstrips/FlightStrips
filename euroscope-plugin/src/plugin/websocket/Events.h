@@ -908,10 +908,11 @@ struct BackendSyncStrip final {
     std::string stand;
     BackendSyncCdmData cdm{};
     std::string pdc_state{};
+    std::string pdc_request_remarks{};
 
     BackendSyncStrip() = default;
 
-    NLOHMANN_DEFINE_TYPE_INTRUSIVE_WITH_DEFAULT(BackendSyncStrip, callsign, assigned_squawk, cleared, ground_state, stand, cdm, pdc_state);
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE_WITH_DEFAULT(BackendSyncStrip, callsign, assigned_squawk, cleared, ground_state, stand, cdm, pdc_state, pdc_request_remarks);
 };
 
 struct BackendSyncEvent final : Event {
@@ -952,22 +953,25 @@ struct CreateFPLEvent final : Event {
 struct PdcStateChangeEvent final : Event {
     std::string callsign;
     std::string state;
+    std::string pdc_request_remarks{};
 
     PdcStateChangeEvent() = default;
-    PdcStateChangeEvent(std::string callsign, std::string state)
-        : Event(EVENT_PDC_STATE_CHANGE), callsign(std::move(callsign)), state(std::move(state)) {}
+    PdcStateChangeEvent(std::string callsign, std::string state, std::string pdc_request_remarks = {})
+        : Event(EVENT_PDC_STATE_CHANGE), callsign(std::move(callsign)), state(std::move(state)),
+          pdc_request_remarks(std::move(pdc_request_remarks)) {}
 
-    NLOHMANN_DEFINE_TYPE_INTRUSIVE_WITH_DEFAULT(PdcStateChangeEvent, callsign, state, type);
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE_WITH_DEFAULT(PdcStateChangeEvent, callsign, state, pdc_request_remarks, type);
 };
 
 struct IssuePdcClearanceEvent final : Event {
     std::string callsign;
+    std::string remarks;
 
     IssuePdcClearanceEvent() = default;
-    explicit IssuePdcClearanceEvent(std::string callsign)
-        : Event(EVENT_ISSUE_PDC_CLEARANCE), callsign(std::move(callsign)) {}
+    explicit IssuePdcClearanceEvent(std::string callsign, std::string remarks = {})
+        : Event(EVENT_ISSUE_PDC_CLEARANCE), callsign(std::move(callsign)), remarks(std::move(remarks)) {}
 
-    NLOHMANN_DEFINE_TYPE_INTRUSIVE(IssuePdcClearanceEvent, callsign, type);
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE(IssuePdcClearanceEvent, callsign, remarks, type);
 };
 
 struct PdcRevertToVoiceEvent final : Event {

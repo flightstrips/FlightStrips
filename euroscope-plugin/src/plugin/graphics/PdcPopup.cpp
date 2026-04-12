@@ -17,6 +17,7 @@ namespace FlightStrips::graphics {
         constexpr int RequestedFieldWidth = 75;
         constexpr int RequestedLeftFieldX = 55;
         constexpr int RequestedRightFieldX = 185;
+        constexpr int RequestedFullFieldWidth = RequestedRightFieldX + RequestedFieldWidth - RequestedLeftFieldX;
         constexpr int RequestedLabelInset = 5;
         constexpr int RequestedLabelGap = 5;
         constexpr int RequestedToFieldsGap = 38;
@@ -202,11 +203,12 @@ namespace FlightStrips::graphics {
                                    const int posX,
                                    const int rowY,
                                    const int boxX,
-                                   const char* label,
-                                   const std::string& value,
-                                   const int objectId = 0,
-                                   const Gdiplus::Brush* valueBrush = nullptr) {
-            const RECT boxRect = {posX + boxX, rowY, posX + boxX + RequestedFieldWidth, rowY + RequestedFieldHeight};
+                                    const char* label,
+                                    const std::string& value,
+                                    const int objectId = 0,
+                                    const Gdiplus::Brush* valueBrush = nullptr,
+                                    const int fieldWidth = RequestedFieldWidth) {
+            const RECT boxRect = {posX + boxX, rowY, posX + boxX + fieldWidth, rowY + RequestedFieldHeight};
             const RECT labelRect = {posX + boxX - 45, rowY, posX + boxX - RequestedLabelGap, rowY + RequestedFieldHeight};
             const RECT valueRect = {boxRect.left + 4, boxRect.top + 1, boxRect.right - 2, boxRect.bottom - 1};
 
@@ -229,6 +231,10 @@ namespace FlightStrips::graphics {
                                    const PdcPopupData& data) {
             const int posX = state.posX;
             const int posY = state.posY;
+            const bool hasRequestRemarks = HasRequestRemarks(data.requestRemarks);
+            const int requestRemarksOffset = hasRequestRemarks ? RequestedFieldHeight + RequestedFieldRowGap : 0;
+            const int requestedButtonsTop = RequestedButtonsTop + requestRemarksOffset;
+            const int requestedPopupHeight = RequestedPopupHeight + requestRemarksOffset;
             const Gdiplus::SolidBrush popupHeaderBrush(Gdiplus::Color(88, 95, 99));
             const Gdiplus::SolidBrush popupBackgroundBrush(Gdiplus::Color(78, 85, 89));
             const Gdiplus::SolidBrush popupTextBrush(Gdiplus::Color(200, 200, 200));
@@ -237,7 +243,7 @@ namespace FlightStrips::graphics {
             const Gdiplus::Pen lightBorderPen(Gdiplus::Color(155, 158, 159), 0.75f);
             const Gdiplus::Pen darkBorderPen(Gdiplus::Color(70, 70, 70), 0.75f);
 
-            const RECT popupRect = {posX, posY, posX + RequestedPopupWidth, posY + RequestedPopupHeight};
+            const RECT popupRect = {posX, posY, posX + RequestedPopupWidth, posY + requestedPopupHeight};
             graphics.FillRect(&popupBackgroundBrush, popupRect);
             graphics.DrawRect(colors.backgroundPen.get(), popupRect);
             screen.AddScreenObject(InfoScreenObjectIds::PdcBackground, "", popupRect, false, nullptr);
@@ -247,7 +253,7 @@ namespace FlightStrips::graphics {
 
             const int fromSectionTop = posY + RequestedPopupHeaderHeight + RequestedSectionTopGap;
             const int fromFieldsTop = fromSectionTop + RequestedSectionTextHeight + RequestedFieldGapAfterSection;
-            const int toFieldsTop = RequestedFieldRowBottom(fromFieldsTop, 1) + RequestedToFieldsGap;
+            const int toFieldsTop = RequestedFieldRowBottom(fromFieldsTop, hasRequestRemarks ? 2 : 1) + RequestedToFieldsGap;
             const int toSectionTop = toFieldsTop - RequestedFieldGapAfterSection - RequestedSectionTextHeight;
 
             const RECT fromLabelRect = {posX + RequestedLabelInset, fromSectionTop, posX + 90, fromSectionTop + RequestedSectionTextHeight};
@@ -306,6 +312,23 @@ namespace FlightStrips::graphics {
                                   RequestedRightFieldX,
                                   "ATIS",
                                   data.atis);
+            if (hasRequestRemarks) {
+                DrawRequestedPdcField(screen,
+                                      graphics,
+                                      &popupBackgroundBrush,
+                                      &popupTextBrush,
+                                      &lightBorderPen,
+                                      &darkBorderPen,
+                                      data.callsign.c_str(),
+                                      posX,
+                                      RequestedFieldRowTop(fromFieldsTop, 2),
+                                      RequestedLeftFieldX,
+                                      "RMK",
+                                      data.requestRemarks,
+                                      0,
+                                      nullptr,
+                                      RequestedFullFieldWidth);
+            }
 
             const RECT toLabelRect = {posX + RequestedLabelInset, toSectionTop, posX + 90, toSectionTop + RequestedSectionTextHeight};
             graphics.DrawString("To a/c", toLabelRect, &popupTextBrush, Gdiplus::StringAlignmentNear);
@@ -387,10 +410,13 @@ namespace FlightStrips::graphics {
                                   RequestedFieldRowTop(toFieldsTop, 3),
                                   RequestedLeftFieldX,
                                   "RMK",
-                                  data.remarks);
+                                  data.clearanceRemarks,
+                                  InfoScreenObjectIds::PdcFieldRemarks,
+                                  nullptr,
+                                  RequestedFullFieldWidth);
 
             const auto drawButton = [&](const int buttonX, const int width, const char* text, const int objectId) {
-                const RECT buttonRect = {posX + buttonX, posY + RequestedButtonsTop, posX + buttonX + width, posY + RequestedButtonsTop + RequestedFieldHeight};
+                const RECT buttonRect = {posX + buttonX, posY + requestedButtonsTop, posX + buttonX + width, posY + requestedButtonsTop + RequestedFieldHeight};
                 FillBeveledBox(graphics, buttonRect, &popupBackgroundBrush, &lightBorderPen, &darkBorderPen);
                 graphics.DrawString(text, buttonRect, &popupTextBrush, Gdiplus::StringAlignmentCenter);
                 screen.AddScreenObject(objectId, data.callsign.c_str(), buttonRect, false, nullptr);
@@ -406,6 +432,10 @@ namespace FlightStrips::graphics {
                        "Cancel",
                        InfoScreenObjectIds::PdcCancelButton);
         }
+    }
+
+    bool HasRequestRemarks(const std::string_view remarks) {
+        return remarks.find_first_not_of(" \t\r\n") != std::string_view::npos;
     }
 
     bool IsRequestedPdcState(const std::string_view state) {
@@ -447,7 +477,8 @@ namespace FlightStrips::graphics {
         data.destination = std::string(fpData.GetDestination());
         data.aircraftType = ExtractAircraftType(std::string(fpData.GetAircraftInfo()));
         data.atis = "";
-        data.remarks = std::string(fpData.GetRemarks());
+        data.requestRemarks = tracked != nullptr ? tracked->pdc_request_remarks : "";
+        data.clearanceRemarks = state.clearanceRemarks;
         data.pdcState = tracked != nullptr ? tracked->pdc_state : "";
         data.runway = std::string(fpData.GetDepartureRwy());
         data.sid = std::string(fpData.GetSidName());

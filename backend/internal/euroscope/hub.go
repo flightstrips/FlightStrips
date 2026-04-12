@@ -238,6 +238,9 @@ func (hub *Hub) sendBackendSyncIfNeeded(client *Client) {
 		if strip.Stand != nil {
 			entry.Stand = *strip.Stand
 		}
+		if strip.PdcRequestRemarks != nil {
+			entry.PdcRequestRemarks = *strip.PdcRequestRemarks
+		}
 		if strip.CdmData != nil {
 			entry.Cdm = euroscope.BackendSyncCdmData{
 				Eobt:            valueOrEmpty(strip.CdmData.EffectiveEobt()),
@@ -626,10 +629,11 @@ func (hub *Hub) SendCreateFPL(session int32, cid string, event euroscope.CreateF
 	hub.Send(session, cid, event)
 }
 
-func (hub *Hub) SendPdcStateChange(session int32, callsign, state string) {
+func (hub *Hub) SendPdcStateChange(session int32, callsign, state, remarks string) {
 	hub.Broadcast(session, euroscope.PdcStateChangeEvent{
-		Callsign: callsign,
-		State:    state,
+		Callsign:          callsign,
+		State:             state,
+		PdcRequestRemarks: remarks,
 	})
 }
 

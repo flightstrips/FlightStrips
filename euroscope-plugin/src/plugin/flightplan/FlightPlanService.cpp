@@ -308,9 +308,10 @@ namespace FlightStrips::flightplan {
         });
     }
 
-    void FlightPlanService::ApplyPdcStateChange(const std::string& callsign, const std::string& state) {
+    void FlightPlanService::ApplyPdcStateChange(const std::string& callsign, const std::string& state, const std::string& requestRemarks) {
         auto& plan = m_flightPlans.try_emplace(callsign).first->second;
         plan.pdc_state = state;
+        plan.pdc_request_remarks = requestRemarks;
     }
 
     std::string FlightPlanService::GetEstimatedLandingTime(const EuroScopePlugIn::CFlightPlan &flightPlan) {

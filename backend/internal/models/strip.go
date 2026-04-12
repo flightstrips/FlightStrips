@@ -37,6 +37,7 @@ type Strip struct {
 	PreviousOwners           []string
 	ReleasePoint             *string
 	PdcState                 string
+	PdcRequestRemarks        *string
 	PdcRequestedAt           *time.Time
 	PdcMessageSequence       *int32
 	PdcMessageSent           *time.Time

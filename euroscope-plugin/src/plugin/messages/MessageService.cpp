@@ -444,8 +444,8 @@ namespace FlightStrips::messages {
                 }
             }
 
-            if (!strip.pdc_state.empty()) {
-                m_flightPlanService->ApplyPdcStateChange(strip.callsign, strip.pdc_state);
+            if (!strip.pdc_state.empty() || !strip.pdc_request_remarks.empty()) {
+                m_flightPlanService->ApplyPdcStateChange(strip.callsign, strip.pdc_state, strip.pdc_request_remarks);
             }
 
             const auto* trackedPlan = m_flightPlanService->GetFlightPlan(strip.callsign);
@@ -471,7 +471,7 @@ namespace FlightStrips::messages {
     }
 
     void MessageService::HandlePdcStateChangeEvent(const PdcStateChangeEvent &event) const {
-        m_flightPlanService->ApplyPdcStateChange(event.callsign, event.state);
+        m_flightPlanService->ApplyPdcStateChange(event.callsign, event.state, event.pdc_request_remarks);
 
         const auto* trackedPlan = m_flightPlanService->GetFlightPlan(event.callsign);
         if (trackedPlan == nullptr || !trackedPlan->KeepsEuroScopeStripUncleared()) {

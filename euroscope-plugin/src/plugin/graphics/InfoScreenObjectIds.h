@@ -19,4 +19,5 @@ namespace FlightStrips::graphics::InfoScreenObjectIds {
     inline constexpr int PdcFieldHeading = 17;
     inline constexpr int PdcFieldCfl = 18;
     inline constexpr int PdcFieldSquawk = 19;
+    inline constexpr int PdcFieldRemarks = 20;
 }

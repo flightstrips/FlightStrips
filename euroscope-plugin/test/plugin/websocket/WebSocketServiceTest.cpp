@@ -1032,7 +1032,9 @@ TEST(BackendSyncStripTest, Deserializes_AllFields) {
         "assigned_squawk": "2201",
         "cleared": true,
         "ground_state": "PUSH",
-        "stand": "B5"
+        "stand": "B5",
+        "pdc_state": "REQUESTED",
+        "pdc_request_remarks": "NO SID"
     })");
     const auto s = j.get<BackendSyncStrip>();
     EXPECT_EQ(s.callsign,        "EKS010");
@@ -1040,6 +1042,23 @@ TEST(BackendSyncStripTest, Deserializes_AllFields) {
     EXPECT_EQ(s.cleared,         true);
     EXPECT_EQ(s.ground_state,    "PUSH");
     EXPECT_EQ(s.stand,           "B5");
+    EXPECT_EQ(s.pdc_state,       "REQUESTED");
+    EXPECT_EQ(s.pdc_request_remarks, "NO SID");
+}
+
+TEST(PdcStateChangeEventTest, Serializes_RequestRemarks) {
+    const nlohmann::json j = PdcStateChangeEvent{"EKS011", "REQUESTED", "NO SID"};
+    EXPECT_EQ(j["type"], EVENT_PDC_STATE_CHANGE_NAME);
+    EXPECT_EQ(j["callsign"], "EKS011");
+    EXPECT_EQ(j["state"], "REQUESTED");
+    EXPECT_EQ(j["pdc_request_remarks"], "NO SID");
+}
+
+TEST(IssuePdcClearanceEventTest, Serializes_Remarks) {
+    const nlohmann::json j = IssuePdcClearanceEvent{"EKS012", "NO SID"};
+    EXPECT_EQ(j["type"], EVENT_ISSUE_PDC_CLEARANCE_NAME);
+    EXPECT_EQ(j["callsign"], "EKS012");
+    EXPECT_EQ(j["remarks"], "NO SID");
 }
 
 // ---------------------------------------------------------------------------

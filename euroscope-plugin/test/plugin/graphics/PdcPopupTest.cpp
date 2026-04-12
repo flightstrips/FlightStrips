@@ -2,10 +2,17 @@
 
 #include "graphics/PdcPopup.h"
 
+using FlightStrips::graphics::HasRequestRemarks;
 using FlightStrips::graphics::IsRequestedPdcState;
 using FlightStrips::graphics::PdcPopupPrimaryAction;
 using FlightStrips::graphics::ResolvePdcPopupPrimaryAction;
 using FlightStrips::graphics::ShouldSendPdcRevertToVoice;
+
+TEST(PdcPopupTest, HasRequestRemarksIgnoresBlankValues) {
+    EXPECT_FALSE(HasRequestRemarks(""));
+    EXPECT_FALSE(HasRequestRemarks("   "));
+    EXPECT_TRUE(HasRequestRemarks("NO SID"));
+}
 
 TEST(PdcPopupTest, IsRequestedPdcStateRecognizesActiveRequestStates) {
     EXPECT_TRUE(IsRequestedPdcState("REQUESTED"));

@@ -121,7 +121,7 @@ func TestIssueClearanceFlow(t *testing.T) {
 
 	suite.mockStrip.On("MoveToBay", mock.Anything, sessionID, callsign, shared.BAY_CLEARED, true).Return(nil)
 
-	suite.mockFrontend.On("SendPdcStateChange", sessionID, callsign, "CLEARED").Return()
+	suite.mockFrontend.On("SendPdcStateChange", sessionID, callsign, "CLEARED", "").Return()
 
 	// Execute
 	err := suite.service.IssueClearance(ctx, callsign, remarks, cid, sessionID)
@@ -163,7 +163,7 @@ func TestIssueClearance_UsesAssignedSquawkInMessage(t *testing.T) {
 		return strings.Contains(msg, "CLRD TO") && strings.Contains(msg, "SQK: @2401@") && !strings.Contains(msg, "SQK: @2000@")
 	})).Return(nil)
 	suite.mockStrip.On("MoveToBay", mock.Anything, sessionID, callsign, shared.BAY_CLEARED, true).Return(nil)
-	suite.mockFrontend.On("SendPdcStateChange", sessionID, callsign, "CLEARED").Return()
+	suite.mockFrontend.On("SendPdcStateChange", sessionID, callsign, "CLEARED", "").Return()
 
 	err := suite.service.IssueClearance(ctx, callsign, "", cid, sessionID)
 	require.NoError(t, err)
@@ -182,14 +182,14 @@ func TestHandleWilcoFlow(t *testing.T) {
 	// First issue a clearance to set up state
 	suite.mockHoppie.On("SendCPDLC", mock.Anything, mock.Anything, callsign, mock.Anything).Return(nil)
 	suite.mockStrip.On("MoveToBay", mock.Anything, sessionID, callsign, shared.BAY_CLEARED, true).Return(nil)
-	suite.mockFrontend.On("SendPdcStateChange", sessionID, callsign, "CLEARED").Return()
+	suite.mockFrontend.On("SendPdcStateChange", sessionID, callsign, "CLEARED", "").Return()
 
 	err := suite.service.IssueClearance(ctx, callsign, "", cid, sessionID)
 	require.NoError(t, err)
 
 	// Now handle WILCO
 	suite.mockStrip.On("UpdateClearedFlagForMove", mock.Anything, sessionID, callsign, true, shared.BAY_CLEARED, cid).Return(nil)
-	suite.mockFrontend.On("SendPdcStateChange", sessionID, callsign, "CONFIRMED").Return()
+	suite.mockFrontend.On("SendPdcStateChange", sessionID, callsign, "CONFIRMED", "").Return()
 
 	incomingMsg := &IncomingMessage{
 		Type:       MsgWilco,
@@ -240,14 +240,14 @@ func TestHandleUnableFlow(t *testing.T) {
 	// First issue a clearance
 	suite.mockHoppie.On("SendCPDLC", mock.Anything, mock.Anything, callsign, mock.Anything).Return(nil)
 	suite.mockStrip.On("MoveToBay", mock.Anything, sessionID, callsign, shared.BAY_CLEARED, true).Return(nil)
-	suite.mockFrontend.On("SendPdcStateChange", sessionID, callsign, "CLEARED").Return()
+	suite.mockFrontend.On("SendPdcStateChange", sessionID, callsign, "CLEARED", "").Return()
 
 	err := suite.service.IssueClearance(ctx, callsign, "", cid, sessionID)
 	require.NoError(t, err)
 
 	// Now handle UNABLE - expect UnclearStrip with the CID
 	suite.mockStrip.On("UnclearStrip", mock.Anything, sessionID, callsign, cid).Return(nil)
-	suite.mockFrontend.On("SendPdcStateChange", sessionID, callsign, "FAILED").Return()
+	suite.mockFrontend.On("SendPdcStateChange", sessionID, callsign, "FAILED", "").Return()
 
 	session := sessionInformation{
 		id:       sessionID,
@@ -293,14 +293,14 @@ func TestTimeoutExpiryFlow(t *testing.T) {
 	// Issue clearance with short timeout
 	suite.mockHoppie.On("SendCPDLC", mock.Anything, mock.Anything, callsign, mock.Anything).Return(nil).Times(2) // Initial + timeout message
 	suite.mockStrip.On("MoveToBay", mock.Anything, sessionID, callsign, shared.BAY_CLEARED, true).Return(nil)
-	suite.mockFrontend.On("SendPdcStateChange", sessionID, callsign, "CLEARED").Return()
+	suite.mockFrontend.On("SendPdcStateChange", sessionID, callsign, "CLEARED", "").Return()
 
 	err := suite.service.IssueClearance(ctx, callsign, "", cid, sessionID)
 	require.NoError(t, err)
 
 	// Wait for timeout - expect UnclearStrip and no-response message
 	suite.mockStrip.On("UnclearStrip", mock.Anything, sessionID, callsign, cid).Return(nil)
-	suite.mockFrontend.On("SendPdcStateChange", sessionID, callsign, "NO_RESPONSE").Return()
+	suite.mockFrontend.On("SendPdcStateChange", sessionID, callsign, "NO_RESPONSE", "").Return()
 
 	// Wait for timeout to fire (100ms + buffer)
 	time.Sleep(200 * time.Millisecond)
@@ -336,14 +336,14 @@ func TestRevertToVoiceFlow(t *testing.T) {
 	// Issue clearance
 	suite.mockHoppie.On("SendCPDLC", mock.Anything, mock.Anything, callsign, mock.Anything).Return(nil).Times(2)
 	suite.mockStrip.On("MoveToBay", mock.Anything, sessionID, callsign, shared.BAY_CLEARED, true).Return(nil)
-	suite.mockFrontend.On("SendPdcStateChange", sessionID, callsign, "CLEARED").Return()
+	suite.mockFrontend.On("SendPdcStateChange", sessionID, callsign, "CLEARED", "").Return()
 
 	err := suite.service.IssueClearance(ctx, callsign, "", cid, sessionID)
 	require.NoError(t, err)
 
 	// Revert to voice - use newCid
 	suite.mockStrip.On("UnclearStrip", mock.Anything, sessionID, callsign, newCid).Return(nil)
-	suite.mockFrontend.On("SendPdcStateChange", sessionID, callsign, "REVERT_TO_VOICE").Return()
+	suite.mockFrontend.On("SendPdcStateChange", sessionID, callsign, "REVERT_TO_VOICE", "").Return()
 
 	err = suite.service.RevertToVoice(ctx, callsign, sessionID, newCid)
 	require.NoError(t, err)
@@ -451,7 +451,7 @@ func TestProcessPDCRequest_AircraftTypeWithEquipmentSuffix(t *testing.T) {
 		return strings.Contains(msg, "CLRD TO")
 	})).Return(nil)
 	suite.mockStrip.On("MoveToBay", mock.Anything, int32(1), callsign, shared.BAY_CLEARED, true).Return(nil)
-	suite.mockFrontend.On("SendPdcStateChange", int32(1), callsign, "CLEARED").Return()
+	suite.mockFrontend.On("SendPdcStateChange", int32(1), callsign, "CLEARED", "").Return()
 
 	incomingMsg := &IncomingMessage{
 		Type:       MsgPDCRequest,
@@ -500,7 +500,7 @@ func TestProcessPDCRequest_Success(t *testing.T) {
 	suite.mockStrip.On("MoveToBay", mock.Anything, int32(1), callsign, shared.BAY_CLEARED, true).Return(nil)
 
 	// State goes to CLEARED after auto-issue
-	suite.mockFrontend.On("SendPdcStateChange", int32(1), callsign, "CLEARED").Return()
+	suite.mockFrontend.On("SendPdcStateChange", int32(1), callsign, "CLEARED", "").Return()
 
 	incomingMsg := &IncomingMessage{
 		Type:       MsgPDCRequest,
@@ -527,6 +527,90 @@ func TestProcessPDCRequest_Success(t *testing.T) {
 	assert.Equal(t, "CLEARED", strip.PdcState)
 }
 
+func TestProcessPDCRequest_WithRemarksDoesNotAutoIssue(t *testing.T) {
+	t.Parallel()
+	suite := &PDCIntegrationTestSuite{}
+	suite.SetupTest(t)
+	ctx := context.Background()
+
+	callsign := "SAS128"
+	testdata.SeedTestStrip(t, suite.queries, 1, callsign)
+
+	suite.mockHoppie.On("SendCPDLC", mock.Anything, mock.Anything, callsign, mock.MatchedBy(func(msg string) bool {
+		return strings.Contains(msg, "STANDBY")
+	})).Return(nil).Once()
+	suite.mockFrontend.On("SendPdcStateChange", int32(1), callsign, "REQUESTED", "NO SID").Return()
+
+	incomingMsg := &IncomingMessage{
+		Type:       MsgPDCRequest,
+		From:       callsign,
+		To:         "EKCH",
+		Payload:    "REQUEST PREDEP CLEARANCE " + callsign + " A320 TO ESSA AT EKCH STAND A10 ATIS A\nNO SID",
+		RawMessage: callsign + " EKCH telex {REQUEST PREDEP CLEARANCE " + callsign + " A320 TO ESSA AT EKCH STAND A10 ATIS A\nNO SID}",
+	}
+
+	session := sessionInformation{
+		id:       1,
+		callsign: "EKCH",
+	}
+
+	err := suite.service.ProcessPDCRequest(ctx, incomingMsg, session)
+	require.NoError(t, err)
+
+	suite.mockStrip.AssertNotCalled(t, "MoveToBay", mock.Anything, int32(1), callsign, shared.BAY_CLEARED, true)
+
+	strip, err := suite.queries.GetStrip(context.Background(), database.GetStripParams{
+		Session:  1,
+		Callsign: callsign,
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "REQUESTED", strip.PdcState)
+	require.NotNil(t, strip.PdcRequestRemarks)
+	assert.Equal(t, "NO SID", *strip.PdcRequestRemarks)
+}
+
+func TestProcessPDCRequest_ARINCWithRemarksDoesNotAutoIssue(t *testing.T) {
+	t.Parallel()
+	suite := &PDCIntegrationTestSuite{}
+	suite.SetupTest(t)
+	ctx := context.Background()
+
+	callsign := "SAS129"
+	testdata.SeedTestStrip(t, suite.queries, 1, callsign)
+
+	suite.mockHoppie.On("SendCPDLC", mock.Anything, mock.Anything, callsign, mock.MatchedBy(func(msg string) bool {
+		return strings.Contains(msg, "STANDBY")
+	})).Return(nil).Once()
+	suite.mockFrontend.On("SendPdcStateChange", int32(1), callsign, "REQUESTED", "NO SID").Return()
+
+	incomingMsg := &IncomingMessage{
+		Type:       MsgPDCRequest,
+		From:       callsign,
+		To:         "EKCH",
+		Payload:    "RCD\n" + callsign + "-EKCH-GATE A10-ESSA\nATIS A\n-TYP/A320\n-RMK/NO SID",
+		RawMessage: callsign + " EKCH cpdlc {RCD\n" + callsign + "-EKCH-GATE A10-ESSA\nATIS A\n-TYP/A320\n-RMK/NO SID}",
+	}
+
+	session := sessionInformation{
+		id:       1,
+		callsign: "EKCH",
+	}
+
+	err := suite.service.ProcessPDCRequest(ctx, incomingMsg, session)
+	require.NoError(t, err)
+
+	suite.mockStrip.AssertNotCalled(t, "MoveToBay", mock.Anything, int32(1), callsign, shared.BAY_CLEARED, true)
+
+	strip, err := suite.queries.GetStrip(context.Background(), database.GetStripParams{
+		Session:  1,
+		Callsign: callsign,
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "REQUESTED", strip.PdcState)
+	require.NotNil(t, strip.PdcRequestRemarks)
+	assert.Equal(t, "NO SID", *strip.PdcRequestRemarks)
+}
+
 func TestProcessPDCRequest_InvalidAssignedSquawkDoesNotAutoIssue(t *testing.T) {
 	t.Parallel()
 	suite := &PDCIntegrationTestSuite{}
@@ -539,7 +623,7 @@ func TestProcessPDCRequest_InvalidAssignedSquawkDoesNotAutoIssue(t *testing.T) {
 	suite.mockHoppie.On("SendCPDLC", mock.Anything, mock.Anything, callsign, mock.MatchedBy(func(msg string) bool {
 		return strings.Contains(msg, "STANDBY")
 	})).Return(nil).Once()
-	suite.mockFrontend.On("SendPdcStateChange", int32(1), callsign, "REQUESTED").Return()
+	suite.mockFrontend.On("SendPdcStateChange", int32(1), callsign, "REQUESTED", "").Return()
 
 	incomingMsg := &IncomingMessage{
 		Type:       MsgPDCRequest,
@@ -583,7 +667,7 @@ func TestProcessPDCRequest_InactiveDepartureRunwayCreatesFault(t *testing.T) {
 	suite.mockHoppie.On("SendCPDLC", mock.Anything, mock.Anything, callsign, mock.MatchedBy(func(msg string) bool {
 		return strings.Contains(msg, "STANDBY")
 	})).Return(nil).Once()
-	suite.mockFrontend.On("SendPdcStateChange", int32(1), callsign, "REQUESTED_WITH_FAULTS").Return()
+	suite.mockFrontend.On("SendPdcStateChange", int32(1), callsign, "REQUESTED_WITH_FAULTS", "").Return()
 
 	incomingMsg := &IncomingMessage{
 		Type:       MsgPDCRequest,

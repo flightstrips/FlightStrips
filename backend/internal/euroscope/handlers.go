@@ -630,7 +630,7 @@ func handleIssuePdcClearance(ctx context.Context, client *Client, message Messag
 	if pdcService == nil {
 		return nil
 	}
-	return pdcService.IssueClearance(ctx, event.Callsign, "", client.GetCid(), client.session)
+	return pdcService.IssueClearance(ctx, event.Callsign, event.Remarks, client.GetCid(), client.session)
 }
 
 func handlePdcRevertToVoice(ctx context.Context, client *Client, message Message) error {
@@ -644,4 +644,3 @@ func handlePdcRevertToVoice(ctx context.Context, client *Client, message Message
 	}
 	return pdcService.RevertToVoice(ctx, event.Callsign, client.session, client.GetCid())
 }
-

@@ -237,6 +237,11 @@ namespace FlightStrips::graphics {
             return true;
         }
 
+        if (objectType == InfoScreenObjectIds::PdcFieldRemarks) {
+            m_plugin->OpenPopupEdit(area, TAG_FUNC_CLEARANCE_SET_REMARKS, m_pdcPopup->clearanceRemarks.c_str());
+            return true;
+        }
+
         return false;
     }
 
@@ -258,7 +263,9 @@ namespace FlightStrips::graphics {
             switch (ResolvePdcPopupPrimaryAction(popupData ? popupData->pdcState : std::string{}, alreadyClear)) {
                 case PdcPopupPrimaryAction::IssueRequestedClearance:
                     if (const auto ws = webSocketService.lock()) {
-                        ws->SendEvent(IssuePdcClearanceEvent(m_pdcPopup->callsign));
+                        ws->SendEvent(IssuePdcClearanceEvent(
+                            m_pdcPopup->callsign,
+                            popupData ? popupData->clearanceRemarks : std::string{}));
                     }
                     break;
                 case PdcPopupPrimaryAction::SetEuroscopeClearance:

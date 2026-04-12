@@ -34,7 +34,9 @@ func (q *Queries) GetNextPdcSequence(ctx context.Context, id int32) (int32, erro
 }
 
 const setPdcMessageSent = `-- name: SetPdcMessageSent :exec
-UPDATE strips SET pdc_state = $3, pdc_message_sequence = $4, pdc_message_sent = $5 WHERE callsign = $1 AND session = $2
+UPDATE strips
+SET pdc_state = $3, pdc_message_sequence = $4, pdc_message_sent = $5, pdc_request_remarks = NULL
+WHERE callsign = $1 AND session = $2
 `
 
 type SetPdcMessageSentParams struct {
@@ -57,14 +59,17 @@ func (q *Queries) SetPdcMessageSent(ctx context.Context, arg SetPdcMessageSentPa
 }
 
 const setPdcRequested = `-- name: SetPdcRequested :exec
-UPDATE strips SET pdc_state = $3, pdc_requested_at = $4 WHERE callsign = $1 AND session = $2
+UPDATE strips
+SET pdc_state = $3, pdc_requested_at = $4, pdc_request_remarks = $5
+WHERE callsign = $1 AND session = $2
 `
 
 type SetPdcRequestedParams struct {
-	Callsign       string
-	Session        int32
-	PdcState       string
-	PdcRequestedAt pgtype.Timestamp
+	Callsign          string
+	Session           int32
+	PdcState          string
+	PdcRequestedAt    pgtype.Timestamp
+	PdcRequestRemarks *string
 }
 
 func (q *Queries) SetPdcRequested(ctx context.Context, arg SetPdcRequestedParams) error {
@@ -73,12 +78,15 @@ func (q *Queries) SetPdcRequested(ctx context.Context, arg SetPdcRequestedParams
 		arg.Session,
 		arg.PdcState,
 		arg.PdcRequestedAt,
+		arg.PdcRequestRemarks,
 	)
 	return err
 }
 
 const updatePdcStatus = `-- name: UpdatePdcStatus :exec
-UPDATE strips SET pdc_state = $3 WHERE callsign = $1 AND session = $2
+UPDATE strips
+SET pdc_state = $3, pdc_request_remarks = NULL
+WHERE callsign = $1 AND session = $2
 `
 
 type UpdatePdcStatusParams struct {

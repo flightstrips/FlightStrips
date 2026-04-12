@@ -1,4 +1,4 @@
-﻿package shared
+package shared
 
 import (
 	"FlightStrips/pkg/events/frontend"
@@ -33,7 +33,7 @@ type FrontendHub interface {
 	SendLayoutUpdates(session int32, layoutMap map[string]string)
 	SendCdmUpdate(session int32, callsign, eobt, tobt, tsat, ctot string)
 	SendCdmWait(session int32, callsign string)
-	SendPdcStateChange(session int32, callsign, state string)
+	SendPdcStateChange(session int32, callsign, state, remarks string)
 	SendRunwayConfiguration(session int32, departure, arrival []string, status map[string]string)
 	SendTacticalStripCreated(session int32, strip frontend.TacticalStripPayload)
 	SendTacticalStripDeleted(session int32, id int64, bay string)

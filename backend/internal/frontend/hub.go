@@ -434,6 +434,7 @@ func MapStripToFrontendModel(strip *internalModels.Strip) frontend.Strip {
 		Tsat:                     truncateFrontendClockValue(helpers.ValueOrDefault(strip.EffectiveTsat())),
 		Ctot:                     effectiveFrontendStripCtot(strip),
 		PdcState:                 strip.PdcState,
+		PdcRequestRemarks:        helpers.ValueOrDefault(strip.PdcRequestRemarks),
 		Marked:                   strip.Marked,
 		Registration:             helpers.ValueOrDefault(strip.Registration),
 		TrackingController:       strip.TrackingController,
@@ -678,10 +679,11 @@ func (hub *Hub) SendCdmWait(session int32, callsign string) {
 	hub.Broadcast(session, event)
 }
 
-func (hub *Hub) SendPdcStateChange(session int32, callsign, state string) {
+func (hub *Hub) SendPdcStateChange(session int32, callsign, state, remarks string) {
 	event := frontend.PdcStateChangeEvent{
-		Callsign: callsign,
-		State:    state,
+		Callsign:          callsign,
+		State:             state,
+		PdcRequestRemarks: remarks,
 	}
 	hub.Broadcast(session, event)
 }

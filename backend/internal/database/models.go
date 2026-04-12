@@ -113,6 +113,7 @@ type Strip struct {
 	HasFp                    bool
 	CdmData                  []byte
 	RunwayConfirmed          bool
+	PdcRequestRemarks        *string
 }
 
 type TacticalStrip struct {

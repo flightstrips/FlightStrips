@@ -230,7 +230,7 @@ func (m *MockFrontendHub) SendCdmWait(session int32, callsign string) {
 	m.CdmWaits = append(m.CdmWaits, CdmWaitCall{Session: session, Callsign: callsign})
 }
 
-func (m *MockFrontendHub) SendPdcStateChange(session int32, callsign, state string) {}
+func (m *MockFrontendHub) SendPdcStateChange(session int32, callsign, state, remarks string) {}
 
 func (m *MockFrontendHub) SendRunwayConfiguration(session int32, departure, arrival []string, status map[string]string) {
 }

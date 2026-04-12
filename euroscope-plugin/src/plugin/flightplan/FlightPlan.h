@@ -27,6 +27,7 @@ namespace FlightStrips::flightplan {
         std::string tracking_controller{};
         CdmState cdm{};
         std::string pdc_state{};
+        std::string pdc_request_remarks{};
 
         [[nodiscard]] bool IsPdcCleared() const {
             return pdc_state == "CLEARED";

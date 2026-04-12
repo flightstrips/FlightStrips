@@ -1,4 +1,4 @@
-﻿package pdc
+package pdc
 
 import (
 	"errors"
@@ -9,13 +9,21 @@ import (
 	"time"
 )
 
+func isARINCPDCRequest(raw string) bool {
+	return regexp.MustCompile(`(?i)^RCD(?:\s|$)`).MatchString(raw)
+}
+
 func classify(raw string) MessageType {
+	trimmed := strings.TrimSpace(strings.ReplaceAll(raw, "\r\n", "\n"))
+
 	switch {
-	case strings.Contains(raw, "REQUEST PREDEP CLEARANCE"):
+	case strings.Contains(trimmed, "REQUEST PREDEP CLEARANCE"):
 		return MsgPDCRequest
-	case strings.Contains(raw, "WILCO") || strings.Contains(raw, "ROGER"):
+	case isARINCPDCRequest(trimmed):
+		return MsgPDCRequest
+	case strings.Contains(trimmed, "WILCO") || strings.Contains(trimmed, "ROGER"):
 		return MsgWilco
-	case strings.Contains(raw, "UNABLE"):
+	case strings.Contains(trimmed, "UNABLE"):
 		return MsgUnable
 	default:
 		return MsgUnknown
@@ -23,6 +31,17 @@ func classify(raw string) MessageType {
 }
 
 func parsePDCRequest(raw string) (*PDCRequest, error) {
+	raw = strings.ReplaceAll(raw, "\r\n", "\n")
+	raw = strings.TrimSpace(raw)
+
+	if isARINCPDCRequest(raw) {
+		return parseARINCPDCRequest(raw)
+	}
+
+	return parseClassicPDCRequest(raw)
+}
+
+func parseClassicPDCRequest(raw string) (*PDCRequest, error) {
 	req := &PDCRequest{}
 
 	reCallsign := regexp.MustCompile(`REQUEST PREDEP CLEARANCE\s+(\w+)`)
@@ -30,7 +49,8 @@ func parsePDCRequest(raw string) (*PDCRequest, error) {
 	reDest := regexp.MustCompile(`TO\s+([A-Z]{4})`)
 	reDep := regexp.MustCompile(`AT\s+([A-Z]{4})`)
 	reStand := regexp.MustCompile(`STAND\s+([A-Z0-9]+)`)
-	reAtis := regexp.MustCompile(`ATIS\s+([A-Z])`)
+	reAtis := regexp.MustCompile(`ATIS\s+([A-Z]+)`)
+	reRemarks := regexp.MustCompile(`(?is)ATIS\s+[A-Z]+(?:\s*\n+|\s+)(.+)$`)
 
 	if m := reCallsign.FindStringSubmatch(raw); m != nil {
 		req.Callsign = m[1]
@@ -50,9 +70,60 @@ func parsePDCRequest(raw string) (*PDCRequest, error) {
 	if m := reAtis.FindStringSubmatch(raw); m != nil {
 		req.Atis = m[1]
 	}
+	if m := reRemarks.FindStringSubmatch(raw); m != nil {
+		req.Remarks = strings.TrimSpace(m[1])
+	}
 
 	if req.Callsign == "" || req.Destination == "" || req.Departure == "" {
 		return nil, errors.New("invalid PDC request")
+	}
+
+	return req, nil
+}
+
+func parseARINCPDCRequest(raw string) (*PDCRequest, error) {
+	lines := strings.Split(raw, "\n")
+	if len(lines) < 4 {
+		return nil, errors.New("invalid ARINC PDC request")
+	}
+
+	req := &PDCRequest{}
+
+	flightLine := strings.TrimSpace(lines[1])
+	flightParts := strings.SplitN(flightLine, "-", 4)
+	if len(flightParts) != 4 {
+		return nil, errors.New("invalid ARINC PDC request flight details")
+	}
+
+	req.Callsign = strings.TrimSpace(flightParts[0])
+	req.Departure = strings.TrimSpace(flightParts[1])
+	req.Destination = strings.TrimSpace(flightParts[3])
+
+	gate := strings.TrimSpace(flightParts[2])
+	if strings.HasPrefix(strings.ToUpper(gate), "GATE ") {
+		req.Stand = strings.TrimSpace(gate[5:])
+	}
+
+	reAtis := regexp.MustCompile(`(?i)^ATIS\s+([A-Z]+)$`)
+	reAircraft := regexp.MustCompile(`(?i)^-TYP/([A-Z0-9]{3,4})$`)
+	reRemarks := regexp.MustCompile(`(?i)^-RMK/(.+)$`)
+
+	for _, line := range lines[2:] {
+		line = strings.TrimSpace(line)
+		switch {
+		case line == "":
+			continue
+		case reAtis.MatchString(line):
+			req.Atis = reAtis.FindStringSubmatch(line)[1]
+		case reAircraft.MatchString(line):
+			req.Aircraft = reAircraft.FindStringSubmatch(line)[1]
+		case reRemarks.MatchString(line):
+			req.Remarks = strings.TrimSpace(reRemarks.FindStringSubmatch(line)[1])
+		}
+	}
+
+	if req.Callsign == "" || req.Destination == "" || req.Departure == "" {
+		return nil, errors.New("invalid ARINC PDC request")
 	}
 
 	return req, nil

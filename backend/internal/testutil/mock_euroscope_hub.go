@@ -166,4 +166,4 @@ func (m *MockEuroscopeHub) SendCreateFPL(session int32, cid string, event eurosc
 	m.CreateFPLCalls = append(m.CreateFPLCalls, CreateFPLCall{session, cid, event})
 }
 
-func (m *MockEuroscopeHub) SendPdcStateChange(session int32, callsign, state string) {}
+func (m *MockEuroscopeHub) SendPdcStateChange(session int32, callsign, state, remarks string) {}

@@ -599,13 +599,14 @@ func (e CoordinationHandoverEvent) Marshal() ([]byte, error) {
 // BackendSyncStrip holds the backend-authoritative state for a single aircraft
 // that the connecting EuroScope client must apply locally.
 type BackendSyncStrip struct {
-	Callsign       string             `json:"callsign"`
-	AssignedSquawk string             `json:"assigned_squawk"`
-	Cleared        bool               `json:"cleared"`
-	GroundState    string             `json:"ground_state"`
-	Stand          string             `json:"stand"`
-	Cdm            BackendSyncCdmData `json:"cdm"`
-	PdcState       string             `json:"pdc_state,omitempty"`
+	Callsign          string             `json:"callsign"`
+	AssignedSquawk    string             `json:"assigned_squawk"`
+	Cleared           bool               `json:"cleared"`
+	GroundState       string             `json:"ground_state"`
+	Stand             string             `json:"stand"`
+	Cdm               BackendSyncCdmData `json:"cdm"`
+	PdcState          string             `json:"pdc_state,omitempty"`
+	PdcRequestRemarks string             `json:"pdc_request_remarks,omitempty"`
 }
 
 // BackendSyncEvent is sent by the backend to every connecting EuroScope client
@@ -655,8 +656,9 @@ func (e CreateFPLEvent) Marshal() ([]byte, error) {
 
 // PdcStateChangeEvent is sent by the backend to EuroScope clients when PDC state changes.
 type PdcStateChangeEvent struct {
-	Callsign string `json:"callsign"`
-	State    string `json:"state"`
+	Callsign          string `json:"callsign"`
+	State             string `json:"state"`
+	PdcRequestRemarks string `json:"pdc_request_remarks,omitempty"`
 }
 
 func (e PdcStateChangeEvent) GetType() EventType {
@@ -670,6 +672,7 @@ func (e PdcStateChangeEvent) Marshal() ([]byte, error) {
 // IssuePdcClearanceEvent is sent by the EuroScope plugin to issue a PDC clearance.
 type IssuePdcClearanceEvent struct {
 	Callsign string `json:"callsign"`
+	Remarks  string `json:"remarks"`
 }
 
 // PdcRevertToVoiceEvent is sent by the EuroScope plugin to revert PDC to voice.

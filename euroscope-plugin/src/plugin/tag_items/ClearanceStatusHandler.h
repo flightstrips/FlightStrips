@@ -4,7 +4,7 @@
 #include "flightplan/FlightPlanService.h"
 
 namespace FlightStrips::TagItems {
-    class PdcStateHandler final : public TagItemHandler {
+    class ClearanceStatusHandler final : public TagItemHandler {
     public:
         struct Presentation final {
             bool hasValue{false};
@@ -12,7 +12,7 @@ namespace FlightStrips::TagItems {
             COLORREF color{};
         };
 
-        explicit PdcStateHandler(std::shared_ptr<flightplan::FlightPlanService> flightPlanService)
+        explicit ClearanceStatusHandler(std::shared_ptr<flightplan::FlightPlanService> flightPlanService)
             : m_flightPlanService(std::move(flightPlanService)) {}
 
         static Presentation ResolvePresentation(const flightplan::FlightPlan& plan, bool esCleared);

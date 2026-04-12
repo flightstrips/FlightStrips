@@ -80,6 +80,7 @@ func stripToModel(db database.Strip) (*models.Strip, error) {
 		PreviousOwners:           db.PreviousOwners,
 		ReleasePoint:             db.ReleasePoint,
 		PdcState:                 db.PdcState,
+		PdcRequestRemarks:        db.PdcRequestRemarks,
 		PdcRequestedAt:           PgTimestampToTime(db.PdcRequestedAt),
 		PdcMessageSequence:       db.PdcMessageSequence,
 		PdcMessageSent:           PgTimestampToTime(db.PdcMessageSent),
@@ -632,13 +633,14 @@ func (r *stripRepository) UpdateReleasePoint(ctx context.Context, session int32,
 	})
 }
 
-// SetPdcRequested sets PDC requested state and timestamp
-func (r *stripRepository) SetPdcRequested(ctx context.Context, session int32, callsign string, pdcState string, pdcRequestedAt *time.Time) error {
+// SetPdcRequested sets PDC requested state, timestamp, and request remarks
+func (r *stripRepository) SetPdcRequested(ctx context.Context, session int32, callsign string, pdcState string, pdcRequestedAt *time.Time, pdcRequestRemarks *string) error {
 	return r.queries.SetPdcRequested(ctx, database.SetPdcRequestedParams{
-		Callsign:       callsign,
-		Session:        session,
-		PdcState:       pdcState,
-		PdcRequestedAt: TimeToPgTimestamp(pdcRequestedAt),
+		Callsign:          callsign,
+		Session:           session,
+		PdcState:          pdcState,
+		PdcRequestedAt:    TimeToPgTimestamp(pdcRequestedAt),
+		PdcRequestRemarks: pdcRequestRemarks,
 	})
 }
 

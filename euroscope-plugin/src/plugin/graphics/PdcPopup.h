@@ -27,7 +27,8 @@ namespace FlightStrips::graphics {
         std::string destination;
         std::string aircraftType;
         std::string atis;
-        std::string remarks;
+        std::string requestRemarks;
+        std::string clearanceRemarks;
         std::string pdcState;
         std::string runway;
         std::string sid;
@@ -43,6 +44,8 @@ namespace FlightStrips::graphics {
         IssueRequestedClearance,
         SetEuroscopeClearance,
     };
+
+    [[nodiscard]] bool HasRequestRemarks(std::string_view remarks);
 
     [[nodiscard]] bool IsRequestedPdcState(std::string_view state);
 

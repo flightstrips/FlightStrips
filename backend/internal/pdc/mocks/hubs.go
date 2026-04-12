@@ -126,8 +126,8 @@ func (m *FrontendHub) SendCdmWait(session int32, callsign string) {
 	m.Called(session, callsign)
 }
 
-func (m *FrontendHub) SendPdcStateChange(session int32, callsign, state string) {
-	m.Called(session, callsign, state)
+func (m *FrontendHub) SendPdcStateChange(session int32, callsign, state, remarks string) {
+	m.Called(session, callsign, state, remarks)
 }
 
 func (m *FrontendHub) SendRunwayConfiguration(session int32, departure, arrival []string, status map[string]string) {

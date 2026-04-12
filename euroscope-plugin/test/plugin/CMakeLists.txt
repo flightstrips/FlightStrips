@@ -57,7 +57,7 @@ set(ALL_FILES
         # Tag Items
         tag_items/CdmStateHandlerTest.cpp
         tag_items/DeIceHandlerTest.cpp
-        tag_items/PdcStateHandlerTest.cpp
+        tag_items/ClearanceStatusHandlerTest.cpp
 
         # Graphics
         graphics/InfoPanelTest.cpp

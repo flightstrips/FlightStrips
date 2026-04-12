@@ -55,7 +55,7 @@ type MockStripRepository struct {
 	AppendUnexpectedChangeFieldFn   func(ctx context.Context, session int32, callsign string, fieldName string) error
 	RemoveUnexpectedChangeFieldFn   func(ctx context.Context, session int32, callsign string, fieldName string) error
 	AppendControllerModifiedFieldFn func(ctx context.Context, session int32, callsign string, fieldName string) error
-	SetPdcRequestedFn               func(ctx context.Context, session int32, callsign string, pdcState string, pdcRequestedAt *time.Time) error
+	SetPdcRequestedFn               func(ctx context.Context, session int32, callsign string, pdcState string, pdcRequestedAt *time.Time, pdcRequestRemarks *string) error
 	SetPdcMessageSentFn             func(ctx context.Context, session int32, callsign string, pdcState string, pdcMessageSequence *int32, pdcMessageSent *time.Time) error
 	UpdatePdcStatusFn               func(ctx context.Context, session int32, callsign string, pdcState string) error
 	UpdateIFRManualFPLFieldsFn      func(ctx context.Context, session int32, callsign string, destination string, sid *string, assignedSquawk *string, eobt *string, aircraftType *string, requestedAltitude *int32, route *string, stand *string, runway *string) (int64, error)
@@ -385,11 +385,11 @@ func (m *MockStripRepository) AppendControllerModifiedField(ctx context.Context,
 	return m.AppendControllerModifiedFieldFn(ctx, session, callsign, fieldName)
 }
 
-func (m *MockStripRepository) SetPdcRequested(ctx context.Context, session int32, callsign string, pdcState string, pdcRequestedAt *time.Time) error {
+func (m *MockStripRepository) SetPdcRequested(ctx context.Context, session int32, callsign string, pdcState string, pdcRequestedAt *time.Time, pdcRequestRemarks *string) error {
 	if m.SetPdcRequestedFn == nil {
 		panic("unexpected call to MockStripRepository.SetPdcRequested")
 	}
-	return m.SetPdcRequestedFn(ctx, session, callsign, pdcState, pdcRequestedAt)
+	return m.SetPdcRequestedFn(ctx, session, callsign, pdcState, pdcRequestedAt, pdcRequestRemarks)
 }
 
 func (m *MockStripRepository) SetPdcMessageSent(ctx context.Context, session int32, callsign string, pdcState string, pdcMessageSequence *int32, pdcMessageSent *time.Time) error {

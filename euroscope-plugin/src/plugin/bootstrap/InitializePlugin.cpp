@@ -20,7 +20,7 @@
 #include "runway/RunwayService.h"
 #include "tag_items/CdmStateHandler.h"
 #include "tag_items/DeIceHandler.h"
-#include "tag_items/PdcStateHandler.h"
+#include "tag_items/ClearanceStatusHandler.h"
 #include "graphics/PdcClearancePopupState.h"
 #include "websocket/WebSocketService.h"
 
@@ -145,8 +145,8 @@ namespace FlightStrips {
             TAG_ITEM_CDM_ASAT
         );
         this->container->tagItemHandlers->RegisterHandler(
-            std::make_shared<TagItems::PdcStateHandler>(this->container->flightPlanService),
-            TAG_ITEM_PDC_STATUS
+            std::make_shared<TagItems::ClearanceStatusHandler>(this->container->flightPlanService),
+            TAG_ITEM_CLEARANCE_STATUS
         );
         this->container->controllerService = std::make_shared<controller::ControllerService>(
             this->container->webSocketService);

@@ -141,6 +141,7 @@ type Strip struct {
 	Tsat                     string   `json:"tsat"`
 	Ctot                     string   `json:"ctot"`
 	PdcState                 string   `json:"pdc_state"`
+	PdcRequestRemarks        string   `json:"pdc_request_remarks,omitempty"`
 	Marked                   bool     `json:"marked"`
 	Registration             string   `json:"registration"`
 	TrackingController       string   `json:"tracking_controller"`
@@ -715,8 +716,9 @@ func (e UpdateRunwayStatusAction) GetType() EventType {
 // PDC Events
 
 type PdcStateChangeEvent struct {
-	Callsign string `json:"callsign"`
-	State    string `json:"state"`
+	Callsign          string `json:"callsign"`
+	State             string `json:"state"`
+	PdcRequestRemarks string `json:"pdc_request_remarks,omitempty"`
 }
 
 func (p PdcStateChangeEvent) Marshal() ([]byte, error) {

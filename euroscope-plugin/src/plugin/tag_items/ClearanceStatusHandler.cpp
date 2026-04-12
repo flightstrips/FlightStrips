@@ -1,4 +1,4 @@
-#include "PdcStateHandler.h"
+#include "ClearanceStatusHandler.h"
 
 namespace FlightStrips::TagItems {
     namespace {
@@ -6,9 +6,10 @@ namespace FlightStrips::TagItems {
         constexpr COLORREF TAG_GREEN  = RGB(110, 153, 110);
         constexpr COLORREF TAG_YELLOW = RGB(212, 214, 7);
         constexpr COLORREF TAG_RED    = RGB(190, 0, 0);
+        constexpr auto REQUEST_WITH_REMARKS = "REQ*";
     }
 
-    PdcStateHandler::Presentation PdcStateHandler::ResolvePresentation(
+    ClearanceStatusHandler::Presentation ClearanceStatusHandler::ResolvePresentation(
         const flightplan::FlightPlan& plan,
         const bool esCleared
     ) {
@@ -25,10 +26,10 @@ namespace FlightStrips::TagItems {
         }
 
         if (plan.pdc_state == "REQUESTED") {
-            return {.hasValue = true, .value = "REQ", .color = TAG_GREEN};
+            return {.hasValue = true, .value = plan.pdc_request_remarks.empty() ? "REQ" : REQUEST_WITH_REMARKS, .color = TAG_GREEN};
         }
         if (plan.pdc_state == "REQUESTED_WITH_FAULTS") {
-            return {.hasValue = true, .value = "REQ", .color = TAG_YELLOW};
+            return {.hasValue = true, .value = plan.pdc_request_remarks.empty() ? "REQ" : REQUEST_WITH_REMARKS, .color = TAG_YELLOW};
         }
         if (plan.IsPdcCleared()) {
             return {.hasValue = true, .value = "SENT", .color = TAG_GREEN};
@@ -43,7 +44,7 @@ namespace FlightStrips::TagItems {
         return {};
     }
 
-    void PdcStateHandler::Handle(
+    void ClearanceStatusHandler::Handle(
         EuroScopePlugIn::CFlightPlan FlightPlan,
         EuroScopePlugIn::CRadarTarget,
         int,

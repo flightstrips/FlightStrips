@@ -130,8 +130,8 @@ set(src__tag_items
         tag_items/CdmStateHandler.h
         tag_items/DeIceHandler.cpp
         tag_items/DeIceHandler.h
-        tag_items/PdcStateHandler.cpp
-        tag_items/PdcStateHandler.h)
+        tag_items/ClearanceStatusHandler.cpp
+        tag_items/ClearanceStatusHandler.h)
 
 set(ALL_FILES
         ${src__plugin}

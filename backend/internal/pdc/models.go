@@ -1,23 +1,23 @@
-﻿package pdc
+package pdc
 
 import "time"
 
 type MessageType string
 
 const (
-	MsgPDCRequest         MessageType = "PDC_REQUEST"
-	MsgPDCStatus          MessageType = "PDC_STATUS"
-	MsgPDCClearance       MessageType = "PDC_CLEARANCE"
-	MsgWilco              MessageType = "WILCO"
-	MsgUnable             MessageType = "UNABLE"
-	MsgClearanceConfirm   MessageType = "CLEARANCE_CONFIRMED"
-	MsgNoResponse         MessageType = "NO_RESPONSE"
-	MsgRevertToVoice      MessageType = "REVERT_TO_VOICE"
-	MsgFlightPlanNotHeld  MessageType = "FLIGHT_PLAN_NOT_HELD"
-	MsgPDCUnavailable     MessageType = "PDC_UNAVAILABLE"
+	MsgPDCRequest          MessageType = "PDC_REQUEST"
+	MsgPDCStatus           MessageType = "PDC_STATUS"
+	MsgPDCClearance        MessageType = "PDC_CLEARANCE"
+	MsgWilco               MessageType = "WILCO"
+	MsgUnable              MessageType = "UNABLE"
+	MsgClearanceConfirm    MessageType = "CLEARANCE_CONFIRMED"
+	MsgNoResponse          MessageType = "NO_RESPONSE"
+	MsgRevertToVoice       MessageType = "REVERT_TO_VOICE"
+	MsgFlightPlanNotHeld   MessageType = "FLIGHT_PLAN_NOT_HELD"
+	MsgPDCUnavailable      MessageType = "PDC_UNAVAILABLE"
 	MsgInvalidAircraftType MessageType = "INVALID_AIRCRAFT_TYPE"
-	MsgRefuseNotSupported MessageType = "REFUSE_NOT_SUPPORTED"
-	MsgUnknown            MessageType = "UNKNOWN"
+	MsgRefuseNotSupported  MessageType = "REFUSE_NOT_SUPPORTED"
+	MsgUnknown             MessageType = "UNKNOWN"
 )
 
 type PDCRequest struct {
@@ -27,6 +27,7 @@ type PDCRequest struct {
 	Destination string
 	Stand       string
 	Atis        string
+	Remarks     string
 }
 
 type Wilco struct {

@@ -97,9 +97,11 @@ namespace FlightStrips {
         RegisterTagItemFunction("Add TSAT to TSAC", TAG_FUNC_CDM_TOGGLE_TSAC);
         RegisterTagItemFunction("Remove TSAC", TAG_FUNC_CDM_TOGGLE_TSAC);
         RegisterTagItemFunction("Edit TSAC", TAG_FUNC_CDM_EDIT_TSAC);
+        RegisterTagItemFunction("Edit Clearance Remarks", TAG_FUNC_CLEARANCE_EDIT_REMARKS);
+        RegisterTagItemFunction("Set Clearance Remarks", TAG_FUNC_CLEARANCE_SET_REMARKS);
 
-        RegisterTagItemType("PDC", TAG_ITEM_PDC_STATUS);
-        RegisterTagItemFunction("PDC Options", TAG_FUNC_PDC_OPTIONS);
+        RegisterTagItemType("CLR / PDC", TAG_ITEM_CLEARANCE_STATUS);
+        RegisterTagItemFunction("CLR / PDC Options", TAG_FUNC_CLEARANCE_OPTIONS);
     }
 
     void FlightStripsPlugin::Information(const std::string &message) {
@@ -417,12 +419,17 @@ namespace FlightStrips {
     }
 
     void FlightStripsPlugin::OnFunctionCall(int FunctionId, const char* ItemString, POINT Pt, RECT Area) {
-        const auto fp = FlightPlanSelectASEL();
-        if (!fp.IsValid()) return;
-
-        const auto callsign = std::string(fp.GetCallsign());
         const auto container = m_container.lock();
         if (container == nullptr || container->messageService == nullptr) return;
+
+        const auto fp = FlightPlanSelectASEL();
+        auto callsign = fp.IsValid() ? std::string(fp.GetCallsign()) : std::string{};
+        if (callsign.empty() &&
+            (FunctionId == TAG_FUNC_CLEARANCE_EDIT_REMARKS || FunctionId == TAG_FUNC_CLEARANCE_SET_REMARKS) &&
+            container->pdcPopup != nullptr) {
+            callsign = container->pdcPopup->callsign;
+        }
+        if (callsign.empty()) return;
 
         const auto tracked = container->flightPlanService->GetFlightPlan(callsign);
         const auto currentEobt = tracked == nullptr ? "" : tracked->cdm.eobt;
@@ -514,13 +521,14 @@ namespace FlightStrips {
             AddPopupListElement(currentAsrt.empty() ? "Set ASRT" : "Clear ASRT", "", TAG_FUNC_CDM_TOGGLE_ASRT, false, 2, false);
         };
 
-        const auto openPdcClearanceDialog = [&] {
+        const auto openClearanceDialog = [&] {
             if (container->pdcPopup == nullptr) {
                 return false;
             }
 
             auto& popup = *container->pdcPopup;
             popup.callsign = callsign;
+            popup.clearanceRemarks.clear();
             popup.posX = Pt.x;
             popup.posY = Pt.y;
             popup.isOpen = true;
@@ -631,10 +639,20 @@ namespace FlightStrips {
             case TAG_FUNC_CDM_OPTIONS:
                 openGlobalOptions();
                 break;
-            case TAG_FUNC_PDC_OPTIONS: {
-                openPdcClearanceDialog();
+            case TAG_FUNC_CLEARANCE_OPTIONS: {
+                openClearanceDialog();
                 break;
             }
+            case TAG_FUNC_CLEARANCE_EDIT_REMARKS:
+                if (container->pdcPopup != nullptr) {
+                    OpenPopupEdit(Area, TAG_FUNC_CLEARANCE_SET_REMARKS, container->pdcPopup->clearanceRemarks.c_str());
+                }
+                break;
+            case TAG_FUNC_CLEARANCE_SET_REMARKS:
+                if (container->pdcPopup != nullptr && container->pdcPopup->callsign == callsign) {
+                    container->pdcPopup->clearanceRemarks = ItemString == nullptr ? std::string{} : std::string(ItemString);
+                }
+                break;
             case TAG_FUNC_CDM_FLOW_MESSAGE_AS_TEXT:
                 Information(currentFlowMessage.empty() ? "No flow message available." : currentFlowMessage);
                 break;

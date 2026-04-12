@@ -373,8 +373,8 @@ func (s *Service) IssueClearance(ctx context.Context, callsign, remarks, cid str
 	}
 
 	if s.stripService != nil {
-		if err := s.stripService.ClearStrip(ctx, sessionInfo.id, callsign, cid); err != nil {
-			slog.ErrorContext(ctx, "PDC Service: Warning - failed to clear strip", slog.Any("error", err))
+		if err := s.stripService.MoveToBay(ctx, sessionInfo.id, callsign, shared.BAY_CLEARED, true); err != nil {
+			slog.ErrorContext(ctx, "PDC Service: Warning - failed to move strip to cleared bay", slog.Any("error", err))
 		}
 	}
 
@@ -571,11 +571,6 @@ func (s *Service) HandleWilco(ctx context.Context, message *IncomingMessage, ses
 		return fmt.Errorf("WILCO response missing sequence or not correct response. Expected: %d, got: %d", *strip.PdcMessageSequence, wilco.ResponseTo)
 	}
 
-	err = s.stripRepo.UpdatePdcStatus(ctx, session.id, callsign, string(StateConfirmed))
-	if err != nil {
-		return fmt.Errorf("failed to update PDC status: %w", err)
-	}
-
 	key := fmt.Sprintf("%s_%d", callsign, session.id)
 	clearanceCid := ""
 	s.timeoutsMutex.RLock()
@@ -584,18 +579,22 @@ func (s *Service) HandleWilco(ctx context.Context, message *IncomingMessage, ses
 	}
 	s.timeoutsMutex.RUnlock()
 
+	clearedBay := strip.Bay
+	if clearedBay == "" || clearedBay == shared.BAY_UNKNOWN || clearedBay == shared.BAY_NOT_CLEARED {
+		clearedBay = shared.BAY_CLEARED
+	}
+
 	s.CancelTimeout(callsign, session.id)
 
 	if s.stripService != nil {
-		var err error
-		if clearanceCid != "" {
-			err = s.stripService.AutoAssumeForClearedStripByCid(ctx, session.id, callsign, clearanceCid)
-		} else {
-			err = s.stripService.AutoAssumeForClearedStrip(ctx, session.id, callsign)
+		if err := s.stripService.UpdateClearedFlagForMove(ctx, session.id, callsign, true, clearedBay, clearanceCid); err != nil {
+			slog.WarnContext(ctx, "PDC: failed to set cleared flag on WILCO", slog.Any("error", err))
 		}
-		if err != nil {
-			slog.WarnContext(ctx, "PDC: failed to auto-assume on WILCO", slog.Any("error", err))
-		}
+	}
+
+	err = s.stripRepo.UpdatePdcStatus(ctx, session.id, callsign, string(StateConfirmed))
+	if err != nil {
+		return fmt.Errorf("failed to update PDC status: %w", err)
 	}
 
 	s.notifyStateChange(session.id, callsign, StateConfirmed)

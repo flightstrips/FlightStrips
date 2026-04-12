@@ -5,6 +5,7 @@ import (
 	"FlightStrips/internal/pdc/mocks"
 	"FlightStrips/internal/pdc/testdata"
 	"FlightStrips/internal/repository/postgres"
+	"FlightStrips/internal/shared"
 	pkgModels "FlightStrips/pkg/models"
 	"context"
 	"fmt"
@@ -118,7 +119,7 @@ func TestIssueClearanceFlow(t *testing.T) {
 			strings.Contains(msg, remarks)
 	})).Return(nil)
 
-	suite.mockStrip.On("ClearStrip", mock.Anything, sessionID, callsign, cid).Return(nil)
+	suite.mockStrip.On("MoveToBay", mock.Anything, sessionID, callsign, shared.BAY_CLEARED, true).Return(nil)
 
 	suite.mockFrontend.On("SendPdcStateChange", sessionID, callsign, "CLEARED").Return()
 
@@ -161,7 +162,7 @@ func TestIssueClearance_UsesAssignedSquawkInMessage(t *testing.T) {
 	suite.mockHoppie.On("SendCPDLC", mock.Anything, mock.Anything, callsign, mock.MatchedBy(func(msg string) bool {
 		return strings.Contains(msg, "CLRD TO") && strings.Contains(msg, "SQK: @2401@") && !strings.Contains(msg, "SQK: @2000@")
 	})).Return(nil)
-	suite.mockStrip.On("ClearStrip", mock.Anything, sessionID, callsign, cid).Return(nil)
+	suite.mockStrip.On("MoveToBay", mock.Anything, sessionID, callsign, shared.BAY_CLEARED, true).Return(nil)
 	suite.mockFrontend.On("SendPdcStateChange", sessionID, callsign, "CLEARED").Return()
 
 	err := suite.service.IssueClearance(ctx, callsign, "", cid, sessionID)
@@ -180,14 +181,14 @@ func TestHandleWilcoFlow(t *testing.T) {
 
 	// First issue a clearance to set up state
 	suite.mockHoppie.On("SendCPDLC", mock.Anything, mock.Anything, callsign, mock.Anything).Return(nil)
-	suite.mockStrip.On("ClearStrip", mock.Anything, sessionID, callsign, cid).Return(nil)
+	suite.mockStrip.On("MoveToBay", mock.Anything, sessionID, callsign, shared.BAY_CLEARED, true).Return(nil)
 	suite.mockFrontend.On("SendPdcStateChange", sessionID, callsign, "CLEARED").Return()
 
 	err := suite.service.IssueClearance(ctx, callsign, "", cid, sessionID)
 	require.NoError(t, err)
 
 	// Now handle WILCO
-	suite.mockStrip.On("AutoAssumeForClearedStripByCid", mock.Anything, sessionID, callsign, cid).Return(nil)
+	suite.mockStrip.On("UpdateClearedFlagForMove", mock.Anything, sessionID, callsign, true, shared.BAY_CLEARED, cid).Return(nil)
 	suite.mockFrontend.On("SendPdcStateChange", sessionID, callsign, "CONFIRMED").Return()
 
 	incomingMsg := &IncomingMessage{
@@ -238,7 +239,7 @@ func TestHandleUnableFlow(t *testing.T) {
 
 	// First issue a clearance
 	suite.mockHoppie.On("SendCPDLC", mock.Anything, mock.Anything, callsign, mock.Anything).Return(nil)
-	suite.mockStrip.On("ClearStrip", mock.Anything, sessionID, callsign, cid).Return(nil)
+	suite.mockStrip.On("MoveToBay", mock.Anything, sessionID, callsign, shared.BAY_CLEARED, true).Return(nil)
 	suite.mockFrontend.On("SendPdcStateChange", sessionID, callsign, "CLEARED").Return()
 
 	err := suite.service.IssueClearance(ctx, callsign, "", cid, sessionID)
@@ -291,7 +292,7 @@ func TestTimeoutExpiryFlow(t *testing.T) {
 
 	// Issue clearance with short timeout
 	suite.mockHoppie.On("SendCPDLC", mock.Anything, mock.Anything, callsign, mock.Anything).Return(nil).Times(2) // Initial + timeout message
-	suite.mockStrip.On("ClearStrip", mock.Anything, sessionID, callsign, cid).Return(nil)
+	suite.mockStrip.On("MoveToBay", mock.Anything, sessionID, callsign, shared.BAY_CLEARED, true).Return(nil)
 	suite.mockFrontend.On("SendPdcStateChange", sessionID, callsign, "CLEARED").Return()
 
 	err := suite.service.IssueClearance(ctx, callsign, "", cid, sessionID)
@@ -334,7 +335,7 @@ func TestRevertToVoiceFlow(t *testing.T) {
 
 	// Issue clearance
 	suite.mockHoppie.On("SendCPDLC", mock.Anything, mock.Anything, callsign, mock.Anything).Return(nil).Times(2)
-	suite.mockStrip.On("ClearStrip", mock.Anything, sessionID, callsign, cid).Return(nil)
+	suite.mockStrip.On("MoveToBay", mock.Anything, sessionID, callsign, shared.BAY_CLEARED, true).Return(nil)
 	suite.mockFrontend.On("SendPdcStateChange", sessionID, callsign, "CLEARED").Return()
 
 	err := suite.service.IssueClearance(ctx, callsign, "", cid, sessionID)
@@ -438,7 +439,6 @@ func TestProcessPDCRequest_AircraftTypeWithEquipmentSuffix(t *testing.T) {
 	ctx := context.Background()
 
 	callsign := "DLH6LK"
-	cid := ""
 
 	// Seed strip with full ICAO aircraft type including equipment suffix
 	testdata.SeedTestStripWithAircraftType(t, suite.queries, 1, callsign, "A321/M-SDE3FGHIRWY/LB1")
@@ -450,7 +450,7 @@ func TestProcessPDCRequest_AircraftTypeWithEquipmentSuffix(t *testing.T) {
 	suite.mockHoppie.On("SendCPDLC", mock.Anything, mock.Anything, callsign, mock.MatchedBy(func(msg string) bool {
 		return strings.Contains(msg, "CLRD TO")
 	})).Return(nil)
-	suite.mockStrip.On("ClearStrip", mock.Anything, int32(1), callsign, cid).Return(nil)
+	suite.mockStrip.On("MoveToBay", mock.Anything, int32(1), callsign, shared.BAY_CLEARED, true).Return(nil)
 	suite.mockFrontend.On("SendPdcStateChange", int32(1), callsign, "CLEARED").Return()
 
 	incomingMsg := &IncomingMessage{
@@ -484,7 +484,6 @@ func TestProcessPDCRequest_Success(t *testing.T) {
 	ctx := context.Background()
 
 	callsign := "SAS123"
-	cid := ""
 
 	// Expect ACK message to pilot (STANDBY)
 	suite.mockHoppie.On("SendCPDLC", mock.Anything, mock.Anything, callsign, mock.MatchedBy(func(msg string) bool {
@@ -497,8 +496,8 @@ func TestProcessPDCRequest_Success(t *testing.T) {
 		return strings.Contains(msg, "CLRD TO")
 	})).Return(nil)
 
-	// ClearStrip called by IssueClearance
-	suite.mockStrip.On("ClearStrip", mock.Anything, int32(1), callsign, cid).Return(nil)
+	// IssueClearance should only move the strip into the cleared bay
+	suite.mockStrip.On("MoveToBay", mock.Anything, int32(1), callsign, shared.BAY_CLEARED, true).Return(nil)
 
 	// State goes to CLEARED after auto-issue
 	suite.mockFrontend.On("SendPdcStateChange", int32(1), callsign, "CLEARED").Return()

@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.10.0](https://github.com/flightstrips/FlightStrips/compare/plugin/v0.9.0...plugin/v0.10.0) (2026-04-12)
+
+
+### Features
+
+* CLR / PDC tag items and funnctions ([13a5f6e](https://github.com/flightstrips/FlightStrips/commit/13a5f6ebe590091812c9552ecfd054cdbfeafe5c))
+* pdc remarks ([8179aea](https://github.com/flightstrips/FlightStrips/commit/8179aea9b93d8540d8041a12052566710a017b14))
+
 ## [0.9.0](https://github.com/flightstrips/FlightStrips/compare/plugin/v0.8.6...plugin/v0.9.0) (2026-04-11)
 
 

@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.21.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.20.0...frontend/v0.21.0) (2026-04-12)
+
+
+### Features
+
+* sync go around sound ([b4f6482](https://github.com/flightstrips/FlightStrips/commit/b4f64827dc7dd6dbbf42216c595bc64372030e6c))
+
 ## [0.20.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.19.1...frontend/v0.20.0) (2026-04-11)
 
 

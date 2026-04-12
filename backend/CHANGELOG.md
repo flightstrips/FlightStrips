@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.17.0](https://github.com/flightstrips/FlightStrips/compare/backend/v0.16.0...backend/v0.17.0) (2026-04-12)
+
+
+### Features
+
+* auto generate squawk for new strips ([8de203d](https://github.com/flightstrips/FlightStrips/commit/8de203d07c47f8b652879029d0ff229391301b19))
+* CLR / PDC tag items and funnctions ([13a5f6e](https://github.com/flightstrips/FlightStrips/commit/13a5f6ebe590091812c9552ecfd054cdbfeafe5c))
+* pdc remarks ([8179aea](https://github.com/flightstrips/FlightStrips/commit/8179aea9b93d8540d8041a12052566710a017b14))
+* sync go around sound ([b4f6482](https://github.com/flightstrips/FlightStrips/commit/b4f64827dc7dd6dbbf42216c595bc64372030e6c))
+
+
+### Bug Fixes
+
+* departure frequency for PDCs ([cf6e858](https://github.com/flightstrips/FlightStrips/commit/cf6e858160b9ab8b4e928e5ce501e87b75206cb0))
+* pdc setting clear flag ([25dfecd](https://github.com/flightstrips/FlightStrips/commit/25dfecd0c133904c2ec4dd30f7043b7ea0994d0b))
+* wrong owner order for K_DEP ([2a4190e](https://github.com/flightstrips/FlightStrips/commit/2a4190ee58ce59a25163562f8104a193464c853c))
+
 ## [0.16.0](https://github.com/flightstrips/FlightStrips/compare/backend/v0.15.1...backend/v0.16.0) (2026-04-11)
 
 

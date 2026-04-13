@@ -144,7 +144,7 @@ func (s *Service) Start(ctx context.Context) {
 }
 
 func (s *Service) pollAndProcess(ctx context.Context) error {
-	sessions, err := s.sessionRepo.GetByNames(ctx, "SWEATBOX")
+	sessions, err := s.sessionRepo.GetByNames(ctx, "LIVE")
 	if err != nil {
 		return fmt.Errorf("failed to get sessions: %w", err)
 	}

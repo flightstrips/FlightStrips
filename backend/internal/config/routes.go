@@ -309,7 +309,7 @@ func GetDefaultAirborneControllerPriority() ([]string, error) {
 
 func getAirborneControllerPriorityForSector(sectorName string) ([]string, error) {
 	for _, sector := range sectors {
-		if strings.EqualFold(sector.Name, sectorName) {
+		if sectorMatchesIdentifier(sector, sectorName) {
 			slog.Debug("Found airborne sector, returning owner priority list", slog.String("sector", sector.Name), slog.Any("owners", sector.Owner))
 			return slices.Clone(sector.Owner), nil
 		}

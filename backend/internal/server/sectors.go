@@ -52,7 +52,7 @@ func (s *Server) UpdateSectors(sessionId int32) ([]shared.SectorChange, error) {
 		identifier := ""
 		priority := 0
 		for _, sector := range sorted {
-			names = append(names, sector.Name)
+			names = append(names, sector.KeyOrName())
 			if sector.NamePriority > priority {
 				priority = sector.NamePriority
 				identifier = sector.Name
@@ -133,7 +133,7 @@ func computeSectorChanges(previous, current []*models.SectorOwner) []shared.Sect
 			continue
 		}
 		changes = append(changes, shared.SectorChange{
-			SectorName:   sector,
+			SectorName:   config.GetSectorDisplayName(sector),
 			FromPosition: freqToPositionName(fromFreq),
 			ToPosition:   freqToPositionName(toFreq),
 		})
@@ -158,7 +158,10 @@ func sectorsEqual(a, b *models.SectorOwner) bool {
 }
 
 func sectorsCompare(e, e2 config.Sector) int {
-	return cmp.Compare(e.Name, e2.Name)
+	if c := cmp.Compare(e.Name, e2.Name); c != 0 {
+		return c
+	}
+	return cmp.Compare(e.KeyOrName(), e2.KeyOrName())
 }
 
 func getCurrentPositions(controllerRepo repository.ControllerRepository, sessionId int32) ([]*config.Position, error) {

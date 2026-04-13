@@ -172,6 +172,90 @@ func TestUpdateRouteForStrip_ArrivalOutsideSupportedRegionUsesTowerAsRouteStart(
 	assert.Equal(t, "NSZ3097", frontendHub.OwnersUpdates[0].Callsign)
 }
 
+func TestUpdateRouteForStrip_ArrivalUsesConfigDrivenCrossingSectorSplit(t *testing.T) {
+	t.Parallel()
+
+	frontendHub := &testutil.MockFrontendHub{}
+	stripRepo := &testutil.MockStripRepository{}
+	sessionRepo := &testutil.MockSessionRepository{}
+	sectorRepo := &testutil.MockSectorOwnerRepository{}
+
+	aTowerPosition := frequencyForPosition(t, "EKCH_A_TWR")
+	apronPosition := frequencyForPosition(t, "EKCH_A_GND")
+
+	strip := &models.Strip{
+		Callsign:          "SAS789",
+		Session:           91,
+		Destination:       "EKCH",
+		Runway:            stringPtr("22L"),
+		Stand:             stringPtr("A17"),
+		Owner:             stringPtr(aTowerPosition),
+		PositionLatitude:  float64Ptr(0),
+		PositionLongitude: float64Ptr(0),
+	}
+
+	var updatedNextOwners []string
+
+	stripRepo.GetByCallsignFn = func(_ context.Context, session int32, callsign string) (*models.Strip, error) {
+		require.Equal(t, int32(91), session)
+		require.Equal(t, "SAS789", callsign)
+		return strip, nil
+	}
+	stripRepo.SetNextOwnersFn = func(_ context.Context, session int32, callsign string, nextOwners []string) error {
+		require.Equal(t, int32(91), session)
+		require.Equal(t, "SAS789", callsign)
+		updatedNextOwners = append([]string(nil), nextOwners...)
+		return nil
+	}
+
+	sessionRepo.GetByIDFn = func(_ context.Context, id int32) (*models.Session, error) {
+		require.Equal(t, int32(91), id)
+		return &models.Session{
+			ID:      91,
+			Airport: "EKCH",
+			ActiveRunways: pkgModels.ActiveRunways{
+				ArrivalRunways: []string{"22L"},
+			},
+		}, nil
+	}
+
+	sectorRepo.ListBySessionFn = func(_ context.Context, session int32) ([]*models.SectorOwner, error) {
+		require.Equal(t, int32(91), session)
+		return []*models.SectorOwner{
+			{
+				Session:  91,
+				Sector:   []string{"TE"},
+				Position: aTowerPosition,
+			},
+			{
+				Session:  91,
+				Sector:   []string{"GWA"},
+				Position: aTowerPosition,
+			},
+			{
+				Session:  91,
+				Sector:   []string{"AA"},
+				Position: apronPosition,
+			},
+		}, nil
+	}
+
+	srv := &Server{
+		frontendHub: frontendHub,
+		stripRepo:   stripRepo,
+		sessionRepo: sessionRepo,
+		sectorRepo:  sectorRepo,
+	}
+
+	err := srv.UpdateRouteForStrip("SAS789", 91, true)
+	require.NoError(t, err)
+
+	assert.Equal(t, []string{apronPosition}, updatedNextOwners)
+	require.Len(t, frontendHub.OwnersUpdates, 1)
+	assert.Equal(t, []string{apronPosition}, frontendHub.OwnersUpdates[0].NextOwners)
+	assert.Equal(t, "SAS789", frontendHub.OwnersUpdates[0].Callsign)
+}
+
 func TestUpdateRoutesForSession_RecalculatesEachStrip(t *testing.T) {
 	t.Parallel()
 
@@ -311,6 +395,14 @@ func mustArrivalRunwayAndTowerSector(t *testing.T) (string, string) {
 
 	t.Fatal("expected at least one configured arrival runway with a tower sector")
 	return "", ""
+}
+
+func frequencyForPosition(t *testing.T, name string) string {
+	t.Helper()
+
+	position, err := config.GetPositionByName(name)
+	require.NoError(t, err)
+	return position.Frequency
 }
 
 func stringPtr(value string) *string {

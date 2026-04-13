@@ -170,3 +170,118 @@ func TestGetControllerSectors_AlwaysOnLosesToSpecificMatch(t *testing.T) {
 		t.Fatalf("specific match should win over always-on, got region %v", sectorList[0].Region)
 	}
 }
+
+func TestGetSectorFromRegion_UsesArrivalDepartureSpecificSectors(t *testing.T) {
+	original := sectors
+	t.Cleanup(func() { sectors = original })
+
+	sectors = []Sector{
+		{
+			Name:   "GW",
+			Key:    "GWA",
+			Region: []string{"GROUND_WEST"},
+			Constraints: &constraints{
+				Departure: false,
+				Arrival:   true,
+			},
+		},
+		{
+			Name:   "GW",
+			Key:    "GWD",
+			Region: []string{"GROUND_WEST"},
+			Constraints: &constraints{
+				Departure: true,
+				Arrival:   false,
+			},
+		},
+	}
+
+	region := &Region{Name: "GROUND_WEST"}
+
+	arrivalSector, err := GetSectorFromRegion(region, true)
+	if err != nil {
+		t.Fatalf("expected arrival sector, got error: %v", err)
+	}
+	if arrivalSector != "GWA" {
+		t.Fatalf("expected GWA for arrivals, got %q", arrivalSector)
+	}
+
+	departureSector, err := GetSectorFromRegion(region, false)
+	if err != nil {
+		t.Fatalf("expected departure sector, got error: %v", err)
+	}
+	if departureSector != "GWD" {
+		t.Fatalf("expected GWD for departures, got %q", departureSector)
+	}
+}
+
+func TestGetControllerSectors_KeepsDistinctKeysWithSamePublicName(t *testing.T) {
+	original := sectors
+	t.Cleanup(func() { sectors = original })
+
+	sectors = []Sector{
+		{Name: "GW", Key: "GWA", Active: []string{"22L"}, Owner: []string{"EKCH_A_TWR"}},
+		{Name: "GW", Key: "GWD", Active: []string{"22L"}, Owner: []string{"EKCH_D_TWR"}},
+	}
+
+	controllers := []*Position{
+		{Name: "EKCH_A_TWR", Frequency: "118.100"},
+		{Name: "EKCH_D_TWR", Frequency: "119.300"},
+	}
+	result := GetControllerSectors(controllers, []string{"22L"})
+
+	if len(result["118.100"]) != 1 {
+		t.Fatalf("expected A_TWR to own 1 GW variant, got %d", len(result["118.100"]))
+	}
+	if len(result["119.300"]) != 1 {
+		t.Fatalf("expected D_TWR to own 1 GW variant, got %d", len(result["119.300"]))
+	}
+	if result["118.100"][0].Name != "GW" || result["118.100"][0].KeyOrName() != "GWA" {
+		t.Fatalf("expected A_TWR to get GWA/GW, got %#v", result["118.100"][0])
+	}
+	if result["119.300"][0].Name != "GW" || result["119.300"][0].KeyOrName() != "GWD" {
+		t.Fatalf("expected D_TWR to get GWD/GW, got %#v", result["119.300"][0])
+	}
+}
+
+func TestKeyOrName_ReturnsKeyWhenPresent(t *testing.T) {
+	sector := Sector{Name: "GW", Key: "GWA"}
+
+	if sector.KeyOrName() != "GWA" {
+		t.Fatalf("expected key to be preferred, got %q", sector.KeyOrName())
+	}
+}
+
+func TestKeyOrName_FallsBackToNameWhenKeyMissing(t *testing.T) {
+	sector := Sector{Name: "GW"}
+
+	if sector.KeyOrName() != "GW" {
+		t.Fatalf("expected name fallback, got %q", sector.KeyOrName())
+	}
+}
+
+func TestGetSectorDisplayName_MapsInternalKeyToPublicName(t *testing.T) {
+	original := sectors
+	t.Cleanup(func() { sectors = original })
+
+	sectors = []Sector{
+		{Name: "GW", Key: "GWA"},
+		{Name: "GW", Key: "GWD"},
+	}
+
+	if display := GetSectorDisplayName("GWA"); display != "GW" {
+		t.Fatalf("expected GWA to display as GW, got %q", display)
+	}
+	if display := GetSectorDisplayName("GWD"); display != "GW" {
+		t.Fatalf("expected GWD to display as GW, got %q", display)
+	}
+	if display := GetSectorDisplayName("GW"); display != "GW" {
+		t.Fatalf("expected GW to remain GW, got %q", display)
+	}
+}
+
+func TestGetSectorDisplayName_UnknownSectorPassesThrough(t *testing.T) {
+	if display := GetSectorDisplayName("UNKNOWN"); display != "UNKNOWN" {
+		t.Fatalf("expected unknown sector to pass through, got %q", display)
+	}
+}

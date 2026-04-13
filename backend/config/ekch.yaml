@@ -301,9 +301,25 @@ sectors:
       - "EKCH_D_TWR"
       - "EKCH_C_TWR"
   - name: GW
+    key: GWD
     name_priority: 40
     active: ["30"]
     region: [GROUND_12_30_WEST, TOWER_WEST]
+    constraints:
+      departure: true
+      arrival: false
+    owner:
+      - "EKCH_C_TWR"
+      - "EKCH_D_TWR"
+      - "EKCH_A_TWR"
+  - name: GW
+    key: GWA
+    name_priority: 40
+    active: ["30"]
+    region: [GROUND_12_30_WEST, TOWER_WEST]
+    constraints:
+      departure: false
+      arrival: true
     owner:
       - "EKCH_C_TWR"
       - "EKCH_D_TWR"
@@ -329,10 +345,27 @@ sectors:
       - "EKCH_A_TWR"
       - "EKCH_C_TWR"
   - name: GW
+    key: GWD
     name_priority: 40
     active: ["30", "22R"]
     require_all: true
     region: [GROUND_12_30_WEST]
+    constraints:
+      departure: true
+      arrival: false
+    owner:
+      - "EKCH_C_TWR"
+      - "EKCH_D_TWR"
+      - "EKCH_A_TWR"
+  - name: GW
+    key: GWA
+    name_priority: 40
+    active: ["30", "22R"]
+    require_all: true
+    region: [GROUND_12_30_WEST]
+    constraints:
+      departure: false
+      arrival: true
     owner:
       - "EKCH_C_TWR"
       - "EKCH_D_TWR"
@@ -340,13 +373,29 @@ sectors:
 
   # Fallback
   - name: GW
+    key: GWD
     name_priority: 40
     active: [ "22L", "22R", "04L", "04R", "12", "30" ]
     region: [GROUND_WEST]
+    constraints:
+      departure: true
+      arrival: false
     owner:
       - "EKCH_C_TWR"
       - "EKCH_D_TWR"
       - "EKCH_A_TWR"
+  - name: GW
+    key: GWA
+    name_priority: 40
+    active: [ "22L", "22R", "04L", "04R", "12", "30" ]
+    region: [GROUND_WEST]
+    constraints:
+      departure: false
+      arrival: true
+    owner:
+      - "EKCH_C_TWR"
+      - "EKCH_A_TWR"
+      - "EKCH_D_TWR"
 
   # Airborne
   - name: K_DEP
@@ -383,15 +432,15 @@ routes:
   - name: Stands to Runway 22R
     forRunway: 22R
     active: [22R]
-    path: [AD, GW, TW]
+    path: [AD, GWD, TW]
   - name: Stands to Runway 04R
     forRunway: 04R
     active: [04R]
-    path: [AD, GW, TE]
+    path: [AD, GWD, TE]
   - name: Stands to Runway 22R cargo
     forRunway: 22R
     active: [22R]
-    path: [TE, GW, TW]
+    path: [TE, GWD, TW]
   - name: Stands to Runway 04R cargo
     forRunway: 04R
     active: [04R]
@@ -399,17 +448,17 @@ routes:
   - name: Stands to Runway 30
     forRunway: "30"
     active: ["30"]
-    path: [AD, GW, TE]
+    path: [AD, GWD, TE]
   - name: Stands to Runway 22R cargo
     forRunway: "30"
     active: ["30"]
-    path: [GW, TE]
+    path: [GWD, TE]
   # TODO rest of the runways
   - name: Runway 30 to cargo
     forStandRanges:
       - G110-G137
     active: ["30"]
-    path: [TE, AA, GW]
+    path: [TE, AA, GWA]
   - name: Runway 30 to rest
     forStandRanges:
       - A1-A33
@@ -428,7 +477,7 @@ routes:
       - A6
       - A8
     active: [22L, 04R]
-    path: [TE, GW, AA]
+    path: [TE, GWA, AA]
   - name: Runway 22L/04R to cargo
     forStandRanges:
       - G110-G137
@@ -453,12 +502,12 @@ routes:
       - A6
       - A8
     active: [04L, 22R]
-    path: [TW, GW, AA]
+    path: [TW, GWA, AA]
   - name: Runway 04L/22R to cargo
     forStandRanges:
       - G110-G137
     active: [04L, 22R]
-    path: [TW, GW, TE]
+    path: [TW, GWA, TE]
   - name: Runway 04L/22R to rest
     forStandRanges:
       - A7
@@ -470,7 +519,7 @@ routes:
       - F1-F99
       - H101-H106
     active: [04L, 22R]
-    path: [TW, GW, AA]
+    path: [TW, GWA, AA]
 
 message_areas:
   CLR-DEL:   [EKCH_DEL, EKCH_A_GND]

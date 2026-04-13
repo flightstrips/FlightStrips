@@ -146,6 +146,67 @@ func TestComputeToRunway_RequireAll_FallsBackWhenPartialMatch(t *testing.T) {
 	}
 }
 
+func TestComputeToRunway_SupportsInternalSectorKeys(t *testing.T) {
+	original := runwayRoutes
+	t.Cleanup(func() { runwayRoutes = original })
+
+	runwayRoutes = map[string][]Route{
+		"30": {
+			{Active: []string{"30"}, Path: []string{"AD", "GWD", "TE"}, ForRunway: "30"},
+		},
+	}
+
+	path, ok := ComputeToRunway([]string{"30"}, "GWD", "30")
+	if !ok {
+		t.Fatal("expected a route to be found from internal departure key")
+	}
+	if len(path) != 2 || path[0] != "GWD" || path[1] != "TE" {
+		t.Fatalf("expected route [GWD TE], got %v", path)
+	}
+}
+
+func TestComputeToStand_SupportsInternalSectorKeys(t *testing.T) {
+	original := standRoutes
+	t.Cleanup(func() { standRoutes = original })
+
+	standRoutes = []Route{
+		{
+			ForStandRanges: []StandRange{{Prefix: "A", From: 1, To: 99}},
+			Active:         []string{"22L"},
+			Path:           []string{"TE", "GWA", "AA"},
+		},
+	}
+
+	path, ok := ComputeToStand([]string{"22L"}, "GWA", "A12")
+	if !ok {
+		t.Fatal("expected a route to be found from internal arrival key")
+	}
+	if len(path) != 2 || path[0] != "GWA" || path[1] != "AA" {
+		t.Fatalf("expected route [GWA AA], got %v", path)
+	}
+}
+
+func TestGetArrivalTowerSector_IgnoresInternalCrossingKey(t *testing.T) {
+	original := standRoutes
+	t.Cleanup(func() { standRoutes = original })
+
+	standRoutes = []Route{
+		{
+			ForStandRanges: []StandRange{{Prefix: "A", From: 1, To: 99}},
+			Active:         []string{"22L"},
+			Path:           []string{"TE", "GWA", "AA"},
+		},
+	}
+
+	sector, ok := GetArrivalTowerSector([]string{"22L"})
+	if !ok {
+		t.Fatal("expected a tower sector to be found")
+	}
+	if sector != "TE" {
+		t.Fatalf("expected TE, got %q", sector)
+	}
+}
+
 func TestGetAirborneControllerPriority(t *testing.T) {
 	originalRoutes := airborneRoutes
 	originalSectors := sectors
@@ -159,6 +220,31 @@ func TestGetAirborneControllerPriority(t *testing.T) {
 	}
 	sectors = []Sector{
 		{Name: "K_DEP", Owner: []string{"EKCH_K_DEP", "EKCH_W_APP"}},
+	}
+
+	owners, err := GetAirborneControllerPriority("BETUD2A")
+	if err != nil {
+		t.Fatalf("expected owners, got error: %v", err)
+	}
+
+	if len(owners) != 2 || owners[0] != "EKCH_K_DEP" || owners[1] != "EKCH_W_APP" {
+		t.Fatalf("unexpected airborne owner priority: %#v", owners)
+	}
+}
+
+func TestGetAirborneControllerPriority_MatchesSectorKey(t *testing.T) {
+	originalRoutes := airborneRoutes
+	originalSectors := sectors
+	t.Cleanup(func() {
+		airborneRoutes = originalRoutes
+		sectors = originalSectors
+	})
+
+	airborneRoutes = []AirborneRoutes{
+		{Name: "K_DEP_PRIMARY", Sids: []string{"BETUD2A"}},
+	}
+	sectors = []Sector{
+		{Name: "K_DEP", Key: "K_DEP_PRIMARY", Owner: []string{"EKCH_K_DEP", "EKCH_W_APP"}},
 	}
 
 	owners, err := GetAirborneControllerPriority("BETUD2A")
@@ -198,6 +284,31 @@ func TestGetDefaultAirborneControllerPriority(t *testing.T) {
 	}
 	sectors = []Sector{
 		{Name: "K_DEP", Owner: []string{"EKCH_K_DEP", "EKCH_R_DEP"}},
+	}
+
+	owners, err := GetDefaultAirborneControllerPriority()
+	if err != nil {
+		t.Fatalf("expected default owners, got error: %v", err)
+	}
+
+	if len(owners) != 2 || owners[0] != "EKCH_K_DEP" || owners[1] != "EKCH_R_DEP" {
+		t.Fatalf("unexpected default airborne owner priority: %#v", owners)
+	}
+}
+
+func TestGetDefaultAirborneControllerPriority_MatchesSectorKey(t *testing.T) {
+	originalRoutes := airborneRoutes
+	originalSectors := sectors
+	t.Cleanup(func() {
+		airborneRoutes = originalRoutes
+		sectors = originalSectors
+	})
+
+	airborneRoutes = []AirborneRoutes{
+		{Name: "K_DEP_PRIMARY", UseAsDefault: true},
+	}
+	sectors = []Sector{
+		{Name: "K_DEP", Key: "K_DEP_PRIMARY", Owner: []string{"EKCH_K_DEP", "EKCH_R_DEP"}},
 	}
 
 	owners, err := GetDefaultAirborneControllerPriority()

@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.17.1](https://github.com/flightstrips/FlightStrips/compare/backend/v0.17.0...backend/v0.17.1) (2026-04-13)
+
+
+### Bug Fixes
+
+* pdc not working ([8165dbf](https://github.com/flightstrips/FlightStrips/commit/8165dbf07df367bc09dc89626756dc2e3ff64855))
+
 ## [0.17.0](https://github.com/flightstrips/FlightStrips/compare/backend/v0.16.0...backend/v0.17.0) (2026-04-12)
 
 

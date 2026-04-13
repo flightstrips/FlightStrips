@@ -9,11 +9,11 @@ import { CLS_BTN } from "@/components/strip/shared";
 import { NewIfrDialog } from "@/components/strip/NewIfrDialog";
 import { PlannedDialog } from "@/components/strip/PlannedDialog";
 
-const col         = "w-1/4 h-full bg-bay-panel";
+const col         = "w-1/4 bay-col";
 const lockedLabel  = "text-white font-bold text-lg";
 const activeLabel  = "text-bay-header font-bold text-lg";
 const primaryLabel = "text-gray-100 font-bold text-lg";
-const scrollAreaRaw = "w-full bg-bay-panel overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary";
+const scrollAreaRaw = "w-full min-h-0 bg-bay-panel flex flex-col overflow-y-auto overscroll-y-contain [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary";
 
 export default function DEL() {
   const myPosition = useMyPosition();
@@ -110,4 +110,3 @@ export default function DEL() {
     </>
   );
 }
-

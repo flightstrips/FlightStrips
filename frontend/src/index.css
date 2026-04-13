@@ -113,15 +113,15 @@ body.public-content-page {
 @layer components {
   /* ── Bay page wrapper ───────────────────────────────────────────────────── */
   .bay-page-wrapper {
-    @apply bg-bay-border w-screen h-[95.28vh] flex divide-x-[6px] divide-bay-border border-x-2 border-t-2 border-bay-border;
+    @apply bg-bay-border w-screen h-[95.28vh] min-h-0 overflow-hidden flex divide-x-[6px] divide-bay-border border-x-2 border-t-2 border-bay-border;
   }
 
   /* ── Bay column layout ──────────────────────────────────────────────────── */
   .bay-col {
-    @apply h-full bg-bay-panel flex flex-col;
+    @apply h-full min-h-0 bg-bay-panel flex flex-col;
   }
   .bay-col-flex {
-    @apply flex-1 h-full bg-bay-panel flex flex-col min-w-0;
+    @apply flex-1 h-full min-h-0 bg-bay-panel flex flex-col min-w-0;
   }
 
   /* ── Section headers ────────────────────────────────────────────────────── */
@@ -143,17 +143,17 @@ body.public-content-page {
 
   /* ── Scroll areas ───────────────────────────────────────────────────────── */
   .bay-scroll-area {
-    @apply w-full bg-bay-panel p-0.5 flex flex-col gap-px overflow-y-auto overscroll-y-contain;
+    @apply w-full min-h-0 bg-bay-panel p-0.5 flex flex-col gap-px overflow-y-auto overscroll-y-contain;
     @apply [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary;
     box-shadow: inset 2px 2px 4px rgba(0,0,0,0.55), inset -1px -1px 2px rgba(255,255,255,0.07);
   }
   .bay-scroll-area-bottom {
-    @apply w-full bg-bay-panel p-0.5 flex flex-col justify-end gap-px overflow-y-auto overscroll-y-contain;
+    @apply w-full min-h-0 bg-bay-panel p-0.5 flex flex-col justify-end gap-px overflow-y-auto overscroll-y-contain;
     @apply [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary;
     box-shadow: inset 2px 2px 4px rgba(0,0,0,0.55), inset -1px -1px 2px rgba(255,255,255,0.07);
   }
   .bay-scroll-area-dark {
-    @apply w-full bg-bay-dark p-0.5 flex flex-col justify-end gap-px overflow-y-auto overscroll-y-contain;
+    @apply w-full min-h-0 bg-bay-dark p-0.5 flex flex-col justify-end gap-px overflow-y-auto overscroll-y-contain;
     @apply [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-primary;
     box-shadow: inset 3px 3px 7px rgba(0,0,0,0.85), inset -1px -1px 3px rgba(255,255,255,0.05);
   }

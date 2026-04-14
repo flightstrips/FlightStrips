@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.22.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.21.1...frontend/v0.22.0) (2026-04-14)
+
+
+### Features
+
+* remove right-click menu ([75709d6](https://github.com/flightstrips/FlightStrips/commit/75709d6de46c8438738471c255a9c76adac4bdc5))
+
 ## [0.21.1](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.21.0...frontend/v0.21.1) (2026-04-14)
 
 

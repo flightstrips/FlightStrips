@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.21.1](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.21.0...frontend/v0.21.1) (2026-04-14)
+
+
+### Bug Fixes
+
+* missing scroll ([d91e8ef](https://github.com/flightstrips/FlightStrips/commit/d91e8ef11b634ae2033b84700964b14d3bab723c))
+
 ## [0.21.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.20.0...frontend/v0.21.0) (2026-04-12)
 
 

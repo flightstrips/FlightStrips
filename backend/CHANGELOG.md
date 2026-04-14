@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.17.2](https://github.com/flightstrips/FlightStrips/compare/backend/v0.17.1...backend/v0.17.2) (2026-04-14)
+
+
+### Bug Fixes
+
+* arrivals going to D_TWR when C_TWR is not online ([3260d1d](https://github.com/flightstrips/FlightStrips/commit/3260d1d3b133dd58f925dc2d2a00570eeeb8710a))
+* do not delete aircraft due to reconect ([3bcb27c](https://github.com/flightstrips/FlightStrips/commit/3bcb27c278a7f17f9745dbc61d347184c31012bc))
+
 ## [0.17.1](https://github.com/flightstrips/FlightStrips/compare/backend/v0.17.0...backend/v0.17.1) (2026-04-13)
 
 

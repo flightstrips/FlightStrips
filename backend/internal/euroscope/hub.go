@@ -669,7 +669,7 @@ func (hub *Hub) Run() {
 }
 
 const (
-	offlineGracePeriod        = 15 * time.Second
+	offlineGracePeriod        = 60 * time.Second
 	masterTransferGracePeriod = 45 * time.Second
 )
 

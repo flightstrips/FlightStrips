@@ -280,6 +280,7 @@ func handlePositionUpdate(ctx context.Context, client *Client, message Message) 
 	if err := message.JsonUnmarshal(&event); err != nil {
 		return err
 	}
+	client.hub.cancelAircraftDisconnect(client.session, event.Callsign)
 	return client.hub.stripService.UpdateAircraftPosition(ctx, client.session, event.Callsign, event.Lat, event.Lon, int32(event.Altitude), client.airport)
 }
 
@@ -484,6 +485,7 @@ func handleStripUpdateEvent(ctx context.Context, client *Client, message Message
 	if err := message.JsonUnmarshal(&event); err != nil {
 		return err
 	}
+	client.hub.cancelAircraftDisconnect(client.session, event.Callsign)
 	return client.hub.stripService.SyncStrip(ctx, client.session, client.GetCid(), event.Strip, client.airport)
 }
 

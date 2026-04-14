@@ -2,8 +2,8 @@
  * Shared strip sub-components and helpers used across multiple strip variants.
  */
 
-import { useSelectedCallsign, useSelectStrip, useRunwaySetup } from "@/store/store-hooks";
-import type { CSSProperties } from "react";
+import { useMarkArmed, useRunwaySetup, useSelectStrip, useSelectedCallsign, useStripTransfers, useTagRequestArmed, useWebSocketStore } from "@/store/store-hooks";
+import type { CSSProperties, MouseEvent as ReactMouseEvent } from "react";
 import { Bay } from "@/api/models";
 import type { PdcStatus } from "@/api/models";
 
@@ -24,6 +24,92 @@ export function useStripSelection(callsign: string, selectable?: boolean) {
     ? () => selectStrip(isSelected ? null : callsign)
     : undefined;
   return { isSelected, handleClick };
+}
+
+export function canOpenStripContextMenu(bay?: string, owner?: string, myPosition?: string): boolean {
+  return bay === Bay.NotCleared || owner !== myPosition;
+}
+
+export function canRequestTagForStrip({
+  bay,
+  owner,
+  myPosition,
+  hasActiveCoordination,
+}: {
+  bay?: string;
+  owner?: string;
+  myPosition?: string;
+  hasActiveCoordination: boolean;
+}): boolean {
+  return bay === Bay.Cleared && !!owner && !!myPosition && owner !== myPosition && !hasActiveCoordination;
+}
+
+export function useStripCallsignInteraction({
+  callsign,
+  selectable,
+  bay,
+  owner,
+  myPosition,
+}: {
+  callsign: string;
+  selectable?: boolean;
+  bay?: string;
+  owner?: string;
+  myPosition?: string;
+}) {
+  const selectedCallsign = useSelectedCallsign();
+  const selectStrip = useSelectStrip();
+  const tagRequestArmed = useTagRequestArmed();
+  const markArmed = useMarkArmed();
+  const stripTransfers = useStripTransfers();
+  const openStripContextMenu = useWebSocketStore((state) => state.openStripContextMenu);
+  const requestTag = useWebSocketStore((state) => state.requestTag);
+  const toggleMarked = useWebSocketStore((state) => state.toggleMarked);
+  const marked = useWebSocketStore((state) => state.strips.find((strip) => strip.callsign === callsign)?.marked ?? false);
+  const isSelected = !!selectable && selectedCallsign === callsign;
+  const openContextMenuOnClick = canOpenStripContextMenu(bay, owner, myPosition);
+  const canRequestTag = canRequestTagForStrip({
+    bay,
+    owner,
+    myPosition,
+    hasActiveCoordination: !!stripTransfers[callsign],
+  });
+
+  const handleClick = (event: ReactMouseEvent<HTMLElement>) => {
+    if (tagRequestArmed) {
+      if (canRequestTag) {
+        requestTag(callsign);
+      }
+      return;
+    }
+
+    if (markArmed) {
+      toggleMarked(callsign, !marked);
+      return;
+    }
+
+    if (openContextMenuOnClick) {
+      openStripContextMenu(callsign, { x: event.clientX, y: event.clientY });
+      return;
+    }
+
+    if (!selectable) {
+      return;
+    }
+
+    selectStrip(isSelected ? null : callsign);
+  };
+
+  const handleContextMenu = (event: ReactMouseEvent<HTMLElement>) => {
+    event.preventDefault();
+  };
+
+  return {
+    isSelected,
+    handleClick,
+    handleContextMenu,
+    showActivePress: !!selectable && !tagRequestArmed && !markArmed && !openContextMenuOnClick,
+  };
 }
 
 /**

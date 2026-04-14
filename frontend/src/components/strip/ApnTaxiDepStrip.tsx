@@ -2,7 +2,7 @@ import { useState } from "react";
 import type { StripProps } from "./types";
 import FlightPlanDialog from "@/components/FlightPlanDialog";
 import {
-  useStripSelection,
+  useStripCallsignInteraction,
   getFramedStripStyle,
   getCellBorderColor,
   SELECTION_COLOR,
@@ -42,6 +42,7 @@ export const APN_TAXI_DEP_STRIP_WIDTH = "90%";
  */
 export function ApnTaxiDepStrip({
   callsign,
+  bay,
   aircraftType,
   aircraftCategory,
   registration,
@@ -58,7 +59,7 @@ export function ApnTaxiDepStrip({
   unexpectedChangeFields,
   controllerModifiedFields,
 }: StripProps) {
-  const { isSelected, handleClick } = useStripSelection(callsign, selectable);
+  const { isSelected, handleClick, handleContextMenu } = useStripCallsignInteraction({ callsign, selectable, bay, owner, myPosition });
   const cellBorderColor = getCellBorderColor(marked);
   const stripTransfers = useStripTransfers();
   const isTagRequest = !!stripTransfers[callsign]?.isTagRequest;
@@ -68,7 +69,6 @@ export function ApnTaxiDepStrip({
   const [fplOpen, setFplOpen] = useState(false);
   const { ctotBg, ctotColor, showCtot } = useCTOTColor(ctot ?? "");
   const acknowledgeUnexpectedChange = useWebSocketStore(s => s.acknowledgeUnexpectedChange);
-  const openStripContextMenu = useWebSocketStore(s => s.openStripContextMenu);
   const standYellow = unexpectedChangeFields?.includes("stand");
   const runwayYellow = unexpectedChangeFields?.includes("runway");
   const releasePointYellow = unexpectedChangeFields?.includes("release_point");
@@ -104,7 +104,7 @@ export function ApnTaxiDepStrip({
           className="flex flex-col overflow-hidden border-r-2 cursor-pointer"
           style={{ flex: `${F_CALLSIGN} 0 0%`, height: "100%", minWidth: 0, borderRightColor: cellBorderColor }}
           onClick={handleClick}
-          onContextMenu={(e) => { e.preventDefault(); openStripContextMenu(callsign, { x: e.clientX, y: e.clientY }); }}
+          onContextMenu={handleContextMenu}
         >
           <div className="flex items-center pl-[0.42vw]" style={{ height: TOP_H, backgroundColor: isSelected ? SELECTION_COLOR : undefined }}>
             <span className="truncate w-full" style={{ fontFamily: FONT, fontWeight: "bold", fontSize: "1.04vw" }}>{callsign}</span>

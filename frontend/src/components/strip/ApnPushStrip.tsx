@@ -2,7 +2,7 @@ import { useState } from "react";
 import { getAircraftTypeWithWtc } from "@/lib/utils";
 import type { StripProps } from "./types";
 import {
-  useStripSelection,
+  useStripCallsignInteraction,
   getFramedStripStyle,
   getCellBorderColor,
   SELECTION_COLOR,
@@ -73,7 +73,7 @@ export function ApnPushStrip({
   controllerModifiedFields,
   isManual = false,
 }: StripProps) {
-  const { isSelected, handleClick } = useStripSelection(callsign, selectable);
+  const { isSelected, handleClick, handleContextMenu } = useStripCallsignInteraction({ callsign, selectable, bay, owner, myPosition });
   const cellBorderColor = getCellBorderColor(marked);
   const manualBlue = isManual ? COLOR_MANUAL_BLUE : undefined;
   const stripTransfers = useStripTransfers();
@@ -85,7 +85,6 @@ export function ApnPushStrip({
   const [runwayOpen, setRunwayOpen] = useState(false);
   const [fplOpen, setFplOpen] = useState(false);
   const acknowledgeUnexpectedChange = useWebSocketStore(s => s.acknowledgeUnexpectedChange);
-  const openStripContextMenu = useWebSocketStore(s => s.openStripContextMenu);
   const standYellow = unexpectedChangeFields?.includes("stand");
   const runwayYellow = unexpectedChangeFields?.includes("runway");
   const { tsatBg } = useCDMColors({ bay: bay ?? Bay.Unknown, tsat: tsat ?? "", tobt: tobt ?? "" });
@@ -117,7 +116,7 @@ export function ApnPushStrip({
           className="flex flex-col overflow-hidden border-r-2 cursor-pointer"
           style={{ flex: `${F_CALLSIGN} 0 0%`, height: "100%", minWidth: 0, borderRightColor: cellBorderColor }}
           onClick={handleClick}
-          onContextMenu={(e) => { e.preventDefault(); openStripContextMenu(callsign, { x: e.clientX, y: e.clientY }); }}
+          onContextMenu={handleContextMenu}
         >
           <div className="flex items-center pl-[0.42vw]" style={{ height: TOP_H, backgroundColor: isSelected ? SELECTION_COLOR : undefined }}>
             <span className="truncate w-full" style={{ fontFamily: FONT, fontWeight: "bold", fontSize: "1.04vw", color: manualBlue }}>

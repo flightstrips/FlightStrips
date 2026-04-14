@@ -16,7 +16,7 @@ import {
   type EstView,
 } from "@/components/est/metadata";
 import { useNonClearedStrips } from "@/store/airports/ekch.ts";
-import { useWebSocketStore } from "@/store/store-hooks.ts";
+import { useMarkArmed, useSelectStrip, useSelectedCallsign, useWebSocketStore } from "@/store/store-hooks.ts";
 
 const PAGE_BG = "bg-bay-est";
 const COLOR_LABEL_DEFAULT = "#202020";
@@ -108,6 +108,9 @@ export default function EST() {
   const toggleMarked = useWebSocketStore((state) => state.toggleMarked);
   const cdmReady = useWebSocketStore((state) => state.cdmReady);
   const nonClearedStrips = useNonClearedStrips();
+  const markArmed = useMarkArmed();
+  const selectedCallsign = useSelectedCallsign();
+  const selectStrip = useSelectStrip();
 
   const [menuState, setMenuState] = useState<{ stand: string; anchor: EstMenuAnchor } | null>(null);
   const [statusStand, setStatusStand] = useState<string | null>(null);
@@ -234,6 +237,24 @@ export default function EST() {
       setStatusStand(stand);
       setStatusAnchor(toMenuAnchor(element));
       setMenuState(null);
+      return;
+    }
+
+    if (markArmed) {
+      toggleMarked(strip.callsign, !strip.marked);
+      setMenuState(null);
+      setStatusStand(null);
+      setStatusAnchor(null);
+      setDeIceOpen(false);
+      return;
+    }
+
+    if (selectedCallsign !== strip.callsign) {
+      selectStrip(strip.callsign);
+      setMenuState(null);
+      setStatusStand(null);
+      setStatusAnchor(null);
+      setDeIceOpen(false);
       return;
     }
 
@@ -425,6 +446,7 @@ export default function EST() {
                   key={stand.label}
                   stand={stand}
                   strip={strip}
+                  selected={!!strip && selectedCallsign === strip.callsign}
                   blocked={!!blockedStands[stand.label]}
                   actionActive={actionActive}
                   blinking={actionActive ? actionOverride.blinking : false}

@@ -98,6 +98,10 @@ export interface WebSocketState {
 
   selectedCallsign: string | null;
   selectStrip: (callsign: string | null) => void;
+  tagRequestArmed: boolean;
+  setTagRequestArmed: (armed: boolean) => void;
+  markArmed: boolean;
+  setMarkArmed: (armed: boolean) => void;
   setDisplayedLayout: (layout: string) => void;
   setLayoutChooserOpen: (open: boolean) => void;
 
@@ -174,16 +178,20 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     metar: "",
     arrAtisCode: "",
     depAtisCode: "",
-    availableSids: [],
-    selectedCallsign: null,
-    contextMenu: null
-  };
+     availableSids: [],
+     selectedCallsign: null,
+     tagRequestArmed: false,
+     markArmed: false,
+     contextMenu: null
+    };
 
   // Create the store
   const store = createStore<WebSocketState>()((set, get) => ({
-    ...initialState,
-    selectStrip: (callsign) => set({ selectedCallsign: callsign }),
-    setDisplayedLayout: (layout) => {
+     ...initialState,
+     selectStrip: (callsign) => set({ selectedCallsign: callsign }),
+     setTagRequestArmed: (armed) => set({ tagRequestArmed: armed, markArmed: armed ? false : get().markArmed, contextMenu: null }),
+     setMarkArmed: (armed) => set({ markArmed: armed, tagRequestArmed: armed ? false : get().tagRequestArmed, contextMenu: null }),
+     setDisplayedLayout: (layout) => {
       const normalizedLayout = normalizeLayout(layout);
       set({
         displayedLayout: normalizedLayout,
@@ -364,12 +372,13 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     freeStrip: (callsign) => {
       wsClient.send({ type: ActionType.FrontendCoordinationFreeRequest, callsign });
     },
-    cancelTransfer: (callsign) => {
-      wsClient.send({ type: ActionType.FrontendCoordinationCancelTransferRequest, callsign });
-    },
-    requestTag: (callsign) => {
-      wsClient.send({ type: ActionType.FrontendCoordinationTagRequest, callsign });
-    },
+     cancelTransfer: (callsign) => {
+       wsClient.send({ type: ActionType.FrontendCoordinationCancelTransferRequest, callsign });
+     },
+     requestTag: (callsign) => {
+       set({ tagRequestArmed: false });
+       wsClient.send({ type: ActionType.FrontendCoordinationTagRequest, callsign });
+      },
     acceptTagRequest: (callsign) => {
       wsClient.send({ type: ActionType.FrontendCoordinationAcceptTagRequest, callsign });
     },
@@ -386,6 +395,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
       );
     },
     toggleMarked: (callsign, marked) => {
+      set({ markArmed: false });
       wsClient.send({ type: ActionType.FrontendMarked, callsign, marked });
       store.setState(
         produce((state: WebSocketState) => {

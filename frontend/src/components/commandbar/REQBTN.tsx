@@ -1,26 +1,35 @@
-import { useSelectedCallsign, usePosition, useStrip, useStripTransfers, useWebSocketStore } from "@/store/store-hooks";
-import { CLS_CMDBTN } from "@/components/strip/shared";
-import { Bay } from "@/api/models";
+import { useEffect } from "react";
+import { usePosition, useSelectedCallsign, useSetTagRequestArmed, useStrips, useStripTransfers, useTagRequestArmed } from "@/store/store-hooks";
+import { canRequestTagForStrip, CLS_CMDBTN } from "@/components/strip/shared";
 
 export default function REQBTN() {
-  const selectedCallsign = useSelectedCallsign();
+  const strips = useStrips();
   const position = usePosition();
-  const strip = useStrip(selectedCallsign ?? "");
+  const selectedCallsign = useSelectedCallsign();
   const stripTransfers = useStripTransfers();
-  const requestTag = useWebSocketStore((state) => state.requestTag);
+  const tagRequestArmed = useTagRequestArmed();
+  const setTagRequestArmed = useSetTagRequestArmed();
+  const hasReqTarget = strips.some((strip) =>
+    canRequestTagForStrip({
+      bay: strip.bay,
+      owner: strip.owner,
+      myPosition: position,
+      hasActiveCoordination: !!stripTransfers[strip.callsign],
+    }),
+  );
+  const canReq = !selectedCallsign && hasReqTarget;
 
-  const hasActiveCoordination = !!selectedCallsign && !!stripTransfers[selectedCallsign];
-  const isOwner = !!position && strip?.owner === position;
-  const isUnowned = !strip?.owner;
-
-  const isCleared = strip?.bay === Bay.Cleared;
-  const canReq = !!selectedCallsign && isCleared && !isOwner && !isUnowned && !hasActiveCoordination;
+  useEffect(() => {
+    if (!canReq && tagRequestArmed) {
+      setTagRequestArmed(false);
+    }
+  }, [canReq, setTagRequestArmed, tagRequestArmed]);
 
   return (
     <button
       disabled={!canReq}
-      className={`${CLS_CMDBTN} ${!canReq ? "opacity-50 cursor-not-allowed" : ""}`}
-      onClick={() => canReq && requestTag(selectedCallsign!)}
+      className={`${CLS_CMDBTN} ${tagRequestArmed ? "!bg-[#1BFF16] !text-black" : "bg-bay-btn text-white"} ${!canReq ? "opacity-50 cursor-not-allowed" : ""}`}
+      onClick={() => canReq && setTagRequestArmed(!tagRequestArmed)}
     >
       REQ
     </button>

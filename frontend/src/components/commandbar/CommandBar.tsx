@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Time from "@/components/Time";
 import MRKBTN from "./MRKBTN";
 import MUTEBTN from "./MUTEBTN";
@@ -10,7 +10,7 @@ import RunwayStsDialog, { type RunwayStatus } from "./RunwayStsDialog";
 import DeleteConfirmDialog from "./DeleteConfirmDialog";
 import MetarHelper from "@/components/MetarHelper";
 import { useAudioSettings } from "@/hooks/useAudioSettings";
-import { useAtisCode, useMetar, useRunwaySetup, useSelectedCallsign, useSelectStrip, useWebSocketStore, useStrip } from "@/store/store-hooks";
+import { useAtisCode, useMarkArmed, useMetar, useRunwaySetup, useSelectedCallsign, useSelectStrip, useSetMarkArmed, useStrips, useWebSocketStore, useStrip } from "@/store/store-hooks";
 import { CLS_CMDBTN } from "@/components/strip/shared";
 import { Bay } from "@/api/models";
 
@@ -75,6 +75,9 @@ export default function CommandBar() {
   const runwaySetup = useRunwaySetup();
   const selectedCallsign = useSelectedCallsign();
   const selectStrip = useSelectStrip();
+  const strips = useStrips();
+  const markArmed = useMarkArmed();
+  const setMarkArmed = useSetMarkArmed();
   const move = useWebSocketStore((state) => state.move);
   const toggleMarked = useWebSocketStore((state) => state.toggleMarked);
   const updateRunwayStatus = useWebSocketStore((state) => state.updateRunwayStatus);
@@ -88,6 +91,7 @@ export default function CommandBar() {
   const myPosition = useWebSocketStore((state) => state.position);
   const isOwner = !!selectedCallsign && !!myPosition && strip?.owner === myPosition;
   const isMarked = strip?.marked ?? false;
+  const canMark = !!selectedCallsign || strips.length > 0;
 
   // Layout chooser dialog (dismissable, triggered from station box)
   const [layoutOpen, setLayoutOpen] = useState(false);
@@ -98,9 +102,21 @@ export default function CommandBar() {
   // Delete confirmation dialog
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
 
+  useEffect(() => {
+    if (!canMark && markArmed) {
+      setMarkArmed(false);
+    }
+  }, [canMark, markArmed, setMarkArmed]);
+
   const handleMark = () => {
-    if (!selectedCallsign) return;
-    toggleMarked(selectedCallsign, !isMarked);
+    if (selectedCallsign) {
+      toggleMarked(selectedCallsign, !isMarked);
+      return;
+    }
+
+    if (canMark) {
+      setMarkArmed(!markArmed);
+    }
   };
 
   const handleDelete = () => {
@@ -179,7 +195,7 @@ export default function CommandBar() {
       {/* ── Right section ────────────────────────────────── */}
       <div className="flex items-center h-full gap-[5px]">
         <TRFBRN />
-        <MRKBTN isMarked={isMarked} disabled={!selectedCallsign} onClick={handleMark} />
+        <MRKBTN isMarked={isMarked} armed={markArmed} disabled={!canMark} onClick={handleMark} />
         <REQBTN />
         {import.meta.env.VITE_CDM_SIM === 'true' && <CDMSIM />}
         <button

@@ -1,8 +1,8 @@
 import { getAircraftTypeWithWtc } from "@/lib/utils";
 import { getStripBg } from "./types";
 import type { StripProps } from "./types";
-import { useStripSelection, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR, COLOR_TYPE_HEAVY, getStripOwnership, useStripBg } from "./shared";
-import { useStripTransfers, useWebSocketStore } from "@/store/store-hooks";
+import { useStripCallsignInteraction, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR, COLOR_TYPE_HEAVY, getStripOwnership, useStripBg } from "./shared";
+import { useStripTransfers } from "@/store/store-hooks";
 import { SIBox } from "./SIBox";
 
 const TOP_H = "2.96vh"; // 2/3 of 48px
@@ -35,11 +35,10 @@ export function GroundStrip({
   selectable,
   marked = false,
 }: StripProps) {
-  const { isSelected, handleClick } = useStripSelection(callsign, selectable);
+  const { isSelected, handleClick, handleContextMenu } = useStripCallsignInteraction({ callsign, selectable, bay, owner, myPosition });
   const cellBorderColor = getCellBorderColor(marked);
   const stripTransfers = useStripTransfers();
   const isTagRequest = !!stripTransfers[callsign]?.isTagRequest;
-  const openStripContextMenu = useWebSocketStore(s => s.openStripContextMenu);
 
   const { isUnconcerned } = getStripOwnership(myPosition, owner, nextControllers, previousControllers);
   const { bg, textWhite } = useStripBg(runway, getStripBg(pdcStatus, arrival, bay), isTagRequest, isUnconcerned, pdcStatus, bay);
@@ -68,7 +67,7 @@ export function GroundStrip({
       {/* Callsign — 120px */}
       <div className="flex-shrink-0 flex flex-col border-r-2 cursor-pointer" style={{ width: "6.25vw", height: "100%", borderRightColor: cellBorderColor }}
         onClick={handleClick}
-        onContextMenu={(e) => { e.preventDefault(); openStripContextMenu(callsign, { x: e.clientX, y: e.clientY }); }}
+        onContextMenu={handleContextMenu}
       >
         <div className="flex items-center pl-[0.42vw]" style={{ height: TOP_H, backgroundColor: isSelected ? SELECTION_COLOR : undefined }}>
           <span className="truncate w-full" style={{ fontWeight: "bold", fontSize: "1.04vw" }}>{callsign}</span>

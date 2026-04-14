@@ -26,6 +26,7 @@ const CONTENT_FONT_SIZE = 13;
 interface EstStandCellProps {
   stand: { label: string; column?: number; row?: number } | EstCanvasStand;
   strip?: FrontendStrip;
+  selected: boolean;
   blocked: boolean;
   actionActive: boolean;
   blinking: boolean;
@@ -38,6 +39,7 @@ interface EstStandCellProps {
 export default function EstStandCell({
   stand,
   strip,
+  selected,
   blocked,
   actionActive,
   blinking,
@@ -116,6 +118,7 @@ export default function EstStandCell({
               "relative overflow-hidden rounded-xl border-2 border-black/15 shadow-sm transition-transform hover:scale-[1.02] focus-visible:outline focus-visible:outline-2 focus-visible:outline-white",
               backgroundClass,
               textClass,
+              selected && "ring-4 ring-[#EB01FB]",
               blinking && "animate-pulse ring-4 ring-[#EB01FB]",
             )}
             style={{ width: EST_CELL_WIDTH, height: EST_CELL_HEIGHT }}

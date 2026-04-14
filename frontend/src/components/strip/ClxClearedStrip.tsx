@@ -1,9 +1,9 @@
-import { useState, useEffect, useRef, type MouseEvent } from "react";
+import { useState, useEffect, useRef } from "react";
 import { CLXBtn } from "@/components/clxbtn";
 import { getStripBg } from "./types";
 import type { StripProps } from "./types";
 import {
-  useStripSelection,
+  useStripCallsignInteraction,
   getFramedStripStyle,
   getCellBorderColor,
   SELECTION_COLOR,
@@ -16,7 +16,7 @@ import {
   useStripBg,
 } from "./shared";
 import { SIBox } from "./SIBox";
-import { useIsClrDel, useStripTransfers, useWebSocketStore } from "@/store/store-hooks";
+import { useStripTransfers, useWebSocketStore } from "@/store/store-hooks";
 import { useCDMColors } from "@/hooks/useCDMColors";
 import { useCTOTColor } from "@/hooks/useCTOTColor";
 import { Bay } from "@/api/models";
@@ -67,15 +67,13 @@ export function ClxClearedStrip({
   controllerModifiedFields,
   isManual = false,
 }: StripProps) {
-  const { isSelected, handleClick } = useStripSelection(callsign, selectable);
-  const isClrDel = useIsClrDel();
+  const { isSelected, handleClick, handleContextMenu, showActivePress } = useStripCallsignInteraction({ callsign, selectable, bay, owner, myPosition });
   const stripTransfers = useStripTransfers();
   const isTagRequest = !!stripTransfers[callsign]?.isTagRequest;
   const { isUnconcerned } = getStripOwnership(myPosition, owner, nextControllers, previousControllers);
   const { bg, textWhite } = useStripBg(runway, getStripBg(pdcStatus, arrival, bay), isTagRequest, isUnconcerned, pdcStatus, bay);
   const cdmReady = useWebSocketStore(s => s.cdmReady);
   const acknowledgeUnexpectedChange = useWebSocketStore(s => s.acknowledgeUnexpectedChange);
-  const openStripContextMenu = useWebSocketStore(s => s.openStripContextMenu);
   const standYellow = unexpectedChangeFields?.includes("stand");
   const { tobtBg, tsatBg } = useCDMColors({ bay: bay ?? Bay.Unknown, tsat: tsat ?? "", tobt: tobt ?? "" });
   const { ctotBg, ctotColor, showCtot } = useCTOTColor(ctot ?? "");
@@ -140,12 +138,10 @@ export function ClxClearedStrip({
 
         {/* Callsign — 2/3 of left half */}
         <button
-          className={`flex items-center justify-start overflow-hidden ${CLS_CALLSIGN_ACTIVE} border-r-2 cursor-pointer`}
+          className={`flex items-center justify-start overflow-hidden ${showActivePress ? CLS_CALLSIGN_ACTIVE : ""} border-r-2 cursor-pointer`}
           style={{ flex: `${F_CALLSIGN} 0 0%`, height: "100%", minWidth: 0, fontFamily: FONT, fontWeight: "bold", fontSize: "1.25vw", textAlign: "left", paddingLeft: "0.21vw", borderRightColor: cellBorderColor, backgroundColor: isSelected ? SELECTION_COLOR : undefined, color: manualBlue }}
-          onClick={isClrDel
-            ? (e: MouseEvent) => { openStripContextMenu(callsign, { x: e.clientX, y: e.clientY }); }
-            : handleClick}
-          onContextMenu={(e) => { e.preventDefault(); openStripContextMenu(callsign, { x: e.clientX, y: e.clientY }); }}
+          onClick={handleClick}
+          onContextMenu={handleContextMenu}
         >
           <span className="truncate w-full">{callsign}</span>
         </button>

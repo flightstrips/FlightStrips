@@ -161,6 +161,7 @@ export function ArrStandDialog({ open, onOpenChange, callsign, currentStand }: P
                   key={`${stand.label}-${stand.left}-${stand.top}`}
                   stand={stand}
                   strip={strip}
+                  selected={isCurrent}
                   blocked={false}
                   actionActive={isCurrent}
                   blinking={false}

@@ -8,6 +8,7 @@ namespace FlightStrips::graphics::InfoScreenObjectIds {
     inline constexpr int StatsToggle = 5;
     inline constexpr int SessionLiveButton = 6;
     inline constexpr int SessionSweatboxButton = 7;
+    inline constexpr int OpenAppButton = 8;
 
     inline constexpr int PdcPopupWindow = 10;
     inline constexpr int PdcSendButton = 11;

@@ -5,6 +5,10 @@
 
 
 namespace FlightStrips::authentication {
+    namespace {
+        constexpr char kPostLoginRedirectUrl[] = "https://flightstrips.dk/plugin-auth-complete";
+    }
+
     AuthenticationRedirectListener::AuthenticationRedirectListener(
         std::promise<std::optional<std::string> > &prms, const int port) : port(port), resultPromise(std::move(prms)) {
     }
@@ -37,7 +41,7 @@ namespace FlightStrips::authentication {
                 }
 
                 const auto code = request.get_param_value("code");
-                res.set_content("<html><body>Authentication successful, you may now close this window. Window will close after 5 seconds automatically.<script>setTimeout(function(){window.close()},5000);</script></body></html>", "text/html; charset=utf-8");
+                res.set_redirect(kPostLoginRedirectUrl);
                 TrySetResult(code, "AuthenticationRedirectListener::Callback");
             });
 

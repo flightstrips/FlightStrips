@@ -9,6 +9,8 @@
 
 namespace FlightStrips::graphics {
     namespace {
+        constexpr wchar_t OpenAppUrl[] = L"https://flightstrips.dk/app";
+
         void SetPreferredSessionMode(const std::shared_ptr<configuration::UserConfig>& userConfig,
                                      FlightStripsPlugin* plugin,
                                      const bool preferSweatbox) {
@@ -142,6 +144,11 @@ namespace FlightStrips::graphics {
 
         if (ObjectType == InfoScreenObjectIds::AuthenticationButton) {
             HandleAuthenticationClick();
+            return;
+        }
+
+        if (ObjectType == InfoScreenObjectIds::OpenAppButton) {
+            HandleOpenAppClick();
             return;
         }
 
@@ -326,6 +333,11 @@ namespace FlightStrips::graphics {
                 break;
         }
 
+        RequestRefresh();
+    }
+
+    void InfoScreen::HandleOpenAppClick() {
+        ShellExecute(nullptr, nullptr, OpenAppUrl, nullptr, nullptr, SW_SHOW);
         RequestRefresh();
     }
 

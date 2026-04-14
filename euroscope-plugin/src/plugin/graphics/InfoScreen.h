@@ -71,6 +71,7 @@ namespace FlightStrips::graphics {
         bool HandleSessionModeClick(int objectType);
         bool HandlePdcPopupClick(int objectType, POINT pt, RECT area);
         bool HandlePdcFieldClick(int objectType, POINT pt, RECT area);
+        void HandleOpenAppClick();
         void HandleAuthenticationClick();
     };
 }

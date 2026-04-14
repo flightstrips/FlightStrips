@@ -23,6 +23,20 @@ namespace FlightStrips::graphics {
         return contentHeight;
     }
 
+    AuthenticationButtonLayout CalculateAuthenticationButtonLayout(const InfoPanelData& data, const int left, const int right, const int y) {
+        if (data.authenticationState != authentication::AUTHENTICATED) {
+            return {
+                .authenticationButtonRect = {left + 5, y + 38, right - 70, y + 54},
+                .openAppButtonRect = std::nullopt,
+            };
+        }
+
+        return {
+            .authenticationButtonRect = {left + 5, y + 38, left + 73, y + 54},
+            .openAppButtonRect = RECT{left + 77, y + 38, right - 5, y + 54},
+        };
+    }
+
     void DrawInfoPanel(EuroScopePlugIn::CRadarScreen& screen,
                        Graphics& graphics,
                        const Colors& colors,
@@ -87,10 +101,21 @@ namespace FlightStrips::graphics {
                 break;
         }
 
-        const RECT authButtonRect = {left + 5, y + 38, right - 70, y + 54};
-        graphics.FillRect(colors.headerBrush.get(), authButtonRect);
-        graphics.DrawString(buttonText, authButtonRect, colors.whiteBrush.get(), Gdiplus::StringAlignmentCenter);
-        screen.AddScreenObject(InfoScreenObjectIds::AuthenticationButton, "", authButtonRect, false, nullptr);
+        const auto authButtonLayout = CalculateAuthenticationButtonLayout(data, left, right, y);
+        graphics.FillRect(colors.headerBrush.get(), authButtonLayout.authenticationButtonRect);
+        graphics.DrawString(buttonText,
+                            authButtonLayout.authenticationButtonRect,
+                            colors.whiteBrush.get(),
+                            Gdiplus::StringAlignmentCenter);
+        screen.AddScreenObject(InfoScreenObjectIds::AuthenticationButton, "", authButtonLayout.authenticationButtonRect, false, nullptr);
+        if (authButtonLayout.openAppButtonRect.has_value()) {
+            graphics.FillRect(colors.headerBrush.get(), authButtonLayout.openAppButtonRect.value());
+            graphics.DrawString("Open App",
+                                authButtonLayout.openAppButtonRect.value(),
+                                colors.whiteBrush.get(),
+                                Gdiplus::StringAlignmentCenter);
+            screen.AddScreenObject(InfoScreenObjectIds::OpenAppButton, "", authButtonLayout.openAppButtonRect.value(), false, nullptr);
+        }
 
         y += 58;
         graphics.DrawHLine(colors.separatorPen.get(), menubar.left + 3, y + 4, menubar.right - 3);

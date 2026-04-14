@@ -25,7 +25,13 @@ namespace FlightStrips::graphics {
         bool showStats{true};
     };
 
+    struct AuthenticationButtonLayout {
+        RECT authenticationButtonRect{};
+        std::optional<RECT> openAppButtonRect;
+    };
+
     [[nodiscard]] int CalculateInfoPanelContentHeight(const InfoPanelData& data);
+    [[nodiscard]] AuthenticationButtonLayout CalculateAuthenticationButtonLayout(const InfoPanelData& data, int left, int right, int y);
 
     void DrawInfoPanel(EuroScopePlugIn::CRadarScreen& screen,
                        Graphics& graphics,

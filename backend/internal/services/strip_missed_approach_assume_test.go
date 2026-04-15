@@ -520,6 +520,76 @@ func TestHandleTrackingControllerChanged_DepartureGoesToHidden(t *testing.T) {
 	assert.Equal(t, shared.BAY_HIDDEN, res.moveToBayArg)
 }
 
+// TestHandleTrackingControllerChanged_TopDownDepartureStillHides verifies that a
+// top-down controller can keep a departure in AIRBORNE without an auto-transfer and
+// still hide it through the normal assumption flow when the tag is assumed in ES.
+func TestHandleTrackingControllerChanged_TopDownDepartureStillHides(t *testing.T) {
+	owner := "EKCH_APP"
+	strip := &models.Strip{
+		ID: 22, Callsign: "SAS002", Bay: shared.BAY_AIRBORNE,
+		Destination: "ENGM", Owner: &owner,
+	}
+
+	res := &trackingChangedResult{}
+	cur := *strip
+
+	coordRepo := &testutil.MockCoordinationRepository{
+		GetByStripIDFn: func(_ context.Context, _ int32, _ int32) (*models.Coordination, error) {
+			return nil, pgx.ErrNoRows
+		},
+	}
+
+	stripRepo := &testutil.MockStripRepository{
+		UpdateTrackingControllerFn: func(_ context.Context, _ int32, _ string, _ string) (int64, error) {
+			return 1, nil
+		},
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			copy := cur
+			return &copy, nil
+		},
+		UpdateBayFn: func(_ context.Context, _ int32, _ string, bay string, _ *int32) (int64, error) {
+			res.updateBayArg = bay
+			return 1, nil
+		},
+		GetMaxSequenceInBayFn: func(_ context.Context, _ int32, _ string) (int32, error) {
+			return 0, nil
+		},
+		UpdateBayAndSequenceFn: func(_ context.Context, _ int32, _ string, bay string, _ int32) (int64, error) {
+			res.moveToBayArg = bay
+			return 1, nil
+		},
+	}
+
+	controllerRepo := &testutil.MockControllerRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, callsign string) (*models.Controller, error) {
+			if callsign != "EKCH_APP_ES" {
+				return nil, pgx.ErrNoRows
+			}
+
+			return &models.Controller{Callsign: callsign, Position: "EKCH_APP"}, nil
+		},
+	}
+
+	hub := &testutil.MockFrontendHub{}
+	hub.SetServer(&testutil.MockServer{
+		CoordRepoVal: coordRepo,
+		SessionRepoVal: &testutil.MockSessionRepository{
+			GetByIDFn: func(_ context.Context, _ int32) (*models.Session, error) {
+				return &models.Session{ID: 1, Airport: "EKCH"}, nil
+			},
+		},
+	})
+
+	svc := NewStripService(stripRepo)
+	svc.SetFrontendHub(hub)
+	svc.SetCoordinationRepo(coordRepo)
+	svc.SetControllerRepo(controllerRepo)
+
+	require.NoError(t, svc.HandleTrackingControllerChanged(context.Background(), 1, "SAS002", "EKCH_APP_ES"))
+	assert.Equal(t, shared.BAY_HIDDEN, res.updateBayArg)
+	assert.Equal(t, shared.BAY_HIDDEN, res.moveToBayArg)
+}
+
 // TestHandleTrackingControllerChanged_ArrivalTWRRemovedFromPreviousOwners verifies that
 // when a missed-approach arrival returns to FINAL, TWR is removed from PreviousOwners.
 func TestHandleTrackingControllerChanged_ArrivalTWRRemovedFromPreviousOwners(t *testing.T) {

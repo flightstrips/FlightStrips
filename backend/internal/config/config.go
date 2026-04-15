@@ -40,6 +40,7 @@ type Config struct {
 	Positions              []Position                 `yaml:"positions"`
 	Sectors                []Sector                   `yaml:"sectors"`
 	AirborneOwners         []string                   `yaml:"airborne_owners"`
+	AirborneFallbackLayout string                     `yaml:"airborne_fallback_layout"`
 	AirborneAltitudeAGL    int64                      `yaml:"airborne_altitude_agl"`
 	Layouts                map[string][]LayoutVariant `yaml:"layouts"`
 	Runways                []string                   `yaml:"runways"`
@@ -68,6 +69,7 @@ var runwayRegions []Region
 var positions []Position
 var airborneOwners []string
 var airborneRoutes []AirborneRoutes
+var airborneFallbackLayout string
 var airborneAltitudeAGL int64
 var layouts map[string][]LayoutVariant
 var runways []string
@@ -106,6 +108,10 @@ func loadAirportConfig(r io.Reader) error {
 	sectors = cfg.Sectors
 	airborneOwners = cfg.AirborneOwners
 	airborneRoutes = cfg.AirborneRoutes
+	airborneFallbackLayout = cfg.AirborneFallbackLayout
+	if airborneFallbackLayout == "" {
+		airborneFallbackLayout = "TWTE"
+	}
 	airborneAltitudeAGL = cfg.AirborneAltitudeAGL
 	layouts = cfg.Layouts
 	runways = cfg.Runways

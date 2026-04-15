@@ -161,3 +161,64 @@ func TestGetLayouts_NoMutationAcrossCalls(t *testing.T) {
 	require.NotNil(t, result2["121.630"])
 	assert.Equal(t, *result1["121.630"], *result2["121.630"], "layout must be the same across repeated calls")
 }
+
+func TestGetLayouts_AirborneOwnerGetsTwteFallback(t *testing.T) {
+	originalLayouts := layouts
+	t.Cleanup(func() {
+		layouts = originalLayouts
+	})
+	t.Cleanup(SetAirborneOwnersForTest([]string{"EKCH_W_APP"}))
+	t.Cleanup(SetAirborneFallbackLayoutForTest("TWTE"))
+
+	layouts = map[string][]LayoutVariant{}
+
+	controllers := []*Position{
+		makePos("EKCH_W_APP", "119.805", "APP"),
+	}
+
+	result := GetLayouts(controllers, []string{"22L", "22R"})
+	require.NotNil(t, result["119.805"], "airborne owner should receive fallback layout")
+	assert.Equal(t, airborneFallbackLayout, *result["119.805"])
+}
+
+func TestGetLayouts_AirborneFallbackDoesNotOverrideSpecificLayout(t *testing.T) {
+	originalLayouts := layouts
+	t.Cleanup(func() {
+		layouts = originalLayouts
+	})
+	t.Cleanup(SetAirborneOwnersForTest([]string{"EKCH_W_APP"}))
+	t.Cleanup(SetAirborneFallbackLayoutForTest("TWTE"))
+
+	layouts = map[string][]LayoutVariant{
+		"EKCH_W_APP": {
+			{Online: []string{}, Offline: []string{}, Layout: "CUSTOM"},
+		},
+	}
+
+	controllers := []*Position{
+		makePos("EKCH_W_APP", "119.805", "APP"),
+	}
+
+	result := GetLayouts(controllers, []string{"22L"})
+	require.NotNil(t, result["119.805"])
+	assert.Equal(t, "CUSTOM", *result["119.805"])
+}
+
+func TestGetLayouts_AirborneFallbackUsesConfiguredValue(t *testing.T) {
+	originalLayouts := layouts
+	t.Cleanup(func() {
+		layouts = originalLayouts
+	})
+	t.Cleanup(SetAirborneOwnersForTest([]string{"EKCH_W_APP"}))
+	t.Cleanup(SetAirborneFallbackLayoutForTest("TETW"))
+
+	layouts = map[string][]LayoutVariant{}
+
+	controllers := []*Position{
+		makePos("EKCH_W_APP", "119.805", "APP"),
+	}
+
+	result := GetLayouts(controllers, []string{"22L"})
+	require.NotNil(t, result["119.805"])
+	assert.Equal(t, "TETW", *result["119.805"])
+}

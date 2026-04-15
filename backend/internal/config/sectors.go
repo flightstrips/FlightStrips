@@ -54,6 +54,11 @@ func GetControllerSectors(controllers []*Position, active []string) map[string][
 		lookup[c.Name] = c.Frequency
 	}
 
+	airborneSet := make(map[string]struct{}, len(airborneOwners))
+	for _, owner := range airborneOwners {
+		airborneSet[owner] = struct{}{}
+	}
+
 	// Group sectors by name, then pick the most specific match per group.
 	type scored struct {
 		sector Sector
@@ -73,15 +78,38 @@ func GetControllerSectors(controllers []*Position, active []string) map[string][
 
 	for _, entry := range byKey {
 		s := entry.sector
-		for _, owner := range s.Owner {
-			if _, ok := result[lookup[owner]]; ok {
-				result[lookup[owner]] = append(result[lookup[owner]], s)
-				break
-			}
+		if frequency, ok := resolveSectorOwnerFrequency(nonAirborneOwners(s.Owner, airborneSet), lookup); ok {
+			result[frequency] = append(result[frequency], s)
+			continue
+		}
+		if frequency, ok := resolveSectorOwnerFrequency(airborneOwners, lookup); ok {
+			result[frequency] = append(result[frequency], s)
 		}
 	}
 
 	return result
+}
+
+func resolveSectorOwnerFrequency(owners []string, lookup map[string]string) (string, bool) {
+	for _, owner := range owners {
+		if frequency, ok := lookup[owner]; ok {
+			return frequency, true
+		}
+	}
+
+	return "", false
+}
+
+func nonAirborneOwners(owners []string, airborneSet map[string]struct{}) []string {
+	filtered := make([]string, 0, len(owners))
+	for _, owner := range owners {
+		if _, ok := airborneSet[owner]; ok {
+			continue
+		}
+		filtered = append(filtered, owner)
+	}
+
+	return filtered
 }
 
 // matchScore returns how many of the sector's active runways are in the

@@ -117,6 +117,8 @@ airborne_owners:
   - EKDK_UC_CTR
   - EKDK_UN_CTR
 
+airborne_fallback_layout: TWTE
+
 airborne_altitude_agl: 200
 
 airborne_routes:

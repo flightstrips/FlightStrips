@@ -1,4 +1,4 @@
-﻿package config
+package config
 
 import (
 	"slices"
@@ -19,21 +19,23 @@ func GetLayouts(controllers []*Position, active []string) map[string]*string {
 	}
 
 	for _, controller := range controllers {
-		variants, ok := layouts[controller.Name]
-		if !ok {
-			continue
+		if variants, ok := layouts[controller.Name]; ok {
+			for _, v := range variants {
+				if !hasAnyActive(active, v.Active) {
+					continue
+				}
+
+				if !matchesControllers(controllers, v.Online, false) || !matchesControllers(controllers, v.Offline, true) {
+					continue
+				}
+
+				result[controller.Frequency] = &v.Layout
+			}
 		}
 
-		for _, v := range variants {
-			if !hasAnyActive(active, v.Active) {
-				continue
-			}
-
-			if !matchesControllers(controllers, v.Online, false) || !matchesControllers(controllers, v.Offline, true) {
-				continue
-			}
-
-			result[controller.Frequency] = &v.Layout
+		if result[controller.Frequency] == nil && airborneFallbackLayout != "" && isAirborneOwner(controller.Name) {
+			layout := airborneFallbackLayout
+			result[controller.Frequency] = &layout
 		}
 	}
 
@@ -70,4 +72,14 @@ func matchesControllers(controllers []*Position, required []string, offline bool
 	}
 
 	return offline
+}
+
+func isAirborneOwner(positionName string) bool {
+	for _, owner := range airborneOwners {
+		if owner == positionName {
+			return true
+		}
+	}
+
+	return false
 }

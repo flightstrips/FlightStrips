@@ -1,8 +1,39 @@
 import { useContext } from 'react';
 import { useStore } from 'zustand';
+import type { FrontendController } from '@/api/models.ts';
 import { type WebSocketState } from './store.ts';
 import { WebSocketStoreContext } from './store-context.ts';
 export { useUserRating } from './user-rating-context.ts';
+
+const DELIVERY_SECTORS = ['DEL'];
+const APRON_SECTORS = ['AA', 'AD'];
+const TOWER_SECTORS = ['TE', 'TW', 'GW'];
+
+const normalizeOwnedSector = (sector: string) => {
+  if (sector === 'GWA' || sector === 'GWD') {
+    return 'GW';
+  }
+
+  return sector;
+};
+
+const ownsAnySector = (controller: FrontendController | undefined, sectors: string[]) => {
+  if (!controller) {
+    return false;
+  }
+
+  const ownedSectors = new Set((controller.owned_sectors ?? []).map(normalizeOwnedSector));
+  return sectors.some((sector) => ownedSectors.has(sector));
+};
+
+const controllerOwnsDeliverySector = (controller: FrontendController | undefined) =>
+  ownsAnySector(controller, DELIVERY_SECTORS) || controller?.section === 'DEL';
+
+const controllerOwnsApronSector = (controller: FrontendController | undefined) =>
+  ownsAnySector(controller, APRON_SECTORS) || controller?.section === 'GND';
+
+export const controllerOwnsTowerSectors = (controller: FrontendController | undefined) =>
+  ownsAnySector(controller, TOWER_SECTORS) || controller?.section === 'TWR';
 
 export const useWebSocketStore = <T,>(selector: (state: WebSocketState) => T): T => {
   const store = useContext(WebSocketStoreContext);
@@ -46,21 +77,21 @@ export const useTransitionAltitude = () => useWebSocketStore((state) => state.tr
 export const useLowerPositionOnline = () =>
   useWebSocketStore((state) =>
     state.controllers.some(
-      (c) => (c.section === "DEL" || c.section === "GND") && c.position !== state.position
+      (c) => c.position !== state.position && (controllerOwnsDeliverySector(c) || controllerOwnsApronSector(c))
     )
   );
 
 export const useDelOnline = () =>
   useWebSocketStore((state) =>
     state.controllers.some(
-      (c) => c.section === "DEL" && c.position !== state.position
+      (c) => c.position !== state.position && controllerOwnsDeliverySector(c)
     )
   );
 
 export const useApronOnline = () =>
   useWebSocketStore((state) =>
     state.controllers.some(
-      (c) => c.section === "GND" && c.position !== state.position
+      (c) => c.position !== state.position && controllerOwnsApronSector(c)
     )
   );
 
@@ -74,13 +105,13 @@ export const useCtwrOnline = () =>
 export const useTwrOnline = () =>
   useWebSocketStore((state) =>
     state.controllers.some(
-      (c) => c.section === "TWR" && c.position !== state.position
+      (c) => c.position !== state.position && controllerOwnsTowerSectors(c)
     )
   );
 
 export const useIsTwr = () =>
   useWebSocketStore((state) =>
-    state.controllers.find((c) => c.position === state.position)?.section === "TWR"
+    controllerOwnsTowerSectors(state.controllers.find((c) => c.position === state.position))
   );
 
 export const useIsClrDel = () =>

@@ -520,32 +520,27 @@ func TestAssumeStripCoordination_EsArrivalUsesAssumeOnly(t *testing.T) {
 	assert.Empty(t, esHub.AssumeAndDrops, "manual FS assume for ES arrival must not drop tracking in ES")
 }
 
-func TestMoveToBay_TwyArrDropsTrackingInEsForTowerOwner(t *testing.T) {
+func TestHandleArrivalPositionUpdate_DropsTrackingInEsOnTouchdownForAirborneOwner(t *testing.T) {
+	injectTestRunway(t)
 	t.Cleanup(config.SetPositionsForTest([]config.Position{
-		{Name: "EKCH_M_TWR", Frequency: "118.105", Section: "TWR"},
+		{Name: "EKCH_W_APP", Frequency: "119.805", Section: "APP"},
 	}))
 
-	const ownerPos = "118.105"
-	const ownerCid = "CID-TWR"
+	const ownerPos = "119.805"
+	const ownerCid = "CID-APP"
 
-	cur := models.Strip{
+	strip := &models.Strip{
 		ID:          80,
 		Callsign:    "NAX400",
-		Bay:         shared.BAY_RWY_ARR,
+		Bay:         shared.BAY_FINAL,
 		Destination: "EKCH",
 		Owner:       strPtr(ownerPos),
 	}
 
 	stripRepo := &testutil.MockStripRepository{
-		GetMaxSequenceInBayFn: func(_ context.Context, _ int32, _ string) (int32, error) {
-			return 0, nil
-		},
-		UpdateBayAndSequenceFn: func(_ context.Context, _ int32, _ string, bay string, _ int32) (int64, error) {
-			cur.Bay = bay
-			return 1, nil
-		},
+		SetCdmDataFn: func(_ context.Context, _ int32, _ string, _ *models.CdmData) (int64, error) { return 1, nil },
 		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
-			copy := cur
+			copy := *strip
 			return &copy, nil
 		},
 	}
@@ -564,20 +559,16 @@ func TestMoveToBay_TwyArrDropsTrackingInEsForTowerOwner(t *testing.T) {
 	svc.SetControllerRepo(controllerRepo)
 	svc.SetEuroscopeHub(esHub)
 
-	require.NoError(t, svc.MoveToBay(context.Background(), 1, cur.Callsign, shared.BAY_TWY_ARR, true))
+	svc.handleArrivalPositionUpdate(context.Background(), 1, strip.Callsign, insideLat, insideLon, int64(lowAltitude), strip)
 
 	require.Len(t, esHub.DropTrackings, 1)
 	assert.Equal(t, ownerCid, esHub.DropTrackings[0].Cid)
-	assert.Equal(t, cur.Callsign, esHub.DropTrackings[0].Callsign)
+	assert.Equal(t, strip.Callsign, esHub.DropTrackings[0].Callsign)
 }
 
-func TestMoveToBay_TwyArrDropsTrackingInEsForGroundOwner(t *testing.T) {
-	t.Cleanup(config.SetPositionsForTest([]config.Position{
-		{Name: "EKCH_A_GND", Frequency: "121.805", Section: "GND"},
-	}))
-
-	const ownerPos = "121.805"
-	const ownerCid = "CID-GND"
+func TestMoveToBay_TwyArrDoesNotDropTrackingInEs(t *testing.T) {
+	const ownerPos = "118.105"
+	const ownerCid = "CID-TWR"
 
 	cur := models.Strip{
 		ID:          81,
@@ -595,10 +586,6 @@ func TestMoveToBay_TwyArrDropsTrackingInEsForGroundOwner(t *testing.T) {
 			cur.Bay = bay
 			return 1, nil
 		},
-		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
-			copy := cur
-			return &copy, nil
-		},
 	}
 
 	controllerRepo := &testutil.MockControllerRepository{
@@ -616,8 +603,5 @@ func TestMoveToBay_TwyArrDropsTrackingInEsForGroundOwner(t *testing.T) {
 	svc.SetEuroscopeHub(esHub)
 
 	require.NoError(t, svc.MoveToBay(context.Background(), 1, cur.Callsign, shared.BAY_TWY_ARR, true))
-
-	require.Len(t, esHub.DropTrackings, 1)
-	assert.Equal(t, ownerCid, esHub.DropTrackings[0].Cid)
-	assert.Equal(t, cur.Callsign, esHub.DropTrackings[0].Callsign)
+	assert.Empty(t, esHub.DropTrackings, "TWY_ARR transition must no longer drop tracking; touchdown/ALDT handles it")
 }

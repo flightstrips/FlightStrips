@@ -163,27 +163,11 @@ func (s *StripService) MoveToBay(ctx context.Context, session int32, callsign st
 		return err
 	}
 
-	if bay == shared.BAY_TWY_ARR {
-		s.maybeDropArrivalTrackingInEuroscope(ctx, session, callsign)
-	}
-
 	if bay == shared.BAY_STAND {
 		s.scheduleStandAutoHide(session, callsign)
 	}
 
 	return nil
-}
-
-func positionHasSection(position string, sections ...string) bool {
-	configPosition, err := config.GetPositionBasedOnFrequency(position)
-	if err != nil {
-		return false
-	}
-	return slices.Contains(sections, configPosition.Section)
-}
-
-func isTowerOrGroundPosition(position string) bool {
-	return positionHasSection(position, "TWR", "GND")
 }
 
 func (s *StripService) maybeSyncEsCoordinationAcceptance(session int32, callsign string, coordination *internalModels.Coordination, assumingPosition string) {
@@ -194,7 +178,7 @@ func (s *StripService) maybeSyncEsCoordinationAcceptance(session int32, callsign
 	s.euroscopeHub.SendAssumeOnly(session, *coordination.EsHandoverCid, callsign)
 }
 
-func (s *StripService) maybeDropArrivalTrackingInEuroscope(ctx context.Context, session int32, callsign string) {
+func (s *StripService) maybeDropArrivalTrackingInEuroscope(ctx context.Context, session int32, callsign string, ownerPosition string) {
 	if s.euroscopeHub == nil {
 		return
 	}
@@ -204,21 +188,13 @@ func (s *StripService) maybeDropArrivalTrackingInEuroscope(ctx context.Context, 
 		return
 	}
 
-	strip, err := s.stripRepo.GetByCallsign(ctx, session, callsign)
-	if err != nil {
-		slog.Warn("Failed to re-read TWY_ARR strip before EuroScope drop",
-			slog.String("callsign", callsign),
-			slog.Any("error", err))
-		return
-	}
-
-	if strip.Bay != shared.BAY_TWY_ARR || strip.Owner == nil || *strip.Owner == "" || !isTowerOrGroundPosition(*strip.Owner) {
+	if ownerPosition == "" {
 		return
 	}
 
 	controllers, err := controllerRepo.ListBySession(ctx, session)
 	if err != nil {
-		slog.Warn("Failed to list controllers for TWY_ARR EuroScope drop",
+		slog.Warn("Failed to list controllers for ALDT EuroScope drop",
 			slog.String("callsign", callsign),
 			slog.Any("error", err))
 		return
@@ -226,7 +202,7 @@ func (s *StripService) maybeDropArrivalTrackingInEuroscope(ctx context.Context, 
 
 	sent := false
 	for _, controller := range controllers {
-		if controller.Position != *strip.Owner || controller.Cid == nil || *controller.Cid == "" {
+		if controller.Position != ownerPosition || controller.Cid == nil || *controller.Cid == "" {
 			continue
 		}
 		s.euroscopeHub.SendDropTracking(session, *controller.Cid, callsign)
@@ -234,9 +210,9 @@ func (s *StripService) maybeDropArrivalTrackingInEuroscope(ctx context.Context, 
 	}
 
 	if !sent {
-		slog.Debug("No matching EuroScope client found for TWY_ARR drop",
+		slog.Debug("No matching EuroScope client found for ALDT drop",
 			slog.String("callsign", callsign),
-			slog.String("owner", *strip.Owner))
+			slog.String("owner", ownerPosition))
 	}
 }
 
@@ -1272,6 +1248,9 @@ func (s *StripService) handleArrivalPositionUpdate(ctx context.Context, session 
 		} else {
 			slog.Info("ALDT recorded", slog.String("callsign", callsign), slog.String("aldt", aldt), slog.String("runway", runwayRegion.Name))
 			s.notifyStripUpdate(session, callsign)
+			if strip.Owner != nil {
+				s.maybeDropArrivalTrackingInEuroscope(ctx, session, callsign, *strip.Owner)
+			}
 		}
 		s.autoAcceptPendingCoordination(ctx, session, strip)
 		return

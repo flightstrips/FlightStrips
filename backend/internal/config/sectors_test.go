@@ -244,6 +244,65 @@ func TestGetControllerSectors_KeepsDistinctKeysWithSamePublicName(t *testing.T) 
 	}
 }
 
+func TestGetControllerSectors_FallsBackToAirborneOwnerPriority(t *testing.T) {
+	originalSectors := sectors
+	originalAirborneOwners := airborneOwners
+	t.Cleanup(func() {
+		sectors = originalSectors
+		airborneOwners = originalAirborneOwners
+	})
+
+	sectors = []Sector{
+		{Name: "DEL", Owner: []string{"EKCH_DEL"}},
+	}
+	airborneOwners = []string{"EKCH_W_APP", "EKCH_O_APP"}
+
+	controllers := []*Position{
+		{Name: "EKCH_W_APP", Frequency: "119.805"},
+		{Name: "EKCH_O_APP", Frequency: "118.455"},
+	}
+
+	result := GetControllerSectors(controllers, []string{"22L"})
+
+	if len(result["119.805"]) != 1 {
+		t.Fatalf("expected highest-priority airborne owner to inherit sector, got %d sectors", len(result["119.805"]))
+	}
+	if len(result["118.455"]) != 0 {
+		t.Fatalf("expected lower-priority airborne owner to inherit no sectors, got %d", len(result["118.455"]))
+	}
+	if result["119.805"][0].KeyOrName() != "DEL" {
+		t.Fatalf("expected DEL to be inherited by highest-priority airborne owner, got %q", result["119.805"][0].KeyOrName())
+	}
+}
+
+func TestGetControllerSectors_PrefersConfiguredOwnerOverAirborneFallback(t *testing.T) {
+	originalSectors := sectors
+	originalAirborneOwners := airborneOwners
+	t.Cleanup(func() {
+		sectors = originalSectors
+		airborneOwners = originalAirborneOwners
+	})
+
+	sectors = []Sector{
+		{Name: "DEL", Owner: []string{"EKCH_DEL"}},
+	}
+	airborneOwners = []string{"EKCH_W_APP"}
+
+	controllers := []*Position{
+		{Name: "EKCH_DEL", Frequency: "119.905"},
+		{Name: "EKCH_W_APP", Frequency: "119.805"},
+	}
+
+	result := GetControllerSectors(controllers, []string{"22L"})
+
+	if len(result["119.905"]) != 1 {
+		t.Fatalf("expected configured delivery owner to keep sector, got %d sectors", len(result["119.905"]))
+	}
+	if len(result["119.805"]) != 0 {
+		t.Fatalf("expected airborne fallback to stay idle when configured owner is online, got %d sectors", len(result["119.805"]))
+	}
+}
+
 func TestKeyOrName_ReturnsKeyWhenPresent(t *testing.T) {
 	sector := Sector{Name: "GW", Key: "GWA"}
 

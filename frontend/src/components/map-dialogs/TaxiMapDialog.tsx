@@ -1,4 +1,4 @@
-import { useWebSocketStore, useRunwaySetup, useApronOnline, useTwrOnline, useIsTwr, useMyPosition, useStrip } from "@/store/store-hooks";
+import { controllerOwnsTowerSectors, useWebSocketStore, useRunwaySetup, useApronOnline, useTwrOnline, useIsTwr, useMyPosition, useStrip } from "@/store/store-hooks";
 import { COORDINATION_WITH_APRON_TAXI_MAP_POINTS, COORDINATION_WITH_TWR_TAXI_MAP_POINTS, TAXI_MAP_POINTS } from "@/config/ekch";
 import type { VisibilityContext } from "@/config/ekch";
 import { MAP_BTN_BASE, MapDialogShell, MapEraseControls } from "./MapDialogShell";
@@ -49,9 +49,9 @@ export function TaxiMapDialog({
     strip?.unexpected_change_fields?.includes("release_point") && !!myPosition && strip.owner === myPosition;
 
   const isNotOwner = !!myPosition && !!strip?.owner && strip.owner !== myPosition;
-  const ownerSection = controllers.find((c) => c.position === strip?.owner)?.section;
+  const ownerController = controllers.find((c) => c.position === strip?.owner);
   const coordinationPoints =
-    ownerSection === "TWR"
+    controllerOwnsTowerSectors(ownerController)
       ? COORDINATION_WITH_TWR_TAXI_MAP_POINTS
       : COORDINATION_WITH_APRON_TAXI_MAP_POINTS;
 

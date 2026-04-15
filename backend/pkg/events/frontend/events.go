@@ -158,10 +158,11 @@ type Strip struct {
 }
 
 type Controller struct {
-	Callsign   string `json:"callsign"`
-	Position   string `json:"position"`
-	Identifier string `json:"identifier"`
-	Section    string `json:"section"`
+	Callsign    string   `json:"callsign"`
+	Position    string   `json:"position"`
+	Identifier  string   `json:"identifier"`
+	Section     string   `json:"section"`
+	OwnedSectors []string `json:"owned_sectors"`
 }
 
 type SyncCoordination struct {

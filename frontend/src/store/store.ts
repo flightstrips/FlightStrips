@@ -584,7 +584,17 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
             position: data.position,
             identifier: data.identifier,
             section: data.section,
+            owned_sectors: data.owned_sectors ?? [],
           });
+        } else {
+          state.controllers[controllerIndex] = {
+            ...state.controllers[controllerIndex],
+            callsign: data.callsign,
+            position: data.position,
+            identifier: data.identifier,
+            section: data.section,
+            owned_sectors: data.owned_sectors ?? [],
+          };
         }
       })
     );

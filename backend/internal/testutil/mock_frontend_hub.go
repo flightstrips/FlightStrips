@@ -8,10 +8,11 @@ import (
 
 // ControllerOnlineCall records arguments to SendControllerOnline.
 type ControllerOnlineCall struct {
-	Session    int32
-	Callsign   string
-	Position   string
-	Identifier string
+	Session      int32
+	Callsign     string
+	Position     string
+	Identifier   string
+	OwnedSectors []string
 }
 
 // ControllerOfflineCall records arguments to SendControllerOffline.
@@ -157,8 +158,8 @@ func (m *MockFrontendHub) SendStripUpdate(session int32, callsign string) {
 	m.StripUpdates = append(m.StripUpdates, StripUpdateCall{session, callsign})
 }
 
-func (m *MockFrontendHub) SendControllerOnline(session int32, callsign string, position string, identifier string) {
-	m.ControllerOnlines = append(m.ControllerOnlines, ControllerOnlineCall{session, callsign, position, identifier})
+func (m *MockFrontendHub) SendControllerOnline(session int32, callsign string, position string, identifier string, ownedSectors []string) {
+	m.ControllerOnlines = append(m.ControllerOnlines, ControllerOnlineCall{session, callsign, position, identifier, ownedSectors})
 }
 
 func (m *MockFrontendHub) SendControllerOffline(session int32, callsign string, position string, identifier string) {

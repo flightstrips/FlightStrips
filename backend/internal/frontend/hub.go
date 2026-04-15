@@ -11,6 +11,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"slices"
 	"sync"
 	"sync/atomic"
 
@@ -255,11 +256,16 @@ func (hub *Hub) sendInitialEvent(client *Client) {
 		if pos, err := config.GetPositionBasedOnFrequency(controller.Position); err == nil {
 			section = pos.Section
 		}
+		ownedSectors := []string{}
+		if sector, ok := sectorsMap[controller.Position]; ok {
+			ownedSectors = slices.Clone(sector.Sector)
+		}
 		c := frontend.Controller{
-			Callsign:   controller.Callsign,
-			Position:   controller.Position,
-			Identifier: identifier,
-			Section:    section,
+			Callsign:     controller.Callsign,
+			Position:     controller.Position,
+			Identifier:   identifier,
+			Section:      section,
+			OwnedSectors: ownedSectors,
 		}
 		controllerModels = append(controllerModels, c)
 
@@ -500,17 +506,18 @@ func (hub *Hub) SendStripUpdate(session int32, callsign string) {
 	hub.Broadcast(session, event)
 }
 
-func (hub *Hub) SendControllerOnline(session int32, callsign string, position string, identifier string) {
+func (hub *Hub) SendControllerOnline(session int32, callsign string, position string, identifier string, ownedSectors []string) {
 	section := ""
 	if pos, err := config.GetPositionBasedOnFrequency(position); err == nil {
 		section = pos.Section
 	}
 	event := frontend.ControllerOnlineEvent{
 		Controller: frontend.Controller{
-			Callsign:   callsign,
-			Position:   position,
-			Identifier: identifier,
-			Section:    section,
+			Callsign:     callsign,
+			Position:     position,
+			Identifier:   identifier,
+			Section:      section,
+			OwnedSectors: slices.Clone(ownedSectors),
 		},
 	}
 	hub.Broadcast(session, event)

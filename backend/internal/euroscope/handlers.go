@@ -84,7 +84,7 @@ func handleControllerOnline(ctx context.Context, client *Client, message Message
 		slog.Int("sectorChanges", len(result.SectorChanges)))
 
 	if result.NotifyOnline {
-		client.hub.server.GetFrontendHub().SendControllerOnline(session, event.Callsign, event.Position, "")
+		client.hub.server.GetFrontendHub().SendControllerOnline(session, event.Callsign, event.Position, "", nil)
 	}
 
 	if result.SingleOnPosition && positionName != "" {

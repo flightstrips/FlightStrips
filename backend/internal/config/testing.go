@@ -37,6 +37,14 @@ func SetAirborneOwnersForTest(owners []string) func() {
 	return func() { airborneOwners = old }
 }
 
+// SetAirborneFallbackLayoutForTest replaces the package-level airborneFallbackLayout for testing.
+// Returns a cleanup function that restores the original value.
+func SetAirborneFallbackLayoutForTest(layout string) func() {
+	old := airborneFallbackLayout
+	airborneFallbackLayout = layout
+	return func() { airborneFallbackLayout = old }
+}
+
 // SetMissedApproachHandoverForTest replaces the package-level missedApproachHandover map for testing.
 // Returns a cleanup function that restores the original value.
 func SetMissedApproachHandoverForTest(m map[string]string) func() {

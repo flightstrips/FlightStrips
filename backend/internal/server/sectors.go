@@ -193,11 +193,13 @@ func (s *Server) sendControllerUpdates(sessionId int32, owners []*models.SectorO
 
 	for _, controller := range controllers {
 		identifier := ""
+		ownedSectors := []string{}
 		if sector, ok := ownerMap[controller.Position]; ok {
 			identifier = sector.Identifier
+			ownedSectors = slices.Clone(sector.Sector)
 		}
 
-		s.frontendHub.SendControllerOnline(sessionId, controller.Callsign, controller.Position, identifier)
+		s.frontendHub.SendControllerOnline(sessionId, controller.Callsign, controller.Position, identifier, ownedSectors)
 	}
 
 	return nil

@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.11.0](https://github.com/flightstrips/FlightStrips/compare/plugin/v0.10.0...plugin/v0.11.0) (2026-04-16)
+
+
+### Features
+
+* open app button in ES ([76c9332](https://github.com/flightstrips/FlightStrips/commit/76c933217b5de374106e1d0c8c609e6505c729ae))
+
 ## [0.10.0](https://github.com/flightstrips/FlightStrips/compare/plugin/v0.9.0...plugin/v0.10.0) (2026-04-12)
 
 

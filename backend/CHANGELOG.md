@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.18.0](https://github.com/flightstrips/FlightStrips/compare/backend/v0.17.2...backend/v0.18.0) (2026-04-16)
+
+
+### Features
+
+* top down coverage ([48ddb6e](https://github.com/flightstrips/FlightStrips/commit/48ddb6ed52e1a1848093437aeae86417b0d89bfb))
+
 ## [0.17.2](https://github.com/flightstrips/FlightStrips/compare/backend/v0.17.1...backend/v0.17.2) (2026-04-14)
 
 

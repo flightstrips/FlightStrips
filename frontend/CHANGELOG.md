@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.23.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.22.0...frontend/v0.23.0) (2026-04-16)
+
+
+### Features
+
+* open app button in ES ([76c9332](https://github.com/flightstrips/FlightStrips/commit/76c933217b5de374106e1d0c8c609e6505c729ae))
+* top down coverage ([48ddb6e](https://github.com/flightstrips/FlightStrips/commit/48ddb6ed52e1a1848093437aeae86417b0d89bfb))
+
 ## [0.22.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.21.1...frontend/v0.22.0) (2026-04-14)
 
 

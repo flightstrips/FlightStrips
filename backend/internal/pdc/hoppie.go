@@ -261,6 +261,42 @@ func buildPDCClearance(options ClearanceOptions) string {
 	return buildHoppieMessage(options.Sequence, sb.String(), MsgPDCClearance)
 }
 
+func buildWebPDCClearance(options ClearanceOptions) string {
+	parts := []string{
+		fmt.Sprintf("CLRD TO: %s", options.Destination),
+		fmt.Sprintf("RWY: %s", options.Runway),
+	}
+
+	if options.Heading != "" {
+		parts = append(parts, fmt.Sprintf("HDG: %s", options.Heading))
+	}
+	if options.ClimbTo != "" {
+		parts = append(parts, fmt.Sprintf("CLIMB TO: %s", options.ClimbTo))
+	}
+	if options.Vectors != "" {
+		parts = append(parts, fmt.Sprintf("VECTORS: %s", options.Vectors))
+	}
+	if options.SID != "" {
+		parts = append(parts, fmt.Sprintf("SID: %s", options.SID))
+	}
+
+	parts = append(parts,
+		fmt.Sprintf("SQK: %s", options.Squawk),
+		fmt.Sprintf("ATIS %s", options.Atis),
+		fmt.Sprintf("NEXT FRQ: %s", options.NextFrequency),
+		fmt.Sprintf("Departure frequency %s", options.DepartureFrequency),
+	)
+
+	clearance := strings.Join(parts, " ")
+	clearance += ". Check charts for confirmation."
+
+	if options.Remarks != "" {
+		clearance += fmt.Sprintf(" %s", options.Remarks)
+	}
+
+	return clearance
+}
+
 func getFlagsForMessage(msgType MessageType) string {
 	if flag, ok := HoppieFlags[msgType]; ok {
 		return flag

@@ -7,8 +7,6 @@ package database
 
 import (
 	"context"
-
-	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const getNextMessageSequence = `-- name: GetNextMessageSequence :one
@@ -31,71 +29,4 @@ func (q *Queries) GetNextPdcSequence(ctx context.Context, id int32) (int32, erro
 	var pdc_sequence int32
 	err := row.Scan(&pdc_sequence)
 	return pdc_sequence, err
-}
-
-const setPdcMessageSent = `-- name: SetPdcMessageSent :exec
-UPDATE strips
-SET pdc_state = $3, pdc_message_sequence = $4, pdc_message_sent = $5, pdc_request_remarks = NULL
-WHERE callsign = $1 AND session = $2
-`
-
-type SetPdcMessageSentParams struct {
-	Callsign           string
-	Session            int32
-	PdcState           string
-	PdcMessageSequence *int32
-	PdcMessageSent     pgtype.Timestamp
-}
-
-func (q *Queries) SetPdcMessageSent(ctx context.Context, arg SetPdcMessageSentParams) error {
-	_, err := q.db.Exec(ctx, setPdcMessageSent,
-		arg.Callsign,
-		arg.Session,
-		arg.PdcState,
-		arg.PdcMessageSequence,
-		arg.PdcMessageSent,
-	)
-	return err
-}
-
-const setPdcRequested = `-- name: SetPdcRequested :exec
-UPDATE strips
-SET pdc_state = $3, pdc_requested_at = $4, pdc_request_remarks = $5
-WHERE callsign = $1 AND session = $2
-`
-
-type SetPdcRequestedParams struct {
-	Callsign          string
-	Session           int32
-	PdcState          string
-	PdcRequestedAt    pgtype.Timestamp
-	PdcRequestRemarks *string
-}
-
-func (q *Queries) SetPdcRequested(ctx context.Context, arg SetPdcRequestedParams) error {
-	_, err := q.db.Exec(ctx, setPdcRequested,
-		arg.Callsign,
-		arg.Session,
-		arg.PdcState,
-		arg.PdcRequestedAt,
-		arg.PdcRequestRemarks,
-	)
-	return err
-}
-
-const updatePdcStatus = `-- name: UpdatePdcStatus :exec
-UPDATE strips
-SET pdc_state = $3, pdc_request_remarks = NULL
-WHERE callsign = $1 AND session = $2
-`
-
-type UpdatePdcStatusParams struct {
-	Callsign string
-	Session  int32
-	PdcState string
-}
-
-func (q *Queries) UpdatePdcStatus(ctx context.Context, arg UpdatePdcStatusParams) error {
-	_, err := q.db.Exec(ctx, updatePdcStatus, arg.Callsign, arg.Session, arg.PdcState)
-	return err
 }

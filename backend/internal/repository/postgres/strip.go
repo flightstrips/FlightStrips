@@ -38,9 +38,30 @@ func unmarshalCdmData(raw []byte) (*models.CdmData, error) {
 	return data.Normalize(), nil
 }
 
+func marshalPdcData(data *models.PdcData) ([]byte, error) {
+	return json.Marshal(data.Normalize())
+}
+
+func unmarshalPdcData(raw []byte) (*models.PdcData, error) {
+	if len(raw) == 0 {
+		return (&models.PdcData{}).Normalize(), nil
+	}
+
+	var data models.PdcData
+	if err := json.Unmarshal(raw, &data); err != nil {
+		return nil, err
+	}
+
+	return data.Normalize(), nil
+}
+
 // stripToModel converts database.Strip to models.Strip
 func stripToModel(db database.Strip) (*models.Strip, error) {
 	cdmData, err := unmarshalCdmData(db.CdmData)
+	if err != nil {
+		return nil, err
+	}
+	pdcData, err := unmarshalPdcData(db.PdcData)
 	if err != nil {
 		return nil, err
 	}
@@ -76,14 +97,15 @@ func stripToModel(db database.Strip) (*models.Strip, error) {
 		PositionLongitude:        db.PositionLongitude,
 		PositionAltitude:         db.PositionAltitude,
 		CdmData:                  cdmData,
+		PdcData:                  pdcData,
 		NextOwners:               db.NextOwners,
 		PreviousOwners:           db.PreviousOwners,
 		ReleasePoint:             db.ReleasePoint,
-		PdcState:                 db.PdcState,
-		PdcRequestRemarks:        db.PdcRequestRemarks,
-		PdcRequestedAt:           PgTimestampToTime(db.PdcRequestedAt),
-		PdcMessageSequence:       db.PdcMessageSequence,
-		PdcMessageSent:           PgTimestampToTime(db.PdcMessageSent),
+		PdcState:                 pdcData.State,
+		PdcRequestRemarks:        pdcData.RequestRemarks,
+		PdcRequestedAt:           pdcData.RequestedAt,
+		PdcMessageSequence:       pdcData.MessageSequence,
+		PdcMessageSent:           pdcData.MessageSent,
 		Marked:                   db.Marked,
 		Registration:             db.Registration,
 		TrackingController:       db.TrackingController,
@@ -633,34 +655,80 @@ func (r *stripRepository) UpdateReleasePoint(ctx context.Context, session int32,
 	})
 }
 
+func cloneTimePtr(value *time.Time) *time.Time {
+	if value == nil {
+		return nil
+	}
+	cloned := *value
+	return &cloned
+}
+
+func cloneStringPtr(value *string) *string {
+	if value == nil {
+		return nil
+	}
+	cloned := *value
+	return &cloned
+}
+
+func cloneInt32Ptr(value *int32) *int32 {
+	if value == nil {
+		return nil
+	}
+	cloned := *value
+	return &cloned
+}
+
+// SetPdcData updates the JSON-backed PDC payload for a strip.
+func (r *stripRepository) SetPdcData(ctx context.Context, session int32, callsign string, data *models.PdcData) error {
+	pdcData, err := marshalPdcData(data)
+	if err != nil {
+		return err
+	}
+
+	return r.queries.SetPdcData(ctx, database.SetPdcDataParams{
+		Session:  session,
+		Callsign: callsign,
+		PdcData:  pdcData,
+	})
+}
+
+func (r *stripRepository) updatePdcData(ctx context.Context, session int32, callsign string, mutate func(data *models.PdcData)) error {
+	strip, err := r.GetByCallsign(ctx, session, callsign)
+	if err != nil {
+		return err
+	}
+
+	data := strip.PdcData.Clone()
+	mutate(data)
+
+	return r.SetPdcData(ctx, session, callsign, data)
+}
+
 // SetPdcRequested sets PDC requested state, timestamp, and request remarks
 func (r *stripRepository) SetPdcRequested(ctx context.Context, session int32, callsign string, pdcState string, pdcRequestedAt *time.Time, pdcRequestRemarks *string) error {
-	return r.queries.SetPdcRequested(ctx, database.SetPdcRequestedParams{
-		Callsign:          callsign,
-		Session:           session,
-		PdcState:          pdcState,
-		PdcRequestedAt:    TimeToPgTimestamp(pdcRequestedAt),
-		PdcRequestRemarks: pdcRequestRemarks,
+	return r.updatePdcData(ctx, session, callsign, func(data *models.PdcData) {
+		data.State = pdcState
+		data.RequestedAt = cloneTimePtr(pdcRequestedAt)
+		data.RequestRemarks = cloneStringPtr(pdcRequestRemarks)
 	})
 }
 
 // SetPdcMessageSent sets PDC message sent state, sequence, and timestamp
 func (r *stripRepository) SetPdcMessageSent(ctx context.Context, session int32, callsign string, pdcState string, pdcMessageSequence *int32, pdcMessageSent *time.Time) error {
-	return r.queries.SetPdcMessageSent(ctx, database.SetPdcMessageSentParams{
-		Callsign:           callsign,
-		Session:            session,
-		PdcState:           pdcState,
-		PdcMessageSequence: pdcMessageSequence,
-		PdcMessageSent:     TimeToPgTimestamp(pdcMessageSent),
+	return r.updatePdcData(ctx, session, callsign, func(data *models.PdcData) {
+		data.State = pdcState
+		data.MessageSequence = cloneInt32Ptr(pdcMessageSequence)
+		data.MessageSent = cloneTimePtr(pdcMessageSent)
+		data.RequestRemarks = nil
 	})
 }
 
 // UpdatePdcStatus updates only the PDC state
 func (r *stripRepository) UpdatePdcStatus(ctx context.Context, session int32, callsign string, pdcState string) error {
-	return r.queries.UpdatePdcStatus(ctx, database.UpdatePdcStatusParams{
-		Callsign: callsign,
-		Session:  session,
-		PdcState: pdcState,
+	return r.updatePdcData(ctx, session, callsign, func(data *models.PdcData) {
+		data.State = pdcState
+		data.RequestRemarks = nil
 	})
 }
 

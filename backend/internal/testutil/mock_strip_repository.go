@@ -55,6 +55,7 @@ type MockStripRepository struct {
 	AppendUnexpectedChangeFieldFn   func(ctx context.Context, session int32, callsign string, fieldName string) error
 	RemoveUnexpectedChangeFieldFn   func(ctx context.Context, session int32, callsign string, fieldName string) error
 	AppendControllerModifiedFieldFn func(ctx context.Context, session int32, callsign string, fieldName string) error
+	SetPdcDataFn                    func(ctx context.Context, session int32, callsign string, data *models.PdcData) error
 	SetPdcRequestedFn               func(ctx context.Context, session int32, callsign string, pdcState string, pdcRequestedAt *time.Time, pdcRequestRemarks *string) error
 	SetPdcMessageSentFn             func(ctx context.Context, session int32, callsign string, pdcState string, pdcMessageSequence *int32, pdcMessageSent *time.Time) error
 	UpdatePdcStatusFn               func(ctx context.Context, session int32, callsign string, pdcState string) error
@@ -390,6 +391,13 @@ func (m *MockStripRepository) SetPdcRequested(ctx context.Context, session int32
 		panic("unexpected call to MockStripRepository.SetPdcRequested")
 	}
 	return m.SetPdcRequestedFn(ctx, session, callsign, pdcState, pdcRequestedAt, pdcRequestRemarks)
+}
+
+func (m *MockStripRepository) SetPdcData(ctx context.Context, session int32, callsign string, data *models.PdcData) error {
+	if m.SetPdcDataFn == nil {
+		panic("unexpected call to MockStripRepository.SetPdcData")
+	}
+	return m.SetPdcDataFn(ctx, session, callsign, data)
 }
 
 func (m *MockStripRepository) SetPdcMessageSent(ctx context.Context, session int32, callsign string, pdcState string, pdcMessageSequence *int32, pdcMessageSent *time.Time) error {

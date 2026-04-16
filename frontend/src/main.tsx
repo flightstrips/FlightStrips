@@ -14,6 +14,8 @@ import Layout from "@/pages/layout";
 import Dashboard from "@/pages/dashboard";
 import AppPage from "@/pages/app";
 import PluginAuthComplete from "@/pages/plugin-auth-complete";
+import PilotLayout from "@/pages/pilot-layout";
+import PilotFlightPage from "@/pages/pilot-flight";
 import { withAuthenticationRequired } from '@auth0/auth0-react';
 import DocsRouter from "@/pages/docs/DocsRouter";
 import { ThemeSync } from "@/components/public/ThemeSync";
@@ -35,6 +37,9 @@ createRoot(document.getElementById('root')!).render(
           <Route path="/privacy" element={<Privacy/>}/>
           <Route path="/data-handling" element={<DataHandling/>}/>
           <Route path="/contact" element={<Contact/>}/>
+          <Route path="/pilot" element={<PilotLayout />}>
+            <Route index element={<PilotFlightPage/>}/>
+          </Route>
           <Route path="/app" element={<AppPage />}/>
           <Route path="/plugin-auth-complete" element={<PluginAuthComplete/>}/>
           <Route element={<MyProtectedComponent/>}>

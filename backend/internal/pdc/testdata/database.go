@@ -71,7 +71,7 @@ func SetupTestDB(t *testing.T) (*pgxpool.Pool, *database.Queries) {
 // SeedTestSession inserts a test session with realistic sector owners including an
 // airborne controller (EKCH_K_DEP, 124.980) so PDC frequency lookup works correctly.
 func SeedTestSession(t *testing.T, queries *database.Queries) int32 {
-	return SeedTestSessionWithSectors(t, queries, []database.InsertSectorOwnersParams{
+	return SeedTestSessionNamedWithSectors(t, queries, "LIVE", []database.InsertSectorOwnersParams{
 		{
 			Sector:     []string{"AA", "AD", "DEL", "GW", "SQ", "TE", "TW"},
 			Position:   "118.105", // EKCH_A_TWR
@@ -87,6 +87,11 @@ func SeedTestSession(t *testing.T, queries *database.Queries) int32 {
 
 // SeedTestSessionWithSectors inserts a test session with the provided sector owners.
 func SeedTestSessionWithSectors(t *testing.T, queries *database.Queries, sectors []database.InsertSectorOwnersParams) int32 {
+	return SeedTestSessionNamedWithSectors(t, queries, "LIVE", sectors)
+}
+
+// SeedTestSessionNamedWithSectors inserts a test session with a custom session name and provided sector owners.
+func SeedTestSessionNamedWithSectors(t *testing.T, queries *database.Queries, name string, sectors []database.InsertSectorOwnersParams) int32 {
 	ctx := context.Background()
 
 	// First insert the airport (required by foreign key)
@@ -96,7 +101,7 @@ func SeedTestSessionWithSectors(t *testing.T, queries *database.Queries, sectors
 	}
 
 	sessionID, err := queries.InsertSession(ctx, database.InsertSessionParams{
-		Name:    "LIVE",
+		Name:    name,
 		Airport: "EKCH",
 	})
 	require.NoError(t, err)

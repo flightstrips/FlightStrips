@@ -17,7 +17,7 @@ export function ThemeSync() {
 
   useEffect(() => {
     const root = document.getElementById("root");
-    const isSelectablePublicPage = SELECTABLE_PUBLIC_PATHS.has(pathname);
+    const isSelectablePublicPage = SELECTABLE_PUBLIC_PATHS.has(pathname) || pathname.startsWith("/pilot");
 
     document.documentElement.classList.toggle("public-content-page", isSelectablePublicPage);
     document.body.classList.toggle("public-content-page", isSelectablePublicPage);

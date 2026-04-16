@@ -2,12 +2,14 @@ package pdc
 
 import (
 	"FlightStrips/internal/database"
+	"FlightStrips/internal/models"
 	"FlightStrips/internal/pdc/mocks"
 	"FlightStrips/internal/pdc/testdata"
 	"FlightStrips/internal/repository/postgres"
 	"FlightStrips/internal/shared"
 	pkgModels "FlightStrips/pkg/models"
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"testing"
@@ -54,6 +56,24 @@ type PDCIntegrationTestSuite struct {
 
 func stringPtr(value string) *string {
 	return &value
+}
+
+func readStripPdcState(t *testing.T, strip database.Strip) string {
+	t.Helper()
+
+	data := readStripPdcData(t, strip)
+	return data.State
+}
+
+func readStripPdcData(t *testing.T, strip database.Strip) *models.PdcData {
+	t.Helper()
+
+	var data models.PdcData
+	if len(strip.PdcData) > 0 {
+		require.NoError(t, json.Unmarshal(strip.PdcData, &data))
+	}
+
+	return data.Normalize()
 }
 
 func (suite *PDCIntegrationTestSuite) SetupTest(t *testing.T) {
@@ -144,7 +164,155 @@ func TestIssueClearanceFlow(t *testing.T) {
 		Callsign: callsign,
 	})
 	require.NoError(t, err)
-	assert.Equal(t, "CLEARED", strip.PdcState)
+	assert.Equal(t, "CLEARED", readStripPdcState(t, strip))
+}
+
+func TestSubmitWebPDCRequest_AutoIssuesClearanceWithoutHoppie(t *testing.T) {
+	t.Parallel()
+	suite := &PDCIntegrationTestSuite{}
+	suite.SetupTest(t)
+
+	ctx := context.Background()
+	sessionID := int32(1)
+	callsign := "SAS123"
+
+	suite.mockStrip.On("MoveToBay", mock.Anything, sessionID, callsign, shared.BAY_CLEARED, true).Return(nil)
+	suite.mockFrontend.On("SendPdcStateChange", sessionID, callsign, "CLEARED", "").Return()
+
+	err := suite.service.SubmitWebPDCRequest(ctx, callsign, "B", "A12", "", "A320")
+	require.NoError(t, err)
+
+	strip, err := suite.queries.GetStrip(ctx, database.GetStripParams{
+		Session:  sessionID,
+		Callsign: callsign,
+	})
+	require.NoError(t, err)
+
+	pdcData := readStripPdcData(t, strip)
+	require.NotNil(t, pdcData.RequestChannel)
+	require.NotNil(t, pdcData.Web)
+	require.NotNil(t, pdcData.Web.Atis)
+	require.NotNil(t, pdcData.Web.ClearanceText)
+	assert.Equal(t, models.PdcChannelWeb, *pdcData.RequestChannel)
+	assert.Equal(t, "B", *pdcData.Web.Atis)
+	assert.Nil(t, pdcData.Web.Stand)
+	assert.Contains(t, *pdcData.Web.ClearanceText, "CLRD TO: ESSA")
+	assert.Contains(t, *pdcData.Web.ClearanceText, "RWY: 22L")
+	assert.Contains(t, *pdcData.Web.ClearanceText, "SID: VEMBO2E")
+	assert.Contains(t, *pdcData.Web.ClearanceText, "SQK: 2401")
+	assert.Contains(t, *pdcData.Web.ClearanceText, "ATIS B")
+	assert.Contains(t, *pdcData.Web.ClearanceText, "NEXT FRQ: 118.105")
+	assert.Contains(t, *pdcData.Web.ClearanceText, "Departure frequency 124.980")
+	assert.NotContains(t, *pdcData.Web.ClearanceText, "/data2/")
+	assert.NotContains(t, *pdcData.Web.ClearanceText, "@")
+	assert.NotContains(t, *pdcData.Web.ClearanceText, ". . .")
+	assert.Equal(t, string(StateCleared), pdcData.State)
+
+	suite.service.timeoutsMutex.RLock()
+	_, exists := suite.service.timeouts[fmt.Sprintf("%s_%d", callsign, sessionID)]
+	suite.service.timeoutsMutex.RUnlock()
+	assert.True(t, exists, "web-issued clearances must start a confirmation timeout")
+	suite.mockStrip.AssertNotCalled(t, "UpdateStand", mock.Anything, sessionID, callsign, "A12")
+}
+
+func TestSubmitWebPDCRequest_TimesOutWithoutSendingHoppieNoResponse(t *testing.T) {
+	t.Parallel()
+	suite := &PDCIntegrationTestSuite{}
+	suite.SetupTest(t)
+
+	suite.service.timeoutConfig = 100 * time.Millisecond
+
+	ctx := context.Background()
+	sessionID := int32(1)
+	callsign := "SAS123"
+
+	suite.mockStrip.On("MoveToBay", mock.Anything, sessionID, callsign, shared.BAY_CLEARED, true).Return(nil)
+	suite.mockFrontend.On("SendPdcStateChange", sessionID, callsign, "CLEARED", "").Return()
+	suite.mockFrontend.On("SendPdcStateChange", sessionID, callsign, "NO_RESPONSE", "").Return()
+	suite.mockStrip.On("UnclearStrip", mock.Anything, sessionID, callsign, "").Return(nil)
+
+	err := suite.service.SubmitWebPDCRequest(ctx, callsign, "B", "", "", "A320")
+	require.NoError(t, err)
+
+	time.Sleep(200 * time.Millisecond)
+
+	strip, err := suite.queries.GetStrip(ctx, database.GetStripParams{
+		Session:  sessionID,
+		Callsign: callsign,
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "NO_RESPONSE", readStripPdcState(t, strip))
+
+	suite.mockHoppie.AssertNotCalled(t, "SendCPDLC", mock.Anything, mock.Anything, callsign, mock.MatchedBy(func(msg string) bool {
+		return strings.Contains(msg, "ACK NOT RECEIVED") && strings.Contains(msg, "CLEARANCE CANCELLED")
+	}))
+}
+
+func TestSubmitWebPDCRequest_WithRemarksLeavesRequestPending(t *testing.T) {
+	t.Parallel()
+	suite := &PDCIntegrationTestSuite{}
+	suite.SetupTest(t)
+
+	ctx := context.Background()
+	sessionID := int32(1)
+	callsign := "SAS123"
+	remarks := "REQUEST PUSH APPROVAL FIRST"
+
+	suite.mockFrontend.On("SendPdcStateChange", sessionID, callsign, "REQUESTED", remarks).Return()
+
+	err := suite.service.SubmitWebPDCRequest(ctx, callsign, "C", "", remarks, "A320")
+	require.NoError(t, err)
+
+	strip, err := suite.queries.GetStrip(ctx, database.GetStripParams{
+		Session:  sessionID,
+		Callsign: callsign,
+	})
+	require.NoError(t, err)
+
+	pdcData := readStripPdcData(t, strip)
+	require.NotNil(t, pdcData.RequestChannel)
+	require.NotNil(t, pdcData.Web)
+	require.NotNil(t, pdcData.Web.Atis)
+	assert.Equal(t, models.PdcChannelWeb, *pdcData.RequestChannel)
+	assert.Equal(t, "C", *pdcData.Web.Atis)
+	assert.Nil(t, pdcData.Web.ClearanceText)
+	assert.Equal(t, remarks, valueOrEmpty(pdcData.RequestRemarks))
+	assert.Equal(t, string(StateRequested), pdcData.State)
+}
+
+func TestSubmitWebPDCRequest_SearchesAllSessionsOutsideLiveMode(t *testing.T) {
+	t.Parallel()
+
+	dbPool, queries := testdata.SetupTestDB(t)
+	sessionRepo := postgres.NewSessionRepository(dbPool)
+	stripRepo := postgres.NewStripRepository(dbPool)
+	sectorRepo := postgres.NewSectorOwnerRepository(dbPool)
+
+	service := NewPDCService(&hoppieClientAdapter{HoppieClient: new(mocks.HoppieClient)}, sessionRepo, stripRepo, sectorRepo, nil)
+
+	sessionID := testdata.SeedTestSessionNamedWithSectors(t, queries, "DEV", []database.InsertSectorOwnersParams{
+		{
+			Sector:     []string{"AA", "AD", "DEL", "GW", "SQ", "TE", "TW"},
+			Position:   "118.105",
+			Identifier: "EKCH_A_TWR",
+		},
+		{
+			Sector:     []string{"DK"},
+			Position:   "124.980",
+			Identifier: "EKCH_K_DEP",
+		},
+	})
+	testdata.SeedTestStrip(t, queries, sessionID, "SAS999")
+
+	t.Cleanup(func() {
+		testdata.CleanupTestSession(t, queries, sessionID)
+	})
+
+	match, err := service.FindWebStripByCallsign(context.Background(), "SAS999")
+	require.NoError(t, err)
+	assert.Equal(t, sessionID, match.SessionID)
+	require.NotNil(t, match.Strip)
+	assert.Equal(t, "SAS999", match.Strip.Callsign)
 }
 
 func TestIssueClearance_UsesAssignedSquawkInMessage(t *testing.T) {
@@ -224,7 +392,7 @@ func TestHandleWilcoFlow(t *testing.T) {
 		Callsign: callsign,
 	})
 	require.NoError(t, err)
-	assert.Equal(t, "CONFIRMED", strip.PdcState)
+	assert.Equal(t, "CONFIRMED", readStripPdcState(t, strip))
 }
 
 func TestHandleUnableFlow(t *testing.T) {
@@ -274,7 +442,7 @@ func TestHandleUnableFlow(t *testing.T) {
 		Callsign: callsign,
 	})
 	require.NoError(t, err)
-	assert.Equal(t, "FAILED", strip.PdcState)
+	assert.Equal(t, "FAILED", readStripPdcState(t, strip))
 }
 
 func TestTimeoutExpiryFlow(t *testing.T) {
@@ -319,7 +487,7 @@ func TestTimeoutExpiryFlow(t *testing.T) {
 		Callsign: callsign,
 	})
 	require.NoError(t, err)
-	assert.Equal(t, "NO_RESPONSE", strip.PdcState)
+	assert.Equal(t, "NO_RESPONSE", readStripPdcState(t, strip))
 }
 
 func TestRevertToVoiceFlow(t *testing.T) {
@@ -362,7 +530,7 @@ func TestRevertToVoiceFlow(t *testing.T) {
 		Callsign: callsign,
 	})
 	require.NoError(t, err)
-	assert.Equal(t, "REVERT_TO_VOICE", strip.PdcState)
+	assert.Equal(t, "REVERT_TO_VOICE", readStripPdcState(t, strip))
 }
 
 // ===== ERROR SCENARIO TESTS =====
@@ -474,7 +642,7 @@ func TestProcessPDCRequest_AircraftTypeWithEquipmentSuffix(t *testing.T) {
 		Callsign: callsign,
 	})
 	require.NoError(t, err)
-	assert.Equal(t, "CLEARED", strip.PdcState)
+	assert.Equal(t, "CLEARED", readStripPdcState(t, strip))
 }
 
 func TestProcessPDCRequest_Success(t *testing.T) {
@@ -524,7 +692,7 @@ func TestProcessPDCRequest_Success(t *testing.T) {
 		Callsign: callsign,
 	})
 	require.NoError(t, err)
-	assert.Equal(t, "CLEARED", strip.PdcState)
+	assert.Equal(t, "CLEARED", readStripPdcState(t, strip))
 }
 
 func TestProcessPDCRequest_WithRemarksDoesNotAutoIssue(t *testing.T) {
@@ -564,9 +732,10 @@ func TestProcessPDCRequest_WithRemarksDoesNotAutoIssue(t *testing.T) {
 		Callsign: callsign,
 	})
 	require.NoError(t, err)
-	assert.Equal(t, "REQUESTED", strip.PdcState)
-	require.NotNil(t, strip.PdcRequestRemarks)
-	assert.Equal(t, "NO SID", *strip.PdcRequestRemarks)
+	stripPdc := readStripPdcData(t, strip)
+	assert.Equal(t, "REQUESTED", stripPdc.State)
+	require.NotNil(t, stripPdc.RequestRemarks)
+	assert.Equal(t, "NO SID", *stripPdc.RequestRemarks)
 }
 
 func TestProcessPDCRequest_ARINCWithRemarksDoesNotAutoIssue(t *testing.T) {
@@ -606,9 +775,10 @@ func TestProcessPDCRequest_ARINCWithRemarksDoesNotAutoIssue(t *testing.T) {
 		Callsign: callsign,
 	})
 	require.NoError(t, err)
-	assert.Equal(t, "REQUESTED", strip.PdcState)
-	require.NotNil(t, strip.PdcRequestRemarks)
-	assert.Equal(t, "NO SID", *strip.PdcRequestRemarks)
+	stripPdc := readStripPdcData(t, strip)
+	assert.Equal(t, "REQUESTED", stripPdc.State)
+	require.NotNil(t, stripPdc.RequestRemarks)
+	assert.Equal(t, "NO SID", *stripPdc.RequestRemarks)
 }
 
 func TestProcessPDCRequest_InvalidAssignedSquawkDoesNotAutoIssue(t *testing.T) {
@@ -646,7 +816,7 @@ func TestProcessPDCRequest_InvalidAssignedSquawkDoesNotAutoIssue(t *testing.T) {
 		Callsign: callsign,
 	})
 	require.NoError(t, err)
-	assert.Equal(t, "REQUESTED", strip.PdcState)
+	assert.Equal(t, "REQUESTED", readStripPdcState(t, strip))
 }
 
 func TestProcessPDCRequest_InactiveDepartureRunwayCreatesFault(t *testing.T) {
@@ -690,7 +860,7 @@ func TestProcessPDCRequest_InactiveDepartureRunwayCreatesFault(t *testing.T) {
 		Callsign: callsign,
 	})
 	require.NoError(t, err)
-	assert.Equal(t, "REQUESTED_WITH_FAULTS", strip.PdcState)
+	assert.Equal(t, "REQUESTED_WITH_FAULTS", readStripPdcState(t, strip))
 }
 
 func TestProcessPDCRequest_AlreadyCleared(t *testing.T) {

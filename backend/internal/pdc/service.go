@@ -28,6 +28,7 @@ type timeoutTracker struct {
 	callsign  string
 	sessionID int32
 	cid       string
+	web       bool
 }
 
 type sessionInformation struct {
@@ -36,20 +37,21 @@ type sessionInformation struct {
 }
 
 type Service struct {
-	client         HoppieClientInterface
-	sessionRepo    repository.SessionRepository
-	stripRepo      repository.StripRepository
-	sectorRepo     repository.SectorOwnerRepository
-	controllerRepo repository.ControllerRepository
-	frontendHub    shared.FrontendHub
-	euroscopeHub   shared.EuroscopeHub
-	stripService   shared.StripService
-	timeouts       map[string]*timeoutTracker
-	timeoutsMutex  sync.RWMutex
-	timeoutConfig  time.Duration
+	client            HoppieClientInterface
+	sessionRepo       repository.SessionRepository
+	stripRepo         repository.StripRepository
+	sectorRepo        repository.SectorOwnerRepository
+	controllerRepo    repository.ControllerRepository
+	frontendHub       shared.FrontendHub
+	euroscopeHub      shared.EuroscopeHub
+	stripService      shared.StripService
+	timeouts          map[string]*timeoutTracker
+	timeoutsMutex     sync.RWMutex
+	timeoutConfig     time.Duration
+	webLookupLiveOnly bool
 }
 
-func NewPDCService(client *Client, sessionRepo repository.SessionRepository, stripRepo repository.StripRepository, sectorRepo repository.SectorOwnerRepository, controllerRepo repository.ControllerRepository) *Service {
+func NewPDCService(client HoppieClientInterface, sessionRepo repository.SessionRepository, stripRepo repository.StripRepository, sectorRepo repository.SectorOwnerRepository, controllerRepo repository.ControllerRepository) *Service {
 	return &Service{
 		client:         client,
 		sessionRepo:    sessionRepo,
@@ -71,6 +73,22 @@ func (s *Service) SetEuroscopeHub(euroscopeHub shared.EuroscopeHub) {
 
 func (s *Service) SetStripService(stripService shared.StripService) {
 	s.stripService = stripService
+}
+
+func (s *Service) SetWebLookupLiveOnly(liveOnly bool) {
+	s.webLookupLiveOnly = liveOnly
+}
+
+func normalizedStripAircraftType(strip *models.Strip) string {
+	if strip == nil || strip.AircraftType == nil {
+		return ""
+	}
+	return strings.SplitN(*strip.AircraftType, "/", 2)[0]
+}
+
+func stripAircraftTypeMatches(strip *models.Strip, aircraftType string) bool {
+	expected := normalizedStripAircraftType(strip)
+	return expected != "" && strings.EqualFold(expected, strings.TrimSpace(aircraftType))
 }
 
 // Helper functions
@@ -124,6 +142,33 @@ func optionalString(value string) *string {
 	}
 
 	return &value
+}
+
+func valueOrEmpty(value *string) string {
+	if value == nil {
+		return ""
+	}
+
+	return *value
+}
+
+func isWebPDCRequest(strip *models.Strip) bool {
+	return strip != nil &&
+		strip.PdcData != nil &&
+		strip.PdcData.RequestChannel != nil &&
+		strings.EqualFold(*strip.PdcData.RequestChannel, models.PdcChannelWeb) &&
+		strip.PdcData.Web != nil
+}
+
+func (s *Service) updatePdcData(ctx context.Context, sessionID int32, callsign string, mutate func(*models.PdcData)) error {
+	strip, err := s.stripRepo.GetByCallsign(ctx, sessionID, callsign)
+	if err != nil {
+		return err
+	}
+
+	pdcData := strip.PdcData.Clone()
+	mutate(pdcData)
+	return s.stripRepo.SetPdcData(ctx, sessionID, callsign, pdcData)
 }
 
 // Start begins the background polling loop
@@ -240,11 +285,8 @@ func (s *Service) ProcessPDCRequest(ctx context.Context, msg *IncomingMessage, s
 			func(seq int32) string { return buildFlightPlanNotHeld(seq, strip.Origin, req.Callsign) })
 	}
 
-	stripAircraftType := ""
-	if strip.AircraftType != nil {
-		stripAircraftType = strings.SplitN(*strip.AircraftType, "/", 2)[0]
-	}
-	if strip.AircraftType == nil || !strings.EqualFold(stripAircraftType, req.Aircraft) {
+	stripAircraftType := normalizedStripAircraftType(strip)
+	if !stripAircraftTypeMatches(strip, req.Aircraft) {
 		return s.sendErrorAndReturn(ctx, session, req.Callsign,
 			fmt.Errorf("aircraft type mismatch: expected %s, got %s", stripAircraftType, req.Aircraft),
 			func(seq int32) string { return buildInvalidAircraftType(seq, strip.Origin, req.Callsign) })
@@ -324,6 +366,8 @@ func (s *Service) IssueClearance(ctx context.Context, callsign, remarks, cid str
 		return fmt.Errorf("strip not found for PDC clearance: %w", err)
 	}
 
+	webDelivery := isWebPDCRequest(strip)
+
 	// Validate required clearance fields are present in strip
 	if strip.Runway == nil || (strip.Sid == nil && strip.Heading == nil) {
 		return fmt.Errorf("strip missing required clearance data (runway and SID or heading)")
@@ -368,6 +412,10 @@ func (s *Service) IssueClearance(ctx context.Context, callsign, remarks, cid str
 		Remarks:            remarks,
 	}
 
+	if webDelivery && strip.PdcData.Web.Atis != nil && strings.TrimSpace(*strip.PdcData.Web.Atis) != "" {
+		options.Atis = strings.TrimSpace(*strip.PdcData.Web.Atis)
+	}
+
 	if strip.Heading != nil && *strip.Heading != 0 && strip.ClearedAltitude != nil && *strip.ClearedAltitude > 0 {
 		// Get first waypoint of route and make sure it is not the airport and DCT. If the SID is in there be sure only take the first part
 		options.Heading = fmt.Sprintf("%03d", *strip.Heading)
@@ -383,8 +431,10 @@ func (s *Service) IssueClearance(ctx context.Context, callsign, remarks, cid str
 
 	clearance := buildPDCClearance(options)
 
-	if err := s.client.SendCPDLC(ctx, sessionInfo.callsign, callsign, clearance); err != nil {
-		return fmt.Errorf("failed to send clearance: %w", err)
+	if !webDelivery {
+		if err := s.client.SendCPDLC(ctx, sessionInfo.callsign, callsign, clearance); err != nil {
+			return fmt.Errorf("failed to send clearance: %w", err)
+		}
 	}
 
 	now := time.Now().UTC()
@@ -394,13 +444,27 @@ func (s *Service) IssueClearance(ctx context.Context, callsign, remarks, cid str
 		return fmt.Errorf("failed to set PDC message sent: %w", err)
 	}
 
+	if err := s.updatePdcData(ctx, sessionInfo.id, callsign, func(pdcData *models.PdcData) {
+		pdcData.State = string(StateCleared)
+		pdcData.IssuedByCid = optionalString(cid)
+		if webDelivery {
+			if pdcData.Web == nil {
+				pdcData.Web = &models.PdcWebData{}
+			}
+			webClearance := buildWebPDCClearance(options)
+			pdcData.Web.ClearanceText = &webClearance
+		}
+	}); err != nil {
+		return fmt.Errorf("failed to persist issued PDC data: %w", err)
+	}
+
 	if s.stripService != nil {
 		if err := s.stripService.MoveToBay(ctx, sessionInfo.id, callsign, shared.BAY_CLEARED, true); err != nil {
 			slog.ErrorContext(ctx, "PDC Service: Warning - failed to move strip to cleared bay", slog.Any("error", err))
 		}
 	}
 
-	s.StartClearanceTimeout(ctx, strip.Origin, callsign, nextSeq, sessionInfo, cid)
+	s.StartClearanceTimeout(ctx, strip.Origin, callsign, nextSeq, sessionInfo, cid, webDelivery)
 
 	s.notifyStateChange(sessionInfo.id, callsign, StateCleared, "")
 
@@ -440,8 +504,6 @@ func (s *Service) RevertToVoice(ctx context.Context, callsign string, sessionId 
 	if err != nil {
 		return fmt.Errorf("failed to set PDC failed: %w", err)
 	}
-
-	s.notifyStateChange(sessionInfo.id, callsign, StateRevertToVoice, "")
 
 	slog.DebugContext(ctx, "PDC Service: Reverting to voice", slog.String("callsign", callsign))
 	return nil
@@ -622,6 +684,10 @@ func (s *Service) HandleWilco(ctx context.Context, message *IncomingMessage, ses
 	}
 	s.timeoutsMutex.RUnlock()
 
+	if clearanceCid == "" && strip.PdcData != nil && strip.PdcData.IssuedByCid != nil {
+		clearanceCid = *strip.PdcData.IssuedByCid
+	}
+
 	clearedBay := strip.Bay
 	if clearedBay == "" || clearedBay == shared.BAY_UNKNOWN || clearedBay == shared.BAY_NOT_CLEARED {
 		clearedBay = shared.BAY_CLEARED
@@ -656,6 +722,13 @@ func (s *Service) HandleUnable(ctx context.Context, callsign string, session ses
 	cid := ""
 	if exists {
 		cid = tracker.cid
+	}
+
+	if cid == "" {
+		strip, err := s.stripRepo.GetByCallsign(ctx, session.id, callsign)
+		if err == nil && strip.PdcData != nil && strip.PdcData.IssuedByCid != nil {
+			cid = *strip.PdcData.IssuedByCid
+		}
 	}
 
 	s.CancelTimeout(callsign, session.id)
@@ -724,7 +797,7 @@ func (s *Service) SendErrorMessage(ctx context.Context, session sessionInformati
 }
 
 // StartClearanceTimeout starts a timeout that reverts cleared flag if pilot doesn't respond
-func (s *Service) StartClearanceTimeout(ctx context.Context, airport, callsign string, messageId int32, session sessionInformation, cid string) {
+func (s *Service) StartClearanceTimeout(ctx context.Context, airport, callsign string, messageId int32, session sessionInformation, cid string, web bool) {
 	key := fmt.Sprintf("%s_%d", callsign, session.id)
 
 	// Cancel any existing timeout for this callsign
@@ -738,6 +811,7 @@ func (s *Service) StartClearanceTimeout(ctx context.Context, airport, callsign s
 		callsign:  callsign,
 		sessionID: session.id,
 		cid:       cid,
+		web:       web,
 	}
 
 	s.timeoutsMutex.Lock()
@@ -784,19 +858,36 @@ func (s *Service) handleTimeout(ctx context.Context, airport, callsign string, m
 		// Timeout expired - revert cleared flag
 		slog.DebugContext(ctx, "PDC Service: Timeout expired - reverting cleared flag", slog.String("callsign", callsign))
 
-		err := s.setPdcFailed(ctx, callsign, session.id, StateNoResponse, tracker.cid)
+		strip, err := s.stripRepo.GetByCallsign(ctx, session.id, callsign)
+		if err != nil {
+			slog.ErrorContext(ctx, "PDC Service: Failed to reload strip for timeout", slog.String("callsign", callsign), slog.Any("error", err))
+			s.timeoutsMutex.Lock()
+			delete(s.timeouts, key)
+			s.timeoutsMutex.Unlock()
+			return
+		}
+		if strip.PdcState != string(StateCleared) {
+			s.timeoutsMutex.Lock()
+			delete(s.timeouts, key)
+			s.timeoutsMutex.Unlock()
+			return
+		}
+
+		err = s.setPdcFailed(ctx, callsign, session.id, StateNoResponse, tracker.cid)
 		if err != nil {
 			slog.ErrorContext(ctx, "PDC Service: Failed to revert cleared flag", slog.String("callsign", callsign), slog.Any("error", err))
 		}
 
-		seq, err := s.getNextSequence(ctx, session.id)
-		if err != nil {
-			slog.ErrorContext(ctx, "PDC Service: Failed to get next message sequence", slog.Any("error", err))
-		} else {
-			msg := buildNoResponseMessage(seq, messageId, airport, callsign)
-			err = s.client.SendCPDLC(ctx, session.callsign, callsign, msg)
+		if !tracker.web {
+			seq, err := s.getNextSequence(ctx, session.id)
 			if err != nil {
-				slog.ErrorContext(ctx, "PDC Service: Failed to send no response message", slog.Any("error", err))
+				slog.ErrorContext(ctx, "PDC Service: Failed to get next message sequence", slog.Any("error", err))
+			} else {
+				msg := buildNoResponseMessage(seq, messageId, airport, callsign)
+				err = s.client.SendCPDLC(ctx, session.callsign, callsign, msg)
+				if err != nil {
+					slog.ErrorContext(ctx, "PDC Service: Failed to send no response message", slog.Any("error", err))
+				}
 			}
 		}
 
@@ -808,9 +899,15 @@ func (s *Service) handleTimeout(ctx context.Context, airport, callsign string, m
 }
 
 func (s *Service) setPdcFailed(ctx context.Context, callsign string, sessionId int32, state ClearanceState, cid string) error {
-	err := s.stripRepo.UpdatePdcStatus(ctx, sessionId, callsign, string(state))
-	if err != nil {
-		slog.ErrorContext(ctx, "PDC Service: Failed to update PDC status", slog.Any("error", err))
+	if cid == "" {
+		strip, err := s.stripRepo.GetByCallsign(ctx, sessionId, callsign)
+		if err == nil && strip.PdcData != nil && strip.PdcData.IssuedByCid != nil {
+			cid = *strip.PdcData.IssuedByCid
+		}
+	}
+
+	if err := s.stripRepo.UpdatePdcStatus(ctx, sessionId, callsign, string(state)); err != nil {
+		return fmt.Errorf("failed to update PDC status: %w", err)
 	}
 
 	if s.stripService != nil {

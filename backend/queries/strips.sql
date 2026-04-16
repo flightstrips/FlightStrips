@@ -198,6 +198,9 @@ UPDATE strips SET previous_owners = $3 WHERE session = $1 AND callsign = $2;
 -- name: SetCdmData :execrows
 UPDATE strips SET cdm_data = $3 WHERE session = $1 AND callsign = $2;
 
+-- name: SetPdcData :exec
+UPDATE strips SET pdc_data = $3 WHERE session = $1 AND callsign = $2;
+
 -- name: GetCdmData :many
 SELECT callsign, cdm_data FROM strips WHERE session = $1;
 

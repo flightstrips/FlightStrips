@@ -33,6 +33,7 @@ type Strip struct {
 	PositionLongitude        *float64
 	PositionAltitude         *int32
 	CdmData                  *CdmData
+	PdcData                  *PdcData
 	NextOwners               []string
 	PreviousOwners           []string
 	ReleasePoint             *string

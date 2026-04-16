@@ -9,10 +9,12 @@ import (
 	"FlightStrips/internal/frontend"
 	"FlightStrips/internal/metar"
 	"FlightStrips/internal/pdc"
+	"FlightStrips/internal/pilot"
 	"FlightStrips/internal/repository/postgres"
 	"FlightStrips/internal/server"
 	"FlightStrips/internal/services"
 	"FlightStrips/internal/telemetry"
+	"FlightStrips/internal/vatsim"
 	"FlightStrips/internal/websocket"
 	pkgEuroscope "FlightStrips/pkg/events/euroscope"
 	pkgFrontend "FlightStrips/pkg/events/frontend"
@@ -160,14 +162,26 @@ func main() {
 
 	// Initialize PDC Service
 	hoppieLogon := os.Getenv("HOPPIE_LOGON")
-	var pdcService *pdc.Service
+	pdcClient := pdc.HoppieClientInterface(pdc.NoopHoppieClient{})
 	if hoppieLogon != "" {
-		hoppieClient := pdc.NewClient(hoppieLogon)
-		pdcService = pdc.NewPDCService(hoppieClient, sessionRepo, stripRepo, sectorRepo, controllerRepo)
-		pdcService.SetStripService(stripService)
-		slog.Info("PDC Service initialized")
+		pdcClient = pdc.NewClient(hoppieLogon)
+		slog.Info("PDC Hoppie client initialized")
 	} else {
-		slog.Warn("PDC Service not initialized - HOPPIE_LOGON")
+		slog.Warn("PDC Hoppie client disabled - HOPPIE_LOGON not set")
+	}
+	pdcService := pdc.NewPDCService(pdcClient, sessionRepo, stripRepo, sectorRepo, controllerRepo)
+	pdcService.SetStripService(stripService)
+	pdcService.SetWebLookupLiveOnly(isLiveEnvironment(getEnv("ENVIRONMENT", "development")))
+
+	requireLiveCIDVerification := isLiveEnvironment(getEnv("ENVIRONMENT", "development"))
+	var vatsimCache *vatsim.Cache
+	if requireLiveCIDVerification {
+		vatsimCache = vatsim.NewCache(
+			getEnv("VATSIM_STATUS_URL", ""),
+			envDuration("VATSIM_POLL_INTERVAL", 30*time.Second),
+			nil,
+		)
+		slog.Info("VATSIM cache enabled for live web PDC ownership verification")
 	}
 
 	frontendHub := frontend.NewHub(stripService, authenticationService)
@@ -235,8 +249,9 @@ func main() {
 	euroscopeUpgrader := websocket.NewConnectionUpgrader[pkgEuroscope.EventType, *euroscope.Client](euroscopeHub, authenticationService)
 
 	go cdmService.Start(ctx)
-	if pdcService != nil {
-		go pdcService.Start(ctx)
+	go pdcService.Start(ctx)
+	if vatsimCache != nil {
+		go vatsimCache.Start(ctx)
 	}
 	go albHub.Run()
 
@@ -252,6 +267,11 @@ func main() {
 	http.HandleFunc("/euroscopeEvents", euroscopeUpgrader.Upgrade)
 	http.HandleFunc("/frontEndEvents", frontendUpgrader.Upgrade)
 	http.HandleFunc("/albEvents", albHub.Upgrade)
+	apiMux := http.NewServeMux()
+	flightLookup := pdc.NewFlightLookupAdapter(pdcService, sessionRepo)
+	pilot.NewWebAPI(authenticationService, vatsimCache, flightLookup, requireLiveCIDVerification).RegisterRoutes(apiMux)
+	pdc.NewWebAPI(authenticationService, pdcService, vatsimCache, requireLiveCIDVerification).RegisterRoutes(apiMux)
+	http.Handle("/api/", server.APIMiddleware(http.StripPrefix("/api", apiMux)))
 
 	// Wrap with OTEL HTTP instrumentation
 	var handler http.Handler = http.DefaultServeMux
@@ -322,4 +342,13 @@ func envDuration(key string, fallback time.Duration) time.Duration {
 		return fallback
 	}
 	return parsed
+}
+
+func isLiveEnvironment(environment string) bool {
+	switch strings.ToLower(strings.TrimSpace(environment)) {
+	case "live", "prod", "production":
+		return true
+	default:
+		return false
+	}
 }

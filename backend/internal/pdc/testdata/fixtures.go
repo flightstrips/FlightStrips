@@ -28,7 +28,7 @@ func ValidStrip() database.Strip {
 		Squawk:         ptr("2401"),
 		AssignedSquawk: ptr("2401"),
 		Bay:            "NOT_CLEARED",
-		PdcState:       "",
+		PdcData:        []byte(`{}`),
 		CdmData:        []byte(`{"canonical":{}}`),
 	}
 }

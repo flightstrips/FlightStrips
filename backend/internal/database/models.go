@@ -95,10 +95,6 @@ type Strip struct {
 	NextOwners               []string
 	PreviousOwners           []string
 	ReleasePoint             *string
-	PdcState                 string
-	PdcRequestedAt           pgtype.Timestamp
-	PdcMessageSequence       *int32
-	PdcMessageSent           pgtype.Timestamp
 	Marked                   bool
 	Registration             *string
 	TrackingController       string
@@ -113,7 +109,7 @@ type Strip struct {
 	HasFp                    bool
 	CdmData                  []byte
 	RunwayConfirmed          bool
-	PdcRequestRemarks        *string
+	PdcData                  []byte
 }
 
 type TacticalStrip struct {

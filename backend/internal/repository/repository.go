@@ -81,6 +81,7 @@ type StripRepository interface {
 	SetHasFP(ctx context.Context, session int32, callsign string, hasFP bool) error
 
 	// PDC methods
+	SetPdcData(ctx context.Context, session int32, callsign string, data *models.PdcData) error
 	SetPdcRequested(ctx context.Context, session int32, callsign string, pdcState string, pdcRequestedAt *time.Time, pdcRequestRemarks *string) error
 	SetPdcMessageSent(ctx context.Context, session int32, callsign string, pdcState string, pdcMessageSequence *int32, pdcMessageSent *time.Time) error
 	UpdatePdcStatus(ctx context.Context, session int32, callsign string, pdcState string) error

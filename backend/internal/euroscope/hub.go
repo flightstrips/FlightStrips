@@ -785,7 +785,7 @@ func (hub *Hub) scheduleAircraftDisconnect(session int32, callsign string, delay
 		delete(hub.aircraftDisconnectTimers, key)
 		hub.aircraftDisconnectMu.Unlock()
 
-		slog.Info("Aircraft disconnected, removing strip",
+		slog.Debug("Aircraft disconnected, removing strip",
 			slog.String("callsign", callsign),
 			slog.Int("session", int(session)))
 		if err := hub.stripService.DeleteStrip(context.Background(), session, callsign); err != nil {

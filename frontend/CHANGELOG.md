@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.24.1](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.24.0...frontend/v0.24.1) (2026-04-17)
+
+
+### Bug Fixes
+
+* add .gitattributes to enforce LF for Linux-executed files ([ae4a5d7](https://github.com/flightstrips/FlightStrips/commit/ae4a5d772b5a91f8d77535b9332332b9cda3c82a))
+
 ## [0.24.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.23.0...frontend/v0.24.0) (2026-04-17)
 
 

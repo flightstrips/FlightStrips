@@ -1,6 +1,7 @@
 package websocket
 
 import (
+	"FlightStrips/internal/metrics"
 	"FlightStrips/internal/shared"
 	"FlightStrips/pkg/constants"
 	"FlightStrips/pkg/events"
@@ -24,6 +25,8 @@ type Client interface {
 	GetCid() string
 	GetAirport() string
 	GetPosition() string
+	GetSession() int32
+	GetSource() string
 	GetConnection() *websocket.Conn
 
 	IsAuthenticated() bool
@@ -32,7 +35,7 @@ type Client interface {
 	HandlePong() error
 
 	GetSendChannel() chan events.OutgoingMessage
-	
+
 	// RecordMessage optionally records a message for replay
 	RecordMessage(rawMessage []byte)
 }
@@ -77,18 +80,23 @@ func ReadPump[TType comparable, TClient Client, THub Hub[TType, TClient]](hub TH
 			continue
 		}
 
-		// Create trace span for message handling
+		msgType := fmt.Sprintf("%v", parsedMessage.Type)
+		metrics.MessageReceived(context.Background(), client.GetSession(), client.GetSource(), msgType)
+
 		tracer := otel.Tracer("websocket")
-		ctx, span := tracer.Start(context.Background(), "websocket.message",
+		ctx, span := tracer.Start(context.Background(), msgType,
 			trace.WithAttributes(
-				attribute.String("message.type", fmt.Sprintf("%v", parsedMessage.Type)),
+				attribute.String("message.type", msgType),
 				attribute.String("client.cid", client.GetCid()),
 				attribute.String("client.position", client.GetPosition()),
+				attribute.Int("session", int(client.GetSession())),
 			),
 		)
 
 		handlers := hub.GetMessageHandlers()
+		start := time.Now()
 		err = handlers.Handle(ctx, client, parsedMessage)
+		metrics.MessageHandled(ctx, client.GetSession(), client.GetSource(), msgType, time.Since(start), err == nil)
 
 		if err != nil {
 			span.SetStatus(codes.Error, err.Error())
@@ -154,6 +162,12 @@ func WritePump[TClient Client](client TClient) {
 				slog.Error("Failed to marshal message", slog.Any("error", err))
 				continue
 			}
+
+			var typeHolder struct {
+				Type string `json:"type"`
+			}
+			_ = json.Unmarshal(bytes, &typeHolder)
+			metrics.MessageSent(context.Background(), client.GetSession(), typeHolder.Type)
 
 			if err := client.GetConnection().WriteMessage(websocket.TextMessage, bytes); err != nil {
 				return

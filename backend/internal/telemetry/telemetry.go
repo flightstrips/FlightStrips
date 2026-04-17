@@ -19,6 +19,7 @@ import (
 	sdkresource "go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.21.0"
+	"go.opentelemetry.io/otel/trace"
 )
 
 type Config struct {
@@ -137,19 +138,44 @@ func SetupLogger() {
 // SetupDualLogger configures slog to output to both stdout and OpenTelemetry
 func SetupDualLogger() {
 	otelHandler := otelslog.NewHandler("FlightStrips")
-	
-	// Create console handler with tint
 	consoleHandler := slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
 		Level: slog.LevelInfo,
 	})
-	
-	// Create multi-handler
-	multiHandler := &multiHandler{
+	multi := &multiHandler{
 		handlers: []slog.Handler{consoleHandler, otelHandler},
 	}
-	
-	logger := slog.New(multiHandler)
-	slog.SetDefault(logger)
+	slog.SetDefault(slog.New(&traceContextHandler{handler: multi}))
+}
+
+// traceContextHandler injects traceID and spanID as slog attributes when the
+// context carries an active span, making them visible in console output and
+// queryable in Loki as structured metadata alongside the OTel-native TraceId field.
+type traceContextHandler struct {
+	handler slog.Handler
+}
+
+func (h *traceContextHandler) Enabled(ctx context.Context, level slog.Level) bool {
+	return h.handler.Enabled(ctx, level)
+}
+
+func (h *traceContextHandler) Handle(ctx context.Context, record slog.Record) error {
+	if span := trace.SpanFromContext(ctx); span.SpanContext().IsValid() {
+		sc := span.SpanContext()
+		record = record.Clone()
+		record.AddAttrs(
+			slog.String("trace_id", sc.TraceID().String()),
+			slog.String("span_id", sc.SpanID().String()),
+		)
+	}
+	return h.handler.Handle(ctx, record)
+}
+
+func (h *traceContextHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
+	return &traceContextHandler{handler: h.handler.WithAttrs(attrs)}
+}
+
+func (h *traceContextHandler) WithGroup(name string) slog.Handler {
+	return &traceContextHandler{handler: h.handler.WithGroup(name)}
 }
 
 // multiHandler implements slog.Handler to send to multiple handlers

@@ -2,6 +2,7 @@ package pdc
 
 import (
 	"FlightStrips/internal/config"
+	"FlightStrips/internal/metrics"
 	"FlightStrips/internal/models"
 	"FlightStrips/internal/repository"
 	"FlightStrips/internal/shared"
@@ -128,6 +129,7 @@ func (s *Service) sendErrorAndReturn(ctx context.Context, session sessionInforma
 
 // notifyStateChange sends PDC state change notification to frontend and EuroScope clients
 func (s *Service) notifyStateChange(sessionID int32, callsign string, state ClearanceState, remarks string) {
+	metrics.PDCStateChange(context.Background(), sessionID, string(state))
 	if s.frontendHub != nil {
 		s.frontendHub.SendPdcStateChange(sessionID, callsign, string(state), remarks)
 	}
@@ -300,6 +302,7 @@ func (s *Service) ProcessPDCRequest(ctx context.Context, msg *IncomingMessage, s
 	requestRemarks := optionalString(req.Remarks)
 	faults := s.validatePDCFlightPlan(strip, currentSession.ActiveRunways.DepartureRunways)
 	if len(faults) > 0 {
+		metrics.PDCRequest(ctx, session.id, "requested_with_faults")
 		now := time.Now().UTC()
 		if err := s.stripRepo.SetPdcRequested(ctx, session.id, strip.Callsign, string(StateRequestedWithFaults), &now, requestRemarks); err != nil {
 			return fmt.Errorf("failed to set PDC requested with faults: %w", err)
@@ -318,6 +321,7 @@ func (s *Service) ProcessPDCRequest(ctx context.Context, msg *IncomingMessage, s
 	}
 
 	if requestRemarks != nil {
+		metrics.PDCRequest(ctx, session.id, "requested_manual_review")
 		now := time.Now().UTC()
 		if err := s.stripRepo.SetPdcRequested(ctx, session.id, strip.Callsign, string(StateRequested), &now, requestRemarks); err != nil {
 			return fmt.Errorf("failed to set PDC requested with remarks: %w", err)
@@ -328,6 +332,7 @@ func (s *Service) ProcessPDCRequest(ctx context.Context, msg *IncomingMessage, s
 	}
 
 	if issueErr := s.IssueClearance(ctx, strip.Callsign, "", "", session.id); issueErr != nil {
+		metrics.PDCRequest(ctx, session.id, "requested_pending_clearance")
 		// Clearance fields not set yet — fall back to REQUESTED state
 		now := time.Now().UTC()
 		if err := s.stripRepo.SetPdcRequested(ctx, session.id, strip.Callsign, string(StateRequested), &now, nil); err != nil {
@@ -336,6 +341,7 @@ func (s *Service) ProcessPDCRequest(ctx context.Context, msg *IncomingMessage, s
 		s.notifyStateChange(session.id, req.Callsign, StateRequested, "")
 		slog.InfoContext(ctx, "PDC Service: PDC request acknowledged (clearance fields not ready)", slog.String("callsign", req.Callsign))
 	} else {
+		metrics.PDCRequest(ctx, session.id, "auto_cleared")
 		slog.InfoContext(ctx, "PDC Service: PDC clearance auto-issued", slog.String("callsign", req.Callsign))
 	}
 	return nil
@@ -781,7 +787,7 @@ func (s *Service) ManualStateChange(ctx context.Context, callsign string, sessio
 			s.frontendHub.SendPdcStateChange(sessionID, callsign, newState, seq, timestamp)
 		}
 
-		slog.Info("PDC manual state change", slog.String("state", string(newState)), slog.String("callsign", callsign))
+		slog.InfoContext(ctx, "PDC manual state change", slog.String("state", string(newState)), slog.String("callsign", callsign))
 	*/
 	return nil
 }
@@ -821,7 +827,7 @@ func (s *Service) StartClearanceTimeout(ctx context.Context, airport, callsign s
 	// Start timeout goroutine
 	go s.handleTimeout(timeoutCtx, airport, callsign, messageId, session)
 
-	slog.Debug("PDC Service: Started timeout", slog.Duration("timeout", s.timeoutConfig), slog.String("callsign", callsign))
+	slog.DebugContext(ctx, "PDC Service: Started timeout", slog.Duration("timeout", s.timeoutConfig), slog.String("callsign", callsign))
 }
 
 // CancelTimeout cancels an active timeout

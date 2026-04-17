@@ -42,6 +42,14 @@ func (c *Client) GetPosition() string {
 	return c.position
 }
 
+func (c *Client) GetSession() int32 {
+	return c.session
+}
+
+func (c *Client) GetSource() string {
+	return "euroscope"
+}
+
 func (c *Client) GetConnection() *gorilla.Conn {
 	return c.conn
 }

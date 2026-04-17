@@ -111,7 +111,7 @@ func (s *Service) SetSessionCdmMaster(ctx context.Context, sessionID int32, mast
 			if err == nil && sess != nil && sess.Airport != "" {
 				go func() {
 					if err := s.client.ClearMasterAirport(context.Background(), sess.Airport, s.masterPosition); err != nil {
-						slog.Warn("Failed to clear CDM master airport",
+						slog.WarnContext(ctx, "Failed to clear CDM master airport",
 							slog.String("airport", sess.Airport),
 							slog.Int("session", int(sessionID)),
 							slog.Any("error", err),
@@ -122,7 +122,7 @@ func (s *Service) SetSessionCdmMaster(ctx context.Context, sessionID int32, mast
 		}
 	}
 
-	slog.Info("CDM master status updated",
+	slog.InfoContext(ctx, "CDM master status updated",
 		slog.Int("session", int(sessionID)),
 		slog.Bool("master", master),
 	)
@@ -139,7 +139,7 @@ func (s *Service) TriggerRecalculate(ctx context.Context, session int32, airport
 	normalizedAirport := strings.ToUpper(strings.TrimSpace(airport))
 	s.debouncer.Schedule(recalcDebounceKey(session, normalizedAirport), func() {
 		if err := s.sequenceService.RecalculateAirport(context.Background(), session, airport); err != nil {
-			slog.Error("CDM recalculation failed", slog.Int("session", int(session)), slog.String("airport", airport), slog.Any("error", err))
+			slog.ErrorContext(ctx, "CDM recalculation failed", slog.Int("session", int(session)), slog.String("airport", airport), slog.Any("error", err))
 		}
 	})
 }
@@ -472,7 +472,7 @@ func (s *Service) Start(ctx context.Context) {
 	localRecalcEnabled := s.sequenceService != nil
 
 	if !syncEnabled {
-		slog.Warn("CDM client is not valid, CDM data will not be synced")
+		slog.WarnContext(ctx, "CDM client is not valid, CDM data will not be synced")
 	}
 	if !syncEnabled && !localRecalcEnabled {
 		return
@@ -506,11 +506,11 @@ func (s *Service) Start(ctx context.Context) {
 			return
 		case <-syncCh:
 			if err := s.syncLiveSessions(ctx); err != nil {
-				slog.Error("Failed to sync CDM data", slog.Any("error", err))
+				slog.ErrorContext(ctx, "Failed to sync CDM data", slog.Any("error", err))
 			}
 		case <-recalcCh:
 			if err := s.schedulePeriodicRecalculate(ctx); err != nil {
-				slog.Error("Failed to schedule periodic CDM recalculation", slog.Any("error", err))
+				slog.ErrorContext(ctx, "Failed to schedule periodic CDM recalculation", slog.Any("error", err))
 			}
 		}
 	}
@@ -527,7 +527,7 @@ func (s *Service) syncLiveSessions(ctx context.Context) error {
 			continue
 		}
 
-		slog.Debug("Syncing CDM data", slog.String("session", session.Name), slog.Int("id", int(session.ID)), slog.String("airport", session.Airport))
+		slog.DebugContext(ctx, "Syncing CDM data", slog.String("session", session.Name), slog.Int("id", int(session.ID)), slog.String("airport", session.Airport))
 
 		if session.CdmMaster {
 			s.sessionMaster.Store(session.ID, true)
@@ -761,7 +761,7 @@ func (s *Service) pushCdmDataAfterRecalc(ctx context.Context, session int32, cal
 
 	data, err := s.stripRepo.GetCdmDataForCallsign(ctx, session, callsign)
 	if err != nil {
-		slog.Warn("Failed to load recalculated CDM data",
+		slog.WarnContext(ctx, "Failed to load recalculated CDM data",
 			slog.Int("session", int(session)),
 			slog.String("callsign", callsign),
 			slog.Any("error", err),
@@ -799,7 +799,7 @@ func (s *Service) pushViffAfterRecalcAsync(callsign string, strip *models.Strip,
 		ctx := context.Background()
 		if helpers.ValueOrDefault(data.EffectivePhase()) == "I" {
 			if err := s.client.IFPSDpi(ctx, callsign, "SUSP"); err != nil {
-				slog.Warn("Failed to send SUSP to CDM backend",
+				slog.WarnContext(ctx, "Failed to send SUSP to CDM backend",
 					slog.String("callsign", callsign),
 					slog.Any("error", err),
 				)
@@ -825,7 +825,7 @@ func (s *Service) pushViffAfterRecalcAsync(callsign string, strip *models.Strip,
 			DepInfo:  depInfo,
 		}
 		if err := s.client.IFPSSetCdmData(ctx, params); err != nil {
-			slog.Warn("Failed to push CDM data to CDM backend",
+			slog.WarnContext(ctx, "Failed to push CDM data to CDM backend",
 				slog.String("callsign", callsign),
 				slog.Any("error", err),
 			)

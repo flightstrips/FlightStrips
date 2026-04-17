@@ -1,0 +1,9 @@
+apiVersion: 1
+
+providers:
+  - name: default
+    folder: FlightStrips
+    type: file
+    options:
+      path: /etc/grafana/provisioning/dashboards
+      foldersFromFilesStructure: false

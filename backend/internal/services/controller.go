@@ -79,14 +79,14 @@ func (cs *ControllerService) ControllerOnline(ctx context.Context, session int32
 		shouldUpdate = true
 	}
 
-	slog.Debug("Controller online with updated position",
+	slog.DebugContext(ctx, "Controller online with updated position",
 		slog.String("callsign", callsign),
 		slog.String("position", position),
 		slog.Bool("shouldUpdate", shouldUpdate))
 
 	if cs.stripService != nil {
 		if err := cs.stripService.AutoAssumeForControllerOnline(ctx, session, position); err != nil {
-			slog.Error("Failed to auto-assume strips on controller online",
+			slog.ErrorContext(ctx, "Failed to auto-assume strips on controller online",
 				slog.String("position", position), slog.Any("error", err))
 		}
 	}
@@ -105,7 +105,7 @@ func (cs *ControllerService) ControllerOnline(ctx context.Context, session int32
 		controllers, err := cs.controllerRepo.GetByPosition(ctx, session, position)
 		if err == nil {
 			singleOnPosition = len(controllers) == 1
-			slog.Debug("Controller online (position change): single-on-position check",
+			slog.DebugContext(ctx, "Controller online (position change): single-on-position check",
 				slog.String("callsign", callsign),
 				slog.String("position", positionName),
 				slog.Int("controllersOnPosition", len(controllers)),
@@ -116,7 +116,7 @@ func (cs *ControllerService) ControllerOnline(ctx context.Context, session int32
 	if err := s.UpdateLayouts(session); err != nil {
 		return shared.ControllerOnlineResult{}, err
 	}
-	slog.Debug("Controller online: recalculating routes for session",
+	slog.DebugContext(ctx, "Controller online: recalculating routes for session",
 		slog.Int("session", int(session)),
 		slog.String("callsign", callsign),
 		slog.String("position", position),
@@ -124,7 +124,7 @@ func (cs *ControllerService) ControllerOnline(ctx context.Context, session int32
 	if err := s.UpdateRoutesForSession(session, true); err != nil {
 		return shared.ControllerOnlineResult{}, err
 	}
-	slog.Debug("Controller online: route recalculation completed",
+	slog.DebugContext(ctx, "Controller online: route recalculation completed",
 		slog.Int("session", int(session)),
 		slog.String("callsign", callsign),
 		slog.String("position", position),
@@ -149,7 +149,7 @@ func (cs *ControllerService) performOnlineOrchestration(ctx context.Context, ses
 
 	if cs.stripService != nil {
 		if err := cs.stripService.AutoAssumeForControllerOnline(ctx, session, position); err != nil {
-			slog.Error("Failed to auto-assume strips on controller online",
+			slog.ErrorContext(ctx, "Failed to auto-assume strips on controller online",
 				slog.String("position", position), slog.Any("error", err))
 		}
 	}
@@ -159,7 +159,7 @@ func (cs *ControllerService) performOnlineOrchestration(ctx context.Context, ses
 		controllers, err := cs.controllerRepo.GetByPosition(ctx, session, position)
 		if err == nil {
 			singleOnPosition = len(controllers) == 1
-			slog.Debug("Controller online (new): single-on-position check",
+			slog.DebugContext(ctx, "Controller online (new): single-on-position check",
 				slog.String("position", positionName),
 				slog.Int("controllersOnPosition", len(controllers)),
 				slog.Bool("singleOnPosition", singleOnPosition))
@@ -169,14 +169,14 @@ func (cs *ControllerService) performOnlineOrchestration(ctx context.Context, ses
 	if err := s.UpdateLayouts(session); err != nil {
 		return shared.ControllerOnlineResult{}, err
 	}
-	slog.Debug("Controller online: recalculating routes for session",
+	slog.DebugContext(ctx, "Controller online: recalculating routes for session",
 		slog.Int("session", int(session)),
 		slog.String("position", position),
 		slog.String("trigger", "new_controller"))
 	if err := s.UpdateRoutesForSession(session, true); err != nil {
 		return shared.ControllerOnlineResult{}, err
 	}
-	slog.Debug("Controller online: route recalculation completed",
+	slog.DebugContext(ctx, "Controller online: route recalculation completed",
 		slog.Int("session", int(session)),
 		slog.String("position", position),
 		slog.String("trigger", "new_controller"))
@@ -199,7 +199,7 @@ func (cs *ControllerService) ControllerOffline(ctx context.Context, session int3
 
 	// If the controller is not in the database, send the notification immediately.
 	if errors.Is(err, pgx.ErrNoRows) {
-		slog.Debug("Controller going offline does not exist in database", slog.String("callsign", callsign))
+		slog.DebugContext(ctx, "Controller going offline does not exist in database", slog.String("callsign", callsign))
 		cs.server.GetFrontendHub().SendControllerOffline(session, callsign, "", "")
 		return shared.ControllerOfflineResult{ShouldScheduleTimer: false}, nil
 	}
@@ -221,7 +221,7 @@ func (cs *ControllerService) ControllerOffline(ctx context.Context, session int3
 	}
 	for _, other := range others {
 		if other.Callsign != callsign {
-			slog.Debug("Controller offline but position still covered by another controller — deleting and notifying immediately",
+			slog.DebugContext(ctx, "Controller offline but position still covered by another controller — deleting and notifying immediately",
 				slog.String("callsign", callsign),
 				slog.String("position", positionName),
 				slog.String("other", other.Callsign))
@@ -231,7 +231,7 @@ func (cs *ControllerService) ControllerOffline(ctx context.Context, session int3
 		}
 	}
 
-	slog.Debug("Controller offline: ready for grace period timer",
+	slog.DebugContext(ctx, "Controller offline: ready for grace period timer",
 		slog.String("callsign", callsign),
 		slog.String("position", positionName))
 
@@ -259,12 +259,12 @@ func (cs *ControllerService) UpsertController(ctx context.Context, session int32
 		if err = cs.controllerRepo.Create(ctx, newController); err != nil {
 			return err
 		}
-		slog.Debug("Inserted controller", slog.String("callsign", callsign))
+		slog.DebugContext(ctx, "Inserted controller", slog.String("callsign", callsign))
 	} else {
 		if _, err = cs.controllerRepo.SetPosition(ctx, session, callsign, position); err != nil {
 			return err
 		}
-		slog.Debug("Updated controller", slog.String("callsign", callsign))
+		slog.DebugContext(ctx, "Updated controller", slog.String("callsign", callsign))
 	}
 	return nil
 }

@@ -2,6 +2,7 @@ package euroscope
 
 import (
 	"FlightStrips/internal/config"
+	"FlightStrips/internal/metrics"
 	internalModels "FlightStrips/internal/models"
 	"FlightStrips/internal/shared"
 	"FlightStrips/internal/testing/recorder"
@@ -173,6 +174,7 @@ func (hub *Hub) Send(session int32, cid string, message euroscope.OutgoingMessag
 }
 
 func (hub *Hub) OnRegister(client *Client) {
+	metrics.ConnectionOpened(context.Background(), client.session, "euroscope")
 	// Track per-airport client count for HasActiveClientForAirport queries.
 	hub.airportClientsMu.Lock()
 	hub.airportClientCount[client.airport]++
@@ -415,6 +417,7 @@ func (hub *Hub) handleLogin(msg []byte, user shared.AuthenticatedUser) (event eu
 }
 
 func (hub *Hub) OnUnregister(client *Client) {
+	metrics.ConnectionClosed(context.Background(), client.session, "euroscope")
 	// Update per-airport client count.
 	hub.airportClientsMu.Lock()
 	if hub.airportClientCount[client.airport] > 0 {

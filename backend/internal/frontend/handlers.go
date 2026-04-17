@@ -42,7 +42,7 @@ func handleTokenEvent(ctx context.Context, client *Client, message Message) erro
 
 	user, err := client.hub.authenticationService.Validate(event.Token)
 	if err != nil {
-		slog.Info("Token re-validation failed, disconnecting client", slog.String("cid", client.GetCid()), slog.Any("error", err))
+		slog.InfoContext(ctx, "Token re-validation failed, disconnecting client", slog.String("cid", client.GetCid()), slog.Any("error", err))
 		_ = client.GetConnection().WriteMessage(gorilla.CloseMessage,
 			gorilla.FormatCloseMessage(gorilla.CloseNormalClosure, "token invalid"))
 		client.GetConnection().Close()
@@ -72,7 +72,7 @@ func handleMove(ctx context.Context, client *Client, message Message) error {
 	}
 
 	if !validBays[move.Bay] {
-		slog.Warn("handleMove: rejecting move event with invalid bay",
+		slog.WarnContext(ctx, "handleMove: rejecting move event with invalid bay",
 			slog.String("callsign", move.Callsign),
 			slog.String("bay", move.Bay),
 			slog.String("cid", client.GetCid()),
@@ -181,7 +181,7 @@ func handleStripUpdate(ctx context.Context, client *Client, message Message) err
 	}
 
 	if event.Eobt != nil && strip.EffectiveEobt() != event.Eobt {
-		slog.Warn("EOBT updates are currently not supported and will be ignored", slog.String("callsign", event.Callsign))
+		slog.WarnContext(ctx, "EOBT updates are currently not supported and will be ignored", slog.String("callsign", event.Callsign))
 		// TODO add support
 	}
 
@@ -603,7 +603,7 @@ func handleMoveTacticalStrip(ctx context.Context, client *Client, message Messag
 	bay := req.Bay
 	if bay != "" {
 		if !validBays[bay] {
-			slog.Warn("handleMoveTacticalStrip: rejecting move event with invalid bay",
+			slog.WarnContext(ctx, "handleMoveTacticalStrip: rejecting move event with invalid bay",
 				slog.Int64("id", req.ID),
 				slog.String("bay", bay))
 			return errors.New("invalid bay: " + bay)

@@ -2,6 +2,7 @@ package frontend
 
 import (
 	"FlightStrips/internal/config"
+	"FlightStrips/internal/metrics"
 	internalModels "FlightStrips/internal/models"
 	"FlightStrips/internal/shared"
 	"FlightStrips/pkg/events"
@@ -840,6 +841,7 @@ func (hub *Hub) dispatchMessage(session int32, msg frontend.MessageReceivedEvent
 
 func (hub *Hub) OnRegister(client *Client) {
 	slog.Debug("Client registered", slog.String("cid", client.user.GetCid()))
+	metrics.ConnectionOpened(context.Background(), client.session, "frontend")
 	if client.session != WaitingForEuroscopeConnectionSessionId {
 		hub.sendInitialEvent(client)
 	}
@@ -847,6 +849,7 @@ func (hub *Hub) OnRegister(client *Client) {
 
 func (hub *Hub) OnUnregister(client *Client) {
 	slog.Debug("Client unregistered", slog.String("cid", client.user.GetCid()))
+	metrics.ConnectionClosed(context.Background(), client.session, "frontend")
 }
 
 func (hub *Hub) Run() {

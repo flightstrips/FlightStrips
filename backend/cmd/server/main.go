@@ -86,7 +86,7 @@ func main() {
 	var tel *telemetry.Telemetry
 	if otlpEndpoint != "" {
 		tel, err = telemetry.Initialize(ctx, telemetry.Config{
-			ServiceName:    "FlightStrips",
+			ServiceName:    "flightstrips-backend",
 			ServiceVersion: "1.0.0",
 			Environment:    getEnv("ENVIRONMENT", "development"),
 			OTLPEndpoint:   otlpEndpoint,

@@ -25,7 +25,7 @@ func handleLoginEvent(ctx context.Context, client *Client, message Message) erro
 	client.callsign = event.Callsign
 
 	if layoutErr := client.hub.server.UpdateLayouts(client.session); layoutErr != nil {
-		slog.Error("Failed to update layouts after ES re-login", slog.String("cid", client.GetCid()), slog.Any("error", layoutErr))
+		slog.ErrorContext(ctx, "Failed to update layouts after ES re-login", slog.String("cid", client.GetCid()), slog.Any("error", layoutErr))
 	}
 
 	return nil
@@ -41,7 +41,7 @@ func handleTokenEvent(ctx context.Context, client *Client, message Message) erro
 
 	user, err := client.hub.authenticationService.Validate(event.Token)
 	if err != nil {
-		slog.Info("Token re-validation failed, disconnecting client", slog.String("cid", client.GetCid()), slog.Any("error", err))
+		slog.InfoContext(ctx, "Token re-validation failed, disconnecting client", slog.String("cid", client.GetCid()), slog.Any("error", err))
 		_ = client.GetConnection().WriteMessage(gorilla.CloseMessage,
 			gorilla.FormatCloseMessage(gorilla.CloseNormalClosure, "token invalid"))
 		client.GetConnection().Close()
@@ -75,7 +75,7 @@ func handleControllerOnline(ctx context.Context, client *Client, message Message
 		return err
 	}
 
-	slog.Debug("Controller online result",
+	slog.DebugContext(ctx, "Controller online result",
 		slog.String("callsign", event.Callsign),
 		slog.String("position", event.Position),
 		slog.String("positionName", positionName),
@@ -88,7 +88,7 @@ func handleControllerOnline(ctx context.Context, client *Client, message Message
 	}
 
 	if result.SingleOnPosition && positionName != "" {
-		slog.Info("Scheduling online broadcast",
+		slog.InfoContext(ctx, "Scheduling online broadcast",
 			slog.String("position", positionName),
 			slog.String("callsign", event.Callsign),
 			slog.Int("session", int(session)))
@@ -110,14 +110,14 @@ func handleControllerOffline(ctx context.Context, client *Client, message Messag
 		return err
 	}
 
-	slog.Debug("Controller offline result",
+	slog.DebugContext(ctx, "Controller offline result",
 		slog.String("callsign", event.Callsign),
 		slog.Bool("shouldScheduleTimer", result.ShouldScheduleTimer),
 		slog.String("positionName", result.PositionName),
 		slog.Int("session", int(session)))
 
 	if result.ShouldScheduleTimer {
-		slog.Info("Scheduling offline grace period timer",
+		slog.InfoContext(ctx, "Scheduling offline grace period timer",
 			slog.String("callsign", event.Callsign),
 			slog.String("position", result.PositionName),
 			slog.Int("session", int(session)))
@@ -309,7 +309,7 @@ func handleSync(ctx context.Context, client *Client, message Message) error {
 	s := client.hub.server
 	session := client.session
 
-	slog.Debug("Received sync event", slog.Int("session", int(session)), slog.String("client", client.callsign))
+	slog.DebugContext(ctx, "Received sync event", slog.Int("session", int(session)), slog.String("client", client.callsign))
 
 	// Convert the anonymous struct slice to the named helper type.
 	controllers := make([]syncController, len(event.Controllers))
@@ -398,7 +398,7 @@ func autoAssumeForSync(ctx context.Context, client *Client, session int32, contr
 	}
 	for position := range positions {
 		if err := client.hub.stripService.AutoAssumeForControllerOnline(ctx, session, position); err != nil {
-			slog.Error("AutoAssumeForControllerOnline failed during sync",
+			slog.ErrorContext(ctx, "AutoAssumeForControllerOnline failed during sync",
 				slog.String("position", position), slog.Any("error", err))
 		}
 	}
@@ -430,7 +430,7 @@ func reconcileDBState(ctx context.Context, client *Client, session int32, event 
 func reconcileStaleControllers(ctx context.Context, client *Client, session int32, knownCallsigns map[string]bool) {
 	dbControllers, err := client.hub.server.GetControllerRepository().List(ctx, session)
 	if err != nil {
-		slog.Error("Sync reconciliation: failed to list controllers", slog.Any("error", err))
+		slog.ErrorContext(ctx, "Sync reconciliation: failed to list controllers", slog.Any("error", err))
 		return
 	}
 	for _, dbCtrl := range dbControllers {
@@ -443,7 +443,7 @@ func reconcileStaleControllers(ctx context.Context, client *Client, session int3
 			posFreq = pos.Frequency
 			posName = pos.Name
 		}
-		slog.Info("Sync reconciliation: scheduling offline for missing controller",
+		slog.InfoContext(ctx, "Sync reconciliation: scheduling offline for missing controller",
 			slog.String("callsign", dbCtrl.Callsign),
 			slog.Int("session", int(session)))
 		client.hub.scheduleOfflineActions(session, dbCtrl.Callsign, posFreq, posName, offlineGracePeriod)
@@ -455,14 +455,14 @@ func reconcileStaleControllers(ctx context.Context, client *Client, session int3
 func reconcileStaleStrips(ctx context.Context, client *Client, session int32, knownCallsigns map[string]bool) {
 	dbStrips, err := client.hub.server.GetStripRepository().List(ctx, session)
 	if err != nil {
-		slog.Error("Sync reconciliation: failed to list strips", slog.Any("error", err))
+		slog.ErrorContext(ctx, "Sync reconciliation: failed to list strips", slog.Any("error", err))
 		return
 	}
 	for _, dbStrip := range dbStrips {
 		if knownCallsigns[dbStrip.Callsign] {
 			continue
 		}
-		slog.Info("Sync reconciliation: scheduling disconnect for missing strip",
+		slog.InfoContext(ctx, "Sync reconciliation: scheduling disconnect for missing strip",
 			slog.String("callsign", dbStrip.Callsign),
 			slog.Int("session", int(session)))
 		client.hub.scheduleAircraftDisconnect(session, dbStrip.Callsign, offlineGracePeriod)
@@ -475,7 +475,7 @@ func persistSIDs(ctx context.Context, client *Client, session int32, sids models
 	s := client.hub.server
 	availSids := sids
 	if err := s.GetSessionRepository().UpdateSessionSids(ctx, session, availSids); err != nil {
-		slog.Error("Failed to persist available SIDs", slog.Any("error", err))
+		slog.ErrorContext(ctx, "Failed to persist available SIDs", slog.Any("error", err))
 	}
 	s.GetFrontendHub().SendAvailableSids(session, availSids)
 }
@@ -495,7 +495,7 @@ func handleRunways(ctx context.Context, client *Client, message Message) error {
 		return err
 	}
 
-	slog.Debug("Received runway configuration change", slog.Int("session", int(client.session)), slog.Any("event", event))
+	slog.DebugContext(ctx, "Received runway configuration change", slog.Int("session", int(client.session)), slog.Any("event", event))
 
 	return applyOrValidateRunways(ctx, client, event.Runways)
 }
@@ -536,7 +536,7 @@ func applyOrValidateRunways(ctx context.Context, client *Client, runways []euros
 		masterDep := currentSession.ActiveRunways.DepartureRunways
 		masterArr := currentSession.ActiveRunways.ArrivalRunways
 		if !slicesEqual(masterDep, departure) || !slicesEqual(masterArr, arrival) {
-			slog.Warn("Slave ES client has different runway configuration than master",
+			slog.WarnContext(ctx, "Slave ES client has different runway configuration than master",
 				slog.Int("session", int(client.session)),
 				slog.String("client", client.callsign),
 				slog.Any("slave_departure", departure),
@@ -548,7 +548,7 @@ func applyOrValidateRunways(ctx context.Context, client *Client, runways []euros
 		return nil
 	}
 
-	slog.Info("Runway change received",
+	slog.InfoContext(ctx, "Runway change received",
 		slog.Int("session", int(client.session)),
 		slog.Any("departure", departure),
 		slog.Any("arrival", arrival),
@@ -568,27 +568,27 @@ func applyOrValidateRunways(ctx context.Context, client *Client, runways []euros
 	}
 
 	if err := client.hub.stripService.PropagateRunwayChange(ctx, client.session, currentSession.Airport, oldActiveRunways, activeRunways); err != nil {
-		slog.Error("Failed to propagate runway change to strips", slog.Int("session", int(client.session)), slog.Any("error", err))
+		slog.ErrorContext(ctx, "Failed to propagate runway change to strips", slog.Int("session", int(client.session)), slog.Any("error", err))
 	}
 
 	s.GetFrontendHub().SendRunwayConfiguration(client.session, departure, arrival, activeRunways.RunwayStatus)
 
 	if _, err = s.UpdateSectors(client.session); err != nil {
-		slog.Error("UpdateSectors failed after runway change", slog.Int("session", int(client.session)), slog.Any("error", err))
+		slog.ErrorContext(ctx, "UpdateSectors failed after runway change", slog.Int("session", int(client.session)), slog.Any("error", err))
 		return err
 	}
-	slog.Debug("UpdateSectors completed", slog.Int("session", int(client.session)))
+	slog.DebugContext(ctx, "UpdateSectors completed", slog.Int("session", int(client.session)))
 
 	if err = s.UpdateRoutesForSession(client.session, true); err != nil {
-		slog.Error("UpdateRoutesForSession failed after runway change", slog.Int("session", int(client.session)), slog.Any("error", err))
+		slog.ErrorContext(ctx, "UpdateRoutesForSession failed after runway change", slog.Int("session", int(client.session)), slog.Any("error", err))
 		return err
 	}
-	slog.Debug("UpdateRoutesForSession completed", slog.Int("session", int(client.session)))
+	slog.DebugContext(ctx, "UpdateRoutesForSession completed", slog.Int("session", int(client.session)))
 
 	// Recalculate and broadcast per-controller layouts after runway change.
 	// Do not return on failure — a layout error must not block the runway change.
 	if err = s.UpdateLayouts(client.session); err != nil {
-		slog.Error("Failed to update layouts after runway change",
+		slog.ErrorContext(ctx, "Failed to update layouts after runway change",
 			slog.Int("session", int(client.session)),
 			slog.Any("error", err))
 	}

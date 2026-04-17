@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.19.0](https://github.com/flightstrips/FlightStrips/compare/backend/v0.18.0...backend/v0.19.0) (2026-04-17)
+
+
+### Features
+
+* add web PDC flow ([237f75a](https://github.com/flightstrips/FlightStrips/commit/237f75a4fb7e50bf19580e54528b288a3f50531f))
+* observability ([38d2669](https://github.com/flightstrips/FlightStrips/commit/38d26692d30322f12d9ca87b42c084588d5f37d9))
+
+
+### Bug Fixes
+
+* aircraft disconnected to debug ([354c895](https://github.com/flightstrips/FlightStrips/commit/354c895a69050e1a85a01a04ca0f1e5d0a933db9))
+
 ## [0.18.0](https://github.com/flightstrips/FlightStrips/compare/backend/v0.17.2...backend/v0.18.0) (2026-04-16)
 
 

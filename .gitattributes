@@ -1,0 +1,33 @@
+# Normalize to LF in git; checkout as CRLF on Windows (requires core.autocrlf=true)
+* text=auto
+
+# Force LF always — these files execute on Linux/Docker
+*.sh         text eol=lf
+*.bash       text eol=lf
+Dockerfile   text eol=lf
+Dockerfile*  text eol=lf
+*.dockerfile text eol=lf
+Makefile     text eol=lf
+nginx.conf   text eol=lf
+*.conf       text eol=lf
+
+# Binary — no line ending conversion
+*.png        binary
+*.jpg        binary
+*.jpeg       binary
+*.gif        binary
+*.ico        binary
+*.svg        binary
+*.woff       binary
+*.woff2      binary
+*.ttf        binary
+*.eot        binary
+*.otf        binary
+*.pdf        binary
+*.zip        binary
+*.gz         binary
+*.tar        binary
+*.exe        binary
+*.dll        binary
+*.so         binary
+*.dylib      binary

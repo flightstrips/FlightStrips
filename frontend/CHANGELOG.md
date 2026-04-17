@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.25.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.24.1...frontend/v0.25.0) (2026-04-17)
+
+
+### Features
+
+* new froundend public site design ([555dae9](https://github.com/flightstrips/FlightStrips/commit/555dae9e3a1f64e1a209ac9de76ca58a3fb19c07))
+
+
+### Bug Fixes
+
+* build ([b7849d1](https://github.com/flightstrips/FlightStrips/commit/b7849d1c4246ea4735a30190b72e72de41ab49a1))
+
 ## [0.24.1](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.24.0...frontend/v0.24.1) (2026-04-17)
 
 

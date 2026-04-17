@@ -26,17 +26,13 @@ const heroNavCards = [
     title: "Documentation",
     index: "01",
     to: "https://docs.flightstrips.dk",
-    external: true,
-    stripSrc:
-      "https://images.unsplash.com/photo-1556388158-158e5dd25c82?auto=format&fit=crop&w=800&q=80",
+    external: true
   },
   {
     title: "About",
     index: "02",
     to: "/about",
-    external: false,
-    stripSrc:
-      "https://images.unsplash.com/photo-1529074963764-98f45c47344f?auto=format&fit=crop&w=800&q=80",
+    external: false
   },
 ] as const;
 
@@ -143,14 +139,12 @@ function HeroNavCard({
   title,
   indexLabel,
   to,
-  external,
-  stripSrc,
+  external
 }: {
   title: string;
   indexLabel: string;
   to: string;
   external: boolean;
-  stripSrc: string;
 }) {
   const className =
     "group relative flex min-h-[220px] w-[320px] flex-col overflow-hidden bg-white text-left shadow-[0_12px_40px_rgba(0,0,0,0.25)] transition-shadow hover:shadow-[0_16px_48px_rgba(0,0,0,0.35)]";
@@ -249,7 +243,6 @@ export default function Home() {
                     indexLabel={card.index}
                     to={card.to}
                     external={card.external}
-                    stripSrc={card.stripSrc}
                   />
                 ))}
               </div>

@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.24.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.23.0...frontend/v0.24.0) (2026-04-17)
+
+
+### Features
+
+* add web PDC flow ([237f75a](https://github.com/flightstrips/FlightStrips/commit/237f75a4fb7e50bf19580e54528b288a3f50531f))
+
 ## [0.23.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.22.0...frontend/v0.23.0) (2026-04-16)
 
 

@@ -23,12 +23,24 @@ import {
   setStoredPublicTheme,
   type PublicTheme,
 } from "@/lib/public-theme";
+import { cn } from "@/lib/utils";
 
-const linkClassName =
+const defaultLinkClassName =
   navigationMenuTriggerStyle() +
   " bg-transparent hover:bg-navy/5 dark:hover:bg-white/10 focus:bg-transparent data-[active]:bg-transparent text-navy dark:text-foreground";
 
-export function PublicNavigation() {
+const industrialLinkClassName =
+  navigationMenuTriggerStyle() +
+  " bg-transparent hover:bg-black/[0.04] dark:hover:bg-white/10 focus:bg-transparent data-[active]:bg-transparent text-neutral-900 dark:text-neutral-100 text-[13px] tracking-tight";
+
+export type PublicNavigationTone = "default" | "industrial";
+
+export type PublicNavigationProps = {
+  className?: string;
+  linkTone?: PublicNavigationTone;
+};
+
+export function PublicNavigation({ className, linkTone = "default" }: PublicNavigationProps) {
   const { isAuthenticated, loginWithRedirect, logout } = useAuth0();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [theme, setTheme] = useState<PublicTheme>(() => getStoredPublicTheme());
@@ -39,11 +51,21 @@ export function PublicNavigation() {
     setTheme(next);
   };
 
+  const linkClassName = linkTone === "industrial" ? industrialLinkClassName : defaultLinkClassName;
+
   return (
-    <nav className="fixed top-0 left-0 right-0 z-40 flex items-center justify-between px-6 py-4 pr-14 md:pr-8 sm:px-8 md:grid md:grid-cols-3 md:justify-items-stretch border-b border-navy/10 dark:border-white/10 bg-cream/95 dark:bg-background/95 backdrop-blur-md">
+    <nav
+      className={cn(
+        "fixed top-0 left-0 right-0 z-40 flex items-center justify-between px-6 py-4 pr-14 md:pr-8 sm:px-8 md:grid md:grid-cols-3 md:justify-items-stretch border-b border-navy/10 dark:border-white/10 bg-cream/95 dark:bg-background/95 backdrop-blur-md",
+        className,
+      )}
+    >
       <Link
         to="/"
-        className="font-display font-semibold text-xl tracking-tight text-navy dark:text-foreground hover:text-primary dark:hover:text-primary transition-colors md:justify-self-start"
+        className={cn(
+          "font-display font-semibold text-xl tracking-tight text-navy dark:text-foreground hover:text-primary dark:hover:text-primary transition-colors md:justify-self-start",
+          linkTone === "industrial" && "text-neutral-900 hover:text-[#ff5a1f] dark:text-neutral-100 dark:hover:text-[#ff5a1f]",
+        )}
       >
         FlightStrips
       </Link>
@@ -82,7 +104,10 @@ export function PublicNavigation() {
           size="icon"
           onClick={toggleTheme}
           aria-label={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
-          className="text-navy dark:text-foreground hover:bg-navy/5 dark:hover:bg-white/10"
+          className={cn(
+            "text-navy dark:text-foreground hover:bg-navy/5 dark:hover:bg-white/10",
+            linkTone === "industrial" && "text-neutral-800 hover:bg-black/[0.04] dark:text-neutral-200",
+          )}
         >
           {theme === "dark" ? (
             <Sun className="h-5 w-5" />
@@ -92,13 +117,33 @@ export function PublicNavigation() {
         </Button>
         {isAuthenticated ? (
           <>
-            <Button asChild variant="outline">
-              <Link to="/app">Open App</Link>
-            </Button>
-            <Button variant="default" onClick={() => logout({ logoutParams: { returnTo: window.location.origin } })}>
-              Sign Out
-            </Button>
+            {linkTone === "industrial" ? (
+              <Link to="/app" className="hi-bracket text-neutral-900 dark:text-neutral-100">
+                Open App
+              </Link>
+            ) : (
+              <Button asChild variant="outline">
+                <Link to="/app">Open App</Link>
+              </Button>
+            )}
+            {linkTone === "industrial" ? (
+              <button
+                type="button"
+                className="hi-bracket text-neutral-900 dark:text-neutral-100"
+                onClick={() => logout({ logoutParams: { returnTo: window.location.origin } })}
+              >
+                Sign Out
+              </button>
+            ) : (
+              <Button variant="default" onClick={() => logout({ logoutParams: { returnTo: window.location.origin } })}>
+                Sign Out
+              </Button>
+            )}
           </>
+        ) : linkTone === "industrial" ? (
+          <button type="button" className="hi-bracket text-neutral-900 dark:text-neutral-100" onClick={() => loginWithRedirect()}>
+            Sign In
+          </button>
         ) : (
           <Button variant="default" onClick={() => loginWithRedirect()}>
             Sign In
@@ -110,16 +155,29 @@ export function PublicNavigation() {
       <div className="absolute right-4 top-4 flex md:hidden items-center">
         <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
           <SheetTrigger asChild>
-            <Button variant="ghost" size="icon" aria-label="Open menu">
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="Open menu"
+              className={cn(linkTone === "industrial" && "text-neutral-900 hover:bg-black/[0.04] dark:text-neutral-100")}
+            >
               <Menu className="h-6 w-6" />
             </Button>
           </SheetTrigger>
           <SheetContent
             side="right"
-            className="w-[min(20rem,85vw)] bg-cream dark:bg-background shadow-none p-6"
+            className={cn(
+              "w-[min(20rem,85vw)] bg-cream dark:bg-background shadow-none p-6",
+              linkTone === "industrial" && "bg-[#f5f5f5] dark:bg-neutral-950",
+            )}
           >
             <SheetHeader>
-              <SheetTitle className="text-left font-display text-navy dark:text-foreground">
+              <SheetTitle
+                className={cn(
+                  "text-left font-display text-navy dark:text-foreground",
+                  linkTone === "industrial" && "text-neutral-900 dark:text-neutral-100",
+                )}
+              >
                 Menu
               </SheetTitle>
             </SheetHeader>
@@ -156,7 +214,10 @@ export function PublicNavigation() {
                     toggleTheme();
                   }}
                   aria-label={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
-                  className="shrink-0 text-navy dark:text-foreground"
+                  className={cn(
+                    "shrink-0 text-navy dark:text-foreground",
+                    linkTone === "industrial" && "text-neutral-800 hover:bg-black/[0.04] dark:text-neutral-200",
+                  )}
                 >
                   {theme === "dark" ? (
                     <Sun className="h-5 w-5" />
@@ -165,14 +226,43 @@ export function PublicNavigation() {
                   )}
                 </Button>
                 {isAuthenticated ? (
-                  <>
-                    <Button asChild variant="outline" className="flex-1" onClick={() => setMobileOpen(false)}>
-                      <Link to="/app">Open App</Link>
-                    </Button>
-                    <Button variant="default" className="flex-1" onClick={() => { setMobileOpen(false); logout({ logoutParams: { returnTo: window.location.origin } }); }}>
-                      Sign Out
-                    </Button>
-                  </>
+                  linkTone === "industrial" ? (
+                    <>
+                      <Link to="/app" className="hi-bracket flex-1 text-center text-neutral-900 dark:text-neutral-100" onClick={() => setMobileOpen(false)}>
+                        Open App
+                      </Link>
+                      <button
+                        type="button"
+                        className="hi-bracket flex-1 text-neutral-900 dark:text-neutral-100"
+                        onClick={() => {
+                          setMobileOpen(false);
+                          logout({ logoutParams: { returnTo: window.location.origin } });
+                        }}
+                      >
+                        Sign Out
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <Button asChild variant="outline" className="flex-1" onClick={() => setMobileOpen(false)}>
+                        <Link to="/app">Open App</Link>
+                      </Button>
+                      <Button variant="default" className="flex-1" onClick={() => { setMobileOpen(false); logout({ logoutParams: { returnTo: window.location.origin } }); }}>
+                        Sign Out
+                      </Button>
+                    </>
+                  )
+                ) : linkTone === "industrial" ? (
+                  <button
+                    type="button"
+                    className="hi-bracket flex-1 text-neutral-900 dark:text-neutral-100"
+                    onClick={() => {
+                      setMobileOpen(false);
+                      loginWithRedirect();
+                    }}
+                  >
+                    Sign In
+                  </button>
                 ) : (
                   <Button variant="default" className="flex-1" onClick={() => { setMobileOpen(false); loginWithRedirect(); }}>
                     Sign In

@@ -424,6 +424,81 @@ body.public-content-page {
   animation: wordmark-in 1s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
+/* Public landing — industrial grid (homepage) */
+.home-industrial {
+  --hi-bg: #f5f5f5;
+  --hi-ink: #0a0a0a;
+  --hi-accent: #003d48;
+  --hi-grid: #dedede;
+  --hi-muted: #5c5c5c;
+  --hi-panel: #ebebeb;
+  --hi-cap-bg: #ecebe8;
+  --hi-hero-border: rgba(163, 163, 163, 0.55);
+  background-color: var(--hi-bg);
+  color: var(--hi-ink);
+}
+
+.dark .home-industrial {
+  --hi-bg: #0a0a0a;
+  --hi-ink: #ececec;
+  --hi-grid: rgba(255, 255, 255, 0.1);
+  --hi-muted: #a3a3a3;
+  --hi-panel: #141414;
+  --hi-cap-bg: #0f0f0f;
+  --hi-hero-border: rgba(255, 255, 255, 0.12);
+  background-color: var(--hi-bg);
+  color: var(--hi-ink);
+}
+
+.dark .home-industrial .hi-grid-cell {
+  background-color: #101010;
+  border-color: var(--hi-grid);
+}
+
+.dark .home-industrial .hi-grid-cell--muted {
+  background-color: var(--hi-panel);
+}
+
+/* Bracket-frame control (public industrial UI; global so portaled sheets match) */
+.hi-bracket {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35em;
+  padding: 0.4rem 0.75rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border: 1px solid rgba(10, 10, 10, 0.2);
+  background: transparent;
+  transition: border-color 0.2s ease, color 0.2s ease;
+}
+
+.hi-bracket:hover {
+  border-color: #003d48;
+  color: #003d48;
+}
+
+.dark .hi-bracket {
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.dark .hi-bracket:hover {
+  border-color: var(--primary);
+  color: #ff9a6a;
+}
+
+.home-industrial .hi-grid-cell {
+  position: relative;
+  border: 1px solid var(--hi-grid);
+  background: #fff;
+}
+
+.home-industrial .hi-grid-cell--muted {
+  background: var(--hi-panel);
+}
+
 /* Accordion (Mainline / shadcn) */
 @keyframes accordion-down {
   from { height: 0; }

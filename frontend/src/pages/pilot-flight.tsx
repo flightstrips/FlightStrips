@@ -322,14 +322,14 @@ export default function PilotFlightPage() {
           <input
             value={inputCallsign}
             onChange={(e) => setInputCallsign(e.target.value.toUpperCase())}
-            className="flex-1 rounded-xl border border-navy/15 dark:border-border bg-white dark:bg-background px-4 py-3 text-sm outline-none transition focus:border-primary placeholder:text-navy/40 dark:placeholder:text-muted-foreground"
+            className="flex-1 rounded-sm border border-neutral-300/90 bg-white px-4 py-3 text-sm outline-none transition focus:border-[#003d48] placeholder:text-neutral-400 dark:border-white/10 dark:bg-[#101010] dark:placeholder:text-neutral-500"
             placeholder="SAS123"
             autoComplete="off"
           />
           <button
             type="submit"
             disabled={!inputCallsign.trim()}
-            className="rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-white dark:text-navy transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+            className="rounded-sm bg-primary px-5 py-3 text-sm font-semibold text-white dark:text-navy transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
           >
             Look up
           </button>
@@ -338,42 +338,42 @@ export default function PilotFlightPage() {
 
       {/* Profile loading */}
       {!profileLoaded && (
-        <div className="rounded-2xl border border-navy/10 dark:border-border bg-white dark:bg-card px-6 py-12 text-center text-sm text-navy/50 dark:text-muted-foreground shadow-sm">
+        <div className="rounded-sm border border-neutral-300/90 bg-white shadow-sm dark:border-white/10 dark:bg-[#101010] px-6 py-12 text-center text-sm text-neutral-500 dark:text-neutral-400 shadow-sm">
           Loading…
         </div>
       )}
 
       {/* Active flight card — always shown once profile is loaded */}
       {profileLoaded && (
-        <div className="rounded-2xl border border-navy/10 dark:border-border bg-white dark:bg-card p-6 shadow-sm">
+        <div className="rounded-sm border border-neutral-300/90 bg-white shadow-sm dark:border-white/10 dark:bg-[#101010] p-6 shadow-sm">
           <p className="text-sm font-semibold uppercase tracking-[0.2em] text-primary">
             Active flight
           </p>
 
           {/* Empty state — testing mode, no callsign entered yet */}
           {!isLiveMode && !activeCallsign && (
-            <p className="mt-4 py-8 text-center text-sm text-navy/50 dark:text-muted-foreground">
+            <p className="mt-4 py-8 text-center text-sm text-neutral-500 dark:text-neutral-400">
               Enter a callsign above to look up flight status.
             </p>
           )}
 
           {/* Loading */}
           {isLoadingFlight && (
-            <p className="mt-4 py-8 text-center text-sm text-navy/50 dark:text-muted-foreground">
+            <p className="mt-4 py-8 text-center text-sm text-neutral-500 dark:text-neutral-400">
               Loading flight information…
             </p>
           )}
 
           {/* No active flight: 404 from API, or live mode with no online callsign */}
           {!isLoadingFlight && (flightError?.status === 404 || (isLiveMode && !activeCallsign)) && (
-            <p className="mt-4 py-8 text-center text-sm text-navy/50 dark:text-muted-foreground">
+            <p className="mt-4 py-8 text-center text-sm text-neutral-500 dark:text-neutral-400">
               No active flight found.
             </p>
           )}
 
           {/* Other errors */}
           {flightError && flightError.status !== 404 && (
-            <div className="mt-4 rounded-xl border border-rose-200 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/40 px-4 py-3 text-sm text-rose-900 dark:text-rose-100">
+            <div className="mt-4 rounded-sm border border-rose-200 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/40 px-4 py-3 text-sm text-rose-900 dark:text-rose-100">
               {flightError.message}
             </div>
           )}
@@ -384,7 +384,7 @@ export default function PilotFlightPage() {
               <div className="mt-4 flex items-start justify-between gap-4">
                 <div>
                   <p className="text-2xl font-bold tracking-tight">{flightInfo.callsign}</p>
-                  <p className="mt-2 text-base font-medium text-navy/80 dark:text-foreground/80">
+                  <p className="mt-2 text-base font-medium text-neutral-800 dark:text-neutral-200">
                     {flightInfo.origin}
                     <span className="mx-2 text-navy/40 dark:text-muted-foreground">→</span>
                     {flightInfo.destination}
@@ -412,7 +412,7 @@ export default function PilotFlightPage() {
 
       {/* PDC card — shown when available or when a PDC has been attempted (status persists after strip is cleared) */}
       {flightInfo && (flightInfo.pdc_available || pdcHasBeenAttempted(flightInfo.pdc_state)) && (
-            <div className="rounded-2xl border border-navy/10 dark:border-border bg-white dark:bg-card p-6 shadow-sm">
+            <div className="rounded-sm border border-neutral-300/90 bg-white shadow-sm dark:border-white/10 dark:bg-[#101010] p-6 shadow-sm">
               <p className="text-sm font-semibold uppercase tracking-[0.2em] text-primary">
                 Pre-departure clearance
               </p>
@@ -425,7 +425,7 @@ export default function PilotFlightPage() {
                     <input
                       value={aircraftType}
                       onChange={(e) => setAircraftType(e.target.value.toUpperCase())}
-                      className="rounded-xl border border-navy/15 dark:border-border bg-white dark:bg-background px-4 py-3 outline-none transition focus:border-primary placeholder:text-navy/40 dark:placeholder:text-muted-foreground"
+                      className="rounded-sm border border-neutral-300/90 bg-white px-4 py-3 outline-none transition focus:border-[#003d48] placeholder:text-neutral-400 dark:border-white/10 dark:bg-[#101010] dark:placeholder:text-neutral-500"
                       placeholder="A320"
                       autoComplete="off"
                       required
@@ -436,7 +436,7 @@ export default function PilotFlightPage() {
                     <input
                       value={atis}
                       onChange={(e) => setAtis(e.target.value.toUpperCase().slice(0, 1))}
-                      className="rounded-xl border border-navy/15 dark:border-border bg-white dark:bg-background px-4 py-3 outline-none transition focus:border-primary placeholder:text-navy/40 dark:placeholder:text-muted-foreground"
+                      className="rounded-sm border border-neutral-300/90 bg-white px-4 py-3 outline-none transition focus:border-[#003d48] placeholder:text-neutral-400 dark:border-white/10 dark:bg-[#101010] dark:placeholder:text-neutral-500"
                       placeholder="A"
                       autoComplete="off"
                       required
@@ -447,7 +447,7 @@ export default function PilotFlightPage() {
                     <input
                       value={stand}
                       onChange={(e) => setStand(e.target.value.toUpperCase())}
-                      className="rounded-xl border border-navy/15 dark:border-border bg-white dark:bg-background px-4 py-3 outline-none transition focus:border-primary placeholder:text-navy/40 dark:placeholder:text-muted-foreground"
+                      className="rounded-sm border border-neutral-300/90 bg-white px-4 py-3 outline-none transition focus:border-[#003d48] placeholder:text-neutral-400 dark:border-white/10 dark:bg-[#101010] dark:placeholder:text-neutral-500"
                       placeholder="A12"
                       autoComplete="off"
                     />
@@ -457,13 +457,13 @@ export default function PilotFlightPage() {
                     <textarea
                       value={remarks}
                       onChange={(e) => setRemarks(e.target.value)}
-                      className="min-h-20 rounded-xl border border-navy/15 dark:border-border bg-white dark:bg-background px-4 py-3 outline-none transition focus:border-primary placeholder:text-navy/40 dark:placeholder:text-muted-foreground"
+                      className="min-h-20 rounded-sm border border-neutral-300/90 bg-white px-4 py-3 outline-none transition focus:border-[#003d48] placeholder:text-neutral-400 dark:border-white/10 dark:bg-[#101010] dark:placeholder:text-neutral-500"
                       placeholder="Optional remarks for manual review."
                     />
                   </label>
 
                   {submitError && (
-                    <div className="sm:col-span-2 rounded-xl border border-rose-200 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/40 px-4 py-3 text-sm text-rose-900 dark:text-rose-100">
+                    <div className="sm:col-span-2 rounded-sm border border-rose-200 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/40 px-4 py-3 text-sm text-rose-900 dark:text-rose-100">
                       {submitError}
                     </div>
                   )}
@@ -472,7 +472,7 @@ export default function PilotFlightPage() {
                     <button
                       type="submit"
                       disabled={isSubmitting}
-                      className="rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-white dark:text-navy transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                      className="rounded-sm bg-primary px-5 py-3 text-sm font-semibold text-white dark:text-navy transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       {isSubmitting ? "Submitting…" : "Submit PDC request"}
                     </button>
@@ -486,35 +486,35 @@ export default function PilotFlightPage() {
                   </div>
 
                   {flightInfo.pdc_request_remarks && (
-                    <div className="rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40 px-4 py-3 text-sm text-amber-950 dark:text-amber-100">
+                    <div className="rounded-sm border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40 px-4 py-3 text-sm text-amber-950 dark:text-amber-100">
                       <p className="font-semibold">Remarks sent to ATC</p>
                       <p className="mt-1 whitespace-pre-wrap">{flightInfo.pdc_request_remarks}</p>
                     </div>
                   )}
 
                   {flightInfo.pdc_clearance_text && (
-                    <div className="rounded-xl border border-primary/15 dark:border-primary/30 bg-primary/5 dark:bg-primary/10 px-4 py-3">
+                    <div className="rounded-sm border border-primary/15 dark:border-primary/30 bg-primary/5 dark:bg-primary/10 px-4 py-3">
                       <p className="text-sm font-semibold text-primary">Clearance</p>
-                      <pre className="mt-3 whitespace-pre-wrap text-sm leading-6 text-navy dark:text-foreground">
+                      <pre className="mt-3 whitespace-pre-wrap text-sm leading-6 text-neutral-800 dark:text-neutral-200">
                         {flightInfo.pdc_clearance_text}
                       </pre>
                     </div>
                   )}
 
                   {flightInfo.pdc_acknowledged_at && (
-                    <p className="text-sm text-navy/70 dark:text-muted-foreground">
+                    <p className="text-sm text-neutral-600 dark:text-neutral-400">
                       Acknowledged at {new Date(flightInfo.pdc_acknowledged_at).toLocaleString()}.
                     </p>
                   )}
 
                   {acknowledgeError && (
-                    <div className="rounded-xl border border-rose-200 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/40 px-4 py-3 text-sm text-rose-900 dark:text-rose-100">
+                    <div className="rounded-sm border border-rose-200 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/40 px-4 py-3 text-sm text-rose-900 dark:text-rose-100">
                       {acknowledgeError}
                     </div>
                   )}
 
                   {unableError && (
-                    <div className="rounded-xl border border-rose-200 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/40 px-4 py-3 text-sm text-rose-900 dark:text-rose-100">
+                    <div className="rounded-sm border border-rose-200 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/40 px-4 py-3 text-sm text-rose-900 dark:text-rose-100">
                       {unableError}
                     </div>
                   )}
@@ -523,7 +523,7 @@ export default function PilotFlightPage() {
                     <button
                       type="button"
                       onClick={() => void fetchFlight(activeCallsign)}
-                      className="rounded-xl border border-navy/15 dark:border-border px-4 py-2 text-sm font-semibold text-navy dark:text-foreground transition hover:bg-navy/5 dark:hover:bg-white/10"
+                      className="rounded-sm border border-neutral-300/90 px-4 py-2 text-sm font-semibold text-neutral-800 transition hover:bg-neutral-100 dark:border-white/10 dark:text-neutral-200 dark:hover:bg-white/10"
                     >
                       Refresh
                     </button>
@@ -533,7 +533,7 @@ export default function PilotFlightPage() {
                           type="button"
                           onClick={() => void handleAcknowledge()}
                           disabled={isAcknowledging || isUnable}
-                          className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white dark:text-navy transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                          className="rounded-sm bg-primary px-4 py-2 text-sm font-semibold text-white dark:text-navy transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
                         >
                           {isAcknowledging ? "Acknowledging…" : "Acknowledge clearance"}
                         </button>
@@ -541,7 +541,7 @@ export default function PilotFlightPage() {
                           type="button"
                           onClick={() => void handleUnable()}
                           disabled={isUnable || isAcknowledging}
-                          className="rounded-xl border border-rose-300 dark:border-rose-700 bg-rose-50 dark:bg-rose-950/40 px-4 py-2 text-sm font-semibold text-rose-700 dark:text-rose-300 transition hover:bg-rose-100 dark:hover:bg-rose-900/40 disabled:cursor-not-allowed disabled:opacity-60"
+                          className="rounded-sm border border-rose-300 dark:border-rose-700 bg-rose-50 dark:bg-rose-950/40 px-4 py-2 text-sm font-semibold text-rose-700 dark:text-rose-300 transition hover:bg-rose-100 dark:hover:bg-rose-900/40 disabled:cursor-not-allowed disabled:opacity-60"
                         >
                           {isUnable ? "Sending…" : "Unable"}
                         </button>

@@ -1,21 +1,18 @@
 import { PublicNavigation } from "@/components/public/PublicNavigation";
 import { PublicFooter } from "@/components/public/PublicFooter";
-import { ScrollProgress } from "@/components/public/ScrollProgress";
 import { AboutHero } from "@/components/blocks/AboutHero";
 import { AboutContent } from "@/components/blocks/AboutContent";
+import { PUBLIC_NAV_INDUSTRY_CLASS, PUBLIC_PAGE_SHELL_CLASS } from "@/lib/public-page-style";
 
-/**
- * About page built with Mainline-style blocks.
- * @see https://github.com/shadcnblocks/mainline-nextjs-template
- */
 export default function About() {
   return (
-    <div className="min-h-screen bg-cream dark:bg-background text-navy dark:text-cream flex flex-col">
-      <ScrollProgress />
-      <PublicNavigation />
-      <AboutHero />
-      <AboutContent />
-      <PublicFooter />
+    <div className={PUBLIC_PAGE_SHELL_CLASS}>
+      <PublicNavigation linkTone="industrial" className={PUBLIC_NAV_INDUSTRY_CLASS} />
+      <main className="flex-1 pt-[4.5rem]">
+        <AboutHero />
+        <AboutContent />
+      </main>
+      <PublicFooter tone="industrial" />
     </div>
   );
 }

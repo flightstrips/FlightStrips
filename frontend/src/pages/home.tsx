@@ -1,204 +1,383 @@
-import { ArrowRight, Radio, MapPin, MessageSquare, Smartphone, GitBranch, Layers } from "lucide-react";
+import {
+  ArrowRight,
+  ChevronDown,
+  GitBranch,
+  Layers,
+  MapPin,
+  MessageSquare,
+  Radio,
+  Smartphone,
+} from "lucide-react";
 import { Link } from "react-router";
-import { useAuth0 } from "@auth0/auth0-react";
 import { PublicNavigation } from "@/components/public/PublicNavigation";
 import { PublicFooter } from "@/components/public/PublicFooter";
-import { DashedLine } from "@/components/blocks/DashedLine";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { CornerDots } from "@/components/public/CornerDots";
+import type { LucideIcon } from "lucide-react";
+import { PUBLIC_NAV_INDUSTRY_CLASS, PUBLIC_SECTION_BORDER } from "@/lib/public-page-style";
+import { cn } from "@/lib/utils";
 
-const features = [
+const stroke = 1.5;
+
+const HERO_BG =
+  "https://i.imgur.com/NRmM3BP.jpeg";
+
+const heroNavCards = [
   {
-    title: "Datalink Clearance (DCL)",
-    description:
-      "Advanced DCL delivery with automated routing and conflict detection. Clearance at a glance—no direct Euroscope connection needed.",
-    icon: Radio,
+    title: "Documentation",
+    index: "01",
+    to: "https://docs.flightstrips.dk",
+    external: true,
+    stripSrc:
+      "https://images.unsplash.com/photo-1556388158-158e5dd25c82?auto=format&fit=crop&w=800&q=80",
   },
   {
-    title: "Pushback & holding points",
-    description:
-      "Manage pushback and holding point assignments with clarity. Assign release points and runway clearances in one place.",
-    icon: MapPin,
+    title: "About",
+    index: "02",
+    to: "/about",
+    external: false,
+    stripSrc:
+      "https://images.unsplash.com/photo-1529074963764-98f45c47344f?auto=format&fit=crop&w=800&q=80",
   },
+] as const;
+
+const pillars = [
   {
-    title: "Internal communication",
+    title: "Instantly syncronized",
     description:
-      "Stay coordinated with built-in internal comms, team visibility, and controller online/offline awareness.",
-    icon: MessageSquare,
-  },
-  {
-    title: "Any device, anywhere",
-    description:
-      "Run FlightStrips on desktop, tablet, or phone. Touch-first design for FSTools and similar devices—full capability from the browser.",
-    icon: Smartphone,
-  },
-  {
-    title: "Euroscope integration",
-    description:
-      "Two-way sync with Euroscope for full coordination between strip board and radar. Keep everyone on the same page.",
+      "All positions are instantly synchronized, ensuring that everyone is on the same page.",
+    muted: false,
     icon: Layers,
   },
   {
-    title: "Flow management & CDM",
+    title: "Datalink Clearance",
     description:
-      "Integrated Collaborative Decision Making: CTOT, TSAT, and ECFMP-style flow management for high-traffic scenarios.",
+      "Offload controller workload with automated Datalink Clearance and routing.",
+    muted: true,
+    icon: Radio,
+  },
+  {
+    title: "Advanced Sequencing",
+    description:
+      "Handle high volume of traffic with ease using advanced sequencing features.",
+    muted: true,
     icon: GitBranch,
   },
 ];
 
-export default function Home() {
-  const { isAuthenticated, loginWithRedirect } = useAuth0();
-  return (
-    <div className="min-h-screen bg-cream dark:bg-background text-navy dark:text-foreground flex flex-col">
-      <PublicNavigation />
+const capabilities = [
+  {
+    title: "Clearances",
+    description:
+      "PDC-style clearances and strip-driven state so everyone sees the same picture at the same time.",
+    icon: Radio,
+    visual: "bars" as const,
+  },
+  {
+    title: "Ground movement",
+    description:
+      "Pushback releases, holding points, and runway assignments stay on the strip—no parallel spreadsheets.",
+    icon: MapPin,
+    visual: "lines" as const,
+  },
+  {
+    title: "Collaboration",
+    description:
+      "Internal messaging and presence across positions, with Euroscope sync when you need radar alignment.",
+    icon: MessageSquare,
+    visual: "lines" as const,
+  },
+];
 
-      <main className="flex-1">
-        {/* Hero */}
-        <section className="relative pt-24 pb-20 sm:pt-32 sm:pb-28 px-6 sm:px-8 bg-[#F3EEE8] dark:bg-background">
-          <div className="max-w-5xl mx-auto">
-            <div className="flex items-center gap-4 mb-8">
-              <DashedLine className="flex-1 border-navy/20 dark:border-white/20" />
-              <span className="text-[11px] font-medium tracking-[0.2em] uppercase text-primary whitespace-nowrap">
-                Strip management for virtual ATC
-              </span>
-              <DashedLine className="flex-1 border-navy/20" />
+const moreFeatures = [
+  {
+    title: "Any device",
+    description: "Desktop or tablet - touch-first where it matters.",
+    icon: Smartphone,
+  },
+  {
+    title: "Euroscope",
+    description: "Two-way integration. Automatic updates & a light footprint.",
+    icon: Layers,
+  },
+];
+
+function CapabilityVisual({ variant }: { variant: "bars" | "lines" }) {
+  if (variant === "bars") {
+    const heights = [0.38, 0.58, 0.32, 0.72, 0.45];
+    return (
+      <div
+        className={cn(
+          "mb-8 flex h-24 items-end gap-1 rounded-sm border bg-[#0a1628] p-3 dark:border-white/10 dark:bg-[#050810]",
+          PUBLIC_SECTION_BORDER,
+        )}
+      >
+        {heights.map((h, i) => (
+          <div
+            key={i}
+            className="flex-1 rounded-t-[2px] bg-gradient-to-t from-[#1a3352] to-[#003d48]/75 dark:from-[#243d5c] dark:to-[#003d48]/80"
+            style={{ height: `${h * 100}%` }}
+          />
+        ))}
+      </div>
+    );
+  }
+  return (
+    <div
+      className={cn(
+        "mb-8 flex h-24 flex-col justify-center gap-2.5 rounded-sm border border-dashed bg-neutral-100/90 px-4 dark:border-white/12 dark:bg-white/[0.04]",
+        PUBLIC_SECTION_BORDER,
+      )}
+    >
+      {[72, 48, 88, 56].map((w, i) => (
+        <div
+          key={i}
+          className="h-px rounded-full bg-neutral-400/50 dark:bg-white/20"
+          style={{ width: `${w}%` }}
+        />
+      ))}
+    </div>
+  );
+}
+
+function HeroNavCard({
+  title,
+  indexLabel,
+  to,
+  external,
+  stripSrc,
+}: {
+  title: string;
+  indexLabel: string;
+  to: string;
+  external: boolean;
+  stripSrc: string;
+}) {
+  const className =
+    "group relative flex min-h-[220px] w-[320px] flex-col overflow-hidden bg-white text-left shadow-[0_12px_40px_rgba(0,0,0,0.25)] transition-shadow hover:shadow-[0_16px_48px_rgba(0,0,0,0.35)]";
+
+  const inner = (
+    <>
+      <div className="flex flex-1 flex-col px-6 pb-5 pt-6">
+        <h3 className="font-display text-xl font-bold tracking-tight text-neutral-900">{title}</h3>
+        <p className="mt-1 font-mono text-sm tabular-nums text-neutral-400">{indexLabel}</p>
+        <div className="min-h-[2.5rem] flex-1" />
+        <div className="flex justify-end">
+          <span
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-neutral-900 text-white transition group-hover:bg-[#003d48]"
+            aria-hidden
+          >
+            <ArrowRight className="h-4 w-4" strokeWidth={stroke} />
+          </span>
+        </div>
+      </div>
+      <div className="relative h-11 w-full overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" aria-hidden />
+      </div>
+    </>
+  );
+
+  if (external) {
+    return (
+      <a href={to} target="_blank" rel="noopener noreferrer" className={className}>
+        {inner}
+      </a>
+    );
+  }
+  return (
+    <Link to={to} className={className}>
+      {inner}
+    </Link>
+  );
+}
+
+function IconFoot({ icon: Icon, className }: { icon: LucideIcon; className?: string }) {
+  return (
+    <Icon
+      className={cn("mt-auto size-5 shrink-0 text-neutral-500 dark:text-neutral-500", className)}
+      strokeWidth={stroke}
+      aria-hidden
+    />
+  );
+}
+
+export default function Home() {
+  return (
+    <div className="home-industrial flex min-h-screen flex-col">
+      <PublicNavigation linkTone="industrial" className={PUBLIC_NAV_INDUSTRY_CLASS} />
+
+      <main className="flex-1 pt-[4.5rem]">
+        {/* Hero — full-bleed image, headline, bottom-left cards + scroll control */}
+        <section className="relative border-b border-white/10">
+          <div className="absolute inset-0">
+            <img
+              src={HERO_BG}
+              alt=""
+              className="h-full w-full object-cover brightness-[0.85] dark:brightness-[0.55]"
+              fetchPriority="high"
+              decoding="async"
+            />
+            <div
+              className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/50 to-black/30 dark:from-black/85 dark:via-black/60 dark:to-black/40"
+              aria-hidden
+            />
+            <div
+              className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-black/20"
+              aria-hidden
+            />
+          </div>
+
+          <div className="relative z-10 mx-auto flex min-h-[calc(100dvh-4.5rem)] max-w-[1400px] flex-col justify-around px-6 pb-10 pt-10 sm:px-10 sm:pb-12 sm:pt-14">
+            <div className="max-w-2xl">
+              <h1
+                className="font-display text-4xl font-semibold leading-[1.05] tracking-tight text-white sm:text-5xl md:text-6xl lg:text-[3.5rem]"
+                style={{ letterSpacing: "-0.03em" }}
+              >
+                Coordinated<br/> Ground Operations
+              </h1>
+              <p className="mt-6 max-w-xl text-base leading-relaxed text-white/90 sm:text-lg">
+                FlightStrips centralizes clearance, movement, and handoff on the strip board—so delivery, ground, and tower
+                stay aligned without parallel lists or clipboards.
+              </p>
             </div>
-            <h1
-              className="font-display font-semibold text-4xl sm:text-5xl md:text-6xl lg:text-7xl text-navy dark:text-foreground tracking-tight mb-6"
-              style={{ letterSpacing: "-0.02em", lineHeight: 1.05 }}
-            >
-              FlightStrips
-            </h1>
-            <p className="font-sans font-light text-lg sm:text-xl text-navy/85 dark:text-foreground/85 max-w-2xl leading-relaxed mb-10">
-              FlightStrips is a strip management program designed for coordination and management of aircraft on the ground. The core value is the centralization of all required data in order to run all ground operations without any use of lists.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4">
-              <Button asChild size="lg" className="bg-primary hover:bg-primary/90 text-white dark:text-navy rounded-sm shadow-sm w-fit">
-                <Link to="https://docs.flightstrips.dk">
-                  Get Started
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Link>
-              </Button>
-              <Button asChild variant="outline" size="lg" className="border-2 border-primary/50 text-primary hover:bg-primary/10 rounded-sm w-fit">
-                <Link to="/about">Learn More</Link>
-              </Button>
+
+            <div className="mt-12 flex flex-col gap-8 lg:mt-0 lg:flex-row lg:items-end lg:justify-between">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-stretch sm:gap-5">
+                {heroNavCards.map((card) => (
+                  <HeroNavCard
+                    key={card.index}
+                    title={card.title}
+                    indexLabel={card.index}
+                    to={card.to}
+                    external={card.external}
+                    stripSrc={card.stripSrc}
+                  />
+                ))}
+              </div>
+              <button
+                type="button"
+                className="flex h-12 w-12 shrink-0 items-center justify-center self-end rounded-full border border-white/30 bg-white text-neutral-900 shadow-lg transition hover:bg-white/95 lg:self-end"
+                aria-label="Scroll to content"
+                onClick={() => document.getElementById("after-hero")?.scrollIntoView({ behavior: "smooth" })}
+              >
+                <ChevronDown className="h-6 w-6" strokeWidth={stroke} aria-hidden />
+              </button>
             </div>
           </div>
         </section>
 
-        {/* Features grid */}
-        <section className="py-24 px-6 sm:px-8 bg-white dark:bg-card">
-          <div className="max-w-5xl mx-auto">
-            <div className="flex items-center gap-4 mb-12">
-              <DashedLine className="flex-1 border-navy/20 dark:border-white/20" />
-              <span className="text-[11px] font-medium tracking-[0.2em] uppercase text-primary whitespace-nowrap">
-                Built for the way you work
-              </span>
-              <DashedLine className="flex-1 border-navy/20 dark:border-white/20" />
+        {/* Three pillars */}
+        <section id="after-hero" className={cn("border-b scroll-mt-20 bg-[var(--hi-cap-bg)]", PUBLIC_SECTION_BORDER)}>
+          <div className="mx-auto grid max-w-[1400px] md:grid-cols-3 py-8">
+            {pillars.map((p) => {
+              const Icon = p.icon;
+              return (
+                <div
+                  key={p.title}
+                  className={cn(
+                    "group relative flex min-h-[260px] flex-col p-8 transition-colors duration-200 sm:p-10 md:border-r md:last:border-r-0",
+                    "hover:!bg-white dark:hover:!bg-neutral-800",
+                    PUBLIC_SECTION_BORDER,
+                    "hi-grid-cell--muted"
+                  )}
+                >
+                  <CornerDots />
+                  <h2 className="font-display mb-4 text-2xl font-semibold tracking-tight text-neutral-950 sm:text-3xl dark:text-neutral-50 dark:group-hover:text-neutral-100">
+                    {p.title}
+                  </h2>
+                  <p className="mb-8 flex-1 text-sm leading-relaxed text-neutral-600 dark:text-neutral-400 dark:group-hover:text-neutral-300">
+                    {p.description}
+                  </p>
+                  <Link
+                    to="/about"
+                    className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#003d48] transition hover:text-neutral-950 dark:text-[#ff8a5c] dark:hover:text-[#003d48] dark:group-hover:text-[#5cb8c4]"
+                  >
+                    Learn more
+                  </Link>
+                  <IconFoot icon={Icon} className="dark:group-hover:text-neutral-400" />
+                </div>
+              );
+            })}
+          </div>
+        </section>
+
+        {/* Community */}
+        <section
+          className={cn(
+            "border-b bg-[#003d48] text-neutral-950 dark:border-white/10 dark:bg-[#003d48] dark:text-neutral-50",
+            PUBLIC_SECTION_BORDER,
+          )}
+        >
+          <div className="mx-auto grid max-w-[1400px] gap-8 px-6 py-14 sm:grid-cols-[1fr_auto] sm:items-center sm:px-10 sm:py-16">
+            <div>
+              <h2 className="font-display mb-4 max-w-xl text-3xl font-semibold leading-tight tracking-tight sm:text-4xl text-white/90">
+                Built for VATSCA, open for everyone
+              </h2>
+              <p className="max-w-xl text-sm leading-relaxed text-white/90">
+                FlightStrips is free and open source (GPL-3.0). <br/> Use it, modify it, and share it with the community.
+              </p>
             </div>
+          </div>
+        </section>
+
+        <section className={cn("border-b", PUBLIC_SECTION_BORDER)}>
+          <div className="mx-auto grid max-w-[1400px] gap-0 md:grid-cols-2 py-8">
+            {moreFeatures.map((f) => {
+              const Icon = f.icon;
+              return (
+                <div
+                  key={f.title}
+                  className={cn(
+                    "relative border-b p-8 sm:p-10 md:border-b-0 md:border-r md:last:border-r-0",
+                    PUBLIC_SECTION_BORDER,
+                    "hi-grid-cell",
+                  )}
+                >
+                  <CornerDots />
+                  <h3 className="font-display mb-2 text-xl font-semibold text-neutral-950 dark:text-neutral-50">{f.title}</h3>
+                  <p className="text-sm leading-relaxed text-neutral-600 dark:text-neutral-400">{f.description}</p>
+                  <IconFoot icon={Icon} />
+                </div>
+              );
+            })}
+          </div>
+        </section>
+        
+
+        {/* Capabilities */}
+        <section className={cn("border-b bg-[var(--hi-cap-bg)] dark:bg-neutral-950", PUBLIC_SECTION_BORDER)}>
+          <div className="mx-auto max-w-[1400px] py-12">
             <h2
-              className="font-display font-semibold text-3xl sm:text-4xl md:text-5xl text-navy dark:text-foreground tracking-tight mb-4 text-center"
+              className="font-display mb-10 text-2xl font-semibold tracking-tight text-neutral-950 sm:text-3xl dark:text-neutral-50"
               style={{ letterSpacing: "-0.02em" }}
             >
-              Everything in one place
+              An evolution in coordination
             </h2>
-            <p className="text-navy/80 dark:text-foreground/80 text-center max-w-2xl mx-auto mb-16 font-light">
-              NITOS-inspired strip management for VATSIM: DCL, pushback, holding points, internal comms, and flow management—on any device.
-            </p>
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-              {features.map((item) => {
-                const Icon = item.icon;
+            <div className="grid gap-0 md:grid-cols-3">
+              {capabilities.map((c) => {
+                const Icon = c.icon;
                 return (
-                  <Card
-                    key={item.title}
-                    className="border-cream dark:border-border bg-cream/40 dark:bg-muted/40 hover:border-primary/25 hover:shadow-md transition-all duration-300 overflow-hidden"
+                  <div
+                    key={c.title}
+                    className={cn(
+                      "relative flex flex-col border bg-white/95 p-8 md:border-r md:last:border-r-0 dark:border-white/10 dark:bg-[#101010]",
+                      PUBLIC_SECTION_BORDER,
+                      "hi-grid-cell",
+                    )}
                   >
-                    <CardContent className="p-6">
-                      <div className="rounded-lg border border-navy/15 dark:border-border bg-white/80 dark:bg-background/80 p-3 w-fit mb-4">
-                        <Icon className="h-5 w-5 text-primary" />
-                      </div>
-                      <h3 className="font-display font-semibold text-lg text-navy dark:text-foreground tracking-tight mb-2">
-                        {item.title}
-                      </h3>
-                      <p className="text-navy/80 dark:text-muted-foreground text-sm font-light leading-relaxed">
-                        {item.description}
-                      </p>
-                    </CardContent>
-                  </Card>
+                    <CornerDots />
+                    <CapabilityVisual variant={c.visual} />
+                    <h3 className="font-display mb-3 text-lg font-semibold text-neutral-950 dark:text-neutral-50">{c.title}</h3>
+                    <p className="mb-6 flex-1 text-sm leading-relaxed text-neutral-600 dark:text-neutral-400">{c.description}</p>
+                    <IconFoot icon={Icon} />
+                  </div>
                 );
               })}
             </div>
           </div>
         </section>
-
-        {/* Centralization / no lists */}
-        <section className="py-24 px-6 sm:px-8 bg-cream dark:bg-background">
-          <div className="max-w-5xl mx-auto">
-            <div className="grid md:grid-cols-2 gap-12 md:gap-16 items-center">
-              <div>
-                <p className="text-[11px] font-medium tracking-[0.2em] uppercase text-primary mb-4">
-                  One source of truth
-                </p>
-                <h2
-                  className="font-display font-semibold text-3xl sm:text-4xl text-navy dark:text-foreground tracking-tight mb-6"
-                  style={{ letterSpacing: "-0.02em" }}
-                >
-                  Run ground ops without lists
-                </h2>
-                <p className="text-navy/80 dark:text-muted-foreground font-light leading-relaxed mb-4">
-                  All data lives on the strip board. Clearance, pushback, taxi, runway, and handoff state are centralized—no separate lists or clipboards. One system for delivery, ground, and tower coordination.
-                </p>
-                <p className="text-navy/80 dark:text-muted-foreground font-light leading-relaxed">
-                  Designed to match real-life workflows 1:1 for true-to-life simulation and training on VATSIM and other networks.
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-3">
-                {["DCL", "Pushback", "Holding points", "Runway", "Coordination", "CDM"].map((label) => (
-                  <span
-                    key={label}
-                    className="px-4 py-2 rounded-md border border-navy/15 dark:border-border bg-white/60 dark:bg-muted text-navy/80 dark:text-muted-foreground text-sm font-medium"
-                  >
-                    {label}
-                  </span>
-                ))}
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* VATSIM & open source */}
-        <section className="py-24 px-6 sm:px-8 bg-white dark:bg-card">
-          <div className="max-w-3xl mx-auto text-center">
-            <p className="text-[11px] font-medium tracking-[0.2em] uppercase text-primary mb-3">
-              Community
-            </p>
-            <h2
-              className="font-display font-semibold text-3xl sm:text-4xl md:text-5xl text-navy dark:text-foreground tracking-tight mb-6"
-              style={{ letterSpacing: "-0.02em" }}
-            >
-              Built for VATSIM, open for everyone
-            </h2>
-            <p className="font-sans font-light text-navy/80 dark:text-muted-foreground mb-10 leading-relaxed">
-              FlightStrips is free and open-source (GPL-3.0), built by and for the virtual ATC community. Compatible with Windows, Mac, and Linux. Use it for simulation and training — no lists, no clutter, just strips.
-            </p>
-            {isAuthenticated ? (
-              <Button asChild size="lg" className="bg-primary hover:bg-primary/90 text-white dark:text-navy rounded-sm shadow-sm">
-                <Link to="/app">
-                  Open App
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Link>
-              </Button>
-            ) : (
-              <Button size="lg" className="bg-primary hover:bg-primary/90 text-white dark:text-navy rounded-sm shadow-sm" onClick={() => loginWithRedirect()}>
-                Sign in to get started
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
-            )}
-          </div>
-        </section>
       </main>
 
-      <PublicFooter />
+      <PublicFooter tone="industrial" />
     </div>
   );
 }

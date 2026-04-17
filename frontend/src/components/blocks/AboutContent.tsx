@@ -1,5 +1,6 @@
-import { DashedLine } from "./DashedLine";
-import { Card, CardContent } from "@/components/ui/card";
+import { CornerDots } from "@/components/public/CornerDots";
+import { cn } from "@/lib/utils";
+import { PUBLIC_SECTION_BORDER } from "@/lib/public-page-style";
 
 const principles = [
   {
@@ -25,124 +26,105 @@ const principles = [
 export function AboutContent() {
   return (
     <>
-      {/* Vision */}
-      <section className="py-20 px-6 sm:px-8 bg-white dark:bg-card">
-        <div className="max-w-5xl mx-auto">
-          <div className="grid md:grid-cols-2 gap-12 md:gap-16 items-center">
+      <section className={cn("border-b bg-white dark:bg-[#0a0a0a]", PUBLIC_SECTION_BORDER)}>
+        <div className="mx-auto max-w-[1400px] px-6 py-16 sm:px-10 sm:py-20">
+          <div className="grid items-start gap-12 md:grid-cols-2 md:gap-16">
             <div className="flex items-start gap-4">
-              <div className="w-1 h-24 bg-primary rounded-full shrink-0" />
+              <div className="h-24 w-1 shrink-0 rounded-full bg-[#003d48]" />
               <div>
-                <p className="text-[11px] font-medium tracking-[0.2em] uppercase text-primary mb-4">
-                  Vision
-                </p>
+                <p className="mb-4 text-[10px] font-semibold uppercase tracking-[0.2em] text-[#003d48]">Vision</p>
                 <h2
-                  className="font-display font-semibold text-3xl sm:text-4xl md:text-5xl text-navy dark:text-cream tracking-tight"
+                  className="font-display text-3xl font-semibold tracking-tight text-neutral-950 sm:text-4xl md:text-5xl dark:text-neutral-50"
                   style={{ letterSpacing: "-0.02em" }}
                 >
                   Our vision for a next-generation strip management system
                 </h2>
               </div>
             </div>
-            <div className="space-y-6">
-              <p className="text-navy/80 dark:text-cream/80 font-light leading-relaxed">
-                FlightStrips represents a fundamental reimagining of air traffic control strip management,
-                designed specifically for virtual ATC environments. We combine precision engineering with
-                intuitive design to deliver a system that feels both powerful and effortless.
+            <div className="space-y-6 text-sm leading-relaxed text-neutral-600 dark:text-neutral-400">
+              <p>
+                FlightStrips represents a fundamental reimagining of air traffic control strip management, designed specifically for
+                virtual ATC environments. We combine precision engineering with intuitive design to deliver a system that feels
+                both powerful and effortless.
               </p>
-              <p className="text-navy/80 dark:text-cream/80 font-light leading-relaxed">
-                Built for simulation communities, FlightStrips enables controllers to focus on what matters:
-                safe, efficient air traffic management. Every feature is crafted with the understanding that
-                clarity and reliability are non-negotiable in high-stakes environments.
+              <p>
+                Built for simulation communities, FlightStrips enables controllers to focus on what matters: safe, efficient air
+                traffic management. Every feature is crafted with the understanding that clarity and reliability are non-negotiable
+                in high-stakes environments.
               </p>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Principles */}
-      <section className="py-20 px-6 sm:px-8 bg-cream dark:bg-background">
-        <div className="max-w-5xl mx-auto">
-          <div className="flex items-center gap-4 mb-8">
-            <DashedLine className="flex-1 border-navy/20 dark:border-white/20" />
-            <span className="text-[11px] font-medium tracking-[0.2em] uppercase text-primary whitespace-nowrap">
-              Principles
-            </span>
-            <DashedLine className="flex-1 border-navy/20 dark:border-white/20" />
-          </div>
+      <section className={cn("border-b", PUBLIC_SECTION_BORDER)}>
+        <div className="mx-auto max-w-[1400px] px-6 py-16 sm:px-10 sm:py-20">
+          <p className="mb-4 text-[10px] font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-500">
+            Principles
+          </p>
           <h2
-            className="font-display font-semibold text-3xl sm:text-4xl md:text-5xl text-navy dark:text-cream tracking-tight mb-12"
+            className="font-display mb-12 max-w-2xl text-3xl font-semibold tracking-tight text-neutral-950 sm:text-4xl md:text-5xl dark:text-neutral-50"
             style={{ letterSpacing: "-0.02em" }}
           >
             Built on core principles
           </h2>
-          <div className="grid md:grid-cols-3 gap-6">
+          <div className="grid gap-0 md:grid-cols-3">
             {principles.map((item) => (
-              <Card
+              <div
                 key={item.id}
-                className="border-navy/10 dark:border-border bg-white dark:bg-card hover:border-primary/20 transition-colors"
+                className={cn(
+                  "relative border-b p-8 last:border-b-0 md:border-b-0 md:border-r md:last:border-r-0",
+                  PUBLIC_SECTION_BORDER,
+                  "hi-grid-cell hi-grid-cell--muted",
+                )}
               >
-                <CardContent className="p-6 sm:p-8">
-                  <p className="text-[11px] font-medium tracking-[0.2em] uppercase text-navy/60 dark:text-cream/60 mb-4">
-                    {item.id}
-                  </p>
-                  <div className="w-10 h-px bg-primary mb-4" />
-                  <h3 className="font-display font-semibold text-xl text-navy dark:text-cream tracking-tight mb-3">
-                    {item.title}
-                  </h3>
-                  <p className="text-navy/80 dark:text-cream/80 text-sm font-light leading-relaxed">
-                    {item.description}
-                  </p>
-                </CardContent>
-              </Card>
+                <CornerDots />
+                <p className="mb-3 font-mono text-xs tabular-nums text-neutral-400">{item.id}</p>
+                <h3 className="font-display mb-3 text-xl font-semibold text-neutral-950 dark:text-neutral-50">{item.title}</h3>
+                <p className="text-sm leading-relaxed text-neutral-600 dark:text-neutral-400">{item.description}</p>
+              </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Quote */}
-      <section className="py-20 px-6 sm:px-8 bg-white dark:bg-card">
-        <div className="max-w-3xl mx-auto">
-          <blockquote className="border-l-2 border-primary pl-6">
-            <p className="text-navy/90 dark:text-cream/90 text-lg md:text-xl font-light italic leading-relaxed mb-4">
-              &ldquo;FlightStrips has transformed how our vACC manages operations.
-              The precision and clarity of the system allows controllers to focus entirely on
-              what they do best. Compared to previous systems, FlightStrips is a game changer.&rdquo;
+      <section className={cn("border-b bg-white dark:bg-[#0a0a0a]", PUBLIC_SECTION_BORDER)}>
+        <div className="mx-auto max-w-[1400px] px-6 py-16 sm:px-10 sm:py-20">
+          <blockquote className="border-l-2 border-[#003d48] pl-6 md:pl-8">
+            <p className="text-base font-light italic leading-relaxed text-neutral-800 dark:text-neutral-200 md:text-lg">
+              &ldquo;FlightStrips has transformed how our vACC manages operations. The precision and clarity of the system allows
+              controllers to focus entirely on what they do best. Compared to previous systems, FlightStrips is a game
+              changer.&rdquo;
             </p>
-            <footer className="mt-4">
-              <p className="text-sm font-medium text-navy dark:text-cream">VATSCA vACC Director</p>
-              <p className="text-xs text-navy/60 dark:text-cream/60">Simon Bjerre</p>
+            <footer className="mt-6">
+              <p className="text-sm font-medium text-neutral-950 dark:text-neutral-50">VATSCA vACC Director</p>
+              <p className="text-xs text-neutral-500 dark:text-neutral-500">Simon Bjerre</p>
             </footer>
           </blockquote>
         </div>
       </section>
 
-      {/* Open source CTA */}
-      <section className="py-20 px-6 sm:px-8 bg-cream dark:bg-background">
-        <div className="max-w-5xl mx-auto">
-          <p className="text-[11px] font-medium tracking-[0.2em] uppercase text-primary mb-4">
-            Open Source
-          </p>
+      <section className={cn("border-b bg-[var(--hi-cap-bg)] dark:bg-neutral-950", PUBLIC_SECTION_BORDER)}>
+        <div className="mx-auto max-w-[1400px] px-6 py-16 sm:px-10 sm:py-20">
+          <p className="mb-4 text-[10px] font-semibold uppercase tracking-[0.2em] text-[#003d48]">Open source</p>
           <h2
-            className="font-display font-semibold text-3xl sm:text-4xl md:text-5xl text-navy dark:text-cream tracking-tight mb-6"
+            className="font-display mb-6 max-w-2xl text-3xl font-semibold tracking-tight text-neutral-950 sm:text-4xl md:text-5xl dark:text-neutral-50"
             style={{ letterSpacing: "-0.02em" }}
           >
             Free and open-source
           </h2>
-          <p className="text-navy/80 dark:text-cream/80 font-light max-w-2xl mb-8 leading-relaxed">
-            FlightStrips is a free and open-source project, built by and for the virtual ATC community.
-            Support is available via GitHub, and contributions are welcome from developers and controllers
-            who share our vision for better strip management.
+          <p className="mb-8 max-w-2xl text-sm leading-relaxed text-neutral-600 dark:text-neutral-400">
+            FlightStrips is a free and open-source project, built by and for the virtual ATC community. Support is available via
+            GitHub, and contributions are welcome from developers and controllers who share our vision for better strip management.
           </p>
           <a
             href="https://github.com/flightstrips/FlightStrips"
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-6 py-3 text-sm font-medium rounded-sm hover:opacity-95 transition-opacity"
+            className="inline-flex items-center gap-2 rounded-sm border border-[#003d48] bg-[#003d48] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[#004d5c]"
           >
             View on GitHub
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M17.25 8.25L21 12m0 0l-3.75 3.75M21 12H3" />
-            </svg>
+            <span aria-hidden>→</span>
           </a>
         </div>
       </section>

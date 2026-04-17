@@ -1,5 +1,6 @@
 import { Link } from "react-router";
-import { DashedLine } from "./DashedLine";
+import { cn } from "@/lib/utils";
+import { PUBLIC_SECTION_BORDER } from "@/lib/public-page-style";
 
 const stats = [
   { value: "NITOS", label: "Inspired by" },
@@ -10,37 +11,35 @@ const stats = [
 
 export function AboutHero() {
   return (
-    <section className="py-20 sm:py-28 px-6 sm:px-8 bg-cream dark:bg-background">
-      <div className="max-w-5xl mx-auto">
-        <div className="flex items-center gap-4 mb-8">
-          <DashedLine className="flex-1 border-navy/20 dark:border-white/20" />
-          <span className="text-[11px] font-medium tracking-[0.2em] uppercase text-primary whitespace-nowrap">
-            About
-          </span>
-          <DashedLine className="flex-1 border-navy/20 dark:border-white/20" />
-        </div>
+    <section className={cn("border-b", PUBLIC_SECTION_BORDER)}>
+      <div className="mx-auto max-w-[1400px] px-6 py-14 sm:px-10 sm:py-20">
+        <p className="mb-5 text-[10px] font-semibold uppercase tracking-[0.28em] text-neutral-500 dark:text-neutral-500">
+          About
+        </p>
         <h1
-          className="font-display font-semibold text-4xl sm:text-5xl md:text-6xl lg:text-7xl text-navy dark:text-cream tracking-tight mb-6"
-          style={{ letterSpacing: "-0.02em" }}
+          className="font-display max-w-3xl text-4xl font-semibold leading-[1.05] tracking-tight text-neutral-950 sm:text-5xl md:text-6xl dark:text-neutral-50"
+          style={{ letterSpacing: "-0.03em" }}
         >
           Built for virtual ATC
         </h1>
-        <p className="text-lg sm:text-xl text-navy/80 dark:text-cream/80 font-light max-w-2xl mb-4">
+        <p className="mt-6 max-w-2xl text-sm leading-relaxed text-neutral-600 dark:text-neutral-400 sm:text-base">
           FlightStrips brings NITOS-inspired strip management to simulation: precision, clarity, and reliability—on any device.
         </p>
-        <p className="text-sm text-navy/60 dark:text-cream/60 mb-12">
-          <Link to="/" className="hover:text-primary transition-colors">Home</Link>
-          <span className="mx-2">/</span>
-          About Us
+        <p className="mt-6 text-sm text-neutral-500 dark:text-neutral-500">
+          <Link to="/" className="transition hover:text-[#003d48] dark:hover:text-[#5cb8c4]">
+            Home
+          </Link>
+          <span className="mx-2 text-neutral-400">/</span>
+          About
         </p>
 
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 sm:gap-8">
+        <div className="mt-12 grid grid-cols-2 gap-px bg-neutral-300/90 sm:grid-cols-4 dark:bg-white/15">
           {stats.map((stat) => (
-            <div key={stat.label}>
-              <p className="font-display font-semibold text-2xl sm:text-3xl text-primary tracking-tight">
+            <div key={stat.label} className="bg-[var(--hi-bg)] p-6 dark:bg-[#101010]">
+              <p className="font-display text-xl font-semibold tracking-tight text-[#003d48] dark:text-[#5cb8c4] sm:text-2xl">
                 {stat.value}
               </p>
-              <p className="text-sm text-navy/70 dark:text-cream/70 mt-1">{stat.label}</p>
+              <p className="mt-1 text-xs text-neutral-600 dark:text-neutral-400">{stat.label}</p>
             </div>
           ))}
         </div>

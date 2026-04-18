@@ -73,6 +73,7 @@ type MockEuroscopeHub struct {
 	server shared.Server
 
 	HasActiveClientForAirportFn func(airport string) bool
+	GetMasterCallsignFn         func(session int32) string
 
 	ClearedFlags          []ClearedFlagCall
 	GroundStates          []GroundStateCall
@@ -96,6 +97,13 @@ func (m *MockEuroscopeHub) HasActiveClientForAirport(airport string) bool {
 		return m.HasActiveClientForAirportFn(airport)
 	}
 	return true // default: assume ES client is present so existing tests are not affected
+}
+
+func (m *MockEuroscopeHub) GetMasterCallsign(session int32) string {
+	if m.GetMasterCallsignFn != nil {
+		return m.GetMasterCallsignFn(session)
+	}
+	return ""
 }
 
 func (m *MockEuroscopeHub) Broadcast(session int32, message euroscope.OutgoingMessage) {

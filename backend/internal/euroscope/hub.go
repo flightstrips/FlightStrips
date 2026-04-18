@@ -46,7 +46,8 @@ type Hub struct {
 	register   chan *Client
 	unregister chan *Client
 
-	master map[int32]*Client
+	master         map[int32]*Client
+	masterCallsigns sync.Map // map[int32]string — concurrent-safe callsign of master per session
 
 	handlers shared.MessageHandlers[euroscope.EventType, *Client]
 
@@ -174,6 +175,7 @@ func (hub *Hub) OnRegister(client *Client) {
 	if _, ok := hub.master[client.session]; !ok {
 		slog.Debug("Euroscope client is master", slog.String("cid", client.GetCid()))
 		hub.master[client.session] = client
+		hub.masterCallsigns.Store(client.session, client.callsign)
 		isMaster = true
 	}
 
@@ -416,12 +418,14 @@ func (hub *Hub) OnUnregister(client *Client) {
 	// No clients, no master can be assigned
 	if len(hub.clients) == 0 {
 		delete(hub.master, client.session)
+		hub.masterCallsigns.Delete(client.session)
 		return
 	}
 
 	// TODO better master selection. For now just use the next available client
 	for newMaster := range hub.clients {
 		hub.master[client.session] = newMaster
+		hub.masterCallsigns.Store(client.session, newMaster.callsign)
 		newMaster.send <- euroscope.SessionInfoEvent{Role: euroscope.SessionInfoMaster}
 		break
 	}
@@ -449,6 +453,13 @@ func (hub *Hub) clearClientCid(client *Client) error {
 		return fmt.Errorf("unexpected controller CID cleanup row count: %d", count)
 	}
 	return nil
+}
+
+func (hub *Hub) GetMasterCallsign(session int32) string {
+	if v, ok := hub.masterCallsigns.Load(session); ok {
+		return v.(string)
+	}
+	return ""
 }
 
 func (hub *Hub) SendGenerateSquawk(session int32, cid string, callsign string) {

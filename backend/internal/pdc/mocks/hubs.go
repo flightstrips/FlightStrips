@@ -251,6 +251,10 @@ func (m *EuroscopeHub) SendDropTracking(session int32, cid string, callsign stri
 	m.Called(session, cid, callsign)
 }
 
+func (m *EuroscopeHub) GetMasterCallsign(session int32) string {
+	return ""
+}
+
 func (m *EuroscopeHub) SendCreateFPL(session int32, cid string, event euroscope.CreateFPLEvent) {
 	m.Called(session, cid, event)
 }

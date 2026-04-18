@@ -27,7 +27,6 @@ type Service struct {
 	configProvider   ConfigProvider
 	sequenceService  *SequenceService
 	debouncer      *recalcDebouncer
-	masterPosition string
 	// sessionMaster tracks per-session CDM master status as an in-memory cache.
 	// Populated from session.CdmMaster during syncLiveSessions and updated
 	// immediately when SetSessionCdmMaster is called.
@@ -51,16 +50,10 @@ func NewCdmService(client *Client, stripRepo repository.StripRepository, session
 		stripRepo:        stripRepo,
 		sessionRepo:      sessionRepo,
 		controllerRepo:   controllerRepo,
-		debouncer:      newRecalcDebouncer(500 * time.Millisecond),
-		masterPosition: DefaultMasterPosition,
+		debouncer: newRecalcDebouncer(500 * time.Millisecond),
 	}
 }
 
-func (s *Service) SetMasterPosition(position string) {
-	if strings.TrimSpace(position) != "" {
-		s.masterPosition = strings.TrimSpace(position)
-	}
-}
 
 func (s *Service) SetFrontendHub(publisher shared.CdmEventPublisher) {
 	s.publisher = publisher
@@ -101,7 +94,7 @@ func (s *Service) SetSessionCdmMaster(ctx context.Context, sessionID int32, mast
 		// Fetch session to get airport for immediate master registration.
 		sess, err := s.sessionRepo.GetByID(ctx, sessionID)
 		if err == nil && sess != nil {
-			s.registerMasterAsync(sess.Airport)
+			s.registerMasterAsync(sessionID, sess.Airport)
 		}
 	} else {
 		s.sessionMaster.Delete(sessionID)
@@ -109,8 +102,9 @@ func (s *Service) SetSessionCdmMaster(ctx context.Context, sessionID int32, mast
 		if s.client.isValid {
 			sess, err := s.sessionRepo.GetByID(ctx, sessionID)
 			if err == nil && sess != nil && sess.Airport != "" {
+				position := s.masterCallsign(sessionID)
 				go func() {
-					if err := s.client.ClearMasterAirport(context.Background(), sess.Airport, s.masterPosition); err != nil {
+					if err := s.client.ClearMasterAirport(context.Background(), sess.Airport, position); err != nil {
 						slog.WarnContext(ctx, "Failed to clear CDM master airport",
 							slog.String("airport", sess.Airport),
 							slog.Int("session", int(sessionID)),
@@ -531,7 +525,7 @@ func (s *Service) syncLiveSessions(ctx context.Context) error {
 
 		if session.CdmMaster {
 			s.sessionMaster.Store(session.ID, true)
-			s.registerMasterAsync(session.Airport)
+			s.registerMasterAsync(session.ID, session.Airport)
 		}
 
 		if err := s.syncCdmData(ctx, session); err != nil {
@@ -965,14 +959,20 @@ func (s *Service) persistCdmUpdate(ctx context.Context, session int32, callsign 
 	return nil
 }
 
-func (s *Service) registerMasterAsync(airport string) {
+func (s *Service) masterCallsign(sessionID int32) string {
+	if s.euroscopeHub != nil {
+		if cs := s.euroscopeHub.GetMasterCallsign(sessionID); cs != "" {
+			return cs
+		}
+	}
+	return DefaultMasterPosition
+}
+
+func (s *Service) registerMasterAsync(sessionID int32, airport string) {
 	if !s.client.isValid || airport == "" {
 		return
 	}
-	position := s.masterPosition
-	if position == "" {
-		position = DefaultMasterPosition
-	}
+	position := s.masterCallsign(sessionID)
 	go func() {
 		if err := s.client.SetMasterAirport(context.Background(), airport, position); err != nil {
 			slog.Warn("Failed to register CDM master airport",

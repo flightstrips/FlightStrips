@@ -718,12 +718,12 @@ func TestSetSessionCdmMaster_False_UpdatesDBAndRemovesFromCache(t *testing.T) {
 	_, ok := service.sessionMaster.Load(sessionID)
 	assert.False(t, ok, "sessionMaster map entry should have been removed")
 
-	// The async clear call should reach the server with the FlightStrips position.
+	// The async clear call should reach the server. No hub is set, so it falls back to DefaultMasterPosition.
 	require.Eventually(t, func() bool {
 		return gotClearCall != nil
 	}, time.Second, 10*time.Millisecond, "expected ClearMasterAirport HTTP call")
 	assert.Equal(t, "/airport/clearMaster", gotClearCall.path)
-	assert.Equal(t, DefaultMasterPosition, gotClearCall.position, "clearMaster must pass the FlightStrips position")
+	assert.Equal(t, DefaultMasterPosition, gotClearCall.position, "clearMaster should fall back to DefaultMasterPosition when no hub is set")
 }
 
 // ---- TriggerRecalculate per-session master ----

@@ -96,6 +96,9 @@ const (
 	// AvailableSids is broadcast to all frontend clients when the master EuroScope client
 	// sends a sync event containing SIDs, and on new frontend connects.
 	AvailableSids EventType = "available_sids"
+
+	// AcknowledgeValidationStatus is sent by the frontend to acknowledge an active validation.
+	AcknowledgeValidationStatus EventType = "acknowledge_validation_status"
 )
 
 type OutgoingMessage interface {
@@ -155,6 +158,30 @@ type Strip struct {
 	FplType                  string   `json:"fpl_type"`
 	Language                 string   `json:"language"`
 	HasFP                    bool     `json:"has_fp"`
+	ValidationStatus         *ValidationStatus `json:"validation_status,omitempty"`
+}
+
+// ValidationStatus is the frontend DTO for a strip's active validation issue.
+type ValidationStatus struct {
+	IssueType      string            `json:"issue_type"`
+	Message        string            `json:"message"`
+	OwningPosition string            `json:"owning_position"`
+	Active         bool              `json:"active"`
+	ActivationKey  string            `json:"activation_key"`
+	CustomAction   *ValidationAction `json:"custom_action,omitempty"`
+}
+
+// ValidationAction describes an optional corrective action button in the validation dialog.
+type ValidationAction struct {
+	Label      string          `json:"label"`
+	ActionKind string          `json:"action_kind"`
+	Payload    json.RawMessage `json:"payload,omitempty"`
+}
+
+// AcknowledgeValidationStatusAction is sent by the frontend to acknowledge a validation.
+type AcknowledgeValidationStatusAction struct {
+	Callsign      string `json:"callsign"`
+	ActivationKey string `json:"activation_key"`
 }
 
 type Controller struct {

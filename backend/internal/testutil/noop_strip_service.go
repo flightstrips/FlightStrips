@@ -1,6 +1,7 @@
 package testutil
 
 import (
+	internalModels "FlightStrips/internal/models"
 	"FlightStrips/pkg/events/frontend"
 	"FlightStrips/pkg/models"
 	"context"
@@ -144,4 +145,16 @@ func (s *NoOpStripService) CreateVFRFPL(_ context.Context, _ int32, _ frontend.C
 }
 func (s *NoOpStripService) MissedApproach(_ context.Context, _ int32, _ string, _ string) error {
 	return nil
+}
+func (s *NoOpStripService) SetValidationStatus(_ context.Context, _ int32, _ string, _ *internalModels.ValidationStatus) error {
+	return nil
+}
+func (s *NoOpStripService) AcknowledgeValidationStatus(_ context.Context, _ int32, _ string, _ string, _ string) error {
+	return nil
+}
+func (s *NoOpStripService) ClearValidationStatus(_ context.Context, _ int32, _ string) error {
+	return nil
+}
+func (s *NoOpStripService) IsValidationBlocking(_ context.Context, _ int32, _ string) (bool, error) {
+	return false, nil
 }

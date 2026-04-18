@@ -19,7 +19,8 @@ import { getAircraftTypeWithWtc } from "@/lib/utils";
 import { useStripTransfers, useWebSocketStore } from "@/store/store-hooks";
 import { ApronTaxiMapDialog } from "@/components/map-dialogs/ApronTaxiMapDialog";
 import { useCTOTColor } from "@/hooks/useCTOTColor";
-const TOP_H  = "3.15vh";  // 2/3 of 4.72vh
+import { ValidationStatusDialog } from "./ValidationStatusDialog";
+const TOP_H= "3.15vh";  // 2/3 of 4.72vh
 const BOT_H  = "1.57vh";  // 1/3 of 4.72vh
 const HALF_H = "2.08vh";  // 1/2 of inner content height (4.72vh - 2px border - 1px padding each side)
 
@@ -59,7 +60,7 @@ export function ApnTaxiDepStrip({
   unexpectedChangeFields,
   controllerModifiedFields,
 }: StripProps) {
-  const { isSelected, handleClick, handleContextMenu } = useStripCallsignInteraction({ callsign, selectable, bay, owner, myPosition });
+  const { isSelected, handleClick, handleContextMenu, validationDialogOpen, setValidationDialogOpen, validationStatus } = useStripCallsignInteraction({ callsign, selectable, bay, owner, myPosition });
   const cellBorderColor = getCellBorderColor(marked);
   const stripTransfers = useStripTransfers();
   const isTagRequest = !!stripTransfers[callsign]?.isTagRequest;
@@ -102,7 +103,7 @@ export function ApnTaxiDepStrip({
         {/* Callsign — 25%, FONT medium 20, top 2/3 highlighted when selected */}
         <div
           className="flex flex-col overflow-hidden border-r-2 cursor-pointer"
-          style={{ flex: `${F_CALLSIGN} 0 0%`, height: "100%", minWidth: 0, borderRightColor: cellBorderColor }}
+          style={{ flex: `${F_CALLSIGN} 0 0%`, height: "100%", minWidth: 0, borderRightColor: cellBorderColor, ...(validationStatus?.active && { animation: "validation-blink 1s step-start infinite" }) }}
           onClick={handleClick}
           onContextMenu={handleContextMenu}
         >
@@ -182,6 +183,9 @@ export function ApnTaxiDepStrip({
         coordinationMode={isCoordinationMode}
       />
       <FlightPlanDialog callsign={callsign} open={fplOpen} onOpenChange={setFplOpen} mode="view" />
+      {validationStatus && (
+        <ValidationStatusDialog callsign={callsign} status={validationStatus} open={validationDialogOpen} onOpenChange={setValidationDialogOpen} />
+      )}
     </div>
   );
 }

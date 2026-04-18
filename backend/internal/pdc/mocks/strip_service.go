@@ -3,6 +3,7 @@ package mocks
 import (
 	"context"
 
+	internalModels "FlightStrips/internal/models"
 	"FlightStrips/pkg/events/frontend"
 	"FlightStrips/pkg/models"
 
@@ -230,4 +231,24 @@ func (m *StripService) CreateVFRFPL(ctx context.Context, session int32, req fron
 
 func (m *StripService) MissedApproach(_ context.Context, _ int32, _ string, _ string) error {
 	return nil
+}
+
+func (m *StripService) SetValidationStatus(ctx context.Context, session int32, callsign string, status *internalModels.ValidationStatus) error {
+	args := m.Called(ctx, session, callsign, status)
+	return args.Error(0)
+}
+
+func (m *StripService) AcknowledgeValidationStatus(ctx context.Context, session int32, callsign string, activationKey string, requestingPosition string) error {
+	args := m.Called(ctx, session, callsign, activationKey, requestingPosition)
+	return args.Error(0)
+}
+
+func (m *StripService) ClearValidationStatus(ctx context.Context, session int32, callsign string) error {
+	args := m.Called(ctx, session, callsign)
+	return args.Error(0)
+}
+
+func (m *StripService) IsValidationBlocking(ctx context.Context, session int32, callsign string) (bool, error) {
+	args := m.Called(ctx, session, callsign)
+	return args.Bool(0), args.Error(1)
 }

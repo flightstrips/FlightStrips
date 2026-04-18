@@ -89,6 +89,7 @@ func NewHub(stripService shared.StripService, authenticationService shared.Authe
 	handlers.Add(frontend.ActionCreateManualFPL, handleCreateManualFPL)
 	handlers.Add(frontend.ActionCreateVFRFPL, handleCreateVFRFPL)
 	handlers.Add(frontend.UpdateRunwayStatus, handleUpdateRunwayStatus)
+	handlers.Add(frontend.AcknowledgeValidationStatus, handleAcknowledgeValidationStatus)
 
 	hub := &Hub{
 		send:                  make(chan internalMessage),
@@ -454,7 +455,29 @@ func MapStripToFrontendModel(strip *internalModels.Strip) frontend.Strip {
 		FplType:                  helpers.ValueOrDefault(strip.FplType),
 		Language:                 helpers.ValueOrDefault(strip.Language),
 		HasFP:                    strip.HasFP,
+		ValidationStatus:         mapValidationStatusToDTO(strip.ValidationStatus),
 	}
+}
+
+func mapValidationStatusToDTO(vs *internalModels.ValidationStatus) *frontend.ValidationStatus {
+	if vs == nil {
+		return nil
+	}
+	dto := &frontend.ValidationStatus{
+		IssueType:      vs.IssueType,
+		Message:        vs.Message,
+		OwningPosition: vs.OwningPosition,
+		Active:         vs.Active,
+		ActivationKey:  vs.ActivationKey,
+	}
+	if vs.CustomAction != nil {
+		dto.CustomAction = &frontend.ValidationAction{
+			Label:      vs.CustomAction.Label,
+			ActionKind: vs.CustomAction.ActionKind,
+			Payload:    vs.CustomAction.Payload,
+		}
+	}
+	return dto
 }
 
 func truncateFrontendClockValue(value string) string {

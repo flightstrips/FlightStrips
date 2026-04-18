@@ -4,6 +4,7 @@ import type { StripProps } from "./types";
 import { useStripCallsignInteraction, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR, COLOR_TYPE_HEAVY, getStripOwnership, useStripBg } from "./shared";
 import { useStripTransfers } from "@/store/store-hooks";
 import { SIBox } from "./SIBox";
+import { ValidationStatusDialog } from "./ValidationStatusDialog";
 
 const TOP_H = "2.96vh"; // 2/3 of 48px
 const BOT_H = "1.48vh"; // 1/3 of 48px
@@ -35,7 +36,7 @@ export function GroundStrip({
   selectable,
   marked = false,
 }: StripProps) {
-  const { isSelected, handleClick, handleContextMenu } = useStripCallsignInteraction({ callsign, selectable, bay, owner, myPosition });
+  const { isSelected, handleClick, handleContextMenu, validationDialogOpen, setValidationDialogOpen, validationStatus } = useStripCallsignInteraction({ callsign, selectable, bay, owner, myPosition });
   const cellBorderColor = getCellBorderColor(marked);
   const stripTransfers = useStripTransfers();
   const isTagRequest = !!stripTransfers[callsign]?.isTagRequest;
@@ -65,7 +66,7 @@ export function GroundStrip({
       />
 
       {/* Callsign — 120px */}
-      <div className="flex-shrink-0 flex flex-col border-r-2 cursor-pointer" style={{ width: "6.25vw", height: "100%", borderRightColor: cellBorderColor }}
+      <div className="flex-shrink-0 flex flex-col border-r-2 cursor-pointer" style={{ width: "6.25vw", height: "100%", borderRightColor: cellBorderColor, ...(validationStatus?.active && { animation: "validation-blink 1s step-start infinite" }) }}
         onClick={handleClick}
         onContextMenu={handleContextMenu}
       >
@@ -106,6 +107,9 @@ export function GroundStrip({
         </div>
         <div style={{ height: BOT_H }} />
       </div>
+      {validationStatus && (
+        <ValidationStatusDialog callsign={callsign} status={validationStatus} open={validationDialogOpen} onOpenChange={setValidationDialogOpen} />
+      )}
     </div>
   );
 }

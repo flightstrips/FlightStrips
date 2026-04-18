@@ -148,6 +148,8 @@ export interface WebSocketState {
   confirmTacticalStrip: (id: number) => void;
   startTacticalTimer: (id: number) => void;
   moveTacticalStrip: (id: number, insertAfter: StripRef | null, bay?: Bay) => void;
+
+  acknowledgeValidationStatus: (callsign: string, activationKey: string) => void;
 }
 
 // Create the store using createVanilla
@@ -515,6 +517,10 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
           : Math.floor((prevSeq + nextSeq) / 2);
       })(state);
     }),
+
+    acknowledgeValidationStatus: (callsign, activationKey) => {
+      wsClient.send({ type: ActionType.FrontendAcknowledgeValidationStatus, callsign, activation_key: activationKey });
+    },
   }));
 
   // Private methods to handle WebSocket events

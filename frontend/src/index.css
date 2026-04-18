@@ -110,6 +110,13 @@ body.public-content-page {
   overscroll-behavior: auto;
 }
 
+/* ── Validation status blink animation ──────────────────────────────────── */
+@keyframes validation-blink {
+  0%   { background-color: #A7A7A7; }
+  50%  { background-color: transparent; }
+  100% { background-color: #A7A7A7; }
+}
+
 @layer components {
   /* ── Bay page wrapper ───────────────────────────────────────────────────── */
   .bay-page-wrapper {

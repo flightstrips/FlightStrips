@@ -8,6 +8,7 @@ import { RunwayDialog } from "./RunwayDialog";
 import { ArrStandDialog } from "./ArrStandDialog";
 import { ApronTaxiMapDialog } from "../map-dialogs/ApronTaxiMapDialog";
 import { SIBox } from "./SIBox";
+import { ValidationStatusDialog } from "./ValidationStatusDialog";
 
 // Height: 4.72vh (51px at 1080p), matches FinalArrStrip ATC arrival strip spec
 const TOP_H = "3.15vh"; // 2/3 of 4.72vh
@@ -52,7 +53,7 @@ export function ApnArrStrip({
   controllerModifiedFields,
   isManual = false,
 }: StripProps) {
-  const { isSelected, handleClick, handleContextMenu } = useStripCallsignInteraction({ callsign, selectable, bay, owner, myPosition });
+  const { isSelected, handleClick, handleContextMenu, validationDialogOpen, setValidationDialogOpen, validationStatus } = useStripCallsignInteraction({ callsign, selectable, bay, owner, myPosition });
   const cellBorderColor = getCellBorderColor(marked, CELL_BORDER);
   const manualBlue = isManual ? COLOR_MANUAL_BLUE : undefined;
   const stripTransfers = useStripTransfers();
@@ -93,7 +94,7 @@ export function ApnArrStrip({
       />
 
       {/* Callsign */}
-      <div className="flex flex-col border-r-2 min-w-0 cursor-pointer" style={{ flexGrow: F_CALLSIGN, flexBasis: 0, height: "100%", borderRightColor: cellBorderColor }}
+      <div className="flex flex-col border-r-2 min-w-0 cursor-pointer" style={{ flexGrow: F_CALLSIGN, flexBasis: 0, height: "100%", borderRightColor: cellBorderColor, ...(validationStatus?.active && { animation: "validation-blink 1s step-start infinite" }) }}
         onClick={handleClick}
         onContextMenu={handleContextMenu}
       >
@@ -176,6 +177,9 @@ export function ApnArrStrip({
       noMove
     />
     <FlightPlanDialog callsign={callsign} open={fplOpen} onOpenChange={setFplOpen} mode="view" />
+    {validationStatus && (
+      <ValidationStatusDialog callsign={callsign} status={validationStatus} open={validationDialogOpen} onOpenChange={setValidationDialogOpen} />
+    )}
     </>
   );
 }

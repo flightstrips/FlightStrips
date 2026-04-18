@@ -2,7 +2,27 @@
   "permissions": {
     "allow": [
       "Bash(npm run:*)",
-      "Bash(cd:*)"
+      "Bash(cd:*)",
+      "Bash(ls C:\\\\Users\\\\fsr19\\\\Documents\\\\projects\\\\FlightStrips\\\\main *)",
+      "Bash(xargs wc *)",
+      "Bash(go build *)",
+      "Bash(echo \"exit=$?\")",
+      "Bash(go test *)",
+      "Bash(awk '/^func / {print NR\":\"$0} /^}$/ {print NR\":CLOSE\"}' internal/services/strip.go)",
+      "Bash(goimports --help)",
+      "Bash(mkdir -p /tmp/splitstrip)",
+      "Bash(head -103 internal/services/strip.go)",
+      "Read(//tmp/splitstrip/**)",
+      "Bash(awk 'NR==1,/^import \\\\\\(/' internal/services/strip.go)",
+      "Bash(awk '/^import \\\\\\(/,/^\\\\\\)$/' internal/services/strip.go)",
+      "Bash(mv /tmp/splitstrip/strip_core.go internal/services/strip.go)",
+      "Bash(goimports -w internal/services/strip.go internal/services/strip_ordering.go internal/services/strip_coordination.go internal/services/strip_auto_assume.go internal/services/strip_cleared_bay.go internal/services/strip_fields.go internal/services/strip_arrival.go internal/services/strip_missed_approach.go internal/services/strip_runway.go internal/services/strip_sync.go)",
+      "Bash(git restore *)",
+      "Bash(awk -F: '$1 >= 947 {print}')",
+      "Bash(awk 'NR<650 || NR>968' internal/euroscope/hub.go)",
+      "Bash(goimports -w internal/euroscope/hub.go)",
+      "Bash(awk 'NR<=755 || \\(NR>=767 && NR<=773\\) || \\(NR>=779 && NR<=790\\) || NR>=841' internal/frontend/hub.go)",
+      "Bash(goimports -w internal/frontend/hub.go)"
     ]
   }
 }

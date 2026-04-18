@@ -20,6 +20,7 @@ import { useStripTransfers, useWebSocketStore } from "@/store/store-hooks";
 import { useCDMColors } from "@/hooks/useCDMColors";
 import { useCTOTColor } from "@/hooks/useCTOTColor";
 import { Bay } from "@/api/models";
+import { ValidationStatusDialog } from "./ValidationStatusDialog";
 
 // Height: 4.44vh viewport-relative (intentional — matches DelStrip height)
 const FULL_H  = "4.72vh";
@@ -67,7 +68,7 @@ export function ClxClearedStrip({
   controllerModifiedFields,
   isManual = false,
 }: StripProps) {
-  const { isSelected, handleClick, handleContextMenu, showActivePress } = useStripCallsignInteraction({ callsign, selectable, bay, owner, myPosition });
+  const { isSelected, handleClick, handleContextMenu, showActivePress, validationDialogOpen, setValidationDialogOpen, validationStatus } = useStripCallsignInteraction({ callsign, selectable, bay, owner, myPosition });
   const stripTransfers = useStripTransfers();
   const isTagRequest = !!stripTransfers[callsign]?.isTagRequest;
   const { isUnconcerned } = getStripOwnership(myPosition, owner, nextControllers, previousControllers);
@@ -139,7 +140,7 @@ export function ClxClearedStrip({
         {/* Callsign — 2/3 of left half */}
         <button
           className={`flex items-center justify-start overflow-hidden ${showActivePress ? CLS_CALLSIGN_ACTIVE : ""} border-r-2 cursor-pointer`}
-          style={{ flex: `${F_CALLSIGN} 0 0%`, height: "100%", minWidth: 0, fontFamily: FONT, fontWeight: "bold", fontSize: "1.25vw", textAlign: "left", paddingLeft: "0.21vw", borderRightColor: cellBorderColor, backgroundColor: isSelected ? SELECTION_COLOR : undefined, color: manualBlue }}
+          style={{ flex: `${F_CALLSIGN} 0 0%`, height: "100%", minWidth: 0, fontFamily: FONT, fontWeight: "bold", fontSize: "1.25vw", textAlign: "left", paddingLeft: "0.21vw", borderRightColor: cellBorderColor, backgroundColor: isSelected ? SELECTION_COLOR : undefined, color: manualBlue, ...(validationStatus?.active && { animation: "validation-blink 1s step-start infinite" }) }}
           onClick={handleClick}
           onContextMenu={handleContextMenu}
         >
@@ -198,6 +199,9 @@ export function ClxClearedStrip({
           </div>
         </div>
       </div>
+      {validationStatus && (
+        <ValidationStatusDialog callsign={callsign} status={validationStatus} open={validationDialogOpen} onOpenChange={setValidationDialogOpen} />
+      )}
     </div>
   );
 }

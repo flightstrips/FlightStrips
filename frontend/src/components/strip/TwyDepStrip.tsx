@@ -13,8 +13,9 @@ import { HoldingPointDialog } from "../map-dialogs/HoldingPointDialog";
 import { SIBox } from "./SIBox";
 import { TAXI_MAP_POINTS } from "@/config/ekch";
 import { Bay } from "@/api/models";
+import { ValidationStatusDialog } from "./ValidationStatusDialog";
 
-// Heights — 4.72vh total (51px at 1080p), 2/3 top / 1/3 bottom (used by callsign and SID/dest)
+// Heights— 4.72vh total (51px at 1080p), 2/3 top / 1/3 bottom (used by callsign and SID/dest)
 const TOP_H      = "3.15vh";  // 2/3 of 4.72vh
 const BOT_H      = "1.57vh";  // 1/3 of 4.72vh
 const TOP_HALF_H = "1.575vh"; // half of TOP_H — used by SID/dest two-line split
@@ -69,7 +70,7 @@ export function TwyDepStrip({
   unexpectedChangeFields,
   controllerModifiedFields,
 }: StripProps) {
-  const { isSelected, handleClick, handleContextMenu } = useStripCallsignInteraction({ callsign, selectable, bay, owner, myPosition });
+  const { isSelected, handleClick, handleContextMenu, validationDialogOpen, setValidationDialogOpen, validationStatus } = useStripCallsignInteraction({ callsign, selectable, bay, owner, myPosition });
   const stripTransfers = useStripTransfers();
   const { ctotBg, ctotColor, showCtot } = useCTOTColor(ctot ?? "");
   const isTagRequest = !!stripTransfers[callsign]?.isTagRequest;
@@ -146,7 +147,7 @@ export function TwyDepStrip({
       {/* Callsign; top 2/3 = callsign, bottom 1/3 = :freq */}
       <div
         className="flex flex-col border-r-2 min-w-0 cursor-pointer"
-        style={{ flexGrow: F_CALLSIGN, flexBasis: 0, height: "100%", borderRightColor: cellBorderColor }}
+        style={{ flexGrow: F_CALLSIGN, flexBasis: 0, height: "100%", borderRightColor: cellBorderColor, ...(validationStatus?.active && { animation: "validation-blink 1s step-start infinite" }) }}
         onClick={handleClick}
         onContextMenu={handleContextMenu}
       >
@@ -292,6 +293,9 @@ export function TwyDepStrip({
       coordinationMode={isCoordinationMode}
     />
     <FlightPlanDialog callsign={callsign} open={fplOpen} onOpenChange={setFplOpen} mode="view" />
+    {validationStatus && (
+      <ValidationStatusDialog callsign={callsign} status={validationStatus} open={validationDialogOpen} onOpenChange={setValidationDialogOpen} />
+    )}
     </>
   );
 }

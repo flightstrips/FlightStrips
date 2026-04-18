@@ -62,6 +62,9 @@ type MockStripRepository struct {
 	UpdateIFRManualFPLFieldsFn      func(ctx context.Context, session int32, callsign string, destination string, sid *string, assignedSquawk *string, eobt *string, aircraftType *string, requestedAltitude *int32, route *string, stand *string, runway *string) (int64, error)
 	UpdateVFRManualFPLFieldsFn      func(ctx context.Context, session int32, callsign string, aircraftType *string, personsOnBoard *int32, assignedSquawk string, fplType *string, language *string, remarks *string, bay string) (int64, error)
 	SetHasFPFn                      func(ctx context.Context, session int32, callsign string, hasFP bool) error
+	SetValidationStatusFn           func(ctx context.Context, session int32, callsign string, status *models.ValidationStatus) error
+	AcknowledgeValidationStatusFn   func(ctx context.Context, session int32, callsign string, activationKey string) (int64, error)
+	ClearValidationStatusFn         func(ctx context.Context, session int32, callsign string) error
 }
 
 func (m *MockStripRepository) Create(ctx context.Context, strip *models.Strip) error {
@@ -433,4 +436,25 @@ func (m *MockStripRepository) SetHasFP(ctx context.Context, session int32, calls
 		return m.SetHasFPFn(ctx, session, callsign, hasFP)
 	}
 	return nil
+}
+
+func (m *MockStripRepository) SetValidationStatus(ctx context.Context, session int32, callsign string, status *models.ValidationStatus) error {
+	if m.SetValidationStatusFn == nil {
+		panic("unexpected call to MockStripRepository.SetValidationStatus")
+	}
+	return m.SetValidationStatusFn(ctx, session, callsign, status)
+}
+
+func (m *MockStripRepository) AcknowledgeValidationStatus(ctx context.Context, session int32, callsign string, activationKey string) (int64, error) {
+	if m.AcknowledgeValidationStatusFn == nil {
+		panic("unexpected call to MockStripRepository.AcknowledgeValidationStatus")
+	}
+	return m.AcknowledgeValidationStatusFn(ctx, session, callsign, activationKey)
+}
+
+func (m *MockStripRepository) ClearValidationStatus(ctx context.Context, session int32, callsign string) error {
+	if m.ClearValidationStatusFn == nil {
+		panic("unexpected call to MockStripRepository.ClearValidationStatus")
+	}
+	return m.ClearValidationStatusFn(ctx, session, callsign)
 }

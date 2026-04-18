@@ -3,6 +3,7 @@
  */
 
 import { useMarkArmed, useRunwaySetup, useSelectStrip, useSelectedCallsign, useStripTransfers, useTagRequestArmed, useWebSocketStore } from "@/store/store-hooks";
+import { useState } from "react";
 import type { CSSProperties, MouseEvent as ReactMouseEvent } from "react";
 import { Bay } from "@/api/models";
 import type { PdcStatus } from "@/api/models";
@@ -66,6 +67,11 @@ export function useStripCallsignInteraction({
   const requestTag = useWebSocketStore((state) => state.requestTag);
   const toggleMarked = useWebSocketStore((state) => state.toggleMarked);
   const marked = useWebSocketStore((state) => state.strips.find((strip) => strip.callsign === callsign)?.marked ?? false);
+  const validationStatus = useWebSocketStore((state) => state.strips.find((s) => s.callsign === callsign)?.validation_status);
+  const isValidationActive = validationStatus?.active === true;
+
+  const [validationDialogOpen, setValidationDialogOpen] = useState(false);
+
   const isSelected = !!selectable && selectedCallsign === callsign;
   const openContextMenuOnClick = canOpenStripContextMenu(bay, owner, myPosition);
   const canRequestTag = canRequestTagForStrip({
@@ -76,6 +82,11 @@ export function useStripCallsignInteraction({
   });
 
   const handleClick = (event: ReactMouseEvent<HTMLElement>) => {
+    if (isValidationActive) {
+      setValidationDialogOpen(true);
+      return;
+    }
+
     if (tagRequestArmed) {
       if (canRequestTag) {
         requestTag(callsign);
@@ -109,6 +120,21 @@ export function useStripCallsignInteraction({
     handleClick,
     handleContextMenu,
     showActivePress: !!selectable && !tagRequestArmed && !markArmed && !openContextMenuOnClick,
+    validationDialogOpen,
+    setValidationDialogOpen,
+    validationStatus,
+  };
+}
+
+/**
+ * Returns a CSS animation style for the callsign cell when a validation is active.
+ * Uses a CSS keyframe animation so no interval timers are needed.
+ */
+export function useValidationBlink(callsign: string): CSSProperties {
+  const validationStatus = useWebSocketStore((state) => state.strips.find((s) => s.callsign === callsign)?.validation_status);
+  if (!validationStatus?.active) return {};
+  return {
+    animation: "validation-blink 1s step-start infinite",
   };
 }
 

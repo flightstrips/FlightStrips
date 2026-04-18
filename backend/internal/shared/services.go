@@ -1,6 +1,7 @@
 package shared
 
 import (
+	internalModels "FlightStrips/internal/models"
 	"FlightStrips/pkg/events/frontend"
 	"FlightStrips/pkg/models"
 	"context"
@@ -106,4 +107,10 @@ type StripService interface {
 	// Manual FPL creation
 	CreateManualFPL(ctx context.Context, session int32, req frontend.CreateManualFPLAction, cid string, airport string) error
 	CreateVFRFPL(ctx context.Context, session int32, req frontend.CreateVFRFPLAction, cid string) error
+
+	// Validation status
+	SetValidationStatus(ctx context.Context, session int32, callsign string, status *internalModels.ValidationStatus) error
+	AcknowledgeValidationStatus(ctx context.Context, session int32, callsign string, activationKey string, requestingPosition string) error
+	ClearValidationStatus(ctx context.Context, session int32, callsign string) error
+	IsValidationBlocking(ctx context.Context, session int32, callsign string) (bool, error)
 }

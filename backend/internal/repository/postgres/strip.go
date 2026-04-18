@@ -5,8 +5,10 @@ import (
 	"FlightStrips/internal/models"
 	"context"
 	"encoding/json"
+	"errors"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -53,6 +55,24 @@ func unmarshalPdcData(raw []byte) (*models.PdcData, error) {
 	}
 
 	return data.Normalize(), nil
+}
+
+func marshalValidationStatus(status *models.ValidationStatus) ([]byte, error) {
+	if status == nil {
+		return nil, nil
+	}
+	return json.Marshal(status)
+}
+
+func unmarshalValidationStatus(raw []byte) (*models.ValidationStatus, error) {
+	if len(raw) == 0 {
+		return nil, nil
+	}
+	var v models.ValidationStatus
+	if err := json.Unmarshal(raw, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
 }
 
 // stripToModel converts database.Strip to models.Strip
@@ -179,6 +199,17 @@ func (r *stripRepository) GetByCallsign(ctx context.Context, session int32, call
 		strip.Language = manual.Language
 		strip.HasFP = manual.HasFP
 	}
+	raw, err := r.queries.GetValidationStatusForCallsign(ctx, session, callsign)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return nil, err
+	}
+	if len(raw) > 0 {
+		vs, err := unmarshalValidationStatus(raw)
+		if err != nil {
+			return nil, err
+		}
+		strip.ValidationStatus = vs
+	}
 	return strip, nil
 }
 
@@ -196,6 +227,16 @@ func (r *stripRepository) List(ctx context.Context, session int32) ([]*models.St
 		manualMap[row.Callsign] = row
 	}
 
+	// Bulk-fetch validation status to avoid N+1.
+	vsRows, err := r.queries.GetValidationStatusBySession(ctx, session)
+	if err != nil {
+		return nil, err
+	}
+	vsMap := make(map[string][]byte, len(vsRows))
+	for _, row := range vsRows {
+		vsMap[row.Callsign] = row.ValidationStatus
+	}
+
 	strips := make([]*models.Strip, len(dbStrips))
 	for i, dbStrip := range dbStrips {
 		s, err := stripToModel(dbStrip)
@@ -208,6 +249,13 @@ func (r *stripRepository) List(ctx context.Context, session int32) ([]*models.St
 			s.FplType = m.FplType
 			s.Language = m.Language
 			s.HasFP = m.HasFP
+		}
+		if raw, ok := vsMap[s.Callsign]; ok {
+			vs, err := unmarshalValidationStatus(raw)
+			if err != nil {
+				return nil, err
+			}
+			s.ValidationStatus = vs
 		}
 		strips[i] = s
 	}
@@ -811,4 +859,29 @@ func (r *stripRepository) ResetRunwayClearance(ctx context.Context, session int3
 		Callsign: callsign,
 		Session:  session,
 	})
+}
+
+// SetValidationStatus persists a new validation status for a strip, generating a fresh
+// activation key to prevent stale acks. status must not be nil.
+func (r *stripRepository) SetValidationStatus(ctx context.Context, session int32, callsign string, status *models.ValidationStatus) error {
+	if status == nil {
+		return errors.New("SetValidationStatus: status must not be nil; use ClearValidationStatus to remove")
+	}
+	data, err := marshalValidationStatus(status)
+	if err != nil {
+		return err
+	}
+	return r.queries.SetValidationStatus(ctx, session, callsign, data)
+}
+
+// AcknowledgeValidationStatus sets active=false for the strip's validation status using a
+// conditional SQL update (no read-modify-write race). Returns rows affected (0 = key mismatch
+// or already inactive).
+func (r *stripRepository) AcknowledgeValidationStatus(ctx context.Context, session int32, callsign string, activationKey string) (int64, error) {
+	return r.queries.AcknowledgeValidationStatus(ctx, session, callsign, activationKey)
+}
+
+// ClearValidationStatus removes the validation status from the strip.
+func (r *stripRepository) ClearValidationStatus(ctx context.Context, session int32, callsign string) error {
+	return r.queries.ClearValidationStatus(ctx, session, callsign)
 }

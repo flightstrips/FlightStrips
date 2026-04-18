@@ -55,6 +55,13 @@ type Strip struct {
 	FplType                  *string
 	Language                 *string
 	HasFP                    bool
+	ValidationStatus         *ValidationStatus
+}
+
+// IsValidationLocked returns true when the strip has an active validation issue
+// that must be acknowledged before certain mutations are permitted.
+func (s *Strip) IsValidationLocked() bool {
+	return s != nil && s.ValidationStatus != nil && s.ValidationStatus.Active
 }
 
 func (s *Strip) EffectiveTobt() *string {

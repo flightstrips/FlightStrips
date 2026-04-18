@@ -168,3 +168,85 @@ func (q *Queries) SetHasFP(ctx context.Context, session int32, callsign string, 
 	_, err := q.db.Exec(ctx, setHasFP, session, callsign, hasFP)
 	return err
 }
+
+// ValidationStatusRow is returned by GetValidationStatusBySession for bulk lookups.
+type ValidationStatusRow struct {
+	Callsign         string
+	ValidationStatus []byte
+}
+
+const getValidationStatusBySession = `
+SELECT callsign, validation_status
+FROM strips
+WHERE session = $1`
+
+// GetValidationStatusBySession bulk-fetches the validation_status JSONB column for all
+// strips in a session (avoids N+1 in List).
+func (q *Queries) GetValidationStatusBySession(ctx context.Context, session int32) ([]ValidationStatusRow, error) {
+	rows, err := q.db.Query(ctx, getValidationStatusBySession, session)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ValidationStatusRow
+	for rows.Next() {
+		var r ValidationStatusRow
+		if err := rows.Scan(&r.Callsign, &r.ValidationStatus); err != nil {
+			return nil, err
+		}
+		items = append(items, r)
+	}
+	return items, rows.Err()
+}
+
+const getValidationStatusForCallsign = `
+SELECT validation_status
+FROM strips
+WHERE session = $1 AND callsign = $2`
+
+// GetValidationStatusForCallsign fetches the validation_status JSONB for a single strip.
+func (q *Queries) GetValidationStatusForCallsign(ctx context.Context, session int32, callsign string) ([]byte, error) {
+	row := q.db.QueryRow(ctx, getValidationStatusForCallsign, session, callsign)
+	var data []byte
+	err := row.Scan(&data)
+	return data, err
+}
+
+const setValidationStatusSQL = `
+UPDATE strips
+SET validation_status = $3, version = version + 1
+WHERE session = $1 AND callsign = $2`
+
+// SetValidationStatus persists validation_status JSONB for a strip, bumping the version.
+func (q *Queries) SetValidationStatus(ctx context.Context, session int32, callsign string, data []byte) error {
+	_, err := q.db.Exec(ctx, setValidationStatusSQL, session, callsign, data)
+	return err
+}
+
+const acknowledgeValidationStatusSQL = `
+UPDATE strips
+SET validation_status = jsonb_set(validation_status, '{active}', 'false'), version = version + 1
+WHERE session = $1 AND callsign = $2
+  AND validation_status->>'activation_key' = $3
+  AND (validation_status->>'active')::boolean = true`
+
+// AcknowledgeValidationStatus sets active=false on validation_status if the activation_key
+// matches and the status is currently active. Returns the number of rows updated (0 = no-op).
+func (q *Queries) AcknowledgeValidationStatus(ctx context.Context, session int32, callsign string, activationKey string) (int64, error) {
+	result, err := q.db.Exec(ctx, acknowledgeValidationStatusSQL, session, callsign, activationKey)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const clearValidationStatusSQL = `
+UPDATE strips
+SET validation_status = NULL, version = version + 1
+WHERE session = $1 AND callsign = $2`
+
+// ClearValidationStatus removes the validation_status (sets to NULL) for a strip.
+func (q *Queries) ClearValidationStatus(ctx context.Context, session int32, callsign string) error {
+	_, err := q.db.Exec(ctx, clearValidationStatusSQL, session, callsign)
+	return err
+}

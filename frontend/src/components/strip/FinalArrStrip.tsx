@@ -8,6 +8,7 @@ import { useStripCallsignInteraction, getCellBorderColor, getFlatStripBorderStyl
 import { SIBox } from "./SIBox";
 import { ArrStandDialog } from "./ArrStandDialog";
 import { TaxiMapDialog } from "@/components/map-dialogs/TaxiMapDialog";
+import { ValidationStatusDialog } from "./ValidationStatusDialog";
 
 /** Gold cell borders — matches the yellow arrival strip design. */
 const CELL_BORDER = "var(--color-cell-border-arr)";
@@ -53,7 +54,7 @@ export function FinalArrStrip({
   runwayCleared = false,
   runwayConfirmed = false,
 }: StripProps) {
-  const { isSelected, handleClick, handleContextMenu } = useStripCallsignInteraction({ callsign, selectable, bay, owner, myPosition });
+  const { isSelected, handleClick, handleContextMenu, validationDialogOpen, setValidationDialogOpen, validationStatus } = useStripCallsignInteraction({ callsign, selectable, bay, owner, myPosition });
   const cellBorderColor = getCellBorderColor(marked, CELL_BORDER);
   const stripTransfers = useStripTransfers();
   const isTagRequest = !!stripTransfers[callsign]?.isTagRequest;
@@ -102,7 +103,7 @@ export function FinalArrStrip({
       {/* Callsign; top 2/3 = callsign */}
       <div
         className="flex flex-col border-r-2 min-w-0 cursor-pointer"
-        style={{ flexGrow: F_CALLSIGN, flexBasis: 0, height: "100%", borderRightColor: cellBorderColor }}
+        style={{ flexGrow: F_CALLSIGN, flexBasis: 0, height: "100%", borderRightColor: cellBorderColor, ...(validationStatus?.active && { animation: "validation-blink 1s step-start infinite" }) }}
         onClick={handleClick}
         onContextMenu={handleContextMenu}
       >
@@ -196,6 +197,9 @@ export function FinalArrStrip({
       callsign={callsign}
     />
     <FlightPlanDialog callsign={callsign} open={fplOpen} onOpenChange={setFplOpen} mode="view" />
+    {validationStatus && (
+      <ValidationStatusDialog callsign={callsign} status={validationStatus} open={validationDialogOpen} onOpenChange={setValidationDialogOpen} />
+    )}
     </>
   );
 }

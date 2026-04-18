@@ -85,6 +85,11 @@ type StripRepository interface {
 	SetPdcRequested(ctx context.Context, session int32, callsign string, pdcState string, pdcRequestedAt *time.Time, pdcRequestRemarks *string) error
 	SetPdcMessageSent(ctx context.Context, session int32, callsign string, pdcState string, pdcMessageSequence *int32, pdcMessageSent *time.Time) error
 	UpdatePdcStatus(ctx context.Context, session int32, callsign string, pdcState string) error
+
+	// Validation status
+	SetValidationStatus(ctx context.Context, session int32, callsign string, status *models.ValidationStatus) error
+	AcknowledgeValidationStatus(ctx context.Context, session int32, callsign string, activationKey string) (int64, error)
+	ClearValidationStatus(ctx context.Context, session int32, callsign string) error
 }
 
 // ControllerRepository defines the interface for controller data access

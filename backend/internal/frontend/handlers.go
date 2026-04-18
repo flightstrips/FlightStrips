@@ -88,6 +88,10 @@ func handleMove(ctx context.Context, client *Client, message Message) error {
 		return err
 	}
 
+	if strip.IsValidationLocked() {
+		return errors.New("strip is locked by an active validation")
+	}
+
 	// Ownership enforcement: reject the move if the strip is owned by someone else,
 	// unless the target bay is an arrival bay (FINAL/RWY_ARR/TWY_ARR) or the client
 	// holds an active coordination transfer for this strip.
@@ -216,6 +220,10 @@ func handleCoordinationTransferRequest(ctx context.Context, client *Client, mess
 		return err
 	}
 
+	if strip.IsValidationLocked() {
+		return errors.New("strip is locked by an active validation")
+	}
+
 	if strip.Owner == nil || *strip.Owner != position {
 		return errors.New("cannot transfer strip which is not assumed")
 	}
@@ -227,6 +235,13 @@ func handleCoordinationAssumeRequest(ctx context.Context, client *Client, messag
 	var req frontend.CoordinationAssumeRequestEvent
 	if err := message.JsonUnmarshal(&req); err != nil {
 		return err
+	}
+	strip, err := client.hub.server.GetStripRepository().GetByCallsign(ctx, client.session, req.Callsign)
+	if err != nil {
+		return err
+	}
+	if strip.IsValidationLocked() {
+		return errors.New("strip is locked by an active validation")
 	}
 	return client.hub.stripService.AssumeStripCoordination(ctx, client.session, req.Callsign, client.position)
 }
@@ -244,6 +259,13 @@ func handleCoordinationFreeRequest(ctx context.Context, client *Client, message 
 	if err := message.JsonUnmarshal(&req); err != nil {
 		return err
 	}
+	strip, err := client.hub.server.GetStripRepository().GetByCallsign(ctx, client.session, req.Callsign)
+	if err != nil {
+		return err
+	}
+	if strip.IsValidationLocked() {
+		return errors.New("strip is locked by an active validation")
+	}
 	return client.hub.stripService.FreeStrip(ctx, client.session, req.Callsign, client.position)
 }
 
@@ -260,6 +282,13 @@ func handleCoordinationForceAssumeRequest(ctx context.Context, client *Client, m
 	if err := message.JsonUnmarshal(&req); err != nil {
 		return err
 	}
+	strip, err := client.hub.server.GetStripRepository().GetByCallsign(ctx, client.session, req.Callsign)
+	if err != nil {
+		return err
+	}
+	if strip.IsValidationLocked() {
+		return errors.New("strip is locked by an active validation")
+	}
 	return client.hub.stripService.ForceAssumeStrip(ctx, client.session, req.Callsign, client.position)
 }
 
@@ -268,6 +297,13 @@ func handleCoordinationTagRequest(ctx context.Context, client *Client, message M
 	if err := message.JsonUnmarshal(&req); err != nil {
 		return err
 	}
+	strip, err := client.hub.server.GetStripRepository().GetByCallsign(ctx, client.session, req.Callsign)
+	if err != nil {
+		return err
+	}
+	if strip.IsValidationLocked() {
+		return errors.New("strip is locked by an active validation")
+	}
 	return client.hub.stripService.CreateTagRequest(ctx, client.session, req.Callsign, client.position)
 }
 
@@ -275,6 +311,13 @@ func handleCoordinationAcceptTagRequest(ctx context.Context, client *Client, mes
 	var req frontend.CoordinationAcceptTagRequestEvent
 	if err := message.JsonUnmarshal(&req); err != nil {
 		return err
+	}
+	strip, err := client.hub.server.GetStripRepository().GetByCallsign(ctx, client.session, req.Callsign)
+	if err != nil {
+		return err
+	}
+	if strip.IsValidationLocked() {
+		return errors.New("strip is locked by an active validation")
 	}
 	return client.hub.stripService.AcceptTagRequest(ctx, client.session, req.Callsign, client.position)
 }
@@ -289,16 +332,20 @@ func handleUpdateOrder(ctx context.Context, client *Client, message Message) err
 	s := client.hub.server
 	stripRepo := s.GetStripRepository()
 
-	bay, err := stripRepo.GetBay(ctx, client.session, event.Callsign)
+	strip, err := stripRepo.GetByCallsign(ctx, client.session, event.Callsign)
 	if err != nil {
 		return err
 	}
 
-	if bay == "" {
+	if strip.IsValidationLocked() {
+		return errors.New("strip is locked by an active validation")
+	}
+
+	if strip.Bay == "" {
 		return errors.New("cannot update order of a strip which is not in a bay")
 	}
 
-	return client.hub.stripService.MoveStripBetween(ctx, client.session, event.Callsign, event.InsertAfter, bay)
+	return client.hub.stripService.MoveStripBetween(ctx, client.session, event.Callsign, event.InsertAfter, strip.Bay)
 }
 
 func handleSendMessage(ctx context.Context, client *Client, message Message) error {
@@ -689,4 +736,12 @@ func handleUpdateRunwayStatus(ctx context.Context, client *Client, message Messa
 		session.ActiveRunways.RunwayStatus,
 	)
 	return nil
+}
+
+func handleAcknowledgeValidationStatus(ctx context.Context, client *Client, message Message) error {
+	var req frontend.AcknowledgeValidationStatusAction
+	if err := message.JsonUnmarshal(&req); err != nil {
+		return err
+	}
+	return client.hub.stripService.AcknowledgeValidationStatus(ctx, client.session, req.Callsign, req.ActivationKey, client.position)
 }

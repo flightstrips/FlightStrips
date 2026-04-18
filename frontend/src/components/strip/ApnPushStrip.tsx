@@ -25,8 +25,9 @@ import { PushbackMapDialog } from "@/components/map-dialogs/PushbackMapDialog";
 import { ApronTaxiMapDialog } from "@/components/map-dialogs/ApronTaxiMapDialog";
 import { RunwayDialog } from "./RunwayDialog";
 import FlightPlanDialog from "@/components/FlightPlanDialog";
+import { ValidationStatusDialog } from "./ValidationStatusDialog";
 
-// Height: 4.72vh (51px at 1080p)
+// Height: 4.72vh(51px at 1080p)
 const HALF_H = "2.36vh";    // half of 4.72vh for TSAT/CTOT split
 const TOP_H  = "3.15vh";    // 2/3 of 4.72vh
 const BOT_H  = "1.57vh";    // 1/3 of 4.72vh
@@ -73,7 +74,7 @@ export function ApnPushStrip({
   controllerModifiedFields,
   isManual = false,
 }: StripProps) {
-  const { isSelected, handleClick, handleContextMenu } = useStripCallsignInteraction({ callsign, selectable, bay, owner, myPosition });
+  const { isSelected, handleClick, handleContextMenu, validationDialogOpen, setValidationDialogOpen, validationStatus } = useStripCallsignInteraction({ callsign, selectable, bay, owner, myPosition });
   const cellBorderColor = getCellBorderColor(marked);
   const manualBlue = isManual ? COLOR_MANUAL_BLUE : undefined;
   const stripTransfers = useStripTransfers();
@@ -114,7 +115,7 @@ export function ApnPushStrip({
         {/* Callsign — 25%, FONT medium 20, top 2/3 highlighted when selected */}
         <div
           className="flex flex-col overflow-hidden border-r-2 cursor-pointer"
-          style={{ flex: `${F_CALLSIGN} 0 0%`, height: "100%", minWidth: 0, borderRightColor: cellBorderColor }}
+          style={{ flex: `${F_CALLSIGN} 0 0%`, height: "100%", minWidth: 0, borderRightColor: cellBorderColor, ...(validationStatus?.active && { animation: "validation-blink 1s step-start infinite" }) }}
           onClick={handleClick}
           onContextMenu={handleContextMenu}
         >
@@ -193,6 +194,9 @@ export function ApnPushStrip({
         currentRunway={runway}
       />
       <FlightPlanDialog callsign={callsign} open={fplOpen} onOpenChange={setFplOpen} mode="view" />
+      {validationStatus && (
+        <ValidationStatusDialog callsign={callsign} status={validationStatus} open={validationDialogOpen} onOpenChange={setValidationDialogOpen} />
+      )}
     </div>
   );
 }

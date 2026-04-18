@@ -9,9 +9,9 @@ import (
 
 	"go.opentelemetry.io/contrib/bridges/otelslog"
 	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploggrpc"
-	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
-	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
+	"go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp"
+	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
 	"go.opentelemetry.io/otel/log/global"
 	"go.opentelemetry.io/otel/propagation"
 	sdklog "go.opentelemetry.io/otel/sdk/log"
@@ -26,7 +26,6 @@ type Config struct {
 	ServiceName    string
 	ServiceVersion string
 	Environment    string
-	OTLPEndpoint   string
 }
 
 type Telemetry struct {
@@ -36,10 +35,6 @@ type Telemetry struct {
 }
 
 func Initialize(ctx context.Context, cfg Config) (*Telemetry, error) {
-	if cfg.OTLPEndpoint == "" {
-		return nil, errors.New("OTLP endpoint is required")
-	}
-
 	// Create resource
 	res, err := sdkresource.New(ctx,
 		sdkresource.WithAttributes(
@@ -53,10 +48,8 @@ func Initialize(ctx context.Context, cfg Config) (*Telemetry, error) {
 	}
 
 	// Initialize tracer provider
-	traceExporter, err := otlptracegrpc.New(ctx,
-		otlptracegrpc.WithEndpoint(cfg.OTLPEndpoint),
-		otlptracegrpc.WithInsecure(),
-	)
+	// Endpoint, protocol and headers are configured via OTEL_EXPORTER_OTLP_* env vars
+	traceExporter, err := otlptracehttp.New(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -68,10 +61,7 @@ func Initialize(ctx context.Context, cfg Config) (*Telemetry, error) {
 	otel.SetTracerProvider(tracerProvider)
 
 	// Initialize meter provider
-	metricExporter, err := otlpmetricgrpc.New(ctx,
-		otlpmetricgrpc.WithEndpoint(cfg.OTLPEndpoint),
-		otlpmetricgrpc.WithInsecure(),
-	)
+	metricExporter, err := otlpmetrichttp.New(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -83,10 +73,7 @@ func Initialize(ctx context.Context, cfg Config) (*Telemetry, error) {
 	otel.SetMeterProvider(meterProvider)
 
 	// Initialize logger provider
-	logExporter, err := otlploggrpc.New(ctx,
-		otlploggrpc.WithEndpoint(cfg.OTLPEndpoint),
-		otlploggrpc.WithInsecure(),
-	)
+	logExporter, err := otlploghttp.New(ctx)
 	if err != nil {
 		return nil, err
 	}

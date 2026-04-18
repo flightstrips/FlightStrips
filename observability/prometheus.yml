@@ -1,6 +1,0 @@
-global:
-  scrape_interval: 30s
-  evaluation_interval: 30s
-
-# All metrics arrive via remote_write from the OTel Collector and Tempo metrics generator
-scrape_configs: []

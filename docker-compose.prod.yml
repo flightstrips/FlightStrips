@@ -36,7 +36,9 @@ services:
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       SERVER_ADDR: "0.0.0.0:80"
       ENVIRONMENT: production
-      OTEL_EXPORTER_OTLP_ENDPOINT: "otel-collector:4317"
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      OTEL_EXPORTER_OTLP_PROTOCOL: ${OTEL_EXPORTER_OTLP_PROTOCOL:-}
+      OTEL_EXPORTER_OTLP_HEADERS: ${OTEL_EXPORTER_OTLP_HEADERS:-}
     depends_on:
       postgres:
         condition: service_started

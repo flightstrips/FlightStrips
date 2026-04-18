@@ -89,7 +89,6 @@ func main() {
 			ServiceName:    "flightstrips-backend",
 			ServiceVersion: "1.0.0",
 			Environment:    getEnv("ENVIRONMENT", "development"),
-			OTLPEndpoint:   otlpEndpoint,
 		})
 		if err != nil {
 			slog.Error("Failed to initialize telemetry", slog.Any("error", err))

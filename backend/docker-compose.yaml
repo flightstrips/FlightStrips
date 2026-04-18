@@ -35,7 +35,6 @@ services:
     environment:
       - DATABASE_CONNECTIONSTRING=postgresql://fs:fs_password@postgres:5432/fsdb?sslmode=disable
       - SLEEP_TIME=30
-      - OTEL_EXPORTER_OTLP_ENDPOINT=otel-collector:4317
       - ENVIRONMENT=docker
       - SERVER_ADDR=0.0.0.0:8090
     networks:

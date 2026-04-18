@@ -4,6 +4,7 @@ import MRKBTN from "./MRKBTN";
 import MUTEBTN from "./MUTEBTN";
 import TRFBRN from "./TRFBRN";
 import REQBTN from "./REQBTN";
+import CFMBTN from "./CFMBTN";
 import ATIS from "./ATIS";
 import CDMSIM from "./CDMSIM";
 import RunwayStsDialog, { type RunwayStatus } from "./RunwayStsDialog";
@@ -197,6 +198,7 @@ export default function CommandBar() {
         <TRFBRN />
         <MRKBTN isMarked={isMarked} armed={markArmed} disabled={!canMark} onClick={handleMark} />
         <REQBTN />
+        <CFMBTN />
         {import.meta.env.VITE_CDM_SIM === 'true' && <CDMSIM />}
         <button
           disabled={!isOwner}

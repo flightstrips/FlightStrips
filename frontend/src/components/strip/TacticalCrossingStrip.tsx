@@ -18,11 +18,13 @@ interface Props {
 
 export function TacticalCrossingStrip({ strip, width }: Props) {
   const myPosition = useMyPosition();
+  const confirmTacticalStrip = useWebSocketStore(s => s.confirmTacticalStrip);
   const deleteTacticalStrip = useWebSocketStore(s => s.deleteTacticalStrip);
 
   const isProducer = strip.produced_by === myPosition;
   const siBackground = isProducer ? COLOR_PRODUCER : COLOR_OTHER;
   const label = strip.aircraft ? `${strip.label} (${strip.aircraft})` : strip.label;
+  const canConfirm = !isProducer && !strip.confirmed;
 
   return (
     <div
@@ -46,6 +48,24 @@ export function TacticalCrossingStrip({ strip, width }: Props) {
         style={{ fontFamily: FONT, color: "black", fontSize: "0.63vw" }}
       >
         <span className="truncate">{label}</span>
+      </div>
+
+      {/* Confirm button (hourglass / tickmark) */}
+      <div
+        className="flex-shrink-0 flex items-center justify-center border-l-2"
+        style={{
+          width: W_BTN,
+          height: "100%",
+          borderLeftColor: CELL_BORDER_CLR,
+          color: "black",
+          cursor: canConfirm ? "pointer" : "default",
+          opacity: isProducer && !strip.confirmed ? 0.35 : 1,
+        }}
+        onClick={canConfirm ? (e) => { e.stopPropagation(); confirmTacticalStrip(strip.id); } : undefined}
+      >
+        <span style={{ fontFamily: FONT, fontSize: "0.68vw" }}>
+          {strip.confirmed ? "✓" : "⌛"}
+        </span>
       </div>
 
       {/* Delete button (X) */}

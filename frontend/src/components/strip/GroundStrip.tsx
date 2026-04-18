@@ -66,7 +66,7 @@ export function GroundStrip({
       />
 
       {/* Callsign — 120px */}
-      <div className="flex-shrink-0 flex flex-col border-r-2 cursor-pointer" style={{ width: "6.25vw", height: "100%", borderRightColor: cellBorderColor, ...(validationStatus?.active && { animation: "validation-blink 1s step-start infinite" }) }}
+      <div className="flex-shrink-0 flex flex-col border-r-2 cursor-pointer" style={{ width: "6.25vw", height: "100%", borderRightColor: cellBorderColor, ...(validationStatus?.active && validationStatus.owning_position === myPosition && { animation: "validation-blink 1s step-start infinite" }) }}
         onClick={handleClick}
         onContextMenu={handleContextMenu}
       >

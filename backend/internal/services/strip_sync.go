@@ -257,6 +257,10 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 		slog.ErrorContext(ctx, "Error moving bay for strip", slog.String("callsign", strip.Callsign), slog.Any("error", err))
 	}
 
+	if err := s.reevaluateDuplicateSquawkValidationsForSession(ctx, session, true); err != nil {
+		return err
+	}
+
 	if s.cdmService != nil && strings.EqualFold(strings.TrimSpace(strip.Origin), strings.TrimSpace(airport)) {
 		s.cdmService.TriggerRecalculate(ctx, session, airport)
 	}

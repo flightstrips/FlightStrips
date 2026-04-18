@@ -147,7 +147,7 @@ export function TwyDepStrip({
       {/* Callsign; top 2/3 = callsign, bottom 1/3 = :freq */}
       <div
         className="flex flex-col border-r-2 min-w-0 cursor-pointer"
-        style={{ flexGrow: F_CALLSIGN, flexBasis: 0, height: "100%", borderRightColor: cellBorderColor, ...(validationStatus?.active && { animation: "validation-blink 1s step-start infinite" }) }}
+        style={{ flexGrow: F_CALLSIGN, flexBasis: 0, height: "100%", borderRightColor: cellBorderColor, ...(validationStatus?.active && validationStatus.owning_position === myPosition && { animation: "validation-blink 1s step-start infinite" }) }}
         onClick={handleClick}
         onContextMenu={handleContextMenu}
       >

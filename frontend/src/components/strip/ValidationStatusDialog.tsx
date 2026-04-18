@@ -23,9 +23,17 @@ export function ValidationStatusDialog({
   onOpenChange,
 }: ValidationStatusDialogProps) {
   const acknowledgeValidationStatus = useWebSocketStore((state) => state.acknowledgeValidationStatus);
+  const generateSquawk = useWebSocketStore((state) => state.generateSquawk);
 
   function handleAcknowledge() {
     acknowledgeValidationStatus(callsign, status.activation_key);
+    onOpenChange(false);
+  }
+
+  function handleCustomAction() {
+    if (status.custom_action?.action_kind === "generate_squawk") {
+      generateSquawk(callsign);
+    }
     onOpenChange(false);
   }
 
@@ -50,7 +58,7 @@ export function ValidationStatusDialog({
               <button
                 type="button"
                 className="flex-1 h-[44px] bg-[#004FD6] text-white font-semibold text-sm shadow outline-none active:brightness-90 rounded-none border-0"
-                onClick={() => onOpenChange(false)}
+                onClick={handleCustomAction}
               >
                 {status.custom_action.label}
               </button>

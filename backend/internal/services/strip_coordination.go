@@ -146,7 +146,7 @@ func (s *StripService) AcceptCoordination(ctx context.Context, session int32, ca
 		return err
 	}
 
-	count, err := s.stripRepo.SetOwner(ctx, session, callsign, &assumingPosition, strip.Version)
+	count, err := s.setOwnerAndReevaluateDuplicateSquawkValidation(ctx, session, callsign, &assumingPosition, strip.Version)
 	if err != nil {
 		return err
 	}
@@ -413,7 +413,7 @@ func (s *StripService) AssumeStripCoordination(ctx context.Context, session int3
 					return err
 				}
 
-				count, err := s.stripRepo.SetOwner(ctx, session, callsign, &position, strip.Version)
+				count, err := s.setOwnerAndReevaluateDuplicateSquawkValidation(ctx, session, callsign, &position, strip.Version)
 				if err != nil {
 					return err
 				}
@@ -461,7 +461,7 @@ func (s *StripService) AssumeStripCoordination(ctx context.Context, session int3
 			return err
 		}
 
-		count, err := s.stripRepo.SetOwner(ctx, session, callsign, &position, strip.Version)
+		count, err := s.setOwnerAndReevaluateDuplicateSquawkValidation(ctx, session, callsign, &position, strip.Version)
 		if err != nil {
 			return err
 		}
@@ -535,7 +535,7 @@ func (s *StripService) ForceAssumeStrip(ctx context.Context, session int32, call
 		return err
 	}
 
-	count, err := s.stripRepo.SetOwner(ctx, session, callsign, &position, strip.Version)
+	count, err := s.setOwnerAndReevaluateDuplicateSquawkValidation(ctx, session, callsign, &position, strip.Version)
 	if err != nil {
 		return err
 	}
@@ -705,7 +705,7 @@ func (s *StripService) AcceptTagRequest(ctx context.Context, session int32, call
 		return err
 	}
 
-	count, err := s.stripRepo.SetOwner(ctx, session, callsign, &requesterPosition, strip.Version)
+	count, err := s.setOwnerAndReevaluateDuplicateSquawkValidation(ctx, session, callsign, &requesterPosition, strip.Version)
 	if err != nil {
 		return err
 	}
@@ -780,7 +780,7 @@ func (s *StripService) FreeStrip(ctx context.Context, session int32, callsign st
 		return err
 	}
 
-	count, err := s.stripRepo.SetOwner(ctx, session, callsign, nil, strip.Version)
+	count, err := s.setOwnerAndReevaluateDuplicateSquawkValidation(ctx, session, callsign, nil, strip.Version)
 	if err != nil {
 		return err
 	}

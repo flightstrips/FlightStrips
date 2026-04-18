@@ -73,6 +73,10 @@ func (s *StripService) MoveToBay(ctx context.Context, session int32, callsign st
 		return err
 	}
 
+	if err := s.reevaluateDuplicateSquawkValidation(ctx, session, callsign, sendNotification, true); err != nil {
+		return err
+	}
+
 	if bay == shared.BAY_STAND {
 		s.scheduleStandAutoHide(session, callsign)
 	}

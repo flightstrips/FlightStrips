@@ -22,6 +22,9 @@ func (s *StripService) UpdateAssignedSquawk(ctx context.Context, session int32, 
 		slog.DebugContext(ctx, "Strip being updated does not exist in database", slog.String("callsign", callsign), slog.String("event", "AssignedSquawk"))
 	} else {
 		s.publisher.SendAssignedSquawkEvent(session, callsign, squawk)
+		if err := s.reevaluateDuplicateSquawkValidationsForSession(ctx, session, true); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -36,6 +39,9 @@ func (s *StripService) UpdateSquawk(ctx context.Context, session int32, callsign
 		slog.DebugContext(ctx, "Strip being updated does not exist in database", slog.String("callsign", callsign), slog.String("event", "Squawk"))
 	} else {
 		s.publisher.SendSquawkEvent(session, callsign, squawk)
+		if err := s.reevaluateDuplicateSquawkValidationsForSession(ctx, session, true); err != nil {
+			return err
+		}
 	}
 	return nil
 }

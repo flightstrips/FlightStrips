@@ -69,7 +69,7 @@ func (s *StripService) autoAssumeForClearedStrip(ctx context.Context, session in
 		return err
 	}
 
-	count, err := s.stripRepo.SetOwner(ctx, session, callsign, &sqPosition, strip.Version)
+	count, err := s.setOwnerAndReevaluateDuplicateSquawkValidation(ctx, session, callsign, &sqPosition, strip.Version)
 	if err != nil {
 		return err
 	}
@@ -138,7 +138,7 @@ func (s *StripService) AutoAssumeForControllerOnline(ctx context.Context, sessio
 			continue
 		}
 
-		count, err := s.stripRepo.SetOwner(ctx, session, strip.Callsign, &controllerPosition, strip.Version)
+		count, err := s.setOwnerAndReevaluateDuplicateSquawkValidation(ctx, session, strip.Callsign, &controllerPosition, strip.Version)
 		if err != nil {
 			slog.ErrorContext(ctx, "AutoAssumeForControllerOnline: SetOwner failed",
 				slog.String("callsign", strip.Callsign),

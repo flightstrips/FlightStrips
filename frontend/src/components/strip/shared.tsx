@@ -68,7 +68,7 @@ export function useStripCallsignInteraction({
   const toggleMarked = useWebSocketStore((state) => state.toggleMarked);
   const marked = useWebSocketStore((state) => state.strips.find((strip) => strip.callsign === callsign)?.marked ?? false);
   const validationStatus = useWebSocketStore((state) => state.strips.find((s) => s.callsign === callsign)?.validation_status);
-  const isValidationActive = validationStatus?.active === true;
+  const isValidationActive = validationStatus?.active === true && validationStatus.owning_position === myPosition;
 
   const [validationDialogOpen, setValidationDialogOpen] = useState(false);
 
@@ -132,7 +132,8 @@ export function useStripCallsignInteraction({
  */
 export function useValidationBlink(callsign: string): CSSProperties {
   const validationStatus = useWebSocketStore((state) => state.strips.find((s) => s.callsign === callsign)?.validation_status);
-  if (!validationStatus?.active) return {};
+  const myPosition = useWebSocketStore((state) => state.position);
+  if (!validationStatus?.active || validationStatus.owning_position !== myPosition) return {};
   return {
     animation: "validation-blink 1s step-start infinite",
   };

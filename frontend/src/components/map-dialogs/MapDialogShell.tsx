@@ -103,6 +103,23 @@ export function MapEraseControls({ onOk, onErase, btnStyle, maxLength = 6 }: Map
   );
 }
 
+interface MapCloseButtonProps {
+  onClose: () => void;
+  btnStyle: React.CSSProperties;
+  label?: string;
+}
+
+export function MapCloseButton({ onClose, btnStyle, label = "ECS" }: MapCloseButtonProps) {
+  return (
+    <button
+      onClick={onClose}
+      style={{ ...btnStyle, backgroundColor: COLOR_MAP_BTN_DARK, color: "white" }}
+    >
+      {label}
+    </button>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // MapDialogShell — dialog wrapper, drag-disabled guard, image + point buttons
 // ---------------------------------------------------------------------------

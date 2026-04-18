@@ -1,6 +1,6 @@
 import { useMyPosition, useStrip, useWebSocketStore } from "@/store/store-hooks";
 import { HOLDING_POINT_RUNWAYS } from "@/config/ekch";
-import { MAP_BTN_BASE, MapDialogShell } from "./MapDialogShell";
+import { MAP_BTN_BASE, MapCloseButton, MapDialogShell } from "./MapDialogShell";
 
 interface HoldingPointDialogProps {
   open: boolean;
@@ -63,6 +63,17 @@ export function HoldingPointDialog({
       onSelect={handleSelect}
       selectedPoint={strip?.release_point}
       scaleMode="width"
-    />
+    >
+      <div
+        style={{
+          position: "absolute",
+          bottom: "5%",
+          left: "2%",
+          zIndex: 20,
+        }}
+      >
+        <MapCloseButton onClose={() => onOpenChange(false)} btnStyle={btnStyle} />
+      </div>
+    </MapDialogShell>
   );
 }

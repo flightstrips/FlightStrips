@@ -1,6 +1,6 @@
 import { useWebSocketStore, useApronOnline, useTwrOnline, useIsTwr, useMyPosition, useStrip } from "@/store/store-hooks";
 import { APRON_TAXI_POINTS, COORDINATION_APRON_TAXI_POINTS } from "@/config/ekch";
-import { MAP_BTN_BASE, MapDialogShell, MapEraseControls } from "./MapDialogShell";
+import { MAP_BTN_BASE, MapCloseButton, MapDialogShell, MapEraseControls } from "./MapDialogShell";
 import { Bay } from "@/api/models";
 
 interface ApronTaxiMapDialogProps {
@@ -105,6 +105,7 @@ export function ApronTaxiMapDialog({
         }}
       >
         <MapEraseControls onOk={handleSelect} onErase={handleErase} btnStyle={BTN_STYLE} />
+        <MapCloseButton onClose={() => onOpenChange(false)} btnStyle={BTN_STYLE} />
       </div>
     </MapDialogShell>
   );

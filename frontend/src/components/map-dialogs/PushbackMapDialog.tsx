@@ -1,7 +1,7 @@
 import { useWebSocketStore } from "@/store/store-hooks";
 import { Bay } from "@/api/models";
 import { RELEASE_POINTS } from "@/config/ekch";
-import { MAP_BTN_BASE, MapDialogShell, MapEraseControls } from "./MapDialogShell";
+import { MAP_BTN_BASE, MapCloseButton, MapDialogShell, MapEraseControls } from "./MapDialogShell";
 
 interface PushbackMapDialogProps {
   open: boolean;
@@ -68,6 +68,7 @@ export function PushbackMapDialog({ open, onOpenChange, callsign, initialRelease
         {/* ERASE / input / OK — offset down to align with ← → row */}
         <div style={{ display: "flex", flexDirection: "column", gap: "0.52cqh", marginTop: "4.43cqh" }}>
           <MapEraseControls onOk={handleSelect} btnStyle={BTN_STYLE} maxLength={4} />
+          <MapCloseButton onClose={() => onOpenChange(false)} btnStyle={BTN_STYLE} />
         </div>
       </div>
     </MapDialogShell>

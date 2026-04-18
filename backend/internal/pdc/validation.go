@@ -42,6 +42,59 @@ func validationFaultMessages(faults []FlightPlanValidationFault) []string {
 	return messages
 }
 
+func normalizedValidationAircraftType(aircraftType *string) string {
+	if aircraftType == nil {
+		return ""
+	}
+
+	return strings.ToUpper(strings.SplitN(strings.TrimSpace(*aircraftType), "/", 2)[0])
+}
+
+func normalizedValidationRunway(runway *string) string {
+	if runway == nil {
+		return ""
+	}
+
+	return strings.ToUpper(strings.TrimSpace(*runway))
+}
+
+// RunwayTypeValidationFault returns the configured aircraft/runway incompatibility fault, if any.
+func RunwayTypeValidationFault(strip *models.Strip) *FlightPlanValidationFault {
+	if strip == nil || strip.AircraftType == nil || strip.Runway == nil {
+		return nil
+	}
+
+	cfg := config.GetPDCValidationConfig()
+	aircraftType := normalizedValidationAircraftType(strip.AircraftType)
+	runway := normalizedValidationRunway(strip.Runway)
+	if aircraftType == "" || runway == "" {
+		return nil
+	}
+
+	restriction := cfg.HeavyRunwayRestriction
+	restrictedType := false
+	for _, heavyType := range restriction.AircraftTypes {
+		if strings.ToUpper(strings.TrimSpace(heavyType)) == aircraftType {
+			restrictedType = true
+			break
+		}
+	}
+	if !restrictedType {
+		return nil
+	}
+
+	for _, allowedRunway := range restriction.AllowedRunways {
+		if strings.ToUpper(strings.TrimSpace(allowedRunway)) == runway {
+			return nil
+		}
+	}
+
+	return &FlightPlanValidationFault{
+		Kind:    FlightPlanValidationFaultKindRunway,
+		Message: fmt.Sprintf("Aircraft type %s is not allowed on runway %s", *strip.AircraftType, *strip.Runway),
+	}
+}
+
 func validatePDCFlightPlanFaults(strip *models.Strip, activeDepartureRunways []string, now time.Time) []FlightPlanValidationFault {
 	if strip == nil {
 		return nil
@@ -82,40 +135,21 @@ func validatePDCFlightPlanFaults(strip *models.Strip, activeDepartureRunways []s
 		}
 	}
 
-	aircraftType := ""
-	if strip.AircraftType != nil {
-		aircraftType = strings.ToUpper(strings.SplitN(strings.TrimSpace(*strip.AircraftType), "/", 2)[0])
-	}
-
-	runway := ""
-	if strip.Runway != nil {
-		runway = strings.ToUpper(strings.TrimSpace(*strip.Runway))
-	}
+	aircraftType := normalizedValidationAircraftType(strip.AircraftType)
+	runway := normalizedValidationRunway(strip.Runway)
 
 	hasSpecificRunwayRequirement := false
-	if strip.AircraftType != nil && strip.Runway != nil {
+	if aircraftType != "" {
 		for _, heavyType := range cfg.HeavyRunwayRestriction.AircraftTypes {
 			if strings.ToUpper(strings.TrimSpace(heavyType)) == aircraftType {
 				hasSpecificRunwayRequirement = true
 				break
 			}
 		}
+	}
 
-		if hasSpecificRunwayRequirement {
-			allowed := false
-			for _, r := range cfg.HeavyRunwayRestriction.AllowedRunways {
-				if strings.ToUpper(strings.TrimSpace(r)) == runway {
-					allowed = true
-					break
-				}
-			}
-			if !allowed {
-				faults = append(faults, FlightPlanValidationFault{
-					Kind:    FlightPlanValidationFaultKindRunway,
-					Message: fmt.Sprintf("Aircraft type %s is not allowed on runway %s", *strip.AircraftType, *strip.Runway),
-				})
-			}
-		}
+	if fault := RunwayTypeValidationFault(strip); fault != nil {
+		faults = append(faults, *fault)
 	}
 
 	if runway != "" && len(activeDepartureRunways) > 0 && !hasSpecificRunwayRequirement {

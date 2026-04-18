@@ -37,7 +37,7 @@ func TestValidatePDCFlightPlan_SpecialRunwayAircraftSkipsActiveDepartureFault(t 
 
 	service := &Service{}
 	strip := &models.Strip{
-		AircraftType: stringPtrTest("A380/H"),
+		AircraftType: stringPtrTest("A388/H"),
 		Runway:       stringPtrTest("22L"),
 	}
 
@@ -51,14 +51,27 @@ func TestValidatePDCFlightPlan_SpecialRunwayAircraftStillRequiresConfiguredRunwa
 
 	service := &Service{}
 	strip := &models.Strip{
-		AircraftType: stringPtrTest("A380/H"),
+		AircraftType: stringPtrTest("A388/H"),
 		Runway:       stringPtrTest("22R"),
 	}
 
 	faults := service.validatePDCFlightPlan(strip, []string{"22R"})
 
-	assert.Contains(t, faults, "Aircraft type A380/H is not allowed on runway 22R")
+	assert.Contains(t, faults, "Aircraft type A388/H is not allowed on runway 22R")
 	assert.NotContains(t, faults, "Runway 22R is not an active departure runway")
+}
+
+func TestRunwayTypeValidationFault_ReturnsConfiguredAircraftRunwayFault(t *testing.T) {
+	t.Parallel()
+
+	fault := RunwayTypeValidationFault(&models.Strip{
+		AircraftType: stringPtrTest("AN225"),
+		Runway:       stringPtrTest("04L"),
+	})
+
+	require.NotNil(t, fault)
+	assert.Equal(t, FlightPlanValidationFaultKindRunway, fault.Kind)
+	assert.Equal(t, "Aircraft type AN225 is not allowed on runway 04L", fault.Message)
 }
 
 func TestPDCStripValidationFaults_ExcludesEobtOnlyFaults(t *testing.T) {

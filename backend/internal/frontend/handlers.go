@@ -19,6 +19,10 @@ type pdcInvalidValidationStripReevaluator interface {
 	ReevaluatePdcInvalidValidationForStrip(ctx context.Context, session int32, strip *internalModels.Strip, activeDepartureRunways []string, publish bool, forceReactivate bool) error
 }
 
+type departureValidationStripReevaluator interface {
+	ReevaluateDepartureValidation(ctx context.Context, session int32, callsign string, publish bool, forceReactivate bool) error
+}
+
 // validBays is the set of bay values that the frontend is permitted to move a strip to.
 // Any move event carrying a bay outside this set is rejected.
 var validBays = map[string]bool{
@@ -201,6 +205,11 @@ func handleStripUpdate(ctx context.Context, client *Client, message Message) err
 		if client.hub.stripService != nil {
 			if err := client.hub.stripService.ReevaluatePdcInvalidValidation(ctx, client.session, event.Callsign, true, false); err != nil {
 				return err
+			}
+			if reevaluator, ok := client.hub.stripService.(departureValidationStripReevaluator); ok {
+				if err := reevaluator.ReevaluateDepartureValidation(ctx, client.session, event.Callsign, true, false); err != nil {
+					return err
+				}
 			}
 		}
 	}

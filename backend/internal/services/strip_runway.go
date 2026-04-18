@@ -112,6 +112,14 @@ func (s *StripService) PropagateRunwayChange(ctx context.Context, session int32,
 				slog.String("old_runway", currentRunway),
 				slog.String("new_runway", newRunway),
 				slog.Any("error", err))
+			continue
+		}
+
+		if err := s.ReevaluatePdcInvalidValidation(ctx, session, strip.Callsign, true, false); err != nil {
+			return err
+		}
+		if err := s.reevaluateDepartureValidation(ctx, session, strip.Callsign, true, false); err != nil {
+			return err
 		}
 	}
 	return nil

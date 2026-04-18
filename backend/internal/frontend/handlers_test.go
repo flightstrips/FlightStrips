@@ -18,7 +18,8 @@ import (
 
 type stripUpdateValidationReevaluator struct {
 	testutil.NoOpStripService
-	reevaluateForStripFn func(ctx context.Context, session int32, strip *models.Strip, activeDepartureRunways []string, publish bool, forceReactivate bool) error
+	reevaluateForStripFn  func(ctx context.Context, session int32, strip *models.Strip, activeDepartureRunways []string, publish bool, forceReactivate bool) error
+	reevaluateDepartureFn func(ctx context.Context, session int32, callsign string, publish bool, forceReactivate bool) error
 }
 
 func (s *stripUpdateValidationReevaluator) ReevaluatePdcInvalidValidationForStrip(ctx context.Context, session int32, strip *models.Strip, activeDepartureRunways []string, publish bool, forceReactivate bool) error {
@@ -26,6 +27,13 @@ func (s *stripUpdateValidationReevaluator) ReevaluatePdcInvalidValidationForStri
 		return nil
 	}
 	return s.reevaluateForStripFn(ctx, session, strip, activeDepartureRunways, publish, forceReactivate)
+}
+
+func (s *stripUpdateValidationReevaluator) ReevaluateDepartureValidation(ctx context.Context, session int32, callsign string, publish bool, forceReactivate bool) error {
+	if s.reevaluateDepartureFn == nil {
+		return nil
+	}
+	return s.reevaluateDepartureFn(ctx, session, callsign, publish, forceReactivate)
 }
 
 func TestHandleStripUpdate_RunwayChangePersistsSelectedRunway(t *testing.T) {
@@ -93,6 +101,74 @@ func TestHandleStripUpdate_RunwayChangePersistsSelectedRunway(t *testing.T) {
 	require.NotNil(t, updatedRunway)
 	assert.Equal(t, selectedRunway, *updatedRunway)
 	assert.Equal(t, "runway", markedField)
+}
+
+func TestHandleStripUpdate_RunwayChangeReevaluatesDepartureValidation(t *testing.T) {
+	ctx := context.Background()
+	const session = int32(9)
+	const callsign = "SAS123"
+	currentRunway := "22L"
+	selectedRunway := "04R"
+
+	var reevaluatedCallsign string
+	var reevaluatedPublish bool
+	var reevaluatedForce bool
+
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			return &models.Strip{
+				Callsign: callsign,
+				Session:  session,
+				Runway:   &currentRunway,
+			}, nil
+		},
+		UpdateRunwayFn: func(_ context.Context, _ int32, _ string, _ *string, _ *int32) (int64, error) {
+			return 1, nil
+		},
+		AppendControllerModifiedFieldFn: func(_ context.Context, _ int32, _ string, _ string) error {
+			return nil
+		},
+	}
+
+	server := &testutil.MockServer{
+		StripRepoVal:    stripRepo,
+		EuroscopeHubVal: &testutil.MockEuroscopeHub{},
+	}
+
+	hub := &Hub{
+		server: server,
+		stripService: &stripUpdateValidationReevaluator{
+			reevaluateDepartureFn: func(_ context.Context, gotSession int32, gotCallsign string, publish bool, forceReactivate bool) error {
+				assert.Equal(t, session, gotSession)
+				reevaluatedCallsign = gotCallsign
+				reevaluatedPublish = publish
+				reevaluatedForce = forceReactivate
+				return nil
+			},
+		},
+	}
+	client := &Client{
+		session:  session,
+		hub:      hub,
+		position: "EKCH_A_GND",
+	}
+	client.SetUser(shared.NewAuthenticatedUser("123456", 0, nil))
+
+	payload, err := json.Marshal(frontendEvents.UpdateStripDataEvent{
+		Type:     frontendEvents.UpdateStripData,
+		Callsign: callsign,
+		Runway:   &selectedRunway,
+	})
+	require.NoError(t, err)
+
+	err = handleStripUpdate(ctx, client, Message{
+		Type:    frontendEvents.UpdateStripData,
+		Message: payload,
+	})
+	require.NoError(t, err)
+	assert.Equal(t, callsign, reevaluatedCallsign)
+	assert.True(t, reevaluatedPublish)
+	assert.False(t, reevaluatedForce)
 }
 
 func TestHandleStripUpdate_SidChangeReevaluatesPdcInvalidValidationUsingSelectedSid(t *testing.T) {

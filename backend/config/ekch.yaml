@@ -653,7 +653,7 @@ pdc_validation:
   eobt_window_min: 10
   eobt_window_max: 30
   heavy_runway_restriction:
-    aircraft_types: ["A380", "A388", "B748", "AN12"]
+    aircraft_types: ["A388", "B748", "AN225"]
     allowed_runways: ["04R", "22L"]
   sid_restrictions:
     - sid: "NEXEN"

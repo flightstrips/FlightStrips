@@ -158,6 +158,7 @@ export interface FrontendStrip {
   previous_controllers: string[];
   owner: string;
   pdc_state: PdcStatus;
+  pdc_request_remarks?: string;
   marked: boolean;
   runway_cleared: boolean;
   runway_confirmed: boolean;
@@ -431,6 +432,7 @@ export interface FrontendPdcStateUpdateEvent {
   type: EventType.FrontendPdcStateChange;
   callsign: string;
   state: PdcStatus;
+  pdc_request_remarks?: string;
 }
 
 export interface FrontendCoordinationTransferBroadcastEvent {

@@ -105,7 +105,7 @@ func (suite *PDCIntegrationTestSuite) SetupTest(t *testing.T) {
 		timeouts:      make(map[string]*timeoutTracker),
 		timeoutConfig: 30 * time.Second, // Long timeout to prevent firing during test
 	}
-	suite.mockStrip.On("ReevaluatePdcInvalidValidation", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
+	suite.mockStrip.On("ReevaluatePdcRequestValidations", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
 
 	// Seed test data
 	sessionID := testdata.SeedTestSession(t, queries)
@@ -281,6 +281,39 @@ func TestSubmitWebPDCRequest_WithRemarksLeavesRequestPending(t *testing.T) {
 	assert.Nil(t, pdcData.Web.ClearanceText)
 	assert.Equal(t, remarks, valueOrEmpty(pdcData.RequestRemarks))
 	assert.Equal(t, string(StateRequested), pdcData.State)
+}
+
+func TestIssueClearance_ClearsManualReviewRequestRemarks(t *testing.T) {
+	t.Parallel()
+	suite := &PDCIntegrationTestSuite{}
+	suite.SetupTest(t)
+
+	ctx := context.Background()
+	sessionID := int32(1)
+	callsign := "SAS123"
+	remarks := "REQUEST PUSH APPROVAL FIRST"
+
+	suite.mockFrontend.On("SendPdcStateChange", sessionID, callsign, "REQUESTED", remarks).Return()
+
+	err := suite.service.SubmitWebPDCRequest(ctx, callsign, "C", "", remarks, "A320")
+	require.NoError(t, err)
+
+	suite.mockStrip.On("MoveToBay", mock.Anything, sessionID, callsign, shared.BAY_CLEARED, true).Return(nil)
+	suite.mockFrontend.On("SendPdcStateChange", sessionID, callsign, "CLEARED", "").Return()
+
+	err = suite.service.IssueClearance(ctx, callsign, "", "CID123", sessionID)
+	require.NoError(t, err)
+
+	strip, err := suite.queries.GetStrip(ctx, database.GetStripParams{
+		Session:  sessionID,
+		Callsign: callsign,
+	})
+	require.NoError(t, err)
+
+	pdcData := readStripPdcData(t, strip)
+	assert.Nil(t, pdcData.RequestRemarks)
+	assert.Equal(t, string(StateCleared), pdcData.State)
+	suite.mockStrip.AssertCalled(t, "ReevaluatePdcRequestValidations", mock.Anything, sessionID, callsign, true, false)
 }
 
 func TestSubmitWebPDCRequest_SearchesAllSessionsOutsideLiveMode(t *testing.T) {
@@ -926,7 +959,7 @@ func TestProcessPDCRequest_InactiveDepartureRunwayCreatesFault(t *testing.T) {
 	})
 	require.NoError(t, err)
 	assert.Equal(t, "REQUESTED_WITH_FAULTS", readStripPdcState(t, strip))
-	suite.mockStrip.AssertCalled(t, "ReevaluatePdcInvalidValidation", mock.Anything, int32(1), callsign, true, true)
+	suite.mockStrip.AssertCalled(t, "ReevaluatePdcRequestValidations", mock.Anything, int32(1), callsign, true, true)
 }
 
 func TestProcessPDCRequest_AlreadyCleared(t *testing.T) {

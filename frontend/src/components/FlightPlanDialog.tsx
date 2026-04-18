@@ -342,7 +342,7 @@ export default function FlightPlanDialog({
             <div className="grid items-center gap-[5px]">
               <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>NITOS REMARKS</Label>
               <Input
-                defaultValue=""
+                value={strip.pdc_request_remarks ?? ""}
                 disabled
                 className={CLS_BTN_DISABLED_NRM}
                 style={{ width: 700, fontFamily: FONT_FAMILY, fontSize: FONT_SIZE_FIELD }}

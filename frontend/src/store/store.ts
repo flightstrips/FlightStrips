@@ -855,6 +855,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
           const stripIndex = state.strips.findIndex(strip => strip.callsign == data.callsign);
           if (stripIndex !== -1) {
             state.strips[stripIndex].pdc_state = data.state;
+            state.strips[stripIndex].pdc_request_remarks = data.pdc_request_remarks ?? "";
           }
         })
     )

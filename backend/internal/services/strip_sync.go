@@ -211,6 +211,7 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 			Registration:       existingStrip.Registration,
 			Owner:              existingStrip.Owner,
 			PdcState:           existingStrip.PdcState,
+			PdcRequestRemarks:  existingStrip.PdcRequestRemarks,
 			TrackingController: strip.TrackingController,
 			EngineType:         strip.EngineType,
 			ValidationStatus:   existingStrip.ValidationStatus,
@@ -263,7 +264,7 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 		slog.ErrorContext(ctx, "Error moving bay for strip", slog.String("callsign", strip.Callsign), slog.Any("error", err))
 	}
 
-	if err := s.applyPdcInvalidValidation(ctx, session, validationStrip, sessionObj.ActiveRunways.DepartureRunways, true, false); err != nil {
+	if err := s.ReevaluatePdcRequestValidationsForStrip(ctx, session, validationStrip, sessionObj.ActiveRunways.DepartureRunways, true, false); err != nil {
 		return err
 	}
 

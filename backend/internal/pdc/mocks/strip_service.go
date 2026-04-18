@@ -268,3 +268,14 @@ func (m *StripService) ReevaluatePdcInvalidValidation(ctx context.Context, sessi
 
 	return nil
 }
+
+func (m *StripService) ReevaluatePdcRequestValidations(ctx context.Context, session int32, callsign string, publish bool, forceReactivate bool) error {
+	for _, call := range m.ExpectedCalls {
+		if call.Method == "ReevaluatePdcRequestValidations" {
+			args := m.Called(ctx, session, callsign, publish, forceReactivate)
+			return args.Error(0)
+		}
+	}
+
+	return nil
+}

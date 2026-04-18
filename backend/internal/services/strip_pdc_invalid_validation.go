@@ -61,7 +61,7 @@ func (s *StripService) applyPdcInvalidValidation(ctx context.Context, session in
 	}
 
 	current := strip.ValidationStatus
-	if current != nil && !isPdcInvalidValidation(current) {
+	if current != nil && !isPdcInvalidValidation(current) && !isPdcCustomValidation(current) {
 		return nil
 	}
 

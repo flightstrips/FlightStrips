@@ -115,4 +115,5 @@ type StripService interface {
 	ClearValidationStatus(ctx context.Context, session int32, callsign string) error
 	IsValidationBlocking(ctx context.Context, session int32, callsign string) (bool, error)
 	ReevaluatePdcInvalidValidation(ctx context.Context, session int32, callsign string, publish bool, forceReactivate bool) error
+	ReevaluatePdcRequestValidations(ctx context.Context, session int32, callsign string, publish bool, forceReactivate bool) error
 }

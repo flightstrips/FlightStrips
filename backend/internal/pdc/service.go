@@ -149,7 +149,7 @@ func (s *Service) notifyClearedFlagEuroscope(sessionID int32, callsign string, c
 func (s *Service) notifyStateChange(ctx context.Context, sessionID int32, callsign string, state ClearanceState, remarks string) error {
 	metrics.PDCStateChange(context.Background(), sessionID, string(state))
 	if s.stripService != nil {
-		if err := s.stripService.ReevaluatePdcInvalidValidation(ctx, sessionID, callsign, true, state == StateRequestedWithFaults); err != nil {
+		if err := s.stripService.ReevaluatePdcRequestValidations(ctx, sessionID, callsign, true, state == StateRequestedWithFaults); err != nil {
 			return err
 		}
 	}

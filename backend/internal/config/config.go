@@ -46,6 +46,7 @@ type Config struct {
 	Runways                []string                   `yaml:"runways"`
 	MessageAreas           map[string][]string        `yaml:"message_areas"`
 	PDCValidation          PDCValidationConfig        `yaml:"pdc_validation"`
+	TaxiwayTypeValidation  TaxiwayTypeValidationConfig `yaml:"taxiway_type_validation"`
 	MissedApproachHandover map[string]string          `yaml:"missed_approach_handover"`
 	TransitionAltitude     int                        `yaml:"transition_altitude"`
 	RunwayInitialCFL       map[string]int             `yaml:"runway_initial_cfl"`
@@ -122,6 +123,7 @@ func loadAirportConfig(r io.Reader) error {
 		messageAreas = make(map[string][]string)
 	}
 	pdcValidationConfig = cfg.PDCValidation
+	taxiwayTypeValidationConfig = normalizeTaxiwayTypeValidationConfig(cfg.TaxiwayTypeValidation)
 	missedApproachHandover = cfg.MissedApproachHandover
 	if missedApproachHandover == nil {
 		missedApproachHandover = make(map[string]string)

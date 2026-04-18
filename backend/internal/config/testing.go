@@ -45,6 +45,22 @@ func SetAirborneFallbackLayoutForTest(layout string) func() {
 	return func() { airborneFallbackLayout = old }
 }
 
+// SetTaxiwayTypeValidationConfigForTest replaces taxiway-type validation rules for testing.
+// Returns a cleanup function that restores the original value.
+func SetTaxiwayTypeValidationConfigForTest(cfg TaxiwayTypeValidationConfig) func() {
+	old := taxiwayTypeValidationConfig
+	taxiwayTypeValidationConfig = normalizeTaxiwayTypeValidationConfig(cfg)
+	return func() { taxiwayTypeValidationConfig = old }
+}
+
+// SetLayoutsForTest replaces the package-level layouts map for testing.
+// Returns a cleanup function that restores the original value.
+func SetLayoutsForTest(next map[string][]LayoutVariant) func() {
+	old := layouts
+	layouts = next
+	return func() { layouts = old }
+}
+
 // SetMissedApproachHandoverForTest replaces the package-level missedApproachHandover map for testing.
 // Returns a cleanup function that restores the original value.
 func SetMissedApproachHandoverForTest(m map[string]string) func() {

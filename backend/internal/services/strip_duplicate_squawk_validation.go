@@ -138,7 +138,13 @@ func (s *StripService) applyDuplicateSquawkValidationState(ctx context.Context, 
 	}
 
 	current := strip.ValidationStatus
-	if current != nil && !isDuplicateSquawkValidation(current) && !isWrongSquawkValidation(current) && !isRunwayTypeValidation(current) && !isCtotValidation(current) && !isNoStandValidation(current) {
+	if current != nil &&
+		!isDuplicateSquawkValidation(current) &&
+		!isWrongSquawkValidation(current) &&
+		!isRunwayTypeValidation(current) &&
+		!isTaxiwayTypeValidation(current) &&
+		!isCtotValidation(current) &&
+		!isNoStandValidation(current) {
 		return nil
 	}
 
@@ -276,6 +282,7 @@ func (s *StripService) reevaluateDepartureValidation(ctx context.Context, sessio
 		return s.reevaluateStoredDepartureValidation(ctx, session, callsign, publish, forceReactivate)
 	}
 
+	now := ctotValidationNow()
 	membership := duplicateSquawkCodeMembership(strips)
 	for _, strip := range strips {
 		if strip.Callsign != callsign {
@@ -291,7 +298,10 @@ func (s *StripService) reevaluateDepartureValidation(ctx context.Context, sessio
 			if err := s.applyRunwayTypeValidation(ctx, session, strip, publish, forceReactivate); err != nil {
 				return err
 			}
-			return s.applyCtotValidation(ctx, session, strip, ctotValidationNow(), publish, forceReactivate)
+			if isRunwayTypeValidation(strip.ValidationStatus) {
+				return nil
+			}
+			return s.applyTaxiwayTypeAndCtotValidation(ctx, session, strip, now, publish, forceReactivate)
 		}
 
 		refreshed, refreshedAvailable, err := s.getStripForDuplicateSquawkValidation(ctx, session, callsign)
@@ -311,7 +321,10 @@ func (s *StripService) reevaluateDepartureValidation(ctx context.Context, sessio
 		if err := s.applyRunwayTypeValidation(ctx, session, refreshed, publish, forceReactivate); err != nil {
 			return err
 		}
-		return s.applyCtotValidation(ctx, session, refreshed, ctotValidationNow(), publish, forceReactivate)
+		if isRunwayTypeValidation(refreshed.ValidationStatus) {
+			return nil
+		}
+		return s.applyTaxiwayTypeAndCtotValidation(ctx, session, refreshed, now, publish, forceReactivate)
 	}
 
 	return nil
@@ -341,6 +354,7 @@ func (s *StripService) reevaluateSquawkValidationsForSession(ctx context.Context
 		}
 	}
 
+	now := ctotValidationNow()
 	for _, strip := range strips {
 		refreshed, refreshedAvailable, err := s.getStripForDuplicateSquawkValidation(ctx, session, strip.Callsign)
 		if err != nil {
@@ -359,9 +373,15 @@ func (s *StripService) reevaluateSquawkValidationsForSession(ctx context.Context
 		if err := s.applyRunwayTypeValidation(ctx, session, refreshed, publish, false); err != nil {
 			return err
 		}
+		if isRunwayTypeValidation(refreshed.ValidationStatus) {
+			continue
+		}
+		if err := s.applyTaxiwayTypeAndCtotValidation(ctx, session, refreshed, now, publish, false); err != nil {
+			return err
+		}
 	}
 
-	return s.ReevaluateCtotValidationsForSession(ctx, session, publish)
+	return s.ReevaluateNoStandValidationsForSession(ctx, session, publish)
 }
 
 func (s *StripService) reevaluateStripValidationPrecedence(ctx context.Context, session int32, callsign string, publish bool, forceReactivate bool) error {
@@ -391,7 +411,10 @@ func (s *StripService) reevaluateStoredDepartureValidation(ctx context.Context, 
 		if err := s.applyRunwayTypeValidation(ctx, session, strip, publish, forceReactivate); err != nil {
 			return err
 		}
-		return s.applyCtotValidation(ctx, session, strip, ctotValidationNow(), publish, forceReactivate)
+		if isRunwayTypeValidation(strip.ValidationStatus) {
+			return nil
+		}
+		return s.applyTaxiwayTypeAndCtotValidation(ctx, session, strip, ctotValidationNow(), publish, forceReactivate)
 	}
 
 	refreshed, refreshedAvailable, err := s.getStripForDuplicateSquawkValidation(ctx, session, callsign)
@@ -411,7 +434,10 @@ func (s *StripService) reevaluateStoredDepartureValidation(ctx context.Context, 
 	if err := s.applyRunwayTypeValidation(ctx, session, refreshed, publish, forceReactivate); err != nil {
 		return err
 	}
-	return s.applyCtotValidation(ctx, session, refreshed, ctotValidationNow(), publish, forceReactivate)
+	if isRunwayTypeValidation(refreshed.ValidationStatus) {
+		return nil
+	}
+	return s.applyTaxiwayTypeAndCtotValidation(ctx, session, refreshed, ctotValidationNow(), publish, forceReactivate)
 }
 
 func (s *StripService) reevaluateStoredSquawkValidation(ctx context.Context, session int32, callsign string, publish bool, forceReactivate bool) error {

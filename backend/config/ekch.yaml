@@ -664,3 +664,24 @@ pdc_validation:
       engine_types: ["P", "T"]
     - sid: "BETUD"
       engine_types: []
+
+taxiway_type_validation:
+  apron:
+    categories:
+      E: ["L/Y", "Y/L", "K/J", "K1"]
+      F: ["L/Y", "Y/L", "K/J", "K1", "C/22L", "G2/30", "A3", "A4", "A5", "B2", "C/30", "A1", "A2", "E1", "B4"]
+  tower:
+    categories:
+      D: ["C/22L"]
+      E: ["C/22L", "G2/30", "A3", "A4", "A5"]
+      F: ["B2", "C/30", "A1", "A2", "A3", "A4", "A5", "E1", "B4"]
+    aircraft_types:
+      A359: ["B2"]
+      B78X: ["B2"]
+      A35K: ["B2", "C/30"]
+      B773: ["B2", "C/30"]
+      B77W: ["B2", "C/30"]
+      A345: ["B2", "C/30"]
+      A346: ["B2", "C/30"]
+      B778: ["B2", "C/30", "A1", "A2", "A3", "A4", "A5", "E1", "B4"]
+      B779: ["B2", "C/30", "A1", "A2", "A3", "A4", "A5", "E1", "B4"]

@@ -335,7 +335,7 @@ func (s *StripService) UpdateReleasePoint(ctx context.Context, session int32, ca
 		Callsign:     callsign,
 		ReleasePoint: releasePoint,
 	})
-	return nil
+	return s.reevaluateTaxiwayTypeAndCtotValidation(ctx, session, callsign, true, true)
 }
 
 // ApplyReleasePoint updates the release point with ownership enforcement and broadcasts.

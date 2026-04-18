@@ -42,6 +42,49 @@ func TestSyncEuroscopeStrip_NewLocalDepartureWithoutPositionStartsInNotCleared(t
 	assert.Equal(t, shared.BAY_NOT_CLEARED, createdStrip.Bay)
 }
 
+func TestSyncEuroscopeStrip_BlankFailoverSyncPreservesAdvancedDepartureBay(t *testing.T) {
+	ctx := context.Background()
+	const session = int32(1)
+	const callsign = "SAS515"
+	pushState := euroscope.GroundStatePush
+	stand := "D4"
+
+	existingStrip := &models.Strip{
+		Callsign:    callsign,
+		Origin:      "EKCH",
+		Destination: "EGLL",
+		Bay:         shared.BAY_PUSH,
+		State:       &pushState,
+		Stand:       &stand,
+	}
+
+	var updatedStrip *models.Strip
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			return existingStrip, nil
+		},
+		UpdateFn: func(_ context.Context, strip *models.Strip) (int64, error) {
+			updatedStrip = strip
+			return 1, nil
+		},
+		UpdateBayAndSequenceFn: func(_ context.Context, _ int32, _ string, bay string, _ int32) (int64, error) {
+			existingStrip.Bay = bay
+			return 1, nil
+		},
+	}
+
+	svc, _, _ := newSyncTestFixture(t, existingStrip, stripRepo)
+
+	err := svc.syncEuroscopeStrip(ctx, session, "", euroscope.Strip{
+		Callsign: callsign,
+	}, "EKCH")
+	require.NoError(t, err)
+	require.NotNil(t, updatedStrip)
+	assert.Equal(t, "EKCH", updatedStrip.Origin)
+	assert.Equal(t, "EGLL", updatedStrip.Destination)
+	assert.Equal(t, pushState, *updatedStrip.State)
+	assert.Equal(t, shared.BAY_PUSH, updatedStrip.Bay)
+}
 func TestSyncEuroscopeStrip_ExistingHiddenNonArrivalBecomesArrivalStartsInArrHidden(t *testing.T) {
 	ctx := context.Background()
 	const session = int32(1)

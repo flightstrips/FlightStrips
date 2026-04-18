@@ -122,6 +122,14 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 		}
 	} else {
 		// Strip exists, update it
+		effectiveGroundState := strip.GroundState
+		if (strip.Origin == "" || strip.Destination == "") &&
+			strip.GroundState == euroscope.GroundStateUnknown &&
+			existingStrip.State != nil &&
+			*existingStrip.State != euroscope.GroundStateUnknown &&
+			shared.GetGroundState(existingStrip.Bay) != euroscope.GroundStateUnknown {
+			effectiveGroundState = *existingStrip.State
+		}
 		dbExistingStrip := database.Strip{
 			Origin:      existingStrip.Origin,
 			Destination: existingStrip.Destination,
@@ -194,8 +202,9 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 			CommunicationType: &strip.CommunicationType,
 			AircraftCategory:  &strip.AircraftCategory,
 			Stand:             stand,
+<<<<<<< HEAD
 			Cleared:           effectiveCleared,
-			State:             &strip.GroundState,
+			State:             &effectiveGroundState,
 			PositionLatitude:  &strip.Position.Lat,
 			PositionLongitude: &strip.Position.Lon,
 			PositionAltitude:  &strip.Position.Altitude,

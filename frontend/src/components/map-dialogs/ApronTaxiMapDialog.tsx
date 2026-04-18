@@ -65,6 +65,19 @@ export function ApronTaxiMapDialog({
     onOpenChange(false);
   };
 
+  const handleErase = () => {
+    // Erase only clears the stored route; it intentionally leaves the strip in its current bay.
+    if (strip?.release_point) {
+      setReleasePoint(callsign, "");
+    }
+
+    if (shouldAcknowledgeReleasePoint) {
+      acknowledgeUnexpectedChange(callsign, "release_point");
+    }
+
+    onOpenChange(false);
+  };
+
   return (
     <MapDialogShell
       open={open}
@@ -91,7 +104,7 @@ export function ApronTaxiMapDialog({
           gap: "0.44cqh",
         }}
       >
-        <MapEraseControls onOk={handleSelect} btnStyle={BTN_STYLE} />
+        <MapEraseControls onOk={handleSelect} onErase={handleErase} btnStyle={BTN_STYLE} />
       </div>
     </MapDialogShell>
   );

@@ -43,6 +43,10 @@ func (s *StripService) RunwayClearance(ctx context.Context, session int32, calls
 		}
 	}
 
+	if err := s.ReevaluateLandingClearanceValidationsForSession(ctx, session, true, false); err != nil {
+		return err
+	}
+
 	s.publisher.SendStripUpdate(session, callsign)
 	return nil
 }

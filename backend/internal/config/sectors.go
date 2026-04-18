@@ -129,6 +129,43 @@ func GetSectorDisplayName(sectorRef string) string {
 	return sectorRef
 }
 
+func IsArrivalTowerOwner(owner string, active []string) bool {
+	owner = strings.TrimSpace(owner)
+	if owner == "" {
+		return false
+	}
+
+	type scored struct {
+		sector Sector
+		score  int
+	}
+
+	bestByKey := make(map[string]scored)
+	for _, sector := range sectors {
+		if !strings.EqualFold(sector.Name, "TE") && !strings.EqualFold(sector.Name, "TW") {
+			continue
+		}
+		score := matchScore(sector, active)
+		if score < 0 {
+			continue
+		}
+		key := sector.KeyOrName()
+		if prev, ok := bestByKey[key]; !ok || score > prev.score {
+			bestByKey[key] = scored{sector: sector, score: score}
+		}
+	}
+
+	for _, entry := range bestByKey {
+		for _, candidate := range entry.sector.Owner {
+			if strings.EqualFold(candidate, owner) {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
 func sectorMatchesIdentifier(sector Sector, sectorRef string) bool {
 	return strings.EqualFold(sector.KeyOrName(), sectorRef) || strings.EqualFold(sector.Name, sectorRef)
 }

@@ -29,6 +29,14 @@ func SetPositionsForTest(ps []Position) func() {
 	return func() { positions = old }
 }
 
+// SetSectorsForTest replaces the package-level sectors slice for testing.
+// Returns a cleanup function that restores the original value.
+func SetSectorsForTest(ss []Sector) func() {
+	old := sectors
+	sectors = ss
+	return func() { sectors = old }
+}
+
 // SetAirborneOwnersForTest replaces the package-level airborneOwners slice for testing.
 // Returns a cleanup function that restores the original value.
 func SetAirborneOwnersForTest(owners []string) func() {

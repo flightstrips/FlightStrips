@@ -1,6 +1,7 @@
 package services
 
 import (
+	internalModels "FlightStrips/internal/models"
 	"FlightStrips/internal/shared"
 	"FlightStrips/pkg/events/frontend"
 	"context"
@@ -56,9 +57,32 @@ func (s *StripService) updateStripSequence(ctx context.Context, session int32, c
 	return nil
 }
 
+func (s *StripService) getStripForMoveToBay(ctx context.Context, session int32, callsign string) (strip *internalModels.Strip, available bool, err error) {
+	available = true
+	defer func() {
+		if recover() != nil {
+			strip = nil
+			err = nil
+			available = false
+		}
+	}()
+
+	strip, err = s.stripRepo.GetByCallsign(ctx, session, callsign)
+	return strip, available, err
+}
+
 func (s *StripService) MoveToBay(ctx context.Context, session int32, callsign string, bay string, sendNotification bool) error {
+	strip, stripAvailable, err := s.getStripForMoveToBay(ctx, session, callsign)
+	if err != nil {
+		return err
+	}
+
+	previousBay := ""
+	if stripAvailable && strip != nil {
+		previousBay = strip.Bay
+	}
+
 	var maxInBay int32
-	var err error
 	if s.tacticalRepo != nil {
 		maxInBay, err = s.tacticalRepo.GetMaxSequenceInBayUnified(ctx, session, bay)
 	} else {
@@ -75,6 +99,16 @@ func (s *StripService) MoveToBay(ctx context.Context, session int32, callsign st
 
 	if err := s.reevaluateStripValidationPrecedence(ctx, session, callsign, sendNotification, true); err != nil {
 		return err
+	}
+
+	if landingClearanceValidationRelevantBay(previousBay) || landingClearanceValidationRelevantBay(bay) {
+		if err := s.ReevaluateLandingClearanceValidationsForSession(ctx, session, sendNotification, false); err != nil {
+			return err
+		}
+	}
+
+	if previousBay != shared.BAY_TWY_ARR && bay == shared.BAY_TWY_ARR {
+		s.scheduleLandingClearanceValidation(session)
 	}
 
 	if bay == shared.BAY_STAND {
@@ -147,9 +181,21 @@ func (s *StripService) MoveStripBetween(ctx context.Context, session int32, call
 		if err := s.updateStripSequence(ctx, session, callsign, newOrder, bay, false); err != nil {
 			return err
 		}
-		return s.recalculateAllStripSequences(ctx, session, bay)
+		if err := s.recalculateAllStripSequences(ctx, session, bay); err != nil {
+			return err
+		}
+		if landingClearanceValidationRelevantBay(bay) {
+			return s.ReevaluateLandingClearanceValidationsForSession(ctx, session, true, false)
+		}
+		return nil
 	}
-	return s.updateStripSequence(ctx, session, callsign, newOrder, bay, true)
+	if err := s.updateStripSequence(ctx, session, callsign, newOrder, bay, true); err != nil {
+		return err
+	}
+	if landingClearanceValidationRelevantBay(bay) {
+		return s.ReevaluateLandingClearanceValidationsForSession(ctx, session, true, false)
+	}
+	return nil
 }
 
 // MoveTacticalStripBetween moves a tactical strip so it appears immediately after insertAfter.

@@ -452,6 +452,9 @@ func (s *StripService) setOwnerAndReevaluateDuplicateSquawkValidation(ctx contex
 	if err := s.ReevaluatePdcRequestValidations(ctx, session, callsign, true, true); err != nil {
 		return 0, err
 	}
+	if err := s.ReevaluateLandingClearanceValidationsForSession(ctx, session, true, false); err != nil {
+		return 0, err
+	}
 	if err := s.reevaluateStripValidationPrecedence(ctx, session, callsign, true, true); err != nil {
 		return 0, err
 	}

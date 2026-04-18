@@ -26,8 +26,9 @@ export function ValidationStatusDialog({
  open,
  onOpenChange,
 }: ValidationStatusDialogProps) {
-  const acknowledgeValidationStatus = useWebSocketStore((state) => state.acknowledgeValidationStatus);
-  const generateSquawk = useWebSocketStore((state) => state.generateSquawk);
+ const acknowledgeValidationStatus = useWebSocketStore((state) => state.acknowledgeValidationStatus);
+ const generateSquawk = useWebSocketStore((state) => state.generateSquawk);
+ const runwayClearance = useWebSocketStore((state) => state.runwayClearance);
   const strip = useStrip(callsign);
   const [holdingPointOpen, setHoldingPointOpen] = useState(false);
   const [flightPlanOpen, setFlightPlanOpen] = useState(false);
@@ -57,6 +58,11 @@ export function ValidationStatusDialog({
     }
     if (status.custom_action?.action_kind === "assign_stand") {
       setStandOpen(true);
+      onOpenChange(false);
+      return;
+    }
+    if (status.custom_action?.action_kind === "runway_clearance") {
+      runwayClearance(callsign);
       onOpenChange(false);
       return;
     }

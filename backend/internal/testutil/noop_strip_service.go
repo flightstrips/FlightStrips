@@ -161,3 +161,6 @@ func (s *NoOpStripService) ClearValidationStatus(_ context.Context, _ int32, _ s
 func (s *NoOpStripService) IsValidationBlocking(_ context.Context, _ int32, _ string) (bool, error) {
 	return false, nil
 }
+func (s *NoOpStripService) ReevaluatePdcInvalidValidation(_ context.Context, _ int32, _ string, _ bool, _ bool) error {
+	return nil
+}

@@ -10,10 +10,23 @@ import (
 	"FlightStrips/internal/shared"
 	"FlightStrips/internal/testutil"
 	frontendEvents "FlightStrips/pkg/events/frontend"
+	pkgModels "FlightStrips/pkg/models"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+type stripUpdateValidationReevaluator struct {
+	testutil.NoOpStripService
+	reevaluateForStripFn func(ctx context.Context, session int32, strip *models.Strip, activeDepartureRunways []string, publish bool, forceReactivate bool) error
+}
+
+func (s *stripUpdateValidationReevaluator) ReevaluatePdcInvalidValidationForStrip(ctx context.Context, session int32, strip *models.Strip, activeDepartureRunways []string, publish bool, forceReactivate bool) error {
+	if s.reevaluateForStripFn == nil {
+		return nil
+	}
+	return s.reevaluateForStripFn(ctx, session, strip, activeDepartureRunways, publish, forceReactivate)
+}
 
 func TestHandleStripUpdate_RunwayChangePersistsSelectedRunway(t *testing.T) {
 	ctx := context.Background()
@@ -80,6 +93,96 @@ func TestHandleStripUpdate_RunwayChangePersistsSelectedRunway(t *testing.T) {
 	require.NotNil(t, updatedRunway)
 	assert.Equal(t, selectedRunway, *updatedRunway)
 	assert.Equal(t, "runway", markedField)
+}
+
+func TestHandleStripUpdate_SidChangeReevaluatesPdcInvalidValidationUsingSelectedSid(t *testing.T) {
+	ctx := context.Background()
+	const session = int32(8)
+	const callsign = "SAS123"
+	currentSid := "MIKRO"
+	selectedSid := "BETUD"
+	owner := "EKCH_DEL"
+
+	var markedField string
+	var reevaluatedSid *string
+	var reevaluatedRunways []string
+	var reevaluatedPublish bool
+	var reevaluatedForce bool
+
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, gotSession int32, gotCallsign string) (*models.Strip, error) {
+			assert.Equal(t, session, gotSession)
+			assert.Equal(t, callsign, gotCallsign)
+			return &models.Strip{
+				Callsign: callsign,
+				Session:  session,
+				Owner:    &owner,
+				Sid:      &currentSid,
+				PdcState: "REQUESTED_WITH_FAULTS",
+			}, nil
+		},
+		AppendControllerModifiedFieldFn: func(_ context.Context, gotSession int32, gotCallsign string, field string) error {
+			assert.Equal(t, session, gotSession)
+			assert.Equal(t, callsign, gotCallsign)
+			markedField = field
+			return nil
+		},
+	}
+
+	euroscopeHub := &testutil.MockEuroscopeHub{}
+	server := &testutil.MockServer{
+		StripRepoVal:    stripRepo,
+		EuroscopeHubVal: euroscopeHub,
+		SessionRepoVal: &testutil.MockSessionRepository{
+			GetByIDFn: func(_ context.Context, id int32) (*models.Session, error) {
+				assert.Equal(t, session, id)
+				return &models.Session{
+					ID: id,
+					ActiveRunways: pkgModels.ActiveRunways{
+						DepartureRunways: []string{"22R"},
+					},
+				}, nil
+			},
+		},
+	}
+
+	stripService := &stripUpdateValidationReevaluator{
+		reevaluateForStripFn: func(_ context.Context, gotSession int32, strip *models.Strip, activeDepartureRunways []string, publish bool, forceReactivate bool) error {
+			assert.Equal(t, session, gotSession)
+			reevaluatedSid = strip.Sid
+			reevaluatedRunways = activeDepartureRunways
+			reevaluatedPublish = publish
+			reevaluatedForce = forceReactivate
+			return nil
+		},
+	}
+	hub := &Hub{server: server, stripService: stripService}
+	client := &Client{
+		session:  session,
+		hub:      hub,
+		position: owner,
+	}
+	client.SetUser(shared.NewAuthenticatedUser("123456", 0, nil))
+
+	payload, err := json.Marshal(frontendEvents.UpdateStripDataEvent{
+		Type:     frontendEvents.UpdateStripData,
+		Callsign: callsign,
+		Sid:      &selectedSid,
+	})
+	require.NoError(t, err)
+
+	err = handleStripUpdate(ctx, client, Message{
+		Type:    frontendEvents.UpdateStripData,
+		Message: payload,
+	})
+	require.NoError(t, err)
+
+	assert.Equal(t, "sid", markedField)
+	require.NotNil(t, reevaluatedSid)
+	assert.Equal(t, selectedSid, *reevaluatedSid)
+	assert.Equal(t, []string{"22R"}, reevaluatedRunways)
+	assert.True(t, reevaluatedPublish)
+	assert.False(t, reevaluatedForce)
 }
 
 func TestHandleReleasePoint_OwnerMarksControllerModified(t *testing.T) {

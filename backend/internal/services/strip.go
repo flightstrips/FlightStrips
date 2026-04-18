@@ -67,6 +67,17 @@ func (s *StripService) getControllerRepository() repository.ControllerRepository
 	return server.GetControllerRepository()
 }
 
+func (s *StripService) getSessionRepository() repository.SessionRepository {
+	if s.publisher == nil {
+		return nil
+	}
+	server := s.publisher.GetServer()
+	if server == nil {
+		return nil
+	}
+	return server.GetSessionRepository()
+}
+
 func (s *StripService) recalculateRouteForStrip(session int32, callsign string) error {
 	if s.publisher == nil {
 		return nil

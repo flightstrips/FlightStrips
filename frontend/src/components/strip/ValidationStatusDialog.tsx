@@ -3,6 +3,7 @@ import {
   DialogContent,
   DialogTitle,
 } from "@/components/ui/dialog";
+import FlightPlanDialog from "@/components/FlightPlanDialog";
 import { HoldingPointDialog } from "@/components/map-dialogs/HoldingPointDialog";
 import { useStrip, useWebSocketStore } from "@/store/store-hooks";
 import type { ValidationStatus } from "@/api/models";
@@ -28,7 +29,8 @@ export function ValidationStatusDialog({
   const generateSquawk = useWebSocketStore((state) => state.generateSquawk);
   const strip = useStrip(callsign);
   const [holdingPointOpen, setHoldingPointOpen] = useState(false);
-  const validationDialogOpen = open && !holdingPointOpen;
+  const [flightPlanOpen, setFlightPlanOpen] = useState(false);
+  const validationDialogOpen = open && !holdingPointOpen && !flightPlanOpen;
 
   function handleAcknowledge() {
     acknowledgeValidationStatus(callsign, status.activation_key);
@@ -43,6 +45,11 @@ export function ValidationStatusDialog({
     }
     if (status.custom_action?.action_kind === "assign_holding_point") {
       setHoldingPointOpen(true);
+      onOpenChange(false);
+      return;
+    }
+    if (status.custom_action?.action_kind === "open_dcl_menu") {
+      setFlightPlanOpen(true);
       onOpenChange(false);
       return;
     }
@@ -110,6 +117,17 @@ export function ValidationStatusDialog({
           }}
           callsign={callsign}
           runway={strip?.runway}
+        />
+        <FlightPlanDialog
+          callsign={callsign}
+          open={flightPlanOpen}
+          onOpenChange={(nextOpen) => {
+            setFlightPlanOpen(nextOpen);
+            if (!nextOpen) {
+              onOpenChange(false);
+            }
+          }}
+          mode="clearance"
         />
       </>
     </Dialog>

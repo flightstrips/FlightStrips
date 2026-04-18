@@ -257,3 +257,14 @@ func (m *StripService) IsValidationBlocking(ctx context.Context, session int32, 
 	args := m.Called(ctx, session, callsign)
 	return args.Bool(0), args.Error(1)
 }
+
+func (m *StripService) ReevaluatePdcInvalidValidation(ctx context.Context, session int32, callsign string, publish bool, forceReactivate bool) error {
+	for _, call := range m.ExpectedCalls {
+		if call.Method == "ReevaluatePdcInvalidValidation" {
+			args := m.Called(ctx, session, callsign, publish, forceReactivate)
+			return args.Error(0)
+		}
+	}
+
+	return nil
+}

@@ -146,10 +146,16 @@ func (s *Service) notifyClearedFlagEuroscope(sessionID int32, callsign string, c
 }
 
 // notifyStateChange sends PDC state change notification to frontend and EuroScope clients
-func (s *Service) notifyStateChange(sessionID int32, callsign string, state ClearanceState, remarks string) {
+func (s *Service) notifyStateChange(ctx context.Context, sessionID int32, callsign string, state ClearanceState, remarks string) error {
 	metrics.PDCStateChange(context.Background(), sessionID, string(state))
+	if s.stripService != nil {
+		if err := s.stripService.ReevaluatePdcInvalidValidation(ctx, sessionID, callsign, true, state == StateRequestedWithFaults); err != nil {
+			return err
+		}
+	}
 	s.notifyStateChangeFrontend(sessionID, callsign, state, remarks)
 	s.notifyStateChangeEuroscope(sessionID, callsign, state, remarks)
+	return nil
 }
 
 func optionalString(value string) *string {
@@ -217,6 +223,12 @@ func (s *Service) confirmPilotAcknowledgement(ctx context.Context, sessionID int
 	}
 
 	s.CancelTimeout(strip.Callsign, sessionID)
+
+	if s.stripService != nil {
+		if err := s.stripService.ReevaluatePdcInvalidValidation(ctx, sessionID, strip.Callsign, true, false); err != nil {
+			return fmt.Errorf("failed to reevaluate PDC invalid validation: %w", err)
+		}
+	}
 
 	metrics.PDCStateChange(context.Background(), sessionID, string(StateConfirmed))
 	s.notifyStateChangeEuroscope(sessionID, strip.Callsign, StateConfirmed, "")
@@ -365,7 +377,9 @@ func (s *Service) ProcessPDCRequest(ctx context.Context, msg *IncomingMessage, s
 		if err := s.stripRepo.SetPdcRequested(ctx, session.id, strip.Callsign, string(StateRequestedWithFaults), &now, requestRemarks); err != nil {
 			return fmt.Errorf("failed to set PDC requested with faults: %w", err)
 		}
-		s.notifyStateChange(session.id, req.Callsign, StateRequestedWithFaults, req.Remarks)
+		if err := s.notifyStateChange(ctx, session.id, req.Callsign, StateRequestedWithFaults, req.Remarks); err != nil {
+			return fmt.Errorf("failed to notify requested-with-faults state change: %w", err)
+		}
 		if err := s.SendStatusAck(ctx, session, req.Callsign, req.Departure); err != nil {
 			return fmt.Errorf("failed to send status ack: %w", err)
 		}
@@ -384,7 +398,9 @@ func (s *Service) ProcessPDCRequest(ctx context.Context, msg *IncomingMessage, s
 		if err := s.stripRepo.SetPdcRequested(ctx, session.id, strip.Callsign, string(StateRequested), &now, requestRemarks); err != nil {
 			return fmt.Errorf("failed to set PDC requested with remarks: %w", err)
 		}
-		s.notifyStateChange(session.id, req.Callsign, StateRequested, req.Remarks)
+		if err := s.notifyStateChange(ctx, session.id, req.Callsign, StateRequested, req.Remarks); err != nil {
+			return fmt.Errorf("failed to notify requested state change: %w", err)
+		}
 		slog.InfoContext(ctx, "PDC Service: PDC request requires manual review due to request remarks", slog.String("callsign", req.Callsign))
 		return nil
 	}
@@ -396,7 +412,9 @@ func (s *Service) ProcessPDCRequest(ctx context.Context, msg *IncomingMessage, s
 		if err := s.stripRepo.SetPdcRequested(ctx, session.id, strip.Callsign, string(StateRequested), &now, nil); err != nil {
 			return fmt.Errorf("failed to set PDC requested: %w", err)
 		}
-		s.notifyStateChange(session.id, req.Callsign, StateRequested, "")
+		if err := s.notifyStateChange(ctx, session.id, req.Callsign, StateRequested, ""); err != nil {
+			return fmt.Errorf("failed to notify requested fallback state change: %w", err)
+		}
 		slog.InfoContext(ctx, "PDC Service: PDC request acknowledged (clearance fields not ready)", slog.String("callsign", req.Callsign))
 	} else {
 		metrics.PDCRequest(ctx, session.id, "auto_cleared")
@@ -530,7 +548,9 @@ func (s *Service) IssueClearance(ctx context.Context, callsign, remarks, cid str
 
 	s.StartClearanceTimeout(ctx, strip.Origin, callsign, nextSeq, sessionInfo, cid, webDelivery)
 
-	s.notifyStateChange(sessionInfo.id, callsign, StateCleared, "")
+	if err := s.notifyStateChange(ctx, sessionInfo.id, callsign, StateCleared, ""); err != nil {
+		return fmt.Errorf("failed to notify cleared state change: %w", err)
+	}
 
 	slog.DebugContext(ctx, "PDC Service: Clearance issued", slog.String("callsign", callsign), slog.Int("sequence", int(nextSeq)))
 	return nil
@@ -969,7 +989,9 @@ func (s *Service) setPdcFailed(ctx context.Context, callsign string, sessionId i
 		}
 	}
 
-	s.notifyStateChange(sessionId, callsign, state, "")
+	if err := s.notifyStateChange(ctx, sessionId, callsign, state, ""); err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -977,120 +999,5 @@ func (s *Service) setPdcFailed(ctx context.Context, callsign string, sessionId i
 // validatePDCFlightPlan validates a strip's flight plan against PDC validation config.
 // Returns a list of fault descriptions (empty = no faults).
 func (s *Service) validatePDCFlightPlan(strip *models.Strip, activeDepartureRunways []string) []string {
-	cfg := config.GetPDCValidationConfig()
-	var faults []string
-
-	// Check SID restrictions
-	if strip.Sid != nil {
-		sidUpper := strings.ToUpper(*strip.Sid)
-		for _, restriction := range cfg.SIDRestrictions {
-			if strings.ToUpper(restriction.SID) == sidUpper {
-				if len(restriction.EngineTypes) == 0 {
-					// Always an error
-					faults = append(faults, fmt.Sprintf("SID %s is not available via PDC", restriction.SID))
-				} else {
-					// Check if engine type is allowed
-					engineType := strings.ToUpper(strip.EngineType)
-					allowed := false
-					for _, et := range restriction.EngineTypes {
-						if strings.ToUpper(et) == engineType {
-							allowed = true
-							break
-						}
-					}
-					if !allowed {
-						faults = append(faults, fmt.Sprintf("SID %s is not available for engine type %s", restriction.SID, strip.EngineType))
-					}
-				}
-				break
-			}
-		}
-	}
-
-	aircraftType := ""
-	if strip.AircraftType != nil {
-		aircraftType = strings.ToUpper(strings.SplitN(strings.TrimSpace(*strip.AircraftType), "/", 2)[0])
-	}
-
-	runway := ""
-	if strip.Runway != nil {
-		runway = strings.ToUpper(strings.TrimSpace(*strip.Runway))
-	}
-
-	hasSpecificRunwayRequirement := false
-	if strip.AircraftType != nil && strip.Runway != nil {
-		for _, heavyType := range cfg.HeavyRunwayRestriction.AircraftTypes {
-			if strings.ToUpper(strings.TrimSpace(heavyType)) == aircraftType {
-				hasSpecificRunwayRequirement = true
-				break
-			}
-		}
-
-		if hasSpecificRunwayRequirement {
-			allowed := false
-			for _, r := range cfg.HeavyRunwayRestriction.AllowedRunways {
-				if strings.ToUpper(strings.TrimSpace(r)) == runway {
-					allowed = true
-					break
-				}
-			}
-			if !allowed {
-				faults = append(faults, fmt.Sprintf("Aircraft type %s is not allowed on runway %s", *strip.AircraftType, *strip.Runway))
-			}
-		}
-	}
-
-	if runway != "" && len(activeDepartureRunways) > 0 && !hasSpecificRunwayRequirement {
-		isActiveDepartureRunway := false
-		for _, activeRunway := range activeDepartureRunways {
-			if strings.EqualFold(strings.TrimSpace(activeRunway), runway) {
-				isActiveDepartureRunway = true
-				break
-			}
-		}
-		if !isActiveDepartureRunway {
-			faults = append(faults, fmt.Sprintf("Runway %s is not an active departure runway", *strip.Runway))
-		}
-	}
-
-	// Check EOBT timing
-	if strip.EffectiveEobt() != nil && *strip.EffectiveEobt() != "" {
-		eobtStr := *strip.EffectiveEobt()
-		// Parse HHMM format
-		if len(eobtStr) >= 4 {
-			hourStr := eobtStr[:2]
-			minStr := eobtStr[2:4]
-			hour := 0
-			min := 0
-			fmt.Sscanf(hourStr, "%d", &hour)
-			fmt.Sscanf(minStr, "%d", &min)
-
-			now := time.Now().UTC()
-			eobtTime := time.Date(now.Year(), now.Month(), now.Day(), hour, min, 0, 0, time.UTC)
-			// Handle midnight crossing
-			if eobtTime.Before(now.Add(-12 * time.Hour)) {
-				eobtTime = eobtTime.Add(24 * time.Hour)
-			}
-
-			windowMin := cfg.EOBTWindowMin
-			if windowMin <= 0 {
-				windowMin = 10
-			}
-			windowMax := cfg.EOBTWindowMax
-			if windowMax <= 0 {
-				windowMax = 30
-			}
-
-			earliest := now.Add(time.Duration(windowMin) * time.Minute)
-			latest := now.Add(time.Duration(windowMax) * time.Minute)
-
-			if eobtTime.Before(earliest) {
-				faults = append(faults, fmt.Sprintf("EOBT %s is too early (minimum %d minutes from now)", eobtStr, windowMin))
-			} else if eobtTime.After(latest) {
-				faults = append(faults, fmt.Sprintf("EOBT %s is too late (maximum %d minutes from now)", eobtStr, windowMax))
-			}
-		}
-	}
-
-	return faults
+	return validationFaultMessages(validatePDCFlightPlanFaults(strip, activeDepartureRunways, time.Now().UTC()))
 }

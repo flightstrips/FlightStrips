@@ -2,6 +2,7 @@ package frontend
 
 import (
 	"FlightStrips/internal/config"
+	internalModels "FlightStrips/internal/models"
 	"FlightStrips/internal/shared"
 	"FlightStrips/pkg/events"
 	"FlightStrips/pkg/events/frontend"
@@ -13,6 +14,10 @@ import (
 )
 
 type Message = shared.Message[frontend.EventType]
+
+type pdcInvalidValidationStripReevaluator interface {
+	ReevaluatePdcInvalidValidationForStrip(ctx context.Context, session int32, strip *internalModels.Strip, activeDepartureRunways []string, publish bool, forceReactivate bool) error
+}
 
 // validBays is the set of bay values that the frontend is permitted to move a strip to.
 // Any move event carrying a bay outside this set is rejected.
@@ -165,6 +170,17 @@ func handleStripUpdate(ctx context.Context, client *Client, message Message) err
 		if err := stripRepo.AppendControllerModifiedField(ctx, client.session, event.Callsign, "sid"); err != nil {
 			return err
 		}
+		if reevaluator, ok := client.hub.stripService.(pdcInvalidValidationStripReevaluator); ok {
+			sessionData, err := s.GetSessionRepository().GetByID(ctx, client.session)
+			if err != nil {
+				return err
+			}
+			updatedStrip := *strip
+			updatedStrip.Sid = event.Sid
+			if err := reevaluator.ReevaluatePdcInvalidValidationForStrip(ctx, client.session, &updatedStrip, sessionData.ActiveRunways.DepartureRunways, true, false); err != nil {
+				return err
+			}
+		}
 	}
 
 	if event.Stand != nil && strip.Stand != event.Stand {
@@ -181,6 +197,11 @@ func handleStripUpdate(ctx context.Context, client *Client, message Message) err
 		}
 		if err := stripRepo.AppendControllerModifiedField(ctx, client.session, event.Callsign, "runway"); err != nil {
 			return err
+		}
+		if client.hub.stripService != nil {
+			if err := client.hub.stripService.ReevaluatePdcInvalidValidation(ctx, client.session, event.Callsign, true, false); err != nil {
+				return err
+			}
 		}
 	}
 

@@ -105,6 +105,7 @@ func (suite *PDCIntegrationTestSuite) SetupTest(t *testing.T) {
 		timeouts:      make(map[string]*timeoutTracker),
 		timeoutConfig: 30 * time.Second, // Long timeout to prevent firing during test
 	}
+	suite.mockStrip.On("ReevaluatePdcInvalidValidation", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
 
 	// Seed test data
 	sessionID := testdata.SeedTestSession(t, queries)
@@ -925,6 +926,7 @@ func TestProcessPDCRequest_InactiveDepartureRunwayCreatesFault(t *testing.T) {
 	})
 	require.NoError(t, err)
 	assert.Equal(t, "REQUESTED_WITH_FAULTS", readStripPdcState(t, strip))
+	suite.mockStrip.AssertCalled(t, "ReevaluatePdcInvalidValidation", mock.Anything, int32(1), callsign, true, true)
 }
 
 func TestProcessPDCRequest_AlreadyCleared(t *testing.T) {

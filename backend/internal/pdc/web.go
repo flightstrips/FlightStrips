@@ -147,13 +147,17 @@ func (s *Service) SubmitWebPDCRequest(ctx context.Context, callsign string, atis
 		if err := s.stripRepo.SetPdcRequested(ctx, match.SessionID, normalizedCallsign, string(StateRequestedWithFaults), &requestedAt, optionalString(trimmedRemarks)); err != nil {
 			return fmt.Errorf("persist requested-with-faults state: %w", err)
 		}
-		s.notifyStateChange(match.SessionID, normalizedCallsign, StateRequestedWithFaults, trimmedRemarks)
+		if err := s.notifyStateChange(ctx, match.SessionID, normalizedCallsign, StateRequestedWithFaults, trimmedRemarks); err != nil {
+			return fmt.Errorf("notify requested-with-faults state change: %w", err)
+		}
 		return nil
 	case trimmedRemarks != "":
 		if err := s.stripRepo.SetPdcRequested(ctx, match.SessionID, normalizedCallsign, string(StateRequested), &requestedAt, optionalString(trimmedRemarks)); err != nil {
 			return fmt.Errorf("persist requested state: %w", err)
 		}
-		s.notifyStateChange(match.SessionID, normalizedCallsign, StateRequested, trimmedRemarks)
+		if err := s.notifyStateChange(ctx, match.SessionID, normalizedCallsign, StateRequested, trimmedRemarks); err != nil {
+			return fmt.Errorf("notify requested state change: %w", err)
+		}
 		return nil
 	}
 
@@ -162,7 +166,9 @@ func (s *Service) SubmitWebPDCRequest(ctx context.Context, callsign string, atis
 		if err := s.stripRepo.SetPdcRequested(ctx, match.SessionID, normalizedCallsign, string(StateRequested), &requestedAt, nil); err != nil {
 			return fmt.Errorf("persist fallback requested state: %w", err)
 		}
-		s.notifyStateChange(match.SessionID, normalizedCallsign, StateRequested, "")
+		if err := s.notifyStateChange(ctx, match.SessionID, normalizedCallsign, StateRequested, ""); err != nil {
+			return fmt.Errorf("notify fallback requested state change: %w", err)
+		}
 	}
 
 	return nil

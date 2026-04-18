@@ -48,6 +48,8 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 	var bay string
 	gndOnline := s.isGndOnline(ctx, session)
 
+	var validationStrip *internalModels.Strip
+
 	if errors.Is(err, pgx.ErrNoRows) {
 		// Strip doesn't exist, so insert
 		bay = shared.GetDepartureBay(strip, nil, config.GetAirborneAltitudeAGL(), airport, gndOnline)
@@ -95,6 +97,7 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 			TrackingController: strip.TrackingController,
 			EngineType:         strip.EngineType,
 		}
+		validationStrip = newStrip
 		reg := ParseRegistration(strip.Callsign, strip.Remarks)
 		newStrip.Registration = &reg
 		if err = s.stripRepo.Create(ctx, newStrip); err != nil {
@@ -207,9 +210,12 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 			}(),
 			Registration:       existingStrip.Registration,
 			Owner:              existingStrip.Owner,
+			PdcState:           existingStrip.PdcState,
 			TrackingController: strip.TrackingController,
 			EngineType:         strip.EngineType,
+			ValidationStatus:   existingStrip.ValidationStatus,
 		}
+		validationStrip = updateStrip
 		if _, err = s.stripRepo.Update(ctx, updateStrip); err != nil {
 			return err
 		}
@@ -255,6 +261,10 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 
 	if err := s.MoveToBay(ctx, session, strip.Callsign, bay, false); err != nil {
 		slog.ErrorContext(ctx, "Error moving bay for strip", slog.String("callsign", strip.Callsign), slog.Any("error", err))
+	}
+
+	if err := s.applyPdcInvalidValidation(ctx, session, validationStrip, sessionObj.ActiveRunways.DepartureRunways, true, false); err != nil {
+		return err
 	}
 
 	if err := s.reevaluateSquawkValidationsForSession(ctx, session, true); err != nil {

@@ -14,7 +14,6 @@ import (
 	"log/slog"
 	"slices"
 	"sync"
-	"sync/atomic"
 
 	gorilla "github.com/gorilla/websocket"
 	"github.com/jackc/pgx/v5"
@@ -753,17 +752,6 @@ func (hub *Hub) SendServerMessage(session int32, message string) {
 	}
 	hub.Broadcast(session, event)
 }
-
-func (hub *Hub) SendAtisUpdate(session int32, metar string, arrAtisCode string, depAtisCode string) {
-	hub.metarMu.Lock()
-	hub.metarCache[session] = metar
-	hub.arrAtisCodeCache[session] = arrAtisCode
-	hub.depAtisCodeCache[session] = depAtisCode
-	hub.metarMu.Unlock()
-
-	hub.Broadcast(session, frontend.AtisUpdateEvent{Metar: metar, ArrAtisCode: arrAtisCode, DepAtisCode: depAtisCode})
-}
-
 func (hub *Hub) SendToPosition(session int32, position string, message frontend.OutgoingMessage) {
 	for client := range hub.clients {
 		if client.session == session && client.position == position {
@@ -771,11 +759,6 @@ func (hub *Hub) SendToPosition(session int32, position string, message frontend.
 		}
 	}
 }
-
-func (hub *Hub) NextMessageID() int64 {
-	return atomic.AddInt64(&hub.msgCounter, 1)
-}
-
 func (hub *Hub) SendCoordinationTagRequest(session int32, callsign, from, to string) {
 	event := frontend.CoordinationTagRequestBroadcastEvent{
 		Callsign: callsign,
@@ -787,56 +770,6 @@ func (hub *Hub) SendCoordinationTagRequest(session int32, callsign, from, to str
 
 func (hub *Hub) SendAvailableSids(session int32, sids pkgModels.AvailableSids) {
 	hub.Broadcast(session, frontend.AvailableSidsEvent{Sids: sids})
-}
-
-func (hub *Hub) storeMessage(sessionID int32, msg frontend.MessageReceivedEvent) {
-	hub.msgMu.Lock()
-	defer hub.msgMu.Unlock()
-	msgs := hub.messages[sessionID]
-	msgs = append([]frontend.MessageReceivedEvent{msg}, msgs...)
-	if len(msgs) > 100 {
-		msgs = msgs[:100]
-	}
-	hub.messages[sessionID] = msgs
-}
-
-func (hub *Hub) dispatchMessage(session int32, msg frontend.MessageReceivedEvent, senderCID string) {
-	if msg.IsBroadcast {
-		hub.Broadcast(session, msg)
-		return
-	}
-
-	// Resolve area names → positions, find first active position per area
-	areaMap := config.GetMessageAreas()
-	recipientPositions := make(map[string]bool)
-	for _, area := range msg.Recipients {
-		positions, ok := areaMap[area]
-		if !ok {
-			continue
-		}
-		for _, pos := range positions {
-			found := false
-			for client := range hub.clients {
-				if client.session == session && client.position == pos {
-					recipientPositions[pos] = true
-					found = true
-					break
-				}
-			}
-			if found {
-				break
-			}
-		}
-	}
-
-	for client := range hub.clients {
-		if client.session != session {
-			continue
-		}
-		if client.user.GetCid() == senderCID || recipientPositions[client.position] {
-			client.send <- msg
-		}
-	}
 }
 
 func (hub *Hub) OnRegister(client *Client) {

@@ -22,7 +22,7 @@ type Service struct {
 	stripRepo        repository.StripRepository
 	sessionRepo      repository.SessionRepository
 	controllerRepo   repository.ControllerRepository
-	frontendHub      shared.FrontendHub
+	publisher        shared.CdmEventPublisher
 	euroscopeHub     shared.EuroscopeHub
 	configProvider   ConfigProvider
 	sequenceService  *SequenceService
@@ -62,8 +62,8 @@ func (s *Service) SetMasterPosition(position string) {
 	}
 }
 
-func (s *Service) SetFrontendHub(frontendHub shared.FrontendHub) {
-	s.frontendHub = frontendHub
+func (s *Service) SetFrontendHub(publisher shared.CdmEventPublisher) {
+	s.publisher = publisher
 }
 
 func (s *Service) SetEuroscopeHub(euroscopeHub shared.EuroscopeHub) {
@@ -411,7 +411,7 @@ func (s *Service) SetReady(ctx context.Context, session int32, callsign string) 
 		return fmt.Errorf("failed to update CDM status for %s session %d", callsign, session)
 	}
 
-	s.frontendHub.SendCdmWait(session, callsign)
+	s.publisher.SendCdmWait(session, callsign)
 
 	return nil
 }
@@ -449,7 +449,7 @@ func (s *Service) RequestBetterTobt(ctx context.Context, session int32, callsign
 		return fmt.Errorf("failed to update CDM status for %s session %d", callsign, session)
 	}
 
-	s.frontendHub.SendCdmWait(session, callsign)
+	s.publisher.SendCdmWait(session, callsign)
 
 	return nil
 }
@@ -742,8 +742,8 @@ func (s *Service) broadcastIfChanged(session int32, callsign string, before, aft
 		return
 	}
 
-	if s.frontendHub != nil {
-		s.frontendHub.SendCdmUpdate(session, callsign, after.Eobt, after.Tobt, after.Tsat, after.Ctot)
+	if s.publisher != nil {
+		s.publisher.SendCdmUpdate(session, callsign, after.Eobt, after.Tobt, after.Tsat, after.Ctot)
 	}
 
 	if s.euroscopeHub != nil {
@@ -755,7 +755,7 @@ func (s *Service) broadcastIfChanged(session int32, callsign string, before, aft
 }
 
 func (s *Service) pushCdmDataAfterRecalc(ctx context.Context, session int32, callsign string) {
-	if s.frontendHub == nil && s.euroscopeHub == nil {
+	if s.publisher == nil && s.euroscopeHub == nil {
 		return
 	}
 
@@ -769,8 +769,8 @@ func (s *Service) pushCdmDataAfterRecalc(ctx context.Context, session int32, cal
 		return
 	}
 
-	if s.frontendHub != nil {
-		s.frontendHub.SendCdmUpdate(
+	if s.publisher != nil {
+		s.publisher.SendCdmUpdate(
 			session,
 			callsign,
 			truncateCDMClockValue(helpers.ValueOrDefault(data.EffectiveEobt())),

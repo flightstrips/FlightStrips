@@ -209,6 +209,9 @@ func (s *StripService) UpdateStand(ctx context.Context, session int32, callsign 
 			slog.ErrorContext(ctx, "Error updating route after stand assignment", slog.String("callsign", callsign), slog.Any("error", err))
 		}
 	}
+	if err := s.reevaluateStripValidationPrecedence(ctx, session, callsign, true, false); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -310,6 +313,10 @@ func (s *StripService) UpdateGroundStateForMove(ctx context.Context, session int
 			return err
 		}
 		s.publisher.SendStripUpdate(session, callsign)
+	}
+
+	if err := s.reevaluateStripValidationPrecedence(ctx, session, callsign, true, true); err != nil {
+		return err
 	}
 
 	return nil

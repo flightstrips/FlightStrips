@@ -138,7 +138,7 @@ func (s *StripService) applyDuplicateSquawkValidationState(ctx context.Context, 
 	}
 
 	current := strip.ValidationStatus
-	if current != nil && !isDuplicateSquawkValidation(current) && !isWrongSquawkValidation(current) && !isCtotValidation(current) {
+	if current != nil && !isDuplicateSquawkValidation(current) && !isWrongSquawkValidation(current) && !isCtotValidation(current) && !isNoStandValidation(current) {
 		return nil
 	}
 
@@ -347,6 +347,14 @@ func (s *StripService) reevaluateSquawkValidationsForSession(ctx context.Context
 	return s.ReevaluateCtotValidationsForSession(ctx, session, publish)
 }
 
+func (s *StripService) reevaluateStripValidationPrecedence(ctx context.Context, session int32, callsign string, publish bool, forceReactivate bool) error {
+	if err := s.reevaluateSquawkValidation(ctx, session, callsign, publish, forceReactivate); err != nil {
+		return err
+	}
+
+	return s.ReevaluateNoStandValidation(ctx, session, callsign, publish, forceReactivate)
+}
+
 func (s *StripService) reevaluateStoredSquawkValidation(ctx context.Context, session int32, callsign string, publish bool, forceReactivate bool) error {
 	strip, available, err := s.getStripForDuplicateSquawkValidation(ctx, session, callsign)
 	if err != nil {
@@ -391,7 +399,7 @@ func (s *StripService) setOwnerAndReevaluateDuplicateSquawkValidation(ctx contex
 	if err := s.ReevaluatePdcRequestValidations(ctx, session, callsign, true, true); err != nil {
 		return 0, err
 	}
-	if err := s.reevaluateSquawkValidation(ctx, session, callsign, true, true); err != nil {
+	if err := s.reevaluateStripValidationPrecedence(ctx, session, callsign, true, true); err != nil {
 		return 0, err
 	}
 	return count, nil

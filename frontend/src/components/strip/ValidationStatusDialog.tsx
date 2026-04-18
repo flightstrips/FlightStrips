@@ -5,6 +5,7 @@ import {
 } from "@/components/ui/dialog";
 import FlightPlanDialog from "@/components/FlightPlanDialog";
 import { HoldingPointDialog } from "@/components/map-dialogs/HoldingPointDialog";
+import { ArrStandDialog } from "@/components/strip/ArrStandDialog";
 import { useStrip, useWebSocketStore } from "@/store/store-hooks";
 import type { ValidationStatus } from "@/api/models";
 import { useState } from "react";
@@ -30,7 +31,8 @@ export function ValidationStatusDialog({
   const strip = useStrip(callsign);
   const [holdingPointOpen, setHoldingPointOpen] = useState(false);
   const [flightPlanOpen, setFlightPlanOpen] = useState(false);
-  const validationDialogOpen = open && !holdingPointOpen && !flightPlanOpen;
+  const [standOpen, setStandOpen] = useState(false);
+  const validationDialogOpen = open && !holdingPointOpen && !flightPlanOpen && !standOpen;
 
   function handleAcknowledge() {
     acknowledgeValidationStatus(callsign, status.activation_key);
@@ -50,6 +52,11 @@ export function ValidationStatusDialog({
     }
     if (status.custom_action?.action_kind === "open_dcl_menu") {
       setFlightPlanOpen(true);
+      onOpenChange(false);
+      return;
+    }
+    if (status.custom_action?.action_kind === "assign_stand") {
+      setStandOpen(true);
       onOpenChange(false);
       return;
     }
@@ -128,6 +135,17 @@ export function ValidationStatusDialog({
             }
           }}
           mode="clearance"
+        />
+        <ArrStandDialog
+          open={standOpen}
+          onOpenChange={(nextOpen) => {
+            setStandOpen(nextOpen);
+            if (!nextOpen) {
+              onOpenChange(false);
+            }
+          }}
+          callsign={callsign}
+          currentStand={strip?.stand}
         />
       </>
     </Dialog>

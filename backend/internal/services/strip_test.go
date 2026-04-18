@@ -366,6 +366,7 @@ func TestAutoAssumeForControllerOnline_AssumesMatchingStrip(t *testing.T) {
 	const session = int32(1)
 	const position = "GND_N"
 	refreshedNextOwners := []string{"TWR_N"}
+	getByCallsignCount := 0
 
 	owner := ""
 	strips := []*models.Strip{
@@ -394,7 +395,8 @@ func TestAutoAssumeForControllerOnline_AssumesMatchingStrip(t *testing.T) {
 		},
 		GetByCallsignFn: func(_ context.Context, _ int32, cs string) (*models.Strip, error) {
 			assert.Equal(t, "SAS100", cs)
-			if len(refreshedNextOwners) == 0 {
+			getByCallsignCount++
+			if getByCallsignCount == 1 {
 				return strips[0], nil
 			}
 			nextOwners := refreshedNextOwners

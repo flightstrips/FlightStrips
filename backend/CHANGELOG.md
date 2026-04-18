@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.19.1](https://github.com/flightstrips/FlightStrips/compare/backend/v0.19.0...backend/v0.19.1) (2026-04-18)
+
+
+### Bug Fixes
+
+* frontend client metrics ([d246ed1](https://github.com/flightstrips/FlightStrips/commit/d246ed1f34c09a49bb19c40f31d7cadf5c4439f1))
+
 ## [0.19.0](https://github.com/flightstrips/FlightStrips/compare/backend/v0.18.0...backend/v0.19.0) (2026-04-17)
 
 

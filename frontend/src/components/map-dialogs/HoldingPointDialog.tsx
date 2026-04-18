@@ -70,9 +70,10 @@ export function HoldingPointDialog({
           bottom: "5%",
           left: "2%",
           zIndex: 20,
+          width: "fit-content",
         }}
       >
-        <MapCloseButton onClose={() => onOpenChange(false)} btnStyle={btnStyle} />
+        <MapCloseButton onClose={() => onOpenChange(false)} />
       </div>
     </MapDialogShell>
   );

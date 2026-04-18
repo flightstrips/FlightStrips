@@ -1,7 +1,7 @@
 import { controllerOwnsTowerSectors, useWebSocketStore, useRunwaySetup, useApronOnline, useTwrOnline, useIsTwr, useMyPosition, useStrip } from "@/store/store-hooks";
 import { COORDINATION_WITH_APRON_TAXI_MAP_POINTS, COORDINATION_WITH_TWR_TAXI_MAP_POINTS, TAXI_MAP_POINTS } from "@/config/ekch";
 import type { VisibilityContext } from "@/config/ekch";
-import { MAP_BTN_BASE, MapCloseButton, MapDialogShell, MapEraseControls } from "./MapDialogShell";
+import { MAP_BTN_BASE, MapDialogShell, MapEraseControls } from "./MapDialogShell";
 
 interface TaxiMapDialogProps {
   open: boolean;
@@ -94,16 +94,16 @@ export function TaxiMapDialog({
         <div
           style={{
             position: "absolute",
-          bottom: "5%",
-          left: "2%",
-          zIndex: 20,
-          display: "flex",
-          flexDirection: "column",
+            bottom: "5%",
+            left: "2%",
+            zIndex: 20,
+            display: "flex",
+            flexDirection: "column",
+            width: "fit-content",
             gap: "0.39cqh",
           }}
         >
-          <MapEraseControls onOk={handleSelect} onErase={handleErase} btnStyle={BTN_STYLE} />
-          <MapCloseButton onClose={() => onOpenChange(false)} btnStyle={BTN_STYLE} />
+          <MapEraseControls onOk={handleSelect} onErase={handleErase} onClose={() => onOpenChange(false)} btnStyle={BTN_STYLE} />
         </div>
       </MapDialogShell>
   );

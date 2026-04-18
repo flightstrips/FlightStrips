@@ -9,6 +9,9 @@ const COLOR_MAP_BTN_BG    = "#D6D6D6"; // light grey button background
 const COLOR_MAP_BTN_DARK  = "#3F3F3F"; // dark button (OK/ERASE)
 const COLOR_MAP_INPUT_BG  = "#D6D6D6"; // text input background (same as button)
 const COLOR_DIALOG_BORDER = "#888";    // dialog shell border
+const CONTROL_WIDE_BTN_WIDTH = "4.69cqw";
+const CONTROL_NARROW_BTN_WIDTH = "4.17cqw";
+const CONTROL_GAP = "0.52cqh";
 
 /** Shared button base — each dialog extends this with its own width/height/fontSize. */
 // eslint-disable-next-line react-refresh/only-export-components
@@ -25,6 +28,13 @@ export const MAP_BTN_BASE: React.CSSProperties = {
   userSelect: "none",
   flexShrink: 0,
   boxShadow: "0 4px 4px rgba(0,0,0,0.25)",
+};
+
+const MAP_CLOSE_BTN_BASE: React.CSSProperties = {
+  ...MAP_BTN_BASE,
+  width: "max(70px, 4.69cqw)",
+  height: "max(40px, 3.95cqh)",
+  fontSize: "max(20px, 2cqh)",
 };
 
 const DIALOG_CONTENT_STYLE: React.CSSProperties = {
@@ -47,11 +57,12 @@ const DIALOG_CONTENT_STYLE: React.CSSProperties = {
 interface MapEraseControlsProps {
   onOk: (value: string) => void;
   onErase?: () => void;
+  onClose?: () => void;
   btnStyle: React.CSSProperties;
   maxLength?: number;
 }
 
-export function MapEraseControls({ onOk, onErase, btnStyle, maxLength = 6 }: MapEraseControlsProps) {
+export function MapEraseControls({ onOk, onErase, onClose, btnStyle, maxLength = 6 }: MapEraseControlsProps) {
   const [typed, setTyped] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -64,11 +75,11 @@ export function MapEraseControls({ onOk, onErase, btnStyle, maxLength = 6 }: Map
   };
 
   return (
-    <>
-      <div style={{ display: "flex", gap: "0.52cqh", alignItems: "center" }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: CONTROL_GAP, width: "fit-content" }}>
+      <div style={{ display: "flex", gap: CONTROL_GAP, alignItems: "center" }}>
         <button
           onClick={() => { setTyped(""); onErase?.(); }}
-          style={{ ...btnStyle, width: "4.69cqw", backgroundColor: COLOR_MAP_BTN_DARK, color: "white" }}
+          style={{ ...btnStyle, width: CONTROL_WIDE_BTN_WIDTH, backgroundColor: COLOR_MAP_BTN_DARK, color: "white" }}
         >
           ERASE
         </button>
@@ -79,7 +90,7 @@ export function MapEraseControls({ onOk, onErase, btnStyle, maxLength = 6 }: Map
           onKeyDown={(e) => e.key === "Enter" && handleOk()}
           maxLength={maxLength}
           style={{
-            width: "4.17cqw",
+            width: CONTROL_NARROW_BTN_WIDTH,
             height: btnStyle.height,
             fontFamily: "Arial, sans-serif",
             fontWeight: "bold",
@@ -94,18 +105,26 @@ export function MapEraseControls({ onOk, onErase, btnStyle, maxLength = 6 }: Map
           }}
         />
       </div>
-      <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.52cqh" }}>
-        <button onClick={handleOk} style={{ ...btnStyle, backgroundColor: COLOR_MAP_BTN_DARK, color: "white", width: "4.17cqw" }}>
+      <div style={{ display: "flex", justifyContent: onClose ? "space-between" : "flex-end", gap: CONTROL_GAP, width: "100%" }}>
+        {onClose && (
+          <button
+            onClick={onClose}
+            style={{ ...btnStyle, width: CONTROL_WIDE_BTN_WIDTH, backgroundColor: COLOR_MAP_BTN_DARK, color: "white" }}
+          >
+            ECS
+          </button>
+        )}
+        <button onClick={handleOk} style={{ ...btnStyle, backgroundColor: COLOR_MAP_BTN_DARK, color: "white", width: CONTROL_NARROW_BTN_WIDTH }}>
           OK
         </button>
       </div>
-    </>
+    </div>
   );
 }
 
 interface MapCloseButtonProps {
   onClose: () => void;
-  btnStyle: React.CSSProperties;
+  btnStyle?: React.CSSProperties;
   label?: string;
 }
 
@@ -113,7 +132,7 @@ export function MapCloseButton({ onClose, btnStyle, label = "ECS" }: MapCloseBut
   return (
     <button
       onClick={onClose}
-      style={{ ...btnStyle, backgroundColor: COLOR_MAP_BTN_DARK, color: "white" }}
+      style={{ ...MAP_CLOSE_BTN_BASE, ...btnStyle, backgroundColor: COLOR_MAP_BTN_DARK, color: "white" }}
     >
       {label}
     </button>

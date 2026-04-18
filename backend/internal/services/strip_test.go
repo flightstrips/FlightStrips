@@ -399,9 +399,7 @@ func TestAutoAssumeForControllerOnline_AssumesMatchingStrip(t *testing.T) {
 			if getByCallsignCount == 1 {
 				return strips[0], nil
 			}
-			nextOwners := refreshedNextOwners
-			refreshedNextOwners = nil
-			return &models.Strip{Callsign: cs, NextOwners: nextOwners}, nil
+			return &models.Strip{Callsign: cs, NextOwners: refreshedNextOwners}, nil
 		},
 		SetOwnerFn: func(_ context.Context, _ int32, cs string, o *string, _ int32) (int64, error) {
 			assumedCallsign = cs

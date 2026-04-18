@@ -7,9 +7,11 @@ import { useState } from "react";
 import type { CSSProperties, MouseEvent as ReactMouseEvent } from "react";
 import { Bay } from "@/api/models";
 import type { PdcStatus } from "@/api/models";
+import type { ValidationStatus } from "@/api/models";
 
 export const SELECTION_COLOR = "var(--color-strip-selection)";
 export const STRIP_FRAME_COLOR = "var(--color-strip-frame)";
+const VALIDATION_BLINK_CYCLE_MS = 1000;
 
 /** Returns the border color for cell dividers within a strip. Pass `marked` when that state is available. */
 export function getCellBorderColor(marked: boolean, baseColor = STRIP_FRAME_COLOR): string {
@@ -45,6 +47,21 @@ export function canRequestTagForStrip({
   return bay === Bay.Cleared && !!owner && !!myPosition && owner !== myPosition && !hasActiveCoordination;
 }
 
+export function isValidationActiveForPosition(validationStatus: ValidationStatus | undefined, myPosition?: string): boolean {
+  return validationStatus?.active === true && validationStatus.owning_position === myPosition;
+}
+
+export function getValidationBlinkStyle(validationStatus: ValidationStatus | undefined, myPosition?: string): CSSProperties {
+  if (!isValidationActiveForPosition(validationStatus, myPosition)) {
+    return {};
+  }
+
+  return {
+    animation: "validation-blink 1s step-start infinite",
+    animationDelay: `-${Date.now() % VALIDATION_BLINK_CYCLE_MS}ms`,
+  };
+}
+
 export function useStripCallsignInteraction({
   callsign,
   selectable,
@@ -68,7 +85,7 @@ export function useStripCallsignInteraction({
   const toggleMarked = useWebSocketStore((state) => state.toggleMarked);
   const marked = useWebSocketStore((state) => state.strips.find((strip) => strip.callsign === callsign)?.marked ?? false);
   const validationStatus = useWebSocketStore((state) => state.strips.find((s) => s.callsign === callsign)?.validation_status);
-  const isValidationActive = validationStatus?.active === true && validationStatus.owning_position === myPosition;
+  const isValidationActive = isValidationActiveForPosition(validationStatus, myPosition);
 
   const [validationDialogOpen, setValidationDialogOpen] = useState(false);
 
@@ -115,10 +132,21 @@ export function useStripCallsignInteraction({
     event.preventDefault();
   };
 
+  const guardValidationAction = (event: ReactMouseEvent<HTMLElement>, action: () => void) => {
+    event.stopPropagation();
+    if (isValidationActive) {
+      setValidationDialogOpen(true);
+      return;
+    }
+    action();
+  };
+
   return {
     isSelected,
+    isValidationActive,
     handleClick,
     handleContextMenu,
+    guardValidationAction,
     showActivePress: !!selectable && !tagRequestArmed && !markArmed && !openContextMenuOnClick,
     validationDialogOpen,
     setValidationDialogOpen,
@@ -133,10 +161,7 @@ export function useStripCallsignInteraction({
 export function useValidationBlink(callsign: string): CSSProperties {
   const validationStatus = useWebSocketStore((state) => state.strips.find((s) => s.callsign === callsign)?.validation_status);
   const myPosition = useWebSocketStore((state) => state.position);
-  if (!validationStatus?.active || validationStatus.owning_position !== myPosition) return {};
-  return {
-    animation: "validation-blink 1s step-start infinite",
-  };
+  return getValidationBlinkStyle(validationStatus, myPosition);
 }
 
 /**

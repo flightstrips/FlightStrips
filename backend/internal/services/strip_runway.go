@@ -19,6 +19,9 @@ func (s *StripService) RunwayClearance(ctx context.Context, session int32, calls
 	if err != nil {
 		return err
 	}
+	if strip.IsValidationLocked() {
+		return errors.New("strip is locked by an active validation")
+	}
 
 	affected, err := s.stripRepo.UpdateRunwayClearance(ctx, session, callsign)
 	if err != nil {
@@ -47,6 +50,14 @@ func (s *StripService) RunwayClearance(ctx context.Context, session int32, calls
 // RunwayConfirmation marks a cleared strip as runway-confirmed (green) and broadcasts the update.
 // A strip that is already confirmed stays confirmed; non-cleared strips are unaffected.
 func (s *StripService) RunwayConfirmation(ctx context.Context, session int32, callsign string) error {
+	strip, err := s.stripRepo.GetByCallsign(ctx, session, callsign)
+	if err != nil {
+		return err
+	}
+	if strip.IsValidationLocked() {
+		return errors.New("strip is locked by an active validation")
+	}
+
 	affected, err := s.stripRepo.UpdateRunwayConfirmation(ctx, session, callsign)
 	if err != nil {
 		return err

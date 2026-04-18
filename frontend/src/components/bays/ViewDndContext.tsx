@@ -23,7 +23,9 @@ function makeStripRef(id: string | null | undefined): StripRef | null {
 import { DragStateContext } from "./DragStateContext";
 import { DragDisabledContext } from "./DragDisabledContext";
 import { BayClickContext } from "./BayClickContext";
-import { useMyPosition, useSelectedCallsign, useSelectStrip } from "@/store/store-hooks";
+import { ValidationStatusDialog } from "@/components/strip/ValidationStatusDialog";
+import { isValidationActiveForPosition } from "@/components/strip/shared";
+import { useMyPosition, useSelectedCallsign, useSelectStrip, useWebSocketStore } from "@/store/store-hooks";
 
 export interface BayConfig {
   strips: AnyStrip[];
@@ -56,6 +58,12 @@ export function ViewDndContext({
   const selectedCallsign = useSelectedCallsign();
   const selectStrip = useSelectStrip();
   const myPosition = useMyPosition();
+  const [validationDialogCallsign, setValidationDialogCallsign] = useState<string | null>(null);
+  const validationDialogStatus = useWebSocketStore((state) =>
+    validationDialogCallsign
+      ? state.strips.find((strip) => strip.callsign === validationDialogCallsign)?.validation_status
+      : undefined
+  );
 
   const [dragDisabled, setDragDisabled] = useState(false);
   const sensors = useSensors(
@@ -90,6 +98,10 @@ export function ViewDndContext({
 
     const strip = bayStripMap[sourceBayId]?.strips.find(s => stripDndId(s) === selectedCallsign);
     if (strip && isFlight(strip) && strip.owner !== myPosition) return;
+    if (strip && isFlight(strip) && isValidationActiveForPosition(strip.validation_status, myPosition)) {
+      setValidationDialogCallsign(strip.callsign);
+      return;
+    }
 
     if (sourceBayId === clickedBayId) return;
 
@@ -229,6 +241,18 @@ export function ViewDndContext({
                   return strip ? renderDragOverlay(strip) : null;
                 })() : null}
               </DragOverlay>
+            )}
+            {validationDialogCallsign && validationDialogStatus && (
+              <ValidationStatusDialog
+                callsign={validationDialogCallsign}
+                status={validationDialogStatus}
+                open
+                onOpenChange={(open) => {
+                  if (!open) {
+                    setValidationDialogCallsign(null);
+                  }
+                }}
+              />
             )}
           </DragStateContext>
         </DndContext>

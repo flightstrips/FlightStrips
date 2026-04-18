@@ -20,6 +20,8 @@ import { useBayClick } from "./BayClickContext";
 import { useState, type CSSProperties, type ReactNode } from "react";
 import type { AnyStrip, StripRef } from "@/api/models.ts";
 import { stripDndId, isFlight } from "@/api/models.ts";
+import { isValidationActiveForPosition } from "@/components/strip/shared";
+import { useWebSocketStore } from "@/store/store-hooks";
 
 interface SortableBayProps {
   strips: AnyStrip[];
@@ -223,17 +225,22 @@ export function SortableStrip({
   /** When true, dragging is disabled for this strip (e.g. owned by another controller). */
   dragDisabled?: boolean;
 }) {
+  const validationDragDisabled = useWebSocketStore((state) => {
+    const strip = state.strips.find((candidate) => candidate.callsign === callsign);
+    return isValidationActiveForPosition(strip?.validation_status, state.position);
+  });
+  const effectiveDragDisabled = dragDisabled || validationDragDisabled;
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: callsign,
     data: bayId != null ? { bayId } : undefined,
-    disabled: dragDisabled,
+    disabled: effectiveDragDisabled,
   });
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? (hideWhenDragging ? 0 : 0.5) : 1,
-    cursor: dragDisabled ? "not-allowed" : undefined,
-    touchAction: dragDisabled ? "pan-y" : "none",
+    cursor: effectiveDragDisabled ? "not-allowed" : undefined,
+    touchAction: effectiveDragDisabled ? "pan-y" : "none",
   };
   return (
     <div ref={setNodeRef} style={style} {...attributes} {...listeners}>

@@ -73,7 +73,7 @@ func (s *StripService) MoveToBay(ctx context.Context, session int32, callsign st
 		return err
 	}
 
-	if err := s.reevaluateDuplicateSquawkValidation(ctx, session, callsign, sendNotification, true); err != nil {
+	if err := s.reevaluateSquawkValidation(ctx, session, callsign, sendNotification, true); err != nil {
 		return err
 	}
 

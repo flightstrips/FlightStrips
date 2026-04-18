@@ -24,14 +24,21 @@ func isDuplicateSquawkValidation(status *internalModels.ValidationStatus) bool {
 	return status != nil && status.IssueType == duplicateSquawkValidationIssueType
 }
 
-func duplicateSquawkValidationApplies(strip *internalModels.Strip) bool {
+func isSquawkValidation(status *internalModels.ValidationStatus) bool {
+	return isDuplicateSquawkValidation(status) || isWrongSquawkValidation(status)
+}
+
+func squawkValidationApplies(strip *internalModels.Strip) bool {
 	if strip == nil || strip.Owner == nil || *strip.Owner == "" {
 		return false
 	}
 
-	position, err := config.GetPositionByName(*strip.Owner)
+	position, err := config.GetPositionBasedOnFrequency(*strip.Owner)
 	if err != nil {
-		return false
+		position, err = config.GetPositionByName(*strip.Owner)
+		if err != nil {
+			return false
+		}
 	}
 	if position.Section != "GND" && position.Section != "TWR" {
 		return false
@@ -58,7 +65,7 @@ func duplicateSquawkValidationAction() *internalModels.ValidationAction {
 	}
 }
 
-func duplicateSquawkValidationEquals(current *internalModels.ValidationStatus, desired *internalModels.ValidationStatus) bool {
+func validationStatusEquals(current *internalModels.ValidationStatus, desired *internalModels.ValidationStatus) bool {
 	if current == nil || desired == nil {
 		return current == desired
 	}
@@ -80,7 +87,7 @@ func duplicateSquawkValidationEquals(current *internalModels.ValidationStatus, d
 		bytes.Equal(current.CustomAction.Payload, desired.CustomAction.Payload)
 }
 
-func normalizeDuplicateSquawkCode(code *string) string {
+func normalizeValidationSquawkCode(code *string) string {
 	if code == nil {
 		return ""
 	}
@@ -99,10 +106,10 @@ func duplicateSquawkCodesForStrip(strip *internalModels.Strip) map[string]struct
 		return codes
 	}
 
-	if code := normalizeDuplicateSquawkCode(strip.AssignedSquawk); code != "" {
+	if code := normalizeValidationSquawkCode(strip.AssignedSquawk); code != "" {
 		codes[code] = struct{}{}
 	}
-	if code := normalizeDuplicateSquawkCode(strip.Squawk); code != "" {
+	if code := normalizeValidationSquawkCode(strip.Squawk); code != "" {
 		codes[code] = struct{}{}
 	}
 
@@ -121,7 +128,7 @@ func duplicateSquawkCodeMembership(strips []*internalModels.Strip) map[string]in
 }
 
 func duplicateSquawkPresentForStrip(strip *internalModels.Strip, membership map[string]int) bool {
-	code := normalizeDuplicateSquawkCode(strip.AssignedSquawk)
+	code := normalizeValidationSquawkCode(strip.AssignedSquawk)
 	return code != "" && membership[code] > 1
 }
 
@@ -131,11 +138,11 @@ func (s *StripService) applyDuplicateSquawkValidationState(ctx context.Context, 
 	}
 
 	current := strip.ValidationStatus
-	if current != nil && !isDuplicateSquawkValidation(current) {
+	if current != nil && !isDuplicateSquawkValidation(current) && !isWrongSquawkValidation(current) {
 		return nil
 	}
 
-	if !duplicatePresent || !duplicateSquawkValidationApplies(strip) {
+	if !duplicatePresent || !squawkValidationApplies(strip) {
 		if !isDuplicateSquawkValidation(current) {
 			return nil
 		}
@@ -164,7 +171,7 @@ func (s *StripService) applyDuplicateSquawkValidationState(ctx context.Context, 
 		desired.ActivationKey = uuid.New().String()
 	}
 
-	if duplicateSquawkValidationEquals(current, desired) {
+	if validationStatusEquals(current, desired) {
 		return nil
 	}
 
@@ -258,12 +265,116 @@ func (s *StripService) reevaluateStoredDuplicateSquawkValidation(ctx context.Con
 	return s.applyDuplicateSquawkValidationState(ctx, session, strip, isDuplicateSquawkValidation(strip.ValidationStatus), publish, forceReactivate)
 }
 
+func (s *StripService) reevaluateSquawkValidation(ctx context.Context, session int32, callsign string, publish bool, forceReactivate bool) error {
+	strips, available, err := s.listStripsForDuplicateSquawkValidation(ctx, session)
+	if err != nil {
+		return err
+	}
+	if !available {
+		return s.reevaluateStoredSquawkValidation(ctx, session, callsign, publish, forceReactivate)
+	}
+
+	membership := duplicateSquawkCodeMembership(strips)
+	for _, strip := range strips {
+		if strip.Callsign != callsign {
+			continue
+		}
+		if err := s.applyDuplicateSquawkValidation(ctx, session, strip, membership, publish, forceReactivate); err != nil {
+			return err
+		}
+		if !duplicateSquawkPresentForStrip(strip, membership) && !isDuplicateSquawkValidation(strip.ValidationStatus) {
+			return s.applyWrongSquawkValidation(ctx, session, strip, publish, forceReactivate)
+		}
+
+		refreshed, refreshedAvailable, err := s.getStripForDuplicateSquawkValidation(ctx, session, callsign)
+		if err != nil {
+			return err
+		}
+		if !refreshedAvailable {
+			if duplicateSquawkPresentForStrip(strip, membership) || isDuplicateSquawkValidation(strip.ValidationStatus) {
+				return nil
+			}
+			refreshed = strip
+		}
+
+		return s.applyWrongSquawkValidation(ctx, session, refreshed, publish, forceReactivate)
+	}
+
+	return nil
+}
+
+func (s *StripService) reevaluateSquawkValidationsForSession(ctx context.Context, session int32, publish bool) error {
+	strips, available, err := s.listStripsForDuplicateSquawkValidation(ctx, session)
+	if err != nil {
+		return err
+	}
+	if !available {
+		return nil
+	}
+
+	membership := duplicateSquawkCodeMembership(strips)
+	for _, strip := range strips {
+		if err := s.applyDuplicateSquawkValidation(ctx, session, strip, membership, publish, false); err != nil {
+			return err
+		}
+	}
+
+	for _, strip := range strips {
+		refreshed, refreshedAvailable, err := s.getStripForDuplicateSquawkValidation(ctx, session, strip.Callsign)
+		if err != nil {
+			return err
+		}
+		if !refreshedAvailable {
+			if duplicateSquawkPresentForStrip(strip, membership) || isDuplicateSquawkValidation(strip.ValidationStatus) {
+				continue
+			}
+			refreshed = strip
+		}
+
+		if err := s.applyWrongSquawkValidation(ctx, session, refreshed, publish, false); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (s *StripService) reevaluateStoredSquawkValidation(ctx context.Context, session int32, callsign string, publish bool, forceReactivate bool) error {
+	strip, available, err := s.getStripForDuplicateSquawkValidation(ctx, session, callsign)
+	if err != nil {
+		return err
+	}
+	if !available {
+		return nil
+	}
+
+	if err := s.applyDuplicateSquawkValidationState(ctx, session, strip, isDuplicateSquawkValidation(strip.ValidationStatus), publish, forceReactivate); err != nil {
+		return err
+	}
+	if !isDuplicateSquawkValidation(strip.ValidationStatus) {
+		return s.applyWrongSquawkValidation(ctx, session, strip, publish, forceReactivate)
+	}
+
+	refreshed, refreshedAvailable, err := s.getStripForDuplicateSquawkValidation(ctx, session, callsign)
+	if err != nil {
+		return err
+	}
+	if !refreshedAvailable {
+		if isDuplicateSquawkValidation(strip.ValidationStatus) {
+			return nil
+		}
+		refreshed = strip
+	}
+
+	return s.applyWrongSquawkValidation(ctx, session, refreshed, publish, forceReactivate)
+}
+
 func (s *StripService) setOwnerAndReevaluateDuplicateSquawkValidation(ctx context.Context, session int32, callsign string, owner *string, version int32) (int64, error) {
 	count, err := s.stripRepo.SetOwner(ctx, session, callsign, owner, version)
 	if err != nil || count != 1 {
 		return count, err
 	}
-	if err := s.reevaluateDuplicateSquawkValidation(ctx, session, callsign, true, true); err != nil {
+	if err := s.reevaluateSquawkValidation(ctx, session, callsign, true, true); err != nil {
 		return 0, err
 	}
 	return count, nil

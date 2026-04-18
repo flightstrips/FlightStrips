@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	internalModels "FlightStrips/internal/models"
+	"FlightStrips/internal/shared"
 
 	"github.com/google/uuid"
 )
@@ -56,6 +57,10 @@ func wrongSquawkValidationMessage(strip *internalModels.Strip) string {
 	}
 }
 
+func wrongSquawkValidationApplies(strip *internalModels.Strip) bool {
+	return squawkValidationApplies(strip) && strip.Bay != shared.BAY_CLEARED
+}
+
 func (s *StripService) applyWrongSquawkValidation(ctx context.Context, session int32, strip *internalModels.Strip, publish bool, forceReactivate bool) error {
 	if strip == nil {
 		return nil
@@ -71,7 +76,7 @@ func (s *StripService) applyWrongSquawkValidation(ctx context.Context, session i
 		return nil
 	}
 
-	if !wrongSquawkPresentForStrip(strip) || !squawkValidationApplies(strip) {
+	if !wrongSquawkPresentForStrip(strip) || !wrongSquawkValidationApplies(strip) {
 		if !isWrongSquawkValidation(current) {
 			return nil
 		}

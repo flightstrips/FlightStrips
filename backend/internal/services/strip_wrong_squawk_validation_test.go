@@ -73,10 +73,73 @@ func TestSquawkValidationApplies_RecognizesFrequencyOwner(t *testing.T) {
 	}))
 }
 
+func TestWrongSquawkValidationApplies_DoesNotApplyInClearedBay(t *testing.T) {
+	t.Parallel()
+
+	owner := "121.630"
+	assert.False(t, wrongSquawkValidationApplies(&models.Strip{
+		Owner: &owner,
+		Bay:   shared.BAY_CLEARED,
+	}))
+}
+
 func TestReevaluateSquawkValidation_ClearsWrongSquawkForNonApplicableOwner(t *testing.T) {
 	t.Parallel()
 
 	owner := "EKCH_DEL"
+	assigned := "4231"
+	observed := "5231"
+	cleared := false
+
+	repo := &testutil.MockStripRepository{
+		ListFn: func(_ context.Context, _ int32) ([]*models.Strip, error) {
+			return []*models.Strip{
+				{
+					Callsign:       "SAS123",
+					Owner:          &owner,
+					Bay:            shared.BAY_CLEARED,
+					AssignedSquawk: &assigned,
+					Squawk:         &observed,
+					ValidationStatus: &models.ValidationStatus{
+						IssueType:      wrongSquawkValidationIssueType,
+						OwningPosition: owner,
+						Active:         true,
+						ActivationKey:  "old-key",
+					},
+				},
+			}, nil
+		},
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			return &models.Strip{
+				Callsign:       "SAS123",
+				Owner:          &owner,
+				Bay:            shared.BAY_CLEARED,
+				AssignedSquawk: &assigned,
+				Squawk:         &observed,
+				ValidationStatus: &models.ValidationStatus{
+					IssueType:      wrongSquawkValidationIssueType,
+					OwningPosition: owner,
+					Active:         true,
+					ActivationKey:  "old-key",
+				},
+			}, nil
+		},
+		ClearValidationStatusFn: func(_ context.Context, _ int32, callsign string) error {
+			assert.Equal(t, "SAS123", callsign)
+			cleared = true
+			return nil
+		},
+	}
+
+	svc := NewStripService(repo)
+	require.NoError(t, svc.reevaluateSquawkValidation(context.Background(), 1, "SAS123", false, false))
+	assert.True(t, cleared)
+}
+
+func TestReevaluateSquawkValidation_ClearsWrongSquawkInClearedBay(t *testing.T) {
+	t.Parallel()
+
+	owner := "121.630"
 	assigned := "4231"
 	observed := "5231"
 	cleared := false

@@ -158,6 +158,7 @@ func main() {
 	stripService.SetCoordinationRepo(coordRepo)
 	stripService.SetControllerRepo(controllerRepo)
 	stripService.SetCdmService(cdmService)
+	cdmService.SetValidationReevaluator(stripService)
 
 	// Initialize PDC Service
 	hoppieLogon := os.Getenv("HOPPIE_LOGON")

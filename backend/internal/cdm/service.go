@@ -18,19 +18,25 @@ import (
 )
 
 type Service struct {
-	client           *Client
-	stripRepo        repository.StripRepository
-	sessionRepo      repository.SessionRepository
-	controllerRepo   repository.ControllerRepository
-	publisher        shared.CdmEventPublisher
-	euroscopeHub     shared.EuroscopeHub
-	configProvider   ConfigProvider
-	sequenceService  *SequenceService
-	debouncer      *recalcDebouncer
+	client                *Client
+	stripRepo             repository.StripRepository
+	sessionRepo           repository.SessionRepository
+	controllerRepo        repository.ControllerRepository
+	publisher             shared.CdmEventPublisher
+	euroscopeHub          shared.EuroscopeHub
+	configProvider        ConfigProvider
+	sequenceService       *SequenceService
+	validationReevaluator StripValidationReevaluator
+	debouncer             *recalcDebouncer
 	// sessionMaster tracks per-session CDM master status as an in-memory cache.
 	// Populated from session.CdmMaster during syncLiveSessions and updated
 	// immediately when SetSessionCdmMaster is called.
 	sessionMaster sync.Map // map[int32]bool
+}
+
+type StripValidationReevaluator interface {
+	ReevaluateCtotValidation(ctx context.Context, session int32, callsign string, publish bool, forceReactivate bool) error
+	ReevaluateCtotValidationsForSession(ctx context.Context, session int32, publish bool) error
 }
 
 const DefaultMasterPosition = "FlightStrips"
@@ -46,14 +52,13 @@ type cdmSnapshot struct {
 
 func NewCdmService(client *Client, stripRepo repository.StripRepository, sessionRepo repository.SessionRepository, controllerRepo repository.ControllerRepository) *Service {
 	return &Service{
-		client:           client,
-		stripRepo:        stripRepo,
-		sessionRepo:      sessionRepo,
-		controllerRepo:   controllerRepo,
-		debouncer: newRecalcDebouncer(500 * time.Millisecond),
+		client:         client,
+		stripRepo:      stripRepo,
+		sessionRepo:    sessionRepo,
+		controllerRepo: controllerRepo,
+		debouncer:      newRecalcDebouncer(500 * time.Millisecond),
 	}
 }
-
 
 func (s *Service) SetFrontendHub(publisher shared.CdmEventPublisher) {
 	s.publisher = publisher
@@ -74,6 +79,10 @@ func (s *Service) SetSequenceService(sequenceService *SequenceService) {
 			s.pushCdmDataAfterRecalc(ctx, session, callsign)
 		})
 	}
+}
+
+func (s *Service) SetValidationReevaluator(validationReevaluator StripValidationReevaluator) {
+	s.validationReevaluator = validationReevaluator
 }
 
 // isMasterSession returns true if the in-memory cache indicates this session is CDM master.
@@ -298,6 +307,7 @@ func (s *Service) HandleManualCtot(ctx context.Context, session int32, callsign 
 	if err := s.persistCdmUpdate(ctx, session, callsign, before, updated); err != nil {
 		return err
 	}
+	s.reevaluateCtotValidationAsync(ctx, session, callsign, before, snapshotCdm(updated))
 	s.TriggerRecalculate(ctx, session, strip.Origin)
 	return nil
 }
@@ -329,6 +339,7 @@ func (s *Service) HandleCtotRemove(ctx context.Context, session int32, callsign 
 	if err := s.persistCdmUpdate(ctx, session, callsign, before, updated); err != nil {
 		return err
 	}
+	s.reevaluateCtotValidationAsync(ctx, session, callsign, before, snapshotCdm(updated))
 	s.TriggerRecalculate(ctx, session, strip.Origin)
 	return nil
 }
@@ -464,11 +475,12 @@ func (s *Service) PushTobt(ctx context.Context, session int32, callsign string, 
 func (s *Service) Start(ctx context.Context) {
 	syncEnabled := s.client.isValid
 	localRecalcEnabled := s.sequenceService != nil
+	validationEnabled := s.validationReevaluator != nil
 
 	if !syncEnabled {
 		slog.WarnContext(ctx, "CDM client is not valid, CDM data will not be synced")
 	}
-	if !syncEnabled && !localRecalcEnabled {
+	if !syncEnabled && !localRecalcEnabled && !validationEnabled {
 		return
 	}
 
@@ -484,6 +496,12 @@ func (s *Service) Start(ctx context.Context) {
 		defer recalcTicker.Stop()
 	}
 
+	var validationTicker *time.Ticker
+	if validationEnabled {
+		validationTicker = time.NewTicker(time.Minute)
+		defer validationTicker.Stop()
+	}
+
 	var syncCh <-chan time.Time
 	if syncTicker != nil {
 		syncCh = syncTicker.C
@@ -492,6 +510,11 @@ func (s *Service) Start(ctx context.Context) {
 	var recalcCh <-chan time.Time
 	if recalcTicker != nil {
 		recalcCh = recalcTicker.C
+	}
+
+	var validationCh <-chan time.Time
+	if validationTicker != nil {
+		validationCh = validationTicker.C
 	}
 
 	for {
@@ -505,6 +528,10 @@ func (s *Service) Start(ctx context.Context) {
 		case <-recalcCh:
 			if err := s.schedulePeriodicRecalculate(ctx); err != nil {
 				slog.ErrorContext(ctx, "Failed to schedule periodic CDM recalculation", slog.Any("error", err))
+			}
+		case <-validationCh:
+			if err := s.schedulePeriodicCtotValidationReevaluation(ctx); err != nil {
+				slog.ErrorContext(ctx, "Failed to reevaluate CTOT validations", slog.Any("error", err))
 			}
 		}
 	}
@@ -618,6 +645,7 @@ func (s *Service) syncCdmData(ctx context.Context, session *models.Session) erro
 			if _, err := s.stripRepo.SetCdmData(ctx, session.ID, row.Callsign, updated.Normalize()); err != nil {
 				return err
 			}
+			s.reevaluateCtotValidationAsync(ctx, session.ID, row.Callsign, before, snapshotCdm(updated))
 			s.broadcastIfChanged(session.ID, row.Callsign, before, snapshotCdm(updated))
 		} else {
 			// Slave: sync all CDM fields from the API.
@@ -665,7 +693,49 @@ func (s *Service) syncCdmData(ctx context.Context, session *models.Session) erro
 			if _, err := s.stripRepo.SetCdmData(ctx, session.ID, row.Callsign, updated.Normalize()); err != nil {
 				return err
 			}
+			s.reevaluateCtotValidationAsync(ctx, session.ID, row.Callsign, before, snapshotCdm(updated))
 			s.broadcastIfChanged(session.ID, row.Callsign, before, snapshotCdm(updated))
+		}
+	}
+
+	return nil
+}
+
+func (s *Service) reevaluateCtotValidationAsync(ctx context.Context, session int32, callsign string, before, after cdmSnapshot) {
+	if s.validationReevaluator == nil || before.Ctot == after.Ctot {
+		return
+	}
+	if err := s.validationReevaluator.ReevaluateCtotValidation(ctx, session, callsign, true, false); err != nil {
+		slog.WarnContext(ctx, "Failed to reevaluate CTOT validation",
+			slog.Int("session", int(session)),
+			slog.String("callsign", callsign),
+			slog.Any("error", err),
+		)
+	}
+}
+
+func (s *Service) schedulePeriodicCtotValidationReevaluation(ctx context.Context) error {
+	if s.validationReevaluator == nil {
+		return nil
+	}
+
+	sessions, err := s.sessionRepo.List(ctx)
+	if err != nil {
+		return err
+	}
+
+	for _, session := range sessions {
+		if session == nil {
+			continue
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
+		if err := s.validationReevaluator.ReevaluateCtotValidationsForSession(ctx, session.ID, true); err != nil {
+			return err
 		}
 	}
 
@@ -712,19 +782,19 @@ func snapshotCdm(data *models.CdmData) cdmSnapshot {
 		return cdmSnapshot{}
 	}
 	return cdmSnapshot{
-		Eobt:       truncateCDMClockValue(helpers.ValueOrDefault(data.Eobt)),
-		Tobt:       truncateCDMClockValue(helpers.ValueOrDefault(data.Tobt)),
-		Tsat:       truncateCDMClockValue(helpers.ValueOrDefault(data.Tsat)),
-		Ctot:       truncateCDMClockValue(helpers.ValueOrDefault(data.Ctot)),
-		CtotSource: helpers.ValueOrDefault(data.CtotSource),
-		Ttot:       truncateCDMClockValue(helpers.ValueOrDefault(data.Ttot)),
-		Asat:       truncateCDMClockValue(helpers.ValueOrDefault(data.Asat)),
-		Asrt:       truncateCDMClockValue(helpers.ValueOrDefault(data.Asrt)),
-		Tsac:       helpers.ValueOrDefault(data.Tsac),
-		Aobt:       truncateCDMClockValue(helpers.ValueOrDefault(data.Aobt)),
-		Status:     helpers.ValueOrDefault(data.Status),
-		ReqTobt:    truncateCDMClockValue(helpers.ValueOrDefault(data.ReqTobt)),
-		EcfmpID:    helpers.ValueOrDefault(data.EcfmpID),
+		Eobt:            truncateCDMClockValue(helpers.ValueOrDefault(data.Eobt)),
+		Tobt:            truncateCDMClockValue(helpers.ValueOrDefault(data.Tobt)),
+		Tsat:            truncateCDMClockValue(helpers.ValueOrDefault(data.Tsat)),
+		Ctot:            truncateCDMClockValue(helpers.ValueOrDefault(data.Ctot)),
+		CtotSource:      helpers.ValueOrDefault(data.CtotSource),
+		Ttot:            truncateCDMClockValue(helpers.ValueOrDefault(data.Ttot)),
+		Asat:            truncateCDMClockValue(helpers.ValueOrDefault(data.Asat)),
+		Asrt:            truncateCDMClockValue(helpers.ValueOrDefault(data.Asrt)),
+		Tsac:            helpers.ValueOrDefault(data.Tsac),
+		Aobt:            truncateCDMClockValue(helpers.ValueOrDefault(data.Aobt)),
+		Status:          helpers.ValueOrDefault(data.Status),
+		ReqTobt:         truncateCDMClockValue(helpers.ValueOrDefault(data.ReqTobt)),
+		EcfmpID:         helpers.ValueOrDefault(data.EcfmpID),
 		TobtSetBy:       helpers.ValueOrDefault(data.TobtSetBy),
 		TobtConfirmedBy: helpers.ValueOrDefault(data.TobtConfirmedBy),
 		Phase:           helpers.ValueOrDefault(data.Phase),

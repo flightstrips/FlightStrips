@@ -120,6 +120,7 @@ func StartTestServer() (*TestServer, error) {
 	controllerService := services.NewControllerService(controllerRepo)
 	cdmClient := cdm.NewClient(cdm.WithAPIKey(""))
 	cdmService := cdm.NewCdmService(cdmClient, stripRepo, sessionRepo, controllerRepo)
+	cdmService.SetValidationReevaluator(stripService)
 
 	stripService.SetCoordinationRepo(coordRepo)
 	stripService.SetControllerRepo(controllerRepo)

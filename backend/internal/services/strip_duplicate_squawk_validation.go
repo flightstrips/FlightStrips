@@ -138,7 +138,7 @@ func (s *StripService) applyDuplicateSquawkValidationState(ctx context.Context, 
 	}
 
 	current := strip.ValidationStatus
-	if current != nil && !isDuplicateSquawkValidation(current) && !isWrongSquawkValidation(current) {
+	if current != nil && !isDuplicateSquawkValidation(current) && !isWrongSquawkValidation(current) && !isCtotValidation(current) {
 		return nil
 	}
 
@@ -149,6 +149,7 @@ func (s *StripService) applyDuplicateSquawkValidationState(ctx context.Context, 
 		if err := s.stripRepo.ClearValidationStatus(ctx, session, strip.Callsign); err != nil {
 			return err
 		}
+		strip.ValidationStatus = nil
 		if publish && s.publisher != nil {
 			s.publisher.SendStripUpdate(session, strip.Callsign)
 		}
@@ -178,6 +179,7 @@ func (s *StripService) applyDuplicateSquawkValidationState(ctx context.Context, 
 	if err := s.stripRepo.SetValidationStatus(ctx, session, strip.Callsign, desired); err != nil {
 		return err
 	}
+	strip.ValidationStatus = desired
 	if publish && s.publisher != nil {
 		s.publisher.SendStripUpdate(session, strip.Callsign)
 	}
@@ -283,7 +285,10 @@ func (s *StripService) reevaluateSquawkValidation(ctx context.Context, session i
 			return err
 		}
 		if !duplicateSquawkPresentForStrip(strip, membership) && !isDuplicateSquawkValidation(strip.ValidationStatus) {
-			return s.applyWrongSquawkValidation(ctx, session, strip, publish, forceReactivate)
+			if err := s.applyWrongSquawkValidation(ctx, session, strip, publish, forceReactivate); err != nil {
+				return err
+			}
+			return s.applyCtotValidation(ctx, session, strip, ctotValidationNow(), publish, forceReactivate)
 		}
 
 		refreshed, refreshedAvailable, err := s.getStripForDuplicateSquawkValidation(ctx, session, callsign)
@@ -297,7 +302,10 @@ func (s *StripService) reevaluateSquawkValidation(ctx context.Context, session i
 			refreshed = strip
 		}
 
-		return s.applyWrongSquawkValidation(ctx, session, refreshed, publish, forceReactivate)
+		if err := s.applyWrongSquawkValidation(ctx, session, refreshed, publish, forceReactivate); err != nil {
+			return err
+		}
+		return s.applyCtotValidation(ctx, session, refreshed, ctotValidationNow(), publish, forceReactivate)
 	}
 
 	return nil
@@ -336,7 +344,7 @@ func (s *StripService) reevaluateSquawkValidationsForSession(ctx context.Context
 		}
 	}
 
-	return nil
+	return s.ReevaluateCtotValidationsForSession(ctx, session, publish)
 }
 
 func (s *StripService) reevaluateStoredSquawkValidation(ctx context.Context, session int32, callsign string, publish bool, forceReactivate bool) error {
@@ -352,7 +360,10 @@ func (s *StripService) reevaluateStoredSquawkValidation(ctx context.Context, ses
 		return err
 	}
 	if !isDuplicateSquawkValidation(strip.ValidationStatus) {
-		return s.applyWrongSquawkValidation(ctx, session, strip, publish, forceReactivate)
+		if err := s.applyWrongSquawkValidation(ctx, session, strip, publish, forceReactivate); err != nil {
+			return err
+		}
+		return s.applyCtotValidation(ctx, session, strip, ctotValidationNow(), publish, forceReactivate)
 	}
 
 	refreshed, refreshedAvailable, err := s.getStripForDuplicateSquawkValidation(ctx, session, callsign)
@@ -366,7 +377,10 @@ func (s *StripService) reevaluateStoredSquawkValidation(ctx context.Context, ses
 		refreshed = strip
 	}
 
-	return s.applyWrongSquawkValidation(ctx, session, refreshed, publish, forceReactivate)
+	if err := s.applyWrongSquawkValidation(ctx, session, refreshed, publish, forceReactivate); err != nil {
+		return err
+	}
+	return s.applyCtotValidation(ctx, session, refreshed, ctotValidationNow(), publish, forceReactivate)
 }
 
 func (s *StripService) setOwnerAndReevaluateDuplicateSquawkValidation(ctx context.Context, session int32, callsign string, owner *string, version int32) (int64, error) {

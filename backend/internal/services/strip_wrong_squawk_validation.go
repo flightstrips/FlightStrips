@@ -62,7 +62,7 @@ func (s *StripService) applyWrongSquawkValidation(ctx context.Context, session i
 	}
 
 	current := strip.ValidationStatus
-	if current != nil && !isWrongSquawkValidation(current) {
+	if current != nil && !isWrongSquawkValidation(current) && !isCtotValidation(current) {
 		return nil
 	}
 
@@ -73,6 +73,7 @@ func (s *StripService) applyWrongSquawkValidation(ctx context.Context, session i
 		if err := s.stripRepo.ClearValidationStatus(ctx, session, strip.Callsign); err != nil {
 			return err
 		}
+		strip.ValidationStatus = nil
 		if publish && s.publisher != nil {
 			s.publisher.SendStripUpdate(session, strip.Callsign)
 		}
@@ -101,6 +102,7 @@ func (s *StripService) applyWrongSquawkValidation(ctx context.Context, session i
 	if err := s.stripRepo.SetValidationStatus(ctx, session, strip.Callsign, desired); err != nil {
 		return err
 	}
+	strip.ValidationStatus = desired
 	if publish && s.publisher != nil {
 		s.publisher.SendStripUpdate(session, strip.Callsign)
 	}

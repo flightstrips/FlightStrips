@@ -795,6 +795,7 @@ func (hub *Hub) Run() {
 			if _, ok := hub.clients[client]; ok {
 				delete(hub.clients, client)
 				client.Close()
+				hub.OnUnregister(client)
 			}
 		case msg := <-hub.cidOnline:
 			for client := range hub.clients {

@@ -63,7 +63,7 @@ func (c *Client) ReadPump() {
 	for {
 		_, message, err := c.conn.ReadMessage()
 		if err != nil {
-			if gorilla.IsUnexpectedCloseError(err, gorilla.CloseGoingAway, gorilla.CloseAbnormalClosure) {
+			if gorilla.IsUnexpectedCloseError(err, gorilla.CloseGoingAway, gorilla.CloseAbnormalClosure, gorilla.CloseNoStatusReceived) {
 				slog.Info("ALB unexpected websocket close", slog.Any("error", err))
 			}
 			break

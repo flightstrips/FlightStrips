@@ -101,12 +101,15 @@ func handleMove(ctx context.Context, client *Client, message Message) error {
 		return errors.New("strip is locked by an active validation")
 	}
 
+	if strip.Origin == client.airport && strip.Destination != client.airport && shared.IsArrivalBay(move.Bay) {
+		return errors.New("departure strips cannot be moved to arrival bays")
+	}
+
 	// Ownership enforcement: reject the move if the strip is owned by someone else,
-	// unless the target bay is an arrival bay (FINAL/RWY_ARR/TWY_ARR) or the client
+	// unless the target bay is an arrival bay (FINAL/RWY_ARR/TWY_ARR/STAND) or the client
 	// holds an active coordination transfer for this strip.
 	if strip.Owner != nil && *strip.Owner != "" && *strip.Owner != client.position {
-		isArrivalBay := move.Bay == shared.BAY_FINAL || move.Bay == shared.BAY_RWY_ARR || move.Bay == shared.BAY_TWY_ARR
-		if !isArrivalBay {
+		if !shared.IsArrivalBay(move.Bay) {
 			coordRepo := client.hub.server.GetCoordinationRepository()
 			coord, coordErr := coordRepo.GetByStripCallsign(ctx, client.session, move.Callsign)
 			if coordErr != nil || coord == nil || coord.ToPosition != client.position {

@@ -60,6 +60,14 @@ func bayTracksGroundState(bay string) bool {
 	}
 }
 
+func IsArrivalBay(bay string) bool {
+	switch bay {
+	case BAY_FINAL, BAY_RWY_ARR, BAY_TWY_ARR, BAY_STAND, BAY_ARR_HIDDEN:
+		return true
+	default:
+		return false
+	}
+}
 func GetDepartureBay(strip euroscope.Strip, existing *database.Strip, airborneAltitudeAGL int64, airport string, gndOnline bool) string {
 	// Arrivals keep their existing bay only if the strip was already classified as
 	// an arrival. If a strip transitions from a non-arrival into an arrival, start

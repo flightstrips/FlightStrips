@@ -25,7 +25,20 @@ import { DragDisabledContext } from "./DragDisabledContext";
 import { BayClickContext } from "./BayClickContext";
 import { ValidationStatusDialog } from "@/components/strip/ValidationStatusDialog";
 import { isValidationActiveForPosition } from "@/components/strip/shared";
-import { useMyPosition, useSelectedCallsign, useSelectStrip, useWebSocketStore } from "@/store/store-hooks";
+import { useAirport, useMyPosition, useSelectedCallsign, useSelectStrip, useWebSocketStore } from "@/store/store-hooks";
+
+function isArrivalOnlyBay(bay: Bay): boolean {
+  return bay === "FINAL" || bay === "RWY_ARR" || bay === "TWY_ARR" || bay === "STAND" || bay === "ARR_HIDDEN";
+}
+
+function canFlightMoveToBay(strip: AnyStrip | undefined, targetBay: Bay, airport: string): boolean {
+  if (!strip || !isFlight(strip)) {
+    return true;
+  }
+
+  const isDeparture = strip.origin === airport && strip.destination !== airport;
+  return !(isDeparture && isArrivalOnlyBay(targetBay));
+}
 
 export interface BayConfig {
   strips: AnyStrip[];
@@ -58,6 +71,7 @@ export function ViewDndContext({
   const selectedCallsign = useSelectedCallsign();
   const selectStrip = useSelectStrip();
   const myPosition = useMyPosition();
+  const airport = useAirport();
   const [validationDialogCallsign, setValidationDialogCallsign] = useState<string | null>(null);
   const validationDialogStatus = useWebSocketStore((state) =>
     validationDialogCallsign
@@ -87,7 +101,10 @@ export function ViewDndContext({
     const sourceBayId = findBayId(activeId);
     if (!sourceBayId) return true;
     if (sourceBayId === targetBayId) return true; // reorder within same bay is always ok
-    return (transferRules[sourceBayId] ?? []).includes(targetBayId);
+    if (!(transferRules[sourceBayId] ?? []).includes(targetBayId)) return false;
+    const strip = bayStripMap[sourceBayId]?.strips.find((candidate) => stripDndId(candidate) === activeId);
+    const targetBay = bayStripMap[targetBayId]?.targetBay;
+    return !!targetBay && canFlightMoveToBay(strip, targetBay, airport);
   }
 
   function handleBayClick(clickedBayId: string) {
@@ -110,6 +127,7 @@ export function ViewDndContext({
 
     const targetConfig = bayStripMap[clickedBayId];
     if (!targetConfig) return;
+    if (!canFlightMoveToBay(strip, targetConfig.targetBay, airport)) return;
 
     onMove({ kind: "flight", callsign: selectedCallsign }, targetConfig.targetBay);
     selectStrip(null);
@@ -186,8 +204,10 @@ export function ViewDndContext({
     const allowed = transferRules[sourceBayId] ?? [];
     if (!allowed.includes(targetBayId)) return;
 
+    const strip = bayStripMap[sourceBayId]?.strips.find((candidate) => stripDndId(candidate) === dndId);
     const sourceBay = bayStripMap[sourceBayId].targetBay;
     const targetBay = bayStripMap[targetBayId].targetBay;
+    if (!canFlightMoveToBay(strip, targetBay, airport)) return;
 
     // Only emit a move event when the backend bay actually changes.
     // Do NOT also call onReorder here: the backend's FrontendBay response to

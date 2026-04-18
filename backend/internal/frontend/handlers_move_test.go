@@ -155,7 +155,7 @@ func TestHandleMove_OwnedByOther_AllowedToArrivalBay(t *testing.T) {
 	ownerPos := "EKCH_D_GND"
 	stripRepo := &testutil.MockStripRepository{
 		GetByCallsignFn: func(_ context.Context, _ int32, callsign string) (*models.Strip, error) {
-			return &models.Strip{Callsign: callsign, Bay: shared.BAY_DEPART, Owner: &ownerPos}, nil
+			return &models.Strip{Callsign: callsign, Bay: shared.BAY_RWY_ARR, Destination: "EKCH", Owner: &ownerPos}, nil
 		},
 	}
 
@@ -174,6 +174,29 @@ func TestHandleMove_OwnedByOther_AllowedToArrivalBay(t *testing.T) {
 	err := handleMove(context.Background(), client, msg)
 	require.NoError(t, err)
 	assert.True(t, spy.moveToBayCalled, "Move to arrival bay should be allowed regardless of ownership")
+}
+
+func TestHandleMove_DepartureToArrivalBay_Rejected(t *testing.T) {
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, callsign string) (*models.Strip, error) {
+			return &models.Strip{Callsign: callsign, Bay: shared.BAY_DEPART, Origin: "EKCH", Destination: "ESSA"}, nil
+		},
+	}
+
+	spy := &spyStripService{}
+	hub := buildFrontendTestHub(mockServerWithStripRepo(stripRepo), spy)
+	client := buildFrontendTestClient(hub, 1, "EKCH")
+	client.position = "EKCH_A_TWR"
+
+	msg := marshalMessage(t, frontend.MoveEvent{
+		Callsign: "BEL123",
+		Bay:      shared.BAY_FINAL,
+	})
+
+	err := handleMove(context.Background(), client, msg)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "departure strips cannot be moved to arrival bays")
+	assert.False(t, spy.moveToBayCalled, "Departure strips must not be moved into arrival bays")
 }
 
 // TestHandleMove_OwnedByOther_AllowedWithCoordination verifies that a strip owned by

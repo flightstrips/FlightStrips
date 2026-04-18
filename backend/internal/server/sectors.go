@@ -34,13 +34,13 @@ func (s *Server) UpdateSectors(sessionId int32) ([]shared.SectorChange, error) {
 		return nil, nil
 	}
 
-	positions, err := getCurrentPositions(controllerRepo, sessionId)
+	coverage, err := getCurrentControllerCoverage(controllerRepo, sessionId, s.transceiverLookup)
 	if err != nil {
 		return nil, err
 	}
 
 	active := session.ActiveRunways.GetAllActiveRunways()
-	sectors := config.GetControllerSectors(positions, active)
+	sectors := config.GetControllerSectorsWithCoverage(coverage, active)
 	if len(sectors) == 0 {
 		return nil, nil
 	}
@@ -100,6 +100,13 @@ func (s *Server) UpdateSectors(sessionId int32) ([]shared.SectorChange, error) {
 	}
 
 	return changes, nil
+}
+
+func (s *Server) RefreshAllSectors(ctx context.Context) error {
+	return refreshSessionSectors(ctx, s.sessionRepo, func(sessionID int32) error {
+		_, err := s.UpdateSectors(sessionID)
+		return err
+	})
 }
 
 // computeSectorChanges computes which sectors changed owning position between two snapshots.
@@ -164,6 +171,29 @@ func sectorsCompare(e, e2 config.Sector) int {
 	return cmp.Compare(e.KeyOrName(), e2.KeyOrName())
 }
 
+func getCurrentControllerCoverage(controllerRepo repository.ControllerRepository, sessionId int32, transceiverLookup TransceiverLookup) ([]config.ControllerCoverage, error) {
+	controllers, err := controllerRepo.List(context.Background(), sessionId)
+	if err != nil {
+		return nil, err
+	}
+
+	coverage := make([]config.ControllerCoverage, 0)
+	for _, controller := range controllers {
+		if position, err := config.GetPositionBasedOnFrequency(controller.Position); err == nil {
+			controllerCoverage := config.ControllerCoverage{
+				Name:      position.Name,
+				Frequency: position.Frequency,
+			}
+			if transceiverLookup != nil {
+				controllerCoverage.CoveredFrequencies = transceiverLookup.GetFrequencies(controller.Callsign)
+			}
+			coverage = append(coverage, controllerCoverage)
+		}
+	}
+
+	return coverage, nil
+}
+
 func getCurrentPositions(controllerRepo repository.ControllerRepository, sessionId int32) ([]*config.Position, error) {
 	controllers, err := controllerRepo.List(context.Background(), sessionId)
 	if err != nil {
@@ -178,6 +208,25 @@ func getCurrentPositions(controllerRepo repository.ControllerRepository, session
 	}
 
 	return positions, nil
+}
+
+func refreshSessionSectors(ctx context.Context, sessionRepo repository.SessionRepository, update func(sessionID int32) error) error {
+	sessions, err := sessionRepo.List(ctx)
+	if err != nil {
+		return err
+	}
+
+	var firstErr error
+	for _, session := range sessions {
+		if err := update(session.ID); err != nil {
+			if firstErr == nil {
+				firstErr = err
+			}
+			slog.Error("Failed to refresh sectors for session", slog.Int("session", int(session.ID)), slog.Any("error", err))
+		}
+	}
+
+	return firstErr
 }
 
 func (s *Server) sendControllerUpdates(sessionId int32, owners []*models.SectorOwner, controllerRepo repository.ControllerRepository) error {

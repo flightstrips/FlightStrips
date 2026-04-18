@@ -3,6 +3,8 @@ package server
 import (
 	"FlightStrips/internal/config"
 	"FlightStrips/internal/models"
+	"FlightStrips/internal/testutil"
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -125,4 +127,26 @@ func ownerOfSectorKey(sectors map[string][]config.Sector, sectorKey string) stri
 	}
 
 	return ""
+}
+
+func TestRefreshSessionSectors_UpdatesEverySession(t *testing.T) {
+	t.Parallel()
+
+	sessionRepo := &testutil.MockSessionRepository{
+		ListFn: func(_ context.Context) ([]*models.Session, error) {
+			return []*models.Session{
+				{ID: 11},
+				{ID: 42},
+			}, nil
+		},
+	}
+
+	var updated []int32
+	err := refreshSessionSectors(context.Background(), sessionRepo, func(sessionID int32) error {
+		updated = append(updated, sessionID)
+		return nil
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, []int32{11, 42}, updated)
 }

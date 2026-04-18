@@ -16,12 +16,13 @@ import (
 )
 
 type Server struct {
-	dbPool       *pgxpool.Pool
-	euroscopeHub shared.EuroscopeHub
-	frontendHub  shared.FrontendHub
-	cdmService   shared.CdmService
-	pdcService   *pdc.Service
-	
+	dbPool            *pgxpool.Pool
+	euroscopeHub      shared.EuroscopeHub
+	frontendHub       shared.FrontendHub
+	cdmService        shared.CdmService
+	pdcService        *pdc.Service
+	transceiverLookup TransceiverLookup
+
 	// Repositories
 	stripRepo         repository.StripRepository
 	controllerRepo    repository.ControllerRepository
@@ -31,12 +32,17 @@ type Server struct {
 	tacticalStripRepo repository.TacticalStripRepository
 }
 
+type TransceiverLookup interface {
+	GetFrequencies(callsign string) []string
+}
+
 func NewServer(
 	dbPool *pgxpool.Pool,
 	euroscopeHub shared.EuroscopeHub,
 	frontendHub shared.FrontendHub,
 	cdmService shared.CdmService,
 	pdcService *pdc.Service,
+	transceiverLookup TransceiverLookup,
 	stripRepo repository.StripRepository,
 	controllerRepo repository.ControllerRepository,
 	sessionRepo repository.SessionRepository,
@@ -50,6 +56,7 @@ func NewServer(
 		frontendHub:       frontendHub,
 		cdmService:        cdmService,
 		pdcService:        pdcService,
+		transceiverLookup: transceiverLookup,
 		stripRepo:         stripRepo,
 		controllerRepo:    controllerRepo,
 		sessionRepo:       sessionRepo,

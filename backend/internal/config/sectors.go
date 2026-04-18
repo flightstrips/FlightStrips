@@ -1,7 +1,9 @@
 package config
 
 import (
+	"FlightStrips/internal/vatsim"
 	"errors"
+	"slices"
 	"strings"
 )
 
@@ -19,6 +21,12 @@ type Sector struct {
 	Active       []string     `yaml:"active"`
 	RequireAll   bool         `yaml:"require_all"`
 	Owner        []string     `yaml:"owner"`
+}
+
+type ControllerCoverage struct {
+	Name               string
+	Frequency          string
+	CoveredFrequencies []string
 }
 
 func (s Sector) KeyOrName() string {
@@ -44,14 +52,41 @@ func GetSectorFromRegion(region *Region, isArrival bool) (string, error) {
 }
 
 func GetControllerSectors(controllers []*Position, active []string) map[string][]Sector {
-	var result = make(map[string][]Sector)
-	for _, c := range controllers {
-		result[c.Frequency] = make([]Sector, 0)
+	coverage := make([]ControllerCoverage, 0, len(controllers))
+	for _, controller := range controllers {
+		coverage = append(coverage, ControllerCoverage{
+			Name:      controller.Name,
+			Frequency: controller.Frequency,
+		})
 	}
 
-	var lookup = make(map[string]string)
+	return GetControllerSectorsWithCoverage(coverage, active)
+}
+
+func GetControllerSectorsWithCoverage(controllers []ControllerCoverage, active []string) map[string][]Sector {
+	var result = make(map[string][]Sector)
+	directLookup := make(map[string]string)
+	coverageByFrequency := make(map[string][]string)
+
 	for _, c := range controllers {
-		lookup[c.Name] = c.Frequency
+		primaryFrequency := vatsim.NormalizeFrequency(c.Frequency)
+		if primaryFrequency == "" {
+			continue
+		}
+
+		result[primaryFrequency] = make([]Sector, 0)
+		directLookup[c.Name] = primaryFrequency
+		for _, coveredFrequency := range c.CoveredFrequencies {
+			normalizedCoveredFrequency := vatsim.NormalizeFrequency(coveredFrequency)
+			if normalizedCoveredFrequency == "" {
+				continue
+			}
+			coverageByFrequency[normalizedCoveredFrequency] = appendUniqueFrequency(coverageByFrequency[normalizedCoveredFrequency], primaryFrequency)
+		}
+	}
+
+	for frequency := range coverageByFrequency {
+		slices.Sort(coverageByFrequency[frequency])
 	}
 
 	airborneSet := make(map[string]struct{}, len(airborneOwners))
@@ -78,11 +113,11 @@ func GetControllerSectors(controllers []*Position, active []string) map[string][
 
 	for _, entry := range byKey {
 		s := entry.sector
-		if frequency, ok := resolveSectorOwnerFrequency(nonAirborneOwners(s.Owner, airborneSet), lookup); ok {
+		if frequency, ok := resolveSectorOwnerFrequency(nonAirborneOwners(s.Owner, airborneSet), directLookup, coverageByFrequency); ok {
 			result[frequency] = append(result[frequency], s)
 			continue
 		}
-		if frequency, ok := resolveSectorOwnerFrequency(airborneOwners, lookup); ok {
+		if frequency, ok := resolveSectorOwnerFrequency(airborneOwners, directLookup, coverageByFrequency); ok {
 			result[frequency] = append(result[frequency], s)
 		}
 	}
@@ -90,10 +125,22 @@ func GetControllerSectors(controllers []*Position, active []string) map[string][
 	return result
 }
 
-func resolveSectorOwnerFrequency(owners []string, lookup map[string]string) (string, bool) {
+func resolveSectorOwnerFrequency(owners []string, directLookup map[string]string, coverageByFrequency map[string][]string) (string, bool) {
 	for _, owner := range owners {
-		if frequency, ok := lookup[owner]; ok {
+		if frequency, ok := directLookup[owner]; ok {
 			return frequency, true
+		}
+	}
+
+	for _, owner := range owners {
+		position, err := GetPositionByName(owner)
+		if err != nil {
+			continue
+		}
+
+		frequencies := coverageByFrequency[vatsim.NormalizeFrequency(position.Frequency)]
+		if len(frequencies) > 0 {
+			return frequencies[0], true
 		}
 	}
 
@@ -110,6 +157,14 @@ func nonAirborneOwners(owners []string, airborneSet map[string]struct{}) []strin
 	}
 
 	return filtered
+}
+
+func appendUniqueFrequency(frequencies []string, frequency string) []string {
+	if slices.Contains(frequencies, frequency) {
+		return frequencies
+	}
+
+	return append(frequencies, frequency)
 }
 
 // matchScore returns how many of the sector's active runways are in the

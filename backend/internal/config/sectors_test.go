@@ -303,6 +303,101 @@ func TestGetControllerSectors_PrefersConfiguredOwnerOverAirborneFallback(t *test
 	}
 }
 
+func TestGetControllerSectorsWithCoverage_UsesIndirectConfiguredOwnerWhenDirectOwnerOffline(t *testing.T) {
+	originalSectors := sectors
+	t.Cleanup(func() { sectors = originalSectors })
+	t.Cleanup(SetPositionsForTest([]Position{
+		{Name: "EKCH_A_TWR", Frequency: "118.100"},
+		{Name: "EKCH_D_TWR", Frequency: "119.300"},
+	}))
+
+	sectors = []Sector{
+		{Name: "TE", Owner: []string{"EKCH_D_TWR"}},
+	}
+
+	result := GetControllerSectorsWithCoverage([]ControllerCoverage{
+		{
+			Name:               "EKCH_A_TWR",
+			Frequency:          "118.100",
+			CoveredFrequencies: []string{"119.300"},
+		},
+	}, []string{"22L"})
+
+	if len(result["118.100"]) != 1 {
+		t.Fatalf("expected cross-coupled controller to inherit sector, got %d sectors", len(result["118.100"]))
+	}
+	if result["118.100"][0].KeyOrName() != "TE" {
+		t.Fatalf("expected TE to be inherited through cross-coupling, got %q", result["118.100"][0].KeyOrName())
+	}
+}
+
+func TestGetControllerSectorsWithCoverage_PrefersDirectOwnerOverIndirectCoverage(t *testing.T) {
+	originalSectors := sectors
+	t.Cleanup(func() { sectors = originalSectors })
+	t.Cleanup(SetPositionsForTest([]Position{
+		{Name: "EKCH_A_TWR", Frequency: "118.100"},
+		{Name: "EKCH_D_TWR", Frequency: "119.300"},
+	}))
+
+	sectors = []Sector{
+		{Name: "TE", Owner: []string{"EKCH_D_TWR"}},
+	}
+
+	result := GetControllerSectorsWithCoverage([]ControllerCoverage{
+		{
+			Name:      "EKCH_D_TWR",
+			Frequency: "119.300",
+		},
+		{
+			Name:               "EKCH_A_TWR",
+			Frequency:          "118.100",
+			CoveredFrequencies: []string{"119.300"},
+		},
+	}, []string{"22L"})
+
+	if len(result["119.300"]) != 1 {
+		t.Fatalf("expected direct owner to keep sector, got %d sectors", len(result["119.300"]))
+	}
+	if len(result["118.100"]) != 0 {
+		t.Fatalf("expected indirect controller to stay idle, got %d sectors", len(result["118.100"]))
+	}
+}
+
+func TestGetControllerSectorsWithCoverage_UsesOwnerPriorityForIndirectMatches(t *testing.T) {
+	originalSectors := sectors
+	t.Cleanup(func() { sectors = originalSectors })
+	t.Cleanup(SetPositionsForTest([]Position{
+		{Name: "EKCH_A_TWR", Frequency: "118.100"},
+		{Name: "EKCH_W_APP", Frequency: "119.805"},
+		{Name: "EKCH_A_GND", Frequency: "121.600"},
+		{Name: "EKCH_B_GND", Frequency: "121.900"},
+	}))
+
+	sectors = []Sector{
+		{Name: "TE", Owner: []string{"EKCH_A_GND", "EKCH_B_GND"}},
+	}
+
+	result := GetControllerSectorsWithCoverage([]ControllerCoverage{
+		{
+			Name:               "EKCH_A_TWR",
+			Frequency:          "118.100",
+			CoveredFrequencies: []string{"121.900"},
+		},
+		{
+			Name:               "EKCH_W_APP",
+			Frequency:          "119.805",
+			CoveredFrequencies: []string{"121.600"},
+		},
+	}, []string{"22L"})
+
+	if len(result["119.805"]) != 1 {
+		t.Fatalf("expected higher-priority indirect owner to win, got %d sectors", len(result["119.805"]))
+	}
+	if len(result["118.100"]) != 0 {
+		t.Fatalf("expected lower-priority indirect owner to lose tie-break, got %d sectors", len(result["118.100"]))
+	}
+}
+
 func TestKeyOrName_ReturnsKeyWhenPresent(t *testing.T) {
 	sector := Sector{Name: "GW", Key: "GWA"}
 

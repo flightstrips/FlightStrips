@@ -184,6 +184,20 @@ func main() {
 		slog.Info("VATSIM cache enabled for live web PDC ownership verification")
 	}
 
+	var fsServer *server.Server
+	transceiverCache := vatsim.NewTransceiverCache(
+		getEnv("VATSIM_TRANSCEIVERS_URL", ""),
+		envDuration("VATSIM_TRANSCEIVER_POLL_INTERVAL", 30*time.Second),
+		nil,
+		func(ctx context.Context) error {
+			if fsServer == nil {
+				return nil
+			}
+			return fsServer.RefreshAllSectors(ctx)
+		},
+	)
+	slog.Info("VATSIM transceiver cache enabled for sector ownership refresh")
+
 	frontendHub := frontend.NewHub(stripService, authenticationService)
 	euroscopeHub := euroscope.NewHub(stripService, controllerService, authenticationService)
 	albHub := alb.NewHub()
@@ -238,7 +252,7 @@ func main() {
 		pdcService.SetEuroscopeHub(euroscopeHub)
 	}
 
-	fsServer := server.NewServer(dbpool, euroscopeHub, frontendHub, cdmService, pdcService, stripRepo, controllerRepo, sessionRepo, sectorRepo, coordRepo, tacticalStripRepo)
+	fsServer = server.NewServer(dbpool, euroscopeHub, frontendHub, cdmService, pdcService, transceiverCache, stripRepo, controllerRepo, sessionRepo, sectorRepo, coordRepo, tacticalStripRepo)
 
 	frontendHub.SetServer(fsServer)
 	euroscopeHub.SetServer(fsServer)
@@ -253,6 +267,7 @@ func main() {
 	if vatsimCache != nil {
 		go vatsimCache.Start(ctx)
 	}
+	go transceiverCache.Start(ctx)
 	go albHub.Run()
 
 	metarPoller := metar.NewPoller(sessionRepo, frontendHub)

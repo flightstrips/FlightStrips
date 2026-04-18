@@ -99,6 +99,8 @@ export function useStripCallsignInteraction({
   });
 
   const handleClick = (event: ReactMouseEvent<HTMLElement>) => {
+    event.stopPropagation();
+
     if (isValidationActive) {
       setValidationDialogOpen(true);
       return;

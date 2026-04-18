@@ -69,6 +69,7 @@ export function ApnPushStrip({
   previousControllers,
   myPosition,
   selectable,
+  onStripMoved,
   marked = false,
   fullWidth = false,
   unexpectedChangeFields,
@@ -154,6 +155,7 @@ export function ApnPushStrip({
           onOpenChange={setPushbackOpen}
           callsign={callsign}
           initialReleasePoint={holdingPoint}
+          onStripMoved={onStripMoved}
         />
         <ApronTaxiMapDialog
           open={apronTaxiOpen}

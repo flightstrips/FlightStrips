@@ -24,6 +24,7 @@ interface StripRenderProps {
   halfStripVariant?: HalfStripVariant;
   myPosition?: string;
   selectable?: boolean;
+  onStripMoved?: () => void;
   width?: number | string;
   fullWidth?: boolean;
 }
@@ -41,7 +42,7 @@ const STATUS_DEFAULT_WIDTH: Partial<Record<StripStatus, string>> = {
   "CLROK":    "88.44%",// ClxClearedStrip (non-fullWidth)
 };
 
-export function Strip({ strip, status, halfStripVariant, myPosition, selectable, width, fullWidth }: StripRenderProps) {
+export function Strip({ strip, status, halfStripVariant, myPosition, selectable, onStripMoved, width, fullWidth }: StripRenderProps) {
   if (!isFlight(strip)) {
     const effectiveWidth = width ?? (status ? STATUS_DEFAULT_WIDTH[status] : undefined);
     switch (strip.type) {
@@ -85,6 +86,7 @@ export function Strip({ strip, status, halfStripVariant, myPosition, selectable,
     halfStripVariant,
     myPosition,
     selectable,
+    onStripMoved,
     marked: strip.marked,
     runwayCleared: strip.runway_cleared,
     runwayConfirmed: strip.runway_confirmed,

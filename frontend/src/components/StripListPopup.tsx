@@ -1,12 +1,15 @@
 import { useState } from "react";
 import { Strip } from "@/components/strip/Strip.tsx";
 import type { FrontendStrip } from "@/api/models.ts";
+import { ValidationStatusDialog } from "@/components/strip/ValidationStatusDialog";
+import { isValidationActiveForPosition } from "@/components/strip/shared";
 import {
   Dialog,
   DialogContent,
   DialogTitle,
 } from "@/components/ui/dialog";
 import { COLOR_DEP_STRIP_BG } from "@/components/strip/shared";
+import { useWebSocketStore } from "@/store/store-hooks";
 
 // StripListPopup color constants
 const COLOR_POPUP_BG      = "#D5D5D5"; // main popup background
@@ -44,6 +47,12 @@ export function StripListPopup<T extends FrontendStrip>({
   const [currentSortKey, setCurrentSortKey] = useState(sortModes[0]?.key ?? "");
   const [sortDialogOpen, setSortDialogOpen] = useState(false);
   const [pendingSortKey, setPendingSortKey] = useState(currentSortKey);
+  const [validationDialogCallsign, setValidationDialogCallsign] = useState<string | null>(null);
+  const validationDialogStatus = useWebSocketStore((state) =>
+    validationDialogCallsign
+      ? state.strips.find((strip) => strip.callsign === validationDialogCallsign)?.validation_status
+      : undefined
+  );
 
   const currentSort = sortModes.find(m => m.key === currentSortKey) ?? sortModes[0];
   const sortedStrips = currentSort ? [...strips].sort(currentSort.compareFn) : strips;
@@ -56,6 +65,15 @@ export function StripListPopup<T extends FrontendStrip>({
   const handleSortOk = () => {
     setCurrentSortKey(pendingSortKey);
     setSortDialogOpen(false);
+  };
+
+  const handleRowClick = (strip: T) => {
+    if (isValidationActiveForPosition(strip.validation_status, myPosition)) {
+      setValidationDialogCallsign(strip.callsign);
+      return;
+    }
+
+    onRowClick(strip);
   };
 
   return (
@@ -159,9 +177,16 @@ export function StripListPopup<T extends FrontendStrip>({
                   key={strip.callsign}
                   className="cursor-pointer shrink-0"
                   style={{ background: COLOR_DEP_STRIP_BG, height: 45, overflow: "hidden" }}
-                  onClick={() => onRowClick(strip)}
+                  onClick={() => handleRowClick(strip)}
                 >
-                  <Strip strip={strip} status="PUSH" myPosition={myPosition} selectable={false} fullWidth={true} />
+                  <Strip
+                    strip={strip}
+                    status="PUSH"
+                    myPosition={myPosition}
+                    selectable={false}
+                    fullWidth={true}
+                    onStripMoved={onDismiss}
+                  />
                 </div>
               ))}
             </div>
@@ -242,6 +267,18 @@ export function StripListPopup<T extends FrontendStrip>({
           </div>
         </DialogContent>
       </Dialog>
+      {validationDialogCallsign && validationDialogStatus && (
+        <ValidationStatusDialog
+          callsign={validationDialogCallsign}
+          status={validationDialogStatus}
+          open
+          onOpenChange={(open) => {
+            if (!open) {
+              setValidationDialogCallsign(null);
+            }
+          }}
+        />
+      )}
     </>
   );
 }

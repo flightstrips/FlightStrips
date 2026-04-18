@@ -8,6 +8,7 @@ interface PushbackMapDialogProps {
   onOpenChange: (open: boolean) => void;
   callsign: string;
   initialReleasePoint?: string;
+  onStripMoved?: () => void;
 }
 
 // Sizes expressed as % of image container (1920×768 reference) so they scale with the dialog.
@@ -18,7 +19,7 @@ const BTN_STYLE: React.CSSProperties = {
   fontSize: "2.34cqh", // 18px at 768px tall
 };
 
-export function PushbackMapDialog({ open, onOpenChange, callsign, initialReleasePoint }: PushbackMapDialogProps) {
+export function PushbackMapDialog({ open, onOpenChange, callsign, initialReleasePoint, onStripMoved }: PushbackMapDialogProps) {
   const setReleasePoint = useWebSocketStore((s) => s.setReleasePoint);
   const move = useWebSocketStore((s) => s.move);
 
@@ -26,6 +27,7 @@ export function PushbackMapDialog({ open, onOpenChange, callsign, initialRelease
     setReleasePoint(callsign, label);
     move(callsign, Bay.Push);
     onOpenChange(false);
+    onStripMoved?.();
   };
 
   return (

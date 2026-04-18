@@ -17,6 +17,7 @@ export interface StripProps {
   halfStripVariant?: HalfStripVariant;
   bay?: Bay;
   callsign: string;
+  onStripMoved?: () => void;
   pdcStatus?: PdcStatus;
   destination?: string;
   origin?: string;

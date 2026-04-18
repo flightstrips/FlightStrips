@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.20.0](https://github.com/flightstrips/FlightStrips/compare/backend/v0.19.1...backend/v0.20.0) (2026-04-18)
+
+
+### Features
+
+* add validation status framework (task-146-00) ([222d7bb](https://github.com/flightstrips/FlightStrips/commit/222d7bbe605c2395c1f02f8dc7836e3fafc7b25d))
+
+
+### Bug Fixes
+
+* observability ([9999859](https://github.com/flightstrips/FlightStrips/commit/99998599ab62b7f10747371cc57a981e3280e0a4))
+
 ## [0.19.1](https://github.com/flightstrips/FlightStrips/compare/backend/v0.19.0...backend/v0.19.1) (2026-04-18)
 
 

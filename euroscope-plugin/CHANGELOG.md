@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.11.1](https://github.com/flightstrips/FlightStrips/compare/plugin/v0.11.0...plugin/v0.11.1) (2026-04-19)
+
+
+### Bug Fixes
+
+* **euroscope-plugin:** use live callsign lookups for strips ([#168](https://github.com/flightstrips/FlightStrips/issues/168)) ([7909484](https://github.com/flightstrips/FlightStrips/commit/7909484164cc38b82f2c838d8bc670bb5ce3fd06))
+
 ## [0.11.0](https://github.com/flightstrips/FlightStrips/compare/plugin/v0.10.0...plugin/v0.11.0) (2026-04-16)
 
 

@@ -1,11 +1,34 @@
 ---
-title: Example Guide
-description: A guide in my new Starlight docs site.
+title: What you can learn here
+description: How this documentation is organized and what you can expect to take away from it.
 ---
 
-Guides lead a user through a specific task they want to accomplish, often with a sequence of steps.
-Writing a good guide requires thinking about what your users are trying to do.
+These docs explain **FlightStrips**: how the strip board works, how it ties into EuroScope, and how to run or extend the project locally. Use them alongside the app—many sections assume you are on VATSIM (or a similar environment) and using coordinated ground and clearance workflows.
 
-## Further reading
+## Getting started
 
-- Read [about how-to guides](https://diataxis.fr/how-to-guides/) in the Diátaxis framework
+In **Getting started**, you will find a product-oriented **introduction**, an overview of **features**, and guidance on the **EuroScope plugin** (installation, sync, and how it relates to the web UI). That is the right place to begin if you are new to FlightStrips or wiring it into your setup.
+
+## Concepts
+
+**Concepts** explains ideas that show up everywhere in the product—such as **position ownership** on the strip board and **pre-departure clearance (PDC)** / datalink-style flows. These pages are meant to build a shared mental model before you dive into airport-specific or procedural detail.
+
+## Procedures
+
+**Procedures** walks through operational tasks in the app: for example **memory aids**, **tower / bandbox** usage, and other step-by-step material. Expect task-focused pages with concrete sequences, not just theory.
+
+## Kastrup (EKCH)
+
+The **Kastrup** section is **airport-specific** documentation for Copenhagen (EKCH): clearance delivery, apron and taxi routes, sequencing, runway integration, and related workflows. It is written for controllers who work that airfield in FlightStrips; other airports may follow a similar structure over time.
+
+## Development
+
+**Development** is for contributors and power users: **local development**, optional **FSD** / tooling notes, **alpha testing**, and meta-information about maintaining **this documentation**. If you want to build from source, run a dev environment, or change the docs site itself, start here.
+
+## Reference
+
+**Reference** holds concise or example-style material that supports the rest of the site (schemas, patterns, or pointers to the codebase). Use it when you need a quick lookup rather than a full tutorial.
+
+---
+
+If you are unsure where to start, open [Getting started](/getting-started/intro/), then follow the sidebar into **Concepts** and **Procedures** as your role requires. Controllers working EKCH should pair **Getting started** with **Kastrup**; developers should pair **Getting started** with **Development**.

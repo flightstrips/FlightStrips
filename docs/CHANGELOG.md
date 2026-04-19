@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.9.0](https://github.com/flightstrips/FlightStrips/compare/docs/v0.8.0...docs/v0.9.0) (2026-04-19)
+
+
+### Features
+
+* added fsd server docs ([c5713cb](https://github.com/flightstrips/FlightStrips/commit/c5713cb8e96df15e558140119cfb26ae96a1f18e))
+* updated docs ([b65201e](https://github.com/flightstrips/FlightStrips/commit/b65201e2d23aa5a111d2720840236ad571b8d0b2))
+
 ## [0.8.0](https://github.com/flightstrips/FlightStrips/compare/docs/v0.7.0...docs/v0.8.0) (2026-04-11)
 
 

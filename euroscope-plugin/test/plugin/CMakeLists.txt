@@ -44,6 +44,9 @@ set(ALL_FILES
         messages/CdmReadyTriggerTest.cpp
         messages/MessageServiceTest.cpp
 
+        # Plugin
+        plugin/LookupAuditTest.cpp
+
         # Handlers
         handlers/FlightPlanEventHandlersTest.cpp
         handlers/RadarTargetEventHandlersTest.cpp

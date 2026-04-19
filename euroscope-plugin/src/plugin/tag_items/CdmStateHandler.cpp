@@ -125,7 +125,7 @@ namespace FlightStrips::TagItems {
         if (plan == nullptr) return;
 
         const auto fpData = FlightPlan.GetFlightPlanData();
-        const std::string fallbackEobt = fpData.IsReceived() ? std::string(fpData.GetEstimatedDepartureTime()) : std::string{};
+        const std::string fallbackEobt = std::string(fpData.GetEstimatedDepartureTime());
         const auto presentation = ResolvePresentation(plan->cdm, m_field, fallbackEobt);
         if (!presentation.hasValue) return;
 

@@ -13,7 +13,7 @@ namespace FlightStrips::stands {
         explicit StandService(std::vector<Stand> stands);
         Stand* GetStand(EuroScopePlugIn::CPosition position);
         Stand* GetStand(const std::string& stand, const std::string& airport);
-        Stand* GetStandFromFlightPlan(EuroScopePlugIn::CFlightPlan flightPlan);
+        Stand* GetStandFromFlightPlan(EuroScopePlugIn::CFlightPlan flightPlan, EuroScopePlugIn::CRadarTarget radarTarget);
 
     private:
         // this may end up being a map but should make no change to the caller

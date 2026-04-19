@@ -137,13 +137,22 @@ namespace FlightStrips::messages {
             if (!m_plugin->IsRelevant(it)) continue;;
             if (it.GetSimulated()) continue;;
             const auto flightPlanData = it.GetFlightPlanData();
-            if (!flightPlanData.IsReceived()) continue;;
-            const auto trackPosition = it.GetFPTrackPosition();
-            // TODO: is this a problem?
-            if (!trackPosition.IsValid()) continue;;
-            const auto position = trackPosition.GetPosition();
 
             const auto callsign = std::string(it.GetCallsign());
+            const auto radarTarget = m_plugin->RadarTargetSelect(callsign.c_str());
+            const auto radarPosition = radarTarget.GetPosition();
+            const auto hasRadarPosition = radarPosition.IsValid();
+            double latitude = 0.0;
+            double longitude = 0.0;
+            int altitude = 0;
+            std::string squawk;
+            if (hasRadarPosition) {
+                const auto position = radarPosition.GetPosition();
+                latitude = position.m_Latitude;
+                longitude = position.m_Longitude;
+                altitude = radarPosition.GetPressureAltitude();
+                squawk = std::string(radarPosition.GetSquawk());
+            }
             const auto info = m_flightPlanService->GetFlightPlan(callsign);
             const auto isArrival = strcmp(it.GetFlightPlanData().GetDestination(), relevantAirport) == 0;
             const auto runway = std::string(isArrival
@@ -155,8 +164,8 @@ namespace FlightStrips::messages {
                 stand = info->stand;
             }
 
-            if (stand.empty() && trackPosition.GetPressureAltitude() < 1000) {
-                if (const auto standPtr = m_standService->GetStandFromFlightPlan(it); standPtr != nullptr) {
+            if (stand.empty() && hasRadarPosition && altitude < 1000) {
+                if (const auto standPtr = m_standService->GetStandFromFlightPlan(it, radarTarget); standPtr != nullptr) {
                     stand = standPtr->GetName();
                     m_flightPlanService->SetStand(callsign, stand);
                 }
@@ -170,7 +179,7 @@ namespace FlightStrips::messages {
                 std::string(flightPlanData.GetRoute()),
                 std::string(flightPlanData.GetRemarks()),
                 runway,
-                std::string(trackPosition.GetSquawk()),
+                squawk,
                 std::string(controllerAssignedData.GetSquawk()),
                 std::string(flightPlanData.GetSidName()),
                 it.GetClearenceFlag(),
@@ -181,8 +190,7 @@ namespace FlightStrips::messages {
                 std::string(flightPlanData.GetAircraftInfo()),
                 {flightPlanData.GetAircraftWtc()},
                 Position{
-                    position.m_Latitude, position.m_Longitude,
-                    trackPosition.GetPressureAltitude()
+                    latitude, longitude, altitude
                 },
                 stand,
                 {flightPlanData.GetCommunicationType()},
@@ -199,16 +207,14 @@ namespace FlightStrips::messages {
         // the backend never receives a strip_update for them and every subsequent position event
         // is silently dropped with "strip does not exist".
         for (auto rt = m_plugin->RadarTargetSelectFirst(); rt.IsValid(); rt = m_plugin->RadarTargetSelectNext(rt)) {
-            // Skip only if a received FP exists — those are handled by the FlightPlanSelectFirst loop above.
-            // An auto-correlated FP with IsReceived()=false has no real origin/destination and must be
-            // treated as no-FP here so the strip record gets created.
-            const auto rtFp = rt.GetCorrelatedFlightPlan();
-            if (rtFp.IsValid() && rtFp.GetFlightPlanData().IsReceived()) continue;
+            const auto callsign = std::string(rt.GetCallsign());
+            // Skip any aircraft with a live FP — those are handled by the FlightPlanSelectFirst loop above.
+            const auto rtFp = m_plugin->FlightPlanSelect(callsign.c_str());
+            if (rtFp.IsValid()) continue;
 
             const auto position = rt.GetPosition();
             if (!position.IsValid()) continue;
 
-            const auto callsign = std::string(rt.GetCallsign());
             const auto pos = position.GetPosition();
             const auto info = m_flightPlanService->GetFlightPlan(callsign);
             std::string stand;
@@ -308,7 +314,8 @@ namespace FlightStrips::messages {
 
     void MessageService::HandleGenerateSquawkEvent(const GenerateSquawkEvent &event) const {
         const auto fp = m_plugin->FlightPlanSelect(event.callsign.c_str());
-        if (!fp.IsValid() || !fp.GetCorrelatedRadarTarget().IsValid()) return;
+        const auto radarTarget = m_plugin->RadarTargetSelect(event.callsign.c_str());
+        if (!fp.IsValid() || !radarTarget.IsValid()) return;
         m_plugin->AddNeedsSquawk(std::string(fp.GetCallsign()));
     }
 

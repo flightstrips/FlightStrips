@@ -57,14 +57,13 @@ namespace FlightStrips::stands {
         return &*iter;
     }
 
-    Stand *StandService::GetStandFromFlightPlan(EuroScopePlugIn::CFlightPlan flightPlan) {
-        const auto trackPosition = flightPlan.GetFPTrackPosition();
-        if (trackPosition.IsValid()) {
-            const auto stand = this->GetStand(trackPosition.GetPosition());
+    Stand *StandService::GetStandFromFlightPlan(EuroScopePlugIn::CFlightPlan flightPlan, EuroScopePlugIn::CRadarTarget radarTarget) {
+        const auto position = radarTarget.GetPosition();
+        if (position.IsValid()) {
+            const auto stand = this->GetStand(position.GetPosition());
             if (stand != nullptr) {
                 return stand;
             }
-
         }
 
         const auto stand = this->GetStand(flightPlan.GetControllerAssignedData().GetFlightStripAnnotation(6), "EKCH");

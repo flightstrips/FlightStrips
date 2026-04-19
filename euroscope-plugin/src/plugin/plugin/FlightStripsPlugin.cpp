@@ -228,10 +228,11 @@ namespace FlightStrips {
     void FlightStripsPlugin::OnRadarTargetPositionUpdate(EuroScopePlugIn::CRadarTarget RadarTarget) {
         if (!RadarTarget.IsValid()) return;
 
-        const auto flightPlan = RadarTarget.GetCorrelatedFlightPlan();
+        const auto callsign = std::string(RadarTarget.GetCallsign());
+        const auto flightPlan = FlightPlanSelect(callsign.c_str());
 
         if (!flightPlan.IsValid()) {
-            // No correlated flight plan — VFR/no-FP aircraft. Use radar target position for range check.
+            // No live flight plan found by callsign — treat as VFR/no-FP and use radar target position.
             DispatchRangeCheck(RadarTarget);
             return;
         }
@@ -267,10 +268,11 @@ namespace FlightStrips {
     }
 
     bool FlightStripsPlugin::IsRelevant(const CFlightPlan flightPlan) const {
-        if (!flightPlan.IsValid() || flightPlan.GetSimulated() ||
-            !flightPlan.GetCorrelatedRadarTarget().IsValid()) {
+        if (!flightPlan.IsValid() || flightPlan.GetSimulated()) {
             return false;
         }
+        const auto radarTarget = RadarTargetSelect(flightPlan.GetCallsign());
+        if (!radarTarget.IsValid()) return false;
         if (IsValidAirports(flightPlan)) return true;
         // Reject IFR aircraft with a valid flight plan to/from a non-matching airport.
         // Only VFR or no-FP aircraft are eligible for the range-based fallback.
@@ -280,7 +282,7 @@ namespace FlightStrips {
         if (!origin.empty() && !destination.empty() && origin != "ZZZZ" && destination != "ZZZZ") {
             return false;
         }
-        return IsWithinRange(flightPlan.GetCorrelatedRadarTarget(), 30.0f);
+        return IsWithinRange(radarTarget, 30.0f);
     }
 
     void FlightStripsPlugin::SetAirportCoordinates(const double latitude, const double longitude) {

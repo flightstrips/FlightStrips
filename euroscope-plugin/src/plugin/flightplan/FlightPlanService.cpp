@@ -18,8 +18,8 @@ namespace FlightStrips::flightplan {
         const auto position = radarTarget.GetPosition();
         if (!position.IsValid()) return;
 
-        const auto fp = radarTarget.GetCorrelatedFlightPlan();
-        // Treat auto-correlated FPs with no received data (VFR squawk correlation) as no-FP.
+        const auto callsign = std::string(radarTarget.GetCallsign());
+        const auto fp = m_flightStripsPlugin->FlightPlanSelect(callsign.c_str());
         const bool hasFp = fp.IsValid();
         const auto isArrival = hasFp
             ? strcmp(fp.GetFlightPlanData().GetDestination(),
@@ -39,7 +39,6 @@ namespace FlightStrips::flightplan {
             std::string(position.GetSquawk()),
             stand
         };
-        const auto callsign = std::string(radarTarget.GetCallsign());
 
         if (isRangeOnly) {
             m_rangeTrackedCallsigns.insert(callsign);
@@ -112,10 +111,11 @@ namespace FlightStrips::flightplan {
         }
 
         if (!m_websocketService->ShouldSend()) return;
+        const auto radarTarget = m_flightStripsPlugin->RadarTargetSelect(callsign.c_str());
+        const auto radarPosition = radarTarget.GetPosition();
+        if (!radarPosition.IsValid()) return;
+        const auto position = radarPosition.GetPosition();
         const auto flightPlanData = flightPlan.GetFlightPlanData();
-        const auto trackPosition = flightPlan.GetFPTrackPosition();
-        if (!trackPosition.IsValid()) return;
-        const auto position = trackPosition.GetPosition();
 
         const auto isArrival = strcmp(flightPlan.GetFlightPlanData().GetDestination(), relevantAirport.c_str()) == 0;
         const auto runway = std::string(isArrival
@@ -139,7 +139,7 @@ namespace FlightStrips::flightplan {
             std::string(flightPlanData.GetRoute()),
             std::string(flightPlanData.GetRemarks()),
             runway,
-            std::string(trackPosition.GetSquawk()),
+            std::string(radarPosition.GetSquawk()),
             std::string(controllerAssignedData.GetSquawk()),
             std::string(flightPlanData.GetSidName()),
             flightPlan.GetClearenceFlag(),
@@ -150,8 +150,7 @@ namespace FlightStrips::flightplan {
             std::string(flightPlanData.GetAircraftInfo()),
             {flightPlanData.GetAircraftWtc()},
             Position{
-                position.m_Latitude, position.m_Longitude,
-                trackPosition.GetPressureAltitude()
+                position.m_Latitude, position.m_Longitude, radarPosition.GetPressureAltitude()
             },
             standName,
             {flightPlanData.GetCommunicationType()},

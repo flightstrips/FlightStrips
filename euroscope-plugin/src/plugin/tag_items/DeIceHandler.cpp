@@ -59,7 +59,7 @@ namespace FlightStrips::TagItems
                     return;
                 }
             } else if (action == "stand") {
-                const auto stand = m_standService->GetStandFromFlightPlan(FlightPlan);
+                const auto stand = m_standService->GetStandFromFlightPlan(FlightPlan, RadarTarget);
                 if (stand == nullptr) {
                     continue;
                 }

@@ -257,6 +257,9 @@ func main() {
 	metarPoller := metar.NewPoller(sessionRepo, frontendHub)
 	go metarPoller.Start(ctx)
 
+	trafficMetrics := services.NewTrafficMetricsService(sessionRepo, stripRepo)
+	go trafficMetrics.Start(ctx)
+
 	// TODO remove
 	db := database.New(dbpool)
 	_ = db.InsertAirport(context.Background(), "EKCH")

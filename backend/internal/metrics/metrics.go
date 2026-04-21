@@ -16,12 +16,16 @@ var (
 )
 
 type instruments struct {
-	activeConnections   metric.Int64UpDownCounter
-	messagesReceived    metric.Int64Counter
-	messagesSent        metric.Int64Counter
+	activeConnections      metric.Int64UpDownCounter
+	messagesReceived       metric.Int64Counter
+	messagesSent           metric.Int64Counter
 	messageHandledDuration metric.Float64Histogram
-	pdcRequests         metric.Int64Counter
-	pdcStateChanges     metric.Int64Counter
+	pdcRequests            metric.Int64Counter
+	pdcStateChanges        metric.Int64Counter
+	trafficOnStand         metric.Int64Gauge
+	trafficTaxiing         metric.Int64Gauge
+	trafficArrivalRate15m  metric.Int64Gauge
+	trafficDepartureRate15m metric.Int64Gauge
 }
 
 func get() *instruments {
@@ -59,14 +63,38 @@ func get() *instruments {
 			metric.WithDescription("PDC clearance state transitions"),
 			metric.WithUnit("{transition}"),
 		)
+		trafficOnStand, _ := meter.Int64Gauge(
+			"traffic.aircraft.on_stand",
+			metric.WithDescription("Aircraft currently on stand or at gate (NOT_CLEARED, CLEARED, STAND)"),
+			metric.WithUnit("{aircraft}"),
+		)
+		trafficTaxiing, _ := meter.Int64Gauge(
+			"traffic.aircraft.taxiing",
+			metric.WithDescription("Aircraft currently taxiing (PUSH, TAXI, TAXI_LWR, TAXI_TWR)"),
+			metric.WithUnit("{aircraft}"),
+		)
+		trafficArrivalRate15m, _ := meter.Int64Gauge(
+			"traffic.arrivals.rate_15m",
+			metric.WithDescription("Arrivals (ALDT set) in the rolling last 15 minutes"),
+			metric.WithUnit("{aircraft}"),
+		)
+		trafficDepartureRate15m, _ := meter.Int64Gauge(
+			"traffic.departures.rate_15m",
+			metric.WithDescription("Departures (AOBT set) in the rolling last 15 minutes"),
+			metric.WithUnit("{aircraft}"),
+		)
 
 		inst = &instruments{
-			activeConnections:      activeConnections,
-			messagesReceived:       messagesReceived,
-			messagesSent:           messagesSent,
-			messageHandledDuration: messageHandledDuration,
-			pdcRequests:            pdcRequests,
-			pdcStateChanges:        pdcStateChanges,
+			activeConnections:       activeConnections,
+			messagesReceived:        messagesReceived,
+			messagesSent:            messagesSent,
+			messageHandledDuration:  messageHandledDuration,
+			pdcRequests:             pdcRequests,
+			pdcStateChanges:         pdcStateChanges,
+			trafficOnStand:          trafficOnStand,
+			trafficTaxiing:          trafficTaxiing,
+			trafficArrivalRate15m:   trafficArrivalRate15m,
+			trafficDepartureRate15m: trafficDepartureRate15m,
 		}
 	})
 	return inst
@@ -140,4 +168,16 @@ func PDCStateChange(ctx context.Context, session int32, state string) {
 			attribute.String("state", state),
 		),
 	)
+}
+
+func RecordTrafficSnapshot(ctx context.Context, session int32, airport string, onStand, taxiing, arr15m, dep15m int64) {
+	attrs := metric.WithAttributes(
+		attribute.Int("session", int(session)),
+		attribute.String("airport", airport),
+	)
+	i := get()
+	i.trafficOnStand.Record(ctx, onStand, attrs)
+	i.trafficTaxiing.Record(ctx, taxiing, attrs)
+	i.trafficArrivalRate15m.Record(ctx, arr15m, attrs)
+	i.trafficDepartureRate15m.Record(ctx, dep15m, attrs)
 }

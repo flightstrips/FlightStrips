@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.10.0](https://github.com/flightstrips/FlightStrips/compare/docs/v0.9.0...docs/v0.10.0) (2026-04-21)
+
+
+### Features
+
+* new metrics ([69aa8ef](https://github.com/flightstrips/FlightStrips/commit/69aa8ef1d7fef2e874b042e6f0ef5bb4bcb00274))
+
 ## [0.9.0](https://github.com/flightstrips/FlightStrips/compare/docs/v0.8.0...docs/v0.9.0) (2026-04-19)
 
 

@@ -170,9 +170,9 @@ func PDCStateChange(ctx context.Context, session int32, state string) {
 	)
 }
 
-func RecordTrafficSnapshot(ctx context.Context, session int32, airport string, onStand, taxiing, arr15m, dep15m int64) {
+func RecordTrafficSnapshot(ctx context.Context, session string, airport string, onStand, taxiing, arr15m, dep15m int64) {
 	attrs := metric.WithAttributes(
-		attribute.Int("session", int(session)),
+		attribute.String("session", session),
 		attribute.String("airport", airport),
 	)
 	i := get()

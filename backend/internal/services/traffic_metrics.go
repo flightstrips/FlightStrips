@@ -91,7 +91,7 @@ func (s *TrafficMetricsService) collect(ctx context.Context) {
 			}
 		}
 
-		metrics.RecordTrafficSnapshot(ctx, session.ID, session.Airport, onStand, taxiing, arr15m, dep15m)
+		metrics.RecordTrafficSnapshot(ctx, session.Name, session.Airport, onStand, taxiing, arr15m, dep15m)
 	}
 }
 

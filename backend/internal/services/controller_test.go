@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"FlightStrips/internal/config"
 	"FlightStrips/internal/models"
 	"FlightStrips/internal/testutil"
 
@@ -157,6 +158,53 @@ func TestControllerOffline_UnknownPosition_DeletesImmediately(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, deleted)
 	assert.False(t, result.ShouldScheduleTimer)
+}
+
+func TestControllerOffline_PositionAlreadyCovered_DeletesStaleRowWithoutOfflineEvent(t *testing.T) {
+	ctx := context.Background()
+	t.Cleanup(config.SetPositionsForTest([]config.Position{
+		{Name: "EKCH_TWR", Frequency: "118.700", Section: "TWR"},
+	}))
+	const session = int32(1)
+	const callsign = "EKCH_TWR"
+	const position = "118.700"
+
+	existingController := &models.Controller{
+		Callsign: callsign,
+		Session:  session,
+		Position: position,
+	}
+
+	var deleted bool
+	ctrlRepo := &testutil.MockControllerRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, cs string) (*models.Controller, error) {
+			assert.Equal(t, callsign, cs)
+			return existingController, nil
+		},
+		GetByPositionFn: func(_ context.Context, _ int32, pos string) ([]*models.Controller, error) {
+			assert.Equal(t, position, pos)
+			return []*models.Controller{
+				existingController,
+				{Callsign: "EKCH_A_TWR", Session: session, Position: position},
+			}, nil
+		},
+		DeleteFn: func(_ context.Context, _ int32, cs string) error {
+			assert.Equal(t, callsign, cs)
+			deleted = true
+			return nil
+		},
+	}
+
+	hub := &testutil.MockFrontendHub{}
+	mockServer := &testutil.MockServer{FrontendHubVal: hub}
+	svc := NewControllerService(ctrlRepo)
+	svc.SetServer(mockServer)
+
+	result, err := svc.ControllerOffline(ctx, session, callsign)
+	require.NoError(t, err)
+	assert.True(t, deleted)
+	assert.False(t, result.ShouldScheduleTimer)
+	assert.Empty(t, hub.ControllerOfflines, "replacement coverage should suppress stale offline notification")
 }
 
 func TestControllerOnline_New_SendsOnlineEvent(t *testing.T) {

@@ -221,12 +221,11 @@ func (cs *ControllerService) ControllerOffline(ctx context.Context, session int3
 	}
 	for _, other := range others {
 		if other.Callsign != callsign {
-			slog.DebugContext(ctx, "Controller offline but position still covered by another controller — deleting and notifying immediately",
+			slog.DebugContext(ctx, "Controller offline but position still covered by another controller — deleting stale row without offline notification",
 				slog.String("callsign", callsign),
 				slog.String("position", positionName),
 				slog.String("other", other.Callsign))
 			_ = cs.controllerRepo.Delete(ctx, session, callsign)
-			cs.server.GetFrontendHub().SendControllerOffline(session, callsign, controller.Position, "")
 			return shared.ControllerOfflineResult{ShouldScheduleTimer: false}, nil
 		}
 	}

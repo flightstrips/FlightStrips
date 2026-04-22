@@ -3,10 +3,13 @@ package euroscope
 import (
 	"FlightStrips/internal/shared"
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"strings"
 	"time"
+
+	"github.com/jackc/pgx/v5"
 )
 
 const (
@@ -22,6 +25,14 @@ type offlineTimerEntry struct {
 	positionFreq string
 	positionName string
 }
+
+type offlineActionDecision int
+
+const (
+	offlineActionSkip offlineActionDecision = iota
+	offlineActionSilentCleanup
+	offlineActionFinalize
+)
 
 // sessionUpdatePending batches UpdateSectors/UpdateLayouts/UpdateRoutes calls
 // that would otherwise fire concurrently from multiple offline timers.
@@ -72,26 +83,93 @@ func (hub *Hub) scheduleOfflineActions(session int32, callsign, positionFreq, po
 			slog.String("callsign", callsign),
 			slog.Int("session", int(session)))
 
-		s := hub.server
 		bgCtx := context.Background()
-
-		controllerRepo := s.GetControllerRepository()
-		if err := controllerRepo.Delete(bgCtx, session, callsign); err != nil {
-			slog.Error("Failed to delete controller record in offline timer",
-				slog.String("callsign", callsign),
-				slog.Any("error", err))
+		entry := &offlineTimerEntry{
+			session:      session,
+			callsign:     callsign,
+			positionFreq: positionFreq,
+			positionName: positionName,
 		}
 
-		s.GetFrontendHub().SendControllerOffline(session, callsign, positionFreq, "")
-
 		hub.offlineMu.Lock()
+		if stored, ok := hub.offlineTimers[key]; ok {
+			entry = &offlineTimerEntry{
+				session:      stored.session,
+				callsign:     stored.callsign,
+				positionFreq: stored.positionFreq,
+				positionName: stored.positionName,
+			}
+		}
 		delete(hub.offlineTimers, key)
 		hub.offlineMu.Unlock()
 
+		s := hub.server
+		controllerRepo := s.GetControllerRepository()
+		decision, err := hub.classifyOfflineAction(bgCtx, entry)
+		if err != nil {
+			slog.Error("Failed to classify controller offline timer action",
+				slog.String("callsign", entry.callsign),
+				slog.String("position", entry.positionName),
+				slog.Any("error", err))
+			return
+		}
+
+		if decision == offlineActionSkip {
+			slog.Debug("Skipping stale controller offline timer action",
+				slog.String("callsign", entry.callsign),
+				slog.String("position", entry.positionName),
+				slog.Int("session", int(entry.session)))
+			return
+		}
+
+		if err := controllerRepo.Delete(bgCtx, entry.session, entry.callsign); err != nil {
+			slog.Error("Failed to delete controller record in offline timer",
+				slog.String("callsign", entry.callsign),
+				slog.Any("error", err))
+		}
+
+		if decision == offlineActionSilentCleanup {
+			slog.Debug("Silently cleaned stale controller after position was re-covered",
+				slog.String("callsign", entry.callsign),
+				slog.String("position", entry.positionName),
+				slog.Int("session", int(entry.session)))
+			return
+		}
+
+		s.GetFrontendHub().SendControllerOffline(entry.session, entry.callsign, entry.positionFreq, "")
+
 		// Signal the per-session debouncer to recalculate sectors/layouts/routes.
 		// Multiple concurrent offline timers collapse into a single update run.
-		hub.scheduleSessionUpdate(session, positionName)
+		hub.scheduleSessionUpdate(entry.session, entry.positionName)
 	}()
+}
+
+func (hub *Hub) classifyOfflineAction(ctx context.Context, entry *offlineTimerEntry) (offlineActionDecision, error) {
+	controllerRepo := hub.server.GetControllerRepository()
+	controller, err := controllerRepo.GetByCallsign(ctx, entry.session, entry.callsign)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return offlineActionSkip, nil
+		}
+		return offlineActionSkip, err
+	}
+
+	if controller.Position != entry.positionFreq {
+		return offlineActionSkip, nil
+	}
+
+	controllersOnPosition, err := controllerRepo.GetByPosition(ctx, entry.session, entry.positionFreq)
+	if err != nil {
+		return offlineActionSkip, err
+	}
+
+	for _, other := range controllersOnPosition {
+		if other.Callsign != entry.callsign {
+			return offlineActionSilentCleanup, nil
+		}
+	}
+
+	return offlineActionFinalize, nil
 }
 
 // cancelOfflineTimer cancels a pending offline timer for the given position.

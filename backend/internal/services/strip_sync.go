@@ -128,6 +128,16 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 			Stand:       existingStrip.Stand,
 		}
 		bay = shared.GetDepartureBay(strip, &dbExistingStrip, config.GetAirborneAltitudeAGL(), airport, gndOnline)
+		effectiveCleared := strip.Cleared
+		if shouldPreservePdcClearedFlag(existingStrip, strip) {
+			effectiveCleared = existingStrip.Cleared
+		}
+		if shouldPreservePdcBay(existingStrip, strip, bay) {
+			bay = existingStrip.Bay
+		}
+		shouldClearOwnerForNotCleared := bay == shared.BAY_NOT_CLEARED &&
+			existingStrip.Bay != "" &&
+			existingStrip.Bay != shared.BAY_NOT_CLEARED
 
 		stand := existingStrip.Stand
 		if strip.Stand != "" {
@@ -181,7 +191,7 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 			CommunicationType: &strip.CommunicationType,
 			AircraftCategory:  &strip.AircraftCategory,
 			Stand:             stand,
-			Cleared:           strip.Cleared,
+			Cleared:           effectiveCleared,
 			State:             &strip.GroundState,
 			PositionLatitude:  &strip.Position.Lat,
 			PositionLongitude: &strip.Position.Lon,
@@ -202,6 +212,11 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 		}
 		if _, err = s.stripRepo.Update(ctx, updateStrip); err != nil {
 			return err
+		}
+		if shouldClearOwnerForNotCleared {
+			if err := s.clearOwnerForNotCleared(ctx, session, strip.Callsign); err != nil {
+				return err
+			}
 		}
 		if strip.HasFP != existingStrip.HasFP {
 			if err = s.stripRepo.SetHasFP(ctx, session, strip.Callsign, strip.HasFP); err != nil {
@@ -277,6 +292,33 @@ func isApronBay(bay string) bool {
 	case shared.BAY_PUSH, shared.BAY_TAXI, shared.BAY_TAXI_LWR, shared.BAY_TAXI_TWR,
 		shared.BAY_TWY_ARR, shared.BAY_STAND:
 		return true
+	default:
+		return false
+	}
+}
+
+func shouldPreservePdcClearedFlag(existingStrip *internalModels.Strip, strip euroscope.Strip) bool {
+	if existingStrip == nil || strip.Cleared || !existingStrip.Cleared {
+		return false
+	}
+
+	return existingStrip.PdcState == "CLEARED" || existingStrip.PdcState == "CONFIRMED"
+}
+
+func shouldPreservePdcBay(existingStrip *internalModels.Strip, strip euroscope.Strip, bay string) bool {
+	if existingStrip == nil || strip.Cleared || bay != shared.BAY_NOT_CLEARED {
+		return false
+	}
+
+	if existingStrip.Bay == "" || existingStrip.Bay == shared.BAY_UNKNOWN || existingStrip.Bay == shared.BAY_NOT_CLEARED {
+		return false
+	}
+
+	switch existingStrip.PdcState {
+	case "CLEARED":
+		return true
+	case "CONFIRMED":
+		return existingStrip.Cleared
 	default:
 		return false
 	}

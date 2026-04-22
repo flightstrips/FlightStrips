@@ -7,8 +7,8 @@ import (
 	"FlightStrips/internal/models"
 	"FlightStrips/internal/shared"
 	"FlightStrips/internal/testutil"
-	pkgModels "FlightStrips/pkg/models"
 	euroscopeEvents "FlightStrips/pkg/events/euroscope"
+	pkgModels "FlightStrips/pkg/models"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -50,6 +50,11 @@ func newSyncTestFixture(t *testing.T, _ *models.Strip, stripRepo *testutil.MockS
 	// UpdateRegistration is called inside syncEuroscopeStrip for existing strips.
 	if stripRepo.UpdateRegistrationFn == nil {
 		stripRepo.UpdateRegistrationFn = func(_ context.Context, _ int32, _ string, _ string) error {
+			return nil
+		}
+	}
+	if stripRepo.SetPreviousOwnersFn == nil {
+		stripRepo.SetPreviousOwnersFn = func(_ context.Context, _ int32, _ string, _ []string) error {
 			return nil
 		}
 	}

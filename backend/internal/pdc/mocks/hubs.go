@@ -166,6 +166,11 @@ type EuroscopeHub struct {
 	mock.Mock
 }
 
+func (m *EuroscopeHub) HasActiveClientForAirport(airport string) bool {
+	args := m.Called(airport)
+	return args.Bool(0)
+}
+
 func (m *EuroscopeHub) SetServer(server shared.Server) {
 	m.Called(server)
 }
@@ -244,4 +249,12 @@ func (m *EuroscopeHub) SendAssumeAndDrop(session int32, cid string, callsign str
 
 func (m *EuroscopeHub) SendDropTracking(session int32, cid string, callsign string) {
 	m.Called(session, cid, callsign)
+}
+
+func (m *EuroscopeHub) SendCreateFPL(session int32, cid string, event euroscope.CreateFPLEvent) {
+	m.Called(session, cid, event)
+}
+
+func (m *EuroscopeHub) SendPdcStateChange(session int32, callsign, state, remarks string) {
+	m.Called(session, callsign, state, remarks)
 }

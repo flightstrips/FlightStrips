@@ -163,40 +163,17 @@ func (a *WebAPI) handleAcknowledge(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	pdcData := match.Strip.PdcData.Clone()
-	if pdcData.Web == nil {
-		pdcData.Web = &models.PdcWebData{}
-	}
-	if pdcData.Web.PilotAcknowledgedAt == nil {
-		now := time.Now().UTC()
-		pdcData.Web.PilotAcknowledgedAt = &now
-	}
-	pdcData.State = string(StateConfirmed)
-
-	if err := a.service.stripRepo.SetPdcData(r.Context(), match.SessionID, match.Strip.Callsign, pdcData); err != nil {
-		writeJSONError(w, http.StatusInternalServerError, "failed to persist acknowledgement")
+	if err := a.service.confirmPilotAcknowledgement(
+		r.Context(),
+		match.SessionID,
+		match.Strip,
+		shared.BAY_CLEARED,
+		valueOrEmpty(match.Strip.PdcData.IssuedByCid),
+		true,
+	); err != nil {
+		writeJSONError(w, http.StatusInternalServerError, "failed to confirm clearance")
 		return
 	}
-
-	if a.service.stripService != nil {
-		if err := a.service.stripService.UpdateClearedFlagForMove(
-			r.Context(),
-			match.SessionID,
-			match.Strip.Callsign,
-			true,
-			shared.BAY_CLEARED,
-			valueOrEmpty(pdcData.IssuedByCid),
-		); err != nil {
-			writeJSONError(w, http.StatusInternalServerError, "failed to confirm clearance")
-			return
-		}
-	}
-
-	a.service.CancelTimeout(match.Strip.Callsign, match.SessionID)
-	a.service.notifyStateChange(match.SessionID, match.Strip.Callsign, StateConfirmed, "")
-	match.Strip.PdcData = pdcData
-	match.Strip.PdcState = string(StateConfirmed)
-	match.Strip.PdcRequestRemarks = nil
 	writeJSON(w, http.StatusOK, buildWebPDCStatus(match.Strip))
 }
 

@@ -10,6 +10,7 @@ import (
 	pkgModels "FlightStrips/pkg/models"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"testing"
@@ -115,6 +116,7 @@ func (suite *PDCIntegrationTestSuite) SetupTest(t *testing.T) {
 		suite.mockHoppie.AssertExpectations(t)
 		suite.mockStrip.AssertExpectations(t)
 		suite.mockFrontend.AssertExpectations(t)
+		suite.mockEuroscope.AssertExpectations(t)
 	})
 }
 
@@ -356,8 +358,14 @@ func TestHandleWilcoFlow(t *testing.T) {
 	require.NoError(t, err)
 
 	// Now handle WILCO
-	suite.mockStrip.On("UpdateClearedFlagForMove", mock.Anything, sessionID, callsign, true, shared.BAY_CLEARED, cid).Return(nil)
-	suite.mockFrontend.On("SendPdcStateChange", sessionID, callsign, "CONFIRMED", "").Return()
+	suite.service.SetEuroscopeHub(suite.mockEuroscope)
+	mock.InOrder(
+		suite.mockStrip.On("ConfirmPdcClearance", mock.Anything, sessionID, callsign, shared.BAY_CLEARED, cid).Return(nil),
+		suite.mockStrip.On("AutoAssumeForClearedStripByCid", mock.Anything, sessionID, callsign, cid).Return(nil),
+		suite.mockEuroscope.On("SendPdcStateChange", sessionID, callsign, "CONFIRMED", "").Return(),
+		suite.mockEuroscope.On("SendClearedFlag", sessionID, cid, callsign, true).Return(),
+		suite.mockFrontend.On("SendPdcStateChange", sessionID, callsign, "CONFIRMED", "").Return(),
+	)
 
 	incomingMsg := &IncomingMessage{
 		Type:       MsgWilco,
@@ -393,6 +401,62 @@ func TestHandleWilcoFlow(t *testing.T) {
 	})
 	require.NoError(t, err)
 	assert.Equal(t, "CONFIRMED", readStripPdcState(t, strip))
+}
+
+func TestHandleWilcoConfirmClearanceFailureLeavesPdcCleared(t *testing.T) {
+	t.Parallel()
+	suite := &PDCIntegrationTestSuite{}
+	suite.SetupTest(t)
+
+	callsign := "SAS123"
+	sessionID := int32(1)
+	cid := "CID123"
+	ctx := context.Background()
+
+	suite.mockHoppie.On("SendCPDLC", mock.Anything, mock.Anything, callsign, mock.Anything).Return(nil)
+	suite.mockStrip.On("MoveToBay", mock.Anything, sessionID, callsign, shared.BAY_CLEARED, true).Return(nil)
+	suite.mockFrontend.On("SendPdcStateChange", sessionID, callsign, "CLEARED", "").Return()
+
+	err := suite.service.IssueClearance(ctx, callsign, "", cid, sessionID)
+	require.NoError(t, err)
+
+	suite.service.SetEuroscopeHub(suite.mockEuroscope)
+	suite.mockStrip.On("ConfirmPdcClearance", mock.Anything, sessionID, callsign, shared.BAY_CLEARED, cid).Return(errors.New("boom"))
+
+	incomingMsg := &IncomingMessage{
+		Type:       MsgWilco,
+		From:       callsign,
+		To:         "EKCH",
+		Payload:    "/data2/1/1/N/WILCO",
+		RawMessage: callsign + " EKCH cpdlc {/data2/1/1/N/WILCO}",
+	}
+
+	session := sessionInformation{
+		id:       sessionID,
+		callsign: "EKCH",
+	}
+
+	err = suite.service.HandleWilco(ctx, incomingMsg, session)
+	require.Error(t, err)
+	assert.ErrorContains(t, err, "failed to confirm strip clearance")
+
+	suite.service.timeoutsMutex.RLock()
+	key := fmt.Sprintf("%s_%d", callsign, sessionID)
+	_, exists := suite.service.timeouts[key]
+	suite.service.timeoutsMutex.RUnlock()
+	assert.True(t, exists, "Timeout should remain active when confirmation fails")
+
+	strip, err := suite.queries.GetStrip(context.Background(), database.GetStripParams{
+		Session:  sessionID,
+		Callsign: callsign,
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "CLEARED", readStripPdcState(t, strip))
+
+	suite.mockEuroscope.AssertNotCalled(t, "SendPdcStateChange", sessionID, callsign, "CONFIRMED", "")
+	suite.mockEuroscope.AssertNotCalled(t, "SendClearedFlag", sessionID, cid, callsign, true)
+	suite.mockFrontend.AssertNotCalled(t, "SendPdcStateChange", sessionID, callsign, "CONFIRMED", "")
+	suite.mockStrip.AssertNotCalled(t, "AutoAssumeForClearedStripByCid", mock.Anything, sessionID, callsign, cid)
 }
 
 func TestHandleUnableFlow(t *testing.T) {

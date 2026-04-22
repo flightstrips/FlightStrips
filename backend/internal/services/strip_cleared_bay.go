@@ -74,8 +74,47 @@ func (s *StripService) UnclearStrip(ctx context.Context, session int32, callsign
 		slog.ErrorContext(ctx, "UnclearStrip: failed to update cleared flag", slog.Any("error", err))
 	}
 
+	if err := s.clearOwnerForNotCleared(ctx, session, callsign); err != nil {
+		return err
+	}
+
 	if s.esCommander != nil {
 		s.esCommander.SendClearedFlag(session, cid, callsign, false)
+	}
+
+	return nil
+}
+
+func (s *StripService) clearOwnerForNotCleared(ctx context.Context, session int32, callsign string) error {
+	strip, err := s.stripRepo.GetByCallsign(ctx, session, callsign)
+	if err != nil {
+		return fmt.Errorf("failed to get strip for owner reset: %w", err)
+	}
+
+	if err := s.stripRepo.SetPreviousOwners(ctx, session, callsign, []string{}); err != nil {
+		return fmt.Errorf("failed to persist previous owners: %w", err)
+	}
+
+	if strip.Owner != nil && *strip.Owner != "" {
+		count, err := s.stripRepo.SetOwner(ctx, session, callsign, nil, strip.Version)
+		if err != nil {
+			return fmt.Errorf("failed to clear strip owner: %w", err)
+		}
+		if count != 1 {
+			return fmt.Errorf("failed to clear strip owner")
+		}
+	}
+
+	if err := s.recalculateRouteForStrip(session, callsign); err != nil {
+		return fmt.Errorf("failed to recalculate route after clearing owner: %w", err)
+	}
+
+	if s.publisher != nil {
+		refreshedStrip, err := s.stripRepo.GetByCallsign(ctx, session, callsign)
+		if err != nil {
+			return fmt.Errorf("failed to reload strip after owner reset: %w", err)
+		}
+		s.publisher.SendOwnersUpdate(session, callsign, "", refreshedStrip.NextOwners, refreshedStrip.PreviousOwners)
 	}
 
 	return nil

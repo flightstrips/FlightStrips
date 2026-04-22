@@ -26,13 +26,14 @@ func (pdcAuthStub) Validate(string) (shared.AuthenticatedUser, error) {
 }
 
 type handlerTestSetup struct {
-	webapi       *WebAPI
-	service      *Service
-	queries      *database.Queries
-	sessionID    int32
-	mockStrip    *mocks.StripService
-	mockFrontend *mocks.FrontendHub
-	mockHoppie   *mocks.HoppieClient
+	webapi        *WebAPI
+	service       *Service
+	queries       *database.Queries
+	sessionID     int32
+	mockStrip     *mocks.StripService
+	mockFrontend  *mocks.FrontendHub
+	mockEuroscope *mocks.EuroscopeHub
+	mockHoppie    *mocks.HoppieClient
 }
 
 func setupHandlerTest(t *testing.T) *handlerTestSetup {
@@ -46,6 +47,7 @@ func setupHandlerTest(t *testing.T) *handlerTestSetup {
 
 	mockStrip := new(mocks.StripService)
 	mockFrontend := new(mocks.FrontendHub)
+	mockEuroscope := new(mocks.EuroscopeHub)
 	mockHoppie := new(mocks.HoppieClient)
 
 	adapter := &hoppieClientAdapter{HoppieClient: mockHoppie}
@@ -67,22 +69,31 @@ func setupHandlerTest(t *testing.T) *handlerTestSetup {
 		testdata.CleanupTestSession(t, queries, sessionID)
 		mockStrip.AssertExpectations(t)
 		mockFrontend.AssertExpectations(t)
+		mockEuroscope.AssertExpectations(t)
 		mockHoppie.AssertExpectations(t)
 	})
 
 	return &handlerTestSetup{
-		webapi:       webapi,
-		service:      service,
-		queries:      queries,
-		sessionID:    sessionID,
-		mockStrip:    mockStrip,
-		mockFrontend: mockFrontend,
-		mockHoppie:   mockHoppie,
+		webapi:        webapi,
+		service:       service,
+		queries:       queries,
+		sessionID:     sessionID,
+		mockStrip:     mockStrip,
+		mockFrontend:  mockFrontend,
+		mockEuroscope: mockEuroscope,
+		mockHoppie:    mockHoppie,
 	}
 }
 
 func unableRequest(callsign string) *http.Request {
 	req := httptest.NewRequest(http.MethodPost, "/pdc/unable",
+		strings.NewReader(`{"callsign":"`+callsign+`"}`))
+	req.Header.Set("Authorization", "Bearer token")
+	return req
+}
+
+func acknowledgeRequest(callsign string) *http.Request {
+	req := httptest.NewRequest(http.MethodPost, "/pdc/acknowledge",
 		strings.NewReader(`{"callsign":"`+callsign+`"}`))
 	req.Header.Set("Authorization", "Bearer token")
 	return req
@@ -143,4 +154,32 @@ func TestHandleUnableSuccessReturnsFailed(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, rec.Code)
 	assert.Contains(t, rec.Body.String(), `"state":"FAILED"`)
+}
+
+func TestHandleAcknowledgeSuccessConfirmsClearance(t *testing.T) {
+	t.Parallel()
+
+	s := setupHandlerTest(t)
+	testdata.SeedTestStrip(t, s.queries, s.sessionID, "SAS123")
+
+	s.mockStrip.On("MoveToBay", mock.Anything, s.sessionID, "SAS123", shared.BAY_CLEARED, true).Return(nil)
+	s.mockFrontend.On("SendPdcStateChange", s.sessionID, "SAS123", string(StateCleared), "").Return()
+
+	err := s.service.SubmitWebPDCRequest(context.Background(), "SAS123", "B", "", "", "A320")
+	require.NoError(t, err)
+
+	s.service.SetEuroscopeHub(s.mockEuroscope)
+	mock.InOrder(
+		s.mockStrip.On("ConfirmPdcClearance", mock.Anything, s.sessionID, "SAS123", shared.BAY_CLEARED, "").Return(nil),
+		s.mockStrip.On("AutoAssumeForClearedStripByCid", mock.Anything, s.sessionID, "SAS123", "").Return(nil),
+		s.mockEuroscope.On("SendPdcStateChange", s.sessionID, "SAS123", string(StateConfirmed), "").Return(),
+		s.mockEuroscope.On("SendClearedFlag", s.sessionID, "", "SAS123", true).Return(),
+		s.mockFrontend.On("SendPdcStateChange", s.sessionID, "SAS123", string(StateConfirmed), "").Return(),
+	)
+
+	rec := httptest.NewRecorder()
+	s.webapi.handleAcknowledge(rec, acknowledgeRequest("SAS123"))
+
+	assert.Equal(t, http.StatusOK, rec.Code)
+	assert.Contains(t, rec.Body.String(), `"state":"CONFIRMED"`)
 }

@@ -184,6 +184,11 @@ func (m *StripService) UpdateGroundStateForMove(ctx context.Context, session int
 	return args.Error(0)
 }
 
+func (m *StripService) ConfirmPdcClearance(ctx context.Context, session int32, callsign string, bay string, cid string) error {
+	args := m.Called(ctx, session, callsign, bay, cid)
+	return args.Error(0)
+}
+
 func (m *StripService) UpdateReleasePoint(ctx context.Context, session int32, callsign string, releasePoint string) error {
 	args := m.Called(ctx, session, callsign, releasePoint)
 	return args.Error(0)

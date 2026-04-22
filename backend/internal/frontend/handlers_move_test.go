@@ -63,6 +63,10 @@ func (s *spyStripService) UpdateClearedFlagForMove(_ context.Context, _ int32, _
 	return nil
 }
 
+func (s *spyStripService) ConfirmPdcClearance(_ context.Context, _ int32, _ string, _ string, _ string) error {
+	return nil
+}
+
 // mockServerWithStripRepo returns a MockServer wired with the given strip repo.
 func mockServerWithStripRepo(repo *testutil.MockStripRepository) *testutil.MockServer {
 	ms := &testutil.MockServer{
@@ -203,4 +207,3 @@ func TestHandleMove_OwnedByOther_AllowedWithCoordination(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, spy.moveToBayCalled, "Move should succeed when coordination targets this position")
 }
-

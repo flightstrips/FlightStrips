@@ -257,6 +257,180 @@ func TestSyncEuroscopeStrip_ExistingStrip_TaxiNoGndOnline_UpdatesTaxiLwr(t *test
 	assert.Equal(t, shared.BAY_TAXI_LWR, updatedBay, "no GND online → PUSH→TAXI transition should land in TAXI_LWR")
 }
 
+func TestSyncEuroscopeStrip_ExistingPendingPdcStrip_DoesNotFallBackToNotCleared(t *testing.T) {
+	ctx := context.Background()
+	const session = int32(1)
+	const callsign = "SAS502"
+
+	existingStrip := &models.Strip{
+		Callsign: callsign,
+		Origin:   "EKCH",
+		Bay:      shared.BAY_CLEARED,
+		PdcState: "CLEARED",
+		Cleared:  false,
+	}
+
+	var updatedStrip *models.Strip
+	var movedToBay string
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			return existingStrip, nil
+		},
+		UpdateFn: func(_ context.Context, strip *models.Strip) (int64, error) {
+			updatedStrip = strip
+			return 1, nil
+		},
+		UpdateBayAndSequenceFn: func(_ context.Context, _ int32, _ string, bay string, _ int32) (int64, error) {
+			movedToBay = bay
+			return 1, nil
+		},
+	}
+
+	svc, _, _ := newSyncTestFixture(t, existingStrip, stripRepo)
+
+	err := svc.syncEuroscopeStrip(ctx, session, "", euroscope.Strip{
+		Callsign: callsign,
+		Origin:   "EKCH",
+		Cleared:  false,
+	}, "EKCH")
+	require.NoError(t, err)
+	require.NotNil(t, updatedStrip)
+	assert.Equal(t, shared.BAY_CLEARED, updatedStrip.Bay)
+	assert.False(t, updatedStrip.Cleared)
+	assert.Equal(t, shared.BAY_CLEARED, movedToBay)
+}
+
+func TestSyncEuroscopeStrip_ExistingConfirmedPdcStrip_PreservesClearedFlagUntilSyncCatchesUp(t *testing.T) {
+	ctx := context.Background()
+	const session = int32(1)
+	const callsign = "SAS503"
+
+	existingStrip := &models.Strip{
+		Callsign: callsign,
+		Origin:   "EKCH",
+		Bay:      shared.BAY_CLEARED,
+		PdcState: "CONFIRMED",
+		Cleared:  true,
+	}
+
+	var updatedStrip *models.Strip
+	var movedToBay string
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			return existingStrip, nil
+		},
+		UpdateFn: func(_ context.Context, strip *models.Strip) (int64, error) {
+			updatedStrip = strip
+			return 1, nil
+		},
+		UpdateBayAndSequenceFn: func(_ context.Context, _ int32, _ string, bay string, _ int32) (int64, error) {
+			movedToBay = bay
+			return 1, nil
+		},
+	}
+
+	svc, _, _ := newSyncTestFixture(t, existingStrip, stripRepo)
+
+	err := svc.syncEuroscopeStrip(ctx, session, "", euroscope.Strip{
+		Callsign: callsign,
+		Origin:   "EKCH",
+		Cleared:  false,
+	}, "EKCH")
+	require.NoError(t, err)
+	require.NotNil(t, updatedStrip)
+	assert.True(t, updatedStrip.Cleared)
+	assert.Equal(t, shared.BAY_CLEARED, updatedStrip.Bay)
+	assert.Equal(t, shared.BAY_CLEARED, movedToBay)
+}
+
+func TestSyncEuroscopeStrip_MoveBackToNotCleared_ClearsOwner(t *testing.T) {
+	ctx := context.Background()
+	const session = int32(1)
+	const callsign = "SAS504"
+	owner := "EKCH_GND"
+	getByCallsignCalls := 0
+	var routeUpdateCallsign string
+	var routeUpdateSession int32
+	var routeUpdateSendUpdate bool
+
+	existingStrip := &models.Strip{
+		Callsign:       callsign,
+		Origin:         "EKCH",
+		Bay:            shared.BAY_PUSH,
+		Cleared:        false,
+		Owner:          &owner,
+		Version:        int32(7),
+		NextOwners:     []string{"EKCH_TWR"},
+		PreviousOwners: []string{"EKCH_DEL"},
+	}
+
+	var updatedStrip *models.Strip
+	var movedToBay string
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			getByCallsignCalls++
+			if getByCallsignCalls == 1 {
+				return existingStrip, nil
+			}
+
+			return &models.Strip{
+				Callsign:       callsign,
+				Origin:         "EKCH",
+				Bay:            shared.BAY_NOT_CLEARED,
+				Cleared:        false,
+				Owner:          nil,
+				Version:        int32(8),
+				NextOwners:     []string{"EKCH_TWR"},
+				PreviousOwners: []string{},
+			}, nil
+		},
+		UpdateFn: func(_ context.Context, strip *models.Strip) (int64, error) {
+			updatedStrip = strip
+			return 1, nil
+		},
+		UpdateBayAndSequenceFn: func(_ context.Context, _ int32, _ string, bay string, _ int32) (int64, error) {
+			movedToBay = bay
+			return 1, nil
+		},
+		SetPreviousOwnersFn: func(_ context.Context, _ int32, _ string, previousOwners []string) error {
+			assert.Empty(t, previousOwners)
+			return nil
+		},
+		SetOwnerFn: func(_ context.Context, _ int32, _ string, newOwner *string, version int32) (int64, error) {
+			assert.Nil(t, newOwner)
+			assert.Equal(t, int32(8), version)
+			return 1, nil
+		},
+	}
+
+	svc, hub, _ := newSyncTestFixture(t, existingStrip, stripRepo)
+	mockServer, ok := hub.GetServer().(*testutil.MockServer)
+	require.True(t, ok)
+	mockServer.UpdateRouteForStripFn = func(cs string, sess int32, sendUpdate bool) error {
+		routeUpdateCallsign = cs
+		routeUpdateSession = sess
+		routeUpdateSendUpdate = sendUpdate
+		return nil
+	}
+
+	err := svc.syncEuroscopeStrip(ctx, session, "", euroscope.Strip{
+		Callsign: callsign,
+		Origin:   "EKCH",
+		Cleared:  false,
+	}, "EKCH")
+	require.NoError(t, err)
+	require.NotNil(t, updatedStrip)
+	assert.Equal(t, shared.BAY_NOT_CLEARED, updatedStrip.Bay)
+	assert.Equal(t, shared.BAY_NOT_CLEARED, movedToBay)
+	require.Len(t, hub.OwnersUpdates, 1)
+	assert.Equal(t, "", hub.OwnersUpdates[0].Owner)
+	assert.Empty(t, hub.OwnersUpdates[0].PreviousOwners)
+	assert.Equal(t, []string{"EKCH_TWR"}, hub.OwnersUpdates[0].NextOwners)
+	assert.Equal(t, callsign, routeUpdateCallsign)
+	assert.Equal(t, session, routeUpdateSession)
+	assert.False(t, routeUpdateSendUpdate)
+}
+
 func TestSyncEuroscopeStrip_NewLocalDepartureWithReservedAssignedSquawk_GeneratesSquawk(t *testing.T) {
 	ctx := context.Background()
 	const session = int32(1)

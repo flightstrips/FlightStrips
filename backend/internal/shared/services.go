@@ -92,6 +92,7 @@ type StripService interface {
 	// Frontend move operations — called when a frontend user drags a strip to a new bay.
 	UpdateClearedFlagForMove(ctx context.Context, session int32, callsign string, isCleared bool, bay string, cid string) error
 	UpdateGroundStateForMove(ctx context.Context, session int32, callsign string, bay string, cid string, airport string) error
+	ConfirmPdcClearance(ctx context.Context, session int32, callsign string, bay string, cid string) error
 
 	// Frontend strip mutations
 	UpdateReleasePoint(ctx context.Context, session int32, callsign string, releasePoint string) error

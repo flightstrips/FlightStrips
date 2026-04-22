@@ -217,6 +217,21 @@ func (s *StripService) notifyStripUpdate(session int32, callsign string) {
 // UpdateClearedFlagForMove handles the frontend "move to cleared/not-cleared bay" action.
 // It updates the cleared flag and bay in the DB, triggers auto-assumption, and notifies EuroScope.
 func (s *StripService) UpdateClearedFlagForMove(ctx context.Context, session int32, callsign string, isCleared bool, bay string, cid string) error {
+	return s.applyClearedFlagForMove(ctx, session, callsign, isCleared, bay, cid, false)
+}
+
+// ConfirmPdcClearance marks a strip cleared as part of pilot confirmation.
+// EuroScope notification is handled by the PDC service so it can send the
+// confirmed state before the cleared flag.
+func (s *StripService) ConfirmPdcClearance(ctx context.Context, session int32, callsign string, bay string, cid string) error {
+	return s.applyClearedFlagForMoveWithOptions(ctx, session, callsign, true, bay, cid, false, false)
+}
+
+func (s *StripService) applyClearedFlagForMove(ctx context.Context, session int32, callsign string, isCleared bool, bay string, cid string, forceEuroscopeNotification bool) error {
+	return s.applyClearedFlagForMoveWithOptions(ctx, session, callsign, isCleared, bay, cid, forceEuroscopeNotification, true)
+}
+
+func (s *StripService) applyClearedFlagForMoveWithOptions(ctx context.Context, session int32, callsign string, isCleared bool, bay string, cid string, forceEuroscopeNotification bool, autoAssumeOnClear bool) error {
 	strip, err := s.stripRepo.GetByCallsign(ctx, session, callsign)
 	if err != nil {
 		return err
@@ -230,16 +245,24 @@ func (s *StripService) UpdateClearedFlagForMove(ctx context.Context, session int
 		return errors.New("failed to update strip cleared flag")
 	}
 
+	if !isCleared && bay == shared.BAY_NOT_CLEARED {
+		if err := s.clearOwnerForNotCleared(ctx, session, callsign); err != nil {
+			return err
+		}
+	}
+
 	// Only trigger side-effects when the cleared flag actually changed value.
 	if strip.Cleared != isCleared {
 		if isCleared {
-			if err := s.AutoAssumeForClearedStripByCid(ctx, session, callsign, cid); err != nil {
-				slog.ErrorContext(ctx, "Failed to auto-assume cleared strip", slog.Any("error", err))
+			if autoAssumeOnClear {
+				if err := s.AutoAssumeForClearedStripByCid(ctx, session, callsign, cid); err != nil {
+					slog.ErrorContext(ctx, "Failed to auto-assume cleared strip", slog.Any("error", err))
+				}
 			}
 		}
-		if s.esCommander != nil {
-			s.esCommander.SendClearedFlag(session, cid, callsign, isCleared)
-		}
+	}
+	if (strip.Cleared != isCleared || forceEuroscopeNotification) && s.esCommander != nil {
+		s.esCommander.SendClearedFlag(session, cid, callsign, isCleared)
 	}
 	return nil
 }

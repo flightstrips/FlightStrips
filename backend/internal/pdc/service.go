@@ -127,15 +127,29 @@ func (s *Service) sendErrorAndReturn(ctx context.Context, session sessionInforma
 	return originalErr
 }
 
-// notifyStateChange sends PDC state change notification to frontend and EuroScope clients
-func (s *Service) notifyStateChange(sessionID int32, callsign string, state ClearanceState, remarks string) {
-	metrics.PDCStateChange(context.Background(), sessionID, string(state))
+func (s *Service) notifyStateChangeFrontend(sessionID int32, callsign string, state ClearanceState, remarks string) {
 	if s.frontendHub != nil {
 		s.frontendHub.SendPdcStateChange(sessionID, callsign, string(state), remarks)
 	}
+}
+
+func (s *Service) notifyStateChangeEuroscope(sessionID int32, callsign string, state ClearanceState, remarks string) {
 	if s.euroscopeHub != nil {
 		s.euroscopeHub.SendPdcStateChange(sessionID, callsign, string(state), remarks)
 	}
+}
+
+func (s *Service) notifyClearedFlagEuroscope(sessionID int32, callsign string, cleared bool, cid string) {
+	if s.euroscopeHub != nil {
+		s.euroscopeHub.SendClearedFlag(sessionID, cid, callsign, cleared)
+	}
+}
+
+// notifyStateChange sends PDC state change notification to frontend and EuroScope clients
+func (s *Service) notifyStateChange(sessionID int32, callsign string, state ClearanceState, remarks string) {
+	metrics.PDCStateChange(context.Background(), sessionID, string(state))
+	s.notifyStateChangeFrontend(sessionID, callsign, state, remarks)
+	s.notifyStateChangeEuroscope(sessionID, callsign, state, remarks)
 }
 
 func optionalString(value string) *string {
@@ -171,6 +185,50 @@ func (s *Service) updatePdcData(ctx context.Context, sessionID int32, callsign s
 	pdcData := strip.PdcData.Clone()
 	mutate(pdcData)
 	return s.stripRepo.SetPdcData(ctx, sessionID, callsign, pdcData)
+}
+
+func (s *Service) confirmPilotAcknowledgement(ctx context.Context, sessionID int32, strip *models.Strip, clearedBay string, clearanceCid string, webAcknowledged bool) error {
+	pdcData := strip.PdcData.Clone()
+	if webAcknowledged {
+		if pdcData.Web == nil {
+			pdcData.Web = &models.PdcWebData{}
+		}
+		if pdcData.Web.PilotAcknowledgedAt == nil {
+			now := time.Now().UTC()
+			pdcData.Web.PilotAcknowledgedAt = &now
+		}
+	}
+	pdcData.State = string(StateConfirmed)
+
+	if s.stripService != nil {
+		if err := s.stripService.ConfirmPdcClearance(ctx, sessionID, strip.Callsign, clearedBay, clearanceCid); err != nil {
+			return fmt.Errorf("failed to confirm strip clearance: %w", err)
+		}
+	}
+
+	if err := s.stripRepo.SetPdcData(ctx, sessionID, strip.Callsign, pdcData); err != nil {
+		return fmt.Errorf("failed to persist confirmed PDC data: %w", err)
+	}
+
+	if !strip.Cleared && s.stripService != nil {
+		if err := s.stripService.AutoAssumeForClearedStripByCid(ctx, sessionID, strip.Callsign, clearanceCid); err != nil {
+			slog.ErrorContext(ctx, "Failed to auto-assume confirmed PDC strip", slog.Any("error", err))
+		}
+	}
+
+	s.CancelTimeout(strip.Callsign, sessionID)
+
+	metrics.PDCStateChange(context.Background(), sessionID, string(StateConfirmed))
+	s.notifyStateChangeEuroscope(sessionID, strip.Callsign, StateConfirmed, "")
+	s.notifyClearedFlagEuroscope(sessionID, strip.Callsign, true, clearanceCid)
+
+	s.notifyStateChangeFrontend(sessionID, strip.Callsign, StateConfirmed, "")
+
+	strip.PdcData = pdcData
+	strip.PdcState = string(StateConfirmed)
+	strip.PdcRequestRemarks = nil
+
+	return nil
 }
 
 // Start begins the background polling loop
@@ -699,20 +757,9 @@ func (s *Service) HandleWilco(ctx context.Context, message *IncomingMessage, ses
 		clearedBay = shared.BAY_CLEARED
 	}
 
-	s.CancelTimeout(callsign, session.id)
-
-	if s.stripService != nil {
-		if err := s.stripService.UpdateClearedFlagForMove(ctx, session.id, callsign, true, clearedBay, clearanceCid); err != nil {
-			slog.WarnContext(ctx, "PDC: failed to set cleared flag on WILCO", slog.Any("error", err))
-		}
+	if err := s.confirmPilotAcknowledgement(ctx, session.id, strip, clearedBay, clearanceCid, false); err != nil {
+		return err
 	}
-
-	err = s.stripRepo.UpdatePdcStatus(ctx, session.id, callsign, string(StateConfirmed))
-	if err != nil {
-		return fmt.Errorf("failed to update PDC status: %w", err)
-	}
-
-	s.notifyStateChange(session.id, callsign, StateConfirmed, "")
 
 	slog.DebugContext(ctx, "PDC Service: WILCO received", slog.String("callsign", callsign))
 	return nil

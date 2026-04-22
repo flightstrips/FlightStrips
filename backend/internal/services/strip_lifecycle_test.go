@@ -173,6 +173,11 @@ func TestUnclearStrip_MovesToNotClearedBay(t *testing.T) {
 	const session = int32(1)
 	const callsign = "DLH777"
 	const cid = "9876543"
+	owner := "EKCH_GND"
+	getByCallsignCalls := 0
+	var routeUpdateCallsign string
+	var routeUpdateSession int32
+	var routeUpdateSendUpdate bool
 
 	var movedToBay string
 	stripRepo := &testutil.MockStripRepository{
@@ -186,9 +191,44 @@ func TestUnclearStrip_MovesToNotClearedBay(t *testing.T) {
 		UpdateClearedFlagFn: func(_ context.Context, _ int32, _ string, _ bool, _ string, _ *int32) (int64, error) {
 			return 1, nil
 		},
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			getByCallsignCalls++
+			if getByCallsignCalls == 1 {
+				return &models.Strip{
+					Callsign:       callsign,
+					Version:        int32(2),
+					Owner:          &owner,
+					NextOwners:     []string{"EKCH_TWR"},
+					PreviousOwners: []string{"EKCH_DEL"},
+				}, nil
+			}
+			return &models.Strip{
+				Callsign:       callsign,
+				Version:        int32(3),
+				NextOwners:     []string{"EKCH_TWR"},
+				PreviousOwners: []string{},
+			}, nil
+		},
+		SetPreviousOwnersFn: func(_ context.Context, _ int32, _ string, previousOwners []string) error {
+			assert.Empty(t, previousOwners)
+			return nil
+		},
+		SetOwnerFn: func(_ context.Context, _ int32, _ string, newOwner *string, version int32) (int64, error) {
+			assert.Nil(t, newOwner)
+			assert.Equal(t, int32(2), version)
+			return 1, nil
+		},
 	}
 
 	hub := &testutil.MockFrontendHub{}
+	hub.SetServer(&testutil.MockServer{
+		UpdateRouteForStripFn: func(cs string, sess int32, sendUpdate bool) error {
+			routeUpdateCallsign = cs
+			routeUpdateSession = sess
+			routeUpdateSendUpdate = sendUpdate
+			return nil
+		},
+	})
 	esHub := &testutil.MockEuroscopeHub{}
 	svc := NewStripService(stripRepo)
 	svc.SetFrontendHub(hub)
@@ -199,6 +239,13 @@ func TestUnclearStrip_MovesToNotClearedBay(t *testing.T) {
 	assert.Equal(t, shared.BAY_NOT_CLEARED, movedToBay)
 	require.Len(t, esHub.ClearedFlags, 1)
 	assert.Equal(t, false, esHub.ClearedFlags[0].Flag)
+	require.Len(t, hub.OwnersUpdates, 1)
+	assert.Equal(t, "", hub.OwnersUpdates[0].Owner)
+	assert.Empty(t, hub.OwnersUpdates[0].PreviousOwners)
+	assert.Equal(t, []string{"EKCH_TWR"}, hub.OwnersUpdates[0].NextOwners)
+	assert.Equal(t, callsign, routeUpdateCallsign)
+	assert.Equal(t, session, routeUpdateSession)
+	assert.False(t, routeUpdateSendUpdate)
 }
 
 func TestClearStrip_NoEuroscopeHub(t *testing.T) {
@@ -1214,4 +1261,120 @@ func TestUpdateClearedFlagForMove_FlagUnchanged_NoSideEffects(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, hub.OwnersUpdates, "no auto-assume when flag didn't change")
 	assert.Empty(t, esHub.ClearedFlags, "no EuroScope notification when flag didn't change")
+}
+
+func TestConfirmPdcClearance_FlagUnchanged_DoesNotNotifyEuroscope(t *testing.T) {
+	ctx := context.Background()
+
+	strip := &models.Strip{
+		Callsign: "EZY022",
+		Cleared:  true,
+		Version:  int32(3),
+	}
+
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			return strip, nil
+		},
+		UpdateClearedFlagFn: func(_ context.Context, _ int32, _ string, cleared bool, bay string, _ *int32) (int64, error) {
+			assert.True(t, cleared)
+			assert.Equal(t, shared.BAY_CLEARED, bay)
+			return 1, nil
+		},
+	}
+
+	hub := &testutil.MockFrontendHub{}
+	esHub := &testutil.MockEuroscopeHub{}
+	svc := NewStripService(stripRepo)
+	svc.SetFrontendHub(hub)
+	svc.SetEuroscopeHub(esHub)
+
+	err := svc.ConfirmPdcClearance(ctx, 1, "EZY022", shared.BAY_CLEARED, "CID")
+	require.NoError(t, err)
+	assert.Empty(t, hub.OwnersUpdates, "no auto-assume when strip was already cleared")
+	assert.Empty(t, esHub.ClearedFlags, "PDC confirmation no longer notifies EuroScope directly")
+}
+
+func TestUpdateClearedFlagForMove_ToNotCleared_ClearsOwner(t *testing.T) {
+	ctx := context.Background()
+	const session = int32(1)
+	const callsign = "EZY021"
+	owner := "EKCH_GND"
+	getByCallsignCalls := 0
+	var routeUpdateCallsign string
+	var routeUpdateSession int32
+	var routeUpdateSendUpdate bool
+
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			getByCallsignCalls++
+			if getByCallsignCalls == 1 {
+				return &models.Strip{
+					Callsign:       callsign,
+					Cleared:        true,
+					Version:        int32(4),
+					Owner:          &owner,
+					NextOwners:     []string{"EKCH_TWR"},
+					PreviousOwners: []string{"EKCH_DEL"},
+				}, nil
+			}
+			if getByCallsignCalls == 2 {
+				return &models.Strip{
+					Callsign:       callsign,
+					Version:        int32(5),
+					Owner:          &owner,
+					NextOwners:     []string{"EKCH_TWR"},
+					PreviousOwners: []string{},
+				}, nil
+			}
+
+			return &models.Strip{
+				Callsign:       callsign,
+				Version:        int32(6),
+				Owner:          nil,
+				NextOwners:     []string{"EKCH_TWR"},
+				PreviousOwners: []string{},
+			}, nil
+		},
+		UpdateClearedFlagFn: func(_ context.Context, _ int32, _ string, cleared bool, bay string, _ *int32) (int64, error) {
+			assert.False(t, cleared)
+			assert.Equal(t, shared.BAY_NOT_CLEARED, bay)
+			return 1, nil
+		},
+		SetPreviousOwnersFn: func(_ context.Context, _ int32, _ string, previousOwners []string) error {
+			assert.Empty(t, previousOwners)
+			return nil
+		},
+		SetOwnerFn: func(_ context.Context, _ int32, _ string, newOwner *string, version int32) (int64, error) {
+			assert.Nil(t, newOwner)
+			assert.Equal(t, int32(5), version)
+			return 1, nil
+		},
+	}
+
+	hub := &testutil.MockFrontendHub{}
+	hub.SetServer(&testutil.MockServer{
+		UpdateRouteForStripFn: func(cs string, sess int32, sendUpdate bool) error {
+			routeUpdateCallsign = cs
+			routeUpdateSession = sess
+			routeUpdateSendUpdate = sendUpdate
+			return nil
+		},
+	})
+	esHub := &testutil.MockEuroscopeHub{}
+	svc := NewStripService(stripRepo)
+	svc.SetFrontendHub(hub)
+	svc.SetEuroscopeHub(esHub)
+
+	err := svc.UpdateClearedFlagForMove(ctx, session, callsign, false, shared.BAY_NOT_CLEARED, "CID")
+	require.NoError(t, err)
+	require.Len(t, hub.OwnersUpdates, 1)
+	assert.Equal(t, "", hub.OwnersUpdates[0].Owner)
+	assert.Empty(t, hub.OwnersUpdates[0].PreviousOwners)
+	assert.Equal(t, []string{"EKCH_TWR"}, hub.OwnersUpdates[0].NextOwners)
+	require.Len(t, esHub.ClearedFlags, 1)
+	assert.False(t, esHub.ClearedFlags[0].Flag)
+	assert.Equal(t, callsign, routeUpdateCallsign)
+	assert.Equal(t, session, routeUpdateSession)
+	assert.False(t, routeUpdateSendUpdate)
 }

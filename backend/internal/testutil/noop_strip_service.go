@@ -113,6 +113,9 @@ func (s *NoOpStripService) SyncStrip(_ context.Context, _ int32, _ string, _ int
 func (s *NoOpStripService) UpdateClearedFlagForMove(_ context.Context, _ int32, _ string, _ bool, _ string, _ string) error {
 	return nil
 }
+func (s *NoOpStripService) ConfirmPdcClearance(_ context.Context, _ int32, _ string, _ string, _ string) error {
+	return nil
+}
 func (s *NoOpStripService) UpdateGroundStateForMove(_ context.Context, _ int32, _ string, _ string, _ string, _ string) error {
 	return nil
 }

@@ -100,8 +100,9 @@ export class WebSocketClient {
   }
 
   setToken(token: string): void {
+    const tokenChanged = this.token !== token;
     this.token = token;
-    if (this.isConnected()) {
+    if (tokenChanged && this.isConnected()) {
       this.sendAuthenticationEvent();
     }
   }

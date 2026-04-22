@@ -9,8 +9,9 @@ interface WebSocketProviderProps {
   url: string;
 }
 
-// How early to refresh before the token expires, matching the EuroScope plugin behaviour.
-const REFRESH_BUFFER_MS = 30 * 60 * 1000;
+// Match the Auth0 SDK cache policy and refresh once the token enters its last minute.
+const REFRESH_BUFFER_MS = 60 * 1000;
+const MIN_REFRESH_RETRY_MS = 1000;
 
 function decodeJwtPayload(token: string): Record<string, unknown> | null {
   try {
@@ -39,6 +40,24 @@ function getTokenRating(token: string): number {
   return 0;
 }
 
+function getTokenRefreshDelayMs(token: string, nowMs = Date.now()): number | null {
+  const expiryMs = getTokenExpiryMs(token);
+  if (expiryMs === null) {
+    return null;
+  }
+
+  const remainingMs = expiryMs - nowMs;
+  if (remainingMs <= 0) {
+    return MIN_REFRESH_RETRY_MS;
+  }
+
+  if (remainingMs > REFRESH_BUFFER_MS) {
+    return remainingMs - REFRESH_BUFFER_MS;
+  }
+
+  return Math.max(Math.floor(remainingMs / 2), MIN_REFRESH_RETRY_MS);
+}
+
 export const WebSocketProvider = ({children, url}: WebSocketProviderProps) => {
   // Get the authentication token from Auth0
   const {getAccessTokenSilently, isAuthenticated, isLoading} = useAuth0();
@@ -57,24 +76,26 @@ export const WebSocketProvider = ({children, url}: WebSocketProviderProps) => {
   // creating a circular dependency between the two useCallback hooks.
   const refreshTokenRef = useRef<() => Promise<void>>(async () => {});
 
+  const scheduleRefreshRetry = useCallback(() => {
+    if (refreshTimeoutRef.current) {
+      clearTimeout(refreshTimeoutRef.current);
+    }
+
+    console.warn(`Retrying token refresh in ${Math.round(MIN_REFRESH_RETRY_MS / 1000)}s`);
+    refreshTimeoutRef.current = setTimeout(() => refreshTokenRef.current(), MIN_REFRESH_RETRY_MS);
+  }, []);
+
   const scheduleTokenRefresh = useCallback((token: string) => {
     if (refreshTimeoutRef.current) {
       clearTimeout(refreshTimeoutRef.current);
       refreshTimeoutRef.current = null;
     }
 
-    const expiryMs = getTokenExpiryMs(token);
-    if (expiryMs === null) return;
+    const refreshInMs = getTokenRefreshDelayMs(token);
+    if (refreshInMs === null) return;
 
-    const refreshInMs = expiryMs - Date.now() - REFRESH_BUFFER_MS;
-    if (refreshInMs <= 0) {
-      // Token is already about to expire — refresh immediately on next tick.
-      console.warn('Token is expiring soon; refreshing immediately.');
-      refreshTimeoutRef.current = setTimeout(() => refreshTokenRef.current(), 0);
-    } else {
-      console.log(`Scheduling token refresh in ${Math.round(refreshInMs / 1000)}s`);
-      refreshTimeoutRef.current = setTimeout(() => refreshTokenRef.current(), refreshInMs);
-    }
+    console.log(`Scheduling token refresh in ${Math.round(refreshInMs / 1000)}s`);
+    refreshTimeoutRef.current = setTimeout(() => refreshTokenRef.current(), refreshInMs);
   }, []);
 
   const refreshToken = useCallback(async () => {
@@ -86,8 +107,9 @@ export const WebSocketProvider = ({children, url}: WebSocketProviderProps) => {
       scheduleTokenRefresh(token);
     } catch (error) {
       console.error('Error refreshing access token:', error);
+      scheduleRefreshRetry();
     }
-  }, [getAccessTokenSilently, isAuthenticated, wsClient, scheduleTokenRefresh]);
+  }, [getAccessTokenSilently, isAuthenticated, wsClient, scheduleRefreshRetry, scheduleTokenRefresh]);
 
   // Keep the ref pointing at the latest refreshToken closure.
   useEffect(() => {
@@ -116,16 +138,16 @@ export const WebSocketProvider = ({children, url}: WebSocketProviderProps) => {
     };
 
     getAndSetTokenAndConnect();
+  }, [getAccessTokenSilently, isAuthenticated, isLoading, wsClient, scheduleTokenRefresh]);
 
+  useEffect(() => {
     return () => {
       if (refreshTimeoutRef.current) {
         clearTimeout(refreshTimeoutRef.current);
       }
-      if (wsClient) {
-        wsClient.disconnect();
-      }
+      wsClient.disconnect();
     };
-  }, [getAccessTokenSilently, isAuthenticated, isLoading, wsClient, scheduleTokenRefresh]);
+  }, [wsClient]);
 
   if (isLoading) {
     return (<div

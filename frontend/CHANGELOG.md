@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.27.1](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.27.0...frontend/v0.27.1) (2026-04-23)
+
+
+### Bug Fixes
+
+* **frontend:** prevent websocket token spam ([29cbadc](https://github.com/flightstrips/FlightStrips/commit/29cbadc3e201eacd797af9ee6baa96ee5335d4f1))
+
 ## [0.27.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.26.0...frontend/v0.27.0) (2026-04-21)
 
 

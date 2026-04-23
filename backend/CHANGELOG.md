@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.21.1](https://github.com/flightstrips/FlightStrips/compare/backend/v0.21.0...backend/v0.21.1) (2026-04-23)
+
+
+### Bug Fixes
+
+* **backend:** suppress stale controller offline events ([3050042](https://github.com/flightstrips/FlightStrips/commit/3050042d22a45e90a0f032b18bf06acf97b282f3))
+* misleading error log when controller log off ([010e746](https://github.com/flightstrips/FlightStrips/commit/010e746152f0dc613571365cb3318600884f2df1))
+* **pdc:** stabilize clearance confirmation sync ([27e8314](https://github.com/flightstrips/FlightStrips/commit/27e83142aaed4fa0b3fe938ec530bcb8164fec4b))
+
 ## [0.21.0](https://github.com/flightstrips/FlightStrips/compare/backend/v0.20.0...backend/v0.21.0) (2026-04-21)
 
 

@@ -155,6 +155,16 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 			stand = &strip.Stand
 		}
 
+		origin := strip.Origin
+		if origin == "" {
+			origin = existingStrip.Origin
+		}
+
+		destination := strip.Destination
+		if destination == "" {
+			destination = existingStrip.Destination
+		}
+
 		runway := existingStrip.Runway
 		if strip.Runway != "" {
 			runway = &strip.Runway
@@ -185,8 +195,8 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 		updateStrip := &internalModels.Strip{
 			Callsign:          strip.Callsign,
 			Session:           session,
-			Origin:            strip.Origin,
-			Destination:       strip.Destination,
+			Origin:            origin,
+			Destination:       destination,
 			Alternative:       &strip.Alternate,
 			Route:             &strip.Route,
 			Remarks:           &strip.Remarks,
@@ -202,7 +212,6 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 			CommunicationType: &strip.CommunicationType,
 			AircraftCategory:  &strip.AircraftCategory,
 			Stand:             stand,
-<<<<<<< HEAD
 			Cleared:           effectiveCleared,
 			State:             &effectiveGroundState,
 			PositionLatitude:  &strip.Position.Lat,

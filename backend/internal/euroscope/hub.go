@@ -405,11 +405,7 @@ func (hub *Hub) OnUnregister(client *Client) {
 	}
 	hub.airportClientsMu.Unlock()
 
-	server := hub.server
-	controllerRepo := server.GetControllerRepository()
-	count, err := controllerRepo.SetCid(context.Background(), client.session, client.callsign, nil)
-
-	if err != nil || count != 1 {
+	if err := hub.clearClientCid(client); err != nil {
 		slog.Error("Failed to remove CID for client", slog.String("callsign", client.callsign), slog.String("cid", client.GetCid()), slog.Any("error", err))
 	}
 
@@ -433,6 +429,26 @@ func (hub *Hub) OnUnregister(client *Client) {
 	// Extend pending offline and aircraft-disconnect timers so the new master has
 	// time to send a SyncEvent that cancels them before they fire.
 	hub.extendSessionTimers(client.session)
+}
+
+func (hub *Hub) clearClientCid(client *Client) error {
+	controllerRepo := hub.server.GetControllerRepository()
+	count, err := controllerRepo.SetCid(context.Background(), client.session, client.callsign, nil)
+	if err != nil {
+		return err
+	}
+	if count == 0 {
+		slog.Debug("Controller row already removed before CID cleanup",
+			slog.String("callsign", client.callsign),
+			slog.String("cid", client.GetCid()),
+			slog.Int("session", int(client.session)),
+		)
+		return nil
+	}
+	if count != 1 {
+		return fmt.Errorf("unexpected controller CID cleanup row count: %d", count)
+	}
+	return nil
 }
 
 func (hub *Hub) SendGenerateSquawk(session int32, cid string, callsign string) {

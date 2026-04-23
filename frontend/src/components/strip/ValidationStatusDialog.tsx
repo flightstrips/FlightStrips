@@ -8,10 +8,94 @@ import { HoldingPointDialog } from "@/components/map-dialogs/HoldingPointDialog"
 import { ArrStandDialog } from "@/components/strip/ArrStandDialog";
 import { useStrip, useWebSocketStore } from "@/store/store-hooks";
 import type { ValidationStatus } from "@/api/models";
-import { useState } from "react";
+import { useState, type CSSProperties } from "react";
 
-const CLS_DIALOG_BG =
-  "bg-[#B3B3B3] border border-black p-0 w-[360px] max-w-none max-h-none gap-0 overflow-hidden [&>button]:hidden";
+const BASELINE_WIDTH = 1920;
+const BASELINE_HEIGHT = 1080;
+const DIALOG_SHADOW = "0 min(0.2083vw, 0.3704vh) min(0.2083vw, 0.3704vh) rgba(0,0,0,0.25)";
+
+const toVw = (px: number) => `${(px / BASELINE_WIDTH) * 100}vw`;
+const toVh = (px: number) => `${(px / BASELINE_HEIGHT) * 100}vh`;
+const toVMin = (px: number) => `min(${toVw(px)}, ${toVh(px)})`;
+
+const dialogContentClassName = "max-w-none max-h-none gap-0 overflow-hidden p-0 [&>button]:hidden";
+
+const rootStyle: CSSProperties = {
+  width: toVw(464),
+  height: toVh(347),
+  maxWidth: "none",
+  border: "1px solid #000",
+  backgroundColor: "#B3B3B3",
+  color: "#000",
+  fontFamily: "Rubik, sans-serif",
+  padding: 0,
+};
+
+const frameLineStyle: CSSProperties = {
+  position: "absolute",
+  backgroundColor: "#000",
+  pointerEvents: "none",
+};
+
+const sharedButtonStyle: CSSProperties = {
+  position: "absolute",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  backgroundColor: "#3F3F3F",
+  color: "#FFF",
+  border: "none",
+  boxShadow: DIALOG_SHADOW,
+  fontFamily: "Rubik, sans-serif",
+  fontSize: toVMin(18),
+  fontWeight: 600,
+  lineHeight: 1.15,
+  textAlign: "center",
+  padding: 0,
+};
+
+const messagePanelStyle: CSSProperties = {
+  position: "absolute",
+  left: toVw(23.373),
+  top: toVh(79.938),
+  width: toVw(419.627),
+  height: toVh(85.378),
+  backgroundColor: "#D6D6D6",
+  boxShadow: DIALOG_SHADOW,
+  padding: `${toVh(9)} ${toVw(12)}`,
+  display: "flex",
+  alignItems: "flex-start",
+  justifyContent: "flex-start",
+};
+
+const customActionLabelLines: Record<string, string[]> = {
+  "ASSIGN HP": ["ASSIGN", "HP"],
+  "ASSIGN HS": ["ASSIGN", "HS"],
+  "ASSIGN NEW": ["ASSIGN", "NEW"],
+  "OPEN DCL MENU": ["OPEN", "DCL MENU"],
+  "CLEAR TO LAND": ["CLEAR", "TO LAND"],
+  "REQ NEW": ["REQ NEW"],
+};
+
+function getCustomActionLabelLines(label?: string) {
+  const normalizedLabel = label?.trim().toUpperCase() ?? "";
+
+  if (!normalizedLabel) {
+    return [];
+  }
+
+  if (customActionLabelLines[normalizedLabel]) {
+    return customActionLabelLines[normalizedLabel];
+  }
+
+  const words = normalizedLabel.split(/\s+/);
+
+  if (words.length > 1) {
+    return [words[0], words.slice(1).join(" ")];
+  }
+
+  return [normalizedLabel];
+}
 
 interface ValidationStatusDialogProps {
   callsign: string;
@@ -21,19 +105,20 @@ interface ValidationStatusDialogProps {
 }
 
 export function ValidationStatusDialog({
- callsign,
- status,
- open,
- onOpenChange,
+  callsign,
+  status,
+  open,
+  onOpenChange,
 }: ValidationStatusDialogProps) {
- const acknowledgeValidationStatus = useWebSocketStore((state) => state.acknowledgeValidationStatus);
- const generateSquawk = useWebSocketStore((state) => state.generateSquawk);
- const runwayClearance = useWebSocketStore((state) => state.runwayClearance);
+  const acknowledgeValidationStatus = useWebSocketStore((state) => state.acknowledgeValidationStatus);
+  const generateSquawk = useWebSocketStore((state) => state.generateSquawk);
+  const runwayClearance = useWebSocketStore((state) => state.runwayClearance);
   const strip = useStrip(callsign);
   const [holdingPointOpen, setHoldingPointOpen] = useState(false);
   const [flightPlanOpen, setFlightPlanOpen] = useState(false);
   const [standOpen, setStandOpen] = useState(false);
   const validationDialogOpen = open && !holdingPointOpen && !flightPlanOpen && !standOpen;
+  const customActionLines = getCustomActionLabelLines(status.custom_action?.label);
 
   function handleAcknowledge() {
     acknowledgeValidationStatus(callsign, status.activation_key);
@@ -79,45 +164,163 @@ export function ValidationStatusDialog({
       }}
     >
       <>
-        <DialogContent className={CLS_DIALOG_BG}>
+        <DialogContent className={dialogContentClassName} style={rootStyle}>
           <DialogTitle className="sr-only">Validation Status</DialogTitle>
-          <div className="flex flex-col gap-0">
-            {/* Header */}
-            <div className="bg-[#3F3F3F] text-white text-center font-bold text-sm px-3 py-2 uppercase tracking-wide">
-              {status.issue_type}
+          <div style={{ position: "relative", width: "100%", height: "100%" }}>
+            <p className="sr-only">{status.issue_type}</p>
+
+            <div
+              style={{
+                ...frameLineStyle,
+                left: toVw(12),
+                top: toVh(30),
+                width: toVw(1),
+                height: toVh(307),
+              }}
+            />
+            <div
+              style={{
+                ...frameLineStyle,
+                left: toVw(452),
+                top: toVh(30),
+                width: toVw(1),
+                height: toVh(307),
+              }}
+            />
+            <div
+              style={{
+                ...frameLineStyle,
+                left: toVw(12),
+                top: toVh(337),
+                width: toVw(440),
+                height: "1px",
+              }}
+            />
+            <div
+              style={{
+                ...frameLineStyle,
+                left: toVw(12),
+                top: toVh(30),
+                width: toVw(138.189),
+                height: "1px",
+              }}
+            />
+            <div
+              style={{
+                ...frameLineStyle,
+                left: toVw(313.387),
+                top: toVh(30),
+                width: toVw(138.613),
+                height: "1px",
+              }}
+            />
+
+            <div
+              style={{
+                position: "absolute",
+                top: toVh(15),
+                left: "50%",
+                transform: "translateX(-50%)",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: toVh(2),
+                pointerEvents: "none",
+              }}
+            >
+              <div
+                style={{
+                  fontSize: toVMin(16),
+                  fontWeight: 400,
+                  lineHeight: 1,
+                  textAlign: "center",
+                }}
+              >
+                VALIDATION STATUS
+              </div>
+              <div
+                style={{
+                  fontSize: toVMin(16),
+                  fontWeight: 700,
+                  lineHeight: 1,
+                  textAlign: "center",
+                }}
+              >
+                {callsign}
+              </div>
             </div>
 
-            {/* Message */}
-            <div className="px-4 py-4 text-black text-sm text-center font-medium whitespace-pre-wrap">
-              {status.message}
+            <div style={messagePanelStyle}>
+              <div
+                style={{
+                  fontSize: toVMin(14),
+                  fontWeight: 600,
+                  lineHeight: 1.2,
+                  whiteSpace: "pre-wrap",
+                  overflowWrap: "anywhere",
+                }}
+              >
+                {status.message}
+              </div>
             </div>
 
-            {/* Footer buttons */}
-            <div className="flex items-center justify-around px-4 pb-4 pt-2 gap-2">
-              {status.custom_action && (
-                <button
-                  type="button"
-                  className="flex-1 h-[44px] bg-[#004FD6] text-white font-semibold text-sm shadow outline-none active:brightness-90 rounded-none border-0"
-                  onClick={handleCustomAction}
-                >
-                  {status.custom_action.label}
-                </button>
-              )}
+            {status.custom_action ? (
               <button
                 type="button"
-                className="flex-1 h-[44px] bg-[#3F3F3F] text-white font-semibold text-sm shadow outline-none active:brightness-90 rounded-none border-0"
-                onClick={handleAcknowledge}
+                style={{
+                  ...sharedButtonStyle,
+                  left: toVw(129),
+                  top: toVh(278),
+                  width: toVw(103),
+                  height: toVh(45),
+                  flexDirection: "column",
+                }}
+                onClick={handleCustomAction}
+                aria-label={status.custom_action.label}
               >
-                ACKNOWLEDGE
+                {customActionLines.map((line) => (
+                  <span key={line}>{line}</span>
+                ))}
               </button>
-              <button
-                type="button"
-                className="flex-1 h-[44px] bg-[#3F3F3F] text-white font-semibold text-sm shadow outline-none active:brightness-90 rounded-none border-0"
-                onClick={() => onOpenChange(false)}
-              >
-                ESC
-              </button>
-            </div>
+            ) : (
+              <div
+                aria-hidden="true"
+                style={{
+                  ...sharedButtonStyle,
+                  left: toVw(129),
+                  top: toVh(278),
+                  width: toVw(103),
+                  height: toVh(45),
+                }}
+              />
+            )}
+
+            <button
+              type="button"
+              style={{
+                ...sharedButtonStyle,
+                left: toVw(288),
+                top: toVh(267),
+                width: toVw(155),
+                height: toVh(29),
+              }}
+              onClick={handleAcknowledge}
+            >
+              ACKNOWLEDGE
+            </button>
+            <button
+              type="button"
+              style={{
+                ...sharedButtonStyle,
+                left: toVw(288),
+                top: toVh(301),
+                width: toVw(155),
+                height: toVh(29),
+              }}
+              onClick={() => onOpenChange(false)}
+            >
+              ESC
+            </button>
           </div>
         </DialogContent>
         <HoldingPointDialog

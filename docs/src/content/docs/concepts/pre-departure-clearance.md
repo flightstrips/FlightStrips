@@ -1,46 +1,58 @@
 ---
 title: Pre-departure clearance
-description: Purple, yellow, and navy PDC strip states for EKCH controllers.
+description: How PDC validation paths and PDC-cleared strips appear in FlightStrips.
 sidebar:
   order: 2
 ---
 
-When a pilot requests a **pre-departure clearance** through datalink, the strip colour tells you what to do next.
+Valid PDC requests are handled automatically. This page only documents the PDC states that need controller awareness or manual action.
 
 ---
 
-## PDC requested
+## PDC invalid
 
-**Review the plan and issue if it is valid.**
+**The pilot requested PDC, but the clearance data is not valid.**
 
-![Strip with purple PDC indicator in the CLEARED bay](../../../assets/pdc/atc-pdc-pending.jpg)
+![Invalid PDC strip](../../../assets/validation/pdc-invalid-strip.png)
 
-The pilot has sent a PDC request. The strip shows the **PDC requested** styling (navy highlight). No need for interaction as this point.
+For an invalid PDC request, the strip raises a **validation**:
+
+- the **callsign cell blinks grey**
+- clicking the callsign opens **Validation Status**
+- the dialog offers **OPEN DCL MENU**
+
+![PDC invalid dialog](../../../assets/validation/pdc-invalid-dialog.png)
+
+Use this when the request has a wrong runway, wrong SID, or another backend PDC fault. Correct the data in the DCL window, then issue the clearance or revert to voice.
 
 ---
 
-## PDC Faults
+## Custom / manual PDC
 
-**The automatic PDC workflow has failed.**
+**The request contains free-text remarks and needs manual handling.**
 
-![Strip board with a yellow fault strip (example: EZY47C)](../../../assets/pdc/atc-pending-pdc-action-required.jpg)
+![Custom PDC strip](../../../assets/validation/pdc-custom-strip.png)
 
-Something in the request or flight plan does not match what can be cleared automatically. The strip uses the **faults** (yellow) styling so it stands out.
+The strip keeps the normal strip background, but it also raises a validation so you know the request cannot be processed automatically.
 
-![Flight plan with REVERT TO VOICE](../../../assets/pdc/atc-flightplan-pdc-clr.jpg)
+![Custom PDC dialog](../../../assets/validation/pdc-custom-dialog.png)
 
-Adjust what you can in the flight plan, coordinate with the pilot on frequency if needed, or use **REVERT TO VOICE** when datalink clearance is not appropriate.
+This is typically used when the pilot sends **NITOS remarks** or other manual-handling text. Open the DCL menu, review the remarks, and handle the request manually.
 
 ---
 
 ## Cleared via PDC
 
-![Departure strip board (CLEARED and adjacent bays)](../../../assets/pdc/atc-pdc-cleraed.jpg)
+![PDC cleared strip](../../../assets/validation/pdc-cleared-strip.png)
 
-After you issue the clearance through the PDC flow, the strip shows the **PDC cleared** (navy) styling. Continue with normal monitoring, frequency discipline, and handoffs.
+After **CLD**, the strip moves to **CLEARED**. The strip body returns to the normal cleared-strip background, while the **callsign cell stays navy** to show the departure clearance was sent by PDC.
+
+Once the pilot acknowledges the clearance, the strip returns to normal colouring.
 
 ---
 
 ## Web PDC
 
-Pilots without simulator datalink can file the same request on your site’s **`/pdc`** page . You still clear them from the strip; they read the text on the web and confirm receipt there.
+Pilots without simulator datalink can use the **`/pdc`** page instead. Controller handling is the same: review the strip, clear it from DCL, and wait for pilot acknowledgement on the web side.
+
+For the shared locking and acknowledgement rules used by all validations, see [Validation status](/procedures/validation-status/).

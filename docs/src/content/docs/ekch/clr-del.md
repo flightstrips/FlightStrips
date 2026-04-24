@@ -86,15 +86,20 @@ Complete the clearance in the ATC clearance window and use **CLD** to close the 
 
 ## Pre-departure clearance (PDC / datalink)
 
-When a pilot sends a **PDC/DCL** request, the strip shows **PDC requested** (purple) or **faults** (yellow) styling.
+When a pilot sends a **PDC/DCL** request, CLR DEL only needs to intervene when the request raises a validation or contains manual remarks.
 
-For strip states, **Web PDC**, faults, and coordination, see [Pre-departure clearance (PDC)](/concepts/pre-departure-clearance/).
+The important operator states are:
 
-**Faults (yellow):** open the flight plan and fix or coordinate; you may see **REVERT TO VOICE** when datalink clearance is not appropriate.
+- **PDC invalid** - the callsign starts blinking grey and **OPEN DCL MENU** appears in the validation dialog.
+- **Custom PDC** - the strip keeps the normal background, but the validation dialog tells you the remarks require manual handling.
+- **Cleared via PDC** - after **CLD**, the strip moves to **Cleared** and keeps a navy callsign cell until the pilot acknowledges.
 
-![Strip with PDC fault styling](../../../assets/ekch-clr-del-dlc.jpg)
+Use **REVERT TO VOICE** in the DCL window whenever the datalink path should be abandoned.
 
-![Flight plan with REVERT TO VOICE](../../../assets/ekch-clr-del-fpl-dlc.jpg)
+For the full strip examples and validation behavior, see:
+
+- [Pre-departure clearance](/concepts/pre-departure-clearance/)
+- [Validation status](/procedures/validation-status/)
 
 ---
 

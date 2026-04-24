@@ -3,6 +3,7 @@
 //
 
 #pragma once
+#include <optional>
 #include <unordered_map>
 
 #include "Config.h"
@@ -10,6 +11,12 @@
 typedef std::map<std::string, std::vector<std::string>> CallsignAirportMap;
 
 namespace FlightStrips::configuration {
+    struct AirportFallbackPoint {
+        std::string airport;
+        double latitude;
+        double longitude;
+    };
+
     struct DeIceConfig {
         std::vector<std::string> order;
         std::unordered_map<std::string, std::string> ac_types;
@@ -33,12 +40,14 @@ public:
     [[nodiscard]] bool GetApiEnabled();
     [[nodiscard]] std::string GetLogLevel();
     [[nodiscard]] CallsignAirportMap& GetCallsignAirportMap();
+    [[nodiscard]] std::vector<AirportFallbackPoint>& GetAirportFallbackPoints();
     [[nodiscard]] DeIceConfig& GetDeIceConfig();
     [[nodiscard]] int GetPositionUpdateIntervalSeconds();
     [[nodiscard]] std::string GetStandsFile();
     [[nodiscard]] bool GetDisconnectOnOutOfRange();
 private:
     CallsignAirportMap callsignAirportMap = {};
+    std::vector<AirportFallbackPoint> airportFallbackPoints = {};
     DeIceConfig deIceConfig;
 
     static void touppercase(std::string &s) {
@@ -78,6 +87,19 @@ private:
         }
 
         return result;
+    }
+
+    static std::optional<double> parse_double(const tortellini::ini::section &section, const char *key) {
+        const auto value = std::string(section[key] | "");
+        if (value.empty()) {
+            return std::nullopt;
+        }
+
+        try {
+            return std::stod(value);
+        } catch (...) {
+            return std::nullopt;
+        }
     }
 };
 

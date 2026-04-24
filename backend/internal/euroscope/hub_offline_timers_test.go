@@ -118,6 +118,45 @@ func TestClassifyOfflineAction_UsesSilentCleanupWhenPositionAlreadyCovered(t *te
 	assert.Equal(t, offlineActionSilentCleanup, decision)
 }
 
+func TestClassifyOfflineAction_IgnoresObserverCoverage(t *testing.T) {
+	const session = int32(1)
+	const callsign = "EKCH_TWR"
+	const position = "118.700"
+
+	server := &testutil.MockServer{
+		FrontendHubVal: &testutil.MockFrontendHub{},
+		ControllerRepoVal: &testutil.MockControllerRepository{
+			GetByCallsignFn: func(_ context.Context, sess int32, cs string) (*models.Controller, error) {
+				assert.Equal(t, session, sess)
+				assert.Equal(t, callsign, cs)
+				return &models.Controller{
+					Callsign: callsign,
+					Position: position,
+				}, nil
+			},
+			GetByPositionFn: func(_ context.Context, sess int32, pos string) ([]*models.Controller, error) {
+				assert.Equal(t, session, sess)
+				assert.Equal(t, position, pos)
+				return []*models.Controller{
+					{Callsign: callsign, Position: position},
+					{Callsign: "FR_OBS", Position: position, Observer: true},
+				}, nil
+			},
+		},
+	}
+
+	hub := buildReconcileHub(server)
+	decision, err := hub.classifyOfflineAction(context.Background(), &offlineTimerEntry{
+		session:      session,
+		callsign:     callsign,
+		positionFreq: position,
+		positionName: "EKCH_TWR",
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, offlineActionFinalize, decision)
+}
+
 func TestClassifyOfflineAction_FinalizesWhenOriginalControllerStillOwnsPosition(t *testing.T) {
 	const session = int32(1)
 	const callsign = "EKCH_TWR"

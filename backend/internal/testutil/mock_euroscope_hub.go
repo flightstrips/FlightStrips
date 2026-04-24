@@ -73,6 +73,7 @@ type MockEuroscopeHub struct {
 	server shared.Server
 
 	HasActiveClientForAirportFn func(airport string) bool
+	IsObserverCidFn             func(cid string) bool
 	GetMasterCallsignFn         func(session int32) string
 
 	ClearedFlags          []ClearedFlagCall
@@ -104,6 +105,13 @@ func (m *MockEuroscopeHub) GetMasterCallsign(session int32) string {
 		return m.GetMasterCallsignFn(session)
 	}
 	return ""
+}
+
+func (m *MockEuroscopeHub) IsObserverCid(cid string) bool {
+	if m.IsObserverCidFn != nil {
+		return m.IsObserverCidFn(cid)
+	}
+	return false
 }
 
 func (m *MockEuroscopeHub) GetRunwayMismatchStatus(session int32, cid string) (bool, bool) {

@@ -29,7 +29,13 @@ func (q *Queries) DeleteSession(ctx context.Context, id int32) (int64, error) {
 const getExpiredSessions = `-- name: GetExpiredSessions :many
 SELECT id
 FROM sessions
-WHERE NOT EXISTS (SELECT 1 FROM controllers WHERE last_seen_euroscope > $1)
+WHERE NOT EXISTS (
+    SELECT 1
+    FROM controllers
+    WHERE controllers.session = sessions.id
+      AND controllers.last_seen_euroscope > $1
+      AND controllers.observer = false
+)
 `
 
 func (q *Queries) GetExpiredSessions(ctx context.Context, expiredTime pgtype.Timestamp) ([]int32, error) {

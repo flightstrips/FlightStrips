@@ -49,7 +49,7 @@ namespace FlightStrips::graphics {
         }
 
         const auto needsSquawk = m_plugin->GetNeedsSquawk();
-        if (needsSquawk.has_value()) {
+        if (!m_plugin->GetConnectionState().observer && needsSquawk.has_value()) {
             StartTagFunction("", "TopSky plugin", 0, needsSquawk.value().c_str(), "TopSky plugin", 667, {}, {});
         }
 
@@ -205,6 +205,10 @@ namespace FlightStrips::graphics {
             return false;
         }
 
+        if (m_plugin->GetConnectionState().observer) {
+            return true;
+        }
+
         if (objectType == InfoScreenObjectIds::PdcFieldRunway) {
             StartTagFunction(m_pdcPopup->callsign.c_str(),
                              PLUGIN_NAME,
@@ -255,6 +259,14 @@ namespace FlightStrips::graphics {
     bool InfoScreen::HandlePdcPopupClick(const int objectType, const POINT pt, const RECT area) {
         if (m_pdcPopup == nullptr || !m_pdcPopup->isOpen) {
             return false;
+        }
+
+        if (m_plugin->GetConnectionState().observer) {
+            if (objectType != InfoScreenObjectIds::PdcBackground) {
+                m_pdcPopup->isOpen = false;
+                RequestRefresh();
+            }
+            return true;
         }
 
         if (objectType == InfoScreenObjectIds::PdcBackground) {
@@ -353,6 +365,9 @@ namespace FlightStrips::graphics {
         }
 
         if (_stricmp(sCommandLine, COMMAND_CDM_MASTER) == 0) {
+            if (m_plugin->GetConnectionState().observer) {
+                return true;
+            }
             if (const auto ws = webSocketService.lock()) {
                 ws->SendEvent(CdmMasterToggleEvent(true));
             }
@@ -360,6 +375,9 @@ namespace FlightStrips::graphics {
         }
 
         if (_stricmp(sCommandLine, COMMAND_CDM_SLAVE) == 0) {
+            if (m_plugin->GetConnectionState().observer) {
+                return true;
+            }
             if (const auto ws = webSocketService.lock()) {
                 ws->SendEvent(CdmMasterToggleEvent(false));
             }

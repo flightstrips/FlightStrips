@@ -189,6 +189,93 @@ func TestApplyOrValidateRunways_SlaveMismatch_TargetsFrontendAndAlertsOnceUntilR
 	assert.Equal(t, readRunwayMismatchAlert(t, hub), readRunwayMismatchAlertPayload(mismatchRunways))
 }
 
+func TestApplyOrValidateRunways_ObserverMismatch_TargetsFrontendAndAlerts(t *testing.T) {
+	sessionRepo := &testutil.MockSessionRepository{
+		GetByIDFn: func(_ context.Context, id int32) (*models.Session, error) {
+			return &models.Session{
+				ID:      id,
+				Airport: "EKCH",
+				ActiveRunways: pkgModels.ActiveRunways{
+					DepartureRunways: []string{"04L"},
+					ArrivalRunways:   []string{"22R"},
+				},
+			}, nil
+		},
+	}
+
+	frontendHub := &testutil.MockFrontendHub{}
+	mockServer := &testutil.MockServer{
+		SessionRepoVal: sessionRepo,
+		FrontendHubVal: frontendHub,
+	}
+
+	hub := buildTestHub(mockServer, &testutil.NoOpStripService{})
+	master := buildTestClient(hub, 1, "cid-master", "EKCH_A_TWR")
+	observer := buildTestClient(hub, 1, "cid-observer", "EKCH_OBS")
+	observer.observer = true
+	hub.master[1] = master
+
+	err := applyOrValidateRunways(context.Background(), observer, []esEvents.SyncRunway{
+		{Name: "22L", Departure: true},
+		{Name: "04R", Arrival: true},
+	})
+	require.NoError(t, err)
+	require.Len(t, frontendHub.SentMessages, 1)
+
+	runwayEvent, ok := frontendHub.SentMessages[0].Message.(frontendEvents.RunwayConfigurationEvent)
+	require.True(t, ok)
+	assert.Equal(t, "cid-observer", frontendHub.SentMessages[0].Cid)
+	assert.True(t, runwayEvent.RunwaySetup.DepartureMismatch)
+	assert.True(t, runwayEvent.RunwaySetup.ArrivalMismatch)
+
+	departureMismatch, arrivalMismatch := hub.GetRunwayMismatchStatus(1, "cid-observer")
+	assert.True(t, departureMismatch)
+	assert.True(t, arrivalMismatch)
+
+	alert := readRunwayMismatchAlert(t, hub)
+	assert.Equal(t, []string{"04L"}, alert.ExpectedDeparture)
+	assert.Equal(t, []string{"22R"}, alert.ExpectedArrival)
+	assert.Equal(t, []string{"22L"}, alert.CurrentDeparture)
+	assert.Equal(t, []string{"04R"}, alert.CurrentArrival)
+}
+
+func TestApplyOrValidateRunways_ObserverWithoutMasterDoesNotFlagMismatch(t *testing.T) {
+	sessionRepo := &testutil.MockSessionRepository{
+		GetByIDFn: func(_ context.Context, id int32) (*models.Session, error) {
+			return &models.Session{
+				ID:      id,
+				Airport: "EKCH",
+				ActiveRunways: pkgModels.ActiveRunways{
+					DepartureRunways: []string{"04L"},
+					ArrivalRunways:   []string{"22R"},
+				},
+			}, nil
+		},
+	}
+
+	frontendHub := &testutil.MockFrontendHub{}
+	mockServer := &testutil.MockServer{
+		SessionRepoVal: sessionRepo,
+		FrontendHubVal: frontendHub,
+	}
+
+	hub := buildTestHub(mockServer, &testutil.NoOpStripService{})
+	observer := buildTestClient(hub, 1, "cid-observer", "EKCH_OBS")
+	observer.observer = true
+
+	err := applyOrValidateRunways(context.Background(), observer, []esEvents.SyncRunway{
+		{Name: "22L", Departure: true},
+		{Name: "04R", Arrival: true},
+	})
+	require.NoError(t, err)
+	assert.Empty(t, frontendHub.SentMessages)
+	assertNoRunwayAlertQueued(t, hub)
+
+	departureMismatch, arrivalMismatch := hub.GetRunwayMismatchStatus(1, "cid-observer")
+	assert.False(t, departureMismatch)
+	assert.False(t, arrivalMismatch)
+}
+
 func readRunwayMismatchAlert(t *testing.T, hub *Hub) esEvents.RunwayMismatchAlertEvent {
 	t.Helper()
 

@@ -29,6 +29,7 @@ type Controller struct {
 	LastSeenEuroscope pgtype.Timestamp
 	LastSeenFrontend  pgtype.Timestamp
 	Layout            *string
+	Observer          bool
 }
 
 type Coordination struct {
@@ -110,6 +111,7 @@ type Strip struct {
 	CdmData                  []byte
 	RunwayConfirmed          bool
 	PdcData                  []byte
+	ValidationStatus         []byte
 }
 
 type TacticalStrip struct {

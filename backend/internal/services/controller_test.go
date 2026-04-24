@@ -207,6 +207,78 @@ func TestControllerOffline_PositionAlreadyCovered_DeletesStaleRowWithoutOfflineE
 	assert.Empty(t, hub.ControllerOfflines, "replacement coverage should suppress stale offline notification")
 }
 
+func TestControllerOffline_ObserverCoverageDoesNotSuppressOfflineHandling(t *testing.T) {
+	ctx := context.Background()
+	t.Cleanup(config.SetPositionsForTest([]config.Position{
+		{Name: "EKCH_TWR", Frequency: "118.700", Section: "TWR"},
+	}))
+	const session = int32(1)
+	const callsign = "EKCH_TWR"
+	const position = "118.700"
+
+	existingController := &models.Controller{
+		Callsign: callsign,
+		Session:  session,
+		Position: position,
+	}
+
+	ctrlRepo := &testutil.MockControllerRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, cs string) (*models.Controller, error) {
+			assert.Equal(t, callsign, cs)
+			return existingController, nil
+		},
+		GetByPositionFn: func(_ context.Context, _ int32, pos string) ([]*models.Controller, error) {
+			assert.Equal(t, position, pos)
+			return []*models.Controller{
+				existingController,
+				{Callsign: "FR_OBS", Session: session, Position: position, Observer: true},
+			}, nil
+		},
+	}
+
+	hub := &testutil.MockFrontendHub{}
+	mockServer := &testutil.MockServer{FrontendHubVal: hub}
+	svc := NewControllerService(ctrlRepo)
+	svc.SetServer(mockServer)
+
+	result, err := svc.ControllerOffline(ctx, session, callsign)
+	require.NoError(t, err)
+	assert.True(t, result.ShouldScheduleTimer)
+	assert.Empty(t, hub.ControllerOfflines)
+}
+
+func TestControllerOnline_New_IgnoresObserverCoverageForSingleOnPosition(t *testing.T) {
+	ctx := context.Background()
+	t.Cleanup(config.SetPositionsForTest([]config.Position{
+		{Name: "EKCH_TWR", Frequency: "118.700", Section: "TWR"},
+	}))
+	const session = int32(1)
+	const callsign = "EKCH_TWR"
+	const position = "118.700"
+
+	ctrlRepo := &testutil.MockControllerRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Controller, error) {
+			return nil, pgx.ErrNoRows
+		},
+		CreateFn: func(_ context.Context, _ *models.Controller) error { return nil },
+		GetByPositionFn: func(_ context.Context, _ int32, pos string) ([]*models.Controller, error) {
+			assert.Equal(t, position, pos)
+			return []*models.Controller{
+				{Callsign: callsign, Session: session, Position: position},
+				{Callsign: "FR_OBS", Session: session, Position: position, Observer: true},
+			}, nil
+		},
+	}
+
+	mockServer := &testutil.MockServer{}
+	svc := NewControllerService(ctrlRepo)
+	svc.SetServer(mockServer)
+
+	result, err := svc.ControllerOnline(ctx, session, callsign, position, "EKCH_TWR")
+	require.NoError(t, err)
+	assert.True(t, result.SingleOnPosition)
+}
+
 func TestControllerOnline_New_SendsOnlineEvent(t *testing.T) {
 	ctx := context.Background()
 	const session = int32(1)

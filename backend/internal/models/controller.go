@@ -7,6 +7,7 @@ type Controller struct {
 	Session           int32
 	Callsign          string
 	Position          string
+	Observer          bool
 	Cid               *string
 	LastSeenEuroscope *time.Time
 	LastSeenFrontend  *time.Time

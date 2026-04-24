@@ -1,6 +1,6 @@
 -- name: InsertController :exec
-INSERT INTO controllers (callsign, session, position, cid, last_seen_euroscope, last_seen_frontend)
-VALUES ($1, $2, $3, $4, $5, $6);
+INSERT INTO controllers (callsign, session, position, observer, cid, last_seen_euroscope, last_seen_frontend)
+VALUES ($1, $2, $3, $4, $5, $6, $7);
 
 -- name: BulkInsertControllers :copyfrom
 INSERT INTO controllers (callsign, session, position)
@@ -24,6 +24,11 @@ WHERE cid = @cid::text AND session = $2;
 -- name: SetControllerCid :execrows
 UPDATE controllers
 SET cid = $1
+WHERE callsign = $2 AND session = $3;
+
+-- name: SetControllerObserver :execrows
+UPDATE controllers
+SET observer = $1
 WHERE callsign = $2 AND session = $3;
 
 -- name: GetControllerByCid :one

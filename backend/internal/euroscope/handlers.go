@@ -17,6 +17,10 @@ import (
 type Message = shared.Message[euroscope.EventType]
 
 func handleLoginEvent(ctx context.Context, client *Client, message Message) error {
+	previousPosition := client.position
+	previousCallsign := client.callsign
+	previousAirport := client.airport
+
 	event, _, err := client.hub.handleLogin(message.Message, client.user)
 	if err != nil {
 		return err
@@ -24,9 +28,15 @@ func handleLoginEvent(ctx context.Context, client *Client, message Message) erro
 
 	client.position = event.Position
 	client.callsign = event.Callsign
+	client.observer = event.Observer
+	client.hub.setObserverCid(client.GetCid(), event.Observer)
 
-	if layoutErr := client.hub.server.UpdateLayouts(client.session); layoutErr != nil {
-		slog.ErrorContext(ctx, "Failed to update layouts after ES re-login", slog.String("cid", client.GetCid()), slog.Any("error", layoutErr))
+	if !event.Observer {
+		if layoutErr := client.hub.server.UpdateLayouts(client.session); layoutErr != nil {
+			slog.ErrorContext(ctx, "Failed to update layouts after ES re-login", slog.String("cid", client.GetCid()), slog.Any("error", layoutErr))
+		}
+	} else if previousPosition != client.position || previousCallsign != client.callsign || previousAirport != client.airport {
+		client.hub.server.GetFrontendHub().CidOnline(client.session, client.GetCid())
 	}
 
 	return nil
@@ -533,6 +543,17 @@ func applyOrValidateRunways(ctx context.Context, client *Client, runways []euros
 		currentSession, err := sessionRepo.GetByID(ctx, client.session)
 		if err != nil {
 			return err
+		}
+		if _, hasMaster := client.hub.master[client.session]; !hasMaster {
+			client.hub.evaluateClientRunwayState(
+				client.session,
+				client.GetCid(),
+				client.callsign,
+				activeRunways,
+				activeRunways,
+				true,
+			)
+			return nil
 		}
 		evaluation := client.hub.evaluateClientRunwayState(
 			client.session,

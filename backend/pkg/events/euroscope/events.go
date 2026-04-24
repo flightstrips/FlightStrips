@@ -95,6 +95,7 @@ type LoginEvent struct {
 	Position   string    `json:"position"`
 	Callsign   string    `json:"callsign"`
 	Range      int32     `json:"range"`
+	Observer   bool      `json:"observer"`
 }
 
 type ControllerOnlineEvent struct {
@@ -262,8 +263,9 @@ type RunwayEvent struct {
 type SessionInfoRole string
 
 const (
-	SessionInfoMaster SessionInfoRole = "master"
-	SessionInfoSlave  SessionInfoRole = "slave"
+	SessionInfoMaster   SessionInfoRole = "master"
+	SessionInfoSlave    SessionInfoRole = "slave"
+	SessionInfoObserver SessionInfoRole = "observer"
 )
 
 type SessionInfoEvent struct {

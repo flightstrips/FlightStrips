@@ -55,7 +55,7 @@ namespace FlightStrips::websocket {
                              CONNECTION_TYPE_DIRECT || state.connection_type == CONNECTION_TYPE_PLAYBACK;
         const bool auth_ok = m_authentication_service->GetAuthenticationState() == authentication::AUTHENTICATED
                           || m_authentication_service->GetAuthenticationState() == authentication::REFRESH;
-        const bool should_connect = freq_ok && airport_ok && conn_ok && auth_ok;
+        const bool should_connect = airport_ok && conn_ok && auth_ok && freq_ok;
 
         // Track how long we've been online (network+airport+auth) but without a primary frequency.
         // If a primary is selected after ≥30s in this state, skip the connect delay.
@@ -118,6 +118,7 @@ namespace FlightStrips::websocket {
             std::lock_guard lock(message_mutex_);
             messages_.clear();
             client_state = STATE_UNKNOWN;
+            observer = false;
             connect_after_.reset();
             pending_connect_ = false;
             fail_count_ = 0;
@@ -137,6 +138,12 @@ namespace FlightStrips::websocket {
 
         if (!session_name.empty() && session_name != GetEffectiveSessionName(state)) {
             Logger::Info("Session mode changed: '{}' -> '{}', reconnecting", session_name, GetEffectiveSessionName(state));
+            Reconnect();
+            return;
+        }
+
+        if (observer != state.observer) {
+            Logger::Info("Observer mode changed: {} -> {}, reconnecting", observer, state.observer);
             Reconnect();
             return;
         }
@@ -180,6 +187,14 @@ namespace FlightStrips::websocket {
         return IsConnected() && client_state == STATE_MASTER;
     }
 
+    bool WebSocketService::ShouldProcessServerMessageType(const std::string &type) const {
+        if (!(m_plugin->GetConnectionState().observer || client_state == STATE_OBSERVER)) {
+            return true;
+        }
+
+        return type == EVENT_SESSION_INFO_NAME || type == EVENT_RUNWAY_MISMATCH_ALERT_NAME;
+    }
+
     void WebSocketService::Reconnect() {
         connect_after_.reset();
         pending_connect_ = false;
@@ -187,6 +202,7 @@ namespace FlightStrips::websocket {
         connect_readiness_ = ConnectReadiness::RECONNECT;
         primary.clear();
         session_name.clear();
+        observer = false;
 
         if (IsConnected()) {
             webSocket->Disconnect();
@@ -199,6 +215,14 @@ namespace FlightStrips::websocket {
 
     void WebSocketService::SetSessionState(const ClientState state) {
         client_state = state;
+    }
+
+    bool WebSocketService::CanSendEventType(const EventType type) const {
+        if (!(m_plugin->GetConnectionState().observer || client_state == STATE_OBSERVER)) {
+            return true;
+        }
+
+        return type == EVENT_TOKEN || type == EVENT_LOGIN || type == EVENT_RUNWAY;
     }
 
     Stats WebSocketService::GetStats() const {
@@ -250,8 +274,9 @@ namespace FlightStrips::websocket {
         const auto& state = m_plugin->GetConnectionState();
         primary = state.primary_frequency;
         session_name = GetEffectiveSessionName(state);
+        observer = state.observer;
 
-        const auto login = LoginEvent(state.relevant_airport, session_name, state.primary_frequency, state.callsign, state.range);
+        const auto login = LoginEvent(state.relevant_airport, session_name, state.primary_frequency, state.callsign, state.range, state.observer);
         SendEvent(login);
     }
 }

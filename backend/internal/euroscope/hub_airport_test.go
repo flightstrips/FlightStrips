@@ -1,6 +1,9 @@
 package euroscope
 
 import (
+	"FlightStrips/internal/shared"
+	"FlightStrips/internal/testutil"
+	"FlightStrips/pkg/events"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -73,6 +76,30 @@ func TestHasActiveClientForAirport_MultipleClients(t *testing.T) {
 	hub.airportClientsMu.Unlock()
 
 	assert.False(t, hub.HasActiveClientForAirport("EKCH"), "all clients disconnected")
+}
+
+func TestOnRegister_ObserverDoesNotCountAsOperationalAirportPresence(t *testing.T) {
+	frontendHub := &testutil.MockFrontendHub{}
+	hub := &Hub{
+		airportClientCount: make(map[string]int),
+		observerByCid:      make(map[string]bool),
+		master:             make(map[int32]*Client),
+		server:             &testutil.MockServer{FrontendHubVal: frontendHub},
+	}
+
+	client := &Client{
+		hub:      hub,
+		session:  42,
+		airport:  "EKCH",
+		observer: true,
+		send:     make(chan events.OutgoingMessage, 1),
+		user:     shared.NewAuthenticatedUser("1234567", 0, nil),
+	}
+
+	hub.OnRegister(client)
+
+	assert.False(t, hub.HasActiveClientForAirport("EKCH"))
+	assert.Empty(t, frontendHub.CidOnlines)
 }
 
 func require_true(t *testing.T, v bool) {

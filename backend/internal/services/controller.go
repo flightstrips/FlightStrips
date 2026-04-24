@@ -12,6 +12,10 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
+func (cs *ControllerService) isOperationalController(controller *internalModels.Controller) bool {
+	return controller != nil && !controller.Observer
+}
+
 // ControllerService owns all controller online/offline business logic.
 type ControllerService struct {
 	controllerRepo repository.ControllerRepository
@@ -104,11 +108,17 @@ func (cs *ControllerService) ControllerOnline(ctx context.Context, session int32
 	if positionName != "" {
 		controllers, err := cs.controllerRepo.GetByPosition(ctx, session, position)
 		if err == nil {
-			singleOnPosition = len(controllers) == 1
+			operationalControllers := 0
+			for _, controller := range controllers {
+				if cs.isOperationalController(controller) {
+					operationalControllers++
+				}
+			}
+			singleOnPosition = operationalControllers == 1
 			slog.DebugContext(ctx, "Controller online (position change): single-on-position check",
 				slog.String("callsign", callsign),
 				slog.String("position", positionName),
-				slog.Int("controllersOnPosition", len(controllers)),
+				slog.Int("controllersOnPosition", operationalControllers),
 				slog.Bool("singleOnPosition", singleOnPosition))
 		}
 	}
@@ -158,10 +168,16 @@ func (cs *ControllerService) performOnlineOrchestration(ctx context.Context, ses
 	if positionName != "" {
 		controllers, err := cs.controllerRepo.GetByPosition(ctx, session, position)
 		if err == nil {
-			singleOnPosition = len(controllers) == 1
+			operationalControllers := 0
+			for _, controller := range controllers {
+				if cs.isOperationalController(controller) {
+					operationalControllers++
+				}
+			}
+			singleOnPosition = operationalControllers == 1
 			slog.DebugContext(ctx, "Controller online (new): single-on-position check",
 				slog.String("position", positionName),
-				slog.Int("controllersOnPosition", len(controllers)),
+				slog.Int("controllersOnPosition", operationalControllers),
 				slog.Bool("singleOnPosition", singleOnPosition))
 		}
 	}
@@ -220,7 +236,7 @@ func (cs *ControllerService) ControllerOffline(ctx context.Context, session int3
 		return shared.ControllerOfflineResult{}, err
 	}
 	for _, other := range others {
-		if other.Callsign != callsign {
+		if other.Callsign != callsign && cs.isOperationalController(other) {
 			slog.DebugContext(ctx, "Controller offline but position still covered by another controller — deleting stale row without offline notification",
 				slog.String("callsign", callsign),
 				slog.String("position", positionName),

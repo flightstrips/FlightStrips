@@ -63,6 +63,35 @@ namespace FlightStrips::configuration {
         return callsignAirportMap;
     }
 
+    std::vector<AirportFallbackPoint>& AppConfig::GetAirportFallbackPoints() {
+        if (!airportFallbackPoints.empty()) { return airportFallbackPoints; }
+
+        for (const auto [name, section] : ini) {
+            auto nameStr = std::string(name);
+            const auto airportsLength = std::strlen("airports.");
+            if (_strnicmp(nameStr.c_str(), "airports.", airportsLength) != 0) {
+                continue;
+            }
+
+            auto airport = nameStr.substr(airportsLength);
+            touppercase(airport);
+
+            const auto latitude = parse_double(section, "latitude");
+            const auto longitude = parse_double(section, "longitude");
+            if (!latitude.has_value() || !longitude.has_value()) {
+                continue;
+            }
+
+            airportFallbackPoints.push_back(AirportFallbackPoint{
+                airport,
+                *latitude,
+                *longitude,
+            });
+        }
+
+        return airportFallbackPoints;
+    }
+
     DeIceConfig& AppConfig::GetDeIceConfig() {
         if (!deIceConfig.order.empty()) { return deIceConfig; }
 

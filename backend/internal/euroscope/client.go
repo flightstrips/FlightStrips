@@ -20,6 +20,7 @@ type Client struct {
 	position string
 	callsign string
 	airport  string
+	observer bool
 }
 
 func (c *Client) GetSendChannel() chan events.OutgoingMessage {
@@ -60,6 +61,14 @@ func (c *Client) IsAuthenticated() bool {
 
 func (c *Client) SetUser(user shared.AuthenticatedUser) {
 	c.user = user
+}
+
+func (c *Client) CanHandleMessage(messageType string) error {
+	if !c.observer || messageType == "token" || messageType == "login" || messageType == "runway" {
+		return nil
+	}
+
+	return errors.New("observer Euroscope clients cannot publish operational data")
 }
 
 // HandlePong handles pong messages from the client

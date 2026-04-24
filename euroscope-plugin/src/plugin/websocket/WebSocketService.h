@@ -17,7 +17,8 @@ namespace FlightStrips::websocket {
     enum ClientState {
         STATE_UNKNOWN,
         STATE_SLAVE,
-        STATE_MASTER
+        STATE_MASTER,
+        STATE_OBSERVER
     };
 
     struct Stats {
@@ -47,6 +48,7 @@ namespace FlightStrips::websocket {
         bool IsPendingConnect() const;
         bool IsBackingOff() const;
         bool ShouldSend() const;
+        bool ShouldProcessServerMessageType(const std::string& type) const;
         void Reconnect();
         void SetSessionState(ClientState state);
         Stats GetStats() const;
@@ -73,6 +75,7 @@ namespace FlightStrips::websocket {
         std::unique_ptr<WebSocket> webSocket;
         std::string primary;
         std::string session_name;
+        bool observer = false;
         ClientState client_state = STATE_UNKNOWN;
 
         mutable std::mutex message_mutex_;
@@ -94,6 +97,7 @@ namespace FlightStrips::websocket {
         int tx = 0;
         int rx = 0;
 
+        bool CanSendEventType(EventType type) const;
         void OnMessage(const std::string &message);
         void SendLoginEvent();
     };
@@ -101,6 +105,10 @@ namespace FlightStrips::websocket {
 
 template<typename T> requires std::is_base_of_v<Event, T>
 void FlightStrips::websocket::WebSocketService::SendEvent(const T &event) {
+    if (!CanSendEventType(event.type)) {
+        Logger::Debug("Suppressing event type {} while observer mode is active", static_cast<int>(event.type));
+        return;
+    }
     ++tx;
     const nlohmann::json json = event;
     const auto json_str = json.dump(-1, ' ', false, nlohmann::detail::error_handler_t::ignore);

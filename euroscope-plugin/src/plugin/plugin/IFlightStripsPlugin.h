@@ -18,6 +18,7 @@ namespace FlightStrips {
         std::string primary_frequency;
         std::string callsign;
         std::string relevant_airport;
+        bool observer = false;
         bool prefer_sweatbox = false;
     };
 

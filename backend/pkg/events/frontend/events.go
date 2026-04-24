@@ -215,6 +215,8 @@ type InitialEvent struct {
 	AvailableSids      pkgModels.AvailableSids `json:"available_sids"`
 	InitialCFLByRunway map[string]int32        `json:"initial_cfl_by_runway"`
 	TransitionAltitude int32                   `json:"transition_altitude"`
+	ReadOnly           bool                    `json:"read_only"`
+	PositionAvailable  bool                    `json:"position_available"`
 }
 
 func (i InitialEvent) Marshal() ([]byte, error) {
@@ -365,7 +367,9 @@ func (b BulkBayEvent) GetType() EventType {
 	return BulkBay
 }
 
-type DisconnectEvent struct{}
+type DisconnectEvent struct {
+	ReadOnly bool `json:"read_only,omitempty"`
+}
 
 func (d DisconnectEvent) Marshal() ([]byte, error) {
 	return marshall(d)

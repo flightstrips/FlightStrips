@@ -45,6 +45,7 @@ set(ALL_FILES
         messages/MessageServiceTest.cpp
 
         # Plugin
+        plugin/AirportResolutionTest.cpp
         plugin/LookupAuditTest.cpp
 
         # Handlers

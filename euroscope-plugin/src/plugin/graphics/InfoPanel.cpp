@@ -37,6 +37,19 @@ namespace FlightStrips::graphics {
         };
     }
 
+    std::string GetInfoPanelRoleLabel(const websocket::ClientState role) {
+        switch (role) {
+            case websocket::STATE_MASTER:
+                return "MASTER";
+            case websocket::STATE_SLAVE:
+                return "SLAVE";
+            case websocket::STATE_OBSERVER:
+                return "OBS";
+            default:
+                return "SYNC";
+        }
+    }
+
     void DrawInfoPanel(EuroScopePlugIn::CRadarScreen& screen,
                        Graphics& graphics,
                        const Colors& colors,
@@ -182,9 +195,7 @@ namespace FlightStrips::graphics {
 
         if (data.connected) {
             const std::string connectionType = GetEffectiveSessionShortName(data.connectionState);
-            const std::string role = data.stats.role == websocket::STATE_MASTER ? "MASTER"
-                                     : data.stats.role == websocket::STATE_SLAVE ? "SLAVE"
-                                                                                  : "SYNC";
+            const std::string role = GetInfoPanelRoleLabel(data.stats.role);
 
             const RECT infoRow1 = {left + 2, y, right, y + 13};
             graphics.DrawString(data.connectionState.callsign, infoRow1, colors.whiteBrush.get(), Gdiplus::StringAlignmentNear);

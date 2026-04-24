@@ -62,6 +62,11 @@ namespace FlightStrips::messages {
         // TODO change to debug
         Logger::Info("Received message: {}", type);
 
+        if (!m_webSocketService->ShouldProcessServerMessageType(type)) {
+            Logger::Debug("Ignoring server message while observer mode is active: {}", type);
+            return;
+        }
+
         if (type == EVENT_SESSION_INFO_NAME) {
             HandleSessionInfoEvent(message.get<SessionInfoEvent>());
         } else if (type == EVENT_RUNWAY_MISMATCH_ALERT_NAME) {
@@ -124,7 +129,12 @@ namespace FlightStrips::messages {
     }
 
     void MessageService::HandleSessionInfoEvent(const SessionInfoEvent &event) const {
-        const auto state = event.role == "master" ? websocket::STATE_MASTER : websocket::STATE_SLAVE;
+        auto state = websocket::STATE_SLAVE;
+        if (event.role == "master") {
+            state = websocket::STATE_MASTER;
+        } else if (event.role == "observer") {
+            state = websocket::STATE_OBSERVER;
+        }
         m_webSocketService->SetSessionState(state);
 
         Logger::Debug("Is master: {}", state == websocket::STATE_MASTER);

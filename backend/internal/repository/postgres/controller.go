@@ -27,6 +27,7 @@ func controllerToModel(db database.Controller) *models.Controller {
 		Session:           db.Session,
 		Callsign:          db.Callsign,
 		Position:          db.Position,
+		Observer:          db.Observer,
 		Cid:               db.Cid,
 		LastSeenEuroscope: PgTimestampToTime(db.LastSeenEuroscope),
 		LastSeenFrontend:  PgTimestampToTime(db.LastSeenFrontend),
@@ -40,6 +41,7 @@ func (r *controllerRepository) Create(ctx context.Context, controller *models.Co
 		Callsign:          controller.Callsign,
 		Session:           controller.Session,
 		Position:          controller.Position,
+		Observer:          controller.Observer,
 		Cid:               controller.Cid,
 		LastSeenEuroscope: TimeToPgTimestamp(controller.LastSeenEuroscope),
 		LastSeenFrontend:  TimeToPgTimestamp(controller.LastSeenFrontend),
@@ -135,6 +137,14 @@ func (r *controllerRepository) SetPosition(ctx context.Context, session int32, c
 func (r *controllerRepository) SetCid(ctx context.Context, session int32, callsign string, cid *string) (int64, error) {
 	return r.queries.SetControllerCid(ctx, database.SetControllerCidParams{
 		Cid:      cid,
+		Callsign: callsign,
+		Session:  session,
+	})
+}
+
+func (r *controllerRepository) SetObserver(ctx context.Context, session int32, callsign string, observer bool) (int64, error) {
+	return r.queries.SetControllerObserver(ctx, database.SetControllerObserverParams{
+		Observer: observer,
 		Callsign: callsign,
 		Session:  session,
 	})

@@ -8,7 +8,12 @@ using FlightStrips::graphics::AuthenticationButtonLayout;
 using FlightStrips::graphics::CalculateAuthenticationButtonLayout;
 using FlightStrips::ConnectionState;
 using FlightStrips::graphics::CalculateInfoPanelContentHeight;
+using FlightStrips::graphics::GetInfoPanelRoleLabel;
 using FlightStrips::graphics::InfoPanelData;
+using FlightStrips::websocket::STATE_MASTER;
+using FlightStrips::websocket::STATE_OBSERVER;
+using FlightStrips::websocket::STATE_SLAVE;
+using FlightStrips::websocket::STATE_UNKNOWN;
 
 TEST(InfoPanelTest, CalculateContentHeightWithoutStatsUsesCollapsedHeight) {
     const InfoPanelData data{
@@ -72,4 +77,11 @@ TEST(InfoPanelTest, CalculateAuthenticationButtonLayoutHidesOpenAppWhenLoggedOut
     EXPECT_EQ(layout.authenticationButtonRect.right, 90);
     EXPECT_EQ(layout.authenticationButtonRect.bottom, 74);
     EXPECT_FALSE(layout.openAppButtonRect.has_value());
+}
+
+TEST(InfoPanelTest, GetInfoPanelRoleLabelUsesObserverLabel) {
+    EXPECT_EQ(GetInfoPanelRoleLabel(STATE_MASTER), "MASTER");
+    EXPECT_EQ(GetInfoPanelRoleLabel(STATE_SLAVE), "SLAVE");
+    EXPECT_EQ(GetInfoPanelRoleLabel(STATE_OBSERVER), "OBS");
+    EXPECT_EQ(GetInfoPanelRoleLabel(STATE_UNKNOWN), "SYNC");
 }

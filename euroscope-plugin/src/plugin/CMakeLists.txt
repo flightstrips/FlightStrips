@@ -4,6 +4,8 @@ set(PROJECT_NAME FlightStripsPluginCore)
 # Source groups
 ################################################################################
 set(src__plugin
+        plugin/AirportResolution.h
+        plugin/AirportResolution.cpp
         plugin/FlightStripsPlugin.h
         plugin/FlightStripsPlugin.cpp
         plugin/FlightStripsPluginInterface.h)

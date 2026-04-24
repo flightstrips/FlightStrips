@@ -16,6 +16,10 @@ import (
 )
 
 func buildLoginPayload(t *testing.T, callsign, position, airport string) []byte {
+	return buildLoginPayloadWithObserver(t, callsign, position, airport, false)
+}
+
+func buildLoginPayloadWithObserver(t *testing.T, callsign, position, airport string, observer bool) []byte {
 	t.Helper()
 	payload, err := json.Marshal(euroscopeEvents.LoginEvent{
 		Type:       euroscopeEvents.Login,
@@ -24,6 +28,7 @@ func buildLoginPayload(t *testing.T, callsign, position, airport string) []byte 
 		Airport:    airport,
 		Connection: "LIVE",
 		Range:      100,
+		Observer:   observer,
 	})
 	require.NoError(t, err)
 	return payload
@@ -46,6 +51,10 @@ func TestHandleLoginEvent_UpdatesPositionOnSwitch(t *testing.T) {
 			}, nil
 		},
 		SetCidFn: func(_ context.Context, _ int32, _ string, _ *string) (int64, error) {
+			return 1, nil
+		},
+		SetObserverFn: func(_ context.Context, _ int32, _ string, observer bool) (int64, error) {
+			assert.False(t, observer)
 			return 1, nil
 		},
 		SetPositionFn: func(_ context.Context, _ int32, _ string, position string) (int64, error) {
@@ -96,6 +105,10 @@ func TestHandleLoginEvent_NoSetPositionWhenUnchanged(t *testing.T) {
 		SetCidFn: func(_ context.Context, _ int32, _ string, _ *string) (int64, error) {
 			return 1, nil
 		},
+		SetObserverFn: func(_ context.Context, _ int32, _ string, observer bool) (int64, error) {
+			assert.False(t, observer)
+			return 1, nil
+		},
 	}
 
 	server := &testutil.MockServer{
@@ -132,8 +145,9 @@ func TestHandleLoginEvent_CreatesControllerIfNew(t *testing.T) {
 		GetFn: func(_ context.Context, _ string, _ int32) (*internalModels.Controller, error) {
 			return nil, pgx.ErrNoRows
 		},
-		CreateFn: func(_ context.Context, _ *internalModels.Controller) error {
+		CreateFn: func(_ context.Context, controller *internalModels.Controller) error {
 			createCalled = true
+			assert.False(t, controller.Observer)
 			return nil
 		},
 	}
@@ -177,6 +191,10 @@ func TestHandleLoginEvent_CallsUpdateLayouts(t *testing.T) {
 		SetCidFn: func(_ context.Context, _ int32, _ string, _ *string) (int64, error) {
 			return 1, nil
 		},
+		SetObserverFn: func(_ context.Context, _ int32, _ string, observer bool) (int64, error) {
+			assert.False(t, observer)
+			return 1, nil
+		},
 	}
 
 	server := &testutil.MockServer{
@@ -206,4 +224,112 @@ func TestHandleLoginEvent_CallsUpdateLayouts(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.True(t, updateLayoutsCalled, "UpdateLayouts must be called after every re-login")
+}
+
+func TestHandleLoginEvent_ObserverSkipsUpdateLayouts(t *testing.T) {
+	updateLayoutsCalled := false
+
+	controllerRepo := &testutil.MockControllerRepository{
+		GetFn: func(_ context.Context, callsign string, session int32) (*internalModels.Controller, error) {
+			return &internalModels.Controller{Callsign: callsign, Session: session, Position: "118.105"}, nil
+		},
+		SetCidFn: func(_ context.Context, _ int32, _ string, _ *string) (int64, error) {
+			return 1, nil
+		},
+		SetObserverFn: func(_ context.Context, _ int32, _ string, observer bool) (int64, error) {
+			assert.True(t, observer)
+			return 1, nil
+		},
+	}
+
+	server := &testutil.MockServer{
+		ControllerRepoVal: controllerRepo,
+		UpdateLayoutsFn: func(_ int32) error {
+			updateLayoutsCalled = true
+			return nil
+		},
+	}
+	hub := &Hub{
+		server:              server,
+		sessionUpdateTimers: make(map[int32]*sessionUpdatePending),
+	}
+	client := &Client{
+		hub:      hub,
+		session:  42,
+		callsign: "EKCH_M_TWR",
+		position: "118.105",
+		airport:  "EKCH",
+		user:     shared.NewAuthenticatedUser("1234567", 0, nil),
+	}
+
+	payload, err := json.Marshal(euroscopeEvents.LoginEvent{
+		Type:     euroscopeEvents.Login,
+		Callsign: "EKCH_M_TWR",
+		Position: "118.105",
+		Airport:  "EKCH",
+		Observer: true,
+	})
+	require.NoError(t, err)
+
+	err = handleLoginEvent(context.Background(), client, Message{
+		Type:    euroscopeEvents.Login,
+		Message: payload,
+	})
+
+	require.NoError(t, err)
+	assert.False(t, updateLayoutsCalled, "UpdateLayouts must not be called for observer re-login")
+	assert.True(t, client.observer)
+	assert.True(t, hub.IsObserverCid(client.GetCid()))
+}
+
+func TestHandleLoginEvent_ObserverPositionChangeRefreshesFrontend(t *testing.T) {
+	frontendHub := &testutil.MockFrontendHub{}
+	controllerRepo := &testutil.MockControllerRepository{
+		GetFn: func(_ context.Context, callsign string, session int32) (*internalModels.Controller, error) {
+			return &internalModels.Controller{
+				Callsign: callsign,
+				Session:  session,
+				Position: "121.700",
+			}, nil
+		},
+		SetCidFn: func(_ context.Context, _ int32, _ string, _ *string) (int64, error) {
+			return 1, nil
+		},
+		SetObserverFn: func(_ context.Context, _ int32, _ string, observer bool) (int64, error) {
+			assert.True(t, observer)
+			return 1, nil
+		},
+		SetPositionFn: func(_ context.Context, _ int32, _ string, _ string) (int64, error) {
+			return 1, nil
+		},
+	}
+
+	server := &testutil.MockServer{
+		ControllerRepoVal: controllerRepo,
+		FrontendHubVal:    frontendHub,
+	}
+	hub := &Hub{
+		server:              server,
+		sessionUpdateTimers: make(map[int32]*sessionUpdatePending),
+	}
+	client := &Client{
+		hub:      hub,
+		session:  42,
+		callsign: "FR_OBS",
+		position: "121.700",
+		airport:  "EKCH",
+		observer: true,
+		user:     shared.NewAuthenticatedUser("1234567", 0, nil),
+	}
+
+	err := handleLoginEvent(context.Background(), client, Message{
+		Type:    euroscopeEvents.Login,
+		Message: buildLoginPayloadWithObserver(t, "FR_OBS", "118.105", "EKCH", true),
+	})
+
+	require.NoError(t, err)
+	require.Len(t, frontendHub.CidOnlines, 1)
+	assert.Equal(t, int32(42), frontendHub.CidOnlines[0].Session)
+	assert.Equal(t, "1234567", frontendHub.CidOnlines[0].Cid)
+	assert.Equal(t, "118.105", client.position)
 }

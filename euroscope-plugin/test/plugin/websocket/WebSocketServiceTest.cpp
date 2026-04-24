@@ -178,6 +178,30 @@ TEST_F(WebSocketServiceOnTimerTest, OnTimer_NotAuthenticated_DoesNotScheduleConn
     EXPECT_FALSE(svc->IsPendingConnect());
 }
 
+TEST_F(WebSocketServiceOnTimerTest, OnTimer_ObserverWithoutPrimary_DoesNotScheduleConnect) {
+    state.primary_frequency = "";
+    state.relevant_airport  = "EKCH";
+    state.connection_type   = CONNECTION_TYPE_DIRECT;
+    state.observer          = true;
+    ON_CALL(*mockAuth, GetAuthenticationState()).WillByDefault(Return(AUTHENTICATED));
+
+    EXPECT_CALL(*mockImpl, Connect()).Times(0);
+    svc->OnTimer(1);
+    EXPECT_FALSE(svc->IsPendingConnect());
+}
+
+TEST_F(WebSocketServiceOnTimerTest, OnTimer_ObserverSpuriousFrequency199_998_DoesNotScheduleConnect) {
+    state.primary_frequency = "199.998";
+    state.relevant_airport  = "EKCH";
+    state.connection_type   = CONNECTION_TYPE_DIRECT;
+    state.observer          = true;
+    ON_CALL(*mockAuth, GetAuthenticationState()).WillByDefault(Return(AUTHENTICATED));
+
+    EXPECT_CALL(*mockImpl, Connect()).Times(0);
+    svc->OnTimer(1);
+    EXPECT_FALSE(svc->IsPendingConnect());
+}
+
 // ---------------------------------------------------------------------------
 // First tick when all conditions met — schedules a fast-connect delay
 // ---------------------------------------------------------------------------
@@ -496,6 +520,27 @@ TEST_F(WebSocketServiceReconnectTest, OnConnected_PlaybackConnection_OverridesMa
     EXPECT_EQ(sent[1]["connection"], "PLAYBACK");
 }
 
+TEST_F(WebSocketServiceReconnectTest, OnConnected_ObserverLoginIncludesObserverFlag) {
+    state.range = 150;
+    state.connection_type = CONNECTION_TYPE_DIRECT;
+    state.primary_frequency = "199.998";
+    state.callsign = "EKCH_OBS";
+    state.relevant_airport = "EKCH";
+    state.observer = true;
+    ON_CALL(*mockAuth, GetAccessToken()).WillByDefault(Return("token-123"));
+
+    std::vector<nlohmann::json> sent;
+    EXPECT_CALL(*mockImpl, Send(_)).Times(2).WillRepeatedly(Invoke([&sent](const std::string& payload) {
+        sent.push_back(nlohmann::json::parse(payload));
+    }));
+
+    svc->SimulateConnected();
+
+    ASSERT_EQ(sent.size(), 2u);
+    EXPECT_EQ(sent[1]["type"], EVENT_LOGIN_NAME);
+    EXPECT_EQ(sent[1]["observer"], true);
+}
+
 // ---------------------------------------------------------------------------
 // GetStats / ShouldSend accessors
 // ---------------------------------------------------------------------------
@@ -507,6 +552,12 @@ TEST_F(WebSocketServiceOnTimerTest, ShouldSend_WhenDisconnected_ReturnsFalse) {
 TEST_F(WebSocketServiceOnTimerTest, ShouldSend_WhenConnectedButSlave_ReturnsFalse) {
     ON_CALL(*mockImpl, GetStatus()).WillByDefault(Return(WEBSOCKET_STATUS_CONNECTED));
     svc->SetSessionState(STATE_SLAVE);
+    EXPECT_FALSE(svc->ShouldSend());
+}
+
+TEST_F(WebSocketServiceOnTimerTest, ShouldSend_WhenConnectedButObserver_ReturnsFalse) {
+    ON_CALL(*mockImpl, GetStatus()).WillByDefault(Return(WEBSOCKET_STATUS_CONNECTED));
+    svc->SetSessionState(STATE_OBSERVER);
     EXPECT_FALSE(svc->ShouldSend());
 }
 
@@ -536,6 +587,21 @@ TEST_F(WebSocketServiceOnTimerTest, IsPendingConnect_Initial_ReturnsFalse) {
     EXPECT_FALSE(svc->IsPendingConnect());
 }
 
+TEST_F(WebSocketServiceOnTimerTest, SendEvent_WhenObserver_AllowsRunwayValidationOnly) {
+    state.observer = true;
+
+    EXPECT_CALL(*mockImpl, Send(_)).Times(1);
+    svc->SendEvent(RunwayEvent({}));
+}
+
+TEST_F(WebSocketServiceOnTimerTest, ShouldProcessServerMessageType_WhenObserver_AllowsMismatchAlerts) {
+    state.observer = true;
+
+    EXPECT_TRUE(svc->ShouldProcessServerMessageType(EVENT_SESSION_INFO_NAME));
+    EXPECT_TRUE(svc->ShouldProcessServerMessageType(EVENT_RUNWAY_MISMATCH_ALERT_NAME));
+    EXPECT_FALSE(svc->ShouldProcessServerMessageType(EVENT_BACKEND_SYNC_NAME));
+}
+
 // ---------------------------------------------------------------------------
 // ClientState enum
 // ---------------------------------------------------------------------------
@@ -545,6 +611,8 @@ TEST(ClientStateTest, Values_AreDistinct) {
     EXPECT_NE(STATE_UNKNOWN, STATE_SLAVE);
     EXPECT_NE(STATE_SLAVE,   STATE_MASTER);
     EXPECT_NE(STATE_UNKNOWN, STATE_MASTER);
+    EXPECT_NE(STATE_OBSERVER, STATE_MASTER);
+    EXPECT_NE(STATE_OBSERVER, STATE_SLAVE);
 }
 
 // ---------------------------------------------------------------------------
@@ -590,19 +658,20 @@ TEST(EventTypeTest, TokenEvent_SerializesToken) {
 }
 
 TEST(EventTypeTest, LoginEvent_SerializesCorrectType) {
-    LoginEvent e("EKCH", "OBS", "GND", "EK_GND", 150);
+    LoginEvent e("EKCH", "OBS", "GND", "EK_GND", 150, true);
     const nlohmann::json j = e;
     EXPECT_EQ(j["type"], EVENT_LOGIN_NAME);
 }
 
 TEST(EventTypeTest, LoginEvent_SerializesAllFields) {
-    LoginEvent e("EKCH", "OBS", "GND", "EK_GND", 150);
+    LoginEvent e("EKCH", "OBS", "GND", "EK_GND", 150, true);
     const nlohmann::json j = e;
     EXPECT_EQ(j["airport"],    "EKCH");
     EXPECT_EQ(j["connection"], "OBS");
     EXPECT_EQ(j["position"],   "GND");
     EXPECT_EQ(j["callsign"],   "EK_GND");
     EXPECT_EQ(j["range"],      150);
+    EXPECT_EQ(j["observer"],   true);
 }
 
 TEST(EventTypeTest, EventType_DeserializesTokenName) {

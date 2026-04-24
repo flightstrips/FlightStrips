@@ -20,6 +20,7 @@
 #include "handlers/TimedEventHandlers.h"
 #include "handlers/AirportRunwaysChangedEventHandlers.h"
 #include "IFlightStripsPlugin.h"
+#include "plugin/AirportResolution.h"
 
 // TODO move
 #define CLEARED "CLEA"
@@ -104,6 +105,7 @@ namespace FlightStrips {
         std::queue<std::string> m_needsSquawk = {};
         double m_airportLatitude = 0.0;
         double m_airportLongitude = 0.0;
+        std::optional<AirportFallbackProbe> m_lastAirportFallbackProbe;
 
         [[nodiscard]] bool IsWithinRange(EuroScopePlugIn::CRadarTarget radarTarget, float rangeNM) const;
         void DispatchRangeCheck(EuroScopePlugIn::CRadarTarget radarTarget);

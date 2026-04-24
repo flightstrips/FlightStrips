@@ -40,6 +40,8 @@ type Hub struct {
 	// airportClientsMu guards airportClientCount for concurrent reads from other goroutines.
 	airportClientsMu   sync.RWMutex
 	airportClientCount map[string]int // airport → number of connected ES clients
+	observerCidMu      sync.RWMutex
+	observerByCid      map[string]bool
 
 	send chan internalMessage
 
@@ -122,6 +124,7 @@ func NewHub(stripService shared.StripService, controllerService shared.Controlle
 		aircraftDisconnectTimers: make(map[string]*aircraftDisconnectEntry),
 		sessionUpdateTimers:      make(map[int32]*sessionUpdatePending),
 		airportClientCount:       make(map[string]int),
+		observerByCid:            make(map[string]bool),
 		runwayStates:             make(map[string]*clientRunwayState),
 	}
 	hub.squawkThrottle = newSquawkThrottle(defaultSquawkRequestInterval, hub.readAssignedSquawk, hub.dispatchGenerateSquawkRequest)
@@ -157,10 +160,8 @@ func (hub *Hub) Send(session int32, cid string, message euroscope.OutgoingMessag
 
 func (hub *Hub) OnRegister(client *Client) {
 	metrics.ConnectionOpened(context.Background(), client.session, "euroscope")
-	// Track per-airport client count for HasActiveClientForAirport queries.
-	hub.airportClientsMu.Lock()
-	hub.airportClientCount[client.airport]++
-	hub.airportClientsMu.Unlock()
+	hub.setObserverCid(client.GetCid(), client.observer)
+	hub.adjustAirportClientCount(client.airport, client.observer, 1)
 	// Start recording if in record mode and not already recording this session
 	if config.IsRecordMode() && !hub.IsRecording(client.session) {
 		err := hub.StartRecording(client.session, client.airport, "LIVE", "Auto-recorded session")
@@ -176,19 +177,30 @@ func (hub *Hub) OnRegister(client *Client) {
 
 	// Determine master role immediately to avoid race conditions
 	isMaster := false
-	if _, ok := hub.master[client.session]; !ok {
-		slog.Debug("Euroscope client is master", slog.String("cid", client.GetCid()))
-		hub.master[client.session] = client
-		hub.masterCallsigns.Store(client.session, client.callsign)
-		isMaster = true
+	if !client.observer {
+		if _, ok := hub.master[client.session]; !ok {
+			slog.Debug("Euroscope client is master", slog.String("cid", client.GetCid()))
+			hub.master[client.session] = client
+			hub.masterCallsigns.Store(client.session, client.callsign)
+			isMaster = true
+		}
 	}
 
 	// Send BackendSync first, then delay, then SessionInfo
 	go func() {
+		if client.observer {
+			client.send <- euroscope.SessionInfoEvent{Role: euroscope.SessionInfoObserver}
+			if hub.hasOperationalClientForSession(client.session) {
+				hub.server.GetFrontendHub().CidOnline(client.session, client.user.GetCid())
+			}
+			return
+		}
+
 		hub.sendBackendSyncIfNeeded(client)
 		time.Sleep(2 * time.Second)
 		if isMaster {
 			client.send <- euroscope.SessionInfoEvent{Role: euroscope.SessionInfoMaster}
+			hub.notifyObserverFrontendsOnline(client.session)
 		} else {
 			client.send <- euroscope.SessionInfoEvent{Role: euroscope.SessionInfoSlave}
 			// For slaves, layouts are already calculated by the master; notify the frontend now.
@@ -310,8 +322,10 @@ func (hub *Hub) HandleNewConnection(conn *gorilla.Conn, user shared.Authenticate
 
 	// Recalculate layouts since the login is sent both on first logon and when a
 	// position/frequency changes - the new position must be reflected immediately.
-	if layoutErr := hub.server.UpdateLayouts(sessionID); layoutErr != nil {
-		slog.Error("Failed to update layouts after ES login", slog.String("cid", user.GetCid()), slog.Any("error", layoutErr))
+	if !event.Observer {
+		if layoutErr := hub.server.UpdateLayouts(sessionID); layoutErr != nil {
+			slog.Error("Failed to update layouts after ES login", slog.String("cid", user.GetCid()), slog.Any("error", layoutErr))
+		}
 	}
 
 	client := &Client{
@@ -323,6 +337,7 @@ func (hub *Hub) HandleNewConnection(conn *gorilla.Conn, user shared.Authenticate
 		position: event.Position,
 		callsign: event.Callsign,
 		airport:  event.Airport,
+		observer: event.Observer,
 	}
 
 	hub.register <- client
@@ -370,6 +385,7 @@ func (hub *Hub) handleLogin(msg []byte, user shared.AuthenticatedUser) (event eu
 			Callsign:          event.Callsign,
 			Session:           session.Id,
 			Position:          event.Position,
+			Observer:          event.Observer,
 			Cid:               &cid,
 			LastSeenEuroscope: &now,
 		}
@@ -385,7 +401,12 @@ func (hub *Hub) handleLogin(msg []byte, user shared.AuthenticatedUser) (event eu
 		return event, session.Id, err
 	} else {
 		// Set CID
-		controllerRepo.SetCid(context.Background(), session.Id, event.Callsign, &cid)
+		if _, err = controllerRepo.SetCid(context.Background(), session.Id, event.Callsign, &cid); err != nil {
+			return event, session.Id, err
+		}
+		if _, err = controllerRepo.SetObserver(context.Background(), session.Id, event.Callsign, event.Observer); err != nil {
+			return event, session.Id, err
+		}
 	}
 
 	if controller.Position != event.Position {
@@ -402,15 +423,8 @@ func (hub *Hub) handleLogin(msg []byte, user shared.AuthenticatedUser) (event eu
 func (hub *Hub) OnUnregister(client *Client) {
 	metrics.ConnectionClosed(context.Background(), client.session, "euroscope")
 	hub.clearClientRunwayState(client.session, client.GetCid())
-	// Update per-airport client count.
-	hub.airportClientsMu.Lock()
-	if hub.airportClientCount[client.airport] > 0 {
-		hub.airportClientCount[client.airport]--
-		if hub.airportClientCount[client.airport] == 0 {
-			delete(hub.airportClientCount, client.airport)
-		}
-	}
-	hub.airportClientsMu.Unlock()
+	hub.clearObserverCid(client.GetCid())
+	hub.adjustAirportClientCount(client.airport, client.observer, -1)
 
 	if err := hub.clearClientCid(client); err != nil {
 		slog.Error("Failed to remove CID for client", slog.String("callsign", client.callsign), slog.String("cid", client.GetCid()), slog.Any("error", err))
@@ -420,15 +434,25 @@ func (hub *Hub) OnUnregister(client *Client) {
 		return
 	}
 
-	// No clients, no master can be assigned
-	if len(hub.clients) == 0 {
+	hasReplacement := false
+	for candidate := range hub.clients {
+		if candidate.session == client.session && !candidate.observer {
+			hasReplacement = true
+			break
+		}
+	}
+	if !hasReplacement {
 		delete(hub.master, client.session)
 		hub.masterCallsigns.Delete(client.session)
+		hub.notifyObserverFrontendsOffline(client.session)
 		return
 	}
 
-	// TODO better master selection. For now just use the next available client
+	// TODO better master selection. For now just use the next available non-observer client in the session.
 	for newMaster := range hub.clients {
+		if newMaster.session != client.session || newMaster.observer {
+			continue
+		}
 		hub.master[client.session] = newMaster
 		hub.masterCallsigns.Store(client.session, newMaster.callsign)
 		newMaster.send <- euroscope.SessionInfoEvent{Role: euroscope.SessionInfoMaster}
@@ -465,6 +489,27 @@ func (hub *Hub) GetMasterCallsign(session int32) string {
 		return v.(string)
 	}
 	return ""
+}
+
+func (hub *Hub) IsObserverCid(cid string) bool {
+	hub.observerCidMu.RLock()
+	defer hub.observerCidMu.RUnlock()
+	return hub.observerByCid[cid]
+}
+
+func (hub *Hub) setObserverCid(cid string, observer bool) {
+	hub.observerCidMu.Lock()
+	defer hub.observerCidMu.Unlock()
+	if hub.observerByCid == nil {
+		hub.observerByCid = make(map[string]bool)
+	}
+	hub.observerByCid[cid] = observer
+}
+
+func (hub *Hub) clearObserverCid(cid string) {
+	hub.observerCidMu.Lock()
+	defer hub.observerCidMu.Unlock()
+	delete(hub.observerByCid, cid)
 }
 
 func (hub *Hub) SendGenerateSquawk(session int32, cid string, callsign string) {
@@ -628,6 +673,57 @@ func (hub *Hub) HasActiveClientForAirport(airport string) bool {
 	return hub.airportClientCount[airport] > 0
 }
 
+func (hub *Hub) adjustAirportClientCount(airport string, observer bool, delta int) {
+	if observer || airport == "" || delta == 0 {
+		return
+	}
+
+	hub.airportClientsMu.Lock()
+	defer hub.airportClientsMu.Unlock()
+
+	hub.airportClientCount[airport] += delta
+	if hub.airportClientCount[airport] <= 0 {
+		delete(hub.airportClientCount, airport)
+	}
+}
+
+func (hub *Hub) hasOperationalClientForSession(session int32) bool {
+	for client := range hub.clients {
+		if client.session == session && !client.observer {
+			return true
+		}
+	}
+	return false
+}
+
+func (hub *Hub) notifyObserverFrontendsOnline(session int32) {
+	if hub.server == nil || hub.server.GetFrontendHub() == nil {
+		return
+	}
+
+	for client := range hub.clients {
+		if client.session == session && client.observer {
+			hub.server.GetFrontendHub().CidOnline(session, client.GetCid())
+		}
+	}
+}
+
+func (hub *Hub) notifyObserverFrontendsOffline(session int32) {
+	if hub.server == nil || hub.server.GetFrontendHub() == nil {
+		return
+	}
+
+	for client := range hub.clients {
+		if client.session == session && client.observer {
+			hub.server.GetFrontendHub().CidDisconnect(client.GetCid())
+		}
+	}
+}
+
+func (hub *Hub) isObserverController(controller *internalModels.Controller) bool {
+	return controller != nil && controller.Observer
+}
+
 func (hub *Hub) SendCoordinationHandover(session int32, cid string, callsign string, targetCallsign string) {
 	event := euroscope.CoordinationHandoverEvent{
 		Callsign:       callsign,
@@ -659,9 +755,9 @@ func (hub *Hub) Run() {
 			if _, ok := hub.clients[client]; ok {
 				delete(hub.clients, client)
 				client.Close()
-				hub.server.GetFrontendHub().CidDisconnect(client.GetCid())
 			}
 			hub.OnUnregister(client)
+			hub.server.GetFrontendHub().CidDisconnect(client.GetCid())
 		case message := <-hub.send:
 			if message.cid != nil {
 				for client := range hub.clients {

@@ -89,6 +89,7 @@ export class WebSocketClient {
   private eventHandlers: Map<EventType, Array<(data: unknown) => void>> = new Map();
   private readonly url: string;
   private token: string | null = null;
+  private readOnly = false;
   private reconnectAttempts = 0;
   private reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
   private manuallyClosed = false;
@@ -105,6 +106,10 @@ export class WebSocketClient {
     if (tokenChanged && this.isConnected()) {
       this.sendAuthenticationEvent();
     }
+  }
+
+  setReadOnly(readOnly: boolean): void {
+    this.readOnly = readOnly;
   }
 
   connect(): Promise<void> {
@@ -208,6 +213,10 @@ export class WebSocketClient {
   send(event: FrontendSendEvent): void {
     if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
       console.error('WebSocket is not connected');
+      return;
+    }
+    if (this.readOnly && event.type !== ActionType.FrontendToken) {
+      console.warn('WebSocket client is read-only');
       return;
     }
 

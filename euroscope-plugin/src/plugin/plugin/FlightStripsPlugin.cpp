@@ -1,6 +1,7 @@
 #include <format>
 #include <cctype>
 #include "FlightStripsPlugin.h"
+#include "AirportResolution.h"
 
 #include "Logger.hpp"
 #include "bootstrap/Container.h"
@@ -25,6 +26,30 @@ namespace FlightStrips {
 
         bool EqualsIgnoreCase(const std::string& lhs, const char* rhs) {
             return _stricmp(lhs.c_str(), rhs) == 0;
+        }
+
+        auto UppercaseCopy(std::string value) -> std::string {
+            for (char& c : value) {
+                c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
+            }
+            return value;
+        }
+
+        auto DescribeAirportFallbackPoints(const std::vector<configuration::AirportFallbackPoint>& airports) -> std::string {
+            if (airports.empty()) {
+                return "none";
+            }
+
+            std::string summary;
+            for (size_t i = 0; i < airports.size(); i++) {
+                if (i > 0) {
+                    summary += ", ";
+                }
+
+                summary += std::format("{}({:.4f},{:.4f})", airports[i].airport, airports[i].latitude, airports[i].longitude);
+            }
+
+            return summary;
         }
     }
 
@@ -159,31 +184,88 @@ namespace FlightStrips {
                 m_connectionState.primary_frequency = "";
                 m_connectionState.range = 0;
                 m_connectionState.relevant_airport = "";
+                m_connectionState.observer = false;
                 m_connectionState.connection_type = connectionType;
+                m_lastAirportFallbackProbe.reset();
             }
 
             if (m_connectionState.connection_type == CONNECTION_TYPE_DIRECT || m_connectionState.connection_type ==
                 CONNECTION_TYPE_PLAYBACK || m_connectionState.connection_type == CONNECTION_TYPE_SWEATBOX) {
                 const auto me = ControllerMyself();
+                const auto observer = me.GetFacility() == 0;
 
-                if (strcmp(me.GetCallsign(), m_connectionState.callsign.c_str()) != 0) {
+                if (m_connectionState.observer != observer) {
+                    Logger::Info("Observer mode changed: {} -> {}", m_connectionState.observer, observer);
+                    m_connectionState.observer = observer;
+                }
+
+                const auto callsignChanged = strcmp(me.GetCallsign(), m_connectionState.callsign.c_str()) != 0;
+                if (callsignChanged) {
                     Logger::Info("Callsign changed: '{}' -> '{}'", m_connectionState.callsign, me.GetCallsign());
                     m_connectionState.callsign = {me.GetCallsign()};
-                    m_connectionState.relevant_airport = "";
-                    // Get relevant airport
-                    for (const auto& [airport, prefixes]: m_appConfig->GetCallsignAirportMap()) {
-                        for (const auto& prefix: prefixes) {
-                            if (_strnicmp(m_connectionState.callsign.c_str(), prefix.c_str(), prefix.length()) == 0) {
-                                m_connectionState.relevant_airport = airport;
-                                Logger::Info("Found relevant airport: {}", m_connectionState.relevant_airport);
-                                break;
-                            }
+                    m_lastAirportFallbackProbe.reset();
+                }
+
+                const auto& airportMap = m_appConfig->GetCallsignAirportMap();
+                auto resolvedAirport = ResolveAirportFromCallsign(m_connectionState.callsign, airportMap);
+                auto resolvedFromPosition = false;
+                if (resolvedAirport.empty()) {
+                    const auto controllerPosition = me.GetPosition();
+                    if (HasSameAirportFallbackProbe(m_lastAirportFallbackProbe, m_connectionState.callsign, controllerPosition)) {
+                        resolvedAirport = m_connectionState.relevant_airport;
+                    } else {
+                        const auto& fallbackPoints = m_appConfig->GetAirportFallbackPoints();
+                        Logger::Debug(
+                            "Attempting airport fallback for '{}' using controller position lat={:.4f} lon={:.4f} within {:.1f} NM of configured airports: {}",
+                            m_connectionState.callsign,
+                            controllerPosition.m_Latitude,
+                            controllerPosition.m_Longitude,
+                            AIRPORT_FALLBACK_RADIUS_NM,
+                            DescribeAirportFallbackPoints(fallbackPoints)
+                        );
+
+                        if (controllerPosition.m_Latitude == 0.0 && controllerPosition.m_Longitude == 0.0) {
+                            Logger::Info("Controller position is 0,0 while trying airport fallback for '{}'", m_connectionState.callsign);
                         }
-                        if (!m_connectionState.relevant_airport.empty()) break;
+
+                        m_lastAirportFallbackProbe = AirportFallbackProbe{
+                            .callsign = m_connectionState.callsign,
+                            .latitude = controllerPosition.m_Latitude,
+                            .longitude = controllerPosition.m_Longitude,
+                        };
+
+                        if (const auto airport = ResolveAirportFromPosition(
+                            controllerPosition,
+                            fallbackPoints
+                        ); airport.has_value()) {
+                            resolvedAirport = *airport;
+                            resolvedFromPosition = true;
+                        } else {
+                            Logger::Info(
+                                "Airport fallback did not resolve a relevant airport for '{}' from lat={:.4f} lon={:.4f} within {:.1f} NM",
+                                m_connectionState.callsign,
+                                controllerPosition.m_Latitude,
+                                controllerPosition.m_Longitude,
+                                AIRPORT_FALLBACK_RADIUS_NM
+                            );
+                        }
                     }
-                    if (m_connectionState.relevant_airport.empty()) {
-                        Logger::Warning("No relevant airport found for callsign '{}'", m_connectionState.callsign);
+                }
+
+                if (resolvedAirport != m_connectionState.relevant_airport) {
+                    if (!resolvedAirport.empty()) {
+                        if (resolvedFromPosition) {
+                            Logger::Info("Resolved relevant airport from controller position: {}", resolvedAirport);
+                        } else {
+                            Logger::Info("Found relevant airport: {}", resolvedAirport);
+                        }
+                    } else {
+                        Logger::Info("No relevant airport found for callsign '{}'", m_connectionState.callsign);
                     }
+
+                    m_connectionState.relevant_airport = resolvedAirport;
+                } else if (callsignChanged && resolvedAirport.empty()) {
+                    Logger::Info("No relevant airport found for callsign '{}'", m_connectionState.callsign);
                 }
 
                 const auto primaryFrequency = std::format("{:.3f}", me.GetPrimaryFrequency());
@@ -207,6 +289,7 @@ namespace FlightStrips {
                                                            const char *sSenderController,
                                                            const char *sTargetController) {
         // Facility 4 = Tower
+        if (m_connectionState.observer) return;
         if (ControllerMyself().GetFacility() != 4) return;
 
         if (!FlightPlan.IsValid()) return;

@@ -28,6 +28,7 @@ type Client struct {
 	position string
 	callsign string
 	airport  string
+	readOnly bool
 }
 
 func (c *Client) GetSendChannel() chan events.OutgoingMessage {
@@ -68,6 +69,18 @@ func (c *Client) IsAuthenticated() bool {
 
 func (c *Client) SetUser(user shared.AuthenticatedUser) {
 	c.user = user
+}
+
+func (c *Client) SetReadOnly(readOnly bool) {
+	c.readOnly = readOnly
+}
+
+func (c *Client) CanHandleMessage(messageType string) error {
+	if !c.readOnly || messageType == "token" {
+		return nil
+	}
+
+	return errors.New("observer clients are read-only")
 }
 
 // HandlePong handles pong messages from the client

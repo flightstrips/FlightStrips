@@ -29,7 +29,13 @@ WHERE id = $1;
 -- name: GetExpiredSessions :many
 SELECT id
 FROM sessions
-WHERE NOT EXISTS (SELECT 1 FROM controllers WHERE last_seen_euroscope > @expired_time);
+WHERE NOT EXISTS (
+    SELECT 1
+    FROM controllers
+    WHERE controllers.session = sessions.id
+      AND controllers.last_seen_euroscope > @expired_time
+      AND controllers.observer = false
+);
 
 -- name: UpdateActiveRunways :exec
 UPDATE sessions SET active_runways = $2 WHERE id = $1;

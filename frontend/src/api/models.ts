@@ -227,6 +227,8 @@ export interface FrontendInitialEvent {
   available_sids: SidInfo[];
   initial_cfl_by_runway: Record<string, number>;
   transition_altitude: number;
+  read_only: boolean;
+  position_available: boolean;
 }
 
 export interface FrontendStripUpdateEvent {
@@ -338,6 +340,7 @@ export interface FrontendAuthenticationEvent {
 
 export interface FrontendDisconnectEvent {
   type: EventType.FrontendDisconnect;
+  read_only?: boolean;
 }
 
 export interface FrontendAircraftDisconnectEvent {

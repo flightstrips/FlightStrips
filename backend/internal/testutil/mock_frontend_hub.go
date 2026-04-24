@@ -122,6 +122,15 @@ type SentMessageCall struct {
 	Message frontend.OutgoingMessage
 }
 
+type CidOnlineCall struct {
+	Session int32
+	Cid     string
+}
+
+type CidDisconnectCall struct {
+	Cid string
+}
+
 // MockFrontendHub is a configurable mock for shared.FrontendHub.
 // It records calls for assertion in tests.
 type MockFrontendHub struct {
@@ -143,6 +152,8 @@ type MockFrontendHub struct {
 	CdmUpdates              []CdmUpdateCall
 	TacticalStripMoves      []TacticalStripMovedCall
 	SentMessages            []SentMessageCall
+	CidOnlines              []CidOnlineCall
+	CidDisconnects          []CidDisconnectCall
 }
 
 func (m *MockFrontendHub) GetServer() shared.Server {
@@ -159,9 +170,13 @@ func (m *MockFrontendHub) Send(session int32, cid string, message frontend.Outgo
 	m.SentMessages = append(m.SentMessages, SentMessageCall{Session: session, Cid: cid, Message: message})
 }
 
-func (m *MockFrontendHub) CidOnline(session int32, cid string) {}
+func (m *MockFrontendHub) CidOnline(session int32, cid string) {
+	m.CidOnlines = append(m.CidOnlines, CidOnlineCall{Session: session, Cid: cid})
+}
 
-func (m *MockFrontendHub) CidDisconnect(cid string) {}
+func (m *MockFrontendHub) CidDisconnect(cid string) {
+	m.CidDisconnects = append(m.CidDisconnects, CidDisconnectCall{Cid: cid})
+}
 
 func (m *MockFrontendHub) SendStripUpdate(session int32, callsign string) {
 	m.StripUpdates = append(m.StripUpdates, StripUpdateCall{session, callsign})

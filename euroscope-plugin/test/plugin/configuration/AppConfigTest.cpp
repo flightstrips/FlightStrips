@@ -1,5 +1,7 @@
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
+#include <filesystem>
+#include <fstream>
 #include "configuration/AppConfig.h"
 
 using FlightStrips::configuration::AppConfig;
@@ -9,6 +11,14 @@ using FlightStrips::configuration::AppConfig;
 
 static AppConfig MakeDefault() {
     return AppConfig("__nonexistent_app_config__.ini");
+}
+
+static AppConfig MakeConfigured(const std::string& contents) {
+    const auto path = std::filesystem::temp_directory_path() / "flightstrips-appconfig-test.ini";
+    std::ofstream output(path, std::ios::binary | std::ios::trunc);
+    output << contents;
+    output.close();
+    return AppConfig(path.string());
 }
 
 // ---------------------------------------------------------------------------
@@ -96,6 +106,23 @@ TEST(AppConfigTest, GetCallsignAirportMap_EkchEntry_HasAtLeastOnePrefix) {
     const auto it = map.find("EKCH");
     ASSERT_NE(it, map.end());
     EXPECT_FALSE(it->second.empty());
+}
+
+TEST(AppConfigTest, GetAirportFallbackPoints_ParsesConfiguredAirportCoordinates) {
+    auto cfg = MakeConfigured(R"ini(
+[airports.ekch]
+callsignPrefixes = ekch ekdk
+latitude = 55.6181
+longitude = 12.6560
+[airports.essa]
+callsignPrefixes = essa
+)ini");
+
+    auto& points = cfg.GetAirportFallbackPoints();
+    ASSERT_EQ(points.size(), 1u);
+    EXPECT_EQ(points[0].airport, "EKCH");
+    EXPECT_DOUBLE_EQ(points[0].latitude, 55.6181);
+    EXPECT_DOUBLE_EQ(points[0].longitude, 12.6560);
 }
 
 // ---------------------------------------------------------------------------

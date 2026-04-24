@@ -18,7 +18,7 @@ type BulkInsertControllersParams struct {
 }
 
 const getController = `-- name: GetController :one
-SELECT id, session, callsign, position, cid, last_seen_euroscope, last_seen_frontend, layout
+SELECT id, session, callsign, position, cid, last_seen_euroscope, last_seen_frontend, layout, observer
 FROM controllers
 WHERE callsign = $1 AND session = $2
 `
@@ -40,12 +40,13 @@ func (q *Queries) GetController(ctx context.Context, arg GetControllerParams) (C
 		&i.LastSeenEuroscope,
 		&i.LastSeenFrontend,
 		&i.Layout,
+		&i.Observer,
 	)
 	return i, err
 }
 
 const getControllerByCid = `-- name: GetControllerByCid :one
-SELECT id, session, callsign, position, cid, last_seen_euroscope, last_seen_frontend, layout
+SELECT id, session, callsign, position, cid, last_seen_euroscope, last_seen_frontend, layout, observer
 FROM controllers
 WHERE cid = $1::text LIMIT 1
 `
@@ -62,12 +63,13 @@ func (q *Queries) GetControllerByCid(ctx context.Context, cid string) (Controlle
 		&i.LastSeenEuroscope,
 		&i.LastSeenFrontend,
 		&i.Layout,
+		&i.Observer,
 	)
 	return i, err
 }
 
 const getControllers = `-- name: GetControllers :many
-SELECT id, session, callsign, position, cid, last_seen_euroscope, last_seen_frontend, layout FROM controllers
+SELECT id, session, callsign, position, cid, last_seen_euroscope, last_seen_frontend, layout, observer FROM controllers
 WHERE session = $1
 `
 
@@ -89,6 +91,7 @@ func (q *Queries) GetControllers(ctx context.Context, session int32) ([]Controll
 			&i.LastSeenEuroscope,
 			&i.LastSeenFrontend,
 			&i.Layout,
+			&i.Observer,
 		); err != nil {
 			return nil, err
 		}
@@ -101,14 +104,15 @@ func (q *Queries) GetControllers(ctx context.Context, session int32) ([]Controll
 }
 
 const insertController = `-- name: InsertController :exec
-INSERT INTO controllers (callsign, session, position, cid, last_seen_euroscope, last_seen_frontend)
-VALUES ($1, $2, $3, $4, $5, $6)
+INSERT INTO controllers (callsign, session, position, observer, cid, last_seen_euroscope, last_seen_frontend)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
 `
 
 type InsertControllerParams struct {
 	Callsign          string
 	Session           int32
 	Position          string
+	Observer          bool
 	Cid               *string
 	LastSeenEuroscope pgtype.Timestamp
 	LastSeenFrontend  pgtype.Timestamp
@@ -119,6 +123,7 @@ func (q *Queries) InsertController(ctx context.Context, arg InsertControllerPara
 		arg.Callsign,
 		arg.Session,
 		arg.Position,
+		arg.Observer,
 		arg.Cid,
 		arg.LastSeenEuroscope,
 		arg.LastSeenFrontend,
@@ -127,7 +132,7 @@ func (q *Queries) InsertController(ctx context.Context, arg InsertControllerPara
 }
 
 const listControllers = `-- name: ListControllers :many
-SELECT id, session, callsign, position, cid, last_seen_euroscope, last_seen_frontend, layout
+SELECT id, session, callsign, position, cid, last_seen_euroscope, last_seen_frontend, layout, observer
 FROM controllers
 WHERE session = $1
 ORDER BY callsign
@@ -151,6 +156,7 @@ func (q *Queries) ListControllers(ctx context.Context, session int32) ([]Control
 			&i.LastSeenEuroscope,
 			&i.LastSeenFrontend,
 			&i.Layout,
+			&i.Observer,
 		); err != nil {
 			return nil, err
 		}
@@ -255,6 +261,26 @@ type SetControllerLayoutParams struct {
 
 func (q *Queries) SetControllerLayout(ctx context.Context, arg SetControllerLayoutParams) (int64, error) {
 	result, err := q.db.Exec(ctx, setControllerLayout, arg.Layout, arg.Position, arg.Session)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const setControllerObserver = `-- name: SetControllerObserver :execrows
+UPDATE controllers
+SET observer = $1
+WHERE callsign = $2 AND session = $3
+`
+
+type SetControllerObserverParams struct {
+	Observer bool
+	Callsign string
+	Session  int32
+}
+
+func (q *Queries) SetControllerObserver(ctx context.Context, arg SetControllerObserverParams) (int64, error) {
+	result, err := q.db.Exec(ctx, setControllerObserver, arg.Observer, arg.Callsign, arg.Session)
 	if err != nil {
 		return 0, err
 	}

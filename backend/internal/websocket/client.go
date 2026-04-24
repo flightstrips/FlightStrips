@@ -31,6 +31,7 @@ type Client interface {
 
 	IsAuthenticated() bool
 	SetUser(user shared.AuthenticatedUser)
+	CanHandleMessage(messageType string) error
 
 	HandlePong() error
 
@@ -70,10 +71,10 @@ func ReadPump[TType comparable, TClient Client, THub Hub[TType, TClient]](hub TH
 			}
 			break
 		}
-		
+
 		// Record the message if recording is enabled
 		client.RecordMessage(message)
-		
+
 		parsedMessage, err := parseMessage[TType](message)
 		if err != nil {
 			slog.Warn("Failed to parse message", slog.Any("error", err))
@@ -95,7 +96,10 @@ func ReadPump[TType comparable, TClient Client, THub Hub[TType, TClient]](hub TH
 
 		handlers := hub.GetMessageHandlers()
 		start := time.Now()
-		err = handlers.Handle(ctx, client, parsedMessage)
+		err = client.CanHandleMessage(msgType)
+		if err == nil {
+			err = handlers.Handle(ctx, client, parsedMessage)
+		}
 		metrics.MessageHandled(ctx, client.GetSession(), client.GetSource(), msgType, time.Since(start), err == nil)
 
 		if err != nil {

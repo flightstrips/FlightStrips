@@ -62,3 +62,54 @@ func TestClearClientCid_ReturnsUnexpectedRowCountError(t *testing.T) {
 	require.Error(t, err)
 	assert.EqualError(t, err, "unexpected controller CID cleanup row count: 2")
 }
+
+func TestOnUnregister_LastOperationalClientDisconnectsObserverFrontends(t *testing.T) {
+	frontendHub := &testutil.MockFrontendHub{}
+	controllerRepo := &testutil.MockControllerRepository{
+		SetCidFn: func(_ context.Context, session int32, callsign string, cid *string) (int64, error) {
+			assert.Equal(t, int32(42), session)
+			assert.Equal(t, "EKCH_A_TWR", callsign)
+			assert.Nil(t, cid)
+			return 1, nil
+		},
+	}
+
+	hub := &Hub{
+		server: &testutil.MockServer{
+			FrontendHubVal:    frontendHub,
+			ControllerRepoVal: controllerRepo,
+		},
+		clients: map[*Client]bool{},
+		master:  map[int32]*Client{},
+		observerByCid: map[string]bool{
+			"obs-cid": true,
+		},
+		airportClientCount: map[string]int{
+			"EKCH": 1,
+		},
+	}
+
+	observer := &Client{
+		hub:      hub,
+		session:  42,
+		airport:  "EKCH",
+		observer: true,
+		user:     shared.NewAuthenticatedUser("obs-cid", 0, nil),
+	}
+	master := &Client{
+		hub:      hub,
+		session:  42,
+		airport:  "EKCH",
+		callsign: "EKCH_A_TWR",
+		user:     shared.NewAuthenticatedUser("master-cid", 0, nil),
+	}
+
+	hub.clients[observer] = true
+	hub.master[42] = master
+
+	hub.OnUnregister(master)
+
+	assert.False(t, hub.HasActiveClientForAirport("EKCH"))
+	require.Len(t, frontendHub.CidDisconnects, 1)
+	assert.Equal(t, "obs-cid", frontendHub.CidDisconnects[0].Cid)
+}

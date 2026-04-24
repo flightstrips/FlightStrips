@@ -74,6 +74,8 @@ export default function CommandBar() {
   const atisCode = useAtisCode();
   const currentLayout = useWebSocketStore((state) => state.displayedLayout);
   const setDisplayedLayout = useWebSocketStore((state) => state.setDisplayedLayout);
+  const readOnly = useWebSocketStore((state) => state.readOnly);
+  const positionAvailable = useWebSocketStore((state) => state.positionAvailable);
   const runwaySetup = useRunwaySetup();
   const selectedCallsign = useSelectedCallsign();
   const selectStrip = useSelectStrip();
@@ -87,12 +89,16 @@ export default function CommandBar() {
 
   const depRwy = runwaySetup.departure[0] ?? "—";
   const arrRwy = runwaySetup.arrival[0] ?? "—";
-  const scopeLabel = SCOPE_LABELS[currentLayout] ?? currentLayout;
+  const scopeLabel = readOnly && !positionAvailable
+    ? "INVALID"
+    : (SCOPE_LABELS[currentLayout] ?? currentLayout);
   const runwayStatus = runwaySetup.runway_status ?? {};
   const depRunwayClass = runwaySetup.departure_mismatch ? CLS_VAL_ALERT : CLS_VAL_WHITE;
   const arrRunwayClass = runwaySetup.arrival_mismatch ? CLS_VAL_ALERT : CLS_VAL_WHITE;
 
   const myPosition = useWebSocketStore((state) => state.position);
+  const scopeButtonClass = readOnly ? "bg-[#FFD84D] text-black" : "bg-[#1bff16] text-black";
+  const positionLabel = myPosition ? `${myPosition}${readOnly ? " (OBS)" : ""}` : "";
   const isOwner = !!selectedCallsign && !!myPosition && strip?.owner === myPosition;
   const isMarked = strip?.marked ?? false;
   const canMark = !!selectedCallsign || strips.length > 0;
@@ -148,10 +154,10 @@ export default function CommandBar() {
         {/* Scope — green station box, clicks open layout dialog */}
         <button
           onClick={() => setLayoutOpen(true)}
-          className="bg-[#1bff16] text-black flex flex-col justify-center items-center mx-2 font-bold h-[calc(4.72vh-14px)] my-[7px] w-[9.73vw] text-center leading-tight outline-none active:brightness-90"
+          className={`${scopeButtonClass} flex flex-col justify-center items-center mx-2 font-bold h-[calc(4.72vh-14px)] my-[7px] w-[9.73vw] text-center leading-tight outline-none active:brightness-90`}
         >
           <span className="text-[0.78vw] font-semibold">{scopeLabel}</span>
-          {myPosition && <span className="text-[0.63vw] font-medium">{myPosition}</span>}
+          {positionLabel && <span className="text-[0.63vw] font-medium">{positionLabel}</span>}
         </button>
 
         {/* DEP runway */}

@@ -151,6 +151,7 @@ func (hub *Hub) HandleNewConnection(conn *gorilla.Conn, user shared.Authenticate
 
 	var session int32
 	var position, airport, callsign string
+	readOnly := false
 	if err != nil {
 		if !errors.Is(err, pgx.ErrNoRows) {
 			return nil, err
@@ -172,6 +173,9 @@ func (hub *Hub) HandleNewConnection(conn *gorilla.Conn, user shared.Authenticate
 		position = controller.Position
 		airport = dbSession.Airport
 		callsign = controller.Callsign
+		if esHub := hub.server.GetEuroscopeHub(); esHub != nil {
+			readOnly = esHub.IsObserverCid(user.GetCid())
+		}
 	}
 
 	// If no EuroScope client is currently online for this airport, put the frontend client into
@@ -200,6 +204,7 @@ func (hub *Hub) HandleNewConnection(conn *gorilla.Conn, user shared.Authenticate
 		position: position,
 		airport:  airport,
 		callsign: callsign,
+		readOnly: readOnly,
 	}
 
 	hub.register <- client
@@ -212,6 +217,7 @@ func (hub *Hub) sendInitialEvent(client *Client) {
 	stripRepo := hub.server.GetStripRepository()
 	sectorRepo := hub.server.GetSectorOwnerRepository()
 	sessionRepo := hub.server.GetSessionRepository()
+	esHub := hub.server.GetEuroscopeHub()
 
 	controllers, err := controllerRepo.ListBySession(context.Background(), client.session)
 	if err != nil {
@@ -247,30 +253,21 @@ func (hub *Hub) sendInitialEvent(client *Client) {
 	layout := ""
 
 	me := frontend.Controller{}
+	positionAvailable := !client.readOnly
 
 	for _, controller := range controllers {
-		identifier := ""
-		if sector, ok := sectorsMap[controller.Position]; ok {
-			identifier = sector.Identifier
+		if isObserverController(controller, esHub) {
+			continue
 		}
-		section := ""
-		if pos, err := config.GetPositionBasedOnFrequency(controller.Position); err == nil {
-			section = pos.Section
-		}
-		ownedSectors := []string{}
-		if sector, ok := sectorsMap[controller.Position]; ok {
-			ownedSectors = slices.Clone(sector.Sector)
-		}
-		c := frontend.Controller{
-			Callsign:     controller.Callsign,
-			Position:     controller.Position,
-			Identifier:   identifier,
-			Section:      section,
-			OwnedSectors: ownedSectors,
-		}
+
+		c := buildFrontendController(controller.Callsign, controller.Position, sectorsMap)
 		controllerModels = append(controllerModels, c)
 
-		if controller.Callsign == client.callsign {
+		if controller.Position == client.position {
+			positionAvailable = true
+		}
+
+		if !client.readOnly && controller.Callsign == client.callsign {
 			me = c
 			if controller.Layout != nil {
 				layout = *controller.Layout
@@ -284,6 +281,10 @@ func (hub *Hub) sendInitialEvent(client *Client) {
 
 	for _, strip := range strips {
 		stripModels = append(stripModels, MapStripToFrontendModel(strip))
+	}
+
+	if client.readOnly {
+		me = buildFrontendController(client.callsign, client.position, sectorsMap)
 	}
 
 	coordRepo := hub.server.GetCoordinationRepository()
@@ -353,7 +354,7 @@ func (hub *Hub) sendInitialEvent(client *Client) {
 
 	departureMismatch := false
 	arrivalMismatch := false
-	if esHub := hub.server.GetEuroscopeHub(); esHub != nil {
+	if esHub != nil {
 		departureMismatch, arrivalMismatch = esHub.GetRunwayMismatchStatus(client.session, client.user.GetCid())
 	}
 
@@ -377,6 +378,8 @@ func (hub *Hub) sendInitialEvent(client *Client) {
 		AvailableSids:      sids,
 		InitialCFLByRunway: initialCFLByRunway,
 		TransitionAltitude: int32(config.GetTransitionAltitude()),
+		ReadOnly:           client.readOnly,
+		PositionAvailable:  positionAvailable,
 	}
 
 	client.send <- event
@@ -514,8 +517,12 @@ func (hub *Hub) CidOnline(session int32, cid string) {
 func (hub *Hub) CidDisconnect(cid string) {
 	for client := range hub.clients {
 		if client.user.GetCid() == cid {
+			readOnly := false
+			if esHub := hub.server.GetEuroscopeHub(); esHub != nil {
+				readOnly = esHub.IsObserverCid(cid)
+			}
 			client.session = WaitingForEuroscopeConnectionSessionId
-			client.send <- frontend.DisconnectEvent{}
+			client.send <- frontend.DisconnectEvent{ReadOnly: readOnly}
 			return
 		}
 	}
@@ -808,7 +815,10 @@ func (hub *Hub) OnRegister(client *Client) {
 	metrics.ConnectionOpened(context.Background(), client.session, "frontend")
 	if client.session != WaitingForEuroscopeConnectionSessionId {
 		hub.sendInitialEvent(client)
+		return
 	}
+
+	client.send <- frontend.DisconnectEvent{ReadOnly: client.readOnly}
 }
 
 func (hub *Hub) OnUnregister(client *Client) {
@@ -835,11 +845,15 @@ func (hub *Hub) Run() {
 						slog.String("cid", msg.cid),
 						slog.Int("session", int(msg.session)))
 					client.session = msg.session
+					if esHub := hub.server.GetEuroscopeHub(); esHub != nil {
+						client.readOnly = esHub.IsObserverCid(msg.cid)
+					}
 
 					// Populate callsign, position, and airport from DB so that
 					// sendInitialEvent can find the correct controller and layout.
-					// These fields are empty when the client connected before ES.
-					if client.callsign == WaitingForEuroscopeConnectionCallsign {
+					// These fields are empty when the client connected before ES, and
+					// observer clients need a refresh whenever the primary frequency changes.
+					if client.callsign == WaitingForEuroscopeConnectionCallsign || client.readOnly {
 						controllerRepo := hub.server.GetControllerRepository()
 						sessionRepo := hub.server.GetSessionRepository()
 						if controller, err := controllerRepo.GetByCid(context.Background(), msg.cid); err == nil {
@@ -877,4 +891,33 @@ func (hub *Hub) Run() {
 			}
 		}
 	}
+}
+
+func buildFrontendController(callsign string, position string, sectorsMap map[string]*internalModels.SectorOwner) frontend.Controller {
+	identifier := ""
+	if sector, ok := sectorsMap[position]; ok {
+		identifier = sector.Identifier
+	}
+
+	section := ""
+	if pos, err := config.GetPositionBasedOnFrequency(position); err == nil {
+		section = pos.Section
+	}
+
+	ownedSectors := []string{}
+	if sector, ok := sectorsMap[position]; ok {
+		ownedSectors = slices.Clone(sector.Sector)
+	}
+
+	return frontend.Controller{
+		Callsign:     callsign,
+		Position:     position,
+		Identifier:   identifier,
+		Section:      section,
+		OwnedSectors: ownedSectors,
+	}
+}
+
+func isObserverController(controller *internalModels.Controller, _ shared.EuroscopeHub) bool {
+	return controller != nil && controller.Observer
 }

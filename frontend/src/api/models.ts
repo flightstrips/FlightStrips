@@ -269,6 +269,7 @@ export interface FrontendStripUpdateEvent {
   registration: string;
   unexpected_change_fields?: string[];
   controller_modified_fields?: string[];
+  validation_status?: ValidationStatus;
 }
 
 export interface FrontendControllerOnlineEvent {

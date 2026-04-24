@@ -64,9 +64,11 @@ export function getValidationBlinkStyle(validationStatus: ValidationStatus | und
     return {};
   }
 
+  // Keep the animation definition stable across rerenders. Recomputing a
+  // time-based animationDelay during every render causes the browser to restart
+  // the blink at a different phase whenever unrelated websocket/store updates arrive.
   return {
-    animation: "validation-blink 1s step-start infinite",
-    animationDelay: `-${Date.now() % VALIDATION_BLINK_CYCLE_MS}ms`,
+    animation: `validation-blink ${VALIDATION_BLINK_CYCLE_MS}ms step-start infinite`,
   };
 }
 

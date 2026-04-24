@@ -59,13 +59,14 @@ const messagePanelStyle: CSSProperties = {
   left: toVw(23.373),
   top: toVh(79.938),
   width: toVw(419.627),
-  height: toVh(85.378),
+  height: toVh(154),
   backgroundColor: "#D6D6D6",
   boxShadow: DIALOG_SHADOW,
   padding: `${toVh(9)} ${toVw(12)}`,
   display: "flex",
   alignItems: "flex-start",
   justifyContent: "flex-start",
+  overflow: "hidden",
 };
 
 const customActionLabelLines: Record<string, string[]> = {
@@ -95,6 +96,29 @@ function getCustomActionLabelLines(label?: string) {
   }
 
   return [normalizedLabel];
+}
+function getMessageTextStyle(message: string): CSSProperties {
+  const normalizedMessage = message.trim();
+  const lineCount = normalizedMessage.split("\n").length;
+  const length = normalizedMessage.length;
+
+  let fontSize = 14;
+  if (lineCount >= 5 || length > 160) fontSize = 13;
+  if (lineCount >= 7 || length > 240) fontSize = 12;
+  if (lineCount >= 9 || length > 340) fontSize = 11;
+
+  return {
+    width: "100%",
+    minHeight: 0,
+    fontSize: toVMin(fontSize),
+    fontWeight: 600,
+    lineHeight: lineCount >= 7 ? 1.1 : 1.18,
+    whiteSpace: "pre-wrap",
+    overflowWrap: "anywhere",
+    wordBreak: "break-word",
+    overflowY: "auto",
+    paddingRight: toVw(4),
+  };
 }
 
 interface ValidationStatusDialogProps {
@@ -251,15 +275,7 @@ export function ValidationStatusDialog({
             </div>
 
             <div style={messagePanelStyle}>
-              <div
-                style={{
-                  fontSize: toVMin(14),
-                  fontWeight: 600,
-                  lineHeight: 1.2,
-                  whiteSpace: "pre-wrap",
-                  overflowWrap: "anywhere",
-                }}
-              >
+              <div style={getMessageTextStyle(status.message)}>
                 {status.message}
               </div>
             </div>

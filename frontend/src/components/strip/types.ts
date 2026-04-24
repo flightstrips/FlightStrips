@@ -62,8 +62,6 @@ export const TWY_DEP_STRIP_WIDTH = 519; // W_SI(40) + W_CALLSIGN(120) + W_TYPE_S
 export function getStripBg(pdcStatus?: PdcStatus, isArrival?: boolean, bay?: Bay): string {
   const pdcAllowed = !bay || bay === Bay.NotCleared || bay === Bay.Cleared;
   if (pdcAllowed) {
-    if (pdcStatus === "REQUESTED") return "var(--color-pdc-requested)";
-    if (pdcStatus === "REQUESTED_WITH_FAULTS") return "var(--color-pdc-faults)";
     if (pdcStatus === "CLEARED")   return "var(--color-pdc-cleared)";
   }
   return isArrival ? "var(--color-strip-arr-bg)" : "var(--color-strip-dep-bg)";

@@ -26,9 +26,8 @@
   --color-strip-shadow:      #2F2F2F; /* strip drop-shadow color */
 
   /* ── PDC status colors ──────────────────────────────── */
-  --color-pdc-requested:     #B8860B; /* PDC clearance requested */
-  --color-pdc-faults:        #FFD700; /* PDC requested with faults */
   --color-pdc-cleared:       #00154A; /* PDC clearance confirmed */
+  --color-field-warning:     #FFD700; /* highlighted strip field needing review */
 
   /* ── Strip selection / interaction ──────────────────── */
   --color-strip-selection:   #FF00F5; /* selected strip / tag request */

@@ -64,9 +64,6 @@ export function getValidationBlinkStyle(validationStatus: ValidationStatus | und
     return {};
   }
 
-  // Keep the animation definition stable across rerenders. Recomputing a
-  // time-based animationDelay during every render causes the browser to restart
-  // the blink at a different phase whenever unrelated websocket/store updates arrive.
   return {
     animation: `validation-blink ${VALIDATION_BLINK_CYCLE_MS}ms step-start infinite`,
   };
@@ -289,7 +286,7 @@ export const COLOR_DEP_STRIP_BG  = "var(--color-strip-dep-bg)";
 /** Yellow background for arrival strips (FinalArrStrip, ApnArrStrip). */
 export const COLOR_ARR_YELLOW    = "var(--color-strip-arr-bg)";
 /** Yellow background for unexpected/overwritten field cells. */
-export const COLOR_UNEXPECTED_YELLOW = "var(--color-pdc-faults)";
+export const COLOR_UNEXPECTED_YELLOW = "var(--color-field-warning)";
 /** Blue text for fields intentionally modified by the controller. */
 export const COLOR_CONTROLLER_MODIFIED_BLUE = "var(--color-field-modified)";
 /** Blue text/background for fields on manually-created strips (is_manual = true). */
@@ -368,7 +365,7 @@ export function useStripBg(
   const closedRwy = isRunwayClosed(runway, runwaySetup.runway_status);
   const bg = resolveStripBg(normalBg, isTagRequest, isUnconcerned, closedRwy);
   const pdcAllowed = !bay || bay === Bay.NotCleared || bay === Bay.Cleared;
-  const pdcDarkBg = pdcAllowed && (pdcStatus === "REQUESTED" || pdcStatus === "CLEARED")
+  const pdcDarkBg = pdcAllowed && pdcStatus === "CLEARED"
     && !isTagRequest && !closedRwy && !isUnconcerned;
   return { bg, textWhite: (closedRwy && !isTagRequest) || pdcDarkBg };
 }

@@ -49,6 +49,36 @@ func TestReevaluatePdcCustomValidation_ActivatesForDeliveryOwnerWithRemarks(t *t
 	assert.NotEmpty(t, persisted.ActivationKey)
 }
 
+func TestReevaluatePdcCustomValidation_ActivatesWithoutOwner(t *testing.T) {
+	t.Parallel()
+
+	remarks := "REQ VOICE CONFIRMATION"
+	var persisted *models.ValidationStatus
+
+	repo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, callsign string) (*models.Strip, error) {
+			assert.Equal(t, "SAS123", callsign)
+			return &models.Strip{
+				Callsign:          "SAS123",
+				PdcState:          "REQUESTED",
+				PdcRequestRemarks: &remarks,
+			}, nil
+		},
+		SetValidationStatusFn: func(_ context.Context, _ int32, _ string, status *models.ValidationStatus) error {
+			persisted = status
+			return nil
+		},
+	}
+
+	svc, _ := newPdcInvalidValidationFixture(repo, "22R")
+	require.NoError(t, svc.ReevaluatePdcCustomValidation(context.Background(), 1, "SAS123", false, false))
+
+	require.NotNil(t, persisted)
+	assert.Equal(t, pdcCustomValidationIssueType, persisted.IssueType)
+	assert.Equal(t, "", persisted.OwningPosition)
+	assert.True(t, persisted.Active)
+}
+
 func TestReevaluatePdcCustomValidation_ClearsWhenRemarksRemoved(t *testing.T) {
 	t.Parallel()
 

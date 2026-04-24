@@ -4,7 +4,6 @@ import (
 	"context"
 	"strings"
 
-	"FlightStrips/internal/config"
 	internalModels "FlightStrips/internal/models"
 	"FlightStrips/internal/pdc"
 
@@ -29,19 +28,11 @@ func pdcInvalidValidationAction() *internalModels.ValidationAction {
 }
 
 func pdcInvalidValidationApplies(strip *internalModels.Strip) bool {
-	if strip == nil || strip.Owner == nil || *strip.Owner == "" || strip.PdcState != string(pdc.StateRequestedWithFaults) {
+	if strip == nil || strip.PdcState != string(pdc.StateRequestedWithFaults) {
 		return false
 	}
 
-	position, err := config.GetPositionBasedOnFrequency(*strip.Owner)
-	if err != nil {
-		position, err = config.GetPositionByName(*strip.Owner)
-		if err != nil {
-			return false
-		}
-	}
-
-	return position.Section == "DEL" || position.Section == "CLR"
+	return true
 }
 
 func pdcInvalidValidationMessage(faults []pdc.FlightPlanValidationFault) string {
@@ -51,7 +42,7 @@ func pdcInvalidValidationMessage(faults []pdc.FlightPlanValidationFault) string 
 	for _, fault := range faults {
 		lines = append(lines, "• "+fault.Message)
 	}
-	lines = append(lines, "Open DCL menu to correct the SID or runway.")
+	lines = append(lines, "Open DCL menu to review the request and correct the issue.")
 	return strings.Join(lines, "\n")
 }
 
@@ -80,7 +71,7 @@ func (s *StripService) applyPdcInvalidValidation(ctx context.Context, session in
 		return nil
 	}
 
-	owner := *strip.Owner
+	owner := pdcValidationOwningPosition(strip)
 	desired := &internalModels.ValidationStatus{
 		IssueType:      pdcInvalidValidationIssueType,
 		Message:        pdcInvalidValidationMessage(faults),

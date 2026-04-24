@@ -70,8 +70,40 @@ func TestReevaluatePdcInvalidValidation_ActivatesForDeliveryOwnerWithRelevantFau
 	assert.Equal(t, pdcInvalidValidationActionLabel, persisted.CustomAction.Label)
 	assert.Contains(t, persisted.Message, "SID BETUD is not available via PDC")
 	assert.Contains(t, persisted.Message, "Runway 22L is not an active departure runway")
-	assert.Contains(t, persisted.Message, "Open DCL menu to correct the SID or runway.")
+	assert.Contains(t, persisted.Message, "Open DCL menu to review the request and correct the issue.")
 	assert.NotEmpty(t, persisted.ActivationKey)
+}
+
+func TestReevaluatePdcInvalidValidation_ActivatesWithoutOwner(t *testing.T) {
+	t.Parallel()
+
+	sid := "BETUD"
+	runway := "22L"
+	var persisted *models.ValidationStatus
+
+	repo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, callsign string) (*models.Strip, error) {
+			assert.Equal(t, "SAS123", callsign)
+			return &models.Strip{
+				Callsign: "SAS123",
+				Sid:      &sid,
+				Runway:   &runway,
+				PdcState: "REQUESTED_WITH_FAULTS",
+			}, nil
+		},
+		SetValidationStatusFn: func(_ context.Context, _ int32, _ string, status *models.ValidationStatus) error {
+			persisted = status
+			return nil
+		},
+	}
+
+	svc, _ := newPdcInvalidValidationFixture(repo, "22R")
+	require.NoError(t, svc.ReevaluatePdcInvalidValidation(context.Background(), 1, "SAS123", false, false))
+
+	require.NotNil(t, persisted)
+	assert.Equal(t, pdcInvalidValidationIssueType, persisted.IssueType)
+	assert.Equal(t, "", persisted.OwningPosition)
+	assert.True(t, persisted.Active)
 }
 
 func TestReevaluatePdcInvalidValidation_ClearsWhenFaultsNoLongerExist(t *testing.T) {
@@ -110,12 +142,12 @@ func TestReevaluatePdcInvalidValidation_ClearsWhenFaultsNoLongerExist(t *testing
 	assert.True(t, cleared)
 }
 
-func TestReevaluatePdcInvalidValidation_ClearsWhenOwnerLeavesDelivery(t *testing.T) {
+func TestReevaluatePdcInvalidValidation_RemainsActiveForNonDeliveryOwner(t *testing.T) {
 	t.Parallel()
 
 	owner := "EKCH_A_GND"
 	runway := "22L"
-	cleared := false
+	var persisted *models.ValidationStatus
 
 	repo := &testutil.MockStripRepository{
 		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
@@ -134,15 +166,18 @@ func TestReevaluatePdcInvalidValidation_ClearsWhenOwnerLeavesDelivery(t *testing
 				},
 			}, nil
 		},
-		ClearValidationStatusFn: func(_ context.Context, _ int32, _ string) error {
-			cleared = true
+		SetValidationStatusFn: func(_ context.Context, _ int32, _ string, status *models.ValidationStatus) error {
+			persisted = status
 			return nil
 		},
 	}
 
 	svc, _ := newPdcInvalidValidationFixture(repo, "22R")
 	require.NoError(t, svc.ReevaluatePdcInvalidValidation(context.Background(), 1, "SAS123", false, false))
-	assert.True(t, cleared)
+
+	require.NotNil(t, persisted)
+	assert.Equal(t, owner, persisted.OwningPosition)
+	assert.True(t, persisted.Active)
 }
 
 func TestReevaluatePdcInvalidValidation_ReactivatesOnOwnerChange(t *testing.T) {
@@ -187,4 +222,32 @@ func TestReevaluatePdcInvalidValidation_ReactivatesOnOwnerChange(t *testing.T) {
 	assert.Equal(t, newOwner, persisted.OwningPosition)
 	assert.True(t, persisted.Active)
 	assert.NotEqual(t, "old-key", persisted.ActivationKey)
+}
+
+func TestReevaluatePdcInvalidValidation_ActivatesForEobtFaults(t *testing.T) {
+	t.Parallel()
+
+	eobt := "2359"
+	var persisted *models.ValidationStatus
+
+	repo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			return &models.Strip{
+				Callsign: "SAS123",
+				PdcState: "REQUESTED_WITH_FAULTS",
+				CdmData:  (&models.CdmData{Eobt: &eobt}).Normalize(),
+			}, nil
+		},
+		SetValidationStatusFn: func(_ context.Context, _ int32, _ string, status *models.ValidationStatus) error {
+			persisted = status
+			return nil
+		},
+	}
+
+	svc, _ := newPdcInvalidValidationFixture(repo, "22R")
+	require.NoError(t, svc.ReevaluatePdcInvalidValidation(context.Background(), 1, "SAS123", false, false))
+
+	require.NotNil(t, persisted)
+	assert.Equal(t, pdcInvalidValidationIssueType, persisted.IssueType)
+	assert.Contains(t, persisted.Message, "EOBT")
 }

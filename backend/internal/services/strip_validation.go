@@ -23,8 +23,9 @@ func (s *StripService) SetValidationStatus(ctx context.Context, session int32, c
 }
 
 // AcknowledgeValidationStatus marks the validation status as inactive if the activation key
-// matches and the requesting position is the owning position. Uses a conditional DB update so
-// concurrent triggers cannot be accidentally dismissed.
+// matches and the requesting position is allowed to acknowledge it. Most validations remain
+// owner-scoped; PDC validations are visible and acknowledgeable for all online positions.
+// Uses a conditional DB update so concurrent triggers cannot be accidentally dismissed.
 func (s *StripService) AcknowledgeValidationStatus(ctx context.Context, session int32, callsign string, activationKey string, requestingPosition string) error {
 	strip, err := s.stripRepo.GetByCallsign(ctx, session, callsign)
 	if err != nil {
@@ -33,7 +34,9 @@ func (s *StripService) AcknowledgeValidationStatus(ctx context.Context, session 
 	if strip.ValidationStatus == nil {
 		return nil
 	}
-	if strip.ValidationStatus.OwningPosition != requestingPosition {
+	if strip.ValidationStatus.OwningPosition != requestingPosition &&
+		!isPdcInvalidValidation(strip.ValidationStatus) &&
+		!isPdcCustomValidation(strip.ValidationStatus) {
 		return errors.New("acknowledge_validation_status: requesting position is not the owning position")
 	}
 	rows, err := s.stripRepo.AcknowledgeValidationStatus(ctx, session, callsign, activationKey)

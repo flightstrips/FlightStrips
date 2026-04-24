@@ -74,21 +74,19 @@ func TestRunwayTypeValidationFault_ReturnsConfiguredAircraftRunwayFault(t *testi
 	assert.Equal(t, "Aircraft type AN225 is not allowed on runway 04L", fault.Message)
 }
 
-func TestPDCStripValidationFaults_ExcludesEobtOnlyFaults(t *testing.T) {
+func TestPDCStripValidationFaults_IncludesEobtFaults(t *testing.T) {
 	t.Parallel()
 
-	sid := "BETUD"
-	eobt := time.Now().UTC().Format("1504")
+	eobt := time.Now().UTC().Add(2 * time.Hour).Format("1504")
 	strip := &models.Strip{
-		Sid:     &sid,
 		CdmData: &models.CdmData{Eobt: &eobt},
 	}
 
 	faults := PDCStripValidationFaults(strip, []string{"22R"})
 
 	require.Len(t, faults, 1)
-	assert.Equal(t, FlightPlanValidationFaultKindSID, faults[0].Kind)
-	assert.Equal(t, "SID BETUD is not available via PDC", faults[0].Message)
+	assert.Equal(t, FlightPlanValidationFaultKindEOBT, faults[0].Kind)
+	assert.Contains(t, faults[0].Message, "EOBT")
 }
 
 func stringPtrTest(value string) *string {

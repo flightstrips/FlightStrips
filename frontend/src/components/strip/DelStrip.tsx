@@ -1,4 +1,3 @@
-import { useState, useEffect, useRef } from "react";
 import { CLXBtn } from "@/components/clxbtn";
 import { getStripBg } from "./types";
 import type { StripProps } from "./types";
@@ -14,12 +13,13 @@ import {
   getCellTextColor,
   useStripBg,
   getValidationBlinkStyle,
+  usePdcClearedCallsignBlink,
 } from "./shared";
 import { useStripTransfers, useWebSocketStore } from "@/store/store-hooks";
 import { useCDMColors } from "@/hooks/useCDMColors";
 import { useCTOTColor } from "@/hooks/useCTOTColor";
-import { Bay } from "@/api/models"
-import { ValidationStatusDialog } from "./ValidationStatusDialog";;
+import { Bay } from "@/api/models";
+import { ValidationStatusDialog } from "./ValidationStatusDialog";
 const FULL_H  = "4.72vh";
 const HALF_H  = "2.36vh";
 
@@ -56,41 +56,23 @@ export function DelStrip({
   const acknowledgeUnexpectedChange = useWebSocketStore(s => s.acknowledgeUnexpectedChange);
   const stripTransfers = useStripTransfers();
   const isTagRequest = !!stripTransfers[callsign]?.isTagRequest;
-  const { bg, textWhite } = useStripBg(runway, getStripBg(pdcStatus, arrival, bay), isTagRequest, false, pdcStatus, bay);
+  const stripBackgroundPdcStatus = pdcStatus === "CLEARED" || pdcStatus === "REQUESTED_WITH_FAULTS" ? "NONE" : pdcStatus;
+  const { bg, textWhite } = useStripBg(
+    runway,
+    getStripBg(stripBackgroundPdcStatus, arrival, bay),
+    isTagRequest,
+    false,
+    stripBackgroundPdcStatus,
+    bay,
+  );
+  const showClearedCallsignHighlight = usePdcClearedCallsignBlink(pdcStatus);
   const { tobtBg, tsatBg } = useCDMColors({ bay: bay ?? Bay.Unknown, tsat: tsat ?? "", tobt: tobt ?? "" });
   const { ctotBg, ctotColor, showCtot } = useCTOTColor(ctot ?? "");
   const standYellow = unexpectedChangeFields?.includes("stand");
-
-  // Blink logic: fires once for 5 seconds when pdc_state transitions into REQUESTED_WITH_FAULTS.
-  // JS interval alternates phase every 500ms so text + borders alternate in sync with background.
-  const [faultBlinkPhase, setFaultBlinkPhase] = useState<"off" | "dark" | "light">("off");
-  const prevPdcStatus = useRef(pdcStatus);
-
-  useEffect(() => {
-    if (pdcStatus === "REQUESTED_WITH_FAULTS" && prevPdcStatus.current !== "REQUESTED_WITH_FAULTS") {
-      setFaultBlinkPhase("dark");
-      let phase: "dark" | "light" = "dark";
-      const interval = setInterval(() => {
-        phase = phase === "dark" ? "light" : "dark";
-        setFaultBlinkPhase(phase);
-      }, 500);
-      const timeout = setTimeout(() => {
-        clearInterval(interval);
-        setFaultBlinkPhase("off");
-      }, 5000);
-      prevPdcStatus.current = pdcStatus;
-      return () => { clearInterval(interval); clearTimeout(timeout); };
-    }
-    prevPdcStatus.current = pdcStatus;
-  }, [pdcStatus]);
-
-  // During blink: phase controls colors (dark=navy/white, light=cyan/black).
-  // After blink: CLEARED stays navy; REQUESTED_WITH_FAULTS shows yellow with normal colors.
-  const isBlinking = faultBlinkPhase !== "off";
-  const isNavyBg = isBlinking ? faultBlinkPhase === "dark" : pdcStatus === "CLEARED";
-  const cellBorderColor = isNavyBg ? "white" : getCellBorderColor(marked);
-  const blinkBg = faultBlinkPhase === "dark" ? "var(--color-pdc-cleared)" : faultBlinkPhase === "light" ? "var(--color-strip-dep-bg)" : undefined;
-  const manualBlue = isManual && !isNavyBg ? COLOR_MANUAL_BLUE : undefined;
+  const cellBorderColor = getCellBorderColor(marked);
+  const manualBlue = isManual && !textWhite ? COLOR_MANUAL_BLUE : undefined;
+  const callsignBackgroundColor = showClearedCallsignHighlight ? "var(--color-pdc-cleared)" : isSelected ? SELECTION_COLOR : undefined;
+  const callsignTextColor = showClearedCallsignHighlight ? "white" : manualBlue;
 
   return (
     <div
@@ -103,15 +85,15 @@ export function DelStrip({
       }}
     >
       <div
-        className={`flex ${isNavyBg || (!blinkBg && textWhite) ? "text-white" : "text-black"}`}
-        style={{ height: "100%", overflow: "hidden", backgroundColor: blinkBg ?? bg }}
+        className={`flex ${textWhite ? "text-white" : "text-black"}`}
+        style={{ height: "100%", overflow: "hidden", backgroundColor: bg }}
       >
         {/* ── Left 50% ── */}
 
         {/* Callsign — 2/3 of left half */}
         <button
           className={`flex items-center justify-start overflow-hidden ${showActivePress ? CLS_CALLSIGN_ACTIVE : ""} border-r-2 cursor-pointer`}
-          style={{ flex: "2 0 0%", height: "100%", minWidth: 0, fontFamily: FONT, fontWeight: "bold", fontSize: "1.25vw", textAlign: "left", paddingLeft: "0.21vw", borderRightColor: cellBorderColor, backgroundColor: isSelected ? SELECTION_COLOR : undefined, color: manualBlue, ...getValidationBlinkStyle(validationStatus, myPosition) }}
+          style={{ flex: "2 0 0%", height: "100%", minWidth: 0, fontFamily: FONT, fontWeight: "bold", fontSize: "1.25vw", textAlign: "left", paddingLeft: "0.21vw", borderRightColor: cellBorderColor, backgroundColor: callsignBackgroundColor, color: callsignTextColor, ...getValidationBlinkStyle(validationStatus, myPosition) }}
           onClick={handleClick}
           onContextMenu={handleContextMenu}
         >

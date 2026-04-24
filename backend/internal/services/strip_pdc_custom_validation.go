@@ -4,7 +4,6 @@ import (
 	"context"
 	"strings"
 
-	"FlightStrips/internal/config"
 	internalModels "FlightStrips/internal/models"
 	"FlightStrips/internal/pdc"
 
@@ -29,7 +28,7 @@ func pdcCustomValidationAction() *internalModels.ValidationAction {
 }
 
 func pdcCustomValidationApplies(strip *internalModels.Strip) bool {
-	if strip == nil || strip.Owner == nil || *strip.Owner == "" || strip.PdcState != string(pdc.StateRequested) {
+	if strip == nil || strip.PdcState != string(pdc.StateRequested) {
 		return false
 	}
 
@@ -37,15 +36,15 @@ func pdcCustomValidationApplies(strip *internalModels.Strip) bool {
 		return false
 	}
 
-	position, err := config.GetPositionBasedOnFrequency(*strip.Owner)
-	if err != nil {
-		position, err = config.GetPositionByName(*strip.Owner)
-		if err != nil {
-			return false
-		}
+	return true
+}
+
+func pdcValidationOwningPosition(strip *internalModels.Strip) string {
+	if strip == nil || strip.Owner == nil {
+		return ""
 	}
 
-	return position.Section == "DEL" || position.Section == "CLR"
+	return strings.TrimSpace(*strip.Owner)
 }
 
 func pdcCustomValidationMessage(remarks string) string {
@@ -84,7 +83,7 @@ func (s *StripService) applyPdcCustomValidation(ctx context.Context, session int
 		return nil
 	}
 
-	owner := *strip.Owner
+	owner := pdcValidationOwningPosition(strip)
 	desired := &internalModels.ValidationStatus{
 		IssueType:      pdcCustomValidationIssueType,
 		Message:        pdcCustomValidationMessage(remarks),

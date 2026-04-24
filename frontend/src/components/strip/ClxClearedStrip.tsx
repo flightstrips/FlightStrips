@@ -1,4 +1,3 @@
-import { useState, useEffect, useRef } from "react";
 import { CLXBtn } from "@/components/clxbtn";
 import { getStripBg } from "./types";
 import type { StripProps } from "./types";
@@ -15,6 +14,7 @@ import {
   getCellTextColor,
   useStripBg,
   getValidationBlinkStyle,
+  usePdcClearedCallsignBlink,
 } from "./shared";
 import { SIBox } from "./SIBox";
 import { useStripTransfers, useWebSocketStore } from "@/store/store-hooks";
@@ -73,43 +73,25 @@ export function ClxClearedStrip({
   const stripTransfers = useStripTransfers();
   const isTagRequest = !!stripTransfers[callsign]?.isTagRequest;
   const { isUnconcerned } = getStripOwnership(myPosition, owner, nextControllers, previousControllers);
-  const { bg, textWhite } = useStripBg(runway, getStripBg(pdcStatus, arrival, bay), isTagRequest, isUnconcerned, pdcStatus, bay);
+  const stripBackgroundPdcStatus = pdcStatus === "CLEARED" || pdcStatus === "REQUESTED_WITH_FAULTS" ? "NONE" : pdcStatus;
+  const { bg, textWhite } = useStripBg(
+    runway,
+    getStripBg(stripBackgroundPdcStatus, arrival, bay),
+    isTagRequest,
+    isUnconcerned,
+    stripBackgroundPdcStatus,
+    bay,
+  );
+  const showClearedCallsignHighlight = usePdcClearedCallsignBlink(pdcStatus);
   const cdmReady = useWebSocketStore(s => s.cdmReady);
   const acknowledgeUnexpectedChange = useWebSocketStore(s => s.acknowledgeUnexpectedChange);
   const standYellow = unexpectedChangeFields?.includes("stand");
   const { tobtBg, tsatBg } = useCDMColors({ bay: bay ?? Bay.Unknown, tsat: tsat ?? "", tobt: tobt ?? "" });
   const { ctotBg, ctotColor, showCtot } = useCTOTColor(ctot ?? "");
-
-  // Blink logic: fires once for 5 seconds when pdc_state transitions into CLEARED.
-  // JS interval alternates phase every 500ms so text + borders alternate in sync with background.
-  const [blinkPhase, setBlinkPhase] = useState<"off" | "dark" | "light">("off");
-  const prevPdcStatus = useRef(pdcStatus);
-
-  useEffect(() => {
-    if (pdcStatus === "CLEARED" && prevPdcStatus.current !== "CLEARED") {
-      setBlinkPhase("dark");
-      let phase: "dark" | "light" = "dark";
-      const interval = setInterval(() => {
-        phase = phase === "dark" ? "light" : "dark";
-        setBlinkPhase(phase);
-      }, 500);
-      const timeout = setTimeout(() => {
-        clearInterval(interval);
-        setBlinkPhase("off");
-      }, 5000);
-      prevPdcStatus.current = pdcStatus;
-      return () => { clearInterval(interval); clearTimeout(timeout); };
-    }
-    prevPdcStatus.current = pdcStatus;
-  }, [pdcStatus]);
-
-  // During blink: phase controls colors (dark=navy/white, light=cyan/black).
-  // After blink: pdcStatus=CLEARED → always navy.
-  const isBlinking = blinkPhase !== "off";
-  const isNavyBg = isBlinking ? blinkPhase === "dark" : pdcStatus === "CLEARED";
-  const cellBorderColor = isNavyBg ? "white" : getCellBorderColor(marked);
-  const blinkBg = blinkPhase === "dark" ? "var(--color-pdc-cleared)" : blinkPhase === "light" ? "var(--color-strip-dep-bg)" : undefined;
-  const manualBlue = isManual && !isNavyBg ? COLOR_MANUAL_BLUE : undefined;
+  const cellBorderColor = getCellBorderColor(marked);
+  const manualBlue = isManual && !textWhite ? COLOR_MANUAL_BLUE : undefined;
+  const callsignBackgroundColor = showClearedCallsignHighlight ? "var(--color-pdc-cleared)" : isSelected ? SELECTION_COLOR : undefined;
+  const callsignTextColor = showClearedCallsignHighlight ? "white" : manualBlue;
 
   return (
     <div
@@ -121,8 +103,8 @@ export function ClxClearedStrip({
       }}
     >
       <div
-        className={`flex ${isNavyBg || textWhite ? "text-white" : "text-black"}`}
-        style={{ height: "100%", overflow: "hidden", backgroundColor: blinkBg ?? bg }}
+        className={`flex ${textWhite ? "text-white" : "text-black"}`}
+        style={{ height: "100%", overflow: "hidden", backgroundColor: bg }}
       >
         {/* SI / ownership — 8.44% */}
         <SIBox
@@ -141,7 +123,7 @@ export function ClxClearedStrip({
         {/* Callsign — 2/3 of left half */}
         <button
           className={`flex items-center justify-start overflow-hidden ${showActivePress ? CLS_CALLSIGN_ACTIVE : ""} border-r-2 cursor-pointer`}
-          style={{ flex: `${F_CALLSIGN} 0 0%`, height: "100%", minWidth: 0, fontFamily: FONT, fontWeight: "bold", fontSize: "1.25vw", textAlign: "left", paddingLeft: "0.21vw", borderRightColor: cellBorderColor, backgroundColor: isSelected ? SELECTION_COLOR : undefined, color: manualBlue, ...getValidationBlinkStyle(validationStatus, myPosition) }}
+          style={{ flex: `${F_CALLSIGN} 0 0%`, height: "100%", minWidth: 0, fontFamily: FONT, fontWeight: "bold", fontSize: "1.25vw", textAlign: "left", paddingLeft: "0.21vw", borderRightColor: cellBorderColor, backgroundColor: callsignBackgroundColor, color: callsignTextColor, ...getValidationBlinkStyle(validationStatus, myPosition) }}
           onClick={handleClick}
           onContextMenu={handleContextMenu}
         >
@@ -176,7 +158,7 @@ export function ClxClearedStrip({
           {/* EOBT / CTOT — left half, stacked */}
           <div className="flex flex-col overflow-hidden border-r-2" style={{ flex: "1 0 0%", height: "100%", minWidth: 0, borderRightColor: cellBorderColor }}>
             <div className="flex items-center justify-between px-[0.21vw] border-b-2 overflow-hidden" style={{ height: HALF_H, fontFamily: FONT, fontSize: "0.73vw", borderBottomColor: "transparent" }}>
-              <span className={`${isNavyBg ? "text-white" : "text-black"} shrink-0`}>EOBT</span>
+              <span className={`${textWhite ? "text-white" : "text-black"} shrink-0`}>EOBT</span>
               <span style={{ color: manualBlue }}>{eobt}</span>
             </div>
             <div className="flex items-center justify-between px-[0.21vw] overflow-hidden" style={{ height: HALF_H, fontFamily: FONT, fontSize: "0.73vw", backgroundColor: ctotBg, color: ctotColor }}>
@@ -188,13 +170,13 @@ export function ClxClearedStrip({
           {/* TOBT / TSAT — right half, stacked with line between */}
           <div className="flex flex-col" style={{ flex: "1 0 0%", height: "100%" }}>
             <div className="flex items-center justify-between px-[0.21vw] border-b-2 overflow-hidden" style={{ height: HALF_H, fontFamily: FONT, fontSize: "0.73vw", borderBottomColor: cellBorderColor, backgroundColor: tobtBg }}>
-              <span className={`${isNavyBg ? "text-white" : "text-black"} shrink-0`}>TOBT</span>
+              <span className={`${textWhite ? "text-white" : "text-black"} shrink-0`}>TOBT</span>
               <span>{tobt}</span>
             </div>
             <div className="flex items-center justify-between px-[0.21vw] overflow-hidden" style={{ height: HALF_H, fontFamily: FONT, fontSize: "0.73vw", backgroundColor: tsatBg, cursor: "pointer" }}
               onClick={(e) => { e.stopPropagation(); cdmReady(callsign); }}
             >
-              <span className={`${isNavyBg ? "text-white" : "text-black"} shrink-0`}>TSAT</span>
+              <span className={`${textWhite ? "text-white" : "text-black"} shrink-0`}>TSAT</span>
               <span>{tsat}</span>
             </div>
           </div>

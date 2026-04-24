@@ -3,7 +3,7 @@
  */
 
 import { useMarkArmed, useRunwaySetup, useSelectStrip, useSelectedCallsign, useStripTransfers, useTagRequestArmed, useWebSocketStore } from "@/store/store-hooks";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { CSSProperties, MouseEvent as ReactMouseEvent } from "react";
 import { Bay } from "@/api/models";
 import type { PdcStatus } from "@/api/models";
@@ -12,6 +12,9 @@ import type { ValidationStatus } from "@/api/models";
 export const SELECTION_COLOR = "var(--color-strip-selection)";
 export const STRIP_FRAME_COLOR = "var(--color-strip-frame)";
 const VALIDATION_BLINK_CYCLE_MS = 1000;
+const PDC_CLEARED_CALLSIGN_BLINK_INTERVAL_MS = 500;
+const PDC_CLEARED_CALLSIGN_BLINK_DURATION_MS = 7000;
+const PDC_VALIDATION_ISSUE_TYPES = new Set(["PDC INVALID", "CUSTOM PDC"]);
 
 /** Returns the border color for cell dividers within a strip. Pass `marked` when that state is available. */
 export function getCellBorderColor(marked: boolean, baseColor = STRIP_FRAME_COLOR): string {
@@ -47,8 +50,13 @@ export function canRequestTagForStrip({
   return bay === Bay.Cleared && !!owner && !!myPosition && owner !== myPosition && !hasActiveCoordination;
 }
 
+export function isPdcValidationStatus(validationStatus: ValidationStatus | undefined): boolean {
+  return validationStatus != null && PDC_VALIDATION_ISSUE_TYPES.has(validationStatus.issue_type);
+}
+
 export function isValidationActiveForPosition(validationStatus: ValidationStatus | undefined, myPosition?: string): boolean {
-  return validationStatus?.active === true && validationStatus.owning_position === myPosition;
+  return validationStatus?.active === true
+    && (isPdcValidationStatus(validationStatus) || validationStatus.owning_position === myPosition);
 }
 
 export function getValidationBlinkStyle(validationStatus: ValidationStatus | undefined, myPosition?: string): CSSProperties {
@@ -60,6 +68,36 @@ export function getValidationBlinkStyle(validationStatus: ValidationStatus | und
     animation: "validation-blink 1s step-start infinite",
     animationDelay: `-${Date.now() % VALIDATION_BLINK_CYCLE_MS}ms`,
   };
+}
+
+export function usePdcClearedCallsignBlink(pdcStatus?: PdcStatus): boolean {
+  const [isHighlighted, setIsHighlighted] = useState(pdcStatus === "CLEARED");
+  const prevPdcStatus = useRef<PdcStatus | undefined>(pdcStatus);
+
+  useEffect(() => {
+    if (pdcStatus === "CLEARED" && prevPdcStatus.current !== "CLEARED") {
+      setIsHighlighted(true);
+      let highlighted = true;
+      const interval = setInterval(() => {
+        highlighted = !highlighted;
+        setIsHighlighted(highlighted);
+      }, PDC_CLEARED_CALLSIGN_BLINK_INTERVAL_MS);
+      const timeout = setTimeout(() => {
+        clearInterval(interval);
+        setIsHighlighted(true);
+      }, PDC_CLEARED_CALLSIGN_BLINK_DURATION_MS);
+
+      prevPdcStatus.current = pdcStatus;
+      return () => {
+        clearInterval(interval);
+        clearTimeout(timeout);
+      };
+    }
+
+    prevPdcStatus.current = pdcStatus;
+  }, [pdcStatus]);
+
+  return pdcStatus === "CLEARED" && isHighlighted;
 }
 
 export function useStripCallsignInteraction({

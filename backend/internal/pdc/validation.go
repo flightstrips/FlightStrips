@@ -21,17 +21,11 @@ type FlightPlanValidationFault struct {
 	Message string
 }
 
-// PDCStripValidationFaults returns only the SID/runway-related PDC faults that should surface
-// as strip validations for clearance-delivery positions.
+// PDCStripValidationFaults returns the PDC request faults that should surface as strip
+// validations. These should align with REQUESTED_WITH_FAULTS so controllers get the
+// shared validation flow instead of separate strip-local highlighting.
 func PDCStripValidationFaults(strip *models.Strip, activeDepartureRunways []string) []FlightPlanValidationFault {
-	faults := validatePDCFlightPlanFaults(strip, activeDepartureRunways, time.Now().UTC())
-	filtered := make([]FlightPlanValidationFault, 0, len(faults))
-	for _, fault := range faults {
-		if fault.Kind == FlightPlanValidationFaultKindSID || fault.Kind == FlightPlanValidationFaultKindRunway {
-			filtered = append(filtered, fault)
-		}
-	}
-	return filtered
+	return validatePDCFlightPlanFaults(strip, activeDepartureRunways, time.Now().UTC())
 }
 
 func validationFaultMessages(faults []FlightPlanValidationFault) []string {

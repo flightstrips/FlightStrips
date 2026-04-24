@@ -73,6 +73,7 @@ export function ViewDndContext({
   const myPosition = useMyPosition();
   const airport = useAirport();
   const [validationDialogCallsign, setValidationDialogCallsign] = useState<string | null>(null);
+  const [validationDialogOpen, setValidationDialogOpen] = useState(false);
   const validationDialogStatus = useWebSocketStore((state) =>
     validationDialogCallsign
       ? state.strips.find((strip) => strip.callsign === validationDialogCallsign)?.validation_status
@@ -117,6 +118,7 @@ export function ViewDndContext({
     if (strip && isFlight(strip) && strip.owner !== myPosition) return;
     if (strip && isFlight(strip) && isValidationActiveForPosition(strip.validation_status, myPosition)) {
       setValidationDialogCallsign(strip.callsign);
+      setValidationDialogOpen(true);
       return;
     }
 
@@ -266,12 +268,8 @@ export function ViewDndContext({
               <ValidationStatusDialog
                 callsign={validationDialogCallsign}
                 status={validationDialogStatus}
-                open
-                onOpenChange={(open) => {
-                  if (!open) {
-                    setValidationDialogCallsign(null);
-                  }
-                }}
+                open={validationDialogOpen}
+                onOpenChange={setValidationDialogOpen}
               />
             )}
           </DragStateContext>

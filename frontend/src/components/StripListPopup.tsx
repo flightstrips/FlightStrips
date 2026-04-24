@@ -48,6 +48,7 @@ export function StripListPopup<T extends FrontendStrip>({
   const [sortDialogOpen, setSortDialogOpen] = useState(false);
   const [pendingSortKey, setPendingSortKey] = useState(currentSortKey);
   const [validationDialogCallsign, setValidationDialogCallsign] = useState<string | null>(null);
+  const [validationDialogOpen, setValidationDialogOpen] = useState(false);
   const validationDialogStatus = useWebSocketStore((state) =>
     validationDialogCallsign
       ? state.strips.find((strip) => strip.callsign === validationDialogCallsign)?.validation_status
@@ -70,10 +71,17 @@ export function StripListPopup<T extends FrontendStrip>({
   const handleRowClick = (strip: T) => {
     if (isValidationActiveForPosition(strip.validation_status, myPosition)) {
       setValidationDialogCallsign(strip.callsign);
+      setValidationDialogOpen(true);
       return;
     }
 
     onRowClick(strip);
+  };
+
+  const handleDismiss = () => {
+    setValidationDialogOpen(false);
+    setValidationDialogCallsign(null);
+    onDismiss();
   };
 
   return (
@@ -82,7 +90,7 @@ export function StripListPopup<T extends FrontendStrip>({
       <div
         className="fixed inset-0 z-50 flex items-center justify-center"
         style={{ background: "rgba(0,0,0,0.45)" }}
-        onMouseDown={onDismiss}
+        onMouseDown={handleDismiss}
       >
         {/* Popup — fixed height so strip list scrolls */}
         <div
@@ -151,7 +159,7 @@ export function StripListPopup<T extends FrontendStrip>({
                 background: COLOR_BTN_BG,
                 border: "1px solid black",
               }}
-              onClick={onDismiss}
+              onClick={handleDismiss}
             >
               <span style={{ fontFamily: "Rubik, sans-serif", fontWeight: 700, fontSize: 24, color: "black" }}>
                 DISMISS
@@ -184,8 +192,9 @@ export function StripListPopup<T extends FrontendStrip>({
                     status="PUSH"
                     myPosition={myPosition}
                     selectable={false}
+                    delegateCallsignClick={true}
                     fullWidth={true}
-                    onStripMoved={onDismiss}
+                    onStripMoved={handleDismiss}
                   />
                 </div>
               ))}
@@ -268,17 +277,13 @@ export function StripListPopup<T extends FrontendStrip>({
         </DialogContent>
       </Dialog>
       {validationDialogCallsign && validationDialogStatus && (
-        <ValidationStatusDialog
-          callsign={validationDialogCallsign}
-          status={validationDialogStatus}
-          open
-          onOpenChange={(open) => {
-            if (!open) {
-              setValidationDialogCallsign(null);
-            }
-          }}
-        />
-      )}
+          <ValidationStatusDialog
+            callsign={validationDialogCallsign}
+            status={validationDialogStatus}
+            open={validationDialogOpen}
+            onOpenChange={setValidationDialogOpen}
+          />
+        )}
     </>
   );
 }

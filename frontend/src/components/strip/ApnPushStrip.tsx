@@ -69,6 +69,7 @@ export function ApnPushStrip({
   previousControllers,
   myPosition,
   selectable,
+  delegateCallsignClick = false,
   onStripMoved,
   marked = false,
   fullWidth = false,
@@ -118,8 +119,8 @@ export function ApnPushStrip({
         <div
           className="flex flex-col overflow-hidden border-r-2 cursor-pointer"
           style={{ flex: `${F_CALLSIGN} 0 0%`, height: "100%", minWidth: 0, borderRightColor: cellBorderColor, ...getValidationBlinkStyle(validationStatus, myPosition) }}
-          onClick={handleClick}
-          onContextMenu={handleContextMenu}
+          onClick={delegateCallsignClick ? undefined : handleClick}
+          onContextMenu={delegateCallsignClick ? undefined : handleContextMenu}
         >
           <div className="flex items-center pl-[0.42vw]" style={{ height: TOP_H, backgroundColor: isSelected ? SELECTION_COLOR : undefined }}>
             <span className="truncate w-full" style={{ fontFamily: FONT, fontWeight: "bold", fontSize: "1.04vw", color: manualBlue }}>

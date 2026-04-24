@@ -366,9 +366,13 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     forceAssumeStrip: (callsign) => {
       wsClient.send({ type: ActionType.FrontendCoordinationForceAssumeRequest, callsign });
     },
-    // pickupStrip: force-assume and move to bay in one action (used when selecting from ARR/startup popups)
+    // pickupStrip: assume if needed, then move to bay in one action (used when selecting from ARR/startup popups)
     pickupStrip: (callsign, bay) => {
-      get().forceAssumeStrip(callsign);
+      const strip = get().strips.find((candidate) => candidate.callsign === callsign);
+      const myPosition = get().position;
+      if (!strip || !myPosition || strip.owner !== myPosition) {
+        get().forceAssumeStrip(callsign);
+      }
       get().move(callsign, bay);
     },
     freeStrip: (callsign) => {

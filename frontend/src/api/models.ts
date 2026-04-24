@@ -123,6 +123,8 @@ export interface RunwayConfiguration {
   departure: string[];
   arrival: string[];
   runway_status?: Record<string, string>;
+  departure_mismatch?: boolean;
+  arrival_mismatch?: boolean;
 }
 
 export interface FrontendStrip {

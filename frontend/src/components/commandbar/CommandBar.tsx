@@ -22,6 +22,7 @@ const CLS_BAR = "h-[4.72vh] w-screen bg-bay-commandbar flex justify-between text
 // Font sizes derived from SVG (2560px base): large values 36px→1.41vw, labels 24px→0.94vw
 const CLS_VAL_WHITE = "bg-bay-light text-black text-[1.41vw] font-bold h-[calc(4.72vh-14px)] my-[7px] flex items-center justify-center";
 const CLS_VAL_DARK  = "bg-bay-dark text-white  text-[1.41vw] font-bold h-[calc(4.72vh-14px)] my-[7px] flex items-center justify-center";
+const CLS_VAL_ALERT = "bg-[#F43A3A] text-white text-[1.41vw] font-bold h-[calc(4.72vh-14px)] my-[7px] flex items-center justify-center";
 const CLS_LABEL     = "text-[0.94vw] font-bold text-bay-light px-3";
 
 const SCOPE_LABELS: Record<string, string> = {
@@ -88,6 +89,8 @@ export default function CommandBar() {
   const arrRwy = runwaySetup.arrival[0] ?? "—";
   const scopeLabel = SCOPE_LABELS[currentLayout] ?? currentLayout;
   const runwayStatus = runwaySetup.runway_status ?? {};
+  const depRunwayClass = runwaySetup.departure_mismatch ? CLS_VAL_ALERT : CLS_VAL_WHITE;
+  const arrRunwayClass = runwaySetup.arrival_mismatch ? CLS_VAL_ALERT : CLS_VAL_WHITE;
 
   const myPosition = useWebSocketStore((state) => state.position);
   const isOwner = !!selectedCallsign && !!myPosition && strip?.owner === myPosition;
@@ -153,11 +156,11 @@ export default function CommandBar() {
 
         {/* DEP runway */}
         <span className={CLS_LABEL}>DEP</span>
-        <span className={`${CLS_VAL_WHITE} w-[3.13vw]`}>{depRwy}</span>
+        <span className={`${depRunwayClass} w-[3.13vw]`}>{depRwy}</span>
 
         {/* ARR runway */}
         <span className={CLS_LABEL}>ARR</span>
-        <span className={`${CLS_VAL_WHITE} w-[3.13vw]`}>{arrRwy}</span>
+        <span className={`${arrRunwayClass} w-[3.13vw]`}>{arrRwy}</span>
 
         {/* QNH */}
         <span className={CLS_LABEL}>QNH</span>

@@ -31,6 +31,21 @@ namespace FlightStrips::messages {
 
             return !plan->KeepsEuroScopeStripUncleared();
         }
+
+        std::string JoinRunways(const std::vector<std::string> &runways) {
+            if (runways.empty()) {
+                return "none";
+            }
+
+            std::string joined;
+            for (size_t index = 0; index < runways.size(); ++index) {
+                if (index > 0) {
+                    joined += ", ";
+                }
+                joined += runways[index];
+            }
+            return joined;
+        }
     }
 
     void MessageService::OnMessages(const std::vector<nlohmann::json> &messages) {
@@ -49,6 +64,8 @@ namespace FlightStrips::messages {
 
         if (type == EVENT_SESSION_INFO_NAME) {
             HandleSessionInfoEvent(message.get<SessionInfoEvent>());
+        } else if (type == EVENT_RUNWAY_MISMATCH_ALERT_NAME) {
+            HandleRunwayMismatchAlertEvent(message.get<RunwayMismatchAlertEvent>());
         } else if (type == EVENT_CDM_UPDATE_NAME) {
             HandleCdmUpdateEvent(message.get<CdmUpdateEvent>());
         } else if (type == EVENT_ASSIGNED_SQUAWK_NAME) {
@@ -261,6 +278,16 @@ namespace FlightStrips::messages {
         if (!fp.GetControllerAssignedData().SetSquawk(event.squawk.c_str())) {
             Logger::Warning("Failed to set squawk {} for {}", event.squawk, event.callsign);
         }
+    }
+
+    void MessageService::HandleRunwayMismatchAlertEvent(const RunwayMismatchAlertEvent &event) const {
+        m_plugin->Error(std::format(
+            "Runway mismatch vs master. Reconfigure EuroScope. Expected DEP {} / ARR {}; current DEP {} / ARR {}.",
+            JoinRunways(event.expected_departure),
+            JoinRunways(event.expected_arrival),
+            JoinRunways(event.current_departure),
+            JoinRunways(event.current_arrival)
+        ));
     }
 
     void MessageService::HandleRequestedAltitudeEvent(const RequestedAltitudeEvent &event) const {

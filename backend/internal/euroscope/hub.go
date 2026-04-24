@@ -46,7 +46,7 @@ type Hub struct {
 	register   chan *Client
 	unregister chan *Client
 
-	master         map[int32]*Client
+	master          map[int32]*Client
 	masterCallsigns sync.Map // map[int32]string — concurrent-safe callsign of master per session
 
 	handlers shared.MessageHandlers[euroscope.EventType, *Client]
@@ -66,6 +66,9 @@ type Hub struct {
 	// so concurrent offline timers produce a single recalculation per session.
 	sessionUpdateMu     sync.Mutex
 	sessionUpdateTimers map[int32]*sessionUpdatePending
+
+	runwayStateMu sync.RWMutex
+	runwayStates  map[string]*clientRunwayState
 
 	squawkThrottle *squawkThrottle
 }
@@ -119,6 +122,7 @@ func NewHub(stripService shared.StripService, controllerService shared.Controlle
 		aircraftDisconnectTimers: make(map[string]*aircraftDisconnectEntry),
 		sessionUpdateTimers:      make(map[int32]*sessionUpdatePending),
 		airportClientCount:       make(map[string]int),
+		runwayStates:             make(map[string]*clientRunwayState),
 	}
 	hub.squawkThrottle = newSquawkThrottle(defaultSquawkRequestInterval, hub.readAssignedSquawk, hub.dispatchGenerateSquawkRequest)
 
@@ -397,6 +401,7 @@ func (hub *Hub) handleLogin(msg []byte, user shared.AuthenticatedUser) (event eu
 
 func (hub *Hub) OnUnregister(client *Client) {
 	metrics.ConnectionClosed(context.Background(), client.session, "euroscope")
+	hub.clearClientRunwayState(client.session, client.GetCid())
 	// Update per-airport client count.
 	hub.airportClientsMu.Lock()
 	if hub.airportClientCount[client.airport] > 0 {

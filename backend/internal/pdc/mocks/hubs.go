@@ -255,6 +255,10 @@ func (m *EuroscopeHub) GetMasterCallsign(session int32) string {
 	return ""
 }
 
+func (m *EuroscopeHub) GetRunwayMismatchStatus(session int32, cid string) (bool, bool) {
+	return false, false
+}
+
 func (m *EuroscopeHub) SendCreateFPL(session int32, cid string, event euroscope.CreateFPLEvent) {
 	m.Called(session, cid, event)
 }

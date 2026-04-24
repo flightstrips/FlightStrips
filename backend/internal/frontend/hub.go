@@ -351,6 +351,12 @@ func (hub *Hub) sendInitialEvent(client *Client) {
 		initialCFLByRunway[runway] = int32(cfl)
 	}
 
+	departureMismatch := false
+	arrivalMismatch := false
+	if esHub := hub.server.GetEuroscopeHub(); esHub != nil {
+		departureMismatch, arrivalMismatch = esHub.GetRunwayMismatchStatus(client.session, client.user.GetCid())
+	}
+
 	event := frontend.InitialEvent{
 		Contsollers:    controllerModels,
 		Strips:         stripModels,
@@ -360,9 +366,11 @@ func (hub *Hub) sendInitialEvent(client *Client) {
 		Airport:        client.airport,
 		Layout:         layout,
 		RunwaySetup: frontend.RunwayConfiguration{
-			Departure:    departure,
-			Arrival:      arrival,
-			RunwayStatus: dbSession.ActiveRunways.RunwayStatus,
+			Departure:         departure,
+			Arrival:           arrival,
+			RunwayStatus:      dbSession.ActiveRunways.RunwayStatus,
+			DepartureMismatch: departureMismatch,
+			ArrivalMismatch:   arrivalMismatch,
 		},
 		Coordinations:      coordinationModels,
 		Messages:           storedMsgs,

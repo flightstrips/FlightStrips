@@ -29,6 +29,7 @@ const (
 	Runway                    EventType = "runway"
 	AircraftRunway            EventType = "aircraft_runway"
 	SessionInfo               EventType = "session_info"
+	RunwayMismatchAlert       EventType = "runway_mismatch_alert"
 	CdmUpdate                 EventType = "cdm_update"
 	CdmTobtUpdate             EventType = "cdm_tobt_update"
 	CdmDeiceUpdate            EventType = "cdm_deice_update"
@@ -274,6 +275,21 @@ func (e SessionInfoEvent) GetType() EventType {
 }
 
 func (e SessionInfoEvent) Marshal() ([]byte, error) {
+	return marshall(e)
+}
+
+type RunwayMismatchAlertEvent struct {
+	ExpectedDeparture []string `json:"expected_departure"`
+	ExpectedArrival   []string `json:"expected_arrival"`
+	CurrentDeparture  []string `json:"current_departure"`
+	CurrentArrival    []string `json:"current_arrival"`
+}
+
+func (e RunwayMismatchAlertEvent) GetType() EventType {
+	return RunwayMismatchAlert
+}
+
+func (e RunwayMismatchAlertEvent) Marshal() ([]byte, error) {
 	return marshall(e)
 }
 

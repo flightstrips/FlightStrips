@@ -5,6 +5,7 @@ import (
 	"FlightStrips/internal/shared"
 	"FlightStrips/pkg/events"
 	"FlightStrips/pkg/events/euroscope"
+	frontendEvents "FlightStrips/pkg/events/frontend"
 	"FlightStrips/pkg/models"
 	"context"
 	"log/slog"
@@ -533,9 +534,17 @@ func applyOrValidateRunways(ctx context.Context, client *Client, runways []euros
 		if err != nil {
 			return err
 		}
+		evaluation := client.hub.evaluateClientRunwayState(
+			client.session,
+			client.GetCid(),
+			client.callsign,
+			activeRunways,
+			currentSession.ActiveRunways,
+			false,
+		)
 		masterDep := currentSession.ActiveRunways.DepartureRunways
 		masterArr := currentSession.ActiveRunways.ArrivalRunways
-		if !slicesEqual(masterDep, departure) || !slicesEqual(masterArr, arrival) {
+		if evaluation.DepartureMismatch || evaluation.ArrivalMismatch {
 			slog.WarnContext(ctx, "Slave ES client has different runway configuration than master",
 				slog.Int("session", int(client.session)),
 				slog.String("client", client.callsign),
@@ -545,8 +554,18 @@ func applyOrValidateRunways(ctx context.Context, client *Client, runways []euros
 				slog.Any("master_arrival", masterArr),
 			)
 		}
+		if evaluation.Changed {
+			s.GetFrontendHub().Send(client.session, client.GetCid(), frontendEvents.RunwayConfigurationEvent{
+				RunwaySetup: buildFrontendRunwayConfiguration(currentSession.ActiveRunways, evaluation.DepartureMismatch, evaluation.ArrivalMismatch),
+			})
+		}
+		if evaluation.Alert != nil {
+			client.hub.Send(client.session, client.GetCid(), *evaluation.Alert)
+		}
 		return nil
 	}
+
+	client.hub.evaluateClientRunwayState(client.session, client.GetCid(), client.callsign, activeRunways, activeRunways, true)
 
 	slog.InfoContext(ctx, "Runway change received",
 		slog.Int("session", int(client.session)),
@@ -572,6 +591,7 @@ func applyOrValidateRunways(ctx context.Context, client *Client, runways []euros
 	}
 
 	s.GetFrontendHub().SendRunwayConfiguration(client.session, departure, arrival, activeRunways.RunwayStatus)
+	client.hub.resyncSessionRunwayMismatchTargets(client.session, client.GetCid(), activeRunways)
 
 	if _, err = s.UpdateSectors(client.session); err != nil {
 		slog.ErrorContext(ctx, "UpdateSectors failed after runway change", slog.Int("session", int(client.session)), slog.Any("error", err))

@@ -24,6 +24,7 @@
 #define EVENT_STRIP_UPDATE_NAME "strip_update"
 #define EVENT_RUNWAY_NAME "runway"
 #define EVENT_SESSION_INFO_NAME "session_info"
+#define EVENT_RUNWAY_MISMATCH_ALERT_NAME "runway_mismatch_alert"
 #define EVENT_GENERATE_SQUAWK_NAME "generate_squawk"
 #define EVENT_ROUTE_NAME "route"
 #define EVENT_REMARKS_NAME "remarks"
@@ -72,6 +73,7 @@ enum EventType {
     EVENT_RUNWAY,
     // Server only events:
     EVENT_SESSION_INFO,
+    EVENT_RUNWAY_MISMATCH_ALERT,
     EVENT_GENERATE_SQUAWK,
     EVENT_ROUTE,
     EVENT_REMARKS,
@@ -117,10 +119,11 @@ NLOHMANN_JSON_SERIALIZE_ENUM(EventType, {
                               {EVENT_AIRCRAFT_DISCONNECT, EVENT_AIRCRAFT_DISCONNECT_NAME},
                               {EVENT_STAND, EVENT_STAND_NAME},
                               {EVENT_TRACKING_CONTROLLER_CHANGED, EVENT_TRACKING_CONTROLLER_CHANGED_NAME},
-                              {EVENT_STRIP_UPDATE, EVENT_STRIP_UPDATE_NAME},
-                              {EVENT_RUNWAY, EVENT_RUNWAY_NAME},
-                              {EVENT_SESSION_INFO, EVENT_SESSION_INFO_NAME},
-                              {EVENT_GENERATE_SQUAWK, EVENT_GENERATE_SQUAWK_NAME},
+                               {EVENT_STRIP_UPDATE, EVENT_STRIP_UPDATE_NAME},
+                               {EVENT_RUNWAY, EVENT_RUNWAY_NAME},
+                               {EVENT_SESSION_INFO, EVENT_SESSION_INFO_NAME},
+                               {EVENT_RUNWAY_MISMATCH_ALERT, EVENT_RUNWAY_MISMATCH_ALERT_NAME},
+                               {EVENT_GENERATE_SQUAWK, EVENT_GENERATE_SQUAWK_NAME},
                               {EVENT_ROUTE, EVENT_ROUTE_NAME},
                               {EVENT_REMARKS, EVENT_REMARKS_NAME},
                               {EVENT_SID, EVENT_SID_NAME},
@@ -779,6 +782,25 @@ struct SessionInfoEvent final : Event {
     SessionInfoEvent() = default;
 
     NLOHMANN_DEFINE_TYPE_INTRUSIVE(SessionInfoEvent, role, type);
+};
+
+struct RunwayMismatchAlertEvent final : Event {
+    std::vector<std::string> expected_departure;
+    std::vector<std::string> expected_arrival;
+    std::vector<std::string> current_departure;
+    std::vector<std::string> current_arrival;
+
+    RunwayMismatchAlertEvent() : Event(EVENT_RUNWAY_MISMATCH_ALERT) {
+    }
+
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE(
+        RunwayMismatchAlertEvent,
+        expected_departure,
+        expected_arrival,
+        current_departure,
+        current_arrival,
+        type
+    );
 };
 
 struct GenerateSquawkEvent final : Event {

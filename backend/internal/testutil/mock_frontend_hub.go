@@ -116,6 +116,12 @@ type TacticalStripMovedCall struct {
 	Sequence int32
 }
 
+type SentMessageCall struct {
+	Session int32
+	Cid     string
+	Message frontend.OutgoingMessage
+}
+
 // MockFrontendHub is a configurable mock for shared.FrontendHub.
 // It records calls for assertion in tests.
 type MockFrontendHub struct {
@@ -136,6 +142,7 @@ type MockFrontendHub struct {
 	CdmWaits                []CdmWaitCall
 	CdmUpdates              []CdmUpdateCall
 	TacticalStripMoves      []TacticalStripMovedCall
+	SentMessages            []SentMessageCall
 }
 
 func (m *MockFrontendHub) GetServer() shared.Server {
@@ -148,7 +155,9 @@ func (m *MockFrontendHub) SetServer(server shared.Server) {
 
 func (m *MockFrontendHub) Broadcast(session int32, message frontend.OutgoingMessage) {}
 
-func (m *MockFrontendHub) Send(session int32, cid string, message frontend.OutgoingMessage) {}
+func (m *MockFrontendHub) Send(session int32, cid string, message frontend.OutgoingMessage) {
+	m.SentMessages = append(m.SentMessages, SentMessageCall{Session: session, Cid: cid, Message: message})
+}
 
 func (m *MockFrontendHub) CidOnline(session int32, cid string) {}
 

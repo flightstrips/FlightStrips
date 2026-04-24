@@ -106,6 +106,10 @@ func (m *MockEuroscopeHub) GetMasterCallsign(session int32) string {
 	return ""
 }
 
+func (m *MockEuroscopeHub) GetRunwayMismatchStatus(session int32, cid string) (bool, bool) {
+	return false, false
+}
+
 func (m *MockEuroscopeHub) Broadcast(session int32, message euroscope.OutgoingMessage) {
 	m.Broadcasts = append(m.Broadcasts, message)
 }

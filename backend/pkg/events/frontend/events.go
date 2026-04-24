@@ -107,57 +107,59 @@ type OutgoingMessage interface {
 }
 
 type RunwayConfiguration struct {
-	Departure    []string          `json:"departure"`
-	Arrival      []string          `json:"arrival"`
-	RunwayStatus map[string]string `json:"runway_status,omitempty"`
+	Departure         []string          `json:"departure"`
+	Arrival           []string          `json:"arrival"`
+	RunwayStatus      map[string]string `json:"runway_status,omitempty"`
+	DepartureMismatch bool              `json:"departure_mismatch,omitempty"`
+	ArrivalMismatch   bool              `json:"arrival_mismatch,omitempty"`
 }
 
 type Strip struct {
-	Callsign                 string   `json:"callsign"`
-	Origin                   string   `json:"origin"`
-	Destination              string   `json:"destination"`
-	Alternate                string   `json:"alternate"`
-	Route                    string   `json:"route"`
-	Remarks                  string   `json:"remarks"`
-	Runway                   string   `json:"runway"`
-	Squawk                   string   `json:"squawk"`
-	AssignedSquawk           string   `json:"assigned_squawk"`
-	Sid                      string   `json:"sid"`
-	ClearedAltitude          int32    `json:"cleared_altitude"`
-	RequestedAltitude        int32    `json:"requested_altitude"`
-	Heading                  int32    `json:"heading"`
-	AircraftType             string   `json:"aircraft_type"`
-	AircraftCategory         string   `json:"aircraft_category"`
-	Stand                    string   `json:"stand"`
-	Capabilities             string   `json:"capabilities"`
-	CommunicationType        string   `json:"communication_type"`
-	Eobt                     string   `json:"eobt"`
-	Eldt                     string   `json:"eldt"`
-	Bay                      string   `json:"bay"`
-	ReleasePoint             string   `json:"release_point"`
-	Version                  int32    `json:"version"`
-	Sequence                 int32    `json:"sequence"`
-	NextControllers          []string `json:"next_controllers"`
-	PreviousControllers      []string `json:"previous_controllers"`
-	Owner                    string   `json:"owner"`
-	Tobt                     string   `json:"tobt"`
-	Tsat                     string   `json:"tsat"`
-	Ctot                     string   `json:"ctot"`
-	PdcState                 string   `json:"pdc_state"`
-	PdcRequestRemarks        string   `json:"pdc_request_remarks,omitempty"`
-	Marked                   bool     `json:"marked"`
-	Registration             string   `json:"registration"`
-	TrackingController       string   `json:"tracking_controller"`
-	RunwayCleared            bool     `json:"runway_cleared"`
-	RunwayConfirmed          bool     `json:"runway_confirmed"`
-	Aldt                     string   `json:"aldt"`
-	UnexpectedChangeFields   []string `json:"unexpected_change_fields"`
-	ControllerModifiedFields []string `json:"controller_modified_fields"`
-	IsManual                 bool     `json:"is_manual"`
-	PersonsOnBoard           int32    `json:"persons_on_board"`
-	FplType                  string   `json:"fpl_type"`
-	Language                 string   `json:"language"`
-	HasFP                    bool     `json:"has_fp"`
+	Callsign                 string            `json:"callsign"`
+	Origin                   string            `json:"origin"`
+	Destination              string            `json:"destination"`
+	Alternate                string            `json:"alternate"`
+	Route                    string            `json:"route"`
+	Remarks                  string            `json:"remarks"`
+	Runway                   string            `json:"runway"`
+	Squawk                   string            `json:"squawk"`
+	AssignedSquawk           string            `json:"assigned_squawk"`
+	Sid                      string            `json:"sid"`
+	ClearedAltitude          int32             `json:"cleared_altitude"`
+	RequestedAltitude        int32             `json:"requested_altitude"`
+	Heading                  int32             `json:"heading"`
+	AircraftType             string            `json:"aircraft_type"`
+	AircraftCategory         string            `json:"aircraft_category"`
+	Stand                    string            `json:"stand"`
+	Capabilities             string            `json:"capabilities"`
+	CommunicationType        string            `json:"communication_type"`
+	Eobt                     string            `json:"eobt"`
+	Eldt                     string            `json:"eldt"`
+	Bay                      string            `json:"bay"`
+	ReleasePoint             string            `json:"release_point"`
+	Version                  int32             `json:"version"`
+	Sequence                 int32             `json:"sequence"`
+	NextControllers          []string          `json:"next_controllers"`
+	PreviousControllers      []string          `json:"previous_controllers"`
+	Owner                    string            `json:"owner"`
+	Tobt                     string            `json:"tobt"`
+	Tsat                     string            `json:"tsat"`
+	Ctot                     string            `json:"ctot"`
+	PdcState                 string            `json:"pdc_state"`
+	PdcRequestRemarks        string            `json:"pdc_request_remarks,omitempty"`
+	Marked                   bool              `json:"marked"`
+	Registration             string            `json:"registration"`
+	TrackingController       string            `json:"tracking_controller"`
+	RunwayCleared            bool              `json:"runway_cleared"`
+	RunwayConfirmed          bool              `json:"runway_confirmed"`
+	Aldt                     string            `json:"aldt"`
+	UnexpectedChangeFields   []string          `json:"unexpected_change_fields"`
+	ControllerModifiedFields []string          `json:"controller_modified_fields"`
+	IsManual                 bool              `json:"is_manual"`
+	PersonsOnBoard           int32             `json:"persons_on_board"`
+	FplType                  string            `json:"fpl_type"`
+	Language                 string            `json:"language"`
+	HasFP                    bool              `json:"has_fp"`
 	ValidationStatus         *ValidationStatus `json:"validation_status,omitempty"`
 }
 
@@ -185,10 +187,10 @@ type AcknowledgeValidationStatusAction struct {
 }
 
 type Controller struct {
-	Callsign    string   `json:"callsign"`
-	Position    string   `json:"position"`
-	Identifier  string   `json:"identifier"`
-	Section     string   `json:"section"`
+	Callsign     string   `json:"callsign"`
+	Position     string   `json:"position"`
+	Identifier   string   `json:"identifier"`
+	Section      string   `json:"section"`
 	OwnedSectors []string `json:"owned_sectors"`
 }
 

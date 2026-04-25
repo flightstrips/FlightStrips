@@ -198,7 +198,7 @@ func (s *StripService) UpdateStand(ctx context.Context, session int32, callsign 
 		return err
 	}
 	if count != 1 {
-		slog.DebugContext(ctx, "Strip being updated does not exist in database", slog.String("callsign", callsign), slog.String("event", "Stand"))
+		slog.DebugContext(ctx, "Stand update skipped: strip not found or stand already set to same value", slog.String("callsign", callsign))
 		return nil
 	}
 	s.publisher.SendStandEvent(session, callsign, stand)

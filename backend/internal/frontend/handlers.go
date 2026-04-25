@@ -195,6 +195,11 @@ func handleStripUpdate(ctx context.Context, client *Client, message Message) err
 		if err := stripRepo.AppendControllerModifiedField(ctx, client.session, event.Callsign, "stand"); err != nil {
 			return err
 		}
+		if client.hub.stripService != nil {
+			if err := client.hub.stripService.UpdateStand(ctx, client.session, event.Callsign, *event.Stand); err != nil {
+				return err
+			}
+		}
 	}
 
 	if event.Runway != nil && strip.Runway != event.Runway {

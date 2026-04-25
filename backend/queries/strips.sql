@@ -97,7 +97,9 @@ WHERE callsign = $2 AND session = $3 AND (version = sqlc.narg('version') OR sqlc
 UPDATE strips
 SET stand   = $1,
     version = version + 1
-WHERE callsign = $2 AND session = $3 AND (version = sqlc.narg('version') OR sqlc.narg('version') IS NULL);
+WHERE callsign = $2 AND session = $3
+  AND (stand IS DISTINCT FROM $1)
+  AND (version = sqlc.narg('version') OR sqlc.narg('version') IS NULL);
 
 -- name: UpdateStripRunwayByID :execrows
 UPDATE strips

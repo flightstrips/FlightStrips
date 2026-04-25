@@ -1414,7 +1414,9 @@ const updateStripStandByID = `-- name: UpdateStripStandByID :execrows
 UPDATE strips
 SET stand   = $1,
     version = version + 1
-WHERE callsign = $2 AND session = $3 AND (version = $4 OR $4 IS NULL)
+WHERE callsign = $2 AND session = $3
+  AND (stand IS DISTINCT FROM $1)
+  AND (version = $4 OR $4 IS NULL)
 `
 
 type UpdateStripStandByIDParams struct {

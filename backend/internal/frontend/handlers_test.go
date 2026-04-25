@@ -391,3 +391,83 @@ func TestHandleReleasePoint_NonOwnerSkipsControllerModified(t *testing.T) {
 	assert.Equal(t, nextReleasePoint, *updatedReleasePoint)
 	assert.Equal(t, "release_point", unexpectedField)
 }
+
+type standUpdateStripService struct {
+	testutil.NoOpStripService
+	updateStandFn func(ctx context.Context, session int32, callsign string, stand string) error
+}
+
+func (s *standUpdateStripService) UpdateStand(ctx context.Context, session int32, callsign string, stand string) error {
+	if s.updateStandFn == nil {
+		return nil
+	}
+	return s.updateStandFn(ctx, session, callsign, stand)
+}
+
+func TestHandleStripUpdate_StandChangeTriggersUpdateStand(t *testing.T) {
+	ctx := context.Background()
+	const session = int32(11)
+	const callsign = "SAS123"
+	const owner = "EKCH_A_GND"
+	currentStand := ""
+	selectedStand := "B12"
+
+	var updateStandCallsign string
+	var updateStandValue string
+	var markedField string
+
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			return &models.Strip{
+				Callsign: callsign,
+				Session:  session,
+				Owner:    ptr(owner),
+				Stand:    &currentStand,
+			}, nil
+		},
+		AppendControllerModifiedFieldFn: func(_ context.Context, _ int32, _ string, field string) error {
+			markedField = field
+			return nil
+		},
+	}
+
+	server := &testutil.MockServer{
+		StripRepoVal:    stripRepo,
+		EuroscopeHubVal: &testutil.MockEuroscopeHub{},
+	}
+
+	stripService := &standUpdateStripService{
+		updateStandFn: func(_ context.Context, _ int32, cs string, stand string) error {
+			updateStandCallsign = cs
+			updateStandValue = stand
+			return nil
+		},
+	}
+
+	hub := &Hub{server: server, stripService: stripService}
+	client := &Client{
+		session:  session,
+		hub:      hub,
+		position: owner,
+	}
+	client.SetUser(shared.NewAuthenticatedUser("123456", 0, nil))
+
+	payload, err := json.Marshal(frontendEvents.UpdateStripDataEvent{
+		Type:     frontendEvents.UpdateStripData,
+		Callsign: callsign,
+		Stand:    &selectedStand,
+	})
+	require.NoError(t, err)
+
+	err = handleStripUpdate(ctx, client, Message{
+		Type:    frontendEvents.UpdateStripData,
+		Message: payload,
+	})
+	require.NoError(t, err)
+
+	assert.Equal(t, "stand", markedField)
+	assert.Equal(t, callsign, updateStandCallsign)
+	assert.Equal(t, selectedStand, updateStandValue)
+}
+
+func ptr(s string) *string { return &s }

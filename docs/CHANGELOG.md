@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.11.1](https://github.com/flightstrips/FlightStrips/compare/docs/v0.11.0...docs/v0.11.1) (2026-04-25)
+
+
+### Bug Fixes
+
+* **strips:** allow force assume during validation ([8f4ff48](https://github.com/flightstrips/FlightStrips/commit/8f4ff485509501a2994f6256fd3cded33c5dcf20))
+
 ## [0.11.0](https://github.com/flightstrips/FlightStrips/compare/docs/v0.10.0...docs/v0.11.0) (2026-04-25)
 
 

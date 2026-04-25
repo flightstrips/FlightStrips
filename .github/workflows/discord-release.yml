@@ -1,0 +1,101 @@
+name: Discord Release Announcement
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  announce:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Post Discord announcement
+        uses: actions/github-script@v7
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        with:
+          script: |
+            const release = context.payload.release;
+            const tag  = release.tag_name;
+            const name = release.name || tag;
+            const body = (release.body || '').trim();
+            const url  = release.html_url;
+
+            // ── Tag prefix → plain English ─────────────────────────────────
+            const PREFIX_MAP = {
+              'feat':     '✨ New',
+              'feature':  '✨ New',
+              'fix':      '🐛 Fixed',
+              'bugfix':   '🐛 Fixed',
+              'hotfix':   '🐛 Fixed',
+              'core':     '⚙️ Improved',
+              'perf':     '⚡ Faster',
+              'refactor': '🔧 Refactored',
+              'style':    '🎨 Styled',
+              'ui':       '🎨 UI',
+              'chore':    '🧹 Maintenance',
+              'docs':     '📝 Docs',
+              'test':     '🧪 Tests',
+              'revert':   '↩️ Reverted',
+              'security': '🔒 Security',
+              'build':    '📦 Build',
+              'ci':       '🤖 CI',
+            };
+
+            function translateLine(line) {
+              // Match "type(scope): message" or "type: message"
+              const match = line.match(/^([a-zA-Z]+)(?:\([^)]+\))?[!:][\s]+(.+)/);
+              if (!match) return null;
+              const [, type, msg] = match;
+              const label = PREFIX_MAP[type.toLowerCase()];
+              if (!label) return null;
+              const clean = msg.charAt(0).toUpperCase() + msg.slice(1).replace(/\.?\s*$/, '');
+              return `- ${label}: ${clean}`;
+            }
+
+            // ── Build bullet list from release body ────────────────────────
+            let bullets = [];
+
+            if (body) {
+              for (const raw of body.split('\n')) {
+                const line = raw.trim().replace(/^[-*]\s*/, '');
+                if (!line || line.startsWith('#')) continue;
+
+                const translated = translateLine(line);
+                bullets.push(translated || `- ${line.charAt(0).toUpperCase() + line.slice(1)}`);
+              }
+            }
+
+            if (bullets.length === 0) {
+              bullets.push('- See full release notes for details.');
+            }
+
+            // ── Assemble message ───────────────────────────────────────────
+            const message = [
+              `**🚀 ${name}**`,
+              '',
+              "**What's new:**",
+              ...bullets.slice(0, 8),
+              '',
+              `📦 Full release notes: <${url}>`,
+            ].join('\n');
+
+            core.info('Discord message:\n' + message);
+
+            // ── Post to Discord ────────────────────────────────────────────
+            const res = await fetch(process.env.DISCORD_WEBHOOK_URL, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                username:   'FlightStrips Releases',
+                avatar_url: 'https://github.com/flightstrips.png',
+                content:    message,
+              }),
+            });
+
+            if (!res.ok) {
+              const err = await res.text();
+              core.setFailed(`Discord webhook error ${res.status}: ${err}`);
+              return;
+            }
+
+            core.info('Successfully posted to Discord.');

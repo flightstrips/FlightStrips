@@ -163,6 +163,7 @@ namespace FlightStrips {
         this->container->messageHandlers->RegisterHandler(this->container->messageService);
         this->container->authenticationEventHandlers->RegisterHandler(this->container->webSocketService);
 
+        this->container->plugin->Information(std::format("Loaded plugin version {}.", PLUGIN_VERSION));
         Logger::Info(std::format("Loaded plugin version {}.", PLUGIN_VERSION));
     }
 

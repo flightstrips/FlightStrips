@@ -13,7 +13,6 @@
 namespace FlightStrips::stands {
     void StandsBootstrapper::Bootstrap(Container &container) {
         auto stands = LoadStands(*container.filesystem, *container.appConfig);
-        container.plugin->Information(std::format("Loaded {} stands", stands.size()));
         Logger::Info(std::format("Loaded {} stands", stands.size()));
         container.standService = std::make_shared<StandService>(stands);
     }

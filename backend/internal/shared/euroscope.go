@@ -7,6 +7,7 @@ import (
 type EuroscopeHub interface {
 	ServerInjectable
 	HasActiveClientForAirport(airport string) bool
+	IsSessionSynced(sessionId int32) bool
 	IsObserverCid(cid string) bool
 	GetMasterCallsign(session int32) string
 	GetRunwayMismatchStatus(session int32, cid string) (bool, bool)

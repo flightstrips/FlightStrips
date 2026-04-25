@@ -259,6 +259,10 @@ func (m *EuroscopeHub) IsObserverCid(cid string) bool {
 	return false
 }
 
+func (m *EuroscopeHub) IsSessionSynced(sessionId int32) bool {
+	return true
+}
+
 func (m *EuroscopeHub) GetRunwayMismatchStatus(session int32, cid string) (bool, bool) {
 	return false, false
 }

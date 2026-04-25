@@ -69,6 +69,10 @@ type Hub struct {
 	sessionUpdateMu     sync.Mutex
 	sessionUpdateTimers map[int32]*sessionUpdatePending
 
+	// syncedSessions tracks sessions that have completed at least one full EuroScope sync.
+	// Frontends connecting before the first sync see a waiting screen instead of stale data.
+	syncedSessions sync.Map // map[int32]struct{}
+
 	runwayStateMu sync.RWMutex
 	runwayStates  map[string]*clientRunwayState
 
@@ -673,6 +677,17 @@ func (hub *Hub) HasActiveClientForAirport(airport string) bool {
 	hub.airportClientsMu.RLock()
 	defer hub.airportClientsMu.RUnlock()
 	return hub.airportClientCount[airport] > 0
+}
+
+// IsSessionSynced returns true if the session has completed at least one full
+// EuroScope sync. Safe to call from any goroutine.
+func (hub *Hub) IsSessionSynced(sessionId int32) bool {
+	_, ok := hub.syncedSessions.Load(sessionId)
+	return ok
+}
+
+func (hub *Hub) markSessionSynced(sessionId int32) {
+	hub.syncedSessions.Store(sessionId, struct{}{})
 }
 
 func (hub *Hub) adjustAirportClientCount(airport string, observer bool, delta int) {

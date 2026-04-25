@@ -100,6 +100,10 @@ func (m *MockEuroscopeHub) HasActiveClientForAirport(airport string) bool {
 	return true // default: assume ES client is present so existing tests are not affected
 }
 
+func (m *MockEuroscopeHub) IsSessionSynced(sessionId int32) bool {
+	return true // default: assume session is synced so existing tests are not affected
+}
+
 func (m *MockEuroscopeHub) GetMasterCallsign(session int32) string {
 	if m.GetMasterCallsignFn != nil {
 		return m.GetMasterCallsignFn(session)

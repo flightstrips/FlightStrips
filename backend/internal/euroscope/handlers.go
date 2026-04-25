@@ -351,6 +351,11 @@ func handleSync(ctx context.Context, client *Client, message Message) error {
 
 	autoAssumeForSync(ctx, client, session, controllers)
 
+	// Mark the session as fully synced before waking waiting frontends so that
+	// any frontend connecting at this exact moment gets a real session immediately
+	// rather than falling into the waiting state.
+	client.hub.markSessionSynced(session)
+
 	s.GetFrontendHub().CidOnline(session, client.user.GetCid())
 
 	// Only the master client can authoritatively declare what is live.

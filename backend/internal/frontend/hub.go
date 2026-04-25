@@ -25,6 +25,11 @@ type internalMessage struct {
 	cid     *string
 }
 
+type layoutUpdateMessage struct {
+	session   int32
+	layoutMap map[string]string
+}
+
 type cidOnlineMessage struct {
 	session int32
 	cid     string
@@ -36,7 +41,8 @@ type Hub struct {
 	authenticationService shared.AuthenticationService
 	clients               map[*Client]bool
 
-	send chan internalMessage
+	send          chan internalMessage
+	layoutUpdates chan layoutUpdateMessage
 
 	register   chan *Client
 	unregister chan *Client
@@ -93,6 +99,7 @@ func NewHub(stripService shared.StripService, authenticationService shared.Authe
 
 	hub := &Hub{
 		send:                  make(chan internalMessage),
+		layoutUpdates:         make(chan layoutUpdateMessage),
 		register:              make(chan *Client),
 		unregister:            make(chan *Client),
 		cidOnline:             make(chan cidOnlineMessage),
@@ -180,12 +187,13 @@ func (hub *Hub) HandleNewConnection(conn *gorilla.Conn, user shared.Authenticate
 		}
 	}
 
-	// If no EuroScope client is currently online for this airport, put the frontend client into
-	// the waiting state. CidOnline will associate it with the session when ES connects.
+	// If no EuroScope client is currently online for this airport, or the session has not yet
+	// completed its first full sync, put the frontend client into the waiting state.
+	// CidOnline will associate it with the session when ES connects and syncs.
 	if airport != WaitingForEuroscopeConnectionAirport {
 		esHub := hub.server.GetEuroscopeHub()
-		if esHub != nil && !esHub.HasActiveClientForAirport(airport) {
-			slog.Info("No EuroScope client online; frontend will wait",
+		if esHub != nil && (!esHub.HasActiveClientForAirport(airport) || !esHub.IsSessionSynced(session)) {
+			slog.Info("No EuroScope client online or session not yet synced; frontend will wait",
 				slog.String("cid", user.GetCid()),
 				slog.String("airport", airport),
 			)
@@ -705,14 +713,7 @@ func (hub *Hub) SendOwnersUpdate(session int32, callsign, owner string, nextOwne
 }
 
 func (hub *Hub) SendLayoutUpdates(session int32, layoutMap map[string]string) {
-	for client, _ := range hub.clients {
-		if layout, ok := layoutMap[client.position]; client.session == session && ok {
-			event := frontend.LayoutUpdateEvent{
-				Layout: layout,
-			}
-			client.send <- event
-		}
-	}
+	hub.layoutUpdates <- layoutUpdateMessage{session: session, layoutMap: layoutMap}
 }
 
 func (hub *Hub) SendCdmUpdate(session int32, callsign, eobt, tobt, tsat, ctot string) {
@@ -854,6 +855,7 @@ func (hub *Hub) Run() {
 					oldSessionName := client.sessionName
 					oldAirport := client.airport
 					oldCallsign := client.callsign
+					wasWaiting := oldSession == WaitingForEuroscopeConnectionSessionId
 
 					slog.Debug("Associating frontend client with session",
 						slog.String("cid", msg.cid),
@@ -863,27 +865,26 @@ func (hub *Hub) Run() {
 						client.readOnly = esHub.IsObserverCid(msg.cid)
 					}
 
-					// Populate callsign, position, and airport from DB so that
-					// sendInitialEvent can find the correct controller and layout.
-					// These fields are empty when the client connected before ES, and
-					// observer clients need a refresh whenever the primary frequency changes.
-					if client.callsign == WaitingForEuroscopeConnectionCallsign || client.readOnly {
-						controllerRepo := hub.server.GetControllerRepository()
-						sessionRepo := hub.server.GetSessionRepository()
-						if controller, err := controllerRepo.GetByCid(context.Background(), msg.cid); err == nil {
-							if dbSession, err := sessionRepo.GetByID(context.Background(), controller.Session); err == nil {
-								client.callsign = controller.Callsign
-								client.position = controller.Position
-								client.airport = dbSession.Airport
-								client.sessionName = dbSession.Name
-							} else {
-								slog.Error("Failed to get session for CID online client",
-									slog.String("cid", msg.cid), slog.Any("error", err))
-							}
+					// Always refresh callsign, position, and airport from DB so that
+					// sendInitialEvent and LayoutUpdateEvent routing always use the most
+					// current values. Without this, a controller who changed position in
+					// EuroScope while their browser tab was open would receive layout
+					// updates keyed to their old position.
+					controllerRepo := hub.server.GetControllerRepository()
+					sessionRepo := hub.server.GetSessionRepository()
+					if controller, err := controllerRepo.GetByCid(context.Background(), msg.cid); err == nil {
+						if dbSession, err := sessionRepo.GetByID(context.Background(), controller.Session); err == nil {
+							client.callsign = controller.Callsign
+							client.position = controller.Position
+							client.airport = dbSession.Airport
+							client.sessionName = dbSession.Name
 						} else {
-							slog.Error("Failed to get controller for CID online client",
+							slog.Error("Failed to get session for CID online client",
 								slog.String("cid", msg.cid), slog.Any("error", err))
 						}
+					} else {
+						slog.Error("Failed to get controller for CID online client",
+							slog.String("cid", msg.cid), slog.Any("error", err))
 					}
 
 					switch {
@@ -896,7 +897,15 @@ func (hub *Hub) Run() {
 						metrics.ConnectionOpened(context.Background(), client.sessionName, client.airport, "frontend", client.callsign)
 					}
 
-					hub.sendInitialEvent(client)
+					// Only send a full InitialEvent if the client is transitioning out
+					// of the waiting state, or is a read-only observer whose tracked
+					// controller may have changed. Already-connected regular clients
+					// already have their full state from OnRegister; sending another
+					// InitialEvent on every ES sync would disrupt their UI with a
+					// potentially stale layout.
+					if wasWaiting || client.readOnly {
+						hub.sendInitialEvent(client)
+					}
 					break
 				}
 			}
@@ -912,6 +921,12 @@ func (hub *Hub) Run() {
 					if message.session == client.session {
 						client.send <- message.message
 					}
+				}
+			}
+		case msg := <-hub.layoutUpdates:
+			for client := range hub.clients {
+				if layout, ok := msg.layoutMap[client.position]; client.session == msg.session && ok {
+					client.send <- frontend.LayoutUpdateEvent{Layout: layout}
 				}
 			}
 		}

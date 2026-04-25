@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.23.0](https://github.com/flightstrips/FlightStrips/compare/backend/v0.22.0...backend/v0.23.0) (2026-04-25)
+
+
+### Features
+
+* observability update ([8c340fa](https://github.com/flightstrips/FlightStrips/commit/8c340fa83de91cc53133270e1f0bb06aa6d2f08a))
+
 ## [0.22.0](https://github.com/flightstrips/FlightStrips/compare/backend/v0.21.1...backend/v0.22.0) (2026-04-25)
 
 

@@ -1,23 +1,12 @@
 import { useEffect } from "react";
-import { usePosition, useSelectedCallsign, useSetTagRequestArmed, useStrips, useStripTransfers, useTagRequestArmed } from "@/store/store-hooks";
-import { canRequestTagForStrip, CLS_CMDBTN } from "@/components/strip/shared";
+import { useSetTagRequestArmed, useStrips, useTagRequestArmed } from "@/store/store-hooks";
+import { CLS_CMDBTN } from "@/components/strip/shared";
 
 export default function REQBTN() {
   const strips = useStrips();
-  const position = usePosition();
-  const selectedCallsign = useSelectedCallsign();
-  const stripTransfers = useStripTransfers();
   const tagRequestArmed = useTagRequestArmed();
   const setTagRequestArmed = useSetTagRequestArmed();
-  const hasReqTarget = strips.some((strip) =>
-    canRequestTagForStrip({
-      bay: strip.bay,
-      owner: strip.owner,
-      myPosition: position,
-      hasActiveCoordination: !!stripTransfers[strip.callsign],
-    }),
-  );
-  const canReq = !selectedCallsign && hasReqTarget;
+  const canReq = strips.length > 0;
 
   useEffect(() => {
     if (!canReq && tagRequestArmed) {

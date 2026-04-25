@@ -37,17 +37,15 @@ export function canOpenStripContextMenu(bay?: string, owner?: string, myPosition
 }
 
 export function canRequestTagForStrip({
-  bay,
   owner,
   myPosition,
   hasActiveCoordination,
 }: {
-  bay?: string;
   owner?: string;
   myPosition?: string;
   hasActiveCoordination: boolean;
 }): boolean {
-  return bay === Bay.Cleared && !!owner && !!myPosition && owner !== myPosition && !hasActiveCoordination;
+  return !!owner && !!myPosition && owner !== myPosition && !hasActiveCoordination;
 }
 
 export function canForceAssumeStrip({
@@ -143,7 +141,6 @@ export function useStripCallsignInteraction({
   const isSelected = !!selectable && selectedCallsign === callsign;
   const openContextMenuOnClick = canOpenStripContextMenu(bay, owner, myPosition);
   const canRequestTag = canRequestTagForStrip({
-    bay,
     owner,
     myPosition,
     hasActiveCoordination: !!stripTransfers[callsign],

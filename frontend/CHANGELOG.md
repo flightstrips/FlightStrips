@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.29.1](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.29.0...frontend/v0.29.1) (2026-04-25)
+
+
+### Bug Fixes
+
+* **strips:** allow force assume during validation ([8f4ff48](https://github.com/flightstrips/FlightStrips/commit/8f4ff485509501a2994f6256fd3cded33c5dcf20))
+* **strips:** restore req armed flow ([07bd2fc](https://github.com/flightstrips/FlightStrips/commit/07bd2fcca260a8557ededff4a32b3d59acbb4145))
+
 ## [0.29.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.28.0...frontend/v0.29.0) (2026-04-25)
 
 

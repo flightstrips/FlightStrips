@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.23.2](https://github.com/flightstrips/FlightStrips/compare/backend/v0.23.1...backend/v0.23.2) (2026-04-25)
+
+
+### Bug Fixes
+
+* issues during connect ([8c62635](https://github.com/flightstrips/FlightStrips/commit/8c62635b9e7e19d159f3234ded482c2985874160))
+* **sessions:** restrict EKCH sector ownership by callsign prefix ([9792979](https://github.com/flightstrips/FlightStrips/commit/9792979ae60e153abb8a660f249cab51f3ebfcfc))
+* **strips:** allow force assume during validation ([8f4ff48](https://github.com/flightstrips/FlightStrips/commit/8f4ff485509501a2994f6256fd3cded33c5dcf20))
+* **strips:** correct EKCH runway 12/30 vacate detection ([769c469](https://github.com/flightstrips/FlightStrips/commit/769c4694a134b4f7cdb48a92084ea04e5073b32b))
+
 ## [0.23.1](https://github.com/flightstrips/FlightStrips/compare/backend/v0.23.0...backend/v0.23.1) (2026-04-25)
 
 

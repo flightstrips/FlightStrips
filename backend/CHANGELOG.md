@@ -1,5 +1,31 @@
 # Changelog
 
+## [0.22.0](https://github.com/flightstrips/FlightStrips/compare/backend/v0.21.1...backend/v0.22.0) (2026-04-25)
+
+
+### Features
+
+* allow cross coupled frequencies to change sectors ([14ef576](https://github.com/flightstrips/FlightStrips/commit/14ef576e306cc061c8b46e9c332aa4cb1470f83a))
+* duplicate squawk validation ([a556ebc](https://github.com/flightstrips/FlightStrips/commit/a556ebc6c71ba6456c8d184c122d7dd522987944))
+* **observer:** add read-only observer mode ([f919dc4](https://github.com/flightstrips/FlightStrips/commit/f919dc49a259610def9366037f4a8e8075d3c555))
+* **plugin-sync:** alert runway config mismatches ([e0363ad](https://github.com/flightstrips/FlightStrips/commit/e0363ad35be80a47a2d96d90212916cfd02f274e))
+* **validation:** add ctot validation ([e8380c9](https://github.com/flightstrips/FlightStrips/commit/e8380c9419062edab2453cdcd22beacd4020ecd7))
+* **validation:** add custom pdc validation ([ea84795](https://github.com/flightstrips/FlightStrips/commit/ea847950d6e3ff992af005a2e0833557519c9cfc))
+* **validation:** add invalid pdc validation ([607b354](https://github.com/flightstrips/FlightStrips/commit/607b35444f6a443cdba85200df0c27855a4ec59c))
+* **validation:** add landing clearance validation ([61429e5](https://github.com/flightstrips/FlightStrips/commit/61429e5120d434a6727b02fb4f25172bc9ca9169))
+* **validation:** add no-stand validation ([0d20fe4](https://github.com/flightstrips/FlightStrips/commit/0d20fe4bb62b13bd44d95af3d5e491b263e9f4cc))
+* **validation:** add runway type validation ([5e57b72](https://github.com/flightstrips/FlightStrips/commit/5e57b7282852597a13ec4e5d94c19edbb4054b9c))
+* **validation:** add taxiway type validation ([dc62335](https://github.com/flightstrips/FlightStrips/commit/dc6233593b4d0dedd82febbc54c358edae9b75b4))
+* wrong squawk validation ([026a3cc](https://github.com/flightstrips/FlightStrips/commit/026a3cc1803b925367317c25ae712df3d3d484e4))
+
+
+### Bug Fixes
+
+* block departure strips in arrival bays ([535ef92](https://github.com/flightstrips/FlightStrips/commit/535ef92d0b90fff078fe16e3976591ee953e03ec))
+* **sync:** preserve advanced bays during blank failover sync ([6b8b344](https://github.com/flightstrips/FlightStrips/commit/6b8b344c77d3b0fa3e8757957ea40fd4f9ce3ecc))
+* **sync:** preserve blank failover route identity ([6d24e0a](https://github.com/flightstrips/FlightStrips/commit/6d24e0ad20456da1372ae3b7b5970a3f68a2ae5f))
+* use online position for master on vIFF network ([847a7a4](https://github.com/flightstrips/FlightStrips/commit/847a7a407ede06a31c4d59cbba4d886ec1e74fee))
+
 ## [0.21.1](https://github.com/flightstrips/FlightStrips/compare/backend/v0.21.0...backend/v0.21.1) (2026-04-23)
 
 

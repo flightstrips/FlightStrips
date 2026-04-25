@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.13.0](https://github.com/flightstrips/FlightStrips/compare/plugin/v0.12.0...plugin/v0.13.0) (2026-04-25)
+
+
+### Features
+
+* **observer:** add read-only observer mode ([f919dc4](https://github.com/flightstrips/FlightStrips/commit/f919dc49a259610def9366037f4a8e8075d3c555))
+* **plugin-sync:** alert runway config mismatches ([e0363ad](https://github.com/flightstrips/FlightStrips/commit/e0363ad35be80a47a2d96d90212916cfd02f274e))
+
+
+### Bug Fixes
+
+* **bootstrap:** show loaded plugin version on startup ([a75aadc](https://github.com/flightstrips/FlightStrips/commit/a75aadc83480358723aecb142b9f3d0599dd6623))
+
 ## [0.12.0](https://github.com/flightstrips/FlightStrips/compare/plugin/v0.11.1...plugin/v0.12.0) (2026-04-21)
 
 

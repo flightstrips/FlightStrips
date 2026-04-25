@@ -282,7 +282,7 @@ export default function Home() {
                   </p>
                   <Link
                     to="/about"
-                    className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#003d48] transition hover:text-neutral-950 dark:text-[#ff8a5c] dark:hover:text-[#003d48] dark:group-hover:text-[#5cb8c4]"
+                    className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#003d48] transition hover:text-neutral-950 dark:text-[#003d48] dark:hover:text-[#003d48] dark:group-hover:text-[#5cb8c4]"
                   >
                     Learn more
                   </Link>

@@ -1374,7 +1374,7 @@
         "kind": "Panel",
         "spec": {
           "id": 5,
-          "title": "Online Clients by Callsign",
+          "title": "Online Callsigns",
           "description": "",
           "links": [],
           "data": {
@@ -1392,8 +1392,8 @@
                         "name": "grafanacloud-prom"
                       },
                       "spec": {
-                        "expr": "sum(websocket_clients_active{deployment_environment=\"$env\",airport=\"$airport\",session_name=\"$session\"}) by (source, callsign)",
-                        "legendFormat": "{{source}} {{callsign}}"
+                        "expr": "clamp_max(sum(websocket_clients_active{deployment_environment=\"$env\",airport=\"$airport\",session_name=\"$session\"}) by (callsign, source), 1)",
+                        "instant": true
                       }
                     },
                     "refId": "A",
@@ -1401,90 +1401,222 @@
                   }
                 }
               ],
-              "transformations": [],
+              "transformations": [
+                {
+                  "kind": "Transformation",
+                  "group": "labelsToFields",
+                  "spec": {
+                    "options": {
+                      "valueLabel": "source"
+                    }
+                  }
+                },
+                {
+                  "kind": "Transformation",
+                  "group": "merge",
+                  "spec": {
+                    "options": {}
+                  }
+                },
+                {
+                  "kind": "Transformation",
+                  "group": "organize",
+                  "spec": {
+                    "options": {
+                      "excludeByName": {
+                        "Time": true
+                      },
+                      "includeByName": {},
+                      "indexByName": {
+                        "callsign": 0,
+                        "euroscope": 1,
+                        "frontend": 2
+                      },
+                      "orderBy": [],
+                      "orderByMode": "manual",
+                      "renameByName": {}
+                    }
+                  }
+                }
+              ],
               "queryOptions": {}
             }
           },
           "vizConfig": {
             "kind": "VizConfig",
-            "group": "timeseries",
+            "group": "table",
             "version": "13.1.0-24556818486",
             "spec": {
               "options": {
-                "annotations": {
-                  "clustering": -1,
-                  "multiLane": false
+                "cellHeight": "sm",
+                "frozenColumns": {
+                  "left": 1
                 },
-                "legend": {
-                  "calcs": [
-                    "lastNotNull"
-                  ],
-                  "displayMode": "list",
-                  "placement": "bottom",
-                  "showLegend": true
-                },
-                "tooltip": {
-                  "hideZeros": false,
-                  "mode": "multi",
-                  "sort": "none"
-                }
+                "showHeader": true,
+                "sortBy": [
+                  {
+                    "desc": false,
+                    "displayName": "Callsign"
+                  }
+                ]
               },
               "fieldConfig": {
                 "defaults": {
-                  "unit": "short",
-                  "min": 0,
-                  "thresholds": {
-                    "mode": "absolute",
-                    "steps": [
+                  "custom": {
+                    "align": "auto",
+                    "cellOptions": {
+                      "type": "auto"
+                    },
+                    "filterable": true,
+                    "inspect": false
+                  }
+                },
+                "overrides": [
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "callsign"
+                    },
+                    "properties": [
                       {
-                        "value": 0,
-                        "color": "green"
+                        "id": "displayName",
+                        "value": "Callsign"
                       },
                       {
-                        "value": 80,
-                        "color": "red"
+                        "id": "custom.width",
+                        "value": 180
                       }
                     ]
                   },
-                  "color": {
-                    "mode": "palette-classic"
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "euroscope"
+                    },
+                    "properties": [
+                      {
+                        "id": "displayName",
+                        "value": "EuroScope"
+                      },
+                      {
+                        "id": "custom.cellOptions",
+                        "value": {
+                          "type": "color-text"
+                        }
+                      },
+                      {
+                        "id": "custom.width",
+                        "value": 110
+                      },
+                      {
+                        "id": "mappings",
+                        "value": [
+                          {
+                            "type": "special",
+                            "options": {
+                              "match": "null",
+                              "result": {
+                                "text": "NO",
+                                "color": "red",
+                                "index": 0
+                              }
+                            }
+                          },
+                          {
+                            "type": "special",
+                            "options": {
+                              "match": "empty",
+                              "result": {
+                                "text": "NO",
+                                "color": "red",
+                                "index": 1
+                              }
+                            }
+                          },
+                          {
+                            "type": "value",
+                            "options": {
+                              "0": {
+                                "text": "NO",
+                                "color": "red",
+                                "index": 2
+                              },
+                              "1": {
+                                "text": "YES",
+                                "color": "green",
+                                "index": 3
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    ]
                   },
-                  "custom": {
-                    "axisBorderShow": false,
-                    "axisCenteredZero": false,
-                    "axisColorMode": "text",
-                    "axisLabel": "",
-                    "axisPlacement": "auto",
-                    "barAlignment": 0,
-                    "barWidthFactor": 0.6,
-                    "drawStyle": "line",
-                    "fillOpacity": 15,
-                    "gradientMode": "none",
-                    "hideFrom": {
-                      "legend": false,
-                      "tooltip": false,
-                      "viz": false
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "frontend"
                     },
-                    "insertNulls": false,
-                    "lineInterpolation": "linear",
-                    "lineWidth": 2,
-                    "pointSize": 5,
-                    "scaleDistribution": {
-                      "type": "linear"
-                    },
-                    "showPoints": "never",
-                    "showValues": false,
-                    "spanNulls": false,
-                    "stacking": {
-                      "group": "A",
-                      "mode": "none"
-                    },
-                    "thresholdsStyle": {
-                      "mode": "off"
-                    }
+                    "properties": [
+                      {
+                        "id": "displayName",
+                        "value": "Frontend"
+                      },
+                      {
+                        "id": "custom.cellOptions",
+                        "value": {
+                          "type": "color-text"
+                        }
+                      },
+                      {
+                        "id": "custom.width",
+                        "value": 110
+                      },
+                      {
+                        "id": "mappings",
+                        "value": [
+                          {
+                            "type": "special",
+                            "options": {
+                              "match": "null",
+                              "result": {
+                                "text": "NO",
+                                "color": "red",
+                                "index": 0
+                              }
+                            }
+                          },
+                          {
+                            "type": "special",
+                            "options": {
+                              "match": "empty",
+                              "result": {
+                                "text": "NO",
+                                "color": "red",
+                                "index": 1
+                              }
+                            }
+                          },
+                          {
+                            "type": "value",
+                            "options": {
+                              "0": {
+                                "text": "NO",
+                                "color": "red",
+                                "index": 2
+                              },
+                              "1": {
+                                "text": "YES",
+                                "color": "green",
+                                "index": 3
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    ]
                   }
-                },
-                "overrides": []
+                ]
               }
             }
           }

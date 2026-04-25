@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useIsClrDel, useStrip, useStripTransfers, useWebSocketStore } from "@/store/store-hooks";
 import FlightPlanDialog from "@/components/FlightPlanDialog";
+import { canForceAssumeStrip } from "./shared";
 
 export interface StripContextMenuProps {
   callsign: string;
@@ -67,7 +68,12 @@ export function StripContextMenu({ callsign, position, onClose }: StripContextMe
 
   // FORCE ASSUME: disabled in CLR DEL (never owns strips); disabled if strip has no owner
   // (not yet cleared/assumed); disabled if already owning the strip or there is an active transfer.
-  const forceAssumeDisabled = isClrDel || !strip?.owner || strip?.owner === myPosition || !!stripTransfers[callsign];
+  const forceAssumeDisabled = !canForceAssumeStrip({
+    owner: strip?.owner,
+    myPosition,
+    isClrDel,
+    hasActiveCoordination: !!stripTransfers[callsign],
+  });
 
   // RECALL: enabled when I am the owner and there's an outgoing transfer
   const recallDisabled = !(

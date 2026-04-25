@@ -19,10 +19,10 @@ While the validation is still blinking:
 
 - You **cannot move the strip** to another bay.
 - You **cannot reorder** the strip inside its bay.
-- You **cannot** use strip coordination actions such as **transfer**, **assume**, **force assume**, **free**, **tag**, or **accept tag**.
+- You **cannot** use strip coordination actions such as **transfer**, **assume**, **free**, **tag**, or **accept tag**.
 - You **cannot** use blocked runway actions on that strip until the issue is acknowledged or corrected.
 
-Use the custom button in the window when a direct correction is available. **ACKNOWLEDGE** only stops the active blink; it does **not** fix the underlying problem.
+Use the custom button in the window when a direct correction is available. If you need to take ownership first, **FORCE ASSUME** stays available in the validation window whenever that strip would normally allow it. **ACKNOWLEDGE** only stops the active blink; it does **not** fix the underlying problem.
 
 ## Ownership and acknowledgement
 

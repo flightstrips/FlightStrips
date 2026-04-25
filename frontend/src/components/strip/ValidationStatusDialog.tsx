@@ -6,7 +6,8 @@ import {
 import FlightPlanDialog from "@/components/FlightPlanDialog";
 import { HoldingPointDialog } from "@/components/map-dialogs/HoldingPointDialog";
 import { ArrStandDialog } from "@/components/strip/ArrStandDialog";
-import { useStrip, useWebSocketStore } from "@/store/store-hooks";
+import { canForceAssumeStrip } from "@/components/strip/shared";
+import { useIsClrDel, useMyPosition, useStrip, useStripTransfers, useWebSocketStore } from "@/store/store-hooks";
 import type { ValidationStatus } from "@/api/models";
 import { useState, type CSSProperties } from "react";
 
@@ -135,17 +136,36 @@ export function ValidationStatusDialog({
   onOpenChange,
 }: ValidationStatusDialogProps) {
   const acknowledgeValidationStatus = useWebSocketStore((state) => state.acknowledgeValidationStatus);
+  const forceAssumeStrip = useWebSocketStore((state) => state.forceAssumeStrip);
   const generateSquawk = useWebSocketStore((state) => state.generateSquawk);
   const runwayClearance = useWebSocketStore((state) => state.runwayClearance);
   const strip = useStrip(callsign);
+  const myPosition = useMyPosition();
+  const stripTransfers = useStripTransfers();
+  const isClrDel = useIsClrDel();
   const [holdingPointOpen, setHoldingPointOpen] = useState(false);
   const [flightPlanOpen, setFlightPlanOpen] = useState(false);
   const [standOpen, setStandOpen] = useState(false);
   const validationDialogOpen = open && !holdingPointOpen && !flightPlanOpen && !standOpen;
   const customActionLines = getCustomActionLabelLines(status.custom_action?.label);
+  const canForceAssume = canForceAssumeStrip({
+    owner: strip?.owner,
+    myPosition,
+    isClrDel,
+    hasActiveCoordination: !!stripTransfers[callsign],
+  });
 
   function handleAcknowledge() {
     acknowledgeValidationStatus(callsign, status.activation_key);
+    onOpenChange(false);
+  }
+
+  function handleForceAssume() {
+    if (!canForceAssume) {
+      return;
+    }
+
+    forceAssumeStrip(callsign);
     onOpenChange(false);
   }
 
@@ -176,6 +196,31 @@ export function ValidationStatusDialog({
       return;
     }
     onOpenChange(false);
+  }
+
+  const actionButtons: Array<{
+    key: string;
+    labelLines: string[];
+    onClick: () => void;
+    ariaLabel: string;
+  }> = [];
+
+  if (status.custom_action) {
+    actionButtons.push({
+      key: "custom-action",
+      labelLines: customActionLines,
+      onClick: handleCustomAction,
+      ariaLabel: status.custom_action.label,
+    });
+  }
+
+  if (canForceAssume) {
+    actionButtons.push({
+      key: "force-assume",
+      labelLines: ["FORCE", "ASSUME"],
+      onClick: handleForceAssume,
+      ariaLabel: "FORCE ASSUME",
+    });
   }
 
   return (
@@ -280,36 +325,28 @@ export function ValidationStatusDialog({
               </div>
             </div>
 
-            {status.custom_action ? (
+            {actionButtons.map((button, index) => (
               <button
+                key={button.key}
                 type="button"
                 style={{
                   ...sharedButtonStyle,
                   left: toVw(129),
-                  top: toVh(278),
+                  top: toVh(index === 0 ? 267 : 301),
                   width: toVw(103),
-                  height: toVh(45),
+                  height: toVh(29),
                   flexDirection: "column",
+                  fontSize: toVMin(16),
+                  lineHeight: 1.1,
                 }}
-                onClick={handleCustomAction}
-                aria-label={status.custom_action.label}
+                onClick={button.onClick}
+                aria-label={button.ariaLabel}
               >
-                {customActionLines.map((line) => (
+                {button.labelLines.map((line) => (
                   <span key={line}>{line}</span>
                 ))}
               </button>
-            ) : (
-              <div
-                aria-hidden="true"
-                style={{
-                  ...sharedButtonStyle,
-                  left: toVw(129),
-                  top: toVh(278),
-                  width: toVw(103),
-                  height: toVh(45),
-                }}
-              />
-            )}
+            ))}
 
             <button
               type="button"

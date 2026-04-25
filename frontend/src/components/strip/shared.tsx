@@ -50,6 +50,20 @@ export function canRequestTagForStrip({
   return bay === Bay.Cleared && !!owner && !!myPosition && owner !== myPosition && !hasActiveCoordination;
 }
 
+export function canForceAssumeStrip({
+  owner,
+  myPosition,
+  isClrDel,
+  hasActiveCoordination,
+}: {
+  owner?: string;
+  myPosition?: string;
+  isClrDel: boolean;
+  hasActiveCoordination: boolean;
+}): boolean {
+  return !!myPosition && !!owner && owner !== myPosition && !isClrDel && !hasActiveCoordination;
+}
+
 export function isPdcValidationStatus(validationStatus: ValidationStatus | undefined): boolean {
   return validationStatus != null && PDC_VALIDATION_ISSUE_TYPES.has(validationStatus.issue_type);
 }

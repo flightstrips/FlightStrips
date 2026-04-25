@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.23.1](https://github.com/flightstrips/FlightStrips/compare/backend/v0.23.0...backend/v0.23.1) (2026-04-25)
+
+
+### Bug Fixes
+
+* **runway:** scope auto-confirm to same runway only ([1546ea8](https://github.com/flightstrips/FlightStrips/commit/1546ea85e370bb441d788f84d94783565c926f18))
+* **strip:** trigger route recalculation when arrival stand is assigned ([febee1d](https://github.com/flightstrips/FlightStrips/commit/febee1d879cbe568f2134657a03c8ff6cefaa297))
+
 ## [0.23.0](https://github.com/flightstrips/FlightStrips/compare/backend/v0.22.0...backend/v0.23.0) (2026-04-25)
 
 

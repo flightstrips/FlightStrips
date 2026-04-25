@@ -456,8 +456,9 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
         produce((state: WebSocketState) => {
           const idx = state.strips.findIndex(s => s.callsign === callsign);
           if (idx !== -1) {
-            // Auto-confirm if no other strips are already confirmed in the session.
-            const hasConfirmed = state.strips.some(s => s.callsign !== callsign && s.runway_confirmed);
+            // Auto-confirm if no other strips on the same runway are already confirmed.
+            const thisRunway = state.strips[idx].runway;
+            const hasConfirmed = !!thisRunway && state.strips.some(s => s.callsign !== callsign && s.runway_confirmed && s.runway === thisRunway);
             state.strips[idx].runway_cleared = true;
             state.strips[idx].runway_confirmed = !hasConfirmed;
             if (state.strips[idx].bay === Bay.TaxiLwr) state.strips[idx].bay = Bay.Depart;

@@ -858,6 +858,7 @@ SET bay            = CASE
                             AND s2.callsign != $1
                             AND s2.runway_confirmed = true
                             AND s2.bay IN ('DEPART', 'RWY_ARR')
+                            AND s2.runway = (SELECT s3.runway FROM strips s3 WHERE s3.callsign = $1 AND s3.session = $2)
                         ),
     version        = version + 1
 WHERE callsign = $1 AND session = $2

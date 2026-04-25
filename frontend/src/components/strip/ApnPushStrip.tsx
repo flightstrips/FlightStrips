@@ -16,7 +16,7 @@ import {
   getValidationBlinkStyle,
 } from "./shared";
 import { getStripBg } from "./types";
-import { useWebSocketStore } from "@/store/store-hooks";
+import { useWebSocketStore, useIsTwr } from "@/store/store-hooks";
 import { SIBox } from "./SIBox";
 import { useStripTransfers } from "@/store/store-hooks";
 import { useCDMColors } from "@/hooks/useCDMColors";
@@ -24,6 +24,7 @@ import { useCTOTColor } from "@/hooks/useCTOTColor";
 import { Bay } from "@/api/models";
 import { PushbackMapDialog } from "@/components/map-dialogs/PushbackMapDialog";
 import { ApronTaxiMapDialog } from "@/components/map-dialogs/ApronTaxiMapDialog";
+import { TaxiMapDialog } from "@/components/map-dialogs/TaxiMapDialog";
 import { RunwayDialog } from "./RunwayDialog";
 import FlightPlanDialog from "@/components/FlightPlanDialog";
 import { ValidationStatusDialog } from "./ValidationStatusDialog";
@@ -84,8 +85,10 @@ export function ApnPushStrip({
   const isTagRequest = !!stripTransfers[callsign]?.isTagRequest;
   const { isUnconcerned } = getStripOwnership(myPosition, owner, nextControllers, previousControllers);
   const { bg, textWhite } = useStripBg(runway, getStripBg(pdcStatus, arrival, bay), isTagRequest, isUnconcerned, pdcStatus, bay);
+  const isTwr = useIsTwr();
   const [pushbackOpen, setPushbackOpen] = useState(false);
   const [apronTaxiOpen, setApronTaxiOpen] = useState(false);
+  const [taxiMapOpen, setTaxiMapOpen] = useState(false);
   const [runwayOpen, setRunwayOpen] = useState(false);
   const [fplOpen, setFplOpen] = useState(false);
   const acknowledgeUnexpectedChange = useWebSocketStore(s => s.acknowledgeUnexpectedChange);
@@ -144,7 +147,7 @@ export function ApnPushStrip({
         <div
           className="flex items-center justify-center overflow-hidden border-r-2 cursor-pointer hover:bg-cyan-200"
           style={{ flex: `${F_STAND} 0 0%`, height: "100%", paddingBottom: "1.48vh", minWidth: 0, borderRightColor: cellBorderColor, backgroundColor: standYellow ? COLOR_UNEXPECTED_YELLOW : undefined }}
-          onClick={(e) => { e.stopPropagation(); if (standYellow) { acknowledgeUnexpectedChange(callsign, "stand"); } else if (holdingPoint) { setApronTaxiOpen(true); } else { setPushbackOpen(true); } }}
+          onClick={(e) => { e.stopPropagation(); if (standYellow) { acknowledgeUnexpectedChange(callsign, "stand"); } else if (holdingPoint) { if (isTwr) { setTaxiMapOpen(true); } else { setApronTaxiOpen(true); } } else { setPushbackOpen(true); } }}
         >
           <span style={{ fontFamily: FONT, fontWeight: 600, fontSize: "1.04vw", color: getCellTextColor("stand", controllerModifiedFields) }}>
             {holdingPoint || stand}
@@ -161,6 +164,11 @@ export function ApnPushStrip({
         <ApronTaxiMapDialog
           open={apronTaxiOpen}
           onOpenChange={setApronTaxiOpen}
+          callsign={callsign}
+        />
+        <TaxiMapDialog
+          open={taxiMapOpen}
+          onOpenChange={setTaxiMapOpen}
           callsign={callsign}
         />
 

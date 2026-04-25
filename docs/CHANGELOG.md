@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.11.0](https://github.com/flightstrips/FlightStrips/compare/docs/v0.10.0...docs/v0.11.0) (2026-04-25)
+
+
+### Features
+
+* **validation:** refresh PDC guidance and screenshots ([272d228](https://github.com/flightstrips/FlightStrips/commit/272d22843e2014153af69e3d1d84fd458b599e94))
+
 ## [0.10.0](https://github.com/flightstrips/FlightStrips/compare/docs/v0.9.0...docs/v0.10.0) (2026-04-21)
 
 

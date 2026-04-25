@@ -1,5 +1,34 @@
 # Changelog
 
+## [0.28.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.27.1...frontend/v0.28.0) (2026-04-25)
+
+
+### Features
+
+* duplicate squawk validation ([a556ebc](https://github.com/flightstrips/FlightStrips/commit/a556ebc6c71ba6456c8d184c122d7dd522987944))
+* **frontend:** match validation status designs ([2d531de](https://github.com/flightstrips/FlightStrips/commit/2d531de0d38eb8682e23fefe32b251810dbb2aeb))
+* **observer:** add read-only observer mode ([f919dc4](https://github.com/flightstrips/FlightStrips/commit/f919dc49a259610def9366037f4a8e8075d3c555))
+* **plugin-sync:** alert runway config mismatches ([e0363ad](https://github.com/flightstrips/FlightStrips/commit/e0363ad35be80a47a2d96d90212916cfd02f274e))
+* **validation:** add ctot validation ([e8380c9](https://github.com/flightstrips/FlightStrips/commit/e8380c9419062edab2453cdcd22beacd4020ecd7))
+* **validation:** add custom pdc validation ([ea84795](https://github.com/flightstrips/FlightStrips/commit/ea847950d6e3ff992af005a2e0833557519c9cfc))
+* **validation:** add invalid pdc validation ([607b354](https://github.com/flightstrips/FlightStrips/commit/607b35444f6a443cdba85200df0c27855a4ec59c))
+* **validation:** add landing clearance validation ([61429e5](https://github.com/flightstrips/FlightStrips/commit/61429e5120d434a6727b02fb4f25172bc9ca9169))
+* **validation:** add no-stand validation ([0d20fe4](https://github.com/flightstrips/FlightStrips/commit/0d20fe4bb62b13bd44d95af3d5e491b263e9f4cc))
+* wrong squawk validation ([026a3cc](https://github.com/flightstrips/FlightStrips/commit/026a3cc1803b925367317c25ae712df3d3d484e4))
+
+
+### Bug Fixes
+
+* **auth:** prompt login after invalid refresh token ([ab9b7f2](https://github.com/flightstrips/FlightStrips/commit/ab9b7f2c74be4551d4c7207374dc02e99695b017))
+* block departure strips in arrival bays ([535ef92](https://github.com/flightstrips/FlightStrips/commit/535ef92d0b90fff078fe16e3976591ee953e03ec))
+* **coordination:** remove tag request confirm button ([b5444fe](https://github.com/flightstrips/FlightStrips/commit/b5444fee378a6a0fa1c9ea2284f8060790697eac))
+* **frontend:** add map close buttons ([cf2d3a5](https://github.com/flightstrips/FlightStrips/commit/cf2d3a57f8b1337bf5649f2fe3f93bf2fac1dc46))
+* **frontend:** confirm off-map requests ([f60274a](https://github.com/flightstrips/FlightStrips/commit/f60274ac7f5da2a7ea6dace0b9f7706bc683cd53))
+* **frontend:** restore taxi arrival erase ([163e815](https://github.com/flightstrips/FlightStrips/commit/163e8154244ad74947ef52b3b7506a144dbd6638))
+* **strips:** preserve startup pickup flow ([806df8c](https://github.com/flightstrips/FlightStrips/commit/806df8c2bc7adc30bf235b926a5095b84600f548))
+* **strips:** restore validation styling cues ([4e9d844](https://github.com/flightstrips/FlightStrips/commit/4e9d8446997566845d70fe97cf288169daab53f3))
+* **strips:** stabilize validation blinking ([8609789](https://github.com/flightstrips/FlightStrips/commit/8609789ce41729965fcf3eed1ac6b3c8602dae8a))
+
 ## [0.27.1](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.27.0...frontend/v0.27.1) (2026-04-23)
 
 

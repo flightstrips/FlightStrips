@@ -553,6 +553,9 @@ func (hub *Hub) resolveGenerateSquawkCid(ctx context.Context, session int32) str
 					}
 
 					for _, controller := range controllers {
+						if !shared.IsOperationalPositionController(controller) {
+							continue
+						}
 						if controller.Cid != nil && *controller.Cid != "" {
 							return *controller.Cid
 						}

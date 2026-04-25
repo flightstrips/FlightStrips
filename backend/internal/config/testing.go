@@ -1,6 +1,10 @@
 package config
 
-import "github.com/golang/geo/s2"
+import (
+	"slices"
+
+	"github.com/golang/geo/s2"
+)
 
 // SetRunwayRegionsForTest replaces the package-level runwayRegions slice for testing.
 // Returns a cleanup function that restores the original value.
@@ -27,6 +31,14 @@ func SetPositionsForTest(ps []Position) func() {
 	old := positions
 	positions = ps
 	return func() { positions = old }
+}
+
+// SetOwnerCallsignPrefixesForTest replaces the package-level ownerCallsignPrefixes slice for testing.
+// Returns a cleanup function that restores the original value.
+func SetOwnerCallsignPrefixesForTest(prefixes []string) func() {
+	old := slices.Clone(ownerCallsignPrefixes)
+	ownerCallsignPrefixes = normalizeOwnerCallsignPrefixes(prefixes)
+	return func() { ownerCallsignPrefixes = old }
 }
 
 // SetSectorsForTest replaces the package-level sectors slice for testing.

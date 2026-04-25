@@ -1,4 +1,4 @@
-﻿package config
+package config
 
 import (
 	"errors"
@@ -34,4 +34,29 @@ func GetPositionByName(name string) (*Position, error) {
 	}
 
 	return nil, errors.New("unknown position")
+}
+
+func CallsignHasOwnerPrefix(callsign string) bool {
+	callsign = strings.ToUpper(strings.TrimSpace(callsign))
+	if callsign == "" {
+		return false
+	}
+
+	for _, prefix := range ownerCallsignPrefixes {
+		if strings.HasPrefix(callsign, prefix) {
+			return true
+		}
+	}
+
+	return false
+}
+
+func identifierPrefix(value string) string {
+	value = strings.ToUpper(strings.TrimSpace(value))
+	if value == "" {
+		return ""
+	}
+
+	prefix, _, _ := strings.Cut(value, "_")
+	return prefix
 }

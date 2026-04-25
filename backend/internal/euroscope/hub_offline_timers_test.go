@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"FlightStrips/internal/config"
 	"FlightStrips/internal/models"
 	"FlightStrips/internal/shared"
 	"FlightStrips/internal/testutil"
@@ -83,6 +84,7 @@ func TestClassifyOfflineAction_UsesSilentCleanupWhenPositionAlreadyCovered(t *te
 	const session = int32(1)
 	const callsign = "EKCH_TWR"
 	const position = "118.700"
+	t.Cleanup(config.SetOwnerCallsignPrefixesForTest([]string{"EKCH", "EKDK"}))
 
 	server := &testutil.MockServer{
 		FrontendHubVal: &testutil.MockFrontendHub{},
@@ -100,7 +102,7 @@ func TestClassifyOfflineAction_UsesSilentCleanupWhenPositionAlreadyCovered(t *te
 				assert.Equal(t, position, pos)
 				return []*models.Controller{
 					{Callsign: callsign, Position: position},
-					{Callsign: "EKCH_TWR_REPLACEMENT", Position: position},
+					{Callsign: "EKCH_A_TWR", Position: position},
 				}, nil
 			},
 		},
@@ -122,6 +124,7 @@ func TestClassifyOfflineAction_IgnoresObserverCoverage(t *testing.T) {
 	const session = int32(1)
 	const callsign = "EKCH_TWR"
 	const position = "118.700"
+	t.Cleanup(config.SetOwnerCallsignPrefixesForTest([]string{"EKCH", "EKDK"}))
 
 	server := &testutil.MockServer{
 		FrontendHubVal: &testutil.MockFrontendHub{},
@@ -157,10 +160,55 @@ func TestClassifyOfflineAction_IgnoresObserverCoverage(t *testing.T) {
 	assert.Equal(t, offlineActionFinalize, decision)
 }
 
+func TestClassifyOfflineAction_IgnoresMismatchedPrefixCoverage(t *testing.T) {
+	const session = int32(1)
+	const callsign = "EKCH_TWR"
+	const position = "118.700"
+
+	t.Cleanup(config.SetPositionsForTest([]config.Position{
+		{Name: "EKCH_TWR", Frequency: position},
+	}))
+	t.Cleanup(config.SetOwnerCallsignPrefixesForTest([]string{"EKCH", "EKDK"}))
+
+	server := &testutil.MockServer{
+		FrontendHubVal: &testutil.MockFrontendHub{},
+		ControllerRepoVal: &testutil.MockControllerRepository{
+			GetByCallsignFn: func(_ context.Context, sess int32, cs string) (*models.Controller, error) {
+				assert.Equal(t, session, sess)
+				assert.Equal(t, callsign, cs)
+				return &models.Controller{
+					Callsign: callsign,
+					Position: position,
+				}, nil
+			},
+			GetByPositionFn: func(_ context.Context, sess int32, pos string) ([]*models.Controller, error) {
+				assert.Equal(t, session, sess)
+				assert.Equal(t, position, pos)
+				return []*models.Controller{
+					{Callsign: callsign, Position: position},
+					{Callsign: "ESMS_TWR", Position: position},
+				}, nil
+			},
+		},
+	}
+
+	hub := buildReconcileHub(server)
+	decision, err := hub.classifyOfflineAction(context.Background(), &offlineTimerEntry{
+		session:      session,
+		callsign:     callsign,
+		positionFreq: position,
+		positionName: "EKCH_TWR",
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, offlineActionFinalize, decision)
+}
+
 func TestClassifyOfflineAction_FinalizesWhenOriginalControllerStillOwnsPosition(t *testing.T) {
 	const session = int32(1)
 	const callsign = "EKCH_TWR"
 	const position = "118.700"
+	t.Cleanup(config.SetOwnerCallsignPrefixesForTest([]string{"EKCH", "EKDK"}))
 
 	server := &testutil.MockServer{
 		FrontendHubVal: &testutil.MockFrontendHub{},
@@ -200,6 +248,7 @@ func TestScheduleOfflineActions_SilentCleanupSuppressesOfflineNotification(t *te
 	const callsign = "EKCH_TWR"
 	const position = "118.700"
 	const positionName = "EKCH_TWR"
+	t.Cleanup(config.SetOwnerCallsignPrefixesForTest([]string{"EKCH", "EKDK"}))
 
 	var deleteCalls atomic.Int32
 	var updateSectorsCalls atomic.Int32
@@ -223,7 +272,7 @@ func TestScheduleOfflineActions_SilentCleanupSuppressesOfflineNotification(t *te
 				assert.Equal(t, position, pos)
 				return []*models.Controller{
 					{Callsign: callsign, Position: position},
-					{Callsign: "EKCH_TWR_REPLACEMENT", Position: position},
+					{Callsign: "EKCH_A_TWR", Position: position},
 				}, nil
 			},
 			DeleteFn: func(_ context.Context, sess int32, cs string) error {

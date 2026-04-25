@@ -5,6 +5,7 @@ import (
 	"io"
 	"log/slog"
 	"os"
+	"slices"
 	"strings"
 
 	"go.yaml.in/yaml/v4"
@@ -33,24 +34,25 @@ type CdmConfig struct {
 }
 
 type Config struct {
-	Latitude               float64                    `yaml:"latitude"`
-	Longitude              float64                    `yaml:"longitude"`
-	Routes                 []Route                    `yaml:"routes"`
-	AirborneRoutes         []AirborneRoutes           `yaml:"airborne_routes"`
-	Positions              []Position                 `yaml:"positions"`
-	Sectors                []Sector                   `yaml:"sectors"`
-	AirborneOwners         []string                   `yaml:"airborne_owners"`
-	AirborneFallbackLayout string                     `yaml:"airborne_fallback_layout"`
-	AirborneAltitudeAGL    int64                      `yaml:"airborne_altitude_agl"`
-	Layouts                map[string][]LayoutVariant `yaml:"layouts"`
-	Runways                []string                   `yaml:"runways"`
-	MessageAreas           map[string][]string        `yaml:"message_areas"`
-	PDCValidation          PDCValidationConfig        `yaml:"pdc_validation"`
+	Latitude               float64                     `yaml:"latitude"`
+	Longitude              float64                     `yaml:"longitude"`
+	Routes                 []Route                     `yaml:"routes"`
+	AirborneRoutes         []AirborneRoutes            `yaml:"airborne_routes"`
+	Positions              []Position                  `yaml:"positions"`
+	OwnerCallsignPrefixes  []string                    `yaml:"owner_callsign_prefixes"`
+	Sectors                []Sector                    `yaml:"sectors"`
+	AirborneOwners         []string                    `yaml:"airborne_owners"`
+	AirborneFallbackLayout string                      `yaml:"airborne_fallback_layout"`
+	AirborneAltitudeAGL    int64                       `yaml:"airborne_altitude_agl"`
+	Layouts                map[string][]LayoutVariant  `yaml:"layouts"`
+	Runways                []string                    `yaml:"runways"`
+	MessageAreas           map[string][]string         `yaml:"message_areas"`
+	PDCValidation          PDCValidationConfig         `yaml:"pdc_validation"`
 	TaxiwayTypeValidation  TaxiwayTypeValidationConfig `yaml:"taxiway_type_validation"`
-	MissedApproachHandover map[string]string          `yaml:"missed_approach_handover"`
-	TransitionAltitude     int                        `yaml:"transition_altitude"`
-	RunwayInitialCFL       map[string]int             `yaml:"runway_initial_cfl"`
-	Cdm                    CdmConfig                  `yaml:"cdm"`
+	MissedApproachHandover map[string]string           `yaml:"missed_approach_handover"`
+	TransitionAltitude     int                         `yaml:"transition_altitude"`
+	RunwayInitialCFL       map[string]int              `yaml:"runway_initial_cfl"`
+	Cdm                    CdmConfig                   `yaml:"cdm"`
 }
 
 // TestModeConfig holds test/replay mode configuration
@@ -68,6 +70,7 @@ var sectors []Sector
 var regions []Region
 var runwayRegions []Region
 var positions []Position
+var ownerCallsignPrefixes []string
 var airborneOwners []string
 var airborneRoutes []AirborneRoutes
 var airborneFallbackLayout string
@@ -106,6 +109,10 @@ func loadAirportConfig(r io.Reader) error {
 	}
 
 	positions = cfg.Positions
+	ownerCallsignPrefixes = normalizeOwnerCallsignPrefixes(cfg.OwnerCallsignPrefixes)
+	if len(ownerCallsignPrefixes) == 0 {
+		ownerCallsignPrefixes = deriveOwnerCallsignPrefixes(cfg.Positions)
+	}
 	sectors = cfg.Sectors
 	airborneOwners = cfg.AirborneOwners
 	airborneRoutes = cfg.AirborneRoutes
@@ -136,6 +143,32 @@ func loadAirportConfig(r io.Reader) error {
 	cdmConfig = cfg.Cdm
 
 	return nil
+}
+
+func normalizeOwnerCallsignPrefixes(prefixes []string) []string {
+	result := make([]string, 0, len(prefixes))
+	for _, prefix := range prefixes {
+		normalized := strings.ToUpper(strings.TrimSpace(prefix))
+		if normalized == "" || slices.Contains(result, normalized) {
+			continue
+		}
+		result = append(result, normalized)
+	}
+
+	return result
+}
+
+func deriveOwnerCallsignPrefixes(positions []Position) []string {
+	result := make([]string, 0, len(positions))
+	for _, position := range positions {
+		prefix := identifierPrefix(position.Name)
+		if prefix == "" || slices.Contains(result, prefix) {
+			continue
+		}
+		result = append(result, prefix)
+	}
+
+	return result
 }
 
 // GetMissedApproachHandoverPosition returns the approach controller position that should receive

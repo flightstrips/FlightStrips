@@ -164,7 +164,7 @@ func (hub *Hub) classifyOfflineAction(ctx context.Context, entry *offlineTimerEn
 	}
 
 	for _, other := range controllersOnPosition {
-		if other.Callsign != entry.callsign && !hub.isObserverController(other) {
+		if other.Callsign != entry.callsign && shared.IsOperationalPositionController(other) {
 			return offlineActionSilentCleanup, nil
 		}
 	}

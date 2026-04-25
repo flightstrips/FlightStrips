@@ -180,6 +180,9 @@ func getCurrentControllerCoverage(controllerRepo repository.ControllerRepository
 	coverage := make([]config.ControllerCoverage, 0)
 	for _, controller := range controllers {
 		if position, err := config.GetPositionBasedOnFrequency(controller.Position); err == nil {
+			if !shared.IsOperationalControllerForPosition(controller, position) {
+				continue
+			}
 			controllerCoverage := config.ControllerCoverage{
 				Name:      position.Name,
 				Frequency: position.Frequency,
@@ -203,6 +206,9 @@ func getCurrentPositions(controllerRepo repository.ControllerRepository, session
 	positions := make([]*config.Position, 0)
 	for _, controller := range controllers {
 		if position, err := config.GetPositionBasedOnFrequency(controller.Position); err == nil {
+			if !shared.IsOperationalControllerForPosition(controller, position) {
+				continue
+			}
 			positions = append(positions, position)
 		}
 	}
@@ -243,9 +249,11 @@ func (s *Server) sendControllerUpdates(sessionId int32, owners []*models.SectorO
 	for _, controller := range controllers {
 		identifier := ""
 		ownedSectors := []string{}
-		if sector, ok := ownerMap[controller.Position]; ok {
-			identifier = sector.Identifier
-			ownedSectors = slices.Clone(sector.Sector)
+		if position, err := config.GetPositionBasedOnFrequency(controller.Position); err == nil && shared.IsOperationalControllerForPosition(controller, position) {
+			if sector, ok := ownerMap[controller.Position]; ok {
+				identifier = sector.Identifier
+				ownedSectors = slices.Clone(sector.Sector)
+			}
 		}
 
 		s.frontendHub.SendControllerOnline(sessionId, controller.Callsign, controller.Position, identifier, ownedSectors)

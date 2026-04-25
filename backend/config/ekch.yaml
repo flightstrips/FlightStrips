@@ -104,6 +104,10 @@ positions:
     frequency: "127.865"
     section: "CTR"
 
+owner_callsign_prefixes:
+  - "EKCH"
+  - "EKDK"
+
 
 airborne_owners:
   - EKCH_W_APP

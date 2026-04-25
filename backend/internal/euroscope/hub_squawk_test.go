@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"FlightStrips/internal/config"
 	"FlightStrips/internal/models"
 	"FlightStrips/internal/shared"
 	"FlightStrips/internal/testutil"
@@ -15,6 +16,11 @@ import (
 )
 
 func TestResolveGenerateSquawkCid_PrefersConnectedDelOwner(t *testing.T) {
+	t.Cleanup(config.SetPositionsForTest([]config.Position{
+		{Name: "EKCH_DEL", Frequency: "121.730"},
+	}))
+	t.Cleanup(config.SetOwnerCallsignPrefixesForTest([]string{"EKCH", "EKDK"}))
+
 	delCid := "DEL-CID"
 	controllerRepo := &testutil.MockControllerRepository{
 		GetByPositionFn: func(_ context.Context, session int32, position string) ([]*models.Controller, error) {
@@ -46,6 +52,11 @@ func TestResolveGenerateSquawkCid_PrefersConnectedDelOwner(t *testing.T) {
 }
 
 func TestResolveGenerateSquawkCid_FallsBackToMasterWhenDelOwnerHasNoEsClient(t *testing.T) {
+	t.Cleanup(config.SetPositionsForTest([]config.Position{
+		{Name: "EKCH_DEL", Frequency: "121.730"},
+	}))
+	t.Cleanup(config.SetOwnerCallsignPrefixesForTest([]string{"EKCH", "EKDK"}))
+
 	controllerRepo := &testutil.MockControllerRepository{
 		GetByPositionFn: func(_ context.Context, _ int32, _ string) ([]*models.Controller, error) {
 			return []*models.Controller{{Callsign: "EKCH_DEL", Position: "121.730"}}, nil
@@ -70,6 +81,43 @@ func TestResolveGenerateSquawkCid_FallsBackToMasterWhenDelOwnerHasNoEsClient(t *
 	}
 
 	assert.Equal(t, "MASTER-CID", hub.resolveGenerateSquawkCid(context.Background(), 7))
+}
+
+func TestResolveGenerateSquawkCid_IgnoresControllersWithWrongPrefixOnDelFrequency(t *testing.T) {
+	t.Cleanup(config.SetPositionsForTest([]config.Position{
+		{Name: "EKCH_DEL", Frequency: "121.730"},
+	}))
+	t.Cleanup(config.SetOwnerCallsignPrefixesForTest([]string{"EKCH", "EKDK"}))
+
+	wrongCid := "WRONG-CID"
+	delCid := "DEL-CID"
+	controllerRepo := &testutil.MockControllerRepository{
+		GetByPositionFn: func(_ context.Context, _ int32, position string) ([]*models.Controller, error) {
+			return []*models.Controller{
+				{Callsign: "ESMS_DEL", Position: position, Cid: &wrongCid},
+				{Callsign: "EKCH_DEL", Position: position, Cid: &delCid},
+			}, nil
+		},
+	}
+	sectorRepo := &testutil.MockSectorOwnerRepository{
+		ListBySessionFn: func(_ context.Context, _ int32) ([]*models.SectorOwner, error) {
+			return []*models.SectorOwner{
+				{Sector: []string{"DEL"}, Position: "121.730"},
+			}, nil
+		},
+	}
+
+	hub := &Hub{
+		server: &testutil.MockServer{
+			ControllerRepoVal: controllerRepo,
+			SectorRepoVal:     sectorRepo,
+		},
+		master: map[int32]*Client{
+			7: {user: shared.NewAuthenticatedUser("MASTER-CID", 0, nil)},
+		},
+	}
+
+	assert.Equal(t, delCid, hub.resolveGenerateSquawkCid(context.Background(), 7))
 }
 
 func TestSendGenerateSquawk_RateLimitsPerSession(t *testing.T) {

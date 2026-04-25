@@ -12,10 +12,6 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-func (cs *ControllerService) isOperationalController(controller *internalModels.Controller) bool {
-	return controller != nil && !controller.Observer
-}
-
 // ControllerService owns all controller online/offline business logic.
 type ControllerService struct {
 	controllerRepo repository.ControllerRepository
@@ -110,7 +106,7 @@ func (cs *ControllerService) ControllerOnline(ctx context.Context, session int32
 		if err == nil {
 			operationalControllers := 0
 			for _, controller := range controllers {
-				if cs.isOperationalController(controller) {
+				if shared.IsOperationalPositionController(controller) {
 					operationalControllers++
 				}
 			}
@@ -170,7 +166,7 @@ func (cs *ControllerService) performOnlineOrchestration(ctx context.Context, ses
 		if err == nil {
 			operationalControllers := 0
 			for _, controller := range controllers {
-				if cs.isOperationalController(controller) {
+				if shared.IsOperationalPositionController(controller) {
 					operationalControllers++
 				}
 			}
@@ -236,7 +232,7 @@ func (cs *ControllerService) ControllerOffline(ctx context.Context, session int3
 		return shared.ControllerOfflineResult{}, err
 	}
 	for _, other := range others {
-		if other.Callsign != callsign && cs.isOperationalController(other) {
+		if other.Callsign != callsign && shared.IsOperationalPositionController(other) {
 			slog.DebugContext(ctx, "Controller offline but position still covered by another controller — deleting stale row without offline notification",
 				slog.String("callsign", callsign),
 				slog.String("position", positionName),

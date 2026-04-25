@@ -150,3 +150,63 @@ func TestRefreshSessionSectors_UpdatesEverySession(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, []int32{11, 42}, updated)
 }
+
+func TestGetCurrentControllerCoverage_IgnoresControllersWithoutMatchingPrefix(t *testing.T) {
+	t.Cleanup(config.SetPositionsForTest([]config.Position{
+		{Name: "EKCH_A_TWR", Frequency: "118.100"},
+		{Name: "EKDK_I_CTR", Frequency: "119.805"},
+	}))
+
+	controllerRepo := &testutil.MockControllerRepository{
+		ListFn: func(_ context.Context, _ int32) ([]*models.Controller, error) {
+			return []*models.Controller{
+				{Callsign: "ESMS_TWR", Position: "118.100"},
+				{Callsign: "EKCH_S_TWR", Position: "118.100"},
+				{Callsign: "EKDK_OBS", Position: "119.805", Observer: true},
+				{Callsign: "EKDK_W_CTR", Position: "119.805"},
+			}, nil
+		},
+	}
+
+	coverage, err := getCurrentControllerCoverage(controllerRepo, 1, nil)
+	require.NoError(t, err)
+	require.Len(t, coverage, 2)
+	assert.ElementsMatch(t, []config.ControllerCoverage{
+		{Name: "EKCH_A_TWR", Frequency: "118.100"},
+		{Name: "EKDK_I_CTR", Frequency: "119.805"},
+	}, coverage)
+}
+
+func TestSendControllerUpdates_DoesNotAssignSectorsToWrongPrefix(t *testing.T) {
+	t.Cleanup(config.SetPositionsForTest([]config.Position{
+		{Name: "EKCH_A_TWR", Frequency: "118.100"},
+	}))
+
+	frontendHub := &testutil.MockFrontendHub{}
+	controllerRepo := &testutil.MockControllerRepository{
+		ListFn: func(_ context.Context, _ int32) ([]*models.Controller, error) {
+			return []*models.Controller{
+				{Callsign: "ESMS_TWR", Position: "118.100"},
+				{Callsign: "EKCH_S_TWR", Position: "118.100"},
+			}, nil
+		},
+	}
+
+	server := &Server{frontendHub: frontendHub}
+	err := server.sendControllerUpdates(1, []*models.SectorOwner{{
+		Session:    1,
+		Position:   "118.100",
+		Sector:     []string{"TW"},
+		Identifier: "EKCH_S_TWR",
+	}}, controllerRepo)
+	require.NoError(t, err)
+	require.Len(t, frontendHub.ControllerOnlines, 2)
+
+	assert.Equal(t, "ESMS_TWR", frontendHub.ControllerOnlines[0].Callsign)
+	assert.Empty(t, frontendHub.ControllerOnlines[0].Identifier)
+	assert.Empty(t, frontendHub.ControllerOnlines[0].OwnedSectors)
+
+	assert.Equal(t, "EKCH_S_TWR", frontendHub.ControllerOnlines[1].Callsign)
+	assert.Equal(t, "EKCH_S_TWR", frontendHub.ControllerOnlines[1].Identifier)
+	assert.Equal(t, []string{"TW"}, frontendHub.ControllerOnlines[1].OwnedSectors)
+}

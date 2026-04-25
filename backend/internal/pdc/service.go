@@ -34,6 +34,8 @@ type timeoutTracker struct {
 
 type sessionInformation struct {
 	id       int32
+	name     string
+	airport  string
 	callsign string
 }
 
@@ -100,7 +102,12 @@ func (s *Service) getSessionInfo(ctx context.Context, sessionID int32) (sessionI
 	if err != nil {
 		return sessionInformation{}, fmt.Errorf("failed to get session: %w", err)
 	}
-	return sessionInformation{id: sessionID, callsign: session.Airport}, nil
+	return sessionInformation{
+		id:       sessionID,
+		name:     session.Name,
+		airport:  session.Airport,
+		callsign: session.Airport,
+	}, nil
 }
 
 // getNextSequence retrieves the next message sequence number
@@ -147,7 +154,9 @@ func (s *Service) notifyClearedFlagEuroscope(sessionID int32, callsign string, c
 
 // notifyStateChange sends PDC state change notification to frontend and EuroScope clients
 func (s *Service) notifyStateChange(ctx context.Context, sessionID int32, callsign string, state ClearanceState, remarks string) error {
-	metrics.PDCStateChange(context.Background(), sessionID, string(state))
+	if sessionInfo, err := s.getSessionInfo(ctx, sessionID); err == nil {
+		metrics.PDCStateChange(context.Background(), sessionInfo.name, sessionInfo.airport, string(state))
+	}
 	if s.stripService != nil {
 		if err := s.stripService.ReevaluatePdcRequestValidations(ctx, sessionID, callsign, true, state == StateRequestedWithFaults); err != nil {
 			return err
@@ -156,6 +165,14 @@ func (s *Service) notifyStateChange(ctx context.Context, sessionID int32, callsi
 	s.notifyStateChangeFrontend(sessionID, callsign, state, remarks)
 	s.notifyStateChangeEuroscope(sessionID, callsign, state, remarks)
 	return nil
+}
+
+func (s sessionInformation) recordPDCRequestReceived(ctx context.Context, channel string) {
+	metrics.PDCRequestReceived(ctx, s.name, s.airport, channel)
+}
+
+func (s sessionInformation) recordPDCRequestOutcome(ctx context.Context, channel, outcome string) {
+	metrics.PDCRequestOutcome(ctx, s.name, s.airport, channel, outcome)
 }
 
 func optionalString(value string) *string {
@@ -230,7 +247,9 @@ func (s *Service) confirmPilotAcknowledgement(ctx context.Context, sessionID int
 		}
 	}
 
-	metrics.PDCStateChange(context.Background(), sessionID, string(StateConfirmed))
+	if sessionInfo, err := s.getSessionInfo(context.Background(), sessionID); err == nil {
+		metrics.PDCStateChange(context.Background(), sessionInfo.name, sessionInfo.airport, string(StateConfirmed))
+	}
 	s.notifyStateChangeEuroscope(sessionID, strip.Callsign, StateConfirmed, "")
 	s.notifyClearedFlagEuroscope(sessionID, strip.Callsign, true, clearanceCid)
 
@@ -267,7 +286,12 @@ func (s *Service) pollAndProcess(ctx context.Context) error {
 	}
 
 	for _, session := range sessions {
-		err = s.pollAndProcessForSession(ctx, sessionInformation{id: session.ID, callsign: session.Airport})
+		err = s.pollAndProcessForSession(ctx, sessionInformation{
+			id:       session.ID,
+			name:     session.Name,
+			airport:  session.Airport,
+			callsign: session.Airport,
+		})
 		if err != nil {
 			return fmt.Errorf("failed to poll and process for session %s: %w", session.Airport, err)
 		}
@@ -319,8 +343,10 @@ func (s *Service) HandleIncomingMessage(ctx context.Context, msg *Message, sessi
 
 // ProcessPDCRequest handles a pilot's PDC request
 func (s *Service) ProcessPDCRequest(ctx context.Context, msg *IncomingMessage, session sessionInformation) error {
+	session.recordPDCRequestReceived(ctx, models.PdcChannelCPDLC)
 	req, err := parsePDCRequest(msg.Payload)
 	if err != nil {
+		session.recordPDCRequestOutcome(ctx, models.PdcChannelCPDLC, "rejected")
 		if sendErr := s.SendErrorMessage(ctx, session, msg.From); sendErr != nil {
 			return fmt.Errorf("failed to parse PDC request %w and sending error message %w", err, sendErr)
 		}
@@ -328,6 +354,7 @@ func (s *Service) ProcessPDCRequest(ctx context.Context, msg *IncomingMessage, s
 	}
 
 	if req.Callsign != msg.From {
+		session.recordPDCRequestOutcome(ctx, models.PdcChannelCPDLC, "rejected")
 		return fmt.Errorf("callsign in request does not match from field in message")
 	}
 
@@ -336,22 +363,26 @@ func (s *Service) ProcessPDCRequest(ctx context.Context, msg *IncomingMessage, s
 	strip, err := s.stripRepo.GetByCallsign(ctx, session.id, req.Callsign)
 
 	if errors.Is(err, sql.ErrNoRows) {
+		session.recordPDCRequestOutcome(ctx, models.PdcChannelCPDLC, "rejected")
 		return s.sendErrorAndReturn(ctx, session, req.Callsign,
 			fmt.Errorf("strip not found"),
 			func(seq int32) string { return buildFlightPlanNotHeld(seq, req.Departure, req.Callsign) })
 	}
 
 	if err != nil {
+		session.recordPDCRequestOutcome(ctx, models.PdcChannelCPDLC, "rejected")
 		return s.sendErrorAndReturn(ctx, session, req.Callsign, err, buildPDCUnavailable)
 	}
 
 	if strip.Cleared {
+		session.recordPDCRequestOutcome(ctx, models.PdcChannelCPDLC, "rejected")
 		return s.sendErrorAndReturn(ctx, session, req.Callsign,
 			fmt.Errorf("aircraft already cleared"),
 			func(seq int32) string { return buildAlreadyCleared(seq, strip.Origin, req.Callsign) })
 	}
 
 	if !strings.EqualFold(strip.Origin, req.Departure) || !strings.EqualFold(strip.Destination, req.Destination) {
+		session.recordPDCRequestOutcome(ctx, models.PdcChannelCPDLC, "rejected")
 		return s.sendErrorAndReturn(ctx, session, req.Callsign,
 			fmt.Errorf("invalid PDC request: origin/destination mismatch"),
 			func(seq int32) string { return buildFlightPlanNotHeld(seq, strip.Origin, req.Callsign) })
@@ -359,6 +390,7 @@ func (s *Service) ProcessPDCRequest(ctx context.Context, msg *IncomingMessage, s
 
 	stripAircraftType := normalizedStripAircraftType(strip)
 	if !stripAircraftTypeMatches(strip, req.Aircraft) {
+		session.recordPDCRequestOutcome(ctx, models.PdcChannelCPDLC, "rejected")
 		return s.sendErrorAndReturn(ctx, session, req.Callsign,
 			fmt.Errorf("aircraft type mismatch: expected %s, got %s", stripAircraftType, req.Aircraft),
 			func(seq int32) string { return buildInvalidAircraftType(seq, strip.Origin, req.Callsign) })
@@ -372,7 +404,7 @@ func (s *Service) ProcessPDCRequest(ctx context.Context, msg *IncomingMessage, s
 	requestRemarks := optionalString(req.Remarks)
 	faults := s.validatePDCFlightPlan(strip, currentSession.ActiveRunways.DepartureRunways)
 	if len(faults) > 0 {
-		metrics.PDCRequest(ctx, session.id, "requested_with_faults")
+		session.recordPDCRequestOutcome(ctx, models.PdcChannelCPDLC, "requested_with_faults")
 		now := time.Now().UTC()
 		if err := s.stripRepo.SetPdcRequested(ctx, session.id, strip.Callsign, string(StateRequestedWithFaults), &now, requestRemarks); err != nil {
 			return fmt.Errorf("failed to set PDC requested with faults: %w", err)
@@ -393,7 +425,7 @@ func (s *Service) ProcessPDCRequest(ctx context.Context, msg *IncomingMessage, s
 	}
 
 	if requestRemarks != nil {
-		metrics.PDCRequest(ctx, session.id, "requested_manual_review")
+		session.recordPDCRequestOutcome(ctx, models.PdcChannelCPDLC, "requested_manual_review")
 		now := time.Now().UTC()
 		if err := s.stripRepo.SetPdcRequested(ctx, session.id, strip.Callsign, string(StateRequested), &now, requestRemarks); err != nil {
 			return fmt.Errorf("failed to set PDC requested with remarks: %w", err)
@@ -406,7 +438,7 @@ func (s *Service) ProcessPDCRequest(ctx context.Context, msg *IncomingMessage, s
 	}
 
 	if issueErr := s.IssueClearance(ctx, strip.Callsign, "", "", session.id); issueErr != nil {
-		metrics.PDCRequest(ctx, session.id, "requested_pending_clearance")
+		session.recordPDCRequestOutcome(ctx, models.PdcChannelCPDLC, "requested_pending_clearance")
 		// Clearance fields not set yet — fall back to REQUESTED state
 		now := time.Now().UTC()
 		if err := s.stripRepo.SetPdcRequested(ctx, session.id, strip.Callsign, string(StateRequested), &now, nil); err != nil {
@@ -417,7 +449,7 @@ func (s *Service) ProcessPDCRequest(ctx context.Context, msg *IncomingMessage, s
 		}
 		slog.InfoContext(ctx, "PDC Service: PDC request acknowledged (clearance fields not ready)", slog.String("callsign", req.Callsign))
 	} else {
-		metrics.PDCRequest(ctx, session.id, "auto_cleared")
+		session.recordPDCRequestOutcome(ctx, models.PdcChannelCPDLC, "auto_cleared")
 		slog.InfoContext(ctx, "PDC Service: PDC clearance auto-issued", slog.String("callsign", req.Callsign))
 	}
 	return nil

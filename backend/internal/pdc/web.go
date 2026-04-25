@@ -104,13 +104,28 @@ func (s *Service) SubmitWebPDCRequest(ctx context.Context, callsign string, atis
 		return err
 	}
 
+	sessionInfo := sessionInformation{}
+	if info, infoErr := s.getSessionInfo(ctx, match.SessionID); infoErr == nil {
+		sessionInfo = info
+		sessionInfo.recordPDCRequestReceived(ctx, models.PdcChannelWeb)
+	}
+
 	if isWebPDCRequest(match.Strip) && !WebPDCCanSubmit(match.Strip.PdcState) {
+		if sessionInfo.name != "" {
+			sessionInfo.recordPDCRequestOutcome(ctx, models.PdcChannelWeb, "rejected")
+		}
 		return ErrWebAlreadyRequested
 	}
 	if match.Strip.Cleared {
+		if sessionInfo.name != "" {
+			sessionInfo.recordPDCRequestOutcome(ctx, models.PdcChannelWeb, "rejected")
+		}
 		return ErrWebAlreadyCleared
 	}
 	if !stripAircraftTypeMatches(match.Strip, normalizedAircraftType) {
+		if sessionInfo.name != "" {
+			sessionInfo.recordPDCRequestOutcome(ctx, models.PdcChannelWeb, "rejected")
+		}
 		return ErrWebAircraftTypeMismatch
 	}
 
@@ -140,10 +155,19 @@ func (s *Service) SubmitWebPDCRequest(ctx context.Context, callsign string, atis
 	if err != nil {
 		return fmt.Errorf("get session: %w", err)
 	}
+	if sessionInfo.name == "" {
+		sessionInfo = sessionInformation{
+			id:       session.ID,
+			name:     session.Name,
+			airport:  session.Airport,
+			callsign: session.Airport,
+		}
+	}
 
 	faults := s.validatePDCFlightPlan(match.Strip, session.ActiveRunways.DepartureRunways)
 	switch {
 	case len(faults) > 0:
+		sessionInfo.recordPDCRequestOutcome(ctx, models.PdcChannelWeb, "requested_with_faults")
 		if err := s.stripRepo.SetPdcRequested(ctx, match.SessionID, normalizedCallsign, string(StateRequestedWithFaults), &requestedAt, optionalString(trimmedRemarks)); err != nil {
 			return fmt.Errorf("persist requested-with-faults state: %w", err)
 		}
@@ -152,6 +176,7 @@ func (s *Service) SubmitWebPDCRequest(ctx context.Context, callsign string, atis
 		}
 		return nil
 	case trimmedRemarks != "":
+		sessionInfo.recordPDCRequestOutcome(ctx, models.PdcChannelWeb, "requested_manual_review")
 		if err := s.stripRepo.SetPdcRequested(ctx, match.SessionID, normalizedCallsign, string(StateRequested), &requestedAt, optionalString(trimmedRemarks)); err != nil {
 			return fmt.Errorf("persist requested state: %w", err)
 		}
@@ -162,6 +187,7 @@ func (s *Service) SubmitWebPDCRequest(ctx context.Context, callsign string, atis
 	}
 
 	if err := s.IssueClearance(ctx, normalizedCallsign, "", "", match.SessionID); err != nil {
+		sessionInfo.recordPDCRequestOutcome(ctx, models.PdcChannelWeb, "requested_pending_clearance")
 		slog.WarnContext(ctx, "Web PDC auto-issue failed, leaving request pending", slog.String("callsign", normalizedCallsign), slog.Any("error", err))
 		if err := s.stripRepo.SetPdcRequested(ctx, match.SessionID, normalizedCallsign, string(StateRequested), &requestedAt, nil); err != nil {
 			return fmt.Errorf("persist fallback requested state: %w", err)
@@ -169,7 +195,9 @@ func (s *Service) SubmitWebPDCRequest(ctx context.Context, callsign string, atis
 		if err := s.notifyStateChange(ctx, match.SessionID, normalizedCallsign, StateRequested, ""); err != nil {
 			return fmt.Errorf("notify fallback requested state change: %w", err)
 		}
+		return nil
 	}
 
+	sessionInfo.recordPDCRequestOutcome(ctx, models.PdcChannelWeb, "auto_cleared")
 	return nil
 }

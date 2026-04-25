@@ -23,9 +23,11 @@ type Client interface {
 	Close() error
 
 	GetCid() string
+	GetCallsign() string
 	GetAirport() string
 	GetPosition() string
 	GetSession() int32
+	GetSessionName() string
 	GetSource() string
 	GetConnection() *websocket.Conn
 
@@ -82,7 +84,7 @@ func ReadPump[TType comparable, TClient Client, THub Hub[TType, TClient]](hub TH
 		}
 
 		msgType := fmt.Sprintf("%v", parsedMessage.Type)
-		metrics.MessageReceived(context.Background(), client.GetSession(), client.GetSource(), msgType)
+		metrics.MessageReceived(context.Background(), client.GetSessionName(), client.GetAirport(), client.GetSource(), msgType)
 
 		tracer := otel.Tracer("websocket")
 		ctx, span := tracer.Start(context.Background(), msgType,
@@ -100,7 +102,7 @@ func ReadPump[TType comparable, TClient Client, THub Hub[TType, TClient]](hub TH
 		if err == nil {
 			err = handlers.Handle(ctx, client, parsedMessage)
 		}
-		metrics.MessageHandled(ctx, client.GetSession(), client.GetSource(), msgType, time.Since(start), err == nil)
+		metrics.MessageHandled(ctx, client.GetSessionName(), client.GetAirport(), client.GetSource(), msgType, time.Since(start), err == nil)
 
 		if err != nil {
 			span.SetStatus(codes.Error, err.Error())
@@ -171,7 +173,7 @@ func WritePump[TClient Client](client TClient) {
 				Type string `json:"type"`
 			}
 			_ = json.Unmarshal(bytes, &typeHolder)
-			metrics.MessageSent(context.Background(), client.GetSession(), typeHolder.Type)
+			metrics.MessageSent(context.Background(), client.GetSessionName(), client.GetAirport(), client.GetSource(), typeHolder.Type)
 
 			if err := client.GetConnection().WriteMessage(websocket.TextMessage, bytes); err != nil {
 				return

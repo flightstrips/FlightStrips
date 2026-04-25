@@ -150,7 +150,7 @@ func (hub *Hub) HandleNewConnection(conn *gorilla.Conn, user shared.Authenticate
 	controller, err := controllerRepo.GetByCid(context.Background(), user.GetCid())
 
 	var session int32
-	var position, airport, callsign string
+	var sessionName, position, airport, callsign string
 	readOnly := false
 	if err != nil {
 		if !errors.Is(err, pgx.ErrNoRows) {
@@ -158,6 +158,7 @@ func (hub *Hub) HandleNewConnection(conn *gorilla.Conn, user shared.Authenticate
 		}
 
 		session = WaitingForEuroscopeConnectionSessionId
+		sessionName = ""
 		position = WaitingForEuroscopeConnectionPosition
 		airport = WaitingForEuroscopeConnectionAirport
 		callsign = WaitingForEuroscopeConnectionCallsign
@@ -170,6 +171,7 @@ func (hub *Hub) HandleNewConnection(conn *gorilla.Conn, user shared.Authenticate
 		}
 
 		session = dbSession.ID
+		sessionName = dbSession.Name
 		position = controller.Position
 		airport = dbSession.Airport
 		callsign = controller.Callsign
@@ -188,6 +190,7 @@ func (hub *Hub) HandleNewConnection(conn *gorilla.Conn, user shared.Authenticate
 				slog.String("airport", airport),
 			)
 			session = WaitingForEuroscopeConnectionSessionId
+			sessionName = ""
 			position = WaitingForEuroscopeConnectionPosition
 			airport = WaitingForEuroscopeConnectionAirport
 			callsign = WaitingForEuroscopeConnectionCallsign
@@ -196,15 +199,16 @@ func (hub *Hub) HandleNewConnection(conn *gorilla.Conn, user shared.Authenticate
 
 	// Create and return the client
 	client := &Client{
-		conn:     conn,
-		user:     user,
-		session:  session,
-		send:     make(chan events.OutgoingMessage),
-		hub:      hub,
-		position: position,
-		airport:  airport,
-		callsign: callsign,
-		readOnly: readOnly,
+		conn:        conn,
+		user:        user,
+		session:     session,
+		sessionName: sessionName,
+		send:        make(chan events.OutgoingMessage),
+		hub:         hub,
+		position:    position,
+		airport:     airport,
+		callsign:    callsign,
+		readOnly:    readOnly,
 	}
 
 	hub.register <- client
@@ -521,6 +525,11 @@ func (hub *Hub) CidDisconnect(cid string) {
 			if esHub := hub.server.GetEuroscopeHub(); esHub != nil {
 				readOnly = esHub.IsObserverCid(cid)
 			}
+			if client.session != WaitingForEuroscopeConnectionSessionId &&
+				(client.sessionName != "" || client.callsign != "" || client.airport != "") {
+				metrics.ConnectionClosed(context.Background(), client.sessionName, client.airport, "frontend", client.callsign)
+				metrics.ConnectionOpened(context.Background(), "", "", "frontend", "")
+			}
 			client.session = WaitingForEuroscopeConnectionSessionId
 			client.send <- frontend.DisconnectEvent{ReadOnly: readOnly}
 			return
@@ -812,7 +821,7 @@ func (hub *Hub) SendAvailableSids(session int32, sids pkgModels.AvailableSids) {
 
 func (hub *Hub) OnRegister(client *Client) {
 	slog.Debug("Client registered", slog.String("cid", client.user.GetCid()))
-	metrics.ConnectionOpened(context.Background(), client.session, "frontend")
+	metrics.ConnectionOpened(context.Background(), client.sessionName, client.airport, "frontend", client.callsign)
 	if client.session != WaitingForEuroscopeConnectionSessionId {
 		hub.sendInitialEvent(client)
 		return
@@ -823,7 +832,7 @@ func (hub *Hub) OnRegister(client *Client) {
 
 func (hub *Hub) OnUnregister(client *Client) {
 	slog.Debug("Client unregistered", slog.String("cid", client.user.GetCid()))
-	metrics.ConnectionClosed(context.Background(), client.session, "frontend")
+	metrics.ConnectionClosed(context.Background(), client.sessionName, client.airport, "frontend", client.callsign)
 }
 
 func (hub *Hub) Run() {
@@ -841,6 +850,11 @@ func (hub *Hub) Run() {
 		case msg := <-hub.cidOnline:
 			for client := range hub.clients {
 				if client.user.GetCid() == msg.cid {
+					oldSession := client.session
+					oldSessionName := client.sessionName
+					oldAirport := client.airport
+					oldCallsign := client.callsign
+
 					slog.Debug("Associating frontend client with session",
 						slog.String("cid", msg.cid),
 						slog.Int("session", int(msg.session)))
@@ -861,6 +875,7 @@ func (hub *Hub) Run() {
 								client.callsign = controller.Callsign
 								client.position = controller.Position
 								client.airport = dbSession.Airport
+								client.sessionName = dbSession.Name
 							} else {
 								slog.Error("Failed to get session for CID online client",
 									slog.String("cid", msg.cid), slog.Any("error", err))
@@ -869,6 +884,16 @@ func (hub *Hub) Run() {
 							slog.Error("Failed to get controller for CID online client",
 								slog.String("cid", msg.cid), slog.Any("error", err))
 						}
+					}
+
+					switch {
+					case oldSession == WaitingForEuroscopeConnectionSessionId && client.sessionName != "":
+						metrics.ConnectionClosed(context.Background(), "", "", "frontend", "")
+						metrics.ConnectionOpened(context.Background(), client.sessionName, client.airport, "frontend", client.callsign)
+					case oldSession != WaitingForEuroscopeConnectionSessionId &&
+						(oldSessionName != client.sessionName || oldAirport != client.airport || oldCallsign != client.callsign):
+						metrics.ConnectionClosed(context.Background(), oldSessionName, oldAirport, "frontend", oldCallsign)
+						metrics.ConnectionOpened(context.Background(), client.sessionName, client.airport, "frontend", client.callsign)
 					}
 
 					hub.sendInitialEvent(client)

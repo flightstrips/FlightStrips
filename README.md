@@ -30,4 +30,8 @@ Experience efficient flow management for high-traffic scenarios with FlightStrip
 
 FlightStrips operates under the GPL-3.0 license, fostering an open-source community. Explore and contribute to the codebase on [GitHub](https://github.com/yourrepository).
 
+## Observability
+
+Grafana Cloud dashboards for Git Sync live in `observability\grafana\dashboards\` as committed dashboard JSON resources.
+
 Enjoy the realism, efficiency, and collaborative power of FlightStrips on VATSIM! ✨🌐🎮

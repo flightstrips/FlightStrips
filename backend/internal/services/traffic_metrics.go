@@ -2,6 +2,7 @@ package services
 
 import (
 	"FlightStrips/internal/metrics"
+	"FlightStrips/internal/models"
 	"FlightStrips/internal/repository"
 	"FlightStrips/internal/shared"
 	"context"
@@ -28,6 +29,13 @@ type TrafficMetricsService struct {
 	sessionRepo repository.SessionRepository
 	stripRepo   repository.StripRepository
 	interval    time.Duration
+}
+
+type trafficSnapshot struct {
+	onStand int64
+	taxiing int64
+	arr15m  int64
+	dep15m  int64
 }
 
 func NewTrafficMetricsService(sessionRepo repository.SessionRepository, stripRepo repository.StripRepository) *TrafficMetricsService {
@@ -73,26 +81,32 @@ func (s *TrafficMetricsService) collect(ctx context.Context) {
 			continue
 		}
 
-		var onStand, taxiing, arr15m, dep15m int64
-		for _, strip := range strips {
-			if onStandBays[strip.Bay] {
-				onStand++
+		snapshot := buildTrafficSnapshot(strips, now)
+		metrics.RecordTrafficSnapshot(ctx, session.Name, session.Airport, snapshot.onStand, snapshot.taxiing, snapshot.arr15m, snapshot.dep15m)
+	}
+}
+
+func buildTrafficSnapshot(strips []*models.Strip, now time.Time) trafficSnapshot {
+	var snapshot trafficSnapshot
+
+	for _, strip := range strips {
+		if onStandBays[strip.Bay] {
+			snapshot.onStand++
+		}
+		if taxiingBays[strip.Bay] {
+			snapshot.taxiing++
+		}
+		if strip.CdmData != nil {
+			if strip.CdmData.Aldt != nil && withinLast15Min(*strip.CdmData.Aldt, now) {
+				snapshot.arr15m++
 			}
-			if taxiingBays[strip.Bay] {
-				taxiing++
-			}
-			if strip.CdmData != nil {
-				if strip.CdmData.Aldt != nil && withinLast15Min(*strip.CdmData.Aldt, now) {
-					arr15m++
-				}
-				if strip.CdmData.Aobt != nil && withinLast15Min(*strip.CdmData.Aobt, now) {
-					dep15m++
-				}
+			if strip.CdmData.Aobt != nil && withinLast15Min(*strip.CdmData.Aobt, now) {
+				snapshot.dep15m++
 			}
 		}
-
-		metrics.RecordTrafficSnapshot(ctx, session.Name, session.Airport, onStand, taxiing, arr15m, dep15m)
 	}
+
+	return snapshot
 }
 
 // withinLast15Min reports whether the HHMM or HHMMSS clock string represents a

@@ -19,11 +19,12 @@ const (
 
 // Client represents a frontend gorilla client
 type Client struct {
-	conn    *gorilla.Conn
-	session int32
-	send    chan events.OutgoingMessage
-	hub     *Hub
-	user    shared.AuthenticatedUser
+	conn        *gorilla.Conn
+	session     int32
+	sessionName string
+	send        chan events.OutgoingMessage
+	hub         *Hub
+	user        shared.AuthenticatedUser
 
 	position string
 	callsign string
@@ -43,6 +44,10 @@ func (c *Client) GetCid() string {
 	return c.user.GetCid()
 }
 
+func (c *Client) GetCallsign() string {
+	return c.callsign
+}
+
 func (c *Client) GetAirport() string {
 	return c.airport
 }
@@ -53,6 +58,10 @@ func (c *Client) GetPosition() string {
 
 func (c *Client) GetSession() int32 {
 	return c.session
+}
+
+func (c *Client) GetSessionName() string {
+	return c.sessionName
 }
 
 func (c *Client) GetSource() string {

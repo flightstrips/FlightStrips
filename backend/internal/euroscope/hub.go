@@ -159,7 +159,7 @@ func (hub *Hub) Send(session int32, cid string, message euroscope.OutgoingMessag
 }
 
 func (hub *Hub) OnRegister(client *Client) {
-	metrics.ConnectionOpened(context.Background(), client.session, "euroscope")
+	metrics.ConnectionOpened(context.Background(), client.sessionName, client.airport, "euroscope", client.callsign)
 	hub.setObserverCid(client.GetCid(), client.observer)
 	hub.adjustAirportClientCount(client.airport, client.observer, 1)
 	// Start recording if in record mode and not already recording this session
@@ -329,15 +329,16 @@ func (hub *Hub) HandleNewConnection(conn *gorilla.Conn, user shared.Authenticate
 	}
 
 	client := &Client{
-		conn:     conn,
-		session:  sessionID,
-		send:     make(chan events.OutgoingMessage),
-		hub:      hub,
-		user:     user,
-		position: event.Position,
-		callsign: event.Callsign,
-		airport:  event.Airport,
-		observer: event.Observer,
+		conn:        conn,
+		session:     sessionID,
+		sessionName: event.Connection,
+		send:        make(chan events.OutgoingMessage),
+		hub:         hub,
+		user:        user,
+		position:    event.Position,
+		callsign:    event.Callsign,
+		airport:     event.Airport,
+		observer:    event.Observer,
 	}
 
 	hub.register <- client
@@ -365,6 +366,7 @@ func (hub *Hub) handleLogin(msg []byte, user shared.AuthenticatedUser) (event eu
 	}
 
 	slog.Debug("Euroscope client logged in", slog.String("cid", user.GetCid()), slog.String("session", sessionName))
+	event.Connection = sessionName
 
 	session, err := hub.server.GetOrCreateSession(event.Airport, sessionName)
 	if err != nil {
@@ -421,7 +423,7 @@ func (hub *Hub) handleLogin(msg []byte, user shared.AuthenticatedUser) (event eu
 }
 
 func (hub *Hub) OnUnregister(client *Client) {
-	metrics.ConnectionClosed(context.Background(), client.session, "euroscope")
+	metrics.ConnectionClosed(context.Background(), client.sessionName, client.airport, "euroscope", client.callsign)
 	hub.clearClientRunwayState(client.session, client.GetCid())
 	hub.clearObserverCid(client.GetCid())
 	hub.adjustAirportClientCount(client.airport, client.observer, -1)

@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.29.2](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.29.1...frontend/v0.29.2) (2026-04-25)
+
+
+### Bug Fixes
+
+* text color on dark mode ([cb6e97a](https://github.com/flightstrips/FlightStrips/commit/cb6e97a220c886d0ae26841ddce77be928b04edd))
+
 ## [0.29.1](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.29.0...frontend/v0.29.1) (2026-04-25)
 
 

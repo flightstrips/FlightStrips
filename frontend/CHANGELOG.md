@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.29.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.28.0...frontend/v0.29.0) (2026-04-25)
+
+
+### Features
+
+* **strip:** open tower taxi map from pushback strip when release point is set ([6f929f5](https://github.com/flightstrips/FlightStrips/commit/6f929f55d4847df35a8eba9b60c325edc2248c1b))
+* **transfer:** filter transfer window to controllers with flight strip sectors ([4f2780b](https://github.com/flightstrips/FlightStrips/commit/4f2780badc7dcdddf8648afde8b5e4b124d6814a))
+
+
+### Bug Fixes
+
+* **runway:** scope auto-confirm to same runway only ([1546ea8](https://github.com/flightstrips/FlightStrips/commit/1546ea85e370bb441d788f84d94783565c926f18))
+
 ## [0.28.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.27.1...frontend/v0.28.0) (2026-04-25)
 
 

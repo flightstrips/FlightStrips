@@ -1,5 +1,6 @@
 import { useContext } from 'react';
 import { useStore } from 'zustand';
+import { useShallow } from 'zustand/react/shallow';
 import type { FrontendController } from '@/api/models.ts';
 import { type WebSocketState } from './store.ts';
 import { WebSocketStoreContext } from './store-context.ts';
@@ -46,6 +47,17 @@ export const useWebSocketStore = <T,>(selector: (state: WebSocketState) => T): T
 };
 
 export const useControllers = () => useWebSocketStore((state) => state.controllers);
+
+export const useTransferableControllers = () =>
+  useWebSocketStore(
+    useShallow((state) =>
+      state.controllers.filter(
+        (c) =>
+          c.position !== state.position &&
+          (controllerOwnsDeliverySector(c) || controllerOwnsApronSector(c) || controllerOwnsTowerSectors(c))
+      )
+    )
+  );
 export const useStrips = () => useWebSocketStore((state) => state.strips);
 export const useTacticalStrips = () => useWebSocketStore((state) => state.tacticalStrips);
 export const usePosition = () => useWebSocketStore((state) => state.position);

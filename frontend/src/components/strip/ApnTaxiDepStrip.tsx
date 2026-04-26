@@ -104,6 +104,7 @@ export function ApnTaxiDepStrip({
         {/* SI / ownership — 8% */}
         <SIBox
           callsign={callsign}
+          bay={bay}
           owner={owner}
           nextControllers={nextControllers}
           previousControllers={previousControllers}

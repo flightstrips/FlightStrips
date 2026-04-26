@@ -136,6 +136,7 @@ export function TwyDepStrip({
       {/* SI / ownership */}
       <SIBox
         callsign={callsign}
+        bay={bay}
         owner={owner}
         nextControllers={nextControllers}
         previousControllers={previousControllers}

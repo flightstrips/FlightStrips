@@ -90,6 +90,7 @@ export function FinalArrStrip({
       {/* SI / ownership */}
       <SIBox
         callsign={callsign}
+        bay={bay}
         owner={owner}
         nextControllers={nextControllers}
         previousControllers={previousControllers}

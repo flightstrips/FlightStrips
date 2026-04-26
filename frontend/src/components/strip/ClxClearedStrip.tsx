@@ -121,6 +121,7 @@ export function ClxClearedStrip({
         {/* SI / ownership — 8.44% */}
         <SIBox
           callsign={callsign}
+          bay={bay}
           owner={owner}
           nextControllers={nextControllers}
           previousControllers={previousControllers}

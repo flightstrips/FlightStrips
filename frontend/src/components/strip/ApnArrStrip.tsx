@@ -92,6 +92,7 @@ export function ApnArrStrip({
     >
       <SIBox
         callsign={callsign}
+        bay={bay}
         owner={owner}
         nextControllers={nextControllers}
         previousControllers={previousControllers}

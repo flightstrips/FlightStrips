@@ -10,6 +10,7 @@ const F_SI = 8;
 /** SI / ownership indicator. Purple = unassumed, white = assumed, orange = transferred away. */
 export function SIBox({
   callsign,
+  bay,
   owner,
   nextControllers,
   previousControllers,
@@ -21,6 +22,7 @@ export function SIBox({
   baseBorderColor,
 }: {
   callsign: string;
+  bay?: string;
   owner?: string;
   nextControllers?: string[];
   previousControllers?: string[];
@@ -47,6 +49,7 @@ export function SIBox({
   const isSendingTransfer = isAssumed && !!transferringTo && !isTagRequest;
   const isReceivingTransfer = !!myPosition && !!transferringTo && transferringTo === myPosition && !isAssumed && !isTagRequest;
   const isUnownedAndNext = !owner && isConcerned;
+  const isStand = bay === "STAND";
 
   // Tag request states
   const isTagRequestOwner = isAssumed && !!transferringTo && isTagRequest;
@@ -55,7 +58,9 @@ export function SIBox({
   const nextPosition = nextControllers?.find(pos => pos !== myPosition);
 
   let nextLabel = "";
-  if (isSendingTransfer || isTagRequestOwner) {
+  if (isStand) {
+    nextLabel = "";
+  } else if (isSendingTransfer || isTagRequestOwner) {
     const targetController = controllers.find(c => c.position === transferringTo);
     nextLabel = targetController ? targetController.identifier : "";
   } else if (isAssumed && !isTagRequestOwner) {
@@ -65,6 +70,9 @@ export function SIBox({
 
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
+    if (isStand) {
+      return;
+    }
     if (isTagRequestOwner) {
       acceptTagRequest(callsign);
     } else if (isReceivingTransfer || isUnownedAndNext) {
@@ -76,10 +84,12 @@ export function SIBox({
     }
   };
 
-  const isClickable = isTagRequestOwner || isReceivingTransfer || isUnownedAndNext || isSendingTransfer || (isAssumed && !!nextPosition && !isTagRequestOwner);
+  const isClickable = !isStand && (isTagRequestOwner || isReceivingTransfer || isUnownedAndNext || isSendingTransfer || (isAssumed && !!nextPosition && !isTagRequestOwner));
 
   let background: string;
-  if (isTagRequestOwner) {
+  if (isStand) {
+    background = COLOR_BTN_ORANGE;
+  } else if (isTagRequestOwner) {
     // Owner side of a tag request: white+orange gradient (sending-away appearance)
     background = `linear-gradient(to right, ${COLOR_SI_ASSUMED} 50%, ${COLOR_BTN_ORANGE} 50%)`;
   } else if (isTagRequestRequester) {

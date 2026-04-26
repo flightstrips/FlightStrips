@@ -158,11 +158,15 @@ export function FinalArrStrip({
       {/* Runway / Holding Point */}
       <div
         className="flex flex-col border-r-2 min-w-0"
-        style={{ flexGrow: F_RWY, flexBasis: 0, height: "100%", borderRightColor: cellBorderColor, backgroundColor: rwyColor }}
+        style={{ flexGrow: F_RWY, flexBasis: 0, height: "100%", borderRightColor: cellBorderColor }}
       >
         <div
           className={`flex items-center justify-center${bay === Bay.Final || bay === Bay.RwyArr ? " cursor-pointer" : ""}`}
-          style={{ height: TOP_H, cursor: (bay === Bay.Final || bay === Bay.RwyArr) && isAssumed ? getValidationBlockedCursor(isValidationActive) : undefined }}
+          style={{
+            height: TOP_H,
+            backgroundColor: rwyColor,
+            cursor: (bay === Bay.Final || bay === Bay.RwyArr) && isAssumed ? getValidationBlockedCursor(isValidationActive) : undefined,
+          }}
           onClick={(bay === Bay.Final || bay === Bay.RwyArr) && isAssumed ? (e) => guardValidationAction(e, () => {
             if (runwayCleared && !runwayConfirmed) {
               runwayConfirmation(callsign);

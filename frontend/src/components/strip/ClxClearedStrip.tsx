@@ -24,9 +24,9 @@ import { useCTOTColor } from "@/hooks/useCTOTColor";
 import { Bay } from "@/api/models";
 import { ValidationStatusDialog } from "./ValidationStatusDialog";
 
-// Height: 4.44vh viewport-relative (intentional — matches DelStrip height)
-const FULL_H  = "4.72vh";
-const HALF_H  = "2.36vh";
+// Height: 4.72dvh viewport-relative (intentional — matches DelStrip height)
+const FULL_H  = "4.72dvh";
+const HALF_H  = "2.36dvh";
 
 // Flex-grow proportions for the 80% content area (flex-basis: 0).
 // Base unit is 40 (right half width). Left half uses 2/3 and 1/3 splits.

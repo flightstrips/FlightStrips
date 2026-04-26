@@ -2,7 +2,7 @@ import type { TacticalStrip } from "@/api/models";
 import { useMyPosition, useWebSocketStore } from "@/store/store-hooks";
 import { getFlatStripBorderStyle, FONT } from "./shared";
 
-const HEIGHT = "2.36vh";
+const HEIGHT = "2.36dvh";
 const W_SI = "1.77vw";
 const W_BTN = "1.25vw";
 

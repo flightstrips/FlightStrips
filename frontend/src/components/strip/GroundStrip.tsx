@@ -6,8 +6,8 @@ import { useStripTransfers } from "@/store/store-hooks";
 import { SIBox } from "./SIBox";
 import { ValidationStatusDialog } from "./ValidationStatusDialog";
 
-const TOP_H = "2.96vh"; // 2/3 of 48px
-const BOT_H = "1.48vh"; // 1/3 of 48px
+const TOP_H = "2.96dvh"; // 2/3 of 48px
+const BOT_H = "1.48dvh"; // 1/3 of 48px
 
 // -----------------------------------------------------------------------------
 // GroundStrip — shown after clearance is issued (status="CLROK") — TWY DEP
@@ -48,7 +48,7 @@ export function GroundStrip({
     <div
       className={`flex ${textWhite ? "text-white" : "text-black"} select-none`}
       style={{
-        height: "4.44vh",
+        height: "4.44dvh",
         width: "25vw",
         backgroundColor: bg,
         cursor: isValidationActive ? "not-allowed" : undefined,

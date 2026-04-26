@@ -10,7 +10,7 @@ const COLOR_SI_BROADCAST   = "#FF6D4D"; // sent-by-me broadcast indicator
 const COLOR_TEXT_MAIN      = "#E9E9E9"; // primary text / button border color
 const COLOR_TEXT_ON_LIGHT  = "#1a1a1a"; // dark text when SI background is light
 // Tailwind class constants (hex must be literal strings for JIT)
-const CLS_DISMISS_BTN = "flex items-center justify-center shrink-0 border border-[#E9E9E9] m-[0.37vh] font-bold text-[#E9E9E9] hover:bg-[#1e4547] active:bg-[#163638]";
+const CLS_DISMISS_BTN = "flex items-center justify-center shrink-0 border border-[#E9E9E9] m-[0.37dvh] font-bold text-[#E9E9E9] hover:bg-[#1e4547] active:bg-[#163638]";
 
 function getMessageSI(msg: MessageReceived, currentPosition: string): { color: string; initials: string } {
   if (msg.sender === "SYSTEM") return { color: COLOR_SI_CONCERNED, initials: "SY" };
@@ -43,7 +43,7 @@ export function MessageStrip({ msg }: MessageStripProps) {
   return (
     <div
       className="flex items-stretch shrink-0"
-      style={{ minHeight: "4.72vh", background: COLOR_STRIP_BG }}
+      style={{ minHeight: "4.72dvh", background: COLOR_STRIP_BG }}
     >
       {/* SI box */}
       <div
@@ -55,7 +55,7 @@ export function MessageStrip({ msg }: MessageStripProps) {
 
       {/* Message text */}
       <div
-        className="flex-1 flex items-center px-[0.42vw] py-[0.74vh]"
+        className="flex-1 flex items-center px-[0.42vw] py-[0.74dvh]"
         style={{ fontFamily: "Rubik, sans-serif", fontSize: "0.73vw", color: COLOR_TEXT_MAIN }}
       >
         <span className="break-words min-w-0 w-full">{msg.text}</span>
@@ -64,7 +64,7 @@ export function MessageStrip({ msg }: MessageStripProps) {
       {/* X button */}
       <button
         className={CLS_DISMISS_BTN}
-        style={{ width: "1.56vw", height: "2.78vh", fontSize: "0.73vw" }}
+        style={{ width: "1.56vw", height: "2.78dvh", fontSize: "0.73vw" }}
         onClick={() => dismissMessage(msg.id)}
         title="Dismiss"
       >

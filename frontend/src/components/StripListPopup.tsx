@@ -97,7 +97,7 @@ export function StripListPopup<T extends FrontendStrip>({
           className="flex flex-col"
           style={{
             width: 494,
-            height: "calc(100vh - 80px)",
+            height: "calc(100dvh - 80px)",
             background: COLOR_POPUP_BG,
           }}
           onMouseDown={e => e.stopPropagation()}

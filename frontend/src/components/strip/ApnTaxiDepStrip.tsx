@@ -22,9 +22,9 @@ import { useStripTransfers, useWebSocketStore } from "@/store/store-hooks";
 import { ApronTaxiMapDialog } from "@/components/map-dialogs/ApronTaxiMapDialog";
 import { useCTOTColor } from "@/hooks/useCTOTColor";
 import { ValidationStatusDialog } from "./ValidationStatusDialog";
-const TOP_H= "3.15vh";  // 2/3 of 4.72vh
-const BOT_H  = "1.57vh";  // 1/3 of 4.72vh
-const HALF_H = "2.08vh";  // 1/2 of inner content height (4.72vh - 2px border - 1px padding each side)
+const TOP_H= "3.15dvh";  // 2/3 of 4.72dvh
+const BOT_H  = "1.57dvh";  // 1/3 of 4.72dvh
+const HALF_H = "2.08dvh";  // 1/2 of inner content height (4.72dvh - 2px border - 1px padding each side)
 
 // Flex-grow proportions (flex-basis: 0 so space is shared proportionally)
 const F_CALLSIGN = 25;
@@ -93,7 +93,7 @@ export function ApnTaxiDepStrip({
     <div
       className="select-none"
       style={{
-        height: "4.44vh",
+        height: "4.44dvh",
         width: APN_TAXI_DEP_STRIP_WIDTH,
         cursor: isValidationActive ? "not-allowed" : undefined,
         ...getFramedStripStyle(marked),

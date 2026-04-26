@@ -44,7 +44,7 @@ const S: Record<string, React.CSSProperties> = {
     flexDirection: "column",
     gap: 10,
     overflowY: "auto",
-    maxHeight: "95vh",
+    maxHeight: "95dvh",
   },
   title: {
     fontSize: 16,

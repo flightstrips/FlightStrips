@@ -13,9 +13,9 @@ import { ValidationStatusDialog } from "./ValidationStatusDialog";
 /** Gold cell borders — matches the yellow arrival strip design. */
 const CELL_BORDER = "var(--color-cell-border-arr)";
 
-// Heights — 4.72vh total (51px at 1080p), 2/3 top / 1/3 bottom
-const TOP_H = "3.15vh";
-const BOT_H = "1.57vh";
+// Heights — 4.72dvh total (51px at 1080p), 2/3 top / 1/3 bottom
+const TOP_H = "3.15dvh";
+const BOT_H = "1.57dvh";
 
 // Flex-grow proportions (flex-basis: 0 so space is shared proportionally).
 // Values match the original pixel widths: SI=40, Callsign=120, Type=80, Taxiway=80, RWY=54, Stand=80
@@ -29,7 +29,7 @@ const F_STAND    = 80;
 /**
  * FinalArrStrip — strip for FINAL, RWY-ARR, and TWY-ARR bays (status="FINAL-ARR").
  *
- * 4.72vh strip (51px at 1080p), 95% of bay width, with 2/3 top row / 1/3 bottom row:
+ * 4.72dvh strip (51px at 1080p), 95% of bay width, with 2/3 top row / 1/3 bottom row:
  *   [SI] | [callsign] | [type↑ / squawk↓] |
  *   [stand] | [runway↑ / holding point↓] | [stand (reserved)]
  *
@@ -80,7 +80,7 @@ export function FinalArrStrip({
     <div
       className={`flex ${textWhite ? "text-white" : "text-black"} select-none`}
       style={{
-        height: "4.72vh",
+        height: "4.72dvh",
         width: "95%",
         backgroundColor: bg,
         cursor: isValidationActive ? "not-allowed" : undefined,

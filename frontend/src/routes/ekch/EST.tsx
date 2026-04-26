@@ -397,7 +397,7 @@ export default function EST() {
   }
 
   return (
-    <div className={`h-[95.28vh] w-full overflow-hidden ${PAGE_BG} px-2 py-1`}>
+    <div className={`h-[95.28dvh] w-full overflow-hidden ${PAGE_BG} px-2 py-1`}>
       <div ref={boardFrameRef} className="relative h-full w-full overflow-hidden">
         <div
           className="absolute left-1/2 top-1/2"

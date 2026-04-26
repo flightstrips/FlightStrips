@@ -9,22 +9,22 @@ const RUNWAYS = ["04R", "04L", "12", "22R", "22L", "30"];
 
 // All sizes derived from 1920×1080 base:
 //   horizontal → / 1920 * 100 = vw
-//   vertical   → / 1080 * 100 = vh
+//   vertical   → / 1080 * 100 = dvh
 //
 // Dialog: 167px → 8.7vw
-// Panel mx: 8px → 0.42vw  |  my: 11px → 1.02vh
-// List gap: 12px → 1.11vh  |  pt: 14px → 1.3vh  |  pb: 16px → 1.48vh
-// Button: 108×70px → 5.63vw × 6.48vh  |  font: 28px → 1.46vw
-// ESC row pb: 24px → 2.22vh
+// Panel mx: 8px → 0.42vw  |  my: 11px → 1.02dvh
+// List gap: 12px → 1.11dvh  |  pt: 14px → 1.3dvh  |  pb: 16px → 1.48dvh
+// Button: 108×70px → 5.63vw × 6.48dvh  |  font: 28px → 1.46vw
+// ESC row pb: 24px → 2.22dvh
 
 // Tailwind class constants (hex must be literal strings for JIT) — styled to match Runways.svg
 const CLS_DIALOG_BG      = "bg-[#B3B3B3] border border-black p-0 w-[8.7vw] max-w-none max-h-none gap-0 overflow-hidden [&>button]:hidden";
-const CLS_PANEL          = "mx-[0.42vw] my-[1.02vh] border border-black flex flex-col justify-between h-fit";
-const CLS_RWY_LIST       = "flex flex-col items-center gap-[1.11vh] pt-[1.3vh] pb-[1.48vh]";
-const CLS_RWY_BTN        = "w-[5.63vw] h-[6.48vh] bg-[#CCCCCC] text-black font-semibold text-[1.46vw] shadow-[0_4px_4px_rgba(0,0,0,0.25)] outline-none active:brightness-90";
-const CLS_RWY_BTN_ACTIVE = "w-[5.63vw] h-[6.48vh] bg-[#1BFF16] text-black font-semibold text-[1.46vw] shadow-[0_4px_4px_rgba(0,0,0,0.25)] outline-none active:brightness-90";
-const CLS_ESC_ROW        = "flex items-center justify-center pb-[2.22vh]";
-const CLS_ESC_BTN        = "w-[5.63vw] h-[6.48vh] bg-[#3F3F3F] text-white font-semibold text-[1.46vw] shadow-[0_4px_4px_rgba(0,0,0,0.25)] outline-none active:brightness-75";
+const CLS_PANEL          = "mx-[0.42vw] my-[1.02dvh] border border-black flex flex-col justify-between h-fit";
+const CLS_RWY_LIST       = "flex flex-col items-center gap-[1.11dvh] pt-[1.3dvh] pb-[1.48dvh]";
+const CLS_RWY_BTN        = "w-[5.63vw] h-[6.48dvh] bg-[#CCCCCC] text-black font-semibold text-[1.46vw] shadow-[0_4px_4px_rgba(0,0,0,0.25)] outline-none active:brightness-90";
+const CLS_RWY_BTN_ACTIVE = "w-[5.63vw] h-[6.48dvh] bg-[#1BFF16] text-black font-semibold text-[1.46vw] shadow-[0_4px_4px_rgba(0,0,0,0.25)] outline-none active:brightness-90";
+const CLS_ESC_ROW        = "flex items-center justify-center pb-[2.22dvh]";
+const CLS_ESC_BTN        = "w-[5.63vw] h-[6.48dvh] bg-[#3F3F3F] text-white font-semibold text-[1.46vw] shadow-[0_4px_4px_rgba(0,0,0,0.25)] outline-none active:brightness-75";
 
 interface TacticalProps {
   open: boolean;

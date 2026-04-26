@@ -21,8 +21,8 @@ import { useCDMColors } from "@/hooks/useCDMColors";
 import { useCTOTColor } from "@/hooks/useCTOTColor";
 import { Bay } from "@/api/models";
 import { ValidationStatusDialog } from "./ValidationStatusDialog";
-const FULL_H  = "4.72vh";
-const HALF_H  = "2.36vh";
+const FULL_H  = "4.72dvh";
+const HALF_H  = "2.36dvh";
 
 /**
  * DelStrip - shown before departure clearance is issued (status="CLR").

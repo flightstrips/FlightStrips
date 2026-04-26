@@ -10,7 +10,7 @@ export default function MRKBTN({ isMarked, armed, disabled, onClick }: MRKBTNPro
     <button
       disabled={disabled}
       onClick={onClick}
-      className={`text-[1.41vw] font-bold h-[3.42vh] my-[7px] w-[3.52vw] flex items-center justify-center shadow-[inset_2px_0_0_var(--color-bay-shadow),_inset_0_2px_0_var(--color-bay-shadow)] outline-none ${
+      className={`text-[1.41vw] font-bold h-[3.42dvh] my-[7px] w-[3.52vw] flex items-center justify-center shadow-[inset_2px_0_0_var(--color-bay-shadow),_inset_0_2px_0_var(--color-bay-shadow)] outline-none ${
         isMarked
           ? "bg-[#FF00F5] text-black"
           : armed

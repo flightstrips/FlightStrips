@@ -46,7 +46,7 @@ const DIALOG_CONTENT_STYLE: React.CSSProperties = {
   zIndex: 51,
   outline: "none",
   overflow: "hidden",
-  maxHeight: "calc(100vh - 20px)",
+  maxHeight: "calc(100dvh - 20px)",
   maxWidth: "calc(100vw - 20px)",
 };
 
@@ -210,10 +210,10 @@ export function MapDialogShell({
               position: "relative",
               width: "100%",
               aspectRatio: `${imgWidth} / ${imgHeight}`,
-              maxHeight: "calc(100vh - 20px)",
+              maxHeight: "calc(100dvh - 20px)",
               maxWidth: scaleMode === "width"
-                ? `min(calc(100vw * ${imgWidth} / 1920), calc((100vh - 20px) * ${imgWidth} / ${imgHeight}))`
-                : `calc((100vh - 20px) * ${imgWidth} / ${imgHeight})`,
+                ? `min(calc(100vw * ${imgWidth} / 1920), calc((100dvh - 20px) * ${imgWidth} / ${imgHeight}))`
+                : `calc((100dvh - 20px) * ${imgWidth} / ${imgHeight})`,
               margin: "0 auto",
               border: `1px solid ${COLOR_DIALOG_BORDER}`,
               overflow: "hidden",

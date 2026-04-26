@@ -10,9 +10,9 @@ import { ApronTaxiMapDialog } from "../map-dialogs/ApronTaxiMapDialog";
 import { SIBox } from "./SIBox";
 import { ValidationStatusDialog } from "./ValidationStatusDialog";
 
-// Height: 4.72vh (51px at 1080p), matches FinalArrStrip ATC arrival strip spec
-const TOP_H = "3.15vh"; // 2/3 of 4.72vh
-const BOT_H = "1.57vh"; // 1/3 of 4.72vh
+// Height: 4.72dvh (51px at 1080p), matches FinalArrStrip ATC arrival strip spec
+const TOP_H = "3.15dvh"; // 2/3 of 4.72dvh
+const BOT_H = "1.57dvh"; // 1/3 of 4.72dvh
 
 /** Gold cell borders — matches the yellow arrival strip design (same as FinalArrStrip). */
 const CELL_BORDER = "var(--color-cell-border-arr)";
@@ -29,7 +29,7 @@ const F_STAND    = 80;
 /**
  * ApnArrStrip — APN-TAXI-ARR strip used in TWY ARR and STAND bays (status="ARR").
  *
- * 4.72vh strip (51px at 1080p), 90% of bay width, with 2/3 top row / 1/3 bottom row:
+ * 4.72dvh strip (51px at 1080p), 90% of bay width, with 2/3 top row / 1/3 bottom row:
  *   [SI] | [callsign] | [actype↑ / reg↓] | [RWY] | [HS] | [stand]
  *
  * Background: yellow (var(--color-strip-arr-bg)).
@@ -83,7 +83,7 @@ export function ApnArrStrip({
     <div
       className={`flex ${textWhite ? "text-white" : "text-black"} select-none`}
       style={{
-        height: "4.72vh",
+        height: "4.72dvh",
         width: "90%",
         backgroundColor: bg,
         cursor: isValidationActive ? "not-allowed" : undefined,

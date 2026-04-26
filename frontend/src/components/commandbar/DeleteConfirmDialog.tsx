@@ -1,12 +1,12 @@
 // Sizes derived from SVG canvas (2560×1440 base):
 //   horizontal → / 2560 * 100 = vw
-//   vertical   → / 1440 * 100 = vh
+//   vertical   → / 1440 * 100 = dvh
 //
-// Card: 380×302px → 14.84vw × 20.97vh
+// Card: 380×302px → 14.84vw × 20.97dvh
 // Text font: 20px → 0.78vw  |  Button font: 32px → 1.25vw
-// Button: 125×70px → 4.88vw × 4.86vh
+// Button: 125×70px → 4.88vw × 4.86dvh
 // Yes left offset: 48px → 1.875vw  |  No left offset: 213px → 8.32vw (relative to card)
-// Button top: 173/1440*100 → 12.01vh absolute, but ~8.24vh from card top (173/302*20.97)
+// Button top: 173/1440*100 → 12.01dvh absolute, but ~8.24dvh from card top (173/302*20.97)
 // Gap between buttons: 40px → 1.56vw
 
 interface Props {
@@ -28,7 +28,7 @@ export default function DeleteConfirmDialog({ onConfirm, onCancel }: Props) {
         <div
           style={{
             width: "14.84vw",
-            height: "20.97vh",
+            height: "20.97dvh",
             background: "#B3B3B3",
             border: "1px solid black",
             position: "relative",
@@ -77,7 +77,7 @@ export default function DeleteConfirmDialog({ onConfirm, onCancel }: Props) {
               onClick={onConfirm}
               style={{
                 width: "4.88vw",
-                height: "4.86vh",
+                height: "4.86dvh",
                 background: "#D6D6D6",
                 color: "black",
                 fontFamily: "Rubik, sans-serif",
@@ -96,7 +96,7 @@ export default function DeleteConfirmDialog({ onConfirm, onCancel }: Props) {
               onClick={onCancel}
               style={{
                 width: "4.88vw",
-                height: "4.86vh",
+                height: "4.86dvh",
                 background: "#D6D6D6",
                 color: "black",
                 fontFamily: "Rubik, sans-serif",

@@ -37,7 +37,7 @@ export function Hero() {
   const { isAuthenticated, loginWithRedirect } = useAuth0();
   return (
     <section
-      className="relative min-h-[90vh] flex flex-col lg:flex-row items-stretch gap-0"
+      className="relative min-h-[90dvh] flex flex-col lg:flex-row items-stretch gap-0"
       style={{
         background: `
           radial-gradient(ellipse 100% 80% at 50% 0%, rgba(0, 61, 72, 0.08) 0%, transparent 55%),

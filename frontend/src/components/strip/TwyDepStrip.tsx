@@ -15,13 +15,13 @@ import { TAXI_MAP_POINTS } from "@/config/ekch";
 import { Bay } from "@/api/models";
 import { ValidationStatusDialog } from "./ValidationStatusDialog";
 
-// Heights— 4.72vh total (51px at 1080p), 2/3 top / 1/3 bottom (used by callsign and SID/dest)
-const TOP_H      = "3.15vh";  // 2/3 of 4.72vh
-const BOT_H      = "1.57vh";  // 1/3 of 4.72vh
-const TOP_HALF_H = "1.575vh"; // half of TOP_H — used by SID/dest two-line split
+// Heights— 4.72dvh total (51px at 1080p), 2/3 top / 1/3 bottom (used by callsign and SID/dest)
+const TOP_H      = "3.15dvh";  // 2/3 of 4.72dvh
+const BOT_H      = "1.57dvh";  // 1/3 of 4.72dvh
+const TOP_HALF_H = "1.575dvh"; // half of TOP_H — used by SID/dest two-line split
 
 // Equal halves — used by type/squawk, stand/ctot, TWY, runway/HP, FL/heading
-const HALF_H = "2.36vh"; // 1/2 of 4.72vh
+const HALF_H = "2.36dvh"; // 1/2 of 4.72dvh
 
 // Flex-grow proportions (flex-basis: 0 so space is shared proportionally).
 // Values match the original pixel widths: SI=40, Callsign=120, Type/Squawk=60, Stand/CTOT=60, Small×3=53, SID/Dest=80
@@ -35,7 +35,7 @@ const F_SID_DEST   = 80;
 // -----------------------------------------------------------------------------
 // TwyDepStrip — TWY-DEP strip for the TETW tower view (status="TWY-DEP").
 //
-// 4.72vh height (51px at 1080p), scales to 95% of bay width. Cells left → right:
+// 4.72dvh height (51px at 1080p), scales to 95% of bay width. Cells left → right:
 //   [SI] | [callsign + :freq] | [type / squawk] |
 //   [stand / ctot] | [TWY label] |
 //   [runway / HP] | [FL / heading] | [SID / dest]
@@ -126,7 +126,7 @@ export function TwyDepStrip({
     <div
       className={`flex ${textWhite ? "text-white" : "text-black"} select-none`}
       style={{
-        height: "4.72vh",
+        height: "4.72dvh",
         width: "95%",
         backgroundColor: bg,
         cursor: isValidationActive ? "not-allowed" : undefined,

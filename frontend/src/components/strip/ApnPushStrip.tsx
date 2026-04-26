@@ -30,10 +30,10 @@ import { RunwayDialog } from "./RunwayDialog";
 import FlightPlanDialog from "@/components/FlightPlanDialog";
 import { ValidationStatusDialog } from "./ValidationStatusDialog";
 
-// Height: 4.72vh(51px at 1080p)
-const HALF_H = "2.36vh";    // half of 4.72vh for TSAT/CTOT split
-const TOP_H  = "3.15vh";    // 2/3 of 4.72vh
-const BOT_H  = "1.57vh";    // 1/3 of 4.72vh
+// Height: 4.72dvh(51px at 1080p)
+const HALF_H = "2.36dvh";    // half of 4.72dvh for TSAT/CTOT split
+const TOP_H  = "3.15dvh";    // 2/3 of 4.72dvh
+const BOT_H  = "1.57dvh";    // 1/3 of 4.72dvh
 
 // Flex-grow proportions (flex-basis: 0 so space is shared proportionally).
 // Base flex unit. Each cell is a fraction of this base.
@@ -111,7 +111,7 @@ export function ApnPushStrip({
     <div
       className="select-none"
       style={{
-        height: "4.72vh",
+        height: "4.72dvh",
         width: fullWidth ? "100%" : "90%",
         cursor: isValidationActive ? "not-allowed" : undefined,
         ...getFramedStripStyle(marked),
@@ -148,7 +148,7 @@ export function ApnPushStrip({
         {/* A/C type / Registration — 25%*(2/3), stacked in top 2/3 */}
         <div
           className="flex flex-col items-center justify-center overflow-hidden border-r-2 cursor-pointer hover:brightness-95"
-          style={{ flex: `${F_TYPE} 0 0%`, height: "100%", paddingBottom: "1.48vh", minWidth: 0, borderRightColor: cellBorderColor, cursor: "pointer" }}
+          style={{ flex: `${F_TYPE} 0 0%`, height: "100%", paddingBottom: "1.48dvh", minWidth: 0, borderRightColor: cellBorderColor, cursor: "pointer" }}
           onClick={(e) => { e.stopPropagation(); setFplOpen(true); }}
         >
           <span className="truncate px-[0.21vw] leading-tight w-full text-center" style={{ fontFamily: FONT, fontSize: "0.52vw", color: aircraftCategory === "H" ? COLOR_TYPE_HEAVY : undefined }}>{getAircraftTypeWithWtc(aircraftType, aircraftCategory)}</span>
@@ -158,7 +158,7 @@ export function ApnPushStrip({
         {/* Stand / Release Point — 25%*(2/3) */}
         <div
           className="flex items-center justify-center overflow-hidden border-r-2 cursor-pointer hover:bg-cyan-200"
-          style={{ flex: `${F_STAND} 0 0%`, height: "100%", paddingBottom: "1.48vh", minWidth: 0, borderRightColor: cellBorderColor, backgroundColor: standYellow ? COLOR_UNEXPECTED_YELLOW : undefined, cursor: getValidationBlockedCursor(isValidationActive) }}
+          style={{ flex: `${F_STAND} 0 0%`, height: "100%", paddingBottom: "1.48dvh", minWidth: 0, borderRightColor: cellBorderColor, backgroundColor: standYellow ? COLOR_UNEXPECTED_YELLOW : undefined, cursor: getValidationBlockedCursor(isValidationActive) }}
           onClick={(e) => guardValidationAction(e, () => {
             if (standYellow) {
               acknowledgeUnexpectedChange(callsign, "stand");
@@ -215,7 +215,7 @@ export function ApnPushStrip({
         {/* RWY — 25%*(2/3)*(2/3) */}
         <div
           className="flex items-center justify-center overflow-hidden cursor-pointer hover:bg-cyan-200"
-          style={{ flex: `${F_RWY} 0 0%`, height: "100%", paddingBottom: "1.48vh", minWidth: 0, backgroundColor: runwayYellow ? COLOR_UNEXPECTED_YELLOW : undefined, cursor: getValidationBlockedCursor(isValidationActive) }}
+          style={{ flex: `${F_RWY} 0 0%`, height: "100%", paddingBottom: "1.48dvh", minWidth: 0, backgroundColor: runwayYellow ? COLOR_UNEXPECTED_YELLOW : undefined, cursor: getValidationBlockedCursor(isValidationActive) }}
           onClick={(e) => guardValidationAction(e, () => {
             if (runwayYellow) {
               acknowledgeUnexpectedChange(callsign, "runway");

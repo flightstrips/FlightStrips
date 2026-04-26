@@ -16,13 +16,13 @@ interface Props {
 
 // All sizes derived from the SVG canvas (2560×1440 base):
 //   horizontal → / 2560 * 100  = vw
-//   vertical   → / 1440 * 100  = vh
+//   vertical   → / 1440 * 100  = dvh
 //
-// SVG card: 269×455px  →  10.5vw × 31.6vh
+// SVG card: 269×455px  →  10.5vw × 31.6dvh
 // Border rect margins: 17px → 0.664vw each side
-// Options inside border: pt 31px/2.15vh, gap 18px/1.25vh, pb 36px/2.5vh
-// OK gap/padding: mt 19px/1.32vh, pb 30px/2.08vh
-// Button size: 164×70px → 6.4vw × 4.86vh  /  125×70px → 4.88vw × 4.86vh
+// Options inside border: pt 31px/2.15dvh, gap 18px/1.25dvh, pb 36px/2.5dvh
+// OK gap/padding: mt 19px/1.32dvh, pb 30px/2.08dvh
+// Button size: 164×70px → 6.4vw × 4.86dvh  /  125×70px → 4.88vw × 4.86dvh
 // Title font: 20px → 0.78vw  |  Button font: 32px → 1.25vw
 
 export default function RunwayStsDialog({ open, onClose, onSelect }: Props) {
@@ -39,9 +39,9 @@ export default function RunwayStsDialog({ open, onClose, onSelect }: Props) {
         {/*
           Top spacing — gives vertical room so the border rect's title overlay
           sits comfortably inside the card. ~half the title line-height above the border.
-          SVG: border rect starts at y=23 out of 455px total → ~1.6vh from top.
+          SVG: border rect starts at y=23 out of 455px total → ~1.6dvh from top.
         */}
-        <div style={{ paddingTop: "1.6vh" }}>
+        <div style={{ paddingTop: "1.6dvh" }}>
 
           {/*
             Options border box — full border (all 4 sides) so it connects all the way around.
@@ -68,12 +68,12 @@ export default function RunwayStsDialog({ open, onClose, onSelect }: Props) {
             {/* Option buttons */}
             <div
               className="flex flex-col items-center"
-              style={{ paddingTop: "2.15vh", gap: "1.25vh", paddingBottom: "2.5vh" }}
+              style={{ paddingTop: "2.15dvh", gap: "1.25dvh", paddingBottom: "2.5dvh" }}
             >
               <button
                 onClick={() => { onSelect("OPEN"); onClose(); }}
                 className="flex items-center justify-center bg-bay-dark text-white font-semibold shadow-[0_4px_4px_rgba(0,0,0,0.25)]"
-                style={{ width: "6.4vw", height: "4.86vh", fontSize: "1.25vw" }}
+                style={{ width: "6.4vw", height: "4.86dvh", fontSize: "1.25vw" }}
               >
                 OPEN
               </button>
@@ -81,7 +81,7 @@ export default function RunwayStsDialog({ open, onClose, onSelect }: Props) {
               <button
                 onClick={() => { onSelect("LOW_VIS"); onClose(); }}
                 className="flex items-center justify-center bg-runway-low-vis text-black font-semibold shadow-[0_4px_4px_rgba(0,0,0,0.25)]"
-                style={{ width: "6.4vw", height: "4.86vh", fontSize: "1.25vw" }}
+                style={{ width: "6.4vw", height: "4.86dvh", fontSize: "1.25vw" }}
               >
                 LOW VIS
               </button>
@@ -89,7 +89,7 @@ export default function RunwayStsDialog({ open, onClose, onSelect }: Props) {
               <button
                 onClick={() => { onSelect("CLOSED"); onClose(); }}
                 className="flex items-center justify-center bg-runway-closed text-white font-semibold shadow-[0_4px_4px_rgba(0,0,0,0.25)]"
-                style={{ width: "6.4vw", height: "4.86vh", fontSize: "1.25vw" }}
+                style={{ width: "6.4vw", height: "4.86dvh", fontSize: "1.25vw" }}
               >
                 CLOSED
               </button>
@@ -99,12 +99,12 @@ export default function RunwayStsDialog({ open, onClose, onSelect }: Props) {
           {/* OK button */}
           <div
             className="flex justify-center"
-            style={{ marginTop: "1.32vh", paddingBottom: "2.08vh" }}
+            style={{ marginTop: "1.32dvh", paddingBottom: "2.08dvh" }}
           >
             <button
               onClick={onClose}
               className="flex items-center justify-center bg-[#3F3F3F] text-white font-semibold shadow-[0_4px_4px_rgba(0,0,0,0.25)]"
-              style={{ width: "4.88vw", height: "4.86vh", fontSize: "1.25vw" }}
+              style={{ width: "4.88vw", height: "4.86dvh", fontSize: "1.25vw" }}
             >
               OK
             </button>

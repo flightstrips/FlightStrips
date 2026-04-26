@@ -14,14 +14,14 @@ import { useAtisCode, useMarkArmed, useMetar, useRunwaySetup, useSelectedCallsig
 import { CLS_CMDBTN } from "@/components/strip/shared";
 import { Bay } from "@/api/models";
 
-// Bar height matches strip height (4.72vh). Inner elements: calc(4.72vh - 14px) + 7px top/bottom margin.
-const CLS_BAR = "h-[4.72vh] w-screen bg-bay-commandbar flex justify-between text-white items-center border-t-2 border-bay-border";
+// Bar height matches strip height (4.72dvh). Inner elements: calc(4.72dvh - 14px) + 7px top/bottom margin.
+const CLS_BAR = "h-[4.72dvh] w-screen bg-bay-commandbar flex justify-between text-white items-center border-t-2 border-bay-border";
 
 // Inner value boxes — same margin rhythm as CLS_CMDBTN
 // Font sizes derived from SVG (2560px base): large values 36px→1.41vw, labels 24px→0.94vw
-const CLS_VAL_WHITE = "bg-bay-light text-black text-[1.41vw] font-bold h-[calc(4.72vh-14px)] my-[7px] flex items-center justify-center";
-const CLS_VAL_DARK  = "bg-bay-dark text-white  text-[1.41vw] font-bold h-[calc(4.72vh-14px)] my-[7px] flex items-center justify-center";
-const CLS_VAL_ALERT = "bg-[#F43A3A] text-white text-[1.41vw] font-bold h-[calc(4.72vh-14px)] my-[7px] flex items-center justify-center";
+const CLS_VAL_WHITE = "bg-bay-light text-black text-[1.41vw] font-bold h-[calc(4.72dvh-14px)] my-[7px] flex items-center justify-center";
+const CLS_VAL_DARK  = "bg-bay-dark text-white  text-[1.41vw] font-bold h-[calc(4.72dvh-14px)] my-[7px] flex items-center justify-center";
+const CLS_VAL_ALERT = "bg-[#F43A3A] text-white text-[1.41vw] font-bold h-[calc(4.72dvh-14px)] my-[7px] flex items-center justify-center";
 const CLS_LABEL     = "text-[0.94vw] font-bold text-bay-light px-3";
 
 const SCOPE_LABELS: Record<string, string> = {
@@ -153,7 +153,7 @@ export default function CommandBar() {
         {/* Scope — green station box, clicks open layout dialog */}
         <button
           onClick={() => setLayoutOpen(true)}
-          className={`${scopeButtonClass} flex flex-col justify-center items-center mx-2 font-bold h-[calc(4.72vh-14px)] my-[7px] w-[9.73vw] text-center leading-tight outline-none active:brightness-90`}
+          className={`${scopeButtonClass} flex flex-col justify-center items-center mx-2 font-bold h-[calc(4.72dvh-14px)] my-[7px] w-[9.73vw] text-center leading-tight outline-none active:brightness-90`}
         >
           <span className="text-[0.78vw] font-semibold">{scopeLabel}</span>
           {positionLabel && <span className="text-[0.63vw] font-medium">{positionLabel}</span>}
@@ -193,7 +193,7 @@ export default function CommandBar() {
               key={pair}
               onClick={() => setRwyDlgPair(pair)}
               style={{ backgroundColor: bg, width: vw }}
-              className="text-white text-[0.94vw] font-bold h-[calc(4.72vh-14px)] my-[7px] flex items-center justify-center shadow-[inset_2px_0_0_var(--color-bay-shadow),_inset_-2px_0_0_var(--color-bay-shadow),_inset_0_2px_0_var(--color-bay-shadow),_inset_0_-2px_0_var(--color-bay-shadow)] outline-none"
+              className="text-white text-[0.94vw] font-bold h-[calc(4.72dvh-14px)] my-[7px] flex items-center justify-center shadow-[inset_2px_0_0_var(--color-bay-shadow),_inset_-2px_0_0_var(--color-bay-shadow),_inset_0_2px_0_var(--color-bay-shadow),_inset_0_-2px_0_var(--color-bay-shadow)] outline-none"
             >
               {pair}
             </button>
@@ -216,7 +216,7 @@ export default function CommandBar() {
         </button>
         {/* Time — white box, double gap before it */}
         <MUTEBTN muted={muted} onClick={toggleMute} />
-        <div className="bg-bay-light text-black h-[calc(4.72vh-14px)] my-[7px] w-[5.08vw] ml-[5px] mr-3 flex items-center justify-center text-[0.75vw] font-bold shadow-[inset_2px_0_0_var(--color-bay-shadow),_inset_0_2px_0_var(--color-bay-shadow)]">
+        <div className="bg-bay-light text-black h-[calc(4.72dvh-14px)] my-[7px] w-[5.08vw] ml-[5px] mr-3 flex items-center justify-center text-[0.75vw] font-bold shadow-[inset_2px_0_0_var(--color-bay-shadow),_inset_0_2px_0_var(--color-bay-shadow)]">
           <Time />
         </div>
       </div>
@@ -227,14 +227,14 @@ export default function CommandBar() {
           {/* Transparent backdrop — click to close */}
           <div className="fixed inset-0 z-40" onClick={() => setLayoutOpen(false)} />
 
-          {/* Popup panel — matches Scope selector.svg (2512×254 design, 2560px vw base, 2160px vh base) */}
+          {/* Popup panel — matches Scope selector.svg (2512×254 design, 2560px vw base, 2160px dvh base) */}
           <div
             className="fixed z-50"
             style={{
-              bottom: "calc(4.72vh + 0.5vh)",
+              bottom: "calc(4.72dvh + 0.5dvh)",
               left: "1vw",
               right: "1vw",
-              height: "11.76vh",
+              height: "11.76dvh",
               background: "#B3B3B3",
               border: "1px solid black",
             }}
@@ -243,12 +243,12 @@ export default function CommandBar() {
             <div
               className="absolute flex items-center"
               style={{
-                inset: "0.76vh 0.60vw",
+                inset: "0.76dvh 0.60vw",
                 border: "1px solid black",
               }}
             >
               {/* Scope buttons */}
-              <div className="flex items-center gap-[1.56vw] pl-[0.66vw] h-full py-[0.74vh]">
+              <div className="flex items-center gap-[1.56vw] pl-[0.66vw] h-full py-[0.74dvh]">
                 {EKCH_SCOPES.map((scope) => (
                   <button
                     key={scope.layout}
@@ -276,7 +276,7 @@ export default function CommandBar() {
                   marginLeft: "auto",
                   marginRight: "0.66vw",
                   width: "7.42vw",
-                  height: "calc(100% - 1.48vh)",
+                  height: "calc(100% - 1.48dvh)",
                   background: "#3F3F3F",
                   color: "white",
                   fontSize: "1.25vw",

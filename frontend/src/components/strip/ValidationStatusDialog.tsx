@@ -13,17 +13,17 @@ import { useState, type CSSProperties } from "react";
 
 const BASELINE_WIDTH = 1920;
 const BASELINE_HEIGHT = 1080;
-const DIALOG_SHADOW = "0 min(0.2083vw, 0.3704vh) min(0.2083vw, 0.3704vh) rgba(0,0,0,0.25)";
+const DIALOG_SHADOW = "0 min(0.2083vw, 0.3704dvh) min(0.2083vw, 0.3704dvh) rgba(0,0,0,0.25)";
 
 const toVw = (px: number) => `${(px / BASELINE_WIDTH) * 100}vw`;
-const toVh = (px: number) => `${(px / BASELINE_HEIGHT) * 100}vh`;
-const toVMin = (px: number) => `min(${toVw(px)}, ${toVh(px)})`;
+const toDvh = (px: number) => `${(px / BASELINE_HEIGHT) * 100}dvh`;
+const toVMin = (px: number) => `min(${toVw(px)}, ${toDvh(px)})`;
 
 const dialogContentClassName = "max-w-none max-h-none gap-0 overflow-hidden p-0 [&>button]:hidden";
 
 const rootStyle: CSSProperties = {
   width: toVw(464),
-  height: toVh(347),
+  height: toDvh(347),
   maxWidth: "none",
   border: "1px solid #000",
   backgroundColor: "#B3B3B3",
@@ -58,12 +58,12 @@ const sharedButtonStyle: CSSProperties = {
 const messagePanelStyle: CSSProperties = {
   position: "absolute",
   left: toVw(23.373),
-  top: toVh(79.938),
+  top: toDvh(79.938),
   width: toVw(419.627),
-  height: toVh(154),
+  height: toDvh(154),
   backgroundColor: "#D6D6D6",
   boxShadow: DIALOG_SHADOW,
-  padding: `${toVh(9)} ${toVw(12)}`,
+  padding: `${toDvh(9)} ${toVw(12)}`,
   display: "flex",
   alignItems: "flex-start",
   justifyContent: "flex-start",
@@ -242,25 +242,25 @@ export function ValidationStatusDialog({
               style={{
                 ...frameLineStyle,
                 left: toVw(12),
-                top: toVh(30),
+                top: toDvh(30),
                 width: toVw(1),
-                height: toVh(307),
+                height: toDvh(307),
               }}
             />
             <div
               style={{
                 ...frameLineStyle,
                 left: toVw(452),
-                top: toVh(30),
+                top: toDvh(30),
                 width: toVw(1),
-                height: toVh(307),
+                height: toDvh(307),
               }}
             />
             <div
               style={{
                 ...frameLineStyle,
                 left: toVw(12),
-                top: toVh(337),
+                top: toDvh(337),
                 width: toVw(440),
                 height: "1px",
               }}
@@ -269,7 +269,7 @@ export function ValidationStatusDialog({
               style={{
                 ...frameLineStyle,
                 left: toVw(12),
-                top: toVh(30),
+                top: toDvh(30),
                 width: toVw(138.189),
                 height: "1px",
               }}
@@ -278,7 +278,7 @@ export function ValidationStatusDialog({
               style={{
                 ...frameLineStyle,
                 left: toVw(313.387),
-                top: toVh(30),
+                top: toDvh(30),
                 width: toVw(138.613),
                 height: "1px",
               }}
@@ -287,13 +287,13 @@ export function ValidationStatusDialog({
             <div
               style={{
                 position: "absolute",
-                top: toVh(15),
+                top: toDvh(15),
                 left: "50%",
                 transform: "translateX(-50%)",
                 display: "flex",
                 flexDirection: "column",
                 alignItems: "center",
-                gap: toVh(2),
+                gap: toDvh(2),
                 pointerEvents: "none",
               }}
             >
@@ -332,9 +332,9 @@ export function ValidationStatusDialog({
                 style={{
                   ...sharedButtonStyle,
                   left: toVw(129),
-                  top: toVh(index === 0 ? 267 : 301),
+                  top: toDvh(index === 0 ? 267 : 301),
                   width: toVw(103),
-                  height: toVh(29),
+                  height: toDvh(29),
                   flexDirection: "column",
                   fontSize: toVMin(16),
                   lineHeight: 1.1,
@@ -353,9 +353,9 @@ export function ValidationStatusDialog({
               style={{
                 ...sharedButtonStyle,
                 left: toVw(288),
-                top: toVh(267),
+                top: toDvh(267),
                 width: toVw(155),
-                height: toVh(29),
+                height: toDvh(29),
               }}
               onClick={handleAcknowledge}
             >
@@ -366,9 +366,9 @@ export function ValidationStatusDialog({
               style={{
                 ...sharedButtonStyle,
                 left: toVw(288),
-                top: toVh(301),
+                top: toDvh(301),
                 width: toVw(155),
-                height: toVh(29),
+                height: toDvh(29),
               }}
               onClick={() => onOpenChange(false)}
             >

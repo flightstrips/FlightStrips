@@ -873,9 +873,18 @@ func TestRunwayClearance_TaxiLwrBaySetsGroundStateAndNotifiesES(t *testing.T) {
 		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
 			return strip, nil
 		},
+		GetMaxSequenceInBayFn: func(_ context.Context, _ int32, bay string) (int32, error) {
+			assert.Equal(t, shared.BAY_DEPART, bay)
+			return 0, nil
+		},
 		UpdateRunwayClearanceFn: func(_ context.Context, s int32, cs string) (int64, error) {
 			repoSession = s
 			repoCallsign = cs
+			return 1, nil
+		},
+		UpdateBayAndSequenceFn: func(_ context.Context, _ int32, _ string, bay string, sequence int32) (int64, error) {
+			assert.Equal(t, shared.BAY_DEPART, bay)
+			assert.Equal(t, int32(InitialOrderSpacing), sequence)
 			return 1, nil
 		},
 		UpdateGroundStateFn: func(_ context.Context, _ int32, _ string, state *string, _ string, _ *int32) (int64, error) {
@@ -967,6 +976,10 @@ func TestRunwayClearance_RepositoryError(t *testing.T) {
 	stripRepo := &testutil.MockStripRepository{
 		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
 			return strip, nil
+		},
+		GetMaxSequenceInBayFn: func(_ context.Context, _ int32, bay string) (int32, error) {
+			assert.Equal(t, shared.BAY_DEPART, bay)
+			return 0, nil
 		},
 		UpdateRunwayClearanceFn: func(_ context.Context, _ int32, _ string) (int64, error) {
 			return 0, dbErr

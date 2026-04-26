@@ -56,6 +56,23 @@ function normalizeLayout(layout: string) {
   return layout;
 }
 
+function nextSequenceAtEndOfBay(strips: FrontendStrip[], tacticalStrips: TacticalStrip[], bay: Bay, movingCallsign?: string): number {
+  const maxFlight = strips
+    .filter((strip) => strip.bay === bay && strip.callsign !== movingCallsign)
+    .reduce((maxSequence, strip) => Math.max(maxSequence, strip.sequence), 0);
+  const maxTactical = tacticalStrips
+    .filter((strip) => strip.bay === bay)
+    .reduce((maxSequence, strip) => Math.max(maxSequence, strip.sequence), 0);
+
+  return Math.max(maxFlight, maxTactical) + 1000;
+}
+
+function runwayClearanceTargetBay(bay: string): Bay | null {
+  if (bay === Bay.TaxiLwr) return Bay.Depart;
+  if (bay === Bay.Final) return Bay.RwyArr;
+  return null;
+}
+
 export interface UpdateStrip {
   sid?: string
   eobt?: string;
@@ -222,25 +239,18 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     openStripContextMenu: (callsign, pos) => set({ contextMenu: { callsign, x: pos.x, y: pos.y } }),
     closeStripContextMenu: () => set({ contextMenu: null }),
      move: (callsign, bay) => set((state) => {
-         if (!sendIfWritable({type: ActionType.FrontendMove, callsign, bay})) {
-           return state;
-         }
-
-         return produce((state: WebSocketState) => {
-          const stripIndex = state.strips.findIndex(strip => strip.callsign === callsign);
-          if (stripIndex !== -1) {
-            state.strips[stripIndex].bay = bay;
-            // Optimistically assign end-of-bay sequence matching backend (max of flights+tacticals + spacing)
-            const maxFlight = state.strips
-              .filter(s => s.bay === bay && s.callsign !== callsign)
-              .reduce((m, s) => Math.max(m, s.sequence), 0);
-            const maxTactical = state.tacticalStrips
-              .filter(t => t.bay === bay)
-              .reduce((m, t) => Math.max(m, t.sequence), 0);
-            state.strips[stripIndex].sequence = Math.max(maxFlight, maxTactical) + 1000;
+          if (!sendIfWritable({type: ActionType.FrontendMove, callsign, bay})) {
+            return state;
           }
-          return state;
-        })(state)
+
+          return produce((state: WebSocketState) => {
+            const stripIndex = state.strips.findIndex(strip => strip.callsign === callsign);
+            if (stripIndex !== -1) {
+              state.strips[stripIndex].bay = bay;
+              state.strips[stripIndex].sequence = nextSequenceAtEndOfBay(state.strips, state.tacticalStrips, bay, callsign);
+            }
+            return state;
+          })(state)
       }
     ),
     generateSquawk: (callsign) => {
@@ -448,25 +458,28 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
         })
       );
     },
-    runwayClearance: (callsign) => {
-      if (!sendIfWritable({ type: ActionType.FrontendRunwayClearance, callsign })) {
-        return;
-      }
-      store.setState(
-        produce((state: WebSocketState) => {
-          const idx = state.strips.findIndex(s => s.callsign === callsign);
-          if (idx !== -1) {
-            // Auto-confirm if no other strips on the same runway are already confirmed.
-            const thisRunway = state.strips[idx].runway;
-            const hasConfirmed = !!thisRunway && state.strips.some(s => s.callsign !== callsign && s.runway_confirmed && s.runway === thisRunway);
-            state.strips[idx].runway_cleared = true;
-            state.strips[idx].runway_confirmed = !hasConfirmed;
-            if (state.strips[idx].bay === Bay.TaxiLwr) state.strips[idx].bay = Bay.Depart;
-            if (state.strips[idx].bay === Bay.Final) state.strips[idx].bay = Bay.RwyArr;
-          }
-        })
-      );
-    },
+     runwayClearance: (callsign) => {
+       if (!sendIfWritable({ type: ActionType.FrontendRunwayClearance, callsign })) {
+         return;
+       }
+       store.setState(
+         produce((state: WebSocketState) => {
+           const idx = state.strips.findIndex(s => s.callsign === callsign);
+           if (idx !== -1) {
+             // Auto-confirm if no other strips on the same runway are already confirmed.
+             const thisRunway = state.strips[idx].runway;
+             const hasConfirmed = !!thisRunway && state.strips.some(s => s.callsign !== callsign && s.runway_confirmed && s.runway === thisRunway);
+             const targetBay = runwayClearanceTargetBay(state.strips[idx].bay);
+             state.strips[idx].runway_cleared = true;
+             state.strips[idx].runway_confirmed = !hasConfirmed;
+             if (targetBay !== null) {
+               state.strips[idx].bay = targetBay;
+               state.strips[idx].sequence = nextSequenceAtEndOfBay(state.strips, state.tacticalStrips, targetBay, callsign);
+             }
+           }
+         })
+       );
+     },
     runwayConfirmation: (callsign) => {
       if (!sendIfWritable({ type: ActionType.FrontendRunwayConfirmation, callsign })) {
         return;

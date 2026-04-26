@@ -71,6 +71,22 @@ func (s *StripService) getStripForMoveToBay(ctx context.Context, session int32, 
 	return strip, available, err
 }
 
+func (s *StripService) nextSequenceAtEndOfBay(ctx context.Context, session int32, bay string) (int32, error) {
+	var maxInBay int32
+	var err error
+	if s.tacticalRepo != nil {
+		maxInBay, err = s.tacticalRepo.GetMaxSequenceInBayUnified(ctx, session, bay)
+	} else {
+		maxInBay, err = s.stripRepo.GetMaxSequenceInBay(ctx, session, bay)
+	}
+	if err != nil {
+		return 0, fmt.Errorf("failed to get max sequence in bay: %w", err)
+	}
+
+	order, _ := s.calculateOrderBetween(maxInBay, nil)
+	return order, nil
+}
+
 func (s *StripService) MoveToBay(ctx context.Context, session int32, callsign string, bay string, sendNotification bool) error {
 	strip, stripAvailable, err := s.getStripForMoveToBay(ctx, session, callsign)
 	if err != nil {
@@ -82,17 +98,10 @@ func (s *StripService) MoveToBay(ctx context.Context, session int32, callsign st
 		previousBay = strip.Bay
 	}
 
-	var maxInBay int32
-	if s.tacticalRepo != nil {
-		maxInBay, err = s.tacticalRepo.GetMaxSequenceInBayUnified(ctx, session, bay)
-	} else {
-		maxInBay, err = s.stripRepo.GetMaxSequenceInBay(ctx, session, bay)
-	}
+	order, err := s.nextSequenceAtEndOfBay(ctx, session, bay)
 	if err != nil {
-		return fmt.Errorf("failed to get max sequence in bay: %w", err)
+		return err
 	}
-
-	order, _ := s.calculateOrderBetween(maxInBay, nil)
 	if err := s.updateStripSequence(ctx, session, callsign, order, bay, sendNotification); err != nil {
 		return err
 	}

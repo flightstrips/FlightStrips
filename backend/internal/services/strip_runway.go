@@ -10,6 +10,17 @@ import (
 	"slices"
 )
 
+func runwayClearanceTargetBay(currentBay string) string {
+	switch currentBay {
+	case shared.BAY_TAXI_LWR:
+		return shared.BAY_DEPART
+	case shared.BAY_FINAL:
+		return shared.BAY_RWY_ARR
+	default:
+		return currentBay
+	}
+}
+
 // RunwayClearance marks a strip as runway-cleared, moving it from TAXI_LWR to DEPART (if applicable),
 // then broadcasts the full updated strip to all clients in the session.
 // For departures from this airport in TAXI_LWR or DEPART bay, the ground state is set to 'DEPA'
@@ -23,12 +34,27 @@ func (s *StripService) RunwayClearance(ctx context.Context, session int32, calls
 		return errors.New("strip is locked by an active validation")
 	}
 
+	targetBay := runwayClearanceTargetBay(strip.Bay)
+	var targetSequence *int32
+	if targetBay != strip.Bay {
+		sequence, err := s.nextSequenceAtEndOfBay(ctx, session, targetBay)
+		if err != nil {
+			return err
+		}
+		targetSequence = &sequence
+	}
+
 	affected, err := s.stripRepo.UpdateRunwayClearance(ctx, session, callsign)
 	if err != nil {
 		return err
 	}
 	if affected != 1 {
 		return errors.New("failed to update runway clearance")
+	}
+	if targetSequence != nil {
+		if err := s.updateStripSequence(ctx, session, callsign, *targetSequence, targetBay, false); err != nil {
+			return err
+		}
 	}
 
 	// For departures moving to or already at rwy-dep, set state to DEPA and notify ES.

@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.23.3](https://github.com/flightstrips/FlightStrips/compare/backend/v0.23.2...backend/v0.23.3) (2026-04-26)
+
+
+### Bug Fixes
+
+* **strips:** clear arrival runway state on backward move ([b5b7f6c](https://github.com/flightstrips/FlightStrips/commit/b5b7f6cca3f7998e9627abb11e46a5c7e12e4fb5))
+* **strips:** correct arrival coordination flow ([56f3669](https://github.com/flightstrips/FlightStrips/commit/56f366959cf8dbf7dea82febd41a3b5f36987243))
+* **strips:** keep runway-cleared strips at top of runway bays ([d58dd3a](https://github.com/flightstrips/FlightStrips/commit/d58dd3a3eece1dc5d11b96e426be71be3e83c224))
+
 ## [0.23.2](https://github.com/flightstrips/FlightStrips/compare/backend/v0.23.1...backend/v0.23.2) (2026-04-25)
 
 

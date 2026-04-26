@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.13.1](https://github.com/flightstrips/FlightStrips/compare/plugin/v0.13.0...plugin/v0.13.1) (2026-04-26)
+
+
+### Bug Fixes
+
+* **strips:** correct arrival coordination flow ([56f3669](https://github.com/flightstrips/FlightStrips/commit/56f366959cf8dbf7dea82febd41a3b5f36987243))
+
 ## [0.13.0](https://github.com/flightstrips/FlightStrips/compare/plugin/v0.12.0...plugin/v0.13.0) (2026-04-25)
 
 

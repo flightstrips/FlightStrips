@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.30.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.29.2...frontend/v0.30.0) (2026-04-26)
+
+
+### Features
+
+* **strip:** route pushback strip to TaxiLwr when tower selects taxi route ([eefeeef](https://github.com/flightstrips/FlightStrips/commit/eefeeefefa06c0032a1fd912a92950324240de4e))
+
+
+### Bug Fixes
+
+* **layout:** use dvh for viewport-based heights ([4c5838d](https://github.com/flightstrips/FlightStrips/commit/4c5838da6120b111efb7084d7c446b9f781bd5f1))
+* **strips:** block validation-locked interactions ([df03a55](https://github.com/flightstrips/FlightStrips/commit/df03a5512f4ba3cc196687fbf3fc70ad6fc23778))
+* **strips:** clear arrival runway state on backward move ([b5b7f6c](https://github.com/flightstrips/FlightStrips/commit/b5b7f6cca3f7998e9627abb11e46a5c7e12e4fb5))
+* **strips:** keep runway-cleared strips at top of runway bays ([d58dd3a](https://github.com/flightstrips/FlightStrips/commit/d58dd3a3eece1dc5d11b96e426be71be3e83c224))
+* **strips:** show dropped SI state on stand ([d397fa9](https://github.com/flightstrips/FlightStrips/commit/d397fa9402709591c5ceccb13250b18797785f86))
+
 ## [0.29.2](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.29.1...frontend/v0.29.2) (2026-04-25)
 
 

@@ -308,7 +308,13 @@ func handleCoordinationReceived(ctx context.Context, client *Client, message Mes
 	if err := message.JsonUnmarshal(&event); err != nil {
 		return err
 	}
-	return client.hub.stripService.HandleCoordinationReceived(ctx, client.session, event.Callsign, event.ControllerCallsign)
+	return client.hub.stripService.HandleCoordinationReceived(
+		ctx,
+		client.session,
+		event.Callsign,
+		event.SourceControllerCallsign,
+		event.ControllerCallsign,
+	)
 }
 
 func handleSync(ctx context.Context, client *Client, message Message) error {

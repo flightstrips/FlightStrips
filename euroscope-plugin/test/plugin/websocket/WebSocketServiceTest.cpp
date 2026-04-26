@@ -1071,11 +1071,12 @@ TEST(CoordinationHandoverEventTest, DefaultConstruction_DoesNotCrash) {
 // ---------------------------------------------------------------------------
 
 TEST(CoordinationReceivedEventTest, Serializes_AllFields) {
-    CoordinationReceivedEvent e("EKS007", "EKCH_APP");
+    CoordinationReceivedEvent e("EKS007", "EKCH_APP", "EKCH_A_TWR");
     const nlohmann::json j = e;
-    EXPECT_EQ(j["type"],                EVENT_COORDINATION_RECEIVED_NAME);
-    EXPECT_EQ(j["callsign"],            "EKS007");
-    EXPECT_EQ(j["controller_callsign"], "EKCH_APP");
+    EXPECT_EQ(j["type"],                      EVENT_COORDINATION_RECEIVED_NAME);
+    EXPECT_EQ(j["callsign"],                  "EKS007");
+    EXPECT_EQ(j["source_controller_callsign"], "EKCH_APP");
+    EXPECT_EQ(j["controller_callsign"],       "EKCH_A_TWR");
 }
 
 // ---------------------------------------------------------------------------

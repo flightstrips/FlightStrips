@@ -216,9 +216,10 @@ type TrackingControllerChangedEvent struct {
 }
 
 type CoordinationReceivedEvent struct {
-	Type               EventType `json:"type"`
-	Callsign           string    `json:"callsign"`
-	ControllerCallsign string    `json:"controller_callsign"`
+	Type                     EventType `json:"type"`
+	Callsign                 string    `json:"callsign"`
+	ControllerCallsign       string    `json:"controller_callsign"`
+	SourceControllerCallsign string    `json:"source_controller_callsign"`
 }
 
 type AssumeOnlyEvent struct {

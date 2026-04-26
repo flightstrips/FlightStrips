@@ -869,15 +869,17 @@ struct AircraftRunwayEvent final : Event {
 
 struct CoordinationReceivedEvent final : Event {
     std::string callsign;
+    std::string source_controller_callsign;
     std::string controller_callsign;
 
-    CoordinationReceivedEvent(std::string callsign, std::string controllerCallsign)
+    CoordinationReceivedEvent(std::string callsign, std::string sourceControllerCallsign, std::string controllerCallsign)
         : Event(EVENT_COORDINATION_RECEIVED),
           callsign(std::move(callsign)),
+          source_controller_callsign(std::move(sourceControllerCallsign)),
           controller_callsign(std::move(controllerCallsign)) {
     }
 
-    NLOHMANN_DEFINE_TYPE_INTRUSIVE(CoordinationReceivedEvent, callsign, controller_callsign, type);
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE(CoordinationReceivedEvent, callsign, source_controller_callsign, controller_callsign, type);
 };
 
 struct AssumeAndDropEvent final : Event {

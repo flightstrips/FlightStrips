@@ -29,7 +29,7 @@ func TestHandleCoordinationReceived_RwyArrCreatesCoordination(t *testing.T) {
 	controller := &models.Controller{Callsign: "EKCH_M_TWR", Position: "118.105"}
 
 	svc, hub, res := buildCoordinationReceivedSvc(t, strip, controller)
-	require.NoError(t, svc.HandleCoordinationReceived(context.Background(), 1, "SAS007", "EKCH_M_TWR"))
+	require.NoError(t, svc.HandleCoordinationReceived(context.Background(), 1, "SAS007", "", "EKCH_M_TWR"))
 
 	// Bay must NOT be changed — strip stays in RWY_ARR.
 	assert.Empty(t, res.updatedBay, "RWY_ARR strip bay must not be updated")
@@ -51,9 +51,28 @@ func TestHandleCoordinationReceived_TwyArrIsIgnored(t *testing.T) {
 	controller := &models.Controller{Callsign: "EKCH_M_TWR", Position: "118.105"}
 
 	svc, _, res := buildCoordinationReceivedSvc(t, strip, controller)
-	require.NoError(t, svc.HandleCoordinationReceived(context.Background(), 1, "SAS008", "EKCH_M_TWR"))
+	require.NoError(t, svc.HandleCoordinationReceived(context.Background(), 1, "SAS008", "", "EKCH_M_TWR"))
 
 	assert.Nil(t, res.created, "TWY_ARR strip must not receive a new coordination")
+}
+
+func TestHandleCoordinationReceived_UsesSourceControllerPositionWhenProvided(t *testing.T) {
+	strip := &models.Strip{
+		ID: 42, Callsign: "SAS556", Bay: shared.BAY_FINAL,
+		Owner: strPtr("118.105"),
+	}
+	sourceController := &models.Controller{Callsign: "EKCH_W_APP", Position: "119.805"}
+	targetController := &models.Controller{Callsign: "EKCH_A_TWR", Position: "118.105"}
+
+	svc, hub, res := buildCoordinationReceivedSvc(t, strip, sourceController, targetController)
+	require.NoError(t, svc.HandleCoordinationReceived(context.Background(), 1, "SAS556", "EKCH_W_APP", "EKCH_A_TWR"))
+
+	require.NotNil(t, res.created, "coordination must be created when source and target controllers are known")
+	assert.Equal(t, "119.805", res.created.FromPosition)
+	assert.Equal(t, "118.105", res.created.ToPosition)
+	require.Len(t, hub.CoordinationTransfers, 1)
+	assert.Equal(t, "119.805", hub.CoordinationTransfers[0].From)
+	assert.Equal(t, "118.105", hub.CoordinationTransfers[0].To)
 }
 
 // ---- helpers for landing detection tests ----

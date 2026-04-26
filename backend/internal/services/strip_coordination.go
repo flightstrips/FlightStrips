@@ -330,9 +330,9 @@ func (s *StripService) autoAcceptPendingCoordination(ctx context.Context, sessio
 	s.maybeSyncEsCoordinationAcceptance(session, strip.Callsign, coordination, coordination.ToPosition)
 }
 
-// HandleCoordinationReceived processes an EuroScope coordination-received event,
+// HandleCoordinationReceived processes a EuroScope coordination-received event,
 // ensuring the strip is in FINAL and creating an arrival coordination record.
-func (s *StripService) HandleCoordinationReceived(ctx context.Context, session int32, callsign string, controllerCallsign string) error {
+func (s *StripService) HandleCoordinationReceived(ctx context.Context, session int32, callsign string, sourceControllerCallsign string, targetControllerCallsign string) error {
 	if s.controllerRepo == nil {
 		return errors.New("controller repository not configured")
 	}
@@ -351,16 +351,14 @@ func (s *StripService) HandleCoordinationReceived(ctx context.Context, session i
 		return nil
 	}
 
-	controller, err := s.controllerRepo.GetByCallsign(ctx, session, controllerCallsign)
+	targetController, err := s.controllerRepo.GetByCallsign(ctx, session, targetControllerCallsign)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			slog.DebugContext(ctx, "Controller not found for coordination_received event", slog.String("controller_callsign", controllerCallsign))
+			slog.DebugContext(ctx, "Target controller not found for coordination_received event", slog.String("target_controller_callsign", targetControllerCallsign))
 			return nil
 		}
 		return err
 	}
-
-	slog.DebugContext(ctx, "Received coordination received event", slog.String("callsign", callsign), slog.String("from_controller", controllerCallsign))
 
 	if strip.Bay == shared.BAY_ARR_HIDDEN {
 		if _, err := s.stripRepo.UpdateBay(ctx, session, callsign, shared.BAY_FINAL, nil); err != nil {
@@ -377,7 +375,30 @@ func (s *StripService) HandleCoordinationReceived(ctx context.Context, session i
 		fromPosition = *strip.Owner
 	}
 
-	return s.CreateEsArrivalCoordination(ctx, session, callsign, fromPosition, controller.Position, controller.Cid)
+	if sourceControllerCallsign != "" {
+		sourceController, err := s.controllerRepo.GetByCallsign(ctx, session, sourceControllerCallsign)
+		if err != nil {
+			if !errors.Is(err, pgx.ErrNoRows) {
+				return err
+			}
+			slog.DebugContext(ctx, "Source controller not found for coordination_received event, falling back to strip owner",
+				slog.String("callsign", callsign),
+				slog.String("source_controller_callsign", sourceControllerCallsign),
+			)
+		} else {
+			fromPosition = sourceController.Position
+		}
+	}
+
+	slog.DebugContext(ctx, "Received coordination received event",
+		slog.String("callsign", callsign),
+		slog.String("source_controller_callsign", sourceControllerCallsign),
+		slog.String("target_controller_callsign", targetControllerCallsign),
+		slog.String("from_position", fromPosition),
+		slog.String("to_position", targetController.Position),
+	)
+
+	return s.CreateEsArrivalCoordination(ctx, session, callsign, fromPosition, targetController.Position, targetController.Cid)
 }
 
 // AssumeStripCoordination handles the full frontend assume flow:

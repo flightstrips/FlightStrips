@@ -164,8 +164,8 @@ func (m *StripService) HandleTrackingControllerChanged(ctx context.Context, sess
 	return args.Error(0)
 }
 
-func (m *StripService) HandleCoordinationReceived(ctx context.Context, session int32, callsign string, controllerCallsign string) error {
-	args := m.Called(ctx, session, callsign, controllerCallsign)
+func (m *StripService) HandleCoordinationReceived(ctx context.Context, session int32, callsign string, sourceControllerCallsign string, targetControllerCallsign string) error {
+	args := m.Called(ctx, session, callsign, sourceControllerCallsign, targetControllerCallsign)
 	return args.Error(0)
 }
 

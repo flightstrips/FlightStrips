@@ -291,7 +291,12 @@ func TestAutoAssume_NoMatchingController(t *testing.T) {
 		},
 	}
 
-	stripRepo := &testutil.MockStripRepository{}
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, cs string) (*models.Strip, error) {
+			assert.Equal(t, callsign, cs)
+			return &models.Strip{Callsign: callsign}, nil
+		},
+	}
 	hub := &testutil.MockFrontendHub{}
 	svc := NewStripService(stripRepo)
 	svc.SetFrontendHub(hub)
@@ -357,6 +362,49 @@ func TestAutoAssume_FallbackToDel(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, hub.OwnersUpdates, 1)
 	assert.Equal(t, delPosition, hub.OwnersUpdates[0].Owner)
+}
+
+func TestAutoAssume_ClearedArrivalStrip_IsIgnored(t *testing.T) {
+	ctx := context.Background()
+	const session = int32(1)
+	const callsign = "SAS556"
+
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, cs string) (*models.Strip, error) {
+			assert.Equal(t, callsign, cs)
+			return &models.Strip{
+				Callsign:    callsign,
+				Origin:      "ESSA",
+				Destination: "EKCH",
+				Bay:         shared.BAY_HIDDEN,
+			}, nil
+		},
+	}
+
+	sectorRepo := &testutil.MockSectorOwnerRepository{
+		ListBySessionFn: func(_ context.Context, _ int32) ([]*models.SectorOwner, error) {
+			t.Fatal("sector owners should not be queried for an arrival strip")
+			return nil, nil
+		},
+	}
+
+	hub := &testutil.MockFrontendHub{}
+	hub.SetServer(&testutil.MockServer{
+		SessionRepoVal: &testutil.MockSessionRepository{
+			GetByIDFn: func(_ context.Context, id int32) (*models.Session, error) {
+				assert.Equal(t, session, id)
+				return &models.Session{ID: session, Airport: "EKCH"}, nil
+			},
+		},
+	})
+
+	svc := NewStripService(stripRepo)
+	svc.SetFrontendHub(hub)
+	svc.SetSectorOwnerRepo(sectorRepo)
+
+	err := svc.AutoAssumeForClearedStrip(ctx, session, callsign)
+	require.NoError(t, err)
+	assert.Empty(t, hub.OwnersUpdates)
 }
 
 // ---- AutoAssumeForControllerOnline ----
@@ -445,6 +493,52 @@ func TestAutoAssumeForControllerOnline_NoMatchingStrips(t *testing.T) {
 	}
 
 	hub := &testutil.MockFrontendHub{}
+	svc := NewStripService(stripRepo)
+	svc.SetFrontendHub(hub)
+
+	err := svc.AutoAssumeForControllerOnline(ctx, session, position)
+	require.NoError(t, err)
+	assert.Empty(t, hub.OwnersUpdates)
+}
+
+func TestAutoAssumeForControllerOnline_IgnoresArrivalStrip(t *testing.T) {
+	ctx := context.Background()
+	const session = int32(1)
+	const position = "118.105"
+
+	strips := []*models.Strip{
+		{
+			Callsign:    "SAS556",
+			Origin:      "ESSA",
+			Destination: "EKCH",
+			Bay:         shared.BAY_HIDDEN,
+			Cleared:     true,
+			Owner:       nil,
+			NextOwners:  []string{position},
+			Version:     1,
+		},
+	}
+
+	stripRepo := &testutil.MockStripRepository{
+		ListFn: func(_ context.Context, _ int32) ([]*models.Strip, error) {
+			return strips, nil
+		},
+		SetOwnerFn: func(_ context.Context, _ int32, _ string, _ *string, _ int32) (int64, error) {
+			t.Fatal("arrival strips must not be auto-assumed when a controller comes online")
+			return 0, nil
+		},
+	}
+
+	hub := &testutil.MockFrontendHub{}
+	hub.SetServer(&testutil.MockServer{
+		SessionRepoVal: &testutil.MockSessionRepository{
+			GetByIDFn: func(_ context.Context, id int32) (*models.Session, error) {
+				assert.Equal(t, session, id)
+				return &models.Session{ID: session, Airport: "EKCH"}, nil
+			},
+		},
+	})
+
 	svc := NewStripService(stripRepo)
 	svc.SetFrontendHub(hub)
 

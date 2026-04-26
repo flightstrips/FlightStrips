@@ -295,14 +295,15 @@ namespace FlightStrips {
         if (!FlightPlan.IsValid()) return;
 
         const auto me = ControllerMyself();
-        if (_stricmp(FlightPlan.GetHandoffTargetControllerCallsign(), me.GetCallsign()) != 0) return;
+        const auto sourceControllerCallsign = std::string(sSenderController == nullptr ? "" : sSenderController);
+        const auto targetControllerCallsign = std::string(sTargetController == nullptr ? "" : sTargetController);
+        if (_stricmp(targetControllerCallsign.c_str(), me.GetCallsign()) != 0) return;
 
         const auto callsign = std::string(FlightPlan.GetCallsign());
-        const auto controllerCallsign = std::string(me.GetCallsign());
-        SafeCall("OnFlightPlanFlightStripPushed", [this, callsign, controllerCallsign] {
+        SafeCall("OnFlightPlanFlightStripPushed", [this, callsign, sourceControllerCallsign, targetControllerCallsign] {
             if (const auto ptr = m_container.lock()) {
                 if (ptr->webSocketService->IsConnected()) {
-                    ptr->webSocketService->SendEvent(CoordinationReceivedEvent(callsign, controllerCallsign));
+                    ptr->webSocketService->SendEvent(CoordinationReceivedEvent(callsign, sourceControllerCallsign, targetControllerCallsign));
                 }
             }
         });

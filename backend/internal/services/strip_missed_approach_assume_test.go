@@ -417,7 +417,7 @@ type coordinationReceivedResult struct {
 func buildCoordinationReceivedSvc(
 	t *testing.T,
 	strip *models.Strip,
-	controller *models.Controller,
+	controllers ...*models.Controller,
 ) (*StripService, *testutil.MockFrontendHub, *coordinationReceivedResult) {
 	t.Helper()
 
@@ -454,10 +454,12 @@ func buildCoordinationReceivedSvc(
 
 	controllerRepo := &testutil.MockControllerRepository{
 		GetByCallsignFn: func(_ context.Context, _ int32, callsign string) (*models.Controller, error) {
-			if callsign != controller.Callsign {
-				return nil, pgx.ErrNoRows
+			for _, controller := range controllers {
+				if controller != nil && callsign == controller.Callsign {
+					return controller, nil
+				}
 			}
-			return controller, nil
+			return nil, pgx.ErrNoRows
 		},
 	}
 
@@ -645,7 +647,7 @@ func TestHandleCoordinationReceived_ArrHiddenMovesToFinalAndStartsTransfer(t *te
 	controller := &models.Controller{Callsign: "EKCH_M_TWR", Position: "118.105"}
 
 	svc, hub, res := buildCoordinationReceivedSvc(t, strip, controller)
-	require.NoError(t, svc.HandleCoordinationReceived(context.Background(), 1, "SAS005", "EKCH_M_TWR"))
+	require.NoError(t, svc.HandleCoordinationReceived(context.Background(), 1, "SAS005", "", "EKCH_M_TWR"))
 
 	assert.Equal(t, shared.BAY_FINAL, res.updatedBay)
 	assert.Equal(t, shared.BAY_FINAL, res.movedToBay)
@@ -665,7 +667,7 @@ func TestHandleCoordinationReceived_FinalStartsTransferWithoutMovingBay(t *testi
 	controller := &models.Controller{Callsign: "EKCH_M_TWR", Position: "118.105"}
 
 	svc, hub, res := buildCoordinationReceivedSvc(t, strip, controller)
-	require.NoError(t, svc.HandleCoordinationReceived(context.Background(), 1, "SAS006", "EKCH_M_TWR"))
+	require.NoError(t, svc.HandleCoordinationReceived(context.Background(), 1, "SAS006", "", "EKCH_M_TWR"))
 
 	assert.Empty(t, res.updatedBay)
 	assert.Empty(t, res.movedToBay)

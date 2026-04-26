@@ -14,6 +14,7 @@ import {
   getCellTextColor,
   useStripBg,
   getValidationBlinkStyle,
+  getValidationBlockedCursor,
 } from "./shared";
 import { SIBox } from "./SIBox";
 import { getAircraftTypeWithWtc } from "@/lib/utils";
@@ -61,7 +62,16 @@ export function ApnTaxiDepStrip({
   unexpectedChangeFields,
   controllerModifiedFields,
 }: StripProps) {
-  const { isSelected, handleClick, handleContextMenu, validationDialogOpen, setValidationDialogOpen, validationStatus } = useStripCallsignInteraction({ callsign, selectable, bay, owner, myPosition });
+  const {
+    isSelected,
+    isValidationActive,
+    handleClick,
+    handleContextMenu,
+    guardValidationAction,
+    validationDialogOpen,
+    setValidationDialogOpen,
+    validationStatus,
+  } = useStripCallsignInteraction({ callsign, selectable, bay, owner, myPosition });
   const cellBorderColor = getCellBorderColor(marked);
   const stripTransfers = useStripTransfers();
   const isTagRequest = !!stripTransfers[callsign]?.isTagRequest;
@@ -85,6 +95,7 @@ export function ApnTaxiDepStrip({
       style={{
         height: "4.44vh",
         width: APN_TAXI_DEP_STRIP_WIDTH,
+        cursor: isValidationActive ? "not-allowed" : undefined,
         ...getFramedStripStyle(marked),
       }}
     >
@@ -104,7 +115,7 @@ export function ApnTaxiDepStrip({
         {/* Callsign — 25%, FONT medium 20, top 2/3 highlighted when selected */}
         <div
           className="flex flex-col overflow-hidden border-r-2 cursor-pointer"
-          style={{ flex: `${F_CALLSIGN} 0 0%`, height: "100%", minWidth: 0, borderRightColor: cellBorderColor, ...getValidationBlinkStyle(validationStatus, myPosition) }}
+          style={{ flex: `${F_CALLSIGN} 0 0%`, height: "100%", minWidth: 0, borderRightColor: cellBorderColor, cursor: getValidationBlockedCursor(isValidationActive), ...getValidationBlinkStyle(validationStatus, myPosition) }}
           onClick={handleClick}
           onContextMenu={handleContextMenu}
         >
@@ -117,7 +128,7 @@ export function ApnTaxiDepStrip({
         {/* A/C type / Registration — 25%*(2/3), stacked in top 2/3 */}
         <div
           className="flex flex-col items-center justify-center overflow-hidden border-r-2 cursor-pointer hover:brightness-95"
-          style={{ flex: `${F_TYPE} 0 0%`, height: "100%", paddingBottom: BOT_H, minWidth: 0, borderRightColor: cellBorderColor }}
+          style={{ flex: `${F_TYPE} 0 0%`, height: "100%", paddingBottom: BOT_H, minWidth: 0, borderRightColor: cellBorderColor, cursor: "pointer" }}
           onClick={(e) => { e.stopPropagation(); setFplOpen(true); }}
         >
           <span className="truncate px-[0.21vw] leading-tight w-full text-center" style={{ fontFamily: FONT, fontSize: "0.52vw", color: aircraftCategory === "H" ? COLOR_TYPE_HEAVY : undefined }}>
@@ -131,8 +142,8 @@ export function ApnTaxiDepStrip({
         {/* Stand — 25%*(2/3), stand name centered in upper area, ctot row anchored to bottom */}
         <div
           className="overflow-hidden border-r-2"
-          style={{ flex: `${F_STAND} 0 0%`, height: "100%", minWidth: 0, borderRightColor: cellBorderColor, backgroundColor: standYellow ? COLOR_UNEXPECTED_YELLOW : undefined, cursor: standYellow ? "pointer" : undefined, position: "relative" }}
-          onClick={standYellow ? (e) => { e.stopPropagation(); acknowledgeUnexpectedChange(callsign, "stand"); } : undefined}
+          style={{ flex: `${F_STAND} 0 0%`, height: "100%", minWidth: 0, borderRightColor: cellBorderColor, backgroundColor: standYellow ? COLOR_UNEXPECTED_YELLOW : undefined, cursor: standYellow ? getValidationBlockedCursor(isValidationActive) : undefined, position: "relative" }}
+          onClick={standYellow ? (e) => guardValidationAction(e, () => acknowledgeUnexpectedChange(callsign, "stand")) : undefined}
         >
           <div className="flex items-center justify-center" style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: BOT_H }}>
             <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: "1.04vw", color: getCellTextColor("stand", controllerModifiedFields) }}>{stand}</span>
@@ -145,8 +156,8 @@ export function ApnTaxiDepStrip({
         {/* HP / TWY — 25%*(2/3)*(2/3) */}
         <div
           className="flex flex-col overflow-hidden border-r-2"
-          style={{ flex: `${F_HP} 0 0%`, height: "100%", minWidth: 0, borderRightColor: cellBorderColor, cursor: "pointer", backgroundColor: releasePointYellow ? COLOR_UNEXPECTED_YELLOW : undefined }}
-          onClick={(e) => { e.stopPropagation(); setShowTaxiMap(true); }}
+          style={{ flex: `${F_HP} 0 0%`, height: "100%", minWidth: 0, borderRightColor: cellBorderColor, cursor: getValidationBlockedCursor(isValidationActive), backgroundColor: releasePointYellow ? COLOR_UNEXPECTED_YELLOW : undefined }}
+          onClick={(e) => guardValidationAction(e, () => setShowTaxiMap(true))}
         >
           <div className="flex items-center justify-center border-b-2" style={{ height: HALF_H, borderBottomColor: cellBorderColor }}>
             <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: "0.57vw", opacity: hasTwy ? 1 : 0.15, color: getCellTextColor("release_point", controllerModifiedFields) }}>
@@ -163,8 +174,8 @@ export function ApnTaxiDepStrip({
         {/* Runway — 25%*(2/3) */}
         <div
           className="flex flex-col overflow-hidden border-r-2"
-          style={{ flex: `${F_RWY} 0 0%`, height: "100%", minWidth: 0, borderRight: 0, backgroundColor: runwayYellow ? COLOR_UNEXPECTED_YELLOW : undefined, cursor: runwayYellow ? "pointer" : undefined }}
-          onClick={runwayYellow ? (e) => { e.stopPropagation(); acknowledgeUnexpectedChange(callsign, "runway"); } : undefined}
+          style={{ flex: `${F_RWY} 0 0%`, height: "100%", minWidth: 0, borderRight: 0, backgroundColor: runwayYellow ? COLOR_UNEXPECTED_YELLOW : undefined, cursor: runwayYellow ? getValidationBlockedCursor(isValidationActive) : undefined }}
+          onClick={runwayYellow ? (e) => guardValidationAction(e, () => acknowledgeUnexpectedChange(callsign, "runway")) : undefined}
         >
           <div className="flex" style={{ height: HALF_H }}>
             <div className="flex items-center justify-center" style={{ flex: "2 0 0%", height: "100%" }}>

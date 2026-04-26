@@ -4,7 +4,7 @@ import { useControllers, useStripTransfers, useTransitionAltitude, useWebSocketS
 import { formatAltitude } from "@/lib/utils";
 import FlightPlanDialog from "@/components/FlightPlanDialog";
 import { useCTOTColor } from "@/hooks/useCTOTColor";
-import { COLOR_UNEXPECTED_YELLOW, COLOR_TYPE_HEAVY } from "./shared";
+import { COLOR_UNEXPECTED_YELLOW, COLOR_TYPE_HEAVY, getValidationBlockedCursor } from "./shared";
 import { getStripBg } from "./types";
 import type { StripProps } from "./types";
 import { useStripCallsignInteraction, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR, FONT, getStripOwnership, getCellTextColor, useStripBg, getValidationBlinkStyle } from "./shared";
@@ -70,7 +70,7 @@ export function TwyDepStrip({
   unexpectedChangeFields,
   controllerModifiedFields,
 }: StripProps) {
-  const { isSelected, handleClick, handleContextMenu, guardValidationAction, validationDialogOpen, setValidationDialogOpen, validationStatus } = useStripCallsignInteraction({ callsign, selectable, bay, owner, myPosition });
+  const { isSelected, isValidationActive, handleClick, handleContextMenu, guardValidationAction, validationDialogOpen, setValidationDialogOpen, validationStatus } = useStripCallsignInteraction({ callsign, selectable, bay, owner, myPosition });
   const stripTransfers = useStripTransfers();
   const { ctotBg, ctotColor, showCtot } = useCTOTColor(ctot ?? "");
   const isTagRequest = !!stripTransfers[callsign]?.isTagRequest;
@@ -129,6 +129,7 @@ export function TwyDepStrip({
         height: "4.72vh",
         width: "95%",
         backgroundColor: bg,
+        cursor: isValidationActive ? "not-allowed" : undefined,
         ...getFlatStripBorderStyle({ borderBottom: "1px solid white" }),
       }}
     >
@@ -147,7 +148,7 @@ export function TwyDepStrip({
       {/* Callsign; top 2/3 = callsign, bottom 1/3 = :freq */}
       <div
         className="flex flex-col border-r-2 min-w-0 cursor-pointer"
-        style={{ flexGrow: F_CALLSIGN, flexBasis: 0, height: "100%", borderRightColor: cellBorderColor, ...getValidationBlinkStyle(validationStatus, myPosition) }}
+        style={{ flexGrow: F_CALLSIGN, flexBasis: 0, height: "100%", borderRightColor: cellBorderColor, cursor: getValidationBlockedCursor(isValidationActive), ...getValidationBlinkStyle(validationStatus, myPosition) }}
         onClick={handleClick}
         onContextMenu={handleContextMenu}
       >
@@ -191,8 +192,8 @@ export function TwyDepStrip({
       >
         <div
           className="flex items-center justify-center overflow-hidden"
-          style={{ height: HALF_H, backgroundColor: standYellow ? COLOR_UNEXPECTED_YELLOW : undefined, cursor: standYellow ? "pointer" : undefined }}
-          onClick={standYellow ? (e) => { e.stopPropagation(); acknowledgeUnexpectedChange(callsign, "stand"); } : undefined}
+          style={{ height: HALF_H, backgroundColor: standYellow ? COLOR_UNEXPECTED_YELLOW : undefined, cursor: standYellow ? getValidationBlockedCursor(isValidationActive) : undefined }}
+          onClick={standYellow ? (e) => guardValidationAction(e, () => acknowledgeUnexpectedChange(callsign, "stand")) : undefined}
         >
           <span className="truncate px-[0.21vw]" style={{ fontFamily: FONT, fontWeight: "bold", fontSize: "0.68vw", color: getCellTextColor("stand", controllerModifiedFields) }}>
             {stand}
@@ -213,9 +214,10 @@ export function TwyDepStrip({
           flexBasis: 0,
           height: "100%",
           borderRightColor: cellBorderColor,
+          cursor: getValidationBlockedCursor(isValidationActive),
           backgroundColor: releasePointYellow && !isHp ? COLOR_UNEXPECTED_YELLOW : undefined,
         }}
-        onClick={(e) => { e.stopPropagation(); setShowTaxiMap(true); }}
+        onClick={(e) => guardValidationAction(e, () => setShowTaxiMap(true))}
       >
         <div className="flex items-center justify-center h-full">
           <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: "0.73vw", opacity: twyDisplay ? 1 : 0.2, color: getCellTextColor("release_point", controllerModifiedFields) }}>
@@ -231,7 +233,7 @@ export function TwyDepStrip({
       >
         <div
           className="flex items-center justify-center border-b-2 cursor-pointer"
-          style={{ height: HALF_H, borderBottomColor: cellBorderColor, backgroundColor: rwyColor }}
+          style={{ height: HALF_H, borderBottomColor: cellBorderColor, backgroundColor: rwyColor, cursor: isAssumed ? getValidationBlockedCursor(isValidationActive) : undefined }}
           onClick={isAssumed ? (e) => guardValidationAction(e, () => {
             if (runwayCleared && !runwayConfirmed) {
               runwayConfirmation(callsign);
@@ -244,8 +246,8 @@ export function TwyDepStrip({
         </div>
         <div
           className="flex items-center justify-center cursor-pointer"
-          style={{ height: HALF_H, backgroundColor: releasePointYellow && isHp ? COLOR_UNEXPECTED_YELLOW : undefined }}
-          onClick={(e) => { e.stopPropagation(); setShowHpMap(true); }}
+          style={{ height: HALF_H, backgroundColor: releasePointYellow && isHp ? COLOR_UNEXPECTED_YELLOW : undefined, cursor: getValidationBlockedCursor(isValidationActive) }}
+          onClick={(e) => guardValidationAction(e, () => setShowHpMap(true))}
         >
           <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: "0.73vw", opacity: hpDisplay ? 1 : 0.2, color: getCellTextColor("release_point", controllerModifiedFields) }}>
             {hpDisplay || "HP"}
@@ -269,7 +271,7 @@ export function TwyDepStrip({
       {/* SID / Destination; two lines in top 2/3, bottom 1/3 empty */}
       <div
         className="flex flex-col overflow-hidden min-w-0 cursor-pointer hover:brightness-95"
-        style={{ flexGrow: F_SID_DEST, flexBasis: 0, height: "100%" }}
+        style={{ flexGrow: F_SID_DEST, flexBasis: 0, height: "100%", cursor: "pointer" }}
         onClick={(e) => { e.stopPropagation(); setFplOpen(true); }}
       >
         <div className="flex items-center justify-center pl-[0.21vw] overflow-hidden" style={{ height: TOP_HALF_H }}>

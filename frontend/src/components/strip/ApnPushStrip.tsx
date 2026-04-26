@@ -14,6 +14,7 @@ import {
   getCellTextColor,
   useStripBg,
   getValidationBlinkStyle,
+  getValidationBlockedCursor,
 } from "./shared";
 import { getStripBg } from "./types";
 import { useWebSocketStore, useIsTwr } from "@/store/store-hooks";
@@ -78,7 +79,16 @@ export function ApnPushStrip({
   controllerModifiedFields,
   isManual = false,
 }: StripProps) {
-  const { isSelected, handleClick, handleContextMenu, validationDialogOpen, setValidationDialogOpen, validationStatus } = useStripCallsignInteraction({ callsign, selectable, bay, owner, myPosition });
+  const {
+    isSelected,
+    isValidationActive,
+    handleClick,
+    handleContextMenu,
+    guardValidationAction,
+    validationDialogOpen,
+    setValidationDialogOpen,
+    validationStatus,
+  } = useStripCallsignInteraction({ callsign, selectable, bay, owner, myPosition });
   const cellBorderColor = getCellBorderColor(marked);
   const manualBlue = isManual ? COLOR_MANUAL_BLUE : undefined;
   const stripTransfers = useStripTransfers();
@@ -103,6 +113,7 @@ export function ApnPushStrip({
       style={{
         height: "4.72vh",
         width: fullWidth ? "100%" : "90%",
+        cursor: isValidationActive ? "not-allowed" : undefined,
         ...getFramedStripStyle(marked),
       }}
     >
@@ -121,7 +132,7 @@ export function ApnPushStrip({
         {/* Callsign — 25%, FONT medium 20, top 2/3 highlighted when selected */}
         <div
           className="flex flex-col overflow-hidden border-r-2 cursor-pointer"
-          style={{ flex: `${F_CALLSIGN} 0 0%`, height: "100%", minWidth: 0, borderRightColor: cellBorderColor, ...getValidationBlinkStyle(validationStatus, myPosition) }}
+          style={{ flex: `${F_CALLSIGN} 0 0%`, height: "100%", minWidth: 0, borderRightColor: cellBorderColor, cursor: getValidationBlockedCursor(isValidationActive), ...getValidationBlinkStyle(validationStatus, myPosition) }}
           onClick={delegateCallsignClick ? undefined : handleClick}
           onContextMenu={delegateCallsignClick ? undefined : handleContextMenu}
         >
@@ -136,7 +147,7 @@ export function ApnPushStrip({
         {/* A/C type / Registration — 25%*(2/3), stacked in top 2/3 */}
         <div
           className="flex flex-col items-center justify-center overflow-hidden border-r-2 cursor-pointer hover:brightness-95"
-          style={{ flex: `${F_TYPE} 0 0%`, height: "100%", paddingBottom: "1.48vh", minWidth: 0, borderRightColor: cellBorderColor }}
+          style={{ flex: `${F_TYPE} 0 0%`, height: "100%", paddingBottom: "1.48vh", minWidth: 0, borderRightColor: cellBorderColor, cursor: "pointer" }}
           onClick={(e) => { e.stopPropagation(); setFplOpen(true); }}
         >
           <span className="truncate px-[0.21vw] leading-tight w-full text-center" style={{ fontFamily: FONT, fontSize: "0.52vw", color: aircraftCategory === "H" ? COLOR_TYPE_HEAVY : undefined }}>{getAircraftTypeWithWtc(aircraftType, aircraftCategory)}</span>
@@ -146,8 +157,20 @@ export function ApnPushStrip({
         {/* Stand / Release Point — 25%*(2/3) */}
         <div
           className="flex items-center justify-center overflow-hidden border-r-2 cursor-pointer hover:bg-cyan-200"
-          style={{ flex: `${F_STAND} 0 0%`, height: "100%", paddingBottom: "1.48vh", minWidth: 0, borderRightColor: cellBorderColor, backgroundColor: standYellow ? COLOR_UNEXPECTED_YELLOW : undefined }}
-          onClick={(e) => { e.stopPropagation(); if (standYellow) { acknowledgeUnexpectedChange(callsign, "stand"); } else if (holdingPoint) { if (isTwr) { setTaxiMapOpen(true); } else { setApronTaxiOpen(true); } } else { setPushbackOpen(true); } }}
+          style={{ flex: `${F_STAND} 0 0%`, height: "100%", paddingBottom: "1.48vh", minWidth: 0, borderRightColor: cellBorderColor, backgroundColor: standYellow ? COLOR_UNEXPECTED_YELLOW : undefined, cursor: getValidationBlockedCursor(isValidationActive) }}
+          onClick={(e) => guardValidationAction(e, () => {
+            if (standYellow) {
+              acknowledgeUnexpectedChange(callsign, "stand");
+            } else if (holdingPoint) {
+              if (isTwr) {
+                setTaxiMapOpen(true);
+              } else {
+                setApronTaxiOpen(true);
+              }
+            } else {
+              setPushbackOpen(true);
+            }
+          })}
         >
           <span style={{ fontFamily: FONT, fontWeight: 600, fontSize: "1.04vw", color: getCellTextColor("stand", controllerModifiedFields) }}>
             {holdingPoint || stand}
@@ -191,8 +214,14 @@ export function ApnPushStrip({
         {/* RWY — 25%*(2/3)*(2/3) */}
         <div
           className="flex items-center justify-center overflow-hidden cursor-pointer hover:bg-cyan-200"
-          style={{ flex: `${F_RWY} 0 0%`, height: "100%", paddingBottom: "1.48vh", minWidth: 0, backgroundColor: runwayYellow ? COLOR_UNEXPECTED_YELLOW : undefined }}
-          onClick={(e) => { e.stopPropagation(); if (runwayYellow) { acknowledgeUnexpectedChange(callsign, "runway"); } else { setRunwayOpen(true); } }}
+          style={{ flex: `${F_RWY} 0 0%`, height: "100%", paddingBottom: "1.48vh", minWidth: 0, backgroundColor: runwayYellow ? COLOR_UNEXPECTED_YELLOW : undefined, cursor: getValidationBlockedCursor(isValidationActive) }}
+          onClick={(e) => guardValidationAction(e, () => {
+            if (runwayYellow) {
+              acknowledgeUnexpectedChange(callsign, "runway");
+            } else {
+              setRunwayOpen(true);
+            }
+          })}
         >
           <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: "1.04vw", color: getCellTextColor("runway", controllerModifiedFields) }}>{runway}</span>
         </div>

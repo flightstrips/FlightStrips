@@ -2,7 +2,7 @@ import { useState } from "react";
 import { getAircraftTypeWithWtc } from "@/lib/utils";
 import type { StripProps } from "./types";
 import FlightPlanDialog from "@/components/FlightPlanDialog";
-import { useStripCallsignInteraction, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR, COLOR_ARR_YELLOW, COLOR_UNEXPECTED_YELLOW, COLOR_MANUAL_BLUE, COLOR_TYPE_HEAVY, getStripOwnership, getCellTextColor, useStripBg, getValidationBlinkStyle } from "./shared";
+import { useStripCallsignInteraction, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR, COLOR_ARR_YELLOW, COLOR_UNEXPECTED_YELLOW, COLOR_MANUAL_BLUE, COLOR_TYPE_HEAVY, getStripOwnership, getCellTextColor, useStripBg, getValidationBlinkStyle, getValidationBlockedCursor } from "./shared";
 import { useStripTransfers, useWebSocketStore } from "@/store/store-hooks";
 import { RunwayDialog } from "./RunwayDialog";
 import { ArrStandDialog } from "./ArrStandDialog";
@@ -53,7 +53,16 @@ export function ApnArrStrip({
   controllerModifiedFields,
   isManual = false,
 }: StripProps) {
-  const { isSelected, handleClick, handleContextMenu, validationDialogOpen, setValidationDialogOpen, validationStatus } = useStripCallsignInteraction({ callsign, selectable, bay, owner, myPosition });
+  const {
+    isSelected,
+    isValidationActive,
+    handleClick,
+    handleContextMenu,
+    guardValidationAction,
+    validationDialogOpen,
+    setValidationDialogOpen,
+    validationStatus,
+  } = useStripCallsignInteraction({ callsign, selectable, bay, owner, myPosition });
   const cellBorderColor = getCellBorderColor(marked, CELL_BORDER);
   const manualBlue = isManual ? COLOR_MANUAL_BLUE : undefined;
   const stripTransfers = useStripTransfers();
@@ -77,6 +86,7 @@ export function ApnArrStrip({
         height: "4.72vh",
         width: "90%",
         backgroundColor: bg,
+        cursor: isValidationActive ? "not-allowed" : undefined,
         ...getFlatStripBorderStyle({}, CELL_BORDER),
       }}
     >
@@ -94,7 +104,7 @@ export function ApnArrStrip({
       />
 
       {/* Callsign */}
-      <div className="flex flex-col border-r-2 min-w-0 cursor-pointer" style={{ flexGrow: F_CALLSIGN, flexBasis: 0, height: "100%", borderRightColor: cellBorderColor, ...getValidationBlinkStyle(validationStatus, myPosition) }}
+      <div className="flex flex-col border-r-2 min-w-0 cursor-pointer" style={{ flexGrow: F_CALLSIGN, flexBasis: 0, height: "100%", borderRightColor: cellBorderColor, cursor: getValidationBlockedCursor(isValidationActive), ...getValidationBlinkStyle(validationStatus, myPosition) }}
         onClick={handleClick}
         onContextMenu={handleContextMenu}
       >
@@ -115,8 +125,14 @@ export function ApnArrStrip({
       {/* RWY */}
       <div
         className="flex flex-col overflow-hidden border-r-2 min-w-0 cursor-pointer hover:brightness-95"
-        style={{ flexGrow: F_RWY, flexBasis: 0, height: "100%", borderRightColor: cellBorderColor, backgroundColor: runwayYellow ? COLOR_UNEXPECTED_YELLOW : undefined }}
-        onClick={(e) => { e.stopPropagation(); if (runwayYellow) { acknowledgeUnexpectedChange(callsign, "runway"); } else { setRunwayOpen(true); } }}
+        style={{ flexGrow: F_RWY, flexBasis: 0, height: "100%", borderRightColor: cellBorderColor, backgroundColor: runwayYellow ? COLOR_UNEXPECTED_YELLOW : undefined, cursor: getValidationBlockedCursor(isValidationActive) }}
+        onClick={(e) => guardValidationAction(e, () => {
+          if (runwayYellow) {
+            acknowledgeUnexpectedChange(callsign, "runway");
+          } else {
+            setRunwayOpen(true);
+          }
+        })}
       >
         <div className="flex items-center justify-center" style={{ height: TOP_H }}>
           <span className="truncate" style={{ fontWeight: "bold", fontSize: "1.04vw" }}>{runway}</span>
@@ -127,8 +143,8 @@ export function ApnArrStrip({
       {/* HS / Taxiway */}
       <div
         className="flex flex-col overflow-hidden border-r-2 min-w-0 cursor-pointer hover:brightness-95"
-        style={{ flexGrow: F_HS, flexBasis: 0, height: "100%", borderRightColor: cellBorderColor }}
-        onClick={(e) => { e.stopPropagation(); setTaxiMapOpen(true); }}
+        style={{ flexGrow: F_HS, flexBasis: 0, height: "100%", borderRightColor: cellBorderColor, cursor: getValidationBlockedCursor(isValidationActive) }}
+        onClick={(e) => guardValidationAction(e, () => setTaxiMapOpen(true))}
       >
         <div className="flex items-center justify-center" style={{ height: TOP_H }}>
           {(() => { const twy = taxiway ?? holdingPoint; return <span className="truncate" style={{ fontWeight: "bold", fontSize: "1.04vw", opacity: twy ? 1 : 0.2 }}>{twy || "TWY"}</span>; })()}
@@ -139,15 +155,14 @@ export function ApnArrStrip({
       {/* Stand */}
       <div
         className="flex flex-col overflow-hidden min-w-0 cursor-pointer hover:brightness-95"
-        style={{ flexGrow: F_STAND, flexBasis: 0, height: "100%", backgroundColor: standYellow ? COLOR_UNEXPECTED_YELLOW : undefined }}
-        onClick={(e) => {
-          e.stopPropagation();
+        style={{ flexGrow: F_STAND, flexBasis: 0, height: "100%", backgroundColor: standYellow ? COLOR_UNEXPECTED_YELLOW : undefined, cursor: getValidationBlockedCursor(isValidationActive) }}
+        onClick={(e) => guardValidationAction(e, () => {
           if (standYellow) {
             acknowledgeUnexpectedChange(callsign, "stand");
           } else {
             setStandOpen(true);
           }
-        }}
+        })}
       >
         <div className="flex items-center justify-center" style={{ height: TOP_H }}>
           <span className="truncate" style={{ fontWeight: "bold", fontSize: "1.04vw", color: getCellTextColor("stand", controllerModifiedFields) }}>{stand}</span>

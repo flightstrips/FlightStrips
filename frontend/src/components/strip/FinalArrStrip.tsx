@@ -4,7 +4,7 @@ import { useStripTransfers, useWebSocketStore } from "@/store/store-hooks";
 import FlightPlanDialog from "@/components/FlightPlanDialog";
 import { Bay } from "@/api/models";
 import type { StripProps } from "./types";
-import { useStripCallsignInteraction, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR, FONT, COLOR_ARR_YELLOW, COLOR_TYPE_HEAVY, getStripOwnership, useStripBg, getValidationBlinkStyle } from "./shared";
+import { useStripCallsignInteraction, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR, FONT, COLOR_ARR_YELLOW, COLOR_TYPE_HEAVY, getStripOwnership, useStripBg, getValidationBlinkStyle, getValidationBlockedCursor } from "./shared";
 import { SIBox } from "./SIBox";
 import { ArrStandDialog } from "./ArrStandDialog";
 import { TaxiMapDialog } from "@/components/map-dialogs/TaxiMapDialog";
@@ -54,7 +54,7 @@ export function FinalArrStrip({
   runwayCleared = false,
   runwayConfirmed = false,
 }: StripProps) {
-  const { isSelected, handleClick, handleContextMenu, guardValidationAction, validationDialogOpen, setValidationDialogOpen, validationStatus } = useStripCallsignInteraction({ callsign, selectable, bay, owner, myPosition });
+  const { isSelected, isValidationActive, handleClick, handleContextMenu, guardValidationAction, validationDialogOpen, setValidationDialogOpen, validationStatus } = useStripCallsignInteraction({ callsign, selectable, bay, owner, myPosition });
   const cellBorderColor = getCellBorderColor(marked, CELL_BORDER);
   const stripTransfers = useStripTransfers();
   const isTagRequest = !!stripTransfers[callsign]?.isTagRequest;
@@ -83,6 +83,7 @@ export function FinalArrStrip({
         height: "4.72vh",
         width: "95%",
         backgroundColor: bg,
+        cursor: isValidationActive ? "not-allowed" : undefined,
         ...getFlatStripBorderStyle({}, CELL_BORDER),
       }}
     >
@@ -103,7 +104,7 @@ export function FinalArrStrip({
       {/* Callsign; top 2/3 = callsign */}
       <div
         className="flex flex-col border-r-2 min-w-0 cursor-pointer"
-        style={{ flexGrow: F_CALLSIGN, flexBasis: 0, height: "100%", borderRightColor: cellBorderColor, ...getValidationBlinkStyle(validationStatus, myPosition) }}
+        style={{ flexGrow: F_CALLSIGN, flexBasis: 0, height: "100%", borderRightColor: cellBorderColor, cursor: getValidationBlockedCursor(isValidationActive), ...getValidationBlinkStyle(validationStatus, myPosition) }}
         onClick={handleClick}
         onContextMenu={handleContextMenu}
       >
@@ -141,8 +142,8 @@ export function FinalArrStrip({
       {/* Stand (left of runway); stand in top 2/3, bottom 1/3 empty */}
       <div
         className="flex flex-col border-r-2 min-w-0 cursor-pointer hover:brightness-95"
-        style={{ flexGrow: F_TAXIWAY, flexBasis: 0, height: "100%", borderRightColor: cellBorderColor }}
-        onClick={isAssumed ? (e) => { e.stopPropagation(); setStandOpen(true); } : undefined}
+        style={{ flexGrow: F_TAXIWAY, flexBasis: 0, height: "100%", borderRightColor: cellBorderColor, cursor: isAssumed ? getValidationBlockedCursor(isValidationActive) : undefined }}
+        onClick={isAssumed ? (e) => guardValidationAction(e, () => setStandOpen(true)) : undefined}
       >
         <div className="flex items-center justify-center" style={{ height: TOP_H }}>
           <span className="truncate px-[0.21vw]" style={{ fontFamily: FONT, fontWeight: 600, fontSize: "0.83vw" }}>
@@ -159,7 +160,7 @@ export function FinalArrStrip({
       >
         <div
           className={`flex items-center justify-center${bay === Bay.Final || bay === Bay.RwyArr ? " cursor-pointer" : ""}`}
-          style={{ height: TOP_H }}
+          style={{ height: TOP_H, cursor: (bay === Bay.Final || bay === Bay.RwyArr) && isAssumed ? getValidationBlockedCursor(isValidationActive) : undefined }}
           onClick={(bay === Bay.Final || bay === Bay.RwyArr) && isAssumed ? (e) => guardValidationAction(e, () => {
             if (runwayCleared && !runwayConfirmed) {
               runwayConfirmation(callsign);
@@ -174,8 +175,8 @@ export function FinalArrStrip({
         </div>
         <div
           className="flex items-center justify-center cursor-pointer"
-          style={{ height: BOT_H }}
-          onClick={(e) => { e.stopPropagation(); setTaxiMapOpen(true); }}
+          style={{ height: BOT_H, cursor: getValidationBlockedCursor(isValidationActive) }}
+          onClick={(e) => guardValidationAction(e, () => setTaxiMapOpen(true))}
         >
           <span style={{ fontFamily: FONT, fontSize: "0.63vw", opacity: holdingPoint ? 1 : 0.2 }}>
             {holdingPoint || "TWY"}
@@ -186,7 +187,7 @@ export function FinalArrStrip({
       {/* Stand (reserved) — clickable to open flight plan */}
       <div
         className="flex flex-col overflow-hidden min-w-0 cursor-pointer hover:brightness-95"
-        style={{ flexGrow: F_STAND, flexBasis: 0, height: "100%" }}
+        style={{ flexGrow: F_STAND, flexBasis: 0, height: "100%", cursor: "pointer" }}
         onClick={(e) => { e.stopPropagation(); setFplOpen(true); }}
       />
     </div>

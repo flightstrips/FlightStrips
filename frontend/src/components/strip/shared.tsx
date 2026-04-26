@@ -81,6 +81,13 @@ export function getValidationBlinkStyle(validationStatus: ValidationStatus | und
   };
 }
 
+export function getValidationBlockedCursor(
+  isValidationActive: boolean,
+  defaultCursor: CSSProperties["cursor"] = "pointer",
+): CSSProperties["cursor"] {
+  return isValidationActive ? "not-allowed" : defaultCursor;
+}
+
 export function usePdcClearedCallsignBlink(pdcStatus?: PdcStatus): boolean {
   const [isHighlighted, setIsHighlighted] = useState(pdcStatus === "CLEARED");
   const prevPdcStatus = useRef<PdcStatus | undefined>(pdcStatus);

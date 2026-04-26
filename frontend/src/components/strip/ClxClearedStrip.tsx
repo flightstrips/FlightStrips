@@ -15,6 +15,7 @@ import {
   useStripBg,
   getValidationBlinkStyle,
   usePdcClearedCallsignBlink,
+  getValidationBlockedCursor,
 } from "./shared";
 import { SIBox } from "./SIBox";
 import { useStripTransfers, useWebSocketStore } from "@/store/store-hooks";
@@ -69,7 +70,17 @@ export function ClxClearedStrip({
   controllerModifiedFields,
   isManual = false,
 }: StripProps) {
-  const { isSelected, handleClick, handleContextMenu, showActivePress, validationDialogOpen, setValidationDialogOpen, validationStatus } = useStripCallsignInteraction({ callsign, selectable, bay, owner, myPosition });
+  const {
+    isSelected,
+    isValidationActive,
+    handleClick,
+    handleContextMenu,
+    guardValidationAction,
+    showActivePress,
+    validationDialogOpen,
+    setValidationDialogOpen,
+    validationStatus,
+  } = useStripCallsignInteraction({ callsign, selectable, bay, owner, myPosition });
   const stripTransfers = useStripTransfers();
   const isTagRequest = !!stripTransfers[callsign]?.isTagRequest;
   const { isUnconcerned } = getStripOwnership(myPosition, owner, nextControllers, previousControllers);
@@ -99,6 +110,7 @@ export function ClxClearedStrip({
       style={{
         height: FULL_H,
         width: fullWidth ? "100%" : CLX_CLEARED_STRIP_WIDTH,
+        cursor: isValidationActive ? "not-allowed" : undefined,
         ...getFramedStripStyle(marked),
       }}
     >
@@ -123,7 +135,7 @@ export function ClxClearedStrip({
         {/* Callsign — 2/3 of left half */}
         <button
           className={`flex items-center justify-start overflow-hidden ${showActivePress ? CLS_CALLSIGN_ACTIVE : ""} border-r-2 cursor-pointer`}
-          style={{ flex: `${F_CALLSIGN} 0 0%`, height: "100%", minWidth: 0, fontFamily: FONT, fontWeight: "bold", fontSize: "1.25vw", textAlign: "left", paddingLeft: "0.21vw", borderRightColor: cellBorderColor, backgroundColor: callsignBackgroundColor, color: callsignTextColor, ...getValidationBlinkStyle(validationStatus, myPosition) }}
+          style={{ flex: `${F_CALLSIGN} 0 0%`, height: "100%", minWidth: 0, fontFamily: FONT, fontWeight: "bold", fontSize: "1.25vw", textAlign: "left", paddingLeft: "0.21vw", borderRightColor: cellBorderColor, backgroundColor: callsignBackgroundColor, color: callsignTextColor, cursor: getValidationBlockedCursor(isValidationActive), ...getValidationBlinkStyle(validationStatus, myPosition) }}
           onClick={handleClick}
           onContextMenu={handleContextMenu}
         >
@@ -141,8 +153,8 @@ export function ClxClearedStrip({
             </div>
             <div
               className="flex items-center justify-center overflow-hidden"
-              style={{ height: HALF_H, fontFamily: FONT, fontWeight: "bold", fontSize: "0.73vw", backgroundColor: standYellow ? COLOR_UNEXPECTED_YELLOW : undefined, cursor: standYellow ? "pointer" : undefined, color: manualBlue ?? getCellTextColor("stand", controllerModifiedFields) }}
-              onClick={standYellow ? (e) => { e.stopPropagation(); acknowledgeUnexpectedChange(callsign, "stand"); } : undefined}
+              style={{ height: HALF_H, fontFamily: FONT, fontWeight: "bold", fontSize: "0.73vw", backgroundColor: standYellow ? COLOR_UNEXPECTED_YELLOW : undefined, cursor: standYellow ? getValidationBlockedCursor(isValidationActive) : undefined, color: manualBlue ?? getCellTextColor("stand", controllerModifiedFields) }}
+              onClick={standYellow ? (e) => guardValidationAction(e, () => acknowledgeUnexpectedChange(callsign, "stand")) : undefined}
             >
               {stand}
             </div>
@@ -173,8 +185,8 @@ export function ClxClearedStrip({
               <span className={`${textWhite ? "text-white" : "text-black"} shrink-0`}>TOBT</span>
               <span>{tobt}</span>
             </div>
-            <div className="flex items-center justify-between px-[0.21vw] overflow-hidden" style={{ height: HALF_H, fontFamily: FONT, fontSize: "0.73vw", backgroundColor: tsatBg, cursor: "pointer" }}
-              onClick={(e) => { e.stopPropagation(); cdmReady(callsign); }}
+            <div className="flex items-center justify-between px-[0.21vw] overflow-hidden" style={{ height: HALF_H, fontFamily: FONT, fontSize: "0.73vw", backgroundColor: tsatBg, cursor: getValidationBlockedCursor(isValidationActive) }}
+              onClick={(e) => guardValidationAction(e, () => cdmReady(callsign))}
             >
               <span className={`${textWhite ? "text-white" : "text-black"} shrink-0`}>TSAT</span>
               <span>{tsat}</span>

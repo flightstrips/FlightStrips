@@ -1,7 +1,7 @@
 import { getAircraftTypeWithWtc } from "@/lib/utils";
 import { getStripBg } from "./types";
 import type { StripProps } from "./types";
-import { useStripCallsignInteraction, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR, COLOR_TYPE_HEAVY, getStripOwnership, useStripBg, getValidationBlinkStyle } from "./shared";
+import { useStripCallsignInteraction, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR, COLOR_TYPE_HEAVY, getStripOwnership, useStripBg, getValidationBlinkStyle, getValidationBlockedCursor } from "./shared";
 import { useStripTransfers } from "@/store/store-hooks";
 import { SIBox } from "./SIBox";
 import { ValidationStatusDialog } from "./ValidationStatusDialog";
@@ -36,7 +36,7 @@ export function GroundStrip({
   selectable,
   marked = false,
 }: StripProps) {
-  const { isSelected, handleClick, handleContextMenu, validationDialogOpen, setValidationDialogOpen, validationStatus } = useStripCallsignInteraction({ callsign, selectable, bay, owner, myPosition });
+  const { isSelected, isValidationActive, handleClick, handleContextMenu, validationDialogOpen, setValidationDialogOpen, validationStatus } = useStripCallsignInteraction({ callsign, selectable, bay, owner, myPosition });
   const cellBorderColor = getCellBorderColor(marked);
   const stripTransfers = useStripTransfers();
   const isTagRequest = !!stripTransfers[callsign]?.isTagRequest;
@@ -51,6 +51,7 @@ export function GroundStrip({
         height: "4.44vh",
         width: "25vw",
         backgroundColor: bg,
+        cursor: isValidationActive ? "not-allowed" : undefined,
         ...getFlatStripBorderStyle({ borderBottom: "1px solid white" }),
       }}
     >
@@ -66,7 +67,7 @@ export function GroundStrip({
       />
 
       {/* Callsign — 120px */}
-      <div className="flex-shrink-0 flex flex-col border-r-2 cursor-pointer" style={{ width: "6.25vw", height: "100%", borderRightColor: cellBorderColor, ...getValidationBlinkStyle(validationStatus, myPosition) }}
+      <div className="flex-shrink-0 flex flex-col border-r-2 cursor-pointer" style={{ width: "6.25vw", height: "100%", borderRightColor: cellBorderColor, cursor: getValidationBlockedCursor(isValidationActive), ...getValidationBlinkStyle(validationStatus, myPosition) }}
         onClick={handleClick}
         onContextMenu={handleContextMenu}
       >

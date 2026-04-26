@@ -3,49 +3,50 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { useStrips } from "@/store/store-hooks";
 import { NewIfrDialog } from "./NewIfrDialog";
 import FlightPlanDialog from "@/components/FlightPlanDialog";
+import { scalePx } from "@/lib/viewportScale";
 
-const DROP_SHADOW = "0 4px 4px rgba(0,0,0,0.25)";
+const DROP_SHADOW = `0 ${scalePx(4)} ${scalePx(4)} rgba(0,0,0,0.25)`;
 
 const S: Record<string, React.CSSProperties> = {
   root: {
     background: "#E4E4E4",
     border: "1px solid black",
     color: "#000",
-    width: 378,
-    padding: "13px 15px 17px",
+    width: scalePx(378),
+    padding: `${scalePx(13)} ${scalePx(15)} ${scalePx(17)}`,
     display: "flex",
     flexDirection: "column",
     gap: 0,
     fontFamily: "'Rubik', sans-serif",
   },
-  title: { fontWeight: 300, fontSize: 24, textAlign: "center", marginBottom: 8 },
+  title: { fontWeight: 300, fontSize: scalePx(24), textAlign: "center", marginBottom: scalePx(8) },
   inner: {
     border: "1px solid black",
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
     justifyContent: "center",
-    gap: 16,
-    padding: "20px 16px",
-    minHeight: 180,
+    gap: scalePx(16),
+    padding: `${scalePx(20)} ${scalePx(16)}`,
+    minHeight: scalePx(180),
   },
-  label: { fontSize: 20, fontWeight: 300, textAlign: "center" as const, alignSelf: "flex-start" },
+  label: { fontSize: scalePx(20), fontWeight: 300, textAlign: "center" as const, alignSelf: "flex-start" },
   input: {
     width: "100%",
-    height: 50,
+    height: scalePx(50),
     background: "#FCFCFC",
     border: "1px solid black",
-    fontSize: 24,
-    padding: "0 8px",
+    fontSize: scalePx(24),
+    padding: `0 ${scalePx(8)}`,
     boxShadow: DROP_SHADOW,
     textTransform: "uppercase" as const,
     fontFamily: "'Rubik', sans-serif",
   },
-  noFpl: { color: "#FF0000", fontSize: 32, textAlign: "center" as const, lineHeight: 1.4, fontWeight: 400 },
+  noFpl: { color: "#FF0000", fontSize: scalePx(32), textAlign: "center" as const, lineHeight: 1.4, fontWeight: 400 },
   btn: {
-    height: 70,
-    width: 149,
-    fontSize: 32,
+    height: scalePx(70),
+    width: scalePx(149),
+    fontSize: scalePx(32),
     fontWeight: 600,
     border: "none",
     background: "#3F3F3F",
@@ -53,7 +54,7 @@ const S: Record<string, React.CSSProperties> = {
     cursor: "pointer",
     boxShadow: DROP_SHADOW,
   },
-  btnRow: { display: "flex", gap: 0, justifyContent: "space-between", width: "100%", paddingTop: 8 },
+  btnRow: { display: "flex", gap: 0, justifyContent: "space-between", width: "100%", paddingTop: scalePx(8) },
 };
 
 interface Props {

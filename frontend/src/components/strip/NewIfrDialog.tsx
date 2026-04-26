@@ -8,18 +8,28 @@ import { SidSelectDialog } from "@/components/strip/SidSelectDialog";
 import { HdgSelectDialog } from "@/components/strip/HdgSelectDialog";
 import { AltSelectDialog } from "@/components/strip/AltSelectDialog";
 import { RunwayDialog } from "@/components/strip/RunwayDialog";
+import { scalePx } from "@/lib/viewportScale";
 
 // Exactly mirrors FlightPlanDialog constants
 const FONT_FAMILY      = "Arial";
-const FONT_SIZE_FIELD  = 20;
-const FONT_SIZE_LABEL  = 16;
-const FONT_SIZE_BUTTON = 24;
-const CLS_DIALOG       = "bg-[#d4d4d4] rounded-none p-[25px] flex flex-col gap-0";
-const CLS_DIALOG_LABEL = "absolute bg-[#d4d4d4] px-[5px] text-black font-bold";
-const CLS_DISABLED     = "border border-black rounded-none bg-[#b3b3b3] text-black font-bold h-[50px] text-center disabled:opacity-60";
-const CLS_EDITABLE     = "border border-black rounded-none bg-[#ededed] text-black font-bold h-[50px] text-center focus-visible:outline-none focus-visible:ring-0";
-const CLS_EDITABLE_BTN = "border border-black rounded-none bg-[#ededed] text-black font-bold h-[50px] text-center";
-const CLS_TEXTAREA     = "border border-black rounded-none bg-[#ededed] text-black font-normal text-center h-[80px] break-words resize-none w-full focus:outline-none";
+const FONT_SIZE_FIELD  = scalePx(20);
+const FONT_SIZE_LABEL  = scalePx(16);
+const FONT_SIZE_BUTTON = scalePx(24);
+const FIELD_HEIGHT     = scalePx(50);
+const TEXTAREA_HEIGHT  = scalePx(80);
+const DIALOG_WIDTH     = scalePx(1000);
+const DIALOG_HEIGHT    = scalePx(925);
+const CONTENT_WIDTH    = scalePx(835);
+const PANEL_PADDING    = scalePx(30);
+const DIALOG_PADDING   = scalePx(25);
+const LABEL_OFFSET     = scalePx(11);
+const FIELD_GAP        = scalePx(5);
+const CLS_DIALOG       = "bg-[#d4d4d4] rounded-none flex flex-col gap-0";
+const CLS_DIALOG_LABEL = "absolute bg-[#d4d4d4] text-black font-bold";
+const CLS_DISABLED     = "border border-black rounded-none bg-[#b3b3b3] text-black font-bold text-center disabled:opacity-60";
+const CLS_EDITABLE     = "border border-black rounded-none bg-[#ededed] text-black font-bold text-center focus-visible:outline-none focus-visible:ring-0";
+const CLS_EDITABLE_BTN = "border border-black rounded-none bg-[#ededed] text-black font-bold text-center";
+const CLS_TEXTAREA     = "border border-black rounded-none bg-[#ededed] text-black font-normal text-center break-words resize-none w-full focus:outline-none";
 const COLOR_DARK_BTN   = "#3F3F3F";
 
 // All physical runways — same constant as RunwayDialog
@@ -111,106 +121,123 @@ export function NewIfrDialog({ open, onOpenChange, initialCallsign = "" }: Props
   }
 
   const canSubmit = !callsignError && callsign.trim().length > 0;
-  const F = { fontFamily: FONT_FAMILY, fontSize: FONT_SIZE_FIELD };
+  const F = { fontFamily: FONT_FAMILY, fontSize: FONT_SIZE_FIELD, height: FIELD_HEIGHT };
+  const fieldStyle = (width: number) => ({ width: scalePx(width), ...F });
+  const rowStyle = { width: CONTENT_WIDTH, gap: FIELD_GAP };
+  const groupStyle = { gap: FIELD_GAP };
+  const footerButtonStyle = {
+    width: scalePx(125),
+    height: scalePx(70),
+    fontFamily: FONT_FAMILY,
+    fontWeight: "bold" as const,
+    fontSize: FONT_SIZE_BUTTON,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    cursor: "pointer",
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         className={CLS_DIALOG}
-        style={{ width: 1000, maxWidth: 1000, height: 925, maxHeight: 925 }}
+        style={{ width: DIALOG_WIDTH, maxWidth: DIALOG_WIDTH, height: DIALOG_HEIGHT, maxHeight: DIALOG_HEIGHT, padding: DIALOG_PADDING }}
       >
         <VisuallyHidden.Root>
           <DialogTitle>New IFR flight plan</DialogTitle>
         </VisuallyHidden.Root>
 
         <div
-          className="relative border-2 border-black flex flex-col items-center gap-[30px] flex-1 min-h-0"
-          style={{ paddingTop: 30, paddingBottom: 30, color: "black" }}
+          className="relative border-2 border-black flex flex-col items-center flex-1 min-h-0"
+          style={{ gap: PANEL_PADDING, paddingTop: PANEL_PADDING, paddingBottom: PANEL_PADDING, color: "black" }}
         >
           <span
             className={CLS_DIALOG_LABEL}
-            style={{ top: -11, left: "50%", transform: "translateX(-50%)", whiteSpace: "nowrap" }}
+            style={{ top: `calc(-1 * ${LABEL_OFFSET})`, left: "50%", transform: "translateX(-50%)", whiteSpace: "nowrap", paddingInline: scalePx(5) }}
           >
             NEW IFR
           </span>
 
           {/* Row 1: C/S | ADES | RNAV | SID | SSR | TTOT | CTOT */}
-          <div className="flex gap-[5px]" style={{ width: 835 }}>
-            <div className="grid items-center gap-[5px]">
+          <div className="flex" style={rowStyle}>
+            <div className="grid items-center" style={groupStyle}>
               <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>C/S</Label>
               <input
                 className={CLS_EDITABLE}
-                style={{ width: 180, ...F }}
+                style={fieldStyle(180)}
                 value={callsign}
                 onChange={e => setCallsign(e.target.value.toUpperCase())}
                 onBlur={handleCallsignBlur}
                 autoFocus
               />
             </div>
-            <div className="grid items-center gap-[5px]">
+            <div className="grid items-center" style={groupStyle}>
               <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>ADES</Label>
-              <input className={CLS_EDITABLE} style={{ width: 100, ...F }} value={ades} onChange={e => setAdes(e.target.value.toUpperCase())} />
+              <input className={CLS_EDITABLE} style={fieldStyle(100)} value={ades} onChange={e => setAdes(e.target.value.toUpperCase())} />
             </div>
-            <div className="grid items-center gap-[5px]">
+            <div className="grid items-center" style={groupStyle}>
               <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>RNAV</Label>
-              <Input disabled className={CLS_DISABLED} style={{ width: 75, ...F }} />
+              <Input disabled className={CLS_DISABLED} style={fieldStyle(75)} />
             </div>
-            <div className="grid items-center gap-[5px]">
+            <div className="grid items-center" style={groupStyle}>
               <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>SID</Label>
               <button
                 type="button"
                 className={CLS_EDITABLE_BTN}
-                style={{ width: 150, ...F }}
+                style={fieldStyle(150)}
                 onClick={() => setSidOpen(true)}
               >
                 {sid}
               </button>
-              <SidSelectDialog
-                open={sidOpen}
-                onOpenChange={setSidOpen}
-                value={sid}
-                onSelect={setSid}
-                onErase={() => setSid("")}
-                sids={availableSids.length > 0
-                  ? availableSids.filter(s => s.runway === rwyDep).map(s => s.name)
-                  : undefined}
-              />
+                <SidSelectDialog
+                  open={sidOpen}
+                  onOpenChange={setSidOpen}
+                  value={sid}
+                  onSelect={setSid}
+                  onErase={() => {
+                    setSid("");
+                    setSidOpen(false);
+                  }}
+                  sids={availableSids.length > 0
+                    ? availableSids.filter(s => s.runway === rwyDep).map(s => s.name)
+                    : undefined}
+                />
             </div>
-            <div className="grid items-center gap-[5px]">
+            <div className="grid items-center" style={groupStyle}>
               <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>SSR</Label>
-              <input className={CLS_EDITABLE} style={{ width: 100, ...F }} value={ssr} onChange={e => setSsr(e.target.value)} />
+              <input className={CLS_EDITABLE} style={fieldStyle(100)} value={ssr} onChange={e => setSsr(e.target.value)} />
             </div>
-            <div className="grid items-center gap-[5px]">
+            <div className="grid items-center" style={groupStyle}>
               <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>TTOT</Label>
-              <Input disabled className={CLS_DISABLED} style={{ width: 100, ...F }} />
+              <Input disabled className={CLS_DISABLED} style={fieldStyle(100)} />
             </div>
-            <div className="grid items-center gap-[5px]">
+            <div className="grid items-center" style={groupStyle}>
               <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>CTOT</Label>
-              <Input disabled className={CLS_DISABLED} style={{ width: 100, ...F }} />
+              <Input disabled className={CLS_DISABLED} style={fieldStyle(100)} />
             </div>
           </div>
 
           {/* Row 2: EOBT | TOBT | TSAT | RWY  —  REA */}
-          <div className="flex gap-[5px] justify-between" style={{ width: 835 }}>
-            <div className="flex gap-[5px]">
-              <div className="grid items-center gap-[5px]">
+          <div className="flex justify-between" style={rowStyle}>
+            <div className="flex" style={{ gap: FIELD_GAP }}>
+              <div className="grid items-center" style={groupStyle}>
                 <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>EOBT</Label>
-                <input className={CLS_EDITABLE} style={{ width: 100, ...F }} value={eobt} onChange={e => setEobt(e.target.value)} maxLength={4} />
+                <input className={CLS_EDITABLE} style={fieldStyle(100)} value={eobt} onChange={e => setEobt(e.target.value)} maxLength={4} />
               </div>
-              <div className="grid items-center gap-[5px]">
+              <div className="grid items-center" style={groupStyle}>
                 <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>TOBT</Label>
-                <Input disabled className={CLS_DISABLED} style={{ width: 100, ...F }} />
+                <Input disabled className={CLS_DISABLED} style={fieldStyle(100)} />
               </div>
-              <div className="grid items-center gap-[5px]">
+              <div className="grid items-center" style={groupStyle}>
                 <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>TSAT</Label>
-                <Input disabled className={CLS_DISABLED} style={{ width: 100, ...F }} />
+                <Input disabled className={CLS_DISABLED} style={fieldStyle(100)} />
               </div>
-              <div className="grid items-center gap-[5px]">
+              <div className="grid items-center" style={groupStyle}>
                 <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>RWY</Label>
                 <button
                   type="button"
                   className={CLS_EDITABLE_BTN}
-                  style={{ width: 150, ...F }}
+                  style={fieldStyle(150)}
                   onClick={() => setRwyOpen(true)}
                 >
                   {rwyDep}
@@ -224,78 +251,78 @@ export function NewIfrDialog({ open, onOpenChange, initialCallsign = "" }: Props
                 />
               </div>
             </div>
-            <div className="grid items-center gap-[5px]">
+            <div className="grid items-center" style={groupStyle}>
               <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>REA</Label>
-              <Input disabled className={CLS_DISABLED} style={{ width: 100, ...F }} />
+              <Input disabled className={CLS_DISABLED} style={fieldStyle(100)} />
             </div>
           </div>
 
           {/* Row 3: TYPE | FL | SPEED | STS */}
-          <div className="flex gap-[5px]" style={{ width: 835 }}>
-            <div className="grid items-center gap-[5px]">
+          <div className="flex" style={rowStyle}>
+            <div className="grid items-center" style={groupStyle}>
               <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>TYPE</Label>
-              <input className={CLS_EDITABLE} style={{ width: 200, ...F }} value={aircraftType} onChange={e => setAircraftType(e.target.value.toUpperCase())} />
+              <input className={CLS_EDITABLE} style={fieldStyle(200)} value={aircraftType} onChange={e => setAircraftType(e.target.value.toUpperCase())} />
             </div>
-            <div className="grid items-center gap-[5px]">
+            <div className="grid items-center" style={groupStyle}>
               <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>FL</Label>
-              <input className={CLS_EDITABLE} style={{ width: 100, ...F }} value={fl} onChange={e => setFl(e.target.value)} />
+              <input className={CLS_EDITABLE} style={fieldStyle(100)} value={fl} onChange={e => setFl(e.target.value)} />
             </div>
-            <div className="grid items-center gap-[5px]">
+            <div className="grid items-center" style={groupStyle}>
               <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>SPEED</Label>
-              <Input disabled className={CLS_DISABLED} style={{ width: 100, ...F }} />
+              <Input disabled className={CLS_DISABLED} style={fieldStyle(100)} />
             </div>
-            <div className="grid items-center gap-[5px]">
+            <div className="grid items-center" style={groupStyle}>
               <Label className="font-light text-center" style={{ fontSize: FONT_SIZE_LABEL }}>STS</Label>
-              <Input disabled className={CLS_DISABLED} style={{ width: 420, ...F }} />
+              <Input disabled className={CLS_DISABLED} style={fieldStyle(420)} />
             </div>
           </div>
 
           {/* Row 4: ROUTE */}
-          <div className="flex flex-col gap-[5px]" style={{ width: 835 }}>
+          <div className="flex flex-col" style={{ width: CONTENT_WIDTH, gap: FIELD_GAP }}>
             <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>ROUTE</Label>
             <textarea
               className={CLS_TEXTAREA}
-              style={{ fontFamily: FONT_FAMILY, fontSize: FONT_SIZE_FIELD }}
+              style={{ height: TEXTAREA_HEIGHT, fontFamily: FONT_FAMILY, fontSize: FONT_SIZE_FIELD }}
               value={route}
               onChange={e => setRoute(e.target.value.toUpperCase())}
             />
           </div>
 
           {/* Row 5: COOPANS REMARKS */}
-          <div className="flex flex-col gap-[5px]" style={{ width: 835 }}>
+          <div className="flex flex-col" style={{ width: CONTENT_WIDTH, gap: FIELD_GAP }}>
             <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>COOPANS REMARKS</Label>
-            <Input disabled className={`${CLS_DISABLED} w-full`} style={{ fontFamily: FONT_FAMILY, fontSize: FONT_SIZE_FIELD }} />
+            <Input disabled className={`${CLS_DISABLED} w-full`} style={{ ...F }} />
           </div>
 
           {/* Row 6: NITOS REMARKS | IATA TYPE */}
-          <div className="flex gap-[5px]" style={{ width: 835 }}>
-            <div className="grid items-center gap-[5px]">
+          <div className="flex" style={rowStyle}>
+            <div className="grid items-center" style={groupStyle}>
               <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>NITOS REMARKS</Label>
               <Input
                 disabled
                 className={CLS_DISABLED}
-                style={{ width: 700, ...F, color: callsignError ? "#cc0000" : undefined }}
+                style={{ ...fieldStyle(700), color: callsignError ? "#cc0000" : undefined }}
                 value={callsignError ?? ""}
               />
             </div>
-            <div className="grid items-center gap-[5px]">
+            <div className="grid items-center" style={groupStyle}>
               <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>IATA TYPE</Label>
-              <Input disabled className={CLS_DISABLED} style={{ width: 130, ...F }} />
+              <Input disabled className={CLS_DISABLED} style={fieldStyle(130)} />
             </div>
           </div>
 
           {/* Row 7: CLIMB GR | HDG | ALT | DE-ICE | REG | STAND */}
-          <div className="flex justify-between" style={{ width: 835 }}>
-            <div className="grid items-center gap-[5px]">
+          <div className="flex justify-between" style={{ width: CONTENT_WIDTH }}>
+            <div className="grid items-center" style={groupStyle}>
               <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>CLIMB GR.</Label>
-              <Input disabled className={CLS_DISABLED} style={{ width: 125, ...F }} />
+              <Input disabled className={CLS_DISABLED} style={fieldStyle(125)} />
             </div>
-            <div className="grid items-center gap-[5px]">
+            <div className="grid items-center" style={groupStyle}>
               <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>HDG</Label>
               <button
                 type="button"
                 className={CLS_EDITABLE_BTN}
-                style={{ width: 125, ...F }}
+                style={fieldStyle(125)}
                 onClick={() => setHdgOpen(true)}
               >
                 {hdg != null ? hdg.toString().padStart(3, "0") : ""}
@@ -307,12 +334,12 @@ export function NewIfrDialog({ open, onOpenChange, initialCallsign = "" }: Props
                 onSelect={setHdg}
               />
             </div>
-            <div className="grid items-center gap-[5px]">
+            <div className="grid items-center" style={groupStyle}>
               <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>ALT</Label>
               <button
                 type="button"
                 className={CLS_EDITABLE_BTN}
-                style={{ width: 125, ...F }}
+                style={fieldStyle(125)}
                 onClick={() => setAltOpen(true)}
               >
                 {alt != null ? String(alt) : ""}
@@ -324,19 +351,19 @@ export function NewIfrDialog({ open, onOpenChange, initialCallsign = "" }: Props
                 onSelect={setAlt}
               />
             </div>
-            <div className="grid items-center gap-[5px]">
+            <div className="grid items-center" style={groupStyle}>
               <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>DE-ICE</Label>
-              <Input disabled className={CLS_DISABLED} style={{ width: 125, ...F }} />
+              <Input disabled className={CLS_DISABLED} style={fieldStyle(125)} />
             </div>
-            <div className="grid items-center gap-[5px]">
+            <div className="grid items-center" style={groupStyle}>
               <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>REG</Label>
-              <Input disabled className={CLS_DISABLED} style={{ width: 125, ...F }} />
+              <Input disabled className={CLS_DISABLED} style={fieldStyle(125)} />
             </div>
-            <div className="grid items-center gap-[5px]">
+            <div className="grid items-center" style={groupStyle}>
               <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>STAND</Label>
               <input
                 className={CLS_EDITABLE}
-                style={{ width: 125, ...F }}
+                style={fieldStyle(125)}
                 value={stand}
                 onChange={e => setStand(e.target.value.toUpperCase())}
               />
@@ -345,15 +372,12 @@ export function NewIfrDialog({ open, onOpenChange, initialCallsign = "" }: Props
         </div>
 
         {/* Footer: ESC | OK */}
-        <div className="flex flex-row items-center justify-between pt-3">
+        <div className="flex flex-row items-center justify-between" style={{ paddingTop: scalePx(12) }}>
           <button
             onClick={() => onOpenChange(false)}
             style={{
-              width: 125, height: 70,
+              ...footerButtonStyle,
               backgroundColor: COLOR_DARK_BTN, color: "white",
-              fontFamily: FONT_FAMILY, fontWeight: "bold", fontSize: FONT_SIZE_BUTTON,
-              display: "flex", alignItems: "center", justifyContent: "center",
-              cursor: "pointer",
             }}
           >
             ESC
@@ -362,11 +386,9 @@ export function NewIfrDialog({ open, onOpenChange, initialCallsign = "" }: Props
             onClick={handleOk}
             disabled={!canSubmit}
             style={{
-              width: 125, height: 70,
+              ...footerButtonStyle,
               backgroundColor: canSubmit ? COLOR_DARK_BTN : "#888",
               color: canSubmit ? "white" : "#bbb",
-              fontFamily: FONT_FAMILY, fontWeight: "bold", fontSize: FONT_SIZE_BUTTON,
-              display: "flex", alignItems: "center", justifyContent: "center",
               cursor: canSubmit ? "pointer" : "not-allowed",
             }}
           >

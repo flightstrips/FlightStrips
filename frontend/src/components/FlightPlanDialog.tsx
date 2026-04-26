@@ -13,24 +13,40 @@ import { HdgSelectDialog } from "@/components/strip/HdgSelectDialog";
 import { SidSelectDialog } from "@/components/strip/SidSelectDialog";
 import { RunwayDialog } from "@/components/strip/RunwayDialog";
 import { useAvailableSids, useInitialCflByRunway, useStrip, useTransitionAltitude, useWebSocketStore } from "@/store/store-hooks.ts";
+import { scalePx } from "@/lib/viewportScale";
 
 const FONT_FAMILY = "Arial";
-const FONT_SIZE_FIELD = 20;
-const FONT_SIZE_LABEL = 16;
-const FONT_SIZE_BUTTON = 24;
+const FONT_SIZE_FIELD = scalePx(20);
+const FONT_SIZE_LABEL = scalePx(16);
+const FONT_SIZE_BUTTON = scalePx(24);
+const FIELD_HEIGHT = scalePx(50);
+const TEXTAREA_HEIGHT = scalePx(80);
+const DIALOG_WIDTH = scalePx(1000);
+const CLEARANCE_DIALOG_HEIGHT = scalePx(925);
+const VIEW_DIALOG_HEIGHT = scalePx(1015);
+const CONTENT_WIDTH = scalePx(835);
+const DIALOG_PADDING = scalePx(25);
+const PANEL_PADDING = scalePx(30);
+const COMPACT_PANEL_PADDING = scalePx(20);
+const FIELD_GAP = scalePx(5);
+const LABEL_OFFSET = scalePx(11);
+const ACTION_BUTTON_WIDTH = scalePx(125);
+const ACTION_BUTTON_HEIGHT = scalePx(70);
+const CLX_FALLBACK_WIDTH = scalePx(360);
+const CLX_FALLBACK_BUTTON_HEIGHT = scalePx(48);
 
 // Tailwind class constants (hex must be literal strings for JIT)
-const CLS_DIALOG         = "bg-[#d4d4d4] rounded-none p-[25px] flex flex-col gap-0";
-const CLS_DIALOG_LABEL   = "absolute bg-[#d4d4d4] px-[5px] text-black font-bold";
-const CLS_BTN_DISABLED      = "border border-black rounded-none bg-[#b3b3b3] text-black font-bold h-[50px] text-center disabled:opacity-60";
-const CLS_BTN_DISABLED_BDR  = "border-2 border-black rounded-none bg-[#b3b3b3] text-black font-bold h-[50px] text-center disabled:opacity-60";
-const CLS_BTN_DISABLED_LEFT = "border border-r-0 border-black rounded-none bg-[#b3b3b3] text-black font-bold h-[50px] text-center disabled:opacity-60";
-const CLS_BTN_DISABLED_NRM  = "border border-black rounded-none bg-[#b3b3b3] text-black font-bold h-[50px] text-center disabled:opacity-60";
-const CLS_BTN_EDITABLE      = "border border-black rounded-none bg-[#ededed] text-black font-bold h-[50px] text-center";
-const CLS_BTN_EDITABLE_LOCK = "border border-black rounded-none bg-[#ededed] text-black font-bold disabled:opacity-100 h-[50px] text-center select-none hover:bg-[#ededed]";
-const CLS_TEXTAREA_EDITABLE = "border border-black rounded-none bg-[#ededed] text-black font-normal text-center h-[80px] break-words resize-none w-full";
-const CLS_CLX_DIALOG        = "w-[360px] rounded-none border border-black bg-[#B3B3B3] p-4 text-black";
-const CLS_CLX_PANEL         = "border border-black bg-[#D6D6D6] p-4";
+const CLS_DIALOG            = "bg-[#d4d4d4] rounded-none flex flex-col gap-0";
+const CLS_DIALOG_LABEL      = "absolute bg-[#d4d4d4] text-black font-bold";
+const CLS_BTN_DISABLED      = "border border-black rounded-none bg-[#b3b3b3] text-black font-bold text-center disabled:opacity-60";
+const CLS_BTN_DISABLED_BDR  = "border-2 border-black rounded-none bg-[#b3b3b3] text-black font-bold text-center disabled:opacity-60";
+const CLS_BTN_DISABLED_LEFT = "border border-r-0 border-black rounded-none bg-[#b3b3b3] text-black font-bold text-center disabled:opacity-60";
+const CLS_BTN_DISABLED_NRM  = "border border-black rounded-none bg-[#b3b3b3] text-black font-bold text-center disabled:opacity-60";
+const CLS_BTN_EDITABLE      = "border border-black rounded-none bg-[#ededed] text-black font-bold text-center";
+const CLS_BTN_EDITABLE_LOCK = "border border-black rounded-none bg-[#ededed] text-black font-bold disabled:opacity-100 text-center select-none hover:bg-[#ededed]";
+const CLS_TEXTAREA_EDITABLE = "border border-black rounded-none bg-[#ededed] text-black font-normal text-center break-words resize-none w-full";
+const CLS_CLX_DIALOG        = "rounded-none border border-black bg-[#B3B3B3] text-black";
+const CLS_CLX_PANEL         = "border border-black bg-[#D6D6D6]";
 // Style-prop color constants (used in CSSProperties, not Tailwind)
 const COLOR_DARK_BTN        = "#3F3F3F"; // dark ESC/CLD button
 const COLOR_REVERT_BTN      = "#FFFB03"; // yellow revert-to-voice button
@@ -98,6 +114,25 @@ export default function FlightPlanDialog({
   const [hdgDialogOpen, setHdgDialogOpen] = useState(false);
   const [altDialogOpen, setAltDialogOpen] = useState(false);
   const defaultClearedAltitude = strip?.runway ? initialCflByRunway[strip.runway] : undefined;
+  const fieldStyle = (width: number) => ({
+    width: scalePx(width),
+    height: FIELD_HEIGHT,
+    fontFamily: FONT_FAMILY,
+    fontSize: FONT_SIZE_FIELD,
+  });
+  const gridGroupStyle = { gap: FIELD_GAP };
+  const rowStyle = { width: CONTENT_WIDTH, gap: FIELD_GAP };
+  const actionButtonStyle = {
+    width: ACTION_BUTTON_WIDTH,
+    height: ACTION_BUTTON_HEIGHT,
+    fontFamily: FONT_FAMILY,
+    fontWeight: "bold" as const,
+    fontSize: FONT_SIZE_BUTTON,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    cursor: "pointer",
+  };
 
   return (
     <>
@@ -106,57 +141,57 @@ export default function FlightPlanDialog({
         {strip ? (
         <DialogContent
           className={CLS_DIALOG}
-          style={{ width: 1000, maxWidth: 1000, height: isViewMode ? 1015 : 925, maxHeight: isViewMode ? 1015 : 925 }}
+          style={{ width: DIALOG_WIDTH, maxWidth: DIALOG_WIDTH, height: isViewMode ? VIEW_DIALOG_HEIGHT : CLEARANCE_DIALOG_HEIGHT, maxHeight: isViewMode ? VIEW_DIALOG_HEIGHT : CLEARANCE_DIALOG_HEIGHT, padding: DIALOG_PADDING }}
         >
           <VisuallyHidden.Root>
             <DialogTitle>Flight plan</DialogTitle>
           </VisuallyHidden.Root>
           <div
-            className={`relative border-2 border-black flex flex-col items-center gap-[30px] ${isViewMode ? "" : "flex-1 min-h-0"}`}
-            style={{ paddingTop: 30, paddingBottom: 30, color: "black" }}
+            className={`relative border-2 border-black flex flex-col items-center ${isViewMode ? "" : "flex-1 min-h-0"}`}
+            style={{ gap: PANEL_PADDING, paddingTop: PANEL_PADDING, paddingBottom: PANEL_PADDING, color: "black" }}
           >
           <span
             className={CLS_DIALOG_LABEL}
-            style={{ top: -11, left: "50%", transform: "translateX(-50%)", whiteSpace: "nowrap" }}
+            style={{ top: `calc(-1 * ${LABEL_OFFSET})`, left: "50%", transform: "translateX(-50%)", whiteSpace: "nowrap", paddingInline: scalePx(5) }}
           >
             {isViewMode ? "DEPARTURE" : "FLIGHT PLAN"}
           </span>
 
-          <div className="flex gap-[5px]" style={{ width: 835 }}>
-            <div className="grid items-center gap-[5px]">
+          <div className="flex" style={rowStyle}>
+            <div className="grid items-center" style={gridGroupStyle}>
               <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>C/S</Label>
               <Input
                 value={strip.callsign}
                 disabled
                 className={CLS_BTN_DISABLED}
-                style={{ width: 180, fontFamily: FONT_FAMILY, fontSize: FONT_SIZE_FIELD }}
+                style={fieldStyle(180)}
               />
             </div>
-            <div className="grid items-center gap-[5px]">
+            <div className="grid items-center" style={gridGroupStyle}>
               <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>ADES</Label>
               <Input
                 value={strip.destination}
                 disabled
                 className={CLS_BTN_DISABLED}
-                style={{ width: 100, fontFamily: FONT_FAMILY, fontSize: FONT_SIZE_FIELD }}
+                style={fieldStyle(100)}
               />
             </div>
-            <div className="grid items-center gap-[5px]">
+            <div className="grid items-center" style={gridGroupStyle}>
               <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>RNAV</Label>
               <Input
                 value={strip.capabilities}
                 disabled
                 className={CLS_BTN_DISABLED}
-                style={{ width: 75, fontFamily: FONT_FAMILY, fontSize: FONT_SIZE_FIELD }}
+                style={fieldStyle(75)}
               />
             </div>
-            <div className="grid items-center gap-[5px]">
+            <div className="grid items-center" style={gridGroupStyle}>
               <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>SID</Label>
               <button
                 type="button"
                 onClick={() => setSidDialogOpen(true)}
                 className={CLS_BTN_EDITABLE}
-                style={{ width: 150, fontFamily: FONT_FAMILY, fontSize: FONT_SIZE_FIELD }}
+                style={fieldStyle(150)}
               >
                 {strip.sid ?? ""}
               </button>
@@ -168,14 +203,12 @@ export default function FlightPlanDialog({
                 sids={availableSids.length > 0 ? availableSids.filter(s => s.runway === strip.runway).map(s => s.name) : undefined}
               />
             </div>
-            <div className="grid items-center gap-[5px]">
+            <div className="grid items-center" style={gridGroupStyle}>
               <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>SSR</Label>
               <Button
                 className={CLS_BTN_EDITABLE_LOCK}
                 style={{
-                  width: 100,
-                  fontFamily: FONT_FAMILY,
-                  fontSize: FONT_SIZE_FIELD,
+                  ...fieldStyle(100),
                   opacity: ssrGenerating ? 0.5 : 1,
                 }}
                 disabled={ssrGenerating}
@@ -187,29 +220,29 @@ export default function FlightPlanDialog({
                 {strip.assigned_squawk}
               </Button>
             </div>
-            <div className="grid items-center gap-[5px]">
+            <div className="grid items-center" style={gridGroupStyle}>
               <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>TTOT</Label>
               <input
                 placeholder=""
                 disabled
                 className={CLS_BTN_DISABLED_BDR}
-                style={{ width: 100, fontFamily: FONT_FAMILY, fontSize: FONT_SIZE_FIELD }}
+                style={fieldStyle(100)}
               />
             </div>
-            <div className="grid items-center gap-[5px]">
+            <div className="grid items-center" style={gridGroupStyle}>
               <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>CTOT</Label>
               <input
                 value={strip.ctot}
                 disabled
                 className={CLS_BTN_DISABLED_BDR}
-                style={{ width: 100, fontFamily: FONT_FAMILY, fontSize: FONT_SIZE_FIELD }}
+                style={fieldStyle(100)}
               />
             </div>
           </div>
 
-          <div className="flex gap-[5px] justify-between" style={{ width: 835 }}>
-            <div className="flex gap-[5px]">
-              <div className="grid items-center gap-[5px]">
+          <div className="flex justify-between" style={rowStyle}>
+            <div className="flex" style={{ gap: FIELD_GAP }}>
+              <div className="grid items-center" style={gridGroupStyle}>
                 <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>EOBT</Label>
                 <input
                   value={eobt}
@@ -221,34 +254,34 @@ export default function FlightPlanDialog({
                   }}
                   onKeyDown={(event) => event.key === "Enter" && updateStrip(callsign, { eobt })}
                   className={CLS_BTN_EDITABLE}
-                  style={{ width: 100, fontFamily: FONT_FAMILY, fontSize: FONT_SIZE_FIELD }}
+                  style={fieldStyle(100)}
                 />
               </div>
-              <div className="grid items-center gap-[5px]">
+              <div className="grid items-center" style={gridGroupStyle}>
                 <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>TOBT</Label>
                 <Input
                   value={strip.tobt}
                   disabled
                   className={CLS_BTN_DISABLED}
-                  style={{ width: 100, fontFamily: FONT_FAMILY, fontSize: FONT_SIZE_FIELD }}
+                  style={fieldStyle(100)}
                 />
               </div>
-              <div className="grid items-center gap-[5px]">
+              <div className="grid items-center" style={gridGroupStyle}>
                 <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>TSAT</Label>
                 <Input
                   value={strip.tsat}
                   disabled
                   className={CLS_BTN_DISABLED}
-                  style={{ width: 100, fontFamily: FONT_FAMILY, fontSize: FONT_SIZE_FIELD }}
+                  style={fieldStyle(100)}
                 />
               </div>
-              <div className="grid items-center gap-[5px]">
+              <div className="grid items-center" style={gridGroupStyle}>
                 <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>RWY</Label>
                 <button
                   type="button"
                   onClick={() => setRwyDialogOpen(true)}
                   className={CLS_BTN_EDITABLE}
-                  style={{ width: 150, fontFamily: FONT_FAMILY, fontSize: FONT_SIZE_FIELD }}
+                  style={fieldStyle(150)}
                 >
                   {strip.runway}
                 </button>
@@ -262,57 +295,57 @@ export default function FlightPlanDialog({
                 />
               </div>
             </div>
-            <div className="grid items-center gap-[5px]">
+            <div className="grid items-center" style={gridGroupStyle}>
               <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>REA</Label>
               <Input
                 value={strip.release_point}
                 disabled
                 className={CLS_BTN_DISABLED}
-                style={{ width: 100, fontFamily: FONT_FAMILY, fontSize: FONT_SIZE_FIELD }}
+                style={fieldStyle(100)}
               />
             </div>
           </div>
 
-          <div className="flex gap-[5px]" style={{ width: 835 }}>
-            <div className="grid items-center gap-[5px]">
+          <div className="flex" style={rowStyle}>
+            <div className="grid items-center" style={gridGroupStyle}>
               <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>TYPE</Label>
               <Input
                 value={getAircraftTypeWithWtc(strip.aircraft_type, strip.aircraft_category)}
                 disabled
                 className={CLS_BTN_DISABLED_LEFT}
-                style={{ width: 200, fontFamily: FONT_FAMILY, fontSize: FONT_SIZE_FIELD }}
+                style={fieldStyle(200)}
               />
             </div>
-            <div className="grid items-center gap-[5px]">
+            <div className="grid items-center" style={gridGroupStyle}>
               <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>FL</Label>
               <Input
                 value={strip.requested_altitude ? Math.floor(strip.requested_altitude / 100).toString() : ""}
                 disabled
                 className={CLS_BTN_DISABLED_LEFT}
-                style={{ width: 100, fontFamily: FONT_FAMILY, fontSize: FONT_SIZE_FIELD }}
+                style={fieldStyle(100)}
               />
             </div>
-            <div className="grid items-center gap-[5px]">
+            <div className="grid items-center" style={gridGroupStyle}>
               <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>SPEED</Label>
               <Input
                 defaultValue=""
                 disabled
                 className={CLS_BTN_DISABLED_LEFT}
-                style={{ width: 100, fontFamily: FONT_FAMILY, fontSize: FONT_SIZE_FIELD }}
+                style={fieldStyle(100)}
               />
             </div>
-            <div className="grid items-center gap-[5px]">
+            <div className="grid items-center" style={gridGroupStyle}>
               <Label className="font-light text-center" style={{ fontSize: FONT_SIZE_LABEL }}>STS</Label>
               <Input
                 defaultValue=""
                 disabled
                 className={CLS_BTN_DISABLED}
-                style={{ width: 420, fontFamily: FONT_FAMILY, fontSize: FONT_SIZE_FIELD }}
+                style={fieldStyle(420)}
               />
             </div>
           </div>
 
-          <div className="flex flex-col gap-[5px]" style={{ width: 835 }}>
+          <div className="flex flex-col" style={{ width: CONTENT_WIDTH, gap: FIELD_GAP }}>
             <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>ROUTE</Label>
             <textarea
               value={route}
@@ -324,58 +357,58 @@ export default function FlightPlanDialog({
               }}
               onKeyDown={(event) => event.key === "Enter" && !event.shiftKey && updateStrip(callsign, { route })}
               className={CLS_TEXTAREA_EDITABLE}
-              style={{ fontFamily: FONT_FAMILY, fontSize: FONT_SIZE_FIELD }}
+              style={{ height: TEXTAREA_HEIGHT, fontFamily: FONT_FAMILY, fontSize: FONT_SIZE_FIELD }}
             />
           </div>
 
-          <div className="flex flex-col gap-[5px]" style={{ width: 835 }}>
+          <div className="flex flex-col" style={{ width: CONTENT_WIDTH, gap: FIELD_GAP }}>
             <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>COOPANS REMARKS</Label>
             <Input
               value={strip.remarks}
               disabled
               className={`${CLS_BTN_DISABLED_NRM} w-full`}
-              style={{ fontFamily: FONT_FAMILY, fontSize: FONT_SIZE_FIELD }}
+              style={{ height: FIELD_HEIGHT, fontFamily: FONT_FAMILY, fontSize: FONT_SIZE_FIELD }}
             />
           </div>
 
-          <div className="flex gap-[5px]" style={{ width: 835 }}>
-            <div className="grid items-center gap-[5px]">
+          <div className="flex" style={rowStyle}>
+            <div className="grid items-center" style={gridGroupStyle}>
               <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>NITOS REMARKS</Label>
               <Input
                 value={strip.pdc_request_remarks ?? ""}
                 disabled
                 className={CLS_BTN_DISABLED_NRM}
-                style={{ width: 700, fontFamily: FONT_FAMILY, fontSize: FONT_SIZE_FIELD }}
+                style={fieldStyle(700)}
               />
             </div>
-            <div className="grid items-center gap-[5px]">
+            <div className="grid items-center" style={gridGroupStyle}>
               <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>IATA TYPE</Label>
               <Input
                 defaultValue=""
                 disabled
                 className={CLS_BTN_DISABLED}
-                style={{ width: 130, fontFamily: FONT_FAMILY, fontSize: FONT_SIZE_FIELD }}
+                style={fieldStyle(130)}
               />
             </div>
           </div>
 
-          <div className="flex justify-between" style={{ width: 835 }}>
-            <div className="grid items-center gap-[5px]">
+          <div className="flex justify-between" style={{ width: CONTENT_WIDTH }}>
+            <div className="grid items-center" style={gridGroupStyle}>
               <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>CLIMB GR.</Label>
               <Input
                 defaultValue=""
                 disabled
                 className={CLS_BTN_DISABLED}
-                style={{ width: 125, fontFamily: FONT_FAMILY, fontSize: FONT_SIZE_FIELD }}
+                style={fieldStyle(125)}
               />
             </div>
-            <div className="grid items-center gap-[5px]">
+            <div className="grid items-center" style={gridGroupStyle}>
               <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>HDG</Label>
               <button
                 type="button"
                 onClick={() => setHdgDialogOpen(true)}
                 className={CLS_BTN_EDITABLE}
-                style={{ width: 125, fontFamily: FONT_FAMILY, fontSize: FONT_SIZE_FIELD }}
+                style={fieldStyle(125)}
               >
                 {strip.heading ? strip.heading.toString().padStart(3, "0") : ""}
               </button>
@@ -386,13 +419,13 @@ export default function FlightPlanDialog({
                 onSelect={(heading) => updateStrip(callsign, { heading: heading ?? 0 })}
               />
             </div>
-            <div className="grid items-center gap-[5px]">
+            <div className="grid items-center" style={gridGroupStyle}>
               <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>ALT</Label>
               <button
                 type="button"
                 onClick={() => setAltDialogOpen(true)}
                 className={CLS_BTN_EDITABLE}
-                style={{ width: 125, fontFamily: FONT_FAMILY, fontSize: FONT_SIZE_FIELD }}
+                style={fieldStyle(125)}
               >
                 {strip.cleared_altitude ? formatAltitude(strip.cleared_altitude, transitionAltitude) : ""}
               </button>
@@ -407,25 +440,25 @@ export default function FlightPlanDialog({
                 }}
               />
             </div>
-            <div className="grid items-center gap-[5px]">
+            <div className="grid items-center" style={gridGroupStyle}>
               <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>DE-ICE</Label>
               <Input
                 defaultValue=""
                 disabled
                 className={CLS_BTN_DISABLED}
-                style={{ width: 125, fontFamily: FONT_FAMILY, fontSize: FONT_SIZE_FIELD }}
+                style={fieldStyle(125)}
               />
             </div>
-            <div className="grid items-center gap-[5px]">
+            <div className="grid items-center" style={gridGroupStyle}>
               <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>REG</Label>
               <Input
                 defaultValue=""
                 disabled
                 className={CLS_BTN_DISABLED}
-                style={{ width: 125, fontFamily: FONT_FAMILY, fontSize: FONT_SIZE_FIELD }}
+                style={fieldStyle(125)}
               />
             </div>
-            <div className="grid items-center gap-[5px]" style={{ width: 125 }}>
+            <div className="grid items-center" style={{ width: scalePx(125), gap: FIELD_GAP }}>
               <Label htmlFor="stand" className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>
                 Stand
               </Label>
@@ -437,8 +470,8 @@ export default function FlightPlanDialog({
                   setDialogOpen(false);
                   setStandOpen(true);
                 }}
-                className="border-black rounded-none text-black font-bold text-[18px] w-full text-center cursor-pointer h-[50px]"
-                style={{ fontFamily: FONT_FAMILY }}
+                className="border-black rounded-none text-black font-bold w-full text-center cursor-pointer"
+                style={{ height: FIELD_HEIGHT, fontFamily: FONT_FAMILY, fontSize: scalePx(18) }}
               />
             </div>
           </div>
@@ -447,80 +480,72 @@ export default function FlightPlanDialog({
           {isViewMode && (
             <div
               className="relative border-2 border-black flex flex-col items-center border-t-0"
-              style={{ paddingTop: 20, paddingBottom: 20, color: "black" }}
+              style={{ paddingTop: COMPACT_PANEL_PADDING, paddingBottom: COMPACT_PANEL_PADDING, color: "black" }}
             >
               <span
                 className={CLS_DIALOG_LABEL}
-                style={{ top: -11, left: "50%", transform: "translateX(-50%)", whiteSpace: "nowrap" }}
+                style={{ top: `calc(-1 * ${LABEL_OFFSET})`, left: "50%", transform: "translateX(-50%)", whiteSpace: "nowrap", paddingInline: scalePx(5) }}
               >
                 ARRIVAL
               </span>
-              <div className="flex justify-between" style={{ width: 835 }}>
-                <div className="grid items-center gap-[5px]">
+              <div className="flex justify-between" style={{ width: CONTENT_WIDTH }}>
+                <div className="grid items-center" style={gridGroupStyle}>
                   <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>ADEP</Label>
                   <Input
                     value={strip.origin}
                     disabled
                     className={CLS_BTN_DISABLED}
-                    style={{ width: 150, fontFamily: FONT_FAMILY, fontSize: FONT_SIZE_FIELD }}
+                    style={fieldStyle(150)}
                   />
                 </div>
-                <div className="grid items-center gap-[5px]">
+                <div className="grid items-center" style={gridGroupStyle}>
                   <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>STAR</Label>
                   <Input
                     defaultValue=""
                     disabled
                     className={CLS_BTN_DISABLED}
-                    style={{ width: 150, fontFamily: FONT_FAMILY, fontSize: FONT_SIZE_FIELD }}
+                    style={fieldStyle(150)}
                   />
                 </div>
-                <div className="grid items-center gap-[5px]">
+                <div className="grid items-center" style={gridGroupStyle}>
                   <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>RWY</Label>
                   <Input
                     defaultValue=""
                     disabled
                     className={CLS_BTN_DISABLED}
-                    style={{ width: 150, fontFamily: FONT_FAMILY, fontSize: FONT_SIZE_FIELD }}
+                    style={fieldStyle(150)}
                   />
                 </div>
-                <div className="grid items-center gap-[5px]">
+                <div className="grid items-center" style={gridGroupStyle}>
                   <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>ETA</Label>
                   <Input
                     value={strip.eldt ?? ""}
                     disabled
                     className={CLS_BTN_DISABLED}
-                    style={{ width: 150, fontFamily: FONT_FAMILY, fontSize: FONT_SIZE_FIELD }}
+                    style={fieldStyle(150)}
                   />
                 </div>
-                <div className="grid items-center gap-[5px]">
+                <div className="grid items-center" style={gridGroupStyle}>
                   <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>AOBT</Label>
                   <Input
                     defaultValue=""
                     disabled
                     className={CLS_BTN_DISABLED}
-                    style={{ width: 150, fontFamily: FONT_FAMILY, fontSize: FONT_SIZE_FIELD }}
+                    style={fieldStyle(150)}
                   />
                 </div>
               </div>
             </div>
           )}
 
-          <div className={`flex flex-row items-center justify-center ${isViewMode ? "pt-2" : "pt-3"}`}>
+          <div className="flex flex-row items-center justify-center" style={{ paddingTop: isViewMode ? scalePx(8) : scalePx(12) }}>
             {isViewMode ? (
               <button
                 onClick={() => setDialogOpen(false)}
                 style={{
-                  width: 125,
-                  height: 70,
+                  ...actionButtonStyle,
                   backgroundColor: COLOR_DARK_BTN,
                   color: "white",
-                  fontFamily: FONT_FAMILY,
-                  fontWeight: "bold",
-                  fontSize: FONT_SIZE_BUTTON,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  cursor: "pointer",
                 }}
               >
                 OK
@@ -530,22 +555,14 @@ export default function FlightPlanDialog({
                 <button
                   onClick={() => setDialogOpen(false)}
                   style={{
-                    width: 125,
-                    height: 70,
+                    ...actionButtonStyle,
                     backgroundColor: COLOR_DARK_BTN,
                     color: "white",
-                    fontFamily: FONT_FAMILY,
-                    fontWeight: "bold",
-                    fontSize: FONT_SIZE_BUTTON,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    cursor: "pointer",
                   }}
                 >
                   ESC
                 </button>
-                <div className="flex flex-row items-center gap-2 ml-auto">
+                <div className="ml-auto flex flex-row items-center" style={{ gap: scalePx(8) }}>
                   {(strip.pdc_state === "REQUESTED" || strip.pdc_state === "REQUESTED_WITH_FAULTS") && (
                     <button
                       onClick={() => {
@@ -553,13 +570,13 @@ export default function FlightPlanDialog({
                         setDialogOpen(false);
                       }}
                       style={{
-                        height: 70,
+                        height: ACTION_BUTTON_HEIGHT,
                         fontFamily: FONT_FAMILY,
                         fontWeight: "bold",
                         fontSize: FONT_SIZE_BUTTON,
                         backgroundColor: COLOR_REVERT_BTN,
                         color: "black",
-                        padding: "4px 12px",
+                        padding: `${scalePx(4)} ${scalePx(12)}`,
                         whiteSpace: "nowrap",
                       }}
                     >
@@ -577,16 +594,9 @@ export default function FlightPlanDialog({
                       setDialogOpen(false);
                     }}
                     style={{
-                      width: 125,
-                      height: 70,
+                      ...actionButtonStyle,
                       backgroundColor: "#3F3F3F",
                       color: "#FFFFFF",
-                      fontFamily: FONT_FAMILY,
-                      fontWeight: "bold",
-                      fontSize: FONT_SIZE_BUTTON,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
                     }}
                   >
                     CLD
@@ -597,19 +607,19 @@ export default function FlightPlanDialog({
           </div>
         </DialogContent>
         ) : (
-        <DialogContent className={CLS_CLX_DIALOG}>
+        <DialogContent className={CLS_CLX_DIALOG} style={{ width: CLX_FALLBACK_WIDTH, padding: scalePx(16) }}>
           <VisuallyHidden.Root>
             <DialogTitle>Flight plan unavailable</DialogTitle>
           </VisuallyHidden.Root>
-          <div className={CLS_CLX_PANEL}>
-            <div className="bg-white px-4 py-3 text-center text-xl font-semibold">
+          <div className={CLS_CLX_PANEL} style={{ padding: scalePx(16) }}>
+            <div className="bg-white text-center font-semibold" style={{ padding: `${scalePx(12)} ${scalePx(16)}`, fontSize: scalePx(20) }}>
               Flight plan unavailable
             </div>
-            <p className="mt-4 text-center text-sm">
+            <p className="text-center" style={{ marginTop: scalePx(16), fontSize: scalePx(14) }}>
               The selected strip is no longer visible in the active bays.
             </p>
-            <div className="mt-4">
-              <Button variant="darkaction" className="h-12 w-full" onClick={() => setDialogOpen(false)}>
+            <div style={{ marginTop: scalePx(16) }}>
+              <Button variant="darkaction" className="w-full" style={{ height: CLX_FALLBACK_BUTTON_HEIGHT, fontSize: FONT_SIZE_BUTTON }} onClick={() => setDialogOpen(false)}>
                 ESC
               </Button>
             </div>

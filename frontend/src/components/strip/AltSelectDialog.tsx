@@ -1,34 +1,87 @@
-import { useState, useRef, useEffect } from "react";
+import type { CSSProperties } from "react";
+import { useEffect, useRef, useState } from "react";
+
 import {
   Dialog,
   DialogContent,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { useTransitionAltitude } from "@/store/store-hooks";
 import { formatAltitude } from "@/lib/utils";
+import { useTransitionAltitude } from "@/store/store-hooks";
+import { scalePx, toDvh, toVw } from "@/lib/viewportScale";
 
-// Pre-defined altitude values in feet (1500, 2500, 3000, 4000, 5000, 7000).
 const ALT_PRESET_VALUES = [1500, 2500, 3000, 4000, 5000, 7000];
 
-// Tailwind class constants (hex must be literal strings for JIT) — styled to match ALT.svg
-const CLS_DIALOG_BG =
-  "bg-[#B3B3B3] border border-black p-0 w-[301px] max-w-none max-h-none gap-0 overflow-hidden [&>button]:hidden";
-const CLS_PANEL =
-  "mx-[15px] mt-[18px] mb-0 border border-black flex flex-col justify-between";
-const CLS_GRID =
-  "grid grid-cols-2 gap-x-[32px] gap-y-[15px] p-5 pt-[20px] pb-[12px]";
-const CLS_ALT_BTN =
-  "w-[99px] h-[55px] bg-[#D6D6D6] text-black font-semibold text-[28px] shadow-[0_4px_4px_rgba(0,0,0,0.25)] outline-none active:brightness-95 rounded-none border-0";
-const CLS_ALT_BTN_ACTIVE =
-  "w-[99px] h-[55px] bg-[#1BFF16] text-black font-semibold text-[28px] shadow-[0_4px_4px_rgba(0,0,0,0.25)] outline-none active:brightness-95 rounded-none border-0";
-const CLS_CUSTOM_INPUT =
-  "w-full h-[54px] bg-[#FDFDFD] border-0 text-black font-semibold text-[28px] text-center shadow-[0_4px_4px_rgba(0,0,0,0.25)] outline-none rounded-none my-4";
-const CLS_BOTTOM_ROW =
-  "flex items-center justify-around px-[24px] pb-[24px] pt-[8px]";
-const CLS_BOTTOM_BTN =
-  "w-[99px] h-[55px] bg-[#3F3F3F] text-white font-semibold text-[28px] shadow-[0_4px_4px_rgba(0,0,0,0.25)] outline-none active:brightness-90 rounded-none border-0";
+const DIALOG_SHADOW = `0 ${scalePx(4)} ${scalePx(4)} rgba(0,0,0,0.25)`;
+const dialogContentClassName = "max-w-none max-h-none gap-0 overflow-hidden p-0 [&>button]:hidden";
 
-/** Altitude in feet. Returns 0–50000 if valid, otherwise undefined. */
+const panelStyle: CSSProperties = {
+  marginLeft: toVw(15),
+  marginRight: toVw(15),
+  marginTop: toDvh(18),
+  border: "1px solid black",
+  display: "flex",
+  flexDirection: "column",
+  justifyContent: "space-between",
+};
+
+const gridStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(2, 1fr)",
+  justifyItems: "center",
+  columnGap: toVw(32),
+  rowGap: toDvh(15),
+  padding: `${toDvh(20)} ${scalePx(20)} ${toDvh(12)}`,
+};
+
+const altButtonStyle: CSSProperties = {
+  width: toVw(99),
+  height: toDvh(55),
+  color: "black",
+  fontWeight: 600,
+  fontSize: toVw(28),
+  boxShadow: DIALOG_SHADOW,
+  outline: "none",
+  borderRadius: 0,
+  border: 0,
+};
+
+const customInputStyle: CSSProperties = {
+  width: "100%",
+  height: toDvh(54),
+  background: "#FDFDFD",
+  border: 0,
+  color: "black",
+  fontWeight: 600,
+  fontSize: toVw(28),
+  textAlign: "center",
+  boxShadow: DIALOG_SHADOW,
+  outline: "none",
+  borderRadius: 0,
+  marginTop: scalePx(16),
+  marginBottom: scalePx(16),
+};
+
+const bottomRowStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-around",
+  padding: `${toDvh(8)} ${toVw(24)} ${toDvh(24)}`,
+};
+
+const bottomButtonStyle: CSSProperties = {
+  width: toVw(99),
+  height: toDvh(55),
+  background: "#3F3F3F",
+  color: "white",
+  fontWeight: 600,
+  fontSize: toVw(28),
+  boxShadow: DIALOG_SHADOW,
+  outline: "none",
+  borderRadius: 0,
+  border: 0,
+};
+
 function parseAlt(s: string): number | undefined {
   if (s.trim() === "") return undefined;
   const n = parseInt(s, 10);
@@ -62,7 +115,7 @@ export function AltSelectDialog({
       const presetMatch =
         currentAlt != null && ALT_PRESET_VALUES.includes(currentAlt);
       setCustomInput(
-        currentAlt != null && !presetMatch ? String(currentAlt) : ""
+        currentAlt != null && !presetMatch ? String(currentAlt) : "",
       );
       setCustomInvalid(false);
     }
@@ -97,24 +150,26 @@ export function AltSelectDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className={CLS_DIALOG_BG}>
+      <DialogContent
+        className={dialogContentClassName}
+        style={{ width: toVw(301), backgroundColor: "#B3B3B3", border: "1px solid black" }}
+      >
         <DialogTitle className="sr-only">Select altitude</DialogTitle>
-        <div className={CLS_PANEL}>
-          <div className={CLS_GRID}>
+        <div style={panelStyle}>
+          <div style={gridStyle}>
             {ALT_PRESET_VALUES.map((alt) => (
               <button
                 key={alt}
                 type="button"
-                className={
-                  currentAlt === alt ? CLS_ALT_BTN_ACTIVE : CLS_ALT_BTN
-                }
+                className="active:brightness-95"
+                style={{ ...altButtonStyle, background: currentAlt === alt ? "#1BFF16" : "#D6D6D6" }}
                 onClick={() => handleSelect(alt)}
               >
                 {formatAltitude(alt, transitionAltitude)}
               </button>
             ))}
           </div>
-          <div className="px-5">
+          <div style={{ paddingInline: scalePx(20) }}>
             <input
               ref={inputRef}
               type="text"
@@ -131,8 +186,8 @@ export function AltSelectDialog({
               onKeyDown={(e) => {
                 if (e.key === "Enter") handleCustomSubmit();
               }}
-              className={CLS_CUSTOM_INPUT}
               style={{
+                ...customInputStyle,
                 fontFamily: "Rubik, Arial, sans-serif",
                 ...(customInvalid
                   ? { border: "2px solid #b91c1c", boxShadow: "0 0 0 1px #b91c1c" }
@@ -142,18 +197,23 @@ export function AltSelectDialog({
               aria-describedby={customInvalid ? "alt-custom-error" : undefined}
             />
             {customInvalid && (
-              <p id="alt-custom-error" className="text-red-700 text-sm mt-1 text-center">
+              <p
+                id="alt-custom-error"
+                className="text-red-700 text-center"
+                style={{ fontSize: scalePx(14), marginTop: scalePx(4) }}
+              >
                 Enter 0–50000 ft
               </p>
             )}
           </div>
-          <div className={CLS_BOTTOM_ROW}>
-            <button type="button" className={CLS_BOTTOM_BTN} onClick={handleErase}>
+          <div style={bottomRowStyle}>
+            <button type="button" className="active:brightness-90" style={bottomButtonStyle} onClick={handleErase}>
               ERASE
             </button>
             <button
               type="button"
-              className={CLS_BOTTOM_BTN}
+              className="active:brightness-90"
+              style={bottomButtonStyle}
               onClick={() => onOpenChange(false)}
             >
               ESC

@@ -2,8 +2,9 @@ import { useState } from "react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { useStrips, useWebSocketStore, useMetar } from "@/store/store-hooks";
 import { decodeMetar } from "@/lib/metarDecode";
+import { scalePx } from "@/lib/viewportScale";
 
-const DROP_SHADOW = "0 4px 4px rgba(0,0,0,0.25)";
+const DROP_SHADOW = `0 ${scalePx(4)} ${scalePx(4)} rgba(0,0,0,0.25)`;
 const BG = "#D5D5D5";
 const BTN_GRAY = "#9E989C";
 const BTN_DARK = "#3F3F3F";
@@ -12,11 +13,11 @@ const FONT = "'Rubik', sans-serif";
 
 function btnGray(width: number, height = 26): React.CSSProperties {
   return {
-    width,
-    height,
+    width: scalePx(width),
+    height: scalePx(height),
     background: BTN_GRAY,
     border: "none",
-    fontSize: 14,
+    fontSize: scalePx(14),
     fontWeight: 600,
     fontFamily: FONT,
     cursor: "pointer",
@@ -35,19 +36,19 @@ function toggleBtn(active: boolean, width = 55, height = 26): React.CSSPropertie
 const S: Record<string, React.CSSProperties> = {
   root: {
     background: BG,
-    width: 529,
+    width: scalePx(529),
     maxWidth: "95vw",
-    padding: "6px 22px 16px",
+    padding: `${scalePx(6)} ${scalePx(22)} ${scalePx(16)}`,
     fontFamily: FONT,
     color: "#000",
     display: "flex",
     flexDirection: "column",
-    gap: 10,
+    gap: scalePx(10),
     overflowY: "auto",
     maxHeight: "95dvh",
   },
   title: {
-    fontSize: 16,
+    fontSize: scalePx(16),
     fontWeight: 300,
     textAlign: "center",
     marginBottom: 0,
@@ -55,82 +56,82 @@ const S: Record<string, React.CSSProperties> = {
   },
   section: {
     border: "1px solid black",
-    padding: "6px 12px 8px",
+    padding: `${scalePx(6)} ${scalePx(12)} ${scalePx(8)}`,
   },
   label: {
-    fontSize: 14,
+    fontSize: scalePx(14),
     fontWeight: 300,
     fontFamily: FONT,
-    marginBottom: 4,
+    marginBottom: scalePx(4),
     display: "block",
   },
   row: {
     display: "flex",
     alignItems: "center",
-    gap: 8,
+    gap: scalePx(8),
   },
   inputWide: {
-    width: 195,
-    height: 25,
+    width: scalePx(195),
+    height: scalePx(25),
     background: INPUT_BG,
     border: "1px solid black",
-    fontSize: 14,
+    fontSize: scalePx(14),
     fontFamily: FONT,
-    padding: "0 6px",
+    padding: `0 ${scalePx(6)}`,
     flexShrink: 0,
     textTransform: "uppercase" as const,
   },
   inputSmall: {
-    width: 68,
-    height: 25,
+    width: scalePx(68),
+    height: scalePx(25),
     background: INPUT_BG,
     border: "1px solid black",
-    fontSize: 20,
+    fontSize: scalePx(20),
     fontFamily: FONT,
-    padding: "0 6px",
+    padding: `0 ${scalePx(6)}`,
     flexShrink: 0,
   },
   inputRemarks: {
-    width: 361,
-    height: 25,
+    width: scalePx(361),
+    height: scalePx(25),
     background: INPUT_BG,
     border: "1px solid black",
-    fontSize: 14,
+    fontSize: scalePx(14),
     fontFamily: FONT,
-    padding: "0 6px",
+    padding: `0 ${scalePx(6)}`,
     flexShrink: 0,
   },
   displayBox: {
-    width: 68,
-    height: 25,
+    width: scalePx(68),
+    height: scalePx(25),
     background: INPUT_BG,
     border: "1px solid black",
-    fontSize: 20,
+    fontSize: scalePx(20),
     fontFamily: FONT,
     display: "flex",
     alignItems: "center",
-    paddingLeft: 6,
+    paddingLeft: scalePx(6),
     flexShrink: 0,
   },
   spacer: { flex: 1 },
   presetsRow: {
     display: "flex",
-    gap: 4,
-    marginTop: 8,
+    gap: scalePx(4),
+    marginTop: scalePx(8),
     flexWrap: "wrap" as const,
   },
   numpadContainer: {
     display: "grid",
-    gridTemplateColumns: "repeat(3, 26px)",
-    gap: 4,
+    gridTemplateColumns: `repeat(3, ${scalePx(26)})`,
+    gap: scalePx(4),
     flexShrink: 0,
   },
   numKey: {
-    width: 26,
-    height: 26,
+    width: scalePx(26),
+    height: scalePx(26),
     background: BTN_GRAY,
     border: "none",
-    fontSize: 14,
+    fontSize: scalePx(14),
     fontWeight: 600,
     fontFamily: FONT,
     cursor: "pointer",
@@ -142,14 +143,14 @@ const S: Record<string, React.CSSProperties> = {
   footer: {
     display: "flex",
     justifyContent: "space-between",
-    marginTop: 4,
+    marginTop: scalePx(4),
   },
   btnDark: {
-    width: 66,
-    height: 37,
+    width: scalePx(66),
+    height: scalePx(37),
     background: BTN_DARK,
     border: "none",
-    fontSize: 24,
+    fontSize: scalePx(24),
     fontWeight: 600,
     fontFamily: FONT,
     color: "#fff",
@@ -157,11 +158,11 @@ const S: Record<string, React.CSSProperties> = {
     boxShadow: DROP_SHADOW,
   },
   btnDarkDisabled: {
-    width: 66,
-    height: 37,
+    width: scalePx(66),
+    height: scalePx(37),
     background: "#888",
     border: "none",
-    fontSize: 24,
+    fontSize: scalePx(24),
     fontWeight: 600,
     fontFamily: FONT,
     color: "#bbb",
@@ -275,7 +276,7 @@ export function NewVfrDialog({ open, onOpenChange, initialCallsign = "" }: Props
             <button style={btnGray(110)} onClick={() => { setCallsign(""); setCallsignError(null); }}>ERASE</button>
           </div>
           {callsignError && (
-            <div style={{ color: "#cc0000", fontSize: 12, marginTop: 4 }}>{callsignError}</div>
+            <div style={{ color: "#cc0000", fontSize: scalePx(12), marginTop: scalePx(4) }}>{callsignError}</div>
           )}
         </div>
 
@@ -299,7 +300,7 @@ export function NewVfrDialog({ open, onOpenChange, initialCallsign = "" }: Props
         </div>
 
         {/* PERSONS ONBOARD */}
-        <div style={{ ...S.section, display: "flex", gap: 16, alignItems: "flex-start" }}>
+        <div style={{ ...S.section, display: "flex", gap: scalePx(16), alignItems: "flex-start" }}>
           <div style={{ flex: 1 }}>
             <span style={S.label}>PERSONS ONBOARD</span>
             <div style={S.row}>
@@ -383,7 +384,7 @@ export function NewVfrDialog({ open, onOpenChange, initialCallsign = "" }: Props
               <button key={p} style={btnGray(100)} onClick={() => appendRemark(p)}>{p}</button>
             ))}
           </div>
-          <div style={{ ...S.presetsRow, marginTop: 4 }}>
+          <div style={{ ...S.presetsRow, marginTop: scalePx(4) }}>
             {["VALLENBÆK", "ELLEHAMMER", "NORDHAVN"].map(p => (
               <button key={p} style={btnGray(132)} onClick={() => appendRemark(p)}>{p}</button>
             ))}

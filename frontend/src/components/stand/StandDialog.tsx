@@ -9,6 +9,7 @@ import * as VisuallyHidden from "@radix-ui/react-visually-hidden"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import StandMap from "./StandMap"
+import { scalePx } from "@/lib/viewportScale"
 
 interface StandDialogProps {
   value: string;
@@ -26,14 +27,14 @@ export default function StandDialog({ value, onSelect }: StandDialogProps) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <div className="grid items-center gap-[5px]">
-          <Label htmlFor="stand" className="font-light text-[16px]">Stand</Label>
+        <div className="grid items-center" style={{ gap: scalePx(5) }}>
+          <Label htmlFor="stand" className="font-light" style={{ fontSize: scalePx(16) }}>Stand</Label>
           <Input
             id="stand"
             value={value}
             readOnly
-            className="border-black rounded-none text-black font-bold text-[18px] w-full text-center cursor-pointer h-[50px]"
-            style={{ fontFamily: 'Arial' }}
+            className="border-black rounded-none text-black font-bold w-full text-center cursor-pointer"
+            style={{ fontFamily: 'Arial', fontSize: scalePx(18), height: scalePx(50) }}
           />
         </div>
       </DialogTrigger>

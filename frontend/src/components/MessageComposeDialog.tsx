@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Dialog, DialogContent } from "@/components/ui/dialog.tsx";
 import { useWebSocketStore } from "@/store/store-hooks.ts";
 import { MESSAGE_MAX_CHARS } from "@/components/strip/MessageStrip.tsx";
+import { scalePx, toVw } from "@/lib/viewportScale";
 
 const PREDEFINED_MESSAGES = [
   "RUNWAY CHANGE TO 04R/04L",
@@ -23,12 +24,12 @@ const AREA_PAIRS: [string, string][] = [
 
 const ALWAYS_RED = new Set(["GND EAST"]);
 
-const DROP_SHADOW = "0 4px 4px rgba(0,0,0,0.25)";
+const DROP_SHADOW = `0 ${scalePx(4)} ${scalePx(4)} rgba(0,0,0,0.25)`;
 
 const BTN: React.CSSProperties = {
   fontFamily: "Rubik, sans-serif",
   fontWeight: 600,
-  fontSize: 24,
+  fontSize: scalePx(24),
   border: "none",
   cursor: "pointer",
   color: "#000",
@@ -100,9 +101,8 @@ export function MessageComposeDialog({ open, onClose }: Props) {
           background: "#E4E4E4",
           border: "1px solid black",
           color: "#000",
-          // 1300px ≈ SVG 1291px; scales down to 95vw on smaller screens
-          width: "min(1300px, 95vw)",
-          padding: "20px 51px",
+          width: `min(${toVw(1300)}, 95vw)`,
+          padding: `${scalePx(20)} ${scalePx(51)}`,
           display: "flex",
           flexDirection: "column",
           gap: 0,
@@ -112,9 +112,9 @@ export function MessageComposeDialog({ open, onClose }: Props) {
         <div style={{
           textAlign: "center",
           fontFamily: "Rubik, sans-serif",
-          fontSize: 24,
+          fontSize: scalePx(24),
           fontWeight: 300,
-          marginBottom: 16,
+          marginBottom: scalePx(16),
         }}>
           FREE TEXT
         </div>
@@ -123,16 +123,16 @@ export function MessageComposeDialog({ open, onClose }: Props) {
         <textarea
           style={{
             width: "100%",
-            height: 113,
+            height: scalePx(113),
             background: "#FCFCFC",
             border: "1px solid black",
             fontFamily: "Rubik, sans-serif",
-            fontSize: 24,
-            padding: "8px 12px",
+            fontSize: scalePx(24),
+            padding: `${scalePx(8)} ${scalePx(12)}`,
             resize: "none",
             boxSizing: "border-box",
             boxShadow: DROP_SHADOW,
-            marginBottom: 28,
+            marginBottom: scalePx(28),
           }}
           maxLength={MESSAGE_MAX_CHARS}
           value={text}
@@ -143,7 +143,7 @@ export function MessageComposeDialog({ open, onClose }: Props) {
         {/* Main row: left (flex 362) + fixed 55px gap + right (flex 707) */}
         <div style={{
           display: "flex",
-          gap: 55,
+          gap: scalePx(55),
           alignItems: "flex-start",
         }}>
 
@@ -153,8 +153,7 @@ export function MessageComposeDialog({ open, onClose }: Props) {
               minWidth: 0,
               background: "#B3B3B3",
               border: "1px solid black",
-              // padding scaled to match SVG: top=29, left=34, right=22, bottom=19
-              padding: "29px 22px 19px 34px",
+              padding: `${scalePx(29)} ${scalePx(22)} ${scalePx(19)} ${scalePx(34)}`,
               display: "flex",
               flexDirection: "column",
               boxSizing: "border-box",
@@ -164,7 +163,7 @@ export function MessageComposeDialog({ open, onClose }: Props) {
                 style={{
                   ...BTN,
                   width: "100%",
-                  height: 55,
+                  height: scalePx(55),
                   background: broadcastSelected ? "#70ED45" : "#D6D6D6",
                 }}
                 onClick={handleBroadcast}
@@ -173,25 +172,25 @@ export function MessageComposeDialog({ open, onClose }: Props) {
               </button>
 
               {/* 25px gap below BROADCAST — larger than between area rows */}
-              <div style={{ height: 25 }} />
+              <div style={{ height: scalePx(25) }} />
 
               {/* 2-column area grid, equal columns, 14px gap */}
               <div style={{
                 display: "grid",
                 gridTemplateColumns: "1fr 1fr",
-                gap: 14,
+                gap: scalePx(14),
               }}>
                 {AREA_PAIRS.flatMap(([left, right]) => [
                   <button
                     key={left}
-                    style={{ ...BTN, height: 55, background: areaBg(left) }}
+                    style={{ ...BTN, height: scalePx(55), background: areaBg(left) }}
                     onClick={() => toggleArea(left)}
                   >
                     {left}
                   </button>,
                   <button
                     key={right}
-                    style={{ ...BTN, height: 55, background: areaBg(right) }}
+                    style={{ ...BTN, height: scalePx(55), background: areaBg(right) }}
                     onClick={() => toggleArea(right)}
                   >
                     {right}
@@ -202,20 +201,19 @@ export function MessageComposeDialog({ open, onClose }: Props) {
 
             {/* Right column: proportional width (707 parts of 1069) */}
             <div style={{ flex: "707 0 0", minWidth: 0 }}>
-              {/* 8 messages: 42px height, 8px gap → all visible, no scroll */}
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: scalePx(8) }}>
                 {PREDEFINED_MESSAGES.map((msg, i) => (
                   <button
                     key={i}
                     style={{
                       textAlign: "left",
-                      padding: "0 12px",
+                      padding: `0 ${scalePx(12)}`,
                       fontFamily: "Rubik, sans-serif",
-                      fontSize: 24,
+                      fontSize: scalePx(24),
                       fontWeight: 400,
                       border: "none",
                       cursor: "pointer",
-                      height: 42,
+                      height: scalePx(42),
                       background: selectedPredefined === i ? "#1BFF16" : "#D6D6D6",
                       color: "#000",
                       boxShadow: DROP_SHADOW,
@@ -227,17 +225,16 @@ export function MessageComposeDialog({ open, onClose }: Props) {
                 ))}
               </div>
 
-              {/* ERASE + OK: 200px each, 37px apart, 11px below messages */}
-              <div style={{ display: "flex", gap: 37, marginTop: 11 }}>
+              <div style={{ display: "flex", gap: scalePx(37), marginTop: scalePx(11) }}>
                 <button
                   style={{
-                    width: 200,
-                    height: 70,
+                    width: scalePx(200),
+                    height: scalePx(70),
                     background: "#3F3F3F",
                     color: "#fff",
                     fontFamily: "Rubik, sans-serif",
                     fontWeight: 600,
-                    fontSize: 32,
+                    fontSize: scalePx(32),
                     border: "none",
                     cursor: "pointer",
                     boxShadow: DROP_SHADOW,
@@ -248,13 +245,13 @@ export function MessageComposeDialog({ open, onClose }: Props) {
                 </button>
                 <button
                   style={{
-                    width: 200,
-                    height: 70,
+                    width: scalePx(200),
+                    height: scalePx(70),
                     background: "#3F3F3F",
                     color: "#fff",
                     fontFamily: "Rubik, sans-serif",
                     fontWeight: 600,
-                    fontSize: 32,
+                    fontSize: scalePx(32),
                     border: "none",
                     cursor: "pointer",
                     boxShadow: DROP_SHADOW,

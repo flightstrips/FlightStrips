@@ -2,6 +2,7 @@
 /// <reference types="vite-plugin-pwa/client" />
 
 interface AppConfig {
+  deploymentVersion?: string;
   wsUrl?: string;
   apiBaseUrl?: string;
   clientId?: string;

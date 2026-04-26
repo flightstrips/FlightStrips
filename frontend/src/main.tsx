@@ -19,9 +19,9 @@ import PilotFlightPage from "@/pages/pilot-flight";
 import { withAuthenticationRequired } from '@auth0/auth0-react';
 import DocsRouter from "@/pages/docs/DocsRouter";
 import { ThemeSync } from "@/components/public/ThemeSync";
-import { registerSW } from "virtual:pwa-register";
+import { startAppUpdateMonitoring } from "@/lib/app-update";
 
-registerSW({ immediate: true });
+startAppUpdateMonitoring();
 
 const MyProtectedComponent = withAuthenticationRequired(Layout);
 

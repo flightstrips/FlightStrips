@@ -52,6 +52,7 @@ services:
     image: ghcr.io/flightstrips/frontend:latest
     restart: unless-stopped
     environment:
+      APP_VERSION: ${APP_VERSION:-}
       WS_URL: ${WS_URL}
       OIDC_FRONTEND_CLIENT_ID: ${OIDC_FRONTEND_CLIENT_ID}
       OIDC_AUDIENCE: ${OIDC_AUDIENCE}

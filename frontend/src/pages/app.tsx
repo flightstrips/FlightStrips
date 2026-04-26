@@ -3,7 +3,9 @@ import { WebSocketProvider } from "@/providers/websocket-provider";
 import CommandBar from "@/components/commandbar/CommandBar";
 import AppRouter from "@/routes/AppRouter";
 import { StripContextMenu } from "@/components/strip/StripContextMenu";
+import AppUpdateNotifier from "@/components/AppUpdateNotifier";
 import { useContextMenu, useCloseStripContextMenu } from "@/store/store-hooks";
+import { Toaster } from "sonner";
 
 function ContextMenuOverlay() {
   const contextMenu = useContextMenu();
@@ -38,13 +40,17 @@ export default function AppPage() {
   }
 
   return (
-    <WebSocketProvider url={wsUrl}>
-      <div>
-        <AppRouter />
-        <CommandBar />
-        <ContextMenuOverlay />
-        {/* <CustomCursor /> */}
-      </div>
-    </WebSocketProvider>
+    <>
+      <Toaster richColors position="top-right" />
+      <AppUpdateNotifier />
+      <WebSocketProvider url={wsUrl}>
+        <div>
+          <AppRouter />
+          <CommandBar />
+          <ContextMenuOverlay />
+          {/* <CustomCursor /> */}
+        </div>
+      </WebSocketProvider>
+    </>
   );
 }

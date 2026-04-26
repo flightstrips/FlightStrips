@@ -68,6 +68,47 @@ func TestHandleReleasePoint_NonOwner_ExistingValue_MarksUnexpected(t *testing.T)
 	assert.Equal(t, testCallsign, hub.StripUpdates[0].Callsign)
 }
 
+func TestHandleReleasePoint_NonOwner_ExistingValueWithActiveValidation_MarksUnexpected(t *testing.T) {
+	ctx := context.Background()
+
+	var appendedField string
+	var updatedReleasePoint string
+
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			return &models.Strip{
+				Callsign:     testCallsign,
+				Owner:        ptr(ownerPosition),
+				ReleasePoint: ptr("K"),
+				ValidationStatus: &models.ValidationStatus{
+					IssueType:      "RUNWAY TYPE",
+					OwningPosition: ownerPosition,
+					Active:         true,
+					ActivationKey:  "validation-key",
+				},
+			}, nil
+		},
+		AppendUnexpectedChangeFieldFn: func(_ context.Context, _ int32, _ string, field string) error {
+			appendedField = field
+			return nil
+		},
+		UpdateReleasePointFn: func(_ context.Context, _ int32, _ string, rp *string) (int64, error) {
+			updatedReleasePoint = *rp
+			return 1, nil
+		},
+	}
+
+	svc, hub := newReleasePointFixture(stripRepo)
+
+	err := svc.ApplyReleasePoint(ctx, testSession, testCallsign, "L", nonOwnerPosition)
+	require.NoError(t, err)
+
+	assert.Equal(t, "release_point", appendedField, "expected release_point to stay coordinateable during active owner validation")
+	assert.Equal(t, "L", updatedReleasePoint, "expected release point to be updated to L")
+	require.Len(t, hub.StripUpdates, 1, "expected strip broadcast after unexpected change")
+	assert.Equal(t, testCallsign, hub.StripUpdates[0].Callsign)
+}
+
 // TestHandleReleasePoint_NonOwner_NoExistingValue_Rejected verifies that a non-owner
 // cannot set a release point on a strip that has none.
 func TestHandleReleasePoint_NonOwner_NoExistingValue_Rejected(t *testing.T) {

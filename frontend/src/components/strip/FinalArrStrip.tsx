@@ -50,6 +50,7 @@ export function FinalArrStrip({
   previousControllers,
   myPosition,
   selectable,
+  delegateCallsignClick = false,
   marked = false,
   runwayCleared = false,
   runwayConfirmed = false,
@@ -106,8 +107,8 @@ export function FinalArrStrip({
       <div
         className="flex flex-col border-r-2 min-w-0 cursor-pointer"
         style={{ flexGrow: F_CALLSIGN, flexBasis: 0, height: "100%", borderRightColor: cellBorderColor, cursor: getValidationBlockedCursor(isValidationActive), ...getValidationBlinkStyle(validationStatus, myPosition) }}
-        onClick={handleClick}
-        onContextMenu={handleContextMenu}
+        onClick={delegateCallsignClick ? undefined : handleClick}
+        onContextMenu={delegateCallsignClick ? undefined : handleContextMenu}
       >
         <div
           className="flex items-center pl-[0.42vw] overflow-hidden"

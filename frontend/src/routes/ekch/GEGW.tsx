@@ -186,6 +186,7 @@ export default function GEGW() {
             title="ARR"
             strips={inboundStrips}
             sortModes={arrSortModes}
+            rowStripStatus="FINAL-ARR"
             onRowClick={(strip) => {
               pickupStrip(strip.callsign, Bay.Final);
               setArrOpen(false);

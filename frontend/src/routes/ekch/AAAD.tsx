@@ -181,6 +181,8 @@ export default function AAAD() {
             title="ARR"
             strips={inboundStrips}
             sortModes={arrSortModes}
+            rowStripStatus="HALF"
+            rowHalfStripVariant="LOCKED-ARR"
             onRowClick={(strip) => {
               pickupStrip(strip.callsign, Bay.Final);
               setArrOpen(false);

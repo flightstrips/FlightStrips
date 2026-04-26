@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Strip } from "@/components/strip/Strip.tsx";
+import { Strip, type HalfStripVariant, type StripStatus } from "@/components/strip/Strip.tsx";
 import type { FrontendStrip } from "@/api/models.ts";
 import { ValidationStatusDialog } from "@/components/strip/ValidationStatusDialog";
 import { isValidationActiveForPosition } from "@/components/strip/shared";
@@ -8,7 +8,6 @@ import {
   DialogContent,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { COLOR_DEP_STRIP_BG } from "@/components/strip/shared";
 import { useWebSocketStore } from "@/store/store-hooks";
 
 // StripListPopup color constants
@@ -34,6 +33,9 @@ interface StripListPopupProps<T extends FrontendStrip> {
   onRowClick: (strip: T) => void;
   onDismiss: () => void;
   myPosition: string;
+  rowStripStatus?: StripStatus;
+  rowHalfStripVariant?: HalfStripVariant;
+  rowFullWidth?: boolean;
 }
 
 export function StripListPopup<T extends FrontendStrip>({
@@ -43,6 +45,9 @@ export function StripListPopup<T extends FrontendStrip>({
   onRowClick,
   onDismiss,
   myPosition,
+  rowStripStatus = "PUSH",
+  rowHalfStripVariant,
+  rowFullWidth = true,
 }: StripListPopupProps<T>) {
   const [currentSortKey, setCurrentSortKey] = useState(sortModes[0]?.key ?? "");
   const [sortDialogOpen, setSortDialogOpen] = useState(false);
@@ -184,18 +189,21 @@ export function StripListPopup<T extends FrontendStrip>({
                 <div
                   key={strip.callsign}
                   className="cursor-pointer shrink-0"
-                  style={{ background: COLOR_DEP_STRIP_BG, height: 45, overflow: "hidden" }}
+                  style={{ background: COLOR_POPUP_BG, height: 45, overflow: "hidden" }}
                   onClick={() => handleRowClick(strip)}
                 >
-                  <Strip
-                    strip={strip}
-                    status="PUSH"
-                    myPosition={myPosition}
-                    selectable={false}
-                    delegateCallsignClick={true}
-                    fullWidth={true}
-                    onStripMoved={handleDismiss}
-                  />
+                  <div style={{ height: "100%", pointerEvents: "none" }}>
+                    <Strip
+                      strip={strip}
+                      status={rowStripStatus}
+                      halfStripVariant={rowHalfStripVariant}
+                      myPosition={myPosition}
+                      selectable={false}
+                      delegateCallsignClick={true}
+                      fullWidth={rowFullWidth}
+                      onStripMoved={handleDismiss}
+                    />
+                  </div>
                 </div>
               ))}
             </div>

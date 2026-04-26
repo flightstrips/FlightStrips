@@ -182,6 +182,8 @@ export default function AD() {
             title="ARR"
             strips={inboundStrips}
             sortModes={arrSortModes}
+            rowStripStatus="HALF"
+            rowHalfStripVariant="LOCKED-ARR"
             onRowClick={(strip) => {
               pickupStrip(strip.callsign, Bay.Final);
               setArrOpen(false);

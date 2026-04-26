@@ -69,6 +69,7 @@ var cdmConfig CdmConfig
 var sectors []Sector
 var regions []Region
 var runwayRegions []Region
+var finalApproachRegions []Region
 var positions []Position
 var ownerCallsignPrefixes []string
 var airborneOwners []string

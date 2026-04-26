@@ -109,6 +109,12 @@ func injectTestRunway(t *testing.T) {
 	t.Cleanup(config.SetRunwayRegionsForTest([]config.Region{region}))
 }
 
+func injectTestFinalApproach(t *testing.T, runways []string) {
+	t.Helper()
+	region := config.MakeTestRunwayRegion("FINAL_TEST", runways, testRunwayCoords)
+	t.Cleanup(config.SetFinalApproachRegionsForTest([]config.Region{region}))
+}
+
 // buildLandingDetectionSvc creates a StripService wired up for landing-detection tests.
 // cdmCapture receives the CdmData passed to SetCdmData (nil if not called).
 // bayCapture receives the bay name passed to UpdateBayAndSequence (empty if not called).
@@ -267,6 +273,63 @@ func TestHandleArrivalPositionUpdate_MatchingRunwayRecordsAldt(t *testing.T) {
 
 	require.NotNil(t, out.cdm, "CdmData must be updated")
 	assert.NotNil(t, out.cdm.Aldt, "ALDT must be set when assigned runway matches polygon")
+}
+
+func TestHandleArrivalPositionUpdate_MovesToFinalWhenEnteringMatchingFinalZone(t *testing.T) {
+	injectTestFinalApproach(t, []string{"12"})
+
+	rwy := "12"
+	strip := &models.Strip{
+		ID:          55,
+		Callsign:    "NAX105",
+		Bay:         shared.BAY_ARR_HIDDEN,
+		Destination: "EKCH",
+		Runway:      &rwy,
+	}
+	svc, _, out := buildLandingDetectionSvc(t, strip, noCoordRepo())
+
+	svc.handleArrivalPositionUpdate(context.Background(), landingTestSession, strip.Callsign, insideLat, insideLon, int64(highAltitude), strip)
+
+	assert.Equal(t, shared.BAY_FINAL, out.bay, "strip must move to FINAL when it enters the matching final approach zone")
+	assert.Nil(t, out.cdm, "moving into FINAL must not record ALDT")
+}
+
+func TestHandleArrivalPositionUpdate_DoesNotMoveToFinalForWrongRunwayZone(t *testing.T) {
+	injectTestFinalApproach(t, []string{"22L"})
+
+	rwy := "12"
+	strip := &models.Strip{
+		ID:          56,
+		Callsign:    "NAX106",
+		Bay:         shared.BAY_ARR_HIDDEN,
+		Destination: "EKCH",
+		Runway:      &rwy,
+	}
+	svc, _, out := buildLandingDetectionSvc(t, strip, noCoordRepo())
+
+	svc.handleArrivalPositionUpdate(context.Background(), landingTestSession, strip.Callsign, insideLat, insideLon, int64(highAltitude), strip)
+
+	assert.Empty(t, out.bay, "strip must not move to FINAL when the zone is for a different runway")
+	assert.Nil(t, out.cdm, "wrong-runway final zone must not record ALDT")
+}
+
+func TestHandleArrivalPositionUpdate_DoesNotMoveToFinalWhenTooHighAboveGlideslope(t *testing.T) {
+	injectTestFinalApproach(t, []string{"12"})
+
+	rwy := "12"
+	strip := &models.Strip{
+		ID:          57,
+		Callsign:    "NAX107",
+		Bay:         shared.BAY_ARR_HIDDEN,
+		Destination: "EKCH",
+		Runway:      &rwy,
+	}
+	svc, _, out := buildLandingDetectionSvc(t, strip, noCoordRepo())
+
+	svc.handleArrivalPositionUpdate(context.Background(), landingTestSession, strip.Callsign, insideLat, insideLon, 5000, strip)
+
+	assert.Empty(t, out.bay, "strip must not move to FINAL when it is far above the glideslope ceiling")
+	assert.Nil(t, out.cdm, "high aircraft in final zone must not record ALDT")
 }
 
 // ---- TWY_ARR transition ----

@@ -131,6 +131,35 @@ func (s *StripService) handleArrivalPositionUpdate(ctx context.Context, session 
 
 	alreadyLanded := strip.CdmData != nil && strip.CdmData.Aldt != nil
 
+	if !alreadyLanded && strip.Runway != nil && *strip.Runway != "" {
+		switch strip.Bay {
+		case shared.BAY_ARR_HIDDEN, shared.BAY_AIRBORNE:
+			if finalRegion, inFinal := config.GetFinalApproachRegionForRunway(*strip.Runway, lat, lon); inFinal {
+				distanceToThresholdNM := shared.GetDistance(lat, lon, finalRegion.ThresholdLat, finalRegion.ThresholdLon)
+				altitudeCeiling := finalRegion.FinalApproachAltitudeCeiling(distanceToThresholdNM, int64(shared.AirportElevation))
+				if altitude > altitudeCeiling {
+					slog.DebugContext(ctx, "Arrival in final approach zone but above glideslope ceiling",
+						slog.String("callsign", callsign),
+						slog.String("runway", *strip.Runway),
+						slog.Int64("altitude", altitude),
+						slog.Int64("ceiling", altitudeCeiling),
+						slog.Float64("distance_nm", distanceToThresholdNM),
+					)
+					break
+				}
+				slog.InfoContext(ctx, "Arrival entered final approach zone, moving to FINAL",
+					slog.String("callsign", callsign),
+					slog.String("runway", *strip.Runway),
+				)
+				if err := s.MoveToBay(ctx, session, callsign, shared.BAY_FINAL, true); err != nil {
+					slog.ErrorContext(ctx, logPrefix+": failed to move to FINAL", slog.String("callsign", callsign), slog.Any("error", err))
+				} else {
+					strip.Bay = shared.BAY_FINAL
+				}
+			}
+		}
+	}
+
 	// Phase 1: aircraft enters runway polygon at landing altitude → touchdown.
 	if inRunway && onGround && !alreadyLanded {
 		aldt := time.Now().UTC().Format("1504")

@@ -549,6 +549,132 @@
     {
       "type": "Feature",
       "properties": {
+        "Name": "FINAL_22R",
+        "runways": ["22R"],
+        "glideslopeDegrees": 3.0,
+        "maxAboveGlideslopeFeet": 500,
+        "thresholdLat": 55.616936,
+        "thresholdLon": 12.641796
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [12.641531, 55.617066],
+          [12.642060, 55.616806],
+          [12.855057, 55.724905],
+          [12.801671, 55.751146],
+          [12.641531, 55.617066]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "Name": "FINAL_04R",
+        "runways": ["04R"],
+        "glideslopeDegrees": 3.0,
+        "maxAboveGlideslopeFeet": 500,
+        "thresholdLat": 55.602705,
+        "thresholdLon": 12.632436
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [12.632173, 55.602836],
+          [12.632699, 55.602573],
+          [12.466343, 55.464146],
+          [12.412900, 55.490350],
+          [12.632173, 55.602836]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "Name": "FINAL_22L",
+        "runways": ["22L"],
+        "glideslopeDegrees": 3.0,
+        "maxAboveGlideslopeFeet": 500,
+        "thresholdLat": 55.625818,
+        "thresholdLon": 12.668207
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [12.667944, 55.625946],
+          [12.668470, 55.625691],
+          [12.887804, 55.737834],
+          [12.834429, 55.764083],
+          [12.667944, 55.625946]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "Name": "FINAL_04L",
+        "runways": ["04L"],
+        "glideslopeDegrees": 3.0,
+        "maxAboveGlideslopeFeet": 500,
+        "thresholdLat": 55.591799,
+        "thresholdLon": 12.602921
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [12.602655, 55.591930],
+          [12.603186, 55.591667],
+          [12.436889, 55.453248],
+          [12.383440, 55.479448],
+          [12.602655, 55.591930]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "Name": "FINAL_30",
+        "runways": ["30"],
+        "glideslopeDegrees": 3.0,
+        "maxAboveGlideslopeFeet": 500,
+        "thresholdLat": 55.612294,
+        "thresholdLon": 12.671201
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [12.670999, 55.612118],
+          [12.671403, 55.612469],
+          [12.933587, 55.539641],
+          [12.894970, 55.506144],
+          [12.670999, 55.612118]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "Name": "FINAL_12",
+        "runways": ["12"],
+        "glideslopeDegrees": 3.0,
+        "maxAboveGlideslopeFeet": 500,
+        "thresholdLat": 55.627762,
+        "thresholdLon": 12.629365
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [12.629551, 55.627930],
+          [12.629178, 55.627594],
+          [12.372498, 55.697832],
+          [12.410943, 55.731393],
+          [12.629551, 55.627930]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
         "Name": "GROUND_12_30_WEST",
         "stroke": "#555555",
         "stroke-width": 2,

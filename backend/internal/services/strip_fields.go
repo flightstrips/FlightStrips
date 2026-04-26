@@ -12,6 +12,14 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
+func shouldResetRunwayClearanceOnMove(currentBay string, targetBay string) bool {
+	if currentBay == shared.BAY_DEPART {
+		return targetBay != shared.BAY_DEPART && targetBay != shared.BAY_AIRBORNE
+	}
+
+	return currentBay == shared.BAY_RWY_ARR && targetBay == shared.BAY_FINAL
+}
+
 // UpdateAssignedSquawk updates the assigned squawk for a strip and notifies the frontend.
 func (s *StripService) UpdateAssignedSquawk(ctx context.Context, session int32, callsign string, squawk string) error {
 	count, err := s.stripRepo.UpdateAssignedSquawk(ctx, session, callsign, &squawk, nil)
@@ -307,8 +315,9 @@ func (s *StripService) UpdateGroundStateForMove(ctx context.Context, session int
 		s.esCommander.SendGroundState(session, cid, callsign, *state)
 	}
 
-	// If the strip is moved backward from rwy-dep to a non-airborne bay, reset runway_cleared.
-	if strip.Bay == shared.BAY_DEPART && bay != shared.BAY_DEPART && bay != shared.BAY_AIRBORNE && strip.RunwayCleared {
+	// Moving backward out of a runway-cleared bay must clear the runway status so the next runway
+	// action behaves like a fresh clearance instead of a confirmation.
+	if strip.RunwayCleared && shouldResetRunwayClearanceOnMove(strip.Bay, bay) {
 		if _, err := s.stripRepo.ResetRunwayClearance(ctx, session, callsign); err != nil {
 			return err
 		}

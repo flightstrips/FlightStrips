@@ -73,6 +73,14 @@ function runwayClearanceTargetBay(bay: string): Bay | null {
   return null;
 }
 
+function shouldResetRunwayClearanceOnMove(currentBay: string, targetBay: Bay): boolean {
+  if (currentBay === Bay.Depart) {
+    return targetBay !== Bay.Depart && targetBay !== Bay.Airborne;
+  }
+
+  return currentBay === Bay.RwyArr && targetBay === Bay.Final;
+}
+
 export interface UpdateStrip {
   sid?: string
   eobt?: string;
@@ -243,16 +251,21 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
             return state;
           }
 
-          return produce((state: WebSocketState) => {
-            const stripIndex = state.strips.findIndex(strip => strip.callsign === callsign);
-            if (stripIndex !== -1) {
-              state.strips[stripIndex].bay = bay;
-              state.strips[stripIndex].sequence = nextSequenceAtEndOfBay(state.strips, state.tacticalStrips, bay, callsign);
-            }
-            return state;
-          })(state)
-      }
-    ),
+           return produce((state: WebSocketState) => {
+             const stripIndex = state.strips.findIndex(strip => strip.callsign === callsign);
+             if (stripIndex !== -1) {
+               const currentBay = state.strips[stripIndex].bay;
+               state.strips[stripIndex].bay = bay;
+               state.strips[stripIndex].sequence = nextSequenceAtEndOfBay(state.strips, state.tacticalStrips, bay, callsign);
+               if (shouldResetRunwayClearanceOnMove(currentBay, bay)) {
+                 state.strips[stripIndex].runway_cleared = false;
+                 state.strips[stripIndex].runway_confirmed = false;
+               }
+             }
+             return state;
+           })(state)
+       }
+     ),
     generateSquawk: (callsign) => {
       sendIfWritable({type: ActionType.FrontendGenerateSquawk, callsign});
     },

@@ -89,6 +89,52 @@ func TestUpdateGroundStateForMove_ArrivalToNonStandBay_NoESUpdate(t *testing.T) 
 	assert.Empty(t, esHub.GroundStates, "no ground state update expected for arrival to non-STAND bay")
 }
 
+func TestUpdateGroundStateForMove_RwyArrToFinal_ResetsRunwayClearance(t *testing.T) {
+	ctx := context.Background()
+	const session = int32(1)
+	const callsign = "SAS456"
+	const airport = "EKCH"
+
+	resetCalled := false
+	hub := &testutil.MockFrontendHub{}
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, gotSession int32, gotCallsign string) (*models.Strip, error) {
+			assert.Equal(t, session, gotSession)
+			assert.Equal(t, callsign, gotCallsign)
+			return &models.Strip{
+				Callsign:        callsign,
+				Destination:     airport,
+				Bay:             shared.BAY_RWY_ARR,
+				RunwayCleared:   true,
+				RunwayConfirmed: false,
+			}, nil
+		},
+		UpdateGroundStateFn: func(_ context.Context, gotSession int32, gotCallsign string, _ *string, bay string, _ *int32) (int64, error) {
+			assert.Equal(t, session, gotSession)
+			assert.Equal(t, callsign, gotCallsign)
+			assert.Equal(t, shared.BAY_FINAL, bay)
+			return 1, nil
+		},
+		ResetRunwayClearanceFn: func(_ context.Context, gotSession int32, gotCallsign string) (int64, error) {
+			assert.Equal(t, session, gotSession)
+			assert.Equal(t, callsign, gotCallsign)
+			resetCalled = true
+			return 1, nil
+		},
+	}
+
+	svc := NewStripService(stripRepo)
+	svc.SetFrontendHub(hub)
+	svc.SetEuroscopeHub(&testutil.MockEuroscopeHub{})
+
+	err := svc.UpdateGroundStateForMove(ctx, session, callsign, shared.BAY_FINAL, "1234567", airport)
+	require.NoError(t, err)
+
+	assert.True(t, resetCalled, "moving back to FINAL should clear runway status")
+	require.Len(t, hub.StripUpdates, 1)
+	assert.Equal(t, callsign, hub.StripUpdates[0].Callsign)
+}
+
 // TestUpdateGroundStateForMove_DepartureToStand_NoESUpdate verifies that moving a
 // departure strip to BAY_STAND (unusual, but possible) does not send a ground state
 // update since STAND is not a departure tracking bay.

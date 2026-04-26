@@ -2,11 +2,14 @@ import { controllerOwnsTowerSectors, useWebSocketStore, useRunwaySetup, useApron
 import { COORDINATION_WITH_APRON_TAXI_MAP_POINTS, COORDINATION_WITH_TWR_TAXI_MAP_POINTS, TAXI_MAP_POINTS } from "@/config/ekch";
 import type { VisibilityContext } from "@/config/ekch";
 import { MAP_BTN_BASE, MapDialogShell, MapEraseControls } from "./MapDialogShell";
+import { Bay } from "@/api/models";
+
 
 interface TaxiMapDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   callsign: string;
+  moveOnSelect?: boolean;
 }
 
 // Sizes expressed as % of image container (1801×1013 reference) so they scale with the dialog.
@@ -20,9 +23,11 @@ export function TaxiMapDialog({
   open,
   onOpenChange,
   callsign,
+  moveOnSelect = false,
 }: TaxiMapDialogProps) {
   const setReleasePoint = useWebSocketStore((s) => s.setReleasePoint);
   const acknowledgeUnexpectedChange = useWebSocketStore((s) => s.acknowledgeUnexpectedChange);
+  const move = useWebSocketStore((s) => s.move);
   const runwaySetup = useRunwaySetup();
   const apronOnline = useApronOnline();
   const twrOnline   = useTwrOnline();
@@ -58,6 +63,9 @@ export function TaxiMapDialog({
   const handleSelect = (label: string) => {
     if (label !== strip?.release_point) {
       setReleasePoint(callsign, label);
+    }
+    if (moveOnSelect) {
+      move(callsign, Bay.TaxiLwr);
     }
     if (shouldAcknowledgeReleasePoint) {
       acknowledgeUnexpectedChange(callsign, "release_point");

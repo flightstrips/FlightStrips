@@ -170,6 +170,7 @@ export function ApnPushStrip({
           open={taxiMapOpen}
           onOpenChange={setTaxiMapOpen}
           callsign={callsign}
+          moveOnSelect
         />
 
         {/* TSAT / CTOT — 25%*(2/3), split in half with border */}

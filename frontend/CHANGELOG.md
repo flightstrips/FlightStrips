@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.31.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.30.0...frontend/v0.31.0) (2026-04-26)
+
+
+### Features
+
+* **deploy:** prompt users to reload after deploys ([c49ed9f](https://github.com/flightstrips/FlightStrips/commit/c49ed9f6a228fb08f15858e56f72410691079a2b))
+
+
+### Bug Fixes
+
+* **dialogs:** scale remaining controller dialogs ([d38b9b3](https://github.com/flightstrips/FlightStrips/commit/d38b9b367e1612e82a6fdaf0a7ba3d5d608828e9))
+* **strips:** limit runway-arr highlight to runway cell ([b8e07a9](https://github.com/flightstrips/FlightStrips/commit/b8e07a91e521623827fcf650dcb9ae87fdf454fb))
+* **strips:** match ARR popup rows to final bays ([6348d45](https://github.com/flightstrips/FlightStrips/commit/6348d45b8e399a5e7b72a54d37df81f39f3234f9))
+* **strips:** scale CLX dialogs with viewport ([ade3087](https://github.com/flightstrips/FlightStrips/commit/ade3087d131eede67ce60ddef408bc9c5d8636b2))
+* **strips:** use responsive twy tactical widths ([7ae479e](https://github.com/flightstrips/FlightStrips/commit/7ae479e4d356e93d8f0b78a8c514ea6e2efe2429))
+
 ## [0.30.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.29.2...frontend/v0.30.0) (2026-04-26)
 
 

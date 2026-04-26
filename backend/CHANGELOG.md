@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.24.0](https://github.com/flightstrips/FlightStrips/compare/backend/v0.23.3...backend/v0.24.0) (2026-04-26)
+
+
+### Features
+
+* **strips:** add EKCH final approach funnels ([712c9c5](https://github.com/flightstrips/FlightStrips/commit/712c9c537a7519aabcd0444be857241a5a7deb6e))
+
 ## [0.23.3](https://github.com/flightstrips/FlightStrips/compare/backend/v0.23.2...backend/v0.23.3) (2026-04-26)
 
 

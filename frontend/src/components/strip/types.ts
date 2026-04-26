@@ -57,7 +57,7 @@ export interface StripProps {
   validationStatus?: import("@/api/models").ValidationStatus;
 }
 
-export const TWY_DEP_STRIP_WIDTH = 519; // W_SI(40) + W_CALLSIGN(120) + W_TYPE_SQ(60) + W_STAND_CTOT(60) + W_SMALL(53)*3 + W_SID_DEST(80)
+export const TWY_DEP_STRIP_WIDTH = "95%";
 
 export function getStripBg(pdcStatus?: PdcStatus, isArrival?: boolean, bay?: Bay): string {
   const pdcAllowed = !bay || bay === Bay.NotCleared || bay === Bay.Cleared;

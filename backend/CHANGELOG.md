@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.24.1](https://github.com/flightstrips/FlightStrips/compare/backend/v0.24.0...backend/v0.24.1) (2026-04-27)
+
+
+### Bug Fixes
+
+* disable broken landing validation ([2df30a3](https://github.com/flightstrips/FlightStrips/commit/2df30a3f45192c29475dfead53fa912a4b8f06e1))
+
 ## [0.24.0](https://github.com/flightstrips/FlightStrips/compare/backend/v0.23.3...backend/v0.24.0) (2026-04-26)
 
 

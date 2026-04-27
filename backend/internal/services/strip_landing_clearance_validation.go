@@ -19,6 +19,8 @@ const (
 	landingClearanceValidationActionKind  = "runway_clearance"
 	landingClearanceValidationActionLabel = "CLEAR TO LAND"
 	landingClearanceValidationDelay       = 15 * time.Second
+	// Temporary kill-switch while landing validation activation is known-bad.
+	landingClearanceValidationCreationEnabled = false
 )
 
 var landingClearanceValidationAfterFunc = func(delay time.Duration, fn func()) {
@@ -216,6 +218,10 @@ func (s *StripService) ReevaluateLandingClearanceValidationsForSession(ctx conte
 		return nil
 	}
 
+	if !landingClearanceValidationCreationEnabled {
+		return nil
+	}
+
 	if !forceReactivate && !isLandingClearanceValidation(candidate.ValidationStatus) {
 		return nil
 	}
@@ -236,6 +242,10 @@ func (s *StripService) ReevaluateLandingClearanceValidationsForSession(ctx conte
 }
 
 func (s *StripService) scheduleLandingClearanceValidation(session int32) {
+	if !landingClearanceValidationCreationEnabled {
+		return
+	}
+
 	landingClearanceValidationAfterFunc(landingClearanceValidationDelay, func() {
 		ctx := context.Background()
 		if err := s.ReevaluateLandingClearanceValidationsForSession(ctx, session, true, true); err != nil {

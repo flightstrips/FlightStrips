@@ -51,13 +51,13 @@ func buildLandingClearanceValidationSvc(t *testing.T, repo *testutil.MockStripRe
 	return svc
 }
 
-func TestReevaluateLandingClearanceValidationsForSession_ActivatesForApplicableArrivalOwner(t *testing.T) {
+func TestReevaluateLandingClearanceValidationsForSession_DoesNotActivateWhileDisabled(t *testing.T) {
 	setupLandingClearanceValidationConfig(t)
 
 	owner := "EKCH_A_TWR"
 	finalSeq := int32(2000)
 	twySeq := int32(1000)
-	var persisted *models.ValidationStatus
+	setCalled := false
 
 	repo := &testutil.MockStripRepository{
 		ListFn: func(context.Context, int32) ([]*models.Strip, error) {
@@ -68,7 +68,8 @@ func TestReevaluateLandingClearanceValidationsForSession_ActivatesForApplicableA
 		},
 		SetValidationStatusFn: func(_ context.Context, _ int32, callsign string, status *models.ValidationStatus) error {
 			assert.Equal(t, "SAS123", callsign)
-			persisted = status
+			assert.Equal(t, landingClearanceValidationIssueType, status.IssueType)
+			setCalled = true
 			return nil
 		},
 	}
@@ -76,15 +77,7 @@ func TestReevaluateLandingClearanceValidationsForSession_ActivatesForApplicableA
 	svc := buildLandingClearanceValidationSvc(t, repo)
 	require.NoError(t, svc.ReevaluateLandingClearanceValidationsForSession(context.Background(), 1, false, true))
 
-	require.NotNil(t, persisted)
-	assert.Equal(t, landingClearanceValidationIssueType, persisted.IssueType)
-	assert.Equal(t, landingClearanceValidationMessage, persisted.Message)
-	assert.Equal(t, owner, persisted.OwningPosition)
-	require.NotNil(t, persisted.CustomAction)
-	assert.Equal(t, landingClearanceValidationActionKind, persisted.CustomAction.ActionKind)
-	assert.Equal(t, landingClearanceValidationActionLabel, persisted.CustomAction.Label)
-	assert.True(t, persisted.Active)
-	assert.NotEmpty(t, persisted.ActivationKey)
+	assert.False(t, setCalled)
 }
 
 func TestReevaluateLandingClearanceValidationsForSession_RequiresActivationEdge(t *testing.T) {
@@ -152,7 +145,7 @@ func TestReevaluateLandingClearanceValidationsForSession_ClearsResolvedValidatio
 	assert.True(t, cleared)
 }
 
-func TestMoveToBay_SchedulesLandingClearanceValidationOnlyOnTwyArrTransition(t *testing.T) {
+func TestMoveToBay_DoesNotScheduleLandingClearanceValidationWhileDisabled(t *testing.T) {
 	current := &models.Strip{Callsign: "SAS123", Bay: shared.BAY_RWY_ARR}
 	repo := &testutil.MockStripRepository{
 		GetByCallsignFn: func(context.Context, int32, string) (*models.Strip, error) {
@@ -184,6 +177,5 @@ func TestMoveToBay_SchedulesLandingClearanceValidationOnlyOnTwyArrTransition(t *
 	require.NoError(t, svc.MoveToBay(context.Background(), 1, "SAS123", shared.BAY_TWY_ARR, false))
 	require.NoError(t, svc.MoveToBay(context.Background(), 1, "SAS123", shared.BAY_TWY_ARR, false))
 
-	require.Len(t, delays, 1)
-	assert.Equal(t, landingClearanceValidationDelay, delays[0])
+	assert.Empty(t, delays)
 }

@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.31.1](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.31.0...frontend/v0.31.1) (2026-04-28)
+
+
+### Bug Fixes
+
+* correct lable on AD fro SAS traffic ([786570b](https://github.com/flightstrips/FlightStrips/commit/786570b4598e8c8b93839c3354e2873fdff5473f))
+* inconsistency between SEQ PLN & EST. ([5fc7c85](https://github.com/flightstrips/FlightStrips/commit/5fc7c852b1cd2a0512bde10be83fc9fdfc6a6c2e))
+* order of GW/GE on select screen ([be56652](https://github.com/flightstrips/FlightStrips/commit/be56652a56034e240de8ff70df64b922edd57ec5))
+* **strips:** stabilize bay scrolling ([d8cad0d](https://github.com/flightstrips/FlightStrips/commit/d8cad0da24f5bf836513c9e24c3b3405f0a6e78b))
+
+
+### Performance Improvements
+
+* **strips:** batch EuroScope sync processing ([f1ee21f](https://github.com/flightstrips/FlightStrips/commit/f1ee21fbd64c1e76a820452238d72385d8638e5e))
+
 ## [0.31.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.30.0...frontend/v0.31.0) (2026-04-26)
 
 

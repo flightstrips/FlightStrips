@@ -135,12 +135,14 @@ func TestSyncEuroscopeStrip_ExistingArrivalAutoHiddenRemainsHidden(t *testing.T)
 	ctx := context.Background()
 	const session = int32(1)
 	const callsign = "SAS432"
+	sequence := int32(500)
 
 	existingStrip := &models.Strip{
 		Callsign:    callsign,
 		Origin:      "ESSA",
 		Destination: "EKCH",
 		Bay:         shared.BAY_HIDDEN,
+		Sequence:    &sequence,
 	}
 
 	var updatedStrip *models.Strip
@@ -171,7 +173,9 @@ func TestSyncEuroscopeStrip_ExistingArrivalAutoHiddenRemainsHidden(t *testing.T)
 
 	require.NotNil(t, updatedStrip)
 	assert.Equal(t, shared.BAY_HIDDEN, updatedStrip.Bay)
-	assert.Equal(t, shared.BAY_HIDDEN, movedToBay)
+	require.NotNil(t, updatedStrip.Sequence)
+	assert.Equal(t, sequence, *updatedStrip.Sequence)
+	assert.Empty(t, movedToBay)
 }
 
 func TestSyncEuroscopeStrip_LocalDepartureTriggersCdmRecalculation(t *testing.T) {
@@ -353,10 +357,60 @@ func TestSyncEuroscopeStrip_WithSyncState_DefersBayAndValidationFollowUp(t *test
 	assert.Empty(t, hub.StripUpdates, "sync-mode should defer frontend strip updates until finalization")
 }
 
+func TestSyncEuroscopeStrip_WithSyncState_SameBayPreservesSequenceAndSkipsBayUpdate(t *testing.T) {
+	ctx := context.Background()
+	const session = int32(1)
+	const callsign = "SAS598"
+	sequence := int32(600)
+	existingStrip := &models.Strip{
+		Callsign: callsign,
+		Origin:   "EKCH",
+		Bay:      shared.BAY_CLEARED,
+		PdcState: "CONFIRMED",
+		Cleared:  true,
+		Sequence: &sequence,
+	}
+
+	var updatedStrip *models.Strip
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			return existingStrip, nil
+		},
+		UpdateFn: func(_ context.Context, strip *models.Strip) (int64, error) {
+			updatedStrip = strip
+			return 1, nil
+		},
+	}
+
+	svc, hub, _ := newSyncTestFixture(t, existingStrip, stripRepo)
+	syncState := &shared.SyncState{
+		Session:             &models.Session{ID: session},
+		ExistingControllers: map[string]*models.Controller{},
+		ExistingStrips: map[string]*models.Strip{
+			existingStrip.Callsign: existingStrip,
+		},
+	}
+	ctx = shared.WithSyncState(ctx, syncState)
+
+	err := svc.syncEuroscopeStrip(ctx, session, "", euroscope.Strip{
+		Callsign: callsign,
+		Origin:   "EKCH",
+		Cleared:  false,
+	}, "EKCH")
+	require.NoError(t, err)
+	require.NotNil(t, updatedStrip)
+	require.NotNil(t, updatedStrip.Sequence)
+	assert.Equal(t, sequence, *updatedStrip.Sequence)
+	assert.Empty(t, syncState.BayUpdates, "same-bay sync updates must not schedule MoveToBay")
+	assert.Contains(t, syncState.SortedStripUpdates(), callsign)
+	assert.Empty(t, hub.StripUpdates, "sync-mode should defer frontend strip updates until finalization")
+}
+
 func TestSyncEuroscopeStrip_ExistingPendingPdcStrip_DoesNotFallBackToNotCleared(t *testing.T) {
 	ctx := context.Background()
 	const session = int32(1)
 	const callsign = "SAS502"
+	sequence := int32(700)
 
 	existingStrip := &models.Strip{
 		Callsign: callsign,
@@ -364,6 +418,7 @@ func TestSyncEuroscopeStrip_ExistingPendingPdcStrip_DoesNotFallBackToNotCleared(
 		Bay:      shared.BAY_CLEARED,
 		PdcState: "CLEARED",
 		Cleared:  false,
+		Sequence: &sequence,
 	}
 
 	var updatedStrip *models.Strip
@@ -393,13 +448,16 @@ func TestSyncEuroscopeStrip_ExistingPendingPdcStrip_DoesNotFallBackToNotCleared(
 	require.NotNil(t, updatedStrip)
 	assert.Equal(t, shared.BAY_CLEARED, updatedStrip.Bay)
 	assert.False(t, updatedStrip.Cleared)
-	assert.Equal(t, shared.BAY_CLEARED, movedToBay)
+	require.NotNil(t, updatedStrip.Sequence)
+	assert.Equal(t, sequence, *updatedStrip.Sequence)
+	assert.Empty(t, movedToBay)
 }
 
 func TestSyncEuroscopeStrip_ExistingConfirmedPdcStrip_PreservesClearedFlagUntilSyncCatchesUp(t *testing.T) {
 	ctx := context.Background()
 	const session = int32(1)
 	const callsign = "SAS503"
+	sequence := int32(800)
 
 	existingStrip := &models.Strip{
 		Callsign: callsign,
@@ -407,6 +465,7 @@ func TestSyncEuroscopeStrip_ExistingConfirmedPdcStrip_PreservesClearedFlagUntilS
 		Bay:      shared.BAY_CLEARED,
 		PdcState: "CONFIRMED",
 		Cleared:  true,
+		Sequence: &sequence,
 	}
 
 	var updatedStrip *models.Strip
@@ -436,7 +495,9 @@ func TestSyncEuroscopeStrip_ExistingConfirmedPdcStrip_PreservesClearedFlagUntilS
 	require.NotNil(t, updatedStrip)
 	assert.True(t, updatedStrip.Cleared)
 	assert.Equal(t, shared.BAY_CLEARED, updatedStrip.Bay)
-	assert.Equal(t, shared.BAY_CLEARED, movedToBay)
+	require.NotNil(t, updatedStrip.Sequence)
+	assert.Equal(t, sequence, *updatedStrip.Sequence)
+	assert.Empty(t, movedToBay)
 }
 
 func TestSyncEuroscopeStrip_MoveBackToNotCleared_ClearsOwner(t *testing.T) {

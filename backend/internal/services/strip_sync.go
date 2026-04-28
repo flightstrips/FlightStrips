@@ -268,6 +268,7 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 			PositionLatitude:  &strip.Position.Lat,
 			PositionLongitude: &strip.Position.Lon,
 			PositionAltitude:  &strip.Position.Altitude,
+			Sequence:          existingStrip.Sequence,
 			Bay:               bay,
 			CdmData: func() *internalModels.CdmData {
 				cdmData := existingStrip.CdmData.Clone()
@@ -299,7 +300,7 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 		hasFPChanged := strip.HasFP != existingStrip.HasFP
 		unexpectedStandChange := strip.Stand != "" && existingStrip.Stand != nil && *existingStrip.Stand != "" && *existingStrip.Stand != strip.Stand
 		unexpectedRunwayChange := strip.Runway != "" && existingStrip.Runway != nil && *existingStrip.Runway != "" && *existingStrip.Runway != strip.Runway && isApronBay(bay)
-		bayNeedsUpdate = primaryChange
+		bayNeedsUpdate = existingStrip.Bay != updateStrip.Bay
 
 		if !primaryChange && !hasFPChanged && !unexpectedStandChange && !unexpectedRunwayChange && !registrationNeedsUpdate {
 			return nil

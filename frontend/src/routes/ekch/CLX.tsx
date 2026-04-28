@@ -8,6 +8,7 @@ import { useState } from "react";
 import { CLS_BTN } from "@/components/strip/shared";
 import { NewIfrDialog } from "@/components/strip/NewIfrDialog";
 import { PlannedDialog } from "@/components/strip/PlannedDialog";
+import { AutoAlignedBay } from "@/components/bays/SortableBay";
 
 const col         = "w-1/4 bay-col";
 const lockedLabel  = "text-white font-bold text-lg";
@@ -93,15 +94,15 @@ export default function DEL() {
           <div className="bay-col-header-light justify-between">
             <span className={activeLabel}>PUSHBACK</span>
           </div>
-          <div className="h-2/5 bay-scroll-area-bottom">
+          <AutoAlignedBay className="h-2/5 bay-scroll-area-bottom" dependencyKey={`pushback:${pushback.length}`}>
             {pushback.map(strip => mapToHalfStrip(strip))}
-          </div>
+          </AutoAlignedBay>
           <div className="bay-col-header-light bay-col-sep justify-between">
             <span className={activeLabel}>TWY DEP</span>
           </div>
-          <div className="h-[calc(60%-5rem)] bay-scroll-area-bottom">
+          <AutoAlignedBay className="h-[calc(60%-5rem)] bay-scroll-area-bottom" dependencyKey={`taxidep:${taxidep.length}`}>
             {taxidep.map(strip => mapToHalfStrip(strip))}
-          </div>
+          </AutoAlignedBay>
         </div>
       </div>
 

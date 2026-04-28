@@ -435,10 +435,10 @@ export const CLS_SCROLLBAR =
 
 /** Standard bay scroll area — strips stack top-to-bottom. */
 export const CLS_SCROLL_AREA = `w-full bg-bay-panel shadow-[inset_2px_2px_4px_rgba(0,0,0,0.55),inset_-1px_-1px_2px_rgba(255,255,255,0.07)] p-0.5 flex flex-col gap-px overflow-y-auto ${CLS_SCROLLBAR}`;
-/** Bay scroll area — strips stack from bottom (newest at bottom). */
-export const CLS_SCROLL_AREA_BOTTOM = `w-full bg-bay-panel shadow-[inset_2px_2px_4px_rgba(0,0,0,0.55),inset_-1px_-1px_2px_rgba(255,255,255,0.07)] p-0.5 flex flex-col justify-end gap-px overflow-y-auto ${CLS_SCROLLBAR}`;
-/** Dark scroll area (e.g. de-ice bay). */
-export const CLS_SCROLL_AREA_DARK = `w-full bg-bay-dark shadow-[inset_3px_3px_7px_rgba(0,0,0,0.85),inset_-1px_-1px_3px_rgba(255,255,255,0.05)] p-0.5 flex flex-col justify-end gap-px overflow-y-auto ${CLS_SCROLLBAR}`;
+/** Bottom-aligned bay scroll area; SortableBay/DropIndicatorBay adds bay-scroll-fill only when content fits. */
+export const CLS_SCROLL_AREA_BOTTOM = `w-full bg-bay-panel shadow-[inset_2px_2px_4px_rgba(0,0,0,0.55),inset_-1px_-1px_2px_rgba(255,255,255,0.07)] p-0.5 flex flex-col gap-px overflow-y-auto ${CLS_SCROLLBAR}`;
+/** Dark bottom-aligned bay scroll area; SortableBay/DropIndicatorBay adds bay-scroll-fill only when content fits. */
+export const CLS_SCROLL_AREA_DARK = `w-full bg-bay-dark shadow-[inset_3px_3px_7px_rgba(0,0,0,0.85),inset_-1px_-1px_3px_rgba(255,255,255,0.05)] p-0.5 flex flex-col gap-px overflow-y-auto ${CLS_SCROLLBAR}`;
 
 /** Tab bar shown below bay columns. */
 export const CLS_TAB_BAR = "flex shrink-0 border-t-8 border-bay-border";

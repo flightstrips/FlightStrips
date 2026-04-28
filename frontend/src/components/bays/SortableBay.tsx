@@ -1,7 +1,7 @@
 import {
   DndContext,
   closestCenter,
-  PointerSensor,
+  MouseSensor,
   useSensor,
   useSensors,
   useDroppable,
@@ -17,7 +17,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { useDragState } from "@/components/bays/DragStateContext";
 import { useBayClick } from "./BayClickContext";
-import { useState, type CSSProperties, type ReactNode } from "react";
+import { Children, useCallback, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import type { AnyStrip, StripRef } from "@/api/models.ts";
 import { stripDndId, isFlight } from "@/api/models.ts";
 import { isValidationActiveForPosition } from "@/components/strip/shared";
@@ -40,6 +40,105 @@ interface SortableBayProps {
   isDragDisabled?: (strip: AnyStrip) => boolean;
 }
 
+function useBottomAlignedBay(className?: string, dependencyKey?: string) {
+  const ref = useRef<HTMLDivElement | null>(null);
+  const frameRef = useRef<number | null>(null);
+  const [shouldFill, setShouldFill] = useState(false);
+  const isBottomAlignedBay = className?.includes("bay-scroll-area-bottom") || className?.includes("bay-scroll-area-dark");
+
+  const measure = useCallback(() => {
+    const node = ref.current;
+    if (!node || !isBottomAlignedBay) {
+      setShouldFill(false);
+      return;
+    }
+
+    const computedStyle = getComputedStyle(node);
+    const paddingTop = Number.parseFloat(computedStyle.paddingTop) || 0;
+    const paddingBottom = Number.parseFloat(computedStyle.paddingBottom) || 0;
+    const gap = Number.parseFloat(computedStyle.rowGap) || 0;
+    const childCount = node.children.length;
+    const childrenHeight = Array.from(node.children).reduce((sum, child) => {
+      return sum + child.getBoundingClientRect().height;
+    }, 0);
+    const contentHeight = paddingTop + paddingBottom + childrenHeight + Math.max(0, childCount - 1) * gap;
+    const fitsWithoutOverflow = contentHeight <= node.clientHeight + 0.5;
+
+    setShouldFill(fitsWithoutOverflow);
+    if (fitsWithoutOverflow && node.scrollTop !== 0) {
+      node.scrollTop = 0;
+    }
+  }, [isBottomAlignedBay]);
+
+  const scheduleMeasure = useCallback(() => {
+    if (frameRef.current !== null) {
+      cancelAnimationFrame(frameRef.current);
+    }
+    frameRef.current = requestAnimationFrame(() => {
+      frameRef.current = null;
+      measure();
+    });
+  }, [measure]);
+
+  useLayoutEffect(() => {
+    measure();
+  }, [dependencyKey, measure]);
+
+  useLayoutEffect(() => {
+    const node = ref.current;
+    if (!node || !isBottomAlignedBay) return;
+
+    const resizeObserver = new ResizeObserver(() => scheduleMeasure());
+    resizeObserver.observe(node);
+    Array.from(node.children).forEach((child) => resizeObserver.observe(child));
+
+    const mutationObserver = new MutationObserver(() => {
+      resizeObserver.disconnect();
+      resizeObserver.observe(node);
+      Array.from(node.children).forEach((child) => resizeObserver.observe(child));
+      scheduleMeasure();
+    });
+    mutationObserver.observe(node, { childList: true });
+
+    const handleResize = () => scheduleMeasure();
+    window.addEventListener("resize", handleResize);
+
+    return () => {
+      if (frameRef.current !== null) {
+        cancelAnimationFrame(frameRef.current);
+      }
+      resizeObserver.disconnect();
+      mutationObserver.disconnect();
+      window.removeEventListener("resize", handleResize);
+    };
+  }, [dependencyKey, isBottomAlignedBay, scheduleMeasure]);
+
+  return {
+    containerRef(node: HTMLDivElement | null) {
+      ref.current = node;
+    },
+    containerClassName: shouldFill ? `${className ?? ""} bay-scroll-fill` : className,
+  };
+}
+
+export function AutoAlignedBay({
+  className,
+  children,
+  dependencyKey,
+}: {
+  className?: string;
+  children?: ReactNode;
+  dependencyKey?: string;
+}) {
+  const { containerRef, containerClassName } = useBottomAlignedBay(className, dependencyKey);
+
+  return (
+    <div ref={containerRef} className={containerClassName}>
+      {children}
+    </div>
+  );
+}
+
 export function SortableBay({
   strips,
   onReorder,
@@ -49,9 +148,9 @@ export function SortableBay({
   standalone = true,
   isDragDisabled,
 }: SortableBayProps) {
+  const { containerRef, containerClassName } = useBottomAlignedBay(className, `${bayId ?? "standalone"}:${strips.length}`);
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
-    // distance: 5px threshold — short taps register as clicks, not drags
+    useSensor(MouseSensor, { activationConstraint: { distance: 5 } })
   );
 
   function handleDragEnd(event: DragEndEvent) {
@@ -83,13 +182,13 @@ export function SortableBay({
   const sortableItems = strips.map(s => stripDndId(s));
 
   if (standalone) {
-    return (
-      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-        <SortableContext items={sortableItems} strategy={verticalListSortingStrategy}>
-          <div className={className}>
-            {strips.map(s => (
-              <SortableStrip key={stripDndId(s)} callsign={stripDndId(s)} dragDisabled={isDragDisabled?.(s)}>
-                {children(s)}
+      return (
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <SortableContext items={sortableItems} strategy={verticalListSortingStrategy}>
+          <div ref={containerRef} className={containerClassName}>
+              {strips.map(s => (
+                <SortableStrip key={stripDndId(s)} callsign={stripDndId(s)} dragDisabled={isDragDisabled?.(s)}>
+                  {children(s)}
               </SortableStrip>
             ))}
           </div>
@@ -126,6 +225,7 @@ function DroppableContainer({
   className?: string;
   children: ReactNode;
 }) {
+  const { containerRef, containerClassName } = useBottomAlignedBay(className, `${bayId}:${Children.count(children)}`);
   const { setNodeRef } = useDroppable({ id: bayId, disabled: !isEmpty });
   const { activeId, isValidTarget } = useDragState();
   const { onBayClick } = useBayClick();
@@ -153,8 +253,11 @@ function DroppableContainer({
 
   return (
     <div
-      ref={setNodeRef}
-      className={className}
+      ref={(node) => {
+        setNodeRef(node);
+        containerRef(node);
+      }}
+      className={containerClassName}
       style={hoverStyle}
       onClick={(e) => {
         if (!isDragging && e.target === e.currentTarget) {
@@ -181,6 +284,7 @@ export function DropIndicatorBay({
   className?: string;
   children?: ReactNode;
 }) {
+  const { containerRef, containerClassName } = useBottomAlignedBay(className, `${bayId}:${Children.count(children)}`);
   const { setNodeRef } = useDroppable({ id: bayId });
   const { activeId, isValidTarget } = useDragState();
   const [isOver, setIsOver] = useState(false);
@@ -205,7 +309,14 @@ export function DropIndicatorBay({
   }
 
   return (
-    <div ref={setNodeRef} className={className} style={hoverStyle}>
+    <div
+      ref={(node) => {
+        setNodeRef(node);
+        containerRef(node);
+      }}
+      className={containerClassName}
+      style={hoverStyle}
+    >
       {children}
     </div>
   );
@@ -240,7 +351,7 @@ export function SortableStrip({
     transition,
     opacity: isDragging ? (hideWhenDragging ? 0 : 0.5) : 1,
     cursor: effectiveDragDisabled ? "not-allowed" : undefined,
-    touchAction: effectiveDragDisabled ? "pan-y" : "none",
+    touchAction: "auto",
   };
   return (
     <div ref={setNodeRef} style={style} {...attributes} {...listeners}>

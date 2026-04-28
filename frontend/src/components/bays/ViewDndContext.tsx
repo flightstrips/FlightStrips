@@ -2,7 +2,7 @@ import {
   DndContext,
   DragOverlay,
   closestCenter,
-  PointerSensor,
+  MouseSensor,
   useSensor,
   useSensors,
   type DragEndEvent,
@@ -82,7 +82,7 @@ export function ViewDndContext({
 
   const [dragDisabled, setDragDisabled] = useState(false);
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: dragDisabled ? Infinity : 5 } })
+    useSensor(MouseSensor, { activationConstraint: { distance: dragDisabled ? Infinity : 5 } })
   );
 
   const [activeId, setActiveId] = useState<string | null>(null);

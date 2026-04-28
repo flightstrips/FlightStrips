@@ -7,7 +7,7 @@ const EKCH_SCOPES = [
   { label: "APRON ARR", layout: "AA" },
   { label: "APRON DEP", layout: "AD" },
   { label: "SEQ PLN", layout: "EST" },
-  { label: "GE / GW", layout: "GEGW" },
+  { label: "GW / GE", layout: "GEGW" },
   { label: "TW / TE", layout: "TWTE" },
 ];
 

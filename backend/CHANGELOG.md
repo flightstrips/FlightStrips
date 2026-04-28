@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.24.2](https://github.com/flightstrips/FlightStrips/compare/backend/v0.24.1...backend/v0.24.2) (2026-04-28)
+
+
+### Bug Fixes
+
+* **sectors:** honor airborne owner order ([c30d7ae](https://github.com/flightstrips/FlightStrips/commit/c30d7ae4e68ba038d7d2a4abc0924d2d06230151))
+* **strips:** correct final approach region loading ([13ac14a](https://github.com/flightstrips/FlightStrips/commit/13ac14a55c3123fd173ee5f64c1b7d3bdf4a2932))
+* **strips:** preserve sequence on no-op sync updates ([5a4ab0b](https://github.com/flightstrips/FlightStrips/commit/5a4ab0bf20ce1f06dd192f7d3aceeaa5793d94ce))
+
+
+### Performance Improvements
+
+* **strips:** batch EuroScope sync processing ([f1ee21f](https://github.com/flightstrips/FlightStrips/commit/f1ee21fbd64c1e76a820452238d72385d8638e5e))
+* **websocket:** reduce strip update db fanout ([f8a6a26](https://github.com/flightstrips/FlightStrips/commit/f8a6a2686cdd673f35e776543de17ea266496fc9))
+
 ## [0.24.1](https://github.com/flightstrips/FlightStrips/compare/backend/v0.24.0...backend/v0.24.1) (2026-04-27)
 
 

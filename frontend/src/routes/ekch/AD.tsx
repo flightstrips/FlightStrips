@@ -310,11 +310,11 @@ export default function AD() {
 
       </div>
 
-      {/* ── Col 4: CLRDEL / NORWEGIAN / OTHERS (UNCLEARED) ── */}
+      {/* ── Col 4: SAS / NORWEGIAN / OTHERS (UNCLEARED) ── */}
       <div className="bay-col-flex">
 
         <div className="bay-col-header">
-          <span className={CLS_LABEL}>CLRDEL</span>
+          <span className={CLS_LABEL}>SAS</span>
         </div>
         <DropIndicatorBay bayId="CLRDEL" className="h-[40%] bay-scroll-area">
           {sasStrips.map(s => (

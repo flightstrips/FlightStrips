@@ -45,7 +45,7 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 	}
 	if sessionObj == nil {
 		var err error
-		sessionObj, err = server.GetSessionRepository().GetByID(ctx, session)
+		sessionObj, err = s.getCachedSession(ctx, session)
 		if err != nil {
 			return err
 		}
@@ -62,7 +62,10 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 			err = pgx.ErrNoRows
 		}
 	} else {
-		existingStrip, err = s.stripRepo.GetByCallsign(ctx, session, strip.Callsign)
+		existingStrip, ok, err = s.getCachedStrip(ctx, session, strip.Callsign)
+		if !ok {
+			err = pgx.ErrNoRows
+		}
 	}
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return err
@@ -136,9 +139,10 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 		if err = s.stripRepo.Create(ctx, newStrip); err != nil {
 			return err
 		}
+		shared.AddDBOperations(ctx, 1)
+		s.cacheStrip(ctx, newStrip)
 		if syncState != nil {
 			syncState.ChangedStrips++
-			syncState.AddDBOperations(1)
 			if syncState.ExistingStrips != nil {
 				syncState.ExistingStrips[strip.Callsign] = newStrip
 			}
@@ -146,8 +150,8 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 		if strip.HasFP {
 			if err = s.stripRepo.SetHasFP(ctx, session, strip.Callsign, true); err != nil {
 				slog.WarnContext(ctx, "Failed to set has_fp on new strip", slog.String("callsign", strip.Callsign), slog.Any("error", err))
-			} else if syncState != nil {
-				syncState.AddDBOperations(1)
+			} else {
+				shared.AddDBOperations(ctx, 1)
 			}
 		}
 		slog.DebugContext(ctx, "Inserted strip",
@@ -280,6 +284,7 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 			TrackingController: strip.TrackingController,
 			EngineType:         strip.EngineType,
 			ValidationStatus:   existingStrip.ValidationStatus,
+			HasFP:              strip.HasFP,
 		}
 		validationStrip = updateStrip
 		registrationNeedsUpdate := false
@@ -304,26 +309,33 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 			if _, err = s.stripRepo.Update(ctx, updateStrip); err != nil {
 				return err
 			}
+			shared.AddDBOperations(ctx, 1)
 			if syncState != nil {
 				syncState.ChangedStrips++
-				syncState.AddDBOperations(1)
 				applySyncStripUpdate(existingStrip, updateStrip)
 			}
+			s.cacheStrip(ctx, updateStrip)
 		}
 		if primaryChange && shouldClearOwnerForNotCleared {
 			if err := s.clearOwnerForNotCleared(ctx, session, strip.Callsign); err != nil {
 				return err
-			} else if syncState != nil {
-				syncState.AddDBOperations(1)
 			}
 		}
 		if hasFPChanged {
 			if err = s.stripRepo.SetHasFP(ctx, session, strip.Callsign, strip.HasFP); err != nil {
 				slog.WarnContext(ctx, "Failed to update has_fp on strip", slog.String("callsign", strip.Callsign), slog.Any("error", err))
-			} else if syncState != nil {
-				syncState.AddDBOperations(1)
-				if current := syncState.ExistingStrips[strip.Callsign]; current != nil {
-					current.HasFP = strip.HasFP
+			} else {
+				shared.AddDBOperations(ctx, 1)
+				s.cacheStrip(ctx, updateStrip)
+				if syncState != nil {
+					if current := syncState.ExistingStrips[strip.Callsign]; current != nil {
+						current.HasFP = strip.HasFP
+					}
+				}
+				if state := shared.GetWebsocketMessageState(ctx); state != nil {
+					if current, ok := state.ExistingStrips[normalizedCallsignKey(strip.Callsign)]; ok && current != nil {
+						current.HasFP = strip.HasFP
+					}
 				}
 			}
 		}
@@ -337,20 +349,34 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 		if unexpectedStandChange {
 			if err := s.stripRepo.AppendUnexpectedChangeField(ctx, session, strip.Callsign, "stand"); err != nil {
 				slog.WarnContext(ctx, "Failed to mark stand as unexpected change", slog.String("callsign", strip.Callsign), slog.Any("error", err))
-			} else if syncState != nil {
-				syncState.AddDBOperations(1)
-				if current := syncState.ExistingStrips[strip.Callsign]; current != nil && !slices.Contains(current.UnexpectedChangeFields, "stand") {
-					current.UnexpectedChangeFields = append(current.UnexpectedChangeFields, "stand")
+			} else {
+				shared.AddDBOperations(ctx, 1)
+				if syncState != nil {
+					if current := syncState.ExistingStrips[strip.Callsign]; current != nil && !slices.Contains(current.UnexpectedChangeFields, "stand") {
+						current.UnexpectedChangeFields = append(current.UnexpectedChangeFields, "stand")
+					}
+				}
+				if state := shared.GetWebsocketMessageState(ctx); state != nil {
+					if cached, ok := state.ExistingStrips[normalizedCallsignKey(strip.Callsign)]; ok && cached != nil && !slices.Contains(cached.UnexpectedChangeFields, "stand") {
+						cached.UnexpectedChangeFields = append(cached.UnexpectedChangeFields, "stand")
+					}
 				}
 			}
 		}
 		if unexpectedRunwayChange {
 			if err := s.stripRepo.AppendUnexpectedChangeField(ctx, session, strip.Callsign, "runway"); err != nil {
 				slog.WarnContext(ctx, "Failed to mark runway as unexpected change", slog.String("callsign", strip.Callsign), slog.Any("error", err))
-			} else if syncState != nil {
-				syncState.AddDBOperations(1)
-				if current := syncState.ExistingStrips[strip.Callsign]; current != nil && !slices.Contains(current.UnexpectedChangeFields, "runway") {
-					current.UnexpectedChangeFields = append(current.UnexpectedChangeFields, "runway")
+			} else {
+				shared.AddDBOperations(ctx, 1)
+				if syncState != nil {
+					if current := syncState.ExistingStrips[strip.Callsign]; current != nil && !slices.Contains(current.UnexpectedChangeFields, "runway") {
+						current.UnexpectedChangeFields = append(current.UnexpectedChangeFields, "runway")
+					}
+				}
+				if state := shared.GetWebsocketMessageState(ctx); state != nil {
+					if cached, ok := state.ExistingStrips[normalizedCallsignKey(strip.Callsign)]; ok && cached != nil && !slices.Contains(cached.UnexpectedChangeFields, "runway") {
+						cached.UnexpectedChangeFields = append(cached.UnexpectedChangeFields, "runway")
+					}
 				}
 			}
 		}
@@ -358,10 +384,17 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 		if registrationNeedsUpdate {
 			if err := s.stripRepo.UpdateRegistration(ctx, session, strip.Callsign, registrationValue); err != nil {
 				slog.ErrorContext(ctx, "Failed to update registration from remarks", slog.Any("error", err))
-			} else if syncState != nil {
-				syncState.AddDBOperations(1)
-				if current := syncState.ExistingStrips[strip.Callsign]; current != nil {
-					current.Registration = &registrationValue
+			} else {
+				shared.AddDBOperations(ctx, 1)
+				if syncState != nil {
+					if current := syncState.ExistingStrips[strip.Callsign]; current != nil {
+						current.Registration = &registrationValue
+					}
+				}
+				if state := shared.GetWebsocketMessageState(ctx); state != nil {
+					if cached, ok := state.ExistingStrips[normalizedCallsignKey(strip.Callsign)]; ok && cached != nil {
+						cached.Registration = &registrationValue
+					}
 				}
 			}
 		}

@@ -22,6 +22,7 @@ type instruments struct {
 	messagesReceived        metric.Int64Counter
 	messagesSent            metric.Int64Counter
 	messageHandledDuration  metric.Float64Histogram
+	messageDBOperations     metric.Int64Counter
 	syncInputStrips         metric.Int64Counter
 	syncInputControllers    metric.Int64Counter
 	syncChangedStrips       metric.Int64Counter
@@ -66,6 +67,11 @@ func get() *instruments {
 			metric.WithDescription("WebSocket message handler processing duration"),
 			metric.WithUnit("s"),
 			metric.WithExplicitBucketBoundaries(0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0),
+		)
+		messageDBOperations, _ := meter.Int64Counter(
+			"websocket.message.db_operations",
+			metric.WithDescription("Database operations performed while handling tracked WebSocket messages"),
+			metric.WithUnit("{operation}"),
 		)
 		syncInputStrips, _ := meter.Int64Counter(
 			"euroscope.sync.input_strips",
@@ -140,6 +146,7 @@ func get() *instruments {
 			messagesReceived:        messagesReceived,
 			messagesSent:            messagesSent,
 			messageHandledDuration:  messageHandledDuration,
+			messageDBOperations:     messageDBOperations,
 			syncInputStrips:         syncInputStrips,
 			syncInputControllers:    syncInputControllers,
 			syncChangedStrips:       syncChangedStrips,
@@ -254,6 +261,18 @@ func MessageHandled(ctx context.Context, sessionName, airport, source, msgType s
 			attribute.String("source", source),
 			attribute.String("type", msgType),
 			attribute.String("status", status),
+		),
+	)
+}
+
+func MessageDBOperations(ctx context.Context, sessionName, airport, source, msgType string, dbOperations int) {
+	if dbOperations <= 0 {
+		return
+	}
+	get().messageDBOperations.Add(ctx, int64(dbOperations),
+		sessionAttributes(sessionName, airport,
+			attribute.String("source", source),
+			attribute.String("type", msgType),
 		),
 	)
 }

@@ -2,7 +2,6 @@ package services
 
 import (
 	"context"
-	"errors"
 	"strings"
 
 	"FlightStrips/internal/config"
@@ -10,7 +9,6 @@ import (
 	"FlightStrips/internal/shared"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 )
 
 const (
@@ -86,6 +84,7 @@ func (s *StripService) applyNoStandValidation(ctx context.Context, session int32
 		if err := s.stripRepo.ClearValidationStatus(ctx, session, strip.Callsign); err != nil {
 			return err
 		}
+		shared.AddDBOperations(ctx, 1)
 		strip.ValidationStatus = nil
 		s.queueOrSendStripUpdate(ctx, session, strip.Callsign, publish)
 		return nil
@@ -114,6 +113,7 @@ func (s *StripService) applyNoStandValidation(ctx context.Context, session int32
 	if err := s.stripRepo.SetValidationStatus(ctx, session, strip.Callsign, desired); err != nil {
 		return err
 	}
+	shared.AddDBOperations(ctx, 1)
 	strip.ValidationStatus = desired
 	s.queueOrSendStripUpdate(ctx, session, strip.Callsign, publish)
 	return nil
@@ -159,17 +159,5 @@ func (s *StripService) getStripForNoStandValidation(ctx context.Context, session
 		}
 	}()
 
-	if syncState := shared.GetSyncState(ctx); syncState != nil && syncState.ExistingStrips != nil {
-		strip = syncState.ExistingStrips[callsign]
-		if strip == nil {
-			return nil, false, nil
-		}
-		return strip, available, nil
-	}
-
-	strip, err = s.stripRepo.GetByCallsign(ctx, session, callsign)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, false, nil
-	}
-	return strip, available, err
+	return s.getCachedStrip(ctx, session, callsign)
 }

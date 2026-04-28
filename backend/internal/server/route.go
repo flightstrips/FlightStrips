@@ -10,6 +10,7 @@ import (
 	"errors"
 	"log/slog"
 	"slices"
+	"strings"
 )
 
 // This is dumb please optimize
@@ -272,8 +273,14 @@ func (s *Server) updateRouteForStripHelper(ctx context.Context, strip *models.St
 
 	err := s.stripRepo.SetNextOwners(ctx, session.ID, strip.Callsign, actualRoute)
 	if err == nil {
+		shared.AddDBOperations(ctx, 1)
 		if syncState := shared.GetSyncState(ctx); syncState != nil && syncState.ExistingStrips != nil {
 			if existing := syncState.ExistingStrips[strip.Callsign]; existing != nil {
+				existing.NextOwners = slices.Clone(actualRoute)
+			}
+		}
+		if messageState := shared.GetWebsocketMessageState(ctx); messageState != nil && messageState.ExistingStrips != nil {
+			if existing := messageState.ExistingStrips[strings.ToUpper(strings.TrimSpace(strip.Callsign))]; existing != nil {
 				existing.NextOwners = slices.Clone(actualRoute)
 			}
 		}
@@ -296,14 +303,39 @@ func routeStripForCallsign(ctx context.Context, stripRepo repository.StripReposi
 			return strip, nil
 		}
 	}
-	return stripRepo.GetByCallsign(ctx, sessionId, callsign)
+	if messageState := shared.GetWebsocketMessageState(ctx); messageState != nil && messageState.ExistingStrips != nil {
+		if strip := messageState.ExistingStrips[strings.ToUpper(strings.TrimSpace(callsign))]; strip != nil {
+			return strip, nil
+		}
+	}
+	strip, err := stripRepo.GetByCallsign(ctx, sessionId, callsign)
+	if err == nil {
+		shared.AddDBOperations(ctx, 1)
+		if messageState := shared.GetWebsocketMessageState(ctx); messageState != nil {
+			if messageState.ExistingStrips == nil {
+				messageState.ExistingStrips = make(map[string]*models.Strip)
+			}
+			messageState.ExistingStrips[strings.ToUpper(strings.TrimSpace(callsign))] = strip
+		}
+	}
+	return strip, err
 }
 
 func routeSessionByID(ctx context.Context, sessionRepo repository.SessionRepository, sessionId int32) (*models.Session, error) {
 	if syncState := shared.GetSyncState(ctx); syncState != nil && syncState.Session != nil && syncState.Session.ID == sessionId {
 		return syncState.Session, nil
 	}
-	return sessionRepo.GetByID(ctx, sessionId)
+	if messageState := shared.GetWebsocketMessageState(ctx); messageState != nil && messageState.Session != nil && messageState.Session.ID == sessionId {
+		return messageState.Session, nil
+	}
+	session, err := sessionRepo.GetByID(ctx, sessionId)
+	if err == nil {
+		shared.AddDBOperations(ctx, 1)
+		if messageState := shared.GetWebsocketMessageState(ctx); messageState != nil {
+			messageState.Session = session
+		}
+	}
+	return session, err
 }
 
 func routeSectorOwners(ctx context.Context, sectorRepo repository.SectorOwnerRepository, sessionId int32) ([]*models.SectorOwner, error) {
@@ -314,15 +346,29 @@ func routeSectorOwners(ctx context.Context, sectorRepo repository.SectorOwnerRep
 		}
 		return owners, nil
 	}
+	if messageState := shared.GetWebsocketMessageState(ctx); messageState != nil && messageState.SectorOwners != nil {
+		owners := make([]*models.SectorOwner, 0, len(messageState.SectorOwners))
+		for _, owner := range messageState.SectorOwners {
+			owners = append(owners, owner)
+		}
+		return owners, nil
+	}
 
 	owners, err := sectorRepo.ListBySession(ctx, sessionId)
 	if err != nil {
 		return nil, err
 	}
+	shared.AddDBOperations(ctx, 1)
 	if syncState := shared.GetSyncState(ctx); syncState != nil {
 		syncState.SectorOwners = make(map[string]*models.SectorOwner, len(owners))
 		for _, owner := range owners {
 			syncState.SectorOwners[owner.Position] = owner
+		}
+	}
+	if messageState := shared.GetWebsocketMessageState(ctx); messageState != nil {
+		messageState.SectorOwners = make(map[string]*models.SectorOwner, len(owners))
+		for _, owner := range owners {
+			messageState.SectorOwners[owner.Position] = owner
 		}
 	}
 	return owners, nil

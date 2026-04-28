@@ -6,6 +6,7 @@ import (
 
 	internalModels "FlightStrips/internal/models"
 	"FlightStrips/internal/pdc"
+	"FlightStrips/internal/shared"
 
 	"github.com/google/uuid"
 )
@@ -76,6 +77,7 @@ func (s *StripService) applyPdcCustomValidation(ctx context.Context, session int
 		if err := s.stripRepo.ClearValidationStatus(ctx, session, strip.Callsign); err != nil {
 			return err
 		}
+		shared.AddDBOperations(ctx, 1)
 		strip.ValidationStatus = nil
 		s.queueOrSendStripUpdate(ctx, session, strip.Callsign, publish)
 		return nil
@@ -104,6 +106,7 @@ func (s *StripService) applyPdcCustomValidation(ctx context.Context, session int
 	if err := s.stripRepo.SetValidationStatus(ctx, session, strip.Callsign, desired); err != nil {
 		return err
 	}
+	shared.AddDBOperations(ctx, 1)
 	strip.ValidationStatus = desired
 	s.queueOrSendStripUpdate(ctx, session, strip.Callsign, publish)
 	return nil
@@ -114,11 +117,13 @@ func (s *StripService) ReevaluatePdcCustomValidationForStrip(ctx context.Context
 }
 
 func (s *StripService) ReevaluatePdcCustomValidation(ctx context.Context, session int32, callsign string, publish bool, forceReactivate bool) error {
-	strip, err := s.stripRepo.GetByCallsign(ctx, session, callsign)
+	strip, available, err := s.getCachedStrip(ctx, session, callsign)
 	if err != nil {
 		return err
 	}
-
+	if !available {
+		return nil
+	}
 	return s.applyPdcCustomValidation(ctx, session, strip, publish, forceReactivate)
 }
 
@@ -136,13 +141,19 @@ func (s *StripService) ReevaluatePdcRequestValidations(ctx context.Context, sess
 		return nil
 	}
 
-	strip, err := s.stripRepo.GetByCallsign(ctx, session, callsign)
+	strip, available, err := s.getCachedStrip(ctx, session, callsign)
 	if err != nil {
 		return err
 	}
-	sessionData, err := sessionRepo.GetByID(ctx, session)
+	if !available {
+		return nil
+	}
+	sessionData, err := s.getCachedSession(ctx, session)
 	if err != nil {
 		return err
+	}
+	if sessionData == nil {
+		return nil
 	}
 
 	return s.ReevaluatePdcRequestValidationsForStrip(ctx, session, strip, sessionData.ActiveRunways.DepartureRunways, publish, forceReactivate)

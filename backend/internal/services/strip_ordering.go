@@ -48,9 +48,17 @@ func (s *StripService) updateStripSequence(ctx context.Context, session int32, c
 	if err != nil {
 		return fmt.Errorf("failed to update strip sequence: %w", err)
 	}
+	shared.AddDBOperations(ctx, 1)
 
 	if syncState := shared.GetSyncState(ctx); syncState != nil && syncState.ExistingStrips != nil {
 		if strip := syncState.ExistingStrips[callsign]; strip != nil {
+			strip.Bay = bay
+			strip.Sequence = &sequence
+			strip.Version++
+		}
+	}
+	if state := shared.GetWebsocketMessageState(ctx); state != nil {
+		if strip := state.ExistingStrips[normalizedCallsignKey(callsign)]; strip != nil {
 			strip.Bay = bay
 			strip.Sequence = &sequence
 			strip.Version++
@@ -75,16 +83,7 @@ func (s *StripService) getStripForMoveToBay(ctx context.Context, session int32, 
 		}
 	}()
 
-	if syncState := shared.GetSyncState(ctx); syncState != nil && syncState.ExistingStrips != nil {
-		strip = syncState.ExistingStrips[callsign]
-		if strip == nil {
-			return nil, false, nil
-		}
-		return strip, available, nil
-	}
-
-	strip, err = s.stripRepo.GetByCallsign(ctx, session, callsign)
-	return strip, available, err
+	return s.getCachedStrip(ctx, session, callsign)
 }
 
 func (s *StripService) nextSequenceAtEndOfBay(ctx context.Context, session int32, bay string) (int32, error) {

@@ -156,6 +156,7 @@ func (s *StripService) applyDuplicateSquawkValidationState(ctx context.Context, 
 		if err := s.stripRepo.ClearValidationStatus(ctx, session, strip.Callsign); err != nil {
 			return err
 		}
+		shared.AddDBOperations(ctx, 1)
 		strip.ValidationStatus = nil
 		s.queueOrSendStripUpdate(ctx, session, strip.Callsign, publish)
 		return nil
@@ -184,6 +185,7 @@ func (s *StripService) applyDuplicateSquawkValidationState(ctx context.Context, 
 	if err := s.stripRepo.SetValidationStatus(ctx, session, strip.Callsign, desired); err != nil {
 		return err
 	}
+	shared.AddDBOperations(ctx, 1)
 	strip.ValidationStatus = desired
 	s.queueOrSendStripUpdate(ctx, session, strip.Callsign, publish)
 	return nil
@@ -203,18 +205,13 @@ func (s *StripService) listStripsForDuplicateSquawkValidation(ctx context.Contex
 		}
 	}()
 
-	if syncState := shared.GetSyncState(ctx); syncState != nil && syncState.ExistingStrips != nil {
-		strips = make([]*internalModels.Strip, 0, len(syncState.ExistingStrips))
-		for _, strip := range syncState.ExistingStrips {
-			strips = append(strips, strip)
-		}
-		slices.SortFunc(strips, func(a, b *internalModels.Strip) int {
-			return strings.Compare(a.Callsign, b.Callsign)
-		})
-		return strips, available, nil
+	strips, available, err = s.listCachedStrips(ctx, session)
+	if !available || err != nil {
+		return strips, available, err
 	}
-
-	strips, err = s.stripRepo.List(ctx, session)
+	slices.SortFunc(strips, func(a, b *internalModels.Strip) int {
+		return strings.Compare(a.Callsign, b.Callsign)
+	})
 	return strips, available, err
 }
 
@@ -228,16 +225,7 @@ func (s *StripService) getStripForDuplicateSquawkValidation(ctx context.Context,
 		}
 	}()
 
-	if syncState := shared.GetSyncState(ctx); syncState != nil && syncState.ExistingStrips != nil {
-		strip = syncState.ExistingStrips[callsign]
-		if strip == nil {
-			return nil, false, nil
-		}
-		return strip, available, nil
-	}
-
-	strip, err = s.stripRepo.GetByCallsign(ctx, session, callsign)
-	return strip, available, err
+	return s.getCachedStrip(ctx, session, callsign)
 }
 
 func (s *StripService) reevaluateDuplicateSquawkValidation(ctx context.Context, session int32, callsign string, publish bool, forceReactivate bool) error {
@@ -469,6 +457,7 @@ func (s *StripService) setOwnerAndReevaluateDuplicateSquawkValidation(ctx contex
 	if err != nil || count != 1 {
 		return count, err
 	}
+	shared.AddDBOperations(ctx, 1)
 	if err := s.ReevaluatePdcRequestValidations(ctx, session, callsign, true, true); err != nil {
 		return 0, err
 	}

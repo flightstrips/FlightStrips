@@ -95,12 +95,18 @@ func ReadPump[TType comparable, TClient Client, THub Hub[TType, TClient]](hub TH
 				attribute.Int("session", int(client.GetSession())),
 			),
 		)
+		if shouldTrackMessageDBOperations(client.GetSource(), msgType) {
+			ctx = shared.WithWebsocketMessageState(ctx, &shared.WebsocketMessageState{MessageType: msgType})
+		}
 
 		handlers := hub.GetMessageHandlers()
 		start := time.Now()
 		err = client.CanHandleMessage(msgType)
 		if err == nil {
 			err = handlers.Handle(ctx, client, parsedMessage)
+		}
+		if state := shared.GetWebsocketMessageState(ctx); state != nil {
+			metrics.MessageDBOperations(ctx, client.GetSessionName(), client.GetAirport(), client.GetSource(), msgType, state.DBOperations)
 		}
 		metrics.MessageHandled(ctx, client.GetSessionName(), client.GetAirport(), client.GetSource(), msgType, time.Since(start), err == nil)
 
@@ -116,6 +122,19 @@ func ReadPump[TType comparable, TClient Client, THub Hub[TType, TClient]](hub TH
 			span.SetStatus(codes.Ok, "")
 		}
 		span.End()
+	}
+}
+
+func shouldTrackMessageDBOperations(source string, msgType string) bool {
+	if source != "euroscope" {
+		return false
+	}
+
+	switch msgType {
+	case "strip_update", "squawk", "assigned_squawk", "tracking_controller_changed":
+		return true
+	default:
+		return false
 	}
 }
 

@@ -83,6 +83,7 @@ func (s *StripService) applyRunwayTypeValidation(ctx context.Context, session in
 		if err := s.stripRepo.ClearValidationStatus(ctx, session, strip.Callsign); err != nil {
 			return err
 		}
+		shared.AddDBOperations(ctx, 1)
 		strip.ValidationStatus = nil
 		s.queueOrSendStripUpdate(ctx, session, strip.Callsign, publish)
 		return nil
@@ -111,16 +112,19 @@ func (s *StripService) applyRunwayTypeValidation(ctx context.Context, session in
 	if err := s.stripRepo.SetValidationStatus(ctx, session, strip.Callsign, desired); err != nil {
 		return err
 	}
+	shared.AddDBOperations(ctx, 1)
 	strip.ValidationStatus = desired
 	s.queueOrSendStripUpdate(ctx, session, strip.Callsign, publish)
 	return nil
 }
 
 func (s *StripService) ReevaluateRunwayTypeValidation(ctx context.Context, session int32, callsign string, publish bool, forceReactivate bool) error {
-	strip, err := s.stripRepo.GetByCallsign(ctx, session, callsign)
+	strip, available, err := s.getCachedStrip(ctx, session, callsign)
 	if err != nil {
 		return err
 	}
-
+	if !available {
+		return nil
+	}
 	return s.applyRunwayTypeValidation(ctx, session, strip, publish, forceReactivate)
 }

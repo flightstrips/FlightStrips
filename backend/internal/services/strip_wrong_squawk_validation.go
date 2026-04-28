@@ -83,6 +83,7 @@ func (s *StripService) applyWrongSquawkValidation(ctx context.Context, session i
 		if err := s.stripRepo.ClearValidationStatus(ctx, session, strip.Callsign); err != nil {
 			return err
 		}
+		shared.AddDBOperations(ctx, 1)
 		strip.ValidationStatus = nil
 		s.queueOrSendStripUpdate(ctx, session, strip.Callsign, publish)
 		return nil
@@ -110,6 +111,7 @@ func (s *StripService) applyWrongSquawkValidation(ctx context.Context, session i
 	if err := s.stripRepo.SetValidationStatus(ctx, session, strip.Callsign, desired); err != nil {
 		return err
 	}
+	shared.AddDBOperations(ctx, 1)
 	strip.ValidationStatus = desired
 	s.queueOrSendStripUpdate(ctx, session, strip.Callsign, publish)
 	return nil

@@ -26,6 +26,7 @@ func (s *StripService) UpdateAssignedSquawk(ctx context.Context, session int32, 
 	if err != nil {
 		return err
 	}
+	shared.AddDBOperations(ctx, 1)
 	if count != 1 {
 		slog.DebugContext(ctx, "Strip being updated does not exist in database", slog.String("callsign", callsign), slog.String("event", "AssignedSquawk"))
 	} else {
@@ -43,6 +44,7 @@ func (s *StripService) UpdateSquawk(ctx context.Context, session int32, callsign
 	if err != nil {
 		return err
 	}
+	shared.AddDBOperations(ctx, 1)
 	if count != 1 {
 		slog.DebugContext(ctx, "Strip being updated does not exist in database", slog.String("callsign", callsign), slog.String("event", "Squawk"))
 	} else {
@@ -213,7 +215,7 @@ func (s *StripService) UpdateStand(ctx context.Context, session int32, callsign 
 
 	server := s.publisher.GetServer()
 	if server != nil {
-		if err := server.UpdateRouteForStrip(callsign, session, true); err != nil {
+		if err := server.UpdateRouteForStripContext(ctx, callsign, session, true); err != nil {
 			slog.ErrorContext(ctx, "Error updating route after stand assignment", slog.String("callsign", callsign), slog.Any("error", err))
 		}
 	}

@@ -146,20 +146,10 @@ func landingClearanceValidationDesiredStatus(
 }
 
 func (s *StripService) activeArrivalRunways(ctx context.Context, session int32) []string {
-	if syncState := shared.GetSyncState(ctx); syncState != nil && syncState.Session != nil && syncState.Session.ID == session {
-		return syncState.Session.ActiveRunways.ArrivalRunways
-	}
-
-	sessionRepo := s.getSessionRepository()
-	if sessionRepo == nil {
-		return nil
-	}
-
-	sessionData, err := sessionRepo.GetByID(ctx, session)
+	sessionData, err := s.getCachedSession(ctx, session)
 	if err != nil || sessionData == nil {
 		return nil
 	}
-
 	return sessionData.ActiveRunways.ArrivalRunways
 }
 
@@ -173,8 +163,7 @@ func (s *StripService) listStripsForLandingClearanceValidation(ctx context.Conte
 		}
 	}()
 
-	strips, err = s.stripRepo.List(ctx, session)
-	return strips, available, err
+	return s.listCachedStrips(ctx, session)
 }
 
 func (s *StripService) ReevaluateLandingClearanceValidation(ctx context.Context, session int32, callsign string, publish bool, forceReactivate bool) error {
@@ -203,6 +192,7 @@ func (s *StripService) ReevaluateLandingClearanceValidationsForSession(ctx conte
 		if err := s.stripRepo.ClearValidationStatus(ctx, session, strip.Callsign); err != nil {
 			return err
 		}
+		shared.AddDBOperations(ctx, 1)
 		strip.ValidationStatus = nil
 		s.queueOrSendStripUpdate(ctx, session, strip.Callsign, publish)
 	}
@@ -212,6 +202,7 @@ func (s *StripService) ReevaluateLandingClearanceValidationsForSession(ctx conte
 			if err := s.stripRepo.ClearValidationStatus(ctx, session, candidate.Callsign); err != nil {
 				return err
 			}
+			shared.AddDBOperations(ctx, 1)
 			candidate.ValidationStatus = nil
 			s.queueOrSendStripUpdate(ctx, session, candidate.Callsign, publish)
 		}
@@ -234,6 +225,7 @@ func (s *StripService) ReevaluateLandingClearanceValidationsForSession(ctx conte
 	if err := s.stripRepo.SetValidationStatus(ctx, session, candidate.Callsign, desired); err != nil {
 		return err
 	}
+	shared.AddDBOperations(ctx, 1)
 	candidate.ValidationStatus = desired
 	s.queueOrSendStripUpdate(ctx, session, candidate.Callsign, publish)
 	return nil

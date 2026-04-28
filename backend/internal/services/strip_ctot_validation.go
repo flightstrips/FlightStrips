@@ -116,6 +116,7 @@ func (s *StripService) applyCtotValidation(ctx context.Context, session int32, s
 		if err := s.stripRepo.ClearValidationStatus(ctx, session, strip.Callsign); err != nil {
 			return err
 		}
+		shared.AddDBOperations(ctx, 1)
 		strip.ValidationStatus = nil
 		s.queueOrSendStripUpdate(ctx, session, strip.Callsign, publish)
 		return nil
@@ -144,22 +145,25 @@ func (s *StripService) applyCtotValidation(ctx context.Context, session int32, s
 	if err := s.stripRepo.SetValidationStatus(ctx, session, strip.Callsign, desired); err != nil {
 		return err
 	}
+	shared.AddDBOperations(ctx, 1)
 	strip.ValidationStatus = desired
 	s.queueOrSendStripUpdate(ctx, session, strip.Callsign, publish)
 	return nil
 }
 
 func (s *StripService) ReevaluateCtotValidation(ctx context.Context, session int32, callsign string, publish bool, forceReactivate bool) error {
-	strip, err := s.stripRepo.GetByCallsign(ctx, session, callsign)
+	strip, available, err := s.getCachedStrip(ctx, session, callsign)
 	if err != nil {
 		return err
 	}
-
+	if !available {
+		return nil
+	}
 	return s.applyCtotValidation(ctx, session, strip, ctotValidationNow(), publish, forceReactivate)
 }
 
 func (s *StripService) ReevaluateCtotValidationsForSession(ctx context.Context, session int32, publish bool) error {
-	strips, err := s.stripRepo.List(ctx, session)
+	strips, _, err := s.listCachedStrips(ctx, session)
 	if err != nil {
 		return err
 	}

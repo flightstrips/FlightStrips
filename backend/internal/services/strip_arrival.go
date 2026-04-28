@@ -203,27 +203,29 @@ func (s *StripService) HandleTrackingControllerChanged(ctx context.Context, sess
 	if _, err := s.stripRepo.UpdateTrackingController(ctx, session, callsign, trackingController); err != nil {
 		return err
 	}
+	shared.AddDBOperations(ctx, 1)
 
 	// Only act on assumption (non-empty tracking controller).
 	if trackingController == "" {
 		return nil
 	}
 
-	strip, err := s.stripRepo.GetByCallsign(ctx, session, callsign)
+	strip, available, err := s.getCachedStrip(ctx, session, callsign)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil
-		}
 		return err
 	}
+	if !available {
+		return nil
+	}
+	strip.TrackingController = trackingController
 
 	// Resolve the assuming controller's position.
-	assumingController, err := s.controllerRepo.GetByCallsign(ctx, session, trackingController)
-	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+	assumingController, controllerAvailable, err := s.getCachedControllerByCallsign(ctx, session, trackingController)
+	if err != nil {
 		return err
 	}
 	assumingPosition := ""
-	if err == nil {
+	if controllerAvailable {
 		assumingPosition = assumingController.Position
 	}
 
@@ -263,7 +265,7 @@ func (s *StripService) HandleTrackingControllerChanged(ctx context.Context, sess
 	targetBay := shared.BAY_HIDDEN
 	if s.publisher != nil {
 		if srv := s.publisher.GetServer(); srv != nil {
-			if sess, sessErr := srv.GetSessionRepository().GetByID(ctx, session); sessErr == nil && strip.Destination == sess.Airport {
+			if sess, sessErr := s.getCachedSession(ctx, session); sessErr == nil && sess != nil && strip.Destination == sess.Airport {
 				targetBay = shared.BAY_ARR_HIDDEN
 			}
 		}
@@ -276,6 +278,7 @@ func (s *StripService) HandleTrackingControllerChanged(ctx context.Context, sess
 	if err != nil {
 		return err
 	}
+	shared.AddDBOperations(ctx, 1)
 	if count != 1 {
 		return errors.New("failed to move airborne strip after tracking controller assumption")
 	}
@@ -297,7 +300,7 @@ func (s *StripService) isGndOnline(ctx context.Context, session int32) bool {
 	if s.controllerRepo == nil {
 		return true
 	}
-	controllers, err := s.controllerRepo.ListBySession(ctx, session)
+	controllers, err := s.listCachedControllers(ctx, session)
 	if err != nil {
 		return true
 	}

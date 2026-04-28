@@ -275,6 +275,68 @@ func TestGetControllerSectors_FallsBackToAirborneOwnerPriority(t *testing.T) {
 	}
 }
 
+func TestGetControllerSectors_PrefersSectorAirborneOwnerOrder(t *testing.T) {
+	originalSectors := sectors
+	originalAirborneOwners := airborneOwners
+	t.Cleanup(func() {
+		sectors = originalSectors
+		airborneOwners = originalAirborneOwners
+	})
+
+	sectors = []Sector{
+		{Name: "K_DEP", Owner: []string{"EKCH_K_DEP", "EKCH_R_DEP", "EKCH_W_APP"}},
+	}
+	airborneOwners = []string{"EKCH_W_APP", "EKCH_R_DEP", "EKCH_K_DEP"}
+
+	controllers := []*Position{
+		{Name: "EKCH_K_DEP", Frequency: "124.980"},
+		{Name: "EKCH_W_APP", Frequency: "119.805"},
+	}
+
+	result := GetControllerSectors(controllers, []string{"22L"})
+
+	if len(result["124.980"]) != 1 {
+		t.Fatalf("expected sector-specific airborne owner to keep K_DEP, got %d sectors", len(result["124.980"]))
+	}
+	if len(result["119.805"]) != 0 {
+		t.Fatalf("expected lower-priority airborne owner to stay idle, got %d sectors", len(result["119.805"]))
+	}
+	if result["124.980"][0].KeyOrName() != "K_DEP" {
+		t.Fatalf("expected K_DEP to stay with EKCH_K_DEP, got %q", result["124.980"][0].KeyOrName())
+	}
+}
+
+func TestGetControllerSectors_UsesSectorAirborneFallbackOrder(t *testing.T) {
+	originalSectors := sectors
+	originalAirborneOwners := airborneOwners
+	t.Cleanup(func() {
+		sectors = originalSectors
+		airborneOwners = originalAirborneOwners
+	})
+
+	sectors = []Sector{
+		{Name: "R_DEP", Owner: []string{"EKCH_R_DEP", "EKCH_K_DEP", "EKCH_W_APP"}},
+	}
+	airborneOwners = []string{"EKCH_W_APP", "EKCH_R_DEP", "EKCH_K_DEP"}
+
+	controllers := []*Position{
+		{Name: "EKCH_K_DEP", Frequency: "124.980"},
+		{Name: "EKCH_W_APP", Frequency: "119.805"},
+	}
+
+	result := GetControllerSectors(controllers, []string{"22L"})
+
+	if len(result["124.980"]) != 1 {
+		t.Fatalf("expected next configured airborne owner to inherit R_DEP, got %d sectors", len(result["124.980"]))
+	}
+	if len(result["119.805"]) != 0 {
+		t.Fatalf("expected global airborne order not to override sector order, got %d sectors", len(result["119.805"]))
+	}
+	if result["124.980"][0].KeyOrName() != "R_DEP" {
+		t.Fatalf("expected R_DEP to move to EKCH_K_DEP, got %q", result["124.980"][0].KeyOrName())
+	}
+}
+
 func TestGetControllerSectors_PrefersConfiguredOwnerOverAirborneFallback(t *testing.T) {
 	originalSectors := sectors
 	originalAirborneOwners := airborneOwners

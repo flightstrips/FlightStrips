@@ -89,11 +89,6 @@ func GetControllerSectorsWithCoverage(controllers []ControllerCoverage, active [
 		slices.Sort(coverageByFrequency[frequency])
 	}
 
-	airborneSet := make(map[string]struct{}, len(airborneOwners))
-	for _, owner := range airborneOwners {
-		airborneSet[owner] = struct{}{}
-	}
-
 	// Group sectors by name, then pick the most specific match per group.
 	type scored struct {
 		sector Sector
@@ -113,7 +108,7 @@ func GetControllerSectorsWithCoverage(controllers []ControllerCoverage, active [
 
 	for _, entry := range byKey {
 		s := entry.sector
-		if frequency, ok := resolveSectorOwnerFrequency(nonAirborneOwners(s.Owner, airborneSet), directLookup, coverageByFrequency); ok {
+		if frequency, ok := resolveSectorOwnerFrequency(s.Owner, directLookup, coverageByFrequency); ok {
 			result[frequency] = append(result[frequency], s)
 			continue
 		}
@@ -145,18 +140,6 @@ func resolveSectorOwnerFrequency(owners []string, directLookup map[string]string
 	}
 
 	return "", false
-}
-
-func nonAirborneOwners(owners []string, airborneSet map[string]struct{}) []string {
-	filtered := make([]string, 0, len(owners))
-	for _, owner := range owners {
-		if _, ok := airborneSet[owner]; ok {
-			continue
-		}
-		filtered = append(filtered, owner)
-	}
-
-	return filtered
 }
 
 func appendUniqueFrequency(frequencies []string, frequency string) []string {

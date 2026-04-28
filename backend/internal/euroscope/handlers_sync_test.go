@@ -13,6 +13,25 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+type autoAssumeSpyStripService struct {
+	testutil.NoOpStripService
+	mu        sync.Mutex
+	positions []string
+}
+
+func (s *autoAssumeSpyStripService) AutoAssumeForControllerOnline(_ context.Context, _ int32, controllerPosition string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.positions = append(s.positions, controllerPosition)
+	return nil
+}
+
+func (s *autoAssumeSpyStripService) Positions() []string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return append([]string(nil), s.positions...)
+}
+
 // ---- buildMultipleOfflineBroadcastMessage ----
 
 func TestBuildMultipleOfflineBroadcastMessage_NoChanges(t *testing.T) {
@@ -27,6 +46,24 @@ func TestBuildMultipleOfflineBroadcastMessage_WithChanges(t *testing.T) {
 	}
 	msg := buildMultipleOfflineBroadcastMessage([]string{"EKCH_DEL", "EKCH_GND"}, changes)
 	assert.Equal(t, "EKCH_DEL, EKCH_GND went offline. Sectors: CLR (to EKCH_TWR), GND (no coverage).", msg)
+}
+
+func TestAutoAssumeForSync_AlwaysIncludesMasterPosition(t *testing.T) {
+	spyStripService := &autoAssumeSpyStripService{}
+	client := &Client{
+		hub: &Hub{
+			stripService: spyStripService,
+		},
+		position: "121.900",
+	}
+
+	autoAssumeForSync(context.Background(), client, 1, []syncController{
+		{Position: "118.700", Callsign: "EKCH_TWR"},
+	}, map[string]struct{}{
+		"118.700": {},
+	})
+
+	assert.ElementsMatch(t, []string{"118.700", "121.900"}, spyStripService.Positions())
 }
 
 // ---- scheduleSessionUpdate debouncer ----
@@ -172,7 +209,7 @@ func TestReconcileStaleControllers_SchedulesTimerForMissingController(t *testing
 	client := &Client{hub: hub, session: 1, callsign: "EKCH_TWR"}
 
 	// EKCH_A_GND is in the DB but absent from knownCallsigns → should get a timer.
-	reconcileStaleControllers(context.Background(), client, 1, map[string]bool{"EKCH_TWR": true})
+	reconcileStaleControllers(context.Background(), client, 1, map[string]bool{"EKCH_TWR": true}, nil)
 
 	hub.offlineMu.Lock()
 	count := len(hub.offlineTimers)
@@ -203,7 +240,7 @@ func TestReconcileStaleControllers_SkipsKnownControllers(t *testing.T) {
 	reconcileStaleControllers(context.Background(), client, 1, map[string]bool{
 		"EKCH_TWR":   true,
 		"EKCH_A_GND": true,
-	})
+	}, nil)
 
 	hub.offlineMu.Lock()
 	count := len(hub.offlineTimers)
@@ -231,7 +268,7 @@ func TestReconcileStaleControllers_KnownControllerIsNotScheduled(t *testing.T) {
 	client := &Client{hub: hub, session: 1, callsign: "EKCH_TWR"}
 
 	// Only EKCH_TWR is in the sync; EKCH_A_GND is stale.
-	reconcileStaleControllers(context.Background(), client, 1, map[string]bool{"EKCH_TWR": true})
+	reconcileStaleControllers(context.Background(), client, 1, map[string]bool{"EKCH_TWR": true}, nil)
 
 	hub.offlineMu.Lock()
 	count := len(hub.offlineTimers)
@@ -262,7 +299,7 @@ func TestReconcileStaleStrips_SchedulesTimerForMissingStrip(t *testing.T) {
 	client := &Client{hub: hub, session: 1}
 
 	// SAS123 is in the DB but absent from the sync → should get a disconnect timer.
-	reconcileStaleStrips(context.Background(), client, 1, map[string]bool{})
+	reconcileStaleStrips(context.Background(), client, 1, map[string]bool{}, nil)
 
 	hub.aircraftDisconnectMu.Lock()
 	count := len(hub.aircraftDisconnectTimers)
@@ -290,7 +327,7 @@ func TestReconcileStaleStrips_SkipsKnownStrips(t *testing.T) {
 	client := &Client{hub: hub, session: 1}
 
 	// SAS123 IS in the sync → no timer.
-	reconcileStaleStrips(context.Background(), client, 1, map[string]bool{"SAS123": true})
+	reconcileStaleStrips(context.Background(), client, 1, map[string]bool{"SAS123": true}, nil)
 
 	hub.aircraftDisconnectMu.Lock()
 	count := len(hub.aircraftDisconnectTimers)
@@ -317,7 +354,7 @@ func TestReconcileStaleStrips_MixedKnownAndStale(t *testing.T) {
 	client := &Client{hub: hub, session: 1}
 
 	// SAS123 is in the sync; SAS456 and SAS789 are stale.
-	reconcileStaleStrips(context.Background(), client, 1, map[string]bool{"SAS123": true})
+	reconcileStaleStrips(context.Background(), client, 1, map[string]bool{"SAS123": true}, nil)
 
 	hub.aircraftDisconnectMu.Lock()
 	count := len(hub.aircraftDisconnectTimers)

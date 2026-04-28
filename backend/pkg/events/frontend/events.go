@@ -22,6 +22,7 @@ const (
 	Initial            EventType = "initial"
 	StripUpdate        EventType = "strip_update"
 	ControllerOnline   EventType = "controller_online"
+	ControllerUpdate   EventType = "controller_update"
 	ControllerOffline  EventType = "controller_offline"
 	AssignedSquawk     EventType = "assigned_squawk"
 	Squawk             EventType = "squawk"
@@ -266,6 +267,18 @@ func (c ControllerOnlineEvent) Marshal() ([]byte, error) {
 
 func (c ControllerOnlineEvent) GetType() EventType {
 	return ControllerOnline
+}
+
+type ControllerUpdateEvent struct {
+	Controller
+}
+
+func (c ControllerUpdateEvent) Marshal() ([]byte, error) {
+	return marshall(c)
+}
+
+func (c ControllerUpdateEvent) GetType() EventType {
+	return ControllerUpdate
 }
 
 type ControllerOfflineEvent struct {

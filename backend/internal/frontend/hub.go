@@ -562,19 +562,32 @@ func (hub *Hub) SendStripUpdate(session int32, callsign string) {
 }
 
 func (hub *Hub) SendControllerOnline(session int32, callsign string, position string, identifier string, ownedSectors []string) {
+	hub.broadcastController(session, frontend.ControllerOnlineEvent{
+		Controller: hub.controllerPayload(callsign, position, identifier, ownedSectors),
+	})
+}
+
+func (hub *Hub) SendControllerUpdate(session int32, callsign string, position string, identifier string, ownedSectors []string) {
+	hub.broadcastController(session, frontend.ControllerUpdateEvent{
+		Controller: hub.controllerPayload(callsign, position, identifier, ownedSectors),
+	})
+}
+
+func (hub *Hub) controllerPayload(callsign string, position string, identifier string, ownedSectors []string) frontend.Controller {
 	section := ""
 	if pos, err := config.GetPositionBasedOnFrequency(position); err == nil {
 		section = pos.Section
 	}
-	event := frontend.ControllerOnlineEvent{
-		Controller: frontend.Controller{
-			Callsign:     callsign,
-			Position:     position,
-			Identifier:   identifier,
-			Section:      section,
-			OwnedSectors: slices.Clone(ownedSectors),
-		},
+	return frontend.Controller{
+		Callsign:     callsign,
+		Position:     position,
+		Identifier:   identifier,
+		Section:      section,
+		OwnedSectors: slices.Clone(ownedSectors),
 	}
+}
+
+func (hub *Hub) broadcastController(session int32, event frontend.OutgoingMessage) {
 	hub.Broadcast(session, event)
 }
 

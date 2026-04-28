@@ -3,6 +3,7 @@ package services
 import (
 	"bytes"
 	"context"
+	"slices"
 	"strings"
 
 	"FlightStrips/internal/config"
@@ -156,9 +157,7 @@ func (s *StripService) applyDuplicateSquawkValidationState(ctx context.Context, 
 			return err
 		}
 		strip.ValidationStatus = nil
-		if publish && s.publisher != nil {
-			s.publisher.SendStripUpdate(session, strip.Callsign)
-		}
+		s.queueOrSendStripUpdate(ctx, session, strip.Callsign, publish)
 		return nil
 	}
 
@@ -186,9 +185,7 @@ func (s *StripService) applyDuplicateSquawkValidationState(ctx context.Context, 
 		return err
 	}
 	strip.ValidationStatus = desired
-	if publish && s.publisher != nil {
-		s.publisher.SendStripUpdate(session, strip.Callsign)
-	}
+	s.queueOrSendStripUpdate(ctx, session, strip.Callsign, publish)
 	return nil
 }
 
@@ -206,6 +203,17 @@ func (s *StripService) listStripsForDuplicateSquawkValidation(ctx context.Contex
 		}
 	}()
 
+	if syncState := shared.GetSyncState(ctx); syncState != nil && syncState.ExistingStrips != nil {
+		strips = make([]*internalModels.Strip, 0, len(syncState.ExistingStrips))
+		for _, strip := range syncState.ExistingStrips {
+			strips = append(strips, strip)
+		}
+		slices.SortFunc(strips, func(a, b *internalModels.Strip) int {
+			return strings.Compare(a.Callsign, b.Callsign)
+		})
+		return strips, available, nil
+	}
+
 	strips, err = s.stripRepo.List(ctx, session)
 	return strips, available, err
 }
@@ -219,6 +227,14 @@ func (s *StripService) getStripForDuplicateSquawkValidation(ctx context.Context,
 			available = false
 		}
 	}()
+
+	if syncState := shared.GetSyncState(ctx); syncState != nil && syncState.ExistingStrips != nil {
+		strip = syncState.ExistingStrips[callsign]
+		if strip == nil {
+			return nil, false, nil
+		}
+		return strip, available, nil
+	}
 
 	strip, err = s.stripRepo.GetByCallsign(ctx, session, callsign)
 	return strip, available, err
@@ -382,6 +398,10 @@ func (s *StripService) reevaluateSquawkValidationsForSession(ctx context.Context
 	}
 
 	return s.ReevaluateNoStandValidationsForSession(ctx, session, publish)
+}
+
+func (s *StripService) ReevaluateSquawkValidationsForSession(ctx context.Context, session int32, publish bool) error {
+	return s.reevaluateSquawkValidationsForSession(ctx, session, publish)
 }
 
 func (s *StripService) reevaluateStripValidationPrecedence(ctx context.Context, session int32, callsign string, publish bool, forceReactivate bool) error {

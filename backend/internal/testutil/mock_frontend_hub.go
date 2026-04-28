@@ -147,6 +147,7 @@ type MockFrontendHub struct {
 	AircraftDisconnects     []AircraftDisconnectCall
 	StripUpdates            []StripUpdateCall
 	ControllerOnlines       []ControllerOnlineCall
+	ControllerUpdates       []ControllerOnlineCall
 	ControllerOfflines      []ControllerOfflineCall
 	CdmWaits                []CdmWaitCall
 	CdmUpdates              []CdmUpdateCall
@@ -184,6 +185,10 @@ func (m *MockFrontendHub) SendStripUpdate(session int32, callsign string) {
 
 func (m *MockFrontendHub) SendControllerOnline(session int32, callsign string, position string, identifier string, ownedSectors []string) {
 	m.ControllerOnlines = append(m.ControllerOnlines, ControllerOnlineCall{session, callsign, position, identifier, ownedSectors})
+}
+
+func (m *MockFrontendHub) SendControllerUpdate(session int32, callsign string, position string, identifier string, ownedSectors []string) {
+	m.ControllerUpdates = append(m.ControllerUpdates, ControllerOnlineCall{session, callsign, position, identifier, ownedSectors})
 }
 
 func (m *MockFrontendHub) SendControllerOffline(session int32, callsign string, position string, identifier string) {

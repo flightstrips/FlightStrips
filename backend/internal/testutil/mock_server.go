@@ -3,6 +3,7 @@ package testutil
 import (
 	"FlightStrips/internal/repository"
 	"FlightStrips/internal/shared"
+	"context"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -21,6 +22,7 @@ type MockServer struct {
 	GetOrCreateSessionFn     func(airport string, name string) (shared.Session, error)
 	UpdateSectorsFn          func(sessionId int32) ([]shared.SectorChange, error)
 	UpdateRouteForStripFn    func(callsign string, sessionId int32, sendUpdate bool) error
+	UpdateRouteForStripCtxFn func(ctx context.Context, callsign string, sessionId int32, sendUpdate bool) error
 	UpdateRoutesForSessionFn func(sessionId int32, sendUpdate bool) error
 	UpdateLayoutsFn          func(sessionId int32) error
 }
@@ -72,6 +74,13 @@ func (m *MockServer) UpdateRouteForStrip(callsign string, sessionId int32, sendU
 		return m.UpdateRouteForStripFn(callsign, sessionId, sendUpdate)
 	}
 	return nil
+}
+
+func (m *MockServer) UpdateRouteForStripContext(ctx context.Context, callsign string, sessionId int32, sendUpdate bool) error {
+	if m.UpdateRouteForStripCtxFn != nil {
+		return m.UpdateRouteForStripCtxFn(ctx, callsign, sessionId, sendUpdate)
+	}
+	return m.UpdateRouteForStrip(callsign, sessionId, sendUpdate)
 }
 
 func (m *MockServer) UpdateRoutesForSession(sessionId int32, sendUpdate bool) error {

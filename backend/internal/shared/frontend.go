@@ -13,6 +13,7 @@ type FrontendHub interface {
 	CidDisconnect(cid string)
 	SendStripUpdate(session int32, callsign string)
 	SendControllerOnline(session int32, callsign string, position string, identifier string, ownedSectors []string)
+	SendControllerUpdate(session int32, callsign string, position string, identifier string, ownedSectors []string)
 	SendControllerOffline(session int32, callsign string, position string, identifier string)
 	SendAssignedSquawkEvent(session int32, callsign string, squawk string)
 	SendSquawkEvent(session int32, callsign string, squawk string)

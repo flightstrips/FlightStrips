@@ -50,6 +50,10 @@ func (m *FrontendHub) SendControllerOnline(session int32, callsign string, posit
 	m.Called(session, callsign, position, identifier, ownedSectors)
 }
 
+func (m *FrontendHub) SendControllerUpdate(session int32, callsign string, position string, identifier string, ownedSectors []string) {
+	m.Called(session, callsign, position, identifier, ownedSectors)
+}
+
 func (m *FrontendHub) SendControllerOffline(session int32, callsign string, position string, identifier string) {
 	m.Called(session, callsign, position, identifier)
 }

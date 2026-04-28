@@ -22,6 +22,12 @@ type instruments struct {
 	messagesReceived        metric.Int64Counter
 	messagesSent            metric.Int64Counter
 	messageHandledDuration  metric.Float64Histogram
+	syncInputStrips         metric.Int64Counter
+	syncInputControllers    metric.Int64Counter
+	syncChangedStrips       metric.Int64Counter
+	syncChangedControllers  metric.Int64Counter
+	syncDBOperations        metric.Int64Counter
+	syncDuration            metric.Float64Histogram
 	pdcRequestsReceived     metric.Int64Counter
 	pdcRequestOutcomes      metric.Int64Counter
 	pdcStateChanges         metric.Int64Counter
@@ -60,6 +66,37 @@ func get() *instruments {
 			metric.WithDescription("WebSocket message handler processing duration"),
 			metric.WithUnit("s"),
 			metric.WithExplicitBucketBoundaries(0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0),
+		)
+		syncInputStrips, _ := meter.Int64Counter(
+			"euroscope.sync.input_strips",
+			metric.WithDescription("EuroScope sync strips received"),
+			metric.WithUnit("{strip}"),
+		)
+		syncInputControllers, _ := meter.Int64Counter(
+			"euroscope.sync.input_controllers",
+			metric.WithDescription("EuroScope sync controllers received"),
+			metric.WithUnit("{controller}"),
+		)
+		syncChangedStrips, _ := meter.Int64Counter(
+			"euroscope.sync.changed_strips",
+			metric.WithDescription("EuroScope sync strips that changed persisted state"),
+			metric.WithUnit("{strip}"),
+		)
+		syncChangedControllers, _ := meter.Int64Counter(
+			"euroscope.sync.changed_controllers",
+			metric.WithDescription("EuroScope sync controllers that changed persisted state"),
+			metric.WithUnit("{controller}"),
+		)
+		syncDBOperations, _ := meter.Int64Counter(
+			"euroscope.sync.db_operations",
+			metric.WithDescription("Database operations performed while handling EuroScope sync"),
+			metric.WithUnit("{operation}"),
+		)
+		syncDuration, _ := meter.Float64Histogram(
+			"euroscope.sync.duration",
+			metric.WithDescription("EuroScope sync processing duration"),
+			metric.WithUnit("s"),
+			metric.WithExplicitBucketBoundaries(0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.0, 5.0, 10.0),
 		)
 		pdcRequestsReceived, _ := meter.Int64Counter(
 			"pdc.requests.received",
@@ -103,6 +140,12 @@ func get() *instruments {
 			messagesReceived:        messagesReceived,
 			messagesSent:            messagesSent,
 			messageHandledDuration:  messageHandledDuration,
+			syncInputStrips:         syncInputStrips,
+			syncInputControllers:    syncInputControllers,
+			syncChangedStrips:       syncChangedStrips,
+			syncChangedControllers:  syncChangedControllers,
+			syncDBOperations:        syncDBOperations,
+			syncDuration:            syncDuration,
 			pdcRequestsReceived:     pdcRequestsReceived,
 			pdcRequestOutcomes:      pdcRequestOutcomes,
 			pdcStateChanges:         pdcStateChanges,
@@ -213,6 +256,17 @@ func MessageHandled(ctx context.Context, sessionName, airport, source, msgType s
 			attribute.String("status", status),
 		),
 	)
+}
+
+func RecordEuroscopeSync(ctx context.Context, sessionName, airport string, inputStrips, inputControllers, changedStrips, changedControllers, dbOperations int, duration time.Duration) {
+	attrs := sessionAttributes(sessionName, airport)
+	i := get()
+	i.syncInputStrips.Add(ctx, int64(inputStrips), attrs)
+	i.syncInputControllers.Add(ctx, int64(inputControllers), attrs)
+	i.syncChangedStrips.Add(ctx, int64(changedStrips), attrs)
+	i.syncChangedControllers.Add(ctx, int64(changedControllers), attrs)
+	i.syncDBOperations.Add(ctx, int64(dbOperations), attrs)
+	i.syncDuration.Record(ctx, duration.Seconds(), attrs)
 }
 
 func MessageSent(ctx context.Context, sessionName, airport, source, msgType string) {

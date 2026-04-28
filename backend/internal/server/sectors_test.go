@@ -200,13 +200,14 @@ func TestSendControllerUpdates_DoesNotAssignSectorsToWrongPrefix(t *testing.T) {
 		Identifier: "EKCH_S_TWR",
 	}}, controllerRepo)
 	require.NoError(t, err)
-	require.Len(t, frontendHub.ControllerOnlines, 2)
+	require.Len(t, frontendHub.ControllerUpdates, 2)
+	assert.Empty(t, frontendHub.ControllerOnlines)
 
-	assert.Equal(t, "ESMS_TWR", frontendHub.ControllerOnlines[0].Callsign)
-	assert.Empty(t, frontendHub.ControllerOnlines[0].Identifier)
-	assert.Empty(t, frontendHub.ControllerOnlines[0].OwnedSectors)
+	assert.Equal(t, "ESMS_TWR", frontendHub.ControllerUpdates[0].Callsign)
+	assert.Empty(t, frontendHub.ControllerUpdates[0].Identifier)
+	assert.Empty(t, frontendHub.ControllerUpdates[0].OwnedSectors)
 
-	assert.Equal(t, "EKCH_S_TWR", frontendHub.ControllerOnlines[1].Callsign)
-	assert.Equal(t, "EKCH_S_TWR", frontendHub.ControllerOnlines[1].Identifier)
-	assert.Equal(t, []string{"TW"}, frontendHub.ControllerOnlines[1].OwnedSectors)
+	assert.Equal(t, "EKCH_S_TWR", frontendHub.ControllerUpdates[1].Callsign)
+	assert.Equal(t, "EKCH_S_TWR", frontendHub.ControllerUpdates[1].Identifier)
+	assert.Equal(t, []string{"TW"}, frontendHub.ControllerUpdates[1].OwnedSectors)
 }

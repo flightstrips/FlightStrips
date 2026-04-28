@@ -77,9 +77,7 @@ func (s *StripService) applyPdcCustomValidation(ctx context.Context, session int
 			return err
 		}
 		strip.ValidationStatus = nil
-		if publish && s.publisher != nil {
-			s.publisher.SendStripUpdate(session, strip.Callsign)
-		}
+		s.queueOrSendStripUpdate(ctx, session, strip.Callsign, publish)
 		return nil
 	}
 
@@ -107,9 +105,7 @@ func (s *StripService) applyPdcCustomValidation(ctx context.Context, session int
 		return err
 	}
 	strip.ValidationStatus = desired
-	if publish && s.publisher != nil {
-		s.publisher.SendStripUpdate(session, strip.Callsign)
-	}
+	s.queueOrSendStripUpdate(ctx, session, strip.Callsign, publish)
 	return nil
 }
 

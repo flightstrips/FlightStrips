@@ -395,6 +395,56 @@ func TestReevaluateSquawkValidationsForSession_FallsBackToNoStandAfterDuplicateC
 	assert.Equal(t, owner, strip.ValidationStatus.OwningPosition)
 }
 
+func TestReevaluateSquawkValidationsForSession_WithSyncState_QueuesUpdatesForAffectedStrips(t *testing.T) {
+	owner := "EKCH_A_GND"
+	assignedSquawk := "4231"
+	stripA := &models.Strip{
+		Callsign:       "SAS123",
+		Owner:          &owner,
+		Bay:            shared.BAY_CLEARED,
+		AssignedSquawk: &assignedSquawk,
+	}
+	stripB := &models.Strip{
+		Callsign:       "SAS456",
+		Owner:          &owner,
+		Bay:            shared.BAY_CLEARED,
+		AssignedSquawk: &assignedSquawk,
+	}
+
+	repo := &testutil.MockStripRepository{
+		SetValidationStatusFn: func(_ context.Context, _ int32, callsign string, status *models.ValidationStatus) error {
+			clone := *status
+			switch callsign {
+			case stripA.Callsign:
+				stripA.ValidationStatus = &clone
+			case stripB.Callsign:
+				stripB.ValidationStatus = &clone
+			}
+			return nil
+		},
+		ClearValidationStatusFn: func(_ context.Context, _ int32, _ string) error {
+			return nil
+		},
+	}
+
+	svc := NewStripService(repo)
+	syncState := &shared.SyncState{
+		ExistingStrips: map[string]*models.Strip{
+			stripA.Callsign: stripA,
+			stripB.Callsign: stripB,
+		},
+	}
+	ctx := shared.WithSyncState(context.Background(), syncState)
+
+	require.NoError(t, svc.reevaluateSquawkValidationsForSession(ctx, 1, false))
+
+	assert.ElementsMatch(t, []string{stripA.Callsign, stripB.Callsign}, syncState.SortedStripUpdates())
+	require.NotNil(t, stripA.ValidationStatus)
+	require.NotNil(t, stripB.ValidationStatus)
+	assert.Equal(t, duplicateSquawkValidationIssueType, stripA.ValidationStatus.IssueType)
+	assert.Equal(t, duplicateSquawkValidationIssueType, stripB.ValidationStatus.IssueType)
+}
+
 func TestReevaluateCtotValidationsForSession_FallsBackToNoStandAfterCtotClears(t *testing.T) {
 	now := ctotValidationNow
 	ctotValidationNow = func() time.Time {

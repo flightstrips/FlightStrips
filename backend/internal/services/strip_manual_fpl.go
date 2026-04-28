@@ -60,7 +60,7 @@ func (s *StripService) CreateManualFPL(ctx context.Context, session int32, req f
 		return fmt.Errorf("MoveToBay: %w", err)
 	}
 
-	if err := s.recalculateRouteForStrip(session, req.Callsign); err != nil {
+	if err := s.recalculateRouteForStrip(ctx, session, req.Callsign); err != nil {
 		slog.Error("Error updating route after manual FPL update", slog.String("callsign", req.Callsign), slog.Any("error", err))
 	}
 

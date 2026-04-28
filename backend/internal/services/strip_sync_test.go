@@ -300,6 +300,59 @@ func TestSyncEuroscopeStrip_ExistingStrip_TaxiNoGndOnline_UpdatesTaxiLwr(t *test
 	assert.Equal(t, shared.BAY_TAXI_LWR, updatedBay, "no GND online → PUSH→TAXI transition should land in TAXI_LWR")
 }
 
+func TestSyncEuroscopeStrip_WithSyncState_DefersBayAndValidationFollowUp(t *testing.T) {
+	ctx := context.Background()
+	const session = int32(1)
+	pushState := euroscope.GroundStatePush
+	existingStrip := &models.Strip{
+		Callsign: "SAS599",
+		Origin:   "EKCH",
+		Bay:      shared.BAY_PUSH,
+		State:    &pushState,
+	}
+
+	var updateCalls int
+	var bayMoveCalls int
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			return existingStrip, nil
+		},
+		UpdateFn: func(_ context.Context, strip *models.Strip) (int64, error) {
+			updateCalls++
+			assert.Equal(t, shared.BAY_TAXI_LWR, strip.Bay)
+			return 1, nil
+		},
+		UpdateBayAndSequenceFn: func(_ context.Context, _ int32, _ string, _ string, _ int32) (int64, error) {
+			bayMoveCalls++
+			return 1, nil
+		},
+	}
+
+	svc, hub, _ := newSyncTestFixture(t, existingStrip, stripRepo)
+	syncState := &shared.SyncState{
+		Session:             &models.Session{ID: session},
+		ExistingControllers: map[string]*models.Controller{},
+		ExistingStrips: map[string]*models.Strip{
+			existingStrip.Callsign: existingStrip,
+		},
+	}
+	ctx = shared.WithSyncState(ctx, syncState)
+
+	err := svc.syncEuroscopeStrip(ctx, session, "", euroscope.Strip{
+		Callsign:    "SAS599",
+		Origin:      "EKCH",
+		GroundState: euroscope.GroundStateTaxi,
+	}, "EKCH")
+	require.NoError(t, err)
+
+	assert.Equal(t, 1, updateCalls)
+	assert.Zero(t, bayMoveCalls, "sync-mode should defer bay resequencing until finalization")
+	assert.Equal(t, shared.BAY_TAXI_LWR, syncState.BayUpdates["SAS599"])
+	assert.True(t, syncState.SquawkValidation, "sync-mode should batch session validation work")
+	assert.Contains(t, syncState.SortedStripUpdates(), "SAS599")
+	assert.Empty(t, hub.StripUpdates, "sync-mode should defer frontend strip updates until finalization")
+}
+
 func TestSyncEuroscopeStrip_ExistingPendingPdcStrip_DoesNotFallBackToNotCleared(t *testing.T) {
 	ctx := context.Background()
 	const session = int32(1)

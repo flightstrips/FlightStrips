@@ -256,7 +256,7 @@ func (s *Server) sendControllerUpdates(sessionId int32, owners []*models.SectorO
 			}
 		}
 
-		s.frontendHub.SendControllerOnline(sessionId, controller.Callsign, controller.Position, identifier, ownedSectors)
+		s.frontendHub.SendControllerUpdate(sessionId, controller.Callsign, controller.Position, identifier, ownedSectors)
 	}
 
 	return nil

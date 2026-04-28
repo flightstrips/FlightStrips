@@ -65,9 +65,7 @@ func (s *StripService) applyPdcInvalidValidation(ctx context.Context, session in
 			return err
 		}
 		strip.ValidationStatus = nil
-		if publish && s.publisher != nil {
-			s.publisher.SendStripUpdate(session, strip.Callsign)
-		}
+		s.queueOrSendStripUpdate(ctx, session, strip.Callsign, publish)
 		return nil
 	}
 
@@ -95,9 +93,7 @@ func (s *StripService) applyPdcInvalidValidation(ctx context.Context, session in
 		return err
 	}
 	strip.ValidationStatus = desired
-	if publish && s.publisher != nil {
-		s.publisher.SendStripUpdate(session, strip.Callsign)
-	}
+	s.queueOrSendStripUpdate(ctx, session, strip.Callsign, publish)
 	return nil
 }
 

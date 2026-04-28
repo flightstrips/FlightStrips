@@ -13,6 +13,7 @@ import {
   type FrontendController,
   type FrontendControllerOfflineEvent,
   type FrontendControllerOnlineEvent,
+  type FrontendControllerUpdateEvent,
   type FrontendDisconnectEvent,
   type FrontendGoAroundEvent,
   type FrontendInitialEvent,
@@ -662,7 +663,9 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     );
   };
 
-  const handleControllerOnlineEvent = (data: FrontendControllerOnlineEvent) => {
+  const handleControllerOnlineEvent = (
+    data: FrontendControllerOnlineEvent | FrontendControllerUpdateEvent
+  ) => {
     store.setState(
       produce((state: WebSocketState) => {
         const controllerIndex = state.controllers.findIndex(
@@ -1050,6 +1053,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
   wsClient.on(EventType.FrontendGoAround, handleGoAroundEvent);
   wsClient.on(EventType.FrontendStripUpdate, handleStripUpdateEvent);
   wsClient.on(EventType.FrontendControllerOnline, handleControllerOnlineEvent);
+  wsClient.on(EventType.FrontendControllerUpdate, handleControllerOnlineEvent);
   wsClient.on(EventType.FrontendControllerOffline, handleControllerOfflineEvent);
   wsClient.on(EventType.FrontendAssignedSquawk, handleAssignedSquawkEvent);
   wsClient.on(EventType.FrontendSquawk, handleSquawkEvent);

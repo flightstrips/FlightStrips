@@ -34,7 +34,7 @@ func (s *StripService) autoAssumeForClearedStrip(ctx context.Context, session in
 		return nil
 	}
 
-	strip, err := s.stripRepo.GetByCallsign(ctx, session, callsign)
+	strip, err := s.syncStripByCallsign(ctx, session, callsign)
 	if err != nil {
 		return err
 	}
@@ -48,7 +48,7 @@ func (s *StripService) autoAssumeForClearedStrip(ctx context.Context, session in
 		return nil
 	}
 
-	owners, err := s.sectorOwnerRepo.ListBySession(ctx, session)
+	owners, err := s.syncSectorOwners(ctx, session)
 	if err != nil {
 		return err
 	}
@@ -90,10 +90,10 @@ func (s *StripService) autoAssumeForClearedStrip(ctx context.Context, session in
 	if count == 1 {
 		if s.publisher != nil {
 			if server := s.publisher.GetServer(); server != nil {
-				if err := server.UpdateRouteForStrip(callsign, session, false); err != nil {
+				if err := server.UpdateRouteForStripContext(ctx, callsign, session, false); err != nil {
 					slog.ErrorContext(ctx, "Error updating route after auto-assume", slog.String("callsign", callsign), slog.Any("error", err))
 				}
-				if refreshed, err := s.stripRepo.GetByCallsign(ctx, session, callsign); err == nil {
+				if refreshed, err := s.syncStripByCallsign(ctx, session, callsign); err == nil {
 					nextOwners = refreshed.NextOwners
 				}
 			}
@@ -148,13 +148,17 @@ func (s *StripService) shouldAutoAssumeClearedDeparture(ctx context.Context, ses
 	if sessionRepo == nil {
 		return true
 	}
-	sessionModel, err := sessionRepo.GetByID(ctx, session)
-	if err != nil {
-		slog.WarnContext(ctx, "Failed to resolve session airport for cleared-strip auto-assume; falling back to bay classification",
-			slog.String("callsign", strip.Callsign),
-			slog.Any("error", err),
-		)
-		return true
+	sessionModel := s.syncSession(ctx, session)
+	if sessionModel == nil {
+		var err error
+		sessionModel, err = sessionRepo.GetByID(ctx, session)
+		if err != nil {
+			slog.WarnContext(ctx, "Failed to resolve session airport for cleared-strip auto-assume; falling back to bay classification",
+				slog.String("callsign", strip.Callsign),
+				slog.Any("error", err),
+			)
+			return true
+		}
 	}
 
 	airport := strings.TrimSpace(sessionModel.Airport)
@@ -179,7 +183,7 @@ func (s *StripService) shouldAutoAssumeClearedDeparture(ctx context.Context, ses
 // This is called when a controller comes online so they automatically inherit strips
 // that were already cleared and waiting for them.
 func (s *StripService) AutoAssumeForControllerOnline(ctx context.Context, session int32, controllerPosition string) error {
-	strips, err := s.stripRepo.List(ctx, session)
+	strips, err := s.syncStrips(ctx, session)
 	if err != nil {
 		return err
 	}
@@ -220,10 +224,10 @@ func (s *StripService) AutoAssumeForControllerOnline(ctx context.Context, sessio
 			nextOwners := strip.NextOwners
 			if s.publisher != nil {
 				if server := s.publisher.GetServer(); server != nil {
-					if err := server.UpdateRouteForStrip(strip.Callsign, session, false); err != nil {
+					if err := server.UpdateRouteForStripContext(ctx, strip.Callsign, session, false); err != nil {
 						slog.ErrorContext(ctx, "Error updating route after auto-assume on controller online", slog.String("callsign", strip.Callsign), slog.Any("error", err))
 					}
-					if refreshed, err := s.stripRepo.GetByCallsign(ctx, session, strip.Callsign); err == nil {
+					if refreshed, err := s.syncStripByCallsign(ctx, session, strip.Callsign); err == nil {
 						nextOwners = refreshed.NextOwners
 					}
 				}
@@ -233,4 +237,54 @@ func (s *StripService) AutoAssumeForControllerOnline(ctx context.Context, sessio
 	}
 
 	return nil
+}
+
+func (s *StripService) syncStripByCallsign(ctx context.Context, session int32, callsign string) (*models.Strip, error) {
+	if syncState := shared.GetSyncState(ctx); syncState != nil && syncState.ExistingStrips != nil {
+		if strip := syncState.ExistingStrips[callsign]; strip != nil {
+			return strip, nil
+		}
+		return nil, pgx.ErrNoRows
+	}
+	return s.stripRepo.GetByCallsign(ctx, session, callsign)
+}
+
+func (s *StripService) syncStrips(ctx context.Context, session int32) ([]*models.Strip, error) {
+	if syncState := shared.GetSyncState(ctx); syncState != nil && syncState.ExistingStrips != nil {
+		strips := make([]*models.Strip, 0, len(syncState.ExistingStrips))
+		for _, strip := range syncState.ExistingStrips {
+			strips = append(strips, strip)
+		}
+		return strips, nil
+	}
+	return s.stripRepo.List(ctx, session)
+}
+
+func (s *StripService) syncSession(ctx context.Context, session int32) *models.Session {
+	if syncState := shared.GetSyncState(ctx); syncState != nil && syncState.Session != nil && syncState.Session.ID == session {
+		return syncState.Session
+	}
+	return nil
+}
+
+func (s *StripService) syncSectorOwners(ctx context.Context, session int32) ([]*models.SectorOwner, error) {
+	if syncState := shared.GetSyncState(ctx); syncState != nil && syncState.SectorOwners != nil {
+		owners := make([]*models.SectorOwner, 0, len(syncState.SectorOwners))
+		for _, owner := range syncState.SectorOwners {
+			owners = append(owners, owner)
+		}
+		return owners, nil
+	}
+
+	owners, err := s.sectorOwnerRepo.ListBySession(ctx, session)
+	if err != nil {
+		return nil, err
+	}
+	if syncState := shared.GetSyncState(ctx); syncState != nil {
+		syncState.SectorOwners = make(map[string]*models.SectorOwner, len(owners))
+		for _, owner := range owners {
+			syncState.SectorOwners[owner.Position] = owner
+		}
+	}
+	return owners, nil
 }

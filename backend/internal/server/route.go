@@ -3,6 +3,8 @@ package server
 import (
 	"FlightStrips/internal/config"
 	"FlightStrips/internal/models"
+	"FlightStrips/internal/repository"
+	"FlightStrips/internal/shared"
 	"FlightStrips/pkg/helpers"
 	"context"
 	"errors"
@@ -13,6 +15,10 @@ import (
 // This is dumb please optimize
 
 func (s *Server) UpdateRouteForStrip(callsign string, sessionId int32, sendUpdate bool) error {
+	return s.UpdateRouteForStripContext(context.Background(), callsign, sessionId, sendUpdate)
+}
+
+func (s *Server) UpdateRouteForStripContext(ctx context.Context, callsign string, sessionId int32, sendUpdate bool) error {
 	stripRepo := s.stripRepo
 	sessionRepo := s.sessionRepo
 
@@ -21,17 +27,22 @@ func (s *Server) UpdateRouteForStrip(callsign string, sessionId int32, sendUpdat
 		slog.String("callsign", callsign),
 		slog.Bool("send_update", sendUpdate))
 
-	strip, err := stripRepo.GetByCallsign(context.Background(), sessionId, callsign)
+	strip, err := routeStripForCallsign(ctx, stripRepo, sessionId, callsign)
 	if err != nil {
 		return err
 	}
 
-	session, err := sessionRepo.GetByID(context.Background(), sessionId)
+	session, err := routeSessionByID(ctx, sessionRepo, sessionId)
 	if err != nil {
 		return err
 	}
 
-	err = s.updateRouteForStripHelper(strip, session, sendUpdate)
+	owners, err := routeSectorOwners(ctx, s.sectorRepo, sessionId)
+	if err != nil {
+		return err
+	}
+
+	err = s.updateRouteForStripHelper(ctx, strip, session, owners, sendUpdate)
 	if err == nil {
 		slog.Debug("Route recalculation finished for strip",
 			slog.Int("session", int(sessionId)),
@@ -61,13 +72,18 @@ func (s *Server) UpdateRoutesForSession(sessionId int32, sendUpdate bool) error 
 		return err
 	}
 
+	owners, err := s.sectorRepo.ListBySession(context.Background(), sessionId)
+	if err != nil {
+		return err
+	}
+
 	slog.Debug("Route recalculation loaded strips for session",
 		slog.Int("session", int(sessionId)),
 		slog.Int("strip_count", len(strips)),
 		slog.Bool("send_update", sendUpdate))
 
 	for _, strip := range strips {
-		err := s.updateRouteForStripHelper(strip, session, sendUpdate)
+		err := s.updateRouteForStripHelper(context.Background(), strip, session, owners, sendUpdate)
 		if err != nil {
 			return err
 		}
@@ -81,7 +97,7 @@ func (s *Server) UpdateRoutesForSession(sessionId int32, sendUpdate bool) error 
 	return nil
 }
 
-func (s *Server) updateRouteForStripHelper(strip *models.Strip, session *models.Session, sendUpdate bool) error {
+func (s *Server) updateRouteForStripHelper(ctx context.Context, strip *models.Strip, session *models.Session, owners []*models.SectorOwner, sendUpdate bool) error {
 	isArrival := strip.Destination == session.Airport
 	currentOwner := helpers.ValueOrDefault(strip.Owner)
 	currentStand := helpers.ValueOrDefault(strip.Stand)
@@ -203,11 +219,6 @@ func (s *Server) updateRouteForStripHelper(strip *models.Strip, session *models.
 		}
 	}
 
-	owners, err := s.sectorRepo.ListBySession(context.Background(), session.ID)
-	if err != nil {
-		return err
-	}
-
 	sectorToOnwer := make(map[string]string)
 	for _, owner := range owners {
 		for _, s := range owner.Sector {
@@ -259,7 +270,14 @@ func (s *Server) updateRouteForStripHelper(strip *models.Strip, session *models.
 		slog.Any("previous_next_owners", strip.NextOwners),
 		slog.Any("next_owners", actualRoute))
 
-	err = s.stripRepo.SetNextOwners(context.Background(), session.ID, strip.Callsign, actualRoute)
+	err := s.stripRepo.SetNextOwners(ctx, session.ID, strip.Callsign, actualRoute)
+	if err == nil {
+		if syncState := shared.GetSyncState(ctx); syncState != nil && syncState.ExistingStrips != nil {
+			if existing := syncState.ExistingStrips[strip.Callsign]; existing != nil {
+				existing.NextOwners = slices.Clone(actualRoute)
+			}
+		}
+	}
 
 	if sendUpdate {
 		owner := ""
@@ -270,4 +288,42 @@ func (s *Server) updateRouteForStripHelper(strip *models.Strip, session *models.
 	}
 
 	return err
+}
+
+func routeStripForCallsign(ctx context.Context, stripRepo repository.StripRepository, sessionId int32, callsign string) (*models.Strip, error) {
+	if syncState := shared.GetSyncState(ctx); syncState != nil && syncState.ExistingStrips != nil {
+		if strip := syncState.ExistingStrips[callsign]; strip != nil {
+			return strip, nil
+		}
+	}
+	return stripRepo.GetByCallsign(ctx, sessionId, callsign)
+}
+
+func routeSessionByID(ctx context.Context, sessionRepo repository.SessionRepository, sessionId int32) (*models.Session, error) {
+	if syncState := shared.GetSyncState(ctx); syncState != nil && syncState.Session != nil && syncState.Session.ID == sessionId {
+		return syncState.Session, nil
+	}
+	return sessionRepo.GetByID(ctx, sessionId)
+}
+
+func routeSectorOwners(ctx context.Context, sectorRepo repository.SectorOwnerRepository, sessionId int32) ([]*models.SectorOwner, error) {
+	if syncState := shared.GetSyncState(ctx); syncState != nil && syncState.SectorOwners != nil {
+		owners := make([]*models.SectorOwner, 0, len(syncState.SectorOwners))
+		for _, owner := range syncState.SectorOwners {
+			owners = append(owners, owner)
+		}
+		return owners, nil
+	}
+
+	owners, err := sectorRepo.ListBySession(ctx, sessionId)
+	if err != nil {
+		return nil, err
+	}
+	if syncState := shared.GetSyncState(ctx); syncState != nil {
+		syncState.SectorOwners = make(map[string]*models.SectorOwner, len(owners))
+		for _, owner := range owners {
+			syncState.SectorOwners[owner.Position] = owner
+		}
+	}
+	return owners, nil
 }

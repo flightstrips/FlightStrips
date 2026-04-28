@@ -9,6 +9,7 @@ import {
   type FrontendCommunicationTypeEvent,
   type FrontendControllerOfflineEvent,
   type FrontendControllerOnlineEvent,
+  type FrontendControllerUpdateEvent,
   type FrontendDisconnectEvent,
   type FrontendGoAroundEvent,
   type FrontendInitialEvent, type FrontendLayoutUpdateEvent, type FrontendOwnersUpdateEvent,
@@ -43,6 +44,7 @@ type EventMap = {
   [EventType.FrontendGoAround]: FrontendGoAroundEvent;
   [EventType.FrontendStripUpdate]: FrontendStripUpdateEvent;
   [EventType.FrontendControllerOnline]: FrontendControllerOnlineEvent;
+  [EventType.FrontendControllerUpdate]: FrontendControllerUpdateEvent;
   [EventType.FrontendControllerOffline]: FrontendControllerOfflineEvent;
   [EventType.FrontendAssignedSquawk]: FrontendAssignedSquawkEvent;
   [EventType.FrontendSquawk]: FrontendSquawkEvent;

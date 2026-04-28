@@ -18,7 +18,7 @@ func (s *StripService) SetValidationStatus(ctx context.Context, session int32, c
 	if err := s.stripRepo.SetValidationStatus(ctx, session, callsign, status); err != nil {
 		return err
 	}
-	s.publisher.SendStripUpdate(session, callsign)
+	s.queueOrSendStripUpdate(ctx, session, callsign, true)
 	return nil
 }
 
@@ -47,7 +47,7 @@ func (s *StripService) AcknowledgeValidationStatus(ctx context.Context, session 
 		// Key mismatch or already acknowledged — not an error, just a no-op.
 		return nil
 	}
-	s.publisher.SendStripUpdate(session, callsign)
+	s.queueOrSendStripUpdate(ctx, session, callsign, true)
 	return nil
 }
 
@@ -56,7 +56,7 @@ func (s *StripService) ClearValidationStatus(ctx context.Context, session int32,
 	if err := s.stripRepo.ClearValidationStatus(ctx, session, callsign); err != nil {
 		return err
 	}
-	s.publisher.SendStripUpdate(session, callsign)
+	s.queueOrSendStripUpdate(ctx, session, callsign, true)
 	return nil
 }
 

@@ -59,7 +59,7 @@ func TestApplyOrValidateRunways_Master_CallsUpdateLayouts(t *testing.T) {
 	// Register client as master for session 1.
 	hub.master[1] = client
 
-	err := applyOrValidateRunways(context.Background(), client, []esEvents.SyncRunway{
+	_, err := applyOrValidateRunways(context.Background(), client, []esEvents.SyncRunway{
 		{Name: "04L", Departure: true},
 		{Name: "22R", Arrival: true},
 	})
@@ -100,7 +100,7 @@ func TestApplyOrValidateRunways_Slave_DoesNotCallUpdateLayouts(t *testing.T) {
 	hub.master[1] = master
 
 	// Slave sends the same runways that are already active (no mismatch warning, just early return).
-	err := applyOrValidateRunways(context.Background(), slave, []esEvents.SyncRunway{
+	_, err := applyOrValidateRunways(context.Background(), slave, []esEvents.SyncRunway{
 		{Name: "04L", Departure: true},
 		{Name: "22R", Arrival: true},
 	})
@@ -138,7 +138,7 @@ func TestApplyOrValidateRunways_SlaveMismatch_TargetsFrontendAndAlertsOnceUntilR
 		{Name: "04R", Arrival: true},
 	}
 
-	err := applyOrValidateRunways(context.Background(), slave, mismatchRunways)
+	_, err := applyOrValidateRunways(context.Background(), slave, mismatchRunways)
 	require.NoError(t, err)
 	require.Len(t, frontendHub.SentMessages, 1)
 
@@ -161,12 +161,12 @@ func TestApplyOrValidateRunways_SlaveMismatch_TargetsFrontendAndAlertsOnceUntilR
 	assert.Equal(t, []string{"22L"}, alert.CurrentDeparture)
 	assert.Equal(t, []string{"04R"}, alert.CurrentArrival)
 
-	err = applyOrValidateRunways(context.Background(), slave, mismatchRunways)
+	_, err = applyOrValidateRunways(context.Background(), slave, mismatchRunways)
 	require.NoError(t, err)
 	require.Len(t, frontendHub.SentMessages, 1)
 	assertNoRunwayAlertQueued(t, hub)
 
-	err = applyOrValidateRunways(context.Background(), slave, []esEvents.SyncRunway{
+	_, err = applyOrValidateRunways(context.Background(), slave, []esEvents.SyncRunway{
 		{Name: "04L", Departure: true},
 		{Name: "22R", Arrival: true},
 	})
@@ -183,7 +183,7 @@ func TestApplyOrValidateRunways_SlaveMismatch_TargetsFrontendAndAlertsOnceUntilR
 	assert.False(t, departureMismatch)
 	assert.False(t, arrivalMismatch)
 
-	err = applyOrValidateRunways(context.Background(), slave, mismatchRunways)
+	_, err = applyOrValidateRunways(context.Background(), slave, mismatchRunways)
 	require.NoError(t, err)
 	require.Len(t, frontendHub.SentMessages, 3)
 	assert.Equal(t, readRunwayMismatchAlert(t, hub), readRunwayMismatchAlertPayload(mismatchRunways))
@@ -215,7 +215,7 @@ func TestApplyOrValidateRunways_ObserverMismatch_TargetsFrontendAndAlerts(t *tes
 	observer.observer = true
 	hub.master[1] = master
 
-	err := applyOrValidateRunways(context.Background(), observer, []esEvents.SyncRunway{
+	_, err := applyOrValidateRunways(context.Background(), observer, []esEvents.SyncRunway{
 		{Name: "22L", Departure: true},
 		{Name: "04R", Arrival: true},
 	})
@@ -263,7 +263,7 @@ func TestApplyOrValidateRunways_ObserverWithoutMasterDoesNotFlagMismatch(t *test
 	observer := buildTestClient(hub, 1, "cid-observer", "EKCH_OBS")
 	observer.observer = true
 
-	err := applyOrValidateRunways(context.Background(), observer, []esEvents.SyncRunway{
+	_, err := applyOrValidateRunways(context.Background(), observer, []esEvents.SyncRunway{
 		{Name: "22L", Departure: true},
 		{Name: "04R", Arrival: true},
 	})

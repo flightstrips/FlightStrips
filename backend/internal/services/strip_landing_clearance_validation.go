@@ -146,6 +146,10 @@ func landingClearanceValidationDesiredStatus(
 }
 
 func (s *StripService) activeArrivalRunways(ctx context.Context, session int32) []string {
+	if syncState := shared.GetSyncState(ctx); syncState != nil && syncState.Session != nil && syncState.Session.ID == session {
+		return syncState.Session.ActiveRunways.ArrivalRunways
+	}
+
 	sessionRepo := s.getSessionRepository()
 	if sessionRepo == nil {
 		return nil
@@ -200,9 +204,7 @@ func (s *StripService) ReevaluateLandingClearanceValidationsForSession(ctx conte
 			return err
 		}
 		strip.ValidationStatus = nil
-		if publish && s.publisher != nil {
-			s.publisher.SendStripUpdate(session, strip.Callsign)
-		}
+		s.queueOrSendStripUpdate(ctx, session, strip.Callsign, publish)
 	}
 
 	if candidate == nil || !landingClearanceValidationApplies(candidate, activeArrivalRunways) {
@@ -211,9 +213,7 @@ func (s *StripService) ReevaluateLandingClearanceValidationsForSession(ctx conte
 				return err
 			}
 			candidate.ValidationStatus = nil
-			if publish && s.publisher != nil {
-				s.publisher.SendStripUpdate(session, candidate.Callsign)
-			}
+			s.queueOrSendStripUpdate(ctx, session, candidate.Callsign, publish)
 		}
 		return nil
 	}
@@ -235,9 +235,7 @@ func (s *StripService) ReevaluateLandingClearanceValidationsForSession(ctx conte
 		return err
 	}
 	candidate.ValidationStatus = desired
-	if publish && s.publisher != nil {
-		s.publisher.SendStripUpdate(session, candidate.Callsign)
-	}
+	s.queueOrSendStripUpdate(ctx, session, candidate.Callsign, publish)
 	return nil
 }
 

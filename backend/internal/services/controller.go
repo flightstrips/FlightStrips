@@ -255,7 +255,22 @@ func (cs *ControllerService) ControllerOffline(ctx context.Context, session int3
 
 // UpsertController creates or updates a controller's position (used by sync).
 func (cs *ControllerService) UpsertController(ctx context.Context, session int32, callsign, position string) error {
-	_, err := cs.controllerRepo.GetByCallsign(ctx, session, callsign)
+	syncState := shared.GetSyncState(ctx)
+
+	var (
+		controller *internalModels.Controller
+		err        error
+		ok         bool
+	)
+
+	if syncState != nil && syncState.ExistingControllers != nil {
+		controller, ok = syncState.ExistingControllers[callsign]
+		if !ok {
+			err = pgx.ErrNoRows
+		}
+	} else {
+		controller, err = cs.controllerRepo.GetByCallsign(ctx, session, callsign)
+	}
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return err
 	}
@@ -270,10 +285,32 @@ func (cs *ControllerService) UpsertController(ctx context.Context, session int32
 		if err = cs.controllerRepo.Create(ctx, newController); err != nil {
 			return err
 		}
+		if syncState != nil {
+			syncState.ChangedControllers++
+			syncState.AddDBOperations(1)
+			if syncState.ExistingControllers != nil {
+				syncState.ExistingControllers[callsign] = newController
+			}
+		}
 		slog.DebugContext(ctx, "Inserted controller", slog.String("callsign", callsign))
 	} else {
+		if controller.Position == position {
+			return nil
+		}
 		if _, err = cs.controllerRepo.SetPosition(ctx, session, callsign, position); err != nil {
 			return err
+		}
+		if syncState != nil {
+			syncState.ChangedControllers++
+			syncState.AddDBOperations(1)
+			if syncState.ExistingControllers != nil {
+				syncState.ExistingControllers[callsign] = &internalModels.Controller{
+					Callsign: callsign,
+					Session:  session,
+					Position: position,
+					Cid:      controller.Cid,
+				}
+			}
 		}
 		slog.DebugContext(ctx, "Updated controller", slog.String("callsign", callsign))
 	}

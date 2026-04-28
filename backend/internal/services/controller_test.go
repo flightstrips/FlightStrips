@@ -494,3 +494,20 @@ func TestUpsertController_UpdatesExisting(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, positionSet)
 }
+
+func TestUpsertController_SamePosition_IsNoOp(t *testing.T) {
+	ctx := context.Background()
+	const session = int32(1)
+	const callsign = "EKCH_DEL"
+	const position = "121.600"
+
+	ctrlRepo := &testutil.MockControllerRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Controller, error) {
+			return &models.Controller{Callsign: callsign, Session: session, Position: position}, nil
+		},
+	}
+
+	svc := NewControllerService(ctrlRepo)
+	err := svc.UpsertController(ctx, session, callsign, position)
+	require.NoError(t, err)
+}

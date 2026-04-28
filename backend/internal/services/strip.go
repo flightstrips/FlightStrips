@@ -3,6 +3,7 @@ package services
 import (
 	"FlightStrips/internal/repository"
 	"FlightStrips/internal/shared"
+	"context"
 )
 
 const (
@@ -78,7 +79,7 @@ func (s *StripService) getSessionRepository() repository.SessionRepository {
 	return server.GetSessionRepository()
 }
 
-func (s *StripService) recalculateRouteForStrip(session int32, callsign string) error {
+func (s *StripService) recalculateRouteForStrip(ctx context.Context, session int32, callsign string) error {
 	if s.publisher == nil {
 		return nil
 	}
@@ -88,9 +89,22 @@ func (s *StripService) recalculateRouteForStrip(session int32, callsign string) 
 		return nil
 	}
 
-	return server.UpdateRouteForStrip(callsign, session, false)
+	return server.UpdateRouteForStripContext(ctx, callsign, session, false)
 }
 
 func (s *StripService) SetCdmService(cdmService shared.CdmService) {
 	s.cdmService = cdmService
+}
+
+func (s *StripService) queueOrSendStripUpdate(ctx context.Context, session int32, callsign string, publish bool) {
+	if publish {
+		if s.publisher != nil {
+			s.publisher.SendStripUpdate(session, callsign)
+		}
+		return
+	}
+
+	if syncState := shared.GetSyncState(ctx); syncState != nil {
+		syncState.MarkStripUpdate(callsign)
+	}
 }

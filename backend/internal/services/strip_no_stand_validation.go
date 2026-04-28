@@ -87,9 +87,7 @@ func (s *StripService) applyNoStandValidation(ctx context.Context, session int32
 			return err
 		}
 		strip.ValidationStatus = nil
-		if publish && s.publisher != nil {
-			s.publisher.SendStripUpdate(session, strip.Callsign)
-		}
+		s.queueOrSendStripUpdate(ctx, session, strip.Callsign, publish)
 		return nil
 	}
 
@@ -117,9 +115,7 @@ func (s *StripService) applyNoStandValidation(ctx context.Context, session int32
 		return err
 	}
 	strip.ValidationStatus = desired
-	if publish && s.publisher != nil {
-		s.publisher.SendStripUpdate(session, strip.Callsign)
-	}
+	s.queueOrSendStripUpdate(ctx, session, strip.Callsign, publish)
 	return nil
 }
 
@@ -162,6 +158,14 @@ func (s *StripService) getStripForNoStandValidation(ctx context.Context, session
 			available = false
 		}
 	}()
+
+	if syncState := shared.GetSyncState(ctx); syncState != nil && syncState.ExistingStrips != nil {
+		strip = syncState.ExistingStrips[callsign]
+		if strip == nil {
+			return nil, false, nil
+		}
+		return strip, available, nil
+	}
 
 	strip, err = s.stripRepo.GetByCallsign(ctx, session, callsign)
 	if errors.Is(err, pgx.ErrNoRows) {

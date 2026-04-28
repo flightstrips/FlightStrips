@@ -49,6 +49,14 @@ func (s *StripService) updateStripSequence(ctx context.Context, session int32, c
 		return fmt.Errorf("failed to update strip sequence: %w", err)
 	}
 
+	if syncState := shared.GetSyncState(ctx); syncState != nil && syncState.ExistingStrips != nil {
+		if strip := syncState.ExistingStrips[callsign]; strip != nil {
+			strip.Bay = bay
+			strip.Sequence = &sequence
+			strip.Version++
+		}
+	}
+
 	if sendNotification {
 		slog.DebugContext(ctx, "Strip moved to bay", slog.String("callsign", callsign), slog.String("bay", bay), slog.Int("sequence", int(sequence)))
 		// Send update notification
@@ -67,11 +75,33 @@ func (s *StripService) getStripForMoveToBay(ctx context.Context, session int32, 
 		}
 	}()
 
+	if syncState := shared.GetSyncState(ctx); syncState != nil && syncState.ExistingStrips != nil {
+		strip = syncState.ExistingStrips[callsign]
+		if strip == nil {
+			return nil, false, nil
+		}
+		return strip, available, nil
+	}
+
 	strip, err = s.stripRepo.GetByCallsign(ctx, session, callsign)
 	return strip, available, err
 }
 
 func (s *StripService) nextSequenceAtEndOfBay(ctx context.Context, session int32, bay string) (int32, error) {
+	if syncState := shared.GetSyncState(ctx); syncState != nil && syncState.ExistingStrips != nil && s.tacticalRepo == nil {
+		maxInBay := int32(0)
+		for _, strip := range syncState.ExistingStrips {
+			if strip.Bay != bay || strip.Sequence == nil {
+				continue
+			}
+			if *strip.Sequence > maxInBay {
+				maxInBay = *strip.Sequence
+			}
+		}
+		order, _ := s.calculateOrderBetween(maxInBay, nil)
+		return order, nil
+	}
+
 	var maxInBay int32
 	var err error
 	if s.tacticalRepo != nil {
@@ -106,13 +136,20 @@ func (s *StripService) MoveToBay(ctx context.Context, session int32, callsign st
 		return err
 	}
 
-	if err := s.reevaluateStripValidationPrecedence(ctx, session, callsign, sendNotification, true); err != nil {
-		return err
-	}
-
-	if landingClearanceValidationRelevantBay(previousBay) || landingClearanceValidationRelevantBay(bay) {
-		if err := s.ReevaluateLandingClearanceValidationsForSession(ctx, session, sendNotification, false); err != nil {
+	if syncState := shared.GetSyncState(ctx); syncState != nil {
+		syncState.SquawkValidation = true
+		if landingClearanceValidationRelevantBay(previousBay) || landingClearanceValidationRelevantBay(bay) {
+			syncState.LandingValidation = true
+		}
+	} else {
+		if err := s.reevaluateStripValidationPrecedence(ctx, session, callsign, sendNotification, true); err != nil {
 			return err
+		}
+
+		if landingClearanceValidationRelevantBay(previousBay) || landingClearanceValidationRelevantBay(bay) {
+			if err := s.ReevaluateLandingClearanceValidationsForSession(ctx, session, sendNotification, false); err != nil {
+				return err
+			}
 		}
 	}
 

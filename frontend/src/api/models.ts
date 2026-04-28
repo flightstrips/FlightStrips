@@ -3,6 +3,7 @@ export enum EventType {
   FrontendGoAround = "go_around",
   FrontendStripUpdate = "strip_update",
   FrontendControllerOnline = "controller_online",
+  FrontendControllerUpdate = "controller_update",
   FrontendControllerOffline = "controller_offline",
   FrontendAssignedSquawk = "assigned_squawk",
   FrontendSquawk = "squawk",
@@ -283,6 +284,15 @@ export interface FrontendControllerOnlineEvent {
   owned_sectors: string[];
 }
 
+export interface FrontendControllerUpdateEvent {
+  type: EventType.FrontendControllerUpdate;
+  callsign: string;
+  position: string;
+  identifier: string;
+  section: string;
+  owned_sectors: string[];
+}
+
 export interface FrontendControllerOfflineEvent {
   type: EventType.FrontendControllerOffline;
   callsign: string;
@@ -517,6 +527,7 @@ export type WebSocketEvent =
   | FrontendGoAroundEvent
   | FrontendStripUpdateEvent
   | FrontendControllerOnlineEvent
+  | FrontendControllerUpdateEvent
   | FrontendControllerOfflineEvent
   | FrontendAssignedSquawkEvent
   | FrontendSquawkEvent

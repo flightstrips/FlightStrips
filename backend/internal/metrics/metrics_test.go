@@ -4,6 +4,7 @@ import (
 	"context"
 	"sync"
 	"testing"
+	"time"
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -60,6 +61,29 @@ func findInt64MetricValue(t *testing.T, rm metricdata.ResourceMetrics, metricNam
 				for _, point := range data.DataPoints {
 					if attributesMatch(point.Attributes, want) {
 						return point.Value
+					}
+				}
+			}
+		}
+	}
+
+	t.Fatalf("metric %q with attributes %v not found", metricName, want)
+	return 0
+}
+
+func findFloat64HistogramSum(t *testing.T, rm metricdata.ResourceMetrics, metricName string, want map[string]string) float64 {
+	t.Helper()
+
+	for _, scope := range rm.ScopeMetrics {
+		for _, metric := range scope.Metrics {
+			if metric.Name != metricName {
+				continue
+			}
+
+			if data, ok := metric.Data.(metricdata.Histogram[float64]); ok {
+				for _, point := range data.DataPoints {
+					if attributesMatch(point.Attributes, want) {
+						return point.Sum
 					}
 				}
 			}
@@ -154,5 +178,45 @@ func TestPDCAndTrafficMetricsUseSessionNameAndAirport(t *testing.T) {
 		"airport":      "EKCH",
 	}); got != 4 {
 		t.Fatalf("expected departure traffic gauge 4, got %d", got)
+	}
+}
+
+func TestEuroscopeSyncMetricsUseSessionNameAndAirport(t *testing.T) {
+	reader := sdkmetric.NewManualReader()
+	provider := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
+	previousProvider := otel.GetMeterProvider()
+	otel.SetMeterProvider(provider)
+	resetInstrumentsForTest()
+	t.Cleanup(func() {
+		otel.SetMeterProvider(previousProvider)
+		resetInstrumentsForTest()
+	})
+
+	RecordEuroscopeSync(context.Background(), "live", "ekch", 12, 4, 3, 1, 9, 150*time.Millisecond)
+
+	rm := collectMetrics(t, reader)
+
+	attrs := map[string]string{
+		"session_name": "LIVE",
+		"airport":      "EKCH",
+	}
+
+	if got := findInt64MetricValue(t, rm, "euroscope.sync.input_strips", attrs); got != 12 {
+		t.Fatalf("expected strip input counter 12, got %d", got)
+	}
+	if got := findInt64MetricValue(t, rm, "euroscope.sync.input_controllers", attrs); got != 4 {
+		t.Fatalf("expected controller input counter 4, got %d", got)
+	}
+	if got := findInt64MetricValue(t, rm, "euroscope.sync.changed_strips", attrs); got != 3 {
+		t.Fatalf("expected changed strip counter 3, got %d", got)
+	}
+	if got := findInt64MetricValue(t, rm, "euroscope.sync.changed_controllers", attrs); got != 1 {
+		t.Fatalf("expected changed controller counter 1, got %d", got)
+	}
+	if got := findInt64MetricValue(t, rm, "euroscope.sync.db_operations", attrs); got != 9 {
+		t.Fatalf("expected db operations counter 9, got %d", got)
+	}
+	if got := findFloat64HistogramSum(t, rm, "euroscope.sync.duration", attrs); got != 0.15 {
+		t.Fatalf("expected sync duration histogram sum 0.15, got %f", got)
 	}
 }

@@ -86,13 +86,18 @@ func (s *StripService) UnclearStrip(ctx context.Context, session int32, callsign
 }
 
 func (s *StripService) clearOwnerForNotCleared(ctx context.Context, session int32, callsign string) error {
-	strip, err := s.stripRepo.GetByCallsign(ctx, session, callsign)
+	strip, err := s.syncStripByCallsign(ctx, session, callsign)
 	if err != nil {
 		return fmt.Errorf("failed to get strip for owner reset: %w", err)
 	}
 
 	if err := s.stripRepo.SetPreviousOwners(ctx, session, callsign, []string{}); err != nil {
 		return fmt.Errorf("failed to persist previous owners: %w", err)
+	}
+	if syncState := shared.GetSyncState(ctx); syncState != nil && syncState.ExistingStrips != nil {
+		if existing := syncState.ExistingStrips[callsign]; existing != nil {
+			existing.PreviousOwners = []string{}
+		}
 	}
 
 	if strip.Owner != nil && *strip.Owner != "" {
@@ -103,14 +108,20 @@ func (s *StripService) clearOwnerForNotCleared(ctx context.Context, session int3
 		if count != 1 {
 			return fmt.Errorf("failed to clear strip owner")
 		}
+		if syncState := shared.GetSyncState(ctx); syncState != nil && syncState.ExistingStrips != nil {
+			if existing := syncState.ExistingStrips[callsign]; existing != nil {
+				existing.Owner = nil
+				existing.Version++
+			}
+		}
 	}
 
-	if err := s.recalculateRouteForStrip(session, callsign); err != nil {
+	if err := s.recalculateRouteForStrip(ctx, session, callsign); err != nil {
 		return fmt.Errorf("failed to recalculate route after clearing owner: %w", err)
 	}
 
 	if s.publisher != nil {
-		refreshedStrip, err := s.stripRepo.GetByCallsign(ctx, session, callsign)
+		refreshedStrip, err := s.syncStripByCallsign(ctx, session, callsign)
 		if err != nil {
 			return fmt.Errorf("failed to reload strip after owner reset: %w", err)
 		}

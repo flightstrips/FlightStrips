@@ -11,6 +11,8 @@ func TestMain(m *testing.M) {
 		panic("failed to chdir to backend root: " + err.Error())
 	}
 
-	config.InitConfig()
+	if err := config.InitConfig(); err != nil {
+		panic("failed to initialize config: " + err.Error())
+	}
 	os.Exit(m.Run())
 }

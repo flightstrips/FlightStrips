@@ -3,6 +3,7 @@ package config
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"math"
 	"slices"
@@ -119,26 +120,32 @@ func loadRegions(f io.Reader) error {
 		return err
 	}
 
-	regions = make([]Region, 0)
-	runwayRegions = make([]Region, 0)
-	finalApproachRegions = make([]Region, 0)
+	loadedRegions := make([]Region, 0)
+	loadedRunwayRegions := make([]Region, 0)
+	loadedFinalApproachRegions := make([]Region, 0)
 	for _, feature := range features.Features {
-		if feature.Type != "Feature" || feature.Geometry.Type != "Polygon" {
-			return errors.New("invalid feature type")
-		}
-
 		name := feature.Properties.Name
-		coordinates := feature.Geometry.Coordinates[0]
-
-		points := make([]s2.Point, len(coordinates))
-		for i, c := range coordinates {
-			points[i] = s2.PointFromLatLng(s2.LatLngFromDegrees(c[1], c[0]))
+		if name == "" {
+			name = "<unnamed>"
+		}
+		if feature.Type != "Feature" {
+			return fmt.Errorf("%s: invalid feature type %q", name, feature.Type)
+		}
+		if feature.Geometry.Type != "Polygon" {
+			return fmt.Errorf("%s: invalid geometry type %q", name, feature.Geometry.Type)
+		}
+		if len(feature.Geometry.Coordinates) == 0 {
+			return fmt.Errorf("%s: polygon has no rings", name)
 		}
 
-		loop := s2.LoopFromPoints(points)
-		loop.Normalize()
+		coordinates := trimGeoJSONClosingCoordinate(feature.Geometry.Coordinates[0])
+		loop, err := buildRegionLoop(coordinates)
+		if err != nil {
+			return fmt.Errorf("%s: %w", name, err)
+		}
+
 		region := Region{
-			Name:                 name,
+			Name:                 feature.Properties.Name,
 			Runways:              feature.Properties.Runways,
 			Region:               loop,
 			GlideslopeDegrees:    feature.Properties.GlideslopeDegrees,
@@ -151,13 +158,51 @@ func loadRegions(f io.Reader) error {
 			region.ThresholdLat = (coordinates[0][1] + coordinates[1][1]) / 2
 		}
 		if strings.HasPrefix(name, "RWY_") {
-			runwayRegions = append(runwayRegions, region)
+			loadedRunwayRegions = append(loadedRunwayRegions, region)
 		} else if strings.HasPrefix(name, "FINAL_") {
-			finalApproachRegions = append(finalApproachRegions, region)
+			loadedFinalApproachRegions = append(loadedFinalApproachRegions, region)
 		} else {
-			regions = append(regions, region)
+			loadedRegions = append(loadedRegions, region)
 		}
 	}
 
+	regions = loadedRegions
+	runwayRegions = loadedRunwayRegions
+	finalApproachRegions = loadedFinalApproachRegions
+
 	return nil
+}
+
+func trimGeoJSONClosingCoordinate(coordinates [][]float64) [][]float64 {
+	if len(coordinates) > 1 && coordinatesEqual(coordinates[0], coordinates[len(coordinates)-1]) {
+		return coordinates[:len(coordinates)-1]
+	}
+
+	return coordinates
+}
+
+func coordinatesEqual(a, b []float64) bool {
+	return len(a) >= 2 && len(b) >= 2 && a[0] == b[0] && a[1] == b[1]
+}
+
+func buildRegionLoop(coordinates [][]float64) (*s2.Loop, error) {
+	if len(coordinates) < 3 {
+		return nil, errors.New("polygon must have at least 3 distinct vertices")
+	}
+
+	points := make([]s2.Point, len(coordinates))
+	for i, c := range coordinates {
+		if len(c) < 2 {
+			return nil, fmt.Errorf("coordinate %d must contain longitude and latitude", i)
+		}
+		points[i] = s2.PointFromLatLng(s2.LatLngFromDegrees(c[1], c[0]))
+	}
+
+	loop := s2.LoopFromPoints(points)
+	loop.Normalize()
+	if err := loop.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid region: %w", err)
+	}
+
+	return loop, nil
 }

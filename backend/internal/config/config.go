@@ -277,14 +277,16 @@ func loadRoutes(cfg Config) error {
 	return nil
 }
 
-func InitConfig() {
+func InitConfig() error {
 	// Initialize test mode configuration
 	initTestMode()
 
 	err := loadConfigurationFiles("ekch")
 	if err != nil {
-		panic(err)
+		return err
 	}
+
+	return nil
 }
 
 // initTestMode initializes test/replay mode configuration from environment variables

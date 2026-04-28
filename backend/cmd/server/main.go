@@ -79,7 +79,10 @@ func main() {
 	}
 
 	ctx := context.Background()
-	config.InitConfig()
+	if err := config.InitConfig(); err != nil {
+		slog.Error("Failed to initialize config", slog.Any("error", err))
+		os.Exit(1)
+	}
 
 	// Initialize OpenTelemetry if endpoint is configured
 	otlpEndpoint := os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT")

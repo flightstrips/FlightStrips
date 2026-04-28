@@ -22,7 +22,9 @@ func TestMain(m *testing.M) {
 	}
 
 	// Initialize config
-	config.InitConfig()
+	if err := config.InitConfig(); err != nil {
+		panic("failed to initialize config: " + err.Error())
+	}
 
 	// Start test server (with its own test container)
 	var err error
@@ -70,13 +72,13 @@ func TestBasicSync(t *testing.T) {
 	// Verify strip was created
 	helper.AssertStripExists(sessionID, "SAS123")
 	helper.AssertStripCount(sessionID, 1)
-	
+
 	// Verify controller was created
 	helper.AssertControllerOnline(sessionID, "EKCH_A_GND")
 
 	// Verify EuroScope received messages from server
 	helper.AssertEuroscopeReceivedMessage("session_info")
-	
+
 	if testing.Verbose() {
 		helper.DumpDatabaseState()
 		helper.DumpEuroscopeMessages()
@@ -114,7 +116,7 @@ func TestFrontendActions(t *testing.T) {
 	helper.AssertStripExists(sessionID, "SAS123")
 
 	// === VERIFY TWO-WAY COMMUNICATION ===
-	
+
 	// 1. Frontend receives initial data from server
 	helper.AssertFrontendReceivedMessage("initial")
 	t.Log("✓ Frontend received initial data")
@@ -122,7 +124,7 @@ func TestFrontendActions(t *testing.T) {
 	// 2. EuroScope receives session_info (master/slave assignment)
 	helper.AssertEuroscopeReceivedMessage("session_info")
 	t.Log("✓ EuroScope received session_info")
-	
+
 	// 4. CRITICAL: When frontend updates strip fields, EuroScope receives individual field events
 	//    The sample updates runway=22L and sid=VENER2A, then altitude=5000
 	//    These are sent as "sid", "route", "altitude", "heading", "stand", etc.
@@ -167,25 +169,25 @@ func TestComprehensiveFieldUpdates(t *testing.T) {
 	helper.AssertStripExists(sessionID, "SAS456")
 
 	// === VERIFY ALL FIELD EVENT TYPES ===
-	
+
 	// Frontend sends: SID, Route, Altitude, Heading, Stand
 	// EuroScope should receive each as individual field events
-	
+
 	helper.AssertEuroscopeReceivedMessage("sid")
 	t.Log("✓ EuroScope received SID event")
-	
+
 	helper.AssertEuroscopeReceivedMessage("route")
 	t.Log("✓ EuroScope received Route event")
-	
+
 	helper.AssertEuroscopeReceivedMessage("cleared_altitude")
 	t.Log("✓ EuroScope received Cleared Altitude event")
-	
+
 	helper.AssertEuroscopeReceivedMessage("heading")
 	t.Log("✓ EuroScope received Heading event")
 
 	helper.AssertEuroscopeReceivedMessage("stand")
 	t.Log("✓ EuroScope received Stand event")
-	
+
 	if testing.Verbose() {
 		helper.DumpDatabaseState()
 		helper.DumpEuroscopeMessages()

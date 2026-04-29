@@ -14,6 +14,18 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+type syncRouteComputerTestServer struct {
+	*testutil.MockServer
+	computeNextOwnersFn func(ctx context.Context, strip *models.Strip, sessionId int32) ([]string, bool, error)
+}
+
+func (s *syncRouteComputerTestServer) ComputeNextOwnersForStripContext(ctx context.Context, strip *models.Strip, sessionId int32) ([]string, bool, error) {
+	if s.computeNextOwnersFn == nil {
+		return nil, false, nil
+	}
+	return s.computeNextOwnersFn(ctx, strip, sessionId)
+}
+
 func TestSyncEuroscopeStrip_NewLocalDepartureWithoutPositionStartsInNotCleared(t *testing.T) {
 	ctx := context.Background()
 	const session = int32(1)
@@ -76,6 +88,74 @@ func TestSyncEuroscopeStrip_NewStripWithFlightPlanDoesNotCallSeparateHasFPUpdate
 	require.NotNil(t, createdStrip)
 	assert.True(t, createdStrip.HasFP)
 	assert.Zero(t, setHasFPCalls)
+}
+
+func TestSyncEuroscopeStrip_ExistingStripWritesRouteAndHasFPInPrimaryUpdate(t *testing.T) {
+	ctx := context.Background()
+	const session = int32(1)
+	const callsign = "SAS125"
+	sequence := int32(300)
+
+	existingStrip := &models.Strip{
+		Callsign:    callsign,
+		Origin:      "EKCH",
+		Destination: "EGLL",
+		Bay:         shared.BAY_PUSH,
+		Sequence:    &sequence,
+		HasFP:       false,
+	}
+
+	var (
+		updatedStrip     *models.Strip
+		setHasFPCalls    int
+		routeUpdateCalls int
+	)
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			return existingStrip, nil
+		},
+		UpdateFn: func(_ context.Context, strip *models.Strip) (int64, error) {
+			updatedStrip = strip
+			return 1, nil
+		},
+		SetHasFPFn: func(_ context.Context, _ int32, _ string, _ bool) error {
+			setHasFPCalls++
+			return nil
+		},
+	}
+
+	svc, hub, esHub := newSyncTestFixture(t, existingStrip, stripRepo)
+	mockServer, ok := hub.GetServer().(*testutil.MockServer)
+	require.True(t, ok)
+	mockServer.UpdateRouteForStripFn = func(_ string, _ int32, _ bool) error {
+		routeUpdateCalls++
+		return nil
+	}
+
+	routeServer := &syncRouteComputerTestServer{
+		MockServer: mockServer,
+		computeNextOwnersFn: func(_ context.Context, strip *models.Strip, sessionId int32) ([]string, bool, error) {
+			require.Equal(t, session, sessionId)
+			require.Equal(t, callsign, strip.Callsign)
+			return []string{"EKCH_TWR"}, true, nil
+		},
+	}
+	hub.SetServer(routeServer)
+	esHub.SetServer(routeServer)
+
+	err := svc.syncEuroscopeStrip(ctx, session, "", euroscope.Strip{
+		Callsign:    callsign,
+		Origin:      "EKCH",
+		Destination: "EGLL",
+		Runway:      "22L",
+		HasFP:       true,
+	}, "EKCH")
+	require.NoError(t, err)
+	require.NotNil(t, updatedStrip)
+	assert.Equal(t, []string{"EKCH_TWR"}, updatedStrip.NextOwners)
+	assert.True(t, updatedStrip.HasFP)
+	assert.Zero(t, setHasFPCalls)
+	assert.Zero(t, routeUpdateCalls)
 }
 
 func TestSyncEuroscopeStrip_BlankFailoverSyncPreservesAdvancedDepartureBay(t *testing.T) {
@@ -336,7 +416,7 @@ func TestSyncEuroscopeStrip_ExistingHiddenNonArrivalBecomesArrivalStartsInArrHid
 	require.NotNil(t, updatedStrip)
 	assert.Equal(t, "EKCH", updatedStrip.Destination)
 	assert.Equal(t, shared.BAY_ARR_HIDDEN, updatedStrip.Bay)
-	assert.Equal(t, shared.BAY_ARR_HIDDEN, movedToBay)
+	assert.Empty(t, movedToBay)
 	require.Len(t, hub.StripUpdates, 1)
 	assert.Equal(t, callsign, hub.StripUpdates[0].Callsign)
 }
@@ -560,8 +640,8 @@ func TestSyncEuroscopeStrip_WithSyncState_DefersBayAndValidationFollowUp(t *test
 	require.NoError(t, err)
 
 	assert.Equal(t, 1, updateCalls)
-	assert.Zero(t, bayMoveCalls, "sync-mode should defer bay resequencing until finalization")
-	assert.Equal(t, shared.BAY_TAXI_LWR, syncState.BayUpdates["SAS599"])
+	assert.Zero(t, bayMoveCalls, "sync-mode should not issue a separate bay resequencing write")
+	assert.Empty(t, syncState.BayUpdates)
 	assert.True(t, syncState.SquawkValidation, "sync-mode should batch session validation work")
 	assert.Contains(t, syncState.SortedStripUpdates(), "SAS599")
 	assert.Empty(t, hub.StripUpdates, "sync-mode should defer frontend strip updates until finalization")
@@ -788,11 +868,11 @@ func TestSyncEuroscopeStrip_MoveBackToNotCleared_ClearsOwner(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, updatedStrip)
 	assert.Equal(t, shared.BAY_NOT_CLEARED, updatedStrip.Bay)
-	assert.Equal(t, shared.BAY_NOT_CLEARED, movedToBay)
-	require.Len(t, hub.OwnersUpdates, 1)
-	assert.Equal(t, "", hub.OwnersUpdates[0].Owner)
-	assert.Empty(t, hub.OwnersUpdates[0].PreviousOwners)
-	assert.Equal(t, []string{"EKCH_TWR"}, hub.OwnersUpdates[0].NextOwners)
+	assert.Nil(t, updatedStrip.Owner)
+	assert.Empty(t, updatedStrip.PreviousOwners)
+	assert.Empty(t, movedToBay)
+	require.Len(t, hub.StripUpdates, 1)
+	assert.Equal(t, callsign, hub.StripUpdates[0].Callsign)
 	assert.Equal(t, callsign, routeUpdateCallsign)
 	assert.Equal(t, session, routeUpdateSession)
 	assert.False(t, routeUpdateSendUpdate)

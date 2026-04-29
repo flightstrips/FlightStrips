@@ -13,6 +13,26 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
+func primeSyncBayMaxSequence(syncState *shared.SyncState) {
+	if syncState == nil {
+		return
+	}
+	if syncState.BayMaxSequence == nil {
+		syncState.BayMaxSequence = make(map[string]int32)
+	}
+	if syncState.ExistingStrips == nil {
+		return
+	}
+	for _, strip := range syncState.ExistingStrips {
+		if strip == nil || strip.Sequence == nil {
+			continue
+		}
+		if *strip.Sequence > syncState.BayMaxSequence[strip.Bay] {
+			syncState.BayMaxSequence[strip.Bay] = *strip.Sequence
+		}
+	}
+}
+
 // calculateOrderBetween calculates the order value for a strip being inserted between two existing strips.
 // prevOrder is the order of the strip before the insertion point (use 0 if inserting at the beginning).
 // nextOrder is the order of the strip after the insertion point (use nil if inserting at the end).
@@ -87,17 +107,25 @@ func (s *StripService) getStripForMoveToBay(ctx context.Context, session int32, 
 }
 
 func (s *StripService) nextSequenceAtEndOfBay(ctx context.Context, session int32, bay string) (int32, error) {
-	if syncState := shared.GetSyncState(ctx); syncState != nil && syncState.ExistingStrips != nil && s.tacticalRepo == nil {
-		maxInBay := int32(0)
-		for _, strip := range syncState.ExistingStrips {
-			if strip.Bay != bay || strip.Sequence == nil {
-				continue
+	if syncState := shared.GetSyncState(ctx); syncState != nil && syncState.ExistingStrips != nil {
+		primeSyncBayMaxSequence(syncState)
+		if s.tacticalRepo != nil && !syncState.TacticalStripsLoaded {
+			tacticalStrips, err := s.tacticalRepo.ListBySession(ctx, session)
+			if err != nil {
+				return 0, fmt.Errorf("failed to list tactical strips for sync ordering: %w", err)
 			}
-			if *strip.Sequence > maxInBay {
-				maxInBay = *strip.Sequence
+			shared.AddDBOperations(ctx, 1)
+			for _, tacticalStrip := range tacticalStrips {
+				if tacticalStrip != nil && tacticalStrip.Sequence > syncState.BayMaxSequence[tacticalStrip.Bay] {
+					syncState.BayMaxSequence[tacticalStrip.Bay] = tacticalStrip.Sequence
+				}
 			}
+			syncState.TacticalStripsLoaded = true
 		}
+
+		maxInBay := syncState.BayMaxSequence[bay]
 		order, _ := s.calculateOrderBetween(maxInBay, nil)
+		syncState.BayMaxSequence[bay] = order
 		return order, nil
 	}
 
@@ -135,6 +163,10 @@ func (s *StripService) MoveToBay(ctx context.Context, session int32, callsign st
 		return err
 	}
 
+	return s.applyBayChangeEffects(ctx, session, callsign, previousBay, bay, sendNotification)
+}
+
+func (s *StripService) applyBayChangeEffects(ctx context.Context, session int32, callsign string, previousBay string, bay string, sendNotification bool) error {
 	if syncState := shared.GetSyncState(ctx); syncState != nil {
 		syncState.SquawkValidation = true
 		if landingClearanceValidationRelevantBay(previousBay) || landingClearanceValidationRelevantBay(bay) {

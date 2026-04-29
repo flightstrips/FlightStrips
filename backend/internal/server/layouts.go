@@ -8,11 +8,15 @@ import (
 )
 
 func (s *Server) UpdateLayouts(sessionId int32) error {
+	return s.UpdateLayoutsContext(context.Background(), sessionId)
+}
+
+func (s *Server) UpdateLayoutsContext(ctx context.Context, sessionId int32) error {
 	slog.Debug("Updating layouts", slog.Int("session", int(sessionId)))
 	sessionRepo := s.sessionRepo
 	controllerRepo := s.controllerRepo
 
-	session, err := sessionRepo.GetByID(context.Background(), sessionId)
+	session, err := getSessionForUpdate(ctx, sessionRepo, sessionId)
 	if err != nil {
 		return fmt.Errorf("error getting session: %w", err)
 	}
@@ -23,7 +27,7 @@ func (s *Server) UpdateLayouts(sessionId int32) error {
 		return nil
 	}
 
-	positions, err := getCurrentPositions(controllerRepo, sessionId)
+	positions, err := getCurrentPositions(ctx, controllerRepo, sessionId)
 	if err != nil {
 		return fmt.Errorf("error getting positions: %w", err)
 	}
@@ -41,7 +45,7 @@ func (s *Server) UpdateLayouts(sessionId int32) error {
 		if layout == nil {
 			continue
 		}
-		_, err = controllerRepo.SetLayout(context.Background(), sessionId, position, layout)
+		_, err = controllerRepo.SetLayout(ctx, sessionId, position, layout)
 		if err != nil {
 			return err
 		}

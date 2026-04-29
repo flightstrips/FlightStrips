@@ -363,12 +363,12 @@ func (q *Queries) GetStrip(ctx context.Context, arg GetStripParams) (Strip, erro
 
 const insertStrip = `-- name: InsertStrip :exec
 INSERT INTO strips (version, callsign, session, origin, destination, alternative, route, remarks, assigned_squawk,
-                    squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities,
-                    communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay,
-                    position_latitude, position_longitude, position_altitude, cdm_data, registration,
-                    tracking_controller, engine_type)
+                     squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities,
+                     communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay,
+                     position_latitude, position_longitude, position_altitude, cdm_data, next_owners, previous_owners,
+                     registration, tracking_controller, engine_type, has_fp)
 VALUES (1, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23,
-        $24, $25, $26, $27, $28, $29, $30, $31)
+        $24, $25, $26, $27, $28, COALESCE($29, '[]'::jsonb), COALESCE($30, '[]'::jsonb), $31, $32, $33, $34)
 `
 
 type InsertStripParams struct {
@@ -400,9 +400,12 @@ type InsertStripParams struct {
 	PositionLongitude  *float64
 	PositionAltitude   *int32
 	CdmData            []byte
+	NextOwners         []string
+	PreviousOwners     []string
 	Registration       *string
 	TrackingController string
 	EngineType         string
+	HasFP              bool
 }
 
 func (q *Queries) InsertStrip(ctx context.Context, arg InsertStripParams) error {
@@ -435,9 +438,12 @@ func (q *Queries) InsertStrip(ctx context.Context, arg InsertStripParams) error 
 		arg.PositionLongitude,
 		arg.PositionAltitude,
 		arg.CdmData,
+		arg.NextOwners,
+		arg.PreviousOwners,
 		arg.Registration,
 		arg.TrackingController,
 		arg.EngineType,
+		arg.HasFP,
 	)
 	return err
 }
@@ -902,45 +908,50 @@ UPDATE strips
 SET (version, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude,
      heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand,
      sequence, state, cleared, owner, bay, position_latitude, position_longitude, position_altitude, cdm_data,
-     registration, tracking_controller, engine_type
-    ) = (
-         version + 1, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22,
-         $23, $24, $25, $26, $27, $28, $29, $30, $31)
+     next_owners, previous_owners, registration, tracking_controller, engine_type, unexpected_change_fields, has_fp
+     ) = (
+          version + 1, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22,
+          $23, $24, $25, $26, $27, $28, COALESCE($29, '[]'::jsonb), COALESCE($30, '[]'::jsonb), $31, $32, $33,
+          COALESCE($34, '{}'::text[]), $35)
 WHERE callsign = $1 AND session = $2
 `
 
 type UpdateStripParams struct {
-	Callsign           string
-	Session            int32
-	Origin             string
-	Destination        string
-	Alternative        *string
-	Route              *string
-	Remarks            *string
-	AssignedSquawk     *string
-	Squawk             *string
-	Sid                *string
-	ClearedAltitude    *int32
-	Heading            *int32
-	AircraftType       *string
-	Runway             *string
-	RequestedAltitude  *int32
-	Capabilities       *string
-	CommunicationType  *string
-	AircraftCategory   *string
-	Stand              *string
-	Sequence           *int32
-	State              *string
-	Cleared            bool
-	Owner              *string
-	Bay                string
-	PositionLatitude   *float64
-	PositionLongitude  *float64
-	PositionAltitude   *int32
-	CdmData            []byte
-	Registration       *string
-	TrackingController string
-	EngineType         string
+	Callsign               string
+	Session                int32
+	Origin                 string
+	Destination            string
+	Alternative            *string
+	Route                  *string
+	Remarks                *string
+	AssignedSquawk         *string
+	Squawk                 *string
+	Sid                    *string
+	ClearedAltitude        *int32
+	Heading                *int32
+	AircraftType           *string
+	Runway                 *string
+	RequestedAltitude      *int32
+	Capabilities           *string
+	CommunicationType      *string
+	AircraftCategory       *string
+	Stand                  *string
+	Sequence               *int32
+	State                  *string
+	Cleared                bool
+	Owner                  *string
+	Bay                    string
+	PositionLatitude       *float64
+	PositionLongitude      *float64
+	PositionAltitude       *int32
+	CdmData                []byte
+	NextOwners             []string
+	PreviousOwners         []string
+	Registration           *string
+	TrackingController     string
+	EngineType             string
+	UnexpectedChangeFields []string
+	HasFP                  bool
 }
 
 func (q *Queries) UpdateStrip(ctx context.Context, arg UpdateStripParams) (int64, error) {
@@ -973,9 +984,13 @@ func (q *Queries) UpdateStrip(ctx context.Context, arg UpdateStripParams) (int64
 		arg.PositionLongitude,
 		arg.PositionAltitude,
 		arg.CdmData,
+		arg.NextOwners,
+		arg.PreviousOwners,
 		arg.Registration,
 		arg.TrackingController,
 		arg.EngineType,
+		arg.UnexpectedChangeFields,
+		arg.HasFP,
 	)
 	if err != nil {
 		return 0, err

@@ -140,6 +140,49 @@ func TestMoveToBay_CalculatesCorrectSequence(t *testing.T) {
 	assert.Equal(t, callsign, hub.BayEvents[0].Callsign)
 }
 
+func TestMoveToBay_WithSyncStateAndTacticalStripsCachesUnifiedBayMax(t *testing.T) {
+	const session = int32(1)
+	const bay = shared.BAY_NOT_CLEARED
+
+	syncState := &shared.SyncState{
+		ExistingStrips: map[string]*models.Strip{
+			"AAA001": {Callsign: "AAA001", Bay: bay, Sequence: ptr32(1000)},
+			"BBB002": {Callsign: "BBB002", Bay: shared.BAY_TAXI, Sequence: ptr32(500)},
+			"CCC003": {Callsign: "CCC003", Bay: shared.BAY_CLEARED, Sequence: ptr32(600)},
+		},
+	}
+	ctx := shared.WithSyncState(context.Background(), syncState)
+
+	listCalls := 0
+	var capturedSeqs []int32
+
+	stripRepo := &testutil.MockStripRepository{
+		UpdateBayAndSequenceFn: func(_ context.Context, _ int32, _ string, _ string, sequence int32) (int64, error) {
+			capturedSeqs = append(capturedSeqs, sequence)
+			return 1, nil
+		},
+	}
+	tacticalRepo := &testutil.MockTacticalStripRepository{
+		ListBySessionFn: func(_ context.Context, s int32) ([]*models.TacticalStrip, error) {
+			assert.Equal(t, session, s)
+			listCalls++
+			return []*models.TacticalStrip{
+				{ID: 1, SessionID: session, Bay: bay, Sequence: 2000},
+			}, nil
+		},
+	}
+
+	svc := NewStripService(stripRepo)
+	svc.SetTacticalStripRepo(tacticalRepo)
+
+	require.NoError(t, svc.MoveToBay(ctx, session, "BBB002", bay, false))
+	require.NoError(t, svc.MoveToBay(ctx, session, "CCC003", bay, false))
+
+	assert.Equal(t, []int32{3000, 4000}, capturedSeqs)
+	assert.Equal(t, 1, listCalls)
+	assert.Equal(t, int32(4000), syncState.BayMaxSequence[bay])
+}
+
 func TestMoveTacticalStripBetween_UpdatesTargetBayAndSequence(t *testing.T) {
 	ctx := context.Background()
 	const session = int32(1)

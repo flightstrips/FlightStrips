@@ -53,6 +53,20 @@ func (s *Server) UpdateRouteForStripContext(ctx context.Context, callsign string
 	return err
 }
 
+func (s *Server) ComputeNextOwnersForStripContext(ctx context.Context, strip *models.Strip, sessionId int32) ([]string, bool, error) {
+	session, err := routeSessionByID(ctx, s.sessionRepo, sessionId)
+	if err != nil {
+		return nil, false, err
+	}
+
+	owners, err := routeSectorOwners(ctx, s.sectorRepo, sessionId)
+	if err != nil {
+		return nil, false, err
+	}
+
+	return computeNextOwnersForStrip(strip, session, owners)
+}
+
 // UpdateRoutesForSession recalculates routes for all strips in the session.
 // sendUpdate controls whether frontend clients are notified of the updated route ownership.
 func (s *Server) UpdateRoutesForSession(sessionId int32, sendUpdate bool) error {
@@ -99,6 +113,55 @@ func (s *Server) UpdateRoutesForSession(sessionId int32, sendUpdate bool) error 
 }
 
 func (s *Server) updateRouteForStripHelper(ctx context.Context, strip *models.Strip, session *models.Session, owners []*models.SectorOwner, sendUpdate bool) error {
+	actualRoute, shouldUpdate, err := computeNextOwnersForStrip(strip, session, owners)
+	if err != nil {
+		return err
+	}
+	if !shouldUpdate {
+		return nil
+	}
+
+	if slices.Equal(strip.NextOwners, actualRoute) {
+		slog.Debug("Route recalculation produced no owner-chain change",
+			slog.Int("session", int(session.ID)),
+			slog.String("callsign", strip.Callsign),
+			slog.Any("next_owners", actualRoute))
+		return nil
+	}
+
+	slog.Debug("Route recalculation updated owner chain",
+		slog.Int("session", int(session.ID)),
+		slog.String("callsign", strip.Callsign),
+		slog.Any("previous_next_owners", strip.NextOwners),
+		slog.Any("next_owners", actualRoute))
+
+	err = s.stripRepo.SetNextOwners(ctx, session.ID, strip.Callsign, actualRoute)
+	if err == nil {
+		shared.AddDBOperations(ctx, 1)
+		if syncState := shared.GetSyncState(ctx); syncState != nil && syncState.ExistingStrips != nil {
+			if existing := syncState.ExistingStrips[strip.Callsign]; existing != nil {
+				existing.NextOwners = slices.Clone(actualRoute)
+			}
+		}
+		if messageState := shared.GetWebsocketMessageState(ctx); messageState != nil && messageState.ExistingStrips != nil {
+			if existing := messageState.ExistingStrips[strings.ToUpper(strings.TrimSpace(strip.Callsign))]; existing != nil {
+				existing.NextOwners = slices.Clone(actualRoute)
+			}
+		}
+	}
+
+	if sendUpdate {
+		owner := ""
+		if strip.Owner != nil {
+			owner = *strip.Owner
+		}
+		s.frontendHub.SendOwnersUpdate(session.ID, strip.Callsign, owner, actualRoute, strip.PreviousOwners)
+	}
+
+	return err
+}
+
+func computeNextOwnersForStrip(strip *models.Strip, session *models.Session, owners []*models.SectorOwner) ([]string, bool, error) {
 	isArrival := strip.Destination == session.Airport
 	currentOwner := helpers.ValueOrDefault(strip.Owner)
 	currentStand := helpers.ValueOrDefault(strip.Stand)
@@ -111,15 +174,14 @@ func (s *Server) updateRouteForStripHelper(ctx context.Context, strip *models.St
 		slog.String("owner", currentOwner),
 		slog.String("stand", currentStand),
 		slog.String("runway", currentRunway),
-		slog.Any("current_next_owners", strip.NextOwners),
-		slog.Bool("send_update", sendUpdate))
+		slog.Any("current_next_owners", strip.NextOwners))
 
 	// Departures require a runway to compute a route.
 	if !isArrival && (strip.Runway == nil || *strip.Runway == "") {
 		slog.Debug("Skipping route recalculation for departure without runway",
 			slog.Int("session", int(session.ID)),
 			slog.String("callsign", strip.Callsign))
-		return nil
+		return nil, false, nil
 	}
 
 	var path []string
@@ -132,7 +194,7 @@ func (s *Server) updateRouteForStripHelper(ctx context.Context, strip *models.St
 			slog.Warn("Skipping arrival route recalculation because no arrival tower sector is configured",
 				slog.Int("session", int(session.ID)),
 				slog.String("callsign", strip.Callsign))
-			return nil
+			return nil, false, nil
 		}
 		slog.Debug("Arrival route recalculation is using tower fallback because stand is empty",
 			slog.Int("session", int(session.ID)),
@@ -145,7 +207,7 @@ func (s *Server) updateRouteForStripHelper(ctx context.Context, strip *models.St
 				slog.Debug("Skipping departure route recalculation because aircraft position is outside supported regions",
 					slog.Int("session", int(session.ID)),
 					slog.String("callsign", strip.Callsign))
-				return nil
+				return nil, false, nil
 			}
 			// Arrival is still airborne (outside known ground regions) but already has
 			// a stand assigned. Use the receiving tower sector as the start of the
@@ -156,7 +218,7 @@ func (s *Server) updateRouteForStripHelper(ctx context.Context, strip *models.St
 					slog.Int("session", int(session.ID)),
 					slog.String("callsign", strip.Callsign),
 					slog.String("stand", currentStand))
-				return nil
+				return nil, false, nil
 			}
 
 			slog.Debug("Arrival route recalculation is using tower fallback as route start because aircraft position is outside supported regions",
@@ -176,12 +238,12 @@ func (s *Server) updateRouteForStripHelper(ctx context.Context, strip *models.St
 				path = []string{towerSector}
 			}
 		} else if err != nil {
-			return err
+			return nil, false, err
 		} else {
 			sector, err := config.GetSectorFromRegion(region, isArrival)
 			if err != nil {
 				slog.Warn("Sector not found based on region", slog.String("callsign", strip.Callsign), slog.String("region", region.Name))
-				return nil
+				return nil, false, nil
 			}
 
 			allRunways := session.ActiveRunways.GetAllActiveRunways()
@@ -211,10 +273,10 @@ func (s *Server) updateRouteForStripHelper(ctx context.Context, strip *models.St
 					if towerSector, ok := config.GetArrivalTowerSector(session.ActiveRunways.ArrivalRunways); ok {
 						path = []string{towerSector}
 					} else {
-						return nil
+						return nil, false, nil
 					}
 				} else {
-					return nil
+					return nil, false, nil
 				}
 			}
 		}
@@ -257,44 +319,7 @@ func (s *Server) updateRouteForStripHelper(ctx context.Context, strip *models.St
 		}
 	}
 
-	if slices.Equal(strip.NextOwners, actualRoute) {
-		slog.Debug("Route recalculation produced no owner-chain change",
-			slog.Int("session", int(session.ID)),
-			slog.String("callsign", strip.Callsign),
-			slog.Any("next_owners", actualRoute))
-		return nil
-	}
-
-	slog.Debug("Route recalculation updated owner chain",
-		slog.Int("session", int(session.ID)),
-		slog.String("callsign", strip.Callsign),
-		slog.Any("previous_next_owners", strip.NextOwners),
-		slog.Any("next_owners", actualRoute))
-
-	err := s.stripRepo.SetNextOwners(ctx, session.ID, strip.Callsign, actualRoute)
-	if err == nil {
-		shared.AddDBOperations(ctx, 1)
-		if syncState := shared.GetSyncState(ctx); syncState != nil && syncState.ExistingStrips != nil {
-			if existing := syncState.ExistingStrips[strip.Callsign]; existing != nil {
-				existing.NextOwners = slices.Clone(actualRoute)
-			}
-		}
-		if messageState := shared.GetWebsocketMessageState(ctx); messageState != nil && messageState.ExistingStrips != nil {
-			if existing := messageState.ExistingStrips[strings.ToUpper(strings.TrimSpace(strip.Callsign))]; existing != nil {
-				existing.NextOwners = slices.Clone(actualRoute)
-			}
-		}
-	}
-
-	if sendUpdate {
-		owner := ""
-		if strip.Owner != nil {
-			owner = *strip.Owner
-		}
-		s.frontendHub.SendOwnersUpdate(session.ID, strip.Callsign, owner, actualRoute, strip.PreviousOwners)
-	}
-
-	return err
+	return actualRoute, true, nil
 }
 
 func routeStripForCallsign(ctx context.Context, stripRepo repository.StripRepository, sessionId int32, callsign string) (*models.Strip, error) {

@@ -89,17 +89,14 @@ func TestSyncEuroscopeStrip_StandOverwrite_SetsUnexpectedChange(t *testing.T) {
 		Stand:    &existingStand,
 	}
 
-	var appendedField string
+	var updatedStrip *models.Strip
 	stripRepo := &testutil.MockStripRepository{
 		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
 			return existingStrip, nil
 		},
-		UpdateFn: func(_ context.Context, _ *models.Strip) (int64, error) {
+		UpdateFn: func(_ context.Context, strip *models.Strip) (int64, error) {
+			updatedStrip = strip
 			return 1, nil
-		},
-		AppendUnexpectedChangeFieldFn: func(_ context.Context, _ int32, _ string, field string) error {
-			appendedField = field
-			return nil
 		},
 	}
 
@@ -109,7 +106,8 @@ func TestSyncEuroscopeStrip_StandOverwrite_SetsUnexpectedChange(t *testing.T) {
 	err := svc.syncEuroscopeStrip(ctx, session, "", esStrip, "EKCH")
 	require.NoError(t, err)
 
-	assert.Equal(t, "stand", appendedField, "expected stand to be marked as unexpected change")
+	require.NotNil(t, updatedStrip)
+	assert.Contains(t, updatedStrip.UnexpectedChangeFields, "stand", "expected stand to be marked as unexpected change")
 	require.Len(t, hub.StripUpdates, 1)
 	assert.Equal(t, callsign, hub.StripUpdates[0].Callsign)
 }
@@ -187,17 +185,14 @@ func TestSyncEuroscopeStrip_RunwayOverwrite_ApronBay_SetsUnexpectedChange(t *tes
 		Runway:   &existingRunway,
 	}
 
-	var appendedField string
+	var updatedStrip *models.Strip
 	stripRepo := &testutil.MockStripRepository{
 		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
 			return existingStrip, nil
 		},
-		UpdateFn: func(_ context.Context, _ *models.Strip) (int64, error) {
+		UpdateFn: func(_ context.Context, strip *models.Strip) (int64, error) {
+			updatedStrip = strip
 			return 1, nil
-		},
-		AppendUnexpectedChangeFieldFn: func(_ context.Context, _ int32, _ string, field string) error {
-			appendedField = field
-			return nil
 		},
 	}
 
@@ -207,7 +202,8 @@ func TestSyncEuroscopeStrip_RunwayOverwrite_ApronBay_SetsUnexpectedChange(t *tes
 	err := svc.syncEuroscopeStrip(ctx, session, "", esStrip, "EKCH")
 	require.NoError(t, err)
 
-	assert.Equal(t, "runway", appendedField)
+	require.NotNil(t, updatedStrip)
+	assert.Contains(t, updatedStrip.UnexpectedChangeFields, "runway")
 }
 
 func TestSyncEuroscopeStrip_RunwayOverwrite_NonApronBay_NoUnexpectedChange(t *testing.T) {

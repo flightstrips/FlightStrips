@@ -30,11 +30,16 @@ func (s *StripService) SyncStrip(ctx context.Context, session int32, cid string,
 	return s.syncEuroscopeStrip(ctx, session, cid, esStrip, airport)
 }
 
+type syncRouteComputer interface {
+	ComputeNextOwnersForStripContext(ctx context.Context, strip *internalModels.Strip, sessionId int32) ([]string, bool, error)
+}
+
 func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, cid string, strip euroscope.Strip, airport string) error {
 	server := s.publisher.GetServer()
 	if server == nil {
 		return errors.New("server not configured")
 	}
+	routeComputer, _ := server.(syncRouteComputer)
 
 	syncState := shared.GetSyncState(ctx)
 
@@ -80,7 +85,6 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 	var validationStrip *internalModels.Strip
 	createdStrip := false
 	routeNeedsUpdate := false
-	bayNeedsUpdate := false
 	needsStripBroadcast := false
 	needsPdcValidation := false
 
@@ -134,8 +138,24 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 			HasFP:              strip.HasFP,
 		}
 		validationStrip = newStrip
+		sequence, err := s.nextSequenceAtEndOfBay(ctx, session, bay)
+		if err != nil {
+			return err
+		}
+		newStrip.Sequence = &sequence
 		reg := ParseRegistration(strip.Callsign, strip.Remarks)
 		newStrip.Registration = &reg
+		if routeComputer != nil {
+			nextOwners, handled, err := routeComputer.ComputeNextOwnersForStripContext(ctx, newStrip, session)
+			if err != nil {
+				return err
+			}
+			if handled {
+				newStrip.NextOwners = nextOwners
+			}
+		} else {
+			routeNeedsUpdate = true
+		}
 		if err = s.stripRepo.Create(ctx, newStrip); err != nil {
 			return err
 		}
@@ -146,6 +166,9 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 			if syncState.ExistingStrips != nil {
 				syncState.ExistingStrips[strip.Callsign] = newStrip
 			}
+		}
+		if err := s.applyBayChangeEffects(ctx, session, strip.Callsign, "", bay, false); err != nil {
+			return err
 		}
 		slog.DebugContext(ctx, "Inserted strip",
 			slog.String("callsign", strip.Callsign),
@@ -160,8 +183,6 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 			s.esCommander.SendGenerateSquawk(session, "", strip.Callsign)
 		}
 		createdStrip = true
-		routeNeedsUpdate = true
-		bayNeedsUpdate = true
 		needsStripBroadcast = true
 		needsPdcValidation = true
 	} else {
@@ -287,14 +308,17 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 				}
 				return cdmData
 			}(),
-			Registration:       existingStrip.Registration,
-			Owner:              existingStrip.Owner,
-			PdcState:           existingStrip.PdcState,
-			PdcRequestRemarks:  existingStrip.PdcRequestRemarks,
-			TrackingController: strip.TrackingController,
-			EngineType:         strip.EngineType,
-			ValidationStatus:   existingStrip.ValidationStatus,
-			HasFP:              strip.HasFP,
+			NextOwners:             slices.Clone(existingStrip.NextOwners),
+			PreviousOwners:         slices.Clone(existingStrip.PreviousOwners),
+			Registration:           existingStrip.Registration,
+			Owner:                  existingStrip.Owner,
+			PdcState:               existingStrip.PdcState,
+			PdcRequestRemarks:      existingStrip.PdcRequestRemarks,
+			TrackingController:     strip.TrackingController,
+			EngineType:             strip.EngineType,
+			UnexpectedChangeFields: slices.Clone(existingStrip.UnexpectedChangeFields),
+			ValidationStatus:       existingStrip.ValidationStatus,
+			HasFP:                  strip.HasFP,
 		}
 		validationStrip = updateStrip
 		registrationNeedsUpdate := false
@@ -303,15 +327,44 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 			registrationValue = ParseRegistration(strip.Callsign, strip.Remarks)
 			registrationNeedsUpdate = existingStrip.Registration == nil || registrationValue != *existingStrip.Registration
 		}
+		if registrationNeedsUpdate {
+			updateStrip.Registration = &registrationValue
+		}
+		if shouldClearOwnerForNotCleared {
+			updateStrip.Owner = nil
+			updateStrip.PreviousOwners = []string{}
+		}
 
-		primaryChange := syncStripChanged(existingStrip, updateStrip)
-		routeNeedsUpdate = syncStripRouteChanged(existingStrip, updateStrip)
-		hasFPChanged := strip.HasFP != existingStrip.HasFP
 		unexpectedStandChange := strip.Stand != "" && existingStrip.Stand != nil && *existingStrip.Stand != "" && *existingStrip.Stand != strip.Stand
 		unexpectedRunwayChange := strip.Runway != "" && existingStrip.Runway != nil && *existingStrip.Runway != "" && *existingStrip.Runway != strip.Runway && isApronBay(bay)
-		bayNeedsUpdate = existingStrip.Bay != updateStrip.Bay
+		if unexpectedStandChange {
+			updateStrip.UnexpectedChangeFields = appendUnexpectedChangeField(updateStrip.UnexpectedChangeFields, "stand")
+		}
+		if unexpectedRunwayChange {
+			updateStrip.UnexpectedChangeFields = appendUnexpectedChangeField(updateStrip.UnexpectedChangeFields, "runway")
+		}
+		bayChanged := existingStrip.Bay != updateStrip.Bay
+		if bayChanged {
+			sequence, err := s.nextSequenceAtEndOfBay(ctx, session, bay)
+			if err != nil {
+				return err
+			}
+			updateStrip.Sequence = &sequence
+		}
+		routeNeedsUpdate = syncStripRouteChanged(existingStrip, updateStrip) || shouldClearOwnerForNotCleared
+		if routeNeedsUpdate && routeComputer != nil {
+			nextOwners, handled, err := routeComputer.ComputeNextOwnersForStripContext(ctx, updateStrip, session)
+			if err != nil {
+				return err
+			}
+			if handled {
+				updateStrip.NextOwners = nextOwners
+			}
+			routeNeedsUpdate = false
+		}
+		primaryChange := syncStripChanged(existingStrip, updateStrip)
 
-		if !primaryChange && !hasFPChanged && !unexpectedStandChange && !unexpectedRunwayChange && !registrationNeedsUpdate {
+		if !primaryChange {
 			return nil
 		}
 
@@ -326,96 +379,14 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 			}
 			s.cacheStrip(ctx, updateStrip)
 		}
-		if primaryChange && shouldClearOwnerForNotCleared {
-			if err := s.clearOwnerForNotCleared(ctx, session, strip.Callsign); err != nil {
+		if bayChanged {
+			if err := s.applyBayChangeEffects(ctx, session, strip.Callsign, existingStrip.Bay, bay, false); err != nil {
 				return err
-			}
-		}
-		if hasFPChanged {
-			if err = s.stripRepo.SetHasFP(ctx, session, strip.Callsign, strip.HasFP); err != nil {
-				slog.WarnContext(ctx, "Failed to update has_fp on strip", slog.String("callsign", strip.Callsign), slog.Any("error", err))
-			} else {
-				shared.AddDBOperations(ctx, 1)
-				s.cacheStrip(ctx, updateStrip)
-				if syncState != nil {
-					if current := syncState.ExistingStrips[strip.Callsign]; current != nil {
-						current.HasFP = strip.HasFP
-					}
-				}
-				if state := shared.GetWebsocketMessageState(ctx); state != nil {
-					if current, ok := state.ExistingStrips[normalizedCallsignKey(strip.Callsign)]; ok && current != nil {
-						current.HasFP = strip.HasFP
-					}
-				}
 			}
 		}
 		slog.DebugContext(ctx, "Updated strip", slog.String("callsign", strip.Callsign))
 		if primaryChange && updateClearedAlt != strip.ClearedAltitude && s.esCommander != nil {
 			s.esCommander.SendClearedAltitude(session, cid, strip.Callsign, updateClearedAlt)
-		}
-
-		// Mark unexpected changes: stand is always unexpected when overwriting a non-empty value.
-		// Runway is unexpected only for apron bays (not CLX/DEL/TWR).
-		if unexpectedStandChange {
-			if err := s.stripRepo.AppendUnexpectedChangeField(ctx, session, strip.Callsign, "stand"); err != nil {
-				slog.WarnContext(ctx, "Failed to mark stand as unexpected change", slog.String("callsign", strip.Callsign), slog.Any("error", err))
-			} else {
-				shared.AddDBOperations(ctx, 1)
-				if syncState != nil {
-					if current := syncState.ExistingStrips[strip.Callsign]; current != nil && !slices.Contains(current.UnexpectedChangeFields, "stand") {
-						current.UnexpectedChangeFields = append(current.UnexpectedChangeFields, "stand")
-					}
-				}
-				if state := shared.GetWebsocketMessageState(ctx); state != nil {
-					if cached, ok := state.ExistingStrips[normalizedCallsignKey(strip.Callsign)]; ok && cached != nil && !slices.Contains(cached.UnexpectedChangeFields, "stand") {
-						cached.UnexpectedChangeFields = append(cached.UnexpectedChangeFields, "stand")
-					}
-				}
-			}
-		}
-		if unexpectedRunwayChange {
-			if err := s.stripRepo.AppendUnexpectedChangeField(ctx, session, strip.Callsign, "runway"); err != nil {
-				slog.WarnContext(ctx, "Failed to mark runway as unexpected change", slog.String("callsign", strip.Callsign), slog.Any("error", err))
-			} else {
-				shared.AddDBOperations(ctx, 1)
-				if syncState != nil {
-					if current := syncState.ExistingStrips[strip.Callsign]; current != nil && !slices.Contains(current.UnexpectedChangeFields, "runway") {
-						current.UnexpectedChangeFields = append(current.UnexpectedChangeFields, "runway")
-					}
-				}
-				if state := shared.GetWebsocketMessageState(ctx); state != nil {
-					if cached, ok := state.ExistingStrips[normalizedCallsignKey(strip.Callsign)]; ok && cached != nil && !slices.Contains(cached.UnexpectedChangeFields, "runway") {
-						cached.UnexpectedChangeFields = append(cached.UnexpectedChangeFields, "runway")
-					}
-				}
-			}
-		}
-
-		if registrationNeedsUpdate {
-			if err := s.stripRepo.UpdateRegistration(ctx, session, strip.Callsign, registrationValue); err != nil {
-				slog.ErrorContext(ctx, "Failed to update registration from remarks", slog.Any("error", err))
-			} else {
-				shared.AddDBOperations(ctx, 1)
-				if syncState != nil {
-					if current := syncState.ExistingStrips[strip.Callsign]; current != nil {
-						current.Registration = &registrationValue
-					}
-				}
-				if state := shared.GetWebsocketMessageState(ctx); state != nil {
-					if cached, ok := state.ExistingStrips[normalizedCallsignKey(strip.Callsign)]; ok && cached != nil {
-						cached.Registration = &registrationValue
-					}
-				}
-			}
-		}
-
-		if !primaryChange {
-			if syncState != nil {
-				syncState.MarkStripUpdate(strip.Callsign)
-			} else {
-				s.publisher.SendStripUpdate(session, strip.Callsign)
-			}
-			return nil
 		}
 
 		needsStripBroadcast = true
@@ -425,9 +396,6 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 	if syncState != nil {
 		if routeNeedsUpdate {
 			syncState.MarkRouteRecalc(strip.Callsign)
-		}
-		if bayNeedsUpdate {
-			syncState.MarkBayUpdate(strip.Callsign, bay)
 		}
 		if needsPdcValidation {
 			syncState.MarkPdcValidation(strip.Callsign)
@@ -447,12 +415,6 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 	if routeNeedsUpdate {
 		if err := server.UpdateRouteForStripContext(ctx, strip.Callsign, session, false); err != nil {
 			slog.ErrorContext(ctx, "Error updating route for strip", slog.String("callsign", strip.Callsign), slog.Any("error", err))
-		}
-	}
-
-	if bayNeedsUpdate {
-		if err := s.MoveToBay(ctx, session, strip.Callsign, bay, false); err != nil {
-			slog.ErrorContext(ctx, "Error moving bay for strip", slog.String("callsign", strip.Callsign), slog.Any("error", err))
 		}
 	}
 
@@ -501,15 +463,22 @@ func syncStripChanged(existingStrip, updateStrip *internalModels.Strip) bool {
 		!reflect.DeepEqual(existingStrip.CommunicationType, updateStrip.CommunicationType) ||
 		!reflect.DeepEqual(existingStrip.AircraftCategory, updateStrip.AircraftCategory) ||
 		!reflect.DeepEqual(existingStrip.Stand, updateStrip.Stand) ||
+		!reflect.DeepEqual(existingStrip.Sequence, updateStrip.Sequence) ||
 		existingStrip.Cleared != updateStrip.Cleared ||
 		!reflect.DeepEqual(existingStrip.State, updateStrip.State) ||
+		!reflect.DeepEqual(existingStrip.Owner, updateStrip.Owner) ||
 		!reflect.DeepEqual(existingStrip.PositionLatitude, updateStrip.PositionLatitude) ||
 		!reflect.DeepEqual(existingStrip.PositionLongitude, updateStrip.PositionLongitude) ||
 		!reflect.DeepEqual(existingStrip.PositionAltitude, updateStrip.PositionAltitude) ||
 		existingStrip.Bay != updateStrip.Bay ||
 		!reflect.DeepEqual(existingStrip.CdmData, updateStrip.CdmData) ||
+		!reflect.DeepEqual(existingStrip.NextOwners, updateStrip.NextOwners) ||
+		!reflect.DeepEqual(existingStrip.PreviousOwners, updateStrip.PreviousOwners) ||
+		!reflect.DeepEqual(existingStrip.Registration, updateStrip.Registration) ||
 		existingStrip.TrackingController != updateStrip.TrackingController ||
-		existingStrip.EngineType != updateStrip.EngineType
+		existingStrip.EngineType != updateStrip.EngineType ||
+		!reflect.DeepEqual(existingStrip.UnexpectedChangeFields, updateStrip.UnexpectedChangeFields) ||
+		existingStrip.HasFP != updateStrip.HasFP
 }
 
 func syncStripRouteChanged(existingStrip, updateStrip *internalModels.Strip) bool {
@@ -552,17 +521,29 @@ func applySyncStripUpdate(existingStrip, updateStrip *internalModels.Strip) {
 	existingStrip.State = updateStrip.State
 	existingStrip.Cleared = updateStrip.Cleared
 	existingStrip.Bay = updateStrip.Bay
+	existingStrip.Sequence = updateStrip.Sequence
 	existingStrip.PositionLatitude = updateStrip.PositionLatitude
 	existingStrip.PositionLongitude = updateStrip.PositionLongitude
 	existingStrip.PositionAltitude = updateStrip.PositionAltitude
 	existingStrip.CdmData = updateStrip.CdmData
+	existingStrip.NextOwners = slices.Clone(updateStrip.NextOwners)
+	existingStrip.PreviousOwners = slices.Clone(updateStrip.PreviousOwners)
 	existingStrip.Registration = updateStrip.Registration
 	existingStrip.Owner = updateStrip.Owner
 	existingStrip.PdcState = updateStrip.PdcState
 	existingStrip.PdcRequestRemarks = updateStrip.PdcRequestRemarks
 	existingStrip.TrackingController = updateStrip.TrackingController
 	existingStrip.EngineType = updateStrip.EngineType
+	existingStrip.UnexpectedChangeFields = slices.Clone(updateStrip.UnexpectedChangeFields)
+	existingStrip.HasFP = updateStrip.HasFP
 	existingStrip.ValidationStatus = updateStrip.ValidationStatus
+}
+
+func appendUnexpectedChangeField(fields []string, field string) []string {
+	if field == "" || slices.Contains(fields, field) {
+		return fields
+	}
+	return append(fields, field)
 }
 
 func shouldGenerateDepartureSquawk(strip euroscope.Strip, airport string, bay string) bool {

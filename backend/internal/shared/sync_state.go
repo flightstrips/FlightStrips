@@ -11,21 +11,23 @@ type syncStateKey struct{}
 // SyncState carries preloaded sync data so EuroScope sync processing can avoid
 // repeating the same session/controller/strip lookups for every item.
 type SyncState struct {
-	Session             *internalModels.Session
-	ExistingControllers map[string]*internalModels.Controller
-	ExistingStrips      map[string]*internalModels.Strip
-	SectorOwners        map[string]*internalModels.SectorOwner
-	GndOnline           bool
-	ChangedControllers  int
-	ChangedStrips       int
-	DBOperations        int
-	RouteRecalcStrips   map[string]struct{}
-	BayUpdates          map[string]string
-	PdcValidationStrips map[string]struct{}
-	StripUpdates        map[string]struct{}
-	SquawkValidation    bool
-	LandingValidation   bool
-	CdmRecalculation    bool
+	Session              *internalModels.Session
+	ExistingControllers  map[string]*internalModels.Controller
+	ExistingStrips       map[string]*internalModels.Strip
+	SectorOwners         map[string]*internalModels.SectorOwner
+	BayMaxSequence       map[string]int32
+	TacticalStripsLoaded bool
+	GndOnline            bool
+	ChangedControllers   int
+	ChangedStrips        int
+	DBOperations         int
+	RouteRecalcStrips    map[string]struct{}
+	BayUpdates           map[string]string
+	PdcValidationStrips  map[string]struct{}
+	StripUpdates         map[string]struct{}
+	SquawkValidation     bool
+	LandingValidation    bool
+	CdmRecalculation     bool
 }
 
 func WithSyncState(ctx context.Context, state *SyncState) context.Context {

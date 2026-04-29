@@ -134,6 +134,7 @@ func stripToModel(db database.Strip) (*models.Strip, error) {
 		RunwayConfirmed:          db.RunwayConfirmed,
 		UnexpectedChangeFields:   db.UnexpectedChangeFields,
 		ControllerModifiedFields: db.ControllerModifiedFields,
+		HasFP:                    db.HasFp,
 	}, nil
 }
 
@@ -142,6 +143,15 @@ func (r *stripRepository) Create(ctx context.Context, strip *models.Strip) error
 	cdmData, err := marshalCdmData(strip.CdmData)
 	if err != nil {
 		return err
+	}
+
+	nextOwners := strip.NextOwners
+	if nextOwners == nil {
+		nextOwners = []string{}
+	}
+	previousOwners := strip.PreviousOwners
+	if previousOwners == nil {
+		previousOwners = []string{}
 	}
 
 	return r.queries.InsertStrip(ctx, database.InsertStripParams{
@@ -173,9 +183,12 @@ func (r *stripRepository) Create(ctx context.Context, strip *models.Strip) error
 		PositionLongitude:  strip.PositionLongitude,
 		PositionAltitude:   strip.PositionAltitude,
 		CdmData:            cdmData,
+		NextOwners:         nextOwners,
+		PreviousOwners:     previousOwners,
 		Registration:       strip.Registration,
 		TrackingController: strip.TrackingController,
 		EngineType:         strip.EngineType,
+		HasFP:              strip.HasFP,
 	})
 }
 
@@ -306,38 +319,51 @@ func (r *stripRepository) Update(ctx context.Context, strip *models.Strip) (int6
 		return 0, err
 	}
 
+	nextOwners := strip.NextOwners
+	if nextOwners == nil {
+		nextOwners = []string{}
+	}
+	previousOwners := strip.PreviousOwners
+	if previousOwners == nil {
+		previousOwners = []string{}
+	}
+
 	return r.queries.UpdateStrip(ctx, database.UpdateStripParams{
-		Callsign:           strip.Callsign,
-		Session:            strip.Session,
-		Origin:             strip.Origin,
-		Destination:        strip.Destination,
-		Alternative:        strip.Alternative,
-		Route:              strip.Route,
-		Remarks:            strip.Remarks,
-		AssignedSquawk:     strip.AssignedSquawk,
-		Squawk:             strip.Squawk,
-		Sid:                strip.Sid,
-		ClearedAltitude:    strip.ClearedAltitude,
-		Heading:            strip.Heading,
-		AircraftType:       strip.AircraftType,
-		Runway:             strip.Runway,
-		RequestedAltitude:  strip.RequestedAltitude,
-		Capabilities:       strip.Capabilities,
-		CommunicationType:  strip.CommunicationType,
-		AircraftCategory:   strip.AircraftCategory,
-		Stand:              strip.Stand,
-		Sequence:           strip.Sequence,
-		State:              strip.State,
-		Cleared:            strip.Cleared,
-		Owner:              strip.Owner,
-		Bay:                strip.Bay,
-		PositionLatitude:   strip.PositionLatitude,
-		PositionLongitude:  strip.PositionLongitude,
-		PositionAltitude:   strip.PositionAltitude,
-		CdmData:            cdmData,
-		Registration:       strip.Registration,
-		TrackingController: strip.TrackingController,
-		EngineType:         strip.EngineType,
+		Callsign:               strip.Callsign,
+		Session:                strip.Session,
+		Origin:                 strip.Origin,
+		Destination:            strip.Destination,
+		Alternative:            strip.Alternative,
+		Route:                  strip.Route,
+		Remarks:                strip.Remarks,
+		AssignedSquawk:         strip.AssignedSquawk,
+		Squawk:                 strip.Squawk,
+		Sid:                    strip.Sid,
+		ClearedAltitude:        strip.ClearedAltitude,
+		Heading:                strip.Heading,
+		AircraftType:           strip.AircraftType,
+		Runway:                 strip.Runway,
+		RequestedAltitude:      strip.RequestedAltitude,
+		Capabilities:           strip.Capabilities,
+		CommunicationType:      strip.CommunicationType,
+		AircraftCategory:       strip.AircraftCategory,
+		Stand:                  strip.Stand,
+		Sequence:               strip.Sequence,
+		State:                  strip.State,
+		Cleared:                strip.Cleared,
+		Owner:                  strip.Owner,
+		Bay:                    strip.Bay,
+		PositionLatitude:       strip.PositionLatitude,
+		PositionLongitude:      strip.PositionLongitude,
+		PositionAltitude:       strip.PositionAltitude,
+		CdmData:                cdmData,
+		NextOwners:             nextOwners,
+		PreviousOwners:         previousOwners,
+		Registration:           strip.Registration,
+		TrackingController:     strip.TrackingController,
+		EngineType:             strip.EngineType,
+		UnexpectedChangeFields: strip.UnexpectedChangeFields,
+		HasFP:                  strip.HasFP,
 	})
 }
 

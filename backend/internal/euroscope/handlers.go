@@ -372,11 +372,11 @@ func handleSync(ctx context.Context, client *Client, message Message) error {
 	}
 
 	if syncState.ChangedControllers > 0 || runwaysChanged {
-		if _, err := s.UpdateSectors(session); err != nil {
+		if _, err := updateSectorsForSync(ctx, s, session); err != nil {
 			return err
 		}
 		syncState.SectorOwners = nil
-		if err := s.UpdateLayouts(session); err != nil {
+		if err := updateLayoutsForSync(ctx, s, session); err != nil {
 			return err
 		}
 	}
@@ -443,6 +443,11 @@ type syncStripFinalizer interface {
 	ReevaluateLandingClearanceValidationsForSession(ctx context.Context, session int32, publish bool, forceReactivate bool) error
 }
 
+type syncContextServer interface {
+	UpdateSectorsContext(ctx context.Context, sessionId int32) ([]shared.SectorChange, error)
+	UpdateLayoutsContext(ctx context.Context, sessionId int32) error
+}
+
 // syncControllersFromEvent upserts each controller from the sync and cancels any
 // pending offline timer for its position.
 func syncControllersFromEvent(ctx context.Context, client *Client, session int32, controllers []syncController) (map[string]struct{}, error) {
@@ -466,6 +471,20 @@ func syncControllersFromEvent(ctx context.Context, client *Client, session int32
 		}
 	}
 	return changedPositions, nil
+}
+
+func updateSectorsForSync(ctx context.Context, server shared.Server, session int32) ([]shared.SectorChange, error) {
+	if syncServer, ok := server.(syncContextServer); ok {
+		return syncServer.UpdateSectorsContext(ctx, session)
+	}
+	return server.UpdateSectors(session)
+}
+
+func updateLayoutsForSync(ctx context.Context, server shared.Server, session int32) error {
+	if syncServer, ok := server.(syncContextServer); ok {
+		return syncServer.UpdateLayoutsContext(ctx, session)
+	}
+	return server.UpdateLayouts(session)
 }
 
 // syncStripsFromEvent syncs each strip to the DB and cancels any pending aircraft-disconnect timer.
@@ -824,6 +843,7 @@ func buildSyncState(ctx context.Context, client *Client, session int32) (*shared
 		Session:             sessionModel,
 		ExistingControllers: make(map[string]*internalModels.Controller, len(controllers)),
 		ExistingStrips:      make(map[string]*internalModels.Strip, len(strips)),
+		BayMaxSequence:      make(map[string]int32),
 		DBOperations:        3,
 	}
 	for _, controller := range controllers {
@@ -831,6 +851,9 @@ func buildSyncState(ctx context.Context, client *Client, session int32) (*shared
 	}
 	for _, strip := range strips {
 		state.ExistingStrips[strip.Callsign] = strip
+		if strip.Sequence != nil && *strip.Sequence > state.BayMaxSequence[strip.Bay] {
+			state.BayMaxSequence[strip.Bay] = *strip.Sequence
+		}
 	}
 	state.GndOnline = hasGroundController(state.ExistingControllers)
 

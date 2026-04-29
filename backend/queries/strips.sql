@@ -2,20 +2,21 @@
 INSERT INTO strips (version, callsign, session, origin, destination, alternative, route, remarks, assigned_squawk,
                     squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities,
                     communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay,
-                    position_latitude, position_longitude, position_altitude, cdm_data, registration,
-                    tracking_controller, engine_type)
+                    position_latitude, position_longitude, position_altitude, cdm_data, next_owners, previous_owners,
+                    registration, tracking_controller, engine_type, has_fp)
 VALUES (1, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23,
-        $24, $25, $26, $27, $28, $29, $30, $31);
+        $24, $25, $26, $27, $28, COALESCE($29, '[]'::jsonb), COALESCE($30, '[]'::jsonb), $31, $32, $33, $34);
 
 -- name: UpdateStrip :execrows
 UPDATE strips
 SET (version, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude,
      heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand,
      sequence, state, cleared, owner, bay, position_latitude, position_longitude, position_altitude, cdm_data,
-     registration, tracking_controller, engine_type
-    ) = (
-         version + 1, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22,
-         $23, $24, $25, $26, $27, $28, $29, $30, $31)
+     next_owners, previous_owners, registration, tracking_controller, engine_type, unexpected_change_fields, has_fp
+     ) = (
+          version + 1, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22,
+          $23, $24, $25, $26, $27, $28, COALESCE($29, '[]'::jsonb), COALESCE($30, '[]'::jsonb), $31, $32, $33,
+          COALESCE($34, '{}'::text[]), $35)
 WHERE callsign = $1 AND session = $2;
 
 -- name: GetStrip :one

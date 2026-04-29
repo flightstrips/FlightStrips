@@ -12,18 +12,22 @@ import (
 )
 
 func (s *Server) UpdateSectors(sessionId int32) ([]shared.SectorChange, error) {
+	return s.UpdateSectorsContext(context.Background(), sessionId)
+}
+
+func (s *Server) UpdateSectorsContext(ctx context.Context, sessionId int32) ([]shared.SectorChange, error) {
 	sessionRepo := s.sessionRepo
 	sectorRepo := s.sectorRepo
 	controllerRepo := s.controllerRepo
 
-	previousOwners, err := sectorRepo.ListBySession(context.Background(), sessionId)
+	previousOwners, err := sectorRepo.ListBySession(ctx, sessionId)
 	if err != nil {
 		return nil, err
 	}
 
 	slog.Debug("Updating sectors", slog.Int("session", int(sessionId)), slog.Int("previousOwners", len(previousOwners)))
 
-	session, err := sessionRepo.GetByID(context.Background(), sessionId)
+	session, err := getSessionForUpdate(ctx, sessionRepo, sessionId)
 	if err != nil {
 		return nil, err
 	}
@@ -34,7 +38,7 @@ func (s *Server) UpdateSectors(sessionId int32) ([]shared.SectorChange, error) {
 		return nil, nil
 	}
 
-	coverage, err := getCurrentControllerCoverage(controllerRepo, sessionId, s.transceiverLookup)
+	coverage, err := getCurrentControllerCoverage(ctx, controllerRepo, sessionId, s.transceiverLookup)
 	if err != nil {
 		return nil, err
 	}
@@ -71,25 +75,25 @@ func (s *Server) UpdateSectors(sessionId int32) ([]shared.SectorChange, error) {
 	changes := computeSectorChanges(previousOwners, currentOwners)
 
 	if !slices.EqualFunc(currentOwners, previousOwners, sectorsEqual) {
-		tx, err := s.GetDatabasePool().Begin(context.Background())
+		tx, err := s.GetDatabasePool().Begin(ctx)
 		if err != nil {
 			return nil, err
 		}
-		defer tx.Rollback(context.Background())
+		defer tx.Rollback(ctx)
 
 		txSectorRepo := sectorRepo.WithTx(tx)
 
-		err = txSectorRepo.RemoveBySession(context.Background(), sessionId)
+		err = txSectorRepo.RemoveBySession(ctx, sessionId)
 		if err != nil {
 			return nil, err
 		}
 
-		err = txSectorRepo.CreateBulk(context.Background(), currentOwners)
+		err = txSectorRepo.CreateBulk(ctx, currentOwners)
 		if err != nil {
 			return nil, err
 		}
 
-		err = tx.Commit(context.Background())
+		err = tx.Commit(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -171,8 +175,26 @@ func sectorsCompare(e, e2 config.Sector) int {
 	return cmp.Compare(e.KeyOrName(), e2.KeyOrName())
 }
 
-func getCurrentControllerCoverage(controllerRepo repository.ControllerRepository, sessionId int32, transceiverLookup TransceiverLookup) ([]config.ControllerCoverage, error) {
-	controllers, err := controllerRepo.List(context.Background(), sessionId)
+func getSessionForUpdate(ctx context.Context, sessionRepo repository.SessionRepository, sessionId int32) (*models.Session, error) {
+	if syncState := shared.GetSyncState(ctx); syncState != nil && syncState.Session != nil && syncState.Session.ID == sessionId {
+		return syncState.Session, nil
+	}
+	return sessionRepo.GetByID(ctx, sessionId)
+}
+
+func getControllersForUpdate(ctx context.Context, controllerRepo repository.ControllerRepository, sessionId int32) ([]*models.Controller, error) {
+	if syncState := shared.GetSyncState(ctx); syncState != nil && syncState.ExistingControllers != nil {
+		controllers := make([]*models.Controller, 0, len(syncState.ExistingControllers))
+		for _, controller := range syncState.ExistingControllers {
+			controllers = append(controllers, controller)
+		}
+		return controllers, nil
+	}
+	return controllerRepo.List(ctx, sessionId)
+}
+
+func getCurrentControllerCoverage(ctx context.Context, controllerRepo repository.ControllerRepository, sessionId int32, transceiverLookup TransceiverLookup) ([]config.ControllerCoverage, error) {
+	controllers, err := getControllersForUpdate(ctx, controllerRepo, sessionId)
 	if err != nil {
 		return nil, err
 	}
@@ -197,8 +219,8 @@ func getCurrentControllerCoverage(controllerRepo repository.ControllerRepository
 	return coverage, nil
 }
 
-func getCurrentPositions(controllerRepo repository.ControllerRepository, sessionId int32) ([]*config.Position, error) {
-	controllers, err := controllerRepo.List(context.Background(), sessionId)
+func getCurrentPositions(ctx context.Context, controllerRepo repository.ControllerRepository, sessionId int32) ([]*config.Position, error) {
+	controllers, err := getControllersForUpdate(ctx, controllerRepo, sessionId)
 	if err != nil {
 		return nil, err
 	}

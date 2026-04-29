@@ -3,7 +3,9 @@ package server
 import (
 	"FlightStrips/internal/config"
 	"FlightStrips/internal/models"
+	"FlightStrips/internal/shared"
 	"FlightStrips/internal/testutil"
+	pkgModels "FlightStrips/pkg/models"
 	"context"
 	"testing"
 
@@ -168,7 +170,7 @@ func TestGetCurrentControllerCoverage_IgnoresControllersWithoutMatchingPrefix(t 
 		},
 	}
 
-	coverage, err := getCurrentControllerCoverage(controllerRepo, 1, nil)
+	coverage, err := getCurrentControllerCoverage(context.Background(), controllerRepo, 1, nil)
 	require.NoError(t, err)
 	require.Len(t, coverage, 2)
 	assert.ElementsMatch(t, []config.ControllerCoverage{
@@ -210,4 +212,65 @@ func TestSendControllerUpdates_DoesNotAssignSectorsToWrongPrefix(t *testing.T) {
 	assert.Equal(t, "EKCH_S_TWR", frontendHub.ControllerUpdates[1].Callsign)
 	assert.Equal(t, "EKCH_S_TWR", frontendHub.ControllerUpdates[1].Identifier)
 	assert.Equal(t, []string{"TW"}, frontendHub.ControllerUpdates[1].OwnedSectors)
+}
+
+func TestGetCurrentControllerCoverage_UsesSyncStateControllers(t *testing.T) {
+	t.Cleanup(config.SetPositionsForTest([]config.Position{
+		{Name: "EKCH_A_TWR", Frequency: "118.100"},
+	}))
+	t.Cleanup(config.SetOwnerCallsignPrefixesForTest([]string{"EKCH"}))
+
+	ctx := shared.WithSyncState(context.Background(), &shared.SyncState{
+		ExistingControllers: map[string]*models.Controller{
+			"EKCH_A_TWR": {Callsign: "EKCH_A_TWR", Position: "118.100"},
+		},
+	})
+
+	controllerRepo := &testutil.MockControllerRepository{}
+
+	coverage, err := getCurrentControllerCoverage(ctx, controllerRepo, 1, nil)
+	require.NoError(t, err)
+	assert.Equal(t, []config.ControllerCoverage{
+		{Name: "EKCH_A_TWR", Frequency: "118.100"},
+	}, coverage)
+}
+
+func TestUpdateSectorsContext_UsesSyncStateWithoutReloadingSessionOrControllers(t *testing.T) {
+	t.Cleanup(config.SetPositionsForTest([]config.Position{
+		{Name: "EKCH_A_TWR", Frequency: "118.100"},
+	}))
+	t.Cleanup(config.SetOwnerCallsignPrefixesForTest([]string{"EKCH"}))
+	t.Cleanup(config.SetSectorsForTest([]config.Sector{
+		{Name: "Tower", Key: "TW", Owner: []string{"EKCH_A_TWR"}, Active: []string{"22L"}},
+	}))
+
+	ctx := shared.WithSyncState(context.Background(), &shared.SyncState{
+		Session: &models.Session{
+			ID: 1,
+			ActiveRunways: pkgModels.ActiveRunways{
+				DepartureRunways: []string{"22L"},
+				ArrivalRunways:   []string{"22L"},
+			},
+		},
+		ExistingControllers: map[string]*models.Controller{
+			"EKCH_A_TWR": {Callsign: "EKCH_A_TWR", Position: "118.100"},
+		},
+	})
+
+	server := &Server{
+		sessionRepo:    &testutil.MockSessionRepository{},
+		controllerRepo: &testutil.MockControllerRepository{},
+		sectorRepo: &testutil.MockSectorOwnerRepository{
+			ListBySessionFn: func(_ context.Context, session int32) ([]*models.SectorOwner, error) {
+				assert.Equal(t, int32(1), session)
+				return []*models.SectorOwner{
+					{Session: 1, Position: "118.100", Sector: []string{"TW"}},
+				}, nil
+			},
+		},
+	}
+
+	changes, err := server.UpdateSectorsContext(ctx, 1)
+	require.NoError(t, err)
+	assert.Empty(t, changes)
 }

@@ -233,9 +233,7 @@ func (hub *Hub) sendBackendSyncIfNeeded(client *Client) {
 		if strip.AssignedSquawk != nil {
 			entry.AssignedSquawk = *strip.AssignedSquawk
 		}
-		if strip.State != nil {
-			entry.GroundState = *strip.State
-		}
+		entry.GroundState = backendSyncGroundState(strip)
 		if strip.Stand != nil {
 			entry.Stand = *strip.Stand
 		}
@@ -278,6 +276,24 @@ func (hub *Hub) sendBackendSyncIfNeeded(client *Client) {
 		slog.Int("session", int(client.session)),
 		slog.Int("strips", len(syncStrips)),
 	)
+}
+
+func backendSyncGroundState(strip *internalModels.Strip) string {
+	if strip == nil {
+		return euroscope.GroundStateUnknown
+	}
+
+	if strip.Bay == shared.BAY_DEPART {
+		if strip.State != nil && *strip.State == euroscope.GroundStateDepart {
+			return *strip.State
+		}
+		return shared.GetGroundState(strip.Bay)
+	}
+
+	if strip.State != nil {
+		return *strip.State
+	}
+	return euroscope.GroundStateUnknown
 }
 
 func valueOrEmpty(value *string) string {

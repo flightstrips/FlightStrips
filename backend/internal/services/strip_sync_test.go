@@ -85,6 +85,91 @@ func TestSyncEuroscopeStrip_BlankFailoverSyncPreservesAdvancedDepartureBay(t *te
 	assert.Equal(t, pushState, *updatedStrip.State)
 	assert.Equal(t, shared.BAY_PUSH, updatedStrip.Bay)
 }
+
+func TestSyncEuroscopeStrip_DepartIgnoresStaleTaxiGroundState(t *testing.T) {
+	ctx := context.Background()
+	const session = int32(1)
+	const callsign = "SAS516"
+	departState := euroscope.GroundStateDepart
+
+	existingStrip := &models.Strip{
+		Callsign:    callsign,
+		Origin:      "EKCH",
+		Destination: "EGLL",
+		Bay:         shared.BAY_DEPART,
+		State:       &departState,
+	}
+
+	var updatedStrip *models.Strip
+	bayMoveCalls := 0
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			return existingStrip, nil
+		},
+		UpdateFn: func(_ context.Context, strip *models.Strip) (int64, error) {
+			updatedStrip = strip
+			return 1, nil
+		},
+		UpdateBayAndSequenceFn: func(_ context.Context, _ int32, _ string, _ string, _ int32) (int64, error) {
+			bayMoveCalls++
+			return 1, nil
+		},
+	}
+
+	svc, _, _ := newSyncTestFixture(t, existingStrip, stripRepo)
+
+	err := svc.syncEuroscopeStrip(ctx, session, "", euroscope.Strip{
+		Callsign:    callsign,
+		Origin:      "EKCH",
+		Destination: "EGLL",
+		GroundState: euroscope.GroundStateTaxi,
+	}, "EKCH")
+	require.NoError(t, err)
+	require.NotNil(t, updatedStrip)
+	require.NotNil(t, updatedStrip.State)
+	assert.Equal(t, departState, *updatedStrip.State)
+	assert.Equal(t, shared.BAY_DEPART, updatedStrip.Bay)
+	assert.Zero(t, bayMoveCalls, "stale TAXI sync must not resequence a DEPART strip")
+}
+
+func TestSyncEuroscopeStrip_DepartWithoutStateTreatsStaleTaxiAsLineup(t *testing.T) {
+	ctx := context.Background()
+	const session = int32(1)
+	const callsign = "SAS517"
+
+	existingStrip := &models.Strip{
+		Callsign:    callsign,
+		Origin:      "EKCH",
+		Destination: "EGLL",
+		Bay:         shared.BAY_DEPART,
+	}
+
+	var updatedStrip *models.Strip
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			return existingStrip, nil
+		},
+		UpdateFn: func(_ context.Context, strip *models.Strip) (int64, error) {
+			updatedStrip = strip
+			return 1, nil
+		},
+	}
+
+	svc, _, _ := newSyncTestFixture(t, existingStrip, stripRepo)
+
+	err := svc.syncEuroscopeStrip(ctx, session, "", euroscope.Strip{
+		Callsign:    callsign,
+		Origin:      "EKCH",
+		Destination: "EGLL",
+		GroundState: euroscope.GroundStateTaxi,
+	}, "EKCH")
+	require.NoError(t, err)
+	require.NotNil(t, updatedStrip)
+	require.NotNil(t, updatedStrip.State)
+	assert.Equal(t, euroscope.GroundStateLineup, *updatedStrip.State)
+	assert.Equal(t, shared.BAY_DEPART, updatedStrip.Bay)
+}
+
 func TestSyncEuroscopeStrip_ExistingHiddenNonArrivalBecomesArrivalStartsInArrHidden(t *testing.T) {
 	ctx := context.Background()
 	const session = int32(1)

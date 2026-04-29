@@ -181,6 +181,12 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 			shared.GetGroundState(existingStrip.Bay) != euroscope.GroundStateUnknown {
 			effectiveGroundState = *existingStrip.State
 		}
+		if existingStrip.Bay == shared.BAY_DEPART && strip.GroundState == euroscope.GroundStateTaxi {
+			effectiveGroundState = shared.GetGroundState(existingStrip.Bay)
+			if existingStrip.State != nil && *existingStrip.State != euroscope.GroundStateUnknown {
+				effectiveGroundState = *existingStrip.State
+			}
+		}
 		dbExistingStrip := database.Strip{
 			Origin:      existingStrip.Origin,
 			Destination: existingStrip.Destination,
@@ -189,7 +195,9 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 			State:       existingStrip.State,
 			Stand:       existingStrip.Stand,
 		}
-		bay = shared.GetDepartureBay(strip, &dbExistingStrip, config.GetAirborneAltitudeAGL(), airport, gndOnline)
+		bayStrip := strip
+		bayStrip.GroundState = effectiveGroundState
+		bay = shared.GetDepartureBay(bayStrip, &dbExistingStrip, config.GetAirborneAltitudeAGL(), airport, gndOnline)
 		effectiveCleared := strip.Cleared
 		if shouldPreservePdcClearedFlag(existingStrip, strip) {
 			effectiveCleared = existingStrip.Cleared

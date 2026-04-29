@@ -8,6 +8,7 @@ import (
 	"FlightStrips/internal/models"
 	"FlightStrips/internal/shared"
 	"FlightStrips/internal/testutil"
+	"FlightStrips/pkg/events/euroscope"
 	"FlightStrips/pkg/events/frontend"
 	pkgModels "FlightStrips/pkg/models"
 
@@ -728,6 +729,27 @@ func TestUpdateGroundState_SameState_IsNoop(t *testing.T) {
 	svc := NewStripService(stripRepo)
 	// Same ground state — should return immediately without calling UpdateGroundState
 	err := svc.UpdateGroundState(ctx, 1, "SAS100", "PUSH", "EKCH")
+	require.NoError(t, err)
+}
+
+func TestUpdateGroundState_DepartIgnoresStaleTaxiState(t *testing.T) {
+	ctx := context.Background()
+	state := euroscope.GroundStateDepart
+	strip := &models.Strip{
+		Callsign: "SAS101",
+		State:    &state,
+		Bay:      shared.BAY_DEPART,
+		Origin:   "EKCH",
+	}
+
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			return strip, nil
+		},
+	}
+
+	svc := NewStripService(stripRepo)
+	err := svc.UpdateGroundState(ctx, 1, "SAS101", euroscope.GroundStateTaxi, "EKCH")
 	require.NoError(t, err)
 }
 

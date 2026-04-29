@@ -104,21 +104,21 @@ func GetDepartureBay(strip euroscope.Strip, existing *database.Strip, airborneAl
 		return BAY_PUSH
 	}
 
-	if strip.GroundState == euroscope.GroundStateTaxi {
-		return PromoteTaxiBayForSoloTwr(BAY_TAXI, gndOnline)
-	}
-
 	if strip.GroundState == euroscope.GroundStateDepart {
 		return BAY_DEPART
 	}
 
 	// If the strip is already at rwy-dep, preserve it and only allow a forward
-	// transition to AIRBORNE. Never fall back to CLEARED based on the cleared flag.
+	// transition to AIRBORNE. Never fall back to TAXI/CLEARED based on stale sync data.
 	if existing != nil && existing.Bay == BAY_DEPART {
 		if int64(strip.Position.Altitude) > int64(AirportElevation)+airborneAltitudeAGL {
 			return BAY_AIRBORNE
 		}
 		return BAY_DEPART
+	}
+
+	if strip.GroundState == euroscope.GroundStateTaxi {
+		return PromoteTaxiBayForSoloTwr(BAY_TAXI, gndOnline)
 	}
 
 	if !strip.Cleared {
@@ -155,6 +155,10 @@ func GetDepartureBayFromGroundState(state string, existing database.Strip, airpo
 
 	if state == euroscope.GroundStatePush {
 		return BAY_PUSH
+	}
+
+	if existing.Bay == BAY_DEPART && state == euroscope.GroundStateTaxi {
+		return BAY_DEPART
 	}
 
 	if state == euroscope.GroundStateTaxi {

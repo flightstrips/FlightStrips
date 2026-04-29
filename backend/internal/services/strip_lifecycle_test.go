@@ -753,6 +753,25 @@ func TestUpdateGroundState_DepartIgnoresStaleTaxiState(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestUpdateGroundState_AirborneIgnoresStaleTaxiState(t *testing.T) {
+	ctx := context.Background()
+	strip := &models.Strip{
+		Callsign: "SAS102",
+		Bay:      shared.BAY_AIRBORNE,
+		Origin:   "EKCH",
+	}
+
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			return strip, nil
+		},
+	}
+
+	svc := NewStripService(stripRepo)
+	err := svc.UpdateGroundState(ctx, 1, "SAS102", euroscope.GroundStateTaxi, "EKCH")
+	require.NoError(t, err)
+}
+
 func TestUpdateGroundState_NewState_UpdatesAndMovesBay(t *testing.T) {
 	ctx := context.Background()
 	oldState := ""

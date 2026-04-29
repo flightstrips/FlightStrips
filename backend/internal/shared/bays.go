@@ -95,6 +95,10 @@ func GetDepartureBay(strip euroscope.Strip, existing *database.Strip, airborneAl
 		return BAY_HIDDEN
 	}
 
+	if existing != nil && existing.Bay == BAY_AIRBORNE {
+		return BAY_AIRBORNE
+	}
+
 	if existing != nil && existing.Bay != "" && existing.State != nil &&
 		strip.GroundState == *existing.State && bayTracksGroundState(existing.Bay) {
 		return existing.Bay
@@ -151,6 +155,10 @@ func GetDepartureBayFromGroundState(state string, existing database.Strip, airpo
 			return existing.Bay
 		}
 		return BAY_HIDDEN
+	}
+
+	if existing.Bay == BAY_AIRBORNE {
+		return BAY_AIRBORNE
 	}
 
 	if state == euroscope.GroundStatePush {

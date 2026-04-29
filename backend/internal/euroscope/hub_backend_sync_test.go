@@ -73,3 +73,15 @@ func TestBackendSyncGroundState_DepartIgnoresStaleTaxiState(t *testing.T) {
 
 	assert.Equal(t, euroscopeEvents.GroundStateLineup, backendSyncGroundState(strip))
 }
+
+func TestBackendSyncGroundState_AirborneDoesNotSendStaleTaxiState(t *testing.T) {
+	taxiState := euroscopeEvents.GroundStateTaxi
+	strip := &internalModels.Strip{
+		Callsign: "SAS104",
+		Origin:   "EKCH",
+		Bay:      shared.BAY_AIRBORNE,
+		State:    &taxiState,
+	}
+
+	assert.Equal(t, euroscopeEvents.GroundStateUnknown, backendSyncGroundState(strip))
+}

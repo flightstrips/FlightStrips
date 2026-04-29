@@ -42,6 +42,42 @@ func TestSyncEuroscopeStrip_NewLocalDepartureWithoutPositionStartsInNotCleared(t
 	assert.Equal(t, shared.BAY_NOT_CLEARED, createdStrip.Bay)
 }
 
+func TestSyncEuroscopeStrip_NewStripWithFlightPlanDoesNotCallSeparateHasFPUpdate(t *testing.T) {
+	ctx := context.Background()
+	const session = int32(1)
+	const callsign = "SAS124"
+
+	var (
+		createdStrip  *models.Strip
+		setHasFPCalls int
+	)
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			return nil, pgx.ErrNoRows
+		},
+		CreateFn: func(_ context.Context, strip *models.Strip) error {
+			createdStrip = strip
+			return nil
+		},
+		SetHasFPFn: func(_ context.Context, _ int32, _ string, _ bool) error {
+			setHasFPCalls++
+			return nil
+		},
+	}
+
+	svc, _, _ := newSyncTestFixture(t, nil, stripRepo)
+
+	err := svc.syncEuroscopeStrip(ctx, session, "", euroscope.Strip{
+		Callsign: callsign,
+		Origin:   "EKCH",
+		HasFP:    true,
+	}, "EKCH")
+	require.NoError(t, err)
+	require.NotNil(t, createdStrip)
+	assert.True(t, createdStrip.HasFP)
+	assert.Zero(t, setHasFPCalls)
+}
+
 func TestSyncEuroscopeStrip_BlankFailoverSyncPreservesAdvancedDepartureBay(t *testing.T) {
 	ctx := context.Background()
 	const session = int32(1)
@@ -168,6 +204,95 @@ func TestSyncEuroscopeStrip_DepartWithoutStateTreatsStaleTaxiAsLineup(t *testing
 	require.NotNil(t, updatedStrip.State)
 	assert.Equal(t, euroscope.GroundStateLineup, *updatedStrip.State)
 	assert.Equal(t, shared.BAY_DEPART, updatedStrip.Bay)
+}
+
+func TestSyncEuroscopeStrip_AirborneIgnoresStaleTaxiGroundState(t *testing.T) {
+	ctx := context.Background()
+	const session = int32(1)
+	const callsign = "SAS518"
+
+	existingStrip := &models.Strip{
+		Callsign:    callsign,
+		Origin:      "EKCH",
+		Destination: "EGLL",
+		Bay:         shared.BAY_AIRBORNE,
+	}
+
+	var updatedStrip *models.Strip
+	bayMoveCalls := 0
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			return existingStrip, nil
+		},
+		UpdateFn: func(_ context.Context, strip *models.Strip) (int64, error) {
+			updatedStrip = strip
+			return 1, nil
+		},
+		UpdateBayAndSequenceFn: func(_ context.Context, _ int32, _ string, _ string, _ int32) (int64, error) {
+			bayMoveCalls++
+			return 1, nil
+		},
+	}
+
+	svc, _, _ := newSyncTestFixture(t, existingStrip, stripRepo)
+
+	err := svc.syncEuroscopeStrip(ctx, session, "", euroscope.Strip{
+		Callsign:    callsign,
+		Origin:      "EKCH",
+		Destination: "EGLL",
+		GroundState: euroscope.GroundStateTaxi,
+	}, "EKCH")
+	require.NoError(t, err)
+	require.NotNil(t, updatedStrip)
+	require.NotNil(t, updatedStrip.State)
+	assert.Equal(t, euroscope.GroundStateUnknown, *updatedStrip.State)
+	assert.Equal(t, shared.BAY_AIRBORNE, updatedStrip.Bay)
+	assert.Zero(t, bayMoveCalls, "stale TAXI sync must not resequence an AIRBORNE strip")
+}
+
+func TestSyncEuroscopeStrip_AirborneWithStoredTaxiTreatsStaleTaxiAsUnknown(t *testing.T) {
+	ctx := context.Background()
+	const session = int32(1)
+	const callsign = "SAS519"
+	taxiState := euroscope.GroundStateTaxi
+
+	existingStrip := &models.Strip{
+		Callsign:    callsign,
+		Origin:      "EKCH",
+		Destination: "EGLL",
+		Bay:         shared.BAY_AIRBORNE,
+		State:       &taxiState,
+	}
+
+	var updatedStrip *models.Strip
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			return existingStrip, nil
+		},
+		UpdateFn: func(_ context.Context, strip *models.Strip) (int64, error) {
+			updatedStrip = strip
+			return 1, nil
+		},
+	}
+
+	svc, _, _ := newSyncTestFixture(t, existingStrip, stripRepo)
+
+	strip := euroscope.Strip{
+		Callsign:    callsign,
+		Origin:      "EKCH",
+		Destination: "EGLL",
+		GroundState: euroscope.GroundStateTaxi,
+	}
+	strip.Position.Lat = shared.AirportLatitude
+	strip.Position.Lon = shared.AirportLongitude
+	strip.Position.Altitude = shared.AirportElevation + 700
+
+	err := svc.syncEuroscopeStrip(ctx, session, "", strip, "EKCH")
+	require.NoError(t, err)
+	require.NotNil(t, updatedStrip)
+	require.NotNil(t, updatedStrip.State)
+	assert.Equal(t, euroscope.GroundStateUnknown, *updatedStrip.State)
+	assert.Equal(t, shared.BAY_AIRBORNE, updatedStrip.Bay)
 }
 
 func TestSyncEuroscopeStrip_ExistingHiddenNonArrivalBecomesArrivalStartsInArrHidden(t *testing.T) {

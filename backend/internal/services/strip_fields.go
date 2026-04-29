@@ -132,6 +132,10 @@ func (s *StripService) UpdateGroundState(ctx context.Context, session int32, cal
 		return nil
 	}
 
+	if existingStrip.Bay == shared.BAY_AIRBORNE && groundState == euroscope.GroundStateTaxi {
+		return nil
+	}
+
 	dbStrip := database.Strip{
 		Origin:      existingStrip.Origin,
 		Destination: existingStrip.Destination,

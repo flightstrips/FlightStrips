@@ -147,13 +147,6 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 				syncState.ExistingStrips[strip.Callsign] = newStrip
 			}
 		}
-		if strip.HasFP {
-			if err = s.stripRepo.SetHasFP(ctx, session, strip.Callsign, true); err != nil {
-				slog.WarnContext(ctx, "Failed to set has_fp on new strip", slog.String("callsign", strip.Callsign), slog.Any("error", err))
-			} else {
-				shared.AddDBOperations(ctx, 1)
-			}
-		}
 		slog.DebugContext(ctx, "Inserted strip",
 			slog.String("callsign", strip.Callsign),
 			slog.String("origin", strip.Origin),
@@ -184,6 +177,14 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 		if existingStrip.Bay == shared.BAY_DEPART && strip.GroundState == euroscope.GroundStateTaxi {
 			effectiveGroundState = shared.GetGroundState(existingStrip.Bay)
 			if existingStrip.State != nil && *existingStrip.State != euroscope.GroundStateUnknown {
+				effectiveGroundState = *existingStrip.State
+			}
+		}
+		if existingStrip.Bay == shared.BAY_AIRBORNE && strip.GroundState == euroscope.GroundStateTaxi {
+			effectiveGroundState = euroscope.GroundStateUnknown
+			if existingStrip.State != nil &&
+				*existingStrip.State != euroscope.GroundStateUnknown &&
+				*existingStrip.State != euroscope.GroundStateTaxi {
 				effectiveGroundState = *existingStrip.State
 			}
 		}

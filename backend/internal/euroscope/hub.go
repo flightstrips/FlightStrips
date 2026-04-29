@@ -290,6 +290,10 @@ func backendSyncGroundState(strip *internalModels.Strip) string {
 		return shared.GetGroundState(strip.Bay)
 	}
 
+	if strip.Bay == shared.BAY_AIRBORNE && strip.State != nil && *strip.State == euroscope.GroundStateTaxi {
+		return euroscope.GroundStateUnknown
+	}
+
 	if strip.State != nil {
 		return *strip.State
 	}

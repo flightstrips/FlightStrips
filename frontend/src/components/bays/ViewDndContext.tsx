@@ -2,9 +2,6 @@ import {
   DndContext,
   DragOverlay,
   closestCenter,
-  MouseSensor,
-  useSensor,
-  useSensors,
   type DragEndEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
@@ -26,6 +23,7 @@ import { BayClickContext } from "./BayClickContext";
 import { ValidationStatusDialog } from "@/components/strip/ValidationStatusDialog";
 import { isValidationActiveForPosition } from "@/components/strip/shared";
 import { useAirport, useMyPosition, useSelectedCallsign, useSelectStrip, useWebSocketStore } from "@/store/store-hooks";
+import { useStripSensors } from "./useStripSensors";
 
 function isArrivalOnlyBay(bay: Bay): boolean {
   return bay === "FINAL" || bay === "RWY_ARR" || bay === "TWY_ARR" || bay === "STAND" || bay === "ARR_HIDDEN";
@@ -81,9 +79,7 @@ export function ViewDndContext({
   );
 
   const [dragDisabled, setDragDisabled] = useState(false);
-  const sensors = useSensors(
-    useSensor(MouseSensor, { activationConstraint: { distance: dragDisabled ? Infinity : 5 } })
-  );
+  const sensors = useStripSensors({ disabled: dragDisabled });
 
   const [activeId, setActiveId] = useState<string | null>(null);
 

@@ -1,9 +1,6 @@
 import {
   DndContext,
   closestCenter,
-  MouseSensor,
-  useSensor,
-  useSensors,
   useDroppable,
   useDndMonitor,
   type DragEndEvent,
@@ -22,6 +19,7 @@ import type { AnyStrip, StripRef } from "@/api/models.ts";
 import { stripDndId, isFlight } from "@/api/models.ts";
 import { isValidationActiveForPosition } from "@/components/strip/shared";
 import { useWebSocketStore } from "@/store/store-hooks";
+import { useStripSensors } from "./useStripSensors";
 
 interface SortableBayProps {
   strips: AnyStrip[];
@@ -149,9 +147,7 @@ export function SortableBay({
   isDragDisabled,
 }: SortableBayProps) {
   const { containerRef, containerClassName } = useBottomAlignedBay(className, `${bayId ?? "standalone"}:${strips.length}`);
-  const sensors = useSensors(
-    useSensor(MouseSensor, { activationConstraint: { distance: 5 } })
-  );
+  const sensors = useStripSensors();
 
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;
@@ -185,7 +181,7 @@ export function SortableBay({
       return (
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
           <SortableContext items={sortableItems} strategy={verticalListSortingStrategy}>
-          <div ref={containerRef} className={containerClassName}>
+          <div ref={containerRef} className={containerClassName} data-strip-scroll-container="true">
               {strips.map(s => (
                 <SortableStrip key={stripDndId(s)} callsign={stripDndId(s)} dragDisabled={isDragDisabled?.(s)}>
                   {children(s)}
@@ -258,6 +254,7 @@ function DroppableContainer({
         containerRef(node);
       }}
       className={containerClassName}
+      data-strip-scroll-container="true"
       style={hoverStyle}
       onClick={(e) => {
         if (!isDragging && e.target === e.currentTarget) {

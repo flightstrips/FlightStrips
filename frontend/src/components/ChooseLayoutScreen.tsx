@@ -9,6 +9,7 @@ const EKCH_SCOPES = [
   { label: "SEQ PLN", layout: "EST" },
   { label: "GW / GE", layout: "GEGW" },
   { label: "TW / TE", layout: "TWTE" },
+  { label: "TWR + GND", layout: "TWRGND" },
 ];
 
 /**

@@ -162,6 +162,91 @@ func TestGetLayouts_NoMutationAcrossCalls(t *testing.T) {
 	assert.Equal(t, *result1["121.630"], *result2["121.630"], "layout must be the same across repeated calls")
 }
 
+func ekchTowerLayouts() map[string][]LayoutVariant {
+	return map[string][]LayoutVariant{
+		"EKCH_C_TWR": {
+			{Online: []string{"EKCH_A_TWR", "EKCH_D_TWR", "_GND"}, Offline: []string{}, Layout: "GEGW"},
+			{Online: []string{"EKCH_A_TWR", "_GND"}, Offline: []string{"EKCH_D_TWR"}, Layout: "GEGW"},
+			{Online: []string{"EKCH_D_TWR", "_GND"}, Offline: []string{"EKCH_A_TWR"}, Layout: "GEGW"},
+			{Online: []string{"_GND"}, Offline: []string{"EKCH_A_TWR", "EKCH_D_TWR"}, Layout: "TWTE"},
+			{Online: []string{}, Offline: []string{"_GND"}, Layout: "TWTE"},
+			{Online: []string{"EKCH_A_TWR", "EKCH_D_TWR"}, Offline: []string{}, Layout: "GEGW"},
+			{Online: []string{"EKCH_A_TWR"}, Offline: []string{"EKCH_D_TWR"}, Layout: "GEGW"},
+			{Online: []string{"EKCH_D_TWR"}, Offline: []string{"EKCH_A_TWR"}, Layout: "GEGW"},
+			{Online: []string{}, Offline: []string{"EKCH_A_TWR", "EKCH_D_TWR", "_GND"}, Layout: "TWRGND"},
+		},
+		"EKCH_A_TWR": {
+			{Active: []string{"22L", "22R"}, Online: []string{"EKCH_D_TWR"}, Offline: []string{}, Layout: "TWTE"},
+			{Active: []string{"04L", "04R"}, Online: []string{"EKCH_D_TWR"}, Offline: []string{}, Layout: "TWTE"},
+			{Online: []string{}, Offline: []string{"EKCH_D_TWR"}, Layout: "TWTE"},
+			{Online: []string{}, Offline: []string{"EKCH_D_TWR", "_GND"}, Layout: "TWRGND"},
+		},
+		"EKCH_D_TWR": {
+			{Active: []string{"22L", "22R"}, Online: []string{"EKCH_A_TWR"}, Offline: []string{}, Layout: "TWTE"},
+			{Active: []string{"04L", "04R"}, Online: []string{"EKCH_A_TWR"}, Offline: []string{}, Layout: "TWTE"},
+			{Online: []string{}, Offline: []string{"EKCH_A_TWR"}, Layout: "TWTE"},
+			{Online: []string{}, Offline: []string{"EKCH_A_TWR", "_GND"}, Layout: "TWRGND"},
+		},
+	}
+}
+
+func setupTowerLayouts(t *testing.T) {
+	t.Helper()
+	original := layouts
+	layouts = ekchTowerLayouts()
+	t.Cleanup(func() { layouts = original })
+}
+
+func TestGetLayouts_SingleTowerA_GetsTwrGndWhenGroundOffline(t *testing.T) {
+	setupTowerLayouts(t)
+
+	controllers := []*Position{
+		makePos("EKCH_A_TWR", "118.105", "TWR"),
+	}
+
+	result := GetLayouts(controllers, []string{"22L", "22R"})
+	require.NotNil(t, result["118.105"])
+	assert.Equal(t, "TWRGND", *result["118.105"])
+}
+
+func TestGetLayouts_SingleTowerA_WithGroundOnlineKeepsTwte(t *testing.T) {
+	setupTowerLayouts(t)
+
+	controllers := []*Position{
+		makePos("EKCH_A_TWR", "118.105", "TWR"),
+		makePos("EKCH_A_GND", "121.630", "GND"),
+	}
+
+	result := GetLayouts(controllers, []string{"22L", "22R"})
+	require.NotNil(t, result["118.105"])
+	assert.Equal(t, "TWTE", *result["118.105"])
+}
+
+func TestGetLayouts_SingleTopdown_GetsTwrGndWhenGroundOffline(t *testing.T) {
+	setupTowerLayouts(t)
+
+	controllers := []*Position{
+		makePos("EKCH_C_TWR", "118.580", "TWR"),
+	}
+
+	result := GetLayouts(controllers, []string{"22L", "22R"})
+	require.NotNil(t, result["118.580"])
+	assert.Equal(t, "TWRGND", *result["118.580"])
+}
+
+func TestGetLayouts_SingleTopdown_WithGroundOnlineKeepsTwte(t *testing.T) {
+	setupTowerLayouts(t)
+
+	controllers := []*Position{
+		makePos("EKCH_C_TWR", "118.580", "TWR"),
+		makePos("EKCH_A_GND", "121.630", "GND"),
+	}
+
+	result := GetLayouts(controllers, []string{"22L", "22R"})
+	require.NotNil(t, result["118.580"])
+	assert.Equal(t, "TWTE", *result["118.580"])
+}
+
 func TestGetLayouts_AirborneOwnerGetsTwteFallback(t *testing.T) {
 	originalLayouts := layouts
 	t.Cleanup(func() {

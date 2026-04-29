@@ -616,8 +616,8 @@ layouts:
       offline: [EKCH_A_TWR]
       layout: GEGW
     - online: []
-      offline: [EKCH_A_TWR, EKCH_D_TWR]
-      layout: TWTE
+      offline: [EKCH_A_TWR, EKCH_D_TWR, _GND]
+      layout: TWRGND
 
   EKCH_A_TWR:
     - active: [22L, 22R]
@@ -631,6 +631,9 @@ layouts:
     - online: []
       offline: [EKCH_D_TWR]
       layout: TWTE
+    - online: []
+      offline: [EKCH_D_TWR, _GND]
+      layout: TWRGND
 
   EKCH_D_TWR:
     - active: [22L, 22R]
@@ -644,6 +647,9 @@ layouts:
     - online: []
       offline: [EKCH_A_TWR]
       layout: TWTE
+    - online: []
+      offline: [EKCH_A_TWR, _GND]
+      layout: TWRGND
 
 missed_approach_handover:
   "04L": "EKCH_W_APP"

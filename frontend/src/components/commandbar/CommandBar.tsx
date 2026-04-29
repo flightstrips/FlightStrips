@@ -31,6 +31,7 @@ const SCOPE_LABELS: Record<string, string> = {
   "EST":  "SEQ PLN",
   "GEGW": "GE + GW",
   "TWTE": "TE + TW",
+  "TWRGND": "TWR + GND",
 };
 
 const EKCH_SCOPES = [
@@ -41,6 +42,7 @@ const EKCH_SCOPES = [
   { label: "AA + AD",    layout: "AAAD" },
   { label: "GE + GW",    layout: "GEGW" },
   { label: "TE + TW",    layout: "TWTE" },
+  { label: "TWR + GND",  layout: "TWRGND" },
 ];
 
 // EKCH runway pairs with vw widths derived from SVG (canvas: 2560px).

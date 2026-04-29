@@ -286,7 +286,7 @@ export default function AD() {
           bayId="STARTUP"
           isDragDisabled={(strip) => isFlight(strip) && !!strip.owner && strip.owner !== myPosition}
           standalone={false}
-          className="h-[40%] bay-scroll-area"
+          className="h-[40%] bay-scroll-area-bottom"
         >
           {(strip) => (
             <Strip strip={strip} status="PUSH" myPosition={myPosition} selectable={true} />

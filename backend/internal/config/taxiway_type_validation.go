@@ -131,7 +131,7 @@ func getTaxiwayTypeValidationScopeName(positionName string) (string, bool) {
 		switch strings.ToUpper(strings.TrimSpace(variant.Layout)) {
 		case "AA", "AD", "AAAD", "SEQPLN":
 			hasApronLayout = true
-		case "GEGW", "TWTE":
+		case "GEGW", "TWTE", "TWRGND":
 			hasTowerLayout = true
 		}
 	}

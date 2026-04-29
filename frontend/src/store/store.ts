@@ -51,10 +51,19 @@ import missedApproachSound from "@/assets/missed_approach.mp3";
 import { isAudioMuted } from "@/lib/audio-settings";
 import { toast } from "sonner";
 
-const KNOWN_LAYOUTS = new Set(["CLX", "AAAD", "AA", "AD", "EST", "GEGW", "TWTE"]);
+const KNOWN_LAYOUTS = new Set(["CLX", "AAAD", "AA", "AD", "EST", "GEGW", "TWTE", "TWRGND"]);
 
 function normalizeLayout(layout: string) {
-  return layout;
+  switch (layout.trim().toUpperCase()) {
+    case "SEQPLN":
+      return "EST";
+    case "TETW":
+      return "TWTE";
+    case "TWR+GND":
+      return "TWRGND";
+    default:
+      return layout.trim().toUpperCase();
+  }
 }
 
 function nextSequenceAtEndOfBay(strips: FrontendStrip[], tacticalStrips: TacticalStrip[], bay: Bay, movingCallsign?: string): number {

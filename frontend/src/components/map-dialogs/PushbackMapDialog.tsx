@@ -57,17 +57,17 @@ export function PushbackMapDialog({ open, onOpenChange, callsign, initialRelease
           gap: "0.63cqw",
         }}
       >
-        {/* Arrow cross */}
+        {/* Direction quick-select */}
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "0.52cqh" }}>
-          <button onClick={() => handleSelect("N")} style={BTN_STYLE}>↑</button>
+          <button onClick={() => handleSelect("N")} style={BTN_STYLE}>N</button>
           <div style={{ display: "flex", gap: "0.52cqh" }}>
-            <button onClick={() => handleSelect("W")} style={BTN_STYLE}>←</button>
-            <button onClick={() => handleSelect("E")} style={BTN_STYLE}>→</button>
+            <button onClick={() => handleSelect("W")} style={BTN_STYLE}>W</button>
+            <button onClick={() => handleSelect("E")} style={BTN_STYLE}>E</button>
           </div>
-          <button onClick={() => handleSelect("S")} style={BTN_STYLE}>↓</button>
+          <button onClick={() => handleSelect("S")} style={BTN_STYLE}>S</button>
         </div>
 
-        {/* ERASE / input / OK — offset down to align with ← → row */}
+        {/* ERASE / input / OK — offset down to align with W/E row */}
         <div style={{ display: "flex", flexDirection: "column", gap: "0.52cqh", marginTop: "4.43cqh", width: "fit-content" }}>
           <MapEraseControls onOk={handleSelect} onClose={() => onOpenChange(false)} btnStyle={BTN_STYLE} maxLength={4} />
         </div>

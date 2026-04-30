@@ -111,7 +111,7 @@ export function MapEraseControls({ onOk, onErase, onClose, btnStyle, maxLength =
             onClick={onClose}
             style={{ ...btnStyle, width: CONTROL_WIDE_BTN_WIDTH, backgroundColor: COLOR_MAP_BTN_DARK, color: "white" }}
           >
-            ECS
+            ESC
           </button>
         )}
         <button onClick={handleOk} style={{ ...btnStyle, backgroundColor: COLOR_MAP_BTN_DARK, color: "white", width: CONTROL_NARROW_BTN_WIDTH }}>
@@ -128,7 +128,7 @@ interface MapCloseButtonProps {
   label?: string;
 }
 
-export function MapCloseButton({ onClose, btnStyle, label = "ECS" }: MapCloseButtonProps) {
+export function MapCloseButton({ onClose, btnStyle, label = "ESC" }: MapCloseButtonProps) {
   return (
     <button
       onClick={onClose}

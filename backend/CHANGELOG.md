@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.26.0](https://github.com/flightstrips/FlightStrips/compare/backend/v0.25.0...backend/v0.26.0) (2026-04-30)
+
+
+### Features
+
+* **strips:** add CLX dialogue validation ([6e9dac0](https://github.com/flightstrips/FlightStrips/commit/6e9dac0c8ed141cb33ec41246d00c2fcca812c5b))
+* **strips:** add editable RNAV capability updates ([b38270e](https://github.com/flightstrips/FlightStrips/commit/b38270e523912442c60df23c8c61166fde1a3099))
+
+
+### Bug Fixes
+
+* **strips:** allow RNAV heading vectors ([afe8705](https://github.com/flightstrips/FlightStrips/commit/afe8705c6e1b8398a15a7414df83e4c3e62ca27d))
+* **strips:** improve CLX validation updates ([9362b27](https://github.com/flightstrips/FlightStrips/commit/9362b279d9a0871d9c54047d14005f012cd2e73b))
+* **strips:** resize validation status highlights ([8ad7a71](https://github.com/flightstrips/FlightStrips/commit/8ad7a71c54ccaa65fda076fbb90549516d72468f)), closes [#186](https://github.com/flightstrips/FlightStrips/issues/186)
+* **websocket:** prevent stale client metrics ([06148a0](https://github.com/flightstrips/FlightStrips/commit/06148a0a10dd289694e04f51fcc366b5526a01ca))
+
+
+### Performance Improvements
+
+* **strips:** collapse redundant strip reload queries ([b43848e](https://github.com/flightstrips/FlightStrips/commit/b43848edae406478c4a2d04fbe67acbc387d90f7))
+
 ## [0.25.0](https://github.com/flightstrips/FlightStrips/compare/backend/v0.24.2...backend/v0.25.0) (2026-04-29)
 
 

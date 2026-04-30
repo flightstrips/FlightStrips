@@ -8,7 +8,6 @@ import (
 	"errors"
 	"time"
 
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -85,6 +84,10 @@ func stripToModel(db database.Strip) (*models.Strip, error) {
 	if err != nil {
 		return nil, err
 	}
+	validationStatus, err := unmarshalValidationStatus(db.ValidationStatus)
+	if err != nil {
+		return nil, err
+	}
 
 	return &models.Strip{
 		ID:                       db.ID,
@@ -134,7 +137,12 @@ func stripToModel(db database.Strip) (*models.Strip, error) {
 		RunwayConfirmed:          db.RunwayConfirmed,
 		UnexpectedChangeFields:   db.UnexpectedChangeFields,
 		ControllerModifiedFields: db.ControllerModifiedFields,
+		IsManual:                 db.IsManual,
+		PersonsOnBoard:           db.PersonsOnBoard,
+		FplType:                  db.FplType,
+		Language:                 db.Language,
 		HasFP:                    db.HasFp,
+		ValidationStatus:         validationStatus,
 	}, nil
 }
 
@@ -201,29 +209,7 @@ func (r *stripRepository) GetByCallsign(ctx context.Context, session int32, call
 	if err != nil {
 		return nil, err
 	}
-	strip, err := stripToModel(dbStrip)
-	if err != nil {
-		return nil, err
-	}
-	if manual, err := r.queries.GetManualFPLFields(ctx, session, callsign); err == nil {
-		strip.IsManual = manual.IsManual
-		strip.PersonsOnBoard = manual.PersonsOnBoard
-		strip.FplType = manual.FplType
-		strip.Language = manual.Language
-		strip.HasFP = manual.HasFP
-	}
-	raw, err := r.queries.GetValidationStatusForCallsign(ctx, session, callsign)
-	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
-		return nil, err
-	}
-	if len(raw) > 0 {
-		vs, err := unmarshalValidationStatus(raw)
-		if err != nil {
-			return nil, err
-		}
-		strip.ValidationStatus = vs
-	}
-	return strip, nil
+	return stripToModel(dbStrip)
 }
 
 // List retrieves all strips for a session
@@ -233,42 +219,11 @@ func (r *stripRepository) List(ctx context.Context, session int32) ([]*models.St
 		return nil, err
 	}
 
-	// Bulk-fetch manual FPL fields to avoid N+1.
-	manualRows, _ := r.queries.ListManualFPLFieldsBySession(ctx, session)
-	manualMap := make(map[string]database.ManualFPLFieldsRow, len(manualRows))
-	for _, row := range manualRows {
-		manualMap[row.Callsign] = row
-	}
-
-	// Bulk-fetch validation status to avoid N+1.
-	vsRows, err := r.queries.GetValidationStatusBySession(ctx, session)
-	if err != nil {
-		return nil, err
-	}
-	vsMap := make(map[string][]byte, len(vsRows))
-	for _, row := range vsRows {
-		vsMap[row.Callsign] = row.ValidationStatus
-	}
-
 	strips := make([]*models.Strip, len(dbStrips))
 	for i, dbStrip := range dbStrips {
 		s, err := stripToModel(dbStrip)
 		if err != nil {
 			return nil, err
-		}
-		if m, ok := manualMap[s.Callsign]; ok {
-			s.IsManual = m.IsManual
-			s.PersonsOnBoard = m.PersonsOnBoard
-			s.FplType = m.FplType
-			s.Language = m.Language
-			s.HasFP = m.HasFP
-		}
-		if raw, ok := vsMap[s.Callsign]; ok {
-			vs, err := unmarshalValidationStatus(raw)
-			if err != nil {
-				return nil, err
-			}
-			s.ValidationStatus = vs
 		}
 		strips[i] = s
 	}

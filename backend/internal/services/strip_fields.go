@@ -66,6 +66,7 @@ func (s *StripService) UpdateRequestedAltitude(ctx context.Context, session int3
 		slog.DebugContext(ctx, "Strip being updated does not exist in database", slog.String("callsign", callsign), slog.String("event", "RequestedAltitude"))
 	} else {
 		s.publisher.SendRequestedAltitudeEvent(session, callsign, altitude)
+		s.publisher.SendStripUpdate(session, callsign)
 	}
 	return nil
 }
@@ -109,6 +110,7 @@ func (s *StripService) UpdateHeading(ctx context.Context, session int32, callsig
 		return nil
 	}
 	s.publisher.SendSetHeadingEvent(session, callsign, heading)
+	s.publisher.SendStripUpdate(session, callsign)
 	return nil
 }
 

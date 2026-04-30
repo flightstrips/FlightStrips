@@ -36,6 +36,10 @@ const ACTION_BUTTON_WIDTH = scalePx(125);
 const ACTION_BUTTON_HEIGHT = scalePx(70);
 const CLX_FALLBACK_WIDTH = scalePx(360);
 const CLX_FALLBACK_BUTTON_HEIGHT = scalePx(48);
+const MIN_FITTED_FIELD_FONT_SIZE = 9;
+const NITOS_SINGLE_LINE_FIT_LENGTH = 70;
+const NITOS_MULTILINE_LENGTH = 105;
+const NITOS_REMARKS_INLINE_PADDING = scalePx(8);
 
 // Tailwind class constants (hex must be literal strings for JIT)
 const CLS_DIALOG            = "bg-[#d4d4d4] rounded-none flex flex-col gap-0";
@@ -46,6 +50,7 @@ const CLS_BTN_DISABLED_LEFT = "border border-r-0 border-black rounded-none bg-[#
 const CLS_BTN_DISABLED_NRM  = "border border-black rounded-none bg-[#b3b3b3] text-black font-bold text-center disabled:opacity-60";
 const CLS_BTN_EDITABLE      = "border border-black rounded-none bg-[#ededed] text-black font-bold text-center";
 const CLS_BTN_EDITABLE_LOCK = "border border-black rounded-none bg-[#ededed] text-black font-bold disabled:opacity-100 text-center select-none hover:bg-[#ededed]";
+const CLS_NITOS_REMARKS     = "resize-none overflow-hidden border border-black rounded-none bg-[#b3b3b3] text-black font-bold text-center disabled:opacity-60";
 const CLS_TEXTAREA_EDITABLE = "border border-black rounded-none bg-[#ededed] text-black font-normal text-center break-words resize-none w-full";
 const CLS_CLX_DIALOG        = "rounded-none border border-black bg-[#B3B3B3] text-black";
 const CLS_CLX_PANEL         = "border border-black bg-[#D6D6D6]";
@@ -89,6 +94,25 @@ function clxNitosRemarks(strip: { clx_validation?: { faults: { nitos_remark: str
   const remarks = [...clxRemarks];
   if (pdcRemarks) remarks.push(pdcRemarks);
   return Array.from(new Set(remarks)).join(" ");
+}
+
+function fittedNitosRemarksStyle(value: string) {
+  const compactLength = value.replace(/\s+/g, " ").trim().length;
+  const multiline = compactLength > NITOS_MULTILINE_LENGTH;
+  const fitLength = multiline ? NITOS_MULTILINE_LENGTH * 2 : NITOS_SINGLE_LINE_FIT_LENGTH;
+  const fontSize = compactLength > fitLength
+    ? Math.max(MIN_FITTED_FIELD_FONT_SIZE, Math.floor((20 * fitLength * 10) / compactLength) / 10)
+    : 20;
+
+  return {
+    fontSize: scalePx(fontSize),
+    lineHeight: multiline ? 1.15 : FIELD_HEIGHT,
+    whiteSpace: multiline ? "normal" as const : "pre" as const,
+    overflowWrap: multiline ? "break-word" as const : undefined,
+    paddingBlock: multiline ? scalePx(3) : 0,
+    rows: multiline ? 3 : 1,
+    wrap: multiline ? "soft" : "off",
+  };
 }
 
 function sidOverrideKey(strip: { clx_validation?: { faults: { fields: string[], override_key?: string }[] } } | undefined) {
@@ -150,6 +174,8 @@ export default function FlightPlanDialog({
   const eobtFault = hasClxFieldFault(strip, "eobt");
   const tobtFault = hasClxFieldFault(strip, "tobt");
   const sidOverride = sidOverrideKey(strip);
+  const nitosRemarks = clxNitosRemarks(strip);
+  const nitosRemarksFit = fittedNitosRemarksStyle(nitosRemarks);
   const fieldStyle = (width: number) => ({
     width: scalePx(width),
     height: FIELD_HEIGHT,
@@ -434,11 +460,24 @@ export default function FlightPlanDialog({
           <div className="flex" style={rowStyle}>
             <div className="grid items-center" style={gridGroupStyle}>
               <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>NITOS REMARKS</Label>
-              <Input
-                value={clxNitosRemarks(strip)}
+              <textarea
+                aria-label="NITOS remarks"
+                title={nitosRemarks}
+                value={nitosRemarks}
                 disabled
-                className={CLS_BTN_DISABLED_NRM}
-                style={fieldStyle(700)}
+                readOnly
+                rows={nitosRemarksFit.rows}
+                wrap={nitosRemarksFit.wrap}
+                className={CLS_NITOS_REMARKS}
+                style={{
+                  ...fieldStyle(700),
+                  fontSize: nitosRemarksFit.fontSize,
+                  lineHeight: nitosRemarksFit.lineHeight,
+                  whiteSpace: nitosRemarksFit.whiteSpace,
+                  overflowWrap: nitosRemarksFit.overflowWrap,
+                  paddingInline: NITOS_REMARKS_INLINE_PADDING,
+                  paddingBlock: nitosRemarksFit.paddingBlock,
+                }}
               />
             </div>
             <div className="grid items-center" style={gridGroupStyle}>

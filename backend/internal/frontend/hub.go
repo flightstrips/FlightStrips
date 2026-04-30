@@ -1,6 +1,7 @@
 package frontend
 
 import (
+	"FlightStrips/internal/clx"
 	"FlightStrips/internal/config"
 	"FlightStrips/internal/metrics"
 	internalModels "FlightStrips/internal/models"
@@ -15,6 +16,7 @@ import (
 	"log/slog"
 	"slices"
 	"sync"
+	"time"
 
 	gorilla "github.com/gorilla/websocket"
 	"github.com/jackc/pgx/v5"
@@ -64,6 +66,9 @@ type Hub struct {
 	metarCache       map[int32]string // session ID → latest METAR string
 	arrAtisCodeCache map[int32]string // session ID → latest arrival ATIS code
 	depAtisCodeCache map[int32]string // session ID → latest departure ATIS code
+
+	clxMu        sync.RWMutex
+	clxOverrides map[int32]map[string]bool
 }
 
 func NewHub(stripService shared.StripService, authenticationService shared.AuthenticationService) *Hub {
@@ -102,6 +107,8 @@ func NewHub(stripService shared.StripService, authenticationService shared.Authe
 	handlers.Add(frontend.ActionCreateVFRFPL, handleCreateVFRFPL)
 	handlers.Add(frontend.UpdateRunwayStatus, handleUpdateRunwayStatus)
 	handlers.Add(frontend.AcknowledgeValidationStatus, handleAcknowledgeValidationStatus)
+	handlers.Add(frontend.ClxOverrideValidation, handleClxOverrideValidation)
+	handlers.Add(frontend.ClxUpdateTobt, handleClxUpdateTobt)
 
 	hub := &Hub{
 		send:                  make(chan internalMessage),
@@ -118,6 +125,7 @@ func NewHub(stripService shared.StripService, authenticationService shared.Authe
 		metarCache:            make(map[int32]string),
 		arrAtisCodeCache:      make(map[int32]string),
 		depAtisCodeCache:      make(map[int32]string),
+		clxOverrides:          make(map[int32]map[string]bool),
 	}
 
 	go hub.Run()
@@ -298,8 +306,9 @@ func (hub *Hub) sendInitialEvent(client *Client) {
 		}
 	}
 
+	clxContext := hub.makeClxValidationContext(client.session)
 	for _, strip := range strips {
-		stripModels = append(stripModels, MapStripToFrontendModel(strip))
+		stripModels = append(stripModels, MapStripToFrontendModelWithClx(strip, clxContext))
 	}
 
 	if client.readOnly {
@@ -440,6 +449,10 @@ func MapTacticalStripToPayload(ts *internalModels.TacticalStrip) frontend.Tactic
 }
 
 func MapStripToFrontendModel(strip *internalModels.Strip) frontend.Strip {
+	return MapStripToFrontendModelWithClx(strip, clx.Context{})
+}
+
+func MapStripToFrontendModelWithClx(strip *internalModels.Strip, clxContext clx.Context) frontend.Strip {
 	return frontend.Strip{
 		Callsign:                 strip.Callsign,
 		Origin:                   strip.Origin,
@@ -486,7 +499,25 @@ func MapStripToFrontendModel(strip *internalModels.Strip) frontend.Strip {
 		Language:                 helpers.ValueOrDefault(strip.Language),
 		HasFP:                    strip.HasFP,
 		ValidationStatus:         mapValidationStatusToDTO(strip.ValidationStatus),
+		ClxValidation:            mapClxValidationToDTO(clx.Validate(strip, clxContext)),
 	}
+}
+
+func mapClxValidationToDTO(validation *clx.Validation) *frontend.ClxValidation {
+	if validation == nil || len(validation.Faults) == 0 {
+		return nil
+	}
+	faults := make([]frontend.ClxValidationFault, 0, len(validation.Faults))
+	for _, fault := range validation.Faults {
+		faults = append(faults, frontend.ClxValidationFault{
+			Code:        fault.Code,
+			Message:     fault.Message,
+			NitosRemark: fault.NitosRemark,
+			Fields:      append([]string(nil), fault.Fields...),
+			OverrideKey: fault.OverrideKey,
+		})
+	}
+	return &frontend.ClxValidation{Faults: faults}
 }
 
 func mapValidationStatusToDTO(vs *internalModels.ValidationStatus) *frontend.ValidationStatus {
@@ -567,13 +598,49 @@ func (hub *Hub) SendStripUpdate(session int32, callsign string) {
 		return
 	}
 
-	model := MapStripToFrontendModel(strip)
+	model := MapStripToFrontendModelWithClx(strip, hub.makeClxValidationContext(session))
 
 	event := frontend.StripUpdateEvent{
 		Strip: model,
 	}
 
 	hub.Broadcast(session, event)
+}
+
+func (hub *Hub) makeClxValidationContext(session int32) clx.Context {
+	return clx.Context{
+		Now:       time.Now().UTC(),
+		Overrides: hub.clxOverrideSnapshot(session),
+		Rules:     config.GetClxValidationConfig(),
+	}
+}
+
+func (hub *Hub) clxOverrideSnapshot(session int32) map[string]bool {
+	hub.clxMu.RLock()
+	defer hub.clxMu.RUnlock()
+
+	source := hub.clxOverrides[session]
+	if len(source) == 0 {
+		return nil
+	}
+	result := make(map[string]bool, len(source))
+	for key, value := range source {
+		result[key] = value
+	}
+	return result
+}
+
+func (hub *Hub) setClxOverride(session int32, overrideKey string) {
+	if overrideKey == "" {
+		return
+	}
+	hub.clxMu.Lock()
+	defer hub.clxMu.Unlock()
+
+	if hub.clxOverrides[session] == nil {
+		hub.clxOverrides[session] = make(map[string]bool)
+	}
+	hub.clxOverrides[session][overrideKey] = true
 }
 
 func (hub *Hub) SendControllerOnline(session int32, callsign string, position string, identifier string, ownedSectors []string) {

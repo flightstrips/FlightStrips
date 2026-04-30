@@ -8,7 +8,10 @@ import (
 	"FlightStrips/pkg/events/frontend"
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
+	"strings"
+	"time"
 
 	gorilla "github.com/gorilla/websocket"
 )
@@ -233,9 +236,33 @@ func handleStripUpdate(ctx context.Context, client *Client, message Message) err
 		}
 	}
 
-	if event.Eobt != nil && strip.EffectiveEobt() != event.Eobt {
-		slog.WarnContext(ctx, "EOBT updates are currently not supported and will be ignored", slog.String("callsign", event.Callsign))
-		// TODO add support
+	if event.Eobt != nil && stringPtrValue(strip.EffectiveEobt()) != strings.TrimSpace(*event.Eobt) {
+		eobt := strings.TrimSpace(*event.Eobt)
+		if !isValidFrontendClockValue(eobt) {
+			return errors.New("invalid eobt: expected HHMM")
+		}
+		updatedCdm := strip.CdmData.Clone()
+		updatedCdm.Eobt = &eobt
+		updatedCdm.MarkLocalRecalculationPending()
+		rows, err := stripRepo.SetCdmData(ctx, client.session, event.Callsign, updatedCdm.Normalize())
+		if err != nil {
+			return err
+		}
+		if rows != 1 {
+			return fmt.Errorf("failed to update EOBT for %s session %d", event.Callsign, client.session)
+		}
+		client.hub.SendCdmUpdate(
+			client.session,
+			event.Callsign,
+			stringPtrValue(updatedCdm.EffectiveEobt()),
+			stringPtrValue(updatedCdm.EffectiveTobt()),
+			stringPtrValue(updatedCdm.EffectiveTsat()),
+			stringPtrValue(updatedCdm.EffectiveCtot()),
+		)
+		if cdmService := client.hub.server.GetCdmService(); cdmService != nil {
+			cdmService.TriggerRecalculate(ctx, client.session, strip.Origin)
+		}
+		client.hub.SendStripUpdate(client.session, event.Callsign)
 	}
 
 	if event.Altitude != nil && strip.ClearedAltitude != event.Altitude {
@@ -429,6 +456,64 @@ func handleCdmReady(ctx context.Context, client *Client, message Message) error 
 
 	cdmService := client.hub.server.GetCdmService()
 	return cdmService.HandleReadyRequest(ctx, client.session, event.Callsign)
+}
+
+func handleClxOverrideValidation(ctx context.Context, client *Client, message Message) error {
+	var event frontend.ClxOverrideValidationAction
+	if err := message.JsonUnmarshal(&event); err != nil {
+		return err
+	}
+	if event.Callsign == "" || event.OverrideKey == "" {
+		return errors.New("callsign and override_key are required")
+	}
+
+	client.hub.setClxOverride(client.session, event.OverrideKey)
+	client.hub.SendStripUpdate(client.session, event.Callsign)
+	return nil
+}
+
+func handleClxUpdateTobt(ctx context.Context, client *Client, message Message) error {
+	var event frontend.ClxUpdateTobtAction
+	if err := message.JsonUnmarshal(&event); err != nil {
+		return err
+	}
+	if event.Callsign == "" {
+		return errors.New("callsign is required")
+	}
+
+	cdmService := client.hub.server.GetCdmService()
+	if cdmService == nil {
+		return errors.New("CDM service not available")
+	}
+
+	tobt := roundedClxTobt(time.Now().UTC())
+	if err := cdmService.HandleTobtUpdate(ctx, client.session, event.Callsign, tobt, client.position, "ATC"); err != nil {
+		return err
+	}
+	client.hub.SendStripUpdate(client.session, event.Callsign)
+	return nil
+}
+
+func roundedClxTobt(now time.Time) string {
+	target := now.Add(15 * time.Minute)
+	if remainder := target.Minute() % 5; remainder != 0 {
+		target = target.Add(time.Duration(5-remainder) * time.Minute)
+	}
+	return time.Date(target.Year(), target.Month(), target.Day(), target.Hour(), target.Minute(), 0, 0, time.UTC).Format("1504")
+}
+
+func isValidFrontendClockValue(value string) bool {
+	if len(value) != 4 {
+		return false
+	}
+	for _, r := range value {
+		if r < '0' || r > '9' {
+			return false
+		}
+	}
+	hour := int(value[0]-'0')*10 + int(value[1]-'0')
+	minute := int(value[2]-'0')*10 + int(value[3]-'0')
+	return hour <= 23 && minute <= 59
 }
 
 func handleReleasePoint(ctx context.Context, client *Client, message Message) error {

@@ -174,6 +174,8 @@ export interface WebSocketState {
   runwayClearance: (callsign: string) => void;
   runwayConfirmation: (callsign: string) => void;
   cdmReady: (callsign: string) => void;
+  clxUpdateTobt: (callsign: string) => void;
+  clxOverrideValidation: (callsign: string, overrideKey: string) => void;
   assignRunway: (callsign: string, runway: string) => void;
 
   acknowledgeUnexpectedChange: (callsign: string, fieldName: string) => void;
@@ -470,6 +472,12 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     },
     cdmReady: (callsign) => {
       sendIfWritable({ type: ActionType.FrontendCdmReady, callsign });
+    },
+    clxUpdateTobt: (callsign) => {
+      sendIfWritable({ type: ActionType.FrontendClxUpdateTobt, callsign });
+    },
+    clxOverrideValidation: (callsign, overrideKey) => {
+      sendIfWritable({ type: ActionType.FrontendClxOverrideValidation, callsign, override_key: overrideKey });
     },
     assignRunway: (callsign, runway) => {
       if (!sendIfWritable({ type: ActionType.FrontendUpdateStripData, callsign, runway })) {

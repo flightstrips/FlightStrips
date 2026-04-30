@@ -52,6 +52,7 @@ const CLS_CLX_PANEL         = "border border-black bg-[#D6D6D6]";
 // Style-prop color constants (used in CSSProperties, not Tailwind)
 const COLOR_DARK_BTN        = "#3F3F3F"; // dark ESC/CLD button
 const COLOR_REVERT_BTN      = "#FFFB03"; // yellow revert-to-voice button
+const COLOR_CLX_ERROR       = "#FF6D4C";
 
 function useEditableField(value: string | number | undefined | null) {
   const [fieldValue, setFieldValue] = useState(value?.toString() ?? "");
@@ -68,6 +69,30 @@ function useEditableField(value: string | number | undefined | null) {
   const displayValue = focused ? fieldValue : value?.toString() ?? "";
 
   return [displayValue, setFieldValue, focused, handleSetFocused] as const;
+}
+
+type ClxField = "sid" | "runway" | "rnav" | "eobt" | "tobt";
+
+function hasClxFieldFault(strip: { clx_validation?: { faults: { fields: string[] }[] } } | undefined, field: ClxField) {
+  return strip?.clx_validation?.faults.some(fault => fault.fields.includes(field)) ?? false;
+}
+
+function clxFieldStyle(hasFault: boolean) {
+  return hasFault ? { backgroundColor: COLOR_CLX_ERROR } : {};
+}
+
+function clxNitosRemarks(strip: { clx_validation?: { faults: { nitos_remark: string }[] }, pdc_request_remarks?: string } | undefined) {
+  const clxRemarks = strip?.clx_validation?.faults
+    .map(fault => fault.nitos_remark.trim())
+    .filter(Boolean) ?? [];
+  const pdcRemarks = strip?.pdc_request_remarks?.trim();
+  const remarks = [...clxRemarks];
+  if (pdcRemarks) remarks.push(pdcRemarks);
+  return Array.from(new Set(remarks)).join(" ");
+}
+
+function sidOverrideKey(strip: { clx_validation?: { faults: { fields: string[], override_key?: string }[] } } | undefined) {
+  return strip?.clx_validation?.faults.find(fault => fault.override_key && fault.fields.includes("sid"))?.override_key;
 }
 
 interface FlightPlanDialogProps {
@@ -94,6 +119,8 @@ export default function FlightPlanDialog({
   const clearPdc = useWebSocketStore((state) => state.issuePdcClearance);
   const revertToVoice = useWebSocketStore((state) => state.revertToVoice);
   const updateStrip = useWebSocketStore((state) => state.updateStrip);
+  const clxUpdateTobt = useWebSocketStore((state) => state.clxUpdateTobt);
+  const clxOverrideValidation = useWebSocketStore((state) => state.clxOverrideValidation);
 
   const [internalOpen, setInternalOpen] = useState(false);
   const dialogOpen = open ?? internalOpen;
@@ -117,6 +144,12 @@ export default function FlightPlanDialog({
   const [hdgDialogOpen, setHdgDialogOpen] = useState(false);
   const [altDialogOpen, setAltDialogOpen] = useState(false);
   const defaultClearedAltitude = strip?.runway ? initialCflByRunway[strip.runway] : undefined;
+  const sidFault = hasClxFieldFault(strip, "sid");
+  const runwayFault = hasClxFieldFault(strip, "runway");
+  const rnavFault = hasClxFieldFault(strip, "rnav");
+  const eobtFault = hasClxFieldFault(strip, "eobt");
+  const tobtFault = hasClxFieldFault(strip, "tobt");
+  const sidOverride = sidOverrideKey(strip);
   const fieldStyle = (width: number) => ({
     width: scalePx(width),
     height: FIELD_HEIGHT,
@@ -191,7 +224,7 @@ export default function FlightPlanDialog({
                 type="button"
                 onClick={() => setRnavDialogOpen(true)}
                 className={CLS_BTN_EDITABLE}
-                style={fieldStyle(75)}
+                style={{ ...fieldStyle(75), ...clxFieldStyle(rnavFault) }}
               >
                 {strip.capabilities ?? "NIL"}
               </button>
@@ -208,7 +241,7 @@ export default function FlightPlanDialog({
                 type="button"
                 onClick={() => setSidDialogOpen(true)}
                 className={CLS_BTN_EDITABLE}
-                style={fieldStyle(150)}
+                style={{ ...fieldStyle(150), ...clxFieldStyle(sidFault) }}
               >
                 {strip.sid ?? ""}
               </button>
@@ -216,7 +249,13 @@ export default function FlightPlanDialog({
                 open={sidDialogOpen}
                 onOpenChange={setSidDialogOpen}
                 value={strip.sid}
-                onSelect={(sid) => updateStrip(callsign, { sid })}
+                onSelect={(sid) => {
+                  if (sid === strip.sid && sidOverride) {
+                    clxOverrideValidation(callsign, sidOverride);
+                    return;
+                  }
+                  updateStrip(callsign, { sid });
+                }}
                 sids={availableSids.length > 0 ? availableSids.filter(s => s.runway === strip.runway).map(s => s.name) : undefined}
               />
             </div>
@@ -271,17 +310,21 @@ export default function FlightPlanDialog({
                   }}
                   onKeyDown={(event) => event.key === "Enter" && updateStrip(callsign, { eobt })}
                   className={CLS_BTN_EDITABLE}
-                  style={fieldStyle(100)}
+                  style={{ ...fieldStyle(100), ...clxFieldStyle(eobtFault) }}
                 />
               </div>
               <div className="grid items-center" style={gridGroupStyle}>
                 <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>TOBT</Label>
-                <Input
-                  value={strip.tobt}
-                  disabled
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (tobtFault) clxUpdateTobt(callsign);
+                  }}
                   className={CLS_BTN_DISABLED}
-                  style={fieldStyle(100)}
-                />
+                  style={{ ...fieldStyle(100), ...clxFieldStyle(tobtFault), cursor: tobtFault ? "pointer" : undefined }}
+                >
+                  {strip.tobt}
+                </button>
               </div>
               <div className="grid items-center" style={gridGroupStyle}>
                 <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>TSAT</Label>
@@ -298,7 +341,7 @@ export default function FlightPlanDialog({
                   type="button"
                   onClick={() => setRwyDialogOpen(true)}
                   className={CLS_BTN_EDITABLE}
-                  style={fieldStyle(150)}
+                  style={{ ...fieldStyle(150), ...clxFieldStyle(runwayFault) }}
                 >
                   {strip.runway}
                 </button>
@@ -392,7 +435,7 @@ export default function FlightPlanDialog({
             <div className="grid items-center" style={gridGroupStyle}>
               <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>NITOS REMARKS</Label>
               <Input
-                value={strip.pdc_request_remarks ?? ""}
+                value={clxNitosRemarks(strip)}
                 disabled
                 className={CLS_BTN_DISABLED_NRM}
                 style={fieldStyle(700)}

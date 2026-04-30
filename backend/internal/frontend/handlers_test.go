@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"testing"
+	"time"
 
 	"FlightStrips/internal/models"
 	"FlightStrips/internal/services"
@@ -20,6 +21,60 @@ type stripUpdateValidationReevaluator struct {
 	testutil.NoOpStripService
 	reevaluateForStripFn  func(ctx context.Context, session int32, strip *models.Strip, activeDepartureRunways []string, publish bool, forceReactivate bool) error
 	reevaluateDepartureFn func(ctx context.Context, session int32, callsign string, publish bool, forceReactivate bool) error
+}
+
+type recordingCdmService struct {
+	triggerRecalculateFn func(ctx context.Context, session int32, airport string)
+}
+
+func (s *recordingCdmService) TriggerRecalculate(ctx context.Context, session int32, airport string) {
+	if s.triggerRecalculateFn != nil {
+		s.triggerRecalculateFn(ctx, session, airport)
+	}
+}
+
+func (s *recordingCdmService) HandleReadyRequest(context.Context, int32, string) error {
+	return nil
+}
+
+func (s *recordingCdmService) HandleTobtUpdate(context.Context, int32, string, string, string, string) error {
+	return nil
+}
+
+func (s *recordingCdmService) HandleDeiceUpdate(context.Context, int32, string, string) error {
+	return nil
+}
+
+func (s *recordingCdmService) HandleAsrtToggle(context.Context, int32, string, string) error {
+	return nil
+}
+
+func (s *recordingCdmService) HandleTsacUpdate(context.Context, int32, string, string) error {
+	return nil
+}
+
+func (s *recordingCdmService) HandleManualCtot(context.Context, int32, string, string) error {
+	return nil
+}
+
+func (s *recordingCdmService) HandleCtotRemove(context.Context, int32, string) error {
+	return nil
+}
+
+func (s *recordingCdmService) HandleApproveReqTobt(context.Context, int32, string, string, string) error {
+	return nil
+}
+
+func (s *recordingCdmService) SyncAsatForGroundState(context.Context, int32, string, string) error {
+	return nil
+}
+
+func (s *recordingCdmService) RequestBetterTobt(context.Context, int32, string) error {
+	return nil
+}
+
+func (s *recordingCdmService) SetSessionCdmMaster(context.Context, int32, bool) error {
+	return nil
 }
 
 func (s *stripUpdateValidationReevaluator) ReevaluatePdcInvalidValidationForStrip(ctx context.Context, session int32, strip *models.Strip, activeDepartureRunways []string, publish bool, forceReactivate bool) error {
@@ -101,6 +156,119 @@ func TestHandleStripUpdate_RunwayChangePersistsSelectedRunway(t *testing.T) {
 	require.NotNil(t, updatedRunway)
 	assert.Equal(t, selectedRunway, *updatedRunway)
 	assert.Equal(t, "runway", markedField)
+}
+
+func TestRoundedClxTobtAddsFifteenMinutesAndRoundsUpToFive(t *testing.T) {
+	tests := []struct {
+		name string
+		now  time.Time
+		want string
+	}{
+		{
+			name: "already on five minute boundary after offset",
+			now:  time.Date(2026, 1, 1, 10, 0, 0, 0, time.UTC),
+			want: "1015",
+		},
+		{
+			name: "rounds up after offset",
+			now:  time.Date(2026, 1, 1, 10, 1, 0, 0, time.UTC),
+			want: "1020",
+		},
+		{
+			name: "rolls over midnight",
+			now:  time.Date(2026, 1, 1, 23, 48, 0, 0, time.UTC),
+			want: "0005",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, roundedClxTobt(tt.now))
+		})
+	}
+}
+
+func TestHandleStripUpdate_EobtChangeTriggersCdmRecalculation(t *testing.T) {
+	ctx := context.Background()
+	const session = int32(7)
+	const callsign = "SAS123"
+	const origin = "EKCH"
+	currentEobt := "1000"
+	updatedEobt := "1015"
+	tobt := "1020"
+	tsat := "1030"
+	ctot := "1040"
+
+	var persisted *models.CdmData
+	var triggerAirport string
+	getByCallsignCalls := 0
+
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, gotSession int32, gotCallsign string) (*models.Strip, error) {
+			assert.Equal(t, session, gotSession)
+			assert.Equal(t, callsign, gotCallsign)
+			getByCallsignCalls++
+			return &models.Strip{
+				Callsign: callsign,
+				Session:  session,
+				Origin:   origin,
+				CdmData: &models.CdmData{
+					Eobt: &currentEobt,
+					Tobt: &tobt,
+					Tsat: &tsat,
+					Ctot: &ctot,
+				},
+			}, nil
+		},
+		SetCdmDataFn: func(_ context.Context, gotSession int32, gotCallsign string, data *models.CdmData) (int64, error) {
+			assert.Equal(t, session, gotSession)
+			assert.Equal(t, callsign, gotCallsign)
+			persisted = data.Clone()
+			return 1, nil
+		},
+	}
+
+	cdmService := &recordingCdmService{
+		triggerRecalculateFn: func(_ context.Context, gotSession int32, airport string) {
+			assert.Equal(t, session, gotSession)
+			triggerAirport = airport
+		},
+	}
+
+	server := &testutil.MockServer{
+		StripRepoVal:  stripRepo,
+		CdmServiceVal: cdmService,
+	}
+	hub := &Hub{
+		server: server,
+		send:   make(chan internalMessage, 2),
+	}
+	client := &Client{
+		session:  session,
+		hub:      hub,
+		position: "EKCH_DEL",
+	}
+	client.SetUser(shared.NewAuthenticatedUser("123456", 0, nil))
+
+	payload, err := json.Marshal(frontendEvents.UpdateStripDataEvent{
+		Type:     frontendEvents.UpdateStripData,
+		Callsign: callsign,
+		Eobt:     &updatedEobt,
+	})
+	require.NoError(t, err)
+
+	err = handleStripUpdate(ctx, client, Message{
+		Type:    frontendEvents.UpdateStripData,
+		Message: payload,
+	})
+	require.NoError(t, err)
+
+	require.NotNil(t, persisted)
+	require.NotNil(t, persisted.Eobt)
+	assert.Equal(t, updatedEobt, *persisted.Eobt)
+	assert.True(t, persisted.Recalculate)
+	assert.Equal(t, origin, triggerAirport)
+	assert.Equal(t, 2, getByCallsignCalls)
 }
 
 func TestHandleStripUpdate_OwnerCanUpdateRemarksAndAircraftInfo(t *testing.T) {

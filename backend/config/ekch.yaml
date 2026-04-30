@@ -30,6 +30,58 @@ cdm:
       - name: V
         time: 10
 
+clx_validation:
+  jet_restricted_sid_families:
+    - KOPEX
+  prop_turboprop_restricted_sid_families:
+    - LANGO
+    - NEXEN
+  category_f_aircraft_types:
+    - A388
+    - B748
+  category_f_restricted_runways:
+    - "22R"
+    - "04L"
+    - "12"
+    - "30"
+  category_f_restricted_sid_suffixes:
+    - B
+    - C
+    - D
+    - E
+  sid_first_waypoints:
+    - BETUD
+    - GOLGA
+    - KEMAX
+    - KOPEX
+    - LANGO
+    - NEXEN
+    - ODDON
+    - ODON
+    - SALLO
+    - SALO
+    - SIMEG
+    - VEDAR
+  lango_remark_tokens:
+    - EGPX/
+  lango_route_tokens:
+    - ARTEX
+    - ELSAN
+    - REKNA
+    - ITSUX
+    - SURAT
+    - EVRAL
+    - ROPAL
+    - LARGA
+    - TIPAN
+    - UPGAS
+  vedar_remark_tokens:
+    - EKDK/
+  vedar_route_tokens:
+    - AAL
+    - ARTOR
+    - AMSEV
+
 positions:
   - name: "EKCH_DEL"
     frequency: "119.905"

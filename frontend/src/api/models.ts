@@ -72,6 +72,8 @@ export enum ActionType {
   FrontendMissedApproach = "missed_approach",
   FrontendUpdateRunwayStatus = "update_runway_status",
   FrontendAcknowledgeValidationStatus = "acknowledge_validation_status",
+  FrontendClxOverrideValidation = "clx_override_validation",
+  FrontendClxUpdateTobt = "clx_update_tobt",
 }
 
 export type PdcStatus = "NONE" | "REQUESTED" | "REQUESTED_WITH_FAULTS" | "CLEARED" | "CONFIRMED" | "NO_RESPONSE" | "FAILED" | "REVERT_TO_VOICE";
@@ -175,6 +177,21 @@ export interface FrontendStrip {
   language?: string;
   has_fp?: boolean;
   validation_status?: ValidationStatus;
+  clx_validation?: ClxValidation;
+}
+
+export type ClxValidationField = "sid" | "runway" | "rnav" | "eobt" | "tobt";
+
+export interface ClxValidation {
+  faults: ClxValidationFault[];
+}
+
+export interface ClxValidationFault {
+  code: string;
+  message: string;
+  nitos_remark: string;
+  fields: ClxValidationField[];
+  override_key?: string;
 }
 
 export interface ValidationStatus {
@@ -273,6 +290,8 @@ export interface FrontendStripUpdateEvent {
   unexpected_change_fields?: string[];
   controller_modified_fields?: string[];
   validation_status?: ValidationStatus;
+  clx_validation?: ClxValidation;
+  pdc_request_remarks?: string;
 }
 
 export interface FrontendControllerOnlineEvent {
@@ -747,8 +766,19 @@ export interface FrontendAcknowledgeValidationStatusEvent {
   activation_key: string;
 }
 
+export interface FrontendClxOverrideValidationEvent {
+  type: ActionType.FrontendClxOverrideValidation;
+  callsign: string;
+  override_key: string;
+}
+
+export interface FrontendClxUpdateTobtEvent {
+  type: ActionType.FrontendClxUpdateTobt;
+  callsign: string;
+}
+
 // Union type for all events that can be sent
-export type FrontendSendEvent = FrontendUpdateRunwayStatusEvent | FrontendMissedApproachEvent |FrontendCreateManualFPLAction | FrontendCreateVFRFPLAction |FrontendAuthenticationEvent | FrontendMoveEvent | FrontendGenerateSquawkEvent | FrontendUpdateStripDataEvent | FrontendUpdateOrder | FrontendSendMessageEvent | FrontendCdmReadyEvent | FrontendSendReleasePointEvent | FrontendSendMarkedEvent | FrontendSendRunwayClearanceEvent | FrontendSendRunwayConfirmationEvent | FrontendIssuePdcClearanceRequest | FrontendRevertToVoiceRequest | FrontendCoordinationTransferRequestEvent | FrontendCoordinationAssumeRequestEvent | FrontendCoordinationForceAssumeRequestEvent | FrontendCoordinationFreeRequestEvent | FrontendCoordinationCancelTransferRequestEvent | FrontendCoordinationTagRequestEvent | FrontendCoordinationAcceptTagRequestEvent | FrontendCreateTacticalStripAction | FrontendDeleteTacticalStripAction | FrontendConfirmTacticalStripAction | FrontendStartTacticalTimerAction | FrontendMoveTacticalStripAction | FrontendAcknowledgeUnexpectedChangeEvent | FrontendAcknowledgeValidationStatusEvent;
+export type FrontendSendEvent = FrontendUpdateRunwayStatusEvent | FrontendMissedApproachEvent |FrontendCreateManualFPLAction | FrontendCreateVFRFPLAction |FrontendAuthenticationEvent | FrontendMoveEvent | FrontendGenerateSquawkEvent | FrontendUpdateStripDataEvent | FrontendUpdateOrder | FrontendSendMessageEvent | FrontendCdmReadyEvent | FrontendSendReleasePointEvent | FrontendSendMarkedEvent | FrontendSendRunwayClearanceEvent | FrontendSendRunwayConfirmationEvent | FrontendIssuePdcClearanceRequest | FrontendRevertToVoiceRequest | FrontendCoordinationTransferRequestEvent | FrontendCoordinationAssumeRequestEvent | FrontendCoordinationForceAssumeRequestEvent | FrontendCoordinationFreeRequestEvent | FrontendCoordinationCancelTransferRequestEvent | FrontendCoordinationTagRequestEvent | FrontendCoordinationAcceptTagRequestEvent | FrontendCreateTacticalStripAction | FrontendDeleteTacticalStripAction | FrontendConfirmTacticalStripAction | FrontendStartTacticalTimerAction | FrontendMoveTacticalStripAction | FrontendAcknowledgeUnexpectedChangeEvent | FrontendAcknowledgeValidationStatusEvent | FrontendClxOverrideValidationEvent | FrontendClxUpdateTobtEvent;
 
 export type AnyStrip = FrontendStrip | TacticalStrip;
 export const isFlight = (s: AnyStrip): s is FrontendStrip => 'callsign' in s;

@@ -33,6 +33,19 @@ type CdmConfig struct {
 	Deice          CdmDeiceConfig `yaml:"deice"`
 }
 
+type ClxValidationConfig struct {
+	JetRestrictedSidFamilies           []string `yaml:"jet_restricted_sid_families"`
+	PropTurbopropRestrictedSidFamilies []string `yaml:"prop_turboprop_restricted_sid_families"`
+	CategoryFAircraftTypes             []string `yaml:"category_f_aircraft_types"`
+	CategoryFRestrictedRunways         []string `yaml:"category_f_restricted_runways"`
+	CategoryFRestrictedSidSuffixes     []string `yaml:"category_f_restricted_sid_suffixes"`
+	SidFirstWaypoints                  []string `yaml:"sid_first_waypoints"`
+	LangoRouteTokens                   []string `yaml:"lango_route_tokens"`
+	LangoRemarkTokens                  []string `yaml:"lango_remark_tokens"`
+	VedarRouteTokens                   []string `yaml:"vedar_route_tokens"`
+	VedarRemarkTokens                  []string `yaml:"vedar_remark_tokens"`
+}
+
 type Config struct {
 	Latitude               float64                     `yaml:"latitude"`
 	Longitude              float64                     `yaml:"longitude"`
@@ -53,6 +66,7 @@ type Config struct {
 	TransitionAltitude     int                         `yaml:"transition_altitude"`
 	RunwayInitialCFL       map[string]int              `yaml:"runway_initial_cfl"`
 	Cdm                    CdmConfig                   `yaml:"cdm"`
+	ClxValidation          ClxValidationConfig         `yaml:"clx_validation"`
 }
 
 // TestModeConfig holds test/replay mode configuration
@@ -93,6 +107,7 @@ var standRoutes []Route
 var missedApproachHandover map[string]string
 var transitionAltitude int
 var runwayInitialCFL map[string]int
+var clxValidationConfig ClxValidationConfig
 
 func loadAirportConfig(r io.Reader) error {
 	var cfg Config
@@ -142,6 +157,7 @@ func loadAirportConfig(r io.Reader) error {
 		runwayInitialCFL = make(map[string]int)
 	}
 	cdmConfig = cfg.Cdm
+	clxValidationConfig = normalizeClxValidationConfig(cfg.ClxValidation)
 
 	return nil
 }
@@ -212,6 +228,87 @@ func GetTransitionAltitude() int {
 // GetCdmConfig returns the CDM configuration parsed from the airport YAML.
 func GetCdmConfig() CdmConfig {
 	return cdmConfig
+}
+
+func GetClxValidationConfig() ClxValidationConfig {
+	return cloneClxValidationConfig(clxValidationConfig)
+}
+
+func DefaultClxValidationConfig() ClxValidationConfig {
+	return cloneClxValidationConfig(defaultClxValidationConfig())
+}
+
+func normalizeClxValidationConfig(cfg ClxValidationConfig) ClxValidationConfig {
+	if isEmptyClxValidationConfig(cfg) {
+		cfg = defaultClxValidationConfig()
+	}
+	return ClxValidationConfig{
+		JetRestrictedSidFamilies:           normalizeStringList(cfg.JetRestrictedSidFamilies),
+		PropTurbopropRestrictedSidFamilies: normalizeStringList(cfg.PropTurbopropRestrictedSidFamilies),
+		CategoryFAircraftTypes:             normalizeStringList(cfg.CategoryFAircraftTypes),
+		CategoryFRestrictedRunways:         normalizeStringList(cfg.CategoryFRestrictedRunways),
+		CategoryFRestrictedSidSuffixes:     normalizeStringList(cfg.CategoryFRestrictedSidSuffixes),
+		SidFirstWaypoints:                  normalizeStringList(cfg.SidFirstWaypoints),
+		LangoRouteTokens:                   normalizeStringList(cfg.LangoRouteTokens),
+		LangoRemarkTokens:                  normalizeStringList(cfg.LangoRemarkTokens),
+		VedarRouteTokens:                   normalizeStringList(cfg.VedarRouteTokens),
+		VedarRemarkTokens:                  normalizeStringList(cfg.VedarRemarkTokens),
+	}
+}
+
+func isEmptyClxValidationConfig(cfg ClxValidationConfig) bool {
+	return len(cfg.JetRestrictedSidFamilies) == 0 &&
+		len(cfg.PropTurbopropRestrictedSidFamilies) == 0 &&
+		len(cfg.CategoryFAircraftTypes) == 0 &&
+		len(cfg.CategoryFRestrictedRunways) == 0 &&
+		len(cfg.CategoryFRestrictedSidSuffixes) == 0 &&
+		len(cfg.SidFirstWaypoints) == 0 &&
+		len(cfg.LangoRouteTokens) == 0 &&
+		len(cfg.LangoRemarkTokens) == 0 &&
+		len(cfg.VedarRouteTokens) == 0 &&
+		len(cfg.VedarRemarkTokens) == 0
+}
+
+func defaultClxValidationConfig() ClxValidationConfig {
+	return ClxValidationConfig{
+		JetRestrictedSidFamilies:           []string{"KOPEX"},
+		PropTurbopropRestrictedSidFamilies: []string{"LANGO", "NEXEN"},
+		CategoryFAircraftTypes:             []string{"A388", "B748"},
+		CategoryFRestrictedRunways:         []string{"22R", "04L", "12", "30"},
+		CategoryFRestrictedSidSuffixes:     []string{"B", "C", "D", "E"},
+		SidFirstWaypoints:                  []string{"BETUD", "GOLGA", "KEMAX", "KOPEX", "LANGO", "NEXEN", "ODDON", "ODON", "SALLO", "SALO", "SIMEG", "VEDAR"},
+		LangoRouteTokens:                   []string{"ARTEX", "ELSAN", "REKNA", "ITSUX", "SURAT", "EVRAL", "ROPAL", "LARGA", "TIPAN", "UPGAS"},
+		LangoRemarkTokens:                  []string{"EGPX/"},
+		VedarRouteTokens:                   []string{"AAL", "ARTOR", "AMSEV"},
+		VedarRemarkTokens:                  []string{"EKDK/"},
+	}
+}
+
+func cloneClxValidationConfig(cfg ClxValidationConfig) ClxValidationConfig {
+	return ClxValidationConfig{
+		JetRestrictedSidFamilies:           slices.Clone(cfg.JetRestrictedSidFamilies),
+		PropTurbopropRestrictedSidFamilies: slices.Clone(cfg.PropTurbopropRestrictedSidFamilies),
+		CategoryFAircraftTypes:             slices.Clone(cfg.CategoryFAircraftTypes),
+		CategoryFRestrictedRunways:         slices.Clone(cfg.CategoryFRestrictedRunways),
+		CategoryFRestrictedSidSuffixes:     slices.Clone(cfg.CategoryFRestrictedSidSuffixes),
+		SidFirstWaypoints:                  slices.Clone(cfg.SidFirstWaypoints),
+		LangoRouteTokens:                   slices.Clone(cfg.LangoRouteTokens),
+		LangoRemarkTokens:                  slices.Clone(cfg.LangoRemarkTokens),
+		VedarRouteTokens:                   slices.Clone(cfg.VedarRouteTokens),
+		VedarRemarkTokens:                  slices.Clone(cfg.VedarRemarkTokens),
+	}
+}
+
+func normalizeStringList(values []string) []string {
+	result := make([]string, 0, len(values))
+	for _, value := range values {
+		normalized := strings.ToUpper(strings.TrimSpace(value))
+		if normalized == "" || slices.Contains(result, normalized) {
+			continue
+		}
+		result = append(result, normalized)
+	}
+	return result
 }
 
 // GetConfigDir returns the base directory used for resolving relative CDM URIs.

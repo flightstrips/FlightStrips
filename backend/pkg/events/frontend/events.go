@@ -100,6 +100,8 @@ const (
 
 	// AcknowledgeValidationStatus is sent by the frontend to acknowledge an active validation.
 	AcknowledgeValidationStatus EventType = "acknowledge_validation_status"
+	ClxOverrideValidation       EventType = "clx_override_validation"
+	ClxUpdateTobt               EventType = "clx_update_tobt"
 )
 
 type OutgoingMessage interface {
@@ -162,6 +164,20 @@ type Strip struct {
 	Language                 string            `json:"language"`
 	HasFP                    bool              `json:"has_fp"`
 	ValidationStatus         *ValidationStatus `json:"validation_status,omitempty"`
+	ClxValidation            *ClxValidation    `json:"clx_validation,omitempty"`
+}
+
+// ClxValidation contains non-blocking field-level CLX dialogue validation faults.
+type ClxValidation struct {
+	Faults []ClxValidationFault `json:"faults"`
+}
+
+type ClxValidationFault struct {
+	Code        string   `json:"code"`
+	Message     string   `json:"message"`
+	NitosRemark string   `json:"nitos_remark"`
+	Fields      []string `json:"fields"`
+	OverrideKey string   `json:"override_key,omitempty"`
 }
 
 // ValidationStatus is the frontend DTO for a strip's active validation issue.
@@ -185,6 +201,15 @@ type ValidationAction struct {
 type AcknowledgeValidationStatusAction struct {
 	Callsign      string `json:"callsign"`
 	ActivationKey string `json:"activation_key"`
+}
+
+type ClxOverrideValidationAction struct {
+	Callsign    string `json:"callsign"`
+	OverrideKey string `json:"override_key"`
+}
+
+type ClxUpdateTobtAction struct {
+	Callsign string `json:"callsign"`
 }
 
 type Controller struct {

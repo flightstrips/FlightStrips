@@ -11,10 +11,10 @@ interface PushbackMapDialogProps {
   onStripMoved?: () => void;
 }
 
-// Sizes expressed as % of image container (1920×768 reference) so they scale with the dialog.
+// Sizes expressed in container-query units (1920×768 reference) so they scale with the dialog.
 const BTN_STYLE: React.CSSProperties = {
   ...MAP_BTN_BASE,
-  width: "2.86%",      // 55px at 1920px wide
+  width: "2.86cqw",    // 55px at 1920px wide
   height: "3.91cqh",   // 30px at 768px tall
   fontSize: "2.34cqh", // 18px at 768px tall
 };

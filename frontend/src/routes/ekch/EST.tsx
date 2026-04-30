@@ -16,10 +16,11 @@ import {
   type EstView,
 } from "@/components/est/metadata";
 import { useNonClearedStrips } from "@/store/airports/ekch.ts";
-import { useMarkArmed, useSelectStrip, useSelectedCallsign, useWebSocketStore } from "@/store/store-hooks.ts";
+import { useControllers, useMarkArmed, useMyPosition, useSelectStrip, useSelectedCallsign, useWebSocketStore } from "@/store/store-hooks.ts";
 
 const PAGE_BG = "bg-bay-est";
 const COLOR_LABEL_DEFAULT = "#202020";
+const APRON_DEPARTURE_SECTOR = "AD";
 
 type ActionOverride = {
   callsign: string;
@@ -107,6 +108,8 @@ export default function EST() {
   const transferStrip = useWebSocketStore((state) => state.transferStrip);
   const toggleMarked = useWebSocketStore((state) => state.toggleMarked);
   const cdmReady = useWebSocketStore((state) => state.cdmReady);
+  const controllers = useControllers();
+  const myPosition = useMyPosition();
   const nonClearedStrips = useNonClearedStrips();
   const markArmed = useMarkArmed();
   const selectedCallsign = useSelectedCallsign();
@@ -192,6 +195,15 @@ export default function EST() {
   const menuStrip = menuState ? stripByStand.get(menuState.stand) : undefined;
   const statusStrip = statusStand ? stripByStand.get(statusStand) : undefined;
   const visibleStands = useMemo(() => getEstStandsForView(boardView), [boardView]);
+  const apronDepartureTransferTarget = useMemo(
+    () =>
+      controllers.find(
+        (controller) =>
+          controller.position !== myPosition &&
+          controller.owned_sectors.includes(APRON_DEPARTURE_SECTOR),
+      )?.position ?? "",
+    [controllers, myPosition],
+  );
 
   function closeMenu() {
     setMenuState(null);
@@ -277,8 +289,12 @@ export default function EST() {
       return;
     }
 
+    if (!apronDepartureTransferTarget) {
+      return;
+    }
+
     setActionState(menuState.stand, menuStrip);
-    transferStrip(menuStrip.callsign, "AD");
+    transferStrip(menuStrip.callsign, apronDepartureTransferTarget);
     closeMenu();
   }
 
@@ -473,6 +489,7 @@ export default function EST() {
           onClose={closeMenu}
           onSendReady={handleSendReady}
           onStartTransfer={handleStartTransfer}
+          startTransferDisabled={!apronDepartureTransferTarget}
           onStartRequest={handleStartRequest}
           onPush={handlePush}
           onTaxi={handleTaxi}

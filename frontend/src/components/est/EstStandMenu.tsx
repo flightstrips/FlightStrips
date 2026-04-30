@@ -22,6 +22,7 @@ interface EstStandMenuProps {
   onClose: () => void;
   onSendReady: () => void;
   onStartTransfer: () => void;
+  startTransferDisabled: boolean;
   onStartRequest: () => void;
   onPush: () => void;
   onTaxi: () => void;
@@ -40,6 +41,7 @@ export default function EstStandMenu({
   onClose,
   onSendReady,
   onStartTransfer,
+  startTransferDisabled,
   onStartRequest,
   onPush,
   onTaxi,
@@ -107,7 +109,12 @@ export default function EstStandMenu({
             SEND RDY MSG
           </Button>
 
-          <Button variant="trf" className="h-11 text-sm font-semibold" onClick={onStartTransfer}>
+          <Button
+            variant="trf"
+            className="h-11 text-sm font-semibold"
+            onClick={onStartTransfer}
+            disabled={startTransferDisabled}
+          >
             START+TRF
           </Button>
           <Button variant="trf" className="h-11 text-sm font-semibold" onClick={onStartRequest}>

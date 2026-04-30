@@ -28,6 +28,8 @@
 #define EVENT_GENERATE_SQUAWK_NAME "generate_squawk"
 #define EVENT_ROUTE_NAME "route"
 #define EVENT_REMARKS_NAME "remarks"
+#define EVENT_AIRCRAFT_INFO_NAME "aircraft_info"
+#define EVENT_AIRCRAFT_INFO_REMARKS_NAME "aircraft_info_remarks"
 #define EVENT_SID_NAME "sid"
 #define EVENT_AIRCRAFT_RUNWAY_NAME "aircraft_runway"
 #define EVENT_COORDINATION_HANDOVER_NAME "coordination_handover"
@@ -77,6 +79,8 @@ enum EventType {
     EVENT_GENERATE_SQUAWK,
     EVENT_ROUTE,
     EVENT_REMARKS,
+    EVENT_AIRCRAFT_INFO,
+    EVENT_AIRCRAFT_INFO_REMARKS,
     EVENT_SID,
     EVENT_AIRCRAFT_RUNWAY,
     EVENT_COORDINATION_HANDOVER,
@@ -124,9 +128,11 @@ NLOHMANN_JSON_SERIALIZE_ENUM(EventType, {
                                {EVENT_SESSION_INFO, EVENT_SESSION_INFO_NAME},
                                {EVENT_RUNWAY_MISMATCH_ALERT, EVENT_RUNWAY_MISMATCH_ALERT_NAME},
                                {EVENT_GENERATE_SQUAWK, EVENT_GENERATE_SQUAWK_NAME},
-                              {EVENT_ROUTE, EVENT_ROUTE_NAME},
-                              {EVENT_REMARKS, EVENT_REMARKS_NAME},
-                              {EVENT_SID, EVENT_SID_NAME},
+                               {EVENT_ROUTE, EVENT_ROUTE_NAME},
+                               {EVENT_REMARKS, EVENT_REMARKS_NAME},
+                               {EVENT_AIRCRAFT_INFO, EVENT_AIRCRAFT_INFO_NAME},
+                               {EVENT_AIRCRAFT_INFO_REMARKS, EVENT_AIRCRAFT_INFO_REMARKS_NAME},
+                               {EVENT_SID, EVENT_SID_NAME},
                                {EVENT_AIRCRAFT_RUNWAY, EVENT_AIRCRAFT_RUNWAY_NAME},
                                {EVENT_COORDINATION_HANDOVER, EVENT_COORDINATION_HANDOVER_NAME},
                                {EVENT_COORDINATION_RECEIVED, EVENT_COORDINATION_RECEIVED_NAME},
@@ -840,6 +846,33 @@ struct RemarksEvent final : Event {
     RemarksEvent() = default;
 
     NLOHMANN_DEFINE_TYPE_INTRUSIVE(RemarksEvent, callsign, remarks, type);
+};
+
+struct AircraftInfoEvent final : Event {
+    std::string callsign;
+    std::string aircraft_type;
+
+    explicit AircraftInfoEvent(std::string callsign, std::string aircraftType) : Event(EVENT_AIRCRAFT_INFO),
+                                                                                callsign(std::move(callsign)),
+                                                                                aircraft_type(std::move(aircraftType)) {
+    }
+    AircraftInfoEvent() = default;
+
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE(AircraftInfoEvent, callsign, aircraft_type, type);
+};
+
+struct AircraftInfoRemarksEvent final : Event {
+    std::string callsign;
+    std::string aircraft_type;
+    std::string remarks;
+
+    explicit AircraftInfoRemarksEvent(std::string callsign, std::string aircraftType, std::string remarks)
+        : Event(EVENT_AIRCRAFT_INFO_REMARKS), callsign(std::move(callsign)),
+          aircraft_type(std::move(aircraftType)), remarks(std::move(remarks)) {
+    }
+    AircraftInfoRemarksEvent() = default;
+
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE(AircraftInfoRemarksEvent, callsign, aircraft_type, remarks, type);
 };
 
 struct SidEvent final : Event {

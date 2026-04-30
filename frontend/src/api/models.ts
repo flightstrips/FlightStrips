@@ -595,6 +595,8 @@ export interface FrontendUpdateStripDataEvent {
   stand?: string;
   runway?: string;
   ob?: boolean;
+  remarks?: string;
+  aircraft_type?: string;
 }
 
 export interface FrontendUpdateOrder {

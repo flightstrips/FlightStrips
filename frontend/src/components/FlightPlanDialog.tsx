@@ -12,8 +12,10 @@ import { AltSelectDialog } from "@/components/strip/AltSelectDialog";
 import { HdgSelectDialog } from "@/components/strip/HdgSelectDialog";
 import { SidSelectDialog } from "@/components/strip/SidSelectDialog";
 import { RunwayDialog } from "@/components/strip/RunwayDialog";
+import { RnavSelectDialog } from "@/components/strip/RnavSelectDialog";
 import { useAvailableSids, useInitialCflByRunway, useStrip, useTransitionAltitude, useWebSocketStore } from "@/store/store-hooks.ts";
 import { scalePx } from "@/lib/viewportScale";
+import { buildRnavUpdate, type RnavCapability } from "@/lib/rnav";
 
 const FONT_FAMILY = "Arial";
 const FONT_SIZE_FIELD = scalePx(20);
@@ -98,6 +100,7 @@ export default function FlightPlanDialog({
   const setDialogOpen = onOpenChange ?? setInternalOpen;
 
   const [sidDialogOpen, setSidDialogOpen] = useState(false);
+  const [rnavDialogOpen, setRnavDialogOpen] = useState(false);
   const [rwyDialogOpen, setRwyDialogOpen] = useState(false);
   const availableSids = useAvailableSids();
   const [ssrGenerating, setSsrGenerating] = useState(false);
@@ -132,6 +135,12 @@ export default function FlightPlanDialog({
     alignItems: "center",
     justifyContent: "center",
     cursor: "pointer",
+  };
+
+  const handleRnavChange = (capability: RnavCapability) => {
+    if (!strip) return;
+    const update = buildRnavUpdate(strip.aircraft_type ?? "", strip.remarks ?? "", capability);
+    updateStrip(callsign, update);
   };
 
   return (
@@ -178,11 +187,19 @@ export default function FlightPlanDialog({
             </div>
             <div className="grid items-center" style={gridGroupStyle}>
               <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>RNAV</Label>
-              <Input
-                value={strip.capabilities}
-                disabled
-                className={CLS_BTN_DISABLED}
+              <button
+                type="button"
+                onClick={() => setRnavDialogOpen(true)}
+                className={CLS_BTN_EDITABLE}
                 style={fieldStyle(75)}
+              >
+                {strip.capabilities ?? "NIL"}
+              </button>
+              <RnavSelectDialog
+                open={rnavDialogOpen}
+                onOpenChange={setRnavDialogOpen}
+                value={strip.capabilities}
+                onSelect={handleRnavChange}
               />
             </div>
             <div className="grid items-center" style={gridGroupStyle}>

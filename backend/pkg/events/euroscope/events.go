@@ -42,6 +42,8 @@ const (
 	GenerateSquawk            EventType = "generate_squawk"
 	Route                     EventType = "route"
 	Remarks                   EventType = "remarks"
+	AircraftInfo              EventType = "aircraft_info"
+	AircraftInfoRemarks       EventType = "aircraft_info_remarks"
 	Sid                       EventType = "sid"
 	CoordinationHandover      EventType = "coordination_handover"
 	TrackingControllerChanged EventType = "tracking_controller_changed"
@@ -528,6 +530,17 @@ type RemarksEvent struct {
 	Remarks  string `json:"remarks"`
 }
 
+type AircraftInfoEvent struct {
+	Callsign     string `json:"callsign"`
+	AircraftType string `json:"aircraft_type"`
+}
+
+type AircraftInfoRemarksEvent struct {
+	Callsign     string `json:"callsign"`
+	AircraftType string `json:"aircraft_type"`
+	Remarks      string `json:"remarks"`
+}
+
 type SidEvent struct {
 	Callsign string `json:"callsign"`
 	Sid      string `json:"sid"`
@@ -556,6 +569,22 @@ func (e RemarksEvent) GetType() EventType {
 }
 
 func (e RemarksEvent) Marshal() ([]byte, error) {
+	return marshall(e)
+}
+
+func (e AircraftInfoEvent) GetType() EventType {
+	return AircraftInfo
+}
+
+func (e AircraftInfoEvent) Marshal() ([]byte, error) {
+	return marshall(e)
+}
+
+func (e AircraftInfoRemarksEvent) GetType() EventType {
+	return AircraftInfoRemarks
+}
+
+func (e AircraftInfoRemarksEvent) Marshal() ([]byte, error) {
 	return marshall(e)
 }
 

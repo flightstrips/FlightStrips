@@ -66,6 +66,34 @@ TEST(MessageServiceEventsTest, AssumeOnlyEventSerializesExpectedShape) {
     EXPECT_EQ(json.at("callsign").get<std::string>(), "EIN123");
 }
 
+TEST(MessageServiceEventsTest, AircraftInfoEventDeserializesExpectedShape) {
+    const auto json = nlohmann::json::parse(R"({
+        "type":"aircraft_info",
+        "callsign":"EIN123",
+        "aircraft_type":"A20N/M-SDE2FGHIRWY/LB1"
+    })");
+
+    const auto event = json.get<AircraftInfoEvent>();
+    EXPECT_EQ(event.type, EVENT_AIRCRAFT_INFO);
+    EXPECT_EQ(event.callsign, "EIN123");
+    EXPECT_EQ(event.aircraft_type, "A20N/M-SDE2FGHIRWY/LB1");
+}
+
+TEST(MessageServiceEventsTest, AircraftInfoRemarksEventDeserializesExpectedShape) {
+    const auto json = nlohmann::json::parse(R"({
+        "type":"aircraft_info_remarks",
+        "callsign":"EIN123",
+        "aircraft_type":"A20N/M-SDE2FGHIRWY/LB1",
+        "remarks":"PBN/A1B1C1D1S1S2"
+    })");
+
+    const auto event = json.get<AircraftInfoRemarksEvent>();
+    EXPECT_EQ(event.type, EVENT_AIRCRAFT_INFO_REMARKS);
+    EXPECT_EQ(event.callsign, "EIN123");
+    EXPECT_EQ(event.aircraft_type, "A20N/M-SDE2FGHIRWY/LB1");
+    EXPECT_EQ(event.remarks, "PBN/A1B1C1D1S1S2");
+}
+
 TEST(MessageServiceEventsTest, DropTrackingEventSerializesExpectedShape) {
     const nlohmann::json json = DropTrackingEvent{"EIN123"};
     EXPECT_EQ(json.at("type").get<std::string>(), EVENT_DROP_TRACKING_NAME);

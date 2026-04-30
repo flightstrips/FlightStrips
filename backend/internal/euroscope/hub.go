@@ -637,6 +637,25 @@ func (hub *Hub) SendRemarks(session int32, cid string, callsign string, remarks 
 	hub.Send(session, cid, event)
 }
 
+func (hub *Hub) SendAircraftInfo(session int32, cid string, callsign string, aircraftType string) {
+	event := euroscope.AircraftInfoEvent{
+		Callsign:     callsign,
+		AircraftType: aircraftType,
+	}
+
+	hub.Send(session, cid, event)
+}
+
+func (hub *Hub) SendAircraftInfoAndRemarks(session int32, cid string, callsign string, aircraftType string, remarks string) {
+	event := euroscope.AircraftInfoRemarksEvent{
+		Callsign:     callsign,
+		AircraftType: aircraftType,
+		Remarks:      remarks,
+	}
+
+	hub.Send(session, cid, event)
+}
+
 func (hub *Hub) SendSid(session int32, cid string, callsign string, sid string) {
 	event := euroscope.SidEvent{
 		Callsign: callsign,

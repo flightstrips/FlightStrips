@@ -67,6 +67,28 @@ type ClearedAltitudeCall struct {
 	Altitude int32
 }
 
+type RemarksCall struct {
+	Session  int32
+	Cid      string
+	Callsign string
+	Remarks  string
+}
+
+type AircraftInfoCall struct {
+	Session      int32
+	Cid          string
+	Callsign     string
+	AircraftType string
+}
+
+type AircraftInfoRemarksCall struct {
+	Session      int32
+	Cid          string
+	Callsign     string
+	AircraftType string
+	Remarks      string
+}
+
 // MockEuroscopeHub is a configurable mock for shared.EuroscopeHub.
 // It records calls for assertion in tests.
 type MockEuroscopeHub struct {
@@ -85,6 +107,10 @@ type MockEuroscopeHub struct {
 	CdmReadyRequests      []CdmReadyRequestCall
 	GenerateSquawks       []GenerateSquawkCall
 	ClearedAltitudes      []ClearedAltitudeCall
+	RemarksUpdates        []RemarksCall
+	AircraftInfoUpdates   []AircraftInfoCall
+	AircraftInfoRemarks   []AircraftInfoRemarksCall
+	FlightPlanUpdateOrder []string
 	Broadcasts            []euroscope.OutgoingMessage
 	CreateFPLCalls        []CreateFPLCall
 }
@@ -148,7 +174,20 @@ func (m *MockEuroscopeHub) SendStand(session int32, cid string, callsign string,
 
 func (m *MockEuroscopeHub) SendRoute(session int32, cid string, callsign string, route string) {}
 
-func (m *MockEuroscopeHub) SendRemarks(session int32, cid string, callsign string, remarks string) {}
+func (m *MockEuroscopeHub) SendRemarks(session int32, cid string, callsign string, remarks string) {
+	m.RemarksUpdates = append(m.RemarksUpdates, RemarksCall{session, cid, callsign, remarks})
+	m.FlightPlanUpdateOrder = append(m.FlightPlanUpdateOrder, "remarks")
+}
+
+func (m *MockEuroscopeHub) SendAircraftInfo(session int32, cid string, callsign string, aircraftType string) {
+	m.AircraftInfoUpdates = append(m.AircraftInfoUpdates, AircraftInfoCall{session, cid, callsign, aircraftType})
+	m.FlightPlanUpdateOrder = append(m.FlightPlanUpdateOrder, "aircraft_info")
+}
+
+func (m *MockEuroscopeHub) SendAircraftInfoAndRemarks(session int32, cid string, callsign string, aircraftType string, remarks string) {
+	m.AircraftInfoRemarks = append(m.AircraftInfoRemarks, AircraftInfoRemarksCall{session, cid, callsign, aircraftType, remarks})
+	m.FlightPlanUpdateOrder = append(m.FlightPlanUpdateOrder, "aircraft_info_remarks")
+}
 
 func (m *MockEuroscopeHub) SendSid(session int32, cid string, callsign string, sid string) {}
 

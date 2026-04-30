@@ -103,6 +103,112 @@ func TestHandleStripUpdate_RunwayChangePersistsSelectedRunway(t *testing.T) {
 	assert.Equal(t, "runway", markedField)
 }
 
+func TestHandleStripUpdate_OwnerCanUpdateRemarksAndAircraftInfo(t *testing.T) {
+	ctx := context.Background()
+	const session = int32(7)
+	const callsign = "SAS123"
+	const owner = "EKCH_DEL"
+	currentRemarks := "REG/OYABC PBN/A1"
+	currentAircraftInfo := "B738/M-SDE2FGHIWY/LB1"
+	updatedRemarks := "REG/OYABC PBN/A1B1C1D1S1S2"
+	updatedAircraftInfo := "B738/M-SDE2FGHIWYR/LB1"
+
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, gotSession int32, gotCallsign string) (*models.Strip, error) {
+			assert.Equal(t, session, gotSession)
+			assert.Equal(t, callsign, gotCallsign)
+			return &models.Strip{
+				Callsign:     callsign,
+				Session:      session,
+				Owner:        ptr(owner),
+				Remarks:      &currentRemarks,
+				AircraftType: &currentAircraftInfo,
+			}, nil
+		},
+	}
+
+	euroscopeHub := &testutil.MockEuroscopeHub{}
+	server := &testutil.MockServer{
+		StripRepoVal:    stripRepo,
+		EuroscopeHubVal: euroscopeHub,
+	}
+
+	hub := &Hub{server: server}
+	client := &Client{
+		session:  session,
+		hub:      hub,
+		position: owner,
+	}
+	client.SetUser(shared.NewAuthenticatedUser("123456", 0, nil))
+
+	payload, err := json.Marshal(frontendEvents.UpdateStripDataEvent{
+		Type:     frontendEvents.UpdateStripData,
+		Callsign: callsign,
+		Remarks:  &updatedRemarks,
+		Aircraft: &updatedAircraftInfo,
+	})
+	require.NoError(t, err)
+
+	err = handleStripUpdate(ctx, client, Message{
+		Type:    frontendEvents.UpdateStripData,
+		Message: payload,
+	})
+	require.NoError(t, err)
+
+	assert.Empty(t, euroscopeHub.RemarksUpdates)
+	assert.Empty(t, euroscopeHub.AircraftInfoUpdates)
+	require.Len(t, euroscopeHub.AircraftInfoRemarks, 1)
+	assert.Equal(t, updatedRemarks, euroscopeHub.AircraftInfoRemarks[0].Remarks)
+	assert.Equal(t, updatedAircraftInfo, euroscopeHub.AircraftInfoRemarks[0].AircraftType)
+	assert.Equal(t, []string{"aircraft_info_remarks"}, euroscopeHub.FlightPlanUpdateOrder)
+}
+
+func TestHandleStripUpdate_NonOwnerCannotUpdateRemarksOrAircraftInfo(t *testing.T) {
+	ctx := context.Background()
+	const session = int32(7)
+	const callsign = "SAS123"
+	owner := "EKCH_TWR"
+	updatedRemarks := "PBN/A1"
+	updatedAircraftInfo := "B738/M-SR"
+
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			return &models.Strip{
+				Callsign: callsign,
+				Session:  session,
+				Owner:    &owner,
+			}, nil
+		},
+	}
+
+	server := &testutil.MockServer{
+		StripRepoVal:    stripRepo,
+		EuroscopeHubVal: &testutil.MockEuroscopeHub{},
+	}
+	hub := &Hub{server: server}
+	client := &Client{
+		session:  session,
+		hub:      hub,
+		position: "EKCH_DEL",
+	}
+	client.SetUser(shared.NewAuthenticatedUser("123456", 0, nil))
+
+	payload, err := json.Marshal(frontendEvents.UpdateStripDataEvent{
+		Type:     frontendEvents.UpdateStripData,
+		Callsign: callsign,
+		Remarks:  &updatedRemarks,
+		Aircraft: &updatedAircraftInfo,
+	})
+	require.NoError(t, err)
+
+	err = handleStripUpdate(ctx, client, Message{
+		Type:    frontendEvents.UpdateStripData,
+		Message: payload,
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "non-owner")
+}
+
 func TestHandleStripUpdate_RunwayChangeReevaluatesDepartureValidation(t *testing.T) {
 	ctx := context.Background()
 	const session = int32(9)

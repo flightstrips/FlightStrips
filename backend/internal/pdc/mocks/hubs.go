@@ -219,6 +219,14 @@ func (m *EuroscopeHub) SendRemarks(session int32, cid string, callsign string, r
 	m.Called(session, cid, callsign, remarks)
 }
 
+func (m *EuroscopeHub) SendAircraftInfo(session int32, cid string, callsign string, aircraftType string) {
+	m.Called(session, cid, callsign, aircraftType)
+}
+
+func (m *EuroscopeHub) SendAircraftInfoAndRemarks(session int32, cid string, callsign string, aircraftType string, remarks string) {
+	m.Called(session, cid, callsign, aircraftType, remarks)
+}
+
 func (m *EuroscopeHub) SendSid(session int32, cid string, callsign string, sid string) {
 	m.Called(session, cid, callsign, sid)
 }

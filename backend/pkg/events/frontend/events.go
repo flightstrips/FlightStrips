@@ -470,6 +470,8 @@ type UpdateStripDataEvent struct {
 	Altitude *int32    `json:"altitude"`
 	Stand    *string   `json:"stand"`
 	Runway   *string   `json:"runway,omitempty"`
+	Remarks  *string   `json:"remarks,omitempty"`
+	Aircraft *string   `json:"aircraft_type,omitempty"`
 }
 
 // ---------- TRANSFER ----------

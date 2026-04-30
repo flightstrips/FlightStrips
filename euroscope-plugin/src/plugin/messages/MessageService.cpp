@@ -95,6 +95,10 @@ namespace FlightStrips::messages {
             HandleRouteEvent(message.get<RouteEvent>());
         } else if (type == EVENT_REMARKS_NAME) {
             HandleRemarksEvent(message.get<RemarksEvent>());
+        } else if (type == EVENT_AIRCRAFT_INFO_NAME) {
+            HandleAircraftInfoEvent(message.get<AircraftInfoEvent>());
+        } else if (type == EVENT_AIRCRAFT_INFO_REMARKS_NAME) {
+            HandleAircraftInfoRemarksEvent(message.get<AircraftInfoRemarksEvent>());
         } else if (type == EVENT_SID_NAME) {
             HandleSidEvent(message.get<SidEvent>());
         } else if (type == EVENT_AIRCRAFT_RUNWAY_NAME) {
@@ -370,6 +374,31 @@ namespace FlightStrips::messages {
     void MessageService::HandleRemarksEvent(const RemarksEvent &event) const {
         const auto fp = m_plugin->FlightPlanSelect(event.callsign.c_str());
         if (!fp.IsValid()) return;
+        if (!fp.GetFlightPlanData().SetRemarks(event.remarks.c_str())) {
+            Logger::Warning("Failed to set remarks '{}' for {}", event.remarks, event.callsign);
+        }
+        if (!fp.GetFlightPlanData().AmendFlightPlan()) {
+            Logger::Warning("Failed to amend flight plan {}", event.callsign);
+        }
+    }
+
+    void MessageService::HandleAircraftInfoEvent(const AircraftInfoEvent &event) const {
+        const auto fp = m_plugin->FlightPlanSelect(event.callsign.c_str());
+        if (!fp.IsValid()) return;
+        if (!fp.GetFlightPlanData().SetAircraftInfo(event.aircraft_type.c_str())) {
+            Logger::Warning("Failed to set aircraft info '{}' for {}", event.aircraft_type, event.callsign);
+        }
+        if (!fp.GetFlightPlanData().AmendFlightPlan()) {
+            Logger::Warning("Failed to amend flight plan {}", event.callsign);
+        }
+    }
+
+    void MessageService::HandleAircraftInfoRemarksEvent(const AircraftInfoRemarksEvent &event) const {
+        const auto fp = m_plugin->FlightPlanSelect(event.callsign.c_str());
+        if (!fp.IsValid()) return;
+        if (!fp.GetFlightPlanData().SetAircraftInfo(event.aircraft_type.c_str())) {
+            Logger::Warning("Failed to set aircraft info '{}' for {}", event.aircraft_type, event.callsign);
+        }
         if (!fp.GetFlightPlanData().SetRemarks(event.remarks.c_str())) {
             Logger::Warning("Failed to set remarks '{}' for {}", event.remarks, event.callsign);
         }

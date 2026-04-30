@@ -19,6 +19,8 @@ type EuroscopeHub interface {
 	SendStand(session int32, cid string, callsign string, stand string)
 	SendRoute(session int32, cid string, callsign string, route string)
 	SendRemarks(session int32, cid string, callsign string, remarks string)
+	SendAircraftInfo(session int32, cid string, callsign string, aircraftType string)
+	SendAircraftInfoAndRemarks(session int32, cid string, callsign string, aircraftType string, remarks string)
 	SendSid(session int32, cid string, callsign string, sid string)
 	SendAssignedSquawk(session int32, cid string, callsign string, squawk string)
 	SendRunway(session int32, cid string, callsign string, runway string)

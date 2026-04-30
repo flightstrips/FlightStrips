@@ -55,6 +55,8 @@ namespace FlightStrips::messages {
         void HandleGenerateSquawkEvent(const GenerateSquawkEvent& event) const;
         void HandleRouteEvent(const RouteEvent& event) const;
         void HandleRemarksEvent(const RemarksEvent& event) const;
+        void HandleAircraftInfoEvent(const AircraftInfoEvent& event) const;
+        void HandleAircraftInfoRemarksEvent(const AircraftInfoRemarksEvent& event) const;
         void HandleSidEvent(const SidEvent& event) const;
         void HandleAircraftRunwayEvent(const AircraftRunwayEvent& event) const;
         void HandleCoordinationHandoverEvent(const CoordinationHandoverEvent& event) const;

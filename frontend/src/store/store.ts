@@ -99,6 +99,9 @@ export interface UpdateStrip {
   altitude?: number;
   stand?: string;
   ob?: boolean;
+  remarks?: string;
+  aircraft_type?: string;
+  capabilities?: string;
 }
 
 export interface BroadcastNotification {
@@ -290,6 +293,8 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
         altitude: update.altitude,
         stand: update.stand,
         ob: update.ob,
+        remarks: update.remarks,
+        aircraft_type: update.aircraft_type,
       })) {
         return;
       }
@@ -318,6 +323,15 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
             }
             if (update.ob !== undefined) {
               draft.strips[stripIndex].ob = update.ob;
+            }
+            if (update.remarks !== undefined) {
+              draft.strips[stripIndex].remarks = update.remarks;
+            }
+            if (update.aircraft_type !== undefined) {
+              draft.strips[stripIndex].aircraft_type = update.aircraft_type;
+            }
+            if (update.capabilities !== undefined) {
+              draft.strips[stripIndex].capabilities = update.capabilities;
             }
           }
         })

@@ -161,18 +161,29 @@ func handleStripUpdate(ctx context.Context, client *Client, message Message) err
 
 	isOwner := strip.Owner == nil || *strip.Owner == "" || *strip.Owner == client.position
 	if !isOwner {
-		// Non-owners may not modify EuroScope-forwarded fields (SID, route, stand, runway, altitude, heading).
-		if event.Sid != nil || event.Route != nil || event.Stand != nil || event.Runway != nil || event.Altitude != nil || event.Heading != nil {
+		// Non-owners may not modify EuroScope-forwarded fields (SID, route, stand, runway,
+		// altitude, heading, remarks, aircraft info).
+		if event.Sid != nil || event.Route != nil || event.Stand != nil || event.Runway != nil || event.Altitude != nil || event.Heading != nil || event.Remarks != nil || event.Aircraft != nil {
 			return errors.New("non-owner cannot modify strip fields")
 		}
 		return nil
 	}
 
-	if event.Route != nil && strip.Route != event.Route {
+	if event.Route != nil && stringPtrValue(strip.Route) != *event.Route {
 		s.GetEuroscopeHub().SendRoute(client.session, client.GetCid(), event.Callsign, *event.Route)
 	}
 
-	if event.Sid != nil && strip.Sid != event.Sid {
+	aircraftChanged := event.Aircraft != nil && stringPtrValue(strip.AircraftType) != *event.Aircraft
+	remarksChanged := event.Remarks != nil && stringPtrValue(strip.Remarks) != *event.Remarks
+	if aircraftChanged && remarksChanged {
+		s.GetEuroscopeHub().SendAircraftInfoAndRemarks(client.session, client.GetCid(), event.Callsign, *event.Aircraft, *event.Remarks)
+	} else if aircraftChanged {
+		s.GetEuroscopeHub().SendAircraftInfo(client.session, client.GetCid(), event.Callsign, *event.Aircraft)
+	} else if remarksChanged {
+		s.GetEuroscopeHub().SendRemarks(client.session, client.GetCid(), event.Callsign, *event.Remarks)
+	}
+
+	if event.Sid != nil && stringPtrValue(strip.Sid) != *event.Sid {
 		s.GetEuroscopeHub().SendSid(client.session, client.GetCid(), event.Callsign, *event.Sid)
 		if err := stripRepo.AppendControllerModifiedField(ctx, client.session, event.Callsign, "sid"); err != nil {
 			return err
@@ -190,7 +201,7 @@ func handleStripUpdate(ctx context.Context, client *Client, message Message) err
 		}
 	}
 
-	if event.Stand != nil && strip.Stand != event.Stand {
+	if event.Stand != nil && stringPtrValue(strip.Stand) != *event.Stand {
 		s.GetEuroscopeHub().SendStand(client.session, client.GetCid(), event.Callsign, *event.Stand)
 		if err := stripRepo.AppendControllerModifiedField(ctx, client.session, event.Callsign, "stand"); err != nil {
 			return err
@@ -242,6 +253,13 @@ func handleStripUpdate(ctx context.Context, client *Client, message Message) err
 	}
 
 	return nil
+}
+
+func stringPtrValue(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return *value
 }
 
 func handleCoordinationTransferRequest(ctx context.Context, client *Client, message Message) error {

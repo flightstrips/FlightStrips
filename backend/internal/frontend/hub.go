@@ -4,6 +4,7 @@ import (
 	"FlightStrips/internal/config"
 	"FlightStrips/internal/metrics"
 	internalModels "FlightStrips/internal/models"
+	"FlightStrips/internal/rnav"
 	"FlightStrips/internal/shared"
 	"FlightStrips/pkg/events"
 	"FlightStrips/pkg/events/frontend"
@@ -450,7 +451,7 @@ func MapStripToFrontendModel(strip *internalModels.Strip) frontend.Strip {
 		AircraftType:             helpers.ValueOrDefault(strip.AircraftType),
 		AircraftCategory:         helpers.ValueOrDefault(strip.AircraftCategory),
 		Stand:                    helpers.ValueOrDefault(strip.Stand),
-		Capabilities:             helpers.ValueOrDefault(strip.Capabilities),
+		Capabilities:             rnav.DeriveCapability(helpers.ValueOrDefault(strip.AircraftType), helpers.ValueOrDefault(strip.Remarks)),
 		CommunicationType:        helpers.ValueOrDefault(strip.CommunicationType),
 		Bay:                      strip.Bay,
 		ReleasePoint:             helpers.ValueOrDefault(strip.ReleasePoint),

@@ -140,7 +140,7 @@ export function DelStrip({
         >
           {/* EOBT / CTOT — left half, stacked */}
           <div className="flex flex-col overflow-hidden border-r-2" style={{ flex: "1 0 0%", height: "100%", minWidth: 0, borderRightColor: cellBorderColor }}>
-            <div className="flex items-center justify-between px-[0.21vw] border-b-2 overflow-hidden" style={{ height: HALF_H, fontFamily: FONT, fontSize: "0.73vw", borderBottomColor: "transparent" }}>
+            <div className="flex items-center justify-between px-[0.21vw] border-b-2 overflow-hidden" style={{ height: HALF_H, fontFamily: FONT, fontSize: "0.73vw", borderBottomColor: showCtot ? cellBorderColor : "transparent" }}>
               <span className="shrink-0">EOBT</span>
               <span style={{ color: manualBlue }}>{eobt}</span>
             </div>

@@ -200,7 +200,7 @@ export function TwyDepStrip({
             {stand}
           </span>
         </div>
-        <div className="flex items-center justify-center overflow-hidden" style={{ height: HALF_H, backgroundColor: ctotBg || undefined, color: ctotColor }}>
+        <div className="flex items-center justify-center overflow-hidden" style={{ height: HALF_H, borderTop: showCtot ? `2px solid ${cellBorderColor}` : undefined, backgroundColor: ctotBg || undefined, color: ctotColor }}>
           <span className="truncate px-[0.21vw]" style={{ fontFamily: FONT, fontWeight: 300, fontSize: "0.68vw" }}>
             {showCtot ? ctot : ""}
           </span>

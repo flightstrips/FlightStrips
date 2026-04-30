@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.32.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.31.1...frontend/v0.32.0) (2026-04-29)
+
+
+### Features
+
+* **strips:** add TWR+GND layout ([85b28a5](https://github.com/flightstrips/FlightStrips/commit/85b28a5e1d646e7e886dac6fa01fac78a5db6d72))
+
+
+### Bug Fixes
+
+* **strips:** restore touch strip dragging ([ba34674](https://github.com/flightstrips/FlightStrips/commit/ba346748cd178128fb52feeeb63170b481ebb127))
+
 ## [0.31.1](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.31.0...frontend/v0.31.1) (2026-04-28)
 
 

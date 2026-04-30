@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.25.0](https://github.com/flightstrips/FlightStrips/compare/backend/v0.24.2...backend/v0.25.0) (2026-04-29)
+
+
+### Features
+
+* **strips:** add TWR+GND layout ([85b28a5](https://github.com/flightstrips/FlightStrips/commit/85b28a5e1d646e7e886dac6fa01fac78a5db6d72))
+
+
+### Bug Fixes
+
+* **strips:** preserve airborne sync ([1c09f5f](https://github.com/flightstrips/FlightStrips/commit/1c09f5f56fc0c0b7460c7240e2673569cd3b9be9))
+* **strips:** preserve departure lineup sync ([18a2c34](https://github.com/flightstrips/FlightStrips/commit/18a2c349b0d5b0a43ed43c1e14dd1ccfaac3b3c6))
+
+
+### Performance Improvements
+
+* **strips:** reduce sync query fanout ([49ac666](https://github.com/flightstrips/FlightStrips/commit/49ac6667bf87efcbd76b785696717912dd4e7d9d))
+
 ## [0.24.2](https://github.com/flightstrips/FlightStrips/compare/backend/v0.24.1...backend/v0.24.2) (2026-04-28)
 
 

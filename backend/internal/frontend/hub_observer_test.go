@@ -74,7 +74,7 @@ func TestCidDisconnect_ClearsObserverWaitingStateWhenObserverIsOffline(t *testin
 	}
 	hub.clients[client] = true
 
-	hub.CidDisconnect("1234567")
+	hub.handleCidDisconnect("1234567")
 
 	select {
 	case message := <-client.send:
@@ -84,4 +84,34 @@ func TestCidDisconnect_ClearsObserverWaitingStateWhenObserverIsOffline(t *testin
 	default:
 		t.Fatal("expected disconnect event")
 	}
+}
+
+func TestCidDisconnect_ClearsSessionLabelsBeforeUnregister(t *testing.T) {
+	hub := &Hub{
+		clients: map[*Client]bool{},
+		server: &testutil.MockServer{
+			EuroscopeHubVal: &testutil.MockEuroscopeHub{
+				IsObserverCidFn: func(string) bool { return false },
+			},
+		},
+	}
+	client := &Client{
+		hub:         hub,
+		session:     42,
+		sessionName: "LIVE",
+		position:    "118.105",
+		airport:     "EKCH",
+		callsign:    "EKCH_A_TWR",
+		send:        make(chan events.OutgoingMessage, 1),
+		user:        shared.NewAuthenticatedUser("1234567", 0, nil),
+	}
+	hub.clients[client] = true
+
+	hub.handleCidDisconnect("1234567")
+
+	assert.Equal(t, WaitingForEuroscopeConnectionSessionId, client.session)
+	assert.Empty(t, client.sessionName)
+	assert.Equal(t, WaitingForEuroscopeConnectionPosition, client.position)
+	assert.Equal(t, WaitingForEuroscopeConnectionAirport, client.airport)
+	assert.Equal(t, WaitingForEuroscopeConnectionCallsign, client.callsign)
 }

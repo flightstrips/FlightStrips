@@ -36,6 +36,10 @@ type cidOnlineMessage struct {
 	cid     string
 }
 
+type cidDisconnectMessage struct {
+	cid string
+}
+
 type Hub struct {
 	server                shared.Server
 	stripService          shared.StripService
@@ -45,9 +49,10 @@ type Hub struct {
 	send          chan internalMessage
 	layoutUpdates chan layoutUpdateMessage
 
-	register   chan *Client
-	unregister chan *Client
-	cidOnline  chan cidOnlineMessage
+	register      chan *Client
+	unregister    chan *Client
+	cidOnline     chan cidOnlineMessage
+	cidDisconnect chan cidDisconnectMessage
 
 	handlers shared.MessageHandlers[frontend.EventType, *Client]
 
@@ -104,6 +109,7 @@ func NewHub(stripService shared.StripService, authenticationService shared.Authe
 		register:              make(chan *Client),
 		unregister:            make(chan *Client),
 		cidOnline:             make(chan cidOnlineMessage),
+		cidDisconnect:         make(chan cidDisconnectMessage),
 		clients:               make(map[*Client]bool),
 		handlers:              handlers,
 		stripService:          stripService,
@@ -528,6 +534,10 @@ func (hub *Hub) CidOnline(session int32, cid string) {
 }
 
 func (hub *Hub) CidDisconnect(cid string) {
+	hub.cidDisconnect <- cidDisconnectMessage{cid: cid}
+}
+
+func (hub *Hub) handleCidDisconnect(cid string) {
 	for client := range hub.clients {
 		if client.user.GetCid() == cid {
 			readOnly := false
@@ -540,6 +550,10 @@ func (hub *Hub) CidDisconnect(cid string) {
 				metrics.ConnectionOpened(context.Background(), "", "", "frontend", "")
 			}
 			client.session = WaitingForEuroscopeConnectionSessionId
+			client.sessionName = ""
+			client.position = WaitingForEuroscopeConnectionPosition
+			client.airport = WaitingForEuroscopeConnectionAirport
+			client.callsign = WaitingForEuroscopeConnectionCallsign
 			client.send <- frontend.DisconnectEvent{ReadOnly: readOnly}
 			return
 		}
@@ -923,6 +937,8 @@ func (hub *Hub) Run() {
 					break
 				}
 			}
+		case msg := <-hub.cidDisconnect:
+			hub.handleCidDisconnect(msg.cid)
 		case message := <-hub.send:
 			if message.cid != nil {
 				for client := range hub.clients {

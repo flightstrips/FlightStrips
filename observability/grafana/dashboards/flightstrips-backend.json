@@ -1013,7 +1013,7 @@
                         "name": "grafanacloud-prom"
                       },
                       "spec": {
-                        "expr": "sum(websocket_connections_active{deployment_environment=\"$env\",airport=\"$airport\",session_name=\"$session\"}) or vector(0)",
+                        "expr": "clamp_min(sum(websocket_connections_active{deployment_environment=\"$env\",airport=\"$airport\",session_name=\"$session\"}), 0) or vector(0)",
                         "legendFormat": "Total"
                       }
                     },
@@ -1234,7 +1234,7 @@
                         "name": "grafanacloud-prom"
                       },
                       "spec": {
-                        "expr": "sum(websocket_clients_active{source=\"euroscope\",deployment_environment=\"$env\",airport=\"$airport\",session_name=\"$session\"}) or vector(0)",
+                        "expr": "clamp_min(sum(websocket_clients_active{source=\"euroscope\",deployment_environment=\"$env\",airport=\"$airport\",session_name=\"$session\"}), 0) or vector(0)",
                         "legendFormat": "EuroScope"
                       }
                     },
@@ -1313,7 +1313,7 @@
                         "name": "grafanacloud-prom"
                       },
                       "spec": {
-                        "expr": "sum(websocket_clients_active{source=\"frontend\",deployment_environment=\"$env\",airport=\"$airport\",session_name=\"$session\"}) or vector(0)",
+                        "expr": "clamp_min(sum(websocket_clients_active{source=\"frontend\",deployment_environment=\"$env\",airport=\"$airport\",session_name=\"$session\"}), 0) or vector(0)",
                         "legendFormat": "Frontend"
                       }
                     },
@@ -1392,7 +1392,7 @@
                         "name": "grafanacloud-prom"
                       },
                       "spec": {
-                        "expr": "clamp_max(sum(websocket_clients_active{deployment_environment=\"$env\",airport=\"$airport\",session_name=\"$session\"}) by (callsign, source), 1)",
+                        "expr": "clamp_max(sum(websocket_clients_active{source=~\"frontend|euroscope\",deployment_environment=\"$env\",airport=\"$airport\",session_name=\"$session\"}) by (callsign, source), 1) > 0",
                         "instant": true
                       }
                     },

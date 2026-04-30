@@ -183,6 +183,31 @@ func TestMoveToBay_WithSyncStateAndTacticalStripsCachesUnifiedBayMax(t *testing.
 	assert.Equal(t, int32(4000), syncState.BayMaxSequence[bay])
 }
 
+func TestMoveToBay_WithSyncStateMarksPdcValidationAfterLeavingEmptyBay(t *testing.T) {
+	const session = int32(1)
+	const callsign = "SAS123"
+	const bay = shared.BAY_PUSH
+
+	syncState := &shared.SyncState{
+		ExistingStrips: map[string]*models.Strip{
+			callsign: {Callsign: callsign, Bay: "", Sequence: ptr32(1000)},
+		},
+	}
+	ctx := shared.WithSyncState(context.Background(), syncState)
+
+	stripRepo := &testutil.MockStripRepository{
+		UpdateBayAndSequenceFn: func(_ context.Context, _ int32, _ string, _ string, _ int32) (int64, error) {
+			return 1, nil
+		},
+	}
+
+	svc := NewStripService(stripRepo)
+
+	require.NoError(t, svc.MoveToBay(ctx, session, callsign, bay, false))
+
+	assert.Contains(t, syncState.PdcValidationStrips, callsign)
+}
+
 func TestMoveTacticalStripBetween_UpdatesTargetBayAndSequence(t *testing.T) {
 	ctx := context.Background()
 	const session = int32(1)

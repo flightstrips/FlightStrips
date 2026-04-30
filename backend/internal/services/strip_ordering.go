@@ -167,14 +167,24 @@ func (s *StripService) MoveToBay(ctx context.Context, session int32, callsign st
 }
 
 func (s *StripService) applyBayChangeEffects(ctx context.Context, session int32, callsign string, previousBay string, bay string, sendNotification bool) error {
+	pdcValidationRelevantBay := pdcRequestValidationAppliesInBay(previousBay) || pdcRequestValidationAppliesInBay(bay)
 	if syncState := shared.GetSyncState(ctx); syncState != nil {
 		syncState.SquawkValidation = true
+		if pdcValidationRelevantBay {
+			syncState.MarkPdcValidation(callsign)
+		}
 		if landingClearanceValidationRelevantBay(previousBay) || landingClearanceValidationRelevantBay(bay) {
 			syncState.LandingValidation = true
 		}
 	} else {
 		if err := s.reevaluateStripValidationPrecedence(ctx, session, callsign, sendNotification, true); err != nil {
 			return err
+		}
+
+		if pdcValidationRelevantBay {
+			if err := s.ReevaluatePdcRequestValidations(ctx, session, callsign, sendNotification, false); err != nil {
+				return err
+			}
 		}
 
 		if landingClearanceValidationRelevantBay(previousBay) || landingClearanceValidationRelevantBay(bay) {

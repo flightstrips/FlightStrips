@@ -32,6 +32,9 @@ func pdcInvalidValidationApplies(strip *internalModels.Strip) bool {
 	if strip == nil || strip.PdcState != string(pdc.StateRequestedWithFaults) {
 		return false
 	}
+	if !pdcRequestValidationAppliesInBay(strip.Bay) {
+		return false
+	}
 
 	return true
 }

@@ -28,8 +28,15 @@ func pdcCustomValidationAction() *internalModels.ValidationAction {
 	}
 }
 
+func pdcRequestValidationAppliesInBay(bay string) bool {
+	return bay == "" || bay == shared.BAY_CLEARED
+}
+
 func pdcCustomValidationApplies(strip *internalModels.Strip) bool {
 	if strip == nil || strip.PdcState != string(pdc.StateRequested) {
+		return false
+	}
+	if !pdcRequestValidationAppliesInBay(strip.Bay) {
 		return false
 	}
 

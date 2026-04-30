@@ -6,6 +6,7 @@ import (
 
 	"FlightStrips/internal/models"
 	"FlightStrips/internal/pdc"
+	"FlightStrips/internal/shared"
 	"FlightStrips/internal/testutil"
 	pkgModels "FlightStrips/pkg/models"
 
@@ -140,6 +141,42 @@ func TestReevaluatePdcInvalidValidation_ClearsWhenFaultsNoLongerExist(t *testing
 	svc, _ := newPdcInvalidValidationFixture(repo, "22R")
 	require.NoError(t, svc.ReevaluatePdcInvalidValidation(context.Background(), 1, "SAS123", false, false))
 	assert.True(t, cleared)
+}
+
+func TestReevaluatePdcRequestValidationsForStrip_ClearsInvalidAfterLeavingStartupBay(t *testing.T) {
+	t.Parallel()
+
+	owner := "EKCH_DEL"
+	cleared := false
+
+	repo := &testutil.MockStripRepository{
+		ClearValidationStatusFn: func(_ context.Context, _ int32, callsign string) error {
+			assert.Equal(t, "SAS123", callsign)
+			cleared = true
+			return nil
+		},
+	}
+
+	svc, _ := newPdcInvalidValidationFixture(repo, "22R")
+	strip := &models.Strip{
+		Callsign: "SAS123",
+		Owner:    &owner,
+		Bay:      shared.BAY_PUSH,
+		PdcState: "REQUESTED_WITH_FAULTS",
+		ValidationStatus: &models.ValidationStatus{
+			IssueType:      pdcInvalidValidationIssueType,
+			Message:        "old invalid",
+			OwningPosition: owner,
+			Active:         true,
+			ActivationKey:  "old-key",
+			CustomAction:   pdcInvalidValidationAction(),
+		},
+	}
+
+	require.NoError(t, svc.ReevaluatePdcRequestValidationsForStrip(context.Background(), 1, strip, []string{"22R"}, false, false))
+
+	assert.True(t, cleared)
+	assert.Nil(t, strip.ValidationStatus)
 }
 
 func TestReevaluatePdcInvalidValidation_RemainsActiveForNonDeliveryOwner(t *testing.T) {

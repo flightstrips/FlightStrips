@@ -117,6 +117,28 @@ func TestValidateRnavFaults(t *testing.T) {
 	}
 }
 
+func TestValidateRnavFaultSuppressedForHeadingVectorAtOrBelowFL280(t *testing.T) {
+	strip := testStrip()
+	strip.Remarks = ptr("REG/OYABC")
+	strip.Heading = ptr(int32(40))
+	strip.RequestedAltitude = ptr(int32(28000))
+
+	validation := Validate(strip, testContext())
+
+	assertNoFault(t, validation, "rnav_nil")
+}
+
+func TestValidateRnavFaultStillAppliesForHeadingVectorAboveFL280(t *testing.T) {
+	strip := testStrip()
+	strip.Remarks = ptr("REG/OYABC")
+	strip.Heading = ptr(int32(40))
+	strip.RequestedAltitude = ptr(int32(29000))
+
+	validation := Validate(strip, testContext())
+
+	requireFault(t, validation, "rnav_nil")
+}
+
 func TestValidateRouteSidFaultsAndOverrideSuppression(t *testing.T) {
 	strip := testStrip()
 	strip.Sid = ptr("LANGO2A")

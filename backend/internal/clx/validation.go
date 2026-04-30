@@ -157,6 +157,9 @@ func rnavFault(strip *models.Strip, rules cfgpkg.ClxValidationConfig) (Fault, bo
 	if !sidFilingDetected(strip, rules) {
 		return Fault{}, false
 	}
+	if headingVectorWithinRnavLimit(strip) {
+		return Fault{}, false
+	}
 
 	capability := rnav.DeriveCapability(value(strip.AircraftType), value(strip.Remarks))
 	switch capability {
@@ -177,6 +180,12 @@ func rnavFault(strip *models.Strip, rules cfgpkg.ClxValidationConfig) (Fault, bo
 	default:
 		return Fault{}, false
 	}
+}
+
+func headingVectorWithinRnavLimit(strip *models.Strip) bool {
+	heading := value(strip.Heading)
+	requestedAltitude := value(strip.RequestedAltitude)
+	return heading > 0 && requestedAltitude > 0 && requestedAltitude <= 28000
 }
 
 func routeSidFaults(strip *models.Strip, rules cfgpkg.ClxValidationConfig) []Fault {

@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.14.0](https://github.com/flightstrips/FlightStrips/compare/plugin/v0.13.1...plugin/v0.14.0) (2026-04-30)
+
+
+### Features
+
+* **strips:** add editable RNAV capability updates ([b38270e](https://github.com/flightstrips/FlightStrips/commit/b38270e523912442c60df23c8c61166fde1a3099))
+
 ## [0.13.1](https://github.com/flightstrips/FlightStrips/compare/plugin/v0.13.0...plugin/v0.13.1) (2026-04-26)
 
 

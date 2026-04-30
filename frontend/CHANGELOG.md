@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.33.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.32.0...frontend/v0.33.0) (2026-04-30)
+
+
+### Features
+
+* **strips:** add CLX dialogue validation ([6e9dac0](https://github.com/flightstrips/FlightStrips/commit/6e9dac0c8ed141cb33ec41246d00c2fcca812c5b))
+* **strips:** add editable RNAV capability updates ([b38270e](https://github.com/flightstrips/FlightStrips/commit/b38270e523912442c60df23c8c61166fde1a3099))
+
+
+### Bug Fixes
+
+* **strips:** align CTOT divider placement ([69e7795](https://github.com/flightstrips/FlightStrips/commit/69e779586123feca19e1b0796a856de589fbcf69))
+* **strips:** correct pushback chart controls ([9c2f227](https://github.com/flightstrips/FlightStrips/commit/9c2f2278669e05cde220fa68c6586b3a6971463c)), closes [#189](https://github.com/flightstrips/FlightStrips/issues/189)
+* **strips:** improve CLX validation updates ([9362b27](https://github.com/flightstrips/FlightStrips/commit/9362b279d9a0871d9c54047d14005f012cd2e73b))
+* **strips:** resize validation status highlights ([8ad7a71](https://github.com/flightstrips/FlightStrips/commit/8ad7a71c54ccaa65fda076fbb90549516d72468f)), closes [#186](https://github.com/flightstrips/FlightStrips/issues/186)
+* **strips:** restore pushback direction button width ([c150b33](https://github.com/flightstrips/FlightStrips/commit/c150b33ace70daf3adf8665ca9b30f2b60543e1b)), closes [#189](https://github.com/flightstrips/FlightStrips/issues/189)
+* **strips:** send SEQ startup transfers to AD owner ([b2f4232](https://github.com/flightstrips/FlightStrips/commit/b2f423298759bf4c720879cbc65012c55651f5af))
+* **strips:** show divider above CTOT rows ([22c865a](https://github.com/flightstrips/FlightStrips/commit/22c865a098f3141cc9b1f1c185c40129f5c9bd98))
+
 ## [0.32.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.31.1...frontend/v0.32.0) (2026-04-29)
 
 

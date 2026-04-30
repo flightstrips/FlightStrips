@@ -192,15 +192,15 @@ export function TwyDepStrip({
         style={{ flexGrow: F_STAND_CTOT, flexBasis: 0, height: "100%", borderRightColor: cellBorderColor }}
       >
         <div
-          className="flex items-center justify-center overflow-hidden"
-          style={{ height: HALF_H, backgroundColor: standYellow ? COLOR_UNEXPECTED_YELLOW : undefined, cursor: standYellow ? getValidationBlockedCursor(isValidationActive) : undefined }}
+          className="flex items-center justify-center border-b-2 overflow-hidden"
+          style={{ height: HALF_H, borderBottomColor: showCtot ? cellBorderColor : "transparent", backgroundColor: standYellow ? COLOR_UNEXPECTED_YELLOW : undefined, cursor: standYellow ? getValidationBlockedCursor(isValidationActive) : undefined }}
           onClick={standYellow ? (e) => guardValidationAction(e, () => acknowledgeUnexpectedChange(callsign, "stand")) : undefined}
         >
           <span className="truncate px-[0.21vw]" style={{ fontFamily: FONT, fontWeight: "bold", fontSize: "0.68vw", color: getCellTextColor("stand", controllerModifiedFields) }}>
             {stand}
           </span>
         </div>
-        <div className="flex items-center justify-center overflow-hidden" style={{ height: HALF_H, borderTop: showCtot ? `2px solid ${cellBorderColor}` : undefined, backgroundColor: ctotBg || undefined, color: ctotColor }}>
+        <div className="flex items-center justify-center overflow-hidden" style={{ height: HALF_H, backgroundColor: ctotBg || undefined, color: ctotColor }}>
           <span className="truncate px-[0.21vw]" style={{ fontFamily: FONT, fontWeight: 300, fontSize: "0.68vw" }}>
             {showCtot ? ctot : ""}
           </span>

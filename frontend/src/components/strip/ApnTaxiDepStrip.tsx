@@ -146,10 +146,10 @@ export function ApnTaxiDepStrip({
           style={{ flex: `${F_STAND} 0 0%`, height: "100%", minWidth: 0, borderRightColor: cellBorderColor, backgroundColor: standYellow ? COLOR_UNEXPECTED_YELLOW : undefined, cursor: standYellow ? getValidationBlockedCursor(isValidationActive) : undefined, position: "relative" }}
           onClick={standYellow ? (e) => guardValidationAction(e, () => acknowledgeUnexpectedChange(callsign, "stand")) : undefined}
         >
-          <div className="flex items-center justify-center" style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: BOT_H }}>
+          <div className="flex items-center justify-center" style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: BOT_H, borderBottom: showCtot ? `2px solid ${cellBorderColor}` : undefined }}>
             <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: "1.04vw", color: getCellTextColor("stand", controllerModifiedFields) }}>{stand}</span>
           </div>
-          <div className="flex items-center justify-center" style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: BOT_H, borderTop: showCtot ? `2px solid ${cellBorderColor}` : undefined, backgroundColor: showCtot ? ctotBg || undefined : undefined, color: showCtot ? ctotColor : undefined }}>
+          <div className="flex items-center justify-center" style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: BOT_H, backgroundColor: showCtot ? ctotBg || undefined : undefined, color: showCtot ? ctotColor : undefined }}>
             {showCtot && <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: "0.52vw" }}>{ctot}</span>}
           </div>
         </div>

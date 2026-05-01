@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.27.0](https://github.com/flightstrips/FlightStrips/compare/backend/v0.26.0...backend/v0.27.0) (2026-05-01)
+
+
+### Features
+
+* **strips:** gate frontend actions on active validation status ([be251cd](https://github.com/flightstrips/FlightStrips/commit/be251cd8c8c3e206df74d43a17e7c2e5a9a04a71))
+
+
+### Bug Fixes
+
+* correct transfer cancellation initiator rendering and owned-strip ES arrival handover ([6a0429d](https://github.com/flightstrips/FlightStrips/commit/6a0429d95258a93e8f4a8eb8bab95b60589174ad))
+* **routes:** add route-scoped owner overrides to resolve GWA transit sector through TE ([1ca1b73](https://github.com/flightstrips/FlightStrips/commit/1ca1b733d3dc0bd735e22f4aaf5cbea2e5a53904))
+* **routes:** expand EKCH arrival route coverage for transit sectors and missing stands ([0b71cec](https://github.com/flightstrips/FlightStrips/commit/0b71cec78751b65a374a7222e0c30abe8f7117fb))
+
 ## [0.26.0](https://github.com/flightstrips/FlightStrips/compare/backend/v0.25.0...backend/v0.26.0) (2026-04-30)
 
 

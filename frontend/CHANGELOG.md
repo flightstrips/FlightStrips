@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.34.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.33.0...frontend/v0.34.0) (2026-05-01)
+
+
+### Features
+
+* **strips:** gate frontend actions on active validation status ([be251cd](https://github.com/flightstrips/FlightStrips/commit/be251cd8c8c3e206df74d43a17e7c2e5a9a04a71))
+* **strips:** send ready message when clicking TOBT on CLR and CLROK strips ([9fc009b](https://github.com/flightstrips/FlightStrips/commit/9fc009bbbbeaf022d47729cfe15301592b58e86a))
+
+
+### Bug Fixes
+
+* correct transfer cancellation initiator rendering and owned-strip ES arrival handover ([6a0429d](https://github.com/flightstrips/FlightStrips/commit/6a0429d95258a93e8f4a8eb8bab95b60589174ad))
+* **frontend:** refresh clients after deployments ([79714af](https://github.com/flightstrips/FlightStrips/commit/79714af107995a1ab9914176790f60c96728bda4))
+* **strips:** keep validation callsigns clickable ([e5bbb7d](https://github.com/flightstrips/FlightStrips/commit/e5bbb7d8c394272ca5f7dde4251a27960f624c2b))
+* **strips:** show EOBT/CTOT divider based on CTOT presence ([7034d16](https://github.com/flightstrips/FlightStrips/commit/7034d16983cca38ed35f440bb5376120f9f8fb8e))
+
 ## [0.33.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.32.0...frontend/v0.33.0) (2026-04-30)
 
 

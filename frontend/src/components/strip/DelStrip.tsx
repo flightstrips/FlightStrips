@@ -153,7 +153,11 @@ export function DelStrip({
 
           {/* TOBT / TSAT — right half, stacked with line between */}
           <div className="flex flex-col" style={{ flex: "1 0 0%", height: "100%" }}>
-            <div className="flex items-center justify-between px-[0.21vw] border-b-2 overflow-hidden" style={{ height: HALF_H, fontFamily: FONT, fontSize: "0.73vw", borderBottomColor: cellBorderColor, backgroundColor: tobtBg }}>
+            <div
+              className="flex items-center justify-between px-[0.21vw] border-b-2 overflow-hidden"
+              style={{ height: HALF_H, fontFamily: FONT, fontSize: "0.73vw", borderBottomColor: cellBorderColor, backgroundColor: tobtBg, cursor: getValidationBlockedCursor(isValidationActive) }}
+              onClick={(e) => guardValidationAction(e, () => cdmReady(callsign))}
+            >
               <span className="shrink-0">TOBT</span>
               <span>{tobt}</span>
             </div>

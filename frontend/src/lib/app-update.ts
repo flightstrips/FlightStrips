@@ -1,6 +1,7 @@
 import { registerSW } from "virtual:pwa-register";
 
 const UPDATE_CHECK_INTERVAL_MS = 120_000;
+const FORCE_RELOAD_DELAY_MS = 3_000;
 const VERSION_ENDPOINT = "/version.json";
 
 type UpdateSource = "deployment-version" | "service-worker";
@@ -20,6 +21,8 @@ let currentState: UpdateState = {
   source: null,
 };
 let monitoringStarted = false;
+let forcedReloadScheduled = false;
+let forcedReloadInProgress = false;
 let serviceWorkerUpdateReady = false;
 let updateServiceWorker: ((reloadPage?: boolean) => Promise<void>) | null = null;
 
@@ -39,6 +42,29 @@ function markUpdateAvailable(source: UpdateSource) {
     source,
   };
   emitState();
+  scheduleForcedReload();
+}
+
+function scheduleForcedReload() {
+  if (forcedReloadScheduled || forcedReloadInProgress) {
+    return;
+  }
+
+  forcedReloadScheduled = true;
+  const delay = document.visibilityState === "visible" ? FORCE_RELOAD_DELAY_MS : 0;
+
+  window.setTimeout(() => {
+    void forceAppReload();
+  }, delay);
+}
+
+async function forceAppReload() {
+  if (forcedReloadInProgress) {
+    return;
+  }
+
+  forcedReloadInProgress = true;
+  await reloadForAppUpdate();
 }
 
 async function checkDeploymentVersion() {
@@ -79,6 +105,7 @@ function startDeploymentVersionMonitoring() {
 
   void checkDeploymentVersion();
   window.addEventListener("focus", checkWhenVisible);
+  window.addEventListener("online", checkWhenVisible);
   document.addEventListener("visibilitychange", checkWhenVisible);
   window.setInterval(checkWhenVisible, UPDATE_CHECK_INTERVAL_MS);
 }

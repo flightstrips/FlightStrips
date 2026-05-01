@@ -11,12 +11,12 @@ export default function AppUpdateNotifier() {
         return;
       }
 
-      toast.info("A new FlightStrips update is available.", {
+      toast.warning("FlightStrips has been updated.", {
         id: UPDATE_TOAST_ID,
-        description: "Reload to switch to the latest version.",
+        description: "Reloading automatically to switch to the latest version.",
         duration: Infinity,
         action: {
-          label: "Reload",
+          label: "Reload now",
           onClick: () => {
             void reloadForAppUpdate();
           },

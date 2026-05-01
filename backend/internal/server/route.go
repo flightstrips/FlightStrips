@@ -184,7 +184,7 @@ func computeNextOwnersForStrip(strip *models.Strip, session *models.Session, own
 		return nil, false, nil
 	}
 
-	var path []string
+	var route config.ResolvedRoute
 
 	if isArrival && (strip.Stand == nil || *strip.Stand == "") {
 		// No stand yet: use the receiving tower sector so the strip always has
@@ -199,7 +199,7 @@ func computeNextOwnersForStrip(strip *models.Strip, session *models.Session, own
 		slog.Debug("Arrival route recalculation is using tower fallback because stand is empty",
 			slog.Int("session", int(session.ID)),
 			slog.String("callsign", strip.Callsign))
-		path = []string{towerSector}
+		route.Path = []string{towerSector}
 	} else {
 		region, err := config.GetRegionForPosition(helpers.ValueOrDefault(strip.PositionLatitude), helpers.ValueOrDefault(strip.PositionLongitude))
 		if errors.Is(err, config.ErrUnsupportedRegion) {
@@ -228,14 +228,14 @@ func computeNextOwnersForStrip(strip *models.Strip, session *models.Session, own
 				slog.String("tower_sector", towerSector))
 
 			var success bool
-			path, success = config.ComputeToStand(session.ActiveRunways.ArrivalRunways, towerSector, currentStand)
+			route, success = config.ComputeToStand(session.ActiveRunways.ArrivalRunways, towerSector, currentStand)
 			if !success {
 				slog.Warn("Arrival route recalculation could not build full route from tower fallback start; using tower-only fallback",
 					slog.Int("session", int(session.ID)),
 					slog.String("callsign", strip.Callsign),
 					slog.String("stand", currentStand),
 					slog.String("tower_sector", towerSector))
-				path = []string{towerSector}
+				route.Path = []string{towerSector}
 			}
 		} else if err != nil {
 			return nil, false, err
@@ -252,9 +252,9 @@ func computeNextOwnersForStrip(strip *models.Strip, session *models.Session, own
 			if isArrival {
 				// Use only arrival runways to select the correct arrival route.
 				// Mixing in departure runways can cause the wrong cargo route to match.
-				path, success = config.ComputeToStand(session.ActiveRunways.ArrivalRunways, sector, helpers.ValueOrDefault(strip.Stand))
+				route, success = config.ComputeToStand(session.ActiveRunways.ArrivalRunways, sector, helpers.ValueOrDefault(strip.Stand))
 			} else {
-				path, success = config.ComputeToRunway(allRunways, sector, helpers.ValueOrDefault(strip.Runway))
+				route, success = config.ComputeToRunway(allRunways, sector, helpers.ValueOrDefault(strip.Runway))
 			}
 
 			if !success {
@@ -271,7 +271,7 @@ func computeNextOwnersForStrip(strip *models.Strip, session *models.Session, own
 					// Fall back to the tower sector so arrivals always have at least
 					// the receiving tower controller, even when the full route fails.
 					if towerSector, ok := config.GetArrivalTowerSector(session.ActiveRunways.ArrivalRunways); ok {
-						path = []string{towerSector}
+						route = config.ResolvedRoute{Path: []string{towerSector}}
 					} else {
 						return nil, false, nil
 					}
@@ -285,13 +285,13 @@ func computeNextOwnersForStrip(strip *models.Strip, session *models.Session, own
 	sectorToOnwer := make(map[string]string)
 	for _, owner := range owners {
 		for _, s := range owner.Sector {
-			sectorToOnwer[s] = owner.Position
+			sectorToOnwer[normalizeRouteSectorRef(s)] = owner.Position
 		}
 	}
 
 	actualRoute := make([]string, 0)
-	for _, s := range path {
-		owner, ok := sectorToOnwer[s]
+	for _, s := range route.Path {
+		owner, ok := resolveRouteSectorOwner(s, sectorToOnwer, route.OwnerOverrides)
 		if !ok {
 			continue
 		}
@@ -304,7 +304,7 @@ func computeNextOwnersForStrip(strip *models.Strip, session *models.Session, own
 		as, err := config.GetAirborneSector(*strip.Sid)
 		if err != nil {
 			slog.Debug("Error getting airborne frequency", slog.String("sid", *strip.Sid), slog.Any("error", err))
-		} else if owner, ok := sectorToOnwer[as]; ok && !slices.Contains(actualRoute, owner) {
+		} else if owner, ok := sectorToOnwer[normalizeRouteSectorRef(as)]; ok && !slices.Contains(actualRoute, owner) {
 			actualRoute = append(actualRoute, owner)
 		}
 	}
@@ -320,6 +320,26 @@ func computeNextOwnersForStrip(strip *models.Strip, session *models.Session, own
 	}
 
 	return actualRoute, true, nil
+}
+
+func resolveRouteSectorOwner(sector string, sectorToOwner map[string]string, ownerOverrides map[string]string) (string, bool) {
+	normalizedSector := normalizeRouteSectorRef(sector)
+	if normalizedSector == "" {
+		return "", false
+	}
+
+	if overrideTarget, ok := ownerOverrides[normalizedSector]; ok {
+		if owner, ok := sectorToOwner[normalizeRouteSectorRef(overrideTarget)]; ok {
+			return owner, true
+		}
+	}
+
+	owner, ok := sectorToOwner[normalizedSector]
+	return owner, ok
+}
+
+func normalizeRouteSectorRef(sector string) string {
+	return strings.ToUpper(strings.TrimSpace(sector))
 }
 
 func routeStripForCallsign(ctx context.Context, stripRepo repository.StripRepository, sessionId int32, callsign string) (*models.Strip, error) {

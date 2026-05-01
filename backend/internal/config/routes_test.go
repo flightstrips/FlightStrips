@@ -117,12 +117,12 @@ func TestComputeToRunway_RequireAll_MatchesWhenAllPresent(t *testing.T) {
 		},
 	}
 
-	path, ok := ComputeToRunway([]string{"22R", "04L"}, "AD", "22R")
+	route, ok := ComputeToRunway([]string{"22R", "04L"}, "AD", "22R")
 	if !ok {
 		t.Fatal("expected a route to be found")
 	}
-	if len(path) != 2 || path[1] != "TW" {
-		t.Fatalf("expected require_all route [AD TW], got %v", path)
+	if len(route.Path) != 2 || route.Path[1] != "TW" {
+		t.Fatalf("expected require_all route [AD TW], got %v", route.Path)
 	}
 }
 
@@ -137,12 +137,12 @@ func TestComputeToRunway_RequireAll_FallsBackWhenPartialMatch(t *testing.T) {
 		},
 	}
 
-	path, ok := ComputeToRunway([]string{"22R"}, "AD", "22R")
+	route, ok := ComputeToRunway([]string{"22R"}, "AD", "22R")
 	if !ok {
 		t.Fatal("expected fallback route to be found")
 	}
-	if len(path) != 3 || path[1] != "GW" {
-		t.Fatalf("expected fallback route [AD GW TW], got %v", path)
+	if len(route.Path) != 3 || route.Path[1] != "GW" {
+		t.Fatalf("expected fallback route [AD GW TW], got %v", route.Path)
 	}
 }
 
@@ -156,12 +156,12 @@ func TestComputeToRunway_SupportsInternalSectorKeys(t *testing.T) {
 		},
 	}
 
-	path, ok := ComputeToRunway([]string{"30"}, "GWD", "30")
+	route, ok := ComputeToRunway([]string{"30"}, "GWD", "30")
 	if !ok {
 		t.Fatal("expected a route to be found from internal departure key")
 	}
-	if len(path) != 2 || path[0] != "GWD" || path[1] != "TE" {
-		t.Fatalf("expected route [GWD TE], got %v", path)
+	if len(route.Path) != 2 || route.Path[0] != "GWD" || route.Path[1] != "TE" {
+		t.Fatalf("expected route [GWD TE], got %v", route.Path)
 	}
 }
 
@@ -177,12 +177,62 @@ func TestComputeToStand_SupportsInternalSectorKeys(t *testing.T) {
 		},
 	}
 
-	path, ok := ComputeToStand([]string{"22L"}, "GWA", "A12")
+	route, ok := ComputeToStand([]string{"22L"}, "GWA", "A12")
 	if !ok {
 		t.Fatal("expected a route to be found from internal arrival key")
 	}
-	if len(path) != 2 || path[0] != "GWA" || path[1] != "AA" {
-		t.Fatalf("expected route [GWA AA], got %v", path)
+	if len(route.Path) != 2 || route.Path[0] != "GWA" || route.Path[1] != "AA" {
+		t.Fatalf("expected route [GWA AA], got %v", route.Path)
+	}
+}
+
+func TestComputeToStand_RetainsOwnerOverrides(t *testing.T) {
+	original := standRoutes
+	t.Cleanup(func() { standRoutes = original })
+
+	standRoutes = []Route{
+		{
+			ForStandRanges: []StandRange{{Prefix: "A", From: 1, To: 99}},
+			Active:         []string{"22L"},
+			Path:           []string{"TE", "GWA", "AA"},
+			OwnerOverrides: map[string]string{"GWA": "TE"},
+		},
+	}
+
+	route, ok := ComputeToStand([]string{"22L"}, "GWA", "A12")
+	if !ok {
+		t.Fatal("expected a route to be found from internal arrival key")
+	}
+	if len(route.Path) != 2 || route.Path[0] != "GWA" || route.Path[1] != "AA" {
+		t.Fatalf("expected route [GWA AA], got %v", route.Path)
+	}
+	if got := route.OwnerOverrides["GWA"]; got != "TE" {
+		t.Fatalf("expected owner override GWA->TE, got %q", got)
+	}
+}
+
+func TestComputeToStand_CargoFallbackCanMatchFromGWA(t *testing.T) {
+	original := standRoutes
+	t.Cleanup(func() { standRoutes = original })
+
+	standRoutes = []Route{
+		{
+			ForStandRanges: []StandRange{{Prefix: "G", From: 110, To: 137}},
+			Active:         []string{"22L"},
+			Path:           []string{"TE", "GWA", "TE"},
+			OwnerOverrides: map[string]string{"GWA": "TE"},
+		},
+	}
+
+	route, ok := ComputeToStand([]string{"22L"}, "GWA", "G120")
+	if !ok {
+		t.Fatal("expected cargo fallback route to match from GWA")
+	}
+	if len(route.Path) != 2 || route.Path[0] != "GWA" || route.Path[1] != "TE" {
+		t.Fatalf("expected route [GWA TE], got %v", route.Path)
+	}
+	if got := route.OwnerOverrides["GWA"]; got != "TE" {
+		t.Fatalf("expected owner override GWA->TE, got %q", got)
 	}
 }
 

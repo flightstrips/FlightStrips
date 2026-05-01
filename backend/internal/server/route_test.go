@@ -258,6 +258,131 @@ func TestUpdateRouteForStrip_ArrivalUsesConfigDrivenCrossingSectorSplit(t *testi
 	assert.Equal(t, "SAS789", frontendHub.OwnersUpdates[0].Callsign)
 }
 
+func TestUpdateRouteForStrip_ArrivalResolvesGWAToTEOwnerWhenControllersAreSplit(t *testing.T) {
+	t.Parallel()
+
+	frontendHub := &testutil.MockFrontendHub{}
+	stripRepo := &testutil.MockStripRepository{}
+	sessionRepo := &testutil.MockSessionRepository{}
+	sectorRepo := &testutil.MockSectorOwnerRepository{}
+
+	const (
+		lat = 55.6235
+		lon = 12.6380
+	)
+
+	region, err := config.GetRegionForPosition(lat, lon)
+	require.NoError(t, err)
+	require.Equal(t, "GROUND_WEST", region.Name)
+
+	aTowerPosition := frequencyForPosition(t, "EKCH_A_TWR")
+	cTowerPosition := frequencyForPosition(t, "EKCH_C_TWR")
+	apronPosition := frequencyForPosition(t, "EKCH_A_GND")
+
+	strip := &models.Strip{
+		Callsign:          "SAS790",
+		Session:           92,
+		Destination:       "EKCH",
+		Runway:            stringPtr("22L"),
+		Stand:             stringPtr("A17"),
+		Owner:             stringPtr(aTowerPosition),
+		PositionLatitude:  float64Ptr(lat),
+		PositionLongitude: float64Ptr(lon),
+	}
+
+	var updatedNextOwners []string
+
+	stripRepo.GetByCallsignFn = func(_ context.Context, session int32, callsign string) (*models.Strip, error) {
+		require.Equal(t, int32(92), session)
+		require.Equal(t, "SAS790", callsign)
+		return strip, nil
+	}
+	stripRepo.SetNextOwnersFn = func(_ context.Context, session int32, callsign string, nextOwners []string) error {
+		require.Equal(t, int32(92), session)
+		require.Equal(t, "SAS790", callsign)
+		updatedNextOwners = append([]string(nil), nextOwners...)
+		return nil
+	}
+
+	sessionRepo.GetByIDFn = func(_ context.Context, id int32) (*models.Session, error) {
+		require.Equal(t, int32(92), id)
+		return &models.Session{
+			ID:      92,
+			Airport: "EKCH",
+			ActiveRunways: pkgModels.ActiveRunways{
+				ArrivalRunways: []string{"22L"},
+			},
+		}, nil
+	}
+
+	sectorRepo.ListBySessionFn = func(_ context.Context, session int32) ([]*models.SectorOwner, error) {
+		require.Equal(t, int32(92), session)
+		return []*models.SectorOwner{
+			{
+				Session:  92,
+				Sector:   []string{"TE"},
+				Position: aTowerPosition,
+			},
+			{
+				Session:  92,
+				Sector:   []string{"GWA"},
+				Position: cTowerPosition,
+			},
+			{
+				Session:  92,
+				Sector:   []string{"AA"},
+				Position: apronPosition,
+			},
+		}, nil
+	}
+
+	srv := &Server{
+		frontendHub: frontendHub,
+		stripRepo:   stripRepo,
+		sessionRepo: sessionRepo,
+		sectorRepo:  sectorRepo,
+	}
+
+	err = srv.UpdateRouteForStrip("SAS790", 92, true)
+	require.NoError(t, err)
+
+	assert.Equal(t, []string{apronPosition}, updatedNextOwners)
+	require.Len(t, frontendHub.OwnersUpdates, 1)
+	assert.Equal(t, []string{apronPosition}, frontendHub.OwnersUpdates[0].NextOwners)
+	assert.Equal(t, "SAS790", frontendHub.OwnersUpdates[0].Callsign)
+}
+
+func TestResolveRouteSectorOwner_UsesOverrideTargetFirst(t *testing.T) {
+	t.Parallel()
+
+	owner, ok := resolveRouteSectorOwner(
+		"GWA",
+		map[string]string{
+			"TE":  "EKCH_A_TWR",
+			"GWA": "EKCH_C_TWR",
+		},
+		map[string]string{"GWA": "TE"},
+	)
+
+	require.True(t, ok)
+	assert.Equal(t, "EKCH_A_TWR", owner)
+}
+
+func TestResolveRouteSectorOwner_FallsBackToOriginalSector(t *testing.T) {
+	t.Parallel()
+
+	owner, ok := resolveRouteSectorOwner(
+		"GWA",
+		map[string]string{
+			"GWA": "EKCH_C_TWR",
+		},
+		map[string]string{"GWA": "TE"},
+	)
+
+	require.True(t, ok)
+	assert.Equal(t, "EKCH_C_TWR", owner)
+}
+
 func TestUpdateRoutesForSession_RecalculatesEachStrip(t *testing.T) {
 	t.Parallel()
 

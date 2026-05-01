@@ -270,7 +270,14 @@ func loadRoutes(cfg Config) error {
 			rt.Active[j] = strings.TrimSpace(rt.Active[j])
 		}
 		for j := range rt.Path {
-			rt.Path[j] = strings.TrimSpace(rt.Path[j])
+			rt.Path[j] = strings.ToUpper(strings.TrimSpace(rt.Path[j]))
+		}
+		if len(rt.OwnerOverrides) > 0 {
+			normalizedOverrides := make(map[string]string, len(rt.OwnerOverrides))
+			for source, target := range rt.OwnerOverrides {
+				normalizedOverrides[strings.ToUpper(strings.TrimSpace(source))] = strings.ToUpper(strings.TrimSpace(target))
+			}
+			rt.OwnerOverrides = normalizedOverrides
 		}
 
 		if hasRunway {

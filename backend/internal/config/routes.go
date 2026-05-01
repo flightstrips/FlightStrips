@@ -152,12 +152,18 @@ func SingleStandRange(prefix string, number int) StandRange {
 // or a destination set of stands/stand ranges. Exactly one of ForRunway or ForStandRanges must be set.
 // Note: A single stand is represented as a range with From == To (e.g., W1 -> {Prefix: "W", From: 1, To: 1}).
 type Route struct {
-	Name           string       `yaml:"name"`
-	ForRunway      string       `yaml:"forRunway"`      // e.g., "RWY27" or "27" (case-insensitive)
-	ForStandRanges []StandRange `yaml:"forStandRanges"` // e.g., A10-A20, B5-B10, or single stands like W1 (From=To=1)
-	Path           []string     `yaml:"path"`           // ordered Sector names from general origin area to destination
-	Active         []string     `yaml:"active"`         // runways that must be active for this route to match
-	RequireAll     bool         `yaml:"require_all"`    // if true, all Active runways must be present (default: any)
+	Name           string            `yaml:"name"`
+	ForRunway      string            `yaml:"forRunway"`       // e.g., "RWY27" or "27" (case-insensitive)
+	ForStandRanges []StandRange      `yaml:"forStandRanges"`  // e.g., A10-A20, B5-B10, or single stands like W1 (From=To=1)
+	Path           []string          `yaml:"path"`            // ordered Sector names from general origin area to destination
+	Active         []string          `yaml:"active"`          // runways that must be active for this route to match
+	RequireAll     bool              `yaml:"require_all"`     // if true, all Active runways must be present (default: any)
+	OwnerOverrides map[string]string `yaml:"owner_overrides"` // matched sector -> sector whose owner should be used
+}
+
+type ResolvedRoute struct {
+	Path           []string
+	OwnerOverrides map[string]string
 }
 
 // ComputeToRunway selects the best-matching route to the given runway under the
@@ -165,14 +171,15 @@ type Route struct {
 // "Best" means the route whose active list has the most runways in common with
 // the current active set (same scoring as sector selection). A route with an
 // empty active list is a catch-all (score 0) and loses to any specific match.
-// Returns the subsequence of path from the current Sector to the end.
-func ComputeToRunway(active []string, currentSector string, runway string) ([]string, bool) {
+// Returns the subsequence of path from the current Sector to the end together with
+// any route-scoped owner overrides that should apply while constructing next owners.
+func ComputeToRunway(active []string, currentSector string, runway string) (ResolvedRoute, bool) {
 	candidates := runwayRoutes[normalizeRunway(runway)]
 	if len(candidates) == 0 {
-		return nil, false
+		return ResolvedRoute{}, false
 	}
 	bestScore := -1
-	var bestPath []string
+	var bestRoute ResolvedRoute
 	for _, r := range candidates {
 		score := scoreActive(r.Active, active, r.RequireAll)
 		if score < 0 || score <= bestScore {
@@ -183,25 +190,27 @@ func ComputeToRunway(active []string, currentSector string, runway string) ([]st
 			continue
 		}
 		bestScore = score
-		bestPath = r.Path[startIdx:]
+		bestRoute = resolveRouteSelection(r, startIdx)
 	}
 	if bestScore < 0 {
-		return nil, false
+		return ResolvedRoute{}, false
 	}
-	return bestPath, true
+	return bestRoute, true
 }
 
 // ComputeToStand selects a route to the given destination stand that is valid under
 // current active flags and contains the aircraft's current Sector within its path.
-// Returns the subsequence of config from the current Sector to the end of the route.
+// Returns the subsequence of config from the current Sector to the end of the route
+// together with any route-scoped owner overrides that should apply while constructing
+// next owners.
 // Note: Single stands are represented as ranges with From == To.
-func ComputeToStand(active []string, currentSector string, standStr string) ([]string, bool) {
+func ComputeToStand(active []string, currentSector string, standStr string) (ResolvedRoute, bool) {
 	st, err := ParseStand(standStr)
 	if err != nil {
-		return nil, false
+		return ResolvedRoute{}, false
 	}
 	bestScore := -1
-	var bestPath []string
+	var bestRoute ResolvedRoute
 	for _, r := range standRoutes {
 		if len(r.ForStandRanges) == 0 {
 			continue
@@ -225,12 +234,12 @@ func ComputeToStand(active []string, currentSector string, standStr string) ([]s
 			continue
 		}
 		bestScore = score
-		bestPath = r.Path[startIdx:]
+		bestRoute = resolveRouteSelection(r, startIdx)
 	}
 	if bestScore < 0 {
-		return nil, false
+		return ResolvedRoute{}, false
 	}
-	return bestPath, true
+	return bestRoute, true
 }
 
 func normalizeRunway(rwy string) string {
@@ -244,6 +253,25 @@ func indexOfSector(path []string, sector string) int {
 		}
 	}
 	return -1
+}
+
+func resolveRouteSelection(route Route, startIdx int) ResolvedRoute {
+	return ResolvedRoute{
+		Path:           slices.Clone(route.Path[startIdx:]),
+		OwnerOverrides: cloneStringMap(route.OwnerOverrides),
+	}
+}
+
+func cloneStringMap(src map[string]string) map[string]string {
+	if len(src) == 0 {
+		return nil
+	}
+
+	cloned := make(map[string]string, len(src))
+	for key, value := range src {
+		cloned[key] = value
+	}
+	return cloned
 }
 
 type AirborneRoutes struct {

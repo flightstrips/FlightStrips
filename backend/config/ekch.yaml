@@ -592,11 +592,15 @@ routes:
       - A8
     active: [22L, 04R]
     path: [TE, GWA, AA]
+    owner_overrides:
+      GWA: TE
   - name: Runway 22L/04R to cargo
     forStandRanges:
       - G110-G137
     active: [22L, 04R]
-    path: [TE]
+    path: [TE, GWA, TE]
+    owner_overrides:
+      GWA: TE
   - name: Runway 22L to rest
     forStandRanges:
       - A7
@@ -608,7 +612,9 @@ routes:
       - F1-F99
       - H101-H106
     active: [22L, 04R]
-    path: [TE, AA]
+    path: [TE, GWA, AA]
+    owner_overrides:
+      GWA: TE
   - name: Runway 04L/22R to high A stands
     forStandRanges:
       - A17-A33

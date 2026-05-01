@@ -1,6 +1,7 @@
 package clx
 
 import (
+	cfgpkg "FlightStrips/internal/config"
 	"FlightStrips/internal/models"
 	"slices"
 	"strings"
@@ -53,6 +54,7 @@ func TestValidateSidAircraftTypeFaults(t *testing.T) {
 			fault := requireFault(t, validation, "sid_aircraft_type")
 
 			assert.Equal(t, []string{FieldSID}, fault.Fields)
+			assert.Equal(t, fault.Message, fault.NitosRemark)
 			assert.Contains(t, fault.NitosRemark, tt.expectedRemark)
 		})
 	}
@@ -152,6 +154,7 @@ func TestValidateRouteSidFaultsAndOverrideSuppression(t *testing.T) {
 	suppressed := Validate(strip, Context{
 		Now:       testNow(),
 		Overrides: map[string]bool{fault.OverrideKey: true},
+		Rules:     testRules(),
 	})
 	assertNoFault(t, suppressed, "route_lango_egpx")
 
@@ -160,6 +163,7 @@ func TestValidateRouteSidFaultsAndOverrideSuppression(t *testing.T) {
 	otherValidation := Validate(&otherStrip, Context{
 		Now:       testNow(),
 		Overrides: map[string]bool{fault.OverrideKey: true},
+		Rules:     testRules(),
 	})
 	requireFault(t, otherValidation, "route_lango_egpx")
 }
@@ -195,7 +199,7 @@ func TestValidatePastEobtAndTobt(t *testing.T) {
 		Tobt: ptr("1005"),
 	}
 
-	validation := Validate(strip, Context{Now: time.Date(2026, 1, 1, 10, 10, 0, 0, time.UTC)})
+	validation := Validate(strip, Context{Now: time.Date(2026, 1, 1, 10, 10, 0, 0, time.UTC), Rules: testRules()})
 	fault := requireFault(t, validation, "eobt_tobt_past")
 
 	assert.ElementsMatch(t, []string{FieldEOBT, FieldTOBT}, fault.Fields)
@@ -207,7 +211,7 @@ func TestValidatePastEobtAndTobtHandlesMidnightRollover(t *testing.T) {
 		Eobt: ptr("0005"),
 		Tobt: ptr("0010"),
 	}
-	validation := Validate(futureAfterMidnight, Context{Now: time.Date(2026, 1, 1, 23, 55, 0, 0, time.UTC)})
+	validation := Validate(futureAfterMidnight, Context{Now: time.Date(2026, 1, 1, 23, 55, 0, 0, time.UTC), Rules: testRules()})
 	assertNoFault(t, validation, "eobt_tobt_past")
 
 	pastBeforeMidnight := testStrip()
@@ -215,8 +219,23 @@ func TestValidatePastEobtAndTobtHandlesMidnightRollover(t *testing.T) {
 		Eobt: ptr("2350"),
 		Tobt: ptr("2355"),
 	}
-	validation = Validate(pastBeforeMidnight, Context{Now: time.Date(2026, 1, 2, 0, 10, 0, 0, time.UTC)})
+	validation = Validate(pastBeforeMidnight, Context{Now: time.Date(2026, 1, 2, 0, 10, 0, 0, time.UTC), Rules: testRules()})
 	requireFault(t, validation, "eobt_tobt_past")
+}
+
+func TestValidateReturnsNilWithoutConfiguredRules(t *testing.T) {
+	strip := testStrip()
+	strip.Sid = ptr("KOPEX2A")
+	strip.EngineType = "J"
+	strip.Route = ptr("MICOS T503")
+	strip.CdmData = &models.CdmData{
+		Eobt: ptr("1000"),
+		Tobt: ptr("1005"),
+	}
+
+	validation := Validate(strip, Context{Now: time.Date(2026, 1, 1, 10, 10, 0, 0, time.UTC)})
+
+	assert.Nil(t, validation)
 }
 
 func testStrip() *models.Strip {
@@ -232,11 +251,97 @@ func testStrip() *models.Strip {
 }
 
 func testContext() Context {
-	return Context{Now: testNow()}
+	return Context{
+		Now:   testNow(),
+		Rules: testRules(),
+	}
 }
 
 func testNow() time.Time {
 	return time.Date(2026, 1, 1, 10, 0, 0, 0, time.UTC)
+}
+
+func testRules() cfgpkg.ClxValidationConfig {
+	return cfgpkg.ClxValidationConfig{
+		SidFirstWaypoints: []string{"BETUD", "GOLGA", "KEMAX", "KOPEX", "LANGO", "NEXEN", "ODDON", "ODON", "SALLO", "SALO", "SIMEG", "VEDAR"},
+		SidEngineRules: []cfgpkg.ClxSidEngineRule{
+			{
+				Code:                  "sid_aircraft_type",
+				SidFamilies:           []string{"KOPEX"},
+				DisallowedEngineTypes: []string{"J"},
+				Message:               "Aircraft planned on SID not valid for ATYP. {recommendation}",
+				Recommendations: map[string]string{
+					"MICOS": "Reclear on NEXEN T503 MICOS... as filed",
+					"ALS":   "Reclear on LANGO P999 AMRAK... as filed",
+					"ALASA": "Reclear on LANGO M611 ALASA... as filed",
+				},
+				DefaultRecommendation: "Reclear on LANGO DCT... as filed",
+			},
+			{
+				Code:                  "sid_aircraft_type",
+				SidFamilies:           []string{"LANGO", "NEXEN"},
+				DisallowedEngineTypes: []string{"P", "T"},
+				Message:               "Aircraft planned on SID not valid for ATYP. {recommendation}",
+				Recommendations: map[string]string{
+					"MICOS": "Reclear on NEXEN T503 MICOS... as filed",
+					"ALS":   "Reclear on LANGO P999 AMRAK... as filed",
+					"ALASA": "Reclear on LANGO M611 ALASA... as filed",
+				},
+				DefaultRecommendation: "Reclear on LANGO DCT... as filed",
+			},
+		},
+		AircraftRunwayRules: []cfgpkg.ClxAircraftRunwayRule{
+			{
+				Code:                  "category_f_runway",
+				AircraftTypes:         []string{"A388", "B748"},
+				RestrictedRunways:     []string{"22R", "04L", "12", "30"},
+				RestrictedSidSuffixes: []string{"B", "C", "D", "E"},
+				Message:               "Planned RWY not available for aircraft Category (CAT F). Only 04R/22L approved",
+			},
+		},
+		RnavRules: cfgpkg.ClxRnavRules{
+			Nil: cfgpkg.ClxRnavFaultRule{
+				Code:    "rnav_nil",
+				Message: "Aircraft filed on SID without RNAV capability. Clear via RV or update RNAV capability to \"1\".",
+			},
+			Insufficient: cfgpkg.ClxRnavCapabilityRule{
+				Code:         "rnav_insufficient",
+				Capabilities: []string{"5", "10"},
+				Message:      "Aircraft filed on SID with insufficient RNAV capability. Clear via RV or update RNAV capability to \"1\".",
+			},
+		},
+		RouteConflictRules: []cfgpkg.ClxRouteConflictRule{
+			{
+				Code:            "route_lango_egpx",
+				SidFamilies:     []string{"LANGO"},
+				RouteTokensAny:  []string{"ARTEX", "ELSAN", "REKNA", "ITSUX", "SURAT", "EVRAL", "ROPAL", "LARGA", "TIPAN", "UPGAS"},
+				RemarkTokensAny: []string{"EGPX/"},
+				Message:         "LANGO not valid for flights to EGPX. Refile to ODDON.",
+				AllowOverride:   true,
+			},
+			{
+				Code:            "route_vedar_ekdk",
+				SidFamilies:     []string{"VEDAR"},
+				RouteTokensAny:  []string{"AAL", "ARTOR", "AMSEV"},
+				RemarkTokensAny: []string{"EKDK/"},
+				Message:         "VEDAR not valid for re-entering EKDK. Refile to GOLGA",
+				AllowOverride:   true,
+			},
+			{
+				Code:        "route_betud",
+				SidFamilies: []string{"BETUD"},
+				Always:      true,
+				Message:     "BETUD not valid for flight. Refile via SALLO (Or SIMEG if more appropriate).",
+			},
+			{
+				Code:           "route_simeg_sallo",
+				SidFamilies:    []string{"SIMEG"},
+				RouteTokensAny: []string{"SALLO"},
+				Message:        "SIMEG not valid as SID, when SALLO is on FPL. Refile to SALLO",
+				AllowOverride:  true,
+			},
+		},
+	}
 }
 
 func requireFault(t *testing.T, validation *Validation, code string) Fault {

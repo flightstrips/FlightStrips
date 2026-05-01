@@ -46,15 +46,18 @@ func Validate(strip *models.Strip, ctx Context) *Validation {
 	if ctx.Now.IsZero() {
 		ctx.Now = time.Now().UTC()
 	}
-	rules := validationRules(ctx.Rules)
+	rules := ctx.Rules
+	if rules.IsEmpty() {
+		return nil
+	}
 
 	var faults []Fault
-	faults = append(faults, sidTypeFaults(strip, rules)...)
-	faults = append(faults, runwayCategoryFaults(strip, rules)...)
+	faults = append(faults, sidEngineFaults(strip, rules)...)
+	faults = append(faults, aircraftRunwayFaults(strip, rules)...)
 	if fault, ok := rnavFault(strip, rules); ok {
 		faults = append(faults, fault)
 	}
-	for _, fault := range routeSidFaults(strip, rules) {
+	for _, fault := range routeConflictFaults(strip, rules) {
 		if fault.OverrideKey != "" && ctx.Overrides[fault.OverrideKey] {
 			continue
 		}
@@ -70,87 +73,79 @@ func Validate(strip *models.Strip, ctx Context) *Validation {
 	return &Validation{Faults: faults}
 }
 
-func validationRules(rules cfgpkg.ClxValidationConfig) cfgpkg.ClxValidationConfig {
-	if len(rules.JetRestrictedSidFamilies) == 0 &&
-		len(rules.PropTurbopropRestrictedSidFamilies) == 0 &&
-		len(rules.CategoryFAircraftTypes) == 0 &&
-		len(rules.CategoryFRestrictedRunways) == 0 &&
-		len(rules.CategoryFRestrictedSidSuffixes) == 0 &&
-		len(rules.SidFirstWaypoints) == 0 &&
-		len(rules.LangoRouteTokens) == 0 &&
-		len(rules.LangoRemarkTokens) == 0 &&
-		len(rules.VedarRouteTokens) == 0 &&
-		len(rules.VedarRemarkTokens) == 0 {
-		return cfgpkg.DefaultClxValidationConfig()
-	}
-	return rules
-}
-
-func sidTypeFaults(strip *models.Strip, rules cfgpkg.ClxValidationConfig) []Fault {
+func sidEngineFaults(strip *models.Strip, rules cfgpkg.ClxValidationConfig) []Fault {
 	family := sidFamily(value(strip.Sid))
 	engine := strings.ToUpper(strings.TrimSpace(strip.EngineType))
 	if family == "" || engine == "" {
 		return nil
 	}
 
-	switch {
-	case slices.Contains(rules.JetRestrictedSidFamilies, family) && engine == "J":
-		return []Fault{{
-			Code:        "sid_aircraft_type",
-			Message:     fmt.Sprintf("SID %s is not valid for aircraft engine type J.", family),
-			NitosRemark: "Aircraft planned on SID not valid for ATYP. " + sidTypeRecommendation(strip),
-			Fields:      []string{FieldSID},
-		}}
-	case slices.Contains(rules.PropTurbopropRestrictedSidFamilies, family) && (engine == "P" || engine == "T"):
-		return []Fault{{
-			Code:        "sid_aircraft_type",
-			Message:     fmt.Sprintf("SID %s is not valid for aircraft engine type %s.", family, engine),
-			NitosRemark: "Aircraft planned on SID not valid for ATYP. " + sidTypeRecommendation(strip),
-			Fields:      []string{FieldSID},
-		}}
-	default:
-		return nil
+	faults := make([]Fault, 0, len(rules.SidEngineRules))
+	for _, rule := range rules.SidEngineRules {
+		if !slices.Contains(rule.SidFamilies, family) || !slices.Contains(rule.DisallowedEngineTypes, engine) {
+			continue
+		}
+
+		message := renderMessage(rule.Message, map[string]string{
+			"sid_family":     family,
+			"engine_type":    engine,
+			"recommendation": sidEngineRecommendation(strip, rule),
+		})
+		if strings.TrimSpace(rule.Code) == "" || strings.TrimSpace(message) == "" {
+			continue
+		}
+
+		faults = append(faults, newFault(rule.Code, message, []string{FieldSID}, ""))
 	}
+
+	return faults
 }
 
-func sidTypeRecommendation(strip *models.Strip) string {
-	text := combinedFlightPlanText(strip)
-	switch {
-	case containsToken(text, "MICOS"):
-		return "Reclear on NEXEN T503 MICOS... as filed"
-	case containsToken(text, "ALS"):
-		return "Reclear on LANGO P999 AMRAK... as filed"
-	case containsToken(text, "ALASA"):
-		return "Reclear on LANGO M611 ALASA... as filed"
-	default:
-		return "Reclear on LANGO DCT... as filed"
+func sidEngineRecommendation(strip *models.Strip, rule cfgpkg.ClxSidEngineRule) string {
+	for _, token := range tokens(combinedFlightPlanText(strip)) {
+		if recommendation, ok := rule.Recommendations[token]; ok {
+			return recommendation
+		}
+		trimmedToken := strings.TrimSuffix(token, "/")
+		if recommendation, ok := rule.Recommendations[trimmedToken]; ok {
+			return recommendation
+		}
 	}
+	return strings.TrimSpace(rule.DefaultRecommendation)
 }
 
-func runwayCategoryFaults(strip *models.Strip, rules cfgpkg.ClxValidationConfig) []Fault {
+func aircraftRunwayFaults(strip *models.Strip, rules cfgpkg.ClxValidationConfig) []Fault {
 	aircraft := normalizedAircraftType(value(strip.AircraftType))
-	if !slices.Contains(rules.CategoryFAircraftTypes, aircraft) {
-		return nil
-	}
-
-	var fields []string
 	runway := strings.ToUpper(strings.TrimSpace(value(strip.Runway)))
-	if slices.Contains(rules.CategoryFRestrictedRunways, runway) {
-		fields = append(fields, FieldRunway)
-	}
-	if sidHasInvalidCategoryFSuffix(value(strip.Sid), rules) {
-		fields = append(fields, FieldSID)
-	}
-	if len(fields) == 0 {
-		return nil
+
+	faults := make([]Fault, 0, len(rules.AircraftRunwayRules))
+	for _, rule := range rules.AircraftRunwayRules {
+		if !slices.Contains(rule.AircraftTypes, aircraft) {
+			continue
+		}
+
+		var fields []string
+		if slices.Contains(rule.RestrictedRunways, runway) {
+			fields = append(fields, FieldRunway)
+		}
+		if sidHasRestrictedSuffix(value(strip.Sid), rule.RestrictedSidSuffixes) {
+			fields = append(fields, FieldSID)
+		}
+		if len(fields) == 0 {
+			continue
+		}
+
+		message := renderMessage(rule.Message, map[string]string{
+			"aircraft_type": aircraft,
+		})
+		if strings.TrimSpace(rule.Code) == "" || strings.TrimSpace(message) == "" {
+			continue
+		}
+
+		faults = append(faults, newFault(rule.Code, message, fields, ""))
 	}
 
-	return []Fault{{
-		Code:        "category_f_runway",
-		Message:     fmt.Sprintf("Aircraft type %s is restricted to 04R/22L.", aircraft),
-		NitosRemark: "Planned RWY not available for aircraft Category (CAT F). Only 04R/22L approved",
-		Fields:      fields,
-	}}
+	return faults
 }
 
 func rnavFault(strip *models.Strip, rules cfgpkg.ClxValidationConfig) (Fault, bool) {
@@ -164,21 +159,18 @@ func rnavFault(strip *models.Strip, rules cfgpkg.ClxValidationConfig) (Fault, bo
 	capability := rnav.DeriveCapability(value(strip.AircraftType), value(strip.Remarks))
 	switch capability {
 	case "NIL":
-		return Fault{
-			Code:        "rnav_nil",
-			Message:     "Aircraft filed on SID without RNAV capability.",
-			NitosRemark: "Aircraft filed on SID without RNAV capability. Clear via RV or update RNAV capability to \"1\".",
-			Fields:      []string{FieldRNAV},
-		}, true
-	case "5", "10":
-		return Fault{
-			Code:        "rnav_insufficient",
-			Message:     "Aircraft filed on SID with insufficient RNAV capability.",
-			NitosRemark: "Aircraft filed on SID with insufficient RNAV capability. Clear via RV or update RNAV capability to \"1\".",
-			Fields:      []string{FieldRNAV},
-		}, true
+		if rules.RnavRules.Nil.Code == "" || rules.RnavRules.Nil.Message == "" {
+			return Fault{}, false
+		}
+		return newFault(rules.RnavRules.Nil.Code, rules.RnavRules.Nil.Message, []string{FieldRNAV}, ""), true
 	default:
-		return Fault{}, false
+		if !slices.Contains(rules.RnavRules.Insufficient.Capabilities, capability) {
+			return Fault{}, false
+		}
+		if rules.RnavRules.Insufficient.Code == "" || rules.RnavRules.Insufficient.Message == "" {
+			return Fault{}, false
+		}
+		return newFault(rules.RnavRules.Insufficient.Code, rules.RnavRules.Insufficient.Message, []string{FieldRNAV}, ""), true
 	}
 }
 
@@ -188,40 +180,34 @@ func headingVectorWithinRnavLimit(strip *models.Strip) bool {
 	return heading > 0 && requestedAltitude > 0 && requestedAltitude <= 28000
 }
 
-func routeSidFaults(strip *models.Strip, rules cfgpkg.ClxValidationConfig) []Fault {
+func routeConflictFaults(strip *models.Strip, rules cfgpkg.ClxValidationConfig) []Fault {
 	family := sidFamily(value(strip.Sid))
 	if family == "" {
 		return nil
 	}
 
 	text := combinedFlightPlanText(strip)
-	switch family {
-	case "LANGO":
-		if containsAnyToken(text, rules.LangoRemarkTokens) || containsAnyToken(text, rules.LangoRouteTokens) {
-			return []Fault{routeFault(strip, "route_lango_egpx", "LANGO not valid for flights to EGPX. Refile to ODDON.")}
-		}
-	case "VEDAR":
-		if containsAnyToken(text, rules.VedarRemarkTokens) || containsAnyToken(text, rules.VedarRouteTokens) {
-			return []Fault{routeFault(strip, "route_vedar_ekdk", "VEDAR not valid for re-entering EKDK. Refile to GOLGA")}
-		}
-	case "BETUD":
-		return []Fault{routeFault(strip, "route_betud", "BETUD not valid for flight. Refile via SALLO (Or SIMEG if more appropriate).")}
-	case "SIMEG":
-		if containsToken(text, "SALLO") {
-			return []Fault{routeFault(strip, "route_simeg_sallo", "SIMEG not valid as SID, when SALLO is on FPL. Refile to SALLO")}
-		}
-	}
-	return nil
-}
 
-func routeFault(strip *models.Strip, code string, remark string) Fault {
-	return Fault{
-		Code:        code,
-		Message:     remark,
-		NitosRemark: remark,
-		Fields:      []string{FieldSID},
-		OverrideKey: routeOverrideKey(strip, code),
+	faults := make([]Fault, 0, len(rules.RouteConflictRules))
+	for _, rule := range rules.RouteConflictRules {
+		if !slices.Contains(rule.SidFamilies, family) {
+			continue
+		}
+		if !rule.Always && !containsAnyToken(text, rule.RouteTokensAny) && !containsAnyToken(text, rule.RemarkTokensAny) {
+			continue
+		}
+		if strings.TrimSpace(rule.Code) == "" || strings.TrimSpace(rule.Message) == "" {
+			continue
+		}
+
+		overrideKey := ""
+		if rule.AllowOverride {
+			overrideKey = routeOverrideKey(strip, rule.Code)
+		}
+		faults = append(faults, newFault(rule.Code, rule.Message, []string{FieldSID}, overrideKey))
 	}
+
+	return faults
 }
 
 func routeOverrideKey(strip *models.Strip, code string) string {
@@ -245,7 +231,7 @@ func pastEobtTobtFault(strip *models.Strip, now time.Time) (Fault, bool) {
 	}
 	return Fault{
 		Code:        "eobt_tobt_past",
-		Message:     "TOBT and EOBT are in the past.",
+		Message:     "TOBT and EOBT are in the past. Click TOBT to Update, or manually enter EOBT.",
 		NitosRemark: "TOBT and EOBT are in the past. Click TOBT to Update, or manually enter EOBT.",
 		Fields:      []string{FieldEOBT, FieldTOBT},
 	}, true
@@ -301,12 +287,12 @@ func sidFamily(sid string) string {
 	return sid
 }
 
-func sidHasInvalidCategoryFSuffix(sid string, rules cfgpkg.ClxValidationConfig) bool {
+func sidHasRestrictedSuffix(sid string, restrictedSuffixes []string) bool {
 	sid = strings.ToUpper(strings.TrimSpace(sid))
 	if sid == "" {
 		return false
 	}
-	return slices.Contains(rules.CategoryFRestrictedSidSuffixes, sid[len(sid)-1:])
+	return slices.Contains(restrictedSuffixes, sid[len(sid)-1:])
 }
 
 func normalizedAircraftType(aircraftType string) string {
@@ -366,6 +352,24 @@ func tokens(text string) []string {
 		}
 	}
 	return result
+}
+
+func newFault(code string, message string, fields []string, overrideKey string) Fault {
+	return Fault{
+		Code:        code,
+		Message:     message,
+		NitosRemark: message,
+		Fields:      fields,
+		OverrideKey: overrideKey,
+	}
+}
+
+func renderMessage(template string, replacements map[string]string) string {
+	rendered := strings.TrimSpace(template)
+	for key, value := range replacements {
+		rendered = strings.ReplaceAll(rendered, "{"+key+"}", value)
+	}
+	return rendered
 }
 
 func value[T any](ptr *T) T {

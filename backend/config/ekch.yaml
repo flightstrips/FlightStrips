@@ -31,24 +31,6 @@ cdm:
         time: 10
 
 clx_validation:
-  jet_restricted_sid_families:
-    - KOPEX
-  prop_turboprop_restricted_sid_families:
-    - LANGO
-    - NEXEN
-  category_f_aircraft_types:
-    - A388
-    - B748
-  category_f_restricted_runways:
-    - "22R"
-    - "04L"
-    - "12"
-    - "30"
-  category_f_restricted_sid_suffixes:
-    - B
-    - C
-    - D
-    - E
   sid_first_waypoints:
     - BETUD
     - GOLGA
@@ -62,25 +44,99 @@ clx_validation:
     - SALO
     - SIMEG
     - VEDAR
-  lango_remark_tokens:
-    - EGPX/
-  lango_route_tokens:
-    - ARTEX
-    - ELSAN
-    - REKNA
-    - ITSUX
-    - SURAT
-    - EVRAL
-    - ROPAL
-    - LARGA
-    - TIPAN
-    - UPGAS
-  vedar_remark_tokens:
-    - EKDK/
-  vedar_route_tokens:
-    - AAL
-    - ARTOR
-    - AMSEV
+  sid_engine_rules:
+    - code: sid_aircraft_type
+      sid_families:
+        - KOPEX
+      disallowed_engine_types:
+        - J
+      message: Aircraft planned on SID not valid for ATYP. {recommendation}
+      recommendations:
+        MICOS: Reclear on NEXEN T503 MICOS... as filed
+        ALS: Reclear on LANGO P999 AMRAK... as filed
+        ALASA: Reclear on LANGO M611 ALASA... as filed
+      default_recommendation: Reclear on LANGO DCT... as filed
+    - code: sid_aircraft_type
+      sid_families:
+        - LANGO
+        - NEXEN
+      disallowed_engine_types:
+        - P
+        - T
+      message: Aircraft planned on SID not valid for ATYP. {recommendation}
+      recommendations:
+        MICOS: Reclear on NEXEN T503 MICOS... as filed
+        ALS: Reclear on LANGO P999 AMRAK... as filed
+        ALASA: Reclear on LANGO M611 ALASA... as filed
+      default_recommendation: Reclear on LANGO DCT... as filed
+  aircraft_runway_rules:
+    - code: category_f_runway
+      aircraft_types:
+        - A388
+        - B748
+      restricted_runways:
+        - "22R"
+        - "04L"
+        - "12"
+        - "30"
+      restricted_sid_suffixes:
+        - B
+        - C
+        - D
+        - E
+      message: Planned RWY not available for aircraft Category (CAT F). Only 04R/22L approved
+  rnav_rules:
+    "nil":
+      code: rnav_nil
+      message: 'Aircraft filed on SID without RNAV capability. Clear via RV or update RNAV capability to "1".'
+    insufficient:
+      code: rnav_insufficient
+      capabilities:
+        - "5"
+        - "10"
+      message: 'Aircraft filed on SID with insufficient RNAV capability. Clear via RV or update RNAV capability to "1".'
+  route_conflict_rules:
+    - code: route_lango_egpx
+      sid_families:
+        - LANGO
+      route_tokens_any:
+        - ARTEX
+        - ELSAN
+        - REKNA
+        - ITSUX
+        - SURAT
+        - EVRAL
+        - ROPAL
+        - LARGA
+        - TIPAN
+        - UPGAS
+      remark_tokens_any:
+        - EGPX/
+      message: LANGO not valid for flights to EGPX. Refile to ODDON.
+      allow_override: true
+    - code: route_vedar_ekdk
+      sid_families:
+        - VEDAR
+      route_tokens_any:
+        - AAL
+        - ARTOR
+        - AMSEV
+      remark_tokens_any:
+        - EKDK/
+      message: VEDAR not valid for re-entering EKDK. Refile to GOLGA
+      allow_override: true
+    - code: route_betud
+      sid_families:
+        - BETUD
+      always: true
+      message: BETUD not valid for flight. Refile via SALLO (Or SIMEG if more appropriate).
+    - code: route_simeg_sallo
+      sid_families:
+        - SIMEG
+      route_tokens_any:
+        - SALLO
+      message: SIMEG not valid as SID, when SALLO is on FPL. Refile to SALLO
+      allow_override: true
 
 positions:
   - name: "EKCH_DEL"

@@ -583,24 +583,47 @@ routes:
       - F1-F99
       - H101-H106
     active: ["30"]
-    path: [TE, AA]
+    path: [TE, GWA, AA]
+    owner_overrides:
+      GWA: TE
+  - name: Runway 12/30 to W1
+    forStandRanges:
+      - W1
+    active: [12, 30]
+    path: [TE, TW, GWA]
+    owner_overrides:
+      TW: TE
   - name: Runway 22L/04R to high A stands
     forStandRanges:
-      - A17-A33
+      - A17-A34
       - A4
       - A6
       - A8
     active: [22L, 04R]
-    path: [TE, GWA, AA]
+    path: [TE, TW, GWA, AA]
     owner_overrides:
+      TW: TE
       GWA: TE
+  - name: Runway 22L/04R to cargo from AA
+    forStandRanges:
+      - G110-G137
+    active: [22L, 04R]
+    path: [AA, TE]
   - name: Runway 22L/04R to cargo
     forStandRanges:
       - G110-G137
     active: [22L, 04R]
-    path: [TE, GWA, TE]
+    path: [TE, TW, GWA, TE]
     owner_overrides:
+      TW: TE
       GWA: TE
+  - name: Runway 22L/04R to W1
+    forStandRanges:
+      - W1
+    active: [22L, 04R]
+    path: [TE, TW, GWA]
+    owner_overrides:
+      TW: TE
   - name: Runway 22L to rest
     forStandRanges:
       - A7
@@ -612,22 +635,40 @@ routes:
       - F1-F99
       - H101-H106
     active: [22L, 04R]
-    path: [TE, GWA, AA]
+    path: [TE, TW, GWA, AA]
     owner_overrides:
+      TW: TE
       GWA: TE
   - name: Runway 04L/22R to high A stands
     forStandRanges:
-      - A17-A33
+      - A17-A34
       - A4
       - A6
       - A8
     active: [04L, 22R]
-    path: [TW, GWA, AA]
+    path: [TW, TE, GWA, AA]
+    owner_overrides:
+      TE: TW
+      GWA: TW
+  - name: Runway 04L/22R to cargo from AA
+    forStandRanges:
+      - G110-G137
+    active: [04L, 22R]
+    path: [AA, TE]
   - name: Runway 04L/22R to cargo
     forStandRanges:
       - G110-G137
     active: [04L, 22R]
     path: [TW, GWA, TE]
+    owner_overrides:
+      GWA: TW
+  - name: Runway 04L/22R to W1
+    forStandRanges:
+      - W1
+    active: [04L, 22R]
+    path: [TE, TW, GWA]
+    owner_overrides:
+      TW: TE
   - name: Runway 04L/22R to rest
     forStandRanges:
       - A7
@@ -639,7 +680,10 @@ routes:
       - F1-F99
       - H101-H106
     active: [04L, 22R]
-    path: [TW, GWA, AA]
+    path: [TW, TE, GWA, AA]
+    owner_overrides:
+      TE: TW
+      GWA: TW
 
 message_areas:
   CLR-DEL:   [EKCH_DEL, EKCH_A_GND]

@@ -383,6 +383,98 @@ func TestResolveRouteSectorOwner_FallsBackToOriginalSector(t *testing.T) {
 	assert.Equal(t, "EKCH_C_TWR", owner)
 }
 
+func TestEKCHArrivalRoute_22LHighAFromTWUsesTEOwnedTransitSectors(t *testing.T) {
+	t.Parallel()
+
+	route, ok := config.ComputeToStand([]string{"22L"}, "TW", "A34")
+	require.True(t, ok)
+	assert.Equal(t, []string{"TW", "GWA", "AA"}, route.Path)
+	assert.Equal(t, "TE", route.OwnerOverrides["TW"])
+	assert.Equal(t, "TE", route.OwnerOverrides["GWA"])
+}
+
+func TestEKCHArrivalRoute_22LCargoFromTWUsesTEOwnedTransitSectors(t *testing.T) {
+	t.Parallel()
+
+	route, ok := config.ComputeToStand([]string{"22L"}, "TW", "G120")
+	require.True(t, ok)
+	assert.Equal(t, []string{"TW", "GWA", "TE"}, route.Path)
+	assert.Equal(t, "TE", route.OwnerOverrides["TW"])
+	assert.Equal(t, "TE", route.OwnerOverrides["GWA"])
+}
+
+func TestEKCHArrivalRoute_04LHighAFromTEUsesTWOwnedTransitSectors(t *testing.T) {
+	t.Parallel()
+
+	route, ok := config.ComputeToStand([]string{"04L"}, "TE", "A34")
+	require.True(t, ok)
+	assert.Equal(t, []string{"TE", "GWA", "AA"}, route.Path)
+	assert.Equal(t, "TW", route.OwnerOverrides["TE"])
+	assert.Equal(t, "TW", route.OwnerOverrides["GWA"])
+}
+
+func TestEKCHArrivalRoute_30RestFromGWAUsesTEOverride(t *testing.T) {
+	t.Parallel()
+
+	route, ok := config.ComputeToStand([]string{"30"}, "GWA", "A12")
+	require.True(t, ok)
+	assert.Equal(t, []string{"GWA", "AA"}, route.Path)
+	assert.Equal(t, "TE", route.OwnerOverrides["GWA"])
+}
+
+func TestEKCHArrivalRoute_CargoFromAAUsesDirectEndpointRoute(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name   string
+		active []string
+		stand  string
+	}{
+		{name: "22L group", active: []string{"22L"}, stand: "G120"},
+		{name: "04L group", active: []string{"04L"}, stand: "G127"},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			route, ok := config.ComputeToStand(tc.active, "AA", tc.stand)
+			require.True(t, ok)
+			assert.Equal(t, []string{"AA", "TE"}, route.Path)
+			assert.Empty(t, route.OwnerOverrides)
+		})
+	}
+}
+
+func TestEKCHArrivalRoute_W1UsesTEThenGWAChainAcrossRunwayGroups(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name          string
+		active        []string
+		currentSector string
+		expectedPath  []string
+	}{
+		{name: "22L from TE", active: []string{"22L"}, currentSector: "TE", expectedPath: []string{"TE", "TW", "GWA"}},
+		{name: "22L from TW", active: []string{"22L"}, currentSector: "TW", expectedPath: []string{"TW", "GWA"}},
+		{name: "04L from TE", active: []string{"04L"}, currentSector: "TE", expectedPath: []string{"TE", "TW", "GWA"}},
+		{name: "30 from TE", active: []string{"30"}, currentSector: "TE", expectedPath: []string{"TE", "TW", "GWA"}},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			route, ok := config.ComputeToStand(tc.active, tc.currentSector, "W1")
+			require.True(t, ok)
+			assert.Equal(t, tc.expectedPath, route.Path)
+			assert.Equal(t, "TE", route.OwnerOverrides["TW"])
+			_, hasGWAOverride := route.OwnerOverrides["GWA"]
+			assert.False(t, hasGWAOverride)
+		})
+	}
+}
+
 func TestUpdateRoutesForSession_RecalculatesEachStrip(t *testing.T) {
 	t.Parallel()
 

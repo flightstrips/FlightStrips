@@ -195,7 +195,6 @@ export function ValidationStatusDialog({
       onOpenChange(false);
       return;
     }
-    onOpenChange(false);
   }
 
   const actionButtons: Array<{

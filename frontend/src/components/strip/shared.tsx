@@ -8,13 +8,15 @@ import type { CSSProperties, MouseEvent as ReactMouseEvent } from "react";
 import { Bay } from "@/api/models";
 import type { PdcStatus } from "@/api/models";
 import type { ValidationStatus } from "@/api/models";
+import { isValidationActiveForPosition } from "@/lib/validation-status";
+
+export { isPdcValidationStatus, isValidationActiveForPosition } from "@/lib/validation-status";
 
 export const SELECTION_COLOR = "var(--color-strip-selection)";
 export const STRIP_FRAME_COLOR = "var(--color-strip-frame)";
 const VALIDATION_BLINK_CYCLE_MS = 1000;
 const PDC_CLEARED_CALLSIGN_BLINK_INTERVAL_MS = 500;
 const PDC_CLEARED_CALLSIGN_BLINK_DURATION_MS = 7000;
-const PDC_VALIDATION_ISSUE_TYPES = new Set(["PDC INVALID", "CUSTOM PDC"]);
 
 /** Returns the border color for cell dividers within a strip. Pass `marked` when that state is available. */
 export function getCellBorderColor(marked: boolean, baseColor = STRIP_FRAME_COLOR): string {
@@ -60,15 +62,6 @@ export function canForceAssumeStrip({
   hasActiveCoordination: boolean;
 }): boolean {
   return !!myPosition && !!owner && owner !== myPosition && !isClrDel && !hasActiveCoordination;
-}
-
-export function isPdcValidationStatus(validationStatus: ValidationStatus | undefined): boolean {
-  return validationStatus != null && PDC_VALIDATION_ISSUE_TYPES.has(validationStatus.issue_type);
-}
-
-export function isValidationActiveForPosition(validationStatus: ValidationStatus | undefined, myPosition?: string): boolean {
-  return validationStatus?.active === true
-    && (isPdcValidationStatus(validationStatus) || validationStatus.owning_position === myPosition);
 }
 
 export function getValidationBlinkStyle(validationStatus: ValidationStatus | undefined, myPosition?: string): CSSProperties {

@@ -136,3 +136,6 @@ export const useSetLayoutChooserOpen = () => useWebSocketStore((state) => state.
 export const useContextMenu = () => useWebSocketStore((state) => state.contextMenu);
 export const useOpenStripContextMenu = () => useWebSocketStore((state) => state.openStripContextMenu);
 export const useCloseStripContextMenu = () => useWebSocketStore((state) => state.closeStripContextMenu);
+export const useValidationDialogCallsign = () => useWebSocketStore((state) => state.validationDialogCallsign);
+export const useOpenValidationDialog = () => useWebSocketStore((state) => state.openValidationDialog);
+export const useCloseValidationDialog = () => useWebSocketStore((state) => state.closeValidationDialog);

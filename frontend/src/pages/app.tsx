@@ -3,6 +3,7 @@ import { WebSocketProvider } from "@/providers/websocket-provider";
 import CommandBar from "@/components/commandbar/CommandBar";
 import AppRouter from "@/routes/AppRouter";
 import { StripContextMenu } from "@/components/strip/StripContextMenu";
+import { ValidationStatusDialogOverlay } from "@/components/strip/ValidationStatusDialogOverlay";
 import AppUpdateNotifier from "@/components/AppUpdateNotifier";
 import { useContextMenu, useCloseStripContextMenu } from "@/store/store-hooks";
 import { Toaster } from "sonner";
@@ -48,6 +49,7 @@ export default function AppPage() {
           <AppRouter />
           <CommandBar />
           <ContextMenuOverlay />
+          <ValidationStatusDialogOverlay />
           {/* <CustomCursor /> */}
         </div>
       </WebSocketProvider>

@@ -4,7 +4,6 @@ import {
   ActionType,
   Bay,
   EventType,
-  type ActionRejectedEvent,
   type FrontendAircraftDisconnectEvent,
   type FrontendAssignedSquawkEvent,
   type FrontendBayEvent, type FrontendBroadcastEvent, type FrontendBulkBayEvent, type FrontendCdmDataEvent, type FrontendCdmWaitEvent,
@@ -49,6 +48,12 @@ import {
 import {WebSocketClient} from '../api/websocket.ts';
 import missedApproachSound from "@/assets/missed_approach.mp3";
 import { isAudioMuted } from "@/lib/audio-settings";
+import {
+  isValidationActionAllowed,
+  isValidationActiveForPosition,
+  type ValidationAttemptedAction,
+  type ValidationEditableField,
+} from "@/lib/validation-status";
 import { toast } from "sonner";
 
 const KNOWN_LAYOUTS = new Set(["CLX", "AAAD", "AA", "AD", "EST", "GEGW", "TWTE", "TWRGND"]);
@@ -151,10 +156,13 @@ export interface WebSocketState {
   contextMenu: { callsign: string; x: number; y: number } | null;
   openStripContextMenu: (callsign: string, pos: { x: number; y: number }) => void;
   closeStripContextMenu: () => void;
+  validationDialogCallsign: string | null;
+  openValidationDialog: (callsign: string) => void;
+  closeValidationDialog: () => void;
 
   // actions
   move: (callsign: string, bay: Bay) => void;
-  generateSquawk: (callsign: string) => void;
+  generateSquawk: (callsign: string) => boolean;
   updateOrder: (callsign: string, insertAfter: StripRef | null) => void;
   sendMessage: (text: string, recipients: string[]) => void;
   dismissMessage: (id: number) => void;
@@ -231,8 +239,9 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
      selectedCallsign: null,
      tagRequestArmed: false,
      markArmed: false,
-     contextMenu: null
-    };
+     contextMenu: null,
+      validationDialogCallsign: null,
+      };
 
   // Create the store
   const store = createStore<WebSocketState>()((set, get) => {
@@ -244,6 +253,57 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
 
       wsClient.send(event);
       return true;
+    };
+
+    const findStrip = (callsign: string) => get().strips.find((strip) => strip.callsign === callsign);
+    const openValidationDialog = (callsign: string) => set({ validationDialogCallsign: callsign, contextMenu: null });
+
+    const guardValidationAction = (callsign: string, action: ValidationAttemptedAction) => {
+      const strip = findStrip(callsign);
+      const myPosition = get().position;
+
+      if (!strip || !isValidationActiveForPosition(strip.validation_status, myPosition)) {
+        return true;
+      }
+
+      if (isValidationActionAllowed(strip.validation_status, action)) {
+        return true;
+      }
+
+      openValidationDialog(callsign);
+      return false;
+    };
+
+    const sendGuardedStripEvent = (
+      callsign: string,
+      attemptedAction: ValidationAttemptedAction,
+      event: FrontendSendEvent,
+    ) => {
+      if (!guardValidationAction(callsign, attemptedAction)) {
+        return false;
+      }
+
+      if (!sendIfWritable(event)) {
+        return false;
+      }
+
+      return true;
+    };
+
+    const updateStripFieldsFromPayload = (update: UpdateStrip): ValidationEditableField[] => {
+      const fields: ValidationEditableField[] = [];
+
+      if (update.sid !== undefined) fields.push("sid");
+      if (update.eobt !== undefined) fields.push("eobt");
+      if (update.route !== undefined) fields.push("route");
+      if (update.heading !== undefined) fields.push("heading");
+      if (update.altitude !== undefined) fields.push("altitude");
+      if (update.stand !== undefined) fields.push("stand");
+      if (update.remarks !== undefined) fields.push("remarks");
+      if (update.aircraft_type !== undefined) fields.push("aircraft_type");
+      if (update.capabilities !== undefined) fields.push("capabilities");
+
+      return fields;
     };
 
     return {
@@ -261,8 +321,10 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     setLayoutChooserOpen: (open) => set({ layoutChooserOpen: open }),
     openStripContextMenu: (callsign, pos) => set({ contextMenu: { callsign, x: pos.x, y: pos.y } }),
     closeStripContextMenu: () => set({ contextMenu: null }),
+    openValidationDialog,
+    closeValidationDialog: () => set({ validationDialogCallsign: null }),
      move: (callsign, bay) => set((state) => {
-          if (!sendIfWritable({type: ActionType.FrontendMove, callsign, bay})) {
+          if (!sendGuardedStripEvent(callsign, { type: "move" }, {type: ActionType.FrontendMove, callsign, bay})) {
             return state;
           }
 
@@ -282,10 +344,11 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
        }
      ),
     generateSquawk: (callsign) => {
-      sendIfWritable({type: ActionType.FrontendGenerateSquawk, callsign});
+      return sendGuardedStripEvent(callsign, { type: "generate_squawk" }, {type: ActionType.FrontendGenerateSquawk, callsign});
     },
     updateStrip(callsign: string, update: UpdateStrip) {
-      if (!sendIfWritable({
+      const fields = updateStripFieldsFromPayload(update);
+      if (!sendGuardedStripEvent(callsign, { type: "update_strip", fields }, {
         type: ActionType.FrontendUpdateStripData,
         callsign,
         eobt: update.eobt,
@@ -340,7 +403,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
       );
     },
     updateOrder: (callsign, insertAfter) => set((state) => {
-      if (!sendIfWritable({type: ActionType.FrontendUpdateOrder, callsign: callsign, insert_after: insertAfter})) {
+      if (!sendGuardedStripEvent(callsign, { type: "update_order" }, {type: ActionType.FrontendUpdateOrder, callsign: callsign, insert_after: insertAfter})) {
         return state;
       }
 
@@ -396,7 +459,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
       );
     },
     setReleasePoint: (callsign, releasePoint) => {
-      if (!sendIfWritable({type: ActionType.FrontendReleasePoint, callsign: callsign, release_point: releasePoint})) {
+      if (!sendGuardedStripEvent(callsign, { type: "release_point" }, {type: ActionType.FrontendReleasePoint, callsign: callsign, release_point: releasePoint})) {
         return;
       }
 
@@ -432,14 +495,14 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
       })
     },
     transferStrip: (callsign, toPosition) => {
-      sendIfWritable({
+      sendGuardedStripEvent(callsign, { type: "coordination_transfer_request" }, {
         type: ActionType.FrontendCoordinationTransferRequest,
         callsign,
         to: toPosition,
       });
     },
     assumeStrip: (callsign) => {
-      sendIfWritable({ type: ActionType.FrontendCoordinationAssumeRequest, callsign });
+      sendGuardedStripEvent(callsign, { type: "coordination_assume_request" }, { type: ActionType.FrontendCoordinationAssumeRequest, callsign });
     },
     // forceAssumeStrip: takes ownership of an unowned strip, bypassing the next-owners check
     forceAssumeStrip: (callsign) => {
@@ -455,20 +518,23 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
       get().move(callsign, bay);
     },
     freeStrip: (callsign) => {
-      sendIfWritable({ type: ActionType.FrontendCoordinationFreeRequest, callsign });
+      sendGuardedStripEvent(callsign, { type: "coordination_free_request" }, { type: ActionType.FrontendCoordinationFreeRequest, callsign });
     },
      cancelTransfer: (callsign) => {
        sendIfWritable({ type: ActionType.FrontendCoordinationCancelTransferRequest, callsign });
      },
      requestTag: (callsign) => {
-       if (!ensureWritable()) {
-         return;
-       }
-       set({ tagRequestArmed: false });
-       wsClient.send({ type: ActionType.FrontendCoordinationTagRequest, callsign });
-      },
+        if (!ensureWritable()) {
+          return;
+        }
+        if (!guardValidationAction(callsign, { type: "coordination_tag_request" })) {
+          return;
+        }
+        set({ tagRequestArmed: false });
+        wsClient.send({ type: ActionType.FrontendCoordinationTagRequest, callsign });
+       },
     acceptTagRequest: (callsign) => {
-      sendIfWritable({ type: ActionType.FrontendCoordinationAcceptTagRequest, callsign });
+      sendGuardedStripEvent(callsign, { type: "coordination_accept_tag_request" }, { type: ActionType.FrontendCoordinationAcceptTagRequest, callsign });
     },
     cdmReady: (callsign) => {
       sendIfWritable({ type: ActionType.FrontendCdmReady, callsign });
@@ -480,7 +546,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
       sendIfWritable({ type: ActionType.FrontendClxOverrideValidation, callsign, override_key: overrideKey });
     },
     assignRunway: (callsign, runway) => {
-      if (!sendIfWritable({ type: ActionType.FrontendUpdateStripData, callsign, runway })) {
+      if (!sendGuardedStripEvent(callsign, { type: "update_strip", fields: ["runway"] }, { type: ActionType.FrontendUpdateStripData, callsign, runway })) {
         return;
       }
       store.setState(
@@ -504,7 +570,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
       );
     },
      runwayClearance: (callsign) => {
-       if (!sendIfWritable({ type: ActionType.FrontendRunwayClearance, callsign })) {
+       if (!sendGuardedStripEvent(callsign, { type: "runway_clearance" }, { type: ActionType.FrontendRunwayClearance, callsign })) {
          return;
        }
        store.setState(
@@ -525,8 +591,8 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
          })
        );
      },
-    runwayConfirmation: (callsign) => {
-      if (!sendIfWritable({ type: ActionType.FrontendRunwayConfirmation, callsign })) {
+     runwayConfirmation: (callsign) => {
+      if (!sendGuardedStripEvent(callsign, { type: "runway_confirmation" }, { type: ActionType.FrontendRunwayConfirmation, callsign })) {
         return;
       }
       store.setState(
@@ -1129,7 +1195,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
 
   wsClient.on(EventType.FrontendAtisUpdate, handleAtisUpdateEvent);
 
-  const handleActionRejectedEvent = (_data: ActionRejectedEvent) => {
+  const handleActionRejectedEvent = () => {
     // Reconnect to receive a fresh initial event from the server,
     // which overwrites any optimistic updates that were rejected.
     wsClient.reconnect();

@@ -295,8 +295,9 @@ export default function FlightPlanDialog({
                 }}
                 disabled={ssrGenerating}
                 onClick={() => {
-                  setSsrGenerating(true);
-                  generateSquawk(callsign);
+                  if (generateSquawk(callsign)) {
+                    setSsrGenerating(true);
+                  }
                 }}
               >
                 {strip.assigned_squawk}

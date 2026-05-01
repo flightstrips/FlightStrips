@@ -1,6 +1,7 @@
 package services
 
 import (
+	internalModels "FlightStrips/internal/models"
 	"FlightStrips/internal/shared"
 	"FlightStrips/pkg/events/euroscope"
 	"FlightStrips/pkg/models"
@@ -9,6 +10,10 @@ import (
 	"log/slog"
 	"slices"
 )
+
+func validationAllowsRunwayClearance(strip *internalModels.Strip) bool {
+	return strip != nil && strip.ValidationStatus != nil && strip.ValidationStatus.Active && isLandingClearanceValidation(strip.ValidationStatus)
+}
 
 func runwayClearanceTargetBay(currentBay string) string {
 	switch currentBay {
@@ -30,7 +35,7 @@ func (s *StripService) RunwayClearance(ctx context.Context, session int32, calls
 	if err != nil {
 		return err
 	}
-	if strip.IsValidationLocked() {
+	if strip.IsValidationLocked() && !validationAllowsRunwayClearance(strip) {
 		return errors.New("strip is locked by an active validation")
 	}
 

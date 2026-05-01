@@ -77,8 +77,9 @@ export function getValidationBlinkStyle(validationStatus: ValidationStatus | und
 export function getValidationBlockedCursor(
   isValidationActive: boolean,
   defaultCursor: CSSProperties["cursor"] = "pointer",
+  allowDuringValidation = false,
 ): CSSProperties["cursor"] {
-  return isValidationActive ? "not-allowed" : defaultCursor;
+  return isValidationActive && !allowDuringValidation ? "not-allowed" : defaultCursor;
 }
 
 export function usePdcClearedCallsignBlink(pdcStatus?: PdcStatus): boolean {

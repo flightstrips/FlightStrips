@@ -128,6 +128,7 @@ export function ClxClearedStrip({
           previousControllers={previousControllers}
           myPosition={myPosition}
           flexGrow={8.44}
+          transferFrom={stripTransfers[callsign]?.from ?? ""}
           transferringTo={stripTransfers[callsign]?.to ?? ""}
           isTagRequest={isTagRequest}
         />

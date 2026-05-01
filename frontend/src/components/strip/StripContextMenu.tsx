@@ -75,11 +75,13 @@ export function StripContextMenu({ callsign, position, onClose }: StripContextMe
     hasActiveCoordination: !!stripTransfers[callsign],
   });
 
-  // RECALL: enabled when I am the owner and there's an outgoing transfer
+  const activeTransfer = stripTransfers[callsign];
+
+  // RECALL: enabled only for the controller that initiated the active coordination.
   const recallDisabled = !(
     myPosition &&
-    strip?.owner === myPosition &&
-    stripTransfers[callsign] !== undefined
+    activeTransfer !== undefined &&
+    activeTransfer.from === myPosition
   );
 
   // Clamp menu to viewport

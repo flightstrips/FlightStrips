@@ -63,6 +63,7 @@ export function GroundStrip({
         previousControllers={previousControllers}
         myPosition={myPosition}
         marked={marked}
+        transferFrom={stripTransfers[callsign]?.from ?? ""}
         transferringTo={stripTransfers[callsign]?.to ?? ""}
         isTagRequest={isTagRequest}
       />

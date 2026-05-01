@@ -17,6 +17,7 @@ export function SIBox({
   myPosition,
   marked,
   flexGrow = F_SI,
+  transferFrom,
   transferringTo,
   isTagRequest,
   baseBorderColor,
@@ -31,6 +32,8 @@ export function SIBox({
   marked?: boolean;
   /** flex-grow value (defaults to 8). Override when the strip layout requires a different proportion. */
   flexGrow?: number;
+  /** Position string of the controller that initiated the active coordination. */
+  transferFrom?: string;
   /** Position string of the controller being transferred to. Empty string or undefined means no transfer. */
   transferringTo?: string;
   /** True when the active coordination is a tag request (REQ) rather than a normal transfer. */
@@ -46,14 +49,16 @@ export function SIBox({
 
   const { isAssumed, isTransferredAway, isConcerned } = getStripOwnership(myPosition, owner, nextControllers, previousControllers);
 
-  const isSendingTransfer = isAssumed && !!transferringTo && !isTagRequest;
-  const isReceivingTransfer = !!myPosition && !!transferringTo && transferringTo === myPosition && !isAssumed && !isTagRequest;
+  const initiatedByMe = !!myPosition && !!transferFrom && transferFrom === myPosition;
+  const targetedToMe = !!myPosition && !!transferringTo && transferringTo === myPosition;
+  const isSendingTransfer = initiatedByMe && !isTagRequest;
+  const isReceivingTransfer = targetedToMe && !isTagRequest;
   const isUnownedAndNext = !owner && isConcerned;
   const isStand = bay === "STAND";
 
   // Tag request states
-  const isTagRequestOwner = isAssumed && !!transferringTo && isTagRequest;
-  const isTagRequestRequester = !!myPosition && !!transferringTo && transferringTo === myPosition && !isAssumed && isTagRequest;
+  const isTagRequestOwner = initiatedByMe && !!transferringTo && isTagRequest;
+  const isTagRequestRequester = targetedToMe && !isAssumed && isTagRequest;
 
   const nextPosition = nextControllers?.find(pos => pos !== myPosition);
 

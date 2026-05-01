@@ -20,6 +20,47 @@ func (s *StripService) maybeSyncEsCoordinationAcceptance(session int32, callsign
 	s.esCommander.SendAssumeOnly(session, *coordination.EsHandoverCid, callsign)
 }
 
+func (s *StripService) maybeAcceptOwnedEsArrivalCoordination(ctx context.Context, session int32, callsign string, strip *internalModels.Strip, targetController *internalModels.Controller) bool {
+	if strip == nil || targetController == nil || strip.Owner == nil || *strip.Owner != targetController.Position {
+		return false
+	}
+	if s.esCommander == nil || targetController.Cid == nil || *targetController.Cid == "" {
+		slog.DebugContext(ctx, "Target already owns strip, but ES assume-only is unavailable; falling back to backend coordination",
+			slog.String("callsign", callsign),
+			slog.String("target_position", targetController.Position),
+		)
+		return false
+	}
+
+	slog.DebugContext(ctx, "Target already owns strip, acknowledging ES arrival handover without creating backend coordination",
+		slog.String("callsign", callsign),
+		slog.String("target_position", targetController.Position),
+	)
+	s.esCommander.SendAssumeOnly(session, *targetController.Cid, callsign)
+	return true
+}
+
+func (s *StripService) clearOwnerForOwnedEsArrivalCoordination(ctx context.Context, session int32, callsign string) error {
+	strip, err := s.stripRepo.GetByCallsign(ctx, session, callsign)
+	if err != nil {
+		return err
+	}
+	if strip.Owner == nil || *strip.Owner == "" {
+		return nil
+	}
+
+	count, err := s.setOwnerAndReevaluateDuplicateSquawkValidation(ctx, session, callsign, nil, strip.Version)
+	if err != nil {
+		return err
+	}
+	if count != 1 {
+		return errors.New("failed to clear strip owner before creating arrival coordination")
+	}
+
+	s.publisher.SendOwnersUpdate(session, callsign, "", strip.NextOwners, strip.PreviousOwners)
+	return nil
+}
+
 func (s *StripService) CreateCoordinationTransfer(ctx context.Context, session int32, callsign string, from string, to string) error {
 	if s.publisher == nil {
 		return errors.New("frontend hub not configured")
@@ -331,7 +372,8 @@ func (s *StripService) autoAcceptPendingCoordination(ctx context.Context, sessio
 }
 
 // HandleCoordinationReceived processes a EuroScope coordination-received event,
-// ensuring the strip is in FINAL and creating an arrival coordination record.
+// ensuring the strip is visible in FINAL and creating a backend coordination only
+// when FlightStrips still needs to represent the handoff.
 func (s *StripService) HandleCoordinationReceived(ctx context.Context, session int32, callsign string, sourceControllerCallsign string, targetControllerCallsign string) error {
 	if s.controllerRepo == nil {
 		return errors.New("controller repository not configured")
@@ -360,6 +402,7 @@ func (s *StripService) HandleCoordinationReceived(ctx context.Context, session i
 		return err
 	}
 
+	originalBay := strip.Bay
 	if strip.Bay == shared.BAY_ARR_HIDDEN {
 		if _, err := s.stripRepo.UpdateBay(ctx, session, callsign, shared.BAY_FINAL, nil); err != nil {
 			return err
@@ -368,6 +411,7 @@ func (s *StripService) HandleCoordinationReceived(ctx context.Context, session i
 		if err := s.MoveToBay(ctx, session, callsign, shared.BAY_FINAL, true); err != nil {
 			return err
 		}
+		strip.Bay = shared.BAY_FINAL
 	}
 
 	fromPosition := ""
@@ -397,6 +441,18 @@ func (s *StripService) HandleCoordinationReceived(ctx context.Context, session i
 		slog.String("from_position", fromPosition),
 		slog.String("to_position", targetController.Position),
 	)
+
+	targetAlreadyOwnsStrip := strip.Owner != nil && *strip.Owner == targetController.Position
+	if targetAlreadyOwnsStrip {
+		if (originalBay == shared.BAY_FINAL || originalBay == shared.BAY_ARR_HIDDEN) && fromPosition != "" && fromPosition != targetController.Position {
+			if err := s.clearOwnerForOwnedEsArrivalCoordination(ctx, session, callsign); err != nil {
+				return err
+			}
+			strip.Owner = nil
+		} else if s.maybeAcceptOwnedEsArrivalCoordination(ctx, session, callsign, strip, targetController) {
+			return nil
+		}
+	}
 
 	return s.CreateEsArrivalCoordination(ctx, session, callsign, fromPosition, targetController.Position, targetController.Cid)
 }

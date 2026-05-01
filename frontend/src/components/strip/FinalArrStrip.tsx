@@ -98,6 +98,7 @@ export function FinalArrStrip({
         myPosition={myPosition}
         marked={marked}
         flexGrow={F_SI}
+        transferFrom={stripTransfers[callsign]?.from ?? ""}
         transferringTo={stripTransfers[callsign]?.to ?? ""}
         isTagRequest={isTagRequest}
         baseBorderColor={CELL_BORDER}

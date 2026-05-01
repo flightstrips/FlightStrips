@@ -109,6 +109,7 @@ export function ApnTaxiDepStrip({
           nextControllers={nextControllers}
           previousControllers={previousControllers}
           myPosition={myPosition}
+          transferFrom={stripTransfers[callsign]?.from ?? ""}
           transferringTo={stripTransfers[callsign]?.to ?? ""}
           isTagRequest={isTagRequest}
         />

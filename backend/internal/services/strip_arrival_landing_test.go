@@ -28,7 +28,7 @@ func TestHandleCoordinationReceived_RwyArrCreatesCoordination(t *testing.T) {
 	}
 	controller := &models.Controller{Callsign: "EKCH_M_TWR", Position: "118.105"}
 
-	svc, hub, res := buildCoordinationReceivedSvc(t, strip, controller)
+	svc, hub, _, res := buildCoordinationReceivedSvc(t, strip, controller)
 	require.NoError(t, svc.HandleCoordinationReceived(context.Background(), 1, "SAS007", "", "EKCH_M_TWR"))
 
 	// Bay must NOT be changed — strip stays in RWY_ARR.
@@ -50,7 +50,7 @@ func TestHandleCoordinationReceived_TwyArrIsIgnored(t *testing.T) {
 	}
 	controller := &models.Controller{Callsign: "EKCH_M_TWR", Position: "118.105"}
 
-	svc, _, res := buildCoordinationReceivedSvc(t, strip, controller)
+	svc, _, _, res := buildCoordinationReceivedSvc(t, strip, controller)
 	require.NoError(t, svc.HandleCoordinationReceived(context.Background(), 1, "SAS008", "", "EKCH_M_TWR"))
 
 	assert.Nil(t, res.created, "TWY_ARR strip must not receive a new coordination")
@@ -59,12 +59,12 @@ func TestHandleCoordinationReceived_TwyArrIsIgnored(t *testing.T) {
 func TestHandleCoordinationReceived_UsesSourceControllerPositionWhenProvided(t *testing.T) {
 	strip := &models.Strip{
 		ID: 42, Callsign: "SAS556", Bay: shared.BAY_FINAL,
-		Owner: strPtr("118.105"),
+		Owner: strPtr("121.205"),
 	}
 	sourceController := &models.Controller{Callsign: "EKCH_W_APP", Position: "119.805"}
 	targetController := &models.Controller{Callsign: "EKCH_A_TWR", Position: "118.105"}
 
-	svc, hub, res := buildCoordinationReceivedSvc(t, strip, sourceController, targetController)
+	svc, hub, _, res := buildCoordinationReceivedSvc(t, strip, sourceController, targetController)
 	require.NoError(t, svc.HandleCoordinationReceived(context.Background(), 1, "SAS556", "EKCH_W_APP", "EKCH_A_TWR"))
 
 	require.NotNil(t, res.created, "coordination must be created when source and target controllers are known")
@@ -73,6 +73,57 @@ func TestHandleCoordinationReceived_UsesSourceControllerPositionWhenProvided(t *
 	require.Len(t, hub.CoordinationTransfers, 1)
 	assert.Equal(t, "119.805", hub.CoordinationTransfers[0].From)
 	assert.Equal(t, "118.105", hub.CoordinationTransfers[0].To)
+}
+
+func TestHandleCoordinationReceived_TargetAlreadyOwnsArrHiddenClearsOwnerAndCreatesCoordination(t *testing.T) {
+	strip := &models.Strip{
+		ID: 43, Callsign: "SAS557", Bay: shared.BAY_ARR_HIDDEN,
+		Owner: strPtr("118.105"),
+	}
+	sourceController := &models.Controller{Callsign: "EKCH_W_APP", Position: "119.805"}
+	targetController := &models.Controller{
+		Callsign: "EKCH_A_TWR",
+		Position: "118.105",
+		Cid:      strPtr("CID-TWR"),
+	}
+
+	svc, hub, esHub, res := buildCoordinationReceivedSvc(t, strip, sourceController, targetController)
+	require.NoError(t, svc.HandleCoordinationReceived(context.Background(), 1, "SAS557", "EKCH_W_APP", "EKCH_A_TWR"))
+
+	assert.Equal(t, shared.BAY_FINAL, res.updatedBay)
+	assert.Equal(t, shared.BAY_FINAL, res.movedToBay)
+	assert.True(t, res.ownerCleared, "owner should be cleared before creating the coordination")
+	require.Len(t, hub.OwnersUpdates, 1)
+	assert.Equal(t, "", hub.OwnersUpdates[0].Owner)
+	require.NotNil(t, res.created, "coordination should be created after clearing the owner")
+	assert.Equal(t, "119.805", res.created.FromPosition)
+	assert.Equal(t, "118.105", res.created.ToPosition)
+	require.Len(t, hub.CoordinationTransfers, 1)
+	assert.Equal(t, "119.805", hub.CoordinationTransfers[0].From)
+	assert.Equal(t, "118.105", hub.CoordinationTransfers[0].To)
+	assert.Empty(t, esHub.AssumeOnlys, "FINAL/ARR_HIDDEN owned strips should no longer short-circuit in ES")
+}
+
+func TestHandleCoordinationReceived_TargetAlreadyOwnsRwyArrKeepsEsAcceptFlow(t *testing.T) {
+	strip := &models.Strip{
+		ID: 44, Callsign: "SAS558", Bay: shared.BAY_RWY_ARR,
+		Owner: strPtr("118.105"),
+	}
+	targetController := &models.Controller{
+		Callsign: "EKCH_A_TWR",
+		Position: "118.105",
+		Cid:      strPtr("CID-TWR"),
+	}
+
+	svc, hub, esHub, res := buildCoordinationReceivedSvc(t, strip, targetController)
+	require.NoError(t, svc.HandleCoordinationReceived(context.Background(), 1, "SAS558", "", "EKCH_A_TWR"))
+
+	assert.False(t, res.ownerCleared, "RWY_ARR should keep the owner when short-circuiting")
+	assert.Nil(t, res.created, "RWY_ARR should keep the short-circuit accept path")
+	assert.Empty(t, hub.CoordinationTransfers)
+	require.Len(t, esHub.AssumeOnlys, 1)
+	assert.Equal(t, "CID-TWR", esHub.AssumeOnlys[0].Cid)
+	assert.Equal(t, "SAS558", esHub.AssumeOnlys[0].Callsign)
 }
 
 // ---- helpers for landing detection tests ----

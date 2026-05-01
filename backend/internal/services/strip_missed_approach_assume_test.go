@@ -409,16 +409,17 @@ func buildTrackingChangedSvcWithCoord(
 }
 
 type coordinationReceivedResult struct {
-	updatedBay string
-	movedToBay string
-	created    *models.Coordination
+	updatedBay   string
+	movedToBay   string
+	created      *models.Coordination
+	ownerCleared bool
 }
 
 func buildCoordinationReceivedSvc(
 	t *testing.T,
 	strip *models.Strip,
 	controllers ...*models.Controller,
-) (*StripService, *testutil.MockFrontendHub, *coordinationReceivedResult) {
+) (*StripService, *testutil.MockFrontendHub, *testutil.MockEuroscopeHub, *coordinationReceivedResult) {
 	t.Helper()
 
 	res := &coordinationReceivedResult{}
@@ -450,6 +451,11 @@ func buildCoordinationReceivedSvc(
 			cur.Bay = bay
 			return 1, nil
 		},
+		SetOwnerFn: func(_ context.Context, _ int32, _ string, owner *string, _ int32) (int64, error) {
+			res.ownerCleared = owner == nil
+			cur.Owner = owner
+			return 1, nil
+		},
 	}
 
 	controllerRepo := &testutil.MockControllerRepository{
@@ -467,13 +473,15 @@ func buildCoordinationReceivedSvc(
 	hub.SetServer(&testutil.MockServer{
 		CoordRepoVal: coordRepo,
 	})
+	esHub := &testutil.MockEuroscopeHub{}
 
 	svc := NewStripService(stripRepo)
 	svc.SetFrontendHub(hub)
+	svc.SetEuroscopeHub(esHub)
 	svc.SetControllerRepo(controllerRepo)
 	svc.SetCoordinationRepo(coordRepo)
 
-	return svc, hub, res
+	return svc, hub, esHub, res
 }
 
 // TestHandleTrackingControllerChanged_ArrivalGoesToArrHidden verifies that an AIRBORNE
@@ -646,7 +654,7 @@ func TestHandleCoordinationReceived_ArrHiddenMovesToFinalAndStartsTransfer(t *te
 	}
 	controller := &models.Controller{Callsign: "EKCH_M_TWR", Position: "118.105"}
 
-	svc, hub, res := buildCoordinationReceivedSvc(t, strip, controller)
+	svc, hub, _, res := buildCoordinationReceivedSvc(t, strip, controller)
 	require.NoError(t, svc.HandleCoordinationReceived(context.Background(), 1, "SAS005", "", "EKCH_M_TWR"))
 
 	assert.Equal(t, shared.BAY_FINAL, res.updatedBay)
@@ -666,7 +674,7 @@ func TestHandleCoordinationReceived_FinalStartsTransferWithoutMovingBay(t *testi
 	}
 	controller := &models.Controller{Callsign: "EKCH_M_TWR", Position: "118.105"}
 
-	svc, hub, res := buildCoordinationReceivedSvc(t, strip, controller)
+	svc, hub, _, res := buildCoordinationReceivedSvc(t, strip, controller)
 	require.NoError(t, svc.HandleCoordinationReceived(context.Background(), 1, "SAS006", "", "EKCH_M_TWR"))
 
 	assert.Empty(t, res.updatedBay)

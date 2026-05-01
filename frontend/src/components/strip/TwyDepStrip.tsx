@@ -142,6 +142,7 @@ export function TwyDepStrip({
         previousControllers={previousControllers}
         myPosition={myPosition}
         flexGrow={F_SI}
+        transferFrom={stripTransfers[callsign]?.from ?? ""}
         transferringTo={stripTransfers[callsign]?.to ?? ""}
         isTagRequest={isTagRequest}
       />

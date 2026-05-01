@@ -3,7 +3,6 @@
 .idea
 
 # Test recordings
-/backend/recordings/
 /backend/bin/
 *.recording
 .env.recording

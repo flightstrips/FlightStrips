@@ -1,0 +1,26 @@
+{
+  "version": "1.0",
+  "metadata": {
+    "airport": "EKCH",
+    "connection": "LIVE",
+    "recorded_at": "2026-02-14T12:00:00Z",
+    "duration_seconds": 60,
+    "description": "Sample test session"
+  },
+  "events": [
+    {
+      "index": 0,
+      "timestamp_ms": 0,
+      "type": "token",
+      "payload": {"type": "token", "token": "__TEST_TOKEN__"}
+    },
+    {
+      "index": 1,
+      "timestamp_ms": 100,
+      "type": "login",
+      "payload": {"type": "login", "connection": "LIVE", "airport": "EKCH", "position": "118.105", "callsign": "EKCH_A_TWR", "range": 50}
+    }
+  ],
+  "assertions": [],
+  "frontend_actions": []
+}

@@ -1,0 +1,93 @@
+{
+  "version": "1.0",
+  "metadata": {
+    "airport": "EKCH",
+    "connection": "LIVE",
+    "position": "121.630",
+    "callsign": "EKCH_A_GND",
+    "range": 200,
+    "recorded_at": "2026-02-14T14:00:00Z",
+    "duration_seconds": 40,
+    "description": "Comprehensive test for all field update types"
+  },
+  "events": [
+    {
+      "index": 0,
+      "timestamp_ms": 100,
+      "type": "sync",
+      "payload": {
+        "type": "sync",
+        "controllers": [],
+        "strips": [
+          {
+            "callsign": "SAS456",
+            "origin": "EKCH",
+            "destination": "ESSA",
+            "aircraft_type": "A320",
+            "squawk": "2401",
+            "route": "VENER",
+            "version": 1,
+            "sequence": 100
+          }
+        ]
+      }
+    }
+  ],
+  "assertions": [],
+  "frontend_actions": [
+    {
+      "after_event_index": 0,
+      "delay_ms": 1000,
+      "action": "update_strip",
+      "callsign": "SAS456",
+      "updates": {
+        "version": 1,
+        "sid": "VENER2A"
+      }
+    },
+    {
+      "after_event_index": 0,
+      "delay_ms": 2000,
+      "action": "update_field",
+      "callsign": "SAS456",
+      "params": {
+        "version": 2,
+        "field": "route",
+        "value": "VENER DCT NIKUT"
+      }
+    },
+    {
+      "after_event_index": 0,
+      "delay_ms": 3000,
+      "action": "update_field",
+      "callsign": "SAS456",
+      "params": {
+        "version": 3,
+        "field": "altitude",
+        "value": 5000
+      }
+    },
+    {
+      "after_event_index": 0,
+      "delay_ms": 4000,
+      "action": "update_field",
+      "callsign": "SAS456",
+      "params": {
+        "version": 4,
+        "field": "heading",
+        "value": 270
+      }
+    },
+    {
+      "after_event_index": 0,
+      "delay_ms": 5000,
+      "action": "update_field",
+      "callsign": "SAS456",
+      "params": {
+        "version": 5,
+        "field": "stand",
+        "value": "B12"
+      }
+    }
+  ]
+}

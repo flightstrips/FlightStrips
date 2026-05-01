@@ -99,6 +99,7 @@ export function ClxClearedStrip({
   const standYellow = unexpectedChangeFields?.includes("stand");
   const { tobtBg, tsatBg } = useCDMColors({ bay: bay ?? Bay.Unknown, tsat: tsat ?? "", tobt: tobt ?? "" });
   const { ctotBg, ctotColor, showCtot } = useCTOTColor(ctot ?? "");
+  const hasCtot = Boolean(ctot?.trim());
   const cellBorderColor = getCellBorderColor(marked);
   const manualBlue = isManual && !textWhite ? COLOR_MANUAL_BLUE : undefined;
   const callsignBackgroundColor = showClearedCallsignHighlight ? "var(--color-pdc-cleared)" : isSelected ? SELECTION_COLOR : undefined;
@@ -170,7 +171,7 @@ export function ClxClearedStrip({
         >
           {/* EOBT / CTOT — left half, stacked */}
           <div className="flex flex-col overflow-hidden border-r-2" style={{ flex: "1 0 0%", height: "100%", minWidth: 0, borderRightColor: cellBorderColor }}>
-            <div className="flex items-center justify-between px-[0.21vw] border-b-2 overflow-hidden" style={{ height: HALF_H, fontFamily: FONT, fontSize: "0.73vw", borderBottomColor: showCtot ? cellBorderColor : "transparent" }}>
+            <div className="flex items-center justify-between px-[0.21vw] border-b-2 overflow-hidden" style={{ height: HALF_H, fontFamily: FONT, fontSize: "0.73vw", borderBottomColor: hasCtot ? cellBorderColor : "transparent" }}>
               <span className={`${textWhite ? "text-white" : "text-black"} shrink-0`}>EOBT</span>
               <span style={{ color: manualBlue }}>{eobt}</span>
             </div>

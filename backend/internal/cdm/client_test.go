@@ -69,3 +69,26 @@ func TestIFPSSetTobt_UsesDpiEndpoint(t *testing.T) {
 	assert.Equal(t, "EIN123", captured.Get("callsign"))
 	assert.Equal(t, "TOBT/1030/12", captured.Get("value"))
 }
+
+func TestClearMasterAirport_UsesRemoveMasterEndpoint(t *testing.T) {
+	var captured url.Values
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/airport/removeMaster", r.URL.Path)
+		captured = r.URL.Query()
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("true"))
+	}))
+	defer server.Close()
+
+	client := NewClient(
+		WithAPIKey("test-key"),
+		WithBaseURL(server.URL),
+	)
+
+	err := client.ClearMasterAirport(context.Background(), "EKCH", "EKCH_A_TWR")
+	require.NoError(t, err)
+	require.NotNil(t, captured)
+	assert.Equal(t, "EKCH", captured.Get("airport"))
+	assert.Equal(t, "EKCH_A_TWR", captured.Get("position"))
+}

@@ -621,32 +621,34 @@ func (s *Service) syncCdmData(ctx context.Context, session *models.Session) erro
 
 		if s.isMasterSession(session.ID) {
 			// Master: only CTOT and REQTOBT are relevant from the API; local calculation handles the rest.
+			current := flight
 			changed := helpers.ValueOrDefault(flight.Ctot) != nextCtot ||
 				helpers.ValueOrDefault(flight.ReqTobt) != row.CDMData.ReqTOBT ||
 				helpers.ValueOrDefault(flight.EcfmpID) != row.CDMData.Reason
 
-			if !changed {
-				continue
+			if changed {
+				before := snapshotCdm(flight)
+				updated := flight.Clone()
+				if nextCtot != "" {
+					updated.Ctot = &nextCtot
+					updated.CtotSource = &nextCtotSource
+					updated.EcfmpID = stringPointerIfPresent(row.CDMData.Reason)
+				} else if !flight.HasManualCtot() {
+					updated.Ctot = nil
+					updated.CtotSource = nil
+					updated.EcfmpID = nil
+				}
+				updated.ReqTobt = stringPointerIfPresent(row.CDMData.ReqTOBT)
+
+				if _, err := s.stripRepo.SetCdmData(ctx, session.ID, row.Callsign, updated.Normalize()); err != nil {
+					return err
+				}
+				s.reevaluateCtotValidationAsync(ctx, session.ID, row.Callsign, before, snapshotCdm(updated))
+				s.broadcastIfChanged(session.ID, row.Callsign, before, snapshotCdm(updated))
+				current = updated
 			}
 
-			before := snapshotCdm(flight)
-			updated := flight.Clone()
-			if nextCtot != "" {
-				updated.Ctot = &nextCtot
-				updated.CtotSource = &nextCtotSource
-				updated.EcfmpID = stringPointerIfPresent(row.CDMData.Reason)
-			} else if !flight.HasManualCtot() {
-				updated.Ctot = nil
-				updated.CtotSource = nil
-				updated.EcfmpID = nil
-			}
-			updated.ReqTobt = stringPointerIfPresent(row.CDMData.ReqTOBT)
-
-			if _, err := s.stripRepo.SetCdmData(ctx, session.ID, row.Callsign, updated.Normalize()); err != nil {
-				return err
-			}
-			s.reevaluateCtotValidationAsync(ctx, session.ID, row.Callsign, before, snapshotCdm(updated))
-			s.broadcastIfChanged(session.ID, row.Callsign, before, snapshotCdm(updated))
+			s.ensureMasterFlightExport(ctx, session.ID, row.Callsign, current, row)
 		} else {
 			// Slave: sync all CDM fields from the API.
 			nextAsat := helpers.ValueOrDefault(flight.Asat)
@@ -699,6 +701,58 @@ func (s *Service) syncCdmData(ctx context.Context, session *models.Session) erro
 	}
 
 	return nil
+}
+
+func (s *Service) ensureMasterFlightExport(ctx context.Context, session int32, callsign string, local *models.CdmData, remote IFPSData) {
+	if !s.client.isValid || local == nil || !masterFlightNeedsExport(local, remote) {
+		return
+	}
+
+	strip, err := s.stripRepo.GetByCallsign(ctx, session, callsign)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		slog.WarnContext(ctx, "Failed to load strip for master CDM export",
+			slog.Int("session", int(session)),
+			slog.String("callsign", callsign),
+			slog.Any("error", err),
+		)
+	}
+
+	s.pushViffAfterRecalcAsync(callsign, strip, local)
+}
+
+func masterFlightNeedsExport(local *models.CdmData, remote IFPSData) bool {
+	if local == nil {
+		return false
+	}
+
+	if helpers.ValueOrDefault(local.EffectivePhase()) == "I" {
+		return !statusImpliesInvalidation(remote.CDMStatus)
+	}
+
+	localTsat := truncateCDMClockValue(helpers.ValueOrDefault(local.EffectiveTsat()))
+	if localTsat == "" {
+		return false
+	}
+
+	localTobt := truncateCDMClockValue(helpers.ValueOrDefault(local.EffectiveTobt()))
+	localTtot := truncateCDMClockValue(helpers.ValueOrDefault(local.EffectiveTtot()))
+	localCtot := truncateCDMClockValue(helpers.ValueOrDefault(local.EffectiveCtot()))
+	localAsrt := truncateCDMClockValue(helpers.ValueOrDefault(local.Asrt))
+	localReason := helpers.ValueOrDefault(local.EcfmpID)
+
+	remoteTobt := truncateCDMClockValue(remote.TOBT)
+	remoteTsat := truncateCDMClockValue(remote.CDMData.TSAT)
+	remoteTtot := truncateCDMClockValue(remote.CDMData.TTOT)
+	remoteCtot, _ := effectiveIfpsCtotAndSource(remote)
+	remoteAsrt := truncateCDMClockValue(remote.CDMData.ReqASRT)
+	remoteReason := remote.CDMData.Reason
+
+	return localTobt != remoteTobt ||
+		localTsat != remoteTsat ||
+		localTtot != remoteTtot ||
+		localCtot != remoteCtot ||
+		localAsrt != remoteAsrt ||
+		localReason != remoteReason
 }
 
 func (s *Service) reevaluateCtotValidationAsync(ctx context.Context, session int32, callsign string, before, after cdmSnapshot) {
@@ -770,6 +824,22 @@ func statusImpliesAsat(status string) bool {
 	for _, token := range strings.Split(normalized, "/") {
 		switch token {
 		case "STUP", "ST-UP", "PUSH", "TAXI", "DEPA":
+			return true
+		}
+	}
+
+	return false
+}
+
+func statusImpliesInvalidation(status string) bool {
+	normalized := strings.ToUpper(strings.TrimSpace(status))
+	if normalized == "" {
+		return false
+	}
+
+	for _, token := range strings.Split(normalized, "/") {
+		switch token {
+		case "SUSP", "SUS":
 			return true
 		}
 	}
@@ -870,7 +940,7 @@ func (s *Service) pushViffAfterRecalcAsync(callsign string, strip *models.Strip,
 			}
 			return
 		}
-		tsat := truncateCDMClockValue(helpers.ValueOrDefault(data.EffectiveTsat()))
+		tsat := normalizeViffCdmTime(helpers.ValueOrDefault(data.EffectiveTsat()))
 		if tsat == "" {
 			return
 		}
@@ -880,12 +950,12 @@ func (s *Service) pushViffAfterRecalcAsync(callsign string, strip *models.Strip,
 		}
 		params := SetCdmDataParams{
 			Callsign: callsign,
-			Tobt:     truncateCDMClockValue(helpers.ValueOrDefault(data.EffectiveTobt())),
+			Tobt:     normalizeViffCdmTime(helpers.ValueOrDefault(data.EffectiveTobt())),
 			Tsat:     tsat,
-			Ttot:     truncateCDMClockValue(helpers.ValueOrDefault(data.EffectiveTtot())),
+			Ttot:     normalizeViffCdmTime(helpers.ValueOrDefault(data.EffectiveTtot())),
 			Ctot:     truncateCDMClockValue(helpers.ValueOrDefault(data.EffectiveCtot())),
 			Reason:   helpers.ValueOrDefault(data.EcfmpID),
-			Asrt:     truncateCDMClockValue(helpers.ValueOrDefault(data.Asrt)),
+			Asrt:     normalizeViffCdmTime(helpers.ValueOrDefault(data.Asrt)),
 			DepInfo:  depInfo,
 		}
 		if err := s.client.IFPSSetCdmData(ctx, params); err != nil {
@@ -895,6 +965,14 @@ func (s *Service) pushViffAfterRecalcAsync(callsign string, strip *models.Strip,
 			)
 		}
 	}()
+}
+
+func normalizeViffCdmTime(value string) string {
+	value = normalizeCalculationClock(value)
+	if value == "" {
+		return ""
+	}
+	return toHHMMSS(value)
 }
 
 func isValidHHMM(value string) bool {

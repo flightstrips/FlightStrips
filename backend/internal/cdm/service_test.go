@@ -553,8 +553,8 @@ func TestPushViffAfterRecalcAsync_SendsSetCdmDataWhenTsatPresent(t *testing.T) {
 	defer server.Close()
 
 	tobt := "1525"
-	tsat := "1530"
-	ttot := "1540"
+	tsat := "153000"
+	ttot := "154000"
 	ecfmp := "REGUL"
 	data := &models.CdmData{
 		Tobt:    stringPtr(tobt),
@@ -568,13 +568,12 @@ func TestPushViffAfterRecalcAsync_SendsSetCdmDataWhenTsatPresent(t *testing.T) {
 		nil, nil, nil,
 	)
 
-
 	service.pushViffAfterRecalcAsync("BAW999", nil, data)
 
 	require.Eventually(t, func() bool {
 		select {
 		case q := <-setCdmCh:
-			return q.Get("tobt") == tobt && q.Get("tsat") == tsat && q.Get("ttot") == ttot && q.Get("reason") == ecfmp
+			return q.Get("tobt") == "152500" && q.Get("tsat") == tsat && q.Get("ttot") == ttot && q.Get("reason") == ecfmp
 		default:
 			return false
 		}
@@ -600,7 +599,6 @@ func TestPushViffAfterRecalcAsync_SendsSuspWhenPhaseInvalid(t *testing.T) {
 		NewClient(WithAPIKey("test-key"), WithBaseURL(server.URL)),
 		nil, nil, nil,
 	)
-
 
 	service.pushViffAfterRecalcAsync("EIN001", nil, data)
 
@@ -657,7 +655,6 @@ func TestSetSessionCdmMaster_True_UpdatesDBAndCachesAndRegistersMaster(t *testin
 
 	client := NewClient(WithAPIKey("test-key"), WithBaseURL(srv.URL))
 	service := NewCdmService(client, &testutil.MockStripRepository{}, sessionRepo, &testutil.MockControllerRepository{})
-
 
 	err := service.SetSessionCdmMaster(context.Background(), sessionID, true)
 	require.NoError(t, err)
@@ -722,7 +719,7 @@ func TestSetSessionCdmMaster_False_UpdatesDBAndRemovesFromCache(t *testing.T) {
 	require.Eventually(t, func() bool {
 		return gotClearCall != nil
 	}, time.Second, 10*time.Millisecond, "expected ClearMasterAirport HTTP call")
-	assert.Equal(t, "/airport/clearMaster", gotClearCall.path)
+	assert.Equal(t, "/airport/removeMaster", gotClearCall.path)
 	assert.Equal(t, DefaultMasterPosition, gotClearCall.position, "clearMaster should fall back to DefaultMasterPosition when no hub is set")
 }
 

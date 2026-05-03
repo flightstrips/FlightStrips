@@ -100,7 +100,7 @@ type DepartureRestriction struct {
 }
 
 func (c *Client) ClearMasterAirport(ctx context.Context, airport, position string) error {
-	_, err := c.doRequest(ctx, "POST", "/airport/clearMaster",
+	_, err := c.doRequest(ctx, "POST", "/airport/removeMaster",
 		map[string]string{
 			"airport":  airport,
 			"position": position,

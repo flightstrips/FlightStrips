@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.27.1](https://github.com/flightstrips/FlightStrips/compare/backend/v0.27.0...backend/v0.27.1) (2026-05-03)
+
+
+### Bug Fixes
+
+* **cdm:** recalculate on master enable ([17c479b](https://github.com/flightstrips/FlightStrips/commit/17c479b76527106924a61401b3a093c714214a7e))
+* **cdm:** sync master TSAT/TTOT exports to vIFF ([4a0fa2a](https://github.com/flightstrips/FlightStrips/commit/4a0fa2a6c28715b71e3f1278f7a1dfc3300e3efd))
+
 ## [0.27.0](https://github.com/flightstrips/FlightStrips/compare/backend/v0.26.0...backend/v0.27.0) (2026-05-01)
 
 

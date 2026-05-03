@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.34.1](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.34.0...frontend/v0.34.1) (2026-05-03)
+
+
+### Bug Fixes
+
+* **cdm:** display CDM times with leading zeroes ([43c3e41](https://github.com/flightstrips/FlightStrips/commit/43c3e418d3cda45beb060d3c6b50565148085ea0))
+* **strips:** display aircraft registration in flight plan dialog REG field ([d1d86b6](https://github.com/flightstrips/FlightStrips/commit/d1d86b64aaf42e7fb6f0ec8de1c3f094ffd8187f))
+
 ## [0.34.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.33.0...frontend/v0.34.0) (2026-05-01)
 
 

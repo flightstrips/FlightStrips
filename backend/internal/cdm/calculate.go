@@ -43,13 +43,7 @@ func Calculate(input CalcInput, slots []SlotEntry, config *CdmAirportConfig, now
 		return CalcResult{}
 	}
 
-	base := normalizeCalculationClock(input.Tobt)
-	if base == "" {
-		base = normalizeCalculationClock(input.ReqTobt)
-	}
-	if base == "" {
-		base = normalizeCalculationClock(input.Eobt)
-	}
+	base := selectCalculationBase(input)
 	if base == "" {
 		return CalcResult{}
 	}
@@ -125,13 +119,38 @@ func Calculate(input CalcInput, slots []SlotEntry, config *CdmAirportConfig, now
 	}
 }
 
+func selectCalculationBase(input CalcInput) string {
+	base := normalizeCalculationClock(input.Tobt)
+	if base == "" {
+		base = normalizeCalculationClock(input.ReqTobt)
+	}
+
+	eobt := normalizeCalculationClock(input.Eobt)
+	if base == "" {
+		return eobt
+	}
+	if eobt != "" && !isAfterOrEqual(base, eobt) {
+		return eobt
+	}
+
+	return base
+}
+
 func shouldInvalidateStaleTobt(input CalcInput, nowHHMMSS string) bool {
 	if hasStarted(input) {
 		return false
 	}
 
 	tobt := normalizeCalculationClock(input.Tobt)
-	return tobt != "" && isMoreThanMinutesPast(tobt, nowHHMMSS, 5)
+	if tobt == "" {
+		return false
+	}
+
+	if base := selectCalculationBase(input); base != "" && toHHMMSS(base) != toHHMMSS(tobt) {
+		return false
+	}
+
+	return isMoreThanMinutesPast(tobt, nowHHMMSS, 5)
 }
 
 func shouldInvalidateStaleTsat(input CalcInput, tsat string, nowHHMMSS string) bool {

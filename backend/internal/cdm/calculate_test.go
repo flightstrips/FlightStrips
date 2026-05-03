@@ -31,6 +31,20 @@ func TestCalculate_BaseTimeSelection(t *testing.T) {
 			expectedTtot: "101000",
 		},
 		{
+			name: "uses eobt as floor when later than tobt",
+			input: CalcInput{
+				Callsign: "SAS100B",
+				Origin:   "EKCH",
+				DepRwy:   "04L",
+				Eobt:     "1020",
+				Tobt:     "1000",
+				ReqTobt:  "1015",
+				TaxiMin:  10,
+			},
+			expectedTsat: "102000",
+			expectedTtot: "103000",
+		},
+		{
 			name: "uses requested tobt when tobt missing",
 			input: CalcInput{
 				Callsign: "SAS101",
@@ -42,6 +56,19 @@ func TestCalculate_BaseTimeSelection(t *testing.T) {
 			},
 			expectedTsat: "101500",
 			expectedTtot: "102500",
+		},
+		{
+			name: "uses eobt as floor when later than requested tobt",
+			input: CalcInput{
+				Callsign: "SAS101B",
+				Origin:   "EKCH",
+				DepRwy:   "04L",
+				Eobt:     "1020",
+				ReqTobt:  "1015",
+				TaxiMin:  10,
+			},
+			expectedTsat: "102000",
+			expectedTtot: "103000",
 		},
 		{
 			name: "falls back to eobt when no tobt exists",
@@ -434,6 +461,21 @@ func TestCalculate_ReturnsEmptyWhenTobtIsMoreThanFiveMinutesPastWithoutStartup(t
 	}, nil, NewDefaultAirportConfig("EKCH"), time.Date(2026, 3, 25, 10, 6, 0, 0, time.UTC))
 
 	assertClockResult(t, result, "", "")
+}
+
+func TestCalculate_DoesNotInvalidateStaleTobtWhenLaterEobtExists(t *testing.T) {
+	t.Parallel()
+
+	result := Calculate(CalcInput{
+		Callsign: "SAS468B",
+		Origin:   "EKCH",
+		DepRwy:   "04L",
+		Tobt:     "1000",
+		Eobt:     "1020",
+		TaxiMin:  10,
+	}, nil, NewDefaultAirportConfig("EKCH"), time.Date(2026, 3, 25, 10, 6, 0, 0, time.UTC))
+
+	assertClockResult(t, result, "102000", "103000")
 }
 
 func TestCalculate_ReturnsEmptyWhenTsatIsMoreThanFiveMinutesPastWithoutStartup(t *testing.T) {

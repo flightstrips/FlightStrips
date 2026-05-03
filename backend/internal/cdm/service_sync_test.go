@@ -4,7 +4,9 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"testing"
+	"time"
 
 	"FlightStrips/internal/models"
 	"FlightStrips/internal/testutil"
@@ -316,3 +318,64 @@ func TestSyncCdmData_MasterSession_DoesNotSyncTsatFromAPI(t *testing.T) {
 	}
 }
 
+func TestSyncCdmData_MasterSession_PushesLocalTimesToViffWhenApiDiffers(t *testing.T) {
+	const sessionID = int32(81)
+	const callsign = "SAS131"
+
+	setCdmCh := make(chan url.Values, 1)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/ifps/depAirport":
+			_, _ = w.Write([]byte(`[{
+				"callsign":"SAS131",
+				"departure":"EKCH",
+				"eobt":"1000",
+				"tobt":"1010",
+				"ctot":"",
+				"cdmSts":"STUP",
+				"cdmData":{"tsat":"","ttot":"","reason":""}
+			}]`))
+		case "/ifps/setCdmData":
+			setCdmCh <- r.URL.Query()
+			w.WriteHeader(http.StatusOK)
+		default:
+			t.Fatalf("unexpected path %s", r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	local := (&models.CdmData{
+		Tobt: testStringPtr("1010"),
+		Tsat: testStringPtr("101500"),
+		Ttot: testStringPtr("102500"),
+	}).Normalize()
+
+	service := NewCdmService(
+		NewClient(WithAPIKey("test-key"), WithBaseURL(server.URL)),
+		&testutil.MockStripRepository{
+			GetCdmDataFn: func(context.Context, int32) ([]*models.CdmDataRow, error) {
+				return []*models.CdmDataRow{{Callsign: callsign, Data: local.Clone()}}, nil
+			},
+			GetByCallsignFn: func(context.Context, int32, string) (*models.Strip, error) {
+				return &models.Strip{Callsign: callsign, Runway: testStringPtr("22R")}, nil
+			},
+		},
+		&testutil.MockSessionRepository{},
+		&testutil.MockControllerRepository{},
+	)
+	service.sessionMaster.Store(sessionID, true)
+
+	err := service.syncCdmData(context.Background(), &models.Session{ID: sessionID, Airport: "EKCH"})
+	if err != nil {
+		t.Fatalf("syncCdmData returned error: %v", err)
+	}
+
+	select {
+	case q := <-setCdmCh:
+		if q.Get("callsign") != callsign || q.Get("tobt") != "101000" || q.Get("tsat") != "101500" || q.Get("ttot") != "102500" || q.Get("depInfo") != "22R" {
+			t.Fatalf("unexpected setCdmData payload: %v", q)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("expected master sync to push local CDM data to vIFF")
+	}
+}

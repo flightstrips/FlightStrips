@@ -671,6 +671,54 @@ func TestSetSessionCdmMaster_True_UpdatesDBAndCachesAndRegistersMaster(t *testin
 	}, time.Second, 10*time.Millisecond, "expected master registration HTTP call")
 }
 
+func TestSetSessionCdmMaster_True_TriggersImmediateRecalculate(t *testing.T) {
+	const sessionID = int32(79)
+	const airport = "EKCH"
+
+	recalcTriggered := make(chan struct{}, 1)
+	stripRepo := &testutil.MockStripRepository{
+		ListByOriginFn: func(_ context.Context, gotSession int32, gotAirport string) ([]*models.Strip, error) {
+			assert.Equal(t, sessionID, gotSession)
+			assert.Equal(t, airport, gotAirport)
+			select {
+			case recalcTriggered <- struct{}{}:
+			default:
+			}
+			return nil, nil
+		},
+	}
+	sessionRepo := &testutil.MockSessionRepository{
+		UpdateCdmMasterFn: func(_ context.Context, id int32, master bool) error {
+			assert.Equal(t, sessionID, id)
+			assert.True(t, master)
+			return nil
+		},
+		GetByIDFn: func(_ context.Context, id int32) (*models.Session, error) {
+			return &models.Session{ID: id, Name: "LIVE", Airport: airport}, nil
+		},
+	}
+
+	service := NewCdmService(newTestClientWithAirportMasters(nil), stripRepo, sessionRepo, &testutil.MockControllerRepository{})
+	service.client.isValid = false
+	service.debouncer = newRecalcDebouncer(time.Millisecond)
+	service.SetSequenceService(NewSequenceService(
+		stripRepo,
+		sessionRepo,
+		&stubConfigProvider{},
+		&testutil.MockFrontendHub{},
+		&testutil.MockEuroscopeHub{},
+	))
+
+	err := service.SetSessionCdmMaster(context.Background(), sessionID, true)
+	require.NoError(t, err)
+
+	select {
+	case <-recalcTriggered:
+	case <-time.After(time.Second):
+		t.Fatal("expected SetSessionCdmMaster(true) to trigger an immediate recalculation")
+	}
+}
+
 func TestSetSessionCdmMaster_False_UpdatesDBAndRemovesFromCache(t *testing.T) {
 	const sessionID = int32(78)
 	const airport = "EKCH"

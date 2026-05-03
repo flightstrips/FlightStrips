@@ -104,6 +104,7 @@ func (s *Service) SetSessionCdmMaster(ctx context.Context, sessionID int32, mast
 		sess, err := s.sessionRepo.GetByID(ctx, sessionID)
 		if err == nil && sess != nil {
 			s.registerMasterAsync(sessionID, sess.Airport)
+			s.TriggerRecalculate(ctx, sessionID, sess.Airport)
 		}
 	} else {
 		s.sessionMaster.Delete(sessionID)

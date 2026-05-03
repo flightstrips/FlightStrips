@@ -9,6 +9,7 @@ import { HdgSelectDialog } from "@/components/strip/HdgSelectDialog";
 import { AltSelectDialog } from "@/components/strip/AltSelectDialog";
 import { RunwayDialog } from "@/components/strip/RunwayDialog";
 import { scalePx } from "@/lib/viewportScale";
+import { normalizeCdmTime } from "@/lib/cdmTime";
 
 // Exactly mirrors FlightPlanDialog constants
 const FONT_FAMILY      = "Arial";
@@ -88,7 +89,7 @@ export function NewIfrDialog({ open, onOpenChange, initialCallsign = "" }: Props
     if (strip.destination)        setAdes(strip.destination);
     if (strip.sid)                setSid(strip.sid);
     if (strip.assigned_squawk)    setSsr(strip.assigned_squawk);
-    if (strip.eobt)               setEobt(strip.eobt);
+    if (strip.eobt)               setEobt(normalizeCdmTime(strip.eobt));
     if (strip.aircraft_type)      setAircraftType(strip.aircraft_type);
     if (strip.requested_altitude) setFl(String(Math.round(strip.requested_altitude / 100)));
     if (strip.route)              setRoute(strip.route);
@@ -110,7 +111,7 @@ export function NewIfrDialog({ open, onOpenChange, initialCallsign = "" }: Props
       ades.trim().toUpperCase(),
       sid.trim().toUpperCase(),
       ssr.trim(),
-      eobt.trim(),
+      normalizeCdmTime(eobt.trim()),
       aircraftType.trim().toUpperCase(),
       fl.trim(),
       route.trim().toUpperCase(),

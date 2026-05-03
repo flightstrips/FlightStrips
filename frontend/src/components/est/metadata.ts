@@ -1,4 +1,5 @@
 import type { FrontendStrip } from "@/api/models";
+import { normalizeCdmTime } from "@/lib/cdmTime";
 
 export type EstView = "MAIN" | "CARGO";
 export type EstViewButtonId = "HANGAR" | "CARGO" | "TWY_C";
@@ -262,12 +263,14 @@ export function getBridgeStatus(stand: string): string | null {
 }
 
 function parseCompactTime(value: string) {
-  if (!/^\d{4}$/.test(value)) {
+  const normalizedValue = normalizeCdmTime(value);
+
+  if (normalizedValue.length !== 4) {
     return null;
   }
 
-  const hours = Number.parseInt(value.slice(0, 2), 10);
-  const minutes = Number.parseInt(value.slice(2), 10);
+  const hours = Number.parseInt(normalizedValue.slice(0, 2), 10);
+  const minutes = Number.parseInt(normalizedValue.slice(2), 10);
 
   if (Number.isNaN(hours) || Number.isNaN(minutes)) {
     return null;

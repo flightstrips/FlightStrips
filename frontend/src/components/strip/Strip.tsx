@@ -13,6 +13,7 @@ import { TacticalMemaidStrip } from "./TacticalMemaidStrip";
 import { TacticalCrossingStrip } from "./TacticalCrossingStrip";
 import { TacticalRwyStrip } from "./TacticalRwyStrip";
 import type { HalfStripVariant, StripProps, StripStatus } from "./types";
+import { normalizeCdmTime } from "@/lib/cdmTime";
 
 export type { StripStatus };
 export type { StripProps };
@@ -66,10 +67,10 @@ export function Strip({ strip, status, halfStripVariant, myPosition, selectable,
     destination: strip.destination,
     origin: strip.origin,
     stand: strip.stand,
-    eobt: strip.eobt,
-    tobt: strip.tobt,
-    tsat: strip.tsat,
-    ctot: strip.ctot,
+    eobt: normalizeCdmTime(strip.eobt),
+    tobt: normalizeCdmTime(strip.tobt),
+    tsat: normalizeCdmTime(strip.tsat),
+    ctot: normalizeCdmTime(strip.ctot),
     aircraftType: strip.aircraft_type,
     aircraftCategory: strip.aircraft_category,
     squawk: strip.squawk,

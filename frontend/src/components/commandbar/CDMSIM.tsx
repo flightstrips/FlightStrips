@@ -9,6 +9,7 @@ import { useSelectedCallsign } from "@/store/store-hooks";
 import { WebSocketStoreContext } from "@/store/store-context";
 import { CLS_CMDBTN } from "@/components/strip/shared";
 import type { WebSocketState } from "@/store/store";
+import { normalizeCdmTime } from "@/lib/cdmTime";
 
 const toHHMM = (ms: number) => {
   const d = new Date(ms);
@@ -84,10 +85,14 @@ export default function CDMSIM() {
     const updater = produce<WebSocketState>((draft) => {
       const idx = draft.strips.findIndex(s => s.callsign === selectedCallsign);
       if (idx === -1) return;
-      if (isValidHHMM(manualEobt)) draft.strips[idx].eobt = manualEobt;
-      if (isValidHHMM(manualTobt)) draft.strips[idx].tobt = manualTobt;
-      if (isValidHHMM(manualTsat)) draft.strips[idx].tsat = manualTsat;
-      if (isValidHHMM(manualCtot)) draft.strips[idx].ctot = manualCtot;
+      const nEobt = normalizeCdmTime(manualEobt);
+      const nTobt = normalizeCdmTime(manualTobt);
+      const nTsat = normalizeCdmTime(manualTsat);
+      const nCtot = normalizeCdmTime(manualCtot);
+      if (isValidHHMM(nEobt)) draft.strips[idx].eobt = nEobt;
+      if (isValidHHMM(nTobt)) draft.strips[idx].tobt = nTobt;
+      if (isValidHHMM(nTsat)) draft.strips[idx].tsat = nTsat;
+      if (isValidHHMM(nCtot)) draft.strips[idx].ctot = nCtot;
     });
     storeCtx.setState(updater);
     setOpen(false);

@@ -1,4 +1,5 @@
 import { Bay } from "@/api/models";
+import { normalizeCdmTime } from "@/lib/cdmTime";
 
 const MINUTE_MS = 60_000;
 
@@ -12,10 +13,14 @@ export const CTOT_BLUE   = "#00008B";
 
 // ── HHMM parser ────────────────────────────────────────────────────────────
 
-/** Parse a HHMM string into epoch ms relative to refMs, rolling over midnight if needed. */
+/**
+ * Parse a normalized HHMM string into epoch ms relative to refMs, rolling over
+ * midnight if needed. Callers are expected to pass valid HHMM values.
+ */
 function parseHHMM(hhmm: string, refMs: number): number {
-  const h = parseInt(hhmm.slice(0, 2), 10);
-  const m = parseInt(hhmm.slice(2, 4), 10);
+  const normalizedTime = normalizeCdmTime(hhmm);
+  const h = parseInt(normalizedTime.slice(0, 2), 10);
+  const m = parseInt(normalizedTime.slice(2, 4), 10);
   const d = new Date(refMs);
   d.setUTCHours(h, m, 0, 0);
   if (refMs - d.getTime() > 12 * 60 * 60 * 1000) d.setUTCDate(d.getUTCDate() + 1);
@@ -47,11 +52,14 @@ export function computeCDMColors(
   nowMs: number,
   bay?: Bay,
 ): CDMColors {
-  if (!tsat) return { tobtBg: "", tsatBg: "" };
+  const normalizedTsat = normalizeCdmTime(tsat);
+  const normalizedTobt = normalizeCdmTime(tobt);
+
+  if (!normalizedTsat) return { tobtBg: "", tsatBg: "" };
   if (bay !== Bay.NotCleared && bay !== Bay.Cleared) return { tobtBg: "", tsatBg: "" };
 
-  const tsatMs = parseHHMM(tsat, nowMs);
-  const tobtMs = tobt ? parseHHMM(tobt, nowMs) : null;
+  const tsatMs = parseHHMM(normalizedTsat, nowMs);
+  const tobtMs = normalizedTobt ? parseHHMM(normalizedTobt, nowMs) : null;
   const diffMs = nowMs - tsatMs;
 
   if (diffMs > 5 * MINUTE_MS)  return { tobtBg: CDM_RED,    tsatBg: ""          };
@@ -80,9 +88,11 @@ export interface CTOTColors {
  *   - now > CTOT + 10 min              → transparent, hidden
  */
 export function computeCTOTColors(ctot: string, nowMs: number): CTOTColors {
-  if (!ctot) return { ctotBg: "", ctotColor: "black", showCtot: false };
+  const normalizedCtot = normalizeCdmTime(ctot);
 
-  const ctotMs = parseHHMM(ctot, nowMs);
+  if (!normalizedCtot) return { ctotBg: "", ctotColor: "black", showCtot: false };
+
+  const ctotMs = parseHHMM(normalizedCtot, nowMs);
   const diffMs = nowMs - ctotMs;
 
   if (diffMs < -5 * MINUTE_MS)  return { ctotBg: CTOT_YELLOW, ctotColor: "black", showCtot: true };

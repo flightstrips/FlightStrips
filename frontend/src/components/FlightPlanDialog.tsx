@@ -16,6 +16,7 @@ import { RnavSelectDialog } from "@/components/strip/RnavSelectDialog";
 import { useAvailableSids, useInitialCflByRunway, useStrip, useTransitionAltitude, useWebSocketStore } from "@/store/store-hooks.ts";
 import { scalePx } from "@/lib/viewportScale";
 import { buildRnavUpdate, type RnavCapability } from "@/lib/rnav";
+import { normalizeCdmTime } from "@/lib/cdmTime";
 
 const FONT_FAMILY = "Arial";
 const FONT_SIZE_FIELD = scalePx(20);
@@ -150,13 +151,18 @@ export default function FlightPlanDialog({
   const dialogOpen = open ?? internalOpen;
   const setDialogOpen = onOpenChange ?? setInternalOpen;
 
+  const displayedEobt = normalizeCdmTime(strip?.eobt);
+  const displayedTobt = normalizeCdmTime(strip?.tobt);
+  const displayedTsat = normalizeCdmTime(strip?.tsat);
+  const displayedCtot = normalizeCdmTime(strip?.ctot);
+
   const [sidDialogOpen, setSidDialogOpen] = useState(false);
   const [rnavDialogOpen, setRnavDialogOpen] = useState(false);
   const [rwyDialogOpen, setRwyDialogOpen] = useState(false);
   const availableSids = useAvailableSids();
   const [ssrGenerating, setSsrGenerating] = useState(false);
   const [standOpen, setStandOpen] = useState(false);
-  const [eobt, setEobt, _eobtFocused, setEobtFocused] = useEditableField(strip?.eobt);
+  const [eobt, setEobt, _eobtFocused, setEobtFocused] = useEditableField(displayedEobt);
 
   // Clear SSR loading state when the backend updates assigned_squawk
   const prevSquawkRef = useRef(strip?.assigned_squawk);
@@ -168,6 +174,7 @@ export default function FlightPlanDialog({
   const [hdgDialogOpen, setHdgDialogOpen] = useState(false);
   const [altDialogOpen, setAltDialogOpen] = useState(false);
   const defaultClearedAltitude = strip?.runway ? initialCflByRunway[strip.runway] : undefined;
+  const commitEobt = () => updateStrip(callsign, { eobt: normalizeCdmTime(eobt) });
   const sidFault = hasClxFieldFault(strip, "sid");
   const runwayFault = hasClxFieldFault(strip, "runway");
   const rnavFault = hasClxFieldFault(strip, "rnav");
@@ -315,7 +322,7 @@ export default function FlightPlanDialog({
             <div className="grid items-center" style={gridGroupStyle}>
               <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>CTOT</Label>
               <input
-                value={strip.ctot}
+                value={displayedCtot}
                 disabled
                 className={CLS_BTN_DISABLED_BDR}
                 style={fieldStyle(100)}
@@ -333,9 +340,9 @@ export default function FlightPlanDialog({
                   onFocus={() => setEobtFocused(true)}
                   onBlur={() => {
                     setEobtFocused(false);
-                    updateStrip(callsign, { eobt });
+                    commitEobt();
                   }}
-                  onKeyDown={(event) => event.key === "Enter" && updateStrip(callsign, { eobt })}
+                  onKeyDown={(event) => event.key === "Enter" && commitEobt()}
                   className={CLS_BTN_EDITABLE}
                   style={{ ...fieldStyle(100), ...clxFieldStyle(eobtFault) }}
                 />
@@ -350,13 +357,13 @@ export default function FlightPlanDialog({
                   className={CLS_BTN_DISABLED}
                   style={{ ...fieldStyle(100), ...clxFieldStyle(tobtFault), cursor: tobtFault ? "pointer" : undefined }}
                 >
-                  {strip.tobt}
+                  {displayedTobt}
                 </button>
               </div>
               <div className="grid items-center" style={gridGroupStyle}>
                 <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>TSAT</Label>
                 <Input
-                  value={strip.tsat}
+                  value={displayedTsat}
                   disabled
                   className={CLS_BTN_DISABLED}
                   style={fieldStyle(100)}

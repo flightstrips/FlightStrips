@@ -54,6 +54,7 @@ import {
   type ValidationAttemptedAction,
   type ValidationEditableField,
 } from "@/lib/validation-status";
+import { normalizeCdmTime } from "@/lib/cdmTime";
 import { toast } from "sonner";
 
 const KNOWN_LAYOUTS = new Set(["CLX", "AAAD", "AA", "AD", "EST", "GEGW", "TWTE", "TWRGND"]);
@@ -348,10 +349,11 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     },
     updateStrip(callsign: string, update: UpdateStrip) {
       const fields = updateStripFieldsFromPayload(update);
+      const normalizedEobt = update.eobt === undefined ? undefined : normalizeCdmTime(update.eobt);
       if (!sendGuardedStripEvent(callsign, { type: "update_strip", fields }, {
         type: ActionType.FrontendUpdateStripData,
         callsign,
-        eobt: update.eobt,
+        eobt: normalizedEobt,
         route: update.route,
         sid: update.sid,
         heading: update.heading,
@@ -372,7 +374,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
               draft.strips[stripIndex].sid = update.sid;
             }
             if (update.eobt !== undefined) {
-              draft.strips[stripIndex].eobt = update.eobt;
+              draft.strips[stripIndex].eobt = normalizeCdmTime(update.eobt);
             }
             if (update.route !== undefined) {
               draft.strips[stripIndex].route = update.route;
@@ -630,7 +632,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
       sendIfWritable({ type: ActionType.FrontendUpdateRunwayStatus, pair, status });
     },
     createManualFPL: (callsign, ades, sid, ssr, eobt, aircraftType, fl, route, stand, rwyDep) => {
-      sendIfWritable({ type: ActionType.FrontendCreateManualFPL, callsign, ades, sid, ssr, eobt, aircraft_type: aircraftType, fl, route, stand, rwy_dep: rwyDep });
+      sendIfWritable({ type: ActionType.FrontendCreateManualFPL, callsign, ades, sid, ssr, eobt: normalizeCdmTime(eobt), aircraft_type: aircraftType, fl, route, stand, rwy_dep: rwyDep });
     },
     createVFRFPL: (callsign, aircraftType, personsOnBoard, ssr, fplType, language, remarks) => {
       sendIfWritable({ type: ActionType.FrontendCreateVFRFPL, callsign, aircraft_type: aircraftType, persons_on_board: personsOnBoard, ssr, fpl_type: fplType, language, remarks });
@@ -704,7 +706,13 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     store.setState(
       produce((state: WebSocketState) => {
         state.controllers = data.controllers;
-        state.strips = data.strips;
+        state.strips = data.strips.map(strip => ({
+          ...strip,
+          eobt: normalizeCdmTime(strip.eobt),
+          tobt: normalizeCdmTime(strip.tobt),
+          tsat: normalizeCdmTime(strip.tsat),
+          ctot: normalizeCdmTime(strip.ctot),
+        }));
         state.tacticalStrips = data.tactical_strips ?? [];
         state.position = data.me.position;
         state.identifier = data.me.identifier;
@@ -750,11 +758,21 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
         if (stripIndex !== -1) {
           // Update existing strip
           state.strips[stripIndex] = {
-            ...data
+            ...data,
+            eobt: normalizeCdmTime(data.eobt),
+            tobt: normalizeCdmTime(data.tobt),
+            tsat: normalizeCdmTime(data.tsat),
+            ctot: normalizeCdmTime(data.ctot),
           };
         } else {
           // Add new strip
-          state.strips.push(data);
+          state.strips.push({
+            ...data,
+            eobt: normalizeCdmTime(data.eobt),
+            tobt: normalizeCdmTime(data.tobt),
+            tsat: normalizeCdmTime(data.tsat),
+            ctot: normalizeCdmTime(data.ctot),
+          });
         }
       })
     );
@@ -1006,10 +1024,10 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
       produce((state: WebSocketState) => {
         const stripIndex = state.strips.findIndex(strip => strip.callsign === data.callsign);
         if (stripIndex !== -1) {
-          state.strips[stripIndex].tobt = data.tobt
-          state.strips[stripIndex].eobt = data.eobt
-          state.strips[stripIndex].tsat = data.tsat
-          state.strips[stripIndex].ctot = data.ctot
+          state.strips[stripIndex].tobt = normalizeCdmTime(data.tobt)
+          state.strips[stripIndex].eobt = normalizeCdmTime(data.eobt)
+          state.strips[stripIndex].tsat = normalizeCdmTime(data.tsat)
+          state.strips[stripIndex].ctot = normalizeCdmTime(data.ctot)
         }
       })
     )

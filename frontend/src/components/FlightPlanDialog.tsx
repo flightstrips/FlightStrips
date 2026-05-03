@@ -559,7 +559,7 @@ export default function FlightPlanDialog({
             <div className="grid items-center" style={gridGroupStyle}>
               <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>REG</Label>
               <Input
-                defaultValue=""
+                value={strip.registration ?? ""}
                 disabled
                 className={CLS_BTN_DISABLED}
                 style={fieldStyle(125)}

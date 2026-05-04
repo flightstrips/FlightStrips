@@ -14,7 +14,6 @@ type UpdateState = {
 type UpdateListener = (state: UpdateState) => void;
 
 const listeners = new Set<UpdateListener>();
-const initialDeploymentVersion = window.__APP_CONFIG__?.deploymentVersion?.trim() ?? "";
 
 let currentState: UpdateState = {
   available: false,
@@ -24,6 +23,7 @@ let monitoringStarted = false;
 let forcedReloadScheduled = false;
 let forcedReloadInProgress = false;
 let serviceWorkerUpdateReady = false;
+let observedDeploymentVersion: string | null = null;
 let updateServiceWorker: ((reloadPage?: boolean) => Promise<void>) | null = null;
 
 function emitState() {
@@ -68,10 +68,6 @@ async function forceAppReload() {
 }
 
 async function checkDeploymentVersion() {
-  if (!initialDeploymentVersion) {
-    return;
-  }
-
   try {
     const response = await fetch(VERSION_ENDPOINT, { cache: "no-store" });
     if (!response.ok) {
@@ -84,7 +80,17 @@ async function checkDeploymentVersion() {
       ? payload.deploymentVersion.trim()
       : "";
 
-    if (latestDeploymentVersion && latestDeploymentVersion !== initialDeploymentVersion) {
+    if (!latestDeploymentVersion) {
+      return;
+    }
+
+    if (!observedDeploymentVersion) {
+      observedDeploymentVersion = latestDeploymentVersion;
+      return;
+    }
+
+    if (latestDeploymentVersion !== observedDeploymentVersion) {
+      observedDeploymentVersion = latestDeploymentVersion;
       markUpdateAvailable("deployment-version");
     }
   } catch (error) {
@@ -93,10 +99,6 @@ async function checkDeploymentVersion() {
 }
 
 function startDeploymentVersionMonitoring() {
-  if (!initialDeploymentVersion) {
-    return;
-  }
-
   const checkWhenVisible = () => {
     if (document.visibilityState === "visible") {
       void checkDeploymentVersion();

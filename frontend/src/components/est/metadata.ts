@@ -205,7 +205,10 @@ export function isCargoStand(stand: string) {
 
 // Cargo apron stand positions — EST board coordinates (SVG design coords minus 40 px board margin)
 const CARGO_VIEW_STANDS: EstCanvasStand[] = [
-  // Top row — G120–G137 left to right
+  // Top row — G117–G137 left to right
+  { label: 'G117', x: 211,  y: 27,  left: 211,  top: 27  },
+  { label: 'G118', x: 301,  y: 64,  left: 301,  top: 64  },
+  { label: 'G119', x: 391,  y: 27,  left: 391,  top: 27  },
   { label: 'G120', x: 501,  y: 27,  left: 501,  top: 27  },
   { label: 'G121', x: 591,  y: 64,  left: 591,  top: 64  },
   { label: 'G122', x: 681,  y: 27,  left: 681,  top: 27  },

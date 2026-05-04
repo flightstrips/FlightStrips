@@ -705,7 +705,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     wsClient.setReadOnly(data.read_only ?? false);
     store.setState(
       produce((state: WebSocketState) => {
-        state.controllers = data.controllers;
+        state.controllers = data.controllers.map(c => ({ ...c, owned_sectors: c.owned_sectors ?? [] }));
         state.strips = data.strips.map(strip => ({
           ...strip,
           eobt: normalizeCdmTime(strip.eobt),

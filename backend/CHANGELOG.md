@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.28.0](https://github.com/flightstrips/FlightStrips/compare/backend/v0.27.1...backend/v0.28.0) (2026-05-04)
+
+
+### Features
+
+* **obs:** track and display master EuroScope client ([7c58fe1](https://github.com/flightstrips/FlightStrips/commit/7c58fe1299c06b039145e331559bab6552eee85e))
+
+
+### Bug Fixes
+
+* **pdc:** restrict request validations to NOT_CLEARED bay ([b434d5e](https://github.com/flightstrips/FlightStrips/commit/b434d5ee4b914705695deddcc4d5a14d03f78473))
+* **pdc:** suppress Hoppie standby for auto-cleared requests ([310f80f](https://github.com/flightstrips/FlightStrips/commit/310f80fc4127361fb32ddcdf9e8052db8bd8bd96))
+* **routes:** correct pathing to high alpha stands ([21aa358](https://github.com/flightstrips/FlightStrips/commit/21aa358aa25f5878b4d7313e36f7e45def5c28f7))
+
 ## [0.27.1](https://github.com/flightstrips/FlightStrips/compare/backend/v0.27.0...backend/v0.27.1) (2026-05-03)
 
 

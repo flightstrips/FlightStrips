@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.34.2](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.34.1...frontend/v0.34.2) (2026-05-04)
+
+
+### Features
+
+* Added G117 thru G119 ([8c342b3](https://github.com/flightstrips/FlightStrips/commit/8c342b317e530adb9668d724d3bf7d0e211f86e1))
+
+
+### Bug Fixes
+
+* F stands are not CARGO ([25861d5](https://github.com/flightstrips/FlightStrips/commit/25861d5f041490b6e4db1e3b3cf32549de2378df))
+* **frontend:** prevent reload loop after deployments ([b22a332](https://github.com/flightstrips/FlightStrips/commit/b22a3328c9c9159aaf37c5318c958e1ad758d02d))
+* Ghost stands on cargo view removed ([058d8cf](https://github.com/flightstrips/FlightStrips/commit/058d8cf0c5637061fb10dea10e1ab8e4fdd8936f))
+* ormalizes owned_sectors to [], resolves broken SEQ PLN view ([07576aa](https://github.com/flightstrips/FlightStrips/commit/07576aa3f7a99955aaab6fd517997e39e4d4b085))
+* **stand:** default cargo view only for cargo stands ([03d6cf8](https://github.com/flightstrips/FlightStrips/commit/03d6cf8bf97b311328b2629d066d6b0df5198ab9))
+* **startup:** align startup bay ordering with pushback ([91ecf41](https://github.com/flightstrips/FlightStrips/commit/91ecf410e61ca05125ab045582fc4180f8a1f021))
+* **strips:** preserve top drop space in filled bays ([c01bf47](https://github.com/flightstrips/FlightStrips/commit/c01bf47d0c4d031e577887f817686e6d87d603f1))
+
 ## [0.34.1](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.34.0...frontend/v0.34.1) (2026-05-03)
 
 

@@ -29,38 +29,82 @@ bool FlightStrips::Loader::ShouldUpdate(const std::string &latestVersion) const 
     return currentVersion != latestVersion;
 }
 
-bool FlightStrips::Loader::Update(std::string latestVersion) const {
+FlightStrips::Loader::UpdateResult FlightStrips::Loader::Update(const std::string &latestVersion) const {
     Logger::Info("Updating plugin to version {}", latestVersion);
 
     // Show dialog FIRST — no file operations until the user accepts
     if (const auto result = MessageBox(GetActiveWindow(),
         L"Updating the FlightStrips plugin. This will download the latest version of FlightStrips.\r\n\r\nSelect OK to continue.",
-        L"FlightStrips", MB_OKCANCEL | MB_ICONINFORMATION); result != IDOK) return false;
+        L"FlightStrips", MB_OKCANCEL | MB_ICONINFORMATION); result != IDOK) {
+        Logger::Info("User rejected plugin update to version {}", latestVersion);
+        return UpdateResult::UserRejected;
+    }
 
-    // User accepted — rename live files to .old
-    fileSystem->Rename(pluginDLL, pluginDLLOld);
-    fileSystem->Rename(config, configOld);
+    bool pluginDllBackedUp = false;
+    bool configBackedUp = false;
+
+    const auto backupFile = [&](const std::string& currentFile, const std::string& backupFile, bool& backupCreated) {
+        backupCreated = false;
+        if (!fileSystem->DoesExist(currentFile)) {
+            return true;
+        }
+
+        fileSystem->DeleteFileIfExists(backupFile);
+        if (!fileSystem->Rename(currentFile, backupFile)) {
+            Logger::Error("Failed to back up {} to {}", currentFile, backupFile);
+            return false;
+        }
+
+        backupCreated = true;
+        return true;
+    };
+
+    const auto restoreBackups = [&] {
+        if (pluginDllBackedUp) {
+            fileSystem->DeleteFileIfExists(pluginDLL);
+            if (!fileSystem->Rename(pluginDLLOld, pluginDLL)) {
+                Logger::Error("Failed to restore {}", pluginDLL);
+            }
+        }
+
+        if (configBackedUp) {
+            fileSystem->DeleteFileIfExists(config);
+            if (!fileSystem->Rename(configOld, config)) {
+                Logger::Error("Failed to restore {}", config);
+            }
+        }
+    };
+
+    if (!backupFile(pluginDLL, pluginDLLOld, pluginDllBackedUp)) {
+        return UpdateResult::Failed;
+    }
+
+    if (!backupFile(config, configOld, configBackedUp)) {
+        restoreBackups();
+        return UpdateResult::Failed;
+    }
 
     // Download new DLL
     auto downloadUrl = std::format(downloadUrlTemplate, latestVersion, pluginDLL);
     if (!http::Http::DownloadFile(downloadUrl, fileSystem->GetLocalFilePath(pluginDLL).string())) {
         Logger::Error("Failed to download plugin dll from {}", downloadUrl);
-        fileSystem->Rename(pluginDLLOld, pluginDLL);
-        fileSystem->Rename(configOld, config);
-        return false;
+        fileSystem->DeleteFileIfExists(pluginDLL);
+        restoreBackups();
+        return UpdateResult::Failed;
     }
 
     // Download new config
     downloadUrl = std::format(downloadUrlTemplate, latestVersion, config);
     if (!http::Http::DownloadFile(downloadUrl, fileSystem->GetLocalFilePath(config).string())) {
         Logger::Error("Failed to download config file from {}", downloadUrl);
-        fileSystem->DeleteFileIfExists(fileSystem->GetLocalFilePath(pluginDLL).string());
-        fileSystem->Rename(pluginDLLOld, pluginDLL);
-        fileSystem->Rename(configOld, config);
-        return false;
+        fileSystem->DeleteFileIfExists(pluginDLL);
+        fileSystem->DeleteFileIfExists(config);
+        restoreBackups();
+        return UpdateResult::Failed;
     }
 
-    return true;
+    Logger::Info("Successfully updated plugin to version {}", latestVersion);
+    return UpdateResult::Success;
 }
 
 HINSTANCE FlightStrips::Loader::LoadPluginDll() const {

@@ -9,6 +9,21 @@
 HINSTANCE loaderDllInstance;
 HINSTANCE pluginDllInstance;
 
+namespace {
+    void ShowUpdateResultMessage(const FlightStrips::Loader::UpdateResult result) {
+        switch (result) {
+            case FlightStrips::Loader::UpdateResult::Failed:
+                MessageBox(GetActiveWindow(), L"FlightStrips failed to update and will not start. Please contact the FlightStrips developers and inspect the logs.", L"FlightStrips Error", MB_OK | MB_ICONERROR);
+                return;
+            case FlightStrips::Loader::UpdateResult::UserRejected:
+                MessageBox(GetActiveWindow(), L"FlightStrips update was cancelled. The plugin will not be loaded.", L"FlightStrips", MB_OK | MB_ICONWARNING);
+                return;
+            case FlightStrips::Loader::UpdateResult::Success:
+                return;
+        }
+    }
+}
+
 
 [[maybe_unused]] auto __stdcall DllMain(HINSTANCE hinstance, [[maybe_unused]] DWORD dwReason, [[maybe_unused]] LPVOID lpvReserved) -> BOOL
 {
@@ -35,8 +50,13 @@ EuroScopePlugInInit(EuroScopePlugIn::CPlugIn** ppPlugInInstance)
         const auto loader = FlightStrips::Loader{fileSystem};
 
         if (const auto latestVersion = FlightStrips::Loader::GetLatestPluginVersion(); loader.ShouldUpdate(latestVersion)) {
-            if (!loader.Update(latestVersion)) {
-                MessageBox(GetActiveWindow(), L"Failed to update FlightStrips plugin! Please contact the FlightStrips developers!", L"FlightStrips Error", MB_OK | MB_ICONERROR);
+            const auto updateResult = loader.Update(latestVersion);
+
+            if (updateResult != FlightStrips::Loader::UpdateResult::Success) {
+                ShowUpdateResultMessage(updateResult);
+                pluginDllInstance = nullptr;
+                Logger::Shutdown();
+                return;
             }
         }
 

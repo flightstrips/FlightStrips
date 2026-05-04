@@ -6,10 +6,16 @@ namespace FlightStrips {
     class Loader {
 
     public:
+        enum class UpdateResult {
+            Success,
+            Failed,
+            UserRejected,
+        };
+
         explicit Loader(const std::shared_ptr<filesystem::FileSystem>& fileSystem) : fileSystem(fileSystem) {}
 
         [[nodiscard]] bool ShouldUpdate(const std::string &latestVersion) const;
-        [[nodiscard]] bool Update(std::string latestVersion) const;
+        [[nodiscard]] UpdateResult Update(const std::string &latestVersion) const;
         [[nodiscard]] HINSTANCE LoadPluginDll() const;
 
         static EuroScopePlugIn::CPlugIn* GetPluginInstance(HINSTANCE pluginInstance);

@@ -431,7 +431,7 @@ export default function EST() {
               transform: `scale(${boardScale})`,
             }}
           >
-            {EST_BACKGROUND_BOXES.map((box) => (
+            {boardView !== "CARGO" && EST_BACKGROUND_BOXES.map((box) => (
               <div
                 key={`${box.x}-${box.y}-${box.width}-${box.height}`}
                 className="absolute flex items-center justify-center font-bold"

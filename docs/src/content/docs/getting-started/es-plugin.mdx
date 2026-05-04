@@ -1,0 +1,39 @@
+---
+title: EuroScope plugin
+description: Install the FlightStrips EuroScope plugin manually — for pre-release testing only.
+---
+
+import { Steps } from '@astrojs/starlight/components';
+
+:::note
+If your vACC has FlightStrips in production, the plugin is already included in your sector file package — you do not need to follow this guide.
+
+Only follow these steps when installing a **pre-release build** for alpha/beta testing.
+:::
+
+## Download
+
+Go to the [FlightStrips releases](https://github.com/flightstrips/FlightStrips/releases) page and pick the latest **plugin** release. Under **Assets**, download:
+
+- `FlightStripsPlugin.dll`
+- `flightstrips_config.ini`
+
+If you receive a `.zip`, unzip it first.
+
+## Install
+
+<Steps>
+
+1. **Unblock the files.** Right-click each file → **Properties** → tick **Unblock** → **OK**. Repeat for both files.
+
+   If Windows Defender quarantines a file, go to **Windows Security → Virus & threat protection → Protection history** and restore it there.
+
+2. **Close EuroScope**, then copy both files into your EuroScope Plugins folder.
+
+   Press **Win + R**, type `%AppData%` and navigate to **EuroScope → your airport folder (e.g. `EKCH`) → Plugins**. Keep both files directly in that folder, not in a subfolder.
+
+3. **Load the plugin.** Start EuroScope, open **Plug-ins → Load** and select `FlightStripsPlugin.dll`.
+
+4. **Sign in.** Run `.fs open` in the EuroScope chat, click **Login** and complete sign-in in the browser.
+
+</Steps>

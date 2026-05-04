@@ -2,12 +2,16 @@ import {
   DndContext,
   DragOverlay,
   closestCenter,
+  pointerWithin,
+  type ClientRect,
+  type CollisionDetection,
   type DragEndEvent,
   type DragStartEvent,
+  type DroppableContainer,
 } from "@dnd-kit/core";
 import type { AnyStrip, Bay, StripRef } from "@/api/models.ts";
 import { isFlight, stripDndId } from "@/api/models.ts";
-import { useState, type ReactNode } from "react";
+import { useCallback, useState, type ReactNode } from "react";
 
 /** Builds a StripRef from a DnD item id, which may be a flight callsign or "tactical-<N>". */
 function makeStripRef(id: string | null | undefined): StripRef | null {
@@ -24,6 +28,7 @@ import { ValidationStatusDialog } from "@/components/strip/ValidationStatusDialo
 import { isValidationActiveForPosition } from "@/components/strip/shared";
 import { useAirport, useMyPosition, useSelectedCallsign, useSelectStrip, useWebSocketStore } from "@/store/store-hooks";
 import { useStripSensors } from "./useStripSensors";
+import { parseBayContainerDropZoneId } from "./dropZoneIds";
 
 function isArrivalOnlyBay(bay: Bay): boolean {
   return bay === "FINAL" || bay === "RWY_ARR" || bay === "TWY_ARR" || bay === "STAND" || bay === "ARR_HIDDEN";
@@ -84,16 +89,18 @@ export function ViewDndContext({
   const [activeId, setActiveId] = useState<string | null>(null);
 
   /** Returns the visual bay ID that "owns" the given drag item or container ID. */
-  function findBayId(id: string): string | null {
+  const findBayId = useCallback((id: string): string | null => {
     if (id in bayStripMap) return id;
+    const containerBayId = parseBayContainerDropZoneId(id);
+    if (containerBayId && containerBayId in bayStripMap) return containerBayId;
     for (const [bayId, { strips }] of Object.entries(bayStripMap)) {
       if (strips.some(s => stripDndId(s) === id)) return bayId;
     }
     return null;
-  }
+  }, [bayStripMap]);
 
   /** True when the active strip is allowed to be dropped into the given bay. */
-  function isValidTarget(targetBayId: string): boolean {
+  const isValidTarget = useCallback((targetBayId: string): boolean => {
     if (!activeId) return true;
     const sourceBayId = findBayId(activeId);
     if (!sourceBayId) return true;
@@ -102,7 +109,68 @@ export function ViewDndContext({
     const strip = bayStripMap[sourceBayId]?.strips.find((candidate) => stripDndId(candidate) === activeId);
     const targetBay = bayStripMap[targetBayId]?.targetBay;
     return !!targetBay && canFlightMoveToBay(strip, targetBay, airport);
-  }
+  }, [activeId, airport, bayStripMap, findBayId, transferRules]);
+
+  const collisionDetection = useCallback<CollisionDetection>((args) => {
+    const sourceBayId = findBayId(String(args.active.id));
+
+    function getDroppableBayId(container: DroppableContainer) {
+      const dataBayId = container.data.current?.bayId;
+      if (typeof dataBayId === "string") {
+        return dataBayId;
+      }
+
+      return typeof container.id === "string" ? findBayId(container.id) : null;
+    }
+
+    function isContainerDropArea(container: DroppableContainer) {
+      return container.data.current?.dropArea === "container";
+    }
+
+    function isFullBayContainer(container: DroppableContainer) {
+      return typeof container.id === "string" && parseBayContainerDropZoneId(container.id) !== null;
+    }
+
+    function bayContainsRect(outer: ClientRect, inner: ClientRect) {
+      return inner.top >= outer.top && inner.bottom <= outer.bottom && inner.left >= outer.left && inner.right <= outer.right;
+    }
+
+    function getBayScopedCollisions(targetBayId: string) {
+      const targetContainers = args.droppableContainers.filter((container) => !container.disabled && getDroppableBayId(container) === targetBayId);
+      return closestCenter({ ...args, droppableContainers: targetContainers });
+    }
+
+    const containingBayContainer = args.droppableContainers.find((container) => {
+      if (container.disabled || !isContainerDropArea(container)) {
+        return false;
+      }
+
+      const targetBayId = getDroppableBayId(container);
+      if (!targetBayId || targetBayId === sourceBayId) {
+        return false;
+      }
+
+      const rect = args.droppableRects.get(container.id);
+      return rect ? bayContainsRect(rect, args.collisionRect) : false;
+    });
+    const containingBayId = containingBayContainer ? getDroppableBayId(containingBayContainer) : null;
+    if (containingBayId) {
+      return getBayScopedCollisions(containingBayId);
+    }
+
+    const pointerCollisions = pointerWithin(args);
+    for (const collision of pointerCollisions) {
+      const targetBayId = findBayId(String(collision.id));
+      if (targetBayId && targetBayId !== sourceBayId) {
+        return getBayScopedCollisions(targetBayId);
+      }
+    }
+
+    return closestCenter({
+      ...args,
+      droppableContainers: args.droppableContainers.filter((container) => !isFullBayContainer(container)),
+    });
+  }, [findBayId]);
 
   function handleBayClick(clickedBayId: string) {
     if (!selectedCallsign) return;
@@ -249,7 +317,7 @@ export function ViewDndContext({
   return (
     <BayClickContext value={{ onBayClick: handleBayClick }}>
       <DragDisabledContext value={{ setDragDisabled }}>
-        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+        <DndContext sensors={sensors} collisionDetection={collisionDetection} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
           <DragStateContext value={{ activeId, isValidTarget }}>
             {children}
             {renderDragOverlay && (

@@ -197,7 +197,7 @@ export const EST_VIEW_BUTTONS: EstViewButton[] = [
   },
 ];
 
-const CARGO_STAND_PATTERN = /^(?:E(?:7\d|8\d|90)|F\d+|H\d+)$/;
+const CARGO_STAND_PATTERN = /^(?:E(?:7\d|8\d|90)|H\d+)$/;
 
 export function isCargoStand(stand: string) {
   return CARGO_STAND_PATTERN.test(stand);

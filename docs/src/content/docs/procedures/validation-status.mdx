@@ -1,0 +1,114 @@
+---
+title: Validation status
+description: What strip validations do, what they block, and how to clear them.
+sidebar:
+  order: 1
+---
+
+import { Aside, Steps } from '@astrojs/starlight/components';
+
+When a validation is active, the **callsign cell blinks grey**. Click it to open the **Validation Status** window.
+
+![Active validation on a strip](../../../assets/validation/pdc-invalid-strip.png)
+
+![Validation status window](../../../assets/validation/pdc-invalid-dialog.png)
+
+<Aside type="caution" title="Strip is locked while a validation is active">
+You cannot move, reorder, transfer, assume, free, tag, or accept tag on a locked strip.
+
+**FORCE ASSUME** remains available if you need to take ownership first. **ACKNOWLEDGE** silences the blink but does not fix the underlying problem — the validation may reappear if the condition changes.
+</Aside>
+
+## How to resolve a validation
+
+<Steps>
+
+1. Click the blinking callsign to open **Validation Status**.
+
+2. Read the message and use the action button if one is shown.
+
+3. If no action button is offered, correct the issue on frequency, then click **ACKNOWLEDGE**.
+
+</Steps>
+
+## Validation types
+
+| Validation | Trigger | Action |
+| --- | --- | --- |
+| [Duplicate squawk](#duplicate-squawk) | Two strips share the same squawk | **ASSIGN NEW** |
+| [Wrong squawk](#wrong-squawk) | Pilot transmitting a different squawk than assigned | Correct on frequency → acknowledge |
+| [PDC invalid](#pdc-invalid) | Invalid runway or SID in the PDC request | **OPEN DCL MENU** |
+| [Custom PDC](#custom-pdc) | PDC request contains free-text or manual remarks | **OPEN DCL MENU** |
+| [No stand](#no-stand) | Stand required but not assigned | **ASSIGN NEW** |
+| [Runway type](#runway-type) | Assigned runway not suitable for the aircraft | **OPEN DCL MENU** |
+| [Taxiway type](#taxiway-type) | Holding point incompatible with aircraft type/category | **ASSIGN HS** |
+| [CTOT](#ctot) | CTOT is more than 10 minutes away | **ASSIGN HP** |
+| [Landing clearance](#landing-clearance) | Leading arrival not marked cleared to land | **CLEAR TO LAND** |
+
+---
+
+### Duplicate squawk
+
+![Duplicate squawk dialog](../../../assets/validation/duplicate-squawk-dialog.png)
+
+Two strips have been assigned the same squawk code. Click **ASSIGN NEW** to issue a new one.
+
+### Wrong squawk
+
+![Wrong squawk dialog](../../../assets/validation/wrong-squawk-dialog.png)
+
+The pilot is transmitting a squawk that differs from the one assigned. Correct it on frequency, then acknowledge.
+
+### PDC invalid
+
+![PDC invalid dialog](../../../assets/validation/pdc-invalid-dialog.png)
+
+The PDC request contains an invalid runway or SID combination. Click **OPEN DCL MENU** to correct and re-send.
+
+<Aside>
+PDC invalid and Custom PDC can be acknowledged by any online position, not just the owning controller.
+</Aside>
+
+### Custom PDC
+
+![Custom PDC dialog](../../../assets/validation/pdc-custom-dialog.png)
+
+The PDC request contains free-text or manual-handling remarks that require review. Click **OPEN DCL MENU** to handle the clearance manually.
+
+<Aside>
+PDC invalid and Custom PDC can be acknowledged by any online position, not just the owning controller.
+</Aside>
+
+### No stand
+
+![No stand dialog](../../../assets/validation/no-stand-dialog.png)
+
+A stand is required but none is assigned. Click **ASSIGN NEW** to assign one.
+
+### Runway type
+
+![Runway type dialog](../../../assets/validation/runway-type-dialog.png)
+
+The assigned runway is not suitable for that aircraft type. Click **OPEN DCL MENU** to select a compatible runway.
+
+### Taxiway type
+
+![Taxiway type dialog](../../../assets/validation/taxiway-type-dialog.png)
+
+The assigned holding point is not compatible with the aircraft type or category. Click **ASSIGN HS** to assign a suitable holding point.
+
+### CTOT
+
+![CTOT dialog](../../../assets/validation/ctot-dialog.png)
+
+The effective CTOT is more than 10 minutes in the future — the aircraft should hold at a holding point rather than push. Click **ASSIGN HP** to assign one.
+
+### Landing clearance
+
+![Landing clearance dialog](../../../assets/validation/landing-clearance-dialog.png)
+
+The leading arrival on final or runway arrival has not been marked cleared to land. Click **CLEAR TO LAND** to confirm.
+
+---
+
+For datalink strip states and PDC flow, see [Pre-departure clearance](/concepts/pre-departure-clearance/).

@@ -1,5 +1,5 @@
 ---
-title: Local development (Windows)
+title: Local development
 description: Toolchain, run commands, and wiring for backend, frontend, EuroScope plugin, and docs on Windows.
 ---
 
@@ -73,6 +73,37 @@ Swap `Debug` for `Release` to mirror `.github/workflows/build-plugin.yml`.
 Copy `FlightStripsPlugin.dll` and `flightstrips_config.ini` from `build/bin/` into your sector package’s EuroScope **Plugins** folder (same pattern as production: `%AppData%\EuroScope\<ICAO>\Plugins\`, or your pack’s equivalent). Keep any EuroScope-supplied dependency DLLs beside the plugin if your install requires it. Edit `flightstrips_config.ini` if the API host, OIDC, or airport sections differ from your machine.
 
 Load the DLL from EuroScope’s plugin dialog. With the backend up, the plugin should negotiate the WebSocket defined under `[api] baseurl`.
+
+### Configuring `flightstrips_config.ini` for a local server
+
+The Debug build copies `src/config_dev.ini` to `build/bin/flightstrips_config.ini` automatically, so the settings below are already applied when you build in Debug mode. If you need to patch the file manually (e.g. on an existing install or after a Release build), make the following changes:
+
+**`[api]`** — point at localhost over plain WebSocket:
+
+```ini
+[api]
+enabled = true
+baseurl = ws://localhost:8090/euroscopeEvents
+```
+
+**`[authentication]`** — use the dev Auth0 audience and client ID:
+
+```ini
+[authentication]
+authority = https://auth.flightstrips.dk
+audience = backend-dev
+clientId = oPIlNgkBODM1OEFTrcKOZl9JavEives3
+redirectPort = 27015
+```
+
+**`[logging]`** — enable debug output:
+
+```ini
+[logging]
+level = DEBUG
+```
+
+The production values (audience `backend`, wss transport) are in `src/config.ini`; the dev values are in `src/config_dev.ini`. Never commit personal credentials or access tokens — those live in `userconfig.ini`, which is gitignored.
 
 ## Docs
 

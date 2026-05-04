@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.14.1](https://github.com/flightstrips/FlightStrips/compare/plugin/v0.14.0...plugin/v0.14.1) (2026-05-04)
+
+
+### Bug Fixes
+
+* **loader:** abort startup on failed plugin updates ([aec0e22](https://github.com/flightstrips/FlightStrips/commit/aec0e22e095837b5c3baaefefaa518f770addc7f))
+
 ## [0.14.0](https://github.com/flightstrips/FlightStrips/compare/plugin/v0.13.1...plugin/v0.14.0) (2026-04-30)
 
 

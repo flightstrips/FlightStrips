@@ -106,7 +106,7 @@ export default function TowerGroundLayout({ variant }: TowerGroundLayoutProps) {
   const pushStrips = usePushbackStrips().sort((a, b) => b.sequence - a.sequence);
   const deIceStrips = useDeIceStrips().sort((a, b) => b.sequence - a.sequence);
   const controlzoneStrips = useControlzoneStrips().sort((a, b) => b.sequence - a.sequence);
-  const startupStrips = useClearedStrips().sort((a, b) => a.sequence - b.sequence);
+  const startupStrips = useClearedStrips().sort((a, b) => b.sequence - a.sequence);
   const nonClearedStrips = useNonClearedStrips();
   const inboundStrips = useInboundStrips();
 
@@ -156,7 +156,7 @@ export default function TowerGroundLayout({ variant }: TowerGroundLayoutProps) {
     "PUSHBACK": { strips: pushStrips, targetBay: Bay.Push, descending: true },
     "DE-ICE": { strips: deIceStrips, targetBay: Bay.DeIce, descending: true },
     "CONTROLZONE": { strips: controlzoneStrips, targetBay: Bay.Controlzone, descending: true },
-    ...(showStartupBay ? { STARTUP: { strips: startupStrips, targetBay: Bay.Cleared } } : {}),
+    ...(showStartupBay ? { STARTUP: { strips: startupStrips, targetBay: Bay.Cleared, descending: true } } : {}),
   };
 
   const transferRules: Record<string, string[]> = {

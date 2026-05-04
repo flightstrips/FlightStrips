@@ -55,7 +55,7 @@ export default function AAAD() {
   const twyDepUpr    = useTaxiDepStrips().sort((a, b) => b.sequence - a.sequence);
   const twyDepLwr    = useTaxiDepLwrStrips().sort((a, b) => b.sequence - a.sequence);
   const twyArrStrips  = useTaxiArrStrips().sort((a, b) => b.sequence - a.sequence);
-  const startupStrips = useClearedStrips().sort((a, b) => a.sequence - b.sequence);
+  const startupStrips = useClearedStrips().sort((a, b) => b.sequence - a.sequence);
   const pushStrips    = usePushbackStrips().filter(isFlight).sort((a, b) => b.sequence - a.sequence);
   const deIceStrips   = useDeIceStrips().filter(isFlight).sort((a, b) => b.sequence - a.sequence);
   const otherStrips   = useOtherBayStrips().sort((a, b) => a.sequence - b.sequence);
@@ -80,7 +80,7 @@ export default function AAAD() {
     "TWY-DEP-LWR": { strips: twyDepLwr,    targetBay: Bay.TaxiLwr,  descending: true },
     "TWY-ARR":     { strips: twyArrStrips, targetBay: Bay.TwyArr,   descending: true },
     "STAND":       { strips: standStrips,  targetBay: Bay.Stand,    descending: true },
-    "STARTUP":     { strips: startupStrips, targetBay: Bay.Cleared },
+    "STARTUP":     { strips: startupStrips, targetBay: Bay.Cleared, descending: true },
     "PUSHBACK":    { strips: pushStrips,    targetBay: Bay.Push,     descending: true },
     "DE-ICE":      { strips: deIceStrips,   targetBay: Bay.DeIce,    descending: true },
   };

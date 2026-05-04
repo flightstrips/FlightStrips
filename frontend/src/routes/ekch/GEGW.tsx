@@ -48,7 +48,7 @@ export default function GEGW() {
   const rwyArrStrips   = useRwyArrStrips().sort((a, b) => b.sequence - a.sequence);
   const twyArrStrips   = useTaxiArrStrips().sort((a, b) => b.sequence - a.sequence);
   const pushStrips     = usePushbackStrips().sort((a, b) => b.sequence - a.sequence);
-  const startupStrips  = useClearedStrips();
+  const startupStrips  = useClearedStrips().sort((a, b) => b.sequence - a.sequence);
   const twyDepDesc     = useTaxiDepLwrStrips().sort((a, b) => b.sequence - a.sequence);
   const rwyDepStrips   = useDepartStrips().sort((a, b) => b.sequence - a.sequence);
   const airborneStrips = useAirborneStrips().sort((a, b) => b.sequence - a.sequence);
@@ -76,7 +76,7 @@ export default function GEGW() {
   const nonClearedStrips = useNonClearedStrips();
 
   const bayStripMap = {
-    "STARTUP":  { strips: startupStrips,                    targetBay: Bay.Cleared },
+    "STARTUP":  { strips: startupStrips,                    targetBay: Bay.Cleared, descending: true },
     "PUSHBACK": { strips: pushStrips,                       targetBay: Bay.Push,      descending: true },
     "TWY-DEP":  { strips: twyDepDesc,                       targetBay: Bay.TaxiLwr,   descending: true },
     "RWY-DEP":  { strips: rwyDepStrips,                     targetBay: Bay.Depart,    descending: true },

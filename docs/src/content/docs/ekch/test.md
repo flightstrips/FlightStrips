@@ -1,51 +1,40 @@
 ---
 title: SO Landing Logic
-description: Decision flow for assigning arriving aircraft to APRON or STAND outcomes.
+description: Decision flow for assigning arriving aircraft to apron or stand outcomes.
 ---
-
-This page describes the SO flowchart for inbound aircraft and how each path leads to the final handling state.
 
 ## High-level sequence
 
-1. Aircraft starts at **TE+TW FINAL**.
+1. Aircraft starts at **TE+TW Final**.
 2. Progresses to **TE+TW RWY ARR**.
 3. Progresses to **TE+TW TWY ARR**.
-4. Parking context and stand-type combinations then decide whether the strip remains unconcerned, moves to stand handling, or joins apron-arrival handling.
+4. Parking context and stand type then decide whether the strip stays unconcerned, moves to stand handling, or joins apron-arrival handling.
 
-## Decision logic by branch
+## Decision logic
 
-### 1) From `TE+TW TWY ARR` to initial combinations
+### From TWY ARR — initial branch
 
-The flow branches by parking location and stand context:
+| Parking location | Outcome |
+| --- | --- |
+| Cargo | → **GE** |
+| Apron (22R / 04L / 12 for LDG) | → **GW** |
+| Apron (22L for LDG, 12 feed) | → **AA** |
+| Apron (22L / 04R / 30 for LDG, TWY 8 feed) | → **AA** |
 
-- **Parked on CARGO** leads to **GE**.
-- **Parked on APRON (22R/04L/12 for LDG)** leads to **GW**.
-- **Parked on APRON (22L for LDG, 12 feed)** leads to **AA**.
-- **Parked on APRON (22L/04R/30 for LDG, TWY 8 feed)** also leads to **AA**.
+This produces two working groups: **GE + GW** and **AA**.
 
-These outcomes create two working groups:
+### GE + GW path
 
-- **GE + GW** (cargo/apron mixed non-AA path)
-- **AA** (apron-arrival path)
+GE and GW merge into **GE+GW TWY ARR**, then split by parking:
 
-### 2) GE + GW path
+- **Parked on Cargo** → move to **GE+GW STAND**; mark as unconcerned for apron.
+- **Parked on Apron** → reclassify to **AA** and join the apron-arrival stream.
 
-`GE` and `GW` merge into **GE+GW TWY ARR**, then split again by current parking:
+### AA / apron-arrival path
 
-- If **Parked on CARGO**:
-  - Move to **GE+GW STAND**.
-  - Also mark as **UNCONCERNED for APRON** (left branch in the chart).
-- If **Parked on APRON**:
-  - Re-classify to **AA** and then join the apron-arrival stream.
+All AA-origin and AA-converted traffic flows to **Apron ARR / AA+AD TWY ARR**, then to **Apron ARR / AA+AD STAND** (final state).
 
-### 3) AA / apron-arrival path
+## Summary
 
-All AA-origin and AA-converted traffic converges to:
-
-- **APRON ARR / AA+AD TWY ARR**
-- then to **APRON ARR / AA+AD STAND** (final state)
-
-## Practical interpretation
-
-- **Cargo-side GE/GW** traffic can end in a dedicated stand state and be treated as not relevant for apron concern.
-- **Any APRON-routed traffic** (direct AA or GE/GW converted to AA) is funneled into the **APRON ARR / AA+AD** sequence until stand.
+- Cargo-side GE/GW traffic ends in a stand state and is treated as not relevant for apron concern.
+- Any apron-routed traffic (direct AA or GE/GW converted to AA) is funnelled through the **Apron ARR / AA+AD** sequence to stand.

@@ -1,0 +1,55 @@
+---
+title: TE + TW
+description: Kastrup Tower East + West — finals, runway, taxi, departures, control zone.
+sidebar:
+  order: 7
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+![Kastrup Tower East + West](../../../assets/ekch/tw-te.jpg)
+
+**TE + TW** is the tower scope for **EKCH_A_TWR** and **EKCH_D_TWR**, using the **TWR aspect** layout.
+
+<Aside>
+Cleared departure strips are **not listed as normal strips** in this scope. Use the **Startup** bay header to open the startup dialogue and approve pushback. If any apron controller is online, the startup list is limited to stands **G110–G137**, **W1**, and **AS**.
+</Aside>
+
+## Bay overview
+
+| Bay | Strip type | Notes |
+| --- | --- | --- |
+| **Final** | `TWR-ARR` | Arriving aircraft; concerned (purple) until assumed. |
+| **RWY ARR** | `TWR-ARR` | On the runway for landing. |
+| **TWY ARR** | `APN-ARR` | Taxiing arrival after the runway. |
+| **TWY DEP (TWR)** | `TWR-DEP` | Synced with apron TWY DEP-LWR. Can be REQ. |
+| **RWY DEP** | `TWR-DEP` | Holding for takeoff. |
+| **Airborne** | `TWR-DEP` | After takeoff until tag is assumed. |
+| **Control zone** | Control zone | VFR strips only — no SI transfers. |
+| **Push back (TWR)** | `APNPUSH` | Can be REQ. |
+| **Messages** | Messages | Coordination / free-text. |
+| **CLR DEL** | *(passive)* | Passive when delivery + apron scopes are online. |
+| **De-ice A** | `APNPUSH` | Same strip family as other pushback/taxi strips. |
+| **Stand** | `APN-ARR` | At gate / stand. |
+
+## Arrivals — Final and RWY ARR
+
+- Strips appear in **Final**; use **ARR** in the bay header to open the ARR dialogue if a strip is missing.
+- **Callsign** opens the ARR dialogue; **FORCE ASSUME** assumes the strip and prioritises it.
+- Click the arrival runway to move a strip from **Final** to **RWY ARR**. Runway colour reflects clearance state (green / red) based on other traffic in the bay.
+- The strip moves to **TWY ARR** automatically when the aircraft leaves the runway area; manual moves are also available.
+
+## Departures — TWY DEP-TWR, RWY DEP, Airborne
+
+- Click the departure runway to move a strip from **TWY DEP-TWR** to **RWY DEP**. Same green / red clearance logic applies.
+- The strip moves to **Airborne** automatically when the aircraft is airborne; **SI** then targets the departure frequency.
+- Manual move from **RWY DEP** to **Airborne** is possible; SI still drives the downstream handoff.
+
+## Control zone
+
+Use **New** / **Find** in the bay header for VFR strips only. No transfers.
+
+## Related
+
+- [GE + GW](/ekch/ge-gw/) — tower ground
+- [AA + AD](/ekch/aa-ad/) — apron combined scope

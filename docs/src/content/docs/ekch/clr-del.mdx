@@ -1,0 +1,83 @@
+---
+title: CLR DEL
+description: Kastrup Clearance Delivery — EKCH_DEL scope, bays, and issuing clearances.
+sidebar:
+  order: 1
+---
+
+import { Aside, Steps } from '@astrojs/starlight/components';
+
+![Clearance Delivery overview](../../../assets/ekch-clr-del-view.jpg)
+
+**CLR DEL** is the scope for **EKCH_DEL**. Uncleared departures sit in airline bays; issuing a clearance automatically moves the strip to **Cleared**.
+
+<Aside type="caution">
+Uncleared strips cannot be manually moved to another bay — only issuing a clearance via the ATC clearance window moves them.
+</Aside>
+
+## Bay overview
+
+| Bay | Strip type | Notes |
+| --- | --- | --- |
+| **Others** | Uncleared | Sorted top-down (opposite to most bays). |
+| **SAS** | Uncleared | Airline grouping. |
+| **Norwegian** | Uncleared | Airline grouping. |
+| **Cleared** | Cleared | Strips move here after **CLD**. |
+| **Messages** | Messages | Coordination / free-text. |
+| **Push back** | Departure locked | Locked — context only. |
+| **TWY DEP** (upper) | Departure locked | Locked. |
+| **TWY DEP** (lower) | Departure locked | Locked. |
+
+## Cleared strips
+
+**SI from Cleared** is disabled in standard CLR DEL; enabled when **DEL+SEQ** is active.
+
+Automatic SI handoff from Cleared depends on staffing:
+
+- Two or fewer apron positions online → SI hands off to **Apron Departure**.
+- Three apron positions online → SI hands off to **[SEQ PLN](/ekch/seq-pln/)**.
+
+When **DEL+SEQ** is active, strips stay with **EKCH_DEL** in Cleared; the SI indicator changes (white vs orange) and delivery coordinates the handoff to apron at startup time.
+
+## Issue a clearance
+
+<Steps>
+
+1. Click the **Destination / Stand** column on the strip.
+
+   ![Open flight plan from strip](../../../assets/ekch-clr-del-open-fpl.jpg)
+
+2. Review and update fields in the flight plan editor.
+
+   - **Disabled** — read-only; pilots must refile to change.
+   - **Dropdown** — valid options for this strip.
+   - **Free-text** — e.g. **ROUTE**.
+
+   ![Flight plan editor](../../../assets/ekch-clr-del-fpl.jpg)
+   ![SID selector](../../../assets/ekch-clr-del-sid-selector.jpg)
+   ![Runway selector](../../../assets/ekch-clr-del-rwy-selector.jpg)
+   ![Altitude selector](../../../assets/ekch-clr-del-alt-selector.jpg)
+
+3. Click **CLD** to confirm the clearance and move the strip to **Cleared**.
+
+</Steps>
+
+## Pre-departure clearance (PDC / datalink)
+
+CLR DEL only needs to act when a PDC request raises a validation or contains manual remarks.
+
+| State | Strip | Action |
+| --- | --- | --- |
+| PDC invalid | Callsign blinks grey | **OPEN DCL MENU** in the validation dialog |
+| Custom PDC | Normal strip; validation prompts manual handling | **OPEN DCL MENU** |
+| Cleared via PDC | Strip in Cleared with navy callsign until pilot acknowledges | — |
+
+Use **REVERT TO VOICE** in the DCL window to abandon the datalink path.
+
+See [Pre-departure clearance](/concepts/pre-departure-clearance/) and [Validation status](/procedures/validation-status/).
+
+## Related
+
+- [AA + AD](/ekch/aa-ad/) — combined apron after handoff
+- [SEQ PLN](/ekch/seq-pln/) — when three apron positions are online
+- [Apron Departure](/ekch/apn-dep/) — B/C_GND split layout

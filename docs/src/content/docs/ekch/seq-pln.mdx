@@ -1,0 +1,54 @@
+---
+title: SEQ PLN
+description: Kastrup Sequence Planner — startup sequencing when C-GND is online with B-GND.
+sidebar:
+  order: 4
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+![Kastrup Sequence Planner](../../../assets/ekch/est.jpg)
+
+**SEQ PLN** is used by **EKCH_B_GND** only when **EKCH_C_GND** (121.730) is online — B-GND takes the planner role while C-GND covers the other ground sector. The layout uses the **GND aspect** (same family as [AA + AD](/ekch/aa-ad/) and [CLR DEL](/ekch/clr-del/)).
+
+## Bay overview
+
+| Bay | Strip type | Notes |
+| --- | --- | --- |
+| **Messages** | Messages | Coordination / free-text. |
+| **Final** | Arrival locked | Locked. |
+| **RWY ARR** | Arrival locked | Locked. |
+| **TWY ARR** | `APN-ARR` | Locked in this scope. |
+| **Startup (SEQ)** | Cleared | Active — same strip behaviour as Cleared in [CLR DEL](/ekch/clr-del/); SI rules differ. |
+| **Push back** | `APN-PUSH` | Matches Push back in [AA + AD](/ekch/aa-ad/). |
+| **TWY DEP** (upper / lower) | Departure locked | Locked. |
+| **Others** | Uncleared | Active — SEQ PLN can issue clearances directly. |
+| **SAS** | Uncleared | Same uncleared family. |
+| **Norwegian** | Uncleared | Same uncleared family. |
+
+## Uncleared strips
+
+**Others**, **SAS**, and **Norwegian** match [CLR DEL](/ekch/clr-del/) uncleared strips and are active so SEQ PLN can clear aircraft when needed.
+
+## Startup (SEQ)
+
+All cleared departures sit in **Startup (SEQ)**. Clickspots match Cleared strips in CLR DEL.
+
+<Aside>
+The SI box shows white (strip is owned by SEQ PLN). SI always targets **Apron Departure (AD)** — click SI to split and send. Manual **TRF** SI is also available. Manual moves within this scope are limited to **Startup (SEQ)** ↔ **Push back**.
+</Aside>
+
+## How SEQ PLN fits into staffing
+
+From **CLR DEL Cleared**, automatic SI handoff depends on how many apron controllers are online:
+
+- **Two or fewer** → SI to **Apron Departure**.
+- **Three** → SI to **SEQ PLN** (this scope).
+
+When **DEL+SEQ** is active on delivery, strips stay with **EKCH_DEL** in Cleared; the SI indicator changes (white vs orange) and delivery handles the handoff to apron at startup time.
+
+## Related
+
+- [CLR DEL](/ekch/clr-del/) — clearance delivery and uncleared bays
+- [AA + AD](/ekch/aa-ad/) — full combined apron
+- [Apron Departure](/ekch/apn-dep/) — B/C_GND when apron is split

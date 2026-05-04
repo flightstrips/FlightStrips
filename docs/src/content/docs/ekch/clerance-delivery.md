@@ -1,47 +1,40 @@
 ---
-title: Clerance Delivery
+title: Clearance Delivery
 description: How to issue departure clearance from the strip view.
 sidebar:
-  order: 1
+  order: 2
 ---
-![Clerance Delivery View](../../../assets/ekch-clr-del-view.jpg)
 
-Use this workflow when you need to issue a new clearance to an aircraft.
+![Clearance Delivery view](../../../assets/ekch-clr-del-view.jpg)
 
-## Open the flight plan from the strip
+## Issue a clearance
 
-In the strip view, click the **Destination/Stand** column for the aircraft you are working on.
+Click the **Destination / Stand** column on the strip to open the flight plan editor.
 
-![Clerance Delivery View](../../../assets/ekch-clr-del-open-fpl.jpg)
+![Open flight plan](../../../assets/ekch-clr-del-open-fpl.jpg)
 
-This opens the flight plan editor for that aircraft.
+The flight plan has three field types:
 
-### Review and update editable fields
+- **Disabled** — read-only; pilots must refile to change.
+- **Dropdown** — valid options for this strip.
+- **Free-text** — manually editable, e.g. `ROUTE`.
 
-The flight plan contains three field types:
+![Flight plan editor](../../../assets/ekch-clr-del-fpl.jpg)
+![SID selector](../../../assets/ekch-clr-del-sid-selector.jpg)
+![Runway selector](../../../assets/ekch-clr-del-rwy-selector.jpg)
+![Altitude selector](../../../assets/ekch-clr-del-alt-selector.jpg)
 
-- **Disabled**: Read-only fields. These cannot be changed by the controller and must be updated by refiling.
-- **Dropdown**: Predefined options that are valid for the current strip.
-- **Free-text**: Manually editable fields, such as `ROUTE`.
+## Datalink / Pre-departure clearance (PDC)
 
+When a pilot submits a PDC/DCL request, the strip changes colour to indicate its state:
 
-![Clerance Delivery View](../../../assets/ekch-clr-del-fpl.jpg)
-![Clerance Delivery View](../../../assets/ekch-clr-del-sid-selector.jpg)
-![Clerance Delivery View](../../../assets/ekch-clr-del-rwy-selector.jpg)
-![Clerance Delivery View](../../../assets/ekch-clr-del-alt-selector.jpg)
+- **Purple** — PDC received and valid; no controller action required.
+- **Yellow** — PDC contains an issue or manual remarks; controller action required.
 
+![PDC strip example](../../../assets/ekch-clr-del-dlc.jpg)
 
+For a yellow strip, click **Destination / Stand** to open the flight plan with an additional **REVERT TO VOICE** option — use it if further coordination with the pilot is needed.
 
-### Datalink/ Pre-Departure Clearance
-When a pilot submits a PDC/DCL to the FlightStrips system, the strip will turn either purple or yellow.
+![PDC flight plan view](../../../assets/ekch-clr-del-fpl-dlc.jpg)
 
-#### Automatic DLC
-
-
-#### Manual DLC
-When there is an issue with the clerance or its malformed in some way, the strip turns yellow, alerting the controller to take action.
-![Clerance Delivery View](../../../assets/ekch-clr-del-dlc.jpg)
-
-Clicking the destination/stand collum open up the normal flightplan clearance menu with an additional "REVERT TO VOICE" option, if there is more corridination needed with the pilot to correct their flightplan
-![Clerance Delivery View](../../../assets/ekch-clr-del-fpl-dlc.jpg)
-
+For full PDC strip states and validation details, see [Pre-departure clearance](/concepts/pre-departure-clearance/) and [Validation status](/procedures/validation-status/).

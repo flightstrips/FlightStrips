@@ -197,12 +197,6 @@ export const EST_VIEW_BUTTONS: EstViewButton[] = [
   },
 ];
 
-const CARGO_STAND_PATTERN = /^(?:E(?:7\d|8\d|90)|H\d+)$/;
-
-export function isCargoStand(stand: string) {
-  return CARGO_STAND_PATTERN.test(stand);
-}
-
 // Cargo apron stand positions — EST board coordinates (SVG design coords minus 40 px board margin)
 const CARGO_VIEW_STANDS: EstCanvasStand[] = [
   // Top row — G117–G137 left to right
@@ -234,6 +228,12 @@ const CARGO_VIEW_STANDS: EstCanvasStand[] = [
   { label: 'G111', x: 31,   y: 839, left: 31,   top: 839 },
   { label: 'G110', x: 32,   y: 997, left: 32,   top: 997 },
 ];
+
+const CARGO_VIEW_STAND_LABELS = new Set(CARGO_VIEW_STANDS.map(({ label }) => label));
+
+export function isCargoStand(stand: string) {
+  return CARGO_VIEW_STAND_LABELS.has(stand);
+}
 
 export function getEstStandsForView(view: EstView) {
   return view === "CARGO" ? CARGO_VIEW_STANDS : EST_STANDS;

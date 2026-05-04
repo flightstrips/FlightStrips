@@ -184,8 +184,7 @@ func (hub *Hub) OnRegister(client *Client) {
 	if !client.observer {
 		if _, ok := hub.master[client.session]; !ok {
 			slog.Debug("Euroscope client is master", slog.String("cid", client.GetCid()))
-			hub.master[client.session] = client
-			hub.masterCallsigns.Store(client.session, client.callsign)
+			hub.setMasterClient(client)
 			isMaster = true
 		}
 	}
@@ -468,8 +467,7 @@ func (hub *Hub) OnUnregister(client *Client) {
 		}
 	}
 	if !hasReplacement {
-		delete(hub.master, client.session)
-		hub.masterCallsigns.Delete(client.session)
+		hub.clearMasterClient(client.session)
 		hub.notifyObserverFrontendsOffline(client.session)
 		return
 	}
@@ -479,8 +477,7 @@ func (hub *Hub) OnUnregister(client *Client) {
 		if newMaster.session != client.session || newMaster.observer {
 			continue
 		}
-		hub.master[client.session] = newMaster
-		hub.masterCallsigns.Store(client.session, newMaster.callsign)
+		hub.setMasterClient(newMaster)
 		newMaster.send <- euroscope.SessionInfoEvent{Role: euroscope.SessionInfoMaster}
 		break
 	}
@@ -508,6 +505,44 @@ func (hub *Hub) clearClientCid(client *Client) error {
 		return fmt.Errorf("unexpected controller CID cleanup row count: %d", count)
 	}
 	return nil
+}
+
+func (hub *Hub) setMasterClient(client *Client) {
+	if client == nil {
+		return
+	}
+
+	if current, ok := hub.master[client.session]; ok && current == client {
+		storedCallsign := hub.GetMasterCallsign(client.session)
+		if strings.EqualFold(strings.TrimSpace(storedCallsign), strings.TrimSpace(client.callsign)) {
+			return
+		}
+
+		if strings.TrimSpace(storedCallsign) != "" {
+			metrics.MasterClientCleared(context.Background(), current.sessionName, current.airport, storedCallsign)
+		}
+
+		hub.masterCallsigns.Store(client.session, client.callsign)
+		metrics.MasterClientAssigned(context.Background(), client.sessionName, client.airport, client.callsign)
+		return
+	}
+
+	if current, ok := hub.master[client.session]; ok && current != nil {
+		metrics.MasterClientCleared(context.Background(), current.sessionName, current.airport, current.callsign)
+	}
+
+	hub.master[client.session] = client
+	hub.masterCallsigns.Store(client.session, client.callsign)
+	metrics.MasterClientAssigned(context.Background(), client.sessionName, client.airport, client.callsign)
+}
+
+func (hub *Hub) clearMasterClient(session int32) {
+	if current, ok := hub.master[session]; ok && current != nil {
+		metrics.MasterClientCleared(context.Background(), current.sessionName, current.airport, current.callsign)
+	}
+
+	delete(hub.master, session)
+	hub.masterCallsigns.Delete(session)
 }
 
 func (hub *Hub) GetMasterCallsign(session int32) string {

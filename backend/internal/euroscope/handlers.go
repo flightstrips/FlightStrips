@@ -34,6 +34,9 @@ func handleLoginEvent(ctx context.Context, client *Client, message Message) erro
 	client.callsign = event.Callsign
 	client.observer = event.Observer
 	client.hub.setObserverCid(client.GetCid(), event.Observer)
+	if master, ok := client.hub.master[client.session]; ok && master == client && previousCallsign != client.callsign {
+		client.hub.setMasterClient(client)
+	}
 
 	if !event.Observer {
 		if layoutErr := client.hub.server.UpdateLayouts(client.session); layoutErr != nil {

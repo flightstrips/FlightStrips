@@ -1399,6 +1399,25 @@
                     "refId": "A",
                     "hidden": false
                   }
+                },
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "prometheus",
+                      "version": "v0",
+                      "datasource": {
+                        "name": "grafanacloud-prom"
+                      },
+                      "spec": {
+                        "expr": "label_replace(clamp_max(sum(euroscope_master_client_active{deployment_environment=\"$env\",airport=\"$airport\",session_name=\"$session\"}) by (callsign), 1) > 0, \"source\", \"master\", \"callsign\", \".*\")",
+                        "instant": true
+                      }
+                    },
+                    "refId": "B",
+                    "hidden": false
+                  }
                 }
               ],
               "transformations": [
@@ -1423,17 +1442,18 @@
                   "group": "organize",
                   "spec": {
                     "options": {
-                      "excludeByName": {
-                        "Time": true
-                      },
-                      "includeByName": {},
-                      "indexByName": {
-                        "callsign": 0,
-                        "euroscope": 1,
-                        "frontend": 2
-                      },
-                      "orderBy": [],
-                      "orderByMode": "manual",
+                        "excludeByName": {
+                          "Time": true
+                        },
+                        "includeByName": {},
+                        "indexByName": {
+                          "callsign": 0,
+                          "euroscope": 1,
+                          "frontend": 2,
+                          "master": 3
+                        },
+                        "orderBy": [],
+                        "orderByMode": "manual",
                       "renameByName": {}
                     }
                   }
@@ -1552,10 +1572,10 @@
                       }
                     ]
                   },
-                  {
-                    "matcher": {
-                      "id": "byName",
-                      "options": "frontend"
+                   {
+                     "matcher": {
+                       "id": "byName",
+                       "options": "frontend"
                     },
                     "properties": [
                       {
@@ -1611,11 +1631,75 @@
                                 "index": 3
                               }
                             }
-                          }
-                        ]
-                      }
-                    ]
-                  }
+                       }
+                     ]
+                   },
+                   {
+                     "matcher": {
+                       "id": "byName",
+                       "options": "master"
+                     },
+                     "properties": [
+                       {
+                         "id": "displayName",
+                         "value": "Master"
+                       },
+                       {
+                         "id": "custom.cellOptions",
+                         "value": {
+                           "type": "color-text"
+                         }
+                       },
+                       {
+                         "id": "custom.width",
+                         "value": 110
+                       },
+                       {
+                         "id": "mappings",
+                         "value": [
+                           {
+                             "type": "special",
+                             "options": {
+                               "match": "null",
+                               "result": {
+                                 "text": "NO",
+                                 "color": "red",
+                                 "index": 0
+                               }
+                             }
+                           },
+                           {
+                             "type": "special",
+                             "options": {
+                               "match": "empty",
+                               "result": {
+                                 "text": "NO",
+                                 "color": "red",
+                                 "index": 1
+                               }
+                             }
+                           },
+                           {
+                             "type": "value",
+                             "options": {
+                               "0": {
+                                 "text": "NO",
+                                 "color": "red",
+                                 "index": 2
+                               },
+                               "1": {
+                                 "text": "YES",
+                                 "color": "green",
+                                 "index": 3
+                               }
+                             }
+                           }
+                         ]
+                       }
+                     ]
+                   }
+                 ]
+               }
                 ]
               }
             }

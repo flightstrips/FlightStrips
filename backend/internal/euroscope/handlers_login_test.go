@@ -333,3 +333,55 @@ func TestHandleLoginEvent_ObserverPositionChangeRefreshesFrontend(t *testing.T) 
 	assert.Equal(t, "1234567", frontendHub.CidOnlines[0].Cid)
 	assert.Equal(t, "118.105", client.position)
 }
+
+func TestHandleLoginEvent_MasterCallsignRefreshesOnRelogin(t *testing.T) {
+	controllerRepo := &testutil.MockControllerRepository{
+		GetFn: func(_ context.Context, callsign string, session int32) (*internalModels.Controller, error) {
+			return &internalModels.Controller{
+				Callsign: callsign,
+				Session:  session,
+				Position: "118.105",
+			}, nil
+		},
+		SetCidFn: func(_ context.Context, _ int32, _ string, _ *string) (int64, error) {
+			return 1, nil
+		},
+		SetObserverFn: func(_ context.Context, _ int32, _ string, observer bool) (int64, error) {
+			assert.False(t, observer)
+			return 1, nil
+		},
+	}
+
+	server := &testutil.MockServer{
+		ControllerRepoVal: controllerRepo,
+		UpdateLayoutsFn: func(_ int32) error {
+			return nil
+		},
+	}
+	hub := &Hub{
+		server:              server,
+		master:              make(map[int32]*Client),
+		sessionUpdateTimers: make(map[int32]*sessionUpdatePending),
+	}
+	client := &Client{
+		hub:         hub,
+		session:     42,
+		sessionName: "LIVE",
+		callsign:    "EKCH_A_TWR",
+		position:    "118.105",
+		airport:     "EKCH",
+		user:        shared.NewAuthenticatedUser("1234567", 0, nil),
+	}
+	hub.master[42] = client
+	hub.masterCallsigns.Store(int32(42), "EKCH_A_TWR")
+
+	err := handleLoginEvent(context.Background(), client, Message{
+		Type:    euroscopeEvents.Login,
+		Message: buildLoginPayload(t, "EKCH_D_TWR", "118.105", "EKCH"),
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, "EKCH_D_TWR", client.callsign)
+	assert.Equal(t, "EKCH_D_TWR", hub.GetMasterCallsign(42))
+	assert.Same(t, client, hub.master[42])
+}

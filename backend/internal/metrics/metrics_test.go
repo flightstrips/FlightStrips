@@ -130,6 +130,40 @@ func TestConnectionAndClientMetricsUseReadableLabels(t *testing.T) {
 	}
 }
 
+func TestMasterClientMetricTracksCurrentCallsign(t *testing.T) {
+	reader := sdkmetric.NewManualReader()
+	provider := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
+	previousProvider := otel.GetMeterProvider()
+	otel.SetMeterProvider(provider)
+	resetInstrumentsForTest()
+	t.Cleanup(func() {
+		otel.SetMeterProvider(previousProvider)
+		resetInstrumentsForTest()
+	})
+
+	MasterClientAssigned(context.Background(), "live", "ekch", "ekch_a_twr")
+	MasterClientCleared(context.Background(), "live", "ekch", "ekch_a_twr")
+	MasterClientAssigned(context.Background(), "live", "ekch", "ekch_d_twr")
+
+	rm := collectMetrics(t, reader)
+
+	if got := findInt64MetricValue(t, rm, "euroscope.master_client.active", map[string]string{
+		"session_name": "LIVE",
+		"airport":      "EKCH",
+		"callsign":     "EKCH_A_TWR",
+	}); got != 0 {
+		t.Fatalf("expected previous master gauge to net to 0, got %d", got)
+	}
+
+	if got := findInt64MetricValue(t, rm, "euroscope.master_client.active", map[string]string{
+		"session_name": "LIVE",
+		"airport":      "EKCH",
+		"callsign":     "EKCH_D_TWR",
+	}); got != 1 {
+		t.Fatalf("expected current master gauge to be 1, got %d", got)
+	}
+}
+
 func TestPDCAndTrafficMetricsUseSessionNameAndAirport(t *testing.T) {
 	reader := sdkmetric.NewManualReader()
 	provider := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))

@@ -19,6 +19,7 @@ var (
 type instruments struct {
 	activeConnections       metric.Int64UpDownCounter
 	activeClients           metric.Int64UpDownCounter
+	activeMasterClients     metric.Int64UpDownCounter
 	messagesReceived        metric.Int64Counter
 	messagesSent            metric.Int64Counter
 	messageHandledDuration  metric.Float64Histogram
@@ -51,6 +52,11 @@ func get() *instruments {
 			"websocket.clients.active",
 			metric.WithDescription("Active session-bound client connections by callsign"),
 			metric.WithUnit("{connection}"),
+		)
+		activeMasterClients, _ := meter.Int64UpDownCounter(
+			"euroscope.master_client.active",
+			metric.WithDescription("Current master EuroScope client for a session by callsign"),
+			metric.WithUnit("{client}"),
 		)
 		messagesReceived, _ := meter.Int64Counter(
 			"websocket.messages.received",
@@ -143,6 +149,7 @@ func get() *instruments {
 		inst = &instruments{
 			activeConnections:       activeConnections,
 			activeClients:           activeClients,
+			activeMasterClients:     activeMasterClients,
 			messagesReceived:        messagesReceived,
 			messagesSent:            messagesSent,
 			messageHandledDuration:  messageHandledDuration,
@@ -237,6 +244,32 @@ func ConnectionClosed(ctx context.Context, sessionName, airport, source, callsig
 	get().activeClients.Add(ctx, -1,
 		sessionAttributes(sessionName, airport,
 			attribute.String("source", source),
+			attribute.String("callsign", callsign),
+		),
+	)
+}
+
+func MasterClientAssigned(ctx context.Context, sessionName, airport, callsign string) {
+	callsign = normalizeCallsign(callsign)
+	if callsign == "" {
+		return
+	}
+
+	get().activeMasterClients.Add(ctx, 1,
+		sessionAttributes(sessionName, airport,
+			attribute.String("callsign", callsign),
+		),
+	)
+}
+
+func MasterClientCleared(ctx context.Context, sessionName, airport, callsign string) {
+	callsign = normalizeCallsign(callsign)
+	if callsign == "" {
+		return
+	}
+
+	get().activeMasterClients.Add(ctx, -1,
+		sessionAttributes(sessionName, airport,
 			attribute.String("callsign", callsign),
 		),
 	)

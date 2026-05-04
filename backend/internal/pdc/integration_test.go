@@ -709,13 +709,10 @@ func TestProcessPDCRequest_AircraftTypeWithEquipmentSuffix(t *testing.T) {
 	// Seed strip with full ICAO aircraft type including equipment suffix
 	testdata.SeedTestStripWithAircraftType(t, suite.queries, 1, callsign, "A321/M-SDE3FGHIRWY/LB1")
 
-	// Expect ACK (STANDBY) then auto-issued clearance
-	suite.mockHoppie.On("SendCPDLC", mock.Anything, mock.Anything, callsign, mock.MatchedBy(func(msg string) bool {
-		return strings.Contains(msg, "STANDBY")
-	})).Return(nil)
+	// Auto-approved requests should send the clearance directly without a processing ACK.
 	suite.mockHoppie.On("SendCPDLC", mock.Anything, mock.Anything, callsign, mock.MatchedBy(func(msg string) bool {
 		return strings.Contains(msg, "CLRD TO")
-	})).Return(nil)
+	})).Return(nil).Once()
 	suite.mockStrip.On("MoveToBay", mock.Anything, int32(1), callsign, shared.BAY_CLEARED, true).Return(nil)
 	suite.mockFrontend.On("SendPdcStateChange", int32(1), callsign, "CLEARED", "").Return()
 
@@ -741,6 +738,9 @@ func TestProcessPDCRequest_AircraftTypeWithEquipmentSuffix(t *testing.T) {
 	})
 	require.NoError(t, err)
 	assert.Equal(t, "CLEARED", readStripPdcState(t, strip))
+	suite.mockHoppie.AssertNotCalled(t, "SendCPDLC", mock.Anything, mock.Anything, callsign, mock.MatchedBy(func(msg string) bool {
+		return strings.Contains(msg, "STANDBY")
+	}))
 }
 
 func TestProcessPDCRequest_Success(t *testing.T) {
@@ -751,16 +751,10 @@ func TestProcessPDCRequest_Success(t *testing.T) {
 
 	callsign := "SAS123"
 
-	// Expect ACK message to pilot (STANDBY)
-	suite.mockHoppie.On("SendCPDLC", mock.Anything, mock.Anything, callsign, mock.MatchedBy(func(msg string) bool {
-		return strings.Contains(msg, "STANDBY")
-	})).Return(nil)
-
-	// Since strip has clearance data set, IssueClearance will auto-issue
-	// Expect clearance message
+	// Since strip has clearance data set, IssueClearance will auto-issue directly.
 	suite.mockHoppie.On("SendCPDLC", mock.Anything, mock.Anything, callsign, mock.MatchedBy(func(msg string) bool {
 		return strings.Contains(msg, "CLRD TO")
-	})).Return(nil)
+	})).Return(nil).Once()
 
 	// IssueClearance should only move the strip into the cleared bay
 	suite.mockStrip.On("MoveToBay", mock.Anything, int32(1), callsign, shared.BAY_CLEARED, true).Return(nil)
@@ -791,6 +785,9 @@ func TestProcessPDCRequest_Success(t *testing.T) {
 	})
 	require.NoError(t, err)
 	assert.Equal(t, "CLEARED", readStripPdcState(t, strip))
+	suite.mockHoppie.AssertNotCalled(t, "SendCPDLC", mock.Anything, mock.Anything, callsign, mock.MatchedBy(func(msg string) bool {
+		return strings.Contains(msg, "STANDBY")
+	}))
 }
 
 func TestProcessPDCRequest_WithRemarksDoesNotAutoIssue(t *testing.T) {

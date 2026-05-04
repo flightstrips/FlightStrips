@@ -419,11 +419,6 @@ func (s *Service) ProcessPDCRequest(ctx context.Context, msg *IncomingMessage, s
 		return nil
 	}
 
-	// No faults — send ACK then auto-issue clearance
-	if err := s.SendStatusAck(ctx, session, req.Callsign, req.Departure); err != nil {
-		return fmt.Errorf("failed to send status ack: %w", err)
-	}
-
 	if requestRemarks != nil {
 		session.recordPDCRequestOutcome(ctx, models.PdcChannelCPDLC, "requested_manual_review")
 		now := time.Now().UTC()
@@ -432,6 +427,9 @@ func (s *Service) ProcessPDCRequest(ctx context.Context, msg *IncomingMessage, s
 		}
 		if err := s.notifyStateChange(ctx, session.id, req.Callsign, StateRequested, req.Remarks); err != nil {
 			return fmt.Errorf("failed to notify requested state change: %w", err)
+		}
+		if err := s.SendStatusAck(ctx, session, req.Callsign, req.Departure); err != nil {
+			return fmt.Errorf("failed to send status ack: %w", err)
 		}
 		slog.InfoContext(ctx, "PDC Service: PDC request requires manual review due to request remarks", slog.String("callsign", req.Callsign))
 		return nil
@@ -446,6 +444,9 @@ func (s *Service) ProcessPDCRequest(ctx context.Context, msg *IncomingMessage, s
 		}
 		if err := s.notifyStateChange(ctx, session.id, req.Callsign, StateRequested, ""); err != nil {
 			return fmt.Errorf("failed to notify requested fallback state change: %w", err)
+		}
+		if err := s.SendStatusAck(ctx, session, req.Callsign, req.Departure); err != nil {
+			return fmt.Errorf("failed to send status ack: %w", err)
 		}
 		slog.InfoContext(ctx, "PDC Service: PDC request acknowledged (clearance fields not ready)", slog.String("callsign", req.Callsign))
 	} else {

@@ -10,41 +10,33 @@ description: Toolchain, run commands, and wiring for backend, frontend, EuroScop
 | Frontend | Windows, Linux & Mac |
 | Docs | Windows, Linux & Mac |
 
-### Host requirements
+## Host requirements
 
 | Requirement | Used for | Notes |
 | --- | --- | --- |
 | Docker Desktop | Backend | Compose for Postgres, migrator, optional full API image |
-| Go | Backend | Version per `backend/go.mod`; host `go run` when DB runs in Docker |
-| Node.js 22.x | Frontend, docs | Locked in `frontend/package.json` `engines` |
-| Git | Repo | Standard clone/submodule workflow |
-| Visual Studio 2022 **or** Build Tools (C++ workload) | EuroScope plugin | MSVC for Win32 |
-| CMake ≥ 3.15 | EuroScope plugin | Configure step |
-| Ninja | EuroScope plugin | Generator used in CI; same as local builds |
-
-**Plugin builds:** the target is **Win32** (x86). Open an **x86 Native Tools** (or equivalent) MSVC prompt before `cmake` / `cmake --build` so links match EuroScope’s 32-bit host; an x64-only toolchain will fail CMake or produce the wrong architecture.
+| Go | Backend | Version per `backend/go.mod` |
+| Node.js 22.x | Frontend, docs | Version locked in `frontend/package.json` `engines` |
+| Visual Studio 2022 **or** Build Tools (C++ workload) | EuroScope plugin | Must use an **x86 Native Tools** MSVC prompt — x64 produces the wrong architecture |
+| CMake ≥ 3.15 | EuroScope plugin | |
+| Ninja | EuroScope plugin | Matches CI |
 
 ## Backend
 
-From `backend/`, bring up the full stack (API on **8090**, Postgres, migrator, Aspire dashboard):
+From `backend/`, bring up the full stack (API on **8090**, Postgres, migrator):
 
 ```sh
 docker compose --profile all up --build -d
 ```
 
-For API work on the host binary, run only Postgres (and the one-shot migrator via compose):
+To run the Go binary on the host instead, start only Postgres then:
 
 ```sh
 docker compose --profile database up --build -d
-```
-
-Point `DATABASE_CONNECTIONSTRING` at `localhost:5432` (see `.env` / `Readme.md`), then from `backend/`:
-
-```sh
 go run ./cmd/server
 ```
 
-The HTTP/WebSocket surface matches what the frontend and plugin expect on **8090** in dev.
+Set `DATABASE_CONNECTIONSTRING` to `localhost:5432` (see `backend/.env`).
 
 ## Frontend
 
@@ -55,11 +47,9 @@ npm ci
 npm run dev
 ```
 
-Vite loads `public/config.js`; default `wsUrl` is `ws://localhost:8090/frontEndEvents`. Change it if the API listens elsewhere.
+Default `wsUrl` in `public/config.js` is `ws://localhost:8090/frontEndEvents`.
 
 ## EuroScope plugin
-
-Code lives in `euroscope-plugin/`. The **loader** target produces `build/bin/FlightStripsPlugin.dll`; **Debug** post-build copies `src/config_dev.ini` to `build/bin/flightstrips_config.ini` (dev defaults include `ws://localhost:8090/euroscopeEvents`). **Release** follows the CI layout (`flightstrips_config.ini` from prod `config.ini`, plus a `flightstrips_config_dev.ini` sidecar).
 
 From `euroscope-plugin/` in an **x86** MSVC environment:
 
@@ -70,40 +60,35 @@ cmake --build build
 
 Swap `Debug` for `Release` to mirror `.github/workflows/build-plugin.yml`.
 
-Copy `FlightStripsPlugin.dll` and `flightstrips_config.ini` from `build/bin/` into your sector package’s EuroScope **Plugins** folder (same pattern as production: `%AppData%\EuroScope\<ICAO>\Plugins\`, or your pack’s equivalent). Keep any EuroScope-supplied dependency DLLs beside the plugin if your install requires it. Edit `flightstrips_config.ini` if the API host, OIDC, or airport sections differ from your machine.
+To install:
 
-Load the DLL from EuroScope’s plugin dialog. With the backend up, the plugin should negotiate the WebSocket defined under `[api] baseurl`.
+1. Copy `build/bin/FlightStripsPlugin.dll` and `build/bin/flightstrips_config.ini` into your EuroScope Plugins folder (`%AppData%\EuroScope\<ICAO>\Plugins\`).
+2. Keep any EuroScope dependency DLLs beside the plugin.
+3. Load the DLL from EuroScope's plugin dialog.
 
-### Configuring `flightstrips_config.ini` for a local server
+### `flightstrips_config.ini` for local development
 
-The Debug build copies `src/config_dev.ini` to `build/bin/flightstrips_config.ini` automatically, so the settings below are already applied when you build in Debug mode. If you need to patch the file manually (e.g. on an existing install or after a Release build), make the following changes:
+:::note
+Debug builds automatically deploy `src/config_dev.ini` as `flightstrips_config.ini` — skip this unless you are patching a Release build or an existing install.
+:::
 
-**`[api]`** — point at localhost over plain WebSocket:
-
-```ini
-[api]
-enabled = true
-baseurl = ws://localhost:8090/euroscopeEvents
-```
-
-**`[authentication]`** — use the dev Auth0 audience and client ID:
+The values that differ from production:
 
 ```ini
 [authentication]
-authority = https://auth.flightstrips.dk
 audience = backend-dev
 clientId = oPIlNgkBODM1OEFTrcKOZl9JavEives3
-redirectPort = 27015
-```
 
-**`[logging]`** — enable debug output:
+[api]
+baseurl = ws://localhost:8090/euroscopeEvents
 
-```ini
 [logging]
 level = DEBUG
 ```
 
-The production values (audience `backend`, wss transport) are in `src/config.ini`; the dev values are in `src/config_dev.ini`. Never commit personal credentials or access tokens — those live in `userconfig.ini`, which is gitignored.
+All other keys (`authority`, `redirectPort`, `enabled`) stay the same as production. Full reference: `src/config_dev.ini` (dev), `src/config.ini` (prod).
+
+`userconfig.ini` holds personal tokens and is gitignored — do not commit it.
 
 ## Docs
 
@@ -114,6 +99,8 @@ npm ci
 npm run dev
 ```
 
+Dev server runs at `localhost:4321` by default.
+
 ## Wiring checks
 
-With **backend** listening on **8090**, **frontend** dev server should show live strips once Auth0 (or your dev identity setup) and WebSockets succeed. **Plugin** traffic is independent of the Vite origin; it only needs the backend `euroscopeEvents` endpoint and matching auth config in the ini file.
+With the backend on **8090**: the frontend shows live strips once auth and WebSockets succeed; the plugin negotiates the `euroscopeEvents` WebSocket independently of the frontend origin.

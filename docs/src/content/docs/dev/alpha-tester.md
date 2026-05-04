@@ -2,22 +2,14 @@
 title: Alpha Tester
 description: How to install and run the latest FlightStrips alpha build.
 ---
-Use this guide to install the latest FlightStrips development build for alpha testing.
-If anything is unclear, ask in `#alpha-testers`.
 
-## Download the latest build
+Questions? Ask in `#alpha-testers`.
 
-Download the latest `FlightStripsCore.dll` and `flightstrips_config.ini` from the [FlightStrips releases](https://github.com/flightstrips/FlightStrips/releases), under the `FlightStripsPlugin` release tag.
+## Install
 
-## Place the files in your EuroScope plugin folder
+1. Download `FlightStripsCore.dll` and `flightstrips_config.ini` from [FlightStrips releases](https://github.com/flightstrips/FlightStrips/releases) under the `FlightStripsPlugin` tag.
+2. Copy both files to `%appdata%/EuroScope/EKDK/Plugins/FlightStrips`.  
+   If you already run FlightStrips in production, use a separate folder (e.g. `FlightStrips-Test`) to avoid conflicts.
+3. In EuroScope, load the `FlightStripsCore` plugin and allow it to draw on screen.
 
-- Copy both files to `%appdata%/EuroScope/EKDK/Plugins/FlightStrips`.
-- If you already use FlightStrips in production, create a separate folder such as `FlightStrips-Test` and place the alpha files there.
-
-## Load the plugin in EuroScope
-
-- Start EuroScope.
-- Load the `FlightStripsCore` plugin.
-- Confirm the plugin is allowed to draw on screen.
-
-![Clerance Delivery View](../../../assets/plugin-dialog-draw-types.jpg)
+![Clearance Delivery View](../../../assets/plugin-dialog-draw-types.jpg)

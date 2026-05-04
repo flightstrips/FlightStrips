@@ -1,24 +1,22 @@
 ---
 title: Local FSD Server
-description: How to setup a local FSD server for testing
+description: How to set up a local EuroScope FSD server for testing.
 ---
 
+### License file
 
+Download the public VATSIM licence from `https://www.euroscope.hu/license/PublicVatsimLicence.txt` and save it with a `.lic` extension.
 
-### Download license file.
-The Euorsocpe FSD server require a license file, wich can be downloaded from their website.
-https://www.euroscope.hu/license/PublicVatsimLicence.txt 
-
-This file needs to be saved with a `.lic` extension instead of `.txt` 
-
-:::danger[Modify the license file]
-Before loading it. Remove the `LICENCE:` from the file, and remove any trailing white space.
+:::danger[Edit before use]
+Remove the `LICENCE:` prefix and any trailing whitespace from the file before loading it.
 :::
 
-Now start the `Euroscope FSD Server` it will ask for the license file on first start
-Once started, go to senarios and load our testing senario from [here](https://hellow.word)
+### Start the server
 
-Your FSD Server is now running on localhost and ready for testing.
+Launch the **EuroScope FSD Server** — on first start it will prompt for the licence file.
+
+Once running, go to **Scenarios** and load the testing scenario.
+
 :::note
-Only two active connections are supported for this FSD Server
+This FSD server supports a maximum of two active connections.
 :::

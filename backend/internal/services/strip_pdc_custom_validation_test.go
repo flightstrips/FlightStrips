@@ -25,6 +25,7 @@ func TestReevaluatePdcCustomValidation_ActivatesForDeliveryOwnerWithRemarks(t *t
 			return &models.Strip{
 				Callsign:          "SAS123",
 				Owner:             &owner,
+				Bay:               shared.BAY_NOT_CLEARED,
 				PdcState:          "REQUESTED",
 				PdcRequestRemarks: &remarks,
 			}, nil
@@ -61,6 +62,7 @@ func TestReevaluatePdcCustomValidation_ActivatesWithoutOwner(t *testing.T) {
 			assert.Equal(t, "SAS123", callsign)
 			return &models.Strip{
 				Callsign:          "SAS123",
+				Bay:               shared.BAY_NOT_CLEARED,
 				PdcState:          "REQUESTED",
 				PdcRequestRemarks: &remarks,
 			}, nil
@@ -78,6 +80,65 @@ func TestReevaluatePdcCustomValidation_ActivatesWithoutOwner(t *testing.T) {
 	assert.Equal(t, pdcCustomValidationIssueType, persisted.IssueType)
 	assert.Equal(t, "", persisted.OwningPosition)
 	assert.True(t, persisted.Active)
+}
+
+func TestReevaluatePdcCustomValidation_ActivatesInNotClearedBay(t *testing.T) {
+	t.Parallel()
+
+	owner := "EKCH_DEL"
+	remarks := "REQ VOICE CONFIRMATION"
+	var persisted *models.ValidationStatus
+
+	repo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			return &models.Strip{
+				Callsign:          "SAS123",
+				Owner:             &owner,
+				Bay:               shared.BAY_NOT_CLEARED,
+				PdcState:          "REQUESTED",
+				PdcRequestRemarks: &remarks,
+			}, nil
+		},
+		SetValidationStatusFn: func(_ context.Context, _ int32, _ string, status *models.ValidationStatus) error {
+			persisted = status
+			return nil
+		},
+	}
+
+	svc, _ := newPdcInvalidValidationFixture(repo, "22R")
+	require.NoError(t, svc.ReevaluatePdcCustomValidation(context.Background(), 1, "SAS123", false, false))
+
+	require.NotNil(t, persisted)
+	assert.Equal(t, pdcCustomValidationIssueType, persisted.IssueType)
+	assert.Contains(t, persisted.Message, remarks)
+}
+
+func TestReevaluatePdcCustomValidation_DoesNotActivateInClearedBay(t *testing.T) {
+	t.Parallel()
+
+	owner := "EKCH_DEL"
+	remarks := "REQ VOICE CONFIRMATION"
+	setCalled := false
+
+	repo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			return &models.Strip{
+				Callsign:          "SAS123",
+				Owner:             &owner,
+				Bay:               shared.BAY_CLEARED,
+				PdcState:          "REQUESTED",
+				PdcRequestRemarks: &remarks,
+			}, nil
+		},
+		SetValidationStatusFn: func(_ context.Context, _ int32, _ string, _ *models.ValidationStatus) error {
+			setCalled = true
+			return nil
+		},
+	}
+
+	svc, _ := newPdcInvalidValidationFixture(repo, "22R")
+	require.NoError(t, svc.ReevaluatePdcCustomValidation(context.Background(), 1, "SAS123", false, false))
+	assert.False(t, setCalled)
 }
 
 func TestReevaluatePdcCustomValidation_ClearsWhenRemarksRemoved(t *testing.T) {
@@ -210,6 +271,7 @@ func TestReevaluatePdcRequestValidationsForStrip_TransitionsFromInvalidToCustom(
 	strip := &models.Strip{
 		Callsign:          "SAS123",
 		Owner:             &owner,
+		Bay:               shared.BAY_NOT_CLEARED,
 		PdcState:          "REQUESTED",
 		PdcRequestRemarks: &remarks,
 		ValidationStatus: &models.ValidationStatus{
@@ -249,6 +311,7 @@ func TestReevaluatePdcRequestValidationsForStrip_TransitionsFromCustomToInvalid(
 	strip := &models.Strip{
 		Callsign:          "SAS123",
 		Owner:             &owner,
+		Bay:               shared.BAY_NOT_CLEARED,
 		Runway:            &runway,
 		PdcState:          "REQUESTED_WITH_FAULTS",
 		PdcRequestRemarks: &remarks,

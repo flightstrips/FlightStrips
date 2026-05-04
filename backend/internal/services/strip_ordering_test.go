@@ -183,14 +183,14 @@ func TestMoveToBay_WithSyncStateAndTacticalStripsCachesUnifiedBayMax(t *testing.
 	assert.Equal(t, int32(4000), syncState.BayMaxSequence[bay])
 }
 
-func TestMoveToBay_WithSyncStateMarksPdcValidationAfterLeavingEmptyBay(t *testing.T) {
+func TestMoveToBay_WithSyncStateMarksPdcValidationAfterLeavingNotClearedBay(t *testing.T) {
 	const session = int32(1)
 	const callsign = "SAS123"
 	const bay = shared.BAY_PUSH
 
 	syncState := &shared.SyncState{
 		ExistingStrips: map[string]*models.Strip{
-			callsign: {Callsign: callsign, Bay: "", Sequence: ptr32(1000)},
+			callsign: {Callsign: callsign, Bay: shared.BAY_NOT_CLEARED, Sequence: ptr32(1000)},
 		},
 	}
 	ctx := shared.WithSyncState(context.Background(), syncState)

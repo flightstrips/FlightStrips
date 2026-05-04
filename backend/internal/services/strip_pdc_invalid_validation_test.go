@@ -48,6 +48,7 @@ func TestReevaluatePdcInvalidValidation_ActivatesForDeliveryOwnerWithRelevantFau
 			return &models.Strip{
 				Callsign: "SAS123",
 				Owner:    &owner,
+				Bay:      shared.BAY_NOT_CLEARED,
 				Sid:      &sid,
 				Runway:   &runway,
 				PdcState: "REQUESTED_WITH_FAULTS",
@@ -87,6 +88,7 @@ func TestReevaluatePdcInvalidValidation_ActivatesWithoutOwner(t *testing.T) {
 			assert.Equal(t, "SAS123", callsign)
 			return &models.Strip{
 				Callsign: "SAS123",
+				Bay:      shared.BAY_NOT_CLEARED,
 				Sid:      &sid,
 				Runway:   &runway,
 				PdcState: "REQUESTED_WITH_FAULTS",
@@ -107,6 +109,65 @@ func TestReevaluatePdcInvalidValidation_ActivatesWithoutOwner(t *testing.T) {
 	assert.True(t, persisted.Active)
 }
 
+func TestReevaluatePdcInvalidValidation_ActivatesInNotClearedBay(t *testing.T) {
+	t.Parallel()
+
+	owner := "EKCH_DEL"
+	runway := "22L"
+	var persisted *models.ValidationStatus
+
+	repo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			return &models.Strip{
+				Callsign: "SAS123",
+				Owner:    &owner,
+				Bay:      shared.BAY_NOT_CLEARED,
+				Runway:   &runway,
+				PdcState: "REQUESTED_WITH_FAULTS",
+			}, nil
+		},
+		SetValidationStatusFn: func(_ context.Context, _ int32, _ string, status *models.ValidationStatus) error {
+			persisted = status
+			return nil
+		},
+	}
+
+	svc, _ := newPdcInvalidValidationFixture(repo, "22R")
+	require.NoError(t, svc.ReevaluatePdcInvalidValidation(context.Background(), 1, "SAS123", false, false))
+
+	require.NotNil(t, persisted)
+	assert.Equal(t, pdcInvalidValidationIssueType, persisted.IssueType)
+	assert.Contains(t, persisted.Message, "Runway 22L is not an active departure runway")
+}
+
+func TestReevaluatePdcInvalidValidation_DoesNotActivateInClearedBay(t *testing.T) {
+	t.Parallel()
+
+	owner := "EKCH_DEL"
+	runway := "22L"
+	setCalled := false
+
+	repo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			return &models.Strip{
+				Callsign: "SAS123",
+				Owner:    &owner,
+				Bay:      shared.BAY_CLEARED,
+				Runway:   &runway,
+				PdcState: "REQUESTED_WITH_FAULTS",
+			}, nil
+		},
+		SetValidationStatusFn: func(_ context.Context, _ int32, _ string, _ *models.ValidationStatus) error {
+			setCalled = true
+			return nil
+		},
+	}
+
+	svc, _ := newPdcInvalidValidationFixture(repo, "22R")
+	require.NoError(t, svc.ReevaluatePdcInvalidValidation(context.Background(), 1, "SAS123", false, false))
+	assert.False(t, setCalled)
+}
+
 func TestReevaluatePdcInvalidValidation_ClearsWhenFaultsNoLongerExist(t *testing.T) {
 	t.Parallel()
 
@@ -119,6 +180,7 @@ func TestReevaluatePdcInvalidValidation_ClearsWhenFaultsNoLongerExist(t *testing
 			return &models.Strip{
 				Callsign: "SAS123",
 				Owner:    &owner,
+				Bay:      shared.BAY_NOT_CLEARED,
 				Runway:   &runway,
 				PdcState: "REQUESTED_WITH_FAULTS",
 				ValidationStatus: &models.ValidationStatus{
@@ -191,6 +253,7 @@ func TestReevaluatePdcInvalidValidation_RemainsActiveForNonDeliveryOwner(t *test
 			return &models.Strip{
 				Callsign: "SAS123",
 				Owner:    &owner,
+				Bay:      shared.BAY_NOT_CLEARED,
 				Runway:   &runway,
 				PdcState: "REQUESTED_WITH_FAULTS",
 				ValidationStatus: &models.ValidationStatus{
@@ -234,6 +297,7 @@ func TestReevaluatePdcInvalidValidation_ReactivatesOnOwnerChange(t *testing.T) {
 			return &models.Strip{
 				Callsign: "SAS123",
 				Owner:    &newOwner,
+				Bay:      shared.BAY_NOT_CLEARED,
 				Runway:   &runway,
 				PdcState: "REQUESTED_WITH_FAULTS",
 				ValidationStatus: &models.ValidationStatus{
@@ -271,6 +335,7 @@ func TestReevaluatePdcInvalidValidation_ActivatesForEobtFaults(t *testing.T) {
 		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
 			return &models.Strip{
 				Callsign: "SAS123",
+				Bay:      shared.BAY_NOT_CLEARED,
 				PdcState: "REQUESTED_WITH_FAULTS",
 				CdmData:  (&models.CdmData{Eobt: &eobt}).Normalize(),
 			}, nil

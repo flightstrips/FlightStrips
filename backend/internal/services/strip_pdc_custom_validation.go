@@ -29,7 +29,7 @@ func pdcCustomValidationAction() *internalModels.ValidationAction {
 }
 
 func pdcRequestValidationAppliesInBay(bay string) bool {
-	return bay == "" || bay == shared.BAY_CLEARED
+	return bay == shared.BAY_NOT_CLEARED
 }
 
 func pdcCustomValidationApplies(strip *internalModels.Strip) bool {

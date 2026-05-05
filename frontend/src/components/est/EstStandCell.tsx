@@ -62,7 +62,7 @@ export default function EstStandCell({
   const isArrival = strip?.bay === Bay.Stand;
   const isMoving = !!strip && !isDeparture && !isPushing && !isArrival;
 
-  let backgroundClass = "bg-[#9E9E9E]";
+  let backgroundClass = "bg-[#D9D9D9]";
   let textClass = "text-[#333333]";
 
   if (blocked) {

@@ -3,7 +3,7 @@ import type { CSSProperties } from "react";
 import { Bay, type FrontendStrip } from "@/api/models";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { computeCDMColors, computeCTOTColors } from "@/lib/cdmColors";
+import { CTOT_BLUE, computeCDMColors, computeCTOTColors } from "@/lib/cdmColors";
 
 import {
   EST_CELL_HEIGHT,
@@ -89,23 +89,22 @@ export default function EstStandCell({
     ? computeCDMColors(strip.tsat, strip.tobt, nowMs, strip.bay as Bay)
     : { tobtBg: "", tsatBg: "" };
 
-  const { ctotBg: ctotBarColor } = strip && isClearedDeparture
+  const { showCtot } = strip && isClearedDeparture
     ? computeCTOTColors(strip.ctot, nowMs)
-    : { ctotBg: "" };
+    : { showCtot: false };
 
   const showTobt = isDeparture && !!strip && strip.tobt !== "";
   const showTsat = isDeparture && !!strip && strip.tsat !== "";
 
   const ctotLabel =
-    isClearedDeparture && strip?.ctot
+    isClearedDeparture && showCtot && strip?.ctot
       ? ctotImproved
         ? `NEW: ${formatTimeLabel(strip.ctot).replace(":", "")}`
         : `CTOT: ${formatTimeLabel(strip.ctot).replace(":", "")}`
       : "";
 
   const showMark = isClearedDeparture && !!strip?.marked;
-  const showBottomBar = showMark || (isClearedDeparture && !!ctotLabel);
-  const bottomBarColor = showMark ? "#EB01FB" : ctotBarColor;
+  const showCtotText = !showMark && ctotLabel !== "";
 
   return (
     <div style={containerStyle ?? gridStyle} className="relative">
@@ -136,10 +135,10 @@ export default function EstStandCell({
                 style={{ top: TSAT_ROW_TOP, height: ROW_HEIGHT, backgroundColor: tsatBarColor }}
               />
             )}
-            {showBottomBar && (
+            {showMark && (
               <div
                 className="absolute left-0 right-0"
-                style={{ top: CTOT_ROW_TOP, height: ROW_HEIGHT, backgroundColor: bottomBarColor }}
+                style={{ top: CTOT_ROW_TOP, height: ROW_HEIGHT, backgroundColor: "#EB01FB" }}
               />
             )}
 
@@ -181,14 +180,14 @@ export default function EstStandCell({
                </div>
             )}
 
-            {/* CTOT / MARK bottom bar text */}
-            {showBottomBar && (
-               <div
-                 className="absolute left-0 right-0 flex items-center justify-center text-white"
-                 style={{ top: CTOT_ROW_TOP, height: ROW_HEIGHT, fontSize: CONTENT_FONT_SIZE }}
-               >
-                 {!showMark ? ctotLabel : null}
-               </div>
+            {/* CTOT text */}
+            {showCtotText && (
+              <div
+                className="absolute left-0 right-0 flex items-center justify-center font-bold"
+                style={{ top: CTOT_ROW_TOP, height: ROW_HEIGHT, fontSize: CONTENT_FONT_SIZE, color: CTOT_BLUE }}
+              >
+                {ctotLabel}
+              </div>
             )}
           </button>
         </TooltipTrigger>

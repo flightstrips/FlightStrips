@@ -1572,10 +1572,10 @@
                       }
                     ]
                   },
-                   {
-                     "matcher": {
-                       "id": "byName",
-                       "options": "frontend"
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "frontend"
                     },
                     "properties": [
                       {
@@ -1631,75 +1631,75 @@
                                 "index": 3
                               }
                             }
-                       }
-                     ]
-                   },
-                   {
-                     "matcher": {
-                       "id": "byName",
-                       "options": "master"
-                     },
-                     "properties": [
-                       {
-                         "id": "displayName",
-                         "value": "Master"
-                       },
-                       {
-                         "id": "custom.cellOptions",
-                         "value": {
-                           "type": "color-text"
-                         }
-                       },
-                       {
-                         "id": "custom.width",
-                         "value": 110
-                       },
-                       {
-                         "id": "mappings",
-                         "value": [
-                           {
-                             "type": "special",
-                             "options": {
-                               "match": "null",
-                               "result": {
-                                 "text": "NO",
-                                 "color": "red",
-                                 "index": 0
-                               }
-                             }
-                           },
-                           {
-                             "type": "special",
-                             "options": {
-                               "match": "empty",
-                               "result": {
-                                 "text": "NO",
-                                 "color": "red",
-                                 "index": 1
-                               }
-                             }
-                           },
-                           {
-                             "type": "value",
-                             "options": {
-                               "0": {
-                                 "text": "NO",
-                                 "color": "red",
-                                 "index": 2
-                               },
-                               "1": {
-                                 "text": "YES",
-                                 "color": "green",
-                                 "index": 3
-                               }
-                             }
-                           }
-                         ]
-                       }
-                     ]
-                   }
-                 ]
-               }
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "master"
+                    },
+                    "properties": [
+                      {
+                        "id": "displayName",
+                        "value": "Master"
+                      },
+                      {
+                        "id": "custom.cellOptions",
+                        "value": {
+                          "type": "color-text"
+                        }
+                      },
+                      {
+                        "id": "custom.width",
+                        "value": 110
+                      },
+                      {
+                        "id": "mappings",
+                        "value": [
+                          {
+                            "type": "special",
+                            "options": {
+                              "match": "null",
+                              "result": {
+                                "text": "NO",
+                                "color": "red",
+                                "index": 0
+                              }
+                            }
+                          },
+                          {
+                            "type": "special",
+                            "options": {
+                              "match": "empty",
+                              "result": {
+                                "text": "NO",
+                                "color": "red",
+                                "index": 1
+                              }
+                            }
+                          },
+                          {
+                            "type": "value",
+                            "options": {
+                              "0": {
+                                "text": "NO",
+                                "color": "red",
+                                "index": 2
+                              },
+                              "1": {
+                                "text": "YES",
+                                "color": "green",
+                                "index": 3
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    ]
+                  }
                 ]
               }
             }

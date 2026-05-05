@@ -60,7 +60,6 @@ export default function EstStandCell({
   const isClearedDeparture = isDeparture && strip.bay !== Bay.NotCleared;
   const isPushing = strip?.bay === Bay.Push;
   const isArrival = strip?.bay === Bay.Stand;
-  const isMoving = !!strip && !isDeparture && !isPushing && !isArrival;
 
   let backgroundClass = "bg-[#D9D9D9]";
   let textClass = "text-[#333333]";
@@ -68,7 +67,7 @@ export default function EstStandCell({
   if (blocked) {
     backgroundClass = "bg-[#4A4A4A]";
     textClass = "text-white";
-  } else if (actionActive || isMoving) {
+  } else if (actionActive) {
     backgroundClass = "bg-[#131376]";
     textClass = "text-white";
   } else if (isPushing) {
@@ -152,9 +151,9 @@ export default function EstStandCell({
 
             {/* Callsign */}
             {strip && !blocked && (
-              <div
-                className="absolute left-0 right-0 flex items-center justify-center overflow-hidden px-0.5 text-center"
-                style={{
+               <div
+                 className="absolute left-0 right-0 flex items-center justify-center overflow-hidden px-0.5 text-center"
+                 style={{
                   top: CALLSIGN_TOP,
                   height: ROW_HEIGHT,
                   fontSize: CONTENT_FONT_SIZE,

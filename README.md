@@ -1,37 +1,78 @@
-# FlightStrips: The Ultimate vATC Management System ✈️🖥️
+# FlightStrips
 
-Experience the most realistic vATC management system for VATSIM, inspired by the real-world NITOS system. FlightStrips is dedicated to providing an immersive and authentic experience for VATSIM controllers.
+FlightStrips is a VATSIM air traffic control management system that provides controllers with a digital flight strip interface, inspired by real-world systems. It features a web-based interface, Euroscope plugin integration, and Hoppies ACARS connectivity for realistic ATC operations.
 
-## Designed for VATSIM 🌐
+## Architecture
 
-Tailored to closely resemble the real-world NITOS system, FlightStrips is adapted for both global and local VATSIM operations, ensuring a seamless experience for controllers worldwide.
+FlightStrips is a full-stack application with three main components:
 
-## Hoppies ACARS Integration 📊🚀
+### Backend (`backend/`)
+- **Language**: Go
+- **Database**: PostgreSQL
+- **Communication**: WebSocket (JSON-based events)
+- **Purpose**: Manages strip data, controller sessions, and synchronization between frontend and Euroscope
 
-Plan, create, and launch your operations effortlessly. Collaborate seamlessly with your organization and achieve your monthly marketing goals using our integrated Hoppies ACARS and marketing plan features.
+### Frontend (`frontend/`)
+- **Stack**: React + TypeScript + Vite
+- **Purpose**: Web-based interface for controllers to manage flight strips and operations
 
-## Multi OS Support 💻🍏🐧
+### Euroscope Plugin (`euroscope-plugin/`)
+- **Language**: C++
+- **Purpose**: Integration with Euroscope for two-way synchronization of flight plan data and strip information
 
-FlightStrips is compatible with Windows, Mac, and Linux, providing flexibility for controllers to create a realistic setup on their preferred operating system.
+## Documentation
 
-## Euroscope Integration 🔄💬
+### Getting Started with the Docs
 
-Achieve full coordination between controllers using FlightStrips and Euroscope with a two-way sync feature. Enhance your communication and streamline operations effortlessly.
+- **[Backend Architecture](backend/Architecture.md)** — Database design, WebSocket communication, session management, and multi-server considerations
+- **[Events Specification](events.md)** — Complete specification of all WebSocket events for frontend and Euroscope communication
+- **[Backend Setup](backend/Readme.md)** — Instructions for running the backend API
+- **[Frontend Setup](frontend/README.md)** — React/TypeScript development setup
+- **[Euroscope Plugin](euroscope-plugin/README.md)** — Plugin development and integration notes
 
-## Touch First Design 🖐️📲
+### Quick Reference
 
-FlightStrips is optimized for use with FSTools Touch Screen and other devices meeting the requirements, ensuring a user-friendly and touch-responsive interface.
+| Component | Purpose | Docs |
+|-----------|---------|------|
+| Backend API | WebSocket server, data management, event routing | [backend/Architecture.md](backend/Architecture.md) |
+| Frontend UI | ATC controller interface | [frontend/README.md](frontend/README.md) |
+| Euroscope Plugin | Real-time data sync with Euroscope | [euroscope-plugin/README.md](euroscope-plugin/README.md) |
+| Events Protocol | Communication specification | [events.md](events.md) |
 
-## Flow Management with Integrated CDM 🚦📈
+## Local Development
 
-Experience efficient flow management for high-traffic scenarios with FlightStrips. Integrated Collaborative Decision Making (CDM) features, including ECFMP and CTOT, are included to enhance control capabilities.
+### Prerequisites
+- Docker and Docker Compose
+- Go 1.21+ (for backend development)
+- Node.js 18+ (for frontend development)
+- CMake (for Euroscope plugin)
 
-## Open Source Contribution 🌐🔓
+### Running the Backend
 
-FlightStrips operates under the GPL-3.0 license, fostering an open-source community. Explore and contribute to the codebase on [GitHub](https://github.com/yourrepository).
+Start only the database:
+```sh
+docker compose --profile database up --build -d
+```
 
-## Observability
+Or start the complete stack:
+```sh
+docker compose --profile all up --build -d
+```
 
-Grafana Cloud dashboards for Git Sync live in `observability\grafana\dashboards\` as committed dashboard JSON resources.
+### Running the Frontend
 
-Enjoy the realism, efficiency, and collaborative power of FlightStrips on VATSIM! ✨🌐🎮
+See [frontend/README.md](frontend/README.md) for development server setup.
+
+## Key Features
+
+- **WebSocket-based Communication** — Real-time synchronization between frontend, backend, and Euroscope
+- **Multi-Session Support** — Multiple sessions can run for the same airport on one backend server
+- **Euroscope Integration** — Two-way sync with Euroscope for flight plan management
+- **Optimistic Concurrency** — Safe concurrent updates to strip data
+- **Hoppies ACARS Integration** — Pilot data connectivity
+- **CDM Support** — Collaborative Decision Making features including ECFMP and CTOT
+- **Grafana Observability** — Cloud dashboards in `observability/grafana/dashboards/`
+
+## License
+
+FlightStrips is licensed under the GPL-3.0 License. See [LICENSE](LICENSE) for details.

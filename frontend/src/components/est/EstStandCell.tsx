@@ -4,7 +4,7 @@ import { Bay, type FrontendStrip } from "@/api/models";
 import { SELECTION_COLOR } from "@/components/strip/shared";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { CTOT_BLUE, computeCDMColors, computeCTOTColors } from "@/lib/cdmColors";
+import { CTOT_BLUE, computeCDMColors } from "@/lib/cdmColors";
 
 import {
   EST_CELL_HEIGHT,
@@ -40,7 +40,6 @@ interface EstStandCellProps {
 export default function EstStandCell({
   stand,
   strip,
-  selected,
   blocked,
   actionActive,
   blinking,
@@ -90,15 +89,12 @@ export default function EstStandCell({
     ? computeCDMColors(strip.tsat, strip.tobt, nowMs, strip.bay as Bay)
     : { tobtBg: "", tsatBg: "" };
 
-  const { showCtot } = strip && isClearedDeparture
-    ? computeCTOTColors(strip.ctot, nowMs)
-    : { showCtot: false };
-
   const showTobt = isDeparture && !!strip && strip.tobt !== "";
   const showTsat = isDeparture && !!strip && strip.tsat !== "";
+  const showCtot = isClearedDeparture && !!strip?.ctot.trim();
 
   const ctotLabel =
-    isClearedDeparture && showCtot && strip?.ctot
+    showCtot && strip?.ctot
       ? ctotImproved
         ? `NEW: ${formatTimeLabel(strip.ctot).replace(":", "")}`
         : `CTOT: ${formatTimeLabel(strip.ctot).replace(":", "")}`
@@ -123,7 +119,6 @@ export default function EstStandCell({
               "relative overflow-hidden rounded-xl border-2 border-black/15 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-white",
               backgroundClass,
               textClass,
-              selected && !showMark && "border-white/80",
               blinking && "animate-pulse",
             )}
             style={buttonStyle}
@@ -139,6 +134,12 @@ export default function EstStandCell({
               <div
                 className="absolute left-0 right-0"
                 style={{ top: TSAT_ROW_TOP, height: ROW_HEIGHT, backgroundColor: tsatBarColor }}
+              />
+            )}
+            {showCtot && (
+              <div
+                className="absolute left-0 right-0"
+                style={{ top: CTOT_ROW_TOP, height: ROW_HEIGHT, backgroundColor: CTOT_BLUE }}
               />
             )}
             {/* Stand label */}
@@ -189,7 +190,7 @@ export default function EstStandCell({
             {showCtotText && (
               <div
                 className="absolute left-0 right-0 flex items-center justify-center font-bold"
-                style={{ top: CTOT_ROW_TOP, height: ROW_HEIGHT, fontSize: CONTENT_FONT_SIZE, color: CTOT_BLUE }}
+                style={{ top: CTOT_ROW_TOP, height: ROW_HEIGHT, fontSize: CONTENT_FONT_SIZE, color: "#FFFFFF" }}
               >
                 {ctotLabel}
               </div>

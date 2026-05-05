@@ -32,6 +32,10 @@ export default defineConfig({
 					autogenerate: { directory: 'ekch' }
 				},
 				{
+					label: 'Troubleshooting',
+					autogenerate: { directory: 'troubleshooting' }
+				},
+				{
 					label: 'Development',
 					autogenerate: { directory: 'dev' }
 				},

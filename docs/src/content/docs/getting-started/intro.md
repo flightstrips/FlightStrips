@@ -21,6 +21,18 @@ In **Getting started**, you will find a product-oriented **introduction**, an ov
 
 The **Kastrup** section is **airport-specific** documentation for Copenhagen (EKCH): clearance delivery, apron and taxi routes, sequencing, runway integration, and related workflows. It is written for controllers who work that airfield in FlightStrips; other airports may follow a similar structure over time.
 
+## Troubleshooting
+
+**Troubleshooting** provides solutions for common issues: authentication problems, port conflicts, plugin failures, and other setup or runtime issues. Start here if something isn't working as expected.
+
 ## Development
 
 **Development** is for contributors and power users: **local development**, optional **FSD** / tooling notes, **alpha testing**, and meta-information about maintaining **this documentation**. If you want to build from source, run a dev environment, or change the docs site itself, start here.
+
+## Reference
+
+**Reference** holds concise or example-style material that supports the rest of the site (schemas, patterns, or pointers to the codebase). Use it when you need a quick lookup rather than a full tutorial.
+
+---
+
+If you are unsure where to start, open [Getting started](/getting-started/intro/), then follow the sidebar into **Concepts** and **Procedures** as your role requires. Controllers working EKCH should pair **Getting started** with **Kastrup**; developers should pair **Getting started** with **Development**. If you're experiencing issues, check **Troubleshooting** first.

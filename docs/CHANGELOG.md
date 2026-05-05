@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.12.0](https://github.com/flightstrips/FlightStrips/compare/docs/v0.11.1...docs/v0.12.0) (2026-05-05)
+
+
+### Features
+
+* **docs:** added troubleshooting section ([5583b09](https://github.com/flightstrips/FlightStrips/commit/5583b097ec804c794066c4d5d703c6f55f3029ba))
+
 ## [0.11.1](https://github.com/flightstrips/FlightStrips/compare/docs/v0.11.0...docs/v0.11.1) (2026-04-25)
 
 

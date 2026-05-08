@@ -1,6 +1,7 @@
 package cdm
 
 import (
+	"FlightStrips/internal/models"
 	"math"
 	"strings"
 	"time"
@@ -120,20 +121,30 @@ func Calculate(input CalcInput, slots []SlotEntry, config *CdmAirportConfig, now
 }
 
 func selectCalculationBase(input CalcInput) string {
+	base, _ := selectCalculationBaseWithSource(input)
+	return base
+}
+
+func selectCalculationBaseWithSource(input CalcInput) (string, string) {
 	base := normalizeCalculationClock(input.Tobt)
+	source := models.CdmCalculationBaseTobt
 	if base == "" {
 		base = normalizeCalculationClock(input.ReqTobt)
+		source = models.CdmCalculationBaseReqTobt
 	}
 
 	eobt := normalizeCalculationClock(input.Eobt)
 	if base == "" {
-		return eobt
+		if eobt == "" {
+			return "", ""
+		}
+		return eobt, models.CdmCalculationBaseEobt
 	}
 	if eobt != "" && !isAfterOrEqual(base, eobt) {
-		return eobt
+		return eobt, models.CdmCalculationBaseEobt
 	}
 
-	return base
+	return base, source
 }
 
 func shouldInvalidateStaleTobt(input CalcInput, nowHHMMSS string) bool {

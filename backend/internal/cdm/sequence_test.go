@@ -95,11 +95,23 @@ func TestSequenceService_RecalculateAirportPersistsAndBroadcasts(t *testing.T) {
 	if got := valueOrEmpty(persisted[1].Ttot); got != secondTtot {
 		t.Fatalf("expected second TTOT %q, got %q", secondTtot, got)
 	}
-	if persisted[0].TaxiMinutes == nil || *persisted[0].TaxiMinutes != 10 {
-		t.Fatalf("expected first taxi minutes to persist default value 10, got %#v", persisted[0].TaxiMinutes)
+	if persisted[0].Calculation == nil {
+		t.Fatal("expected first strip to persist calculation snapshot")
 	}
-	if got := valueOrEmpty(persisted[0].TaxiRunway); got != "04L" {
-		t.Fatalf("expected first taxi runway %q, got %q", "04L", got)
+	if persisted[0].Calculation.TaxiMinutes == nil || *persisted[0].Calculation.TaxiMinutes != 10 {
+		t.Fatalf("expected first calculation taxi minutes 10, got %#v", persisted[0].Calculation.TaxiMinutes)
+	}
+	if got := valueOrEmpty(persisted[0].Calculation.TaxiRunway); got != "04L" {
+		t.Fatalf("expected first calculation taxi runway %q, got %q", "04L", got)
+	}
+	if got := valueOrEmpty(persisted[0].Calculation.BaseTime); got != firstTobt {
+		t.Fatalf("expected first base time %q, got %q", firstTobt, got)
+	}
+	if got := valueOrEmpty(persisted[0].Calculation.BaseSource); got != models.CdmCalculationBaseTobt {
+		t.Fatalf("expected first base source %q, got %q", models.CdmCalculationBaseTobt, got)
+	}
+	if got := valueOrEmpty(persisted[0].Calculation.InvalidReason); got != "" {
+		t.Fatalf("expected first invalid reason to be cleared, got %q", got)
 	}
 
 	if len(frontendHub.CdmUpdates) != 2 {
@@ -132,8 +144,10 @@ func TestBuildCalcInput_UsesPersistedTaxiMinutesWhenPositionNoLongerMatches(t *t
 	strip := &models.Strip{
 		Runway: testStringPtr("04L"),
 		CdmData: (&models.CdmData{
-			TaxiMinutes: intPointerIfPositive(14),
-			TaxiRunway:  testStringPtr("04L"),
+			Calculation: &models.CdmCalculation{
+				TaxiMinutes: intPointerIfPositive(14),
+				TaxiRunway:  testStringPtr("04L"),
+			},
 		}).Normalize(),
 		PositionLatitude:  testFloatPtr(0),
 		PositionLongitude: testFloatPtr(0),
@@ -639,6 +653,9 @@ func TestSequenceService_RecalculateAirport_ClearsExpiredLocalCalcTimes(t *testi
 	if got := valueOrEmpty(persisted["SAS788"].Phase); got != "I" {
 		t.Fatalf("expected expired strip to be marked invalid (phase=I), got %q", got)
 	}
+	if got := valueOrEmpty(persisted["SAS788"].Calculation.InvalidReason); got != models.CdmInvalidReasonStaleTsat {
+		t.Fatalf("expected invalid reason %q, got %q", models.CdmInvalidReasonStaleTsat, got)
+	}
 	if got := valueOrEmpty(persisted["SAS788"].Tobt); got != expiredTobt {
 		t.Fatalf("expected TOBT to be preserved, got %q", got)
 	}
@@ -751,6 +768,12 @@ func TestSequenceService_RecalculateAirport_InvalidStripIsRescheduledAfterNewTob
 	}
 	if got := valueOrEmpty(persisted.Ttot); got != expectedTtot {
 		t.Fatalf("expected TTOT %q, got %q", expectedTtot, got)
+	}
+	if got := valueOrEmpty(persisted.Calculation.InvalidReason); got != "" {
+		t.Fatalf("expected recalculation to clear invalid reason, got %q", got)
+	}
+	if got := valueOrEmpty(persisted.Calculation.BaseSource); got != models.CdmCalculationBaseTobt {
+		t.Fatalf("expected recalculated base source %q, got %q", models.CdmCalculationBaseTobt, got)
 	}
 }
 

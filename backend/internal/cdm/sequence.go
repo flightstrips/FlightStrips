@@ -80,6 +80,8 @@ func (s *SequenceService) RecalculateAirport(ctx context.Context, session int32,
 			}
 		}
 
+		calcInput := buildCalcInput(strip, config)
+
 		// TSAT specifically expired → mark strip as invalid, keep TOBT
 		if isTsatSpecificallyExpired(strip, now) {
 			data := strip.CdmData
@@ -93,6 +95,7 @@ func (s *SequenceService) RecalculateAirport(ctx context.Context, session int32,
 				updated.Phase = &phase
 				updated.Tsat = nil
 				updated.Ttot = nil
+				applyCalculationSnapshot(updated, calcInput, valueOrEmpty(strip.Runway), models.CdmInvalidReasonStaleTsat)
 				updated.ClearLocalRecalculationPending()
 				if _, err := s.stripRepo.SetCdmData(ctx, session, strip.Callsign, updated.Normalize()); err != nil {
 					return err
@@ -106,7 +109,6 @@ func (s *SequenceService) RecalculateAirport(ctx context.Context, session int32,
 			continue
 		}
 
-		calcInput := buildCalcInput(strip, config)
 		result := Calculate(calcInput, slots, config, now)
 
 		beforeTsat := strings.TrimSpace(valueOrEmpty(strip.EffectiveTsat()))
@@ -123,11 +125,10 @@ func (s *SequenceService) RecalculateAirport(ctx context.Context, session int32,
 		updated.Phase = nil
 		updated.Tsat = stringPointerIfPresent(result.Tsat)
 		updated.Ttot = stringPointerIfPresent(result.Ttot)
-		updated.TaxiMinutes = intPointerIfPositive(calcInput.TaxiMin)
-		updated.TaxiRunway = stringPointerIfPresent(valueOrEmpty(strip.Runway))
+		applyCalculationSnapshot(updated, calcInput, valueOrEmpty(strip.Runway), calculationInvalidReason(calcInput, result, now))
 		updated.ClearLocalRecalculationPending()
 
-		if beforeTsat != result.Tsat || beforeTtot != result.Ttot || beforeNeedsRecalc || beforeTaxiMinutes != calcInput.TaxiMin || beforeTaxiRunway != strings.TrimSpace(valueOrEmpty(updated.TaxiRunway)) {
+		if beforeTsat != result.Tsat || beforeTtot != result.Ttot || beforeNeedsRecalc || beforeTaxiMinutes != calcInput.TaxiMin || beforeTaxiRunway != strings.TrimSpace(valueOrEmpty(updatedTaxiRunwayFromData(updated))) {
 			if _, err := s.stripRepo.SetCdmData(ctx, session, strip.Callsign, updated.Normalize()); err != nil {
 				return err
 			}
@@ -191,8 +192,10 @@ func resolveTaxiMinutes(strip *models.Strip, data *models.CdmData, config *CdmAi
 		}
 	}
 
-	if data != nil && data.TaxiMinutes != nil && *data.TaxiMinutes > 0 && strings.EqualFold(valueOrEmpty(data.TaxiRunway), depRwy) {
-		return *data.TaxiMinutes
+	if data != nil {
+		if minutes := data.EffectiveTaxiMinutesForRunway(depRwy); minutes != nil && *minutes > 0 {
+			return *minutes
+		}
 	}
 
 	return config.TaxiMinutesForRunway(depRwy)
@@ -401,12 +404,56 @@ func updatedTaxiMinutes(strip *models.Strip) *int {
 	if strip == nil || strip.CdmData == nil {
 		return nil
 	}
-	return strip.CdmData.TaxiMinutes
+	return updatedTaxiMinutesFromData(strip.CdmData)
 }
 
 func updatedTaxiRunway(strip *models.Strip) *string {
 	if strip == nil || strip.CdmData == nil {
 		return nil
 	}
-	return strip.CdmData.TaxiRunway
+	return updatedTaxiRunwayFromData(strip.CdmData)
+}
+
+func updatedTaxiMinutesFromData(data *models.CdmData) *int {
+	if data == nil || data.Calculation == nil {
+		return nil
+	}
+	return data.Calculation.TaxiMinutes
+}
+
+func updatedTaxiRunwayFromData(data *models.CdmData) *string {
+	if data == nil || data.Calculation == nil {
+		return nil
+	}
+	return data.Calculation.TaxiRunway
+}
+
+func applyCalculationSnapshot(data *models.CdmData, input CalcInput, runway string, invalidReason string) {
+	if data == nil {
+		return
+	}
+
+	baseTime, baseSource := selectCalculationBaseWithSource(input)
+	calculation := data.Calculation.Clone()
+	if calculation == nil {
+		calculation = &models.CdmCalculation{}
+	}
+	calculation.BaseTime = stringPointerIfPresent(baseTime)
+	calculation.BaseSource = stringPointerIfPresent(baseSource)
+	calculation.TaxiMinutes = intPointerIfPositive(input.TaxiMin)
+	calculation.TaxiRunway = stringPointerIfPresent(runway)
+	calculation.InvalidReason = stringPointerIfPresent(invalidReason)
+
+	data.Calculation = calculation
+	data.Normalize()
+}
+
+func calculationInvalidReason(input CalcInput, result CalcResult, now time.Time) string {
+	if result.Tsat != "" || result.Ttot != "" {
+		return ""
+	}
+	if shouldInvalidateStaleTobt(input, timeToClock(now)) {
+		return models.CdmInvalidReasonStaleTobt
+	}
+	return ""
 }

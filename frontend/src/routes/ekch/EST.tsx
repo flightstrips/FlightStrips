@@ -264,16 +264,12 @@ export default function EST() {
 
     if (selectedCallsign !== strip.callsign) {
       selectStrip(strip.callsign);
-      setMenuState(null);
-      setStatusStand(null);
-      setStatusAnchor(null);
-      setDeIceOpen(false);
-      return;
     }
 
     setMenuState({ stand, anchor: toMenuAnchor(element) });
     setStatusStand(null);
     setStatusAnchor(null);
+    setDeIceOpen(false);
   }
 
   function handleSendReady() {

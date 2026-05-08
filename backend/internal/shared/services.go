@@ -100,6 +100,7 @@ type StripService interface {
 	// Non-owners may overwrite an existing value (marks the cell yellow); non-owners
 	// setting a value on a strip that has none are rejected.
 	ApplyReleasePoint(ctx context.Context, session int32, callsign string, releasePoint string, clientPosition string) error
+	UpdateStartReq(ctx context.Context, session int32, callsign string, startReq bool) error
 	UpdateMarked(ctx context.Context, session int32, callsign string, marked bool) error
 	RunwayClearance(ctx context.Context, session int32, callsign string, cid string, airport string) error
 	RunwayConfirmation(ctx context.Context, session int32, callsign string) error

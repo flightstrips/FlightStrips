@@ -136,6 +136,7 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 			TrackingController: strip.TrackingController,
 			EngineType:         strip.EngineType,
 			HasFP:              strip.HasFP,
+			StartReq:           false,
 		}
 		validationStrip = newStrip
 		sequence, err := s.nextSequenceAtEndOfBay(ctx, session, bay)
@@ -316,6 +317,7 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 			PdcRequestRemarks:      existingStrip.PdcRequestRemarks,
 			TrackingController:     strip.TrackingController,
 			EngineType:             strip.EngineType,
+			StartReq:               existingStrip.StartReq,
 			UnexpectedChangeFields: slices.Clone(existingStrip.UnexpectedChangeFields),
 			ValidationStatus:       existingStrip.ValidationStatus,
 			HasFP:                  strip.HasFP,
@@ -350,6 +352,12 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 				return err
 			}
 			updateStrip.Sequence = &sequence
+		}
+		if bayChanged && shouldResetStartReqOnMove(existingStrip.Bay, updateStrip.Bay) {
+			updateStrip.StartReq = false
+		}
+		if shouldResetStartReqOnStandChange(existingStrip.Bay, existingStrip.Stand, updateStrip.Stand) {
+			updateStrip.StartReq = false
 		}
 		routeNeedsUpdate = syncStripRouteChanged(existingStrip, updateStrip) || shouldClearOwnerForNotCleared
 		if routeNeedsUpdate && routeComputer != nil {
@@ -477,6 +485,7 @@ func syncStripChanged(existingStrip, updateStrip *internalModels.Strip) bool {
 		!reflect.DeepEqual(existingStrip.Registration, updateStrip.Registration) ||
 		existingStrip.TrackingController != updateStrip.TrackingController ||
 		existingStrip.EngineType != updateStrip.EngineType ||
+		existingStrip.StartReq != updateStrip.StartReq ||
 		!reflect.DeepEqual(existingStrip.UnexpectedChangeFields, updateStrip.UnexpectedChangeFields) ||
 		existingStrip.HasFP != updateStrip.HasFP
 }
@@ -534,6 +543,7 @@ func applySyncStripUpdate(existingStrip, updateStrip *internalModels.Strip) {
 	existingStrip.PdcRequestRemarks = updateStrip.PdcRequestRemarks
 	existingStrip.TrackingController = updateStrip.TrackingController
 	existingStrip.EngineType = updateStrip.EngineType
+	existingStrip.StartReq = updateStrip.StartReq
 	existingStrip.UnexpectedChangeFields = slices.Clone(updateStrip.UnexpectedChangeFields)
 	existingStrip.HasFP = updateStrip.HasFP
 	existingStrip.ValidationStatus = updateStrip.ValidationStatus

@@ -87,6 +87,12 @@ func (s *StripService) CreateCoordinationTransfer(ctx context.Context, session i
 		return err
 	}
 
+	if strip.StartReq && strip.Bay == shared.BAY_STAND {
+		if err := s.setStartReqState(ctx, session, callsign, false, true, strip); err != nil {
+			return err
+		}
+	}
+
 	s.maybeMoveToLowerTwyDepOnTowerTransfer(ctx, session, callsign, strip.Bay, to)
 	s.publisher.SendCoordinationTransfer(session, callsign, from, to)
 

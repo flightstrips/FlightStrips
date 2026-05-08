@@ -42,6 +42,7 @@ type Strip struct {
 	PdcRequestedAt           *time.Time
 	PdcMessageSequence       *int32
 	PdcMessageSent           *time.Time
+	StartReq                 bool
 	Marked                   bool
 	Registration             *string
 	TrackingController       string

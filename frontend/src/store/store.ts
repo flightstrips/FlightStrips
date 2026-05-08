@@ -169,6 +169,7 @@ export interface WebSocketState {
   dismissMessage: (id: number) => void;
   updateStrip: (callsign: string, update: UpdateStrip) => void;
   setReleasePoint: (callsign: string, releasePoint: string) => void;
+  setStartReq: (callsign: string, startReq: boolean) => void;
   issuePdcClearance: (callsign: string, remarks: string | null) => void;
   revertToVoice: (callsign: string) => void;
   transferStrip: (callsign: string, toPosition: string) => void;
@@ -257,6 +258,16 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     };
 
     const findStrip = (callsign: string) => get().strips.find((strip) => strip.callsign === callsign);
+    const updateLocalStartReq = (callsign: string, startReq: boolean) => {
+      store.setState(
+        produce((state: WebSocketState) => {
+          const stripIndex = state.strips.findIndex((strip) => strip.callsign === callsign);
+          if (stripIndex !== -1) {
+            state.strips[stripIndex].start_req = startReq;
+          }
+        }),
+      );
+    };
     const openValidationDialog = (callsign: string) => set({ validationDialogCallsign: callsign, contextMenu: null });
 
     const guardValidationAction = (callsign: string, action: ValidationAttemptedAction) => {
@@ -331,13 +342,16 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
 
            return produce((state: WebSocketState) => {
              const stripIndex = state.strips.findIndex(strip => strip.callsign === callsign);
-             if (stripIndex !== -1) {
-               const currentBay = state.strips[stripIndex].bay;
-               state.strips[stripIndex].bay = bay;
-               state.strips[stripIndex].sequence = nextSequenceAtEndOfBay(state.strips, state.tacticalStrips, bay, callsign);
-               if (shouldResetRunwayClearanceOnMove(currentBay, bay)) {
-                 state.strips[stripIndex].runway_cleared = false;
-                 state.strips[stripIndex].runway_confirmed = false;
+              if (stripIndex !== -1) {
+                const currentBay = state.strips[stripIndex].bay;
+                state.strips[stripIndex].bay = bay;
+                state.strips[stripIndex].sequence = nextSequenceAtEndOfBay(state.strips, state.tacticalStrips, bay, callsign);
+                if (currentBay === Bay.Stand && bay !== Bay.Stand) {
+                  state.strips[stripIndex].start_req = false;
+                }
+                if (shouldResetRunwayClearanceOnMove(currentBay, bay)) {
+                  state.strips[stripIndex].runway_cleared = false;
+                  state.strips[stripIndex].runway_confirmed = false;
                }
              }
              return state;
@@ -472,6 +486,12 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
         }
       })
     },
+    setStartReq: (callsign, startReq) => {
+      if (!sendIfWritable({ type: ActionType.FrontendStartReq, callsign, start_req: startReq })) {
+        return;
+      }
+      updateLocalStartReq(callsign, startReq);
+    },
     issuePdcClearance: (callsign, remarks) => {
       if (!sendIfWritable({type: ActionType.FrontendIssuePdcClearanceRequest, callsign, remarks})) {
         return;
@@ -497,11 +517,14 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
       })
     },
     transferStrip: (callsign, toPosition) => {
-      sendGuardedStripEvent(callsign, { type: "coordination_transfer_request" }, {
+      if (!sendGuardedStripEvent(callsign, { type: "coordination_transfer_request" }, {
         type: ActionType.FrontendCoordinationTransferRequest,
         callsign,
         to: toPosition,
-      });
+      })) {
+        return;
+      }
+      updateLocalStartReq(callsign, false);
     },
     assumeStrip: (callsign) => {
       sendGuardedStripEvent(callsign, { type: "coordination_assume_request" }, { type: ActionType.FrontendCoordinationAssumeRequest, callsign });

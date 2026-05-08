@@ -63,6 +63,10 @@ func marshalValidationStatus(status *models.ValidationStatus) ([]byte, error) {
 	return json.Marshal(status)
 }
 
+func marshalStringSlice(values []string) ([]byte, error) {
+	return json.Marshal(values)
+}
+
 func unmarshalValidationStatus(raw []byte) (*models.ValidationStatus, error) {
 	if len(raw) == 0 {
 		return nil, nil
@@ -129,6 +133,7 @@ func stripToModel(db database.Strip) (*models.Strip, error) {
 		PdcRequestedAt:           pdcData.RequestedAt,
 		PdcMessageSequence:       pdcData.MessageSequence,
 		PdcMessageSent:           pdcData.MessageSent,
+		StartReq:                 db.StartReq,
 		Marked:                   db.Marked,
 		Registration:             db.Registration,
 		TrackingController:       db.TrackingController,
@@ -161,6 +166,14 @@ func (r *stripRepository) Create(ctx context.Context, strip *models.Strip) error
 	if previousOwners == nil {
 		previousOwners = []string{}
 	}
+	nextOwnersJSON, err := marshalStringSlice(nextOwners)
+	if err != nil {
+		return err
+	}
+	previousOwnersJSON, err := marshalStringSlice(previousOwners)
+	if err != nil {
+		return err
+	}
 
 	return r.queries.InsertStrip(ctx, database.InsertStripParams{
 		Callsign:           strip.Callsign,
@@ -191,12 +204,13 @@ func (r *stripRepository) Create(ctx context.Context, strip *models.Strip) error
 		PositionLongitude:  strip.PositionLongitude,
 		PositionAltitude:   strip.PositionAltitude,
 		CdmData:            cdmData,
-		NextOwners:         nextOwners,
-		PreviousOwners:     previousOwners,
+		NextOwners:         nextOwnersJSON,
+		PreviousOwners:     previousOwnersJSON,
 		Registration:       strip.Registration,
 		TrackingController: strip.TrackingController,
 		EngineType:         strip.EngineType,
-		HasFP:              strip.HasFP,
+		HasFp:              strip.HasFP,
+		StartReq:           strip.StartReq,
 	})
 }
 
@@ -282,6 +296,14 @@ func (r *stripRepository) Update(ctx context.Context, strip *models.Strip) (int6
 	if previousOwners == nil {
 		previousOwners = []string{}
 	}
+	nextOwnersJSON, err := marshalStringSlice(nextOwners)
+	if err != nil {
+		return 0, err
+	}
+	previousOwnersJSON, err := marshalStringSlice(previousOwners)
+	if err != nil {
+		return 0, err
+	}
 
 	return r.queries.UpdateStrip(ctx, database.UpdateStripParams{
 		Callsign:               strip.Callsign,
@@ -312,13 +334,14 @@ func (r *stripRepository) Update(ctx context.Context, strip *models.Strip) (int6
 		PositionLongitude:      strip.PositionLongitude,
 		PositionAltitude:       strip.PositionAltitude,
 		CdmData:                cdmData,
-		NextOwners:             nextOwners,
-		PreviousOwners:         previousOwners,
+		NextOwners:             nextOwnersJSON,
+		PreviousOwners:         previousOwnersJSON,
 		Registration:           strip.Registration,
 		TrackingController:     strip.TrackingController,
 		EngineType:             strip.EngineType,
 		UnexpectedChangeFields: strip.UnexpectedChangeFields,
-		HasFP:                  strip.HasFP,
+		HasFp:                  strip.HasFP,
+		StartReq:               strip.StartReq,
 	})
 }
 
@@ -765,6 +788,15 @@ func (r *stripRepository) UpdatePdcStatus(ctx context.Context, session int32, ca
 func (r *stripRepository) UpdateMarked(ctx context.Context, session int32, callsign string, marked bool, version *int32) (int64, error) {
 	return r.queries.UpdateStripMarkedByID(ctx, database.UpdateStripMarkedByIDParams{
 		Marked:   marked,
+		Callsign: callsign,
+		Session:  session,
+		Version:  version,
+	})
+}
+
+func (r *stripRepository) UpdateStartReq(ctx context.Context, session int32, callsign string, startReq bool, version *int32) (int64, error) {
+	return r.queries.UpdateStripStartReqByID(ctx, database.UpdateStripStartReqByIDParams{
+		StartReq: startReq,
 		Callsign: callsign,
 		Session:  session,
 		Version:  version,

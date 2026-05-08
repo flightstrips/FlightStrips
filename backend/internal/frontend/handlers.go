@@ -553,6 +553,14 @@ func handleAcknowledgeUnexpectedChange(ctx context.Context, client *Client, mess
 	return nil
 }
 
+func handleStartReq(ctx context.Context, client *Client, message Message) error {
+	var event frontend.StartReqEvent
+	if err := message.JsonUnmarshal(&event); err != nil {
+		return err
+	}
+	return client.hub.stripService.UpdateStartReq(ctx, client.session, event.Callsign, event.StartReq)
+}
+
 func handleMarked(ctx context.Context, client *Client, message Message) error {
 	var event frontend.MarkedEvent
 	if err := message.JsonUnmarshal(&event); err != nil {

@@ -90,6 +90,7 @@ func NewHub(stripService shared.StripService, authenticationService shared.Authe
 	handlers.Add(frontend.SendMessage, handleSendMessage)
 	handlers.Add(frontend.CdmReady, handleCdmReady)
 	handlers.Add(frontend.ReleasePoint, handleReleasePoint)
+	handlers.Add(frontend.StartReq, handleStartReq)
 	handlers.Add(frontend.Marked, handleMarked)
 	handlers.Add(frontend.RunwayClearance, handleRunwayClearance)
 	handlers.Add(frontend.RunwayConfirmation, handleRunwayConfirmation)
@@ -485,6 +486,7 @@ func MapStripToFrontendModelWithClx(strip *internalModels.Strip, clxContext clx.
 		Ctot:                     effectiveFrontendStripCtot(strip),
 		PdcState:                 strip.PdcState,
 		PdcRequestRemarks:        helpers.ValueOrDefault(strip.PdcRequestRemarks),
+		StartReq:                 strip.StartReq,
 		Marked:                   strip.Marked,
 		Registration:             helpers.ValueOrDefault(strip.Registration),
 		TrackingController:       strip.TrackingController,

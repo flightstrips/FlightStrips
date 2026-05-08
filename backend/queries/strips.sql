@@ -1,23 +1,86 @@
 -- name: InsertStrip :exec
 INSERT INTO strips (version, callsign, session, origin, destination, alternative, route, remarks, assigned_squawk,
-                    squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities,
-                    communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay,
-                    position_latitude, position_longitude, position_altitude, cdm_data, next_owners, previous_owners,
-                    registration, tracking_controller, engine_type, has_fp)
-VALUES (1, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23,
-        $24, $25, $26, $27, $28, COALESCE($29, '[]'::jsonb), COALESCE($30, '[]'::jsonb), $31, $32, $33, $34);
+                     squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities,
+                     communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay,
+                     position_latitude, position_longitude, position_altitude, cdm_data, next_owners, previous_owners,
+                     registration, tracking_controller, engine_type, has_fp, start_req)
+VALUES (
+    1,
+    sqlc.arg(callsign),
+    sqlc.arg(session),
+    sqlc.arg(origin),
+    sqlc.arg(destination),
+    sqlc.arg(alternative),
+    sqlc.arg(route),
+    sqlc.arg(remarks),
+    sqlc.arg(assigned_squawk),
+    sqlc.arg(squawk),
+    sqlc.arg(sid),
+    sqlc.arg(cleared_altitude),
+    sqlc.arg(heading),
+    sqlc.arg(aircraft_type),
+    sqlc.arg(runway),
+    sqlc.arg(requested_altitude),
+    sqlc.arg(capabilities),
+    sqlc.arg(communication_type),
+    sqlc.arg(aircraft_category),
+    sqlc.arg(stand),
+    sqlc.arg(sequence),
+    sqlc.arg(state),
+    sqlc.arg(cleared),
+    sqlc.arg(owner),
+    sqlc.arg(bay),
+    sqlc.arg(position_latitude),
+    sqlc.arg(position_longitude),
+    sqlc.arg(position_altitude),
+    sqlc.arg(cdm_data),
+    COALESCE(sqlc.arg(next_owners)::jsonb, '[]'::jsonb),
+    COALESCE(sqlc.arg(previous_owners)::jsonb, '[]'::jsonb),
+    sqlc.arg(registration),
+    sqlc.arg(tracking_controller),
+    sqlc.arg(engine_type),
+    sqlc.arg(has_fp),
+    sqlc.arg(start_req)
+);
 
 -- name: UpdateStrip :execrows
 UPDATE strips
-SET (version, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude,
-     heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand,
-     sequence, state, cleared, owner, bay, position_latitude, position_longitude, position_altitude, cdm_data,
-     next_owners, previous_owners, registration, tracking_controller, engine_type, unexpected_change_fields, has_fp
-     ) = (
-          version + 1, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22,
-          $23, $24, $25, $26, $27, $28, COALESCE($29, '[]'::jsonb), COALESCE($30, '[]'::jsonb), $31, $32, $33,
-          COALESCE($34, '{}'::text[]), $35)
-WHERE callsign = $1 AND session = $2;
+SET version = version + 1,
+    origin = sqlc.arg(origin),
+    destination = sqlc.arg(destination),
+    alternative = sqlc.arg(alternative),
+    route = sqlc.arg(route),
+    remarks = sqlc.arg(remarks),
+    assigned_squawk = sqlc.arg(assigned_squawk),
+    squawk = sqlc.arg(squawk),
+    sid = sqlc.arg(sid),
+    cleared_altitude = sqlc.arg(cleared_altitude),
+    heading = sqlc.arg(heading),
+    aircraft_type = sqlc.arg(aircraft_type),
+    runway = sqlc.arg(runway),
+    requested_altitude = sqlc.arg(requested_altitude),
+    capabilities = sqlc.arg(capabilities),
+    communication_type = sqlc.arg(communication_type),
+    aircraft_category = sqlc.arg(aircraft_category),
+    stand = sqlc.arg(stand),
+    sequence = sqlc.arg(sequence),
+    state = sqlc.arg(state),
+    cleared = sqlc.arg(cleared),
+    owner = sqlc.arg(owner),
+    bay = sqlc.arg(bay),
+    position_latitude = sqlc.arg(position_latitude),
+    position_longitude = sqlc.arg(position_longitude),
+    position_altitude = sqlc.arg(position_altitude),
+    cdm_data = sqlc.arg(cdm_data),
+    next_owners = COALESCE(sqlc.arg(next_owners)::jsonb, '[]'::jsonb),
+    previous_owners = COALESCE(sqlc.arg(previous_owners)::jsonb, '[]'::jsonb),
+    registration = sqlc.arg(registration),
+    tracking_controller = sqlc.arg(tracking_controller),
+    engine_type = sqlc.arg(engine_type),
+    unexpected_change_fields = COALESCE(sqlc.arg(unexpected_change_fields)::text[], '{}'::text[]),
+    has_fp = sqlc.arg(has_fp),
+    start_req = sqlc.arg(start_req)
+WHERE callsign = sqlc.arg(callsign) AND session = sqlc.arg(session);
 
 -- name: GetStrip :one
 SELECT *
@@ -217,6 +280,12 @@ UPDATE strips SET release_point = $3 WHERE session = $1 AND callsign = $2;
 UPDATE strips
 SET marked  = $1,
     version = version + 1
+WHERE callsign = $2 AND session = $3 AND (version = sqlc.narg('version') OR sqlc.narg('version') IS NULL);
+
+-- name: UpdateStripStartReqByID :execrows
+UPDATE strips
+SET start_req = $1,
+    version   = version + 1
 WHERE callsign = $2 AND session = $3 AND (version = sqlc.narg('version') OR sqlc.narg('version') IS NULL);
 
 -- name: UpdateStripRegistration :execrows

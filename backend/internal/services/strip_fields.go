@@ -2,6 +2,7 @@ package services
 
 import (
 	"FlightStrips/internal/database"
+	internalModels "FlightStrips/internal/models"
 	"FlightStrips/internal/shared"
 	"FlightStrips/pkg/events/euroscope"
 	"FlightStrips/pkg/events/frontend"
@@ -18,6 +19,61 @@ func shouldResetRunwayClearanceOnMove(currentBay string, targetBay string) bool 
 	}
 
 	return currentBay == shared.BAY_RWY_ARR && targetBay == shared.BAY_FINAL
+}
+
+func shouldResetStartReqOnMove(currentBay string, targetBay string) bool {
+	return currentBay == shared.BAY_STAND && targetBay != shared.BAY_STAND
+}
+
+func shouldResetStartReqOnStandChange(currentBay string, currentStand *string, nextStand *string) bool {
+	if currentBay != shared.BAY_STAND || nextStand == nil || *nextStand == "" {
+		return false
+	}
+
+	if currentStand == nil {
+		return true
+	}
+
+	return *currentStand != *nextStand
+}
+
+func (s *StripService) setStartReqState(ctx context.Context, session int32, callsign string, startReq bool, publish bool, strip *internalModels.Strip) error {
+	if strip == nil {
+		cachedStrip, _, err := s.getCachedStrip(ctx, session, callsign)
+		if err != nil {
+			return err
+		}
+		strip = cachedStrip
+	}
+
+	if strip != nil && strip.StartReq == startReq {
+		return nil
+	}
+
+	affected, err := s.stripRepo.UpdateStartReq(ctx, session, callsign, startReq, nil)
+	if err != nil {
+		return err
+	}
+	if affected != 1 {
+		return errors.New("failed to update start req flag")
+	}
+	shared.AddDBOperations(ctx, 1)
+
+	if strip != nil {
+		strip.StartReq = startReq
+		strip.Version++
+		s.cacheStrip(ctx, strip)
+	}
+
+	if syncState := shared.GetSyncState(ctx); syncState != nil && syncState.ExistingStrips != nil {
+		if cachedStrip := syncState.ExistingStrips[callsign]; cachedStrip != nil && cachedStrip != strip {
+			cachedStrip.StartReq = startReq
+			cachedStrip.Version++
+		}
+	}
+
+	s.queueOrSendStripUpdate(ctx, session, callsign, publish)
+	return nil
 }
 
 // UpdateAssignedSquawk updates the assigned squawk for a strip and notifies the frontend.
@@ -213,6 +269,11 @@ func (s *StripService) UpdateClearedFlag(ctx context.Context, session int32, cal
 
 // UpdateStand updates the stand for a strip, notifies the frontend, and triggers route recalculation.
 func (s *StripService) UpdateStand(ctx context.Context, session int32, callsign string, stand string) error {
+	strip, err := s.stripRepo.GetByCallsign(ctx, session, callsign)
+	if err != nil {
+		return err
+	}
+
 	count, err := s.stripRepo.UpdateStand(ctx, session, callsign, &stand, nil)
 	if err != nil {
 		return err
@@ -222,6 +283,12 @@ func (s *StripService) UpdateStand(ctx context.Context, session int32, callsign 
 		return nil
 	}
 	s.publisher.SendStandEvent(session, callsign, stand)
+
+	if shouldResetStartReqOnStandChange(strip.Bay, strip.Stand, &stand) {
+		if err := s.setStartReqState(ctx, session, callsign, false, true, strip); err != nil {
+			return err
+		}
+	}
 
 	server := s.publisher.GetServer()
 	if server != nil {
@@ -304,6 +371,12 @@ func (s *StripService) UpdateGroundStateForMove(ctx context.Context, session int
 		return err
 	}
 
+	if strip.StartReq && shouldResetStartReqOnMove(strip.Bay, bay) {
+		if err := s.setStartReqState(ctx, session, callsign, false, false, strip); err != nil {
+			return err
+		}
+	}
+
 	state := strip.State
 	if strip.Origin == airport {
 		groundState := shared.GetGroundState(bay)
@@ -357,6 +430,10 @@ func (s *StripService) UpdateReleasePoint(ctx context.Context, session int32, ca
 		ReleasePoint: releasePoint,
 	})
 	return s.reevaluateTaxiwayTypeAndCtotValidation(ctx, session, callsign, true, true)
+}
+
+func (s *StripService) UpdateStartReq(ctx context.Context, session int32, callsign string, startReq bool) error {
+	return s.setStartReqState(ctx, session, callsign, startReq, true, nil)
 }
 
 // ApplyReleasePoint updates the release point with ownership enforcement and broadcasts.

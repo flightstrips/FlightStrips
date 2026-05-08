@@ -1,7 +1,7 @@
 import type { CSSProperties } from "react";
 
 import { Bay, type FrontendStrip } from "@/api/models";
-import { SELECTION_COLOR } from "@/components/strip/shared";
+import { COLOR_BTN_YELLOW, SELECTION_COLOR } from "@/components/strip/shared";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { CTOT_BLUE, computeCDMColors } from "@/lib/cdmColors";
@@ -31,6 +31,7 @@ interface EstStandCellProps {
   blocked: boolean;
   actionActive: boolean;
   blinking: boolean;
+  startReqActive: boolean;
   ctotImproved: boolean;
   nowMs: number;
   containerStyle?: CSSProperties;
@@ -43,6 +44,7 @@ export default function EstStandCell({
   blocked,
   actionActive,
   blinking,
+  startReqActive,
   ctotImproved,
   nowMs,
   containerStyle,
@@ -67,7 +69,7 @@ export default function EstStandCell({
   if (blocked) {
     backgroundClass = "bg-[#4A4A4A]";
     textClass = "text-white";
-  } else if (actionActive) {
+  } else if (startReqActive || actionActive) {
     backgroundClass = "bg-[#131376]";
     textClass = "text-white";
   } else if (isPushing) {
@@ -101,10 +103,17 @@ export default function EstStandCell({
 
   const showMark = isClearedDeparture && !!strip?.marked;
   const showCtotText = ctotLabel !== "";
+  const boxShadows: string[] = [];
+  if (startReqActive) {
+    boxShadows.push(`0 0 0 4px ${COLOR_BTN_YELLOW}`);
+  }
+  if (showMark) {
+    boxShadows.push(`0 0 0 ${startReqActive ? 8 : 4}px ${SELECTION_COLOR}`);
+  }
   const buttonStyle: CSSProperties = {
     width: EST_CELL_WIDTH,
     height: EST_CELL_HEIGHT,
-    boxShadow: showMark ? `0 0 0 4px ${SELECTION_COLOR}` : undefined,
+    boxShadow: boxShadows.length > 0 ? boxShadows.join(", ") : undefined,
   };
 
   return (

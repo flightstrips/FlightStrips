@@ -38,6 +38,7 @@ type MockStripRepository struct {
 	UpdateHeadingFn                 func(ctx context.Context, session int32, callsign string, heading *int32, version *int32) (int64, error)
 	UpdateStandFn                   func(ctx context.Context, session int32, callsign string, stand *string, version *int32) (int64, error)
 	UpdateRunwayFn                  func(ctx context.Context, session int32, callsign string, runway *string, version *int32) (int64, error)
+	UpdateStartReqFn                func(ctx context.Context, session int32, callsign string, startReq bool, version *int32) (int64, error)
 	UpdateMarkedFn                  func(ctx context.Context, session int32, callsign string, marked bool, version *int32) (int64, error)
 	UpdateRunwayClearanceFn         func(ctx context.Context, session int32, callsign string) (int64, error)
 	UpdateRunwayConfirmationFn      func(ctx context.Context, session int32, callsign string) (int64, error)
@@ -268,6 +269,13 @@ func (m *MockStripRepository) UpdateRunway(ctx context.Context, session int32, c
 		panic("unexpected call to MockStripRepository.UpdateRunway")
 	}
 	return m.UpdateRunwayFn(ctx, session, callsign, runway, version)
+}
+
+func (m *MockStripRepository) UpdateStartReq(ctx context.Context, session int32, callsign string, startReq bool, version *int32) (int64, error) {
+	if m.UpdateStartReqFn == nil {
+		panic("unexpected call to MockStripRepository.UpdateStartReq")
+	}
+	return m.UpdateStartReqFn(ctx, session, callsign, startReq, version)
 }
 
 func (m *MockStripRepository) UpdateMarked(ctx context.Context, session int32, callsign string, marked bool, version *int32) (int64, error) {

@@ -556,7 +556,8 @@ func TestCreateCoordinationTransfer_Success(t *testing.T) {
 	const fromPos = "DEL_N"
 	const toPos = "GND_N"
 
-	strip := &models.Strip{ID: 42, Callsign: callsign}
+	strip := &models.Strip{ID: 42, Callsign: callsign, Bay: shared.BAY_STAND, StartReq: true}
+	startReqCleared := false
 
 	coordRepo := &testutil.MockCoordinationRepository{
 		CreateFn: func(_ context.Context, c *models.Coordination) error {
@@ -576,6 +577,12 @@ func TestCreateCoordinationTransfer_Success(t *testing.T) {
 		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
 			return strip, nil
 		},
+		UpdateStartReqFn: func(_ context.Context, _ int32, gotCallsign string, startReq bool, _ *int32) (int64, error) {
+			assert.Equal(t, callsign, gotCallsign)
+			assert.False(t, startReq)
+			startReqCleared = true
+			return 1, nil
+		},
 	}
 
 	svc := NewStripService(stripRepo)
@@ -583,11 +590,47 @@ func TestCreateCoordinationTransfer_Success(t *testing.T) {
 
 	err := svc.CreateCoordinationTransfer(ctx, session, callsign, fromPos, toPos)
 	require.NoError(t, err)
+	assert.True(t, startReqCleared)
 	require.Len(t, hub.CoordinationTransfers, 1)
+	require.Len(t, hub.StripUpdates, 1)
 	ct := hub.CoordinationTransfers[0]
 	assert.Equal(t, callsign, ct.Callsign)
 	assert.Equal(t, fromPos, ct.From)
 	assert.Equal(t, toPos, ct.To)
+}
+
+func TestSetStartReqState_WithSyncState_IncrementsCachedVersionOnce(t *testing.T) {
+	ctx := context.Background()
+	const session = int32(1)
+	const callsign = "SAS456"
+
+	syncStrip := &models.Strip{Callsign: callsign, Version: 7}
+	inputStrip := &models.Strip{Callsign: callsign, Version: 3}
+	syncState := &shared.SyncState{
+		ExistingStrips: map[string]*models.Strip{
+			callsign: syncStrip,
+		},
+	}
+	ctx = shared.WithSyncState(ctx, syncState)
+
+	stripRepo := &testutil.MockStripRepository{
+		UpdateStartReqFn: func(_ context.Context, gotSession int32, gotCallsign string, startReq bool, _ *int32) (int64, error) {
+			assert.Equal(t, session, gotSession)
+			assert.Equal(t, callsign, gotCallsign)
+			assert.True(t, startReq)
+			return 1, nil
+		},
+	}
+
+	svc := NewStripService(stripRepo)
+
+	err := svc.setStartReqState(ctx, session, callsign, true, false, inputStrip)
+	require.NoError(t, err)
+	assert.True(t, inputStrip.StartReq)
+	assert.Equal(t, int32(4), inputStrip.Version)
+	assert.True(t, syncStrip.StartReq)
+	assert.Equal(t, int32(8), syncStrip.Version)
+	assert.Contains(t, syncState.StripUpdates, callsign)
 }
 
 func TestCreateCoordinationTransfer_TaxiBayToTower_MovesToLowerTaxiBay(t *testing.T) {
@@ -1096,6 +1139,14 @@ func TestUpdateStand_TriggersRouteRecalculation(t *testing.T) {
 	const stand = "A15"
 
 	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, cs string) (*models.Strip, error) {
+			assert.Equal(t, callsign, cs)
+			currentStand := "A1"
+			return &models.Strip{
+				Callsign: callsign,
+				Stand:    &currentStand,
+			}, nil
+		},
 		UpdateStandFn: func(_ context.Context, _ int32, cs string, s *string, _ *int32) (int64, error) {
 			assert.Equal(t, callsign, cs)
 			assert.Equal(t, stand, *s)
@@ -1127,10 +1178,57 @@ func TestUpdateStand_TriggersRouteRecalculation(t *testing.T) {
 	assert.True(t, routeUpdateSendUpdate, "UpdateStand must send owner update to frontend")
 }
 
+func TestUpdateStand_StandChangeClearsStartReq(t *testing.T) {
+	ctx := context.Background()
+	const session = int32(1)
+	const callsign = "SAS124"
+	const stand = "A15"
+
+	currentStand := "A1"
+	startReqCleared := false
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, cs string) (*models.Strip, error) {
+			assert.Equal(t, callsign, cs)
+			return &models.Strip{
+				Callsign: callsign,
+				Bay:      shared.BAY_STAND,
+				Stand:    &currentStand,
+				StartReq: true,
+			}, nil
+		},
+		UpdateStandFn: func(_ context.Context, _ int32, cs string, s *string, _ *int32) (int64, error) {
+			assert.Equal(t, callsign, cs)
+			assert.Equal(t, stand, *s)
+			return 1, nil
+		},
+		UpdateStartReqFn: func(_ context.Context, _ int32, cs string, startReq bool, _ *int32) (int64, error) {
+			assert.Equal(t, callsign, cs)
+			assert.False(t, startReq)
+			startReqCleared = true
+			return 1, nil
+		},
+	}
+
+	mockServer := &testutil.MockServer{}
+	hub := &testutil.MockFrontendHub{}
+	hub.SetServer(mockServer)
+	svc := NewStripService(stripRepo)
+	svc.SetFrontendHub(hub)
+
+	err := svc.UpdateStand(ctx, session, callsign, stand)
+	require.NoError(t, err)
+	assert.True(t, startReqCleared)
+	require.Len(t, hub.StripUpdates, 1)
+	assert.Equal(t, callsign, hub.StripUpdates[0].Callsign)
+}
+
 func TestUpdateStand_NoRouteUpdateWhenStripNotFound(t *testing.T) {
 	ctx := context.Background()
 
 	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			return &models.Strip{Callsign: "SAS999"}, nil
+		},
 		UpdateStandFn: func(_ context.Context, _ int32, _ string, _ *string, _ *int32) (int64, error) {
 			return 0, nil // strip not found
 		},

@@ -71,6 +71,8 @@ const (
 
 	ReleasePoint EventType = "release_point"
 
+	StartReq EventType = "start_req"
+
 	Marked EventType = "marked"
 
 	RunwayClearance    EventType = "runway_clearance"
@@ -150,6 +152,7 @@ type Strip struct {
 	Ctot                     string            `json:"ctot"`
 	PdcState                 string            `json:"pdc_state"`
 	PdcRequestRemarks        string            `json:"pdc_request_remarks,omitempty"`
+	StartReq                 bool              `json:"start_req"`
 	Marked                   bool              `json:"marked"`
 	Registration             string            `json:"registration"`
 	TrackingController       string            `json:"tracking_controller"`
@@ -735,6 +738,11 @@ func (r ReleasePointEvent) Marshal() ([]byte, error) {
 
 func (r ReleasePointEvent) GetType() EventType {
 	return ReleasePoint
+}
+
+type StartReqEvent struct {
+	Callsign string `json:"callsign"`
+	StartReq bool   `json:"start_req"`
 }
 
 type MarkedEvent struct {

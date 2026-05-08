@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"testing"
 	"time"
 
@@ -203,6 +204,46 @@ func TestSyncCdmData_UsesNestedCtotForFrontendUpdate(t *testing.T) {
 	}
 	if got := frontendHub.CdmUpdates[0].Ctot; got != "1045" {
 		t.Fatalf("expected frontend CTOT update %q, got %q", "1045", got)
+	}
+}
+
+func TestSyncCdmData_ReturnsErrorWhenPersistSkipsRow(t *testing.T) {
+	const sessionID = int32(81)
+	const callsign = "SAS127"
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/ifps/depAirport" {
+			t.Fatalf("unexpected path %s", r.URL.Path)
+		}
+		_, _ = w.Write([]byte(`[{
+			"callsign":"SAS127",
+			"departure":"EKCH",
+			"eobt":"1000",
+			"tobt":"1010",
+			"ctot":"1040",
+			"cdmSts":"REA",
+			"cdmData":{"tsat":"101500","ttot":"102500"}
+		}]`))
+	}))
+	defer server.Close()
+
+	service := NewCdmService(
+		NewClient(WithAPIKey("test-key"), WithBaseURL(server.URL)),
+		&testutil.MockStripRepository{
+			GetCdmDataFn: func(context.Context, int32) ([]*models.CdmDataRow, error) {
+				return []*models.CdmDataRow{{Callsign: callsign, Data: (&models.CdmData{}).Normalize()}}, nil
+			},
+			SetCdmDataFn: func(_ context.Context, _ int32, _ string, _ *models.CdmData) (int64, error) {
+				return 0, nil
+			},
+		},
+		&testutil.MockSessionRepository{},
+		&testutil.MockControllerRepository{},
+	)
+
+	err := service.syncCdmData(context.Background(), &models.Session{ID: sessionID, Airport: "EKCH"})
+	if err == nil || !strings.Contains(err.Error(), "failed to persist CDM data") {
+		t.Fatalf("expected persistence failure, got %v", err)
 	}
 }
 

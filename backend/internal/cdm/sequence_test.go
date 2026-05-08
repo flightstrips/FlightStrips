@@ -6,6 +6,7 @@ import (
 	euroscopeEvents "FlightStrips/pkg/events/euroscope"
 	pkgModels "FlightStrips/pkg/models"
 	"context"
+	"strings"
 	"testing"
 	"time"
 )
@@ -265,6 +266,43 @@ func TestSequenceService_RecalculateAirport_UsesRequestedTobtWhenNoTobtExists(t 
 	}
 	if got := valueOrEmpty(persisted.Ttot); got != expectedTtot {
 		t.Fatalf("expected TTOT %q, got %q", expectedTtot, got)
+	}
+}
+
+func TestSequenceService_RecalculateAirport_ReturnsErrorWhenPersistSkipsRow(t *testing.T) {
+	t.Parallel()
+
+	now := time.Now().UTC()
+	tobt := addMinutes(timeToClock(now), 10)
+
+	strip := &models.Strip{
+		Callsign: "SAS999",
+		Origin:   "EKCH",
+		Runway:   testStringPtr("04L"),
+		CdmData: &models.CdmData{
+			Tobt: testStringPtr(tobt),
+		},
+	}
+
+	stripRepo := &testutil.MockStripRepository{
+		ListByOriginFn: func(ctx context.Context, session int32, origin string) ([]*models.Strip, error) {
+			return []*models.Strip{strip}, nil
+		},
+		SetCdmDataFn: func(ctx context.Context, session int32, callsign string, data *models.CdmData) (int64, error) {
+			return 0, nil
+		},
+	}
+	sessionRepo := &testutil.MockSessionRepository{
+		GetByIDFn: func(ctx context.Context, id int32) (*models.Session, error) {
+			return &models.Session{ID: id, Airport: "EKCH"}, nil
+		},
+	}
+
+	service := NewSequenceService(stripRepo, sessionRepo, NewCdmConfigStore("", "", "", 0, CdmConfigDefaults{}, nil), &testutil.MockFrontendHub{}, &testutil.MockEuroscopeHub{})
+
+	err := service.RecalculateAirport(context.Background(), 7, "EKCH")
+	if err == nil || !strings.Contains(err.Error(), "failed to persist recalculated CDM data") {
+		t.Fatalf("expected persistence failure, got %v", err)
 	}
 }
 

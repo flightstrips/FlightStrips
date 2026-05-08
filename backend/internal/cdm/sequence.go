@@ -6,6 +6,7 @@ import (
 	"FlightStrips/internal/shared"
 	euroscopeEvents "FlightStrips/pkg/events/euroscope"
 	"context"
+	"fmt"
 	"sort"
 	"strings"
 	"time"
@@ -97,8 +98,12 @@ func (s *SequenceService) RecalculateAirport(ctx context.Context, session int32,
 				updated.Ttot = nil
 				applyCalculationSnapshot(updated, calcInput, valueOrEmpty(strip.Runway), models.CdmInvalidReasonStaleTsat)
 				updated.ClearLocalRecalculationPending()
-				if _, err := s.stripRepo.SetCdmData(ctx, session, strip.Callsign, updated.Normalize()); err != nil {
+				rows, err := s.stripRepo.SetCdmData(ctx, session, strip.Callsign, updated.Normalize())
+				if err != nil {
 					return err
+				}
+				if rows != 1 {
+					return fmt.Errorf("failed to persist recalculated CDM data for %s session %d", strip.Callsign, session)
 				}
 				strip.CdmData = updated
 				s.broadcast(session, strip.Callsign, updated)
@@ -129,8 +134,12 @@ func (s *SequenceService) RecalculateAirport(ctx context.Context, session int32,
 		updated.ClearLocalRecalculationPending()
 
 		if beforeTsat != result.Tsat || beforeTtot != result.Ttot || beforeNeedsRecalc || beforeTaxiMinutes != calcInput.TaxiMin || beforeTaxiRunway != strings.TrimSpace(valueOrEmpty(updatedTaxiRunwayFromData(updated))) {
-			if _, err := s.stripRepo.SetCdmData(ctx, session, strip.Callsign, updated.Normalize()); err != nil {
+			rows, err := s.stripRepo.SetCdmData(ctx, session, strip.Callsign, updated.Normalize())
+			if err != nil {
 				return err
+			}
+			if rows != 1 {
+				return fmt.Errorf("failed to persist recalculated CDM data for %s session %d", strip.Callsign, session)
 			}
 			strip.CdmData = updated
 			s.broadcast(session, strip.Callsign, updated)

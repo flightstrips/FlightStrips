@@ -59,6 +59,13 @@ type GenerateSquawkCall struct {
 	Callsign string
 }
 
+type EobtCall struct {
+	Session  int32
+	Cid      string
+	Callsign string
+	Eobt     string
+}
+
 // ClearedAltitudeCall records arguments to SendClearedAltitude.
 type ClearedAltitudeCall struct {
 	Session  int32
@@ -106,6 +113,7 @@ type MockEuroscopeHub struct {
 	DropTrackings         []DropTrackingCall
 	CdmReadyRequests      []CdmReadyRequestCall
 	GenerateSquawks       []GenerateSquawkCall
+	Eobts                 []EobtCall
 	ClearedAltitudes      []ClearedAltitudeCall
 	RemarksUpdates        []RemarksCall
 	AircraftInfoUpdates   []AircraftInfoCall
@@ -171,6 +179,10 @@ func (m *MockEuroscopeHub) SendClearedFlag(session int32, cid string, callsign s
 }
 
 func (m *MockEuroscopeHub) SendStand(session int32, cid string, callsign string, stand string) {}
+
+func (m *MockEuroscopeHub) SendEobt(session int32, cid string, callsign string, eobt string) {
+	m.Eobts = append(m.Eobts, EobtCall{Session: session, Cid: cid, Callsign: callsign, Eobt: eobt})
+}
 
 func (m *MockEuroscopeHub) SendRoute(session int32, cid string, callsign string, route string) {}
 

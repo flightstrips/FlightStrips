@@ -211,6 +211,10 @@ func (m *EuroscopeHub) SendStand(session int32, cid string, callsign string, sta
 	m.Called(session, cid, callsign, stand)
 }
 
+func (m *EuroscopeHub) SendEobt(session int32, cid string, callsign string, eobt string) {
+	m.Called(session, cid, callsign, eobt)
+}
+
 func (m *EuroscopeHub) SendRoute(session int32, cid string, callsign string, route string) {
 	m.Called(session, cid, callsign, route)
 }

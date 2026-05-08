@@ -52,6 +52,7 @@ namespace FlightStrips::messages {
         void HandleClearedFlagEvent(const ClearedFlagEvent& event) const;
         void HandleHeadingEvent(const HeadingEvent& event) const;
         void HandleStandEvent(const StandEvent& event) const;
+        void HandleEobtEvent(const EobtEvent& event) const;
         void HandleGenerateSquawkEvent(const GenerateSquawkEvent& event) const;
         void HandleRouteEvent(const RouteEvent& event) const;
         void HandleRemarksEvent(const RemarksEvent& event) const;

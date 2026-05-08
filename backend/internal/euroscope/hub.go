@@ -654,6 +654,15 @@ func (hub *Hub) SendStand(session int32, cid string, callsign string, stand stri
 	hub.Send(session, cid, event)
 }
 
+func (hub *Hub) SendEobt(session int32, cid string, callsign string, eobt string) {
+	event := euroscope.EobtEvent{
+		Callsign: callsign,
+		Eobt:     eobt,
+	}
+
+	hub.Send(session, cid, event)
+}
+
 func (hub *Hub) SendRoute(session int32, cid string, callsign string, route string) {
 	event := euroscope.RouteEvent{
 		Callsign: callsign,

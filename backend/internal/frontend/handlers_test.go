@@ -242,10 +242,12 @@ func TestHandleStripUpdate_EobtChangeTriggersCdmRecalculation(t *testing.T) {
 			return nil
 		},
 	}
+	euroscopeHub := &testutil.MockEuroscopeHub{}
 
 	server := &testutil.MockServer{
-		StripRepoVal:  stripRepo,
-		CdmServiceVal: cdmService,
+		StripRepoVal:    stripRepo,
+		CdmServiceVal:   cdmService,
+		EuroscopeHubVal: euroscopeHub,
 	}
 	hub := &Hub{
 		server: server,
@@ -272,6 +274,11 @@ func TestHandleStripUpdate_EobtChangeTriggersCdmRecalculation(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, updatedEobt, handledEobt)
+	require.Len(t, euroscopeHub.Eobts, 1)
+	assert.Equal(t, session, euroscopeHub.Eobts[0].Session)
+	assert.Equal(t, "123456", euroscopeHub.Eobts[0].Cid)
+	assert.Equal(t, callsign, euroscopeHub.Eobts[0].Callsign)
+	assert.Equal(t, updatedEobt, euroscopeHub.Eobts[0].Eobt)
 	assert.Equal(t, 2, getByCallsignCalls)
 }
 

@@ -26,6 +26,7 @@
 #define EVENT_SESSION_INFO_NAME "session_info"
 #define EVENT_RUNWAY_MISMATCH_ALERT_NAME "runway_mismatch_alert"
 #define EVENT_GENERATE_SQUAWK_NAME "generate_squawk"
+#define EVENT_EOBT_NAME "eobt"
 #define EVENT_ROUTE_NAME "route"
 #define EVENT_REMARKS_NAME "remarks"
 #define EVENT_AIRCRAFT_INFO_NAME "aircraft_info"
@@ -77,6 +78,7 @@ enum EventType {
     EVENT_SESSION_INFO,
     EVENT_RUNWAY_MISMATCH_ALERT,
     EVENT_GENERATE_SQUAWK,
+    EVENT_EOBT,
     EVENT_ROUTE,
     EVENT_REMARKS,
     EVENT_AIRCRAFT_INFO,
@@ -125,10 +127,11 @@ NLOHMANN_JSON_SERIALIZE_ENUM(EventType, {
                               {EVENT_TRACKING_CONTROLLER_CHANGED, EVENT_TRACKING_CONTROLLER_CHANGED_NAME},
                                {EVENT_STRIP_UPDATE, EVENT_STRIP_UPDATE_NAME},
                                {EVENT_RUNWAY, EVENT_RUNWAY_NAME},
-                               {EVENT_SESSION_INFO, EVENT_SESSION_INFO_NAME},
-                               {EVENT_RUNWAY_MISMATCH_ALERT, EVENT_RUNWAY_MISMATCH_ALERT_NAME},
-                               {EVENT_GENERATE_SQUAWK, EVENT_GENERATE_SQUAWK_NAME},
-                               {EVENT_ROUTE, EVENT_ROUTE_NAME},
+                                {EVENT_SESSION_INFO, EVENT_SESSION_INFO_NAME},
+                                {EVENT_RUNWAY_MISMATCH_ALERT, EVENT_RUNWAY_MISMATCH_ALERT_NAME},
+                                {EVENT_GENERATE_SQUAWK, EVENT_GENERATE_SQUAWK_NAME},
+                                {EVENT_EOBT, EVENT_EOBT_NAME},
+                                {EVENT_ROUTE, EVENT_ROUTE_NAME},
                                {EVENT_REMARKS, EVENT_REMARKS_NAME},
                                {EVENT_AIRCRAFT_INFO, EVENT_AIRCRAFT_INFO_NAME},
                                {EVENT_AIRCRAFT_INFO_REMARKS, EVENT_AIRCRAFT_INFO_REMARKS_NAME},
@@ -820,6 +823,17 @@ struct GenerateSquawkEvent final : Event {
     GenerateSquawkEvent() = default;
 
     NLOHMANN_DEFINE_TYPE_INTRUSIVE(GenerateSquawkEvent, callsign, type);
+};
+
+struct EobtEvent final : Event {
+    std::string callsign;
+    std::string eobt;
+
+    EobtEvent() : Event(EVENT_EOBT) {}
+    EobtEvent(std::string callsign, std::string eobt)
+        : Event(EVENT_EOBT), callsign(std::move(callsign)), eobt(std::move(eobt)) {}
+
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE(EobtEvent, callsign, eobt, type);
 };
 
 struct RouteEvent final : Event {

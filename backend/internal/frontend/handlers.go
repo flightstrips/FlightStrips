@@ -240,6 +240,7 @@ func handleStripUpdate(ctx context.Context, client *Client, message Message) err
 		if !isValidFrontendClockValue(eobt) {
 			return errors.New("invalid eobt: expected HHMM")
 		}
+		s.GetEuroscopeHub().SendEobt(client.session, client.GetCid(), event.Callsign, eobt)
 		cdmService := client.hub.server.GetCdmService()
 		if cdmService == nil {
 			return errors.New("CDM service not available")

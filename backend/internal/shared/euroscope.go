@@ -17,6 +17,7 @@ type EuroscopeHub interface {
 	SendGroundState(session int32, cid string, callsign string, state string)
 	SendClearedFlag(session int32, cid string, callsign string, flag bool)
 	SendStand(session int32, cid string, callsign string, stand string)
+	SendEobt(session int32, cid string, callsign string, eobt string)
 	SendRoute(session int32, cid string, callsign string, route string)
 	SendRemarks(session int32, cid string, callsign string, remarks string)
 	SendAircraftInfo(session int32, cid string, callsign string, aircraftType string)

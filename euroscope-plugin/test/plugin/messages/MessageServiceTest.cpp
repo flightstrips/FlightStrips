@@ -33,6 +33,13 @@ TEST(MessageServiceEventsTest, CdmTobtUpdateEventSerializesExpectedShape) {
     EXPECT_EQ(json.at("tobt").get<std::string>(), "1030");
 }
 
+TEST(MessageServiceEventsTest, EobtEventSerializesExpectedShape) {
+    const nlohmann::json json = EobtEvent{"EIN123", "1030"};
+    EXPECT_EQ(json.at("type").get<std::string>(), EVENT_EOBT_NAME);
+    EXPECT_EQ(json.at("callsign").get<std::string>(), "EIN123");
+    EXPECT_EQ(json.at("eobt").get<std::string>(), "1030");
+}
+
 TEST(MessageServiceEventsTest, CdmUpdateEventDeserializesRequestedTobtSourceAndFlowMessage) {
     const auto json = nlohmann::json::parse(R"({
         "type":"cdm_update",

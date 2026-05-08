@@ -40,6 +40,7 @@ const (
 	CdmTsacUpdate             EventType = "cdm_tsac_update"
 	CdmMasterToggle           EventType = "cdm_master_toggle"
 	GenerateSquawk            EventType = "generate_squawk"
+	Eobt                      EventType = "eobt"
 	Route                     EventType = "route"
 	Remarks                   EventType = "remarks"
 	AircraftInfo              EventType = "aircraft_info"
@@ -302,6 +303,11 @@ type GenerateSquawkEvent struct {
 	Callsign string `json:"callsign"`
 }
 
+type EobtEvent struct {
+	Callsign string `json:"callsign"`
+	Eobt     string `json:"eobt"`
+}
+
 type CdmUpdateEvent struct {
 	Callsign        string `json:"callsign"`
 	Eobt            string `json:"eobt,omitempty"`
@@ -453,6 +459,14 @@ func (e GenerateSquawkEvent) GetType() EventType {
 }
 
 func (e GenerateSquawkEvent) Marshal() ([]byte, error) {
+	return marshall(e)
+}
+
+func (e EobtEvent) GetType() EventType {
+	return Eobt
+}
+
+func (e EobtEvent) Marshal() ([]byte, error) {
 	return marshall(e)
 }
 

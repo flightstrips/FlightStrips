@@ -12,6 +12,7 @@ type CalcInput struct {
 	Origin     string
 	DepRwy     string
 	Sid        string
+	WakeCat    string
 	Eobt       string
 	Tobt       string
 	ReqTobt    string
@@ -28,6 +29,7 @@ type SlotEntry struct {
 	Origin     string
 	DepRwy     string
 	Sid        string
+	WakeCat    string
 	Ttot       string
 	HasManCtot bool
 	ManCtot    string
@@ -97,6 +99,18 @@ func Calculate(input CalcInput, slots []SlotEntry, config *CdmAirportConfig, now
 				ttot = addMinutes(ttot, 0.5)
 				changed = true
 				break
+			}
+
+			if sameRunway(input.DepRwy, slot.DepRwy) {
+				wakeMinutes := wakeSeparationMinutes(input.WakeCat, slot.WakeCat)
+				if !isAfterOrEqual(ttot, slot.Ttot) {
+					wakeMinutes = wakeSeparationMinutes(slot.WakeCat, input.WakeCat)
+				}
+				if wakeMinutes > 0 && withinWindow(ttot, slot.Ttot, float64(wakeMinutes)) {
+					ttot = addMinutes(ttot, 0.5)
+					changed = true
+					break
+				}
 			}
 
 			if config != nil {

@@ -269,6 +269,102 @@ func TestCalculate_LaterCtotStillWinsOverDelayFloor(t *testing.T) {
 	assertClockResult(t, result, "102000", "103000")
 }
 
+func TestCalculate_AppliesWakeSpacingForLightBehindSuper(t *testing.T) {
+	t.Parallel()
+
+	config := NewDefaultAirportConfig("EKCH")
+	config.DefaultRate = 120
+
+	result := Calculate(CalcInput{
+		Callsign: "SASW1",
+		Origin:   "EKCH",
+		DepRwy:   "04L",
+		WakeCat:  "L",
+		Tobt:     "1001",
+		TaxiMin:  10,
+	}, []SlotEntry{{
+		Callsign: "SASLEAD",
+		Origin:   "EKCH",
+		DepRwy:   "04L",
+		WakeCat:  "J",
+		Ttot:     "101000",
+	}}, config, time.Date(2026, 3, 25, 8, 0, 0, 0, time.UTC))
+
+	assertClockResult(t, result, "100300", "101300")
+}
+
+func TestCalculate_AppliesWakeSpacingForHeavyBehindSuper(t *testing.T) {
+	t.Parallel()
+
+	config := NewDefaultAirportConfig("EKCH")
+	config.DefaultRate = 120
+
+	result := Calculate(CalcInput{
+		Callsign: "SASW2",
+		Origin:   "EKCH",
+		DepRwy:   "04L",
+		WakeCat:  "H",
+		Tobt:     "1001",
+		TaxiMin:  10,
+	}, []SlotEntry{{
+		Callsign: "SASLEAD",
+		Origin:   "EKCH",
+		DepRwy:   "04L",
+		WakeCat:  "J",
+		Ttot:     "101000",
+	}}, config, time.Date(2026, 3, 25, 8, 0, 0, 0, time.UTC))
+
+	assertClockResult(t, result, "100200", "101200")
+}
+
+func TestCalculate_AppliesDirectionalWakeSpacingWhenExistingFlightTrails(t *testing.T) {
+	t.Parallel()
+
+	config := NewDefaultAirportConfig("EKCH")
+	config.DefaultRate = 120
+
+	result := Calculate(CalcInput{
+		Callsign: "SASW3",
+		Origin:   "EKCH",
+		DepRwy:   "04L",
+		WakeCat:  "J",
+		Tobt:     "1000",
+		TaxiMin:  10,
+	}, []SlotEntry{{
+		Callsign: "SASTRAIL",
+		Origin:   "EKCH",
+		DepRwy:   "04L",
+		WakeCat:  "L",
+		Ttot:     "101030",
+	}}, config, time.Date(2026, 3, 25, 8, 0, 0, 0, time.UTC))
+
+	assertClockResult(t, result, "100130", "101130")
+}
+
+func TestCalculate_UnknownWakeCategoryAddsNoExtraSpacing(t *testing.T) {
+	t.Parallel()
+
+	config := NewDefaultAirportConfig("EKCH")
+	config.DefaultRate = 120
+
+	result := Calculate(CalcInput{
+		Callsign: "SASW4",
+		Origin:   "EKCH",
+		DepRwy:   "04L",
+		WakeCat:  "?",
+		Tobt:     "1001",
+		TaxiMin:  10,
+	}, []SlotEntry{{
+		Callsign: "SASLEAD",
+		Origin:   "EKCH",
+		DepRwy:   "04L",
+		WakeCat:  "J",
+		Ttot:     "101000",
+	}}, config, time.Date(2026, 3, 25, 8, 0, 0, 0, time.UTC))
+
+	assertClockResult(t, result, "100100", "101100")
+}
+
 func TestCalculate_ApiCtotDoesNotPullEarlierThanNaturalTtot(t *testing.T) {
 	t.Parallel()
 
@@ -344,6 +440,30 @@ func TestCalculate_LvoRateReducesDepartureCapacity(t *testing.T) {
 	}}, config, time.Date(2026, 3, 25, 8, 0, 0, 0, time.UTC))
 
 	assertClockResult(t, result, "100400", "101400")
+}
+
+func TestCalculate_RateWindowCanStillDominateWakeSpacing(t *testing.T) {
+	t.Parallel()
+
+	config := NewDefaultAirportConfig("EKCH")
+	config.DefaultRate = 20
+
+	result := Calculate(CalcInput{
+		Callsign: "SASW5",
+		Origin:   "EKCH",
+		DepRwy:   "04L",
+		WakeCat:  "H",
+		Tobt:     "1001",
+		TaxiMin:  10,
+	}, []SlotEntry{{
+		Callsign: "SASLEAD",
+		Origin:   "EKCH",
+		DepRwy:   "04L",
+		WakeCat:  "H",
+		Ttot:     "101000",
+	}}, config, time.Date(2026, 3, 25, 8, 0, 0, 0, time.UTC))
+
+	assertClockResult(t, result, "100300", "101300")
 }
 
 func TestCalculate_IgnoresRateWindowForDifferentOrigin(t *testing.T) {

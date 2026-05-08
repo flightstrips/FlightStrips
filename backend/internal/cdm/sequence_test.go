@@ -320,6 +320,73 @@ func TestSequenceService_RecalculateAirport_AppliesConfiguredDelayFloor(t *testi
 	}
 }
 
+func TestSequenceService_RecalculateAirport_AppliesWakeSpacingFromAircraftCategory(t *testing.T) {
+	t.Parallel()
+
+	now := time.Now().UTC()
+	leadingTobt := addMinutes(timeToClock(now), 10)
+	leadingTtot := addMinutes(leadingTobt, 10)
+	trailingTobt := addMinutes(leadingTobt, 1)
+
+	leadingWake := "J"
+	trailingWake := "L"
+
+	leading := &models.Strip{
+		Callsign:         "SAS780",
+		Origin:           "EKCH",
+		Runway:           testStringPtr("04L"),
+		AircraftCategory: &leadingWake,
+		CdmData: &models.CdmData{
+			Tobt: testStringPtr(leadingTobt),
+		},
+	}
+	trailing := &models.Strip{
+		Callsign:         "SAS781",
+		Origin:           "EKCH",
+		Runway:           testStringPtr("04L"),
+		AircraftCategory: &trailingWake,
+		CdmData: &models.CdmData{
+			Tobt: testStringPtr(trailingTobt),
+		},
+	}
+
+	persisted := map[string]*models.CdmData{}
+	stripRepo := &testutil.MockStripRepository{
+		ListByOriginFn: func(ctx context.Context, session int32, origin string) ([]*models.Strip, error) {
+			return []*models.Strip{leading, trailing}, nil
+		},
+		SetCdmDataFn: func(ctx context.Context, session int32, callsign string, data *models.CdmData) (int64, error) {
+			persisted[callsign] = data.Clone()
+			return 1, nil
+		},
+	}
+	sessionRepo := &testutil.MockSessionRepository{
+		GetByIDFn: func(ctx context.Context, id int32) (*models.Session, error) {
+			return &models.Session{ID: id, Airport: "EKCH"}, nil
+		},
+	}
+	configStore := NewCdmConfigStore("", "", "", 0, CdmConfigDefaults{Rate: 120, RateLvo: 120, TaxiMinutes: 10}, nil)
+
+	service := NewSequenceService(stripRepo, sessionRepo, configStore, &testutil.MockFrontendHub{}, &testutil.MockEuroscopeHub{})
+
+	if err := service.RecalculateAirport(context.Background(), 7, "EKCH"); err != nil {
+		t.Fatalf("RecalculateAirport returned error: %v", err)
+	}
+
+	trailingPersisted := persisted["SAS781"]
+	if trailingPersisted == nil {
+		t.Fatal("expected trailing strip to persist recalculated CDM data")
+	}
+	expectedTtot := addMinutes(leadingTtot, 3)
+	if got := valueOrEmpty(trailingPersisted.Ttot); got != expectedTtot {
+		t.Fatalf("expected wake-spaced TTOT %q, got %q", expectedTtot, got)
+	}
+	expectedTsat := subtractMinutes(expectedTtot, 10)
+	if got := valueOrEmpty(trailingPersisted.Tsat); got != expectedTsat {
+		t.Fatalf("expected wake-spaced TSAT %q, got %q", expectedTsat, got)
+	}
+}
+
 func TestSequenceService_RecalculateAirport_ReturnsErrorWhenPersistSkipsRow(t *testing.T) {
 	t.Parallel()
 

@@ -14,6 +14,7 @@ import (
 	"FlightStrips/internal/models"
 	"FlightStrips/internal/testutil"
 	euroscopeEvents "FlightStrips/pkg/events/euroscope"
+	pkgModels "FlightStrips/pkg/models"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -180,6 +181,85 @@ func TestHandleTobtUpdate_PersistsOverrideAndClearsRequestedTobt(t *testing.T) {
 
 	require.Len(t, frontendHub.CdmUpdates, 1)
 	assert.Equal(t, "1035", frontendHub.CdmUpdates[0].Tobt)
+}
+
+func TestHandleClxTobtUpdate_BroadcastsFinalCalculatedCdmData(t *testing.T) {
+	const sessionID = int32(44)
+	const callsign = "SAS654"
+	const airport = "EKCH"
+	runway := "22L"
+	tobt := time.Now().UTC().Add(20 * time.Minute).Format("1504")
+
+	eobt := "1000"
+	stored := (&models.CdmData{Eobt: &eobt}).Normalize()
+	stripForState := func() *models.Strip {
+		return &models.Strip{
+			Callsign: callsign,
+			Session:  sessionID,
+			Origin:   airport,
+			Runway:   &runway,
+			CdmData:  stored.Clone(),
+		}
+	}
+
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, session int32, cs string) (*models.Strip, error) {
+			assert.Equal(t, sessionID, session)
+			assert.Equal(t, callsign, cs)
+			return stripForState(), nil
+		},
+		ListByOriginFn: func(_ context.Context, session int32, origin string) ([]*models.Strip, error) {
+			assert.Equal(t, sessionID, session)
+			assert.Equal(t, airport, origin)
+			return []*models.Strip{stripForState()}, nil
+		},
+		GetCdmDataForCallsignFn: func(_ context.Context, session int32, cs string) (*models.CdmData, error) {
+			assert.Equal(t, sessionID, session)
+			assert.Equal(t, callsign, cs)
+			return stored.Clone(), nil
+		},
+		SetCdmDataFn: func(_ context.Context, session int32, cs string, data *models.CdmData) (int64, error) {
+			assert.Equal(t, sessionID, session)
+			assert.Equal(t, callsign, cs)
+			stored = data.Clone()
+			return 1, nil
+		},
+	}
+	sessionRepo := &testutil.MockSessionRepository{
+		GetByIDFn: func(_ context.Context, id int32) (*models.Session, error) {
+			assert.Equal(t, sessionID, id)
+			return &models.Session{
+				ID: id,
+				ActiveRunways: pkgModels.ActiveRunways{
+					DepartureRunways: []string{runway},
+				},
+			}, nil
+		},
+	}
+	frontendHub := &testutil.MockFrontendHub{}
+	configStore := NewCdmConfigStore("", "", "", time.Minute, CdmConfigDefaults{}, newFailingHTTPClient())
+	sequenceService := NewSequenceService(stripRepo, sessionRepo, configStore, frontendHub, nil)
+
+	service := NewCdmService(newTestClientWithAirportMasters(nil), stripRepo, sessionRepo, &testutil.MockControllerRepository{})
+	service.client.isValid = false
+	service.SetFrontendHub(frontendHub)
+	service.SetConfigProvider(configStore)
+	service.SetSequenceService(sequenceService)
+	service.sessionMaster.Store(sessionID, true)
+
+	err := service.HandleClxTobtUpdate(context.Background(), sessionID, callsign, tobt, "EKCH_B_GND", "ATC")
+	require.NoError(t, err)
+
+	assert.Equal(t, tobt, *stored.Tobt)
+	assert.False(t, stored.NeedsLocalRecalculation())
+	require.NotNil(t, stored.Tsat)
+	require.NotNil(t, stored.Ttot)
+
+	require.Len(t, frontendHub.CdmUpdates, 1)
+	assert.Equal(t, callsign, frontendHub.CdmUpdates[0].Callsign)
+	assert.Equal(t, tobt, frontendHub.CdmUpdates[0].Tobt)
+	assert.Equal(t, truncateCDMClockValue(*stored.Tsat), frontendHub.CdmUpdates[0].Tsat)
+	assert.Equal(t, truncateCDMClockValue(*stored.Ttot), frontendHub.CdmUpdates[0].Event.Ttot)
 }
 
 func TestHandleManualCtot_BroadcastsEffectiveFrontendCtot(t *testing.T) {

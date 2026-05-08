@@ -36,6 +36,14 @@ func (s *SequenceService) SetAfterPersist(fn func(ctx context.Context, session i
 }
 
 func (s *SequenceService) RecalculateAirport(ctx context.Context, session int32, airport string) error {
+	return s.recalculateAirport(ctx, session, airport, true)
+}
+
+func (s *SequenceService) RecalculateAirportSilently(ctx context.Context, session int32, airport string) error {
+	return s.recalculateAirport(ctx, session, airport, false)
+}
+
+func (s *SequenceService) recalculateAirport(ctx context.Context, session int32, airport string, notify bool) error {
 	strips, err := s.stripRepo.ListByOrigin(ctx, session, airport)
 	if err != nil {
 		return err
@@ -106,8 +114,10 @@ func (s *SequenceService) RecalculateAirport(ctx context.Context, session int32,
 					return fmt.Errorf("failed to persist recalculated CDM data for %s session %d", strip.Callsign, session)
 				}
 				strip.CdmData = updated
-				s.broadcast(session, strip.Callsign, updated)
-				if s.afterPersist != nil {
+				if notify {
+					s.broadcast(session, strip.Callsign, updated)
+				}
+				if notify && s.afterPersist != nil {
 					s.afterPersist(ctx, session, strip.Callsign)
 				}
 			}
@@ -142,8 +152,10 @@ func (s *SequenceService) RecalculateAirport(ctx context.Context, session int32,
 				return fmt.Errorf("failed to persist recalculated CDM data for %s session %d", strip.Callsign, session)
 			}
 			strip.CdmData = updated
-			s.broadcast(session, strip.Callsign, updated)
-			if s.afterPersist != nil {
+			if notify {
+				s.broadcast(session, strip.Callsign, updated)
+			}
+			if notify && s.afterPersist != nil {
 				s.afterPersist(ctx, session, strip.Callsign)
 			}
 		}

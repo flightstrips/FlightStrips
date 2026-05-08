@@ -41,6 +41,10 @@ func (s *recordingCdmService) HandleTobtUpdate(context.Context, int32, string, s
 	return nil
 }
 
+func (s *recordingCdmService) HandleClxTobtUpdate(context.Context, int32, string, string, string, string) error {
+	return nil
+}
+
 func (s *recordingCdmService) HandleDeiceUpdate(context.Context, int32, string, string) error {
 	return nil
 }

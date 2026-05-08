@@ -480,7 +480,7 @@ func handleClxUpdateTobt(ctx context.Context, client *Client, message Message) e
 	}
 
 	tobt := roundedClxTobt(time.Now().UTC())
-	if err := cdmService.HandleTobtUpdate(ctx, client.session, event.Callsign, tobt, client.position, "ATC"); err != nil {
+	if err := cdmService.HandleClxTobtUpdate(ctx, client.session, event.Callsign, tobt, client.position, "ATC"); err != nil {
 		return err
 	}
 	client.hub.SendStripUpdate(client.session, event.Callsign)

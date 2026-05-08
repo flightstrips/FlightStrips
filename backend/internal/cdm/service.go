@@ -179,36 +179,49 @@ func (s *Service) HandleTobtUpdate(ctx context.Context, session int32, callsign 
 		return nil
 	}
 
-	strip, cdmData, err := s.loadCdmActionTarget(ctx, session, callsign)
+	strip, before, updated, previousTobt, changed, err := s.prepareTobtUpdate(ctx, session, callsign, tobt, sourcePosition)
 	if err != nil {
 		return err
 	}
-	if strip == nil || cdmData == nil {
+	if strip == nil || updated == nil || !changed {
 		return nil
 	}
-
-	before := snapshotCdm(cdmData)
-	updated := cdmData.Clone()
-
-	if helpers.ValueOrDefault(updated.Tobt) == tobt &&
-		helpers.ValueOrDefault(updated.ReqTobt) == "" {
-		return nil
-	}
-
-	updated.Tobt = &tobt
-	setBy := strings.TrimSpace(sourcePosition)
-	updated.TobtSetBy = &setBy
-	confirmedBy := models.TobtConfirmedByATC
-	updated.TobtConfirmedBy = &confirmedBy
-	updated.ReqTobt = nil
-	updated.MarkLocalRecalculationPending()
 
 	if err := s.persistCdmUpdate(ctx, session, callsign, before, updated); err != nil {
 		return err
 	}
 
 	s.TriggerRecalculate(ctx, session, strip.Origin)
-	s.pushTobtAsync(session, callsign, strip, cdmData, tobt)
+	s.pushTobtAsync(session, callsign, previousTobt, tobt)
+	return nil
+}
+
+func (s *Service) HandleClxTobtUpdate(ctx context.Context, session int32, callsign string, tobt string, sourcePosition string, sourceRole string) error {
+	callsign = strings.TrimSpace(callsign)
+	tobt = strings.TrimSpace(tobt)
+	if callsign == "" || !isValidHHMM(tobt) {
+		return nil
+	}
+
+	strip, _, updated, previousTobt, changed, err := s.prepareTobtUpdate(ctx, session, callsign, tobt, sourcePosition)
+	if err != nil {
+		return err
+	}
+	if strip == nil || updated == nil {
+		return nil
+	}
+
+	if changed {
+		if err := s.persistCdmUpdateSilently(ctx, session, callsign, updated); err != nil {
+			return err
+		}
+	}
+
+	if err := s.finalizeClxTobtUpdate(ctx, session, callsign, strip.Origin); err != nil {
+		return err
+	}
+
+	s.pushTobtAsync(session, callsign, previousTobt, tobt)
 	return nil
 }
 
@@ -1051,6 +1064,32 @@ func (s *Service) loadCdmActionTarget(ctx context.Context, session int32, callsi
 	return strip, cdmData, nil
 }
 
+func (s *Service) prepareTobtUpdate(ctx context.Context, session int32, callsign string, tobt string, sourcePosition string) (*models.Strip, cdmSnapshot, *models.CdmData, string, bool, error) {
+	strip, cdmData, err := s.loadCdmActionTarget(ctx, session, callsign)
+	if err != nil {
+		return nil, cdmSnapshot{}, nil, "", false, err
+	}
+	if strip == nil || cdmData == nil {
+		return strip, cdmSnapshot{}, nil, "", false, nil
+	}
+
+	before := snapshotCdm(cdmData)
+	updated := cdmData.Clone()
+	previousTobt := helpers.ValueOrDefault(updated.Tobt)
+	if previousTobt == tobt && helpers.ValueOrDefault(updated.ReqTobt) == "" {
+		return strip, before, updated, previousTobt, false, nil
+	}
+
+	updated.Tobt = &tobt
+	setBy := strings.TrimSpace(sourcePosition)
+	updated.TobtSetBy = &setBy
+	confirmedBy := models.TobtConfirmedByATC
+	updated.TobtConfirmedBy = &confirmedBy
+	updated.ReqTobt = nil
+	updated.MarkLocalRecalculationPending()
+	return strip, before, updated, previousTobt, true, nil
+}
+
 func (s *Service) SyncAsatForGroundState(ctx context.Context, session int32, callsign string, groundState string) error {
 	callsign = strings.TrimSpace(callsign)
 	groundState = strings.ToUpper(strings.TrimSpace(groundState))
@@ -1135,6 +1174,17 @@ func (s *Service) persistCdmUpdate(ctx context.Context, session int32, callsign 
 	return nil
 }
 
+func (s *Service) persistCdmUpdateSilently(ctx context.Context, session int32, callsign string, updated *models.CdmData) error {
+	rows, err := s.stripRepo.SetCdmData(ctx, session, callsign, updated.Normalize())
+	if err != nil {
+		return err
+	}
+	if rows != 1 {
+		return fmt.Errorf("failed to persist CDM data for %s session %d", callsign, session)
+	}
+	return nil
+}
+
 func (s *Service) masterCallsign(sessionID int32) string {
 	if s.euroscopeHub != nil {
 		if cs := s.euroscopeHub.GetMasterCallsign(sessionID); cs != "" {
@@ -1160,11 +1210,21 @@ func (s *Service) registerMasterAsync(sessionID int32, airport string) {
 	}()
 }
 
-func (s *Service) pushTobtAsync(session int32, callsign string, strip *models.Strip, cdmData *models.CdmData, tobt string) {
-	if !s.client.isValid || strip == nil || cdmData == nil {
+func (s *Service) finalizeClxTobtUpdate(ctx context.Context, session int32, callsign string, airport string) error {
+	if s.sequenceService != nil && airport != "" && s.isMasterSession(session) {
+		if err := s.sequenceService.RecalculateAirportSilently(ctx, session, airport); err != nil {
+			return err
+		}
+	}
+	s.pushCdmDataAfterRecalc(ctx, session, callsign)
+	return nil
+}
+
+func (s *Service) pushTobtAsync(session int32, callsign string, previousTobt string, tobt string) {
+	if !s.client.isValid {
 		return
 	}
-	if helpers.ValueOrDefault(cdmData.Tobt) == tobt {
+	if strings.TrimSpace(previousTobt) == tobt {
 		return
 	}
 	go func() {

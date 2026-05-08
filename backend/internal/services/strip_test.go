@@ -36,6 +36,9 @@ func (s *spyStripCdmService) HandleReadyRequest(_ context.Context, _ int32, _ st
 func (s *spyStripCdmService) HandleTobtUpdate(_ context.Context, _ int32, _ string, _ string, _ string, _ string) error {
 	panic("unexpected")
 }
+func (s *spyStripCdmService) HandleClxTobtUpdate(_ context.Context, _ int32, _ string, _ string, _ string, _ string) error {
+	panic("unexpected")
+}
 func (s *spyStripCdmService) HandleDeiceUpdate(_ context.Context, _ int32, _ string, _ string) error {
 	panic("unexpected")
 }

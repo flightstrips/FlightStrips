@@ -40,6 +40,10 @@ func (s *spyLocalCdmService) HandleTobtUpdate(_ context.Context, session int32, 
 	return nil
 }
 
+func (s *spyLocalCdmService) HandleClxTobtUpdate(_ context.Context, _ int32, _ string, _ string, _ string, _ string) error {
+	panic("HandleClxTobtUpdate should not be called in this test")
+}
+
 func (s *spyLocalCdmService) HandleDeiceUpdate(_ context.Context, _ int32, _ string, _ string) error {
 	panic("HandleDeiceUpdate should not be called in this test")
 }

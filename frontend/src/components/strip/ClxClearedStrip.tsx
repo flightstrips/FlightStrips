@@ -57,6 +57,7 @@ export function ClxClearedStrip({
   tobt,
   tsat,
   ctot,
+  phase,
   arrival,
   runway,
   owner,
@@ -97,7 +98,7 @@ export function ClxClearedStrip({
   const cdmReady = useWebSocketStore(s => s.cdmReady);
   const acknowledgeUnexpectedChange = useWebSocketStore(s => s.acknowledgeUnexpectedChange);
   const standYellow = unexpectedChangeFields?.includes("stand");
-  const { tobtBg, tsatBg } = useCDMColors({ bay: bay ?? Bay.Unknown, tsat: tsat ?? "", tobt: tobt ?? "" });
+  const { tobtBg, tsatBg } = useCDMColors({ bay: bay ?? Bay.Unknown, tsat: tsat ?? "", tobt: tobt ?? "", phase });
   const { ctotBg, ctotColor, showCtot } = useCTOTColor(ctot ?? "");
   const hasCtot = Boolean(ctot?.trim());
   const cellBorderColor = getCellBorderColor(marked);

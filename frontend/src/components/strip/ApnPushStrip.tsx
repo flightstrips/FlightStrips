@@ -64,6 +64,7 @@ export function ApnPushStrip({
   tsat,
   tobt,
   ctot,
+  phase,
   runway,
   arrival,
   owner,
@@ -104,7 +105,7 @@ export function ApnPushStrip({
   const acknowledgeUnexpectedChange = useWebSocketStore(s => s.acknowledgeUnexpectedChange);
   const standYellow = unexpectedChangeFields?.includes("stand");
   const runwayYellow = unexpectedChangeFields?.includes("runway");
-  const { tsatBg } = useCDMColors({ bay: bay ?? Bay.Unknown, tsat: tsat ?? "", tobt: tobt ?? "" });
+  const { tsatBg } = useCDMColors({ bay: bay ?? Bay.Unknown, tsat: tsat ?? "", tobt: tobt ?? "", phase });
   const { ctotBg, ctotColor, showCtot } = useCTOTColor(ctot ?? "");
 
   return (

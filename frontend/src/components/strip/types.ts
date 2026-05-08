@@ -29,6 +29,7 @@ export interface StripProps {
   tobt?: string;
   tsat?: string;
   ctot?: string;
+  phase?: string;
   aircraftType?: string;
   aircraftCategory?: string;
   squawk?: string;

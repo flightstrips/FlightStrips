@@ -41,6 +41,7 @@ export function DelStrip({
   tobt,
   tsat,
   ctot,
+  phase,
   arrival,
   runway,
   owner,
@@ -77,7 +78,7 @@ export function DelStrip({
     bay,
   );
   const showClearedCallsignHighlight = usePdcClearedCallsignBlink(pdcStatus);
-  const { tobtBg, tsatBg } = useCDMColors({ bay: bay ?? Bay.Unknown, tsat: tsat ?? "", tobt: tobt ?? "" });
+  const { tobtBg, tsatBg } = useCDMColors({ bay: bay ?? Bay.Unknown, tsat: tsat ?? "", tobt: tobt ?? "", phase });
   const { ctotBg, ctotColor, showCtot } = useCTOTColor(ctot ?? "");
   const hasCtot = Boolean(ctot?.trim());
   const standYellow = unexpectedChangeFields?.includes("stand");

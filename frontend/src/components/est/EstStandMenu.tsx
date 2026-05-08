@@ -80,7 +80,7 @@ export default function EstStandMenu({
     return { left, top };
   }, [anchor]);
 
-  const { tobtBg, tsatBg } = useCDMColors({ bay: strip.bay as Bay, tsat: strip.tsat, tobt: strip.tobt });
+  const { tobtBg, tsatBg } = useCDMColors({ bay: strip.bay as Bay, tsat: strip.tsat, tobt: strip.tobt, phase: strip.phase });
 
   if (!open || !anchor) {
     return null;

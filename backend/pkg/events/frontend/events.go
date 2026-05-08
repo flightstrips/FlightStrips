@@ -148,8 +148,18 @@ type Strip struct {
 	PreviousControllers      []string          `json:"previous_controllers"`
 	Owner                    string            `json:"owner"`
 	Tobt                     string            `json:"tobt"`
+	ReqTobt                  string            `json:"req_tobt,omitempty"`
 	Tsat                     string            `json:"tsat"`
+	Ttot                     string            `json:"ttot,omitempty"`
 	Ctot                     string            `json:"ctot"`
+	Aobt                     string            `json:"aobt,omitempty"`
+	Asat                     string            `json:"asat,omitempty"`
+	Asrt                     string            `json:"asrt,omitempty"`
+	Tsac                     string            `json:"tsac,omitempty"`
+	Status                   string            `json:"status,omitempty"`
+	EcfmpID                  string            `json:"ecfmp_id,omitempty"`
+	CtotSource               string            `json:"ctot_source,omitempty"`
+	Phase                    string            `json:"phase,omitempty"`
 	PdcState                 string            `json:"pdc_state"`
 	PdcRequestRemarks        string            `json:"pdc_request_remarks,omitempty"`
 	StartReq                 bool              `json:"start_req"`
@@ -708,11 +718,21 @@ func (c CdmWaitEvent) GetType() EventType {
 }
 
 type CdmDataEvent struct {
-	Callsign string `json:"callsign"`
-	Eobt     string `json:"eobt"`
-	Tobt     string `json:"tobt"`
-	Tsat     string `json:"tsat"`
-	Ctot     string `json:"ctot"`
+	Callsign   string `json:"callsign"`
+	Eobt       string `json:"eobt"`
+	Tobt       string `json:"tobt"`
+	ReqTobt    string `json:"req_tobt,omitempty"`
+	Tsat       string `json:"tsat"`
+	Ttot       string `json:"ttot,omitempty"`
+	Ctot       string `json:"ctot"`
+	Aobt       string `json:"aobt,omitempty"`
+	Asat       string `json:"asat,omitempty"`
+	Asrt       string `json:"asrt,omitempty"`
+	Tsac       string `json:"tsac,omitempty"`
+	Status     string `json:"status,omitempty"`
+	EcfmpID    string `json:"ecfmp_id,omitempty"`
+	CtotSource string `json:"ctot_source,omitempty"`
+	Phase      string `json:"phase,omitempty"`
 }
 
 func (c CdmDataEvent) Marshal() ([]byte, error) {

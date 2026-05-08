@@ -454,6 +454,11 @@ func MapStripToFrontendModel(strip *internalModels.Strip) frontend.Strip {
 }
 
 func MapStripToFrontendModelWithClx(strip *internalModels.Strip, clxContext clx.Context) frontend.Strip {
+	cdm := strip.CdmData
+	if cdm == nil {
+		cdm = (&internalModels.CdmData{}).Normalize()
+	}
+
 	return frontend.Strip{
 		Callsign:                 strip.Callsign,
 		Origin:                   strip.Origin,
@@ -482,8 +487,18 @@ func MapStripToFrontendModelWithClx(strip *internalModels.Strip, clxContext clx.
 		Owner:                    helpers.ValueOrDefault(strip.Owner),
 		Eobt:                     truncateFrontendClockValue(helpers.ValueOrDefault(strip.EffectiveEobt())),
 		Tobt:                     truncateFrontendClockValue(helpers.ValueOrDefault(strip.EffectiveTobt())),
+		ReqTobt:                  truncateFrontendClockValue(helpers.ValueOrDefault(cdm.EffectiveReqTobt())),
 		Tsat:                     truncateFrontendClockValue(helpers.ValueOrDefault(strip.EffectiveTsat())),
+		Ttot:                     truncateFrontendClockValue(helpers.ValueOrDefault(strip.EffectiveTtot())),
 		Ctot:                     effectiveFrontendStripCtot(strip),
+		Aobt:                     truncateFrontendClockValue(helpers.ValueOrDefault(strip.EffectiveAobt())),
+		Asat:                     truncateFrontendClockValue(helpers.ValueOrDefault(strip.EffectiveAsat())),
+		Asrt:                     truncateFrontendClockValue(helpers.ValueOrDefault(cdm.Asrt)),
+		Tsac:                     truncateFrontendClockValue(helpers.ValueOrDefault(cdm.Tsac)),
+		Status:                   helpers.ValueOrDefault(strip.EffectiveCdmStatus()),
+		EcfmpID:                  helpers.ValueOrDefault(cdm.EcfmpID),
+		CtotSource:               helpers.ValueOrDefault(cdm.CtotSource),
+		Phase:                    helpers.ValueOrDefault(cdm.EffectivePhase()),
 		PdcState:                 strip.PdcState,
 		PdcRequestRemarks:        helpers.ValueOrDefault(strip.PdcRequestRemarks),
 		StartReq:                 strip.StartReq,
@@ -813,14 +828,7 @@ func (hub *Hub) SendLayoutUpdates(session int32, layoutMap map[string]string) {
 	hub.layoutUpdates <- layoutUpdateMessage{session: session, layoutMap: layoutMap}
 }
 
-func (hub *Hub) SendCdmUpdate(session int32, callsign, eobt, tobt, tsat, ctot string) {
-	event := frontend.CdmDataEvent{
-		Callsign: callsign,
-		Eobt:     truncateFrontendClockValue(eobt),
-		Tobt:     truncateFrontendClockValue(tobt),
-		Tsat:     truncateFrontendClockValue(tsat),
-		Ctot:     truncateFrontendClockValue(ctot),
-	}
+func (hub *Hub) SendCdmUpdate(session int32, event frontend.CdmDataEvent) {
 	hub.Broadcast(session, event)
 }
 

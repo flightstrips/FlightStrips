@@ -251,14 +251,7 @@ func handleStripUpdate(ctx context.Context, client *Client, message Message) err
 		if rows != 1 {
 			return fmt.Errorf("failed to update EOBT for %s session %d", event.Callsign, client.session)
 		}
-		client.hub.SendCdmUpdate(
-			client.session,
-			event.Callsign,
-			stringPtrValue(updatedCdm.EffectiveEobt()),
-			stringPtrValue(updatedCdm.EffectiveTobt()),
-			stringPtrValue(updatedCdm.EffectiveTsat()),
-			stringPtrValue(updatedCdm.EffectiveCtot()),
-		)
+		client.hub.SendCdmUpdate(client.session, shared.BuildFrontendCdmDataEvent(event.Callsign, updatedCdm))
 		if cdmService := client.hub.server.GetCdmService(); cdmService != nil {
 			cdmService.TriggerRecalculate(ctx, client.session, strip.Origin)
 		}

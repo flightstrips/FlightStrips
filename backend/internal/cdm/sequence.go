@@ -106,10 +106,13 @@ func (s *SequenceService) RecalculateAirport(ctx context.Context, session int32,
 			continue
 		}
 
-		result := Calculate(buildCalcInput(strip, config), slots, config, now)
+		calcInput := buildCalcInput(strip, config)
+		result := Calculate(calcInput, slots, config, now)
 
 		beforeTsat := strings.TrimSpace(valueOrEmpty(strip.EffectiveTsat()))
 		beforeTtot := strings.TrimSpace(valueOrEmpty(strip.EffectiveTtot()))
+		beforeTaxiMinutes := intValue(updatedTaxiMinutes(strip))
+		beforeTaxiRunway := strings.TrimSpace(valueOrEmpty(updatedTaxiRunway(strip)))
 
 		updated := strip.CdmData
 		if updated == nil {
@@ -120,9 +123,11 @@ func (s *SequenceService) RecalculateAirport(ctx context.Context, session int32,
 		updated.Phase = nil
 		updated.Tsat = stringPointerIfPresent(result.Tsat)
 		updated.Ttot = stringPointerIfPresent(result.Ttot)
+		updated.TaxiMinutes = intPointerIfPositive(calcInput.TaxiMin)
+		updated.TaxiRunway = stringPointerIfPresent(valueOrEmpty(strip.Runway))
 		updated.ClearLocalRecalculationPending()
 
-		if beforeTsat != result.Tsat || beforeTtot != result.Ttot || beforeNeedsRecalc {
+		if beforeTsat != result.Tsat || beforeTtot != result.Ttot || beforeNeedsRecalc || beforeTaxiMinutes != calcInput.TaxiMin || beforeTaxiRunway != strings.TrimSpace(valueOrEmpty(updated.TaxiRunway)) {
 			if _, err := s.stripRepo.SetCdmData(ctx, session, strip.Callsign, updated.Normalize()); err != nil {
 				return err
 			}
@@ -167,11 +172,30 @@ func buildCalcInput(strip *models.Strip, config *CdmAirportConfig) CalcInput {
 		ReqTobt:    normalizeCalculationClock(valueOrEmpty(data.EffectiveReqTobt())),
 		Ctot:       valueOrEmpty(data.EffectiveCtot()),
 		Asat:       normalizeCalculationClock(valueOrEmpty(data.EffectiveAsat())),
-		TaxiMin:    config.TaxiMinutesForRunway(valueOrEmpty(strip.Runway)),
-		DeIceMin:   deiceTypeToMinutes(valueOrEmpty(data.DeIce)),
+		TaxiMin:    resolveTaxiMinutes(strip, data, config),
+		DeIceMin:   deiceTypeToMinutes(config, valueOrEmpty(data.DeIce)),
 		HasManCtot: data.HasManualCtot(),
 		ManCtot:    valueOrEmpty(data.Ctot),
 	}
+}
+
+func resolveTaxiMinutes(strip *models.Strip, data *models.CdmData, config *CdmAirportConfig) int {
+	depRwy := valueOrEmpty(strip.Runway)
+	if config == nil {
+		return DefaultCDMTaxiMinutes
+	}
+
+	if strip != nil && strip.PositionLatitude != nil && strip.PositionLongitude != nil {
+		if minutes, ok := config.TaxiMinutesForPosition(depRwy, *strip.PositionLatitude, *strip.PositionLongitude); ok {
+			return minutes
+		}
+	}
+
+	if data != nil && data.TaxiMinutes != nil && *data.TaxiMinutes > 0 && strings.EqualFold(valueOrEmpty(data.TaxiRunway), depRwy) {
+		return *data.TaxiMinutes
+	}
+
+	return config.TaxiMinutesForRunway(depRwy)
 }
 
 func calculationBaseTime(strip *models.Strip) string {
@@ -314,14 +338,7 @@ func hasExactTtotConflict(candidate SlotEntry, slots []SlotEntry, config *CdmAir
 
 func (s *SequenceService) broadcast(session int32, callsign string, data *models.CdmData) {
 	if s.frontendHub != nil {
-		s.frontendHub.SendCdmUpdate(
-			session,
-			callsign,
-			truncateCDMClockValue(valueOrEmpty(data.EffectiveEobt())),
-			truncateCDMClockValue(valueOrEmpty(data.EffectiveTobt())),
-			truncateCDMClockValue(valueOrEmpty(data.EffectiveTsat())),
-			truncateCDMClockValue(valueOrEmpty(data.Ctot)),
-		)
+		s.frontendHub.SendCdmUpdate(session, shared.BuildFrontendCdmDataEvent(callsign, data))
 	}
 	if s.euroscopeHub != nil {
 		s.euroscopeHub.Broadcast(session, buildCdmUpdateEvent(callsign, data))
@@ -333,22 +350,22 @@ func buildCdmUpdateEvent(callsign string, data *models.CdmData) euroscopeEvents.
 		data = (&models.CdmData{}).Normalize()
 	}
 	return euroscopeEvents.CdmUpdateEvent{
-		Callsign:   callsign,
-		Eobt:       truncateCDMClockValue(valueOrEmpty(data.EffectiveEobt())),
-		Tobt:       truncateCDMClockValue(valueOrEmpty(data.EffectiveTobt())),
+		Callsign:        callsign,
+		Eobt:            truncateCDMClockValue(valueOrEmpty(data.EffectiveEobt())),
+		Tobt:            truncateCDMClockValue(valueOrEmpty(data.EffectiveTobt())),
 		TobtSetBy:       valueOrEmpty(data.TobtSetBy),
 		TobtConfirmedBy: valueOrEmpty(data.TobtConfirmedBy),
-		ReqTobt:    truncateCDMClockValue(valueOrEmpty(data.EffectiveReqTobt())),
-		Tsat:       truncateToHHMM(valueOrEmpty(data.EffectiveTsat())),
-		Ttot:       truncateToHHMM(valueOrEmpty(data.EffectiveTtot())),
-		Ctot:       truncateCDMClockValue(valueOrEmpty(data.EffectiveCtot())),
-		CtotSource: valueOrEmpty(data.CtotSource),
-		Asat:       truncateCDMClockValue(valueOrEmpty(data.EffectiveAsat())),
-		Asrt:       truncateCDMClockValue(valueOrEmpty(data.Asrt)),
-		Tsac:       valueOrEmpty(data.Tsac),
-		Status:     valueOrEmpty(data.EffectiveStatus()),
-		EcfmpID:    valueOrEmpty(data.EcfmpID),
-		Phase:      valueOrEmpty(data.EffectivePhase()),
+		ReqTobt:         truncateCDMClockValue(valueOrEmpty(data.EffectiveReqTobt())),
+		Tsat:            truncateToHHMM(valueOrEmpty(data.EffectiveTsat())),
+		Ttot:            truncateToHHMM(valueOrEmpty(data.EffectiveTtot())),
+		Ctot:            truncateCDMClockValue(valueOrEmpty(data.EffectiveCtot())),
+		CtotSource:      valueOrEmpty(data.CtotSource),
+		Asat:            truncateCDMClockValue(valueOrEmpty(data.EffectiveAsat())),
+		Asrt:            truncateCDMClockValue(valueOrEmpty(data.Asrt)),
+		Tsac:            valueOrEmpty(data.Tsac),
+		Status:          valueOrEmpty(data.EffectiveStatus()),
+		EcfmpID:         valueOrEmpty(data.EcfmpID),
+		Phase:           valueOrEmpty(data.EffectivePhase()),
 	}
 }
 
@@ -364,4 +381,32 @@ func valueOrEmpty(value *string) string {
 		return ""
 	}
 	return *value
+}
+
+func intPointerIfPositive(value int) *int {
+	if value <= 0 {
+		return nil
+	}
+	return &value
+}
+
+func intValue(value *int) int {
+	if value == nil {
+		return 0
+	}
+	return *value
+}
+
+func updatedTaxiMinutes(strip *models.Strip) *int {
+	if strip == nil || strip.CdmData == nil {
+		return nil
+	}
+	return strip.CdmData.TaxiMinutes
+}
+
+func updatedTaxiRunway(strip *models.Strip) *string {
+	if strip == nil || strip.CdmData == nil {
+		return nil
+	}
+	return strip.CdmData.TaxiRunway
 }

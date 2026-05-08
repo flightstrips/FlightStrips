@@ -878,7 +878,22 @@ func (s *Service) broadcastIfChanged(session int32, callsign string, before, aft
 	}
 
 	if s.publisher != nil {
-		s.publisher.SendCdmUpdate(session, callsign, after.Eobt, after.Tobt, after.Tsat, after.Ctot)
+		s.publisher.SendCdmUpdate(session, shared.BuildFrontendCdmDataEvent(callsign, &models.CdmData{
+			Eobt:       stringPointerIfPresent(after.Eobt),
+			Tobt:       stringPointerIfPresent(after.Tobt),
+			ReqTobt:    stringPointerIfPresent(after.ReqTobt),
+			Tsat:       stringPointerIfPresent(after.Tsat),
+			Ttot:       stringPointerIfPresent(after.Ttot),
+			Ctot:       stringPointerIfPresent(after.Ctot),
+			CtotSource: stringPointerIfPresent(after.CtotSource),
+			Aobt:       stringPointerIfPresent(after.Aobt),
+			Asat:       stringPointerIfPresent(after.Asat),
+			Asrt:       stringPointerIfPresent(after.Asrt),
+			Tsac:       stringPointerIfPresent(after.Tsac),
+			Status:     stringPointerIfPresent(after.Status),
+			EcfmpID:    stringPointerIfPresent(after.EcfmpID),
+			Phase:      stringPointerIfPresent(after.Phase),
+		}))
 	}
 
 	if s.euroscopeHub != nil {
@@ -905,14 +920,7 @@ func (s *Service) pushCdmDataAfterRecalc(ctx context.Context, session int32, cal
 	}
 
 	if s.publisher != nil {
-		s.publisher.SendCdmUpdate(
-			session,
-			callsign,
-			truncateCDMClockValue(helpers.ValueOrDefault(data.EffectiveEobt())),
-			truncateCDMClockValue(helpers.ValueOrDefault(data.EffectiveTobt())),
-			truncateCDMClockValue(helpers.ValueOrDefault(data.EffectiveTsat())),
-			truncateCDMClockValue(helpers.ValueOrDefault(data.Ctot)),
-		)
+		s.publisher.SendCdmUpdate(session, shared.BuildFrontendCdmDataEvent(callsign, data))
 	}
 	if s.euroscopeHub != nil {
 		s.euroscopeHub.Broadcast(session, buildCdmUpdateEvent(callsign, data))

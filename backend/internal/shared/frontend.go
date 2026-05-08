@@ -32,7 +32,7 @@ type FrontendHub interface {
 	SendCoordinationTagRequest(session int32, callsign, from, to string)
 	SendOwnersUpdate(session int32, callsign string, owner string, nextOwners []string, previousOwners []string)
 	SendLayoutUpdates(session int32, layoutMap map[string]string)
-	SendCdmUpdate(session int32, callsign, eobt, tobt, tsat, ctot string)
+	SendCdmUpdate(session int32, event frontend.CdmDataEvent)
 	SendCdmWait(session int32, callsign string)
 	SendPdcStateChange(session int32, callsign, state, remarks string)
 	SendRunwayConfiguration(session int32, departure, arrival []string, status map[string]string)

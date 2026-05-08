@@ -122,8 +122,8 @@ func (m *FrontendHub) SendLayoutUpdates(session int32, layoutMap map[string]stri
 	m.Called(session, layoutMap)
 }
 
-func (m *FrontendHub) SendCdmUpdate(session int32, callsign, eobt, tobt, tsat, ctot string) {
-	m.Called(session, callsign, eobt, tobt, tsat, ctot)
+func (m *FrontendHub) SendCdmUpdate(session int32, event frontend.CdmDataEvent) {
+	m.Called(session, event)
 }
 
 func (m *FrontendHub) SendCdmWait(session int32, callsign string) {

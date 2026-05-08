@@ -2,7 +2,11 @@ package cdm
 
 import "strings"
 
-func deiceTypeToMinutes(deiceType string) int {
+func deiceTypeToMinutes(config *CdmAirportConfig, deiceType string) int {
+	if configured := config.DeiceMinutesForWtc(deiceType); configured > 0 {
+		return configured
+	}
+
 	switch strings.ToUpper(strings.TrimSpace(deiceType)) {
 	case "L":
 		return 7

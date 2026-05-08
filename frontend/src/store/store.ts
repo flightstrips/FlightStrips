@@ -1051,6 +1051,16 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
           state.strips[stripIndex].eobt = normalizeCdmTime(data.eobt)
           state.strips[stripIndex].tsat = normalizeCdmTime(data.tsat)
           state.strips[stripIndex].ctot = normalizeCdmTime(data.ctot)
+          if (data.req_tobt !== undefined) state.strips[stripIndex].req_tobt = normalizeCdmTime(data.req_tobt)
+          if (data.ttot !== undefined) state.strips[stripIndex].ttot = normalizeCdmTime(data.ttot)
+          if (data.aobt !== undefined) state.strips[stripIndex].aobt = normalizeCdmTime(data.aobt)
+          if (data.asat !== undefined) state.strips[stripIndex].asat = normalizeCdmTime(data.asat)
+          if (data.asrt !== undefined) state.strips[stripIndex].asrt = normalizeCdmTime(data.asrt)
+          if (data.tsac !== undefined) state.strips[stripIndex].tsac = normalizeCdmTime(data.tsac)
+          if (data.status !== undefined) state.strips[stripIndex].status = data.status
+          if (data.ecfmp_id !== undefined) state.strips[stripIndex].ecfmp_id = data.ecfmp_id
+          if (data.ctot_source !== undefined) state.strips[stripIndex].ctot_source = data.ctot_source
+          if (data.phase !== undefined) state.strips[stripIndex].phase = data.phase
         }
       })
     )

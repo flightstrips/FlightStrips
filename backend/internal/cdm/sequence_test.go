@@ -95,6 +95,12 @@ func TestSequenceService_RecalculateAirportPersistsAndBroadcasts(t *testing.T) {
 	if got := valueOrEmpty(persisted[1].Ttot); got != secondTtot {
 		t.Fatalf("expected second TTOT %q, got %q", secondTtot, got)
 	}
+	if persisted[0].TaxiMinutes == nil || *persisted[0].TaxiMinutes != 10 {
+		t.Fatalf("expected first taxi minutes to persist default value 10, got %#v", persisted[0].TaxiMinutes)
+	}
+	if got := valueOrEmpty(persisted[0].TaxiRunway); got != "04L" {
+		t.Fatalf("expected first taxi runway %q, got %q", "04L", got)
+	}
 
 	if len(frontendHub.CdmUpdates) != 2 {
 		t.Fatalf("expected 2 frontend CDM updates, got %d", len(frontendHub.CdmUpdates))
@@ -117,6 +123,31 @@ func TestSequenceService_RecalculateAirportPersistsAndBroadcasts(t *testing.T) {
 }
 
 func testStringPtr(value string) *string {
+	return &value
+}
+
+func TestBuildCalcInput_UsesPersistedTaxiMinutesWhenPositionNoLongerMatches(t *testing.T) {
+	t.Parallel()
+
+	strip := &models.Strip{
+		Runway: testStringPtr("04L"),
+		CdmData: (&models.CdmData{
+			TaxiMinutes: intPointerIfPositive(14),
+			TaxiRunway:  testStringPtr("04L"),
+		}).Normalize(),
+		PositionLatitude:  testFloatPtr(0),
+		PositionLongitude: testFloatPtr(0),
+	}
+	config := NewDefaultAirportConfig("EKCH")
+	config.DefaultTaxiMinutes = 10
+
+	input := buildCalcInput(strip, config)
+	if input.TaxiMin != 14 {
+		t.Fatalf("expected persisted taxi minutes to be reused, got %d", input.TaxiMin)
+	}
+}
+
+func testFloatPtr(value float64) *float64 {
 	return &value
 }
 

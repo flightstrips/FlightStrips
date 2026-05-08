@@ -154,6 +154,7 @@ export default function FlightPlanDialog({
   const displayedEobt = normalizeCdmTime(strip?.eobt);
   const displayedTobt = normalizeCdmTime(strip?.tobt);
   const displayedTsat = normalizeCdmTime(strip?.tsat);
+  const displayedTtot = normalizeCdmTime(strip?.ttot);
   const displayedCtot = normalizeCdmTime(strip?.ctot);
 
   const [sidDialogOpen, setSidDialogOpen] = useState(false);
@@ -313,6 +314,7 @@ export default function FlightPlanDialog({
             <div className="grid items-center" style={gridGroupStyle}>
               <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>TTOT</Label>
               <input
+                value={displayedTtot}
                 placeholder=""
                 disabled
                 className={CLS_BTN_DISABLED_BDR}

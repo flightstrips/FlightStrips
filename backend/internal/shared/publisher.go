@@ -51,6 +51,6 @@ type EuroscopeStripCommander interface {
 type CdmEventPublisher interface {
 	ServerInjectable
 
-	SendCdmUpdate(session int32, callsign, eobt, tobt, tsat, ctot string)
+	SendCdmUpdate(session int32, event frontend.CdmDataEvent)
 	SendCdmWait(session int32, callsign string)
 }

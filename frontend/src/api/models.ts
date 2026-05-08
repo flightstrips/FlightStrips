@@ -152,8 +152,18 @@ export interface FrontendStrip {
   communication_type: CommunicationType;
   eobt: string;
   tobt: string;
+  req_tobt?: string;
   tsat: string;
+  ttot?: string;
   ctot: string;
+  aobt?: string;
+  asat?: string;
+  asrt?: string;
+  tsac?: string;
+  status?: string;
+  ecfmp_id?: string;
+  ctot_source?: string;
+  phase?: string;
   eldt: string;
   aldt?: string;
   bay: string;
@@ -429,8 +439,18 @@ export interface FrontendCdmDataEvent {
   callsign: string;
   eobt: string;
   tobt: string;
+  req_tobt?: string;
   tsat: string;
+  ttot?: string;
   ctot: string;
+  aobt?: string;
+  asat?: string;
+  asrt?: string;
+  tsac?: string;
+  status?: string;
+  ecfmp_id?: string;
+  ctot_source?: string;
+  phase?: string;
 }
 
 export interface FrontendCdmWaitEvent {

@@ -258,6 +258,9 @@ func TestSyncCdmData_SlaveSession_StartupStatusInitializesAsat(t *testing.T) {
 	if got := valueOrEmpty(persisted.Asat); got == "" {
 		t.Fatalf("expected ASAT to be initialized for slave session, got %#v", persisted)
 	}
+	if persisted.Calculation != nil {
+		t.Fatalf("expected slave sync to clear local calculation snapshot, got %#v", persisted.Calculation)
+	}
 	if len(euroscopeHub.Broadcasts) != 1 {
 		t.Fatalf("expected one EuroScope broadcast, got %d", len(euroscopeHub.Broadcasts))
 	}
@@ -267,6 +270,63 @@ func TestSyncCdmData_SlaveSession_StartupStatusInitializesAsat(t *testing.T) {
 	}
 	if event.Asat == "" {
 		t.Fatalf("unexpected startup broadcast payload: %#v", event)
+	}
+}
+
+func TestSyncCdmData_SlaveSession_ClearsPersistedCalculationSnapshot(t *testing.T) {
+	const sessionID = int32(81)
+	const callsign = "SAS131"
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`[{
+			"callsign":"SAS131",
+			"departure":"EKCH",
+			"eobt":"1000",
+			"tobt":"1010",
+			"ctot":"1040",
+			"cdmSts":"REA",
+			"cdmData":{"tsat":"101500","ttot":"102500"}
+		}]`))
+	}))
+	defer server.Close()
+
+	minutes := 14
+	runway := "22R"
+	existing := (&models.CdmData{
+		Calculation: &models.CdmCalculation{
+			TaxiMinutes: &minutes,
+			TaxiRunway:  &runway,
+		},
+	}).Normalize()
+
+	var persisted *models.CdmData
+	service := NewCdmService(
+		NewClient(WithAPIKey("test-key"), WithBaseURL(server.URL)),
+		&testutil.MockStripRepository{
+			GetCdmDataFn: func(context.Context, int32) ([]*models.CdmDataRow, error) {
+				return []*models.CdmDataRow{{Callsign: callsign, Data: existing.Clone()}}, nil
+			},
+			SetCdmDataFn: func(_ context.Context, _ int32, _ string, data *models.CdmData) (int64, error) {
+				persisted = data.Clone()
+				return 1, nil
+			},
+			GetCdmDataForCallsignFn: func(context.Context, int32, string) (*models.CdmData, error) {
+				return persisted.Clone(), nil
+			},
+		},
+		&testutil.MockSessionRepository{},
+		&testutil.MockControllerRepository{},
+	)
+
+	err := service.syncCdmData(context.Background(), &models.Session{ID: sessionID, Airport: "EKCH"})
+	if err != nil {
+		t.Fatalf("syncCdmData returned error: %v", err)
+	}
+	if persisted == nil {
+		t.Fatal("expected persisted CDM data")
+	}
+	if persisted.Calculation != nil {
+		t.Fatalf("expected slave sync to drop local calculation snapshot, got %#v", persisted.Calculation)
 	}
 }
 

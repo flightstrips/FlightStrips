@@ -692,6 +692,7 @@ func (s *Service) syncCdmData(ctx context.Context, session *models.Session) erro
 			updated.Eobt = &row.EOBT
 			updated.Status = &row.CDMStatus
 			updated.EcfmpID = stringPointerIfPresent(row.CDMData.Reason)
+			updated.Calculation = nil
 
 			if _, err := s.stripRepo.SetCdmData(ctx, session.ID, row.Callsign, updated.Normalize()); err != nil {
 				return err

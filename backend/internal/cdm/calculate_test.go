@@ -171,6 +171,104 @@ func TestCalculate_ManualCtotStillWinsWhenLaterThanApiCtot(t *testing.T) {
 	assertClockResult(t, result, "102500", "103500")
 }
 
+func TestCalculate_AppliesConfiguredDelayFloor(t *testing.T) {
+	t.Parallel()
+
+	config := NewDefaultAirportConfig("EKCH")
+	config.Delays = []CdmDelay{{
+		Airport: "EKCH",
+		Runway:  "04L",
+		Time:    "1030",
+		Type:    "ADVERSE",
+	}}
+
+	result := Calculate(CalcInput{
+		Callsign: "SAS123D",
+		Origin:   "EKCH",
+		DepRwy:   "04L",
+		Tobt:     "1000",
+		TaxiMin:  10,
+	}, nil, config, time.Date(2026, 3, 25, 10, 0, 0, 0, time.UTC))
+
+	assertClockResult(t, result, "102000", "103000")
+}
+
+func TestCalculate_AppliesLatestMatchingDelayFloor(t *testing.T) {
+	t.Parallel()
+
+	config := NewDefaultAirportConfig("EKCH")
+	config.Delays = []CdmDelay{
+		{
+			Airport: "EKCH",
+			Runway:  "*",
+			Time:    "1020",
+			Type:    "GLOBAL",
+		},
+		{
+			Airport: "EKCH",
+			Runway:  "04L",
+			Time:    "1030",
+			Type:    "RUNWAY",
+		},
+	}
+
+	result := Calculate(CalcInput{
+		Callsign: "SAS123E",
+		Origin:   "EKCH",
+		DepRwy:   "04L",
+		Tobt:     "1000",
+		TaxiMin:  10,
+	}, nil, config, time.Date(2026, 3, 25, 10, 0, 0, 0, time.UTC))
+
+	assertClockResult(t, result, "102000", "103000")
+}
+
+func TestCalculate_DelayFloorActsAsAnotherDepartureFloor(t *testing.T) {
+	t.Parallel()
+
+	config := NewDefaultAirportConfig("EKCH")
+	config.Delays = []CdmDelay{{
+		Airport: "EKCH",
+		Runway:  "04L",
+		Time:    "1040",
+		Type:    "ADVERSE",
+	}}
+
+	result := Calculate(CalcInput{
+		Callsign: "SAS123F",
+		Origin:   "EKCH",
+		DepRwy:   "04L",
+		Tobt:     "1000",
+		Ctot:     "1030",
+		TaxiMin:  10,
+	}, nil, config, time.Date(2026, 3, 25, 10, 0, 0, 0, time.UTC))
+
+	assertClockResult(t, result, "103000", "104000")
+}
+
+func TestCalculate_LaterCtotStillWinsOverDelayFloor(t *testing.T) {
+	t.Parallel()
+
+	config := NewDefaultAirportConfig("EKCH")
+	config.Delays = []CdmDelay{{
+		Airport: "EKCH",
+		Runway:  "04L",
+		Time:    "1025",
+		Type:    "ADVERSE",
+	}}
+
+	result := Calculate(CalcInput{
+		Callsign: "SAS123G",
+		Origin:   "EKCH",
+		DepRwy:   "04L",
+		Tobt:     "1000",
+		Ctot:     "1030",
+		TaxiMin:  10,
+	}, nil, config, time.Date(2026, 3, 25, 10, 0, 0, 0, time.UTC))
+
+	assertClockResult(t, result, "102000", "103000")
+}
+
 func TestCalculate_ApiCtotDoesNotPullEarlierThanNaturalTtot(t *testing.T) {
 	t.Parallel()
 
@@ -216,6 +314,30 @@ func TestCalculate_AppliesRateWindowSpacing(t *testing.T) {
 		TaxiMin:  10,
 	}, []SlotEntry{{
 		Callsign: "SAS123",
+		Origin:   "EKCH",
+		DepRwy:   "04L",
+		Ttot:     "101100",
+	}}, config, time.Date(2026, 3, 25, 8, 0, 0, 0, time.UTC))
+
+	assertClockResult(t, result, "100400", "101400")
+}
+
+func TestCalculate_LvoRateReducesDepartureCapacity(t *testing.T) {
+	t.Parallel()
+
+	config := NewDefaultAirportConfig("EKCH")
+	config.DefaultRate = 60
+	config.DefaultRateLvo = 20
+	config.LvoActive = true
+
+	result := Calculate(CalcInput{
+		Callsign: "SAS456L",
+		Origin:   "EKCH",
+		DepRwy:   "04L",
+		Tobt:     "1000",
+		TaxiMin:  10,
+	}, []SlotEntry{{
+		Callsign: "SAS123L",
 		Origin:   "EKCH",
 		DepRwy:   "04L",
 		Ttot:     "101100",

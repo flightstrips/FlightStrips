@@ -247,6 +247,14 @@ func main() {
 	sequenceService := cdm.NewSequenceService(stripRepo, sessionRepo, configStore, frontendHub, euroscopeHub)
 	cdmService.SetConfigProvider(configStore)
 	cdmService.SetSequenceService(sequenceService)
+	configStore.SetOnAirportConfigChanged(func(airport string) {
+		if err := cdmService.TriggerRecalculateForAirport(context.Background(), airport); err != nil {
+			slog.Warn("CDM config change recalculation failed",
+				slog.String("airport", airport),
+				slog.Any("error", err),
+			)
+		}
+	})
 	go configStore.Start(ctx)
 	slog.Info("CDM local calculation enabled", slog.String("rateUri", resolveURI(cdmCfg.RateUri)))
 

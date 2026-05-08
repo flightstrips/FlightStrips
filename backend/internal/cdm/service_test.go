@@ -899,6 +899,55 @@ func TestTriggerRecalculate_RunsForMasterSession(t *testing.T) {
 	}
 }
 
+func TestTriggerRecalculateForAirport_RunsMatchingMasterSessions(t *testing.T) {
+	listByOriginCalled := make(chan int32, 2)
+	stripRepo := &testutil.MockStripRepository{
+		ListByOriginFn: func(_ context.Context, session int32, _ string) ([]*models.Strip, error) {
+			select {
+			case listByOriginCalled <- session:
+			default:
+			}
+			return nil, nil
+		},
+	}
+
+	sessions := map[int32]*models.Session{
+		55: {ID: 55, Airport: "EKCH"},
+		56: {ID: 56, Airport: "ESSA"},
+		57: {ID: 57, Airport: "EKCH"},
+	}
+	sessionRepo := &testutil.MockSessionRepository{
+		ListFn: func(_ context.Context) ([]*models.Session, error) {
+			return []*models.Session{sessions[55], sessions[56], sessions[57]}, nil
+		},
+		GetByIDFn: func(_ context.Context, id int32) (*models.Session, error) {
+			return sessions[id], nil
+		},
+	}
+
+	seqSvc := NewSequenceService(stripRepo, sessionRepo, &stubConfigProvider{}, &testutil.MockFrontendHub{}, &testutil.MockEuroscopeHub{})
+	service := NewCdmService(newTestClientWithAirportMasters(nil), stripRepo, sessionRepo, &testutil.MockControllerRepository{})
+
+	service.debouncer = newRecalcDebouncer(time.Millisecond)
+	service.SetSequenceService(seqSvc)
+	service.sessionMaster.Store(int32(55), true)
+
+	require.NoError(t, service.TriggerRecalculateForAirport(context.Background(), "EKCH"))
+
+	select {
+	case sessionID := <-listByOriginCalled:
+		assert.Equal(t, int32(55), sessionID)
+	case <-time.After(time.Second):
+		t.Fatal("expected airport recalculation to be scheduled for matching master session")
+	}
+
+	select {
+	case sessionID := <-listByOriginCalled:
+		t.Fatalf("unexpected additional recalculation for session %d", sessionID)
+	case <-time.After(50 * time.Millisecond):
+	}
+}
+
 // ---- syncLiveSessions ----
 
 func TestSyncLiveSessions_RegistersMasterForCdmMasterSessions(t *testing.T) {

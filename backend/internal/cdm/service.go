@@ -148,6 +148,26 @@ func (s *Service) TriggerRecalculate(ctx context.Context, session int32, airport
 	})
 }
 
+func (s *Service) TriggerRecalculateForAirport(ctx context.Context, airport string) error {
+	if s.sequenceService == nil || strings.TrimSpace(airport) == "" {
+		return nil
+	}
+
+	sessions, err := s.sessionRepo.List(ctx)
+	if err != nil {
+		return err
+	}
+
+	for _, session := range sessions {
+		if session == nil || !strings.EqualFold(session.Airport, airport) {
+			continue
+		}
+		s.TriggerRecalculate(ctx, session.ID, session.Airport)
+	}
+
+	return nil
+}
+
 func recalcDebounceKey(session int32, airport string) string {
 	return strconv.FormatInt(int64(session), 10) + ":" + airport
 }

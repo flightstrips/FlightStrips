@@ -269,6 +269,57 @@ func TestSequenceService_RecalculateAirport_UsesRequestedTobtWhenNoTobtExists(t 
 	}
 }
 
+func TestSequenceService_RecalculateAirport_AppliesConfiguredDelayFloor(t *testing.T) {
+	t.Parallel()
+
+	now := time.Now().UTC()
+	tobt := addMinutes(timeToClock(now), 10)
+	delayFloor := addMinutes(timeToClock(now), 30)
+
+	strip := &models.Strip{
+		Callsign: "SAS779",
+		Origin:   "EKCH",
+		Runway:   testStringPtr("04L"),
+		CdmData: &models.CdmData{
+			Tobt: testStringPtr(tobt),
+		},
+	}
+
+	var persisted *models.CdmData
+	stripRepo := &testutil.MockStripRepository{
+		ListByOriginFn: func(ctx context.Context, session int32, origin string) ([]*models.Strip, error) {
+			return []*models.Strip{strip}, nil
+		},
+		SetCdmDataFn: func(ctx context.Context, session int32, callsign string, data *models.CdmData) (int64, error) {
+			persisted = data.Clone()
+			return 1, nil
+		},
+	}
+	sessionRepo := &testutil.MockSessionRepository{
+		GetByIDFn: func(ctx context.Context, id int32) (*models.Session, error) {
+			return &models.Session{ID: id, Airport: "EKCH"}, nil
+		},
+	}
+	configStore := NewCdmConfigStore("", "", "", 0, CdmConfigDefaults{}, nil)
+	configStore.SetDelay(CdmDelay{Airport: "EKCH", Runway: "04L", Time: delayFloor, Type: "ADVERSE"})
+
+	service := NewSequenceService(stripRepo, sessionRepo, configStore, &testutil.MockFrontendHub{}, &testutil.MockEuroscopeHub{})
+
+	if err := service.RecalculateAirport(context.Background(), 7, "EKCH"); err != nil {
+		t.Fatalf("RecalculateAirport returned error: %v", err)
+	}
+	if persisted == nil {
+		t.Fatal("expected persisted CDM data")
+	}
+	if got := valueOrEmpty(persisted.Ttot); got != toHHMMSS(delayFloor) {
+		t.Fatalf("expected delay-floor TTOT %q, got %q", toHHMMSS(delayFloor), got)
+	}
+	expectedTsat := subtractMinutes(toHHMMSS(delayFloor), 10)
+	if got := valueOrEmpty(persisted.Tsat); got != expectedTsat {
+		t.Fatalf("expected delay-floor TSAT %q, got %q", expectedTsat, got)
+	}
+}
+
 func TestSequenceService_RecalculateAirport_ReturnsErrorWhenPersistSkipsRow(t *testing.T) {
 	t.Parallel()
 

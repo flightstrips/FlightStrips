@@ -61,6 +61,7 @@ func Calculate(input CalcInput, slots []SlotEntry, config *CdmAirportConfig, now
 			ttot = ctot
 		}
 	}
+	ttot = applyAdverseConditionFloor(ttot, resolveAdverseConditionImpact(input, config, now))
 
 	rate := DefaultCDMRate
 	if config != nil {

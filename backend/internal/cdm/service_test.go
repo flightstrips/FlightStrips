@@ -322,6 +322,66 @@ func TestPushTobt_UsesTaxiMinutesWithoutResolvingMasterPosition(t *testing.T) {
 	assert.Contains(t, requestQuery, "value=TOBT%2F1030%2F12")
 }
 
+func TestPushTobt_UsesPersistedCalculationTaxiMinutes(t *testing.T) {
+	const sessionID = int32(33)
+	const callsign = "SAS789"
+	taxiMinutes := 14
+	zero := 0.0
+
+	var requestQuery string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requestQuery = r.URL.RawQuery
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("true"))
+	}))
+	defer server.Close()
+
+	client := NewClient(
+		WithAPIKey("test-key"),
+		WithBaseURL(server.URL),
+	)
+
+	service := NewCdmService(
+		client,
+		&testutil.MockStripRepository{
+			GetByCallsignFn: func(_ context.Context, session int32, cs string) (*models.Strip, error) {
+				assert.Equal(t, sessionID, session)
+				assert.Equal(t, callsign, cs)
+				return &models.Strip{
+					Callsign: callsign,
+					Origin:   "EKCH",
+					Runway:   stringPtr("22R"),
+					CdmData: (&models.CdmData{
+						Calculation: &models.CdmCalculation{
+							TaxiMinutes: &taxiMinutes,
+							TaxiRunway:  stringPtr("22R"),
+						},
+					}).Normalize(),
+					PositionLatitude:  &zero,
+					PositionLongitude: &zero,
+				}, nil
+			},
+		},
+		&testutil.MockSessionRepository{},
+		&testutil.MockControllerRepository{},
+	)
+
+	service.SetConfigProvider(&stubConfigProvider{
+		config: &CdmAirportConfig{
+			Airport:            "EKCH",
+			DefaultTaxiMinutes: 10,
+			TaxiZones: []CdmTaxiZone{
+				{Airport: "EKCH", Runway: "22R", Minutes: 12},
+			},
+		},
+	})
+	service.sessionMaster.Store(sessionID, true)
+
+	err := service.PushTobt(context.Background(), sessionID, callsign, "1030")
+	require.NoError(t, err)
+	assert.Contains(t, requestQuery, "value=TOBT%2F1030%2F14")
+}
+
 func TestSchedulePeriodicRecalculate_TriggersAllAirportSessions(t *testing.T) {
 	const ekchSessionID = int32(7)
 	const sweatboxSessionID = int32(8)

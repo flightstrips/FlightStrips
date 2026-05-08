@@ -1170,9 +1170,5 @@ func (s *Service) resolveTaxiMinutes(strip *models.Strip) int {
 			configSnapshot = configForAirport
 		}
 	}
-	runway := ""
-	if strip.Runway != nil {
-		runway = *strip.Runway
-	}
-	return configSnapshot.TaxiMinutesForRunway(runway)
+	return resolveTaxiMinutesForStrip(strip, configSnapshot)
 }

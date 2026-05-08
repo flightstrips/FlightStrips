@@ -173,14 +173,18 @@ func buildCalcInput(strip *models.Strip, config *CdmAirportConfig) CalcInput {
 		ReqTobt:    normalizeCalculationClock(valueOrEmpty(data.EffectiveReqTobt())),
 		Ctot:       valueOrEmpty(data.EffectiveCtot()),
 		Asat:       normalizeCalculationClock(valueOrEmpty(data.EffectiveAsat())),
-		TaxiMin:    resolveTaxiMinutes(strip, data, config),
+		TaxiMin:    resolveTaxiMinutesForStrip(strip, config),
 		DeIceMin:   deiceTypeToMinutes(config, valueOrEmpty(data.DeIce)),
 		HasManCtot: data.HasManualCtot(),
 		ManCtot:    valueOrEmpty(data.Ctot),
 	}
 }
 
-func resolveTaxiMinutes(strip *models.Strip, data *models.CdmData, config *CdmAirportConfig) int {
+func resolveTaxiMinutesForStrip(strip *models.Strip, config *CdmAirportConfig) int {
+	if strip == nil {
+		return DefaultCDMTaxiMinutes
+	}
+
 	depRwy := valueOrEmpty(strip.Runway)
 	if config == nil {
 		return DefaultCDMTaxiMinutes
@@ -192,8 +196,8 @@ func resolveTaxiMinutes(strip *models.Strip, data *models.CdmData, config *CdmAi
 		}
 	}
 
-	if data != nil {
-		if minutes := data.EffectiveTaxiMinutesForRunway(depRwy); minutes != nil && *minutes > 0 {
+	if strip.CdmData != nil {
+		if minutes := strip.CdmData.EffectiveTaxiMinutesForRunway(depRwy); minutes != nil && *minutes > 0 {
 			return *minutes
 		}
 	}

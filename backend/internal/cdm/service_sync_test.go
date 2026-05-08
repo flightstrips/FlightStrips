@@ -378,6 +378,137 @@ func TestSyncCdmData_MasterSession_DoesNotSyncTsatFromAPI(t *testing.T) {
 	}
 }
 
+func TestSyncCdmData_MasterSession_MarksRecalculationForReqTobtAndCtotChanges(t *testing.T) {
+	const sessionID = int32(82)
+	const callsign = "SAS132"
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`[{
+			"callsign":"SAS132",
+			"departure":"EKCH",
+			"eobt":"1000",
+			"tobt":"1010",
+			"ctot":"1040",
+			"cdmSts":"REA",
+			"cdmData":{"reqTobt":"1005","reason":"REGUL"}
+		}]`))
+	}))
+	defer server.Close()
+
+	var persisted *models.CdmData
+	service := NewCdmService(
+		NewClient(WithAPIKey("test-key"), WithBaseURL(server.URL)),
+		&testutil.MockStripRepository{
+			GetCdmDataFn: func(context.Context, int32) ([]*models.CdmDataRow, error) {
+				return []*models.CdmDataRow{{
+					Callsign: callsign,
+					Data: (&models.CdmData{
+						Tobt: testStringPtr("1010"),
+					}).Normalize(),
+				}}, nil
+			},
+			SetCdmDataFn: func(_ context.Context, _ int32, _ string, data *models.CdmData) (int64, error) {
+				persisted = data.Clone()
+				return 1, nil
+			},
+			GetCdmDataForCallsignFn: func(context.Context, int32, string) (*models.CdmData, error) {
+				return persisted.Clone(), nil
+			},
+		},
+		&testutil.MockSessionRepository{},
+		&testutil.MockControllerRepository{},
+	)
+	service.sessionMaster.Store(sessionID, true)
+
+	err := service.syncCdmData(context.Background(), &models.Session{ID: sessionID, Airport: "EKCH"})
+	if err != nil {
+		t.Fatalf("syncCdmData returned error: %v", err)
+	}
+	if persisted == nil {
+		t.Fatal("expected persisted CDM data")
+	}
+	if got := valueOrEmpty(persisted.Ctot); got != "1040" {
+		t.Fatalf("expected CTOT %q, got %q", "1040", got)
+	}
+	if got := valueOrEmpty(persisted.ReqTobt); got != "1005" {
+		t.Fatalf("expected req_tobt %q, got %q", "1005", got)
+	}
+	if !persisted.Recalculate {
+		t.Fatalf("expected master sync to mark recalculation pending, got %#v", persisted)
+	}
+}
+
+func TestSyncCdmData_MasterSession_DoesNotExportStaleLocalTimesWhileRecalcPending(t *testing.T) {
+	const sessionID = int32(83)
+	const callsign = "SAS133"
+
+	setCdmCh := make(chan struct{}, 1)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/ifps/depAirport":
+			_, _ = w.Write([]byte(`[{
+				"callsign":"SAS133",
+				"departure":"EKCH",
+				"eobt":"1000",
+				"tobt":"1010",
+				"ctot":"1040",
+				"cdmSts":"REA",
+				"cdmData":{"reqTobt":"1005","reason":"REGUL"}
+			}]`))
+		case "/ifps/setCdmData":
+			setCdmCh <- struct{}{}
+			w.WriteHeader(http.StatusOK)
+		default:
+			t.Fatalf("unexpected path %s", r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	var persisted *models.CdmData
+	service := NewCdmService(
+		NewClient(WithAPIKey("test-key"), WithBaseURL(server.URL)),
+		&testutil.MockStripRepository{
+			GetCdmDataFn: func(context.Context, int32) ([]*models.CdmDataRow, error) {
+				return []*models.CdmDataRow{{
+					Callsign: callsign,
+					Data: (&models.CdmData{
+						Tobt: testStringPtr("1010"),
+						Tsat: testStringPtr("1015"),
+						Ttot: testStringPtr("1025"),
+					}).Normalize(),
+				}}, nil
+			},
+			SetCdmDataFn: func(_ context.Context, _ int32, _ string, data *models.CdmData) (int64, error) {
+				persisted = data.Clone()
+				return 1, nil
+			},
+			GetCdmDataForCallsignFn: func(context.Context, int32, string) (*models.CdmData, error) {
+				return persisted.Clone(), nil
+			},
+			GetByCallsignFn: func(context.Context, int32, string) (*models.Strip, error) {
+				return &models.Strip{Callsign: callsign, Origin: "EKCH", Runway: testStringPtr("22R")}, nil
+			},
+		},
+		&testutil.MockSessionRepository{},
+		&testutil.MockControllerRepository{},
+	)
+	service.sessionMaster.Store(sessionID, true)
+
+	err := service.syncCdmData(context.Background(), &models.Session{ID: sessionID, Airport: "EKCH"})
+	if err != nil {
+		t.Fatalf("syncCdmData returned error: %v", err)
+	}
+	if persisted == nil || !persisted.Recalculate {
+		t.Fatalf("expected recalculation-pending state, got %#v", persisted)
+	}
+
+	select {
+	case <-setCdmCh:
+		t.Fatal("expected master sync to defer vIFF export until recalculation completes")
+	case <-time.After(150 * time.Millisecond):
+	}
+}
+
 func TestSyncCdmData_MasterSession_PushesLocalTimesToViffWhenApiDiffers(t *testing.T) {
 	const sessionID = int32(81)
 	const callsign = "SAS131"

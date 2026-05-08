@@ -623,8 +623,10 @@ func (s *Service) syncCdmData(ctx context.Context, session *models.Session) erro
 		if s.isMasterSession(session.ID) {
 			// Master: only CTOT and REQTOBT are relevant from the API; local calculation handles the rest.
 			current := flight
-			changed := helpers.ValueOrDefault(flight.Ctot) != nextCtot ||
-				helpers.ValueOrDefault(flight.ReqTobt) != row.CDMData.ReqTOBT ||
+			ctotChanged := helpers.ValueOrDefault(flight.Ctot) != nextCtot
+			reqTobtChanged := helpers.ValueOrDefault(flight.ReqTobt) != row.CDMData.ReqTOBT
+			changed := ctotChanged ||
+				reqTobtChanged ||
 				helpers.ValueOrDefault(flight.EcfmpID) != row.CDMData.Reason
 
 			if changed {
@@ -640,6 +642,9 @@ func (s *Service) syncCdmData(ctx context.Context, session *models.Session) erro
 					updated.EcfmpID = nil
 				}
 				updated.ReqTobt = stringPointerIfPresent(row.CDMData.ReqTOBT)
+				if ctotChanged || reqTobtChanged {
+					updated.MarkLocalRecalculationPending()
+				}
 
 				if _, err := s.stripRepo.SetCdmData(ctx, session.ID, row.Callsign, updated.Normalize()); err != nil {
 					return err
@@ -647,6 +652,9 @@ func (s *Service) syncCdmData(ctx context.Context, session *models.Session) erro
 				s.reevaluateCtotValidationAsync(ctx, session.ID, row.Callsign, before, snapshotCdm(updated))
 				s.broadcastIfChanged(session.ID, row.Callsign, before, snapshotCdm(updated))
 				current = updated
+				if ctotChanged || reqTobtChanged {
+					s.TriggerRecalculate(ctx, session.ID, session.Airport)
+				}
 			}
 
 			s.ensureMasterFlightExport(ctx, session.ID, row.Callsign, current, row)
@@ -706,7 +714,7 @@ func (s *Service) syncCdmData(ctx context.Context, session *models.Session) erro
 }
 
 func (s *Service) ensureMasterFlightExport(ctx context.Context, session int32, callsign string, local *models.CdmData, remote IFPSData) {
-	if !s.client.isValid || local == nil || !masterFlightNeedsExport(local, remote) {
+	if !s.client.isValid || local == nil || local.NeedsLocalRecalculation() || !masterFlightNeedsExport(local, remote) {
 		return
 	}
 

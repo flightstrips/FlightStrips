@@ -25,6 +25,7 @@ type stripUpdateValidationReevaluator struct {
 
 type recordingCdmService struct {
 	triggerRecalculateFn func(ctx context.Context, session int32, airport string)
+	handleEobtUpdateFn   func(ctx context.Context, session int32, callsign string, eobt string, sourcePosition string, sourceRole string) error
 }
 
 func (s *recordingCdmService) TriggerRecalculate(ctx context.Context, session int32, airport string) {
@@ -34,6 +35,13 @@ func (s *recordingCdmService) TriggerRecalculate(ctx context.Context, session in
 }
 
 func (s *recordingCdmService) HandleReadyRequest(context.Context, int32, string) error {
+	return nil
+}
+
+func (s *recordingCdmService) HandleEobtUpdate(ctx context.Context, session int32, callsign string, eobt string, sourcePosition string, sourceRole string) error {
+	if s.handleEobtUpdateFn != nil {
+		return s.handleEobtUpdateFn(ctx, session, callsign, eobt, sourcePosition, sourceRole)
+	}
 	return nil
 }
 
@@ -196,15 +204,13 @@ func TestHandleStripUpdate_EobtChangeTriggersCdmRecalculation(t *testing.T) {
 	ctx := context.Background()
 	const session = int32(7)
 	const callsign = "SAS123"
-	const origin = "EKCH"
 	currentEobt := "1000"
 	updatedEobt := "1015"
 	tobt := "1020"
 	tsat := "1030"
 	ctot := "1040"
 
-	var persisted *models.CdmData
-	var triggerAirport string
+	var handledEobt string
 	getByCallsignCalls := 0
 
 	stripRepo := &testutil.MockStripRepository{
@@ -215,7 +221,7 @@ func TestHandleStripUpdate_EobtChangeTriggersCdmRecalculation(t *testing.T) {
 			return &models.Strip{
 				Callsign: callsign,
 				Session:  session,
-				Origin:   origin,
+				Origin:   "EKCH",
 				CdmData: &models.CdmData{
 					Eobt: &currentEobt,
 					Tobt: &tobt,
@@ -224,18 +230,16 @@ func TestHandleStripUpdate_EobtChangeTriggersCdmRecalculation(t *testing.T) {
 				},
 			}, nil
 		},
-		SetCdmDataFn: func(_ context.Context, gotSession int32, gotCallsign string, data *models.CdmData) (int64, error) {
-			assert.Equal(t, session, gotSession)
-			assert.Equal(t, callsign, gotCallsign)
-			persisted = data.Clone()
-			return 1, nil
-		},
 	}
 
 	cdmService := &recordingCdmService{
-		triggerRecalculateFn: func(_ context.Context, gotSession int32, airport string) {
+		handleEobtUpdateFn: func(_ context.Context, gotSession int32, gotCallsign string, eobt string, sourcePosition string, sourceRole string) error {
 			assert.Equal(t, session, gotSession)
-			triggerAirport = airport
+			assert.Equal(t, callsign, gotCallsign)
+			assert.Equal(t, "EKCH_DEL", sourcePosition)
+			assert.Equal(t, "ATC", sourceRole)
+			handledEobt = eobt
+			return nil
 		},
 	}
 
@@ -267,11 +271,7 @@ func TestHandleStripUpdate_EobtChangeTriggersCdmRecalculation(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	require.NotNil(t, persisted)
-	require.NotNil(t, persisted.Eobt)
-	assert.Equal(t, updatedEobt, *persisted.Eobt)
-	assert.True(t, persisted.Recalculate)
-	assert.Equal(t, origin, triggerAirport)
+	assert.Equal(t, updatedEobt, handledEobt)
 	assert.Equal(t, 2, getByCallsignCalls)
 }
 

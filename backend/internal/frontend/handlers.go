@@ -8,7 +8,6 @@ import (
 	"FlightStrips/pkg/events/frontend"
 	"context"
 	"errors"
-	"fmt"
 	"log/slog"
 	"strings"
 	"time"
@@ -241,19 +240,12 @@ func handleStripUpdate(ctx context.Context, client *Client, message Message) err
 		if !isValidFrontendClockValue(eobt) {
 			return errors.New("invalid eobt: expected HHMM")
 		}
-		updatedCdm := strip.CdmData.Clone()
-		updatedCdm.Eobt = &eobt
-		updatedCdm.MarkLocalRecalculationPending()
-		rows, err := stripRepo.SetCdmData(ctx, client.session, event.Callsign, updatedCdm.Normalize())
-		if err != nil {
+		cdmService := client.hub.server.GetCdmService()
+		if cdmService == nil {
+			return errors.New("CDM service not available")
+		}
+		if err := cdmService.HandleEobtUpdate(ctx, client.session, event.Callsign, eobt, client.position, "ATC"); err != nil {
 			return err
-		}
-		if rows != 1 {
-			return fmt.Errorf("failed to update EOBT for %s session %d", event.Callsign, client.session)
-		}
-		client.hub.SendCdmUpdate(client.session, shared.BuildFrontendCdmDataEvent(event.Callsign, updatedCdm))
-		if cdmService := client.hub.server.GetCdmService(); cdmService != nil {
-			cdmService.TriggerRecalculate(ctx, client.session, strip.Origin)
 		}
 		client.hub.SendStripUpdate(client.session, event.Callsign)
 	}

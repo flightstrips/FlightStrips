@@ -34,6 +34,10 @@ func (s *spyCdmService) HandleReadyRequest(_ context.Context, session int32, cal
 	return nil
 }
 
+func (s *spyCdmService) HandleEobtUpdate(_ context.Context, _ int32, _ string, _ string, _ string, _ string) error {
+	panic("HandleEobtUpdate should not be called directly from handleCdmReady")
+}
+
 func (s *spyCdmService) HandleTobtUpdate(_ context.Context, _ int32, _ string, _ string, _ string, _ string) error {
 	panic("HandleTobtUpdate should not be called directly from handleCdmReady")
 }

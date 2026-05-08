@@ -179,7 +179,7 @@ func (s *Service) HandleTobtUpdate(ctx context.Context, session int32, callsign 
 		return nil
 	}
 
-	strip, before, updated, previousTobt, changed, err := s.prepareTobtUpdate(ctx, session, callsign, tobt, sourcePosition)
+	strip, before, updated, previousTobt, changed, shouldTriggerRecalculate, err := s.prepareTobtUpdate(ctx, session, callsign, tobt, sourcePosition, time.Now().UTC())
 	if err != nil {
 		return err
 	}
@@ -191,8 +191,50 @@ func (s *Service) HandleTobtUpdate(ctx context.Context, session int32, callsign 
 		return err
 	}
 
-	s.TriggerRecalculate(ctx, session, strip.Origin)
+	if shouldTriggerRecalculate {
+		s.TriggerRecalculate(ctx, session, strip.Origin)
+	}
 	s.pushTobtAsync(session, callsign, previousTobt, tobt)
+	return nil
+}
+
+func (s *Service) HandleEobtUpdate(ctx context.Context, session int32, callsign string, eobt string, sourcePosition string, sourceRole string) error {
+	callsign = strings.TrimSpace(callsign)
+	eobt = strings.TrimSpace(eobt)
+	if callsign == "" || !isValidHHMM(eobt) {
+		return nil
+	}
+
+	strip, cdmData, err := s.loadCdmActionTarget(ctx, session, callsign)
+	if err != nil {
+		return err
+	}
+	if strip == nil || cdmData == nil {
+		return nil
+	}
+
+	before := snapshotCdm(cdmData)
+	updated := cdmData.Clone()
+	if helpers.ValueOrDefault(updated.EffectiveEobt()) == eobt {
+		return nil
+	}
+
+	updated.Eobt = &eobt
+	previousTobt := helpers.ValueOrDefault(updated.EffectiveTobt())
+	shouldTriggerRecalculate := shouldTriggerClockRecalculation(eobt, time.Now().UTC())
+	if shouldTriggerRecalculate {
+		applyConfirmedTobtUpdate(updated, eobt, sourcePosition)
+		updated.MarkLocalRecalculationPending()
+	}
+
+	if err := s.persistCdmUpdate(ctx, session, callsign, before, updated); err != nil {
+		return err
+	}
+
+	if shouldTriggerRecalculate {
+		s.TriggerRecalculate(ctx, session, strip.Origin)
+		s.pushTobtAsync(session, callsign, previousTobt, eobt)
+	}
 	return nil
 }
 
@@ -203,7 +245,7 @@ func (s *Service) HandleClxTobtUpdate(ctx context.Context, session int32, callsi
 		return nil
 	}
 
-	strip, _, updated, previousTobt, changed, err := s.prepareTobtUpdate(ctx, session, callsign, tobt, sourcePosition)
+	strip, _, updated, previousTobt, changed, shouldTriggerRecalculate, err := s.prepareTobtUpdate(ctx, session, callsign, tobt, sourcePosition, time.Now().UTC())
 	if err != nil {
 		return err
 	}
@@ -217,7 +259,7 @@ func (s *Service) HandleClxTobtUpdate(ctx context.Context, session int32, callsi
 		}
 	}
 
-	if err := s.finalizeClxTobtUpdate(ctx, session, callsign, strip.Origin); err != nil {
+	if err := s.finalizeClxTobtUpdate(ctx, session, callsign, strip.Origin, shouldTriggerRecalculate); err != nil {
 		return err
 	}
 
@@ -1064,30 +1106,40 @@ func (s *Service) loadCdmActionTarget(ctx context.Context, session int32, callsi
 	return strip, cdmData, nil
 }
 
-func (s *Service) prepareTobtUpdate(ctx context.Context, session int32, callsign string, tobt string, sourcePosition string) (*models.Strip, cdmSnapshot, *models.CdmData, string, bool, error) {
+func (s *Service) prepareTobtUpdate(ctx context.Context, session int32, callsign string, tobt string, sourcePosition string, now time.Time) (*models.Strip, cdmSnapshot, *models.CdmData, string, bool, bool, error) {
 	strip, cdmData, err := s.loadCdmActionTarget(ctx, session, callsign)
 	if err != nil {
-		return nil, cdmSnapshot{}, nil, "", false, err
+		return nil, cdmSnapshot{}, nil, "", false, false, err
 	}
 	if strip == nil || cdmData == nil {
-		return strip, cdmSnapshot{}, nil, "", false, nil
+		return strip, cdmSnapshot{}, nil, "", false, false, nil
 	}
 
 	before := snapshotCdm(cdmData)
 	updated := cdmData.Clone()
 	previousTobt := helpers.ValueOrDefault(updated.Tobt)
 	if previousTobt == tobt && helpers.ValueOrDefault(updated.ReqTobt) == "" {
-		return strip, before, updated, previousTobt, false, nil
+		return strip, before, updated, previousTobt, false, false, nil
 	}
 
+	applyConfirmedTobtUpdate(updated, tobt, sourcePosition)
+	shouldTriggerRecalculate := shouldTriggerClockRecalculation(tobt, now)
+	if shouldTriggerRecalculate {
+		updated.MarkLocalRecalculationPending()
+	}
+	return strip, before, updated, previousTobt, true, shouldTriggerRecalculate, nil
+}
+
+func applyConfirmedTobtUpdate(updated *models.CdmData, tobt string, sourcePosition string) {
+	if updated == nil {
+		return
+	}
 	updated.Tobt = &tobt
 	setBy := strings.TrimSpace(sourcePosition)
 	updated.TobtSetBy = &setBy
 	confirmedBy := models.TobtConfirmedByATC
 	updated.TobtConfirmedBy = &confirmedBy
 	updated.ReqTobt = nil
-	updated.MarkLocalRecalculationPending()
-	return strip, before, updated, previousTobt, true, nil
 }
 
 func (s *Service) SyncAsatForGroundState(ctx context.Context, session int32, callsign string, groundState string) error {
@@ -1210,14 +1262,22 @@ func (s *Service) registerMasterAsync(sessionID int32, airport string) {
 	}()
 }
 
-func (s *Service) finalizeClxTobtUpdate(ctx context.Context, session int32, callsign string, airport string) error {
-	if s.sequenceService != nil && airport != "" && s.isMasterSession(session) {
+func (s *Service) finalizeClxTobtUpdate(ctx context.Context, session int32, callsign string, airport string, shouldTriggerRecalculate bool) error {
+	if shouldTriggerRecalculate && s.sequenceService != nil && airport != "" && s.isMasterSession(session) {
 		if err := s.sequenceService.RecalculateAirportSilently(ctx, session, airport); err != nil {
 			return err
 		}
 	}
 	s.pushCdmDataAfterRecalc(ctx, session, callsign)
 	return nil
+}
+
+func shouldTriggerClockRecalculation(value string, now time.Time) bool {
+	normalized := normalizeCalculationClock(value)
+	if normalized == "" {
+		return false
+	}
+	return !isMoreThanMinutesPast(normalized, now.UTC().Format("1504"), 0)
 }
 
 func (s *Service) pushTobtAsync(session int32, callsign string, previousTobt string, tobt string) {

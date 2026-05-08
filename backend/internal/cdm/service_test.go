@@ -134,6 +134,7 @@ func stringPtr(value string) *string {
 func TestHandleTobtUpdate_PersistsOverrideAndClearsRequestedTobt(t *testing.T) {
 	const sessionID = int32(31)
 	const callsign = "EIN123"
+	updatedTobt := time.Now().UTC().Add(20 * time.Minute).Format("1504")
 
 	existing := &models.CdmData{
 		Eobt:    stringPtr("1000"),
@@ -166,12 +167,12 @@ func TestHandleTobtUpdate_PersistsOverrideAndClearsRequestedTobt(t *testing.T) {
 	service.client.isValid = false
 	service.SetFrontendHub(frontendHub)
 
-	err := service.HandleTobtUpdate(context.Background(), sessionID, callsign, "1035", "EKCH_B_GND", "master")
+	err := service.HandleTobtUpdate(context.Background(), sessionID, callsign, updatedTobt, "EKCH_B_GND", "master")
 	require.NoError(t, err)
 
 	require.NotNil(t, persisted)
 	require.NotNil(t, persisted.Tobt)
-	assert.Equal(t, "1035", *persisted.Tobt)
+	assert.Equal(t, updatedTobt, *persisted.Tobt)
 	require.NotNil(t, persisted.TobtSetBy)
 	assert.Equal(t, "EKCH_B_GND", *persisted.TobtSetBy)
 	require.NotNil(t, persisted.TobtConfirmedBy)
@@ -180,7 +181,161 @@ func TestHandleTobtUpdate_PersistsOverrideAndClearsRequestedTobt(t *testing.T) {
 	assert.True(t, persisted.Recalculate)
 
 	require.Len(t, frontendHub.CdmUpdates, 1)
-	assert.Equal(t, "1035", frontendHub.CdmUpdates[0].Tobt)
+	assert.Equal(t, updatedTobt, frontendHub.CdmUpdates[0].Tobt)
+}
+
+func TestHandleTobtUpdate_PastValueDoesNotMarkRecalculation(t *testing.T) {
+	const sessionID = int32(142)
+	const callsign = "SAS124"
+
+	pastTobt := time.Now().UTC().Add(-20 * time.Minute).Format("1504")
+	currentTobt := "1030"
+	tsat := "1100"
+
+	var persisted *models.CdmData
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, session int32, cs string) (*models.Strip, error) {
+			assert.Equal(t, sessionID, session)
+			assert.Equal(t, callsign, cs)
+			return &models.Strip{Callsign: cs, Session: sessionID, Origin: "EKCH"}, nil
+		},
+		GetCdmDataForCallsignFn: func(_ context.Context, session int32, cs string) (*models.CdmData, error) {
+			assert.Equal(t, sessionID, session)
+			assert.Equal(t, callsign, cs)
+			return (&models.CdmData{
+				Tobt: &currentTobt,
+				Tsat: &tsat,
+			}).Normalize(), nil
+		},
+		SetCdmDataFn: func(_ context.Context, session int32, cs string, data *models.CdmData) (int64, error) {
+			assert.Equal(t, sessionID, session)
+			assert.Equal(t, callsign, cs)
+			persisted = data.Clone()
+			return 1, nil
+		},
+	}
+
+	frontendHub := &testutil.MockFrontendHub{}
+	service := NewCdmService(newTestClientWithAirportMasters(nil), stripRepo, &testutil.MockSessionRepository{}, &testutil.MockControllerRepository{})
+	service.client.isValid = false
+	service.SetFrontendHub(frontendHub)
+
+	err := service.HandleTobtUpdate(context.Background(), sessionID, callsign, pastTobt, "EKCH_B_GND", "master")
+	require.NoError(t, err)
+
+	require.NotNil(t, persisted)
+	require.NotNil(t, persisted.Tobt)
+	assert.Equal(t, pastTobt, *persisted.Tobt)
+	assert.False(t, persisted.Recalculate)
+	require.NotNil(t, persisted.Tsat)
+	assert.Equal(t, tsat, *persisted.Tsat)
+	require.Len(t, frontendHub.CdmUpdates, 1)
+	assert.Equal(t, pastTobt, frontendHub.CdmUpdates[0].Tobt)
+	assert.Equal(t, tsat, frontendHub.CdmUpdates[0].Tsat)
+}
+
+func TestHandleEobtUpdate_SyncsFutureTobtAndMarksRecalculation(t *testing.T) {
+	const sessionID = int32(143)
+	const callsign = "SAS125"
+
+	currentEobt := "1000"
+	currentTobt := "1015"
+	futureEobt := time.Now().UTC().Add(20 * time.Minute).Format("1504")
+
+	var persisted *models.CdmData
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, session int32, cs string) (*models.Strip, error) {
+			assert.Equal(t, sessionID, session)
+			assert.Equal(t, callsign, cs)
+			return &models.Strip{Callsign: cs, Session: sessionID, Origin: "EKCH"}, nil
+		},
+		GetCdmDataForCallsignFn: func(_ context.Context, session int32, cs string) (*models.CdmData, error) {
+			assert.Equal(t, sessionID, session)
+			assert.Equal(t, callsign, cs)
+			return (&models.CdmData{
+				Eobt: &currentEobt,
+				Tobt: &currentTobt,
+			}).Normalize(), nil
+		},
+		SetCdmDataFn: func(_ context.Context, session int32, cs string, data *models.CdmData) (int64, error) {
+			assert.Equal(t, sessionID, session)
+			assert.Equal(t, callsign, cs)
+			persisted = data.Clone()
+			return 1, nil
+		},
+	}
+
+	frontendHub := &testutil.MockFrontendHub{}
+	service := NewCdmService(newTestClientWithAirportMasters(nil), stripRepo, &testutil.MockSessionRepository{}, &testutil.MockControllerRepository{})
+	service.client.isValid = false
+	service.SetFrontendHub(frontendHub)
+
+	err := service.HandleEobtUpdate(context.Background(), sessionID, callsign, futureEobt, "EKCH_DEL", "ATC")
+	require.NoError(t, err)
+
+	require.NotNil(t, persisted)
+	require.NotNil(t, persisted.Eobt)
+	require.NotNil(t, persisted.Tobt)
+	assert.Equal(t, futureEobt, *persisted.Eobt)
+	assert.Equal(t, futureEobt, *persisted.Tobt)
+	require.NotNil(t, persisted.TobtSetBy)
+	assert.Equal(t, "EKCH_DEL", *persisted.TobtSetBy)
+	require.NotNil(t, persisted.TobtConfirmedBy)
+	assert.Equal(t, models.TobtConfirmedByATC, *persisted.TobtConfirmedBy)
+	assert.True(t, persisted.Recalculate)
+	require.Len(t, frontendHub.CdmUpdates, 1)
+	assert.Equal(t, futureEobt, frontendHub.CdmUpdates[0].Eobt)
+	assert.Equal(t, futureEobt, frontendHub.CdmUpdates[0].Tobt)
+}
+
+func TestHandleEobtUpdate_PastValueDoesNotSyncTobtOrMarkRecalculation(t *testing.T) {
+	const sessionID = int32(144)
+	const callsign = "SAS126"
+
+	currentEobt := "1000"
+	currentTobt := "1015"
+	pastEobt := time.Now().UTC().Add(-20 * time.Minute).Format("1504")
+
+	var persisted *models.CdmData
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, session int32, cs string) (*models.Strip, error) {
+			assert.Equal(t, sessionID, session)
+			assert.Equal(t, callsign, cs)
+			return &models.Strip{Callsign: cs, Session: sessionID, Origin: "EKCH"}, nil
+		},
+		GetCdmDataForCallsignFn: func(_ context.Context, session int32, cs string) (*models.CdmData, error) {
+			assert.Equal(t, sessionID, session)
+			assert.Equal(t, callsign, cs)
+			return (&models.CdmData{
+				Eobt: &currentEobt,
+				Tobt: &currentTobt,
+			}).Normalize(), nil
+		},
+		SetCdmDataFn: func(_ context.Context, session int32, cs string, data *models.CdmData) (int64, error) {
+			assert.Equal(t, sessionID, session)
+			assert.Equal(t, callsign, cs)
+			persisted = data.Clone()
+			return 1, nil
+		},
+	}
+
+	frontendHub := &testutil.MockFrontendHub{}
+	service := NewCdmService(newTestClientWithAirportMasters(nil), stripRepo, &testutil.MockSessionRepository{}, &testutil.MockControllerRepository{})
+	service.client.isValid = false
+	service.SetFrontendHub(frontendHub)
+
+	err := service.HandleEobtUpdate(context.Background(), sessionID, callsign, pastEobt, "EKCH_DEL", "ATC")
+	require.NoError(t, err)
+
+	require.NotNil(t, persisted)
+	require.NotNil(t, persisted.Eobt)
+	require.NotNil(t, persisted.Tobt)
+	assert.Equal(t, pastEobt, *persisted.Eobt)
+	assert.Equal(t, currentTobt, *persisted.Tobt)
+	assert.False(t, persisted.Recalculate)
+	require.Len(t, frontendHub.CdmUpdates, 1)
+	assert.Equal(t, pastEobt, frontendHub.CdmUpdates[0].Eobt)
+	assert.Equal(t, currentTobt, frontendHub.CdmUpdates[0].Tobt)
 }
 
 func TestHandleClxTobtUpdate_BroadcastsFinalCalculatedCdmData(t *testing.T) {

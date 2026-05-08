@@ -30,6 +30,10 @@ func (s *spyLocalCdmService) HandleReadyRequest(_ context.Context, _ int32, _ st
 	panic("HandleReadyRequest should not be called in this test")
 }
 
+func (s *spyLocalCdmService) HandleEobtUpdate(_ context.Context, _ int32, _ string, _ string, _ string, _ string) error {
+	panic("HandleEobtUpdate should not be called in this test")
+}
+
 func (s *spyLocalCdmService) HandleTobtUpdate(_ context.Context, session int32, callsign string, tobt string, sourcePosition string, sourceRole string) error {
 	s.called = true
 	s.session = session
@@ -184,4 +188,3 @@ func TestHandleCdmMasterToggle_FalseCallsSetSessionCdmMaster(t *testing.T) {
 	assert.Equal(t, int32(99), cdmService.masterSession)
 	assert.False(t, cdmService.masterValue)
 }
-

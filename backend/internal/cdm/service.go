@@ -405,16 +405,12 @@ func (s *Service) SetReady(ctx context.Context, session int32, callsign string) 
 		return err
 	}
 
+	before := snapshotCdm(cdmData)
 	updated := cdmData.Clone()
 	rea := "REA"
 	updated.Status = &rea
-	rows, err := s.stripRepo.SetCdmData(ctx, session, callsign, updated)
-	if err != nil {
+	if err := s.persistCdmUpdate(ctx, session, callsign, before, updated); err != nil {
 		return err
-	}
-
-	if rows != 1 {
-		return fmt.Errorf("failed to update CDM status for %s session %d", callsign, session)
 	}
 
 	s.publisher.SendCdmWait(session, callsign)
@@ -444,15 +440,11 @@ func (s *Service) RequestBetterTobt(ctx context.Context, session int32, callsign
 		return err
 	}
 
+	before := snapshotCdm(cdmData)
 	updated := cdmData.Clone()
 	updated.Status = &status
-	rows, err := s.stripRepo.SetCdmData(ctx, session, callsign, updated)
-	if err != nil {
+	if err := s.persistCdmUpdate(ctx, session, callsign, before, updated); err != nil {
 		return err
-	}
-
-	if rows != 1 {
-		return fmt.Errorf("failed to update CDM status for %s session %d", callsign, session)
 	}
 
 	s.publisher.SendCdmWait(session, callsign)

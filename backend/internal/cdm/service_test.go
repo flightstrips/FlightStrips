@@ -103,6 +103,10 @@ func TestHandleReadyRequest_UsesBackendRequestFlow(t *testing.T) {
 	assert.True(t, strings.HasPrefix(*persisted.Status, "REQTOBT/"))
 	assert.True(t, strings.HasSuffix(*persisted.Status, "/ATC"))
 
+	require.Len(t, frontendHub.CdmUpdates, 1)
+	assert.Equal(t, callsign, frontendHub.CdmUpdates[0].Callsign)
+	assert.True(t, strings.HasPrefix(frontendHub.CdmUpdates[0].Event.Status, "REQTOBT/"))
+	assert.True(t, strings.HasSuffix(frontendHub.CdmUpdates[0].Event.Status, "/ATC"))
 	require.Len(t, frontendHub.CdmWaits, 1)
 	assert.Equal(t, callsign, frontendHub.CdmWaits[0].Callsign)
 }
@@ -467,11 +471,14 @@ func TestSetReady_SendsRea1ViaDpi(t *testing.T) {
 		&testutil.MockControllerRepository{},
 	)
 
-	service.SetFrontendHub(&testutil.MockFrontendHub{})
+	frontendHub := &testutil.MockFrontendHub{}
+	service.SetFrontendHub(frontendHub)
 	service.sessionMaster.Store(sessionID, true)
 
 	require.NoError(t, service.SetReady(context.Background(), sessionID, callsign))
 	assert.Equal(t, "REA/1", receivedValue)
+	require.Len(t, frontendHub.CdmUpdates, 1)
+	assert.Equal(t, "REA", frontendHub.CdmUpdates[0].Event.Status)
 }
 
 func TestHandleApproveReqTobt_ClearsReqTobtOnViff(t *testing.T) {

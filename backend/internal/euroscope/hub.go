@@ -246,6 +246,7 @@ func (hub *Hub) sendBackendSyncIfNeeded(client *Client) {
 				TobtSetBy:       valueOrEmpty(strip.CdmData.TobtSetBy),
 				TobtConfirmedBy: valueOrEmpty(strip.CdmData.TobtConfirmedBy),
 				ReqTobt:         valueOrEmpty(strip.CdmData.EffectiveReqTobt()),
+				ReqTobtType:     valueOrEmpty(strip.CdmData.EffectiveReqTobtType()),
 				Tsat:            truncateCDMClockValue(valueOrEmpty(strip.CdmData.EffectiveTsat())),
 				Ttot:            truncateCDMClockValue(valueOrEmpty(strip.CdmData.EffectiveTtot())),
 				Ctot:            valueOrEmpty(strip.CdmData.EffectiveCtot()),

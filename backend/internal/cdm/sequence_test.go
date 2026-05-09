@@ -1341,11 +1341,11 @@ func TestSequenceService_RecalculateAirport_MixedConstraintScenario(t *testing.T
 	firstCtotFloor := toHHMMSS(firstCtot[:4])
 
 	secondTobt := subtractMinutes(firstCtotFloor, 11)
-	secondExpectedTtot := subtractMinutes(firstCtotFloor, 1)
+	secondExpectedTtot := addMinutes(firstCtotFloor, 3)
 	secondExpectedTsat := subtractMinutes(secondExpectedTtot, 10)
 
 	thirdTobt := subtractMinutes(firstCtotFloor, 10)
-	thirdExpectedTtot := addMinutes(firstCtotFloor, 5)
+	thirdExpectedTtot := addMinutes(firstCtotFloor, 6)
 	thirdExpectedTsat := subtractMinutes(thirdExpectedTtot, 10)
 
 	independentTobt := subtractMinutes(firstCtotFloor, 10)
@@ -1454,7 +1454,7 @@ func TestSequenceService_RecalculateAirport_MixedConstraintScenario(t *testing.T
 		t.Fatalf("RecalculateAirport returned error: %v", err)
 	}
 
-	assertPersistedCdmTimes(t, persisted, "SAS901", subtractMinutes(addMinutes(firstCtotFloor, 2), 10), addMinutes(firstCtotFloor, 2))
+	assertPersistedCdmTimes(t, persisted, "SAS901", subtractMinutes(firstCtotFloor, 10), firstCtotFloor)
 	assertPersistedCdmTimes(t, persisted, "SAS902", secondExpectedTsat, secondExpectedTtot)
 	assertPersistedCdmTimes(t, persisted, "SAS903", thirdExpectedTsat, thirdExpectedTtot)
 	assertPersistedCdmTimes(t, persisted, "SAS904", independentExpectedTsat, independentExpectedTtot)

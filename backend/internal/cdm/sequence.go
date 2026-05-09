@@ -25,6 +25,7 @@ type sequencingCandidate struct {
 	naturalTtot string
 	slot        SlotEntry
 	hasSlot     bool
+	hasCtot     bool
 	started     bool
 	staleBase   bool
 }
@@ -120,6 +121,7 @@ func (s *SequenceService) recalculateAirport(ctx context.Context, session int32,
 			naturalTtot: unconstrainedTtot(calcInput, config, now),
 			slot:        slot,
 			hasSlot:     hasSlot,
+			hasCtot:     strings.TrimSpace(valueOrEmpty(strip.EffectiveCtot())) != "",
 			started:     valueOrEmpty(strip.EffectiveAsat()) != "" || valueOrEmpty(strip.EffectiveAobt()) != "",
 			staleBase:   shouldInvalidateStaleTobt(calcInput, nowHHMMSS),
 		})
@@ -142,7 +144,12 @@ func (s *SequenceService) recalculateAirport(ctx context.Context, session int32,
 
 	slots := make([]SlotEntry, 0, len(candidates))
 	for _, candidate := range preserved {
-		if candidate.started || !hasPreservedSlotConflict(candidate.slot, slots, config) {
+		if candidate.started {
+			slots = append(slots, candidate.slot)
+			continue
+		}
+		if !hasPreservedSlotConflict(candidate.slot, slots, config) &&
+			!preservedSlotBlocksHigherPriorityCandidate(candidate, recalculate, config, now) {
 			slots = append(slots, candidate.slot)
 			continue
 		}
@@ -157,7 +164,7 @@ func (s *SequenceService) recalculateAirport(ctx context.Context, session int32,
 		strip := candidate.strip
 		if !shouldRecalculateStrip(strip, now) {
 			if slot, ok := existingSlotEntry(strip); ok {
-				if valueOrEmpty(strip.EffectiveAsat()) != "" || valueOrEmpty(strip.EffectiveAobt()) != "" || !hasPreservedSlotConflict(slot, slots, config) {
+				if valueOrEmpty(strip.EffectiveAsat()) != "" || valueOrEmpty(strip.EffectiveAobt()) != "" || canRetainExistingSlot(candidate, slot, slots, config, now) {
 					slots = append(slots, slot)
 					continue
 				}
@@ -263,6 +270,16 @@ func compareSequencingCandidates(left, right sequencingCandidate, anchor time.Ti
 			}
 			return 1
 		}
+	}
+
+	if left.hasCtot != right.hasCtot {
+		if left.hasCtot {
+			return -1
+		}
+		return 1
+	}
+
+	if preserveExistingSlots {
 		if cmp := compareClockForSort(left.slot.Ttot, right.slot.Ttot, anchor); cmp != 0 {
 			return cmp
 		}
@@ -480,6 +497,38 @@ func hasPreservedSlotConflict(candidate SlotEntry, slots []SlotEntry, config *Cd
 	return false
 }
 
+func preservedSlotBlocksHigherPriorityCandidate(candidate sequencingCandidate, recalculate []sequencingCandidate, config *CdmAirportConfig, now time.Time) bool {
+	if candidate.started {
+		return false
+	}
+
+	for _, pending := range recalculate {
+		if pending.started || !pending.hasCtot || pending.naturalTtot == "" {
+			continue
+		}
+		if compareSequencingCandidates(pending, candidate, now, false) >= 0 {
+			continue
+		}
+		if calculateWithSinglePreservedSlot(candidate.slot, pending, config, now) != pending.naturalTtot {
+			return true
+		}
+	}
+
+	return false
+}
+
+func canRetainExistingSlot(candidate sequencingCandidate, slot SlotEntry, slots []SlotEntry, config *CdmAirportConfig, now time.Time) bool {
+	if candidate.started {
+		return true
+	}
+
+	return toHHMMSS(Calculate(candidate.input, slots, config, now).Ttot) == toHHMMSS(slot.Ttot)
+}
+
+func calculateWithSinglePreservedSlot(preserved SlotEntry, candidate sequencingCandidate, config *CdmAirportConfig, now time.Time) string {
+	return Calculate(candidate.input, []SlotEntry{preserved}, config, now).Ttot
+}
+
 func (s *SequenceService) broadcast(session int32, callsign string, data *models.CdmData) {
 	if s.frontendHub != nil {
 		s.frontendHub.SendCdmUpdate(session, shared.BuildFrontendCdmDataEvent(callsign, data))
@@ -500,6 +549,7 @@ func buildCdmUpdateEvent(callsign string, data *models.CdmData) euroscopeEvents.
 		TobtSetBy:       valueOrEmpty(data.TobtSetBy),
 		TobtConfirmedBy: valueOrEmpty(data.TobtConfirmedBy),
 		ReqTobt:         truncateCDMClockValue(valueOrEmpty(data.EffectiveReqTobt())),
+		ReqTobtType:     valueOrEmpty(data.EffectiveReqTobtType()),
 		Tsat:            truncateToHHMM(valueOrEmpty(data.EffectiveTsat())),
 		Ttot:            truncateToHHMM(valueOrEmpty(data.EffectiveTtot())),
 		Ctot:            truncateCDMClockValue(valueOrEmpty(data.EffectiveCtot())),

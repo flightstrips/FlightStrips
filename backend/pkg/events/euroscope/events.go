@@ -315,6 +315,7 @@ type CdmUpdateEvent struct {
 	TobtSetBy       string `json:"tobt_set_by,omitempty"`
 	TobtConfirmedBy string `json:"tobt_confirmed_by,omitempty"`
 	ReqTobt         string `json:"req_tobt,omitempty"`
+	ReqTobtType     string `json:"req_tobt_type,omitempty"`
 	Tsat            string `json:"tsat,omitempty"`
 	Ttot            string `json:"ttot,omitempty"`
 	Ctot            string `json:"ctot,omitempty"`
@@ -360,6 +361,7 @@ type BackendSyncCdmData struct {
 	TobtSetBy       string `json:"tobt_set_by,omitempty"`
 	TobtConfirmedBy string `json:"tobt_confirmed_by,omitempty"`
 	ReqTobt         string `json:"req_tobt,omitempty"`
+	ReqTobtType     string `json:"req_tobt_type,omitempty"`
 	Tsat            string `json:"tsat,omitempty"`
 	Ttot            string `json:"ttot,omitempty"`
 	Ctot            string `json:"ctot,omitempty"`

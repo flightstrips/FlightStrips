@@ -488,6 +488,7 @@ func MapStripToFrontendModelWithClx(strip *internalModels.Strip, clxContext clx.
 		Eobt:                     truncateFrontendClockValue(helpers.ValueOrDefault(strip.EffectiveEobt())),
 		Tobt:                     truncateFrontendClockValue(helpers.ValueOrDefault(strip.EffectiveTobt())),
 		ReqTobt:                  truncateFrontendClockValue(helpers.ValueOrDefault(cdm.EffectiveReqTobt())),
+		ReqTobtType:              helpers.ValueOrDefault(cdm.EffectiveReqTobtType()),
 		Tsat:                     truncateFrontendClockValue(helpers.ValueOrDefault(strip.EffectiveTsat())),
 		Ttot:                     truncateFrontendClockValue(helpers.ValueOrDefault(strip.EffectiveTtot())),
 		Ctot:                     effectiveFrontendStripCtot(strip),

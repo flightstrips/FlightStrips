@@ -79,6 +79,9 @@ func TestSyncCdmData_PersistsFlowMessageAndReqTobtSource(t *testing.T) {
 	if got := valueOrEmpty(persisted.ReqTobt); got != "1005" {
 		t.Fatalf("expected req_tobt to be persisted, got %q", got)
 	}
+	if got := valueOrEmpty(persisted.ReqTobtType); got != "PILOT" {
+		t.Fatalf("expected req_tobt_type to be persisted, got %q", got)
+	}
 	if got := valueOrEmpty(persisted.EcfmpID); got != "REGUL" {
 		t.Fatalf("expected flow message to be persisted, got %q", got)
 	}
@@ -92,6 +95,9 @@ func TestSyncCdmData_PersistsFlowMessageAndReqTobtSource(t *testing.T) {
 	}
 	if event.EcfmpID != "REGUL" {
 		t.Fatalf("unexpected broadcast metadata: %#v", event)
+	}
+	if event.ReqTobtType != "PILOT" {
+		t.Fatalf("unexpected req_tobt_type in broadcast: %#v", event)
 	}
 }
 

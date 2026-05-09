@@ -29,6 +29,10 @@ func (s *spyCdmService) TriggerRecalculate(_ context.Context, _ int32, _ string)
 	panic("TriggerRecalculate should not be called directly from handleCdmReady")
 }
 
+func (s *spyCdmService) SyncAirportLvoFromRunwayStatus(_ context.Context, _ string, _ map[string]string) {
+	panic("SyncAirportLvoFromRunwayStatus should not be called in this test")
+}
+
 func (s *spyCdmService) HandleReadyRequest(_ context.Context, session int32, callsign string, sourcePosition string, sourceRole string) error {
 	s.called = true
 	s.session = session

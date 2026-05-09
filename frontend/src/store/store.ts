@@ -1052,6 +1052,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
           state.strips[stripIndex].tsat = normalizeCdmTime(data.tsat)
           state.strips[stripIndex].ctot = normalizeCdmTime(data.ctot)
           if (data.req_tobt !== undefined) state.strips[stripIndex].req_tobt = normalizeCdmTime(data.req_tobt)
+          if (data.req_tobt_type !== undefined) state.strips[stripIndex].req_tobt_type = data.req_tobt_type
           if (data.ttot !== undefined) state.strips[stripIndex].ttot = normalizeCdmTime(data.ttot)
           if (data.aobt !== undefined) state.strips[stripIndex].aobt = normalizeCdmTime(data.aobt)
           if (data.asat !== undefined) state.strips[stripIndex].asat = normalizeCdmTime(data.asat)

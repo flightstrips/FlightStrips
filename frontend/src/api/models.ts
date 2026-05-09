@@ -153,6 +153,7 @@ export interface FrontendStrip {
   eobt: string;
   tobt: string;
   req_tobt?: string;
+  req_tobt_type?: string;
   tsat: string;
   ttot?: string;
   ctot: string;
@@ -440,6 +441,7 @@ export interface FrontendCdmDataEvent {
   eobt: string;
   tobt: string;
   req_tobt?: string;
+  req_tobt_type?: string;
   tsat: string;
   ttot?: string;
   ctot: string;

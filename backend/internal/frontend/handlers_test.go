@@ -24,13 +24,20 @@ type stripUpdateValidationReevaluator struct {
 }
 
 type recordingCdmService struct {
-	triggerRecalculateFn func(ctx context.Context, session int32, airport string)
-	handleEobtUpdateFn   func(ctx context.Context, session int32, callsign string, eobt string, sourcePosition string, sourceRole string) error
+	triggerRecalculateFn             func(ctx context.Context, session int32, airport string)
+	syncAirportLvoFromRunwayStatusFn func(ctx context.Context, airport string, runwayStatus map[string]string)
+	handleEobtUpdateFn               func(ctx context.Context, session int32, callsign string, eobt string, sourcePosition string, sourceRole string) error
 }
 
 func (s *recordingCdmService) TriggerRecalculate(ctx context.Context, session int32, airport string) {
 	if s.triggerRecalculateFn != nil {
 		s.triggerRecalculateFn(ctx, session, airport)
+	}
+}
+
+func (s *recordingCdmService) SyncAirportLvoFromRunwayStatus(ctx context.Context, airport string, runwayStatus map[string]string) {
+	if s.syncAirportLvoFromRunwayStatusFn != nil {
+		s.syncAirportLvoFromRunwayStatusFn(ctx, airport, runwayStatus)
 	}
 }
 
@@ -144,7 +151,7 @@ func TestHandleStripUpdate_RunwayChangePersistsSelectedRunway(t *testing.T) {
 		EuroscopeHubVal: euroscopeHub,
 	}
 
-	hub := &Hub{server: server}
+	hub := &Hub{server: server, send: make(chan internalMessage, 1)}
 	client := &Client{
 		session:  session,
 		hub:      hub,
@@ -312,7 +319,7 @@ func TestHandleStripUpdate_OwnerCanUpdateRemarksAndAircraftInfo(t *testing.T) {
 		EuroscopeHubVal: euroscopeHub,
 	}
 
-	hub := &Hub{server: server}
+	hub := &Hub{server: server, send: make(chan internalMessage, 1)}
 	client := &Client{
 		session:  session,
 		hub:      hub,
@@ -386,6 +393,66 @@ func TestHandleStripUpdate_NonOwnerCannotUpdateRemarksOrAircraftInfo(t *testing.
 	})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "non-owner")
+}
+
+func TestHandleUpdateRunwayStatus_SynchronizesAirportLvo(t *testing.T) {
+	ctx := context.Background()
+	const sessionID = int32(12)
+
+	session := &models.Session{
+		ID:      sessionID,
+		Airport: "EKCH",
+		ActiveRunways: pkgModels.ActiveRunways{
+			DepartureRunways: []string{"04L"},
+			ArrivalRunways:   []string{"22L"},
+			RunwayStatus:     map[string]string{"04L/22L": "OPEN"},
+		},
+	}
+
+	var persisted pkgModels.ActiveRunways
+	var syncedAirport string
+	var syncedStatus map[string]string
+	sessionRepo := &testutil.MockSessionRepository{
+		GetByIDFn: func(_ context.Context, id int32) (*models.Session, error) {
+			assert.Equal(t, sessionID, id)
+			return session, nil
+		},
+		UpdateActiveRunwaysFn: func(_ context.Context, id int32, activeRunways pkgModels.ActiveRunways) error {
+			assert.Equal(t, sessionID, id)
+			persisted = activeRunways
+			return nil
+		},
+	}
+	cdmService := &recordingCdmService{
+		syncAirportLvoFromRunwayStatusFn: func(_ context.Context, airport string, runwayStatus map[string]string) {
+			syncedAirport = airport
+			syncedStatus = map[string]string{}
+			for pair, status := range runwayStatus {
+				syncedStatus[pair] = status
+			}
+		},
+	}
+	server := &testutil.MockServer{
+		CdmServiceVal:  cdmService,
+		SessionRepoVal: sessionRepo,
+	}
+	hub := &Hub{server: server, send: make(chan internalMessage, 1)}
+	client := &Client{session: sessionID, hub: hub}
+
+	payload, err := json.Marshal(frontendEvents.UpdateRunwayStatusAction{
+		Pair:   "04L/22L",
+		Status: "LOW_VIS",
+	})
+	require.NoError(t, err)
+
+	err = handleUpdateRunwayStatus(ctx, client, Message{
+		Type:    frontendEvents.UpdateRunwayStatus,
+		Message: payload,
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "LOW_VIS", persisted.RunwayStatus["04L/22L"])
+	assert.Equal(t, "EKCH", syncedAirport)
+	assert.Equal(t, "LOW_VIS", syncedStatus["04L/22L"])
 }
 
 func TestHandleStripUpdate_RunwayChangeReevaluatesDepartureValidation(t *testing.T) {

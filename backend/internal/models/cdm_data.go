@@ -33,6 +33,7 @@ type CdmData struct {
 	TobtSetBy       *string         `json:"tobtSetBy,omitempty"`
 	TobtConfirmedBy *string         `json:"tobtConfirmedBy,omitempty"`
 	ReqTobt         *string         `json:"reqTobt,omitempty"`
+	ReqTobtType     *string         `json:"reqTobtType,omitempty"`
 	Tsat            *string         `json:"tsat,omitempty"`
 	Ttot            *string         `json:"ttot,omitempty"`
 	Ctot            *string         `json:"ctot,omitempty"`
@@ -79,6 +80,7 @@ func (d *CdmData) Clone() *CdmData {
 	clone.TobtSetBy = cloneStringPointer(d.TobtSetBy)
 	clone.TobtConfirmedBy = cloneStringPointer(d.TobtConfirmedBy)
 	clone.ReqTobt = cloneStringPointer(d.ReqTobt)
+	clone.ReqTobtType = cloneStringPointer(d.ReqTobtType)
 	clone.Tsat = cloneStringPointer(d.Tsat)
 	clone.Ttot = cloneStringPointer(d.Ttot)
 	clone.Ctot = cloneStringPointer(d.Ctot)
@@ -135,6 +137,13 @@ func (d *CdmData) EffectiveReqTobt() *string {
 		return nil
 	}
 	return d.ReqTobt
+}
+
+func (d *CdmData) EffectiveReqTobtType() *string {
+	if d == nil {
+		return nil
+	}
+	return d.ReqTobtType
 }
 
 func (d *CdmData) EffectiveTsat() *string {

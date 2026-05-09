@@ -857,6 +857,8 @@ func handleUpdateRunwayStatus(ctx context.Context, client *Client, message Messa
 		return err
 	}
 
+	client.hub.server.GetCdmService().SyncAirportLvoFromRunwayStatus(ctx, session.Airport, session.ActiveRunways.RunwayStatus)
+
 	client.hub.SendRunwayConfiguration(
 		client.session,
 		session.ActiveRunways.DepartureRunways,

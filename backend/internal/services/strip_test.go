@@ -30,6 +30,10 @@ func (s *spyStripCdmService) TriggerRecalculate(_ context.Context, session int32
 	s.recalcAirport = airport
 }
 
+func (s *spyStripCdmService) SyncAirportLvoFromRunwayStatus(_ context.Context, _ string, _ map[string]string) {
+	panic("unexpected")
+}
+
 func (s *spyStripCdmService) HandleReadyRequest(_ context.Context, _ int32, _ string, _ string, _ string) error {
 	panic("unexpected")
 }

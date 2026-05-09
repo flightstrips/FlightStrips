@@ -47,7 +47,7 @@ const (
 )
 
 type cdmSnapshot struct {
-	Eobt, Tobt, Tsat, Ctot, CtotSource, Ttot, Asat, Asrt, Tsac, Aobt, Status, ReqTobt, EcfmpID, TobtSetBy, TobtConfirmedBy, Phase string
+	Eobt, Tobt, Tsat, Ctot, CtotSource, Ttot, Asat, Asrt, Tsac, Aobt, Status, ReqTobt, ReqTobtType, EcfmpID, TobtSetBy, TobtConfirmedBy, Phase string
 }
 
 func NewCdmService(client *Client, stripRepo repository.StripRepository, sessionRepo repository.SessionRepository, controllerRepo repository.ControllerRepository) *Service {
@@ -146,6 +146,19 @@ func (s *Service) TriggerRecalculate(ctx context.Context, session int32, airport
 			slog.ErrorContext(ctx, "CDM recalculation failed", slog.Int("session", int(session)), slog.String("airport", airport), slog.Any("error", err))
 		}
 	})
+}
+
+func (s *Service) SyncAirportLvoFromRunwayStatus(ctx context.Context, airport string, runwayStatus map[string]string) {
+	if s.configProvider == nil || strings.TrimSpace(airport) == "" {
+		return
+	}
+
+	active := hasLowVisRunwayStatus(runwayStatus)
+	s.configProvider.SetLvo(airport, active)
+	slog.DebugContext(ctx, "Synchronized CDM LVO state from runway status",
+		slog.String("airport", strings.ToUpper(strings.TrimSpace(airport))),
+		slog.Bool("active", active),
+	)
 }
 
 func (s *Service) TriggerRecalculateForAirport(ctx context.Context, airport string) error {
@@ -564,6 +577,12 @@ func (s *Service) Start(ctx context.Context) {
 		return
 	}
 
+	if syncEnabled || localRecalcEnabled {
+		if err := s.syncLiveSessions(ctx); err != nil {
+			slog.ErrorContext(ctx, "Failed to initialize CDM live-session state", slog.Any("error", err))
+		}
+	}
+
 	var syncTicker *time.Ticker
 	if syncEnabled {
 		syncTicker = time.NewTicker(cdmSyncInterval)
@@ -634,6 +653,7 @@ func (s *Service) syncLiveSessions(ctx context.Context) error {
 			s.sessionMaster.Store(session.ID, true)
 			s.registerMasterAsync(session.ID, session.Airport)
 		}
+		s.SyncAirportLvoFromRunwayStatus(ctx, session.Airport, session.ActiveRunways.RunwayStatus)
 
 		if err := s.syncCdmData(ctx, session); err != nil {
 			return err
@@ -704,8 +724,10 @@ func (s *Service) syncCdmData(ctx context.Context, session *models.Session) erro
 			current := flight
 			ctotChanged := helpers.ValueOrDefault(flight.Ctot) != nextCtot
 			reqTobtChanged := helpers.ValueOrDefault(flight.ReqTobt) != row.CDMData.ReqTOBT
+			reqTobtTypeChanged := helpers.ValueOrDefault(flight.ReqTobtType) != row.CDMData.ReqTOBTType
 			changed := ctotChanged ||
 				reqTobtChanged ||
+				reqTobtTypeChanged ||
 				helpers.ValueOrDefault(flight.EcfmpID) != row.CDMData.Reason
 
 			if changed {
@@ -721,6 +743,7 @@ func (s *Service) syncCdmData(ctx context.Context, session *models.Session) erro
 					updated.EcfmpID = nil
 				}
 				updated.ReqTobt = stringPointerIfPresent(row.CDMData.ReqTOBT)
+				updated.ReqTobtType = stringPointerIfPresent(row.CDMData.ReqTOBTType)
 				if ctotChanged || reqTobtChanged {
 					updated.MarkLocalRecalculationPending()
 				}
@@ -753,6 +776,7 @@ func (s *Service) syncCdmData(ctx context.Context, session *models.Session) erro
 				helpers.ValueOrDefault(flight.Tsat) != truncateCDMClockValue(row.CDMData.TSAT) ||
 				helpers.ValueOrDefault(flight.Ttot) != truncateCDMClockValue(row.CDMData.TTOT) ||
 				helpers.ValueOrDefault(flight.ReqTobt) != row.CDMData.ReqTOBT ||
+				helpers.ValueOrDefault(flight.ReqTobtType) != row.CDMData.ReqTOBTType ||
 				helpers.ValueOrDefault(flight.EcfmpID) != row.CDMData.Reason
 
 			if !changed {
@@ -763,6 +787,7 @@ func (s *Service) syncCdmData(ctx context.Context, session *models.Session) erro
 			updated := flight.Clone()
 			updated.Tobt = &row.TOBT
 			updated.ReqTobt = stringPointerIfPresent(row.CDMData.ReqTOBT)
+			updated.ReqTobtType = stringPointerIfPresent(row.CDMData.ReqTOBTType)
 			updated.Tsat = stringPointerIfPresent(truncateCDMClockValue(row.CDMData.TSAT))
 			updated.Ttot = stringPointerIfPresent(truncateCDMClockValue(row.CDMData.TTOT))
 			updated.Asrt = stringPointerIfPresent(row.CDMData.ReqASRT)
@@ -951,6 +976,7 @@ func snapshotCdm(data *models.CdmData) cdmSnapshot {
 		Aobt:            truncateCDMClockValue(helpers.ValueOrDefault(data.Aobt)),
 		Status:          helpers.ValueOrDefault(data.Status),
 		ReqTobt:         truncateCDMClockValue(helpers.ValueOrDefault(data.ReqTobt)),
+		ReqTobtType:     helpers.ValueOrDefault(data.ReqTobtType),
 		EcfmpID:         helpers.ValueOrDefault(data.EcfmpID),
 		TobtSetBy:       helpers.ValueOrDefault(data.TobtSetBy),
 		TobtConfirmedBy: helpers.ValueOrDefault(data.TobtConfirmedBy),
@@ -965,20 +991,21 @@ func (s *Service) broadcastIfChanged(session int32, callsign string, before, aft
 
 	if s.publisher != nil {
 		s.publisher.SendCdmUpdate(session, shared.BuildFrontendCdmDataEvent(callsign, &models.CdmData{
-			Eobt:       stringPointerIfPresent(after.Eobt),
-			Tobt:       stringPointerIfPresent(after.Tobt),
-			ReqTobt:    stringPointerIfPresent(after.ReqTobt),
-			Tsat:       stringPointerIfPresent(after.Tsat),
-			Ttot:       stringPointerIfPresent(after.Ttot),
-			Ctot:       stringPointerIfPresent(after.Ctot),
-			CtotSource: stringPointerIfPresent(after.CtotSource),
-			Aobt:       stringPointerIfPresent(after.Aobt),
-			Asat:       stringPointerIfPresent(after.Asat),
-			Asrt:       stringPointerIfPresent(after.Asrt),
-			Tsac:       stringPointerIfPresent(after.Tsac),
-			Status:     stringPointerIfPresent(after.Status),
-			EcfmpID:    stringPointerIfPresent(after.EcfmpID),
-			Phase:      stringPointerIfPresent(after.Phase),
+			Eobt:        stringPointerIfPresent(after.Eobt),
+			Tobt:        stringPointerIfPresent(after.Tobt),
+			ReqTobt:     stringPointerIfPresent(after.ReqTobt),
+			ReqTobtType: stringPointerIfPresent(after.ReqTobtType),
+			Tsat:        stringPointerIfPresent(after.Tsat),
+			Ttot:        stringPointerIfPresent(after.Ttot),
+			Ctot:        stringPointerIfPresent(after.Ctot),
+			CtotSource:  stringPointerIfPresent(after.CtotSource),
+			Aobt:        stringPointerIfPresent(after.Aobt),
+			Asat:        stringPointerIfPresent(after.Asat),
+			Asrt:        stringPointerIfPresent(after.Asrt),
+			Tsac:        stringPointerIfPresent(after.Tsac),
+			Status:      stringPointerIfPresent(after.Status),
+			EcfmpID:     stringPointerIfPresent(after.EcfmpID),
+			Phase:       stringPointerIfPresent(after.Phase),
 		}))
 	}
 
@@ -1152,6 +1179,7 @@ func applyConfirmedTobtUpdate(updated *models.CdmData, tobt string, sourcePositi
 	confirmedBy := models.TobtConfirmedByATC
 	updated.TobtConfirmedBy = &confirmedBy
 	updated.ReqTobt = nil
+	updated.ReqTobtType = nil
 }
 
 func (s *Service) SyncAsatForGroundState(ctx context.Context, session int32, callsign string, groundState string) error {
@@ -1310,6 +1338,15 @@ func shouldUpdateReadyTobtNow(data *models.CdmData, now time.Time) bool {
 		return true
 	}
 
+	return false
+}
+
+func hasLowVisRunwayStatus(runwayStatus map[string]string) bool {
+	for _, status := range runwayStatus {
+		if strings.EqualFold(strings.TrimSpace(status), "LOW_VIS") {
+			return true
+		}
+	}
 	return false
 }
 

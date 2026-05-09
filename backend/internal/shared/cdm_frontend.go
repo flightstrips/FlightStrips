@@ -11,21 +11,22 @@ func BuildFrontendCdmDataEvent(callsign string, data *models.CdmData) frontendEv
 	}
 
 	return frontendEvents.CdmDataEvent{
-		Callsign:   callsign,
-		Eobt:       truncateFrontendClockValue(valueOrEmpty(data.EffectiveEobt())),
-		Tobt:       truncateFrontendClockValue(valueOrEmpty(data.EffectiveTobt())),
-		ReqTobt:    truncateFrontendClockValue(valueOrEmpty(data.EffectiveReqTobt())),
-		Tsat:       truncateFrontendClockValue(valueOrEmpty(data.EffectiveTsat())),
-		Ttot:       truncateFrontendClockValue(valueOrEmpty(data.EffectiveTtot())),
-		Ctot:       truncateFrontendClockValue(valueOrEmpty(data.EffectiveCtot())),
-		Aobt:       truncateFrontendClockValue(valueOrEmpty(data.EffectiveAobt())),
-		Asat:       truncateFrontendClockValue(valueOrEmpty(data.EffectiveAsat())),
-		Asrt:       truncateFrontendClockValue(valueOrEmpty(data.Asrt)),
-		Tsac:       truncateFrontendClockValue(valueOrEmpty(data.Tsac)),
-		Status:     valueOrEmpty(data.EffectiveStatus()),
-		EcfmpID:    valueOrEmpty(data.EcfmpID),
-		CtotSource: valueOrEmpty(data.CtotSource),
-		Phase:      valueOrEmpty(data.EffectivePhase()),
+		Callsign:    callsign,
+		Eobt:        truncateFrontendClockValue(valueOrEmpty(data.EffectiveEobt())),
+		Tobt:        truncateFrontendClockValue(valueOrEmpty(data.EffectiveTobt())),
+		ReqTobt:     truncateFrontendClockValue(valueOrEmpty(data.EffectiveReqTobt())),
+		ReqTobtType: valueOrEmpty(data.EffectiveReqTobtType()),
+		Tsat:        truncateFrontendClockValue(valueOrEmpty(data.EffectiveTsat())),
+		Ttot:        truncateFrontendClockValue(valueOrEmpty(data.EffectiveTtot())),
+		Ctot:        truncateFrontendClockValue(valueOrEmpty(data.EffectiveCtot())),
+		Aobt:        truncateFrontendClockValue(valueOrEmpty(data.EffectiveAobt())),
+		Asat:        truncateFrontendClockValue(valueOrEmpty(data.EffectiveAsat())),
+		Asrt:        truncateFrontendClockValue(valueOrEmpty(data.Asrt)),
+		Tsac:        truncateFrontendClockValue(valueOrEmpty(data.Tsac)),
+		Status:      valueOrEmpty(data.EffectiveStatus()),
+		EcfmpID:     valueOrEmpty(data.EcfmpID),
+		CtotSource:  valueOrEmpty(data.CtotSource),
+		Phase:       valueOrEmpty(data.EffectivePhase()),
 	}
 }
 

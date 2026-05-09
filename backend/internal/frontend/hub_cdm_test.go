@@ -14,19 +14,20 @@ func TestMapStripToFrontendModel_TruncatesCdmTimes(t *testing.T) {
 	strip := &internalModels.Strip{
 		Callsign: "SAS123",
 		CdmData: (&internalModels.CdmData{
-			Eobt:       testStringPointer("101500"),
-			Tobt:       testStringPointer("102000"),
-			ReqTobt:    testStringPointer("102500"),
-			Tsat:       testStringPointer("103000"),
-			Ttot:       testStringPointer("104000"),
-			Ctot:       &ctot,
-			Asat:       testStringPointer("105500"),
-			Asrt:       testStringPointer("103500"),
-			Tsac:       testStringPointer("103500"),
-			Status:     testStringPointer("READY"),
-			EcfmpID:    testStringPointer("REGUL"),
-			CtotSource: testStringPointer("ATFCM"),
-			Phase:      testStringPointer("I"),
+			Eobt:        testStringPointer("101500"),
+			Tobt:        testStringPointer("102000"),
+			ReqTobt:     testStringPointer("102500"),
+			ReqTobtType: testStringPointer("PILOT"),
+			Tsat:        testStringPointer("103000"),
+			Ttot:        testStringPointer("104000"),
+			Ctot:        &ctot,
+			Asat:        testStringPointer("105500"),
+			Asrt:        testStringPointer("103500"),
+			Tsac:        testStringPointer("103500"),
+			Status:      testStringPointer("READY"),
+			EcfmpID:     testStringPointer("REGUL"),
+			CtotSource:  testStringPointer("ATFCM"),
+			Phase:       testStringPointer("I"),
 		}).Normalize(),
 	}
 
@@ -35,6 +36,7 @@ func TestMapStripToFrontendModel_TruncatesCdmTimes(t *testing.T) {
 	assert.Equal(t, "1015", model.Eobt)
 	assert.Equal(t, "1020", model.Tobt)
 	assert.Equal(t, "1025", model.ReqTobt)
+	assert.Equal(t, "PILOT", model.ReqTobtType)
 	assert.Equal(t, "1030", model.Tsat)
 	assert.Equal(t, "1040", model.Ttot)
 	assert.Equal(t, "1045", model.Ctot)
@@ -65,20 +67,21 @@ func TestSendCdmUpdate_TruncatesClockFields(t *testing.T) {
 	hub := &Hub{send: make(chan internalMessage, 1)}
 
 	hub.SendCdmUpdate(42, frontendEvents.CdmDataEvent{
-		Callsign:   "SAS123",
-		Eobt:       "101500",
-		Tobt:       "102000",
-		ReqTobt:    "102500",
-		Tsat:       "103000",
-		Ttot:       "104000",
-		Ctot:       "104500",
-		Asat:       "105500",
-		Asrt:       "103500",
-		Tsac:       "103500",
-		Status:     "READY",
-		EcfmpID:    "REGUL",
-		CtotSource: "ATFCM",
-		Phase:      "I",
+		Callsign:    "SAS123",
+		Eobt:        "101500",
+		Tobt:        "102000",
+		ReqTobt:     "102500",
+		ReqTobtType: "PILOT",
+		Tsat:        "103000",
+		Ttot:        "104000",
+		Ctot:        "104500",
+		Asat:        "105500",
+		Asrt:        "103500",
+		Tsac:        "103500",
+		Status:      "READY",
+		EcfmpID:     "REGUL",
+		CtotSource:  "ATFCM",
+		Phase:       "I",
 	})
 
 	msg := <-hub.send
@@ -89,6 +92,7 @@ func TestSendCdmUpdate_TruncatesClockFields(t *testing.T) {
 	assert.Equal(t, "101500", event.Eobt)
 	assert.Equal(t, "102000", event.Tobt)
 	assert.Equal(t, "102500", event.ReqTobt)
+	assert.Equal(t, "PILOT", event.ReqTobtType)
 	assert.Equal(t, "103000", event.Tsat)
 	assert.Equal(t, "104000", event.Ttot)
 	assert.Equal(t, "104500", event.Ctot)

@@ -1093,6 +1093,19 @@ func (s *stubConfigProvider) SetDelay(CdmDelay) {}
 
 func (s *stubConfigProvider) ClearDelay(string, string) {}
 
+type trackingConfigProvider struct {
+	stubConfigProvider
+	airport string
+	active  bool
+	called  bool
+}
+
+func (s *trackingConfigProvider) SetLvo(airport string, active bool) {
+	s.airport = airport
+	s.active = active
+	s.called = true
+}
+
 // ---- SetSessionCdmMaster ----
 
 func TestSetSessionCdmMaster_True_UpdatesDBAndCachesAndRegistersMaster(t *testing.T) {
@@ -1417,4 +1430,35 @@ func TestSyncLiveSessions_DoesNotRegisterMasterForSlaveSession(t *testing.T) {
 
 	_, ok := service.sessionMaster.Load(sessionID)
 	assert.False(t, ok, "sessionMaster should not be populated for slave session")
+}
+
+func TestSyncLiveSessions_SynchronizesLvoFromRunwayStatus(t *testing.T) {
+	const sessionID = int32(12)
+
+	sessionRepo := &testutil.MockSessionRepository{
+		ListFn: func(_ context.Context) ([]*models.Session, error) {
+			return []*models.Session{
+				{
+					ID:      sessionID,
+					Name:    "LIVE",
+					Airport: "EKCH",
+					ActiveRunways: pkgModels.ActiveRunways{
+						RunwayStatus: map[string]string{"04L/22L": "LOW_VIS"},
+					},
+				},
+			}, nil
+		},
+	}
+
+	client := NewClient(WithAPIKey("test-key"), WithHTTPClient(newFailingHTTPClient()))
+	service := NewCdmService(client, &testutil.MockStripRepository{}, sessionRepo, &testutil.MockControllerRepository{})
+	service.client.isValid = false
+	provider := &trackingConfigProvider{}
+	service.SetConfigProvider(provider)
+
+	err := service.syncLiveSessions(context.Background())
+	require.NoError(t, err)
+	assert.True(t, provider.called)
+	assert.Equal(t, "EKCH", provider.airport)
+	assert.True(t, provider.active)
 }

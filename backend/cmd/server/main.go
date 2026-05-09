@@ -72,10 +72,13 @@ func main() {
 	logger := slog.New(tint.NewHandler(os.Stdout, &tint.Options{Level: &logLevel}))
 	slog.SetDefault(logger)
 
-	err := godotenv.Load()
-	if err != nil {
-		slog.Error("Error loading .env file", slog.Any("error", err))
-		os.Exit(1)
+	var err error
+	for _, envFile := range []string{".env", ".env.dev"} {
+		err = godotenv.Load(envFile)
+		if err != nil && !os.IsNotExist(err) {
+			slog.Error("Error loading env file", slog.String("file", envFile), slog.Any("error", err))
+			os.Exit(1)
+		}
 	}
 
 	ctx := context.Background()

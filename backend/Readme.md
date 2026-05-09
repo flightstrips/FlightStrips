@@ -16,3 +16,5 @@ For local development only the database can be started using:
 docker compose --profile database up --build -d
 ```
 
+When running the backend locally with `go run`, `.env.dev` is loaded after `.env` for development-only overrides. Aspire OTLP export is configured there and is not included in the Docker image.
+

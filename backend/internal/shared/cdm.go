@@ -6,7 +6,7 @@ import (
 
 type CdmService interface {
 	TriggerRecalculate(ctx context.Context, session int32, airport string)
-	HandleReadyRequest(ctx context.Context, session int32, callsign string) error
+	HandleReadyRequest(ctx context.Context, session int32, callsign string, sourcePosition string, sourceRole string) error
 	HandleEobtUpdate(ctx context.Context, session int32, callsign string, eobt string, sourcePosition string, sourceRole string) error
 	HandleTobtUpdate(ctx context.Context, session int32, callsign string, tobt string, sourcePosition string, sourceRole string) error
 	HandleClxTobtUpdate(ctx context.Context, session int32, callsign string, tobt string, sourcePosition string, sourceRole string) error

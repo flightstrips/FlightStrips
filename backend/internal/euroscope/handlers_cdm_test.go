@@ -26,7 +26,7 @@ func (s *spyLocalCdmService) TriggerRecalculate(_ context.Context, _ int32, _ st
 	panic("TriggerRecalculate should not be called in this test")
 }
 
-func (s *spyLocalCdmService) HandleReadyRequest(_ context.Context, _ int32, _ string) error {
+func (s *spyLocalCdmService) HandleReadyRequest(_ context.Context, _ int32, _ string, _ string, _ string) error {
 	panic("HandleReadyRequest should not be called in this test")
 }
 

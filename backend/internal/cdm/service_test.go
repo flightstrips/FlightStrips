@@ -44,22 +44,23 @@ func newTestClientWithAirportMasters(masters []AirportMaster) *Client {
 	return client
 }
 
-func TestHandleReadyRequest_UsesBackendRequestFlow(t *testing.T) {
+func TestHandleReadyRequest_UsesReadyFlow(t *testing.T) {
 	const sessionID = int32(11)
 	const callsign = "EZY456"
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "/ifps/dpi", r.URL.Path)
 		assert.Equal(t, callsign, r.URL.Query().Get("callsign"))
-		value := r.URL.Query().Get("value")
-		assert.True(t, strings.HasPrefix(value, "REQTOBT/"), "expected REQTOBT value, got %s", value)
-		assert.True(t, strings.HasSuffix(value, "/ATC"), "expected /ATC suffix, got %s", value)
+		assert.Equal(t, "REA/1", r.URL.Query().Get("value"))
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer server.Close()
 
 	var persisted *models.CdmData
 	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			return &models.Strip{Callsign: callsign, Origin: "EKCH"}, nil
+		},
 		GetCdmDataForCallsignFn: func(_ context.Context, _ int32, _ string) (*models.CdmData, error) {
 			return (&models.CdmData{}).Normalize(), nil
 		},
@@ -95,19 +96,19 @@ func TestHandleReadyRequest_UsesBackendRequestFlow(t *testing.T) {
 	)
 	service.SetFrontendHub(frontendHub)
 	service.SetEuroscopeHub(euroscopeHub)
+	service.sessionMaster.Store(sessionID, true)
 
-	err := service.HandleReadyRequest(context.Background(), sessionID, callsign)
+	err := service.HandleReadyRequest(context.Background(), sessionID, callsign, "EKCH_DEL", "ATC")
 	require.NoError(t, err)
 
 	require.NotNil(t, persisted)
 	require.NotNil(t, persisted.Status)
-	assert.True(t, strings.HasPrefix(*persisted.Status, "REQTOBT/"))
-	assert.True(t, strings.HasSuffix(*persisted.Status, "/ATC"))
+	assert.Equal(t, "REA", *persisted.Status)
+	assert.Nil(t, persisted.Tobt)
 
 	require.Len(t, frontendHub.CdmUpdates, 1)
 	assert.Equal(t, callsign, frontendHub.CdmUpdates[0].Callsign)
-	assert.True(t, strings.HasPrefix(frontendHub.CdmUpdates[0].Event.Status, "REQTOBT/"))
-	assert.True(t, strings.HasSuffix(frontendHub.CdmUpdates[0].Event.Status, "/ATC"))
+	assert.Equal(t, "REA", frontendHub.CdmUpdates[0].Event.Status)
 	require.Len(t, frontendHub.CdmWaits, 1)
 	assert.Equal(t, callsign, frontendHub.CdmWaits[0].Callsign)
 }
@@ -121,7 +122,7 @@ func TestHandleReadyRequest_WithoutValidClient_DoesNothing(t *testing.T) {
 	service.SetFrontendHub(frontendHub)
 	service.SetEuroscopeHub(euroscopeHub)
 
-	err := service.HandleReadyRequest(context.Background(), 7, "SAS123")
+	err := service.HandleReadyRequest(context.Background(), 7, "SAS123", "EKCH_DEL", "ATC")
 	require.NoError(t, err)
 
 	assert.Empty(t, frontendHub.CdmWaits)
@@ -714,6 +715,170 @@ func TestSetReady_SendsRea1ViaDpi(t *testing.T) {
 	assert.Equal(t, "REA/1", receivedValue)
 	require.Len(t, frontendHub.CdmUpdates, 1)
 	assert.Equal(t, "REA", frontendHub.CdmUpdates[0].Event.Status)
+}
+
+func TestHandleReadyRequest_UpdatesFutureTobtToNow(t *testing.T) {
+	const callsign = "SAS211"
+	const sessionID = int32(211)
+
+	futureTobt := time.Now().UTC().Add(15 * time.Minute).Format("1504")
+	var persisted *models.CdmData
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	service := NewCdmService(
+		NewClient(WithAPIKey("test-key"), WithBaseURL(server.URL)),
+		&testutil.MockStripRepository{
+			GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+				return &models.Strip{Callsign: callsign, Origin: "EKCH"}, nil
+			},
+			GetCdmDataForCallsignFn: func(_ context.Context, _ int32, _ string) (*models.CdmData, error) {
+				if persisted != nil {
+					return persisted.Clone(), nil
+				}
+				return (&models.CdmData{Tobt: stringPtr(futureTobt)}).Normalize(), nil
+			},
+			SetCdmDataFn: func(_ context.Context, _ int32, _ string, data *models.CdmData) (int64, error) {
+				persisted = data.Clone()
+				return 1, nil
+			},
+		},
+		&testutil.MockSessionRepository{},
+		&testutil.MockControllerRepository{},
+	)
+	service.SetFrontendHub(&testutil.MockFrontendHub{})
+	service.sessionMaster.Store(sessionID, true)
+
+	beforeNow := time.Now().UTC().Format("1504")
+	err := service.HandleReadyRequest(context.Background(), sessionID, callsign, "EKCH_DEL", "ATC")
+	afterNow := time.Now().UTC().Format("1504")
+	require.NoError(t, err)
+
+	require.NotNil(t, persisted)
+	require.NotNil(t, persisted.Tobt)
+	assert.Contains(t, []string{beforeNow, afterNow}, *persisted.Tobt)
+	require.NotNil(t, persisted.Status)
+	assert.Equal(t, "REA", *persisted.Status)
+	require.NotNil(t, persisted.TobtSetBy)
+	assert.Equal(t, "EKCH_DEL", *persisted.TobtSetBy)
+}
+
+func TestHandleReadyRequest_DoesNotUpdatePastTobtWithActiveTsat(t *testing.T) {
+	const callsign = "SAS212"
+	const sessionID = int32(212)
+
+	pastTobt := time.Now().UTC().Add(-5 * time.Minute).Format("1504")
+	activeTsat := time.Now().UTC().Add(10 * time.Minute).Format("1504")
+	var persisted *models.CdmData
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	service := NewCdmService(
+		NewClient(WithAPIKey("test-key"), WithBaseURL(server.URL)),
+		&testutil.MockStripRepository{
+			GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+				return &models.Strip{Callsign: callsign, Origin: "EKCH"}, nil
+			},
+			GetCdmDataForCallsignFn: func(_ context.Context, _ int32, _ string) (*models.CdmData, error) {
+				if persisted != nil {
+					return persisted.Clone(), nil
+				}
+				return (&models.CdmData{Tobt: stringPtr(pastTobt), Tsat: stringPtr(activeTsat)}).Normalize(), nil
+			},
+			SetCdmDataFn: func(_ context.Context, _ int32, _ string, data *models.CdmData) (int64, error) {
+				persisted = data.Clone()
+				return 1, nil
+			},
+		},
+		&testutil.MockSessionRepository{},
+		&testutil.MockControllerRepository{},
+	)
+	service.SetFrontendHub(&testutil.MockFrontendHub{})
+	service.sessionMaster.Store(sessionID, true)
+
+	err := service.HandleReadyRequest(context.Background(), sessionID, callsign, "EKCH_DEL", "ATC")
+	require.NoError(t, err)
+
+	require.NotNil(t, persisted)
+	require.NotNil(t, persisted.Tobt)
+	assert.Equal(t, pastTobt, *persisted.Tobt)
+	require.NotNil(t, persisted.Status)
+	assert.Equal(t, "REA", *persisted.Status)
+}
+
+func TestHandleReadyRequest_UpdatesTobtToNowWhenTsatExpiredOrPhaseInvalid(t *testing.T) {
+	tests := []struct {
+		name string
+		data *models.CdmData
+	}{
+		{
+			name: "expired tsat",
+			data: (&models.CdmData{
+				Tobt: stringPtr(time.Now().UTC().Add(-15 * time.Minute).Format("1504")),
+				Tsat: stringPtr(time.Now().UTC().Add(-10 * time.Minute).Format("1504")),
+			}).Normalize(),
+		},
+		{
+			name: "invalid phase",
+			data: (&models.CdmData{
+				Tobt:  stringPtr(time.Now().UTC().Add(-5 * time.Minute).Format("1504")),
+				Phase: stringPtr("I"),
+			}).Normalize(),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			const callsign = "SAS213"
+			const sessionID = int32(213)
+			var persisted *models.CdmData
+
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusOK)
+			}))
+			defer server.Close()
+
+			service := NewCdmService(
+				NewClient(WithAPIKey("test-key"), WithBaseURL(server.URL)),
+				&testutil.MockStripRepository{
+					GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+						return &models.Strip{Callsign: callsign, Origin: "EKCH"}, nil
+					},
+					GetCdmDataForCallsignFn: func(_ context.Context, _ int32, _ string) (*models.CdmData, error) {
+						if persisted != nil {
+							return persisted.Clone(), nil
+						}
+						return tt.data.Clone(), nil
+					},
+					SetCdmDataFn: func(_ context.Context, _ int32, _ string, data *models.CdmData) (int64, error) {
+						persisted = data.Clone()
+						return 1, nil
+					},
+				},
+				&testutil.MockSessionRepository{},
+				&testutil.MockControllerRepository{},
+			)
+			service.SetFrontendHub(&testutil.MockFrontendHub{})
+			service.sessionMaster.Store(sessionID, true)
+
+			beforeNow := time.Now().UTC().Format("1504")
+			err := service.HandleReadyRequest(context.Background(), sessionID, callsign, "EKCH_DEL", "ATC")
+			afterNow := time.Now().UTC().Format("1504")
+			require.NoError(t, err)
+
+			require.NotNil(t, persisted)
+			require.NotNil(t, persisted.Tobt)
+			assert.Contains(t, []string{beforeNow, afterNow}, *persisted.Tobt)
+			require.NotNil(t, persisted.Status)
+			assert.Equal(t, "REA", *persisted.Status)
+		})
+	}
 }
 
 func TestHandleApproveReqTobt_ClearsReqTobtOnViff(t *testing.T) {

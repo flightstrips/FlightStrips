@@ -16,6 +16,8 @@ import (
 type spyCdmService struct {
 	session     int32
 	callsign    string
+	sourcePos   string
+	sourceRole  string
 	called      bool
 	clxSession  int32
 	clxCallsign string
@@ -27,10 +29,12 @@ func (s *spyCdmService) TriggerRecalculate(_ context.Context, _ int32, _ string)
 	panic("TriggerRecalculate should not be called directly from handleCdmReady")
 }
 
-func (s *spyCdmService) HandleReadyRequest(_ context.Context, session int32, callsign string) error {
+func (s *spyCdmService) HandleReadyRequest(_ context.Context, session int32, callsign string, sourcePosition string, sourceRole string) error {
 	s.called = true
 	s.session = session
 	s.callsign = callsign
+	s.sourcePos = sourcePosition
+	s.sourceRole = sourceRole
 	return nil
 }
 
@@ -93,7 +97,7 @@ func TestHandleCdmReady_UsesOrchestrationMethod(t *testing.T) {
 		FrontendHubVal: &testutil.MockFrontendHub{},
 	}
 	hub := &Hub{server: server}
-	client := &Client{hub: hub, session: 42}
+	client := &Client{hub: hub, session: 42, position: "EKCH_DEL"}
 
 	payload, err := json.Marshal(frontendEvents.CdmReadyEvent{Callsign: "SAS321"})
 	require.NoError(t, err)
@@ -103,6 +107,8 @@ func TestHandleCdmReady_UsesOrchestrationMethod(t *testing.T) {
 	assert.True(t, cdmService.called)
 	assert.Equal(t, int32(42), cdmService.session)
 	assert.Equal(t, "SAS321", cdmService.callsign)
+	assert.Equal(t, "EKCH_DEL", cdmService.sourcePos)
+	assert.Equal(t, "ATC", cdmService.sourceRole)
 }
 
 func TestHandleClxUpdateTobt_UsesClxOrchestrationMethod(t *testing.T) {

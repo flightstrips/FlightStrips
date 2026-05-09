@@ -441,7 +441,7 @@ func handleCdmReady(ctx context.Context, client *Client, message Message) error 
 	}
 
 	cdmService := client.hub.server.GetCdmService()
-	return cdmService.HandleReadyRequest(ctx, client.session, event.Callsign)
+	return cdmService.HandleReadyRequest(ctx, client.session, event.Callsign, client.position, "ATC")
 }
 
 func handleClxOverrideValidation(ctx context.Context, client *Client, message Message) error {

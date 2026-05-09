@@ -30,7 +30,7 @@ func (s *spyStripCdmService) TriggerRecalculate(_ context.Context, session int32
 	s.recalcAirport = airport
 }
 
-func (s *spyStripCdmService) HandleReadyRequest(_ context.Context, _ int32, _ string) error {
+func (s *spyStripCdmService) HandleReadyRequest(_ context.Context, _ int32, _ string, _ string, _ string) error {
 	panic("unexpected")
 }
 func (s *spyStripCdmService) HandleEobtUpdate(_ context.Context, _ int32, _ string, _ string, _ string, _ string) error {

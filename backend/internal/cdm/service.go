@@ -455,12 +455,24 @@ func (s *Service) clearReqTobtAsync(session int32, callsign string) {
 	}()
 }
 
-func (s *Service) HandleReadyRequest(ctx context.Context, session int32, callsign string) error {
+func (s *Service) HandleReadyRequest(ctx context.Context, session int32, callsign string, sourcePosition string, sourceRole string) error {
 	if !s.client.isValid {
 		return nil
 	}
 
-	return s.RequestBetterTobt(ctx, session, callsign)
+	_, cdmData, err := s.loadCdmActionTarget(ctx, session, callsign)
+	if err != nil {
+		return err
+	}
+
+	now := time.Now().UTC()
+	if shouldUpdateReadyTobtNow(cdmData, now) {
+		if err := s.HandleTobtUpdate(ctx, session, callsign, now.Format("1504"), sourcePosition, sourceRole); err != nil {
+			return err
+		}
+	}
+
+	return s.SetReady(ctx, session, callsign)
 }
 
 func (s *Service) SetReady(ctx context.Context, session int32, callsign string) error {
@@ -1278,6 +1290,27 @@ func shouldTriggerClockRecalculation(value string, now time.Time) bool {
 		return false
 	}
 	return !isMoreThanMinutesPast(normalized, now.UTC().Format("1504"), 0)
+}
+
+func shouldUpdateReadyTobtNow(data *models.CdmData, now time.Time) bool {
+	if data == nil {
+		return false
+	}
+
+	if helpers.ValueOrDefault(data.EffectivePhase()) == "I" {
+		return true
+	}
+
+	nowClock := timeToClock(now)
+	if tsat := normalizeCalculationClock(helpers.ValueOrDefault(data.EffectiveTsat())); tsat != "" && isMoreThanMinutesPast(tsat, nowClock, 5) {
+		return true
+	}
+
+	if tobt := normalizeCalculationClock(helpers.ValueOrDefault(data.EffectiveTobt())); tobt != "" && minutesBetween(nowClock, tobt) > 0 {
+		return true
+	}
+
+	return false
 }
 
 func (s *Service) pushTobtAsync(session int32, callsign string, previousTobt string, tobt string) {

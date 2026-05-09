@@ -34,7 +34,7 @@ func (s *recordingCdmService) TriggerRecalculate(ctx context.Context, session in
 	}
 }
 
-func (s *recordingCdmService) HandleReadyRequest(context.Context, int32, string) error {
+func (s *recordingCdmService) HandleReadyRequest(context.Context, int32, string, string, string) error {
 	return nil
 }
 

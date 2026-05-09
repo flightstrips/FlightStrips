@@ -568,6 +568,54 @@ func TestCalculate_AppliesSidIntervalSpacing(t *testing.T) {
 	assertClockResult(t, result, "100800", "101800")
 }
 
+func TestCalculate_AppliesSameDestinationSpacingAcrossIndependentRunways(t *testing.T) {
+	t.Parallel()
+
+	config := NewDefaultAirportConfig("EKCH")
+	config.DefaultRate = 120
+
+	result := Calculate(CalcInput{
+		Callsign:    "SAS463D",
+		Origin:      "EKCH",
+		Destination: "ESSA",
+		DepRwy:      "04L",
+		Tobt:        "1000",
+		TaxiMin:     10,
+	}, []SlotEntry{{
+		Callsign:    "SAS995D",
+		Origin:      "EKCH",
+		Destination: "ESSA",
+		DepRwy:      "22R",
+		Ttot:        "101100",
+	}}, config, time.Date(2026, 3, 25, 8, 0, 0, 0, time.UTC))
+
+	assertClockResult(t, result, "100400", "101400")
+}
+
+func TestCalculate_IgnoresSameDestinationSpacingForDifferentDestinations(t *testing.T) {
+	t.Parallel()
+
+	config := NewDefaultAirportConfig("EKCH")
+	config.DefaultRate = 120
+
+	result := Calculate(CalcInput{
+		Callsign:    "SAS463E",
+		Origin:      "EKCH",
+		Destination: "ESSA",
+		DepRwy:      "04L",
+		Tobt:        "1000",
+		TaxiMin:     10,
+	}, []SlotEntry{{
+		Callsign:    "SAS995E",
+		Origin:      "EKCH",
+		Destination: "EHAM",
+		DepRwy:      "22R",
+		Ttot:        "101100",
+	}}, config, time.Date(2026, 3, 25, 8, 0, 0, 0, time.UTC))
+
+	assertClockResult(t, result, "100000", "101000")
+}
+
 func TestCalculate_CtotFloorStillHonorsStrongerSidSeparation(t *testing.T) {
 	t.Parallel()
 

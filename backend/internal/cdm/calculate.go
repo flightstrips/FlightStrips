@@ -7,32 +7,36 @@ import (
 	"time"
 )
 
+const sameDestinationSeparationMinutes = 3.0
+
 type CalcInput struct {
-	Callsign   string
-	Origin     string
-	DepRwy     string
-	Sid        string
-	WakeCat    string
-	Eobt       string
-	Tobt       string
-	ReqTobt    string
-	Ctot       string
-	Asat       string
-	TaxiMin    int
-	DeIceMin   int
-	HasManCtot bool
-	ManCtot    string
+	Callsign    string
+	Origin      string
+	Destination string
+	DepRwy      string
+	Sid         string
+	WakeCat     string
+	Eobt        string
+	Tobt        string
+	ReqTobt     string
+	Ctot        string
+	Asat        string
+	TaxiMin     int
+	DeIceMin    int
+	HasManCtot  bool
+	ManCtot     string
 }
 
 type SlotEntry struct {
-	Callsign   string
-	Origin     string
-	DepRwy     string
-	Sid        string
-	WakeCat    string
-	Ttot       string
-	HasManCtot bool
-	ManCtot    string
+	Callsign    string
+	Origin      string
+	Destination string
+	DepRwy      string
+	Sid         string
+	WakeCat     string
+	Ttot        string
+	HasManCtot  bool
+	ManCtot     string
 }
 
 type CalcResult struct {
@@ -46,24 +50,10 @@ func Calculate(input CalcInput, slots []SlotEntry, config *CdmAirportConfig, now
 		return CalcResult{}
 	}
 
-	base := selectCalculationBase(input)
-	if base == "" {
+	ttot := unconstrainedTtot(input, config, now)
+	if ttot == "" {
 		return CalcResult{}
 	}
-
-	ttot := addMinutes(toHHMMSS(base), float64(input.TaxiMin+input.DeIceMin))
-	if input.HasManCtot && strings.TrimSpace(input.ManCtot) != "" {
-		manual := toHHMMSS(input.ManCtot)
-		if !isAfterOrEqual(ttot, manual) {
-			ttot = manual
-		}
-	}
-	if ctot := toHHMMSS(strings.TrimSpace(input.Ctot)); ctot != "" {
-		if !isAfterOrEqual(ttot, ctot) {
-			ttot = ctot
-		}
-	}
-	ttot = applyAdverseConditionFloor(ttot, resolveAdverseConditionImpact(input, config, now))
 
 	rate := DefaultCDMRate
 	if config != nil {
@@ -84,6 +74,11 @@ func Calculate(input CalcInput, slots []SlotEntry, config *CdmAirportConfig, now
 			}
 			if strings.EqualFold(strings.TrimSpace(slot.Callsign), strings.TrimSpace(input.Callsign)) {
 				continue
+			}
+			if violatesSameDestinationSeparation(ttot, input.Destination, slot.Ttot, slot.Destination) {
+				ttot = addMinutes(ttot, 0.5)
+				changed = true
+				break
 			}
 			if !sameOrDependentRunway(input.DepRwy, slot.DepRwy, config) {
 				continue
@@ -133,6 +128,28 @@ func Calculate(input CalcInput, slots []SlotEntry, config *CdmAirportConfig, now
 			}
 		}
 	}
+}
+
+func unconstrainedTtot(input CalcInput, config *CdmAirportConfig, now time.Time) string {
+	base := selectCalculationBase(input)
+	if base == "" {
+		return ""
+	}
+
+	ttot := addMinutes(toHHMMSS(base), float64(input.TaxiMin+input.DeIceMin))
+	if input.HasManCtot && strings.TrimSpace(input.ManCtot) != "" {
+		manual := toHHMMSS(input.ManCtot)
+		if !isAfterOrEqual(ttot, manual) {
+			ttot = manual
+		}
+	}
+	if ctot := toHHMMSS(strings.TrimSpace(input.Ctot)); ctot != "" {
+		if !isAfterOrEqual(ttot, ctot) {
+			ttot = ctot
+		}
+	}
+
+	return applyAdverseConditionFloor(ttot, resolveAdverseConditionImpact(input, config, now))
 }
 
 func selectCalculationBase(input CalcInput) string {
@@ -227,4 +244,17 @@ func withinWindow(candidate, slot string, windowMinutes float64) bool {
 	}
 	diff := math.Abs(minutesBetween(slot, candidate))
 	return diff > 0 && diff < windowMinutes
+}
+
+func violatesSameDestinationSeparation(candidateTtot, candidateDestination, slotTtot, slotDestination string) bool {
+	if !sameDestination(candidateDestination, slotDestination) {
+		return false
+	}
+
+	return toHHMMSS(slotTtot) == toHHMMSS(candidateTtot) || withinWindow(candidateTtot, slotTtot, sameDestinationSeparationMinutes)
+}
+
+func sameDestination(current, other string) bool {
+	normalizedCurrent := normalizeToken(current)
+	return normalizedCurrent != "" && normalizedCurrent == normalizeToken(other)
 }

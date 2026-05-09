@@ -18,6 +18,17 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
+type sequencingCandidate struct {
+	strip       *models.Strip
+	input       CalcInput
+	baseTime    string
+	naturalTtot string
+	slot        SlotEntry
+	hasSlot     bool
+	started     bool
+	staleBase   bool
+}
+
 type SequenceService struct {
 	stripRepo      repository.StripRepository
 	sessionRepo    repository.SessionRepository
@@ -93,25 +104,60 @@ func (s *SequenceService) recalculateAirport(ctx context.Context, session int32,
 	}
 	config = config.SnapshotWithRunways(sessionData.ActiveRunways.ArrivalRunways, sessionData.ActiveRunways.DepartureRunways)
 	now := time.Now().UTC()
+	nowHHMMSS := timeToClock(now)
 
-	candidates := make([]*models.Strip, 0, len(strips))
+	candidates := make([]sequencingCandidate, 0, len(strips))
 	for _, strip := range strips {
 		if strip == nil || shouldSkipStrip(strip) {
 			continue
 		}
-		candidates = append(candidates, strip)
+		calcInput := buildCalcInput(strip, config)
+		slot, hasSlot := existingSlotEntry(strip)
+		candidates = append(candidates, sequencingCandidate{
+			strip:       strip,
+			input:       calcInput,
+			baseTime:    selectCalculationBase(calcInput),
+			naturalTtot: unconstrainedTtot(calcInput, config, now),
+			slot:        slot,
+			hasSlot:     hasSlot,
+			started:     valueOrEmpty(strip.EffectiveAsat()) != "" || valueOrEmpty(strip.EffectiveAobt()) != "",
+			staleBase:   shouldInvalidateStaleTobt(calcInput, nowHHMMSS),
+		})
 	}
 	span.SetAttributes(attribute.Int("candidate_count", len(candidates)))
 
-	sort.SliceStable(candidates, func(i, j int) bool {
-		return sequenceSortKey(candidates[i]) < sequenceSortKey(candidates[j])
+	preserved := make([]sequencingCandidate, 0, len(candidates))
+	recalculate := make([]sequencingCandidate, 0, len(candidates))
+	for _, candidate := range candidates {
+		if shouldRecalculateStrip(candidate.strip, now) || !candidate.hasSlot {
+			recalculate = append(recalculate, candidate)
+			continue
+		}
+		preserved = append(preserved, candidate)
+	}
+
+	sort.SliceStable(preserved, func(i, j int) bool {
+		return compareSequencingCandidates(preserved[i], preserved[j], now, true) < 0
 	})
 
 	slots := make([]SlotEntry, 0, len(candidates))
-	for _, strip := range candidates {
+	for _, candidate := range preserved {
+		if candidate.started || !hasPreservedSlotConflict(candidate.slot, slots, config) {
+			slots = append(slots, candidate.slot)
+			continue
+		}
+		recalculate = append(recalculate, candidate)
+	}
+
+	sort.SliceStable(recalculate, func(i, j int) bool {
+		return compareSequencingCandidates(recalculate[i], recalculate[j], now, false) < 0
+	})
+
+	for _, candidate := range recalculate {
+		strip := candidate.strip
 		if !shouldRecalculateStrip(strip, now) {
 			if slot, ok := existingSlotEntry(strip); ok {
-				if valueOrEmpty(strip.EffectiveAsat()) != "" || valueOrEmpty(strip.EffectiveAobt()) != "" || !hasExactTtotConflict(slot, slots, config) {
+				if valueOrEmpty(strip.EffectiveAsat()) != "" || valueOrEmpty(strip.EffectiveAobt()) != "" || !hasPreservedSlotConflict(slot, slots, config) {
 					slots = append(slots, slot)
 					continue
 				}
@@ -120,7 +166,7 @@ func (s *SequenceService) recalculateAirport(ctx context.Context, session int32,
 			}
 		}
 
-		calcInput := buildCalcInput(strip, config)
+		calcInput := candidate.input
 
 		// TSAT specifically expired → mark strip as invalid, keep TOBT
 		if isTsatSpecificallyExpired(strip, now) {
@@ -193,19 +239,50 @@ func (s *SequenceService) recalculateAirport(ctx context.Context, session int32,
 
 		if result.Ttot != "" {
 			slots = append(slots, SlotEntry{
-				Callsign:   strip.Callsign,
-				Origin:     strip.Origin,
-				DepRwy:     valueOrEmpty(strip.Runway),
-				Sid:        valueOrEmpty(strip.Sid),
-				WakeCat:    valueOrEmpty(strip.AircraftCategory),
-				Ttot:       result.Ttot,
-				HasManCtot: updated.HasManualCtot(),
-				ManCtot:    valueOrEmpty(updated.Ctot),
+				Callsign:    strip.Callsign,
+				Origin:      strip.Origin,
+				Destination: strip.Destination,
+				DepRwy:      valueOrEmpty(strip.Runway),
+				Sid:         valueOrEmpty(strip.Sid),
+				WakeCat:     valueOrEmpty(strip.AircraftCategory),
+				Ttot:        result.Ttot,
+				HasManCtot:  updated.HasManualCtot(),
+				ManCtot:     valueOrEmpty(updated.Ctot),
 			})
 		}
 	}
 
 	return nil
+}
+
+func compareSequencingCandidates(left, right sequencingCandidate, anchor time.Time, preserveExistingSlots bool) int {
+	if preserveExistingSlots {
+		if left.started != right.started {
+			if left.started {
+				return -1
+			}
+			return 1
+		}
+		if cmp := compareClockForSort(left.slot.Ttot, right.slot.Ttot, anchor); cmp != 0 {
+			return cmp
+		}
+	}
+
+	if left.staleBase != right.staleBase {
+		if left.staleBase {
+			return 1
+		}
+		return -1
+	}
+
+	if cmp := compareClockForSort(left.naturalTtot, right.naturalTtot, anchor); cmp != 0 {
+		return cmp
+	}
+	if cmp := compareClockForSort(left.baseTime, right.baseTime, anchor); cmp != 0 {
+		return cmp
+	}
+
+	return strings.Compare(strings.TrimSpace(left.strip.Callsign), strings.TrimSpace(right.strip.Callsign))
 }
 
 func buildCalcInput(strip *models.Strip, config *CdmAirportConfig) CalcInput {
@@ -217,20 +294,21 @@ func buildCalcInput(strip *models.Strip, config *CdmAirportConfig) CalcInput {
 	}
 
 	return CalcInput{
-		Callsign:   strip.Callsign,
-		Origin:     strip.Origin,
-		DepRwy:     valueOrEmpty(strip.Runway),
-		Sid:        valueOrEmpty(strip.Sid),
-		WakeCat:    valueOrEmpty(strip.AircraftCategory),
-		Eobt:       normalizeCalculationClock(valueOrEmpty(data.EffectiveEobt())),
-		Tobt:       normalizeCalculationClock(valueOrEmpty(data.EffectiveTobt())),
-		ReqTobt:    normalizeCalculationClock(valueOrEmpty(data.EffectiveReqTobt())),
-		Ctot:       valueOrEmpty(data.EffectiveCtot()),
-		Asat:       normalizeCalculationClock(valueOrEmpty(data.EffectiveAsat())),
-		TaxiMin:    resolveTaxiMinutesForStrip(strip, config),
-		DeIceMin:   deiceTypeToMinutes(config, valueOrEmpty(data.DeIce)),
-		HasManCtot: data.HasManualCtot(),
-		ManCtot:    valueOrEmpty(data.Ctot),
+		Callsign:    strip.Callsign,
+		Origin:      strip.Origin,
+		Destination: strip.Destination,
+		DepRwy:      valueOrEmpty(strip.Runway),
+		Sid:         valueOrEmpty(strip.Sid),
+		WakeCat:     valueOrEmpty(strip.AircraftCategory),
+		Eobt:        normalizeCalculationClock(valueOrEmpty(data.EffectiveEobt())),
+		Tobt:        normalizeCalculationClock(valueOrEmpty(data.EffectiveTobt())),
+		ReqTobt:     normalizeCalculationClock(valueOrEmpty(data.EffectiveReqTobt())),
+		Ctot:        valueOrEmpty(data.EffectiveCtot()),
+		Asat:        normalizeCalculationClock(valueOrEmpty(data.EffectiveAsat())),
+		TaxiMin:     resolveTaxiMinutesForStrip(strip, config),
+		DeIceMin:    deiceTypeToMinutes(config, valueOrEmpty(data.DeIce)),
+		HasManCtot:  data.HasManualCtot(),
+		ManCtot:     valueOrEmpty(data.Ctot),
 	}
 }
 
@@ -371,21 +449,25 @@ func existingSlotEntry(strip *models.Strip) (SlotEntry, bool) {
 	}
 
 	return SlotEntry{
-		Callsign:   strip.Callsign,
-		Origin:     strip.Origin,
-		DepRwy:     valueOrEmpty(strip.Runway),
-		Sid:        valueOrEmpty(strip.Sid),
-		WakeCat:    valueOrEmpty(strip.AircraftCategory),
-		Ttot:       ttot,
-		HasManCtot: strip.CdmData.HasManualCtot(),
-		ManCtot:    valueOrEmpty(strip.CdmData.Ctot),
+		Callsign:    strip.Callsign,
+		Origin:      strip.Origin,
+		Destination: strip.Destination,
+		DepRwy:      valueOrEmpty(strip.Runway),
+		Sid:         valueOrEmpty(strip.Sid),
+		WakeCat:     valueOrEmpty(strip.AircraftCategory),
+		Ttot:        ttot,
+		HasManCtot:  strip.CdmData.HasManualCtot(),
+		ManCtot:     valueOrEmpty(strip.CdmData.Ctot),
 	}, true
 }
 
-func hasExactTtotConflict(candidate SlotEntry, slots []SlotEntry, config *CdmAirportConfig) bool {
+func hasPreservedSlotConflict(candidate SlotEntry, slots []SlotEntry, config *CdmAirportConfig) bool {
 	for _, slot := range slots {
 		if !strings.EqualFold(strings.TrimSpace(slot.Origin), strings.TrimSpace(candidate.Origin)) {
 			continue
+		}
+		if violatesSameDestinationSeparation(candidate.Ttot, candidate.Destination, slot.Ttot, slot.Destination) {
+			return true
 		}
 		if !sameOrDependentRunway(candidate.DepRwy, slot.DepRwy, config) {
 			continue

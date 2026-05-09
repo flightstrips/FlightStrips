@@ -7,9 +7,15 @@ import (
 	euroscopeEvents "FlightStrips/pkg/events/euroscope"
 	"context"
 	"fmt"
+	"log/slog"
 	"sort"
 	"strings"
 	"time"
+
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
 )
 
 type SequenceService struct {
@@ -43,7 +49,31 @@ func (s *SequenceService) RecalculateAirportSilently(ctx context.Context, sessio
 	return s.recalculateAirport(ctx, session, airport, false)
 }
 
-func (s *SequenceService) recalculateAirport(ctx context.Context, session int32, airport string, notify bool) error {
+func (s *SequenceService) recalculateAirport(ctx context.Context, session int32, airport string, notify bool) (err error) {
+	ctx, span := otel.Tracer("cdm").Start(ctx, "cdm.recalculate_airport",
+		trace.WithAttributes(
+			attribute.Int("session", int(session)),
+			attribute.String("airport", strings.ToUpper(strings.TrimSpace(airport))),
+			attribute.Bool("notify", notify),
+		),
+	)
+	start := time.Now()
+	defer func() {
+		if err != nil {
+			span.SetStatus(codes.Error, err.Error())
+			span.RecordError(err)
+		} else {
+			span.SetStatus(codes.Ok, "")
+		}
+		slog.InfoContext(ctx, "CDM recalculation finished",
+			slog.Int("session", int(session)),
+			slog.String("airport", airport),
+			slog.Bool("notify", notify),
+			slog.Duration("duration", time.Since(start)),
+		)
+		span.End()
+	}()
+
 	strips, err := s.stripRepo.ListByOrigin(ctx, session, airport)
 	if err != nil {
 		return err
@@ -71,6 +101,7 @@ func (s *SequenceService) recalculateAirport(ctx context.Context, session int32,
 		}
 		candidates = append(candidates, strip)
 	}
+	span.SetAttributes(attribute.Int("candidate_count", len(candidates)))
 
 	sort.SliceStable(candidates, func(i, j int) bool {
 		return sequenceSortKey(candidates[i]) < sequenceSortKey(candidates[j])

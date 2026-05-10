@@ -98,7 +98,7 @@ func (s *StripService) autoAssumeForClearedStrip(ctx context.Context, session in
 				}
 			}
 		}
-		s.publisher.SendOwnersUpdate(session, callsign, sqPosition, nextOwners, previousOwners)
+		s.publisher.SendOwnersUpdate(session, callsign, sqPosition, nextOwners, previousOwners, nil)
 	}
 
 	return nil
@@ -232,7 +232,7 @@ func (s *StripService) AutoAssumeForControllerOnline(ctx context.Context, sessio
 					}
 				}
 			}
-			s.publisher.SendOwnersUpdate(session, strip.Callsign, controllerPosition, nextOwners, strip.PreviousOwners)
+			s.publisher.SendOwnersUpdate(session, strip.Callsign, controllerPosition, nextOwners, strip.PreviousOwners, nil)
 		}
 	}
 

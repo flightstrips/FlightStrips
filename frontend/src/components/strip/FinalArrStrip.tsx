@@ -48,6 +48,7 @@ export function FinalArrStrip({
   owner,
   nextControllers,
   previousControllers,
+  nextDisplay,
   myPosition,
   selectable,
   delegateCallsignClick = false,
@@ -95,6 +96,7 @@ export function FinalArrStrip({
         owner={owner}
         nextControllers={nextControllers}
         previousControllers={previousControllers}
+        nextDisplay={nextDisplay}
         myPosition={myPosition}
         marked={marked}
         flexGrow={F_SI}

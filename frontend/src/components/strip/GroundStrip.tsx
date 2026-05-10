@@ -32,6 +32,7 @@ export function GroundStrip({
   owner,
   nextControllers,
   previousControllers,
+  nextDisplay,
   myPosition,
   selectable,
   marked = false,
@@ -61,6 +62,7 @@ export function GroundStrip({
         owner={owner}
         nextControllers={nextControllers}
         previousControllers={previousControllers}
+        nextDisplay={nextDisplay}
         myPosition={myPosition}
         marked={marked}
         transferFrom={stripTransfers[callsign]?.from ?? ""}

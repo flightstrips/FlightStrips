@@ -62,6 +62,7 @@ export function TwyDepStrip({
   owner,
   nextControllers,
   previousControllers,
+  nextDisplay,
   myPosition,
   selectable,
   marked = false,
@@ -112,10 +113,10 @@ export function TwyDepStrip({
   const hpDisplay = isHp ? (holdingPoint ?? "") : "";
   const twyDisplay = !isHp ? (holdingPoint ?? "") : "";
 
-  // Next position frequency — controller.position IS the frequency string (e.g. "118.105")
+  // Next position frequency — prefer the sector-specific display frequency when available.
   const nextPosition = nextControllers?.find(pos => pos !== myPosition);
   const nextController = controllers.find(c => c.position === nextPosition);
-  const nextFreq = nextController ? `:${nextController.position}` : "";
+  const nextFreq = nextDisplay?.frequency ? `:${nextDisplay.frequency}` : nextController ? `:${nextController.position}` : "";
 
   // Cleared altitude display: use FL notation above transition altitude, feet below.
   const fl = clearedAltitude ? formatAltitude(clearedAltitude, transitionAltitude) : "";
@@ -140,6 +141,7 @@ export function TwyDepStrip({
         owner={owner}
         nextControllers={nextControllers}
         previousControllers={previousControllers}
+        nextDisplay={nextDisplay}
         myPosition={myPosition}
         flexGrow={F_SI}
         transferFrom={stripTransfers[callsign]?.from ?? ""}

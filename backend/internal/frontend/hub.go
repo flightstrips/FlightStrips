@@ -6,6 +6,7 @@ import (
 	"FlightStrips/internal/metrics"
 	internalModels "FlightStrips/internal/models"
 	"FlightStrips/internal/rnav"
+	internalServer "FlightStrips/internal/server"
 	"FlightStrips/internal/shared"
 	"FlightStrips/pkg/events"
 	"FlightStrips/pkg/events/frontend"
@@ -69,6 +70,14 @@ type Hub struct {
 
 	clxMu        sync.RWMutex
 	clxOverrides map[int32]map[string]bool
+}
+
+type nextDisplayComputer interface {
+	ComputeNextDisplayForStripContext(ctx context.Context, strip *internalModels.Strip, sessionId int32) (*internalModels.NextDisplay, error)
+}
+
+type nextDisplayBatchComputer interface {
+	ComputeNextDisplaysForStripsContext(ctx context.Context, strips []*internalModels.Strip, sessionId int32) error
 }
 
 func NewHub(stripService shared.StripService, authenticationService shared.AuthenticationService) *Hub {
@@ -308,6 +317,7 @@ func (hub *Hub) sendInitialEvent(client *Client) {
 	}
 
 	clxContext := hub.makeClxValidationContext(client.session)
+	hub.populateNextDisplays(strips, client.session)
 	for _, strip := range strips {
 		stripModels = append(stripModels, MapStripToFrontendModelWithClx(strip, clxContext))
 	}
@@ -484,6 +494,7 @@ func MapStripToFrontendModelWithClx(strip *internalModels.Strip, clxContext clx.
 		Sequence:                 helpers.ValueOrDefault(strip.Sequence),
 		NextControllers:          strip.NextOwners,
 		PreviousControllers:      strip.PreviousOwners,
+		NextDisplay:              mapNextDisplayToDTO(strip.NextDisplay),
 		Owner:                    helpers.ValueOrDefault(strip.Owner),
 		Eobt:                     truncateFrontendClockValue(helpers.ValueOrDefault(strip.EffectiveEobt())),
 		Tobt:                     truncateFrontendClockValue(helpers.ValueOrDefault(strip.EffectiveTobt())),
@@ -616,6 +627,7 @@ func (hub *Hub) SendStripUpdate(session int32, callsign string) {
 		return
 	}
 
+	hub.populateNextDisplay(strip, session)
 	model := MapStripToFrontendModelWithClx(strip, hub.makeClxValidationContext(session))
 
 	event := frontend.StripUpdateEvent{
@@ -815,14 +827,72 @@ func (hub *Hub) SendCoordinationFree(session int32, callsign string) {
 	hub.Broadcast(session, event)
 }
 
-func (hub *Hub) SendOwnersUpdate(session int32, callsign, owner string, nextOwners []string, previousOwners []string) {
+func (hub *Hub) SendOwnersUpdate(session int32, callsign, owner string, nextOwners []string, previousOwners []string, nextDisplay *internalModels.NextDisplay) {
 	event := frontend.OwnersUpdateEvent{
 		Callsign:       callsign,
 		Owner:          owner,
 		NextOwners:     nextOwners,
 		PreviousOwners: previousOwners,
+		NextDisplay:    mapNextDisplayToDTO(nextDisplay),
 	}
 	hub.Broadcast(session, event)
+}
+
+func (hub *Hub) populateNextDisplay(strip *internalModels.Strip, session int32) {
+	if strip == nil {
+		return
+	}
+
+	computer, ok := hub.server.(nextDisplayComputer)
+	if !ok {
+		return
+	}
+
+	nextDisplay, err := computer.ComputeNextDisplayForStripContext(context.Background(), strip, session)
+	if err != nil {
+		slog.Warn("Failed to compute next display data for strip",
+			slog.String("callsign", strip.Callsign),
+			slog.Int("session", int(session)),
+			slog.Any("error", err))
+		return
+	}
+
+	strip.NextDisplay = nextDisplay
+}
+
+func (hub *Hub) populateNextDisplays(strips []*internalModels.Strip, session int32) {
+	if len(strips) == 0 {
+		return
+	}
+
+	if computer, ok := hub.server.(nextDisplayBatchComputer); ok {
+		if err := computer.ComputeNextDisplaysForStripsContext(context.Background(), strips, session); err != nil {
+			slog.Warn("Failed to compute next display data for strip batch",
+				slog.Int("session", int(session)),
+				slog.Int("strip_count", len(strips)),
+				slog.Any("error", err))
+			return
+		}
+		return
+	}
+
+	for _, strip := range strips {
+		hub.populateNextDisplay(strip, session)
+	}
+}
+
+var _ nextDisplayComputer = (*internalServer.Server)(nil)
+var _ nextDisplayBatchComputer = (*internalServer.Server)(nil)
+
+func mapNextDisplayToDTO(nextDisplay *internalModels.NextDisplay) *frontend.NextDisplay {
+	if nextDisplay == nil {
+		return nil
+	}
+
+	return &frontend.NextDisplay{
+		Label:     nextDisplay.Label,
+		Frequency: nextDisplay.Frequency,
+	}
 }
 
 func (hub *Hub) SendLayoutUpdates(session int32, layoutMap map[string]string) {

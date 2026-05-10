@@ -167,6 +167,24 @@ func GetSectorDisplayName(sectorRef string) string {
 	return sectorRef
 }
 
+func GetSectorDisplayFrequency(active []string, sectorRef string, isArrival bool) (string, bool) {
+	sector, ok := getSectorByIdentifier(active, sectorRef, isArrival)
+	if !ok {
+		return "", false
+	}
+
+	for _, owner := range sector.Owner {
+		position, err := GetPositionByName(owner)
+		if err != nil || strings.TrimSpace(position.Frequency) == "" {
+			continue
+		}
+
+		return position.Frequency, true
+	}
+
+	return "", false
+}
+
 func IsArrivalTowerOwner(owner string, active []string) bool {
 	owner = strings.TrimSpace(owner)
 	if owner == "" {
@@ -206,4 +224,31 @@ func IsArrivalTowerOwner(owner string, active []string) bool {
 
 func sectorMatchesIdentifier(sector Sector, sectorRef string) bool {
 	return strings.EqualFold(sector.KeyOrName(), sectorRef) || strings.EqualFold(sector.Name, sectorRef)
+}
+
+func getSectorByIdentifier(active []string, sectorRef string, isArrival bool) (Sector, bool) {
+	bestScore := -1
+	var best Sector
+	found := false
+
+	for _, sector := range sectors {
+		if !sectorMatchesIdentifier(sector, sectorRef) {
+			continue
+		}
+		if sector.Constraints != nil && (sector.Constraints.Arrival != isArrival || sector.Constraints.Departure != !isArrival) {
+			continue
+		}
+
+		score := matchScore(sector, active)
+		if score < 0 {
+			continue
+		}
+		if !found || score > bestScore {
+			bestScore = score
+			best = sector
+			found = true
+		}
+	}
+
+	return best, found
 }

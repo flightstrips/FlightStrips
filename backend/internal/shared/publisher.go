@@ -1,6 +1,7 @@
 package shared
 
 import (
+	internalModels "FlightStrips/internal/models"
 	"FlightStrips/pkg/events/euroscope"
 	"FlightStrips/pkg/events/frontend"
 )
@@ -29,7 +30,7 @@ type StripEventPublisher interface {
 	SendCoordinationReject(session int32, callsign, position string)
 	SendCoordinationFree(session int32, callsign string)
 	SendCoordinationTagRequest(session int32, callsign, from, to string)
-	SendOwnersUpdate(session int32, callsign string, owner string, nextOwners []string, previousOwners []string)
+	SendOwnersUpdate(session int32, callsign string, owner string, nextOwners []string, previousOwners []string, nextDisplay *internalModels.NextDisplay)
 	SendTacticalStripMoved(session int32, id int64, bay string, sequence int32)
 }
 

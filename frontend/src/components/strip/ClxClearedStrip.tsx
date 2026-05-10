@@ -63,6 +63,7 @@ export function ClxClearedStrip({
   owner,
   nextControllers,
   previousControllers,
+  nextDisplay,
   myPosition,
   selectable,
   marked = false,
@@ -127,6 +128,7 @@ export function ClxClearedStrip({
           owner={owner}
           nextControllers={nextControllers}
           previousControllers={previousControllers}
+          nextDisplay={nextDisplay}
           myPosition={myPosition}
           flexGrow={8.44}
           transferFrom={stripTransfers[callsign]?.from ?? ""}

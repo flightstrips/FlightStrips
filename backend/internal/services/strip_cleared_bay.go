@@ -125,7 +125,7 @@ func (s *StripService) clearOwnerForNotCleared(ctx context.Context, session int3
 		if err != nil {
 			return fmt.Errorf("failed to reload strip after owner reset: %w", err)
 		}
-		s.publisher.SendOwnersUpdate(session, callsign, "", refreshedStrip.NextOwners, refreshedStrip.PreviousOwners)
+		s.publisher.SendOwnersUpdate(session, callsign, "", refreshedStrip.NextOwners, refreshedStrip.PreviousOwners, nil)
 	}
 
 	return nil

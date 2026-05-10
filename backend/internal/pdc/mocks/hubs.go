@@ -114,8 +114,8 @@ func (m *FrontendHub) SendCoordinationFree(session int32, callsign string) {
 	m.Called(session, callsign)
 }
 
-func (m *FrontendHub) SendOwnersUpdate(session int32, callsign string, owner string, nextOwners []string, previousOwners []string) {
-	m.Called(session, callsign, owner, nextOwners, previousOwners)
+func (m *FrontendHub) SendOwnersUpdate(session int32, callsign string, owner string, nextOwners []string, previousOwners []string, nextDisplay *internalModels.NextDisplay) {
+	m.Called(session, callsign, owner, nextOwners, previousOwners, nextDisplay)
 }
 
 func (m *FrontendHub) SendLayoutUpdates(session int32, layoutMap map[string]string) {

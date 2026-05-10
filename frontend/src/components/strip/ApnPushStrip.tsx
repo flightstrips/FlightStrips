@@ -70,6 +70,7 @@ export function ApnPushStrip({
   owner,
   nextControllers,
   previousControllers,
+  nextDisplay,
   myPosition,
   selectable,
   delegateCallsignClick = false,
@@ -126,6 +127,7 @@ export function ApnPushStrip({
           owner={owner}
           nextControllers={nextControllers}
           previousControllers={previousControllers}
+          nextDisplay={nextDisplay}
           myPosition={myPosition}
           transferFrom={stripTransfers[callsign]?.from ?? ""}
           transferringTo={stripTransfers[callsign]?.to ?? ""}

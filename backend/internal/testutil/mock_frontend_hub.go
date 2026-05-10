@@ -1,6 +1,7 @@
 package testutil
 
 import (
+	internalModels "FlightStrips/internal/models"
 	"FlightStrips/internal/shared"
 	"FlightStrips/pkg/events/frontend"
 	pkgModels "FlightStrips/pkg/models"
@@ -38,6 +39,7 @@ type OwnersUpdateCall struct {
 	Owner          string
 	NextOwners     []string
 	PreviousOwners []string
+	NextDisplay    *internalModels.NextDisplay
 }
 
 // CoordinationTransferCall records arguments to SendCoordinationTransfer.
@@ -240,8 +242,15 @@ func (m *MockFrontendHub) SendCoordinationFree(session int32, callsign string) {
 	m.CoordinationFrees = append(m.CoordinationFrees, CoordinationFreeCall{session, callsign})
 }
 
-func (m *MockFrontendHub) SendOwnersUpdate(session int32, callsign string, owner string, nextOwners []string, previousOwners []string) {
-	m.OwnersUpdates = append(m.OwnersUpdates, OwnersUpdateCall{session, callsign, owner, nextOwners, previousOwners})
+func (m *MockFrontendHub) SendOwnersUpdate(session int32, callsign string, owner string, nextOwners []string, previousOwners []string, nextDisplay *internalModels.NextDisplay) {
+	m.OwnersUpdates = append(m.OwnersUpdates, OwnersUpdateCall{
+		Session:        session,
+		Callsign:       callsign,
+		Owner:          owner,
+		NextOwners:     nextOwners,
+		PreviousOwners: previousOwners,
+		NextDisplay:    nextDisplay,
+	})
 }
 
 func (m *MockFrontendHub) SendLayoutUpdates(session int32, layoutMap map[string]string) {}

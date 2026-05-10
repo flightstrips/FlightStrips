@@ -56,6 +56,7 @@ export function ApnTaxiDepStrip({
   owner,
   nextControllers,
   previousControllers,
+  nextDisplay,
   myPosition,
   selectable,
   marked = false,
@@ -108,6 +109,7 @@ export function ApnTaxiDepStrip({
           owner={owner}
           nextControllers={nextControllers}
           previousControllers={previousControllers}
+          nextDisplay={nextDisplay}
           myPosition={myPosition}
           transferFrom={stripTransfers[callsign]?.from ?? ""}
           transferringTo={stripTransfers[callsign]?.to ?? ""}

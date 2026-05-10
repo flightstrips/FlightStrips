@@ -146,6 +146,7 @@ type Strip struct {
 	Sequence                 int32             `json:"sequence"`
 	NextControllers          []string          `json:"next_controllers"`
 	PreviousControllers      []string          `json:"previous_controllers"`
+	NextDisplay              *NextDisplay      `json:"next_display,omitempty"`
 	Owner                    string            `json:"owner"`
 	Tobt                     string            `json:"tobt"`
 	ReqTobt                  string            `json:"req_tobt,omitempty"`
@@ -179,6 +180,11 @@ type Strip struct {
 	HasFP                    bool              `json:"has_fp"`
 	ValidationStatus         *ValidationStatus `json:"validation_status,omitempty"`
 	ClxValidation            *ClxValidation    `json:"clx_validation,omitempty"`
+}
+
+type NextDisplay struct {
+	Label     string `json:"label"`
+	Frequency string `json:"frequency"`
 }
 
 // ClxValidation contains non-blocking field-level CLX dialogue validation faults.
@@ -633,10 +639,11 @@ func (c CoordinationFreeBroadcastEvent) GetType() EventType {
 }
 
 type OwnersUpdateEvent struct {
-	Callsign       string   `json:"callsign"`
-	Owner          string   `json:"owner"`
-	NextOwners     []string `json:"next_owners"`
-	PreviousOwners []string `json:"previous_owners"`
+	Callsign       string       `json:"callsign"`
+	Owner          string       `json:"owner"`
+	NextOwners     []string     `json:"next_owners"`
+	PreviousOwners []string     `json:"previous_owners"`
+	NextDisplay    *NextDisplay `json:"next_display,omitempty"`
 }
 
 func (o OwnersUpdateEvent) Marshal() ([]byte, error) {

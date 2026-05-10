@@ -14,6 +14,7 @@ export function SIBox({
   owner,
   nextControllers,
   previousControllers,
+  nextDisplay,
   myPosition,
   marked,
   flexGrow = F_SI,
@@ -27,6 +28,7 @@ export function SIBox({
   owner?: string;
   nextControllers?: string[];
   previousControllers?: string[];
+  nextDisplay?: import("@/api/models").NextDisplay;
   myPosition?: string;
   /** Pass true when the strip is in the marked state (not yet wired). */
   marked?: boolean;
@@ -67,10 +69,10 @@ export function SIBox({
     nextLabel = "";
   } else if (isSendingTransfer || isTagRequestOwner) {
     const targetController = controllers.find(c => c.position === transferringTo);
-    nextLabel = targetController ? targetController.identifier : "";
+    nextLabel = nextDisplay?.label || (targetController ? targetController.identifier : "");
   } else if (isAssumed && !isTagRequestOwner) {
     const nextController = controllers.find(c => c.position === nextPosition);
-    nextLabel = nextController ? nextController.identifier : "";
+    nextLabel = nextDisplay?.label || (nextController ? nextController.identifier : "");
   }
 
   const handleClick = (e: React.MouseEvent) => {

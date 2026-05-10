@@ -1,5 +1,6 @@
 import { Bay } from "@/api/models";
 import type { PdcStatus } from "@/api/models";
+import type { NextDisplay } from "@/api/models";
 
 export type StripStatus = "CLR" | "CLROK" | "HALF" | "PUSH" | "ARR" | "CLX-HALF" | "TAXI-DEP" | "TWY-DEP" | "FINAL-ARR";
 
@@ -47,6 +48,7 @@ export interface StripProps {
   owner?: string;
   nextControllers?: string[];
   previousControllers?: string[];
+  nextDisplay?: NextDisplay;
   myPosition?: string;
   selectable?: boolean;
   marked?: boolean;

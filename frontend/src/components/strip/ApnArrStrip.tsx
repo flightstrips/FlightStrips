@@ -46,6 +46,7 @@ export function ApnArrStrip({
   owner,
   nextControllers,
   previousControllers,
+  nextDisplay,
   myPosition,
   selectable,
   marked = false,
@@ -96,6 +97,7 @@ export function ApnArrStrip({
         owner={owner}
         nextControllers={nextControllers}
         previousControllers={previousControllers}
+        nextDisplay={nextDisplay}
         myPosition={myPosition}
         marked={marked}
         flexGrow={F_SI}

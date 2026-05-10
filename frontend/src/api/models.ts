@@ -173,6 +173,7 @@ export interface FrontendStrip {
   sequence: number;
   next_controllers: string[];
   previous_controllers: string[];
+  next_display?: NextDisplay;
   owner: string;
   pdc_state: PdcStatus;
   pdc_request_remarks?: string;
@@ -422,6 +423,12 @@ export interface FrontendOwnersUpdateEvent {
   owner: string;
   next_owners: string[];
   previous_owners: string[];
+  next_display?: NextDisplay;
+}
+
+export interface NextDisplay {
+  label: string;
+  frequency: string;
 }
 
 export interface FrontendLayoutUpdateEvent {

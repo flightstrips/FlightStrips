@@ -984,6 +984,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
           state.strips[stripIndex].owner = data.owner;
           state.strips[stripIndex].next_controllers = data.next_owners;
           state.strips[stripIndex].previous_controllers = data.previous_owners;
+          state.strips[stripIndex].next_display = data.next_display;
         }
       })
     )

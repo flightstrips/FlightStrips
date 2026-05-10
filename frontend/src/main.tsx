@@ -14,6 +14,7 @@ import Layout from "@/pages/layout";
 import Dashboard from "@/pages/dashboard";
 import AppPage from "@/pages/app";
 import PluginAuthComplete from "@/pages/plugin-auth-complete";
+import CdmPage from "@/pages/cdm";
 import PilotLayout from "@/pages/pilot-layout";
 import PilotFlightPage from "@/pages/pilot-flight";
 import { withAuthenticationRequired } from '@auth0/auth0-react';
@@ -23,7 +24,8 @@ import { startAppUpdateMonitoring } from "@/lib/app-update";
 
 startAppUpdateMonitoring();
 
-const MyProtectedComponent = withAuthenticationRequired(Layout);
+const ProtectedLayout = withAuthenticationRequired(Layout);
+const ProtectedCdmPage = withAuthenticationRequired(CdmPage);
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -42,11 +44,12 @@ createRoot(document.getElementById('root')!).render(
           </Route>
           <Route path="/app" element={<AppPage />}/>
           <Route path="/plugin-auth-complete" element={<PluginAuthComplete/>}/>
-          <Route element={<MyProtectedComponent/>}>
+          <Route element={<ProtectedLayout/>}>
             <Route index path="/dashboard" element={<Dashboard/>}/>
             <Route path="/dashboard/profile" element={<Profile/>}/>
             <Route path="/dashboard/docs" element={<DocsRouter />}/>
           </Route>
+          <Route path="/cdm" element={<ProtectedCdmPage />} />
           <Route path="*" element={<div>404 Not Found</div>}/>
         </Routes>
       </Auth0ProviderWithNavigate>

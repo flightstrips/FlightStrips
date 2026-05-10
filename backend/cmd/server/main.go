@@ -301,6 +301,7 @@ func main() {
 	http.HandleFunc("/albEvents", albHub.Upgrade)
 	apiMux := http.NewServeMux()
 	flightLookup := pdc.NewFlightLookupAdapter(pdcService, sessionRepo)
+	cdm.NewWebAPI(authenticationService, sessionRepo, sequenceService).RegisterRoutes(apiMux)
 	pilot.NewWebAPI(authenticationService, vatsimCache, flightLookup, requireLiveCIDVerification).RegisterRoutes(apiMux)
 	pdc.NewWebAPI(authenticationService, pdcService, vatsimCache, requireLiveCIDVerification).RegisterRoutes(apiMux)
 	http.Handle("/api/", server.APIMiddleware(http.StripPrefix("/api", apiMux)))

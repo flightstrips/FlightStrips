@@ -1,4 +1,5 @@
 import {
+  Clock3,
   User,
   Proportions,
 } from "lucide-react"
@@ -33,6 +34,11 @@ export function AppSidebar() {
       title: "Profile",
       url: "/dashboard/profile",
       icon: User,
+    },
+    {
+      title: "CDM",
+      url: "/cdm",
+      icon: Clock3,
     },
     docsNav,
   ]

@@ -189,6 +189,7 @@ func (s *SequenceService) recalculateAirport(ctx context.Context, session int32,
 				updated.Tsat = nil
 				updated.Ttot = nil
 				applyCalculationSnapshot(updated, calcInput, valueOrEmpty(strip.Runway), models.CdmInvalidReasonStaleTsat)
+				setCalculationReasonMarkers(updated, invalidReasonMarker(updated))
 				updated.ClearLocalRecalculationPending()
 				rows, err := s.stripRepo.SetCdmData(ctx, session, strip.Callsign, updated.Normalize())
 				if err != nil {
@@ -208,7 +209,7 @@ func (s *SequenceService) recalculateAirport(ctx context.Context, session int32,
 			continue
 		}
 
-		result := Calculate(calcInput, slots, config, now)
+		result, trace := calculateWithTrace(calcInput, slots, config, now)
 
 		beforeTsat := strings.TrimSpace(valueOrEmpty(strip.EffectiveTsat()))
 		beforeTtot := strings.TrimSpace(valueOrEmpty(strip.EffectiveTtot()))
@@ -225,6 +226,7 @@ func (s *SequenceService) recalculateAirport(ctx context.Context, session int32,
 		updated.Tsat = stringPointerIfPresent(result.Tsat)
 		updated.Ttot = stringPointerIfPresent(result.Ttot)
 		applyCalculationSnapshot(updated, calcInput, valueOrEmpty(strip.Runway), calculationInvalidReason(calcInput, result, now))
+		setCalculationReasonMarkers(updated, movementReasonMarkersFromTrace(trace))
 		updated.ClearLocalRecalculationPending()
 
 		if beforeTsat != result.Tsat || beforeTtot != result.Ttot || beforeNeedsRecalc || beforeTaxiMinutes != calcInput.TaxiMin || beforeTaxiRunway != strings.TrimSpace(valueOrEmpty(updatedTaxiRunwayFromData(updated))) {

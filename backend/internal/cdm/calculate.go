@@ -44,15 +44,31 @@ type CalcResult struct {
 	Ttot string
 }
 
+type calculationTraceEntry struct {
+	Kind                   string
+	AgainstCallsign        string
+	AgainstTtot            string
+	AgainstRunway          string
+	AgainstSid             string
+	RequiredSpacingMinutes float64
+	FromTtot               string
+	ToTtot                 string
+}
+
 func Calculate(input CalcInput, slots []SlotEntry, config *CdmAirportConfig, now time.Time) CalcResult {
+	result, _ := calculateWithTrace(input, slots, config, now)
+	return result
+}
+
+func calculateWithTrace(input CalcInput, slots []SlotEntry, config *CdmAirportConfig, now time.Time) (CalcResult, []calculationTraceEntry) {
 	nowHHMMSS := timeToClock(now)
 	if shouldInvalidateStaleTobt(input, nowHHMMSS) {
-		return CalcResult{}
+		return CalcResult{}, nil
 	}
 
 	ttot := unconstrainedTtot(input, config, now)
 	if ttot == "" {
-		return CalcResult{}
+		return CalcResult{}, nil
 	}
 
 	rate := DefaultCDMRate
@@ -64,6 +80,7 @@ func Calculate(input CalcInput, slots []SlotEntry, config *CdmAirportConfig, now
 	}
 
 	rateWindow := 60.0 / float64(rate)
+	trace := make([]calculationTraceEntry, 0)
 
 	for {
 		changed := false
@@ -76,7 +93,18 @@ func Calculate(input CalcInput, slots []SlotEntry, config *CdmAirportConfig, now
 				continue
 			}
 			if violatesSameDestinationSeparation(ttot, input.Destination, slot.Ttot, slot.Destination) {
-				ttot = addMinutes(ttot, 0.5)
+				nextTtot := addMinutes(ttot, 0.5)
+				trace = append(trace, calculationTraceEntry{
+					Kind:                   "same_destination_separation",
+					AgainstCallsign:        slot.Callsign,
+					AgainstTtot:            slot.Ttot,
+					AgainstRunway:          slot.DepRwy,
+					AgainstSid:             slot.Sid,
+					RequiredSpacingMinutes: sameDestinationSeparationMinutes,
+					FromTtot:               ttot,
+					ToTtot:                 nextTtot,
+				})
+				ttot = nextTtot
 				changed = true
 				break
 			}
@@ -85,13 +113,34 @@ func Calculate(input CalcInput, slots []SlotEntry, config *CdmAirportConfig, now
 			}
 
 			if toHHMMSS(slot.Ttot) == ttot {
-				ttot = addMinutes(ttot, 0.5)
+				nextTtot := addMinutes(ttot, 0.5)
+				trace = append(trace, calculationTraceEntry{
+					Kind:            "runway_slot_collision",
+					AgainstCallsign: slot.Callsign,
+					AgainstTtot:     slot.Ttot,
+					AgainstRunway:   slot.DepRwy,
+					AgainstSid:      slot.Sid,
+					FromTtot:        ttot,
+					ToTtot:          nextTtot,
+				})
+				ttot = nextTtot
 				changed = true
 				break
 			}
 
 			if shouldApplyRateWindow(input.HasManCtot, slot.HasManCtot) && withinWindow(ttot, slot.Ttot, rateWindow) {
-				ttot = addMinutes(ttot, 0.5)
+				nextTtot := addMinutes(ttot, 0.5)
+				trace = append(trace, calculationTraceEntry{
+					Kind:                   "runway_rate_window",
+					AgainstCallsign:        slot.Callsign,
+					AgainstTtot:            slot.Ttot,
+					AgainstRunway:          slot.DepRwy,
+					AgainstSid:             slot.Sid,
+					RequiredSpacingMinutes: rateWindow,
+					FromTtot:               ttot,
+					ToTtot:                 nextTtot,
+				})
+				ttot = nextTtot
 				changed = true
 				break
 			}
@@ -102,7 +151,18 @@ func Calculate(input CalcInput, slots []SlotEntry, config *CdmAirportConfig, now
 					wakeMinutes = wakeSeparationMinutes(slot.WakeCat, input.WakeCat)
 				}
 				if wakeMinutes > 0 && withinWindow(ttot, slot.Ttot, float64(wakeMinutes)) {
-					ttot = addMinutes(ttot, 0.5)
+					nextTtot := addMinutes(ttot, 0.5)
+					trace = append(trace, calculationTraceEntry{
+						Kind:                   "wake_separation",
+						AgainstCallsign:        slot.Callsign,
+						AgainstTtot:            slot.Ttot,
+						AgainstRunway:          slot.DepRwy,
+						AgainstSid:             slot.Sid,
+						RequiredSpacingMinutes: float64(wakeMinutes),
+						FromTtot:               ttot,
+						ToTtot:                 nextTtot,
+					})
+					ttot = nextTtot
 					changed = true
 					break
 				}
@@ -110,7 +170,18 @@ func Calculate(input CalcInput, slots []SlotEntry, config *CdmAirportConfig, now
 
 			if config != nil {
 				if interval := config.SidIntervalMinutes(input.DepRwy, input.Sid, slot.Sid); interval > 0 && withinWindow(ttot, slot.Ttot, interval) {
-					ttot = addMinutes(ttot, 0.5)
+					nextTtot := addMinutes(ttot, 0.5)
+					trace = append(trace, calculationTraceEntry{
+						Kind:                   "sid_interval",
+						AgainstCallsign:        slot.Callsign,
+						AgainstTtot:            slot.Ttot,
+						AgainstRunway:          slot.DepRwy,
+						AgainstSid:             slot.Sid,
+						RequiredSpacingMinutes: interval,
+						FromTtot:               ttot,
+						ToTtot:                 nextTtot,
+					})
+					ttot = nextTtot
 					changed = true
 					break
 				}
@@ -120,12 +191,12 @@ func Calculate(input CalcInput, slots []SlotEntry, config *CdmAirportConfig, now
 		if !changed {
 			tsat := subtractMinutes(ttot, float64(input.TaxiMin))
 			if shouldInvalidateStaleTsat(input, tsat, nowHHMMSS) {
-				return CalcResult{}
+				return CalcResult{}, trace
 			}
 			return CalcResult{
 				Tsat: tsat,
 				Ttot: ttot,
-			}
+			}, trace
 		}
 	}
 }

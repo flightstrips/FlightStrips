@@ -21,11 +21,26 @@ const (
 // CdmCalculation captures the last local sequencing snapshot used to derive
 // TSAT/TTOT and invalidation state. It is internal persistence, not a wire DTO.
 type CdmCalculation struct {
-	BaseTime      *string `json:"baseTime,omitempty"`
-	BaseSource    *string `json:"baseSource,omitempty"`
-	TaxiMinutes   *int    `json:"taxiMinutes,omitempty"`
-	TaxiRunway    *string `json:"taxiRunway,omitempty"`
-	InvalidReason *string `json:"invalidReason,omitempty"`
+	BaseTime         *string           `json:"baseTime,omitempty"`
+	BaseSource       *string           `json:"baseSource,omitempty"`
+	TaxiMinutes      *int              `json:"taxiMinutes,omitempty"`
+	TaxiRunway       *string           `json:"taxiRunway,omitempty"`
+	InvalidReason    *string           `json:"invalidReason,omitempty"`
+	SequencePosition *int              `json:"sequencePosition,omitempty"`
+	LeaderCallsign   *string           `json:"leaderCallsign,omitempty"`
+	LeaderTtot       *string           `json:"leaderTtot,omitempty"`
+	ReasonMarkers    []CdmReasonMarker `json:"reasonMarkers,omitempty"`
+}
+
+type CdmReasonMarker struct {
+	Kind                   string   `json:"kind,omitempty"`
+	Message                string   `json:"message,omitempty"`
+	AgainstCallsign        *string  `json:"againstCallsign,omitempty"`
+	AgainstRunway          *string  `json:"againstRunway,omitempty"`
+	AgainstTtot            *string  `json:"againstTtot,omitempty"`
+	FromTtot               *string  `json:"fromTtot,omitempty"`
+	ToTtot                 *string  `json:"toTtot,omitempty"`
+	RequiredSpacingMinutes *float64 `json:"requiredSpacingMinutes,omitempty"`
 }
 
 type CdmData struct {
@@ -109,6 +124,12 @@ func (c *CdmCalculation) Clone() *CdmCalculation {
 	clone.TaxiMinutes = cloneIntPointer(c.TaxiMinutes)
 	clone.TaxiRunway = cloneStringPointer(c.TaxiRunway)
 	clone.InvalidReason = cloneStringPointer(c.InvalidReason)
+	clone.SequencePosition = cloneIntPointer(c.SequencePosition)
+	clone.LeaderCallsign = cloneStringPointer(c.LeaderCallsign)
+	clone.LeaderTtot = cloneStringPointer(c.LeaderTtot)
+	if len(c.ReasonMarkers) > 0 {
+		clone.ReasonMarkers = cloneReasonMarkers(c.ReasonMarkers)
+	}
 	return &clone
 }
 
@@ -279,6 +300,31 @@ func cloneIntPointer(value *int) *int {
 	return &cloned
 }
 
+func cloneReasonMarkers(markers []CdmReasonMarker) []CdmReasonMarker {
+	cloned := make([]CdmReasonMarker, len(markers))
+	for index, marker := range markers {
+		cloned[index] = CdmReasonMarker{
+			Kind:                   marker.Kind,
+			Message:                marker.Message,
+			AgainstCallsign:        cloneStringPointer(marker.AgainstCallsign),
+			AgainstRunway:          cloneStringPointer(marker.AgainstRunway),
+			AgainstTtot:            cloneStringPointer(marker.AgainstTtot),
+			FromTtot:               cloneStringPointer(marker.FromTtot),
+			ToTtot:                 cloneStringPointer(marker.ToTtot),
+			RequiredSpacingMinutes: cloneFloatPointer(marker.RequiredSpacingMinutes),
+		}
+	}
+	return cloned
+}
+
+func cloneFloatPointer(value *float64) *float64 {
+	if value == nil {
+		return nil
+	}
+	cloned := *value
+	return &cloned
+}
+
 func stringValue(value *string) string {
 	if value == nil {
 		return ""
@@ -292,5 +338,9 @@ func calculationIsEmpty(calculation *CdmCalculation) bool {
 			calculation.BaseSource == nil &&
 			calculation.TaxiMinutes == nil &&
 			calculation.TaxiRunway == nil &&
-			calculation.InvalidReason == nil)
+			calculation.InvalidReason == nil &&
+			calculation.SequencePosition == nil &&
+			calculation.LeaderCallsign == nil &&
+			calculation.LeaderTtot == nil &&
+			len(calculation.ReasonMarkers) == 0)
 }

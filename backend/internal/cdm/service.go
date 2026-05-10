@@ -816,6 +816,26 @@ func (s *Service) syncCdmData(ctx context.Context, session *models.Session) erro
 		}
 	}
 
+	if s.sequenceService != nil && !s.isMasterSession(session.ID) {
+		strips, err := s.stripRepo.ListByOrigin(ctx, session.ID, airport)
+		if err != nil {
+			return err
+		}
+		markerUpdates := buildStoredSequenceMarkerUpdates(strips, s.isMasterSession(session.ID), time.Now().UTC())
+		for _, strip := range strips {
+			if strip == nil {
+				continue
+			}
+			updated, ok := markerUpdates[strip.Callsign]
+			if !ok {
+				continue
+			}
+			if err := s.persistCdmUpdateSilently(ctx, session.ID, strip.Callsign, updated); err != nil {
+				return err
+			}
+		}
+	}
+
 	return nil
 }
 

@@ -258,7 +258,7 @@ func TestUpdateRouteForStrip_ArrivalUsesConfigDrivenCrossingSectorSplit(t *testi
 	assert.Equal(t, "SAS789", frontendHub.OwnersUpdates[0].Callsign)
 }
 
-func TestUpdateRouteForStrip_ArrivalResolvesGWAToTEOwnerWhenControllersAreSplit(t *testing.T) {
+func TestUpdateRouteForStrip_ArrivalKeepsGWAOwnerWhenControllersAreSplit(t *testing.T) {
 
 	frontendHub := &testutil.MockFrontendHub{}
 	stripRepo := &testutil.MockStripRepository{}
@@ -345,9 +345,9 @@ func TestUpdateRouteForStrip_ArrivalResolvesGWAToTEOwnerWhenControllersAreSplit(
 	err = srv.UpdateRouteForStrip("SAS790", 92, true)
 	require.NoError(t, err)
 
-	assert.Equal(t, []string{apronPosition}, updatedNextOwners)
+	assert.Equal(t, []string{cTowerPosition, apronPosition}, updatedNextOwners)
 	require.Len(t, frontendHub.OwnersUpdates, 1)
-	assert.Equal(t, []string{apronPosition}, frontendHub.OwnersUpdates[0].NextOwners)
+	assert.Equal(t, []string{cTowerPosition, apronPosition}, frontendHub.OwnersUpdates[0].NextOwners)
 	assert.Equal(t, "SAS790", frontendHub.OwnersUpdates[0].Callsign)
 }
 
@@ -435,13 +435,14 @@ func TestResolveRouteDisplayFrequency_FallsBackToOwnerFrequency(t *testing.T) {
 	assert.Equal(t, ownerFrequency, frequency)
 }
 
-func TestEKCHArrivalRoute_22LHighAFromTWUsesTEOwnedTransitSectors(t *testing.T) {
+func TestEKCHArrivalRoute_22LHighAFromTWOnlyOverridesEntryTower(t *testing.T) {
 
 	route, ok := config.ComputeToStand([]string{"22L"}, "TW", "A34")
 	require.True(t, ok)
 	assert.Equal(t, []string{"TW", "GWA", "AA"}, route.Path)
 	assert.Equal(t, "TE", route.OwnerOverrides["TW"])
-	assert.Equal(t, "TE", route.OwnerOverrides["GWA"])
+	_, hasGWAOverride := route.OwnerOverrides["GWA"]
+	assert.False(t, hasGWAOverride)
 }
 
 func TestEKCHArrivalRoute_22LCargoFromTWUsesTEOwnedTransitSectors(t *testing.T) {
@@ -453,13 +454,14 @@ func TestEKCHArrivalRoute_22LCargoFromTWUsesTEOwnedTransitSectors(t *testing.T) 
 	assert.Equal(t, "TE", route.OwnerOverrides["GWA"])
 }
 
-func TestEKCHArrivalRoute_04LHighAFromTEUsesTWOwnedTransitSectors(t *testing.T) {
+func TestEKCHArrivalRoute_04LHighAFromTEOnlyOverridesEntryTower(t *testing.T) {
 
 	route, ok := config.ComputeToStand([]string{"04L"}, "TE", "A34")
 	require.True(t, ok)
 	assert.Equal(t, []string{"TE", "GWA", "AA"}, route.Path)
 	assert.Equal(t, "TW", route.OwnerOverrides["TE"])
-	assert.Equal(t, "TW", route.OwnerOverrides["GWA"])
+	_, hasGWAOverride := route.OwnerOverrides["GWA"]
+	assert.False(t, hasGWAOverride)
 }
 
 func TestEKCHArrivalRoute_30RestFromGWAUsesTEOverride(t *testing.T) {

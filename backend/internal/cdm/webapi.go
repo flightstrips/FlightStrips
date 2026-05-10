@@ -698,7 +698,8 @@ func sortPersistedRows(rows []sequenceSnapshotRow, now time.Time) {
 	for i := range rows {
 		if rows[i].response.Position == nil && rows[i].sortTTOT != "" {
 			position++
-			rows[i].response.Position = &position
+			positionValue := position
+			rows[i].response.Position = &positionValue
 			continue
 		}
 		if rows[i].response.Position != nil && *rows[i].response.Position > position {

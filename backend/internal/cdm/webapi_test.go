@@ -289,6 +289,104 @@ func TestWebAPIHandleSequenceDoesNotRecalculateSlaveSessions(t *testing.T) {
 	}
 }
 
+func TestWebAPIHandleSequenceAssignsMissingStoredPositionsIndependently(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, time.May, 10, 10, 0, 0, 0, time.UTC)
+	firstTaxi := 10
+	secondTaxi := 12
+	first := &models.Strip{
+		Callsign:         "SAS123",
+		Origin:           "EKCH",
+		Destination:      "ESSA",
+		Runway:           testStringPtr("04L"),
+		Sid:              testStringPtr("MIKLA1A"),
+		AircraftCategory: testStringPtr("M"),
+		CdmData: (&models.CdmData{
+			Tobt: testStringPtr("1000"),
+			Tsat: testStringPtr("1010"),
+			Ttot: testStringPtr("1020"),
+			Calculation: &models.CdmCalculation{
+				BaseTime:    testStringPtr("1000"),
+				BaseSource:  testStringPtr(models.CdmCalculationBaseTobt),
+				TaxiMinutes: &firstTaxi,
+				TaxiRunway:  testStringPtr("04L"),
+			},
+		}).Normalize(),
+	}
+	second := &models.Strip{
+		Callsign:         "SAS456",
+		Origin:           "EKCH",
+		Destination:      "ESSA",
+		Runway:           testStringPtr("04L"),
+		Sid:              testStringPtr("MIKLA1A"),
+		AircraftCategory: testStringPtr("M"),
+		CdmData: (&models.CdmData{
+			Tobt: testStringPtr("1005"),
+			Tsat: testStringPtr("1015"),
+			Ttot: testStringPtr("1025"),
+			Calculation: &models.CdmCalculation{
+				BaseTime:    testStringPtr("1005"),
+				BaseSource:  testStringPtr(models.CdmCalculationBaseTobt),
+				TaxiMinutes: &secondTaxi,
+				TaxiRunway:  testStringPtr("04L"),
+			},
+		}).Normalize(),
+	}
+
+	stripRepo := &testutil.MockStripRepository{
+		ListByOriginFn: func(ctx context.Context, session int32, origin string) ([]*models.Strip, error) {
+			return []*models.Strip{second, first}, nil
+		},
+	}
+	sessionRepo := &testutil.MockSessionRepository{
+		ListFn: func(ctx context.Context) ([]*models.Session, error) {
+			return []*models.Session{{
+				ID:        7,
+				Name:      "LIVE",
+				Airport:   "EKCH",
+				CdmMaster: true,
+				ActiveRunways: pkgModels.ActiveRunways{
+					DepartureRunways: []string{"04L"},
+					ArrivalRunways:   []string{"22L"},
+				},
+			}}, nil
+		},
+	}
+
+	configStore := NewCdmConfigStore("", "", "", 0, CdmConfigDefaults{}, nil)
+	sequenceService := NewSequenceService(stripRepo, sessionRepo, configStore, nil, nil)
+	api := NewWebAPI(cdmAuthStub{}, sessionRepo, sequenceService)
+	api.now = func() time.Time { return now }
+
+	req := httptest.NewRequest(http.MethodGet, "/cdm/sequence", nil)
+	req.Header.Set("Authorization", "Bearer token")
+	recorder := httptest.NewRecorder()
+
+	api.handleSequence(recorder, req)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, recorder.Code, recorder.Body.String())
+	}
+
+	var payload sequenceResponse
+	if err := json.NewDecoder(recorder.Body).Decode(&payload); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if len(payload.Sessions) != 1 || len(payload.Sessions[0].Rows) != 2 {
+		t.Fatalf("unexpected payload: %#v", payload)
+	}
+
+	firstRow := payload.Sessions[0].Rows[0]
+	secondRow := payload.Sessions[0].Rows[1]
+	if firstRow.Position == nil || *firstRow.Position != 1 {
+		t.Fatalf("expected first fallback position to be 1, got %#v", firstRow)
+	}
+	if secondRow.Position == nil || *secondRow.Position != 2 {
+		t.Fatalf("expected second fallback position to be 2, got %#v", secondRow)
+	}
+}
+
 func hasReason(reasons []sequenceReasonResponse, kind string, against string) bool {
 	for _, reason := range reasons {
 		if reason.Kind != kind {

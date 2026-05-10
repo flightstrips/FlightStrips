@@ -597,6 +597,85 @@ func (hub *Hub) CidDisconnect(cid string) {
 	hub.cidDisconnect <- cidDisconnectMessage{cid: cid}
 }
 
+func (hub *Hub) associateCidOnlineClients(msg cidOnlineMessage) []*Client {
+	controllerRepo := hub.server.GetControllerRepository()
+	sessionRepo := hub.server.GetSessionRepository()
+
+	var controller *internalModels.Controller
+	var dbSession *internalModels.Session
+
+	if loadedController, err := controllerRepo.GetByCid(context.Background(), msg.cid); err == nil {
+		controller = loadedController
+		if loadedSession, err := sessionRepo.GetByID(context.Background(), controller.Session); err == nil {
+			dbSession = loadedSession
+		} else {
+			slog.Error("Failed to get session for CID online client",
+				slog.String("cid", msg.cid), slog.Any("error", err))
+		}
+	} else {
+		slog.Error("Failed to get controller for CID online client",
+			slog.String("cid", msg.cid), slog.Any("error", err))
+	}
+
+	readOnly := false
+	if esHub := hub.server.GetEuroscopeHub(); esHub != nil {
+		readOnly = esHub.IsObserverCid(msg.cid)
+	}
+
+	initialClients := make([]*Client, 0)
+	for client := range hub.clients {
+		if client.user.GetCid() != msg.cid {
+			continue
+		}
+
+		oldSession := client.session
+		oldSessionName := client.sessionName
+		oldAirport := client.airport
+		oldCallsign := client.callsign
+		wasWaiting := oldSession == WaitingForEuroscopeConnectionSessionId
+
+		slog.Debug("Associating frontend client with session",
+			slog.String("cid", msg.cid),
+			slog.Int("session", int(msg.session)))
+		client.session = msg.session
+		client.readOnly = readOnly
+
+		// Always refresh callsign, position, and airport from DB so that
+		// sendInitialEvent and LayoutUpdateEvent routing always use the most
+		// current values. Without this, a controller who changed position in
+		// EuroScope while their browser tab was open would receive layout
+		// updates keyed to their old position.
+		if controller != nil && dbSession != nil {
+			client.callsign = controller.Callsign
+			client.position = controller.Position
+			client.airport = dbSession.Airport
+			client.sessionName = dbSession.Name
+		}
+
+		switch {
+		case oldSession == WaitingForEuroscopeConnectionSessionId && client.sessionName != "":
+			metrics.ConnectionClosed(context.Background(), "", "", "frontend", "")
+			metrics.ConnectionOpened(context.Background(), client.sessionName, client.airport, "frontend", client.callsign)
+		case oldSession != WaitingForEuroscopeConnectionSessionId &&
+			(oldSessionName != client.sessionName || oldAirport != client.airport || oldCallsign != client.callsign):
+			metrics.ConnectionClosed(context.Background(), oldSessionName, oldAirport, "frontend", oldCallsign)
+			metrics.ConnectionOpened(context.Background(), client.sessionName, client.airport, "frontend", client.callsign)
+		}
+
+		if wasWaiting || client.readOnly {
+			initialClients = append(initialClients, client)
+		}
+	}
+
+	return initialClients
+}
+
+func (hub *Hub) handleCidOnline(msg cidOnlineMessage) {
+	for _, client := range hub.associateCidOnlineClients(msg) {
+		hub.sendInitialEvent(client)
+	}
+}
+
 func (hub *Hub) handleCidDisconnect(cid string) {
 	for client := range hub.clients {
 		if client.user.GetCid() == cid {
@@ -615,7 +694,6 @@ func (hub *Hub) handleCidDisconnect(cid string) {
 			client.airport = WaitingForEuroscopeConnectionAirport
 			client.callsign = WaitingForEuroscopeConnectionCallsign
 			client.send <- frontend.DisconnectEvent{ReadOnly: readOnly}
-			return
 		}
 	}
 }
@@ -1025,66 +1103,7 @@ func (hub *Hub) Run() {
 				hub.OnUnregister(client)
 			}
 		case msg := <-hub.cidOnline:
-			for client := range hub.clients {
-				if client.user.GetCid() == msg.cid {
-					oldSession := client.session
-					oldSessionName := client.sessionName
-					oldAirport := client.airport
-					oldCallsign := client.callsign
-					wasWaiting := oldSession == WaitingForEuroscopeConnectionSessionId
-
-					slog.Debug("Associating frontend client with session",
-						slog.String("cid", msg.cid),
-						slog.Int("session", int(msg.session)))
-					client.session = msg.session
-					if esHub := hub.server.GetEuroscopeHub(); esHub != nil {
-						client.readOnly = esHub.IsObserverCid(msg.cid)
-					}
-
-					// Always refresh callsign, position, and airport from DB so that
-					// sendInitialEvent and LayoutUpdateEvent routing always use the most
-					// current values. Without this, a controller who changed position in
-					// EuroScope while their browser tab was open would receive layout
-					// updates keyed to their old position.
-					controllerRepo := hub.server.GetControllerRepository()
-					sessionRepo := hub.server.GetSessionRepository()
-					if controller, err := controllerRepo.GetByCid(context.Background(), msg.cid); err == nil {
-						if dbSession, err := sessionRepo.GetByID(context.Background(), controller.Session); err == nil {
-							client.callsign = controller.Callsign
-							client.position = controller.Position
-							client.airport = dbSession.Airport
-							client.sessionName = dbSession.Name
-						} else {
-							slog.Error("Failed to get session for CID online client",
-								slog.String("cid", msg.cid), slog.Any("error", err))
-						}
-					} else {
-						slog.Error("Failed to get controller for CID online client",
-							slog.String("cid", msg.cid), slog.Any("error", err))
-					}
-
-					switch {
-					case oldSession == WaitingForEuroscopeConnectionSessionId && client.sessionName != "":
-						metrics.ConnectionClosed(context.Background(), "", "", "frontend", "")
-						metrics.ConnectionOpened(context.Background(), client.sessionName, client.airport, "frontend", client.callsign)
-					case oldSession != WaitingForEuroscopeConnectionSessionId &&
-						(oldSessionName != client.sessionName || oldAirport != client.airport || oldCallsign != client.callsign):
-						metrics.ConnectionClosed(context.Background(), oldSessionName, oldAirport, "frontend", oldCallsign)
-						metrics.ConnectionOpened(context.Background(), client.sessionName, client.airport, "frontend", client.callsign)
-					}
-
-					// Only send a full InitialEvent if the client is transitioning out
-					// of the waiting state, or is a read-only observer whose tracked
-					// controller may have changed. Already-connected regular clients
-					// already have their full state from OnRegister; sending another
-					// InitialEvent on every ES sync would disrupt their UI with a
-					// potentially stale layout.
-					if wasWaiting || client.readOnly {
-						hub.sendInitialEvent(client)
-					}
-					break
-				}
-			}
+			hub.handleCidOnline(msg)
 		case msg := <-hub.cidDisconnect:
 			hub.handleCidDisconnect(msg.cid)
 		case message := <-hub.send:

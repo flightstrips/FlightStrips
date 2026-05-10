@@ -67,12 +67,11 @@ export function StripContextMenu({ callsign, position, onClose }: StripContextMe
   const menuRef = useRef<HTMLDivElement>(null);
 
   // FORCE ASSUME: disabled in CLR DEL (never owns strips); disabled if strip has no owner
-  // (not yet cleared/assumed); disabled if already owning the strip or there is an active transfer.
+  // (not yet cleared/assumed); disabled if already owning the strip.
   const forceAssumeDisabled = !canForceAssumeStrip({
     owner: strip?.owner,
     myPosition,
     isClrDel,
-    hasActiveCoordination: !!stripTransfers[callsign],
   });
 
   const activeTransfer = stripTransfers[callsign];

@@ -286,6 +286,69 @@ func TestForceAssumeStrip_UnownedWithStaleCoordination(t *testing.T) {
 	assert.Equal(t, int32(99), deletedCoordID, "stale coordination should have been deleted")
 }
 
+// TestForceAssumeStrip_ActiveCoordinationDoesNotBlock verifies that force assume still succeeds
+// when a normal coordination transfer is currently in progress for the strip.
+func TestForceAssumeStrip_ActiveCoordinationDoesNotBlock(t *testing.T) {
+	existingOwner := "EKCH_A_TWR"
+	strip := &models.Strip{
+		ID:             7,
+		Callsign:       "SAS987",
+		Owner:          &existingOwner,
+		NextOwners:     []string{"EKCH_APP"},
+		PreviousOwners: []string{"EKCH_DEL"},
+		Version:        4,
+	}
+
+	activeCoordination := &models.Coordination{
+		ID:           123,
+		StripID:      strip.ID,
+		FromPosition: "EKCH_A_TWR",
+		ToPosition:   "EKCH_APP",
+	}
+
+	deletedCoordID := int32(0)
+	setOwnerCalled := false
+	hub := &testutil.MockFrontendHub{}
+
+	svc := NewStripService(&testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, callsign string) (*models.Strip, error) {
+			assert.Equal(t, "SAS987", callsign)
+			return strip, nil
+		},
+		SetNextAndPreviousOwnersFn: func(_ context.Context, _ int32, _ string, nextOwners []string, previousOwners []string) error {
+			assert.Equal(t, []string{"EKCH_APP"}, nextOwners)
+			assert.Equal(t, []string{"EKCH_DEL"}, previousOwners)
+			return nil
+		},
+		SetOwnerFn: func(_ context.Context, _ int32, _ string, owner *string, version int32) (int64, error) {
+			setOwnerCalled = true
+			require.NotNil(t, owner)
+			assert.Equal(t, "EKCH_D_TWR", *owner)
+			assert.Equal(t, int32(4), version)
+			return 1, nil
+		},
+	})
+	svc.SetFrontendHub(hub)
+	svc.SetCoordinationRepo(&testutil.MockCoordinationRepository{
+		GetByStripIDFn: func(_ context.Context, session int32, stripID int32) (*models.Coordination, error) {
+			assert.Equal(t, int32(1), session)
+			assert.Equal(t, strip.ID, stripID)
+			return activeCoordination, nil
+		},
+		DeleteFn: func(_ context.Context, id int32) error {
+			deletedCoordID = id
+			return nil
+		},
+	})
+
+	err := svc.ForceAssumeStrip(context.Background(), 1, "SAS987", "EKCH_D_TWR")
+	require.NoError(t, err)
+	assert.True(t, setOwnerCalled, "force assume must still set the new owner during an active transfer")
+	assert.Equal(t, int32(123), deletedCoordID, "active coordination should be cleared before the forced assume completes")
+	require.Len(t, hub.CoordinationAssumes, 1)
+	assert.Equal(t, "EKCH_D_TWR", hub.CoordinationAssumes[0].Position)
+}
+
 // TestForceAssumeStrip_NotFound verifies that an error from the strip repository is propagated.
 func TestForceAssumeStrip_NotFound(t *testing.T) {
 	svc := NewStripService(&testutil.MockStripRepository{

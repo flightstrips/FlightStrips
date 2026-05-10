@@ -55,14 +55,12 @@ export function canForceAssumeStrip({
   owner,
   myPosition,
   isClrDel,
-  hasActiveCoordination,
 }: {
   owner?: string;
   myPosition?: string;
   isClrDel: boolean;
-  hasActiveCoordination: boolean;
 }): boolean {
-  return !!myPosition && !!owner && owner !== myPosition && !isClrDel && !hasActiveCoordination;
+  return !!myPosition && !!owner && owner !== myPosition && !isClrDel;
 }
 
 export function getValidationBlinkStyle(validationStatus: ValidationStatus | undefined, myPosition?: string): CSSProperties {

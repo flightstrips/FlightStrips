@@ -529,7 +529,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     assumeStrip: (callsign) => {
       sendGuardedStripEvent(callsign, { type: "coordination_assume_request" }, { type: ActionType.FrontendCoordinationAssumeRequest, callsign });
     },
-    // forceAssumeStrip: takes ownership of an unowned strip, bypassing the next-owners check
+    // forceAssumeStrip: takes ownership regardless of next owners or any active transfer
     forceAssumeStrip: (callsign) => {
       sendIfWritable({ type: ActionType.FrontendCoordinationForceAssumeRequest, callsign });
     },

@@ -1,5 +1,30 @@
 # Changelog
 
+## [0.35.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.34.2...frontend/v0.35.0) (2026-05-10)
+
+
+### Features
+
+* **ACDM:** expand departure CDM engine ([80fe451](https://github.com/flightstrips/FlightStrips/commit/80fe451dfdcc7dfdc3556f03350bed117b91bd3a))
+* **ACDM:** flag invalid phase TOBT ([3e89c41](https://github.com/flightstrips/FlightStrips/commit/3e89c411643f14f4b124ece483370a8d380947cf))
+* **ACDM:** prioritize CTOT and sync LVP ([dec7f8e](https://github.com/flightstrips/FlightStrips/commit/dec7f8e9df829210033db044ad0b3334d66c7dd4))
+* **cdm:** add standalone sequence page ([4ee51da](https://github.com/flightstrips/FlightStrips/commit/4ee51da5fa1b9a46074c9b0f3e3a74f0d97a54f1))
+* **SEQ:** startup ready ([72b66d6](https://github.com/flightstrips/FlightStrips/commit/72b66d62d5e3371d6720b793773c0cc0a59e9d27)), closes [#202](https://github.com/flightstrips/FlightStrips/issues/202)
+* support sector-aware next display ([a7915f7](https://github.com/flightstrips/FlightStrips/commit/a7915f7b7c5b14464ac260a5e33b5a449a297c2c))
+
+
+### Bug Fixes
+
+* **ACDM:** enforce cdm_ready flow ([232d19f](https://github.com/flightstrips/FlightStrips/commit/232d19f1a705fc8ee2119da43025137c4dfd4576))
+* add missing stand ([a00b3fb](https://github.com/flightstrips/FlightStrips/commit/a00b3fb07ecfb13ab6b2c1ab34a95bca03700c45))
+* **est:** always show CTOT ready background in seq display ([7121864](https://github.com/flightstrips/FlightStrips/commit/7121864bd9cf86ed09665c3216be71c13635f071))
+* **est:** improve CTOT contrast on EST board ([2cb5f6e](https://github.com/flightstrips/FlightStrips/commit/2cb5f6e8ae9aa7b73009662fdb5d222fbb3eea3d))
+* **est:** keep inbound callsigns visible on seq display ([e6da32f](https://github.com/flightstrips/FlightStrips/commit/e6da32f3d07224ee27d1b09beb85159160c259be))
+* **est:** match unoccupied stand color ([39a0e6b](https://github.com/flightstrips/FlightStrips/commit/39a0e6b89e3eaa22ce549be3eccf78862abcf959)), closes [#198](https://github.com/flightstrips/FlightStrips/issues/198)
+* **est:** move MRK highlight off CTOT row ([#199](https://github.com/flightstrips/FlightStrips/issues/199) [#200](https://github.com/flightstrips/FlightStrips/issues/200)) ([4b3ba2a](https://github.com/flightstrips/FlightStrips/commit/4b3ba2a04e707da7b09988cd7c3ec74886c2769b))
+* require two clicks to show menu ([95a4f75](https://github.com/flightstrips/FlightStrips/commit/95a4f750fbc85bcbecc16d60f433553ace8af5ed))
+* scope CTWR frequency to EKCH controllers ([129c34d](https://github.com/flightstrips/FlightStrips/commit/129c34d5497c3074d071c6833b7661d0026c9c10))
+
 ## [0.34.2](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.34.1...frontend/v0.34.2) (2026-05-04)
 
 

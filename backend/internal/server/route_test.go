@@ -94,6 +94,11 @@ func TestUpdateRouteForStrip_ArrivalOutsideSupportedRegionFallsBackToTowerOwner(
 	assert.Equal(t, "SAS123", frontendHub.OwnersUpdates[0].Callsign)
 }
 
+func TestAirborneSectorDisplayNames_UseShortLabels(t *testing.T) {
+	assert.Equal(t, "K", config.GetSectorDisplayName("K_DEP"))
+	assert.Equal(t, "R", config.GetSectorDisplayName("R_DEP"))
+}
+
 func TestUpdateRouteForStrip_ArrivalOutsideSupportedRegionUsesTowerAsRouteStart(t *testing.T) {
 
 	frontendHub := &testutil.MockFrontendHub{}

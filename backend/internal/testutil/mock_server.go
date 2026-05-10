@@ -1,6 +1,7 @@
 package testutil
 
 import (
+	internalModels "FlightStrips/internal/models"
 	"FlightStrips/internal/repository"
 	"FlightStrips/internal/shared"
 	"context"
@@ -19,12 +20,13 @@ type MockServer struct {
 	SessionRepoVal    repository.SessionRepository
 	StripRepoVal      repository.StripRepository
 
-	GetOrCreateSessionFn     func(airport string, name string) (shared.Session, error)
-	UpdateSectorsFn          func(sessionId int32) ([]shared.SectorChange, error)
-	UpdateRouteForStripFn    func(callsign string, sessionId int32, sendUpdate bool) error
-	UpdateRouteForStripCtxFn func(ctx context.Context, callsign string, sessionId int32, sendUpdate bool) error
-	UpdateRoutesForSessionFn func(sessionId int32, sendUpdate bool) error
-	UpdateLayoutsFn          func(sessionId int32) error
+	GetOrCreateSessionFn                func(airport string, name string) (shared.Session, error)
+	UpdateSectorsFn                     func(sessionId int32) ([]shared.SectorChange, error)
+	UpdateRouteForStripFn               func(callsign string, sessionId int32, sendUpdate bool) error
+	UpdateRouteForStripCtxFn            func(ctx context.Context, callsign string, sessionId int32, sendUpdate bool) error
+	UpdateRoutesForSessionFn            func(sessionId int32, sendUpdate bool) error
+	UpdateLayoutsFn                     func(sessionId int32) error
+	ComputeNextDisplayForStripContextFn func(ctx context.Context, strip *internalModels.Strip, sessionId int32) (*internalModels.NextDisplay, error)
 }
 
 func (m *MockServer) GetDatabasePool() *pgxpool.Pool { return nil }
@@ -95,4 +97,11 @@ func (m *MockServer) UpdateLayouts(sessionId int32) error {
 		return m.UpdateLayoutsFn(sessionId)
 	}
 	return nil
+}
+
+func (m *MockServer) ComputeNextDisplayForStripContext(ctx context.Context, strip *internalModels.Strip, sessionId int32) (*internalModels.NextDisplay, error) {
+	if m.ComputeNextDisplayForStripContextFn != nil {
+		return m.ComputeNextDisplayForStripContextFn(ctx, strip, sessionId)
+	}
+	return nil, nil
 }

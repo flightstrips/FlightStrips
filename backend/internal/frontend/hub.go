@@ -753,28 +753,66 @@ func (hub *Hub) setClxOverride(session int32, overrideKey string) {
 
 func (hub *Hub) SendControllerOnline(session int32, callsign string, position string, identifier string, ownedSectors []string) {
 	hub.broadcastController(session, frontend.ControllerOnlineEvent{
-		Controller: hub.controllerPayload(callsign, position, identifier, ownedSectors),
+		Controller: hub.controllerPayload(session, callsign, position, identifier, ownedSectors),
 	})
 }
 
 func (hub *Hub) SendControllerUpdate(session int32, callsign string, position string, identifier string, ownedSectors []string) {
 	hub.broadcastController(session, frontend.ControllerUpdateEvent{
-		Controller: hub.controllerPayload(callsign, position, identifier, ownedSectors),
+		Controller: hub.controllerPayload(session, callsign, position, identifier, ownedSectors),
 	})
 }
 
-func (hub *Hub) controllerPayload(callsign string, position string, identifier string, ownedSectors []string) frontend.Controller {
-	section := ""
-	if pos, err := config.GetPositionBasedOnFrequency(position); err == nil {
-		section = pos.Section
-	}
-	return frontend.Controller{
+func (hub *Hub) controllerPayload(session int32, callsign string, position string, identifier string, ownedSectors []string) frontend.Controller {
+	payload := frontend.Controller{
 		Callsign:     callsign,
 		Position:     position,
 		Identifier:   identifier,
-		Section:      section,
 		OwnedSectors: slices.Clone(ownedSectors),
 	}
+
+	if pos, err := config.GetPositionBasedOnFrequency(position); err == nil {
+		payload.Section = pos.Section
+	}
+
+	if (payload.Identifier != "" || len(payload.OwnedSectors) > 0) || hub.server == nil {
+		return payload
+	}
+
+	sectorRepo := hub.server.GetSectorOwnerRepository()
+	if sectorRepo == nil {
+		return payload
+	}
+
+	sectors, err := sectorRepo.ListBySession(context.Background(), session)
+	if err != nil {
+		slog.Warn("Failed to load sector ownership for controller payload",
+			slog.String("callsign", callsign),
+			slog.Int("session", int(session)),
+			slog.Any("error", err))
+		return payload
+	}
+
+	sectorsMap := make(map[string]*internalModels.SectorOwner, len(sectors))
+	for _, sector := range sectors {
+		if sector == nil {
+			continue
+		}
+		sectorsMap[sector.Position] = sector
+	}
+
+	enriched := buildFrontendController(callsign, position, sectorsMap)
+	if payload.Identifier == "" {
+		payload.Identifier = enriched.Identifier
+	}
+	if len(payload.OwnedSectors) == 0 {
+		payload.OwnedSectors = enriched.OwnedSectors
+	}
+	if payload.Section == "" {
+		payload.Section = enriched.Section
+	}
+
+	return payload
 }
 
 func (hub *Hub) broadcastController(session int32, event frontend.OutgoingMessage) {
@@ -911,9 +949,32 @@ func (hub *Hub) SendOwnersUpdate(session int32, callsign, owner string, nextOwne
 		Owner:          owner,
 		NextOwners:     nextOwners,
 		PreviousOwners: previousOwners,
-		NextDisplay:    mapNextDisplayToDTO(nextDisplay),
+		NextDisplay:    mapNextDisplayToDTO(hub.resolveOwnersUpdateNextDisplay(session, callsign, nextDisplay)),
 	}
 	hub.Broadcast(session, event)
+}
+
+func (hub *Hub) resolveOwnersUpdateNextDisplay(session int32, callsign string, nextDisplay *internalModels.NextDisplay) *internalModels.NextDisplay {
+	if nextDisplay != nil || hub.server == nil {
+		return nextDisplay
+	}
+
+	stripRepo := hub.server.GetStripRepository()
+	if stripRepo == nil {
+		return nil
+	}
+
+	strip, err := stripRepo.GetByCallsign(context.Background(), session, callsign)
+	if err != nil {
+		slog.Warn("Failed to reload strip for owners update next display",
+			slog.String("callsign", callsign),
+			slog.Int("session", int(session)),
+			slog.Any("error", err))
+		return nil
+	}
+
+	hub.populateNextDisplay(strip, session)
+	return strip.NextDisplay
 }
 
 func (hub *Hub) populateNextDisplay(strip *internalModels.Strip, session int32) {

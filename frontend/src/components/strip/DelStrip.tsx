@@ -156,14 +156,20 @@ export function DelStrip({
           <div className="flex flex-col" style={{ flex: "1 0 0%", height: "100%" }}>
             <div
               className="flex items-center justify-between px-[0.21vw] border-b-2 overflow-hidden"
-              style={{ height: HALF_H, fontFamily: FONT, fontSize: "0.73vw", borderBottomColor: cellBorderColor, backgroundColor: tobtBg, cursor: getValidationBlockedCursor(isValidationActive) }}
-              onClick={(e) => guardValidationAction(e, () => cdmReady(callsign))}
+              style={{ height: HALF_H, fontFamily: FONT, fontSize: "0.73vw", borderBottomColor: cellBorderColor, backgroundColor: tobtBg, cursor: getValidationBlockedCursor(isValidationActive, "pointer", true) }}
+              onClick={(e) => {
+                e.stopPropagation();
+                cdmReady(callsign);
+              }}
             >
               <span className="shrink-0">TOBT</span>
               <span>{tobt}</span>
             </div>
-            <div className="flex items-center justify-between px-[0.21vw] overflow-hidden" style={{ height: HALF_H, fontFamily: FONT, fontSize: "0.73vw", backgroundColor: tsatBg, cursor: getValidationBlockedCursor(isValidationActive) }}
-              onClick={(e) => guardValidationAction(e, () => cdmReady(callsign))}
+            <div className="flex items-center justify-between px-[0.21vw] overflow-hidden" style={{ height: HALF_H, fontFamily: FONT, fontSize: "0.73vw", backgroundColor: tsatBg, cursor: getValidationBlockedCursor(isValidationActive, "pointer", true) }}
+              onClick={(e) => {
+                e.stopPropagation();
+                cdmReady(callsign);
+              }}
             >
               <span className="shrink-0">TSAT</span>
               <span>{tsat}</span>

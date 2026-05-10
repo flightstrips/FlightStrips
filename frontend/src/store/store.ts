@@ -562,7 +562,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
       sendGuardedStripEvent(callsign, { type: "coordination_accept_tag_request" }, { type: ActionType.FrontendCoordinationAcceptTagRequest, callsign });
     },
     cdmReady: (callsign) => {
-      sendIfWritable({ type: ActionType.FrontendCdmReady, callsign });
+      sendGuardedStripEvent(callsign, { type: "cdm_ready" }, { type: ActionType.FrontendCdmReady, callsign });
     },
     clxUpdateTobt: (callsign) => {
       sendIfWritable({ type: ActionType.FrontendClxUpdateTobt, callsign });

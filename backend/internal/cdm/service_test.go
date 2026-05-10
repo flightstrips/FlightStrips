@@ -47,11 +47,17 @@ func newTestClientWithAirportMasters(masters []AirportMaster) *Client {
 func TestHandleReadyRequest_UsesReadyFlow(t *testing.T) {
 	const sessionID = int32(11)
 	const callsign = "EZY456"
+	var (
+		requestMu     sync.Mutex
+		requestValues []string
+	)
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "/ifps/dpi", r.URL.Path)
 		assert.Equal(t, callsign, r.URL.Query().Get("callsign"))
-		assert.Equal(t, "REA/1", r.URL.Query().Get("value"))
+		requestMu.Lock()
+		requestValues = append(requestValues, r.URL.Query().Get("value"))
+		requestMu.Unlock()
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer server.Close()
@@ -62,6 +68,9 @@ func TestHandleReadyRequest_UsesReadyFlow(t *testing.T) {
 			return &models.Strip{Callsign: callsign, Origin: "EKCH"}, nil
 		},
 		GetCdmDataForCallsignFn: func(_ context.Context, _ int32, _ string) (*models.CdmData, error) {
+			if persisted != nil {
+				return persisted.Clone(), nil
+			}
 			return (&models.CdmData{}).Normalize(), nil
 		},
 		SetCdmDataFn: func(_ context.Context, _ int32, _ string, data *models.CdmData) (int64, error) {
@@ -97,35 +106,108 @@ func TestHandleReadyRequest_UsesReadyFlow(t *testing.T) {
 	service.SetFrontendHub(frontendHub)
 	service.SetEuroscopeHub(euroscopeHub)
 	service.sessionMaster.Store(sessionID, true)
-
 	err := service.HandleReadyRequest(context.Background(), sessionID, callsign, "EKCH_DEL", "ATC")
 	require.NoError(t, err)
 
 	require.NotNil(t, persisted)
 	require.NotNil(t, persisted.Status)
 	assert.Equal(t, "REA", *persisted.Status)
-	assert.Nil(t, persisted.Tobt)
+	require.NotNil(t, persisted.Tobt)
+	require.Eventually(t, func() bool {
+		requestMu.Lock()
+		defer requestMu.Unlock()
+		return len(requestValues) == 2
+	}, time.Second, 10*time.Millisecond)
+	requestMu.Lock()
+	assert.Contains(t, requestValues, "REA/1")
+	assert.True(t, strings.HasPrefix(requestValues[0], "TOBT/") || strings.HasPrefix(requestValues[1], "TOBT/"))
+	requestMu.Unlock()
 
-	require.Len(t, frontendHub.CdmUpdates, 1)
-	assert.Equal(t, callsign, frontendHub.CdmUpdates[0].Callsign)
-	assert.Equal(t, "REA", frontendHub.CdmUpdates[0].Event.Status)
+	require.Len(t, frontendHub.CdmUpdates, 2)
+	assert.Equal(t, callsign, frontendHub.CdmUpdates[len(frontendHub.CdmUpdates)-1].Callsign)
+	assert.Equal(t, "REA", frontendHub.CdmUpdates[len(frontendHub.CdmUpdates)-1].Event.Status)
 	require.Len(t, frontendHub.CdmWaits, 1)
 	assert.Equal(t, callsign, frontendHub.CdmWaits[0].Callsign)
 }
 
-func TestHandleReadyRequest_WithoutValidClient_DoesNothing(t *testing.T) {
+func TestHandleReadyRequest_WithoutValidClient_StillRecalculatesLocally(t *testing.T) {
+	const callsign = "SAS123"
+	const sessionID = int32(7)
+	runway := "22R"
+	nowTobt := time.Now().UTC().Format("1504")
+	phase := "I"
+
+	stored := (&models.CdmData{
+		Tobt:  stringPtr(nowTobt),
+		Phase: stringPtr(phase),
+	}).Normalize()
+
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			return &models.Strip{
+				Callsign: callsign,
+				Session:  sessionID,
+				Origin:   "EKCH",
+				Runway:   &runway,
+				CdmData:  stored.Clone(),
+			}, nil
+		},
+		GetCdmDataForCallsignFn: func(_ context.Context, _ int32, _ string) (*models.CdmData, error) {
+			return stored.Clone(), nil
+		},
+		SetCdmDataFn: func(_ context.Context, _ int32, _ string, data *models.CdmData) (int64, error) {
+			stored = data.Clone()
+			return 1, nil
+		},
+		ListByOriginFn: func(_ context.Context, _ int32, origin string) ([]*models.Strip, error) {
+			assert.Equal(t, "EKCH", origin)
+			return []*models.Strip{{
+				Callsign: callsign,
+				Session:  sessionID,
+				Origin:   "EKCH",
+				Runway:   &runway,
+				CdmData:  stored.Clone(),
+			}}, nil
+		},
+	}
+	sessionRepo := &testutil.MockSessionRepository{
+		GetByIDFn: func(_ context.Context, id int32) (*models.Session, error) {
+			assert.Equal(t, sessionID, id)
+			return &models.Session{
+				ID: id,
+				ActiveRunways: pkgModels.ActiveRunways{
+					DepartureRunways: []string{runway},
+				},
+			}, nil
+		},
+	}
+
 	frontendHub := &testutil.MockFrontendHub{}
 	euroscopeHub := &testutil.MockEuroscopeHub{}
+	configStore := NewCdmConfigStore("", "", "", time.Minute, CdmConfigDefaults{}, newFailingHTTPClient())
+	sequenceService := NewSequenceService(stripRepo, sessionRepo, configStore, frontendHub, euroscopeHub)
 
-	service := NewCdmService(newTestClientWithAirportMasters(nil), &testutil.MockStripRepository{}, &testutil.MockSessionRepository{}, &testutil.MockControllerRepository{})
+	service := NewCdmService(newTestClientWithAirportMasters(nil), stripRepo, sessionRepo, &testutil.MockControllerRepository{})
 	service.client.isValid = false
 	service.SetFrontendHub(frontendHub)
 	service.SetEuroscopeHub(euroscopeHub)
+	service.SetConfigProvider(configStore)
+	service.SetSequenceService(sequenceService)
+	service.sessionMaster.Store(sessionID, true)
 
-	err := service.HandleReadyRequest(context.Background(), 7, "SAS123", "EKCH_DEL", "ATC")
+	err := service.HandleReadyRequest(context.Background(), sessionID, callsign, "EKCH_DEL", "ATC")
 	require.NoError(t, err)
 
-	assert.Empty(t, frontendHub.CdmWaits)
+	require.Eventually(t, func() bool {
+		return stored.Tsat != nil &&
+			*stored.Tsat != "" &&
+			stored.Status != nil &&
+			*stored.Status == "REA" &&
+			(stored.Phase == nil || *stored.Phase == "") &&
+			!stored.NeedsLocalRecalculation()
+	}, time.Second, 10*time.Millisecond)
+	require.Len(t, frontendHub.CdmWaits, 1)
+	assert.Equal(t, callsign, frontendHub.CdmWaits[0].Callsign)
 }
 
 func stringPtr(value string) *string {
@@ -191,7 +273,7 @@ func TestHandleTobtUpdate_PastValueDoesNotMarkRecalculation(t *testing.T) {
 
 	pastTobt := time.Now().UTC().Add(-20 * time.Minute).Format("1504")
 	currentTobt := "1030"
-	tsat := "1100"
+	tsat := time.Now().UTC().Add(20 * time.Minute).Format("1504")
 
 	var persisted *models.CdmData
 	stripRepo := &testutil.MockStripRepository{
@@ -235,12 +317,12 @@ func TestHandleTobtUpdate_PastValueDoesNotMarkRecalculation(t *testing.T) {
 	assert.Equal(t, tsat, frontendHub.CdmUpdates[0].Tsat)
 }
 
-func TestHandleEobtUpdate_SyncsFutureTobtAndMarksRecalculation(t *testing.T) {
+func TestHandleEobtUpdate_SyncsLaterFutureTobtAndMarksRecalculation(t *testing.T) {
 	const sessionID = int32(143)
 	const callsign = "SAS125"
 
 	currentEobt := "1000"
-	currentTobt := "1015"
+	currentTobt := time.Now().UTC().Add(10 * time.Minute).Format("1504")
 	futureEobt := time.Now().UTC().Add(20 * time.Minute).Format("1504")
 
 	var persisted *models.CdmData
@@ -287,6 +369,56 @@ func TestHandleEobtUpdate_SyncsFutureTobtAndMarksRecalculation(t *testing.T) {
 	require.Len(t, frontendHub.CdmUpdates, 1)
 	assert.Equal(t, futureEobt, frontendHub.CdmUpdates[0].Eobt)
 	assert.Equal(t, futureEobt, frontendHub.CdmUpdates[0].Tobt)
+}
+
+func TestHandleEobtUpdate_EarlierFutureValueDoesNotSyncTobtOrMarkRecalculation(t *testing.T) {
+	const sessionID = int32(144)
+	const callsign = "SAS126"
+
+	currentEobt := "1000"
+	currentTobt := time.Now().UTC().Add(30 * time.Minute).Format("1504")
+	earlierFutureEobt := time.Now().UTC().Add(20 * time.Minute).Format("1504")
+
+	var persisted *models.CdmData
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, session int32, cs string) (*models.Strip, error) {
+			assert.Equal(t, sessionID, session)
+			assert.Equal(t, callsign, cs)
+			return &models.Strip{Callsign: cs, Session: sessionID, Origin: "EKCH"}, nil
+		},
+		GetCdmDataForCallsignFn: func(_ context.Context, session int32, cs string) (*models.CdmData, error) {
+			assert.Equal(t, sessionID, session)
+			assert.Equal(t, callsign, cs)
+			return (&models.CdmData{
+				Eobt: &currentEobt,
+				Tobt: &currentTobt,
+			}).Normalize(), nil
+		},
+		SetCdmDataFn: func(_ context.Context, session int32, cs string, data *models.CdmData) (int64, error) {
+			assert.Equal(t, sessionID, session)
+			assert.Equal(t, callsign, cs)
+			persisted = data.Clone()
+			return 1, nil
+		},
+	}
+
+	frontendHub := &testutil.MockFrontendHub{}
+	service := NewCdmService(newTestClientWithAirportMasters(nil), stripRepo, &testutil.MockSessionRepository{}, &testutil.MockControllerRepository{})
+	service.client.isValid = false
+	service.SetFrontendHub(frontendHub)
+
+	err := service.HandleEobtUpdate(context.Background(), sessionID, callsign, earlierFutureEobt, "EKCH_DEL", "ATC")
+	require.NoError(t, err)
+
+	require.NotNil(t, persisted)
+	require.NotNil(t, persisted.Eobt)
+	require.NotNil(t, persisted.Tobt)
+	assert.Equal(t, earlierFutureEobt, *persisted.Eobt)
+	assert.Equal(t, currentTobt, *persisted.Tobt)
+	assert.False(t, persisted.Recalculate)
+	require.Len(t, frontendHub.CdmUpdates, 1)
+	assert.Equal(t, earlierFutureEobt, frontendHub.CdmUpdates[0].Eobt)
+	assert.Equal(t, currentTobt, frontendHub.CdmUpdates[0].Tobt)
 }
 
 func TestHandleEobtUpdate_PastValueDoesNotSyncTobtOrMarkRecalculation(t *testing.T) {
@@ -336,6 +468,58 @@ func TestHandleEobtUpdate_PastValueDoesNotSyncTobtOrMarkRecalculation(t *testing
 	assert.False(t, persisted.Recalculate)
 	require.Len(t, frontendHub.CdmUpdates, 1)
 	assert.Equal(t, pastEobt, frontendHub.CdmUpdates[0].Eobt)
+	assert.Equal(t, currentTobt, frontendHub.CdmUpdates[0].Tobt)
+}
+
+func TestHandleEobtUpdate_ExpiredTsatMarksRecalculationWithoutSyncingTobt(t *testing.T) {
+	const sessionID = int32(145)
+	const callsign = "SAS127"
+
+	currentEobt := "1000"
+	currentTobt := time.Now().UTC().Add(20 * time.Minute).Format("1504")
+	earlierFutureEobt := time.Now().UTC().Add(10 * time.Minute).Format("1504")
+	expiredTsat := time.Now().UTC().Add(-10 * time.Minute).Format("1504")
+
+	var persisted *models.CdmData
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, session int32, cs string) (*models.Strip, error) {
+			assert.Equal(t, sessionID, session)
+			assert.Equal(t, callsign, cs)
+			return &models.Strip{Callsign: cs, Session: sessionID, Origin: "EKCH"}, nil
+		},
+		GetCdmDataForCallsignFn: func(_ context.Context, session int32, cs string) (*models.CdmData, error) {
+			assert.Equal(t, sessionID, session)
+			assert.Equal(t, callsign, cs)
+			return (&models.CdmData{
+				Eobt: &currentEobt,
+				Tobt: &currentTobt,
+				Tsat: &expiredTsat,
+			}).Normalize(), nil
+		},
+		SetCdmDataFn: func(_ context.Context, session int32, cs string, data *models.CdmData) (int64, error) {
+			assert.Equal(t, sessionID, session)
+			assert.Equal(t, callsign, cs)
+			persisted = data.Clone()
+			return 1, nil
+		},
+	}
+
+	frontendHub := &testutil.MockFrontendHub{}
+	service := NewCdmService(newTestClientWithAirportMasters(nil), stripRepo, &testutil.MockSessionRepository{}, &testutil.MockControllerRepository{})
+	service.client.isValid = false
+	service.SetFrontendHub(frontendHub)
+
+	err := service.HandleEobtUpdate(context.Background(), sessionID, callsign, earlierFutureEobt, "EKCH_DEL", "ATC")
+	require.NoError(t, err)
+
+	require.NotNil(t, persisted)
+	require.NotNil(t, persisted.Eobt)
+	require.NotNil(t, persisted.Tobt)
+	assert.Equal(t, earlierFutureEobt, *persisted.Eobt)
+	assert.Equal(t, currentTobt, *persisted.Tobt)
+	assert.True(t, persisted.Recalculate)
+	require.Len(t, frontendHub.CdmUpdates, 1)
+	assert.Equal(t, earlierFutureEobt, frontendHub.CdmUpdates[0].Eobt)
 	assert.Equal(t, currentTobt, frontendHub.CdmUpdates[0].Tobt)
 }
 
@@ -714,7 +898,170 @@ func TestSetReady_SendsRea1ViaDpi(t *testing.T) {
 	require.NoError(t, service.SetReady(context.Background(), sessionID, callsign))
 	assert.Equal(t, "REA/1", receivedValue)
 	require.Len(t, frontendHub.CdmUpdates, 1)
-	assert.Equal(t, "REA", frontendHub.CdmUpdates[0].Event.Status)
+	assert.Equal(t, "REA", frontendHub.CdmUpdates[len(frontendHub.CdmUpdates)-1].Event.Status)
+}
+
+func TestSetReady_WithoutValidClient_PersistsLocalReadyStatus(t *testing.T) {
+	t.Parallel()
+	const callsign = "SAS938"
+	const sessionID = int32(938)
+
+	var persisted *models.CdmData
+	service := NewCdmService(
+		newTestClientWithAirportMasters(nil),
+		&testutil.MockStripRepository{
+			GetCdmDataForCallsignFn: func(_ context.Context, _ int32, _ string) (*models.CdmData, error) {
+				if persisted != nil {
+					return persisted.Clone(), nil
+				}
+				return (&models.CdmData{}).Normalize(), nil
+			},
+			SetCdmDataFn: func(_ context.Context, _ int32, _ string, data *models.CdmData) (int64, error) {
+				persisted = data.Clone()
+				return 1, nil
+			},
+		},
+		&testutil.MockSessionRepository{},
+		&testutil.MockControllerRepository{},
+	)
+	service.client.isValid = false
+	frontendHub := &testutil.MockFrontendHub{}
+	service.SetFrontendHub(frontendHub)
+
+	require.NoError(t, service.SetReady(context.Background(), sessionID, callsign))
+
+	require.NotNil(t, persisted)
+	require.NotNil(t, persisted.Status)
+	assert.Equal(t, "REA", *persisted.Status)
+	require.Len(t, frontendHub.CdmUpdates, 1)
+	assert.Equal(t, "REA", frontendHub.CdmUpdates[len(frontendHub.CdmUpdates)-1].Event.Status)
+	require.Len(t, frontendHub.CdmWaits, 1)
+	assert.Equal(t, callsign, frontendHub.CdmWaits[0].Callsign)
+}
+
+func TestSetReady_WithValidClient_NonMasterSendsReaWithoutPersistingLocally(t *testing.T) {
+	t.Parallel()
+	const callsign = "SAS777"
+	const sessionID = int32(777)
+
+	var receivedValue string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/ifps/dpi", r.URL.Path)
+		receivedValue = r.URL.Query().Get("value")
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	var persisted *models.CdmData
+	service := NewCdmService(
+		NewClient(WithAPIKey("test-key"), WithBaseURL(server.URL)),
+		&testutil.MockStripRepository{
+			GetCdmDataForCallsignFn: func(_ context.Context, _ int32, _ string) (*models.CdmData, error) {
+				return (&models.CdmData{}).Normalize(), nil
+			},
+			SetCdmDataFn: func(_ context.Context, _ int32, _ string, data *models.CdmData) (int64, error) {
+				persisted = data.Clone()
+				return 1, nil
+			},
+		},
+		&testutil.MockSessionRepository{},
+		&testutil.MockControllerRepository{},
+	)
+	frontendHub := &testutil.MockFrontendHub{}
+	service.SetFrontendHub(frontendHub)
+
+	require.NoError(t, service.SetReady(context.Background(), sessionID, callsign))
+	assert.Equal(t, "REA/1", receivedValue)
+	assert.Nil(t, persisted)
+	assert.Empty(t, frontendHub.CdmUpdates)
+	assert.Empty(t, frontendHub.CdmWaits)
+}
+
+func TestHandleReadyRequest_WithValidClient_NonMasterOnlySendsRea(t *testing.T) {
+	t.Parallel()
+	const callsign = "SAS778"
+	const sessionID = int32(778)
+
+	var receivedValue string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/ifps/dpi", r.URL.Path)
+		receivedValue = r.URL.Query().Get("value")
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	var persisted *models.CdmData
+	service := NewCdmService(
+		NewClient(WithAPIKey("test-key"), WithBaseURL(server.URL)),
+		&testutil.MockStripRepository{
+			GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+				return &models.Strip{Callsign: callsign, Origin: "EKCH"}, nil
+			},
+			GetCdmDataForCallsignFn: func(_ context.Context, _ int32, _ string) (*models.CdmData, error) {
+				return (&models.CdmData{Tobt: stringPtr("1700")}).Normalize(), nil
+			},
+			SetCdmDataFn: func(_ context.Context, _ int32, _ string, data *models.CdmData) (int64, error) {
+				persisted = data.Clone()
+				return 1, nil
+			},
+		},
+		&testutil.MockSessionRepository{},
+		&testutil.MockControllerRepository{},
+	)
+	frontendHub := &testutil.MockFrontendHub{}
+	service.SetFrontendHub(frontendHub)
+
+	require.NoError(t, service.HandleReadyRequest(context.Background(), sessionID, callsign, "EKCH_DEL", "ATC"))
+	assert.Equal(t, "REA/1", receivedValue)
+	assert.Nil(t, persisted)
+	assert.Empty(t, frontendHub.CdmUpdates)
+	assert.Empty(t, frontendHub.CdmWaits)
+}
+
+func TestHandleReadyRequest_WithoutValidClient_PersistsReadyWhenNoTobtChangeNeeded(t *testing.T) {
+	const callsign = "NOZ938"
+	const sessionID = int32(44)
+
+	pastTobt := time.Now().UTC().Add(-5 * time.Minute).Format("1504")
+	var persisted *models.CdmData
+
+	service := NewCdmService(
+		newTestClientWithAirportMasters(nil),
+		&testutil.MockStripRepository{
+			GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+				return &models.Strip{Callsign: callsign, Origin: "EKCH"}, nil
+			},
+			GetCdmDataForCallsignFn: func(_ context.Context, _ int32, _ string) (*models.CdmData, error) {
+				if persisted != nil {
+					return persisted.Clone(), nil
+				}
+				return (&models.CdmData{Tobt: stringPtr(pastTobt)}).Normalize(), nil
+			},
+			SetCdmDataFn: func(_ context.Context, _ int32, _ string, data *models.CdmData) (int64, error) {
+				persisted = data.Clone()
+				return 1, nil
+			},
+		},
+		&testutil.MockSessionRepository{},
+		&testutil.MockControllerRepository{},
+	)
+	service.client.isValid = false
+	frontendHub := &testutil.MockFrontendHub{}
+	service.SetFrontendHub(frontendHub)
+
+	beforeNow := time.Now().UTC().Format("1504")
+	require.NoError(t, service.HandleReadyRequest(context.Background(), sessionID, callsign, "EKCH_DEL", "ATC"))
+	afterNow := time.Now().UTC().Format("1504")
+
+	require.NotNil(t, persisted)
+	require.NotNil(t, persisted.Status)
+	assert.Equal(t, "REA", *persisted.Status)
+	require.NotNil(t, persisted.Tobt)
+	assert.Contains(t, []string{beforeNow, afterNow}, *persisted.Tobt)
+	require.Len(t, frontendHub.CdmUpdates, 2)
+	assert.Equal(t, "REA", frontendHub.CdmUpdates[len(frontendHub.CdmUpdates)-1].Event.Status)
+	require.Len(t, frontendHub.CdmWaits, 1)
+	assert.Equal(t, callsign, frontendHub.CdmWaits[0].Callsign)
 }
 
 func TestHandleReadyRequest_UpdatesFutureTobtToNow(t *testing.T) {
@@ -766,7 +1113,7 @@ func TestHandleReadyRequest_UpdatesFutureTobtToNow(t *testing.T) {
 	assert.Equal(t, "EKCH_DEL", *persisted.TobtSetBy)
 }
 
-func TestHandleReadyRequest_DoesNotUpdatePastTobtWithActiveTsat(t *testing.T) {
+func TestHandleReadyRequest_UpdatesPastTobtToNowWithActiveTsat(t *testing.T) {
 	const callsign = "SAS212"
 	const sessionID = int32(212)
 
@@ -802,14 +1149,80 @@ func TestHandleReadyRequest_DoesNotUpdatePastTobtWithActiveTsat(t *testing.T) {
 	service.SetFrontendHub(&testutil.MockFrontendHub{})
 	service.sessionMaster.Store(sessionID, true)
 
+	beforeNow := time.Now().UTC().Format("1504")
 	err := service.HandleReadyRequest(context.Background(), sessionID, callsign, "EKCH_DEL", "ATC")
+	afterNow := time.Now().UTC().Format("1504")
 	require.NoError(t, err)
 
 	require.NotNil(t, persisted)
 	require.NotNil(t, persisted.Tobt)
-	assert.Equal(t, pastTobt, *persisted.Tobt)
+	assert.Contains(t, []string{beforeNow, afterNow}, *persisted.Tobt)
 	require.NotNil(t, persisted.Status)
 	assert.Equal(t, "REA", *persisted.Status)
+}
+
+func TestHandleReadyRequest_AlwaysTriggersRecalculate(t *testing.T) {
+	const callsign = "SAS310"
+	const sessionID = int32(310)
+	runway := "22R"
+	currentTobt := time.Now().UTC().Format("1504")
+
+	var recalculated bool
+	stored := (&models.CdmData{
+		Tobt: stringPtr(currentTobt),
+		Tsat: stringPtr(time.Now().UTC().Add(10 * time.Minute).Format("1504")),
+	}).Normalize()
+
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			return &models.Strip{
+				Callsign: callsign,
+				Session:  sessionID,
+				Origin:   "EKCH",
+				Runway:   &runway,
+				CdmData:  stored.Clone(),
+			}, nil
+		},
+		GetCdmDataForCallsignFn: func(_ context.Context, _ int32, _ string) (*models.CdmData, error) {
+			return stored.Clone(), nil
+		},
+		SetCdmDataFn: func(_ context.Context, _ int32, _ string, data *models.CdmData) (int64, error) {
+			stored = data.Clone()
+			return 1, nil
+		},
+		ListByOriginFn: func(_ context.Context, _ int32, origin string) ([]*models.Strip, error) {
+			recalculated = true
+			assert.Equal(t, "EKCH", origin)
+			return []*models.Strip{{
+				Callsign: callsign,
+				Session:  sessionID,
+				Origin:   "EKCH",
+				Runway:   &runway,
+				CdmData:  stored.Clone(),
+			}}, nil
+		},
+	}
+	sessionRepo := &testutil.MockSessionRepository{
+		GetByIDFn: func(_ context.Context, id int32) (*models.Session, error) {
+			assert.Equal(t, sessionID, id)
+			return &models.Session{
+				ID: id,
+				ActiveRunways: pkgModels.ActiveRunways{
+					DepartureRunways: []string{runway},
+				},
+			}, nil
+		},
+	}
+
+	service := NewCdmService(newTestClientWithAirportMasters(nil), stripRepo, sessionRepo, &testutil.MockControllerRepository{})
+	service.client.isValid = false
+	service.SetFrontendHub(&testutil.MockFrontendHub{})
+	service.SetEuroscopeHub(&testutil.MockEuroscopeHub{})
+	service.SetConfigProvider(NewCdmConfigStore("", "", "", time.Minute, CdmConfigDefaults{}, newFailingHTTPClient()))
+	service.SetSequenceService(NewSequenceService(stripRepo, sessionRepo, NewCdmConfigStore("", "", "", time.Minute, CdmConfigDefaults{}, newFailingHTTPClient()), &testutil.MockFrontendHub{}, &testutil.MockEuroscopeHub{}))
+
+	require.NoError(t, service.HandleReadyRequest(context.Background(), sessionID, callsign, "EKCH_DEL", "ATC"))
+	assert.True(t, recalculated)
 }
 
 func TestHandleReadyRequest_UpdatesTobtToNowWhenTsatExpiredOrPhaseInvalid(t *testing.T) {
@@ -828,6 +1241,20 @@ func TestHandleReadyRequest_UpdatesTobtToNowWhenTsatExpiredOrPhaseInvalid(t *tes
 			name: "invalid phase",
 			data: (&models.CdmData{
 				Tobt:  stringPtr(time.Now().UTC().Add(-5 * time.Minute).Format("1504")),
+				Phase: stringPtr("I"),
+			}).Normalize(),
+		},
+		{
+			name: "expired tsat with current tobt",
+			data: (&models.CdmData{
+				Tobt: stringPtr(time.Now().UTC().Format("1504")),
+				Tsat: stringPtr(time.Now().UTC().Add(-10 * time.Minute).Format("1504")),
+			}).Normalize(),
+		},
+		{
+			name: "invalid phase with current tobt",
+			data: (&models.CdmData{
+				Tobt:  stringPtr(time.Now().UTC().Format("1504")),
 				Phase: stringPtr("I"),
 			}).Normalize(),
 		},
@@ -877,8 +1304,127 @@ func TestHandleReadyRequest_UpdatesTobtToNowWhenTsatExpiredOrPhaseInvalid(t *tes
 			assert.Contains(t, []string{beforeNow, afterNow}, *persisted.Tobt)
 			require.NotNil(t, persisted.Status)
 			assert.Equal(t, "REA", *persisted.Status)
+			assert.True(t, persisted.Recalculate)
 		})
 	}
+}
+
+func TestHandleReadyRequest_PhaseInvalidEventuallyProducesNewTsat(t *testing.T) {
+	const callsign = "SAS214"
+	const sessionID = int32(214)
+	runway := "22R"
+	nowTobt := time.Now().UTC().Format("1504")
+	phase := "I"
+
+	stored := (&models.CdmData{
+		Tobt:  stringPtr(nowTobt),
+		Phase: stringPtr(phase),
+	}).Normalize()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("true"))
+	}))
+	defer server.Close()
+
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			return &models.Strip{
+				Callsign: callsign,
+				Session:  sessionID,
+				Origin:   "EKCH",
+				Runway:   &runway,
+				CdmData:  stored.Clone(),
+			}, nil
+		},
+		GetCdmDataForCallsignFn: func(_ context.Context, _ int32, _ string) (*models.CdmData, error) {
+			return stored.Clone(), nil
+		},
+		SetCdmDataFn: func(_ context.Context, _ int32, _ string, data *models.CdmData) (int64, error) {
+			stored = data.Clone()
+			return 1, nil
+		},
+		ListByOriginFn: func(_ context.Context, _ int32, origin string) ([]*models.Strip, error) {
+			assert.Equal(t, "EKCH", origin)
+			return []*models.Strip{{
+				Callsign: callsign,
+				Session:  sessionID,
+				Origin:   "EKCH",
+				Runway:   &runway,
+				CdmData:  stored.Clone(),
+			}}, nil
+		},
+	}
+	sessionRepo := &testutil.MockSessionRepository{
+		GetByIDFn: func(_ context.Context, id int32) (*models.Session, error) {
+			assert.Equal(t, sessionID, id)
+			return &models.Session{
+				ID: id,
+				ActiveRunways: pkgModels.ActiveRunways{
+					DepartureRunways: []string{runway},
+				},
+			}, nil
+		},
+	}
+
+	client := NewClient(
+		WithAPIKey("test-key"),
+		WithBaseURL(server.URL),
+	)
+	frontendHub := &testutil.MockFrontendHub{}
+	configStore := NewCdmConfigStore("", "", "", time.Minute, CdmConfigDefaults{}, newFailingHTTPClient())
+	sequenceService := NewSequenceService(stripRepo, sessionRepo, configStore, frontendHub, &testutil.MockEuroscopeHub{})
+
+	service := NewCdmService(client, stripRepo, sessionRepo, &testutil.MockControllerRepository{})
+	service.SetFrontendHub(frontendHub)
+	service.SetConfigProvider(configStore)
+	service.SetSequenceService(sequenceService)
+	service.sessionMaster.Store(sessionID, true)
+	service.debouncer = newRecalcDebouncer(time.Millisecond)
+
+	err := service.HandleReadyRequest(context.Background(), sessionID, callsign, "EKCH_DEL", "ATC")
+	require.NoError(t, err)
+
+	require.Eventually(t, func() bool {
+		return stored.Tsat != nil &&
+			*stored.Tsat != "" &&
+			(stored.Phase == nil || *stored.Phase == "") &&
+			!stored.NeedsLocalRecalculation()
+	}, time.Second, 10*time.Millisecond)
+}
+
+func TestPrepareTobtUpdate_SameValueMarksRecalculationWhenTsatExpired(t *testing.T) {
+	const sessionID = int32(214)
+	const callsign = "SAS214"
+
+	now := time.Date(2026, 5, 10, 18, 0, 0, 0, time.UTC)
+	currentTobt := "1800"
+	expiredTsat := "1749"
+
+	service := NewCdmService(newTestClientWithAirportMasters(nil), &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, session int32, cs string) (*models.Strip, error) {
+			assert.Equal(t, sessionID, session)
+			assert.Equal(t, callsign, cs)
+			return &models.Strip{Callsign: cs, Session: sessionID, Origin: "EKCH"}, nil
+		},
+		GetCdmDataForCallsignFn: func(_ context.Context, session int32, cs string) (*models.CdmData, error) {
+			assert.Equal(t, sessionID, session)
+			assert.Equal(t, callsign, cs)
+			return (&models.CdmData{
+				Tobt: &currentTobt,
+				Tsat: &expiredTsat,
+			}).Normalize(), nil
+		},
+	}, &testutil.MockSessionRepository{}, &testutil.MockControllerRepository{})
+
+	strip, _, updated, previousTobt, changed, shouldTriggerRecalculate, err := service.prepareTobtUpdate(context.Background(), sessionID, callsign, currentTobt, "EKCH_DEL", now)
+	require.NoError(t, err)
+	require.NotNil(t, strip)
+	require.NotNil(t, updated)
+	assert.Equal(t, currentTobt, previousTobt)
+	assert.True(t, changed)
+	assert.True(t, shouldTriggerRecalculate)
+	assert.True(t, updated.Recalculate)
 }
 
 func TestHandleApproveReqTobt_ClearsReqTobtOnViff(t *testing.T) {
@@ -1293,6 +1839,38 @@ func TestTriggerRecalculate_SkipsNonMasterSession(t *testing.T) {
 	// Give debouncer time to fire (if it were going to).
 	time.Sleep(50 * time.Millisecond)
 	assert.False(t, listByOriginCalled, "RecalculateAirport should not be called for non-master session")
+}
+
+func TestTriggerRecalculate_RunsWithoutClientEvenWhenSessionIsNotMaster(t *testing.T) {
+	listByOriginCalled := make(chan struct{}, 1)
+	stripRepo := &testutil.MockStripRepository{
+		ListByOriginFn: func(_ context.Context, _ int32, _ string) ([]*models.Strip, error) {
+			select {
+			case listByOriginCalled <- struct{}{}:
+			default:
+			}
+			return nil, nil
+		},
+	}
+	sessionRepo := &testutil.MockSessionRepository{
+		GetByIDFn: func(_ context.Context, id int32) (*models.Session, error) {
+			return &models.Session{ID: id, Airport: "EKCH"}, nil
+		},
+	}
+
+	seqSvc := NewSequenceService(stripRepo, sessionRepo, &stubConfigProvider{}, &testutil.MockFrontendHub{}, &testutil.MockEuroscopeHub{})
+	service := NewCdmService(newTestClientWithAirportMasters(nil), stripRepo, sessionRepo, &testutil.MockControllerRepository{})
+	service.client.isValid = false
+	service.debouncer = newRecalcDebouncer(time.Millisecond)
+	service.SetSequenceService(seqSvc)
+
+	service.TriggerRecalculate(context.Background(), 99, "EKCH")
+
+	select {
+	case <-listByOriginCalled:
+	case <-time.After(time.Second):
+		t.Fatal("expected RecalculateAirport to be called when CDM client is unavailable")
+	}
 }
 
 func TestTriggerRecalculate_RunsForMasterSession(t *testing.T) {

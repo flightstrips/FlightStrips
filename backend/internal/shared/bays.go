@@ -60,6 +60,15 @@ func bayTracksGroundState(bay string) bool {
 	}
 }
 
+func isExplicitDepartureMovementState(state string) bool {
+	switch state {
+	case euroscope.GroundStatePush, euroscope.GroundStateTaxi, euroscope.GroundStateLineup, euroscope.GroundStateDepart:
+		return true
+	default:
+		return false
+	}
+}
+
 func IsArrivalBay(bay string) bool {
 	switch bay {
 	case BAY_FINAL, BAY_RWY_ARR, BAY_TWY_ARR, BAY_STAND, BAY_ARR_HIDDEN:
@@ -92,6 +101,10 @@ func GetDepartureBay(strip euroscope.Strip, existing *database.Strip, airborneAl
 	// TODO: airport latitude/longitude should be stored in config, not hardcoded
 	if hasKnownPosition(strip.Position.Lat, strip.Position.Lon) &&
 		GetDistance(strip.Position.Lat, strip.Position.Lon, AirportLatitude, AirportLongitude) > RelevantDistance {
+		return BAY_HIDDEN
+	}
+
+	if existing != nil && existing.Bay == BAY_HIDDEN && isExplicitDepartureMovementState(strip.GroundState) {
 		return BAY_HIDDEN
 	}
 
@@ -154,6 +167,10 @@ func GetDepartureBayFromGroundState(state string, existing database.Strip, airpo
 		if existing.Bay != "" {
 			return existing.Bay
 		}
+		return BAY_HIDDEN
+	}
+
+	if existing.Bay == BAY_HIDDEN {
 		return BAY_HIDDEN
 	}
 

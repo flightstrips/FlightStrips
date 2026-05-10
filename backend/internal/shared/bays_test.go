@@ -168,6 +168,25 @@ func TestGetDepartureBay_AirborneIgnoresStaleTaxiGroundState(t *testing.T) {
 	}
 }
 
+func TestGetDepartureBay_HiddenPreservedForDepartureSync(t *testing.T) {
+	existing := &database.Strip{
+		Origin: "EKCH",
+		Bay:    BAY_HIDDEN,
+	}
+	strip := euroscope.Strip{
+		Origin:      "EKCH",
+		GroundState: euroscope.GroundStateDepart,
+	}
+	strip.Position.Lat = AirportLatitude
+	strip.Position.Lon = AirportLongitude
+	strip.Position.Altitude = AirportElevation
+
+	bay := GetDepartureBay(strip, existing, 500, "EKCH", true)
+	if bay != BAY_HIDDEN {
+		t.Fatalf("expected HIDDEN departure strip to stay hidden during sync, got %s", bay)
+	}
+}
+
 func TestGetDepartureBayFromPositionWithoutPositionKeepsExistingBay(t *testing.T) {
 	existing := database.Strip{
 		Origin: "EKCH",
@@ -301,6 +320,14 @@ func TestGetDepartureBayFromGroundState_AirborneIgnoresStaleTaxiState(t *testing
 	bay := GetDepartureBayFromGroundState(euroscope.GroundStateTaxi, existing, "EKCH", true)
 	if bay != BAY_AIRBORNE {
 		t.Fatalf("expected BAY_AIRBORNE to ignore stale TAXI state, got %s", bay)
+	}
+}
+
+func TestGetDepartureBayFromGroundState_HiddenPreserved(t *testing.T) {
+	existing := database.Strip{Origin: "EKCH", Bay: BAY_HIDDEN}
+	bay := GetDepartureBayFromGroundState(euroscope.GroundStateDepart, existing, "EKCH", true)
+	if bay != BAY_HIDDEN {
+		t.Fatalf("expected BAY_HIDDEN to ignore stale departure ground state, got %s", bay)
 	}
 }
 

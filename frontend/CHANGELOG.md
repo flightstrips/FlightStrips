@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.35.2](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.35.1...frontend/v0.35.2) (2026-05-10)
+
+
+### Bug Fixes
+
+* allow force assume during transfers ([82943e3](https://github.com/flightstrips/FlightStrips/commit/82943e3536da6b30052b29bb70a9ce57252921b0))
+
 ## [0.35.1](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.35.0...frontend/v0.35.1) (2026-05-10)
 
 

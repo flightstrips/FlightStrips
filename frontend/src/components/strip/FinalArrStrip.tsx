@@ -4,7 +4,7 @@ import { useStripTransfers, useWebSocketStore } from "@/store/store-hooks";
 import FlightPlanDialog from "@/components/FlightPlanDialog";
 import { Bay } from "@/api/models";
 import type { StripProps } from "./types";
-import { useStripCallsignInteraction, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR, FONT, COLOR_ARR_YELLOW, COLOR_TYPE_HEAVY, getStripOwnership, useStripBg, getValidationBlinkStyle, getValidationBlockedCursor } from "./shared";
+import { useStripCallsignInteraction, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR, FONT, COLOR_ARR_YELLOW, COLOR_TYPE_HEAVY, getStripOwnership, useStripBg, getValidationBlinkStyle, getValidationBlockedCursor, useNextFrequencyDisplay } from "./shared";
 import { SIBox } from "./SIBox";
 import { ArrStandDialog } from "./ArrStandDialog";
 import { TaxiMapDialog } from "@/components/map-dialogs/TaxiMapDialog";
@@ -67,6 +67,7 @@ export function FinalArrStrip({
   const [standOpen, setStandOpen] = useState(false);
   const [taxiMapOpen, setTaxiMapOpen] = useState(false);
   const [fplOpen, setFplOpen] = useState(false);
+  const nextFreq = useNextFrequencyDisplay(nextDisplay, nextControllers, myPosition);
 
   // RWY cell color — only when cleared in RWY_ARR bay:
   // - runway_confirmed = true: green (controller acknowledged)
@@ -121,7 +122,11 @@ export function FinalArrStrip({
             {callsign}
           </span>
         </div>
-        <div style={{ height: BOT_H }} />
+        <div className="flex items-center pl-[0.42vw] overflow-hidden" style={{ height: BOT_H }}>
+          <span className="truncate w-full" style={{ fontFamily: FONT, fontWeight: "bold", fontSize: "0.57vw" }}>
+            {nextFreq}
+          </span>
+        </div>
       </div>
 
       {/* Type / Squawk */}

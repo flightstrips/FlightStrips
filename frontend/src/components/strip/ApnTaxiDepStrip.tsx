@@ -15,6 +15,7 @@ import {
   useStripBg,
   getValidationBlinkStyle,
   getValidationBlockedCursor,
+  useNextFrequencyDisplay,
 } from "./shared";
 import { SIBox } from "./SIBox";
 import { getAircraftTypeWithWtc } from "@/lib/utils";
@@ -86,6 +87,7 @@ export function ApnTaxiDepStrip({
   const runwayYellow = unexpectedChangeFields?.includes("runway");
   const releasePointYellow = unexpectedChangeFields?.includes("release_point");
   const isCoordinationMode = (!!owner && !!myPosition && owner !== myPosition) || !!releasePointYellow;
+  const nextFreq = useNextFrequencyDisplay(nextDisplay, nextControllers, myPosition);
 
   const hpValue = holdingPoint ?? "";
   const hasTwy = hpValue.includes("/");
@@ -126,7 +128,9 @@ export function ApnTaxiDepStrip({
           <div className="flex items-center pl-[0.42vw]" style={{ height: TOP_H, backgroundColor: isSelected ? SELECTION_COLOR : undefined, ...getValidationBlinkStyle(validationStatus, myPosition) }}>
             <span className="truncate w-full" style={{ fontFamily: FONT, fontWeight: "bold", fontSize: "1.04vw" }}>{callsign}</span>
           </div>
-          <div style={{ height: BOT_H }} />
+          <div className="flex items-center pl-[0.42vw] overflow-hidden" style={{ height: BOT_H }}>
+            <span className="truncate w-full" style={{ fontFamily: FONT, fontWeight: "bold", fontSize: "0.57vw" }}>{nextFreq}</span>
+          </div>
         </div>
 
         {/* A/C type / Registration — 25%*(2/3), stacked in top 2/3 */}

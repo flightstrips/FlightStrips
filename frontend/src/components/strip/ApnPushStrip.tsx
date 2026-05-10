@@ -15,6 +15,7 @@ import {
   useStripBg,
   getValidationBlinkStyle,
   getValidationBlockedCursor,
+  useNextFrequencyDisplay,
 } from "./shared";
 import { getStripBg } from "./types";
 import { useWebSocketStore, useIsTwr } from "@/store/store-hooks";
@@ -110,6 +111,7 @@ export function ApnPushStrip({
   const { tsatBg } = useCDMColors({ bay: bay ?? Bay.Unknown, tsat: tsat ?? "", tobt: tobt ?? "", phase });
   const { ctotBg, ctotColor, showCtot } = useCTOTColor(ctot ?? "");
   const canSendCdmReady = bay === Bay.Cleared;
+  const nextFreq = useNextFrequencyDisplay(nextDisplay, nextControllers, myPosition);
 
   return (
     <div
@@ -148,7 +150,11 @@ export function ApnPushStrip({
               {callsign}
             </span>
           </div>
-          <div style={{ height: BOT_H }} />
+          <div className="flex items-center pl-[0.42vw] overflow-hidden" style={{ height: BOT_H }}>
+            <span className="truncate w-full" style={{ fontFamily: FONT, fontWeight: "bold", fontSize: "0.57vw" }}>
+              {nextFreq}
+            </span>
+          </div>
         </div>
 
         {/* A/C type / Registration — 25%*(2/3), stacked in top 2/3 */}

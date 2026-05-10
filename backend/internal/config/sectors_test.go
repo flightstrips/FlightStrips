@@ -460,6 +460,40 @@ func TestGetControllerSectorsWithCoverage_UsesOwnerPriorityForIndirectMatches(t 
 	}
 }
 
+func TestGetControllerSectorsWithCoverage_PrefersConfiguredPrimaryOverUnrelatedCrossCoupledCoverage(t *testing.T) {
+	originalSectors := sectors
+	t.Cleanup(func() { sectors = originalSectors })
+	t.Cleanup(SetPositionsForTest([]Position{
+		{Name: "EKCH_D_TWR", Frequency: "119.300"},
+		{Name: "EKCH_A_TWR", Frequency: "121.600"},
+		{Name: "EKCH_W_APP", Frequency: "118.455"},
+	}))
+
+	sectors = []Sector{
+		{Name: "TE", Owner: []string{"EKCH_D_TWR", "EKCH_A_TWR"}},
+	}
+
+	result := GetControllerSectorsWithCoverage([]ControllerCoverage{
+		{
+			Name:               "EKCH_A_TWR",
+			Frequency:          "121.600",
+			CoveredFrequencies: []string{"119.300"},
+		},
+		{
+			Name:               "EKCH_W_APP",
+			Frequency:          "118.455",
+			CoveredFrequencies: []string{"119.300"},
+		},
+	}, []string{"22L"})
+
+	if len(result["121.600"]) != 1 {
+		t.Fatalf("expected listed tower primary to win the cross-coupled tie-break, got %d sectors", len(result["121.600"]))
+	}
+	if len(result["118.455"]) != 0 {
+		t.Fatalf("expected unrelated app primary to lose the cross-coupled tie-break, got %d sectors", len(result["118.455"]))
+	}
+}
+
 func TestKeyOrName_ReturnsKeyWhenPresent(t *testing.T) {
 	sector := Sector{Name: "GW", Key: "GWA"}
 

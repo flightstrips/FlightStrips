@@ -235,6 +235,28 @@ func TestGetCurrentControllerCoverage_UsesSyncStateControllers(t *testing.T) {
 	}, coverage)
 }
 
+func TestGetCurrentControllerCoverage_PrefersCallsignPositionOverCrossCoupledFrequency(t *testing.T) {
+	t.Cleanup(config.SetPositionsForTest([]config.Position{
+		{Name: "EKCH_A_TWR", Frequency: "118.100"},
+		{Name: "EKCH_W_APP", Frequency: "119.805"},
+	}))
+	t.Cleanup(config.SetOwnerCallsignPrefixesForTest([]string{"EKCH"}))
+
+	controllerRepo := &testutil.MockControllerRepository{
+		ListFn: func(_ context.Context, _ int32) ([]*models.Controller, error) {
+			return []*models.Controller{
+				{Callsign: "EKCH_A_TWR", Position: "119.805"},
+			}, nil
+		},
+	}
+
+	coverage, err := getCurrentControllerCoverage(context.Background(), controllerRepo, 1, nil)
+	require.NoError(t, err)
+	assert.Equal(t, []config.ControllerCoverage{
+		{Name: "EKCH_A_TWR", Frequency: "118.100"},
+	}, coverage)
+}
+
 func TestUpdateSectorsContext_UsesSyncStateWithoutReloadingSessionOrControllers(t *testing.T) {
 	t.Cleanup(config.SetPositionsForTest([]config.Position{
 		{Name: "EKCH_A_TWR", Frequency: "118.100"},
@@ -273,4 +295,35 @@ func TestUpdateSectorsContext_UsesSyncStateWithoutReloadingSessionOrControllers(
 	changes, err := server.UpdateSectorsContext(ctx, 1)
 	require.NoError(t, err)
 	assert.Empty(t, changes)
+}
+
+func TestSendControllerUpdates_UsesCallsignResolvedPositionForOwnedSectors(t *testing.T) {
+	t.Cleanup(config.SetPositionsForTest([]config.Position{
+		{Name: "EKCH_A_TWR", Frequency: "118.100"},
+		{Name: "EKCH_W_APP", Frequency: "119.805"},
+	}))
+	t.Cleanup(config.SetOwnerCallsignPrefixesForTest([]string{"EKCH"}))
+
+	frontendHub := &testutil.MockFrontendHub{}
+	controllerRepo := &testutil.MockControllerRepository{
+		ListFn: func(_ context.Context, _ int32) ([]*models.Controller, error) {
+			return []*models.Controller{
+				{Callsign: "EKCH_A_TWR", Position: "119.805"},
+			}, nil
+		},
+	}
+
+	server := &Server{frontendHub: frontendHub}
+	err := server.sendControllerUpdates(1, []*models.SectorOwner{{
+		Session:    1,
+		Position:   "118.100",
+		Sector:     []string{"TW"},
+		Identifier: "EKCH_A_TWR",
+	}}, controllerRepo)
+	require.NoError(t, err)
+	require.Len(t, frontendHub.ControllerUpdates, 1)
+	assert.Equal(t, "EKCH_A_TWR", frontendHub.ControllerUpdates[0].Callsign)
+	assert.Equal(t, "119.805", frontendHub.ControllerUpdates[0].Position)
+	assert.Equal(t, "EKCH_A_TWR", frontendHub.ControllerUpdates[0].Identifier)
+	assert.Equal(t, []string{"TW"}, frontendHub.ControllerUpdates[0].OwnedSectors)
 }

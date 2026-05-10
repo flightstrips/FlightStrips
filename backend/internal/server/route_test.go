@@ -353,6 +353,9 @@ func TestUpdateRouteForStrip_ArrivalKeepsGWAOwnerWhenControllersAreSplit(t *test
 	assert.Equal(t, []string{cTowerPosition, apronPosition}, updatedNextOwners)
 	require.Len(t, frontendHub.OwnersUpdates, 1)
 	assert.Equal(t, []string{cTowerPosition, apronPosition}, frontendHub.OwnersUpdates[0].NextOwners)
+	require.NotNil(t, frontendHub.OwnersUpdates[0].NextDisplay)
+	assert.Equal(t, "GW", frontendHub.OwnersUpdates[0].NextDisplay.Label)
+	assert.Equal(t, cTowerPosition, frontendHub.OwnersUpdates[0].NextDisplay.Frequency)
 	assert.Equal(t, "SAS790", frontendHub.OwnersUpdates[0].Callsign)
 }
 
@@ -387,57 +390,57 @@ func TestResolveRouteSectorOwner_FallsBackToOriginalSector(t *testing.T) {
 
 func TestResolveRouteDisplayFrequency_UsesSectorFrequencyForCrossCoupledAirborneSector(t *testing.T) {
 
-	strip := &models.Strip{Callsign: "SAS456"}
 	session := &models.Session{
 		ActiveRunways: pkgModels.ActiveRunways{
 			DepartureRunways: []string{"22L"},
 		},
 	}
 
-	frequency := resolveRouteDisplayFrequency(
-		strip,
+	nextDisplay := buildRouteNextDisplay(
 		session,
 		"K_DEP",
 		frequencyForPosition(t, "EKCH_W_APP"),
+		map[string]struct{}{frequencyForPosition(t, "EKCH_K_DEP"): {}},
 		false,
 	)
 
-	assert.Equal(t, frequencyForPosition(t, "EKCH_K_DEP"), frequency)
+	require.NotNil(t, nextDisplay)
+	assert.Equal(t, "K", nextDisplay.Label)
+	assert.Equal(t, frequencyForPosition(t, "EKCH_K_DEP"), nextDisplay.Frequency)
 }
 
 func TestResolveRouteDisplayFrequency_UsesSectorFrequencyForGroundSectorWhenCoveredByAnotherGroundController(t *testing.T) {
 
-	strip := &models.Strip{Callsign: "SAS457"}
 	session := &models.Session{
 		ActiveRunways: pkgModels.ActiveRunways{
 			DepartureRunways: []string{"22L"},
 		},
 	}
 
-	frequency := resolveRouteDisplayFrequency(
-		strip,
+	nextDisplay := buildRouteNextDisplay(
 		session,
 		"AD",
 		frequencyForPosition(t, "EKCH_A_GND"),
+		map[string]struct{}{frequencyForPosition(t, "EKCH_C_GND"): {}},
 		false,
 	)
 
-	assert.Equal(t, frequencyForPosition(t, "EKCH_C_GND"), frequency)
+	require.NotNil(t, nextDisplay)
+	assert.Equal(t, "AD", nextDisplay.Label)
+	assert.Equal(t, frequencyForPosition(t, "EKCH_C_GND"), nextDisplay.Frequency)
 }
 
-func TestResolveRouteDisplayFrequency_FallsBackToOwnerFrequency(t *testing.T) {
+func TestResolveRouteDisplayFrequency_UsesPrimaryDisplayWhenOwnerIsConfiguredPrimary(t *testing.T) {
 
-	strip := &models.Strip{Callsign: "SAS458"}
 	session := &models.Session{
 		ActiveRunways: pkgModels.ActiveRunways{
-			DepartureRunways: []string{"22L"},
+			ArrivalRunways: []string{"04L"},
 		},
 	}
-	ownerFrequency := frequencyForPosition(t, "EKCH_W_APP")
 
-	frequency := resolveRouteDisplayFrequency(strip, session, "UNKNOWN_SECTOR", ownerFrequency, false)
+	nextDisplay := buildRouteNextDisplay(session, "TE", frequencyForPosition(t, "EKCH_A_TWR"), nil, true)
 
-	assert.Equal(t, ownerFrequency, frequency)
+	assert.Nil(t, nextDisplay)
 }
 
 func TestEKCHArrivalRoute_22LHighAFromTWOnlyOverridesEntryTower(t *testing.T) {

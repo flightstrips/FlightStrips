@@ -5,6 +5,7 @@ import (
 	"FlightStrips/internal/models"
 	"FlightStrips/internal/repository"
 	"FlightStrips/internal/shared"
+	"FlightStrips/internal/vatsim"
 	"FlightStrips/pkg/helpers"
 	"context"
 	"errors"
@@ -48,7 +49,12 @@ func (s *Server) UpdateRouteForStripContext(ctx context.Context, callsign string
 		return err
 	}
 
-	err = s.updateRouteForStripHelper(ctx, strip, session, owners, sendUpdate)
+	coverage, err := routeDisplayCoverage(ctx, s.controllerRepo, sessionId, s.transceiverLookup)
+	if err != nil {
+		return err
+	}
+
+	err = s.updateRouteForStripHelper(ctx, strip, session, owners, coverage, sendUpdate)
 	if err == nil {
 		slog.Debug("Route recalculation finished for strip",
 			slog.Int("session", int(sessionId)),
@@ -69,7 +75,7 @@ func (s *Server) ComputeNextOwnersForStripContext(ctx context.Context, strip *mo
 		return nil, false, err
 	}
 
-	result, shouldUpdate, err := computeRouteStateForStrip(strip, session, owners)
+	result, shouldUpdate, err := computeRouteStateForStrip(strip, session, owners, nil)
 	if err != nil {
 		return nil, false, err
 	}
@@ -88,7 +94,12 @@ func (s *Server) ComputeNextDisplayForStripContext(ctx context.Context, strip *m
 		return nil, err
 	}
 
-	result, _, err := computeRouteStateForStrip(strip, session, owners)
+	coverage, err := routeDisplayCoverage(ctx, s.controllerRepo, sessionId, s.transceiverLookup)
+	if err != nil {
+		return nil, err
+	}
+
+	result, _, err := computeRouteStateForStrip(strip, session, owners, coverage)
 	if err != nil {
 		return nil, err
 	}
@@ -111,12 +122,17 @@ func (s *Server) ComputeNextDisplaysForStripsContext(ctx context.Context, strips
 		return err
 	}
 
+	coverage, err := routeDisplayCoverage(ctx, s.controllerRepo, sessionId, s.transceiverLookup)
+	if err != nil {
+		return err
+	}
+
 	for _, strip := range strips {
 		if strip == nil {
 			continue
 		}
 
-		result, _, err := computeRouteStateForStrip(strip, session, owners)
+		result, _, err := computeRouteStateForStrip(strip, session, owners, coverage)
 		if err != nil {
 			return err
 		}
@@ -152,13 +168,18 @@ func (s *Server) UpdateRoutesForSession(sessionId int32, sendUpdate bool) error 
 		return err
 	}
 
+	coverage, err := routeDisplayCoverage(context.Background(), s.controllerRepo, sessionId, s.transceiverLookup)
+	if err != nil {
+		return err
+	}
+
 	slog.Debug("Route recalculation loaded strips for session",
 		slog.Int("session", int(sessionId)),
 		slog.Int("strip_count", len(strips)),
 		slog.Bool("send_update", sendUpdate))
 
 	for _, strip := range strips {
-		err := s.updateRouteForStripHelper(context.Background(), strip, session, owners, sendUpdate)
+		err := s.updateRouteForStripHelper(context.Background(), strip, session, owners, coverage, sendUpdate)
 		if err != nil {
 			return err
 		}
@@ -172,8 +193,8 @@ func (s *Server) UpdateRoutesForSession(sessionId int32, sendUpdate bool) error 
 	return nil
 }
 
-func (s *Server) updateRouteForStripHelper(ctx context.Context, strip *models.Strip, session *models.Session, owners []*models.SectorOwner, sendUpdate bool) error {
-	result, shouldUpdate, err := computeRouteStateForStrip(strip, session, owners)
+func (s *Server) updateRouteForStripHelper(ctx context.Context, strip *models.Strip, session *models.Session, owners []*models.SectorOwner, coverage map[string]map[string]struct{}, sendUpdate bool) error {
+	result, shouldUpdate, err := computeRouteStateForStrip(strip, session, owners, coverage)
 	if err != nil {
 		return err
 	}
@@ -238,7 +259,7 @@ func (s *Server) updateRouteForStripHelper(ctx context.Context, strip *models.St
 }
 
 func computeNextOwnersForStrip(strip *models.Strip, session *models.Session, owners []*models.SectorOwner) ([]string, bool, error) {
-	result, shouldUpdate, err := computeRouteStateForStrip(strip, session, owners)
+	result, shouldUpdate, err := computeRouteStateForStrip(strip, session, owners, nil)
 	if err != nil {
 		return nil, false, err
 	}
@@ -246,7 +267,7 @@ func computeNextOwnersForStrip(strip *models.Strip, session *models.Session, own
 	return result.NextOwners, shouldUpdate, nil
 }
 
-func computeRouteStateForStrip(strip *models.Strip, session *models.Session, owners []*models.SectorOwner) (computedRouteState, bool, error) {
+func computeRouteStateForStrip(strip *models.Strip, session *models.Session, owners []*models.SectorOwner, coverage map[string]map[string]struct{}) (computedRouteState, bool, error) {
 	isArrival := strip.Destination == session.Airport
 	currentOwner := helpers.ValueOrDefault(strip.Owner)
 	currentStand := helpers.ValueOrDefault(strip.Stand)
@@ -376,16 +397,15 @@ func computeRouteStateForStrip(strip *models.Strip, session *models.Session, own
 
 	actualRoute := make([]string, 0)
 	var nextDisplay *models.NextDisplay
+	nextDisplayResolved := false
 	for _, s := range route.Path {
 		owner, ok := resolveRouteSectorOwner(s, sectorToOnwer, route.OwnerOverrides)
 		if !ok {
 			continue
 		}
-		if nextDisplay == nil && (currentOwner == "" || owner != currentOwner) {
-			nextDisplay = &models.NextDisplay{
-				Label:     config.GetSectorDisplayName(s),
-				Frequency: resolveRouteDisplayFrequency(strip, session, s, owner, isArrival),
-			}
+		if !nextDisplayResolved && (currentOwner == "" || owner != currentOwner) {
+			nextDisplay = buildRouteNextDisplay(session, s, owner, coverage[vatsim.NormalizeFrequency(owner)], isArrival)
+			nextDisplayResolved = true
 		}
 		if len(actualRoute) == 0 || actualRoute[len(actualRoute)-1] != owner {
 			actualRoute = append(actualRoute, owner)
@@ -397,11 +417,9 @@ func computeRouteStateForStrip(strip *models.Strip, session *models.Session, own
 		if err != nil {
 			slog.Debug("Error getting airborne frequency", slog.String("sid", *strip.Sid), slog.Any("error", err))
 		} else if owner, ok := sectorToOnwer[normalizeRouteSectorRef(as)]; ok {
-			if nextDisplay == nil && (currentOwner == "" || owner != currentOwner) {
-				nextDisplay = &models.NextDisplay{
-					Label:     config.GetSectorDisplayName(as),
-					Frequency: resolveRouteDisplayFrequency(strip, session, as, owner, isArrival),
-				}
+			if !nextDisplayResolved && (currentOwner == "" || owner != currentOwner) {
+				nextDisplay = buildRouteNextDisplay(session, as, owner, coverage[vatsim.NormalizeFrequency(owner)], isArrival)
+				nextDisplayResolved = true
 			}
 			if !slices.Contains(actualRoute, owner) {
 				actualRoute = append(actualRoute, owner)
@@ -445,25 +463,62 @@ func normalizeRouteSectorRef(sector string) string {
 	return strings.ToUpper(strings.TrimSpace(sector))
 }
 
-func resolveRouteDisplayFrequency(strip *models.Strip, session *models.Session, sectorRef string, owner string, isArrival bool) string {
+func buildRouteNextDisplay(session *models.Session, sectorRef string, owner string, coveredFrequencies map[string]struct{}, isArrival bool) *models.NextDisplay {
 	active := session.ActiveRunways.GetAllActiveRunways()
 	if isArrival {
 		active = session.ActiveRunways.ArrivalRunways
 	}
 
 	if frequency, ok := config.GetSectorDisplayFrequency(active, sectorRef, isArrival); ok {
-		return frequency
+		normalizedFrequency := vatsim.NormalizeFrequency(frequency)
+		normalizedOwner := vatsim.NormalizeFrequency(owner)
+		if normalizedFrequency != normalizedOwner {
+			if coveredFrequencies == nil {
+				return nil
+			}
+			if _, ok := coveredFrequencies[normalizedFrequency]; !ok {
+				return nil
+			}
+		}
+
+		return &models.NextDisplay{
+			Label:     config.GetSectorDisplayName(sectorRef),
+			Frequency: frequency,
+		}
 	}
 
-	if owner != "" {
-		slog.Warn("Falling back to owner primary frequency for next display",
-			slog.String("callsign", strip.Callsign),
-			slog.String("sector", sectorRef),
-			slog.String("owner", owner))
-		return owner
+	return nil
+}
+
+func routeDisplayCoverage(ctx context.Context, controllerRepo repository.ControllerRepository, sessionId int32, transceiverLookup TransceiverLookup) (map[string]map[string]struct{}, error) {
+	if controllerRepo == nil {
+		return map[string]map[string]struct{}{}, nil
 	}
 
-	return ""
+	controllerCoverage, err := getCurrentControllerCoverage(ctx, controllerRepo, sessionId, transceiverLookup)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make(map[string]map[string]struct{}, len(controllerCoverage))
+	for _, controller := range controllerCoverage {
+		primaryFrequency := vatsim.NormalizeFrequency(controller.Frequency)
+		if primaryFrequency == "" {
+			continue
+		}
+
+		covered := make(map[string]struct{}, len(controller.CoveredFrequencies))
+		for _, coveredFrequency := range controller.CoveredFrequencies {
+			normalizedCoveredFrequency := vatsim.NormalizeFrequency(coveredFrequency)
+			if normalizedCoveredFrequency == "" {
+				continue
+			}
+			covered[normalizedCoveredFrequency] = struct{}{}
+		}
+		result[primaryFrequency] = covered
+	}
+
+	return result, nil
 }
 
 func cloneNextDisplay(nextDisplay *models.NextDisplay) *models.NextDisplay {

@@ -103,7 +103,7 @@ func (s *Service) SetSessionCdmMaster(ctx context.Context, sessionID int32, mast
 		// Fetch session to get airport for immediate master registration.
 		sess, err := s.sessionRepo.GetByID(ctx, sessionID)
 		if err == nil && sess != nil {
-			s.registerMasterAsync(sessionID, sess.Airport)
+			s.registerMasterAsync(sess.Airport)
 			s.TriggerRecalculate(ctx, sessionID, sess.Airport)
 		}
 	} else {
@@ -112,7 +112,7 @@ func (s *Service) SetSessionCdmMaster(ctx context.Context, sessionID int32, mast
 		if s.client.isValid {
 			sess, err := s.sessionRepo.GetByID(ctx, sessionID)
 			if err == nil && sess != nil && sess.Airport != "" {
-				position := s.masterCallsign(sessionID)
+				position := s.masterPosition()
 				go func() {
 					if err := s.client.ClearMasterAirport(context.Background(), sess.Airport, position); err != nil {
 						slog.WarnContext(ctx, "Failed to clear CDM master airport",
@@ -651,12 +651,16 @@ func (s *Service) syncLiveSessions(ctx context.Context) error {
 
 		if session.CdmMaster {
 			s.sessionMaster.Store(session.ID, true)
-			s.registerMasterAsync(session.ID, session.Airport)
+			s.registerMasterAsync(session.Airport)
 		}
 		s.SyncAirportLvoFromRunwayStatus(ctx, session.Airport, session.ActiveRunways.RunwayStatus)
 
 		if err := s.syncCdmData(ctx, session); err != nil {
 			return err
+		}
+
+		if session.CdmMaster {
+			s.TriggerRecalculate(ctx, session.ID, session.Airport)
 		}
 	}
 
@@ -1277,20 +1281,15 @@ func (s *Service) persistCdmUpdateSilently(ctx context.Context, session int32, c
 	return nil
 }
 
-func (s *Service) masterCallsign(sessionID int32) string {
-	if s.euroscopeHub != nil {
-		if cs := s.euroscopeHub.GetMasterCallsign(sessionID); cs != "" {
-			return cs
-		}
-	}
+func (s *Service) masterPosition() string {
 	return DefaultMasterPosition
 }
 
-func (s *Service) registerMasterAsync(sessionID int32, airport string) {
+func (s *Service) registerMasterAsync(airport string) {
 	if !s.client.isValid || airport == "" {
 		return
 	}
-	position := s.masterCallsign(sessionID)
+	position := s.masterPosition()
 	go func() {
 		if err := s.client.SetMasterAirport(context.Background(), airport, position); err != nil {
 			slog.Warn("Failed to register CDM master airport",

@@ -1114,10 +1114,17 @@ func TestSetSessionCdmMaster_True_UpdatesDBAndCachesAndRegistersMaster(t *testin
 
 	var dbUpdatedID int32
 	var dbUpdatedMaster bool
-	var masterCallPath string
+	type masterCall struct {
+		path     string
+		position string
+	}
+	var gotMasterCall *masterCall
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		masterCallPath = r.URL.Path
+		gotMasterCall = &masterCall{
+			path:     r.URL.Path,
+			position: r.URL.Query().Get("position"),
+		}
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer srv.Close()
@@ -1135,6 +1142,11 @@ func TestSetSessionCdmMaster_True_UpdatesDBAndCachesAndRegistersMaster(t *testin
 
 	client := NewClient(WithAPIKey("test-key"), WithBaseURL(srv.URL))
 	service := NewCdmService(client, &testutil.MockStripRepository{}, sessionRepo, &testutil.MockControllerRepository{})
+	service.SetEuroscopeHub(&testutil.MockEuroscopeHub{
+		GetMasterCallsignFn: func(int32) string {
+			return "EKCH_A_TWR"
+		},
+	})
 
 	err := service.SetSessionCdmMaster(context.Background(), sessionID, true)
 	require.NoError(t, err)
@@ -1147,8 +1159,10 @@ func TestSetSessionCdmMaster_True_UpdatesDBAndCachesAndRegistersMaster(t *testin
 
 	// Allow the async goroutine to call the HTTP endpoint.
 	require.Eventually(t, func() bool {
-		return masterCallPath != ""
+		return gotMasterCall != nil
 	}, time.Second, 10*time.Millisecond, "expected master registration HTTP call")
+	assert.Equal(t, "/airport/setMaster", gotMasterCall.path)
+	assert.Equal(t, DefaultMasterPosition, gotMasterCall.position)
 }
 
 func TestSetSessionCdmMaster_True_TriggersImmediateRecalculate(t *testing.T) {
@@ -1231,6 +1245,11 @@ func TestSetSessionCdmMaster_False_UpdatesDBAndRemovesFromCache(t *testing.T) {
 
 	client := NewClient(WithAPIKey("test-key"), WithBaseURL(srv.URL))
 	service := NewCdmService(client, &testutil.MockStripRepository{}, sessionRepo, &testutil.MockControllerRepository{})
+	service.SetEuroscopeHub(&testutil.MockEuroscopeHub{
+		GetMasterCallsignFn: func(int32) string {
+			return "EKCH_A_TWR"
+		},
+	})
 	// Pre-populate the cache as if the session was previously master.
 	service.sessionMaster.Store(sessionID, true)
 
@@ -1243,12 +1262,12 @@ func TestSetSessionCdmMaster_False_UpdatesDBAndRemovesFromCache(t *testing.T) {
 	_, ok := service.sessionMaster.Load(sessionID)
 	assert.False(t, ok, "sessionMaster map entry should have been removed")
 
-	// The async clear call should reach the server. No hub is set, so it falls back to DefaultMasterPosition.
+	// The async clear call should always use the shared FlightStrips master position.
 	require.Eventually(t, func() bool {
 		return gotClearCall != nil
 	}, time.Second, 10*time.Millisecond, "expected ClearMasterAirport HTTP call")
 	assert.Equal(t, "/airport/removeMaster", gotClearCall.path)
-	assert.Equal(t, DefaultMasterPosition, gotClearCall.position, "clearMaster should fall back to DefaultMasterPosition when no hub is set")
+	assert.Equal(t, DefaultMasterPosition, gotClearCall.position)
 }
 
 // ---- TriggerRecalculate per-session master ----
@@ -1364,11 +1383,18 @@ func TestTriggerRecalculateForAirport_RunsMatchingMasterSessions(t *testing.T) {
 // ---- syncLiveSessions ----
 
 func TestSyncLiveSessions_RegistersMasterForCdmMasterSessions(t *testing.T) {
-	var masterCallPath string
+	type masterCall struct {
+		path     string
+		position string
+	}
+	var gotMasterCall *masterCall
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/airport/setMaster" {
-			masterCallPath = r.URL.Path
+			gotMasterCall = &masterCall{
+				path:     r.URL.Path,
+				position: r.URL.Query().Get("position"),
+			}
 		}
 		// Return empty JSON array for IFPS endpoint.
 		w.Header().Set("Content-Type", "application/json")
@@ -1394,7 +1420,11 @@ func TestSyncLiveSessions_RegistersMasterForCdmMasterSessions(t *testing.T) {
 	client := NewClient(WithAPIKey("test-key"), WithBaseURL(srv.URL))
 	service := NewCdmService(client, stripRepo, sessionRepo, &testutil.MockControllerRepository{})
 	service.SetFrontendHub(&testutil.MockFrontendHub{})
-	service.SetEuroscopeHub(&testutil.MockEuroscopeHub{})
+	service.SetEuroscopeHub(&testutil.MockEuroscopeHub{
+		GetMasterCallsignFn: func(int32) string {
+			return "EKCH_A_TWR"
+		},
+	})
 
 	err := service.syncLiveSessions(context.Background())
 	require.NoError(t, err)
@@ -1403,8 +1433,61 @@ func TestSyncLiveSessions_RegistersMasterForCdmMasterSessions(t *testing.T) {
 	assert.True(t, ok && v.(bool), "sessionMaster should be populated for CdmMaster session")
 
 	require.Eventually(t, func() bool {
-		return masterCallPath != ""
+		return gotMasterCall != nil
 	}, time.Second, 10*time.Millisecond, "expected master registration HTTP call")
+	assert.Equal(t, "/airport/setMaster", gotMasterCall.path)
+	assert.Equal(t, DefaultMasterPosition, gotMasterCall.position)
+}
+
+func TestSyncLiveSessions_TriggersImmediateRecalculateForPersistedMasterSession(t *testing.T) {
+	const sessionID = int32(13)
+	const airport = "EKCH"
+
+	recalcTriggered := make(chan struct{}, 1)
+	stripRepo := &testutil.MockStripRepository{
+		GetCdmDataFn: func(_ context.Context, _ int32) ([]*models.CdmDataRow, error) {
+			return nil, nil
+		},
+		ListByOriginFn: func(_ context.Context, gotSession int32, gotAirport string) ([]*models.Strip, error) {
+			assert.Equal(t, sessionID, gotSession)
+			assert.Equal(t, airport, gotAirport)
+			select {
+			case recalcTriggered <- struct{}{}:
+			default:
+			}
+			return nil, nil
+		},
+	}
+	sessionRepo := &testutil.MockSessionRepository{
+		ListFn: func(_ context.Context) ([]*models.Session, error) {
+			return []*models.Session{
+				{ID: sessionID, Name: "LIVE", Airport: airport, CdmMaster: true},
+			}, nil
+		},
+		GetByIDFn: func(_ context.Context, id int32) (*models.Session, error) {
+			return &models.Session{ID: id, Name: "LIVE", Airport: airport}, nil
+		},
+	}
+
+	service := NewCdmService(newTestClientWithAirportMasters(nil), stripRepo, sessionRepo, &testutil.MockControllerRepository{})
+	service.client.isValid = false
+	service.debouncer = newRecalcDebouncer(time.Millisecond)
+	service.SetSequenceService(NewSequenceService(
+		stripRepo,
+		sessionRepo,
+		&stubConfigProvider{},
+		&testutil.MockFrontendHub{},
+		&testutil.MockEuroscopeHub{},
+	))
+
+	err := service.syncLiveSessions(context.Background())
+	require.NoError(t, err)
+
+	select {
+	case <-recalcTriggered:
+	case <-time.After(time.Second):
+		t.Fatal("expected persisted master session to trigger recalculation during startup sync")
+	}
 }
 
 func TestSyncLiveSessions_DoesNotRegisterMasterForSlaveSession(t *testing.T) {

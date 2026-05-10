@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.35.1](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.35.0...frontend/v0.35.1) (2026-05-10)
+
+
+### Bug Fixes
+
+* allow startup cdm ready from TSAT and CTOT ([0958f9b](https://github.com/flightstrips/FlightStrips/commit/0958f9bcd4371a6757206bcc2dc78ccdf664edc6))
+* show next freq under strip callsign ([a6ccc51](https://github.com/flightstrips/FlightStrips/commit/a6ccc5177e3086a3f1cb2a64b5164c7074717b59))
+
 ## [0.35.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.34.2...frontend/v0.35.0) (2026-05-10)
 
 

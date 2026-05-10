@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.29.1](https://github.com/flightstrips/FlightStrips/compare/backend/v0.29.0...backend/v0.29.1) (2026-05-10)
+
+
+### Bug Fixes
+
+* correct next controller displays ([b8bfabf](https://github.com/flightstrips/FlightStrips/commit/b8bfabfc14feb5671ab1a218489460d369fae535))
+* keep hidden departure strips hidden ([51ecad9](https://github.com/flightstrips/FlightStrips/commit/51ecad9c461559ef3255e92a4aed074206e4d14e))
+* prefer primary owner for cross-coupled sectors ([3250ecd](https://github.com/flightstrips/FlightStrips/commit/3250ecdfaae46d93417cbdf2030fa3830120c78a))
+* require cross-coupled next-sector frequencies ([ac56a2c](https://github.com/flightstrips/FlightStrips/commit/ac56a2c7ab94fff36d50f06deeec100eed205ce0))
+
 ## [0.29.0](https://github.com/flightstrips/FlightStrips/compare/backend/v0.28.0...backend/v0.29.0) (2026-05-10)
 
 

@@ -36,6 +36,9 @@ const controllerOwnsApronSector = (controller: FrontendController | undefined) =
 export const controllerOwnsTowerSectors = (controller: FrontendController | undefined) =>
   ownsAnySector(controller, TOWER_SECTORS) || controller?.section === 'TWR';
 
+const controllerHasEkchCallsignPrefix = (controller: FrontendController | undefined) =>
+  controller?.callsign.toUpperCase().startsWith('EKCH_') ?? false;
+
 export const useWebSocketStore = <T,>(selector: (state: WebSocketState) => T): T => {
   const store = useContext(WebSocketStoreContext);
 
@@ -110,7 +113,7 @@ export const useApronOnline = () =>
 export const useCtwrOnline = () =>
   useWebSocketStore((state) =>
     state.controllers.some(
-      (c) => c.position === "118.580" && c.position !== state.position
+      (c) => c.position === "118.580" && c.position !== state.position && controllerHasEkchCallsignPrefix(c)
     )
   );
 

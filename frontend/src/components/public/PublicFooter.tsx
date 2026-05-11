@@ -42,29 +42,7 @@ export function PublicFooter({ tone = "landing" }: { tone?: PublicFooterTone }) 
         { label: "Memory aids", href: "https://docs.flightstrips.dk/procedures/memory-aids/" },
         { label: "Alone as Tower", href: "https://docs.flightstrips.dk/procedures/twr-bandbox/" },
       ],
-    },
-    {
-      title: "Kastrup (EKCH)",
-      links: [
-        { label: "CLR DEL", href: "https://docs.flightstrips.dk/ekch/clr-del/" },
-        { label: "APRON DEP", href: "https://docs.flightstrips.dk/ekch/apn-dep/" },
-        { label: "APRON ARR", href: "https://docs.flightstrips.dk/ekch/apn-arr/" },
-        { label: "SEQ PLN", href: "https://docs.flightstrips.dk/ekch/seq-pln/" },
-        { label: "AA + AD", href: "https://docs.flightstrips.dk/ekch/aa-ad/" },
-        { label: "GE + GW", href: "https://docs.flightstrips.dk/ekch/ge-gw/" },
-        { label: "TE + TW", href: "https://docs.flightstrips.dk/ekch/te-tw/" },
-      ],
-    },
-    {
-      title: "Development",
-      links: [
-        { label: "GitHub", href: "https://github.com/flightstrips" },
-        { label: "Local development", href: "https://docs.flightstrips.dk/dev/local-dev/" },
-        { label: "Local FSD server", href: "https://docs.flightstrips.dk/dev/local-fsd/" },
-        { label: "Writing docs", href: "https://docs.flightstrips.dk/dev/docs/" },
-        { label: "Troubleshooting", href: "https://docs.flightstrips.dk/troubleshooting/authentication-port-conflicts/" },
-      ],
-    },
+    }
   ];
 
   return (

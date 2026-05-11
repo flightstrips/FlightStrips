@@ -1,9 +1,10 @@
 import type { CSSProperties } from "react";
 
 import { Bay, type FrontendStrip } from "@/api/models";
+import { COLOR_BTN_YELLOW, SELECTION_COLOR } from "@/components/strip/shared";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { computeCDMColors, computeCTOTColors } from "@/lib/cdmColors";
+import { CTOT_BLUE, computeCDMColors } from "@/lib/cdmColors";
 
 import {
   EST_CELL_HEIGHT,
@@ -30,6 +31,7 @@ interface EstStandCellProps {
   blocked: boolean;
   actionActive: boolean;
   blinking: boolean;
+  startReqActive: boolean;
   ctotImproved: boolean;
   nowMs: number;
   containerStyle?: CSSProperties;
@@ -39,10 +41,10 @@ interface EstStandCellProps {
 export default function EstStandCell({
   stand,
   strip,
-  selected,
   blocked,
   actionActive,
   blinking,
+  startReqActive,
   ctotImproved,
   nowMs,
   containerStyle,
@@ -60,15 +62,14 @@ export default function EstStandCell({
   const isClearedDeparture = isDeparture && strip.bay !== Bay.NotCleared;
   const isPushing = strip?.bay === Bay.Push;
   const isArrival = strip?.bay === Bay.Stand;
-  const isMoving = !!strip && !isDeparture && !isPushing && !isArrival;
 
-  let backgroundClass = "bg-[#9E9E9E]";
+  let backgroundClass = "bg-[#D9D9D9]";
   let textClass = "text-[#333333]";
 
   if (blocked) {
     backgroundClass = "bg-[#4A4A4A]";
     textClass = "text-white";
-  } else if (actionActive || isMoving) {
+  } else if (startReqActive || actionActive) {
     backgroundClass = "bg-[#131376]";
     textClass = "text-white";
   } else if (isPushing) {
@@ -86,26 +87,34 @@ export default function EstStandCell({
   }
 
   const { tobtBg: tobtBarColor, tsatBg: tsatBarColor } = strip && isClearedDeparture
-    ? computeCDMColors(strip.tsat, strip.tobt, nowMs, strip.bay as Bay)
+    ? computeCDMColors(strip.tsat, strip.tobt, nowMs, strip.bay as Bay, strip.phase)
     : { tobtBg: "", tsatBg: "" };
-
-  const { ctotBg: ctotBarColor } = strip && isClearedDeparture
-    ? computeCTOTColors(strip.ctot, nowMs)
-    : { ctotBg: "" };
 
   const showTobt = isDeparture && !!strip && strip.tobt !== "";
   const showTsat = isDeparture && !!strip && strip.tsat !== "";
+  const showCtot = isClearedDeparture && !!strip?.ctot.trim();
 
   const ctotLabel =
-    isClearedDeparture && strip?.ctot
+    showCtot && strip?.ctot
       ? ctotImproved
         ? `NEW: ${formatTimeLabel(strip.ctot).replace(":", "")}`
         : `CTOT: ${formatTimeLabel(strip.ctot).replace(":", "")}`
       : "";
 
   const showMark = isClearedDeparture && !!strip?.marked;
-  const showBottomBar = showMark || (isClearedDeparture && !!ctotLabel);
-  const bottomBarColor = showMark ? "#EB01FB" : ctotBarColor;
+  const showCtotText = ctotLabel !== "";
+  const boxShadows: string[] = [];
+  if (startReqActive) {
+    boxShadows.push(`0 0 0 4px ${COLOR_BTN_YELLOW}`);
+  }
+  if (showMark) {
+    boxShadows.push(`0 0 0 ${startReqActive ? 8 : 4}px ${SELECTION_COLOR}`);
+  }
+  const buttonStyle: CSSProperties = {
+    width: EST_CELL_WIDTH,
+    height: EST_CELL_HEIGHT,
+    boxShadow: boxShadows.length > 0 ? boxShadows.join(", ") : undefined,
+  };
 
   return (
     <div style={containerStyle ?? gridStyle} className="relative">
@@ -115,13 +124,12 @@ export default function EstStandCell({
             type="button"
             onClick={(event) => onClick(stand.label, strip, event.currentTarget)}
             className={cn(
-              "relative overflow-hidden rounded-xl border-2 border-black/15 shadow-sm transition-transform hover:scale-[1.02] focus-visible:outline focus-visible:outline-2 focus-visible:outline-white",
+              "relative overflow-hidden rounded-xl border-2 border-black/15 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-white",
               backgroundClass,
               textClass,
-              selected && "ring-4 ring-[#EB01FB]",
-              blinking && "animate-pulse ring-4 ring-[#EB01FB]",
+              blinking && "animate-pulse",
             )}
-            style={{ width: EST_CELL_WIDTH, height: EST_CELL_HEIGHT }}
+            style={buttonStyle}
           >
             {/* Indicator bars (rendered behind text via DOM order) */}
             {tobtBarColor && (
@@ -136,13 +144,12 @@ export default function EstStandCell({
                 style={{ top: TSAT_ROW_TOP, height: ROW_HEIGHT, backgroundColor: tsatBarColor }}
               />
             )}
-            {showBottomBar && (
+            {showCtot && (
               <div
                 className="absolute left-0 right-0"
-                style={{ top: CTOT_ROW_TOP, height: ROW_HEIGHT, backgroundColor: bottomBarColor }}
+                style={{ top: CTOT_ROW_TOP, height: ROW_HEIGHT, backgroundColor: CTOT_BLUE }}
               />
             )}
-
             {/* Stand label */}
              <div
                className="absolute left-0 right-0 text-center font-bold"
@@ -154,11 +161,17 @@ export default function EstStandCell({
             {/* Callsign */}
             {strip && !blocked && (
                <div
-                 className="absolute left-0 right-0 truncate px-0.5 text-center"
-                 style={{ top: CALLSIGN_TOP, fontSize: CONTENT_FONT_SIZE, lineHeight: `${CONTENT_FONT_SIZE}px` }}
-               >
-                 {strip.callsign}
-               </div>
+                 className="absolute left-0 right-0 flex items-center justify-center overflow-hidden px-0.5 text-center"
+                 style={{
+                  top: CALLSIGN_TOP,
+                  height: ROW_HEIGHT,
+                  fontSize: CONTENT_FONT_SIZE,
+                  backgroundColor: showMark ? SELECTION_COLOR : undefined,
+                  color: showMark ? "#000000" : undefined,
+                }}
+              >
+                <span className="block truncate">{strip.callsign}</span>
+              </div>
             )}
 
             {/* TOBT row */}
@@ -181,14 +194,14 @@ export default function EstStandCell({
                </div>
             )}
 
-            {/* CTOT / MARK bottom bar text */}
-            {showBottomBar && (
-               <div
-                 className="absolute left-0 right-0 flex items-center justify-center text-white"
-                 style={{ top: CTOT_ROW_TOP, height: ROW_HEIGHT, fontSize: CONTENT_FONT_SIZE }}
-               >
-                 {!showMark ? ctotLabel : null}
-               </div>
+            {/* CTOT text */}
+            {showCtotText && (
+              <div
+                className="absolute left-0 right-0 flex items-center justify-center font-bold"
+                style={{ top: CTOT_ROW_TOP, height: ROW_HEIGHT, fontSize: CONTENT_FONT_SIZE, color: "#FFFFFF" }}
+              >
+                {ctotLabel}
+              </div>
             )}
           </button>
         </TooltipTrigger>

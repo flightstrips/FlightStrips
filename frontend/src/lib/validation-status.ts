@@ -25,6 +25,7 @@ export type ValidationEditableField =
 export type ValidationAttemptedAction =
   | { type: "move" }
   | { type: "generate_squawk" }
+  | { type: "cdm_ready" }
   | { type: "update_order" }
   | { type: "update_strip"; fields: ValidationEditableField[] }
   | { type: "release_point" }
@@ -76,6 +77,8 @@ export function isValidationActionAllowed(
   switch (action.type) {
     case "generate_squawk":
       return hasCustomAction(validationStatus, "generate_squawk");
+    case "cdm_ready":
+      return true;
     case "release_point":
       return hasCustomAction(validationStatus, "assign_holding_point");
     case "runway_clearance":

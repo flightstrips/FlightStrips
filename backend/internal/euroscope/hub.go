@@ -246,6 +246,7 @@ func (hub *Hub) sendBackendSyncIfNeeded(client *Client) {
 				TobtSetBy:       valueOrEmpty(strip.CdmData.TobtSetBy),
 				TobtConfirmedBy: valueOrEmpty(strip.CdmData.TobtConfirmedBy),
 				ReqTobt:         valueOrEmpty(strip.CdmData.EffectiveReqTobt()),
+				ReqTobtType:     valueOrEmpty(strip.CdmData.EffectiveReqTobtType()),
 				Tsat:            truncateCDMClockValue(valueOrEmpty(strip.CdmData.EffectiveTsat())),
 				Ttot:            truncateCDMClockValue(valueOrEmpty(strip.CdmData.EffectiveTtot())),
 				Ctot:            valueOrEmpty(strip.CdmData.EffectiveCtot()),
@@ -649,6 +650,15 @@ func (hub *Hub) SendStand(session int32, cid string, callsign string, stand stri
 	event := euroscope.StandEvent{
 		Callsign: callsign,
 		Stand:    stand,
+	}
+
+	hub.Send(session, cid, event)
+}
+
+func (hub *Hub) SendEobt(session int32, cid string, callsign string, eobt string) {
+	event := euroscope.EobtEvent{
+		Callsign: callsign,
+		Eobt:     eobt,
 	}
 
 	hub.Send(session, cid, event)

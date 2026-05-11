@@ -495,6 +495,146 @@ func TestSyncEuroscopeStrip_LocalDepartureTriggersCdmRecalculation(t *testing.T)
 	assert.Equal(t, "EKCH", cdmService.recalcAirport)
 }
 
+func TestSyncEuroscopeStrip_LaterEobtSyncsTobtAndMarksRecalculation(t *testing.T) {
+	ctx := context.Background()
+	const session = int32(1)
+	const callsign = "SAS125"
+
+	currentTobt := "1015"
+	laterEobt := "1030"
+
+	existingStrip := &models.Strip{
+		Callsign: callsign,
+		Origin:   "EKCH",
+		Bay:      shared.BAY_NOT_CLEARED,
+		CdmData: (&models.CdmData{
+			Tobt: &currentTobt,
+		}).Normalize(),
+	}
+
+	var updatedStrip *models.Strip
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			return existingStrip, nil
+		},
+		UpdateFn: func(_ context.Context, strip *models.Strip) (int64, error) {
+			updatedStrip = strip
+			return 1, nil
+		},
+	}
+
+	svc, _, _ := newSyncTestFixture(t, existingStrip, stripRepo)
+
+	err := svc.syncEuroscopeStrip(ctx, session, "", euroscope.Strip{
+		Callsign: callsign,
+		Origin:   "EKCH",
+		Eobt:     laterEobt,
+	}, "EKCH")
+	require.NoError(t, err)
+
+	require.NotNil(t, updatedStrip)
+	require.NotNil(t, updatedStrip.CdmData)
+	require.NotNil(t, updatedStrip.CdmData.Eobt)
+	require.NotNil(t, updatedStrip.CdmData.Tobt)
+	assert.Equal(t, laterEobt, *updatedStrip.CdmData.Eobt)
+	assert.Equal(t, laterEobt, *updatedStrip.CdmData.Tobt)
+	assert.True(t, updatedStrip.CdmData.Recalculate)
+}
+
+func TestSyncEuroscopeStrip_EarlierEobtDoesNotSyncTobtOrMarkRecalculation(t *testing.T) {
+	ctx := context.Background()
+	const session = int32(1)
+	const callsign = "SAS126"
+
+	currentTobt := "1030"
+	earlierEobt := "1015"
+
+	existingStrip := &models.Strip{
+		Callsign: callsign,
+		Origin:   "EKCH",
+		Bay:      shared.BAY_NOT_CLEARED,
+		CdmData: (&models.CdmData{
+			Tobt: &currentTobt,
+		}).Normalize(),
+	}
+
+	var updatedStrip *models.Strip
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			return existingStrip, nil
+		},
+		UpdateFn: func(_ context.Context, strip *models.Strip) (int64, error) {
+			updatedStrip = strip
+			return 1, nil
+		},
+	}
+
+	svc, _, _ := newSyncTestFixture(t, existingStrip, stripRepo)
+
+	err := svc.syncEuroscopeStrip(ctx, session, "", euroscope.Strip{
+		Callsign: callsign,
+		Origin:   "EKCH",
+		Eobt:     earlierEobt,
+	}, "EKCH")
+	require.NoError(t, err)
+
+	require.NotNil(t, updatedStrip)
+	require.NotNil(t, updatedStrip.CdmData)
+	require.NotNil(t, updatedStrip.CdmData.Eobt)
+	require.NotNil(t, updatedStrip.CdmData.Tobt)
+	assert.Equal(t, earlierEobt, *updatedStrip.CdmData.Eobt)
+	assert.Equal(t, currentTobt, *updatedStrip.CdmData.Tobt)
+	assert.False(t, updatedStrip.CdmData.Recalculate)
+}
+
+func TestSyncEuroscopeStrip_PhaseInvalidEobtUpdateMarksRecalculationWithoutSyncingTobt(t *testing.T) {
+	ctx := context.Background()
+	const session = int32(1)
+	const callsign = "SAS127"
+
+	currentTobt := "1030"
+	earlierEobt := "1015"
+	phase := "I"
+
+	existingStrip := &models.Strip{
+		Callsign: callsign,
+		Origin:   "EKCH",
+		Bay:      shared.BAY_NOT_CLEARED,
+		CdmData: (&models.CdmData{
+			Tobt:  &currentTobt,
+			Phase: &phase,
+		}).Normalize(),
+	}
+
+	var updatedStrip *models.Strip
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			return existingStrip, nil
+		},
+		UpdateFn: func(_ context.Context, strip *models.Strip) (int64, error) {
+			updatedStrip = strip
+			return 1, nil
+		},
+	}
+
+	svc, _, _ := newSyncTestFixture(t, existingStrip, stripRepo)
+
+	err := svc.syncEuroscopeStrip(ctx, session, "", euroscope.Strip{
+		Callsign: callsign,
+		Origin:   "EKCH",
+		Eobt:     earlierEobt,
+	}, "EKCH")
+	require.NoError(t, err)
+
+	require.NotNil(t, updatedStrip)
+	require.NotNil(t, updatedStrip.CdmData)
+	require.NotNil(t, updatedStrip.CdmData.Eobt)
+	require.NotNil(t, updatedStrip.CdmData.Tobt)
+	assert.Equal(t, earlierEobt, *updatedStrip.CdmData.Eobt)
+	assert.Equal(t, currentTobt, *updatedStrip.CdmData.Tobt)
+	assert.True(t, updatedStrip.CdmData.Recalculate)
+}
+
 func TestSyncEuroscopeStrip_ArrivalDoesNotTriggerCdmRecalculation(t *testing.T) {
 	ctx := context.Background()
 	const session = int32(1)

@@ -16,6 +16,7 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -136,6 +137,7 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 			TrackingController: strip.TrackingController,
 			EngineType:         strip.EngineType,
 			HasFP:              strip.HasFP,
+			StartReq:           false,
 		}
 		validationStrip = newStrip
 		sequence, err := s.nextSequenceAtEndOfBay(ctx, session, bay)
@@ -303,8 +305,14 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 			CdmData: func() *internalModels.CdmData {
 				cdmData := existingStrip.CdmData.Clone()
 				if strip.Eobt != "" {
-					cdmData.Tobt = &strip.Eobt
 					cdmData.Eobt = &strip.Eobt
+					if shouldForceSyncStripRecalculation(cdmData, time.Now().UTC()) {
+						cdmData.Recalculate = true
+					}
+					if shouldSyncUpdatedEobtToTobt(strip.Eobt, helpers.ValueOrDefault(cdmData.Tobt)) {
+						cdmData.Tobt = &strip.Eobt
+						cdmData.Recalculate = true
+					}
 				}
 				return cdmData
 			}(),
@@ -316,6 +324,7 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 			PdcRequestRemarks:      existingStrip.PdcRequestRemarks,
 			TrackingController:     strip.TrackingController,
 			EngineType:             strip.EngineType,
+			StartReq:               existingStrip.StartReq,
 			UnexpectedChangeFields: slices.Clone(existingStrip.UnexpectedChangeFields),
 			ValidationStatus:       existingStrip.ValidationStatus,
 			HasFP:                  strip.HasFP,
@@ -350,6 +359,12 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 				return err
 			}
 			updateStrip.Sequence = &sequence
+		}
+		if bayChanged && shouldResetStartReqOnMove(existingStrip.Bay, updateStrip.Bay) {
+			updateStrip.StartReq = false
+		}
+		if shouldResetStartReqOnStandChange(existingStrip.Bay, existingStrip.Stand, updateStrip.Stand) {
+			updateStrip.StartReq = false
 		}
 		routeNeedsUpdate = syncStripRouteChanged(existingStrip, updateStrip) || shouldClearOwnerForNotCleared
 		if routeNeedsUpdate && routeComputer != nil {
@@ -441,6 +456,56 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 	return nil
 }
 
+func shouldSyncUpdatedEobtToTobt(eobt string, currentTobt string) bool {
+	eobtSeconds, ok := parseClockToSeconds(eobt)
+	if !ok {
+		return false
+	}
+
+	currentTobtSeconds, ok := parseClockToSeconds(currentTobt)
+	if !ok {
+		return true
+	}
+
+	diffMinutes := float64(eobtSeconds-currentTobtSeconds) / 60.0
+	if diffMinutes <= -720 {
+		diffMinutes += 1440
+	} else if diffMinutes > 720 {
+		diffMinutes -= 1440
+	}
+
+	return diffMinutes > 0
+}
+
+func shouldForceSyncStripRecalculation(data *internalModels.CdmData, now time.Time) bool {
+	if data == nil {
+		return false
+	}
+
+	if helpers.ValueOrDefault(data.EffectivePhase()) == "I" {
+		return true
+	}
+
+	tsatSeconds, ok := parseClockToSeconds(helpers.ValueOrDefault(data.EffectiveTsat()))
+	if !ok {
+		return false
+	}
+
+	nowSeconds, ok := parseClockToSeconds(now.UTC().Format("150405"))
+	if !ok {
+		return false
+	}
+
+	diffMinutes := float64(nowSeconds-tsatSeconds) / 60.0
+	if diffMinutes <= -720 {
+		diffMinutes += 1440
+	} else if diffMinutes > 720 {
+		diffMinutes -= 1440
+	}
+
+	return diffMinutes > 5
+}
+
 func syncStripChanged(existingStrip, updateStrip *internalModels.Strip) bool {
 	if existingStrip == nil || updateStrip == nil {
 		return true
@@ -477,6 +542,7 @@ func syncStripChanged(existingStrip, updateStrip *internalModels.Strip) bool {
 		!reflect.DeepEqual(existingStrip.Registration, updateStrip.Registration) ||
 		existingStrip.TrackingController != updateStrip.TrackingController ||
 		existingStrip.EngineType != updateStrip.EngineType ||
+		existingStrip.StartReq != updateStrip.StartReq ||
 		!reflect.DeepEqual(existingStrip.UnexpectedChangeFields, updateStrip.UnexpectedChangeFields) ||
 		existingStrip.HasFP != updateStrip.HasFP
 }
@@ -534,6 +600,7 @@ func applySyncStripUpdate(existingStrip, updateStrip *internalModels.Strip) {
 	existingStrip.PdcRequestRemarks = updateStrip.PdcRequestRemarks
 	existingStrip.TrackingController = updateStrip.TrackingController
 	existingStrip.EngineType = updateStrip.EngineType
+	existingStrip.StartReq = updateStrip.StartReq
 	existingStrip.UnexpectedChangeFields = slices.Clone(updateStrip.UnexpectedChangeFields)
 	existingStrip.HasFP = updateStrip.HasFP
 	existingStrip.ValidationStatus = updateStrip.ValidationStatus

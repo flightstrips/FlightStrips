@@ -7,7 +7,7 @@ import FlightPlanDialog from "@/components/FlightPlanDialog";
 import { HoldingPointDialog } from "@/components/map-dialogs/HoldingPointDialog";
 import { ArrStandDialog } from "@/components/strip/ArrStandDialog";
 import { canForceAssumeStrip } from "@/components/strip/shared";
-import { useIsClrDel, useMyPosition, useStrip, useStripTransfers, useWebSocketStore } from "@/store/store-hooks";
+import { useIsClrDel, useMyPosition, useStrip, useWebSocketStore } from "@/store/store-hooks";
 import type { ValidationStatus } from "@/api/models";
 import { useState, type CSSProperties } from "react";
 
@@ -141,7 +141,6 @@ export function ValidationStatusDialog({
   const runwayClearance = useWebSocketStore((state) => state.runwayClearance);
   const strip = useStrip(callsign);
   const myPosition = useMyPosition();
-  const stripTransfers = useStripTransfers();
   const isClrDel = useIsClrDel();
   const [holdingPointOpen, setHoldingPointOpen] = useState(false);
   const [flightPlanOpen, setFlightPlanOpen] = useState(false);
@@ -152,7 +151,6 @@ export function ValidationStatusDialog({
     owner: strip?.owner,
     myPosition,
     isClrDel,
-    hasActiveCoordination: !!stripTransfers[callsign],
   });
 
   function handleAcknowledge() {

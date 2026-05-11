@@ -15,6 +15,7 @@ import {
   useStripBg,
   getValidationBlinkStyle,
   getValidationBlockedCursor,
+  useNextFrequencyDisplay,
 } from "./shared";
 import { getStripBg } from "./types";
 import { useWebSocketStore, useIsTwr } from "@/store/store-hooks";
@@ -64,11 +65,13 @@ export function ApnPushStrip({
   tsat,
   tobt,
   ctot,
+  phase,
   runway,
   arrival,
   owner,
   nextControllers,
   previousControllers,
+  nextDisplay,
   myPosition,
   selectable,
   delegateCallsignClick = false,
@@ -101,11 +104,14 @@ export function ApnPushStrip({
   const [taxiMapOpen, setTaxiMapOpen] = useState(false);
   const [runwayOpen, setRunwayOpen] = useState(false);
   const [fplOpen, setFplOpen] = useState(false);
+  const cdmReady = useWebSocketStore(s => s.cdmReady);
   const acknowledgeUnexpectedChange = useWebSocketStore(s => s.acknowledgeUnexpectedChange);
   const standYellow = unexpectedChangeFields?.includes("stand");
   const runwayYellow = unexpectedChangeFields?.includes("runway");
-  const { tsatBg } = useCDMColors({ bay: bay ?? Bay.Unknown, tsat: tsat ?? "", tobt: tobt ?? "" });
+  const { tsatBg } = useCDMColors({ bay: bay ?? Bay.Unknown, tsat: tsat ?? "", tobt: tobt ?? "", phase });
   const { ctotBg, ctotColor, showCtot } = useCTOTColor(ctot ?? "");
+  const canSendCdmReady = bay === Bay.Cleared;
+  const nextFreq = useNextFrequencyDisplay(nextDisplay, nextControllers, myPosition);
 
   return (
     <div
@@ -125,6 +131,7 @@ export function ApnPushStrip({
           owner={owner}
           nextControllers={nextControllers}
           previousControllers={previousControllers}
+          nextDisplay={nextDisplay}
           myPosition={myPosition}
           transferFrom={stripTransfers[callsign]?.from ?? ""}
           transferringTo={stripTransfers[callsign]?.to ?? ""}
@@ -143,7 +150,11 @@ export function ApnPushStrip({
               {callsign}
             </span>
           </div>
-          <div style={{ height: BOT_H }} />
+          <div className="flex items-center pl-[0.42vw] overflow-hidden" style={{ height: BOT_H }}>
+            <span className="truncate w-full" style={{ fontFamily: FONT, fontWeight: "bold", fontSize: "0.57vw" }}>
+              {nextFreq}
+            </span>
+          </div>
         </div>
 
         {/* A/C type / Registration — 25%*(2/3), stacked in top 2/3 */}
@@ -203,11 +214,25 @@ export function ApnPushStrip({
           className="flex flex-col overflow-hidden border-r-2"
           style={{ flex: `${F_TSAT} 0 0%`, height: "100%", minWidth: 0, borderRightColor: cellBorderColor }}
         >
-          <div className="flex items-center gap-[0.21vw] px-[0.21vw] border-b-2" style={{ height: HALF_H, borderBottomColor: cellBorderColor, backgroundColor: tsatBg || undefined }}>
+          <div
+            className="flex items-center gap-[0.21vw] px-[0.21vw] border-b-2"
+            style={{ height: HALF_H, borderBottomColor: cellBorderColor, backgroundColor: tsatBg || undefined, cursor: canSendCdmReady ? getValidationBlockedCursor(isValidationActive, "pointer", true) : undefined }}
+            onClick={canSendCdmReady ? (e) => {
+              e.stopPropagation();
+              cdmReady(callsign);
+            } : undefined}
+          >
             <span className="shrink-0" style={{ fontFamily: FONT, fontSize: "0.63vw" }}>TSAT</span>
             <span className="truncate" style={{ fontFamily: FONT, fontSize: "0.63vw" }}>{tsat}</span>
           </div>
-          <div className="flex items-center gap-[0.21vw] px-[0.21vw]" style={{ height: HALF_H, backgroundColor: ctotBg || undefined, color: ctotColor }}>
+          <div
+            className="flex items-center gap-[0.21vw] px-[0.21vw]"
+            style={{ height: HALF_H, backgroundColor: ctotBg || undefined, color: ctotColor, cursor: canSendCdmReady ? getValidationBlockedCursor(isValidationActive, "pointer", true) : undefined }}
+            onClick={canSendCdmReady ? (e) => {
+              e.stopPropagation();
+              cdmReady(callsign);
+            } : undefined}
+          >
             <span className="shrink-0" style={{ fontFamily: FONT, fontSize: "0.63vw" }}>{showCtot ? "CTOT" : ""}</span>
             <span className="truncate" style={{ fontFamily: FONT, fontSize: "0.63vw" }}>{showCtot ? ctot : ""}</span>
           </div>

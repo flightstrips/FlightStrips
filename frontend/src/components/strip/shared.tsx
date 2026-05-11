@@ -2,10 +2,11 @@
  * Shared strip sub-components and helpers used across multiple strip variants.
  */
 
-import { useMarkArmed, useRunwaySetup, useSelectStrip, useSelectedCallsign, useStripTransfers, useTagRequestArmed, useWebSocketStore } from "@/store/store-hooks";
+import { useControllers, useMarkArmed, useRunwaySetup, useSelectStrip, useSelectedCallsign, useStripTransfers, useTagRequestArmed, useWebSocketStore } from "@/store/store-hooks";
 import { useEffect, useRef, useState } from "react";
 import type { CSSProperties, MouseEvent as ReactMouseEvent } from "react";
 import { Bay } from "@/api/models";
+import type { NextDisplay } from "@/api/models";
 import type { PdcStatus } from "@/api/models";
 import type { ValidationStatus } from "@/api/models";
 import { isValidationActiveForPosition } from "@/lib/validation-status";
@@ -54,14 +55,12 @@ export function canForceAssumeStrip({
   owner,
   myPosition,
   isClrDel,
-  hasActiveCoordination,
 }: {
   owner?: string;
   myPosition?: string;
   isClrDel: boolean;
-  hasActiveCoordination: boolean;
 }): boolean {
-  return !!myPosition && !!owner && owner !== myPosition && !isClrDel && !hasActiveCoordination;
+  return !!myPosition && !!owner && owner !== myPosition && !isClrDel;
 }
 
 export function getValidationBlinkStyle(validationStatus: ValidationStatus | undefined, myPosition?: string): CSSProperties {
@@ -80,6 +79,18 @@ export function getValidationBlockedCursor(
   allowDuringValidation = false,
 ): CSSProperties["cursor"] {
   return isValidationActive && !allowDuringValidation ? "not-allowed" : defaultCursor;
+}
+
+export function useNextFrequencyDisplay(nextDisplay?: NextDisplay, nextControllers?: string[], myPosition?: string): string {
+  const controllers = useControllers();
+  const nextPosition = nextControllers?.find((position) => position !== myPosition);
+  const nextController = controllers.find((controller) => controller.position === nextPosition);
+
+  if (nextDisplay?.frequency?.trim()) {
+    return `:${nextDisplay.frequency}`;
+  }
+
+  return nextController?.position ? `:${nextController.position}` : "";
 }
 
 export function usePdcClearedCallsignBlink(pdcStatus?: PdcStatus): boolean {

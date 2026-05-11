@@ -165,6 +165,7 @@ export function ArrStandDialog({ open, onOpenChange, callsign, currentStand }: P
                   blocked={false}
                   actionActive={isCurrent}
                   blinking={false}
+                  startReqActive={false}
                   ctotImproved={false}
                   nowMs={nowMs}
                   containerStyle={{

@@ -155,6 +155,12 @@ func (s *StripService) MoveToBay(ctx context.Context, session int32, callsign st
 		previousBay = strip.Bay
 	}
 
+	if stripAvailable && strip != nil && strip.StartReq && shouldResetStartReqOnMove(previousBay, bay) {
+		if err := s.setStartReqState(ctx, session, callsign, false, false, strip); err != nil {
+			return err
+		}
+	}
+
 	order, err := s.nextSequenceAtEndOfBay(ctx, session, bay)
 	if err != nil {
 		return err

@@ -2,8 +2,11 @@ package cdm
 
 import (
 	"FlightStrips/pkg/models"
+	"math"
 	"strconv"
 	"strings"
+
+	"github.com/golang/geo/s2"
 )
 
 const (
@@ -179,6 +182,24 @@ func (c *CdmAirportConfig) TaxiMinutesForRunway(depRwy string) int {
 		return c.DefaultTaxiMinutes
 	}
 	return DefaultCDMTaxiMinutes
+}
+
+func (c *CdmAirportConfig) TaxiMinutesForPosition(depRwy string, lat, lon float64) (int, bool) {
+	if c == nil || !isUsableTaxiPosition(lat, lon) {
+		return 0, false
+	}
+
+	point := s2.PointFromLatLng(s2.LatLngFromDegrees(lat, lon))
+	for _, zone := range c.TaxiZones {
+		if !strings.EqualFold(zone.Runway, depRwy) || zone.Minutes <= 0 || len(zone.Polygon) < 3 {
+			continue
+		}
+		if taxiZoneContainsPoint(zone.Polygon, point) {
+			return zone.Minutes, true
+		}
+	}
+
+	return 0, false
 }
 
 func (c *CdmAirportConfig) SidIntervalMinutes(depRwy, sid1, sid2 string) float64 {
@@ -389,4 +410,26 @@ func (c *CdmAirportConfig) DeiceMinutesForPlatform(platform string) (int, bool) 
 
 func normalizeToken(value string) string {
 	return strings.ToUpper(strings.TrimSpace(value))
+}
+
+func isUsableTaxiPosition(lat, lon float64) bool {
+	if math.IsNaN(lat) || math.IsNaN(lon) || math.IsInf(lat, 0) || math.IsInf(lon, 0) {
+		return false
+	}
+	return lat != 0 || lon != 0
+}
+
+func taxiZoneContainsPoint(polygon []CdmTaxiPoint, point s2.Point) bool {
+	points := make([]s2.Point, 0, len(polygon))
+	for _, coordinate := range polygon {
+		points = append(points, s2.PointFromLatLng(s2.LatLngFromDegrees(coordinate.Lat, coordinate.Lon)))
+	}
+
+	loop := s2.LoopFromPoints(points)
+	loop.Normalize()
+	if err := loop.Validate(); err != nil {
+		return false
+	}
+
+	return loop.ContainsPoint(point)
 }

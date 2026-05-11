@@ -106,6 +106,7 @@ export default function EST() {
   const updateStrip = useWebSocketStore((state) => state.updateStrip);
   const pickupStrip = useWebSocketStore((state) => state.pickupStrip);
   const transferStrip = useWebSocketStore((state) => state.transferStrip);
+  const setStartReq = useWebSocketStore((state) => state.setStartReq);
   const toggleMarked = useWebSocketStore((state) => state.toggleMarked);
   const cdmReady = useWebSocketStore((state) => state.cdmReady);
   const controllers = useControllers();
@@ -263,16 +264,12 @@ export default function EST() {
 
     if (selectedCallsign !== strip.callsign) {
       selectStrip(strip.callsign);
-      setMenuState(null);
-      setStatusStand(null);
-      setStatusAnchor(null);
-      setDeIceOpen(false);
-      return;
     }
 
     setMenuState({ stand, anchor: toMenuAnchor(element) });
     setStatusStand(null);
     setStatusAnchor(null);
+    setDeIceOpen(false);
   }
 
   function handleSendReady() {
@@ -303,7 +300,7 @@ export default function EST() {
       return;
     }
 
-    setActionState(menuState.stand, menuStrip, true);
+    setStartReq(menuStrip.callsign, !menuStrip.start_req);
     closeMenu();
   }
 
@@ -456,6 +453,7 @@ export default function EST() {
               const strip = stripByStand.get(stand.label);
               const actionOverride = strip ? actionOverrides[stand.label] : undefined;
               const actionActive = !!actionOverride && !!strip && actionOverride.callsign === strip.callsign;
+              const startReqActive = !!strip?.start_req;
 
               return (
                 <EstStandCell
@@ -466,6 +464,7 @@ export default function EST() {
                   blocked={!!blockedStands[stand.label]}
                   actionActive={actionActive}
                   blinking={actionActive ? actionOverride.blinking : false}
+                  startReqActive={startReqActive}
                   ctotImproved={strip ? !!ctotState.flags[strip.callsign] : false}
                   nowMs={nowMs}
                   containerStyle={{

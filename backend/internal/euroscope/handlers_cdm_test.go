@@ -26,8 +26,16 @@ func (s *spyLocalCdmService) TriggerRecalculate(_ context.Context, _ int32, _ st
 	panic("TriggerRecalculate should not be called in this test")
 }
 
-func (s *spyLocalCdmService) HandleReadyRequest(_ context.Context, _ int32, _ string) error {
+func (s *spyLocalCdmService) SyncAirportLvoFromRunwayStatus(_ context.Context, _ string, _ map[string]string) {
+	panic("SyncAirportLvoFromRunwayStatus should not be called in this test")
+}
+
+func (s *spyLocalCdmService) HandleReadyRequest(_ context.Context, _ int32, _ string, _ string, _ string) error {
 	panic("HandleReadyRequest should not be called in this test")
+}
+
+func (s *spyLocalCdmService) HandleEobtUpdate(_ context.Context, _ int32, _ string, _ string, _ string, _ string) error {
+	panic("HandleEobtUpdate should not be called in this test")
 }
 
 func (s *spyLocalCdmService) HandleTobtUpdate(_ context.Context, session int32, callsign string, tobt string, sourcePosition string, sourceRole string) error {
@@ -38,6 +46,10 @@ func (s *spyLocalCdmService) HandleTobtUpdate(_ context.Context, session int32, 
 	s.tobtSourcePos = sourcePosition
 	s.tobtSourceRole = sourceRole
 	return nil
+}
+
+func (s *spyLocalCdmService) HandleClxTobtUpdate(_ context.Context, _ int32, _ string, _ string, _ string, _ string) error {
+	panic("HandleClxTobtUpdate should not be called in this test")
 }
 
 func (s *spyLocalCdmService) HandleDeiceUpdate(_ context.Context, _ int32, _ string, _ string) error {
@@ -180,4 +192,3 @@ func TestHandleCdmMasterToggle_FalseCallsSetSessionCdmMaster(t *testing.T) {
 	assert.Equal(t, int32(99), cdmService.masterSession)
 	assert.False(t, cdmService.masterValue)
 }
-

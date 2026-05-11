@@ -38,6 +38,7 @@ type CdmConfigStore struct {
 	defaults         CdmConfigDefaults
 	httpClient       *http.Client
 	cdmClient        *Client
+	onAirportChange  func(string)
 }
 
 func NewCdmConfigStore(rateURL, sidIntervalURL, taxiZoneURL string, refreshInterval time.Duration, defaults CdmConfigDefaults, httpClient *http.Client) *CdmConfigStore {
@@ -71,6 +72,13 @@ func NewCdmConfigStore(rateURL, sidIntervalURL, taxiZoneURL string, refreshInter
 
 func (s *CdmConfigStore) SetCdmClient(client *Client) {
 	s.cdmClient = client
+}
+
+func (s *CdmConfigStore) SetOnAirportConfigChanged(fn func(string)) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.onAirportChange = fn
 }
 
 func (s *CdmConfigStore) Start(ctx context.Context) {
@@ -123,15 +131,19 @@ func (s *CdmConfigStore) DefaultConfigForAirport(airport string) *CdmAirportConf
 
 func (s *CdmConfigStore) SetLvo(airport string, active bool) {
 	s.mu.Lock()
-	defer s.mu.Unlock()
 
 	config := s.ensureConfigLocked(airport)
+	changed := config.LvoActive != active
 	config.LvoActive = active
+	s.mu.Unlock()
+
+	if changed {
+		s.notifyAirportConfigChanged(airport)
+	}
 }
 
 func (s *CdmConfigStore) SetDelay(delay CdmDelay) {
 	s.mu.Lock()
-	defer s.mu.Unlock()
 
 	config := s.ensureConfigLocked(delay.Airport)
 	filtered := make([]CdmDelay, 0, len(config.Delays)+1)
@@ -142,21 +154,30 @@ func (s *CdmConfigStore) SetDelay(delay CdmDelay) {
 		filtered = append(filtered, existing)
 	}
 	config.Delays = append(filtered, delay)
+	s.mu.Unlock()
+
+	s.notifyAirportConfigChanged(delay.Airport)
 }
 
 func (s *CdmConfigStore) ClearDelay(airport, runway string) {
 	s.mu.Lock()
-	defer s.mu.Unlock()
 
 	config := s.ensureConfigLocked(airport)
 	filtered := config.Delays[:0]
+	removed := false
 	for _, delay := range config.Delays {
 		if strings.EqualFold(delay.Runway, runway) {
+			removed = true
 			continue
 		}
 		filtered = append(filtered, delay)
 	}
 	config.Delays = append([]CdmDelay(nil), filtered...)
+	s.mu.Unlock()
+
+	if removed {
+		s.notifyAirportConfigChanged(airport)
+	}
 }
 
 func (s *CdmConfigStore) applyDepartureRestrictions(restrictions []DepartureRestriction) {
@@ -287,6 +308,19 @@ func (s *CdmConfigStore) ensureConfigLocked(airport string) *CdmAirportConfig {
 		s.configs[key] = config
 	}
 	return config
+}
+
+func (s *CdmConfigStore) notifyAirportConfigChanged(airport string) {
+	if normalizeToken(airport) == "" {
+		return
+	}
+
+	s.mu.RLock()
+	callback := s.onAirportChange
+	s.mu.RUnlock()
+	if callback != nil {
+		callback(normalizeToken(airport))
+	}
 }
 
 func (s *CdmConfigStore) mergeRatesLocked(rates []CdmRate) {

@@ -112,6 +112,7 @@ type Strip struct {
 	RunwayConfirmed          bool
 	PdcData                  []byte
 	ValidationStatus         []byte
+	StartReq                 bool
 }
 
 type TacticalStrip struct {

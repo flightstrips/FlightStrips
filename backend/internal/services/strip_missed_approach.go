@@ -34,7 +34,7 @@ func (s *StripService) applyMissedApproachOwnerFix(ctx context.Context, session 
 		if setErr := s.stripRepo.SetPreviousOwners(ctx, session, callsign, cleanedPrev); setErr != nil {
 			slog.WarnContext(ctx, "missed approach owner fix: failed to clear TWR from previous owners", slog.String("callsign", callsign), slog.Any("error", setErr))
 		} else {
-			s.publisher.SendOwnersUpdate(session, callsign, assumingPosition, updated.NextOwners, cleanedPrev)
+			s.publisher.SendOwnersUpdate(session, callsign, assumingPosition, updated.NextOwners, cleanedPrev, nil)
 		}
 	}
 

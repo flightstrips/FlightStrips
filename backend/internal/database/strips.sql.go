@@ -295,7 +295,7 @@ func (q *Queries) GetSequence(ctx context.Context, arg GetSequenceParams) (int32
 }
 
 const getStrip = `-- name: GetStrip :one
-SELECT id, version, callsign, session, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay, position_latitude, position_longitude, position_altitude, next_owners, previous_owners, release_point, marked, registration, tracking_controller, runway_cleared, unexpected_change_fields, controller_modified_fields, engine_type, is_manual, persons_on_board, fpl_type, language, has_fp, cdm_data, runway_confirmed, pdc_data, validation_status
+SELECT id, version, callsign, session, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay, position_latitude, position_longitude, position_altitude, next_owners, previous_owners, release_point, marked, registration, tracking_controller, runway_cleared, unexpected_change_fields, controller_modified_fields, engine_type, is_manual, persons_on_board, fpl_type, language, has_fp, cdm_data, runway_confirmed, pdc_data, validation_status, start_req
 FROM strips
 WHERE callsign = $1 AND session = $2
 `
@@ -357,6 +357,7 @@ func (q *Queries) GetStrip(ctx context.Context, arg GetStripParams) (Strip, erro
 		&i.RunwayConfirmed,
 		&i.PdcData,
 		&i.ValidationStatus,
+		&i.StartReq,
 	)
 	return i, err
 }
@@ -366,9 +367,45 @@ INSERT INTO strips (version, callsign, session, origin, destination, alternative
                      squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities,
                      communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay,
                      position_latitude, position_longitude, position_altitude, cdm_data, next_owners, previous_owners,
-                     registration, tracking_controller, engine_type, has_fp)
-VALUES (1, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23,
-        $24, $25, $26, $27, $28, COALESCE($29, '[]'::jsonb), COALESCE($30, '[]'::jsonb), $31, $32, $33, $34)
+                     registration, tracking_controller, engine_type, has_fp, start_req)
+VALUES (
+    1,
+    $1,
+    $2,
+    $3,
+    $4,
+    $5,
+    $6,
+    $7,
+    $8,
+    $9,
+    $10,
+    $11,
+    $12,
+    $13,
+    $14,
+    $15,
+    $16,
+    $17,
+    $18,
+    $19,
+    $20,
+    $21,
+    $22,
+    $23,
+    $24,
+    $25,
+    $26,
+    $27,
+    $28,
+    COALESCE($29::jsonb, '[]'::jsonb),
+    COALESCE($30::jsonb, '[]'::jsonb),
+    $31,
+    $32,
+    $33,
+    $34,
+    $35
+)
 `
 
 type InsertStripParams struct {
@@ -400,12 +437,13 @@ type InsertStripParams struct {
 	PositionLongitude  *float64
 	PositionAltitude   *int32
 	CdmData            []byte
-	NextOwners         []string
-	PreviousOwners     []string
+	NextOwners         []byte
+	PreviousOwners     []byte
 	Registration       *string
 	TrackingController string
 	EngineType         string
-	HasFP              bool
+	HasFp              bool
+	StartReq           bool
 }
 
 func (q *Queries) InsertStrip(ctx context.Context, arg InsertStripParams) error {
@@ -443,7 +481,8 @@ func (q *Queries) InsertStrip(ctx context.Context, arg InsertStripParams) error 
 		arg.Registration,
 		arg.TrackingController,
 		arg.EngineType,
-		arg.HasFP,
+		arg.HasFp,
+		arg.StartReq,
 	)
 	return err
 }
@@ -486,7 +525,7 @@ func (q *Queries) ListStripSequences(ctx context.Context, arg ListStripSequences
 }
 
 const listStrips = `-- name: ListStrips :many
-SELECT id, version, callsign, session, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay, position_latitude, position_longitude, position_altitude, next_owners, previous_owners, release_point, marked, registration, tracking_controller, runway_cleared, unexpected_change_fields, controller_modified_fields, engine_type, is_manual, persons_on_board, fpl_type, language, has_fp, cdm_data, runway_confirmed, pdc_data, validation_status
+SELECT id, version, callsign, session, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay, position_latitude, position_longitude, position_altitude, next_owners, previous_owners, release_point, marked, registration, tracking_controller, runway_cleared, unexpected_change_fields, controller_modified_fields, engine_type, is_manual, persons_on_board, fpl_type, language, has_fp, cdm_data, runway_confirmed, pdc_data, validation_status, start_req
 FROM strips
 WHERE session = $1
 ORDER BY callsign
@@ -550,6 +589,7 @@ func (q *Queries) ListStrips(ctx context.Context, session int32) ([]Strip, error
 			&i.RunwayConfirmed,
 			&i.PdcData,
 			&i.ValidationStatus,
+			&i.StartReq,
 		); err != nil {
 			return nil, err
 		}
@@ -562,7 +602,7 @@ func (q *Queries) ListStrips(ctx context.Context, session int32) ([]Strip, error
 }
 
 const listStripsByOrigin = `-- name: ListStripsByOrigin :many
-SELECT id, version, callsign, session, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay, position_latitude, position_longitude, position_altitude, next_owners, previous_owners, release_point, marked, registration, tracking_controller, runway_cleared, unexpected_change_fields, controller_modified_fields, engine_type, is_manual, persons_on_board, fpl_type, language, has_fp, cdm_data, runway_confirmed, pdc_data, validation_status
+SELECT id, version, callsign, session, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay, position_latitude, position_longitude, position_altitude, next_owners, previous_owners, release_point, marked, registration, tracking_controller, runway_cleared, unexpected_change_fields, controller_modified_fields, engine_type, is_manual, persons_on_board, fpl_type, language, has_fp, cdm_data, runway_confirmed, pdc_data, validation_status, start_req
 FROM strips
 WHERE origin = $1 AND session = $2
 ORDER BY callsign
@@ -631,6 +671,7 @@ func (q *Queries) ListStripsByOrigin(ctx context.Context, arg ListStripsByOrigin
 			&i.RunwayConfirmed,
 			&i.PdcData,
 			&i.ValidationStatus,
+			&i.StartReq,
 		); err != nil {
 			return nil, err
 		}
@@ -905,20 +946,45 @@ func (q *Queries) UpdateRunwayConfirmation(ctx context.Context, arg UpdateRunway
 
 const updateStrip = `-- name: UpdateStrip :execrows
 UPDATE strips
-SET (version, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude,
-     heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand,
-     sequence, state, cleared, owner, bay, position_latitude, position_longitude, position_altitude, cdm_data,
-     next_owners, previous_owners, registration, tracking_controller, engine_type, unexpected_change_fields, has_fp
-     ) = (
-          version + 1, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22,
-          $23, $24, $25, $26, $27, $28, COALESCE($29, '[]'::jsonb), COALESCE($30, '[]'::jsonb), $31, $32, $33,
-          COALESCE($34, '{}'::text[]), $35)
-WHERE callsign = $1 AND session = $2
+SET version = version + 1,
+    origin = $1,
+    destination = $2,
+    alternative = $3,
+    route = $4,
+    remarks = $5,
+    assigned_squawk = $6,
+    squawk = $7,
+    sid = $8,
+    cleared_altitude = $9,
+    heading = $10,
+    aircraft_type = $11,
+    runway = $12,
+    requested_altitude = $13,
+    capabilities = $14,
+    communication_type = $15,
+    aircraft_category = $16,
+    stand = $17,
+    sequence = $18,
+    state = $19,
+    cleared = $20,
+    owner = $21,
+    bay = $22,
+    position_latitude = $23,
+    position_longitude = $24,
+    position_altitude = $25,
+    cdm_data = $26,
+    next_owners = COALESCE($27::jsonb, '[]'::jsonb),
+    previous_owners = COALESCE($28::jsonb, '[]'::jsonb),
+    registration = $29,
+    tracking_controller = $30,
+    engine_type = $31,
+    unexpected_change_fields = COALESCE($32::text[], '{}'::text[]),
+    has_fp = $33,
+    start_req = $34
+WHERE callsign = $35 AND session = $36
 `
 
 type UpdateStripParams struct {
-	Callsign               string
-	Session                int32
 	Origin                 string
 	Destination            string
 	Alternative            *string
@@ -945,19 +1011,20 @@ type UpdateStripParams struct {
 	PositionLongitude      *float64
 	PositionAltitude       *int32
 	CdmData                []byte
-	NextOwners             []string
-	PreviousOwners         []string
+	NextOwners             []byte
+	PreviousOwners         []byte
 	Registration           *string
 	TrackingController     string
 	EngineType             string
 	UnexpectedChangeFields []string
-	HasFP                  bool
+	HasFp                  bool
+	StartReq               bool
+	Callsign               string
+	Session                int32
 }
 
 func (q *Queries) UpdateStrip(ctx context.Context, arg UpdateStripParams) (int64, error) {
 	result, err := q.db.Exec(ctx, updateStrip,
-		arg.Callsign,
-		arg.Session,
 		arg.Origin,
 		arg.Destination,
 		arg.Alternative,
@@ -990,7 +1057,10 @@ func (q *Queries) UpdateStrip(ctx context.Context, arg UpdateStripParams) (int64
 		arg.TrackingController,
 		arg.EngineType,
 		arg.UnexpectedChangeFields,
-		arg.HasFP,
+		arg.HasFp,
+		arg.StartReq,
+		arg.Callsign,
+		arg.Session,
 	)
 	if err != nil {
 		return 0, err
@@ -1444,6 +1514,33 @@ type UpdateStripStandByIDParams struct {
 func (q *Queries) UpdateStripStandByID(ctx context.Context, arg UpdateStripStandByIDParams) (int64, error) {
 	result, err := q.db.Exec(ctx, updateStripStandByID,
 		arg.Stand,
+		arg.Callsign,
+		arg.Session,
+		arg.Version,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const updateStripStartReqByID = `-- name: UpdateStripStartReqByID :execrows
+UPDATE strips
+SET start_req = $1,
+    version   = version + 1
+WHERE callsign = $2 AND session = $3 AND (version = $4 OR $4 IS NULL)
+`
+
+type UpdateStripStartReqByIDParams struct {
+	StartReq bool
+	Callsign string
+	Session  int32
+	Version  *int32
+}
+
+func (q *Queries) UpdateStripStartReqByID(ctx context.Context, arg UpdateStripStartReqByIDParams) (int64, error) {
+	result, err := q.db.Exec(ctx, updateStripStartReqByID,
+		arg.StartReq,
 		arg.Callsign,
 		arg.Session,
 		arg.Version,

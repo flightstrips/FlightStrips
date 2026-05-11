@@ -125,6 +125,9 @@ func (s *NoOpStripService) UpdateReleasePoint(_ context.Context, _ int32, _ stri
 func (s *NoOpStripService) ApplyReleasePoint(_ context.Context, _ int32, _ string, _ string, _ string) error {
 	return nil
 }
+func (s *NoOpStripService) UpdateStartReq(_ context.Context, _ int32, _ string, _ bool) error {
+	return nil
+}
 func (s *NoOpStripService) UpdateMarked(_ context.Context, _ int32, _ string, _ bool) error {
 	return nil
 }

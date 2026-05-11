@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"testing"
+	"time"
 )
 
 func TestConfigStore_DepartureRestrictionOverridesDefaultRate(t *testing.T) {
@@ -229,5 +230,49 @@ func TestSeedAirportConfig_ZeroRateDoesNotOverride(t *testing.T) {
 	}
 	if cfg.DefaultRateLvo != 14 {
 		t.Errorf("DefaultRateLvo = %d, want 14 (default preserved)", cfg.DefaultRateLvo)
+	}
+}
+
+func TestConfigStore_SetDelay_TriggersAirportConfigChanged(t *testing.T) {
+	t.Parallel()
+
+	store := NewCdmConfigStore("", "", "", 0, CdmConfigDefaults{}, nil)
+	triggered := make(chan string, 1)
+	store.SetOnAirportConfigChanged(func(airport string) {
+		triggered <- airport
+	})
+
+	store.SetDelay(CdmDelay{Airport: "EKCH", Runway: "04L", Time: "1030", Type: "ADVERSE"})
+
+	select {
+	case airport := <-triggered:
+		if airport != "EKCH" {
+			t.Fatalf("expected airport EKCH, got %q", airport)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("expected config change callback after delay update")
+	}
+}
+
+func TestConfigStore_ClearDelay_TriggersAirportConfigChangedWhenRemoved(t *testing.T) {
+	t.Parallel()
+
+	store := NewCdmConfigStore("", "", "", 0, CdmConfigDefaults{}, nil)
+	store.SetDelay(CdmDelay{Airport: "EKCH", Runway: "04L", Time: "1030", Type: "ADVERSE"})
+
+	triggered := make(chan string, 1)
+	store.SetOnAirportConfigChanged(func(airport string) {
+		triggered <- airport
+	})
+
+	store.ClearDelay("EKCH", "04L")
+
+	select {
+	case airport := <-triggered:
+		if airport != "EKCH" {
+			t.Fatalf("expected airport EKCH, got %q", airport)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("expected config change callback after delay clear")
 	}
 }

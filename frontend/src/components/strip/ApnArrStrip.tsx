@@ -2,7 +2,7 @@ import { useState } from "react";
 import { getAircraftTypeWithWtc } from "@/lib/utils";
 import type { StripProps } from "./types";
 import FlightPlanDialog from "@/components/FlightPlanDialog";
-import { useStripCallsignInteraction, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR, COLOR_ARR_YELLOW, COLOR_UNEXPECTED_YELLOW, COLOR_MANUAL_BLUE, COLOR_TYPE_HEAVY, getStripOwnership, getCellTextColor, useStripBg, getValidationBlinkStyle, getValidationBlockedCursor } from "./shared";
+import { useStripCallsignInteraction, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR, COLOR_ARR_YELLOW, COLOR_UNEXPECTED_YELLOW, COLOR_MANUAL_BLUE, COLOR_TYPE_HEAVY, getStripOwnership, getCellTextColor, useStripBg, getValidationBlinkStyle, getValidationBlockedCursor, useNextFrequencyDisplay } from "./shared";
 import { useStripTransfers, useWebSocketStore } from "@/store/store-hooks";
 import { RunwayDialog } from "./RunwayDialog";
 import { ArrStandDialog } from "./ArrStandDialog";
@@ -46,6 +46,7 @@ export function ApnArrStrip({
   owner,
   nextControllers,
   previousControllers,
+  nextDisplay,
   myPosition,
   selectable,
   marked = false,
@@ -74,6 +75,7 @@ export function ApnArrStrip({
   const acknowledgeUnexpectedChange = useWebSocketStore(s => s.acknowledgeUnexpectedChange);
   const standYellow = unexpectedChangeFields?.includes("stand");
   const runwayYellow = unexpectedChangeFields?.includes("runway");
+  const nextFreq = useNextFrequencyDisplay(nextDisplay, nextControllers, myPosition);
 
   const { isUnconcerned } = getStripOwnership(myPosition, owner, nextControllers, previousControllers);
   const { bg, textWhite } = useStripBg(runway, COLOR_ARR_YELLOW, isTagRequest, isUnconcerned);
@@ -96,6 +98,7 @@ export function ApnArrStrip({
         owner={owner}
         nextControllers={nextControllers}
         previousControllers={previousControllers}
+        nextDisplay={nextDisplay}
         myPosition={myPosition}
         marked={marked}
         flexGrow={F_SI}
@@ -113,7 +116,9 @@ export function ApnArrStrip({
         <div className="flex items-center pl-[0.42vw]" style={{ height: TOP_H, backgroundColor: isSelected ? SELECTION_COLOR : undefined, ...getValidationBlinkStyle(validationStatus, myPosition) }}>
           <span className="truncate w-full" style={{ fontWeight: "bold", fontSize: "1.04vw", color: manualBlue }}>{callsign}</span>
         </div>
-        <div style={{ height: BOT_H }} />
+        <div className="flex items-center pl-[0.42vw] overflow-hidden" style={{ height: BOT_H }}>
+          <span className="truncate w-full" style={{ fontWeight: "bold", fontSize: "0.57vw" }}>{nextFreq}</span>
+        </div>
       </div>
 
       {/* A/C type / Registration */}

@@ -169,6 +169,7 @@ export interface WebSocketState {
   dismissMessage: (id: number) => void;
   updateStrip: (callsign: string, update: UpdateStrip) => void;
   setReleasePoint: (callsign: string, releasePoint: string) => void;
+  setStartReq: (callsign: string, startReq: boolean) => void;
   issuePdcClearance: (callsign: string, remarks: string | null) => void;
   revertToVoice: (callsign: string) => void;
   transferStrip: (callsign: string, toPosition: string) => void;
@@ -257,6 +258,16 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     };
 
     const findStrip = (callsign: string) => get().strips.find((strip) => strip.callsign === callsign);
+    const updateLocalStartReq = (callsign: string, startReq: boolean) => {
+      store.setState(
+        produce((state: WebSocketState) => {
+          const stripIndex = state.strips.findIndex((strip) => strip.callsign === callsign);
+          if (stripIndex !== -1) {
+            state.strips[stripIndex].start_req = startReq;
+          }
+        }),
+      );
+    };
     const openValidationDialog = (callsign: string) => set({ validationDialogCallsign: callsign, contextMenu: null });
 
     const guardValidationAction = (callsign: string, action: ValidationAttemptedAction) => {
@@ -331,13 +342,16 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
 
            return produce((state: WebSocketState) => {
              const stripIndex = state.strips.findIndex(strip => strip.callsign === callsign);
-             if (stripIndex !== -1) {
-               const currentBay = state.strips[stripIndex].bay;
-               state.strips[stripIndex].bay = bay;
-               state.strips[stripIndex].sequence = nextSequenceAtEndOfBay(state.strips, state.tacticalStrips, bay, callsign);
-               if (shouldResetRunwayClearanceOnMove(currentBay, bay)) {
-                 state.strips[stripIndex].runway_cleared = false;
-                 state.strips[stripIndex].runway_confirmed = false;
+              if (stripIndex !== -1) {
+                const currentBay = state.strips[stripIndex].bay;
+                state.strips[stripIndex].bay = bay;
+                state.strips[stripIndex].sequence = nextSequenceAtEndOfBay(state.strips, state.tacticalStrips, bay, callsign);
+                if (currentBay === Bay.Stand && bay !== Bay.Stand) {
+                  state.strips[stripIndex].start_req = false;
+                }
+                if (shouldResetRunwayClearanceOnMove(currentBay, bay)) {
+                  state.strips[stripIndex].runway_cleared = false;
+                  state.strips[stripIndex].runway_confirmed = false;
                }
              }
              return state;
@@ -472,6 +486,12 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
         }
       })
     },
+    setStartReq: (callsign, startReq) => {
+      if (!sendIfWritable({ type: ActionType.FrontendStartReq, callsign, start_req: startReq })) {
+        return;
+      }
+      updateLocalStartReq(callsign, startReq);
+    },
     issuePdcClearance: (callsign, remarks) => {
       if (!sendIfWritable({type: ActionType.FrontendIssuePdcClearanceRequest, callsign, remarks})) {
         return;
@@ -497,16 +517,19 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
       })
     },
     transferStrip: (callsign, toPosition) => {
-      sendGuardedStripEvent(callsign, { type: "coordination_transfer_request" }, {
+      if (!sendGuardedStripEvent(callsign, { type: "coordination_transfer_request" }, {
         type: ActionType.FrontendCoordinationTransferRequest,
         callsign,
         to: toPosition,
-      });
+      })) {
+        return;
+      }
+      updateLocalStartReq(callsign, false);
     },
     assumeStrip: (callsign) => {
       sendGuardedStripEvent(callsign, { type: "coordination_assume_request" }, { type: ActionType.FrontendCoordinationAssumeRequest, callsign });
     },
-    // forceAssumeStrip: takes ownership of an unowned strip, bypassing the next-owners check
+    // forceAssumeStrip: takes ownership regardless of next owners or any active transfer
     forceAssumeStrip: (callsign) => {
       sendIfWritable({ type: ActionType.FrontendCoordinationForceAssumeRequest, callsign });
     },
@@ -539,7 +562,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
       sendGuardedStripEvent(callsign, { type: "coordination_accept_tag_request" }, { type: ActionType.FrontendCoordinationAcceptTagRequest, callsign });
     },
     cdmReady: (callsign) => {
-      sendIfWritable({ type: ActionType.FrontendCdmReady, callsign });
+      sendGuardedStripEvent(callsign, { type: "cdm_ready" }, { type: ActionType.FrontendCdmReady, callsign });
     },
     clxUpdateTobt: (callsign) => {
       sendIfWritable({ type: ActionType.FrontendClxUpdateTobt, callsign });
@@ -961,6 +984,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
           state.strips[stripIndex].owner = data.owner;
           state.strips[stripIndex].next_controllers = data.next_owners;
           state.strips[stripIndex].previous_controllers = data.previous_owners;
+          state.strips[stripIndex].next_display = data.next_display;
         }
       })
     )
@@ -1028,6 +1052,17 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
           state.strips[stripIndex].eobt = normalizeCdmTime(data.eobt)
           state.strips[stripIndex].tsat = normalizeCdmTime(data.tsat)
           state.strips[stripIndex].ctot = normalizeCdmTime(data.ctot)
+          if (data.req_tobt !== undefined) state.strips[stripIndex].req_tobt = normalizeCdmTime(data.req_tobt)
+          if (data.req_tobt_type !== undefined) state.strips[stripIndex].req_tobt_type = data.req_tobt_type
+          if (data.ttot !== undefined) state.strips[stripIndex].ttot = normalizeCdmTime(data.ttot)
+          if (data.aobt !== undefined) state.strips[stripIndex].aobt = normalizeCdmTime(data.aobt)
+          if (data.asat !== undefined) state.strips[stripIndex].asat = normalizeCdmTime(data.asat)
+          if (data.asrt !== undefined) state.strips[stripIndex].asrt = normalizeCdmTime(data.asrt)
+          if (data.tsac !== undefined) state.strips[stripIndex].tsac = normalizeCdmTime(data.tsac)
+          if (data.status !== undefined) state.strips[stripIndex].status = data.status
+          if (data.ecfmp_id !== undefined) state.strips[stripIndex].ecfmp_id = data.ecfmp_id
+          if (data.ctot_source !== undefined) state.strips[stripIndex].ctot_source = data.ctot_source
+          if (data.phase !== undefined) state.strips[stripIndex].phase = data.phase
         }
       })
     )

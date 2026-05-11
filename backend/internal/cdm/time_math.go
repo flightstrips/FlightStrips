@@ -47,6 +47,45 @@ func isAfterOrEqual(a, b string) bool {
 	return minutesBetween(b, a) >= 0
 }
 
+func compareClockForSort(left, right string, anchor time.Time) int {
+	leftKey, leftOK := clockSortKey(left, anchor)
+	rightKey, rightOK := clockSortKey(right, anchor)
+
+	switch {
+	case !leftOK && !rightOK:
+		return 0
+	case !leftOK:
+		return 1
+	case !rightOK:
+		return -1
+	case leftKey < rightKey:
+		return -1
+	case leftKey > rightKey:
+		return 1
+	default:
+		return 0
+	}
+}
+
+func clockSortKey(value string, anchor time.Time) (int, bool) {
+	seconds, ok := parseClock(value)
+	if !ok {
+		return 0, false
+	}
+
+	anchor = anchor.UTC()
+	anchorSeconds := anchor.Hour()*3600 + anchor.Minute()*60 + anchor.Second()
+	offset := seconds - anchorSeconds
+	if offset <= -(12 * 3600) {
+		offset += dayMinutes * 60
+	}
+	if offset > 12*3600 {
+		offset -= dayMinutes * 60
+	}
+
+	return offset, true
+}
+
 func minutesBetween(from, to string) float64 {
 	fromSec, okFrom := parseClock(from)
 	toSec, okTo := parseClock(to)

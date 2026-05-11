@@ -57,7 +57,7 @@ func (s *StripService) clearOwnerForOwnedEsArrivalCoordination(ctx context.Conte
 		return errors.New("failed to clear strip owner before creating arrival coordination")
 	}
 
-	s.publisher.SendOwnersUpdate(session, callsign, "", strip.NextOwners, strip.PreviousOwners)
+	s.publisher.SendOwnersUpdate(session, callsign, "", strip.NextOwners, strip.PreviousOwners, nil)
 	return nil
 }
 
@@ -85,6 +85,12 @@ func (s *StripService) CreateCoordinationTransfer(ctx context.Context, session i
 
 	if err := server.GetCoordinationRepository().Create(ctx, coord); err != nil {
 		return err
+	}
+
+	if strip.StartReq && strip.Bay == shared.BAY_STAND {
+		if err := s.setStartReqState(ctx, session, callsign, false, true, strip); err != nil {
+			return err
+		}
 	}
 
 	s.maybeMoveToLowerTwyDepOnTowerTransfer(ctx, session, callsign, strip.Bay, to)
@@ -196,7 +202,7 @@ func (s *StripService) AcceptCoordination(ctx context.Context, session int32, ca
 	}
 
 	s.publisher.SendCoordinationAssume(session, callsign, assumingPosition)
-	s.publisher.SendOwnersUpdate(session, callsign, assumingPosition, nextOwners, previousOwners)
+	s.publisher.SendOwnersUpdate(session, callsign, assumingPosition, nextOwners, previousOwners, nil)
 	return nil
 }
 
@@ -498,7 +504,7 @@ func (s *StripService) AssumeStripCoordination(ctx context.Context, session int3
 					return errors.New("failed to set strip owner")
 				}
 				s.publisher.SendCoordinationAssume(session, callsign, position)
-				s.publisher.SendOwnersUpdate(session, callsign, position, nextOwners, strip.PreviousOwners)
+				s.publisher.SendOwnersUpdate(session, callsign, position, nextOwners, strip.PreviousOwners, nil)
 				return nil
 			}
 			return errors.New("cannot assume strip which is not transferred to you")
@@ -559,7 +565,7 @@ func (s *StripService) AssumeStripCoordination(ctx context.Context, session int3
 			}
 		}
 
-		s.publisher.SendOwnersUpdate(session, callsign, position, nextOwners, strip.PreviousOwners)
+		s.publisher.SendOwnersUpdate(session, callsign, position, nextOwners, strip.PreviousOwners, nil)
 		return nil
 	}
 
@@ -568,7 +574,7 @@ func (s *StripService) AssumeStripCoordination(ctx context.Context, session int3
 
 // ForceAssumeStrip forcibly takes ownership of a strip, overriding any existing owner.
 // Unlike AssumeStripCoordination it does not check NextOwners — any controller
-// may force-assume any strip regardless of current ownership.
+// may force-assume any strip regardless of current ownership or active coordination.
 //
 // After assuming:
 //   - The route is recalculated starting from the new owner.
@@ -580,10 +586,27 @@ func (s *StripService) ForceAssumeStrip(ctx context.Context, session int32, call
 		return err
 	}
 
-	// Delete any stale coordination so it does not block future operations.
+	// Clear any active coordination first so the forced assume wins even when a transfer is in progress.
 	if s.coordRepo != nil {
-		if coord, err := s.coordRepo.GetByStripID(ctx, session, strip.ID); err == nil {
-			_ = s.coordRepo.Delete(ctx, coord.ID)
+		coord, err := s.coordRepo.GetByStripID(ctx, session, strip.ID)
+		switch {
+		case errors.Is(err, pgx.ErrNoRows):
+		case err != nil:
+			slog.WarnContext(ctx, "force assume: failed to load coordination",
+				slog.String("callsign", callsign),
+				slog.String("position", position),
+				slog.Any("error", err),
+			)
+		case coord == nil:
+		default:
+			if deleteErr := s.coordRepo.Delete(ctx, coord.ID); deleteErr != nil && !errors.Is(deleteErr, pgx.ErrNoRows) {
+				slog.WarnContext(ctx, "force assume: failed to clear coordination",
+					slog.String("callsign", callsign),
+					slog.String("position", position),
+					slog.Int("coordination_id", int(coord.ID)),
+					slog.Any("error", deleteErr),
+				)
+			}
 		}
 	}
 
@@ -650,7 +673,7 @@ func (s *StripService) ForceAssumeStrip(ctx context.Context, session int32, call
 	}
 
 	s.publisher.SendCoordinationAssume(session, callsign, position)
-	s.publisher.SendOwnersUpdate(session, callsign, position, nextOwners, previousOwners)
+	s.publisher.SendOwnersUpdate(session, callsign, position, nextOwners, previousOwners, nil)
 	return nil
 }
 
@@ -814,7 +837,7 @@ func (s *StripService) AcceptTagRequest(ctx context.Context, session int32, call
 	}
 
 	s.publisher.SendCoordinationAssume(session, callsign, requesterPosition)
-	s.publisher.SendOwnersUpdate(session, callsign, requesterPosition, nextOwners, previousOwners)
+	s.publisher.SendOwnersUpdate(session, callsign, requesterPosition, nextOwners, previousOwners, nil)
 	return nil
 }
 
@@ -866,6 +889,6 @@ func (s *StripService) FreeStrip(ctx context.Context, session int32, callsign st
 	}
 
 	s.publisher.SendCoordinationFree(session, callsign)
-	s.publisher.SendOwnersUpdate(session, callsign, "", strip.NextOwners, previousOwners)
+	s.publisher.SendOwnersUpdate(session, callsign, "", strip.NextOwners, previousOwners, nil)
 	return nil
 }

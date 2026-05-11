@@ -6,6 +6,7 @@ import (
 	"FlightStrips/internal/metrics"
 	internalModels "FlightStrips/internal/models"
 	"FlightStrips/internal/rnav"
+	internalServer "FlightStrips/internal/server"
 	"FlightStrips/internal/shared"
 	"FlightStrips/pkg/events"
 	"FlightStrips/pkg/events/frontend"
@@ -71,6 +72,14 @@ type Hub struct {
 	clxOverrides map[int32]map[string]bool
 }
 
+type nextDisplayComputer interface {
+	ComputeNextDisplayForStripContext(ctx context.Context, strip *internalModels.Strip, sessionId int32) (*internalModels.NextDisplay, error)
+}
+
+type nextDisplayBatchComputer interface {
+	ComputeNextDisplaysForStripsContext(ctx context.Context, strips []*internalModels.Strip, sessionId int32) error
+}
+
 func NewHub(stripService shared.StripService, authenticationService shared.AuthenticationService) *Hub {
 	handlers := shared.NewMessageHandlers[frontend.EventType, *Client]()
 
@@ -90,6 +99,7 @@ func NewHub(stripService shared.StripService, authenticationService shared.Authe
 	handlers.Add(frontend.SendMessage, handleSendMessage)
 	handlers.Add(frontend.CdmReady, handleCdmReady)
 	handlers.Add(frontend.ReleasePoint, handleReleasePoint)
+	handlers.Add(frontend.StartReq, handleStartReq)
 	handlers.Add(frontend.Marked, handleMarked)
 	handlers.Add(frontend.RunwayClearance, handleRunwayClearance)
 	handlers.Add(frontend.RunwayConfirmation, handleRunwayConfirmation)
@@ -307,6 +317,7 @@ func (hub *Hub) sendInitialEvent(client *Client) {
 	}
 
 	clxContext := hub.makeClxValidationContext(client.session)
+	hub.populateNextDisplays(strips, client.session)
 	for _, strip := range strips {
 		stripModels = append(stripModels, MapStripToFrontendModelWithClx(strip, clxContext))
 	}
@@ -453,6 +464,11 @@ func MapStripToFrontendModel(strip *internalModels.Strip) frontend.Strip {
 }
 
 func MapStripToFrontendModelWithClx(strip *internalModels.Strip, clxContext clx.Context) frontend.Strip {
+	cdm := strip.CdmData
+	if cdm == nil {
+		cdm = (&internalModels.CdmData{}).Normalize()
+	}
+
 	return frontend.Strip{
 		Callsign:                 strip.Callsign,
 		Origin:                   strip.Origin,
@@ -478,13 +494,26 @@ func MapStripToFrontendModelWithClx(strip *internalModels.Strip, clxContext clx.
 		Sequence:                 helpers.ValueOrDefault(strip.Sequence),
 		NextControllers:          strip.NextOwners,
 		PreviousControllers:      strip.PreviousOwners,
+		NextDisplay:              mapNextDisplayToDTO(strip.NextDisplay),
 		Owner:                    helpers.ValueOrDefault(strip.Owner),
 		Eobt:                     truncateFrontendClockValue(helpers.ValueOrDefault(strip.EffectiveEobt())),
 		Tobt:                     truncateFrontendClockValue(helpers.ValueOrDefault(strip.EffectiveTobt())),
+		ReqTobt:                  truncateFrontendClockValue(helpers.ValueOrDefault(cdm.EffectiveReqTobt())),
+		ReqTobtType:              helpers.ValueOrDefault(cdm.EffectiveReqTobtType()),
 		Tsat:                     truncateFrontendClockValue(helpers.ValueOrDefault(strip.EffectiveTsat())),
+		Ttot:                     truncateFrontendClockValue(helpers.ValueOrDefault(strip.EffectiveTtot())),
 		Ctot:                     effectiveFrontendStripCtot(strip),
+		Aobt:                     truncateFrontendClockValue(helpers.ValueOrDefault(strip.EffectiveAobt())),
+		Asat:                     truncateFrontendClockValue(helpers.ValueOrDefault(strip.EffectiveAsat())),
+		Asrt:                     truncateFrontendClockValue(helpers.ValueOrDefault(cdm.Asrt)),
+		Tsac:                     truncateFrontendClockValue(helpers.ValueOrDefault(cdm.Tsac)),
+		Status:                   helpers.ValueOrDefault(strip.EffectiveCdmStatus()),
+		EcfmpID:                  helpers.ValueOrDefault(cdm.EcfmpID),
+		CtotSource:               helpers.ValueOrDefault(cdm.CtotSource),
+		Phase:                    helpers.ValueOrDefault(cdm.EffectivePhase()),
 		PdcState:                 strip.PdcState,
 		PdcRequestRemarks:        helpers.ValueOrDefault(strip.PdcRequestRemarks),
+		StartReq:                 strip.StartReq,
 		Marked:                   strip.Marked,
 		Registration:             helpers.ValueOrDefault(strip.Registration),
 		TrackingController:       strip.TrackingController,
@@ -568,6 +597,85 @@ func (hub *Hub) CidDisconnect(cid string) {
 	hub.cidDisconnect <- cidDisconnectMessage{cid: cid}
 }
 
+func (hub *Hub) associateCidOnlineClients(msg cidOnlineMessage) []*Client {
+	controllerRepo := hub.server.GetControllerRepository()
+	sessionRepo := hub.server.GetSessionRepository()
+
+	var controller *internalModels.Controller
+	var dbSession *internalModels.Session
+
+	if loadedController, err := controllerRepo.GetByCid(context.Background(), msg.cid); err == nil {
+		controller = loadedController
+		if loadedSession, err := sessionRepo.GetByID(context.Background(), controller.Session); err == nil {
+			dbSession = loadedSession
+		} else {
+			slog.Error("Failed to get session for CID online client",
+				slog.String("cid", msg.cid), slog.Any("error", err))
+		}
+	} else {
+		slog.Error("Failed to get controller for CID online client",
+			slog.String("cid", msg.cid), slog.Any("error", err))
+	}
+
+	readOnly := false
+	if esHub := hub.server.GetEuroscopeHub(); esHub != nil {
+		readOnly = esHub.IsObserverCid(msg.cid)
+	}
+
+	initialClients := make([]*Client, 0)
+	for client := range hub.clients {
+		if client.user.GetCid() != msg.cid {
+			continue
+		}
+
+		oldSession := client.session
+		oldSessionName := client.sessionName
+		oldAirport := client.airport
+		oldCallsign := client.callsign
+		wasWaiting := oldSession == WaitingForEuroscopeConnectionSessionId
+
+		slog.Debug("Associating frontend client with session",
+			slog.String("cid", msg.cid),
+			slog.Int("session", int(msg.session)))
+		client.session = msg.session
+		client.readOnly = readOnly
+
+		// Always refresh callsign, position, and airport from DB so that
+		// sendInitialEvent and LayoutUpdateEvent routing always use the most
+		// current values. Without this, a controller who changed position in
+		// EuroScope while their browser tab was open would receive layout
+		// updates keyed to their old position.
+		if controller != nil && dbSession != nil {
+			client.callsign = controller.Callsign
+			client.position = controller.Position
+			client.airport = dbSession.Airport
+			client.sessionName = dbSession.Name
+		}
+
+		switch {
+		case oldSession == WaitingForEuroscopeConnectionSessionId && client.sessionName != "":
+			metrics.ConnectionClosed(context.Background(), "", "", "frontend", "")
+			metrics.ConnectionOpened(context.Background(), client.sessionName, client.airport, "frontend", client.callsign)
+		case oldSession != WaitingForEuroscopeConnectionSessionId &&
+			(oldSessionName != client.sessionName || oldAirport != client.airport || oldCallsign != client.callsign):
+			metrics.ConnectionClosed(context.Background(), oldSessionName, oldAirport, "frontend", oldCallsign)
+			metrics.ConnectionOpened(context.Background(), client.sessionName, client.airport, "frontend", client.callsign)
+		}
+
+		if wasWaiting || client.readOnly {
+			initialClients = append(initialClients, client)
+		}
+	}
+
+	return initialClients
+}
+
+func (hub *Hub) handleCidOnline(msg cidOnlineMessage) {
+	for _, client := range hub.associateCidOnlineClients(msg) {
+		hub.sendInitialEvent(client)
+	}
+}
+
 func (hub *Hub) handleCidDisconnect(cid string) {
 	for client := range hub.clients {
 		if client.user.GetCid() == cid {
@@ -586,7 +694,6 @@ func (hub *Hub) handleCidDisconnect(cid string) {
 			client.airport = WaitingForEuroscopeConnectionAirport
 			client.callsign = WaitingForEuroscopeConnectionCallsign
 			client.send <- frontend.DisconnectEvent{ReadOnly: readOnly}
-			return
 		}
 	}
 }
@@ -598,6 +705,7 @@ func (hub *Hub) SendStripUpdate(session int32, callsign string) {
 		return
 	}
 
+	hub.populateNextDisplay(strip, session)
 	model := MapStripToFrontendModelWithClx(strip, hub.makeClxValidationContext(session))
 
 	event := frontend.StripUpdateEvent{
@@ -645,28 +753,66 @@ func (hub *Hub) setClxOverride(session int32, overrideKey string) {
 
 func (hub *Hub) SendControllerOnline(session int32, callsign string, position string, identifier string, ownedSectors []string) {
 	hub.broadcastController(session, frontend.ControllerOnlineEvent{
-		Controller: hub.controllerPayload(callsign, position, identifier, ownedSectors),
+		Controller: hub.controllerPayload(session, callsign, position, identifier, ownedSectors),
 	})
 }
 
 func (hub *Hub) SendControllerUpdate(session int32, callsign string, position string, identifier string, ownedSectors []string) {
 	hub.broadcastController(session, frontend.ControllerUpdateEvent{
-		Controller: hub.controllerPayload(callsign, position, identifier, ownedSectors),
+		Controller: hub.controllerPayload(session, callsign, position, identifier, ownedSectors),
 	})
 }
 
-func (hub *Hub) controllerPayload(callsign string, position string, identifier string, ownedSectors []string) frontend.Controller {
-	section := ""
-	if pos, err := config.GetPositionBasedOnFrequency(position); err == nil {
-		section = pos.Section
-	}
-	return frontend.Controller{
+func (hub *Hub) controllerPayload(session int32, callsign string, position string, identifier string, ownedSectors []string) frontend.Controller {
+	payload := frontend.Controller{
 		Callsign:     callsign,
 		Position:     position,
 		Identifier:   identifier,
-		Section:      section,
 		OwnedSectors: slices.Clone(ownedSectors),
 	}
+
+	if pos, err := config.GetPositionBasedOnFrequency(position); err == nil {
+		payload.Section = pos.Section
+	}
+
+	if (payload.Identifier != "" || len(payload.OwnedSectors) > 0) || hub.server == nil {
+		return payload
+	}
+
+	sectorRepo := hub.server.GetSectorOwnerRepository()
+	if sectorRepo == nil {
+		return payload
+	}
+
+	sectors, err := sectorRepo.ListBySession(context.Background(), session)
+	if err != nil {
+		slog.Warn("Failed to load sector ownership for controller payload",
+			slog.String("callsign", callsign),
+			slog.Int("session", int(session)),
+			slog.Any("error", err))
+		return payload
+	}
+
+	sectorsMap := make(map[string]*internalModels.SectorOwner, len(sectors))
+	for _, sector := range sectors {
+		if sector == nil {
+			continue
+		}
+		sectorsMap[sector.Position] = sector
+	}
+
+	enriched := buildFrontendController(callsign, position, sectorsMap)
+	if payload.Identifier == "" {
+		payload.Identifier = enriched.Identifier
+	}
+	if len(payload.OwnedSectors) == 0 {
+		payload.OwnedSectors = enriched.OwnedSectors
+	}
+	if payload.Section == "" {
+		payload.Section = enriched.Section
+	}
+
+	return payload
 }
 
 func (hub *Hub) broadcastController(session int32, event frontend.OutgoingMessage) {
@@ -797,28 +943,102 @@ func (hub *Hub) SendCoordinationFree(session int32, callsign string) {
 	hub.Broadcast(session, event)
 }
 
-func (hub *Hub) SendOwnersUpdate(session int32, callsign, owner string, nextOwners []string, previousOwners []string) {
+func (hub *Hub) SendOwnersUpdate(session int32, callsign, owner string, nextOwners []string, previousOwners []string, nextDisplay *internalModels.NextDisplay) {
 	event := frontend.OwnersUpdateEvent{
 		Callsign:       callsign,
 		Owner:          owner,
 		NextOwners:     nextOwners,
 		PreviousOwners: previousOwners,
+		NextDisplay:    mapNextDisplayToDTO(hub.resolveOwnersUpdateNextDisplay(session, callsign, nextDisplay)),
 	}
 	hub.Broadcast(session, event)
+}
+
+func (hub *Hub) resolveOwnersUpdateNextDisplay(session int32, callsign string, nextDisplay *internalModels.NextDisplay) *internalModels.NextDisplay {
+	if nextDisplay != nil || hub.server == nil {
+		return nextDisplay
+	}
+
+	stripRepo := hub.server.GetStripRepository()
+	if stripRepo == nil {
+		return nil
+	}
+
+	strip, err := stripRepo.GetByCallsign(context.Background(), session, callsign)
+	if err != nil {
+		slog.Warn("Failed to reload strip for owners update next display",
+			slog.String("callsign", callsign),
+			slog.Int("session", int(session)),
+			slog.Any("error", err))
+		return nil
+	}
+
+	hub.populateNextDisplay(strip, session)
+	return strip.NextDisplay
+}
+
+func (hub *Hub) populateNextDisplay(strip *internalModels.Strip, session int32) {
+	if strip == nil {
+		return
+	}
+
+	computer, ok := hub.server.(nextDisplayComputer)
+	if !ok {
+		return
+	}
+
+	nextDisplay, err := computer.ComputeNextDisplayForStripContext(context.Background(), strip, session)
+	if err != nil {
+		slog.Warn("Failed to compute next display data for strip",
+			slog.String("callsign", strip.Callsign),
+			slog.Int("session", int(session)),
+			slog.Any("error", err))
+		return
+	}
+
+	strip.NextDisplay = nextDisplay
+}
+
+func (hub *Hub) populateNextDisplays(strips []*internalModels.Strip, session int32) {
+	if len(strips) == 0 {
+		return
+	}
+
+	if computer, ok := hub.server.(nextDisplayBatchComputer); ok {
+		if err := computer.ComputeNextDisplaysForStripsContext(context.Background(), strips, session); err != nil {
+			slog.Warn("Failed to compute next display data for strip batch",
+				slog.Int("session", int(session)),
+				slog.Int("strip_count", len(strips)),
+				slog.Any("error", err))
+			return
+		}
+		return
+	}
+
+	for _, strip := range strips {
+		hub.populateNextDisplay(strip, session)
+	}
+}
+
+var _ nextDisplayComputer = (*internalServer.Server)(nil)
+var _ nextDisplayBatchComputer = (*internalServer.Server)(nil)
+
+func mapNextDisplayToDTO(nextDisplay *internalModels.NextDisplay) *frontend.NextDisplay {
+	if nextDisplay == nil {
+		return nil
+	}
+
+	return &frontend.NextDisplay{
+		Label:     nextDisplay.Label,
+		Frequency: nextDisplay.Frequency,
+	}
 }
 
 func (hub *Hub) SendLayoutUpdates(session int32, layoutMap map[string]string) {
 	hub.layoutUpdates <- layoutUpdateMessage{session: session, layoutMap: layoutMap}
 }
 
-func (hub *Hub) SendCdmUpdate(session int32, callsign, eobt, tobt, tsat, ctot string) {
-	event := frontend.CdmDataEvent{
-		Callsign: callsign,
-		Eobt:     truncateFrontendClockValue(eobt),
-		Tobt:     truncateFrontendClockValue(tobt),
-		Tsat:     truncateFrontendClockValue(tsat),
-		Ctot:     truncateFrontendClockValue(ctot),
-	}
+func (hub *Hub) SendCdmUpdate(session int32, event frontend.CdmDataEvent) {
 	hub.Broadcast(session, event)
 }
 
@@ -944,66 +1164,7 @@ func (hub *Hub) Run() {
 				hub.OnUnregister(client)
 			}
 		case msg := <-hub.cidOnline:
-			for client := range hub.clients {
-				if client.user.GetCid() == msg.cid {
-					oldSession := client.session
-					oldSessionName := client.sessionName
-					oldAirport := client.airport
-					oldCallsign := client.callsign
-					wasWaiting := oldSession == WaitingForEuroscopeConnectionSessionId
-
-					slog.Debug("Associating frontend client with session",
-						slog.String("cid", msg.cid),
-						slog.Int("session", int(msg.session)))
-					client.session = msg.session
-					if esHub := hub.server.GetEuroscopeHub(); esHub != nil {
-						client.readOnly = esHub.IsObserverCid(msg.cid)
-					}
-
-					// Always refresh callsign, position, and airport from DB so that
-					// sendInitialEvent and LayoutUpdateEvent routing always use the most
-					// current values. Without this, a controller who changed position in
-					// EuroScope while their browser tab was open would receive layout
-					// updates keyed to their old position.
-					controllerRepo := hub.server.GetControllerRepository()
-					sessionRepo := hub.server.GetSessionRepository()
-					if controller, err := controllerRepo.GetByCid(context.Background(), msg.cid); err == nil {
-						if dbSession, err := sessionRepo.GetByID(context.Background(), controller.Session); err == nil {
-							client.callsign = controller.Callsign
-							client.position = controller.Position
-							client.airport = dbSession.Airport
-							client.sessionName = dbSession.Name
-						} else {
-							slog.Error("Failed to get session for CID online client",
-								slog.String("cid", msg.cid), slog.Any("error", err))
-						}
-					} else {
-						slog.Error("Failed to get controller for CID online client",
-							slog.String("cid", msg.cid), slog.Any("error", err))
-					}
-
-					switch {
-					case oldSession == WaitingForEuroscopeConnectionSessionId && client.sessionName != "":
-						metrics.ConnectionClosed(context.Background(), "", "", "frontend", "")
-						metrics.ConnectionOpened(context.Background(), client.sessionName, client.airport, "frontend", client.callsign)
-					case oldSession != WaitingForEuroscopeConnectionSessionId &&
-						(oldSessionName != client.sessionName || oldAirport != client.airport || oldCallsign != client.callsign):
-						metrics.ConnectionClosed(context.Background(), oldSessionName, oldAirport, "frontend", oldCallsign)
-						metrics.ConnectionOpened(context.Background(), client.sessionName, client.airport, "frontend", client.callsign)
-					}
-
-					// Only send a full InitialEvent if the client is transitioning out
-					// of the waiting state, or is a read-only observer whose tracked
-					// controller may have changed. Already-connected regular clients
-					// already have their full state from OnRegister; sending another
-					// InitialEvent on every ES sync would disrupt their UI with a
-					// potentially stale layout.
-					if wasWaiting || client.readOnly {
-						hub.sendInitialEvent(client)
-					}
-					break
-				}
-			}
+			hub.handleCidOnline(msg)
 		case msg := <-hub.cidDisconnect:
 			hub.handleCidDisconnect(msg.cid)
 		case message := <-hub.send:

@@ -51,10 +51,12 @@ export function computeCDMColors(
   tobt: string,
   nowMs: number,
   bay?: Bay,
+  phase?: string,
 ): CDMColors {
   const normalizedTsat = normalizeCdmTime(tsat);
   const normalizedTobt = normalizeCdmTime(tobt);
 
+  if (phase === "I") return { tobtBg: CDM_RED, tsatBg: "" };
   if (!normalizedTsat) return { tobtBg: "", tsatBg: "" };
   if (bay !== Bay.NotCleared && bay !== Bay.Cleared) return { tobtBg: "", tsatBg: "" };
 

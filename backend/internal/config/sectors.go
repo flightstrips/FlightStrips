@@ -66,6 +66,7 @@ func GetControllerSectors(controllers []*Position, active []string) map[string][
 func GetControllerSectorsWithCoverage(controllers []ControllerCoverage, active []string) map[string][]Sector {
 	var result = make(map[string][]Sector)
 	directLookup := make(map[string]string)
+	primaryNameByFrequency := make(map[string]string)
 	coverageByFrequency := make(map[string][]string)
 
 	for _, c := range controllers {
@@ -76,6 +77,7 @@ func GetControllerSectorsWithCoverage(controllers []ControllerCoverage, active [
 
 		result[primaryFrequency] = make([]Sector, 0)
 		directLookup[c.Name] = primaryFrequency
+		primaryNameByFrequency[primaryFrequency] = c.Name
 		for _, coveredFrequency := range c.CoveredFrequencies {
 			normalizedCoveredFrequency := vatsim.NormalizeFrequency(coveredFrequency)
 			if normalizedCoveredFrequency == "" {
@@ -108,11 +110,11 @@ func GetControllerSectorsWithCoverage(controllers []ControllerCoverage, active [
 
 	for _, entry := range byKey {
 		s := entry.sector
-		if frequency, ok := resolveSectorOwnerFrequency(s.Owner, directLookup, coverageByFrequency); ok {
+		if frequency, ok := resolveSectorOwnerFrequency(s.Owner, directLookup, primaryNameByFrequency, coverageByFrequency); ok {
 			result[frequency] = append(result[frequency], s)
 			continue
 		}
-		if frequency, ok := resolveSectorOwnerFrequency(airborneOwners, directLookup, coverageByFrequency); ok {
+		if frequency, ok := resolveSectorOwnerFrequency(airborneOwners, directLookup, primaryNameByFrequency, coverageByFrequency); ok {
 			result[frequency] = append(result[frequency], s)
 		}
 	}
@@ -120,7 +122,7 @@ func GetControllerSectorsWithCoverage(controllers []ControllerCoverage, active [
 	return result
 }
 
-func resolveSectorOwnerFrequency(owners []string, directLookup map[string]string, coverageByFrequency map[string][]string) (string, bool) {
+func resolveSectorOwnerFrequency(owners []string, directLookup map[string]string, primaryNameByFrequency map[string]string, coverageByFrequency map[string][]string) (string, bool) {
 	for _, owner := range owners {
 		if frequency, ok := directLookup[owner]; ok {
 			return frequency, true
@@ -135,7 +137,24 @@ func resolveSectorOwnerFrequency(owners []string, directLookup map[string]string
 
 		frequencies := coverageByFrequency[vatsim.NormalizeFrequency(position.Frequency)]
 		if len(frequencies) > 0 {
+			if frequency, ok := pickCoveredPrimaryFrequency(owners, directLookup, primaryNameByFrequency, frequencies); ok {
+				return frequency, true
+			}
 			return frequencies[0], true
+		}
+	}
+
+	return "", false
+}
+
+func pickCoveredPrimaryFrequency(owners []string, directLookup map[string]string, primaryNameByFrequency map[string]string, frequencies []string) (string, bool) {
+	for _, owner := range owners {
+		frequency, ok := directLookup[owner]
+		if !ok || !slices.Contains(frequencies, frequency) {
+			continue
+		}
+		if strings.EqualFold(primaryNameByFrequency[frequency], owner) {
+			return frequency, true
 		}
 	}
 
@@ -165,6 +184,24 @@ func GetSectorDisplayName(sectorRef string) string {
 	}
 
 	return sectorRef
+}
+
+func GetSectorDisplayFrequency(active []string, sectorRef string, isArrival bool) (string, bool) {
+	sector, ok := getSectorByIdentifier(active, sectorRef, isArrival)
+	if !ok {
+		return "", false
+	}
+
+	for _, owner := range sector.Owner {
+		position, err := GetPositionByName(owner)
+		if err != nil || strings.TrimSpace(position.Frequency) == "" {
+			continue
+		}
+
+		return position.Frequency, true
+	}
+
+	return "", false
 }
 
 func IsArrivalTowerOwner(owner string, active []string) bool {
@@ -206,4 +243,31 @@ func IsArrivalTowerOwner(owner string, active []string) bool {
 
 func sectorMatchesIdentifier(sector Sector, sectorRef string) bool {
 	return strings.EqualFold(sector.KeyOrName(), sectorRef) || strings.EqualFold(sector.Name, sectorRef)
+}
+
+func getSectorByIdentifier(active []string, sectorRef string, isArrival bool) (Sector, bool) {
+	bestScore := -1
+	var best Sector
+	found := false
+
+	for _, sector := range sectors {
+		if !sectorMatchesIdentifier(sector, sectorRef) {
+			continue
+		}
+		if sector.Constraints != nil && (sector.Constraints.Arrival != isArrival || sector.Constraints.Departure != !isArrival) {
+			continue
+		}
+
+		score := matchScore(sector, active)
+		if score < 0 {
+			continue
+		}
+		if !found || score > bestScore {
+			bestScore = score
+			best = sector
+			found = true
+		}
+	}
+
+	return best, found
 }

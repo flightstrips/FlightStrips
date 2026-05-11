@@ -1,5 +1,53 @@
 # Changelog
 
+## [0.29.2](https://github.com/flightstrips/FlightStrips/compare/backend/v0.29.1...backend/v0.29.2) (2026-05-10)
+
+
+### Bug Fixes
+
+* allow force assume during transfers ([82943e3](https://github.com/flightstrips/FlightStrips/commit/82943e3536da6b30052b29bb70a9ce57252921b0))
+
+## [0.29.1](https://github.com/flightstrips/FlightStrips/compare/backend/v0.29.0...backend/v0.29.1) (2026-05-10)
+
+
+### Bug Fixes
+
+* correct next controller displays ([b8bfabf](https://github.com/flightstrips/FlightStrips/commit/b8bfabfc14feb5671ab1a218489460d369fae535))
+* keep hidden departure strips hidden ([51ecad9](https://github.com/flightstrips/FlightStrips/commit/51ecad9c461559ef3255e92a4aed074206e4d14e))
+* prefer primary owner for cross-coupled sectors ([3250ecd](https://github.com/flightstrips/FlightStrips/commit/3250ecdfaae46d93417cbdf2030fa3830120c78a))
+* require cross-coupled next-sector frequencies ([ac56a2c](https://github.com/flightstrips/FlightStrips/commit/ac56a2c7ab94fff36d50f06deeec100eed205ce0))
+
+## [0.29.0](https://github.com/flightstrips/FlightStrips/compare/backend/v0.28.0...backend/v0.29.0) (2026-05-10)
+
+
+### Features
+
+* **ACDM:** add adverse condition floors ([4c478c8](https://github.com/flightstrips/FlightStrips/commit/4c478c8066e0705df8fd62878242e6a4bdc5e431))
+* **ACDM:** add destination spacing ([2ec1dff](https://github.com/flightstrips/FlightStrips/commit/2ec1dffc3c9e292da85d446976544d4aa7c94721))
+* **ACDM:** add wake spacing ([d8dd112](https://github.com/flightstrips/FlightStrips/commit/d8dd11289e9c09b3ba15658ab84c3f1a79eca966))
+* **ACDM:** broadcast local status updates ([117490c](https://github.com/flightstrips/FlightStrips/commit/117490c1ea09c0a54f28b70caefe31d813222be7))
+* **ACDM:** clear local snapshots on slave sync ([2367075](https://github.com/flightstrips/FlightStrips/commit/236707520b5e73ec34be26d868dc5eac966c356a))
+* **ACDM:** drop legacy taxi fields ([9fd10c5](https://github.com/flightstrips/FlightStrips/commit/9fd10c50279d2292e5449e449efaf77f123598c2))
+* **ACDM:** expand departure CDM engine ([80fe451](https://github.com/flightstrips/FlightStrips/commit/80fe451dfdcc7dfdc3556f03350bed117b91bd3a))
+* **ACDM:** harden sync persistence ([1ca74b2](https://github.com/flightstrips/FlightStrips/commit/1ca74b2ba748a74690e4eb0a1622f76c7857f893))
+* **ACDM:** prioritize CTOT and sync LVP ([dec7f8e](https://github.com/flightstrips/FlightStrips/commit/dec7f8e9df829210033db044ad0b3334d66c7dd4))
+* **ACDM:** recalc master sync changes ([2556bd1](https://github.com/flightstrips/FlightStrips/commit/2556bd1df30190828b738d1ae57402be7b5f1e84))
+* **ACDM:** return final CLX TOBT update ([006ff54](https://github.com/flightstrips/FlightStrips/commit/006ff5485ff2bd3e98009521db303a7af64e816e))
+* **ACDM:** sync EOBT to EuroScope ([edab28c](https://github.com/flightstrips/FlightStrips/commit/edab28c6e08e0075e0c9ccf2b5504f5bfde2025d))
+* **ACDM:** sync EOBT TOBT recalculation ([d7aaf18](https://github.com/flightstrips/FlightStrips/commit/d7aaf1844765315dcf87989dd4bf49db88f5f81b))
+* **ACDM:** unify TOBT taxi resolution ([367ab1c](https://github.com/flightstrips/FlightStrips/commit/367ab1cca7be0ba89a4ec774456062be8b15bd70))
+* **cdm:** add standalone sequence page ([4ee51da](https://github.com/flightstrips/FlightStrips/commit/4ee51da5fa1b9a46074c9b0f3e3a74f0d97a54f1))
+* **SEQ:** startup ready ([72b66d6](https://github.com/flightstrips/FlightStrips/commit/72b66d62d5e3371d6720b793773c0cc0a59e9d27)), closes [#202](https://github.com/flightstrips/FlightStrips/issues/202)
+* support sector-aware next display ([a7915f7](https://github.com/flightstrips/FlightStrips/commit/a7915f7b7c5b14464ac260a5e33b5a449a297c2c))
+
+
+### Bug Fixes
+
+* **ACDM:** enforce cdm_ready flow ([232d19f](https://github.com/flightstrips/FlightStrips/commit/232d19f1a705fc8ee2119da43025137c4dfd4576))
+* **ACDM:** restore FlightStrips master recovery ([51908cc](https://github.com/flightstrips/FlightStrips/commit/51908ccf8bd4869f5efa594cef08576cbb2285cf))
+* **ACDM:** use ready flow for CdmReady ([91f5b91](https://github.com/flightstrips/FlightStrips/commit/91f5b91e6d16f8d046c7bb9dc20c9b87adbcb350))
+* ensure multiple frontend clients get updated ([200acda](https://github.com/flightstrips/FlightStrips/commit/200acda879217a0c9e8440704972490966143b57))
+
 ## [0.28.0](https://github.com/flightstrips/FlightStrips/compare/backend/v0.27.1...backend/v0.28.0) (2026-05-04)
 
 

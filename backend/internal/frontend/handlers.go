@@ -8,7 +8,6 @@ import (
 	"FlightStrips/pkg/events/frontend"
 	"context"
 	"errors"
-	"fmt"
 	"log/slog"
 	"strings"
 	"time"
@@ -241,26 +240,13 @@ func handleStripUpdate(ctx context.Context, client *Client, message Message) err
 		if !isValidFrontendClockValue(eobt) {
 			return errors.New("invalid eobt: expected HHMM")
 		}
-		updatedCdm := strip.CdmData.Clone()
-		updatedCdm.Eobt = &eobt
-		updatedCdm.MarkLocalRecalculationPending()
-		rows, err := stripRepo.SetCdmData(ctx, client.session, event.Callsign, updatedCdm.Normalize())
-		if err != nil {
+		s.GetEuroscopeHub().SendEobt(client.session, client.GetCid(), event.Callsign, eobt)
+		cdmService := client.hub.server.GetCdmService()
+		if cdmService == nil {
+			return errors.New("CDM service not available")
+		}
+		if err := cdmService.HandleEobtUpdate(ctx, client.session, event.Callsign, eobt, client.position, "ATC"); err != nil {
 			return err
-		}
-		if rows != 1 {
-			return fmt.Errorf("failed to update EOBT for %s session %d", event.Callsign, client.session)
-		}
-		client.hub.SendCdmUpdate(
-			client.session,
-			event.Callsign,
-			stringPtrValue(updatedCdm.EffectiveEobt()),
-			stringPtrValue(updatedCdm.EffectiveTobt()),
-			stringPtrValue(updatedCdm.EffectiveTsat()),
-			stringPtrValue(updatedCdm.EffectiveCtot()),
-		)
-		if cdmService := client.hub.server.GetCdmService(); cdmService != nil {
-			cdmService.TriggerRecalculate(ctx, client.session, strip.Origin)
 		}
 		client.hub.SendStripUpdate(client.session, event.Callsign)
 	}
@@ -455,7 +441,7 @@ func handleCdmReady(ctx context.Context, client *Client, message Message) error 
 	}
 
 	cdmService := client.hub.server.GetCdmService()
-	return cdmService.HandleReadyRequest(ctx, client.session, event.Callsign)
+	return cdmService.HandleReadyRequest(ctx, client.session, event.Callsign, client.position, "ATC")
 }
 
 func handleClxOverrideValidation(ctx context.Context, client *Client, message Message) error {
@@ -487,7 +473,7 @@ func handleClxUpdateTobt(ctx context.Context, client *Client, message Message) e
 	}
 
 	tobt := roundedClxTobt(time.Now().UTC())
-	if err := cdmService.HandleTobtUpdate(ctx, client.session, event.Callsign, tobt, client.position, "ATC"); err != nil {
+	if err := cdmService.HandleClxTobtUpdate(ctx, client.session, event.Callsign, tobt, client.position, "ATC"); err != nil {
 		return err
 	}
 	client.hub.SendStripUpdate(client.session, event.Callsign)
@@ -551,6 +537,14 @@ func handleAcknowledgeUnexpectedChange(ctx context.Context, client *Client, mess
 	}
 	client.hub.SendStripUpdate(client.session, event.Callsign)
 	return nil
+}
+
+func handleStartReq(ctx context.Context, client *Client, message Message) error {
+	var event frontend.StartReqEvent
+	if err := message.JsonUnmarshal(&event); err != nil {
+		return err
+	}
+	return client.hub.stripService.UpdateStartReq(ctx, client.session, event.Callsign, event.StartReq)
 }
 
 func handleMarked(ctx context.Context, client *Client, message Message) error {
@@ -862,6 +856,8 @@ func handleUpdateRunwayStatus(ctx context.Context, client *Client, message Messa
 	if err = sessionRepo.UpdateActiveRunways(ctx, client.session, session.ActiveRunways); err != nil {
 		return err
 	}
+
+	client.hub.server.GetCdmService().SyncAirportLvoFromRunwayStatus(ctx, session.Airport, session.ActiveRunways.RunwayStatus)
 
 	client.hub.SendRunwayConfiguration(
 		client.session,

@@ -89,6 +89,8 @@ namespace FlightStrips::messages {
             HandleHeadingEvent(message.get<HeadingEvent>());
         } else if (type == EVENT_STAND_NAME) {
             HandleStandEvent(message.get<StandEvent>());
+        } else if (type == EVENT_EOBT_NAME) {
+            HandleEobtEvent(message.get<EobtEvent>());
         } else if (type == EVENT_GENERATE_SQUAWK_NAME) {
             HandleGenerateSquawkEvent(message.get<GenerateSquawkEvent>());
         } else if (type == EVENT_ROUTE_NAME) {
@@ -351,6 +353,18 @@ namespace FlightStrips::messages {
 
     void MessageService::HandleStandEvent(const StandEvent &event) const {
         m_plugin->SetArrivalStand(event.callsign.c_str(), event.stand);
+    }
+
+    void MessageService::HandleEobtEvent(const EobtEvent &event) const {
+        const auto fp = m_plugin->FlightPlanSelect(event.callsign.c_str());
+        if (!fp.IsValid()) return;
+        if (!fp.GetFlightPlanData().SetEstimatedDepartureTime(event.eobt.c_str())) {
+            Logger::Warning("Failed to set EOBT {} for {}", event.eobt, event.callsign);
+            return;
+        }
+        if (!fp.GetFlightPlanData().AmendFlightPlan()) {
+            Logger::Warning("Failed to amend flight plan {} after EOBT update", event.callsign);
+        }
     }
 
     void MessageService::HandleGenerateSquawkEvent(const GenerateSquawkEvent &event) const {

@@ -72,10 +72,13 @@ func main() {
 	logger := slog.New(tint.NewHandler(os.Stdout, &tint.Options{Level: &logLevel}))
 	slog.SetDefault(logger)
 
-	err := godotenv.Load()
-	if err != nil {
-		slog.Error("Error loading .env file", slog.Any("error", err))
-		os.Exit(1)
+	var err error
+	for _, envFile := range []string{".env", ".env.dev"} {
+		err = godotenv.Load(envFile)
+		if err != nil && !os.IsNotExist(err) {
+			slog.Error("Error loading env file", slog.String("file", envFile), slog.Any("error", err))
+			os.Exit(1)
+		}
 	}
 
 	ctx := context.Background()
@@ -247,6 +250,14 @@ func main() {
 	sequenceService := cdm.NewSequenceService(stripRepo, sessionRepo, configStore, frontendHub, euroscopeHub)
 	cdmService.SetConfigProvider(configStore)
 	cdmService.SetSequenceService(sequenceService)
+	configStore.SetOnAirportConfigChanged(func(airport string) {
+		if err := cdmService.TriggerRecalculateForAirport(context.Background(), airport); err != nil {
+			slog.Warn("CDM config change recalculation failed",
+				slog.String("airport", airport),
+				slog.Any("error", err),
+			)
+		}
+	})
 	go configStore.Start(ctx)
 	slog.Info("CDM local calculation enabled", slog.String("rateUri", resolveURI(cdmCfg.RateUri)))
 
@@ -290,6 +301,7 @@ func main() {
 	http.HandleFunc("/albEvents", albHub.Upgrade)
 	apiMux := http.NewServeMux()
 	flightLookup := pdc.NewFlightLookupAdapter(pdcService, sessionRepo)
+	cdm.NewWebAPI(authenticationService, sessionRepo, sequenceService).RegisterRoutes(apiMux)
 	pilot.NewWebAPI(authenticationService, vatsimCache, flightLookup, requireLiveCIDVerification).RegisterRoutes(apiMux)
 	pdc.NewWebAPI(authenticationService, pdcService, vatsimCache, requireLiveCIDVerification).RegisterRoutes(apiMux)
 	http.Handle("/api/", server.APIMiddleware(http.StripPrefix("/api", apiMux)))

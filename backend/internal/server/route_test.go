@@ -25,7 +25,6 @@ func TestMain(m *testing.M) {
 }
 
 func TestUpdateRouteForStrip_ArrivalOutsideSupportedRegionFallsBackToTowerOwner(t *testing.T) {
-	t.Parallel()
 
 	arrivalRunway, towerSector := mustArrivalRunwayAndTowerSector(t)
 
@@ -95,8 +94,12 @@ func TestUpdateRouteForStrip_ArrivalOutsideSupportedRegionFallsBackToTowerOwner(
 	assert.Equal(t, "SAS123", frontendHub.OwnersUpdates[0].Callsign)
 }
 
+func TestAirborneSectorDisplayNames_UseShortLabels(t *testing.T) {
+	assert.Equal(t, "K", config.GetSectorDisplayName("K_DEP"))
+	assert.Equal(t, "R", config.GetSectorDisplayName("R_DEP"))
+}
+
 func TestUpdateRouteForStrip_ArrivalOutsideSupportedRegionUsesTowerAsRouteStart(t *testing.T) {
-	t.Parallel()
 
 	frontendHub := &testutil.MockFrontendHub{}
 	stripRepo := &testutil.MockStripRepository{}
@@ -175,7 +178,6 @@ func TestUpdateRouteForStrip_ArrivalOutsideSupportedRegionUsesTowerAsRouteStart(
 }
 
 func TestUpdateRouteForStrip_ArrivalUsesConfigDrivenCrossingSectorSplit(t *testing.T) {
-	t.Parallel()
 
 	frontendHub := &testutil.MockFrontendHub{}
 	stripRepo := &testutil.MockStripRepository{}
@@ -255,11 +257,13 @@ func TestUpdateRouteForStrip_ArrivalUsesConfigDrivenCrossingSectorSplit(t *testi
 	assert.Equal(t, []string{apronPosition}, updatedNextOwners)
 	require.Len(t, frontendHub.OwnersUpdates, 1)
 	assert.Equal(t, []string{apronPosition}, frontendHub.OwnersUpdates[0].NextOwners)
+	require.NotNil(t, frontendHub.OwnersUpdates[0].NextDisplay)
+	assert.Equal(t, "AA", frontendHub.OwnersUpdates[0].NextDisplay.Label)
+	assert.Equal(t, apronPosition, frontendHub.OwnersUpdates[0].NextDisplay.Frequency)
 	assert.Equal(t, "SAS789", frontendHub.OwnersUpdates[0].Callsign)
 }
 
-func TestUpdateRouteForStrip_ArrivalResolvesGWAToTEOwnerWhenControllersAreSplit(t *testing.T) {
-	t.Parallel()
+func TestUpdateRouteForStrip_ArrivalKeepsGWAOwnerWhenControllersAreSplit(t *testing.T) {
 
 	frontendHub := &testutil.MockFrontendHub{}
 	stripRepo := &testutil.MockStripRepository{}
@@ -346,14 +350,16 @@ func TestUpdateRouteForStrip_ArrivalResolvesGWAToTEOwnerWhenControllersAreSplit(
 	err = srv.UpdateRouteForStrip("SAS790", 92, true)
 	require.NoError(t, err)
 
-	assert.Equal(t, []string{apronPosition}, updatedNextOwners)
+	assert.Equal(t, []string{cTowerPosition, apronPosition}, updatedNextOwners)
 	require.Len(t, frontendHub.OwnersUpdates, 1)
-	assert.Equal(t, []string{apronPosition}, frontendHub.OwnersUpdates[0].NextOwners)
+	assert.Equal(t, []string{cTowerPosition, apronPosition}, frontendHub.OwnersUpdates[0].NextOwners)
+	require.NotNil(t, frontendHub.OwnersUpdates[0].NextDisplay)
+	assert.Equal(t, "GW", frontendHub.OwnersUpdates[0].NextDisplay.Label)
+	assert.Equal(t, cTowerPosition, frontendHub.OwnersUpdates[0].NextDisplay.Frequency)
 	assert.Equal(t, "SAS790", frontendHub.OwnersUpdates[0].Callsign)
 }
 
 func TestResolveRouteSectorOwner_UsesOverrideTargetFirst(t *testing.T) {
-	t.Parallel()
 
 	owner, ok := resolveRouteSectorOwner(
 		"GWA",
@@ -369,7 +375,6 @@ func TestResolveRouteSectorOwner_UsesOverrideTargetFirst(t *testing.T) {
 }
 
 func TestResolveRouteSectorOwner_FallsBackToOriginalSector(t *testing.T) {
-	t.Parallel()
 
 	owner, ok := resolveRouteSectorOwner(
 		"GWA",
@@ -383,18 +388,72 @@ func TestResolveRouteSectorOwner_FallsBackToOriginalSector(t *testing.T) {
 	assert.Equal(t, "EKCH_C_TWR", owner)
 }
 
-func TestEKCHArrivalRoute_22LHighAFromTWUsesTEOwnedTransitSectors(t *testing.T) {
-	t.Parallel()
+func TestResolveRouteDisplayFrequency_UsesSectorFrequencyForCrossCoupledAirborneSector(t *testing.T) {
+
+	session := &models.Session{
+		ActiveRunways: pkgModels.ActiveRunways{
+			DepartureRunways: []string{"22L"},
+		},
+	}
+
+	nextDisplay := buildRouteNextDisplay(
+		session,
+		"K_DEP",
+		frequencyForPosition(t, "EKCH_W_APP"),
+		map[string]struct{}{frequencyForPosition(t, "EKCH_K_DEP"): {}},
+		false,
+	)
+
+	require.NotNil(t, nextDisplay)
+	assert.Equal(t, "K", nextDisplay.Label)
+	assert.Equal(t, frequencyForPosition(t, "EKCH_K_DEP"), nextDisplay.Frequency)
+}
+
+func TestResolveRouteDisplayFrequency_UsesSectorFrequencyForGroundSectorWhenCoveredByAnotherGroundController(t *testing.T) {
+
+	session := &models.Session{
+		ActiveRunways: pkgModels.ActiveRunways{
+			DepartureRunways: []string{"22L"},
+		},
+	}
+
+	nextDisplay := buildRouteNextDisplay(
+		session,
+		"AD",
+		frequencyForPosition(t, "EKCH_A_GND"),
+		map[string]struct{}{frequencyForPosition(t, "EKCH_C_GND"): {}},
+		false,
+	)
+
+	require.NotNil(t, nextDisplay)
+	assert.Equal(t, "AD", nextDisplay.Label)
+	assert.Equal(t, frequencyForPosition(t, "EKCH_C_GND"), nextDisplay.Frequency)
+}
+
+func TestResolveRouteDisplayFrequency_UsesPrimaryDisplayWhenOwnerIsConfiguredPrimary(t *testing.T) {
+
+	session := &models.Session{
+		ActiveRunways: pkgModels.ActiveRunways{
+			ArrivalRunways: []string{"04L"},
+		},
+	}
+
+	nextDisplay := buildRouteNextDisplay(session, "TE", frequencyForPosition(t, "EKCH_A_TWR"), nil, true)
+
+	assert.Nil(t, nextDisplay)
+}
+
+func TestEKCHArrivalRoute_22LHighAFromTWOnlyOverridesEntryTower(t *testing.T) {
 
 	route, ok := config.ComputeToStand([]string{"22L"}, "TW", "A34")
 	require.True(t, ok)
 	assert.Equal(t, []string{"TW", "GWA", "AA"}, route.Path)
 	assert.Equal(t, "TE", route.OwnerOverrides["TW"])
-	assert.Equal(t, "TE", route.OwnerOverrides["GWA"])
+	_, hasGWAOverride := route.OwnerOverrides["GWA"]
+	assert.False(t, hasGWAOverride)
 }
 
 func TestEKCHArrivalRoute_22LCargoFromTWUsesTEOwnedTransitSectors(t *testing.T) {
-	t.Parallel()
 
 	route, ok := config.ComputeToStand([]string{"22L"}, "TW", "G120")
 	require.True(t, ok)
@@ -403,18 +462,17 @@ func TestEKCHArrivalRoute_22LCargoFromTWUsesTEOwnedTransitSectors(t *testing.T) 
 	assert.Equal(t, "TE", route.OwnerOverrides["GWA"])
 }
 
-func TestEKCHArrivalRoute_04LHighAFromTEUsesTWOwnedTransitSectors(t *testing.T) {
-	t.Parallel()
+func TestEKCHArrivalRoute_04LHighAFromTEOnlyOverridesEntryTower(t *testing.T) {
 
 	route, ok := config.ComputeToStand([]string{"04L"}, "TE", "A34")
 	require.True(t, ok)
 	assert.Equal(t, []string{"TE", "GWA", "AA"}, route.Path)
 	assert.Equal(t, "TW", route.OwnerOverrides["TE"])
-	assert.Equal(t, "TW", route.OwnerOverrides["GWA"])
+	_, hasGWAOverride := route.OwnerOverrides["GWA"]
+	assert.False(t, hasGWAOverride)
 }
 
 func TestEKCHArrivalRoute_30RestFromGWAUsesTEOverride(t *testing.T) {
-	t.Parallel()
 
 	route, ok := config.ComputeToStand([]string{"30"}, "GWA", "A12")
 	require.True(t, ok)
@@ -423,7 +481,6 @@ func TestEKCHArrivalRoute_30RestFromGWAUsesTEOverride(t *testing.T) {
 }
 
 func TestEKCHArrivalRoute_CargoFromAAUsesDirectEndpointRoute(t *testing.T) {
-	t.Parallel()
 
 	testCases := []struct {
 		name   string
@@ -436,7 +493,6 @@ func TestEKCHArrivalRoute_CargoFromAAUsesDirectEndpointRoute(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
 
 			route, ok := config.ComputeToStand(tc.active, "AA", tc.stand)
 			require.True(t, ok)
@@ -447,7 +503,6 @@ func TestEKCHArrivalRoute_CargoFromAAUsesDirectEndpointRoute(t *testing.T) {
 }
 
 func TestEKCHArrivalRoute_W1UsesTEThenGWAChainAcrossRunwayGroups(t *testing.T) {
-	t.Parallel()
 
 	testCases := []struct {
 		name          string
@@ -463,7 +518,6 @@ func TestEKCHArrivalRoute_W1UsesTEThenGWAChainAcrossRunwayGroups(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
 
 			route, ok := config.ComputeToStand(tc.active, tc.currentSector, "W1")
 			require.True(t, ok)
@@ -476,7 +530,6 @@ func TestEKCHArrivalRoute_W1UsesTEThenGWAChainAcrossRunwayGroups(t *testing.T) {
 }
 
 func TestUpdateRoutesForSession_RecalculatesEachStrip(t *testing.T) {
-	t.Parallel()
 
 	arrivalRunway, towerSector := mustArrivalRunwayAndTowerSector(t)
 
@@ -540,7 +593,6 @@ func TestUpdateRoutesForSession_RecalculatesEachStrip(t *testing.T) {
 }
 
 func TestUpdateRoutesForSession_ReturnsFirstStripError(t *testing.T) {
-	t.Parallel()
 
 	arrivalRunway, towerSector := mustArrivalRunwayAndTowerSector(t)
 	expectedErr := errors.New("set next owners failed")

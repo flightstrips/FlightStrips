@@ -512,9 +512,10 @@ sectors:
       - "EKCH_D_TWR"
 
   # Airborne
-  - name: K_DEP
+  - name: K
+    key: K_DEP
     active: [ ]
-    name_priority: 0
+    name_priority: 1
     owner:
       - EKCH_K_DEP
       - EKCH_R_DEP
@@ -527,9 +528,10 @@ sectors:
       - EKDK_UC_CTR
       - EKDK_UN_CTR
 
-  - name: R_DEP
+  - name: R
+    key: R_DEP
     active: [ ]
-    name_priority: 0
+    name_priority: 1
     owner:
       - EKCH_R_DEP
       - EKCH_K_DEP

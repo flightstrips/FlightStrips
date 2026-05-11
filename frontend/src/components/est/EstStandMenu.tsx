@@ -80,7 +80,7 @@ export default function EstStandMenu({
     return { left, top };
   }, [anchor]);
 
-  const { tobtBg, tsatBg } = useCDMColors({ bay: strip.bay as Bay, tsat: strip.tsat, tobt: strip.tobt });
+  const { tobtBg, tsatBg } = useCDMColors({ bay: strip.bay as Bay, tsat: strip.tsat, tobt: strip.tobt, phase: strip.phase });
 
   if (!open || !anchor) {
     return null;
@@ -118,7 +118,7 @@ export default function EstStandMenu({
             START+TRF
           </Button>
           <Button variant="trf" className="h-11 text-sm font-semibold" onClick={onStartRequest}>
-            START REQ
+            {strip.start_req ? "REMOVE START REQ" : "START REQ"}
           </Button>
           <Button variant="trf" className="h-11 text-sm font-semibold" onClick={onPush}>
             PUSH

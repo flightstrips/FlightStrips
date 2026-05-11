@@ -2,6 +2,11 @@ package models
 
 import "time"
 
+type NextDisplay struct {
+	Label     string
+	Frequency string
+}
+
 type Strip struct {
 	ID                       int32
 	Version                  int32
@@ -36,12 +41,14 @@ type Strip struct {
 	PdcData                  *PdcData
 	NextOwners               []string
 	PreviousOwners           []string
+	NextDisplay              *NextDisplay
 	ReleasePoint             *string
 	PdcState                 string
 	PdcRequestRemarks        *string
 	PdcRequestedAt           *time.Time
 	PdcMessageSequence       *int32
 	PdcMessageSent           *time.Time
+	StartReq                 bool
 	Marked                   bool
 	Registration             *string
 	TrackingController       string

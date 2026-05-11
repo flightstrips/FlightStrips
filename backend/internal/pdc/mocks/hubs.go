@@ -114,16 +114,16 @@ func (m *FrontendHub) SendCoordinationFree(session int32, callsign string) {
 	m.Called(session, callsign)
 }
 
-func (m *FrontendHub) SendOwnersUpdate(session int32, callsign string, owner string, nextOwners []string, previousOwners []string) {
-	m.Called(session, callsign, owner, nextOwners, previousOwners)
+func (m *FrontendHub) SendOwnersUpdate(session int32, callsign string, owner string, nextOwners []string, previousOwners []string, nextDisplay *internalModels.NextDisplay) {
+	m.Called(session, callsign, owner, nextOwners, previousOwners, nextDisplay)
 }
 
 func (m *FrontendHub) SendLayoutUpdates(session int32, layoutMap map[string]string) {
 	m.Called(session, layoutMap)
 }
 
-func (m *FrontendHub) SendCdmUpdate(session int32, callsign, eobt, tobt, tsat, ctot string) {
-	m.Called(session, callsign, eobt, tobt, tsat, ctot)
+func (m *FrontendHub) SendCdmUpdate(session int32, event frontend.CdmDataEvent) {
+	m.Called(session, event)
 }
 
 func (m *FrontendHub) SendCdmWait(session int32, callsign string) {
@@ -209,6 +209,10 @@ func (m *EuroscopeHub) SendClearedFlag(session int32, cid string, callsign strin
 
 func (m *EuroscopeHub) SendStand(session int32, cid string, callsign string, stand string) {
 	m.Called(session, cid, callsign, stand)
+}
+
+func (m *EuroscopeHub) SendEobt(session int32, cid string, callsign string, eobt string) {
+	m.Called(session, cid, callsign, eobt)
 }
 
 func (m *EuroscopeHub) SendRoute(session int32, cid string, callsign string, route string) {

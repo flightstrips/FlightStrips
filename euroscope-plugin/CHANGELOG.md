@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.15.0](https://github.com/flightstrips/FlightStrips/compare/plugin/v0.14.1...plugin/v0.15.0) (2026-05-10)
+
+
+### Features
+
+* **ACDM:** sync EOBT to EuroScope ([edab28c](https://github.com/flightstrips/FlightStrips/commit/edab28c6e08e0075e0c9ccf2b5504f5bfde2025d))
+
 ## [0.14.1](https://github.com/flightstrips/FlightStrips/compare/plugin/v0.14.0...plugin/v0.14.1) (2026-05-04)
 
 

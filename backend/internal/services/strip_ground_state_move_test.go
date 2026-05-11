@@ -135,6 +135,50 @@ func TestUpdateGroundStateForMove_RwyArrToFinal_ResetsRunwayClearance(t *testing
 	assert.Equal(t, callsign, hub.StripUpdates[0].Callsign)
 }
 
+func TestUpdateGroundStateForMove_StandToPush_ClearsStartReq(t *testing.T) {
+	ctx := context.Background()
+	const session = int32(1)
+	const callsign = "SAS457"
+	const airport = "EKCH"
+
+	startReqCleared := false
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, gotSession int32, gotCallsign string) (*models.Strip, error) {
+			assert.Equal(t, session, gotSession)
+			assert.Equal(t, callsign, gotCallsign)
+			return &models.Strip{
+				Callsign: callsign,
+				Origin:   airport,
+				Bay:      shared.BAY_STAND,
+				StartReq: true,
+			}, nil
+		},
+		UpdateStartReqFn: func(_ context.Context, gotSession int32, gotCallsign string, startReq bool, _ *int32) (int64, error) {
+			assert.Equal(t, session, gotSession)
+			assert.Equal(t, callsign, gotCallsign)
+			assert.False(t, startReq)
+			startReqCleared = true
+			return 1, nil
+		},
+		UpdateGroundStateFn: func(_ context.Context, gotSession int32, gotCallsign string, state *string, bay string, _ *int32) (int64, error) {
+			assert.Equal(t, session, gotSession)
+			assert.Equal(t, callsign, gotCallsign)
+			assert.Equal(t, shared.BAY_PUSH, bay)
+			require.NotNil(t, state)
+			assert.Equal(t, euroscope.GroundStatePush, *state)
+			return 1, nil
+		},
+	}
+
+	svc := NewStripService(stripRepo)
+	svc.SetFrontendHub(&testutil.MockFrontendHub{})
+	svc.SetEuroscopeHub(&testutil.MockEuroscopeHub{})
+
+	err := svc.UpdateGroundStateForMove(ctx, session, callsign, shared.BAY_PUSH, "1234567", airport)
+	require.NoError(t, err)
+	assert.True(t, startReqCleared, "leaving STAND should clear START REQ")
+}
+
 // TestUpdateGroundStateForMove_DepartureToStand_NoESUpdate verifies that moving a
 // departure strip to BAY_STAND (unusual, but possible) does not send a ground state
 // update since STAND is not a departure tracking bay.

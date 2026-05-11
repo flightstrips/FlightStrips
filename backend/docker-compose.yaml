@@ -1,4 +1,17 @@
 services:
+  aspire-dashboard:
+    image: mcr.microsoft.com/dotnet/aspire-dashboard:latest
+    environment:
+      - ASPIRE_DASHBOARD_UNSECURED_ALLOW_ANONYMOUS=true
+    ports:
+      - 18888:18888
+      - 4317:18889
+      - 4318:18890
+    networks:
+      - flightstrips
+    restart: unless-stopped
+    profiles: [all, database]
+
   postgres:
     image: postgres:14-alpine
     ports:
@@ -32,17 +45,23 @@ services:
 
   flightstrip:
     build: .
+    env_file:
+      - .env
     environment:
       - DATABASE_CONNECTIONSTRING=postgresql://fs:fs_password@postgres:5432/fsdb?sslmode=disable
       - SLEEP_TIME=30
       - ENVIRONMENT=docker
       - SERVER_ADDR=0.0.0.0:8090
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://aspire-dashboard:18890
+      - OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
     networks:
       - flightstrips
     restart: unless-stopped
     ports:
       - 8090:8090
     depends_on:
+      aspire-dashboard:
+        condition: service_started
       postgres:
         condition: service_started
       flightstrips-migrator:

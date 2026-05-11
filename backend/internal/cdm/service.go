@@ -47,7 +47,7 @@ const (
 )
 
 type cdmSnapshot struct {
-	Eobt, Tobt, Tsat, Ctot, CtotSource, Ttot, Asat, Asrt, Tsac, Aobt, Status, ReqTobt, EcfmpID, TobtSetBy, TobtConfirmedBy, Phase string
+	Eobt, Tobt, Tsat, Ctot, CtotSource, Ttot, Asat, Asrt, Tsac, Aobt, Status, ReqTobt, ReqTobtType, EcfmpID, TobtSetBy, TobtConfirmedBy, Phase string
 }
 
 func NewCdmService(client *Client, stripRepo repository.StripRepository, sessionRepo repository.SessionRepository, controllerRepo repository.ControllerRepository) *Service {
@@ -103,7 +103,7 @@ func (s *Service) SetSessionCdmMaster(ctx context.Context, sessionID int32, mast
 		// Fetch session to get airport for immediate master registration.
 		sess, err := s.sessionRepo.GetByID(ctx, sessionID)
 		if err == nil && sess != nil {
-			s.registerMasterAsync(sessionID, sess.Airport)
+			s.registerMasterAsync(sess.Airport)
 			s.TriggerRecalculate(ctx, sessionID, sess.Airport)
 		}
 	} else {
@@ -112,7 +112,7 @@ func (s *Service) SetSessionCdmMaster(ctx context.Context, sessionID int32, mast
 		if s.client.isValid {
 			sess, err := s.sessionRepo.GetByID(ctx, sessionID)
 			if err == nil && sess != nil && sess.Airport != "" {
-				position := s.masterCallsign(sessionID)
+				position := s.masterPosition()
 				go func() {
 					if err := s.client.ClearMasterAirport(context.Background(), sess.Airport, position); err != nil {
 						slog.WarnContext(ctx, "Failed to clear CDM master airport",
@@ -137,7 +137,7 @@ func (s *Service) TriggerRecalculate(ctx context.Context, session int32, airport
 	if s.sequenceService == nil || airport == "" {
 		return
 	}
-	if !s.isMasterSession(session) {
+	if !s.canRunLocalRecalculation(session) {
 		return
 	}
 	normalizedAirport := strings.ToUpper(strings.TrimSpace(airport))
@@ -146,6 +146,39 @@ func (s *Service) TriggerRecalculate(ctx context.Context, session int32, airport
 			slog.ErrorContext(ctx, "CDM recalculation failed", slog.Int("session", int(session)), slog.String("airport", airport), slog.Any("error", err))
 		}
 	})
+}
+
+func (s *Service) SyncAirportLvoFromRunwayStatus(ctx context.Context, airport string, runwayStatus map[string]string) {
+	if s.configProvider == nil || strings.TrimSpace(airport) == "" {
+		return
+	}
+
+	active := hasLowVisRunwayStatus(runwayStatus)
+	s.configProvider.SetLvo(airport, active)
+	slog.DebugContext(ctx, "Synchronized CDM LVO state from runway status",
+		slog.String("airport", strings.ToUpper(strings.TrimSpace(airport))),
+		slog.Bool("active", active),
+	)
+}
+
+func (s *Service) TriggerRecalculateForAirport(ctx context.Context, airport string) error {
+	if s.sequenceService == nil || strings.TrimSpace(airport) == "" {
+		return nil
+	}
+
+	sessions, err := s.sessionRepo.List(ctx)
+	if err != nil {
+		return err
+	}
+
+	for _, session := range sessions {
+		if session == nil || !strings.EqualFold(session.Airport, airport) {
+			continue
+		}
+		s.TriggerRecalculate(ctx, session.ID, session.Airport)
+	}
+
+	return nil
 }
 
 func recalcDebounceKey(session int32, airport string) string {
@@ -159,6 +192,32 @@ func (s *Service) HandleTobtUpdate(ctx context.Context, session int32, callsign 
 		return nil
 	}
 
+	strip, before, updated, previousTobt, changed, shouldTriggerRecalculate, err := s.prepareTobtUpdate(ctx, session, callsign, tobt, sourcePosition, time.Now().UTC())
+	if err != nil {
+		return err
+	}
+	if strip == nil || updated == nil || !changed {
+		return nil
+	}
+
+	if err := s.persistCdmUpdate(ctx, session, callsign, before, updated); err != nil {
+		return err
+	}
+
+	if shouldTriggerRecalculate {
+		s.TriggerRecalculate(ctx, session, strip.Origin)
+	}
+	s.pushTobtAsync(session, callsign, previousTobt, tobt)
+	return nil
+}
+
+func (s *Service) HandleEobtUpdate(ctx context.Context, session int32, callsign string, eobt string, sourcePosition string, sourceRole string) error {
+	callsign = strings.TrimSpace(callsign)
+	eobt = strings.TrimSpace(eobt)
+	if callsign == "" || !isValidHHMM(eobt) {
+		return nil
+	}
+
 	strip, cdmData, err := s.loadCdmActionTarget(ctx, session, callsign)
 	if err != nil {
 		return err
@@ -169,26 +228,62 @@ func (s *Service) HandleTobtUpdate(ctx context.Context, session int32, callsign 
 
 	before := snapshotCdm(cdmData)
 	updated := cdmData.Clone()
-
-	if helpers.ValueOrDefault(updated.Tobt) == tobt &&
-		helpers.ValueOrDefault(updated.ReqTobt) == "" {
+	now := time.Now().UTC()
+	shouldForceRecalculate := shouldForceRecalculateForStaleSequence(updated, now)
+	if helpers.ValueOrDefault(updated.EffectiveEobt()) == eobt && !shouldForceRecalculate {
 		return nil
 	}
 
-	updated.Tobt = &tobt
-	setBy := strings.TrimSpace(sourcePosition)
-	updated.TobtSetBy = &setBy
-	confirmedBy := models.TobtConfirmedByATC
-	updated.TobtConfirmedBy = &confirmedBy
-	updated.ReqTobt = nil
-	updated.MarkLocalRecalculationPending()
+	updated.Eobt = &eobt
+	previousTobt := helpers.ValueOrDefault(updated.EffectiveTobt())
+	shouldSyncTobt := shouldSyncEobtToTobt(eobt, previousTobt, now)
+	shouldTriggerRecalculate := shouldSyncTobt || shouldForceRecalculate
+	if shouldSyncTobt {
+		applyConfirmedTobtUpdate(updated, eobt, sourcePosition)
+	}
+	if shouldTriggerRecalculate {
+		updated.MarkLocalRecalculationPending()
+	}
 
 	if err := s.persistCdmUpdate(ctx, session, callsign, before, updated); err != nil {
 		return err
 	}
 
-	s.TriggerRecalculate(ctx, session, strip.Origin)
-	s.pushTobtAsync(session, callsign, strip, cdmData, tobt)
+	if shouldTriggerRecalculate {
+		s.TriggerRecalculate(ctx, session, strip.Origin)
+		if shouldSyncTobt {
+			s.pushTobtAsync(session, callsign, previousTobt, eobt)
+		}
+	}
+	return nil
+}
+
+func (s *Service) HandleClxTobtUpdate(ctx context.Context, session int32, callsign string, tobt string, sourcePosition string, sourceRole string) error {
+	callsign = strings.TrimSpace(callsign)
+	tobt = strings.TrimSpace(tobt)
+	if callsign == "" || !isValidHHMM(tobt) {
+		return nil
+	}
+
+	strip, _, updated, previousTobt, changed, shouldTriggerRecalculate, err := s.prepareTobtUpdate(ctx, session, callsign, tobt, sourcePosition, time.Now().UTC())
+	if err != nil {
+		return err
+	}
+	if strip == nil || updated == nil {
+		return nil
+	}
+
+	if changed {
+		if err := s.persistCdmUpdateSilently(ctx, session, callsign, updated); err != nil {
+			return err
+		}
+	}
+
+	if err := s.finalizeClxTobtUpdate(ctx, session, callsign, strip.Origin, shouldTriggerRecalculate); err != nil {
+		return err
+	}
+
+	s.pushTobtAsync(session, callsign, previousTobt, tobt)
 	return nil
 }
 
@@ -380,44 +475,70 @@ func (s *Service) clearReqTobtAsync(session int32, callsign string) {
 	}()
 }
 
-func (s *Service) HandleReadyRequest(ctx context.Context, session int32, callsign string) error {
-	if !s.client.isValid {
+func (s *Service) HandleReadyRequest(ctx context.Context, session int32, callsign string, sourcePosition string, sourceRole string) error {
+	if s.client.isValid && !s.isMasterSession(session) {
+		return s.SetReady(ctx, session, callsign)
+	}
+
+	now := time.Now().UTC()
+	tobt := now.Format("1504")
+
+	strip, cdmData, err := s.loadCdmActionTarget(ctx, session, callsign)
+	if err != nil {
+		return err
+	}
+	if strip == nil || cdmData == nil {
 		return nil
 	}
 
-	return s.RequestBetterTobt(ctx, session, callsign)
+	updated := cdmData.Clone()
+	previousTobt := helpers.ValueOrDefault(updated.EffectiveTobt())
+	applyConfirmedTobtUpdate(updated, tobt, sourcePosition)
+	updated.MarkLocalRecalculationPending()
+	if err := s.persistCdmUpdateSilently(ctx, session, callsign, updated); err != nil {
+		return err
+	}
+
+	if err := s.SetReady(ctx, session, callsign); err != nil {
+		return err
+	}
+	if err := s.finalizeClxTobtUpdate(ctx, session, callsign, strip.Origin, true); err != nil {
+		return err
+	}
+
+	s.pushTobtAsync(session, callsign, previousTobt, tobt)
+	return nil
 }
 
 func (s *Service) SetReady(ctx context.Context, session int32, callsign string) error {
-	if !s.client.isValid || !s.isMasterSession(session) {
-		return nil
+	if s.client.isValid {
+		if err := s.client.IFPSDpi(ctx, callsign, "REA/1"); err != nil {
+			return err
+		}
+		if !s.isMasterSession(session) {
+			return nil
+		}
 	}
+
 	cdmData, err := s.stripRepo.GetCdmDataForCallsign(ctx, session, callsign)
 	if err != nil {
 		return err
 	}
-
 	if cdmData.EffectiveStatus() != nil && *cdmData.EffectiveStatus() == "REA" {
 		return nil
 	}
 
-	if err := s.client.IFPSDpi(ctx, callsign, "REA/1"); err != nil {
-		return err
-	}
-
+	before := snapshotCdm(cdmData)
 	updated := cdmData.Clone()
 	rea := "REA"
 	updated.Status = &rea
-	rows, err := s.stripRepo.SetCdmData(ctx, session, callsign, updated)
-	if err != nil {
+	if err := s.persistCdmUpdate(ctx, session, callsign, before, updated); err != nil {
 		return err
 	}
 
-	if rows != 1 {
-		return fmt.Errorf("failed to update CDM status for %s session %d", callsign, session)
+	if s.publisher != nil {
+		s.publisher.SendCdmWait(session, callsign)
 	}
-
-	s.publisher.SendCdmWait(session, callsign)
 
 	return nil
 }
@@ -444,15 +565,11 @@ func (s *Service) RequestBetterTobt(ctx context.Context, session int32, callsign
 		return err
 	}
 
+	before := snapshotCdm(cdmData)
 	updated := cdmData.Clone()
 	updated.Status = &status
-	rows, err := s.stripRepo.SetCdmData(ctx, session, callsign, updated)
-	if err != nil {
+	if err := s.persistCdmUpdate(ctx, session, callsign, before, updated); err != nil {
 		return err
-	}
-
-	if rows != 1 {
-		return fmt.Errorf("failed to update CDM status for %s session %d", callsign, session)
 	}
 
 	s.publisher.SendCdmWait(session, callsign)
@@ -483,6 +600,12 @@ func (s *Service) Start(ctx context.Context) {
 	}
 	if !syncEnabled && !localRecalcEnabled && !validationEnabled {
 		return
+	}
+
+	if syncEnabled || localRecalcEnabled {
+		if err := s.syncLiveSessions(ctx); err != nil {
+			slog.ErrorContext(ctx, "Failed to initialize CDM live-session state", slog.Any("error", err))
+		}
 	}
 
 	var syncTicker *time.Ticker
@@ -553,11 +676,16 @@ func (s *Service) syncLiveSessions(ctx context.Context) error {
 
 		if session.CdmMaster {
 			s.sessionMaster.Store(session.ID, true)
-			s.registerMasterAsync(session.ID, session.Airport)
+			s.registerMasterAsync(session.Airport)
 		}
+		s.SyncAirportLvoFromRunwayStatus(ctx, session.Airport, session.ActiveRunways.RunwayStatus)
 
 		if err := s.syncCdmData(ctx, session); err != nil {
 			return err
+		}
+
+		if session.CdmMaster {
+			s.TriggerRecalculate(ctx, session.ID, session.Airport)
 		}
 	}
 
@@ -623,8 +751,12 @@ func (s *Service) syncCdmData(ctx context.Context, session *models.Session) erro
 		if s.isMasterSession(session.ID) {
 			// Master: only CTOT and REQTOBT are relevant from the API; local calculation handles the rest.
 			current := flight
-			changed := helpers.ValueOrDefault(flight.Ctot) != nextCtot ||
-				helpers.ValueOrDefault(flight.ReqTobt) != row.CDMData.ReqTOBT ||
+			ctotChanged := helpers.ValueOrDefault(flight.Ctot) != nextCtot
+			reqTobtChanged := helpers.ValueOrDefault(flight.ReqTobt) != row.CDMData.ReqTOBT
+			reqTobtTypeChanged := helpers.ValueOrDefault(flight.ReqTobtType) != row.CDMData.ReqTOBTType
+			changed := ctotChanged ||
+				reqTobtChanged ||
+				reqTobtTypeChanged ||
 				helpers.ValueOrDefault(flight.EcfmpID) != row.CDMData.Reason
 
 			if changed {
@@ -640,13 +772,19 @@ func (s *Service) syncCdmData(ctx context.Context, session *models.Session) erro
 					updated.EcfmpID = nil
 				}
 				updated.ReqTobt = stringPointerIfPresent(row.CDMData.ReqTOBT)
+				updated.ReqTobtType = stringPointerIfPresent(row.CDMData.ReqTOBTType)
+				if ctotChanged || reqTobtChanged {
+					updated.MarkLocalRecalculationPending()
+				}
 
-				if _, err := s.stripRepo.SetCdmData(ctx, session.ID, row.Callsign, updated.Normalize()); err != nil {
+				if err := s.persistCdmUpdate(ctx, session.ID, row.Callsign, before, updated); err != nil {
 					return err
 				}
 				s.reevaluateCtotValidationAsync(ctx, session.ID, row.Callsign, before, snapshotCdm(updated))
-				s.broadcastIfChanged(session.ID, row.Callsign, before, snapshotCdm(updated))
 				current = updated
+				if ctotChanged || reqTobtChanged {
+					s.TriggerRecalculate(ctx, session.ID, session.Airport)
+				}
 			}
 
 			s.ensureMasterFlightExport(ctx, session.ID, row.Callsign, current, row)
@@ -667,6 +805,7 @@ func (s *Service) syncCdmData(ctx context.Context, session *models.Session) erro
 				helpers.ValueOrDefault(flight.Tsat) != truncateCDMClockValue(row.CDMData.TSAT) ||
 				helpers.ValueOrDefault(flight.Ttot) != truncateCDMClockValue(row.CDMData.TTOT) ||
 				helpers.ValueOrDefault(flight.ReqTobt) != row.CDMData.ReqTOBT ||
+				helpers.ValueOrDefault(flight.ReqTobtType) != row.CDMData.ReqTOBTType ||
 				helpers.ValueOrDefault(flight.EcfmpID) != row.CDMData.Reason
 
 			if !changed {
@@ -677,6 +816,7 @@ func (s *Service) syncCdmData(ctx context.Context, session *models.Session) erro
 			updated := flight.Clone()
 			updated.Tobt = &row.TOBT
 			updated.ReqTobt = stringPointerIfPresent(row.CDMData.ReqTOBT)
+			updated.ReqTobtType = stringPointerIfPresent(row.CDMData.ReqTOBTType)
 			updated.Tsat = stringPointerIfPresent(truncateCDMClockValue(row.CDMData.TSAT))
 			updated.Ttot = stringPointerIfPresent(truncateCDMClockValue(row.CDMData.TTOT))
 			updated.Asrt = stringPointerIfPresent(row.CDMData.ReqASRT)
@@ -692,12 +832,32 @@ func (s *Service) syncCdmData(ctx context.Context, session *models.Session) erro
 			updated.Eobt = &row.EOBT
 			updated.Status = &row.CDMStatus
 			updated.EcfmpID = stringPointerIfPresent(row.CDMData.Reason)
+			updated.Calculation = nil
 
-			if _, err := s.stripRepo.SetCdmData(ctx, session.ID, row.Callsign, updated.Normalize()); err != nil {
+			if err := s.persistCdmUpdate(ctx, session.ID, row.Callsign, before, updated); err != nil {
 				return err
 			}
 			s.reevaluateCtotValidationAsync(ctx, session.ID, row.Callsign, before, snapshotCdm(updated))
-			s.broadcastIfChanged(session.ID, row.Callsign, before, snapshotCdm(updated))
+		}
+	}
+
+	if s.sequenceService != nil && !s.isMasterSession(session.ID) {
+		strips, err := s.stripRepo.ListByOrigin(ctx, session.ID, airport)
+		if err != nil {
+			return err
+		}
+		markerUpdates := buildStoredSequenceMarkerUpdates(strips, s.isMasterSession(session.ID), time.Now().UTC())
+		for _, strip := range strips {
+			if strip == nil {
+				continue
+			}
+			updated, ok := markerUpdates[strip.Callsign]
+			if !ok {
+				continue
+			}
+			if err := s.persistCdmUpdateSilently(ctx, session.ID, strip.Callsign, updated); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -705,7 +865,7 @@ func (s *Service) syncCdmData(ctx context.Context, session *models.Session) erro
 }
 
 func (s *Service) ensureMasterFlightExport(ctx context.Context, session int32, callsign string, local *models.CdmData, remote IFPSData) {
-	if !s.client.isValid || local == nil || !masterFlightNeedsExport(local, remote) {
+	if !s.client.isValid || local == nil || local.NeedsLocalRecalculation() || !masterFlightNeedsExport(local, remote) {
 		return
 	}
 
@@ -865,6 +1025,7 @@ func snapshotCdm(data *models.CdmData) cdmSnapshot {
 		Aobt:            truncateCDMClockValue(helpers.ValueOrDefault(data.Aobt)),
 		Status:          helpers.ValueOrDefault(data.Status),
 		ReqTobt:         truncateCDMClockValue(helpers.ValueOrDefault(data.ReqTobt)),
+		ReqTobtType:     helpers.ValueOrDefault(data.ReqTobtType),
 		EcfmpID:         helpers.ValueOrDefault(data.EcfmpID),
 		TobtSetBy:       helpers.ValueOrDefault(data.TobtSetBy),
 		TobtConfirmedBy: helpers.ValueOrDefault(data.TobtConfirmedBy),
@@ -878,7 +1039,23 @@ func (s *Service) broadcastIfChanged(session int32, callsign string, before, aft
 	}
 
 	if s.publisher != nil {
-		s.publisher.SendCdmUpdate(session, callsign, after.Eobt, after.Tobt, after.Tsat, after.Ctot)
+		s.publisher.SendCdmUpdate(session, shared.BuildFrontendCdmDataEvent(callsign, &models.CdmData{
+			Eobt:        stringPointerIfPresent(after.Eobt),
+			Tobt:        stringPointerIfPresent(after.Tobt),
+			ReqTobt:     stringPointerIfPresent(after.ReqTobt),
+			ReqTobtType: stringPointerIfPresent(after.ReqTobtType),
+			Tsat:        stringPointerIfPresent(after.Tsat),
+			Ttot:        stringPointerIfPresent(after.Ttot),
+			Ctot:        stringPointerIfPresent(after.Ctot),
+			CtotSource:  stringPointerIfPresent(after.CtotSource),
+			Aobt:        stringPointerIfPresent(after.Aobt),
+			Asat:        stringPointerIfPresent(after.Asat),
+			Asrt:        stringPointerIfPresent(after.Asrt),
+			Tsac:        stringPointerIfPresent(after.Tsac),
+			Status:      stringPointerIfPresent(after.Status),
+			EcfmpID:     stringPointerIfPresent(after.EcfmpID),
+			Phase:       stringPointerIfPresent(after.Phase),
+		}))
 	}
 
 	if s.euroscopeHub != nil {
@@ -905,14 +1082,7 @@ func (s *Service) pushCdmDataAfterRecalc(ctx context.Context, session int32, cal
 	}
 
 	if s.publisher != nil {
-		s.publisher.SendCdmUpdate(
-			session,
-			callsign,
-			truncateCDMClockValue(helpers.ValueOrDefault(data.EffectiveEobt())),
-			truncateCDMClockValue(helpers.ValueOrDefault(data.EffectiveTobt())),
-			truncateCDMClockValue(helpers.ValueOrDefault(data.EffectiveTsat())),
-			truncateCDMClockValue(helpers.ValueOrDefault(data.Ctot)),
-		)
+		s.publisher.SendCdmUpdate(session, shared.BuildFrontendCdmDataEvent(callsign, data))
 	}
 	if s.euroscopeHub != nil {
 		s.euroscopeHub.Broadcast(session, buildCdmUpdateEvent(callsign, data))
@@ -1024,6 +1194,43 @@ func (s *Service) loadCdmActionTarget(ctx context.Context, session int32, callsi
 	return strip, cdmData, nil
 }
 
+func (s *Service) prepareTobtUpdate(ctx context.Context, session int32, callsign string, tobt string, sourcePosition string, now time.Time) (*models.Strip, cdmSnapshot, *models.CdmData, string, bool, bool, error) {
+	strip, cdmData, err := s.loadCdmActionTarget(ctx, session, callsign)
+	if err != nil {
+		return nil, cdmSnapshot{}, nil, "", false, false, err
+	}
+	if strip == nil || cdmData == nil {
+		return strip, cdmSnapshot{}, nil, "", false, false, nil
+	}
+
+	before := snapshotCdm(cdmData)
+	updated := cdmData.Clone()
+	previousTobt := helpers.ValueOrDefault(updated.Tobt)
+	shouldTriggerRecalculate := shouldTriggerClockRecalculation(tobt, now) || shouldForceRecalculateForStaleSequence(updated, now)
+	if previousTobt == tobt && helpers.ValueOrDefault(updated.ReqTobt) == "" && !shouldTriggerRecalculate {
+		return strip, before, updated, previousTobt, false, false, nil
+	}
+
+	applyConfirmedTobtUpdate(updated, tobt, sourcePosition)
+	if shouldTriggerRecalculate {
+		updated.MarkLocalRecalculationPending()
+	}
+	return strip, before, updated, previousTobt, true, shouldTriggerRecalculate, nil
+}
+
+func applyConfirmedTobtUpdate(updated *models.CdmData, tobt string, sourcePosition string) {
+	if updated == nil {
+		return
+	}
+	updated.Tobt = &tobt
+	setBy := strings.TrimSpace(sourcePosition)
+	updated.TobtSetBy = &setBy
+	confirmedBy := models.TobtConfirmedByATC
+	updated.TobtConfirmedBy = &confirmedBy
+	updated.ReqTobt = nil
+	updated.ReqTobtType = nil
+}
+
 func (s *Service) SyncAsatForGroundState(ctx context.Context, session int32, callsign string, groundState string) error {
 	callsign = strings.TrimSpace(callsign)
 	groundState = strings.ToUpper(strings.TrimSpace(groundState))
@@ -1108,20 +1315,26 @@ func (s *Service) persistCdmUpdate(ctx context.Context, session int32, callsign 
 	return nil
 }
 
-func (s *Service) masterCallsign(sessionID int32) string {
-	if s.euroscopeHub != nil {
-		if cs := s.euroscopeHub.GetMasterCallsign(sessionID); cs != "" {
-			return cs
-		}
+func (s *Service) persistCdmUpdateSilently(ctx context.Context, session int32, callsign string, updated *models.CdmData) error {
+	rows, err := s.stripRepo.SetCdmData(ctx, session, callsign, updated.Normalize())
+	if err != nil {
+		return err
 	}
+	if rows != 1 {
+		return fmt.Errorf("failed to persist CDM data for %s session %d", callsign, session)
+	}
+	return nil
+}
+
+func (s *Service) masterPosition() string {
 	return DefaultMasterPosition
 }
 
-func (s *Service) registerMasterAsync(sessionID int32, airport string) {
+func (s *Service) registerMasterAsync(airport string) {
 	if !s.client.isValid || airport == "" {
 		return
 	}
-	position := s.masterCallsign(sessionID)
+	position := s.masterPosition()
 	go func() {
 		if err := s.client.SetMasterAirport(context.Background(), airport, position); err != nil {
 			slog.Warn("Failed to register CDM master airport",
@@ -1133,11 +1346,69 @@ func (s *Service) registerMasterAsync(sessionID int32, airport string) {
 	}()
 }
 
-func (s *Service) pushTobtAsync(session int32, callsign string, strip *models.Strip, cdmData *models.CdmData, tobt string) {
-	if !s.client.isValid || strip == nil || cdmData == nil {
+func (s *Service) finalizeClxTobtUpdate(ctx context.Context, session int32, callsign string, airport string, shouldTriggerRecalculate bool) error {
+	if shouldTriggerRecalculate && s.sequenceService != nil && airport != "" && s.canRunLocalRecalculation(session) {
+		if err := s.sequenceService.RecalculateAirportSilently(ctx, session, airport); err != nil {
+			return err
+		}
+	}
+	s.pushCdmDataAfterRecalc(ctx, session, callsign)
+	return nil
+}
+
+func shouldTriggerClockRecalculation(value string, now time.Time) bool {
+	normalized := normalizeCalculationClock(value)
+	if normalized == "" {
+		return false
+	}
+	return !isMoreThanMinutesPast(normalized, now.UTC().Format("1504"), 0)
+}
+
+func shouldSyncEobtToTobt(eobt string, currentTobt string, now time.Time) bool {
+	if !shouldTriggerClockRecalculation(eobt, now) {
+		return false
+	}
+
+	currentTobt = normalizeCalculationClock(currentTobt)
+	if currentTobt == "" {
+		return true
+	}
+
+	return !isAfterOrEqual(currentTobt, eobt)
+}
+
+func shouldForceRecalculateForStaleSequence(data *models.CdmData, now time.Time) bool {
+	if data == nil {
+		return false
+	}
+
+	if helpers.ValueOrDefault(data.EffectivePhase()) == "I" {
+		return true
+	}
+
+	nowClock := timeToClock(now)
+	tsat := normalizeCalculationClock(helpers.ValueOrDefault(data.EffectiveTsat()))
+	return tsat != "" && isMoreThanMinutesPast(tsat, nowClock, 5)
+}
+
+func (s *Service) canRunLocalRecalculation(session int32) bool {
+	return !s.client.isValid || s.isMasterSession(session)
+}
+
+func hasLowVisRunwayStatus(runwayStatus map[string]string) bool {
+	for _, status := range runwayStatus {
+		if strings.EqualFold(strings.TrimSpace(status), "LOW_VIS") {
+			return true
+		}
+	}
+	return false
+}
+
+func (s *Service) pushTobtAsync(session int32, callsign string, previousTobt string, tobt string) {
+	if !s.client.isValid {
 		return
 	}
-	if helpers.ValueOrDefault(cdmData.Tobt) == tobt {
+	if strings.TrimSpace(previousTobt) == tobt {
 		return
 	}
 	go func() {
@@ -1162,9 +1433,5 @@ func (s *Service) resolveTaxiMinutes(strip *models.Strip) int {
 			configSnapshot = configForAirport
 		}
 	}
-	runway := ""
-	if strip.Runway != nil {
-		runway = *strip.Runway
-	}
-	return configSnapshot.TaxiMinutesForRunway(runway)
+	return resolveTaxiMinutesForStrip(strip, configSnapshot)
 }

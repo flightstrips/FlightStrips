@@ -7,6 +7,7 @@ import {
 } from "@/lib/public-theme";
 
 const SELECTABLE_PUBLIC_PATHS = new Set(["/", "/about", "/contact"]);
+const STANDALONE_SCROLL_PATHS = new Set(["/cdm"]);
 
 /**
  * Syncs document theme with stored public theme. On /app we always remove dark
@@ -17,7 +18,10 @@ export function ThemeSync() {
 
   useEffect(() => {
     const root = document.getElementById("root");
-    const isSelectablePublicPage = SELECTABLE_PUBLIC_PATHS.has(pathname) || pathname.startsWith("/pilot");
+    const isSelectablePublicPage =
+      SELECTABLE_PUBLIC_PATHS.has(pathname) ||
+      STANDALONE_SCROLL_PATHS.has(pathname) ||
+      pathname.startsWith("/pilot");
 
     document.documentElement.classList.toggle("public-content-page", isSelectablePublicPage);
     document.body.classList.toggle("public-content-page", isSelectablePublicPage);

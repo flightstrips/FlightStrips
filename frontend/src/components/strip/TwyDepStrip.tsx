@@ -1,13 +1,13 @@
 import { useState } from "react";
 import { getAircraftTypeWithWtc } from "@/lib/utils";
-import { useControllers, useStripTransfers, useTransitionAltitude, useWebSocketStore } from "@/store/store-hooks";
+import { useStripTransfers, useTransitionAltitude, useWebSocketStore } from "@/store/store-hooks";
 import { formatAltitude } from "@/lib/utils";
 import FlightPlanDialog from "@/components/FlightPlanDialog";
 import { useCTOTColor } from "@/hooks/useCTOTColor";
 import { COLOR_UNEXPECTED_YELLOW, COLOR_TYPE_HEAVY, getValidationBlockedCursor } from "./shared";
 import { getStripBg } from "./types";
 import type { StripProps } from "./types";
-import { useStripCallsignInteraction, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR, FONT, getStripOwnership, getCellTextColor, useStripBg, getValidationBlinkStyle } from "./shared";
+import { useStripCallsignInteraction, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR, FONT, getStripOwnership, getCellTextColor, useStripBg, getValidationBlinkStyle, useNextFrequencyDisplay } from "./shared";
 import { TaxiMapDialog } from "../map-dialogs/TaxiMapDialog";
 import { HoldingPointDialog } from "../map-dialogs/HoldingPointDialog";
 import { SIBox } from "./SIBox";
@@ -62,6 +62,7 @@ export function TwyDepStrip({
   owner,
   nextControllers,
   previousControllers,
+  nextDisplay,
   myPosition,
   selectable,
   marked = false,
@@ -77,7 +78,6 @@ export function TwyDepStrip({
   const cellBorderColor = getCellBorderColor(marked);
   const { isUnconcerned, isAssumed } = getStripOwnership(myPosition, owner, nextControllers, previousControllers);
   const { bg, textWhite } = useStripBg(runway, getStripBg(pdcStatus, undefined, bay), isTagRequest, isUnconcerned, pdcStatus, bay);
-  const controllers = useControllers();
   const transitionAltitude = useTransitionAltitude();
   const [showTaxiMap, setShowTaxiMap] = useState(false);
   const [showHpMap, setShowHpMap] = useState(false);
@@ -112,10 +112,7 @@ export function TwyDepStrip({
   const hpDisplay = isHp ? (holdingPoint ?? "") : "";
   const twyDisplay = !isHp ? (holdingPoint ?? "") : "";
 
-  // Next position frequency — controller.position IS the frequency string (e.g. "118.105")
-  const nextPosition = nextControllers?.find(pos => pos !== myPosition);
-  const nextController = controllers.find(c => c.position === nextPosition);
-  const nextFreq = nextController ? `:${nextController.position}` : "";
+  const nextFreq = useNextFrequencyDisplay(nextDisplay, nextControllers, myPosition);
 
   // Cleared altitude display: use FL notation above transition altitude, feet below.
   const fl = clearedAltitude ? formatAltitude(clearedAltitude, transitionAltitude) : "";
@@ -140,6 +137,7 @@ export function TwyDepStrip({
         owner={owner}
         nextControllers={nextControllers}
         previousControllers={previousControllers}
+        nextDisplay={nextDisplay}
         myPosition={myPosition}
         flexGrow={F_SI}
         transferFrom={stripTransfers[callsign]?.from ?? ""}

@@ -71,6 +71,8 @@ const (
 
 	ReleasePoint EventType = "release_point"
 
+	StartReq EventType = "start_req"
+
 	Marked EventType = "marked"
 
 	RunwayClearance    EventType = "runway_clearance"
@@ -144,12 +146,25 @@ type Strip struct {
 	Sequence                 int32             `json:"sequence"`
 	NextControllers          []string          `json:"next_controllers"`
 	PreviousControllers      []string          `json:"previous_controllers"`
+	NextDisplay              *NextDisplay      `json:"next_display,omitempty"`
 	Owner                    string            `json:"owner"`
 	Tobt                     string            `json:"tobt"`
+	ReqTobt                  string            `json:"req_tobt,omitempty"`
+	ReqTobtType              string            `json:"req_tobt_type,omitempty"`
 	Tsat                     string            `json:"tsat"`
+	Ttot                     string            `json:"ttot,omitempty"`
 	Ctot                     string            `json:"ctot"`
+	Aobt                     string            `json:"aobt,omitempty"`
+	Asat                     string            `json:"asat,omitempty"`
+	Asrt                     string            `json:"asrt,omitempty"`
+	Tsac                     string            `json:"tsac,omitempty"`
+	Status                   string            `json:"status,omitempty"`
+	EcfmpID                  string            `json:"ecfmp_id,omitempty"`
+	CtotSource               string            `json:"ctot_source,omitempty"`
+	Phase                    string            `json:"phase,omitempty"`
 	PdcState                 string            `json:"pdc_state"`
 	PdcRequestRemarks        string            `json:"pdc_request_remarks,omitempty"`
+	StartReq                 bool              `json:"start_req"`
 	Marked                   bool              `json:"marked"`
 	Registration             string            `json:"registration"`
 	TrackingController       string            `json:"tracking_controller"`
@@ -165,6 +180,11 @@ type Strip struct {
 	HasFP                    bool              `json:"has_fp"`
 	ValidationStatus         *ValidationStatus `json:"validation_status,omitempty"`
 	ClxValidation            *ClxValidation    `json:"clx_validation,omitempty"`
+}
+
+type NextDisplay struct {
+	Label     string `json:"label"`
+	Frequency string `json:"frequency"`
 }
 
 // ClxValidation contains non-blocking field-level CLX dialogue validation faults.
@@ -619,10 +639,11 @@ func (c CoordinationFreeBroadcastEvent) GetType() EventType {
 }
 
 type OwnersUpdateEvent struct {
-	Callsign       string   `json:"callsign"`
-	Owner          string   `json:"owner"`
-	NextOwners     []string `json:"next_owners"`
-	PreviousOwners []string `json:"previous_owners"`
+	Callsign       string       `json:"callsign"`
+	Owner          string       `json:"owner"`
+	NextOwners     []string     `json:"next_owners"`
+	PreviousOwners []string     `json:"previous_owners"`
+	NextDisplay    *NextDisplay `json:"next_display,omitempty"`
 }
 
 func (o OwnersUpdateEvent) Marshal() ([]byte, error) {
@@ -705,11 +726,22 @@ func (c CdmWaitEvent) GetType() EventType {
 }
 
 type CdmDataEvent struct {
-	Callsign string `json:"callsign"`
-	Eobt     string `json:"eobt"`
-	Tobt     string `json:"tobt"`
-	Tsat     string `json:"tsat"`
-	Ctot     string `json:"ctot"`
+	Callsign    string `json:"callsign"`
+	Eobt        string `json:"eobt"`
+	Tobt        string `json:"tobt"`
+	ReqTobt     string `json:"req_tobt,omitempty"`
+	ReqTobtType string `json:"req_tobt_type,omitempty"`
+	Tsat        string `json:"tsat"`
+	Ttot        string `json:"ttot,omitempty"`
+	Ctot        string `json:"ctot"`
+	Aobt        string `json:"aobt,omitempty"`
+	Asat        string `json:"asat,omitempty"`
+	Asrt        string `json:"asrt,omitempty"`
+	Tsac        string `json:"tsac,omitempty"`
+	Status      string `json:"status,omitempty"`
+	EcfmpID     string `json:"ecfmp_id,omitempty"`
+	CtotSource  string `json:"ctot_source,omitempty"`
+	Phase       string `json:"phase,omitempty"`
 }
 
 func (c CdmDataEvent) Marshal() ([]byte, error) {
@@ -735,6 +767,11 @@ func (r ReleasePointEvent) Marshal() ([]byte, error) {
 
 func (r ReleasePointEvent) GetType() EventType {
 	return ReleasePoint
+}
+
+type StartReqEvent struct {
+	Callsign string `json:"callsign"`
+	StartReq bool   `json:"start_req"`
 }
 
 type MarkedEvent struct {

@@ -24,7 +24,9 @@ type stripUpdateValidationReevaluator struct {
 }
 
 type recordingCdmService struct {
-	triggerRecalculateFn func(ctx context.Context, session int32, airport string)
+	triggerRecalculateFn             func(ctx context.Context, session int32, airport string)
+	syncAirportLvoFromRunwayStatusFn func(ctx context.Context, airport string, runwayStatus map[string]string)
+	handleEobtUpdateFn               func(ctx context.Context, session int32, callsign string, eobt string, sourcePosition string, sourceRole string) error
 }
 
 func (s *recordingCdmService) TriggerRecalculate(ctx context.Context, session int32, airport string) {
@@ -33,11 +35,28 @@ func (s *recordingCdmService) TriggerRecalculate(ctx context.Context, session in
 	}
 }
 
-func (s *recordingCdmService) HandleReadyRequest(context.Context, int32, string) error {
+func (s *recordingCdmService) SyncAirportLvoFromRunwayStatus(ctx context.Context, airport string, runwayStatus map[string]string) {
+	if s.syncAirportLvoFromRunwayStatusFn != nil {
+		s.syncAirportLvoFromRunwayStatusFn(ctx, airport, runwayStatus)
+	}
+}
+
+func (s *recordingCdmService) HandleReadyRequest(context.Context, int32, string, string, string) error {
+	return nil
+}
+
+func (s *recordingCdmService) HandleEobtUpdate(ctx context.Context, session int32, callsign string, eobt string, sourcePosition string, sourceRole string) error {
+	if s.handleEobtUpdateFn != nil {
+		return s.handleEobtUpdateFn(ctx, session, callsign, eobt, sourcePosition, sourceRole)
+	}
 	return nil
 }
 
 func (s *recordingCdmService) HandleTobtUpdate(context.Context, int32, string, string, string, string) error {
+	return nil
+}
+
+func (s *recordingCdmService) HandleClxTobtUpdate(context.Context, int32, string, string, string, string) error {
 	return nil
 }
 
@@ -132,7 +151,7 @@ func TestHandleStripUpdate_RunwayChangePersistsSelectedRunway(t *testing.T) {
 		EuroscopeHubVal: euroscopeHub,
 	}
 
-	hub := &Hub{server: server}
+	hub := &Hub{server: server, send: make(chan internalMessage, 1)}
 	client := &Client{
 		session:  session,
 		hub:      hub,
@@ -192,15 +211,13 @@ func TestHandleStripUpdate_EobtChangeTriggersCdmRecalculation(t *testing.T) {
 	ctx := context.Background()
 	const session = int32(7)
 	const callsign = "SAS123"
-	const origin = "EKCH"
 	currentEobt := "1000"
 	updatedEobt := "1015"
 	tobt := "1020"
 	tsat := "1030"
 	ctot := "1040"
 
-	var persisted *models.CdmData
-	var triggerAirport string
+	var handledEobt string
 	getByCallsignCalls := 0
 
 	stripRepo := &testutil.MockStripRepository{
@@ -211,7 +228,7 @@ func TestHandleStripUpdate_EobtChangeTriggersCdmRecalculation(t *testing.T) {
 			return &models.Strip{
 				Callsign: callsign,
 				Session:  session,
-				Origin:   origin,
+				Origin:   "EKCH",
 				CdmData: &models.CdmData{
 					Eobt: &currentEobt,
 					Tobt: &tobt,
@@ -220,24 +237,24 @@ func TestHandleStripUpdate_EobtChangeTriggersCdmRecalculation(t *testing.T) {
 				},
 			}, nil
 		},
-		SetCdmDataFn: func(_ context.Context, gotSession int32, gotCallsign string, data *models.CdmData) (int64, error) {
-			assert.Equal(t, session, gotSession)
-			assert.Equal(t, callsign, gotCallsign)
-			persisted = data.Clone()
-			return 1, nil
-		},
 	}
 
 	cdmService := &recordingCdmService{
-		triggerRecalculateFn: func(_ context.Context, gotSession int32, airport string) {
+		handleEobtUpdateFn: func(_ context.Context, gotSession int32, gotCallsign string, eobt string, sourcePosition string, sourceRole string) error {
 			assert.Equal(t, session, gotSession)
-			triggerAirport = airport
+			assert.Equal(t, callsign, gotCallsign)
+			assert.Equal(t, "EKCH_DEL", sourcePosition)
+			assert.Equal(t, "ATC", sourceRole)
+			handledEobt = eobt
+			return nil
 		},
 	}
+	euroscopeHub := &testutil.MockEuroscopeHub{}
 
 	server := &testutil.MockServer{
-		StripRepoVal:  stripRepo,
-		CdmServiceVal: cdmService,
+		StripRepoVal:    stripRepo,
+		CdmServiceVal:   cdmService,
+		EuroscopeHubVal: euroscopeHub,
 	}
 	hub := &Hub{
 		server: server,
@@ -263,11 +280,12 @@ func TestHandleStripUpdate_EobtChangeTriggersCdmRecalculation(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	require.NotNil(t, persisted)
-	require.NotNil(t, persisted.Eobt)
-	assert.Equal(t, updatedEobt, *persisted.Eobt)
-	assert.True(t, persisted.Recalculate)
-	assert.Equal(t, origin, triggerAirport)
+	assert.Equal(t, updatedEobt, handledEobt)
+	require.Len(t, euroscopeHub.Eobts, 1)
+	assert.Equal(t, session, euroscopeHub.Eobts[0].Session)
+	assert.Equal(t, "123456", euroscopeHub.Eobts[0].Cid)
+	assert.Equal(t, callsign, euroscopeHub.Eobts[0].Callsign)
+	assert.Equal(t, updatedEobt, euroscopeHub.Eobts[0].Eobt)
 	assert.Equal(t, 2, getByCallsignCalls)
 }
 
@@ -301,7 +319,7 @@ func TestHandleStripUpdate_OwnerCanUpdateRemarksAndAircraftInfo(t *testing.T) {
 		EuroscopeHubVal: euroscopeHub,
 	}
 
-	hub := &Hub{server: server}
+	hub := &Hub{server: server, send: make(chan internalMessage, 1)}
 	client := &Client{
 		session:  session,
 		hub:      hub,
@@ -375,6 +393,66 @@ func TestHandleStripUpdate_NonOwnerCannotUpdateRemarksOrAircraftInfo(t *testing.
 	})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "non-owner")
+}
+
+func TestHandleUpdateRunwayStatus_SynchronizesAirportLvo(t *testing.T) {
+	ctx := context.Background()
+	const sessionID = int32(12)
+
+	session := &models.Session{
+		ID:      sessionID,
+		Airport: "EKCH",
+		ActiveRunways: pkgModels.ActiveRunways{
+			DepartureRunways: []string{"04L"},
+			ArrivalRunways:   []string{"22L"},
+			RunwayStatus:     map[string]string{"04L/22L": "OPEN"},
+		},
+	}
+
+	var persisted pkgModels.ActiveRunways
+	var syncedAirport string
+	var syncedStatus map[string]string
+	sessionRepo := &testutil.MockSessionRepository{
+		GetByIDFn: func(_ context.Context, id int32) (*models.Session, error) {
+			assert.Equal(t, sessionID, id)
+			return session, nil
+		},
+		UpdateActiveRunwaysFn: func(_ context.Context, id int32, activeRunways pkgModels.ActiveRunways) error {
+			assert.Equal(t, sessionID, id)
+			persisted = activeRunways
+			return nil
+		},
+	}
+	cdmService := &recordingCdmService{
+		syncAirportLvoFromRunwayStatusFn: func(_ context.Context, airport string, runwayStatus map[string]string) {
+			syncedAirport = airport
+			syncedStatus = map[string]string{}
+			for pair, status := range runwayStatus {
+				syncedStatus[pair] = status
+			}
+		},
+	}
+	server := &testutil.MockServer{
+		CdmServiceVal:  cdmService,
+		SessionRepoVal: sessionRepo,
+	}
+	hub := &Hub{server: server, send: make(chan internalMessage, 1)}
+	client := &Client{session: sessionID, hub: hub}
+
+	payload, err := json.Marshal(frontendEvents.UpdateRunwayStatusAction{
+		Pair:   "04L/22L",
+		Status: "LOW_VIS",
+	})
+	require.NoError(t, err)
+
+	err = handleUpdateRunwayStatus(ctx, client, Message{
+		Type:    frontendEvents.UpdateRunwayStatus,
+		Message: payload,
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "LOW_VIS", persisted.RunwayStatus["04L/22L"])
+	assert.Equal(t, "EKCH", syncedAirport)
+	assert.Equal(t, "LOW_VIS", syncedStatus["04L/22L"])
 }
 
 func TestHandleStripUpdate_RunwayChangeReevaluatesDepartureValidation(t *testing.T) {

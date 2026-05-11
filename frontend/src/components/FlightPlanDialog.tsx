@@ -17,6 +17,7 @@ import { useAvailableSids, useInitialCflByRunway, useStrip, useTransitionAltitud
 import { scalePx } from "@/lib/viewportScale";
 import { buildRnavUpdate, type RnavCapability } from "@/lib/rnav";
 import { normalizeCdmTime } from "@/lib/cdmTime";
+import { CDM_RED } from "@/lib/cdmColors";
 
 const FONT_FAMILY = "Arial";
 const FONT_SIZE_FIELD = scalePx(20);
@@ -87,6 +88,10 @@ function clxFieldStyle(hasFault: boolean) {
   return hasFault ? { backgroundColor: COLOR_CLX_ERROR } : {};
 }
 
+function invalidPhaseTobtStyle(phase?: string) {
+  return phase === "I" ? { backgroundColor: CDM_RED, color: "white" } : {};
+}
+
 function clxNitosRemarks(strip: { clx_validation?: { faults: { nitos_remark: string }[] }, pdc_request_remarks?: string } | undefined) {
   const clxRemarks = strip?.clx_validation?.faults
     .map(fault => fault.nitos_remark.trim())
@@ -154,6 +159,7 @@ export default function FlightPlanDialog({
   const displayedEobt = normalizeCdmTime(strip?.eobt);
   const displayedTobt = normalizeCdmTime(strip?.tobt);
   const displayedTsat = normalizeCdmTime(strip?.tsat);
+  const displayedTtot = normalizeCdmTime(strip?.ttot);
   const displayedCtot = normalizeCdmTime(strip?.ctot);
 
   const [sidDialogOpen, setSidDialogOpen] = useState(false);
@@ -313,6 +319,7 @@ export default function FlightPlanDialog({
             <div className="grid items-center" style={gridGroupStyle}>
               <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>TTOT</Label>
               <input
+                value={displayedTtot}
                 placeholder=""
                 disabled
                 className={CLS_BTN_DISABLED_BDR}
@@ -355,7 +362,7 @@ export default function FlightPlanDialog({
                     if (tobtFault) clxUpdateTobt(callsign);
                   }}
                   className={CLS_BTN_DISABLED}
-                  style={{ ...fieldStyle(100), ...clxFieldStyle(tobtFault), cursor: tobtFault ? "pointer" : undefined }}
+                  style={{ ...fieldStyle(100), ...clxFieldStyle(tobtFault), ...invalidPhaseTobtStyle(strip.phase), cursor: tobtFault ? "pointer" : undefined }}
                 >
                   {displayedTobt}
                 </button>

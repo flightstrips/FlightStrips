@@ -6,6 +6,7 @@ interface CDMColorInput {
   bay: Bay;
   tsat: string;
   tobt: string;
+  phase?: string;
 }
 
 export function useCDMColors(strip: CDMColorInput): CDMColors {
@@ -16,5 +17,5 @@ export function useCDMColors(strip: CDMColorInput): CDMColors {
     return () => clearInterval(interval);
   }, []);
 
-  return computeCDMColors(strip.tsat, strip.tobt, nowMs, strip.bay);
+  return computeCDMColors(strip.tsat, strip.tobt, nowMs, strip.bay, strip.phase);
 }

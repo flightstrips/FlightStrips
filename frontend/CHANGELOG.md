@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.36.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.35.2...frontend/v0.36.0) (2026-05-11)
+
+
+### Features
+
+* **Public Site:** Refactor design ([a853dad](https://github.com/flightstrips/FlightStrips/commit/a853dad45465dfbca14b363da0415f8e0945439b))
+
 ## [0.35.2](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.35.1...frontend/v0.35.2) (2026-05-10)
 
 

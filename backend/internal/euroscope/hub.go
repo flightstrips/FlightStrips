@@ -69,6 +69,9 @@ type Hub struct {
 	sessionUpdateMu     sync.Mutex
 	sessionUpdateTimers map[int32]*sessionUpdatePending
 
+	pendingOnlineMu             sync.Mutex
+	pendingOnlineOrchestrations map[string]struct{}
+
 	// syncedSessions tracks sessions that have completed at least one full EuroScope sync.
 	// Frontends connecting before the first sync see a waiting screen instead of stale data.
 	syncedSessions sync.Map // map[int32]struct{}
@@ -114,22 +117,23 @@ func NewHub(stripService shared.StripService, controllerService shared.Controlle
 	handlers.Add(euroscope.PdcRevertToVoice, handlePdcRevertToVoice)
 
 	hub := &Hub{
-		register:                 make(chan *Client),
-		unregister:               make(chan *Client),
-		clients:                  make(map[*Client]bool),
-		send:                     make(chan internalMessage),
-		master:                   make(map[int32]*Client),
-		handlers:                 handlers,
-		stripService:             stripService,
-		controllerService:        controllerService,
-		authenticationService:    authenticationService,
-		recorders:                make(map[int32]*recorder.Recorder),
-		offlineTimers:            make(map[string]*offlineTimerEntry),
-		aircraftDisconnectTimers: make(map[string]*aircraftDisconnectEntry),
-		sessionUpdateTimers:      make(map[int32]*sessionUpdatePending),
-		airportClientCount:       make(map[string]int),
-		observerByCid:            make(map[string]bool),
-		runwayStates:             make(map[string]*clientRunwayState),
+		register:                    make(chan *Client),
+		unregister:                  make(chan *Client),
+		clients:                     make(map[*Client]bool),
+		send:                        make(chan internalMessage),
+		master:                      make(map[int32]*Client),
+		handlers:                    handlers,
+		stripService:                stripService,
+		controllerService:           controllerService,
+		authenticationService:       authenticationService,
+		recorders:                   make(map[int32]*recorder.Recorder),
+		offlineTimers:               make(map[string]*offlineTimerEntry),
+		aircraftDisconnectTimers:    make(map[string]*aircraftDisconnectEntry),
+		sessionUpdateTimers:         make(map[int32]*sessionUpdatePending),
+		pendingOnlineOrchestrations: make(map[string]struct{}),
+		airportClientCount:          make(map[string]int),
+		observerByCid:               make(map[string]bool),
+		runwayStates:                make(map[string]*clientRunwayState),
 	}
 	hub.squawkThrottle = newSquawkThrottle(defaultSquawkRequestInterval, hub.readAssignedSquawk, hub.dispatchGenerateSquawkRequest)
 
@@ -444,6 +448,46 @@ func (hub *Hub) handleLogin(msg []byte, user shared.AuthenticatedUser) (event eu
 	}
 
 	return event, session.Id, err
+}
+
+func (hub *Hub) markPendingOnlineOrchestration(session int32, callsign string) {
+	key := pendingOnlineOrchestrationKey(session, callsign)
+	if key == "" {
+		return
+	}
+
+	hub.pendingOnlineMu.Lock()
+	if hub.pendingOnlineOrchestrations == nil {
+		hub.pendingOnlineOrchestrations = make(map[string]struct{})
+	}
+	hub.pendingOnlineOrchestrations[key] = struct{}{}
+	hub.pendingOnlineMu.Unlock()
+}
+
+func (hub *Hub) consumePendingOnlineOrchestration(session int32, callsign string) bool {
+	key := pendingOnlineOrchestrationKey(session, callsign)
+	if key == "" {
+		return false
+	}
+
+	hub.pendingOnlineMu.Lock()
+	defer hub.pendingOnlineMu.Unlock()
+
+	if _, ok := hub.pendingOnlineOrchestrations[key]; !ok {
+		return false
+	}
+
+	delete(hub.pendingOnlineOrchestrations, key)
+	return true
+}
+
+func pendingOnlineOrchestrationKey(session int32, callsign string) string {
+	callsign = strings.ToUpper(strings.TrimSpace(callsign))
+	if callsign == "" {
+		return ""
+	}
+
+	return fmt.Sprintf("%d:%s", session, callsign)
 }
 
 func (hub *Hub) OnUnregister(client *Client) {

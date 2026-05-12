@@ -19,6 +19,12 @@ type ControllerOnlineResult struct {
 	NotifyOnline bool
 }
 
+type ControllerOnlineOptions struct {
+	// ForceOrchestration reruns sector/layout/route recalculation even when the
+	// controller row already exists on the same position.
+	ForceOrchestration bool
+}
+
 // ControllerOfflineResult describes whether the handler should schedule an offline timer.
 type ControllerOfflineResult struct {
 	// ShouldScheduleTimer is true when the handler should call scheduleOfflineActions.
@@ -35,6 +41,7 @@ type ControllerService interface {
 	// from config by the caller. Returns sector changes and whether the controller is
 	// the only one on its position, so the caller can schedule a broadcast notification.
 	ControllerOnline(ctx context.Context, session int32, callsign, position, positionName string) (ControllerOnlineResult, error)
+	ControllerOnlineWithOptions(ctx context.Context, session int32, callsign, position, positionName string, options ControllerOnlineOptions) (ControllerOnlineResult, error)
 
 	// ControllerOffline handles a controller going offline. Returns whether the caller
 	// should schedule a delayed offline timer.

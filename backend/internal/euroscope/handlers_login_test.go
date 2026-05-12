@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"testing"
 
+	"FlightStrips/internal/config"
 	internalModels "FlightStrips/internal/models"
+	"FlightStrips/internal/services"
 	"FlightStrips/internal/shared"
 	"FlightStrips/internal/testutil"
 	euroscopeEvents "FlightStrips/pkg/events/euroscope"
@@ -384,4 +386,131 @@ func TestHandleLoginEvent_MasterCallsignRefreshesOnRelogin(t *testing.T) {
 	assert.Equal(t, "EKCH_D_TWR", client.callsign)
 	assert.Equal(t, "EKCH_D_TWR", hub.GetMasterCallsign(42))
 	assert.Same(t, client, hub.master[42])
+}
+
+func TestHandleLoginEvent_ThenControllerOnline_ForcesOrchestrationForSamePosition(t *testing.T) {
+	t.Cleanup(config.SetPositionsForTest([]config.Position{
+		{Name: "EKCH_W_APP", Frequency: "119.805", Section: "APP"},
+	}))
+
+	const session = int32(42)
+	const callsign = "EKCH_W_APP"
+	const position = "119.805"
+
+	loginRecord := &internalModels.Controller{
+		Callsign: callsign,
+		Session:  session,
+		Position: position,
+	}
+
+	controllerRepo := &testutil.MockControllerRepository{
+		GetFn: func(_ context.Context, gotCallsign string, gotSession int32) (*internalModels.Controller, error) {
+			assert.Equal(t, callsign, gotCallsign)
+			assert.Equal(t, session, gotSession)
+			return loginRecord, nil
+		},
+		SetCidFn: func(_ context.Context, gotSession int32, gotCallsign string, _ *string) (int64, error) {
+			assert.Equal(t, session, gotSession)
+			assert.Equal(t, callsign, gotCallsign)
+			return 1, nil
+		},
+		SetObserverFn: func(_ context.Context, gotSession int32, gotCallsign string, observer bool) (int64, error) {
+			assert.Equal(t, session, gotSession)
+			assert.Equal(t, callsign, gotCallsign)
+			assert.False(t, observer)
+			return 1, nil
+		},
+		GetByCallsignFn: func(_ context.Context, gotSession int32, gotCallsign string) (*internalModels.Controller, error) {
+			assert.Equal(t, session, gotSession)
+			assert.Equal(t, callsign, gotCallsign)
+			return &internalModels.Controller{
+				Callsign: callsign,
+				Session:  session,
+				Position: position,
+			}, nil
+		},
+		GetByPositionFn: func(_ context.Context, gotSession int32, gotPosition string) ([]*internalModels.Controller, error) {
+			assert.Equal(t, session, gotSession)
+			assert.Equal(t, position, gotPosition)
+			return []*internalModels.Controller{
+				{Callsign: callsign, Session: session, Position: position},
+				{Callsign: "EKCH_O_APP", Session: session, Position: position},
+			}, nil
+		},
+	}
+
+	frontendHub := &testutil.MockFrontendHub{}
+	updateLayoutsCalls := 0
+	updateSectorsCalls := 0
+	updateRoutesCalls := 0
+	server := &testutil.MockServer{
+		ControllerRepoVal: controllerRepo,
+		FrontendHubVal:    frontendHub,
+		GetOrCreateSessionFn: func(airport string, name string) (shared.Session, error) {
+			assert.Equal(t, "EKCH", airport)
+			assert.Equal(t, "LIVE", name)
+			return shared.Session{Id: session}, nil
+		},
+		UpdateLayoutsFn: func(gotSession int32) error {
+			assert.Equal(t, session, gotSession)
+			updateLayoutsCalls++
+			return nil
+		},
+		UpdateSectorsFn: func(gotSession int32) ([]shared.SectorChange, error) {
+			assert.Equal(t, session, gotSession)
+			updateSectorsCalls++
+			return nil, nil
+		},
+		UpdateRoutesForSessionFn: func(gotSession int32, sendUpdate bool) error {
+			assert.Equal(t, session, gotSession)
+			assert.True(t, sendUpdate)
+			updateRoutesCalls++
+			return nil
+		},
+	}
+
+	controllerService := services.NewControllerService(controllerRepo)
+	controllerService.SetServer(server)
+
+	hub := &Hub{
+		server:                      server,
+		controllerService:           controllerService,
+		sessionUpdateTimers:         make(map[int32]*sessionUpdatePending),
+		pendingOnlineOrchestrations: make(map[string]struct{}),
+		observerByCid:               make(map[string]bool),
+	}
+	client := &Client{
+		hub:      hub,
+		session:  session,
+		callsign: callsign,
+		position: position,
+		airport:  "EKCH",
+		user:     shared.NewAuthenticatedUser("1234567", 0, nil),
+	}
+
+	err := handleLoginEvent(context.Background(), client, Message{
+		Type:    euroscopeEvents.Login,
+		Message: buildLoginPayload(t, callsign, position, "EKCH"),
+	})
+	require.NoError(t, err)
+
+	payload, err := json.Marshal(euroscopeEvents.ControllerOnlineEvent{
+		Type:     euroscopeEvents.ControllerOnline,
+		Callsign: callsign,
+		Position: position,
+	})
+	require.NoError(t, err)
+
+	err = handleControllerOnline(context.Background(), client, Message{
+		Type:    euroscopeEvents.ControllerOnline,
+		Message: payload,
+	})
+	require.NoError(t, err)
+
+	assert.Equal(t, 1, updateSectorsCalls)
+	assert.Equal(t, 2, updateLayoutsCalls)
+	assert.Equal(t, 1, updateRoutesCalls)
+	require.Len(t, frontendHub.ControllerOnlines, 1)
+	assert.Equal(t, callsign, frontendHub.ControllerOnlines[0].Callsign)
+	assert.False(t, hub.consumePendingOnlineOrchestration(session, callsign))
 }

@@ -39,6 +39,7 @@ func handleLoginEvent(ctx context.Context, client *Client, message Message) erro
 	}
 
 	if !event.Observer {
+		client.hub.markPendingOnlineOrchestration(client.session, client.callsign)
 		if layoutErr := client.hub.server.UpdateLayouts(client.session); layoutErr != nil {
 			slog.ErrorContext(ctx, "Failed to update layouts after ES re-login", slog.String("cid", client.GetCid()), slog.Any("error", layoutErr))
 		}
@@ -88,7 +89,16 @@ func handleControllerOnline(ctx context.Context, client *Client, message Message
 		client.hub.cancelOfflineTimer(session, positionName)
 	}
 
-	result, err := client.hub.controllerService.ControllerOnline(ctx, session, event.Callsign, event.Position, positionName)
+	result, err := client.hub.controllerService.ControllerOnlineWithOptions(
+		ctx,
+		session,
+		event.Callsign,
+		event.Position,
+		positionName,
+		shared.ControllerOnlineOptions{
+			ForceOrchestration: client.hub.consumePendingOnlineOrchestration(session, event.Callsign),
+		},
+	)
 	if err != nil {
 		return err
 	}

@@ -36,6 +36,10 @@ func (cs *ControllerService) SetStripService(stripService shared.StripService) {
 // ControllerOnline handles all database mutations and orchestration for a
 // controller coming online. positionName is pre-resolved from config by the caller.
 func (cs *ControllerService) ControllerOnline(ctx context.Context, session int32, callsign, position, positionName string) (shared.ControllerOnlineResult, error) {
+	return cs.ControllerOnlineWithOptions(ctx, session, callsign, position, positionName, shared.ControllerOnlineOptions{})
+}
+
+func (cs *ControllerService) ControllerOnlineWithOptions(ctx context.Context, session int32, callsign, position, positionName string, options shared.ControllerOnlineOptions) (shared.ControllerOnlineResult, error) {
 	s := cs.server
 	controller, err := cs.controllerRepo.GetByCallsign(ctx, session, callsign)
 
@@ -63,6 +67,14 @@ func (cs *ControllerService) ControllerOnline(ctx context.Context, session int32
 
 	// Case B: same position — EuroScope heartbeat, no meaningful change.
 	if controller.Position == position {
+		if options.ForceOrchestration {
+			result, err := cs.performOnlineOrchestration(ctx, session, position, positionName)
+			if err != nil {
+				return shared.ControllerOnlineResult{}, err
+			}
+			result.NotifyOnline = true
+			return result, nil
+		}
 		return shared.ControllerOnlineResult{NotifyOnline: false}, nil
 	}
 

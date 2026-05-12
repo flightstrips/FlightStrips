@@ -6,6 +6,7 @@ import (
 
 	"FlightStrips/internal/config"
 	"FlightStrips/internal/models"
+	"FlightStrips/internal/shared"
 	"FlightStrips/internal/testutil"
 
 	"github.com/jackc/pgx/v5"
@@ -99,6 +100,53 @@ func TestControllerOnline_SamePosition_IsNoop(t *testing.T) {
 	// Same position => heartbeat, no changes
 	assert.Empty(t, result.SectorChanges)
 	assert.False(t, result.SingleOnPosition)
+}
+
+func TestControllerOnline_SamePosition_ForceOrchestrationRunsUpdates(t *testing.T) {
+	ctx := context.Background()
+	const session = int32(1)
+	const callsign = "EKCH_TWR"
+	const position = "119.350"
+
+	ctrlRepo := &testutil.MockControllerRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Controller, error) {
+			return &models.Controller{Callsign: callsign, Session: session, Position: position}, nil
+		},
+	}
+
+	updateSectorsCalled := false
+	updateLayoutsCalled := false
+	updateRoutesCalled := false
+	mockServer := &testutil.MockServer{
+		UpdateSectorsFn: func(sessionID int32) ([]shared.SectorChange, error) {
+			assert.Equal(t, session, sessionID)
+			updateSectorsCalled = true
+			return nil, nil
+		},
+		UpdateLayoutsFn: func(sessionID int32) error {
+			assert.Equal(t, session, sessionID)
+			updateLayoutsCalled = true
+			return nil
+		},
+		UpdateRoutesForSessionFn: func(sessionID int32, sendUpdate bool) error {
+			assert.Equal(t, session, sessionID)
+			assert.True(t, sendUpdate)
+			updateRoutesCalled = true
+			return nil
+		},
+	}
+
+	svc := NewControllerService(ctrlRepo)
+	svc.SetServer(mockServer)
+
+	result, err := svc.ControllerOnlineWithOptions(ctx, session, callsign, position, "", shared.ControllerOnlineOptions{
+		ForceOrchestration: true,
+	})
+	require.NoError(t, err)
+	assert.True(t, result.NotifyOnline)
+	assert.True(t, updateSectorsCalled)
+	assert.True(t, updateLayoutsCalled)
+	assert.True(t, updateRoutesCalled)
 }
 
 // ---- ControllerOffline ----

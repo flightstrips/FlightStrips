@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.36.2](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.36.1...frontend/v0.36.2) (2026-05-12)
+
+
+### Bug Fixes
+
+* keep arrivals out of departure bays ([4b26c7b](https://github.com/flightstrips/FlightStrips/commit/4b26c7b59a40f54859409c8a074e0c4f9576a70a))
+
 ## [0.36.1](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.36.0...frontend/v0.36.1) (2026-05-12)
 
 

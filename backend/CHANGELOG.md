@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.30.1](https://github.com/flightstrips/FlightStrips/compare/backend/v0.30.0...backend/v0.30.1) (2026-05-12)
+
+
+### Bug Fixes
+
+* keep arrivals out of departure bays ([4b26c7b](https://github.com/flightstrips/FlightStrips/commit/4b26c7b59a40f54859409c8a074e0c4f9576a70a))
+* recalculate sectors after controller login ([1763692](https://github.com/flightstrips/FlightStrips/commit/176369212b42b1d774ab3adb2a25b71238eb25c1))
+
 ## [0.30.0](https://github.com/flightstrips/FlightStrips/compare/backend/v0.29.2...backend/v0.30.0) (2026-05-12)
 
 

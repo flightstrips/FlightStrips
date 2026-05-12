@@ -313,12 +313,19 @@ func (s *StripService) isGndOnline(ctx context.Context, session int32) bool {
 	return false
 }
 
-// maybeMoveToLowerTwyDepOnTowerTransfer moves a strip from TAXI (upper TWY DEP) to TAXI_LWR
-// (lower TWY DEP) when a transfer to a tower position is started. This reflects the real-world
-// handover flow where GND pushes a strip up to upper TWY DEP and TWR immediately pulls it down
-// to the lower bay as part of the transfer.
-func (s *StripService) maybeMoveToLowerTwyDepOnTowerTransfer(ctx context.Context, session int32, callsign string, stripBay string, targetPosition string) {
-	if stripBay != shared.BAY_TAXI {
+// maybeMoveToLowerTwyDepOnTowerTransfer moves a departure strip from TAXI (upper TWY DEP)
+// to TAXI_LWR (lower TWY DEP) when a transfer to a tower position is started. This must
+// never run for arrivals, even if bad state somehow places them in the TAXI bay.
+func (s *StripService) maybeMoveToLowerTwyDepOnTowerTransfer(ctx context.Context, session int32, strip *internalModels.Strip, targetPosition string) {
+	if strip == nil || strip.Bay != shared.BAY_TAXI {
+		return
+	}
+
+	sessionData, err := s.getCachedSession(ctx, session)
+	if err != nil || sessionData == nil {
+		return
+	}
+	if strip.Origin != sessionData.Airport || strip.Destination == sessionData.Airport {
 		return
 	}
 
@@ -327,8 +334,8 @@ func (s *StripService) maybeMoveToLowerTwyDepOnTowerTransfer(ctx context.Context
 		return
 	}
 
-	if err := s.MoveToBay(ctx, session, callsign, shared.BAY_TAXI_LWR, true); err != nil {
+	if err := s.MoveToBay(ctx, session, strip.Callsign, shared.BAY_TAXI_LWR, true); err != nil {
 		slog.ErrorContext(ctx, "Failed to move strip from TAXI to TAXI_LWR on tower transfer",
-			slog.String("callsign", callsign), slog.Any("error", err))
+			slog.String("callsign", strip.Callsign), slog.Any("error", err))
 	}
 }

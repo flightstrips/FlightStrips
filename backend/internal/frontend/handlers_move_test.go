@@ -199,6 +199,29 @@ func TestHandleMove_DepartureToArrivalBay_Rejected(t *testing.T) {
 	assert.False(t, spy.moveToBayCalled, "Departure strips must not be moved into arrival bays")
 }
 
+func TestHandleMove_ArrivalToDepartureBay_Rejected(t *testing.T) {
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, callsign string) (*models.Strip, error) {
+			return &models.Strip{Callsign: callsign, Bay: shared.BAY_TWY_ARR, Origin: "ESSA", Destination: "EKCH"}, nil
+		},
+	}
+
+	spy := &spyStripService{}
+	hub := buildFrontendTestHub(mockServerWithStripRepo(stripRepo), spy)
+	client := buildFrontendTestClient(hub, 1, "EKCH")
+	client.position = "EKCH_A_TWR"
+
+	msg := marshalMessage(t, frontend.MoveEvent{
+		Callsign: "BEL123",
+		Bay:      shared.BAY_TAXI_LWR,
+	})
+
+	err := handleMove(context.Background(), client, msg)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "arrival strips cannot be moved to departure bays")
+	assert.False(t, spy.moveToBayCalled, "Arrival strips must not be moved into departure bays")
+}
+
 // TestHandleMove_OwnedByOther_AllowedWithCoordination verifies that a strip owned by
 // another controller can be moved if there is an active coordination to this position (task 048).
 func TestHandleMove_OwnedByOther_AllowedWithCoordination(t *testing.T) {

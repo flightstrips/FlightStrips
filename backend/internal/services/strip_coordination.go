@@ -93,7 +93,7 @@ func (s *StripService) CreateCoordinationTransfer(ctx context.Context, session i
 		}
 	}
 
-	s.maybeMoveToLowerTwyDepOnTowerTransfer(ctx, session, callsign, strip.Bay, to)
+	s.maybeMoveToLowerTwyDepOnTowerTransfer(ctx, session, strip, to)
 	s.publisher.SendCoordinationTransfer(session, callsign, from, to)
 
 	// For strips in the AIRBORNE bay, also send an ES handover so the owning

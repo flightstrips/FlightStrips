@@ -382,3 +382,17 @@ func TestPromoteTaxiBayForSoloTwr_NonTaxiBay_Unchanged(t *testing.T) {
 		}
 	}
 }
+
+func TestIsDepartureBay(t *testing.T) {
+	for _, bay := range []string{BAY_NOT_CLEARED, BAY_CLEARED, BAY_PUSH, BAY_TAXI, BAY_TAXI_LWR, BAY_TAXI_TWR, BAY_DEPART, BAY_AIRBORNE} {
+		if !IsDepartureBay(bay) {
+			t.Fatalf("expected %s to be a departure bay", bay)
+		}
+	}
+
+	for _, bay := range []string{BAY_FINAL, BAY_RWY_ARR, BAY_TWY_ARR, BAY_STAND, BAY_ARR_HIDDEN, BAY_CONTROLZONE} {
+		if IsDepartureBay(bay) {
+			t.Fatalf("expected %s not to be a departure bay", bay)
+		}
+	}
+}

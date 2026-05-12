@@ -103,8 +103,14 @@ func handleMove(ctx context.Context, client *Client, message Message) error {
 		return errors.New("strip is locked by an active validation")
 	}
 
-	if strip.Origin == client.airport && strip.Destination != client.airport && shared.IsArrivalBay(move.Bay) {
+	isDepartureStrip := strip.Origin == client.airport && strip.Destination != client.airport
+	isArrivalStrip := strip.Destination == client.airport && strip.Origin != client.airport
+
+	if isDepartureStrip && shared.IsArrivalBay(move.Bay) {
 		return errors.New("departure strips cannot be moved to arrival bays")
+	}
+	if isArrivalStrip && shared.IsDepartureBay(move.Bay) {
+		return errors.New("arrival strips cannot be moved to departure bays")
 	}
 
 	// Ownership enforcement: reject the move if the strip is owned by someone else,

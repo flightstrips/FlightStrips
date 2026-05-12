@@ -34,13 +34,33 @@ function isArrivalOnlyBay(bay: Bay): boolean {
   return bay === "FINAL" || bay === "RWY_ARR" || bay === "TWY_ARR" || bay === "STAND" || bay === "ARR_HIDDEN";
 }
 
+function isDepartureOnlyBay(bay: Bay): boolean {
+  return bay === "NOT_CLEARED"
+    || bay === "CLEARED"
+    || bay === "PUSH"
+    || bay === "TAXI"
+    || bay === "TAXI_LWR"
+    || bay === "TAXI_TWR"
+    || bay === "DEPART"
+    || bay === "AIRBORNE";
+}
+
 function canFlightMoveToBay(strip: AnyStrip | undefined, targetBay: Bay, airport: string): boolean {
   if (!strip || !isFlight(strip)) {
     return true;
   }
 
   const isDeparture = strip.origin === airport && strip.destination !== airport;
-  return !(isDeparture && isArrivalOnlyBay(targetBay));
+  if (isDeparture) {
+    return !isArrivalOnlyBay(targetBay);
+  }
+
+  const isArrival = strip.destination === airport && strip.origin !== airport;
+  if (isArrival) {
+    return !isDepartureOnlyBay(targetBay);
+  }
+
+  return true;
 }
 
 export interface BayConfig {

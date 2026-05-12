@@ -77,6 +77,16 @@ func IsArrivalBay(bay string) bool {
 		return false
 	}
 }
+
+func IsDepartureBay(bay string) bool {
+	switch bay {
+	case BAY_NOT_CLEARED, BAY_CLEARED, BAY_PUSH, BAY_TAXI, BAY_TAXI_LWR, BAY_TAXI_TWR, BAY_DEPART, BAY_AIRBORNE:
+		return true
+	default:
+		return false
+	}
+}
+
 func GetDepartureBay(strip euroscope.Strip, existing *database.Strip, airborneAltitudeAGL int64, airport string, gndOnline bool) string {
 	// Arrivals keep their existing bay only if the strip was already classified as
 	// an arrival. If a strip transitions from a non-arrival into an arrival, start

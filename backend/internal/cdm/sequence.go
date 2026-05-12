@@ -323,6 +323,7 @@ func buildCalcInput(strip *models.Strip, config *CdmAirportConfig) CalcInput {
 		Tobt:        normalizeCalculationClock(valueOrEmpty(data.EffectiveTobt())),
 		ReqTobt:     normalizeCalculationClock(valueOrEmpty(data.EffectiveReqTobt())),
 		Ctot:        valueOrEmpty(data.EffectiveCtot()),
+		Aobt:        normalizeCalculationClock(valueOrEmpty(data.EffectiveAobt())),
 		Asat:        normalizeCalculationClock(valueOrEmpty(data.EffectiveAsat())),
 		TaxiMin:     resolveTaxiMinutesForStrip(strip, config),
 		DeIceMin:    deiceTypeToMinutes(config, valueOrEmpty(data.DeIce)),

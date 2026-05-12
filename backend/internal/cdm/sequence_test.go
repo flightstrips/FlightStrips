@@ -832,6 +832,59 @@ func TestSequenceService_RecalculateAirport_ExpiredTsatDoesNotInvalidateStartedS
 	assertPersistedCdmTimes(t, persisted, "SAS798", freshTobt, freshTtot)
 }
 
+func TestSequenceService_RecalculateAirport_ExpiredTsatDoesNotInvalidateAobtOnlyStrip(t *testing.T) {
+	t.Parallel()
+
+	now := time.Now().UTC()
+	expiredTsat := addMinutes(timeToClock(now), -10)
+	freshTobt := addMinutes(timeToClock(now), 15)
+	freshTtot := addMinutes(freshTobt, 10)
+
+	started := &models.Strip{
+		Callsign: "SAS797A",
+		Origin:   "EKCH",
+		Runway:   testStringPtr("04L"),
+		CdmData: &models.CdmData{
+			Tobt: testStringPtr(expiredTsat),
+			Tsat: testStringPtr(expiredTsat),
+			Ttot: testStringPtr(addMinutes(expiredTsat, 10)),
+			Aobt: testStringPtr(addMinutes(expiredTsat, 2)),
+		},
+	}
+	fresh := &models.Strip{
+		Callsign: "SAS798A",
+		Origin:   "EKCH",
+		Runway:   testStringPtr("04L"),
+		CdmData:  &models.CdmData{Tobt: testStringPtr(freshTobt)},
+	}
+
+	persisted := map[string]*models.CdmData{}
+	stripRepo := &testutil.MockStripRepository{
+		ListByOriginFn: func(ctx context.Context, session int32, origin string) ([]*models.Strip, error) {
+			return []*models.Strip{started, fresh}, nil
+		},
+		SetCdmDataFn: func(ctx context.Context, session int32, callsign string, data *models.CdmData) (int64, error) {
+			persisted[callsign] = data.Clone()
+			return 1, nil
+		},
+	}
+	sessionRepo := &testutil.MockSessionRepository{
+		GetByIDFn: func(ctx context.Context, id int32) (*models.Session, error) {
+			return &models.Session{ID: id, Airport: "EKCH"}, nil
+		},
+	}
+
+	service := NewSequenceService(stripRepo, sessionRepo, NewCdmConfigStore("", "", "", 0, CdmConfigDefaults{}, nil), &testutil.MockFrontendHub{}, &testutil.MockEuroscopeHub{})
+
+	if err := service.RecalculateAirport(context.Background(), 7, "EKCH"); err != nil {
+		t.Fatalf("RecalculateAirport returned error: %v", err)
+	}
+	if _, ok := persisted["SAS797A"]; ok {
+		t.Fatal("expected started strip (AOBT set) to remain untouched even with expired TSAT")
+	}
+	assertPersistedCdmTimes(t, persisted, "SAS798A", freshTobt, freshTtot)
+}
+
 func TestSequenceService_RecalculateAirport_KeepsExistingLocalCalcTimesLocked(t *testing.T) {
 	t.Parallel()
 

@@ -797,6 +797,21 @@ func TestCalculate_PreservesPastTimesAfterStartup(t *testing.T) {
 	assertClockResult(t, result, "100000", "101000")
 }
 
+func TestCalculate_PreservesPastTimesAfterAobt(t *testing.T) {
+	t.Parallel()
+
+	result := Calculate(CalcInput{
+		Callsign: "SAS470A",
+		Origin:   "EKCH",
+		DepRwy:   "04L",
+		Tobt:     "1000",
+		Aobt:     "1004",
+		TaxiMin:  10,
+	}, nil, NewDefaultAirportConfig("EKCH"), time.Date(2026, 3, 25, 10, 6, 0, 0, time.UTC))
+
+	assertClockResult(t, result, "100000", "101000")
+}
+
 func TestCalculate_WrapsAcrossMidnight(t *testing.T) {
 	t.Parallel()
 

@@ -20,6 +20,7 @@ type CalcInput struct {
 	Tobt        string
 	ReqTobt     string
 	Ctot        string
+	Aobt        string
 	Asat        string
 	TaxiMin     int
 	DeIceMin    int
@@ -276,7 +277,7 @@ func shouldInvalidateStaleTsat(input CalcInput, tsat string, nowHHMMSS string) b
 }
 
 func hasStarted(input CalcInput) bool {
-	return normalizeCalculationClock(input.Asat) != ""
+	return normalizeCalculationClock(input.Asat) != "" || normalizeCalculationClock(input.Aobt) != ""
 }
 
 func shouldApplyRateWindow(currentManual, existingManual bool) bool {

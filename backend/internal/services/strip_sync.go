@@ -88,6 +88,7 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 	routeNeedsUpdate := false
 	needsStripBroadcast := false
 	needsPdcValidation := false
+	restartLifecycle := false
 
 	if errors.Is(err, pgx.ErrNoRows) {
 		// Strip doesn't exist, so insert
@@ -189,21 +190,34 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 		needsPdcValidation = true
 	} else {
 		// Strip exists, update it
+		restartLifecycle = shouldRestartStripLifecycle(existingStrip, strip, airport)
+		if restartLifecycle {
+			slog.InfoContext(ctx, "Restarting strip lifecycle for refilled aircraft",
+				slog.String("callsign", strip.Callsign),
+				slog.String("from_origin", existingStrip.Origin),
+				slog.String("from_destination", existingStrip.Destination),
+				slog.String("from_bay", existingStrip.Bay),
+				slog.String("to_origin", strip.Origin),
+				slog.String("to_destination", strip.Destination),
+			)
+		}
+
 		effectiveGroundState := strip.GroundState
-		if (strip.Origin == "" || strip.Destination == "") &&
+		if !restartLifecycle &&
+			(strip.Origin == "" || strip.Destination == "") &&
 			strip.GroundState == euroscope.GroundStateUnknown &&
 			existingStrip.State != nil &&
 			*existingStrip.State != euroscope.GroundStateUnknown &&
 			shared.GetGroundState(existingStrip.Bay) != euroscope.GroundStateUnknown {
 			effectiveGroundState = *existingStrip.State
 		}
-		if existingStrip.Bay == shared.BAY_DEPART && strip.GroundState == euroscope.GroundStateTaxi {
+		if !restartLifecycle && existingStrip.Bay == shared.BAY_DEPART && strip.GroundState == euroscope.GroundStateTaxi {
 			effectiveGroundState = shared.GetGroundState(existingStrip.Bay)
 			if existingStrip.State != nil && *existingStrip.State != euroscope.GroundStateUnknown {
 				effectiveGroundState = *existingStrip.State
 			}
 		}
-		if existingStrip.Bay == shared.BAY_AIRBORNE && strip.GroundState == euroscope.GroundStateTaxi {
+		if !restartLifecycle && existingStrip.Bay == shared.BAY_AIRBORNE && strip.GroundState == euroscope.GroundStateTaxi {
 			effectiveGroundState = euroscope.GroundStateUnknown
 			if existingStrip.State != nil &&
 				*existingStrip.State != euroscope.GroundStateUnknown &&
@@ -211,27 +225,10 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 				effectiveGroundState = *existingStrip.State
 			}
 		}
-		dbExistingStrip := database.Strip{
-			Origin:      existingStrip.Origin,
-			Destination: existingStrip.Destination,
-			Cleared:     existingStrip.Cleared,
-			Bay:         existingStrip.Bay,
-			State:       existingStrip.State,
-			Stand:       existingStrip.Stand,
-		}
-		bayStrip := strip
-		bayStrip.GroundState = effectiveGroundState
-		bay = shared.GetDepartureBay(bayStrip, &dbExistingStrip, config.GetAirborneAltitudeAGL(), airport, gndOnline)
 		effectiveCleared := strip.Cleared
-		if shouldPreservePdcClearedFlag(existingStrip, strip) {
+		if !restartLifecycle && shouldPreservePdcClearedFlag(existingStrip, strip) {
 			effectiveCleared = existingStrip.Cleared
 		}
-		if shouldPreservePdcBay(existingStrip, strip, bay) {
-			bay = existingStrip.Bay
-		}
-		shouldClearOwnerForNotCleared := bay == shared.BAY_NOT_CLEARED &&
-			existingStrip.Bay != "" &&
-			existingStrip.Bay != shared.BAY_NOT_CLEARED
 
 		stand := existingStrip.Stand
 		if strip.Stand != "" {
@@ -248,20 +245,50 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 			destination = existingStrip.Destination
 		}
 
-		runway := existingStrip.Runway
-		if strip.Runway != "" {
-			runway = &strip.Runway
-		} else if runway == nil || *runway == "" {
-			isArrivalUpdate := strip.Destination == airport
-			if assigned := autoAssignRunway(isArrivalUpdate, sessionObj.ActiveRunways); assigned != "" {
-				runway = &assigned
+		var runway *string
+		if restartLifecycle {
+			runwayForStrip := strip.Runway
+			if runwayForStrip == "" {
+				isArrivalUpdate := strings.EqualFold(strings.TrimSpace(destination), strings.TrimSpace(airport))
+				runwayForStrip = autoAssignRunway(isArrivalUpdate, sessionObj.ActiveRunways)
+			}
+			runway = &runwayForStrip
+			bay = shared.GetDepartureBay(strip, nil, config.GetAirborneAltitudeAGL(), airport, gndOnline)
+		} else {
+			dbExistingStrip := database.Strip{
+				Origin:      existingStrip.Origin,
+				Destination: existingStrip.Destination,
+				Cleared:     existingStrip.Cleared,
+				Bay:         existingStrip.Bay,
+				State:       existingStrip.State,
+				Stand:       existingStrip.Stand,
+			}
+			bayStrip := strip
+			bayStrip.GroundState = effectiveGroundState
+			bay = shared.GetDepartureBay(bayStrip, &dbExistingStrip, config.GetAirborneAltitudeAGL(), airport, gndOnline)
+			if shouldPreservePdcBay(existingStrip, strip, bay) {
+				bay = existingStrip.Bay
+			}
+
+			runway = existingStrip.Runway
+			if strip.Runway != "" {
+				runway = &strip.Runway
+			} else if runway == nil || *runway == "" {
+				isArrivalUpdate := strip.Destination == airport
+				if assigned := autoAssignRunway(isArrivalUpdate, sessionObj.ActiveRunways); assigned != "" {
+					runway = &assigned
+				}
 			}
 		}
+		shouldClearOwnerForNotCleared := !restartLifecycle &&
+			bay == shared.BAY_NOT_CLEARED &&
+			existingStrip.Bay != "" &&
+			existingStrip.Bay != shared.BAY_NOT_CLEARED
 
 		updateClearedAlt := strip.ClearedAltitude
 		if updateClearedAlt == 0 && bay == shared.BAY_NOT_CLEARED {
 			existingCfl := int32(0)
-			if existingStrip.ClearedAltitude != nil {
+			if !restartLifecycle && existingStrip.ClearedAltitude != nil {
 				existingCfl = *existingStrip.ClearedAltitude
 			}
 			if existingCfl == 0 {
@@ -275,66 +302,124 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 			}
 		}
 
+		cdmData := existingStrip.CdmData.Clone()
+		pdcData := existingStrip.PdcData.Clone()
+		nextOwners := slices.Clone(existingStrip.NextOwners)
+		previousOwners := slices.Clone(existingStrip.PreviousOwners)
+		registration := existingStrip.Registration
+		owner := existingStrip.Owner
+		startReq := existingStrip.StartReq
+		unexpectedChangeFields := slices.Clone(existingStrip.UnexpectedChangeFields)
+		validationStatus := existingStrip.ValidationStatus
+		releasePoint := existingStrip.ReleasePoint
+		marked := existingStrip.Marked
+		runwayCleared := existingStrip.RunwayCleared
+		runwayConfirmed := existingStrip.RunwayConfirmed
+		controllerModifiedFields := slices.Clone(existingStrip.ControllerModifiedFields)
+		isManual := existingStrip.IsManual
+		personsOnBoard := existingStrip.PersonsOnBoard
+		fplType := existingStrip.FplType
+		language := existingStrip.Language
+
+		if restartLifecycle {
+			cdmData = internalModels.NewLegacyCdmData(&strip.Eobt, nil, nil, nil, nil, nil, &strip.Eobt, nil)
+			pdcData = (&internalModels.PdcData{}).Normalize()
+			nextOwners = []string{}
+			previousOwners = []string{}
+			registration = nil
+			owner = nil
+			startReq = false
+			unexpectedChangeFields = []string{}
+			validationStatus = nil
+			releasePoint = nil
+			marked = false
+			runwayCleared = false
+			runwayConfirmed = false
+			controllerModifiedFields = []string{}
+			isManual = false
+			personsOnBoard = nil
+			fplType = nil
+			language = nil
+		} else if strip.Eobt != "" {
+			cdmData.Eobt = &strip.Eobt
+			if shouldForceSyncStripRecalculation(cdmData, time.Now().UTC()) {
+				cdmData.Recalculate = true
+			}
+			if shouldSyncUpdatedEobtToTobt(strip.Eobt, helpers.ValueOrDefault(cdmData.Tobt)) {
+				cdmData.Tobt = &strip.Eobt
+				cdmData.Recalculate = true
+			}
+		}
+
+		sequence := existingStrip.Sequence
+		if restartLifecycle {
+			newSequence, err := s.nextSequenceAtEndOfBay(ctx, session, bay)
+			if err != nil {
+				return err
+			}
+			sequence = &newSequence
+		}
+
 		updateStrip := &internalModels.Strip{
-			Callsign:          strip.Callsign,
-			Session:           session,
-			Origin:            origin,
-			Destination:       destination,
-			Alternative:       &strip.Alternate,
-			Route:             &strip.Route,
-			Remarks:           &strip.Remarks,
-			AssignedSquawk:    &strip.AssignedSquawk,
-			Squawk:            &strip.Squawk,
-			Sid:               &strip.Sid,
-			ClearedAltitude:   &updateClearedAlt,
-			Heading:           &strip.Heading,
-			AircraftType:      &strip.AircraftType,
-			Runway:            runway,
-			RequestedAltitude: &strip.RequestedAltitude,
-			Capabilities:      &strip.Capabilities,
-			CommunicationType: &strip.CommunicationType,
-			AircraftCategory:  &strip.AircraftCategory,
-			Stand:             stand,
-			Cleared:           effectiveCleared,
-			State:             &effectiveGroundState,
-			PositionLatitude:  &strip.Position.Lat,
-			PositionLongitude: &strip.Position.Lon,
-			PositionAltitude:  &strip.Position.Altitude,
-			Sequence:          existingStrip.Sequence,
-			Bay:               bay,
-			CdmData: func() *internalModels.CdmData {
-				cdmData := existingStrip.CdmData.Clone()
-				if strip.Eobt != "" {
-					cdmData.Eobt = &strip.Eobt
-					if shouldForceSyncStripRecalculation(cdmData, time.Now().UTC()) {
-						cdmData.Recalculate = true
-					}
-					if shouldSyncUpdatedEobtToTobt(strip.Eobt, helpers.ValueOrDefault(cdmData.Tobt)) {
-						cdmData.Tobt = &strip.Eobt
-						cdmData.Recalculate = true
-					}
-				}
-				return cdmData
-			}(),
-			NextOwners:             slices.Clone(existingStrip.NextOwners),
-			PreviousOwners:         slices.Clone(existingStrip.PreviousOwners),
-			Registration:           existingStrip.Registration,
-			Owner:                  existingStrip.Owner,
-			PdcState:               existingStrip.PdcState,
-			PdcRequestRemarks:      existingStrip.PdcRequestRemarks,
-			TrackingController:     strip.TrackingController,
-			EngineType:             strip.EngineType,
-			StartReq:               existingStrip.StartReq,
-			UnexpectedChangeFields: slices.Clone(existingStrip.UnexpectedChangeFields),
-			ValidationStatus:       existingStrip.ValidationStatus,
-			HasFP:                  strip.HasFP,
+			Callsign:                 strip.Callsign,
+			Session:                  session,
+			Origin:                   origin,
+			Destination:              destination,
+			Alternative:              &strip.Alternate,
+			Route:                    &strip.Route,
+			Remarks:                  &strip.Remarks,
+			AssignedSquawk:           &strip.AssignedSquawk,
+			Squawk:                   &strip.Squawk,
+			Sid:                      &strip.Sid,
+			ClearedAltitude:          &updateClearedAlt,
+			Heading:                  &strip.Heading,
+			AircraftType:             &strip.AircraftType,
+			Runway:                   runway,
+			RequestedAltitude:        &strip.RequestedAltitude,
+			Capabilities:             &strip.Capabilities,
+			CommunicationType:        &strip.CommunicationType,
+			AircraftCategory:         &strip.AircraftCategory,
+			Stand:                    stand,
+			Cleared:                  effectiveCleared,
+			State:                    &effectiveGroundState,
+			PositionLatitude:         &strip.Position.Lat,
+			PositionLongitude:        &strip.Position.Lon,
+			PositionAltitude:         &strip.Position.Altitude,
+			Sequence:                 sequence,
+			Bay:                      bay,
+			CdmData:                  cdmData,
+			PdcData:                  pdcData,
+			NextOwners:               nextOwners,
+			PreviousOwners:           previousOwners,
+			Registration:             registration,
+			Owner:                    owner,
+			PdcState:                 pdcData.State,
+			PdcRequestRemarks:        pdcData.RequestRemarks,
+			PdcRequestedAt:           pdcData.RequestedAt,
+			PdcMessageSequence:       pdcData.MessageSequence,
+			PdcMessageSent:           pdcData.MessageSent,
+			TrackingController:       strip.TrackingController,
+			EngineType:               strip.EngineType,
+			StartReq:                 startReq,
+			UnexpectedChangeFields:   unexpectedChangeFields,
+			ValidationStatus:         validationStatus,
+			HasFP:                    strip.HasFP,
+			ReleasePoint:             releasePoint,
+			Marked:                   marked,
+			RunwayCleared:            runwayCleared,
+			RunwayConfirmed:          runwayConfirmed,
+			ControllerModifiedFields: controllerModifiedFields,
+			IsManual:                 isManual,
+			PersonsOnBoard:           personsOnBoard,
+			FplType:                  fplType,
+			Language:                 language,
 		}
 		validationStrip = updateStrip
-		registrationNeedsUpdate := false
+		registrationNeedsUpdate := restartLifecycle
 		registrationValue := ""
-		if existingStrip.Registration == nil || remarksContainsRegService(strip.Remarks) {
+		if restartLifecycle || existingStrip.Registration == nil || remarksContainsRegService(strip.Remarks) {
 			registrationValue = ParseRegistration(strip.Callsign, strip.Remarks)
-			registrationNeedsUpdate = existingStrip.Registration == nil || registrationValue != *existingStrip.Registration
+			registrationNeedsUpdate = restartLifecycle || existingStrip.Registration == nil || registrationValue != *existingStrip.Registration
 		}
 		if registrationNeedsUpdate {
 			updateStrip.Registration = &registrationValue
@@ -344,8 +429,8 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 			updateStrip.PreviousOwners = []string{}
 		}
 
-		unexpectedStandChange := strip.Stand != "" && existingStrip.Stand != nil && *existingStrip.Stand != "" && *existingStrip.Stand != strip.Stand
-		unexpectedRunwayChange := strip.Runway != "" && existingStrip.Runway != nil && *existingStrip.Runway != "" && *existingStrip.Runway != strip.Runway && isApronBay(bay)
+		unexpectedStandChange := !restartLifecycle && strip.Stand != "" && existingStrip.Stand != nil && *existingStrip.Stand != "" && *existingStrip.Stand != strip.Stand
+		unexpectedRunwayChange := !restartLifecycle && strip.Runway != "" && existingStrip.Runway != nil && *existingStrip.Runway != "" && *existingStrip.Runway != strip.Runway && isApronBay(bay)
 		if unexpectedStandChange {
 			updateStrip.UnexpectedChangeFields = appendUnexpectedChangeField(updateStrip.UnexpectedChangeFields, "stand")
 		}
@@ -353,7 +438,7 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 			updateStrip.UnexpectedChangeFields = appendUnexpectedChangeField(updateStrip.UnexpectedChangeFields, "runway")
 		}
 		bayChanged := existingStrip.Bay != updateStrip.Bay
-		if bayChanged {
+		if bayChanged && !restartLifecycle {
 			sequence, err := s.nextSequenceAtEndOfBay(ctx, session, bay)
 			if err != nil {
 				return err
@@ -366,7 +451,7 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 		if shouldResetStartReqOnStandChange(existingStrip.Bay, existingStrip.Stand, updateStrip.Stand) {
 			updateStrip.StartReq = false
 		}
-		routeNeedsUpdate = syncStripRouteChanged(existingStrip, updateStrip) || shouldClearOwnerForNotCleared
+		routeNeedsUpdate = restartLifecycle || syncStripRouteChanged(existingStrip, updateStrip) || shouldClearOwnerForNotCleared
 		if routeNeedsUpdate && routeComputer != nil {
 			nextOwners, handled, err := routeComputer.ComputeNextOwnersForStripContext(ctx, updateStrip, session)
 			if err != nil {
@@ -506,6 +591,34 @@ func shouldForceSyncStripRecalculation(data *internalModels.CdmData, now time.Ti
 	return diffMinutes > 5
 }
 
+func shouldRestartStripLifecycle(existingStrip *internalModels.Strip, strip euroscope.Strip, airport string) bool {
+	if existingStrip == nil {
+		return false
+	}
+
+	normalizedAirport := strings.TrimSpace(strings.ToUpper(airport))
+	if normalizedAirport == "" {
+		return false
+	}
+
+	existingDestination := strings.TrimSpace(strings.ToUpper(existingStrip.Destination))
+	newOrigin := strings.TrimSpace(strings.ToUpper(strip.Origin))
+	newDestination := strings.TrimSpace(strings.ToUpper(strip.Destination))
+
+	if existingDestination != normalizedAirport {
+		return false
+	}
+	if newOrigin != normalizedAirport {
+		return false
+	}
+	if newDestination == "" || newDestination == normalizedAirport {
+		return false
+	}
+
+	existingOrigin := strings.TrimSpace(strings.ToUpper(existingStrip.Origin))
+	return existingOrigin != newOrigin || existingDestination != newDestination
+}
+
 func syncStripChanged(existingStrip, updateStrip *internalModels.Strip) bool {
 	if existingStrip == nil || updateStrip == nil {
 		return true
@@ -537,14 +650,25 @@ func syncStripChanged(existingStrip, updateStrip *internalModels.Strip) bool {
 		!reflect.DeepEqual(existingStrip.PositionAltitude, updateStrip.PositionAltitude) ||
 		existingStrip.Bay != updateStrip.Bay ||
 		!reflect.DeepEqual(existingStrip.CdmData, updateStrip.CdmData) ||
+		!reflect.DeepEqual(existingStrip.PdcData, updateStrip.PdcData) ||
 		!reflect.DeepEqual(existingStrip.NextOwners, updateStrip.NextOwners) ||
 		!reflect.DeepEqual(existingStrip.PreviousOwners, updateStrip.PreviousOwners) ||
+		!reflect.DeepEqual(existingStrip.ReleasePoint, updateStrip.ReleasePoint) ||
+		existingStrip.Marked != updateStrip.Marked ||
 		!reflect.DeepEqual(existingStrip.Registration, updateStrip.Registration) ||
 		existingStrip.TrackingController != updateStrip.TrackingController ||
+		existingStrip.RunwayCleared != updateStrip.RunwayCleared ||
+		existingStrip.RunwayConfirmed != updateStrip.RunwayConfirmed ||
 		existingStrip.EngineType != updateStrip.EngineType ||
 		existingStrip.StartReq != updateStrip.StartReq ||
 		!reflect.DeepEqual(existingStrip.UnexpectedChangeFields, updateStrip.UnexpectedChangeFields) ||
-		existingStrip.HasFP != updateStrip.HasFP
+		!reflect.DeepEqual(existingStrip.ControllerModifiedFields, updateStrip.ControllerModifiedFields) ||
+		existingStrip.IsManual != updateStrip.IsManual ||
+		!reflect.DeepEqual(existingStrip.PersonsOnBoard, updateStrip.PersonsOnBoard) ||
+		!reflect.DeepEqual(existingStrip.FplType, updateStrip.FplType) ||
+		!reflect.DeepEqual(existingStrip.Language, updateStrip.Language) ||
+		existingStrip.HasFP != updateStrip.HasFP ||
+		!reflect.DeepEqual(existingStrip.ValidationStatus, updateStrip.ValidationStatus)
 }
 
 func syncStripRouteChanged(existingStrip, updateStrip *internalModels.Strip) bool {
@@ -592,16 +716,29 @@ func applySyncStripUpdate(existingStrip, updateStrip *internalModels.Strip) {
 	existingStrip.PositionLongitude = updateStrip.PositionLongitude
 	existingStrip.PositionAltitude = updateStrip.PositionAltitude
 	existingStrip.CdmData = updateStrip.CdmData
+	existingStrip.PdcData = updateStrip.PdcData
 	existingStrip.NextOwners = slices.Clone(updateStrip.NextOwners)
 	existingStrip.PreviousOwners = slices.Clone(updateStrip.PreviousOwners)
+	existingStrip.ReleasePoint = updateStrip.ReleasePoint
+	existingStrip.Marked = updateStrip.Marked
 	existingStrip.Registration = updateStrip.Registration
 	existingStrip.Owner = updateStrip.Owner
 	existingStrip.PdcState = updateStrip.PdcState
 	existingStrip.PdcRequestRemarks = updateStrip.PdcRequestRemarks
+	existingStrip.PdcRequestedAt = updateStrip.PdcRequestedAt
+	existingStrip.PdcMessageSequence = updateStrip.PdcMessageSequence
+	existingStrip.PdcMessageSent = updateStrip.PdcMessageSent
 	existingStrip.TrackingController = updateStrip.TrackingController
+	existingStrip.RunwayCleared = updateStrip.RunwayCleared
+	existingStrip.RunwayConfirmed = updateStrip.RunwayConfirmed
 	existingStrip.EngineType = updateStrip.EngineType
 	existingStrip.StartReq = updateStrip.StartReq
 	existingStrip.UnexpectedChangeFields = slices.Clone(updateStrip.UnexpectedChangeFields)
+	existingStrip.ControllerModifiedFields = slices.Clone(updateStrip.ControllerModifiedFields)
+	existingStrip.IsManual = updateStrip.IsManual
+	existingStrip.PersonsOnBoard = updateStrip.PersonsOnBoard
+	existingStrip.FplType = updateStrip.FplType
+	existingStrip.Language = updateStrip.Language
 	existingStrip.HasFP = updateStrip.HasFP
 	existingStrip.ValidationStatus = updateStrip.ValidationStatus
 }

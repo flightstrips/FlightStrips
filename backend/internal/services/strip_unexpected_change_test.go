@@ -58,6 +58,16 @@ func newSyncTestFixture(t *testing.T, _ *models.Strip, stripRepo *testutil.MockS
 			return nil
 		}
 	}
+	if stripRepo.SetValidationStatusFn == nil {
+		stripRepo.SetValidationStatusFn = func(_ context.Context, _ int32, _ string, _ *models.ValidationStatus) error {
+			return nil
+		}
+	}
+	if stripRepo.ClearValidationStatusFn == nil {
+		stripRepo.ClearValidationStatusFn = func(_ context.Context, _ int32, _ string) error {
+			return nil
+		}
+	}
 
 	svc := NewStripService(stripRepo)
 	svc.SetFrontendHub(hub)

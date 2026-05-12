@@ -975,52 +975,74 @@ SET version = version + 1,
     cdm_data = $26,
     next_owners = COALESCE($27::jsonb, '[]'::jsonb),
     previous_owners = COALESCE($28::jsonb, '[]'::jsonb),
-    registration = $29,
-    tracking_controller = $30,
-    engine_type = $31,
-    unexpected_change_fields = COALESCE($32::text[], '{}'::text[]),
-    has_fp = $33,
-    start_req = $34
-WHERE callsign = $35 AND session = $36
+    release_point = $29,
+    marked = $30,
+    registration = $31,
+    tracking_controller = $32,
+    runway_cleared = $33,
+    runway_confirmed = $34,
+    engine_type = $35,
+    unexpected_change_fields = COALESCE($36::text[], '{}'::text[]),
+    controller_modified_fields = COALESCE($37::text[], '{}'::text[]),
+    is_manual = $38,
+    persons_on_board = $39,
+    fpl_type = $40,
+    language = $41,
+    has_fp = $42,
+    pdc_data = $43,
+    validation_status = $44,
+    start_req = $45
+WHERE callsign = $46 AND session = $47
 `
 
 type UpdateStripParams struct {
-	Origin                 string
-	Destination            string
-	Alternative            *string
-	Route                  *string
-	Remarks                *string
-	AssignedSquawk         *string
-	Squawk                 *string
-	Sid                    *string
-	ClearedAltitude        *int32
-	Heading                *int32
-	AircraftType           *string
-	Runway                 *string
-	RequestedAltitude      *int32
-	Capabilities           *string
-	CommunicationType      *string
-	AircraftCategory       *string
-	Stand                  *string
-	Sequence               *int32
-	State                  *string
-	Cleared                bool
-	Owner                  *string
-	Bay                    string
-	PositionLatitude       *float64
-	PositionLongitude      *float64
-	PositionAltitude       *int32
-	CdmData                []byte
-	NextOwners             []byte
-	PreviousOwners         []byte
-	Registration           *string
-	TrackingController     string
-	EngineType             string
-	UnexpectedChangeFields []string
-	HasFp                  bool
-	StartReq               bool
-	Callsign               string
-	Session                int32
+	Origin                   string
+	Destination              string
+	Alternative              *string
+	Route                    *string
+	Remarks                  *string
+	AssignedSquawk           *string
+	Squawk                   *string
+	Sid                      *string
+	ClearedAltitude          *int32
+	Heading                  *int32
+	AircraftType             *string
+	Runway                   *string
+	RequestedAltitude        *int32
+	Capabilities             *string
+	CommunicationType        *string
+	AircraftCategory         *string
+	Stand                    *string
+	Sequence                 *int32
+	State                    *string
+	Cleared                  bool
+	Owner                    *string
+	Bay                      string
+	PositionLatitude         *float64
+	PositionLongitude        *float64
+	PositionAltitude         *int32
+	CdmData                  []byte
+	NextOwners               []byte
+	PreviousOwners           []byte
+	ReleasePoint             *string
+	Marked                   bool
+	Registration             *string
+	TrackingController       string
+	RunwayCleared            bool
+	RunwayConfirmed          bool
+	EngineType               string
+	UnexpectedChangeFields   []string
+	ControllerModifiedFields []string
+	IsManual                 bool
+	PersonsOnBoard           *int32
+	FplType                  *string
+	Language                 *string
+	HasFp                    bool
+	PdcData                  []byte
+	ValidationStatus         []byte
+	StartReq                 bool
+	Callsign                 string
+	Session                  int32
 }
 
 func (q *Queries) UpdateStrip(ctx context.Context, arg UpdateStripParams) (int64, error) {
@@ -1053,11 +1075,22 @@ func (q *Queries) UpdateStrip(ctx context.Context, arg UpdateStripParams) (int64
 		arg.CdmData,
 		arg.NextOwners,
 		arg.PreviousOwners,
+		arg.ReleasePoint,
+		arg.Marked,
 		arg.Registration,
 		arg.TrackingController,
+		arg.RunwayCleared,
+		arg.RunwayConfirmed,
 		arg.EngineType,
 		arg.UnexpectedChangeFields,
+		arg.ControllerModifiedFields,
+		arg.IsManual,
+		arg.PersonsOnBoard,
+		arg.FplType,
+		arg.Language,
 		arg.HasFp,
+		arg.PdcData,
+		arg.ValidationStatus,
 		arg.StartReq,
 		arg.Callsign,
 		arg.Session,

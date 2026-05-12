@@ -158,6 +158,186 @@ func TestSyncEuroscopeStrip_ExistingStripWritesRouteAndHasFPInPrimaryUpdate(t *t
 	assert.Zero(t, routeUpdateCalls)
 }
 
+func TestSyncEuroscopeStrip_ParkedArrivalRefilesAsDepartureResetsLifecycleState(t *testing.T) {
+	ctx := context.Background()
+	const session = int32(1)
+	const callsign = "SAS126"
+	parkedState := euroscope.GroundStateParked
+	existingStand := "A12"
+	existingOwner := "EKCH_APP"
+	existingReleasePoint := "NIKDA"
+	existingRegistration := "OLDREG"
+	existingTobt := "1010"
+	existingAldt := "1020"
+	pdcRemark := "OLD PDC"
+	personsOnBoard := int32(87)
+	fplType := "V"
+	language := "EN"
+
+	existingStrip := &models.Strip{
+		Callsign:                 callsign,
+		Origin:                   "ESSA",
+		Destination:              "EKCH",
+		Bay:                      shared.BAY_STAND,
+		Sequence:                 func() *int32 { v := int32(900); return &v }(),
+		State:                    &parkedState,
+		Stand:                    &existingStand,
+		Owner:                    &existingOwner,
+		NextOwners:               []string{"EKCH_APN"},
+		PreviousOwners:           []string{"EKCH_APP"},
+		ReleasePoint:             &existingReleasePoint,
+		Marked:                   true,
+		Registration:             &existingRegistration,
+		TrackingController:       "OLD_TRACK",
+		RunwayCleared:            true,
+		RunwayConfirmed:          true,
+		UnexpectedChangeFields:   []string{"stand"},
+		ControllerModifiedFields: []string{"route"},
+		EngineType:               "J",
+		IsManual:                 true,
+		PersonsOnBoard:           &personsOnBoard,
+		FplType:                  &fplType,
+		Language:                 &language,
+		HasFP:                    true,
+		CdmData: (&models.CdmData{
+			Tobt: &existingTobt,
+			Aldt: &existingAldt,
+		}).Normalize(),
+		PdcData: (&models.PdcData{
+			State:          "REQUESTED",
+			RequestRemarks: &pdcRemark,
+		}).Normalize(),
+		ValidationStatus: &models.ValidationStatus{
+			IssueType:      "PDC INVALID",
+			Message:        "Old validation",
+			OwningPosition: "EKCH_DEL",
+			Active:         true,
+			ActivationKey:  "old-key",
+		},
+	}
+
+	var updatedStrip *models.Strip
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			return existingStrip, nil
+		},
+		UpdateFn: func(_ context.Context, strip *models.Strip) (int64, error) {
+			updatedStrip = strip
+			return 1, nil
+		},
+	}
+
+	svc, hub, esHub := newSyncTestFixture(t, existingStrip, stripRepo)
+	mockServer, ok := hub.GetServer().(*testutil.MockServer)
+	require.True(t, ok)
+	routeServer := &syncRouteComputerTestServer{
+		MockServer: mockServer,
+		computeNextOwnersFn: func(_ context.Context, strip *models.Strip, sessionID int32) ([]string, bool, error) {
+			require.Equal(t, session, sessionID)
+			require.Equal(t, callsign, strip.Callsign)
+			return []string{"EKCH_DEL"}, true, nil
+		},
+	}
+	hub.SetServer(routeServer)
+	esHub.SetServer(routeServer)
+
+	err := svc.syncEuroscopeStrip(ctx, session, "", euroscope.Strip{
+		Callsign:    callsign,
+		Origin:      "EKCH",
+		Destination: "EGLL",
+		Remarks:     "REG/OYABC",
+		Runway:      "22R",
+		Eobt:        "1230",
+		GroundState: euroscope.GroundStateParked,
+		Stand:       "B7",
+		HasFP:       true,
+	}, "EKCH")
+	require.NoError(t, err)
+
+	require.NotNil(t, updatedStrip)
+	assert.Equal(t, "EKCH", updatedStrip.Origin)
+	assert.Equal(t, "EGLL", updatedStrip.Destination)
+	assert.Equal(t, shared.BAY_NOT_CLEARED, updatedStrip.Bay)
+	require.NotNil(t, updatedStrip.Sequence)
+	assert.Equal(t, int32(InitialOrderSpacing), *updatedStrip.Sequence)
+	require.NotNil(t, updatedStrip.State)
+	assert.Equal(t, euroscope.GroundStateParked, *updatedStrip.State)
+	assert.Nil(t, updatedStrip.Owner)
+	assert.Equal(t, []string{"EKCH_DEL"}, updatedStrip.NextOwners)
+	assert.Empty(t, updatedStrip.PreviousOwners)
+	assert.Nil(t, updatedStrip.ReleasePoint)
+	assert.False(t, updatedStrip.Marked)
+	assert.False(t, updatedStrip.RunwayCleared)
+	assert.False(t, updatedStrip.RunwayConfirmed)
+	assert.Empty(t, updatedStrip.UnexpectedChangeFields)
+	assert.Empty(t, updatedStrip.ControllerModifiedFields)
+	assert.False(t, updatedStrip.IsManual)
+	assert.Nil(t, updatedStrip.PersonsOnBoard)
+	assert.Nil(t, updatedStrip.FplType)
+	assert.Nil(t, updatedStrip.Language)
+	assert.Nil(t, updatedStrip.ValidationStatus)
+	assert.False(t, updatedStrip.StartReq)
+	require.NotNil(t, updatedStrip.Runway)
+	assert.Equal(t, "22R", *updatedStrip.Runway)
+	require.NotNil(t, updatedStrip.Registration)
+	assert.Equal(t, "OYABC", *updatedStrip.Registration)
+	require.NotNil(t, updatedStrip.CdmData)
+	require.NotNil(t, updatedStrip.CdmData.Tobt)
+	require.NotNil(t, updatedStrip.CdmData.Eobt)
+	assert.Equal(t, "1230", *updatedStrip.CdmData.Tobt)
+	assert.Equal(t, "1230", *updatedStrip.CdmData.Eobt)
+	assert.Nil(t, updatedStrip.CdmData.Aldt)
+	require.NotNil(t, updatedStrip.PdcData)
+	assert.Equal(t, models.PdcStateNone, updatedStrip.PdcData.State)
+	assert.Nil(t, updatedStrip.PdcData.RequestRemarks)
+	require.Len(t, hub.StripUpdates, 1)
+	assert.Equal(t, callsign, hub.StripUpdates[0].Callsign)
+}
+
+func TestSyncEuroscopeStrip_ArrivalRefilesAsTaxiDepartureDoesNotStayHidden(t *testing.T) {
+	ctx := context.Background()
+	const session = int32(1)
+	const callsign = "SAS127"
+	parkedState := euroscope.GroundStateParked
+
+	existingStrip := &models.Strip{
+		Callsign:    callsign,
+		Origin:      "ESSA",
+		Destination: "EKCH",
+		Bay:         shared.BAY_HIDDEN,
+		State:       &parkedState,
+	}
+
+	var updatedStrip *models.Strip
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			return existingStrip, nil
+		},
+		UpdateFn: func(_ context.Context, strip *models.Strip) (int64, error) {
+			updatedStrip = strip
+			return 1, nil
+		},
+	}
+
+	svc, _, _ := newSyncTestFixture(t, existingStrip, stripRepo)
+
+	err := svc.syncEuroscopeStrip(ctx, session, "", euroscope.Strip{
+		Callsign:    callsign,
+		Origin:      "EKCH",
+		Destination: "EGLL",
+		GroundState: euroscope.GroundStateTaxi,
+		HasFP:       true,
+	}, "EKCH")
+	require.NoError(t, err)
+
+	require.NotNil(t, updatedStrip)
+	assert.NotEqual(t, shared.BAY_HIDDEN, updatedStrip.Bay)
+	assert.NotEqual(t, shared.BAY_ARR_HIDDEN, updatedStrip.Bay)
+	assert.Contains(t, []string{shared.BAY_TAXI, shared.BAY_TAXI_LWR}, updatedStrip.Bay)
+	require.NotNil(t, updatedStrip.State)
+	assert.Equal(t, euroscope.GroundStateTaxi, *updatedStrip.State)
+}
+
 func TestSyncEuroscopeStrip_BlankFailoverSyncPreservesAdvancedDepartureBay(t *testing.T) {
 	ctx := context.Background()
 	const session = int32(1)

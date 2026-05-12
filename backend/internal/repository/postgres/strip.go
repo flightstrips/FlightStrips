@@ -287,6 +287,14 @@ func (r *stripRepository) Update(ctx context.Context, strip *models.Strip) (int6
 	if err != nil {
 		return 0, err
 	}
+	pdcData, err := marshalPdcData(strip.PdcData)
+	if err != nil {
+		return 0, err
+	}
+	validationStatus, err := marshalValidationStatus(strip.ValidationStatus)
+	if err != nil {
+		return 0, err
+	}
 
 	nextOwners := strip.NextOwners
 	if nextOwners == nil {
@@ -306,42 +314,53 @@ func (r *stripRepository) Update(ctx context.Context, strip *models.Strip) (int6
 	}
 
 	return r.queries.UpdateStrip(ctx, database.UpdateStripParams{
-		Callsign:               strip.Callsign,
-		Session:                strip.Session,
-		Origin:                 strip.Origin,
-		Destination:            strip.Destination,
-		Alternative:            strip.Alternative,
-		Route:                  strip.Route,
-		Remarks:                strip.Remarks,
-		AssignedSquawk:         strip.AssignedSquawk,
-		Squawk:                 strip.Squawk,
-		Sid:                    strip.Sid,
-		ClearedAltitude:        strip.ClearedAltitude,
-		Heading:                strip.Heading,
-		AircraftType:           strip.AircraftType,
-		Runway:                 strip.Runway,
-		RequestedAltitude:      strip.RequestedAltitude,
-		Capabilities:           strip.Capabilities,
-		CommunicationType:      strip.CommunicationType,
-		AircraftCategory:       strip.AircraftCategory,
-		Stand:                  strip.Stand,
-		Sequence:               strip.Sequence,
-		State:                  strip.State,
-		Cleared:                strip.Cleared,
-		Owner:                  strip.Owner,
-		Bay:                    strip.Bay,
-		PositionLatitude:       strip.PositionLatitude,
-		PositionLongitude:      strip.PositionLongitude,
-		PositionAltitude:       strip.PositionAltitude,
-		CdmData:                cdmData,
-		NextOwners:             nextOwnersJSON,
-		PreviousOwners:         previousOwnersJSON,
-		Registration:           strip.Registration,
-		TrackingController:     strip.TrackingController,
-		EngineType:             strip.EngineType,
-		UnexpectedChangeFields: strip.UnexpectedChangeFields,
-		HasFp:                  strip.HasFP,
-		StartReq:               strip.StartReq,
+		Callsign:                 strip.Callsign,
+		Session:                  strip.Session,
+		Origin:                   strip.Origin,
+		Destination:              strip.Destination,
+		Alternative:              strip.Alternative,
+		Route:                    strip.Route,
+		Remarks:                  strip.Remarks,
+		AssignedSquawk:           strip.AssignedSquawk,
+		Squawk:                   strip.Squawk,
+		Sid:                      strip.Sid,
+		ClearedAltitude:          strip.ClearedAltitude,
+		Heading:                  strip.Heading,
+		AircraftType:             strip.AircraftType,
+		Runway:                   strip.Runway,
+		RequestedAltitude:        strip.RequestedAltitude,
+		Capabilities:             strip.Capabilities,
+		CommunicationType:        strip.CommunicationType,
+		AircraftCategory:         strip.AircraftCategory,
+		Stand:                    strip.Stand,
+		Sequence:                 strip.Sequence,
+		State:                    strip.State,
+		Cleared:                  strip.Cleared,
+		Owner:                    strip.Owner,
+		Bay:                      strip.Bay,
+		PositionLatitude:         strip.PositionLatitude,
+		PositionLongitude:        strip.PositionLongitude,
+		PositionAltitude:         strip.PositionAltitude,
+		CdmData:                  cdmData,
+		NextOwners:               nextOwnersJSON,
+		PreviousOwners:           previousOwnersJSON,
+		ReleasePoint:             strip.ReleasePoint,
+		Marked:                   strip.Marked,
+		Registration:             strip.Registration,
+		TrackingController:       strip.TrackingController,
+		RunwayCleared:            strip.RunwayCleared,
+		RunwayConfirmed:          strip.RunwayConfirmed,
+		EngineType:               strip.EngineType,
+		UnexpectedChangeFields:   strip.UnexpectedChangeFields,
+		ControllerModifiedFields: strip.ControllerModifiedFields,
+		IsManual:                 strip.IsManual,
+		PersonsOnBoard:           strip.PersonsOnBoard,
+		FplType:                  strip.FplType,
+		Language:                 strip.Language,
+		HasFp:                    strip.HasFP,
+		PdcData:                  pdcData,
+		ValidationStatus:         validationStatus,
+		StartReq:                 strip.StartReq,
 	})
 }
 

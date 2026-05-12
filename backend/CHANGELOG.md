@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.30.0](https://github.com/flightstrips/FlightStrips/compare/backend/v0.29.2...backend/v0.30.0) (2026-05-12)
+
+
+### Features
+
+* **acdm:** respect AOBT ([5b1f5f5](https://github.com/flightstrips/FlightStrips/commit/5b1f5f51ead93ec7908e8bc3feee1b525cdac60d))
+
+
+### Bug Fixes
+
+* reset strip lifecycle on arrival refiles ([e5dbb46](https://github.com/flightstrips/FlightStrips/commit/e5dbb46c8949cce500e1389a4d92edfb5f094d79))
+
 ## [0.29.2](https://github.com/flightstrips/FlightStrips/compare/backend/v0.29.1...backend/v0.29.2) (2026-05-10)
 
 

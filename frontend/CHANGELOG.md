@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.36.1](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.36.0...frontend/v0.36.1) (2026-05-12)
+
+
+### Bug Fixes
+
+* half strips ([31890d7](https://github.com/flightstrips/FlightStrips/commit/31890d7af4b58fba2c90407c0e41ddc29f35a89a))
+
 ## [0.36.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.35.2...frontend/v0.36.0) (2026-05-11)
 
 

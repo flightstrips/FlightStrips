@@ -28,13 +28,13 @@ const ownsAnySector = (controller: FrontendController | undefined, sectors: stri
 };
 
 const controllerOwnsDeliverySector = (controller: FrontendController | undefined) =>
-  ownsAnySector(controller, DELIVERY_SECTORS) || controller?.section === 'DEL';
+  ownsAnySector(controller, DELIVERY_SECTORS); 
 
 const controllerOwnsApronSector = (controller: FrontendController | undefined) =>
-  ownsAnySector(controller, APRON_SECTORS) || controller?.section === 'GND';
+  ownsAnySector(controller, APRON_SECTORS);
 
 export const controllerOwnsTowerSectors = (controller: FrontendController | undefined) =>
-  ownsAnySector(controller, TOWER_SECTORS) || controller?.section === 'TWR';
+  ownsAnySector(controller, TOWER_SECTORS);
 
 const controllerHasEkchCallsignPrefix = (controller: FrontendController | undefined) =>
   controller?.callsign.toUpperCase().startsWith('EKCH_') ?? false;

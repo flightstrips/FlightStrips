@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { Link } from "react-router";
+import { useAuth0 } from "@auth0/auth0-react";
 import { PublicNavigation } from "@/components/public/PublicNavigation";
 import { PublicFooter } from "@/components/public/PublicFooter";
 
@@ -208,6 +210,7 @@ function SIBoxDemo() {
 }
 
 export default function Home() {
+  const { isAuthenticated, loginWithRedirect } = useAuth0();
   const [activeTab, setActiveTab] = useState<TabName>("clr");
   const currentTabData = platformTabs[activeTab];
 
@@ -486,9 +489,22 @@ export default function Home() {
                 <p className="text-sm text-[#8a9a9a] max-w-xl mx-auto mb-7 leading-relaxed">
                   Sign in with VATSIM, connect the EuroScope plugin, and start working strips. Free for all VATSIM controllers, forever.
                 </p>
-                <button className="bg-[#a0dae4] text-[#051415] px-8 py-[11px] rounded-full text-sm font-medium hover:bg-[#b8e3ec] transition-colors">
-                  Log in
-                </button>
+                {isAuthenticated ? (
+                  <Link
+                    to="/app"
+                    className="inline-flex items-center justify-center bg-[#a0dae4] text-[#051415] px-8 py-[11px] rounded-full text-sm font-medium hover:bg-[#b8e3ec] transition-colors"
+                  >
+                    Open App
+                  </Link>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => loginWithRedirect()}
+                    className="bg-[#a0dae4] text-[#051415] px-8 py-[11px] rounded-full text-sm font-medium hover:bg-[#b8e3ec] transition-colors"
+                  >
+                    Log in
+                  </button>
+                )}
               </div>
             </div>
           </div>

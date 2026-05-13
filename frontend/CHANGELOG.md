@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.37.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.36.2...frontend/v0.37.0) (2026-05-13)
+
+
+### Features
+
+* **branding:** added new logo as favicon ([761de56](https://github.com/flightstrips/FlightStrips/commit/761de5634d14691cfc31e004eb5ab891bd933464))
+* **frontend:** Added logo to loading pages ([fcac0b6](https://github.com/flightstrips/FlightStrips/commit/fcac0b67d2406a3ae29c0db093512f87be0cce85))
+
+
+### Bug Fixes
+
+* **public:** broken login button ([1eccdc8](https://github.com/flightstrips/FlightStrips/commit/1eccdc8d03f1d6025f7a0d2a176e41c174dfe630))
+
 ## [0.36.2](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.36.1...frontend/v0.36.2) (2026-05-12)
 
 

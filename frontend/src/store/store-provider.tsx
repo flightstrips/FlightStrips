@@ -18,6 +18,8 @@ export const WebSocketStoreProvider = ({ children, wsClient }: WebSocketStorePro
   if (!initialized) {
     return (
       <div className="w-screen min-h-svh flex flex-col justify-center items-center bg-primary text-white">
+        <a className="flex items-center text-4xl font-semibold text-white"><svg className="w-12 h-12" viewBox="0 0 28 28" fill="none"><rect x="3" y="6" width="22" height="4" rx="1" fill="#a0dae4"></rect><rect x="3" y="12" width="22" height="4" rx="1" fill="#a0dae4" opacity="0.7"></rect><rect x="3" y="18" width="22" height="4" rx="1" fill="#a0dae4" opacity="0.4"></rect></svg>FlightStrips</a>
+        <br />
         <div className="flex items-center text-4xl font-semibold">
           <span>{readOnly ? "Connected as observer" : "Waiting for ES connection"}</span>
           <span className="ml-2 animate-bounce text-5xl">...</span>

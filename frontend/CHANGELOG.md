@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.39.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.38.4...frontend/v0.39.0) (2026-05-15)
+
+
+### Features
+
+* **frontend,docs:** optional VACS remote host in settings ([9a1802d](https://github.com/flightstrips/FlightStrips/commit/9a1802dfea2ad1ec9ca623599619f112d62e20a8))
+* **frontend,docs:** outgoing VACS ringing UI and user documentation ([8d786c4](https://github.com/flightstrips/FlightStrips/commit/8d786c43c962c4a4d42827f36a738993edb3718a))
+
 ## [0.38.4](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.38.3...frontend/v0.38.4) (2026-05-15)
 
 

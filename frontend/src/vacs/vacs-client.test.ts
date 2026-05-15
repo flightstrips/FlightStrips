@@ -95,7 +95,7 @@ describe("VacsClient", () => {
     const invite = {
       callId: "call-in-1",
       source: { clientId: "1000002", positionId: "EKCH_APP" },
-      target: { Client: "1000001" },
+      target: { client: "1000001" },
       prio: false,
     };
     client.handleMessageForTest(

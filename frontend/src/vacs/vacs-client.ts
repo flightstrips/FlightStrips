@@ -551,12 +551,12 @@ export class VacsClient implements VacsActions {
   }
 
   private callTargetsFor(client: ClientInfo): CallTargetWire[] {
-    const targets: CallTargetWire[] = [{ Client: client.id }, client.id];
+    const targets: CallTargetWire[] = [{ client: client.id }, client.id];
     if (client.positionId) {
-      targets.push({ Position: client.positionId });
+      targets.push({ position: client.positionId });
     }
     if (client.displayName && client.displayName !== client.positionId) {
-      targets.push({ Position: client.displayName });
+      targets.push({ position: client.displayName });
     }
     return targets;
   }

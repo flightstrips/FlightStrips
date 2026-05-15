@@ -5,12 +5,12 @@ export interface ClientInfo {
   positionId?: string;
 }
 
-/** Wire format for signaling_start_call target (externally-tagged enum). */
+/** Wire format for signaling_start_call target (snake_case externally-tagged enum). */
 export type CallTargetWire =
   | string
-  | { Client: string }
-  | { Position: string }
-  | { Station: string };
+  | { client: string }
+  | { position: string }
+  | { station: string };
 
 export interface CallSource {
   clientId: string;

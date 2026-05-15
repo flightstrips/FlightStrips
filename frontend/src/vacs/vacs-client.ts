@@ -59,6 +59,7 @@ export class VacsClient implements VacsActions {
   private activePeer: ClientInfo | null = null;
   private ambiguous = false;
   private outgoingCallId: string | null = null;
+  private outgoingPeer: ClientInfo | null = null;
   private inviteByCallId = new Map<string, CallInvite>();
 
   constructor(options: VacsClientOptions = {}) {
@@ -260,6 +261,7 @@ export class VacsClient implements VacsActions {
     this.activeCallId = null;
     this.activePeer = null;
     this.outgoingCallId = snapshot.outgoingCall?.callId ?? null;
+    this.outgoingPeer = this.peerFromOutgoingInvite(snapshot.outgoingCall);
     if (snapshot.outgoingCall) {
       this.inviteByCallId.set(snapshot.outgoingCall.callId, snapshot.outgoingCall);
     }
@@ -277,6 +279,7 @@ export class VacsClient implements VacsActions {
     this.activePeer = null;
     this.ambiguous = false;
     this.outgoingCallId = null;
+    this.outgoingPeer = null;
     this.inviteByCallId.clear();
   }
 
@@ -304,6 +307,16 @@ export class VacsClient implements VacsActions {
       return {
         status: "incoming",
         calls: [...this.pendingIncoming],
+        clients: [...this.clients],
+        ownPositionId: this.ownPositionId,
+        ownClientId: this.clientId,
+      };
+    }
+    if (this.outgoingCallId && this.outgoingPeer && this.ownPositionId) {
+      return {
+        status: "outgoing",
+        callId: this.outgoingCallId,
+        peer: this.outgoingPeer,
         clients: [...this.clients],
         ownPositionId: this.ownPositionId,
         ownClientId: this.clientId,
@@ -514,12 +527,17 @@ export class VacsClient implements VacsActions {
   private onWebRtcConnected(callId: string): void {
     this.activeCallId = callId;
     this.pendingIncoming = this.pendingIncoming.filter((c) => c.callId !== callId);
-    const invite = this.inviteByCallId.get(callId);
-    const peerCid = invite?.source.clientId;
-    this.activePeer = peerCid
-      ? (this.clients.find((c) => c.id === peerCid) ?? null)
-      : null;
+    if (this.outgoingCallId === callId && this.outgoingPeer) {
+      this.activePeer = this.outgoingPeer;
+    } else {
+      const invite = this.inviteByCallId.get(callId);
+      const peerCid = invite?.source.clientId;
+      this.activePeer = peerCid
+        ? (this.clients.find((c) => c.id === peerCid) ?? null)
+        : null;
+    }
     this.outgoingCallId = null;
+    this.outgoingPeer = null;
     this.emitState();
   }
 
@@ -528,6 +546,7 @@ export class VacsClient implements VacsActions {
     this.inviteByCallId.delete(callId);
     if (this.outgoingCallId === callId) {
       this.outgoingCallId = null;
+      this.outgoingPeer = null;
     }
     if (this.activeCallId === callId) {
       this.activeCallId = null;
@@ -554,6 +573,29 @@ export class VacsClient implements VacsActions {
 
   private sessionPositionId(client?: ClientInfo): string {
     return client?.positionId ?? client?.displayName ?? "";
+  }
+
+  private peerFromOutgoingInvite(invite: CallInvite | null): ClientInfo | null {
+    if (!invite) {
+      return null;
+    }
+    const target = invite.target;
+    if (typeof target === "string") {
+      return this.clients.find((c) => c.id === target) ?? null;
+    }
+    if (target && typeof target === "object") {
+      const record = target as Record<string, string>;
+      const cid = record.client ?? record.Client;
+      const position = record.position ?? record.Position;
+      return (
+        this.clients.find(
+          (c) =>
+            (cid && c.id === cid) ||
+            (position && (c.positionId === position || c.displayName === position)),
+        ) ?? null
+      );
+    }
+    return null;
   }
 
   private buildCallSource(): CallSource | null {
@@ -595,12 +637,14 @@ export class VacsClient implements VacsActions {
           { suppressErrorToast: true },
         )) as string;
         this.outgoingCallId = callId;
+        this.outgoingPeer = client;
         this.inviteByCallId.set(callId, {
           callId,
           source,
           target,
           prio: false,
         });
+        this.emitState();
         return;
       } catch (err) {
         lastError = err instanceof Error ? err : new Error(String(err));

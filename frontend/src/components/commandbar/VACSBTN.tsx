@@ -15,6 +15,10 @@ const BTN_BASE =
 
 const ENDING_FLASH_MS = 700;
 
+function isRinging(state: VacsState): boolean {
+  return state.status === "incoming" || state.status === "outgoing";
+}
+
 function tooltipForState(state: VacsState, endingCall: boolean): string {
   if (endingCall) {
     return "Ending call…";
@@ -35,6 +39,10 @@ function tooltipForState(state: VacsState, endingCall: boolean): string {
       const pos = first?.source.positionId ?? first?.source.clientId ?? "unknown";
       return `Incoming call from ${pos}. Click to accept, right-click to reject.`;
     }
+    case "outgoing": {
+      const name = state.peer.displayName ?? state.peer.positionId ?? "controller";
+      return `Calling ${name}…`;
+    }
     case "connected": {
       const name = state.peer?.displayName ?? "controller";
       return `On call with ${name}. Click to end call.`;
@@ -50,6 +58,7 @@ function buttonClass(state: VacsState, endingCall: boolean): string {
     case "idle":
       return `${BTN_BASE} bg-bay-btn text-white`;
     case "incoming":
+    case "outgoing":
       return `${BTN_BASE} bg-[#FF8C00] text-white animate-vacs-pulse`;
     case "connected":
       return `${BTN_BASE} bg-[#1BFF16] text-black`;
@@ -118,6 +127,10 @@ export default function VACSBTN() {
       }
       return;
     }
+    if (state.status === "outgoing") {
+      await actions.endCall(state.callId);
+      return;
+    }
     if (state.status === "connected") {
       await endActiveCall();
     }
@@ -131,6 +144,10 @@ export default function VACSBTN() {
         if (oldest) {
           await actions.rejectCall(oldest.callId);
         }
+        return;
+      }
+      if (state.status === "outgoing") {
+        await actions.endCall(state.callId);
         return;
       }
       if (state.status === "connected") {
@@ -150,7 +167,7 @@ export default function VACSBTN() {
         <TooltipTrigger asChild>
           <button
             type="button"
-            disabled={disabled}
+            disabled={disabled && !isRinging(state)}
             className={buttonClass(state, endingCall)}
             onClick={() => void handleClick()}
             onContextMenu={(e) => void handleContextMenu(e)}

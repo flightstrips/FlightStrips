@@ -94,6 +94,29 @@ describe("VACSBTN", () => {
     expect(screen.getByText("2")).toBeInTheDocument();
   });
 
+  it("shows ringing style when outgoing", () => {
+    mockUseVacs.mockReturnValue({
+      state: {
+        status: "outgoing",
+        callId: "call-out",
+        peer: { id: "2", displayName: "EKCH_APP", frequency: "120.2", positionId: "EKCH_APP" },
+        clients: [],
+        ownPositionId: "TWR",
+        ownClientId: "1",
+      },
+      actions: {
+        acceptCall: vi.fn(),
+        rejectCall: vi.fn(),
+        endCall: vi.fn(),
+        dialClient: vi.fn(),
+      },
+    });
+    render(<VACSBTN />);
+    const btn = screen.getByRole("button", { name: /vacs voice/i });
+    expect(btn.className).toContain("FF8C00");
+    expect(btn.className).toContain("animate-vacs-pulse");
+  });
+
   it("ends call on click when connected and flashes red", async () => {
     const endCall = vi.fn().mockResolvedValue(undefined);
     mockUseVacs.mockReturnValue({

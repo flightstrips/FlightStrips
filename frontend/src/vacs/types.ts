@@ -61,6 +61,14 @@ export type VacsState =
       ownPositionId: string;
       ownClientId: string | null;
     }
+  | {
+      status: "outgoing";
+      callId: string;
+      peer: ClientInfo;
+      clients: ClientInfo[];
+      ownPositionId: string;
+      ownClientId: string | null;
+    }
   | { status: "connected"; callId: string; peer: ClientInfo | null };
 
 export type VacsActions = {

@@ -7,7 +7,7 @@ These docs explain **FlightStrips**: how the strip board works, how it ties into
 
 ## Getting started
 
-In **Getting started**, you will find a product-oriented **introduction**, an overview of **features**, and guidance on the **EuroScope plugin** (installation, sync, and how it relates to the web UI). That is the right place to begin if you are new to FlightStrips or wiring it into your setup.
+In **Getting started**, you will find a product-oriented **introduction**, an overview of **features**, guidance on the **EuroScope plugin** (installation, sync, and how it relates to the web UI), and optional **[VACS voice integration](/getting-started/vacs/)** for controller-to-controller calls from the command bar. That is the right place to begin if you are new to FlightStrips or wiring it into your setup.
 
 ## Concepts
 

@@ -17,6 +17,7 @@ export default defineConfig({
 						{ label: 'Introduction', slug: 'getting-started/intro' },
 						{ label: 'Features', slug: 'getting-started/features' },
 						{ label: 'EuroScope plugin', slug: 'getting-started/es-plugin' },
+						{ label: 'VACS voice', slug: 'getting-started/vacs' },
 					],
 				},
 				{

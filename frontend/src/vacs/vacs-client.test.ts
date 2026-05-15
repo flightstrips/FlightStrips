@@ -143,7 +143,11 @@ describe("VacsClient", () => {
     const invoke = [...invokes].reverse().find((m) => m.type === "invoke");
     ws.emit("message", { data: response(invoke!.id!, "call-out-1") });
     await dialPromise;
-    expect(client.getState().status).toBe("idle");
+    const outgoing = client.getState();
+    expect(outgoing.status).toBe("outgoing");
+    if (outgoing.status === "outgoing") {
+      expect(outgoing.peer.id).toBe("1000002");
+    }
 
     client.handleMessageForTest(
       JSON.stringify({

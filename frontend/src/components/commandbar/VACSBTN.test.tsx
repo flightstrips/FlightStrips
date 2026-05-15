@@ -22,7 +22,12 @@ const mockUseVacs = vi.mocked(useVacs);
 const mockUseVacsSettings = vi.mocked(useVacsSettings);
 
 beforeEach(() => {
-  mockUseVacsSettings.mockReturnValue({ vacsEnabled: true, setVacsEnabled: vi.fn() });
+  mockUseVacsSettings.mockReturnValue({
+    vacsEnabled: true,
+    setVacsEnabled: vi.fn(),
+    vacsHost: "",
+    setVacsHost: vi.fn(),
+  });
 });
 
 describe("VACSBTN", () => {
@@ -142,7 +147,12 @@ describe("VACSBTN", () => {
   });
 
   it("is hidden when integration disabled", () => {
-    mockUseVacsSettings.mockReturnValue({ vacsEnabled: false, setVacsEnabled: vi.fn() });
+    mockUseVacsSettings.mockReturnValue({
+      vacsEnabled: false,
+      setVacsEnabled: vi.fn(),
+      vacsHost: "",
+      setVacsHost: vi.fn(),
+    });
     mockUseVacs.mockReturnValue({
       state: { status: "unavailable" },
       actions: {

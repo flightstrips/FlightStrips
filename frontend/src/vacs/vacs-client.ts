@@ -1,4 +1,5 @@
 import { toast } from "sonner";
+import { buildVacsWsUrl } from "@/lib/vacs-settings";
 import { useVacsStore } from "./vacs-store";
 import { VACS_SUBSCRIPTIONS } from "./subscriptions";
 import type {
@@ -13,7 +14,6 @@ import type {
   VacsState,
 } from "./types";
 
-const VACS_WS_URL = "ws://localhost:9600/ws";
 const INVOKE_TIMEOUT_MS = 10_000;
 const PING_INTERVAL_MS = 20_000;
 const MAX_BACKOFF_MS = 30_000;
@@ -35,7 +35,7 @@ interface PendingRequest {
 }
 
 export class VacsClient implements VacsActions {
-  private readonly url: string;
+  private url: string;
   private readonly createWebSocket: (url: string) => WebSocket;
   private readonly onStateChange?: VacsStateListener;
 
@@ -63,7 +63,7 @@ export class VacsClient implements VacsActions {
   private inviteByCallId = new Map<string, CallInvite>();
 
   constructor(options: VacsClientOptions = {}) {
-    this.url = options.url ?? VACS_WS_URL;
+    this.url = options.url ?? buildVacsWsUrl();
     this.createWebSocket =
       options.createWebSocket ??
       ((url) => new WebSocket(url));
@@ -94,6 +94,27 @@ export class VacsClient implements VacsActions {
     this.wsConnected = false;
     this.resetSessionState();
     this.emitState();
+  }
+
+  updateUrl(url: string): void {
+    if (this.url === url) {
+      return;
+    }
+    this.url = url;
+    if (!this.started) {
+      return;
+    }
+    this.clearReconnect();
+    this.clearPing();
+    this.cancelAllPending();
+    if (this.ws) {
+      this.ws.close();
+      this.ws = null;
+    }
+    this.wsConnected = false;
+    this.resetSessionState();
+    this.emitState();
+    this.connect();
   }
 
   acceptCall(callId: string): Promise<void> {
@@ -671,6 +692,7 @@ let singleton: VacsClient | null = null;
 export function getVacsClient(): VacsClient {
   if (!singleton) {
     singleton = new VacsClient({
+      url: buildVacsWsUrl(),
       onStateChange: (state) => {
         useVacsStore.getState().setState(state);
       },

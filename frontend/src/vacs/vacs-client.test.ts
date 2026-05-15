@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { buildVacsWsUrl } from "@/lib/vacs-settings";
 import { MockWebSocket } from "@/test/mock-websocket";
 import { VacsClient, resetVacsClientForTest } from "./vacs-client";
 import type { SessionStateSnapshot } from "./types";
@@ -72,6 +73,26 @@ describe("VacsClient", () => {
     client.stop();
     resetVacsClientForTest();
     vi.useRealTimers();
+  });
+
+  it("connects to a configured remote host", () => {
+    const remote = new VacsClient({
+      url: buildVacsWsUrl("192.168.1.5"),
+      createWebSocket: (url) => new MockWebSocket(url) as unknown as WebSocket,
+    });
+    remote.start();
+    expect(MockWebSocket.instances[0]!.url).toBe("ws://192.168.1.5:9600/ws");
+    remote.stop();
+  });
+
+  it("reconnects when updateUrl changes the host", () => {
+    client.start();
+    const first = MockWebSocket.instances[0]!;
+    expect(first.url).toContain("localhost");
+
+    client.updateUrl(buildVacsWsUrl("10.0.0.2"));
+    expect(MockWebSocket.instances.length).toBe(2);
+    expect(MockWebSocket.instances[1]!.url).toBe("ws://10.0.0.2:9600/ws");
   });
 
   it("connects, subscribes, and reaches idle from snapshot", async () => {

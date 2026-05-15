@@ -5,13 +5,13 @@ sidebar:
   order: 4
 ---
 
-FlightStrips can integrate with **[VACS](https://github.com/vacs-project/vacs)** (VATSIM ATC Communication System) so you can place and receive voice calls between controllers without leaving the strip board. The integration is **frontend-only**: FlightStrips talks to a VACS instance on your machine over a local WebSocket; no voice traffic passes through the FlightStrips backend.
+FlightStrips can integrate with **[VACS](https://github.com/vacs-project/vacs)** (VATSIM ATC Communication System) so you can place and receive voice calls between controllers without leaving the strip board. The integration is **frontend-only**: FlightStrips talks to VACS over a WebSocket on port **9600**; no voice traffic passes through the FlightStrips backend.
 
 ## Prerequisites
 
-Before enabling the integration, make sure VACS is set up on the same PC where you run FlightStrips:
+Before enabling the integration, make sure VACS is available where FlightStrips can reach it:
 
-1. **VACS is running** and reachable at `ws://localhost:9600/ws` (default remote-control endpoint).
+1. **VACS is running** with remote control enabled, reachable at `ws://localhost:9600/ws` on this machine, or at `ws://<host>:9600/ws` on another PC on your network (see [remote VACS host](#remote-vacs-host) below).
 2. **Remote control is enabled** in VACS settings. Without it, FlightStrips cannot connect and the phone button stays disabled.
 3. **You are signed in to VATSIM in VACS** so signaling and WebRTC can authenticate.
 4. **VACS is connected to a signaling position** (your controller position is known to VACS). If VACS reports an ambiguous position, resolve it in VACS before dialing.
@@ -24,10 +24,27 @@ The feature is **off by default**. To turn it on:
 
 1. Open the **settings** control in the command bar (gear icon next to the clock).
 2. Check **Enable VACS voice integration**.
+3. Optionally enter a **VACS machine address** (IP or hostname) if VACS runs on another computer; leave the field empty to use this machine (`localhost`).
 
-The preference is stored in your browser (`localStorage` key `flightstrips.vacs.enabled`). Reloading the page keeps your choice; other browsers or profiles start with the feature disabled again.
+Preferences are stored in your browser:
+
+| Setting | `localStorage` key |
+| --- | --- |
+| Integration on/off | `flightstrips.vacs.enabled` |
+| Remote host (optional) | `flightstrips.vacs.host` |
+
+Reloading the page keeps your choices; other browsers or profiles start with the feature disabled and no custom host.
 
 When enabled, a **phone** button appears in the command bar between the settings gear and the clock.
+
+### Remote VACS host
+
+Use the address field when FlightStrips runs in a browser on one PC but VACS runs on another (for example EuroScope and VACS on a gaming PC, FlightStrips on a tablet). Enter only the **IP or hostname** — not a full `ws://` URL. The port is always **9600**.
+
+- Empty field → `ws://localhost:9600/ws`
+- `192.168.1.10` → `ws://192.168.1.10:9600/ws`
+
+Remote control must be enabled on that VACS instance, and your network must allow TCP to port 9600. Changing the address reconnects immediately when the integration is enabled.
 
 ## Phone button states
 
@@ -100,7 +117,8 @@ Confirm the checkbox in settings is on and refresh the page. The button is not r
 
 Implementation lives under `frontend/src/vacs/` (`VacsClient`, subscriptions, matching) and `frontend/src/components/commandbar/` (`VACSBTN`, `VacsDialModal`). Tests: `frontend/src/vacs/vacs-client.test.ts`, `VACSBTN.test.tsx`.
 
-- Default WebSocket URL: `ws://localhost:9600/ws` (override via `VacsClient` options in tests).
+- WebSocket URL: `buildVacsWsUrl()` in `frontend/src/lib/vacs-settings.ts` (localhost when host is empty; port 9600 fixed).
+- `VacsClient.updateUrl()` reconnects when the host setting changes.
 - Signaling uses VACS invoke commands such as `signaling_start_call`, `signaling_accept_call`, and `signaling_end_call`.
 - Call targets use lowercase enum tags (`client`, `position`, `station`); `source` is a `CallSource` object (`clientId`, `positionId`, `stationId`), not a plain position string.
 

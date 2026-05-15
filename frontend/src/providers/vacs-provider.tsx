@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { isVacsIntegrationEnabled } from "@/lib/vacs-settings";
+import { buildVacsWsUrl, isVacsIntegrationEnabled } from "@/lib/vacs-settings";
 import { getVacsClient } from "@/vacs/vacs-client";
 
 export function VacsProvider({ children }: { children: React.ReactNode }) {
@@ -8,6 +8,7 @@ export function VacsProvider({ children }: { children: React.ReactNode }) {
 
     const sync = () => {
       queueMicrotask(() => {
+        client.updateUrl(buildVacsWsUrl());
         if (isVacsIntegrationEnabled()) {
           client.start();
         } else {

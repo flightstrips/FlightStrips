@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.16.0](https://github.com/flightstrips/FlightStrips/compare/plugin/v0.15.0...plugin/v0.16.0) (2026-05-15)
+
+
+### Features
+
+* **vacs:** use controller LAN IP for associated frontends ([d1a32b0](https://github.com/flightstrips/FlightStrips/commit/d1a32b0223f4e589774b63982e502e418034d03a))
+
 ## [0.15.0](https://github.com/flightstrips/FlightStrips/compare/plugin/v0.14.1...plugin/v0.15.0) (2026-05-10)
 
 

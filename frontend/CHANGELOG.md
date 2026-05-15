@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.38.3](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.38.2...frontend/v0.38.3) (2026-05-15)
+
+
+### Bug Fixes
+
+* **frontend:** send CallSource struct for VACS signaling_start_call ([54a9416](https://github.com/flightstrips/FlightStrips/commit/54a94160cc58af33fb2f48dbb082071bfa95132a))
+
 ## [0.38.2](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.38.1...frontend/v0.38.2) (2026-05-15)
 
 

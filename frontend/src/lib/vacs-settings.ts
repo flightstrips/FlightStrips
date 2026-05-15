@@ -59,8 +59,27 @@ export function setVacsHost(value: string): void {
   }
 }
 
+export function resolveVacsHost(localIp?: string): string {
+  const configuredHost = getVacsHost().trim();
+  if (configuredHost.length > 0) {
+    return configuredHost;
+  }
+
+  const reportedLocalIp = normalizeVacsHostInput(localIp ?? "");
+  if (reportedLocalIp.length > 0) {
+    return reportedLocalIp;
+  }
+
+  return "localhost";
+}
+
 export function buildVacsWsUrl(host?: string): string {
-  const h = (host ?? getVacsHost()).trim();
-  const hostname = h.length > 0 ? h : "localhost";
-  return `ws://${hostname}:${VACS_WS_PORT}/ws`;
+  const hostname = normalizeVacsHostInput(host ?? "");
+  const resolvedHost = hostname.length > 0 ? hostname : resolveVacsHost();
+  return `ws://${resolvedHost}:${VACS_WS_PORT}/ws`;
+}
+
+export function buildResolvedVacsWsUrl(localIp?: string): string {
+  const resolvedHost = resolveVacsHost(localIp);
+  return `ws://${resolvedHost}:${VACS_WS_PORT}/ws`;
 }

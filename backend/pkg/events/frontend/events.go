@@ -263,6 +263,7 @@ type InitialEvent struct {
 	TransitionAltitude int32                   `json:"transition_altitude"`
 	ReadOnly           bool                    `json:"read_only"`
 	PositionAvailable  bool                    `json:"position_available"`
+	LocalIP            string                  `json:"local_ip,omitempty"`
 }
 
 func (i InitialEvent) Marshal() ([]byte, error) {

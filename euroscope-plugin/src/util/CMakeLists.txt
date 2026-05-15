@@ -8,6 +8,11 @@ set(src__http
         http/Http.cpp)
 source_group("src\\http" FILES ${src__http})
 
+set(src__network
+        network/LocalIpAddress.h
+        network/LocalIpAddress.cpp)
+source_group("src\\network" FILES ${src__network})
+
 set(src__filesystem
         filesystem/FileSystem.h
         filesystem/FileSystem.cpp)
@@ -18,7 +23,7 @@ set(src__exceptions
         ExceptionHandling.cpp)
 source_group("src\\exceptions" FILES ${src__exceptions})
 
-set(ALL_FILES ${src__http} ${src__filesystem} ${src__exceptions} Logger.hpp )
+set(ALL_FILES ${src__http} ${src__network} ${src__filesystem} ${src__exceptions} Logger.hpp )
 
 # Read version from file
 file(READ "${CMAKE_SOURCE_DIR}/VERSION.txt" PLUGIN_VERSION)
@@ -121,3 +126,5 @@ if (MSVC)
                 /SAFESEH:NO
         )
 endif ()
+
+target_link_libraries(${PROJECT_NAME} PUBLIC Iphlpapi)

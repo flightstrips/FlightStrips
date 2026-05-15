@@ -61,7 +61,8 @@ namespace FlightStrips::websocket {
                          const std::shared_ptr<handlers::ConnectionEventHandlers> &event_handlers,
                          const std::shared_ptr<handlers::MessageHandlers> &message_handlers,
                          std::unique_ptr<WebSocket> webSocket,
-                         bool enabled);
+                         bool enabled,
+                         std::string localIp = "");
 
         void OnConnected();
         std::optional<std::chrono::steady_clock::time_point> online_without_primary_since_;
@@ -77,6 +78,7 @@ namespace FlightStrips::websocket {
         std::string session_name;
         bool observer = false;
         ClientState client_state = STATE_UNKNOWN;
+        std::string local_ip_;
 
         mutable std::mutex message_mutex_;
         std::vector<nlohmann::json> messages_ {};

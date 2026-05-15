@@ -67,6 +67,9 @@ set(ALL_FILES
         graphics/InfoPanelTest.cpp
         graphics/PdcPopupTest.cpp
 
+        # Network
+        network/LocalIpAddressTest.cpp
+
         # WebSocket
         websocket/WebSocketServiceTest.cpp
 )

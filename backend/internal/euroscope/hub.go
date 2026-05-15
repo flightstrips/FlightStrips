@@ -42,6 +42,8 @@ type Hub struct {
 	airportClientCount map[string]int // airport → number of connected ES clients
 	observerCidMu      sync.RWMutex
 	observerByCid      map[string]bool
+	localIPMu          sync.RWMutex
+	localIPByClient    map[string]string // key: "<sessionID>:<cid>"
 
 	send chan internalMessage
 
@@ -133,6 +135,7 @@ func NewHub(stripService shared.StripService, controllerService shared.Controlle
 		pendingOnlineOrchestrations: make(map[string]struct{}),
 		airportClientCount:          make(map[string]int),
 		observerByCid:               make(map[string]bool),
+		localIPByClient:             make(map[string]string),
 		runwayStates:                make(map[string]*clientRunwayState),
 	}
 	hub.squawkThrottle = newSquawkThrottle(defaultSquawkRequestInterval, hub.readAssignedSquawk, hub.dispatchGenerateSquawkRequest)
@@ -169,6 +172,7 @@ func (hub *Hub) Send(session int32, cid string, message euroscope.OutgoingMessag
 func (hub *Hub) OnRegister(client *Client) {
 	metrics.ConnectionOpened(context.Background(), client.sessionName, client.airport, "euroscope", client.callsign)
 	hub.setObserverCid(client.GetCid(), client.observer)
+	hub.setClientLocalIP(client.session, client.GetCid(), client.localIP)
 	hub.adjustAirportClientCount(client.airport, client.observer, 1)
 	// Start recording if in record mode and not already recording this session
 	if config.IsRecordMode() && !hub.IsRecording(client.session) {
@@ -367,6 +371,7 @@ func (hub *Hub) HandleNewConnection(conn *gorilla.Conn, user shared.Authenticate
 		callsign:    event.Callsign,
 		airport:     event.Airport,
 		observer:    event.Observer,
+		localIP:     event.LocalIP,
 	}
 
 	hub.register <- client
@@ -494,6 +499,7 @@ func (hub *Hub) OnUnregister(client *Client) {
 	metrics.ConnectionClosed(context.Background(), client.sessionName, client.airport, "euroscope", client.callsign)
 	hub.clearClientRunwayState(client.session, client.GetCid())
 	hub.clearObserverCid(client.GetCid())
+	hub.clearClientLocalIP(client.session, client.GetCid())
 	hub.adjustAirportClientCount(client.airport, client.observer, -1)
 
 	if err := hub.clearClientCid(client); err != nil {
@@ -597,6 +603,12 @@ func (hub *Hub) GetMasterCallsign(session int32) string {
 	return ""
 }
 
+func (hub *Hub) GetClientLocalIP(session int32, cid string) string {
+	hub.localIPMu.RLock()
+	defer hub.localIPMu.RUnlock()
+	return hub.localIPByClient[clientLocalIPKey(session, cid)]
+}
+
 func (hub *Hub) IsObserverCid(cid string) bool {
 	hub.observerCidMu.RLock()
 	defer hub.observerCidMu.RUnlock()
@@ -616,6 +628,35 @@ func (hub *Hub) clearObserverCid(cid string) {
 	hub.observerCidMu.Lock()
 	defer hub.observerCidMu.Unlock()
 	delete(hub.observerByCid, cid)
+}
+
+func clientLocalIPKey(session int32, cid string) string {
+	return fmt.Sprintf("%d:%s", session, cid)
+}
+
+func (hub *Hub) setClientLocalIP(session int32, cid, localIP string) {
+	key := clientLocalIPKey(session, cid)
+	trimmed := strings.TrimSpace(localIP)
+
+	hub.localIPMu.Lock()
+	defer hub.localIPMu.Unlock()
+
+	if hub.localIPByClient == nil {
+		hub.localIPByClient = make(map[string]string)
+	}
+
+	if trimmed == "" {
+		delete(hub.localIPByClient, key)
+		return
+	}
+
+	hub.localIPByClient[key] = trimmed
+}
+
+func (hub *Hub) clearClientLocalIP(session int32, cid string) {
+	hub.localIPMu.Lock()
+	defer hub.localIPMu.Unlock()
+	delete(hub.localIPByClient, clientLocalIPKey(session, cid))
 }
 
 func (hub *Hub) SendGenerateSquawk(session int32, cid string, callsign string) {

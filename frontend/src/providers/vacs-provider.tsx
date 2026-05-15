@@ -1,30 +1,27 @@
 import { useEffect } from "react";
-import { buildVacsWsUrl, isVacsIntegrationEnabled } from "@/lib/vacs-settings";
+import { buildResolvedVacsWsUrl } from "@/lib/vacs-settings";
+import { useVacsSettings } from "@/hooks/useVacsSettings";
+import { useLocalIp } from "@/store/store-hooks";
 import { getVacsClient } from "@/vacs/vacs-client";
 
 export function VacsProvider({ children }: { children: React.ReactNode }) {
+  const { vacsEnabled, vacsHost } = useVacsSettings();
+  const localIp = useLocalIp();
+
   useEffect(() => {
     const client = getVacsClient();
 
-    const sync = () => {
-      queueMicrotask(() => {
-        client.updateUrl(buildVacsWsUrl());
-        if (isVacsIntegrationEnabled()) {
-          client.start();
-        } else {
-          client.stop();
-        }
-      });
-    };
+    client.updateUrl(buildResolvedVacsWsUrl(localIp));
+    if (vacsEnabled) {
+      client.start();
+    } else {
+      client.stop();
+    }
 
-    sync();
-    const onSettingsChange = () => sync();
-    window.addEventListener("vacs-settings-changed", onSettingsChange);
     return () => {
-      window.removeEventListener("vacs-settings-changed", onSettingsChange);
       client.stop();
     };
-  }, []);
+  }, [localIp, vacsEnabled, vacsHost]);
 
   return children;
 }

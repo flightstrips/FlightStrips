@@ -22,6 +22,7 @@ type Client struct {
 	callsign string
 	airport  string
 	observer bool
+	localIP  string
 }
 
 func (c *Client) GetSendChannel() chan events.OutgoingMessage {

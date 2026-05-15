@@ -393,8 +393,10 @@ func (hub *Hub) sendInitialEvent(client *Client) {
 
 	departureMismatch := false
 	arrivalMismatch := false
+	localIP := ""
 	if esHub != nil {
 		departureMismatch, arrivalMismatch = esHub.GetRunwayMismatchStatus(client.session, client.user.GetCid())
+		localIP = esHub.GetClientLocalIP(client.session, client.user.GetCid())
 	}
 
 	event := frontend.InitialEvent{
@@ -419,6 +421,7 @@ func (hub *Hub) sendInitialEvent(client *Client) {
 		TransitionAltitude: int32(config.GetTransitionAltitude()),
 		ReadOnly:           client.readOnly,
 		PositionAvailable:  positionAvailable,
+		LocalIP:            localIP,
 	}
 
 	client.send <- event

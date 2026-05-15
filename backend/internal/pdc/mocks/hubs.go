@@ -271,6 +271,10 @@ func (m *EuroscopeHub) GetMasterCallsign(session int32) string {
 	return ""
 }
 
+func (m *EuroscopeHub) GetClientLocalIP(session int32, cid string) string {
+	return ""
+}
+
 func (m *EuroscopeHub) IsObserverCid(cid string) bool {
 	return false
 }

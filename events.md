@@ -28,7 +28,8 @@ Sent by: EuroScope
     "airport": "EKCH",
     "position": "118.105",
     "callsign": "EKCH_A_TWR",
-    "range": 50 // EuroScope range useful for selecting master
+    "range": 50, // EuroScope range useful for selecting master
+    "local_ip": "192.168.1.25" // optional private IPv4 reported by the plugin host
 }
 ```
 

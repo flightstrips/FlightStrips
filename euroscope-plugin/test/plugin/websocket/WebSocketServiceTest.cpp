@@ -298,9 +298,10 @@ public:
                   std::shared_ptr<IFlightStripsPlugin> p,
                   std::shared_ptr<handlers::ConnectionEventHandlers> c,
                   std::shared_ptr<handlers::MessageHandlers> m,
-                  std::unique_ptr<WebSocket> ws)
+                  std::unique_ptr<WebSocket> ws,
+                  std::string localIp = "")
         : WebSocketService(std::move(a), std::move(p), std::move(c),
-                           std::move(m), std::move(ws), /*enabled=*/true) {}
+                           std::move(m), std::move(ws), /*enabled=*/true, std::move(localIp)) {}
 
     void SimulateConnected() { OnConnected(); }
 
@@ -541,6 +542,33 @@ TEST_F(WebSocketServiceReconnectTest, OnConnected_ObserverLoginIncludesObserverF
     EXPECT_EQ(sent[1]["observer"], true);
 }
 
+TEST_F(WebSocketServiceReconnectTest, OnConnected_LoginIncludesLocalIpWhenAvailable) {
+    state.range = 150;
+    state.connection_type = CONNECTION_TYPE_DIRECT;
+    state.primary_frequency = "121.500";
+    state.callsign = "EKCH_GND";
+    state.relevant_airport = "EKCH";
+    ON_CALL(*mockAuth, GetAccessToken()).WillByDefault(Return("token-123"));
+
+    auto implOwned = std::make_unique<NiceMock<MockWebSocketImpl>>();
+    mockImpl = implOwned.get();
+    ON_CALL(*mockImpl, GetStatus()).WillByDefault(Return(WEBSOCKET_STATUS_DISCONNECTED));
+    auto ws = std::unique_ptr<WebSocket>(new WebSocket(std::move(implOwned)));
+    svcOwner = std::make_unique<ReconnectSeam>(mockAuth, mockPlugin, connHandlers, msgHandlers, std::move(ws), "192.168.1.25");
+    svc = svcOwner.get();
+
+    std::vector<nlohmann::json> sent;
+    EXPECT_CALL(*mockImpl, Send(_)).Times(2).WillRepeatedly(Invoke([&sent](const std::string& payload) {
+        sent.push_back(nlohmann::json::parse(payload));
+    }));
+
+    svc->SimulateConnected();
+
+    ASSERT_EQ(sent.size(), 2u);
+    EXPECT_EQ(sent[1]["type"], EVENT_LOGIN_NAME);
+    EXPECT_EQ(sent[1]["local_ip"], "192.168.1.25");
+}
+
 // ---------------------------------------------------------------------------
 // GetStats / ShouldSend accessors
 // ---------------------------------------------------------------------------
@@ -672,6 +700,12 @@ TEST(EventTypeTest, LoginEvent_SerializesAllFields) {
     EXPECT_EQ(j["callsign"],   "EK_GND");
     EXPECT_EQ(j["range"],      150);
     EXPECT_EQ(j["observer"],   true);
+}
+
+TEST(EventTypeTest, LoginEvent_SerializesLocalIpWhenPresent) {
+    LoginEvent e("EKCH", "OBS", "GND", "EK_GND", 150, true, "192.168.1.25");
+    const nlohmann::json j = e;
+    EXPECT_EQ(j["local_ip"], "192.168.1.25");
 }
 
 TEST(EventTypeTest, EventType_DeserializesTokenName) {

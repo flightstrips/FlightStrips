@@ -184,18 +184,21 @@ struct LoginEvent final : Event {
     std::string callsign;
     int range;
     bool observer{false};
+    std::string local_ip;
 
-    LoginEvent(std::string airport, std::string connection, std::string position, std::string callsign, const int range, const bool observer)
+    LoginEvent(std::string airport, std::string connection, std::string position, std::string callsign, const int range,
+               const bool observer, std::string local_ip = "")
         : Event(EVENT_LOGIN),
           airport(std::move(airport)),
           connection(std::move(connection)),
           position(std::move(position)),
           callsign(std::move(callsign)),
           range(range),
-          observer(observer) {
+          observer(observer),
+          local_ip(std::move(local_ip)) {
     }
 
-    NLOHMANN_DEFINE_TYPE_INTRUSIVE(LoginEvent, airport, connection, position, callsign, range, observer, type);
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE(LoginEvent, airport, connection, position, callsign, range, observer, local_ip, type);
 };
 
 struct Runway final {

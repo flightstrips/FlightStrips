@@ -261,6 +261,7 @@ export interface FrontendInitialEvent {
   transition_altitude: number;
   read_only: boolean;
   position_available: boolean;
+  local_ip?: string;
 }
 
 export interface FrontendStripUpdateEvent {

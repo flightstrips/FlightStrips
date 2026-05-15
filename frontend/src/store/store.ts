@@ -129,6 +129,7 @@ export interface WebSocketState {
   displayedLayout: string;
   readOnly: boolean;
   positionAvailable: boolean;
+  localIp: string;
   followRecommendedLayout: boolean;
   layoutChooserOpen: boolean;
   runwaySetup: RunwayConfiguration;
@@ -222,6 +223,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     displayedLayout: '',
     readOnly: false,
     positionAvailable: true,
+    localIp: '',
     followRecommendedLayout: true,
     layoutChooserOpen: false,
     runwaySetup: {
@@ -743,6 +745,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
         state.callsign = data.callsign;
         state.readOnly = data.read_only ?? false;
         state.positionAvailable = data.position_available ?? true;
+        state.localIp = data.local_ip ?? "";
         const normalizedLayout = normalizeLayout(data.layout);
         state.layout = normalizedLayout;
         if (KNOWN_LAYOUTS.has(normalizedLayout)) {

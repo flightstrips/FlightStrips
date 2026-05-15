@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Settings } from "lucide-react";
 import {
   Dialog,
@@ -12,17 +12,15 @@ import * as VisuallyHidden from "@radix-ui/react-visually-hidden";
 import { Button } from "@/components/ui/button";
 import { useAudioSettings } from "@/hooks/useAudioSettings";
 import { useVacsSettings } from "@/hooks/useVacsSettings";
+import { useLocalIp } from "@/store/store-hooks";
 
 const CLS_DIALOG = "sm:max-w-[400px] bg-[#b3b3b3]";
 
 export default function CommandBarSettings() {
   const { muted, toggleMute } = useAudioSettings();
   const { vacsEnabled, setVacsEnabled, vacsHost, setVacsHost } = useVacsSettings();
+  const localIp = useLocalIp();
   const [hostDraft, setHostDraft] = useState(vacsHost);
-
-  useEffect(() => {
-    setHostDraft(vacsHost);
-  }, [vacsHost]);
 
   const commitHost = () => {
     if (hostDraft !== vacsHost) {
@@ -95,7 +93,9 @@ export default function CommandBarSettings() {
                   aria-label="VACS machine address"
                 />
                 <span className="text-xs text-gray-600 block">
-                  Leave empty to use this machine (localhost).
+                  {localIp
+                    ? `Leave empty to use the EuroScope machine (${localIp}).`
+                    : "Leave empty to use this machine (localhost)."}
                 </span>
               </label>
             </div>

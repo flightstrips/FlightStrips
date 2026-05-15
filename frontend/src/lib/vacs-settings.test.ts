@@ -1,8 +1,10 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import {
   buildVacsWsUrl,
+  buildResolvedVacsWsUrl,
   getVacsHost,
   normalizeVacsHostInput,
+  resolveVacsHost,
   setVacsHost,
 } from "./vacs-settings";
 
@@ -41,6 +43,32 @@ describe("vacs-settings", () => {
       setVacsHost("10.0.0.8");
       expect(buildVacsWsUrl()).toBe("ws://10.0.0.8:9600/ws");
       expect(getVacsHost()).toBe("10.0.0.8");
+    });
+  });
+
+  describe("resolveVacsHost", () => {
+    it("prefers the configured host over the reported local IP", () => {
+      setVacsHost("10.0.0.8");
+      expect(resolveVacsHost("192.168.1.5")).toBe("10.0.0.8");
+    });
+
+    it("uses the reported local IP when no host override is configured", () => {
+      expect(resolveVacsHost("192.168.1.5")).toBe("192.168.1.5");
+    });
+
+    it("falls back to localhost when neither host source is available", () => {
+      expect(resolveVacsHost()).toBe("localhost");
+    });
+  });
+
+  describe("buildResolvedVacsWsUrl", () => {
+    it("uses the reported local IP when no host override is configured", () => {
+      expect(buildResolvedVacsWsUrl("192.168.1.5")).toBe("ws://192.168.1.5:9600/ws");
+    });
+
+    it("keeps using the configured host override when present", () => {
+      setVacsHost("10.0.0.8");
+      expect(buildResolvedVacsWsUrl("192.168.1.5")).toBe("ws://10.0.0.8:9600/ws");
     });
   });
 });

@@ -18,10 +18,14 @@ import (
 )
 
 func buildLoginPayload(t *testing.T, callsign, position, airport string) []byte {
-	return buildLoginPayloadWithObserver(t, callsign, position, airport, false)
+	return buildLoginPayloadWithObserverAndLocalIP(t, callsign, position, airport, false, "")
 }
 
 func buildLoginPayloadWithObserver(t *testing.T, callsign, position, airport string, observer bool) []byte {
+	return buildLoginPayloadWithObserverAndLocalIP(t, callsign, position, airport, observer, "")
+}
+
+func buildLoginPayloadWithObserverAndLocalIP(t *testing.T, callsign, position, airport string, observer bool, localIP string) []byte {
 	t.Helper()
 	payload, err := json.Marshal(euroscopeEvents.LoginEvent{
 		Type:       euroscopeEvents.Login,
@@ -31,6 +35,7 @@ func buildLoginPayloadWithObserver(t *testing.T, callsign, position, airport str
 		Connection: "LIVE",
 		Range:      100,
 		Observer:   observer,
+		LocalIP:    localIP,
 	})
 	require.NoError(t, err)
 	return payload
@@ -135,6 +140,51 @@ func TestHandleLoginEvent_NoSetPositionWhenUnchanged(t *testing.T) {
 	})
 
 	require.NoError(t, err)
+}
+
+func TestHandleLoginEvent_UpdatesLocalIPOnRelogin(t *testing.T) {
+	controllerRepo := &testutil.MockControllerRepository{
+		GetFn: func(_ context.Context, callsign string, session int32) (*internalModels.Controller, error) {
+			return &internalModels.Controller{
+				Callsign: callsign,
+				Session:  session,
+				Position: "118.105",
+			}, nil
+		},
+		SetCidFn: func(_ context.Context, _ int32, _ string, _ *string) (int64, error) {
+			return 1, nil
+		},
+		SetObserverFn: func(_ context.Context, _ int32, _ string, observer bool) (int64, error) {
+			assert.False(t, observer)
+			return 1, nil
+		},
+	}
+
+	server := &testutil.MockServer{
+		ControllerRepoVal: controllerRepo,
+	}
+	hub := &Hub{
+		server:              server,
+		sessionUpdateTimers: make(map[int32]*sessionUpdatePending),
+	}
+	client := &Client{
+		hub:      hub,
+		session:  42,
+		callsign: "EKCH_M_TWR",
+		position: "118.105",
+		airport:  "EKCH",
+		localIP:  "192.168.1.10",
+		user:     shared.NewAuthenticatedUser("1234567", 0, nil),
+	}
+
+	err := handleLoginEvent(context.Background(), client, Message{
+		Type:    euroscopeEvents.Login,
+		Message: buildLoginPayloadWithObserverAndLocalIP(t, "EKCH_M_TWR", "118.105", "EKCH", false, "192.168.1.25"),
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, "192.168.1.25", client.localIP)
+	assert.Equal(t, "192.168.1.25", hub.GetClientLocalIP(42, "1234567"))
 	assert.Equal(t, "118.105", client.position)
 }
 

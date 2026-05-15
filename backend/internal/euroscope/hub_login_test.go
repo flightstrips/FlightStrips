@@ -94,3 +94,15 @@ func TestHandleLogin_PlaybackSessionGetsUniqueName(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, strings.HasPrefix(gotSessionName, "PLAYBACK_"), "expected playback session name to be namespaced")
 }
+
+func TestGetClientLocalIP_ReturnsCidScopedValue(t *testing.T) {
+	hub := &Hub{
+		localIPByClient: map[string]string{
+			clientLocalIPKey(42, "1234567"): "192.168.1.25",
+		},
+	}
+
+	assert.Equal(t, "192.168.1.25", hub.GetClientLocalIP(42, "1234567"))
+	assert.Empty(t, hub.GetClientLocalIP(42, "7654321"))
+	assert.Empty(t, hub.GetClientLocalIP(7, "1234567"))
+}

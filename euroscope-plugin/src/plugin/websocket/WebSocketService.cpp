@@ -5,6 +5,7 @@
 #include "ExceptionHandling.h"
 #include "Events.h"
 #include "Logger.hpp"
+#include "network/LocalIpAddress.h"
 
 namespace FlightStrips::websocket {
     WebSocketService::WebSocketService(std::string baseUrl,
@@ -24,7 +25,8 @@ namespace FlightStrips::websocket {
                                                              [this](const std::string &message) {
                                                                  this->OnMessage(message);
                                                              }, [this] { this->OnConnected(); })),
-                                                         enabled(apiEnabled) {
+                                                         enabled(apiEnabled),
+                                                         local_ip_(network::GetLocalPrivateIPv4().value_or("")) {
     }
 
     WebSocketService::WebSocketService(const std::shared_ptr<authentication::IAuthenticationService> &authentication_service,
@@ -32,13 +34,15 @@ namespace FlightStrips::websocket {
                                        const std::shared_ptr<handlers::ConnectionEventHandlers> &event_handlers,
                                        const std::shared_ptr<handlers::MessageHandlers> &message_handlers,
                                        std::unique_ptr<WebSocket> ws,
-                                       const bool enabled) :
+                                       const bool enabled,
+                                       std::string localIp) :
                                                          m_authentication_service(authentication_service),
                                                          m_plugin(plugin),
                                                          m_connection_handlers(event_handlers),
                                                          m_messageHandlers(message_handlers),
                                                          webSocket(std::move(ws)),
-                                                         enabled(enabled) {
+                                                         enabled(enabled),
+                                                         local_ip_(std::move(localIp)) {
     }
 
     WebSocketService::~WebSocketService() {
@@ -276,7 +280,8 @@ namespace FlightStrips::websocket {
         session_name = GetEffectiveSessionName(state);
         observer = state.observer;
 
-        const auto login = LoginEvent(state.relevant_airport, session_name, state.primary_frequency, state.callsign, state.range, state.observer);
+        const auto login = LoginEvent(state.relevant_airport, session_name, state.primary_frequency, state.callsign,
+                                      state.range, state.observer, local_ip_);
         SendEvent(login);
     }
 }

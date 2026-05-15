@@ -104,6 +104,7 @@ type MockEuroscopeHub struct {
 	HasActiveClientForAirportFn func(airport string) bool
 	IsObserverCidFn             func(cid string) bool
 	GetMasterCallsignFn         func(session int32) string
+	GetClientLocalIPFn          func(session int32, cid string) string
 
 	ClearedFlags          []ClearedFlagCall
 	GroundStates          []GroundStateCall
@@ -141,6 +142,13 @@ func (m *MockEuroscopeHub) IsSessionSynced(sessionId int32) bool {
 func (m *MockEuroscopeHub) GetMasterCallsign(session int32) string {
 	if m.GetMasterCallsignFn != nil {
 		return m.GetMasterCallsignFn(session)
+	}
+	return ""
+}
+
+func (m *MockEuroscopeHub) GetClientLocalIP(session int32, cid string) string {
+	if m.GetClientLocalIPFn != nil {
+		return m.GetClientLocalIPFn(session, cid)
 	}
 	return ""
 }

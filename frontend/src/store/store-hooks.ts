@@ -66,6 +66,7 @@ export const useTacticalStrips = () => useWebSocketStore((state) => state.tactic
 export const usePosition = () => useWebSocketStore((state) => state.position);
 export const useAirport = () => useWebSocketStore((state) => state.airport);
 export const useCallsign = () => useWebSocketStore((state) => state.callsign);
+export const useLocalIp = () => useWebSocketStore((state) => state.localIp);
 export const useRunwaySetup = () => useWebSocketStore((state) => state.runwaySetup);
 export const useStrip = (callsign: string) => useWebSocketStore((state) => state.strips.find(strip => strip.callsign === callsign));
 export const useSelectedCallsign = () => useWebSocketStore((state) => state.selectedCallsign);

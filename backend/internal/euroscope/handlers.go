@@ -33,7 +33,9 @@ func handleLoginEvent(ctx context.Context, client *Client, message Message) erro
 	client.position = event.Position
 	client.callsign = event.Callsign
 	client.observer = event.Observer
+	client.localIP = event.LocalIP
 	client.hub.setObserverCid(client.GetCid(), event.Observer)
+	client.hub.setClientLocalIP(client.session, client.GetCid(), event.LocalIP)
 	if master, ok := client.hub.master[client.session]; ok && master == client && previousCallsign != client.callsign {
 		client.hub.setMasterClient(client)
 	}

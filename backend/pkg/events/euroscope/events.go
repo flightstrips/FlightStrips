@@ -99,6 +99,7 @@ type LoginEvent struct {
 	Callsign   string    `json:"callsign"`
 	Range      int32     `json:"range"`
 	Observer   bool      `json:"observer"`
+	LocalIP    string    `json:"local_ip,omitempty"`
 }
 
 type ControllerOnlineEvent struct {

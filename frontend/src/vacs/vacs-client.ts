@@ -255,7 +255,7 @@ export class VacsClient implements VacsActions {
       this.inviteByCallId.set(invite.callId, invite);
     }
     this.ownClient = snapshot.sessionInfo?.client ?? null;
-    this.ownPositionId = this.sessionPositionId(this.ownClient);
+    this.ownPositionId = this.sessionPositionId(this.ownClient ?? undefined);
     this.ambiguous = false;
     this.activeCallId = null;
     this.activePeer = null;

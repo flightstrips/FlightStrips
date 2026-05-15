@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.38.2](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.38.1...frontend/v0.38.2) (2026-05-15)
+
+
+### Bug Fixes
+
+* **frontend:** use lowercase VACS call target enum tags ([2266e36](https://github.com/flightstrips/FlightStrips/commit/2266e369ed7f5e8bb1a494654129fd6417fce128))
+
 ## [0.38.1](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.38.0...frontend/v0.38.1) (2026-05-15)
 
 

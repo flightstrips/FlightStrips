@@ -3,6 +3,7 @@ import { useVacsStore } from "./vacs-store";
 import { VACS_SUBSCRIPTIONS } from "./subscriptions";
 import type {
   CallInvite,
+  CallSource,
   CallTargetWire,
   ClientInfo,
   SessionStateSnapshot,
@@ -51,6 +52,7 @@ export class VacsClient implements VacsActions {
   private clientId: string | null = null;
   private connectionState: SessionStateSnapshot["connectionState"] = "disconnected";
   private ownPositionId = "";
+  private ownClient: ClientInfo | null = null;
   private clients: ClientInfo[] = [];
   private pendingIncoming: CallInvite[] = [];
   private activeCallId: string | null = null;
@@ -252,7 +254,8 @@ export class VacsClient implements VacsActions {
     for (const invite of snapshot.incomingCalls) {
       this.inviteByCallId.set(invite.callId, invite);
     }
-    this.ownPositionId = this.sessionPositionId(snapshot.sessionInfo?.client);
+    this.ownClient = snapshot.sessionInfo?.client ?? null;
+    this.ownPositionId = this.sessionPositionId(this.ownClient);
     this.ambiguous = false;
     this.activeCallId = null;
     this.activePeer = null;
@@ -267,6 +270,7 @@ export class VacsClient implements VacsActions {
     this.clientId = null;
     this.connectionState = "disconnected";
     this.ownPositionId = "";
+    this.ownClient = null;
     this.clients = [];
     this.pendingIncoming = [];
     this.activeCallId = null;
@@ -415,6 +419,7 @@ export class VacsClient implements VacsActions {
       case "signaling:connected": {
         const info = payload as { client: ClientInfo };
         this.connectionState = "connected";
+        this.ownClient = info.client;
         this.ownPositionId = this.sessionPositionId(info.client);
         this.emitState();
         break;
@@ -422,6 +427,7 @@ export class VacsClient implements VacsActions {
       case "signaling:disconnected":
         this.connectionState = "disconnected";
         this.ownPositionId = "";
+        this.ownClient = null;
         this.emitState();
         break;
       case "signaling:client-list":
@@ -550,6 +556,19 @@ export class VacsClient implements VacsActions {
     return client?.positionId ?? client?.displayName ?? "";
   }
 
+  private buildCallSource(): CallSource | null {
+    const positionId = this.sessionPositionId(this.ownClient ?? undefined) || this.ownPositionId;
+    const clientId = this.clientId ?? this.ownClient?.id ?? "";
+    if (!clientId || !positionId) {
+      return null;
+    }
+    return {
+      clientId,
+      positionId,
+      stationId: positionId,
+    };
+  }
+
   private callTargetsFor(client: ClientInfo): CallTargetWire[] {
     const targets: CallTargetWire[] = [{ client: client.id }, client.id];
     if (client.positionId) {
@@ -562,7 +581,7 @@ export class VacsClient implements VacsActions {
   }
 
   private async placeCall(client: ClientInfo): Promise<void> {
-    const source = this.ownPositionId;
+    const source = this.buildCallSource();
     if (!source) {
       throw new Error("No VACS position");
     }
@@ -578,7 +597,7 @@ export class VacsClient implements VacsActions {
         this.outgoingCallId = callId;
         this.inviteByCallId.set(callId, {
           callId,
-          source: { clientId: this.clientId ?? "", positionId: source },
+          source,
           target,
           prio: false,
         });

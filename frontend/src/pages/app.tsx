@@ -1,5 +1,6 @@
 import { useAuth0 } from "@auth0/auth0-react";
 import { WebSocketProvider } from "@/providers/websocket-provider";
+import { VacsProvider } from "@/providers/vacs-provider";
 import CommandBar from "@/components/commandbar/CommandBar";
 import AppRouter from "@/routes/AppRouter";
 import { StripContextMenu } from "@/components/strip/StripContextMenu";
@@ -45,13 +46,15 @@ export default function AppPage() {
       <Toaster richColors position="top-right" />
       <AppUpdateNotifier />
       <WebSocketProvider url={wsUrl}>
-        <div>
-          <AppRouter />
-          <CommandBar />
-          <ContextMenuOverlay />
-          <ValidationStatusDialogOverlay />
-          {/* <CustomCursor /> */}
-        </div>
+        <VacsProvider>
+          <div>
+            <AppRouter />
+            <CommandBar />
+            <ContextMenuOverlay />
+            <ValidationStatusDialogOverlay />
+            {/* <CustomCursor /> */}
+          </div>
+        </VacsProvider>
       </WebSocketProvider>
     </>
   );

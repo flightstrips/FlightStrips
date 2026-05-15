@@ -517,3 +517,12 @@ body.public-content-page {
   from { height: var(--radix-accordion-content-height); }
   to { height: 0; }
 }
+
+@keyframes vacs-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.65; }
+}
+
+.animate-vacs-pulse {
+  animation: vacs-pulse 1.2s ease-in-out infinite;
+}

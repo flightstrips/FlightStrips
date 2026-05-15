@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import Time from "@/components/Time";
 import MRKBTN from "./MRKBTN";
-import MUTEBTN from "./MUTEBTN";
+import VACSBTN from "./VACSBTN";
+import CommandBarSettings from "./CommandBarSettings";
 import TRFBRN from "./TRFBRN";
 import REQBTN from "./REQBTN";
 import ATIS from "./ATIS";
@@ -9,7 +10,6 @@ import CDMSIM from "./CDMSIM";
 import RunwayStsDialog, { type RunwayStatus } from "./RunwayStsDialog";
 import DeleteConfirmDialog from "./DeleteConfirmDialog";
 import MetarHelper from "@/components/MetarHelper";
-import { useAudioSettings } from "@/hooks/useAudioSettings";
 import { useAtisCode, useMarkArmed, useMetar, useRunwaySetup, useSelectedCallsign, useSelectStrip, useSetMarkArmed, useStrips, useWebSocketStore, useStrip } from "@/store/store-hooks";
 import { CLS_CMDBTN } from "@/components/strip/shared";
 import { Bay } from "@/api/models";
@@ -70,7 +70,6 @@ function parseWindCompact(metar: string | null): string {
 }
 
 export default function CommandBar() {
-  const { muted, toggleMute } = useAudioSettings();
   const metar = useMetar();
   const atisCode = useAtisCode();
   const currentLayout = useWebSocketStore((state) => state.displayedLayout);
@@ -183,6 +182,7 @@ export default function CommandBar() {
         {/* Wind: ATIS code + compact value */}
         <span className={`${CLS_VAL_WHITE} w-[3.36vw] mx-1`}>{atisCode || "—"}</span>
         <span className={`${CLS_VAL_WHITE} w-[5.55vw] px-2 !text-[0.94vw]`}>{parseWindCompact(metar)}</span>
+
       </div>
 
       {/* ── Center: runway pair status buttons ────────────── */}
@@ -216,8 +216,10 @@ export default function CommandBar() {
         >
           X
         </button>
-        {/* Time — white box, double gap before it */}
-        <MUTEBTN muted={muted} onClick={toggleMute} />
+        <div className="relative flex items-center">
+          <VACSBTN />
+        </div>
+        <CommandBarSettings />
         <div className="bg-bay-light text-black h-[calc(4.72dvh-14px)] my-[7px] w-[5.08vw] ml-[5px] mr-3 flex items-center justify-center text-[0.75vw] font-bold shadow-[inset_2px_0_0_var(--color-bay-shadow),_inset_0_2px_0_var(--color-bay-shadow)]">
           <Time />
         </div>

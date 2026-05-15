@@ -247,6 +247,55 @@ func TestGetLayouts_SingleTopdown_WithGroundOnlineKeepsTwte(t *testing.T) {
 	assert.Equal(t, "TWTE", *result["118.580"])
 }
 
+func TestGetLayouts_AirborneOwner_GetsTwrGndWhenGroundOffline(t *testing.T) {
+	originalLayouts := layouts
+	t.Cleanup(func() {
+		layouts = originalLayouts
+	})
+	t.Cleanup(SetAirborneOwnersForTest([]string{"EKCH_W_APP"}))
+	t.Cleanup(SetAirborneFallbackLayoutForTest("TWTE"))
+
+	layouts = map[string][]LayoutVariant{
+		"EKCH_W_APP": {
+			{Online: []string{"_GND"}, Offline: []string{}, Layout: "TWTE"},
+			{Online: []string{}, Offline: []string{"_GND"}, Layout: "TWRGND"},
+		},
+	}
+
+	controllers := []*Position{
+		makePos("EKCH_W_APP", "119.805", "APP"),
+	}
+
+	result := GetLayouts(controllers, []string{"22L", "22R"})
+	require.NotNil(t, result["119.805"])
+	assert.Equal(t, "TWRGND", *result["119.805"])
+}
+
+func TestGetLayouts_AirborneOwner_WithGroundOnlineKeepsTwte(t *testing.T) {
+	originalLayouts := layouts
+	t.Cleanup(func() {
+		layouts = originalLayouts
+	})
+	t.Cleanup(SetAirborneOwnersForTest([]string{"EKCH_W_APP"}))
+	t.Cleanup(SetAirborneFallbackLayoutForTest("TWTE"))
+
+	layouts = map[string][]LayoutVariant{
+		"EKCH_W_APP": {
+			{Online: []string{"_GND"}, Offline: []string{}, Layout: "TWTE"},
+			{Online: []string{}, Offline: []string{"_GND"}, Layout: "TWRGND"},
+		},
+	}
+
+	controllers := []*Position{
+		makePos("EKCH_W_APP", "119.805", "APP"),
+		makePos("EKCH_A_GND", "121.630", "GND"),
+	}
+
+	result := GetLayouts(controllers, []string{"22L", "22R"})
+	require.NotNil(t, result["119.805"])
+	assert.Equal(t, "TWTE", *result["119.805"])
+}
+
 func TestGetLayouts_AirborneOwnerGetsTwteFallback(t *testing.T) {
 	originalLayouts := layouts
 	t.Cleanup(func() {

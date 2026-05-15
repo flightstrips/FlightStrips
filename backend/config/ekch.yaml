@@ -807,6 +807,86 @@ layouts:
       offline: [EKCH_A_TWR, _GND]
       layout: TWRGND
 
+  EKCH_K_DEP:
+    - online: [_GND]
+      offline: []
+      layout: TWTE
+    - online: []
+      offline: [_GND]
+      layout: TWRGND
+
+  EKCH_R_DEP:
+    - online: [_GND]
+      offline: []
+      layout: TWTE
+    - online: []
+      offline: [_GND]
+      layout: TWRGND
+
+  EKCH_W_APP:
+    - online: [_GND]
+      offline: []
+      layout: TWTE
+    - online: []
+      offline: [_GND]
+      layout: TWRGND
+
+  EKCH_O_APP:
+    - online: [_GND]
+      offline: []
+      layout: TWTE
+    - online: []
+      offline: [_GND]
+      layout: TWRGND
+
+  EKDK_I_CTR:
+    - online: [_GND]
+      offline: []
+      layout: TWTE
+    - online: []
+      offline: [_GND]
+      layout: TWRGND
+
+  EKDK_B_CTR:
+    - online: [_GND]
+      offline: []
+      layout: TWTE
+    - online: []
+      offline: [_GND]
+      layout: TWRGND
+
+  EKDK_E_CTR:
+    - online: [_GND]
+      offline: []
+      layout: TWTE
+    - online: []
+      offline: [_GND]
+      layout: TWRGND
+
+  EKDK_D_CTR:
+    - online: [_GND]
+      offline: []
+      layout: TWTE
+    - online: []
+      offline: [_GND]
+      layout: TWRGND
+
+  EKDK_UC_CTR:
+    - online: [_GND]
+      offline: []
+      layout: TWTE
+    - online: []
+      offline: [_GND]
+      layout: TWRGND
+
+  EKDK_UN_CTR:
+    - online: [_GND]
+      offline: []
+      layout: TWTE
+    - online: []
+      offline: [_GND]
+      layout: TWRGND
+
 missed_approach_handover:
   "04L": "EKCH_W_APP"
   "04R": "EKCH_W_APP"

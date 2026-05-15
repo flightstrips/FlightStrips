@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.38.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.37.0...frontend/v0.38.0) (2026-05-15)
+
+
+### Features
+
+* **frontend:** add VACS voice integration to command bar ([fe6ef3d](https://github.com/flightstrips/FlightStrips/commit/fe6ef3dee4b6981118fb0458d0f80a144c913366))
+
 ## [0.37.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.36.2...frontend/v0.37.0) (2026-05-13)
 
 

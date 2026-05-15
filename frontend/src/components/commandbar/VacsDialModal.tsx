@@ -12,7 +12,6 @@ import { useControllers, useMyPosition } from "@/store/store-hooks";
 import { useVacs } from "@/hooks/useVacs";
 import { findVacsClientForController } from "@/vacs/match";
 import type { ClientInfo } from "@/vacs/types";
-import { toast } from "sonner";
 
 const CLS_DIALOG = "sm:max-w-[480px] bg-[#b3b3b3]";
 
@@ -20,6 +19,8 @@ interface VacsDialModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   clients: ClientInfo[];
+  ownClientId: string | null;
+  ownPositionId: string;
   ambiguous: boolean;
 }
 
@@ -27,6 +28,8 @@ export default function VacsDialModal({
   open,
   onOpenChange,
   clients,
+  ownClientId,
+  ownPositionId,
   ambiguous,
 }: VacsDialModalProps) {
   const [filter, setFilter] = useState("");
@@ -39,8 +42,10 @@ export default function VacsDialModal({
     const available: Array<{ controller: FrontendController; vacs: ClientInfo }> = [];
     const notOnVacs: FrontendController[] = [];
 
+    const dialableClients = clients.filter((c) => c.id !== ownClientId);
+
     for (const controller of others) {
-      const vacs = findVacsClientForController(controller, clients);
+      const vacs = findVacsClientForController(controller, dialableClients);
       if (vacs) {
         available.push({ controller, vacs });
       } else {
@@ -58,14 +63,16 @@ export default function VacsDialModal({
       available: available.filter((e) => matches(e.controller)),
       notOnVacs: notOnVacs.filter(matches),
     };
-  }, [clients, controllers, filter, myPosition]);
+  }, [clients, controllers, filter, myPosition, ownClientId]);
+
+  const canDial = !!ownPositionId && !ambiguous;
 
   const handleDial = async (entry: { controller: FrontendController; vacs: ClientInfo }) => {
     try {
-      await actions.dial(entry.vacs.id);
+      await actions.dialClient(entry.vacs);
       onOpenChange(false);
     } catch {
-      toast.error(`Could not dial ${entry.controller.callsign} — invalid target.`);
+      // placeCall already surfaces a toast
     }
   };
 
@@ -111,11 +118,13 @@ export default function VacsDialModal({
                           <Button
                             variant="trf"
                             className="h-7 text-xs px-2"
-                            disabled={ambiguous}
+                            disabled={!canDial}
                             title={
-                              ambiguous
-                                ? "Your VACS position is ambiguous — resolve it in VACS."
-                                : undefined
+                              !ownPositionId
+                                ? "VACS is not connected to a signaling position."
+                                : ambiguous
+                                  ? "Your VACS position is ambiguous — resolve it in VACS."
+                                  : undefined
                             }
                             onClick={() => handleDial({ controller, vacs })}
                           >

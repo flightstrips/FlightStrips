@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Phone } from "lucide-react";
 import {
   Tooltip,
@@ -9,12 +9,16 @@ import { useVacs } from "@/hooks/useVacs";
 import { useVacsSettings } from "@/hooks/useVacsSettings";
 import type { VacsState } from "@/vacs/types";
 import VacsDialModal from "./VacsDialModal";
-import { Button } from "@/components/ui/button";
 
 const BTN_BASE =
   "relative h-[3.42dvh] my-[0.65dvh] w-[3.52vw] flex items-center justify-center shadow-[inset_2px_0_0_var(--color-bay-shadow),_inset_0_2px_0_var(--color-bay-shadow)] outline-none";
 
-function tooltipForState(state: VacsState): string {
+const ENDING_FLASH_MS = 700;
+
+function tooltipForState(state: VacsState, endingCall: boolean): string {
+  if (endingCall) {
+    return "Ending call…";
+  }
   switch (state.status) {
     case "unavailable":
       return "VACS not running, or remote control not enabled in VACS settings.";
@@ -33,12 +37,15 @@ function tooltipForState(state: VacsState): string {
     }
     case "connected": {
       const name = state.peer?.displayName ?? "controller";
-      return `On call with ${name}. Click for options.`;
+      return `On call with ${name}. Click to end call.`;
     }
   }
 }
 
-function buttonClass(state: VacsState): string {
+function buttonClass(state: VacsState, endingCall: boolean): string {
+  if (endingCall) {
+    return `${BTN_BASE} bg-[#FF4444] text-white`;
+  }
   switch (state.status) {
     case "idle":
       return `${BTN_BASE} bg-bay-btn text-white`;
@@ -55,7 +62,41 @@ export default function VACSBTN() {
   const { vacsEnabled } = useVacsSettings();
   const { state, actions } = useVacs();
   const [dialOpen, setDialOpen] = useState(false);
-  const [popoverOpen, setPopoverOpen] = useState(false);
+  const [endingCall, setEndingCall] = useState(false);
+  const endingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (state.status !== "connected" && endingCall) {
+      setEndingCall(false);
+    }
+  }, [state.status, endingCall]);
+
+  useEffect(() => {
+    return () => {
+      if (endingTimerRef.current !== null) {
+        clearTimeout(endingTimerRef.current);
+      }
+    };
+  }, []);
+
+  const flashEnding = useCallback(() => {
+    setEndingCall(true);
+    if (endingTimerRef.current !== null) {
+      clearTimeout(endingTimerRef.current);
+    }
+    endingTimerRef.current = setTimeout(() => {
+      setEndingCall(false);
+      endingTimerRef.current = null;
+    }, ENDING_FLASH_MS);
+  }, []);
+
+  const endActiveCall = useCallback(async () => {
+    if (state.status !== "connected") {
+      return;
+    }
+    flashEnding();
+    await actions.endCall(state.callId);
+  }, [actions, state, flashEnding]);
 
   const disabled =
     state.status === "unavailable" ||
@@ -78,9 +119,9 @@ export default function VACSBTN() {
       return;
     }
     if (state.status === "connected") {
-      setPopoverOpen((v) => !v);
+      await endActiveCall();
     }
-  }, [actions, state]);
+  }, [actions, state, endActiveCall]);
 
   const handleContextMenu = useCallback(
     async (e: React.MouseEvent) => {
@@ -93,19 +134,11 @@ export default function VACSBTN() {
         return;
       }
       if (state.status === "connected") {
-        await actions.endCall(state.callId);
-        setPopoverOpen(false);
+        await endActiveCall();
       }
     },
-    [actions, state],
+    [actions, state, endActiveCall],
   );
-
-  const handleEndCall = useCallback(async () => {
-    if (state.status === "connected") {
-      await actions.endCall(state.callId);
-      setPopoverOpen(false);
-    }
-  }, [actions, state]);
 
   if (!vacsEnabled) {
     return null;
@@ -118,7 +151,7 @@ export default function VACSBTN() {
           <button
             type="button"
             disabled={disabled}
-            className={buttonClass(state)}
+            className={buttonClass(state, endingCall)}
             onClick={() => void handleClick()}
             onContextMenu={(e) => void handleContextMenu(e)}
             aria-label="VACS voice"
@@ -132,7 +165,7 @@ export default function VACSBTN() {
           </button>
         </TooltipTrigger>
         <TooltipContent side="top" className="max-w-xs">
-          {tooltipForState(state)}
+          {tooltipForState(state, endingCall)}
         </TooltipContent>
       </Tooltip>
 
@@ -141,29 +174,10 @@ export default function VACSBTN() {
           open={dialOpen}
           onOpenChange={setDialOpen}
           clients={state.clients}
+          ownClientId={state.ownClientId}
+          ownPositionId={state.ownPositionId}
           ambiguous={false}
         />
-      )}
-
-      {state.status === "connected" && popoverOpen && (
-        <>
-          <div
-            className="fixed inset-0 z-[100]"
-            onClick={() => setPopoverOpen(false)}
-            aria-hidden
-          />
-          <div className="absolute bottom-[5.5dvh] right-[8vw] z-[101] bg-[#b3b3b3] border-2 border-black p-3 min-w-[200px] shadow-lg">
-            <p className="text-sm font-semibold text-black mb-2">
-              {state.peer?.displayName ?? "On call"}
-            </p>
-            {state.peer?.frequency && (
-              <p className="text-xs text-gray-700 mb-2">{state.peer.frequency}</p>
-            )}
-            <Button variant="darkaction" className="w-full" onClick={() => void handleEndCall()}>
-              End call
-            </Button>
-          </div>
-        </>
       )}
     </>
   );

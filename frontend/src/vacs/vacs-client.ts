@@ -3,6 +3,7 @@ import { useVacsStore } from "./vacs-store";
 import { VACS_SUBSCRIPTIONS } from "./subscriptions";
 import type {
   CallInvite,
+  CallTargetWire,
   ClientInfo,
   SessionStateSnapshot,
   VacsActions,
@@ -28,6 +29,8 @@ interface PendingRequest {
   resolve: (data: unknown) => void;
   reject: (error: Error) => void;
   timer: ReturnType<typeof setTimeout>;
+  cmd?: string;
+  suppressErrorToast?: boolean;
 }
 
 export class VacsClient implements VacsActions {
@@ -102,12 +105,8 @@ export class VacsClient implements VacsActions {
     return this.invoke("signaling_end_call", { callId }).then(() => undefined);
   }
 
-  dial(targetCid: string): Promise<void> {
-    return this.startCall(targetCid);
-  }
-
-  dialByPosition(position: string): Promise<void> {
-    return this.startCall({ Position: position });
+  dialClient(client: ClientInfo): Promise<void> {
+    return this.placeCall(client);
   }
 
   /** Test hook: feed a server message without a live socket. */
@@ -253,7 +252,7 @@ export class VacsClient implements VacsActions {
     for (const invite of snapshot.incomingCalls) {
       this.inviteByCallId.set(invite.callId, invite);
     }
-    this.ownPositionId = snapshot.sessionInfo?.client.positionId ?? "";
+    this.ownPositionId = this.sessionPositionId(snapshot.sessionInfo?.client);
     this.ambiguous = false;
     this.activeCallId = null;
     this.activePeer = null;
@@ -303,6 +302,7 @@ export class VacsClient implements VacsActions {
         calls: [...this.pendingIncoming],
         clients: [...this.clients],
         ownPositionId: this.ownPositionId,
+        ownClientId: this.clientId,
       };
     }
     if (this.ownPositionId) {
@@ -310,6 +310,7 @@ export class VacsClient implements VacsActions {
         status: "idle",
         clients: [...this.clients],
         ownPositionId: this.ownPositionId,
+        ownClientId: this.clientId,
       };
     }
     return { status: "disconnected" };
@@ -325,14 +326,24 @@ export class VacsClient implements VacsActions {
     }
   }
 
-  private invoke(cmd: string, args: Record<string, unknown>): Promise<unknown> {
+  private invoke(
+    cmd: string,
+    args: Record<string, unknown>,
+    options?: { suppressErrorToast?: boolean },
+  ): Promise<unknown> {
     const id = String(this.nextId++);
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
         this.pending.delete(id);
         reject(new Error("VACS invoke timeout"));
       }, INVOKE_TIMEOUT_MS);
-      this.pending.set(id, { resolve, reject, timer });
+      this.pending.set(id, {
+        resolve,
+        reject,
+        timer,
+        cmd,
+        suppressErrorToast: options?.suppressErrorToast,
+      });
       this.send({ type: "invoke", id, cmd, args });
     });
   }
@@ -374,8 +385,14 @@ export class VacsClient implements VacsActions {
       return;
     }
     if (errorType === "urn:vacs:error:remote:invalid-argument") {
-      console.warn("VACS invalid argument", response);
-      toast.error("Could not complete voice action — invalid target.");
+      console.warn("VACS invalid argument", {
+        cmd: pending.cmd,
+        detail: response.error?.detail,
+        type: response.error?.type,
+      });
+      if (!pending.suppressErrorToast) {
+        toast.error("Could not complete voice action — invalid target.");
+      }
     } else if (errorType === "urn:vacs:error:remote:timeout") {
       toast.error("VACS did not respond — please check that it is running.");
     }
@@ -398,7 +415,7 @@ export class VacsClient implements VacsActions {
       case "signaling:connected": {
         const info = payload as { client: ClientInfo };
         this.connectionState = "connected";
-        this.ownPositionId = info.client.positionId ?? info.client.displayName;
+        this.ownPositionId = this.sessionPositionId(info.client);
         this.emitState();
         break;
       }
@@ -529,22 +546,52 @@ export class VacsClient implements VacsActions {
     }
   }
 
-  private async startCall(target: string | { Position: string }): Promise<void> {
-    if (!this.ownPositionId) {
+  private sessionPositionId(client?: ClientInfo): string {
+    return client?.positionId ?? client?.displayName ?? "";
+  }
+
+  private callTargetsFor(client: ClientInfo): CallTargetWire[] {
+    const targets: CallTargetWire[] = [{ Client: client.id }, client.id];
+    if (client.positionId) {
+      targets.push({ Position: client.positionId });
+    }
+    if (client.displayName && client.displayName !== client.positionId) {
+      targets.push({ Position: client.displayName });
+    }
+    return targets;
+  }
+
+  private async placeCall(client: ClientInfo): Promise<void> {
+    const source = this.ownPositionId;
+    if (!source) {
       throw new Error("No VACS position");
     }
-    const callId = (await this.invoke("signaling_start_call", {
-      target,
-      source: this.ownPositionId,
-      prio: false,
-    })) as string;
-    this.outgoingCallId = callId;
-    this.inviteByCallId.set(callId, {
-      callId,
-      source: { clientId: this.clientId ?? "" },
-      target,
-      prio: false,
-    });
+
+    let lastError: Error | undefined;
+    for (const target of this.callTargetsFor(client)) {
+      try {
+        const callId = (await this.invoke(
+          "signaling_start_call",
+          { target, source, prio: false },
+          { suppressErrorToast: true },
+        )) as string;
+        this.outgoingCallId = callId;
+        this.inviteByCallId.set(callId, {
+          callId,
+          source: { clientId: this.clientId ?? "", positionId: source },
+          target,
+          prio: false,
+        });
+        return;
+      } catch (err) {
+        lastError = err instanceof Error ? err : new Error(String(err));
+      }
+    }
+
+    toast.error(
+      `Could not dial ${client.displayName} — check that VACS is connected to your position.`,
+    );
+    throw lastError ?? new Error("Dial failed");
   }
 
   private cancelAllPending(): void {

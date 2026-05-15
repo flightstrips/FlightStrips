@@ -5,6 +5,13 @@ export interface ClientInfo {
   positionId?: string;
 }
 
+/** Wire format for signaling_start_call target (externally-tagged enum). */
+export type CallTargetWire =
+  | string
+  | { Client: string }
+  | { Position: string }
+  | { Station: string };
+
 export interface CallSource {
   clientId: string;
   positionId?: string;
@@ -46,16 +53,21 @@ export type VacsState =
   | { status: "unauthenticated" }
   | { status: "disconnected" }
   | { status: "ambiguous" }
-  | { status: "idle"; clients: ClientInfo[]; ownPositionId: string }
-  | { status: "incoming"; calls: CallInvite[]; clients: ClientInfo[]; ownPositionId: string }
+  | { status: "idle"; clients: ClientInfo[]; ownPositionId: string; ownClientId: string | null }
+  | {
+      status: "incoming";
+      calls: CallInvite[];
+      clients: ClientInfo[];
+      ownPositionId: string;
+      ownClientId: string | null;
+    }
   | { status: "connected"; callId: string; peer: ClientInfo | null };
 
 export type VacsActions = {
   acceptCall(callId: string): Promise<void>;
   rejectCall(callId: string): Promise<void>;
   endCall(callId: string): Promise<void>;
-  dial(targetCid: string): Promise<void>;
-  dialByPosition(position: string): Promise<void>;
+  dialClient(client: ClientInfo): Promise<void>;
 };
 
 export type VacsInvokeMessage = {

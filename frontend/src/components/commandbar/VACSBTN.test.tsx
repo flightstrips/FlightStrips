@@ -33,8 +33,7 @@ describe("VACSBTN", () => {
         acceptCall: vi.fn(),
         rejectCall: vi.fn(),
         endCall: vi.fn(),
-        dial: vi.fn(),
-        dialByPosition: vi.fn(),
+        dialClient: vi.fn(),
       },
     });
     render(<VACSBTN />);
@@ -58,13 +57,13 @@ describe("VACSBTN", () => {
         ],
         clients: [],
         ownPositionId: "TWR",
+        ownClientId: "1",
       },
       actions: {
         acceptCall,
         rejectCall: vi.fn(),
         endCall: vi.fn(),
-        dial: vi.fn(),
-        dialByPosition: vi.fn(),
+        dialClient: vi.fn(),
       },
     });
     render(<VACSBTN />);
@@ -82,17 +81,41 @@ describe("VACSBTN", () => {
         ],
         clients: [],
         ownPositionId: "TWR",
+        ownClientId: "1",
       } as VacsState,
       actions: {
         acceptCall: vi.fn(),
         rejectCall: vi.fn(),
         endCall: vi.fn(),
-        dial: vi.fn(),
-        dialByPosition: vi.fn(),
+        dialClient: vi.fn(),
       },
     });
     render(<VACSBTN />);
     expect(screen.getByText("2")).toBeInTheDocument();
+  });
+
+  it("ends call on click when connected and flashes red", async () => {
+    const endCall = vi.fn().mockResolvedValue(undefined);
+    mockUseVacs.mockReturnValue({
+      state: {
+        status: "connected",
+        callId: "call-1",
+        peer: { id: "2", displayName: "EKCH_APP", frequency: "120.2" },
+      },
+      actions: {
+        acceptCall: vi.fn(),
+        rejectCall: vi.fn(),
+        endCall,
+        dialClient: vi.fn(),
+      },
+    });
+    render(<VACSBTN />);
+    const btn = screen.getByRole("button", { name: /vacs voice/i });
+    expect(btn.className).toContain("1BFF16");
+    fireEvent.click(btn);
+    expect(btn.className).toContain("FF4444");
+    expect(endCall).toHaveBeenCalledWith("call-1");
+    expect(screen.queryByText("End call")).toBeNull();
   });
 
   it("is hidden when integration disabled", () => {
@@ -103,8 +126,7 @@ describe("VACSBTN", () => {
         acceptCall: vi.fn(),
         rejectCall: vi.fn(),
         endCall: vi.fn(),
-        dial: vi.fn(),
-        dialByPosition: vi.fn(),
+        dialClient: vi.fn(),
       },
     });
     const { container } = render(<VACSBTN />);

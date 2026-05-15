@@ -86,6 +86,7 @@ describe("VacsClient", () => {
       status: "idle",
       clients: idleSnapshot().clients,
       ownPositionId: "EKCH_TWR",
+      ownClientId: "1000001",
     });
   });
 
@@ -131,7 +132,12 @@ describe("VacsClient", () => {
     client.simulateOpenForTest();
     client.start();
     const ws = MockWebSocket.instances[0]!;
-    const dialPromise = client.dial("1000002");
+    const dialPromise = client.dialClient({
+      id: "1000002",
+      displayName: "EKCH_APP",
+      frequency: "120.200",
+      positionId: "EKCH_APP",
+    });
     await vi.waitFor(() => expect(ws.sent.some((m) => m.includes("signaling_start_call"))).toBe(true));
     const invokes = ws.sent.map((m) => JSON.parse(m) as { type: string; id?: string });
     const invoke = [...invokes].reverse().find((m) => m.type === "invoke");
@@ -218,9 +224,13 @@ describe("VacsClient", () => {
   it("rejects invoke on timeout", async () => {
     client.simulateOpenForTest();
     client.start();
-    const p = client.dial("999");
+    const p = client.dialClient({
+      id: "999",
+      displayName: "UNKNOWN",
+      frequency: "118.000",
+    });
     const assertion = expect(p).rejects.toThrow("VACS invoke timeout");
-    await vi.advanceTimersByTimeAsync(10_001);
+    await vi.advanceTimersByTimeAsync(50_000);
     await assertion;
   });
 

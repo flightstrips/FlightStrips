@@ -7,7 +7,6 @@ export function findVacsClientForController(
 ): ClientInfo | undefined {
   return clients.find(
     (c) =>
-      c.id === controller.identifier ||
       c.positionId === controller.position ||
       c.positionId === controller.callsign ||
       c.displayName === controller.callsign ||

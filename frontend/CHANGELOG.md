@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.38.4](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.38.3...frontend/v0.38.4) (2026-05-15)
+
+
+### Bug Fixes
+
+* **frontend:** buiild error resolved ([d0bf3ad](https://github.com/flightstrips/FlightStrips/commit/d0bf3adbf6b0cf3f6413b4edb3b27bfbffbd7c42))
+
 ## [0.38.3](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.38.2...frontend/v0.38.3) (2026-05-15)
 
 

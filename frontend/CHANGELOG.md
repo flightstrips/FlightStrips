@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.38.1](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.38.0...frontend/v0.38.1) (2026-05-15)
+
+
+### Bug Fixes
+
+* **frontend:** fix VACS dial errors and simplify end-call button ([a00510d](https://github.com/flightstrips/FlightStrips/commit/a00510d8e1f44177e64a929548107bbfb88bd227))
+
 ## [0.38.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.37.0...frontend/v0.38.0) (2026-05-15)
 
 

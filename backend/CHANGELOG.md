@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.31.0](https://github.com/flightstrips/FlightStrips/compare/backend/v0.30.1...backend/v0.31.0) (2026-05-15)
+
+
+### Features
+
+* **vacs:** use controller LAN IP for associated frontends ([d1a32b0](https://github.com/flightstrips/FlightStrips/commit/d1a32b0223f4e589774b63982e502e418034d03a))
+
+
+### Bug Fixes
+
+* **backend:** align EKCH airborne layouts with ground coverage ([12748d2](https://github.com/flightstrips/FlightStrips/commit/12748d204211c91a5bb0bcd7c8b385e300683f69))
+
 ## [0.30.1](https://github.com/flightstrips/FlightStrips/compare/backend/v0.30.0...backend/v0.30.1) (2026-05-12)
 
 

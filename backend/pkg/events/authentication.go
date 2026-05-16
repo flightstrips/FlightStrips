@@ -1,10 +1,11 @@
-﻿package events
+package events
 
 const (
 	Event = "token"
 )
 
 type AuthenticationEvent struct {
-	Type  string `json:"type"`
-	Token string `json:"token"`
+	Type    string `json:"type"`
+	Token   string `json:"token"`
+	Version string `json:"version,omitempty"`
 }

@@ -13,6 +13,7 @@ import (
 	"log/slog"
 	"reflect"
 	"regexp"
+	"strings"
 	"time"
 
 	gorilla "github.com/gorilla/websocket"
@@ -70,6 +71,9 @@ func handleTokenEvent(ctx context.Context, client *Client, message Message) erro
 	}
 
 	client.SetUser(user)
+	if version := strings.TrimSpace(event.Version); version != "" {
+		client.version = version
+	}
 	return nil
 }
 
@@ -434,6 +438,7 @@ func handleSync(ctx context.Context, client *Client, message Message) error {
 		ctx,
 		sessionName,
 		airport,
+		client.version,
 		len(event.Strips),
 		len(event.Controllers),
 		syncState.ChangedStrips,

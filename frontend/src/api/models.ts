@@ -381,6 +381,7 @@ export interface FrontendBulkBayEvent {
 export interface FrontendAuthenticationEvent {
   type: ActionType.FrontendToken;
   token: string;
+  version: string;
 }
 
 export interface FrontendDisconnectEvent {

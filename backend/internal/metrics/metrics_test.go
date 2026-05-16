@@ -105,25 +105,27 @@ func TestConnectionAndClientMetricsUseReadableLabels(t *testing.T) {
 		resetInstrumentsForTest()
 	})
 
-	ConnectionOpened(context.Background(), "live", "ekch", "frontend", "ekch_del")
-	ConnectionClosed(context.Background(), "live", "ekch", "frontend", "ekch_del")
+	ConnectionOpened(context.Background(), "live", "ekch", "frontend", "ekch_del", "0.16.0")
+	ConnectionClosed(context.Background(), "live", "ekch", "frontend", "ekch_del", "0.16.0")
 
 	rm := collectMetrics(t, reader)
 
 	totalValue := findInt64MetricValue(t, rm, "websocket.connections.active", map[string]string{
-		"session_name": "LIVE",
-		"airport":      "EKCH",
-		"source":       "frontend",
+		"session_name":   "LIVE",
+		"airport":        "EKCH",
+		"source":         "frontend",
+		"client_version": "0.16.0",
 	})
 	if totalValue != 0 {
 		t.Fatalf("expected connection up/down counter to net to 0, got %d", totalValue)
 	}
 
 	clientValue := findInt64MetricValue(t, rm, "websocket.clients.active", map[string]string{
-		"session_name": "LIVE",
-		"airport":      "EKCH",
-		"source":       "frontend",
-		"callsign":     "EKCH_DEL",
+		"session_name":   "LIVE",
+		"airport":        "EKCH",
+		"source":         "frontend",
+		"callsign":       "EKCH_DEL",
+		"client_version": "0.16.0",
 	})
 	if clientValue != 0 {
 		t.Fatalf("expected client up/down counter to net to 0, got %d", clientValue)
@@ -141,24 +143,26 @@ func TestMasterClientMetricTracksCurrentCallsign(t *testing.T) {
 		resetInstrumentsForTest()
 	})
 
-	MasterClientAssigned(context.Background(), "live", "ekch", "ekch_a_twr")
-	MasterClientCleared(context.Background(), "live", "ekch", "ekch_a_twr")
-	MasterClientAssigned(context.Background(), "live", "ekch", "ekch_d_twr")
+	MasterClientAssigned(context.Background(), "live", "ekch", "ekch_a_twr", "0.16.0")
+	MasterClientCleared(context.Background(), "live", "ekch", "ekch_a_twr", "0.16.0")
+	MasterClientAssigned(context.Background(), "live", "ekch", "ekch_d_twr", "0.16.1")
 
 	rm := collectMetrics(t, reader)
 
 	if got := findInt64MetricValue(t, rm, "euroscope.master_client.active", map[string]string{
-		"session_name": "LIVE",
-		"airport":      "EKCH",
-		"callsign":     "EKCH_A_TWR",
+		"session_name":   "LIVE",
+		"airport":        "EKCH",
+		"callsign":       "EKCH_A_TWR",
+		"client_version": "0.16.0",
 	}); got != 0 {
 		t.Fatalf("expected previous master gauge to net to 0, got %d", got)
 	}
 
 	if got := findInt64MetricValue(t, rm, "euroscope.master_client.active", map[string]string{
-		"session_name": "LIVE",
-		"airport":      "EKCH",
-		"callsign":     "EKCH_D_TWR",
+		"session_name":   "LIVE",
+		"airport":        "EKCH",
+		"callsign":       "EKCH_D_TWR",
+		"client_version": "0.16.1",
 	}); got != 1 {
 		t.Fatalf("expected current master gauge to be 1, got %d", got)
 	}
@@ -226,13 +230,14 @@ func TestEuroscopeSyncMetricsUseSessionNameAndAirport(t *testing.T) {
 		resetInstrumentsForTest()
 	})
 
-	RecordEuroscopeSync(context.Background(), "live", "ekch", 12, 4, 3, 1, 9, 150*time.Millisecond)
+	RecordEuroscopeSync(context.Background(), "live", "ekch", "0.16.0", 12, 4, 3, 1, 9, 150*time.Millisecond)
 
 	rm := collectMetrics(t, reader)
 
 	attrs := map[string]string{
-		"session_name": "LIVE",
-		"airport":      "EKCH",
+		"session_name":   "LIVE",
+		"airport":        "EKCH",
+		"client_version": "0.16.0",
 	}
 
 	if got := findInt64MetricValue(t, rm, "euroscope.sync.input_strips", attrs); got != 12 {

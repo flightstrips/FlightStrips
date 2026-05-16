@@ -209,10 +209,19 @@ func normalizeCallsign(callsign string) string {
 	return strings.ToUpper(strings.TrimSpace(callsign))
 }
 
-func ConnectionOpened(ctx context.Context, sessionName, airport, source, callsign string) {
+func normalizeVersion(version string) string {
+	version = strings.TrimSpace(version)
+	if version == "" {
+		return "UNKNOWN"
+	}
+	return version
+}
+
+func ConnectionOpened(ctx context.Context, sessionName, airport, source, callsign, version string) {
 	get().activeConnections.Add(ctx, 1,
 		sessionAttributes(sessionName, airport,
 			attribute.String("source", source),
+			attribute.String("client_version", normalizeVersion(version)),
 		),
 	)
 
@@ -225,14 +234,16 @@ func ConnectionOpened(ctx context.Context, sessionName, airport, source, callsig
 		sessionAttributes(sessionName, airport,
 			attribute.String("source", source),
 			attribute.String("callsign", callsign),
+			attribute.String("client_version", normalizeVersion(version)),
 		),
 	)
 }
 
-func ConnectionClosed(ctx context.Context, sessionName, airport, source, callsign string) {
+func ConnectionClosed(ctx context.Context, sessionName, airport, source, callsign, version string) {
 	get().activeConnections.Add(ctx, -1,
 		sessionAttributes(sessionName, airport,
 			attribute.String("source", source),
+			attribute.String("client_version", normalizeVersion(version)),
 		),
 	)
 
@@ -245,11 +256,12 @@ func ConnectionClosed(ctx context.Context, sessionName, airport, source, callsig
 		sessionAttributes(sessionName, airport,
 			attribute.String("source", source),
 			attribute.String("callsign", callsign),
+			attribute.String("client_version", normalizeVersion(version)),
 		),
 	)
 }
 
-func MasterClientAssigned(ctx context.Context, sessionName, airport, callsign string) {
+func MasterClientAssigned(ctx context.Context, sessionName, airport, callsign, version string) {
 	callsign = normalizeCallsign(callsign)
 	if callsign == "" {
 		return
@@ -258,11 +270,12 @@ func MasterClientAssigned(ctx context.Context, sessionName, airport, callsign st
 	get().activeMasterClients.Add(ctx, 1,
 		sessionAttributes(sessionName, airport,
 			attribute.String("callsign", callsign),
+			attribute.String("client_version", normalizeVersion(version)),
 		),
 	)
 }
 
-func MasterClientCleared(ctx context.Context, sessionName, airport, callsign string) {
+func MasterClientCleared(ctx context.Context, sessionName, airport, callsign, version string) {
 	callsign = normalizeCallsign(callsign)
 	if callsign == "" {
 		return
@@ -271,20 +284,22 @@ func MasterClientCleared(ctx context.Context, sessionName, airport, callsign str
 	get().activeMasterClients.Add(ctx, -1,
 		sessionAttributes(sessionName, airport,
 			attribute.String("callsign", callsign),
+			attribute.String("client_version", normalizeVersion(version)),
 		),
 	)
 }
 
-func MessageReceived(ctx context.Context, sessionName, airport, source, msgType string) {
+func MessageReceived(ctx context.Context, sessionName, airport, source, msgType, version string) {
 	get().messagesReceived.Add(ctx, 1,
 		sessionAttributes(sessionName, airport,
 			attribute.String("source", source),
 			attribute.String("type", msgType),
+			attribute.String("client_version", normalizeVersion(version)),
 		),
 	)
 }
 
-func MessageHandled(ctx context.Context, sessionName, airport, source, msgType string, duration time.Duration, success bool) {
+func MessageHandled(ctx context.Context, sessionName, airport, source, msgType, version string, duration time.Duration, success bool) {
 	status := "ok"
 	if !success {
 		status = "error"
@@ -294,11 +309,12 @@ func MessageHandled(ctx context.Context, sessionName, airport, source, msgType s
 			attribute.String("source", source),
 			attribute.String("type", msgType),
 			attribute.String("status", status),
+			attribute.String("client_version", normalizeVersion(version)),
 		),
 	)
 }
 
-func MessageDBOperations(ctx context.Context, sessionName, airport, source, msgType string, dbOperations int) {
+func MessageDBOperations(ctx context.Context, sessionName, airport, source, msgType, version string, dbOperations int) {
 	if dbOperations <= 0 {
 		return
 	}
@@ -306,12 +322,13 @@ func MessageDBOperations(ctx context.Context, sessionName, airport, source, msgT
 		sessionAttributes(sessionName, airport,
 			attribute.String("source", source),
 			attribute.String("type", msgType),
+			attribute.String("client_version", normalizeVersion(version)),
 		),
 	)
 }
 
-func RecordEuroscopeSync(ctx context.Context, sessionName, airport string, inputStrips, inputControllers, changedStrips, changedControllers, dbOperations int, duration time.Duration) {
-	attrs := sessionAttributes(sessionName, airport)
+func RecordEuroscopeSync(ctx context.Context, sessionName, airport, version string, inputStrips, inputControllers, changedStrips, changedControllers, dbOperations int, duration time.Duration) {
+	attrs := sessionAttributes(sessionName, airport, attribute.String("client_version", normalizeVersion(version)))
 	i := get()
 	i.syncInputStrips.Add(ctx, int64(inputStrips), attrs)
 	i.syncInputControllers.Add(ctx, int64(inputControllers), attrs)
@@ -321,11 +338,12 @@ func RecordEuroscopeSync(ctx context.Context, sessionName, airport string, input
 	i.syncDuration.Record(ctx, duration.Seconds(), attrs)
 }
 
-func MessageSent(ctx context.Context, sessionName, airport, source, msgType string) {
+func MessageSent(ctx context.Context, sessionName, airport, source, msgType, version string) {
 	get().messagesSent.Add(ctx, 1,
 		sessionAttributes(sessionName, airport,
 			attribute.String("source", source),
 			attribute.String("type", msgType),
+			attribute.String("client_version", normalizeVersion(version)),
 		),
 	)
 }

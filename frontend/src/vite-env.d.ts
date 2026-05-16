@@ -13,3 +13,5 @@ interface AppConfig {
 interface Window {
   __APP_CONFIG__?: AppConfig;
 }
+
+declare const __APP_VERSION__: string;

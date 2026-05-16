@@ -16,6 +16,7 @@ import (
 	"errors"
 	"log/slog"
 	"slices"
+	"strings"
 	"sync"
 	"time"
 
@@ -175,7 +176,7 @@ func (hub *Hub) SetServer(server shared.Server) {
 	hub.server = server
 }
 
-func (hub *Hub) HandleNewConnection(conn *gorilla.Conn, user shared.AuthenticatedUser) (*Client, error) {
+func (hub *Hub) HandleNewConnection(conn *gorilla.Conn, user shared.AuthenticatedUser, authenticationEvent events.AuthenticationEvent) (*Client, error) {
 	controllerRepo := hub.server.GetControllerRepository()
 	sessionRepo := hub.server.GetSessionRepository()
 
@@ -241,6 +242,7 @@ func (hub *Hub) HandleNewConnection(conn *gorilla.Conn, user shared.Authenticate
 		position:    position,
 		airport:     airport,
 		callsign:    callsign,
+		version:     strings.TrimSpace(authenticationEvent.Version),
 		readOnly:    readOnly,
 	}
 
@@ -657,12 +659,12 @@ func (hub *Hub) associateCidOnlineClients(msg cidOnlineMessage) []*Client {
 
 		switch {
 		case oldSession == WaitingForEuroscopeConnectionSessionId && client.sessionName != "":
-			metrics.ConnectionClosed(context.Background(), "", "", "frontend", "")
-			metrics.ConnectionOpened(context.Background(), client.sessionName, client.airport, "frontend", client.callsign)
+			metrics.ConnectionClosed(context.Background(), "", "", "frontend", "", client.version)
+			metrics.ConnectionOpened(context.Background(), client.sessionName, client.airport, "frontend", client.callsign, client.version)
 		case oldSession != WaitingForEuroscopeConnectionSessionId &&
 			(oldSessionName != client.sessionName || oldAirport != client.airport || oldCallsign != client.callsign):
-			metrics.ConnectionClosed(context.Background(), oldSessionName, oldAirport, "frontend", oldCallsign)
-			metrics.ConnectionOpened(context.Background(), client.sessionName, client.airport, "frontend", client.callsign)
+			metrics.ConnectionClosed(context.Background(), oldSessionName, oldAirport, "frontend", oldCallsign, client.version)
+			metrics.ConnectionOpened(context.Background(), client.sessionName, client.airport, "frontend", client.callsign, client.version)
 		}
 
 		if wasWaiting || client.readOnly {
@@ -688,8 +690,8 @@ func (hub *Hub) handleCidDisconnect(cid string) {
 			}
 			if client.session != WaitingForEuroscopeConnectionSessionId &&
 				(client.sessionName != "" || client.callsign != "" || client.airport != "") {
-				metrics.ConnectionClosed(context.Background(), client.sessionName, client.airport, "frontend", client.callsign)
-				metrics.ConnectionOpened(context.Background(), "", "", "frontend", "")
+				metrics.ConnectionClosed(context.Background(), client.sessionName, client.airport, "frontend", client.callsign, client.version)
+				metrics.ConnectionOpened(context.Background(), "", "", "frontend", "", client.version)
 			}
 			client.session = WaitingForEuroscopeConnectionSessionId
 			client.sessionName = ""
@@ -1140,7 +1142,7 @@ func (hub *Hub) SendAvailableSids(session int32, sids pkgModels.AvailableSids) {
 
 func (hub *Hub) OnRegister(client *Client) {
 	slog.Debug("Client registered", slog.String("cid", client.user.GetCid()))
-	metrics.ConnectionOpened(context.Background(), client.sessionName, client.airport, "frontend", client.callsign)
+	metrics.ConnectionOpened(context.Background(), client.sessionName, client.airport, "frontend", client.callsign, client.version)
 	if client.session != WaitingForEuroscopeConnectionSessionId {
 		hub.sendInitialEvent(client)
 		return
@@ -1151,7 +1153,7 @@ func (hub *Hub) OnRegister(client *Client) {
 
 func (hub *Hub) OnUnregister(client *Client) {
 	slog.Debug("Client unregistered", slog.String("cid", client.user.GetCid()))
-	metrics.ConnectionClosed(context.Background(), client.sessionName, client.airport, "frontend", client.callsign)
+	metrics.ConnectionClosed(context.Background(), client.sessionName, client.airport, "frontend", client.callsign, client.version)
 }
 
 func (hub *Hub) Run() {

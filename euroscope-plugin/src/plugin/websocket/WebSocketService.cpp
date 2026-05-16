@@ -6,6 +6,7 @@
 #include "Events.h"
 #include "Logger.hpp"
 #include "network/LocalIpAddress.h"
+#include "version.h"
 
 namespace FlightStrips::websocket {
     WebSocketService::WebSocketService(std::string baseUrl,
@@ -170,7 +171,7 @@ namespace FlightStrips::websocket {
     void WebSocketService::OnTokenUpdate(const std::string &token) {
         exceptions::RunGuarded("WebSocketService::OnTokenUpdate", [this, &token] {
             if (!IsConnected()) return;
-            const auto event = TokenEvent(token);
+            const auto event = TokenEvent(token, PLUGIN_VERSION);
             SendEvent(event);
         });
     }
@@ -266,7 +267,7 @@ namespace FlightStrips::websocket {
             fail_count_ = 0;
             connect_after_.reset();
             connect_readiness_ = ConnectReadiness::RECONNECT;
-            const auto token = TokenEvent(m_authentication_service->GetAccessToken());
+            const auto token = TokenEvent(m_authentication_service->GetAccessToken(), PLUGIN_VERSION);
             SendEvent(token);
             SendLoginEvent();
 

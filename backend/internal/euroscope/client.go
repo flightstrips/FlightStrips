@@ -21,6 +21,7 @@ type Client struct {
 	position string
 	callsign string
 	airport  string
+	version  string
 	observer bool
 	localIP  string
 }
@@ -59,6 +60,10 @@ func (c *Client) GetSessionName() string {
 
 func (c *Client) GetSource() string {
 	return "euroscope"
+}
+
+func (c *Client) GetVersion() string {
+	return c.version
 }
 
 func (c *Client) GetConnection() *gorilla.Conn {

@@ -170,7 +170,7 @@ func (hub *Hub) Send(session int32, cid string, message euroscope.OutgoingMessag
 }
 
 func (hub *Hub) OnRegister(client *Client) {
-	metrics.ConnectionOpened(context.Background(), client.sessionName, client.airport, "euroscope", client.callsign)
+	metrics.ConnectionOpened(context.Background(), client.sessionName, client.airport, "euroscope", client.callsign, client.version)
 	hub.setObserverCid(client.GetCid(), client.observer)
 	hub.setClientLocalIP(client.session, client.GetCid(), client.localIP)
 	hub.adjustAirportClientCount(client.airport, client.observer, 1)
@@ -338,7 +338,7 @@ func (hub *Hub) SetControllerService(controllerService shared.ControllerService)
 	hub.controllerService = controllerService
 }
 
-func (hub *Hub) HandleNewConnection(conn *gorilla.Conn, user shared.AuthenticatedUser) (*Client, error) {
+func (hub *Hub) HandleNewConnection(conn *gorilla.Conn, user shared.AuthenticatedUser, authenticationEvent events.AuthenticationEvent) (*Client, error) {
 	slog.Debug("Euroscope client connected", slog.String("cid", user.GetCid()))
 	// Read the login message
 	_, msg, err := conn.ReadMessage()
@@ -370,6 +370,7 @@ func (hub *Hub) HandleNewConnection(conn *gorilla.Conn, user shared.Authenticate
 		position:    event.Position,
 		callsign:    event.Callsign,
 		airport:     event.Airport,
+		version:     strings.TrimSpace(authenticationEvent.Version),
 		observer:    event.Observer,
 		localIP:     event.LocalIP,
 	}
@@ -496,7 +497,7 @@ func pendingOnlineOrchestrationKey(session int32, callsign string) string {
 }
 
 func (hub *Hub) OnUnregister(client *Client) {
-	metrics.ConnectionClosed(context.Background(), client.sessionName, client.airport, "euroscope", client.callsign)
+	metrics.ConnectionClosed(context.Background(), client.sessionName, client.airport, "euroscope", client.callsign, client.version)
 	hub.clearClientRunwayState(client.session, client.GetCid())
 	hub.clearObserverCid(client.GetCid())
 	hub.clearClientLocalIP(client.session, client.GetCid())
@@ -570,26 +571,26 @@ func (hub *Hub) setMasterClient(client *Client) {
 		}
 
 		if strings.TrimSpace(storedCallsign) != "" {
-			metrics.MasterClientCleared(context.Background(), current.sessionName, current.airport, storedCallsign)
+			metrics.MasterClientCleared(context.Background(), current.sessionName, current.airport, storedCallsign, current.version)
 		}
 
 		hub.masterCallsigns.Store(client.session, client.callsign)
-		metrics.MasterClientAssigned(context.Background(), client.sessionName, client.airport, client.callsign)
+		metrics.MasterClientAssigned(context.Background(), client.sessionName, client.airport, client.callsign, client.version)
 		return
 	}
 
 	if current, ok := hub.master[client.session]; ok && current != nil {
-		metrics.MasterClientCleared(context.Background(), current.sessionName, current.airport, current.callsign)
+		metrics.MasterClientCleared(context.Background(), current.sessionName, current.airport, current.callsign, current.version)
 	}
 
 	hub.master[client.session] = client
 	hub.masterCallsigns.Store(client.session, client.callsign)
-	metrics.MasterClientAssigned(context.Background(), client.sessionName, client.airport, client.callsign)
+	metrics.MasterClientAssigned(context.Background(), client.sessionName, client.airport, client.callsign, client.version)
 }
 
 func (hub *Hub) clearMasterClient(session int32) {
 	if current, ok := hub.master[session]; ok && current != nil {
-		metrics.MasterClientCleared(context.Background(), current.sessionName, current.airport, current.callsign)
+		metrics.MasterClientCleared(context.Background(), current.sessionName, current.airport, current.callsign, current.version)
 	}
 
 	delete(hub.master, session)

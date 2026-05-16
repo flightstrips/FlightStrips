@@ -30,6 +30,8 @@ func (testClient) GetSessionName() string { return "LIVE" }
 
 func (testClient) GetSource() string { return "euroscope" }
 
+func (testClient) GetVersion() string { return "0.16.0" }
+
 func (testClient) GetConnection() *gorilla.Conn { return nil }
 
 func (testClient) IsAuthenticated() bool { return true }

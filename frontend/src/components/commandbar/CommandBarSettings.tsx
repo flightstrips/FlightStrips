@@ -12,6 +12,7 @@ import * as VisuallyHidden from "@radix-ui/react-visually-hidden";
 import { Button } from "@/components/ui/button";
 import { useAudioSettings } from "@/hooks/useAudioSettings";
 import { useVacsSettings } from "@/hooks/useVacsSettings";
+import { FRONTEND_VERSION } from "@/lib/app-version";
 import { useLocalIp } from "@/store/store-hooks";
 
 const CLS_DIALOG = "sm:max-w-[400px] bg-[#b3b3b3]";
@@ -54,6 +55,11 @@ export default function CommandBarSettings() {
         <div className="border-2 border-black">
           <div className="p-4 space-y-4 min-w-[280px]">
             <h2 className="text-lg font-bold text-black">Settings</h2>
+
+            <div className="text-sm text-black">
+              <span className="font-semibold">Version:</span>{" "}
+              <span>{FRONTEND_VERSION}</span>
+            </div>
 
             <label className="flex items-center gap-3 cursor-pointer text-sm text-black">
               <input

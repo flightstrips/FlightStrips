@@ -1,4 +1,4 @@
-﻿package websocket
+package websocket
 
 import (
 	"FlightStrips/internal/shared"
@@ -65,7 +65,7 @@ func (u ConnectionUpgrader[TType, TClient]) Upgrade(w http.ResponseWriter, r *ht
 		attribute.String("user.cid", user.GetCid()),
 	)
 
-	client, err := u.hub.HandleNewConnection(conn, user)
+	client, err := u.hub.HandleNewConnection(conn, user, authenticationEvent)
 	if err != nil {
 		span.RecordError(err)
 		slog.Warn("Failed to handle new connection", slog.Any("error", err))

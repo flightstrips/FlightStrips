@@ -30,6 +30,7 @@ type Client interface {
 	GetSession() int32
 	GetSessionName() string
 	GetSource() string
+	GetVersion() string
 	GetConnection() *websocket.Conn
 
 	IsAuthenticated() bool
@@ -83,7 +84,7 @@ func ReadPump[TType comparable, TClient Client, THub Hub[TType, TClient]](hub TH
 		}
 
 		msgType := fmt.Sprintf("%v", parsedMessage.Type)
-		metrics.MessageReceived(context.Background(), client.GetSessionName(), client.GetAirport(), client.GetSource(), msgType)
+		metrics.MessageReceived(context.Background(), client.GetSessionName(), client.GetAirport(), client.GetSource(), msgType, client.GetVersion())
 
 		tracer := otel.Tracer("websocket")
 		ctx, span := tracer.Start(context.Background(), msgType,
@@ -105,9 +106,9 @@ func ReadPump[TType comparable, TClient Client, THub Hub[TType, TClient]](hub TH
 			err = handlers.Handle(ctx, client, parsedMessage)
 		}
 		if state := shared.GetWebsocketMessageState(ctx); state != nil {
-			metrics.MessageDBOperations(ctx, client.GetSessionName(), client.GetAirport(), client.GetSource(), msgType, state.DBOperations)
+			metrics.MessageDBOperations(ctx, client.GetSessionName(), client.GetAirport(), client.GetSource(), msgType, client.GetVersion(), state.DBOperations)
 		}
-		metrics.MessageHandled(ctx, client.GetSessionName(), client.GetAirport(), client.GetSource(), msgType, time.Since(start), err == nil)
+		metrics.MessageHandled(ctx, client.GetSessionName(), client.GetAirport(), client.GetSource(), msgType, client.GetVersion(), time.Since(start), err == nil)
 
 		if err != nil {
 			span.SetStatus(codes.Error, err.Error())
@@ -236,7 +237,7 @@ func WritePump[TClient Client](client TClient) {
 				Type string `json:"type"`
 			}
 			_ = json.Unmarshal(bytes, &typeHolder)
-			metrics.MessageSent(context.Background(), client.GetSessionName(), client.GetAirport(), client.GetSource(), typeHolder.Type)
+			metrics.MessageSent(context.Background(), client.GetSessionName(), client.GetAirport(), client.GetSource(), typeHolder.Type, client.GetVersion())
 
 			if err := client.GetConnection().WriteMessage(websocket.TextMessage, bytes); err != nil {
 				return

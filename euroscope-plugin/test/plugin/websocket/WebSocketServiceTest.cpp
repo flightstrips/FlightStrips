@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
 #include "websocket/WebSocketService.h"
+#include "version.h"
 #include "websocket/Events.h"
 #include "mock/MockFlightStripsPlugin.h"
 #include "mock/MockAuthenticationService.h"
@@ -496,6 +497,8 @@ TEST_F(WebSocketServiceReconnectTest, OnConnected_DirectConnection_UsesSelectedS
     svc->SimulateConnected();
 
     ASSERT_EQ(sent.size(), 2u);
+    EXPECT_EQ(sent[0]["type"], EVENT_TOKEN_NAME);
+    EXPECT_EQ(sent[0]["version"], PLUGIN_VERSION);
     EXPECT_EQ(sent[1]["type"], EVENT_LOGIN_NAME);
     EXPECT_EQ(sent[1]["connection"], "SWEATBOX");
 }
@@ -683,6 +686,12 @@ TEST(EventTypeTest, TokenEvent_SerializesToken) {
     TokenEvent e("abc-123");
     const nlohmann::json j = e;
     EXPECT_EQ(j["token"], "abc-123");
+}
+
+TEST(EventTypeTest, TokenEvent_SerializesVersion) {
+    TokenEvent e("abc-123", "0.16.0");
+    const nlohmann::json j = e;
+    EXPECT_EQ(j["version"], "0.16.0");
 }
 
 TEST(EventTypeTest, LoginEvent_SerializesCorrectType) {

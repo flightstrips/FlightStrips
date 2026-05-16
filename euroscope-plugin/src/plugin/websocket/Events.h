@@ -170,11 +170,13 @@ protected:
 
 struct TokenEvent final : Event {
     std::string token;
+    std::string version;
 
-    explicit TokenEvent(std::string token) : Event(EVENT_TOKEN), token(std::move(token)) {
+    explicit TokenEvent(std::string token, std::string version = "")
+        : Event(EVENT_TOKEN), token(std::move(token)), version(std::move(version)) {
     }
 
-    NLOHMANN_DEFINE_TYPE_INTRUSIVE(TokenEvent, token, type)
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE(TokenEvent, token, version, type)
 };
 
 struct LoginEvent final : Event {

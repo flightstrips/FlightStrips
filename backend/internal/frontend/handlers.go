@@ -61,6 +61,9 @@ func handleTokenEvent(ctx context.Context, client *Client, message Message) erro
 	}
 
 	client.SetUser(user)
+	if version := strings.TrimSpace(event.Version); version != "" {
+		client.version = version
+	}
 	return nil
 }
 

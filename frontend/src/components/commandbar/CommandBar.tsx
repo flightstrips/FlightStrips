@@ -13,6 +13,7 @@ import MetarHelper from "@/components/MetarHelper";
 import { useAtisCode, useMarkArmed, useMetar, useRunwaySetup, useSelectedCallsign, useSelectStrip, useSetMarkArmed, useStrips, useWebSocketStore, useStrip } from "@/store/store-hooks";
 import { CLS_CMDBTN } from "@/components/strip/shared";
 import { Bay } from "@/api/models";
+import { FRONTEND_VERSION } from "@/lib/app-version";
 
 // Bar height matches strip height (4.72dvh). Inner elements: calc(4.72dvh - 14px) + 7px top/bottom margin.
 const CLS_BAR = "h-[4.72dvh] w-screen bg-bay-commandbar flex justify-between text-white items-center border-t-2 border-bay-border";
@@ -243,8 +244,21 @@ export default function CommandBar() {
               border: "1px solid black",
             }}
           >
-            {/* Inner border inset (SVG: 15.5px sides / 16.5px top-bottom at 2512×254) */}
-            <div
+           <div
+             className="absolute text-black/70 font-medium"
+             style={{
+               left: "0.90vw",
+               bottom: "0.20dvh",
+               zIndex: 1,
+               fontSize: "0.58vw",
+               fontFamily: "Rubik, sans-serif",
+             }}
+           >
+             VERSION {FRONTEND_VERSION}
+           </div>
+
+           {/* Inner border inset (SVG: 15.5px sides / 16.5px top-bottom at 2512×254) */}
+           <div
               className="absolute flex items-center"
               style={{
                 inset: "0.76dvh 0.60vw",

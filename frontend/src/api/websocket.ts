@@ -37,6 +37,7 @@ import {
   type WebSocketEvent,
   type AvailableSidsEvent,
 } from "./models";
+import { FRONTEND_VERSION } from "@/lib/app-version";
 
 
 type EventMap = {
@@ -233,7 +234,8 @@ export class WebSocketClient {
     if (this.token) {
       this.send({
         type: ActionType.FrontendToken,
-        token: this.token
+        token: this.token,
+        version: FRONTEND_VERSION,
       });
     }
   }

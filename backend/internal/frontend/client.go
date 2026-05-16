@@ -29,6 +29,7 @@ type Client struct {
 	position string
 	callsign string
 	airport  string
+	version  string
 	readOnly bool
 }
 
@@ -66,6 +67,10 @@ func (c *Client) GetSessionName() string {
 
 func (c *Client) GetSource() string {
 	return "frontend"
+}
+
+func (c *Client) GetVersion() string {
+	return c.version
 }
 
 func (c *Client) GetConnection() *gorilla.Conn {

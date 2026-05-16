@@ -28,6 +28,9 @@ namespace FlightStrips::websocket {
                                                              }, [this] { this->OnConnected(); })),
                                                          enabled(apiEnabled),
                                                          local_ip_(network::GetLocalPrivateIPv4().value_or("")) {
+        if (enabled) {
+            InitializeOnlineState();
+        }
     }
 
     WebSocketService::WebSocketService(const std::shared_ptr<authentication::IAuthenticationService> &authentication_service,
@@ -44,6 +47,9 @@ namespace FlightStrips::websocket {
                                                          webSocket(std::move(ws)),
                                                          enabled(enabled),
                                                          local_ip_(std::move(localIp)) {
+        if (enabled) {
+            InitializeOnlineState();
+        }
     }
 
     WebSocketService::~WebSocketService() {
@@ -53,6 +59,7 @@ namespace FlightStrips::websocket {
         if (!enabled) return;
         const auto &state = m_plugin->GetConnectionState();
         const auto now = std::chrono::steady_clock::now();
+        UpdateOnlineState(state.connection_type != CONNECTION_TYPE_NO, now);
 
         const bool freq_ok = !state.primary_frequency.empty() && state.primary_frequency != "199.998";
         const bool airport_ok = !state.relevant_airport.empty();
@@ -61,22 +68,6 @@ namespace FlightStrips::websocket {
         const bool auth_ok = m_authentication_service->GetAuthenticationState() == authentication::AUTHENTICATED
                           || m_authentication_service->GetAuthenticationState() == authentication::REFRESH;
         const bool should_connect = airport_ok && conn_ok && auth_ok && freq_ok;
-
-        // Track how long we've been online (network+airport+auth) but without a primary frequency.
-        // If a primary is selected after ≥30s in this state, skip the connect delay.
-        const bool online_but_no_freq = !freq_ok && airport_ok && conn_ok && auth_ok;
-        const auto online_without_primary_elapsed = online_without_primary_since_.has_value()
-            ? std::chrono::duration_cast<std::chrono::seconds>(now - online_without_primary_since_.value()).count()
-            : 0LL;
-        const bool skip_delay_for_primary = should_connect &&
-            online_without_primary_elapsed >= ONLINE_WITHOUT_PRIMARY_THRESHOLD_SECONDS;
-
-        if (online_but_no_freq && !IsConnected()) {
-            if (!online_without_primary_since_.has_value())
-                online_without_primary_since_ = now;
-        } else {
-            online_without_primary_since_.reset();
-        }
 
         if (!should_connect && IsConnected()) {
             Logger::Warning("Disconnecting from server — reason: freq_ok={} (freq='{}') airport_ok={} (airport='{}') conn_ok={} (type={}) auth_ok={}",
@@ -88,9 +79,6 @@ namespace FlightStrips::websocket {
 
         if (should_connect && (webSocket->GetStatus() == WEBSOCKET_STATUS_DISCONNECTED || webSocket->GetStatus() ==
                                WEBSOCKET_STATUS_FAILED)) {
-            if (skip_delay_for_primary)
-                connect_readiness_ = ConnectReadiness::RECONNECT;
-
             if (!connect_after_.has_value()) {
                 pending_connect_ = true;
                 if (webSocket->GetStatus() == WEBSOCKET_STATUS_FAILED) {
@@ -100,11 +88,12 @@ namespace FlightStrips::websocket {
                     Logger::Info("Connect failed (attempt {}), retrying in {}ms", fail_count_, delay_ms);
                     return;
                 }
-                if (connect_readiness_ == ConnectReadiness::RECONNECT) {
-                    Logger::Info("Connecting immediately");
-                } else {
-                    connect_after_ = now + std::chrono::seconds(FAST_CONNECT_DELAY_SECONDS);
-                    Logger::Info("Detected online, waiting {}s before connecting to server", FAST_CONNECT_DELAY_SECONDS);
+
+                if (const auto connect_not_before = GetConnectNotBefore(now); connect_not_before.has_value()) {
+                    connect_after_ = connect_not_before;
+                    const auto delay_seconds = std::chrono::duration_cast<std::chrono::seconds>(
+                        connect_not_before.value() - now).count();
+                    Logger::Info("Waiting {}s before connecting to server", delay_seconds);
                     return;
                 }
             }
@@ -127,7 +116,6 @@ namespace FlightStrips::websocket {
             connect_after_.reset();
             pending_connect_ = false;
             fail_count_ = 0;
-            connect_readiness_ = ConnectReadiness::RECONNECT;
             return;
         }
 
@@ -136,7 +124,6 @@ namespace FlightStrips::websocket {
                 connect_after_.reset();
                 pending_connect_ = false;
                 fail_count_ = 0;
-                connect_readiness_ = ConnectReadiness::RECONNECT;
             }
             return;
         }
@@ -204,7 +191,6 @@ namespace FlightStrips::websocket {
         connect_after_.reset();
         pending_connect_ = false;
         fail_count_ = 0;
-        connect_readiness_ = ConnectReadiness::RECONNECT;
         primary.clear();
         session_name.clear();
         observer = false;
@@ -266,13 +252,68 @@ namespace FlightStrips::websocket {
             pending_connect_ = false;
             fail_count_ = 0;
             connect_after_.reset();
-            connect_readiness_ = ConnectReadiness::RECONNECT;
+            const bool online = m_plugin->GetConnectionState().connection_type != CONNECTION_TYPE_NO;
+            was_online_ = online;
+            if (online && !online_since_.has_value()) {
+                online_since_ = std::chrono::steady_clock::now();
+            }
+            has_connected_in_online_period_ = true;
             const auto token = TokenEvent(m_authentication_service->GetAccessToken(), PLUGIN_VERSION);
             SendEvent(token);
             SendLoginEvent();
 
             m_connection_handlers->OnOnline();
         });
+    }
+
+    void WebSocketService::InitializeOnlineState() {
+        const bool online = m_plugin->GetConnectionState().connection_type != CONNECTION_TYPE_NO;
+        was_online_ = online;
+        if (!online) {
+            return;
+        }
+
+        online_since_ = std::chrono::steady_clock::now();
+        online_connect_delay_seconds_ = FAST_CONNECT_DELAY_SECONDS;
+    }
+
+    void WebSocketService::UpdateOnlineState(const bool online, const std::chrono::steady_clock::time_point now) {
+        if (online == was_online_) {
+            return;
+        }
+        if (online && online_since_.has_value()) {
+            was_online_ = true;
+            return;
+        }
+
+        was_online_ = online;
+        if (online) {
+            online_since_ = now;
+            has_connected_in_online_period_ = false;
+            online_connect_delay_seconds_ = ONLINE_TRANSITION_CONNECT_DELAY_SECONDS;
+            return;
+        }
+
+        online_since_.reset();
+        has_connected_in_online_period_ = false;
+        online_connect_delay_seconds_ = ONLINE_TRANSITION_CONNECT_DELAY_SECONDS;
+    }
+
+    std::optional<std::chrono::steady_clock::time_point> WebSocketService::GetConnectNotBefore(
+        const std::chrono::steady_clock::time_point now) const {
+        if (has_connected_in_online_period_) {
+            return now + std::chrono::seconds(FAST_CONNECT_DELAY_SECONDS);
+        }
+        if (!online_since_.has_value()) {
+            return std::nullopt;
+        }
+
+        const auto connect_at = online_since_.value() + std::chrono::seconds(online_connect_delay_seconds_);
+        if (connect_at <= now) {
+            return std::nullopt;
+        }
+
+        return connect_at;
     }
 
     void WebSocketService::SendLoginEvent() {

@@ -65,7 +65,7 @@ namespace FlightStrips::websocket {
                          std::string localIp = "");
 
         void OnConnected();
-        std::optional<std::chrono::steady_clock::time_point> online_without_primary_since_;
+        std::optional<std::chrono::steady_clock::time_point> online_since_;
 
     private:
         std::string m_base_url;
@@ -86,11 +86,12 @@ namespace FlightStrips::websocket {
         bool enabled;
 
         static constexpr int FAST_CONNECT_DELAY_SECONDS = 5;
-        static constexpr int ONLINE_WITHOUT_PRIMARY_THRESHOLD_SECONDS = 30;
+        static constexpr int ONLINE_TRANSITION_CONNECT_DELAY_SECONDS = 30;
         static constexpr std::array<int, 7> BACKOFF_MS = {500, 1000, 2000, 5000, 10000, 15000, 30000};
 
-        enum class ConnectReadiness { FIRST_CONNECT, RECONNECT };
-        ConnectReadiness connect_readiness_ = ConnectReadiness::FIRST_CONNECT;
+        bool was_online_ = false;
+        bool has_connected_in_online_period_ = false;
+        int online_connect_delay_seconds_ = ONLINE_TRANSITION_CONNECT_DELAY_SECONDS;
 
         std::optional<std::chrono::steady_clock::time_point> connect_after_;
         bool pending_connect_ = false;
@@ -99,6 +100,9 @@ namespace FlightStrips::websocket {
         int tx = 0;
         int rx = 0;
 
+        void InitializeOnlineState();
+        void UpdateOnlineState(bool online, std::chrono::steady_clock::time_point now);
+        std::optional<std::chrono::steady_clock::time_point> GetConnectNotBefore(std::chrono::steady_clock::time_point now) const;
         bool CanSendEventType(EventType type) const;
         void OnMessage(const std::string &message);
         void SendLoginEvent();

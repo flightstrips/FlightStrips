@@ -12,6 +12,13 @@ func (s *Server) UpdateLayouts(sessionId int32) error {
 }
 
 func (s *Server) UpdateLayoutsContext(ctx context.Context, sessionId int32) error {
+	unlock := s.sessionLocks.lock(sessionId)
+	defer unlock()
+
+	return s.updateLayoutsContextUnlocked(ctx, sessionId)
+}
+
+func (s *Server) updateLayoutsContextUnlocked(ctx context.Context, sessionId int32) error {
 	slog.Debug("Updating layouts", slog.Int("session", int(sessionId)))
 	sessionRepo := s.sessionRepo
 	controllerRepo := s.controllerRepo

@@ -257,6 +257,30 @@ func TestGetCurrentControllerCoverage_PrefersCallsignPositionOverCrossCoupledFre
 	}, coverage)
 }
 
+func TestGetCurrentControllerCoverage_UsesNormalizedFrequencyForGenericControllers(t *testing.T) {
+	t.Cleanup(config.SetPositionsForTest([]config.Position{
+		{Name: "EKCH_A_GND", Frequency: "121.600"},
+		{Name: "EKCH_C_TWR", Frequency: "118.580"},
+	}))
+	t.Cleanup(config.SetOwnerCallsignPrefixesForTest([]string{"EKCH"}))
+
+	controllerRepo := &testutil.MockControllerRepository{
+		ListFn: func(_ context.Context, _ int32) ([]*models.Controller, error) {
+			return []*models.Controller{
+				{Callsign: "EKCH_APN", Position: "121.6"},
+				{Callsign: "EKCH_M_TWR", Position: "118.58"},
+			}, nil
+		},
+	}
+
+	coverage, err := getCurrentControllerCoverage(context.Background(), controllerRepo, 1, nil)
+	require.NoError(t, err)
+	assert.ElementsMatch(t, []config.ControllerCoverage{
+		{Name: "EKCH_A_GND", Frequency: "121.600"},
+		{Name: "EKCH_C_TWR", Frequency: "118.580"},
+	}, coverage)
+}
+
 func TestUpdateSectorsContext_UsesSyncStateWithoutReloadingSessionOrControllers(t *testing.T) {
 	t.Cleanup(config.SetPositionsForTest([]config.Position{
 		{Name: "EKCH_A_TWR", Frequency: "118.100"},

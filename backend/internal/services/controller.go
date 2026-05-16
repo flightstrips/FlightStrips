@@ -107,10 +107,20 @@ func (cs *ControllerService) ControllerOnlineWithOptions(ctx context.Context, se
 		return shared.ControllerOnlineResult{NotifyOnline: true}, nil
 	}
 
-	changes, err := s.UpdateSectors(session)
+	slog.DebugContext(ctx, "Controller online: recalculating session state",
+		slog.Int("session", int(session)),
+		slog.String("callsign", callsign),
+		slog.String("position", position),
+		slog.String("trigger", "position_changed"))
+	changes, err := s.RecalculateSessionContext(ctx, session, true)
 	if err != nil {
 		return shared.ControllerOnlineResult{}, err
 	}
+	slog.DebugContext(ctx, "Controller online: session recalculation completed",
+		slog.Int("session", int(session)),
+		slog.String("callsign", callsign),
+		slog.String("position", position),
+		slog.String("trigger", "position_changed"))
 
 	var singleOnPosition bool
 	if positionName != "" {
@@ -131,23 +141,6 @@ func (cs *ControllerService) ControllerOnlineWithOptions(ctx context.Context, se
 		}
 	}
 
-	if err := s.UpdateLayouts(session); err != nil {
-		return shared.ControllerOnlineResult{}, err
-	}
-	slog.DebugContext(ctx, "Controller online: recalculating routes for session",
-		slog.Int("session", int(session)),
-		slog.String("callsign", callsign),
-		slog.String("position", position),
-		slog.String("trigger", "position_changed"))
-	if err := s.UpdateRoutesForSession(session, true); err != nil {
-		return shared.ControllerOnlineResult{}, err
-	}
-	slog.DebugContext(ctx, "Controller online: route recalculation completed",
-		slog.Int("session", int(session)),
-		slog.String("callsign", callsign),
-		slog.String("position", position),
-		slog.String("trigger", "position_changed"))
-
 	return shared.ControllerOnlineResult{
 		SectorChanges:    changes,
 		SingleOnPosition: singleOnPosition,
@@ -156,14 +149,9 @@ func (cs *ControllerService) ControllerOnlineWithOptions(ctx context.Context, se
 }
 
 // performOnlineOrchestration is the common path for a newly-created controller.
-// It calls UpdateSectors, AutoAssume, UpdateLayouts, UpdateRoutesForSession.
+// It auto-assumes cleared strips, then recalculates sectors, layouts, and routes as one session update.
 func (cs *ControllerService) performOnlineOrchestration(ctx context.Context, session int32, position, positionName string) (shared.ControllerOnlineResult, error) {
 	s := cs.server
-
-	changes, err := s.UpdateSectors(session)
-	if err != nil {
-		return shared.ControllerOnlineResult{}, err
-	}
 
 	if cs.stripService != nil {
 		if err := cs.stripService.AutoAssumeForControllerOnline(ctx, session, position); err != nil {
@@ -171,6 +159,19 @@ func (cs *ControllerService) performOnlineOrchestration(ctx context.Context, ses
 				slog.String("position", position), slog.Any("error", err))
 		}
 	}
+
+	slog.DebugContext(ctx, "Controller online: recalculating session state",
+		slog.Int("session", int(session)),
+		slog.String("position", position),
+		slog.String("trigger", "new_controller"))
+	changes, err := s.RecalculateSessionContext(ctx, session, true)
+	if err != nil {
+		return shared.ControllerOnlineResult{}, err
+	}
+	slog.DebugContext(ctx, "Controller online: session recalculation completed",
+		slog.Int("session", int(session)),
+		slog.String("position", position),
+		slog.String("trigger", "new_controller"))
 
 	var singleOnPosition bool
 	if positionName != "" {
@@ -189,21 +190,6 @@ func (cs *ControllerService) performOnlineOrchestration(ctx context.Context, ses
 				slog.Bool("singleOnPosition", singleOnPosition))
 		}
 	}
-
-	if err := s.UpdateLayouts(session); err != nil {
-		return shared.ControllerOnlineResult{}, err
-	}
-	slog.DebugContext(ctx, "Controller online: recalculating routes for session",
-		slog.Int("session", int(session)),
-		slog.String("position", position),
-		slog.String("trigger", "new_controller"))
-	if err := s.UpdateRoutesForSession(session, true); err != nil {
-		return shared.ControllerOnlineResult{}, err
-	}
-	slog.DebugContext(ctx, "Controller online: route recalculation completed",
-		slog.Int("session", int(session)),
-		slog.String("position", position),
-		slog.String("trigger", "new_controller"))
 
 	return shared.ControllerOnlineResult{
 		SectorChanges:    changes,

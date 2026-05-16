@@ -813,25 +813,11 @@ func applyOrValidateRunways(ctx context.Context, client *Client, runways []euros
 	s.GetFrontendHub().SendRunwayConfiguration(client.session, departure, arrival, activeRunways.RunwayStatus)
 	client.hub.resyncSessionRunwayMismatchTargets(client.session, client.GetCid(), activeRunways)
 
-	if _, err = s.UpdateSectors(client.session); err != nil {
-		slog.ErrorContext(ctx, "UpdateSectors failed after runway change", slog.Int("session", int(client.session)), slog.Any("error", err))
+	if _, err = s.RecalculateSessionContext(ctx, client.session, true); err != nil {
+		slog.ErrorContext(ctx, "Session recalculation failed after runway change", slog.Int("session", int(client.session)), slog.Any("error", err))
 		return false, err
 	}
-	slog.DebugContext(ctx, "UpdateSectors completed", slog.Int("session", int(client.session)))
-
-	if err = s.UpdateRoutesForSession(client.session, true); err != nil {
-		slog.ErrorContext(ctx, "UpdateRoutesForSession failed after runway change", slog.Int("session", int(client.session)), slog.Any("error", err))
-		return false, err
-	}
-	slog.DebugContext(ctx, "UpdateRoutesForSession completed", slog.Int("session", int(client.session)))
-
-	// Recalculate and broadcast per-controller layouts after runway change.
-	// Do not return on failure — a layout error must not block the runway change.
-	if err = s.UpdateLayouts(client.session); err != nil {
-		slog.ErrorContext(ctx, "Failed to update layouts after runway change",
-			slog.Int("session", int(client.session)),
-			slog.Any("error", err))
-	}
+	slog.DebugContext(ctx, "Session recalculation completed", slog.Int("session", int(client.session)))
 
 	return !reflect.DeepEqual(oldActiveRunways, activeRunways), nil
 }

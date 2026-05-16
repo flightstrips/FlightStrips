@@ -1,4 +1,4 @@
-﻿package shared
+package shared
 
 import (
 	"FlightStrips/internal/repository"
@@ -45,6 +45,8 @@ type Server interface {
 
 	// TODO move to another service
 	UpdateSectors(sessionId int32) ([]SectorChange, error)
+	RecalculateSession(sessionId int32, sendUpdate bool) ([]SectorChange, error)
+	RecalculateSessionContext(ctx context.Context, sessionId int32, sendUpdate bool) ([]SectorChange, error)
 	UpdateRouteForStrip(callsign string, sessionId int32, sendUpdate bool) error
 	UpdateRouteForStripContext(ctx context.Context, callsign string, sessionId int32, sendUpdate bool) error
 	UpdateRoutesForSession(sessionId int32, sendUpdate bool) error

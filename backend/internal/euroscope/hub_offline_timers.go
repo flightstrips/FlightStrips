@@ -283,17 +283,9 @@ func (hub *Hub) scheduleSessionUpdate(session int32, positionName string) {
 // positions holds the names of any positions that went offline in this window.
 func (hub *Hub) runSessionUpdate(session int32, positions []string) {
 	s := hub.server
-	changes, err := s.UpdateSectors(session)
+	changes, err := s.RecalculateSession(session, true)
 	if err != nil {
-		slog.Error("Failed to update sectors in session update",
-			slog.Int("session", int(session)), slog.Any("error", err))
-	}
-	if err := s.UpdateLayouts(session); err != nil {
-		slog.Error("Failed to update layouts in session update",
-			slog.Int("session", int(session)), slog.Any("error", err))
-	}
-	if err := s.UpdateRoutesForSession(session, true); err != nil {
-		slog.Error("Failed to update routes in session update",
+		slog.Error("Failed to recalculate session state",
 			slog.Int("session", int(session)), slog.Any("error", err))
 	}
 

@@ -16,6 +16,13 @@ func (s *Server) UpdateSectors(sessionId int32) ([]shared.SectorChange, error) {
 }
 
 func (s *Server) UpdateSectorsContext(ctx context.Context, sessionId int32) ([]shared.SectorChange, error) {
+	unlock := s.sessionLocks.lock(sessionId)
+	defer unlock()
+
+	return s.updateSectorsContextUnlocked(ctx, sessionId)
+}
+
+func (s *Server) updateSectorsContextUnlocked(ctx context.Context, sessionId int32) ([]shared.SectorChange, error) {
 	sessionRepo := s.sessionRepo
 	sectorRepo := s.sectorRepo
 	controllerRepo := s.controllerRepo

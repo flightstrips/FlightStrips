@@ -22,6 +22,7 @@ type Server struct {
 	cdmService        shared.CdmService
 	pdcService        *pdc.Service
 	transceiverLookup TransceiverLookup
+	sessionLocks      sessionRecalcLockManager
 
 	// Repositories
 	stripRepo         repository.StripRepository

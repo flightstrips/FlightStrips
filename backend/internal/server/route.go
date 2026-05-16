@@ -146,6 +146,13 @@ func (s *Server) ComputeNextDisplaysForStripsContext(ctx context.Context, strips
 // UpdateRoutesForSession recalculates routes for all strips in the session.
 // sendUpdate controls whether frontend clients are notified of the updated route ownership.
 func (s *Server) UpdateRoutesForSession(sessionId int32, sendUpdate bool) error {
+	unlock := s.sessionLocks.lock(sessionId)
+	defer unlock()
+
+	return s.updateRoutesForSessionContextUnlocked(context.Background(), sessionId, sendUpdate)
+}
+
+func (s *Server) updateRoutesForSessionContextUnlocked(ctx context.Context, sessionId int32, sendUpdate bool) error {
 	stripRepo := s.stripRepo
 	sessionRepo := s.sessionRepo
 
@@ -153,22 +160,22 @@ func (s *Server) UpdateRoutesForSession(sessionId int32, sendUpdate bool) error 
 		slog.Int("session", int(sessionId)),
 		slog.Bool("send_update", sendUpdate))
 
-	strips, err := stripRepo.List(context.Background(), sessionId)
+	strips, err := stripRepo.List(ctx, sessionId)
 	if err != nil {
 		return err
 	}
 
-	session, err := sessionRepo.GetByID(context.Background(), sessionId)
+	session, err := sessionRepo.GetByID(ctx, sessionId)
 	if err != nil {
 		return err
 	}
 
-	owners, err := s.sectorRepo.ListBySession(context.Background(), sessionId)
+	owners, err := s.sectorRepo.ListBySession(ctx, sessionId)
 	if err != nil {
 		return err
 	}
 
-	coverage, err := routeDisplayCoverage(context.Background(), s.controllerRepo, sessionId, s.transceiverLookup)
+	coverage, err := routeDisplayCoverage(ctx, s.controllerRepo, sessionId, s.transceiverLookup)
 	if err != nil {
 		return err
 	}
@@ -179,7 +186,7 @@ func (s *Server) UpdateRoutesForSession(sessionId int32, sendUpdate bool) error 
 		slog.Bool("send_update", sendUpdate))
 
 	for _, strip := range strips {
-		err := s.updateRouteForStripHelper(context.Background(), strip, session, owners, coverage, sendUpdate)
+		err := s.updateRouteForStripHelper(ctx, strip, session, owners, coverage, sendUpdate)
 		if err != nil {
 			return err
 		}

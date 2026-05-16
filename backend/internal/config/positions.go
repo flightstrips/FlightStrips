@@ -1,6 +1,7 @@
 package config
 
 import (
+	"FlightStrips/internal/vatsim"
 	"errors"
 	"strings"
 )
@@ -12,8 +13,13 @@ type Position struct {
 }
 
 func GetPositionBasedOnFrequency(frequency string) (*Position, error) {
+	normalizedFrequency := vatsim.NormalizeFrequency(frequency)
+	if normalizedFrequency == "" {
+		return nil, errors.New("unknown position")
+	}
+
 	for _, pos := range positions {
-		if pos.Frequency == frequency {
+		if vatsim.NormalizeFrequency(pos.Frequency) == normalizedFrequency {
 			return &pos, nil
 		}
 	}

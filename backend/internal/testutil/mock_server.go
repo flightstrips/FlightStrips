@@ -22,6 +22,8 @@ type MockServer struct {
 
 	GetOrCreateSessionFn                func(airport string, name string) (shared.Session, error)
 	UpdateSectorsFn                     func(sessionId int32) ([]shared.SectorChange, error)
+	RecalculateSessionFn                func(sessionId int32, sendUpdate bool) ([]shared.SectorChange, error)
+	RecalculateSessionContextFn         func(ctx context.Context, sessionId int32, sendUpdate bool) ([]shared.SectorChange, error)
 	UpdateRouteForStripFn               func(callsign string, sessionId int32, sendUpdate bool) error
 	UpdateRouteForStripCtxFn            func(ctx context.Context, callsign string, sessionId int32, sendUpdate bool) error
 	UpdateRoutesForSessionFn            func(sessionId int32, sendUpdate bool) error
@@ -69,6 +71,31 @@ func (m *MockServer) UpdateSectors(sessionId int32) ([]shared.SectorChange, erro
 		return m.UpdateSectorsFn(sessionId)
 	}
 	return nil, nil
+}
+
+func (m *MockServer) RecalculateSession(sessionId int32, sendUpdate bool) ([]shared.SectorChange, error) {
+	if m.RecalculateSessionFn != nil {
+		return m.RecalculateSessionFn(sessionId, sendUpdate)
+	}
+	return m.RecalculateSessionContext(context.Background(), sessionId, sendUpdate)
+}
+
+func (m *MockServer) RecalculateSessionContext(ctx context.Context, sessionId int32, sendUpdate bool) ([]shared.SectorChange, error) {
+	if m.RecalculateSessionContextFn != nil {
+		return m.RecalculateSessionContextFn(ctx, sessionId, sendUpdate)
+	}
+
+	changes, err := m.UpdateSectors(sessionId)
+	if err != nil {
+		return nil, err
+	}
+	if err := m.UpdateLayouts(sessionId); err != nil {
+		return nil, err
+	}
+	if err := m.UpdateRoutesForSession(sessionId, sendUpdate); err != nil {
+		return nil, err
+	}
+	return changes, nil
 }
 
 func (m *MockServer) UpdateRouteForStrip(callsign string, sessionId int32, sendUpdate bool) error {

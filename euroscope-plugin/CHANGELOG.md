@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.17.0](https://github.com/flightstrips/FlightStrips/compare/plugin/v0.16.0...plugin/v0.17.0) (2026-05-16)
+
+
+### Features
+
+* **backend,frontend,plugin:** track client versions ([7c6d509](https://github.com/flightstrips/FlightStrips/commit/7c6d509aac88cb49980bd3fb54fa61ec5e559c5a))
+
+
+### Bug Fixes
+
+* **backend,plugin:** log websocket close reasons ([7e70d44](https://github.com/flightstrips/FlightStrips/commit/7e70d44435f6dcb4de1bc6e4b49af6b4e5d399d9))
+
 ## [0.16.0](https://github.com/flightstrips/FlightStrips/compare/plugin/v0.15.0...plugin/v0.16.0) (2026-05-15)
 
 

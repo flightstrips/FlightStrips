@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.32.0](https://github.com/flightstrips/FlightStrips/compare/backend/v0.31.0...backend/v0.32.0) (2026-05-16)
+
+
+### Features
+
+* **backend,frontend,plugin:** track client versions ([7c6d509](https://github.com/flightstrips/FlightStrips/commit/7c6d509aac88cb49980bd3fb54fa61ec5e559c5a))
+
+
+### Bug Fixes
+
+* **backend,plugin:** log websocket close reasons ([7e70d44](https://github.com/flightstrips/FlightStrips/commit/7e70d44435f6dcb4de1bc6e4b49af6b4e5d399d9))
+* **backend:** serialize session recalculations ([18a34ad](https://github.com/flightstrips/FlightStrips/commit/18a34adaba4bc52c032d57a6f9f97ef5b8bff24f))
+
 ## [0.31.0](https://github.com/flightstrips/FlightStrips/compare/backend/v0.30.1...backend/v0.31.0) (2026-05-15)
 
 

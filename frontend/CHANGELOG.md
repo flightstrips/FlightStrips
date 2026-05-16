@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.41.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.40.0...frontend/v0.41.0) (2026-05-16)
+
+
+### Features
+
+* **backend,frontend,plugin:** track client versions ([7c6d509](https://github.com/flightstrips/FlightStrips/commit/7c6d509aac88cb49980bd3fb54fa61ec5e559c5a))
+
 ## [0.40.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.39.0...frontend/v0.40.0) (2026-05-15)
 
 

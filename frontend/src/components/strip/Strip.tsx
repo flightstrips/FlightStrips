@@ -12,6 +12,7 @@ import { ClxHalfStrip } from "./ClxHalfStrip";
 import { TacticalMemaidStrip } from "./TacticalMemaidStrip";
 import { TacticalCrossingStrip } from "./TacticalCrossingStrip";
 import { TacticalRwyStrip } from "./TacticalRwyStrip";
+import { ControlzoneStrip } from "./ControlzoneStrip";
 import type { HalfStripVariant, StripProps, StripStatus } from "./types";
 import { normalizeCdmTime } from "@/lib/cdmTime";
 
@@ -58,6 +59,10 @@ export function Strip({ strip, status, halfStripVariant, myPosition, selectable,
       default:
         return null;
     }
+  }
+
+  if (status === "CONTROLZONE") {
+    return <ControlzoneStrip strip={strip} selectable={selectable} />;
   }
 
   const props: StripProps = {

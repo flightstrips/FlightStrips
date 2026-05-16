@@ -144,6 +144,7 @@ export default function TowerGroundLayout({ variant }: TowerGroundLayoutProps) {
   ];
 
   const activeBays = showStartupBay ? [...BASE_ACTIVE_BAYS, "STARTUP"] : BASE_ACTIVE_BAYS;
+  const transferTargetBays = activeBays.filter((bay) => bay !== "CONTROLZONE");
 
   const bayStripMap: Record<string, { strips: AnyStrip[]; targetBay: Bay; descending?: boolean }> = {
     "FINAL": { strips: finalStrips, targetBay: Bay.Final, descending: true },
@@ -161,12 +162,12 @@ export default function TowerGroundLayout({ variant }: TowerGroundLayoutProps) {
 
   const transferRules: Record<string, string[]> = {
     "FINAL": ["RWY-ARR", "TWY-ARR"],
-    "RWY-ARR": activeBays.filter((bay) => bay !== "RWY-ARR"),
-    "TWY-ARR": activeBays.filter((bay) => bay !== "TWY-ARR"),
-    "TWY-DEP": activeBays.filter((bay) => bay !== "TWY-DEP"),
-    "RWY-DEP": activeBays.filter((bay) => bay !== "RWY-DEP"),
-    "AIRBORNE": activeBays.filter((bay) => bay !== "AIRBORNE"),
-    "STAND": activeBays.filter((bay) => bay !== "STAND"),
+    "RWY-ARR": transferTargetBays.filter((bay) => bay !== "RWY-ARR"),
+    "TWY-ARR": transferTargetBays.filter((bay) => bay !== "TWY-ARR"),
+    "TWY-DEP": transferTargetBays.filter((bay) => bay !== "TWY-DEP"),
+    "RWY-DEP": transferTargetBays.filter((bay) => bay !== "RWY-DEP"),
+    "AIRBORNE": transferTargetBays.filter((bay) => bay !== "AIRBORNE"),
+    "STAND": transferTargetBays.filter((bay) => bay !== "STAND"),
     "PUSHBACK": ["TWY-DEP", "DE-ICE", "TWY-ARR", ...(showStartupBay ? ["STARTUP"] : [])],
     "DE-ICE": ["PUSHBACK", "TWY-DEP", ...(showStartupBay ? ["STARTUP"] : [])],
     "CONTROLZONE": [],
@@ -183,7 +184,7 @@ export default function TowerGroundLayout({ variant }: TowerGroundLayoutProps) {
     "STAND": "ARR",
     "PUSHBACK": "PUSH",
     "DE-ICE": "PUSH",
-    "CONTROLZONE": "CLR",
+    "CONTROLZONE": "CONTROLZONE",
     ...(showStartupBay ? { STARTUP: "PUSH" } : {}),
   };
 
@@ -395,7 +396,7 @@ export default function TowerGroundLayout({ variant }: TowerGroundLayoutProps) {
             standalone={false}
             className={showStartupBay ? "h-[21.65%] bay-scroll-area-bottom" : "h-[35%] bay-scroll-area-bottom"}
           >
-            {(strip) => <Strip strip={strip} status="CLR" myPosition={myPosition} selectable={true} />}
+            {(strip) => <Strip strip={strip} status="CONTROLZONE" myPosition={myPosition} selectable={true} />}
           </SortableBay>
 
           {showStartupBay ? (

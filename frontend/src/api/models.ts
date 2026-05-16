@@ -145,6 +145,7 @@ export interface FrontendStrip {
   cleared_altitude: number;
   requested_altitude: number;
   heading: number;
+  position_altitude?: number;
   aircraft_type: string;
   aircraft_category: string;
   stand: string;

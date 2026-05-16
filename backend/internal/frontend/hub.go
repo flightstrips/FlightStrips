@@ -488,6 +488,7 @@ func MapStripToFrontendModelWithClx(strip *internalModels.Strip, clxContext clx.
 		ClearedAltitude:          helpers.ValueOrDefault(strip.ClearedAltitude),
 		RequestedAltitude:        helpers.ValueOrDefault(strip.RequestedAltitude),
 		Heading:                  helpers.ValueOrDefault(strip.Heading),
+		PositionAltitude:         helpers.ValueOrDefault(strip.PositionAltitude),
 		AircraftType:             helpers.ValueOrDefault(strip.AircraftType),
 		AircraftCategory:         helpers.ValueOrDefault(strip.AircraftCategory),
 		Stand:                    helpers.ValueOrDefault(strip.Stand),

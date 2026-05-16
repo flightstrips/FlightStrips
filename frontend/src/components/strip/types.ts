@@ -2,7 +2,7 @@ import { Bay } from "@/api/models";
 import type { PdcStatus } from "@/api/models";
 import type { NextDisplay } from "@/api/models";
 
-export type StripStatus = "CLR" | "CLROK" | "HALF" | "PUSH" | "ARR" | "CLX-HALF" | "TAXI-DEP" | "TWY-DEP" | "FINAL-ARR";
+export type StripStatus = "CLR" | "CLROK" | "HALF" | "PUSH" | "ARR" | "CLX-HALF" | "TAXI-DEP" | "TWY-DEP" | "FINAL-ARR" | "CONTROLZONE";
 
 export type HalfStripVariant =
   | "APN-PUSH"    // Pushback bays

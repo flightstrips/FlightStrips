@@ -1,8 +1,7 @@
 import { useState } from "react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { useStrips } from "@/store/store-hooks";
+import { useStrips, useWebSocketStore } from "@/store/store-hooks";
 import { NewVfrDialog } from "./NewVfrDialog";
-import FlightPlanDialog from "@/components/FlightPlanDialog";
 import { scalePx } from "@/lib/viewportScale";
 
 const DROP_SHADOW = `0 ${scalePx(4)} ${scalePx(4)} rgba(0,0,0,0.25)`;
@@ -62,13 +61,13 @@ interface Props {
   onOpenChange: (open: boolean) => void;
 }
 
-type State = "idle" | "no_fp" | "open_fp";
+type State = "idle" | "no_fp";
 
 export function FindDialog({ open, onOpenChange }: Props) {
   const strips = useStrips();
+  const moveToControlzone = useWebSocketStore((state) => state.moveToControlzone);
   const [callsign, setCallsign] = useState("");
   const [state, setState] = useState<State>("idle");
-  const [foundCallsign, setFoundCallsign] = useState("");
   const [newOpen, setNewOpen] = useState(false);
   const [newCallsign, setNewCallsign] = useState("");
 
@@ -77,8 +76,8 @@ export function FindDialog({ open, onOpenChange }: Props) {
     if (!cs) return;
     const found = strips.find(s => s.callsign.toUpperCase() === cs);
     if (found && found.has_fp !== false) {
-      setFoundCallsign(cs);
-      setState("open_fp");
+      moveToControlzone(cs);
+      handleClose();
     } else {
       setState("no_fp");
     }
@@ -87,7 +86,6 @@ export function FindDialog({ open, onOpenChange }: Props) {
   function handleClose() {
     setCallsign("");
     setState("idle");
-    setFoundCallsign("");
     onOpenChange(false);
   }
 
@@ -95,33 +93,12 @@ export function FindDialog({ open, onOpenChange }: Props) {
     setNewCallsign(callsign.trim().toUpperCase());
     setCallsign("");
     setState("idle");
-    setFoundCallsign("");
     onOpenChange(false);
     setNewOpen(true);
   }
 
   function handleKeyDown(e: React.KeyboardEvent) {
     if (e.key === "Enter") handleSearch();
-  }
-
-  if (state === "open_fp") {
-    return (
-      <>
-        <FlightPlanDialog
-          callsign={foundCallsign}
-          open={true}
-          onOpenChange={(v) => {
-            if (!v) {
-              setState("idle");
-              setCallsign("");
-              setFoundCallsign("");
-              onOpenChange(false);
-            }
-          }}
-        />
-        <NewVfrDialog open={newOpen} onOpenChange={setNewOpen} initialCallsign={newCallsign} />
-      </>
-    );
   }
 
   return (

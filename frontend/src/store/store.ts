@@ -164,6 +164,7 @@ export interface WebSocketState {
 
   // actions
   move: (callsign: string, bay: Bay) => void;
+  moveToControlzone: (callsign: string) => void;
   generateSquawk: (callsign: string) => boolean;
   updateOrder: (callsign: string, insertAfter: StripRef | null) => void;
   sendMessage: (text: string, recipients: string[]) => void;
@@ -338,6 +339,10 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     openValidationDialog,
     closeValidationDialog: () => set({ validationDialogCallsign: null }),
      move: (callsign, bay) => set((state) => {
+          if (bay === Bay.Controlzone) {
+            toast.error("Use FIND or NEW to place strips in CONTROLZONE.");
+            return state;
+          }
           if (!sendGuardedStripEvent(callsign, { type: "move" }, {type: ActionType.FrontendMove, callsign, bay})) {
             return state;
           }
@@ -360,6 +365,28 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
            })(state)
        }
      ),
+     moveToControlzone: (callsign) => set((state) => {
+         const bay = Bay.Controlzone;
+         if (!sendGuardedStripEvent(callsign, { type: "move" }, { type: ActionType.FrontendMove, callsign, bay })) {
+           return state;
+         }
+
+         return produce((draft: WebSocketState) => {
+           const stripIndex = draft.strips.findIndex((strip) => strip.callsign === callsign);
+           if (stripIndex !== -1) {
+             const currentBay = draft.strips[stripIndex].bay;
+             draft.strips[stripIndex].bay = bay;
+             draft.strips[stripIndex].sequence = nextSequenceAtEndOfBay(draft.strips, draft.tacticalStrips, bay, callsign);
+             if (currentBay === Bay.Stand) {
+               draft.strips[stripIndex].start_req = false;
+             }
+             if (shouldResetRunwayClearanceOnMove(currentBay, bay)) {
+               draft.strips[stripIndex].runway_cleared = false;
+               draft.strips[stripIndex].runway_confirmed = false;
+             }
+           }
+         })(state);
+      }),
     generateSquawk: (callsign) => {
       return sendGuardedStripEvent(callsign, { type: "generate_squawk" }, {type: ActionType.FrontendGenerateSquawk, callsign});
     },

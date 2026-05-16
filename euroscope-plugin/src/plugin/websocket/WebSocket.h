@@ -22,6 +22,14 @@ namespace FlightStrips::websocket {
         WEBSOCKET_STATUS_FAILED
     };
 
+    namespace detail {
+        std::string FormatCloseLogMessage(websocketpp::close::status::value remote_code,
+                                          const std::string& remote_reason,
+                                          websocketpp::close::status::value local_code,
+                                          const std::string& local_reason,
+                                          const std::string& transport_reason);
+    }
+
     class WebSocket {
     public:
         WebSocket(std::string endpoint, message_callback cb, on_connected_callback on_connected);

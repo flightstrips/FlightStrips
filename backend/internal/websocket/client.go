@@ -8,6 +8,7 @@ import (
 	frontend "FlightStrips/pkg/events/frontend"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"time"
@@ -68,9 +69,7 @@ func ReadPump[TType comparable, TClient Client, THub Hub[TType, TClient]](hub TH
 	for {
 		_, message, err := client.GetConnection().ReadMessage()
 		if err != nil {
-			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure, websocket.CloseNoStatusReceived) {
-				slog.Warn("Unexpected websocket close", slog.Any("error", err))
-			}
+			logReadError(client, err)
 			break
 		}
 
@@ -122,6 +121,51 @@ func ReadPump[TType comparable, TClient Client, THub Hub[TType, TClient]](hub TH
 			span.SetStatus(codes.Ok, "")
 		}
 		span.End()
+	}
+}
+
+func logReadError(client Client, err error) {
+	var closeErr *websocket.CloseError
+	if errors.As(err, &closeErr) {
+		attrs := []any{
+			slog.String("source", client.GetSource()),
+			slog.String("cid", client.GetCid()),
+			slog.Int("session", int(client.GetSession())),
+			slog.Int("close_code", closeErr.Code),
+		}
+		if sessionName := client.GetSessionName(); sessionName != "" {
+			attrs = append(attrs, slog.String("session_name", sessionName))
+		}
+		if airport := client.GetAirport(); airport != "" {
+			attrs = append(attrs, slog.String("airport", airport))
+		}
+		if callsign := client.GetCallsign(); callsign != "" {
+			attrs = append(attrs, slog.String("callsign", callsign))
+		}
+		if position := client.GetPosition(); position != "" {
+			attrs = append(attrs, slog.String("position", position))
+		}
+		if closeErr.Text != "" {
+			attrs = append(attrs, slog.String("reason", closeErr.Text))
+		}
+
+		if websocket.IsUnexpectedCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway, websocket.CloseAbnormalClosure, websocket.CloseNoStatusReceived) {
+			attrs = append(attrs, slog.Any("error", err))
+			slog.Warn("Unexpected websocket close", attrs...)
+			return
+		}
+
+		slog.Info("Websocket connection closed", attrs...)
+		return
+	}
+
+	if websocket.IsUnexpectedCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway, websocket.CloseAbnormalClosure, websocket.CloseNoStatusReceived) {
+		slog.Warn("Unexpected websocket close",
+			slog.String("source", client.GetSource()),
+			slog.String("cid", client.GetCid()),
+			slog.Int("session", int(client.GetSession())),
+			slog.Any("error", err),
+		)
 	}
 }
 

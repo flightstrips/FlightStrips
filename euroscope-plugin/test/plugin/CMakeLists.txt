@@ -71,6 +71,7 @@ set(ALL_FILES
         network/LocalIpAddressTest.cpp
 
         # WebSocket
+        websocket/WebSocketTest.cpp
         websocket/WebSocketServiceTest.cpp
 )
 

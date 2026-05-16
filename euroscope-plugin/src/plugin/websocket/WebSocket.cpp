@@ -4,11 +4,20 @@
 #include "Logger.hpp"
 
 #include <asio/asio/ssl.hpp>
+#include <sstream>
 #include <utility>
 
 namespace FlightStrips::websocket {
 
     namespace {
+        std::string close_reason_or_placeholder(const std::string& reason) {
+            return reason.empty() ? "<none>" : reason;
+        }
+
+        std::string close_code_description(const websocketpp::close::status::value code) {
+            return websocketpp::close::status::get_string(code);
+        }
+
         using plain_client = websocketpp::client<websocketpp::config::asio_client>;
         using tls_client   = websocketpp::client<websocketpp::config::asio_tls_client>;
 
@@ -153,8 +162,13 @@ namespace FlightStrips::websocket {
                 exceptions::RunGuarded("WebSocket::OnClose", [this, &hdl] {
                     status_ = WEBSOCKET_STATUS_DISCONNECTED;
                     const auto con = m_endpoint.get_con_from_hdl(hdl);
-                    const auto reason = con->get_ec().message();
-                    Logger::Debug("Connection to server closed. Reason: {}", reason);
+                    Logger::Info(detail::FormatCloseLogMessage(
+                        con->get_remote_close_code(),
+                        con->get_remote_close_reason(),
+                        con->get_local_close_code(),
+                        con->get_local_close_reason(),
+                        con->get_ec().message()
+                    ));
                 });
             }
 
@@ -190,6 +204,25 @@ namespace FlightStrips::websocket {
     void WebSocket::Disconnect() const { impl_->Disconnect(); }
     void WebSocket::Send(const std::string& message) const { impl_->Send(message); }
     WebSocketStatus WebSocket::GetStatus() const { return impl_->GetStatus(); }
+
+    std::string detail::FormatCloseLogMessage(const websocketpp::close::status::value remote_code,
+                                              const std::string& remote_reason,
+                                              const websocketpp::close::status::value local_code,
+                                              const std::string& local_reason,
+                                              const std::string& transport_reason) {
+        std::ostringstream message;
+        message << "Connection to server closed"
+                << " remote_code=" << remote_code << " (" << close_code_description(remote_code) << ")"
+                << " remote_reason=\"" << close_reason_or_placeholder(remote_reason) << "\""
+                << " local_code=" << local_code << " (" << close_code_description(local_code) << ")"
+                << " local_reason=\"" << close_reason_or_placeholder(local_reason) << "\"";
+
+        if (!transport_reason.empty()) {
+            message << " transport_reason=\"" << transport_reason << "\"";
+        }
+
+        return message.str();
+    }
 
     void WebSocket::add_windows_root_certs(const std::shared_ptr<asio::ssl::context>& context) {
         HCERTSTORE hStore = CertOpenSystemStore(0, L"ROOT");

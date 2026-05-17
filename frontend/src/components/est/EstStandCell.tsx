@@ -86,7 +86,7 @@ export default function EstStandCell({
     textClass = "text-black";
   }
 
-  const { tobtBg: tobtBarColor, tsatBg: tsatBarColor } = strip && isClearedDeparture
+  const { tobtBg: tobtBarColor, tsatBg: tsatBarColor } = strip && isDeparture
     ? computeCDMColors(strip.tsat, strip.tobt, nowMs, strip.bay as Bay, strip.phase)
     : { tobtBg: "", tsatBg: "" };
 

@@ -215,13 +215,13 @@ export default function CdmPage() {
   return (
     <div className="min-h-screen overflow-y-auto bg-background p-6 text-foreground md:p-8">
       <div className="mx-auto max-w-[1800px] space-y-6">
-      <header className="space-y-2">
-        <h1 className="text-3xl font-semibold tracking-tight">CDM Sequence</h1>
-        <p className="text-sm text-muted-foreground">
-          {totalAircraft} aircraft across {data?.sessions.length ?? 0} sessions. Last updated{" "}
-          {formatGeneratedAt(data?.generated_at ?? "")}.
-        </p>
-      </header>
+        <header className="space-y-2">
+          <h1 className="text-3xl font-semibold tracking-tight">CDM Sequence</h1>
+          <p className="text-sm text-muted-foreground">
+            {totalAircraft} aircraft across {data?.sessions.length ?? 0} sessions. Last updated{" "}
+            {formatGeneratedAt(data?.generated_at ?? "")}.
+          </p>
+        </header>
 
       {error ? (
         <div className="rounded-xl border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-900 dark:border-red-900 dark:bg-red-950/30 dark:text-red-100">
@@ -275,63 +275,63 @@ export default function CdmPage() {
               </thead>
               <tbody>
                 {session.rows.map((row) => (
-                  <tr key={row.callsign} className={`border-t align-top ${rowTone(row)}`}>
-                    <td className="px-4 py-3 font-medium">{row.position ?? "—"}</td>
-                    <td className="px-4 py-3">
-                      <div className="font-medium">{row.callsign}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {row.runway || "—"} / {row.sid || "—"} / {row.wake_category || "—"}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div>{row.origin} - {row.destination}</div>
-                      <div className="text-xs text-muted-foreground">
-                        State {row.state || "—"}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div>{formatTime(row.tobt)}</div>
-                      <div className="text-xs text-muted-foreground">
-                        Req {formatTime(row.req_tobt)} / EOBT {formatTime(row.eobt)}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">{formatConfirmation(row)}</td>
-                    <td className="px-4 py-3">{formatTime(row.tsat)}</td>
-                    <td className="px-4 py-3">
-                      <div>{formatTime(row.ttot)}</div>
-                      <div className="text-xs text-muted-foreground">
-                        Stored TTOT
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">{formatOriginalTtot(row)}</td>
-                    <td className="px-4 py-3">
-                      <div>{typeof row.taxi_minutes === "number" ? `${row.taxi_minutes} min` : "—"}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {row.taxi_runway || row.runway || "—"}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">{formatTime(row.ctot)}</td>
-                    <td className="px-4 py-3">
-                      <div>{formatBaseSource(row.base_source)}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {formatTime(row.base_time)}
-                        {row.invalid_reason ? ` / ${row.invalid_reason}` : ""}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      {row.reasons.length > 0 ? (
-                        <ul className="space-y-1 text-sm">
-                          {row.reasons.map((reason, index) => (
-                            <li key={`${reason.kind}-${index}`} className="text-foreground">
-                              {reason.message}
-                            </li>
-                          ))}
-                        </ul>
-                      ) : (
-                        <span className="text-muted-foreground">—</span>
-                      )}
-                    </td>
-                  </tr>
+                    <tr key={row.callsign} className={`border-t align-top ${rowTone(row)}`}>
+                      <td className="px-4 py-3 font-medium">{row.position ?? "—"}</td>
+                      <td className="px-4 py-3">
+                        <div className="font-medium">{row.callsign}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {row.runway || "—"} / {row.sid || "—"} / {row.wake_category || "—"}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div>{row.origin} - {row.destination}</div>
+                        <div className="text-xs text-muted-foreground">
+                          State {row.state || "—"}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div>{formatTime(row.tobt)}</div>
+                        <div className="text-xs text-muted-foreground">
+                          Req {formatTime(row.req_tobt)} / EOBT {formatTime(row.eobt)}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">{formatConfirmation(row)}</td>
+                      <td className="px-4 py-3">{formatTime(row.tsat)}</td>
+                      <td className="px-4 py-3">
+                        <div>{formatTime(row.ttot)}</div>
+                        <div className="text-xs text-muted-foreground">
+                          Stored TTOT
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">{formatOriginalTtot(row)}</td>
+                      <td className="px-4 py-3">
+                        <div>{typeof row.taxi_minutes === "number" ? `${row.taxi_minutes} min` : "—"}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {row.taxi_runway || row.runway || "—"}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">{formatTime(row.ctot)}</td>
+                      <td className="px-4 py-3">
+                        <div>{formatBaseSource(row.base_source)}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {formatTime(row.base_time)}
+                          {row.invalid_reason ? ` / ${row.invalid_reason}` : ""}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        {row.reasons.length > 0 ? (
+                          <ul className="space-y-1 text-sm">
+                            {row.reasons.map((reason, index) => (
+                              <li key={`${reason.kind}-${index}`} className="text-foreground">
+                                {reason.message}
+                              </li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </td>
+                    </tr>
                 ))}
               </tbody>
             </table>

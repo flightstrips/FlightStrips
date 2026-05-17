@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.33.0](https://github.com/flightstrips/FlightStrips/compare/backend/v0.32.0...backend/v0.33.0) (2026-05-17)
+
+
+### Features
+
+* **acdm:** CDM improvements ([2f857fa](https://github.com/flightstrips/FlightStrips/commit/2f857fac7ef297c155023432c5ec366ed844f496))
+* **controlzone:** add CONTROLZONE strip workflow ([49ac51c](https://github.com/flightstrips/FlightStrips/commit/49ac51cb24a0b8e2ab0c78dc68a6f38478067780))
+
 ## [0.32.0](https://github.com/flightstrips/FlightStrips/compare/backend/v0.31.0...backend/v0.32.0) (2026-05-16)
 
 

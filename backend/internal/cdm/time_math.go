@@ -111,11 +111,7 @@ func timeToClock(now time.Time) string {
 }
 
 func normalizeCalculationClock(value string) string {
-	value = strings.TrimSpace(value)
-	if toHHMMSS(value) == "000000" {
-		return ""
-	}
-	return value
+	return strings.TrimSpace(value)
 }
 
 func parseClock(value string) (int, bool) {

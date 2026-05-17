@@ -10,22 +10,23 @@ import (
 const sameDestinationSeparationMinutes = 3.0
 
 type CalcInput struct {
-	Callsign    string
-	Origin      string
-	Destination string
-	DepRwy      string
-	Sid         string
-	WakeCat     string
-	Eobt        string
-	Tobt        string
-	ReqTobt     string
-	Ctot        string
-	Aobt        string
-	Asat        string
-	TaxiMin     int
-	DeIceMin    int
-	HasManCtot  bool
-	ManCtot     string
+	Callsign          string
+	Origin            string
+	Destination       string
+	DepRwy            string
+	Sid               string
+	WakeCat           string
+	Eobt              string
+	Tobt              string
+	TobtAuthoritative bool
+	ReqTobt           string
+	Ctot              string
+	Aobt              string
+	Asat              string
+	TaxiMin           int
+	DeIceMin          int
+	HasManCtot        bool
+	ManCtot           string
 }
 
 type SlotEntry struct {
@@ -243,6 +244,9 @@ func selectCalculationBaseWithSource(input CalcInput) (string, string) {
 			return "", ""
 		}
 		return eobt, models.CdmCalculationBaseEobt
+	}
+	if source == models.CdmCalculationBaseTobt && input.TobtAuthoritative {
+		return base, source
 	}
 	if eobt != "" && !isAfterOrEqual(base, eobt) {
 		return eobt, models.CdmCalculationBaseEobt

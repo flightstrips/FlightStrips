@@ -743,7 +743,7 @@ type CdmDataEvent struct {
 	Status      string `json:"status,omitempty"`
 	EcfmpID     string `json:"ecfmp_id,omitempty"`
 	CtotSource  string `json:"ctot_source,omitempty"`
-	Phase       string `json:"phase,omitempty"`
+	Phase       string `json:"phase"`
 }
 
 func (c CdmDataEvent) Marshal() ([]byte, error) {

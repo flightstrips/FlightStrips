@@ -10,6 +10,11 @@ import (
 	"time"
 )
 
+const (
+	eobtCappedReasonKind    = "eobt_capped"
+	eobtCappedReasonMessage = "EOBT capped to 30 minutes ahead because the original EOBT was more than 45 minutes in the future."
+)
+
 type storedSequenceRow struct {
 	strip      *models.Strip
 	data       *models.CdmData
@@ -116,6 +121,8 @@ func applyStoredSequenceMarkers(data *models.CdmData, row storedSequenceRow, isM
 
 func buildStoredReasonMarkers(row storedSequenceRow, isMaster bool, taxiMinutes *int, previous *storedSequenceRow) []models.CdmReasonMarker {
 	reasons := make([]models.CdmReasonMarker, 0, 6)
+	reasons = append(reasons, persistentReasonMarkers(row.data.EffectiveCalculation())...)
+
 	sourceMessage := "Stored slot comes from synced CDM data for this session."
 	if isMaster {
 		sourceMessage = "Stored slot comes from the session's master-sequenced CDM data."
@@ -151,9 +158,16 @@ func setCalculationReasonMarkers(data *models.CdmData, markers []models.CdmReaso
 		calculation = &models.CdmCalculation{}
 	}
 
+	persistent := persistentReasonMarkers(calculation)
 	if len(markers) == 0 {
-		calculation.ReasonMarkers = nil
+		if len(persistent) == 0 {
+			calculation.ReasonMarkers = nil
+		} else {
+			calculation.ReasonMarkers = persistent
+		}
 	} else {
+		calculation.ReasonMarkers = make([]models.CdmReasonMarker, 0, len(persistent)+len(markers))
+		calculation.ReasonMarkers = append(calculation.ReasonMarkers, persistent...)
 		cloned := make([]models.CdmReasonMarker, len(markers))
 		for index, marker := range markers {
 			cloned[index] = models.CdmReasonMarker{
@@ -167,11 +181,106 @@ func setCalculationReasonMarkers(data *models.CdmData, markers []models.CdmReaso
 				RequiredSpacingMinutes: floatPointerClone(marker.RequiredSpacingMinutes),
 			}
 		}
-		calculation.ReasonMarkers = cloned
+		calculation.ReasonMarkers = append(calculation.ReasonMarkers, cloned...)
 	}
 
 	data.Calculation = calculation
 	data.Normalize()
+}
+
+func persistentReasonMarkers(calculation *models.CdmCalculation) []models.CdmReasonMarker {
+	if calculation == nil || len(calculation.ReasonMarkers) == 0 {
+		return nil
+	}
+
+	persistent := make([]models.CdmReasonMarker, 0, len(calculation.ReasonMarkers))
+	for _, marker := range calculation.ReasonMarkers {
+		if !isPersistentReasonKind(marker.Kind) {
+			continue
+		}
+		persistent = append(persistent, models.CdmReasonMarker{
+			Kind:                   marker.Kind,
+			Message:                marker.Message,
+			AgainstCallsign:        stringPointerClone(marker.AgainstCallsign),
+			AgainstRunway:          stringPointerClone(marker.AgainstRunway),
+			AgainstTtot:            stringPointerClone(marker.AgainstTtot),
+			FromTtot:               stringPointerClone(marker.FromTtot),
+			ToTtot:                 stringPointerClone(marker.ToTtot),
+			RequiredSpacingMinutes: floatPointerClone(marker.RequiredSpacingMinutes),
+		})
+	}
+
+	if len(persistent) == 0 {
+		return nil
+	}
+	return persistent
+}
+
+func isPersistentReasonKind(kind string) bool {
+	switch kind {
+	case eobtCappedReasonKind:
+		return true
+	default:
+		return false
+	}
+}
+
+func setEobtCapReasonMarker(data *models.CdmData, enabled bool, clearWhenDisabled bool) bool {
+	if data == nil {
+		return false
+	}
+
+	calculation := data.Calculation.Clone()
+	if calculation == nil {
+		calculation = &models.CdmCalculation{}
+	}
+
+	updated := make([]models.CdmReasonMarker, 0, len(calculation.ReasonMarkers)+1)
+	found := false
+	changed := false
+	for _, existing := range calculation.ReasonMarkers {
+		if existing.Kind != eobtCappedReasonKind {
+			updated = append(updated, existing)
+			continue
+		}
+
+		found = true
+		if !enabled && clearWhenDisabled {
+			changed = true
+			continue
+		}
+		if enabled && strings.TrimSpace(existing.Message) == eobtCappedReasonMessage {
+			updated = append(updated, existing)
+			continue
+		}
+		if enabled {
+			updated = append(updated, marker(eobtCappedReasonKind, eobtCappedReasonMessage, ""))
+			changed = true
+		}
+	}
+
+	if enabled && !found {
+		updated = append(updated, marker(eobtCappedReasonKind, eobtCappedReasonMessage, ""))
+		changed = true
+	}
+
+	if !enabled && found && clearWhenDisabled {
+		changed = true
+	}
+
+	if !changed {
+		return false
+	}
+
+	if len(updated) == 0 {
+		calculation.ReasonMarkers = nil
+	} else {
+		calculation.ReasonMarkers = updated
+	}
+
+	data.Calculation = calculation
+	data.Normalize()
+	return true
 }
 
 func movementReasonMarkersFromTrace(trace []calculationTraceEntry) []models.CdmReasonMarker {

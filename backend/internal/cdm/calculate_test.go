@@ -15,6 +15,7 @@ func TestCalculate_BaseTimeSelection(t *testing.T) {
 		input        CalcInput
 		expectedTsat string
 		expectedTtot string
+		now          time.Time
 	}{
 		{
 			name: "prefers tobt over requested tobt and eobt",
@@ -43,6 +44,21 @@ func TestCalculate_BaseTimeSelection(t *testing.T) {
 			},
 			expectedTsat: "102000",
 			expectedTtot: "103000",
+		},
+		{
+			name: "authoritative tobt overrides later eobt floor",
+			input: CalcInput{
+				Callsign:          "SAS100C",
+				Origin:            "EKCH",
+				DepRwy:            "04L",
+				Eobt:              "1020",
+				Tobt:              "1000",
+				TobtAuthoritative: true,
+				ReqTobt:           "1015",
+				TaxiMin:           10,
+			},
+			expectedTsat: "100000",
+			expectedTtot: "101000",
 		},
 		{
 			name: "uses requested tobt when tobt missing",
@@ -83,7 +99,7 @@ func TestCalculate_BaseTimeSelection(t *testing.T) {
 			expectedTtot: "103000",
 		},
 		{
-			name: "ignores zero tobt and requested tobt and falls back to eobt",
+			name: "later eobt still dominates midnight tobt and requested tobt",
 			input: CalcInput{
 				Callsign: "SAS103",
 				Origin:   "EKCH",
@@ -97,7 +113,7 @@ func TestCalculate_BaseTimeSelection(t *testing.T) {
 			expectedTtot: "103000",
 		},
 		{
-			name: "returns empty result when all base times are zero",
+			name: "uses midnight as a valid base time",
 			input: CalcInput{
 				Callsign: "SAS104",
 				Origin:   "EKCH",
@@ -107,8 +123,9 @@ func TestCalculate_BaseTimeSelection(t *testing.T) {
 				ReqTobt:  "0000",
 				TaxiMin:  10,
 			},
-			expectedTsat: "",
-			expectedTtot: "",
+			expectedTsat: "000000",
+			expectedTtot: "001000",
+			now:          time.Date(2026, 3, 25, 23, 58, 0, 0, time.UTC),
 		},
 	}
 
@@ -117,7 +134,12 @@ func TestCalculate_BaseTimeSelection(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			result := Calculate(tt.input, nil, NewDefaultAirportConfig("EKCH"), now)
+			calcNow := now
+			if !tt.now.IsZero() {
+				calcNow = tt.now
+			}
+
+			result := Calculate(tt.input, nil, NewDefaultAirportConfig("EKCH"), calcNow)
 			assertClockResult(t, result, tt.expectedTsat, tt.expectedTtot)
 		})
 	}

@@ -69,7 +69,7 @@ func TestSyncCdmData_PersistsFlowMessageAndReqTobtSource(t *testing.T) {
 	)
 	service.SetEuroscopeHub(euroscopeHub)
 
-	err := service.syncCdmData(context.Background(), &models.Session{ID: sessionID, Airport: "EKCH"})
+	err := service.syncCdmData(context.Background(), &models.Session{ID: sessionID, Name: "LIVE", Airport: "EKCH"})
 	if err != nil {
 		t.Fatalf("syncCdmData returned error: %v", err)
 	}
@@ -142,12 +142,486 @@ func TestSyncCdmData_PreservesExistingAsat(t *testing.T) {
 		&testutil.MockControllerRepository{},
 	)
 
-	err := service.syncCdmData(context.Background(), &models.Session{ID: sessionID, Airport: "EKCH"})
+	err := service.syncCdmData(context.Background(), &models.Session{ID: sessionID, Name: "LIVE", Airport: "EKCH"})
 	if err != nil {
 		t.Fatalf("syncCdmData returned error: %v", err)
 	}
 	if persisted == nil || valueOrEmpty(persisted.Asat) != asat {
 		t.Fatalf("expected ASAT %q to be preserved, got %#v", asat, persisted)
+	}
+}
+
+func TestSyncCdmData_MasterSession_NormalizesExistingFarFutureEobt(t *testing.T) {
+	const sessionID = int32(90)
+	const callsign = "SAS190"
+	const airport = "EKCH"
+	const masterCid = "777888"
+	now := time.Now().UTC()
+	rawFutureEobt := truncateCDMClockValue(addMinutes(timeToClock(now), 60))
+	expectedClamped := truncateCDMClockValue(addMinutes(timeToClock(now), masterEobtClampTarget))
+	currentTobt := expectedClamped
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/ifps/depAirport":
+			_, _ = w.Write([]byte(`[]`))
+		case "/ifps/dpi", "/ifps/setCdmData":
+			w.WriteHeader(http.StatusOK)
+		default:
+			t.Fatalf("unexpected path %s", r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	initial := (&models.CdmData{
+		Eobt: testStringPtr(rawFutureEobt),
+		Tobt: testStringPtr(currentTobt),
+	}).Normalize()
+	var persisted *models.CdmData
+	euroscopeHub := &testutil.MockEuroscopeHub{
+		GetMasterCallsignFn: func(int32) string {
+			return "EKCH_A_TWR"
+		},
+	}
+	controllerRepo := &testutil.MockControllerRepository{
+		GetByCallsignFn: func(_ context.Context, session int32, callsign string) (*models.Controller, error) {
+			if session != sessionID {
+				t.Fatalf("unexpected session %d", session)
+			}
+			if callsign != "EKCH_A_TWR" {
+				t.Fatalf("unexpected callsign %s", callsign)
+			}
+			return &models.Controller{Cid: testStringPtr(masterCid)}, nil
+		},
+	}
+	service := NewCdmService(
+		NewClient(WithAPIKey("test-key"), WithBaseURL(server.URL)),
+		&testutil.MockStripRepository{
+			GetCdmDataFn: func(context.Context, int32) ([]*models.CdmDataRow, error) {
+				return []*models.CdmDataRow{{Callsign: callsign, Data: initial.Clone()}}, nil
+			},
+			GetByCallsignFn: func(_ context.Context, gotSession int32, gotCallsign string) (*models.Strip, error) {
+				if gotSession != sessionID || gotCallsign != callsign {
+					t.Fatalf("unexpected GetByCallsign target %d %s", gotSession, gotCallsign)
+				}
+				return &models.Strip{
+					Callsign: callsign,
+					Session:  sessionID,
+					Origin:   airport,
+				}, nil
+			},
+			ListByOriginFn: func(_ context.Context, gotSession int32, gotAirport string) ([]*models.Strip, error) {
+				if gotSession != sessionID || gotAirport != airport {
+					t.Fatalf("unexpected ListByOrigin target %d %s", gotSession, gotAirport)
+				}
+				return []*models.Strip{{
+					Callsign: callsign,
+					Session:  sessionID,
+					Origin:   airport,
+					CdmData:  initial.Clone(),
+				}}, nil
+			},
+			SetCdmDataFn: func(_ context.Context, session int32, gotCallsign string, data *models.CdmData) (int64, error) {
+				if session != sessionID || gotCallsign != callsign {
+					t.Fatalf("unexpected persistence target %d %s", session, gotCallsign)
+				}
+				persisted = data.Clone()
+				return 1, nil
+			},
+			GetCdmDataForCallsignFn: func(context.Context, int32, string) (*models.CdmData, error) {
+				return persisted.Clone(), nil
+			},
+		},
+		&testutil.MockSessionRepository{},
+		controllerRepo,
+	)
+	service.SetEuroscopeHub(euroscopeHub)
+	service.sessionMaster.Store(sessionID, true)
+
+	err := service.syncCdmData(context.Background(), &models.Session{ID: sessionID, Name: "LIVE", Airport: airport, CdmMaster: true})
+	if err != nil {
+		t.Fatalf("syncCdmData returned error: %v", err)
+	}
+	if persisted == nil {
+		t.Fatal("expected persisted CDM data")
+	}
+	if got := valueOrEmpty(persisted.Eobt); got != expectedClamped {
+		t.Fatalf("expected persisted EOBT %q, got %q", expectedClamped, got)
+	}
+	if got := valueOrEmpty(persisted.Tobt); got != expectedClamped {
+		t.Fatalf("expected persisted TOBT %q, got %q", expectedClamped, got)
+	}
+	if !persisted.TobtAutoSynced {
+		t.Fatalf("expected normalized TOBT to stay auto-synced, got %#v", persisted)
+	}
+	if persisted.TobtManuallyConfirmed {
+		t.Fatalf("expected normalized TOBT to remain non-manual, got %#v", persisted)
+	}
+	if persisted.Calculation == nil || len(persisted.Calculation.ReasonMarkers) == 0 {
+		t.Fatalf("expected stored reason markers, got %#v", persisted.Calculation)
+	}
+	if persisted.Calculation.ReasonMarkers[0].Kind != eobtCappedReasonKind {
+		t.Fatalf("expected first reason marker %q, got %#v", eobtCappedReasonKind, persisted.Calculation.ReasonMarkers)
+	}
+	if len(euroscopeHub.Eobts) != 1 {
+		t.Fatalf("expected one EuroScope EOBT sync-back, got %d", len(euroscopeHub.Eobts))
+	}
+	if euroscopeHub.Eobts[0].Cid != masterCid || euroscopeHub.Eobts[0].Eobt != expectedClamped {
+		t.Fatalf("unexpected EuroScope EOBT sync-back: %#v", euroscopeHub.Eobts[0])
+	}
+}
+
+func TestSyncCdmData_MasterSession_NormalizesEmptyEobt(t *testing.T) {
+	const sessionID = int32(93)
+	const callsign = "SAS193"
+	const airport = "EKCH"
+	const masterCid = "777891"
+	now := time.Now().UTC()
+	expectedClamped := truncateCDMClockValue(addMinutes(timeToClock(now), masterEobtClampTarget))
+	currentTobt := expectedClamped
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/ifps/depAirport":
+			_, _ = w.Write([]byte(`[]`))
+		case "/ifps/dpi", "/ifps/setCdmData":
+			w.WriteHeader(http.StatusOK)
+		default:
+			t.Fatalf("unexpected path %s", r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	initial := (&models.CdmData{
+		Tobt: testStringPtr(currentTobt),
+	}).Normalize()
+	var persisted *models.CdmData
+	euroscopeHub := &testutil.MockEuroscopeHub{
+		GetMasterCallsignFn: func(int32) string {
+			return "EKCH_A_TWR"
+		},
+	}
+	controllerRepo := &testutil.MockControllerRepository{
+		GetByCallsignFn: func(_ context.Context, session int32, callsign string) (*models.Controller, error) {
+			if session != sessionID {
+				t.Fatalf("unexpected session %d", session)
+			}
+			if callsign != "EKCH_A_TWR" {
+				t.Fatalf("unexpected callsign %s", callsign)
+			}
+			return &models.Controller{Cid: testStringPtr(masterCid)}, nil
+		},
+	}
+	service := NewCdmService(
+		NewClient(WithAPIKey("test-key"), WithBaseURL(server.URL)),
+		&testutil.MockStripRepository{
+			GetCdmDataFn: func(context.Context, int32) ([]*models.CdmDataRow, error) {
+				return []*models.CdmDataRow{{Callsign: callsign, Data: initial.Clone()}}, nil
+			},
+			GetByCallsignFn: func(_ context.Context, gotSession int32, gotCallsign string) (*models.Strip, error) {
+				if gotSession != sessionID || gotCallsign != callsign {
+					t.Fatalf("unexpected GetByCallsign target %d %s", gotSession, gotCallsign)
+				}
+				return &models.Strip{
+					Callsign: callsign,
+					Session:  sessionID,
+					Origin:   airport,
+				}, nil
+			},
+			ListByOriginFn: func(_ context.Context, gotSession int32, gotAirport string) ([]*models.Strip, error) {
+				if gotSession != sessionID || gotAirport != airport {
+					t.Fatalf("unexpected ListByOrigin target %d %s", gotSession, gotAirport)
+				}
+				return []*models.Strip{{
+					Callsign: callsign,
+					Session:  sessionID,
+					Origin:   airport,
+					CdmData:  initial.Clone(),
+				}}, nil
+			},
+			SetCdmDataFn: func(_ context.Context, session int32, gotCallsign string, data *models.CdmData) (int64, error) {
+				if session != sessionID || gotCallsign != callsign {
+					t.Fatalf("unexpected persistence target %d %s", session, gotCallsign)
+				}
+				persisted = data.Clone()
+				return 1, nil
+			},
+			GetCdmDataForCallsignFn: func(context.Context, int32, string) (*models.CdmData, error) {
+				return persisted.Clone(), nil
+			},
+		},
+		&testutil.MockSessionRepository{},
+		controllerRepo,
+	)
+	service.SetEuroscopeHub(euroscopeHub)
+	service.sessionMaster.Store(sessionID, true)
+
+	err := service.syncCdmData(context.Background(), &models.Session{ID: sessionID, Name: "LIVE", Airport: airport, CdmMaster: true})
+	if err != nil {
+		t.Fatalf("syncCdmData returned error: %v", err)
+	}
+	if persisted == nil {
+		t.Fatal("expected persisted CDM data")
+	}
+	if got := valueOrEmpty(persisted.Eobt); got != expectedClamped {
+		t.Fatalf("expected persisted EOBT %q, got %q", expectedClamped, got)
+	}
+	if got := valueOrEmpty(persisted.Tobt); got != expectedClamped {
+		t.Fatalf("expected persisted TOBT %q, got %q", expectedClamped, got)
+	}
+	if !persisted.TobtAutoSynced {
+		t.Fatalf("expected normalized TOBT to stay auto-synced, got %#v", persisted)
+	}
+	if persisted.TobtManuallyConfirmed {
+		t.Fatalf("expected normalized TOBT to remain non-manual, got %#v", persisted)
+	}
+	if persisted.Calculation == nil || len(persisted.Calculation.ReasonMarkers) == 0 {
+		t.Fatalf("expected stored reason markers, got %#v", persisted.Calculation)
+	}
+	if persisted.Calculation.ReasonMarkers[0].Kind != eobtCappedReasonKind {
+		t.Fatalf("expected first reason marker %q, got %#v", eobtCappedReasonKind, persisted.Calculation.ReasonMarkers)
+	}
+	if len(euroscopeHub.Eobts) != 1 {
+		t.Fatalf("expected one EuroScope EOBT sync-back, got %d", len(euroscopeHub.Eobts))
+	}
+	if euroscopeHub.Eobts[0].Cid != masterCid || euroscopeHub.Eobts[0].Eobt != expectedClamped {
+		t.Fatalf("unexpected EuroScope EOBT sync-back: %#v", euroscopeHub.Eobts[0])
+	}
+}
+
+func TestSyncCdmData_MasterSession_KeepsFreshCtotWhenEobtNormalizationAlsoRuns(t *testing.T) {
+	const sessionID = int32(91)
+	const callsign = "SAS191"
+	const airport = "EKCH"
+	const masterCid = "777889"
+	now := time.Now().UTC()
+	rawFutureEobt := truncateCDMClockValue(addMinutes(timeToClock(now), 60))
+	currentTobt := truncateCDMClockValue(addMinutes(timeToClock(now), 35))
+	expectedClamped := truncateCDMClockValue(addMinutes(timeToClock(now), masterEobtClampTarget))
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/ifps/depAirport" {
+			t.Fatalf("unexpected path %s", r.URL.Path)
+		}
+		_, _ = w.Write([]byte(`[{
+			"callsign":"SAS191",
+			"departure":"EKCH",
+			"eobt":"1000",
+			"tobt":"1010",
+			"ctot":"1040",
+			"cdmSts":"REA",
+			"cdmData":{
+				"reqTobt":"1005",
+				"reqTobtType":"PILOT",
+				"reason":"REGUL"
+			}
+		}]`))
+	}))
+	defer server.Close()
+
+	initial := (&models.CdmData{
+		Eobt: &rawFutureEobt,
+		Tobt: &currentTobt,
+	}).Normalize()
+	var persisted *models.CdmData
+	var persistCount int
+	euroscopeHub := &testutil.MockEuroscopeHub{
+		GetMasterCallsignFn: func(int32) string {
+			return "EKCH_A_TWR"
+		},
+	}
+	controllerRepo := &testutil.MockControllerRepository{
+		GetByCallsignFn: func(_ context.Context, session int32, callsign string) (*models.Controller, error) {
+			if session != sessionID {
+				t.Fatalf("unexpected session %d", session)
+			}
+			if callsign != "EKCH_A_TWR" {
+				t.Fatalf("unexpected callsign %s", callsign)
+			}
+			return &models.Controller{Cid: testStringPtr(masterCid)}, nil
+		},
+	}
+	service := NewCdmService(
+		NewClient(WithAPIKey("test-key"), WithBaseURL(server.URL)),
+		&testutil.MockStripRepository{
+			GetCdmDataFn: func(context.Context, int32) ([]*models.CdmDataRow, error) {
+				return []*models.CdmDataRow{{Callsign: callsign, Data: initial.Clone()}}, nil
+			},
+			GetByCallsignFn: func(_ context.Context, gotSession int32, gotCallsign string) (*models.Strip, error) {
+				if gotSession != sessionID || gotCallsign != callsign {
+					t.Fatalf("unexpected GetByCallsign target %d %s", gotSession, gotCallsign)
+				}
+				return &models.Strip{
+					Callsign: callsign,
+					Session:  sessionID,
+					Origin:   airport,
+					Runway:   testStringPtr("22R"),
+				}, nil
+			},
+			SetCdmDataFn: func(_ context.Context, session int32, gotCallsign string, data *models.CdmData) (int64, error) {
+				if session != sessionID || gotCallsign != callsign {
+					t.Fatalf("unexpected persistence target %d %s", session, gotCallsign)
+				}
+				persisted = data.Clone()
+				persistCount++
+				return 1, nil
+			},
+			GetCdmDataForCallsignFn: func(context.Context, int32, string) (*models.CdmData, error) {
+				return persisted.Clone(), nil
+			},
+		},
+		&testutil.MockSessionRepository{},
+		controllerRepo,
+	)
+	service.SetEuroscopeHub(euroscopeHub)
+	service.sessionMaster.Store(sessionID, true)
+
+	err := service.syncCdmData(context.Background(), &models.Session{ID: sessionID, Name: "LIVE", Airport: airport, CdmMaster: true})
+	if err != nil {
+		t.Fatalf("syncCdmData returned error: %v", err)
+	}
+	if persistCount != 2 {
+		t.Fatalf("expected two persists (CTOT merge and EOBT normalization), got %d", persistCount)
+	}
+	if persisted == nil {
+		t.Fatal("expected persisted CDM data")
+	}
+	if got := valueOrEmpty(persisted.Eobt); got != expectedClamped {
+		t.Fatalf("expected persisted EOBT %q, got %q", expectedClamped, got)
+	}
+	if got := valueOrEmpty(persisted.Tobt); got != expectedClamped {
+		t.Fatalf("expected normalized TOBT %q, got %q", expectedClamped, got)
+	}
+	if got := valueOrEmpty(persisted.Ctot); got != "1040" {
+		t.Fatalf("expected CTOT to survive normalization, got %q", got)
+	}
+	if got := valueOrEmpty(persisted.ReqTobt); got != "1005" {
+		t.Fatalf("expected REQ TOBT to survive normalization, got %q", got)
+	}
+	if got := valueOrEmpty(persisted.ReqTobtType); got != "PILOT" {
+		t.Fatalf("expected REQ TOBT type to survive normalization, got %q", got)
+	}
+	if !persisted.TobtAutoSynced {
+		t.Fatalf("expected normalized TOBT to stay auto-synced, got %#v", persisted)
+	}
+	if persisted.TobtManuallyConfirmed {
+		t.Fatalf("expected normalized TOBT to remain non-manual, got %#v", persisted)
+	}
+	if got := valueOrEmpty(persisted.EcfmpID); got != "REGUL" {
+		t.Fatalf("expected ECFMP reason to survive normalization, got %q", got)
+	}
+	if len(euroscopeHub.Eobts) != 1 {
+		t.Fatalf("expected one EuroScope EOBT sync-back, got %d", len(euroscopeHub.Eobts))
+	}
+}
+
+func TestSyncCdmData_MasterSession_DoesNotOverwriteConfirmedTobtDuringEobtNormalization(t *testing.T) {
+	const sessionID = int32(92)
+	const callsign = "SAS192"
+	const airport = "EKCH"
+	const masterCid = "777890"
+	now := time.Now().UTC()
+	rawFutureEobt := truncateCDMClockValue(addMinutes(timeToClock(now), 60))
+	currentTobt := "0000"
+	confirmedBy := models.TobtConfirmedByPilot
+	expectedClamped := truncateCDMClockValue(addMinutes(timeToClock(now), masterEobtClampTarget))
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/ifps/depAirport" {
+			t.Fatalf("unexpected path %s", r.URL.Path)
+		}
+		_, _ = w.Write([]byte(`[]`))
+	}))
+	defer server.Close()
+
+	initial := (&models.CdmData{
+		Eobt:                  &rawFutureEobt,
+		Tobt:                  &currentTobt,
+		TobtConfirmedBy:       &confirmedBy,
+		TobtManuallyConfirmed: true,
+	}).Normalize()
+	var persisted *models.CdmData
+	euroscopeHub := &testutil.MockEuroscopeHub{
+		GetMasterCallsignFn: func(int32) string {
+			return "EKCH_A_TWR"
+		},
+	}
+	controllerRepo := &testutil.MockControllerRepository{
+		GetByCallsignFn: func(_ context.Context, session int32, callsign string) (*models.Controller, error) {
+			if session != sessionID {
+				t.Fatalf("unexpected session %d", session)
+			}
+			if callsign != "EKCH_A_TWR" {
+				t.Fatalf("unexpected callsign %s", callsign)
+			}
+			return &models.Controller{Cid: testStringPtr(masterCid)}, nil
+		},
+	}
+	service := NewCdmService(
+		NewClient(WithAPIKey("test-key"), WithBaseURL(server.URL)),
+		&testutil.MockStripRepository{
+			GetCdmDataFn: func(context.Context, int32) ([]*models.CdmDataRow, error) {
+				return []*models.CdmDataRow{{Callsign: callsign, Data: initial.Clone()}}, nil
+			},
+			GetByCallsignFn: func(_ context.Context, gotSession int32, gotCallsign string) (*models.Strip, error) {
+				if gotSession != sessionID || gotCallsign != callsign {
+					t.Fatalf("unexpected GetByCallsign target %d %s", gotSession, gotCallsign)
+				}
+				return &models.Strip{
+					Callsign: callsign,
+					Session:  sessionID,
+					Origin:   airport,
+				}, nil
+			},
+			ListByOriginFn: func(_ context.Context, gotSession int32, gotAirport string) ([]*models.Strip, error) {
+				if gotSession != sessionID || gotAirport != airport {
+					t.Fatalf("unexpected ListByOrigin target %d %s", gotSession, gotAirport)
+				}
+				return []*models.Strip{{
+					Callsign: callsign,
+					Session:  sessionID,
+					Origin:   airport,
+					CdmData:  initial.Clone(),
+				}}, nil
+			},
+			SetCdmDataFn: func(_ context.Context, session int32, gotCallsign string, data *models.CdmData) (int64, error) {
+				if session != sessionID || gotCallsign != callsign {
+					t.Fatalf("unexpected persistence target %d %s", session, gotCallsign)
+				}
+				persisted = data.Clone()
+				return 1, nil
+			},
+			GetCdmDataForCallsignFn: func(context.Context, int32, string) (*models.CdmData, error) {
+				return persisted.Clone(), nil
+			},
+		},
+		&testutil.MockSessionRepository{},
+		controllerRepo,
+	)
+	service.SetEuroscopeHub(euroscopeHub)
+	service.sessionMaster.Store(sessionID, true)
+
+	err := service.syncCdmData(context.Background(), &models.Session{ID: sessionID, Name: "LIVE", Airport: airport, CdmMaster: true})
+	if err != nil {
+		t.Fatalf("syncCdmData returned error: %v", err)
+	}
+	if persisted == nil {
+		t.Fatal("expected persisted CDM data")
+	}
+	if got := valueOrEmpty(persisted.Eobt); got != expectedClamped {
+		t.Fatalf("expected persisted EOBT %q, got %q", expectedClamped, got)
+	}
+	if got := valueOrEmpty(persisted.Tobt); got != currentTobt {
+		t.Fatalf("expected confirmed TOBT %q to be preserved, got %q", currentTobt, got)
+	}
+	if got := valueOrEmpty(persisted.TobtConfirmedBy); got != confirmedBy {
+		t.Fatalf("expected TOBT confirmation %q to be preserved, got %q", confirmedBy, got)
+	}
+	if !persisted.TobtManuallyConfirmed {
+		t.Fatalf("expected TOBT manual confirmation to be preserved, got %#v", persisted)
+	}
+	if len(euroscopeHub.Eobts) != 1 {
+		t.Fatalf("expected one EuroScope EOBT sync-back, got %d", len(euroscopeHub.Eobts))
 	}
 }
 
@@ -177,7 +651,12 @@ func TestSyncCdmData_UsesNestedCtotForFrontendUpdate(t *testing.T) {
 		NewClient(WithAPIKey("test-key"), WithBaseURL(server.URL)),
 		&testutil.MockStripRepository{
 			GetCdmDataFn: func(context.Context, int32) ([]*models.CdmDataRow, error) {
-				return []*models.CdmDataRow{{Callsign: callsign, Data: (&models.CdmData{}).Normalize()}}, nil
+				return []*models.CdmDataRow{{
+					Callsign: callsign,
+					Data: (&models.CdmData{
+						Eobt: testStringPtr("1000"),
+					}).Normalize(),
+				}}, nil
 			},
 			SetCdmDataFn: func(_ context.Context, session int32, gotCallsign string, data *models.CdmData) (int64, error) {
 				if session != sessionID || gotCallsign != callsign {
@@ -195,7 +674,7 @@ func TestSyncCdmData_UsesNestedCtotForFrontendUpdate(t *testing.T) {
 	)
 	service.SetFrontendHub(frontendHub)
 
-	err := service.syncCdmData(context.Background(), &models.Session{ID: sessionID, Airport: "EKCH"})
+	err := service.syncCdmData(context.Background(), &models.Session{ID: sessionID, Name: "LIVE", Airport: "EKCH"})
 	if err != nil {
 		t.Fatalf("syncCdmData returned error: %v", err)
 	}
@@ -247,7 +726,7 @@ func TestSyncCdmData_ReturnsErrorWhenPersistSkipsRow(t *testing.T) {
 		&testutil.MockControllerRepository{},
 	)
 
-	err := service.syncCdmData(context.Background(), &models.Session{ID: sessionID, Airport: "EKCH"})
+	err := service.syncCdmData(context.Background(), &models.Session{ID: sessionID, Name: "LIVE", Airport: "EKCH"})
 	if err == nil || !strings.Contains(err.Error(), "failed to persist CDM data") {
 		t.Fatalf("expected persistence failure, got %v", err)
 	}
@@ -305,7 +784,7 @@ func TestSyncCdmData_SlaveSession_StartupStatusInitializesAsat(t *testing.T) {
 	service.SetSequenceService(NewSequenceService(stripRepo, &testutil.MockSessionRepository{}, NewCdmConfigStore("", "", "", 0, CdmConfigDefaults{}, nil), nil, nil))
 	// Session is NOT master — full API sync applies.
 
-	err := service.syncCdmData(context.Background(), &models.Session{ID: sessionID, Airport: "EKCH"})
+	err := service.syncCdmData(context.Background(), &models.Session{ID: sessionID, Name: "LIVE", Airport: "EKCH"})
 	if err != nil {
 		t.Fatalf("syncCdmData returned error: %v", err)
 	}
@@ -388,7 +867,7 @@ func TestSyncCdmData_SlaveSession_ReplacesPersistedCalculationSnapshotWithStored
 	)
 	service.SetSequenceService(NewSequenceService(stripRepo, &testutil.MockSessionRepository{}, NewCdmConfigStore("", "", "", 0, CdmConfigDefaults{}, nil), nil, nil))
 
-	err := service.syncCdmData(context.Background(), &models.Session{ID: sessionID, Airport: "EKCH"})
+	err := service.syncCdmData(context.Background(), &models.Session{ID: sessionID, Name: "LIVE", Airport: "EKCH"})
 	if err != nil {
 		t.Fatalf("syncCdmData returned error: %v", err)
 	}
@@ -428,7 +907,15 @@ func TestSyncCdmData_MasterSession_DoesNotSyncTsatFromAPI(t *testing.T) {
 		NewClient(WithAPIKey("test-key"), WithBaseURL(server.URL)),
 		&testutil.MockStripRepository{
 			GetCdmDataFn: func(context.Context, int32) ([]*models.CdmDataRow, error) {
-				return []*models.CdmDataRow{{Callsign: callsign, Data: (&models.CdmData{}).Normalize()}}, nil
+				return []*models.CdmDataRow{{
+					Callsign: callsign,
+					Data: (&models.CdmData{
+						Eobt: testStringPtr("1000"),
+					}).Normalize(),
+				}}, nil
+			},
+			GetByCallsignFn: func(context.Context, int32, string) (*models.Strip, error) {
+				return &models.Strip{Callsign: callsign, Origin: "EKCH", Runway: testStringPtr("22R")}, nil
 			},
 			SetCdmDataFn: func(_ context.Context, _ int32, _ string, data *models.CdmData) (int64, error) {
 				persisted = data.Clone()
@@ -444,7 +931,7 @@ func TestSyncCdmData_MasterSession_DoesNotSyncTsatFromAPI(t *testing.T) {
 	// Mark session as CDM master — TSAT/TOBT/Status from API must be ignored.
 	service.sessionMaster.Store(sessionID, true)
 
-	err := service.syncCdmData(context.Background(), &models.Session{ID: sessionID, Airport: "EKCH"})
+	err := service.syncCdmData(context.Background(), &models.Session{ID: sessionID, Name: "LIVE", Airport: "EKCH"})
 	if err != nil {
 		t.Fatalf("syncCdmData returned error: %v", err)
 	}
@@ -479,9 +966,13 @@ func TestSyncCdmData_MasterSession_MarksRecalculationForReqTobtAndCtotChanges(t 
 				return []*models.CdmDataRow{{
 					Callsign: callsign,
 					Data: (&models.CdmData{
+						Eobt: testStringPtr("1000"),
 						Tobt: testStringPtr("1010"),
 					}).Normalize(),
 				}}, nil
+			},
+			GetByCallsignFn: func(context.Context, int32, string) (*models.Strip, error) {
+				return &models.Strip{Callsign: callsign, Origin: "EKCH", Runway: testStringPtr("22R")}, nil
 			},
 			SetCdmDataFn: func(_ context.Context, _ int32, _ string, data *models.CdmData) (int64, error) {
 				persisted = data.Clone()
@@ -496,7 +987,7 @@ func TestSyncCdmData_MasterSession_MarksRecalculationForReqTobtAndCtotChanges(t 
 	)
 	service.sessionMaster.Store(sessionID, true)
 
-	err := service.syncCdmData(context.Background(), &models.Session{ID: sessionID, Airport: "EKCH"})
+	err := service.syncCdmData(context.Background(), &models.Session{ID: sessionID, Name: "LIVE", Airport: "EKCH"})
 	if err != nil {
 		t.Fatalf("syncCdmData returned error: %v", err)
 	}
@@ -548,6 +1039,7 @@ func TestSyncCdmData_MasterSession_DoesNotExportStaleLocalTimesWhileRecalcPendin
 				return []*models.CdmDataRow{{
 					Callsign: callsign,
 					Data: (&models.CdmData{
+						Eobt: testStringPtr("1000"),
 						Tobt: testStringPtr("1010"),
 						Tsat: testStringPtr("1015"),
 						Ttot: testStringPtr("1025"),
@@ -570,7 +1062,7 @@ func TestSyncCdmData_MasterSession_DoesNotExportStaleLocalTimesWhileRecalcPendin
 	)
 	service.sessionMaster.Store(sessionID, true)
 
-	err := service.syncCdmData(context.Background(), &models.Session{ID: sessionID, Airport: "EKCH"})
+	err := service.syncCdmData(context.Background(), &models.Session{ID: sessionID, Name: "LIVE", Airport: "EKCH"})
 	if err != nil {
 		t.Fatalf("syncCdmData returned error: %v", err)
 	}
@@ -612,6 +1104,7 @@ func TestSyncCdmData_MasterSession_PushesLocalTimesToViffWhenApiDiffers(t *testi
 	defer server.Close()
 
 	local := (&models.CdmData{
+		Eobt: testStringPtr("1000"),
 		Tobt: testStringPtr("1010"),
 		Tsat: testStringPtr("101500"),
 		Ttot: testStringPtr("102500"),
@@ -632,7 +1125,7 @@ func TestSyncCdmData_MasterSession_PushesLocalTimesToViffWhenApiDiffers(t *testi
 	)
 	service.sessionMaster.Store(sessionID, true)
 
-	err := service.syncCdmData(context.Background(), &models.Session{ID: sessionID, Airport: "EKCH"})
+	err := service.syncCdmData(context.Background(), &models.Session{ID: sessionID, Name: "LIVE", Airport: "EKCH"})
 	if err != nil {
 		t.Fatalf("syncCdmData returned error: %v", err)
 	}

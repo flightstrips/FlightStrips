@@ -30,3 +30,14 @@ func TestCompareClockForSort_TreatsLateEveningAsBeforeEarlyMorningWhenAnchorIsAf
 		t.Fatalf("expected 02:15 to sort after 23:00 when the anchor is 02:00, got %d", cmp)
 	}
 }
+
+func TestNormalizeCalculationClock_KeepsMidnight(t *testing.T) {
+	t.Parallel()
+
+	if got := normalizeCalculationClock("0000"); got != "0000" {
+		t.Fatalf("expected midnight HHMM to remain valid, got %q", got)
+	}
+	if got := normalizeCalculationClock("000000"); got != "000000" {
+		t.Fatalf("expected midnight HHMMSS to remain valid, got %q", got)
+	}
+}

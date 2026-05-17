@@ -387,6 +387,36 @@ func TestWebAPIHandleSequenceAssignsMissingStoredPositionsIndependently(t *testi
 	}
 }
 
+func TestBuildPersistedSequenceRows_IncludesEobtCappedReasonMarker(t *testing.T) {
+	t.Parallel()
+
+	eobt := "1030"
+	rows := buildPersistedSequenceRows([]*models.Strip{{
+		Callsign:    "SAS131",
+		Origin:      "EKCH",
+		Destination: "ESSA",
+		CdmData: (&models.CdmData{
+			Eobt: &eobt,
+			Calculation: &models.CdmCalculation{
+				ReasonMarkers: []models.CdmReasonMarker{{
+					Kind:    eobtCappedReasonKind,
+					Message: eobtCappedReasonMessage,
+				}},
+			},
+		}).Normalize(),
+	}}, true, time.Now().UTC())
+
+	if len(rows) != 1 {
+		t.Fatalf("expected one row, got %#v", rows)
+	}
+	if !hasReason(rows[0].response.Reasons, eobtCappedReasonKind, "") {
+		t.Fatalf("expected EOBT cap reason, got %#v", rows[0].response.Reasons)
+	}
+	if rows[0].response.Reasons[0].Message != eobtCappedReasonMessage {
+		t.Fatalf("expected reason message %q, got %#v", eobtCappedReasonMessage, rows[0].response.Reasons)
+	}
+}
+
 func hasReason(reasons []sequenceReasonResponse, kind string, against string) bool {
 	for _, reason := range reasons {
 		if reason.Kind != kind {

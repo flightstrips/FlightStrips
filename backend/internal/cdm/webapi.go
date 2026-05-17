@@ -588,7 +588,7 @@ func storedReasonResponses(calculation *models.CdmCalculation, data *models.CdmD
 
 func isInterestingReasonKind(kind string) bool {
 	switch kind {
-	case "same_destination_separation", "runway_slot_collision", "runway_rate_window", "runway_spacing", "wake_separation", "sid_interval", "stale_tobt", "stale_tsat":
+	case "same_destination_separation", "runway_slot_collision", "runway_rate_window", "runway_spacing", "wake_separation", "sid_interval", "stale_tobt", "stale_tsat", eobtCappedReasonKind:
 		return true
 	default:
 		return false

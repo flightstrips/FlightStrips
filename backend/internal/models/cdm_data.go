@@ -44,27 +44,29 @@ type CdmReasonMarker struct {
 }
 
 type CdmData struct {
-	Tobt            *string         `json:"tobt,omitempty"`
-	TobtSetBy       *string         `json:"tobtSetBy,omitempty"`
-	TobtConfirmedBy *string         `json:"tobtConfirmedBy,omitempty"`
-	ReqTobt         *string         `json:"reqTobt,omitempty"`
-	ReqTobtType     *string         `json:"reqTobtType,omitempty"`
-	Tsat            *string         `json:"tsat,omitempty"`
-	Ttot            *string         `json:"ttot,omitempty"`
-	Ctot            *string         `json:"ctot,omitempty"`
-	CtotSource      *string         `json:"ctotSource,omitempty"`
-	Aobt            *string         `json:"aobt,omitempty"`
-	Asat            *string         `json:"asat,omitempty"`
-	Asrt            *string         `json:"asrt,omitempty"`
-	Tsac            *string         `json:"tsac,omitempty"`
-	Eobt            *string         `json:"eobt,omitempty"`
-	Aldt            *string         `json:"aldt,omitempty"`
-	Status          *string         `json:"status,omitempty"`
-	DeIce           *string         `json:"deIce,omitempty"`
-	EcfmpID         *string         `json:"ecfmpId,omitempty"`
-	Phase           *string         `json:"phase,omitempty"`
-	Calculation     *CdmCalculation `json:"calculation,omitempty"`
-	Recalculate     bool            `json:"recalculate,omitempty"`
+	Tobt                  *string         `json:"tobt,omitempty"`
+	TobtSetBy             *string         `json:"tobtSetBy,omitempty"`
+	TobtConfirmedBy       *string         `json:"tobtConfirmedBy,omitempty"`
+	TobtAutoSynced        bool            `json:"tobtAutoSynced,omitempty"`
+	TobtManuallyConfirmed bool            `json:"tobtManuallyConfirmed,omitempty"`
+	ReqTobt               *string         `json:"reqTobt,omitempty"`
+	ReqTobtType           *string         `json:"reqTobtType,omitempty"`
+	Tsat                  *string         `json:"tsat,omitempty"`
+	Ttot                  *string         `json:"ttot,omitempty"`
+	Ctot                  *string         `json:"ctot,omitempty"`
+	CtotSource            *string         `json:"ctotSource,omitempty"`
+	Aobt                  *string         `json:"aobt,omitempty"`
+	Asat                  *string         `json:"asat,omitempty"`
+	Asrt                  *string         `json:"asrt,omitempty"`
+	Tsac                  *string         `json:"tsac,omitempty"`
+	Eobt                  *string         `json:"eobt,omitempty"`
+	Aldt                  *string         `json:"aldt,omitempty"`
+	Status                *string         `json:"status,omitempty"`
+	DeIce                 *string         `json:"deIce,omitempty"`
+	EcfmpID               *string         `json:"ecfmpId,omitempty"`
+	Phase                 *string         `json:"phase,omitempty"`
+	Calculation           *CdmCalculation `json:"calculation,omitempty"`
+	Recalculate           bool            `json:"recalculate,omitempty"`
 }
 
 type CdmDataRow struct {

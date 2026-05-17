@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.42.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.41.0...frontend/v0.42.0) (2026-05-17)
+
+
+### Features
+
+* **controlzone:** add CONTROLZONE strip workflow ([49ac51c](https://github.com/flightstrips/FlightStrips/commit/49ac51cb24a0b8e2ab0c78dc68a6f38478067780))
+
+
+### Bug Fixes
+
+* missing colors ([8931c30](https://github.com/flightstrips/FlightStrips/commit/8931c30e6f025f256c94167da06af8e6a6ae7011))
+
 ## [0.41.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.40.0...frontend/v0.41.0) (2026-05-16)
 
 

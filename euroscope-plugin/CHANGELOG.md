@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.17.1](https://github.com/flightstrips/FlightStrips/compare/plugin/v0.17.0...plugin/v0.17.1) (2026-05-17)
+
+
+### Bug Fixes
+
+* **websocket:** restore ES connect timing ([6ec30c0](https://github.com/flightstrips/FlightStrips/commit/6ec30c0a30d1ee33adf75aeb176ab3729caedb83))
+
 ## [0.17.0](https://github.com/flightstrips/FlightStrips/compare/plugin/v0.16.0...plugin/v0.17.0) (2026-05-16)
 
 

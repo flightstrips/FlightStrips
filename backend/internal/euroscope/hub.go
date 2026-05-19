@@ -375,6 +375,14 @@ func (hub *Hub) HandleNewConnection(conn *gorilla.Conn, user shared.Authenticate
 		localIP:     event.LocalIP,
 	}
 
+	if !event.Observer {
+		// The initial websocket login can revive an existing controller row before the
+		// plugin sends controller_online. Seed the pending orchestration now so the
+		// first online event is treated as a real re-registration rather than a no-op
+		// heartbeat on the same position.
+		hub.markPendingOnlineOrchestration(sessionID, event.Callsign)
+	}
+
 	hub.register <- client
 
 	return client, nil

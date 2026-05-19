@@ -790,6 +790,52 @@ func TestProcessPDCRequest_Success(t *testing.T) {
 	}))
 }
 
+func TestProcessPDCRequest_EobtOutsideFormerWindowStillAutoIssues(t *testing.T) {
+	t.Parallel()
+	suite := &PDCIntegrationTestSuite{}
+	suite.SetupTest(t)
+	ctx := context.Background()
+
+	callsign := "SAS130"
+	testdata.SeedTestStrip(t, suite.queries, 1, callsign)
+	_, err := suite.queries.SetCdmData(ctx, database.SetCdmDataParams{
+		Session:  1,
+		Callsign: callsign,
+		CdmData:  []byte(`{"eobt":"2359"}`),
+	})
+	require.NoError(t, err)
+
+	suite.mockHoppie.On("SendCPDLC", mock.Anything, mock.Anything, callsign, mock.MatchedBy(func(msg string) bool {
+		return strings.Contains(msg, "CLRD TO")
+	})).Return(nil).Once()
+	suite.mockStrip.On("MoveToBay", mock.Anything, int32(1), callsign, shared.BAY_CLEARED, true).Return(nil)
+	suite.mockFrontend.On("SendPdcStateChange", int32(1), callsign, "CLEARED", "").Return()
+
+	incomingMsg := &IncomingMessage{
+		Type:       MsgPDCRequest,
+		From:       callsign,
+		To:         "EKCH",
+		Payload:    "REQUEST PREDEP CLEARANCE " + callsign + " A320 TO ESSA AT EKCH STAND A10 ATIS A",
+		RawMessage: callsign + " EKCH telex {REQUEST PREDEP CLEARANCE " + callsign + " A320 TO ESSA AT EKCH STAND A10 ATIS A}",
+	}
+
+	session := sessionInformation{
+		id:       1,
+		callsign: "EKCH",
+	}
+
+	err = suite.service.ProcessPDCRequest(ctx, incomingMsg, session)
+	require.NoError(t, err)
+
+	strip, err := suite.queries.GetStrip(ctx, database.GetStripParams{
+		Session:  1,
+		Callsign: callsign,
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "CLEARED", readStripPdcState(t, strip))
+	suite.mockStrip.AssertNotCalled(t, "ReevaluatePdcRequestValidations", mock.Anything, int32(1), callsign, true, true)
+}
+
 func TestProcessPDCRequest_WithRemarksDoesNotAutoIssue(t *testing.T) {
 	t.Parallel()
 	suite := &PDCIntegrationTestSuite{}

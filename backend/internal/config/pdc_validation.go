@@ -4,8 +4,6 @@ package config
 type PDCValidationConfig struct {
 	HeavyRunwayRestriction HeavyRunwayRestrictionConfig `yaml:"heavy_runway_restriction"`
 	SIDRestrictions        []SIDRestrictionConfig       `yaml:"sid_restrictions"`
-	EOBTWindowMin          int                          `yaml:"eobt_window_min"`
-	EOBTWindowMax          int                          `yaml:"eobt_window_max"`
 }
 
 // HeavyRunwayRestrictionConfig defines aircraft types that require specific runways.

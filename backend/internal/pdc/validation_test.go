@@ -2,7 +2,6 @@ package pdc
 
 import (
 	"testing"
-	"time"
 
 	"FlightStrips/internal/models"
 
@@ -74,19 +73,17 @@ func TestRunwayTypeValidationFault_ReturnsConfiguredAircraftRunwayFault(t *testi
 	assert.Equal(t, "Aircraft type AN225 is not allowed on runway 04L", fault.Message)
 }
 
-func TestPDCStripValidationFaults_IncludesEobtFaults(t *testing.T) {
+func TestPDCStripValidationFaults_IgnoresEobtOutsideFormerWindow(t *testing.T) {
 	t.Parallel()
 
-	eobt := time.Now().UTC().Add(2 * time.Hour).Format("1504")
+	eobt := "2359"
 	strip := &models.Strip{
 		CdmData: &models.CdmData{Eobt: &eobt},
 	}
 
 	faults := PDCStripValidationFaults(strip, []string{"22R"})
 
-	require.Len(t, faults, 1)
-	assert.Equal(t, FlightPlanValidationFaultKindEOBT, faults[0].Kind)
-	assert.Contains(t, faults[0].Message, "EOBT")
+	require.Empty(t, faults)
 }
 
 func stringPtrTest(value string) *string {

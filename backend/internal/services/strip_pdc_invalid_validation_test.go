@@ -325,11 +325,11 @@ func TestReevaluatePdcInvalidValidation_ReactivatesOnOwnerChange(t *testing.T) {
 	assert.NotEqual(t, "old-key", persisted.ActivationKey)
 }
 
-func TestReevaluatePdcInvalidValidation_ActivatesForEobtFaults(t *testing.T) {
+func TestReevaluatePdcInvalidValidation_DoesNotActivateForEobtOnly(t *testing.T) {
 	t.Parallel()
 
 	eobt := "2359"
-	var persisted *models.ValidationStatus
+	setCalled := false
 
 	repo := &testutil.MockStripRepository{
 		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
@@ -341,7 +341,7 @@ func TestReevaluatePdcInvalidValidation_ActivatesForEobtFaults(t *testing.T) {
 			}, nil
 		},
 		SetValidationStatusFn: func(_ context.Context, _ int32, _ string, status *models.ValidationStatus) error {
-			persisted = status
+			setCalled = true
 			return nil
 		},
 	}
@@ -349,7 +349,5 @@ func TestReevaluatePdcInvalidValidation_ActivatesForEobtFaults(t *testing.T) {
 	svc, _ := newPdcInvalidValidationFixture(repo, "22R")
 	require.NoError(t, svc.ReevaluatePdcInvalidValidation(context.Background(), 1, "SAS123", false, false))
 
-	require.NotNil(t, persisted)
-	assert.Equal(t, pdcInvalidValidationIssueType, persisted.IssueType)
-	assert.Contains(t, persisted.Message, "EOBT")
+	assert.False(t, setCalled)
 }

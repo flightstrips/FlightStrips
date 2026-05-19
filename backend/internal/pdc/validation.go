@@ -5,7 +5,6 @@ import (
 	"FlightStrips/internal/models"
 	"fmt"
 	"strings"
-	"time"
 )
 
 type FlightPlanValidationFaultKind string
@@ -13,7 +12,6 @@ type FlightPlanValidationFaultKind string
 const (
 	FlightPlanValidationFaultKindSID    FlightPlanValidationFaultKind = "sid_invalid"
 	FlightPlanValidationFaultKindRunway FlightPlanValidationFaultKind = "runway_invalid"
-	FlightPlanValidationFaultKindEOBT   FlightPlanValidationFaultKind = "eobt_invalid"
 )
 
 type FlightPlanValidationFault struct {
@@ -25,7 +23,7 @@ type FlightPlanValidationFault struct {
 // validations. These should align with REQUESTED_WITH_FAULTS so controllers get the
 // shared validation flow instead of separate strip-local highlighting.
 func PDCStripValidationFaults(strip *models.Strip, activeDepartureRunways []string) []FlightPlanValidationFault {
-	return validatePDCFlightPlanFaults(strip, activeDepartureRunways, time.Now().UTC())
+	return validatePDCFlightPlanFaults(strip, activeDepartureRunways)
 }
 
 func validationFaultMessages(faults []FlightPlanValidationFault) []string {
@@ -89,13 +87,12 @@ func RunwayTypeValidationFault(strip *models.Strip) *FlightPlanValidationFault {
 	}
 }
 
-func validatePDCFlightPlanFaults(strip *models.Strip, activeDepartureRunways []string, now time.Time) []FlightPlanValidationFault {
+func validatePDCFlightPlanFaults(strip *models.Strip, activeDepartureRunways []string) []FlightPlanValidationFault {
 	if strip == nil {
 		return nil
 	}
 
 	cfg := config.GetPDCValidationConfig()
-	now = now.UTC()
 	var faults []FlightPlanValidationFault
 
 	if strip.Sid != nil {
@@ -159,48 +156,6 @@ func validatePDCFlightPlanFaults(strip *models.Strip, activeDepartureRunways []s
 				Kind:    FlightPlanValidationFaultKindRunway,
 				Message: fmt.Sprintf("Runway %s is not an active departure runway", *strip.Runway),
 			})
-		}
-	}
-
-	if strip.EffectiveEobt() != nil && *strip.EffectiveEobt() != "" {
-		eobtStr := *strip.EffectiveEobt()
-		if len(eobtStr) >= 4 {
-			hourStr := eobtStr[:2]
-			minStr := eobtStr[2:4]
-			hour := 0
-			min := 0
-			fmt.Sscanf(hourStr, "%d", &hour)
-			fmt.Sscanf(minStr, "%d", &min)
-
-			eobtTime := time.Date(now.Year(), now.Month(), now.Day(), hour, min, 0, 0, time.UTC)
-			if eobtTime.Before(now.Add(-12 * time.Hour)) {
-				eobtTime = eobtTime.Add(24 * time.Hour)
-			}
-
-			windowMin := cfg.EOBTWindowMin
-			if windowMin <= 0 {
-				windowMin = 10
-			}
-			windowMax := cfg.EOBTWindowMax
-			if windowMax <= 0 {
-				windowMax = 30
-			}
-
-			earliest := now.Add(time.Duration(windowMin) * time.Minute)
-			latest := now.Add(time.Duration(windowMax) * time.Minute)
-
-			switch {
-			case eobtTime.Before(earliest):
-				faults = append(faults, FlightPlanValidationFault{
-					Kind:    FlightPlanValidationFaultKindEOBT,
-					Message: fmt.Sprintf("EOBT %s is too early (minimum %d minutes from now)", eobtStr, windowMin),
-				})
-			case eobtTime.After(latest):
-				faults = append(faults, FlightPlanValidationFault{
-					Kind:    FlightPlanValidationFaultKindEOBT,
-					Message: fmt.Sprintf("EOBT %s is too late (maximum %d minutes from now)", eobtStr, windowMax),
-				})
-			}
 		}
 	}
 

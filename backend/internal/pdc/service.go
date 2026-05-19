@@ -1032,5 +1032,5 @@ func (s *Service) setPdcFailed(ctx context.Context, callsign string, sessionId i
 // validatePDCFlightPlan validates a strip's flight plan against PDC validation config.
 // Returns a list of fault descriptions (empty = no faults).
 func (s *Service) validatePDCFlightPlan(strip *models.Strip, activeDepartureRunways []string) []string {
-	return validationFaultMessages(validatePDCFlightPlanFaults(strip, activeDepartureRunways, time.Now().UTC()))
+	return validationFaultMessages(validatePDCFlightPlanFaults(strip, activeDepartureRunways))
 }

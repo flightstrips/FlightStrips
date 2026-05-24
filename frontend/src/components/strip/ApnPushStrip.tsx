@@ -24,6 +24,7 @@ import { useStripTransfers } from "@/store/store-hooks";
 import { useCDMColors } from "@/hooks/useCDMColors";
 import { useCTOTColor } from "@/hooks/useCTOTColor";
 import { Bay } from "@/api/models";
+import { hasManualTobtSource } from "@/lib/cdmColors";
 import { PushbackMapDialog } from "@/components/map-dialogs/PushbackMapDialog";
 import { ApronTaxiMapDialog } from "@/components/map-dialogs/ApronTaxiMapDialog";
 import { TaxiMapDialog } from "@/components/map-dialogs/TaxiMapDialog";
@@ -64,6 +65,8 @@ export function ApnPushStrip({
   holdingPoint,
   tsat,
   tobt,
+  reqTobtType,
+  tobtSetBy,
   ctot,
   phase,
   runway,
@@ -110,6 +113,7 @@ export function ApnPushStrip({
   const runwayYellow = unexpectedChangeFields?.includes("runway");
   const { tsatBg } = useCDMColors({ bay: bay ?? Bay.Unknown, tsat: tsat ?? "", tobt: tobt ?? "", phase });
   const { ctotBg, ctotColor, showCtot } = useCTOTColor(ctot ?? "");
+  const emphasizeDisplayedTime = hasManualTobtSource(reqTobtType, tobtSetBy);
   const canSendCdmReady = bay === Bay.Cleared;
   const nextFreq = useNextFrequencyDisplay(nextDisplay, nextControllers, myPosition);
 
@@ -223,7 +227,7 @@ export function ApnPushStrip({
             } : undefined}
           >
             <span className="shrink-0" style={{ fontFamily: FONT, fontSize: "0.63vw" }}>TSAT</span>
-            <span className="truncate" style={{ fontFamily: FONT, fontSize: "0.63vw" }}>{tsat}</span>
+            <span className="truncate" style={{ fontFamily: FONT, fontSize: "0.63vw", fontWeight: emphasizeDisplayedTime ? 700 : undefined }}>{tsat}</span>
           </div>
           <div
             className="flex items-center gap-[0.21vw] px-[0.21vw]"

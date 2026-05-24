@@ -34,6 +34,14 @@ export interface CDMColors {
   tsatBg: string;
 }
 
+export function hasManualTobtSource(reqTobtType?: string, tobtSetBy?: string): boolean {
+  if (reqTobtType?.trim().toUpperCase() === "PILOT") {
+    return true;
+  }
+
+  return Boolean(tobtSetBy?.trim());
+}
+
 /**
  * Compute TOBT/TSAT cell background colours.
  * Returns empty string (no colour) when a cell should be transparent.

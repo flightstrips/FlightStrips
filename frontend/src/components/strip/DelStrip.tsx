@@ -20,6 +20,7 @@ import { useStripTransfers, useWebSocketStore } from "@/store/store-hooks";
 import { useCDMColors } from "@/hooks/useCDMColors";
 import { useCTOTColor } from "@/hooks/useCTOTColor";
 import { Bay } from "@/api/models";
+import { hasManualTobtSource } from "@/lib/cdmColors";
 import { ValidationStatusDialog } from "./ValidationStatusDialog";
 const FULL_H  = "4.72dvh";
 const HALF_H  = "2.36dvh";
@@ -39,6 +40,8 @@ export function DelStrip({
   stand,
   eobt,
   tobt,
+  reqTobtType,
+  tobtSetBy,
   tsat,
   ctot,
   phase,
@@ -80,6 +83,7 @@ export function DelStrip({
   const showClearedCallsignHighlight = usePdcClearedCallsignBlink(pdcStatus);
   const { tobtBg, tsatBg } = useCDMColors({ bay: bay ?? Bay.Unknown, tsat: tsat ?? "", tobt: tobt ?? "", phase });
   const { ctotBg, ctotColor, showCtot } = useCTOTColor(ctot ?? "");
+  const emphasizeTobtTime = hasManualTobtSource(reqTobtType, tobtSetBy);
   const hasCtot = Boolean(ctot?.trim());
   const standYellow = unexpectedChangeFields?.includes("stand");
   const cellBorderColor = getCellBorderColor(marked);
@@ -163,7 +167,7 @@ export function DelStrip({
               }}
             >
               <span className="shrink-0">TOBT</span>
-              <span>{tobt}</span>
+              <span style={{ fontWeight: emphasizeTobtTime ? 700 : undefined }}>{tobt}</span>
             </div>
             <div className="flex items-center justify-between px-[0.21vw] overflow-hidden" style={{ height: HALF_H, fontFamily: FONT, fontSize: "0.73vw", backgroundColor: tsatBg, cursor: getValidationBlockedCursor(isValidationActive, "pointer", true) }}
               onClick={(e) => {

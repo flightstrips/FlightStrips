@@ -4,7 +4,7 @@ import { Bay, type FrontendStrip } from "@/api/models";
 import { COLOR_BTN_YELLOW, SELECTION_COLOR } from "@/components/strip/shared";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { CTOT_BLUE, computeCDMColors } from "@/lib/cdmColors";
+import { CTOT_BLUE, computeCDMColors, hasManualTobtSource } from "@/lib/cdmColors";
 
 import {
   EST_CELL_HEIGHT,
@@ -89,6 +89,7 @@ export default function EstStandCell({
   const { tobtBg: tobtBarColor, tsatBg: tsatBarColor } = strip && isDeparture
     ? computeCDMColors(strip.tsat, strip.tobt, nowMs, strip.bay as Bay, strip.phase)
     : { tobtBg: "", tsatBg: "" };
+  const emphasizeTobtTime = strip ? hasManualTobtSource(strip.req_tobt_type, strip.tobt_set_by) : false;
 
   const showTobt = isDeparture && !!strip && strip.tobt !== "";
   const showTsat = isDeparture && !!strip && strip.tsat !== "";
@@ -175,14 +176,17 @@ export default function EstStandCell({
             )}
 
             {/* TOBT row */}
-            {showTobt && (
-               <div
-                 className="absolute left-0 right-0 flex items-center justify-center"
-                 style={{ top: TOBT_ROW_TOP, height: ROW_HEIGHT, fontSize: CONTENT_FONT_SIZE }}
-               >
-                 {`TOBT: ${formatTimeLabel(strip!.tobt).replace(":", "")}`}
-               </div>
-            )}
+             {showTobt && (
+                <div
+                  className="absolute left-0 right-0 flex items-center justify-center gap-1"
+                  style={{ top: TOBT_ROW_TOP, height: ROW_HEIGHT, fontSize: CONTENT_FONT_SIZE }}
+                >
+                  <span>TOBT:</span>
+                  <span style={{ fontWeight: emphasizeTobtTime ? 700 : undefined }}>
+                    {formatTimeLabel(strip!.tobt).replace(":", "")}
+                  </span>
+                </div>
+             )}
 
             {/* TSAT row */}
             {showTsat && (

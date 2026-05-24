@@ -3,10 +3,11 @@ import { useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Bay, type FrontendStrip } from "@/api/models";
 import { useCDMColors } from "@/hooks/useCDMColors";
+import { hasManualTobtSource } from "@/lib/cdmColors";
 
 // Tailwind class constants (hex must be literal strings for JIT)
 const CLS_POPUP   = "absolute w-[190px] border border-black bg-[#B3B3B3] p-2 shadow-2xl";
-const CLS_CDM_TAG = "font-bold px-1 py-0.5 text-xs";
+const CLS_CDM_TAG = "px-1 py-0.5 text-xs";
 
 export interface EstMenuAnchor {
   top: number;
@@ -81,6 +82,7 @@ export default function EstStandMenu({
   }, [anchor]);
 
   const { tobtBg, tsatBg } = useCDMColors({ bay: strip.bay as Bay, tsat: strip.tsat, tobt: strip.tobt, phase: strip.phase });
+  const emphasizeTobtTime = hasManualTobtSource(strip.req_tobt_type, strip.tobt_set_by);
 
   if (!open || !anchor) {
     return null;
@@ -97,7 +99,10 @@ export default function EstStandMenu({
           <div className="bg-white px-2 py-1 text-center text-lg">{strip.stand}</div>
           <div className="mt-1 bg-white px-2 py-1 text-center text-lg">{strip.callsign}</div>
           <div className="mt-1 grid grid-cols-2 gap-1 text-xs font-semibold">
-            <div className={CLS_CDM_TAG} style={{ backgroundColor: tobtBg || "#9E9E9E", color: tobtBg ? "white" : "black" }}>TOBT {strip.tobt}</div>
+            <div className={CLS_CDM_TAG} style={{ backgroundColor: tobtBg || "#9E9E9E", color: tobtBg ? "white" : "black" }}>
+              <span>TOBT </span>
+              <span className={emphasizeTobtTime ? "font-bold" : undefined}>{strip.tobt}</span>
+            </div>
             <div className={CLS_CDM_TAG} style={{ backgroundColor: tsatBg || "#9E9E9E", color: tsatBg ? "white" : "black" }}>TSAT {strip.tsat}</div>
           </div>
           <Button

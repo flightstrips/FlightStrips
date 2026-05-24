@@ -151,7 +151,8 @@ type Strip struct {
 	Owner                    string            `json:"owner"`
 	Tobt                     string            `json:"tobt"`
 	ReqTobt                  string            `json:"req_tobt,omitempty"`
-	ReqTobtType              string            `json:"req_tobt_type,omitempty"`
+	ReqTobtType              string            `json:"req_tobt_type"`
+	TobtSetBy                string            `json:"tobt_set_by"`
 	Tsat                     string            `json:"tsat"`
 	Ttot                     string            `json:"ttot,omitempty"`
 	Ctot                     string            `json:"ctot"`
@@ -732,7 +733,8 @@ type CdmDataEvent struct {
 	Eobt        string `json:"eobt"`
 	Tobt        string `json:"tobt"`
 	ReqTobt     string `json:"req_tobt,omitempty"`
-	ReqTobtType string `json:"req_tobt_type,omitempty"`
+	ReqTobtType string `json:"req_tobt_type"`
+	TobtSetBy   string `json:"tobt_set_by"`
 	Tsat        string `json:"tsat"`
 	Ttot        string `json:"ttot,omitempty"`
 	Ctot        string `json:"ctot"`

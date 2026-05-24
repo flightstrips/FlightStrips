@@ -22,6 +22,7 @@ import { useStripTransfers, useWebSocketStore } from "@/store/store-hooks";
 import { useCDMColors } from "@/hooks/useCDMColors";
 import { useCTOTColor } from "@/hooks/useCTOTColor";
 import { Bay } from "@/api/models";
+import { hasManualTobtSource } from "@/lib/cdmColors";
 import { ValidationStatusDialog } from "./ValidationStatusDialog";
 
 // Height: 4.72dvh viewport-relative (intentional — matches DelStrip height)
@@ -55,6 +56,8 @@ export function ClxClearedStrip({
   stand,
   eobt,
   tobt,
+  reqTobtType,
+  tobtSetBy,
   tsat,
   ctot,
   phase,
@@ -101,6 +104,7 @@ export function ClxClearedStrip({
   const standYellow = unexpectedChangeFields?.includes("stand");
   const { tobtBg, tsatBg } = useCDMColors({ bay: bay ?? Bay.Unknown, tsat: tsat ?? "", tobt: tobt ?? "", phase });
   const { ctotBg, ctotColor, showCtot } = useCTOTColor(ctot ?? "");
+  const emphasizeTobtTime = hasManualTobtSource(reqTobtType, tobtSetBy);
   const hasCtot = Boolean(ctot?.trim());
   const cellBorderColor = getCellBorderColor(marked);
   const manualBlue = isManual && !textWhite ? COLOR_MANUAL_BLUE : undefined;
@@ -196,7 +200,7 @@ export function ClxClearedStrip({
               }}
             >
               <span className={`${textWhite ? "text-white" : "text-black"} shrink-0`}>TOBT</span>
-              <span>{tobt}</span>
+              <span style={{ fontWeight: emphasizeTobtTime ? 700 : undefined }}>{tobt}</span>
             </div>
             <div className="flex items-center justify-between px-[0.21vw] overflow-hidden" style={{ height: HALF_H, fontFamily: FONT, fontSize: "0.73vw", backgroundColor: tsatBg, cursor: getValidationBlockedCursor(isValidationActive, "pointer", true) }}
               onClick={(e) => {

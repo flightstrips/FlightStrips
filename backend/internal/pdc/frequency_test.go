@@ -26,6 +26,14 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
+type staticTransceiverLookup struct {
+	frequenciesByCallsign map[string][]string
+}
+
+func (s staticTransceiverLookup) GetFrequencies(callsign string) []string {
+	return append([]string(nil), s.frequenciesByCallsign[callsign]...)
+}
+
 // ── getNextFrequency (NEXT FRQ in clearance = SQ / DEL controller) ────────────
 
 func TestGetNextFrequency_SQOwnerOnline(t *testing.T) {
@@ -196,6 +204,39 @@ func TestGetAirborneFrequency_UsesOnlineControllersWhenSectorOwnersAreStale(t *t
 	freq, err := svc.getAirborneFrequency(context.Background(), sessionID, &sid)
 	require.NoError(t, err)
 	assert.Equal(t, "120.255", freq)
+}
+
+func TestGetAirborneFrequency_UsesCoveredFrequencyForCrossCoupledController(t *testing.T) {
+	t.Parallel()
+
+	sessionID := int32(1)
+
+	controllerRepo := &testutil.MockControllerRepository{
+		ListBySessionFn: func(ctx context.Context, session int32) ([]*models.Controller, error) {
+			return []*models.Controller{
+				{Session: session, Callsign: "EKCH_O_APP", Position: "118.455"},
+			}, nil
+		},
+	}
+
+	svc := &Service{
+		sectorRepo: &testutil.MockSectorOwnerRepository{
+			ListBySessionFn: func(ctx context.Context, session int32) ([]*models.SectorOwner, error) {
+				return []*models.SectorOwner{
+					{Session: session, Sector: []string{"SQ", "DEL"}, Position: "119.905", Identifier: "DEL"},
+				}, nil
+			},
+		},
+		controllerRepo: controllerRepo,
+		transceiverLookup: staticTransceiverLookup{frequenciesByCallsign: map[string][]string{
+			"EKCH_O_APP": {"124.980"},
+		}},
+	}
+	sid := "BETUD2A"
+
+	freq, err := svc.getAirborneFrequency(context.Background(), sessionID, &sid)
+	require.NoError(t, err)
+	assert.Equal(t, "124.980", freq)
 }
 
 func TestGetAirborneFrequency_UsesDefaultSectorForUnknownSid(t *testing.T) {

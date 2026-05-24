@@ -24,6 +24,10 @@ type HoppieClientInterface interface {
 	SendTelex(ctx context.Context, from, to, packet string) error
 }
 
+type TransceiverLookup interface {
+	GetFrequencies(callsign string) []string
+}
+
 type timeoutTracker struct {
 	cancel    context.CancelFunc
 	callsign  string
@@ -48,6 +52,7 @@ type Service struct {
 	frontendHub       shared.FrontendHub
 	euroscopeHub      shared.EuroscopeHub
 	stripService      shared.StripService
+	transceiverLookup TransceiverLookup
 	timeouts          map[string]*timeoutTracker
 	timeoutsMutex     sync.RWMutex
 	timeoutConfig     time.Duration
@@ -80,6 +85,10 @@ func (s *Service) SetStripService(stripService shared.StripService) {
 
 func (s *Service) SetWebLookupLiveOnly(liveOnly bool) {
 	s.webLookupLiveOnly = liveOnly
+}
+
+func (s *Service) SetTransceiverLookup(transceiverLookup TransceiverLookup) {
+	s.transceiverLookup = transceiverLookup
 }
 
 func normalizedStripAircraftType(strip *models.Strip) string {
@@ -702,8 +711,18 @@ func (s *Service) getOnlineControllerFrequencies(ctx context.Context, sessionID 
 		controllers, err := s.controllerRepo.ListBySession(ctx, sessionID)
 		if err == nil {
 			for _, controller := range controllers {
-				if frequency := normalizeFrequency(controller.Position); frequency != "" {
-					onlineFreqs[frequency] = struct{}{}
+				if !shared.IsOperationalController(controller) {
+					continue
+				}
+				if position, ok := resolvePdcOperationalPosition(controller); ok && shared.IsOperationalControllerForPosition(controller, position) {
+					addNormalizedFrequency(onlineFreqs, position.Frequency)
+				} else {
+					addNormalizedFrequency(onlineFreqs, controller.Position)
+				}
+				if s.transceiverLookup != nil {
+					for _, frequency := range s.transceiverLookup.GetFrequencies(controller.Callsign) {
+						addNormalizedFrequency(onlineFreqs, frequency)
+					}
 				}
 			}
 		}
@@ -718,12 +737,32 @@ func (s *Service) getOnlineControllerFrequencies(ctx context.Context, sessionID 
 	}
 
 	for _, owner := range owners {
-		if frequency := normalizeFrequency(owner.Position); frequency != "" {
-			onlineFreqs[frequency] = struct{}{}
-		}
+		addNormalizedFrequency(onlineFreqs, owner.Position)
 	}
 
 	return onlineFreqs
+}
+
+func resolvePdcOperationalPosition(controller *models.Controller) (*config.Position, bool) {
+	if controller == nil {
+		return nil, false
+	}
+
+	if position, err := config.GetPositionByName(controller.Callsign); err == nil {
+		return position, true
+	}
+
+	if position, err := config.GetPositionBasedOnFrequency(controller.Position); err == nil {
+		return position, true
+	}
+
+	return nil, false
+}
+
+func addNormalizedFrequency(frequencies map[string]struct{}, frequency string) {
+	if normalizedFrequency := normalizeFrequency(frequency); normalizedFrequency != "" {
+		frequencies[normalizedFrequency] = struct{}{}
+	}
 }
 
 func getAssignedPDCSquawk(strip *models.Strip) (string, error) {

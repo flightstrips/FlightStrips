@@ -203,6 +203,7 @@ func main() {
 		},
 	)
 	slog.Info("VATSIM transceiver cache enabled for sector ownership refresh")
+	pdcService.SetTransceiverLookup(transceiverCache)
 
 	frontendHub := frontend.NewHub(stripService, authenticationService)
 	euroscopeHub := euroscope.NewHub(stripService, controllerService, authenticationService)

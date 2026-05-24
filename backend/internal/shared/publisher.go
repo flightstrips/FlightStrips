@@ -53,5 +53,6 @@ type CdmEventPublisher interface {
 	ServerInjectable
 
 	SendCdmUpdate(session int32, event frontend.CdmDataEvent)
+	SendCdmUpdates(session int32, events []frontend.CdmDataEvent)
 	SendCdmWait(session int32, callsign string)
 }

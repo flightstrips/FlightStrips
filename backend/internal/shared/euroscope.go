@@ -13,6 +13,7 @@ type EuroscopeHub interface {
 	GetClientLocalIP(session int32, cid string) string
 	GetRunwayMismatchStatus(session int32, cid string) (bool, bool)
 	Broadcast(session int32, message euroscope.OutgoingMessage)
+	BroadcastCdmUpdates(session int32, events []euroscope.CdmUpdateEvent)
 	Send(session int32, cid string, message euroscope.OutgoingMessage)
 	SendGenerateSquawk(session int32, cid string, callsign string)
 	SendGroundState(session int32, cid string, callsign string, state string)

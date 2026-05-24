@@ -126,6 +126,10 @@ func (m *FrontendHub) SendCdmUpdate(session int32, event frontend.CdmDataEvent) 
 	m.Called(session, event)
 }
 
+func (m *FrontendHub) SendCdmUpdates(session int32, events []frontend.CdmDataEvent) {
+	m.Called(session, events)
+}
+
 func (m *FrontendHub) SendCdmWait(session int32, callsign string) {
 	m.Called(session, callsign)
 }
@@ -189,6 +193,10 @@ func (m *EuroscopeHub) GetServer() shared.Server {
 
 func (m *EuroscopeHub) Broadcast(session int32, message euroscope.OutgoingMessage) {
 	m.Called(session, message)
+}
+
+func (m *EuroscopeHub) BroadcastCdmUpdates(session int32, events []euroscope.CdmUpdateEvent) {
+	m.Called(session, events)
 }
 
 func (m *EuroscopeHub) Send(session int32, cid string, message euroscope.OutgoingMessage) {

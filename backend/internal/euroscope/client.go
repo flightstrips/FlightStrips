@@ -5,6 +5,8 @@ import (
 	"FlightStrips/pkg/events"
 	"context"
 	"errors"
+	"log/slog"
+	"sync"
 	"time"
 
 	gorilla "github.com/gorilla/websocket"
@@ -15,6 +17,8 @@ type Client struct {
 	session     int32
 	sessionName string
 	send        chan events.OutgoingMessage
+	closeOnce   sync.Once
+	closed      chan struct{}
 	hub         *Hub
 	user        shared.AuthenticatedUser
 
@@ -30,7 +34,51 @@ func (c *Client) GetSendChannel() chan events.OutgoingMessage {
 	return c.send
 }
 
+func (c *Client) Enqueue(message events.OutgoingMessage) bool {
+	select {
+	case <-c.closed:
+		return false
+	case c.send <- message:
+		return true
+	default:
+		c.disconnectSlowConsumer()
+		return false
+	}
+}
+
+func (c *Client) disconnectSlowConsumer() {
+	shouldUnregister := false
+	c.closeOnce.Do(func() {
+		close(c.closed)
+		shouldUnregister = true
+	})
+	if !shouldUnregister {
+		return
+	}
+
+	slog.Warn("Disconnecting slow websocket client",
+		slog.String("source", c.GetSource()),
+		slog.String("cid", c.GetCid()),
+		slog.Int("session", int(c.session)),
+	)
+
+	if c.hub != nil {
+		go c.hub.Unregister(c)
+		return
+	}
+
+	_ = c.Close()
+}
+
 func (c *Client) Close() error {
+	if c.closed != nil {
+		c.closeOnce.Do(func() {
+			close(c.closed)
+		})
+	}
+	if c.conn == nil {
+		return nil
+	}
 	return c.conn.Close()
 }
 

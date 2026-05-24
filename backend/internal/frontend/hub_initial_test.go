@@ -4,7 +4,6 @@ import (
 	internalModels "FlightStrips/internal/models"
 	"FlightStrips/internal/shared"
 	"FlightStrips/internal/testutil"
-	"FlightStrips/pkg/events"
 	frontendEvents "FlightStrips/pkg/events/frontend"
 	"context"
 	"testing"
@@ -61,7 +60,7 @@ func TestSendInitialEvent_IncludesAssociatedLocalIP(t *testing.T) {
 		messages: map[int32][]frontendEvents.MessageReceivedEvent{},
 	}
 
-	client := &Client{
+	client := startQueuedTestClient(&Client{
 		hub:      hub,
 		session:  42,
 		position: "118.105",
@@ -69,17 +68,12 @@ func TestSendInitialEvent_IncludesAssociatedLocalIP(t *testing.T) {
 		callsign: "EKCH_A_TWR",
 		user:     shared.NewAuthenticatedUser("1234567", 0, nil),
 		readOnly: true,
-		send:     make(chan events.OutgoingMessage, 1),
-	}
+	})
 
 	hub.sendInitialEvent(client)
 
-	select {
-	case message := <-client.send:
-		event, ok := message.(frontendEvents.InitialEvent)
-		require.True(t, ok)
-		assert.Equal(t, "192.168.1.25", event.LocalIP)
-	default:
-		t.Fatal("expected initial event")
-	}
+	message := waitForOutgoingMessage(t, client.send)
+	event, ok := message.(frontendEvents.InitialEvent)
+	require.True(t, ok)
+	assert.Equal(t, "192.168.1.25", event.LocalIP)
 }

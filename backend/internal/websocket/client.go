@@ -40,6 +40,7 @@ type Client interface {
 	HandlePong() error
 
 	GetSendChannel() chan events.OutgoingMessage
+	Enqueue(message events.OutgoingMessage) bool
 
 	// RecordMessage optionally records a message for replay
 	RecordMessage(rawMessage []byte)
@@ -114,10 +115,10 @@ func ReadPump[TType comparable, TClient Client, THub Hub[TType, TClient]](hub TH
 			span.SetStatus(codes.Error, err.Error())
 			span.RecordError(err)
 			slog.ErrorContext(ctx, "Failed to handle message", slog.Any("error", err), slog.String("message", string(message)))
-			client.GetSendChannel() <- frontend.ActionRejectedEvent{
+			client.Enqueue(frontend.ActionRejectedEvent{
 				Action: fmt.Sprintf("%v", parsedMessage.Type),
 				Reason: err.Error(),
-			}
+			})
 		} else {
 			span.SetStatus(codes.Ok, "")
 		}

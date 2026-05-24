@@ -20,6 +20,7 @@ export enum EventType {
   FrontendLayoutUpdate = "layout_update",
   FrontendBroadcast = "broadcast",
   FrontendCdmData = "cdm_data",
+  FrontendCdmDataBatch = "cdm_data_batch",
   FrontendCdmWait = "cdm_wait",
   FrontendReleasePoint = "release_point",
   FrontendPdcStateChange = "pdc_state_change",
@@ -467,6 +468,11 @@ export interface FrontendCdmDataEvent {
   phase?: string;
 }
 
+export interface FrontendCdmDataBatchEvent {
+  type: EventType.FrontendCdmDataBatch;
+  updates: FrontendCdmDataEvent[];
+}
+
 export interface FrontendCdmWaitEvent {
   type: EventType.FrontendCdmWait;
   callsign: string;
@@ -599,6 +605,7 @@ export type WebSocketEvent =
   | FrontendLayoutUpdateEvent
   | FrontendBroadcastEvent
   | FrontendCdmDataEvent
+  | FrontendCdmDataBatchEvent
   | FrontendCdmWaitEvent
   | FrontendReleasePointEvent
   | FrontendMarkedEvent

@@ -44,6 +44,8 @@ func (testClient) HandlePong() error { return nil }
 
 func (testClient) GetSendChannel() chan events.OutgoingMessage { return nil }
 
+func (testClient) Enqueue(events.OutgoingMessage) bool { return true }
+
 func (testClient) RecordMessage([]byte) {}
 
 func TestLogReadError_LogsCloseReason(t *testing.T) {

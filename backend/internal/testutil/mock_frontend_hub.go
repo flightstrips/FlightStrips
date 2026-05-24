@@ -256,15 +256,21 @@ func (m *MockFrontendHub) SendOwnersUpdate(session int32, callsign string, owner
 func (m *MockFrontendHub) SendLayoutUpdates(session int32, layoutMap map[string]string) {}
 
 func (m *MockFrontendHub) SendCdmUpdate(session int32, event frontend.CdmDataEvent) {
-	m.CdmUpdates = append(m.CdmUpdates, CdmUpdateCall{
-		Session:  session,
-		Callsign: event.Callsign,
-		Eobt:     event.Eobt,
-		Tobt:     event.Tobt,
-		Tsat:     event.Tsat,
-		Ctot:     event.Ctot,
-		Event:    event,
-	})
+	m.SendCdmUpdates(session, []frontend.CdmDataEvent{event})
+}
+
+func (m *MockFrontendHub) SendCdmUpdates(session int32, events []frontend.CdmDataEvent) {
+	for _, event := range events {
+		m.CdmUpdates = append(m.CdmUpdates, CdmUpdateCall{
+			Session:  session,
+			Callsign: event.Callsign,
+			Eobt:     event.Eobt,
+			Tobt:     event.Tobt,
+			Tsat:     event.Tsat,
+			Ctot:     event.Ctot,
+			Event:    event,
+		})
+	}
 }
 
 func (m *MockFrontendHub) SendCdmWait(session int32, callsign string) {

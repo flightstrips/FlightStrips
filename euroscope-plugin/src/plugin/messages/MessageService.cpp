@@ -73,6 +73,8 @@ namespace FlightStrips::messages {
             HandleRunwayMismatchAlertEvent(message.get<RunwayMismatchAlertEvent>());
         } else if (type == EVENT_CDM_UPDATE_NAME) {
             HandleCdmUpdateEvent(message.get<CdmUpdateEvent>());
+        } else if (type == EVENT_CDM_UPDATE_BATCH_NAME) {
+            HandleCdmUpdateBatchEvent(message.get<CdmUpdateBatchEvent>());
         } else if (type == EVENT_ASSIGNED_SQUAWK_NAME) {
             HandleAssignedSquawkEvent(message.get<AssignedSquawkEvent>());
         } else if (type == EVENT_REQUESTED_ALTITUDE_NAME) {
@@ -132,6 +134,12 @@ namespace FlightStrips::messages {
 
     void MessageService::HandleCdmUpdateEvent(const CdmUpdateEvent &event) const {
         m_flightPlanService->ApplyCdmUpdate(event);
+    }
+
+    void MessageService::HandleCdmUpdateBatchEvent(const CdmUpdateBatchEvent &event) const {
+        for (const auto& update : event.updates) {
+            m_flightPlanService->ApplyCdmUpdate(update);
+        }
     }
 
     void MessageService::HandleSessionInfoEvent(const SessionInfoEvent &event) const {

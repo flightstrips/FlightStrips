@@ -4,7 +4,7 @@ import {
   type ActionRejectedEvent,
   type FrontendAircraftDisconnectEvent,
   type FrontendAssignedSquawkEvent,
-  type FrontendBayEvent, type FrontendBroadcastEvent, type FrontendBulkBayEvent, type FrontendCdmDataEvent, type FrontendCdmWaitEvent,
+  type FrontendBayEvent, type FrontendBroadcastEvent, type FrontendBulkBayEvent, type FrontendCdmDataBatchEvent, type FrontendCdmDataEvent, type FrontendCdmWaitEvent,
   type FrontendClearedAltitudeEvent,
   type FrontendCommunicationTypeEvent,
   type FrontendControllerOfflineEvent,
@@ -62,6 +62,7 @@ type EventMap = {
   [EventType.FrontendLayoutUpdate]: FrontendLayoutUpdateEvent;
   [EventType.FrontendBroadcast]: FrontendBroadcastEvent;
   [EventType.FrontendCdmData]: FrontendCdmDataEvent;
+  [EventType.FrontendCdmDataBatch]: FrontendCdmDataBatchEvent;
   [EventType.FrontendCdmWait]: FrontendCdmWaitEvent;
   [EventType.FrontendReleasePoint]: FrontendReleasePointEvent;
   [EventType.FrontendMarked]: FrontendMarkedEvent;

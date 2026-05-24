@@ -55,7 +55,7 @@ func (hub *Hub) dispatchMessage(session int32, msg frontend.MessageReceivedEvent
 			continue
 		}
 		if client.user.GetCid() == senderCID || recipientPositions[client.position] {
-			client.send <- msg
+			client.Enqueue(msg)
 		}
 	}
 }

@@ -31,6 +31,7 @@ const (
 	SessionInfo               EventType = "session_info"
 	RunwayMismatchAlert       EventType = "runway_mismatch_alert"
 	CdmUpdate                 EventType = "cdm_update"
+	CdmUpdateBatch            EventType = "cdm_update_batch"
 	CdmTobtUpdate             EventType = "cdm_tobt_update"
 	CdmDeiceUpdate            EventType = "cdm_deice_update"
 	CdmManualCtot             EventType = "cdm_manual_ctot"
@@ -329,6 +330,10 @@ type CdmUpdateEvent struct {
 	Phase           string `json:"phase,omitempty"`
 }
 
+type CdmUpdateBatchEvent struct {
+	Updates []CdmUpdateEvent `json:"updates"`
+}
+
 type CdmTobtUpdateEvent struct {
 	Callsign string `json:"callsign"`
 	Tobt     string `json:"tobt"`
@@ -406,6 +411,14 @@ func (e CdmUpdateEvent) GetType() EventType {
 }
 
 func (e CdmUpdateEvent) Marshal() ([]byte, error) {
+	return marshall(e)
+}
+
+func (e CdmUpdateBatchEvent) GetType() EventType {
+	return CdmUpdateBatch
+}
+
+func (e CdmUpdateBatchEvent) Marshal() ([]byte, error) {
 	return marshall(e)
 }
 

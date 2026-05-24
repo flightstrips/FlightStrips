@@ -3,7 +3,6 @@ package euroscope
 import (
 	"FlightStrips/internal/shared"
 	"FlightStrips/internal/testutil"
-	"FlightStrips/pkg/events"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -87,14 +86,13 @@ func TestOnRegister_ObserverDoesNotCountAsOperationalAirportPresence(t *testing.
 		server:             &testutil.MockServer{FrontendHubVal: frontendHub},
 	}
 
-	client := &Client{
+	client := startQueuedTestClient(&Client{
 		hub:      hub,
 		session:  42,
 		airport:  "EKCH",
 		observer: true,
-		send:     make(chan events.OutgoingMessage, 1),
 		user:     shared.NewAuthenticatedUser("1234567", 0, nil),
-	}
+	})
 
 	hub.OnRegister(client)
 

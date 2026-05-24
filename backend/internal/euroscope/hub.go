@@ -30,6 +30,11 @@ type internalMessage struct {
 	cid     *string
 }
 
+const (
+	hubSendQueueSize    = 256
+	clientSendQueueSize = 256
+)
+
 type Hub struct {
 	server                shared.Server
 	stripService          shared.StripService
@@ -122,7 +127,7 @@ func NewHub(stripService shared.StripService, controllerService shared.Controlle
 		register:                    make(chan *Client),
 		unregister:                  make(chan *Client),
 		clients:                     make(map[*Client]bool),
-		send:                        make(chan internalMessage),
+		send:                        make(chan internalMessage, hubSendQueueSize),
 		master:                      make(map[int32]*Client),
 		handlers:                    handlers,
 		stripService:                stripService,
@@ -200,7 +205,7 @@ func (hub *Hub) OnRegister(client *Client) {
 	// Send BackendSync first, then delay, then SessionInfo
 	go func() {
 		if client.observer {
-			client.send <- euroscope.SessionInfoEvent{Role: euroscope.SessionInfoObserver}
+			client.Enqueue(euroscope.SessionInfoEvent{Role: euroscope.SessionInfoObserver})
 			if hub.hasOperationalClientForSession(client.session) {
 				hub.server.GetFrontendHub().CidOnline(client.session, client.user.GetCid())
 			}
@@ -210,10 +215,10 @@ func (hub *Hub) OnRegister(client *Client) {
 		hub.sendBackendSyncIfNeeded(client)
 		time.Sleep(2 * time.Second)
 		if isMaster {
-			client.send <- euroscope.SessionInfoEvent{Role: euroscope.SessionInfoMaster}
+			client.Enqueue(euroscope.SessionInfoEvent{Role: euroscope.SessionInfoMaster})
 			hub.notifyObserverFrontendsOnline(client.session)
 		} else {
-			client.send <- euroscope.SessionInfoEvent{Role: euroscope.SessionInfoSlave}
+			client.Enqueue(euroscope.SessionInfoEvent{Role: euroscope.SessionInfoSlave})
 			// For slaves, layouts are already calculated by the master; notify the frontend now.
 			hub.server.GetFrontendHub().CidOnline(client.session, client.user.GetCid())
 		}
@@ -274,11 +279,11 @@ func (hub *Hub) sendBackendSyncIfNeeded(client *Client) {
 	}
 
 	lat, lon := config.GetAirportCoordinates()
-	client.send <- euroscope.BackendSyncEvent{
+	client.Enqueue(euroscope.BackendSyncEvent{
 		Strips:    syncStrips,
 		Latitude:  lat,
 		Longitude: lon,
-	}
+	})
 	slog.Debug("Sent backend sync to connecting EuroScope client",
 		slog.String("cid", client.GetCid()),
 		slog.Int("session", int(client.session)),
@@ -364,7 +369,8 @@ func (hub *Hub) HandleNewConnection(conn *gorilla.Conn, user shared.Authenticate
 		conn:        conn,
 		session:     sessionID,
 		sessionName: event.Connection,
-		send:        make(chan events.OutgoingMessage),
+		send:        make(chan events.OutgoingMessage, clientSendQueueSize),
+		closed:      make(chan struct{}),
 		hub:         hub,
 		user:        user,
 		position:    event.Position,
@@ -538,7 +544,7 @@ func (hub *Hub) OnUnregister(client *Client) {
 			continue
 		}
 		hub.setMasterClient(newMaster)
-		newMaster.send <- euroscope.SessionInfoEvent{Role: euroscope.SessionInfoMaster}
+		newMaster.Enqueue(euroscope.SessionInfoEvent{Role: euroscope.SessionInfoMaster})
 		break
 	}
 
@@ -943,6 +949,17 @@ func (hub *Hub) SendPdcStateChange(session int32, callsign, state, remarks strin
 	})
 }
 
+func (hub *Hub) BroadcastCdmUpdates(session int32, events []euroscope.CdmUpdateEvent) {
+	switch len(events) {
+	case 0:
+		return
+	case 1:
+		hub.Broadcast(session, events[0])
+	default:
+		hub.Broadcast(session, euroscope.CdmUpdateBatchEvent{Updates: events})
+	}
+}
+
 func (hub *Hub) Run() {
 	for {
 		select {
@@ -960,13 +977,13 @@ func (hub *Hub) Run() {
 			if message.cid != nil {
 				for client := range hub.clients {
 					if message.session == client.session && *message.cid == client.GetCid() {
-						client.send <- message.message
+						client.Enqueue(message.message)
 					}
 				}
 			} else {
 				for client := range hub.clients {
 					if message.session == client.session {
-						client.send <- message.message
+						client.Enqueue(message.message)
 					}
 				}
 			}

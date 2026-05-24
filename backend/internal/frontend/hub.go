@@ -30,6 +30,11 @@ type internalMessage struct {
 	cid     *string
 }
 
+const (
+	hubSendQueueSize    = 256
+	clientSendQueueSize = 256
+)
+
 type layoutUpdateMessage struct {
 	session   int32
 	layoutMap map[string]string
@@ -122,7 +127,7 @@ func NewHub(stripService shared.StripService, authenticationService shared.Authe
 	handlers.Add(frontend.ClxUpdateTobt, handleClxUpdateTobt)
 
 	hub := &Hub{
-		send:                  make(chan internalMessage),
+		send:                  make(chan internalMessage, hubSendQueueSize),
 		layoutUpdates:         make(chan layoutUpdateMessage),
 		register:              make(chan *Client),
 		unregister:            make(chan *Client),
@@ -237,7 +242,8 @@ func (hub *Hub) HandleNewConnection(conn *gorilla.Conn, user shared.Authenticate
 		user:        user,
 		session:     session,
 		sessionName: sessionName,
-		send:        make(chan events.OutgoingMessage),
+		send:        make(chan events.OutgoingMessage, clientSendQueueSize),
+		closed:      make(chan struct{}),
 		hub:         hub,
 		position:    position,
 		airport:     airport,
@@ -426,7 +432,7 @@ func (hub *Hub) sendInitialEvent(client *Client) {
 		LocalIP:            localIP,
 	}
 
-	client.send <- event
+	client.Enqueue(event)
 
 	hub.metarMu.RLock()
 	cachedMetar := hub.metarCache[client.session]
@@ -435,7 +441,7 @@ func (hub *Hub) sendInitialEvent(client *Client) {
 	hub.metarMu.RUnlock()
 
 	if cachedMetar != "" {
-		client.send <- frontend.AtisUpdateEvent{Metar: cachedMetar, ArrAtisCode: cachedArr, DepAtisCode: cachedDep}
+		client.Enqueue(frontend.AtisUpdateEvent{Metar: cachedMetar, ArrAtisCode: cachedArr, DepAtisCode: cachedDep})
 	}
 }
 
@@ -700,7 +706,7 @@ func (hub *Hub) handleCidDisconnect(cid string) {
 			client.position = WaitingForEuroscopeConnectionPosition
 			client.airport = WaitingForEuroscopeConnectionAirport
 			client.callsign = WaitingForEuroscopeConnectionCallsign
-			client.send <- frontend.DisconnectEvent{ReadOnly: readOnly}
+			client.Enqueue(frontend.DisconnectEvent{ReadOnly: readOnly})
 		}
 	}
 }
@@ -1049,6 +1055,17 @@ func (hub *Hub) SendCdmUpdate(session int32, event frontend.CdmDataEvent) {
 	hub.Broadcast(session, event)
 }
 
+func (hub *Hub) SendCdmUpdates(session int32, events []frontend.CdmDataEvent) {
+	switch len(events) {
+	case 0:
+		return
+	case 1:
+		hub.Broadcast(session, events[0])
+	default:
+		hub.Broadcast(session, frontend.CdmDataBatchEvent{Updates: events})
+	}
+}
+
 func (hub *Hub) SendCdmWait(session int32, callsign string) {
 	event := frontend.CdmWaitEvent{
 		Callsign: callsign,
@@ -1125,7 +1142,7 @@ func (hub *Hub) SendServerMessage(session int32, message string) {
 func (hub *Hub) SendToPosition(session int32, position string, message frontend.OutgoingMessage) {
 	for client := range hub.clients {
 		if client.session == session && client.position == position {
-			client.send <- message
+			client.Enqueue(message)
 		}
 	}
 }
@@ -1150,7 +1167,7 @@ func (hub *Hub) OnRegister(client *Client) {
 		return
 	}
 
-	client.send <- frontend.DisconnectEvent{ReadOnly: client.readOnly}
+	client.Enqueue(frontend.DisconnectEvent{ReadOnly: client.readOnly})
 }
 
 func (hub *Hub) OnUnregister(client *Client) {
@@ -1178,20 +1195,20 @@ func (hub *Hub) Run() {
 			if message.cid != nil {
 				for client := range hub.clients {
 					if message.session == client.session && *message.cid == client.GetCid() {
-						client.send <- message.message
+						client.Enqueue(message.message)
 					}
 				}
 			} else {
 				for client := range hub.clients {
 					if message.session == client.session {
-						client.send <- message.message
+						client.Enqueue(message.message)
 					}
 				}
 			}
 		case msg := <-hub.layoutUpdates:
 			for client := range hub.clients {
 				if layout, ok := msg.layoutMap[client.position]; client.session == msg.session && ok {
-					client.send <- frontend.LayoutUpdateEvent{Layout: layout}
+					client.Enqueue(frontend.LayoutUpdateEvent{Layout: layout})
 				}
 			}
 		}

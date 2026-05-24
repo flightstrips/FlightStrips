@@ -7,7 +7,6 @@ import (
 	internalModels "FlightStrips/internal/models"
 	"FlightStrips/internal/shared"
 	"FlightStrips/internal/testutil"
-	"FlightStrips/pkg/events"
 	euroscopeEvents "FlightStrips/pkg/events/euroscope"
 
 	"github.com/stretchr/testify/assert"
@@ -40,11 +39,10 @@ func TestSendBackendSyncIfNeeded_SendsLineupForDepartBayWithoutStoredState(t *te
 	hub := &Hub{
 		server: &testutil.MockServer{StripRepoVal: stripRepo},
 	}
-	client := &Client{
+	client := startQueuedTestClient(&Client{
 		session: session,
-		send:    make(chan events.OutgoingMessage, 1),
 		user:    shared.NewAuthenticatedUser("1234567", 0, nil),
-	}
+	})
 
 	hub.sendBackendSyncIfNeeded(client)
 

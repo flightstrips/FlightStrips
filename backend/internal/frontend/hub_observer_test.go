@@ -4,7 +4,6 @@ import (
 	internalModels "FlightStrips/internal/models"
 	"FlightStrips/internal/shared"
 	"FlightStrips/internal/testutil"
-	"FlightStrips/pkg/events"
 	frontendEvents "FlightStrips/pkg/events/frontend"
 	"context"
 	"testing"
@@ -37,24 +36,19 @@ func TestIsObserverController_UsesEuroscopeObserverLookup(t *testing.T) {
 
 func TestOnRegister_WaitingObserverReceivesObserverDisconnectState(t *testing.T) {
 	hub := &Hub{}
-	client := &Client{
+	client := startQueuedTestClient(&Client{
 		hub:      hub,
 		session:  WaitingForEuroscopeConnectionSessionId,
 		readOnly: true,
-		send:     make(chan events.OutgoingMessage, 1),
 		user:     shared.NewAuthenticatedUser("1234567", 0, nil),
-	}
+	})
 
 	hub.OnRegister(client)
 
-	select {
-	case message := <-client.send:
-		event, ok := message.(frontendEvents.DisconnectEvent)
-		require.True(t, ok)
-		assert.True(t, event.ReadOnly)
-	default:
-		t.Fatal("expected waiting disconnect event")
-	}
+	message := waitForOutgoingMessage(t, client.send)
+	event, ok := message.(frontendEvents.DisconnectEvent)
+	require.True(t, ok)
+	assert.True(t, event.ReadOnly)
 }
 
 func TestCidDisconnect_ClearsObserverWaitingStateWhenObserverIsOffline(t *testing.T) {
@@ -66,25 +60,20 @@ func TestCidDisconnect_ClearsObserverWaitingStateWhenObserverIsOffline(t *testin
 			},
 		},
 	}
-	client := &Client{
+	client := startQueuedTestClient(&Client{
 		hub:      hub,
 		session:  42,
 		readOnly: true,
-		send:     make(chan events.OutgoingMessage, 1),
 		user:     shared.NewAuthenticatedUser("1234567", 0, nil),
-	}
+	})
 	hub.clients[client] = true
 
 	hub.handleCidDisconnect("1234567")
 
-	select {
-	case message := <-client.send:
-		event, ok := message.(frontendEvents.DisconnectEvent)
-		require.True(t, ok)
-		assert.False(t, event.ReadOnly)
-	default:
-		t.Fatal("expected disconnect event")
-	}
+	message := waitForOutgoingMessage(t, client.send)
+	event, ok := message.(frontendEvents.DisconnectEvent)
+	require.True(t, ok)
+	assert.False(t, event.ReadOnly)
 }
 
 func TestCidDisconnect_ClearsSessionLabelsBeforeUnregister(t *testing.T) {
@@ -96,16 +85,15 @@ func TestCidDisconnect_ClearsSessionLabelsBeforeUnregister(t *testing.T) {
 			},
 		},
 	}
-	client := &Client{
+	client := startQueuedTestClient(&Client{
 		hub:         hub,
 		session:     42,
 		sessionName: "LIVE",
 		position:    "118.105",
 		airport:     "EKCH",
 		callsign:    "EKCH_A_TWR",
-		send:        make(chan events.OutgoingMessage, 1),
 		user:        shared.NewAuthenticatedUser("1234567", 0, nil),
-	}
+	})
 	hub.clients[client] = true
 
 	hub.handleCidDisconnect("1234567")
@@ -199,36 +187,33 @@ func TestCidDisconnect_ClearsAllMatchingClients(t *testing.T) {
 			},
 		},
 	}
-	first := &Client{
+	first := startQueuedTestClient(&Client{
 		hub:         hub,
 		session:     42,
 		sessionName: "LIVE",
 		position:    "118.105",
 		airport:     "EKCH",
 		callsign:    "EKCH_A_TWR",
-		send:        make(chan events.OutgoingMessage, 1),
 		user:        shared.NewAuthenticatedUser("1234567", 0, nil),
-	}
-	second := &Client{
+	})
+	second := startQueuedTestClient(&Client{
 		hub:         hub,
 		session:     42,
 		sessionName: "LIVE",
 		position:    "121.730",
 		airport:     "EKCH",
 		callsign:    "EKCH_A_GND",
-		send:        make(chan events.OutgoingMessage, 1),
 		user:        shared.NewAuthenticatedUser("1234567", 0, nil),
-	}
-	other := &Client{
+	})
+	other := startQueuedTestClient(&Client{
 		hub:         hub,
 		session:     42,
 		sessionName: "LIVE",
 		position:    "121.855",
 		airport:     "EKCH",
 		callsign:    "EKCH_DEL",
-		send:        make(chan events.OutgoingMessage, 1),
 		user:        shared.NewAuthenticatedUser("7654321", 0, nil),
-	}
+	})
 
 	hub.clients[first] = true
 	hub.clients[second] = true
@@ -243,14 +228,10 @@ func TestCidDisconnect_ClearsAllMatchingClients(t *testing.T) {
 		assert.Equal(t, WaitingForEuroscopeConnectionAirport, client.airport)
 		assert.Equal(t, WaitingForEuroscopeConnectionCallsign, client.callsign)
 
-		select {
-		case message := <-client.send:
-			event, ok := message.(frontendEvents.DisconnectEvent)
-			require.True(t, ok)
-			assert.False(t, event.ReadOnly)
-		default:
-			t.Fatal("expected disconnect event")
-		}
+		message := waitForOutgoingMessage(t, client.send)
+		event, ok := message.(frontendEvents.DisconnectEvent)
+		require.True(t, ok)
+		assert.False(t, event.ReadOnly)
 	}
 
 	assert.Equal(t, int32(42), other.session)

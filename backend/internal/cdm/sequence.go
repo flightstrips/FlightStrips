@@ -5,6 +5,7 @@ import (
 	"FlightStrips/internal/repository"
 	"FlightStrips/internal/shared"
 	euroscopeEvents "FlightStrips/pkg/events/euroscope"
+	frontendEvents "FlightStrips/pkg/events/frontend"
 	"context"
 	"fmt"
 	"log/slog"
@@ -160,6 +161,10 @@ func (s *SequenceService) recalculateAirport(ctx context.Context, session int32,
 		return compareSequencingCandidates(recalculate[i], recalculate[j], now, false) < 0
 	})
 
+	frontendUpdates := make([]frontendEvents.CdmDataEvent, 0, len(recalculate))
+	euroscopeUpdates := make([]euroscopeEvents.CdmUpdateEvent, 0, len(recalculate))
+	afterPersistCallsigns := make([]string, 0, len(recalculate))
+
 	for _, candidate := range recalculate {
 		strip := candidate.strip
 		if !shouldRecalculateStrip(strip, now) {
@@ -200,10 +205,11 @@ func (s *SequenceService) recalculateAirport(ctx context.Context, session int32,
 				}
 				strip.CdmData = updated
 				if notify {
-					s.broadcast(session, strip.Callsign, updated)
+					frontendUpdates = append(frontendUpdates, shared.BuildFrontendCdmDataEvent(strip.Callsign, updated))
+					euroscopeUpdates = append(euroscopeUpdates, buildCdmUpdateEvent(strip.Callsign, updated))
 				}
 				if notify && s.afterPersist != nil {
-					s.afterPersist(ctx, session, strip.Callsign)
+					afterPersistCallsigns = append(afterPersistCallsigns, strip.Callsign)
 				}
 			}
 			continue
@@ -239,10 +245,11 @@ func (s *SequenceService) recalculateAirport(ctx context.Context, session int32,
 			}
 			strip.CdmData = updated
 			if notify {
-				s.broadcast(session, strip.Callsign, updated)
+				frontendUpdates = append(frontendUpdates, shared.BuildFrontendCdmDataEvent(strip.Callsign, updated))
+				euroscopeUpdates = append(euroscopeUpdates, buildCdmUpdateEvent(strip.Callsign, updated))
 			}
 			if notify && s.afterPersist != nil {
-				s.afterPersist(ctx, session, strip.Callsign)
+				afterPersistCallsigns = append(afterPersistCallsigns, strip.Callsign)
 			}
 		}
 
@@ -258,6 +265,15 @@ func (s *SequenceService) recalculateAirport(ctx context.Context, session int32,
 				HasManCtot:  updated.HasManualCtot(),
 				ManCtot:     valueOrEmpty(updated.Ctot),
 			})
+		}
+	}
+
+	if notify {
+		s.broadcastBatch(session, frontendUpdates, euroscopeUpdates)
+		if s.afterPersist != nil {
+			for _, callsign := range afterPersistCallsigns {
+				s.afterPersist(ctx, session, callsign)
+			}
 		}
 	}
 
@@ -533,12 +549,12 @@ func calculateWithSinglePreservedSlot(preserved SlotEntry, candidate sequencingC
 	return Calculate(candidate.input, []SlotEntry{preserved}, config, now).Ttot
 }
 
-func (s *SequenceService) broadcast(session int32, callsign string, data *models.CdmData) {
+func (s *SequenceService) broadcastBatch(session int32, frontendUpdates []frontendEvents.CdmDataEvent, euroscopeUpdates []euroscopeEvents.CdmUpdateEvent) {
 	if s.frontendHub != nil {
-		s.frontendHub.SendCdmUpdate(session, shared.BuildFrontendCdmDataEvent(callsign, data))
+		s.frontendHub.SendCdmUpdates(session, frontendUpdates)
 	}
 	if s.euroscopeHub != nil {
-		s.euroscopeHub.Broadcast(session, buildCdmUpdateEvent(callsign, data))
+		s.euroscopeHub.BroadcastCdmUpdates(session, euroscopeUpdates)
 	}
 }
 

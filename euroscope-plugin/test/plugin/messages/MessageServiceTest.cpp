@@ -60,6 +60,23 @@ TEST(MessageServiceEventsTest, CdmUpdateEventDeserializesRequestedTobtSourceAndF
     EXPECT_EQ(event.ecfmp_id, "REGUL");
 }
 
+TEST(MessageServiceEventsTest, CdmUpdateBatchEventDeserializesUpdates) {
+    const auto json = nlohmann::json::parse(R"({
+        "type":"cdm_update_batch",
+        "updates":[
+            {"callsign":"EIN123","req_tobt":"1025"},
+            {"callsign":"SAS456","tsat":"1031"}
+        ]
+    })");
+
+    const auto event = json.get<CdmUpdateBatchEvent>();
+    ASSERT_EQ(event.updates.size(), 2);
+    EXPECT_EQ(event.updates[0].callsign, "EIN123");
+    EXPECT_EQ(event.updates[0].req_tobt, "1025");
+    EXPECT_EQ(event.updates[1].callsign, "SAS456");
+    EXPECT_EQ(event.updates[1].tsat, "1031");
+}
+
 TEST(MessageServiceEventsTest, CdmTsacUpdateEventSerializesExpectedShape) {
     const nlohmann::json json = CdmTsacUpdateEvent{"EIN123", "1030"};
     EXPECT_EQ(json.at("type").get<std::string>(), EVENT_CDM_TSAC_UPDATE_NAME);

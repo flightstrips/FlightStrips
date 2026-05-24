@@ -26,6 +26,7 @@ services:
   backend:
     image: ghcr.io/flightstrips/backend-api:latest
     restart: unless-stopped
+    mem_limit: 2g
     environment:
       DATABASE_CONNECTIONSTRING: ${DATABASE_CONNECTIONSTRING}
       OIDC_AUTHORITY: ${OIDC_AUTHORITY}

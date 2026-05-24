@@ -5,6 +5,7 @@ import (
 	"FlightStrips/internal/repository"
 	"FlightStrips/internal/shared"
 	euroscopeEvents "FlightStrips/pkg/events/euroscope"
+	frontendEvents "FlightStrips/pkg/events/frontend"
 	"FlightStrips/pkg/helpers"
 	"context"
 	"encoding/json"
@@ -37,6 +38,7 @@ type Service struct {
 	// sessionUsesViff tracks whether a session is allowed to exchange data with the vIFF network.
 	// Populated from session.Name during syncSessions and refreshed on demand for later runtime calls.
 	sessionUsesViff sync.Map // map[int32]bool
+	lastPushedViff  sync.Map // map[string]viffPushState
 }
 
 type StripValidationReevaluator interface {
@@ -56,6 +58,11 @@ const (
 type cdmSnapshot struct {
 	Eobt, Tobt, Tsat, Ctot, CtotSource, Ttot, Asat, Asrt, Tsac, Aobt, Status, ReqTobt, ReqTobtType, EcfmpID, TobtSetBy, TobtConfirmedBy, Phase string
 	TobtAutoSynced, TobtManuallyConfirmed                                                                                                      bool
+}
+
+type viffPushState struct {
+	Suspend bool
+	Params  SetCdmDataParams
 }
 
 func NewCdmService(client *Client, stripRepo repository.StripRepository, sessionRepo repository.SessionRepository, controllerRepo repository.ControllerRepository) *Service {
@@ -84,7 +91,7 @@ func (s *Service) SetSequenceService(sequenceService *SequenceService) {
 	s.sequenceService = sequenceService
 	if s.sequenceService != nil {
 		s.sequenceService.SetAfterPersist(func(ctx context.Context, session int32, callsign string) {
-			s.pushCdmDataAfterRecalc(ctx, session, callsign)
+			s.pushViffDataAfterRecalc(ctx, session, callsign)
 		})
 	}
 }
@@ -1257,7 +1264,7 @@ func (s *Service) broadcastIfChanged(session int32, callsign string, before, aft
 	}
 
 	if s.publisher != nil {
-		s.publisher.SendCdmUpdate(session, shared.BuildFrontendCdmDataEvent(callsign, &models.CdmData{
+		s.publisher.SendCdmUpdates(session, []frontendEvents.CdmDataEvent{shared.BuildFrontendCdmDataEvent(callsign, &models.CdmData{
 			Eobt:        stringPointerIfPresent(after.Eobt),
 			Tobt:        stringPointerIfPresent(after.Tobt),
 			ReqTobt:     stringPointerIfPresent(after.ReqTobt),
@@ -1273,19 +1280,39 @@ func (s *Service) broadcastIfChanged(session int32, callsign string, before, aft
 			Status:      stringPointerIfPresent(after.Status),
 			EcfmpID:     stringPointerIfPresent(after.EcfmpID),
 			Phase:       stringPointerIfPresent(after.Phase),
-		}))
+		})})
 	}
 
 	if s.euroscopeHub != nil {
 		data, err := s.stripRepo.GetCdmDataForCallsign(context.Background(), session, callsign)
 		if err == nil {
-			s.euroscopeHub.Broadcast(session, buildCdmUpdateEvent(callsign, data))
+			s.euroscopeHub.BroadcastCdmUpdates(session, []euroscopeEvents.CdmUpdateEvent{buildCdmUpdateEvent(callsign, data)})
 		}
 	}
 }
 
+func (s *Service) pushViffDataAfterRecalc(ctx context.Context, session int32, callsign string) {
+	if !s.client.isValid || !s.usesViffSession(session) {
+		return
+	}
+
+	data, err := s.stripRepo.GetCdmDataForCallsign(ctx, session, callsign)
+	if err != nil {
+		slog.WarnContext(ctx, "Failed to load recalculated CDM data",
+			slog.Int("session", int(session)),
+			slog.String("callsign", callsign),
+			slog.Any("error", err),
+		)
+		return
+	}
+
+	// Load strip for departure info (runway) needed by setCdmData
+	strip, _ := s.stripRepo.GetByCallsign(ctx, session, callsign)
+	s.pushViffAfterRecalcAsync(session, callsign, strip, data)
+}
+
 func (s *Service) pushCdmDataAfterRecalc(ctx context.Context, session int32, callsign string) {
-	if s.publisher == nil && s.euroscopeHub == nil {
+	if s.publisher == nil && s.euroscopeHub == nil && (!s.client.isValid || !s.usesViffSession(session)) {
 		return
 	}
 
@@ -1300,17 +1327,17 @@ func (s *Service) pushCdmDataAfterRecalc(ctx context.Context, session int32, cal
 	}
 
 	if s.publisher != nil {
-		s.publisher.SendCdmUpdate(session, shared.BuildFrontendCdmDataEvent(callsign, data))
+		s.publisher.SendCdmUpdates(session, []frontendEvents.CdmDataEvent{shared.BuildFrontendCdmDataEvent(callsign, data)})
 	}
 	if s.euroscopeHub != nil {
-		s.euroscopeHub.Broadcast(session, buildCdmUpdateEvent(callsign, data))
+		s.euroscopeHub.BroadcastCdmUpdates(session, []euroscopeEvents.CdmUpdateEvent{buildCdmUpdateEvent(callsign, data)})
 	}
 
-	// Load strip for departure info (runway) needed by setCdmData
-	var strip *models.Strip
-	if s.client.isValid && s.usesViffSession(session) {
-		strip, _ = s.stripRepo.GetByCallsign(ctx, session, callsign)
+	if !s.client.isValid || !s.usesViffSession(session) {
+		return
 	}
+
+	strip, _ := s.stripRepo.GetByCallsign(ctx, session, callsign)
 	s.pushViffAfterRecalcAsync(session, callsign, strip, data)
 }
 
@@ -1318,9 +1345,14 @@ func (s *Service) pushViffAfterRecalcAsync(session int32, callsign string, strip
 	if !s.client.isValid || !s.usesViffSession(session) {
 		return
 	}
+	state, ok := buildViffPushState(callsign, strip, data)
+	if !ok || !s.markViffPushPending(session, callsign, state) {
+		return
+	}
 	go func() {
 		ctx := context.Background()
-		if err := s.pushViffAfterRecalc(ctx, callsign, strip, data); err != nil {
+		if err := s.pushViffState(ctx, callsign, state); err != nil {
+			s.clearPendingViffPush(session, callsign, state)
 			slog.WarnContext(ctx, "Failed to push CDM data to CDM backend",
 				slog.String("callsign", callsign),
 				slog.Any("error", err),
@@ -1330,28 +1362,72 @@ func (s *Service) pushViffAfterRecalcAsync(session int32, callsign string, strip
 }
 
 func (s *Service) pushViffAfterRecalc(ctx context.Context, callsign string, strip *models.Strip, data *models.CdmData) error {
-	if helpers.ValueOrDefault(data.EffectivePhase()) == "I" {
-		return s.client.IFPSDpi(ctx, callsign, "SUSP")
-	}
-	tsat := normalizeViffCdmTime(helpers.ValueOrDefault(data.EffectiveTsat()))
-	if tsat == "" {
+	state, ok := buildViffPushState(callsign, strip, data)
+	if !ok {
 		return nil
 	}
+	return s.pushViffState(ctx, callsign, state)
+}
+
+func (s *Service) pushViffState(ctx context.Context, callsign string, state viffPushState) error {
+	if state.Suspend {
+		return s.client.IFPSDpi(ctx, callsign, "SUSP")
+	}
+	return s.client.IFPSSetCdmData(ctx, state.Params)
+}
+
+func buildViffPushState(callsign string, strip *models.Strip, data *models.CdmData) (viffPushState, bool) {
+	if data == nil {
+		return viffPushState{}, false
+	}
+	if helpers.ValueOrDefault(data.EffectivePhase()) == "I" {
+		return viffPushState{Suspend: true}, true
+	}
+
+	tsat := normalizeViffCdmTime(helpers.ValueOrDefault(data.EffectiveTsat()))
+	if tsat == "" {
+		return viffPushState{}, false
+	}
+
 	depInfo := ""
 	if strip != nil && strip.Runway != nil {
 		depInfo = *strip.Runway
 	}
-	params := SetCdmDataParams{
-		Callsign: callsign,
-		Tobt:     normalizeViffCdmTime(helpers.ValueOrDefault(data.EffectiveTobt())),
-		Tsat:     tsat,
-		Ttot:     normalizeViffCdmTime(helpers.ValueOrDefault(data.EffectiveTtot())),
-		Ctot:     truncateCDMClockValue(helpers.ValueOrDefault(data.EffectiveCtot())),
-		Reason:   helpers.ValueOrDefault(data.EcfmpID),
-		Asrt:     normalizeViffCdmTime(helpers.ValueOrDefault(data.Asrt)),
-		DepInfo:  depInfo,
+
+	return viffPushState{
+		Params: SetCdmDataParams{
+			Callsign: callsign,
+			Tobt:     normalizeViffCdmTime(helpers.ValueOrDefault(data.EffectiveTobt())),
+			Tsat:     tsat,
+			Ttot:     normalizeViffCdmTime(helpers.ValueOrDefault(data.EffectiveTtot())),
+			Ctot:     truncateCDMClockValue(helpers.ValueOrDefault(data.EffectiveCtot())),
+			Reason:   helpers.ValueOrDefault(data.EcfmpID),
+			Asrt:     normalizeViffCdmTime(helpers.ValueOrDefault(data.Asrt)),
+			DepInfo:  depInfo,
+		},
+	}, true
+}
+
+func (s *Service) markViffPushPending(session int32, callsign string, state viffPushState) bool {
+	key := viffPushKey(session, callsign)
+	current, ok := s.lastPushedViff.Load(key)
+	if ok && current.(viffPushState) == state {
+		return false
 	}
-	return s.client.IFPSSetCdmData(ctx, params)
+	s.lastPushedViff.Store(key, state)
+	return true
+}
+
+func (s *Service) clearPendingViffPush(session int32, callsign string, state viffPushState) {
+	key := viffPushKey(session, callsign)
+	current, ok := s.lastPushedViff.Load(key)
+	if ok && current.(viffPushState) == state {
+		s.lastPushedViff.Delete(key)
+	}
+}
+
+func viffPushKey(session int32, callsign string) string {
+	return strconv.Itoa(int(session)) + ":" + callsign
 }
 
 func (s *Service) pushLatestMasterCdmDataToViff(ctx context.Context, session int32, callsign string, strip *models.Strip) error {

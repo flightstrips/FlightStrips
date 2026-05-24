@@ -6,7 +6,7 @@ import {
   EventType,
   type FrontendAircraftDisconnectEvent,
   type FrontendAssignedSquawkEvent,
-  type FrontendBayEvent, type FrontendBroadcastEvent, type FrontendBulkBayEvent, type FrontendCdmDataEvent, type FrontendCdmWaitEvent,
+  type FrontendBayEvent, type FrontendBroadcastEvent, type FrontendBulkBayEvent, type FrontendCdmDataBatchEvent, type FrontendCdmDataEvent, type FrontendCdmWaitEvent,
   type FrontendClearedAltitudeEvent,
   type FrontendCommunicationTypeEvent,
   type FrontendController,
@@ -1075,28 +1075,40 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     );
   };
 
+  const applyCdmUpdate = (state: WebSocketState, data: FrontendCdmDataEvent) => {
+    const stripIndex = state.strips.findIndex(strip => strip.callsign === data.callsign);
+    if (stripIndex !== -1) {
+      state.strips[stripIndex].tobt = normalizeCdmTime(data.tobt)
+      state.strips[stripIndex].eobt = normalizeCdmTime(data.eobt)
+      state.strips[stripIndex].tsat = normalizeCdmTime(data.tsat)
+      state.strips[stripIndex].ctot = normalizeCdmTime(data.ctot)
+      if (data.req_tobt !== undefined) state.strips[stripIndex].req_tobt = normalizeCdmTime(data.req_tobt)
+      state.strips[stripIndex].req_tobt_type = data.req_tobt_type ?? ""
+      state.strips[stripIndex].tobt_set_by = data.tobt_set_by ?? ""
+      if (data.ttot !== undefined) state.strips[stripIndex].ttot = normalizeCdmTime(data.ttot)
+      if (data.aobt !== undefined) state.strips[stripIndex].aobt = normalizeCdmTime(data.aobt)
+      if (data.asat !== undefined) state.strips[stripIndex].asat = normalizeCdmTime(data.asat)
+      if (data.asrt !== undefined) state.strips[stripIndex].asrt = normalizeCdmTime(data.asrt)
+      if (data.tsac !== undefined) state.strips[stripIndex].tsac = normalizeCdmTime(data.tsac)
+      if (data.status !== undefined) state.strips[stripIndex].status = data.status
+      if (data.ecfmp_id !== undefined) state.strips[stripIndex].ecfmp_id = data.ecfmp_id
+      if (data.ctot_source !== undefined) state.strips[stripIndex].ctot_source = data.ctot_source
+      if (data.phase !== undefined) state.strips[stripIndex].phase = data.phase
+    }
+  };
+
   const handleCdmUpdateEvent = (data: FrontendCdmDataEvent) => {
     store.setState(
       produce((state: WebSocketState) => {
-        const stripIndex = state.strips.findIndex(strip => strip.callsign === data.callsign);
-        if (stripIndex !== -1) {
-          state.strips[stripIndex].tobt = normalizeCdmTime(data.tobt)
-          state.strips[stripIndex].eobt = normalizeCdmTime(data.eobt)
-          state.strips[stripIndex].tsat = normalizeCdmTime(data.tsat)
-          state.strips[stripIndex].ctot = normalizeCdmTime(data.ctot)
-          if (data.req_tobt !== undefined) state.strips[stripIndex].req_tobt = normalizeCdmTime(data.req_tobt)
-          state.strips[stripIndex].req_tobt_type = data.req_tobt_type ?? ""
-          state.strips[stripIndex].tobt_set_by = data.tobt_set_by ?? ""
-          if (data.ttot !== undefined) state.strips[stripIndex].ttot = normalizeCdmTime(data.ttot)
-          if (data.aobt !== undefined) state.strips[stripIndex].aobt = normalizeCdmTime(data.aobt)
-          if (data.asat !== undefined) state.strips[stripIndex].asat = normalizeCdmTime(data.asat)
-          if (data.asrt !== undefined) state.strips[stripIndex].asrt = normalizeCdmTime(data.asrt)
-          if (data.tsac !== undefined) state.strips[stripIndex].tsac = normalizeCdmTime(data.tsac)
-          if (data.status !== undefined) state.strips[stripIndex].status = data.status
-          if (data.ecfmp_id !== undefined) state.strips[stripIndex].ecfmp_id = data.ecfmp_id
-          if (data.ctot_source !== undefined) state.strips[stripIndex].ctot_source = data.ctot_source
-          if (data.phase !== undefined) state.strips[stripIndex].phase = data.phase
-        }
+        applyCdmUpdate(state, data)
+      })
+    )
+  }
+
+  const handleCdmBatchUpdateEvent = (data: FrontendCdmDataBatchEvent) => {
+    store.setState(
+      produce((state: WebSocketState) => {
+        data.updates.forEach(update => applyCdmUpdate(state, update));
       })
     )
   }
@@ -1253,6 +1265,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
   wsClient.on(EventType.FrontendLayoutUpdate, handleLayoutUpdateEvent);
   wsClient.on(EventType.FrontendBroadcast, handleBroadcastEvent);
   wsClient.on(EventType.FrontendCdmData, handleCdmUpdateEvent);
+  wsClient.on(EventType.FrontendCdmDataBatch, handleCdmBatchUpdateEvent);
   wsClient.on(EventType.FrontendCdmWait, handleCdmWaitEvent);
   wsClient.on(EventType.FrontendReleasePoint, handleReleasePointEvent);
   wsClient.on(EventType.FrontendMarked, handleMarkedEvent);

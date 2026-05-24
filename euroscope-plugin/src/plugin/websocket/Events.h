@@ -41,6 +41,7 @@
 #define EVENT_BACKEND_SYNC_NAME "backend_sync"
 #define EVENT_CREATE_FPL_NAME "create_fpl"
 #define EVENT_CDM_UPDATE_NAME "cdm_update"
+#define EVENT_CDM_UPDATE_BATCH_NAME "cdm_update_batch"
 #define EVENT_CDM_TOBT_UPDATE_NAME "cdm_tobt_update"
 #define EVENT_CDM_ASRT_TOGGLE_NAME "cdm_asrt_toggle"
 #define EVENT_CDM_TSAC_UPDATE_NAME "cdm_tsac_update"
@@ -93,6 +94,7 @@ enum EventType {
     EVENT_BACKEND_SYNC,
     EVENT_CREATE_FPL,
     EVENT_CDM_UPDATE,
+    EVENT_CDM_UPDATE_BATCH,
     EVENT_CDM_TOBT_UPDATE,
     EVENT_CDM_ASRT_TOGGLE,
     EVENT_CDM_TSAC_UPDATE,
@@ -145,6 +147,7 @@ NLOHMANN_JSON_SERIALIZE_ENUM(EventType, {
                                  {EVENT_BACKEND_SYNC, EVENT_BACKEND_SYNC_NAME},
                                   {EVENT_CREATE_FPL, EVENT_CREATE_FPL_NAME},
                                    {EVENT_CDM_UPDATE, EVENT_CDM_UPDATE_NAME},
+                                   {EVENT_CDM_UPDATE_BATCH, EVENT_CDM_UPDATE_BATCH_NAME},
                                   {EVENT_CDM_TOBT_UPDATE, EVENT_CDM_TOBT_UPDATE_NAME},
                                   {EVENT_CDM_ASRT_TOGGLE, EVENT_CDM_ASRT_TOGGLE_NAME},
                                   {EVENT_CDM_TSAC_UPDATE, EVENT_CDM_TSAC_UPDATE_NAME},
@@ -307,6 +310,20 @@ struct CdmUpdateEvent final : Event {
         phase,
         type
     );
+};
+
+struct CdmUpdateBatchEvent final : Event {
+    std::vector<CdmUpdateEvent> updates;
+
+    CdmUpdateBatchEvent()
+        : Event(EVENT_CDM_UPDATE_BATCH) {
+    }
+
+    explicit CdmUpdateBatchEvent(std::vector<CdmUpdateEvent> updates)
+        : Event(EVENT_CDM_UPDATE_BATCH), updates(std::move(updates)) {
+    }
+
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE_WITH_DEFAULT(CdmUpdateBatchEvent, updates, type);
 };
 
 struct CdmTobtUpdateEvent final : Event {

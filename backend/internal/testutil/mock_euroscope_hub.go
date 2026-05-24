@@ -165,7 +165,19 @@ func (m *MockEuroscopeHub) GetRunwayMismatchStatus(session int32, cid string) (b
 }
 
 func (m *MockEuroscopeHub) Broadcast(session int32, message euroscope.OutgoingMessage) {
+	if batch, ok := message.(euroscope.CdmUpdateBatchEvent); ok {
+		for _, event := range batch.Updates {
+			m.Broadcasts = append(m.Broadcasts, event)
+		}
+		return
+	}
 	m.Broadcasts = append(m.Broadcasts, message)
+}
+
+func (m *MockEuroscopeHub) BroadcastCdmUpdates(session int32, events []euroscope.CdmUpdateEvent) {
+	for _, event := range events {
+		m.Broadcasts = append(m.Broadcasts, event)
+	}
 }
 
 func (m *MockEuroscopeHub) Send(session int32, cid string, message euroscope.OutgoingMessage) {}

@@ -65,9 +65,10 @@ const (
 	SendMessage     EventType = "send_message"
 	MessageReceived EventType = "message_received"
 
-	CdmWait  EventType = "cdm_wait"
-	CdmData  EventType = "cdm_data"
-	CdmReady EventType = "cdm_ready"
+	CdmWait      EventType = "cdm_wait"
+	CdmData      EventType = "cdm_data"
+	CdmDataBatch EventType = "cdm_data_batch"
+	CdmReady     EventType = "cdm_ready"
 
 	ReleasePoint EventType = "release_point"
 
@@ -754,6 +755,18 @@ func (c CdmDataEvent) Marshal() ([]byte, error) {
 
 func (c CdmDataEvent) GetType() EventType {
 	return CdmData
+}
+
+type CdmDataBatchEvent struct {
+	Updates []CdmDataEvent `json:"updates"`
+}
+
+func (c CdmDataBatchEvent) Marshal() ([]byte, error) {
+	return marshall(c)
+}
+
+func (c CdmDataBatchEvent) GetType() EventType {
+	return CdmDataBatch
 }
 
 type CdmReadyEvent struct {

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"go.opentelemetry.io/contrib/bridges/otelslog"
+	otelruntime "go.opentelemetry.io/contrib/instrumentation/runtime"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp"
@@ -71,6 +72,9 @@ func Initialize(ctx context.Context, cfg Config) (*Telemetry, error) {
 		sdkmetric.WithResource(res),
 	)
 	otel.SetMeterProvider(meterProvider)
+	if err := startRuntimeMetrics(meterProvider); err != nil {
+		return nil, err
+	}
 
 	// Initialize logger provider
 	logExporter, err := otlploghttp.New(ctx)
@@ -95,6 +99,10 @@ func Initialize(ctx context.Context, cfg Config) (*Telemetry, error) {
 		meterProvider:  meterProvider,
 		loggerProvider: loggerProvider,
 	}, nil
+}
+
+func startRuntimeMetrics(provider *sdkmetric.MeterProvider) error {
+	return otelruntime.Start(otelruntime.WithMeterProvider(provider))
 }
 
 func (t *Telemetry) Shutdown(ctx context.Context) error {

@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.17.2](https://github.com/flightstrips/FlightStrips/compare/plugin/v0.17.1...plugin/v0.17.2) (2026-05-25)
+
+
+### Bug Fixes
+
+* **cdm:** batch websocket updates and cap backend memory ([76239a5](https://github.com/flightstrips/FlightStrips/commit/76239a536c8044f039bc2b1e9d388751a4bd3deb))
+
 ## [0.17.1](https://github.com/flightstrips/FlightStrips/compare/plugin/v0.17.0...plugin/v0.17.1) (2026-05-17)
 
 

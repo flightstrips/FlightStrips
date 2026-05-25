@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.34.0](https://github.com/flightstrips/FlightStrips/compare/backend/v0.33.0...backend/v0.34.0) (2026-05-25)
+
+
+### Features
+
+* **frontend,backend:** highlight manual TOBT times ([04cabb1](https://github.com/flightstrips/FlightStrips/commit/04cabb1cd0b3de4d3a8002261e22b71684b17ff9)), closes [#201](https://github.com/flightstrips/FlightStrips/issues/201)
+
+
+### Bug Fixes
+
+* **backend:** export Go runtime telemetry metrics ([aec5adf](https://github.com/flightstrips/FlightStrips/commit/aec5adf2b7536baf61b54a212601da0db2117e8f))
+* **backend:** force online orchestration on ES reconnect ([44d3c55](https://github.com/flightstrips/FlightStrips/commit/44d3c55ecd998c720cd7c116ac0e473db5a7e294))
+* **backend:** remove PDC EOBT validation gate ([e27220b](https://github.com/flightstrips/FlightStrips/commit/e27220b06a93d96962eec2519c20eade42f15b7c))
+* **backend:** use covered frequencies for PDC departure ([a39a239](https://github.com/flightstrips/FlightStrips/commit/a39a2390da533639f4346fbd6484f86c9d8cc44a))
+* **cdm:** batch websocket updates and cap backend memory ([76239a5](https://github.com/flightstrips/FlightStrips/commit/76239a536c8044f039bc2b1e9d388751a4bd3deb))
+
 ## [0.33.0](https://github.com/flightstrips/FlightStrips/compare/backend/v0.32.0...backend/v0.33.0) (2026-05-17)
 
 

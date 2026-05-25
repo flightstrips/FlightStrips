@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.43.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.42.0...frontend/v0.43.0) (2026-05-25)
+
+
+### Features
+
+* **frontend,backend:** highlight manual TOBT times ([04cabb1](https://github.com/flightstrips/FlightStrips/commit/04cabb1cd0b3de4d3a8002261e22b71684b17ff9)), closes [#201](https://github.com/flightstrips/FlightStrips/issues/201)
+
+
+### Bug Fixes
+
+* **cdm:** batch websocket updates and cap backend memory ([76239a5](https://github.com/flightstrips/FlightStrips/commit/76239a536c8044f039bc2b1e9d388751a4bd3deb))
+
 ## [0.42.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.41.0...frontend/v0.42.0) (2026-05-17)
 
 

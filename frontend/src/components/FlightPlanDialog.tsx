@@ -19,6 +19,7 @@ import { buildRnavUpdate, type RnavCapability } from "@/lib/rnav";
 import { normalizeCdmTime } from "@/lib/cdmTime";
 import { CDM_RED } from "@/lib/cdmColors";
 import { getEcfmpNitosRemarks, getMandatoryRouteRestriction, getGroundStopRestriction, getProhibitRestriction, isFlightLevelViolated } from "@/lib/ecfmp";
+import { MandatoryRouteDialog } from "@/components/MandatoryRouteDialog";
 
 const FONT_FAMILY = "Arial";
 const FONT_SIZE_FIELD = scalePx(20);
@@ -192,6 +193,7 @@ export default function FlightPlanDialog({
   const [route, setRoute, _routeFocused, setRouteFocused] = useEditableField(strip?.route);
   const [hdgDialogOpen, setHdgDialogOpen] = useState(false);
   const [altDialogOpen, setAltDialogOpen] = useState(false);
+  const [mandatoryRouteDialogOpen, setMandatoryRouteDialogOpen] = useState(false);
   const defaultClearedAltitude = strip?.runway ? initialCflByRunway[strip.runway] : undefined;
   const commitEobt = () => updateStrip(callsign, { eobt: normalizeCdmTime(eobt) });
   const sidFault = hasClxFieldFault(strip, "sid");
@@ -712,6 +714,10 @@ export default function FlightPlanDialog({
                   )}
                   <button
                     onClick={() => {
+                      if (hasMandatoryRoute) {
+                        setMandatoryRouteDialogOpen(true);
+                        return;
+                      }
                       if (strip.pdc_state === "REQUESTED" || strip.pdc_state === "REQUESTED_WITH_FAULTS") {
                         clearPdc(strip.callsign, null);
                       } else {
@@ -761,6 +767,29 @@ export default function FlightPlanDialog({
           onOpenChange={setStandOpen}
           callsign={callsign}
           currentStand={strip.stand}
+        />
+      )}
+
+      {strip && (
+        <MandatoryRouteDialog
+          open={mandatoryRouteDialogOpen}
+          onOpenChange={setMandatoryRouteDialogOpen}
+          callsign={callsign}
+          routes={getMandatoryRouteRestriction(strip.ecfmp_restrictions)?.routes ?? []}
+          onConfirm={() => {
+            if (strip.pdc_state === "REQUESTED" || strip.pdc_state === "REQUESTED_WITH_FAULTS") {
+              clearPdc(strip.callsign, null);
+            } else {
+              moveAction(strip.callsign, Bay.Cleared);
+            }
+            setMandatoryRouteDialogOpen(false);
+            setDialogOpen(false);
+          }}
+          onCancel={() => {
+            moveAction(strip.callsign, Bay.Cleared);
+            setMandatoryRouteDialogOpen(false);
+            setDialogOpen(false);
+          }}
         />
       )}
     </>

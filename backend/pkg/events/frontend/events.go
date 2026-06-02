@@ -729,24 +729,38 @@ func (c CdmWaitEvent) GetType() EventType {
 	return CdmWait
 }
 
+type EcfmpRestrictionDTO struct {
+	MeasureID   int64    `json:"measure_id,omitempty"`
+	Ident       string   `json:"ident,omitempty"`
+	Type        string   `json:"type"`
+	Reason      string   `json:"reason,omitempty"`
+	Routes      []string `json:"routes,omitempty"`
+	Destination string   `json:"destination,omitempty"`
+	MaxLevel    *int     `json:"max_level,omitempty"`
+	MinLevel    *int     `json:"min_level,omitempty"`
+	ExactLevels []int    `json:"exact_levels,omitempty"`
+	HasCtot     bool     `json:"has_ctot,omitempty"`
+}
+
 type CdmDataEvent struct {
-	Callsign    string `json:"callsign"`
-	Eobt        string `json:"eobt"`
-	Tobt        string `json:"tobt"`
-	ReqTobt     string `json:"req_tobt,omitempty"`
-	ReqTobtType string `json:"req_tobt_type"`
-	TobtSetBy   string `json:"tobt_set_by"`
-	Tsat        string `json:"tsat"`
-	Ttot        string `json:"ttot,omitempty"`
-	Ctot        string `json:"ctot"`
-	Aobt        string `json:"aobt,omitempty"`
-	Asat        string `json:"asat,omitempty"`
-	Asrt        string `json:"asrt,omitempty"`
-	Tsac        string `json:"tsac,omitempty"`
-	Status      string `json:"status,omitempty"`
-	EcfmpID     string `json:"ecfmp_id,omitempty"`
-	CtotSource  string `json:"ctot_source,omitempty"`
-	Phase       string `json:"phase"`
+	Callsign          string               `json:"callsign"`
+	Eobt              string               `json:"eobt"`
+	Tobt              string               `json:"tobt"`
+	ReqTobt           string               `json:"req_tobt,omitempty"`
+	ReqTobtType       string               `json:"req_tobt_type"`
+	TobtSetBy         string               `json:"tobt_set_by"`
+	Tsat              string               `json:"tsat"`
+	Ttot              string               `json:"ttot,omitempty"`
+	Ctot              string               `json:"ctot"`
+	Aobt              string               `json:"aobt,omitempty"`
+	Asat              string               `json:"asat,omitempty"`
+	Asrt              string               `json:"asrt,omitempty"`
+	Tsac              string               `json:"tsac,omitempty"`
+	Status            string               `json:"status,omitempty"`
+	EcfmpID           string               `json:"ecfmp_id,omitempty"`
+	CtotSource        string               `json:"ctot_source,omitempty"`
+	Phase             string               `json:"phase"`
+	EcfmpRestrictions []EcfmpRestrictionDTO `json:"ecfmp_restrictions,omitempty"`
 }
 
 func (c CdmDataEvent) Marshal() ([]byte, error) {

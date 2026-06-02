@@ -310,24 +310,38 @@ type EobtEvent struct {
 	Eobt     string `json:"eobt"`
 }
 
+type EcfmpRestrictionDTO struct {
+	MeasureID   int64    `json:"measure_id,omitempty"`
+	Ident       string   `json:"ident,omitempty"`
+	Type        string   `json:"type"`
+	Reason      string   `json:"reason,omitempty"`
+	Routes      []string `json:"routes,omitempty"`
+	Destination string   `json:"destination,omitempty"`
+	MaxLevel    *int     `json:"max_level,omitempty"`
+	MinLevel    *int     `json:"min_level,omitempty"`
+	ExactLevels []int    `json:"exact_levels,omitempty"`
+	HasCtot     bool     `json:"has_ctot,omitempty"`
+}
+
 type CdmUpdateEvent struct {
-	Callsign        string `json:"callsign"`
-	Eobt            string `json:"eobt,omitempty"`
-	Tobt            string `json:"tobt,omitempty"`
-	TobtSetBy       string `json:"tobt_set_by,omitempty"`
-	TobtConfirmedBy string `json:"tobt_confirmed_by,omitempty"`
-	ReqTobt         string `json:"req_tobt,omitempty"`
-	ReqTobtType     string `json:"req_tobt_type,omitempty"`
-	Tsat            string `json:"tsat,omitempty"`
-	Ttot            string `json:"ttot,omitempty"`
-	Ctot            string `json:"ctot,omitempty"`
-	CtotSource      string `json:"ctot_source,omitempty"`
-	Asat            string `json:"asat,omitempty"`
-	Asrt            string `json:"asrt,omitempty"`
-	Tsac            string `json:"tsac,omitempty"`
-	Status          string `json:"status,omitempty"`
-	EcfmpID         string `json:"ecfmp_id,omitempty"`
-	Phase           string `json:"phase,omitempty"`
+	Callsign           string                `json:"callsign"`
+	Eobt               string                `json:"eobt,omitempty"`
+	Tobt               string                `json:"tobt,omitempty"`
+	TobtSetBy          string                `json:"tobt_set_by,omitempty"`
+	TobtConfirmedBy    string                `json:"tobt_confirmed_by,omitempty"`
+	ReqTobt            string                `json:"req_tobt,omitempty"`
+	ReqTobtType        string                `json:"req_tobt_type,omitempty"`
+	Tsat               string                `json:"tsat,omitempty"`
+	Ttot               string                `json:"ttot,omitempty"`
+	Ctot               string                `json:"ctot,omitempty"`
+	CtotSource         string                `json:"ctot_source,omitempty"`
+	Asat               string                `json:"asat,omitempty"`
+	Asrt               string                `json:"asrt,omitempty"`
+	Tsac               string                `json:"tsac,omitempty"`
+	Status             string                `json:"status,omitempty"`
+	EcfmpID            string                `json:"ecfmp_id,omitempty"`
+	Phase              string                `json:"phase,omitempty"`
+	EcfmpRestrictions []EcfmpRestrictionDTO `json:"ecfmp_restrictions,omitempty"`
 }
 
 type CdmUpdateBatchEvent struct {
@@ -362,22 +376,23 @@ type CdmMasterToggleEvent struct {
 }
 
 type BackendSyncCdmData struct {
-	Eobt            string `json:"eobt,omitempty"`
-	Tobt            string `json:"tobt,omitempty"`
-	TobtSetBy       string `json:"tobt_set_by,omitempty"`
-	TobtConfirmedBy string `json:"tobt_confirmed_by,omitempty"`
-	ReqTobt         string `json:"req_tobt,omitempty"`
-	ReqTobtType     string `json:"req_tobt_type,omitempty"`
-	Tsat            string `json:"tsat,omitempty"`
-	Ttot            string `json:"ttot,omitempty"`
-	Ctot            string `json:"ctot,omitempty"`
-	CtotSource      string `json:"ctot_source,omitempty"`
-	Asat            string `json:"asat,omitempty"`
-	Asrt            string `json:"asrt,omitempty"`
-	Tsac            string `json:"tsac,omitempty"`
-	Status          string `json:"status,omitempty"`
-	EcfmpID         string `json:"ecfmp_id,omitempty"`
-	Phase           string `json:"phase,omitempty"`
+	Eobt               string                `json:"eobt,omitempty"`
+	Tobt               string                `json:"tobt,omitempty"`
+	TobtSetBy          string                `json:"tobt_set_by,omitempty"`
+	TobtConfirmedBy    string                `json:"tobt_confirmed_by,omitempty"`
+	ReqTobt            string                `json:"req_tobt,omitempty"`
+	ReqTobtType        string                `json:"req_tobt_type,omitempty"`
+	Tsat               string                `json:"tsat,omitempty"`
+	Ttot               string                `json:"ttot,omitempty"`
+	Ctot               string                `json:"ctot,omitempty"`
+	CtotSource         string                `json:"ctot_source,omitempty"`
+	Asat               string                `json:"asat,omitempty"`
+	Asrt               string                `json:"asrt,omitempty"`
+	Tsac               string                `json:"tsac,omitempty"`
+	Status             string                `json:"status,omitempty"`
+	EcfmpID            string                `json:"ecfmp_id,omitempty"`
+	Phase              string                `json:"phase,omitempty"`
+	EcfmpRestrictions  []EcfmpRestrictionDTO `json:"ecfmp_restrictions,omitempty"`
 }
 
 type CdmAsrtToggleEvent struct {

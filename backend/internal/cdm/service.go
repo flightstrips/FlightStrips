@@ -1,6 +1,7 @@
 package cdm
 
 import (
+	"FlightStrips/internal/ecfmp"
 	"FlightStrips/internal/models"
 	"FlightStrips/internal/repository"
 	"FlightStrips/internal/shared"
@@ -22,6 +23,7 @@ import (
 
 type Service struct {
 	client                *Client
+	ecfmpClient           *ecfmp.Client
 	stripRepo             repository.StripRepository
 	sessionRepo           repository.SessionRepository
 	controllerRepo        repository.ControllerRepository
@@ -31,6 +33,8 @@ type Service struct {
 	sequenceService       *SequenceService
 	validationReevaluator StripValidationReevaluator
 	debouncer             *recalcDebouncer
+	ecfmpMeasures         []ecfmp.FlowMeasure
+	ecfmpMeasuresMu       sync.RWMutex
 	// sessionMaster tracks per-session CDM master status as an in-memory cache.
 	// Populated from session.CdmMaster during syncSessions and updated
 	// immediately when SetSessionCdmMaster is called.
@@ -77,6 +81,10 @@ func NewCdmService(client *Client, stripRepo repository.StripRepository, session
 
 func (s *Service) SetFrontendHub(publisher shared.CdmEventPublisher) {
 	s.publisher = publisher
+}
+
+func (s *Service) SetEcfmpClient(client *ecfmp.Client) {
+	s.ecfmpClient = client
 }
 
 func (s *Service) SetEuroscopeHub(euroscopeHub shared.EuroscopeHub) {
@@ -779,6 +787,36 @@ func (s *Service) PushTobt(ctx context.Context, session int32, callsign string, 
 	return s.client.IFPSSetTobt(ctx, callsign, tobt, taxiMinutes)
 }
 
+func (s *Service) refreshEcfmpMeasures(ctx context.Context) error {
+	measures, err := s.ecfmpClient.FlowMeasures(ctx)
+	if err != nil {
+		return err
+	}
+
+	s.ecfmpMeasuresMu.Lock()
+	s.ecfmpMeasures = measures
+	s.ecfmpMeasuresMu.Unlock()
+
+	return nil
+}
+
+func (s *Service) getEcfmpMeasures() []ecfmp.FlowMeasure {
+	s.ecfmpMeasuresMu.RLock()
+	defer s.ecfmpMeasuresMu.RLock()
+	return s.ecfmpMeasures
+}
+
+func (s *Service) ApplyEcfmpRestrictions(strip *models.Strip) []ecfmp.StripRestriction {
+	if s.ecfmpClient == nil {
+		return nil
+	}
+	measures := s.getEcfmpMeasures()
+	if len(measures) == 0 {
+		return nil
+	}
+	return ecfmp.MatchingRestrictions(strip, measures, time.Now())
+}
+
 func (s *Service) Start(ctx context.Context) {
 	syncEnabled := s.client.isValid
 	localRecalcEnabled := s.sequenceService != nil
@@ -830,6 +868,15 @@ func (s *Service) Start(ctx context.Context) {
 		validationCh = validationTicker.C
 	}
 
+	ecfmpTicker := time.NewTicker(time.Minute)
+	defer ecfmpTicker.Stop()
+
+	if s.ecfmpClient != nil {
+		if err := s.refreshEcfmpMeasures(ctx); err != nil {
+			slog.WarnContext(ctx, "Failed to fetch initial ECFMP measures", slog.Any("error", err))
+		}
+	}
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -845,6 +892,12 @@ func (s *Service) Start(ctx context.Context) {
 		case <-validationCh:
 			if err := s.schedulePeriodicCtotValidationReevaluation(ctx); err != nil {
 				slog.ErrorContext(ctx, "Failed to reevaluate CTOT validations", slog.Any("error", err))
+			}
+		case <-ecfmpTicker.C:
+			if s.ecfmpClient != nil {
+				if err := s.refreshEcfmpMeasures(ctx); err != nil {
+					slog.WarnContext(ctx, "Failed to refresh ECFMP measures", slog.Any("error", err))
+				}
 			}
 		}
 	}

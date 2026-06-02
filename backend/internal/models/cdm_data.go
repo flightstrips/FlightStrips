@@ -43,6 +43,19 @@ type CdmReasonMarker struct {
 	RequiredSpacingMinutes *float64 `json:"requiredSpacingMinutes,omitempty"`
 }
 
+type EcfmpRestriction struct {
+	MeasureID   int64    `json:"measure_id,omitempty"`
+	Ident       string   `json:"ident,omitempty"`
+	Type        string   `json:"type"`
+	Reason      string   `json:"reason,omitempty"`
+	Routes      []string `json:"routes,omitempty"`
+	Destination string   `json:"destination,omitempty"`
+	MaxLevel    *int     `json:"max_level,omitempty"`
+	MinLevel    *int     `json:"min_level,omitempty"`
+	ExactLevels []int    `json:"exact_levels,omitempty"`
+	HasCtot     bool     `json:"has_ctot,omitempty"`
+}
+
 type CdmData struct {
 	Tobt                  *string         `json:"tobt,omitempty"`
 	TobtSetBy             *string         `json:"tobtSetBy,omitempty"`
@@ -63,10 +76,11 @@ type CdmData struct {
 	Aldt                  *string         `json:"aldt,omitempty"`
 	Status                *string         `json:"status,omitempty"`
 	DeIce                 *string         `json:"deIce,omitempty"`
-	EcfmpID               *string         `json:"ecfmpId,omitempty"`
-	Phase                 *string         `json:"phase,omitempty"`
-	Calculation           *CdmCalculation `json:"calculation,omitempty"`
-	Recalculate           bool            `json:"recalculate,omitempty"`
+	EcfmpID               *string           `json:"ecfmpId,omitempty"`
+	Phase                 *string           `json:"phase,omitempty"`
+	EcfmpRestrictions     []EcfmpRestriction `json:"ecfmpRestrictions,omitempty"`
+	Calculation           *CdmCalculation   `json:"calculation,omitempty"`
+	Recalculate           bool              `json:"recalculate,omitempty"`
 }
 
 type CdmDataRow struct {
@@ -113,6 +127,26 @@ func (d *CdmData) Clone() *CdmData {
 	clone.EcfmpID = cloneStringPointer(d.EcfmpID)
 	clone.Phase = cloneStringPointer(d.Phase)
 	clone.Calculation = d.Calculation.Clone()
+	if len(d.EcfmpRestrictions) > 0 {
+		clone.EcfmpRestrictions = make([]EcfmpRestriction, len(d.EcfmpRestrictions))
+		copy(clone.EcfmpRestrictions, d.EcfmpRestrictions)
+		for i := range d.EcfmpRestrictions {
+			if len(d.EcfmpRestrictions[i].Routes) > 0 {
+				clone.EcfmpRestrictions[i].Routes = make([]string, len(d.EcfmpRestrictions[i].Routes))
+				copy(clone.EcfmpRestrictions[i].Routes, d.EcfmpRestrictions[i].Routes)
+			}
+			if len(d.EcfmpRestrictions[i].ExactLevels) > 0 {
+				clone.EcfmpRestrictions[i].ExactLevels = make([]int, len(d.EcfmpRestrictions[i].ExactLevels))
+				copy(clone.EcfmpRestrictions[i].ExactLevels, d.EcfmpRestrictions[i].ExactLevels)
+			}
+			if d.EcfmpRestrictions[i].MaxLevel != nil {
+				clone.EcfmpRestrictions[i].MaxLevel = cloneIntPointer(d.EcfmpRestrictions[i].MaxLevel)
+			}
+			if d.EcfmpRestrictions[i].MinLevel != nil {
+				clone.EcfmpRestrictions[i].MinLevel = cloneIntPointer(d.EcfmpRestrictions[i].MinLevel)
+			}
+		}
+	}
 	return &clone
 }
 

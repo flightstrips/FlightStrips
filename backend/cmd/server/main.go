@@ -5,6 +5,7 @@ import (
 	"FlightStrips/internal/cdm"
 	"FlightStrips/internal/config"
 	"FlightStrips/internal/database"
+	"FlightStrips/internal/ecfmp"
 	"FlightStrips/internal/euroscope"
 	"FlightStrips/internal/frontend"
 	"FlightStrips/internal/metar"
@@ -159,6 +160,8 @@ func main() {
 	stripService := services.NewStripService(stripRepo)
 	controllerService := services.NewControllerService(controllerRepo)
 	cdmService := cdm.NewCdmService(cdmClient, stripRepo, sessionRepo, controllerRepo)
+	ecfmpClient := ecfmp.NewClient()
+	cdmService.SetEcfmpClient(ecfmpClient)
 
 	stripService.SetTacticalStripRepo(tacticalStripRepo)
 	stripService.SetCoordinationRepo(coordRepo)

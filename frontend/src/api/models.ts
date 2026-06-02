@@ -168,6 +168,7 @@ export interface FrontendStrip {
   ecfmp_id?: string;
   ctot_source?: string;
   phase?: string;
+  ecfmp_restrictions?: EcfmpRestriction[];
   eldt: string;
   aldt?: string;
   bay: string;
@@ -224,6 +225,19 @@ export interface ValidationAction {
   label: string;
   action_kind: string;
   payload?: unknown;
+}
+
+export interface EcfmpRestriction {
+  measure_id?: number;
+  ident?: string;
+  type: "mandatory_route" | "ground_stop" | "prohibit";
+  reason?: string;
+  routes?: string[];
+  destination?: string;
+  max_level?: number;
+  min_level?: number;
+  exact_levels?: number[];
+  has_ctot?: boolean;
 }
 
 export interface FrontendController {
@@ -466,6 +480,7 @@ export interface FrontendCdmDataEvent {
   ecfmp_id?: string;
   ctot_source?: string;
   phase?: string;
+  ecfmp_restrictions?: EcfmpRestriction[];
 }
 
 export interface FrontendCdmDataBatchEvent {

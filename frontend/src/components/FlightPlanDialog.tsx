@@ -18,6 +18,7 @@ import { scalePx } from "@/lib/viewportScale";
 import { buildRnavUpdate, type RnavCapability } from "@/lib/rnav";
 import { normalizeCdmTime } from "@/lib/cdmTime";
 import { CDM_RED } from "@/lib/cdmColors";
+import { getEcfmpNitosRemarks, getMandatoryRouteRestriction, getGroundStopRestriction, getProhibitRestriction, isFlightLevelViolated } from "@/lib/ecfmp";
 
 const FONT_FAMILY = "Arial";
 const FONT_SIZE_FIELD = scalePx(20);
@@ -60,8 +61,19 @@ const CLS_CLX_PANEL         = "border border-black bg-[#D6D6D6]";
 const COLOR_DARK_BTN        = "#3F3F3F"; // dark ESC/CLD button
 const COLOR_REVERT_BTN      = "#FFFB03"; // yellow revert-to-voice button
 const COLOR_CLX_ERROR       = "#FF6D4C";
+const COLOR_ECFMP_YELLOW    = "#FFD700"; // ECFMP mandatory route / groundstop CTOT
+const COLOR_ECFMP_RED       = "#FF0000"; // ECFMP groundstop destination / prohibit FL
 
-function useEditableField(value: string | number | undefined | null) {
+const ecfmpStyle = (type: "yellow" | "red") => type === "yellow"
+  ? { backgroundColor: COLOR_ECFMP_YELLOW }
+  : { backgroundColor: COLOR_ECFMP_RED, color: "white" };
+
+  const hasMandatoryRoute = !!getMandatoryRouteRestriction(strip?.ecfmp_restrictions);
+  const hasGroundStop = !!getGroundStopRestriction(strip?.ecfmp_restrictions);
+  const hasProhibit = !!getProhibitRestriction(strip?.ecfmp_restrictions);
+  const flViolated = isFlightLevelViolated(strip?.ecfmp_restrictions, strip?.requested_altitude);
+
+  function useEditableField(value: string | number | undefined | null) {
   const [fieldValue, setFieldValue] = useState(value?.toString() ?? "");
   const [focused, setFocused] = useState(false);
 
@@ -92,12 +104,13 @@ function invalidPhaseTobtStyle(phase?: string) {
   return phase === "I" ? { backgroundColor: CDM_RED, color: "white" } : {};
 }
 
-function clxNitosRemarks(strip: { clx_validation?: { faults: { nitos_remark: string }[] }, pdc_request_remarks?: string } | undefined) {
+function clxNitosRemarks(strip: { clx_validation?: { faults: { nitos_remark: string }[] }, pdc_request_remarks?: string, ecfmp_restrictions?: import("@/api/models").EcfmpRestriction[] } | undefined) {
+  const ecfmpRemarks = getEcfmpNitosRemarks(strip?.ecfmp_restrictions);
   const clxRemarks = strip?.clx_validation?.faults
     .map(fault => fault.nitos_remark.trim())
     .filter(Boolean) ?? [];
   const pdcRemarks = strip?.pdc_request_remarks?.trim();
-  const remarks = [...clxRemarks];
+  const remarks = [...ecfmpRemarks, ...clxRemarks];
   if (pdcRemarks) remarks.push(pdcRemarks);
   return Array.from(new Set(remarks)).join(" ");
 }
@@ -254,7 +267,7 @@ export default function FlightPlanDialog({
                 value={strip.destination}
                 disabled
                 className={CLS_BTN_DISABLED}
-                style={fieldStyle(100)}
+                style={{ ...fieldStyle(100), ...(hasGroundStop ? ecfmpStyle("red") : {}) }}
               />
             </div>
             <div className="grid items-center" style={gridGroupStyle}>
@@ -332,7 +345,7 @@ export default function FlightPlanDialog({
                 value={displayedCtot}
                 disabled
                 className={CLS_BTN_DISABLED_BDR}
-                style={fieldStyle(100)}
+                style={{ ...fieldStyle(100), ...(hasGroundStop ? ecfmpStyle("yellow") : {}) }}
               />
             </div>
           </div>
@@ -423,7 +436,7 @@ export default function FlightPlanDialog({
                 value={strip.requested_altitude ? Math.floor(strip.requested_altitude / 100).toString() : ""}
                 disabled
                 className={CLS_BTN_DISABLED_LEFT}
-                style={fieldStyle(100)}
+                style={{ ...fieldStyle(100), ...(hasProhibit && flViolated ? ecfmpStyle("red") : {}) }}
               />
             </div>
             <div className="grid items-center" style={gridGroupStyle}>
@@ -458,7 +471,7 @@ export default function FlightPlanDialog({
               }}
               onKeyDown={(event) => event.key === "Enter" && !event.shiftKey && updateStrip(callsign, { route })}
               className={CLS_TEXTAREA_EDITABLE}
-              style={{ height: TEXTAREA_HEIGHT, fontFamily: FONT_FAMILY, fontSize: FONT_SIZE_FIELD }}
+              style={{ height: TEXTAREA_HEIGHT, fontFamily: FONT_FAMILY, fontSize: FONT_SIZE_FIELD, ...(hasMandatoryRoute ? { backgroundColor: COLOR_ECFMP_YELLOW } : {}) }}
             />
           </div>
 

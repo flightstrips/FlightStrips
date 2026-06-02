@@ -60,6 +60,8 @@ export interface StripProps {
   fullWidth?: boolean;
   isManual?: boolean;
   validationStatus?: import("@/api/models").ValidationStatus;
+  ecfmp_restrictions?: import("@/api/models").EcfmpRestriction[];
+  requested_altitude?: number;
 }
 
 export const TWY_DEP_STRIP_WIDTH = "95%";

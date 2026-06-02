@@ -14,6 +14,7 @@ import { SIBox } from "./SIBox";
 import { TAXI_MAP_POINTS } from "@/config/ekch";
 import { Bay } from "@/api/models";
 import { ValidationStatusDialog } from "./ValidationStatusDialog";
+import { getGroundStopRestriction, getProhibitRestriction, isFlightLevelViolated } from "@/lib/ecfmp";
 
 // Heights— 4.72dvh total (51px at 1080p), 2/3 top / 1/3 bottom (used by callsign and SID/dest)
 const TOP_H      = "3.15dvh";  // 2/3 of 4.72dvh
@@ -70,6 +71,8 @@ export function TwyDepStrip({
   runwayConfirmed = false,
   unexpectedChangeFields,
   controllerModifiedFields,
+  ecfmp_restrictions,
+  requested_altitude,
 }: StripProps) {
   const { isSelected, isValidationActive, handleClick, handleContextMenu, guardValidationAction, validationDialogOpen, setValidationDialogOpen, validationStatus } = useStripCallsignInteraction({ callsign, selectable, bay, owner, myPosition });
   const stripTransfers = useStripTransfers();
@@ -87,6 +90,8 @@ export function TwyDepStrip({
   const acknowledgeUnexpectedChange = useWebSocketStore(s => s.acknowledgeUnexpectedChange);
   const standYellow = unexpectedChangeFields?.includes("stand");
   const releasePointYellow = unexpectedChangeFields?.includes("release_point");
+  const hasGroundStop = !!getGroundStopRestriction(ecfmp_restrictions);
+  const flViolated = isFlightLevelViolated(ecfmp_restrictions, requested_altitude);
   const isCoordinationMode = (!!owner && !!myPosition && owner !== myPosition) || !!releasePointYellow;
 
   // RWY cell background color (only when strip is in DEPART bay):
@@ -260,7 +265,7 @@ export function TwyDepStrip({
         className="flex flex-col border-r-2 min-w-0"
         style={{ flexGrow: F_SMALL, flexBasis: 0, height: "100%", borderRightColor: cellBorderColor }}
       >
-        <div className="flex items-center justify-center" style={{ height: HALF_H }}>
+        <div className="flex items-center justify-center" style={{ height: HALF_H, ...(flViolated ? { backgroundColor: "#FF0000", color: "white" } : {}) }}>
           <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: "0.68vw" }}>{fl}</span>
         </div>
         <div className="flex items-center justify-center" style={{ height: HALF_H }}>
@@ -279,7 +284,7 @@ export function TwyDepStrip({
             {sid}
           </span>
         </div>
-        <div className="flex items-center justify-center pl-[0.21vw] overflow-hidden" style={{ height: TOP_HALF_H }}>
+        <div className="flex items-center justify-center pl-[0.21vw] overflow-hidden" style={{ height: TOP_HALF_H, ...(hasGroundStop ? { backgroundColor: "#FF0000", color: "white" } : {}) }}>
           <span className="truncate" style={{ fontFamily: FONT, fontWeight: "normal", fontSize: "0.63vw" }}>
             {destination}
           </span>

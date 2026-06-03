@@ -2,6 +2,7 @@
 #define EVENTS_H
 #include <nlohmann/json.hpp>
 #include <utility>
+#include "flightplan/FlightPlan.h"
 
 #define EVENT_UNKNOWN_NAME "unknown"
 #define EVENT_TOKEN_NAME "token"
@@ -246,47 +247,10 @@ struct CdmUpdateEvent final : Event {
     std::string deice_type;
     std::string ecfmp_id;
     std::string phase;
+    std::string ecfmp_restrictions_json;
 
     CdmUpdateEvent()
         : Event(EVENT_CDM_UPDATE) {
-    }
-
-    CdmUpdateEvent(
-        std::string callsign,
-        std::string eobt,
-        std::string tobt,
-        std::string req_tobt,
-        std::string req_tobt_source,
-        std::string tsat,
-        std::string ttot,
-        std::string ctot,
-        std::string asrt,
-        std::string tsac,
-        std::string asat,
-        std::string status,
-        std::string manual_ctot,
-        std::string deice_type,
-        std::string ecfmp_id,
-        std::string phase = {},
-        std::string tobt_confirmed_by = {}
-    ) : Event(EVENT_CDM_UPDATE),
-        callsign(std::move(callsign)),
-        eobt(std::move(eobt)),
-        tobt(std::move(tobt)),
-        req_tobt(std::move(req_tobt)),
-        req_tobt_source(std::move(req_tobt_source)),
-        tobt_confirmed_by(std::move(tobt_confirmed_by)),
-        tsat(std::move(tsat)),
-        ttot(std::move(ttot)),
-        ctot(std::move(ctot)),
-        asrt(std::move(asrt)),
-        tsac(std::move(tsac)),
-        asat(std::move(asat)),
-        status(std::move(status)),
-        manual_ctot(std::move(manual_ctot)),
-        deice_type(std::move(deice_type)),
-        ecfmp_id(std::move(ecfmp_id)),
-        phase(std::move(phase)) {
     }
 
     NLOHMANN_DEFINE_TYPE_INTRUSIVE_WITH_DEFAULT(
@@ -308,6 +272,7 @@ struct CdmUpdateEvent final : Event {
         deice_type,
         ecfmp_id,
         phase,
+        ecfmp_restrictions_json,
         type
     );
 };
@@ -428,6 +393,7 @@ struct BackendSyncCdmData final {
     std::string deice_type;
     std::string ecfmp_id;
     std::string phase;
+    std::string ecfmp_restrictions_json;
 
     NLOHMANN_DEFINE_TYPE_INTRUSIVE_WITH_DEFAULT(
         BackendSyncCdmData,
@@ -446,7 +412,8 @@ struct BackendSyncCdmData final {
         manual_ctot,
         deice_type,
         ecfmp_id,
-        phase
+        phase,
+        ecfmp_restrictions_json
     );
 };
 

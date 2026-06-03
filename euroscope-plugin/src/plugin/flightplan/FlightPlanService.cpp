@@ -1,8 +1,41 @@
 #include "FlightPlanService.h"
 
 #include <algorithm>
+#include <nlohmann/json.hpp>
 
 namespace FlightStrips::flightplan {
+    std::vector<EcfmpRestriction> ParseEcfmpRestrictions(const std::string& jsonStr) {
+        std::vector<EcfmpRestriction> result;
+        if (jsonStr.empty()) return result;
+        try {
+            auto arr = nlohmann::json::parse(jsonStr);
+            if (!arr.is_array()) return result;
+            for (const auto& item : arr) {
+                EcfmpRestriction r{};
+                if (item.contains("measure_id") && item["measure_id"].is_number()) r.measure_id = item["measure_id"].get<int64_t>();
+                if (item.contains("ident") && item["ident"].is_string()) r.ident = item["ident"].get<std::string>();
+                if (item.contains("type") && item["type"].is_string()) r.type = item["type"].get<std::string>();
+                if (item.contains("reason") && item["reason"].is_string()) r.reason = item["reason"].get<std::string>();
+                if (item.contains("routes") && item["routes"].is_array()) {
+                    for (const auto& route : item["routes"]) {
+                        if (route.is_string()) r.routes.push_back(route.get<std::string>());
+                    }
+                }
+                if (item.contains("destination") && item["destination"].is_string()) r.destination = item["destination"].get<std::string>();
+                if (item.contains("max_level") && item["max_level"].is_number()) r.max_level = item["max_level"].get<int>();
+                if (item.contains("min_level") && item["min_level"].is_number()) r.min_level = item["min_level"].get<int>();
+                if (item.contains("exact_levels") && item["exact_levels"].is_array()) {
+                    for (const auto& lvl : item["exact_levels"]) {
+                        if (lvl.is_number()) r.exact_levels.push_back(lvl.get<int>());
+                    }
+                }
+                if (item.contains("has_ctot") && item["has_ctot"].is_boolean()) r.has_ctot = item["has_ctot"].get<bool>();
+                result.push_back(r);
+            }
+        } catch (...) {
+        }
+        return result;
+    }
     FlightPlanService::FlightPlanService(
         const std::shared_ptr<websocket::WebSocketService> &websocketService,
         const std::shared_ptr<FlightStripsPlugin> &flightStripsPlugin,
@@ -283,28 +316,31 @@ namespace FlightStrips::flightplan {
         plan.cdm.deice_type = event.deice_type;
         plan.cdm.ecfmp_id = event.ecfmp_id;
         plan.cdm.phase = event.phase;
+        plan.cdm.ecfmp_restrictions = ParseEcfmpRestrictions(event.ecfmp_restrictions_json);
     }
 
     void FlightPlanService::ApplyBackendSyncCdm(const std::string& callsign, const BackendSyncCdmData& cdmData) {
-        ApplyCdmUpdate(CdmUpdateEvent{
-            callsign,
-            cdmData.eobt,
-            cdmData.tobt,
-            cdmData.req_tobt,
-            cdmData.req_tobt_source,
-            cdmData.tsat,
-            cdmData.ttot,
-            cdmData.ctot,
-            cdmData.asrt,
-            cdmData.tsac,
-            cdmData.asat,
-            cdmData.status,
-            cdmData.manual_ctot,
-            cdmData.deice_type,
-            cdmData.ecfmp_id,
-            cdmData.phase,
-            cdmData.tobt_confirmed_by
-        });
+        CdmUpdateEvent event{};
+        event.type = EVENT_CDM_UPDATE;
+        event.callsign = callsign;
+        event.eobt = cdmData.eobt;
+        event.tobt = cdmData.tobt;
+        event.req_tobt = cdmData.req_tobt;
+        event.req_tobt_source = cdmData.req_tobt_source;
+        event.tobt_confirmed_by = cdmData.tobt_confirmed_by;
+        event.tsat = cdmData.tsat;
+        event.ttot = cdmData.ttot;
+        event.ctot = cdmData.ctot;
+        event.asrt = cdmData.asrt;
+        event.tsac = cdmData.tsac;
+        event.asat = cdmData.asat;
+        event.status = cdmData.status;
+        event.manual_ctot = cdmData.manual_ctot;
+        event.deice_type = cdmData.deice_type;
+        event.ecfmp_id = cdmData.ecfmp_id;
+        event.phase = cdmData.phase;
+        event.ecfmp_restrictions_json = cdmData.ecfmp_restrictions_json;
+        ApplyCdmUpdate(event);
     }
 
     void FlightPlanService::ApplyPdcStateChange(const std::string& callsign, const std::string& state, const std::string& requestRemarks) {

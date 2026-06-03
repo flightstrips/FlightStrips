@@ -14,6 +14,8 @@
 #include "plugin/FlightStripsPlugin.h"
 
 namespace FlightStrips::flightplan {
+    std::vector<EcfmpRestriction> ParseEcfmpRestrictions(const std::string& jsonStr);
+
 class FlightPlanService final : public handlers::FlightPlanEventHandler, public handlers::RadarTargetEventHandler, public handlers::TimedEventHandler  {
     public:
 

@@ -270,7 +270,7 @@ func (hub *Hub) sendBackendSyncIfNeeded(client *Client) {
 				Status:            valueOrEmpty(strip.CdmData.EffectiveStatus()),
 				EcfmpID:           valueOrEmpty(strip.CdmData.EcfmpID),
 				Phase:             valueOrEmpty(strip.CdmData.EffectivePhase()),
-				EcfmpRestrictions: convertEcfmpRestrictionsSync(strip.CdmData.EcfmpRestrictions),
+				EcfmpRestrictionsJSON: serializeEcfmpRestrictionsSyncJSON(strip.CdmData.EcfmpRestrictions),
 			}
 		}
 		if strip.PdcState != "" {
@@ -328,13 +328,13 @@ func truncateCDMClockValue(value string) string {
 	return value
 }
 
-func convertEcfmpRestrictionsSync(restrictions []internalModels.EcfmpRestriction) []euroscope.EcfmpRestrictionDTO {
+func serializeEcfmpRestrictionsSyncJSON(restrictions []internalModels.EcfmpRestriction) string {
 	if len(restrictions) == 0 {
-		return nil
+		return ""
 	}
-	result := make([]euroscope.EcfmpRestrictionDTO, len(restrictions))
+	dtos := make([]euroscope.EcfmpRestrictionDTO, len(restrictions))
 	for i, r := range restrictions {
-		result[i] = euroscope.EcfmpRestrictionDTO{
+		dtos[i] = euroscope.EcfmpRestrictionDTO{
 			MeasureID:   r.MeasureID,
 			Ident:       r.Ident,
 			Type:        r.Type,
@@ -347,7 +347,11 @@ func convertEcfmpRestrictionsSync(restrictions []internalModels.EcfmpRestriction
 			HasCtot:     r.HasCtot,
 		}
 	}
-	return result
+	b, err := json.Marshal(dtos)
+	if err != nil {
+		return ""
+	}
+	return string(b)
 }
 
 func (hub *Hub) GetMessageHandlers() shared.MessageHandlers[euroscope.EventType, *Client] {

@@ -6,6 +6,7 @@ import (
 	"FlightStrips/internal/config"
 	"FlightStrips/internal/database"
 	"FlightStrips/internal/ecfmp"
+	ecfmpWebAPI "FlightStrips/internal/ecfmp/webapi"
 	"FlightStrips/internal/euroscope"
 	"FlightStrips/internal/frontend"
 	"FlightStrips/internal/metar"
@@ -160,7 +161,8 @@ func main() {
 	stripService := services.NewStripService(stripRepo)
 	controllerService := services.NewControllerService(controllerRepo)
 	cdmService := cdm.NewCdmService(cdmClient, stripRepo, sessionRepo, controllerRepo)
-	ecfmpClient := ecfmp.NewClient()
+	ecfmpBaseURL := getEnv("ECFMP_BASE_URL", ecfmp.DefaultBaseURL)
+	ecfmpClient := ecfmp.NewClient(ecfmp.WithBaseURL(ecfmpBaseURL))
 	cdmService.SetEcfmpClient(ecfmpClient)
 
 	stripService.SetTacticalStripRepo(tacticalStripRepo)
@@ -306,6 +308,9 @@ func main() {
 	apiMux := http.NewServeMux()
 	flightLookup := pdc.NewFlightLookupAdapter(pdcService, sessionRepo)
 	cdm.NewWebAPI(authenticationService, sessionRepo, sequenceService).RegisterRoutes(apiMux)
+	if !isLiveEnvironment(getEnv("ENVIRONMENT", "development")) {
+		ecfmpWebAPI.NewWebAPI(ecfmpClient).RegisterRoutes(apiMux)
+	}
 	pilot.NewWebAPI(authenticationService, vatsimCache, flightLookup, requireLiveCIDVerification).RegisterRoutes(apiMux)
 	pdc.NewWebAPI(authenticationService, pdcService, vatsimCache, requireLiveCIDVerification).RegisterRoutes(apiMux)
 	http.Handle("/api/", server.APIMiddleware(http.StripPrefix("/api", apiMux)))

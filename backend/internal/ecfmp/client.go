@@ -102,3 +102,11 @@ func (c *Client) storeCache(now time.Time, measures []FlowMeasure) {
 	c.cacheEntries = append([]FlowMeasure(nil), measures...)
 	c.cacheUntil = now.Add(c.cacheTTL)
 }
+
+func (c *Client) SetTestMeasures(measures []FlowMeasure) {
+	c.cacheMu.Lock()
+	defer c.cacheMu.Unlock()
+
+	c.cacheEntries = append([]FlowMeasure(nil), measures...)
+	c.cacheUntil = time.Now().Add(365 * 24 * time.Hour)
+}

@@ -121,7 +121,9 @@ set(src__messages
         messages/CdmReadyTrigger.cpp
         messages/CdmReadyTrigger.h
         messages/MessageService.cpp
-        messages/MessageService.h)
+        messages/MessageService.h
+        messages/PrivateMessageSender.cpp
+        messages/PrivateMessageSender.h)
 source_group("src\\messages" FILES ${src__messages})
 
 set(src__tag_items

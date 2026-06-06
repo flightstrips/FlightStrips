@@ -58,6 +58,7 @@ const (
 	PdcStateChange            EventType = "pdc_state_change"
 	IssuePdcClearance         EventType = "issue_pdc_clearance"
 	PdcRevertToVoice          EventType = "pdc_revert_to_voice"
+	SendPrivateMessage         EventType = "send_private_message"
 )
 
 const (
@@ -771,4 +772,19 @@ type IssuePdcClearanceEvent struct {
 // PdcRevertToVoiceEvent is sent by the EuroScope plugin to revert PDC to voice.
 type PdcRevertToVoiceEvent struct {
 	Callsign string `json:"callsign"`
+}
+
+// SendPrivateMessageEvent is sent by the frontend/backend to request a private
+// message be sent via EuroScope's .msg command.
+type SendPrivateMessageEvent struct {
+	Callsign string `json:"callsign"`
+	Message  string `json:"message"`
+}
+
+func (e SendPrivateMessageEvent) GetType() EventType {
+	return SendPrivateMessage
+}
+
+func (e SendPrivateMessageEvent) Marshal() ([]byte, error) {
+	return marshall(e)
 }

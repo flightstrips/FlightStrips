@@ -1,4 +1,5 @@
 #include "MessageService.h"
+#include "PrivateMessageSender.h"
 
 #include "Logger.hpp"
 
@@ -121,6 +122,8 @@ namespace FlightStrips::messages {
             HandleCreateFPLEvent(message.get<CreateFPLEvent>());
         } else if (type == EVENT_PDC_STATE_CHANGE_NAME) {
             HandlePdcStateChangeEvent(message.get<PdcStateChangeEvent>());
+        } else if (type == EVENT_SEND_PRIVATE_MESSAGE_NAME) {
+            HandleSendPrivateMessageEvent(message.get<SendPrivateMessageEvent>());
         } else {
             Logger::Warning("Unknown message type: {}", type);
         }
@@ -565,18 +568,14 @@ namespace FlightStrips::messages {
         }
     }
 
-    void MessageService::HandlePdcStateChangeEvent(const PdcStateChangeEvent &event) const {
+void MessageService::HandlePdcStateChangeEvent(const PdcStateChangeEvent &event) const {
+        Logger::Info("PDC state change for {}: {}", event.callsign, event.state);
         m_flightPlanService->ApplyPdcStateChange(event.callsign, event.state, event.pdc_request_remarks);
+    }
 
-        const auto* trackedPlan = m_flightPlanService->GetFlightPlan(event.callsign);
-        if (trackedPlan == nullptr || !trackedPlan->KeepsEuroScopeStripUncleared()) {
-            return;
-        }
-
-        const auto fp = m_plugin->FlightPlanSelect(event.callsign.c_str());
-        if (fp.IsValid() && fp.GetClearenceFlag()) {
-            m_plugin->SetClearenceFlag(event.callsign, false);
-        }
+    void MessageService::HandleSendPrivateMessageEvent(const SendPrivateMessageEvent &event) const {
+        Logger::Info("Sending private message to {}: {}", event.callsign, event.message);
+        PrivateMessageSender::SendPrivateMessage(event.callsign, event.message);
     }
 
     bool MessageService::SendCdmTobtUpdate(const std::string& callsign, const std::string& tobt) const {

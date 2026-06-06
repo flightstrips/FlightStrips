@@ -981,6 +981,14 @@ type ActionRejectedEvent struct {
 func (e ActionRejectedEvent) Marshal() ([]byte, error) { return marshall(e) }
 func (e ActionRejectedEvent) GetType() EventType       { return ActionRejected }
 
+type SendPrivateMessageEvent struct {
+	Callsign string `json:"callsign"`
+	Message  string `json:"message"`
+}
+
+func (e SendPrivateMessageEvent) Marshal() ([]byte, error) { return marshall(e) }
+func (e SendPrivateMessageEvent) GetType() EventType       { return SendMessage }
+
 type AvailableSidsEvent struct {
 	Sids pkgModels.AvailableSids `json:"sids"`
 }

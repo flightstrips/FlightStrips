@@ -122,6 +122,7 @@ func NewHub(stripService shared.StripService, controllerService shared.Controlle
 	handlers.Add(euroscope.CdmMasterToggle, handleCdmMasterToggle)
 	handlers.Add(euroscope.IssuePdcClearance, handleIssuePdcClearance)
 	handlers.Add(euroscope.PdcRevertToVoice, handlePdcRevertToVoice)
+	handlers.Add(euroscope.SendPrivateMessage, handleSendPrivateMessage)
 
 	hub := &Hub{
 		register:                    make(chan *Client),

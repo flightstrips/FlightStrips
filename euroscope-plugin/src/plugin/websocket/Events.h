@@ -54,6 +54,7 @@
 #define EVENT_PDC_STATE_CHANGE_NAME "pdc_state_change"
 #define EVENT_ISSUE_PDC_CLEARANCE_NAME "issue_pdc_clearance"
 #define EVENT_PDC_REVERT_TO_VOICE_NAME "pdc_revert_to_voice"
+#define EVENT_SEND_PRIVATE_MESSAGE_NAME "send_private_message"
 
 enum EventType {
     EVENT_UNKNOWN = 0,
@@ -107,6 +108,7 @@ enum EventType {
     EVENT_PDC_STATE_CHANGE,
     EVENT_ISSUE_PDC_CLEARANCE,
     EVENT_PDC_REVERT_TO_VOICE,
+    EVENT_SEND_PRIVATE_MESSAGE,
 };
 
 NLOHMANN_JSON_SERIALIZE_ENUM(EventType, {
@@ -160,6 +162,7 @@ NLOHMANN_JSON_SERIALIZE_ENUM(EventType, {
                                  {EVENT_PDC_STATE_CHANGE, EVENT_PDC_STATE_CHANGE_NAME},
                                  {EVENT_ISSUE_PDC_CLEARANCE, EVENT_ISSUE_PDC_CLEARANCE_NAME},
                                  {EVENT_PDC_REVERT_TO_VOICE, EVENT_PDC_REVERT_TO_VOICE_NAME},
+                                 {EVENT_SEND_PRIVATE_MESSAGE, EVENT_SEND_PRIVATE_MESSAGE_NAME},
                                  })
 
 struct Event {
@@ -1044,6 +1047,17 @@ struct PdcRevertToVoiceEvent final : Event {
         : Event(EVENT_PDC_REVERT_TO_VOICE), callsign(std::move(callsign)) {}
 
     NLOHMANN_DEFINE_TYPE_INTRUSIVE(PdcRevertToVoiceEvent, callsign, type);
+};
+
+struct SendPrivateMessageEvent final : Event {
+    std::string callsign;
+    std::string message;
+
+    SendPrivateMessageEvent() = default;
+    SendPrivateMessageEvent(std::string callsign, std::string message)
+        : Event(EVENT_SEND_PRIVATE_MESSAGE), callsign(std::move(callsign)), message(std::move(message)) {}
+
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE(SendPrivateMessageEvent, callsign, message, type);
 };
 
 #endif //EVENTS_H

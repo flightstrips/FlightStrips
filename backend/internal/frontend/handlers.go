@@ -5,6 +5,7 @@ import (
 	internalModels "FlightStrips/internal/models"
 	"FlightStrips/internal/shared"
 	"FlightStrips/pkg/events"
+	euroscope "FlightStrips/pkg/events/euroscope"
 	"FlightStrips/pkg/events/frontend"
 	"context"
 	"errors"
@@ -883,4 +884,18 @@ func handleAcknowledgeValidationStatus(ctx context.Context, client *Client, mess
 		return err
 	}
 	return client.hub.stripService.AcknowledgeValidationStatus(ctx, client.session, req.Callsign, req.ActivationKey, client.position)
+}
+
+func handleSendPrivateMessage(ctx context.Context, client *Client, message Message) error {
+	var req frontend.SendPrivateMessageEvent
+	if err := message.JsonUnmarshal(&req); err != nil {
+		return err
+	}
+	event := euroscope.SendPrivateMessageEvent{
+		Callsign: req.Callsign,
+		Message:  req.Message,
+	}
+	euroscopeHub := client.hub.server.GetEuroscopeHub()
+	euroscopeHub.Broadcast(client.session, event)
+	return nil
 }

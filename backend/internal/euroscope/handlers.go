@@ -951,3 +951,12 @@ func handlePdcRevertToVoice(ctx context.Context, client *Client, message Message
 	}
 	return pdcService.RevertToVoice(ctx, event.Callsign, client.session, client.GetCid())
 }
+
+func handleSendPrivateMessage(ctx context.Context, client *Client, message Message) error {
+	var event euroscope.SendPrivateMessageEvent
+	if err := message.JsonUnmarshal(&event); err != nil {
+		return err
+	}
+	client.hub.Broadcast(client.session, event)
+	return nil
+}

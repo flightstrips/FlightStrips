@@ -61,9 +61,10 @@ const (
 
 	LayoutUpdate = "layout_update"
 
-	Broadcast       EventType = "broadcast"
-	SendMessage     EventType = "send_message"
-	MessageReceived EventType = "message_received"
+	Broadcast           EventType = "broadcast"
+	SendMessage         EventType = "send_message"
+	SendPrivateMessage  EventType = "send_private_message"
+	MessageReceived     EventType = "message_received"
 
 	CdmWait      EventType = "cdm_wait"
 	CdmData      EventType = "cdm_data"
@@ -987,7 +988,7 @@ type SendPrivateMessageEvent struct {
 }
 
 func (e SendPrivateMessageEvent) Marshal() ([]byte, error) { return marshall(e) }
-func (e SendPrivateMessageEvent) GetType() EventType       { return SendMessage }
+func (e SendPrivateMessageEvent) GetType() EventType       { return SendPrivateMessage }
 
 type AvailableSidsEvent struct {
 	Sids pkgModels.AvailableSids `json:"sids"`

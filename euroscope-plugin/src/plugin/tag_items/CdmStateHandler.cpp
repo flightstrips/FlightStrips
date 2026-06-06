@@ -102,8 +102,8 @@ namespace FlightStrips::TagItems {
                 if (restriction.max_level != 0 && restriction.min_level != 0) {
                     return {std::format("FL{}-FL{}", restriction.min_level, restriction.max_level), TAG_RED, true};
                 }
-                if (restriction.max_level != 0) {
-                    return {std::format("FL{}", restriction.max_level, TAG_RED, true), TAG_RED, true};
+if (restriction.max_level != 0) {
+				    return {std::format("FL{}", restriction.max_level), TAG_RED, true};
                 }
                 if (restriction.min_level != 0) {
                     return {std::format("FL{}+", restriction.min_level), TAG_RED, true};

@@ -139,19 +139,29 @@ func matchesFilters(strip *models.Strip, filters []FlowMeasureFilter) bool {
 				return false
 			}
 
-		case FilterTypeWaypoint:
-			waypoints := filter.Airports()
-			if len(waypoints) == 0 {
-				continue
-			}
-			route := ""
-			if strip.Route != nil {
-				route = *strip.Route
-			}
-			if !routeContainsWaypoint(route, waypoints) {
-				return false
-			}
+case FilterTypeWaypoint:
+		waypoints := filter.Airports()
+		if len(waypoints) == 0 {
+			continue
 		}
+		route := ""
+		if strip.Route != nil {
+			route = *strip.Route
+		}
+		if !routeContainsWaypoint(route, waypoints) {
+			return false
+		}
+
+	case FilterTypeMemberEvent:
+		// TODO: Implement event membership lookup when VATSIM event data is available.
+		// Without event membership data, we conservatively pass this filter
+		// so restrictions intended for event participants are still shown.
+
+	case FilterTypeMemberNotEvent:
+		// TODO: Implement event membership lookup when VATSIM event data is available.
+		// Without event membership data, we conservatively pass this filter
+		// so restrictions intended for non-event flights are still shown.
+	}
 	}
 	return true
 }

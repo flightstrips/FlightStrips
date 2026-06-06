@@ -168,6 +168,7 @@ export interface WebSocketState {
   generateSquawk: (callsign: string) => boolean;
   updateOrder: (callsign: string, insertAfter: StripRef | null) => void;
   sendMessage: (text: string, recipients: string[]) => void;
+  sendPrivateMessage: (callsign: string, message: string) => void;
   dismissMessage: (id: number) => void;
   updateStrip: (callsign: string, update: UpdateStrip) => void;
   setReleasePoint: (callsign: string, releasePoint: string) => void;
@@ -495,6 +496,9 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     }),
     sendMessage: (text, recipients) => {
       sendIfWritable({type: ActionType.FrontendSendMessage, text, recipients});
+    },
+    sendPrivateMessage: (callsign, message) => {
+      sendIfWritable({type: ActionType.FrontendSendPrivateMessage, callsign, message});
     },
     dismissMessage: (id) => {
       store.setState(

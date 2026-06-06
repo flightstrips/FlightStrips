@@ -69,11 +69,6 @@ const ecfmpStyle = (type: "yellow" | "red") => type === "yellow"
   ? { backgroundColor: COLOR_ECFMP_YELLOW }
   : { backgroundColor: COLOR_ECFMP_RED, color: "white" };
 
-  const hasMandatoryRoute = !!getMandatoryRouteRestriction(strip?.ecfmp_restrictions);
-  const hasGroundStop = !!getGroundStopRestriction(strip?.ecfmp_restrictions);
-  const hasProhibit = !!getProhibitRestriction(strip?.ecfmp_restrictions);
-  const flViolated = isFlightLevelViolated(strip?.ecfmp_restrictions, strip?.requested_altitude);
-
   function useEditableField(value: string | number | undefined | null) {
   const [fieldValue, setFieldValue] = useState(value?.toString() ?? "");
   const [focused, setFocused] = useState(false);
@@ -165,6 +160,7 @@ export default function FlightPlanDialog({
   const updateStrip = useWebSocketStore((state) => state.updateStrip);
   const clxUpdateTobt = useWebSocketStore((state) => state.clxUpdateTobt);
   const clxOverrideValidation = useWebSocketStore((state) => state.clxOverrideValidation);
+  const sendPrivateMessage = useWebSocketStore((state) => state.sendPrivateMessage);
 
   const [internalOpen, setInternalOpen] = useState(false);
   const dialogOpen = open ?? internalOpen;
@@ -175,6 +171,10 @@ export default function FlightPlanDialog({
   const displayedTsat = normalizeCdmTime(strip?.tsat);
   const displayedTtot = normalizeCdmTime(strip?.ttot);
   const displayedCtot = normalizeCdmTime(strip?.ctot);
+  const hasMandatoryRoute = !!getMandatoryRouteRestriction(strip?.ecfmp_restrictions);
+  const hasGroundStop = !!getGroundStopRestriction(strip?.ecfmp_restrictions);
+  const hasProhibit = !!getProhibitRestriction(strip?.ecfmp_restrictions);
+  const flViolated = isFlightLevelViolated(strip?.ecfmp_restrictions, strip?.requested_altitude);
 
   const [sidDialogOpen, setSidDialogOpen] = useState(false);
   const [rnavDialogOpen, setRnavDialogOpen] = useState(false);
@@ -777,6 +777,11 @@ export default function FlightPlanDialog({
           callsign={callsign}
           routes={getMandatoryRouteRestriction(strip.ecfmp_restrictions)?.routes ?? []}
           onConfirm={() => {
+            const mandatoryRoute = getMandatoryRouteRestriction(strip.ecfmp_restrictions);
+            const routes = mandatoryRoute?.routes ?? [];
+            if (routes.length > 0) {
+              sendPrivateMessage(callsign, routes.join(" | "));
+            }
             if (strip.pdc_state === "REQUESTED" || strip.pdc_state === "REQUESTED_WITH_FAULTS") {
               clearPdc(strip.callsign, null);
             } else {

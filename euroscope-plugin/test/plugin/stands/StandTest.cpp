@@ -80,36 +80,72 @@ static constexpr const char* kValidLine =
     "STAND:EKCH:A1:N055.37.03.360:E012.39.23.670:30";
 
 TEST(StandFromLineTest, ParsesName) {
-    Stand s = Stand::FromLine(kValidLine);
-    EXPECT_EQ(s.GetName(), "A1");
+    auto s = Stand::FromLine(kValidLine);
+    ASSERT_TRUE(s.has_value());
+    EXPECT_EQ(s->GetName(), "A1");
 }
 
 TEST(StandFromLineTest, ParsesAirport) {
-    Stand s = Stand::FromLine(kValidLine);
-    EXPECT_EQ(s.GetAirport(), "EKCH");
+    auto s = Stand::FromLine(kValidLine);
+    ASSERT_TRUE(s.has_value());
+    EXPECT_EQ(s->GetAirport(), "EKCH");
 }
 
 TEST(StandFromLineTest, ParsesRadius) {
-    Stand s = Stand::FromLine(kValidLine);
-    EXPECT_DOUBLE_EQ(s.GetRadius(), 30.0);
+    auto s = Stand::FromLine(kValidLine);
+    ASSERT_TRUE(s.has_value());
+    EXPECT_DOUBLE_EQ(s->GetRadius(), 30.0);
 }
 
 TEST(StandFromLineTest, ParsesMultiCharName) {
     // Stand name with more than 2 characters
-    Stand s = Stand::FromLine("STAND:EKCH:B14:N055.37.03.360:E012.39.23.670:25");
-    EXPECT_EQ(s.GetName(), "B14");
-    EXPECT_EQ(s.GetAirport(), "EKCH");
-    EXPECT_DOUBLE_EQ(s.GetRadius(), 25.0);
+    auto s = Stand::FromLine("STAND:EKCH:B14:N055.37.03.360:E012.39.23.670:25");
+    ASSERT_TRUE(s.has_value());
+    EXPECT_EQ(s->GetName(), "B14");
+    EXPECT_EQ(s->GetAirport(), "EKCH");
+    EXPECT_DOUBLE_EQ(s->GetRadius(), 25.0);
 }
 
 TEST(StandFromLineTest, ParsesDifferentAirport) {
-    Stand s = Stand::FromLine("STAND:ESSA:C5:N059.21.03.000:E017.55.08.000:40");
-    EXPECT_EQ(s.GetAirport(), "ESSA");
-    EXPECT_EQ(s.GetName(), "C5");
-    EXPECT_DOUBLE_EQ(s.GetRadius(), 40.0);
+    auto s = Stand::FromLine("STAND:ESSA:C5:N059.21.03.000:E017.55.08.000:40");
+    ASSERT_TRUE(s.has_value());
+    EXPECT_EQ(s->GetAirport(), "ESSA");
+    EXPECT_EQ(s->GetName(), "C5");
+    EXPECT_DOUBLE_EQ(s->GetRadius(), 40.0);
 }
 
 TEST(StandFromLineTest, ParsesFractionalRadius) {
-    Stand s = Stand::FromLine("STAND:EKCH:X1:N055.37.03.360:E012.39.23.670:12.5");
-    EXPECT_DOUBLE_EQ(s.GetRadius(), 12.5);
+    auto s = Stand::FromLine("STAND:EKCH:X1:N055.37.03.360:E012.39.23.670:12.5");
+    ASSERT_TRUE(s.has_value());
+    EXPECT_DOUBLE_EQ(s->GetRadius(), 12.5);
+}
+
+// ---------------------------------------------------------------------------
+// Malformed / non-stand lines must be skipped (return nullopt) instead of
+// throwing. The "STANDLIST:" header line below is the exact line that crashed
+// plugin start-up: it satisfies the old starts_with("STAND") check, but its
+// fixed-offset substr(15, 14) ran past the end of the string.
+// ---------------------------------------------------------------------------
+
+TEST(StandFromLineTest, SkipsStandListHeaderLine) {
+    EXPECT_FALSE(Stand::FromLine("STANDLIST:EKCH:GRL:10000:C28").has_value());
+}
+
+TEST(StandFromLineTest, SkipsLineWithoutStandPrefix) {
+    EXPECT_FALSE(Stand::FromLine("AIRPORT:EKCH").has_value());
+    EXPECT_FALSE(Stand::FromLine("").has_value());
+}
+
+TEST(StandFromLineTest, SkipsTruncatedRecord) {
+    // Has the STAND: prefix and the airport/name colons, but the coordinate
+    // block is too short for the fixed lat/lon/radius offsets.
+    EXPECT_FALSE(Stand::FromLine("STAND:EKCH:A1:N055.37").has_value());
+}
+
+TEST(StandFromLineTest, SkipsRecordMissingColons) {
+    EXPECT_FALSE(Stand::FromLine("STAND:EKCH").has_value());
+}
+
+TEST(StandFromLineTest, SkipsRecordWithNonNumericRadius) {
+    EXPECT_FALSE(Stand::FromLine("STAND:EKCH:A1:N055.37.03.360:E012.39.23.670:abc").has_value());
 }

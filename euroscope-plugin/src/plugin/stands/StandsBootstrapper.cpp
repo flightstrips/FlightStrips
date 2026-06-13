@@ -28,9 +28,9 @@ namespace FlightStrips::stands {
 
         std::string line;
         while (std::getline(filestream, line)) {
-            if (!line.starts_with("STAND")) continue;
-
-            stands.push_back(Stand::FromLine(line));
+            if (auto stand = Stand::FromLine(line)) {
+                stands.push_back(std::move(*stand));
+            }
         }
 
         filestream.close();

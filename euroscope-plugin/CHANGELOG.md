@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.17.3](https://github.com/flightstrips/FlightStrips/compare/plugin/v0.17.2...plugin/v0.17.3) (2026-06-13)
+
+
+### Bug Fixes
+
+* force build ([c778ed8](https://github.com/flightstrips/FlightStrips/commit/c778ed860db3cb32075eebaf2a15a822c8ff86a4))
+
 ## [0.17.2](https://github.com/flightstrips/FlightStrips/compare/plugin/v0.17.1...plugin/v0.17.2) (2026-05-25)
 
 

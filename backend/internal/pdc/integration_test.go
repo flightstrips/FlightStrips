@@ -283,6 +283,39 @@ func TestSubmitWebPDCRequest_WithRemarksLeavesRequestPending(t *testing.T) {
 	assert.Equal(t, string(StateRequested), pdcData.State)
 }
 
+func TestSubmitWebPDCRequest_NoSIDOrVectorsRoutesToFaults(t *testing.T) {
+	t.Parallel()
+	suite := &PDCIntegrationTestSuite{}
+	suite.SetupTest(t)
+
+	ctx := context.Background()
+	sessionID := int32(1)
+	callsign := "DAT55"
+	testdata.SeedTestStripWithoutRouting(t, suite.queries, sessionID, callsign)
+
+	suite.mockFrontend.On("SendPdcStateChange", sessionID, callsign, "REQUESTED_WITH_FAULTS", "").Return()
+
+	err := suite.service.SubmitWebPDCRequest(ctx, callsign, "B", "", "", "A320")
+	require.NoError(t, err)
+
+	strip, err := suite.queries.GetStrip(ctx, database.GetStripParams{
+		Session:  sessionID,
+		Callsign: callsign,
+	})
+	require.NoError(t, err)
+
+	pdcData := readStripPdcData(t, strip)
+	require.NotNil(t, pdcData.Web)
+	assert.Equal(t, string(StateRequestedWithFaults), pdcData.State)
+	assert.Nil(t, pdcData.Web.ClearanceText)
+
+	suite.mockStrip.AssertNotCalled(t, "MoveToBay", mock.Anything, sessionID, callsign, shared.BAY_CLEARED, true)
+	suite.service.timeoutsMutex.RLock()
+	_, exists := suite.service.timeouts[fmt.Sprintf("%s_%d", callsign, sessionID)]
+	suite.service.timeoutsMutex.RUnlock()
+	assert.False(t, exists, "a faulted request must not start a confirmation timeout")
+}
+
 func TestIssueClearance_ClearsManualReviewRequestRemarks(t *testing.T) {
 	t.Parallel()
 	suite := &PDCIntegrationTestSuite{}

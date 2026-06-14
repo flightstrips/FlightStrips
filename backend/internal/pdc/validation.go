@@ -10,8 +10,9 @@ import (
 type FlightPlanValidationFaultKind string
 
 const (
-	FlightPlanValidationFaultKindSID    FlightPlanValidationFaultKind = "sid_invalid"
-	FlightPlanValidationFaultKindRunway FlightPlanValidationFaultKind = "runway_invalid"
+	FlightPlanValidationFaultKindSID     FlightPlanValidationFaultKind = "sid_invalid"
+	FlightPlanValidationFaultKindRunway  FlightPlanValidationFaultKind = "runway_invalid"
+	FlightPlanValidationFaultKindRouting FlightPlanValidationFaultKind = "routing_missing"
 )
 
 type FlightPlanValidationFault struct {
@@ -94,6 +95,16 @@ func validatePDCFlightPlanFaults(strip *models.Strip, activeDepartureRunways []s
 
 	cfg := config.GetPDCValidationConfig()
 	var faults []FlightPlanValidationFault
+
+	hasUsableSID := strip.Sid != nil && strings.TrimSpace(*strip.Sid) != ""
+	hasUsableVectors := strip.Heading != nil && *strip.Heading != 0 &&
+		strip.ClearedAltitude != nil && *strip.ClearedAltitude > 0
+	if !hasUsableSID && !hasUsableVectors {
+		faults = append(faults, FlightPlanValidationFault{
+			Kind:    FlightPlanValidationFaultKindRouting,
+			Message: "No SID or vectored departure assigned",
+		})
+	}
 
 	if strip.Sid != nil {
 		sidUpper := strings.ToUpper(*strip.Sid)

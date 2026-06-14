@@ -38,6 +38,7 @@ func TestValidatePDCFlightPlan_SpecialRunwayAircraftSkipsActiveDepartureFault(t 
 	strip := &models.Strip{
 		AircraftType: stringPtrTest("A388/H"),
 		Runway:       stringPtrTest("22L"),
+		Sid:          stringPtrTest("VEMBO2E"),
 	}
 
 	faults := service.validatePDCFlightPlan(strip, []string{"22R"})
@@ -79,6 +80,7 @@ func TestPDCStripValidationFaults_IgnoresEobtOutsideFormerWindow(t *testing.T) {
 	eobt := "2359"
 	strip := &models.Strip{
 		CdmData: &models.CdmData{Eobt: &eobt},
+		Sid:     stringPtrTest("VEMBO2E"),
 	}
 
 	faults := PDCStripValidationFaults(strip, []string{"22R"})
@@ -86,6 +88,71 @@ func TestPDCStripValidationFaults_IgnoresEobtOutsideFormerWindow(t *testing.T) {
 	require.Empty(t, faults)
 }
 
+func TestValidatePDCFlightPlan_FaultsWhenNoSIDOrVectors(t *testing.T) {
+	t.Parallel()
+
+	service := &Service{}
+	strip := &models.Strip{
+		AircraftType: stringPtrTest("A320"),
+		Runway:       stringPtrTest("22R"),
+		Sid:          stringPtrTest("   "),
+	}
+
+	faults := service.validatePDCFlightPlan(strip, []string{"22R"})
+
+	assert.Contains(t, faults, "No SID or vectored departure assigned")
+}
+
+func TestValidatePDCFlightPlan_NoRoutingFaultWithUsableSID(t *testing.T) {
+	t.Parallel()
+
+	service := &Service{}
+	strip := &models.Strip{
+		AircraftType: stringPtrTest("A320"),
+		Runway:       stringPtrTest("22R"),
+		Sid:          stringPtrTest("VEMBO2E"),
+	}
+
+	faults := service.validatePDCFlightPlan(strip, []string{"22R"})
+
+	assert.NotContains(t, faults, "No SID or vectored departure assigned")
+}
+
+func TestValidatePDCFlightPlan_NoRoutingFaultWithVectors(t *testing.T) {
+	t.Parallel()
+
+	service := &Service{}
+	strip := &models.Strip{
+		AircraftType:    stringPtrTest("A320"),
+		Runway:          stringPtrTest("22R"),
+		Heading:         int32PtrTest(180),
+		ClearedAltitude: int32PtrTest(7000),
+	}
+
+	faults := service.validatePDCFlightPlan(strip, []string{"22R"})
+
+	assert.NotContains(t, faults, "No SID or vectored departure assigned")
+}
+
+func TestValidatePDCFlightPlan_FaultsWhenHeadingWithoutAltitude(t *testing.T) {
+	t.Parallel()
+
+	service := &Service{}
+	strip := &models.Strip{
+		AircraftType: stringPtrTest("A320"),
+		Runway:       stringPtrTest("22R"),
+		Heading:      int32PtrTest(180),
+	}
+
+	faults := service.validatePDCFlightPlan(strip, []string{"22R"})
+
+	assert.Contains(t, faults, "No SID or vectored departure assigned")
+}
+
 func stringPtrTest(value string) *string {
+	return &value
+}
+
+func int32PtrTest(value int32) *int32 {
 	return &value
 }

@@ -329,6 +329,8 @@ func TestReevaluatePdcInvalidValidation_DoesNotActivateForEobtOnly(t *testing.T)
 	t.Parallel()
 
 	eobt := "2359"
+	sid := "VEMBO2E"
+	runway := "22R"
 	setCalled := false
 
 	repo := &testutil.MockStripRepository{
@@ -337,6 +339,8 @@ func TestReevaluatePdcInvalidValidation_DoesNotActivateForEobtOnly(t *testing.T)
 				Callsign: "SAS123",
 				Bay:      shared.BAY_NOT_CLEARED,
 				PdcState: "REQUESTED_WITH_FAULTS",
+				Sid:      &sid,
+				Runway:   &runway,
 				CdmData:  (&models.CdmData{Eobt: &eobt}).Normalize(),
 			}, nil
 		},

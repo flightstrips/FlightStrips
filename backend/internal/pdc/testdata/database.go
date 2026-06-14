@@ -141,6 +141,28 @@ func SeedTestStripWithSquawks(t *testing.T, queries *database.Queries, sessionID
 
 func ptr[T any](v T) *T { return &v }
 
+// SeedTestStripWithoutRouting inserts a test strip that has a runway but neither a
+// SID nor vectored departure info (heading + cleared altitude), mirroring a flight
+// plan filed without a SID.
+func SeedTestStripWithoutRouting(t *testing.T, queries *database.Queries, sessionID int32, callsign string) {
+	ctx := context.Background()
+
+	err := queries.InsertStrip(ctx, database.InsertStripParams{
+		Callsign:       callsign,
+		Session:        sessionID,
+		Origin:         "EKCH",
+		Destination:    "ESSA",
+		AircraftType:   ptr("A320"),
+		Runway:         ptr("22L"),
+		Sid:            ptr(""),
+		Squawk:         ptr("2401"),
+		AssignedSquawk: ptr("2401"),
+		Bay:            "NOT_CLEARED",
+		CdmData:        []byte(`{"canonical":{}}`),
+	})
+	require.NoError(t, err)
+}
+
 // SeedTestStripWithAircraftType inserts a test strip with a custom aircraft type
 func SeedTestStripWithAircraftType(t *testing.T, queries *database.Queries, sessionID int32, callsign, aircraftType string) {
 	ctx := context.Background()

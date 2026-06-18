@@ -201,6 +201,15 @@ func valueOrEmpty(value *string) string {
 	return *value
 }
 
+func (s *Service) getDepartureAtisCode(sessionID int32) string {
+	if s.frontendHub == nil {
+		return ""
+	}
+
+	_, dep := s.frontendHub.GetAtisCodes(sessionID)
+	return strings.TrimSpace(dep)
+}
+
 func (s *Service) resolveEuroscopeTargetCID(ctx context.Context, sessionID int32) string {
 	if s.euroscopeHub == nil || s.controllerRepo == nil {
 		return ""
@@ -608,7 +617,7 @@ func (s *Service) IssueClearance(ctx context.Context, callsign, remarks, cid str
 		Callsign:           strip.Callsign,
 		Origin:             strip.Origin,
 		Destination:        strip.Destination,
-		Atis:               "A",
+		Atis:               "",
 		Runway:             *strip.Runway,
 		Squawk:             clearanceSquawk,
 		NextFrequency:      nextFreq,
@@ -618,8 +627,21 @@ func (s *Service) IssueClearance(ctx context.Context, callsign, remarks, cid str
 		Remarks:            remarks,
 	}
 
+	if depAtis := s.getDepartureAtisCode(sessionInfo.id); depAtis != "" {
+		options.Atis = depAtis
+	}
+
 	if webDelivery && strip.PdcData.Web.Atis != nil && strings.TrimSpace(*strip.PdcData.Web.Atis) != "" {
 		options.Atis = strings.TrimSpace(*strip.PdcData.Web.Atis)
+	}
+
+	if options.Atis == "" {
+		slog.InfoContext(ctx,
+			"PDC Service: Omitting ATIS letter from clearance because none is available",
+			slog.String("callsign", strip.Callsign),
+			slog.Int("session", int(sessionInfo.id)),
+			slog.Bool("web_delivery", webDelivery),
+		)
 	}
 
 	if strip.Heading != nil && *strip.Heading != 0 && strip.ClearedAltitude != nil && *strip.ClearedAltitude > 0 {

@@ -137,7 +137,9 @@ type CidDisconnectCall struct {
 // MockFrontendHub is a configurable mock for shared.FrontendHub.
 // It records calls for assertion in tests.
 type MockFrontendHub struct {
-	server shared.Server
+	server      shared.Server
+	ArrAtisCode string
+	DepAtisCode string
 
 	BayEvents               []BayEventCall
 	BulkBayEvents           []BulkBayCall
@@ -172,6 +174,10 @@ func (m *MockFrontendHub) Broadcast(session int32, message frontend.OutgoingMess
 
 func (m *MockFrontendHub) Send(session int32, cid string, message frontend.OutgoingMessage) {
 	m.SentMessages = append(m.SentMessages, SentMessageCall{Session: session, Cid: cid, Message: message})
+}
+
+func (m *MockFrontendHub) GetAtisCodes(session int32) (arr string, dep string) {
+	return m.ArrAtisCode, m.DepAtisCode
 }
 
 func (m *MockFrontendHub) CidOnline(session int32, cid string) {

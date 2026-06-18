@@ -250,9 +250,13 @@ func buildPDCClearance(options ClearanceOptions) string {
 
 	sb.WriteString("SQK: @")
 	sb.WriteString(options.Squawk)
-	sb.WriteString("@ ATIS @")
-	sb.WriteString(options.Atis)
-	sb.WriteString("@ NEXT FRQ: @")
+	sb.WriteString("@ ")
+	if options.Atis != "" {
+		sb.WriteString("ATIS @")
+		sb.WriteString(options.Atis)
+		sb.WriteString("@ ")
+	}
+	sb.WriteString("NEXT FRQ: @")
 	sb.WriteString(options.NextFrequency)
 	sb.WriteString("@")
 	sb.WriteString(" Departure frequency: @")
@@ -290,9 +294,13 @@ func buildWebPDCClearance(options ClearanceOptions) string {
 		parts = append(parts, fmt.Sprintf("MANDATORY ROUTE: %s", options.Route))
 	}
 
+	parts = append(parts, fmt.Sprintf("SQK: %s", options.Squawk))
+
+	if options.Atis != "" {
+		parts = append(parts, fmt.Sprintf("ATIS %s", options.Atis))
+	}
+
 	parts = append(parts,
-		fmt.Sprintf("SQK: %s", options.Squawk),
-		fmt.Sprintf("ATIS %s", options.Atis),
 		fmt.Sprintf("NEXT FRQ: %s", options.NextFrequency),
 		fmt.Sprintf("Departure frequency %s", options.DepartureFrequency),
 	)

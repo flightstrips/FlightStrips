@@ -138,6 +138,7 @@ func stripToModel(db database.Strip) (*models.Strip, error) {
 		Registration:             db.Registration,
 		TrackingController:       db.TrackingController,
 		EngineType:               db.EngineType,
+		SpokenCallsign:           db.SpokenCallsign,
 		RunwayCleared:            db.RunwayCleared,
 		RunwayConfirmed:          db.RunwayConfirmed,
 		UnexpectedChangeFields:   db.UnexpectedChangeFields,
@@ -209,6 +210,7 @@ func (r *stripRepository) Create(ctx context.Context, strip *models.Strip) error
 		Registration:       strip.Registration,
 		TrackingController: strip.TrackingController,
 		EngineType:         strip.EngineType,
+		SpokenCallsign:     strip.SpokenCallsign,
 		HasFp:              strip.HasFP,
 		StartReq:           strip.StartReq,
 	})
@@ -348,6 +350,7 @@ func (r *stripRepository) Update(ctx context.Context, strip *models.Strip) (int6
 		Marked:                   strip.Marked,
 		Registration:             strip.Registration,
 		TrackingController:       strip.TrackingController,
+		SpokenCallsign:           strip.SpokenCallsign,
 		RunwayCleared:            strip.RunwayCleared,
 		RunwayConfirmed:          strip.RunwayConfirmed,
 		EngineType:               strip.EngineType,

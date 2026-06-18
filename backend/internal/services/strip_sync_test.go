@@ -158,6 +158,77 @@ func TestSyncEuroscopeStrip_ExistingStripWritesRouteAndHasFPInPrimaryUpdate(t *t
 	assert.Zero(t, routeUpdateCalls)
 }
 
+func TestSyncEuroscopeStrip_NewStripPersistsSpokenCallsign(t *testing.T) {
+	ctx := context.Background()
+	const session = int32(1)
+
+	var createdStrip *models.Strip
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			return nil, pgx.ErrNoRows
+		},
+		CreateFn: func(_ context.Context, strip *models.Strip) error {
+			createdStrip = strip
+			return nil
+		},
+	}
+
+	svc, _, _ := newSyncTestFixture(t, nil, stripRepo)
+
+	err := svc.syncEuroscopeStrip(ctx, session, "", euroscope.Strip{
+		Callsign:       "WLF166",
+		Origin:         "EKCH",
+		SpokenCallsign: "WOLFAIR",
+	}, "EKCH")
+	require.NoError(t, err)
+	require.NotNil(t, createdStrip)
+	require.NotNil(t, createdStrip.SpokenCallsign)
+	assert.Equal(t, "WOLFAIR", *createdStrip.SpokenCallsign)
+}
+
+func TestSyncEuroscopeStrip_ExistingStripUpdatesSpokenCallsign(t *testing.T) {
+	ctx := context.Background()
+	const session = int32(1)
+	const callsign = "WLF166"
+	sequence := int32(300)
+	existingSpokenCallsign := "OLDAIR"
+
+	existingStrip := &models.Strip{
+		Callsign:       callsign,
+		Origin:         "EKCH",
+		Destination:    "EGLL",
+		Bay:            shared.BAY_PUSH,
+		Sequence:       &sequence,
+		SpokenCallsign: &existingSpokenCallsign,
+	}
+
+	var updatedStrip *models.Strip
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			return existingStrip, nil
+		},
+		UpdateFn: func(_ context.Context, strip *models.Strip) (int64, error) {
+			updatedStrip = strip
+			return 1, nil
+		},
+	}
+
+	svc, _, _ := newSyncTestFixture(t, existingStrip, stripRepo)
+
+	err := svc.syncEuroscopeStrip(ctx, session, "", euroscope.Strip{
+		Callsign:       callsign,
+		Origin:         "EKCH",
+		Destination:    "EGLL",
+		Runway:         "22L",
+		SpokenCallsign: "WOLFAIR",
+		HasFP:          true,
+	}, "EKCH")
+	require.NoError(t, err)
+	require.NotNil(t, updatedStrip)
+	require.NotNil(t, updatedStrip.SpokenCallsign)
+	assert.Equal(t, "WOLFAIR", *updatedStrip.SpokenCallsign)
+}
+
 func TestSyncEuroscopeStrip_ParkedArrivalRefilesAsDepartureResetsLifecycleState(t *testing.T) {
 	ctx := context.Background()
 	const session = int32(1)

@@ -138,6 +138,7 @@ type Strip struct {
 	PositionAltitude         int32                 `json:"position_altitude"`
 	AircraftType             string                `json:"aircraft_type"`
 	AircraftCategory         string                `json:"aircraft_category"`
+	SpokenCallsign           string                `json:"spoken_callsign,omitempty"`
 	Stand                    string                `json:"stand"`
 	Capabilities             string                `json:"capabilities"`
 	CommunicationType        string                `json:"communication_type"`

@@ -150,6 +150,7 @@ export interface FrontendStrip {
   position_altitude?: number;
   aircraft_type: string;
   aircraft_category: string;
+  spoken_callsign?: string;
   stand: string;
   capabilities: string;
   communication_type: CommunicationType;
@@ -299,6 +300,7 @@ export interface FrontendStripUpdateEvent {
   heading: number;
   aircraft_type: string;
   aircraft_category: string;
+  spoken_callsign?: string;
   stand: string;
   capabilities: string;
   communication_type: CommunicationType;

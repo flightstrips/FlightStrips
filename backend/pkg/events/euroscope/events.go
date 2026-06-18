@@ -58,7 +58,7 @@ const (
 	PdcStateChange            EventType = "pdc_state_change"
 	IssuePdcClearance         EventType = "issue_pdc_clearance"
 	PdcRevertToVoice          EventType = "pdc_revert_to_voice"
-	SendPrivateMessage         EventType = "send_private_message"
+	SendPrivateMessage        EventType = "send_private_message"
 )
 
 const (
@@ -133,6 +133,7 @@ type Strip struct {
 	Heading           int32  `json:"heading"`
 	AircraftType      string `json:"aircraft_type"`
 	AircraftCategory  string `json:"aircraft_category"`
+	SpokenCallsign    string `json:"spoken_callsign"`
 	Position          struct {
 		Lat      float64 `json:"lat"`
 		Lon      float64 `json:"lon"`
@@ -325,24 +326,24 @@ type EcfmpRestrictionDTO struct {
 }
 
 type CdmUpdateEvent struct {
-	Callsign                  string `json:"callsign"`
-	Eobt                      string `json:"eobt,omitempty"`
-	Tobt                      string `json:"tobt,omitempty"`
-	TobtSetBy                 string `json:"tobt_set_by,omitempty"`
-	TobtConfirmedBy           string `json:"tobt_confirmed_by,omitempty"`
-	ReqTobt                  string `json:"req_tobt,omitempty"`
-	ReqTobtType              string `json:"req_tobt_type,omitempty"`
-	Tsat                      string `json:"tsat,omitempty"`
-	Ttot                      string `json:"ttot,omitempty"`
-	Ctot                      string `json:"ctot,omitempty"`
-	CtotSource                string `json:"ctot_source,omitempty"`
-	Asat                      string `json:"asat,omitempty"`
-	Asrt                      string `json:"asrt,omitempty"`
-	Tsac                      string `json:"tsac,omitempty"`
-	Status                    string `json:"status,omitempty"`
-	EcfmpID                   string `json:"ecfmp_id,omitempty"`
-	Phase                     string `json:"phase,omitempty"`
-	EcfmpRestrictionsJSON      string `json:"ecfmp_restrictions_json,omitempty"`
+	Callsign              string `json:"callsign"`
+	Eobt                  string `json:"eobt,omitempty"`
+	Tobt                  string `json:"tobt,omitempty"`
+	TobtSetBy             string `json:"tobt_set_by,omitempty"`
+	TobtConfirmedBy       string `json:"tobt_confirmed_by,omitempty"`
+	ReqTobt               string `json:"req_tobt,omitempty"`
+	ReqTobtType           string `json:"req_tobt_type,omitempty"`
+	Tsat                  string `json:"tsat,omitempty"`
+	Ttot                  string `json:"ttot,omitempty"`
+	Ctot                  string `json:"ctot,omitempty"`
+	CtotSource            string `json:"ctot_source,omitempty"`
+	Asat                  string `json:"asat,omitempty"`
+	Asrt                  string `json:"asrt,omitempty"`
+	Tsac                  string `json:"tsac,omitempty"`
+	Status                string `json:"status,omitempty"`
+	EcfmpID               string `json:"ecfmp_id,omitempty"`
+	Phase                 string `json:"phase,omitempty"`
+	EcfmpRestrictionsJSON string `json:"ecfmp_restrictions_json,omitempty"`
 }
 
 type CdmUpdateBatchEvent struct {
@@ -377,22 +378,22 @@ type CdmMasterToggleEvent struct {
 }
 
 type BackendSyncCdmData struct {
-	Eobt                 string `json:"eobt,omitempty"`
-	Tobt                 string `json:"tobt,omitempty"`
-	TobtSetBy            string `json:"tobt_set_by,omitempty"`
-	TobtConfirmedBy      string `json:"tobt_confirmed_by,omitempty"`
-	ReqTobt             string `json:"req_tobt,omitempty"`
-	ReqTobtType         string `json:"req_tobt_type,omitempty"`
-	Tsat                 string `json:"tsat,omitempty"`
-	Ttot                 string `json:"ttot,omitempty"`
-	Ctot                 string `json:"ctot,omitempty"`
-	CtotSource           string `json:"ctot_source,omitempty"`
-	Asat                 string `json:"asat,omitempty"`
-	Asrt                 string `json:"asrt,omitempty"`
-	Tsac                 string `json:"tsac,omitempty"`
-	Status               string `json:"status,omitempty"`
-	EcfmpID              string `json:"ecfmp_id,omitempty"`
-	Phase                string `json:"phase,omitempty"`
+	Eobt                  string `json:"eobt,omitempty"`
+	Tobt                  string `json:"tobt,omitempty"`
+	TobtSetBy             string `json:"tobt_set_by,omitempty"`
+	TobtConfirmedBy       string `json:"tobt_confirmed_by,omitempty"`
+	ReqTobt               string `json:"req_tobt,omitempty"`
+	ReqTobtType           string `json:"req_tobt_type,omitempty"`
+	Tsat                  string `json:"tsat,omitempty"`
+	Ttot                  string `json:"ttot,omitempty"`
+	Ctot                  string `json:"ctot,omitempty"`
+	CtotSource            string `json:"ctot_source,omitempty"`
+	Asat                  string `json:"asat,omitempty"`
+	Asrt                  string `json:"asrt,omitempty"`
+	Tsac                  string `json:"tsac,omitempty"`
+	Status                string `json:"status,omitempty"`
+	EcfmpID               string `json:"ecfmp_id,omitempty"`
+	Phase                 string `json:"phase,omitempty"`
 	EcfmpRestrictionsJSON string `json:"ecfmp_restrictions_json,omitempty"`
 }
 

@@ -56,9 +56,9 @@ const (
 )
 
 type cdmSnapshot struct {
-	Eobt, Tobt, Tsat, Ctot, CtotSource, Ttot, Asat, Asrt, Tsac, Aobt, Status, ReqTobt, ReqTobtType, EcfmpID, TobtSetBy, TobtConfirmedBy, Phase string
-	EcfmpRestrictionsJSON                                                                                                                      string
-	TobtAutoSynced, TobtManuallyConfirmed                                                                                                      bool
+	Eobt, Tobt, Tsat, Ctot, CtotSource, Ttot, Asat, Asrt, Tsac, Aobt, Status, ReqTobt, ReqTobtType, MostPenalizingAirspace, EcfmpID, TobtSetBy, TobtConfirmedBy, Phase string
+	EcfmpRestrictionsJSON                                                                                                                                              string
+	TobtAutoSynced, TobtManuallyConfirmed                                                                                                                              bool
 }
 
 type viffPushState struct {
@@ -1004,6 +1004,7 @@ func (s *Service) syncCdmData(ctx context.Context, session *models.Session) erro
 			updated.Asat = stringPointerIfPresent(nextAsat)
 			updated.Eobt = &row.EOBT
 			updated.Status = &row.CDMStatus
+			updated.MostPenalizingAirspace = stringPointerIfPresent(row.MostPenalizingAirspace)
 			updated.EcfmpID = stringPointerIfPresent(row.CDMData.Reason)
 			updated.Calculation = nil
 
@@ -1075,6 +1076,7 @@ func (s *Service) mergeMasterViffFlight(ctx context.Context, session int32, call
 	changed := ctotChanged ||
 		reqTobtChanged ||
 		reqTobtTypeChanged ||
+		helpers.ValueOrDefault(flight.MostPenalizingAirspace) != row.MostPenalizingAirspace ||
 		helpers.ValueOrDefault(flight.EcfmpID) != row.CDMData.Reason
 	if !changed {
 		return flight, false, nil
@@ -1085,10 +1087,12 @@ func (s *Service) mergeMasterViffFlight(ctx context.Context, session int32, call
 	if nextCtot != "" {
 		updated.Ctot = &nextCtot
 		updated.CtotSource = &nextCtotSource
+		updated.MostPenalizingAirspace = stringPointerIfPresent(row.MostPenalizingAirspace)
 		updated.EcfmpID = stringPointerIfPresent(row.CDMData.Reason)
 	} else if !flight.HasManualCtot() {
 		updated.Ctot = nil
 		updated.CtotSource = nil
+		updated.MostPenalizingAirspace = nil
 		updated.EcfmpID = nil
 	}
 	updated.ReqTobt = stringPointerIfPresent(row.CDMData.ReqTOBT)
@@ -1238,26 +1242,27 @@ func snapshotCdm(data *models.CdmData) cdmSnapshot {
 	}
 	ecfmpJSON, _ := json.Marshal(data.EcfmpRestrictions)
 	return cdmSnapshot{
-		Eobt:                  truncateCDMClockValue(helpers.ValueOrDefault(data.Eobt)),
-		Tobt:                  truncateCDMClockValue(helpers.ValueOrDefault(data.Tobt)),
-		Tsat:                  truncateCDMClockValue(helpers.ValueOrDefault(data.Tsat)),
-		Ctot:                  truncateCDMClockValue(helpers.ValueOrDefault(data.Ctot)),
-		CtotSource:            helpers.ValueOrDefault(data.CtotSource),
-		Ttot:                  truncateCDMClockValue(helpers.ValueOrDefault(data.Ttot)),
-		Asat:                  truncateCDMClockValue(helpers.ValueOrDefault(data.Asat)),
-		Asrt:                  truncateCDMClockValue(helpers.ValueOrDefault(data.Asrt)),
-		Tsac:                  helpers.ValueOrDefault(data.Tsac),
-		Aobt:                  truncateCDMClockValue(helpers.ValueOrDefault(data.Aobt)),
-		Status:                helpers.ValueOrDefault(data.Status),
-		ReqTobt:               truncateCDMClockValue(helpers.ValueOrDefault(data.ReqTobt)),
-		ReqTobtType:           helpers.ValueOrDefault(data.ReqTobtType),
-		EcfmpID:               helpers.ValueOrDefault(data.EcfmpID),
-		TobtSetBy:             helpers.ValueOrDefault(data.TobtSetBy),
-		TobtConfirmedBy:       helpers.ValueOrDefault(data.TobtConfirmedBy),
-		Phase:                 helpers.ValueOrDefault(data.Phase),
-		EcfmpRestrictionsJSON: string(ecfmpJSON),
-		TobtAutoSynced:        data.TobtAutoSynced,
-		TobtManuallyConfirmed: data.TobtManuallyConfirmed,
+		Eobt:                   truncateCDMClockValue(helpers.ValueOrDefault(data.Eobt)),
+		Tobt:                   truncateCDMClockValue(helpers.ValueOrDefault(data.Tobt)),
+		Tsat:                   truncateCDMClockValue(helpers.ValueOrDefault(data.Tsat)),
+		Ctot:                   truncateCDMClockValue(helpers.ValueOrDefault(data.Ctot)),
+		CtotSource:             helpers.ValueOrDefault(data.CtotSource),
+		Ttot:                   truncateCDMClockValue(helpers.ValueOrDefault(data.Ttot)),
+		Asat:                   truncateCDMClockValue(helpers.ValueOrDefault(data.Asat)),
+		Asrt:                   truncateCDMClockValue(helpers.ValueOrDefault(data.Asrt)),
+		Tsac:                   helpers.ValueOrDefault(data.Tsac),
+		Aobt:                   truncateCDMClockValue(helpers.ValueOrDefault(data.Aobt)),
+		Status:                 helpers.ValueOrDefault(data.Status),
+		ReqTobt:                truncateCDMClockValue(helpers.ValueOrDefault(data.ReqTobt)),
+		ReqTobtType:            helpers.ValueOrDefault(data.ReqTobtType),
+		MostPenalizingAirspace: helpers.ValueOrDefault(data.MostPenalizingAirspace),
+		EcfmpID:                helpers.ValueOrDefault(data.EcfmpID),
+		TobtSetBy:              helpers.ValueOrDefault(data.TobtSetBy),
+		TobtConfirmedBy:        helpers.ValueOrDefault(data.TobtConfirmedBy),
+		Phase:                  helpers.ValueOrDefault(data.Phase),
+		EcfmpRestrictionsJSON:  string(ecfmpJSON),
+		TobtAutoSynced:         data.TobtAutoSynced,
+		TobtManuallyConfirmed:  data.TobtManuallyConfirmed,
 	}
 }
 
@@ -1268,21 +1273,22 @@ func (s *Service) broadcastIfChanged(session int32, callsign string, before, aft
 
 	if s.publisher != nil {
 		cdmData := &models.CdmData{
-			Eobt:        stringPointerIfPresent(after.Eobt),
-			Tobt:        stringPointerIfPresent(after.Tobt),
-			ReqTobt:     stringPointerIfPresent(after.ReqTobt),
-			ReqTobtType: stringPointerIfPresent(after.ReqTobtType),
-			Tsat:        stringPointerIfPresent(after.Tsat),
-			Ttot:        stringPointerIfPresent(after.Ttot),
-			Ctot:        stringPointerIfPresent(after.Ctot),
-			CtotSource:  stringPointerIfPresent(after.CtotSource),
-			Aobt:        stringPointerIfPresent(after.Aobt),
-			Asat:        stringPointerIfPresent(after.Asat),
-			Asrt:        stringPointerIfPresent(after.Asrt),
-			Tsac:        stringPointerIfPresent(after.Tsac),
-			Status:      stringPointerIfPresent(after.Status),
-			EcfmpID:     stringPointerIfPresent(after.EcfmpID),
-			Phase:       stringPointerIfPresent(after.Phase),
+			Eobt:                   stringPointerIfPresent(after.Eobt),
+			Tobt:                   stringPointerIfPresent(after.Tobt),
+			ReqTobt:                stringPointerIfPresent(after.ReqTobt),
+			ReqTobtType:            stringPointerIfPresent(after.ReqTobtType),
+			Tsat:                   stringPointerIfPresent(after.Tsat),
+			Ttot:                   stringPointerIfPresent(after.Ttot),
+			Ctot:                   stringPointerIfPresent(after.Ctot),
+			CtotSource:             stringPointerIfPresent(after.CtotSource),
+			Aobt:                   stringPointerIfPresent(after.Aobt),
+			Asat:                   stringPointerIfPresent(after.Asat),
+			Asrt:                   stringPointerIfPresent(after.Asrt),
+			Tsac:                   stringPointerIfPresent(after.Tsac),
+			Status:                 stringPointerIfPresent(after.Status),
+			MostPenalizingAirspace: stringPointerIfPresent(after.MostPenalizingAirspace),
+			EcfmpID:                stringPointerIfPresent(after.EcfmpID),
+			Phase:                  stringPointerIfPresent(after.Phase),
 		}
 		if before.EcfmpRestrictionsJSON != after.EcfmpRestrictionsJSON {
 			storedData, err := s.stripRepo.GetCdmDataForCallsign(context.Background(), session, callsign)

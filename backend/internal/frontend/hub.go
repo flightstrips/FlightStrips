@@ -524,6 +524,7 @@ func MapStripToFrontendModelWithClx(strip *internalModels.Strip, clxContext clx.
 		Asrt:                     truncateFrontendClockValue(helpers.ValueOrDefault(cdm.Asrt)),
 		Tsac:                     truncateFrontendClockValue(helpers.ValueOrDefault(cdm.Tsac)),
 		Status:                   helpers.ValueOrDefault(strip.EffectiveCdmStatus()),
+		MostPenalizingAirspace:   helpers.ValueOrDefault(cdm.MostPenalizingAirspace),
 		EcfmpID:                  helpers.ValueOrDefault(cdm.EcfmpID),
 		CtotSource:               helpers.ValueOrDefault(cdm.CtotSource),
 		Phase:                    helpers.ValueOrDefault(cdm.EffectivePhase()),

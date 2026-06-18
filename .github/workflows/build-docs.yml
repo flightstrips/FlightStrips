@@ -1,18 +1,18 @@
-name: Build frontend
+name: Build docs
 
 on:
   push:
     branches:
       - 'main'
     paths:
-      - 'frontend/**'
-      - '.github/workflows/build-frontend.yml'
+      - 'docs/**'
+      - '.github/workflows/build-docs.yml'
   pull_request:
     branches:
       - 'main'
     paths:
-      - 'frontend/**'
-      - '.github/workflows/build-frontend.yml'
+      - 'docs/**'
+      - '.github/workflows/build-docs.yml'
 
 jobs:
   build:
@@ -20,12 +20,12 @@ jobs:
     runs-on: blacksmith-4vcpu-ubuntu-2404
     defaults:
       run:
-        working-directory: ./frontend
+        working-directory: ./docs
     steps:
     - uses: actions/checkout@v3
     - uses: actions/setup-node@master
       with:
-        node-version: 22.16
+        node-version: 22
     - name: install dependencies
       run: npm ci
     - name: build
@@ -41,6 +41,6 @@ jobs:
     - name: Build Docker image
       uses: useblacksmith/build-push-action@v2
       with:
-        context: ./frontend
-        file: ./frontend/Dockerfile
+        context: ./docs
+        file: ./docs/Dockerfile
         push: false

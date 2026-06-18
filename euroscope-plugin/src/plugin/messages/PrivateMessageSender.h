@@ -8,8 +8,6 @@ namespace FlightStrips::messages {
         static void SendPrivateMessage(const std::string& callsign, const std::string& message);
 
     private:
-        static void TypeString(const std::string& text);
-        static void PressKey(unsigned short vk, bool keyDown);
-        static void PressEnter();
+        static bool SendCommandViaMessageInput(const std::string& command);
     };
 }

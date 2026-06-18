@@ -34,6 +34,28 @@ func (m *FrontendHub) Send(session int32, cid string, message frontend.OutgoingM
 	m.Called(session, cid, message)
 }
 
+func (m *FrontendHub) GetAtisCodes(session int32) (string, string) {
+	for _, expected := range m.ExpectedCalls {
+		if expected.Method == "GetAtisCodes" {
+			args := m.Called(session)
+
+			var arr string
+			if args.Get(0) != nil {
+				arr = args.String(0)
+			}
+
+			var dep string
+			if args.Get(1) != nil {
+				dep = args.String(1)
+			}
+
+			return arr, dep
+		}
+	}
+
+	return "", ""
+}
+
 func (m *FrontendHub) CidOnline(session int32, cid string) {
 	m.Called(session, cid)
 }

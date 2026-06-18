@@ -10,6 +10,7 @@ type FrontendHub interface {
 	ServerInjectable
 	Broadcast(session int32, message frontend.OutgoingMessage)
 	Send(session int32, cid string, message frontend.OutgoingMessage)
+	GetAtisCodes(session int32) (arr string, dep string)
 	CidOnline(session int32, cid string)
 	CidDisconnect(cid string)
 	SendStripUpdate(session int32, callsign string)

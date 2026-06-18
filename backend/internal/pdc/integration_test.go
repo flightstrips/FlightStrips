@@ -136,8 +136,10 @@ func TestIssueClearanceFlow(t *testing.T) {
 	ctx := context.Background()
 
 	// Setup expectations
+	suite.mockFrontend.On("GetAtisCodes", sessionID).Return("", "B").Once()
 	suite.mockHoppie.On("SendCPDLC", mock.Anything, mock.Anything, callsign, mock.MatchedBy(func(msg string) bool {
 		return strings.Contains(msg, "CLRD TO") && strings.Contains(msg, "ESSA") &&
+			strings.Contains(msg, "ATIS @B@") &&
 			strings.Contains(msg, "NEXT FRQ: @118.105@") &&
 			strings.Contains(msg, "Departure frequency: @124.980@") &&
 			strings.Contains(msg, remarks)
@@ -180,6 +182,7 @@ func TestSubmitWebPDCRequest_AutoIssuesClearanceWithoutHoppie(t *testing.T) {
 	sessionID := int32(1)
 	callsign := "SAS123"
 
+	suite.mockFrontend.On("GetAtisCodes", sessionID).Return("X", "Y").Once()
 	suite.mockStrip.On("MoveToBay", mock.Anything, sessionID, callsign, shared.BAY_CLEARED, true).Return(nil)
 	suite.mockFrontend.On("SendPdcStateChange", sessionID, callsign, "CLEARED", "").Return()
 
@@ -217,6 +220,48 @@ func TestSubmitWebPDCRequest_AutoIssuesClearanceWithoutHoppie(t *testing.T) {
 	suite.service.timeoutsMutex.RUnlock()
 	assert.True(t, exists, "web-issued clearances must start a confirmation timeout")
 	suite.mockStrip.AssertNotCalled(t, "UpdateStand", mock.Anything, sessionID, callsign, "A12")
+}
+
+func TestIssueClearance_UsesDepartureAtisInsteadOfArrivalAtis(t *testing.T) {
+	t.Parallel()
+	suite := &PDCIntegrationTestSuite{}
+	suite.SetupTest(t)
+
+	callsign := "SAS123"
+	sessionID := int32(1)
+	ctx := context.Background()
+
+	suite.mockFrontend.On("GetAtisCodes", sessionID).Return("A", "D").Once()
+	suite.mockHoppie.On("SendCPDLC", mock.Anything, mock.Anything, callsign, mock.MatchedBy(func(msg string) bool {
+		return strings.Contains(msg, "ATIS @D@") && !strings.Contains(msg, "ATIS @A@")
+	})).Return(nil)
+	suite.mockStrip.On("MoveToBay", mock.Anything, sessionID, callsign, shared.BAY_CLEARED, true).Return(nil)
+	suite.mockFrontend.On("SendPdcStateChange", sessionID, callsign, "CLEARED", "").Return()
+
+	err := suite.service.IssueClearance(ctx, callsign, "", "CID123", sessionID)
+	require.NoError(t, err)
+}
+
+func TestIssueClearance_OmitsAtisWhenNoAtisIsAvailable(t *testing.T) {
+	t.Parallel()
+	suite := &PDCIntegrationTestSuite{}
+	suite.SetupTest(t)
+
+	callsign := "SAS123"
+	sessionID := int32(1)
+	ctx := context.Background()
+
+	suite.mockFrontend.On("GetAtisCodes", sessionID).Return("", "").Once()
+	suite.mockHoppie.On("SendCPDLC", mock.Anything, mock.Anything, callsign, mock.MatchedBy(func(msg string) bool {
+		return !strings.Contains(msg, "ATIS @") &&
+			!strings.Contains(msg, "ATIS A") &&
+			strings.Contains(msg, "NEXT FRQ: @118.105@")
+	})).Return(nil)
+	suite.mockStrip.On("MoveToBay", mock.Anything, sessionID, callsign, shared.BAY_CLEARED, true).Return(nil)
+	suite.mockFrontend.On("SendPdcStateChange", sessionID, callsign, "CLEARED", "").Return()
+
+	err := suite.service.IssueClearance(ctx, callsign, "", "CID123", sessionID)
+	require.NoError(t, err)
 }
 
 func TestSubmitWebPDCRequest_TimesOutWithoutSendingHoppieNoResponse(t *testing.T) {

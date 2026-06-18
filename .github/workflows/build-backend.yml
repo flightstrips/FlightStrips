@@ -15,14 +15,12 @@ on:
       - '.github/workflows/build-backend.yml'
 
 jobs:
-  build-backend:
-    name: Build backend
+  build:
+    name: Build & test
     runs-on: blacksmith-4vcpu-ubuntu-2404
-
     defaults:
       run:
         working-directory: ./backend
-
     steps:
     - uses: actions/checkout@v3
     - uses: actions/setup-go@v5
@@ -33,6 +31,11 @@ jobs:
     - name: Test
       run: go test ./...
 
+  docker:
+    name: Docker build
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    steps:
+    - uses: actions/checkout@v3
     - name: Set up Docker Buildx
       uses: useblacksmith/setup-docker-builder@v1
     - name: Build Docker image (api)

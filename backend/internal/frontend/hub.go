@@ -499,6 +499,7 @@ func MapStripToFrontendModelWithClx(strip *internalModels.Strip, clxContext clx.
 		PositionAltitude:         helpers.ValueOrDefault(strip.PositionAltitude),
 		AircraftType:             helpers.ValueOrDefault(strip.AircraftType),
 		AircraftCategory:         helpers.ValueOrDefault(strip.AircraftCategory),
+		SpokenCallsign:           helpers.ValueOrDefault(strip.SpokenCallsign),
 		Stand:                    helpers.ValueOrDefault(strip.Stand),
 		Capabilities:             rnav.DeriveCapability(helpers.ValueOrDefault(strip.AircraftType), helpers.ValueOrDefault(strip.Remarks)),
 		CommunicationType:        helpers.ValueOrDefault(strip.CommunicationType),

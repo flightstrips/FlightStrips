@@ -44,6 +44,7 @@ public:
     [[nodiscard]] DeIceConfig& GetDeIceConfig();
     [[nodiscard]] int GetPositionUpdateIntervalSeconds();
     [[nodiscard]] std::string GetStandsFile();
+    [[nodiscard]] std::string GetAirlinesFile();
     [[nodiscard]] bool GetDisconnectOnOutOfRange();
 private:
     CallsignAirportMap callsignAirportMap = {};

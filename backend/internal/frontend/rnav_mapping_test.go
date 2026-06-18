@@ -37,3 +37,22 @@ func TestMapStripToFrontendModelRNAVIsNilWhenEquipmentMarkerRAbsent(t *testing.T
 
 	assert.Equal(t, "NIL", strip.Capabilities)
 }
+
+func TestMapStripToFrontendModelMapsStoredSpokenCallsign(t *testing.T) {
+	spokenCallsign := "ALPACA"
+
+	strip := MapStripToFrontendModel(&models.Strip{
+		Callsign:       "WLF166",
+		SpokenCallsign: &spokenCallsign,
+	})
+
+	assert.Equal(t, "ALPACA", strip.SpokenCallsign)
+}
+
+func TestMapStripToFrontendModelLeavesSpokenCallsignEmptyWhenMissing(t *testing.T) {
+	strip := MapStripToFrontendModel(&models.Strip{
+		Callsign: "SAS123",
+	})
+
+	assert.Equal(t, "", strip.SpokenCallsign)
+}

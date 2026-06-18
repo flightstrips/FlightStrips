@@ -597,7 +597,7 @@ export default function FlightPlanDialog({
             <div className="grid items-center" style={gridGroupStyle}>
               <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>IATA TYPE</Label>
               <Input
-                defaultValue=""
+                value={strip.spoken_callsign ?? ""}
                 disabled
                 className={CLS_BTN_DISABLED}
                 style={fieldStyle(130)}

@@ -107,7 +107,8 @@ TEST(FlightPlanServiceStateTest, ApplyCdmUpdate_PopulatesBackendFields) {
         std::shared_ptr<FlightStrips::websocket::WebSocketService>{},
         std::shared_ptr<FlightStrips::FlightStripsPlugin>{},
         std::shared_ptr<FlightStrips::stands::StandService>{},
-        std::shared_ptr<FlightStrips::configuration::AppConfig>{}
+        std::shared_ptr<FlightStrips::configuration::AppConfig>{},
+        nullptr
     );
 
     CdmUpdateEvent update;
@@ -151,7 +152,8 @@ TEST(FlightPlanServiceStateTest, ApplyBackendSyncCdm_SeedsCdmState) {
         std::shared_ptr<FlightStrips::websocket::WebSocketService>{},
         std::shared_ptr<FlightStrips::FlightStripsPlugin>{},
         std::shared_ptr<FlightStrips::stands::StandService>{},
-        std::shared_ptr<FlightStrips::configuration::AppConfig>{}
+        std::shared_ptr<FlightStrips::configuration::AppConfig>{},
+        nullptr
     );
 
     BackendSyncCdmData syncData;
@@ -179,7 +181,8 @@ TEST(FlightPlanServiceStateTest, ApplyPdcStateChange_SeedsTrackedState) {
         std::shared_ptr<FlightStrips::websocket::WebSocketService>{},
         std::shared_ptr<FlightStrips::FlightStripsPlugin>{},
         std::shared_ptr<FlightStrips::stands::StandService>{},
-        std::shared_ptr<FlightStrips::configuration::AppConfig>{}
+        std::shared_ptr<FlightStrips::configuration::AppConfig>{},
+        nullptr
     );
 
     service.ApplyPdcStateChange("SAS321", "CLEARED");

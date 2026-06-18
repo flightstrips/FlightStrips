@@ -560,7 +560,7 @@ struct StripUpdateEvent final : Event {
     StripUpdateEvent(std::string callsign, std::string origin, std::string destination, std::string alternate, std::string route,
           std::string remarks, std::string runway, std::string squawk, std::string assigned_squawk, std::string sid,
           bool cleared, std::string ground_state, int cleared_altitude, int requested_altitude, int heading,
-          std::string aircraft_type, std::string aircraft_category, Position position, std::string stand,
+          std::string aircraft_type, std::string aircraft_category, std::string spoken_callsign, Position position, std::string stand,
           std::string communication_type, std::string capabilities, std::string eobt, std::string eldt,
           std::string tracking_controller, std::string engine_type, bool has_fp = true)
         : Event(EVENT_STRIP_UPDATE), callsign(std::move(callsign)),
@@ -580,6 +580,7 @@ struct StripUpdateEvent final : Event {
           heading(heading),
           aircraft_type(std::move(aircraft_type)),
           aircraft_category(std::move(aircraft_category)),
+          spoken_callsign(std::move(spoken_callsign)),
           position(position),
           stand(std::move(stand)),
           communication_type(std::move(communication_type)),
@@ -608,6 +609,7 @@ struct StripUpdateEvent final : Event {
     int heading;
     std::string aircraft_type;
     std::string aircraft_category;
+    std::string spoken_callsign;
     Position position;
     std::string stand;
     std::string communication_type;
@@ -620,7 +622,7 @@ struct StripUpdateEvent final : Event {
 
     NLOHMANN_DEFINE_TYPE_INTRUSIVE(StripUpdateEvent, callsign, origin, destination, alternate, route, remarks, runway, squawk,
                                    assigned_squawk, sid, cleared, ground_state, cleared_altitude, requested_altitude,
-                                   heading, aircraft_type, aircraft_category, position, stand, communication_type,
+                                   heading, aircraft_type, aircraft_category, spoken_callsign, position, stand, communication_type,
                                    capabilities, eobt, eldt, tracking_controller, engine_type, has_fp, type);
 
 };
@@ -677,7 +679,7 @@ struct Strip final {
     Strip(std::string callsign, std::string origin, std::string destination, std::string alternate, std::string route,
           std::string remarks, std::string runway, std::string squawk, std::string assigned_squawk, std::string sid,
           bool cleared, std::string ground_state, int cleared_altitude, int requested_altitude, int heading,
-          std::string aircraft_type, std::string aircraft_category, Position position, std::string stand,
+          std::string aircraft_type, std::string aircraft_category, std::string spoken_callsign, Position position, std::string stand,
           std::string communication_type, std::string capabilities, std::string eobt, std::string eldt,
           std::string tracking_controller, std::string engine_type, bool has_fp = true)
         : callsign(std::move(callsign)),
@@ -697,6 +699,7 @@ struct Strip final {
           heading(heading),
           aircraft_type(std::move(aircraft_type)),
           aircraft_category(std::move(aircraft_category)),
+          spoken_callsign(std::move(spoken_callsign)),
           position(position),
           stand(std::move(stand)),
           communication_type(std::move(communication_type)),
@@ -725,6 +728,7 @@ struct Strip final {
     int heading;
     std::string aircraft_type;
     std::string aircraft_category;
+    std::string spoken_callsign;
     Position position;
     std::string stand;
     std::string communication_type;
@@ -737,7 +741,7 @@ struct Strip final {
 
     NLOHMANN_DEFINE_TYPE_INTRUSIVE(Strip, callsign, origin, destination, alternate, route, remarks, runway, squawk,
                                    assigned_squawk, sid, cleared, ground_state, cleared_altitude, requested_altitude,
-                                   heading, aircraft_type, aircraft_category, position, stand, communication_type,
+                                   heading, aircraft_type, aircraft_category, spoken_callsign, position, stand, communication_type,
                                    capabilities, eobt, eldt, tracking_controller, engine_type, has_fp);
 };
 

@@ -23,6 +23,7 @@ set(ALL_FILES
         authentication/AuthenticationServiceTest.cpp
 
         # FlightPlan
+        flightplan/AirlineCallsignServiceTest.cpp
         flightplan/RouteServiceTest.cpp
         flightplan/FlightPlanServiceTest.cpp
 

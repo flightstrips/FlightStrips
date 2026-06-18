@@ -295,7 +295,7 @@ func (q *Queries) GetSequence(ctx context.Context, arg GetSequenceParams) (int32
 }
 
 const getStrip = `-- name: GetStrip :one
-SELECT id, version, callsign, session, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay, position_latitude, position_longitude, position_altitude, next_owners, previous_owners, release_point, marked, registration, tracking_controller, runway_cleared, unexpected_change_fields, controller_modified_fields, engine_type, is_manual, persons_on_board, fpl_type, language, has_fp, cdm_data, runway_confirmed, pdc_data, validation_status, start_req
+SELECT id, version, callsign, session, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay, position_latitude, position_longitude, position_altitude, next_owners, previous_owners, release_point, marked, registration, tracking_controller, runway_cleared, unexpected_change_fields, controller_modified_fields, engine_type, is_manual, persons_on_board, fpl_type, language, has_fp, cdm_data, runway_confirmed, pdc_data, validation_status, start_req, spoken_callsign
 FROM strips
 WHERE callsign = $1 AND session = $2
 `
@@ -358,6 +358,7 @@ func (q *Queries) GetStrip(ctx context.Context, arg GetStripParams) (Strip, erro
 		&i.PdcData,
 		&i.ValidationStatus,
 		&i.StartReq,
+		&i.SpokenCallsign,
 	)
 	return i, err
 }
@@ -367,7 +368,7 @@ INSERT INTO strips (version, callsign, session, origin, destination, alternative
                      squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities,
                      communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay,
                      position_latitude, position_longitude, position_altitude, cdm_data, next_owners, previous_owners,
-                     registration, tracking_controller, engine_type, has_fp, start_req)
+                     registration, tracking_controller, engine_type, spoken_callsign, has_fp, start_req)
 VALUES (
     1,
     $1,
@@ -404,7 +405,8 @@ VALUES (
     $32,
     $33,
     $34,
-    $35
+    $35,
+    $36
 )
 `
 
@@ -442,6 +444,7 @@ type InsertStripParams struct {
 	Registration       *string
 	TrackingController string
 	EngineType         string
+	SpokenCallsign     *string
 	HasFp              bool
 	StartReq           bool
 }
@@ -481,6 +484,7 @@ func (q *Queries) InsertStrip(ctx context.Context, arg InsertStripParams) error 
 		arg.Registration,
 		arg.TrackingController,
 		arg.EngineType,
+		arg.SpokenCallsign,
 		arg.HasFp,
 		arg.StartReq,
 	)
@@ -525,7 +529,7 @@ func (q *Queries) ListStripSequences(ctx context.Context, arg ListStripSequences
 }
 
 const listStrips = `-- name: ListStrips :many
-SELECT id, version, callsign, session, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay, position_latitude, position_longitude, position_altitude, next_owners, previous_owners, release_point, marked, registration, tracking_controller, runway_cleared, unexpected_change_fields, controller_modified_fields, engine_type, is_manual, persons_on_board, fpl_type, language, has_fp, cdm_data, runway_confirmed, pdc_data, validation_status, start_req
+SELECT id, version, callsign, session, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay, position_latitude, position_longitude, position_altitude, next_owners, previous_owners, release_point, marked, registration, tracking_controller, runway_cleared, unexpected_change_fields, controller_modified_fields, engine_type, is_manual, persons_on_board, fpl_type, language, has_fp, cdm_data, runway_confirmed, pdc_data, validation_status, start_req, spoken_callsign
 FROM strips
 WHERE session = $1
 ORDER BY callsign
@@ -590,6 +594,7 @@ func (q *Queries) ListStrips(ctx context.Context, session int32) ([]Strip, error
 			&i.PdcData,
 			&i.ValidationStatus,
 			&i.StartReq,
+			&i.SpokenCallsign,
 		); err != nil {
 			return nil, err
 		}
@@ -602,7 +607,7 @@ func (q *Queries) ListStrips(ctx context.Context, session int32) ([]Strip, error
 }
 
 const listStripsByOrigin = `-- name: ListStripsByOrigin :many
-SELECT id, version, callsign, session, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay, position_latitude, position_longitude, position_altitude, next_owners, previous_owners, release_point, marked, registration, tracking_controller, runway_cleared, unexpected_change_fields, controller_modified_fields, engine_type, is_manual, persons_on_board, fpl_type, language, has_fp, cdm_data, runway_confirmed, pdc_data, validation_status, start_req
+SELECT id, version, callsign, session, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay, position_latitude, position_longitude, position_altitude, next_owners, previous_owners, release_point, marked, registration, tracking_controller, runway_cleared, unexpected_change_fields, controller_modified_fields, engine_type, is_manual, persons_on_board, fpl_type, language, has_fp, cdm_data, runway_confirmed, pdc_data, validation_status, start_req, spoken_callsign
 FROM strips
 WHERE origin = $1 AND session = $2
 ORDER BY callsign
@@ -672,6 +677,7 @@ func (q *Queries) ListStripsByOrigin(ctx context.Context, arg ListStripsByOrigin
 			&i.PdcData,
 			&i.ValidationStatus,
 			&i.StartReq,
+			&i.SpokenCallsign,
 		); err != nil {
 			return nil, err
 		}
@@ -979,20 +985,21 @@ SET version = version + 1,
     marked = $30,
     registration = $31,
     tracking_controller = $32,
-    runway_cleared = $33,
-    runway_confirmed = $34,
-    engine_type = $35,
-    unexpected_change_fields = COALESCE($36::text[], '{}'::text[]),
-    controller_modified_fields = COALESCE($37::text[], '{}'::text[]),
-    is_manual = $38,
-    persons_on_board = $39,
-    fpl_type = $40,
-    language = $41,
-    has_fp = $42,
-    pdc_data = $43,
-    validation_status = $44,
-    start_req = $45
-WHERE callsign = $46 AND session = $47
+    spoken_callsign = $33,
+    runway_cleared = $34,
+    runway_confirmed = $35,
+    engine_type = $36,
+    unexpected_change_fields = COALESCE($37::text[], '{}'::text[]),
+    controller_modified_fields = COALESCE($38::text[], '{}'::text[]),
+    is_manual = $39,
+    persons_on_board = $40,
+    fpl_type = $41,
+    language = $42,
+    has_fp = $43,
+    pdc_data = $44,
+    validation_status = $45,
+    start_req = $46
+WHERE callsign = $47 AND session = $48
 `
 
 type UpdateStripParams struct {
@@ -1028,6 +1035,7 @@ type UpdateStripParams struct {
 	Marked                   bool
 	Registration             *string
 	TrackingController       string
+	SpokenCallsign           *string
 	RunwayCleared            bool
 	RunwayConfirmed          bool
 	EngineType               string
@@ -1079,6 +1087,7 @@ func (q *Queries) UpdateStrip(ctx context.Context, arg UpdateStripParams) (int64
 		arg.Marked,
 		arg.Registration,
 		arg.TrackingController,
+		arg.SpokenCallsign,
 		arg.RunwayCleared,
 		arg.RunwayConfirmed,
 		arg.EngineType,

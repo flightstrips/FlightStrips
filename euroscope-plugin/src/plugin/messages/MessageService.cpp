@@ -183,6 +183,7 @@ namespace FlightStrips::messages {
             const auto flightPlanData = it.GetFlightPlanData();
 
             const auto callsign = std::string(it.GetCallsign());
+            const auto remarks = std::string(flightPlanData.GetRemarks());
             const auto radarTarget = m_plugin->RadarTargetSelect(callsign.c_str());
             const auto radarPosition = radarTarget.GetPosition();
             const auto hasRadarPosition = radarPosition.IsValid();
@@ -221,7 +222,7 @@ namespace FlightStrips::messages {
                 std::string(flightPlanData.GetDestination()),
                 std::string(flightPlanData.GetAlternate()),
                 std::string(flightPlanData.GetRoute()),
-                std::string(flightPlanData.GetRemarks()),
+                remarks,
                 runway,
                 squawk,
                 std::string(controllerAssignedData.GetSquawk()),
@@ -233,6 +234,7 @@ namespace FlightStrips::messages {
                 controllerAssignedData.GetAssignedHeading(),
                 std::string(flightPlanData.GetAircraftInfo()),
                 {flightPlanData.GetAircraftWtc()},
+                m_flightPlanService->ResolveSpokenCallsign(callsign, remarks),
                 Position{
                     latitude, longitude, altitude
                 },
@@ -278,7 +280,7 @@ namespace FlightStrips::messages {
                 std::string(position.GetSquawk()), "", "",  // squawk, assigned_squawk, sid
                 false, "",   // cleared, ground_state
                 0, 0, 0,    // cleared_altitude, requested_altitude, heading
-                "", "",     // aircraft_type, aircraft_category
+                "", "", "", // aircraft_type, aircraft_category, spoken_callsign
                 Position{pos.m_Latitude, pos.m_Longitude, position.GetPressureAltitude()},
                 stand,
                 "", "", "",  // communication_type, capabilities, eobt

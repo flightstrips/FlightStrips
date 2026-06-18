@@ -67,6 +67,8 @@ set(src__handlers
 source_group("src\\collections" FILES ${src__handlers})
 
 set(src__flightplan
+        flightplan/AirlineCallsignService.h
+        flightplan/AirlineCallsignService.cpp
         flightplan/FlightPlanService.h
         flightplan/FlightPlanService.cpp
         flightplan/FlightPlan.h

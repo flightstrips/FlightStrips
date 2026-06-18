@@ -75,6 +75,11 @@ TEST(AppConfigTest, GetStandsFile_Default_ReturnsGRpluginStands) {
     EXPECT_EQ(cfg.GetStandsFile(), "GRpluginStands.txt");
 }
 
+TEST(AppConfigTest, GetAirlinesFile_Default_ReturnsIcaoAirlinesPath) {
+    auto cfg = MakeDefault();
+    EXPECT_EQ(cfg.GetAirlinesFile(), "../ICAO/ICAO_Airlines.txt");
+}
+
 TEST(AppConfigTest, GetDisconnectOnOutOfRange_Default_ReturnsFalse) {
     auto cfg = MakeDefault();
     EXPECT_FALSE(cfg.GetDisconnectOnOutOfRange());

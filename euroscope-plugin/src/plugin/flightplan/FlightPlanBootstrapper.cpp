@@ -5,7 +5,12 @@
 
 namespace FlightStrips::flightplan {
     void FlightPlanBootstrapper::Bootstrap(Container &container) {
-        container.flightPlanService = std::make_shared<FlightPlanService>(container.webSocketService, container.plugin, container.standService, container.appConfig);
+        container.flightPlanService = std::make_shared<FlightPlanService>(
+            container.webSocketService,
+            container.plugin,
+            container.standService,
+            container.appConfig,
+            container.filesystem.get());
         container.radarTargetEventHandlers->RegisterHandler(container.flightPlanService);
         container.flightPlanEventHandlers->RegisterHandler(container.flightPlanService);
         container.timedEventHandlers->RegisterHandler(container.flightPlanService);

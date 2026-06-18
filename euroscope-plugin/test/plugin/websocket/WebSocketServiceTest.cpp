@@ -1259,3 +1259,80 @@ TEST(SyncEventTest, EmptyCollections_SerializesCorrectly) {
     EXPECT_TRUE(j["runways"].is_array());
     EXPECT_TRUE(j["sids"].is_array());
 }
+
+TEST(StripUpdateEventTest, SerializesSpokenCallsignField) {
+    StripUpdateEvent e(
+        "WLF166",
+        "EKCH",
+        "EGLL",
+        "",
+        "",
+        "RMK/CS=WOLFAIR",
+        "22L",
+        "1234",
+        "2345",
+        "BETOS1B",
+        true,
+        "TAXI",
+        5000,
+        7000,
+        180,
+        "B738",
+        "M",
+        "WOLFAIR",
+        Position{55.6181, 12.6560, 1500},
+        "A12",
+        "R",
+        "1",
+        "1200",
+        "",
+        "EKCH_APP",
+        "J"
+    );
+
+    const nlohmann::json j = e;
+    EXPECT_EQ(j["type"], EVENT_STRIP_UPDATE_NAME);
+    EXPECT_EQ(j["spoken_callsign"], "WOLFAIR");
+}
+
+TEST(SyncEventTest, PopulatedStripSerializesSpokenCallsignField) {
+    SyncEvent e(
+        {
+            Strip(
+                "WLF166",
+                "EKCH",
+                "EGLL",
+                "",
+                "",
+                "RMK/CS=WOLFAIR",
+                "22L",
+                "1234",
+                "2345",
+                "BETOS1B",
+                true,
+                "TAXI",
+                5000,
+                7000,
+                180,
+                "B738",
+                "M",
+                "WOLFAIR",
+                Position{55.6181, 12.6560, 1500},
+                "A12",
+                "R",
+                "1",
+                "1200",
+                "",
+                "EKCH_APP",
+                "J"
+            )
+        },
+        {Controller("DEL", "EKCH_DEL")},
+        {Runway{"22L", true, false}},
+        {SidEntry{"BETOS1B", "22L"}}
+    );
+
+    const nlohmann::json j = e;
+    ASSERT_EQ(j["strips"].size(), 1u);
+    EXPECT_EQ(j["strips"][0]["spoken_callsign"], "WOLFAIR");
+}

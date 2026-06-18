@@ -137,6 +137,7 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 			Bay:                bay,
 			TrackingController: strip.TrackingController,
 			EngineType:         strip.EngineType,
+			SpokenCallsign:     &strip.SpokenCallsign,
 			HasFP:              strip.HasFP,
 			StartReq:           false,
 		}
@@ -400,6 +401,7 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 			PdcMessageSent:           pdcData.MessageSent,
 			TrackingController:       strip.TrackingController,
 			EngineType:               strip.EngineType,
+			SpokenCallsign:           &strip.SpokenCallsign,
 			StartReq:                 startReq,
 			UnexpectedChangeFields:   unexpectedChangeFields,
 			ValidationStatus:         validationStatus,
@@ -657,6 +659,7 @@ func syncStripChanged(existingStrip, updateStrip *internalModels.Strip) bool {
 		existingStrip.Marked != updateStrip.Marked ||
 		!reflect.DeepEqual(existingStrip.Registration, updateStrip.Registration) ||
 		existingStrip.TrackingController != updateStrip.TrackingController ||
+		!reflect.DeepEqual(existingStrip.SpokenCallsign, updateStrip.SpokenCallsign) ||
 		existingStrip.RunwayCleared != updateStrip.RunwayCleared ||
 		existingStrip.RunwayConfirmed != updateStrip.RunwayConfirmed ||
 		existingStrip.EngineType != updateStrip.EngineType ||
@@ -729,6 +732,7 @@ func applySyncStripUpdate(existingStrip, updateStrip *internalModels.Strip) {
 	existingStrip.PdcMessageSequence = updateStrip.PdcMessageSequence
 	existingStrip.PdcMessageSent = updateStrip.PdcMessageSent
 	existingStrip.TrackingController = updateStrip.TrackingController
+	existingStrip.SpokenCallsign = updateStrip.SpokenCallsign
 	existingStrip.RunwayCleared = updateStrip.RunwayCleared
 	existingStrip.RunwayConfirmed = updateStrip.RunwayConfirmed
 	existingStrip.EngineType = updateStrip.EngineType

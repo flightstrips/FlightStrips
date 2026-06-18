@@ -40,11 +40,24 @@ namespace FlightStrips::flightplan {
         const std::shared_ptr<websocket::WebSocketService> &websocketService,
         const std::shared_ptr<FlightStripsPlugin> &flightStripsPlugin,
         const std::shared_ptr<stands::StandService> &standService,
-        const std::shared_ptr<configuration::AppConfig> &appConfig) : m_websocketService(websocketService),
+        const std::shared_ptr<configuration::AppConfig> &appConfig,
+        filesystem::FileSystem* fileSystem) : m_websocketService(websocketService),
                                                                       m_flightStripsPlugin(flightStripsPlugin),
                                                                       m_standService(standService),
                                                                       m_appConfig(appConfig),
+                                                                      m_airlineCallsignService(std::make_unique<AirlineCallsignService>(
+                                                                          fileSystem == nullptr
+                                                                              ? ""
+                                                                              : fileSystem->GetLocalFilePath(m_appConfig->GetAirlinesFile()).string())),
                                                                       m_flightPlans({}) {
+    }
+
+    std::string FlightPlanService::ResolveSpokenCallsign(const std::string& callsign, const std::string& remarks) const {
+        if (m_airlineCallsignService == nullptr) {
+            return "";
+        }
+
+        return m_airlineCallsignService->ResolveSpokenCallsign(callsign, remarks);
     }
 
     void FlightPlanService::RadarTargetPositionEvent(EuroScopePlugIn::CRadarTarget radarTarget, const bool isRangeOnly) {
@@ -107,7 +120,7 @@ namespace FlightStrips::flightplan {
                 std::string(position.GetSquawk()), "", "",  // squawk, assigned_squawk, sid
                 false, "",   // cleared, ground_state
                 0, 0, 0,    // cleared_altitude, requested_altitude, heading
-                "", "",     // aircraft_type, aircraft_category
+                "", "", "", // aircraft_type, aircraft_category, spoken_callsign
                 Position{aircraftPosition.m_Latitude, aircraftPosition.m_Longitude, position.GetPressureAltitude()},
                 stand,
                 "", "", "",  // communication_type, capabilities, eobt
@@ -149,6 +162,7 @@ namespace FlightStrips::flightplan {
         if (!radarPosition.IsValid()) return;
         const auto position = radarPosition.GetPosition();
         const auto flightPlanData = flightPlan.GetFlightPlanData();
+        const auto remarks = std::string(flightPlanData.GetRemarks());
 
         const auto isArrival = strcmp(flightPlan.GetFlightPlanData().GetDestination(), relevantAirport.c_str()) == 0;
         const auto runway = std::string(isArrival
@@ -170,7 +184,7 @@ namespace FlightStrips::flightplan {
             std::string(flightPlanData.GetDestination()),
             std::string(flightPlanData.GetAlternate()),
             std::string(flightPlanData.GetRoute()),
-            std::string(flightPlanData.GetRemarks()),
+            remarks,
             runway,
             std::string(radarPosition.GetSquawk()),
             std::string(controllerAssignedData.GetSquawk()),
@@ -182,6 +196,7 @@ namespace FlightStrips::flightplan {
             controllerAssignedData.GetAssignedHeading(),
             std::string(flightPlanData.GetAircraftInfo()),
             {flightPlanData.GetAircraftWtc()},
+            ResolveSpokenCallsign(callsign, remarks),
             Position{
                 position.m_Latitude, position.m_Longitude, radarPosition.GetPressureAltitude()
             },

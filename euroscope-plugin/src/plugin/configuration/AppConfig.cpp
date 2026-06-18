@@ -123,6 +123,10 @@ namespace FlightStrips::configuration {
         return std::string(ini["files"]["stands"] | "GRpluginStands.txt");
     }
 
+    std::string AppConfig::GetAirlinesFile() {
+        return std::string(ini["files"]["airlines"] | "../ICAO/ICAO_Airlines.txt");
+    }
+
     bool AppConfig::GetDisconnectOnOutOfRange() {
         return ini["api"]["disconnect_on_out_of_range"] | false;
     }

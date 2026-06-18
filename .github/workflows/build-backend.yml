@@ -1,0 +1,32 @@
+name: Build backend
+
+on:
+  push:
+    branches:
+      - 'main'
+    paths:
+      - 'backend/**'
+  pull_request:
+    branches:
+      - 'main'
+    paths:
+      - 'backend/**'
+
+jobs:
+  build-backend:
+    name: Build backend
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+
+    defaults:
+      run:
+        working-directory: ./backend
+
+    steps:
+    - uses: actions/checkout@v3
+    - uses: actions/setup-go@v5
+      with:
+        go-version: '1.25'
+    - name: Build
+      run: go build ./...
+    - name: Test
+      run: go test ./...

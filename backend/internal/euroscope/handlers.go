@@ -155,7 +155,7 @@ func handleControllerOffline(ctx context.Context, client *Client, message Messag
 			slog.String("callsign", event.Callsign),
 			slog.String("position", result.PositionName),
 			slog.Int("session", int(session)))
-		client.hub.scheduleOfflineActions(session, event.Callsign, result.PositionFrequency, result.PositionName, offlineGracePeriod)
+		client.hub.scheduleOfflineActions(session, event.Callsign, result.PositionFrequency, result.PositionName, controllerOfflineGracePeriod)
 	}
 
 	return nil

@@ -371,3 +371,100 @@ func TestScheduleOfflineActions_UsesStoredTimerEntryMetadata(t *testing.T) {
 	assert.Equal(t, replacementCallsign, frontendHub.ControllerOfflines[0].Callsign)
 	assert.Equal(t, replacementPosition, frontendHub.ControllerOfflines[0].Position)
 }
+
+func TestControllerOfflineGracePeriodValue(t *testing.T) {
+	assert.Equal(t, 15*time.Second, controllerOfflineGracePeriod, "controllerOfflineGracePeriod should be 15s")
+}
+
+func TestScheduleOfflineActions_ControllerOfflineGracePeriodFinalizes(t *testing.T) {
+	const session = int32(1)
+	const callsign = "EKCH_TWR"
+	const position = "118.700"
+	const positionName = "EKCH_TWR"
+	t.Cleanup(config.SetOwnerCallsignPrefixesForTest([]string{"EKCH", "EKDK"}))
+
+	var deleteCalls atomic.Int32
+	var recalculateCalls atomic.Int32
+
+	frontendHub := &testutil.MockFrontendHub{}
+	server := &testutil.MockServer{
+		FrontendHubVal: frontendHub,
+		ControllerRepoVal: &testutil.MockControllerRepository{
+			GetByCallsignFn: func(_ context.Context, sess int32, cs string) (*models.Controller, error) {
+				assert.Equal(t, session, sess)
+				assert.Equal(t, callsign, cs)
+				return &models.Controller{
+					Callsign: callsign,
+					Position: position,
+				}, nil
+			},
+			GetByPositionFn: func(_ context.Context, sess int32, pos string) ([]*models.Controller, error) {
+				assert.Equal(t, session, sess)
+				assert.Equal(t, position, pos)
+				return []*models.Controller{
+					{Callsign: callsign, Position: position},
+				}, nil
+			},
+			DeleteFn: func(_ context.Context, sess int32, cs string) error {
+				assert.Equal(t, session, sess)
+				assert.Equal(t, callsign, cs)
+				deleteCalls.Add(1)
+				return nil
+			},
+		},
+		RecalculateSessionFn: func(_ int32, _ bool) ([]shared.SectorChange, error) {
+			recalculateCalls.Add(1)
+			return nil, nil
+		},
+	}
+
+	hub := buildReconcileHub(server)
+	hub.scheduleOfflineActions(session, callsign, position, positionName, 10*time.Millisecond)
+
+	require.Eventually(t, func() bool { return deleteCalls.Load() == 1 }, 2*time.Second, 50*time.Millisecond,
+		"controller should be deleted after grace period")
+	require.Eventually(t, func() bool { return len(frontendHub.ControllerOfflines) >= 1 }, 2*time.Second, 50*time.Millisecond,
+		"offline notification should be sent after grace period")
+	assert.Equal(t, callsign, frontendHub.ControllerOfflines[0].Callsign)
+	assert.Equal(t, position, frontendHub.ControllerOfflines[0].Position)
+
+	require.Eventually(t, func() bool { return recalculateCalls.Load() == 1 }, 2*time.Second, 50*time.Millisecond,
+		"session should be recalculated after finalization (debounced)")
+
+	hub.offlineMu.Lock()
+	assert.Empty(t, hub.offlineTimers, "timer entry should be removed after execution")
+	hub.offlineMu.Unlock()
+}
+
+func TestScheduleOfflineActions_CancelPreventsFinalization(t *testing.T) {
+	const session = int32(1)
+	const callsign = "EKCH_TWR"
+	const position = "118.700"
+	const positionName = "EKCH_TWR"
+	t.Cleanup(config.SetOwnerCallsignPrefixesForTest([]string{"EKCH", "EKDK"}))
+
+	var deleteCalls atomic.Int32
+
+	frontendHub := &testutil.MockFrontendHub{}
+	server := &testutil.MockServer{
+		FrontendHubVal: frontendHub,
+		ControllerRepoVal: &testutil.MockControllerRepository{
+			DeleteFn: func(_ context.Context, _ int32, _ string) error {
+				deleteCalls.Add(1)
+				return nil
+			},
+		},
+	}
+
+	hub := buildReconcileHub(server)
+
+	hub.scheduleOfflineActions(session, callsign, position, positionName, 10*time.Millisecond)
+
+	cancelled := hub.cancelOfflineTimer(session, positionName)
+	assert.True(t, cancelled, "timer should be cancelled before it fires")
+
+	time.Sleep(120 * time.Millisecond)
+
+	assert.Equal(t, int32(0), deleteCalls.Load(), "cancelled timer should not delete controller")
+	assert.Empty(t, frontendHub.ControllerOfflines, "cancelled timer should not send offline notification")
+}

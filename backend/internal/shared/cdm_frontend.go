@@ -1,6 +1,7 @@
 package shared
 
 import (
+	"FlightStrips/internal/config"
 	"FlightStrips/internal/models"
 	frontendEvents "FlightStrips/pkg/events/frontend"
 )
@@ -11,24 +12,24 @@ func BuildFrontendCdmDataEvent(callsign string, data *models.CdmData) frontendEv
 	}
 
 	return frontendEvents.CdmDataEvent{
-		Callsign:           callsign,
-		Eobt:               truncateFrontendClockValue(valueOrEmpty(data.EffectiveEobt())),
-		Tobt:               truncateFrontendClockValue(valueOrEmpty(data.EffectiveTobt())),
-		ReqTobt:            truncateFrontendClockValue(valueOrEmpty(data.EffectiveReqTobt())),
-		ReqTobtType:        valueOrEmpty(data.EffectiveReqTobtType()),
-		TobtSetBy:          valueOrEmpty(data.TobtSetBy),
-		Tsat:               truncateFrontendClockValue(valueOrEmpty(data.EffectiveTsat())),
-		Ttot:               truncateFrontendClockValue(valueOrEmpty(data.EffectiveTtot())),
-		Ctot:               truncateFrontendClockValue(valueOrEmpty(data.EffectiveCtot())),
-		Aobt:               truncateFrontendClockValue(valueOrEmpty(data.EffectiveAobt())),
-		Asat:               truncateFrontendClockValue(valueOrEmpty(data.EffectiveAsat())),
-		Asrt:               truncateFrontendClockValue(valueOrEmpty(data.Asrt)),
-		Tsac:               truncateFrontendClockValue(valueOrEmpty(data.Tsac)),
-		Status:             valueOrEmpty(data.EffectiveStatus()),
-		EcfmpID:            valueOrEmpty(data.EcfmpID),
-		CtotSource:         valueOrEmpty(data.CtotSource),
-		Phase:              valueOrEmpty(data.EffectivePhase()),
-		EcfmpRestrictions:  convertEcfmpRestrictions(data.EcfmpRestrictions),
+		Callsign:          callsign,
+		Eobt:              truncateFrontendClockValue(valueOrEmpty(data.EffectiveEobt())),
+		Tobt:              truncateFrontendClockValue(valueOrEmpty(data.EffectiveTobt())),
+		ReqTobt:           truncateFrontendClockValue(valueOrEmpty(data.EffectiveReqTobt())),
+		ReqTobtType:       valueOrEmpty(data.EffectiveReqTobtType()),
+		TobtSetBy:         valueOrEmpty(data.TobtSetBy),
+		Tsat:              truncateFrontendClockValue(valueOrEmpty(data.EffectiveTsat())),
+		Ttot:              truncateFrontendClockValue(valueOrEmpty(data.EffectiveTtot())),
+		Ctot:              truncateFrontendClockValue(valueOrEmpty(data.EffectiveCtot())),
+		Aobt:              truncateFrontendClockValue(valueOrEmpty(data.EffectiveAobt())),
+		Asat:              truncateFrontendClockValue(valueOrEmpty(data.EffectiveAsat())),
+		Asrt:              truncateFrontendClockValue(valueOrEmpty(data.Asrt)),
+		Tsac:              truncateFrontendClockValue(valueOrEmpty(data.Tsac)),
+		Status:            valueOrEmpty(data.EffectiveStatus()),
+		EcfmpID:           valueOrEmpty(data.EcfmpID),
+		CtotSource:        valueOrEmpty(data.CtotSource),
+		Phase:             valueOrEmpty(data.EffectivePhase()),
+		EcfmpRestrictions: convertEcfmpRestrictions(data.EcfmpRestrictions),
 	}
 }
 
@@ -36,9 +37,12 @@ func convertEcfmpRestrictions(restrictions []models.EcfmpRestriction) []frontend
 	if len(restrictions) == 0 {
 		return nil
 	}
-	result := make([]frontendEvents.EcfmpRestrictionDTO, len(restrictions))
-	for i, r := range restrictions {
-		result[i] = frontendEvents.EcfmpRestrictionDTO{
+	result := make([]frontendEvents.EcfmpRestrictionDTO, 0, len(restrictions))
+	for _, r := range restrictions {
+		if !config.IsMandatoryRouteClearanceFlowEnabled() && r.Type == "mandatory_route" {
+			continue
+		}
+		result = append(result, frontendEvents.EcfmpRestrictionDTO{
 			MeasureID:   r.MeasureID,
 			Ident:       r.Ident,
 			Type:        r.Type,
@@ -49,7 +53,10 @@ func convertEcfmpRestrictions(restrictions []models.EcfmpRestriction) []frontend
 			MinLevel:    r.MinLevel,
 			ExactLevels: r.ExactLevels,
 			HasCtot:     r.HasCtot,
-		}
+		})
+	}
+	if len(result) == 0 {
+		return nil
 	}
 	return result
 }

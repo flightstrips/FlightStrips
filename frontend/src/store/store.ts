@@ -241,13 +241,13 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     metar: "",
     arrAtisCode: "",
     depAtisCode: "",
-     availableSids: [],
-     selectedCallsign: null,
-     tagRequestArmed: false,
-     markArmed: false,
-     contextMenu: null,
-      validationDialogCallsign: null,
-      };
+    availableSids: [],
+    selectedCallsign: null,
+    tagRequestArmed: false,
+    markArmed: false,
+    contextMenu: null,
+    validationDialogCallsign: null,
+  };
 
   // Create the store
   const store = createStore<WebSocketState>()((set, get) => {

@@ -33,6 +33,10 @@ type CdmConfig struct {
 	Deice          CdmDeiceConfig `yaml:"deice"`
 }
 
+type FeatureFlagsConfig struct {
+	MandatoryRouteClearanceFlow bool `yaml:"mandatory_route_clearance_flow"`
+}
+
 type Config struct {
 	Latitude               float64                     `yaml:"latitude"`
 	Longitude              float64                     `yaml:"longitude"`
@@ -54,6 +58,7 @@ type Config struct {
 	RunwayInitialCFL       map[string]int              `yaml:"runway_initial_cfl"`
 	Cdm                    CdmConfig                   `yaml:"cdm"`
 	ClxValidation          ClxValidationConfig         `yaml:"clx_validation"`
+	FeatureFlags           FeatureFlagsConfig          `yaml:"feature_flags"`
 }
 
 // TestModeConfig holds test/replay mode configuration
@@ -94,6 +99,7 @@ var standRoutes []Route
 var missedApproachHandover map[string]string
 var transitionAltitude int
 var runwayInitialCFL map[string]int
+var featureFlags FeatureFlagsConfig
 
 func loadAirportConfig(r io.Reader) error {
 	var cfg Config
@@ -144,6 +150,7 @@ func loadAirportConfig(r io.Reader) error {
 	}
 	cdmConfig = cfg.Cdm
 	clxValidationConfig = normalizeClxValidationConfig(cfg.ClxValidation)
+	featureFlags = cfg.FeatureFlags
 
 	return nil
 }
@@ -247,6 +254,10 @@ func GetInitialCFLByRunway() map[string]int {
 		result[runway] = cfl
 	}
 	return result
+}
+
+func IsMandatoryRouteClearanceFlowEnabled() bool {
+	return featureFlags.MandatoryRouteClearanceFlow
 }
 
 func loadRoutes(cfg Config) error {

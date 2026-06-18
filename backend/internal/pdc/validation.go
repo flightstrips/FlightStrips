@@ -3,16 +3,19 @@ package pdc
 import (
 	"FlightStrips/internal/config"
 	"FlightStrips/internal/models"
+	pkgModels "FlightStrips/pkg/models"
 	"fmt"
+	"sort"
 	"strings"
 )
 
 type FlightPlanValidationFaultKind string
 
 const (
-	FlightPlanValidationFaultKindSID     FlightPlanValidationFaultKind = "sid_invalid"
-	FlightPlanValidationFaultKindRunway  FlightPlanValidationFaultKind = "runway_invalid"
-	FlightPlanValidationFaultKindRouting FlightPlanValidationFaultKind = "routing_missing"
+	FlightPlanValidationFaultKindSID            FlightPlanValidationFaultKind = "sid_invalid"
+	FlightPlanValidationFaultKindRunway         FlightPlanValidationFaultKind = "runway_invalid"
+	FlightPlanValidationFaultKindRouting        FlightPlanValidationFaultKind = "routing_missing"
+	FlightPlanValidationFaultKindMandatoryRoute FlightPlanValidationFaultKind = "mandatory_route_review"
 )
 
 type FlightPlanValidationFault struct {
@@ -23,8 +26,8 @@ type FlightPlanValidationFault struct {
 // PDCStripValidationFaults returns the PDC request faults that should surface as strip
 // validations. These should align with REQUESTED_WITH_FAULTS so controllers get the
 // shared validation flow instead of separate strip-local highlighting.
-func PDCStripValidationFaults(strip *models.Strip, activeDepartureRunways []string) []FlightPlanValidationFault {
-	return validatePDCFlightPlanFaults(strip, activeDepartureRunways)
+func PDCStripValidationFaults(strip *models.Strip, activeDepartureRunways []string, availableSids pkgModels.AvailableSids) []FlightPlanValidationFault {
+	return validatePDCFlightPlanFaults(strip, activeDepartureRunways, availableSids)
 }
 
 func validationFaultMessages(faults []FlightPlanValidationFault) []string {
@@ -88,7 +91,7 @@ func RunwayTypeValidationFault(strip *models.Strip) *FlightPlanValidationFault {
 	}
 }
 
-func validatePDCFlightPlanFaults(strip *models.Strip, activeDepartureRunways []string) []FlightPlanValidationFault {
+func validatePDCFlightPlanFaults(strip *models.Strip, activeDepartureRunways []string, availableSids pkgModels.AvailableSids) []FlightPlanValidationFault {
 	if strip == nil {
 		return nil
 	}
@@ -96,7 +99,20 @@ func validatePDCFlightPlanFaults(strip *models.Strip, activeDepartureRunways []s
 	cfg := config.GetPDCValidationConfig()
 	var faults []FlightPlanValidationFault
 
+	var review *mandatoryRouteReview
+	if config.IsMandatoryRouteClearanceFlowEnabled() {
+		review = resolveMandatoryRouteReview(strip, availableSids)
+	}
+
+	if fault := mandatoryRouteValidationFaultForReview(strip, review); fault != nil {
+		faults = append(faults, *fault)
+	}
+
 	hasUsableSID := strip.Sid != nil && strings.TrimSpace(*strip.Sid) != ""
+	if !hasUsableSID && review != nil && strings.TrimSpace(review.SID) != "" {
+		hasUsableSID = true
+	}
+
 	hasUsableVectors := strip.Heading != nil && *strip.Heading != 0 &&
 		strip.ClearedAltitude != nil && *strip.ClearedAltitude > 0
 	if !hasUsableSID && !hasUsableVectors {
@@ -171,4 +187,194 @@ func validatePDCFlightPlanFaults(strip *models.Strip, activeDepartureRunways []s
 	}
 
 	return faults
+}
+
+type mandatoryRouteReview struct {
+	Route string
+	SID   string
+}
+
+func mandatoryRouteValidationFault(strip *models.Strip, availableSids pkgModels.AvailableSids) *FlightPlanValidationFault {
+	if !config.IsMandatoryRouteClearanceFlowEnabled() {
+		return nil
+	}
+
+	return mandatoryRouteValidationFaultForReview(strip, resolveMandatoryRouteReview(strip, availableSids))
+}
+
+func mandatoryRouteValidationFaultForReview(strip *models.Strip, review *mandatoryRouteReview) *FlightPlanValidationFault {
+	if review == nil {
+		return nil
+	}
+
+	message := fmt.Sprintf("Mandatory route %s requires controller review before PDC can be issued.", review.Route)
+	runway := normalizedValidationRunway(strip.Runway)
+	switch {
+	case review.SID != "":
+		message = fmt.Sprintf("%s Use SID %s.", message, review.SID)
+	case runway != "":
+		message = fmt.Sprintf("%s No runway-matching SID was found for runway %s.", message, runway)
+	default:
+		message = fmt.Sprintf("%s No matching SID could be resolved from the live runway setup.", message)
+	}
+
+	return &FlightPlanValidationFault{
+		Kind:    FlightPlanValidationFaultKindMandatoryRoute,
+		Message: message,
+	}
+}
+
+func resolveMandatoryRouteReview(strip *models.Strip, availableSids pkgModels.AvailableSids) *mandatoryRouteReview {
+	if strip == nil || strip.CdmData == nil {
+		return nil
+	}
+
+	routes := mandatoryRouteOptions(strip.CdmData.EcfmpRestrictions)
+	if len(routes) == 0 {
+		return nil
+	}
+
+	selectedRoute := selectMandatoryRoute(strip, routes)
+	if selectedRoute == "" {
+		selectedRoute = routes[0]
+	}
+	if selectedRoute == "" {
+		return nil
+	}
+
+	waypoint := firstMandatoryRouteToken(selectedRoute)
+	return &mandatoryRouteReview{
+		Route: selectedRoute,
+		SID:   resolveMandatoryRouteSID(strip, availableSids, waypoint),
+	}
+}
+
+func mandatoryRouteOptions(restrictions []models.EcfmpRestriction) []string {
+	for _, restriction := range restrictions {
+		if restriction.Type != "mandatory_route" {
+			continue
+		}
+		routes := make([]string, 0, len(restriction.Routes))
+		for _, route := range restriction.Routes {
+			trimmed := strings.ToUpper(strings.TrimSpace(route))
+			if trimmed != "" {
+				routes = append(routes, trimmed)
+			}
+		}
+		return routes
+	}
+	return nil
+}
+
+func selectMandatoryRoute(strip *models.Strip, routes []string) string {
+	if len(routes) == 0 {
+		return ""
+	}
+
+	currentRoute := strings.ToUpper(strings.TrimSpace(stringValue(strip.Route)))
+	if currentRoute != "" {
+		for _, route := range routes {
+			if strings.EqualFold(route, currentRoute) {
+				return route
+			}
+		}
+	}
+
+	return routes[0]
+}
+
+func firstMandatoryRouteToken(route string) string {
+	for _, token := range strings.FieldsFunc(strings.ToUpper(route), func(r rune) bool {
+		return (r < 'A' || r > 'Z') && (r < '0' || r > '9') && r != '/'
+	}) {
+		trimmed := strings.TrimSpace(token)
+		if trimmed == "" || trimmed == "DCT" {
+			continue
+		}
+		return trimmed
+	}
+	return ""
+}
+
+func resolveMandatoryRouteSID(strip *models.Strip, availableSids pkgModels.AvailableSids, firstWaypoint string) string {
+	family := sidFamily(firstWaypoint)
+	if family == "" {
+		return ""
+	}
+
+	runway := normalizedValidationRunway(strip.Runway)
+	currentSID := strings.ToUpper(strings.TrimSpace(stringValue(strip.Sid)))
+
+	candidates := make([]string, 0, len(availableSids))
+	for _, sid := range availableSids {
+		if family != sidFamily(sid.Name) {
+			continue
+		}
+		if runway != "" && !strings.EqualFold(strings.TrimSpace(sid.Runway), runway) {
+			continue
+		}
+		name := strings.ToUpper(strings.TrimSpace(sid.Name))
+		if name != "" {
+			candidates = append(candidates, name)
+		}
+	}
+
+	if len(candidates) == 0 {
+		if family == sidFamily(currentSID) {
+			return currentSID
+		}
+		return ""
+	}
+
+	variant := sidVariant(currentSID)
+	if variant != "" {
+		for _, candidate := range candidates {
+			if sidVariant(candidate) == variant {
+				return candidate
+			}
+		}
+	}
+
+	if currentSID != "" {
+		for _, candidate := range candidates {
+			if candidate == currentSID {
+				return candidate
+			}
+		}
+	}
+
+	sort.Strings(candidates)
+	return candidates[0]
+}
+
+func sidFamily(sid string) string {
+	sid = strings.ToUpper(strings.TrimSpace(sid))
+	if sid == "" {
+		return ""
+	}
+	for i, r := range sid {
+		if r >= '0' && r <= '9' {
+			return sid[:i]
+		}
+	}
+	return sid
+}
+
+func sidVariant(sid string) string {
+	sid = strings.ToUpper(strings.TrimSpace(sid))
+	if sid == "" {
+		return ""
+	}
+	family := sidFamily(sid)
+	if len(family) >= len(sid) {
+		return ""
+	}
+	return sid[len(family):]
+}
+
+func stringValue(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return *value
 }

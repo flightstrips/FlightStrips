@@ -1,7 +1,6 @@
 package cdm
 
 import (
-	"FlightStrips/internal/ecfmp"
 	"FlightStrips/internal/models"
 	"FlightStrips/internal/repository"
 	"FlightStrips/internal/shared"
@@ -23,7 +22,6 @@ import (
 
 type Service struct {
 	client                *Client
-	ecfmpClient           *ecfmp.Client
 	stripRepo             repository.StripRepository
 	sessionRepo           repository.SessionRepository
 	controllerRepo        repository.ControllerRepository
@@ -33,8 +31,6 @@ type Service struct {
 	sequenceService       *SequenceService
 	validationReevaluator StripValidationReevaluator
 	debouncer             *recalcDebouncer
-	ecfmpMeasures         []ecfmp.FlowMeasure
-	ecfmpMeasuresMu       sync.RWMutex
 	// sessionMaster tracks per-session CDM master status as an in-memory cache.
 	// Populated from session.CdmMaster during syncSessions and updated
 	// immediately when SetSessionCdmMaster is called.
@@ -82,10 +78,6 @@ func NewCdmService(client *Client, stripRepo repository.StripRepository, session
 
 func (s *Service) SetFrontendHub(publisher shared.CdmEventPublisher) {
 	s.publisher = publisher
-}
-
-func (s *Service) SetEcfmpClient(client *ecfmp.Client) {
-	s.ecfmpClient = client
 }
 
 func (s *Service) SetEuroscopeHub(euroscopeHub shared.EuroscopeHub) {
@@ -788,200 +780,6 @@ func (s *Service) PushTobt(ctx context.Context, session int32, callsign string, 
 	return s.client.IFPSSetTobt(ctx, callsign, tobt, taxiMinutes)
 }
 
-func (s *Service) refreshEcfmpMeasures(ctx context.Context) error {
-	measures, err := s.ecfmpClient.FlowMeasures(ctx)
-	if err != nil {
-		return err
-	}
-
-	s.ecfmpMeasuresMu.Lock()
-	s.ecfmpMeasures = measures
-	s.ecfmpMeasuresMu.Unlock()
-
-	if err := s.applyEcfmpRestrictionsToAllStrips(ctx); err != nil {
-		slog.WarnContext(ctx, "Failed to apply ECFMP restrictions to strips", slog.Any("error", err))
-	}
-
-	return nil
-}
-
-func (s *Service) applyEcfmpRestrictionsToAllStrips(ctx context.Context) error {
-	sessions, err := s.sessionRepo.List(ctx)
-	if err != nil {
-		return err
-	}
-
-	for _, session := range sessions {
-		if session == nil {
-			continue
-		}
-
-		strips, err := s.stripRepo.List(ctx, session.ID)
-		if err != nil {
-			slog.WarnContext(ctx, "Failed to list strips for ECFMP application",
-				slog.Int("session", int(session.ID)), slog.Any("error", err))
-			continue
-		}
-
-		cdmDataRows, err := s.stripRepo.GetCdmData(ctx, session.ID)
-		if err != nil {
-			slog.WarnContext(ctx, "Failed to get CDM data for ECFMP application",
-				slog.Int("session", int(session.ID)), slog.Any("error", err))
-			continue
-		}
-
-		cdmDataMap := make(map[string]*models.CdmData, len(cdmDataRows))
-		for _, row := range cdmDataRows {
-			cdmDataMap[row.Callsign] = row.Data
-		}
-
-		for _, strip := range strips {
-			newRestrictions := s.ApplyEcfmpRestrictions(strip)
-			converted := convertStripRestrictions(newRestrictions)
-
-			cdmData, ok := cdmDataMap[strip.Callsign]
-			if !ok || cdmData == nil {
-				cdmData = &models.CdmData{}
-			}
-
-			if ecfmpRestrictionsEqual(cdmData.EcfmpRestrictions, converted) {
-				continue
-			}
-
-			updated := cdmData.Clone()
-			updated.EcfmpRestrictions = converted
-			if len(converted) == 0 {
-				updated.EcfmpRestrictions = nil
-			}
-
-			if _, err := s.stripRepo.SetCdmData(ctx, session.ID, strip.Callsign, updated); err != nil {
-				slog.WarnContext(ctx, "Failed to persist ECFMP restrictions",
-					slog.String("callsign", strip.Callsign), slog.Any("error", err))
-				continue
-			}
-
-			s.broadcastEcfmpChanges(ctx, session.ID, strip.Callsign, updated)
-		}
-	}
-
-	return nil
-}
-
-func convertStripRestrictions(restrictions []ecfmp.StripRestriction) []models.EcfmpRestriction {
-	if len(restrictions) == 0 {
-		return nil
-	}
-	result := make([]models.EcfmpRestriction, len(restrictions))
-	for i, r := range restrictions {
-		result[i] = models.EcfmpRestriction{
-			MeasureID:   r.MeasureID,
-			Ident:       r.Ident,
-			Type:        r.Type,
-			Reason:      r.Reason,
-			Routes:      r.Routes,
-			Destination: r.Destination,
-			MaxLevel:    r.MaxLevel,
-			MinLevel:    r.MinLevel,
-			ExactLevels: r.ExactLevels,
-			HasCtot:     r.HasCtot,
-		}
-	}
-	return result
-}
-
-func ecfmpRestrictionsEqual(a, b []models.EcfmpRestriction) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		if a[i].MeasureID != b[i].MeasureID ||
-			a[i].Ident != b[i].Ident ||
-			a[i].Type != b[i].Type ||
-			a[i].Reason != b[i].Reason ||
-			a[i].Destination != b[i].Destination ||
-			a[i].HasCtot != b[i].HasCtot {
-			return false
-		}
-		if !sliceEqual(a[i].Routes, b[i].Routes) {
-			return false
-		}
-		if !intSliceEqual(a[i].ExactLevels, b[i].ExactLevels) {
-			return false
-		}
-		if !intPtrEqual(a[i].MaxLevel, b[i].MaxLevel) {
-			return false
-		}
-		if !intPtrEqual(a[i].MinLevel, b[i].MinLevel) {
-			return false
-		}
-	}
-	return true
-}
-
-func sliceEqual(a, b []string) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		if a[i] != b[i] {
-			return false
-		}
-	}
-	return true
-}
-
-func intSliceEqual(a, b []int) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		if a[i] != b[i] {
-			return false
-		}
-	}
-	return true
-}
-
-func intPtrEqual(a, b *int) bool {
-	if a == nil && b == nil {
-		return true
-	}
-	if a == nil || b == nil {
-		return false
-	}
-	return *a == *b
-}
-
-func (s *Service) broadcastEcfmpChanges(ctx context.Context, session int32, callsign string, cdmData *models.CdmData) {
-	if s.publisher != nil {
-		s.publisher.SendCdmUpdates(session, []frontendEvents.CdmDataEvent{shared.BuildFrontendCdmDataEvent(callsign, cdmData)})
-	}
-
-	if s.euroscopeHub != nil {
-		data, err := s.stripRepo.GetCdmDataForCallsign(ctx, session, callsign)
-		if err == nil {
-			s.euroscopeHub.BroadcastCdmUpdates(session, []euroscopeEvents.CdmUpdateEvent{buildCdmUpdateEvent(callsign, data)})
-		}
-	}
-}
-
-func (s *Service) getEcfmpMeasures() []ecfmp.FlowMeasure {
-	s.ecfmpMeasuresMu.RLock()
-	defer s.ecfmpMeasuresMu.RUnlock()
-	return s.ecfmpMeasures
-}
-
-func (s *Service) ApplyEcfmpRestrictions(strip *models.Strip) []ecfmp.StripRestriction {
-	if s.ecfmpClient == nil {
-		return nil
-	}
-	measures := s.getEcfmpMeasures()
-	if len(measures) == 0 {
-		return nil
-	}
-	return ecfmp.MatchingRestrictions(strip, measures, time.Now())
-}
-
 func (s *Service) Start(ctx context.Context) {
 	syncEnabled := s.client.isValid
 	localRecalcEnabled := s.sequenceService != nil
@@ -1033,15 +831,6 @@ func (s *Service) Start(ctx context.Context) {
 		validationCh = validationTicker.C
 	}
 
-	ecfmpTicker := time.NewTicker(time.Minute)
-	defer ecfmpTicker.Stop()
-
-	if s.ecfmpClient != nil {
-		if err := s.refreshEcfmpMeasures(ctx); err != nil {
-			slog.WarnContext(ctx, "Failed to fetch initial ECFMP measures", slog.Any("error", err))
-		}
-	}
-
 	for {
 		select {
 		case <-ctx.Done():
@@ -1057,12 +846,6 @@ func (s *Service) Start(ctx context.Context) {
 		case <-validationCh:
 			if err := s.schedulePeriodicCtotValidationReevaluation(ctx); err != nil {
 				slog.ErrorContext(ctx, "Failed to reevaluate CTOT validations", slog.Any("error", err))
-			}
-		case <-ecfmpTicker.C:
-			if s.ecfmpClient != nil {
-				if err := s.refreshEcfmpMeasures(ctx); err != nil {
-					slog.WarnContext(ctx, "Failed to refresh ECFMP measures", slog.Any("error", err))
-				}
 			}
 		}
 	}
@@ -1455,26 +1238,26 @@ func snapshotCdm(data *models.CdmData) cdmSnapshot {
 	}
 	ecfmpJSON, _ := json.Marshal(data.EcfmpRestrictions)
 	return cdmSnapshot{
-		Eobt:                    truncateCDMClockValue(helpers.ValueOrDefault(data.Eobt)),
-		Tobt:                    truncateCDMClockValue(helpers.ValueOrDefault(data.Tobt)),
-		Tsat:                    truncateCDMClockValue(helpers.ValueOrDefault(data.Tsat)),
-		Ctot:                    truncateCDMClockValue(helpers.ValueOrDefault(data.Ctot)),
-		CtotSource:              helpers.ValueOrDefault(data.CtotSource),
-		Ttot:                    truncateCDMClockValue(helpers.ValueOrDefault(data.Ttot)),
-		Asat:                    truncateCDMClockValue(helpers.ValueOrDefault(data.Asat)),
-		Asrt:                    truncateCDMClockValue(helpers.ValueOrDefault(data.Asrt)),
-		Tsac:                    helpers.ValueOrDefault(data.Tsac),
-		Aobt:                    truncateCDMClockValue(helpers.ValueOrDefault(data.Aobt)),
-		Status:                  helpers.ValueOrDefault(data.Status),
-		ReqTobt:                 truncateCDMClockValue(helpers.ValueOrDefault(data.ReqTobt)),
-		ReqTobtType:             helpers.ValueOrDefault(data.ReqTobtType),
-		EcfmpID:                 helpers.ValueOrDefault(data.EcfmpID),
-		TobtSetBy:               helpers.ValueOrDefault(data.TobtSetBy),
-		TobtConfirmedBy:         helpers.ValueOrDefault(data.TobtConfirmedBy),
-		Phase:                   helpers.ValueOrDefault(data.Phase),
-		EcfmpRestrictionsJSON:   string(ecfmpJSON),
-		TobtAutoSynced:          data.TobtAutoSynced,
-		TobtManuallyConfirmed:   data.TobtManuallyConfirmed,
+		Eobt:                  truncateCDMClockValue(helpers.ValueOrDefault(data.Eobt)),
+		Tobt:                  truncateCDMClockValue(helpers.ValueOrDefault(data.Tobt)),
+		Tsat:                  truncateCDMClockValue(helpers.ValueOrDefault(data.Tsat)),
+		Ctot:                  truncateCDMClockValue(helpers.ValueOrDefault(data.Ctot)),
+		CtotSource:            helpers.ValueOrDefault(data.CtotSource),
+		Ttot:                  truncateCDMClockValue(helpers.ValueOrDefault(data.Ttot)),
+		Asat:                  truncateCDMClockValue(helpers.ValueOrDefault(data.Asat)),
+		Asrt:                  truncateCDMClockValue(helpers.ValueOrDefault(data.Asrt)),
+		Tsac:                  helpers.ValueOrDefault(data.Tsac),
+		Aobt:                  truncateCDMClockValue(helpers.ValueOrDefault(data.Aobt)),
+		Status:                helpers.ValueOrDefault(data.Status),
+		ReqTobt:               truncateCDMClockValue(helpers.ValueOrDefault(data.ReqTobt)),
+		ReqTobtType:           helpers.ValueOrDefault(data.ReqTobtType),
+		EcfmpID:               helpers.ValueOrDefault(data.EcfmpID),
+		TobtSetBy:             helpers.ValueOrDefault(data.TobtSetBy),
+		TobtConfirmedBy:       helpers.ValueOrDefault(data.TobtConfirmedBy),
+		Phase:                 helpers.ValueOrDefault(data.Phase),
+		EcfmpRestrictionsJSON: string(ecfmpJSON),
+		TobtAutoSynced:        data.TobtAutoSynced,
+		TobtManuallyConfirmed: data.TobtManuallyConfirmed,
 	}
 }
 

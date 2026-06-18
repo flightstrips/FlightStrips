@@ -1,7 +1,7 @@
 import React, { useRef, useState } from "react";
 import * as VisuallyHidden from "@radix-ui/react-visually-hidden";
 
-import { Bay } from "@/api/models.ts";
+import { Bay, type SidInfo } from "@/api/models.ts";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -98,6 +98,83 @@ function clxFieldStyle(hasFault: boolean) {
 
 function invalidPhaseTobtStyle(phase?: string) {
   return phase === "I" ? { backgroundColor: CDM_RED, color: "white" } : {};
+}
+
+function firstMandatoryRouteToken(route: string) {
+  for (const token of route
+    .toUpperCase()
+    .split(/[^A-Z0-9/]+/)
+    .map((value) => value.trim())
+    .filter(Boolean)) {
+    if (token !== "DCT") {
+      return token;
+    }
+  }
+
+  return "";
+}
+
+function sidFamily(sid?: string) {
+  const value = sid?.trim().toUpperCase() ?? "";
+  if (!value) return "";
+
+  const match = value.match(/^[A-Z]+/);
+  return match?.[0] ?? value;
+}
+
+function sidVariant(sid?: string) {
+  const value = sid?.trim().toUpperCase() ?? "";
+  const family = sidFamily(value);
+  return family.length >= value.length ? "" : value.slice(family.length);
+}
+
+function resolveMandatoryRouteSid(route: string, runway: string | undefined, currentSid: string | undefined, availableSids: SidInfo[]) {
+  const family = sidFamily(firstMandatoryRouteToken(route));
+  if (!family) return "";
+
+  const candidates = availableSids
+    .filter((sid) => sidFamily(sid.name) === family && (!runway || sid.runway === runway))
+    .map((sid) => sid.name.trim().toUpperCase())
+    .filter(Boolean)
+    .sort();
+
+  if (candidates.length === 0) {
+    return "";
+  }
+
+  const currentVariant = sidVariant(currentSid);
+  if (currentVariant) {
+    const matchingVariant = candidates.find((candidate) => sidVariant(candidate) === currentVariant);
+    if (matchingVariant) {
+      return matchingVariant;
+    }
+  }
+
+  const normalizedCurrentSid = currentSid?.trim().toUpperCase() ?? "";
+  if (normalizedCurrentSid) {
+    const exactMatch = candidates.find((candidate) => candidate === normalizedCurrentSid);
+    if (exactMatch) {
+      return exactMatch;
+    }
+  }
+
+  return candidates[0];
+}
+
+function selectMandatoryRoute(currentRoute: string | undefined, routes: string[]) {
+  const normalizedCurrentRoute = currentRoute?.trim().toUpperCase() ?? "";
+  const normalizedRoutes = routes
+    .map((route) => route.trim().toUpperCase())
+    .filter(Boolean);
+
+  if (normalizedCurrentRoute) {
+    const matchingRoute = normalizedRoutes.find((route) => route === normalizedCurrentRoute);
+    if (matchingRoute) {
+      return matchingRoute;
+    }
+  }
+
+  return normalizedRoutes[0] ?? "";
 }
 
 function clxNitosRemarks(strip: { clx_validation?: { faults: { nitos_remark: string }[] }, pdc_request_remarks?: string, ecfmp_restrictions?: import("@/api/models").EcfmpRestriction[] } | undefined) {
@@ -204,6 +281,13 @@ export default function FlightPlanDialog({
   const sidOverride = sidOverrideKey(strip);
   const nitosRemarks = clxNitosRemarks(strip);
   const nitosRemarksFit = fittedNitosRemarksStyle(nitosRemarks);
+  const mandatoryRoute = getMandatoryRouteRestriction(strip?.ecfmp_restrictions);
+  const mandatoryRouteToClear = selectMandatoryRoute(strip?.route, mandatoryRoute?.routes ?? []);
+  const mandatoryRouteSid = strip
+    ? resolveMandatoryRouteSid(mandatoryRouteToClear, strip.runway, strip.sid, availableSids)
+    : "";
+  const mandatoryRouteSidMismatch = !!mandatoryRouteSid && mandatoryRouteSid !== (strip?.sid?.trim().toUpperCase() ?? "");
+  const isPdcRequest = strip?.pdc_state === "REQUESTED" || strip?.pdc_state === "REQUESTED_WITH_FAULTS";
   const fieldStyle = (width: number) => ({
     width: scalePx(width),
     height: FIELD_HEIGHT,
@@ -775,16 +859,24 @@ export default function FlightPlanDialog({
           open={mandatoryRouteDialogOpen}
           onOpenChange={setMandatoryRouteDialogOpen}
           callsign={callsign}
-          routes={getMandatoryRouteRestriction(strip.ecfmp_restrictions)?.routes ?? []}
+          route={mandatoryRouteToClear}
+          filedSid={strip.sid}
+          mandatorySid={mandatoryRouteSid}
+          sidMismatch={mandatoryRouteSidMismatch}
+          pdcRequested={isPdcRequest}
           onConfirm={() => {
-            const mandatoryRoute = getMandatoryRouteRestriction(strip.ecfmp_restrictions);
-            const routes = mandatoryRoute?.routes ?? [];
-            if (routes.length > 0) {
-              sendPrivateMessage(callsign, routes.join(" | "));
-            }
-            if (strip.pdc_state === "REQUESTED" || strip.pdc_state === "REQUESTED_WITH_FAULTS") {
+            if (isPdcRequest) {
               clearPdc(strip.callsign, null);
             } else {
+              if (mandatoryRouteSidMismatch) {
+                updateStrip(callsign, { sid: mandatoryRouteSid });
+              }
+              if (mandatoryRouteToClear && mandatoryRouteToClear !== strip.route?.trim().toUpperCase()) {
+                updateStrip(callsign, { route: mandatoryRouteToClear });
+              }
+              if (mandatoryRouteToClear) {
+                sendPrivateMessage(callsign, `MANDATORY ROUTE: ${mandatoryRouteToClear}`);
+              }
               moveAction(strip.callsign, Bay.Cleared);
             }
             setMandatoryRouteDialogOpen(false);

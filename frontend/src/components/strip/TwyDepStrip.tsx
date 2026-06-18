@@ -14,7 +14,7 @@ import { SIBox } from "./SIBox";
 import { TAXI_MAP_POINTS } from "@/config/ekch";
 import { Bay } from "@/api/models";
 import { ValidationStatusDialog } from "./ValidationStatusDialog";
-import { getGroundStopRestriction, getProhibitRestriction, isFlightLevelViolated } from "@/lib/ecfmp";
+import { getGroundStopRestriction, isFlightLevelViolated } from "@/lib/ecfmp";
 
 // Heights— 4.72dvh total (51px at 1080p), 2/3 top / 1/3 bottom (used by callsign and SID/dest)
 const TOP_H      = "3.15dvh";  // 2/3 of 4.72dvh

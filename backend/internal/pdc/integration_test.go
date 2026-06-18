@@ -1,6 +1,7 @@
 package pdc
 
 import (
+	"FlightStrips/internal/config"
 	"FlightStrips/internal/database"
 	"FlightStrips/internal/models"
 	"FlightStrips/internal/pdc/mocks"
@@ -1038,6 +1039,68 @@ func TestProcessPDCRequest_InactiveDepartureRunwayCreatesFault(t *testing.T) {
 	suite.mockStrip.AssertCalled(t, "ReevaluatePdcRequestValidations", mock.Anything, int32(1), callsign, true, true)
 }
 
+func TestProcessPDCRequest_MandatoryRouteRequiresManualApprovalWithoutChangingStrip(t *testing.T) {
+	t.Parallel()
+	t.Cleanup(config.SetFeatureFlagsForTest(config.FeatureFlagsConfig{MandatoryRouteClearanceFlow: true}))
+	suite := &PDCIntegrationTestSuite{}
+	suite.SetupTest(t)
+	ctx := context.Background()
+
+	callsign := "SAS128"
+	testdata.SeedTestStrip(t, suite.queries, 1, callsign)
+
+	strip, err := suite.service.stripRepo.GetByCallsign(ctx, 1, callsign)
+	require.NoError(t, err)
+	runway := "22R"
+	sid := "GOLGA2C"
+	route := "GOLGA DCT"
+	strip.Runway = &runway
+	strip.Sid = &sid
+	strip.Route = &route
+	strip.CdmData = (&models.CdmData{
+		EcfmpRestrictions: []models.EcfmpRestriction{
+			{Type: "mandatory_route", Routes: []string{"VEDAR DCT"}},
+		},
+	}).Normalize()
+	_, err = suite.service.stripRepo.Update(ctx, strip)
+	require.NoError(t, err)
+
+	require.NoError(t, suite.queries.UpdateSessionSids(ctx, database.UpdateSessionSidsParams{
+		ID: 1,
+		AvailableSids: pkgModels.AvailableSids{
+			{Name: "VEDAR2C", Runway: "22R"},
+		},
+	}))
+
+	suite.mockHoppie.On("SendCPDLC", mock.Anything, mock.Anything, callsign, mock.MatchedBy(func(msg string) bool {
+		return strings.Contains(msg, "STANDBY")
+	})).Return(nil).Once()
+	suite.mockFrontend.On("SendPdcStateChange", int32(1), callsign, "REQUESTED_WITH_FAULTS", "").Return()
+
+	incomingMsg := &IncomingMessage{
+		Type:       MsgPDCRequest,
+		From:       callsign,
+		To:         "EKCH",
+		Payload:    "REQUEST PREDEP CLEARANCE " + callsign + " A320 TO ESSA AT EKCH STAND A10 ATIS A",
+		RawMessage: callsign + " EKCH telex {REQUEST PREDEP CLEARANCE " + callsign + " A320 TO ESSA AT EKCH STAND A10 ATIS A}",
+	}
+
+	session := sessionInformation{id: 1, callsign: "EKCH"}
+	err = suite.service.ProcessPDCRequest(ctx, incomingMsg, session)
+	require.NoError(t, err)
+
+	updatedStrip, err := suite.service.stripRepo.GetByCallsign(ctx, 1, callsign)
+	require.NoError(t, err)
+	require.NotNil(t, updatedStrip.Route)
+	require.NotNil(t, updatedStrip.Sid)
+	assert.Equal(t, "GOLGA DCT", *updatedStrip.Route)
+	assert.Equal(t, "GOLGA2C", *updatedStrip.Sid)
+
+	dbStrip, err := suite.queries.GetStrip(ctx, database.GetStripParams{Session: 1, Callsign: callsign})
+	require.NoError(t, err)
+	assert.Equal(t, "REQUESTED_WITH_FAULTS", readStripPdcState(t, dbStrip))
+}
+
 func TestProcessPDCRequest_AlreadyCleared(t *testing.T) {
 	t.Parallel()
 	suite := &PDCIntegrationTestSuite{}
@@ -1071,4 +1134,57 @@ func TestProcessPDCRequest_AlreadyCleared(t *testing.T) {
 	err := suite.service.ProcessPDCRequest(ctx, incomingMsg, session)
 	assert.Error(t, err, "should return error for already-cleared aircraft")
 	suite.mockHoppie.AssertCalled(t, "SendCPDLC", mock.Anything, mock.Anything, callsign, mock.Anything)
+}
+
+func TestIssueClearance_MandatoryRouteIncludesFullRouteAndCorrectedSid(t *testing.T) {
+	t.Parallel()
+	t.Cleanup(config.SetFeatureFlagsForTest(config.FeatureFlagsConfig{MandatoryRouteClearanceFlow: true}))
+	suite := &PDCIntegrationTestSuite{}
+	suite.SetupTest(t)
+
+	ctx := context.Background()
+	callsign := "SAS129"
+	sessionID := int32(1)
+	cid := "CID123"
+
+	testdata.SeedTestStrip(t, suite.queries, sessionID, callsign)
+	strip, err := suite.service.stripRepo.GetByCallsign(ctx, sessionID, callsign)
+	require.NoError(t, err)
+	runway := "22R"
+	sid := "GOLGA2C"
+	route := "GOLGA DCT"
+	strip.Runway = &runway
+	strip.Sid = &sid
+	strip.Route = &route
+	strip.CdmData = (&models.CdmData{
+		EcfmpRestrictions: []models.EcfmpRestriction{
+			{Type: "mandatory_route", Routes: []string{"VEDAR DCT"}},
+		},
+	}).Normalize()
+	_, err = suite.service.stripRepo.Update(ctx, strip)
+	require.NoError(t, err)
+
+	require.NoError(t, suite.queries.UpdateSessionSids(ctx, database.UpdateSessionSidsParams{
+		ID: sessionID,
+		AvailableSids: pkgModels.AvailableSids{
+			{Name: "VEDAR2C", Runway: "22R"},
+		},
+	}))
+
+	suite.mockHoppie.On("SendCPDLC", mock.Anything, mock.Anything, callsign, mock.MatchedBy(func(msg string) bool {
+		return strings.Contains(msg, "SID: @VEDAR2C@") && strings.Contains(msg, "MANDATORY ROUTE: @VEDAR DCT@")
+	})).Return(nil).Once()
+	suite.mockStrip.On("MoveToBay", mock.Anything, sessionID, callsign, shared.BAY_CLEARED, true).Return(nil)
+	suite.mockFrontend.On("SendStripUpdate", sessionID, callsign).Return().Once()
+	suite.mockFrontend.On("SendPdcStateChange", sessionID, callsign, "CLEARED", "").Return()
+
+	err = suite.service.IssueClearance(ctx, callsign, "", cid, sessionID)
+	require.NoError(t, err)
+
+	updatedStrip, err := suite.service.stripRepo.GetByCallsign(ctx, sessionID, callsign)
+	require.NoError(t, err)
+	require.NotNil(t, updatedStrip.Route)
+	require.NotNil(t, updatedStrip.Sid)
+	assert.Equal(t, "VEDAR DCT", *updatedStrip.Route)
+	assert.Equal(t, "VEDAR2C", *updatedStrip.Sid)
 }

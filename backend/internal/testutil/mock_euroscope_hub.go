@@ -96,6 +96,13 @@ type AircraftInfoRemarksCall struct {
 	Remarks      string
 }
 
+// SentEuroscopeMessageCall records arguments to Send.
+type SentEuroscopeMessageCall struct {
+	Session int32
+	Cid     string
+	Message euroscope.OutgoingMessage
+}
+
 // MockEuroscopeHub is a configurable mock for shared.EuroscopeHub.
 // It records calls for assertion in tests.
 type MockEuroscopeHub struct {
@@ -121,6 +128,7 @@ type MockEuroscopeHub struct {
 	AircraftInfoRemarks   []AircraftInfoRemarksCall
 	FlightPlanUpdateOrder []string
 	Broadcasts            []euroscope.OutgoingMessage
+	SentMessages          []SentEuroscopeMessageCall
 	CreateFPLCalls        []CreateFPLCall
 }
 
@@ -180,7 +188,9 @@ func (m *MockEuroscopeHub) BroadcastCdmUpdates(session int32, events []euroscope
 	}
 }
 
-func (m *MockEuroscopeHub) Send(session int32, cid string, message euroscope.OutgoingMessage) {}
+func (m *MockEuroscopeHub) Send(session int32, cid string, message euroscope.OutgoingMessage) {
+	m.SentMessages = append(m.SentMessages, SentEuroscopeMessageCall{Session: session, Cid: cid, Message: message})
+}
 
 func (m *MockEuroscopeHub) SendCdmReadyRequest(session int32, cid string, callsign string) {
 	m.CdmReadyRequests = append(m.CdmReadyRequests, CdmReadyRequestCall{Session: session, Cid: cid, Callsign: callsign})

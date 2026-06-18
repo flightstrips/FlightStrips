@@ -11,6 +11,9 @@ runway_initial_cfl:
   "04L": 7000
   "22R": 7000
 
+feature_flags:
+  mandatory_route_clearance_flow: false
+
 cdm:
   rate: 40
   rateLvo: 10

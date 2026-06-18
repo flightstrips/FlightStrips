@@ -4,15 +4,14 @@ import (
 	"FlightStrips/internal/ecfmp"
 	"encoding/json"
 	"net/http"
-	"time"
 )
 
 type WebAPI struct {
-	client *ecfmp.Client
+	service *ecfmp.Service
 }
 
-func NewWebAPI(client *ecfmp.Client) *WebAPI {
-	return &WebAPI{client: client}
+func NewWebAPI(service *ecfmp.Service) *WebAPI {
+	return &WebAPI{service: service}
 }
 
 func (a *WebAPI) RegisterRoutes(mux *http.ServeMux) {
@@ -27,7 +26,7 @@ func (a *WebAPI) handleMeasures(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	measures, err := a.client.FlowMeasures(r.Context())
+	measures, err := a.service.FlowMeasures(r.Context())
 	if err != nil {
 		http.Error(w, "failed to fetch measures: "+err.Error(), http.StatusServiceUnavailable)
 		return
@@ -49,17 +48,10 @@ func (a *WebAPI) handleInject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	now := time.Now()
-	for i := range measures {
-		if measures[i].StartTime.IsZero() {
-			measures[i].StartTime = now.Add(-1 * time.Hour)
-		}
-		if measures[i].EndTime.IsZero() {
-			measures[i].EndTime = now.Add(24 * time.Hour)
-		}
+	if err := a.service.InjectTestMeasures(r.Context(), measures); err != nil {
+		http.Error(w, "failed to inject measures: "+err.Error(), http.StatusServiceUnavailable)
+		return
 	}
-
-	a.client.SetTestMeasures(measures)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
@@ -73,7 +65,10 @@ func (a *WebAPI) handleClear(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	a.client.SetTestMeasures(nil)
+	if err := a.service.ClearTestMeasures(r.Context()); err != nil {
+		http.Error(w, "failed to clear measures: "+err.Error(), http.StatusServiceUnavailable)
+		return
+	}
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{

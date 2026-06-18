@@ -896,6 +896,6 @@ func handleSendPrivateMessage(ctx context.Context, client *Client, message Messa
 		Message:  req.Message,
 	}
 	euroscopeHub := client.hub.server.GetEuroscopeHub()
-	euroscopeHub.Broadcast(client.session, event)
+	euroscopeHub.Send(client.session, client.GetCid(), event)
 	return nil
 }

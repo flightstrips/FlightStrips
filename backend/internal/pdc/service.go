@@ -7,6 +7,7 @@ import (
 	"FlightStrips/internal/repository"
 	"FlightStrips/internal/shared"
 	"FlightStrips/pkg/helpers"
+	pkgModels "FlightStrips/pkg/models"
 	"context"
 	"database/sql"
 	"errors"
@@ -198,6 +199,77 @@ func valueOrEmpty(value *string) string {
 	}
 
 	return *value
+}
+
+func (s *Service) resolveEuroscopeTargetCID(ctx context.Context, sessionID int32) string {
+	if s.euroscopeHub == nil || s.controllerRepo == nil {
+		return ""
+	}
+
+	masterCallsign := strings.TrimSpace(s.euroscopeHub.GetMasterCallsign(sessionID))
+	if masterCallsign == "" {
+		return ""
+	}
+
+	controller, err := s.controllerRepo.GetByCallsign(ctx, sessionID, masterCallsign)
+	if err != nil || controller == nil || controller.Cid == nil {
+		return ""
+	}
+
+	return strings.TrimSpace(*controller.Cid)
+}
+
+func (s *Service) applyMandatoryRouteReview(ctx context.Context, session *models.Session, strip *models.Strip) (*mandatoryRouteReview, error) {
+	if !config.IsMandatoryRouteClearanceFlowEnabled() || session == nil || strip == nil {
+		return nil, nil
+	}
+
+	review := resolveMandatoryRouteReview(strip, session.AvailableSids)
+	if review == nil {
+		return nil, nil
+	}
+
+	updated := *strip
+	changed := false
+
+	if review.Route != "" && !strings.EqualFold(strings.TrimSpace(stringValue(strip.Route)), review.Route) {
+		route := review.Route
+		updated.Route = &route
+		changed = true
+	}
+
+	if review.SID != "" && !strings.EqualFold(strings.TrimSpace(stringValue(strip.Sid)), review.SID) {
+		sid := review.SID
+		updated.Sid = &sid
+		changed = true
+	}
+
+	if !changed {
+		return review, nil
+	}
+
+	if _, err := s.stripRepo.Update(ctx, &updated); err != nil {
+		return nil, fmt.Errorf("failed to persist mandatory route updates: %w", err)
+	}
+
+	strip.Route = updated.Route
+	strip.Sid = updated.Sid
+	strip.Version = updated.Version
+
+	if targetCID := s.resolveEuroscopeTargetCID(ctx, session.ID); targetCID != "" && s.euroscopeHub != nil {
+		if review.Route != "" {
+			s.euroscopeHub.SendRoute(session.ID, targetCID, strip.Callsign, review.Route)
+		}
+		if review.SID != "" {
+			s.euroscopeHub.SendSid(session.ID, targetCID, strip.Callsign, review.SID)
+		}
+	}
+
+	if s.frontendHub != nil {
+		s.frontendHub.SendStripUpdate(session.ID, strip.Callsign)
+	}
+
+	return review, nil
 }
 
 func isWebPDCRequest(strip *models.Strip) bool {
@@ -411,7 +483,7 @@ func (s *Service) ProcessPDCRequest(ctx context.Context, msg *IncomingMessage, s
 	}
 
 	requestRemarks := optionalString(req.Remarks)
-	faults := s.validatePDCFlightPlan(strip, currentSession.ActiveRunways.DepartureRunways)
+	faults := s.validatePDCFlightPlan(strip, currentSession.ActiveRunways.DepartureRunways, currentSession.AvailableSids)
 	if len(faults) > 0 {
 		session.recordPDCRequestOutcome(ctx, models.PdcChannelCPDLC, "requested_with_faults")
 		now := time.Now().UTC()
@@ -490,6 +562,16 @@ func (s *Service) IssueClearance(ctx context.Context, callsign, remarks, cid str
 		return fmt.Errorf("strip not found for PDC clearance: %w", err)
 	}
 
+	sessionData, err := s.sessionRepo.GetByID(ctx, sessionInfo.id)
+	if err != nil {
+		return fmt.Errorf("failed to get session: %w", err)
+	}
+
+	mandatoryRouteReview, err := s.applyMandatoryRouteReview(ctx, sessionData, strip)
+	if err != nil {
+		return err
+	}
+
 	webDelivery := isWebPDCRequest(strip)
 
 	// Validate required clearance fields are present in strip
@@ -551,6 +633,14 @@ func (s *Service) IssueClearance(ctx context.Context, callsign, remarks, cid str
 		options.Vectors = "FIRST WAYPOINT"
 	} else if strip.Sid != nil {
 		options.SID = *strip.Sid
+	}
+
+	if mandatoryRouteReview != nil {
+		if strings.TrimSpace(mandatoryRouteReview.SID) == "" {
+			return fmt.Errorf("mandatory route %s requires a matching SID before PDC can be issued", mandatoryRouteReview.Route)
+		}
+		options.SID = mandatoryRouteReview.SID
+		options.Route = mandatoryRouteReview.Route
 	}
 
 	clearance := buildPDCClearance(options)
@@ -1070,6 +1160,6 @@ func (s *Service) setPdcFailed(ctx context.Context, callsign string, sessionId i
 
 // validatePDCFlightPlan validates a strip's flight plan against PDC validation config.
 // Returns a list of fault descriptions (empty = no faults).
-func (s *Service) validatePDCFlightPlan(strip *models.Strip, activeDepartureRunways []string) []string {
-	return validationFaultMessages(validatePDCFlightPlanFaults(strip, activeDepartureRunways))
+func (s *Service) validatePDCFlightPlan(strip *models.Strip, activeDepartureRunways []string, availableSids pkgModels.AvailableSids) []string {
+	return validationFaultMessages(validatePDCFlightPlanFaults(strip, activeDepartureRunways, availableSids))
 }

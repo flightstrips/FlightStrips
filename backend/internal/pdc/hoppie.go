@@ -180,7 +180,8 @@ type ClearanceOptions struct {
 	Sequence    int32
 	PdcSequence int32
 
-	SID string
+	SID   string
+	Route string
 
 	Vectors string
 	Heading string
@@ -241,6 +242,12 @@ func buildPDCClearance(options ClearanceOptions) string {
 		sb.WriteString("@ ")
 	}
 
+	if options.Route != "" {
+		sb.WriteString("MANDATORY ROUTE: @")
+		sb.WriteString(options.Route)
+		sb.WriteString("@ ")
+	}
+
 	sb.WriteString("SQK: @")
 	sb.WriteString(options.Squawk)
 	sb.WriteString("@ ATIS @")
@@ -278,6 +285,9 @@ func buildWebPDCClearance(options ClearanceOptions) string {
 	}
 	if options.SID != "" {
 		parts = append(parts, fmt.Sprintf("SID: %s", options.SID))
+	}
+	if options.Route != "" {
+		parts = append(parts, fmt.Sprintf("MANDATORY ROUTE: %s", options.Route))
 	}
 
 	parts = append(parts,

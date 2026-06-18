@@ -163,7 +163,6 @@ func main() {
 	cdmService := cdm.NewCdmService(cdmClient, stripRepo, sessionRepo, controllerRepo)
 	ecfmpBaseURL := getEnv("ECFMP_BASE_URL", ecfmp.DefaultBaseURL)
 	ecfmpClient := ecfmp.NewClient(ecfmp.WithBaseURL(ecfmpBaseURL))
-	cdmService.SetEcfmpClient(ecfmpClient)
 
 	stripService.SetTacticalStripRepo(tacticalStripRepo)
 	stripService.SetCoordinationRepo(coordRepo)
@@ -213,6 +212,7 @@ func main() {
 	frontendHub := frontend.NewHub(stripService, authenticationService)
 	euroscopeHub := euroscope.NewHub(stripService, controllerService, authenticationService)
 	albHub := alb.NewHub()
+	ecfmpService := ecfmp.NewService(ecfmpClient, stripRepo, sessionRepo, frontendHub, euroscopeHub)
 
 	stripService.SetFrontendHub(frontendHub)
 	stripService.SetEuroscopeHub(euroscopeHub)
@@ -282,6 +282,7 @@ func main() {
 	frontendUpgrader := websocket.NewConnectionUpgrader[pkgFrontend.EventType, *frontend.Client](frontendHub, authenticationService)
 	euroscopeUpgrader := websocket.NewConnectionUpgrader[pkgEuroscope.EventType, *euroscope.Client](euroscopeHub, authenticationService)
 
+	go ecfmpService.Start(ctx)
 	go cdmService.Start(ctx)
 	go pdcService.Start(ctx)
 	if vatsimCache != nil {
@@ -309,7 +310,7 @@ func main() {
 	flightLookup := pdc.NewFlightLookupAdapter(pdcService, sessionRepo)
 	cdm.NewWebAPI(authenticationService, sessionRepo, sequenceService).RegisterRoutes(apiMux)
 	if !isLiveEnvironment(getEnv("ENVIRONMENT", "development")) {
-		ecfmpWebAPI.NewWebAPI(ecfmpClient).RegisterRoutes(apiMux)
+		ecfmpWebAPI.NewWebAPI(ecfmpService).RegisterRoutes(apiMux)
 	}
 	pilot.NewWebAPI(authenticationService, vatsimCache, flightLookup, requireLiveCIDVerification).RegisterRoutes(apiMux)
 	pdc.NewWebAPI(authenticationService, pdcService, vatsimCache, requireLiveCIDVerification).RegisterRoutes(apiMux)

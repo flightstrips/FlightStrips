@@ -480,6 +480,7 @@ func MapStripToFrontendModelWithClx(strip *internalModels.Strip, clxContext clx.
 	if cdm == nil {
 		cdm = (&internalModels.CdmData{}).Normalize()
 	}
+	ecfmpRestrictions := filterFrontendEcfmpRestrictions(cdm.EcfmpRestrictions)
 
 	return frontend.Strip{
 		Callsign:                 strip.Callsign,
@@ -525,6 +526,7 @@ func MapStripToFrontendModelWithClx(strip *internalModels.Strip, clxContext clx.
 		EcfmpID:                  helpers.ValueOrDefault(cdm.EcfmpID),
 		CtotSource:               helpers.ValueOrDefault(cdm.CtotSource),
 		Phase:                    helpers.ValueOrDefault(cdm.EffectivePhase()),
+		EcfmpRestrictions:        mapEcfmpRestrictionsToDTO(ecfmpRestrictions),
 		PdcState:                 strip.PdcState,
 		PdcRequestRemarks:        helpers.ValueOrDefault(strip.PdcRequestRemarks),
 		StartReq:                 strip.StartReq,
@@ -544,6 +546,50 @@ func MapStripToFrontendModelWithClx(strip *internalModels.Strip, clxContext clx.
 		ValidationStatus:         mapValidationStatusToDTO(strip.ValidationStatus),
 		ClxValidation:            mapClxValidationToDTO(clx.Validate(strip, clxContext)),
 	}
+}
+
+func filterFrontendEcfmpRestrictions(restrictions []internalModels.EcfmpRestriction) []internalModels.EcfmpRestriction {
+	if len(restrictions) == 0 {
+		return nil
+	}
+	if config.IsMandatoryRouteClearanceFlowEnabled() {
+		return restrictions
+	}
+
+	filtered := make([]internalModels.EcfmpRestriction, 0, len(restrictions))
+	for _, restriction := range restrictions {
+		if restriction.Type == "mandatory_route" {
+			continue
+		}
+		filtered = append(filtered, restriction)
+	}
+	if len(filtered) == 0 {
+		return nil
+	}
+	return filtered
+}
+
+func mapEcfmpRestrictionsToDTO(restrictions []internalModels.EcfmpRestriction) []frontend.EcfmpRestrictionDTO {
+	if len(restrictions) == 0 {
+		return nil
+	}
+
+	result := make([]frontend.EcfmpRestrictionDTO, len(restrictions))
+	for i, restriction := range restrictions {
+		result[i] = frontend.EcfmpRestrictionDTO{
+			MeasureID:   restriction.MeasureID,
+			Ident:       restriction.Ident,
+			Type:        restriction.Type,
+			Reason:      restriction.Reason,
+			Routes:      restriction.Routes,
+			Destination: restriction.Destination,
+			MaxLevel:    restriction.MaxLevel,
+			MinLevel:    restriction.MinLevel,
+			ExactLevels: restriction.ExactLevels,
+			HasCtot:     restriction.HasCtot,
+		}
+	}
+	return result
 }
 
 func mapClxValidationToDTO(validation *clx.Validation) *frontend.ClxValidation {

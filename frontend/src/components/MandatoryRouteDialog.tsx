@@ -1,4 +1,3 @@
-import React from "react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { scalePx } from "@/lib/viewportScale";
@@ -11,7 +10,11 @@ interface MandatoryRouteDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   callsign: string;
-  routes: string[];
+  route: string;
+  filedSid?: string;
+  mandatorySid?: string;
+  sidMismatch: boolean;
+  pdcRequested: boolean;
   onConfirm: () => void;
   onCancel: () => void;
 }
@@ -20,7 +23,11 @@ export function MandatoryRouteDialog({
   open,
   onOpenChange,
   callsign,
-  routes,
+  route,
+  filedSid,
+  mandatorySid,
+  sidMismatch,
+  pdcRequested,
   onConfirm,
   onCancel,
 }: MandatoryRouteDialogProps) {
@@ -36,15 +43,34 @@ export function MandatoryRouteDialog({
         <DialogTitle className="sr-only">Mandatory Route Confirmation</DialogTitle>
         <div className="flex flex-col gap-4">
           <div className="text-center" style={{ fontSize: FONT_SIZE, fontWeight: "bold" }}>
-            <span style={{ color: "red" }}>Would you like</span>
-            <br />
             <span style={{ color: "red" }}>MANDATORY ROUTE</span>
             <br />
-            <span style={{ color: "red" }}>to be sent via PM or PDC?</span>
+            <span style={{ color: "red" }}>will be sent on clearance</span>
+            <br />
+            <span style={{ color: "red" }}>{pdcRequested ? "via PDC" : "via private message"}</span>
           </div>
-          {routes.length > 0 && (
-            <div className="text-center" style={{ fontSize: scalePx(14), color: "#888" }}>
-              {callsign}: {routes.join(" | ")}
+          <div
+            className="border border-black text-center font-bold"
+            style={{ fontSize: scalePx(16), backgroundColor: "#FFD700", color: "black", padding: scalePx(10) }}
+          >
+            {callsign}: {route || "NO MANDATORY ROUTE"}
+          </div>
+          {mandatorySid && (
+            <div className="flex flex-col gap-2 text-center" style={{ fontSize: scalePx(14) }}>
+              <div
+                className="border border-black"
+                style={{
+                  backgroundColor: sidMismatch ? "#FF0000" : "#B3B3B3",
+                  color: sidMismatch ? "white" : "black",
+                  padding: scalePx(8),
+                  fontWeight: "bold",
+                }}
+              >
+                FILED SID: {filedSid || "NONE"}
+              </div>
+              <div className="border border-black bg-[#D6D6D6] text-black font-bold" style={{ padding: scalePx(8) }}>
+                MANDATORY SID: {mandatorySid}
+              </div>
             </div>
           )}
           <div className="flex justify-center gap-4">
@@ -57,7 +83,7 @@ export function MandatoryRouteDialog({
                 color: "white",
               }}
             >
-              YES
+              CLR
             </Button>
             <Button
               onClick={onCancel}
@@ -68,7 +94,7 @@ export function MandatoryRouteDialog({
                 color: "white",
               }}
             >
-              NO
+              CANCEL
             </Button>
           </div>
         </div>

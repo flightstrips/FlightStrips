@@ -10,6 +10,7 @@ import (
 	"FlightStrips/internal/services"
 	"FlightStrips/internal/shared"
 	"FlightStrips/internal/testutil"
+	euroscopeEvents "FlightStrips/pkg/events/euroscope"
 	frontendEvents "FlightStrips/pkg/events/frontend"
 	pkgModels "FlightStrips/pkg/models"
 
@@ -108,6 +109,47 @@ func (s *stripUpdateValidationReevaluator) ReevaluateDepartureValidation(ctx con
 		return nil
 	}
 	return s.reevaluateDepartureFn(ctx, session, callsign, publish, forceReactivate)
+}
+
+func TestHandleSendPrivateMessage_SendsOnlyToMatchingEuroscopeClient(t *testing.T) {
+	ctx := context.Background()
+	const session = int32(7)
+	const cid = "123456"
+	const callsign = "EKDK_CTR"
+	const messageText = "Hello from the frontend"
+
+	euroscopeHub := &testutil.MockEuroscopeHub{}
+	server := &testutil.MockServer{
+		EuroscopeHubVal: euroscopeHub,
+	}
+	hub := &Hub{server: server, send: make(chan internalMessage, 1)}
+	client := &Client{
+		session: session,
+		hub:     hub,
+	}
+	client.SetUser(shared.NewAuthenticatedUser(cid, 0, nil))
+
+	payload, err := json.Marshal(frontendEvents.SendPrivateMessageEvent{
+		Callsign: callsign,
+		Message:  messageText,
+	})
+	require.NoError(t, err)
+
+	err = handleSendPrivateMessage(ctx, client, Message{
+		Type:    frontendEvents.SendPrivateMessage,
+		Message: payload,
+	})
+	require.NoError(t, err)
+
+	assert.Empty(t, euroscopeHub.Broadcasts)
+	require.Len(t, euroscopeHub.SentMessages, 1)
+	assert.Equal(t, session, euroscopeHub.SentMessages[0].Session)
+	assert.Equal(t, cid, euroscopeHub.SentMessages[0].Cid)
+
+	event, ok := euroscopeHub.SentMessages[0].Message.(euroscopeEvents.SendPrivateMessageEvent)
+	require.True(t, ok)
+	assert.Equal(t, callsign, event.Callsign)
+	assert.Equal(t, messageText, event.Message)
 }
 
 func TestHandleStripUpdate_RunwayChangePersistsSelectedRunway(t *testing.T) {

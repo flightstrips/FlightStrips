@@ -1085,7 +1085,6 @@ func TestProcessPDCRequest_InactiveDepartureRunwayCreatesFault(t *testing.T) {
 }
 
 func TestProcessPDCRequest_MandatoryRouteRequiresManualApprovalWithoutChangingStrip(t *testing.T) {
-	t.Parallel()
 	t.Cleanup(config.SetFeatureFlagsForTest(config.FeatureFlagsConfig{MandatoryRouteClearanceFlow: true}))
 	suite := &PDCIntegrationTestSuite{}
 	suite.SetupTest(t)
@@ -1182,7 +1181,6 @@ func TestProcessPDCRequest_AlreadyCleared(t *testing.T) {
 }
 
 func TestIssueClearance_MandatoryRouteIncludesFullRouteAndCorrectedSid(t *testing.T) {
-	t.Parallel()
 	t.Cleanup(config.SetFeatureFlagsForTest(config.FeatureFlagsConfig{MandatoryRouteClearanceFlow: true}))
 	suite := &PDCIntegrationTestSuite{}
 	suite.SetupTest(t)

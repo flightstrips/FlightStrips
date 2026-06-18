@@ -6,11 +6,13 @@ on:
       - 'main'
     paths:
       - 'frontend/**'
+      - '.github/workflows/build-frontend.yml'
   pull_request:
     branches:
       - 'main'
     paths:
       - 'frontend/**'
+      - '.github/workflows/build-frontend.yml'
 
 jobs:
   build-frontend:

@@ -13,8 +13,9 @@ import (
 )
 
 const (
-	offlineGracePeriod        = 60 * time.Second
-	masterTransferGracePeriod = 45 * time.Second
+	offlineGracePeriod             = 60 * time.Second
+	controllerOfflineGracePeriod   = 15 * time.Second
+	masterTransferGracePeriod      = 45 * time.Second
 )
 
 // offlineTimerEntry holds the cancel function and metadata for a pending position offline timer.
@@ -41,13 +42,16 @@ type sessionUpdatePending struct {
 	positions []string // offline position names gathered in this debounce window
 }
 
-// scheduleOfflineActions starts a goroutine that, after the given grace period,
+// scheduleOfflineActions starts a goroutine that, after the given delay,
 // deletes the controller from the database, notifies all frontend clients that the
 // controller is offline, recalculates sector ownership, and — 5 seconds later —
 // broadcasts a specific sector-change notification.
 //
-// If cancelOfflineTimer is called for the same position key before the grace period
+// If cancelOfflineTimer is called for the same position key before the delay
 // elapses, the goroutine exits cleanly and none of the above happens.
+// When the position has no remaining controller coverage, the delay is
+// controllerOfflineGracePeriod (15s) so the frontend receives the offline
+// notification promptly while still allowing time for a quick reconnect.
 func (hub *Hub) scheduleOfflineActions(session int32, callsign, positionFreq, positionName string, delay time.Duration) {
 	key := fmt.Sprintf("%d:%s", session, positionName)
 

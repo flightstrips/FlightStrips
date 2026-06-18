@@ -18,7 +18,7 @@ import { scalePx } from "@/lib/viewportScale";
 import { buildRnavUpdate, type RnavCapability } from "@/lib/rnav";
 import { normalizeCdmTime } from "@/lib/cdmTime";
 import { CDM_RED } from "@/lib/cdmColors";
-import { getEcfmpNitosRemarks, getMandatoryRouteRestriction, getGroundStopRestriction, getProhibitRestriction, isFlightLevelViolated } from "@/lib/ecfmp";
+import { getCtotSlotDisplay, getEcfmpNitosRemarks, getMandatoryRouteRestriction, getGroundStopRestriction, getProhibitRestriction, isFlightLevelViolated } from "@/lib/ecfmp";
 import { MandatoryRouteDialog } from "@/components/MandatoryRouteDialog";
 
 const FONT_FAMILY = "Arial";
@@ -49,7 +49,6 @@ const NITOS_REMARKS_INLINE_PADDING = scalePx(8);
 const CLS_DIALOG            = "bg-[#d4d4d4] rounded-none flex flex-col gap-0";
 const CLS_DIALOG_LABEL      = "absolute bg-[#d4d4d4] text-black font-bold";
 const CLS_BTN_DISABLED      = "border border-black rounded-none bg-[#b3b3b3] text-black font-bold text-center disabled:opacity-60";
-const CLS_BTN_DISABLED_BDR  = "border-2 border-black rounded-none bg-[#b3b3b3] text-black font-bold text-center disabled:opacity-60";
 const CLS_BTN_DISABLED_LEFT = "border border-r-0 border-black rounded-none bg-[#b3b3b3] text-black font-bold text-center disabled:opacity-60";
 const CLS_BTN_DISABLED_NRM  = "border border-black rounded-none bg-[#b3b3b3] text-black font-bold text-center disabled:opacity-60";
 const CLS_BTN_EDITABLE      = "border border-black rounded-none bg-[#ededed] text-black font-bold text-center";
@@ -246,12 +245,14 @@ export default function FlightPlanDialog({
   const displayedEobt = normalizeCdmTime(strip?.eobt);
   const displayedTobt = normalizeCdmTime(strip?.tobt);
   const displayedTsat = normalizeCdmTime(strip?.tsat);
-  const displayedTtot = normalizeCdmTime(strip?.ttot);
-  const displayedCtot = normalizeCdmTime(strip?.ctot);
   const hasMandatoryRoute = !!getMandatoryRouteRestriction(strip?.ecfmp_restrictions);
   const hasGroundStop = !!getGroundStopRestriction(strip?.ecfmp_restrictions);
   const hasProhibit = !!getProhibitRestriction(strip?.ecfmp_restrictions);
   const flViolated = isFlightLevelViolated(strip?.ecfmp_restrictions, strip?.requested_altitude);
+  const ctotSlotDisplay = getCtotSlotDisplay({
+    ctot: strip?.ctot,
+    most_penalizing_airspace: strip?.most_penalizing_airspace,
+  });
 
   const [sidDialogOpen, setSidDialogOpen] = useState(false);
   const [rnavDialogOpen, setRnavDialogOpen] = useState(false);
@@ -416,23 +417,22 @@ export default function FlightPlanDialog({
               </Button>
             </div>
             <div className="grid items-center" style={gridGroupStyle}>
-              <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>TTOT</Label>
-              <input
-                value={displayedTtot}
-                placeholder=""
-                disabled
-                className={CLS_BTN_DISABLED_BDR}
-                style={fieldStyle(100)}
-              />
-            </div>
-            <div className="grid items-center" style={gridGroupStyle}>
               <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>CTOT</Label>
-              <input
-                value={displayedCtot}
-                disabled
-                className={CLS_BTN_DISABLED_BDR}
-                style={{ ...fieldStyle(100), ...(hasGroundStop ? ecfmpStyle("yellow") : {}) }}
-              />
+              <div className="flex">
+                <input
+                  value={ctotSlotDisplay.restrictionLabel}
+                  title={ctotSlotDisplay.restrictionLabel}
+                  disabled
+                  className={CLS_BTN_DISABLED_LEFT}
+                  style={fieldStyle(100)}
+                />
+                <input
+                  value={ctotSlotDisplay.ctot}
+                  disabled
+                  className={CLS_BTN_DISABLED}
+                  style={{ ...fieldStyle(100), ...(ctotSlotDisplay.hasCtot ? ecfmpStyle("yellow") : {}) }}
+                />
+              </div>
             </div>
           </div>
 

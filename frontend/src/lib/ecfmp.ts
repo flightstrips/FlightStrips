@@ -1,4 +1,39 @@
 import type { EcfmpRestriction } from "@/api/models";
+import { normalizeCdmTime } from "@/lib/cdmTime";
+
+const NO_SLOT_REGULATION_LABEL = "NSR";
+
+export interface CtotSlotDisplayInput {
+  ctot?: string | null;
+  most_penalizing_airspace?: string | null;
+}
+
+export interface CtotSlotDisplay {
+  restrictionLabel: string;
+  ctot: string;
+  hasCtot: boolean;
+}
+
+function normalizeLabel(value?: string | null): string {
+  return value?.trim() ?? "";
+}
+
+export function getCtotSlotDisplay(input: CtotSlotDisplayInput): CtotSlotDisplay {
+  const ctot = normalizeCdmTime(input.ctot);
+  if (!ctot) {
+    return {
+      restrictionLabel: NO_SLOT_REGULATION_LABEL,
+      ctot: "",
+      hasCtot: false,
+    };
+  }
+
+  return {
+    restrictionLabel: normalizeLabel(input.most_penalizing_airspace),
+    ctot,
+    hasCtot: true,
+  };
+}
 
 export function getMandatoryRouteRestriction(restrictions?: EcfmpRestriction[]): EcfmpRestriction | undefined {
   if (!restrictions) return undefined;

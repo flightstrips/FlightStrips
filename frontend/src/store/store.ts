@@ -1095,6 +1095,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
       if (data.asrt !== undefined) state.strips[stripIndex].asrt = normalizeCdmTime(data.asrt)
       if (data.tsac !== undefined) state.strips[stripIndex].tsac = normalizeCdmTime(data.tsac)
       if (data.status !== undefined) state.strips[stripIndex].status = data.status
+      if (data.most_penalizing_airspace !== undefined) state.strips[stripIndex].most_penalizing_airspace = data.most_penalizing_airspace
       if (data.ecfmp_id !== undefined) state.strips[stripIndex].ecfmp_id = data.ecfmp_id
       if (data.ctot_source !== undefined) state.strips[stripIndex].ctot_source = data.ctot_source
       if (data.phase !== undefined) state.strips[stripIndex].phase = data.phase

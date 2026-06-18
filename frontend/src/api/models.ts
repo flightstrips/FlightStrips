@@ -166,6 +166,7 @@ export interface FrontendStrip {
   asrt?: string;
   tsac?: string;
   status?: string;
+  most_penalizing_airspace?: string;
   ecfmp_id?: string;
   ctot_source?: string;
   phase?: string;
@@ -478,6 +479,7 @@ export interface FrontendCdmDataEvent {
   asrt?: string;
   tsac?: string;
   status?: string;
+  most_penalizing_airspace?: string;
   ecfmp_id?: string;
   ctot_source?: string;
   phase?: string;

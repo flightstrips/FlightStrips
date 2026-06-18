@@ -28,6 +28,7 @@ func TestSyncCdmData_PersistsFlowMessageAndReqTobtSource(t *testing.T) {
 			"eobt":"1000",
 			"tobt":"1010",
 			"ctot":"1040",
+			"mostPenalizingAirspace":"DK-E",
 			"cdmSts":"REA",
 			"cdmData":{
 				"reqTobt":"1005",
@@ -78,6 +79,9 @@ func TestSyncCdmData_PersistsFlowMessageAndReqTobtSource(t *testing.T) {
 	}
 	if got := valueOrEmpty(persisted.ReqTobt); got != "1005" {
 		t.Fatalf("expected req_tobt to be persisted, got %q", got)
+	}
+	if got := valueOrEmpty(persisted.MostPenalizingAirspace); got != "DK-E" {
+		t.Fatalf("expected most penalizing airspace to be persisted, got %q", got)
 	}
 	if got := valueOrEmpty(persisted.ReqTobtType); got != "PILOT" {
 		t.Fatalf("expected req_tobt_type to be persisted, got %q", got)

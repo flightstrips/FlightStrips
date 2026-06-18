@@ -163,6 +163,7 @@ type Strip struct {
 	Asrt                     string                `json:"asrt,omitempty"`
 	Tsac                     string                `json:"tsac,omitempty"`
 	Status                   string                `json:"status,omitempty"`
+	MostPenalizingAirspace   string                `json:"most_penalizing_airspace,omitempty"`
 	EcfmpID                  string                `json:"ecfmp_id,omitempty"`
 	CtotSource               string                `json:"ctot_source,omitempty"`
 	Phase                    string                `json:"phase,omitempty"`
@@ -745,24 +746,25 @@ type EcfmpRestrictionDTO struct {
 }
 
 type CdmDataEvent struct {
-	Callsign          string                `json:"callsign"`
-	Eobt              string                `json:"eobt"`
-	Tobt              string                `json:"tobt"`
-	ReqTobt           string                `json:"req_tobt,omitempty"`
-	ReqTobtType       string                `json:"req_tobt_type"`
-	TobtSetBy         string                `json:"tobt_set_by"`
-	Tsat              string                `json:"tsat"`
-	Ttot              string                `json:"ttot,omitempty"`
-	Ctot              string                `json:"ctot"`
-	Aobt              string                `json:"aobt,omitempty"`
-	Asat              string                `json:"asat,omitempty"`
-	Asrt              string                `json:"asrt,omitempty"`
-	Tsac              string                `json:"tsac,omitempty"`
-	Status            string                `json:"status,omitempty"`
-	EcfmpID           string                `json:"ecfmp_id,omitempty"`
-	CtotSource        string                `json:"ctot_source,omitempty"`
-	Phase             string                `json:"phase"`
-	EcfmpRestrictions []EcfmpRestrictionDTO `json:"ecfmp_restrictions,omitempty"`
+	Callsign               string                `json:"callsign"`
+	Eobt                   string                `json:"eobt"`
+	Tobt                   string                `json:"tobt"`
+	ReqTobt                string                `json:"req_tobt,omitempty"`
+	ReqTobtType            string                `json:"req_tobt_type"`
+	TobtSetBy              string                `json:"tobt_set_by"`
+	Tsat                   string                `json:"tsat"`
+	Ttot                   string                `json:"ttot,omitempty"`
+	Ctot                   string                `json:"ctot"`
+	Aobt                   string                `json:"aobt,omitempty"`
+	Asat                   string                `json:"asat,omitempty"`
+	Asrt                   string                `json:"asrt,omitempty"`
+	Tsac                   string                `json:"tsac,omitempty"`
+	Status                 string                `json:"status,omitempty"`
+	MostPenalizingAirspace string                `json:"most_penalizing_airspace,omitempty"`
+	EcfmpID                string                `json:"ecfmp_id,omitempty"`
+	CtotSource             string                `json:"ctot_source,omitempty"`
+	Phase                  string                `json:"phase"`
+	EcfmpRestrictions      []EcfmpRestrictionDTO `json:"ecfmp_restrictions,omitempty"`
 }
 
 func (c CdmDataEvent) Marshal() ([]byte, error) {

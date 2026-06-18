@@ -94,6 +94,9 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
+      - name: Set up Docker Buildx
+        uses: useblacksmith/setup-docker-builder@v1
+
       - name: Log in to GHCR
         uses: docker/login-action@v3
         with:
@@ -127,6 +130,9 @@ jobs:
     runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - uses: actions/checkout@v3
+
+      - name: Set up Docker Buildx
+        uses: useblacksmith/setup-docker-builder@v1
 
       - name: Log in to GHCR
         uses: docker/login-action@v3
@@ -246,6 +252,9 @@ jobs:
     runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - uses: actions/checkout@v3
+
+      - name: Set up Docker Buildx
+        uses: useblacksmith/setup-docker-builder@v1
 
       - name: Log in to GHCR
         uses: docker/login-action@v3

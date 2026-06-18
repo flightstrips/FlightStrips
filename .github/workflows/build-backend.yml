@@ -30,3 +30,18 @@ jobs:
       run: go build ./...
     - name: Test
       run: go test ./...
+
+    - name: Set up Docker Buildx
+      uses: useblacksmith/setup-docker-builder@v1
+    - name: Build Docker image (api)
+      uses: useblacksmith/build-push-action@v2
+      with:
+        context: ./backend
+        file: ./backend/Dockerfile
+        push: false
+    - name: Build Docker image (migrate)
+      uses: useblacksmith/build-push-action@v2
+      with:
+        context: ./backend
+        file: ./backend/Dockerfile.Migrate
+        push: false

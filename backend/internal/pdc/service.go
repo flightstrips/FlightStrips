@@ -354,6 +354,12 @@ func (s *Service) confirmPilotAcknowledgement(ctx context.Context, sessionID int
 
 // Start begins the background polling loop
 func (s *Service) Start(ctx context.Context) {
+	if restored, err := s.restorePendingTimeouts(ctx); err != nil {
+		slog.ErrorContext(ctx, "PDC Service: Failed to restore pending confirmation timeouts", slog.Any("error", err))
+	} else if restored > 0 {
+		slog.InfoContext(ctx, "PDC Service: Restored pending confirmation timeouts", slog.Int("count", restored))
+	}
+
 	slog.InfoContext(ctx, "PDC Service: Starting Hoppie polling loop")
 
 	for {
@@ -367,6 +373,52 @@ func (s *Service) Start(ctx context.Context) {
 			}
 		}
 	}
+}
+
+func (s *Service) restorePendingTimeouts(ctx context.Context) (int, error) {
+	sessions, err := s.sessionRepo.List(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("failed to list sessions for timeout recovery: %w", err)
+	}
+
+	restored := 0
+	for _, session := range sessions {
+		strips, err := s.stripRepo.List(ctx, session.ID)
+		if err != nil {
+			return restored, fmt.Errorf("failed to list strips for session %d: %w", session.ID, err)
+		}
+
+		sessionInfo := sessionInformation{
+			id:       session.ID,
+			name:     session.Name,
+			airport:  session.Airport,
+			callsign: session.Airport,
+		}
+
+		for _, strip := range strips {
+			if strip == nil || strip.PdcState != string(StateCleared) || strip.PdcData == nil {
+				continue
+			}
+			if strip.PdcData.MessageSent == nil || strip.PdcData.MessageSequence == nil {
+				slog.WarnContext(ctx, "PDC Service: Skipping timeout recovery for cleared strip with incomplete PDC data",
+					slog.String("callsign", strip.Callsign),
+					slog.Int("session", int(session.ID)),
+				)
+				continue
+			}
+
+			remaining := s.timeoutConfig - time.Since(strip.PdcData.MessageSent.UTC())
+			if remaining < 0 {
+				remaining = 0
+			}
+
+			cid := valueOrEmpty(strip.PdcData.IssuedByCid)
+			s.startClearanceTimeoutAfter(ctx, *strip.PdcData.MessageSequence, sessionInfo, strip.Callsign, cid, isWebPDCRequest(strip), remaining)
+			restored++
+		}
+	}
+
+	return restored, nil
 }
 
 func (s *Service) pollAndProcess(ctx context.Context) error {
@@ -747,6 +799,37 @@ func (s *Service) RevertToVoice(ctx context.Context, callsign string, sessionId 
 	return nil
 }
 
+func (s *Service) ConfirmVoiceClearance(ctx context.Context, callsign string, sessionID int32) error {
+	strip, err := s.stripRepo.GetByCallsign(ctx, sessionID, callsign)
+	if err != nil {
+		return fmt.Errorf("failed to get strip: %w", err)
+	}
+
+	if strip.PdcState == "" || strip.PdcState == string(StateNone) {
+		return nil
+	}
+
+	s.CancelTimeout(callsign, sessionID)
+
+	if err := s.stripRepo.SetPdcData(ctx, sessionID, callsign, (&models.PdcData{}).Normalize()); err != nil {
+		return fmt.Errorf("failed to clear PDC state after voice clearance: %w", err)
+	}
+
+	if err := s.notifyStateChange(ctx, sessionID, callsign, StateNone, ""); err != nil {
+		return err
+	}
+
+	if s.frontendHub != nil {
+		recipients := []string{}
+		if _, ok := config.GetMessageAreas()["CLR-DEL"]; ok {
+			recipients = []string{"CLR-DEL"}
+		}
+		s.frontendHub.SendMessage(sessionID, "SYSTEM", fmt.Sprintf("%s: CLEARANCE given / confirmed over voice.", callsign), recipients)
+	}
+
+	return nil
+}
+
 func (s *Service) getNextFrequency(ctx context.Context, sessionID int32) (string, error) {
 	owners, err := s.sectorRepo.ListBySession(ctx, sessionID)
 	if err != nil {
@@ -1054,7 +1137,11 @@ func (s *Service) SendErrorMessage(ctx context.Context, session sessionInformati
 }
 
 // StartClearanceTimeout starts a timeout that reverts cleared flag if pilot doesn't respond
-func (s *Service) StartClearanceTimeout(ctx context.Context, airport, callsign string, messageId int32, session sessionInformation, cid string, web bool) {
+func (s *Service) StartClearanceTimeout(ctx context.Context, _ string, callsign string, messageId int32, session sessionInformation, cid string, web bool) {
+	s.startClearanceTimeoutAfter(ctx, messageId, session, callsign, cid, web, s.timeoutConfig)
+}
+
+func (s *Service) startClearanceTimeoutAfter(ctx context.Context, messageId int32, session sessionInformation, callsign string, cid string, web bool, delay time.Duration) {
 	key := fmt.Sprintf("%s_%d", callsign, session.id)
 
 	// Cancel any existing timeout for this callsign
@@ -1076,9 +1163,9 @@ func (s *Service) StartClearanceTimeout(ctx context.Context, airport, callsign s
 	s.timeoutsMutex.Unlock()
 
 	// Start timeout goroutine
-	go s.handleTimeout(timeoutCtx, airport, callsign, messageId, session)
+	go s.handleTimeout(timeoutCtx, delay, callsign, messageId, session)
 
-	slog.DebugContext(ctx, "PDC Service: Started timeout", slog.Duration("timeout", s.timeoutConfig), slog.String("callsign", callsign))
+	slog.DebugContext(ctx, "PDC Service: Started timeout", slog.Duration("timeout", delay), slog.String("callsign", callsign))
 }
 
 // CancelTimeout cancels an active timeout
@@ -1096,7 +1183,7 @@ func (s *Service) CancelTimeout(callsign string, sessionID int32) {
 }
 
 // handleTimeout waits for timeout and reverts cleared flag if no response
-func (s *Service) handleTimeout(ctx context.Context, airport, callsign string, messageId int32, session sessionInformation) {
+func (s *Service) handleTimeout(ctx context.Context, delay time.Duration, callsign string, messageId int32, session sessionInformation) {
 	key := fmt.Sprintf("%s_%d", callsign, session.id)
 
 	s.timeoutsMutex.RLock()
@@ -1111,7 +1198,7 @@ func (s *Service) handleTimeout(ctx context.Context, airport, callsign string, m
 	case <-ctx.Done():
 		// Timeout was cancelled (pilot responded)
 		return
-	case <-time.After(s.timeoutConfig):
+	case <-time.After(delay):
 		// Timeout expired - revert cleared flag
 		slog.DebugContext(ctx, "PDC Service: Timeout expired - reverting cleared flag", slog.String("callsign", callsign))
 
@@ -1140,7 +1227,7 @@ func (s *Service) handleTimeout(ctx context.Context, airport, callsign string, m
 			if err != nil {
 				slog.ErrorContext(ctx, "PDC Service: Failed to get next message sequence", slog.Any("error", err))
 			} else {
-				msg := buildNoResponseMessage(seq, messageId, airport, callsign)
+				msg := buildNoResponseMessage(seq, messageId, session.airport, callsign)
 				err = s.client.SendCPDLC(ctx, session.callsign, callsign, msg)
 				if err != nil {
 					slog.ErrorContext(ctx, "PDC Service: Failed to send no response message", slog.Any("error", err))

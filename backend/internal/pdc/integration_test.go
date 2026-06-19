@@ -710,6 +710,103 @@ func TestRevertToVoiceFlow(t *testing.T) {
 	assert.Equal(t, "REVERT_TO_VOICE", readStripPdcState(t, strip))
 }
 
+func TestRestorePendingTimeouts_ExpiresClearedPdcAfterRestart(t *testing.T) {
+	t.Parallel()
+	suite := &PDCIntegrationTestSuite{}
+	suite.SetupTest(t)
+
+	const callsign = "SAS321"
+	const sessionID = int32(1)
+
+	testdata.SeedClearedTestStrip(t, suite.queries, sessionID, callsign)
+
+	requestChannel := models.PdcChannelWeb
+	messageSequence := int32(42)
+	messageSent := time.Now().UTC().Add(-2 * time.Second)
+	issuedByCid := "CID123"
+
+	require.NoError(t, suite.service.stripRepo.SetPdcData(context.Background(), sessionID, callsign, &models.PdcData{
+		State:           string(StateCleared),
+		RequestChannel:  &requestChannel,
+		MessageSequence: &messageSequence,
+		MessageSent:     &messageSent,
+		IssuedByCid:     &issuedByCid,
+		Web:             &models.PdcWebData{},
+	}))
+
+	suite.mockStrip.On("UnclearStrip", mock.Anything, sessionID, callsign, issuedByCid).Return(nil)
+	suite.mockFrontend.On("SendPdcStateChange", sessionID, callsign, "NO_RESPONSE", "").Return()
+
+	restartedService := &Service{
+		client:        &hoppieClientAdapter{HoppieClient: suite.mockHoppie},
+		sessionRepo:   suite.service.sessionRepo,
+		stripRepo:     suite.service.stripRepo,
+		frontendHub:   suite.mockFrontend,
+		stripService:  suite.mockStrip,
+		timeouts:      make(map[string]*timeoutTracker),
+		timeoutConfig: 100 * time.Millisecond,
+	}
+	suite.mockStrip.On("ReevaluatePdcRequestValidations", mock.Anything, sessionID, callsign, true, false).Return(nil).Maybe()
+
+	restored, err := restartedService.restorePendingTimeouts(context.Background())
+	require.NoError(t, err)
+	assert.Equal(t, 1, restored)
+
+	require.Eventually(t, func() bool {
+		strip, err := suite.queries.GetStrip(context.Background(), database.GetStripParams{
+			Session:  sessionID,
+			Callsign: callsign,
+		})
+		if err != nil {
+			return false
+		}
+		return readStripPdcState(t, strip) == "NO_RESPONSE"
+	}, time.Second, 25*time.Millisecond)
+}
+
+func TestConfirmVoiceClearance_ClearsPdcStateAndPublishesPdcMessage(t *testing.T) {
+	t.Parallel()
+	suite := &PDCIntegrationTestSuite{}
+	suite.SetupTest(t)
+
+	callsign := "SAS123"
+	sessionID := int32(1)
+	ctx := context.Background()
+
+	requestedAt := time.Now().UTC()
+	requestChannel := models.PdcChannelWeb
+	webAtis := "B"
+	webClearance := "CLRD TO: ESSA"
+
+	require.NoError(t, suite.service.stripRepo.SetPdcData(ctx, sessionID, callsign, &models.PdcData{
+		State:          string(StateRequested),
+		RequestChannel: &requestChannel,
+		RequestedAt:    &requestedAt,
+		Web: &models.PdcWebData{
+			Atis:          &webAtis,
+			ClearanceText: &webClearance,
+		},
+	}))
+
+	suite.mockFrontend.On("SendPdcStateChange", sessionID, callsign, "NONE", "").Return()
+	suite.mockFrontend.On("SendMessage", sessionID, "SYSTEM", "SAS123: CLEARANCE given / confirmed over voice.", []string{"CLR-DEL"}).Return()
+
+	err := suite.service.ConfirmVoiceClearance(ctx, callsign, sessionID)
+	require.NoError(t, err)
+
+	strip, err := suite.queries.GetStrip(context.Background(), database.GetStripParams{
+		Session:  sessionID,
+		Callsign: callsign,
+	})
+	require.NoError(t, err)
+
+	pdcData := readStripPdcData(t, strip)
+	assert.Equal(t, models.PdcStateNone, pdcData.State)
+	assert.Nil(t, pdcData.RequestChannel)
+	assert.Nil(t, pdcData.RequestedAt)
+	assert.Nil(t, pdcData.Web)
+}
+
 // ===== ERROR SCENARIO TESTS =====
 
 func TestProcessPDCRequest_FlightPlanNotHeld(t *testing.T) {

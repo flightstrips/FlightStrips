@@ -2,7 +2,6 @@ import { useState } from "react";
 import { getAircraftTypeWithWtc } from "@/lib/utils";
 import { useStripTransfers, useTransitionAltitude, useWebSocketStore } from "@/store/store-hooks";
 import { formatAltitude } from "@/lib/utils";
-import FlightPlanDialog from "@/components/FlightPlanDialog";
 import { useCTOTColor } from "@/hooks/useCTOTColor";
 import { COLOR_UNEXPECTED_YELLOW, COLOR_TYPE_HEAVY, getValidationBlockedCursor } from "./shared";
 import { getStripBg } from "./types";
@@ -15,6 +14,7 @@ import { TAXI_MAP_POINTS } from "@/config/ekch";
 import { Bay } from "@/api/models";
 import { ValidationStatusDialog } from "./ValidationStatusDialog";
 import { getGroundStopRestriction, isFlightLevelViolated } from "@/lib/ecfmp";
+import { DepartureAwareFlightPlanDialog } from "./DepartureAwareFlightPlanDialog";
 
 // Heights— 4.72dvh total (51px at 1080p), 2/3 top / 1/3 bottom (used by callsign and SID/dest)
 const TOP_H      = "3.15dvh";  // 2/3 of 4.72dvh
@@ -305,7 +305,7 @@ export function TwyDepStrip({
       runway={runway}
       coordinationMode={isCoordinationMode}
     />
-    <FlightPlanDialog callsign={callsign} open={fplOpen} onOpenChange={setFplOpen} mode="view" />
+    <DepartureAwareFlightPlanDialog callsign={callsign} open={fplOpen} onOpenChange={setFplOpen} />
     {validationStatus && (
       <ValidationStatusDialog callsign={callsign} status={validationStatus} open={validationDialogOpen} onOpenChange={setValidationDialogOpen} />
     )}

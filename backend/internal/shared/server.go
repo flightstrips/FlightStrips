@@ -21,6 +21,7 @@ type Session struct {
 type PdcService interface {
 	IssueClearance(ctx context.Context, callsign, remarks, cid string, sessionID int32) error
 	ManualStateChange(ctx context.Context, callsign string, sessionID int32, newState string) error
+	ConfirmVoiceClearance(ctx context.Context, callsign string, sessionID int32) error
 	RevertToVoice(ctx context.Context, callsign string, sessionID int32, cid string) error
 }
 

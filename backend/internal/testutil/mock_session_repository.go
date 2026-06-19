@@ -10,6 +10,7 @@ import (
 // MockSessionRepository is a configurable mock for repository.SessionRepository.
 type MockSessionRepository struct {
 	GetByIDFn             func(ctx context.Context, id int32) (*models.Session, error)
+	GetByNamesFn          func(ctx context.Context, name string) ([]*models.Session, error)
 	ListFn                func(ctx context.Context) ([]*models.Session, error)
 	UpdateActiveRunwaysFn func(ctx context.Context, id int32, activeRunways pkgModels.ActiveRunways) error
 	UpdateCdmMasterFn     func(ctx context.Context, id int32, master bool) error
@@ -35,7 +36,10 @@ func (m *MockSessionRepository) GetByNameAndAirport(ctx context.Context, name st
 }
 
 func (m *MockSessionRepository) GetByNames(ctx context.Context, name string) ([]*models.Session, error) {
-	panic("unexpected call to MockSessionRepository.GetByNames")
+	if m.GetByNamesFn == nil {
+		panic("unexpected call to MockSessionRepository.GetByNames")
+	}
+	return m.GetByNamesFn(ctx, name)
 }
 
 func (m *MockSessionRepository) GetExpiredSessions(ctx context.Context, expiredBefore *time.Time) ([]*models.Session, error) {

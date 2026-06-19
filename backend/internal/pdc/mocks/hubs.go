@@ -160,6 +160,10 @@ func (m *FrontendHub) SendPdcStateChange(session int32, callsign, state, remarks
 	m.Called(session, callsign, state, remarks)
 }
 
+func (m *FrontendHub) SendMessage(session int32, sender, text string, recipients []string) {
+	m.Called(session, sender, text, recipients)
+}
+
 func (m *FrontendHub) SendRunwayConfiguration(session int32, departure, arrival []string, status map[string]string) {
 	m.Called(session, departure, arrival, status)
 }

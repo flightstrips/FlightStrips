@@ -19,6 +19,7 @@ type MockServer struct {
 	SectorRepoVal     repository.SectorOwnerRepository
 	SessionRepoVal    repository.SessionRepository
 	StripRepoVal      repository.StripRepository
+	PdcServiceVal     shared.PdcService
 
 	GetOrCreateSessionFn                func(airport string, name string) (shared.Session, error)
 	UpdateSectorsFn                     func(sessionId int32) ([]shared.SectorChange, error)
@@ -46,7 +47,7 @@ func (m *MockServer) GetOrCreateSession(airport string, name string) (shared.Ses
 
 func (m *MockServer) GetCdmService() shared.CdmService { return m.CdmServiceVal }
 
-func (m *MockServer) GetPdcService() shared.PdcService { return nil }
+func (m *MockServer) GetPdcService() shared.PdcService { return m.PdcServiceVal }
 
 func (m *MockServer) GetStripRepository() repository.StripRepository { return m.StripRepoVal }
 

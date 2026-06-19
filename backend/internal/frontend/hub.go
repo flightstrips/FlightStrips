@@ -1175,6 +1175,23 @@ func (hub *Hub) SendBroadcast(session int32, message string, from string) {
 	hub.Broadcast(session, event)
 }
 
+func (hub *Hub) SendMessage(session int32, sender, text string, recipients []string) {
+	if recipients == nil {
+		recipients = []string{}
+	}
+
+	msg := frontend.MessageReceivedEvent{
+		ID:          hub.NextMessageID(),
+		Sender:      sender,
+		Text:        text,
+		IsBroadcast: len(recipients) == 0,
+		Recipients:  recipients,
+	}
+
+	hub.storeMessage(session, msg)
+	hub.dispatchMessage(session, msg, "")
+}
+
 func (hub *Hub) SendGoAround(session int32, callsign string) {
 	hub.Broadcast(session, frontend.GoAroundEvent{
 		Callsign: callsign,

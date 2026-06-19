@@ -43,6 +43,39 @@ type spyStripService struct {
 	testutil.NoOpStripService
 	autoTransferCalled bool
 	moveToBayCalled    bool
+	moveCalls          []string
+	clearedUpdates     []clearedUpdateCall
+}
+
+type spyPdcService struct {
+	confirmVoiceClearanceCalled bool
+	confirmVoiceCallsign        string
+	confirmVoiceSession         int32
+	confirmVoiceClearanceErr    error
+}
+
+type clearedUpdateCall struct {
+	isCleared bool
+	bay       string
+}
+
+func (s *spyPdcService) IssueClearance(_ context.Context, _ string, _ string, _ string, _ int32) error {
+	return nil
+}
+
+func (s *spyPdcService) ManualStateChange(_ context.Context, _ string, _ int32, _ string) error {
+	return nil
+}
+
+func (s *spyPdcService) ConfirmVoiceClearance(_ context.Context, callsign string, sessionID int32) error {
+	s.confirmVoiceClearanceCalled = true
+	s.confirmVoiceCallsign = callsign
+	s.confirmVoiceSession = sessionID
+	return s.confirmVoiceClearanceErr
+}
+
+func (s *spyPdcService) RevertToVoice(_ context.Context, _ string, _ int32, _ string) error {
+	return nil
 }
 
 func (s *spyStripService) AutoTransferAirborneStrip(_ context.Context, _ int32, _ string) error {
@@ -50,8 +83,9 @@ func (s *spyStripService) AutoTransferAirborneStrip(_ context.Context, _ int32, 
 	return nil
 }
 
-func (s *spyStripService) MoveToBay(_ context.Context, _ int32, _ string, _ string, _ bool) error {
+func (s *spyStripService) MoveToBay(_ context.Context, _ int32, _ string, bay string, _ bool) error {
 	s.moveToBayCalled = true
+	s.moveCalls = append(s.moveCalls, bay)
 	return nil
 }
 
@@ -59,7 +93,11 @@ func (s *spyStripService) UpdateGroundStateForMove(_ context.Context, _ int32, _
 	return nil
 }
 
-func (s *spyStripService) UpdateClearedFlagForMove(_ context.Context, _ int32, _ string, _ bool, _ string, _ string) error {
+func (s *spyStripService) UpdateClearedFlagForMove(_ context.Context, _ int32, _ string, isCleared bool, bay string, _ string) error {
+	s.clearedUpdates = append(s.clearedUpdates, clearedUpdateCall{
+		isCleared: isCleared,
+		bay:       bay,
+	})
 	return nil
 }
 
@@ -252,4 +290,73 @@ func TestHandleMove_OwnedByOther_AllowedWithCoordination(t *testing.T) {
 	err := handleMove(context.Background(), client, msg)
 	require.NoError(t, err)
 	assert.True(t, spy.moveToBayCalled, "Move should succeed when coordination targets this position")
+}
+
+func TestHandleMove_ToClearedWithActivePdcConfirmsVoiceClearance(t *testing.T) {
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, callsign string) (*models.Strip, error) {
+			return &models.Strip{
+				Callsign:    callsign,
+				Bay:         shared.BAY_NOT_CLEARED,
+				Origin:      "EKCH",
+				Destination: "ESSA",
+				PdcState:    "REQUESTED",
+			}, nil
+		},
+	}
+
+	pdcSpy := &spyPdcService{}
+	ms := mockServerWithStripRepo(stripRepo)
+	ms.PdcServiceVal = pdcSpy
+
+	spy := &spyStripService{}
+	hub := buildFrontendTestHub(ms, spy)
+	client := buildFrontendTestClient(hub, 1, "EKCH")
+
+	msg := marshalMessage(t, frontend.MoveEvent{
+		Callsign: "SAS300",
+		Bay:      shared.BAY_CLEARED,
+	})
+
+	err := handleMove(context.Background(), client, msg)
+	require.NoError(t, err)
+	assert.True(t, spy.moveToBayCalled, "MoveToBay should still be called")
+	assert.True(t, pdcSpy.confirmVoiceClearanceCalled, "voice-clearance confirmation should run for active PDC strips")
+	assert.Equal(t, "SAS300", pdcSpy.confirmVoiceCallsign)
+	assert.Equal(t, int32(1), pdcSpy.confirmVoiceSession)
+}
+
+func TestHandleMove_RevertsClearedMoveWhenVoiceConfirmationFails(t *testing.T) {
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, callsign string) (*models.Strip, error) {
+			return &models.Strip{
+				Callsign:    callsign,
+				Bay:         shared.BAY_NOT_CLEARED,
+				Origin:      "EKCH",
+				Destination: "ESSA",
+				PdcState:    "REQUESTED",
+				Cleared:     false,
+			}, nil
+		},
+	}
+
+	pdcSpy := &spyPdcService{confirmVoiceClearanceErr: assert.AnError}
+	ms := mockServerWithStripRepo(stripRepo)
+	ms.PdcServiceVal = pdcSpy
+
+	spy := &spyStripService{}
+	hub := buildFrontendTestHub(ms, spy)
+	client := buildFrontendTestClient(hub, 1, "EKCH")
+
+	msg := marshalMessage(t, frontend.MoveEvent{
+		Callsign: "SAS301",
+		Bay:      shared.BAY_CLEARED,
+	})
+
+	err := handleMove(context.Background(), client, msg)
+	require.ErrorIs(t, err, assert.AnError)
+	require.Len(t, spy.clearedUpdates, 2)
+	assert.Equal(t, clearedUpdateCall{isCleared: true, bay: shared.BAY_CLEARED}, spy.clearedUpdates[0])
+	assert.Equal(t, clearedUpdateCall{isCleared: false, bay: shared.BAY_NOT_CLEARED}, spy.clearedUpdates[1])
+	assert.Equal(t, []string{shared.BAY_CLEARED, shared.BAY_NOT_CLEARED}, spy.moveCalls)
 }

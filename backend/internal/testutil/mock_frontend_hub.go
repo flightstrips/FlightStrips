@@ -285,6 +285,19 @@ func (m *MockFrontendHub) SendCdmWait(session int32, callsign string) {
 
 func (m *MockFrontendHub) SendPdcStateChange(session int32, callsign, state, remarks string) {}
 
+func (m *MockFrontendHub) SendMessage(session int32, sender, text string, recipients []string) {
+	m.SentMessages = append(m.SentMessages, SentMessageCall{
+		Session: session,
+		Cid:     sender,
+		Message: frontend.MessageReceivedEvent{
+			Sender:      sender,
+			Text:        text,
+			IsBroadcast: len(recipients) == 0,
+			Recipients:  recipients,
+		},
+	})
+}
+
 func (m *MockFrontendHub) SendRunwayConfiguration(session int32, departure, arrival []string, status map[string]string) {
 }
 

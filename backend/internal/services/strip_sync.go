@@ -286,7 +286,12 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 			existingStrip.Bay != "" &&
 			existingStrip.Bay != shared.BAY_NOT_CLEARED
 
+		updateHeading := strip.Heading
 		updateClearedAlt := strip.ClearedAltitude
+		if restartLifecycle {
+			updateHeading = 0
+			updateClearedAlt = 0
+		}
 		if updateClearedAlt == 0 && bay == shared.BAY_NOT_CLEARED {
 			existingCfl := int32(0)
 			if !restartLifecycle && existingStrip.ClearedAltitude != nil {
@@ -373,7 +378,7 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 			Squawk:                   &strip.Squawk,
 			Sid:                      &strip.Sid,
 			ClearedAltitude:          &updateClearedAlt,
-			Heading:                  &strip.Heading,
+			Heading:                  &updateHeading,
 			AircraftType:             &strip.AircraftType,
 			Runway:                   runway,
 			RequestedAltitude:        &strip.RequestedAltitude,
@@ -489,6 +494,9 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 		slog.DebugContext(ctx, "Updated strip", slog.String("callsign", strip.Callsign))
 		if primaryChange && updateClearedAlt != strip.ClearedAltitude && s.esCommander != nil {
 			s.esCommander.SendClearedAltitude(session, cid, strip.Callsign, updateClearedAlt)
+		}
+		if primaryChange && updateHeading != strip.Heading && s.esCommander != nil {
+			s.esCommander.SendHeading(session, cid, strip.Callsign, updateHeading)
 		}
 
 		needsStripBroadcast = true

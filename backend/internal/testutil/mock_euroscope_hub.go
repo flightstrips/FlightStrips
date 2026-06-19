@@ -74,6 +74,14 @@ type ClearedAltitudeCall struct {
 	Altitude int32
 }
 
+// HeadingCall records arguments to SendHeading.
+type HeadingCall struct {
+	Session  int32
+	Cid      string
+	Callsign string
+	Heading  int32
+}
+
 type RemarksCall struct {
 	Session  int32
 	Cid      string
@@ -123,6 +131,7 @@ type MockEuroscopeHub struct {
 	GenerateSquawks       []GenerateSquawkCall
 	Eobts                 []EobtCall
 	ClearedAltitudes      []ClearedAltitudeCall
+	Headings              []HeadingCall
 	RemarksUpdates        []RemarksCall
 	AircraftInfoUpdates   []AircraftInfoCall
 	AircraftInfoRemarks   []AircraftInfoRemarksCall
@@ -242,7 +251,9 @@ func (m *MockEuroscopeHub) SendClearedAltitude(session int32, cid string, callsi
 	m.ClearedAltitudes = append(m.ClearedAltitudes, ClearedAltitudeCall{session, cid, callsign, altitude})
 }
 
-func (m *MockEuroscopeHub) SendHeading(session int32, cid string, callsign string, heading int32) {}
+func (m *MockEuroscopeHub) SendHeading(session int32, cid string, callsign string, heading int32) {
+	m.Headings = append(m.Headings, HeadingCall{Session: session, Cid: cid, Callsign: callsign, Heading: heading})
+}
 
 func (m *MockEuroscopeHub) SendCoordinationHandover(session int32, cid string, callsign string, targetCallsign string) {
 	m.CoordinationHandovers = append(m.CoordinationHandovers, CoordinationHandoverCall{session, cid, callsign, targetCallsign})

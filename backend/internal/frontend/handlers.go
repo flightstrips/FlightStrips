@@ -307,7 +307,21 @@ func handleCoordinationTransferRequest(ctx context.Context, client *Client, mess
 		return errors.New("cannot transfer strip which is not assumed")
 	}
 
-	return client.hub.stripService.CreateCoordinationTransfer(ctx, client.session, req.Callsign, position, req.To)
+	if err := client.hub.stripService.CreateCoordinationTransfer(ctx, client.session, req.Callsign, position, req.To); err != nil {
+		return err
+	}
+
+	if strip.Marked {
+		if err := client.hub.stripService.UpdateMarked(ctx, client.session, req.Callsign, false); err != nil {
+			slog.WarnContext(ctx, "handleCoordinationTransferRequest: transfer succeeded but failed to clear mark",
+				slog.String("callsign", req.Callsign),
+				slog.Int("session", int(client.session)),
+				slog.Any("error", err),
+			)
+		}
+	}
+
+	return nil
 }
 
 func handleCoordinationAssumeRequest(ctx context.Context, client *Client, message Message) error {

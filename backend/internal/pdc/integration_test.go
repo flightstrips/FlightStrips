@@ -1,6 +1,7 @@
 package pdc
 
 import (
+	"FlightStrips/internal/config"
 	"FlightStrips/internal/database"
 	"FlightStrips/internal/models"
 	"FlightStrips/internal/pdc/mocks"
@@ -135,8 +136,10 @@ func TestIssueClearanceFlow(t *testing.T) {
 	ctx := context.Background()
 
 	// Setup expectations
+	suite.mockFrontend.On("GetAtisCodes", sessionID).Return("", "B").Once()
 	suite.mockHoppie.On("SendCPDLC", mock.Anything, mock.Anything, callsign, mock.MatchedBy(func(msg string) bool {
 		return strings.Contains(msg, "CLRD TO") && strings.Contains(msg, "ESSA") &&
+			strings.Contains(msg, "ATIS @B@") &&
 			strings.Contains(msg, "NEXT FRQ: @118.105@") &&
 			strings.Contains(msg, "Departure frequency: @124.980@") &&
 			strings.Contains(msg, remarks)
@@ -179,6 +182,7 @@ func TestSubmitWebPDCRequest_AutoIssuesClearanceWithoutHoppie(t *testing.T) {
 	sessionID := int32(1)
 	callsign := "SAS123"
 
+	suite.mockFrontend.On("GetAtisCodes", sessionID).Return("X", "Y").Once()
 	suite.mockStrip.On("MoveToBay", mock.Anything, sessionID, callsign, shared.BAY_CLEARED, true).Return(nil)
 	suite.mockFrontend.On("SendPdcStateChange", sessionID, callsign, "CLEARED", "").Return()
 
@@ -216,6 +220,48 @@ func TestSubmitWebPDCRequest_AutoIssuesClearanceWithoutHoppie(t *testing.T) {
 	suite.service.timeoutsMutex.RUnlock()
 	assert.True(t, exists, "web-issued clearances must start a confirmation timeout")
 	suite.mockStrip.AssertNotCalled(t, "UpdateStand", mock.Anything, sessionID, callsign, "A12")
+}
+
+func TestIssueClearance_UsesDepartureAtisInsteadOfArrivalAtis(t *testing.T) {
+	t.Parallel()
+	suite := &PDCIntegrationTestSuite{}
+	suite.SetupTest(t)
+
+	callsign := "SAS123"
+	sessionID := int32(1)
+	ctx := context.Background()
+
+	suite.mockFrontend.On("GetAtisCodes", sessionID).Return("A", "D").Once()
+	suite.mockHoppie.On("SendCPDLC", mock.Anything, mock.Anything, callsign, mock.MatchedBy(func(msg string) bool {
+		return strings.Contains(msg, "ATIS @D@") && !strings.Contains(msg, "ATIS @A@")
+	})).Return(nil)
+	suite.mockStrip.On("MoveToBay", mock.Anything, sessionID, callsign, shared.BAY_CLEARED, true).Return(nil)
+	suite.mockFrontend.On("SendPdcStateChange", sessionID, callsign, "CLEARED", "").Return()
+
+	err := suite.service.IssueClearance(ctx, callsign, "", "CID123", sessionID)
+	require.NoError(t, err)
+}
+
+func TestIssueClearance_OmitsAtisWhenNoAtisIsAvailable(t *testing.T) {
+	t.Parallel()
+	suite := &PDCIntegrationTestSuite{}
+	suite.SetupTest(t)
+
+	callsign := "SAS123"
+	sessionID := int32(1)
+	ctx := context.Background()
+
+	suite.mockFrontend.On("GetAtisCodes", sessionID).Return("", "").Once()
+	suite.mockHoppie.On("SendCPDLC", mock.Anything, mock.Anything, callsign, mock.MatchedBy(func(msg string) bool {
+		return !strings.Contains(msg, "ATIS @") &&
+			!strings.Contains(msg, "ATIS A") &&
+			strings.Contains(msg, "NEXT FRQ: @118.105@")
+	})).Return(nil)
+	suite.mockStrip.On("MoveToBay", mock.Anything, sessionID, callsign, shared.BAY_CLEARED, true).Return(nil)
+	suite.mockFrontend.On("SendPdcStateChange", sessionID, callsign, "CLEARED", "").Return()
+
+	err := suite.service.IssueClearance(ctx, callsign, "", "CID123", sessionID)
+	require.NoError(t, err)
 }
 
 func TestSubmitWebPDCRequest_TimesOutWithoutSendingHoppieNoResponse(t *testing.T) {
@@ -664,6 +710,103 @@ func TestRevertToVoiceFlow(t *testing.T) {
 	assert.Equal(t, "REVERT_TO_VOICE", readStripPdcState(t, strip))
 }
 
+func TestRestorePendingTimeouts_ExpiresClearedPdcAfterRestart(t *testing.T) {
+	t.Parallel()
+	suite := &PDCIntegrationTestSuite{}
+	suite.SetupTest(t)
+
+	const callsign = "SAS321"
+	const sessionID = int32(1)
+
+	testdata.SeedClearedTestStrip(t, suite.queries, sessionID, callsign)
+
+	requestChannel := models.PdcChannelWeb
+	messageSequence := int32(42)
+	messageSent := time.Now().UTC().Add(-2 * time.Second)
+	issuedByCid := "CID123"
+
+	require.NoError(t, suite.service.stripRepo.SetPdcData(context.Background(), sessionID, callsign, &models.PdcData{
+		State:           string(StateCleared),
+		RequestChannel:  &requestChannel,
+		MessageSequence: &messageSequence,
+		MessageSent:     &messageSent,
+		IssuedByCid:     &issuedByCid,
+		Web:             &models.PdcWebData{},
+	}))
+
+	suite.mockStrip.On("UnclearStrip", mock.Anything, sessionID, callsign, issuedByCid).Return(nil)
+	suite.mockFrontend.On("SendPdcStateChange", sessionID, callsign, "NO_RESPONSE", "").Return()
+
+	restartedService := &Service{
+		client:        &hoppieClientAdapter{HoppieClient: suite.mockHoppie},
+		sessionRepo:   suite.service.sessionRepo,
+		stripRepo:     suite.service.stripRepo,
+		frontendHub:   suite.mockFrontend,
+		stripService:  suite.mockStrip,
+		timeouts:      make(map[string]*timeoutTracker),
+		timeoutConfig: 100 * time.Millisecond,
+	}
+	suite.mockStrip.On("ReevaluatePdcRequestValidations", mock.Anything, sessionID, callsign, true, false).Return(nil).Maybe()
+
+	restored, err := restartedService.restorePendingTimeouts(context.Background())
+	require.NoError(t, err)
+	assert.Equal(t, 1, restored)
+
+	require.Eventually(t, func() bool {
+		strip, err := suite.queries.GetStrip(context.Background(), database.GetStripParams{
+			Session:  sessionID,
+			Callsign: callsign,
+		})
+		if err != nil {
+			return false
+		}
+		return readStripPdcState(t, strip) == "NO_RESPONSE"
+	}, time.Second, 25*time.Millisecond)
+}
+
+func TestConfirmVoiceClearance_ClearsPdcStateAndPublishesPdcMessage(t *testing.T) {
+	t.Parallel()
+	suite := &PDCIntegrationTestSuite{}
+	suite.SetupTest(t)
+
+	callsign := "SAS123"
+	sessionID := int32(1)
+	ctx := context.Background()
+
+	requestedAt := time.Now().UTC()
+	requestChannel := models.PdcChannelWeb
+	webAtis := "B"
+	webClearance := "CLRD TO: ESSA"
+
+	require.NoError(t, suite.service.stripRepo.SetPdcData(ctx, sessionID, callsign, &models.PdcData{
+		State:          string(StateRequested),
+		RequestChannel: &requestChannel,
+		RequestedAt:    &requestedAt,
+		Web: &models.PdcWebData{
+			Atis:          &webAtis,
+			ClearanceText: &webClearance,
+		},
+	}))
+
+	suite.mockFrontend.On("SendPdcStateChange", sessionID, callsign, "NONE", "").Return()
+	suite.mockFrontend.On("SendMessage", sessionID, "SYSTEM", "SAS123: CLEARANCE given / confirmed over voice.", []string{"CLR-DEL"}).Return()
+
+	err := suite.service.ConfirmVoiceClearance(ctx, callsign, sessionID)
+	require.NoError(t, err)
+
+	strip, err := suite.queries.GetStrip(context.Background(), database.GetStripParams{
+		Session:  sessionID,
+		Callsign: callsign,
+	})
+	require.NoError(t, err)
+
+	pdcData := readStripPdcData(t, strip)
+	assert.Equal(t, models.PdcStateNone, pdcData.State)
+	assert.Nil(t, pdcData.RequestChannel)
+	assert.Nil(t, pdcData.RequestedAt)
+	assert.Nil(t, pdcData.Web)
+}
+
 // ===== ERROR SCENARIO TESTS =====
 
 func TestProcessPDCRequest_FlightPlanNotHeld(t *testing.T) {
@@ -1038,6 +1181,67 @@ func TestProcessPDCRequest_InactiveDepartureRunwayCreatesFault(t *testing.T) {
 	suite.mockStrip.AssertCalled(t, "ReevaluatePdcRequestValidations", mock.Anything, int32(1), callsign, true, true)
 }
 
+func TestProcessPDCRequest_MandatoryRouteRequiresManualApprovalWithoutChangingStrip(t *testing.T) {
+	t.Cleanup(config.SetFeatureFlagsForTest(config.FeatureFlagsConfig{MandatoryRouteClearanceFlow: true}))
+	suite := &PDCIntegrationTestSuite{}
+	suite.SetupTest(t)
+	ctx := context.Background()
+
+	callsign := "SAS128"
+	testdata.SeedTestStrip(t, suite.queries, 1, callsign)
+
+	strip, err := suite.service.stripRepo.GetByCallsign(ctx, 1, callsign)
+	require.NoError(t, err)
+	runway := "22R"
+	sid := "GOLGA2C"
+	route := "GOLGA DCT"
+	strip.Runway = &runway
+	strip.Sid = &sid
+	strip.Route = &route
+	strip.CdmData = (&models.CdmData{
+		EcfmpRestrictions: []models.EcfmpRestriction{
+			{Type: "mandatory_route", Routes: []string{"VEDAR DCT"}},
+		},
+	}).Normalize()
+	_, err = suite.service.stripRepo.Update(ctx, strip)
+	require.NoError(t, err)
+
+	require.NoError(t, suite.queries.UpdateSessionSids(ctx, database.UpdateSessionSidsParams{
+		ID: 1,
+		AvailableSids: pkgModels.AvailableSids{
+			{Name: "VEDAR2C", Runway: "22R"},
+		},
+	}))
+
+	suite.mockHoppie.On("SendCPDLC", mock.Anything, mock.Anything, callsign, mock.MatchedBy(func(msg string) bool {
+		return strings.Contains(msg, "STANDBY")
+	})).Return(nil).Once()
+	suite.mockFrontend.On("SendPdcStateChange", int32(1), callsign, "REQUESTED_WITH_FAULTS", "").Return()
+
+	incomingMsg := &IncomingMessage{
+		Type:       MsgPDCRequest,
+		From:       callsign,
+		To:         "EKCH",
+		Payload:    "REQUEST PREDEP CLEARANCE " + callsign + " A320 TO ESSA AT EKCH STAND A10 ATIS A",
+		RawMessage: callsign + " EKCH telex {REQUEST PREDEP CLEARANCE " + callsign + " A320 TO ESSA AT EKCH STAND A10 ATIS A}",
+	}
+
+	session := sessionInformation{id: 1, callsign: "EKCH"}
+	err = suite.service.ProcessPDCRequest(ctx, incomingMsg, session)
+	require.NoError(t, err)
+
+	updatedStrip, err := suite.service.stripRepo.GetByCallsign(ctx, 1, callsign)
+	require.NoError(t, err)
+	require.NotNil(t, updatedStrip.Route)
+	require.NotNil(t, updatedStrip.Sid)
+	assert.Equal(t, "GOLGA DCT", *updatedStrip.Route)
+	assert.Equal(t, "GOLGA2C", *updatedStrip.Sid)
+
+	dbStrip, err := suite.queries.GetStrip(ctx, database.GetStripParams{Session: 1, Callsign: callsign})
+	require.NoError(t, err)
+	assert.Equal(t, "REQUESTED_WITH_FAULTS", readStripPdcState(t, dbStrip))
+}
+
 func TestProcessPDCRequest_AlreadyCleared(t *testing.T) {
 	t.Parallel()
 	suite := &PDCIntegrationTestSuite{}
@@ -1071,4 +1275,56 @@ func TestProcessPDCRequest_AlreadyCleared(t *testing.T) {
 	err := suite.service.ProcessPDCRequest(ctx, incomingMsg, session)
 	assert.Error(t, err, "should return error for already-cleared aircraft")
 	suite.mockHoppie.AssertCalled(t, "SendCPDLC", mock.Anything, mock.Anything, callsign, mock.Anything)
+}
+
+func TestIssueClearance_MandatoryRouteIncludesFullRouteAndCorrectedSid(t *testing.T) {
+	t.Cleanup(config.SetFeatureFlagsForTest(config.FeatureFlagsConfig{MandatoryRouteClearanceFlow: true}))
+	suite := &PDCIntegrationTestSuite{}
+	suite.SetupTest(t)
+
+	ctx := context.Background()
+	callsign := "SAS129"
+	sessionID := int32(1)
+	cid := "CID123"
+
+	testdata.SeedTestStrip(t, suite.queries, sessionID, callsign)
+	strip, err := suite.service.stripRepo.GetByCallsign(ctx, sessionID, callsign)
+	require.NoError(t, err)
+	runway := "22R"
+	sid := "GOLGA2C"
+	route := "GOLGA DCT"
+	strip.Runway = &runway
+	strip.Sid = &sid
+	strip.Route = &route
+	strip.CdmData = (&models.CdmData{
+		EcfmpRestrictions: []models.EcfmpRestriction{
+			{Type: "mandatory_route", Routes: []string{"VEDAR DCT"}},
+		},
+	}).Normalize()
+	_, err = suite.service.stripRepo.Update(ctx, strip)
+	require.NoError(t, err)
+
+	require.NoError(t, suite.queries.UpdateSessionSids(ctx, database.UpdateSessionSidsParams{
+		ID: sessionID,
+		AvailableSids: pkgModels.AvailableSids{
+			{Name: "VEDAR2C", Runway: "22R"},
+		},
+	}))
+
+	suite.mockHoppie.On("SendCPDLC", mock.Anything, mock.Anything, callsign, mock.MatchedBy(func(msg string) bool {
+		return strings.Contains(msg, "SID: @VEDAR2C@") && strings.Contains(msg, "MANDATORY ROUTE: @VEDAR DCT@")
+	})).Return(nil).Once()
+	suite.mockStrip.On("MoveToBay", mock.Anything, sessionID, callsign, shared.BAY_CLEARED, true).Return(nil)
+	suite.mockFrontend.On("SendStripUpdate", sessionID, callsign).Return().Once()
+	suite.mockFrontend.On("SendPdcStateChange", sessionID, callsign, "CLEARED", "").Return()
+
+	err = suite.service.IssueClearance(ctx, callsign, "", cid, sessionID)
+	require.NoError(t, err)
+
+	updatedStrip, err := suite.service.stripRepo.GetByCallsign(ctx, sessionID, callsign)
+	require.NoError(t, err)
+	require.NotNil(t, updatedStrip.Route)
+	require.NotNil(t, updatedStrip.Sid)
+	assert.Equal(t, "VEDAR DCT", *updatedStrip.Route)
+	assert.Equal(t, "VEDAR2C", *updatedStrip.Sid)
 }

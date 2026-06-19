@@ -3,6 +3,7 @@ package frontend
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"testing"
 	"time"
 
@@ -10,6 +11,7 @@ import (
 	"FlightStrips/internal/services"
 	"FlightStrips/internal/shared"
 	"FlightStrips/internal/testutil"
+	euroscopeEvents "FlightStrips/pkg/events/euroscope"
 	frontendEvents "FlightStrips/pkg/events/frontend"
 	pkgModels "FlightStrips/pkg/models"
 
@@ -27,6 +29,26 @@ type recordingCdmService struct {
 	triggerRecalculateFn             func(ctx context.Context, session int32, airport string)
 	syncAirportLvoFromRunwayStatusFn func(ctx context.Context, airport string, runwayStatus map[string]string)
 	handleEobtUpdateFn               func(ctx context.Context, session int32, callsign string, eobt string, sourcePosition string, sourceRole string) error
+}
+
+type transferStripService struct {
+	testutil.NoOpStripService
+	createCoordinationTransferFn func(ctx context.Context, session int32, callsign string, from string, to string) error
+	updateMarkedFn               func(ctx context.Context, session int32, callsign string, marked bool) error
+}
+
+func (s *transferStripService) CreateCoordinationTransfer(ctx context.Context, session int32, callsign string, from string, to string) error {
+	if s.createCoordinationTransferFn == nil {
+		return nil
+	}
+	return s.createCoordinationTransferFn(ctx, session, callsign, from, to)
+}
+
+func (s *transferStripService) UpdateMarked(ctx context.Context, session int32, callsign string, marked bool) error {
+	if s.updateMarkedFn == nil {
+		return nil
+	}
+	return s.updateMarkedFn(ctx, session, callsign, marked)
 }
 
 func (s *recordingCdmService) TriggerRecalculate(ctx context.Context, session int32, airport string) {
@@ -108,6 +130,245 @@ func (s *stripUpdateValidationReevaluator) ReevaluateDepartureValidation(ctx con
 		return nil
 	}
 	return s.reevaluateDepartureFn(ctx, session, callsign, publish, forceReactivate)
+}
+
+func TestHandleSendPrivateMessage_SendsOnlyToMatchingEuroscopeClient(t *testing.T) {
+	ctx := context.Background()
+	const session = int32(7)
+	const cid = "123456"
+	const callsign = "EKDK_CTR"
+	const messageText = "Hello from the frontend"
+
+	euroscopeHub := &testutil.MockEuroscopeHub{}
+	server := &testutil.MockServer{
+		EuroscopeHubVal: euroscopeHub,
+	}
+	hub := &Hub{server: server, send: make(chan internalMessage, 1)}
+	client := &Client{
+		session: session,
+		hub:     hub,
+	}
+	client.SetUser(shared.NewAuthenticatedUser(cid, 0, nil))
+
+	payload, err := json.Marshal(frontendEvents.SendPrivateMessageEvent{
+		Callsign: callsign,
+		Message:  messageText,
+	})
+	require.NoError(t, err)
+
+	err = handleSendPrivateMessage(ctx, client, Message{
+		Type:    frontendEvents.SendPrivateMessage,
+		Message: payload,
+	})
+	require.NoError(t, err)
+
+	assert.Empty(t, euroscopeHub.Broadcasts)
+	require.Len(t, euroscopeHub.SentMessages, 1)
+	assert.Equal(t, session, euroscopeHub.SentMessages[0].Session)
+	assert.Equal(t, cid, euroscopeHub.SentMessages[0].Cid)
+
+	event, ok := euroscopeHub.SentMessages[0].Message.(euroscopeEvents.SendPrivateMessageEvent)
+	require.True(t, ok)
+	assert.Equal(t, callsign, event.Callsign)
+	assert.Equal(t, messageText, event.Message)
+}
+
+func TestHandleCoordinationTransferRequest_ClearsMarkForMarkedStrip(t *testing.T) {
+	ctx := context.Background()
+	const session = int32(7)
+	const callsign = "SAS123"
+	const owner = "EKCH_DEL"
+	const target = "EKCH_GND"
+
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, gotSession int32, gotCallsign string) (*models.Strip, error) {
+			assert.Equal(t, session, gotSession)
+			assert.Equal(t, callsign, gotCallsign)
+			return &models.Strip{
+				Callsign: callsign,
+				Session:  session,
+				Owner:    ptr(owner),
+				Bay:      shared.BAY_STAND,
+				Marked:   true,
+			}, nil
+		},
+	}
+
+	server := &testutil.MockServer{StripRepoVal: stripRepo}
+
+	createCalled := false
+	updateMarkedCalled := false
+	stripService := &transferStripService{
+		createCoordinationTransferFn: func(_ context.Context, gotSession int32, gotCallsign string, from string, to string) error {
+			createCalled = true
+			assert.Equal(t, session, gotSession)
+			assert.Equal(t, callsign, gotCallsign)
+			assert.Equal(t, owner, from)
+			assert.Equal(t, target, to)
+			return nil
+		},
+		updateMarkedFn: func(_ context.Context, gotSession int32, gotCallsign string, marked bool) error {
+			updateMarkedCalled = true
+			assert.Equal(t, session, gotSession)
+			assert.Equal(t, callsign, gotCallsign)
+			assert.False(t, marked)
+			return nil
+		},
+	}
+
+	hub := &Hub{server: server, stripService: stripService}
+	client := &Client{
+		session:  session,
+		hub:      hub,
+		position: owner,
+	}
+
+	payload, err := json.Marshal(frontendEvents.CoordinationTransferRequestEvent{
+		Type:     string(frontendEvents.CoordinationTransferRequestType),
+		Callsign: callsign,
+		To:       target,
+	})
+	require.NoError(t, err)
+
+	err = handleCoordinationTransferRequest(ctx, client, Message{
+		Type:    frontendEvents.CoordinationTransferRequestType,
+		Message: payload,
+	})
+	require.NoError(t, err)
+
+	assert.True(t, createCalled)
+	assert.True(t, updateMarkedCalled)
+}
+
+func TestHandleCoordinationTransferRequest_DoesNotClearMarkForUnmarkedStrip(t *testing.T) {
+	ctx := context.Background()
+	const session = int32(7)
+	const callsign = "SAS124"
+	const owner = "EKCH_DEL"
+	const target = "EKCH_GND"
+
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, gotSession int32, gotCallsign string) (*models.Strip, error) {
+			assert.Equal(t, session, gotSession)
+			assert.Equal(t, callsign, gotCallsign)
+			return &models.Strip{
+				Callsign: callsign,
+				Session:  session,
+				Owner:    ptr(owner),
+				Bay:      shared.BAY_STAND,
+				Marked:   false,
+			}, nil
+		},
+	}
+
+	server := &testutil.MockServer{StripRepoVal: stripRepo}
+
+	createCalled := false
+	updateMarkedCalled := false
+	stripService := &transferStripService{
+		createCoordinationTransferFn: func(_ context.Context, gotSession int32, gotCallsign string, from string, to string) error {
+			createCalled = true
+			assert.Equal(t, session, gotSession)
+			assert.Equal(t, callsign, gotCallsign)
+			assert.Equal(t, owner, from)
+			assert.Equal(t, target, to)
+			return nil
+		},
+		updateMarkedFn: func(_ context.Context, _ int32, _ string, _ bool) error {
+			updateMarkedCalled = true
+			return nil
+		},
+	}
+
+	hub := &Hub{server: server, stripService: stripService}
+	client := &Client{
+		session:  session,
+		hub:      hub,
+		position: owner,
+	}
+
+	payload, err := json.Marshal(frontendEvents.CoordinationTransferRequestEvent{
+		Type:     string(frontendEvents.CoordinationTransferRequestType),
+		Callsign: callsign,
+		To:       target,
+	})
+	require.NoError(t, err)
+
+	err = handleCoordinationTransferRequest(ctx, client, Message{
+		Type:    frontendEvents.CoordinationTransferRequestType,
+		Message: payload,
+	})
+	require.NoError(t, err)
+
+	assert.True(t, createCalled)
+	assert.False(t, updateMarkedCalled)
+}
+
+func TestHandleCoordinationTransferRequest_MarkClearFailureDoesNotRejectTransfer(t *testing.T) {
+	ctx := context.Background()
+	const session = int32(7)
+	const callsign = "SAS125"
+	const owner = "EKCH_DEL"
+	const target = "EKCH_GND"
+
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, gotSession int32, gotCallsign string) (*models.Strip, error) {
+			assert.Equal(t, session, gotSession)
+			assert.Equal(t, callsign, gotCallsign)
+			return &models.Strip{
+				Callsign: callsign,
+				Session:  session,
+				Owner:    ptr(owner),
+				Bay:      shared.BAY_STAND,
+				Marked:   true,
+			}, nil
+		},
+	}
+
+	server := &testutil.MockServer{StripRepoVal: stripRepo}
+
+	createCalled := false
+	updateMarkedCalled := false
+	stripService := &transferStripService{
+		createCoordinationTransferFn: func(_ context.Context, gotSession int32, gotCallsign string, from string, to string) error {
+			createCalled = true
+			assert.Equal(t, session, gotSession)
+			assert.Equal(t, callsign, gotCallsign)
+			assert.Equal(t, owner, from)
+			assert.Equal(t, target, to)
+			return nil
+		},
+		updateMarkedFn: func(_ context.Context, gotSession int32, gotCallsign string, marked bool) error {
+			updateMarkedCalled = true
+			assert.Equal(t, session, gotSession)
+			assert.Equal(t, callsign, gotCallsign)
+			assert.False(t, marked)
+			return errors.New("mark update failed")
+		},
+	}
+
+	hub := &Hub{server: server, stripService: stripService}
+	client := &Client{
+		session:  session,
+		hub:      hub,
+		position: owner,
+	}
+
+	payload, err := json.Marshal(frontendEvents.CoordinationTransferRequestEvent{
+		Type:     string(frontendEvents.CoordinationTransferRequestType),
+		Callsign: callsign,
+		To:       target,
+	})
+	require.NoError(t, err)
+
+	err = handleCoordinationTransferRequest(ctx, client, Message{
+		Type:    frontendEvents.CoordinationTransferRequestType,
+		Message: payload,
+	})
+	require.NoError(t, err)
+
+	assert.True(t, createCalled)
+	assert.True(t, updateMarkedCalled)
 }
 
 func TestHandleStripUpdate_RunwayChangePersistsSelectedRunway(t *testing.T) {

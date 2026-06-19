@@ -7,6 +7,7 @@ import (
 	"FlightStrips/internal/repository"
 	"FlightStrips/internal/shared"
 	"FlightStrips/pkg/helpers"
+	pkgModels "FlightStrips/pkg/models"
 	"context"
 	"database/sql"
 	"errors"
@@ -200,6 +201,86 @@ func valueOrEmpty(value *string) string {
 	return *value
 }
 
+func (s *Service) getDepartureAtisCode(sessionID int32) string {
+	if s.frontendHub == nil {
+		return ""
+	}
+
+	_, dep := s.frontendHub.GetAtisCodes(sessionID)
+	return strings.TrimSpace(dep)
+}
+
+func (s *Service) resolveEuroscopeTargetCID(ctx context.Context, sessionID int32) string {
+	if s.euroscopeHub == nil || s.controllerRepo == nil {
+		return ""
+	}
+
+	masterCallsign := strings.TrimSpace(s.euroscopeHub.GetMasterCallsign(sessionID))
+	if masterCallsign == "" {
+		return ""
+	}
+
+	controller, err := s.controllerRepo.GetByCallsign(ctx, sessionID, masterCallsign)
+	if err != nil || controller == nil || controller.Cid == nil {
+		return ""
+	}
+
+	return strings.TrimSpace(*controller.Cid)
+}
+
+func (s *Service) applyMandatoryRouteReview(ctx context.Context, session *models.Session, strip *models.Strip) (*mandatoryRouteReview, error) {
+	if !config.IsMandatoryRouteClearanceFlowEnabled() || session == nil || strip == nil {
+		return nil, nil
+	}
+
+	review := resolveMandatoryRouteReview(strip, session.AvailableSids)
+	if review == nil {
+		return nil, nil
+	}
+
+	updated := *strip
+	changed := false
+
+	if review.Route != "" && !strings.EqualFold(strings.TrimSpace(stringValue(strip.Route)), review.Route) {
+		route := review.Route
+		updated.Route = &route
+		changed = true
+	}
+
+	if review.SID != "" && !strings.EqualFold(strings.TrimSpace(stringValue(strip.Sid)), review.SID) {
+		sid := review.SID
+		updated.Sid = &sid
+		changed = true
+	}
+
+	if !changed {
+		return review, nil
+	}
+
+	if _, err := s.stripRepo.Update(ctx, &updated); err != nil {
+		return nil, fmt.Errorf("failed to persist mandatory route updates: %w", err)
+	}
+
+	strip.Route = updated.Route
+	strip.Sid = updated.Sid
+	strip.Version = updated.Version
+
+	if targetCID := s.resolveEuroscopeTargetCID(ctx, session.ID); targetCID != "" && s.euroscopeHub != nil {
+		if review.Route != "" {
+			s.euroscopeHub.SendRoute(session.ID, targetCID, strip.Callsign, review.Route)
+		}
+		if review.SID != "" {
+			s.euroscopeHub.SendSid(session.ID, targetCID, strip.Callsign, review.SID)
+		}
+	}
+
+	if s.frontendHub != nil {
+		s.frontendHub.SendStripUpdate(session.ID, strip.Callsign)
+	}
+
+	return review, nil
+}
+
 func isWebPDCRequest(strip *models.Strip) bool {
 	return strip != nil &&
 		strip.PdcData != nil &&
@@ -273,6 +354,12 @@ func (s *Service) confirmPilotAcknowledgement(ctx context.Context, sessionID int
 
 // Start begins the background polling loop
 func (s *Service) Start(ctx context.Context) {
+	if restored, err := s.restorePendingTimeouts(ctx); err != nil {
+		slog.ErrorContext(ctx, "PDC Service: Failed to restore pending confirmation timeouts", slog.Any("error", err))
+	} else if restored > 0 {
+		slog.InfoContext(ctx, "PDC Service: Restored pending confirmation timeouts", slog.Int("count", restored))
+	}
+
 	slog.InfoContext(ctx, "PDC Service: Starting Hoppie polling loop")
 
 	for {
@@ -286,6 +373,52 @@ func (s *Service) Start(ctx context.Context) {
 			}
 		}
 	}
+}
+
+func (s *Service) restorePendingTimeouts(ctx context.Context) (int, error) {
+	sessions, err := s.sessionRepo.List(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("failed to list sessions for timeout recovery: %w", err)
+	}
+
+	restored := 0
+	for _, session := range sessions {
+		strips, err := s.stripRepo.List(ctx, session.ID)
+		if err != nil {
+			return restored, fmt.Errorf("failed to list strips for session %d: %w", session.ID, err)
+		}
+
+		sessionInfo := sessionInformation{
+			id:       session.ID,
+			name:     session.Name,
+			airport:  session.Airport,
+			callsign: session.Airport,
+		}
+
+		for _, strip := range strips {
+			if strip == nil || strip.PdcState != string(StateCleared) || strip.PdcData == nil {
+				continue
+			}
+			if strip.PdcData.MessageSent == nil || strip.PdcData.MessageSequence == nil {
+				slog.WarnContext(ctx, "PDC Service: Skipping timeout recovery for cleared strip with incomplete PDC data",
+					slog.String("callsign", strip.Callsign),
+					slog.Int("session", int(session.ID)),
+				)
+				continue
+			}
+
+			remaining := s.timeoutConfig - time.Since(strip.PdcData.MessageSent.UTC())
+			if remaining < 0 {
+				remaining = 0
+			}
+
+			cid := valueOrEmpty(strip.PdcData.IssuedByCid)
+			s.startClearanceTimeoutAfter(ctx, *strip.PdcData.MessageSequence, sessionInfo, strip.Callsign, cid, isWebPDCRequest(strip), remaining)
+			restored++
+		}
+	}
+
+	return restored, nil
 }
 
 func (s *Service) pollAndProcess(ctx context.Context) error {
@@ -411,7 +544,7 @@ func (s *Service) ProcessPDCRequest(ctx context.Context, msg *IncomingMessage, s
 	}
 
 	requestRemarks := optionalString(req.Remarks)
-	faults := s.validatePDCFlightPlan(strip, currentSession.ActiveRunways.DepartureRunways)
+	faults := s.validatePDCFlightPlan(strip, currentSession.ActiveRunways.DepartureRunways, currentSession.AvailableSids)
 	if len(faults) > 0 {
 		session.recordPDCRequestOutcome(ctx, models.PdcChannelCPDLC, "requested_with_faults")
 		now := time.Now().UTC()
@@ -490,6 +623,16 @@ func (s *Service) IssueClearance(ctx context.Context, callsign, remarks, cid str
 		return fmt.Errorf("strip not found for PDC clearance: %w", err)
 	}
 
+	sessionData, err := s.sessionRepo.GetByID(ctx, sessionInfo.id)
+	if err != nil {
+		return fmt.Errorf("failed to get session: %w", err)
+	}
+
+	mandatoryRouteReview, err := s.applyMandatoryRouteReview(ctx, sessionData, strip)
+	if err != nil {
+		return err
+	}
+
 	webDelivery := isWebPDCRequest(strip)
 
 	// Validate required clearance fields are present in strip
@@ -526,7 +669,7 @@ func (s *Service) IssueClearance(ctx context.Context, callsign, remarks, cid str
 		Callsign:           strip.Callsign,
 		Origin:             strip.Origin,
 		Destination:        strip.Destination,
-		Atis:               "A",
+		Atis:               "",
 		Runway:             *strip.Runway,
 		Squawk:             clearanceSquawk,
 		NextFrequency:      nextFreq,
@@ -536,8 +679,21 @@ func (s *Service) IssueClearance(ctx context.Context, callsign, remarks, cid str
 		Remarks:            remarks,
 	}
 
+	if depAtis := s.getDepartureAtisCode(sessionInfo.id); depAtis != "" {
+		options.Atis = depAtis
+	}
+
 	if webDelivery && strip.PdcData.Web.Atis != nil && strings.TrimSpace(*strip.PdcData.Web.Atis) != "" {
 		options.Atis = strings.TrimSpace(*strip.PdcData.Web.Atis)
+	}
+
+	if options.Atis == "" {
+		slog.InfoContext(ctx,
+			"PDC Service: Omitting ATIS letter from clearance because none is available",
+			slog.String("callsign", strip.Callsign),
+			slog.Int("session", int(sessionInfo.id)),
+			slog.Bool("web_delivery", webDelivery),
+		)
 	}
 
 	if strip.Heading != nil && *strip.Heading != 0 && strip.ClearedAltitude != nil && *strip.ClearedAltitude > 0 {
@@ -551,6 +707,14 @@ func (s *Service) IssueClearance(ctx context.Context, callsign, remarks, cid str
 		options.Vectors = "FIRST WAYPOINT"
 	} else if strip.Sid != nil {
 		options.SID = *strip.Sid
+	}
+
+	if mandatoryRouteReview != nil {
+		if strings.TrimSpace(mandatoryRouteReview.SID) == "" {
+			return fmt.Errorf("mandatory route %s requires a matching SID before PDC can be issued", mandatoryRouteReview.Route)
+		}
+		options.SID = mandatoryRouteReview.SID
+		options.Route = mandatoryRouteReview.Route
 	}
 
 	clearance := buildPDCClearance(options)
@@ -632,6 +796,37 @@ func (s *Service) RevertToVoice(ctx context.Context, callsign string, sessionId 
 	}
 
 	slog.DebugContext(ctx, "PDC Service: Reverting to voice", slog.String("callsign", callsign))
+	return nil
+}
+
+func (s *Service) ConfirmVoiceClearance(ctx context.Context, callsign string, sessionID int32) error {
+	strip, err := s.stripRepo.GetByCallsign(ctx, sessionID, callsign)
+	if err != nil {
+		return fmt.Errorf("failed to get strip: %w", err)
+	}
+
+	if strip.PdcState == "" || strip.PdcState == string(StateNone) {
+		return nil
+	}
+
+	s.CancelTimeout(callsign, sessionID)
+
+	if err := s.stripRepo.SetPdcData(ctx, sessionID, callsign, (&models.PdcData{}).Normalize()); err != nil {
+		return fmt.Errorf("failed to clear PDC state after voice clearance: %w", err)
+	}
+
+	if err := s.notifyStateChange(ctx, sessionID, callsign, StateNone, ""); err != nil {
+		return err
+	}
+
+	if s.frontendHub != nil {
+		recipients := []string{}
+		if _, ok := config.GetMessageAreas()["CLR-DEL"]; ok {
+			recipients = []string{"CLR-DEL"}
+		}
+		s.frontendHub.SendMessage(sessionID, "SYSTEM", fmt.Sprintf("%s: CLEARANCE given / confirmed over voice.", callsign), recipients)
+	}
+
 	return nil
 }
 
@@ -942,7 +1137,11 @@ func (s *Service) SendErrorMessage(ctx context.Context, session sessionInformati
 }
 
 // StartClearanceTimeout starts a timeout that reverts cleared flag if pilot doesn't respond
-func (s *Service) StartClearanceTimeout(ctx context.Context, airport, callsign string, messageId int32, session sessionInformation, cid string, web bool) {
+func (s *Service) StartClearanceTimeout(ctx context.Context, _ string, callsign string, messageId int32, session sessionInformation, cid string, web bool) {
+	s.startClearanceTimeoutAfter(ctx, messageId, session, callsign, cid, web, s.timeoutConfig)
+}
+
+func (s *Service) startClearanceTimeoutAfter(ctx context.Context, messageId int32, session sessionInformation, callsign string, cid string, web bool, delay time.Duration) {
 	key := fmt.Sprintf("%s_%d", callsign, session.id)
 
 	// Cancel any existing timeout for this callsign
@@ -964,9 +1163,9 @@ func (s *Service) StartClearanceTimeout(ctx context.Context, airport, callsign s
 	s.timeoutsMutex.Unlock()
 
 	// Start timeout goroutine
-	go s.handleTimeout(timeoutCtx, airport, callsign, messageId, session)
+	go s.handleTimeout(timeoutCtx, delay, callsign, messageId, session)
 
-	slog.DebugContext(ctx, "PDC Service: Started timeout", slog.Duration("timeout", s.timeoutConfig), slog.String("callsign", callsign))
+	slog.DebugContext(ctx, "PDC Service: Started timeout", slog.Duration("timeout", delay), slog.String("callsign", callsign))
 }
 
 // CancelTimeout cancels an active timeout
@@ -984,7 +1183,7 @@ func (s *Service) CancelTimeout(callsign string, sessionID int32) {
 }
 
 // handleTimeout waits for timeout and reverts cleared flag if no response
-func (s *Service) handleTimeout(ctx context.Context, airport, callsign string, messageId int32, session sessionInformation) {
+func (s *Service) handleTimeout(ctx context.Context, delay time.Duration, callsign string, messageId int32, session sessionInformation) {
 	key := fmt.Sprintf("%s_%d", callsign, session.id)
 
 	s.timeoutsMutex.RLock()
@@ -999,7 +1198,7 @@ func (s *Service) handleTimeout(ctx context.Context, airport, callsign string, m
 	case <-ctx.Done():
 		// Timeout was cancelled (pilot responded)
 		return
-	case <-time.After(s.timeoutConfig):
+	case <-time.After(delay):
 		// Timeout expired - revert cleared flag
 		slog.DebugContext(ctx, "PDC Service: Timeout expired - reverting cleared flag", slog.String("callsign", callsign))
 
@@ -1028,7 +1227,7 @@ func (s *Service) handleTimeout(ctx context.Context, airport, callsign string, m
 			if err != nil {
 				slog.ErrorContext(ctx, "PDC Service: Failed to get next message sequence", slog.Any("error", err))
 			} else {
-				msg := buildNoResponseMessage(seq, messageId, airport, callsign)
+				msg := buildNoResponseMessage(seq, messageId, session.airport, callsign)
 				err = s.client.SendCPDLC(ctx, session.callsign, callsign, msg)
 				if err != nil {
 					slog.ErrorContext(ctx, "PDC Service: Failed to send no response message", slog.Any("error", err))
@@ -1070,6 +1269,6 @@ func (s *Service) setPdcFailed(ctx context.Context, callsign string, sessionId i
 
 // validatePDCFlightPlan validates a strip's flight plan against PDC validation config.
 // Returns a list of fault descriptions (empty = no faults).
-func (s *Service) validatePDCFlightPlan(strip *models.Strip, activeDepartureRunways []string) []string {
-	return validationFaultMessages(validatePDCFlightPlanFaults(strip, activeDepartureRunways))
+func (s *Service) validatePDCFlightPlan(strip *models.Strip, activeDepartureRunways []string, availableSids pkgModels.AvailableSids) []string {
+	return validationFaultMessages(validatePDCFlightPlanFaults(strip, activeDepartureRunways, availableSids))
 }

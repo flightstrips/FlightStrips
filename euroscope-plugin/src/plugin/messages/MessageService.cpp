@@ -1,4 +1,5 @@
 #include "MessageService.h"
+#include "PrivateMessageSender.h"
 
 #include "Logger.hpp"
 
@@ -121,6 +122,8 @@ namespace FlightStrips::messages {
             HandleCreateFPLEvent(message.get<CreateFPLEvent>());
         } else if (type == EVENT_PDC_STATE_CHANGE_NAME) {
             HandlePdcStateChangeEvent(message.get<PdcStateChangeEvent>());
+        } else if (type == EVENT_SEND_PRIVATE_MESSAGE_NAME) {
+            HandleSendPrivateMessageEvent(message.get<SendPrivateMessageEvent>());
         } else {
             Logger::Warning("Unknown message type: {}", type);
         }
@@ -180,6 +183,7 @@ namespace FlightStrips::messages {
             const auto flightPlanData = it.GetFlightPlanData();
 
             const auto callsign = std::string(it.GetCallsign());
+            const auto remarks = std::string(flightPlanData.GetRemarks());
             const auto radarTarget = m_plugin->RadarTargetSelect(callsign.c_str());
             const auto radarPosition = radarTarget.GetPosition();
             const auto hasRadarPosition = radarPosition.IsValid();
@@ -218,7 +222,7 @@ namespace FlightStrips::messages {
                 std::string(flightPlanData.GetDestination()),
                 std::string(flightPlanData.GetAlternate()),
                 std::string(flightPlanData.GetRoute()),
-                std::string(flightPlanData.GetRemarks()),
+                remarks,
                 runway,
                 squawk,
                 std::string(controllerAssignedData.GetSquawk()),
@@ -230,6 +234,7 @@ namespace FlightStrips::messages {
                 controllerAssignedData.GetAssignedHeading(),
                 std::string(flightPlanData.GetAircraftInfo()),
                 {flightPlanData.GetAircraftWtc()},
+                m_flightPlanService->ResolveSpokenCallsign(callsign, remarks),
                 Position{
                     latitude, longitude, altitude
                 },
@@ -275,7 +280,7 @@ namespace FlightStrips::messages {
                 std::string(position.GetSquawk()), "", "",  // squawk, assigned_squawk, sid
                 false, "",   // cleared, ground_state
                 0, 0, 0,    // cleared_altitude, requested_altitude, heading
-                "", "",     // aircraft_type, aircraft_category
+                "", "", "", // aircraft_type, aircraft_category, spoken_callsign
                 Position{pos.m_Latitude, pos.m_Longitude, position.GetPressureAltitude()},
                 stand,
                 "", "", "",  // communication_type, capabilities, eobt
@@ -565,18 +570,14 @@ namespace FlightStrips::messages {
         }
     }
 
-    void MessageService::HandlePdcStateChangeEvent(const PdcStateChangeEvent &event) const {
+void MessageService::HandlePdcStateChangeEvent(const PdcStateChangeEvent &event) const {
+        Logger::Info("PDC state change for {}: {}", event.callsign, event.state);
         m_flightPlanService->ApplyPdcStateChange(event.callsign, event.state, event.pdc_request_remarks);
+    }
 
-        const auto* trackedPlan = m_flightPlanService->GetFlightPlan(event.callsign);
-        if (trackedPlan == nullptr || !trackedPlan->KeepsEuroScopeStripUncleared()) {
-            return;
-        }
-
-        const auto fp = m_plugin->FlightPlanSelect(event.callsign.c_str());
-        if (fp.IsValid() && fp.GetClearenceFlag()) {
-            m_plugin->SetClearenceFlag(event.callsign, false);
-        }
+    void MessageService::HandleSendPrivateMessageEvent(const SendPrivateMessageEvent &event) const {
+        Logger::Info("Sending private message to {}: {}", event.callsign, event.message);
+        PrivateMessageSender::SendPrivateMessage(event.callsign, event.message);
     }
 
     bool MessageService::SendCdmTobtUpdate(const std::string& callsign, const std::string& tobt) const {

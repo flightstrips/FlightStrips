@@ -107,12 +107,27 @@ TEST(FlightPlanServiceStateTest, ApplyCdmUpdate_PopulatesBackendFields) {
         std::shared_ptr<FlightStrips::websocket::WebSocketService>{},
         std::shared_ptr<FlightStrips::FlightStripsPlugin>{},
         std::shared_ptr<FlightStrips::stands::StandService>{},
-        std::shared_ptr<FlightStrips::configuration::AppConfig>{}
+        std::shared_ptr<FlightStrips::configuration::AppConfig>{},
+        nullptr
     );
 
-    service.ApplyCdmUpdate(CdmUpdateEvent{
-        "EIN123", "1000", "1030", "1025", "PILOT", "1035", "1045", "1050", "1028", "1032", "1029", "REA", "1100", "M", "REGUL"
-    });
+    CdmUpdateEvent update;
+    update.callsign = "EIN123";
+    update.eobt = "1000";
+    update.tobt = "1030";
+    update.req_tobt = "1025";
+    update.req_tobt_source = "PILOT";
+    update.tsat = "1035";
+    update.ttot = "1045";
+    update.ctot = "1050";
+    update.asrt = "1028";
+    update.tsac = "1032";
+    update.asat = "1029";
+    update.status = "REA";
+    update.manual_ctot = "1100";
+    update.deice_type = "M";
+    update.ecfmp_id = "REGUL";
+    service.ApplyCdmUpdate(update);
 
     const auto* flightPlan = service.GetFlightPlan("EIN123");
     ASSERT_NE(flightPlan, nullptr);
@@ -137,7 +152,8 @@ TEST(FlightPlanServiceStateTest, ApplyBackendSyncCdm_SeedsCdmState) {
         std::shared_ptr<FlightStrips::websocket::WebSocketService>{},
         std::shared_ptr<FlightStrips::FlightStripsPlugin>{},
         std::shared_ptr<FlightStrips::stands::StandService>{},
-        std::shared_ptr<FlightStrips::configuration::AppConfig>{}
+        std::shared_ptr<FlightStrips::configuration::AppConfig>{},
+        nullptr
     );
 
     BackendSyncCdmData syncData;
@@ -165,7 +181,8 @@ TEST(FlightPlanServiceStateTest, ApplyPdcStateChange_SeedsTrackedState) {
         std::shared_ptr<FlightStrips::websocket::WebSocketService>{},
         std::shared_ptr<FlightStrips::FlightStripsPlugin>{},
         std::shared_ptr<FlightStrips::stands::StandService>{},
-        std::shared_ptr<FlightStrips::configuration::AppConfig>{}
+        std::shared_ptr<FlightStrips::configuration::AppConfig>{},
+        nullptr
     );
 
     service.ApplyPdcStateChange("SAS321", "CLEARED");

@@ -79,6 +79,45 @@ namespace FlightStrips::TagItems {
                 if (!cdm.ecfmp_id.empty()) return {cdm.ecfmp_id, TAG_YELLOW, true};
                 if (!cdm.manual_ctot.empty()) return {"MAN ACT", TAG_YELLOW, true};
                 return {};
+            case Field::EcfmpType: {
+                if (cdm.ecfmp_restrictions.empty()) return {};
+                const auto& r = cdm.ecfmp_restrictions[0];
+                if (r.type == "mandatory_route") return {"MRT", TAG_YELLOW, true};
+                if (r.type == "ground_stop") return {"GS", TAG_RED, true};
+                if (r.type == "prohibit") return {"PRO", TAG_RED, true};
+                return {};
+            }
+            case Field::EcfmpRoute: {
+                if (cdm.ecfmp_restrictions.empty()) return {};
+                const auto& restriction = cdm.ecfmp_restrictions[0];
+                if (restriction.type != "mandatory_route" || restriction.routes.empty()) return {};
+                const auto& route = restriction.routes[0];
+                if (route.length() > 15) return {route.substr(0, 15), TAG_YELLOW, true};
+                return {route, TAG_YELLOW, true};
+            }
+            case Field::EcfmpFL: {
+                if (cdm.ecfmp_restrictions.empty()) return {};
+                const auto& restriction = cdm.ecfmp_restrictions[0];
+                if (restriction.type != "prohibit") return {};
+                if (restriction.max_level != 0 && restriction.min_level != 0) {
+                    return {std::format("FL{}-FL{}", restriction.min_level, restriction.max_level), TAG_RED, true};
+                }
+if (restriction.max_level != 0) {
+				    return {std::format("FL{}", restriction.max_level), TAG_RED, true};
+                }
+                if (restriction.min_level != 0) {
+                    return {std::format("FL{}+", restriction.min_level), TAG_RED, true};
+                }
+                if (!restriction.exact_levels.empty()) {
+                    std::string result;
+                    for (size_t i = 0; i < restriction.exact_levels.size() && i < 3; ++i) {
+                        if (i > 0) result += ",";
+                        result += std::format("FL{}", restriction.exact_levels[i]);
+                    }
+                    return {result, TAG_RED, true};
+                }
+                return {};
+            }
             case Field::Status:
                 if (cdm.status.empty()) return {};
                 if (_stricmp(cdm.status.c_str(), "COMPLY") == 0) return {cdm.status, TAG_GREEN, true};

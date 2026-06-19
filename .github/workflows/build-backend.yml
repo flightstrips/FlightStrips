@@ -1,0 +1,52 @@
+name: Build backend
+
+on:
+  push:
+    branches:
+      - 'main'
+    paths:
+      - 'backend/**'
+      - '.github/workflows/build-backend.yml'
+  pull_request:
+    branches:
+      - 'main'
+    paths:
+      - 'backend/**'
+      - '.github/workflows/build-backend.yml'
+
+jobs:
+  build:
+    name: Build & test
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    defaults:
+      run:
+        working-directory: ./backend
+    steps:
+    - uses: actions/checkout@v3
+    - uses: actions/setup-go@v5
+      with:
+        go-version: '1.25'
+    - name: Build
+      run: go build ./...
+    - name: Test
+      run: go test ./...
+
+  docker:
+    name: Docker build
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    steps:
+    - uses: actions/checkout@v3
+    - name: Set up Docker Buildx
+      uses: useblacksmith/setup-docker-builder@v1
+    - name: Build Docker image (api)
+      uses: useblacksmith/build-push-action@v2
+      with:
+        context: ./backend
+        file: ./backend/Dockerfile
+        push: false
+    - name: Build Docker image (migrate)
+      uses: useblacksmith/build-push-action@v2
+      with:
+        context: ./backend
+        file: ./backend/Dockerfile.Migrate
+        push: false

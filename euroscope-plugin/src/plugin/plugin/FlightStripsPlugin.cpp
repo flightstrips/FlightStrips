@@ -16,6 +16,106 @@ using namespace EuroScopePlugIn;
 
 namespace FlightStrips {
     namespace {
+        constexpr int kWindowProbeMaxAttempts = 20;
+        constexpr int kWindowProbeMaxDepth = 8;
+        constexpr int kWindowProbeMaxNodes = 512;
+
+        auto QuoteWindowText(std::string text) -> std::string {
+            for (char& ch : text) {
+                if (ch == '\r' || ch == '\n' || ch == '\t') {
+                    ch = ' ';
+                }
+            }
+
+            if (text.size() > 120) {
+                text.resize(117);
+                text += "...";
+            }
+
+            return text;
+        }
+
+        auto ReadWindowText(HWND hwnd) -> std::string {
+            const int textLength = GetWindowTextLengthA(hwnd);
+            if (textLength <= 0) {
+                return "";
+            }
+
+            std::string text(static_cast<size_t>(textLength) + 1, '\0');
+            const int copied = GetWindowTextA(hwnd, text.data(), textLength + 1);
+            if (copied <= 0) {
+                return "";
+            }
+
+            text.resize(static_cast<size_t>(copied));
+            return QuoteWindowText(text);
+        }
+
+        auto ReadWindowClass(HWND hwnd) -> std::string {
+            char className[256] = {};
+            const int copied = GetClassNameA(hwnd, className, static_cast<int>(std::size(className)));
+            if (copied <= 0) {
+                return "";
+            }
+
+            return {className, static_cast<size_t>(copied)};
+        }
+
+        void LogWindowTree(HWND hwnd, const int depth, int& visitedCount) {
+            if (hwnd == nullptr || visitedCount >= kWindowProbeMaxNodes || depth > kWindowProbeMaxDepth) {
+                return;
+            }
+
+            ++visitedCount;
+
+            RECT rect = {};
+            GetWindowRect(hwnd, &rect);
+
+            Logger::Info(
+                "WindowProbe depth={} hwnd=0x{:08X} parent=0x{:08X} class='{}' text='{}' id={} visible={} enabled={} style=0x{:08X} exStyle=0x{:08X} rect=[{},{},{},{}]",
+                depth,
+                static_cast<unsigned int>(reinterpret_cast<uintptr_t>(hwnd)),
+                static_cast<unsigned int>(reinterpret_cast<uintptr_t>(GetParent(hwnd))),
+                ReadWindowClass(hwnd),
+                ReadWindowText(hwnd),
+                GetDlgCtrlID(hwnd),
+                IsWindowVisible(hwnd) ? 1 : 0,
+                IsWindowEnabled(hwnd) ? 1 : 0,
+                static_cast<unsigned int>(GetWindowLongPtr(hwnd, GWL_STYLE)),
+                static_cast<unsigned int>(GetWindowLongPtr(hwnd, GWL_EXSTYLE)),
+                rect.left,
+                rect.top,
+                rect.right,
+                rect.bottom
+            );
+
+            HWND child = FindWindowExA(hwnd, nullptr, nullptr, nullptr);
+            while (child != nullptr && visitedCount < kWindowProbeMaxNodes) {
+                LogWindowTree(child, depth + 1, visitedCount);
+                child = FindWindowExA(hwnd, child, nullptr, nullptr);
+            }
+        }
+
+        struct WindowProbeContext {
+            DWORD processId;
+            int matchedTopLevelWindows = 0;
+            int visitedWindows = 0;
+        };
+
+        BOOL CALLBACK LogProcessWindowsProc(HWND hwnd, LPARAM lParam) {
+            auto* context = reinterpret_cast<WindowProbeContext*>(lParam);
+
+            DWORD windowProcessId = 0;
+            GetWindowThreadProcessId(hwnd, &windowProcessId);
+            if (windowProcessId != context->processId) {
+                return TRUE;
+            }
+
+            ++context->matchedTopLevelWindows;
+            LogWindowTree(hwnd, 0, context->visitedWindows);
+            return context->visitedWindows < kWindowProbeMaxNodes ? TRUE : FALSE;
+        }
+
         auto CurrentUtcHHMM() -> std::string {
             time_t rawtime;
             tm ptm;
@@ -283,6 +383,41 @@ namespace FlightStrips {
 
             m_timedEventHandlers->OnTimer(Counter);
         });
+    }
+
+    void FlightStripsPlugin::LogWindowHierarchyProbe() {
+        ++m_windowProbeAttempts;
+
+        WindowProbeContext context{};
+        context.processId = GetCurrentProcessId();
+
+        Logger::Info(
+            "WindowProbe startup attempt {} of {} for pid {}",
+            m_windowProbeAttempts,
+            kWindowProbeMaxAttempts,
+            context.processId
+        );
+
+        EnumWindows(LogProcessWindowsProc, reinterpret_cast<LPARAM>(&context));
+
+        Logger::Info(
+            "WindowProbe summary: topLevelWindows={} visitedWindows={} maxDepth={} maxNodes={}",
+            context.matchedTopLevelWindows,
+            context.visitedWindows,
+            kWindowProbeMaxDepth,
+            kWindowProbeMaxNodes
+        );
+
+        if (context.matchedTopLevelWindows > 0) {
+            m_windowProbeLogged = true;
+            Logger::Info("WindowProbe completed successfully on startup attempt {}", m_windowProbeAttempts);
+            return;
+        }
+
+        if (m_windowProbeAttempts >= kWindowProbeMaxAttempts) {
+            m_windowProbeLogged = true;
+            Logger::Warning("WindowProbe did not find any top-level windows for pid {} during startup", context.processId);
+        }
     }
 
     void FlightStripsPlugin::OnFlightPlanFlightStripPushed(EuroScopePlugIn::CFlightPlan FlightPlan,

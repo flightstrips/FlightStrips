@@ -113,6 +113,7 @@ type Strip struct {
 	PdcData                  []byte
 	ValidationStatus         []byte
 	StartReq                 bool
+	SpokenCallsign           *string
 }
 
 type TacticalStrip struct {

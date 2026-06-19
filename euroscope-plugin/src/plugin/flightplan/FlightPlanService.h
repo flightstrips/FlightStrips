@@ -5,6 +5,7 @@
 #include <unordered_set>
 #include <vector>
 #include "handlers/RadarTargetEventHandler.h"
+#include "AirlineCallsignService.h"
 #include "FlightPlan.h"
 #include "handlers/FlightPlanEventHandlers.h"
 #include "stands/StandService.h"
@@ -12,15 +13,19 @@
 #include "websocket/Events.h"
 #include "handlers/TimedEventHandler.h"
 #include "plugin/FlightStripsPlugin.h"
+#include "filesystem/FileSystem.h"
 
 namespace FlightStrips::flightplan {
+    std::vector<EcfmpRestriction> ParseEcfmpRestrictions(const std::string& jsonStr);
+
 class FlightPlanService final : public handlers::FlightPlanEventHandler, public handlers::RadarTargetEventHandler, public handlers::TimedEventHandler  {
     public:
 
     explicit FlightPlanService(const std::shared_ptr<websocket::WebSocketService> &websocketService,
                               const std::shared_ptr<FlightStripsPlugin> &flightStripsPlugin,
                               const std::shared_ptr<stands::StandService>& standService,
-                              const std::shared_ptr<configuration::AppConfig>& appConfig);
+                              const std::shared_ptr<configuration::AppConfig>& appConfig,
+                              filesystem::FileSystem* fileSystem);
 
     void RadarTargetPositionEvent(EuroScopePlugIn::CRadarTarget radarTarget, bool isRangeOnly) override;
     void RadarTargetOutOfRangeEvent(EuroScopePlugIn::CRadarTarget radarTarget) override;
@@ -41,12 +46,14 @@ class FlightPlanService final : public handlers::FlightPlanEventHandler, public 
     void ApplyPdcStateChange(const std::string& callsign, const std::string& state, const std::string& requestRemarks = {});
 
     static std::string GetEstimatedLandingTime(const EuroScopePlugIn::CFlightPlan& flightPlan);
+    [[nodiscard]] std::string ResolveSpokenCallsign(const std::string& callsign, const std::string& remarks) const;
 private:
 
     std::shared_ptr<websocket::WebSocketService> m_websocketService;
     std::shared_ptr<FlightStripsPlugin> m_flightStripsPlugin;
     std::shared_ptr<stands::StandService> m_standService;
     std::shared_ptr<configuration::AppConfig> m_appConfig;
+    std::unique_ptr<AirlineCallsignService> m_airlineCallsignService;
     std::unordered_map<std::string, FlightPlan> m_flightPlans = {};
     std::unordered_map<std::string, PositionEvent> m_pendingPositionUpdates = {};
     std::unordered_set<std::string> m_rangeTrackedCallsigns = {};

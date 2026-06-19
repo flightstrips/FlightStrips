@@ -28,6 +28,7 @@ func TestSyncCdmData_PersistsFlowMessageAndReqTobtSource(t *testing.T) {
 			"eobt":"1000",
 			"tobt":"1010",
 			"ctot":"1040",
+			"mostPenalizingAirspace":"DK-E",
 			"cdmSts":"REA",
 			"cdmData":{
 				"reqTobt":"1005",
@@ -78,6 +79,9 @@ func TestSyncCdmData_PersistsFlowMessageAndReqTobtSource(t *testing.T) {
 	}
 	if got := valueOrEmpty(persisted.ReqTobt); got != "1005" {
 		t.Fatalf("expected req_tobt to be persisted, got %q", got)
+	}
+	if got := valueOrEmpty(persisted.MostPenalizingAirspace); got != "DK-E" {
+		t.Fatalf("expected most penalizing airspace to be persisted, got %q", got)
 	}
 	if got := valueOrEmpty(persisted.ReqTobtType); got != "PILOT" {
 		t.Fatalf("expected req_tobt_type to be persisted, got %q", got)
@@ -400,22 +404,26 @@ func TestSyncCdmData_MasterSession_KeepsFreshCtotWhenEobtNormalizationAlsoRuns(t
 	expectedClamped := truncateCDMClockValue(addMinutes(timeToClock(now), masterEobtClampTarget))
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/ifps/depAirport" {
+		switch r.URL.Path {
+		case "/ifps/depAirport":
+			_, _ = w.Write([]byte(`[{
+				"callsign":"SAS191",
+				"departure":"EKCH",
+				"eobt":"1000",
+				"tobt":"1010",
+				"ctot":"1040",
+				"cdmSts":"REA",
+				"cdmData":{
+					"reqTobt":"1005",
+					"reqTobtType":"PILOT",
+					"reason":"REGUL"
+				}
+			}]`))
+		case "/ifps/dpi", "/ifps/setCdmData":
+			w.WriteHeader(http.StatusOK)
+		default:
 			t.Fatalf("unexpected path %s", r.URL.Path)
 		}
-		_, _ = w.Write([]byte(`[{
-			"callsign":"SAS191",
-			"departure":"EKCH",
-			"eobt":"1000",
-			"tobt":"1010",
-			"ctot":"1040",
-			"cdmSts":"REA",
-			"cdmData":{
-				"reqTobt":"1005",
-				"reqTobtType":"PILOT",
-				"reason":"REGUL"
-			}
-		}]`))
 	}))
 	defer server.Close()
 
@@ -527,10 +535,14 @@ func TestSyncCdmData_MasterSession_DoesNotOverwriteConfirmedTobtDuringEobtNormal
 	expectedClamped := truncateCDMClockValue(addMinutes(timeToClock(now), masterEobtClampTarget))
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/ifps/depAirport" {
+		switch r.URL.Path {
+		case "/ifps/depAirport":
+			_, _ = w.Write([]byte(`[]`))
+		case "/ifps/dpi", "/ifps/setCdmData":
+			w.WriteHeader(http.StatusOK)
+		default:
 			t.Fatalf("unexpected path %s", r.URL.Path)
 		}
-		_, _ = w.Write([]byte(`[]`))
 	}))
 	defer server.Close()
 

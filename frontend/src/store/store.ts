@@ -168,6 +168,7 @@ export interface WebSocketState {
   generateSquawk: (callsign: string) => boolean;
   updateOrder: (callsign: string, insertAfter: StripRef | null) => void;
   sendMessage: (text: string, recipients: string[]) => void;
+  sendPrivateMessage: (callsign: string, message: string) => void;
   dismissMessage: (id: number) => void;
   updateStrip: (callsign: string, update: UpdateStrip) => void;
   setReleasePoint: (callsign: string, releasePoint: string) => void;
@@ -240,13 +241,13 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     metar: "",
     arrAtisCode: "",
     depAtisCode: "",
-     availableSids: [],
-     selectedCallsign: null,
-     tagRequestArmed: false,
-     markArmed: false,
-     contextMenu: null,
-      validationDialogCallsign: null,
-      };
+    availableSids: [],
+    selectedCallsign: null,
+    tagRequestArmed: false,
+    markArmed: false,
+    contextMenu: null,
+    validationDialogCallsign: null,
+  };
 
   // Create the store
   const store = createStore<WebSocketState>()((set, get) => {
@@ -495,6 +496,9 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     }),
     sendMessage: (text, recipients) => {
       sendIfWritable({type: ActionType.FrontendSendMessage, text, recipients});
+    },
+    sendPrivateMessage: (callsign, message) => {
+      sendIfWritable({type: ActionType.FrontendSendPrivateMessage, callsign, message});
     },
     dismissMessage: (id) => {
       store.setState(
@@ -1091,9 +1095,11 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
       if (data.asrt !== undefined) state.strips[stripIndex].asrt = normalizeCdmTime(data.asrt)
       if (data.tsac !== undefined) state.strips[stripIndex].tsac = normalizeCdmTime(data.tsac)
       if (data.status !== undefined) state.strips[stripIndex].status = data.status
+      if (data.most_penalizing_airspace !== undefined) state.strips[stripIndex].most_penalizing_airspace = data.most_penalizing_airspace
       if (data.ecfmp_id !== undefined) state.strips[stripIndex].ecfmp_id = data.ecfmp_id
       if (data.ctot_source !== undefined) state.strips[stripIndex].ctot_source = data.ctot_source
       if (data.phase !== undefined) state.strips[stripIndex].phase = data.phase
+      if (data.ecfmp_restrictions !== undefined) state.strips[stripIndex].ecfmp_restrictions = data.ecfmp_restrictions
     }
   };
 

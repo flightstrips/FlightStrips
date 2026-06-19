@@ -137,7 +137,9 @@ type CidDisconnectCall struct {
 // MockFrontendHub is a configurable mock for shared.FrontendHub.
 // It records calls for assertion in tests.
 type MockFrontendHub struct {
-	server shared.Server
+	server      shared.Server
+	ArrAtisCode string
+	DepAtisCode string
 
 	BayEvents               []BayEventCall
 	BulkBayEvents           []BulkBayCall
@@ -172,6 +174,10 @@ func (m *MockFrontendHub) Broadcast(session int32, message frontend.OutgoingMess
 
 func (m *MockFrontendHub) Send(session int32, cid string, message frontend.OutgoingMessage) {
 	m.SentMessages = append(m.SentMessages, SentMessageCall{Session: session, Cid: cid, Message: message})
+}
+
+func (m *MockFrontendHub) GetAtisCodes(session int32) (arr string, dep string) {
+	return m.ArrAtisCode, m.DepAtisCode
 }
 
 func (m *MockFrontendHub) CidOnline(session int32, cid string) {
@@ -278,6 +284,19 @@ func (m *MockFrontendHub) SendCdmWait(session int32, callsign string) {
 }
 
 func (m *MockFrontendHub) SendPdcStateChange(session int32, callsign, state, remarks string) {}
+
+func (m *MockFrontendHub) SendMessage(session int32, sender, text string, recipients []string) {
+	m.SentMessages = append(m.SentMessages, SentMessageCall{
+		Session: session,
+		Cid:     sender,
+		Message: frontend.MessageReceivedEvent{
+			Sender:      sender,
+			Text:        text,
+			IsBroadcast: len(recipients) == 0,
+			Recipients:  recipients,
+		},
+	})
+}
 
 func (m *MockFrontendHub) SendRunwayConfiguration(session int32, departure, arrival []string, status map[string]string) {
 }

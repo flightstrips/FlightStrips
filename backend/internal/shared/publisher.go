@@ -41,6 +41,7 @@ type EuroscopeStripCommander interface {
 	SendGroundState(session int32, cid string, callsign string, state string)
 	SendClearedFlag(session int32, cid string, callsign string, flag bool)
 	SendClearedAltitude(session int32, cid string, callsign string, altitude int32)
+	SendHeading(session int32, cid string, callsign string, heading int32)
 	SendCoordinationHandover(session int32, cid string, callsign string, targetCallsign string)
 	SendAssumeOnly(session int32, cid string, callsign string)
 	SendDropTracking(session int32, cid string, callsign string)

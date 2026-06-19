@@ -1,6 +1,7 @@
 package frontend
 
 import (
+	"FlightStrips/internal/config"
 	internalModels "FlightStrips/internal/models"
 	frontendEvents "FlightStrips/pkg/events/frontend"
 	"testing"
@@ -14,21 +15,22 @@ func TestMapStripToFrontendModel_TruncatesCdmTimes(t *testing.T) {
 	strip := &internalModels.Strip{
 		Callsign: "SAS123",
 		CdmData: (&internalModels.CdmData{
-			Eobt:        testStringPointer("101500"),
-			Tobt:        testStringPointer("102000"),
-			ReqTobt:     testStringPointer("102500"),
-			ReqTobtType: testStringPointer("PILOT"),
-			TobtSetBy:   testStringPointer("EKCH_DEL"),
-			Tsat:        testStringPointer("103000"),
-			Ttot:        testStringPointer("104000"),
-			Ctot:        &ctot,
-			Asat:        testStringPointer("105500"),
-			Asrt:        testStringPointer("103500"),
-			Tsac:        testStringPointer("103500"),
-			Status:      testStringPointer("READY"),
-			EcfmpID:     testStringPointer("REGUL"),
-			CtotSource:  testStringPointer("ATFCM"),
-			Phase:       testStringPointer("I"),
+			Eobt:                   testStringPointer("101500"),
+			Tobt:                   testStringPointer("102000"),
+			ReqTobt:                testStringPointer("102500"),
+			ReqTobtType:            testStringPointer("PILOT"),
+			TobtSetBy:              testStringPointer("EKCH_DEL"),
+			Tsat:                   testStringPointer("103000"),
+			Ttot:                   testStringPointer("104000"),
+			Ctot:                   &ctot,
+			Asat:                   testStringPointer("105500"),
+			Asrt:                   testStringPointer("103500"),
+			Tsac:                   testStringPointer("103500"),
+			Status:                 testStringPointer("READY"),
+			MostPenalizingAirspace: testStringPointer("DK-E"),
+			EcfmpID:                testStringPointer("REGUL"),
+			CtotSource:             testStringPointer("ATFCM"),
+			Phase:                  testStringPointer("I"),
 		}).Normalize(),
 	}
 
@@ -46,6 +48,7 @@ func TestMapStripToFrontendModel_TruncatesCdmTimes(t *testing.T) {
 	assert.Equal(t, "1035", model.Asrt)
 	assert.Equal(t, "1035", model.Tsac)
 	assert.Equal(t, "READY", model.Status)
+	assert.Equal(t, "DK-E", model.MostPenalizingAirspace)
 	assert.Equal(t, "REGUL", model.EcfmpID)
 	assert.Equal(t, "ATFCM", model.CtotSource)
 	assert.Equal(t, "I", model.Phase)
@@ -65,26 +68,46 @@ func TestMapStripToFrontendModel_TruncatesCtot(t *testing.T) {
 	assert.Equal(t, "1030", model.Ctot)
 }
 
+func TestMapStripToFrontendModel_HidesMandatoryRouteRestrictionWhenFeatureDisabled(t *testing.T) {
+	t.Cleanup(config.SetFeatureFlagsForTest(config.FeatureFlagsConfig{}))
+
+	strip := &internalModels.Strip{
+		Callsign: "SAS789",
+		CdmData: (&internalModels.CdmData{
+			EcfmpRestrictions: []internalModels.EcfmpRestriction{
+				{Type: "mandatory_route", Routes: []string{"VEDAR DCT"}},
+				{Type: "ground_stop", Reason: "Weather"},
+			},
+		}).Normalize(),
+	}
+
+	model := MapStripToFrontendModel(strip)
+
+	require.Len(t, model.EcfmpRestrictions, 1)
+	assert.Equal(t, "ground_stop", model.EcfmpRestrictions[0].Type)
+}
+
 func TestSendCdmUpdate_TruncatesClockFields(t *testing.T) {
 	hub := &Hub{send: make(chan internalMessage, 1)}
 
 	hub.SendCdmUpdate(42, frontendEvents.CdmDataEvent{
-		Callsign:    "SAS123",
-		Eobt:        "101500",
-		Tobt:        "102000",
-		ReqTobt:     "102500",
-		ReqTobtType: "PILOT",
-		TobtSetBy:   "EKCH_DEL",
-		Tsat:        "103000",
-		Ttot:        "104000",
-		Ctot:        "104500",
-		Asat:        "105500",
-		Asrt:        "103500",
-		Tsac:        "103500",
-		Status:      "READY",
-		EcfmpID:     "REGUL",
-		CtotSource:  "ATFCM",
-		Phase:       "I",
+		Callsign:               "SAS123",
+		Eobt:                   "101500",
+		Tobt:                   "102000",
+		ReqTobt:                "102500",
+		ReqTobtType:            "PILOT",
+		TobtSetBy:              "EKCH_DEL",
+		Tsat:                   "103000",
+		Ttot:                   "104000",
+		Ctot:                   "104500",
+		Asat:                   "105500",
+		Asrt:                   "103500",
+		Tsac:                   "103500",
+		Status:                 "READY",
+		MostPenalizingAirspace: "DK-E",
+		EcfmpID:                "REGUL",
+		CtotSource:             "ATFCM",
+		Phase:                  "I",
 	})
 
 	msg := <-hub.send
@@ -104,6 +127,7 @@ func TestSendCdmUpdate_TruncatesClockFields(t *testing.T) {
 	assert.Equal(t, "103500", event.Asrt)
 	assert.Equal(t, "103500", event.Tsac)
 	assert.Equal(t, "READY", event.Status)
+	assert.Equal(t, "DK-E", event.MostPenalizingAirspace)
 	assert.Equal(t, "REGUL", event.EcfmpID)
 	assert.Equal(t, "ATFCM", event.CtotSource)
 	assert.Equal(t, "I", event.Phase)

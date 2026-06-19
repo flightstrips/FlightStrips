@@ -11,3 +11,10 @@ func (hub *Hub) SendAtisUpdate(session int32, metar string, arrAtisCode string, 
 
 	hub.Broadcast(session, frontend.AtisUpdateEvent{Metar: metar, ArrAtisCode: arrAtisCode, DepAtisCode: depAtisCode})
 }
+
+func (hub *Hub) GetAtisCodes(session int32) (arr string, dep string) {
+	hub.metarMu.RLock()
+	defer hub.metarMu.RUnlock()
+
+	return hub.arrAtisCodeCache[session], hub.depAtisCodeCache[session]
+}

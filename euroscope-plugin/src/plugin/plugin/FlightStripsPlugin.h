@@ -106,10 +106,13 @@ namespace FlightStrips {
         double m_airportLatitude = 0.0;
         double m_airportLongitude = 0.0;
         std::optional<AirportFallbackProbe> m_lastAirportFallbackProbe;
+        bool m_windowProbeLogged = false;
+        int m_windowProbeAttempts = 0;
 
         [[nodiscard]] bool IsWithinRange(EuroScopePlugIn::CRadarTarget radarTarget, float rangeNM) const;
         void DispatchRangeCheck(EuroScopePlugIn::CRadarTarget radarTarget);
         static bool IsValidHhmm(const std::string& value);
+        void LogWindowHierarchyProbe();
 
         template <typename Func, typename... Args>
         void SafeCall(const std::string& context, Func func, Args&&... args) {

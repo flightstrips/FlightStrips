@@ -1,0 +1,46 @@
+name: Build docs
+
+on:
+  push:
+    branches:
+      - 'main'
+    paths:
+      - 'docs/**'
+      - '.github/workflows/build-docs.yml'
+  pull_request:
+    branches:
+      - 'main'
+    paths:
+      - 'docs/**'
+      - '.github/workflows/build-docs.yml'
+
+jobs:
+  build:
+    name: Build & test
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    defaults:
+      run:
+        working-directory: ./docs
+    steps:
+    - uses: actions/checkout@v3
+    - uses: actions/setup-node@master
+      with:
+        node-version: 22
+    - name: install dependencies
+      run: npm ci
+    - name: build
+      run: npm run build
+
+  docker:
+    name: Docker build
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    steps:
+    - uses: actions/checkout@v3
+    - name: Set up Docker Buildx
+      uses: useblacksmith/setup-docker-builder@v1
+    - name: Build Docker image
+      uses: useblacksmith/build-push-action@v2
+      with:
+        context: ./docs
+        file: ./docs/Dockerfile
+        push: false

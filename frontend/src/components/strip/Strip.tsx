@@ -108,6 +108,8 @@ export function Strip({ strip, status, halfStripVariant, myPosition, selectable,
     controllerModifiedFields: strip.controller_modified_fields,
     isManual: strip.is_manual,
     validationStatus: strip.validation_status,
+    ecfmp_restrictions: strip.ecfmp_restrictions,
+    requested_altitude: strip.requested_altitude,
   };
 
   switch (status) {

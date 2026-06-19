@@ -155,7 +155,7 @@ func handleControllerOffline(ctx context.Context, client *Client, message Messag
 			slog.String("callsign", event.Callsign),
 			slog.String("position", result.PositionName),
 			slog.Int("session", int(session)))
-		client.hub.scheduleOfflineActions(session, event.Callsign, result.PositionFrequency, result.PositionName, offlineGracePeriod)
+		client.hub.scheduleOfflineActions(session, event.Callsign, result.PositionFrequency, result.PositionName, controllerOfflineGracePeriod)
 	}
 
 	return nil
@@ -950,4 +950,13 @@ func handlePdcRevertToVoice(ctx context.Context, client *Client, message Message
 		return nil
 	}
 	return pdcService.RevertToVoice(ctx, event.Callsign, client.session, client.GetCid())
+}
+
+func handleSendPrivateMessage(ctx context.Context, client *Client, message Message) error {
+	var event euroscope.SendPrivateMessageEvent
+	if err := message.JsonUnmarshal(&event); err != nil {
+		return err
+	}
+	client.hub.Broadcast(client.session, event)
+	return nil
 }

@@ -155,10 +155,6 @@ func (s *Service) SubmitWebPDCRequest(ctx context.Context, callsign string, atis
 	pdcData.Web.ClearanceText = nil
 	pdcData.Web.PilotAcknowledgedAt = nil
 
-	if err := s.stripRepo.SetPdcData(ctx, match.SessionID, normalizedCallsign, pdcData); err != nil {
-		return fmt.Errorf("persist web pdc data: %w", err)
-	}
-
 	session, err := s.sessionRepo.GetByID(ctx, match.SessionID)
 	if err != nil {
 		return fmt.Errorf("get session: %w", err)
@@ -172,7 +168,11 @@ func (s *Service) SubmitWebPDCRequest(ctx context.Context, callsign string, atis
 		}
 	}
 
-	faults := s.validatePDCFlightPlan(match.Strip, session.ActiveRunways.DepartureRunways)
+	if err := s.stripRepo.SetPdcData(ctx, match.SessionID, normalizedCallsign, pdcData); err != nil {
+		return fmt.Errorf("persist web pdc data: %w", err)
+	}
+
+	faults := s.validatePDCFlightPlan(match.Strip, session.ActiveRunways.DepartureRunways, session.AvailableSids)
 	switch {
 	case len(faults) > 0:
 		sessionInfo.recordPDCRequestOutcome(ctx, models.PdcChannelWeb, "requested_with_faults")

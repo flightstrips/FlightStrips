@@ -53,6 +53,7 @@ type Strip struct {
 	Registration             *string
 	TrackingController       string
 	EngineType               string
+	SpokenCallsign           *string
 	RunwayCleared            bool
 	RunwayConfirmed          bool
 	UnexpectedChangeFields   []string

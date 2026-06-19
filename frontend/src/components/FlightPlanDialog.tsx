@@ -1,7 +1,7 @@
 import React, { useRef, useState } from "react";
 import * as VisuallyHidden from "@radix-ui/react-visually-hidden";
 
-import { Bay } from "@/api/models.ts";
+import { Bay, type SidInfo } from "@/api/models.ts";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -18,6 +18,9 @@ import { scalePx } from "@/lib/viewportScale";
 import { buildRnavUpdate, type RnavCapability } from "@/lib/rnav";
 import { normalizeCdmTime } from "@/lib/cdmTime";
 import { CDM_RED } from "@/lib/cdmColors";
+import { getCtotSlotDisplay, getEcfmpNitosRemarks, getMandatoryRouteRestriction, getGroundStopRestriction, getProhibitRestriction, isFlightLevelViolated } from "@/lib/ecfmp";
+import { MandatoryRouteDialog } from "@/components/MandatoryRouteDialog";
+import { ManualPdcBypassDialog } from "@/components/ManualPdcBypassDialog";
 
 const FONT_FAMILY = "Arial";
 const FONT_SIZE_FIELD = scalePx(20);
@@ -47,7 +50,6 @@ const NITOS_REMARKS_INLINE_PADDING = scalePx(8);
 const CLS_DIALOG            = "bg-[#d4d4d4] rounded-none flex flex-col gap-0";
 const CLS_DIALOG_LABEL      = "absolute bg-[#d4d4d4] text-black font-bold";
 const CLS_BTN_DISABLED      = "border border-black rounded-none bg-[#b3b3b3] text-black font-bold text-center disabled:opacity-60";
-const CLS_BTN_DISABLED_BDR  = "border-2 border-black rounded-none bg-[#b3b3b3] text-black font-bold text-center disabled:opacity-60";
 const CLS_BTN_DISABLED_LEFT = "border border-r-0 border-black rounded-none bg-[#b3b3b3] text-black font-bold text-center disabled:opacity-60";
 const CLS_BTN_DISABLED_NRM  = "border border-black rounded-none bg-[#b3b3b3] text-black font-bold text-center disabled:opacity-60";
 const CLS_BTN_EDITABLE      = "border border-black rounded-none bg-[#ededed] text-black font-bold text-center";
@@ -60,8 +62,14 @@ const CLS_CLX_PANEL         = "border border-black bg-[#D6D6D6]";
 const COLOR_DARK_BTN        = "#3F3F3F"; // dark ESC/CLD button
 const COLOR_REVERT_BTN      = "#FFFB03"; // yellow revert-to-voice button
 const COLOR_CLX_ERROR       = "#FF6D4C";
+const COLOR_ECFMP_YELLOW    = "#FFD700"; // ECFMP mandatory route / groundstop CTOT
+const COLOR_ECFMP_RED       = "#FF0000"; // ECFMP groundstop destination / prohibit FL
 
-function useEditableField(value: string | number | undefined | null) {
+const ecfmpStyle = (type: "yellow" | "red") => type === "yellow"
+  ? { backgroundColor: COLOR_ECFMP_YELLOW }
+  : { backgroundColor: COLOR_ECFMP_RED, color: "white" };
+
+  function useEditableField(value: string | number | undefined | null) {
   const [fieldValue, setFieldValue] = useState(value?.toString() ?? "");
   const [focused, setFocused] = useState(false);
 
@@ -92,12 +100,90 @@ function invalidPhaseTobtStyle(phase?: string) {
   return phase === "I" ? { backgroundColor: CDM_RED, color: "white" } : {};
 }
 
-function clxNitosRemarks(strip: { clx_validation?: { faults: { nitos_remark: string }[] }, pdc_request_remarks?: string } | undefined) {
+function firstMandatoryRouteToken(route: string) {
+  for (const token of route
+    .toUpperCase()
+    .split(/[^A-Z0-9/]+/)
+    .map((value) => value.trim())
+    .filter(Boolean)) {
+    if (token !== "DCT") {
+      return token;
+    }
+  }
+
+  return "";
+}
+
+function sidFamily(sid?: string) {
+  const value = sid?.trim().toUpperCase() ?? "";
+  if (!value) return "";
+
+  const match = value.match(/^[A-Z]+/);
+  return match?.[0] ?? value;
+}
+
+function sidVariant(sid?: string) {
+  const value = sid?.trim().toUpperCase() ?? "";
+  const family = sidFamily(value);
+  return family.length >= value.length ? "" : value.slice(family.length);
+}
+
+function resolveMandatoryRouteSid(route: string, runway: string | undefined, currentSid: string | undefined, availableSids: SidInfo[]) {
+  const family = sidFamily(firstMandatoryRouteToken(route));
+  if (!family) return "";
+
+  const candidates = availableSids
+    .filter((sid) => sidFamily(sid.name) === family && (!runway || sid.runway === runway))
+    .map((sid) => sid.name.trim().toUpperCase())
+    .filter(Boolean)
+    .sort();
+
+  if (candidates.length === 0) {
+    return "";
+  }
+
+  const currentVariant = sidVariant(currentSid);
+  if (currentVariant) {
+    const matchingVariant = candidates.find((candidate) => sidVariant(candidate) === currentVariant);
+    if (matchingVariant) {
+      return matchingVariant;
+    }
+  }
+
+  const normalizedCurrentSid = currentSid?.trim().toUpperCase() ?? "";
+  if (normalizedCurrentSid) {
+    const exactMatch = candidates.find((candidate) => candidate === normalizedCurrentSid);
+    if (exactMatch) {
+      return exactMatch;
+    }
+  }
+
+  return candidates[0];
+}
+
+function selectMandatoryRoute(currentRoute: string | undefined, routes: string[]) {
+  const normalizedCurrentRoute = currentRoute?.trim().toUpperCase() ?? "";
+  const normalizedRoutes = routes
+    .map((route) => route.trim().toUpperCase())
+    .filter(Boolean);
+
+  if (normalizedCurrentRoute) {
+    const matchingRoute = normalizedRoutes.find((route) => route === normalizedCurrentRoute);
+    if (matchingRoute) {
+      return matchingRoute;
+    }
+  }
+
+  return normalizedRoutes[0] ?? "";
+}
+
+function clxNitosRemarks(strip: { clx_validation?: { faults: { nitos_remark: string }[] }, pdc_request_remarks?: string, ecfmp_restrictions?: import("@/api/models").EcfmpRestriction[] } | undefined) {
+  const ecfmpRemarks = getEcfmpNitosRemarks(strip?.ecfmp_restrictions);
   const clxRemarks = strip?.clx_validation?.faults
     .map(fault => fault.nitos_remark.trim())
     .filter(Boolean) ?? [];
   const pdcRemarks = strip?.pdc_request_remarks?.trim();
-  const remarks = [...clxRemarks];
+  const remarks = [...ecfmpRemarks, ...clxRemarks];
   if (pdcRemarks) remarks.push(pdcRemarks);
   return Array.from(new Set(remarks)).join(" ");
 }
@@ -131,6 +217,7 @@ interface FlightPlanDialogProps {
   onOpenChange?: (open: boolean) => void;
   children?: React.ReactNode;
   mode?: "clearance" | "view";
+  pdcAction?: "default" | "manual";
 }
 
 export default function FlightPlanDialog({
@@ -139,8 +226,10 @@ export default function FlightPlanDialog({
   onOpenChange,
   children,
   mode = "clearance",
+  pdcAction = "default",
 }: FlightPlanDialogProps) {
   const isViewMode = mode === "view";
+  const usesManualPdcBypass = pdcAction === "manual";
   const strip = useStrip(callsign);
   const initialCflByRunway = useInitialCflByRunway();
   const transitionAltitude = useTransitionAltitude();
@@ -151,6 +240,7 @@ export default function FlightPlanDialog({
   const updateStrip = useWebSocketStore((state) => state.updateStrip);
   const clxUpdateTobt = useWebSocketStore((state) => state.clxUpdateTobt);
   const clxOverrideValidation = useWebSocketStore((state) => state.clxOverrideValidation);
+  const sendPrivateMessage = useWebSocketStore((state) => state.sendPrivateMessage);
 
   const [internalOpen, setInternalOpen] = useState(false);
   const dialogOpen = open ?? internalOpen;
@@ -159,8 +249,14 @@ export default function FlightPlanDialog({
   const displayedEobt = normalizeCdmTime(strip?.eobt);
   const displayedTobt = normalizeCdmTime(strip?.tobt);
   const displayedTsat = normalizeCdmTime(strip?.tsat);
-  const displayedTtot = normalizeCdmTime(strip?.ttot);
-  const displayedCtot = normalizeCdmTime(strip?.ctot);
+  const hasMandatoryRoute = !!getMandatoryRouteRestriction(strip?.ecfmp_restrictions);
+  const hasGroundStop = !!getGroundStopRestriction(strip?.ecfmp_restrictions);
+  const hasProhibit = !!getProhibitRestriction(strip?.ecfmp_restrictions);
+  const flViolated = isFlightLevelViolated(strip?.ecfmp_restrictions, strip?.requested_altitude);
+  const ctotSlotDisplay = getCtotSlotDisplay({
+    ctot: strip?.ctot,
+    most_penalizing_airspace: strip?.most_penalizing_airspace,
+  });
 
   const [sidDialogOpen, setSidDialogOpen] = useState(false);
   const [rnavDialogOpen, setRnavDialogOpen] = useState(false);
@@ -179,6 +275,8 @@ export default function FlightPlanDialog({
   const [route, setRoute, _routeFocused, setRouteFocused] = useEditableField(strip?.route);
   const [hdgDialogOpen, setHdgDialogOpen] = useState(false);
   const [altDialogOpen, setAltDialogOpen] = useState(false);
+  const [mandatoryRouteDialogOpen, setMandatoryRouteDialogOpen] = useState(false);
+  const [manualPdcBypassDialogOpen, setManualPdcBypassDialogOpen] = useState(false);
   const defaultClearedAltitude = strip?.runway ? initialCflByRunway[strip.runway] : undefined;
   const commitEobt = () => updateStrip(callsign, { eobt: normalizeCdmTime(eobt) });
   const sidFault = hasClxFieldFault(strip, "sid");
@@ -189,6 +287,13 @@ export default function FlightPlanDialog({
   const sidOverride = sidOverrideKey(strip);
   const nitosRemarks = clxNitosRemarks(strip);
   const nitosRemarksFit = fittedNitosRemarksStyle(nitosRemarks);
+  const mandatoryRoute = getMandatoryRouteRestriction(strip?.ecfmp_restrictions);
+  const mandatoryRouteToClear = selectMandatoryRoute(strip?.route, mandatoryRoute?.routes ?? []);
+  const mandatoryRouteSid = strip
+    ? resolveMandatoryRouteSid(mandatoryRouteToClear, strip.runway, strip.sid, availableSids)
+    : "";
+  const mandatoryRouteSidMismatch = !!mandatoryRouteSid && mandatoryRouteSid !== (strip?.sid?.trim().toUpperCase() ?? "");
+  const isPdcRequest = strip?.pdc_state === "REQUESTED" || strip?.pdc_state === "REQUESTED_WITH_FAULTS";
   const fieldStyle = (width: number) => ({
     width: scalePx(width),
     height: FIELD_HEIGHT,
@@ -213,6 +318,14 @@ export default function FlightPlanDialog({
     if (!strip) return;
     const update = buildRnavUpdate(strip.aircraft_type ?? "", strip.remarks ?? "", capability);
     updateStrip(callsign, update);
+  };
+
+  const performManualClearance = () => {
+    if (!strip) return;
+
+    moveAction(strip.callsign, Bay.Cleared);
+    setManualPdcBypassDialogOpen(false);
+    setDialogOpen(false);
   };
 
   return (
@@ -254,7 +367,7 @@ export default function FlightPlanDialog({
                 value={strip.destination}
                 disabled
                 className={CLS_BTN_DISABLED}
-                style={fieldStyle(100)}
+                style={{ ...fieldStyle(100), ...(hasGroundStop ? ecfmpStyle("red") : {}) }}
               />
             </div>
             <div className="grid items-center" style={gridGroupStyle}>
@@ -317,23 +430,22 @@ export default function FlightPlanDialog({
               </Button>
             </div>
             <div className="grid items-center" style={gridGroupStyle}>
-              <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>TTOT</Label>
-              <input
-                value={displayedTtot}
-                placeholder=""
-                disabled
-                className={CLS_BTN_DISABLED_BDR}
-                style={fieldStyle(100)}
-              />
-            </div>
-            <div className="grid items-center" style={gridGroupStyle}>
               <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>CTOT</Label>
-              <input
-                value={displayedCtot}
-                disabled
-                className={CLS_BTN_DISABLED_BDR}
-                style={fieldStyle(100)}
-              />
+              <div className="flex">
+                <input
+                  value={ctotSlotDisplay.restrictionLabel}
+                  title={ctotSlotDisplay.restrictionLabel}
+                  disabled
+                  className={CLS_BTN_DISABLED_LEFT}
+                  style={fieldStyle(100)}
+                />
+                <input
+                  value={ctotSlotDisplay.ctot}
+                  disabled
+                  className={CLS_BTN_DISABLED}
+                  style={{ ...fieldStyle(100), ...(ctotSlotDisplay.hasCtot ? ecfmpStyle("yellow") : {}) }}
+                />
+              </div>
             </div>
           </div>
 
@@ -423,7 +535,7 @@ export default function FlightPlanDialog({
                 value={strip.requested_altitude ? Math.floor(strip.requested_altitude / 100).toString() : ""}
                 disabled
                 className={CLS_BTN_DISABLED_LEFT}
-                style={fieldStyle(100)}
+                style={{ ...fieldStyle(100), ...(hasProhibit && flViolated ? ecfmpStyle("red") : {}) }}
               />
             </div>
             <div className="grid items-center" style={gridGroupStyle}>
@@ -458,7 +570,7 @@ export default function FlightPlanDialog({
               }}
               onKeyDown={(event) => event.key === "Enter" && !event.shiftKey && updateStrip(callsign, { route })}
               className={CLS_TEXTAREA_EDITABLE}
-              style={{ height: TEXTAREA_HEIGHT, fontFamily: FONT_FAMILY, fontSize: FONT_SIZE_FIELD }}
+              style={{ height: TEXTAREA_HEIGHT, fontFamily: FONT_FAMILY, fontSize: FONT_SIZE_FIELD, ...(hasMandatoryRoute ? { backgroundColor: COLOR_ECFMP_YELLOW } : {}) }}
             />
           </div>
 
@@ -498,7 +610,7 @@ export default function FlightPlanDialog({
             <div className="grid items-center" style={gridGroupStyle}>
               <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>IATA TYPE</Label>
               <Input
-                defaultValue=""
+                value={strip.spoken_callsign ?? ""}
                 disabled
                 className={CLS_BTN_DISABLED}
                 style={fieldStyle(130)}
@@ -699,6 +811,14 @@ export default function FlightPlanDialog({
                   )}
                   <button
                     onClick={() => {
+                      if (hasMandatoryRoute) {
+                        setMandatoryRouteDialogOpen(true);
+                        return;
+                      }
+                      if ((strip.pdc_state === "REQUESTED" || strip.pdc_state === "REQUESTED_WITH_FAULTS") && usesManualPdcBypass) {
+                        setManualPdcBypassDialogOpen(true);
+                        return;
+                      }
                       if (strip.pdc_state === "REQUESTED" || strip.pdc_state === "REQUESTED_WITH_FAULTS") {
                         clearPdc(strip.callsign, null);
                       } else {
@@ -748,6 +868,51 @@ export default function FlightPlanDialog({
           onOpenChange={setStandOpen}
           callsign={callsign}
           currentStand={strip.stand}
+        />
+      )}
+
+      {strip && (
+        <MandatoryRouteDialog
+          open={mandatoryRouteDialogOpen}
+          onOpenChange={setMandatoryRouteDialogOpen}
+          callsign={callsign}
+          route={mandatoryRouteToClear}
+          filedSid={strip.sid}
+          mandatorySid={mandatoryRouteSid}
+          sidMismatch={mandatoryRouteSidMismatch}
+          pdcRequested={isPdcRequest}
+          onConfirm={() => {
+            if (isPdcRequest) {
+              clearPdc(strip.callsign, null);
+            } else {
+              if (mandatoryRouteSidMismatch) {
+                updateStrip(callsign, { sid: mandatoryRouteSid });
+              }
+              if (mandatoryRouteToClear && mandatoryRouteToClear !== strip.route?.trim().toUpperCase()) {
+                updateStrip(callsign, { route: mandatoryRouteToClear });
+              }
+              if (mandatoryRouteToClear) {
+                sendPrivateMessage(callsign, `MANDATORY ROUTE: ${mandatoryRouteToClear}`);
+              }
+              moveAction(strip.callsign, Bay.Cleared);
+            }
+            setMandatoryRouteDialogOpen(false);
+            setDialogOpen(false);
+          }}
+          onCancel={() => {
+            moveAction(strip.callsign, Bay.Cleared);
+            setMandatoryRouteDialogOpen(false);
+            setDialogOpen(false);
+          }}
+        />
+      )}
+
+      {strip && (
+        <ManualPdcBypassDialog
+          open={manualPdcBypassDialogOpen}
+          onOpenChange={setManualPdcBypassDialogOpen}
+          callsign={callsign}
+          onConfirm={performManualClearance}
         />
       )}
     </>

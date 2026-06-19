@@ -3,7 +3,7 @@ INSERT INTO strips (version, callsign, session, origin, destination, alternative
                      squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities,
                      communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay,
                      position_latitude, position_longitude, position_altitude, cdm_data, next_owners, previous_owners,
-                     registration, tracking_controller, engine_type, has_fp, start_req)
+                     registration, tracking_controller, engine_type, spoken_callsign, has_fp, start_req)
 VALUES (
     1,
     sqlc.arg(callsign),
@@ -39,6 +39,7 @@ VALUES (
     sqlc.arg(registration),
     sqlc.arg(tracking_controller),
     sqlc.arg(engine_type),
+    sqlc.arg(spoken_callsign),
     sqlc.arg(has_fp),
     sqlc.arg(start_req)
 );
@@ -78,6 +79,7 @@ SET version = version + 1,
     marked = sqlc.arg(marked),
     registration = sqlc.arg(registration),
     tracking_controller = sqlc.arg(tracking_controller),
+    spoken_callsign = sqlc.arg(spoken_callsign),
     runway_cleared = sqlc.arg(runway_cleared),
     runway_confirmed = sqlc.arg(runway_confirmed),
     engine_type = sqlc.arg(engine_type),

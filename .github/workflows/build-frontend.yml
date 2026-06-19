@@ -6,25 +6,21 @@ on:
       - 'main'
     paths:
       - 'frontend/**'
+      - '.github/workflows/build-frontend.yml'
   pull_request:
     branches:
       - 'main'
     paths:
       - 'frontend/**'
+      - '.github/workflows/build-frontend.yml'
 
 jobs:
-  build-frontend:
-    name: Build frontend (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
-
-    strategy:
-      matrix:
-        os: [blacksmith-4vcpu-ubuntu-2404]
-
+  build:
+    name: Build & test
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     defaults:
       run:
         working-directory: ./frontend
-
     steps:
     - uses: actions/checkout@v3
     - uses: actions/setup-node@master
@@ -34,3 +30,17 @@ jobs:
       run: npm ci
     - name: build
       run: npm run build
+
+  docker:
+    name: Docker build
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    steps:
+    - uses: actions/checkout@v3
+    - name: Set up Docker Buildx
+      uses: useblacksmith/setup-docker-builder@v1
+    - name: Build Docker image
+      uses: useblacksmith/build-push-action@v2
+      with:
+        context: ./frontend
+        file: ./frontend/Dockerfile
+        push: false

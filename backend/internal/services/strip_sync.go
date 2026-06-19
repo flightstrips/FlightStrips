@@ -137,6 +137,7 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 			Bay:                bay,
 			TrackingController: strip.TrackingController,
 			EngineType:         strip.EngineType,
+			SpokenCallsign:     &strip.SpokenCallsign,
 			HasFP:              strip.HasFP,
 			StartReq:           false,
 		}
@@ -285,7 +286,12 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 			existingStrip.Bay != "" &&
 			existingStrip.Bay != shared.BAY_NOT_CLEARED
 
+		updateHeading := strip.Heading
 		updateClearedAlt := strip.ClearedAltitude
+		if restartLifecycle {
+			updateHeading = 0
+			updateClearedAlt = 0
+		}
 		if updateClearedAlt == 0 && bay == shared.BAY_NOT_CLEARED {
 			existingCfl := int32(0)
 			if !restartLifecycle && existingStrip.ClearedAltitude != nil {
@@ -372,7 +378,7 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 			Squawk:                   &strip.Squawk,
 			Sid:                      &strip.Sid,
 			ClearedAltitude:          &updateClearedAlt,
-			Heading:                  &strip.Heading,
+			Heading:                  &updateHeading,
 			AircraftType:             &strip.AircraftType,
 			Runway:                   runway,
 			RequestedAltitude:        &strip.RequestedAltitude,
@@ -400,6 +406,7 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 			PdcMessageSent:           pdcData.MessageSent,
 			TrackingController:       strip.TrackingController,
 			EngineType:               strip.EngineType,
+			SpokenCallsign:           &strip.SpokenCallsign,
 			StartReq:                 startReq,
 			UnexpectedChangeFields:   unexpectedChangeFields,
 			ValidationStatus:         validationStatus,
@@ -487,6 +494,9 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 		slog.DebugContext(ctx, "Updated strip", slog.String("callsign", strip.Callsign))
 		if primaryChange && updateClearedAlt != strip.ClearedAltitude && s.esCommander != nil {
 			s.esCommander.SendClearedAltitude(session, cid, strip.Callsign, updateClearedAlt)
+		}
+		if primaryChange && updateHeading != strip.Heading && s.esCommander != nil {
+			s.esCommander.SendHeading(session, cid, strip.Callsign, updateHeading)
 		}
 
 		needsStripBroadcast = true
@@ -657,6 +667,7 @@ func syncStripChanged(existingStrip, updateStrip *internalModels.Strip) bool {
 		existingStrip.Marked != updateStrip.Marked ||
 		!reflect.DeepEqual(existingStrip.Registration, updateStrip.Registration) ||
 		existingStrip.TrackingController != updateStrip.TrackingController ||
+		!reflect.DeepEqual(existingStrip.SpokenCallsign, updateStrip.SpokenCallsign) ||
 		existingStrip.RunwayCleared != updateStrip.RunwayCleared ||
 		existingStrip.RunwayConfirmed != updateStrip.RunwayConfirmed ||
 		existingStrip.EngineType != updateStrip.EngineType ||
@@ -729,6 +740,7 @@ func applySyncStripUpdate(existingStrip, updateStrip *internalModels.Strip) {
 	existingStrip.PdcMessageSequence = updateStrip.PdcMessageSequence
 	existingStrip.PdcMessageSent = updateStrip.PdcMessageSent
 	existingStrip.TrackingController = updateStrip.TrackingController
+	existingStrip.SpokenCallsign = updateStrip.SpokenCallsign
 	existingStrip.RunwayCleared = updateStrip.RunwayCleared
 	existingStrip.RunwayConfirmed = updateStrip.RunwayConfirmed
 	existingStrip.EngineType = updateStrip.EngineType

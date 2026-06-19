@@ -120,6 +120,7 @@ func NewHub(stripService shared.StripService, authenticationService shared.Authe
 	handlers.Add(frontend.ActionMoveTacticalStrip, handleMoveTacticalStrip)
 	handlers.Add(frontend.MissedApproachRequestType, handleMissedApproach)
 	handlers.Add(frontend.ActionCreateManualFPL, handleCreateManualFPL)
+	handlers.Add(frontend.SendPrivateMessage, handleSendPrivateMessage)
 	handlers.Add(frontend.ActionCreateVFRFPL, handleCreateVFRFPL)
 	handlers.Add(frontend.UpdateRunwayStatus, handleUpdateRunwayStatus)
 	handlers.Add(frontend.AcknowledgeValidationStatus, handleAcknowledgeValidationStatus)
@@ -479,6 +480,7 @@ func MapStripToFrontendModelWithClx(strip *internalModels.Strip, clxContext clx.
 	if cdm == nil {
 		cdm = (&internalModels.CdmData{}).Normalize()
 	}
+	ecfmpRestrictions := filterFrontendEcfmpRestrictions(cdm.EcfmpRestrictions)
 
 	return frontend.Strip{
 		Callsign:                 strip.Callsign,
@@ -497,6 +499,7 @@ func MapStripToFrontendModelWithClx(strip *internalModels.Strip, clxContext clx.
 		PositionAltitude:         helpers.ValueOrDefault(strip.PositionAltitude),
 		AircraftType:             helpers.ValueOrDefault(strip.AircraftType),
 		AircraftCategory:         helpers.ValueOrDefault(strip.AircraftCategory),
+		SpokenCallsign:           helpers.ValueOrDefault(strip.SpokenCallsign),
 		Stand:                    helpers.ValueOrDefault(strip.Stand),
 		Capabilities:             rnav.DeriveCapability(helpers.ValueOrDefault(strip.AircraftType), helpers.ValueOrDefault(strip.Remarks)),
 		CommunicationType:        helpers.ValueOrDefault(strip.CommunicationType),
@@ -521,9 +524,11 @@ func MapStripToFrontendModelWithClx(strip *internalModels.Strip, clxContext clx.
 		Asrt:                     truncateFrontendClockValue(helpers.ValueOrDefault(cdm.Asrt)),
 		Tsac:                     truncateFrontendClockValue(helpers.ValueOrDefault(cdm.Tsac)),
 		Status:                   helpers.ValueOrDefault(strip.EffectiveCdmStatus()),
+		MostPenalizingAirspace:   helpers.ValueOrDefault(cdm.MostPenalizingAirspace),
 		EcfmpID:                  helpers.ValueOrDefault(cdm.EcfmpID),
 		CtotSource:               helpers.ValueOrDefault(cdm.CtotSource),
 		Phase:                    helpers.ValueOrDefault(cdm.EffectivePhase()),
+		EcfmpRestrictions:        mapEcfmpRestrictionsToDTO(ecfmpRestrictions),
 		PdcState:                 strip.PdcState,
 		PdcRequestRemarks:        helpers.ValueOrDefault(strip.PdcRequestRemarks),
 		StartReq:                 strip.StartReq,
@@ -543,6 +548,50 @@ func MapStripToFrontendModelWithClx(strip *internalModels.Strip, clxContext clx.
 		ValidationStatus:         mapValidationStatusToDTO(strip.ValidationStatus),
 		ClxValidation:            mapClxValidationToDTO(clx.Validate(strip, clxContext)),
 	}
+}
+
+func filterFrontendEcfmpRestrictions(restrictions []internalModels.EcfmpRestriction) []internalModels.EcfmpRestriction {
+	if len(restrictions) == 0 {
+		return nil
+	}
+	if config.IsMandatoryRouteClearanceFlowEnabled() {
+		return restrictions
+	}
+
+	filtered := make([]internalModels.EcfmpRestriction, 0, len(restrictions))
+	for _, restriction := range restrictions {
+		if restriction.Type == "mandatory_route" {
+			continue
+		}
+		filtered = append(filtered, restriction)
+	}
+	if len(filtered) == 0 {
+		return nil
+	}
+	return filtered
+}
+
+func mapEcfmpRestrictionsToDTO(restrictions []internalModels.EcfmpRestriction) []frontend.EcfmpRestrictionDTO {
+	if len(restrictions) == 0 {
+		return nil
+	}
+
+	result := make([]frontend.EcfmpRestrictionDTO, len(restrictions))
+	for i, restriction := range restrictions {
+		result[i] = frontend.EcfmpRestrictionDTO{
+			MeasureID:   restriction.MeasureID,
+			Ident:       restriction.Ident,
+			Type:        restriction.Type,
+			Reason:      restriction.Reason,
+			Routes:      restriction.Routes,
+			Destination: restriction.Destination,
+			MaxLevel:    restriction.MaxLevel,
+			MinLevel:    restriction.MinLevel,
+			ExactLevels: restriction.ExactLevels,
+			HasCtot:     restriction.HasCtot,
+		}
+	}
+	return result
 }
 
 func mapClxValidationToDTO(validation *clx.Validation) *frontend.ClxValidation {
@@ -1124,6 +1173,23 @@ func (hub *Hub) SendBroadcast(session int32, message string, from string) {
 		From:    from,
 	}
 	hub.Broadcast(session, event)
+}
+
+func (hub *Hub) SendMessage(session int32, sender, text string, recipients []string) {
+	if recipients == nil {
+		recipients = []string{}
+	}
+
+	msg := frontend.MessageReceivedEvent{
+		ID:          hub.NextMessageID(),
+		Sender:      sender,
+		Text:        text,
+		IsBroadcast: len(recipients) == 0,
+		Recipients:  recipients,
+	}
+
+	hub.storeMessage(session, msg)
+	hub.dispatchMessage(session, msg, "")
 }
 
 func (hub *Hub) SendGoAround(session int32, callsign string) {

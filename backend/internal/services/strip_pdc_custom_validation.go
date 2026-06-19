@@ -7,6 +7,7 @@ import (
 	internalModels "FlightStrips/internal/models"
 	"FlightStrips/internal/pdc"
 	"FlightStrips/internal/shared"
+	pkgModels "FlightStrips/pkg/models"
 
 	"github.com/google/uuid"
 )
@@ -135,7 +136,16 @@ func (s *StripService) ReevaluatePdcCustomValidation(ctx context.Context, sessio
 }
 
 func (s *StripService) ReevaluatePdcRequestValidationsForStrip(ctx context.Context, session int32, strip *internalModels.Strip, activeDepartureRunways []string, publish bool, forceReactivate bool) error {
-	if err := s.applyPdcInvalidValidation(ctx, session, strip, activeDepartureRunways, publish, forceReactivate); err != nil {
+	sessionData, err := s.getCachedSession(ctx, session)
+	if err != nil {
+		return err
+	}
+	var availableSids pkgModels.AvailableSids
+	if sessionData != nil {
+		availableSids = sessionData.AvailableSids
+	}
+
+	if err := s.applyPdcInvalidValidation(ctx, session, strip, activeDepartureRunways, availableSids, publish, forceReactivate); err != nil {
 		return err
 	}
 

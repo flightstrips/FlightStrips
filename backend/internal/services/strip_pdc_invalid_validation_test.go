@@ -173,6 +173,7 @@ func TestReevaluatePdcInvalidValidation_ClearsWhenFaultsNoLongerExist(t *testing
 
 	owner := "EKCH_DEL"
 	runway := "22R"
+	sid := "VEMBO2E"
 	cleared := false
 
 	repo := &testutil.MockStripRepository{
@@ -182,6 +183,7 @@ func TestReevaluatePdcInvalidValidation_ClearsWhenFaultsNoLongerExist(t *testing
 				Owner:    &owner,
 				Bay:      shared.BAY_NOT_CLEARED,
 				Runway:   &runway,
+				Sid:      &sid,
 				PdcState: "REQUESTED_WITH_FAULTS",
 				ValidationStatus: &models.ValidationStatus{
 					IssueType:      pdcInvalidValidationIssueType,

@@ -158,6 +158,77 @@ func TestSyncEuroscopeStrip_ExistingStripWritesRouteAndHasFPInPrimaryUpdate(t *t
 	assert.Zero(t, routeUpdateCalls)
 }
 
+func TestSyncEuroscopeStrip_NewStripPersistsSpokenCallsign(t *testing.T) {
+	ctx := context.Background()
+	const session = int32(1)
+
+	var createdStrip *models.Strip
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			return nil, pgx.ErrNoRows
+		},
+		CreateFn: func(_ context.Context, strip *models.Strip) error {
+			createdStrip = strip
+			return nil
+		},
+	}
+
+	svc, _, _ := newSyncTestFixture(t, nil, stripRepo)
+
+	err := svc.syncEuroscopeStrip(ctx, session, "", euroscope.Strip{
+		Callsign:       "WLF166",
+		Origin:         "EKCH",
+		SpokenCallsign: "WOLFAIR",
+	}, "EKCH")
+	require.NoError(t, err)
+	require.NotNil(t, createdStrip)
+	require.NotNil(t, createdStrip.SpokenCallsign)
+	assert.Equal(t, "WOLFAIR", *createdStrip.SpokenCallsign)
+}
+
+func TestSyncEuroscopeStrip_ExistingStripUpdatesSpokenCallsign(t *testing.T) {
+	ctx := context.Background()
+	const session = int32(1)
+	const callsign = "WLF166"
+	sequence := int32(300)
+	existingSpokenCallsign := "OLDAIR"
+
+	existingStrip := &models.Strip{
+		Callsign:       callsign,
+		Origin:         "EKCH",
+		Destination:    "EGLL",
+		Bay:            shared.BAY_PUSH,
+		Sequence:       &sequence,
+		SpokenCallsign: &existingSpokenCallsign,
+	}
+
+	var updatedStrip *models.Strip
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			return existingStrip, nil
+		},
+		UpdateFn: func(_ context.Context, strip *models.Strip) (int64, error) {
+			updatedStrip = strip
+			return 1, nil
+		},
+	}
+
+	svc, _, _ := newSyncTestFixture(t, existingStrip, stripRepo)
+
+	err := svc.syncEuroscopeStrip(ctx, session, "", euroscope.Strip{
+		Callsign:       callsign,
+		Origin:         "EKCH",
+		Destination:    "EGLL",
+		Runway:         "22L",
+		SpokenCallsign: "WOLFAIR",
+		HasFP:          true,
+	}, "EKCH")
+	require.NoError(t, err)
+	require.NotNil(t, updatedStrip)
+	require.NotNil(t, updatedStrip.SpokenCallsign)
+	assert.Equal(t, "WOLFAIR", *updatedStrip.SpokenCallsign)
+}
+
 func TestSyncEuroscopeStrip_ParkedArrivalRefilesAsDepartureResetsLifecycleState(t *testing.T) {
 	ctx := context.Background()
 	const session = int32(1)
@@ -214,6 +285,8 @@ func TestSyncEuroscopeStrip_ParkedArrivalRefilesAsDepartureResetsLifecycleState(
 			Active:         true,
 			ActivationKey:  "old-key",
 		},
+		Heading:         func() *int32 { v := int32(195); return &v }(),
+		ClearedAltitude: func() *int32 { v := int32(3000); return &v }(),
 	}
 
 	var updatedStrip *models.Strip
@@ -242,15 +315,17 @@ func TestSyncEuroscopeStrip_ParkedArrivalRefilesAsDepartureResetsLifecycleState(
 	esHub.SetServer(routeServer)
 
 	err := svc.syncEuroscopeStrip(ctx, session, "", euroscope.Strip{
-		Callsign:    callsign,
-		Origin:      "EKCH",
-		Destination: "EGLL",
-		Remarks:     "REG/OYABC",
-		Runway:      "22R",
-		Eobt:        "1230",
-		GroundState: euroscope.GroundStateParked,
-		Stand:       "B7",
-		HasFP:       true,
+		Callsign:        callsign,
+		Origin:          "EKCH",
+		Destination:     "EGLL",
+		Remarks:         "REG/OYABC",
+		Runway:          "04R",
+		Eobt:            "1230",
+		GroundState:     euroscope.GroundStateParked,
+		Stand:           "B7",
+		Heading:         195,
+		ClearedAltitude: 3000,
+		HasFP:           true,
 	}, "EKCH")
 	require.NoError(t, err)
 
@@ -278,7 +353,11 @@ func TestSyncEuroscopeStrip_ParkedArrivalRefilesAsDepartureResetsLifecycleState(
 	assert.Nil(t, updatedStrip.ValidationStatus)
 	assert.False(t, updatedStrip.StartReq)
 	require.NotNil(t, updatedStrip.Runway)
-	assert.Equal(t, "22R", *updatedStrip.Runway)
+	assert.Equal(t, "04R", *updatedStrip.Runway)
+	require.NotNil(t, updatedStrip.Heading)
+	assert.Zero(t, *updatedStrip.Heading)
+	require.NotNil(t, updatedStrip.ClearedAltitude)
+	assert.Equal(t, int32(7000), *updatedStrip.ClearedAltitude)
 	require.NotNil(t, updatedStrip.Registration)
 	assert.Equal(t, "OYABC", *updatedStrip.Registration)
 	require.NotNil(t, updatedStrip.CdmData)
@@ -290,6 +369,12 @@ func TestSyncEuroscopeStrip_ParkedArrivalRefilesAsDepartureResetsLifecycleState(
 	require.NotNil(t, updatedStrip.PdcData)
 	assert.Equal(t, models.PdcStateNone, updatedStrip.PdcData.State)
 	assert.Nil(t, updatedStrip.PdcData.RequestRemarks)
+	require.Len(t, esHub.Headings, 1)
+	assert.Equal(t, callsign, esHub.Headings[0].Callsign)
+	assert.Zero(t, esHub.Headings[0].Heading)
+	require.Len(t, esHub.ClearedAltitudes, 1)
+	assert.Equal(t, callsign, esHub.ClearedAltitudes[0].Callsign)
+	assert.Equal(t, int32(7000), esHub.ClearedAltitudes[0].Altitude)
 	require.Len(t, hub.StripUpdates, 1)
 	assert.Equal(t, callsign, hub.StripUpdates[0].Callsign)
 }

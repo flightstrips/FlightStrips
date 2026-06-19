@@ -7,6 +7,7 @@ import (
 	euroscopeEvents "FlightStrips/pkg/events/euroscope"
 	frontendEvents "FlightStrips/pkg/events/frontend"
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"sort"
@@ -563,24 +564,59 @@ func buildCdmUpdateEvent(callsign string, data *models.CdmData) euroscopeEvents.
 		data = (&models.CdmData{}).Normalize()
 	}
 	return euroscopeEvents.CdmUpdateEvent{
-		Callsign:        callsign,
-		Eobt:            truncateCDMClockValue(valueOrEmpty(data.EffectiveEobt())),
-		Tobt:            truncateCDMClockValue(valueOrEmpty(data.EffectiveTobt())),
-		TobtSetBy:       valueOrEmpty(data.TobtSetBy),
-		TobtConfirmedBy: valueOrEmpty(data.TobtConfirmedBy),
-		ReqTobt:         truncateCDMClockValue(valueOrEmpty(data.EffectiveReqTobt())),
-		ReqTobtType:     valueOrEmpty(data.EffectiveReqTobtType()),
-		Tsat:            truncateToHHMM(valueOrEmpty(data.EffectiveTsat())),
-		Ttot:            truncateToHHMM(valueOrEmpty(data.EffectiveTtot())),
-		Ctot:            truncateCDMClockValue(valueOrEmpty(data.EffectiveCtot())),
-		CtotSource:      valueOrEmpty(data.CtotSource),
-		Asat:            truncateCDMClockValue(valueOrEmpty(data.EffectiveAsat())),
-		Asrt:            truncateCDMClockValue(valueOrEmpty(data.Asrt)),
-		Tsac:            valueOrEmpty(data.Tsac),
-		Status:          valueOrEmpty(data.EffectiveStatus()),
-		EcfmpID:         valueOrEmpty(data.EcfmpID),
-		Phase:           valueOrEmpty(data.EffectivePhase()),
+		Callsign:                 callsign,
+		Eobt:                     truncateCDMClockValue(valueOrEmpty(data.EffectiveEobt())),
+		Tobt:                     truncateCDMClockValue(valueOrEmpty(data.EffectiveTobt())),
+		TobtSetBy:                valueOrEmpty(data.TobtSetBy),
+		TobtConfirmedBy:          valueOrEmpty(data.TobtConfirmedBy),
+		ReqTobt:                  truncateCDMClockValue(valueOrEmpty(data.EffectiveReqTobt())),
+		ReqTobtType:              valueOrEmpty(data.EffectiveReqTobtType()),
+		Tsat:                     truncateToHHMM(valueOrEmpty(data.EffectiveTsat())),
+		Ttot:                     truncateToHHMM(valueOrEmpty(data.EffectiveTtot())),
+		Ctot:                     truncateCDMClockValue(valueOrEmpty(data.EffectiveCtot())),
+		CtotSource:               valueOrEmpty(data.CtotSource),
+		Asat:                     truncateCDMClockValue(valueOrEmpty(data.EffectiveAsat())),
+		Asrt:                     truncateCDMClockValue(valueOrEmpty(data.Asrt)),
+		Tsac:                     valueOrEmpty(data.Tsac),
+		Status:                   valueOrEmpty(data.EffectiveStatus()),
+		EcfmpID:                  valueOrEmpty(data.EcfmpID),
+		Phase:                    valueOrEmpty(data.EffectivePhase()),
+		EcfmpRestrictionsJSON:    serializeEcfmpRestrictionsJSON(data.EcfmpRestrictions),
 	}
+}
+
+func serializeEcfmpRestrictionsJSON(restrictions []models.EcfmpRestriction) string {
+	if len(restrictions) == 0 {
+		return ""
+	}
+	dtos := convertEcfmpRestrictionsEuroscope(restrictions)
+	b, err := json.Marshal(dtos)
+	if err != nil {
+		return ""
+	}
+	return string(b)
+}
+
+func convertEcfmpRestrictionsEuroscope(restrictions []models.EcfmpRestriction) []euroscopeEvents.EcfmpRestrictionDTO {
+	if len(restrictions) == 0 {
+		return nil
+	}
+	result := make([]euroscopeEvents.EcfmpRestrictionDTO, len(restrictions))
+	for i, r := range restrictions {
+		result[i] = euroscopeEvents.EcfmpRestrictionDTO{
+			MeasureID:   r.MeasureID,
+			Ident:       r.Ident,
+			Type:        r.Type,
+			Reason:      r.Reason,
+			Routes:      r.Routes,
+			Destination: r.Destination,
+			MaxLevel:    r.MaxLevel,
+			MinLevel:    r.MinLevel,
+			ExactLevels: r.ExactLevels,
+			HasCtot:     r.HasCtot,
+		}
+	}
+	return result
 }
 
 func truncateToHHMM(value string) string {

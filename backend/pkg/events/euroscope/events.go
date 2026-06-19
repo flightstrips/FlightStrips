@@ -58,6 +58,7 @@ const (
 	PdcStateChange            EventType = "pdc_state_change"
 	IssuePdcClearance         EventType = "issue_pdc_clearance"
 	PdcRevertToVoice          EventType = "pdc_revert_to_voice"
+	SendPrivateMessage        EventType = "send_private_message"
 )
 
 const (
@@ -132,6 +133,7 @@ type Strip struct {
 	Heading           int32  `json:"heading"`
 	AircraftType      string `json:"aircraft_type"`
 	AircraftCategory  string `json:"aircraft_category"`
+	SpokenCallsign    string `json:"spoken_callsign"`
 	Position          struct {
 		Lat      float64 `json:"lat"`
 		Lon      float64 `json:"lon"`
@@ -310,24 +312,38 @@ type EobtEvent struct {
 	Eobt     string `json:"eobt"`
 }
 
+type EcfmpRestrictionDTO struct {
+	MeasureID   int64    `json:"measure_id,omitempty"`
+	Ident       string   `json:"ident,omitempty"`
+	Type        string   `json:"type"`
+	Reason      string   `json:"reason,omitempty"`
+	Routes      []string `json:"routes,omitempty"`
+	Destination string   `json:"destination,omitempty"`
+	MaxLevel    *int     `json:"max_level,omitempty"`
+	MinLevel    *int     `json:"min_level,omitempty"`
+	ExactLevels []int    `json:"exact_levels,omitempty"`
+	HasCtot     bool     `json:"has_ctot,omitempty"`
+}
+
 type CdmUpdateEvent struct {
-	Callsign        string `json:"callsign"`
-	Eobt            string `json:"eobt,omitempty"`
-	Tobt            string `json:"tobt,omitempty"`
-	TobtSetBy       string `json:"tobt_set_by,omitempty"`
-	TobtConfirmedBy string `json:"tobt_confirmed_by,omitempty"`
-	ReqTobt         string `json:"req_tobt,omitempty"`
-	ReqTobtType     string `json:"req_tobt_type,omitempty"`
-	Tsat            string `json:"tsat,omitempty"`
-	Ttot            string `json:"ttot,omitempty"`
-	Ctot            string `json:"ctot,omitempty"`
-	CtotSource      string `json:"ctot_source,omitempty"`
-	Asat            string `json:"asat,omitempty"`
-	Asrt            string `json:"asrt,omitempty"`
-	Tsac            string `json:"tsac,omitempty"`
-	Status          string `json:"status,omitempty"`
-	EcfmpID         string `json:"ecfmp_id,omitempty"`
-	Phase           string `json:"phase,omitempty"`
+	Callsign              string `json:"callsign"`
+	Eobt                  string `json:"eobt,omitempty"`
+	Tobt                  string `json:"tobt,omitempty"`
+	TobtSetBy             string `json:"tobt_set_by,omitempty"`
+	TobtConfirmedBy       string `json:"tobt_confirmed_by,omitempty"`
+	ReqTobt               string `json:"req_tobt,omitempty"`
+	ReqTobtType           string `json:"req_tobt_type,omitempty"`
+	Tsat                  string `json:"tsat,omitempty"`
+	Ttot                  string `json:"ttot,omitempty"`
+	Ctot                  string `json:"ctot,omitempty"`
+	CtotSource            string `json:"ctot_source,omitempty"`
+	Asat                  string `json:"asat,omitempty"`
+	Asrt                  string `json:"asrt,omitempty"`
+	Tsac                  string `json:"tsac,omitempty"`
+	Status                string `json:"status,omitempty"`
+	EcfmpID               string `json:"ecfmp_id,omitempty"`
+	Phase                 string `json:"phase,omitempty"`
+	EcfmpRestrictionsJSON string `json:"ecfmp_restrictions_json,omitempty"`
 }
 
 type CdmUpdateBatchEvent struct {
@@ -362,22 +378,23 @@ type CdmMasterToggleEvent struct {
 }
 
 type BackendSyncCdmData struct {
-	Eobt            string `json:"eobt,omitempty"`
-	Tobt            string `json:"tobt,omitempty"`
-	TobtSetBy       string `json:"tobt_set_by,omitempty"`
-	TobtConfirmedBy string `json:"tobt_confirmed_by,omitempty"`
-	ReqTobt         string `json:"req_tobt,omitempty"`
-	ReqTobtType     string `json:"req_tobt_type,omitempty"`
-	Tsat            string `json:"tsat,omitempty"`
-	Ttot            string `json:"ttot,omitempty"`
-	Ctot            string `json:"ctot,omitempty"`
-	CtotSource      string `json:"ctot_source,omitempty"`
-	Asat            string `json:"asat,omitempty"`
-	Asrt            string `json:"asrt,omitempty"`
-	Tsac            string `json:"tsac,omitempty"`
-	Status          string `json:"status,omitempty"`
-	EcfmpID         string `json:"ecfmp_id,omitempty"`
-	Phase           string `json:"phase,omitempty"`
+	Eobt                  string `json:"eobt,omitempty"`
+	Tobt                  string `json:"tobt,omitempty"`
+	TobtSetBy             string `json:"tobt_set_by,omitempty"`
+	TobtConfirmedBy       string `json:"tobt_confirmed_by,omitempty"`
+	ReqTobt               string `json:"req_tobt,omitempty"`
+	ReqTobtType           string `json:"req_tobt_type,omitempty"`
+	Tsat                  string `json:"tsat,omitempty"`
+	Ttot                  string `json:"ttot,omitempty"`
+	Ctot                  string `json:"ctot,omitempty"`
+	CtotSource            string `json:"ctot_source,omitempty"`
+	Asat                  string `json:"asat,omitempty"`
+	Asrt                  string `json:"asrt,omitempty"`
+	Tsac                  string `json:"tsac,omitempty"`
+	Status                string `json:"status,omitempty"`
+	EcfmpID               string `json:"ecfmp_id,omitempty"`
+	Phase                 string `json:"phase,omitempty"`
+	EcfmpRestrictionsJSON string `json:"ecfmp_restrictions_json,omitempty"`
 }
 
 type CdmAsrtToggleEvent struct {
@@ -756,4 +773,19 @@ type IssuePdcClearanceEvent struct {
 // PdcRevertToVoiceEvent is sent by the EuroScope plugin to revert PDC to voice.
 type PdcRevertToVoiceEvent struct {
 	Callsign string `json:"callsign"`
+}
+
+// SendPrivateMessageEvent is sent by the frontend/backend to request a private
+// message be sent via EuroScope's .msg command.
+type SendPrivateMessageEvent struct {
+	Callsign string `json:"callsign"`
+	Message  string `json:"message"`
+}
+
+func (e SendPrivateMessageEvent) GetType() EventType {
+	return SendPrivateMessage
+}
+
+func (e SendPrivateMessageEvent) Marshal() ([]byte, error) {
+	return marshall(e)
 }

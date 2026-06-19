@@ -48,6 +48,7 @@ export enum ActionType {
   FrontendUpdateStripData = "update_strip_data",
   FrontendUpdateOrder = "update_order",
   FrontendSendMessage = "send_message",
+  FrontendSendPrivateMessage = "send_private_message",
   FrontendCdmReady = "cdm_ready",
   FrontendReleasePoint = "release_point",
   FrontendStartReq = "start_req",
@@ -149,6 +150,7 @@ export interface FrontendStrip {
   position_altitude?: number;
   aircraft_type: string;
   aircraft_category: string;
+  spoken_callsign?: string;
   stand: string;
   capabilities: string;
   communication_type: CommunicationType;
@@ -165,9 +167,11 @@ export interface FrontendStrip {
   asrt?: string;
   tsac?: string;
   status?: string;
+  most_penalizing_airspace?: string;
   ecfmp_id?: string;
   ctot_source?: string;
   phase?: string;
+  ecfmp_restrictions?: EcfmpRestriction[];
   eldt: string;
   aldt?: string;
   bay: string;
@@ -224,6 +228,19 @@ export interface ValidationAction {
   label: string;
   action_kind: string;
   payload?: unknown;
+}
+
+export interface EcfmpRestriction {
+  measure_id?: number;
+  ident?: string;
+  type: "mandatory_route" | "ground_stop" | "prohibit";
+  reason?: string;
+  routes?: string[];
+  destination?: string;
+  max_level?: number;
+  min_level?: number;
+  exact_levels?: number[];
+  has_ctot?: boolean;
 }
 
 export interface FrontendController {
@@ -284,6 +301,7 @@ export interface FrontendStripUpdateEvent {
   heading: number;
   aircraft_type: string;
   aircraft_category: string;
+  spoken_callsign?: string;
   stand: string;
   capabilities: string;
   communication_type: CommunicationType;
@@ -463,9 +481,11 @@ export interface FrontendCdmDataEvent {
   asrt?: string;
   tsac?: string;
   status?: string;
+  most_penalizing_airspace?: string;
   ecfmp_id?: string;
   ctot_source?: string;
   phase?: string;
+  ecfmp_restrictions?: EcfmpRestriction[];
 }
 
 export interface FrontendCdmDataBatchEvent {
@@ -674,6 +694,12 @@ export interface FrontendSendMessageEvent {
   recipients: string[];
 }
 
+export interface FrontendSendPrivateMessageEvent {
+  type: ActionType.FrontendSendPrivateMessage;
+  callsign: string;
+  message: string;
+}
+
 export interface FrontendCdmReadyEvent {
   type: ActionType.FrontendCdmReady;
   callsign: string;
@@ -828,7 +854,7 @@ export interface FrontendClxUpdateTobtEvent {
 }
 
 // Union type for all events that can be sent
-export type FrontendSendEvent = FrontendUpdateRunwayStatusEvent | FrontendMissedApproachEvent |FrontendCreateManualFPLAction | FrontendCreateVFRFPLAction |FrontendAuthenticationEvent | FrontendMoveEvent | FrontendGenerateSquawkEvent | FrontendUpdateStripDataEvent | FrontendUpdateOrder | FrontendSendMessageEvent | FrontendCdmReadyEvent | FrontendSendReleasePointEvent | FrontendSetStartReqAction | FrontendSendMarkedEvent | FrontendSendRunwayClearanceEvent | FrontendSendRunwayConfirmationEvent | FrontendIssuePdcClearanceRequest | FrontendRevertToVoiceRequest | FrontendCoordinationTransferRequestEvent | FrontendCoordinationAssumeRequestEvent | FrontendCoordinationForceAssumeRequestEvent | FrontendCoordinationFreeRequestEvent | FrontendCoordinationCancelTransferRequestEvent | FrontendCoordinationTagRequestEvent | FrontendCoordinationAcceptTagRequestEvent | FrontendCreateTacticalStripAction | FrontendDeleteTacticalStripAction | FrontendConfirmTacticalStripAction | FrontendStartTacticalTimerAction | FrontendMoveTacticalStripAction | FrontendAcknowledgeUnexpectedChangeEvent | FrontendAcknowledgeValidationStatusEvent | FrontendClxOverrideValidationEvent | FrontendClxUpdateTobtEvent;
+export type FrontendSendEvent = FrontendUpdateRunwayStatusEvent | FrontendMissedApproachEvent |FrontendCreateManualFPLAction | FrontendCreateVFRFPLAction |FrontendAuthenticationEvent | FrontendMoveEvent | FrontendGenerateSquawkEvent | FrontendUpdateStripDataEvent | FrontendUpdateOrder | FrontendSendMessageEvent | FrontendSendPrivateMessageEvent | FrontendCdmReadyEvent | FrontendSendReleasePointEvent | FrontendSetStartReqAction | FrontendSendMarkedEvent | FrontendSendRunwayClearanceEvent | FrontendSendRunwayConfirmationEvent | FrontendIssuePdcClearanceRequest | FrontendRevertToVoiceRequest | FrontendCoordinationTransferRequestEvent | FrontendCoordinationAssumeRequestEvent | FrontendCoordinationForceAssumeRequestEvent | FrontendCoordinationFreeRequestEvent | FrontendCoordinationCancelTransferRequestEvent | FrontendCoordinationTagRequestEvent | FrontendCoordinationAcceptTagRequestEvent | FrontendCreateTacticalStripAction | FrontendDeleteTacticalStripAction | FrontendConfirmTacticalStripAction | FrontendStartTacticalTimerAction | FrontendMoveTacticalStripAction | FrontendAcknowledgeUnexpectedChangeEvent | FrontendAcknowledgeValidationStatusEvent | FrontendClxOverrideValidationEvent | FrontendClxUpdateTobtEvent;
 
 export type AnyStrip = FrontendStrip | TacticalStrip;
 export const isFlight = (s: AnyStrip): s is FrontendStrip => 'callsign' in s;

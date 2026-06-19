@@ -67,6 +67,8 @@ set(src__handlers
 source_group("src\\collections" FILES ${src__handlers})
 
 set(src__flightplan
+        flightplan/AirlineCallsignService.h
+        flightplan/AirlineCallsignService.cpp
         flightplan/FlightPlanService.h
         flightplan/FlightPlanService.cpp
         flightplan/FlightPlan.h
@@ -121,7 +123,9 @@ set(src__messages
         messages/CdmReadyTrigger.cpp
         messages/CdmReadyTrigger.h
         messages/MessageService.cpp
-        messages/MessageService.h)
+        messages/MessageService.h
+        messages/PrivateMessageSender.cpp
+        messages/PrivateMessageSender.h)
 source_group("src\\messages" FILES ${src__messages})
 
 set(src__tag_items

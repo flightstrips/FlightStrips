@@ -74,6 +74,14 @@ type ClearedAltitudeCall struct {
 	Altitude int32
 }
 
+// HeadingCall records arguments to SendHeading.
+type HeadingCall struct {
+	Session  int32
+	Cid      string
+	Callsign string
+	Heading  int32
+}
+
 type RemarksCall struct {
 	Session  int32
 	Cid      string
@@ -96,6 +104,13 @@ type AircraftInfoRemarksCall struct {
 	Remarks      string
 }
 
+// SentEuroscopeMessageCall records arguments to Send.
+type SentEuroscopeMessageCall struct {
+	Session int32
+	Cid     string
+	Message euroscope.OutgoingMessage
+}
+
 // MockEuroscopeHub is a configurable mock for shared.EuroscopeHub.
 // It records calls for assertion in tests.
 type MockEuroscopeHub struct {
@@ -116,11 +131,13 @@ type MockEuroscopeHub struct {
 	GenerateSquawks       []GenerateSquawkCall
 	Eobts                 []EobtCall
 	ClearedAltitudes      []ClearedAltitudeCall
+	Headings              []HeadingCall
 	RemarksUpdates        []RemarksCall
 	AircraftInfoUpdates   []AircraftInfoCall
 	AircraftInfoRemarks   []AircraftInfoRemarksCall
 	FlightPlanUpdateOrder []string
 	Broadcasts            []euroscope.OutgoingMessage
+	SentMessages          []SentEuroscopeMessageCall
 	CreateFPLCalls        []CreateFPLCall
 }
 
@@ -180,7 +197,9 @@ func (m *MockEuroscopeHub) BroadcastCdmUpdates(session int32, events []euroscope
 	}
 }
 
-func (m *MockEuroscopeHub) Send(session int32, cid string, message euroscope.OutgoingMessage) {}
+func (m *MockEuroscopeHub) Send(session int32, cid string, message euroscope.OutgoingMessage) {
+	m.SentMessages = append(m.SentMessages, SentEuroscopeMessageCall{Session: session, Cid: cid, Message: message})
+}
 
 func (m *MockEuroscopeHub) SendCdmReadyRequest(session int32, cid string, callsign string) {
 	m.CdmReadyRequests = append(m.CdmReadyRequests, CdmReadyRequestCall{Session: session, Cid: cid, Callsign: callsign})
@@ -232,7 +251,9 @@ func (m *MockEuroscopeHub) SendClearedAltitude(session int32, cid string, callsi
 	m.ClearedAltitudes = append(m.ClearedAltitudes, ClearedAltitudeCall{session, cid, callsign, altitude})
 }
 
-func (m *MockEuroscopeHub) SendHeading(session int32, cid string, callsign string, heading int32) {}
+func (m *MockEuroscopeHub) SendHeading(session int32, cid string, callsign string, heading int32) {
+	m.Headings = append(m.Headings, HeadingCall{Session: session, Cid: cid, Callsign: callsign, Heading: heading})
+}
 
 func (m *MockEuroscopeHub) SendCoordinationHandover(session int32, cid string, callsign string, targetCallsign string) {
 	m.CoordinationHandovers = append(m.CoordinationHandovers, CoordinationHandoverCall{session, cid, callsign, targetCallsign})

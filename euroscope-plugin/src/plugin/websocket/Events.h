@@ -2,6 +2,7 @@
 #define EVENTS_H
 #include <nlohmann/json.hpp>
 #include <utility>
+#include "flightplan/FlightPlan.h"
 
 #define EVENT_UNKNOWN_NAME "unknown"
 #define EVENT_TOKEN_NAME "token"
@@ -53,6 +54,7 @@
 #define EVENT_PDC_STATE_CHANGE_NAME "pdc_state_change"
 #define EVENT_ISSUE_PDC_CLEARANCE_NAME "issue_pdc_clearance"
 #define EVENT_PDC_REVERT_TO_VOICE_NAME "pdc_revert_to_voice"
+#define EVENT_SEND_PRIVATE_MESSAGE_NAME "send_private_message"
 
 enum EventType {
     EVENT_UNKNOWN = 0,
@@ -106,6 +108,7 @@ enum EventType {
     EVENT_PDC_STATE_CHANGE,
     EVENT_ISSUE_PDC_CLEARANCE,
     EVENT_PDC_REVERT_TO_VOICE,
+    EVENT_SEND_PRIVATE_MESSAGE,
 };
 
 NLOHMANN_JSON_SERIALIZE_ENUM(EventType, {
@@ -159,6 +162,7 @@ NLOHMANN_JSON_SERIALIZE_ENUM(EventType, {
                                  {EVENT_PDC_STATE_CHANGE, EVENT_PDC_STATE_CHANGE_NAME},
                                  {EVENT_ISSUE_PDC_CLEARANCE, EVENT_ISSUE_PDC_CLEARANCE_NAME},
                                  {EVENT_PDC_REVERT_TO_VOICE, EVENT_PDC_REVERT_TO_VOICE_NAME},
+                                 {EVENT_SEND_PRIVATE_MESSAGE, EVENT_SEND_PRIVATE_MESSAGE_NAME},
                                  })
 
 struct Event {
@@ -246,47 +250,10 @@ struct CdmUpdateEvent final : Event {
     std::string deice_type;
     std::string ecfmp_id;
     std::string phase;
+    std::string ecfmp_restrictions_json;
 
     CdmUpdateEvent()
         : Event(EVENT_CDM_UPDATE) {
-    }
-
-    CdmUpdateEvent(
-        std::string callsign,
-        std::string eobt,
-        std::string tobt,
-        std::string req_tobt,
-        std::string req_tobt_source,
-        std::string tsat,
-        std::string ttot,
-        std::string ctot,
-        std::string asrt,
-        std::string tsac,
-        std::string asat,
-        std::string status,
-        std::string manual_ctot,
-        std::string deice_type,
-        std::string ecfmp_id,
-        std::string phase = {},
-        std::string tobt_confirmed_by = {}
-    ) : Event(EVENT_CDM_UPDATE),
-        callsign(std::move(callsign)),
-        eobt(std::move(eobt)),
-        tobt(std::move(tobt)),
-        req_tobt(std::move(req_tobt)),
-        req_tobt_source(std::move(req_tobt_source)),
-        tobt_confirmed_by(std::move(tobt_confirmed_by)),
-        tsat(std::move(tsat)),
-        ttot(std::move(ttot)),
-        ctot(std::move(ctot)),
-        asrt(std::move(asrt)),
-        tsac(std::move(tsac)),
-        asat(std::move(asat)),
-        status(std::move(status)),
-        manual_ctot(std::move(manual_ctot)),
-        deice_type(std::move(deice_type)),
-        ecfmp_id(std::move(ecfmp_id)),
-        phase(std::move(phase)) {
     }
 
     NLOHMANN_DEFINE_TYPE_INTRUSIVE_WITH_DEFAULT(
@@ -308,6 +275,7 @@ struct CdmUpdateEvent final : Event {
         deice_type,
         ecfmp_id,
         phase,
+        ecfmp_restrictions_json,
         type
     );
 };
@@ -428,6 +396,7 @@ struct BackendSyncCdmData final {
     std::string deice_type;
     std::string ecfmp_id;
     std::string phase;
+    std::string ecfmp_restrictions_json;
 
     NLOHMANN_DEFINE_TYPE_INTRUSIVE_WITH_DEFAULT(
         BackendSyncCdmData,
@@ -446,7 +415,8 @@ struct BackendSyncCdmData final {
         manual_ctot,
         deice_type,
         ecfmp_id,
-        phase
+        phase,
+        ecfmp_restrictions_json
     );
 };
 
@@ -590,7 +560,7 @@ struct StripUpdateEvent final : Event {
     StripUpdateEvent(std::string callsign, std::string origin, std::string destination, std::string alternate, std::string route,
           std::string remarks, std::string runway, std::string squawk, std::string assigned_squawk, std::string sid,
           bool cleared, std::string ground_state, int cleared_altitude, int requested_altitude, int heading,
-          std::string aircraft_type, std::string aircraft_category, Position position, std::string stand,
+          std::string aircraft_type, std::string aircraft_category, std::string spoken_callsign, Position position, std::string stand,
           std::string communication_type, std::string capabilities, std::string eobt, std::string eldt,
           std::string tracking_controller, std::string engine_type, bool has_fp = true)
         : Event(EVENT_STRIP_UPDATE), callsign(std::move(callsign)),
@@ -610,6 +580,7 @@ struct StripUpdateEvent final : Event {
           heading(heading),
           aircraft_type(std::move(aircraft_type)),
           aircraft_category(std::move(aircraft_category)),
+          spoken_callsign(std::move(spoken_callsign)),
           position(position),
           stand(std::move(stand)),
           communication_type(std::move(communication_type)),
@@ -638,6 +609,7 @@ struct StripUpdateEvent final : Event {
     int heading;
     std::string aircraft_type;
     std::string aircraft_category;
+    std::string spoken_callsign;
     Position position;
     std::string stand;
     std::string communication_type;
@@ -650,7 +622,7 @@ struct StripUpdateEvent final : Event {
 
     NLOHMANN_DEFINE_TYPE_INTRUSIVE(StripUpdateEvent, callsign, origin, destination, alternate, route, remarks, runway, squawk,
                                    assigned_squawk, sid, cleared, ground_state, cleared_altitude, requested_altitude,
-                                   heading, aircraft_type, aircraft_category, position, stand, communication_type,
+                                   heading, aircraft_type, aircraft_category, spoken_callsign, position, stand, communication_type,
                                    capabilities, eobt, eldt, tracking_controller, engine_type, has_fp, type);
 
 };
@@ -707,7 +679,7 @@ struct Strip final {
     Strip(std::string callsign, std::string origin, std::string destination, std::string alternate, std::string route,
           std::string remarks, std::string runway, std::string squawk, std::string assigned_squawk, std::string sid,
           bool cleared, std::string ground_state, int cleared_altitude, int requested_altitude, int heading,
-          std::string aircraft_type, std::string aircraft_category, Position position, std::string stand,
+          std::string aircraft_type, std::string aircraft_category, std::string spoken_callsign, Position position, std::string stand,
           std::string communication_type, std::string capabilities, std::string eobt, std::string eldt,
           std::string tracking_controller, std::string engine_type, bool has_fp = true)
         : callsign(std::move(callsign)),
@@ -727,6 +699,7 @@ struct Strip final {
           heading(heading),
           aircraft_type(std::move(aircraft_type)),
           aircraft_category(std::move(aircraft_category)),
+          spoken_callsign(std::move(spoken_callsign)),
           position(position),
           stand(std::move(stand)),
           communication_type(std::move(communication_type)),
@@ -755,6 +728,7 @@ struct Strip final {
     int heading;
     std::string aircraft_type;
     std::string aircraft_category;
+    std::string spoken_callsign;
     Position position;
     std::string stand;
     std::string communication_type;
@@ -767,7 +741,7 @@ struct Strip final {
 
     NLOHMANN_DEFINE_TYPE_INTRUSIVE(Strip, callsign, origin, destination, alternate, route, remarks, runway, squawk,
                                    assigned_squawk, sid, cleared, ground_state, cleared_altitude, requested_altitude,
-                                   heading, aircraft_type, aircraft_category, position, stand, communication_type,
+                                   heading, aircraft_type, aircraft_category, spoken_callsign, position, stand, communication_type,
                                    capabilities, eobt, eldt, tracking_controller, engine_type, has_fp);
 };
 
@@ -1077,6 +1051,17 @@ struct PdcRevertToVoiceEvent final : Event {
         : Event(EVENT_PDC_REVERT_TO_VOICE), callsign(std::move(callsign)) {}
 
     NLOHMANN_DEFINE_TYPE_INTRUSIVE(PdcRevertToVoiceEvent, callsign, type);
+};
+
+struct SendPrivateMessageEvent final : Event {
+    std::string callsign;
+    std::string message;
+
+    SendPrivateMessageEvent() = default;
+    SendPrivateMessageEvent(std::string callsign, std::string message)
+        : Event(EVENT_SEND_PRIVATE_MESSAGE), callsign(std::move(callsign)), message(std::move(message)) {}
+
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE(SendPrivateMessageEvent, callsign, message, type);
 };
 
 #endif //EVENTS_H

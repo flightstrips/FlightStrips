@@ -92,7 +92,6 @@ func (s *StripService) CreateCoordinationTransfer(ctx context.Context, session i
 			return err
 		}
 	}
-
 	s.maybeMoveToLowerTwyDepOnTowerTransfer(ctx, session, strip, to)
 	s.publisher.SendCoordinationTransfer(session, callsign, from, to)
 

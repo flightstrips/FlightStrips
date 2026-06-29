@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.35.0](https://github.com/flightstrips/FlightStrips/compare/backend/v0.34.0...backend/v0.35.0) (2026-06-29)
+
+
+### Features
+
+* add PrivateMessageSender and send_private_message event relay ([1ae21c7](https://github.com/flightstrips/FlightStrips/commit/1ae21c75ecc6a4e7f03a7ab70bcbd386e2e48a78)), closes [#221](https://github.com/flightstrips/FlightStrips/issues/221)
+* **callsigns:** source spoken callsigns from the Euroscope plugin ([#234](https://github.com/flightstrips/FlightStrips/issues/234)) ([5354294](https://github.com/flightstrips/FlightStrips/commit/5354294c0afa48fb53174120a457bd49783680b5))
+* **CDM:** use CDM slot label for CTOT display ([#233](https://github.com/flightstrips/FlightStrips/issues/233)) ([8070a97](https://github.com/flightstrips/FlightStrips/commit/8070a97f08851a6e233dbb0428463e9289e7d968))
+* Confirm voice clearance on cleared PDC moves ([#240](https://github.com/flightstrips/FlightStrips/issues/240)) ([6fdd6e8](https://github.com/flightstrips/FlightStrips/commit/6fdd6e8ebdd49c3223c75094e73c75b73f9731ad))
+* **ecfmp:** add ECFMP API client, models, and restriction matcher ([6484810](https://github.com/flightstrips/FlightStrips/commit/6484810c27698f658bbfd07efcfc418aad1cdd41)), closes [#221](https://github.com/flightstrips/FlightStrips/issues/221)
+* **ecfmp:** add test endpoints ([47cd871](https://github.com/flightstrips/FlightStrips/commit/47cd8715493272455eb5dd8058078e0c63e5c676))
+* **ecfmp:** integrate ECFMP restrictions into CDM data model and events ([3f6ad7e](https://github.com/flightstrips/FlightStrips/commit/3f6ad7e544d60781dea0c7e3f9d3013aa1f644c4)), closes [#221](https://github.com/flightstrips/FlightStrips/issues/221)
+* **es-plugin:** add ECFMP restriction fields to CdmState and tag items ([5ffe133](https://github.com/flightstrips/FlightStrips/commit/5ffe133c950c08776b2ccc88d11f31cfd0d2faf8)), closes [#221](https://github.com/flightstrips/FlightStrips/issues/221)
+* **pdc:** implement mandatory route clearance flow behind feature flag ([a829e39](https://github.com/flightstrips/FlightStrips/commit/a829e39cc356eaa12d5bba09fd6634389667cb9b))
+* **pdc:** reject clearance with no SID or vectors ([1873260](https://github.com/flightstrips/FlightStrips/commit/18732606713d03c2d590f7c273c72a6e69541528))
+* **pilot:** Expand pilot flight details ([cf4c5c8](https://github.com/flightstrips/FlightStrips/commit/cf4c5c8e2b56ea7c5fa2b31dce7db8431d6ebd88))
+
+
+### Bug Fixes
+
+* **backend:** reduce controller offline grace period from 60s to 15s ([#232](https://github.com/flightstrips/FlightStrips/issues/232)) ([3c0f4ee](https://github.com/flightstrips/FlightStrips/commit/3c0f4ee582deeb287382369f08c9847e679e70c8))
+* **ecfmp:** resolve critical bugs in ECFMP restriction implementation ([9fd6a3e](https://github.com/flightstrips/FlightStrips/commit/9fd6a3e69c84913ab8d9bbf08fe978d58d6dc3fd)), closes [#221](https://github.com/flightstrips/FlightStrips/issues/221)
+* **pdc:** use departure atis and omit missing atis letter ([#231](https://github.com/flightstrips/FlightStrips/issues/231)) ([c067286](https://github.com/flightstrips/FlightStrips/commit/c0672867f7aa6b1da2477f4304a06fa4dac4beab))
+
 ## [0.34.0](https://github.com/flightstrips/FlightStrips/compare/backend/v0.33.0...backend/v0.34.0) (2026-05-25)
 
 

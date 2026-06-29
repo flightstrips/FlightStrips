@@ -32,12 +32,7 @@ namespace FlightStrips::authentication {
     }
 
     void AuthenticationService::Logout() {
-        accessToken = "";
-        refreshToken = "";
-        expirationTime = 0;
-        name = "";
-        state = NONE;
-        userConfig->SetToken({});
+        ClearAuthentication("Logout requested");
     }
 
     void AuthenticationService::StartAuthentication() {
@@ -80,7 +75,7 @@ namespace FlightStrips::authentication {
     }
 
     void AuthenticationService::OnTimer(int time) {
-        if (state == AUTHENTICATED && NeedsRefresh()) {
+        if (state == AUTHENTICATED && NeedsRefresh() && CanAttemptRefresh()) {
             StartRefresh();
         }
     }
@@ -150,18 +145,36 @@ namespace FlightStrips::authentication {
         }
 
         state = AUTHENTICATED;
+        Logger::Info("Loaded cached authentication token (seconds_until_expiry={})", SecondsUntilExpiration());
         Logger::Debug(std::format("Name: {}", name));
     }
 
     bool AuthenticationService::NeedsRefresh() const {
         const time_t now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
-        return expirationTime < now + 60 * 30;
+        return expirationTime <= now + REFRESH_LEAD_TIME_SECONDS;
+    }
+
+    bool AuthenticationService::CanAttemptRefresh() const {
+        return std::chrono::steady_clock::now() >= nextRefreshAttempt;
+    }
+
+    int AuthenticationService::SecondsUntilExpiration() const {
+        if (expirationTime == 0) {
+            return 0;
+        }
+
+        const time_t now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+        return static_cast<int>(expirationTime - now);
+    }
+
+    bool AuthenticationService::IsExpired() const {
+        return SecondsUntilExpiration() <= 0;
     }
 
     void AuthenticationService::StartRefresh() {
         if (state != AUTHENTICATED) return;
         state = REFRESH;
-        Logger::Info("Starting token refresh (state -> REFRESH)");
+        Logger::Info("Starting token refresh (state -> REFRESH, seconds_until_expiry={})", SecondsUntilExpiration());
 
         if (token_thread.joinable()) {
             token_thread.join();
@@ -189,26 +202,54 @@ namespace FlightStrips::authentication {
             if (status_code != 200) {
                 Logger::Error(std::format("Failed to refresh token. HTTP response code: {}. Content: {}", status_code,
                                           content));
-                Logout();
+                HandleRefreshFailure(std::format("HTTP response code {}", status_code));
                 return;
             }
 
             if (!ParseAndSetToken(content)) {
-                Logout();
+                HandleRefreshFailure("token endpoint response could not be parsed");
                 return;
             }
 
-            Logger::Info("Token refresh completed successfully (state -> AUTHENTICATED)");
+            nextRefreshAttempt = std::chrono::steady_clock::time_point::min();
+            Logger::Info("Token refresh completed successfully (state -> AUTHENTICATED, seconds_until_expiry={})",
+                         SecondsUntilExpiration());
         } catch (...) {
             exceptions::LogCurrentException("AuthenticationService::DoRefreshFlow");
 
             try {
-                Logout();
+                HandleRefreshFailure("exception during refresh");
             } catch (...) {
                 exceptions::LogCurrentException("AuthenticationService::DoRefreshFlow::Logout");
                 state = NONE;
             }
         }
+    }
+
+    void AuthenticationService::HandleRefreshFailure(const std::string& reason) {
+        if (!IsExpired() && !accessToken.empty()) {
+            state = AUTHENTICATED;
+            nextRefreshAttempt = std::chrono::steady_clock::now() + std::chrono::seconds(REFRESH_RETRY_DELAY_SECONDS);
+            Logger::Warning(
+                "Token refresh failed ({}); keeping existing token and retrying in {}s (seconds_until_expiry={})",
+                reason,
+                REFRESH_RETRY_DELAY_SECONDS,
+                SecondsUntilExpiration());
+            return;
+        }
+
+        ClearAuthentication(std::format("Token refresh failed after token expiry: {}", reason));
+    }
+
+    void AuthenticationService::ClearAuthentication(const std::string& reason) {
+        Logger::Warning("Clearing authentication state: {}", reason);
+        accessToken = "";
+        refreshToken = "";
+        expirationTime = 0;
+        name = "";
+        state = NONE;
+        nextRefreshAttempt = std::chrono::steady_clock::time_point::min();
+        userConfig->SetToken({});
     }
 
     bool AuthenticationService::ParseAndSetToken(const std::string &content) {
@@ -246,6 +287,7 @@ namespace FlightStrips::authentication {
             this->refreshToken = refresh_token;
             this->name = id_token_payload.value()["name"];
             this->expirationTime = exp;
+            nextRefreshAttempt = std::chrono::steady_clock::time_point::min();
             state = AUTHENTICATED;
 
             return true;

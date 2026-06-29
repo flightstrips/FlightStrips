@@ -1,4 +1,5 @@
 #pragma once
+#include <chrono>
 #include <future>
 #include <optional>
 #include <nlohmann/json.hpp>
@@ -37,6 +38,9 @@ public:
     static std::optional<nlohmann::json> GetTokenPayload(const std::string &access_token);
 
 private:
+    static constexpr int REFRESH_LEAD_TIME_SECONDS = 300;
+    static constexpr int REFRESH_RETRY_DELAY_SECONDS = 30;
+
     std::shared_ptr<configuration::AppConfig> appConfig;
     std::shared_ptr<configuration::UserConfig> userConfig;
     std::shared_ptr<handlers::AuthenticationEventHandlers> authEventHandlers;
@@ -46,12 +50,18 @@ private:
     std::string refreshToken;
     std::string name;
     time_t expirationTime = 0;
+    std::chrono::steady_clock::time_point nextRefreshAttempt = std::chrono::steady_clock::time_point::min();
 
     void LoadFromConfig();
 
     bool NeedsRefresh() const;
+    bool CanAttemptRefresh() const;
+    int SecondsUntilExpiration() const;
+    bool IsExpired() const;
     void StartRefresh();
     void DoRefreshFlow();
+    void HandleRefreshFailure(const std::string& reason);
+    void ClearAuthentication(const std::string& reason);
     bool ParseAndSetToken(const std::string& content);
 
     void DoAuthenticationFlow();

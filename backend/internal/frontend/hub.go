@@ -77,6 +77,8 @@ type Hub struct {
 
 	clxMu        sync.RWMutex
 	clxOverrides map[int32]map[string]bool
+
+	snapshotBuilder *SnapshotBuilder
 }
 
 type nextDisplayComputer interface {
@@ -181,6 +183,7 @@ func (hub *Hub) GetServer() shared.Server {
 
 func (hub *Hub) SetServer(server shared.Server) {
 	hub.server = server
+	hub.snapshotBuilder = nil
 	hub.stripUpdateService = hub.newStripUpdateService()
 }
 
@@ -300,191 +303,25 @@ func (hub *Hub) HandleNewConnection(conn *gorilla.Conn, user shared.Authenticate
 	return client, nil
 }
 
-func (hub *Hub) sendInitialEvent(client *Client) {
-	controllerRepo := hub.server.GetControllerRepository()
-	stripRepo := hub.server.GetStripRepository()
-	sectorRepo := hub.server.GetSectorOwnerRepository()
-	sessionRepo := hub.server.GetSessionRepository()
-	esHub := hub.server.GetEuroscopeHub()
+func (hub *Hub) sendInitialEvent(ctx context.Context, client *Client) {
+	builder := hub.getSnapshotBuilder()
 
-	controllers, err := controllerRepo.ListBySession(context.Background(), client.session)
+	event, cachedAtis, err := builder.Build(ctx, InitialSnapshotRequest{
+		SessionID: client.session,
+		Position:  client.position,
+		Airport:   client.airport,
+		Callsign:  client.callsign,
+		UserCID:   client.user.GetCid(),
+		ReadOnly:  client.readOnly,
+	})
 	if err != nil {
-		slog.Error("Failed to list controllers", slog.Any("error", err), slog.Int("session", int(client.session)))
+		slog.Error("Failed to build initial frontend snapshot", slog.Any("error", err), slog.Int("session", int(client.session)))
 		return
-	}
-
-	dbSession, err := sessionRepo.GetByID(context.Background(), client.session)
-	if err != nil {
-		slog.Error("Failed to get session", slog.Any("error", err), slog.Int("session", int(client.session)))
-		return
-	}
-
-	strips, err := stripRepo.List(context.Background(), client.session)
-	if err != nil {
-		slog.Error("Failed to list strips", slog.Any("error", err), slog.Int("session", int(client.session)))
-		return
-	}
-
-	sectors, err := sectorRepo.ListBySession(context.Background(), client.session)
-	if err != nil {
-		slog.Error("Failed to list sectors", slog.Any("error", err), slog.Int("session", int(client.session)))
-		return
-	}
-
-	sectorsMap := make(map[string]*internalModels.SectorOwner)
-	for _, sector := range sectors {
-		sectorsMap[sector.Position] = sector
-	}
-
-	controllerModels := make([]frontend.Controller, 0, len(controllers))
-	stripModels := make([]frontend.Strip, 0, len(strips))
-	layout := ""
-
-	me := frontend.Controller{}
-	positionAvailable := !client.readOnly
-
-	for _, controller := range controllers {
-		if isObserverController(controller, esHub) {
-			continue
-		}
-
-		c := buildFrontendController(controller.Callsign, controller.Position, sectorsMap)
-		controllerModels = append(controllerModels, c)
-
-		if controller.Position == client.position {
-			positionAvailable = true
-		}
-
-		if !client.readOnly && controller.Callsign == client.callsign {
-			me = c
-			if controller.Layout != nil {
-				layout = *controller.Layout
-			}
-		} else if controller.Position == client.position && layout == "" && controller.Layout != nil {
-			// Dual-login: another controller at the same position already has a layout;
-			// use it as a fallback so the second client isn't left without a layout.
-			layout = *controller.Layout
-		}
-	}
-
-	clxContext := hub.makeClxValidationContext(client.session)
-	hub.populateNextDisplays(strips, client.session)
-	for _, strip := range strips {
-		stripModels = append(stripModels, MapStripToFrontendModelWithClx(strip, clxContext))
-	}
-
-	if client.readOnly {
-		me = buildFrontendController(client.callsign, client.position, sectorsMap)
-	}
-
-	coordRepo := hub.server.GetCoordinationRepository()
-	coordinations, err := coordRepo.ListBySession(context.Background(), client.session)
-	if err != nil {
-		slog.Error("Failed to list coordinations", slog.Any("error", err), slog.Int("session", int(client.session)))
-		return
-	}
-
-	stripCallsignByID := make(map[int32]string)
-	for _, strip := range strips {
-		stripCallsignByID[strip.ID] = strip.Callsign
-	}
-
-	coordinationModels := make([]frontend.SyncCoordination, 0, len(coordinations))
-	for _, coord := range coordinations {
-		callsign, ok := stripCallsignByID[coord.StripID]
-		if !ok {
-			continue
-		}
-		coordinationModels = append(coordinationModels, frontend.SyncCoordination{
-			Callsign:     callsign,
-			From:         coord.FromPosition,
-			To:           coord.ToPosition,
-			IsTagRequest: coord.IsTagRequest,
-		})
-	}
-
-	departure := dbSession.ActiveRunways.DepartureRunways
-	if departure == nil {
-		departure = make([]string, 0)
-	}
-	arrival := dbSession.ActiveRunways.ArrivalRunways
-	if arrival == nil {
-		arrival = make([]string, 0)
-	}
-
-	// Load tactical strips
-	tacticalStripModels := make([]frontend.TacticalStripPayload, 0)
-	tacticalRepo := hub.server.GetTacticalStripRepository()
-	if tacticalRepo != nil {
-		tacticalStrips, err := tacticalRepo.ListBySession(context.Background(), client.session)
-		if err != nil {
-			slog.Error("Failed to list tactical strips", slog.Any("error", err), slog.Int("session", int(client.session)))
-		} else {
-			for _, ts := range tacticalStrips {
-				tacticalStripModels = append(tacticalStripModels, MapTacticalStripToPayload(ts))
-			}
-		}
-	}
-
-	hub.msgMu.Lock()
-	storedMsgs := make([]frontend.MessageReceivedEvent, len(hub.messages[client.session]))
-	copy(storedMsgs, hub.messages[client.session])
-	hub.msgMu.Unlock()
-
-	sids, err := sessionRepo.GetSessionSids(context.Background(), client.session)
-	if err != nil {
-		slog.Error("Failed to load available SIDs on connect", slog.Any("error", err), slog.Int("session", int(client.session)))
-		sids = pkgModels.AvailableSids{}
-	}
-
-	initialCFLByRunway := make(map[string]int32)
-	for runway, cfl := range config.GetInitialCFLByRunway() {
-		initialCFLByRunway[runway] = int32(cfl)
-	}
-
-	departureMismatch := false
-	arrivalMismatch := false
-	localIP := ""
-	if esHub != nil {
-		departureMismatch, arrivalMismatch = esHub.GetRunwayMismatchStatus(client.session, client.user.GetCid())
-		localIP = esHub.GetClientLocalIP(client.session, client.user.GetCid())
-	}
-
-	event := frontend.InitialEvent{
-		Contsollers:    controllerModels,
-		Strips:         stripModels,
-		TacticalStrips: tacticalStripModels,
-		Me:             me,
-		Callsign:       client.callsign,
-		Airport:        client.airport,
-		Layout:         layout,
-		RunwaySetup: frontend.RunwayConfiguration{
-			Departure:         departure,
-			Arrival:           arrival,
-			RunwayStatus:      dbSession.ActiveRunways.RunwayStatus,
-			DepartureMismatch: departureMismatch,
-			ArrivalMismatch:   arrivalMismatch,
-		},
-		Coordinations:      coordinationModels,
-		Messages:           storedMsgs,
-		AvailableSids:      sids,
-		InitialCFLByRunway: initialCFLByRunway,
-		TransitionAltitude: int32(config.GetTransitionAltitude()),
-		ReadOnly:           client.readOnly,
-		PositionAvailable:  positionAvailable,
-		LocalIP:            localIP,
 	}
 
 	client.Enqueue(event)
-
-	hub.metarMu.RLock()
-	cachedMetar := hub.metarCache[client.session]
-	cachedArr := hub.arrAtisCodeCache[client.session]
-	cachedDep := hub.depAtisCodeCache[client.session]
-	hub.metarMu.RUnlock()
-
-	if cachedMetar != "" {
-		client.Enqueue(frontend.AtisUpdateEvent{Metar: cachedMetar, ArrAtisCode: cachedArr, DepAtisCode: cachedDep})
+	if cachedAtis != nil {
+		client.Enqueue(*cachedAtis)
 	}
 }
 
@@ -776,7 +613,7 @@ func (hub *Hub) associateCidOnlineClients(msg cidOnlineMessage) []*Client {
 
 func (hub *Hub) handleCidOnline(msg cidOnlineMessage) {
 	for _, client := range hub.associateCidOnlineClients(msg) {
-		hub.sendInitialEvent(client)
+		hub.sendInitialEvent(context.Background(), client)
 	}
 }
 
@@ -1082,6 +919,10 @@ func (hub *Hub) resolveOwnersUpdateNextDisplay(session int32, callsign string, n
 }
 
 func (hub *Hub) populateNextDisplay(strip *internalModels.Strip, session int32) {
+	hub.populateNextDisplayContext(context.Background(), strip, session)
+}
+
+func (hub *Hub) populateNextDisplayContext(ctx context.Context, strip *internalModels.Strip, session int32) {
 	if strip == nil {
 		return
 	}
@@ -1091,7 +932,7 @@ func (hub *Hub) populateNextDisplay(strip *internalModels.Strip, session int32) 
 		return
 	}
 
-	nextDisplay, err := computer.ComputeNextDisplayForStripContext(context.Background(), strip, session)
+	nextDisplay, err := computer.ComputeNextDisplayForStripContext(ctx, strip, session)
 	if err != nil {
 		slog.Warn("Failed to compute next display data for strip",
 			slog.String("callsign", strip.Callsign),
@@ -1104,12 +945,16 @@ func (hub *Hub) populateNextDisplay(strip *internalModels.Strip, session int32) 
 }
 
 func (hub *Hub) populateNextDisplays(strips []*internalModels.Strip, session int32) {
+	hub.populateNextDisplaysContext(context.Background(), strips, session)
+}
+
+func (hub *Hub) populateNextDisplaysContext(ctx context.Context, strips []*internalModels.Strip, session int32) {
 	if len(strips) == 0 {
 		return
 	}
 
 	if computer, ok := hub.server.(nextDisplayBatchComputer); ok {
-		if err := computer.ComputeNextDisplaysForStripsContext(context.Background(), strips, session); err != nil {
+		if err := computer.ComputeNextDisplaysForStripsContext(ctx, strips, session); err != nil {
 			slog.Warn("Failed to compute next display data for strip batch",
 				slog.Int("session", int(session)),
 				slog.Int("strip_count", len(strips)),
@@ -1120,7 +965,7 @@ func (hub *Hub) populateNextDisplays(strips []*internalModels.Strip, session int
 	}
 
 	for _, strip := range strips {
-		hub.populateNextDisplay(strip, session)
+		hub.populateNextDisplayContext(ctx, strip, session)
 	}
 }
 
@@ -1271,7 +1116,7 @@ func (hub *Hub) OnRegister(client *Client) {
 	slog.Debug("Client registered", slog.String("cid", client.user.GetCid()))
 	metrics.ConnectionOpened(context.Background(), client.sessionName, client.airport, "frontend", client.callsign, client.version)
 	if client.session != WaitingForEuroscopeConnectionSessionId {
-		hub.sendInitialEvent(client)
+		hub.sendInitialEvent(context.Background(), client)
 		return
 	}
 
@@ -1281,6 +1126,53 @@ func (hub *Hub) OnRegister(client *Client) {
 func (hub *Hub) OnUnregister(client *Client) {
 	slog.Debug("Client unregistered", slog.String("cid", client.user.GetCid()))
 	metrics.ConnectionClosed(context.Background(), client.sessionName, client.airport, "frontend", client.callsign, client.version)
+}
+
+func (hub *Hub) getSnapshotBuilder() *SnapshotBuilder {
+	if hub.snapshotBuilder != nil {
+		return hub.snapshotBuilder
+	}
+
+	hub.snapshotBuilder = NewSnapshotBuilder(SnapshotBuilderDependencies{
+		ControllerRepo:     hub.server.GetControllerRepository(),
+		StripRepo:          hub.server.GetStripRepository(),
+		SectorRepo:         hub.server.GetSectorOwnerRepository(),
+		SessionRepo:        hub.server.GetSessionRepository(),
+		CoordinationRepo:   hub.server.GetCoordinationRepository(),
+		TacticalStripRepo:  hub.server.GetTacticalStripRepository(),
+		EuroscopeHub:       hub.server.GetEuroscopeHub(),
+		BuildClxContext:    hub.makeClxValidationContext,
+		PopulateNextStrips: hub.populateNextDisplaysContext,
+		LoadMessages:       hub.snapshotMessages,
+		LoadCachedAtis:     hub.cachedAtisEvent,
+	})
+
+	return hub.snapshotBuilder
+}
+
+func (hub *Hub) snapshotMessages(session int32) []frontend.MessageReceivedEvent {
+	hub.msgMu.Lock()
+	defer hub.msgMu.Unlock()
+
+	storedMsgs := make([]frontend.MessageReceivedEvent, len(hub.messages[session]))
+	copy(storedMsgs, hub.messages[session])
+	return storedMsgs
+}
+
+func (hub *Hub) cachedAtisEvent(session int32) *frontend.AtisUpdateEvent {
+	hub.metarMu.RLock()
+	defer hub.metarMu.RUnlock()
+
+	metar := hub.metarCache[session]
+	if metar == "" {
+		return nil
+	}
+
+	return &frontend.AtisUpdateEvent{
+		Metar:       metar,
+		ArrAtisCode: hub.arrAtisCodeCache[session],
+		DepAtisCode: hub.depAtisCodeCache[session],
+	}
 }
 
 func (hub *Hub) Run() {

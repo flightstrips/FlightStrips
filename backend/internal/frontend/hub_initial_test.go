@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestSendInitialEvent_IncludesAssociatedLocalIP(t *testing.T) {
+func TestOnRegister_EnqueuesInitialSnapshot(t *testing.T) {
 	hub := &Hub{
 		server: &testutil.MockServer{
 			ControllerRepoVal: &testutil.MockControllerRepository{
@@ -49,15 +49,11 @@ func TestSendInitialEvent_IncludesAssociatedLocalIP(t *testing.T) {
 					return []*internalModels.Coordination{}, nil
 				},
 			},
-			EuroscopeHubVal: &testutil.MockEuroscopeHub{
-				GetClientLocalIPFn: func(session int32, cid string) string {
-					assert.Equal(t, int32(42), session)
-					assert.Equal(t, "1234567", cid)
-					return "192.168.1.25"
-				},
-			},
 		},
-		messages: map[int32][]frontendEvents.MessageReceivedEvent{},
+		messages:         map[int32][]frontendEvents.MessageReceivedEvent{},
+		metarCache:       map[int32]string{},
+		arrAtisCodeCache: map[int32]string{},
+		depAtisCodeCache: map[int32]string{},
 	}
 
 	client := startQueuedTestClient(&Client{
@@ -70,10 +66,11 @@ func TestSendInitialEvent_IncludesAssociatedLocalIP(t *testing.T) {
 		readOnly: true,
 	})
 
-	hub.sendInitialEvent(client)
+	hub.OnRegister(client)
 
 	message := waitForOutgoingMessage(t, client.send)
 	event, ok := message.(frontendEvents.InitialEvent)
 	require.True(t, ok)
-	assert.Equal(t, "192.168.1.25", event.LocalIP)
+	assert.Equal(t, "EKCH", event.Airport)
+	assert.Equal(t, "EKCH_A_TWR", event.Callsign)
 }

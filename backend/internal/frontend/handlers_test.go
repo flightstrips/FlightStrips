@@ -219,6 +219,84 @@ func TestHandleStripUpdate_RunwayChangePersistsSelectedRunway(t *testing.T) {
 	assert.Equal(t, "runway", markedField)
 }
 
+func TestHandleStripUpdate_SameRunwayValueSkipsSideEffects(t *testing.T) {
+	ctx := context.Background()
+	const session = int32(7)
+	const callsign = "SAS123"
+	currentRunway := "22L"
+	selectedRunway := "22L"
+
+	var updateRunwayCalls int
+	var appendControllerModifiedCalls int
+	var reevaluatePdcCalls int
+	var reevaluateDepartureCalls int
+
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, gotSession int32, gotCallsign string) (*models.Strip, error) {
+			assert.Equal(t, session, gotSession)
+			assert.Equal(t, callsign, gotCallsign)
+			return &models.Strip{
+				Callsign: callsign,
+				Session:  session,
+				Runway:   &currentRunway,
+			}, nil
+		},
+		UpdateRunwayFn: func(_ context.Context, _ int32, _ string, _ *string, _ *int32) (int64, error) {
+			updateRunwayCalls++
+			return 1, nil
+		},
+		AppendControllerModifiedFieldFn: func(_ context.Context, _ int32, _ string, _ string) error {
+			appendControllerModifiedCalls++
+			return nil
+		},
+	}
+
+	euroscopeHub := &testutil.MockEuroscopeHub{}
+	server := &testutil.MockServer{
+		StripRepoVal:    stripRepo,
+		EuroscopeHubVal: euroscopeHub,
+	}
+
+	hub := &Hub{
+		server: server,
+		stripService: &stripUpdateValidationReevaluator{
+			reevaluateForStripFn: func(_ context.Context, _ int32, _ *models.Strip, _ []string, _ bool, _ bool) error {
+				reevaluatePdcCalls++
+				return nil
+			},
+			reevaluateDepartureFn: func(_ context.Context, _ int32, _ string, _ bool, _ bool) error {
+				reevaluateDepartureCalls++
+				return nil
+			},
+		},
+	}
+	client := &Client{
+		session:  session,
+		hub:      hub,
+		position: "EKCH_DEL",
+	}
+	client.SetUser(shared.NewAuthenticatedUser("123456", 0, nil))
+
+	payload, err := json.Marshal(frontendEvents.UpdateStripDataEvent{
+		Type:     frontendEvents.UpdateStripData,
+		Callsign: callsign,
+		Runway:   &selectedRunway,
+	})
+	require.NoError(t, err)
+
+	err = handleStripUpdate(ctx, client, Message{
+		Type:    frontendEvents.UpdateStripData,
+		Message: payload,
+	})
+	require.NoError(t, err)
+
+	assert.Empty(t, euroscopeHub.Runways)
+	assert.Zero(t, updateRunwayCalls)
+	assert.Zero(t, appendControllerModifiedCalls)
+	assert.Zero(t, reevaluatePdcCalls)
+	assert.Zero(t, reevaluateDepartureCalls)
+}
+
 func TestRoundedClxTobtAddsFifteenMinutesAndRoundsUpToFive(t *testing.T) {
 	tests := []struct {
 		name string
@@ -563,6 +641,114 @@ func TestHandleStripUpdate_RunwayChangeReevaluatesDepartureValidation(t *testing
 	assert.Equal(t, callsign, reevaluatedCallsign)
 	assert.True(t, reevaluatedPublish)
 	assert.False(t, reevaluatedForce)
+}
+
+func TestHandleStripUpdate_SameClearedAltitudeValueSkipsSideEffects(t *testing.T) {
+	ctx := context.Background()
+	const session = int32(9)
+	const callsign = "SAS123"
+	currentAltitude := int32(5000)
+	selectedAltitude := int32(5000)
+
+	var appendControllerModifiedCalls int
+
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			return &models.Strip{
+				Callsign:        callsign,
+				Session:         session,
+				ClearedAltitude: &currentAltitude,
+			}, nil
+		},
+		AppendControllerModifiedFieldFn: func(_ context.Context, _ int32, _ string, _ string) error {
+			appendControllerModifiedCalls++
+			return nil
+		},
+	}
+
+	euroscopeHub := &testutil.MockEuroscopeHub{}
+	server := &testutil.MockServer{
+		StripRepoVal:    stripRepo,
+		EuroscopeHubVal: euroscopeHub,
+	}
+
+	hub := &Hub{server: server}
+	client := &Client{
+		session:  session,
+		hub:      hub,
+		position: "EKCH_DEL",
+	}
+	client.SetUser(shared.NewAuthenticatedUser("123456", 0, nil))
+
+	payload, err := json.Marshal(frontendEvents.UpdateStripDataEvent{
+		Type:     frontendEvents.UpdateStripData,
+		Callsign: callsign,
+		Altitude: &selectedAltitude,
+	})
+	require.NoError(t, err)
+
+	err = handleStripUpdate(ctx, client, Message{
+		Type:    frontendEvents.UpdateStripData,
+		Message: payload,
+	})
+	require.NoError(t, err)
+
+	assert.Empty(t, euroscopeHub.ClearedAltitudes)
+	assert.Zero(t, appendControllerModifiedCalls)
+}
+
+func TestHandleStripUpdate_SameHeadingValueSkipsSideEffects(t *testing.T) {
+	ctx := context.Background()
+	const session = int32(9)
+	const callsign = "SAS123"
+	currentHeading := int32(270)
+	selectedHeading := int32(270)
+
+	var appendControllerModifiedCalls int
+
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			return &models.Strip{
+				Callsign: callsign,
+				Session:  session,
+				Heading:  &currentHeading,
+			}, nil
+		},
+		AppendControllerModifiedFieldFn: func(_ context.Context, _ int32, _ string, _ string) error {
+			appendControllerModifiedCalls++
+			return nil
+		},
+	}
+
+	euroscopeHub := &testutil.MockEuroscopeHub{}
+	server := &testutil.MockServer{
+		StripRepoVal:    stripRepo,
+		EuroscopeHubVal: euroscopeHub,
+	}
+
+	hub := &Hub{server: server}
+	client := &Client{
+		session:  session,
+		hub:      hub,
+		position: "EKCH_DEL",
+	}
+	client.SetUser(shared.NewAuthenticatedUser("123456", 0, nil))
+
+	payload, err := json.Marshal(frontendEvents.UpdateStripDataEvent{
+		Type:     frontendEvents.UpdateStripData,
+		Callsign: callsign,
+		Heading:  &selectedHeading,
+	})
+	require.NoError(t, err)
+
+	err = handleStripUpdate(ctx, client, Message{
+		Type:    frontendEvents.UpdateStripData,
+		Message: payload,
+	})
+	require.NoError(t, err)
+
+	assert.Empty(t, euroscopeHub.Headings)
+	assert.Zero(t, appendControllerModifiedCalls)
 }
 
 func TestHandleStripUpdate_SidChangeReevaluatesPdcInvalidValidationUsingSelectedSid(t *testing.T) {

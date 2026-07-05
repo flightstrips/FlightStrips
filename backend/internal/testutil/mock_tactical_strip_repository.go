@@ -8,6 +8,7 @@ import (
 type MockTacticalStripRepository struct {
 	CreateFn                 func(ctx context.Context, sessionID int32, stripType, bay, label string, aircraft *string, producedBy string, sequence int32) (*models.TacticalStrip, error)
 	ListBySessionFn          func(ctx context.Context, sessionID int32) ([]*models.TacticalStrip, error)
+	GetByIDFn                func(ctx context.Context, id int64, sessionID int32) (*models.TacticalStrip, error)
 	DeleteFn                 func(ctx context.Context, id int64, sessionID int32) error
 	ConfirmFn                func(ctx context.Context, id int64, sessionID int32, confirmedBy string) (*models.TacticalStrip, error)
 	StartTimerFn             func(ctx context.Context, id int64, sessionID int32) (*models.TacticalStrip, error)
@@ -32,6 +33,13 @@ func (m *MockTacticalStripRepository) ListBySession(ctx context.Context, session
 		panic("unexpected call to MockTacticalStripRepository.ListBySession")
 	}
 	return m.ListBySessionFn(ctx, sessionID)
+}
+
+func (m *MockTacticalStripRepository) GetByID(ctx context.Context, id int64, sessionID int32) (*models.TacticalStrip, error) {
+	if m.GetByIDFn == nil {
+		panic("unexpected call to MockTacticalStripRepository.GetByID")
+	}
+	return m.GetByIDFn(ctx, id, sessionID)
 }
 
 func (m *MockTacticalStripRepository) Delete(ctx context.Context, id int64, sessionID int32) error {

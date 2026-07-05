@@ -100,6 +100,36 @@ func (q *Queries) DeleteTacticalStrip(ctx context.Context, arg DeleteTacticalStr
 	return err
 }
 
+const getTacticalStripByID = `-- name: GetTacticalStripByID :one
+SELECT id, session_id, type, bay, label, aircraft, produced_by, sequence, timer_start, confirmed, confirmed_by, created_at FROM tactical_strips
+WHERE id = $1 AND session_id = $2
+`
+
+type GetTacticalStripByIDParams struct {
+	ID        int64
+	SessionID int32
+}
+
+func (q *Queries) GetTacticalStripByID(ctx context.Context, arg GetTacticalStripByIDParams) (TacticalStrip, error) {
+	row := q.db.QueryRow(ctx, getTacticalStripByID, arg.ID, arg.SessionID)
+	var i TacticalStrip
+	err := row.Scan(
+		&i.ID,
+		&i.SessionID,
+		&i.Type,
+		&i.Bay,
+		&i.Label,
+		&i.Aircraft,
+		&i.ProducedBy,
+		&i.Sequence,
+		&i.TimerStart,
+		&i.Confirmed,
+		&i.ConfirmedBy,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const getTacticalStripSequenceByID = `-- name: GetTacticalStripSequenceByID :one
 SELECT sequence::INT FROM tactical_strips WHERE id = $1 AND session_id = $2
 `

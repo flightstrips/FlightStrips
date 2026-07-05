@@ -784,16 +784,21 @@ func handleConfirmTacticalStrip(ctx context.Context, client *Client, message Mes
 		return errors.New("tactical strip repository not available")
 	}
 
-	ts, err := tacticalRepo.Confirm(ctx, req.ID, client.session, client.position)
+	ts, err := tacticalRepo.GetByID(ctx, req.ID, client.session)
 	if err != nil {
 		return err
 	}
 
-	if ts.Type != "MEMAID" && ts.Type != "CROSSING" {
+	if ts.Type != internalModels.TacticalStripTypeMemaid && ts.Type != internalModels.TacticalStripTypeCrossing {
 		return errors.New("confirm is only valid for MEMAID and CROSSING strips")
 	}
 	if ts.ProducedBy == client.position {
 		return errors.New("producer cannot confirm their own MEMAID strip")
+	}
+
+	ts, err = tacticalRepo.Confirm(ctx, req.ID, client.session, client.position)
+	if err != nil {
+		return err
 	}
 
 	client.hub.SendTacticalStripUpdated(client.session, MapTacticalStripToPayload(ts))
@@ -811,13 +816,18 @@ func handleStartTacticalTimer(ctx context.Context, client *Client, message Messa
 		return errors.New("tactical strip repository not available")
 	}
 
-	ts, err := tacticalRepo.StartTimer(ctx, req.ID, client.session)
+	ts, err := tacticalRepo.GetByID(ctx, req.ID, client.session)
 	if err != nil {
 		return err
 	}
 
-	if ts.Type != "START" && ts.Type != "LAND" {
+	if ts.Type != internalModels.TacticalStripTypeStart && ts.Type != internalModels.TacticalStripTypeLand {
 		return errors.New("start timer is only valid for START and LAND strips")
+	}
+
+	ts, err = tacticalRepo.StartTimer(ctx, req.ID, client.session)
+	if err != nil {
+		return err
 	}
 
 	client.hub.SendTacticalStripUpdated(client.session, MapTacticalStripToPayload(ts))

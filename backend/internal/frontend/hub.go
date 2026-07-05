@@ -52,6 +52,7 @@ type cidDisconnectMessage struct {
 type Hub struct {
 	server                shared.Server
 	stripService          shared.StripService
+	stripUpdateService    frontendStripUpdateUseCase
 	authenticationService shared.AuthenticationService
 	clients               map[*Client]bool
 
@@ -183,6 +184,47 @@ func (hub *Hub) GetServer() shared.Server {
 func (hub *Hub) SetServer(server shared.Server) {
 	hub.server = server
 	hub.snapshotBuilder = nil
+	hub.stripUpdateService = hub.newStripUpdateService()
+}
+
+func (hub *Hub) getStripUpdateService() frontendStripUpdateUseCase {
+	if hub.stripUpdateService != nil {
+		return hub.stripUpdateService
+	}
+	hub.stripUpdateService = hub.newStripUpdateService()
+	return hub.stripUpdateService
+}
+
+func (hub *Hub) newStripUpdateService() frontendStripUpdateUseCase {
+	if hub.server == nil {
+		return nil
+	}
+
+	var standUpdater frontendStripUpdateStandUpdater
+	if hub.stripService != nil {
+		standUpdater = hub.stripService
+	}
+
+	var pdcReevaluator pdcInvalidValidationStripReevaluator
+	if reevaluator, ok := hub.stripService.(pdcInvalidValidationStripReevaluator); ok {
+		pdcReevaluator = reevaluator
+	}
+
+	var departureReevaluator departureValidationStripReevaluator
+	if reevaluator, ok := hub.stripService.(departureValidationStripReevaluator); ok {
+		departureReevaluator = reevaluator
+	}
+
+	return NewFrontendStripUpdateService(
+		hub.server.GetStripRepository(),
+		hub.server.GetSessionRepository(),
+		hub.server.GetEuroscopeHub(),
+		hub.server.GetCdmService(),
+		standUpdater,
+		pdcReevaluator,
+		departureReevaluator,
+		hub,
+	)
 }
 
 func (hub *Hub) HandleNewConnection(conn *gorilla.Conn, user shared.AuthenticatedUser, authenticationEvent events.AuthenticationEvent) (*Client, error) {

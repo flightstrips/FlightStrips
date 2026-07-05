@@ -1,10 +1,9 @@
 package frontend
 
 import (
-	"FlightStrips/internal/models"
 	"FlightStrips/internal/shared"
 	"FlightStrips/internal/testutil"
-	"FlightStrips/pkg/events/frontend"
+	pkgFrontend "FlightStrips/pkg/events/frontend"
 	"context"
 	"encoding/json"
 	"testing"
@@ -13,7 +12,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// buildFrontendTestHub creates a minimal Hub suitable for handler tests.
 func buildFrontendTestHub(server *testutil.MockServer, ss shared.StripService) *Hub {
 	return &Hub{
 		server:       server,
@@ -21,7 +19,6 @@ func buildFrontendTestHub(server *testutil.MockServer, ss shared.StripService) *
 	}
 }
 
-// buildFrontendTestClient creates a Client attached to the hub.
 func buildFrontendTestClient(hub *Hub, session int32, airport string) *Client {
 	return &Client{
 		hub:     hub,
@@ -30,82 +27,13 @@ func buildFrontendTestClient(hub *Hub, session int32, airport string) *Client {
 	}
 }
 
-// marshalMessage packs an event struct into a shared.Message for handler calls.
 func marshalMessage(t *testing.T, v interface{}) Message {
 	t.Helper()
 	data, err := json.Marshal(v)
 	require.NoError(t, err)
-	return shared.Message[frontend.EventType]{Message: data}
+	return shared.Message[pkgFrontend.EventType]{Message: data}
 }
 
-// spyStripService wraps NoOpStripService and spies on AutoTransferAirborneStrip calls.
-type spyStripService struct {
-	testutil.NoOpStripService
-	autoTransferCalled bool
-	moveToBayCalled    bool
-	moveCalls          []string
-	clearedUpdates     []clearedUpdateCall
-}
-
-type spyPdcService struct {
-	confirmVoiceClearanceCalled bool
-	confirmVoiceCallsign        string
-	confirmVoiceSession         int32
-	confirmVoiceClearanceErr    error
-}
-
-type clearedUpdateCall struct {
-	isCleared bool
-	bay       string
-}
-
-func (s *spyPdcService) IssueClearance(_ context.Context, _ string, _ string, _ string, _ int32) error {
-	return nil
-}
-
-func (s *spyPdcService) ManualStateChange(_ context.Context, _ string, _ int32, _ string) error {
-	return nil
-}
-
-func (s *spyPdcService) ConfirmVoiceClearance(_ context.Context, callsign string, sessionID int32) error {
-	s.confirmVoiceClearanceCalled = true
-	s.confirmVoiceCallsign = callsign
-	s.confirmVoiceSession = sessionID
-	return s.confirmVoiceClearanceErr
-}
-
-func (s *spyPdcService) RevertToVoice(_ context.Context, _ string, _ int32, _ string) error {
-	return nil
-}
-
-func (s *spyStripService) AutoTransferAirborneStrip(_ context.Context, _ int32, _ string) error {
-	s.autoTransferCalled = true
-	return nil
-}
-
-func (s *spyStripService) MoveToBay(_ context.Context, _ int32, _ string, bay string, _ bool) error {
-	s.moveToBayCalled = true
-	s.moveCalls = append(s.moveCalls, bay)
-	return nil
-}
-
-func (s *spyStripService) UpdateGroundStateForMove(_ context.Context, _ int32, _ string, _ string, _ string, _ string) error {
-	return nil
-}
-
-func (s *spyStripService) UpdateClearedFlagForMove(_ context.Context, _ int32, _ string, isCleared bool, bay string, _ string) error {
-	s.clearedUpdates = append(s.clearedUpdates, clearedUpdateCall{
-		isCleared: isCleared,
-		bay:       bay,
-	})
-	return nil
-}
-
-func (s *spyStripService) ConfirmPdcClearance(_ context.Context, _ int32, _ string, _ string, _ string) error {
-	return nil
-}
-
-// mockServerWithStripRepo returns a MockServer wired with the given strip repo.
 func mockServerWithStripRepo(repo *testutil.MockStripRepository) *testutil.MockServer {
 	ms := &testutil.MockServer{
 		FrontendHubVal: &testutil.MockFrontendHub{},
@@ -114,249 +42,69 @@ func mockServerWithStripRepo(repo *testutil.MockStripRepository) *testutil.MockS
 	return ms
 }
 
-// TestHandleMove_AirborneStrip_NoAutoTransfer verifies that moving a strip to
-// AIRBORNE bay does NOT trigger AutoTransferAirborneStrip (task 044).
-func TestHandleMove_AirborneStrip_NoAutoTransfer(t *testing.T) {
-	stripRepo := &testutil.MockStripRepository{
-		GetByCallsignFn: func(_ context.Context, _ int32, callsign string) (*models.Strip, error) {
-			return &models.Strip{Callsign: callsign, Bay: shared.BAY_DEPART}, nil
-		},
-	}
+type moveFrontendStripCall struct {
+	session        int32
+	callsign       string
+	targetBay      string
+	cid            string
+	airport        string
+	clientPosition string
+}
 
+type spyStripService struct {
+	testutil.NoOpStripService
+	moveFrontendStripCalls []moveFrontendStripCall
+	moveFrontendStripErr   error
+}
+
+func (s *spyStripService) MoveFrontendStrip(_ context.Context, session int32, callsign string, targetBay string, cid string, airport string, clientPosition string) error {
+	s.moveFrontendStripCalls = append(s.moveFrontendStripCalls, moveFrontendStripCall{
+		session:        session,
+		callsign:       callsign,
+		targetBay:      targetBay,
+		cid:            cid,
+		airport:        airport,
+		clientPosition: clientPosition,
+	})
+	return s.moveFrontendStripErr
+}
+
+func TestHandleMove_DelegatesToStripService(t *testing.T) {
 	spy := &spyStripService{}
-	hub := buildFrontendTestHub(mockServerWithStripRepo(stripRepo), spy)
-	client := buildFrontendTestClient(hub, 1, "EKCH")
+	hub := buildFrontendTestHub(&testutil.MockServer{FrontendHubVal: &testutil.MockFrontendHub{}}, spy)
+	client := buildFrontendTestClient(hub, 17, "EKCH")
+	client.position = "EKCH_DEL"
+	client.SetUser(shared.NewAuthenticatedUser("1234567", 0, nil))
 
-	msg := marshalMessage(t, frontend.MoveEvent{
-		Callsign: "EZY123",
-		Bay:      shared.BAY_AIRBORNE,
+	msg := marshalMessage(t, pkgFrontend.MoveEvent{
+		Callsign: "SAS123",
+		Bay:      shared.BAY_CLEARED,
 	})
 
 	err := handleMove(context.Background(), client, msg)
 	require.NoError(t, err)
-	assert.True(t, spy.moveToBayCalled, "MoveToBay should be called to move the strip")
-	assert.False(t, spy.autoTransferCalled, "AutoTransferAirborneStrip must NOT be called from handleMove after task 044")
+	require.Len(t, spy.moveFrontendStripCalls, 1)
+	assert.Equal(t, moveFrontendStripCall{
+		session:        17,
+		callsign:       "SAS123",
+		targetBay:      shared.BAY_CLEARED,
+		cid:            "1234567",
+		airport:        "EKCH",
+		clientPosition: "EKCH_DEL",
+	}, spy.moveFrontendStripCalls[0])
 }
 
-// TestHandleMove_InvalidBay_Rejected verifies that invalid bay strings are rejected.
-func TestHandleMove_InvalidBay_Rejected(t *testing.T) {
-	spy := &spyStripService{}
+func TestHandleMove_PropagatesStripServiceError(t *testing.T) {
+	spy := &spyStripService{moveFrontendStripErr: assert.AnError}
 	hub := buildFrontendTestHub(&testutil.MockServer{FrontendHubVal: &testutil.MockFrontendHub{}}, spy)
 	client := buildFrontendTestClient(hub, 1, "EKCH")
+	client.SetUser(shared.NewAuthenticatedUser("1234567", 0, nil))
 
-	msg := marshalMessage(t, frontend.MoveEvent{
-		Callsign: "EZY123",
-		Bay:      "INVALID_BAY",
-	})
-
-	err := handleMove(context.Background(), client, msg)
-	assert.Error(t, err)
-	assert.False(t, spy.moveToBayCalled, "MoveToBay must not be called for invalid bay")
-}
-
-// TestHandleMove_OwnedByOther_Rejectedverifies that handleMove rejects a move
-// when the strip is owned by another controller and no coordination exists (task 048).
-func TestHandleMove_OwnedByOther_Rejected(t *testing.T) {
-	ownerPos := "EKCH_D_GND"
-	stripRepo := &testutil.MockStripRepository{
-		GetByCallsignFn: func(_ context.Context, _ int32, callsign string) (*models.Strip, error) {
-			return &models.Strip{Callsign: callsign, Bay: shared.BAY_NOT_CLEARED, Owner: &ownerPos}, nil
-		},
-	}
-	coordRepo := &testutil.MockCoordinationRepository{
-		GetByStripCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Coordination, error) {
-			return nil, nil // no coordination
-		},
-	}
-	ms := mockServerWithStripRepo(stripRepo)
-	ms.CoordRepoVal = coordRepo
-
-	spy := &spyStripService{}
-	hub := buildFrontendTestHub(ms, spy)
-	client := buildFrontendTestClient(hub, 1, "EKCH")
-	client.position = "EKCH_A_GND" // different from owner
-
-	msg := marshalMessage(t, frontend.MoveEvent{
-		Callsign: "SAS100",
+	msg := marshalMessage(t, pkgFrontend.MoveEvent{
+		Callsign: "SAS123",
 		Bay:      shared.BAY_PUSH,
 	})
 
 	err := handleMove(context.Background(), client, msg)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "not authorized")
-	assert.False(t, spy.moveToBayCalled)
-}
-
-// TestHandleMove_OwnedByOther_AllowedToArrivalBay verifies that a strip owned by
-// another controller can still be moved into FINAL/RWY_ARR/TWY_ARR (task 048).
-func TestHandleMove_OwnedByOther_AllowedToArrivalBay(t *testing.T) {
-	ownerPos := "EKCH_D_GND"
-	stripRepo := &testutil.MockStripRepository{
-		GetByCallsignFn: func(_ context.Context, _ int32, callsign string) (*models.Strip, error) {
-			return &models.Strip{Callsign: callsign, Bay: shared.BAY_RWY_ARR, Destination: "EKCH", Owner: &ownerPos}, nil
-		},
-	}
-
-	ms := mockServerWithStripRepo(stripRepo)
-
-	spy := &spyStripService{}
-	hub := buildFrontendTestHub(ms, spy)
-	client := buildFrontendTestClient(hub, 1, "EKCH")
-	client.position = "EKCH_A_TWR"
-
-	msg := marshalMessage(t, frontend.MoveEvent{
-		Callsign: "BEL123",
-		Bay:      shared.BAY_FINAL,
-	})
-
-	err := handleMove(context.Background(), client, msg)
-	require.NoError(t, err)
-	assert.True(t, spy.moveToBayCalled, "Move to arrival bay should be allowed regardless of ownership")
-}
-
-func TestHandleMove_DepartureToArrivalBay_Rejected(t *testing.T) {
-	stripRepo := &testutil.MockStripRepository{
-		GetByCallsignFn: func(_ context.Context, _ int32, callsign string) (*models.Strip, error) {
-			return &models.Strip{Callsign: callsign, Bay: shared.BAY_DEPART, Origin: "EKCH", Destination: "ESSA"}, nil
-		},
-	}
-
-	spy := &spyStripService{}
-	hub := buildFrontendTestHub(mockServerWithStripRepo(stripRepo), spy)
-	client := buildFrontendTestClient(hub, 1, "EKCH")
-	client.position = "EKCH_A_TWR"
-
-	msg := marshalMessage(t, frontend.MoveEvent{
-		Callsign: "BEL123",
-		Bay:      shared.BAY_FINAL,
-	})
-
-	err := handleMove(context.Background(), client, msg)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "departure strips cannot be moved to arrival bays")
-	assert.False(t, spy.moveToBayCalled, "Departure strips must not be moved into arrival bays")
-}
-
-func TestHandleMove_ArrivalToDepartureBay_Rejected(t *testing.T) {
-	stripRepo := &testutil.MockStripRepository{
-		GetByCallsignFn: func(_ context.Context, _ int32, callsign string) (*models.Strip, error) {
-			return &models.Strip{Callsign: callsign, Bay: shared.BAY_TWY_ARR, Origin: "ESSA", Destination: "EKCH"}, nil
-		},
-	}
-
-	spy := &spyStripService{}
-	hub := buildFrontendTestHub(mockServerWithStripRepo(stripRepo), spy)
-	client := buildFrontendTestClient(hub, 1, "EKCH")
-	client.position = "EKCH_A_TWR"
-
-	msg := marshalMessage(t, frontend.MoveEvent{
-		Callsign: "BEL123",
-		Bay:      shared.BAY_TAXI_LWR,
-	})
-
-	err := handleMove(context.Background(), client, msg)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "arrival strips cannot be moved to departure bays")
-	assert.False(t, spy.moveToBayCalled, "Arrival strips must not be moved into departure bays")
-}
-
-// TestHandleMove_OwnedByOther_AllowedWithCoordination verifies that a strip owned by
-// another controller can be moved if there is an active coordination to this position (task 048).
-func TestHandleMove_OwnedByOther_AllowedWithCoordination(t *testing.T) {
-	ownerPos := "EKCH_D_GND"
-	stripRepo := &testutil.MockStripRepository{
-		GetByCallsignFn: func(_ context.Context, _ int32, callsign string) (*models.Strip, error) {
-			return &models.Strip{Callsign: callsign, Bay: shared.BAY_TAXI, Owner: &ownerPos}, nil
-		},
-	}
-	coordRepo := &testutil.MockCoordinationRepository{
-		GetByStripCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Coordination, error) {
-			return &models.Coordination{ToPosition: "EKCH_A_GND"}, nil
-		},
-	}
-	ms := mockServerWithStripRepo(stripRepo)
-	ms.CoordRepoVal = coordRepo
-
-	spy := &spyStripService{}
-	hub := buildFrontendTestHub(ms, spy)
-	client := buildFrontendTestClient(hub, 1, "EKCH")
-	client.position = "EKCH_A_GND"
-
-	msg := marshalMessage(t, frontend.MoveEvent{
-		Callsign: "SAS200",
-		Bay:      shared.BAY_TAXI_TWR,
-	})
-
-	err := handleMove(context.Background(), client, msg)
-	require.NoError(t, err)
-	assert.True(t, spy.moveToBayCalled, "Move should succeed when coordination targets this position")
-}
-
-func TestHandleMove_ToClearedWithActivePdcConfirmsVoiceClearance(t *testing.T) {
-	stripRepo := &testutil.MockStripRepository{
-		GetByCallsignFn: func(_ context.Context, _ int32, callsign string) (*models.Strip, error) {
-			return &models.Strip{
-				Callsign:    callsign,
-				Bay:         shared.BAY_NOT_CLEARED,
-				Origin:      "EKCH",
-				Destination: "ESSA",
-				PdcState:    "REQUESTED",
-			}, nil
-		},
-	}
-
-	pdcSpy := &spyPdcService{}
-	ms := mockServerWithStripRepo(stripRepo)
-	ms.PdcServiceVal = pdcSpy
-
-	spy := &spyStripService{}
-	hub := buildFrontendTestHub(ms, spy)
-	client := buildFrontendTestClient(hub, 1, "EKCH")
-
-	msg := marshalMessage(t, frontend.MoveEvent{
-		Callsign: "SAS300",
-		Bay:      shared.BAY_CLEARED,
-	})
-
-	err := handleMove(context.Background(), client, msg)
-	require.NoError(t, err)
-	assert.True(t, spy.moveToBayCalled, "MoveToBay should still be called")
-	assert.True(t, pdcSpy.confirmVoiceClearanceCalled, "voice-clearance confirmation should run for active PDC strips")
-	assert.Equal(t, "SAS300", pdcSpy.confirmVoiceCallsign)
-	assert.Equal(t, int32(1), pdcSpy.confirmVoiceSession)
-}
-
-func TestHandleMove_RevertsClearedMoveWhenVoiceConfirmationFails(t *testing.T) {
-	stripRepo := &testutil.MockStripRepository{
-		GetByCallsignFn: func(_ context.Context, _ int32, callsign string) (*models.Strip, error) {
-			return &models.Strip{
-				Callsign:    callsign,
-				Bay:         shared.BAY_NOT_CLEARED,
-				Origin:      "EKCH",
-				Destination: "ESSA",
-				PdcState:    "REQUESTED",
-				Cleared:     false,
-			}, nil
-		},
-	}
-
-	pdcSpy := &spyPdcService{confirmVoiceClearanceErr: assert.AnError}
-	ms := mockServerWithStripRepo(stripRepo)
-	ms.PdcServiceVal = pdcSpy
-
-	spy := &spyStripService{}
-	hub := buildFrontendTestHub(ms, spy)
-	client := buildFrontendTestClient(hub, 1, "EKCH")
-
-	msg := marshalMessage(t, frontend.MoveEvent{
-		Callsign: "SAS301",
-		Bay:      shared.BAY_CLEARED,
-	})
-
-	err := handleMove(context.Background(), client, msg)
 	require.ErrorIs(t, err, assert.AnError)
-	require.Len(t, spy.clearedUpdates, 2)
-	assert.Equal(t, clearedUpdateCall{isCleared: true, bay: shared.BAY_CLEARED}, spy.clearedUpdates[0])
-	assert.Equal(t, clearedUpdateCall{isCleared: false, bay: shared.BAY_NOT_CLEARED}, spy.clearedUpdates[1])
-	assert.Equal(t, []string{shared.BAY_CLEARED, shared.BAY_NOT_CLEARED}, spy.moveCalls)
 }

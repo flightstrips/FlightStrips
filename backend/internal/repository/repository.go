@@ -157,6 +157,7 @@ type SectorOwnerRepository interface {
 type TacticalStripRepository interface {
 	Create(ctx context.Context, sessionID int32, stripType, bay, label string, aircraft *string, producedBy string, sequence int32) (*models.TacticalStrip, error)
 	ListBySession(ctx context.Context, sessionID int32) ([]*models.TacticalStrip, error)
+	GetByID(ctx context.Context, id int64, sessionID int32) (*models.TacticalStrip, error)
 	Delete(ctx context.Context, id int64, sessionID int32) error
 	Confirm(ctx context.Context, id int64, sessionID int32, confirmedBy string) (*models.TacticalStrip, error)
 	StartTimer(ctx context.Context, id int64, sessionID int32) (*models.TacticalStrip, error)

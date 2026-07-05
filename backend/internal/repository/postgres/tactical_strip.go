@@ -72,6 +72,17 @@ func (r *tacticalStripRepository) ListBySession(ctx context.Context, sessionID i
 	return result, nil
 }
 
+func (r *tacticalStripRepository) GetByID(ctx context.Context, id int64, sessionID int32) (*models.TacticalStrip, error) {
+	row, err := r.queries.GetTacticalStripByID(ctx, database.GetTacticalStripByIDParams{
+		ID:        id,
+		SessionID: sessionID,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return tacticalStripToModel(row), nil
+}
+
 func (r *tacticalStripRepository) Delete(ctx context.Context, id int64, sessionID int32) error {
 	return r.queries.DeleteTacticalStrip(ctx, database.DeleteTacticalStripParams{
 		ID:        id,

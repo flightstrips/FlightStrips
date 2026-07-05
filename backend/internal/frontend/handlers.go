@@ -87,92 +87,7 @@ func handleMove(ctx context.Context, client *Client, message Message) error {
 		return err
 	}
 
-	if !validBays[move.Bay] {
-		slog.WarnContext(ctx, "handleMove: rejecting move event with invalid bay",
-			slog.String("callsign", move.Callsign),
-			slog.String("bay", move.Bay),
-			slog.String("cid", client.GetCid()),
-		)
-		return errors.New("invalid bay value: " + move.Bay)
-	}
-
-	s := client.hub.server
-	stripRepo := s.GetStripRepository()
-
-	strip, err := stripRepo.GetByCallsign(ctx, client.session, move.Callsign)
-	if err != nil {
-		return err
-	}
-
-	if strip.IsValidationLocked() {
-		return errors.New("strip is locked by an active validation")
-	}
-
-	isDepartureStrip := strip.Origin == client.airport && strip.Destination != client.airport
-	isArrivalStrip := strip.Destination == client.airport && strip.Origin != client.airport
-
-	if isDepartureStrip && shared.IsArrivalBay(move.Bay) {
-		return errors.New("departure strips cannot be moved to arrival bays")
-	}
-	if isArrivalStrip && shared.IsDepartureBay(move.Bay) {
-		return errors.New("arrival strips cannot be moved to departure bays")
-	}
-
-	// Ownership enforcement: reject the move if the strip is owned by someone else,
-	// unless the target bay is an arrival bay (FINAL/RWY_ARR/TWY_ARR/STAND) or the client
-	// holds an active coordination transfer for this strip.
-	if strip.Owner != nil && *strip.Owner != "" && *strip.Owner != client.position {
-		if !shared.IsArrivalBay(move.Bay) {
-			coordRepo := client.hub.server.GetCoordinationRepository()
-			coord, coordErr := coordRepo.GetByStripCallsign(ctx, client.session, move.Callsign)
-			if coordErr != nil || coord == nil || coord.ToPosition != client.position {
-				return errors.New("not authorized: strip is owned by another controller")
-			}
-		}
-	}
-
-	if strip.Bay == move.Bay {
-		return nil
-	}
-
-	previousBay := strip.Bay
-	previousCleared := strip.Cleared
-	shouldConfirmVoiceClearance := move.Bay == shared.BAY_CLEARED &&
-		strip.PdcState != "" &&
-		strip.PdcState != internalModels.PdcStateNone
-
-	if move.Bay == shared.BAY_NOT_CLEARED || move.Bay == shared.BAY_CLEARED {
-		isCleared := move.Bay == shared.BAY_CLEARED
-		if err := client.hub.stripService.UpdateClearedFlagForMove(ctx, client.session, move.Callsign, isCleared, move.Bay, client.GetCid()); err != nil {
-			return err
-		}
-	} else {
-		if err := client.hub.stripService.UpdateGroundStateForMove(ctx, client.session, move.Callsign, move.Bay, client.GetCid(), client.airport); err != nil {
-			return err
-		}
-	}
-
-	if err := client.hub.stripService.MoveToBay(ctx, client.session, move.Callsign, move.Bay, true); err != nil {
-		return err
-	}
-
-	if shouldConfirmVoiceClearance {
-		pdcService := client.hub.server.GetPdcService()
-		if pdcService == nil {
-			return errors.New("PDC service not available")
-		}
-		if err := pdcService.ConfirmVoiceClearance(ctx, move.Callsign, client.session); err != nil {
-			if rollbackErr := client.hub.stripService.UpdateClearedFlagForMove(ctx, client.session, move.Callsign, previousCleared, previousBay, client.GetCid()); rollbackErr != nil {
-				return errors.Join(err, rollbackErr)
-			}
-			if rollbackErr := client.hub.stripService.MoveToBay(ctx, client.session, move.Callsign, previousBay, true); rollbackErr != nil {
-				return errors.Join(err, rollbackErr)
-			}
-			return err
-		}
-	}
-
-	return nil
+	return client.hub.stripService.MoveFrontendStrip(ctx, client.session, move.Callsign, move.Bay, client.GetCid(), client.airport, client.position)
 }
 
 func handleStripUpdate(ctx context.Context, client *Client, message Message) error {
@@ -200,6 +115,20 @@ func stringPtrValue(value *string) string {
 		return ""
 	}
 	return *value
+}
+
+func stringPtrsEqual(left, right *string) bool {
+	if left == nil || right == nil {
+		return left == nil && right == nil
+	}
+	return *left == *right
+}
+
+func int32PtrsEqual(left, right *int32) bool {
+	if left == nil || right == nil {
+		return left == nil && right == nil
+	}
+	return *left == *right
 }
 
 func handleCoordinationTransferRequest(ctx context.Context, client *Client, message Message) error {
@@ -665,16 +594,21 @@ func handleConfirmTacticalStrip(ctx context.Context, client *Client, message Mes
 		return errors.New("tactical strip repository not available")
 	}
 
-	ts, err := tacticalRepo.Confirm(ctx, req.ID, client.session, client.position)
+	ts, err := tacticalRepo.GetByID(ctx, req.ID, client.session)
 	if err != nil {
 		return err
 	}
 
-	if ts.Type != "MEMAID" && ts.Type != "CROSSING" {
+	if ts.Type != internalModels.TacticalStripTypeMemaid && ts.Type != internalModels.TacticalStripTypeCrossing {
 		return errors.New("confirm is only valid for MEMAID and CROSSING strips")
 	}
 	if ts.ProducedBy == client.position {
 		return errors.New("producer cannot confirm their own MEMAID strip")
+	}
+
+	ts, err = tacticalRepo.Confirm(ctx, req.ID, client.session, client.position)
+	if err != nil {
+		return err
 	}
 
 	client.hub.SendTacticalStripUpdated(client.session, MapTacticalStripToPayload(ts))
@@ -692,13 +626,18 @@ func handleStartTacticalTimer(ctx context.Context, client *Client, message Messa
 		return errors.New("tactical strip repository not available")
 	}
 
-	ts, err := tacticalRepo.StartTimer(ctx, req.ID, client.session)
+	ts, err := tacticalRepo.GetByID(ctx, req.ID, client.session)
 	if err != nil {
 		return err
 	}
 
-	if ts.Type != "START" && ts.Type != "LAND" {
+	if ts.Type != internalModels.TacticalStripTypeStart && ts.Type != internalModels.TacticalStripTypeLand {
 		return errors.New("start timer is only valid for START and LAND strips")
+	}
+
+	ts, err = tacticalRepo.StartTimer(ctx, req.ID, client.session)
+	if err != nil {
+		return err
 	}
 
 	client.hub.SendTacticalStripUpdated(client.session, MapTacticalStripToPayload(ts))

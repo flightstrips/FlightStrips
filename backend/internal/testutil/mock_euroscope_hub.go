@@ -81,6 +81,7 @@ type RunwayCall struct {
 	Runway   string
 }
 
+// HeadingCall records arguments to SendHeading.
 type HeadingCall struct {
 	Session  int32
 	Cid      string

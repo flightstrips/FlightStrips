@@ -181,7 +181,7 @@ func main() {
 	}
 	pdcService := pdc.NewPDCService(pdcClient, sessionRepo, stripRepo, sectorRepo, controllerRepo)
 	pdcService.SetStripService(stripService)
-	pdcService.SetWebLookupLiveOnly(isLiveEnvironment(getEnv("ENVIRONMENT", "development")))
+	pdcService.SetWebLookupLiveOnly(envBool("PDC_WEB_LOOKUP_LIVE_ONLY", isLiveEnvironment(getEnv("ENVIRONMENT", "development"))))
 
 	requireLiveCIDVerification := isLiveEnvironment(getEnv("ENVIRONMENT", "development"))
 	var vatsimCache *vatsim.Cache

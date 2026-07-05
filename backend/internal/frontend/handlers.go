@@ -134,6 +134,12 @@ func handleMove(ctx context.Context, client *Client, message Message) error {
 		return nil
 	}
 
+	previousBay := strip.Bay
+	previousCleared := strip.Cleared
+	shouldConfirmVoiceClearance := move.Bay == shared.BAY_CLEARED &&
+		strip.PdcState != "" &&
+		strip.PdcState != internalModels.PdcStateNone
+
 	if move.Bay == shared.BAY_NOT_CLEARED || move.Bay == shared.BAY_CLEARED {
 		isCleared := move.Bay == shared.BAY_CLEARED
 		if err := client.hub.stripService.UpdateClearedFlagForMove(ctx, client.session, move.Callsign, isCleared, move.Bay, client.GetCid()); err != nil {
@@ -147,6 +153,22 @@ func handleMove(ctx context.Context, client *Client, message Message) error {
 
 	if err := client.hub.stripService.MoveToBay(ctx, client.session, move.Callsign, move.Bay, true); err != nil {
 		return err
+	}
+
+	if shouldConfirmVoiceClearance {
+		pdcService := client.hub.server.GetPdcService()
+		if pdcService == nil {
+			return errors.New("PDC service not available")
+		}
+		if err := pdcService.ConfirmVoiceClearance(ctx, move.Callsign, client.session); err != nil {
+			if rollbackErr := client.hub.stripService.UpdateClearedFlagForMove(ctx, client.session, move.Callsign, previousCleared, previousBay, client.GetCid()); rollbackErr != nil {
+				return errors.Join(err, rollbackErr)
+			}
+			if rollbackErr := client.hub.stripService.MoveToBay(ctx, client.session, move.Callsign, previousBay, true); rollbackErr != nil {
+				return errors.Join(err, rollbackErr)
+			}
+			return err
+		}
 	}
 
 	return nil
@@ -321,7 +343,21 @@ func handleCoordinationTransferRequest(ctx context.Context, client *Client, mess
 		return errors.New("cannot transfer strip which is not assumed")
 	}
 
-	return client.hub.stripService.CreateCoordinationTransfer(ctx, client.session, req.Callsign, position, req.To)
+	if err := client.hub.stripService.CreateCoordinationTransfer(ctx, client.session, req.Callsign, position, req.To); err != nil {
+		return err
+	}
+
+	if strip.Marked {
+		if err := client.hub.stripService.UpdateMarked(ctx, client.session, req.Callsign, false); err != nil {
+			slog.WarnContext(ctx, "handleCoordinationTransferRequest: transfer succeeded but failed to clear mark",
+				slog.String("callsign", req.Callsign),
+				slog.Int("session", int(client.session)),
+				slog.Any("error", err),
+			)
+		}
+	}
+
+	return nil
 }
 
 func handleCoordinationAssumeRequest(ctx context.Context, client *Client, message Message) error {

@@ -20,6 +20,7 @@ import { normalizeCdmTime } from "@/lib/cdmTime";
 import { CDM_RED } from "@/lib/cdmColors";
 import { getCtotSlotDisplay, getEcfmpNitosRemarks, getMandatoryRouteRestriction, getGroundStopRestriction, getProhibitRestriction, isFlightLevelViolated } from "@/lib/ecfmp";
 import { MandatoryRouteDialog } from "@/components/MandatoryRouteDialog";
+import { ManualPdcBypassDialog } from "@/components/ManualPdcBypassDialog";
 
 const FONT_FAMILY = "Arial";
 const FONT_SIZE_FIELD = scalePx(20);
@@ -216,6 +217,7 @@ interface FlightPlanDialogProps {
   onOpenChange?: (open: boolean) => void;
   children?: React.ReactNode;
   mode?: "clearance" | "view";
+  pdcAction?: "default" | "manual";
 }
 
 export default function FlightPlanDialog({
@@ -224,8 +226,10 @@ export default function FlightPlanDialog({
   onOpenChange,
   children,
   mode = "clearance",
+  pdcAction = "default",
 }: FlightPlanDialogProps) {
   const isViewMode = mode === "view";
+  const usesManualPdcBypass = pdcAction === "manual";
   const strip = useStrip(callsign);
   const initialCflByRunway = useInitialCflByRunway();
   const transitionAltitude = useTransitionAltitude();
@@ -272,6 +276,7 @@ export default function FlightPlanDialog({
   const [hdgDialogOpen, setHdgDialogOpen] = useState(false);
   const [altDialogOpen, setAltDialogOpen] = useState(false);
   const [mandatoryRouteDialogOpen, setMandatoryRouteDialogOpen] = useState(false);
+  const [manualPdcBypassDialogOpen, setManualPdcBypassDialogOpen] = useState(false);
   const defaultClearedAltitude = strip?.runway ? initialCflByRunway[strip.runway] : undefined;
   const commitEobt = () => updateStrip(callsign, { eobt: normalizeCdmTime(eobt) });
   const sidFault = hasClxFieldFault(strip, "sid");
@@ -313,6 +318,14 @@ export default function FlightPlanDialog({
     if (!strip) return;
     const update = buildRnavUpdate(strip.aircraft_type ?? "", strip.remarks ?? "", capability);
     updateStrip(callsign, update);
+  };
+
+  const performManualClearance = () => {
+    if (!strip) return;
+
+    moveAction(strip.callsign, Bay.Cleared);
+    setManualPdcBypassDialogOpen(false);
+    setDialogOpen(false);
   };
 
   return (
@@ -802,6 +815,10 @@ export default function FlightPlanDialog({
                         setMandatoryRouteDialogOpen(true);
                         return;
                       }
+                      if ((strip.pdc_state === "REQUESTED" || strip.pdc_state === "REQUESTED_WITH_FAULTS") && usesManualPdcBypass) {
+                        setManualPdcBypassDialogOpen(true);
+                        return;
+                      }
                       if (strip.pdc_state === "REQUESTED" || strip.pdc_state === "REQUESTED_WITH_FAULTS") {
                         clearPdc(strip.callsign, null);
                       } else {
@@ -887,6 +904,15 @@ export default function FlightPlanDialog({
             setMandatoryRouteDialogOpen(false);
             setDialogOpen(false);
           }}
+        />
+      )}
+
+      {strip && (
+        <ManualPdcBypassDialog
+          open={manualPdcBypassDialogOpen}
+          onOpenChange={setManualPdcBypassDialogOpen}
+          callsign={callsign}
+          onConfirm={performManualClearance}
         />
       )}
     </>

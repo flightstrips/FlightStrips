@@ -21,6 +21,11 @@ type FlightInfo struct {
 	Destination            string  `json:"destination"`
 	IsDeparture            bool    `json:"is_departure"`
 	Cleared                bool    `json:"cleared"`
+	Eobt                   *string `json:"eobt,omitempty"`
+	Tobt                   *string `json:"tobt,omitempty"`
+	Ctot                   *string `json:"ctot,omitempty"`
+	PushbackPoint          *string `json:"pushback_point,omitempty"`
+	PushbackInstruction    *string `json:"pushback_instruction,omitempty"`
 	PdcAvailable           bool    `json:"pdc_available"`
 	PdcCanSubmit           bool    `json:"pdc_can_submit"`
 	PdcState               string  `json:"pdc_state"`

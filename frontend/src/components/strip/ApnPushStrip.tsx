@@ -29,8 +29,8 @@ import { PushbackMapDialog } from "@/components/map-dialogs/PushbackMapDialog";
 import { ApronTaxiMapDialog } from "@/components/map-dialogs/ApronTaxiMapDialog";
 import { TaxiMapDialog } from "@/components/map-dialogs/TaxiMapDialog";
 import { RunwayDialog } from "./RunwayDialog";
-import FlightPlanDialog from "@/components/FlightPlanDialog";
 import { ValidationStatusDialog } from "./ValidationStatusDialog";
+import { DepartureAwareFlightPlanDialog } from "./DepartureAwareFlightPlanDialog";
 
 // Height: 4.72dvh(51px at 1080p)
 const HALF_H = "2.36dvh";    // half of 4.72dvh for TSAT/CTOT split
@@ -266,7 +266,7 @@ export function ApnPushStrip({
         direction="departure"
         currentRunway={runway}
       />
-      <FlightPlanDialog callsign={callsign} open={fplOpen} onOpenChange={setFplOpen} mode="view" />
+      <DepartureAwareFlightPlanDialog callsign={callsign} open={fplOpen} onOpenChange={setFplOpen} />
       {validationStatus && (
         <ValidationStatusDialog callsign={callsign} status={validationStatus} open={validationDialogOpen} onOpenChange={setValidationDialogOpen} />
       )}

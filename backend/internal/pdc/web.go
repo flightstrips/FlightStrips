@@ -52,6 +52,7 @@ func (s *Service) FindWebStripByCallsign(ctx context.Context, callsign string) (
 	}
 
 	matches := make([]WebStripMatch, 0, 1)
+	liveMatches := make([]WebStripMatch, 0, 1)
 	for _, session := range sessions {
 		strip, err := s.stripRepo.GetByCallsign(ctx, session.ID, normalizedCallsign)
 		if err != nil {
@@ -61,20 +62,27 @@ func (s *Service) FindWebStripByCallsign(ctx context.Context, callsign string) (
 			return WebStripMatch{}, fmt.Errorf("get strip by callsign: %w", err)
 		}
 
-		matches = append(matches, WebStripMatch{
+		match := WebStripMatch{
 			SessionID: session.ID,
 			Strip:     strip,
-		})
+		}
+		matches = append(matches, match)
+		if session.Name == "LIVE" {
+			liveMatches = append(liveMatches, match)
+		}
 	}
 
-	switch len(matches) {
-	case 0:
+	if len(matches) == 0 {
 		return WebStripMatch{}, ErrWebStripNotFound
-	case 1:
-		return matches[0], nil
-	default:
-		return WebStripMatch{}, ErrWebAmbiguousCallsign
 	}
+	if len(matches) == 1 {
+		return matches[0], nil
+	}
+	if !s.webLookupLiveOnly && len(liveMatches) == 1 {
+		return liveMatches[0], nil
+	}
+
+	return WebStripMatch{}, ErrWebAmbiguousCallsign
 }
 
 func WebPDCCanSubmit(state string) bool {

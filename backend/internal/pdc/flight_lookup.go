@@ -9,9 +9,13 @@ import (
 	"time"
 )
 
+type webStripFinder interface {
+	FindWebStripByCallsign(ctx context.Context, callsign string) (WebStripMatch, error)
+}
+
 // FlightLookupAdapter bridges the PDC service to the pilot.FlightLookup interface.
 type FlightLookupAdapter struct {
-	pdcService  *Service
+	pdcService  webStripFinder
 	sessionRepo interface {
 		GetByID(ctx context.Context, id int32) (*models.Session, error)
 	}
@@ -57,8 +61,12 @@ func (a *FlightLookupAdapter) GetFlightInfo(ctx context.Context, callsign string
 		Destination:            strip.Destination,
 		IsDeparture:            isDeparture,
 		Cleared:                strip.Cleared,
+		Eobt:                   strip.EffectiveEobt(),
+		Tobt:                   strip.EffectiveTobt(),
+		Ctot:                   strip.EffectiveCtot(),
+		PushbackPoint:          strip.ReleasePoint,
 		PdcAvailable:           pdcAvailable,
-		PdcCanSubmit:           WebPDCCanSubmit(strip.PdcState),
+		PdcCanSubmit:           pdcAvailable && WebPDCCanSubmit(strip.PdcState),
 		PdcState:               presentedState,
 		PdcRequiresPilotAction: presentedState == "CLEARED",
 	}

@@ -2,7 +2,6 @@ import { useMemo, useState } from "react";
 import type { FrontendStrip } from "@/api/models";
 import { useAirport, useMetar } from "@/store/store-hooks";
 import { decodeMetar } from "@/lib/metarDecode";
-import FlightPlanDialog from "@/components/FlightPlanDialog";
 import {
   COLOR_ARR_YELLOW,
   COLOR_MANUAL_BLUE,
@@ -11,6 +10,7 @@ import {
   SELECTION_COLOR,
   useStripSelection,
 } from "./shared";
+import { DepartureAwareFlightPlanDialog } from "./DepartureAwareFlightPlanDialog";
 
 const FULL_H = "4.72dvh";
 const TOP_H = "3.15dvh";
@@ -165,7 +165,7 @@ export function ControlzoneStrip({ strip, selectable }: Props) {
         />
       </div>
     </div>
-    <FlightPlanDialog callsign={strip.callsign} open={fplOpen} onOpenChange={setFplOpen} mode="view" />
+    <DepartureAwareFlightPlanDialog callsign={strip.callsign} open={fplOpen} onOpenChange={setFplOpen} />
     </>
   );
 }

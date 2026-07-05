@@ -1,6 +1,5 @@
 import { useState } from "react";
 import type { StripProps } from "./types";
-import FlightPlanDialog from "@/components/FlightPlanDialog";
 import {
   useStripCallsignInteraction,
   getFramedStripStyle,
@@ -23,6 +22,7 @@ import { useStripTransfers, useWebSocketStore } from "@/store/store-hooks";
 import { ApronTaxiMapDialog } from "@/components/map-dialogs/ApronTaxiMapDialog";
 import { useCTOTColor } from "@/hooks/useCTOTColor";
 import { ValidationStatusDialog } from "./ValidationStatusDialog";
+import { DepartureAwareFlightPlanDialog } from "./DepartureAwareFlightPlanDialog";
 const TOP_H= "3.15dvh";  // 2/3 of 4.72dvh
 const BOT_H  = "1.57dvh";  // 1/3 of 4.72dvh
 const HALF_H = "2.08dvh";  // 1/2 of inner content height (4.72dvh - 2px border - 1px padding each side)
@@ -202,7 +202,7 @@ export function ApnTaxiDepStrip({
         callsign={callsign}
         coordinationMode={isCoordinationMode}
       />
-      <FlightPlanDialog callsign={callsign} open={fplOpen} onOpenChange={setFplOpen} mode="view" />
+      <DepartureAwareFlightPlanDialog callsign={callsign} open={fplOpen} onOpenChange={setFplOpen} />
       {validationStatus && (
         <ValidationStatusDialog callsign={callsign} status={validationStatus} open={validationDialogOpen} onOpenChange={setValidationDialogOpen} />
       )}

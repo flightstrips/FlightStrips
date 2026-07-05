@@ -152,7 +152,6 @@ func TestValidatePDCFlightPlan_FaultsWhenHeadingWithoutAltitude(t *testing.T) {
 }
 
 func TestValidatePDCFlightPlan_MandatoryRouteCreatesManualReviewFault(t *testing.T) {
-	t.Parallel()
 	t.Cleanup(config.SetFeatureFlagsForTest(config.FeatureFlagsConfig{MandatoryRouteClearanceFlow: true}))
 
 	service := &Service{}
@@ -178,7 +177,6 @@ func TestValidatePDCFlightPlan_MandatoryRouteCreatesManualReviewFault(t *testing
 }
 
 func TestValidatePDCFlightPlan_MandatoryRouteResolvedSidAvoidsRoutingFault(t *testing.T) {
-	t.Parallel()
 	t.Cleanup(config.SetFeatureFlagsForTest(config.FeatureFlagsConfig{MandatoryRouteClearanceFlow: true}))
 
 	service := &Service{}

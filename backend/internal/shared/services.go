@@ -54,6 +54,7 @@ type ControllerService interface {
 type StripService interface {
 	// Movement & ordering
 	MoveToBay(ctx context.Context, session int32, callsign string, bay string, sendNotification bool) error
+	MoveFrontendStrip(ctx context.Context, session int32, callsign string, targetBay string, cid string, airport string, clientPosition string) error
 	MoveStripBetween(ctx context.Context, session int32, callsign string, insertAfter *frontend.StripRef, bay string) error
 	MoveTacticalStripBetween(ctx context.Context, session int32, id int64, insertAfter *frontend.StripRef, bay string) error
 

@@ -247,7 +247,7 @@ func handleStripUpdate(ctx context.Context, client *Client, message Message) err
 		}
 	}
 
-	if event.Runway != nil && strip.Runway != event.Runway {
+	if event.Runway != nil && !stringPtrsEqual(strip.Runway, event.Runway) {
 		s.GetEuroscopeHub().SendRunway(client.session, client.GetCid(), event.Callsign, *event.Runway)
 		if _, err := stripRepo.UpdateRunway(ctx, client.session, event.Callsign, event.Runway, nil); err != nil {
 			return err
@@ -283,14 +283,14 @@ func handleStripUpdate(ctx context.Context, client *Client, message Message) err
 		client.hub.SendStripUpdate(client.session, event.Callsign)
 	}
 
-	if event.Altitude != nil && strip.ClearedAltitude != event.Altitude {
+	if event.Altitude != nil && !int32PtrsEqual(strip.ClearedAltitude, event.Altitude) {
 		s.GetEuroscopeHub().SendClearedAltitude(client.session, client.GetCid(), event.Callsign, *event.Altitude)
 		if err := stripRepo.AppendControllerModifiedField(ctx, client.session, event.Callsign, "cleared_altitude"); err != nil {
 			return err
 		}
 	}
 
-	if event.Heading != nil && strip.Heading != event.Heading {
+	if event.Heading != nil && !int32PtrsEqual(strip.Heading, event.Heading) {
 		s.GetEuroscopeHub().SendHeading(client.session, client.GetCid(), event.Callsign, *event.Heading)
 		if err := stripRepo.AppendControllerModifiedField(ctx, client.session, event.Callsign, "heading"); err != nil {
 			return err
@@ -305,6 +305,20 @@ func stringPtrValue(value *string) string {
 		return ""
 	}
 	return *value
+}
+
+func stringPtrsEqual(left, right *string) bool {
+	if left == nil || right == nil {
+		return left == nil && right == nil
+	}
+	return *left == *right
+}
+
+func int32PtrsEqual(left, right *int32) bool {
+	if left == nil || right == nil {
+		return left == nil && right == nil
+	}
+	return *left == *right
 }
 
 func handleCoordinationTransferRequest(ctx context.Context, client *Client, message Message) error {

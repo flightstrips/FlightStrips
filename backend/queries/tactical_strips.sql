@@ -13,6 +13,10 @@ SELECT * FROM tactical_strips
 WHERE session_id = $1
 ORDER BY bay, sequence ASC;
 
+-- name: GetTacticalStripByID :one
+SELECT * FROM tactical_strips
+WHERE id = $1 AND session_id = $2;
+
 -- name: DeleteTacticalStrip :exec
 DELETE FROM tactical_strips WHERE id = $1 AND session_id = $2;
 

@@ -11,15 +11,16 @@ import (
 
 // MockServer is a configurable mock for shared.Server.
 type MockServer struct {
-	FrontendHubVal    shared.FrontendHub
-	EuroscopeHubVal   shared.EuroscopeHub
-	CdmServiceVal     shared.CdmService
-	CoordRepoVal      repository.CoordinationRepository
-	ControllerRepoVal repository.ControllerRepository
-	SectorRepoVal     repository.SectorOwnerRepository
-	SessionRepoVal    repository.SessionRepository
-	StripRepoVal      repository.StripRepository
-	PdcServiceVal     shared.PdcService
+	FrontendHubVal       shared.FrontendHub
+	EuroscopeHubVal      shared.EuroscopeHub
+	CdmServiceVal        shared.CdmService
+	CoordRepoVal         repository.CoordinationRepository
+	ControllerRepoVal    repository.ControllerRepository
+	SectorRepoVal        repository.SectorOwnerRepository
+	SessionRepoVal       repository.SessionRepository
+	StripRepoVal         repository.StripRepository
+	TacticalStripRepoVal repository.TacticalStripRepository
+	PdcServiceVal        shared.PdcService
 
 	GetOrCreateSessionFn                func(airport string, name string) (shared.Session, error)
 	UpdateSectorsFn                     func(sessionId int32) ([]shared.SectorChange, error)
@@ -65,7 +66,9 @@ func (m *MockServer) GetCoordinationRepository() repository.CoordinationReposito
 	return m.CoordRepoVal
 }
 
-func (m *MockServer) GetTacticalStripRepository() repository.TacticalStripRepository { return nil }
+func (m *MockServer) GetTacticalStripRepository() repository.TacticalStripRepository {
+	return m.TacticalStripRepoVal
+}
 
 func (m *MockServer) UpdateSectors(sessionId int32) ([]shared.SectorChange, error) {
 	if m.UpdateSectorsFn != nil {

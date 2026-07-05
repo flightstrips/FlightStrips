@@ -79,12 +79,34 @@ func (s *StripService) getSessionRepository() repository.SessionRepository {
 	return server.GetSessionRepository()
 }
 
-func (s *StripService) recalculateRouteForStrip(ctx context.Context, session int32, callsign string) error {
+func (s *StripService) getServer() shared.Server {
 	if s.publisher == nil {
 		return nil
 	}
+	return s.publisher.GetServer()
+}
 
-	server := s.publisher.GetServer()
+func (s *StripService) getCoordinationRepository() repository.CoordinationRepository {
+	if s.coordRepo != nil {
+		return s.coordRepo
+	}
+	server := s.getServer()
+	if server == nil {
+		return nil
+	}
+	return server.GetCoordinationRepository()
+}
+
+func (s *StripService) getPdcService() shared.PdcService {
+	server := s.getServer()
+	if server == nil {
+		return nil
+	}
+	return server.GetPdcService()
+}
+
+func (s *StripService) recalculateRouteForStrip(ctx context.Context, session int32, callsign string) error {
+	server := s.getServer()
 	if server == nil {
 		return nil
 	}

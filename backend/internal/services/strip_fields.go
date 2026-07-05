@@ -313,27 +313,27 @@ func (s *StripService) notifyStripUpdate(session int32, callsign string) {
 // UpdateClearedFlagForMove handles the frontend "move to cleared/not-cleared bay" action.
 // It updates the cleared flag and bay in the DB, triggers auto-assumption, and notifies EuroScope.
 func (s *StripService) UpdateClearedFlagForMove(ctx context.Context, session int32, callsign string, isCleared bool, bay string, cid string) error {
-	return s.applyClearedFlagForMove(ctx, session, callsign, isCleared, bay, cid, false)
+	return s.applyClearedFlagForMove(ctx, session, callsign, isCleared, bay, bay == shared.BAY_NOT_CLEARED, cid, false)
 }
 
 // ConfirmPdcClearance marks a strip cleared as part of pilot confirmation.
 // EuroScope notification is handled by the PDC service so it can send the
 // confirmed state before the cleared flag.
 func (s *StripService) ConfirmPdcClearance(ctx context.Context, session int32, callsign string, bay string, cid string) error {
-	return s.applyClearedFlagForMoveWithOptions(ctx, session, callsign, true, bay, cid, false, false)
+	return s.applyClearedFlagForMoveWithOptions(ctx, session, callsign, true, bay, false, cid, false, false)
 }
 
-func (s *StripService) applyClearedFlagForMove(ctx context.Context, session int32, callsign string, isCleared bool, bay string, cid string, forceEuroscopeNotification bool) error {
-	return s.applyClearedFlagForMoveWithOptions(ctx, session, callsign, isCleared, bay, cid, forceEuroscopeNotification, true)
+func (s *StripService) applyClearedFlagForMove(ctx context.Context, session int32, callsign string, isCleared bool, persistedBay string, clearOwnerForNotCleared bool, cid string, forceEuroscopeNotification bool) error {
+	return s.applyClearedFlagForMoveWithOptions(ctx, session, callsign, isCleared, persistedBay, clearOwnerForNotCleared, cid, forceEuroscopeNotification, true)
 }
 
-func (s *StripService) applyClearedFlagForMoveWithOptions(ctx context.Context, session int32, callsign string, isCleared bool, bay string, cid string, forceEuroscopeNotification bool, autoAssumeOnClear bool) error {
+func (s *StripService) applyClearedFlagForMoveWithOptions(ctx context.Context, session int32, callsign string, isCleared bool, persistedBay string, clearOwnerForNotCleared bool, cid string, forceEuroscopeNotification bool, autoAssumeOnClear bool) error {
 	strip, err := s.stripRepo.GetByCallsign(ctx, session, callsign)
 	if err != nil {
 		return err
 	}
 
-	count, err := s.stripRepo.UpdateClearedFlag(ctx, session, callsign, isCleared, bay, nil)
+	count, err := s.stripRepo.UpdateClearedFlag(ctx, session, callsign, isCleared, persistedBay, nil)
 	if err != nil {
 		return err
 	}
@@ -341,7 +341,7 @@ func (s *StripService) applyClearedFlagForMoveWithOptions(ctx context.Context, s
 		return errors.New("failed to update strip cleared flag")
 	}
 
-	if !isCleared && bay == shared.BAY_NOT_CLEARED {
+	if !isCleared && clearOwnerForNotCleared {
 		if err := s.clearOwnerForNotCleared(ctx, session, callsign); err != nil {
 			return err
 		}
@@ -366,12 +366,16 @@ func (s *StripService) applyClearedFlagForMoveWithOptions(ctx context.Context, s
 // UpdateGroundStateForMove handles the frontend "move to general bay" action.
 // It computes the new ground state, updates the DB, and notifies EuroScope.
 func (s *StripService) UpdateGroundStateForMove(ctx context.Context, session int32, callsign string, bay string, cid string, airport string) error {
+	return s.updateGroundStateForMoveWithOptions(ctx, session, callsign, bay, cid, airport, bay, true)
+}
+
+func (s *StripService) updateGroundStateForMoveWithOptions(ctx context.Context, session int32, callsign string, targetBay string, cid string, airport string, persistedBay string, reevaluate bool) error {
 	strip, err := s.stripRepo.GetByCallsign(ctx, session, callsign)
 	if err != nil {
 		return err
 	}
 
-	if strip.StartReq && shouldResetStartReqOnMove(strip.Bay, bay) {
+	if strip.StartReq && shouldResetStartReqOnMove(strip.Bay, targetBay) {
 		if err := s.setStartReqState(ctx, session, callsign, false, false, strip); err != nil {
 			return err
 		}
@@ -379,16 +383,16 @@ func (s *StripService) UpdateGroundStateForMove(ctx context.Context, session int
 
 	state := strip.State
 	if strip.Origin == airport {
-		groundState := shared.GetGroundState(bay)
-		if groundState != euroscope.GroundStateUnknown && bay != shared.BAY_STAND {
+		groundState := shared.GetGroundState(targetBay)
+		if groundState != euroscope.GroundStateUnknown && targetBay != shared.BAY_STAND {
 			state = &groundState
 		}
-	} else if strip.Destination == airport && bay == shared.BAY_STAND {
+	} else if strip.Destination == airport && targetBay == shared.BAY_STAND {
 		parked := euroscope.GroundStateParked
 		state = &parked
 	}
 
-	count, err := s.stripRepo.UpdateGroundState(ctx, session, callsign, state, bay, nil)
+	count, err := s.stripRepo.UpdateGroundState(ctx, session, callsign, state, persistedBay, nil)
 	if err != nil {
 		return err
 	}
@@ -402,15 +406,17 @@ func (s *StripService) UpdateGroundStateForMove(ctx context.Context, session int
 
 	// Moving backward out of a runway-cleared bay must clear the runway status so the next runway
 	// action behaves like a fresh clearance instead of a confirmation.
-	if strip.RunwayCleared && shouldResetRunwayClearanceOnMove(strip.Bay, bay) {
+	if strip.RunwayCleared && shouldResetRunwayClearanceOnMove(strip.Bay, targetBay) {
 		if _, err := s.stripRepo.ResetRunwayClearance(ctx, session, callsign); err != nil {
 			return err
 		}
 		s.publisher.SendStripUpdate(session, callsign)
 	}
 
-	if err := s.reevaluateStripValidationPrecedence(ctx, session, callsign, true, true); err != nil {
-		return err
+	if reevaluate {
+		if err := s.reevaluateStripValidationPrecedence(ctx, session, callsign, true, true); err != nil {
+			return err
+		}
 	}
 
 	return nil

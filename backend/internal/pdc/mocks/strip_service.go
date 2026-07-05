@@ -29,6 +29,11 @@ func (m *StripService) MoveToBay(ctx context.Context, session int32, callsign st
 	return args.Error(0)
 }
 
+func (m *StripService) MoveFrontendStrip(ctx context.Context, session int32, callsign string, targetBay string, cid string, airport string, clientPosition string) error {
+	args := m.Called(ctx, session, callsign, targetBay, cid, airport, clientPosition)
+	return args.Error(0)
+}
+
 func (m *StripService) MoveStripBetween(ctx context.Context, session int32, callsign string, insertAfter *frontend.StripRef, bay string) error {
 	args := m.Called(ctx, session, callsign, insertAfter, bay)
 	return args.Error(0)

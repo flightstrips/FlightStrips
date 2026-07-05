@@ -20,6 +20,7 @@ type Message = shared.Message[frontend.EventType]
 
 type pdcInvalidValidationStripReevaluator interface {
 	ReevaluatePdcInvalidValidationForStrip(ctx context.Context, session int32, strip *internalModels.Strip, activeDepartureRunways []string, publish bool, forceReactivate bool) error
+	ReevaluatePdcInvalidValidation(ctx context.Context, session int32, callsign string, publish bool, forceReactivate bool) error
 }
 
 type departureValidationStripReevaluator interface {
@@ -181,123 +182,17 @@ func handleStripUpdate(ctx context.Context, client *Client, message Message) err
 		return err
 	}
 
-	if event.Route != nil && event.Sid != nil {
-		return errors.New("cannot update both route and sid at the same time")
+	service := client.hub.getStripUpdateService()
+	if service == nil {
+		return errors.New("strip update service not available")
 	}
 
-	s := client.hub.server
-	stripRepo := s.GetStripRepository()
-
-	strip, err := stripRepo.GetByCallsign(ctx, client.session, event.Callsign)
-	if err != nil {
-		return err
-	}
-
-	isOwner := strip.Owner == nil || *strip.Owner == "" || *strip.Owner == client.position
-	if !isOwner {
-		// Non-owners may not modify EuroScope-forwarded fields (SID, route, stand, runway,
-		// altitude, heading, remarks, aircraft info).
-		if event.Sid != nil || event.Route != nil || event.Stand != nil || event.Runway != nil || event.Altitude != nil || event.Heading != nil || event.Remarks != nil || event.Aircraft != nil {
-			return errors.New("non-owner cannot modify strip fields")
-		}
-		return nil
-	}
-
-	if event.Route != nil && stringPtrValue(strip.Route) != *event.Route {
-		s.GetEuroscopeHub().SendRoute(client.session, client.GetCid(), event.Callsign, *event.Route)
-	}
-
-	aircraftChanged := event.Aircraft != nil && stringPtrValue(strip.AircraftType) != *event.Aircraft
-	remarksChanged := event.Remarks != nil && stringPtrValue(strip.Remarks) != *event.Remarks
-	if aircraftChanged && remarksChanged {
-		s.GetEuroscopeHub().SendAircraftInfoAndRemarks(client.session, client.GetCid(), event.Callsign, *event.Aircraft, *event.Remarks)
-	} else if aircraftChanged {
-		s.GetEuroscopeHub().SendAircraftInfo(client.session, client.GetCid(), event.Callsign, *event.Aircraft)
-	} else if remarksChanged {
-		s.GetEuroscopeHub().SendRemarks(client.session, client.GetCid(), event.Callsign, *event.Remarks)
-	}
-
-	if event.Sid != nil && stringPtrValue(strip.Sid) != *event.Sid {
-		s.GetEuroscopeHub().SendSid(client.session, client.GetCid(), event.Callsign, *event.Sid)
-		if err := stripRepo.AppendControllerModifiedField(ctx, client.session, event.Callsign, "sid"); err != nil {
-			return err
-		}
-		if reevaluator, ok := client.hub.stripService.(pdcInvalidValidationStripReevaluator); ok {
-			sessionData, err := s.GetSessionRepository().GetByID(ctx, client.session)
-			if err != nil {
-				return err
-			}
-			updatedStrip := *strip
-			updatedStrip.Sid = event.Sid
-			if err := reevaluator.ReevaluatePdcInvalidValidationForStrip(ctx, client.session, &updatedStrip, sessionData.ActiveRunways.DepartureRunways, true, false); err != nil {
-				return err
-			}
-		}
-	}
-
-	if event.Stand != nil && stringPtrValue(strip.Stand) != *event.Stand {
-		s.GetEuroscopeHub().SendStand(client.session, client.GetCid(), event.Callsign, *event.Stand)
-		if err := stripRepo.AppendControllerModifiedField(ctx, client.session, event.Callsign, "stand"); err != nil {
-			return err
-		}
-		if client.hub.stripService != nil {
-			if err := client.hub.stripService.UpdateStand(ctx, client.session, event.Callsign, *event.Stand); err != nil {
-				return err
-			}
-		}
-	}
-
-	if event.Runway != nil && strip.Runway != event.Runway {
-		s.GetEuroscopeHub().SendRunway(client.session, client.GetCid(), event.Callsign, *event.Runway)
-		if _, err := stripRepo.UpdateRunway(ctx, client.session, event.Callsign, event.Runway, nil); err != nil {
-			return err
-		}
-		if err := stripRepo.AppendControllerModifiedField(ctx, client.session, event.Callsign, "runway"); err != nil {
-			return err
-		}
-		if client.hub.stripService != nil {
-			if err := client.hub.stripService.ReevaluatePdcInvalidValidation(ctx, client.session, event.Callsign, true, false); err != nil {
-				return err
-			}
-			if reevaluator, ok := client.hub.stripService.(departureValidationStripReevaluator); ok {
-				if err := reevaluator.ReevaluateDepartureValidation(ctx, client.session, event.Callsign, true, false); err != nil {
-					return err
-				}
-			}
-		}
-	}
-
-	if event.Eobt != nil && stringPtrValue(strip.EffectiveEobt()) != strings.TrimSpace(*event.Eobt) {
-		eobt := strings.TrimSpace(*event.Eobt)
-		if !isValidFrontendClockValue(eobt) {
-			return errors.New("invalid eobt: expected HHMM")
-		}
-		s.GetEuroscopeHub().SendEobt(client.session, client.GetCid(), event.Callsign, eobt)
-		cdmService := client.hub.server.GetCdmService()
-		if cdmService == nil {
-			return errors.New("CDM service not available")
-		}
-		if err := cdmService.HandleEobtUpdate(ctx, client.session, event.Callsign, eobt, client.position, "ATC"); err != nil {
-			return err
-		}
-		client.hub.SendStripUpdate(client.session, event.Callsign)
-	}
-
-	if event.Altitude != nil && strip.ClearedAltitude != event.Altitude {
-		s.GetEuroscopeHub().SendClearedAltitude(client.session, client.GetCid(), event.Callsign, *event.Altitude)
-		if err := stripRepo.AppendControllerModifiedField(ctx, client.session, event.Callsign, "cleared_altitude"); err != nil {
-			return err
-		}
-	}
-
-	if event.Heading != nil && strip.Heading != event.Heading {
-		s.GetEuroscopeHub().SendHeading(client.session, client.GetCid(), event.Callsign, *event.Heading)
-		if err := stripRepo.AppendControllerModifiedField(ctx, client.session, event.Callsign, "heading"); err != nil {
-			return err
-		}
-	}
-
-	return nil
+	return service.UpdateStrip(ctx, FrontendStripUpdateRequest{
+		Session:  client.session,
+		Cid:      client.GetCid(),
+		Position: client.position,
+		Event:    event,
+	})
 }
 
 func stringPtrValue(value *string) string {

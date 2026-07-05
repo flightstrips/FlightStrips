@@ -371,59 +371,148 @@ func TestHandleCoordinationTransferRequest_MarkClearFailureDoesNotRejectTransfer
 	assert.True(t, updateMarkedCalled)
 }
 
-func TestHandleStripUpdate_RunwayChangePersistsSelectedRunway(t *testing.T) {
+type recordingStripUpdateUseCase struct {
+	req FrontendStripUpdateRequest
+	err error
+}
+
+func (r *recordingStripUpdateUseCase) UpdateStrip(_ context.Context, req FrontendStripUpdateRequest) error {
+	r.req = req
+	return r.err
+}
+
+func TestHandleStripUpdate_DecodesAndDelegatesToUseCase(t *testing.T) {
+	ctx := context.Background()
+	const session = int32(7)
+	const cid = "123456"
+	const callsign = "SAS123"
+	const position = "EKCH_DEL"
+	route := "NEXIL Z20"
+
+	useCase := &recordingStripUpdateUseCase{}
+	hub := &Hub{stripUpdateService: useCase}
+	client := &Client{
+		session:  session,
+		hub:      hub,
+		position: position,
+	}
+	client.SetUser(shared.NewAuthenticatedUser(cid, 0, nil))
+
+	payload, err := json.Marshal(frontendEvents.UpdateStripDataEvent{
+		Type:     frontendEvents.UpdateStripData,
+		Callsign: callsign,
+		Route:    &route,
+	})
+	require.NoError(t, err)
+
+	err = handleStripUpdate(ctx, client, Message{
+		Type:    frontendEvents.UpdateStripData,
+		Message: payload,
+	})
+	require.NoError(t, err)
+	assert.Equal(t, session, useCase.req.Session)
+	assert.Equal(t, cid, useCase.req.Cid)
+	assert.Equal(t, position, useCase.req.Position)
+	assert.Equal(t, callsign, useCase.req.Event.Callsign)
+	require.NotNil(t, useCase.req.Event.Route)
+	assert.Equal(t, route, *useCase.req.Event.Route)
+}
+
+func TestHandleStripUpdate_UsesHubWiringForServiceDependencies(t *testing.T) {
 	ctx := context.Background()
 	const session = int32(7)
 	const callsign = "SAS123"
-	currentRunway := "22L"
-	selectedRunway := "04R"
+	const cid = "123456"
+	const owner = "EKCH_DEL"
+	currentSid := "MIKRO"
+	selectedSid := "BETUD"
+	currentEobt := "1000"
+	updatedEobt := "1015"
 
-	var updatedRunway *string
-	var markedField string
+	getByCallsignCalls := 0
+	var handledEobt string
+	var reevaluatedSid *string
+	var reevaluatedRunways []string
 
 	stripRepo := &testutil.MockStripRepository{
 		GetByCallsignFn: func(_ context.Context, gotSession int32, gotCallsign string) (*models.Strip, error) {
 			assert.Equal(t, session, gotSession)
 			assert.Equal(t, callsign, gotCallsign)
+			getByCallsignCalls++
 			return &models.Strip{
 				Callsign: callsign,
 				Session:  session,
-				Runway:   &currentRunway,
+				Owner:    ptr(owner),
+				Sid:      &currentSid,
+				PdcState: "REQUESTED_WITH_FAULTS",
+				CdmData: &models.CdmData{
+					Eobt: &currentEobt,
+				},
 			}, nil
-		},
-		UpdateRunwayFn: func(_ context.Context, gotSession int32, gotCallsign string, runway *string, version *int32) (int64, error) {
-			assert.Equal(t, session, gotSession)
-			assert.Equal(t, callsign, gotCallsign)
-			assert.Nil(t, version)
-			updatedRunway = runway
-			return 1, nil
 		},
 		AppendControllerModifiedFieldFn: func(_ context.Context, gotSession int32, gotCallsign string, field string) error {
 			assert.Equal(t, session, gotSession)
 			assert.Equal(t, callsign, gotCallsign)
-			markedField = field
+			assert.Contains(t, []string{"sid"}, field)
 			return nil
 		},
 	}
 
-	euroscopeHub := &testutil.MockEuroscopeHub{}
-	server := &testutil.MockServer{
-		StripRepoVal:    stripRepo,
-		EuroscopeHubVal: euroscopeHub,
+	cdmService := &recordingCdmService{
+		handleEobtUpdateFn: func(_ context.Context, gotSession int32, gotCallsign string, eobt string, sourcePosition string, sourceRole string) error {
+			assert.Equal(t, session, gotSession)
+			assert.Equal(t, callsign, gotCallsign)
+			assert.Equal(t, owner, sourcePosition)
+			assert.Equal(t, "ATC", sourceRole)
+			handledEobt = eobt
+			return nil
+		},
 	}
 
-	hub := &Hub{server: server, send: make(chan internalMessage, 1)}
+	server := &testutil.MockServer{
+		StripRepoVal: stripRepo,
+		SessionRepoVal: &testutil.MockSessionRepository{
+			GetByIDFn: func(_ context.Context, id int32) (*models.Session, error) {
+				assert.Equal(t, session, id)
+				return &models.Session{
+					ID: id,
+					ActiveRunways: pkgModels.ActiveRunways{
+						DepartureRunways: []string{"22R"},
+					},
+				}, nil
+			},
+		},
+		CdmServiceVal:   cdmService,
+		EuroscopeHubVal: &testutil.MockEuroscopeHub{},
+	}
+
+	hub := &Hub{
+		server: server,
+		stripService: &stripUpdateValidationReevaluator{
+			reevaluateForStripFn: func(_ context.Context, gotSession int32, strip *models.Strip, activeDepartureRunways []string, publish bool, forceReactivate bool) error {
+				assert.Equal(t, session, gotSession)
+				assert.True(t, publish)
+				assert.False(t, forceReactivate)
+				reevaluatedSid = strip.Sid
+				reevaluatedRunways = activeDepartureRunways
+				return nil
+			},
+		},
+		send:         make(chan internalMessage, 1),
+		clxOverrides: make(map[int32]map[string]bool),
+	}
 	client := &Client{
 		session:  session,
 		hub:      hub,
-		position: "EKCH_DEL",
+		position: owner,
 	}
-	client.SetUser(shared.NewAuthenticatedUser("123456", 0, nil))
+	client.SetUser(shared.NewAuthenticatedUser(cid, 0, nil))
 
 	payload, err := json.Marshal(frontendEvents.UpdateStripDataEvent{
 		Type:     frontendEvents.UpdateStripData,
 		Callsign: callsign,
-		Runway:   &selectedRunway,
+		Sid:      &selectedSid,
+		Eobt:     &updatedEobt,
 	})
 	require.NoError(t, err)
 
@@ -433,9 +522,21 @@ func TestHandleStripUpdate_RunwayChangePersistsSelectedRunway(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	require.NotNil(t, updatedRunway)
-	assert.Equal(t, selectedRunway, *updatedRunway)
-	assert.Equal(t, "runway", markedField)
+	assert.Equal(t, updatedEobt, handledEobt)
+	require.NotNil(t, reevaluatedSid)
+	assert.Equal(t, selectedSid, *reevaluatedSid)
+	assert.Equal(t, []string{"22R"}, reevaluatedRunways)
+	assert.Equal(t, 2, getByCallsignCalls)
+
+	select {
+	case msg := <-hub.send:
+		assert.Equal(t, session, msg.session)
+		update, ok := msg.message.(frontendEvents.StripUpdateEvent)
+		require.True(t, ok)
+		assert.Equal(t, callsign, update.Callsign)
+	case <-time.After(time.Second):
+		t.Fatal("expected strip update broadcast from hub publisher")
+	}
 }
 
 func TestHandleStripUpdate_SameRunwayValueSkipsSideEffects(t *testing.T) {
@@ -546,194 +647,6 @@ func TestRoundedClxTobtAddsFifteenMinutesAndRoundsUpToFive(t *testing.T) {
 	}
 }
 
-func TestHandleStripUpdate_EobtChangeTriggersCdmRecalculation(t *testing.T) {
-	ctx := context.Background()
-	const session = int32(7)
-	const callsign = "SAS123"
-	currentEobt := "1000"
-	updatedEobt := "1015"
-	tobt := "1020"
-	tsat := "1030"
-	ctot := "1040"
-
-	var handledEobt string
-	getByCallsignCalls := 0
-
-	stripRepo := &testutil.MockStripRepository{
-		GetByCallsignFn: func(_ context.Context, gotSession int32, gotCallsign string) (*models.Strip, error) {
-			assert.Equal(t, session, gotSession)
-			assert.Equal(t, callsign, gotCallsign)
-			getByCallsignCalls++
-			return &models.Strip{
-				Callsign: callsign,
-				Session:  session,
-				Origin:   "EKCH",
-				CdmData: &models.CdmData{
-					Eobt: &currentEobt,
-					Tobt: &tobt,
-					Tsat: &tsat,
-					Ctot: &ctot,
-				},
-			}, nil
-		},
-	}
-
-	cdmService := &recordingCdmService{
-		handleEobtUpdateFn: func(_ context.Context, gotSession int32, gotCallsign string, eobt string, sourcePosition string, sourceRole string) error {
-			assert.Equal(t, session, gotSession)
-			assert.Equal(t, callsign, gotCallsign)
-			assert.Equal(t, "EKCH_DEL", sourcePosition)
-			assert.Equal(t, "ATC", sourceRole)
-			handledEobt = eobt
-			return nil
-		},
-	}
-	euroscopeHub := &testutil.MockEuroscopeHub{}
-
-	server := &testutil.MockServer{
-		StripRepoVal:    stripRepo,
-		CdmServiceVal:   cdmService,
-		EuroscopeHubVal: euroscopeHub,
-	}
-	hub := &Hub{
-		server: server,
-		send:   make(chan internalMessage, 2),
-	}
-	client := &Client{
-		session:  session,
-		hub:      hub,
-		position: "EKCH_DEL",
-	}
-	client.SetUser(shared.NewAuthenticatedUser("123456", 0, nil))
-
-	payload, err := json.Marshal(frontendEvents.UpdateStripDataEvent{
-		Type:     frontendEvents.UpdateStripData,
-		Callsign: callsign,
-		Eobt:     &updatedEobt,
-	})
-	require.NoError(t, err)
-
-	err = handleStripUpdate(ctx, client, Message{
-		Type:    frontendEvents.UpdateStripData,
-		Message: payload,
-	})
-	require.NoError(t, err)
-
-	assert.Equal(t, updatedEobt, handledEobt)
-	require.Len(t, euroscopeHub.Eobts, 1)
-	assert.Equal(t, session, euroscopeHub.Eobts[0].Session)
-	assert.Equal(t, "123456", euroscopeHub.Eobts[0].Cid)
-	assert.Equal(t, callsign, euroscopeHub.Eobts[0].Callsign)
-	assert.Equal(t, updatedEobt, euroscopeHub.Eobts[0].Eobt)
-	assert.Equal(t, 2, getByCallsignCalls)
-}
-
-func TestHandleStripUpdate_OwnerCanUpdateRemarksAndAircraftInfo(t *testing.T) {
-	ctx := context.Background()
-	const session = int32(7)
-	const callsign = "SAS123"
-	const owner = "EKCH_DEL"
-	currentRemarks := "REG/OYABC PBN/A1"
-	currentAircraftInfo := "B738/M-SDE2FGHIWY/LB1"
-	updatedRemarks := "REG/OYABC PBN/A1B1C1D1S1S2"
-	updatedAircraftInfo := "B738/M-SDE2FGHIWYR/LB1"
-
-	stripRepo := &testutil.MockStripRepository{
-		GetByCallsignFn: func(_ context.Context, gotSession int32, gotCallsign string) (*models.Strip, error) {
-			assert.Equal(t, session, gotSession)
-			assert.Equal(t, callsign, gotCallsign)
-			return &models.Strip{
-				Callsign:     callsign,
-				Session:      session,
-				Owner:        ptr(owner),
-				Remarks:      &currentRemarks,
-				AircraftType: &currentAircraftInfo,
-			}, nil
-		},
-	}
-
-	euroscopeHub := &testutil.MockEuroscopeHub{}
-	server := &testutil.MockServer{
-		StripRepoVal:    stripRepo,
-		EuroscopeHubVal: euroscopeHub,
-	}
-
-	hub := &Hub{server: server, send: make(chan internalMessage, 1)}
-	client := &Client{
-		session:  session,
-		hub:      hub,
-		position: owner,
-	}
-	client.SetUser(shared.NewAuthenticatedUser("123456", 0, nil))
-
-	payload, err := json.Marshal(frontendEvents.UpdateStripDataEvent{
-		Type:     frontendEvents.UpdateStripData,
-		Callsign: callsign,
-		Remarks:  &updatedRemarks,
-		Aircraft: &updatedAircraftInfo,
-	})
-	require.NoError(t, err)
-
-	err = handleStripUpdate(ctx, client, Message{
-		Type:    frontendEvents.UpdateStripData,
-		Message: payload,
-	})
-	require.NoError(t, err)
-
-	assert.Empty(t, euroscopeHub.RemarksUpdates)
-	assert.Empty(t, euroscopeHub.AircraftInfoUpdates)
-	require.Len(t, euroscopeHub.AircraftInfoRemarks, 1)
-	assert.Equal(t, updatedRemarks, euroscopeHub.AircraftInfoRemarks[0].Remarks)
-	assert.Equal(t, updatedAircraftInfo, euroscopeHub.AircraftInfoRemarks[0].AircraftType)
-	assert.Equal(t, []string{"aircraft_info_remarks"}, euroscopeHub.FlightPlanUpdateOrder)
-}
-
-func TestHandleStripUpdate_NonOwnerCannotUpdateRemarksOrAircraftInfo(t *testing.T) {
-	ctx := context.Background()
-	const session = int32(7)
-	const callsign = "SAS123"
-	owner := "EKCH_TWR"
-	updatedRemarks := "PBN/A1"
-	updatedAircraftInfo := "B738/M-SR"
-
-	stripRepo := &testutil.MockStripRepository{
-		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
-			return &models.Strip{
-				Callsign: callsign,
-				Session:  session,
-				Owner:    &owner,
-			}, nil
-		},
-	}
-
-	server := &testutil.MockServer{
-		StripRepoVal:    stripRepo,
-		EuroscopeHubVal: &testutil.MockEuroscopeHub{},
-	}
-	hub := &Hub{server: server}
-	client := &Client{
-		session:  session,
-		hub:      hub,
-		position: "EKCH_DEL",
-	}
-	client.SetUser(shared.NewAuthenticatedUser("123456", 0, nil))
-
-	payload, err := json.Marshal(frontendEvents.UpdateStripDataEvent{
-		Type:     frontendEvents.UpdateStripData,
-		Callsign: callsign,
-		Remarks:  &updatedRemarks,
-		Aircraft: &updatedAircraftInfo,
-	})
-	require.NoError(t, err)
-
-	err = handleStripUpdate(ctx, client, Message{
-		Type:    frontendEvents.UpdateStripData,
-		Message: payload,
-	})
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "non-owner")
-}
-
 func TestHandleUpdateRunwayStatus_SynchronizesAirportLvo(t *testing.T) {
 	ctx := context.Background()
 	const sessionID = int32(12)
@@ -792,272 +705,6 @@ func TestHandleUpdateRunwayStatus_SynchronizesAirportLvo(t *testing.T) {
 	assert.Equal(t, "LOW_VIS", persisted.RunwayStatus["04L/22L"])
 	assert.Equal(t, "EKCH", syncedAirport)
 	assert.Equal(t, "LOW_VIS", syncedStatus["04L/22L"])
-}
-
-func TestHandleStripUpdate_RunwayChangeReevaluatesDepartureValidation(t *testing.T) {
-	ctx := context.Background()
-	const session = int32(9)
-	const callsign = "SAS123"
-	currentRunway := "22L"
-	selectedRunway := "04R"
-
-	var reevaluatedCallsign string
-	var reevaluatedPublish bool
-	var reevaluatedForce bool
-
-	stripRepo := &testutil.MockStripRepository{
-		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
-			return &models.Strip{
-				Callsign: callsign,
-				Session:  session,
-				Runway:   &currentRunway,
-			}, nil
-		},
-		UpdateRunwayFn: func(_ context.Context, _ int32, _ string, _ *string, _ *int32) (int64, error) {
-			return 1, nil
-		},
-		AppendControllerModifiedFieldFn: func(_ context.Context, _ int32, _ string, _ string) error {
-			return nil
-		},
-	}
-
-	server := &testutil.MockServer{
-		StripRepoVal:    stripRepo,
-		EuroscopeHubVal: &testutil.MockEuroscopeHub{},
-	}
-
-	hub := &Hub{
-		server: server,
-		stripService: &stripUpdateValidationReevaluator{
-			reevaluateDepartureFn: func(_ context.Context, gotSession int32, gotCallsign string, publish bool, forceReactivate bool) error {
-				assert.Equal(t, session, gotSession)
-				reevaluatedCallsign = gotCallsign
-				reevaluatedPublish = publish
-				reevaluatedForce = forceReactivate
-				return nil
-			},
-		},
-	}
-	client := &Client{
-		session:  session,
-		hub:      hub,
-		position: "EKCH_A_GND",
-	}
-	client.SetUser(shared.NewAuthenticatedUser("123456", 0, nil))
-
-	payload, err := json.Marshal(frontendEvents.UpdateStripDataEvent{
-		Type:     frontendEvents.UpdateStripData,
-		Callsign: callsign,
-		Runway:   &selectedRunway,
-	})
-	require.NoError(t, err)
-
-	err = handleStripUpdate(ctx, client, Message{
-		Type:    frontendEvents.UpdateStripData,
-		Message: payload,
-	})
-	require.NoError(t, err)
-	assert.Equal(t, callsign, reevaluatedCallsign)
-	assert.True(t, reevaluatedPublish)
-	assert.False(t, reevaluatedForce)
-}
-
-func TestHandleStripUpdate_SameClearedAltitudeValueSkipsSideEffects(t *testing.T) {
-	ctx := context.Background()
-	const session = int32(9)
-	const callsign = "SAS123"
-	currentAltitude := int32(5000)
-	selectedAltitude := int32(5000)
-
-	var appendControllerModifiedCalls int
-
-	stripRepo := &testutil.MockStripRepository{
-		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
-			return &models.Strip{
-				Callsign:        callsign,
-				Session:         session,
-				ClearedAltitude: &currentAltitude,
-			}, nil
-		},
-		AppendControllerModifiedFieldFn: func(_ context.Context, _ int32, _ string, _ string) error {
-			appendControllerModifiedCalls++
-			return nil
-		},
-	}
-
-	euroscopeHub := &testutil.MockEuroscopeHub{}
-	server := &testutil.MockServer{
-		StripRepoVal:    stripRepo,
-		EuroscopeHubVal: euroscopeHub,
-	}
-
-	hub := &Hub{server: server}
-	client := &Client{
-		session:  session,
-		hub:      hub,
-		position: "EKCH_DEL",
-	}
-	client.SetUser(shared.NewAuthenticatedUser("123456", 0, nil))
-
-	payload, err := json.Marshal(frontendEvents.UpdateStripDataEvent{
-		Type:     frontendEvents.UpdateStripData,
-		Callsign: callsign,
-		Altitude: &selectedAltitude,
-	})
-	require.NoError(t, err)
-
-	err = handleStripUpdate(ctx, client, Message{
-		Type:    frontendEvents.UpdateStripData,
-		Message: payload,
-	})
-	require.NoError(t, err)
-
-	assert.Empty(t, euroscopeHub.ClearedAltitudes)
-	assert.Zero(t, appendControllerModifiedCalls)
-}
-
-func TestHandleStripUpdate_SameHeadingValueSkipsSideEffects(t *testing.T) {
-	ctx := context.Background()
-	const session = int32(9)
-	const callsign = "SAS123"
-	currentHeading := int32(270)
-	selectedHeading := int32(270)
-
-	var appendControllerModifiedCalls int
-
-	stripRepo := &testutil.MockStripRepository{
-		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
-			return &models.Strip{
-				Callsign: callsign,
-				Session:  session,
-				Heading:  &currentHeading,
-			}, nil
-		},
-		AppendControllerModifiedFieldFn: func(_ context.Context, _ int32, _ string, _ string) error {
-			appendControllerModifiedCalls++
-			return nil
-		},
-	}
-
-	euroscopeHub := &testutil.MockEuroscopeHub{}
-	server := &testutil.MockServer{
-		StripRepoVal:    stripRepo,
-		EuroscopeHubVal: euroscopeHub,
-	}
-
-	hub := &Hub{server: server}
-	client := &Client{
-		session:  session,
-		hub:      hub,
-		position: "EKCH_DEL",
-	}
-	client.SetUser(shared.NewAuthenticatedUser("123456", 0, nil))
-
-	payload, err := json.Marshal(frontendEvents.UpdateStripDataEvent{
-		Type:     frontendEvents.UpdateStripData,
-		Callsign: callsign,
-		Heading:  &selectedHeading,
-	})
-	require.NoError(t, err)
-
-	err = handleStripUpdate(ctx, client, Message{
-		Type:    frontendEvents.UpdateStripData,
-		Message: payload,
-	})
-	require.NoError(t, err)
-
-	assert.Empty(t, euroscopeHub.Headings)
-	assert.Zero(t, appendControllerModifiedCalls)
-}
-
-func TestHandleStripUpdate_SidChangeReevaluatesPdcInvalidValidationUsingSelectedSid(t *testing.T) {
-	ctx := context.Background()
-	const session = int32(8)
-	const callsign = "SAS123"
-	currentSid := "MIKRO"
-	selectedSid := "BETUD"
-	owner := "EKCH_DEL"
-
-	var markedField string
-	var reevaluatedSid *string
-	var reevaluatedRunways []string
-	var reevaluatedPublish bool
-	var reevaluatedForce bool
-
-	stripRepo := &testutil.MockStripRepository{
-		GetByCallsignFn: func(_ context.Context, gotSession int32, gotCallsign string) (*models.Strip, error) {
-			assert.Equal(t, session, gotSession)
-			assert.Equal(t, callsign, gotCallsign)
-			return &models.Strip{
-				Callsign: callsign,
-				Session:  session,
-				Owner:    &owner,
-				Sid:      &currentSid,
-				PdcState: "REQUESTED_WITH_FAULTS",
-			}, nil
-		},
-		AppendControllerModifiedFieldFn: func(_ context.Context, gotSession int32, gotCallsign string, field string) error {
-			assert.Equal(t, session, gotSession)
-			assert.Equal(t, callsign, gotCallsign)
-			markedField = field
-			return nil
-		},
-	}
-
-	euroscopeHub := &testutil.MockEuroscopeHub{}
-	server := &testutil.MockServer{
-		StripRepoVal:    stripRepo,
-		EuroscopeHubVal: euroscopeHub,
-		SessionRepoVal: &testutil.MockSessionRepository{
-			GetByIDFn: func(_ context.Context, id int32) (*models.Session, error) {
-				assert.Equal(t, session, id)
-				return &models.Session{
-					ID: id,
-					ActiveRunways: pkgModels.ActiveRunways{
-						DepartureRunways: []string{"22R"},
-					},
-				}, nil
-			},
-		},
-	}
-
-	stripService := &stripUpdateValidationReevaluator{
-		reevaluateForStripFn: func(_ context.Context, gotSession int32, strip *models.Strip, activeDepartureRunways []string, publish bool, forceReactivate bool) error {
-			assert.Equal(t, session, gotSession)
-			reevaluatedSid = strip.Sid
-			reevaluatedRunways = activeDepartureRunways
-			reevaluatedPublish = publish
-			reevaluatedForce = forceReactivate
-			return nil
-		},
-	}
-	hub := &Hub{server: server, stripService: stripService}
-	client := &Client{
-		session:  session,
-		hub:      hub,
-		position: owner,
-	}
-	client.SetUser(shared.NewAuthenticatedUser("123456", 0, nil))
-
-	payload, err := json.Marshal(frontendEvents.UpdateStripDataEvent{
-		Type:     frontendEvents.UpdateStripData,
-		Callsign: callsign,
-		Sid:      &selectedSid,
-	})
-	require.NoError(t, err)
-
-	err = handleStripUpdate(ctx, client, Message{
-		Type:    frontendEvents.UpdateStripData,
-		Message: payload,
-	})
-	require.NoError(t, err)
-
-	assert.Equal(t, "sid", markedField)
-	require.NotNil(t, reevaluatedSid)
-	assert.Equal(t, selectedSid, *reevaluatedSid)
-	assert.Equal(t, []string{"22R"}, reevaluatedRunways)
-	assert.True(t, reevaluatedPublish)
-	assert.False(t, reevaluatedForce)
 }
 
 func TestHandleReleasePoint_OwnerMarksControllerModified(t *testing.T) {
@@ -1273,72 +920,6 @@ func (s *standUpdateStripService) UpdateStand(ctx context.Context, session int32
 		return nil
 	}
 	return s.updateStandFn(ctx, session, callsign, stand)
-}
-
-func TestHandleStripUpdate_StandChangeTriggersUpdateStand(t *testing.T) {
-	ctx := context.Background()
-	const session = int32(11)
-	const callsign = "SAS123"
-	const owner = "EKCH_A_GND"
-	currentStand := ""
-	selectedStand := "B12"
-
-	var updateStandCallsign string
-	var updateStandValue string
-	var markedField string
-
-	stripRepo := &testutil.MockStripRepository{
-		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
-			return &models.Strip{
-				Callsign: callsign,
-				Session:  session,
-				Owner:    ptr(owner),
-				Stand:    &currentStand,
-			}, nil
-		},
-		AppendControllerModifiedFieldFn: func(_ context.Context, _ int32, _ string, field string) error {
-			markedField = field
-			return nil
-		},
-	}
-
-	server := &testutil.MockServer{
-		StripRepoVal:    stripRepo,
-		EuroscopeHubVal: &testutil.MockEuroscopeHub{},
-	}
-
-	stripService := &standUpdateStripService{
-		updateStandFn: func(_ context.Context, _ int32, cs string, stand string) error {
-			updateStandCallsign = cs
-			updateStandValue = stand
-			return nil
-		},
-	}
-
-	hub := &Hub{server: server, stripService: stripService}
-	client := &Client{
-		session:  session,
-		hub:      hub,
-		position: owner,
-	}
-	client.SetUser(shared.NewAuthenticatedUser("123456", 0, nil))
-
-	payload, err := json.Marshal(frontendEvents.UpdateStripDataEvent{
-		Type:     frontendEvents.UpdateStripData,
-		Callsign: callsign,
-		Stand:    &selectedStand,
-	})
-	require.NoError(t, err)
-
-	err = handleStripUpdate(ctx, client, Message{
-		Type:    frontendEvents.UpdateStripData,
-		Message: payload,
-	})
-	require.NoError(t, err)
-
-	assert.Equal(t, "stand", markedField)
-	assert.Equal(t, callsign, updateStandCallsign)
-	assert.Equal(t, selectedStand, updateStandValue)
 }
 
 func ptr(s string) *string { return &s }

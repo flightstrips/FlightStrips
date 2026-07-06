@@ -11,8 +11,6 @@ import (
 // automatically satisfies it; services depend on this narrow view to make
 // their event surface explicit.
 type StripEventPublisher interface {
-	ServerInjectable
-
 	Broadcast(session int32, message frontend.OutgoingMessage)
 	SendStripUpdate(session int32, callsign string)
 	SendAssignedSquawkEvent(session int32, callsign string, squawk string)
@@ -51,8 +49,6 @@ type EuroscopeStripCommander interface {
 // CdmEventPublisher is the narrow frontend-broadcast interface the CDM service
 // uses. It is a subset of FrontendHub.
 type CdmEventPublisher interface {
-	ServerInjectable
-
 	SendCdmUpdate(session int32, event frontend.CdmDataEvent)
 	SendCdmUpdates(session int32, events []frontend.CdmDataEvent)
 	SendCdmWait(session int32, callsign string)

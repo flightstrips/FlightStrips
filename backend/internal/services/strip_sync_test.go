@@ -124,24 +124,21 @@ func TestSyncEuroscopeStrip_ExistingStripWritesRouteAndHasFPInPrimaryUpdate(t *t
 		},
 	}
 
-	svc, hub, esHub := newSyncTestFixture(t, existingStrip, stripRepo)
-	mockServer, ok := hub.GetServer().(*testutil.MockServer)
-	require.True(t, ok)
-	mockServer.UpdateRouteForStripFn = func(_ string, _ int32, _ bool) error {
-		routeUpdateCalls++
-		return nil
-	}
-
+	svc, _, _ := newSyncTestFixture(t, existingStrip, stripRepo)
 	routeServer := &syncRouteComputerTestServer{
-		MockServer: mockServer,
+		MockServer: &testutil.MockServer{
+			UpdateRouteForStripFn: func(_ string, _ int32, _ bool) error {
+				routeUpdateCalls++
+				return nil
+			},
+		},
 		computeNextOwnersFn: func(_ context.Context, strip *models.Strip, sessionId int32) ([]string, bool, error) {
 			require.Equal(t, session, sessionId)
 			require.Equal(t, callsign, strip.Callsign)
 			return []string{"EKCH_TWR"}, true, nil
 		},
 	}
-	hub.SetServer(routeServer)
-	esHub.SetServer(routeServer)
+	svc.SetRouteRecalculator(routeServer)
 
 	err := svc.syncEuroscopeStrip(ctx, session, "", euroscope.Strip{
 		Callsign:    callsign,
@@ -301,18 +298,15 @@ func TestSyncEuroscopeStrip_ParkedArrivalRefilesAsDepartureResetsLifecycleState(
 	}
 
 	svc, hub, esHub := newSyncTestFixture(t, existingStrip, stripRepo)
-	mockServer, ok := hub.GetServer().(*testutil.MockServer)
-	require.True(t, ok)
 	routeServer := &syncRouteComputerTestServer{
-		MockServer: mockServer,
+		MockServer: &testutil.MockServer{},
 		computeNextOwnersFn: func(_ context.Context, strip *models.Strip, sessionID int32) ([]string, bool, error) {
 			require.Equal(t, session, sessionID)
 			require.Equal(t, callsign, strip.Callsign)
 			return []string{"EKCH_DEL"}, true, nil
 		},
 	}
-	hub.SetServer(routeServer)
-	esHub.SetServer(routeServer)
+	svc.SetRouteRecalculator(routeServer)
 
 	err := svc.syncEuroscopeStrip(ctx, session, "", euroscope.Strip{
 		Callsign:        callsign,
@@ -1256,14 +1250,14 @@ func TestSyncEuroscopeStrip_MoveBackToNotCleared_ClearsOwner(t *testing.T) {
 	}
 
 	svc, hub, _ := newSyncTestFixture(t, existingStrip, stripRepo)
-	mockServer, ok := hub.GetServer().(*testutil.MockServer)
-	require.True(t, ok)
-	mockServer.UpdateRouteForStripFn = func(cs string, sess int32, sendUpdate bool) error {
-		routeUpdateCallsign = cs
-		routeUpdateSession = sess
-		routeUpdateSendUpdate = sendUpdate
-		return nil
-	}
+	svc.SetRouteRecalculator(&testutil.MockServer{
+		UpdateRouteForStripFn: func(cs string, sess int32, sendUpdate bool) error {
+			routeUpdateCallsign = cs
+			routeUpdateSession = sess
+			routeUpdateSendUpdate = sendUpdate
+			return nil
+		},
+	})
 
 	err := svc.syncEuroscopeStrip(ctx, session, "", euroscope.Strip{
 		Callsign: callsign,

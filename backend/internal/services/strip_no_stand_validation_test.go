@@ -244,7 +244,6 @@ func TestUpdateStand_ReevaluatesNoStandValidation(t *testing.T) {
 	}
 
 	hub := &testutil.MockFrontendHub{}
-	hub.SetServer(&testutil.MockServer{})
 	svc := NewStripService(repo)
 	svc.SetFrontendHub(hub)
 

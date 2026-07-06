@@ -65,10 +65,9 @@ func (s *StripService) CreateCoordinationTransfer(ctx context.Context, session i
 	if s.publisher == nil {
 		return errors.New("frontend hub not configured")
 	}
-
-	server := s.publisher.GetServer()
-	if server == nil {
-		return errors.New("server not configured")
+	coordRepo := s.getCoordinationRepository()
+	if coordRepo == nil {
+		return errors.New("coordination store not configured")
 	}
 
 	strip, err := s.stripRepo.GetByCallsign(ctx, session, callsign)
@@ -83,7 +82,7 @@ func (s *StripService) CreateCoordinationTransfer(ctx context.Context, session i
 		ToPosition:   to,
 	}
 
-	if err := server.GetCoordinationRepository().Create(ctx, coord); err != nil {
+	if err := coordRepo.Create(ctx, coord); err != nil {
 		return err
 	}
 
@@ -98,7 +97,11 @@ func (s *StripService) CreateCoordinationTransfer(ctx context.Context, session i
 	// For strips in the AIRBORNE bay, also send an ES handover so the owning
 	// EuroScope client initiates the transfer to the target controller.
 	if strip.Bay == shared.BAY_AIRBORNE && s.esCommander != nil {
-		controllers, err := server.GetControllerRepository().ListBySession(ctx, session)
+		controllerRepo := s.getControllerRepository()
+		if controllerRepo == nil {
+			return nil
+		}
+		controllers, err := controllerRepo.ListBySession(ctx, session)
 		if err == nil {
 			var ownerCid *string
 			var targetCallsign string
@@ -123,10 +126,9 @@ func (s *StripService) CreateEsArrivalCoordination(ctx context.Context, session 
 	if s.publisher == nil {
 		return errors.New("frontend hub not configured")
 	}
-
-	server := s.publisher.GetServer()
-	if server == nil {
-		return errors.New("server not configured")
+	coordRepo := s.getCoordinationRepository()
+	if coordRepo == nil {
+		return errors.New("coordination store not configured")
 	}
 
 	strip, err := s.stripRepo.GetByCallsign(ctx, session, callsign)
@@ -143,7 +145,7 @@ func (s *StripService) CreateEsArrivalCoordination(ctx context.Context, session 
 		EsHandoverCid: esHandoverCid,
 	}
 
-	if err := server.GetCoordinationRepository().Create(ctx, coord); err != nil {
+	if err := coordRepo.Create(ctx, coord); err != nil {
 		return err
 	}
 
@@ -158,9 +160,9 @@ func (s *StripService) AcceptCoordination(ctx context.Context, session int32, ca
 	if s.publisher == nil {
 		return errors.New("frontend hub not configured")
 	}
-	server := s.publisher.GetServer()
-	if server == nil {
-		return errors.New("server not configured")
+	coordRepo := s.getCoordinationRepository()
+	if coordRepo == nil {
+		return errors.New("coordination store not configured")
 	}
 
 	strip, err := s.stripRepo.GetByCallsign(ctx, session, callsign)
@@ -168,7 +170,7 @@ func (s *StripService) AcceptCoordination(ctx context.Context, session int32, ca
 		return err
 	}
 
-	coordination, err := server.GetCoordinationRepository().GetByStripID(ctx, session, strip.ID)
+	coordination, err := coordRepo.GetByStripID(ctx, session, strip.ID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil
 	}
@@ -176,7 +178,7 @@ func (s *StripService) AcceptCoordination(ctx context.Context, session int32, ca
 		return err
 	}
 
-	if err := server.GetCoordinationRepository().Delete(ctx, coordination.ID); err != nil {
+	if err := coordRepo.Delete(ctx, coordination.ID); err != nil {
 		return err
 	}
 
@@ -211,11 +213,6 @@ func (s *StripService) AutoTransferAirborneStrip(ctx context.Context, session in
 		return errors.New("frontend hub not configured")
 	}
 
-	server := s.publisher.GetServer()
-	if server == nil {
-		return errors.New("server not configured")
-	}
-
 	strip, err := s.stripRepo.GetByCallsign(ctx, session, callsign)
 	if err != nil {
 		return err
@@ -231,8 +228,13 @@ func (s *StripService) AutoTransferAirborneStrip(ctx context.Context, session in
 		return nil
 	}
 
+	controllerRepo := s.getControllerRepository()
+	if controllerRepo == nil {
+		return errors.New("controller reader not configured")
+	}
+
 	// fetch controllers once
-	controllers, err := server.GetControllerRepository().ListBySession(ctx, session)
+	controllers, err := controllerRepo.ListBySession(ctx, session)
 	if err != nil {
 		return err
 	}
@@ -264,7 +266,12 @@ func (s *StripService) AutoTransferAirborneStrip(ctx context.Context, session in
 		return nil
 	}
 
-	coordination, err := server.GetCoordinationRepository().GetByStripID(ctx, session, strip.ID)
+	coordRepo := s.getCoordinationRepository()
+	if coordRepo == nil {
+		return errors.New("coordination store not configured")
+	}
+
+	coordination, err := coordRepo.GetByStripID(ctx, session, strip.ID)
 	if err == nil {
 		slog.DebugContext(ctx, "Skipping automatic AIRBORNE transfer because coordination already exists",
 			slog.String("callsign", callsign),
@@ -360,10 +367,11 @@ func prepareOwnersForAutomaticTransfer(strip *internalModels.Strip, newOwner str
 // autoAcceptPendingCoordination accepts any pending coordination for the strip automatically,
 // e.g. when the aircraft is detected landing on the runway.
 func (s *StripService) autoAcceptPendingCoordination(ctx context.Context, session int32, strip *internalModels.Strip) {
-	if s.coordRepo == nil {
+	coordRepo := s.getCoordinationRepository()
+	if coordRepo == nil {
 		return
 	}
-	coordination, err := s.coordRepo.GetByStripID(ctx, session, strip.ID)
+	coordination, err := coordRepo.GetByStripID(ctx, session, strip.ID)
 	if err != nil {
 		return // no coordination pending
 	}
@@ -465,7 +473,8 @@ func (s *StripService) HandleCoordinationReceived(ctx context.Context, session i
 // AssumeStripCoordination handles the full frontend assume flow:
 // accepts a pending coordination, or directly assumes an unowned strip.
 func (s *StripService) AssumeStripCoordination(ctx context.Context, session int32, callsign string, position string) error {
-	if s.coordRepo == nil {
+	coordRepo := s.getCoordinationRepository()
+	if coordRepo == nil {
 		return errors.New("coordination repository not configured")
 	}
 
@@ -475,7 +484,7 @@ func (s *StripService) AssumeStripCoordination(ctx context.Context, session int3
 	}
 
 	// Check for a pending coordination first.
-	coordination, err := s.coordRepo.GetByStripID(ctx, session, strip.ID)
+	coordination, err := coordRepo.GetByStripID(ctx, session, strip.ID)
 	if err == nil {
 		// Coordination exists — validate it targets this position.
 		if coordination.ToPosition != position {
@@ -483,7 +492,7 @@ func (s *StripService) AssumeStripCoordination(ctx context.Context, session int3
 			// The coordination is stale (e.g. from an ES arrival push to a different position).
 			// Delete it and allow direct assumption.
 			if (strip.Owner == nil || *strip.Owner == "") && slices.Contains(strip.NextOwners, position) {
-				_ = s.coordRepo.Delete(ctx, coordination.ID)
+				_ = coordRepo.Delete(ctx, coordination.ID)
 
 				nextOwners := strip.NextOwners
 				index := slices.Index(nextOwners, position)
@@ -553,14 +562,12 @@ func (s *StripService) AssumeStripCoordination(ctx context.Context, session int3
 
 		s.publisher.SendCoordinationAssume(session, callsign, position)
 
-		if s.publisher != nil {
-			if server := s.publisher.GetServer(); server != nil {
-				if err := server.UpdateRouteForStrip(callsign, session, false); err != nil {
-					slog.ErrorContext(ctx, "Error updating route after direct assume", slog.String("callsign", callsign), slog.Any("error", err))
-				}
-				if refreshed, err := s.stripRepo.GetByCallsign(ctx, session, callsign); err == nil {
-					nextOwners = refreshed.NextOwners
-				}
+		if routeRecalculator := s.getRouteRecalculator(); routeRecalculator != nil {
+			if err := routeRecalculator.UpdateRouteForStrip(callsign, session, false); err != nil {
+				slog.ErrorContext(ctx, "Error updating route after direct assume", slog.String("callsign", callsign), slog.Any("error", err))
+			}
+			if refreshed, err := s.stripRepo.GetByCallsign(ctx, session, callsign); err == nil {
+				nextOwners = refreshed.NextOwners
 			}
 		}
 
@@ -645,14 +652,12 @@ func (s *StripService) ForceAssumeStrip(ctx context.Context, session int32, call
 	// Recalculate the route starting from the new owner. This updates NextOwners in the
 	// DB. We pass sendUpdate=false because we send the owners update ourselves below with
 	// the fully cleaned previous owners.
-	if s.publisher != nil {
-		if server := s.publisher.GetServer(); server != nil {
-			_ = server.UpdateRouteForStrip(callsign, session, false)
+	if routeRecalculator := s.getRouteRecalculator(); routeRecalculator != nil {
+		_ = routeRecalculator.UpdateRouteForStrip(callsign, session, false)
 
-			// Re-read to pick up the recalculated NextOwners.
-			if updated, err := s.stripRepo.GetByCallsign(ctx, session, callsign); err == nil {
-				nextOwners = updated.NextOwners
-			}
+		// Re-read to pick up the recalculated NextOwners.
+		if updated, err := s.stripRepo.GetByCallsign(ctx, session, callsign); err == nil {
+			nextOwners = updated.NextOwners
 		}
 	}
 
@@ -678,11 +683,12 @@ func (s *StripService) ForceAssumeStrip(ctx context.Context, session int32, call
 
 // RejectCoordination rejects a pending coordination transfer.
 func (s *StripService) RejectCoordination(ctx context.Context, session int32, callsign string, position string) error {
-	if s.coordRepo == nil {
+	coordRepo := s.getCoordinationRepository()
+	if coordRepo == nil {
 		return errors.New("coordination repository not configured")
 	}
 
-	coordination, err := s.coordRepo.GetByStripCallsign(ctx, session, callsign)
+	coordination, err := coordRepo.GetByStripCallsign(ctx, session, callsign)
 	if err != nil {
 		return err
 	}
@@ -691,7 +697,7 @@ func (s *StripService) RejectCoordination(ctx context.Context, session int32, ca
 		return errors.New("cannot reject strip which is not transferred to you")
 	}
 
-	if err = s.coordRepo.Delete(ctx, coordination.ID); err != nil {
+	if err = coordRepo.Delete(ctx, coordination.ID); err != nil {
 		return err
 	}
 	s.publisher.SendCoordinationReject(session, callsign, position)
@@ -702,10 +708,6 @@ func (s *StripService) RejectCoordination(ctx context.Context, session int32, ca
 func (s *StripService) CreateTagRequest(ctx context.Context, session int32, callsign string, requesterPosition string) error {
 	if s.publisher == nil {
 		return errors.New("frontend hub not configured")
-	}
-	server := s.publisher.GetServer()
-	if server == nil {
-		return errors.New("server not configured")
 	}
 
 	strip, err := s.stripRepo.GetByCallsign(ctx, session, callsign)
@@ -721,7 +723,10 @@ func (s *StripService) CreateTagRequest(ctx context.Context, session int32, call
 		return errors.New("cannot request tag of a strip you already own")
 	}
 
-	coordRepo := server.GetCoordinationRepository()
+	coordRepo := s.getCoordinationRepository()
+	if coordRepo == nil {
+		return errors.New("coordination store not configured")
+	}
 
 	// Check no active coordination already exists
 	if _, err := coordRepo.GetByStripCallsign(ctx, session, callsign); err == nil {
@@ -749,10 +754,6 @@ func (s *StripService) AcceptTagRequest(ctx context.Context, session int32, call
 	if s.publisher == nil {
 		return errors.New("frontend hub not configured")
 	}
-	server := s.publisher.GetServer()
-	if server == nil {
-		return errors.New("server not configured")
-	}
 
 	strip, err := s.stripRepo.GetByCallsign(ctx, session, callsign)
 	if err != nil {
@@ -763,7 +764,11 @@ func (s *StripService) AcceptTagRequest(ctx context.Context, session int32, call
 		return errors.New("only the strip owner can accept a tag request")
 	}
 
-	coordRepo := server.GetCoordinationRepository()
+	coordRepo := s.getCoordinationRepository()
+	if coordRepo == nil {
+		return errors.New("coordination store not configured")
+	}
+
 	coordination, err := coordRepo.GetByStripCallsign(ctx, session, callsign)
 	if err != nil {
 		return err
@@ -813,8 +818,8 @@ func (s *StripService) AcceptTagRequest(ctx context.Context, session int32, call
 	}
 
 	// Recalculate route from the new owner (same as ForceAssumeStrip).
-	if server := s.publisher.GetServer(); server != nil {
-		_ = server.UpdateRouteForStrip(callsign, session, false)
+	if routeRecalculator := s.getRouteRecalculator(); routeRecalculator != nil {
+		_ = routeRecalculator.UpdateRouteForStrip(callsign, session, false)
 
 		if updated, err := s.stripRepo.GetByCallsign(ctx, session, callsign); err == nil {
 			nextOwners = updated.NextOwners
@@ -842,11 +847,12 @@ func (s *StripService) AcceptTagRequest(ctx context.Context, session int32, call
 
 // CancelCoordinationTransfer cancels a pending coordination transfer initiated by the caller.
 func (s *StripService) CancelCoordinationTransfer(ctx context.Context, session int32, callsign string, position string) error {
-	if s.coordRepo == nil {
+	coordRepo := s.getCoordinationRepository()
+	if coordRepo == nil {
 		return errors.New("coordination repository not configured")
 	}
 
-	coordination, err := s.coordRepo.GetByStripCallsign(ctx, session, callsign)
+	coordination, err := coordRepo.GetByStripCallsign(ctx, session, callsign)
 	if err != nil {
 		return err
 	}
@@ -855,7 +861,7 @@ func (s *StripService) CancelCoordinationTransfer(ctx context.Context, session i
 		return errors.New("cannot cancel a transfer that you did not initiate")
 	}
 
-	if err := s.coordRepo.Delete(ctx, coordination.ID); err != nil {
+	if err := coordRepo.Delete(ctx, coordination.ID); err != nil {
 		return err
 	}
 	s.publisher.SendCoordinationReject(session, callsign, position)

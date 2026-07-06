@@ -38,7 +38,8 @@ func TestControllerOnline_CreatesIfNotExists(t *testing.T) {
 
 	mockServer := &testutil.MockServer{}
 	svc := NewControllerService(ctrlRepo)
-	svc.SetServer(mockServer)
+	svc.SetFrontendNotifier(mockServer.FrontendHubVal)
+	svc.SetSessionRecalculator(mockServer)
 
 	result, err := svc.ControllerOnline(ctx, session, callsign, position, "")
 	require.NoError(t, err)
@@ -75,7 +76,8 @@ func TestControllerOnline_UpdatesExisting(t *testing.T) {
 
 	mockServer := &testutil.MockServer{}
 	svc := NewControllerService(ctrlRepo)
-	svc.SetServer(mockServer)
+	svc.SetFrontendNotifier(mockServer.FrontendHubVal)
+	svc.SetSessionRecalculator(mockServer)
 
 	_, err := svc.ControllerOnline(ctx, session, callsign, newPosition, "")
 	require.NoError(t, err)
@@ -137,7 +139,8 @@ func TestControllerOnline_SamePosition_ForceOrchestrationRunsUpdates(t *testing.
 	}
 
 	svc := NewControllerService(ctrlRepo)
-	svc.SetServer(mockServer)
+	svc.SetFrontendNotifier(mockServer.FrontendHubVal)
+	svc.SetSessionRecalculator(mockServer)
 
 	result, err := svc.ControllerOnlineWithOptions(ctx, session, callsign, position, "", shared.ControllerOnlineOptions{
 		ForceOrchestration: true,
@@ -165,7 +168,8 @@ func TestControllerOffline_ControllerNotFound(t *testing.T) {
 	hub := &testutil.MockFrontendHub{}
 	mockServer := &testutil.MockServer{FrontendHubVal: hub}
 	svc := NewControllerService(ctrlRepo)
-	svc.SetServer(mockServer)
+	svc.SetFrontendNotifier(mockServer.FrontendHubVal)
+	svc.SetSessionRecalculator(mockServer)
 
 	result, err := svc.ControllerOffline(ctx, session, callsign)
 	require.NoError(t, err)
@@ -200,7 +204,8 @@ func TestControllerOffline_UnknownPosition_DeletesImmediately(t *testing.T) {
 	hub := &testutil.MockFrontendHub{}
 	mockServer := &testutil.MockServer{FrontendHubVal: hub}
 	svc := NewControllerService(ctrlRepo)
-	svc.SetServer(mockServer)
+	svc.SetFrontendNotifier(mockServer.FrontendHubVal)
+	svc.SetSessionRecalculator(mockServer)
 
 	result, err := svc.ControllerOffline(ctx, session, callsign)
 	require.NoError(t, err)
@@ -246,7 +251,8 @@ func TestControllerOffline_PositionAlreadyCovered_DeletesStaleRowWithoutOfflineE
 	hub := &testutil.MockFrontendHub{}
 	mockServer := &testutil.MockServer{FrontendHubVal: hub}
 	svc := NewControllerService(ctrlRepo)
-	svc.SetServer(mockServer)
+	svc.SetFrontendNotifier(mockServer.FrontendHubVal)
+	svc.SetSessionRecalculator(mockServer)
 
 	result, err := svc.ControllerOffline(ctx, session, callsign)
 	require.NoError(t, err)
@@ -287,7 +293,8 @@ func TestControllerOffline_ObserverCoverageDoesNotSuppressOfflineHandling(t *tes
 	hub := &testutil.MockFrontendHub{}
 	mockServer := &testutil.MockServer{FrontendHubVal: hub}
 	svc := NewControllerService(ctrlRepo)
-	svc.SetServer(mockServer)
+	svc.SetFrontendNotifier(mockServer.FrontendHubVal)
+	svc.SetSessionRecalculator(mockServer)
 
 	result, err := svc.ControllerOffline(ctx, session, callsign)
 	require.NoError(t, err)
@@ -327,7 +334,8 @@ func TestControllerOffline_MismatchedPrefixCoverageDoesNotSuppressOfflineHandlin
 	hub := &testutil.MockFrontendHub{}
 	mockServer := &testutil.MockServer{FrontendHubVal: hub}
 	svc := NewControllerService(ctrlRepo)
-	svc.SetServer(mockServer)
+	svc.SetFrontendNotifier(mockServer.FrontendHubVal)
+	svc.SetSessionRecalculator(mockServer)
 
 	result, err := svc.ControllerOffline(ctx, session, callsign)
 	require.NoError(t, err)
@@ -360,7 +368,8 @@ func TestControllerOnline_New_IgnoresObserverCoverageForSingleOnPosition(t *test
 
 	mockServer := &testutil.MockServer{}
 	svc := NewControllerService(ctrlRepo)
-	svc.SetServer(mockServer)
+	svc.SetFrontendNotifier(mockServer.FrontendHubVal)
+	svc.SetSessionRecalculator(mockServer)
 
 	result, err := svc.ControllerOnline(ctx, session, callsign, position, "EKCH_TWR")
 	require.NoError(t, err)
@@ -392,7 +401,8 @@ func TestControllerOnline_New_IgnoresMismatchedPrefixCoverageForSingleOnPosition
 
 	mockServer := &testutil.MockServer{}
 	svc := NewControllerService(ctrlRepo)
-	svc.SetServer(mockServer)
+	svc.SetFrontendNotifier(mockServer.FrontendHubVal)
+	svc.SetSessionRecalculator(mockServer)
 
 	result, err := svc.ControllerOnline(ctx, session, callsign, position, "EKCH_TWR")
 	require.NoError(t, err)
@@ -415,7 +425,8 @@ func TestControllerOnline_New_SendsOnlineEvent(t *testing.T) {
 	hub := &testutil.MockFrontendHub{}
 	mockServer := &testutil.MockServer{FrontendHubVal: hub}
 	svc := NewControllerService(ctrlRepo)
-	svc.SetServer(mockServer)
+	svc.SetFrontendNotifier(mockServer.FrontendHubVal)
+	svc.SetSessionRecalculator(mockServer)
 
 	result, err := svc.ControllerOnline(ctx, session, callsign, position, "")
 	require.NoError(t, err)
@@ -459,7 +470,8 @@ func TestControllerOnline_PositionChanged_SendsOnlineEvent(t *testing.T) {
 	hub := &testutil.MockFrontendHub{}
 	mockServer := &testutil.MockServer{FrontendHubVal: hub}
 	svc := NewControllerService(ctrlRepo)
-	svc.SetServer(mockServer)
+	svc.SetFrontendNotifier(mockServer.FrontendHubVal)
+	svc.SetSessionRecalculator(mockServer)
 
 	result, err := svc.ControllerOnline(ctx, session, callsign, newPosition, "")
 	require.NoError(t, err)
@@ -480,7 +492,8 @@ func TestControllerOffline_NotFound_SendsOfflineEvent(t *testing.T) {
 	hub := &testutil.MockFrontendHub{}
 	mockServer := &testutil.MockServer{FrontendHubVal: hub}
 	svc := NewControllerService(ctrlRepo)
-	svc.SetServer(mockServer)
+	svc.SetFrontendNotifier(mockServer.FrontendHubVal)
+	svc.SetSessionRecalculator(mockServer)
 
 	result, err := svc.ControllerOffline(ctx, session, callsign)
 	require.NoError(t, err)

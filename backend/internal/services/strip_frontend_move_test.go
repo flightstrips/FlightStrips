@@ -45,7 +45,6 @@ type frontendMoveFixture struct {
 	repo                 *testutil.MockStripRepository
 	hub                  *testutil.MockFrontendHub
 	esHub                *testutil.MockEuroscopeHub
-	server               *testutil.MockServer
 	strip                *internalModels.Strip
 	ctx                  context.Context
 	updateClearedBays    []string
@@ -145,22 +144,18 @@ func newFrontendMoveFixture(strip *internalModels.Strip) *frontendMoveFixture {
 		},
 	}
 
-	fixture.server = &testutil.MockServer{
-		FrontendHubVal:  fixture.hub,
-		EuroscopeHubVal: fixture.esHub,
-		StripRepoVal:    fixture.repo,
-		PdcServiceVal:   fixture.pdcSpy,
+	routeRecalculator := &testutil.MockServer{
 		UpdateRouteForStripCtxFn: func(_ context.Context, _ string, _ int32, _ bool) error {
 			fixture.routeUpdates++
 			return nil
 		},
 	}
-	fixture.hub.SetServer(fixture.server)
-	fixture.esHub.SetServer(fixture.server)
 
 	fixture.svc = NewStripService(fixture.repo)
 	fixture.svc.SetFrontendHub(fixture.hub)
 	fixture.svc.SetEuroscopeHub(fixture.esHub)
+	fixture.svc.SetPdcService(fixture.pdcSpy)
+	fixture.svc.SetRouteRecalculator(routeRecalculator)
 	fixture.ctx = shared.WithSyncState(context.Background(), &shared.SyncState{
 		ExistingStrips: map[string]*internalModels.Strip{
 			strip.Callsign: strip,

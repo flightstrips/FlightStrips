@@ -159,7 +159,7 @@ func TestCreateManualFPL_RecalculatesRouteAfterStandAssignment(t *testing.T) {
 	esHub := &testutil.MockEuroscopeHub{}
 	fHub := &testutil.MockFrontendHub{}
 	routeRecalculated := false
-	fHub.SetServer(&testutil.MockServer{
+	routeRecalculator := &testutil.MockServer{
 		UpdateRouteForStripFn: func(cs string, sess int32, sendUpdate bool) error {
 			assert.Equal(t, callsign, cs)
 			assert.Equal(t, session, sess)
@@ -167,8 +167,9 @@ func TestCreateManualFPL_RecalculatesRouteAfterStandAssignment(t *testing.T) {
 			routeRecalculated = true
 			return nil
 		},
-	})
+	}
 	svc := buildManualFPLService(t, stripRepo, esHub, fHub)
+	svc.SetRouteRecalculator(routeRecalculator)
 
 	err := svc.CreateManualFPL(context.Background(), session, frontend.CreateManualFPLAction{
 		Callsign: callsign,

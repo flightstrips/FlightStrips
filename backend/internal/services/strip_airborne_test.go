@@ -49,7 +49,6 @@ func TestResolveAirborneController_UnknownSID(t *testing.T) {
 // the AIRBORNE bay is skipped without error.
 func TestAutoTransferAirborneStrip_SkipsWhenNotAirborneBay(t *testing.T) {
 	hub := &testutil.MockFrontendHub{}
-	hub.SetServer(&testutil.MockServer{})
 
 	svc := NewStripService(&testutil.MockStripRepository{
 		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
@@ -66,7 +65,6 @@ func TestAutoTransferAirborneStrip_SkipsWhenNotAirborneBay(t *testing.T) {
 // no owner is skipped without error.
 func TestAutoTransferAirborneStrip_SkipsWhenNoOwner(t *testing.T) {
 	hub := &testutil.MockFrontendHub{}
-	hub.SetServer(&testutil.MockServer{})
 
 	svc := NewStripService(&testutil.MockStripRepository{
 		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
@@ -88,15 +86,13 @@ func TestAutoTransferAirborneStrip_SkipsWhenOwnerCidMissing(t *testing.T) {
 	// the skip-when-no-owner path as a proxy; the CID guard is exercised in integration
 	// tests where a SID route is configured.
 	hub := &testutil.MockFrontendHub{}
-	hub.SetServer(&testutil.MockServer{
-		ControllerRepoVal: &testutil.MockControllerRepository{
-			ListBySessionFn: func(_ context.Context, _ int32) ([]*models.Controller, error) {
-				// Owner controller present but no CID set.
-				owner := "EKCH_TWR"
-				return []*models.Controller{{Position: owner, Cid: nil}}, nil
-			},
+	controllerRepo := &testutil.MockControllerRepository{
+		ListBySessionFn: func(_ context.Context, _ int32) ([]*models.Controller, error) {
+			// Owner controller present but no CID set.
+			owner := "EKCH_TWR"
+			return []*models.Controller{{Position: owner, Cid: nil}}, nil
 		},
-	})
+	}
 
 	owner := "EKCH_TWR"
 	svc := NewStripService(&testutil.MockStripRepository{
@@ -105,6 +101,7 @@ func TestAutoTransferAirborneStrip_SkipsWhenOwnerCidMissing(t *testing.T) {
 		},
 	})
 	svc.SetFrontendHub(hub)
+	svc.SetControllerRepo(controllerRepo)
 
 	// With no SID the function exits before the CID check — no error expected.
 	err := svc.AutoTransferAirborneStrip(context.Background(), 1, "SAS001")
@@ -159,10 +156,10 @@ func TestUpdateAircraftPosition_AutoHandoverTriggeredFromDepartBay(t *testing.T)
 	}
 
 	hub := &testutil.MockFrontendHub{}
-	hub.SetServer(&testutil.MockServer{ControllerRepoVal: controllerRepo})
 
 	svc := NewStripService(stripRepo)
 	svc.SetFrontendHub(hub)
+	svc.SetControllerRepo(controllerRepo)
 
 	// EKCH coordinates, altitude 250 ft — above the configured 200 ft airborne threshold.
 	err := svc.UpdateAircraftPosition(ctx, session, callsign,
@@ -235,16 +232,14 @@ func TestCreateCoordinationTransfer_EsHandoverSentWhenTargetHasNoEsConnection(t 
 	esHub := &testutil.MockEuroscopeHub{}
 
 	frontendHub := &testutil.MockFrontendHub{}
-	frontendHub.SetServer(&testutil.MockServer{
-		CoordRepoVal: &testutil.MockCoordinationRepository{
-			CreateFn: func(_ context.Context, _ *models.Coordination) error { return nil },
+	coordRepo := &testutil.MockCoordinationRepository{
+		CreateFn: func(_ context.Context, _ *models.Coordination) error { return nil },
+	}
+	controllerRepo := &testutil.MockControllerRepository{
+		ListBySessionFn: func(_ context.Context, _ int32) ([]*models.Controller, error) {
+			return controllers, nil
 		},
-		ControllerRepoVal: &testutil.MockControllerRepository{
-			ListBySessionFn: func(_ context.Context, _ int32) ([]*models.Controller, error) {
-				return controllers, nil
-			},
-		},
-	})
+	}
 
 	stripRepo := &testutil.MockStripRepository{
 		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
@@ -255,6 +250,8 @@ func TestCreateCoordinationTransfer_EsHandoverSentWhenTargetHasNoEsConnection(t 
 	svc := NewStripService(stripRepo)
 	svc.SetFrontendHub(frontendHub)
 	svc.SetEuroscopeHub(esHub)
+	svc.SetCoordinationRepo(coordRepo)
+	svc.SetControllerRepo(controllerRepo)
 
 	err := svc.CreateCoordinationTransfer(ctx, session, callsign, "EKCH_TWR", "EKCH_APP")
 	require.NoError(t, err)
@@ -296,10 +293,10 @@ func TestUpdateAircraftPosition_NoAutoHandoverWhenAlreadyAirborne(t *testing.T) 
 	}
 
 	hub := &testutil.MockFrontendHub{}
-	hub.SetServer(&testutil.MockServer{ControllerRepoVal: controllerRepo})
 
 	svc := NewStripService(stripRepo)
 	svc.SetFrontendHub(hub)
+	svc.SetControllerRepo(controllerRepo)
 
 	err := svc.UpdateAircraftPosition(ctx, session, callsign,
 		shared.AirportLatitude, shared.AirportLongitude, 1000, "EKCH")

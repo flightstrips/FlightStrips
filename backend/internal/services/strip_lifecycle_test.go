@@ -222,18 +222,19 @@ func TestUnclearStrip_MovesToNotClearedBay(t *testing.T) {
 	}
 
 	hub := &testutil.MockFrontendHub{}
-	hub.SetServer(&testutil.MockServer{
+	routeRecalculator := &testutil.MockServer{
 		UpdateRouteForStripFn: func(cs string, sess int32, sendUpdate bool) error {
 			routeUpdateCallsign = cs
 			routeUpdateSession = sess
 			routeUpdateSendUpdate = sendUpdate
 			return nil
 		},
-	})
+	}
 	esHub := &testutil.MockEuroscopeHub{}
 	svc := NewStripService(stripRepo)
 	svc.SetFrontendHub(hub)
 	svc.SetEuroscopeHub(esHub)
+	svc.SetRouteRecalculator(routeRecalculator)
 
 	err := svc.UnclearStrip(ctx, session, callsign, cid)
 	require.NoError(t, err)
@@ -521,8 +522,7 @@ func TestAssumeStripCoordination_DirectAssume_UnownedStrip(t *testing.T) {
 	}
 
 	hub := &testutil.MockFrontendHub{}
-	hub.SetServer(&testutil.MockServer{
-		CoordRepoVal: coordRepo,
+	routeRecalculator := &testutil.MockServer{
 		UpdateRouteForStripFn: func(cs string, sess int32, sendUpdate bool) error {
 			assert.Equal(t, callsign, cs)
 			assert.Equal(t, session, sess)
@@ -530,10 +530,11 @@ func TestAssumeStripCoordination_DirectAssume_UnownedStrip(t *testing.T) {
 			routeRecalculated = true
 			return nil
 		},
-	})
+	}
 	svc := NewStripService(stripRepo)
 	svc.SetFrontendHub(hub)
 	svc.SetCoordinationRepo(coordRepo)
+	svc.SetRouteRecalculator(routeRecalculator)
 
 	err := svc.AssumeStripCoordination(ctx, session, callsign, position)
 	require.NoError(t, err)
@@ -590,7 +591,6 @@ func TestAssumeStripCoordination_WithCoordination_AcceptsIt(t *testing.T) {
 	}
 
 	hub := &testutil.MockFrontendHub{}
-	hub.SetServer(&testutil.MockServer{CoordRepoVal: coordRepo})
 	svc := NewStripService(stripRepo)
 	svc.SetFrontendHub(hub)
 	svc.SetCoordinationRepo(coordRepo)
@@ -654,7 +654,6 @@ func TestAssumeStripCoordination_WithTowerCoordination_DoesNotMoveToLowerTaxiBay
 	}
 
 	hub := &testutil.MockFrontendHub{}
-	hub.SetServer(&testutil.MockServer{CoordRepoVal: coordRepo})
 	svc := NewStripService(stripRepo)
 	svc.SetFrontendHub(hub)
 	svc.SetCoordinationRepo(coordRepo)
@@ -689,7 +688,6 @@ func TestAssumeStripCoordination_AlreadyOwned_ReturnsError(t *testing.T) {
 	}
 
 	hub := &testutil.MockFrontendHub{}
-	hub.SetServer(&testutil.MockServer{CoordRepoVal: coordRepo})
 	svc := NewStripService(stripRepo)
 	svc.SetFrontendHub(hub)
 	svc.SetCoordinationRepo(coordRepo)
@@ -1394,18 +1392,19 @@ func TestUpdateClearedFlagForMove_ToNotCleared_ClearsOwner(t *testing.T) {
 	}
 
 	hub := &testutil.MockFrontendHub{}
-	hub.SetServer(&testutil.MockServer{
+	routeRecalculator := &testutil.MockServer{
 		UpdateRouteForStripFn: func(cs string, sess int32, sendUpdate bool) error {
 			routeUpdateCallsign = cs
 			routeUpdateSession = sess
 			routeUpdateSendUpdate = sendUpdate
 			return nil
 		},
-	})
+	}
 	esHub := &testutil.MockEuroscopeHub{}
 	svc := NewStripService(stripRepo)
 	svc.SetFrontendHub(hub)
 	svc.SetEuroscopeHub(esHub)
+	svc.SetRouteRecalculator(routeRecalculator)
 
 	err := svc.UpdateClearedFlagForMove(ctx, session, callsign, false, shared.BAY_NOT_CLEARED, "CID")
 	require.NoError(t, err)

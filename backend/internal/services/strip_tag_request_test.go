@@ -36,15 +36,13 @@ func TestCreateTagRequest_Success(t *testing.T) {
 	}
 
 	hub := &testutil.MockFrontendHub{}
-	mockServer := &testutil.MockServer{CoordRepoVal: coordRepo}
-	hub.SetServer(mockServer)
-
 	svc := NewStripService(&testutil.MockStripRepository{
 		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
 			return strip, nil
 		},
 	})
 	svc.SetFrontendHub(hub)
+	svc.SetCoordinationRepo(coordRepo)
 
 	err := svc.CreateTagRequest(context.Background(), 1, "SAS123", "EKCH_D_TWR")
 	require.NoError(t, err)
@@ -65,7 +63,6 @@ func TestCreateTagRequest_UnownedStrip(t *testing.T) {
 	strip := &models.Strip{ID: 1, Callsign: "SAS123", Owner: nil}
 
 	hub := &testutil.MockFrontendHub{}
-	hub.SetServer(&testutil.MockServer{})
 
 	svc := NewStripService(&testutil.MockStripRepository{
 		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
@@ -85,7 +82,6 @@ func TestCreateTagRequest_AlreadyOwner(t *testing.T) {
 	strip := &models.Strip{ID: 1, Callsign: "SAS123", Owner: &owner}
 
 	hub := &testutil.MockFrontendHub{}
-	hub.SetServer(&testutil.MockServer{})
 
 	svc := NewStripService(&testutil.MockStripRepository{
 		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
@@ -112,7 +108,6 @@ func TestCreateTagRequest_ActiveCoordinationExists(t *testing.T) {
 	}
 
 	hub := &testutil.MockFrontendHub{}
-	hub.SetServer(&testutil.MockServer{CoordRepoVal: coordRepo})
 
 	svc := NewStripService(&testutil.MockStripRepository{
 		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
@@ -120,6 +115,8 @@ func TestCreateTagRequest_ActiveCoordinationExists(t *testing.T) {
 		},
 	})
 	svc.SetFrontendHub(hub)
+	svc.SetCoordinationRepo(coordRepo)
+	svc.SetCoordinationRepo(coordRepo)
 
 	err := svc.CreateTagRequest(context.Background(), 1, "SAS123", "EKCH_GND")
 	require.Error(t, err)
@@ -129,7 +126,6 @@ func TestCreateTagRequest_ActiveCoordinationExists(t *testing.T) {
 // TestCreateTagRequest_StripNotFound verifies that a repository error is propagated.
 func TestCreateTagRequest_StripNotFound(t *testing.T) {
 	hub := &testutil.MockFrontendHub{}
-	hub.SetServer(&testutil.MockServer{})
 
 	svc := NewStripService(&testutil.MockStripRepository{
 		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
@@ -174,7 +170,6 @@ func TestAcceptTagRequest_Success(t *testing.T) {
 	}
 
 	hub := &testutil.MockFrontendHub{}
-	hub.SetServer(&testutil.MockServer{CoordRepoVal: coordRepo})
 
 	svc := NewStripService(&testutil.MockStripRepository{
 		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
@@ -189,6 +184,7 @@ func TestAcceptTagRequest_Success(t *testing.T) {
 		},
 	})
 	svc.SetFrontendHub(hub)
+	svc.SetCoordinationRepo(coordRepo)
 
 	err := svc.AcceptTagRequest(context.Background(), 1, "SAS123", "EKCH_A_TWR")
 	require.NoError(t, err)
@@ -213,7 +209,6 @@ func TestAcceptTagRequest_NotOwner(t *testing.T) {
 	}
 
 	hub := &testutil.MockFrontendHub{}
-	hub.SetServer(&testutil.MockServer{CoordRepoVal: coordRepo})
 
 	svc := NewStripService(&testutil.MockStripRepository{
 		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
@@ -221,6 +216,7 @@ func TestAcceptTagRequest_NotOwner(t *testing.T) {
 		},
 	})
 	svc.SetFrontendHub(hub)
+	svc.SetCoordinationRepo(coordRepo)
 
 	err := svc.AcceptTagRequest(context.Background(), 1, "SAS123", "EKCH_D_TWR")
 	require.Error(t, err)
@@ -240,7 +236,6 @@ func TestAcceptTagRequest_NotTagRequest(t *testing.T) {
 	}
 
 	hub := &testutil.MockFrontendHub{}
-	hub.SetServer(&testutil.MockServer{CoordRepoVal: coordRepo})
 
 	svc := NewStripService(&testutil.MockStripRepository{
 		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
@@ -248,6 +243,7 @@ func TestAcceptTagRequest_NotTagRequest(t *testing.T) {
 		},
 	})
 	svc.SetFrontendHub(hub)
+	svc.SetCoordinationRepo(coordRepo)
 
 	err := svc.AcceptTagRequest(context.Background(), 1, "SAS123", "EKCH_A_TWR")
 	require.Error(t, err)
@@ -283,7 +279,6 @@ func TestAcceptTagRequest_DisplacedOwnerRemovedFromPrevious(t *testing.T) {
 	}
 
 	hub := &testutil.MockFrontendHub{}
-	hub.SetServer(&testutil.MockServer{CoordRepoVal: coordRepo})
 
 	svc := NewStripService(&testutil.MockStripRepository{
 		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
@@ -298,6 +293,7 @@ func TestAcceptTagRequest_DisplacedOwnerRemovedFromPrevious(t *testing.T) {
 		},
 	})
 	svc.SetFrontendHub(hub)
+	svc.SetCoordinationRepo(coordRepo)
 
 	err := svc.AcceptTagRequest(context.Background(), 1, "SAS123", "EKCH_A_TWR")
 	require.NoError(t, err)
@@ -325,13 +321,13 @@ func TestAcceptTagRequest_RouteRecalculated(t *testing.T) {
 	}
 
 	routeRecalculated := false
-	mockServer := &testutil.MockServer{
-		CoordRepoVal: &testutil.MockCoordinationRepository{
-			GetByStripCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Coordination, error) {
-				return coord, nil
-			},
-			DeleteFn: func(_ context.Context, _ int32) error { return nil },
+	coordRepo := &testutil.MockCoordinationRepository{
+		GetByStripCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Coordination, error) {
+			return coord, nil
 		},
+		DeleteFn: func(_ context.Context, _ int32) error { return nil },
+	}
+	routeRecalculator := &testutil.MockServer{
 		UpdateRouteForStripFn: func(callsign string, sessionId int32, sendUpdate bool) error {
 			assert.Equal(t, "SAS123", callsign)
 			assert.Equal(t, int32(1), sessionId)
@@ -342,7 +338,6 @@ func TestAcceptTagRequest_RouteRecalculated(t *testing.T) {
 	}
 
 	hub := &testutil.MockFrontendHub{}
-	hub.SetServer(mockServer)
 
 	svc := NewStripService(&testutil.MockStripRepository{
 		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
@@ -356,6 +351,8 @@ func TestAcceptTagRequest_RouteRecalculated(t *testing.T) {
 		},
 	})
 	svc.SetFrontendHub(hub)
+	svc.SetCoordinationRepo(coordRepo)
+	svc.SetRouteRecalculator(routeRecalculator)
 
 	err := svc.AcceptTagRequest(context.Background(), 1, "SAS123", "EKCH_A_TWR")
 	require.NoError(t, err)
@@ -395,18 +392,14 @@ func TestAcceptTagRequest_NextOwnersFilteredFromPrevious(t *testing.T) {
 	callCount := 0
 	var savedPrevious []string
 
-	mockServer := &testutil.MockServer{
-		CoordRepoVal: &testutil.MockCoordinationRepository{
-			GetByStripCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Coordination, error) {
-				return coord, nil
-			},
-			DeleteFn: func(_ context.Context, _ int32) error { return nil },
+	coordRepo := &testutil.MockCoordinationRepository{
+		GetByStripCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Coordination, error) {
+			return coord, nil
 		},
-		UpdateRouteForStripFn: func(_ string, _ int32, _ bool) error { return nil },
+		DeleteFn: func(_ context.Context, _ int32) error { return nil },
 	}
 
 	hub := &testutil.MockFrontendHub{}
-	hub.SetServer(mockServer)
 
 	svc := NewStripService(&testutil.MockStripRepository{
 		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
@@ -428,6 +421,10 @@ func TestAcceptTagRequest_NextOwnersFilteredFromPrevious(t *testing.T) {
 		},
 	})
 	svc.SetFrontendHub(hub)
+	svc.SetCoordinationRepo(coordRepo)
+	svc.SetRouteRecalculator(&testutil.MockServer{
+		UpdateRouteForStripFn: func(_ string, _ int32, _ bool) error { return nil },
+	})
 
 	err := svc.AcceptTagRequest(context.Background(), 1, "SAS123", "EKCH_A_TWR")
 	require.NoError(t, err)
@@ -473,7 +470,6 @@ func TestAcceptTagRequest_CoordinationDeleted(t *testing.T) {
 	}
 
 	hub := &testutil.MockFrontendHub{}
-	hub.SetServer(&testutil.MockServer{CoordRepoVal: coordRepo})
 
 	svc := NewStripService(&testutil.MockStripRepository{
 		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
@@ -487,6 +483,7 @@ func TestAcceptTagRequest_CoordinationDeleted(t *testing.T) {
 		},
 	})
 	svc.SetFrontendHub(hub)
+	svc.SetCoordinationRepo(coordRepo)
 
 	err := svc.AcceptTagRequest(context.Background(), 1, "SAS123", "EKCH_A_TWR")
 	require.NoError(t, err)
@@ -520,7 +517,6 @@ func TestAcceptTagRequest_SetOwnerFails(t *testing.T) {
 	}
 
 	hub := &testutil.MockFrontendHub{}
-	hub.SetServer(&testutil.MockServer{CoordRepoVal: coordRepo})
 
 	svc := NewStripService(&testutil.MockStripRepository{
 		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
@@ -534,6 +530,7 @@ func TestAcceptTagRequest_SetOwnerFails(t *testing.T) {
 		},
 	})
 	svc.SetFrontendHub(hub)
+	svc.SetCoordinationRepo(coordRepo)
 
 	err := svc.AcceptTagRequest(context.Background(), 1, "SAS123", "EKCH_A_TWR")
 	require.Error(t, err)
@@ -563,7 +560,6 @@ func TestAcceptTagRequest_RequesterInNextList_OwnerAppendedToPrevious(t *testing
 
 	var savedPreviousOwners []string
 	hub := &testutil.MockFrontendHub{}
-	hub.SetServer(&testutil.MockServer{CoordRepoVal: coordRepo})
 
 	svc := NewStripService(&testutil.MockStripRepository{
 		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
@@ -578,6 +574,7 @@ func TestAcceptTagRequest_RequesterInNextList_OwnerAppendedToPrevious(t *testing
 		},
 	})
 	svc.SetFrontendHub(hub)
+	svc.SetCoordinationRepo(coordRepo)
 
 	err := svc.AcceptTagRequest(context.Background(), 1, "SAS123", "EKCH_A_TWR")
 	require.NoError(t, err)
@@ -609,7 +606,6 @@ func TestAcceptTagRequest_RequesterNotInNextList_OwnerNotAppendedToPrevious(t *t
 
 	var savedPreviousOwners []string
 	hub := &testutil.MockFrontendHub{}
-	hub.SetServer(&testutil.MockServer{CoordRepoVal: coordRepo})
 
 	svc := NewStripService(&testutil.MockStripRepository{
 		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
@@ -624,6 +620,7 @@ func TestAcceptTagRequest_RequesterNotInNextList_OwnerNotAppendedToPrevious(t *t
 		},
 	})
 	svc.SetFrontendHub(hub)
+	svc.SetCoordinationRepo(coordRepo)
 
 	err := svc.AcceptTagRequest(context.Background(), 1, "SAS123", "EKCH_A_TWR")
 	require.NoError(t, err)

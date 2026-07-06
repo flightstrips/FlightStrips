@@ -25,16 +25,8 @@ func newSyncTestFixture(t *testing.T, _ *models.Strip, stripRepo *testutil.MockS
 			return &models.Session{ActiveRunways: pkgModels.ActiveRunways{}}, nil
 		},
 	}
-
-	mockServer := &testutil.MockServer{
-		SessionRepoVal: sessionRepo,
-	}
-
 	hub := &testutil.MockFrontendHub{}
-	hub.SetServer(mockServer)
-
 	esHub := &testutil.MockEuroscopeHub{}
-	esHub.SetServer(mockServer)
 
 	// MoveToBay needs GetMaxSequenceInBayFn; provide a safe default.
 	if stripRepo.GetMaxSequenceInBayFn == nil {
@@ -72,6 +64,7 @@ func newSyncTestFixture(t *testing.T, _ *models.Strip, stripRepo *testutil.MockS
 	svc := NewStripService(stripRepo)
 	svc.SetFrontendHub(hub)
 	svc.SetEuroscopeHub(esHub)
+	svc.SetSessionRepo(sessionRepo)
 
 	return svc, hub, esHub
 }

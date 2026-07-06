@@ -110,7 +110,6 @@ func TestForceAssumeStrip_RouteRecalculated(t *testing.T) {
 	}
 
 	hub := &testutil.MockFrontendHub{}
-	hub.SetServer(mockServer)
 
 	svc := NewStripService(&testutil.MockStripRepository{
 		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
@@ -124,6 +123,7 @@ func TestForceAssumeStrip_RouteRecalculated(t *testing.T) {
 		},
 	})
 	svc.SetFrontendHub(hub)
+	svc.SetRouteRecalculator(mockServer)
 
 	err := svc.ForceAssumeStrip(context.Background(), 1, "SAS123", "EKCH_D_TWR")
 	require.NoError(t, err)
@@ -160,7 +160,6 @@ func TestForceAssumeStrip_NextOwnersFilteredFromPrevious(t *testing.T) {
 	mockServer := &testutil.MockServer{
 		UpdateRouteForStripFn: func(_ string, _ int32, _ bool) error { return nil },
 	}
-	hub.SetServer(mockServer)
 
 	svc := NewStripService(&testutil.MockStripRepository{
 		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
@@ -182,6 +181,7 @@ func TestForceAssumeStrip_NextOwnersFilteredFromPrevious(t *testing.T) {
 		},
 	})
 	svc.SetFrontendHub(hub)
+	svc.SetRouteRecalculator(mockServer)
 
 	err := svc.ForceAssumeStrip(context.Background(), 1, "SAS123", "EKCH_D_TWR")
 	require.NoError(t, err)

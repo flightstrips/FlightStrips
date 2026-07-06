@@ -32,27 +32,23 @@ func buildMissedApproachSvc(
 		CreateFn: func(_ context.Context, _ *models.Coordination) error { return nil },
 	}
 
-	mockServer := &testutil.MockServer{
-		SessionRepoVal: &testutil.MockSessionRepository{
-			GetByIDFn: func(_ context.Context, _ int32) (*models.Session, error) {
-				return &models.Session{
-					ID: 1,
-					ActiveRunways: pkgModels.ActiveRunways{
-						ArrivalRunways: []string{"04L"},
-					},
-				}, nil
-			},
+	sessionRepo := &testutil.MockSessionRepository{
+		GetByIDFn: func(_ context.Context, _ int32) (*models.Session, error) {
+			return &models.Session{
+				ID: 1,
+				ActiveRunways: pkgModels.ActiveRunways{
+					ArrivalRunways: []string{"04L"},
+				},
+			}, nil
 		},
-		ControllerRepoVal: &testutil.MockControllerRepository{
-			ListBySessionFn: func(_ context.Context, _ int32) ([]*models.Controller, error) {
-				return controllers, nil
-			},
+	}
+	controllerRepo := &testutil.MockControllerRepository{
+		ListBySessionFn: func(_ context.Context, _ int32) ([]*models.Controller, error) {
+			return controllers, nil
 		},
-		CoordRepoVal: coordRepo,
 	}
 
 	hub := &testutil.MockFrontendHub{}
-	hub.SetServer(mockServer)
 
 	svc := NewStripService(&testutil.MockStripRepository{
 		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
@@ -67,6 +63,8 @@ func buildMissedApproachSvc(
 	})
 	svc.SetFrontendHub(hub)
 	svc.SetCoordinationRepo(coordRepo)
+	svc.SetSessionRepo(sessionRepo)
+	svc.SetControllerRepo(controllerRepo)
 	if esHub != nil {
 		svc.SetEuroscopeHub(esHub)
 	}
@@ -108,18 +106,15 @@ func TestMissedApproach_NoRunwayMapping(t *testing.T) {
 		{Name: "EKCH_W_APP", Frequency: "119.805"},
 	}))
 
-	mockServer := &testutil.MockServer{
-		SessionRepoVal: &testutil.MockSessionRepository{
-			GetByIDFn: func(_ context.Context, _ int32) (*models.Session, error) {
-				return &models.Session{
-					ID:            1,
-					ActiveRunways: pkgModels.ActiveRunways{ArrivalRunways: []string{"04L"}},
-				}, nil
-			},
+	sessionRepo := &testutil.MockSessionRepository{
+		GetByIDFn: func(_ context.Context, _ int32) (*models.Session, error) {
+			return &models.Session{
+				ID:            1,
+				ActiveRunways: pkgModels.ActiveRunways{ArrivalRunways: []string{"04L"}},
+			}, nil
 		},
 	}
 	hub := &testutil.MockFrontendHub{}
-	hub.SetServer(mockServer)
 
 	svc := NewStripService(&testutil.MockStripRepository{
 		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
@@ -127,6 +122,7 @@ func TestMissedApproach_NoRunwayMapping(t *testing.T) {
 		},
 	})
 	svc.SetFrontendHub(hub)
+	svc.SetSessionRepo(sessionRepo)
 
 	err := svc.MissedApproach(context.Background(), 1, "SAS001", "118.105")
 	require.Error(t, err)

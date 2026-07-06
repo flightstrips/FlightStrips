@@ -520,7 +520,7 @@ func TestHandleLoginEvent_ThenControllerOnline_ForcesOrchestrationForSamePositio
 	}
 
 	controllerService := services.NewControllerService(controllerRepo)
-	controllerService.SetServer(server)
+	controllerService.SetSessionRecalculator(server)
 
 	hub := &Hub{
 		server:                      server,

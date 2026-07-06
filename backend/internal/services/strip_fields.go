@@ -290,9 +290,8 @@ func (s *StripService) UpdateStand(ctx context.Context, session int32, callsign 
 		}
 	}
 
-	server := s.publisher.GetServer()
-	if server != nil {
-		if err := server.UpdateRouteForStripContext(ctx, callsign, session, true); err != nil {
+	if routeRecalculator := s.getRouteRecalculator(); routeRecalculator != nil {
+		if err := routeRecalculator.UpdateRouteForStripContext(ctx, callsign, session, true); err != nil {
 			slog.ErrorContext(ctx, "Error updating route after stand assignment", slog.String("callsign", callsign), slog.Any("error", err))
 		}
 	}

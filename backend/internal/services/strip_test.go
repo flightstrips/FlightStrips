@@ -203,17 +203,18 @@ func TestAutoAssume_ClearedStrip(t *testing.T) {
 	var routeUpdateSession int32
 	var routeUpdateSendUpdate bool
 	hub := &testutil.MockFrontendHub{}
-	hub.SetServer(&testutil.MockServer{
+	routeRecalculator := &testutil.MockServer{
 		UpdateRouteForStripFn: func(cs string, sess int32, sendUpdate bool) error {
 			routeUpdateCallsign = cs
 			routeUpdateSession = sess
 			routeUpdateSendUpdate = sendUpdate
 			return nil
 		},
-	})
+	}
 	svc := NewStripService(stripRepo)
 	svc.SetFrontendHub(hub)
 	svc.SetSectorOwnerRepo(sectorRepo)
+	svc.SetRouteRecalculator(routeRecalculator)
 
 	err := svc.AutoAssumeForClearedStrip(ctx, session, callsign)
 	require.NoError(t, err)
@@ -356,17 +357,18 @@ func TestAutoAssume_FallbackToDel(t *testing.T) {
 	}
 
 	hub := &testutil.MockFrontendHub{}
-	hub.SetServer(&testutil.MockServer{
+	routeRecalculator := &testutil.MockServer{
 		UpdateRouteForStripFn: func(cs string, sess int32, sendUpdate bool) error {
 			assert.Equal(t, callsign, cs)
 			assert.Equal(t, session, sess)
 			assert.False(t, sendUpdate)
 			return nil
 		},
-	})
+	}
 	svc := NewStripService(stripRepo)
 	svc.SetFrontendHub(hub)
 	svc.SetSectorOwnerRepo(sectorRepo)
+	svc.SetRouteRecalculator(routeRecalculator)
 
 	err := svc.AutoAssumeForClearedStrip(ctx, session, callsign)
 	require.NoError(t, err)
@@ -399,18 +401,17 @@ func TestAutoAssume_ClearedArrivalStrip_IsIgnored(t *testing.T) {
 	}
 
 	hub := &testutil.MockFrontendHub{}
-	hub.SetServer(&testutil.MockServer{
-		SessionRepoVal: &testutil.MockSessionRepository{
-			GetByIDFn: func(_ context.Context, id int32) (*models.Session, error) {
-				assert.Equal(t, session, id)
-				return &models.Session{ID: session, Airport: "EKCH"}, nil
-			},
+	sessionRepo := &testutil.MockSessionRepository{
+		GetByIDFn: func(_ context.Context, id int32) (*models.Session, error) {
+			assert.Equal(t, session, id)
+			return &models.Session{ID: session, Airport: "EKCH"}, nil
 		},
-	})
+	}
 
 	svc := NewStripService(stripRepo)
 	svc.SetFrontendHub(hub)
 	svc.SetSectorOwnerRepo(sectorRepo)
+	svc.SetSessionRepo(sessionRepo)
 
 	err := svc.AutoAssumeForClearedStrip(ctx, session, callsign)
 	require.NoError(t, err)
@@ -466,16 +467,17 @@ func TestAutoAssumeForControllerOnline_AssumesMatchingStrip(t *testing.T) {
 	}
 
 	hub := &testutil.MockFrontendHub{}
-	hub.SetServer(&testutil.MockServer{
+	routeRecalculator := &testutil.MockServer{
 		UpdateRouteForStripFn: func(cs string, sess int32, sendUpdate bool) error {
 			assert.Equal(t, "SAS100", cs)
 			assert.Equal(t, session, sess)
 			assert.False(t, sendUpdate)
 			return nil
 		},
-	})
+	}
 	svc := NewStripService(stripRepo)
 	svc.SetFrontendHub(hub)
+	svc.SetRouteRecalculator(routeRecalculator)
 
 	err := svc.AutoAssumeForControllerOnline(ctx, session, position)
 	require.NoError(t, err)
@@ -540,17 +542,16 @@ func TestAutoAssumeForControllerOnline_IgnoresArrivalStrip(t *testing.T) {
 	}
 
 	hub := &testutil.MockFrontendHub{}
-	hub.SetServer(&testutil.MockServer{
-		SessionRepoVal: &testutil.MockSessionRepository{
-			GetByIDFn: func(_ context.Context, id int32) (*models.Session, error) {
-				assert.Equal(t, session, id)
-				return &models.Session{ID: session, Airport: "EKCH"}, nil
-			},
+	sessionRepo := &testutil.MockSessionRepository{
+		GetByIDFn: func(_ context.Context, id int32) (*models.Session, error) {
+			assert.Equal(t, session, id)
+			return &models.Session{ID: session, Airport: "EKCH"}, nil
 		},
-	})
+	}
 
 	svc := NewStripService(stripRepo)
 	svc.SetFrontendHub(hub)
+	svc.SetSessionRepo(sessionRepo)
 
 	err := svc.AutoAssumeForControllerOnline(ctx, session, position)
 	require.NoError(t, err)
@@ -579,9 +580,7 @@ func TestCreateCoordinationTransfer_Success(t *testing.T) {
 		},
 	}
 
-	mockServer := &testutil.MockServer{CoordRepoVal: coordRepo}
 	hub := &testutil.MockFrontendHub{}
-	hub.SetServer(mockServer)
 
 	stripRepo := &testutil.MockStripRepository{
 		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
@@ -597,6 +596,7 @@ func TestCreateCoordinationTransfer_Success(t *testing.T) {
 
 	svc := NewStripService(stripRepo)
 	svc.SetFrontendHub(hub)
+	svc.SetCoordinationRepo(coordRepo)
 
 	err := svc.CreateCoordinationTransfer(ctx, session, callsign, fromPos, toPos)
 	require.NoError(t, err)
@@ -664,17 +664,13 @@ func TestCreateCoordinationTransfer_TaxiBayToTower_MovesToLowerTaxiBay(t *testin
 		},
 	}
 
-	mockServer := &testutil.MockServer{
-		CoordRepoVal: coordRepo,
-		SessionRepoVal: &testutil.MockSessionRepository{
-			GetByIDFn: func(_ context.Context, id int32) (*models.Session, error) {
-				assert.Equal(t, session, id)
-				return &models.Session{ID: session, Airport: "EKCH"}, nil
-			},
+	sessionRepo := &testutil.MockSessionRepository{
+		GetByIDFn: func(_ context.Context, id int32) (*models.Session, error) {
+			assert.Equal(t, session, id)
+			return &models.Session{ID: session, Airport: "EKCH"}, nil
 		},
 	}
 	hub := &testutil.MockFrontendHub{}
-	hub.SetServer(mockServer)
 
 	stripRepo := &testutil.MockStripRepository{
 		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
@@ -696,6 +692,8 @@ func TestCreateCoordinationTransfer_TaxiBayToTower_MovesToLowerTaxiBay(t *testin
 
 	svc := NewStripService(stripRepo)
 	svc.SetFrontendHub(hub)
+	svc.SetCoordinationRepo(coordRepo)
+	svc.SetSessionRepo(sessionRepo)
 
 	err := svc.CreateCoordinationTransfer(ctx, session, callsign, fromPos, toPos)
 	require.NoError(t, err)
@@ -719,17 +717,13 @@ func TestCreateCoordinationTransfer_ArrivalTaxiBayToTower_DoesNotMoveToLowerTaxi
 		CreateFn: func(_ context.Context, _ *models.Coordination) error { return nil },
 	}
 
-	mockServer := &testutil.MockServer{
-		CoordRepoVal: coordRepo,
-		SessionRepoVal: &testutil.MockSessionRepository{
-			GetByIDFn: func(_ context.Context, id int32) (*models.Session, error) {
-				assert.Equal(t, session, id)
-				return &models.Session{ID: session, Airport: "EKCH"}, nil
-			},
+	sessionRepo := &testutil.MockSessionRepository{
+		GetByIDFn: func(_ context.Context, id int32) (*models.Session, error) {
+			assert.Equal(t, session, id)
+			return &models.Session{ID: session, Airport: "EKCH"}, nil
 		},
 	}
 	hub := &testutil.MockFrontendHub{}
-	hub.SetServer(mockServer)
 
 	stripRepo := &testutil.MockStripRepository{
 		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
@@ -747,6 +741,8 @@ func TestCreateCoordinationTransfer_ArrivalTaxiBayToTower_DoesNotMoveToLowerTaxi
 
 	svc := NewStripService(stripRepo)
 	svc.SetFrontendHub(hub)
+	svc.SetCoordinationRepo(coordRepo)
+	svc.SetSessionRepo(sessionRepo)
 
 	err := svc.CreateCoordinationTransfer(ctx, session, callsign, fromPos, toPos)
 	require.NoError(t, err)
@@ -767,9 +763,7 @@ func TestCreateCoordinationTransfer_TaxiBayToNonTower_DoesNotMoveToLowerTaxiBay(
 		CreateFn: func(_ context.Context, _ *models.Coordination) error { return nil },
 	}
 
-	mockServer := &testutil.MockServer{CoordRepoVal: coordRepo}
 	hub := &testutil.MockFrontendHub{}
-	hub.SetServer(mockServer)
 
 	stripRepo := &testutil.MockStripRepository{
 		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
@@ -779,6 +773,7 @@ func TestCreateCoordinationTransfer_TaxiBayToNonTower_DoesNotMoveToLowerTaxiBay(
 
 	svc := NewStripService(stripRepo)
 	svc.SetFrontendHub(hub)
+	svc.SetCoordinationRepo(coordRepo)
 
 	err := svc.CreateCoordinationTransfer(ctx, session, callsign, fromPos, toPos)
 	require.NoError(t, err)
@@ -796,12 +791,11 @@ func TestCreateCoordinationTransfer_StripNotFound(t *testing.T) {
 	}
 
 	coordRepo := &testutil.MockCoordinationRepository{}
-	mockServer := &testutil.MockServer{CoordRepoVal: coordRepo}
 	hub := &testutil.MockFrontendHub{}
-	hub.SetServer(mockServer)
 
 	svc := NewStripService(stripRepo)
 	svc.SetFrontendHub(hub)
+	svc.SetCoordinationRepo(coordRepo)
 
 	err := svc.CreateCoordinationTransfer(ctx, 1, "UNKNOWN", "DEL_N", "GND_N")
 	require.Error(t, err)
@@ -833,9 +827,7 @@ func TestCreateCoordinationTransfer_AirborneBay_SendsEsHandover(t *testing.T) {
 		},
 	}
 
-	mockServer := &testutil.MockServer{CoordRepoVal: coordRepo, ControllerRepoVal: controllerRepo}
 	hub := &testutil.MockFrontendHub{}
-	hub.SetServer(mockServer)
 
 	esHub := &testutil.MockEuroscopeHub{}
 
@@ -848,6 +840,8 @@ func TestCreateCoordinationTransfer_AirborneBay_SendsEsHandover(t *testing.T) {
 	svc := NewStripService(stripRepo)
 	svc.SetFrontendHub(hub)
 	svc.SetEuroscopeHub(esHub)
+	svc.SetCoordinationRepo(coordRepo)
+	svc.SetControllerRepo(controllerRepo)
 
 	err := svc.CreateCoordinationTransfer(ctx, session, callsign, fromPos, toPos)
 	require.NoError(t, err)
@@ -873,9 +867,7 @@ func TestCreateCoordinationTransfer_NonAirborneBay_NoEsHandover(t *testing.T) {
 		CreateFn: func(_ context.Context, _ *models.Coordination) error { return nil },
 	}
 
-	mockServer := &testutil.MockServer{CoordRepoVal: coordRepo}
 	hub := &testutil.MockFrontendHub{}
-	hub.SetServer(mockServer)
 
 	esHub := &testutil.MockEuroscopeHub{}
 
@@ -888,6 +880,7 @@ func TestCreateCoordinationTransfer_NonAirborneBay_NoEsHandover(t *testing.T) {
 	svc := NewStripService(stripRepo)
 	svc.SetFrontendHub(hub)
 	svc.SetEuroscopeHub(esHub)
+	svc.SetCoordinationRepo(coordRepo)
 
 	err := svc.CreateCoordinationTransfer(ctx, session, callsign, fromPos, toPos)
 	require.NoError(t, err)
@@ -950,12 +943,11 @@ func TestAcceptCoordination_UpdatesOwner(t *testing.T) {
 		},
 	}
 
-	mockServer := &testutil.MockServer{CoordRepoVal: coordRepo}
 	hub := &testutil.MockFrontendHub{}
-	hub.SetServer(mockServer)
 
 	svc := NewStripService(stripRepo)
 	svc.SetFrontendHub(hub)
+	svc.SetCoordinationRepo(coordRepo)
 
 	err := svc.AcceptCoordination(ctx, session, callsign, assumingPos)
 	require.NoError(t, err)
@@ -1121,12 +1113,11 @@ func TestAcceptCoordination_NoCoordination(t *testing.T) {
 		},
 	}
 
-	mockServer := &testutil.MockServer{CoordRepoVal: coordRepo}
 	hub := &testutil.MockFrontendHub{}
-	hub.SetServer(mockServer)
 
 	svc := NewStripService(stripRepo)
 	svc.SetFrontendHub(hub)
+	svc.SetCoordinationRepo(coordRepo)
 
 	err := svc.AcceptCoordination(ctx, session, callsign, "GND_N")
 	require.NoError(t, err) // no coordination is not an error
@@ -1233,9 +1224,9 @@ func TestUpdateStand_TriggersRouteRecalculation(t *testing.T) {
 	}
 
 	hub := &testutil.MockFrontendHub{}
-	hub.SetServer(mockServer)
 	svc := NewStripService(stripRepo)
 	svc.SetFrontendHub(hub)
+	svc.SetRouteRecalculator(mockServer)
 
 	err := svc.UpdateStand(ctx, session, callsign, stand)
 	require.NoError(t, err)
@@ -1275,9 +1266,7 @@ func TestUpdateStand_StandChangeClearsStartReq(t *testing.T) {
 		},
 	}
 
-	mockServer := &testutil.MockServer{}
 	hub := &testutil.MockFrontendHub{}
-	hub.SetServer(mockServer)
 	svc := NewStripService(stripRepo)
 	svc.SetFrontendHub(hub)
 
@@ -1309,9 +1298,9 @@ func TestUpdateStand_NoRouteUpdateWhenStripNotFound(t *testing.T) {
 	}
 
 	hub := &testutil.MockFrontendHub{}
-	hub.SetServer(mockServer)
 	svc := NewStripService(stripRepo)
 	svc.SetFrontendHub(hub)
+	svc.SetRouteRecalculator(mockServer)
 
 	err := svc.UpdateStand(ctx, 1, "SAS999", "B5")
 	require.NoError(t, err)

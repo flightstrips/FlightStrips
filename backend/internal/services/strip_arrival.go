@@ -193,10 +193,10 @@ func (s *StripService) handleArrivalPositionUpdate(ctx context.Context, session 
 // HandleTrackingControllerChanged processes a tracking controller change event,
 // potentially accepting a coordination and moving the strip if it becomes airborne.
 func (s *StripService) HandleTrackingControllerChanged(ctx context.Context, session int32, callsign string, trackingController string) error {
-	if s.controllerRepo == nil {
+	if s.getControllerRepository() == nil {
 		return errors.New("controller repository not configured")
 	}
-	if s.coordRepo == nil {
+	if s.getCoordinationRepository() == nil {
 		return errors.New("coordination repository not configured")
 	}
 
@@ -263,11 +263,9 @@ func (s *StripService) HandleTrackingControllerChanged(ctx context.Context, sess
 	// work them again. For missed-approach TWR->APP assumptions, restore the strip to
 	// FINAL so TWR becomes the next controller again. Departures use the regular HIDDEN bay.
 	targetBay := shared.BAY_HIDDEN
-	if s.publisher != nil {
-		if srv := s.publisher.GetServer(); srv != nil {
-			if sess, sessErr := s.getCachedSession(ctx, session); sessErr == nil && sess != nil && strip.Destination == sess.Airport {
-				targetBay = shared.BAY_ARR_HIDDEN
-			}
+	if s.getSessionRepository() != nil {
+		if sess, sessErr := s.getCachedSession(ctx, session); sessErr == nil && sess != nil && strip.Destination == sess.Airport {
+			targetBay = shared.BAY_ARR_HIDDEN
 		}
 	}
 	if targetBay == shared.BAY_ARR_HIDDEN && coordFromPosition != "" && isMissedApproachReturn(coordFromPosition, assumingPosition) {

@@ -158,15 +158,19 @@ func main() {
 	tacticalStripRepo := postgres.NewTacticalStripRepository(dbpool)
 
 	// Initialize services
-	stripService := services.NewStripService(stripRepo)
+	stripService := services.NewStripService(
+		stripRepo,
+		services.WithTacticalStripRepository(tacticalStripRepo),
+		services.WithCoordinationStore(coordRepo),
+		services.WithControllerReader(controllerRepo),
+		services.WithSessionReader(sessionRepo),
+		services.WithSectorOwnerRepository(sectorRepo),
+	)
 	controllerService := services.NewControllerService(controllerRepo)
 	cdmService := cdm.NewCdmService(cdmClient, stripRepo, sessionRepo, controllerRepo)
 	ecfmpBaseURL := getEnv("ECFMP_BASE_URL", ecfmp.DefaultBaseURL)
 	ecfmpClient := ecfmp.NewClient(ecfmp.WithBaseURL(ecfmpBaseURL))
 
-	stripService.SetTacticalStripRepo(tacticalStripRepo)
-	stripService.SetCoordinationRepo(coordRepo)
-	stripService.SetControllerRepo(controllerRepo)
 	stripService.SetCdmService(cdmService)
 	cdmService.SetValidationReevaluator(stripService)
 
@@ -268,6 +272,7 @@ func main() {
 	slog.Info("CDM local calculation enabled", slog.String("rateUri", resolveURI(cdmCfg.RateUri)))
 
 	if pdcService != nil {
+		stripService.SetPdcService(pdcService)
 		pdcService.SetFrontendHub(frontendHub)
 		pdcService.SetEuroscopeHub(euroscopeHub)
 	}
@@ -276,7 +281,9 @@ func main() {
 
 	frontendHub.SetServer(fsServer)
 	euroscopeHub.SetServer(fsServer)
-	controllerService.SetServer(fsServer)
+	stripService.SetRouteRecalculator(fsServer)
+	controllerService.SetFrontendNotifier(frontendHub)
+	controllerService.SetSessionRecalculator(fsServer)
 	controllerService.SetStripService(stripService)
 
 	frontendUpgrader := websocket.NewConnectionUpgrader[pkgFrontend.EventType, *frontend.Client](frontendHub, authenticationService)

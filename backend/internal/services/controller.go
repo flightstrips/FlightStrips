@@ -14,23 +14,32 @@ import (
 
 // ControllerService owns all controller online/offline business logic.
 type ControllerService struct {
-	controllerRepo repository.ControllerRepository
-	server         shared.Server
-	stripService   shared.StripService
+	controllerRepo      repository.ControllerRepository
+	frontendNotifier    FrontendNotifier
+	sessionRecalculator SessionRecalculator
+	stripService        shared.StripService
 }
 
-func NewControllerService(controllerRepo repository.ControllerRepository) *ControllerService {
-	return &ControllerService{
+func NewControllerService(controllerRepo repository.ControllerRepository, options ...ControllerServiceOption) *ControllerService {
+	service := &ControllerService{
 		controllerRepo: controllerRepo,
 	}
-}
-
-func (cs *ControllerService) SetServer(server shared.Server) {
-	cs.server = server
+	for _, option := range options {
+		option(service)
+	}
+	return service
 }
 
 func (cs *ControllerService) SetStripService(stripService shared.StripService) {
 	cs.stripService = stripService
+}
+
+func (cs *ControllerService) SetFrontendNotifier(frontendNotifier FrontendNotifier) {
+	cs.frontendNotifier = frontendNotifier
+}
+
+func (cs *ControllerService) SetSessionRecalculator(sessionRecalculator SessionRecalculator) {
+	cs.sessionRecalculator = sessionRecalculator
 }
 
 // ControllerOnline handles all database mutations and orchestration for a
@@ -40,7 +49,6 @@ func (cs *ControllerService) ControllerOnline(ctx context.Context, session int32
 }
 
 func (cs *ControllerService) ControllerOnlineWithOptions(ctx context.Context, session int32, callsign, position, positionName string, options shared.ControllerOnlineOptions) (shared.ControllerOnlineResult, error) {
-	s := cs.server
 	controller, err := cs.controllerRepo.GetByCallsign(ctx, session, callsign)
 
 	// Case A: new controller (not in database).
@@ -112,7 +120,7 @@ func (cs *ControllerService) ControllerOnlineWithOptions(ctx context.Context, se
 		slog.String("callsign", callsign),
 		slog.String("position", position),
 		slog.String("trigger", "position_changed"))
-	changes, err := s.RecalculateSessionContext(ctx, session, true)
+	changes, err := cs.sessionRecalculator.RecalculateSessionContext(ctx, session, true)
 	if err != nil {
 		return shared.ControllerOnlineResult{}, err
 	}
@@ -151,8 +159,6 @@ func (cs *ControllerService) ControllerOnlineWithOptions(ctx context.Context, se
 // performOnlineOrchestration is the common path for a newly-created controller.
 // It auto-assumes cleared strips, then recalculates sectors, layouts, and routes as one session update.
 func (cs *ControllerService) performOnlineOrchestration(ctx context.Context, session int32, position, positionName string) (shared.ControllerOnlineResult, error) {
-	s := cs.server
-
 	if cs.stripService != nil {
 		if err := cs.stripService.AutoAssumeForControllerOnline(ctx, session, position); err != nil {
 			slog.ErrorContext(ctx, "Failed to auto-assume strips on controller online",
@@ -164,7 +170,7 @@ func (cs *ControllerService) performOnlineOrchestration(ctx context.Context, ses
 		slog.Int("session", int(session)),
 		slog.String("position", position),
 		slog.String("trigger", "new_controller"))
-	changes, err := s.RecalculateSessionContext(ctx, session, true)
+	changes, err := cs.sessionRecalculator.RecalculateSessionContext(ctx, session, true)
 	if err != nil {
 		return shared.ControllerOnlineResult{}, err
 	}
@@ -210,7 +216,9 @@ func (cs *ControllerService) ControllerOffline(ctx context.Context, session int3
 	// If the controller is not in the database, send the notification immediately.
 	if errors.Is(err, pgx.ErrNoRows) {
 		slog.DebugContext(ctx, "Controller going offline does not exist in database", slog.String("callsign", callsign))
-		cs.server.GetFrontendHub().SendControllerOffline(session, callsign, "", "")
+		if cs.frontendNotifier != nil {
+			cs.frontendNotifier.SendControllerOffline(session, callsign, "", "")
+		}
 		return shared.ControllerOfflineResult{ShouldScheduleTimer: false}, nil
 	}
 
@@ -219,7 +227,9 @@ func (cs *ControllerService) ControllerOffline(ctx context.Context, session int3
 	if configErr != nil {
 		// Unknown position — immediate offline handling (no timer).
 		_ = cs.controllerRepo.Delete(ctx, session, callsign)
-		cs.server.GetFrontendHub().SendControllerOffline(session, callsign, controller.Position, "")
+		if cs.frontendNotifier != nil {
+			cs.frontendNotifier.SendControllerOffline(session, callsign, controller.Position, "")
+		}
 		return shared.ControllerOfflineResult{ShouldScheduleTimer: false}, nil
 	}
 	positionName := posConfig.Name

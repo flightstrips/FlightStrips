@@ -73,17 +73,17 @@ func buildAssumeAfterMissedSvc(
 	}
 
 	hub := &testutil.MockFrontendHub{}
-	hub.SetServer(&testutil.MockServer{
-		CoordRepoVal: coordRepo,
+	routeRecalculator := &testutil.MockServer{
 		UpdateRouteForStripFn: func(_ string, _ int32, _ bool) error {
 			res.routeRecalcCount++
 			return nil
 		},
-	})
+	}
 
 	svc := NewStripService(stripRepo)
 	svc.SetFrontendHub(hub)
 	svc.SetCoordinationRepo(coordRepo)
+	svc.SetRouteRecalculator(routeRecalculator)
 
 	return svc, hub, res
 }
@@ -299,23 +299,24 @@ func buildTrackingChangedSvc(
 	}
 
 	hub := &testutil.MockFrontendHub{}
-	hub.SetServer(&testutil.MockServer{
-		CoordRepoVal: coordRepo,
-		SessionRepoVal: &testutil.MockSessionRepository{
-			GetByIDFn: func(_ context.Context, _ int32) (*models.Session, error) {
-				return &models.Session{ID: 1, Airport: airport}, nil
-			},
+	sessionRepo := &testutil.MockSessionRepository{
+		GetByIDFn: func(_ context.Context, _ int32) (*models.Session, error) {
+			return &models.Session{ID: 1, Airport: airport}, nil
 		},
+	}
+	routeRecalculator := &testutil.MockServer{
 		UpdateRouteForStripFn: func(_ string, _ int32, _ bool) error {
 			res.routeRecalcCount++
 			return nil
 		},
-	})
+	}
 
 	svc := NewStripService(stripRepo)
 	svc.SetFrontendHub(hub)
 	svc.SetCoordinationRepo(coordRepo)
 	svc.SetControllerRepo(controllerRepo)
+	svc.SetSessionRepo(sessionRepo)
+	svc.SetRouteRecalculator(routeRecalculator)
 
 	return svc, res
 }
@@ -387,23 +388,24 @@ func buildTrackingChangedSvcWithCoord(
 	}
 
 	hub := &testutil.MockFrontendHub{}
-	hub.SetServer(&testutil.MockServer{
-		CoordRepoVal: coordRepo,
-		SessionRepoVal: &testutil.MockSessionRepository{
-			GetByIDFn: func(_ context.Context, _ int32) (*models.Session, error) {
-				return &models.Session{ID: 1, Airport: airport}, nil
-			},
+	sessionRepo := &testutil.MockSessionRepository{
+		GetByIDFn: func(_ context.Context, _ int32) (*models.Session, error) {
+			return &models.Session{ID: 1, Airport: airport}, nil
 		},
+	}
+	routeRecalculator := &testutil.MockServer{
 		UpdateRouteForStripFn: func(_ string, _ int32, _ bool) error {
 			res.routeRecalcCount++
 			return nil
 		},
-	})
+	}
 
 	svc := NewStripService(stripRepo)
 	svc.SetFrontendHub(hub)
 	svc.SetCoordinationRepo(coordRepo)
 	svc.SetControllerRepo(controllerRepo)
+	svc.SetSessionRepo(sessionRepo)
+	svc.SetRouteRecalculator(routeRecalculator)
 
 	return svc, res
 }
@@ -470,9 +472,6 @@ func buildCoordinationReceivedSvc(
 	}
 
 	hub := &testutil.MockFrontendHub{}
-	hub.SetServer(&testutil.MockServer{
-		CoordRepoVal: coordRepo,
-	})
 	esHub := &testutil.MockEuroscopeHub{}
 
 	svc := NewStripService(stripRepo)
@@ -581,19 +580,17 @@ func TestHandleTrackingControllerChanged_TopDownDepartureStillHides(t *testing.T
 	}
 
 	hub := &testutil.MockFrontendHub{}
-	hub.SetServer(&testutil.MockServer{
-		CoordRepoVal: coordRepo,
-		SessionRepoVal: &testutil.MockSessionRepository{
-			GetByIDFn: func(_ context.Context, _ int32) (*models.Session, error) {
-				return &models.Session{ID: 1, Airport: "EKCH"}, nil
-			},
+	sessionRepo := &testutil.MockSessionRepository{
+		GetByIDFn: func(_ context.Context, _ int32) (*models.Session, error) {
+			return &models.Session{ID: 1, Airport: "EKCH"}, nil
 		},
-	})
+	}
 
 	svc := NewStripService(stripRepo)
 	svc.SetFrontendHub(hub)
 	svc.SetCoordinationRepo(coordRepo)
 	svc.SetControllerRepo(controllerRepo)
+	svc.SetSessionRepo(sessionRepo)
 
 	require.NoError(t, svc.HandleTrackingControllerChanged(context.Background(), 1, "SAS002", "EKCH_APP_ES"))
 	assert.Equal(t, shared.BAY_HIDDEN, res.updateBayArg)

@@ -216,9 +216,6 @@ func buildLandingDetectionSvc(
 	}
 
 	hub := &testutil.MockFrontendHub{}
-	if coordRepo != nil {
-		hub.SetServer(&testutil.MockServer{CoordRepoVal: coordRepo})
-	}
 
 	svc := NewStripService(stripRepo)
 	svc.SetFrontendHub(hub)
@@ -480,8 +477,6 @@ func TestHandleArrivalPositionUpdate_AutoAcceptsCoordinationOnTouchdown(t *testi
 	}
 
 	svc, hub, _ := buildLandingDetectionSvc(t, strip, coordRepo)
-	// AcceptCoordination also calls GetByStripID via the server's coord repo.
-	hub.SetServer(&testutil.MockServer{CoordRepoVal: coordRepo})
 
 	// Capture SetOwner to verify the strip is assumed by toPos.
 	svc.stripRepo.(*testutil.MockStripRepository).SetOwnerFn = func(_ context.Context, _ int32, _ string, o *string, _ int32) (int64, error) {
@@ -567,7 +562,6 @@ func TestHandleArrivalPositionUpdate_AutoAcceptsEsArrivalCoordinationWithAssumeO
 	}
 
 	hub := &testutil.MockFrontendHub{}
-	hub.SetServer(&testutil.MockServer{CoordRepoVal: coordRepo})
 	esHub := &testutil.MockEuroscopeHub{}
 
 	svc := NewStripService(stripRepo)
@@ -637,7 +631,6 @@ func TestAssumeStripCoordination_EsArrivalUsesAssumeOnly(t *testing.T) {
 	}
 
 	hub := &testutil.MockFrontendHub{}
-	hub.SetServer(&testutil.MockServer{CoordRepoVal: coordRepo})
 	esHub := &testutil.MockEuroscopeHub{}
 
 	svc := NewStripService(stripRepo)

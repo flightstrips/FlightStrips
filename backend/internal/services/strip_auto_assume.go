@@ -88,14 +88,12 @@ func (s *StripService) autoAssumeForClearedStrip(ctx context.Context, session in
 	}
 
 	if count == 1 {
-		if s.publisher != nil {
-			if server := s.publisher.GetServer(); server != nil {
-				if err := server.UpdateRouteForStripContext(ctx, callsign, session, false); err != nil {
-					slog.ErrorContext(ctx, "Error updating route after auto-assume", slog.String("callsign", callsign), slog.Any("error", err))
-				}
-				if refreshed, err := s.syncStripByCallsign(ctx, session, callsign); err == nil {
-					nextOwners = refreshed.NextOwners
-				}
+		if routeRecalculator := s.getRouteRecalculator(); routeRecalculator != nil {
+			if err := routeRecalculator.UpdateRouteForStripContext(ctx, callsign, session, false); err != nil {
+				slog.ErrorContext(ctx, "Error updating route after auto-assume", slog.String("callsign", callsign), slog.Any("error", err))
+			}
+			if refreshed, err := s.syncStripByCallsign(ctx, session, callsign); err == nil {
+				nextOwners = refreshed.NextOwners
 			}
 		}
 		s.publisher.SendOwnersUpdate(session, callsign, sqPosition, nextOwners, previousOwners, nil)
@@ -109,12 +107,7 @@ func (s *StripService) resolveControllerPositionByCid(ctx context.Context, cid s
 		return "", nil
 	}
 
-	controllerRepo := s.controllerRepo
-	if controllerRepo == nil && s.publisher != nil {
-		if server := s.publisher.GetServer(); server != nil {
-			controllerRepo = server.GetControllerRepository()
-		}
-	}
+	controllerRepo := s.getControllerRepository()
 	if controllerRepo == nil {
 		return "", nil
 	}
@@ -137,14 +130,7 @@ func (s *StripService) shouldAutoAssumeClearedDeparture(ctx context.Context, ses
 	if shared.IsArrivalBay(strip.Bay) {
 		return false
 	}
-	if s.publisher == nil {
-		return true
-	}
-	server := s.publisher.GetServer()
-	if server == nil {
-		return true
-	}
-	sessionRepo := server.GetSessionRepository()
+	sessionRepo := s.getSessionRepository()
 	if sessionRepo == nil {
 		return true
 	}
@@ -222,14 +208,12 @@ func (s *StripService) AutoAssumeForControllerOnline(ctx context.Context, sessio
 				slog.String("callsign", strip.Callsign),
 				slog.String("position", controllerPosition))
 			nextOwners := strip.NextOwners
-			if s.publisher != nil {
-				if server := s.publisher.GetServer(); server != nil {
-					if err := server.UpdateRouteForStripContext(ctx, strip.Callsign, session, false); err != nil {
-						slog.ErrorContext(ctx, "Error updating route after auto-assume on controller online", slog.String("callsign", strip.Callsign), slog.Any("error", err))
-					}
-					if refreshed, err := s.syncStripByCallsign(ctx, session, strip.Callsign); err == nil {
-						nextOwners = refreshed.NextOwners
-					}
+			if routeRecalculator := s.getRouteRecalculator(); routeRecalculator != nil {
+				if err := routeRecalculator.UpdateRouteForStripContext(ctx, strip.Callsign, session, false); err != nil {
+					slog.ErrorContext(ctx, "Error updating route after auto-assume on controller online", slog.String("callsign", strip.Callsign), slog.Any("error", err))
+				}
+				if refreshed, err := s.syncStripByCallsign(ctx, session, strip.Callsign); err == nil {
+					nextOwners = refreshed.NextOwners
 				}
 			}
 			s.publisher.SendOwnersUpdate(session, strip.Callsign, controllerPosition, nextOwners, strip.PreviousOwners, nil)

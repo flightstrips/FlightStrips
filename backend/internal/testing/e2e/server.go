@@ -116,14 +116,17 @@ func StartTestServer() (*TestServer, error) {
 	coordRepo := postgres.NewCoordinationRepository(dbpool)
 
 	// Initialize services
-	stripService := services.NewStripService(stripRepo)
+	stripService := services.NewStripService(
+		stripRepo,
+		services.WithCoordinationStore(coordRepo),
+		services.WithControllerReader(controllerRepo),
+		services.WithSessionReader(sessionRepo),
+		services.WithSectorOwnerRepository(sectorRepo),
+	)
 	controllerService := services.NewControllerService(controllerRepo)
 	cdmClient := cdm.NewClient(cdm.WithAPIKey(""))
 	cdmService := cdm.NewCdmService(cdmClient, stripRepo, sessionRepo, controllerRepo)
 	cdmService.SetValidationReevaluator(stripService)
-
-	stripService.SetCoordinationRepo(coordRepo)
-	stripService.SetControllerRepo(controllerRepo)
 
 	// Initialize hubs
 	frontendHub := frontend.NewHub(stripService, authService)
@@ -140,7 +143,9 @@ func StartTestServer() (*TestServer, error) {
 
 	frontendHub.SetServer(fsServer)
 	euroscopeHub.SetServer(fsServer)
-	controllerService.SetServer(fsServer)
+	stripService.SetRouteRecalculator(fsServer)
+	controllerService.SetFrontendNotifier(frontendHub)
+	controllerService.SetSessionRecalculator(fsServer)
 	controllerService.SetStripService(stripService)
 
 	// Create WebSocket upgraders

@@ -38,8 +38,8 @@ func (s *StripService) applyMissedApproachOwnerFix(ctx context.Context, session 
 		}
 	}
 
-	if srv := s.publisher.GetServer(); srv != nil {
-		_ = srv.UpdateRouteForStrip(callsign, session, true)
+	if routeRecalculator := s.getRouteRecalculator(); routeRecalculator != nil {
+		_ = routeRecalculator.UpdateRouteForStrip(callsign, session, true)
 	}
 }
 
@@ -64,13 +64,13 @@ func (s *StripService) MissedApproach(ctx context.Context, session int32, callsi
 	if s.publisher == nil {
 		return errors.New("missed approach: frontend hub not configured")
 	}
-	server := s.publisher.GetServer()
-	if server == nil {
-		return errors.New("missed approach: server not configured")
+	sessionRepo := s.getSessionRepository()
+	if sessionRepo == nil {
+		return errors.New("missed approach: session reader not configured")
 	}
 
 	// Get the active arrival runway from the session.
-	sessionObj, err := server.GetSessionRepository().GetByID(ctx, session)
+	sessionObj, err := sessionRepo.GetByID(ctx, session)
 	if err != nil {
 		return fmt.Errorf("missed approach: failed to get session: %w", err)
 	}
@@ -87,6 +87,15 @@ func (s *StripService) MissedApproach(ctx context.Context, session int32, callsi
 		return errors.New("missed approach: no approach controller configured for the active arrival runway")
 	}
 
+	controllerRepo := s.getControllerRepository()
+	if controllerRepo == nil {
+		return errors.New("missed approach: controller reader not configured")
+	}
+	coordRepo := s.getCoordinationRepository()
+	if coordRepo == nil {
+		return errors.New("missed approach: coordination store not configured")
+	}
+
 	// Convert the configured position name to its frequency.
 	posConfig, configErr := config.GetPositionByName(toPositionName)
 	if configErr != nil {
@@ -97,7 +106,7 @@ func (s *StripService) MissedApproach(ctx context.Context, session int32, callsi
 	// Look up online controllers to resolve the actual handover target.
 	// The configured controller may not be staffed, so fall back through the
 	// airborne_owners priority list (same order used for departure airborne transfers).
-	controllers, err := server.GetControllerRepository().ListBySession(ctx, session)
+	controllers, err := controllerRepo.ListBySession(ctx, session)
 	if err != nil {
 		return fmt.Errorf("missed approach: failed to list controllers: %w", err)
 	}
@@ -152,7 +161,7 @@ func (s *StripService) MissedApproach(ctx context.Context, session int32, callsi
 		FromPosition: position,
 		ToPosition:   toPosition,
 	}
-	if err := server.GetCoordinationRepository().Create(ctx, coord); err != nil {
+	if err := coordRepo.Create(ctx, coord); err != nil {
 		return fmt.Errorf("missed approach: failed to create coordination record: %w", err)
 	}
 	s.publisher.SendCoordinationTransfer(session, callsign, position, toPosition)

@@ -36,11 +36,8 @@ type syncRouteComputer interface {
 }
 
 func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, cid string, strip euroscope.Strip, airport string) error {
-	server := s.publisher.GetServer()
-	if server == nil {
-		return errors.New("server not configured")
-	}
-	routeComputer, _ := server.(syncRouteComputer)
+	routeRecalculator := s.getRouteRecalculator()
+	routeComputer := s.getRouteComputer()
 
 	syncState := shared.GetSyncState(ctx)
 
@@ -523,8 +520,10 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 	}
 
 	if routeNeedsUpdate {
-		if err := server.UpdateRouteForStripContext(ctx, strip.Callsign, session, false); err != nil {
-			slog.ErrorContext(ctx, "Error updating route for strip", slog.String("callsign", strip.Callsign), slog.Any("error", err))
+		if routeRecalculator != nil {
+			if err := routeRecalculator.UpdateRouteForStripContext(ctx, strip.Callsign, session, false); err != nil {
+				slog.ErrorContext(ctx, "Error updating route for strip", slog.String("callsign", strip.Callsign), slog.Any("error", err))
+			}
 		}
 	}
 

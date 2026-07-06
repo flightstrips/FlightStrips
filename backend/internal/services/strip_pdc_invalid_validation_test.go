@@ -16,21 +16,20 @@ import (
 
 func newPdcInvalidValidationFixture(stripRepo *testutil.MockStripRepository, departureRunways ...string) (*StripService, *testutil.MockFrontendHub) {
 	hub := &testutil.MockFrontendHub{}
-	hub.SetServer(&testutil.MockServer{
-		SessionRepoVal: &testutil.MockSessionRepository{
-			GetByIDFn: func(_ context.Context, id int32) (*models.Session, error) {
-				return &models.Session{
-					ID: id,
-					ActiveRunways: pkgModels.ActiveRunways{
-						DepartureRunways: departureRunways,
-					},
-				}, nil
-			},
+	sessionRepo := &testutil.MockSessionRepository{
+		GetByIDFn: func(_ context.Context, id int32) (*models.Session, error) {
+			return &models.Session{
+				ID: id,
+				ActiveRunways: pkgModels.ActiveRunways{
+					DepartureRunways: departureRunways,
+				},
+			}, nil
 		},
-	})
+	}
 
 	svc := NewStripService(stripRepo)
 	svc.SetFrontendHub(hub)
+	svc.SetSessionRepo(sessionRepo)
 	return svc, hub
 }
 

@@ -42,12 +42,11 @@ func buildLandingClearanceValidationSvc(t *testing.T, repo *testutil.MockStripRe
 			}, nil
 		},
 	}
-	server := &testutil.MockServer{SessionRepoVal: sessionRepo}
 	hub := &testutil.MockFrontendHub{}
-	hub.SetServer(server)
 
 	svc := NewStripService(repo)
 	svc.SetFrontendHub(hub)
+	svc.SetSessionRepo(sessionRepo)
 	return svc
 }
 

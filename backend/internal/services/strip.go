@@ -14,20 +14,28 @@ const (
 )
 
 type StripService struct {
-	stripRepo       repository.StripRepository
-	tacticalRepo    repository.TacticalStripRepository
-	sectorOwnerRepo repository.SectorOwnerRepository
-	publisher       shared.StripEventPublisher
-	esCommander     shared.EuroscopeStripCommander
-	coordRepo       repository.CoordinationRepository
-	controllerRepo  repository.ControllerRepository
-	cdmService      shared.CdmService
+	stripRepo         repository.StripRepository
+	tacticalRepo      repository.TacticalStripRepository
+	sectorOwnerRepo   repository.SectorOwnerRepository
+	publisher         shared.StripEventPublisher
+	esCommander       shared.EuroscopeStripCommander
+	coordRepo         CoordinationStore
+	controllerRepo    ControllerReader
+	sessionRepo       SessionReader
+	routeRecalculator RouteRecalculator
+	routeComputer     StripRouteComputer
+	pdcService        shared.PdcService
+	cdmService        shared.CdmService
 }
 
-func NewStripService(stripRepo repository.StripRepository) *StripService {
-	return &StripService{
+func NewStripService(stripRepo repository.StripRepository, options ...StripServiceOption) *StripService {
+	service := &StripService{
 		stripRepo: stripRepo,
 	}
+	for _, option := range options {
+		option(service)
+	}
+	return service
 }
 
 func (s *StripService) SetFrontendHub(publisher shared.StripEventPublisher) {
@@ -46,72 +54,64 @@ func (s *StripService) SetTacticalStripRepo(tacticalRepo repository.TacticalStri
 	s.tacticalRepo = tacticalRepo
 }
 
-func (s *StripService) SetCoordinationRepo(coordRepo repository.CoordinationRepository) {
+func (s *StripService) SetCoordinationRepo(coordRepo CoordinationStore) {
 	s.coordRepo = coordRepo
 }
 
-func (s *StripService) SetControllerRepo(controllerRepo repository.ControllerRepository) {
+func (s *StripService) SetControllerRepo(controllerRepo ControllerReader) {
 	s.controllerRepo = controllerRepo
 }
 
-func (s *StripService) getControllerRepository() repository.ControllerRepository {
-	if s.controllerRepo != nil {
-		return s.controllerRepo
-	}
-	if s.publisher == nil {
-		return nil
-	}
-	server := s.publisher.GetServer()
-	if server == nil {
-		return nil
-	}
-	return server.GetControllerRepository()
+func (s *StripService) SetSessionRepo(sessionRepo SessionReader) {
+	s.sessionRepo = sessionRepo
 }
 
-func (s *StripService) getSessionRepository() repository.SessionRepository {
-	if s.publisher == nil {
-		return nil
+func (s *StripService) SetRouteRecalculator(routeRecalculator RouteRecalculator) {
+	s.routeRecalculator = routeRecalculator
+	if routeComputer, ok := routeRecalculator.(StripRouteComputer); ok {
+		s.routeComputer = routeComputer
 	}
-	server := s.publisher.GetServer()
-	if server == nil {
-		return nil
-	}
-	return server.GetSessionRepository()
 }
 
-func (s *StripService) getServer() shared.Server {
-	if s.publisher == nil {
-		return nil
-	}
-	return s.publisher.GetServer()
+func (s *StripService) SetRouteComputer(routeComputer StripRouteComputer) {
+	s.routeComputer = routeComputer
 }
 
-func (s *StripService) getCoordinationRepository() repository.CoordinationRepository {
-	if s.coordRepo != nil {
-		return s.coordRepo
-	}
-	server := s.getServer()
-	if server == nil {
-		return nil
-	}
-	return server.GetCoordinationRepository()
+func (s *StripService) SetPdcService(pdcService shared.PdcService) {
+	s.pdcService = pdcService
+}
+
+func (s *StripService) getControllerRepository() ControllerReader {
+	return s.controllerRepo
+}
+
+func (s *StripService) getSessionRepository() SessionReader {
+	return s.sessionRepo
+}
+
+func (s *StripService) getCoordinationRepository() CoordinationStore {
+	return s.coordRepo
 }
 
 func (s *StripService) getPdcService() shared.PdcService {
-	server := s.getServer()
-	if server == nil {
-		return nil
-	}
-	return server.GetPdcService()
+	return s.pdcService
+}
+
+func (s *StripService) getRouteRecalculator() RouteRecalculator {
+	return s.routeRecalculator
+}
+
+func (s *StripService) getRouteComputer() StripRouteComputer {
+	return s.routeComputer
 }
 
 func (s *StripService) recalculateRouteForStrip(ctx context.Context, session int32, callsign string) error {
-	server := s.getServer()
-	if server == nil {
+	routeRecalculator := s.getRouteRecalculator()
+	if routeRecalculator == nil {
 		return nil
 	}
 
-	return server.UpdateRouteForStripContext(ctx, callsign, session, false)
+	return routeRecalculator.UpdateRouteForStripContext(ctx, callsign, session, false)
 }
 
 func (s *StripService) SetCdmService(cdmService shared.CdmService) {

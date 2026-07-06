@@ -8,8 +8,8 @@ import (
 	"FlightStrips/internal/models"
 	"FlightStrips/internal/shared"
 	"FlightStrips/internal/testutil"
-	pkgModels "FlightStrips/pkg/models"
 	euroscopeEvents "FlightStrips/pkg/events/euroscope"
+	pkgModels "FlightStrips/pkg/models"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -76,12 +76,7 @@ func TestHandleStripUpdate_EuroscopeClient_StandChange_NoControllerModified(t *t
 		},
 	}
 
-	mockServer := &testutil.MockServer{
-		SessionRepoVal: sessionRepo,
-	}
-
 	hub := &testutil.MockFrontendHub{}
-	hub.SetServer(mockServer)
 
 	if stripRepo.GetMaxSequenceInBayFn == nil {
 		stripRepo.GetMaxSequenceInBayFn = func(_ context.Context, _ int32, _ string) (int32, error) {
@@ -101,6 +96,7 @@ func TestHandleStripUpdate_EuroscopeClient_StandChange_NoControllerModified(t *t
 
 	svc := NewStripService(stripRepo)
 	svc.SetFrontendHub(hub)
+	svc.SetSessionRepo(sessionRepo)
 
 	esStrip := euroscopeEvents.Strip{
 		Callsign: callsign,

@@ -363,6 +363,90 @@ func TestSubmitWebPDCRequest_NoSIDOrVectorsRoutesToFaults(t *testing.T) {
 	assert.False(t, exists, "a faulted request must not start a confirmation timeout")
 }
 
+func TestPDCRequestOutcomes_MirrorCPDLCAndWeb(t *testing.T) {
+	cases := []struct {
+		name          string
+		callsign      string
+		remarks       string
+		seedFaults    bool
+		expectedState string
+	}{
+		{
+			name:          "manual review remarks",
+			callsign:      "SAS123",
+			remarks:       "NO SID",
+			expectedState: string(StateRequested),
+		},
+		{
+			name:          "validation faults",
+			callsign:      "DAT55",
+			seedFaults:    true,
+			expectedState: string(StateRequestedWithFaults),
+		},
+	}
+
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			runMirroredPDCRequestOutcome(t, models.PdcChannelCPDLC, tc.callsign, tc.remarks, tc.seedFaults, tc.expectedState)
+			runMirroredPDCRequestOutcome(t, models.PdcChannelWeb, tc.callsign, tc.remarks, tc.seedFaults, tc.expectedState)
+		})
+	}
+}
+
+func runMirroredPDCRequestOutcome(t *testing.T, channel, callsign, remarks string, seedFaults bool, expectedState string) {
+	t.Helper()
+
+	suite := &PDCIntegrationTestSuite{}
+	suite.SetupTest(t)
+
+	ctx := context.Background()
+	sessionID := int32(1)
+	if seedFaults {
+		testdata.SeedTestStripWithoutRouting(t, suite.queries, sessionID, callsign)
+	}
+
+	suite.mockFrontend.On("SendPdcStateChange", sessionID, callsign, expectedState, remarks).Return()
+
+	switch channel {
+	case models.PdcChannelCPDLC:
+		suite.mockHoppie.On("SendCPDLC", mock.Anything, mock.Anything, callsign, mock.MatchedBy(func(msg string) bool {
+			return strings.Contains(msg, "STANDBY")
+		})).Return(nil).Once()
+
+		payload := fmt.Sprintf("REQUEST PREDEP CLEARANCE %s A320 TO ESSA AT EKCH STAND A10 ATIS A", callsign)
+		if remarks != "" {
+			payload += "\n" + remarks
+		}
+		err := suite.service.ProcessPDCRequest(ctx, &IncomingMessage{
+			Type:       MsgPDCRequest,
+			From:       callsign,
+			To:         "EKCH",
+			Payload:    payload,
+			RawMessage: callsign + " EKCH telex {" + payload + "}",
+		}, sessionInformation{
+			id:       sessionID,
+			callsign: "EKCH",
+		})
+		require.NoError(t, err)
+	case models.PdcChannelWeb:
+		err := suite.service.SubmitWebPDCRequest(ctx, callsign, "B", "", remarks, "A320")
+		require.NoError(t, err)
+	default:
+		t.Fatalf("unhandled PDC channel %q", channel)
+	}
+
+	strip, err := suite.queries.GetStrip(ctx, database.GetStripParams{
+		Session:  sessionID,
+		Callsign: callsign,
+	})
+	require.NoError(t, err)
+
+	pdcData := readStripPdcData(t, strip)
+	assert.Equal(t, expectedState, pdcData.State)
+	assert.Equal(t, remarks, valueOrEmpty(pdcData.RequestRemarks))
+}
+
 func TestIssueClearance_ClearsManualReviewRequestRemarks(t *testing.T) {
 	t.Parallel()
 	suite := &PDCIntegrationTestSuite{}

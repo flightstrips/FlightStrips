@@ -55,7 +55,7 @@ func (s *StripService) maybeDropArrivalTrackingInEuroscope(ctx context.Context, 
 
 // UpdateAircraftPosition updates the aircraft position and moves the strip to a new bay if needed.
 func (s *StripService) UpdateAircraftPosition(ctx context.Context, session int32, callsign string, lat, lon float64, altitude int32, airport string) error {
-	existingStrip, err := s.stripRepo.GetByCallsign(ctx, session, callsign)
+	existingStrip, err := s.stripReader.GetByCallsign(ctx, session, callsign)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			slog.DebugContext(ctx, "Strip being updated does not exist in database", slog.String("callsign", callsign), slog.String("event", "FlightStripOffline"))
@@ -86,7 +86,7 @@ func (s *StripService) UpdateAircraftPosition(ctx context.Context, session int32
 		slog.String("computed_bay", bay),
 	)
 
-	_, err = s.stripRepo.UpdateAircraftPosition(ctx, session, callsign, &lat, &lon, &altitude, bay, nil)
+	_, err = s.fieldStore.UpdateAircraftPosition(ctx, session, callsign, &lat, &lon, &altitude, bay, nil)
 	if err != nil {
 		return err
 	}
@@ -165,7 +165,7 @@ func (s *StripService) handleArrivalPositionUpdate(ctx context.Context, session 
 		aldt := time.Now().UTC().Format("1504")
 		newCdm := strip.CdmData.Clone()
 		newCdm.Aldt = &aldt
-		if _, err := s.stripRepo.SetCdmData(ctx, session, callsign, newCdm); err != nil {
+		if _, err := s.cdmStore.SetCdmData(ctx, session, callsign, newCdm); err != nil {
 			slog.ErrorContext(ctx, logPrefix+": failed to set ALDT", slog.String("callsign", callsign), slog.Any("error", err))
 		} else {
 			slog.InfoContext(ctx, "ALDT recorded", slog.String("callsign", callsign), slog.String("aldt", aldt), slog.String("runway", runwayRegion.Name))
@@ -200,7 +200,7 @@ func (s *StripService) HandleTrackingControllerChanged(ctx context.Context, sess
 		return errors.New("coordination repository not configured")
 	}
 
-	if _, err := s.stripRepo.UpdateTrackingController(ctx, session, callsign, trackingController); err != nil {
+	if _, err := s.fieldStore.UpdateTrackingController(ctx, session, callsign, trackingController); err != nil {
 		return err
 	}
 	shared.AddDBOperations(ctx, 1)
@@ -272,7 +272,7 @@ func (s *StripService) HandleTrackingControllerChanged(ctx context.Context, sess
 		targetBay = shared.BAY_FINAL
 	}
 
-	count, err := s.stripRepo.UpdateBay(ctx, session, callsign, targetBay, nil)
+	count, err := s.fieldStore.UpdateBay(ctx, session, callsign, targetBay, nil)
 	if err != nil {
 		return err
 	}

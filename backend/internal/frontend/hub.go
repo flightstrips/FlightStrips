@@ -52,6 +52,7 @@ type cidDisconnectMessage struct {
 type Hub struct {
 	server                shared.Server
 	stripService          shared.StripService
+	validationService     validationStatusAcknowledger
 	stripUpdateService    frontendStripUpdateUseCase
 	authenticationService shared.AuthenticationService
 	clients               map[*Client]bool
@@ -87,6 +88,10 @@ type nextDisplayComputer interface {
 
 type nextDisplayBatchComputer interface {
 	ComputeNextDisplaysForStripsContext(ctx context.Context, strips []*internalModels.Strip, sessionId int32) error
+}
+
+type validationStatusAcknowledger interface {
+	AcknowledgeValidationStatus(ctx context.Context, session int32, callsign string, activationKey string, requestingPosition string) error
 }
 
 func NewHub(stripService shared.StripService, authenticationService shared.AuthenticationService) *Hub {
@@ -185,6 +190,10 @@ func (hub *Hub) SetServer(server shared.Server) {
 	hub.server = server
 	hub.snapshotBuilder = nil
 	hub.stripUpdateService = hub.newStripUpdateService()
+}
+
+func (hub *Hub) SetValidationService(validationService validationStatusAcknowledger) {
+	hub.validationService = validationService
 }
 
 func (hub *Hub) getStripUpdateService() frontendStripUpdateUseCase {

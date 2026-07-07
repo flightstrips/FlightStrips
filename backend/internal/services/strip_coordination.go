@@ -41,7 +41,7 @@ func (s *StripService) maybeAcceptOwnedEsArrivalCoordination(ctx context.Context
 }
 
 func (s *StripService) clearOwnerForOwnedEsArrivalCoordination(ctx context.Context, session int32, callsign string) error {
-	strip, err := s.stripRepo.GetByCallsign(ctx, session, callsign)
+	strip, err := s.stripReader.GetByCallsign(ctx, session, callsign)
 	if err != nil {
 		return err
 	}
@@ -70,7 +70,7 @@ func (s *StripService) CreateCoordinationTransfer(ctx context.Context, session i
 		return errors.New("coordination store not configured")
 	}
 
-	strip, err := s.stripRepo.GetByCallsign(ctx, session, callsign)
+	strip, err := s.stripReader.GetByCallsign(ctx, session, callsign)
 	if err != nil {
 		return err
 	}
@@ -131,7 +131,7 @@ func (s *StripService) CreateEsArrivalCoordination(ctx context.Context, session 
 		return errors.New("coordination store not configured")
 	}
 
-	strip, err := s.stripRepo.GetByCallsign(ctx, session, callsign)
+	strip, err := s.stripReader.GetByCallsign(ctx, session, callsign)
 	if err != nil {
 		return err
 	}
@@ -165,7 +165,7 @@ func (s *StripService) AcceptCoordination(ctx context.Context, session int32, ca
 		return errors.New("coordination store not configured")
 	}
 
-	strip, err := s.stripRepo.GetByCallsign(ctx, session, callsign)
+	strip, err := s.stripReader.GetByCallsign(ctx, session, callsign)
 	if err != nil {
 		return err
 	}
@@ -190,7 +190,7 @@ func (s *StripService) AcceptCoordination(ctx context.Context, session int32, ca
 
 	previousOwners := append(strip.PreviousOwners, coordination.FromPosition)
 
-	if err := s.stripRepo.SetNextAndPreviousOwners(ctx, session, callsign, nextOwners, previousOwners); err != nil {
+	if err := s.ownerStore.SetNextAndPreviousOwners(ctx, session, callsign, nextOwners, previousOwners); err != nil {
 		return err
 	}
 
@@ -213,7 +213,7 @@ func (s *StripService) AutoTransferAirborneStrip(ctx context.Context, session in
 		return errors.New("frontend hub not configured")
 	}
 
-	strip, err := s.stripRepo.GetByCallsign(ctx, session, callsign)
+	strip, err := s.stripReader.GetByCallsign(ctx, session, callsign)
 	if err != nil {
 		return err
 	}
@@ -392,7 +392,7 @@ func (s *StripService) HandleCoordinationReceived(ctx context.Context, session i
 		return errors.New("controller repository not configured")
 	}
 
-	strip, err := s.stripRepo.GetByCallsign(ctx, session, callsign)
+	strip, err := s.stripReader.GetByCallsign(ctx, session, callsign)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			slog.DebugContext(ctx, "Strip not found for coordination_received event", slog.String("callsign", callsign))
@@ -417,7 +417,7 @@ func (s *StripService) HandleCoordinationReceived(ctx context.Context, session i
 
 	originalBay := strip.Bay
 	if strip.Bay == shared.BAY_ARR_HIDDEN {
-		if _, err := s.stripRepo.UpdateBay(ctx, session, callsign, shared.BAY_FINAL, nil); err != nil {
+		if _, err := s.fieldStore.UpdateBay(ctx, session, callsign, shared.BAY_FINAL, nil); err != nil {
 			return err
 		}
 
@@ -478,7 +478,7 @@ func (s *StripService) AssumeStripCoordination(ctx context.Context, session int3
 		return errors.New("coordination repository not configured")
 	}
 
-	strip, err := s.stripRepo.GetByCallsign(ctx, session, callsign)
+	strip, err := s.stripReader.GetByCallsign(ctx, session, callsign)
 	if err != nil {
 		return err
 	}
@@ -500,7 +500,7 @@ func (s *StripService) AssumeStripCoordination(ctx context.Context, session int3
 					nextOwners = nextOwners[index+1:]
 				}
 
-				if err := s.stripRepo.SetNextAndPreviousOwners(ctx, session, callsign, nextOwners, strip.PreviousOwners); err != nil {
+				if err := s.ownerStore.SetNextAndPreviousOwners(ctx, session, callsign, nextOwners, strip.PreviousOwners); err != nil {
 					return err
 				}
 
@@ -548,7 +548,7 @@ func (s *StripService) AssumeStripCoordination(ctx context.Context, session int3
 			nextOwners = nextOwners[index+1:]
 		}
 
-		if err := s.stripRepo.SetNextAndPreviousOwners(ctx, session, callsign, nextOwners, strip.PreviousOwners); err != nil {
+		if err := s.ownerStore.SetNextAndPreviousOwners(ctx, session, callsign, nextOwners, strip.PreviousOwners); err != nil {
 			return err
 		}
 
@@ -566,7 +566,7 @@ func (s *StripService) AssumeStripCoordination(ctx context.Context, session int3
 			if err := routeRecalculator.UpdateRouteForStrip(callsign, session, false); err != nil {
 				slog.ErrorContext(ctx, "Error updating route after direct assume", slog.String("callsign", callsign), slog.Any("error", err))
 			}
-			if refreshed, err := s.stripRepo.GetByCallsign(ctx, session, callsign); err == nil {
+			if refreshed, err := s.stripReader.GetByCallsign(ctx, session, callsign); err == nil {
 				nextOwners = refreshed.NextOwners
 			}
 		}
@@ -587,7 +587,7 @@ func (s *StripService) AssumeStripCoordination(ctx context.Context, session int3
 //   - The displaced owner is removed from previous controllers.
 //   - Any controllers that appear in the recalculated next owners are removed from previous controllers.
 func (s *StripService) ForceAssumeStrip(ctx context.Context, session int32, callsign string, position string) error {
-	strip, err := s.stripRepo.GetByCallsign(ctx, session, callsign)
+	strip, err := s.stripReader.GetByCallsign(ctx, session, callsign)
 	if err != nil {
 		return err
 	}
@@ -637,7 +637,7 @@ func (s *StripService) ForceAssumeStrip(ctx context.Context, session int32, call
 		previousOwners = append(previousOwners, *strip.Owner)
 	}
 
-	if err := s.stripRepo.SetNextAndPreviousOwners(ctx, session, callsign, nextOwners, previousOwners); err != nil {
+	if err := s.ownerStore.SetNextAndPreviousOwners(ctx, session, callsign, nextOwners, previousOwners); err != nil {
 		return err
 	}
 
@@ -656,7 +656,7 @@ func (s *StripService) ForceAssumeStrip(ctx context.Context, session int32, call
 		_ = routeRecalculator.UpdateRouteForStrip(callsign, session, false)
 
 		// Re-read to pick up the recalculated NextOwners.
-		if updated, err := s.stripRepo.GetByCallsign(ctx, session, callsign); err == nil {
+		if updated, err := s.stripReader.GetByCallsign(ctx, session, callsign); err == nil {
 			nextOwners = updated.NextOwners
 		}
 	}
@@ -670,7 +670,7 @@ func (s *StripService) ForceAssumeStrip(ctx context.Context, session int32, call
 		}
 	}
 	if !slices.Equal(cleanedPrevious, previousOwners) {
-		if err := s.stripRepo.SetPreviousOwners(ctx, session, callsign, cleanedPrevious); err != nil {
+		if err := s.ownerStore.SetPreviousOwners(ctx, session, callsign, cleanedPrevious); err != nil {
 			return err
 		}
 		previousOwners = cleanedPrevious
@@ -710,7 +710,7 @@ func (s *StripService) CreateTagRequest(ctx context.Context, session int32, call
 		return errors.New("frontend hub not configured")
 	}
 
-	strip, err := s.stripRepo.GetByCallsign(ctx, session, callsign)
+	strip, err := s.stripReader.GetByCallsign(ctx, session, callsign)
 	if err != nil {
 		return err
 	}
@@ -755,7 +755,7 @@ func (s *StripService) AcceptTagRequest(ctx context.Context, session int32, call
 		return errors.New("frontend hub not configured")
 	}
 
-	strip, err := s.stripRepo.GetByCallsign(ctx, session, callsign)
+	strip, err := s.stripReader.GetByCallsign(ctx, session, callsign)
 	if err != nil {
 		return err
 	}
@@ -805,7 +805,7 @@ func (s *StripService) AcceptTagRequest(ctx context.Context, session int32, call
 		previousOwners = append(previousOwners, ownerPosition)
 	}
 
-	if err := s.stripRepo.SetNextAndPreviousOwners(ctx, session, callsign, nextOwners, previousOwners); err != nil {
+	if err := s.ownerStore.SetNextAndPreviousOwners(ctx, session, callsign, nextOwners, previousOwners); err != nil {
 		return err
 	}
 
@@ -821,7 +821,7 @@ func (s *StripService) AcceptTagRequest(ctx context.Context, session int32, call
 	if routeRecalculator := s.getRouteRecalculator(); routeRecalculator != nil {
 		_ = routeRecalculator.UpdateRouteForStrip(callsign, session, false)
 
-		if updated, err := s.stripRepo.GetByCallsign(ctx, session, callsign); err == nil {
+		if updated, err := s.stripReader.GetByCallsign(ctx, session, callsign); err == nil {
 			nextOwners = updated.NextOwners
 		}
 	}
@@ -834,7 +834,7 @@ func (s *StripService) AcceptTagRequest(ctx context.Context, session int32, call
 		}
 	}
 	if !slices.Equal(cleanedPrevious, previousOwners) {
-		if err := s.stripRepo.SetPreviousOwners(ctx, session, callsign, cleanedPrevious); err != nil {
+		if err := s.ownerStore.SetPreviousOwners(ctx, session, callsign, cleanedPrevious); err != nil {
 			return err
 		}
 		previousOwners = cleanedPrevious
@@ -870,7 +870,7 @@ func (s *StripService) CancelCoordinationTransfer(ctx context.Context, session i
 
 // FreeStrip releases ownership of a strip and notifies all frontend clients.
 func (s *StripService) FreeStrip(ctx context.Context, session int32, callsign string, position string) error {
-	strip, err := s.stripRepo.GetByCallsign(ctx, session, callsign)
+	strip, err := s.stripReader.GetByCallsign(ctx, session, callsign)
 	if err != nil {
 		return err
 	}
@@ -881,7 +881,7 @@ func (s *StripService) FreeStrip(ctx context.Context, session int32, callsign st
 
 	previousOwners := append(strip.PreviousOwners, position)
 
-	if err := s.stripRepo.SetPreviousOwners(ctx, session, callsign, previousOwners); err != nil {
+	if err := s.ownerStore.SetPreviousOwners(ctx, session, callsign, previousOwners); err != nil {
 		return err
 	}
 

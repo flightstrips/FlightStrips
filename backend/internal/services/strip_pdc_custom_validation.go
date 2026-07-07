@@ -82,7 +82,7 @@ func (s *StripService) applyPdcCustomValidation(ctx context.Context, session int
 		if !isPdcCustomValidation(current) {
 			return nil
 		}
-		if err := s.stripRepo.ClearValidationStatus(ctx, session, strip.Callsign); err != nil {
+		if err := s.validationStore.ClearValidationStatus(ctx, session, strip.Callsign); err != nil {
 			return err
 		}
 		shared.AddDBOperations(ctx, 1)
@@ -111,7 +111,7 @@ func (s *StripService) applyPdcCustomValidation(ctx context.Context, session int
 		return nil
 	}
 
-	if err := s.stripRepo.SetValidationStatus(ctx, session, strip.Callsign, desired); err != nil {
+	if err := s.validationStore.SetValidationStatus(ctx, session, strip.Callsign, desired); err != nil {
 		return err
 	}
 	shared.AddDBOperations(ctx, 1)

@@ -189,7 +189,7 @@ func (s *StripService) ReevaluateLandingClearanceValidationsForSession(ctx conte
 		if candidate != nil && strip.Callsign == candidate.Callsign {
 			continue
 		}
-		if err := s.stripRepo.ClearValidationStatus(ctx, session, strip.Callsign); err != nil {
+		if err := s.validationStore.ClearValidationStatus(ctx, session, strip.Callsign); err != nil {
 			return err
 		}
 		shared.AddDBOperations(ctx, 1)
@@ -199,7 +199,7 @@ func (s *StripService) ReevaluateLandingClearanceValidationsForSession(ctx conte
 
 	if candidate == nil || !landingClearanceValidationApplies(candidate, activeArrivalRunways) {
 		if candidate != nil && isLandingClearanceValidation(candidate.ValidationStatus) {
-			if err := s.stripRepo.ClearValidationStatus(ctx, session, candidate.Callsign); err != nil {
+			if err := s.validationStore.ClearValidationStatus(ctx, session, candidate.Callsign); err != nil {
 				return err
 			}
 			shared.AddDBOperations(ctx, 1)
@@ -222,7 +222,7 @@ func (s *StripService) ReevaluateLandingClearanceValidationsForSession(ctx conte
 		return nil
 	}
 
-	if err := s.stripRepo.SetValidationStatus(ctx, session, candidate.Callsign, desired); err != nil {
+	if err := s.validationStore.SetValidationStatus(ctx, session, candidate.Callsign, desired); err != nil {
 		return err
 	}
 	shared.AddDBOperations(ctx, 1)

@@ -753,7 +753,10 @@ func handleAcknowledgeValidationStatus(ctx context.Context, client *Client, mess
 	if err := message.JsonUnmarshal(&req); err != nil {
 		return err
 	}
-	return client.hub.stripService.AcknowledgeValidationStatus(ctx, client.session, req.Callsign, req.ActivationKey, client.position)
+	if client.hub.validationService == nil {
+		return errors.New("acknowledge_validation_status: validation service is not configured")
+	}
+	return client.hub.validationService.AcknowledgeValidationStatus(ctx, client.session, req.Callsign, req.ActivationKey, client.position)
 }
 
 func handleSendPrivateMessage(ctx context.Context, client *Client, message Message) error {

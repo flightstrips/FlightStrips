@@ -75,3 +75,59 @@ func WithCdmService(cdmService shared.CdmService) StripServiceOption {
 		s.cdmService = cdmService
 	}
 }
+
+func WithStripLifecycleStore(store StripLifecycleStore) StripServiceOption {
+	return func(s *StripService) {
+		if store != nil {
+			s.lifecycleStore = store
+		}
+	}
+}
+
+func WithStripOrderingStore(store StripOrderingStore) StripServiceOption {
+	return func(s *StripService) {
+		if store != nil {
+			s.orderingStore = store
+		}
+	}
+}
+
+func WithStripFieldStore(store StripFieldStore) StripServiceOption {
+	return func(s *StripService) {
+		if store != nil {
+			s.fieldStore = store
+		}
+	}
+}
+
+func WithStripOwnerStore(store StripOwnerStore) StripServiceOption {
+	return func(s *StripService) {
+		if store != nil {
+			s.ownerStore = store
+		}
+	}
+}
+
+func WithStripCdmStore(store StripCdmStore) StripServiceOption {
+	return func(s *StripService) {
+		if store != nil {
+			s.cdmStore = store
+		}
+	}
+}
+
+func WithStripValidationStatusStore(store StripValidationStatusStore) StripServiceOption {
+	return func(s *StripService) {
+		if store != nil {
+			s.validationStore = store
+		}
+	}
+}
+
+func WithStripManualFplStore(store StripManualFplStore) StripServiceOption {
+	return func(s *StripService) {
+		if store != nil {
+			s.manualFplStore = store
+		}
+	}
+}

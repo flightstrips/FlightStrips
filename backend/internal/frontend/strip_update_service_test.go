@@ -25,6 +25,33 @@ func (p *recordingStripUpdatePublisher) SendStripUpdate(session int32, callsign 
 	p.calls++
 }
 
+type stripUpdateStoreFake struct {
+	getByCallsignFn                 func(ctx context.Context, session int32, callsign string) (*models.Strip, error)
+	appendControllerModifiedFieldFn func(ctx context.Context, session int32, callsign string, fieldName string) error
+	updateRunwayFn                  func(ctx context.Context, session int32, callsign string, runway *string, version *int32) (int64, error)
+}
+
+func (f *stripUpdateStoreFake) GetByCallsign(ctx context.Context, session int32, callsign string) (*models.Strip, error) {
+	if f.getByCallsignFn == nil {
+		panic("unexpected call to stripUpdateStoreFake.GetByCallsign")
+	}
+	return f.getByCallsignFn(ctx, session, callsign)
+}
+
+func (f *stripUpdateStoreFake) AppendControllerModifiedField(ctx context.Context, session int32, callsign string, fieldName string) error {
+	if f.appendControllerModifiedFieldFn == nil {
+		panic("unexpected call to stripUpdateStoreFake.AppendControllerModifiedField")
+	}
+	return f.appendControllerModifiedFieldFn(ctx, session, callsign, fieldName)
+}
+
+func (f *stripUpdateStoreFake) UpdateRunway(ctx context.Context, session int32, callsign string, runway *string, version *int32) (int64, error) {
+	if f.updateRunwayFn == nil {
+		panic("unexpected call to stripUpdateStoreFake.UpdateRunway")
+	}
+	return f.updateRunwayFn(ctx, session, callsign, runway, version)
+}
+
 type recordingStripUpdateEuroscopeSender struct {
 	runways          []string
 	clearedAltitudes []int32
@@ -60,8 +87,8 @@ func TestFrontendStripUpdateService_RunwayChangePersistsSelectedRunway(t *testin
 	var updatedRunway *string
 	var markedField string
 
-	stripRepo := &testutil.MockStripRepository{
-		GetByCallsignFn: func(_ context.Context, gotSession int32, gotCallsign string) (*models.Strip, error) {
+	stripRepo := &stripUpdateStoreFake{
+		getByCallsignFn: func(_ context.Context, gotSession int32, gotCallsign string) (*models.Strip, error) {
 			assert.Equal(t, session, gotSession)
 			assert.Equal(t, callsign, gotCallsign)
 			return &models.Strip{
@@ -70,14 +97,14 @@ func TestFrontendStripUpdateService_RunwayChangePersistsSelectedRunway(t *testin
 				Runway:   &currentRunway,
 			}, nil
 		},
-		UpdateRunwayFn: func(_ context.Context, gotSession int32, gotCallsign string, runway *string, version *int32) (int64, error) {
+		updateRunwayFn: func(_ context.Context, gotSession int32, gotCallsign string, runway *string, version *int32) (int64, error) {
 			assert.Equal(t, session, gotSession)
 			assert.Equal(t, callsign, gotCallsign)
 			assert.Nil(t, version)
 			updatedRunway = runway
 			return 1, nil
 		},
-		AppendControllerModifiedFieldFn: func(_ context.Context, gotSession int32, gotCallsign string, field string) error {
+		appendControllerModifiedFieldFn: func(_ context.Context, gotSession int32, gotCallsign string, field string) error {
 			assert.Equal(t, session, gotSession)
 			assert.Equal(t, callsign, gotCallsign)
 			markedField = field
@@ -124,8 +151,8 @@ func TestFrontendStripUpdateService_EobtChangeTriggersCdmRecalculation(t *testin
 
 	var handledEobt string
 
-	stripRepo := &testutil.MockStripRepository{
-		GetByCallsignFn: func(_ context.Context, gotSession int32, gotCallsign string) (*models.Strip, error) {
+	stripRepo := &stripUpdateStoreFake{
+		getByCallsignFn: func(_ context.Context, gotSession int32, gotCallsign string) (*models.Strip, error) {
 			assert.Equal(t, session, gotSession)
 			assert.Equal(t, callsign, gotCallsign)
 			return &models.Strip{
@@ -198,8 +225,8 @@ func TestFrontendStripUpdateService_OwnerCanUpdateRemarksAndAircraftInfo(t *test
 	updatedRemarks := "REG/OYABC PBN/A1B1C1D1S1S2"
 	updatedAircraftInfo := "B738/M-SDE2FGHIWYR/LB1"
 
-	stripRepo := &testutil.MockStripRepository{
-		GetByCallsignFn: func(_ context.Context, gotSession int32, gotCallsign string) (*models.Strip, error) {
+	stripRepo := &stripUpdateStoreFake{
+		getByCallsignFn: func(_ context.Context, gotSession int32, gotCallsign string) (*models.Strip, error) {
 			assert.Equal(t, session, gotSession)
 			assert.Equal(t, callsign, gotCallsign)
 			return &models.Strip{
@@ -252,8 +279,8 @@ func TestFrontendStripUpdateService_NonOwnerCannotUpdateRemarksOrAircraftInfo(t 
 	updatedRemarks := "PBN/A1"
 	updatedAircraftInfo := "B738/M-SR"
 
-	stripRepo := &testutil.MockStripRepository{
-		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+	stripRepo := &stripUpdateStoreFake{
+		getByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
 			return &models.Strip{
 				Callsign: callsign,
 				Session:  session,
@@ -298,18 +325,18 @@ func TestFrontendStripUpdateService_RunwayChangeReevaluatesDepartureValidation(t
 	var reevaluatedPublish bool
 	var reevaluatedForce bool
 
-	stripRepo := &testutil.MockStripRepository{
-		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+	stripRepo := &stripUpdateStoreFake{
+		getByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
 			return &models.Strip{
 				Callsign: callsign,
 				Session:  session,
 				Runway:   &currentRunway,
 			}, nil
 		},
-		UpdateRunwayFn: func(_ context.Context, _ int32, _ string, _ *string, _ *int32) (int64, error) {
+		updateRunwayFn: func(_ context.Context, _ int32, _ string, _ *string, _ *int32) (int64, error) {
 			return 1, nil
 		},
-		AppendControllerModifiedFieldFn: func(_ context.Context, _ int32, _ string, _ string) error {
+		appendControllerModifiedFieldFn: func(_ context.Context, _ int32, _ string, _ string) error {
 			return nil
 		},
 	}
@@ -362,8 +389,8 @@ func TestFrontendStripUpdateService_SidChangeReevaluatesPdcInvalidValidationUsin
 	var reevaluatedPublish bool
 	var reevaluatedForce bool
 
-	stripRepo := &testutil.MockStripRepository{
-		GetByCallsignFn: func(_ context.Context, gotSession int32, gotCallsign string) (*models.Strip, error) {
+	stripRepo := &stripUpdateStoreFake{
+		getByCallsignFn: func(_ context.Context, gotSession int32, gotCallsign string) (*models.Strip, error) {
 			assert.Equal(t, session, gotSession)
 			assert.Equal(t, callsign, gotCallsign)
 			return &models.Strip{
@@ -374,7 +401,7 @@ func TestFrontendStripUpdateService_SidChangeReevaluatesPdcInvalidValidationUsin
 				PdcState: "REQUESTED_WITH_FAULTS",
 			}, nil
 		},
-		AppendControllerModifiedFieldFn: func(_ context.Context, gotSession int32, gotCallsign string, field string) error {
+		appendControllerModifiedFieldFn: func(_ context.Context, gotSession int32, gotCallsign string, field string) error {
 			assert.Equal(t, session, gotSession)
 			assert.Equal(t, callsign, gotCallsign)
 			markedField = field
@@ -443,8 +470,8 @@ func TestFrontendStripUpdateService_StandChangeTriggersUpdateStand(t *testing.T)
 	var updateStandValue string
 	var markedField string
 
-	stripRepo := &testutil.MockStripRepository{
-		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+	stripRepo := &stripUpdateStoreFake{
+		getByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
 			return &models.Strip{
 				Callsign: callsign,
 				Session:  session,
@@ -452,7 +479,7 @@ func TestFrontendStripUpdateService_StandChangeTriggersUpdateStand(t *testing.T)
 				Stand:    &currentStand,
 			}, nil
 		},
-		AppendControllerModifiedFieldFn: func(_ context.Context, _ int32, _ string, field string) error {
+		appendControllerModifiedFieldFn: func(_ context.Context, _ int32, _ string, field string) error {
 			markedField = field
 			return nil
 		},
@@ -501,8 +528,8 @@ func TestFrontendStripUpdateService_ValueMatchedRunwayAltitudeAndHeadingAreNoOps
 	altitude := int32(5000)
 	heading := int32(220)
 
-	stripRepo := &testutil.MockStripRepository{
-		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+	stripRepo := &stripUpdateStoreFake{
+		getByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
 			return &models.Strip{
 				Callsign:        callsign,
 				Session:         session,
@@ -554,14 +581,14 @@ func TestFrontendStripUpdateService_NilStoredAltitudeAndHeadingStillForwardExpli
 
 	var markedFields []string
 
-	stripRepo := &testutil.MockStripRepository{
-		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+	stripRepo := &stripUpdateStoreFake{
+		getByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
 			return &models.Strip{
 				Callsign: callsign,
 				Session:  session,
 			}, nil
 		},
-		AppendControllerModifiedFieldFn: func(_ context.Context, _ int32, _ string, fieldName string) error {
+		appendControllerModifiedFieldFn: func(_ context.Context, _ int32, _ string, fieldName string) error {
 			markedFields = append(markedFields, fieldName)
 			return nil
 		},

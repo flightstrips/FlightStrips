@@ -64,7 +64,7 @@ func (s *StripService) needsRecalculation(prevOrder, nextOrder int32) bool {
 
 // updateStripSequence updates the sequence of a single strip in the database.
 func (s *StripService) updateStripSequence(ctx context.Context, session int32, callsign string, sequence int32, bay string, sendNotification bool) error {
-	_, err := s.stripRepo.UpdateBayAndSequence(ctx, session, callsign, bay, sequence)
+	_, err := s.orderingStore.UpdateBayAndSequence(ctx, session, callsign, bay, sequence)
 	if err != nil {
 		return fmt.Errorf("failed to update strip sequence: %w", err)
 	}
@@ -134,7 +134,7 @@ func (s *StripService) nextSequenceAtEndOfBay(ctx context.Context, session int32
 	if s.tacticalRepo != nil {
 		maxInBay, err = s.tacticalRepo.GetMaxSequenceInBayUnified(ctx, session, bay)
 	} else {
-		maxInBay, err = s.stripRepo.GetMaxSequenceInBay(ctx, session, bay)
+		maxInBay, err = s.orderingStore.GetMaxSequenceInBay(ctx, session, bay)
 	}
 	if err != nil {
 		return 0, fmt.Errorf("failed to get max sequence in bay: %w", err)
@@ -222,7 +222,7 @@ func (s *StripService) resolveRefSequence(ctx context.Context, session int32, ba
 		if ref.Callsign == nil {
 			return 0, fmt.Errorf("flight strip ref missing callsign")
 		}
-		return s.stripRepo.GetSequence(ctx, session, *ref.Callsign, bay)
+		return s.orderingStore.GetSequence(ctx, session, *ref.Callsign, bay)
 	case "tactical":
 		if ref.ID == nil {
 			return 0, fmt.Errorf("tactical strip ref missing id")
@@ -259,7 +259,7 @@ func (s *StripService) MoveStripBetween(ctx context.Context, session int32, call
 			next = &nextSeq
 		}
 	} else {
-		nextSeq, err := s.stripRepo.GetNextSequence(ctx, session, bay, prev)
+		nextSeq, err := s.orderingStore.GetNextSequence(ctx, session, bay, prev)
 		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 			return fmt.Errorf("failed to get next sequence: %w", err)
 		} else if err == nil {
@@ -344,7 +344,7 @@ func (s *StripService) recalculateAllStripSequences(ctx context.Context, session
 	}
 
 	// Fetch sequences for both tables
-	flightSeqs, err := s.stripRepo.ListSequences(ctx, session, bay)
+	flightSeqs, err := s.orderingStore.ListSequences(ctx, session, bay)
 	if err != nil {
 		return fmt.Errorf("failed to list flight strip sequences: %w", err)
 	}
@@ -392,7 +392,7 @@ func (s *StripService) recalculateAllStripSequences(ctx context.Context, session
 	}
 
 	if len(newFlightCallsigns) > 0 {
-		if err := s.stripRepo.UpdateSequenceBulk(ctx, session, newFlightCallsigns, newFlightSeqs); err != nil {
+		if err := s.orderingStore.UpdateSequenceBulk(ctx, session, newFlightCallsigns, newFlightSeqs); err != nil {
 			return fmt.Errorf("failed to bulk update flight strip sequences during recalc: %w", err)
 		}
 		s.sendBulkSequenceUpdate(session, newFlightCallsigns, newFlightSeqs, bay)
@@ -402,12 +402,12 @@ func (s *StripService) recalculateAllStripSequences(ctx context.Context, session
 }
 
 func (s *StripService) recalculateFlightStripsOnly(ctx context.Context, session int32, bay string) error {
-	err := s.stripRepo.RecalculateSequences(ctx, session, bay, InitialOrderSpacing)
+	err := s.orderingStore.RecalculateSequences(ctx, session, bay, InitialOrderSpacing)
 	if err != nil {
 		return fmt.Errorf("failed to recalculate strip sequences: %w", err)
 	}
 
-	sequences, err := s.stripRepo.ListSequences(ctx, session, bay)
+	sequences, err := s.orderingStore.ListSequences(ctx, session, bay)
 	if err != nil {
 		return fmt.Errorf("failed to list strip sequences: %w", err)
 	}

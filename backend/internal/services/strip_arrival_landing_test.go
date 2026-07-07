@@ -479,7 +479,7 @@ func TestHandleArrivalPositionUpdate_AutoAcceptsCoordinationOnTouchdown(t *testi
 	svc, hub, _ := buildLandingDetectionSvc(t, strip, coordRepo)
 
 	// Capture SetOwner to verify the strip is assumed by toPos.
-	svc.stripRepo.(*testutil.MockStripRepository).SetOwnerFn = func(_ context.Context, _ int32, _ string, o *string, _ int32) (int64, error) {
+	svc.ownerStore.(*testutil.MockStripRepository).SetOwnerFn = func(_ context.Context, _ int32, _ string, o *string, _ int32) (int64, error) {
 		ownerSet = o
 		return 1, nil
 	}

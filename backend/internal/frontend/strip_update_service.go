@@ -44,7 +44,7 @@ type frontendStripUpdateEuroscopeSender interface {
 }
 
 type FrontendStripUpdateService struct {
-	stripRepo            repository.StripRepository
+	stripRepo            FrontendStripUpdateStore
 	sessionRepo          repository.SessionRepository
 	euroscopeSender      frontendStripUpdateEuroscopeSender
 	cdmService           shared.CdmService
@@ -55,7 +55,7 @@ type FrontendStripUpdateService struct {
 }
 
 func NewFrontendStripUpdateService(
-	stripRepo repository.StripRepository,
+	stripRepo FrontendStripUpdateStore,
 	sessionRepo repository.SessionRepository,
 	euroscopeSender frontendStripUpdateEuroscopeSender,
 	cdmService shared.CdmService,

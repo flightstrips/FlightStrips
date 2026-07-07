@@ -153,7 +153,7 @@ func (s *StripService) applyDuplicateSquawkValidationState(ctx context.Context, 
 		if !isDuplicateSquawkValidation(current) {
 			return nil
 		}
-		if err := s.stripRepo.ClearValidationStatus(ctx, session, strip.Callsign); err != nil {
+		if err := s.validationStore.ClearValidationStatus(ctx, session, strip.Callsign); err != nil {
 			return err
 		}
 		shared.AddDBOperations(ctx, 1)
@@ -182,7 +182,7 @@ func (s *StripService) applyDuplicateSquawkValidationState(ctx context.Context, 
 		return nil
 	}
 
-	if err := s.stripRepo.SetValidationStatus(ctx, session, strip.Callsign, desired); err != nil {
+	if err := s.validationStore.SetValidationStatus(ctx, session, strip.Callsign, desired); err != nil {
 		return err
 	}
 	shared.AddDBOperations(ctx, 1)
@@ -453,7 +453,7 @@ func (s *StripService) reevaluateStoredSquawkValidation(ctx context.Context, ses
 }
 
 func (s *StripService) setOwnerAndReevaluateDuplicateSquawkValidation(ctx context.Context, session int32, callsign string, owner *string, version int32) (int64, error) {
-	count, err := s.stripRepo.SetOwner(ctx, session, callsign, owner, version)
+	count, err := s.ownerStore.SetOwner(ctx, session, callsign, owner, version)
 	if err != nil || count != 1 {
 		return count, err
 	}

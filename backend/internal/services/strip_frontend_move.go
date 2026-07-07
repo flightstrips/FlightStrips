@@ -36,7 +36,7 @@ func (s *StripService) MoveFrontendStrip(ctx context.Context, session int32, cal
 		return errors.New("invalid bay value: " + targetBay)
 	}
 
-	strip, err := s.stripRepo.GetByCallsign(ctx, session, callsign)
+	strip, err := s.stripReader.GetByCallsign(ctx, session, callsign)
 	if err != nil {
 		return err
 	}

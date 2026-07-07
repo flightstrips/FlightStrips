@@ -17,7 +17,14 @@ const (
 )
 
 type StripService struct {
-	stripRepo         repository.StripRepository
+	stripReader       StripReader
+	lifecycleStore    StripLifecycleStore
+	orderingStore     StripOrderingStore
+	fieldStore        StripFieldStore
+	ownerStore        StripOwnerStore
+	cdmStore          StripCdmStore
+	validationStore   StripValidationStatusStore
+	manualFplStore    StripManualFplStore
 	tacticalRepo      repository.TacticalStripRepository
 	sectorOwnerRepo   repository.SectorOwnerRepository
 	publisher         shared.StripEventPublisher
@@ -31,14 +38,40 @@ type StripService struct {
 	cdmService        shared.CdmService
 }
 
-func NewStripService(stripRepo repository.StripRepository, options ...StripServiceOption) *StripService {
-	service := &StripService{
-		stripRepo: stripRepo,
+func NewStripService(stripReader StripReader, options ...StripServiceOption) *StripService {
+	service := &StripService{}
+	if stripReader != nil {
+		service.stripReader = stripReader
+		service.configureStripStores(stripReader)
 	}
 	for _, option := range options {
 		option(service)
 	}
 	return service
+}
+
+func (s *StripService) configureStripStores(store any) {
+	if lifecycleStore, ok := store.(StripLifecycleStore); ok {
+		s.lifecycleStore = lifecycleStore
+	}
+	if orderingStore, ok := store.(StripOrderingStore); ok {
+		s.orderingStore = orderingStore
+	}
+	if fieldStore, ok := store.(StripFieldStore); ok {
+		s.fieldStore = fieldStore
+	}
+	if ownerStore, ok := store.(StripOwnerStore); ok {
+		s.ownerStore = ownerStore
+	}
+	if cdmStore, ok := store.(StripCdmStore); ok {
+		s.cdmStore = cdmStore
+	}
+	if validationStore, ok := store.(StripValidationStatusStore); ok {
+		s.validationStore = validationStore
+	}
+	if manualFplStore, ok := store.(StripManualFplStore); ok {
+		s.manualFplStore = manualFplStore
+	}
 }
 
 func (s *StripService) SetFrontendHub(publisher shared.StripEventPublisher) {
@@ -122,7 +155,7 @@ func (s *StripService) SetCdmService(cdmService shared.CdmService) {
 }
 
 func (s *StripService) ClearMandatoryRouteCdm(ctx context.Context, sessionID int32, callsign string) {
-	strip, err := s.stripRepo.GetByCallsign(ctx, sessionID, callsign)
+	strip, err := s.stripReader.GetByCallsign(ctx, sessionID, callsign)
 	if err != nil {
 		slog.WarnContext(ctx, "Failed to get strip for mandatory route CDM clearing",
 			slog.String("callsign", callsign), slog.Any("error", err))
@@ -158,7 +191,7 @@ func (s *StripService) ClearMandatoryRouteCdm(ctx context.Context, sessionID int
 		cdmUpdated.EcfmpRestrictions = nil
 	}
 
-	if _, err := s.stripRepo.SetCdmData(ctx, sessionID, callsign, cdmUpdated); err != nil {
+	if _, err := s.cdmStore.SetCdmData(ctx, sessionID, callsign, cdmUpdated); err != nil {
 		slog.WarnContext(ctx, "Failed to clear mandatory route restriction from CDM data",
 			slog.String("callsign", callsign), slog.Any("error", err))
 		return

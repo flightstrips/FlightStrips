@@ -307,7 +307,7 @@ export function NewIfrDialog({ open, onOpenChange, initialCallsign = "" }: Props
               />
             </div>
             <div className="grid items-center" style={groupStyle}>
-              <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>IATA TYPE</Label>
+              <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>SPOKEN C/S</Label>
               <Input disabled className={CLS_DISABLED} style={fieldStyle(130)} />
             </div>
           </div>

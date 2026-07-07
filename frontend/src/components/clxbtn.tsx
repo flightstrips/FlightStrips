@@ -2,9 +2,9 @@ import React from "react";
 
 import FlightPlanDialog from "@/components/FlightPlanDialog";
 
-export function CLXBtn({ callsign, children }: { callsign: string; children?: React.ReactNode }) {
+export function CLXBtn({ callsign, mode, children }: { callsign: string; mode?: "clearance" | "view"; children?: React.ReactNode }) {
   return (
-    <FlightPlanDialog callsign={callsign}>
+    <FlightPlanDialog callsign={callsign} mode={mode}>
       <div className="px-0 flex flex-col" style={{ flex: "1 0 0%", height: "100%", minWidth: 0, cursor: "pointer" }}>
         {children}
       </div>

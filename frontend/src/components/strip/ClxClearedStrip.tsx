@@ -157,7 +157,7 @@ export function ClxClearedStrip({
           className="flex flex-col overflow-hidden border-r-2"
           style={{ flex: `${F_DEST} 0 0%`, height: "100%", minWidth: 0, borderRightColor: cellBorderColor }}
         >
-          <CLXBtn callsign={callsign}>
+          <CLXBtn callsign={callsign} mode="view">
             <div className="flex items-center justify-center border-b-2 overflow-hidden" style={{ height: HALF_H, fontFamily: FONT, fontWeight: "bold", fontSize: "0.73vw", color: manualBlue, borderBottomColor: "transparent" }}>
               {destination}
             </div>

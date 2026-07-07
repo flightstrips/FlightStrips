@@ -4,6 +4,9 @@ import (
 	"FlightStrips/internal/repository"
 	"FlightStrips/internal/shared"
 	"context"
+	"log/slog"
+
+	internalModels "FlightStrips/internal/models"
 )
 
 const (
@@ -116,6 +119,54 @@ func (s *StripService) recalculateRouteForStrip(ctx context.Context, session int
 
 func (s *StripService) SetCdmService(cdmService shared.CdmService) {
 	s.cdmService = cdmService
+}
+
+func (s *StripService) ClearMandatoryRouteCdm(ctx context.Context, sessionID int32, callsign string) {
+	strip, err := s.stripRepo.GetByCallsign(ctx, sessionID, callsign)
+	if err != nil {
+		slog.WarnContext(ctx, "Failed to get strip for mandatory route CDM clearing",
+			slog.String("callsign", callsign), slog.Any("error", err))
+		return
+	}
+
+	cdm := strip.CdmData
+	if cdm == nil {
+		return
+	}
+
+	hadMandatoryRoute := false
+	for _, r := range cdm.EcfmpRestrictions {
+		if r.Type == "mandatory_route" {
+			hadMandatoryRoute = true
+			break
+		}
+	}
+	if !hadMandatoryRoute {
+		return
+	}
+
+	cdmUpdated := cdm.Clone()
+	filtered := make([]internalModels.EcfmpRestriction, 0, len(cdmUpdated.EcfmpRestrictions))
+	for _, r := range cdmUpdated.EcfmpRestrictions {
+		if r.Type == "mandatory_route" {
+			continue
+		}
+		filtered = append(filtered, r)
+	}
+	cdmUpdated.EcfmpRestrictions = filtered
+	if len(filtered) == 0 {
+		cdmUpdated.EcfmpRestrictions = nil
+	}
+
+	if _, err := s.stripRepo.SetCdmData(ctx, sessionID, callsign, cdmUpdated); err != nil {
+		slog.WarnContext(ctx, "Failed to clear mandatory route restriction from CDM data",
+			slog.String("callsign", callsign), slog.Any("error", err))
+		return
+	}
+
+	if s.publisher != nil {
+		s.publisher.Broadcast(sessionID, shared.BuildFrontendCdmDataEvent(callsign, cdmUpdated))
+	}
 }
 
 func (s *StripService) queueOrSendStripUpdate(ctx context.Context, session int32, callsign string, publish bool) {

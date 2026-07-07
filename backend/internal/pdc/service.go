@@ -750,6 +750,7 @@ func (s *Service) IssueClearance(ctx context.Context, callsign, remarks, cid str
 		if err := s.stripService.MoveToBay(ctx, sessionInfo.id, callsign, shared.BAY_CLEARED, true); err != nil {
 			slog.ErrorContext(ctx, "PDC Service: Warning - failed to move strip to cleared bay", slog.Any("error", err))
 		}
+		s.stripService.ClearMandatoryRouteCdm(ctx, sessionInfo.id, callsign)
 	}
 
 	s.StartClearanceTimeout(ctx, strip.Origin, callsign, nextSeq, sessionInfo, cid, webDelivery)

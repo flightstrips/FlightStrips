@@ -249,7 +249,9 @@ export default function FlightPlanDialog({
   const displayedEobt = normalizeCdmTime(strip?.eobt);
   const displayedTobt = normalizeCdmTime(strip?.tobt);
   const displayedTsat = normalizeCdmTime(strip?.tsat);
-  const hasMandatoryRoute = !!getMandatoryRouteRestriction(strip?.ecfmp_restrictions);
+  const mandatoryRoute = getMandatoryRouteRestriction(strip?.ecfmp_restrictions);
+  const mandatoryRouteToClear = selectMandatoryRoute(strip?.route, mandatoryRoute?.routes ?? []);
+  const hasMandatoryRoute = !!mandatoryRoute;
   const hasGroundStop = !!getGroundStopRestriction(strip?.ecfmp_restrictions);
   const hasProhibit = !!getProhibitRestriction(strip?.ecfmp_restrictions);
   const flViolated = isFlightLevelViolated(strip?.ecfmp_restrictions, strip?.requested_altitude);
@@ -262,6 +264,10 @@ export default function FlightPlanDialog({
   const [rnavDialogOpen, setRnavDialogOpen] = useState(false);
   const [rwyDialogOpen, setRwyDialogOpen] = useState(false);
   const availableSids = useAvailableSids();
+  const mandatoryRouteSid = strip
+    ? resolveMandatoryRouteSid(mandatoryRouteToClear, strip.runway, strip.sid, availableSids)
+    : "";
+  const mandatoryRouteSidMismatch = !!mandatoryRouteSid && mandatoryRouteSid !== (strip?.sid?.trim().toUpperCase() ?? "");
   const [ssrGenerating, setSsrGenerating] = useState(false);
   const [standOpen, setStandOpen] = useState(false);
   const [eobt, setEobt, _eobtFocused, setEobtFocused] = useEditableField(displayedEobt);
@@ -287,12 +293,6 @@ export default function FlightPlanDialog({
   const sidOverride = sidOverrideKey(strip);
   const nitosRemarks = clxNitosRemarks(strip);
   const nitosRemarksFit = fittedNitosRemarksStyle(nitosRemarks);
-  const mandatoryRoute = getMandatoryRouteRestriction(strip?.ecfmp_restrictions);
-  const mandatoryRouteToClear = selectMandatoryRoute(strip?.route, mandatoryRoute?.routes ?? []);
-  const mandatoryRouteSid = strip
-    ? resolveMandatoryRouteSid(mandatoryRouteToClear, strip.runway, strip.sid, availableSids)
-    : "";
-  const mandatoryRouteSidMismatch = !!mandatoryRouteSid && mandatoryRouteSid !== (strip?.sid?.trim().toUpperCase() ?? "");
   const isPdcRequest = strip?.pdc_state === "REQUESTED" || strip?.pdc_state === "REQUESTED_WITH_FAULTS";
   const fieldStyle = (width: number) => ({
     width: scalePx(width),
@@ -561,7 +561,7 @@ export default function FlightPlanDialog({
           <div className="flex flex-col" style={{ width: CONTENT_WIDTH, gap: FIELD_GAP }}>
             <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>ROUTE</Label>
             <textarea
-              value={route}
+              value={hasMandatoryRoute && mandatoryRouteToClear ? mandatoryRouteToClear : route}
               onChange={(event) => setRoute(event.target.value)}
               onFocus={() => setRouteFocused(true)}
               onBlur={() => {
@@ -570,6 +570,7 @@ export default function FlightPlanDialog({
               }}
               onKeyDown={(event) => event.key === "Enter" && !event.shiftKey && updateStrip(callsign, { route })}
               className={CLS_TEXTAREA_EDITABLE}
+              disabled={hasMandatoryRoute}
               style={{ height: TEXTAREA_HEIGHT, fontFamily: FONT_FAMILY, fontSize: FONT_SIZE_FIELD, ...(hasMandatoryRoute ? { backgroundColor: COLOR_ECFMP_YELLOW } : {}) }}
             />
           </div>

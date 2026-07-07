@@ -1,10 +1,11 @@
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
 import { scalePx } from "@/lib/viewportScale";
 
-const DIALOG_WIDTH = scalePx(500);
-const FONT_SIZE = scalePx(18);
-const FONT_SIZE_BUTTON = scalePx(20);
+const DIALOG_WIDTH = scalePx(485);
+const INNER_PADDING = scalePx(20);
+const BUTTON_WIDTH = scalePx(191);
+const BUTTON_HEIGHT = scalePx(70);
+const BUTTON_GAP = scalePx(21);
 
 interface MandatoryRouteDialogProps {
   open: boolean;
@@ -22,80 +23,91 @@ interface MandatoryRouteDialogProps {
 export function MandatoryRouteDialog({
   open,
   onOpenChange,
-  callsign,
-  route,
-  filedSid,
-  mandatorySid,
-  sidMismatch,
-  pdcRequested,
+  callsign: _callsign,
+  route: _route,
+  filedSid: _filedSid,
+  mandatorySid: _mandatorySid,
+  sidMismatch: _sidMismatch,
+  pdcRequested: _pdcRequested,
   onConfirm,
   onCancel,
 }: MandatoryRouteDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
+        className="border border-black rounded-none"
         style={{
           width: DIALOG_WIDTH,
-          padding: scalePx(20),
-          gap: scalePx(16),
+          maxWidth: DIALOG_WIDTH,
+          padding: 0,
+          gap: 0,
+          backgroundColor: "#E4E4E4",
         }}
       >
         <DialogTitle className="sr-only">Mandatory Route Confirmation</DialogTitle>
-        <div className="flex flex-col gap-4">
-          <div className="text-center" style={{ fontSize: FONT_SIZE, fontWeight: "bold" }}>
-            <span style={{ color: "red" }}>MANDATORY ROUTE</span>
-            <br />
-            <span style={{ color: "red" }}>will be sent on clearance</span>
-            <br />
-            <span style={{ color: "red" }}>{pdcRequested ? "via PDC" : "via private message"}</span>
-          </div>
+        <div
+          className="border border-black m-[20px] flex flex-col items-center"
+          style={{
+            paddingTop: scalePx(33),
+            paddingBottom: scalePx(29),
+            paddingInline: INNER_PADDING,
+            color: "black",
+          }}
+        >
           <div
-            className="border border-black text-center font-bold"
-            style={{ fontSize: scalePx(16), backgroundColor: "#FFD700", color: "black", padding: scalePx(10) }}
+            style={{
+              fontFamily: "Rubik, Arial, sans-serif",
+              fontSize: scalePx(32),
+              fontWeight: 400,
+              color: "#FF0000",
+              textAlign: "center",
+              lineHeight: 1.2,
+              marginBottom: scalePx(19),
+            }}
           >
-            {callsign}: {route || "NO MANDATORY ROUTE"}
+            Would you like
+            <br />
+            MANDATORY ROUTE
+            <br />
+            to be send via PM or PDC?
           </div>
-          {mandatorySid && (
-            <div className="flex flex-col gap-2 text-center" style={{ fontSize: scalePx(14) }}>
-              <div
-                className="border border-black"
-                style={{
-                  backgroundColor: sidMismatch ? "#FF0000" : "#B3B3B3",
-                  color: sidMismatch ? "white" : "black",
-                  padding: scalePx(8),
-                  fontWeight: "bold",
-                }}
-              >
-                FILED SID: {filedSid || "NONE"}
-              </div>
-              <div className="border border-black bg-[#D6D6D6] text-black font-bold" style={{ padding: scalePx(8) }}>
-                MANDATORY SID: {mandatorySid}
-              </div>
-            </div>
-          )}
-          <div className="flex justify-center gap-4">
-            <Button
-              onClick={onConfirm}
-              style={{
-                fontSize: FONT_SIZE_BUTTON,
-                padding: `${scalePx(8)}px ${scalePx(24)}px`,
-                backgroundColor: "#3F3F3F",
-                color: "white",
-              }}
-            >
-              CLR
-            </Button>
-            <Button
+          <div className="flex" style={{ gap: BUTTON_GAP }}>
+            <button
+              type="button"
               onClick={onCancel}
               style={{
-                fontSize: FONT_SIZE_BUTTON,
-                padding: `${scalePx(8)}px ${scalePx(24)}px`,
+                width: BUTTON_WIDTH,
+                height: BUTTON_HEIGHT,
                 backgroundColor: "#3F3F3F",
                 color: "white",
+                fontFamily: "Rubik, Arial, sans-serif",
+                fontSize: scalePx(32),
+                fontWeight: 600,
+                textAlign: "center",
+                border: "none",
+                cursor: "pointer",
               }}
             >
-              CANCEL
-            </Button>
+              NO
+            </button>
+            <button
+              type="button"
+              onClick={onConfirm}
+              style={{
+                width: BUTTON_WIDTH,
+                height: BUTTON_HEIGHT,
+                backgroundColor: "#3F3F3F",
+                color: "white",
+                fontFamily: "Rubik, Arial, sans-serif",
+                fontSize: scalePx(32),
+                fontWeight: 600,
+                textAlign: "center",
+                border: "none",
+                cursor: "pointer",
+              }}
+            >
+              YES
+            </button>
           </div>
         </div>
       </DialogContent>

@@ -130,7 +130,7 @@ func (c *MasterViffSync) pushCdmDataAfterRecalc(ctx context.Context, session int
 		s.publisher.SendCdmUpdates(session, []frontendEvents.CdmDataEvent{shared.BuildFrontendCdmDataEvent(callsign, data)})
 	}
 	if s.euroscopeHub != nil {
-		s.euroscopeHub.BroadcastCdmUpdates(session, []euroscopeEvents.CdmUpdateEvent{buildCdmUpdateEvent(callsign, data)})
+		s.euroscopeHub.BroadcastCdmUpdates(session, []euroscopeEvents.CdmUpdateEvent{shared.BuildEuroscopeCdmUpdateEvent(callsign, data)})
 	}
 
 	if !s.client.isValid || !s.usesViffSession(session) {

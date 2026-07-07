@@ -3,6 +3,7 @@ package frontend
 import (
 	"FlightStrips/internal/config"
 	internalModels "FlightStrips/internal/models"
+	"FlightStrips/internal/shared"
 	frontendEvents "FlightStrips/pkg/events/frontend"
 	"testing"
 
@@ -52,6 +53,61 @@ func TestMapStripToFrontendModel_TruncatesCdmTimes(t *testing.T) {
 	assert.Equal(t, "REGUL", model.EcfmpID)
 	assert.Equal(t, "ATFCM", model.CtotSource)
 	assert.Equal(t, "I", model.Phase)
+}
+
+func TestMapStripToFrontendModel_CdmFieldsMatchSharedCdmEvent(t *testing.T) {
+	t.Cleanup(config.SetFeatureFlagsForTest(config.FeatureFlagsConfig{MandatoryRouteClearanceFlow: true}))
+
+	strip := &internalModels.Strip{
+		Callsign: "SAS123",
+		CdmData: (&internalModels.CdmData{
+			Eobt:                   testStringPointer("101500"),
+			Tobt:                   testStringPointer("102000"),
+			ReqTobt:                testStringPointer("102500"),
+			ReqTobtType:            testStringPointer("PILOT"),
+			TobtSetBy:              testStringPointer("EKCH_DEL"),
+			Tsat:                   testStringPointer("103000"),
+			Ttot:                   testStringPointer("104000"),
+			Ctot:                   testStringPointer("104500"),
+			Aobt:                   testStringPointer("105000"),
+			Asat:                   testStringPointer("105500"),
+			Asrt:                   testStringPointer("103500"),
+			Tsac:                   testStringPointer("103700"),
+			Status:                 testStringPointer("READY"),
+			MostPenalizingAirspace: testStringPointer("DK-E"),
+			EcfmpID:                testStringPointer("REGUL"),
+			CtotSource:             testStringPointer("ATFCM"),
+			Phase:                  testStringPointer("I"),
+			EcfmpRestrictions: []internalModels.EcfmpRestriction{
+				{MeasureID: 12, Ident: "REGUL", Type: "mandatory_route", Routes: []string{"VEDAR DCT"}, HasCtot: true},
+			},
+		}).Normalize(),
+	}
+
+	model := MapStripToFrontendModel(strip)
+	actual := frontendEvents.CdmDataEvent{
+		Callsign:               model.Callsign,
+		Eobt:                   model.Eobt,
+		Tobt:                   model.Tobt,
+		ReqTobt:                model.ReqTobt,
+		ReqTobtType:            model.ReqTobtType,
+		TobtSetBy:              model.TobtSetBy,
+		Tsat:                   model.Tsat,
+		Ttot:                   model.Ttot,
+		Ctot:                   model.Ctot,
+		Aobt:                   model.Aobt,
+		Asat:                   model.Asat,
+		Asrt:                   model.Asrt,
+		Tsac:                   model.Tsac,
+		Status:                 model.Status,
+		MostPenalizingAirspace: model.MostPenalizingAirspace,
+		EcfmpID:                model.EcfmpID,
+		CtotSource:             model.CtotSource,
+		Phase:                  model.Phase,
+		EcfmpRestrictions:      model.EcfmpRestrictions,
+	}
+
+	assert.Equal(t, shared.BuildFrontendCdmDataEvent(strip.Callsign, strip.CdmData), actual)
 }
 
 func TestMapStripToFrontendModel_TruncatesCtot(t *testing.T) {

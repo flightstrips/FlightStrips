@@ -254,25 +254,7 @@ func (hub *Hub) sendBackendSyncIfNeeded(client *Client) {
 			entry.PdcRequestRemarks = *strip.PdcRequestRemarks
 		}
 		if strip.CdmData != nil {
-			entry.Cdm = euroscope.BackendSyncCdmData{
-				Eobt:              valueOrEmpty(strip.CdmData.EffectiveEobt()),
-				Tobt:              valueOrEmpty(strip.CdmData.EffectiveTobt()),
-				TobtSetBy:         valueOrEmpty(strip.CdmData.TobtSetBy),
-				TobtConfirmedBy:   valueOrEmpty(strip.CdmData.TobtConfirmedBy),
-				ReqTobt:           valueOrEmpty(strip.CdmData.EffectiveReqTobt()),
-				ReqTobtType:       valueOrEmpty(strip.CdmData.EffectiveReqTobtType()),
-				Tsat:              truncateCDMClockValue(valueOrEmpty(strip.CdmData.EffectiveTsat())),
-				Ttot:              truncateCDMClockValue(valueOrEmpty(strip.CdmData.EffectiveTtot())),
-				Ctot:              valueOrEmpty(strip.CdmData.EffectiveCtot()),
-				CtotSource:        valueOrEmpty(strip.CdmData.CtotSource),
-				Asat:              valueOrEmpty(strip.CdmData.EffectiveAsat()),
-				Asrt:              valueOrEmpty(strip.CdmData.Asrt),
-				Tsac:              valueOrEmpty(strip.CdmData.Tsac),
-				Status:            valueOrEmpty(strip.CdmData.EffectiveStatus()),
-				EcfmpID:           valueOrEmpty(strip.CdmData.EcfmpID),
-				Phase:             valueOrEmpty(strip.CdmData.EffectivePhase()),
-				EcfmpRestrictionsJSON: serializeEcfmpRestrictionsSyncJSON(strip.CdmData.EcfmpRestrictions),
-			}
+			entry.Cdm = shared.BuildEuroscopeBackendSyncCdmData(strip.CdmData)
 		}
 		if strip.PdcState != "" {
 			entry.PdcState = strip.PdcState
@@ -313,46 +295,6 @@ func backendSyncGroundState(strip *internalModels.Strip) string {
 		return *strip.State
 	}
 	return euroscope.GroundStateUnknown
-}
-
-func valueOrEmpty(value *string) string {
-	if value == nil {
-		return ""
-	}
-	return *value
-}
-
-func truncateCDMClockValue(value string) string {
-	if len(value) > 4 {
-		return value[:4]
-	}
-	return value
-}
-
-func serializeEcfmpRestrictionsSyncJSON(restrictions []internalModels.EcfmpRestriction) string {
-	if len(restrictions) == 0 {
-		return ""
-	}
-	dtos := make([]euroscope.EcfmpRestrictionDTO, len(restrictions))
-	for i, r := range restrictions {
-		dtos[i] = euroscope.EcfmpRestrictionDTO{
-			MeasureID:   r.MeasureID,
-			Ident:       r.Ident,
-			Type:        r.Type,
-			Reason:      r.Reason,
-			Routes:      r.Routes,
-			Destination: r.Destination,
-			MaxLevel:    r.MaxLevel,
-			MinLevel:    r.MinLevel,
-			ExactLevels: r.ExactLevels,
-			HasCtot:     r.HasCtot,
-		}
-	}
-	b, err := json.Marshal(dtos)
-	if err != nil {
-		return ""
-	}
-	return string(b)
 }
 
 func (hub *Hub) GetMessageHandlers() shared.MessageHandlers[euroscope.EventType, *Client] {

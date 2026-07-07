@@ -127,7 +127,7 @@ func TestSequenceService_RecalculateAirportPersistsAndBroadcasts(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected second broadcast to be CdmUpdateEvent, got %T", euroscopeHub.Broadcasts[1])
 	}
-	if event.Tsat != truncateToHHMM(secondTsat) || event.Ttot != truncateToHHMM(secondTtot) {
+	if event.Tsat != truncateCDMClockValue(secondTsat) || event.Ttot != truncateCDMClockValue(secondTtot) {
 		t.Fatalf("unexpected broadcast event timings: %#v", event)
 	}
 	if event.EcfmpID != "REGUL" {

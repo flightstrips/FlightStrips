@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.18.0](https://github.com/flightstrips/FlightStrips/compare/plugin/v0.17.3...plugin/v0.18.0) (2026-07-07)
+
+
+### Features
+
+* add PrivateMessageSender and send_private_message event relay ([1ae21c7](https://github.com/flightstrips/FlightStrips/commit/1ae21c75ecc6a4e7f03a7ab70bcbd386e2e48a78)), closes [#221](https://github.com/flightstrips/FlightStrips/issues/221)
+* **callsigns:** source spoken callsigns from the Euroscope plugin ([#234](https://github.com/flightstrips/FlightStrips/issues/234)) ([5354294](https://github.com/flightstrips/FlightStrips/commit/5354294c0afa48fb53174120a457bd49783680b5))
+* **es-plugin:** add ECFMP restriction fields to CdmState and tag items ([5ffe133](https://github.com/flightstrips/FlightStrips/commit/5ffe133c950c08776b2ccc88d11f31cfd0d2faf8)), closes [#221](https://github.com/flightstrips/FlightStrips/issues/221)
+* **es-plugin:** add mandatory route clearance support ([0b61699](https://github.com/flightstrips/FlightStrips/commit/0b616990b1ba0604b844ef0ce69464578ee8a8d9))
+
+
+### Bug Fixes
+
+* better logging for auth and retries ([#247](https://github.com/flightstrips/FlightStrips/issues/247)) ([3401b82](https://github.com/flightstrips/FlightStrips/commit/3401b824beafe686c224bfb5f42a27511d2d950e))
+* **ecfmp:** resolve critical bugs in ECFMP restriction implementation ([9fd6a3e](https://github.com/flightstrips/FlightStrips/commit/9fd6a3e69c84913ab8d9bbf08fe978d58d6dc3fd)), closes [#221](https://github.com/flightstrips/FlightStrips/issues/221)
+* **strip:** correct default airlines file path for spoken callsign resolution ([#260](https://github.com/flightstrips/FlightStrips/issues/260)) ([66c684c](https://github.com/flightstrips/FlightStrips/commit/66c684cc40f22c57b136157634fcad82afb33c34))
+
 ## [0.17.3](https://github.com/flightstrips/FlightStrips/compare/plugin/v0.17.2...plugin/v0.17.3) (2026-06-13)
 
 

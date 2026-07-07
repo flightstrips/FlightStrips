@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.44.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.43.0...frontend/v0.44.0) (2026-07-07)
+
+
+### Features
+
+* **callsigns:** source spoken callsigns from the Euroscope plugin ([#234](https://github.com/flightstrips/FlightStrips/issues/234)) ([5354294](https://github.com/flightstrips/FlightStrips/commit/5354294c0afa48fb53174120a457bd49783680b5))
+* **CDM:** use CDM slot label for CTOT display ([#233](https://github.com/flightstrips/FlightStrips/issues/233)) ([8070a97](https://github.com/flightstrips/FlightStrips/commit/8070a97f08851a6e233dbb0428463e9289e7d968))
+* Confirm voice clearance on cleared PDC moves ([#240](https://github.com/flightstrips/FlightStrips/issues/240)) ([6fdd6e8](https://github.com/flightstrips/FlightStrips/commit/6fdd6e8ebdd49c3223c75094e73c75b73f9731ad))
+* **frontend:** add ECFMP restriction highlights in FlightPlanDialog ([2d57cc1](https://github.com/flightstrips/FlightStrips/commit/2d57cc1d04e1f21c6f6286def6e774501420c772)), closes [#221](https://github.com/flightstrips/FlightStrips/issues/221)
+* **frontend:** add ECFMP restriction highlights to strip components ([ad1f8d8](https://github.com/flightstrips/FlightStrips/commit/ad1f8d8b1a810455205be47273ab2d515050c7fe)), closes [#221](https://github.com/flightstrips/FlightStrips/issues/221)
+* **frontend:** add ECFMP restriction models, store updates, and helper functions ([e97cb68](https://github.com/flightstrips/FlightStrips/commit/e97cb680b0ed4f19bfba32f3cc8b3df940f58e28)), closes [#221](https://github.com/flightstrips/FlightStrips/issues/221)
+* **frontend:** add MandatoryRouteDialog for ECFMP mandatory routes ([27ae0a0](https://github.com/flightstrips/FlightStrips/commit/27ae0a0b0fc889937aa7f6d2f2e1d56a5594ecd6)), closes [#221](https://github.com/flightstrips/FlightStrips/issues/221)
+* **pdc:** implement mandatory route clearance flow behind feature flag ([a829e39](https://github.com/flightstrips/FlightStrips/commit/a829e39cc356eaa12d5bba09fd6634389667cb9b))
+* **pilot:** Expand pilot flight details ([cf4c5c8](https://github.com/flightstrips/FlightStrips/commit/cf4c5c8e2b56ea7c5fa2b31dce7db8431d6ebd88))
+* **strip:** rename IATA TYPE to SPOKEN C/S and add text-shrinking for spoken callsign ([#262](https://github.com/flightstrips/FlightStrips/issues/262)) ([5a3cb97](https://github.com/flightstrips/FlightStrips/commit/5a3cb97bda98cd813fdb77e1cbc8f87c90e794a6))
+
+
+### Bug Fixes
+
+* **ecfmp:** clear mandatory route restriction after strip is cleared ([#256](https://github.com/flightstrips/FlightStrips/issues/256)) ([0b0ae65](https://github.com/flightstrips/FlightStrips/commit/0b0ae65c2d62673c44d66a643c6ae9301638f339))
+* **ecfmp:** resolve critical bugs in ECFMP restriction implementation ([9fd6a3e](https://github.com/flightstrips/FlightStrips/commit/9fd6a3e69c84913ab8d9bbf08fe978d58d6dc3fd)), closes [#221](https://github.com/flightstrips/FlightStrips/issues/221)
+
 ## [0.43.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.42.0...frontend/v0.43.0) (2026-05-25)
 
 

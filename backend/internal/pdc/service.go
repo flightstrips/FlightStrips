@@ -298,7 +298,7 @@ func (s *Service) resolveEuroscopeTargetCID(ctx context.Context, sessionID int32
 }
 
 func (s *Service) applyMandatoryRouteReview(ctx context.Context, session *models.Session, strip *models.Strip) (*mandatoryRouteReview, error) {
-	if !config.IsMandatoryRouteClearanceFlowEnabled() || session == nil || strip == nil {
+	if session == nil || strip == nil {
 		return nil, nil
 	}
 

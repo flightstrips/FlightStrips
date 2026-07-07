@@ -1,7 +1,6 @@
 package pdc
 
 import (
-	"FlightStrips/internal/config"
 	"FlightStrips/internal/database"
 	"FlightStrips/internal/models"
 	"FlightStrips/internal/pdc/mocks"
@@ -1267,7 +1266,8 @@ func TestProcessPDCRequest_InactiveDepartureRunwayCreatesFault(t *testing.T) {
 }
 
 func TestProcessPDCRequest_MandatoryRouteRequiresManualApprovalWithoutChangingStrip(t *testing.T) {
-	t.Cleanup(config.SetFeatureFlagsForTest(config.FeatureFlagsConfig{MandatoryRouteClearanceFlow: true}))
+
+
 	suite := &PDCIntegrationTestSuite{}
 	suite.SetupTest(t)
 	ctx := context.Background()
@@ -1363,7 +1363,8 @@ func TestProcessPDCRequest_AlreadyCleared(t *testing.T) {
 }
 
 func TestIssueClearance_MandatoryRouteIncludesFullRouteAndCorrectedSid(t *testing.T) {
-	t.Cleanup(config.SetFeatureFlagsForTest(config.FeatureFlagsConfig{MandatoryRouteClearanceFlow: true}))
+
+
 	suite := &PDCIntegrationTestSuite{}
 	suite.SetupTest(t)
 

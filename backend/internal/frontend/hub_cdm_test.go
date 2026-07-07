@@ -1,7 +1,6 @@
 package frontend
 
 import (
-	"FlightStrips/internal/config"
 	internalModels "FlightStrips/internal/models"
 	"FlightStrips/internal/shared"
 	frontendEvents "FlightStrips/pkg/events/frontend"
@@ -56,8 +55,6 @@ func TestMapStripToFrontendModel_TruncatesCdmTimes(t *testing.T) {
 }
 
 func TestMapStripToFrontendModel_CdmFieldsMatchSharedCdmEvent(t *testing.T) {
-	t.Cleanup(config.SetFeatureFlagsForTest(config.FeatureFlagsConfig{MandatoryRouteClearanceFlow: true}))
-
 	strip := &internalModels.Strip{
 		Callsign: "SAS123",
 		CdmData: (&internalModels.CdmData{
@@ -122,25 +119,6 @@ func TestMapStripToFrontendModel_TruncatesCtot(t *testing.T) {
 	model := MapStripToFrontendModel(strip)
 
 	assert.Equal(t, "1030", model.Ctot)
-}
-
-func TestMapStripToFrontendModel_HidesMandatoryRouteRestrictionWhenFeatureDisabled(t *testing.T) {
-	t.Cleanup(config.SetFeatureFlagsForTest(config.FeatureFlagsConfig{}))
-
-	strip := &internalModels.Strip{
-		Callsign: "SAS789",
-		CdmData: (&internalModels.CdmData{
-			EcfmpRestrictions: []internalModels.EcfmpRestriction{
-				{Type: "mandatory_route", Routes: []string{"VEDAR DCT"}},
-				{Type: "ground_stop", Reason: "Weather"},
-			},
-		}).Normalize(),
-	}
-
-	model := MapStripToFrontendModel(strip)
-
-	require.Len(t, model.EcfmpRestrictions, 1)
-	assert.Equal(t, "ground_stop", model.EcfmpRestrictions[0].Type)
 }
 
 func TestSendCdmUpdate_TruncatesClockFields(t *testing.T) {

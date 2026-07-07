@@ -3,7 +3,6 @@ package pdc
 import (
 	"testing"
 
-	"FlightStrips/internal/config"
 	"FlightStrips/internal/models"
 	pkgModels "FlightStrips/pkg/models"
 
@@ -152,7 +151,6 @@ func TestValidatePDCFlightPlan_FaultsWhenHeadingWithoutAltitude(t *testing.T) {
 }
 
 func TestValidatePDCFlightPlan_MandatoryRouteCreatesManualReviewFault(t *testing.T) {
-	t.Cleanup(config.SetFeatureFlagsForTest(config.FeatureFlagsConfig{MandatoryRouteClearanceFlow: true}))
 
 	service := &Service{}
 	route := "GOLGA DCT"
@@ -177,7 +175,6 @@ func TestValidatePDCFlightPlan_MandatoryRouteCreatesManualReviewFault(t *testing
 }
 
 func TestValidatePDCFlightPlan_MandatoryRouteResolvedSidAvoidsRoutingFault(t *testing.T) {
-	t.Cleanup(config.SetFeatureFlagsForTest(config.FeatureFlagsConfig{MandatoryRouteClearanceFlow: true}))
 
 	service := &Service{}
 	runway := "22R"

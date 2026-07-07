@@ -1,7 +1,6 @@
 package shared
 
 import (
-	"FlightStrips/internal/config"
 	"FlightStrips/internal/models"
 	frontendEvents "FlightStrips/pkg/events/frontend"
 )
@@ -40,9 +39,6 @@ func convertEcfmpRestrictions(restrictions []models.EcfmpRestriction) []frontend
 	}
 	result := make([]frontendEvents.EcfmpRestrictionDTO, 0, len(restrictions))
 	for _, r := range restrictions {
-		if !config.IsMandatoryRouteClearanceFlowEnabled() && r.Type == "mandatory_route" {
-			continue
-		}
 		result = append(result, frontendEvents.EcfmpRestrictionDTO{
 			MeasureID:   r.MeasureID,
 			Ident:       r.Ident,

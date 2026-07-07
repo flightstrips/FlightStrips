@@ -109,10 +109,4 @@ func SetMissedApproachHandoverForTest(m map[string]string) func() {
 	return func() { missedApproachHandover = old }
 }
 
-// SetFeatureFlagsForTest replaces the package-level feature flags for testing.
-// Returns a cleanup function that restores the original value.
-func SetFeatureFlagsForTest(flags FeatureFlagsConfig) func() {
-	old := featureFlags
-	featureFlags = flags
-	return func() { featureFlags = old }
-}
+

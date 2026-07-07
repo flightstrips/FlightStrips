@@ -100,9 +100,7 @@ func validatePDCFlightPlanFaults(strip *models.Strip, activeDepartureRunways []s
 	var faults []FlightPlanValidationFault
 
 	var review *mandatoryRouteReview
-	if config.IsMandatoryRouteClearanceFlowEnabled() {
-		review = resolveMandatoryRouteReview(strip, availableSids)
-	}
+	review = resolveMandatoryRouteReview(strip, availableSids)
 
 	if fault := mandatoryRouteValidationFaultForReview(strip, review); fault != nil {
 		faults = append(faults, *fault)
@@ -192,14 +190,6 @@ func validatePDCFlightPlanFaults(strip *models.Strip, activeDepartureRunways []s
 type mandatoryRouteReview struct {
 	Route string
 	SID   string
-}
-
-func mandatoryRouteValidationFault(strip *models.Strip, availableSids pkgModels.AvailableSids) *FlightPlanValidationFault {
-	if !config.IsMandatoryRouteClearanceFlowEnabled() {
-		return nil
-	}
-
-	return mandatoryRouteValidationFaultForReview(strip, resolveMandatoryRouteReview(strip, availableSids))
 }
 
 func mandatoryRouteValidationFaultForReview(strip *models.Strip, review *mandatoryRouteReview) *FlightPlanValidationFault {

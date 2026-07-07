@@ -1,7 +1,6 @@
 package ecfmp
 
 import (
-	"FlightStrips/internal/config"
 	"FlightStrips/internal/models"
 	"FlightStrips/internal/testutil"
 	euroscopeEvents "FlightStrips/pkg/events/euroscope"
@@ -14,7 +13,6 @@ import (
 )
 
 func TestService_InjectTestMeasures_AppliesRestrictionsImmediately(t *testing.T) {
-	t.Cleanup(config.SetFeatureFlagsForTest(config.FeatureFlagsConfig{MandatoryRouteClearanceFlow: true}))
 
 	frontendHub := &testutil.MockFrontendHub{}
 	euroscopeHub := &testutil.MockEuroscopeHub{}

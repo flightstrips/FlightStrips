@@ -44,6 +44,23 @@ type sessionInformation struct {
 	callsign string
 }
 
+type PdcRequestTransition string
+
+const (
+	PdcRequestTransitionRequested           PdcRequestTransition = "requested"
+	PdcRequestTransitionRequestedWithFaults PdcRequestTransition = "requested_with_faults"
+	PdcRequestTransitionCleared             PdcRequestTransition = "cleared"
+)
+
+type PdcRequestOutcome struct {
+	Transition    PdcRequestTransition
+	State         ClearanceState
+	MetricOutcome string
+	Remarks       string
+	Faults        []string
+	AutoIssue     bool
+}
+
 type Service struct {
 	client            HoppieClientInterface
 	sessionRepo       repository.SessionRepository
@@ -191,6 +208,58 @@ func optionalString(value string) *string {
 	}
 
 	return &value
+}
+
+func (o PdcRequestOutcome) RequestRemarks() *string {
+	if o.Remarks == "" {
+		return nil
+	}
+
+	return &o.Remarks
+}
+
+func (s *Service) EvaluatePdcRequest(strip *models.Strip, session *models.Session, remarks string) PdcRequestOutcome {
+	faults := s.validatePDCFlightPlan(strip, session.ActiveRunways.DepartureRunways, session.AvailableSids)
+	if len(faults) > 0 {
+		return PdcRequestOutcome{
+			Transition:    PdcRequestTransitionRequestedWithFaults,
+			State:         StateRequestedWithFaults,
+			MetricOutcome: "requested_with_faults",
+			Remarks:       remarks,
+			Faults:        faults,
+		}
+	}
+
+	if strings.TrimSpace(remarks) != "" {
+		return PdcRequestOutcome{
+			Transition:    PdcRequestTransitionRequested,
+			State:         StateRequested,
+			MetricOutcome: "requested_manual_review",
+			Remarks:       remarks,
+		}
+	}
+
+	return PdcRequestOutcome{
+		Transition:    PdcRequestTransitionCleared,
+		State:         StateCleared,
+		MetricOutcome: "auto_cleared",
+		AutoIssue:     true,
+	}
+}
+
+func (s *Service) PersistPdcRequestOutcome(ctx context.Context, sessionID int32, callsign string, requestedAt time.Time, outcome PdcRequestOutcome) error {
+	if outcome.AutoIssue {
+		return nil
+	}
+
+	if err := s.stripRepo.SetPdcRequested(ctx, sessionID, callsign, string(outcome.State), &requestedAt, outcome.RequestRemarks()); err != nil {
+		return fmt.Errorf("persist PDC request outcome %s: %w", outcome.State, err)
+	}
+	if err := s.notifyStateChange(ctx, sessionID, callsign, outcome.State, outcome.Remarks); err != nil {
+		return fmt.Errorf("notify PDC request outcome %s: %w", outcome.State, err)
+	}
+
+	return nil
 }
 
 func valueOrEmpty(value *string) string {
@@ -543,56 +612,40 @@ func (s *Service) ProcessPDCRequest(ctx context.Context, msg *IncomingMessage, s
 		return s.sendErrorAndReturn(ctx, session, req.Callsign, err, buildPDCUnavailable)
 	}
 
-	requestRemarks := optionalString(req.Remarks)
-	faults := s.validatePDCFlightPlan(strip, currentSession.ActiveRunways.DepartureRunways, currentSession.AvailableSids)
-	if len(faults) > 0 {
-		session.recordPDCRequestOutcome(ctx, models.PdcChannelCPDLC, "requested_with_faults")
-		now := time.Now().UTC()
-		if err := s.stripRepo.SetPdcRequested(ctx, session.id, strip.Callsign, string(StateRequestedWithFaults), &now, requestRemarks); err != nil {
-			return fmt.Errorf("failed to set PDC requested with faults: %w", err)
-		}
-		if err := s.notifyStateChange(ctx, session.id, req.Callsign, StateRequestedWithFaults, req.Remarks); err != nil {
-			return fmt.Errorf("failed to notify requested-with-faults state change: %w", err)
+	outcome := s.EvaluatePdcRequest(strip, currentSession, req.Remarks)
+	requestedAt := time.Now().UTC()
+	if !outcome.AutoIssue {
+		session.recordPDCRequestOutcome(ctx, models.PdcChannelCPDLC, outcome.MetricOutcome)
+		if err := s.PersistPdcRequestOutcome(ctx, session.id, strip.Callsign, requestedAt, outcome); err != nil {
+			return err
 		}
 		if err := s.SendStatusAck(ctx, session, req.Callsign, req.Departure); err != nil {
 			return fmt.Errorf("failed to send status ack: %w", err)
 		}
-		slog.InfoContext(ctx, "PDC Service: PDC request has faults", slog.String("callsign", req.Callsign), slog.Any("faults", faults))
-		return nil
-	}
-
-	if requestRemarks != nil {
-		session.recordPDCRequestOutcome(ctx, models.PdcChannelCPDLC, "requested_manual_review")
-		now := time.Now().UTC()
-		if err := s.stripRepo.SetPdcRequested(ctx, session.id, strip.Callsign, string(StateRequested), &now, requestRemarks); err != nil {
-			return fmt.Errorf("failed to set PDC requested with remarks: %w", err)
+		if outcome.Transition == PdcRequestTransitionRequestedWithFaults {
+			slog.InfoContext(ctx, "PDC Service: PDC request has faults", slog.String("callsign", req.Callsign), slog.Any("faults", outcome.Faults))
+		} else {
+			slog.InfoContext(ctx, "PDC Service: PDC request requires manual review due to request remarks", slog.String("callsign", req.Callsign))
 		}
-		if err := s.notifyStateChange(ctx, session.id, req.Callsign, StateRequested, req.Remarks); err != nil {
-			return fmt.Errorf("failed to notify requested state change: %w", err)
-		}
-		if err := s.SendStatusAck(ctx, session, req.Callsign, req.Departure); err != nil {
-			return fmt.Errorf("failed to send status ack: %w", err)
-		}
-		slog.InfoContext(ctx, "PDC Service: PDC request requires manual review due to request remarks", slog.String("callsign", req.Callsign))
 		return nil
 	}
 
 	if issueErr := s.IssueClearance(ctx, strip.Callsign, "", "", session.id); issueErr != nil {
-		session.recordPDCRequestOutcome(ctx, models.PdcChannelCPDLC, "requested_pending_clearance")
-		// Clearance fields not set yet — fall back to REQUESTED state
-		now := time.Now().UTC()
-		if err := s.stripRepo.SetPdcRequested(ctx, session.id, strip.Callsign, string(StateRequested), &now, nil); err != nil {
-			return fmt.Errorf("failed to set PDC requested: %w", err)
+		fallbackOutcome := PdcRequestOutcome{
+			Transition:    PdcRequestTransitionRequested,
+			State:         StateRequested,
+			MetricOutcome: "requested_pending_clearance",
 		}
-		if err := s.notifyStateChange(ctx, session.id, req.Callsign, StateRequested, ""); err != nil {
-			return fmt.Errorf("failed to notify requested fallback state change: %w", err)
+		session.recordPDCRequestOutcome(ctx, models.PdcChannelCPDLC, fallbackOutcome.MetricOutcome)
+		if err := s.PersistPdcRequestOutcome(ctx, session.id, strip.Callsign, requestedAt, fallbackOutcome); err != nil {
+			return err
 		}
 		if err := s.SendStatusAck(ctx, session, req.Callsign, req.Departure); err != nil {
 			return fmt.Errorf("failed to send status ack: %w", err)
 		}
 		slog.InfoContext(ctx, "PDC Service: PDC request acknowledged (clearance fields not ready)", slog.String("callsign", req.Callsign))
 	} else {
-		session.recordPDCRequestOutcome(ctx, models.PdcChannelCPDLC, "auto_cleared")
+		session.recordPDCRequestOutcome(ctx, models.PdcChannelCPDLC, outcome.MetricOutcome)
 		slog.InfoContext(ctx, "PDC Service: PDC clearance auto-issued", slog.String("callsign", req.Callsign))
 	}
 	return nil
@@ -635,41 +688,61 @@ func (s *Service) IssueClearance(ctx context.Context, callsign, remarks, cid str
 
 	webDelivery := isWebPDCRequest(strip)
 
-	// Validate required clearance fields are present in strip
+	options, err := s.BuildClearanceOptions(ctx, sessionInfo, strip, remarks, webDelivery, mandatoryRouteReview)
+	if err != nil {
+		return err
+	}
+	if err := s.deliverPdcClearance(ctx, sessionInfo, callsign, options, webDelivery); err != nil {
+		return err
+	}
+	if err := s.persistIssuedPdcClearance(ctx, sessionInfo.id, callsign, cid, options, webDelivery); err != nil {
+		return err
+	}
+
+	s.moveIssuedPdcStrip(ctx, sessionInfo.id, callsign)
+	s.StartClearanceTimeout(ctx, strip.Origin, callsign, options.Sequence, sessionInfo, cid, webDelivery)
+	if err := s.notifyIssuedPdcClearance(ctx, sessionInfo.id, callsign); err != nil {
+		return err
+	}
+
+	slog.DebugContext(ctx, "PDC Service: Clearance issued", slog.String("callsign", callsign), slog.Int("sequence", int(options.Sequence)))
+	return nil
+}
+
+func (s *Service) BuildClearanceOptions(ctx context.Context, sessionInfo sessionInformation, strip *models.Strip, remarks string, webDelivery bool, mandatoryRouteReview *mandatoryRouteReview) (ClearanceOptions, error) {
 	if strip.Runway == nil || (strip.Sid == nil && strip.Heading == nil) {
-		return fmt.Errorf("strip missing required clearance data (runway and SID or heading)")
+		return ClearanceOptions{}, fmt.Errorf("strip missing required clearance data (runway and SID or heading)")
 	}
 
 	clearanceSquawk, err := getAssignedPDCSquawk(strip)
 	if err != nil {
-		return fmt.Errorf("strip missing required clearance data: %w", err)
+		return ClearanceOptions{}, fmt.Errorf("strip missing required clearance data: %w", err)
 	}
 
 	nextFreq, err := s.getNextFrequency(ctx, sessionInfo.id)
 	if err != nil {
-		return fmt.Errorf("failed to get next frequency: %w", err)
+		return ClearanceOptions{}, fmt.Errorf("failed to get next frequency: %w", err)
 	}
 
 	departureFreq, err := s.getAirborneFrequency(ctx, sessionInfo.id, strip.Sid)
 	if err != nil {
-		return fmt.Errorf("failed to get departure frequency: %w", err)
+		return ClearanceOptions{}, fmt.Errorf("failed to get departure frequency: %w", err)
 	}
 
 	nextPdcSeq, err := s.sessionRepo.IncrementPdcSequence(ctx, sessionInfo.id)
 	if err != nil {
-		return fmt.Errorf("failed to get next PDC sequence: %w", err)
+		return ClearanceOptions{}, fmt.Errorf("failed to get next PDC sequence: %w", err)
 	}
 
 	nextSeq, err := s.getNextSequence(ctx, sessionInfo.id)
 	if err != nil {
-		return err
+		return ClearanceOptions{}, err
 	}
 
 	options := ClearanceOptions{
 		Callsign:           strip.Callsign,
 		Origin:             strip.Origin,
 		Destination:        strip.Destination,
-		Atis:               "",
 		Runway:             *strip.Runway,
 		Squawk:             clearanceSquawk,
 		NextFrequency:      nextFreq,
@@ -697,7 +770,6 @@ func (s *Service) IssueClearance(ctx context.Context, callsign, remarks, cid str
 	}
 
 	if strip.Heading != nil && *strip.Heading != 0 && strip.ClearedAltitude != nil && *strip.ClearedAltitude > 0 {
-		// Get first waypoint of route and make sure it is not the airport and DCT. If the SID is in there be sure only take the first part
 		options.Heading = fmt.Sprintf("%03d", *strip.Heading)
 		if *strip.ClearedAltitude > 5000 {
 			options.ClimbTo = fmt.Sprintf("FL%03d", *strip.ClearedAltitude/100)
@@ -711,28 +783,34 @@ func (s *Service) IssueClearance(ctx context.Context, callsign, remarks, cid str
 
 	if mandatoryRouteReview != nil {
 		if strings.TrimSpace(mandatoryRouteReview.SID) == "" {
-			return fmt.Errorf("mandatory route %s requires a matching SID before PDC can be issued", mandatoryRouteReview.Route)
+			return ClearanceOptions{}, fmt.Errorf("mandatory route %s requires a matching SID before PDC can be issued", mandatoryRouteReview.Route)
 		}
 		options.SID = mandatoryRouteReview.SID
 		options.Route = mandatoryRouteReview.Route
 	}
 
-	clearance := buildPDCClearance(options)
+	return options, nil
+}
 
-	if !webDelivery {
-		if err := s.client.SendCPDLC(ctx, sessionInfo.callsign, callsign, clearance); err != nil {
-			return fmt.Errorf("failed to send clearance: %w", err)
-		}
+func (s *Service) deliverPdcClearance(ctx context.Context, sessionInfo sessionInformation, callsign string, options ClearanceOptions, webDelivery bool) error {
+	if webDelivery {
+		return nil
 	}
 
-	now := time.Now().UTC()
-	err = s.stripRepo.SetPdcMessageSent(ctx, sessionInfo.id, callsign, string(StateCleared), &nextSeq, &now)
+	if err := s.client.SendCPDLC(ctx, sessionInfo.callsign, callsign, buildPDCClearance(options)); err != nil {
+		return fmt.Errorf("failed to send clearance: %w", err)
+	}
 
-	if err != nil {
+	return nil
+}
+
+func (s *Service) persistIssuedPdcClearance(ctx context.Context, sessionID int32, callsign, cid string, options ClearanceOptions, webDelivery bool) error {
+	now := time.Now().UTC()
+	if err := s.stripRepo.SetPdcMessageSent(ctx, sessionID, callsign, string(StateCleared), &options.Sequence, &now); err != nil {
 		return fmt.Errorf("failed to set PDC message sent: %w", err)
 	}
 
-	if err := s.updatePdcData(ctx, sessionInfo.id, callsign, func(pdcData *models.PdcData) {
+	if err := s.updatePdcData(ctx, sessionID, callsign, func(pdcData *models.PdcData) {
 		pdcData.State = string(StateCleared)
 		pdcData.IssuedByCid = optionalString(cid)
 		if webDelivery {
@@ -746,20 +824,25 @@ func (s *Service) IssueClearance(ctx context.Context, callsign, remarks, cid str
 		return fmt.Errorf("failed to persist issued PDC data: %w", err)
 	}
 
-	if s.stripService != nil {
-		if err := s.stripService.MoveToBay(ctx, sessionInfo.id, callsign, shared.BAY_CLEARED, true); err != nil {
-			slog.ErrorContext(ctx, "PDC Service: Warning - failed to move strip to cleared bay", slog.Any("error", err))
-		}
-		s.stripService.ClearMandatoryRouteCdm(ctx, sessionInfo.id, callsign)
+	return nil
+}
+
+func (s *Service) moveIssuedPdcStrip(ctx context.Context, sessionID int32, callsign string) {
+	if s.stripService == nil {
+		return
 	}
 
-	s.StartClearanceTimeout(ctx, strip.Origin, callsign, nextSeq, sessionInfo, cid, webDelivery)
+	if err := s.stripService.MoveToBay(ctx, sessionID, callsign, shared.BAY_CLEARED, true); err != nil {
+		slog.ErrorContext(ctx, "PDC Service: Warning - failed to move strip to cleared bay", slog.Any("error", err))
+	}
+	s.stripService.ClearMandatoryRouteCdm(ctx, sessionID, callsign)
+}
 
-	if err := s.notifyStateChange(ctx, sessionInfo.id, callsign, StateCleared, ""); err != nil {
+func (s *Service) notifyIssuedPdcClearance(ctx context.Context, sessionID int32, callsign string) error {
+	if err := s.notifyStateChange(ctx, sessionID, callsign, StateCleared, ""); err != nil {
 		return fmt.Errorf("failed to notify cleared state change: %w", err)
 	}
 
-	slog.DebugContext(ctx, "PDC Service: Clearance issued", slog.String("callsign", callsign), slog.Int("sequence", int(nextSeq)))
 	return nil
 }
 

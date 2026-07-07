@@ -172,40 +172,29 @@ func (s *Service) SubmitWebPDCRequest(ctx context.Context, callsign string, atis
 		return fmt.Errorf("persist web pdc data: %w", err)
 	}
 
-	faults := s.validatePDCFlightPlan(match.Strip, session.ActiveRunways.DepartureRunways, session.AvailableSids)
-	switch {
-	case len(faults) > 0:
-		sessionInfo.recordPDCRequestOutcome(ctx, models.PdcChannelWeb, "requested_with_faults")
-		if err := s.stripRepo.SetPdcRequested(ctx, match.SessionID, normalizedCallsign, string(StateRequestedWithFaults), &requestedAt, optionalString(trimmedRemarks)); err != nil {
-			return fmt.Errorf("persist requested-with-faults state: %w", err)
-		}
-		if err := s.notifyStateChange(ctx, match.SessionID, normalizedCallsign, StateRequestedWithFaults, trimmedRemarks); err != nil {
-			return fmt.Errorf("notify requested-with-faults state change: %w", err)
-		}
-		return nil
-	case trimmedRemarks != "":
-		sessionInfo.recordPDCRequestOutcome(ctx, models.PdcChannelWeb, "requested_manual_review")
-		if err := s.stripRepo.SetPdcRequested(ctx, match.SessionID, normalizedCallsign, string(StateRequested), &requestedAt, optionalString(trimmedRemarks)); err != nil {
-			return fmt.Errorf("persist requested state: %w", err)
-		}
-		if err := s.notifyStateChange(ctx, match.SessionID, normalizedCallsign, StateRequested, trimmedRemarks); err != nil {
-			return fmt.Errorf("notify requested state change: %w", err)
+	outcome := s.EvaluatePdcRequest(match.Strip, session, trimmedRemarks)
+	if !outcome.AutoIssue {
+		sessionInfo.recordPDCRequestOutcome(ctx, models.PdcChannelWeb, outcome.MetricOutcome)
+		if err := s.PersistPdcRequestOutcome(ctx, match.SessionID, normalizedCallsign, requestedAt, outcome); err != nil {
+			return err
 		}
 		return nil
 	}
 
 	if err := s.IssueClearance(ctx, normalizedCallsign, "", "", match.SessionID); err != nil {
-		sessionInfo.recordPDCRequestOutcome(ctx, models.PdcChannelWeb, "requested_pending_clearance")
-		slog.WarnContext(ctx, "Web PDC auto-issue failed, leaving request pending", slog.String("callsign", normalizedCallsign), slog.Any("error", err))
-		if err := s.stripRepo.SetPdcRequested(ctx, match.SessionID, normalizedCallsign, string(StateRequested), &requestedAt, nil); err != nil {
-			return fmt.Errorf("persist fallback requested state: %w", err)
+		fallbackOutcome := PdcRequestOutcome{
+			Transition:    PdcRequestTransitionRequested,
+			State:         StateRequested,
+			MetricOutcome: "requested_pending_clearance",
 		}
-		if err := s.notifyStateChange(ctx, match.SessionID, normalizedCallsign, StateRequested, ""); err != nil {
-			return fmt.Errorf("notify fallback requested state change: %w", err)
+		sessionInfo.recordPDCRequestOutcome(ctx, models.PdcChannelWeb, fallbackOutcome.MetricOutcome)
+		slog.WarnContext(ctx, "Web PDC auto-issue failed, leaving request pending", slog.String("callsign", normalizedCallsign), slog.Any("error", err))
+		if err := s.PersistPdcRequestOutcome(ctx, match.SessionID, normalizedCallsign, requestedAt, fallbackOutcome); err != nil {
+			return err
 		}
 		return nil
 	}
 
-	sessionInfo.recordPDCRequestOutcome(ctx, models.PdcChannelWeb, "auto_cleared")
+	sessionInfo.recordPDCRequestOutcome(ctx, models.PdcChannelWeb, outcome.MetricOutcome)
 	return nil
 }

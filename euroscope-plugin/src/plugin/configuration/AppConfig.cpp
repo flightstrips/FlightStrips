@@ -124,7 +124,7 @@ namespace FlightStrips::configuration {
     }
 
     std::string AppConfig::GetAirlinesFile() {
-        return std::string(ini["files"]["airlines"] | "../ICAO/ICAO_Airlines.txt");
+        return std::string(ini["files"]["airlines"] | "../../ICAO/ICAO_Airlines.txt");
     }
 
     bool AppConfig::GetDisconnectOnOutOfRange() {

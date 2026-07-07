@@ -2767,6 +2767,43 @@ func TestTriggerRecalculate_RunsForMasterSession(t *testing.T) {
 	}
 }
 
+func TestTriggerRecalculate_DetachesFromCanceledCallerContext(t *testing.T) {
+	listByOriginCalled := make(chan struct{}, 1)
+	stripRepo := &testutil.MockStripRepository{
+		ListByOriginFn: func(ctx context.Context, _ int32, _ string) ([]*models.Strip, error) {
+			require.NoError(t, ctx.Err())
+			select {
+			case listByOriginCalled <- struct{}{}:
+			default:
+			}
+			return nil, nil
+		},
+	}
+	sessionRepo := &testutil.MockSessionRepository{
+		GetByIDFn: func(_ context.Context, id int32) (*models.Session, error) {
+			return &models.Session{ID: id, Airport: "EKCH"}, nil
+		},
+	}
+
+	seqSvc := NewSequenceService(stripRepo, sessionRepo, &stubConfigProvider{}, &testutil.MockFrontendHub{}, &testutil.MockEuroscopeHub{})
+	service := NewCdmService(newTestClientWithAirportMasters(nil), stripRepo, sessionRepo, &testutil.MockControllerRepository{})
+	service.debouncer = newRecalcDebouncer(time.Millisecond)
+	service.SetSequenceService(seqSvc)
+
+	const sessionID = int32(56)
+	service.sessionMaster.Store(sessionID, true)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	service.TriggerRecalculate(ctx, sessionID, "EKCH")
+
+	select {
+	case <-listByOriginCalled:
+	case <-time.After(time.Second):
+		t.Fatal("expected RecalculateAirport to run even after caller context cancellation")
+	}
+}
+
 func TestTriggerRecalculateForAirport_RunsMatchingMasterSessions(t *testing.T) {
 	listByOriginCalled := make(chan int32, 2)
 	stripRepo := &testutil.MockStripRepository{

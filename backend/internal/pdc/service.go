@@ -64,7 +64,7 @@ type PdcRequestOutcome struct {
 type Service struct {
 	client            HoppieClientInterface
 	sessionRepo       repository.SessionRepository
-	stripRepo         repository.StripRepository
+	stripRepo         PdcStripStore
 	sectorRepo        repository.SectorOwnerRepository
 	controllerRepo    repository.ControllerRepository
 	frontendHub       shared.FrontendHub
@@ -77,7 +77,7 @@ type Service struct {
 	webLookupLiveOnly bool
 }
 
-func NewPDCService(client HoppieClientInterface, sessionRepo repository.SessionRepository, stripRepo repository.StripRepository, sectorRepo repository.SectorOwnerRepository, controllerRepo repository.ControllerRepository) *Service {
+func NewPDCService(client HoppieClientInterface, sessionRepo repository.SessionRepository, stripRepo PdcStripStore, sectorRepo repository.SectorOwnerRepository, controllerRepo repository.ControllerRepository) *Service {
 	return &Service{
 		client:         client,
 		sessionRepo:    sessionRepo,

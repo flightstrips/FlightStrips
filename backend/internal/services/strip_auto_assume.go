@@ -78,7 +78,7 @@ func (s *StripService) autoAssumeForClearedStrip(ctx context.Context, session in
 
 	nextOwners, previousOwners := prepareOwnersForAutomaticTransfer(strip, sqPosition, actingPosition)
 
-	if err := s.stripRepo.SetNextAndPreviousOwners(ctx, session, callsign, nextOwners, previousOwners); err != nil {
+	if err := s.ownerStore.SetNextAndPreviousOwners(ctx, session, callsign, nextOwners, previousOwners); err != nil {
 		return err
 	}
 
@@ -230,7 +230,7 @@ func (s *StripService) syncStripByCallsign(ctx context.Context, session int32, c
 		}
 		return nil, pgx.ErrNoRows
 	}
-	return s.stripRepo.GetByCallsign(ctx, session, callsign)
+	return s.stripReader.GetByCallsign(ctx, session, callsign)
 }
 
 func (s *StripService) syncStrips(ctx context.Context, session int32) ([]*models.Strip, error) {
@@ -241,7 +241,7 @@ func (s *StripService) syncStrips(ctx context.Context, session int32) ([]*models
 		}
 		return strips, nil
 	}
-	return s.stripRepo.List(ctx, session)
+	return s.stripReader.List(ctx, session)
 }
 
 func (s *StripService) syncSession(ctx context.Context, session int32) *models.Session {

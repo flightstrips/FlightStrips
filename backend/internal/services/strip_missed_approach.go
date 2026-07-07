@@ -21,7 +21,7 @@ func isMissedApproachReturn(fromPosition string, assumingPosition string) bool {
 //   - removes towerPosition from PreviousOwners (TWR should become next controller again)
 //   - recalculates NextOwners via UpdateRouteForStrip
 func (s *StripService) applyMissedApproachOwnerFix(ctx context.Context, session int32, callsign string, assumingPosition string, towerPosition string) {
-	updated, err := s.stripRepo.GetByCallsign(ctx, session, callsign)
+	updated, err := s.stripReader.GetByCallsign(ctx, session, callsign)
 	if err != nil {
 		slog.WarnContext(ctx, "missed approach owner fix: failed to re-fetch strip", slog.String("callsign", callsign), slog.Any("error", err))
 		return
@@ -31,7 +31,7 @@ func (s *StripService) applyMissedApproachOwnerFix(ctx context.Context, session 
 		return p == towerPosition
 	})
 	if len(cleanedPrev) != len(updated.PreviousOwners) {
-		if setErr := s.stripRepo.SetPreviousOwners(ctx, session, callsign, cleanedPrev); setErr != nil {
+		if setErr := s.ownerStore.SetPreviousOwners(ctx, session, callsign, cleanedPrev); setErr != nil {
 			slog.WarnContext(ctx, "missed approach owner fix: failed to clear TWR from previous owners", slog.String("callsign", callsign), slog.Any("error", setErr))
 		} else {
 			s.publisher.SendOwnersUpdate(session, callsign, assumingPosition, updated.NextOwners, cleanedPrev, nil)
@@ -48,7 +48,7 @@ func (s *StripService) applyMissedApproachOwnerFix(ctx context.Context, session 
 // The strip is moved to AIRBORNE and a coordination transfer is initiated to the
 // approach controller configured for the active arrival runway.
 func (s *StripService) MissedApproach(ctx context.Context, session int32, callsign string, position string) error {
-	strip, err := s.stripRepo.GetByCallsign(ctx, session, callsign)
+	strip, err := s.stripReader.GetByCallsign(ctx, session, callsign)
 	if err != nil {
 		return err
 	}

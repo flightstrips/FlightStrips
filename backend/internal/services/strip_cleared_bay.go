@@ -17,7 +17,7 @@ func (s *StripService) scheduleStandAutoHide(session int32, callsign string) {
 
 		ctx := context.Background()
 
-		strip, err := s.stripRepo.GetByCallsign(ctx, session, callsign)
+		strip, err := s.stripReader.GetByCallsign(ctx, session, callsign)
 		if err != nil {
 			// Strip was deleted while we were waiting — nothing to do.
 			slog.DebugContext(ctx, "Auto-hide from STAND: strip not found, skipping",
@@ -53,7 +53,7 @@ func (s *StripService) ClearStrip(ctx context.Context, session int32, callsign s
 		return fmt.Errorf("failed to move strip to cleared bay: %w", err)
 	}
 
-	if _, err := s.stripRepo.UpdateClearedFlag(ctx, session, callsign, true, shared.BAY_CLEARED, nil); err != nil {
+	if _, err := s.fieldStore.UpdateClearedFlag(ctx, session, callsign, true, shared.BAY_CLEARED, nil); err != nil {
 		slog.ErrorContext(ctx, "ClearStrip: failed to update cleared flag", slog.Any("error", err))
 	}
 
@@ -70,7 +70,7 @@ func (s *StripService) UnclearStrip(ctx context.Context, session int32, callsign
 		return fmt.Errorf("failed to move strip to not-cleared bay: %w", err)
 	}
 
-	if _, err := s.stripRepo.UpdateClearedFlag(ctx, session, callsign, false, shared.BAY_NOT_CLEARED, nil); err != nil {
+	if _, err := s.fieldStore.UpdateClearedFlag(ctx, session, callsign, false, shared.BAY_NOT_CLEARED, nil); err != nil {
 		slog.ErrorContext(ctx, "UnclearStrip: failed to update cleared flag", slog.Any("error", err))
 	}
 
@@ -91,7 +91,7 @@ func (s *StripService) clearOwnerForNotCleared(ctx context.Context, session int3
 		return fmt.Errorf("failed to get strip for owner reset: %w", err)
 	}
 
-	if err := s.stripRepo.SetPreviousOwners(ctx, session, callsign, []string{}); err != nil {
+	if err := s.ownerStore.SetPreviousOwners(ctx, session, callsign, []string{}); err != nil {
 		return fmt.Errorf("failed to persist previous owners: %w", err)
 	}
 	if syncState := shared.GetSyncState(ctx); syncState != nil && syncState.ExistingStrips != nil {
@@ -101,7 +101,7 @@ func (s *StripService) clearOwnerForNotCleared(ctx context.Context, session int3
 	}
 
 	if strip.Owner != nil && *strip.Owner != "" {
-		count, err := s.stripRepo.SetOwner(ctx, session, callsign, nil, strip.Version)
+		count, err := s.ownerStore.SetOwner(ctx, session, callsign, nil, strip.Version)
 		if err != nil {
 			return fmt.Errorf("failed to clear strip owner: %w", err)
 		}
@@ -133,7 +133,7 @@ func (s *StripService) clearOwnerForNotCleared(ctx context.Context, session int3
 
 // DeleteStrip removes a strip from the database and notifies the frontend.
 func (s *StripService) DeleteStrip(ctx context.Context, session int32, callsign string) error {
-	err := s.stripRepo.Delete(ctx, session, callsign)
+	err := s.lifecycleStore.Delete(ctx, session, callsign)
 	s.publisher.SendAircraftDisconnect(session, callsign)
 	return err
 }

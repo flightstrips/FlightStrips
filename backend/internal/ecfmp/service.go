@@ -16,13 +16,13 @@ const refreshInterval = time.Minute
 
 type Service struct {
 	client       *Client
-	stripRepo    repository.StripRepository
+	stripRepo    StripStore
 	sessionRepo  repository.SessionRepository
 	publisher    shared.CdmEventPublisher
 	euroscopeHub shared.EuroscopeHub
 }
 
-func NewService(client *Client, stripRepo repository.StripRepository, sessionRepo repository.SessionRepository, publisher shared.CdmEventPublisher, euroscopeHub shared.EuroscopeHub) *Service {
+func NewService(client *Client, stripRepo StripStore, sessionRepo repository.SessionRepository, publisher shared.CdmEventPublisher, euroscopeHub shared.EuroscopeHub) *Service {
 	return &Service{
 		client:       client,
 		stripRepo:    stripRepo,

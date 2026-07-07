@@ -15,7 +15,7 @@ import (
 // the provided IFR flight-plan fields, marks it as manually created, moves it
 // to the correct uncleared bay, and notifies both the frontend and EuroScope.
 func (s *StripService) CreateManualFPL(ctx context.Context, session int32, req frontend.CreateManualFPLAction, cid string, airport string) error {
-	strip, err := s.stripRepo.GetByCallsign(ctx, session, req.Callsign)
+	strip, err := s.stripReader.GetByCallsign(ctx, session, req.Callsign)
 	if err != nil {
 		return fmt.Errorf("callsign %q not found in session: %w", req.Callsign, err)
 	}
@@ -44,7 +44,7 @@ func (s *StripService) CreateManualFPL(ctx context.Context, session int32, req f
 		}
 	}
 
-	affected, err := s.stripRepo.UpdateIFRManualFPLFields(ctx, session, req.Callsign, req.ADES, sid, ssr, eobt, aircraftType, requestedAltitude, route, stand, runway)
+	affected, err := s.manualFplStore.UpdateIFRManualFPLFields(ctx, session, req.Callsign, req.ADES, sid, ssr, eobt, aircraftType, requestedAltitude, route, stand, runway)
 	if err != nil {
 		return fmt.Errorf("UpdateIFRManualFPLFields: %w", err)
 	}
@@ -89,7 +89,7 @@ func (s *StripService) CreateManualFPL(ctx context.Context, session int32, req f
 // It validates that the callsign exists, updates VFR-specific fields, moves the
 // strip to the CONTROLZONE bay, and notifies both the frontend and EuroScope.
 func (s *StripService) CreateVFRFPL(ctx context.Context, session int32, req frontend.CreateVFRFPLAction, cid string) error {
-	strip, err := s.stripRepo.GetByCallsign(ctx, session, req.Callsign)
+	strip, err := s.stripReader.GetByCallsign(ctx, session, req.Callsign)
 	if err != nil {
 		return fmt.Errorf("callsign %q not found in session: %w", req.Callsign, err)
 	}
@@ -110,7 +110,7 @@ func (s *StripService) CreateVFRFPL(ctx context.Context, session int32, req fron
 		personsOnBoard = &pob
 	}
 
-	affected, err := s.stripRepo.UpdateVFRManualFPLFields(ctx, session, req.Callsign, aircraftType, personsOnBoard, ssr, fplType, language, remarks, shared.BAY_CONTROLZONE)
+	affected, err := s.manualFplStore.UpdateVFRManualFPLFields(ctx, session, req.Callsign, aircraftType, personsOnBoard, ssr, fplType, language, remarks, shared.BAY_CONTROLZONE)
 	if err != nil {
 		return fmt.Errorf("UpdateVFRManualFPLFields: %w", err)
 	}

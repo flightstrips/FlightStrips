@@ -19,7 +19,7 @@ type Service struct {
 	broadcaster            *CdmBroadcaster
 	recalculationScheduler *RecalculationScheduler
 	client                 *Client
-	stripRepo              repository.StripRepository
+	stripRepo              CdmStripStore
 	sessionRepo            repository.SessionRepository
 	controllerRepo         repository.ControllerRepository
 	publisher              shared.CdmEventPublisher
@@ -52,7 +52,7 @@ const (
 	masterEobtClampTarget     = 30.0
 )
 
-func NewCdmService(client *Client, stripRepo repository.StripRepository, sessionRepo repository.SessionRepository, controllerRepo repository.ControllerRepository) *Service {
+func NewCdmService(client *Client, stripRepo CdmStripStore, sessionRepo repository.SessionRepository, controllerRepo repository.ControllerRepository) *Service {
 	service := &Service{
 		client:         client,
 		stripRepo:      stripRepo,

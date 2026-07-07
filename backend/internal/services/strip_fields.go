@@ -50,7 +50,7 @@ func (s *StripService) setStartReqState(ctx context.Context, session int32, call
 		return nil
 	}
 
-	affected, err := s.stripRepo.UpdateStartReq(ctx, session, callsign, startReq, nil)
+	affected, err := s.fieldStore.UpdateStartReq(ctx, session, callsign, startReq, nil)
 	if err != nil {
 		return err
 	}
@@ -78,7 +78,7 @@ func (s *StripService) setStartReqState(ctx context.Context, session int32, call
 
 // UpdateAssignedSquawk updates the assigned squawk for a strip and notifies the frontend.
 func (s *StripService) UpdateAssignedSquawk(ctx context.Context, session int32, callsign string, squawk string) error {
-	count, err := s.stripRepo.UpdateAssignedSquawk(ctx, session, callsign, &squawk, nil)
+	count, err := s.fieldStore.UpdateAssignedSquawk(ctx, session, callsign, &squawk, nil)
 	if err != nil {
 		return err
 	}
@@ -96,7 +96,7 @@ func (s *StripService) UpdateAssignedSquawk(ctx context.Context, session int32, 
 
 // UpdateSquawk updates the current squawk for a strip and notifies the frontend.
 func (s *StripService) UpdateSquawk(ctx context.Context, session int32, callsign string, squawk string) error {
-	count, err := s.stripRepo.UpdateSquawk(ctx, session, callsign, &squawk, nil)
+	count, err := s.fieldStore.UpdateSquawk(ctx, session, callsign, &squawk, nil)
 	if err != nil {
 		return err
 	}
@@ -114,7 +114,7 @@ func (s *StripService) UpdateSquawk(ctx context.Context, session int32, callsign
 
 // UpdateRequestedAltitude updates the requested altitude for a strip and notifies the frontend.
 func (s *StripService) UpdateRequestedAltitude(ctx context.Context, session int32, callsign string, altitude int32) error {
-	count, err := s.stripRepo.UpdateRequestedAltitude(ctx, session, callsign, &altitude, nil)
+	count, err := s.fieldStore.UpdateRequestedAltitude(ctx, session, callsign, &altitude, nil)
 	if err != nil {
 		return err
 	}
@@ -129,7 +129,7 @@ func (s *StripService) UpdateRequestedAltitude(ctx context.Context, session int3
 
 // UpdateClearedAltitude updates the cleared altitude for a strip and notifies the frontend.
 func (s *StripService) UpdateClearedAltitude(ctx context.Context, session int32, callsign string, altitude int32) error {
-	count, err := s.stripRepo.UpdateClearedAltitude(ctx, session, callsign, &altitude, nil)
+	count, err := s.fieldStore.UpdateClearedAltitude(ctx, session, callsign, &altitude, nil)
 	if err != nil {
 		return err
 	}
@@ -143,7 +143,7 @@ func (s *StripService) UpdateClearedAltitude(ctx context.Context, session int32,
 
 // UpdateCommunicationType updates the communication type for a strip and notifies the frontend.
 func (s *StripService) UpdateCommunicationType(ctx context.Context, session int32, callsign string, commType string) error {
-	count, err := s.stripRepo.UpdateCommunicationType(ctx, session, callsign, &commType, nil)
+	count, err := s.fieldStore.UpdateCommunicationType(ctx, session, callsign, &commType, nil)
 	if err != nil {
 		return err
 	}
@@ -157,7 +157,7 @@ func (s *StripService) UpdateCommunicationType(ctx context.Context, session int3
 
 // UpdateHeading updates the heading for a strip and notifies the frontend.
 func (s *StripService) UpdateHeading(ctx context.Context, session int32, callsign string, heading int32) error {
-	count, err := s.stripRepo.UpdateHeading(ctx, session, callsign, &heading, nil)
+	count, err := s.fieldStore.UpdateHeading(ctx, session, callsign, &heading, nil)
 	if err != nil {
 		return err
 	}
@@ -173,7 +173,7 @@ func (s *StripService) UpdateHeading(ctx context.Context, session int32, callsig
 // UpdateGroundState updates the ground state for a strip, recomputes the bay, and moves
 // the strip if the bay changed.
 func (s *StripService) UpdateGroundState(ctx context.Context, session int32, callsign string, groundState string, airport string) error {
-	existingStrip, err := s.stripRepo.GetByCallsign(ctx, session, callsign)
+	existingStrip, err := s.stripReader.GetByCallsign(ctx, session, callsign)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			slog.DebugContext(ctx, "Strip being updated does not exist in database", slog.String("callsign", callsign), slog.String("event", "GroundState"))
@@ -202,7 +202,7 @@ func (s *StripService) UpdateGroundState(ctx context.Context, session int32, cal
 	}
 	bay := shared.GetDepartureBayFromGroundState(groundState, dbStrip, airport, s.isGndOnline(ctx, session))
 
-	_, err = s.stripRepo.UpdateGroundState(ctx, session, callsign, &groundState, bay, nil)
+	_, err = s.fieldStore.UpdateGroundState(ctx, session, callsign, &groundState, bay, nil)
 	if err != nil {
 		return err
 	}
@@ -225,7 +225,7 @@ func (s *StripService) UpdateGroundState(ctx context.Context, session int32, cal
 // UpdateClearedFlag updates the cleared flag for a strip, recomputes the bay,
 // triggers auto-assumption if cleared, and moves the strip if the bay changed.
 func (s *StripService) UpdateClearedFlag(ctx context.Context, session int32, callsign string, cleared bool) error {
-	existingStrip, err := s.stripRepo.GetByCallsign(ctx, session, callsign)
+	existingStrip, err := s.stripReader.GetByCallsign(ctx, session, callsign)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			slog.DebugContext(ctx, "Strip being updated does not exist in database", slog.String("callsign", callsign), slog.String("event", "FlightStripOnline"))
@@ -246,7 +246,7 @@ func (s *StripService) UpdateClearedFlag(ctx context.Context, session int32, cal
 		bay = shared.BAY_HIDDEN
 	}
 
-	_, err = s.stripRepo.UpdateClearedFlag(ctx, session, callsign, cleared, bay, nil)
+	_, err = s.fieldStore.UpdateClearedFlag(ctx, session, callsign, cleared, bay, nil)
 	if err != nil {
 		return err
 	}
@@ -269,12 +269,12 @@ func (s *StripService) UpdateClearedFlag(ctx context.Context, session int32, cal
 
 // UpdateStand updates the stand for a strip, notifies the frontend, and triggers route recalculation.
 func (s *StripService) UpdateStand(ctx context.Context, session int32, callsign string, stand string) error {
-	strip, err := s.stripRepo.GetByCallsign(ctx, session, callsign)
+	strip, err := s.stripReader.GetByCallsign(ctx, session, callsign)
 	if err != nil {
 		return err
 	}
 
-	count, err := s.stripRepo.UpdateStand(ctx, session, callsign, &stand, nil)
+	count, err := s.fieldStore.UpdateStand(ctx, session, callsign, &stand, nil)
 	if err != nil {
 		return err
 	}
@@ -327,12 +327,12 @@ func (s *StripService) applyClearedFlagForMove(ctx context.Context, session int3
 }
 
 func (s *StripService) applyClearedFlagForMoveWithOptions(ctx context.Context, session int32, callsign string, isCleared bool, persistedBay string, clearOwnerForNotCleared bool, cid string, forceEuroscopeNotification bool, autoAssumeOnClear bool) error {
-	strip, err := s.stripRepo.GetByCallsign(ctx, session, callsign)
+	strip, err := s.stripReader.GetByCallsign(ctx, session, callsign)
 	if err != nil {
 		return err
 	}
 
-	count, err := s.stripRepo.UpdateClearedFlag(ctx, session, callsign, isCleared, persistedBay, nil)
+	count, err := s.fieldStore.UpdateClearedFlag(ctx, session, callsign, isCleared, persistedBay, nil)
 	if err != nil {
 		return err
 	}
@@ -369,7 +369,7 @@ func (s *StripService) UpdateGroundStateForMove(ctx context.Context, session int
 }
 
 func (s *StripService) updateGroundStateForMoveWithOptions(ctx context.Context, session int32, callsign string, targetBay string, cid string, airport string, persistedBay string, reevaluate bool) error {
-	strip, err := s.stripRepo.GetByCallsign(ctx, session, callsign)
+	strip, err := s.stripReader.GetByCallsign(ctx, session, callsign)
 	if err != nil {
 		return err
 	}
@@ -391,7 +391,7 @@ func (s *StripService) updateGroundStateForMoveWithOptions(ctx context.Context, 
 		state = &parked
 	}
 
-	count, err := s.stripRepo.UpdateGroundState(ctx, session, callsign, state, persistedBay, nil)
+	count, err := s.fieldStore.UpdateGroundState(ctx, session, callsign, state, persistedBay, nil)
 	if err != nil {
 		return err
 	}
@@ -406,7 +406,7 @@ func (s *StripService) updateGroundStateForMoveWithOptions(ctx context.Context, 
 	// Moving backward out of a runway-cleared bay must clear the runway status so the next runway
 	// action behaves like a fresh clearance instead of a confirmation.
 	if strip.RunwayCleared && shouldResetRunwayClearanceOnMove(strip.Bay, targetBay) {
-		if _, err := s.stripRepo.ResetRunwayClearance(ctx, session, callsign); err != nil {
+		if _, err := s.fieldStore.ResetRunwayClearance(ctx, session, callsign); err != nil {
 			return err
 		}
 		s.publisher.SendStripUpdate(session, callsign)
@@ -423,7 +423,7 @@ func (s *StripService) updateGroundStateForMoveWithOptions(ctx context.Context, 
 
 // UpdateReleasePoint updates the release point for a strip and broadcasts to all frontend clients.
 func (s *StripService) UpdateReleasePoint(ctx context.Context, session int32, callsign string, releasePoint string) error {
-	affected, err := s.stripRepo.UpdateReleasePoint(ctx, session, callsign, &releasePoint)
+	affected, err := s.fieldStore.UpdateReleasePoint(ctx, session, callsign, &releasePoint)
 	if err != nil {
 		return err
 	}
@@ -445,7 +445,7 @@ func (s *StripService) UpdateStartReq(ctx context.Context, session int32, callsi
 // Non-owners may overwrite an existing value (marks the cell yellow for both controllers).
 // Non-owners setting a value on a strip that has none are rejected.
 func (s *StripService) ApplyReleasePoint(ctx context.Context, session int32, callsign string, releasePoint string, clientPosition string) error {
-	strip, err := s.stripRepo.GetByCallsign(ctx, session, callsign)
+	strip, err := s.stripReader.GetByCallsign(ctx, session, callsign)
 	if err != nil {
 		return err
 	}
@@ -457,7 +457,7 @@ func (s *StripService) ApplyReleasePoint(ctx context.Context, session int32, cal
 		hasExisting := strip.ReleasePoint != nil && *strip.ReleasePoint != ""
 		if hasExisting && *strip.ReleasePoint != releasePoint {
 			// Non-owner overwriting existing value — allow, mark as unexpected change.
-			if err := s.stripRepo.AppendUnexpectedChangeField(ctx, session, callsign, "release_point"); err != nil {
+			if err := s.fieldStore.AppendUnexpectedChangeField(ctx, session, callsign, "release_point"); err != nil {
 				return err
 			}
 			unexpectedChange = true
@@ -480,7 +480,7 @@ func (s *StripService) ApplyReleasePoint(ctx context.Context, session int32, cal
 
 // UpdateMarked updates the marked flag for a strip and broadcasts to all frontend clients.
 func (s *StripService) UpdateMarked(ctx context.Context, session int32, callsign string, marked bool) error {
-	affected, err := s.stripRepo.UpdateMarked(ctx, session, callsign, marked, nil)
+	affected, err := s.fieldStore.UpdateMarked(ctx, session, callsign, marked, nil)
 	if err != nil {
 		return err
 	}

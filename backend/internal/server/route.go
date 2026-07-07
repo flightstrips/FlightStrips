@@ -545,7 +545,11 @@ func nextDisplaysEqual(left, right *models.NextDisplay) bool {
 	return left.Label == right.Label && left.Frequency == right.Frequency
 }
 
-func routeStripForCallsign(ctx context.Context, stripRepo repository.StripRepository, sessionId int32, callsign string) (*models.Strip, error) {
+type routeStripReader interface {
+	GetByCallsign(ctx context.Context, session int32, callsign string) (*models.Strip, error)
+}
+
+func routeStripForCallsign(ctx context.Context, stripRepo routeStripReader, sessionId int32, callsign string) (*models.Strip, error) {
 	if syncState := shared.GetSyncState(ctx); syncState != nil && syncState.ExistingStrips != nil {
 		if strip := syncState.ExistingStrips[callsign]; strip != nil {
 			return strip, nil

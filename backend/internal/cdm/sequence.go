@@ -32,7 +32,7 @@ type sequencingCandidate struct {
 }
 
 type SequenceService struct {
-	stripRepo      repository.StripRepository
+	stripRepo      CdmSequenceStripStore
 	sessionRepo    repository.SessionRepository
 	configProvider ConfigProvider
 	frontendHub    shared.FrontendHub
@@ -40,7 +40,7 @@ type SequenceService struct {
 	afterPersist   func(ctx context.Context, session int32, callsign string)
 }
 
-func NewSequenceService(stripRepo repository.StripRepository, sessionRepo repository.SessionRepository, configProvider ConfigProvider, frontendHub shared.FrontendHub, euroscopeHub shared.EuroscopeHub) *SequenceService {
+func NewSequenceService(stripRepo CdmSequenceStripStore, sessionRepo repository.SessionRepository, configProvider ConfigProvider, frontendHub shared.FrontendHub, euroscopeHub shared.EuroscopeHub) *SequenceService {
 	return &SequenceService{
 		stripRepo:      stripRepo,
 		sessionRepo:    sessionRepo,

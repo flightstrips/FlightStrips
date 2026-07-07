@@ -116,6 +116,7 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 		services.WithSessionReader(sessionRepo),
 		services.WithSectorOwnerRepository(sectorRepo),
 	)
+	stripValidationService := services.NewStripValidationService(stripRepo, stripRepo)
 	controllerService := services.NewControllerService(controllerRepo)
 	cdmClient := cdm.NewClient(cdm.WithAPIKey(cfg.CDMKey))
 	cdmService := cdm.NewCdmService(cdmClient, stripRepo, sessionRepo, controllerRepo)
@@ -151,6 +152,8 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 	ecfmpService := ecfmp.NewService(ecfmp.NewClient(ecfmp.WithBaseURL(cfg.ECFMPBaseURL)), stripRepo, sessionRepo, frontendHub, euroscopeHub)
 
 	stripService.SetFrontendHub(frontendHub)
+	stripValidationService.SetFrontendHub(frontendHub)
+	frontendHub.SetValidationService(stripValidationService)
 	stripService.SetEuroscopeHub(euroscopeHub)
 	stripService.SetSectorOwnerRepo(sectorRepo)
 	cdmService.SetFrontendHub(frontendHub)

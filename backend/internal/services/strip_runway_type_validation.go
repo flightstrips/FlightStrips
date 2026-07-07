@@ -80,7 +80,7 @@ func (s *StripService) applyRunwayTypeValidation(ctx context.Context, session in
 		if !isRunwayTypeValidation(current) {
 			return nil
 		}
-		if err := s.stripRepo.ClearValidationStatus(ctx, session, strip.Callsign); err != nil {
+		if err := s.validationStore.ClearValidationStatus(ctx, session, strip.Callsign); err != nil {
 			return err
 		}
 		shared.AddDBOperations(ctx, 1)
@@ -109,7 +109,7 @@ func (s *StripService) applyRunwayTypeValidation(ctx context.Context, session in
 		return nil
 	}
 
-	if err := s.stripRepo.SetValidationStatus(ctx, session, strip.Callsign, desired); err != nil {
+	if err := s.validationStore.SetValidationStatus(ctx, session, strip.Callsign, desired); err != nil {
 		return err
 	}
 	shared.AddDBOperations(ctx, 1)

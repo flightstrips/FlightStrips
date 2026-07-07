@@ -157,7 +157,7 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 		} else {
 			routeNeedsUpdate = true
 		}
-		if err = s.stripRepo.Create(ctx, newStrip); err != nil {
+		if err = s.lifecycleStore.Create(ctx, newStrip); err != nil {
 			return err
 		}
 		shared.AddDBOperations(ctx, 1)
@@ -473,7 +473,7 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 		}
 
 		if primaryChange {
-			if _, err = s.stripRepo.Update(ctx, updateStrip); err != nil {
+			if _, err = s.lifecycleStore.Update(ctx, updateStrip); err != nil {
 				return err
 			}
 			shared.AddDBOperations(ctx, 1)

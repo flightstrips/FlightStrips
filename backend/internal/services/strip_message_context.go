@@ -184,7 +184,7 @@ func (s *StripService) listCachedStrips(ctx context.Context, session int32) ([]*
 		}
 	}
 
-	strips, err := s.stripRepo.List(ctx, session)
+	strips, err := s.stripReader.List(ctx, session)
 	if err != nil {
 		return nil, false, err
 	}
@@ -228,7 +228,7 @@ func (s *StripService) getCachedStrip(ctx context.Context, session int32, callsi
 		}
 	}
 
-	strip, err := s.stripRepo.GetByCallsign(ctx, session, callsign)
+	strip, err := s.stripReader.GetByCallsign(ctx, session, callsign)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, false, nil
 	}

@@ -24,7 +24,7 @@ type InitialSnapshotRequest struct {
 
 type SnapshotBuilderDependencies struct {
 	ControllerRepo     repository.ControllerRepository
-	StripRepo          repository.StripRepository
+	StripRepo          SnapshotStripStore
 	SectorRepo         repository.SectorOwnerRepository
 	SessionRepo        repository.SessionRepository
 	CoordinationRepo   repository.CoordinationRepository
@@ -38,7 +38,7 @@ type SnapshotBuilderDependencies struct {
 
 type SnapshotBuilder struct {
 	controllerRepo     repository.ControllerRepository
-	stripRepo          repository.StripRepository
+	stripRepo          SnapshotStripStore
 	sectorRepo         repository.SectorOwnerRepository
 	sessionRepo        repository.SessionRepository
 	coordinationRepo   repository.CoordinationRepository

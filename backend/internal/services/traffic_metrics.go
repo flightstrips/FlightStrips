@@ -27,8 +27,12 @@ var taxiingBays = map[string]bool{
 
 type TrafficMetricsService struct {
 	sessionRepo repository.SessionRepository
-	stripRepo   repository.StripRepository
+	stripRepo   TrafficMetricsStripStore
 	interval    time.Duration
+}
+
+type TrafficMetricsStripStore interface {
+	List(ctx context.Context, session int32) ([]*models.Strip, error)
 }
 
 type trafficSnapshot struct {
@@ -38,7 +42,7 @@ type trafficSnapshot struct {
 	dep15m  int64
 }
 
-func NewTrafficMetricsService(sessionRepo repository.SessionRepository, stripRepo repository.StripRepository) *TrafficMetricsService {
+func NewTrafficMetricsService(sessionRepo repository.SessionRepository, stripRepo TrafficMetricsStripStore) *TrafficMetricsService {
 	return &TrafficMetricsService{
 		sessionRepo: sessionRepo,
 		stripRepo:   stripRepo,

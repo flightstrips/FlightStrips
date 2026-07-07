@@ -126,7 +126,7 @@ func (s *Server) GetOrCreateSession(airport string, name string) (shared.Session
 
 	if errors.Is(err, pgx.ErrNoRows) {
 		slog.Debug("Creating session", slog.String("name", name), slog.String("airport", airport))
-		newSession := &models.Session{Name: name, Airport: airport}
+		newSession := &models.Session{Name: name, Airport: airport, CdmMaster: true}
 		id, err := sessionRepo.Create(context.Background(), newSession)
 
 		if err != nil {

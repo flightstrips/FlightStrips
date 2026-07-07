@@ -9,8 +9,8 @@ FROM sessions
 WHERE id = $1;
 
 -- name: InsertSession :one
-INSERT INTO sessions (name, airport)
-VALUES ($1, $2) RETURNING id;
+INSERT INTO sessions (name, airport, cdm_master)
+VALUES ($1, $2, $3) RETURNING id;
 
 -- name: UpdateCdmMaster :exec
 UPDATE sessions SET cdm_master = $2 WHERE id = $1;

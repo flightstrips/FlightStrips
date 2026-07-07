@@ -186,17 +186,18 @@ func (q *Queries) GetSessionsByNames(ctx context.Context, name string) ([]Sessio
 }
 
 const insertSession = `-- name: InsertSession :one
-INSERT INTO sessions (name, airport)
-VALUES ($1, $2) RETURNING id
+INSERT INTO sessions (name, airport, cdm_master)
+VALUES ($1, $2, $3) RETURNING id
 `
 
 type InsertSessionParams struct {
-	Name    string
-	Airport string
+	Name       string
+	Airport    string
+	CdmMaster  bool
 }
 
 func (q *Queries) InsertSession(ctx context.Context, arg InsertSessionParams) (int32, error) {
-	row := q.db.QueryRow(ctx, insertSession, arg.Name, arg.Airport)
+	row := q.db.QueryRow(ctx, insertSession, arg.Name, arg.Airport, arg.CdmMaster)
 	var id int32
 	err := row.Scan(&id)
 	return id, err

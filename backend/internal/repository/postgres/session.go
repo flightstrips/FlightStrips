@@ -38,8 +38,9 @@ func sessionToModel(db database.Session) *models.Session {
 // Create inserts a new session
 func (r *sessionRepository) Create(ctx context.Context, session *models.Session) (int32, error) {
 	return r.queries.InsertSession(ctx, database.InsertSessionParams{
-		Name:    session.Name,
-		Airport: session.Airport,
+		Name:      session.Name,
+		Airport:   session.Airport,
+		CdmMaster: session.CdmMaster,
 	})
 }
 

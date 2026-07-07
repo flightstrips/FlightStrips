@@ -24,6 +24,10 @@ func (m *StripService) UnclearStrip(ctx context.Context, session int32, callsign
 	return args.Error(0)
 }
 
+func (m *StripService) ClearMandatoryRouteCdm(ctx context.Context, session int32, callsign string) {
+	m.Called(ctx, session, callsign)
+}
+
 func (m *StripService) MoveToBay(ctx context.Context, session int32, callsign string, bay string, sendNotification bool) error {
 	args := m.Called(ctx, session, callsign, bay, sendNotification)
 	return args.Error(0)

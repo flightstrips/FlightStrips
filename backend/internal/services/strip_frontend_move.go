@@ -71,6 +71,10 @@ func (s *StripService) MoveFrontendStrip(ctx context.Context, session int32, cal
 		return err
 	}
 
+	if targetBay == shared.BAY_CLEARED {
+		s.ClearMandatoryRouteCdm(ctx, session, callsign)
+	}
+
 	if !shouldConfirmVoiceClearance {
 		return nil
 	}

@@ -62,6 +62,7 @@ func setupHandlerTest(t *testing.T) *handlerTestSetup {
 		timeoutConfig: 30 * time.Second,
 	}
 	mockStrip.On("ReevaluatePdcInvalidValidation", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
+	mockStrip.On("ClearMandatoryRouteCdm", mock.Anything, mock.Anything, mock.Anything).Maybe()
 
 	sessionID := testdata.SeedTestSession(t, queries)
 	webapi := NewWebAPI(pdcAuthStub{}, service, nil, false)

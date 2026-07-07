@@ -75,6 +75,7 @@ type StripService interface {
 	// Cleared bay operations
 	ClearStrip(ctx context.Context, session int32, callsign string, cid string) error
 	UnclearStrip(ctx context.Context, session int32, callsign string, cid string) error
+	ClearMandatoryRouteCdm(ctx context.Context, session int32, callsign string)
 
 	// Auto-assumption
 	AutoAssumeForClearedStrip(ctx context.Context, session int32, callsign string) error

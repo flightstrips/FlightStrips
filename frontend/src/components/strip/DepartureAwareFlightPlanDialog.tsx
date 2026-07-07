@@ -1,5 +1,6 @@
 import FlightPlanDialog from "@/components/FlightPlanDialog";
 import { useAirport, useStrip } from "@/store/store-hooks";
+import { Bay } from "@/api/models";
 
 interface DepartureAwareFlightPlanDialogProps {
   callsign: string;
@@ -15,14 +16,16 @@ export function DepartureAwareFlightPlanDialog({
   const strip = useStrip(callsign);
   const airport = useAirport();
   const isDeparture = strip?.origin === airport && strip?.destination !== airport;
+  const isNotCleared = strip?.bay === Bay.NotCleared;
+  const clearanceMode = isDeparture && isNotCleared;
 
   return (
     <FlightPlanDialog
       callsign={callsign}
       open={open}
       onOpenChange={onOpenChange}
-      mode={isDeparture ? "clearance" : "view"}
-      pdcAction={isDeparture ? "manual" : "default"}
+      mode={clearanceMode ? "clearance" : "view"}
+      pdcAction={clearanceMode ? "manual" : "default"}
     />
   );
 }

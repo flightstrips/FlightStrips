@@ -107,6 +107,7 @@ func (suite *PDCIntegrationTestSuite) SetupTest(t *testing.T) {
 		timeoutConfig: 30 * time.Second, // Long timeout to prevent firing during test
 	}
 	suite.mockStrip.On("ReevaluatePdcRequestValidations", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
+	suite.mockStrip.On("ClearMandatoryRouteCdm", mock.Anything, mock.Anything, mock.Anything).Maybe()
 
 	// Seed test data
 	sessionID := testdata.SeedTestSession(t, queries)

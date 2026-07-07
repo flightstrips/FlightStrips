@@ -45,6 +45,7 @@ const MIN_FITTED_FIELD_FONT_SIZE = 9;
 const NITOS_SINGLE_LINE_FIT_LENGTH = 70;
 const NITOS_MULTILINE_LENGTH = 105;
 const NITOS_REMARKS_INLINE_PADDING = scalePx(8);
+const SPOKEN_CS_FIT_LENGTH = 8;
 
 // Tailwind class constants (hex must be literal strings for JIT)
 const CLS_DIALOG            = "bg-[#d4d4d4] rounded-none flex flex-col gap-0";
@@ -207,6 +208,14 @@ function fittedNitosRemarksStyle(value: string) {
   };
 }
 
+function fittedSpokenCallsignStyle(value: string) {
+  const compactLength = value.replace(/\s+/g, " ").trim().length;
+  const fontSize = compactLength > SPOKEN_CS_FIT_LENGTH
+    ? Math.max(MIN_FITTED_FIELD_FONT_SIZE, Math.floor((20 * SPOKEN_CS_FIT_LENGTH * 10) / compactLength) / 10)
+    : 20;
+  return { fontSize: scalePx(fontSize) };
+}
+
 function sidOverrideKey(strip: { clx_validation?: { faults: { fields: string[], override_key?: string }[] } } | undefined) {
   return strip?.clx_validation?.faults.find(fault => fault.override_key && fault.fields.includes("sid"))?.override_key;
 }
@@ -293,6 +302,8 @@ export default function FlightPlanDialog({
   const sidOverride = sidOverrideKey(strip);
   const nitosRemarks = clxNitosRemarks(strip);
   const nitosRemarksFit = fittedNitosRemarksStyle(nitosRemarks);
+  const spokenCallsign = strip?.spoken_callsign ?? "";
+  const spokenCallsignFit = fittedSpokenCallsignStyle(spokenCallsign);
   const isPdcRequest = strip?.pdc_state === "REQUESTED" || strip?.pdc_state === "REQUESTED_WITH_FAULTS";
   const fieldStyle = (width: number) => ({
     width: scalePx(width),
@@ -609,12 +620,15 @@ export default function FlightPlanDialog({
               />
             </div>
             <div className="grid items-center" style={gridGroupStyle}>
-              <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>IATA TYPE</Label>
+              <Label className="font-light" style={{ fontSize: FONT_SIZE_LABEL }}>SPOKEN C/S</Label>
               <Input
-                value={strip.spoken_callsign ?? ""}
+                value={spokenCallsign}
                 disabled
                 className={CLS_BTN_DISABLED}
-                style={fieldStyle(130)}
+                style={{
+                  ...fieldStyle(130),
+                  fontSize: spokenCallsignFit.fontSize,
+                }}
               />
             </div>
           </div>

@@ -302,7 +302,7 @@ export default function FlightPlanDialog({
   const sidOverride = sidOverrideKey(strip);
   const nitosRemarks = clxNitosRemarks(strip);
   const nitosRemarksFit = fittedNitosRemarksStyle(nitosRemarks);
-  const spokenCallsign = strip.spoken_callsign ?? "";
+  const spokenCallsign = strip?.spoken_callsign ?? "";
   const spokenCallsignFit = fittedSpokenCallsignStyle(spokenCallsign);
   const isPdcRequest = strip?.pdc_state === "REQUESTED" || strip?.pdc_state === "REQUESTED_WITH_FAULTS";
   const fieldStyle = (width: number) => ({

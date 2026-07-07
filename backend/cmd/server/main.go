@@ -1,57 +1,25 @@
 package main
 
 import (
-	"FlightStrips/internal/alb"
-	"FlightStrips/internal/cdm"
+	"FlightStrips/internal/app"
 	"FlightStrips/internal/config"
-	"FlightStrips/internal/database"
-	"FlightStrips/internal/ecfmp"
-	ecfmpWebAPI "FlightStrips/internal/ecfmp/webapi"
-	"FlightStrips/internal/euroscope"
-	"FlightStrips/internal/frontend"
-	"FlightStrips/internal/metar"
-	"FlightStrips/internal/pdc"
-	"FlightStrips/internal/pilot"
-	"FlightStrips/internal/repository/postgres"
-	"FlightStrips/internal/server"
-	"FlightStrips/internal/services"
 	"FlightStrips/internal/telemetry"
-	"FlightStrips/internal/vatsim"
-	"FlightStrips/internal/websocket"
-	pkgEuroscope "FlightStrips/pkg/events/euroscope"
-	pkgFrontend "FlightStrips/pkg/events/frontend"
 	"context"
-	_ "database/sql"
 	"flag"
 	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"syscall"
 	"time"
 
-	"github.com/exaring/otelpgx"
-	_ "github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
-
-	_ "embed"
-
-	_ "github.com/jackc/pgx/v5/pgtype"
-
 	"github.com/joho/godotenv"
 	"github.com/lmittmann/tint"
-	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
-	"go.opentelemetry.io/otel"
 )
 
 var addr = flag.String("addr", "", "http service address (overrides SERVER_ADDR env var)")
-
-func healthz(w http.ResponseWriter, _ *http.Request) {
-	w.WriteHeader(http.StatusOK)
-}
 
 func main() {
 	flag.Parse()
@@ -60,40 +28,20 @@ func main() {
 		*addr = getEnv("SERVER_ADDR", "127.0.0.1:8090")
 	}
 
-	var logLevel slog.LevelVar
-	switch strings.ToUpper(os.Getenv("LOG_LEVEL")) {
-	case "DEBUG":
-		logLevel.Set(slog.LevelDebug)
-	case "WARN":
-		logLevel.Set(slog.LevelWarn)
-	case "ERROR":
-		logLevel.Set(slog.LevelError)
-	default: // "INFO" or unset
-		logLevel.Set(slog.LevelInfo)
-	}
-	logger := slog.New(tint.NewHandler(os.Stdout, &tint.Options{Level: &logLevel}))
-	slog.SetDefault(logger)
+	configureLogging()
+	loadEnvFiles()
 
-	var err error
-	for _, envFile := range []string{".env", ".env.dev"} {
-		err = godotenv.Load(envFile)
-		if err != nil && !os.IsNotExist(err) {
-			slog.Error("Error loading env file", slog.String("file", envFile), slog.Any("error", err))
-			os.Exit(1)
-		}
-	}
+	ctx, cancelWorkers := context.WithCancel(context.Background())
+	defer cancelWorkers()
 
-	ctx := context.Background()
 	if err := config.InitConfig(); err != nil {
 		slog.Error("Failed to initialize config", slog.Any("error", err))
 		os.Exit(1)
 	}
 
-	// Initialize OpenTelemetry if endpoint is configured
 	otlpEndpoint := os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
-	var tel *telemetry.Telemetry
 	if otlpEndpoint != "" {
-		tel, err = telemetry.Initialize(ctx, telemetry.Config{
+		tel, err := telemetry.Initialize(ctx, telemetry.Config{
 			ServiceName:    "flightstrips-backend",
 			ServiceVersion: "1.0.0",
 			Environment:    getEnv("ENVIRONMENT", "development"),
@@ -108,240 +56,62 @@ func main() {
 			}
 		}()
 
-		// Setup dual logger (stdout + OTEL)
 		telemetry.SetupDualLogger()
 		slog.Info("OpenTelemetry initialized", slog.String("endpoint", otlpEndpoint))
 	}
 
-	// Configure pgxpool with OTEL tracing
-	poolConfig, err := pgxpool.ParseConfig(os.Getenv("DATABASE_CONNECTIONSTRING"))
-	if err != nil {
-		slog.Error("Failed to parse database connection string", slog.Any("error", err))
-		os.Exit(1)
-	}
-
-	if otlpEndpoint != "" {
-		poolConfig.ConnConfig.Tracer = otelpgx.NewTracer(
-			otelpgx.WithTracerProvider(otel.GetTracerProvider()),
-			otelpgx.WithTrimSQLInSpanName(),
-		)
-	}
-
-	dbpool, err := pgxpool.NewWithConfig(ctx, poolConfig)
-	if err != nil {
-		slog.Error("Failed to connect to database", slog.Any("error", err))
-		os.Exit(1)
-	}
-	defer dbpool.Close()
-
-	if otlpEndpoint != "" {
-		if err := otelpgx.RecordStats(dbpool); err != nil {
-			slog.Warn("Failed to record database stats", slog.Any("error", err))
-		}
-	}
-
-	authenticationService, err := services.NewAuthenticationService(os.Getenv("OIDC_SIGNING_ALGO"), os.Getenv("OIDC_AUTHORITY"), getEnv("OIDC_AUDIENCE", "backend-dev"))
-	if err != nil {
-		slog.Error("Failed to initialize authentication service", slog.Any("error", err))
-		os.Exit(1)
-	}
-
-	cdmKey := os.Getenv("CDM_KEY")
-	cdmClient := cdm.NewClient(cdm.WithAPIKey(cdmKey))
-
-	// Initialize repositories
-	stripRepo := postgres.NewStripRepository(dbpool)
-	controllerRepo := postgres.NewControllerRepository(dbpool)
-	sessionRepo := postgres.NewSessionRepository(dbpool)
-	sectorRepo := postgres.NewSectorOwnerRepository(dbpool)
-	coordRepo := postgres.NewCoordinationRepository(dbpool)
-	tacticalStripRepo := postgres.NewTacticalStripRepository(dbpool)
-
-	// Initialize services
-	stripService := services.NewStripService(
-		stripRepo,
-		services.WithTacticalStripRepository(tacticalStripRepo),
-		services.WithCoordinationStore(coordRepo),
-		services.WithControllerReader(controllerRepo),
-		services.WithSessionReader(sessionRepo),
-		services.WithSectorOwnerRepository(sectorRepo),
-	)
-	controllerService := services.NewControllerService(controllerRepo)
-	cdmService := cdm.NewCdmService(cdmClient, stripRepo, sessionRepo, controllerRepo)
-	ecfmpBaseURL := getEnv("ECFMP_BASE_URL", ecfmp.DefaultBaseURL)
-	ecfmpClient := ecfmp.NewClient(ecfmp.WithBaseURL(ecfmpBaseURL))
-
-	stripService.SetCdmService(cdmService)
-	cdmService.SetValidationReevaluator(stripService)
-
-	// Initialize PDC Service
-	hoppieLogon := os.Getenv("HOPPIE_LOGON")
-	pdcClient := pdc.HoppieClientInterface(pdc.NoopHoppieClient{})
-	if hoppieLogon != "" {
-		pdcClient = pdc.NewClient(hoppieLogon)
-		slog.Info("PDC Hoppie client initialized")
-	} else {
-		slog.Warn("PDC Hoppie client disabled - HOPPIE_LOGON not set")
-	}
-	pdcService := pdc.NewPDCService(pdcClient, sessionRepo, stripRepo, sectorRepo, controllerRepo)
-	pdcService.SetStripService(stripService)
-	pdcService.SetWebLookupLiveOnly(envBool("PDC_WEB_LOOKUP_LIVE_ONLY", isLiveEnvironment(getEnv("ENVIRONMENT", "development"))))
-
-	requireLiveCIDVerification := isLiveEnvironment(getEnv("ENVIRONMENT", "development"))
-	var vatsimCache *vatsim.Cache
-	if requireLiveCIDVerification {
-		vatsimCache = vatsim.NewCache(
-			getEnv("VATSIM_STATUS_URL", ""),
-			envDuration("VATSIM_POLL_INTERVAL", 30*time.Second),
-			nil,
-		)
-		slog.Info("VATSIM cache enabled for live web PDC ownership verification")
-	}
-
-	var fsServer *server.Server
-	transceiverCache := vatsim.NewTransceiverCache(
-		getEnv("VATSIM_TRANSCEIVERS_URL", ""),
-		envDuration("VATSIM_TRANSCEIVER_POLL_INTERVAL", 30*time.Second),
-		nil,
-		func(ctx context.Context) error {
-			if fsServer == nil {
-				return nil
-			}
-			return fsServer.RefreshAllSectors(ctx)
-		},
-	)
-	slog.Info("VATSIM transceiver cache enabled for sector ownership refresh")
-	pdcService.SetTransceiverLookup(transceiverCache)
-
-	frontendHub := frontend.NewHub(stripService, authenticationService)
-	euroscopeHub := euroscope.NewHub(stripService, controllerService, authenticationService)
-	albHub := alb.NewHub()
-	ecfmpService := ecfmp.NewService(ecfmpClient, stripRepo, sessionRepo, frontendHub, euroscopeHub)
-
-	stripService.SetFrontendHub(frontendHub)
-	stripService.SetEuroscopeHub(euroscopeHub)
-	stripService.SetSectorOwnerRepo(sectorRepo)
-	cdmService.SetFrontendHub(frontendHub)
-	cdmService.SetEuroscopeHub(euroscopeHub)
-
-	cdmCfg := config.GetCdmConfig()
-	resolveURI := func(uri string) string {
-		if uri == "" || strings.HasPrefix(uri, "http://") || strings.HasPrefix(uri, "https://") {
-			return uri
-		}
-		return filepath.Join(config.GetConfigDir(), uri)
-	}
-	configStore := cdm.NewCdmConfigStore(
-		resolveURI(cdmCfg.RateUri),
-		resolveURI(cdmCfg.SidIntervalUri),
-		resolveURI(cdmCfg.TaxizonesUri),
-		envDuration("CDM_CONFIG_REFRESH_INTERVAL", 15*time.Minute),
-		cdm.CdmConfigDefaults{
-			Rate:        cdmCfg.Rate,
-			RateLvo:     cdmCfg.RateLvo,
-			TaxiMinutes: cdm.DefaultCDMTaxiMinutes,
-		},
-		nil,
-	)
-	// Seed deice config and default rates from YAML before first refresh.
-	configStore.SeedAirportConfig("EKCH", cdmCfg.Rate, cdmCfg.RateLvo, cdm.CdmDeiceConfig{
-		Light:  cdmCfg.Deice.Light,
-		Medium: cdmCfg.Deice.Medium,
-		Heavy:  cdmCfg.Deice.Heavy,
-		Super:  cdmCfg.Deice.Super,
-		Platform: func() []cdm.CdmDeicePlatformConfig {
-			platforms := make([]cdm.CdmDeicePlatformConfig, len(cdmCfg.Deice.Platform))
-			for i, p := range cdmCfg.Deice.Platform {
-				platforms[i] = cdm.CdmDeicePlatformConfig{Name: p.Name, Time: p.Time}
-			}
-			return platforms
-		}(),
+	application, err := app.Build(ctx, app.Config{
+		DatabaseConnectionString: os.Getenv("DATABASE_CONNECTIONSTRING"),
+		OIDCSigningAlgorithm:     os.Getenv("OIDC_SIGNING_ALGO"),
+		OIDCAuthority:            os.Getenv("OIDC_AUTHORITY"),
+		OIDCAudience:             getEnv("OIDC_AUDIENCE", "backend-dev"),
+		Environment:              getEnv("ENVIRONMENT", "development"),
+		EnablePostgresTracing:    otlpEndpoint != "",
+		EnableHTTPTracing:        otlpEndpoint != "",
+		CDMKey:                   os.Getenv("CDM_KEY"),
+		CDMConfigRefreshInterval: envDuration("CDM_CONFIG_REFRESH_INTERVAL", 15*time.Minute),
+		EnableCDMConfigStore:     true,
+		HoppieLogon:              os.Getenv("HOPPIE_LOGON"),
+		PDCWebLookupLiveOnly:     envBool("PDC_WEB_LOOKUP_LIVE_ONLY", isLiveEnvironment(getEnv("ENVIRONMENT", "development"))),
+		EnablePDC:                true,
+		ECFMPBaseURL:             getEnv("ECFMP_BASE_URL", ""),
+		EnableECFMP:              true,
+		EnableECFMPAPI:           !isLiveEnvironment(getEnv("ENVIRONMENT", "development")),
+		EnablePilotAPI:           true,
+		EnableALB:                true,
+		EnableMetar:              true,
+		EnableVATSIM:             true,
+		EnableTransceivers:       true,
+		EnableTraffic:            true,
+		EnableDBSeed:             true,
+	}, app.Dependencies{
+		VATSIMStatusURL:      getEnv("VATSIM_STATUS_URL", ""),
+		VATSIMPollInterval:   envDuration("VATSIM_POLL_INTERVAL", 30*time.Second),
+		TransceiversURL:      getEnv("VATSIM_TRANSCEIVERS_URL", ""),
+		TransceiversInterval: envDuration("VATSIM_TRANSCEIVER_POLL_INTERVAL", 30*time.Second),
 	})
-	sequenceService := cdm.NewSequenceService(stripRepo, sessionRepo, configStore, frontendHub, euroscopeHub)
-	cdmService.SetConfigProvider(configStore)
-	cdmService.SetSequenceService(sequenceService)
-	configStore.SetOnAirportConfigChanged(func(airport string) {
-		if err := cdmService.TriggerRecalculateForAirport(context.Background(), airport); err != nil {
-			slog.Warn("CDM config change recalculation failed",
-				slog.String("airport", airport),
-				slog.Any("error", err),
-			)
+	if err != nil {
+		slog.Error("Failed to build application", slog.Any("error", err))
+		os.Exit(1)
+	}
+	defer func() {
+		if err := application.Close(context.Background()); err != nil {
+			slog.Error("Failed to close application", slog.Any("error", err))
 		}
-	})
-	go configStore.Start(ctx)
-	slog.Info("CDM local calculation enabled", slog.String("rateUri", resolveURI(cdmCfg.RateUri)))
+	}()
+	application.StartWorkers(ctx)
 
-	if pdcService != nil {
-		stripService.SetPdcService(pdcService)
-		pdcService.SetFrontendHub(frontendHub)
-		pdcService.SetEuroscopeHub(euroscopeHub)
-	}
-
-	fsServer = server.NewServer(dbpool, euroscopeHub, frontendHub, cdmService, pdcService, transceiverCache, stripRepo, controllerRepo, sessionRepo, sectorRepo, coordRepo, tacticalStripRepo)
-
-	frontendHub.SetServer(fsServer)
-	euroscopeHub.SetServer(fsServer)
-	stripService.SetRouteRecalculator(fsServer)
-	controllerService.SetFrontendNotifier(frontendHub)
-	controllerService.SetSessionRecalculator(fsServer)
-	controllerService.SetStripService(stripService)
-
-	frontendUpgrader := websocket.NewConnectionUpgrader[pkgFrontend.EventType, *frontend.Client](frontendHub, authenticationService)
-	euroscopeUpgrader := websocket.NewConnectionUpgrader[pkgEuroscope.EventType, *euroscope.Client](euroscopeHub, authenticationService)
-
-	go ecfmpService.Start(ctx)
-	go cdmService.Start(ctx)
-	go pdcService.Start(ctx)
-	if vatsimCache != nil {
-		go vatsimCache.Start(ctx)
-	}
-	go transceiverCache.Start(ctx)
-	go albHub.Run()
-
-	metarPoller := metar.NewPoller(sessionRepo, frontendHub)
-	go metarPoller.Start(ctx)
-
-	trafficMetrics := services.NewTrafficMetricsService(sessionRepo, stripRepo)
-	go trafficMetrics.Start(ctx)
-
-	// TODO remove
-	db := database.New(dbpool)
-	_ = db.InsertAirport(context.Background(), "EKCH")
-
-	// Health Function for local Dev
-	http.HandleFunc("/healthz", healthz)
-	http.HandleFunc("/euroscopeEvents", euroscopeUpgrader.Upgrade)
-	http.HandleFunc("/frontEndEvents", frontendUpgrader.Upgrade)
-	http.HandleFunc("/albEvents", albHub.Upgrade)
-	apiMux := http.NewServeMux()
-	flightLookup := pdc.NewFlightLookupAdapter(pdcService, sessionRepo)
-	cdm.NewWebAPI(authenticationService, sessionRepo, sequenceService).RegisterRoutes(apiMux)
-	if !isLiveEnvironment(getEnv("ENVIRONMENT", "development")) {
-		ecfmpWebAPI.NewWebAPI(ecfmpService).RegisterRoutes(apiMux)
-	}
-	pilot.NewWebAPI(authenticationService, vatsimCache, flightLookup, requireLiveCIDVerification).RegisterRoutes(apiMux)
-	pdc.NewWebAPI(authenticationService, pdcService, vatsimCache, requireLiveCIDVerification).RegisterRoutes(apiMux)
-	http.Handle("/api/", server.APIMiddleware(http.StripPrefix("/api", apiMux)))
-
-	// Wrap with OTEL HTTP instrumentation
-	var handler http.Handler = http.DefaultServeMux
-	if otlpEndpoint != "" {
-		handler = otelhttp.NewHandler(http.DefaultServeMux, "http.server")
-	}
-
-	// Setup graceful shutdown
-	server := &http.Server{
+	httpServer := &http.Server{
 		Addr:    *addr,
-		Handler: handler,
+		Handler: application.Handler(),
 	}
 
-	// Handle shutdown signals
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 
 	go func() {
 		slog.Info("Server started", slog.String("address", *addr))
-		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			slog.Error("Server failed", slog.Any("error", err))
 			os.Exit(1)
 		}
@@ -349,16 +119,44 @@ func main() {
 
 	<-sigChan
 	slog.Info("Shutting down server...")
+	cancelWorkers()
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	if err := server.Shutdown(shutdownCtx); err != nil {
+	if err := httpServer.Shutdown(shutdownCtx); err != nil {
 		slog.Error("Server shutdown failed", slog.Any("error", err))
 		os.Exit(1)
 	}
 
 	slog.Info("Server shutdown complete")
+}
+
+func configureLogging() {
+	var logLevel slog.LevelVar
+	switch strings.ToUpper(os.Getenv("LOG_LEVEL")) {
+	case "DEBUG":
+		logLevel.Set(slog.LevelDebug)
+	case "WARN":
+		logLevel.Set(slog.LevelWarn)
+	case "ERROR":
+		logLevel.Set(slog.LevelError)
+	default:
+		logLevel.Set(slog.LevelInfo)
+	}
+
+	logger := slog.New(tint.NewHandler(os.Stdout, &tint.Options{Level: &logLevel}))
+	slog.SetDefault(logger)
+}
+
+func loadEnvFiles() {
+	for _, envFile := range []string{".env", ".env.dev"} {
+		err := godotenv.Load(envFile)
+		if err != nil && !os.IsNotExist(err) {
+			slog.Error("Error loading env file", slog.String("file", envFile), slog.Any("error", err))
+			os.Exit(1)
+		}
+	}
 }
 
 func getEnv(key, fallback string) string {

@@ -1151,3 +1151,87 @@ func TestSyncCdmData_MasterSession_PushesLocalTimesToViffWhenApiDiffers(t *testi
 		t.Fatal("expected master sync to push local CDM data to vIFF")
 	}
 }
+
+func TestDiffRemoteCdmData_SlaveCopiesRemoteFieldsAndClearsStoredMarkers(t *testing.T) {
+	now := time.Date(2026, 7, 7, 10, 30, 0, 0, time.UTC)
+	minutes := 14
+	existing := (&models.CdmData{
+		Eobt: testStringPtr("0950"),
+		Calculation: &models.CdmCalculation{
+			TaxiMinutes: &minutes,
+		},
+	}).Normalize()
+	row := IFPSData{
+		Callsign:               "SAS250",
+		EOBT:                   "1000",
+		TOBT:                   "1010",
+		AOBT:                   "1030",
+		CDMStatus:              "STUP",
+		MostPenalizingAirspace: "DK-E",
+		CDMData: CDMData{
+			TSAT:        "101500",
+			TTOT:        "102500",
+			ReqASRT:     "100700",
+			ReqTOBT:     "1005",
+			ReqTOBTType: "PILOT",
+			Reason:      "REGUL",
+		},
+	}
+
+	before, updated, changed := diffRemoteCdmData(existing, row, "1040", models.CtotSourceATFCM, now)
+
+	if !changed {
+		t.Fatal("expected remote data to differ from local data")
+	}
+	if before.Eobt != "0950" {
+		t.Fatalf("expected snapshot to preserve previous EOBT, got %q", before.Eobt)
+	}
+	if got := valueOrEmpty(updated.Eobt); got != "1000" {
+		t.Fatalf("expected EOBT from remote data, got %q", got)
+	}
+	if got := valueOrEmpty(updated.Tsat); got != "1015" {
+		t.Fatalf("expected truncated TSAT from remote data, got %q", got)
+	}
+	if got := valueOrEmpty(updated.Ttot); got != "1025" {
+		t.Fatalf("expected truncated TTOT from remote data, got %q", got)
+	}
+	if got := valueOrEmpty(updated.Ctot); got != "1040" {
+		t.Fatalf("expected CTOT from remote data, got %q", got)
+	}
+	if got := valueOrEmpty(updated.CtotSource); got != models.CtotSourceATFCM {
+		t.Fatalf("expected CTOT source %q, got %q", models.CtotSourceATFCM, got)
+	}
+	if got := valueOrEmpty(updated.Asat); got != timeToClock(now) {
+		t.Fatalf("expected startup status to initialize ASAT, got %q", got)
+	}
+	if updated.Calculation != nil {
+		t.Fatalf("expected slave remote sync to clear stored calculation markers, got %#v", updated.Calculation)
+	}
+}
+
+func TestMarkViffPushPending_DeduplicatesAndAllowsRetryAfterClear(t *testing.T) {
+	service := NewCdmService(
+		NewClient(WithAPIKey("test-key"), WithHTTPClient(newFailingHTTPClient())),
+		&testutil.MockStripRepository{},
+		&testutil.MockSessionRepository{},
+		&testutil.MockControllerRepository{},
+	)
+	state := viffPushState{
+		Params: SetCdmDataParams{
+			Callsign: "SAS251",
+			Tsat:     "101500",
+		},
+	}
+
+	if !service.markViffPushPending(1, "SAS251", state) {
+		t.Fatal("expected first vIFF push state to be marked pending")
+	}
+	if service.markViffPushPending(1, "SAS251", state) {
+		t.Fatal("expected duplicate vIFF push state to be deduplicated")
+	}
+
+	service.clearPendingViffPush(1, "SAS251", state)
+	if !service.markViffPushPending(1, "SAS251", state) {
+		t.Fatal("expected cleared vIFF push state to be eligible for retry")
+	}
+}

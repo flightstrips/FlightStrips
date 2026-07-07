@@ -10,17 +10,10 @@ import (
 	"runtime"
 	"time"
 
-	"FlightStrips/internal/cdm"
+	"FlightStrips/internal/app"
 	"FlightStrips/internal/config"
 	"FlightStrips/internal/database"
-	"FlightStrips/internal/euroscope"
-	"FlightStrips/internal/frontend"
-	"FlightStrips/internal/repository/postgres"
-	"FlightStrips/internal/server"
 	"FlightStrips/internal/services"
-	"FlightStrips/internal/websocket"
-	pkgEuroscope "FlightStrips/pkg/events/euroscope"
-	pkgFrontend "FlightStrips/pkg/events/frontend"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/testcontainers/testcontainers-go"
@@ -31,6 +24,7 @@ import (
 // TestServer wraps the FlightStrips server for testing
 type TestServer struct {
 	Server            *http.Server
+	App               *app.App
 	DBPool            *pgxpool.Pool
 	Queries           *database.Queries
 	ServerAddr        string
@@ -105,68 +99,35 @@ func StartTestServer() (*TestServer, error) {
 		return nil, fmt.Errorf("failed to connect to database: %w", err)
 	}
 
-	// Initialize services
-	authService := services.NewTestAuthenticationService()
-
-	// Initialize repositories
-	stripRepo := postgres.NewStripRepository(dbpool)
-	controllerRepo := postgres.NewControllerRepository(dbpool)
-	sessionRepo := postgres.NewSessionRepository(dbpool)
-	sectorRepo := postgres.NewSectorOwnerRepository(dbpool)
-	coordRepo := postgres.NewCoordinationRepository(dbpool)
-
-	// Initialize services
-	stripService := services.NewStripService(
-		stripRepo,
-		services.WithCoordinationStore(coordRepo),
-		services.WithControllerReader(controllerRepo),
-		services.WithSessionReader(sessionRepo),
-		services.WithSectorOwnerRepository(sectorRepo),
-	)
-	controllerService := services.NewControllerService(controllerRepo)
-	cdmClient := cdm.NewClient(cdm.WithAPIKey(""))
-	cdmService := cdm.NewCdmService(cdmClient, stripRepo, sessionRepo, controllerRepo)
-	cdmService.SetValidationReevaluator(stripService)
-
-	// Initialize hubs
-	frontendHub := frontend.NewHub(stripService, authService)
-	euroscopeHub := euroscope.NewHub(stripService, controllerService, authService)
-
-	stripService.SetFrontendHub(frontendHub)
-	stripService.SetEuroscopeHub(euroscopeHub)
-	stripService.SetSectorOwnerRepo(sectorRepo)
-	cdmService.SetFrontendHub(frontendHub)
-	cdmService.SetEuroscopeHub(euroscopeHub)
-
-	// Initialize server
-	fsServer := server.NewServer(dbpool, euroscopeHub, frontendHub, cdmService, nil, nil, stripRepo, controllerRepo, sessionRepo, sectorRepo, coordRepo, nil)
-
-	frontendHub.SetServer(fsServer)
-	euroscopeHub.SetServer(fsServer)
-	stripService.SetRouteRecalculator(fsServer)
-	controllerService.SetFrontendNotifier(frontendHub)
-	controllerService.SetSessionRecalculator(fsServer)
-	controllerService.SetStripService(stripService)
-
-	// Create WebSocket upgraders
-	frontendUpgrader := websocket.NewConnectionUpgrader[pkgFrontend.EventType, *frontend.Client](frontendHub, authService)
-	euroscopeUpgrader := websocket.NewConnectionUpgrader[pkgEuroscope.EventType, *euroscope.Client](euroscopeHub, authService)
-
-	// Start services
-	go cdmService.Start(ctx)
-
-	// Setup HTTP handlers
-	mux := http.NewServeMux()
-	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
+	application, err := app.Build(ctx, app.Config{
+		Environment:    "test",
+		CloseDBOnClose: true,
+		EnablePDC:      false,
+		EnableECFMP:    false,
+		EnableECFMPAPI: false,
+		EnablePilotAPI: false,
+		EnableALB:      false,
+		EnableMetar:    false,
+		EnableVATSIM:   false,
+		EnableTraffic:  false,
+		EnableDBSeed:   false,
+	}, app.Dependencies{
+		DBPool:                dbpool,
+		AuthenticationService: services.NewTestAuthenticationService(),
+		TransceiversInterval:  30 * time.Second,
 	})
-	mux.HandleFunc("/euroscopeEvents", euroscopeUpgrader.Upgrade)
-	mux.HandleFunc("/frontEndEvents", frontendUpgrader.Upgrade)
+	if err != nil {
+		dbpool.Close()
+		testcontainers.TerminateContainer(postgresContainer)
+		cancel()
+		return nil, fmt.Errorf("failed to build app: %w", err)
+	}
+	application.StartWorkers(ctx)
 
 	// Bind on :0 so the OS assigns a free port, avoiding conflicts when tests run in parallel.
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
-		dbpool.Close()
+		_ = application.Close(context.Background())
 		cancel()
 		return nil, fmt.Errorf("failed to bind listener: %w", err)
 	}
@@ -174,7 +135,7 @@ func StartTestServer() (*TestServer, error) {
 
 	httpServer := &http.Server{
 		Addr:    addr,
-		Handler: mux,
+		Handler: application.Handler(),
 	}
 
 	// Start server in background
@@ -189,7 +150,7 @@ func StartTestServer() (*TestServer, error) {
 	// Check if server started successfully (non-blocking — Serve returns immediately on error)
 	select {
 	case err := <-serverErr:
-		dbpool.Close()
+		_ = application.Close(context.Background())
 		cancel()
 		return nil, fmt.Errorf("server failed to start: %w", err)
 	default:
@@ -200,6 +161,7 @@ func StartTestServer() (*TestServer, error) {
 
 	testServer := &TestServer{
 		Server:            httpServer,
+		App:               application,
 		DBPool:            dbpool,
 		Queries:           queries,
 		ServerAddr:        addr,
@@ -228,8 +190,9 @@ func (ts *TestServer) Stop() error {
 		slog.Error("Failed to shutdown server gracefully", slog.Any("error", err))
 	}
 
-	// Close database pool
-	ts.DBPool.Close()
+	if err := ts.App.Close(context.Background()); err != nil {
+		slog.Error("Failed to close app", slog.Any("error", err))
+	}
 
 	// Terminate PostgreSQL container
 	if err := testcontainers.TerminateContainer(ts.postgresContainer); err != nil {

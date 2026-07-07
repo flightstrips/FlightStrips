@@ -33,6 +33,29 @@ func BuildEuroscopeCdmUpdateEvent(callsign string, data *models.CdmData) eurosco
 	}
 }
 
+func BuildEuroscopeBackendSyncCdmData(data *models.CdmData) euroscopeEvents.BackendSyncCdmData {
+	update := BuildEuroscopeCdmUpdateEvent("", data)
+	return euroscopeEvents.BackendSyncCdmData{
+		Eobt:                  update.Eobt,
+		Tobt:                  update.Tobt,
+		TobtSetBy:             update.TobtSetBy,
+		TobtConfirmedBy:       update.TobtConfirmedBy,
+		ReqTobt:               update.ReqTobt,
+		ReqTobtType:           update.ReqTobtType,
+		Tsat:                  update.Tsat,
+		Ttot:                  update.Ttot,
+		Ctot:                  update.Ctot,
+		CtotSource:            update.CtotSource,
+		Asat:                  update.Asat,
+		Asrt:                  update.Asrt,
+		Tsac:                  update.Tsac,
+		Status:                update.Status,
+		EcfmpID:               update.EcfmpID,
+		Phase:                 update.Phase,
+		EcfmpRestrictionsJSON: update.EcfmpRestrictionsJSON,
+	}
+}
+
 func serializeEcfmpRestrictionsJSON(restrictions []models.EcfmpRestriction) string {
 	if len(restrictions) == 0 {
 		return ""

@@ -359,7 +359,7 @@ func MapStripToFrontendModelWithClx(strip *internalModels.Strip, clxContext clx.
 	if cdm == nil {
 		cdm = (&internalModels.CdmData{}).Normalize()
 	}
-	ecfmpRestrictions := filterFrontendEcfmpRestrictions(cdm.EcfmpRestrictions)
+	cdmEvent := shared.BuildFrontendCdmDataEvent(strip.Callsign, cdm)
 
 	return frontend.Strip{
 		Callsign:                 strip.Callsign,
@@ -390,24 +390,24 @@ func MapStripToFrontendModelWithClx(strip *internalModels.Strip, clxContext clx.
 		PreviousControllers:      strip.PreviousOwners,
 		NextDisplay:              mapNextDisplayToDTO(strip.NextDisplay),
 		Owner:                    helpers.ValueOrDefault(strip.Owner),
-		Eobt:                     truncateFrontendClockValue(helpers.ValueOrDefault(strip.EffectiveEobt())),
-		Tobt:                     truncateFrontendClockValue(helpers.ValueOrDefault(strip.EffectiveTobt())),
-		ReqTobt:                  truncateFrontendClockValue(helpers.ValueOrDefault(cdm.EffectiveReqTobt())),
-		ReqTobtType:              helpers.ValueOrDefault(cdm.EffectiveReqTobtType()),
-		TobtSetBy:                helpers.ValueOrDefault(cdm.TobtSetBy),
-		Tsat:                     truncateFrontendClockValue(helpers.ValueOrDefault(strip.EffectiveTsat())),
-		Ttot:                     truncateFrontendClockValue(helpers.ValueOrDefault(strip.EffectiveTtot())),
-		Ctot:                     effectiveFrontendStripCtot(strip),
-		Aobt:                     truncateFrontendClockValue(helpers.ValueOrDefault(strip.EffectiveAobt())),
-		Asat:                     truncateFrontendClockValue(helpers.ValueOrDefault(strip.EffectiveAsat())),
-		Asrt:                     truncateFrontendClockValue(helpers.ValueOrDefault(cdm.Asrt)),
-		Tsac:                     truncateFrontendClockValue(helpers.ValueOrDefault(cdm.Tsac)),
-		Status:                   helpers.ValueOrDefault(strip.EffectiveCdmStatus()),
-		MostPenalizingAirspace:   helpers.ValueOrDefault(cdm.MostPenalizingAirspace),
-		EcfmpID:                  helpers.ValueOrDefault(cdm.EcfmpID),
-		CtotSource:               helpers.ValueOrDefault(cdm.CtotSource),
-		Phase:                    helpers.ValueOrDefault(cdm.EffectivePhase()),
-		EcfmpRestrictions:        mapEcfmpRestrictionsToDTO(ecfmpRestrictions),
+		Eobt:                     cdmEvent.Eobt,
+		Tobt:                     cdmEvent.Tobt,
+		ReqTobt:                  cdmEvent.ReqTobt,
+		ReqTobtType:              cdmEvent.ReqTobtType,
+		TobtSetBy:                cdmEvent.TobtSetBy,
+		Tsat:                     cdmEvent.Tsat,
+		Ttot:                     cdmEvent.Ttot,
+		Ctot:                     cdmEvent.Ctot,
+		Aobt:                     cdmEvent.Aobt,
+		Asat:                     cdmEvent.Asat,
+		Asrt:                     cdmEvent.Asrt,
+		Tsac:                     cdmEvent.Tsac,
+		Status:                   cdmEvent.Status,
+		MostPenalizingAirspace:   cdmEvent.MostPenalizingAirspace,
+		EcfmpID:                  cdmEvent.EcfmpID,
+		CtotSource:               cdmEvent.CtotSource,
+		Phase:                    cdmEvent.Phase,
+		EcfmpRestrictions:        cdmEvent.EcfmpRestrictions,
 		PdcState:                 strip.PdcState,
 		PdcRequestRemarks:        helpers.ValueOrDefault(strip.PdcRequestRemarks),
 		StartReq:                 strip.StartReq,
@@ -427,50 +427,6 @@ func MapStripToFrontendModelWithClx(strip *internalModels.Strip, clxContext clx.
 		ValidationStatus:         mapValidationStatusToDTO(strip.ValidationStatus),
 		ClxValidation:            mapClxValidationToDTO(clx.Validate(strip, clxContext)),
 	}
-}
-
-func filterFrontendEcfmpRestrictions(restrictions []internalModels.EcfmpRestriction) []internalModels.EcfmpRestriction {
-	if len(restrictions) == 0 {
-		return nil
-	}
-	if config.IsMandatoryRouteClearanceFlowEnabled() {
-		return restrictions
-	}
-
-	filtered := make([]internalModels.EcfmpRestriction, 0, len(restrictions))
-	for _, restriction := range restrictions {
-		if restriction.Type == "mandatory_route" {
-			continue
-		}
-		filtered = append(filtered, restriction)
-	}
-	if len(filtered) == 0 {
-		return nil
-	}
-	return filtered
-}
-
-func mapEcfmpRestrictionsToDTO(restrictions []internalModels.EcfmpRestriction) []frontend.EcfmpRestrictionDTO {
-	if len(restrictions) == 0 {
-		return nil
-	}
-
-	result := make([]frontend.EcfmpRestrictionDTO, len(restrictions))
-	for i, restriction := range restrictions {
-		result[i] = frontend.EcfmpRestrictionDTO{
-			MeasureID:   restriction.MeasureID,
-			Ident:       restriction.Ident,
-			Type:        restriction.Type,
-			Reason:      restriction.Reason,
-			Routes:      restriction.Routes,
-			Destination: restriction.Destination,
-			MaxLevel:    restriction.MaxLevel,
-			MinLevel:    restriction.MinLevel,
-			ExactLevels: restriction.ExactLevels,
-			HasCtot:     restriction.HasCtot,
-		}
-	}
-	return result
 }
 
 func mapClxValidationToDTO(validation *clx.Validation) *frontend.ClxValidation {
@@ -516,18 +472,6 @@ func truncateFrontendClockValue(value string) string {
 		return value[:4]
 	}
 	return value
-}
-
-func effectiveFrontendStripCtot(strip *internalModels.Strip) string {
-	if strip == nil || strip.CdmData == nil {
-		return ""
-	}
-
-	if ctot := truncateFrontendClockValue(helpers.ValueOrDefault(strip.EffectiveCtot())); ctot != "" {
-		return ctot
-	}
-
-	return ""
 }
 
 func (hub *Hub) CidOnline(session int32, cid string) {

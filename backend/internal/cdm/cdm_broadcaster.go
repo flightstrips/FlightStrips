@@ -61,7 +61,7 @@ func (c *CdmBroadcaster) broadcastIfChanged(session int32, callsign string, befo
 	if s.euroscopeHub != nil {
 		data, err := s.stripRepo.GetCdmDataForCallsign(context.Background(), session, callsign)
 		if err == nil {
-			s.euroscopeHub.BroadcastCdmUpdates(session, []euroscopeEvents.CdmUpdateEvent{buildCdmUpdateEvent(callsign, data)})
+			s.euroscopeHub.BroadcastCdmUpdates(session, []euroscopeEvents.CdmUpdateEvent{shared.BuildEuroscopeCdmUpdateEvent(callsign, data)})
 		}
 	}
 }

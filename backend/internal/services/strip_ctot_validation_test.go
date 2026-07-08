@@ -168,8 +168,6 @@ func TestApplyCtotValidation_ReactivatesOnOwnerChange(t *testing.T) {
 }
 
 func TestReevaluateSquawkValidation_TransitionsFromWrongSquawkToCtot(t *testing.T) {
-	t.Parallel()
-
 	now := time.Date(2024, time.January, 1, 10, 0, 0, 0, time.UTC)
 	owner := "EKCH_A_TWR"
 	assignedSquawk := "4231"

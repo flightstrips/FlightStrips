@@ -188,8 +188,6 @@ func TestApplyRunwayTypeValidation_ReactivatesOnOwnerChange(t *testing.T) {
 }
 
 func TestReevaluateDepartureValidation_TransitionsFromRunwayTypeToCtotAfterCorrection(t *testing.T) {
-	t.Parallel()
-
 	now := time.Date(2024, time.January, 1, 10, 0, 0, 0, time.UTC)
 	owner := "EKCH_A_TWR"
 	aircraftType := "A388"

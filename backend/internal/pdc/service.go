@@ -173,8 +173,18 @@ func (s *Service) notifyStateChangeEuroscope(sessionID int32, callsign string, s
 	}
 }
 
-func (s *Service) notifyClearedFlagEuroscope(sessionID int32, callsign string, cleared bool, cid string) {
+func (s *Service) notifyClearedFlagEuroscope(ctx context.Context, sessionID int32, callsign string, cleared bool, cid string) {
 	if s.euroscopeHub != nil {
+		if strings.TrimSpace(cid) == "" {
+			cid = s.resolveEuroscopeTargetCID(ctx, sessionID)
+		}
+		if strings.TrimSpace(cid) == "" {
+			slog.WarnContext(ctx, "PDC Service: Unable to resolve EuroScope target for cleared flag",
+				slog.Int("session", int(sessionID)),
+				slog.String("callsign", callsign),
+			)
+			return
+		}
 		s.euroscopeHub.SendClearedFlag(sessionID, cid, callsign, cleared)
 	}
 }
@@ -280,7 +290,15 @@ func (s *Service) getDepartureAtisCode(sessionID int32) string {
 }
 
 func (s *Service) resolveEuroscopeTargetCID(ctx context.Context, sessionID int32) string {
-	if s.euroscopeHub == nil || s.controllerRepo == nil {
+	if s.euroscopeHub == nil {
+		return ""
+	}
+
+	if masterCID := strings.TrimSpace(s.euroscopeHub.GetMasterCid(sessionID)); masterCID != "" {
+		return masterCID
+	}
+
+	if s.controllerRepo == nil {
 		return ""
 	}
 
@@ -406,11 +424,15 @@ func (s *Service) confirmPilotAcknowledgement(ctx context.Context, sessionID int
 		}
 	}
 
+	if s.frontendHub != nil {
+		s.frontendHub.SendStripUpdate(sessionID, strip.Callsign)
+	}
+
 	if sessionInfo, err := s.getSessionInfo(context.Background(), sessionID); err == nil {
 		metrics.PDCStateChange(context.Background(), sessionInfo.name, sessionInfo.airport, string(StateConfirmed))
 	}
 	s.notifyStateChangeEuroscope(sessionID, strip.Callsign, StateConfirmed, "")
-	s.notifyClearedFlagEuroscope(sessionID, strip.Callsign, true, clearanceCid)
+	s.notifyClearedFlagEuroscope(ctx, sessionID, strip.Callsign, true, clearanceCid)
 
 	s.notifyStateChangeFrontend(sessionID, strip.Callsign, StateConfirmed, "")
 

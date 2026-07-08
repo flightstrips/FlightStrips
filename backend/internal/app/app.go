@@ -163,6 +163,7 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 
 	if pdcService != nil {
 		stripService.SetPdcService(pdcService)
+		pdcService.SetStripService(stripService)
 		pdcService.SetFrontendHub(frontendHub)
 		pdcService.SetEuroscopeHub(euroscopeHub)
 		pdcService.SetTransceiverLookup(transceiverLookup)

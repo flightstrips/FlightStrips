@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.35.1](https://github.com/flightstrips/FlightStrips/compare/backend/v0.35.0...backend/v0.35.1) (2026-07-08)
+
+
+### Bug Fixes
+
+* **pdc:** sync web clearance state with strips ([#263](https://github.com/flightstrips/FlightStrips/issues/263)) ([020abac](https://github.com/flightstrips/FlightStrips/commit/020abac9370591881892740243ee4d2e5bd0966d))
+
 ## [0.35.0](https://github.com/flightstrips/FlightStrips/compare/backend/v0.34.0...backend/v0.35.0) (2026-07-07)
 
 

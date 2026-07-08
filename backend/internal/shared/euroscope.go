@@ -10,6 +10,7 @@ type EuroscopeHub interface {
 	IsSessionSynced(sessionId int32) bool
 	IsObserverCid(cid string) bool
 	GetMasterCallsign(session int32) string
+	GetMasterCid(session int32) string
 	GetClientLocalIP(session int32, cid string) string
 	GetRunwayMismatchStatus(session int32, cid string) (bool, bool)
 	Broadcast(session int32, message euroscope.OutgoingMessage)

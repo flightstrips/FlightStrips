@@ -305,6 +305,11 @@ func (m *EuroscopeHub) GetMasterCallsign(session int32) string {
 	return ""
 }
 
+func (m *EuroscopeHub) GetMasterCid(session int32) string {
+	args := m.Called(session)
+	return args.String(0)
+}
+
 func (m *EuroscopeHub) GetClientLocalIP(session int32, cid string) string {
 	return ""
 }

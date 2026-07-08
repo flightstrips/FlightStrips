@@ -57,6 +57,7 @@ type Hub struct {
 
 	master          map[int32]*Client
 	masterCallsigns sync.Map // map[int32]string — concurrent-safe callsign of master per session
+	masterCids      sync.Map // map[int32]string — concurrent-safe CID of master per session
 
 	handlers shared.MessageHandlers[euroscope.EventType, *Client]
 
@@ -559,6 +560,7 @@ func (hub *Hub) setMasterClient(client *Client) {
 		}
 
 		hub.masterCallsigns.Store(client.session, client.callsign)
+		hub.masterCids.Store(client.session, client.GetCid())
 		metrics.MasterClientAssigned(context.Background(), client.sessionName, client.airport, client.callsign, client.version)
 		return
 	}
@@ -569,6 +571,7 @@ func (hub *Hub) setMasterClient(client *Client) {
 
 	hub.master[client.session] = client
 	hub.masterCallsigns.Store(client.session, client.callsign)
+	hub.masterCids.Store(client.session, client.GetCid())
 	metrics.MasterClientAssigned(context.Background(), client.sessionName, client.airport, client.callsign, client.version)
 }
 
@@ -579,10 +582,18 @@ func (hub *Hub) clearMasterClient(session int32) {
 
 	delete(hub.master, session)
 	hub.masterCallsigns.Delete(session)
+	hub.masterCids.Delete(session)
 }
 
 func (hub *Hub) GetMasterCallsign(session int32) string {
 	if v, ok := hub.masterCallsigns.Load(session); ok {
+		return v.(string)
+	}
+	return ""
+}
+
+func (hub *Hub) GetMasterCid(session int32) string {
+	if v, ok := hub.masterCids.Load(session); ok {
 		return v.(string)
 	}
 	return ""

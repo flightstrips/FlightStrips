@@ -163,6 +163,7 @@ func TestHandleAcknowledgeSuccessConfirmsClearance(t *testing.T) {
 
 	s := setupHandlerTest(t)
 	testdata.SeedTestStrip(t, s.queries, s.sessionID, "SAS123")
+	masterCID := "MASTER-CID"
 
 	s.mockStrip.On("MoveToBay", mock.Anything, s.sessionID, "SAS123", shared.BAY_CLEARED, true).Return(nil)
 	s.mockFrontend.On("SendPdcStateChange", s.sessionID, "SAS123", string(StateCleared), "").Return()
@@ -174,8 +175,10 @@ func TestHandleAcknowledgeSuccessConfirmsClearance(t *testing.T) {
 	mock.InOrder(
 		s.mockStrip.On("ConfirmPdcClearance", mock.Anything, s.sessionID, "SAS123", shared.BAY_CLEARED, "").Return(nil),
 		s.mockStrip.On("AutoAssumeForClearedStripByCid", mock.Anything, s.sessionID, "SAS123", "").Return(nil),
+		s.mockFrontend.On("SendStripUpdate", s.sessionID, "SAS123").Return(),
 		s.mockEuroscope.On("SendPdcStateChange", s.sessionID, "SAS123", string(StateConfirmed), "").Return(),
-		s.mockEuroscope.On("SendClearedFlag", s.sessionID, "", "SAS123", true).Return(),
+		s.mockEuroscope.On("GetMasterCid", s.sessionID).Return(masterCID),
+		s.mockEuroscope.On("SendClearedFlag", s.sessionID, masterCID, "SAS123", true).Return(),
 		s.mockFrontend.On("SendPdcStateChange", s.sessionID, "SAS123", string(StateConfirmed), "").Return(),
 	)
 

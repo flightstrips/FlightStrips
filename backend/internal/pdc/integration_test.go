@@ -559,6 +559,7 @@ func TestHandleWilcoFlow(t *testing.T) {
 	mock.InOrder(
 		suite.mockStrip.On("ConfirmPdcClearance", mock.Anything, sessionID, callsign, shared.BAY_CLEARED, cid).Return(nil),
 		suite.mockStrip.On("AutoAssumeForClearedStripByCid", mock.Anything, sessionID, callsign, cid).Return(nil),
+		suite.mockFrontend.On("SendStripUpdate", sessionID, callsign).Return(),
 		suite.mockEuroscope.On("SendPdcStateChange", sessionID, callsign, "CONFIRMED", "").Return(),
 		suite.mockEuroscope.On("SendClearedFlag", sessionID, cid, callsign, true).Return(),
 		suite.mockFrontend.On("SendPdcStateChange", sessionID, callsign, "CONFIRMED", "").Return(),

@@ -18,6 +18,7 @@ var (
 	standAssignmentReadiness StandAssignmentReadiness
 	aircraftReference        *sat.AircraftRegistry
 	standCapabilities        *sat.StandCapabilityRegistry
+	airlineAssignment        *sat.AirlineAssignmentConfig
 	standAssignmentConfigDir = GetConfigDir
 )
 
@@ -29,6 +30,7 @@ func InitializeStandAssignment(enabled bool) StandAssignmentReadiness {
 		standAssignmentReadiness = StandAssignmentReadiness{}
 		aircraftReference = nil
 		standCapabilities = nil
+		airlineAssignment = nil
 		return standAssignmentReadiness
 	}
 
@@ -41,6 +43,7 @@ func InitializeStandAssignment(enabled bool) StandAssignmentReadiness {
 		}
 		aircraftReference = nil
 		standCapabilities = nil
+		airlineAssignment = nil
 		return standAssignmentReadiness
 	}
 
@@ -52,11 +55,25 @@ func InitializeStandAssignment(enabled bool) StandAssignmentReadiness {
 		}
 		aircraftReference = nil
 		standCapabilities = nil
+		airlineAssignment = nil
+		return standAssignmentReadiness
+	}
+
+	assignments, err := sat.LoadAirlineAssignmentFile(filepath.Join(configDir, "airline_assignment.json"), capabilities)
+	if err != nil {
+		standAssignmentReadiness = StandAssignmentReadiness{
+			Enabled: true,
+			Reason:  fmt.Sprintf("load airline assignment: %v", err),
+		}
+		aircraftReference = nil
+		standCapabilities = nil
+		airlineAssignment = nil
 		return standAssignmentReadiness
 	}
 
 	aircraftReference = registry
 	standCapabilities = capabilities
+	airlineAssignment = assignments
 	standAssignmentReadiness = StandAssignmentReadiness{Enabled: true, Ready: true}
 	return standAssignmentReadiness
 }
@@ -76,4 +93,10 @@ func GetAircraftReference() *sat.AircraftRegistry {
 // nil while SAT is disabled or unavailable.
 func GetStandCapabilities() *sat.StandCapabilityRegistry {
 	return standCapabilities
+}
+
+// GetAirlineAssignment returns the validated SAT airline preference model, or
+// nil while SAT is disabled or unavailable.
+func GetAirlineAssignment() *sat.AirlineAssignmentConfig {
+	return airlineAssignment
 }

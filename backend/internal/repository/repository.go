@@ -169,3 +169,23 @@ type TacticalStripRepository interface {
 	GetNextSequenceUnified(ctx context.Context, session int32, bay string, prev int32) (int32, error)
 	GetPrevSequenceUnified(ctx context.Context, session int32, bay string, seq int32, excludeCallsign string) (int32, error)
 }
+
+// StandAssignmentRepository persists SAT assignments and stand blocks. Both
+// resource types are session-scoped and support transaction-bound access for
+// the allocator that will update a strip and its SAT assignment atomically.
+type StandAssignmentRepository interface {
+	CreateAssignment(ctx context.Context, assignment *models.StandAssignment) error
+	GetAssignment(ctx context.Context, session int32, callsign string) (*models.StandAssignment, error)
+	ListAssignments(ctx context.Context, session int32) ([]*models.StandAssignment, error)
+	UpdateAssignment(ctx context.Context, assignment *models.StandAssignment) (int64, error)
+	DeleteAssignment(ctx context.Context, session int32, id int64, version int32) (int64, error)
+
+	CreateBlock(ctx context.Context, block *models.StandBlock) error
+	GetBlock(ctx context.Context, session int32, id int64) (*models.StandBlock, error)
+	ListBlocks(ctx context.Context, session int32) ([]*models.StandBlock, error)
+	ListBlocksByStand(ctx context.Context, session int32, stand string) ([]*models.StandBlock, error)
+	UpdateBlock(ctx context.Context, block *models.StandBlock) (int64, error)
+	DeleteBlock(ctx context.Context, session int32, id int64, version int32) (int64, error)
+
+	WithTx(tx pgx.Tx) StandAssignmentRepository
+}

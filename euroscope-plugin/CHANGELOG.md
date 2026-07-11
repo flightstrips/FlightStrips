@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.19.0](https://github.com/flightstrips/FlightStrips/compare/plugin/v0.18.0...plugin/v0.19.0) (2026-07-11)
+
+
+### Features
+
+* **cdm:** add E/TOBT tag item ([#266](https://github.com/flightstrips/FlightStrips/issues/266)) ([7d5f2a7](https://github.com/flightstrips/FlightStrips/commit/7d5f2a73498b6755be088a8c81eee68ae0b8bfb4))
+
 ## [0.18.0](https://github.com/flightstrips/FlightStrips/compare/plugin/v0.17.3...plugin/v0.18.0) (2026-07-07)
 
 

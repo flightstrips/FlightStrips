@@ -1837,19 +1837,22 @@ func TestHandleReadyRequest_MasterSessionUsesNextFreeGapWithoutMovingExistingFli
 
 	stored := map[string]*models.CdmData{
 		"SAS123": (&models.CdmData{
-			Tobt: stringPtr(firstTsat),
-			Tsat: stringPtr(firstTsat),
-			Ttot: stringPtr(addMinutes(firstTsat, 10)),
+			Tobt:                  stringPtr(firstTsat),
+			Tsat:                  stringPtr(firstTsat),
+			Ttot:                  stringPtr(addMinutes(firstTsat, 10)),
+			TobtManuallyConfirmed: true,
 		}).Normalize(),
 		"SAS456": (&models.CdmData{
-			Tobt: stringPtr(secondTsat),
-			Tsat: stringPtr(secondTsat),
-			Ttot: stringPtr(addMinutes(secondTsat, 10)),
+			Tobt:                  stringPtr(secondTsat),
+			Tsat:                  stringPtr(secondTsat),
+			Ttot:                  stringPtr(addMinutes(secondTsat, 10)),
+			TobtManuallyConfirmed: true,
 		}).Normalize(),
 		"SAS400": (&models.CdmData{
-			Tobt: stringPtr(thirdTsat),
-			Tsat: stringPtr(thirdTsat),
-			Ttot: stringPtr(addMinutes(thirdTsat, 10)),
+			Tobt:                  stringPtr(thirdTsat),
+			Tsat:                  stringPtr(thirdTsat),
+			Ttot:                  stringPtr(addMinutes(thirdTsat, 10)),
+			TobtManuallyConfirmed: true,
 		}).Normalize(),
 		callsign: (&models.CdmData{
 			Tobt: stringPtr(addMinutes(firstTsat, 20)),
@@ -1914,7 +1917,7 @@ func TestHandleReadyRequest_MasterSessionUsesNextFreeGapWithoutMovingExistingFli
 	service.sessionMaster.Store(sessionID, true)
 
 	require.NoError(t, service.HandleReadyRequest(context.Background(), sessionID, callsign, "EKCH_DEL", "ATC"))
-	afterNow = time.Now().UTC().Format("1504")
+	afterNow = time.Now().UTC().Format("150405")
 
 	expectedTsats := []string{addMinutes(beforeNow, 6), addMinutes(afterNow, 6)}
 	expectedTtots := []string{addMinutes(beforeNow, 16), addMinutes(afterNow, 16)}

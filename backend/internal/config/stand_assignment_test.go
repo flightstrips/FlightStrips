@@ -37,11 +37,38 @@ func TestInitializeStandAssignmentLoadsAircraftReferenceWhenEnabled(t *testing.T
 }
 
 func TestInitializeStandAssignmentDisabledDoesNotLoadAircraftReference(t *testing.T) {
-	InitializeStandAssignment(true)
+	dir := t.TempDir()
+	originalConfigDir := standAssignmentConfigDir
+	standAssignmentConfigDir = func() string { return dir }
+	t.Cleanup(func() {
+		standAssignmentConfigDir = originalConfigDir
+		InitializeStandAssignment(false)
+	})
+
+	// Neither SAT file exists in this directory. Disabled mode must not try to
+	// open either file, and must leave no stale registries from an earlier run.
 	state := InitializeStandAssignment(false)
 	assert.False(t, state.Enabled)
 	assert.False(t, state.Ready)
 	assert.Nil(t, GetAircraftReference())
+	assert.Nil(t, GetStandCapabilities())
+}
+
+func TestInitializeStandAssignmentReportsMissingConfigurationWithoutBlocking(t *testing.T) {
+	dir := t.TempDir()
+	originalConfigDir := standAssignmentConfigDir
+	standAssignmentConfigDir = func() string { return dir }
+	t.Cleanup(func() {
+		standAssignmentConfigDir = originalConfigDir
+		InitializeStandAssignment(false)
+	})
+
+	state := InitializeStandAssignment(true)
+	assert.True(t, state.Enabled)
+	assert.False(t, state.Ready)
+	assert.Contains(t, state.Reason, "load aircraft reference data")
+	assert.Nil(t, GetAircraftReference())
+	assert.Nil(t, GetStandCapabilities())
 }
 
 func TestInitializeStandAssignmentReportsInvalidAircraftReference(t *testing.T) {

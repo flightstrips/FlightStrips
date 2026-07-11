@@ -6,6 +6,7 @@ import (
 	"FlightStrips/internal/telemetry"
 	"context"
 	"flag"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
@@ -37,6 +38,20 @@ func main() {
 	if err := config.InitConfig(); err != nil {
 		slog.Error("Failed to initialize config", slog.Any("error", err))
 		os.Exit(1)
+	}
+
+	enableStandAssignment, standAssignmentFlagErr := envBoolStrict("ENABLE_STAND_ASSIGNMENT", false)
+	if standAssignmentFlagErr != nil {
+		slog.Error("SAT unavailable due to invalid feature flag", slog.Any("error", standAssignmentFlagErr))
+	}
+	standAssignment := config.InitializeStandAssignment(enableStandAssignment && standAssignmentFlagErr == nil)
+	switch {
+	case !standAssignment.Enabled:
+		slog.Info("Stand Assignment Tool disabled")
+	case standAssignment.Ready:
+		slog.Info("Stand Assignment Tool ready")
+	default:
+		slog.Error("Stand Assignment Tool unavailable", slog.String("reason", standAssignment.Reason))
 	}
 
 	otlpEndpoint := os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
@@ -83,6 +98,7 @@ func main() {
 		EnableVATSIM:             true,
 		EnableTransceivers:       true,
 		EnableTraffic:            true,
+		EnableStandAssignment:    standAssignment.Ready,
 		EnableDBSeed:             true,
 	}, app.Dependencies{
 		VATSIMStatusURL:      getEnv("VATSIM_STATUS_URL", ""),
@@ -177,6 +193,19 @@ func envBool(key string, fallback bool) bool {
 		return fallback
 	}
 	return parsed
+}
+
+func envBoolStrict(key string, fallback bool) (bool, error) {
+	value := strings.TrimSpace(os.Getenv(key))
+	if value == "" {
+		return fallback, nil
+	}
+
+	parsed, err := strconv.ParseBool(value)
+	if err != nil {
+		return fallback, fmt.Errorf("parse %s as boolean: %w", key, err)
+	}
+	return parsed, nil
 }
 
 func envDuration(key string, fallback time.Duration) time.Duration {

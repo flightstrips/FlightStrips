@@ -54,17 +54,18 @@ type Config struct {
 	PDCWebLookupLiveOnly bool
 	EnablePDC            bool
 
-	ECFMPBaseURL       string
-	EnableECFMP        bool
-	EnableECFMPAPI     bool
-	EnablePilotAPI     bool
-	EnableALB          bool
-	EnableMetar        bool
-	EnableVATSIM       bool
-	EnableTransceivers bool
-	EnableTraffic      bool
-	EnableDBSeed       bool
-	CloseDBOnClose     bool
+	ECFMPBaseURL          string
+	EnableECFMP           bool
+	EnableECFMPAPI        bool
+	EnablePilotAPI        bool
+	EnableALB             bool
+	EnableMetar           bool
+	EnableVATSIM          bool
+	EnableTransceivers    bool
+	EnableTraffic         bool
+	EnableStandAssignment bool
+	EnableDBSeed          bool
+	CloseDBOnClose        bool
 }
 
 type Dependencies struct {

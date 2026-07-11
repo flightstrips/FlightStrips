@@ -63,6 +63,48 @@ type Session struct {
 	CdmMaster          bool
 }
 
+type StandAssignment struct {
+	ID             int64
+	SessionID      int32
+	Callsign       string
+	Stand          string
+	Direction      string
+	Stage          string
+	Source         string
+	RuleID         *string
+	Tier           *int32
+	MatchedVariant *string
+	Eta            pgtype.Timestamptz
+	EtaSource      *string
+	AssignedAt     pgtype.Timestamptz
+	ExpiresAt      pgtype.Timestamptz
+	Manual         bool
+	Acknowledged   bool
+	AcknowledgedAt pgtype.Timestamptz
+	AcknowledgedBy *string
+	VatsimCid      *int64
+	VatsimRevision *int64
+	Version        int32
+	CreatedAt      pgtype.Timestamptz
+	UpdatedAt      pgtype.Timestamptz
+}
+
+type StandBlock struct {
+	ID        int64
+	SessionID int32
+	Stand     string
+	BlockType string
+	Source    string
+	Reason    *string
+	Callsign  *string
+	CreatedBy *string
+	ExpiresAt pgtype.Timestamptz
+	Manual    bool
+	Version   int32
+	CreatedAt pgtype.Timestamptz
+	UpdatedAt pgtype.Timestamptz
+}
+
 type Strip struct {
 	ID                       int32
 	Version                  int32

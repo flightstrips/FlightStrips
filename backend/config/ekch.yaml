@@ -18,6 +18,7 @@ cdm:
   rateUri: ekch/rate.txt
   sidIntervalUri: ekch/sidInterval.txt
   taxizonesUri: ekch/taxizones.txt
+  defaultTaxiTime: 12
   deice:
     light: 3
     medium: 5

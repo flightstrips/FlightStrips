@@ -219,6 +219,73 @@ func TestSequenceService_RecalculateAirport_SortsEqualBaseTimesByNaturalTtot(t *
 	assertPersistedCdmTimes(t, persisted, "SAS503", addMinutes(baseTobt, 2), addMinutes(baseTobt, 14))
 }
 
+func TestSequenceService_RecalculateAirport_PrioritizesConfirmedTobt(t *testing.T) {
+	t.Parallel()
+
+	now := time.Now().UTC()
+	baseTobt := addMinutes(timeToClock(now), 40)
+
+	unconfirmed := &models.Strip{
+		Callsign: "SASUNCONF",
+		Origin:   "EKCH",
+		Runway:   testStringPtr("04L"),
+		CdmData:  (&models.CdmData{Tobt: testStringPtr(baseTobt)}).Normalize(),
+	}
+	confirmed := &models.Strip{
+		Callsign: "SASCONF",
+		Origin:   "EKCH",
+		Runway:   testStringPtr("04L"),
+		CdmData: (&models.CdmData{
+			Tobt:                  testStringPtr(baseTobt),
+			TobtManuallyConfirmed: true,
+		}).Normalize(),
+	}
+
+	persisted := map[string]*models.CdmData{}
+	stripRepo := &testutil.MockStripRepository{
+		ListByOriginFn: func(ctx context.Context, session int32, origin string) ([]*models.Strip, error) {
+			return []*models.Strip{unconfirmed, confirmed}, nil
+		},
+		SetCdmDataFn: func(ctx context.Context, session int32, callsign string, data *models.CdmData) (int64, error) {
+			persisted[callsign] = data.Clone()
+			return 1, nil
+		},
+	}
+	sessionRepo := &testutil.MockSessionRepository{
+		GetByIDFn: func(ctx context.Context, id int32) (*models.Session, error) {
+			return &models.Session{
+				ID:      id,
+				Airport: "EKCH",
+				ActiveRunways: pkgModels.ActiveRunways{
+					DepartureRunways: []string{"04L"},
+				},
+			}, nil
+		},
+	}
+	configStore := NewCdmConfigStore("", "", "", 0, CdmConfigDefaults{Rate: 40, TaxiMinutes: 10}, nil)
+	service := NewSequenceService(stripRepo, sessionRepo, configStore, &testutil.MockFrontendHub{}, &testutil.MockEuroscopeHub{})
+
+	if err := service.RecalculateAirport(context.Background(), 7, "EKCH"); err != nil {
+		t.Fatalf("RecalculateAirport returned error: %v", err)
+	}
+
+	confirmedTtot := addMinutes(baseTobt, 10)
+	confirmedData, ok := persisted["SASCONF"]
+	if !ok {
+		t.Fatal("expected confirmed TOBT flight to be persisted")
+	}
+	unconfirmedData, ok := persisted["SASUNCONF"]
+	if !ok {
+		t.Fatal("expected unconfirmed TOBT flight to be persisted")
+	}
+	if got := valueOrEmpty(confirmedData.Ttot); got != confirmedTtot {
+		t.Fatalf("expected confirmed TOBT flight to retain first slot %q, got %q", confirmedTtot, got)
+	}
+	if got := valueOrEmpty(unconfirmedData.Ttot); got <= confirmedTtot {
+		t.Fatalf("expected unconfirmed TOBT flight to follow confirmed flight, got %q", got)
+	}
+}
+
 func TestSequenceService_RecalculateAirport_SortsCrossBaseTimesByNaturalTtot(t *testing.T) {
 	t.Parallel()
 

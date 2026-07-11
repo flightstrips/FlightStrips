@@ -37,6 +37,7 @@ cdm:
   rateUri: ekch/rate.txt
   sidIntervalUri: ekch/sidInterval.txt
   taxizonesUri: ekch/taxizones.txt
+  defaultTaxiTime: 12
   deice:
     light: 3
     medium: 5
@@ -68,6 +69,9 @@ cdm:
 	}
 	if cfg.TaxizonesUri != "ekch/taxizones.txt" {
 		t.Errorf("TaxizonesUri = %q, want %q", cfg.TaxizonesUri, "ekch/taxizones.txt")
+	}
+	if cfg.DefaultTaxiTime != 12 {
+		t.Errorf("DefaultTaxiTime = %d, want 12", cfg.DefaultTaxiTime)
 	}
 	if cfg.Deice.Light != 3 {
 		t.Errorf("Deice.Light = %d, want 3", cfg.Deice.Light)

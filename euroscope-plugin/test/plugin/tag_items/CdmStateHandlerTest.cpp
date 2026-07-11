@@ -359,6 +359,31 @@ TEST(CdmStateHandlerTest, ResolvePresentation_EobtFallbackEmptyReturnsNoValue) {
     EXPECT_FALSE(presentation.hasValue);
 }
 
+TEST(CdmStateHandlerTest, ResolvePresentation_EobtTobtUsesFlightplanEobtWithoutTobt) {
+    const auto presentation = CdmStateHandler::ResolvePresentation(
+        CdmState{},
+        CdmStateHandler::Field::EobtTobt,
+        "1430"
+    );
+
+    ASSERT_TRUE(presentation.hasValue);
+    EXPECT_EQ(presentation.value, "1430");
+    EXPECT_EQ(presentation.color, RGB(182, 182, 182));
+}
+
+TEST(CdmStateHandlerTest, ResolvePresentation_EobtTobtUsesTobtWhenAvailable) {
+    const auto tobt = CurrentUtcHHMM(-2);
+    const auto presentation = CdmStateHandler::ResolvePresentation(
+        CdmState{.eobt = "1430", .tobt = tobt},
+        CdmStateHandler::Field::EobtTobt,
+        "1430"
+    );
+
+    ASSERT_TRUE(presentation.hasValue);
+    EXPECT_EQ(presentation.value, tobt);
+    EXPECT_EQ(presentation.color, RGB(0, 192, 0));
+}
+
 TEST(CdmStateHandlerTest, ResolvePresentation_PhaseFallsBackToFlightplanEobt) {
     const auto futureEobt = CurrentUtcHHMM(10);
     const auto presentation = CdmStateHandler::ResolvePresentation(

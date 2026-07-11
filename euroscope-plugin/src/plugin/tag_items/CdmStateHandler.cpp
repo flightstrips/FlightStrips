@@ -43,6 +43,9 @@ namespace FlightStrips::TagItems {
                 if (IsFlightSuspended(cdm)) return {effectiveEobt, TAG_RED, true};
                 if (HasLargeEobtTobtMismatch(cdm)) return {effectiveEobt, TAG_ORANGE, true};
                 return {effectiveEobt, TAG_EOBT, true};
+            case Field::EobtTobt:
+                if (!cdm.tobt.empty()) return ResolvePresentation(cdm, Field::Tobt, fallbackEobt);
+                return ResolvePresentation(cdm, Field::Eobt, fallbackEobt);
             case Field::Phase: {
                 if (_stricmp(cdm.phase.c_str(), "I") == 0) return {"I", TAG_RED, true};
                 if (!cdm.tsat.empty()) return {"C", TAG_GREEN, true};

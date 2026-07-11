@@ -8,6 +8,7 @@ namespace FlightStrips::TagItems {
     public:
         enum class Field {
             Eobt,
+            EobtTobt,
             Phase,
             Tobt,
             ReqTobt,

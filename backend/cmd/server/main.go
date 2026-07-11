@@ -83,6 +83,7 @@ func main() {
 		EnableVATSIM:             true,
 		EnableTransceivers:       true,
 		EnableTraffic:            true,
+		EnableStandAssignment:    envBool("ENABLE_STAND_ASSIGNMENT", false),
 		EnableDBSeed:             true,
 	}, app.Dependencies{
 		VATSIMStatusURL:      getEnv("VATSIM_STATUS_URL", ""),

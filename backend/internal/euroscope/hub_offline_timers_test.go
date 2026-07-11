@@ -20,6 +20,16 @@ func stringPtr(value string) *string {
 	return &value
 }
 
+type offlineNotificationFrontendHub struct {
+	*testutil.MockFrontendHub
+	offlineDone chan struct{}
+}
+
+func (h *offlineNotificationFrontendHub) SendControllerOffline(session int32, callsign, position, identifier string) {
+	h.MockFrontendHub.SendControllerOffline(session, callsign, position, identifier)
+	close(h.offlineDone)
+}
+
 func TestClassifyOfflineAction_SkipsWhenOriginalControllerIsAlreadyGone(t *testing.T) {
 	const session = int32(1)
 	const callsign = "EKCH_TWR"
@@ -322,7 +332,11 @@ func TestScheduleOfflineActions_UsesStoredTimerEntryMetadata(t *testing.T) {
 
 	var deleteCallsign string
 
-	frontendHub := &testutil.MockFrontendHub{}
+	offlineDone := make(chan struct{})
+	frontendHub := &offlineNotificationFrontendHub{
+		MockFrontendHub: &testutil.MockFrontendHub{},
+		offlineDone:     offlineDone,
+	}
 	server := &testutil.MockServer{
 		FrontendHubVal: frontendHub,
 		ControllerRepoVal: &testutil.MockControllerRepository{
@@ -350,9 +364,7 @@ func TestScheduleOfflineActions_UsesStoredTimerEntryMetadata(t *testing.T) {
 	}
 
 	hub := buildReconcileHub(server)
-	hub.scheduleOfflineActions(session, originalCallsign, originalPosition, positionName, 10*time.Millisecond)
-
-	time.Sleep(5 * time.Millisecond)
+	hub.scheduleOfflineActions(session, originalCallsign, originalPosition, positionName, time.Second)
 
 	key := "1:" + positionName
 	hub.offlineMu.Lock()
@@ -364,7 +376,11 @@ func TestScheduleOfflineActions_UsesStoredTimerEntryMetadata(t *testing.T) {
 	}
 	hub.offlineMu.Unlock()
 
-	time.Sleep(120 * time.Millisecond)
+	select {
+	case <-offlineDone:
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for offline notification")
+	}
 
 	require.Equal(t, replacementCallsign, deleteCallsign)
 	require.Len(t, frontendHub.ControllerOfflines, 1)

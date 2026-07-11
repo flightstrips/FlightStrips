@@ -17,6 +17,7 @@ type StandAssignmentReadiness struct {
 var (
 	standAssignmentReadiness StandAssignmentReadiness
 	aircraftReference        *sat.AircraftRegistry
+	standCapabilities        *sat.StandCapabilityRegistry
 	standAssignmentConfigDir = GetConfigDir
 )
 
@@ -27,20 +28,35 @@ func InitializeStandAssignment(enabled bool) StandAssignmentReadiness {
 	if !enabled {
 		standAssignmentReadiness = StandAssignmentReadiness{}
 		aircraftReference = nil
+		standCapabilities = nil
 		return standAssignmentReadiness
 	}
 
-	registry, err := sat.LoadAircraftReferenceFile(filepath.Join(standAssignmentConfigDir(), "ekch", "GRpluginAircraftInfo.txt"))
+	configDir := filepath.Join(standAssignmentConfigDir(), "ekch")
+	registry, err := sat.LoadAircraftReferenceFile(filepath.Join(configDir, "GRpluginAircraftInfo.txt"))
 	if err != nil {
 		standAssignmentReadiness = StandAssignmentReadiness{
 			Enabled: true,
 			Reason:  fmt.Sprintf("load aircraft reference data: %v", err),
 		}
 		aircraftReference = nil
+		standCapabilities = nil
+		return standAssignmentReadiness
+	}
+
+	capabilities, err := sat.LoadStandCapabilityFile(filepath.Join(configDir, "GRpluginStands.txt"))
+	if err != nil {
+		standAssignmentReadiness = StandAssignmentReadiness{
+			Enabled: true,
+			Reason:  fmt.Sprintf("load stand capabilities: %v", err),
+		}
+		aircraftReference = nil
+		standCapabilities = nil
 		return standAssignmentReadiness
 	}
 
 	aircraftReference = registry
+	standCapabilities = capabilities
 	standAssignmentReadiness = StandAssignmentReadiness{Enabled: true, Ready: true}
 	return standAssignmentReadiness
 }
@@ -54,4 +70,10 @@ func GetStandAssignmentReadiness() StandAssignmentReadiness {
 // while SAT is disabled or unavailable.
 func GetAircraftReference() *sat.AircraftRegistry {
 	return aircraftReference
+}
+
+// GetStandCapabilities returns the read-only SAT stand capability registry, or
+// nil while SAT is disabled or unavailable.
+func GetStandCapabilities() *sat.StandCapabilityRegistry {
+	return standCapabilities
 }

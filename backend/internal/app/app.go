@@ -79,15 +79,17 @@ type Dependencies struct {
 }
 
 type App struct {
-	dbpool       *pgxpool.Pool
-	closeDB      bool
-	handler      http.Handler
-	workers      []func(context.Context)
-	startWorkers sync.Once
+	dbpool                   *pgxpool.Pool
+	closeDB                  bool
+	handler                  http.Handler
+	workers                  []func(context.Context)
+	startWorkers             sync.Once
+	standAssignmentReadiness appconfig.StandAssignmentReadiness
 }
 
 func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 	cfg = cfg.withDefaults()
+	standAssignmentReadiness := configureStandAssignment(cfg.EnableStandAssignment)
 
 	dbpool, closeDB, err := buildDBPool(ctx, cfg, deps.DBPool)
 	if err != nil {
@@ -185,8 +187,9 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 	}
 
 	app := &App{
-		dbpool:  dbpool,
-		closeDB: closeDB,
+		dbpool:                   dbpool,
+		closeDB:                  closeDB,
+		standAssignmentReadiness: standAssignmentReadiness,
 		handler: buildHandler(buildHandlerConfig{
 			authService:                authService,
 			frontendHub:                frontendHub,
@@ -236,6 +239,26 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 	}
 
 	return app, nil
+}
+
+// StandAssignmentReadiness returns the SAT configuration state created with
+// this application. Future SAT routes, workers, and contracts must use this
+// state instead of independently reading environment configuration.
+func (a *App) StandAssignmentReadiness() appconfig.StandAssignmentReadiness {
+	return a.standAssignmentReadiness
+}
+
+func configureStandAssignment(enabled bool) appconfig.StandAssignmentReadiness {
+	readiness := appconfig.InitializeStandAssignment(enabled)
+	switch {
+	case !readiness.Enabled:
+		slog.Info("Stand Assignment Tool disabled")
+	case readiness.Ready:
+		slog.Info("Stand Assignment Tool ready")
+	default:
+		slog.Error("Stand Assignment Tool unavailable", slog.String("reason", readiness.Reason))
+	}
+	return readiness
 }
 
 func (a *App) Handler() http.Handler {

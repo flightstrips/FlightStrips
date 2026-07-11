@@ -8,6 +8,7 @@ import (
 	"io"
 	"math"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -53,6 +54,22 @@ type Aircraft struct {
 type AircraftRegistry struct {
 	byType   map[string]Aircraft
 	warnings []string
+}
+
+// Types returns all canonical aircraft types in deterministic order.
+func (r *AircraftRegistry) Types() []string {
+	if r == nil {
+		return nil
+	}
+
+	types := make([]string, 0, len(r.byType))
+	for aircraftType, facts := range r.byType {
+		if aircraftType == facts.Type {
+			types = append(types, aircraftType)
+		}
+	}
+	slices.Sort(types)
+	return types
 }
 
 // Lookup resolves an ICAO type or source alias, case-insensitively. The returned

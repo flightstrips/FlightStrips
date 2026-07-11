@@ -18,6 +18,10 @@ type BorderStatus string
 const (
 	BorderStatusSchengen    BorderStatus = "SCHENGEN"
 	BorderStatusNonSchengen BorderStatus = "NON_SCHENGEN"
+	// BorderStatusUnknown is produced by airport border classification when no
+	// repository-owned mapping matches the airport code. It is not a valid
+	// airline assignment condition value.
+	BorderStatusUnknown BorderStatus = "UNKNOWN"
 )
 
 // AssignmentDirection identifies the flight leg to which a rule applies.

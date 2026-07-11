@@ -374,7 +374,7 @@ func configureCDM(
 		cdm.CdmConfigDefaults{
 			Rate:        cdmCfg.Rate,
 			RateLvo:     cdmCfg.RateLvo,
-			TaxiMinutes: cdm.DefaultCDMTaxiMinutes,
+			TaxiMinutes: cdmCfg.DefaultTaxiTime,
 		},
 		nil,
 	)

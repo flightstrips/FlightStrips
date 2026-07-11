@@ -297,6 +297,13 @@ func compareSequencingCandidates(left, right sequencingCandidate, anchor time.Ti
 		return 1
 	}
 
+	if left.input.TobtAuthoritative != right.input.TobtAuthoritative {
+		if left.input.TobtAuthoritative {
+			return -1
+		}
+		return 1
+	}
+
 	if preserveExistingSlots {
 		if cmp := compareClockForSort(left.slot.Ttot, right.slot.Ttot, anchor); cmp != 0 {
 			return cmp
@@ -523,7 +530,7 @@ func preservedSlotBlocksHigherPriorityCandidate(candidate sequencingCandidate, r
 	}
 
 	for _, pending := range recalculate {
-		if pending.started || !pending.hasCtot || pending.naturalTtot == "" {
+		if pending.started || pending.naturalTtot == "" || (!pending.hasCtot && !pending.input.TobtAuthoritative) {
 			continue
 		}
 		if compareSequencingCandidates(pending, candidate, now, false) >= 0 {

@@ -25,12 +25,13 @@ type CdmDeiceConfig struct {
 }
 
 type CdmConfig struct {
-	Rate           int            `yaml:"rate"`
-	RateLvo        int            `yaml:"rateLvo"`
-	RateUri        string         `yaml:"rateUri"`
-	SidIntervalUri string         `yaml:"sidIntervalUri"`
-	TaxizonesUri   string         `yaml:"taxizonesUri"`
-	Deice          CdmDeiceConfig `yaml:"deice"`
+	Rate            int            `yaml:"rate"`
+	RateLvo         int            `yaml:"rateLvo"`
+	RateUri         string         `yaml:"rateUri"`
+	SidIntervalUri  string         `yaml:"sidIntervalUri"`
+	TaxizonesUri    string         `yaml:"taxizonesUri"`
+	DefaultTaxiTime int            `yaml:"defaultTaxiTime"`
+	Deice           CdmDeiceConfig `yaml:"deice"`
 }
 
 type Config struct {
@@ -54,7 +55,6 @@ type Config struct {
 	RunwayInitialCFL       map[string]int              `yaml:"runway_initial_cfl"`
 	Cdm                    CdmConfig                   `yaml:"cdm"`
 	ClxValidation          ClxValidationConfig         `yaml:"clx_validation"`
-
 }
 
 // TestModeConfig holds test/replay mode configuration
@@ -95,7 +95,6 @@ var standRoutes []Route
 var missedApproachHandover map[string]string
 var transitionAltitude int
 var runwayInitialCFL map[string]int
-
 
 func loadAirportConfig(r io.Reader) error {
 	var cfg Config

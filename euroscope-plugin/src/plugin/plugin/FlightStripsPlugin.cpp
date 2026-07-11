@@ -177,6 +177,7 @@ namespace FlightStrips {
 
         RegisterTagItemType("DE-ICE", TAG_ITEM_DEICING_DESIGNATOR);
         RegisterTagItemType("EOBT", TAG_ITEM_CDM_EOBT);
+        RegisterTagItemType("E/TOBT", TAG_ITEM_CDM_E_TOBT);
         RegisterTagItemType("E", TAG_ITEM_CDM_PHASE);
         RegisterTagItemType("TOBT", TAG_ITEM_CDM_TOBT);
         RegisterTagItemType("REQ-TOBT", TAG_ITEM_CDM_REQ_TOBT);
@@ -195,6 +196,7 @@ namespace FlightStrips {
         RegisterTagItemType("ASAT", TAG_ITEM_CDM_ASAT);
 
         RegisterTagItemFunction("Edit EOBT", TAG_FUNC_CDM_EOBT_ACTION);
+        RegisterTagItemFunction("E/TOBT Options", TAG_FUNC_CDM_E_TOBT_OPTIONS);
         RegisterTagItemFunction("EOBT to TOBT", TAG_FUNC_CDM_EOBT_TO_TOBT);
         RegisterTagItemFunction("Edit TOBT", TAG_FUNC_CDM_EDIT_TOBT);
         RegisterTagItemFunction("Ready TOBT", TAG_FUNC_CDM_READY_TOBT);
@@ -662,6 +664,7 @@ namespace FlightStrips {
         const auto currentTsac = tracked == nullptr ? "" : tracked->cdm.tsac;
         const auto currentDeice = tracked == nullptr ? "" : tracked->cdm.deice_type;
         const auto currentFlowMessage = tracked == nullptr ? "" : tracked->cdm.ecfmp_id;
+        const auto isCdmFlight = tracked != nullptr && (!currentEobt.empty() || !currentTobt.empty());
 
         const auto addEobtActions = [&] {
             if (IsValidHhmm(currentEobt)) {
@@ -712,6 +715,14 @@ namespace FlightStrips {
             addTobtOptions();
         };
 
+        const auto openEobtTobtOptions = [&] {
+            if (isCdmFlight) {
+                openTobtOptions();
+            } else {
+                openEobtActions();
+            }
+        };
+
         const auto openCtotOptions = [&] {
             OpenPopupList(Area, "CTOT Options", 1);
             addCtotOptions();
@@ -759,6 +770,9 @@ namespace FlightStrips {
         switch (FunctionId) {
             case TAG_FUNC_CDM_EOBT_ACTION:
                 openEobtActions();
+                break;
+            case TAG_FUNC_CDM_E_TOBT_OPTIONS:
+                openEobtTobtOptions();
                 break;
             case TAG_FUNC_CDM_EOBT_TO_TOBT:
                 if (IsValidHhmm(currentEobt)) {

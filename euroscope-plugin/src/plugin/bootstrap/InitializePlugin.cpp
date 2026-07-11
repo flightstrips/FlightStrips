@@ -81,6 +81,10 @@ namespace FlightStrips {
             TAG_ITEM_CDM_EOBT
         );
         this->container->tagItemHandlers->RegisterHandler(
+            std::make_shared<TagItems::CdmStateHandler>(this->container->flightPlanService, TagItems::CdmStateHandler::Field::EobtTobt),
+            TAG_ITEM_CDM_E_TOBT
+        );
+        this->container->tagItemHandlers->RegisterHandler(
             std::make_shared<TagItems::CdmStateHandler>(this->container->flightPlanService, TagItems::CdmStateHandler::Field::Phase),
             TAG_ITEM_CDM_PHASE
         );

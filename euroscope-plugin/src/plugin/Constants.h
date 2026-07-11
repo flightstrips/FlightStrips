@@ -27,6 +27,7 @@ constexpr int TAG_ITEM_CDM_PHASE = 106;
 constexpr int TAG_ITEM_CDM_TTG = 107;
 constexpr int TAG_ITEM_CDM_READY_STARTUP = 108;
 constexpr int TAG_ITEM_CDM_ASAT = 109;
+constexpr int TAG_ITEM_CDM_E_TOBT = 111;
 
 constexpr int TAG_FUNC_CDM_EDIT_TOBT = 2002;
 constexpr int TAG_FUNC_CDM_SET_TOBT = 2003;
@@ -55,6 +56,7 @@ constexpr int TAG_FUNC_CDM_TSAC_OPTIONS = 2025;
 constexpr int TAG_FUNC_CDM_TOGGLE_TSAC = 2026;
 constexpr int TAG_FUNC_CDM_EDIT_TSAC = 2027;
 constexpr int TAG_FUNC_CDM_SET_TSAC = 2028;
+constexpr int TAG_FUNC_CDM_E_TOBT_OPTIONS = 2032;
 
 constexpr int TAG_ITEM_CLEARANCE_STATUS    = 110;
 constexpr int TAG_FUNC_CLEARANCE_OPTIONS   = 2029;

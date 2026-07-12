@@ -71,14 +71,11 @@ func TestLoadAircraftReferenceRejectsInvalidRows(t *testing.T) {
 	}
 }
 
-func TestLoadAircraftReferenceReportsConflictingAliasesAndUsesFirstDeclaration(t *testing.T) {
+func TestLoadAircraftReferenceRejectsConflictingAliases(t *testing.T) {
 	registry, err := LoadAircraftReference(strings.NewReader("A20N\t35\t37\t11\t79000\tA\t32N\nB738\t35\t39\t12\t79000\tA\t32N\n"))
-	require.NoError(t, err)
-
-	facts, ok := registry.Lookup("32N")
-	require.True(t, ok)
-	assert.Equal(t, "A20N", facts.Type)
-	assert.Equal(t, []string{"line 2: conflicting alias \"32N\" already declared on line 1; using the first declaration"}, registry.Warnings())
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "line 2: conflicting alias \"32N\" already declared on line 1")
+	assert.Nil(t, registry)
 }
 
 func TestLoadAircraftReferenceLoadsCommittedEKCHFile(t *testing.T) {

@@ -135,23 +135,16 @@ func (s *ArrivalLifecycleService) ensureAssignment(ctx context.Context, session 
 }
 
 func (s *ArrivalLifecycleService) promoteArrival(ctx context.Context, session int32, strip *models.Strip, flight vatsim.ArrivalFlightInfo, existing *models.StandAssignment, eta *time.Time, targetStage string) error {
-	if targetStage == StageConfirmed {
-		request := s.buildRequest(session, strip, flight, targetStage, eta, nil)
-		request.DisplaceStage = StageEstimated
-		available, err := s.allocations.StandAvailable(ctx, request, existing.Stand)
-		if err != nil {
-			return err
-		}
-		if available && s.currentStandIsOptimal(session, strip, flight, existing) {
-			return s.updateStageInPlace(ctx, existing, targetStage, eta)
-		}
-		_, err = s.allocations.Reallocate(ctx, request)
-		return err
-	}
-
 	request := s.buildRequest(session, strip, flight, targetStage, eta, nil)
 	request.DisplaceStage = StageEstimated
-	_, err := s.allocations.Reallocate(ctx, request)
+	available, err := s.allocations.StandAvailable(ctx, request, existing.Stand)
+	if err != nil {
+		return err
+	}
+	if available && s.currentStandIsOptimal(ctx, request, existing) {
+		return s.updateStageInPlace(ctx, existing, targetStage, eta)
+	}
+	_, err = s.allocations.Reallocate(ctx, request)
 	return err
 }
 
@@ -198,33 +191,33 @@ func (s *ArrivalLifecycleService) blockedByPastDeparture(ctx context.Context, se
 	return false
 }
 
-func (s *ArrivalLifecycleService) currentStandIsOptimal(session int32, strip *models.Strip, flight vatsim.ArrivalFlightInfo, existing *models.StandAssignment) bool {
+func (s *ArrivalLifecycleService) currentStandIsOptimal(ctx context.Context, request StandAllocationRequest, existing *models.StandAssignment) bool {
 	if existing.Tier == nil {
 		return false
-	}
-	if *existing.Tier <= 1 {
-		return true
-	}
-	facts, assignmentFacts := s.resolveFacts(strip, flight)
-	request := StandAllocationRequest{
-		SessionID:       session,
-		Callsign:        strip.Callsign,
-		Airport:         strings.ToUpper(strings.TrimSpace(strip.Destination)),
-		Direction:       sat.AssignmentDirectionArrival,
-		Stage:           existing.Stage,
-		FlightFacts:     facts,
-		AssignmentFacts: assignmentFacts,
 	}
 	evaluation := s.stands.EvaluateCompatibility(request.Airport, request.FlightFacts)
 	available := make([]string, 0)
 	for _, match := range evaluation.Matches {
-		available = append(available, standName(match.Stand.Name))
+		candidate := standName(match.Stand.Name)
+		free, err := s.allocations.StandAvailable(ctx, request, candidate)
+		if err != nil {
+			return false
+		}
+		if free {
+			available = append(available, candidate)
+		}
 	}
-	selection, err := s.allocations.policy.SelectStand(assignmentFacts, available, s.allocations.random)
+	selection, err := s.allocations.policy.SelectStand(request.AssignmentFacts, available, s.allocations.random)
 	if err != nil || selection == nil {
+		return true
+	}
+	if standName(selection.Stand) == standName(existing.Stand) {
+		return true
+	}
+	if existing.RuleID == nil || !strings.EqualFold(*existing.RuleID, selection.RuleID) {
 		return false
 	}
-	return selection.Tier <= int(*existing.Tier) || standName(selection.Stand) == standName(existing.Stand)
+	return selection.Tier >= int(*existing.Tier)
 }
 
 func (s *ArrivalLifecycleService) updateStageInPlace(ctx context.Context, existing *models.StandAssignment, stage string, eta *time.Time) error {

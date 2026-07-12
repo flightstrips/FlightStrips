@@ -132,6 +132,16 @@ describe("stand store events", () => {
   });
 
   describe("stand block update", () => {
+    it("preserves simultaneous blocks and removes only the addressed block", () => {
+      const manual = { id: 10, stand: "B8", block_type: "MANUAL", reason: "Closed", version: 1 };
+      const adjacent = { id: 11, stand: "B8", block_type: "ADJACENCY", reason: "Blocked by B7", version: 1 };
+      client._emit(EventType.FrontendStandBlockUpdate, { type: EventType.FrontendStandBlockUpdate, stand: "B8", block: manual });
+      client._emit(EventType.FrontendStandBlockUpdate, { type: EventType.FrontendStandBlockUpdate, stand: "B8", block: adjacent });
+      expect(store.getState().standBlocks).toEqual([manual, adjacent]);
+      client._emit(EventType.FrontendStandBlockUpdate, { type: EventType.FrontendStandBlockUpdate, stand: "B8", block: null, block_id: 10 });
+      expect(store.getState().standBlocks).toEqual([adjacent]);
+    });
+
     it("adds new block", () => {
       const block: FrontendStandBlockEntry = {
         stand: "B8", block_type: "MANUAL", reason: "Closed",
@@ -260,20 +270,32 @@ describe("stand store events", () => {
   });
 
   describe("occupyStand / vacateStand", () => {
-    it("sends stand_occupy action", () => {
+    it("sends a versioned SAT manual assignment request", () => {
+      store.getState().requestManualStand("SAS123", "A25", 4);
+      expect(client.send).toHaveBeenCalledWith({
+        type: "stand_assignment_manual_request",
+        callsign: "SAS123",
+        stand: "A25",
+        version: 4,
+      });
+    });
+
+    it("sends stand block create action", () => {
       store.getState().occupyStand("A25");
       expect(client.send).toHaveBeenCalledWith({
-        type: "stand_occupy",
+        type: "stand_block_create",
         stand: "A25",
         reason: "Manual block",
       });
     });
 
-    it("sends stand_vacate action", () => {
-      store.getState().vacateStand("B6");
+    it("sends a versioned stand block remove action", () => {
+      store.getState().vacateStand("B6", 12, 3);
       expect(client.send).toHaveBeenCalledWith({
-        type: "stand_vacate",
+        type: "stand_block_remove",
         stand: "B6",
+        block_id: 12,
+        version: 3,
       });
     });
   });

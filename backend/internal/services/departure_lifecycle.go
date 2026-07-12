@@ -7,6 +7,7 @@ import (
 	"FlightStrips/internal/vatsim"
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"strconv"
 	"strings"
@@ -132,12 +133,71 @@ func (s *DepartureLifecycleService) ProcessDeparture(ctx context.Context, sessio
 		return nil
 	}
 	if flight.Online {
-		if err := s.activateBlock(ctx, session, strip, flight); err != nil {
+		activated, err := s.activateObservedBlock(ctx, session, strip, flight)
+		if err != nil {
 			return err
+		}
+		if !activated {
+			return nil
 		}
 		return s.revalidateFacts(ctx, session, strip, flight)
 	}
 	return s.ensureReservation(ctx, session, strip, flight)
+}
+
+// activateObservedBlock only converts an online aircraft to a departure block
+// after its live position resolves to a stand. A compatible, available spawn
+// stand replaces the reservation atomically. An unavailable or incompatible
+// observed stand leaves the reservation intact and records the mismatch for
+// task 19's future warning/deadline workflow.
+func (s *DepartureLifecycleService) activateObservedBlock(ctx context.Context, session int32, strip *models.Strip, flight vatsim.DepartureFlightInfo) (bool, error) {
+	observed, found := s.stands.StandAtPosition(strings.TrimSpace(strip.Origin), flight.Latitude, flight.Longitude)
+	if !found {
+		slog.Warn("online departure is not inside a configured stand radius",
+			slog.String("callsign", strip.Callsign),
+			slog.Float64("latitude", flight.Latitude),
+			slog.Float64("longitude", flight.Longitude))
+		return false, nil
+	}
+
+	existing, err := s.assignments.GetAssignment(ctx, session, strip.Callsign)
+	if err != nil && !isNotFound(err) {
+		return false, err
+	}
+	if existing != nil && strings.EqualFold(existing.Stand, observed.Name) {
+		return true, s.activateBlock(ctx, session, strip, flight)
+	}
+
+	expiry := s.computeBlockExpiry(strip)
+	request := s.buildRequest(session, strip, flight, StageDepartureBlock, expiry)
+	request.Stand = observed.Name
+	if _, err := s.allocations.AssignManually(ctx, request); err == nil {
+		return true, nil
+	} else if existing == nil {
+		slog.Warn("observed departure stand requires task 19 handling",
+			slog.String("callsign", strip.Callsign), slog.String("observedStand", observed.Name), slog.Any("error", err))
+		return false, nil
+	}
+
+	reason := "WRONG_STAND_PENDING_TASK_19: observed " + observed.Name
+	if existing.ConflictReason != nil && *existing.ConflictReason == reason {
+		return false, nil
+	}
+	updated := *existing
+	updated.ConflictReason = &reason
+	updated.Acknowledged = false
+	updated.AcknowledgedAt = nil
+	updated.AcknowledgedBy = nil
+	if affected, updateErr := s.assignments.UpdateAssignment(ctx, &updated); updateErr != nil {
+		return false, updateErr
+	} else if affected != 1 {
+		return false, fmt.Errorf("record observed stand mismatch version conflict for %s", strip.Callsign)
+	}
+	updated.Version++
+	if err := s.allocations.PublishAssignment(ctx, updated); err != nil {
+		return false, fmt.Errorf("publish observed stand mismatch for %s: %w", strip.Callsign, err)
+	}
+	return false, nil
 }
 
 // ensureReservation allocates a 15-minute hold for a new offline prefile, and

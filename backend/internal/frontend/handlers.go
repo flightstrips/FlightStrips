@@ -3,13 +3,13 @@ package frontend
 import (
 	"FlightStrips/internal/config"
 	internalModels "FlightStrips/internal/models"
+	"FlightStrips/internal/services"
 	"FlightStrips/internal/shared"
 	"FlightStrips/pkg/events"
 	euroscope "FlightStrips/pkg/events/euroscope"
 	"FlightStrips/pkg/events/frontend"
 	"context"
 	"errors"
-	"fmt"
 	"log/slog"
 	"strings"
 	"time"
@@ -780,33 +780,18 @@ func handleStandOccupy(ctx context.Context, client *Client, message Message) err
 		return err
 	}
 
-	repo := client.hub.server.GetStandAssignmentRepository()
-	if repo == nil {
-		return errors.New("stand assignment is not enabled")
-	}
-
-	reason := action.Reason
-	createdBy := client.position
-
-	block := &internalModels.StandBlock{
-		SessionID: client.session,
-		Stand:     action.Stand,
-		BlockType: "MANUAL",
-		Source:    "CONTROLLER",
-		Reason:    &reason,
-		CreatedBy: &createdBy,
-		Manual:    true,
-	}
-
-	if err := repo.CreateBlock(ctx, block); err != nil {
-		return fmt.Errorf("create stand block: %w", err)
+	block, err := client.hub.standActionService.CreateBlock(ctx, client.session, client.airport, client.position, action.Stand, action.Reason)
+	if err != nil {
+		return rejectStandAction(client, message.Type, action.Stand, "", nil, err)
 	}
 
 	client.hub.SendStandBlockBroadcast(client.session, action.Stand, &frontend.StandBlockEntry{
 		Stand:     block.Stand,
+		ID:        block.ID,
 		BlockType: block.BlockType,
 		Reason:    block.Reason,
 		CreatedBy: block.CreatedBy,
+		Version:   block.Version,
 	})
 
 	return nil
@@ -818,29 +803,77 @@ func handleStandVacate(ctx context.Context, client *Client, message Message) err
 		return err
 	}
 
-	repo := client.hub.server.GetStandAssignmentRepository()
-	if repo == nil {
-		return errors.New("stand assignment is not enabled")
-	}
-
-	blocks, err := repo.ListBlocksByStand(ctx, client.session, action.Stand)
+	block, err := client.hub.standActionService.RemoveBlock(ctx, client.session, client.position, action.BlockID, action.Version)
 	if err != nil {
-		return fmt.Errorf("list stand blocks: %w", err)
+		return rejectStandAction(client, message.Type, action.Stand, "", &action.Version, err)
 	}
+	client.hub.SendStandBlockBroadcast(client.session, block.Stand, nil, block.ID)
+	return nil
+}
 
-	deletedAny := false
-	for _, block := range blocks {
-		if block != nil && block.BlockType == "MANUAL" {
-			if _, err := repo.DeleteBlock(ctx, client.session, block.ID, block.Version); err != nil {
-				return fmt.Errorf("delete stand block: %w", err)
-			}
-			deletedAny = true
-		}
+func handleStandAutomaticRequest(ctx context.Context, client *Client, message Message) error {
+	var action frontend.StandAutomaticRequestAction
+	if err := message.JsonUnmarshal(&action); err != nil {
+		return err
 	}
+	result, err := client.hub.standActionService.Allocate(ctx, client.session, client.airport, client.position, action.Callsign, action.Version)
+	return publishStandAction(client, message.Type, action.Callsign, "", &action.Version, result, err)
+}
 
-	if deletedAny {
-		client.hub.SendStandBlockBroadcast(client.session, action.Stand, nil)
+func handleStandManualRequest(ctx context.Context, client *Client, message Message) error {
+	var action frontend.StandManualRequestAction
+	if err := message.JsonUnmarshal(&action); err != nil {
+		return err
 	}
+	result, err := client.hub.standActionService.AssignManually(ctx, client.session, client.airport, client.position, action.Callsign, action.Stand, action.Version)
+	return publishStandAction(client, message.Type, action.Callsign, action.Stand, &action.Version, result, err)
+}
 
+func handleStandConfirmedOverride(ctx context.Context, client *Client, message Message) error {
+	var action frontend.StandConfirmedOverrideAction
+	if err := message.JsonUnmarshal(&action); err != nil {
+		return err
+	}
+	result, err := client.hub.standActionService.Override(ctx, client.session, client.airport, client.position, action.Callsign, action.Stand, action.Reason, action.Version)
+	return publishStandAction(client, message.Type, action.Callsign, action.Stand, &action.Version, result, err)
+}
+
+func handleStandAcknowledge(ctx context.Context, client *Client, message Message) error {
+	var action frontend.StandAcknowledgeAction
+	if err := message.JsonUnmarshal(&action); err != nil {
+		return err
+	}
+	assignment, err := client.hub.standActionService.Acknowledge(ctx, client.session, client.position, action.Callsign, action.Version)
+	if err != nil {
+		return rejectStandAction(client, message.Type, "", action.Callsign, &action.Version, err)
+	}
+	client.hub.SendStandAssignmentBroadcast(client.session, client.hub.enrichedStandAssignmentEntry(client.session, assignment))
+	return nil
+}
+
+func publishStandAction(client *Client, action frontend.EventType, callsign, stand string, version *int32, result *services.StandAllocationResult, err error) error {
+	if err != nil {
+		return rejectStandAction(client, action, stand, callsign, version, err)
+	}
+	return nil
+}
+
+func rejectStandAction(client *Client, action frontend.EventType, stand, callsign string, version *int32, err error) error {
+	code := "internal_error"
+	switch {
+	case errors.Is(err, services.ErrStandActionUnauthorized):
+		code = "unauthorized"
+	case errors.Is(err, services.ErrStandActionStaleVersion):
+		code = "stale_version"
+	case errors.Is(err, services.ErrNoAvailableStand):
+		code = "no_automatic_candidate"
+	case errors.Is(err, services.ErrIncompatibleManualAssignment):
+		code = "incompatible_or_occupied"
+	case errors.Is(err, services.ErrUnknownManualOverrideStand):
+		code = "invalid_stand"
+	case errors.Is(err, services.ErrStandBlockNotOwned):
+		code = "not_block_owner"
+	}
+	client.Enqueue(frontend.ActionRejectedEvent{Action: string(action), Code: code, Reason: err.Error(), Callsign: callsign, Stand: stand, Version: version})
 	return nil
 }

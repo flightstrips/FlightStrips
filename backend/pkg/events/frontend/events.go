@@ -113,8 +113,12 @@ const (
 	StandBlockUpdate      EventType = "stand_block_update"
 
 	// Stand action types (sent from frontend to backend)
-	ActionStandOccupy EventType = "stand_occupy"
-	ActionStandVacate EventType = "stand_vacate"
+	ActionStandOccupy            EventType = "stand_block_create"
+	ActionStandVacate            EventType = "stand_block_remove"
+	ActionStandAutomaticRequest  EventType = "stand_assignment_auto_request"
+	ActionStandManualRequest     EventType = "stand_assignment_manual_request"
+	ActionStandConfirmedOverride EventType = "stand_assignment_confirmed_override"
+	ActionStandAcknowledge       EventType = "stand_assignment_acknowledge"
 )
 
 type OutgoingMessage interface {
@@ -196,6 +200,7 @@ type Strip struct {
 	HasFP                    bool                  `json:"has_fp"`
 	ValidationStatus         *ValidationStatus     `json:"validation_status,omitempty"`
 	ClxValidation            *ClxValidation        `json:"clx_validation,omitempty"`
+	StandAssignment          *StandAssignmentEntry `json:"stand_assignment,omitempty"`
 }
 
 type NextDisplay struct {
@@ -991,8 +996,12 @@ func (a AtisUpdateEvent) Marshal() ([]byte, error) { return marshall(a) }
 func (a AtisUpdateEvent) GetType() EventType       { return AtisUpdate }
 
 type ActionRejectedEvent struct {
-	Action string `json:"action"` // the action type string that was rejected
-	Reason string `json:"reason"` // human-readable reason
+	Action   string `json:"action"` // the action type string that was rejected
+	Reason   string `json:"reason"` // human-readable reason
+	Code     string `json:"code,omitempty"`
+	Callsign string `json:"callsign,omitempty"`
+	Stand    string `json:"stand,omitempty"`
+	Version  *int32 `json:"version,omitempty"`
 }
 
 func (e ActionRejectedEvent) Marshal() ([]byte, error) { return marshall(e) }
@@ -1031,23 +1040,35 @@ type MissedApproachRequestEvent struct {
 
 // StandAssignmentEntry represents a single stand assignment for frontend consumption.
 type StandAssignmentEntry struct {
-	Callsign  string     `json:"callsign"`
-	Stand     string     `json:"stand"`
-	Direction string     `json:"direction"`
-	Stage     string     `json:"stage"`
-	Source    string     `json:"source"`
-	ETA       *time.Time `json:"eta,omitempty"`
-	ExpiresAt *time.Time `json:"expires_at,omitempty"`
+	ID                     int64      `json:"id"`
+	Callsign               string     `json:"callsign"`
+	Stand                  string     `json:"stand"`
+	Direction              string     `json:"direction"`
+	Stage                  string     `json:"stage"`
+	Source                 string     `json:"source"`
+	Manual                 bool       `json:"manual"`
+	RuleID                 *string    `json:"rule_id,omitempty"`
+	Tier                   *int32     `json:"tier,omitempty"`
+	MatchedVariant         *string    `json:"matched_variant,omitempty"`
+	ConflictReason         *string    `json:"conflict_reason,omitempty"`
+	PendingAcknowledgement bool       `json:"pending_acknowledgement"`
+	Blocks                 []string   `json:"blocks"`
+	BlockedBy              []string   `json:"blocked_by"`
+	Version                int32      `json:"version"`
+	ETA                    *time.Time `json:"eta,omitempty"`
+	ExpiresAt              *time.Time `json:"expires_at,omitempty"`
 }
 
 // StandBlockEntry represents a single stand block for frontend consumption.
 type StandBlockEntry struct {
+	ID        int64      `json:"id"`
 	Stand     string     `json:"stand"`
 	BlockType string     `json:"block_type"`
 	Reason    *string    `json:"reason,omitempty"`
 	Callsign  *string    `json:"callsign,omitempty"`
 	CreatedBy *string    `json:"created_by,omitempty"`
 	ExpiresAt *time.Time `json:"expires_at,omitempty"`
+	Version   int32      `json:"version"`
 }
 
 // StandStatusSnapshotEvent is broadcast to a newly connected frontend to seed stand state.
@@ -1069,8 +1090,9 @@ func (e StandAssignmentUpdateEvent) GetType() EventType       { return StandAssi
 
 // StandBlockUpdateEvent is broadcast when a manual block changes.
 type StandBlockUpdateEvent struct {
-	Stand string `json:"stand"`
-	Block *StandBlockEntry `json:"block,omitempty"`
+	Stand   string           `json:"stand"`
+	Block   *StandBlockEntry `json:"block,omitempty"`
+	BlockID int64            `json:"block_id,omitempty"`
 }
 
 func (e StandBlockUpdateEvent) Marshal() ([]byte, error) { return marshall(e) }
@@ -1087,6 +1109,35 @@ type StandOccupyAction struct {
 
 // StandVacateAction is sent by a frontend controller to remove a manual block.
 type StandVacateAction struct {
-	Type  EventType `json:"type"`
-	Stand string    `json:"stand"`
+	Type    EventType `json:"type"`
+	Stand   string    `json:"stand"`
+	BlockID int64     `json:"block_id"`
+	Version int32     `json:"version"`
+}
+
+type StandAutomaticRequestAction struct {
+	Type     EventType `json:"type"`
+	Callsign string    `json:"callsign"`
+	Version  int32     `json:"version"`
+}
+
+type StandManualRequestAction struct {
+	Type     EventType `json:"type"`
+	Callsign string    `json:"callsign"`
+	Stand    string    `json:"stand"`
+	Version  int32     `json:"version"`
+}
+
+type StandConfirmedOverrideAction struct {
+	Type     EventType `json:"type"`
+	Callsign string    `json:"callsign"`
+	Stand    string    `json:"stand"`
+	Reason   string    `json:"reason"`
+	Version  int32     `json:"version"`
+}
+
+type StandAcknowledgeAction struct {
+	Type     EventType `json:"type"`
+	Callsign string    `json:"callsign"`
+	Version  int32     `json:"version"`
 }

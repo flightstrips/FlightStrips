@@ -20,15 +20,9 @@ func TestStandAssignmentRepositoryCRUDVersioningAndSessionCleanup(t *testing.T) 
 
 	eta := time.Now().UTC().Add(time.Hour)
 	assignment := &models.StandAssignment{
-		SessionID: sessionID,
-		Callsign:  "SAS123",
-		Stand:     "ECHO12",
-		Direction: "ARRIVAL",
-		Stage:     "ESTIMATED",
-		Source:    "AUTOMATIC",
-		ETA:       &eta,
-		ETASource: stringPtrForTest("FILED"),
-		Manual:    false,
+		SessionID: sessionID, Callsign: "SAS123", Stand: "ECHO12",
+		Direction: "ARRIVAL", Stage: "ESTIMATED", Source: "AUTOMATIC",
+		ETA: &eta, ETASource: stringPtrForTest("FILED"), Manual: false,
 	}
 	require.NoError(t, repo.CreateAssignment(ctx, assignment))
 	require.NotZero(t, assignment.ID)

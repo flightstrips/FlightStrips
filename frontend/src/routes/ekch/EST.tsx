@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 
-import { Bay, type FrontendStrip } from "@/api/models";
+import { Bay, type FrontendStandAssignmentEntry, type FrontendStrip } from "@/api/models";
 import FlightPlanDialog from "@/components/FlightPlanDialog";
 import EstDeIceDialog from "@/components/est/EstDeIceDialog";
 import EstStandCell from "@/components/est/EstStandCell";
@@ -16,7 +16,7 @@ import {
   type EstView,
 } from "@/components/est/metadata";
 import { useNonClearedStrips } from "@/store/airports/ekch.ts";
-import { useControllers, useMarkArmed, useMyPosition, useSelectStrip, useSelectedCallsign, useWebSocketStore, useSatEnabled, useStandBlocks, useOccupyStand, useVacateStand } from "@/store/store-hooks.ts";
+import { useControllers, useMarkArmed, useMyPosition, useSelectStrip, useSelectedCallsign, useWebSocketStore, useSatEnabled, useStandAssignments, useStandBlocks, useOccupyStand, useVacateStand, useRequestManualStand } from "@/store/store-hooks.ts";
 
 const PAGE_BG = "bg-bay-est";
 const COLOR_LABEL_DEFAULT = "#202020";
@@ -117,8 +117,10 @@ export default function EST() {
   const selectStrip = useSelectStrip();
   const satEnabled = useSatEnabled();
   const standBlocks = useStandBlocks();
+  const standAssignments = useStandAssignments();
   const occupyStand = useOccupyStand();
   const vacateStand = useVacateStand();
+  const requestManualStand = useRequestManualStand();
 
   const [menuState, setMenuState] = useState<{ stand: string; anchor: EstMenuAnchor } | null>(null);
   const [statusStand, setStatusStand] = useState<string | null>(null);
@@ -174,8 +176,26 @@ export default function EST() {
     updateCtotState(strips);
   }, [strips]);
 
+  const stripsByCallsign = useMemo(() => new Map(strips.map((strip) => [strip.callsign, strip])), [strips]);
+
+  const assignmentByStand = useMemo(() => {
+    const mapping = new Map<string, FrontendStandAssignmentEntry>();
+    if (satEnabled) {
+      for (const assignment of standAssignments) mapping.set(assignment.stand, assignment);
+    }
+    return mapping;
+  }, [satEnabled, standAssignments]);
+
   const stripByStand = useMemo(() => {
     const mapping = new Map<string, FrontendStrip>();
+
+    if (satEnabled) {
+      for (const assignment of standAssignments) {
+        const strip = stripsByCallsign.get(assignment.callsign);
+        if (strip && strip.bay !== Bay.Hidden) mapping.set(assignment.stand, strip);
+      }
+      return mapping;
+    }
 
     for (const strip of strips) {
       if (!strip.stand || strip.bay === Bay.Hidden) {
@@ -186,7 +206,7 @@ export default function EST() {
     }
 
     return mapping;
-  }, [strips]);
+  }, [satEnabled, standAssignments, strips, stripsByCallsign]);
 
   const standOccupancy = useMemo(
     () => Object.fromEntries([...stripByStand.entries()].map(([stand, strip]) => [stand, strip.callsign])),
@@ -197,25 +217,32 @@ export default function EST() {
     if (satEnabled) {
       const blocked: Record<string, true> = {};
       for (const block of standBlocks) {
-        if (block.block_type === "MANUAL") {
-          blocked[block.stand] = true;
-        }
+        blocked[block.stand] = true;
       }
+	  for (const assignment of standAssignments) {
+		for (const neighbor of assignment.blocks ?? []) blocked[neighbor] = true;
+	  }
       return blocked;
     }
     return blockedStands;
-  }, [satEnabled, standBlocks, blockedStands]);
+  }, [satEnabled, standAssignments, standBlocks, blockedStands]);
 
   const standBlockReasons = useMemo(() => {
     if (!satEnabled) return {};
     const reasons: Record<string, string> = {};
     for (const block of standBlocks) {
-      if (block.block_type === "MANUAL") {
-        reasons[block.stand] = block.reason ?? "Manually blocked";
-      }
+      const cause = block.callsign ? ` by ${block.callsign}` : "";
+      const reason = block.reason ?? `${block.block_type.replace(/_/g, " ")}${cause}`;
+      reasons[block.stand] = reasons[block.stand] ? `${reasons[block.stand]}; ${reason}` : reason;
     }
+	for (const assignment of standAssignments) {
+	  for (const neighbor of assignment.blocks ?? []) {
+		const reason = `Blocked by ${assignment.stand} (${assignment.callsign})`;
+		reasons[neighbor] = reasons[neighbor] ? `${reasons[neighbor]}; ${reason}` : reason;
+	  }
+	}
     return reasons;
-  }, [satEnabled, standBlocks]);
+  }, [satEnabled, standAssignments, standBlocks]);
 
   useEffect(() => {
     updateActionOverrides({ type: "prune", occupancy: standOccupancy });
@@ -265,7 +292,14 @@ export default function EST() {
 
   function clearBlockedStand(stand: string) {
     if (satEnabled) {
-      vacateStand(stand);
+      const block = standBlocks.find((candidate) =>
+        candidate.stand === stand &&
+        candidate.block_type === "MANUAL" &&
+        candidate.created_by?.toUpperCase() === myPosition.toUpperCase() &&
+        candidate.id !== undefined &&
+        candidate.version !== undefined
+      );
+      if (block?.id !== undefined && block.version !== undefined) vacateStand(stand, block.id, block.version);
     } else {
       setBlockedStands((current) => {
         const next = { ...current };
@@ -394,7 +428,14 @@ export default function EST() {
     }
 
     if (satEnabled) {
-      vacateStand(statusStand);
+      const block = standBlocks.find((candidate) =>
+        candidate.stand === statusStand &&
+        candidate.block_type === "MANUAL" &&
+        candidate.created_by?.toUpperCase() === myPosition.toUpperCase() &&
+        candidate.id !== undefined &&
+        candidate.version !== undefined
+      );
+      if (block?.id !== undefined && block.version !== undefined) vacateStand(statusStand, block.id, block.version);
     } else {
       clearBlockedStand(statusStand);
     }
@@ -417,8 +458,13 @@ export default function EST() {
       return;
     }
 
-    clearBlockedStand(statusStand);
-    updateStrip(strip.callsign, { stand: statusStand });
+    if (satEnabled) {
+      const version = standAssignments.find((assignment) => assignment.callsign === strip.callsign)?.version ?? 0;
+      requestManualStand(strip.callsign, statusStand, version);
+    } else {
+      clearBlockedStand(statusStand);
+      updateStrip(strip.callsign, { stand: statusStand });
+    }
     setStatusStand(null);
     setMenuState(null);
   }
@@ -490,6 +536,7 @@ export default function EST() {
 
             {visibleStands.map((stand) => {
               const strip = stripByStand.get(stand.label);
+              const assignment = assignmentByStand.get(stand.label);
               const actionOverride = strip ? actionOverrides[stand.label] : undefined;
               const actionActive = !!actionOverride && !!strip && actionOverride.callsign === strip.callsign;
               const startReqActive = !!strip?.start_req;
@@ -499,6 +546,7 @@ export default function EST() {
                   key={stand.label}
                   stand={stand}
                   strip={strip}
+                  assignment={assignment}
                   selected={!!strip && selectedCallsign === strip.callsign}
                   blocked={!!blockedStandsDerived[stand.label]}
                   blockReason={standBlockReasons[stand.label]}

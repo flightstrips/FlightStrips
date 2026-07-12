@@ -18,6 +18,11 @@ type AirportCountryRegistry struct {
 	prefixes map[string]BorderStatus
 }
 
+// ICAO location prefixes are repository-owned country/territory facts. Keep
+// Schengen members explicit because several share a first letter with
+// non-Schengen states. Broad one-letter entries are used only where ICAO
+// assigns the whole region outside Schengen; unallocated prefixes remain
+// UNKNOWN instead of being guessed.
 var defaultAirportBorderStatuses = map[string]BorderStatus{
 	"BI": BorderStatusSchengen, "EB": BorderStatusSchengen, "ED": BorderStatusSchengen,
 	"EE": BorderStatusSchengen, "EF": BorderStatusSchengen, "EH": BorderStatusSchengen,
@@ -30,10 +35,18 @@ var defaultAirportBorderStatuses = map[string]BorderStatus{
 	"LO": BorderStatusSchengen, "LP": BorderStatusSchengen, "LR": BorderStatusSchengen,
 	"LS": BorderStatusSchengen, "LZ": BorderStatusSchengen,
 
-	"C": BorderStatusNonSchengen, "EG": BorderStatusNonSchengen, "EI": BorderStatusNonSchengen,
-	"K": BorderStatusNonSchengen, "LT": BorderStatusNonSchengen, "LU": BorderStatusNonSchengen,
-	"LW": BorderStatusNonSchengen, "RJ": BorderStatusNonSchengen, "RK": BorderStatusNonSchengen,
-	"U": BorderStatusNonSchengen, "V": BorderStatusNonSchengen, "Y": BorderStatusNonSchengen,
+	"A": BorderStatusNonSchengen, "B": BorderStatusNonSchengen, "C": BorderStatusNonSchengen,
+	"D": BorderStatusNonSchengen, "E": BorderStatusNonSchengen, "F": BorderStatusNonSchengen,
+	"G": BorderStatusNonSchengen,
+	"H": BorderStatusNonSchengen, "K": BorderStatusNonSchengen, "M": BorderStatusNonSchengen,
+	"L": BorderStatusNonSchengen, "N": BorderStatusNonSchengen, "O": BorderStatusNonSchengen,
+	"P": BorderStatusNonSchengen, "R": BorderStatusNonSchengen,
+	"S": BorderStatusNonSchengen, "T": BorderStatusNonSchengen, "U": BorderStatusNonSchengen,
+	"V": BorderStatusNonSchengen, "W": BorderStatusNonSchengen, "Y": BorderStatusNonSchengen,
+	"EG": BorderStatusNonSchengen, "EI": BorderStatusNonSchengen,
+	"BG": BorderStatusNonSchengen,
+	"LT": BorderStatusNonSchengen, "LU": BorderStatusNonSchengen, "LW": BorderStatusNonSchengen,
+	"RJ": BorderStatusNonSchengen, "RK": BorderStatusNonSchengen,
 	"ZB": BorderStatusNonSchengen, "ZG": BorderStatusNonSchengen, "ZK": BorderStatusNonSchengen,
 	"ZL": BorderStatusNonSchengen, "ZM": BorderStatusNonSchengen, "ZP": BorderStatusNonSchengen,
 	"ZS": BorderStatusNonSchengen, "ZU": BorderStatusNonSchengen, "ZW": BorderStatusNonSchengen,

@@ -149,3 +149,4 @@ export const useStandBlocks = () => useWebSocketStore((state) => state.standBloc
 export const useSatEnabled = () => useWebSocketStore((state) => state.satEnabled);
 export const useOccupyStand = () => useWebSocketStore((state) => state.occupyStand);
 export const useVacateStand = () => useWebSocketStore((state) => state.vacateStand);
+export const useRequestManualStand = () => useWebSocketStore((state) => state.requestManualStand);

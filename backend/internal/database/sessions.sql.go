@@ -191,9 +191,9 @@ VALUES ($1, $2, $3) RETURNING id
 `
 
 type InsertSessionParams struct {
-	Name       string
-	Airport    string
-	CdmMaster  bool
+	Name      string
+	Airport   string
+	CdmMaster bool
 }
 
 func (q *Queries) InsertSession(ctx context.Context, arg InsertSessionParams) (int32, error) {

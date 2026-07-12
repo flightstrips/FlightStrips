@@ -104,7 +104,7 @@ func TestInitializeStandAssignmentReportsInvalidAircraftReference(t *testing.T) 
 	assert.Nil(t, GetAircraftReference())
 }
 
-func TestInitializeStandAssignmentIgnoresUnknownBlockTargets(t *testing.T) {
+func TestInitializeStandAssignmentRejectsUnknownBlockTargets(t *testing.T) {
 	dir := t.TempDir()
 	ekchDir := filepath.Join(dir, "ekch")
 	require.NoError(t, os.Mkdir(ekchDir, 0o755))
@@ -125,11 +125,9 @@ func TestInitializeStandAssignmentIgnoresUnknownBlockTargets(t *testing.T) {
 
 	state := InitializeStandAssignment(true)
 	assert.True(t, state.Enabled)
-	assert.True(t, state.Ready)
-	assert.Empty(t, state.Reason)
-	stand, ok := GetStandCapabilities().Lookup("EKCH", "A1")
-	assert.True(t, ok)
-	assert.Empty(t, stand.Blocks)
+	assert.False(t, state.Ready)
+	assert.Contains(t, state.Reason, "references unknown BLOCKS target \"A99\"")
+	assert.Nil(t, GetStandCapabilities())
 }
 
 func TestInitializeStandAssignmentReportsInvalidAirlineAssignment(t *testing.T) {

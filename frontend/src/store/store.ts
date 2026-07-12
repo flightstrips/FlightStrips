@@ -172,7 +172,8 @@ export interface WebSocketState {
   satEnabled: boolean;
 
   occupyStand: (stand: string) => void;
-  vacateStand: (stand: string) => void;
+  vacateStand: (stand: string, blockId: number, version: number) => void;
+  requestManualStand: (callsign: string, stand: string, version: number) => void;
 
   // actions
   move: (callsign: string, bay: Bay) => void;
@@ -771,11 +772,14 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     },
 
     occupyStand: (stand) => {
-      sendIfWritable({ type: ActionType.FrontendStandOccupy, stand, reason: "Manual block" });
+      sendIfWritable({ type: ActionType.FrontendStandBlockCreate, stand, reason: "Manual block" });
     },
 
-    vacateStand: (stand) => {
-      sendIfWritable({ type: ActionType.FrontendStandVacate, stand });
+    vacateStand: (stand, blockId, version) => {
+      sendIfWritable({ type: ActionType.FrontendStandBlockRemove, stand, block_id: blockId, version });
+    },
+    requestManualStand: (callsign, stand, version) => {
+      sendIfWritable({ type: ActionType.FrontendStandAssignmentManualRequest, callsign, stand, version });
     },
   }});
 
@@ -1368,9 +1372,18 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     store.setState(
       produce((state: WebSocketState) => {
         if (data.block === null) {
-          state.standBlocks = state.standBlocks.filter((b) => b.stand !== data.stand);
+          state.standBlocks = state.standBlocks.filter((b) =>
+            data.block_id !== undefined ? b.id !== data.block_id : b.stand !== data.stand,
+          );
         } else {
-          const idx = state.standBlocks.findIndex((b) => b.stand === data.stand);
+          const idx = state.standBlocks.findIndex((b) =>
+            data.block!.id !== undefined
+              ? b.id === data.block!.id
+              : b.stand === data.block!.stand &&
+                b.block_type === data.block!.block_type &&
+                b.callsign === data.block!.callsign &&
+                b.created_by === data.block!.created_by,
+          );
           if (idx !== -1) {
             state.standBlocks[idx] = data.block;
           } else {

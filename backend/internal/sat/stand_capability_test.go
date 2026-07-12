@@ -90,13 +90,11 @@ func TestLoadStandCapabilitiesRejectsUnknownCapabilities(t *testing.T) {
 	assert.Nil(t, registry)
 }
 
-func TestLoadStandCapabilitiesIgnoresUnknownBlockTargets(t *testing.T) {
+func TestLoadStandCapabilitiesRejectsUnknownBlockTargets(t *testing.T) {
 	registry, err := LoadStandCapabilities(strings.NewReader("STAND:EKCH:A1:N055.37.42.710:E012.38.33.450:30\nBLOCKS:A99,A2\nSTAND:EKCH:A2:N055.37.42.000:E012.38.33.000:30\n"))
-	require.NoError(t, err)
-
-	stand, ok := registry.Lookup("EKCH", "A1")
-	require.True(t, ok)
-	assert.Equal(t, []string{"A2"}, stand.Blocks)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "stand EKCH:A1 references unknown BLOCKS target \"A99\"")
+	assert.Nil(t, registry)
 }
 
 func TestLoadStandCapabilitiesRejectsConflictingGeometry(t *testing.T) {
@@ -105,7 +103,7 @@ func TestLoadStandCapabilitiesRejectsConflictingGeometry(t *testing.T) {
 	assert.Contains(t, err.Error(), "line 2: conflicting geometry for stand EKCH:A1 (first declared on line 1)")
 }
 
-func TestLoadCommittedEKCHStandFileIgnoresMissingBlockReferences(t *testing.T) {
+func TestLoadCommittedEKCHStandFileValidatesAllBlockReferences(t *testing.T) {
 	registry, err := LoadStandCapabilityFile(filepath.Join("..", "..", "config", "ekch", "GRpluginStands.txt"))
 	require.NoError(t, err)
 

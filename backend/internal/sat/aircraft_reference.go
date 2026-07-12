@@ -247,5 +247,9 @@ func parseAircraftAliases(value, canonicalType string) ([]string, error) {
 }
 
 func normalizeAircraftToken(value string) string {
+	value = strings.TrimSpace(value)
+	if designator, _, found := strings.Cut(value, "/"); found {
+		value = designator
+	}
 	return strings.ToUpper(strings.TrimSpace(value))
 }

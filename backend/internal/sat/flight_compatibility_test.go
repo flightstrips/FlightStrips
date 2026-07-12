@@ -95,6 +95,25 @@ func TestResolveFlightCompatibilityFactsPrefersLiveEngineAndUsesCorrectBorderEnd
 	assert.Equal(t, "EKCH", departure.BorderEndpoint)
 }
 
+func TestResolveFlightCompatibilityFactsCanonicalizesVatsimAircraftEquipment(t *testing.T) {
+	aircraft := testAircraftRegistry(t)
+	engines, err := LoadAircraftEngineReference(strings.NewReader(testICAOAircraftJSON), aircraft)
+	require.NoError(t, err)
+
+	facts := ResolveFlightCompatibilityFacts(FlightCompatibilityInput{
+		Direction:    Departure,
+		Origin:       "EKCH",
+		Destination:  "EKBI",
+		AircraftType: "A20N/M-SDE3FGHIRWY/LB1",
+	}, aircraft, engines, NewAirportCountryRegistry())
+
+	require.True(t, facts.Complete())
+	assert.True(t, facts.AircraftKnown)
+	assert.Equal(t, "A20N", facts.Aircraft.Type)
+	assert.Equal(t, EngineJet, facts.EngineType)
+	assert.Equal(t, "M", facts.WTC)
+}
+
 func TestResolveFlightCompatibilityFactsReportsUnknownFacts(t *testing.T) {
 	aircraft := testAircraftRegistry(t)
 	engines, err := LoadAircraftEngineReference(strings.NewReader(testICAOAircraftJSON), aircraft)

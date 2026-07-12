@@ -32,6 +32,10 @@ func TestLoadAircraftReferenceParsesSixAndSevenColumnRecords(t *testing.T) {
 	withoutAliases, ok := registry.Lookup("b738")
 	require.True(t, ok)
 	assert.Empty(t, withoutAliases.Aliases)
+
+	withEquipment, ok := registry.Lookup("A20N/M-SDE3FGHIRWY/LB1")
+	require.True(t, ok)
+	assert.Equal(t, canonical, withEquipment)
 }
 
 func TestLoadAircraftReferenceRejectsInvalidRows(t *testing.T) {

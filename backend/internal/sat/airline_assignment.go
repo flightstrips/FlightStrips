@@ -139,6 +139,18 @@ type RuleMatch struct {
 	Pattern    string
 }
 
+// StandSelection is the policy result for one already-compatible, available
+// stand set. Persistence and retries deliberately belong to the caller.
+type StandSelection struct {
+	Stand            string
+	RuleID           string
+	Tier             int
+	TierName         string
+	OriginalWeight   float64
+	NormalizedWeight float64
+	FallbackUsed     bool
+}
+
 // LoadAirlineAssignment strictly decodes and validates an airline assignment
 // document against the physical stand registry. SAT must not become ready
 // without this registry because physical stand references are part of the
@@ -565,18 +577,38 @@ func (c *AirlineAssignmentConfig) MatchRule(facts AssignmentFlightFacts) (*RuleM
 	if c == nil {
 		return nil, errors.New("airline assignment configuration is nil")
 	}
+	facts = normalizeAssignmentFacts(facts)
+	match, err := c.matchAirlineRule(facts)
+	if err != nil {
+		return nil, err
+	}
+	if match != nil {
+		return match, nil
+	}
+
+	return c.matchFallbackRule(facts)
+}
+
+func normalizeAssignmentFacts(facts AssignmentFlightFacts) AssignmentFlightFacts {
 	facts.Callsign = normalizeCallsignPattern(facts.Callsign)
 	facts.AircraftType = normalizeCallsignPattern(facts.AircraftType)
 	facts.AircraftUse = AircraftUseCode(strings.ToUpper(strings.TrimSpace(string(facts.AircraftUse))))
 	facts.BorderStatus = BorderStatus(strings.ToUpper(strings.TrimSpace(string(facts.BorderStatus))))
 	facts.Direction = AssignmentDirection(strings.ToUpper(strings.TrimSpace(string(facts.Direction))))
 	facts.Special = strings.ToUpper(strings.TrimSpace(facts.Special))
+	return facts
+}
 
+// matchAirlineRule returns nil when no airline-specific rule applies. Keeping
+// this separate from fallback matching lets stand selection try an exhausted
+// airline rule before it considers the matching fallback policy.
+func (c *AirlineAssignmentConfig) matchAirlineRule(facts AssignmentFlightFacts) (*RuleMatch, error) {
 	type candidate struct {
-		rule        *AirlineAssignmentRule
-		pattern     string
-		precedence  RulePrecedence
-		specificity int
+		rule                 *AirlineAssignmentRule
+		pattern              string
+		precedence           RulePrecedence
+		specificity          int
+		conditionSpecificity int
 	}
 	var candidates []candidate
 	for i := range c.Rules {
@@ -588,13 +620,13 @@ func (c *AirlineAssignmentConfig) MatchRule(facts AssignmentFlightFacts) (*RuleM
 			if facts.Special != rule.Conditions.Special {
 				continue
 			}
-			candidates = append(candidates, candidate{rule: rule, precedence: RulePrecedenceSpecial, specificity: len(rule.Conditions.Special)})
+			candidates = append(candidates, candidate{rule: rule, precedence: RulePrecedenceSpecial, specificity: len(rule.Conditions.Special), conditionSpecificity: conditionSpecificity(rule.Conditions)})
 			continue
 		}
 		for _, pattern := range rule.Callsigns {
 			precedence, specificity, ok := callsignMatch(pattern, facts.Callsign)
 			if ok {
-				candidates = append(candidates, candidate{rule: rule, pattern: pattern, precedence: precedence, specificity: specificity})
+				candidates = append(candidates, candidate{rule: rule, pattern: pattern, precedence: precedence, specificity: specificity, conditionSpecificity: conditionSpecificity(rule.Conditions)})
 			}
 		}
 	}
@@ -602,13 +634,14 @@ func (c *AirlineAssignmentConfig) MatchRule(facts AssignmentFlightFacts) (*RuleM
 		best := candidates[0]
 		for _, candidate := range candidates[1:] {
 			if precedenceRank(candidate.precedence) < precedenceRank(best.precedence) ||
-				(precedenceRank(candidate.precedence) == precedenceRank(best.precedence) && candidate.specificity > best.specificity) {
+				(precedenceRank(candidate.precedence) == precedenceRank(best.precedence) && candidate.specificity > best.specificity) ||
+				(precedenceRank(candidate.precedence) == precedenceRank(best.precedence) && candidate.specificity == best.specificity && candidate.conditionSpecificity > best.conditionSpecificity) {
 				best = candidate
 			}
 		}
 		matches := 0
 		for _, candidate := range candidates {
-			if candidate.precedence == best.precedence && candidate.specificity == best.specificity {
+			if candidate.precedence == best.precedence && candidate.specificity == best.specificity && candidate.conditionSpecificity == best.conditionSpecificity {
 				matches++
 			}
 		}
@@ -617,7 +650,36 @@ func (c *AirlineAssignmentConfig) MatchRule(facts AssignmentFlightFacts) (*RuleM
 		}
 		return &RuleMatch{Rule: best.rule, Precedence: best.precedence, Pattern: best.pattern}, nil
 	}
+	return nil, nil
+}
 
+// conditionSpecificity breaks otherwise equal callsign matches so a matching
+// condition-specific rule can coexist with its general airline rule. Rules
+// with equally specific matching conditions remain ambiguous.
+func conditionSpecificity(conditions *AirlineAssignmentConditions) int {
+	if conditions == nil {
+		return 0
+	}
+	specificity := 0
+	if conditions.BorderStatus != "" {
+		specificity++
+	}
+	if len(conditions.AircraftTypes) > 0 {
+		specificity++
+	}
+	if len(conditions.AircraftUse) > 0 {
+		specificity++
+	}
+	if conditions.Direction != "" {
+		specificity++
+	}
+	if conditions.Special != "" {
+		specificity++
+	}
+	return specificity
+}
+
+func (c *AirlineAssignmentConfig) matchFallbackRule(facts AssignmentFlightFacts) (*RuleMatch, error) {
 	if fallbackName := fallbackNameForFacts(facts); fallbackName != FallbackAirlinerDefault {
 		if fallback, ok := c.GetFallbackRule(fallbackName); ok {
 			rule := AirlineAssignmentRule{ID: fallbackName, Stands: fallback.Stands, Tiers: fallback.Tiers}
@@ -630,6 +692,162 @@ func (c *AirlineAssignmentConfig) MatchRule(facts AssignmentFlightFacts) (*RuleM
 	}
 	rule := AirlineAssignmentRule{ID: FallbackAirlinerDefault, Stands: fallback.Stands, Tiers: fallback.Tiers}
 	return &RuleMatch{Rule: &rule, Fallback: FallbackAirlinerDefault, Precedence: RulePrecedenceDefaultFallback}, nil
+}
+
+// SelectStand applies airline tiers to eligibleStands, which must already be
+// the intersection of physical compatibility and current availability. random
+// must return a value in [0, 1), allowing callers and tests to control the
+// draw. A nil result with no error means no configured candidate is eligible.
+func (c *AirlineAssignmentConfig) SelectStand(facts AssignmentFlightFacts, eligibleStands []string, random func() float64) (*StandSelection, error) {
+	if c == nil {
+		return nil, errors.New("airline assignment configuration is nil")
+	}
+	if random == nil {
+		return nil, errors.New("stand selection random source is nil")
+	}
+
+	eligible := make(map[string]struct{}, len(eligibleStands))
+	for _, stand := range eligibleStands {
+		stand = normalizeStandName(stand)
+		if stand != "" {
+			eligible[stand] = struct{}{}
+		}
+	}
+	facts = normalizeAssignmentFacts(facts)
+
+	match, err := c.matchAirlineRule(facts)
+	if err != nil {
+		return nil, err
+	}
+	if match != nil {
+		selection, err := c.selectFromRule(match.Rule, eligible, random, false)
+		if err != nil || selection != nil {
+			return selection, err
+		}
+	}
+
+	return c.selectFallback(facts, eligible, random)
+}
+
+func (c *AirlineAssignmentConfig) selectFallback(facts AssignmentFlightFacts, eligible map[string]struct{}, random func() float64) (*StandSelection, error) {
+	fallbackName := fallbackNameForFacts(facts)
+	if fallbackName != FallbackAirlinerDefault {
+		if fallback, ok := c.GetFallbackRule(fallbackName); ok {
+			rule := &AirlineAssignmentRule{ID: fallbackName, Stands: fallback.Stands, Tiers: fallback.Tiers}
+			selection, err := c.selectFromRule(rule, eligible, random, true)
+			if err != nil || selection != nil {
+				return selection, err
+			}
+		}
+	}
+
+	fallback, ok := c.GetFallbackRule(FallbackAirlinerDefault)
+	if !ok {
+		return nil, errors.New("airliner_default fallback is not configured")
+	}
+	return c.selectFromRule(&AirlineAssignmentRule{ID: FallbackAirlinerDefault, Stands: fallback.Stands, Tiers: fallback.Tiers}, eligible, random, true)
+}
+
+type weightedStandCandidate struct {
+	stand  string
+	weight float64
+}
+
+func (c *AirlineAssignmentConfig) selectFromRule(rule *AirlineAssignmentRule, eligible map[string]struct{}, random func() float64, fallbackUsed bool) (*StandSelection, error) {
+	if rule == nil {
+		return nil, nil
+	}
+	for tierIndex, tier := range rule.Tiers {
+		candidates, totalWeight, err := c.eligibleTierCandidates(tier, eligible)
+		if err != nil {
+			return nil, err
+		}
+		if totalWeight == 0 {
+			continue
+		}
+
+		draw := random()
+		if math.IsNaN(draw) || math.IsInf(draw, 0) || draw < 0 || draw >= 1 {
+			return nil, fmt.Errorf("stand selection random source returned %v; want value in [0, 1)", draw)
+		}
+		target := draw * totalWeight
+		cumulative := 0.0
+		for _, candidate := range candidates {
+			cumulative += candidate.weight
+			if target < cumulative {
+				return &StandSelection{
+					Stand:            candidate.stand,
+					RuleID:           rule.ID,
+					Tier:             tierNumber(tier.Name, tierIndex),
+					TierName:         tier.Name,
+					OriginalWeight:   candidate.weight,
+					NormalizedWeight: candidate.weight / totalWeight,
+					FallbackUsed:     fallbackUsed,
+				}, nil
+			}
+		}
+	}
+	return nil, nil
+}
+
+func (c *AirlineAssignmentConfig) eligibleTierCandidates(tier StandTier, eligible map[string]struct{}) ([]weightedStandCandidate, float64, error) {
+	candidates := make([]weightedStandCandidate, 0, len(tier.Entries))
+	indexes := make(map[string]int)
+	for _, entry := range tier.Entries {
+		stands := []string{entry.Stand}
+		if entry.Group != "" {
+			var err error
+			stands, err = c.ResolveStandGroup(entry.Group)
+			if err != nil {
+				return nil, 0, err
+			}
+		}
+		if entry.Weight == 0 {
+			continue
+		}
+
+		eligibleMembers := make([]string, 0, len(stands))
+		for _, stand := range stands {
+			stand = normalizeStandName(stand)
+			if _, ok := eligible[stand]; !ok {
+				continue
+			}
+			eligibleMembers = append(eligibleMembers, stand)
+		}
+		if len(eligibleMembers) == 0 {
+			continue
+		}
+
+		// A group is one weighted target. Once expanded, divide its weight
+		// between its eligible physical stands so the group contributes its
+		// declared weight regardless of its size or unavailable members.
+		candidateWeight := entry.Weight
+		if entry.Group != "" {
+			candidateWeight /= float64(len(eligibleMembers))
+		}
+		for _, stand := range eligibleMembers {
+			if index, exists := indexes[stand]; exists {
+				candidates[index].weight += candidateWeight
+				continue
+			}
+			indexes[stand] = len(candidates)
+			candidates = append(candidates, weightedStandCandidate{stand: stand, weight: candidateWeight})
+		}
+	}
+
+	totalWeight := 0.0
+	for _, candidate := range candidates {
+		totalWeight += candidate.weight
+	}
+	return candidates, totalWeight, nil
+}
+
+func tierNumber(name string, index int) int {
+	var number int
+	if _, err := fmt.Sscanf(strings.ToLower(strings.TrimSpace(name)), "tier%d", &number); err == nil && number > 0 {
+		return number
+	}
+	return index + 1
 }
 
 func conditionsMatch(conditions *AirlineAssignmentConditions, facts AssignmentFlightFacts) bool {

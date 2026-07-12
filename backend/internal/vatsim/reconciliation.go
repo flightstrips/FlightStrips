@@ -13,6 +13,7 @@ const reconciliationSequenceSpacing int32 = 1000
 
 const (
 	plannedDepartureBay = "NOT_CLEARED"
+	hiddenDepartureBay  = "DEP_HIDDEN"
 	hiddenArrivalBay    = "ARR_HIDDEN"
 )
 
@@ -25,6 +26,7 @@ type reconciliationStripStore interface {
 	Create(context.Context, *models.Strip) error
 	UpdateVatsimSource(context.Context, int32, string, models.VatsimStripSource) (int64, error)
 	UpdateArrivalETA(context.Context, int32, string, models.ArrivalETA) (int64, error)
+	UpdateBayAndSequence(context.Context, int32, string, string, int32) (int64, error)
 	Delete(context.Context, int32, string) error
 }
 
@@ -187,7 +189,11 @@ func (r *Reconciler) reconcileSession(ctx context.Context, snapshot Snapshot, se
 			continue
 		}
 		relevant[flight.Callsign] = flight
-		if flight.Prefile() { prefiles++ } else { pilots++ }
+		if flight.Prefile() {
+			prefiles++
+		} else {
+			pilots++
+		}
 		strip := existing[flight.Callsign]
 		created := false
 		if strip == nil {
@@ -205,6 +211,18 @@ func (r *Reconciler) reconcileSession(ctx context.Context, snapshot Snapshot, se
 				return err
 			}
 			changed = true
+		}
+		if !created {
+			bay := apiDepartureBay(strip, flight, airport)
+			if bay != "" && bay != strip.Bay {
+				sequence := nextSequenceForBay(strips, bay)
+				if _, err := r.strips.UpdateBayAndSequence(ctx, session.ID, strip.Callsign, bay, sequence); err != nil {
+					return err
+				}
+				strip.Bay = bay
+				strip.Sequence = &sequence
+				changed = true
+			}
 		}
 		if strings.EqualFold(strings.TrimSpace(flight.FlightPlan.Destination), airport) {
 			etaChanged, err := r.updateArrivalETA(ctx, session.ID, strip, flight)
@@ -288,7 +306,10 @@ func vatsimSource(flight Flight, snapshotTime time.Time) models.VatsimStripSourc
 func (r *Reconciler) newStrip(session *models.Session, flight Flight, seenAt time.Time, sequence int32) *models.Strip {
 	bay := hiddenArrivalBay
 	if strings.EqualFold(strings.TrimSpace(flight.FlightPlan.Origin), strings.TrimSpace(session.Airport)) {
-		bay = plannedDepartureBay
+		bay = hiddenDepartureBay
+		if flight.Online() {
+			bay = plannedDepartureBay
+		}
 	}
 	strip := &models.Strip{Callsign: flight.Callsign, Session: session.ID, Bay: bay, Sequence: &sequence, HasFP: true}
 	r.applyFlight(strip, flight, seenAt)
@@ -397,9 +418,29 @@ func (r *Reconciler) notify(session int32, callsign string) {
 func nextSequence(strips []*models.Strip, flight Flight, airport string) int32 {
 	bay := hiddenArrivalBay
 	if strings.EqualFold(strings.TrimSpace(flight.FlightPlan.Origin), airport) {
-		bay = plannedDepartureBay
+		bay = hiddenDepartureBay
+		if flight.Online() {
+			bay = plannedDepartureBay
+		}
 	}
 	return nextSequenceForBay(strips, bay)
+}
+
+// apiDepartureBay owns only the visibility transition for departures that have
+// not yet been seen by EuroScope. Prefiles stay out of CLX until the pilot is
+// connected; once EuroScope has supplied the strip, its operational bay wins.
+func apiDepartureBay(strip *models.Strip, flight Flight, airport string) string {
+	if strip == nil || strip.EuroscopeSeenAt != nil ||
+		!strings.EqualFold(strings.TrimSpace(flight.FlightPlan.Origin), airport) {
+		return ""
+	}
+	if flight.Online() && strip.Bay == hiddenDepartureBay {
+		return plannedDepartureBay
+	}
+	if flight.Prefile() && strip.Bay == plannedDepartureBay {
+		return hiddenDepartureBay
+	}
+	return ""
 }
 
 func nextSequenceForBay(strips []*models.Strip, bay string) int32 {

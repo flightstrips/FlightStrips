@@ -64,6 +64,18 @@ func (s *reconciliationTestStrips) UpdateArrivalETA(_ context.Context, session i
 	return 0, nil
 }
 
+func (s *reconciliationTestStrips) UpdateBayAndSequence(_ context.Context, session int32, callsign, bay string, sequence int32) (int64, error) {
+	for _, strip := range s.bySession[session] {
+		if strip.Callsign == callsign {
+			strip.Bay = bay
+			strip.Sequence = &sequence
+			s.updated = append(s.updated, strip)
+			return 1, nil
+		}
+	}
+	return 0, nil
+}
+
 func (s *reconciliationTestStrips) Delete(_ context.Context, session int32, callsign string) error {
 	s.deleted = append(s.deleted, callsign)
 	return nil
@@ -147,7 +159,7 @@ func TestReconcileCreatesPrefileDepartureAndHiddenArrivals(t *testing.T) {
 	for _, strip := range strips.created {
 		byCallsign[strip.Callsign] = strip
 	}
-	assert.Equal(t, plannedDepartureBay, byCallsign["SAS101"].Bay)
+	assert.Equal(t, hiddenDepartureBay, byCallsign["SAS101"].Bay)
 	assert.Equal(t, hiddenArrivalBay, byCallsign["SAS202"].Bay)
 	assert.Equal(t, hiddenArrivalBay, byCallsign["SAS303"].Bay)
 	assert.Nil(t, byCallsign["SAS202"].PositionLatitude)
@@ -155,6 +167,41 @@ func TestReconcileCreatesPrefileDepartureAndHiddenArrivals(t *testing.T) {
 	assert.Equal(t, "3", *byCallsign["SAS303"].VatsimCID)
 	assert.Equal(t, int64(6), *byCallsign["SAS303"].VatsimRevision)
 	assert.Len(t, notifier.callsigns, 3)
+}
+
+func TestReconcilePromotesAPIDepartureWhenPilotConnects(t *testing.T) {
+	now := time.Date(2026, 7, 12, 10, 0, 0, 0, time.UTC)
+	sequence := int32(1000)
+	existing := &models.Strip{Callsign: "SAS101", Session: 7, Origin: "EKCH", Destination: "EGLL", Bay: hiddenDepartureBay, Sequence: &sequence}
+	cache := newReconciliationTestCache(now, Flight{CID: "1", Callsign: "SAS101", State: FlightStateOnline, LastUpdated: now, FlightPlan: FlightPlan{Origin: "EKCH", Destination: "EGLL", Revision: 4}})
+	strips := &reconciliationTestStrips{bySession: map[int32][]*models.Strip{7: {existing}}}
+	reconciler := NewReconciler(cache, reconciliationTestSessions{items: []*models.Session{{ID: 7, Airport: "EKCH"}}}, strips, reconciliationTestAssignments{}, nil, time.Second)
+
+	require.NoError(t, reconciler.Reconcile(context.Background()))
+	assert.Equal(t, plannedDepartureBay, existing.Bay)
+}
+
+func TestReconcileMovesExistingAPIPrefileOutOfCLX(t *testing.T) {
+	now := time.Date(2026, 7, 12, 10, 0, 0, 0, time.UTC)
+	sequence := int32(1000)
+	existing := &models.Strip{Callsign: "SAS101", Session: 7, Origin: "EKCH", Destination: "EGLL", Bay: plannedDepartureBay, Sequence: &sequence}
+	cache := newReconciliationTestCache(now, Flight{CID: "1", Callsign: "SAS101", State: FlightStatePrefile, LastUpdated: now, FlightPlan: FlightPlan{Origin: "EKCH", Destination: "EGLL", Revision: 4}})
+	strips := &reconciliationTestStrips{bySession: map[int32][]*models.Strip{7: {existing}}}
+	reconciler := NewReconciler(cache, reconciliationTestSessions{items: []*models.Session{{ID: 7, Airport: "EKCH"}}}, strips, reconciliationTestAssignments{}, nil, time.Second)
+
+	require.NoError(t, reconciler.Reconcile(context.Background()))
+	assert.Equal(t, hiddenDepartureBay, existing.Bay)
+}
+
+func TestReconcileDoesNotMoveEuroscopeOwnedPrefileToHidden(t *testing.T) {
+	now := time.Date(2026, 7, 12, 10, 0, 0, 0, time.UTC)
+	existing := &models.Strip{Callsign: "SAS101", Session: 7, Origin: "EKCH", Destination: "EGLL", Bay: plannedDepartureBay, EuroscopeSeenAt: &now}
+	cache := newReconciliationTestCache(now, Flight{CID: "1", Callsign: "SAS101", State: FlightStatePrefile, LastUpdated: now, FlightPlan: FlightPlan{Origin: "EKCH", Destination: "EGLL", Revision: 4}})
+	strips := &reconciliationTestStrips{bySession: map[int32][]*models.Strip{7: {existing}}}
+	reconciler := NewReconciler(cache, reconciliationTestSessions{items: []*models.Session{{ID: 7, Airport: "EKCH"}}}, strips, reconciliationTestAssignments{}, nil, time.Second)
+
+	require.NoError(t, reconciler.Reconcile(context.Background()))
+	assert.Equal(t, plannedDepartureBay, existing.Bay)
 }
 
 func TestReconcileKeepsEuroscopeFieldsAndProtectsControllerEdits(t *testing.T) {

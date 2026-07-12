@@ -3,7 +3,9 @@ package config
 import (
 	"FlightStrips/internal/sat"
 	"fmt"
+	"os"
 	"path/filepath"
+	"strings"
 )
 
 // StandAssignmentReadiness describes whether SAT was requested and whether its
@@ -17,10 +19,20 @@ type StandAssignmentReadiness struct {
 var (
 	standAssignmentReadiness StandAssignmentReadiness
 	aircraftReference        *sat.AircraftRegistry
+	aircraftEngineReference  *sat.AircraftEngineRegistry
+	airportCountries         *sat.AirportCountryRegistry
 	standCapabilities        *sat.StandCapabilityRegistry
 	airlineAssignment        *sat.AirlineAssignmentConfig
 	standAssignmentConfigDir = GetConfigDir
+	standAssignmentICAOFile  = defaultStandAssignmentICAOFile
 )
+
+func defaultStandAssignmentICAOFile() string {
+	if path := strings.TrimSpace(os.Getenv("GRPLUGIN_ICAO_AIRCRAFT_JSON")); path != "" {
+		return path
+	}
+	return filepath.Join(GetConfigDir(), "data", "ICAO_Aircraft.json")
+}
 
 // InitializeStandAssignment loads SAT-only configuration when explicitly
 // enabled. A failed load leaves the rest of FlightStrips usable and records the
@@ -29,6 +41,8 @@ func InitializeStandAssignment(enabled bool) StandAssignmentReadiness {
 	if !enabled {
 		standAssignmentReadiness = StandAssignmentReadiness{}
 		aircraftReference = nil
+		aircraftEngineReference = nil
+		airportCountries = nil
 		standCapabilities = nil
 		airlineAssignment = nil
 		return standAssignmentReadiness
@@ -42,6 +56,21 @@ func InitializeStandAssignment(enabled bool) StandAssignmentReadiness {
 			Reason:  fmt.Sprintf("load aircraft reference data: %v", err),
 		}
 		aircraftReference = nil
+		aircraftEngineReference = nil
+		airportCountries = nil
+		standCapabilities = nil
+		return standAssignmentReadiness
+	}
+
+	engineReference, err := sat.LoadAircraftEngineReferenceFile(standAssignmentICAOFile(), registry)
+	if err != nil {
+		standAssignmentReadiness = StandAssignmentReadiness{
+			Enabled: true,
+			Reason:  fmt.Sprintf("load aircraft engine reference data: %v", err),
+		}
+		aircraftReference = nil
+		aircraftEngineReference = nil
+		airportCountries = nil
 		standCapabilities = nil
 		airlineAssignment = nil
 		return standAssignmentReadiness
@@ -54,6 +83,8 @@ func InitializeStandAssignment(enabled bool) StandAssignmentReadiness {
 			Reason:  fmt.Sprintf("load stand capabilities: %v", err),
 		}
 		aircraftReference = nil
+		aircraftEngineReference = nil
+		airportCountries = nil
 		standCapabilities = nil
 		airlineAssignment = nil
 		return standAssignmentReadiness
@@ -72,6 +103,8 @@ func InitializeStandAssignment(enabled bool) StandAssignmentReadiness {
 	}
 
 	aircraftReference = registry
+	aircraftEngineReference = engineReference
+	airportCountries = sat.NewAirportCountryRegistry()
 	standCapabilities = capabilities
 	airlineAssignment = assignments
 	standAssignmentReadiness = StandAssignmentReadiness{Enabled: true, Ready: true}
@@ -87,6 +120,18 @@ func GetStandAssignmentReadiness() StandAssignmentReadiness {
 // while SAT is disabled or unavailable.
 func GetAircraftReference() *sat.AircraftRegistry {
 	return aircraftReference
+}
+
+// GetAircraftEngineReference returns the validated SAT engine mapping, or nil
+// while SAT is disabled or unavailable.
+func GetAircraftEngineReference() *sat.AircraftEngineRegistry {
+	return aircraftEngineReference
+}
+
+// GetAirportCountries returns the validated SAT airport/country mapping, or
+// nil while SAT is disabled or unavailable.
+func GetAirportCountries() *sat.AirportCountryRegistry {
+	return airportCountries
 }
 
 // GetStandCapabilities returns the read-only SAT stand capability registry, or

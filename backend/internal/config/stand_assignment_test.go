@@ -1,6 +1,7 @@
 package config
 
 import (
+	"FlightStrips/internal/sat"
 	"os"
 	"path/filepath"
 	"testing"
@@ -9,20 +10,27 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestDefaultStandAssignmentICAOFileUsesConfigDirectory(t *testing.T) {
+	t.Setenv("GRPLUGIN_ICAO_AIRCRAFT_JSON", "")
+	assert.Equal(t, filepath.Join("config", "data", "ICAO_Aircraft.json"), defaultStandAssignmentICAOFile())
+}
+
 func TestInitializeStandAssignmentLoadsAircraftReferenceWhenEnabled(t *testing.T) {
 	dir := t.TempDir()
 	ekchDir := filepath.Join(dir, "ekch")
 	require.NoError(t, os.Mkdir(ekchDir, 0o755))
-	aircraftData, err := os.ReadFile(filepath.Join("..", "..", "config", "ekch", "GRpluginAircraftInfo.txt"))
-	require.NoError(t, err)
-	require.NoError(t, os.WriteFile(filepath.Join(ekchDir, "GRpluginAircraftInfo.txt"), aircraftData, 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(ekchDir, "GRpluginAircraftInfo.txt"), []byte("A20N\t35.8\t37.57\t11.76\t79000\tA\t32N\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(ekchDir, "ICAO_Aircraft.json"), []byte(`[{"ICAO":"A20N","Description":"L2J","WTC":"M","IATA":"32N"}]`), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(ekchDir, "GRpluginStands.txt"), []byte("STAND:EKCH:A1:N055.37.42.710:E012.38.33.450:30\n"), 0o644))
 	copyCommittedAirlineAssignment(t, ekchDir)
 
 	originalConfigDir := standAssignmentConfigDir
+	originalICAOFile := standAssignmentICAOFile
 	standAssignmentConfigDir = func() string { return dir }
+	standAssignmentICAOFile = func() string { return filepath.Join(dir, "ekch", "ICAO_Aircraft.json") }
 	t.Cleanup(func() {
 		standAssignmentConfigDir = originalConfigDir
+		standAssignmentICAOFile = originalICAOFile
 		InitializeStandAssignment(false)
 	})
 
@@ -34,6 +42,10 @@ func TestInitializeStandAssignmentLoadsAircraftReferenceWhenEnabled(t *testing.T
 	facts, ok := GetAircraftReference().Lookup("32N")
 	require.True(t, ok)
 	assert.Equal(t, "A20N", facts.Type)
+	engine, ok := GetAircraftEngineReference().Lookup("32N")
+	assert.True(t, ok)
+	assert.Equal(t, sat.EngineJet, engine)
+	assert.Equal(t, sat.BorderStatusSchengen, GetAirportCountries().BorderStatus("EKCH"))
 	assert.NotNil(t, GetStandCapabilities())
 }
 
@@ -97,13 +109,17 @@ func TestInitializeStandAssignmentIgnoresUnknownBlockTargets(t *testing.T) {
 	ekchDir := filepath.Join(dir, "ekch")
 	require.NoError(t, os.Mkdir(ekchDir, 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(ekchDir, "GRpluginAircraftInfo.txt"), []byte("A20N\t35.8\t37.57\t11.76\t79000\tA\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(ekchDir, "ICAO_Aircraft.json"), []byte(`[{"ICAO":"A20N","Description":"L2J","WTC":"M"}]`), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(ekchDir, "GRpluginStands.txt"), []byte("STAND:EKCH:A1:N055.37.42.710:E012.38.33.450:30\nBLOCKS:A99\n"), 0o644))
 	copyCommittedAirlineAssignment(t, ekchDir)
 
 	originalConfigDir := standAssignmentConfigDir
+	originalICAOFile := standAssignmentICAOFile
 	standAssignmentConfigDir = func() string { return dir }
+	standAssignmentICAOFile = func() string { return filepath.Join(dir, "ekch", "ICAO_Aircraft.json") }
 	t.Cleanup(func() {
 		standAssignmentConfigDir = originalConfigDir
+		standAssignmentICAOFile = originalICAOFile
 		InitializeStandAssignment(false)
 	})
 
@@ -120,16 +136,20 @@ func TestInitializeStandAssignmentReportsInvalidAirlineAssignment(t *testing.T) 
 	dir := t.TempDir()
 	ekchDir := filepath.Join(dir, "ekch")
 	require.NoError(t, os.Mkdir(ekchDir, 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(ekchDir, "GRpluginAircraftInfo.txt"), []byte("A20N\t35.8\t37.57\t11.76\t79000\tA\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(ekchDir, "GRpluginAircraftInfo.txt"), []byte("A20N\t35.8\t37.57\t11.76\t79000\tA\t32N\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(ekchDir, "ICAO_Aircraft.json"), []byte(`[{"ICAO":"A20N","Description":"L2J","WTC":"M","IATA":"32N"}]`), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(ekchDir, "GRpluginStands.txt"), []byte("STAND:EKCH:A1:N055.37.42.710:E012.38.33.450:30\n"), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(ekchDir, "airline_assignment.json"), []byte(`{
   "rules": [], "stand_groups": {}, "fallback_rules": {}
 }`), 0o644))
 
 	originalConfigDir := standAssignmentConfigDir
+	originalICAOFile := standAssignmentICAOFile
 	standAssignmentConfigDir = func() string { return dir }
+	standAssignmentICAOFile = func() string { return filepath.Join(dir, "ekch", "ICAO_Aircraft.json") }
 	t.Cleanup(func() {
 		standAssignmentConfigDir = originalConfigDir
+		standAssignmentICAOFile = originalICAOFile
 		InitializeStandAssignment(false)
 	})
 

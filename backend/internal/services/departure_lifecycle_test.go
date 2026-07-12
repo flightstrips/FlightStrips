@@ -210,6 +210,33 @@ func TestDepartureLifecycle(t *testing.T) {
 		assert.Equal(t, StageDepartureBlock, reallocated.Stage)
 	})
 
+	t.Run("a temporary TSAT gap does not clear the existing block expiry", func(t *testing.T) {
+		lifecycle, _, session, assignments, strips, clock := departureLifecycleFixture(t, pool, queries, "", "", nil)
+		testdata.SeedTestStrip(t, queries, session, "SAS920")
+		clock.set(time.Date(2026, 7, 12, 10, 0, 0, 0, time.UTC))
+		require.NoError(t, lifecycle.ProcessDeparture(ctx, session, loadStrip(t, strips, session, "SAS920"), offlineFlight("SAS920", 1)))
+		tsat := "1030"
+		_, err := strips.SetCdmData(ctx, session, "SAS920", &models.CdmData{Tsat: &tsat})
+		require.NoError(t, err)
+		clock.advance(2 * time.Minute)
+		require.NoError(t, lifecycle.ProcessDeparture(ctx, session, loadStrip(t, strips, session, "SAS920"), onlineFlight("SAS920", 1)))
+
+		block, err := assignments.GetAssignment(ctx, session, "SAS920")
+		require.NoError(t, err)
+		require.NotNil(t, block.ExpiresAt)
+		original := *block.ExpiresAt
+
+		_, err = strips.SetCdmData(ctx, session, "SAS920", &models.CdmData{})
+		require.NoError(t, err)
+		clock.advance(2 * time.Minute)
+		require.NoError(t, lifecycle.ProcessDeparture(ctx, session, loadStrip(t, strips, session, "SAS920"), onlineFlight("SAS920", 1)))
+
+		polled, err := assignments.GetAssignment(ctx, session, "SAS920")
+		require.NoError(t, err)
+		require.NotNil(t, polled.ExpiresAt)
+		assert.Equal(t, original.UTC(), polled.ExpiresAt.UTC(), "existing TSAT-based expiry is preserved during a CDM gap")
+	})
+
 	t.Run("restart reconstructs pending deadlines from persisted timestamps", func(t *testing.T) {
 		_, allocations, session, assignments, strips, clock := departureLifecycleFixture(t, pool, queries, "", "", nil)
 		testdata.SeedTestStrip(t, queries, session, "SAS110")

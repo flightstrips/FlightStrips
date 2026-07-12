@@ -215,8 +215,13 @@ func (s *DepartureLifecycleService) activateBlock(ctx context.Context, session i
 	if existing.Stage != StageReserved && existing.Stage != StageDepartureBlock {
 		return nil
 	}
-	if existing.Stage == StageDepartureBlock && sameExpiry(existing.ExpiresAt, expiry) {
-		return nil
+	if existing.Stage == StageDepartureBlock {
+		if expiry == nil && existing.ExpiresAt != nil {
+			return nil
+		}
+		if sameExpiry(existing.ExpiresAt, expiry) {
+			return nil
+		}
 	}
 	updated := *existing
 	updated.Stage = StageDepartureBlock
@@ -231,10 +236,11 @@ func (s *DepartureLifecycleService) activateBlock(ctx context.Context, session i
 	if affected == 1 {
 		return nil
 	}
-	// A concurrent mutation beat us; reload and retry once to avoid losing the
-	// online transition.
 	reloaded, reloadErr := s.assignments.GetAssignment(ctx, session, strip.Callsign)
 	if reloadErr != nil || reloaded == nil {
+		return nil
+	}
+	if reloaded.Stage == StageDepartureBlock && expiry == nil && reloaded.ExpiresAt != nil {
 		return nil
 	}
 	reloaded.Stage = StageDepartureBlock
@@ -301,14 +307,19 @@ func (s *DepartureLifecycleService) ReleaseExpired(ctx context.Context) error {
 		}
 		assignments, err := s.assignments.ListAssignments(ctx, session.ID)
 		if err != nil {
-			return err
+			slog.Warn("departure sweep cannot list session assignments",
+				slog.Int("sessionID", int(session.ID)),
+				slog.Any("error", err))
+			continue
 		}
 		for _, assignment := range assignments {
 			if assignment == nil {
 				continue
 			}
 			if err := s.releaseIfDue(ctx, session.ID, assignment, now); err != nil {
-				return err
+				slog.Warn("departure sweep failed to release assignment",
+					slog.String("callsign", assignment.Callsign),
+					slog.Any("error", err))
 			}
 		}
 	}
@@ -489,5 +500,5 @@ func parseDepartureClockUTC(value string, now time.Time) (time.Time, bool) {
 // lifecycle treats a missing assignment as "no reservation yet" rather than a
 // hard failure.
 func isNotFound(err error) bool {
-	return err != nil && (errors.Is(err, pgx.ErrNoRows) || strings.Contains(err.Error(), "no rows"))
+	return errors.Is(err, pgx.ErrNoRows)
 }

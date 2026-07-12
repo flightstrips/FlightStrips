@@ -99,6 +99,10 @@ func stripToModel(db database.Strip) (*models.Strip, error) {
 	if err != nil {
 		return nil, err
 	}
+	arrivalETA, err := unmarshalArrivalETA(db.ArrivalEta)
+	if err != nil {
+		return nil, err
+	}
 
 	return &models.Strip{
 		ID:                       db.ID,
@@ -160,7 +164,19 @@ func stripToModel(db database.Strip) (*models.Strip, error) {
 		VatsimRevision:           db.VatsimRevision,
 		VatsimSeenAt:             PgTimestamptzToTime(db.VatsimSeenAt),
 		EuroscopeSeenAt:          PgTimestamptzToTime(db.EuroscopeSeenAt),
+		ArrivalETA:               arrivalETA,
 	}, nil
+}
+
+func unmarshalArrivalETA(raw []byte) (*models.ArrivalETA, error) {
+	if len(raw) == 0 {
+		return nil, nil
+	}
+	var eta models.ArrivalETA
+	if err := json.Unmarshal(raw, &eta); err != nil {
+		return nil, err
+	}
+	return &eta, nil
 }
 
 // Create inserts a new strip
@@ -902,6 +918,20 @@ func (r *stripRepository) ClearEuroscopeSeen(ctx context.Context, session int32,
 	return r.queries.ClearStripEuroscopeSeen(ctx, database.ClearStripEuroscopeSeenParams{
 		Callsign: callsign,
 		Session:  session,
+	})
+}
+
+// UpdateArrivalETA persists the accepted SAT arrival estimate. Arrival bay
+// transitions are owned by the existing arrival lifecycle, not SAT.
+func (r *stripRepository) UpdateArrivalETA(ctx context.Context, session int32, callsign string, eta models.ArrivalETA) (int64, error) {
+	payload, err := json.Marshal(eta)
+	if err != nil {
+		return 0, err
+	}
+	return r.queries.UpdateStripArrivalETA(ctx, database.UpdateStripArrivalETAParams{
+		ArrivalEta: payload,
+		Callsign:   callsign,
+		Session:    session,
 	})
 }
 

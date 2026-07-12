@@ -26,6 +26,19 @@ type VatsimStripSource struct {
 	Altitude       int32
 }
 
+// ArrivalETA records the currently accepted arrival estimate and the inputs
+// that produced it. It belongs to the strip rather than a stand assignment:
+// arrivals receive an ETA before SAT is allowed to reserve a stand.
+type ArrivalETA struct {
+	Time            time.Time `json:"time"`
+	Source          string    `json:"source"`
+	CalculatedAt    time.Time `json:"calculated_at"`
+	EOBT            string    `json:"eobt,omitempty"`
+	EnrouteDuration string    `json:"enroute_duration,omitempty"`
+	DistanceNM      *float64  `json:"distance_nm,omitempty"`
+	Groundspeed     *int32    `json:"groundspeed,omitempty"`
+}
+
 type Strip struct {
 	ID                       int32
 	Version                  int32
@@ -87,6 +100,7 @@ type Strip struct {
 	VatsimRevision           *int64
 	VatsimSeenAt             *time.Time
 	EuroscopeSeenAt          *time.Time
+	ArrivalETA               *ArrivalETA
 }
 
 // IsValidationLocked returns true when the strip has an active validation issue

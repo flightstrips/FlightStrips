@@ -161,6 +161,7 @@ type Strip struct {
 	VatsimRevision           *int64
 	VatsimSeenAt             pgtype.Timestamptz
 	EuroscopeSeenAt          pgtype.Timestamptz
+	ArrivalEta               []byte
 }
 
 type TacticalStrip struct {

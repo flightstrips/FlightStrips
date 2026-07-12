@@ -4,9 +4,8 @@ import (
 	"FlightStrips/internal/database"
 	"FlightStrips/internal/models"
 	"encoding/json"
-	"testing"
-
 	"github.com/stretchr/testify/require"
+	"testing"
 )
 
 func TestStripToModel_MapsEmbeddedManualAndValidationFields(t *testing.T) {
@@ -49,4 +48,25 @@ func TestStripToModel_MapsEmbeddedManualAndValidationFields(t *testing.T) {
 	require.True(t, strip.HasFP)
 	require.NotNil(t, strip.ValidationStatus)
 	require.Equal(t, *validationStatus, *strip.ValidationStatus)
+}
+
+func TestStripToModel_MapsPersistedArrivalETAInputs(t *testing.T) {
+	eta := models.ArrivalETA{Source: "LIVE", EOBT: "0800", EnrouteDuration: "0245"}
+	distance := 34.5
+	groundspeed := int32(130)
+	eta.DistanceNM = &distance
+	eta.Groundspeed = &groundspeed
+	rawETA, err := json.Marshal(eta)
+	require.NoError(t, err)
+
+	strip, err := stripToModel(database.Strip{
+		Callsign:    "SAS123",
+		Session:     7,
+		Origin:      "EGLL",
+		Destination: "EKCH",
+		ArrivalEta:  rawETA,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, strip.ArrivalETA)
+	require.Equal(t, eta, *strip.ArrivalETA)
 }

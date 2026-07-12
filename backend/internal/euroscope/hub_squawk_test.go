@@ -51,6 +51,32 @@ func TestResolveGenerateSquawkCid_PrefersConnectedDelOwner(t *testing.T) {
 	assert.Equal(t, delCid, hub.resolveGenerateSquawkCid(context.Background(), 7))
 }
 
+func TestSendPrivateMessageFromDelivery_TargetsDelWithoutBroadcast(t *testing.T) {
+	t.Cleanup(config.SetPositionsForTest([]config.Position{{Name: "EKCH_DEL", Frequency: "121.730"}}))
+	t.Cleanup(config.SetOwnerCallsignPrefixesForTest([]string{"EKCH"}))
+	delCid := "DEL-CID"
+	hub := &Hub{
+		send: make(chan internalMessage, 2),
+		server: &testutil.MockServer{
+			ControllerRepoVal: &testutil.MockControllerRepository{GetByPositionFn: func(context.Context, int32, string) ([]*models.Controller, error) {
+				return []*models.Controller{{Callsign: "EKCH_DEL", Position: "121.730", Cid: &delCid}}, nil
+			}},
+			SectorRepoVal: &testutil.MockSectorOwnerRepository{ListBySessionFn: func(context.Context, int32) ([]*models.SectorOwner, error) {
+				return []*models.SectorOwner{{Sector: []string{"DEL"}, Position: "121.730"}}, nil
+			}},
+		},
+		master: map[int32]*Client{7: {user: shared.NewAuthenticatedUser("MASTER-CID", 0, nil)}},
+	}
+
+	require.True(t, hub.SendPrivateMessageFromDelivery(7, "SAS123", "MOVE TO A1"))
+	sent := <-hub.send
+	require.NotNil(t, sent.cid, "targeted sends carry a CID; broadcasts do not")
+	assert.Equal(t, delCid, *sent.cid)
+	event := sent.message.(euroscopeEvents.SendPrivateMessageEvent)
+	assert.Equal(t, "SAS123", event.Callsign)
+	assert.Equal(t, "MOVE TO A1", event.Message)
+}
+
 func TestResolveGenerateSquawkCid_FallsBackToMasterWhenDelOwnerHasNoEsClient(t *testing.T) {
 	t.Cleanup(config.SetPositionsForTest([]config.Position{
 		{Name: "EKCH_DEL", Frequency: "121.730"},

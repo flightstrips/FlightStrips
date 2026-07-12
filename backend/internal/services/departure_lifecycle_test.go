@@ -25,6 +25,18 @@ func (c *fakeClock) current() time.Time      { return c.now }
 func (c *fakeClock) set(value time.Time)     { c.now = value }
 func (c *fakeClock) advance(d time.Duration) { c.now = c.now.Add(d) }
 
+type wrongStandTestMessenger struct {
+	available bool
+	calls     int
+	message   string
+}
+
+func (m *wrongStandTestMessenger) SendPrivateMessageFromDelivery(_ int32, _ string, message string) bool {
+	m.calls++
+	m.message = message
+	return m.available
+}
+
 func TestDepartureLifecycle(t *testing.T) {
 	pool, queries := testdata.SetupTestDB(t)
 	ctx := context.Background()
@@ -178,16 +190,79 @@ func TestDepartureLifecycle(t *testing.T) {
 		assert.Equal(t, StageReserved, assignment.Stage)
 		assert.Equal(t, "A1", assignment.Stand)
 		require.NotNil(t, assignment.ConflictReason)
-		assert.Contains(t, *assignment.ConflictReason, "WRONG_STAND_PENDING_TASK_19")
-		require.Len(t, published, 2, "reservation and first mismatch are both published")
-		assert.Equal(t, assignment.Version, published[1].Assignment.Version)
+		assert.Contains(t, *assignment.ConflictReason, wrongStandPendingPrefix)
+		require.NotNil(t, assignment.ExpiresAt)
+		assert.Equal(t, clock.current().Add(5*time.Minute).UTC(), assignment.ExpiresAt.UTC())
+		require.Len(t, published, 3, "reservation, awaiting delivery, and active deadline are published")
+		assert.Equal(t, assignment.Version, published[2].Assignment.Version)
 
 		version := assignment.Version
 		require.NoError(t, lifecycle.ProcessDeparture(ctx, session, loadStrip(t, strips, session, "SAS603"), onlineFlightAtA2("SAS603", 1)))
 		unchanged, err := assignments.GetAssignment(ctx, session, "SAS603")
 		require.NoError(t, err)
 		assert.Equal(t, version, unchanged.Version, "an unchanged mismatch must not churn the optimistic version")
-		assert.Len(t, published, 2, "an unchanged mismatch must not be republished")
+		assert.Len(t, published, 3, "an unchanged mismatch must not be republished")
+	})
+
+	t.Run("wrong stand timeout forces an explicit override", func(t *testing.T) {
+		lifecycle, _, session, assignments, strips, clock := departureLifecycleFixture(t, pool, queries, "", "", nil)
+		testdata.SeedTestStrip(t, queries, session, "SAS604")
+		clock.set(time.Date(2026, 7, 12, 10, 0, 0, 0, time.UTC))
+		require.NoError(t, lifecycle.ProcessDeparture(ctx, session, loadStrip(t, strips, session, "SAS604"), offlineFlight("SAS604", 1)))
+		require.NoError(t, assignments.CreateBlock(ctx, &models.StandBlock{SessionID: session, Stand: "A2", BlockType: "MANUAL", Source: "CONTROLLER", Manual: true}))
+		require.NoError(t, lifecycle.ProcessDeparture(ctx, session, loadStrip(t, strips, session, "SAS604"), onlineFlightAtA2("SAS604", 1)))
+		clock.advance(5 * time.Minute)
+		require.NoError(t, lifecycle.ReleaseExpired(ctx))
+		forced, err := assignments.GetAssignment(ctx, session, "SAS604")
+		require.NoError(t, err)
+		assert.Equal(t, "A2", forced.Stand)
+		assert.Equal(t, StageDepartureBlock, forced.Stage)
+		require.NotNil(t, forced.ConflictReason)
+		assert.Contains(t, *forced.ConflictReason, wrongStandForcedPrefix)
+	})
+
+	t.Run("warning failure does not start deadline and retries", func(t *testing.T) {
+		lifecycle, _, session, assignments, strips, clock := departureLifecycleFixture(t, pool, queries, "", "", nil)
+		messenger := &wrongStandTestMessenger{}
+		lifecycle.SetWrongStandMessenger(messenger)
+		testdata.SeedTestStrip(t, queries, session, "SAS606")
+		clock.set(time.Date(2026, 7, 12, 10, 0, 0, 0, time.UTC))
+		require.NoError(t, lifecycle.ProcessDeparture(ctx, session, loadStrip(t, strips, session, "SAS606"), offlineFlight("SAS606", 1)))
+		require.NoError(t, assignments.CreateBlock(ctx, &models.StandBlock{SessionID: session, Stand: "A2", BlockType: "MANUAL", Source: "CONTROLLER", Manual: true}))
+		require.NoError(t, lifecycle.ProcessDeparture(ctx, session, loadStrip(t, strips, session, "SAS606"), onlineFlightAtA2("SAS606", 1)))
+		awaiting, err := assignments.GetAssignment(ctx, session, "SAS606")
+		require.NoError(t, err)
+		require.NotNil(t, awaiting.ConflictReason)
+		assert.Contains(t, *awaiting.ConflictReason, wrongStandAwaitingPrefix)
+		assert.Equal(t, clock.current().Add(15*time.Minute).UTC(), awaiting.ExpiresAt.UTC())
+
+		messenger.available = true
+		require.NoError(t, lifecycle.ProcessDeparture(ctx, session, loadStrip(t, strips, session, "SAS606"), onlineFlightAtA2("SAS606", 1)))
+		active, err := assignments.GetAssignment(ctx, session, "SAS606")
+		require.NoError(t, err)
+		assert.Contains(t, *active.ConflictReason, wrongStandPendingPrefix)
+		assert.Equal(t, clock.current().Add(5*time.Minute).UTC(), active.ExpiresAt.UTC())
+		assert.Equal(t, 2, messenger.calls)
+		assert.Equal(t, "STAND ASSIGNMENT: PLEASE RELOCATE TO YOUR ASSIGNED STAND A1", messenger.message)
+	})
+
+	t.Run("moving away cancels the wrong stand deadline", func(t *testing.T) {
+		lifecycle, _, session, assignments, strips, clock := departureLifecycleFixture(t, pool, queries, "", "", nil)
+		testdata.SeedTestStrip(t, queries, session, "SAS605")
+		clock.set(time.Date(2026, 7, 12, 10, 0, 0, 0, time.UTC))
+		require.NoError(t, lifecycle.ProcessDeparture(ctx, session, loadStrip(t, strips, session, "SAS605"), offlineFlight("SAS605", 1)))
+		require.NoError(t, assignments.CreateBlock(ctx, &models.StandBlock{SessionID: session, Stand: "A2", BlockType: "MANUAL", Source: "CONTROLLER", Manual: true}))
+		require.NoError(t, lifecycle.ProcessDeparture(ctx, session, loadStrip(t, strips, session, "SAS605"), onlineFlightAtA2("SAS605", 1)))
+		moved := onlineFlightAtA2("SAS605", 1)
+		moved.Latitude = 55.62
+		moved.Longitude = 12.65
+		clock.advance(time.Minute)
+		require.NoError(t, lifecycle.ProcessDeparture(ctx, session, loadStrip(t, strips, session, "SAS605"), moved))
+		cancelled, err := assignments.GetAssignment(ctx, session, "SAS605")
+		require.NoError(t, err)
+		assert.Nil(t, cancelled.ConflictReason)
+		require.NotNil(t, cancelled.ExpiresAt)
+		assert.Equal(t, clock.current().Add(15*time.Minute).UTC(), cancelled.ExpiresAt.UTC())
 	})
 
 	t.Run("TSAT controls block release when present", func(t *testing.T) {
@@ -339,6 +414,7 @@ STAND:EKCH:A2:N055.37.42.710:E012.38.36.450:30
 		WithDepartureLifecycleClock(clock.current),
 	)
 	require.NoError(t, err)
+	lifecycle.SetWrongStandMessenger(&wrongStandTestMessenger{available: true})
 	name := fmt.Sprintf("%s-%d", t.Name(), standAllocationSessionSequence.Add(1))
 	session := testdata.SeedTestSessionNamedWithSectors(t, queries, name, nil)
 	return lifecycle, allocations, session, assignments, strips, clock

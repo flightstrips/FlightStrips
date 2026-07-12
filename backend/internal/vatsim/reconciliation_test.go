@@ -107,6 +107,19 @@ func (n *reconciliationTestNotifier) SendStripUpdate(_ int32, callsign string) {
 	n.callsigns = append(n.callsigns, callsign)
 }
 
+type reconciliationTestDepartureLifecycle struct {
+	cancelled []string
+}
+
+func (*reconciliationTestDepartureLifecycle) ProcessDeparture(context.Context, int32, *models.Strip, DepartureFlightInfo) error {
+	return nil
+}
+
+func (l *reconciliationTestDepartureLifecycle) CancelDeparture(_ context.Context, _ int32, callsign string) error {
+	l.cancelled = append(l.cancelled, callsign)
+	return nil
+}
+
 func newReconciliationTestCache(now time.Time, flights ...Flight) *Cache {
 	cache := NewCache("", time.Second, nil)
 	snapshot := newCacheSnapshot(now, now)
@@ -193,6 +206,19 @@ func TestReconcileCleanupAndDisconnectRetentionRespectOtherOwners(t *testing.T) 
 	assert.Equal(t, []string{"SAS505"}, strips.deleted)
 	assert.True(t, reconciler.RetainsStrip(context.Background(), 7, "SAS606"))
 	assert.False(t, reconciler.RetainsStrip(context.Background(), 7, "SAS505"))
+}
+
+func TestReconcileCancelsDepartureLifecycleWhenFlightDisappears(t *testing.T) {
+	now := time.Date(2026, 7, 12, 10, 0, 0, 0, time.UTC)
+	cid := "5"
+	strip := &models.Strip{Callsign: "SAS505", Session: 7, Origin: "EKCH", VatsimCID: &cid}
+	strips := &reconciliationTestStrips{bySession: map[int32][]*models.Strip{7: {strip}}}
+	reconciler := NewReconciler(newReconciliationTestCache(now), reconciliationTestSessions{items: []*models.Session{{ID: 7, Airport: "EKCH"}}}, strips, reconciliationTestAssignments{}, nil, time.Second)
+	lifecycle := &reconciliationTestDepartureLifecycle{}
+	reconciler.SetDepartureLifecycle(lifecycle)
+
+	require.NoError(t, reconciler.Reconcile(context.Background()))
+	assert.Equal(t, []string{"SAS505"}, lifecycle.cancelled)
 }
 
 func TestRetainsStripHonorsReservationExpiry(t *testing.T) {

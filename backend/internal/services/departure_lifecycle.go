@@ -27,7 +27,11 @@ const (
 	defaultDepartureHoldDuration    = 15 * time.Minute
 	defaultDepartureBlockExtension  = 10 * time.Minute
 	defaultDepartureSweepInterval   = 30 * time.Second
+	defaultWrongStandDeadline       = 5 * time.Minute
 	departureClockRolloverThreshold = 12 * time.Hour
+	wrongStandAwaitingPrefix        = "WRONG_STAND_AWAITING_MESSAGE: observed "
+	wrongStandPendingPrefix         = "WRONG_STAND_PENDING: observed "
+	wrongStandForcedPrefix          = "WRONG_STAND_FORCED: observed "
 )
 
 // DepartureLifecycleService owns the timing rules that turn a prefiled
@@ -48,6 +52,21 @@ type DepartureLifecycleService struct {
 	hold           time.Duration
 	blockExtension time.Duration
 	sweepInterval  time.Duration
+	messenger      wrongStandMessenger
+}
+
+type wrongStandMessenger interface {
+	SendPrivateMessageFromDelivery(session int32, callsign, message string) bool
+}
+
+func (s *DepartureLifecycleService) SetWrongStandMessenger(messenger wrongStandMessenger) {
+	s.messenger = messenger
+}
+
+// CancelDeparture cancels transient wrong-stand state when a departure
+// disappears from the live feed.
+func (s *DepartureLifecycleService) CancelDeparture(ctx context.Context, session int32, callsign string) error {
+	return s.cancelWrongStandEpisode(ctx, session, callsign)
 }
 
 type lifecycleSessionLister interface {
@@ -142,6 +161,9 @@ func (s *DepartureLifecycleService) ProcessDeparture(ctx context.Context, sessio
 		}
 		return s.revalidateFacts(ctx, session, strip, flight)
 	}
+	if err := s.cancelWrongStandEpisode(ctx, session, strip.Callsign); err != nil {
+		return err
+	}
 	return s.ensureReservation(ctx, session, strip, flight)
 }
 
@@ -157,6 +179,9 @@ func (s *DepartureLifecycleService) activateObservedBlock(ctx context.Context, s
 			slog.String("callsign", strip.Callsign),
 			slog.Float64("latitude", flight.Latitude),
 			slog.Float64("longitude", flight.Longitude))
+		if err := s.cancelWrongStandEpisode(ctx, session, strip.Callsign); err != nil {
+			return false, err
+		}
 		return false, nil
 	}
 
@@ -179,12 +204,18 @@ func (s *DepartureLifecycleService) activateObservedBlock(ctx context.Context, s
 		return false, nil
 	}
 
-	reason := "WRONG_STAND_PENDING_TASK_19: observed " + observed.Name
-	if existing.ConflictReason != nil && *existing.ConflictReason == reason {
-		return false, nil
+	pendingReason := wrongStandPendingPrefix + observed.Name
+	awaitingReason := wrongStandAwaitingPrefix + observed.Name
+	if existing.ConflictReason != nil {
+		switch *existing.ConflictReason {
+		case pendingReason:
+			return false, nil
+		case awaitingReason:
+			return false, s.deliverWrongStandWarning(ctx, existing)
+		}
 	}
 	updated := *existing
-	updated.ConflictReason = &reason
+	updated.ConflictReason = &awaitingReason
 	updated.Acknowledged = false
 	updated.AcknowledgedAt = nil
 	updated.AcknowledgedBy = nil
@@ -197,7 +228,61 @@ func (s *DepartureLifecycleService) activateObservedBlock(ctx context.Context, s
 	if err := s.allocations.PublishAssignment(ctx, updated); err != nil {
 		return false, fmt.Errorf("publish observed stand mismatch for %s: %w", strip.Callsign, err)
 	}
-	return false, nil
+	return false, s.deliverWrongStandWarning(ctx, &updated)
+}
+
+func (s *DepartureLifecycleService) deliverWrongStandWarning(ctx context.Context, assignment *models.StandAssignment) error {
+	if assignment == nil || assignment.ConflictReason == nil ||
+		!strings.HasPrefix(*assignment.ConflictReason, wrongStandAwaitingPrefix) ||
+		s.messenger == nil {
+		return nil
+	}
+	if !s.messenger.SendPrivateMessageFromDelivery(assignment.SessionID, assignment.Callsign,
+		fmt.Sprintf("STAND ASSIGNMENT: PLEASE RELOCATE TO YOUR ASSIGNED STAND %s", assignment.Stand)) {
+		return nil
+	}
+	observed := strings.TrimSpace(strings.TrimPrefix(*assignment.ConflictReason, wrongStandAwaitingPrefix))
+	updated := *assignment
+	reason := wrongStandPendingPrefix + observed
+	updated.ConflictReason = &reason
+	deadline := s.now().Add(defaultWrongStandDeadline)
+	updated.ExpiresAt = &deadline
+	affected, err := s.assignments.UpdateAssignment(ctx, &updated)
+	if err != nil {
+		return err
+	}
+	if affected != 1 {
+		return fmt.Errorf("activate wrong stand deadline version conflict for %s", assignment.Callsign)
+	}
+	updated.Version++
+	return s.allocations.PublishAssignment(ctx, updated)
+}
+
+func (s *DepartureLifecycleService) cancelWrongStandEpisode(ctx context.Context, session int32, callsign string) error {
+	existing, err := s.assignments.GetAssignment(ctx, session, callsign)
+	if err != nil {
+		if isNotFound(err) {
+			return nil
+		}
+		return err
+	}
+	if existing.ConflictReason == nil ||
+		(!strings.HasPrefix(*existing.ConflictReason, wrongStandPendingPrefix) &&
+			!strings.HasPrefix(*existing.ConflictReason, wrongStandAwaitingPrefix)) {
+		return nil
+	}
+	updated := *existing
+	updated.ConflictReason = nil
+	expiry := s.now().Add(s.hold)
+	updated.ExpiresAt = &expiry
+	affected, err := s.assignments.UpdateAssignment(ctx, &updated)
+	if err != nil {
+		return err
+	}
+	if affected != 1 {
+		return fmt.Errorf("cancel wrong stand episode version conflict for %s", callsign)
+	}
+	return nil
 }
 
 // ensureReservation allocates a 15-minute hold for a new offline prefile, and
@@ -286,6 +371,9 @@ func (s *DepartureLifecycleService) activateBlock(ctx context.Context, session i
 	updated := *existing
 	updated.Stage = StageDepartureBlock
 	updated.ExpiresAt = expiry
+	if updated.ConflictReason != nil && strings.HasPrefix(*updated.ConflictReason, wrongStandPendingPrefix) {
+		updated.ConflictReason = nil
+	}
 	updated.AssignedAt = &now
 	revision := flight.Revision
 	updated.VatsimRevision = &revision
@@ -398,10 +486,25 @@ func (s *DepartureLifecycleService) releaseIfDue(ctx context.Context, session in
 	if assignment.ExpiresAt == nil || assignment.ExpiresAt.After(now) {
 		return nil
 	}
+	if assignment.ConflictReason != nil && strings.HasPrefix(*assignment.ConflictReason, wrongStandPendingPrefix) {
+		return s.forceObservedStand(ctx, strip, assignment)
+	}
 	if _, err := s.strips.UpdateStand(ctx, session, assignment.Callsign, nil, nil); err != nil {
 		return err
 	}
 	_, err = s.assignments.DeleteAssignment(ctx, session, assignment.ID, assignment.Version)
+	return err
+}
+
+func (s *DepartureLifecycleService) forceObservedStand(ctx context.Context, strip *models.Strip, assignment *models.StandAssignment) error {
+	observed := strings.TrimSpace(strings.TrimPrefix(*assignment.ConflictReason, wrongStandPendingPrefix))
+	if observed == "" {
+		return nil
+	}
+	request := s.buildRequest(assignment.SessionID, strip, vatsim.DepartureFlightInfo{}, StageDepartureBlock, s.computeBlockExpiry(strip))
+	request.Stand = observed
+	request.ConflictReason = wrongStandForcedPrefix + observed + "; assigned " + assignment.Stand
+	_, err := s.allocations.OverrideManually(ctx, request)
 	return err
 }
 

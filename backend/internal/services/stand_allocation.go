@@ -1,12 +1,14 @@
 package services
 
 import (
+	"FlightStrips/internal/metrics"
 	"FlightStrips/internal/models"
 	"FlightStrips/internal/repository"
 	"FlightStrips/internal/sat"
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"math/rand"
 	"slices"
 	"strings"
@@ -31,6 +33,7 @@ const (
 
 var (
 	ErrNoAvailableStand             = errors.New("no compatible stand is available")
+	ErrNoCompatibleStand            = errors.New("no stand is compatible with the flight")
 	ErrIncompatibleManualAssignment = errors.New("manual stand is not compatible or available")
 	ErrAllocationRetriesExhausted   = errors.New("stand allocation retries exhausted")
 	ErrUnknownManualOverrideStand   = errors.New("manual override stand is not configured")
@@ -238,6 +241,29 @@ func (s *StandAllocationService) allocate(ctx context.Context, command StandAllo
 	for attempt := 1; attempt <= s.attempts; attempt++ {
 		result, selected, err := s.allocateOnce(ctx, command, request, tried, attempt)
 		if err == nil {
+			tier := 0
+			rule := ""
+			category := "manual"
+			if result.Selection != nil {
+				tier, rule = result.Selection.Tier, result.Selection.RuleID
+				category = "airline_rule"
+				if result.Selection.FallbackUsed {
+					category = "fallback"
+				}
+			}
+			metrics.RecordSATAssignment(ctx, result.Assignment.Stage, result.Assignment.Source, category, tier)
+			metrics.RecordSATOutcome(ctx, "assigned", string(request.Direction))
+			if command == IncompatibleManualOverride {
+				metrics.RecordSATOutcome(ctx, "override", string(request.Direction))
+			}
+			if result.ConflictReason != "" {
+				metrics.RecordSATConflict(ctx, "operational")
+			}
+			slog.InfoContext(ctx, "SAT stand allocation committed",
+				slog.String("callsign", request.Callsign), slog.Int("session", int(request.SessionID)),
+				slog.String("command", string(command)), slog.String("stand", result.Assignment.Stand),
+				slog.String("stage", result.Assignment.Stage), slog.String("source", result.Assignment.Source),
+				slog.String("rule_id", rule), slog.Int("tier", tier), slog.Int("attempt", attempt))
 			if s.publish != nil {
 				if err := s.publish(ctx, *result); err != nil {
 					return result, fmt.Errorf("publish committed stand allocation: %w", err)
@@ -249,9 +275,21 @@ func (s *StandAllocationService) allocate(ctx context.Context, command StandAllo
 			tried[selected] = struct{}{}
 		}
 		if !retryableStandAllocationError(err) {
+			outcome := "error"
+			if errors.Is(err, ErrNoCompatibleStand) {
+				outcome = "no_compatible_stand"
+			}
+			if errors.Is(err, ErrNoAvailableStand) {
+				outcome = "no_available_stand"
+			}
+			metrics.RecordSATOutcome(ctx, outcome, string(request.Direction))
+			slog.WarnContext(ctx, "SAT stand allocation rejected", slog.String("callsign", request.Callsign), slog.String("command", string(command)), slog.String("outcome", outcome), slog.Any("error", err))
 			return nil, err
 		}
+		metrics.RecordSATConflict(ctx, "database_contention")
+		slog.WarnContext(ctx, "SAT allocation contention; retrying", slog.String("callsign", request.Callsign), slog.Int("attempt", attempt), slog.Any("error", err))
 	}
+	metrics.RecordSATOutcome(ctx, "database_contention", string(request.Direction))
 	return nil, fmt.Errorf("%w after %d attempts", ErrAllocationRetriesExhausted, s.attempts)
 }
 
@@ -388,6 +426,9 @@ func (s *StandAllocationService) selectStand(command StandAllocationCommand, req
 	matches := make(map[string]sat.StandCompatibilityMatch, len(evaluation.Matches))
 	for _, match := range evaluation.Matches {
 		matches[standName(match.Stand.Name)] = match
+	}
+	if len(matches) == 0 && command != IncompatibleManualOverride {
+		return "", nil, nil, nil, "", ErrNoCompatibleStand
 	}
 	availability := s.availability(request, assignments, blocks, matches)
 	if command == IncompatibleManualOverride {

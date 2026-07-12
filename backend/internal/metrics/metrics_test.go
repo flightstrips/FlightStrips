@@ -259,3 +259,25 @@ func TestEuroscopeSyncMetricsUseSessionNameAndAirport(t *testing.T) {
 		t.Fatalf("expected sync duration histogram sum 0.15, got %f", got)
 	}
 }
+
+func TestSATMetricsAvoidPersonalDataDimensions(t *testing.T) {
+	reader := sdkmetric.NewManualReader()
+	provider := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
+	previousProvider := otel.GetMeterProvider()
+	otel.SetMeterProvider(provider)
+	resetInstrumentsForTest()
+	t.Cleanup(func() { otel.SetMeterProvider(previousProvider); resetInstrumentsForTest() })
+
+	ctx := context.Background()
+	RecordSATFeedSnapshot(ctx, 5*time.Second, 7, 3)
+	RecordSATAssignment(ctx, "ASSIGNED", "AUTOMATIC", "airline_rule", 2)
+	RecordSATOutcome(ctx, "no_compatible_stand", "ARRIVAL")
+	RecordSATConflict(ctx, "database_contention")
+	RecordSATExpiration(ctx, "DEPARTURE", "RESERVED")
+	rm := collectMetrics(t, reader)
+
+	if got := findInt64MetricValue(t, rm, "sat.assignments", map[string]string{"stage": "ASSIGNED", "source": "AUTOMATIC", "category": "airline_rule"}); got != 1 { t.Fatalf("expected assignment counter 1, got %d", got) }
+	if got := findInt64MetricValue(t, rm, "sat.allocation.outcomes", map[string]string{"outcome": "no_compatible_stand", "category": "ARRIVAL"}); got != 1 { t.Fatalf("expected outcome counter 1, got %d", got) }
+	if got := findInt64MetricValue(t, rm, "sat.allocation.conflicts", map[string]string{"kind": "database_contention"}); got != 1 { t.Fatalf("expected conflict counter 1, got %d", got) }
+	if got := findInt64MetricValue(t, rm, "sat.assignments.expired", map[string]string{"direction": "DEPARTURE", "stage": "RESERVED"}); got != 1 { t.Fatalf("expected expiration counter 1, got %d", got) }
+}

@@ -22,6 +22,7 @@ import (
 	pkgEuroscope "FlightStrips/pkg/events/euroscope"
 	pkgFrontend "FlightStrips/pkg/events/frontend"
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -244,7 +245,7 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 		dbpool:                   dbpool,
 		closeDB:                  closeDB,
 		standAssignmentReadiness: standAssignmentReadiness,
-		handler: buildHandler(buildHandlerConfig{
+			handler: buildHandler(buildHandlerConfig{
 			authService:                authService,
 			frontendHub:                frontendHub,
 			euroscopeHub:               euroscopeHub,
@@ -253,6 +254,8 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 			sessionRepo:                sessionRepo,
 			sequenceService:            sequenceService,
 			vatsimCache:                vatsimCache,
+			standAssignmentReadiness:   standAssignmentReadiness,
+			standAssignmentStaleAfter:  satStaleAfter(deps.VATSIMPollInterval),
 			requireLiveCIDVerification: requireLiveCIDVerification,
 			enableHTTPTracing:          cfg.EnableHTTPTracing,
 			enableALB:                  cfg.EnableALB,
@@ -504,6 +507,8 @@ type buildHandlerConfig struct {
 	sessionRepo                repository.SessionRepository
 	sequenceService            *cdm.SequenceService
 	vatsimCache                *vatsim.Cache
+	standAssignmentReadiness   appconfig.StandAssignmentReadiness
+	standAssignmentStaleAfter  time.Duration
 	requireLiveCIDVerification bool
 	enableHTTPTracing          bool
 	enableALB                  bool
@@ -519,7 +524,7 @@ func buildHandler(cfg buildHandlerConfig) http.Handler {
 	frontendUpgrader := websocket.NewConnectionUpgrader[pkgFrontend.EventType, *frontend.Client](cfg.frontendHub, cfg.authService)
 	euroscopeUpgrader := websocket.NewConnectionUpgrader[pkgEuroscope.EventType, *euroscope.Client](cfg.euroscopeHub, cfg.authService)
 
-	mux.HandleFunc("/healthz", healthz)
+	mux.HandleFunc("/healthz", satHealthz(cfg.standAssignmentReadiness, cfg.vatsimCache, cfg.standAssignmentStaleAfter))
 	mux.HandleFunc("/euroscopeEvents", euroscopeUpgrader.Upgrade)
 	mux.HandleFunc("/frontEndEvents", frontendUpgrader.Upgrade)
 	if cfg.enableALB {
@@ -551,8 +556,59 @@ func buildHandler(cfg buildHandlerConfig) http.Handler {
 	return handler
 }
 
-func healthz(w http.ResponseWriter, _ *http.Request) {
-	w.WriteHeader(http.StatusOK)
+type healthResponse struct {
+	Status string `json:"status"`
+	StandAssignment satHealth `json:"stand_assignment"`
+}
+
+type satHealth struct {
+	Enabled bool `json:"enabled"`
+	Ready bool `json:"ready"`
+	Status string `json:"status"`
+	Reason string `json:"reason,omitempty"`
+	SnapshotAgeSeconds *float64 `json:"snapshot_age_seconds,omitempty"`
+}
+
+func satHealthz(readiness appconfig.StandAssignmentReadiness, cache *vatsim.Cache, staleAfter time.Duration) http.HandlerFunc {
+	return func(w http.ResponseWriter, _ *http.Request) {
+		result := healthResponse{Status: "ok", StandAssignment: satHealth{Enabled: readiness.Enabled, Ready: readiness.Ready, Status: "disabled"}}
+		sat := &result.StandAssignment
+		switch {
+		case !readiness.Enabled:
+		case !readiness.Ready:
+			result.Status, sat.Status, sat.Reason = "degraded", "invalid_config", readiness.Reason
+		case cache == nil:
+			result.Status, sat.Status, sat.Ready, sat.Reason = "degraded", "feed_unavailable", false, "VATSIM feed is unavailable"
+		default:
+			*sat = evaluateSATHealth(readiness, cache.Snapshot(), staleAfter)
+			if !sat.Ready { result.Status = "degraded" }
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK) // SAT degradation must not take unrelated features down.
+		_ = json.NewEncoder(w).Encode(result)
+	}
+}
+
+func evaluateSATHealth(readiness appconfig.StandAssignmentReadiness, snapshot vatsim.Snapshot, staleAfter time.Duration) satHealth {
+	result := satHealth{Enabled: readiness.Enabled, Ready: readiness.Ready, Status: "ready"}
+	age := snapshot.Age.Seconds()
+	result.SnapshotAgeSeconds = &age
+	switch {
+	case snapshot.Timestamp.IsZero():
+		result.Status, result.Ready, result.Reason = "feed_unavailable", false, "VATSIM feed has not produced a snapshot"
+	case snapshot.LastRefreshError != nil:
+		result.Status, result.Ready, result.Reason = "feed_failed", false, snapshot.LastRefreshError.Error()
+	case snapshot.Age > staleAfter:
+		result.Status, result.Ready, result.Reason = "feed_stale", false, "VATSIM snapshot is stale"
+	}
+	return result
+}
+
+func satStaleAfter(poll time.Duration) time.Duration {
+	if poll <= 0 { poll = 15 * time.Second }
+	threshold := 2 * poll
+	if threshold < time.Minute { return time.Minute }
+	return threshold
 }
 
 type noopTransceiverLookup struct{}

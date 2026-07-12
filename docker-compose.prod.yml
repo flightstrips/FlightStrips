@@ -37,6 +37,9 @@ services:
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       SERVER_ADDR: "0.0.0.0:80"
       ENVIRONMENT: production
+      # Keep SAT release-safe. Enable only after /healthz reports
+      # stand_assignment.status=ready; rollback by restoring false and restarting.
+      ENABLE_STAND_ASSIGNMENT: ${ENABLE_STAND_ASSIGNMENT:-false}
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
       OTEL_EXPORTER_OTLP_PROTOCOL: ${OTEL_EXPORTER_OTLP_PROTOCOL:-}
       OTEL_EXPORTER_OTLP_HEADERS: ${OTEL_EXPORTER_OTLP_HEADERS:-}

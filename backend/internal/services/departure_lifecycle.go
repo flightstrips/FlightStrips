@@ -382,6 +382,9 @@ func (s *DepartureLifecycleService) activateBlock(ctx context.Context, session i
 		return err
 	}
 	if affected == 1 {
+		if existing.Stage != StageDepartureBlock {
+			slog.InfoContext(ctx, "SAT assignment stage changed", slog.String("callsign", existing.Callsign), slog.String("stand", existing.Stand), slog.String("from_stage", existing.Stage), slog.String("to_stage", StageDepartureBlock))
+		}
 		return nil
 	}
 	reloaded, reloadErr := s.assignments.GetAssignment(ctx, session, strip.Callsign)
@@ -481,6 +484,7 @@ func (s *DepartureLifecycleService) releaseIfDue(ctx context.Context, session in
 	}
 	if strip == nil {
 		_, err := s.assignments.DeleteAssignment(ctx, session, assignment.ID, assignment.Version)
+		recordSATExpiry(ctx, assignment, "strip_removed", err)
 		return err
 	}
 	if assignment.ExpiresAt == nil || assignment.ExpiresAt.After(now) {
@@ -493,6 +497,7 @@ func (s *DepartureLifecycleService) releaseIfDue(ctx context.Context, session in
 		return err
 	}
 	_, err = s.assignments.DeleteAssignment(ctx, session, assignment.ID, assignment.Version)
+	recordSATExpiry(ctx, assignment, "expired", err)
 	return err
 }
 

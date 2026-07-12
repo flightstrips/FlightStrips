@@ -1,6 +1,7 @@
 package services
 
 import (
+	"FlightStrips/internal/metrics"
 	"FlightStrips/internal/models"
 	"FlightStrips/internal/repository"
 	"FlightStrips/internal/sat"
@@ -233,6 +234,7 @@ func (s *ArrivalLifecycleService) updateStageInPlace(ctx context.Context, existi
 	if affected != 1 {
 		return fmt.Errorf("arrival stage update version conflict for %s", existing.Callsign)
 	}
+	slog.InfoContext(ctx, "SAT assignment stage changed", slog.String("callsign", existing.Callsign), slog.String("stand", existing.Stand), slog.String("from_stage", existing.Stage), slog.String("to_stage", stage))
 	return nil
 }
 
@@ -280,6 +282,7 @@ func (s *ArrivalLifecycleService) releaseIfDue(ctx context.Context, session int3
 	}
 	if strip == nil {
 		_, err := s.assignments.DeleteAssignment(ctx, session, assignment.ID, assignment.Version)
+		recordSATExpiry(ctx, assignment, "strip_removed", err)
 		return err
 	}
 	if assignment.ExpiresAt != nil && !assignment.ExpiresAt.After(now) {
@@ -287,6 +290,7 @@ func (s *ArrivalLifecycleService) releaseIfDue(ctx context.Context, session int3
 			return err
 		}
 		_, err = s.assignments.DeleteAssignment(ctx, session, assignment.ID, assignment.Version)
+		recordSATExpiry(ctx, assignment, "expired", err)
 		return err
 	}
 	if assignment.ETA != nil && now.After(assignment.ETA.Add(30*time.Minute)) {
@@ -294,9 +298,16 @@ func (s *ArrivalLifecycleService) releaseIfDue(ctx context.Context, session int3
 			return err
 		}
 		_, err = s.assignments.DeleteAssignment(ctx, session, assignment.ID, assignment.Version)
+		recordSATExpiry(ctx, assignment, "arrival_timeout", err)
 		return err
 	}
 	return nil
+}
+
+func recordSATExpiry(ctx context.Context, assignment *models.StandAssignment, reason string, err error) {
+	if err != nil || assignment == nil { return }
+	metrics.RecordSATExpiration(ctx, assignment.Direction, assignment.Stage)
+	slog.InfoContext(ctx, "SAT assignment expired", slog.String("callsign", assignment.Callsign), slog.String("stand", assignment.Stand), slog.String("stage", assignment.Stage), slog.String("reason", reason))
 }
 
 func (s *ArrivalLifecycleService) StartSweep(ctx context.Context) {

@@ -43,11 +43,31 @@ type DepartureFlightInfo struct {
 	AircraftType string
 }
 
+// ArrivalFlightInfo is the minimal VATSIM view the arrival lifecycle needs to
+// estimate, assign, or confirm an arrival stand. It is deliberately decoupled
+// from the full Flight record so the lifecycle service can stay testable.
+type ArrivalFlightInfo struct {
+	Callsign     string
+	CID          string
+	Online       bool
+	Revision     int64
+	Origin       string
+	Destination  string
+	AircraftType string
+}
+
 // DepartureLifecycle drives stand reservation and departure-block transitions
 // for a departure the reconciler has just applied. The reconciler owns feed
 // timing; the lifecycle owns allocation timing and persistence.
 type DepartureLifecycle interface {
 	ProcessDeparture(ctx context.Context, session int32, strip *models.Strip, flight DepartureFlightInfo) error
+}
+
+// ArrivalLifecycle drives the ESTIMATED → ASSIGNED → CONFIRMED transitions
+// for an arrival the reconciler has just applied. The reconciler owns feed
+// timing; the lifecycle owns allocation timing and persistence.
+type ArrivalLifecycle interface {
+	ProcessArrival(ctx context.Context, session int32, strip *models.Strip, flight ArrivalFlightInfo) error
 }
 
 type reconciliationNotifier interface {
@@ -63,6 +83,7 @@ type Reconciler struct {
 	strips             reconciliationStripStore
 	assignments        reconciliationAssignmentStore
 	lifecycle          DepartureLifecycle
+	arrivalLifecycle   ArrivalLifecycle
 	notifier           reconciliationNotifier
 	interval           time.Duration
 	airportCoordinates AirportCoordinates
@@ -86,6 +107,15 @@ func NewReconciler(cache *Cache, sessions reconciliationSessionStore, strips rec
 func (r *Reconciler) SetDepartureLifecycle(lifecycle DepartureLifecycle) {
 	if r != nil {
 		r.lifecycle = lifecycle
+	}
+}
+
+// SetArrivalLifecycle wires the arrival stand lifecycle. It is installed after
+// construction so the lifecycle can depend on the reconciler's stores without a
+// circular constructor dependency.
+func (r *Reconciler) SetArrivalLifecycle(lifecycle ArrivalLifecycle) {
+	if r != nil {
+		r.arrivalLifecycle = lifecycle
 	}
 }
 
@@ -181,6 +211,11 @@ func (r *Reconciler) reconcileSession(ctx context.Context, snapshot Snapshot, se
 		}
 		if r.lifecycle != nil && strings.EqualFold(strings.TrimSpace(flight.FlightPlan.Origin), airport) {
 			if err := r.lifecycle.ProcessDeparture(ctx, session.ID, strip, departureFlightInfo(flight)); err != nil {
+				return err
+			}
+		}
+		if r.arrivalLifecycle != nil && strings.EqualFold(strings.TrimSpace(flight.FlightPlan.Destination), airport) {
+			if err := r.arrivalLifecycle.ProcessArrival(ctx, session.ID, strip, arrivalFlightInfo(flight)); err != nil {
 				return err
 			}
 		}
@@ -313,6 +348,18 @@ func (r *Reconciler) isAssigned(ctx context.Context, session int32, callsign str
 
 func departureFlightInfo(flight Flight) DepartureFlightInfo {
 	return DepartureFlightInfo{
+		Callsign:     flight.Callsign,
+		CID:          flight.CID,
+		Online:       flight.Online(),
+		Revision:     flight.FlightPlan.Revision,
+		Origin:       flight.FlightPlan.Origin,
+		Destination:  flight.FlightPlan.Destination,
+		AircraftType: flight.FlightPlan.AircraftShort,
+	}
+}
+
+func arrivalFlightInfo(flight Flight) ArrivalFlightInfo {
+	return ArrivalFlightInfo{
 		Callsign:     flight.Callsign,
 		CID:          flight.CID,
 		Online:       flight.Online(),

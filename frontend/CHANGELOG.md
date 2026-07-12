@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.45.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.44.0...frontend/v0.45.0) (2026-07-12)
+
+
+### Features
+
+* **stand:** add strip assignment workflow ([#289](https://github.com/flightstrips/FlightStrips/issues/289)) ([376ee54](https://github.com/flightstrips/FlightStrips/commit/376ee545f30aa92e5c548a579bcbb2717db10cd6))
+* **stand:** complete SAT controller integration ([#287](https://github.com/flightstrips/FlightStrips/issues/287)) ([f35bcca](https://github.com/flightstrips/FlightStrips/commit/f35bcca32dc4bcfa4b78193d47bd42b5b7d4e777))
+* **stand:** integrate EST board with SAT backend assignment and block metadata ([#286](https://github.com/flightstrips/FlightStrips/issues/286)) ([d37e8a9](https://github.com/flightstrips/FlightStrips/commit/d37e8a9445c8ad09b98aca5c2e411f92e5830147))
+
+
+### Bug Fixes
+
+* **stand:** keep VATSIM-only departures hidden ([#295](https://github.com/flightstrips/FlightStrips/issues/295)) ([66f4dc7](https://github.com/flightstrips/FlightStrips/commit/66f4dc7f2181f287d30eed621069da1980801d15))
+
 ## [0.44.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.43.0...frontend/v0.44.0) (2026-07-07)
 
 

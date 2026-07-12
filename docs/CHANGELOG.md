@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.14.0](https://github.com/flightstrips/FlightStrips/compare/docs/v0.13.0...docs/v0.14.0) (2026-07-12)
+
+
+### Features
+
+* **stand:** add observability and replay ([#290](https://github.com/flightstrips/FlightStrips/issues/290)) ([22248f7](https://github.com/flightstrips/FlightStrips/commit/22248f70eb32acc8e295c043d7b1102b88b03080))
+
 ## [0.13.0](https://github.com/flightstrips/FlightStrips/compare/docs/v0.12.0...docs/v0.13.0) (2026-05-15)
 
 

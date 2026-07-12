@@ -87,7 +87,7 @@ func main() {
 		EnableDBSeed:             true,
 	}, app.Dependencies{
 		VATSIMStatusURL:      getEnv("VATSIM_STATUS_URL", ""),
-		VATSIMPollInterval:   envDuration("VATSIM_POLL_INTERVAL", 30*time.Second),
+		VATSIMPollInterval:   envDuration("VATSIM_POLL_INTERVAL", 15*time.Second),
 		TransceiversURL:      getEnv("VATSIM_TRANSCEIVERS_URL", ""),
 		TransceiversInterval: envDuration("VATSIM_TRANSCEIVER_POLL_INTERVAL", 30*time.Second),
 	})

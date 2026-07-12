@@ -12,9 +12,8 @@ import (
 const reconciliationSequenceSpacing int32 = 1000
 
 const (
-	plannedDepartureBay = "NOT_CLEARED"
-	hiddenDepartureBay  = "DEP_HIDDEN"
-	hiddenArrivalBay    = "ARR_HIDDEN"
+	hiddenDepartureBay = "DEP_HIDDEN"
+	hiddenArrivalBay   = "ARR_HIDDEN"
 )
 
 type reconciliationSessionStore interface {
@@ -307,9 +306,6 @@ func (r *Reconciler) newStrip(session *models.Session, flight Flight, seenAt tim
 	bay := hiddenArrivalBay
 	if strings.EqualFold(strings.TrimSpace(flight.FlightPlan.Origin), strings.TrimSpace(session.Airport)) {
 		bay = hiddenDepartureBay
-		if flight.Online() {
-			bay = plannedDepartureBay
-		}
 	}
 	strip := &models.Strip{Callsign: flight.Callsign, Session: session.ID, Bay: bay, Sequence: &sequence, HasFP: true}
 	r.applyFlight(strip, flight, seenAt)
@@ -419,25 +415,19 @@ func nextSequence(strips []*models.Strip, flight Flight, airport string) int32 {
 	bay := hiddenArrivalBay
 	if strings.EqualFold(strings.TrimSpace(flight.FlightPlan.Origin), airport) {
 		bay = hiddenDepartureBay
-		if flight.Online() {
-			bay = plannedDepartureBay
-		}
 	}
 	return nextSequenceForBay(strips, bay)
 }
 
-// apiDepartureBay owns only the visibility transition for departures that have
-// not yet been seen by EuroScope. Prefiles stay out of CLX until the pilot is
-// connected; once EuroScope has supplied the strip, its operational bay wins.
+// apiDepartureBay keeps departures known only through the VATSIM API out of all
+// operational bays. Once EuroScope has supplied the strip, its operational bay
+// wins and the reconciler no longer changes it.
 func apiDepartureBay(strip *models.Strip, flight Flight, airport string) string {
 	if strip == nil || strip.EuroscopeSeenAt != nil ||
 		!strings.EqualFold(strings.TrimSpace(flight.FlightPlan.Origin), airport) {
 		return ""
 	}
-	if flight.Online() && strip.Bay == hiddenDepartureBay {
-		return plannedDepartureBay
-	}
-	if flight.Prefile() && strip.Bay == plannedDepartureBay {
+	if strip.Bay != hiddenDepartureBay {
 		return hiddenDepartureBay
 	}
 	return ""

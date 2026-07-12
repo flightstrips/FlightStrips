@@ -128,6 +128,7 @@ export enum Bay {
   Final = "FINAL",
   Stand = "STAND",
   Hidden = "HIDDEN",
+  DepHidden = "DEP_HIDDEN",
   ArrHidden = "ARR_HIDDEN",
   RwyDep = Depart, // alias — kept for backwards compat, same value
   RwyArr = "RWY_ARR",

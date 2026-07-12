@@ -169,7 +169,7 @@ func TestReconcileCreatesPrefileDepartureAndHiddenArrivals(t *testing.T) {
 	assert.Len(t, notifier.callsigns, 3)
 }
 
-func TestReconcilePromotesAPIDepartureWhenPilotConnects(t *testing.T) {
+func TestReconcileKeepsOnlineAPIDepartureHidden(t *testing.T) {
 	now := time.Date(2026, 7, 12, 10, 0, 0, 0, time.UTC)
 	sequence := int32(1000)
 	existing := &models.Strip{Callsign: "SAS101", Session: 7, Origin: "EKCH", Destination: "EGLL", Bay: hiddenDepartureBay, Sequence: &sequence}
@@ -178,13 +178,13 @@ func TestReconcilePromotesAPIDepartureWhenPilotConnects(t *testing.T) {
 	reconciler := NewReconciler(cache, reconciliationTestSessions{items: []*models.Session{{ID: 7, Airport: "EKCH"}}}, strips, reconciliationTestAssignments{}, nil, time.Second)
 
 	require.NoError(t, reconciler.Reconcile(context.Background()))
-	assert.Equal(t, plannedDepartureBay, existing.Bay)
+	assert.Equal(t, hiddenDepartureBay, existing.Bay)
 }
 
 func TestReconcileMovesExistingAPIPrefileOutOfCLX(t *testing.T) {
 	now := time.Date(2026, 7, 12, 10, 0, 0, 0, time.UTC)
 	sequence := int32(1000)
-	existing := &models.Strip{Callsign: "SAS101", Session: 7, Origin: "EKCH", Destination: "EGLL", Bay: plannedDepartureBay, Sequence: &sequence}
+	existing := &models.Strip{Callsign: "SAS101", Session: 7, Origin: "EKCH", Destination: "EGLL", Bay: "NOT_CLEARED", Sequence: &sequence}
 	cache := newReconciliationTestCache(now, Flight{CID: "1", Callsign: "SAS101", State: FlightStatePrefile, LastUpdated: now, FlightPlan: FlightPlan{Origin: "EKCH", Destination: "EGLL", Revision: 4}})
 	strips := &reconciliationTestStrips{bySession: map[int32][]*models.Strip{7: {existing}}}
 	reconciler := NewReconciler(cache, reconciliationTestSessions{items: []*models.Session{{ID: 7, Airport: "EKCH"}}}, strips, reconciliationTestAssignments{}, nil, time.Second)
@@ -195,13 +195,13 @@ func TestReconcileMovesExistingAPIPrefileOutOfCLX(t *testing.T) {
 
 func TestReconcileDoesNotMoveEuroscopeOwnedPrefileToHidden(t *testing.T) {
 	now := time.Date(2026, 7, 12, 10, 0, 0, 0, time.UTC)
-	existing := &models.Strip{Callsign: "SAS101", Session: 7, Origin: "EKCH", Destination: "EGLL", Bay: plannedDepartureBay, EuroscopeSeenAt: &now}
+	existing := &models.Strip{Callsign: "SAS101", Session: 7, Origin: "EKCH", Destination: "EGLL", Bay: "NOT_CLEARED", EuroscopeSeenAt: &now}
 	cache := newReconciliationTestCache(now, Flight{CID: "1", Callsign: "SAS101", State: FlightStatePrefile, LastUpdated: now, FlightPlan: FlightPlan{Origin: "EKCH", Destination: "EGLL", Revision: 4}})
 	strips := &reconciliationTestStrips{bySession: map[int32][]*models.Strip{7: {existing}}}
 	reconciler := NewReconciler(cache, reconciliationTestSessions{items: []*models.Session{{ID: 7, Airport: "EKCH"}}}, strips, reconciliationTestAssignments{}, nil, time.Second)
 
 	require.NoError(t, reconciler.Reconcile(context.Background()))
-	assert.Equal(t, plannedDepartureBay, existing.Bay)
+	assert.Equal(t, "NOT_CLEARED", existing.Bay)
 }
 
 func TestReconcileKeepsEuroscopeFieldsAndProtectsControllerEdits(t *testing.T) {
@@ -210,7 +210,7 @@ func TestReconcileKeepsEuroscopeFieldsAndProtectsControllerEdits(t *testing.T) {
 	controllerRoute := "CONTROLLER ROUTE"
 	existing := &models.Strip{
 		Callsign: "SAS404", Session: 7, Origin: "EKCH", Destination: "EDDF", Route: &controllerRoute,
-		Stand: ptr("A12"), Bay: plannedDepartureBay, EuroscopeSeenAt: &euroscopeSeen,
+		Stand: ptr("A12"), Bay: "NOT_CLEARED", EuroscopeSeenAt: &euroscopeSeen,
 		ControllerModifiedFields: []string{"route", "stand"},
 	}
 	cache := newReconciliationTestCache(now, Flight{CID: "4", Callsign: "SAS404", State: FlightStateOnline, LastUpdated: now, FlightPlan: FlightPlan{Origin: "EKCH", Destination: "EDDF", Route: "VATSIM ROUTE", Revision: 7}})
@@ -228,7 +228,7 @@ func TestReconcileUsesNewerVatsimFieldsWhenEuroScopeDataIsOlder(t *testing.T) {
 	now := time.Date(2026, 7, 12, 10, 0, 0, 0, time.UTC)
 	euroscopeSeen := now.Add(-time.Minute)
 	oldRoute := "OLD ROUTE"
-	existing := &models.Strip{Callsign: "SAS707", Session: 7, Origin: "EKCH", Destination: "EDDF", Route: &oldRoute, Bay: plannedDepartureBay, EuroscopeSeenAt: &euroscopeSeen}
+	existing := &models.Strip{Callsign: "SAS707", Session: 7, Origin: "EKCH", Destination: "EDDF", Route: &oldRoute, Bay: "NOT_CLEARED", EuroscopeSeenAt: &euroscopeSeen}
 	cache := newReconciliationTestCache(now, Flight{CID: "7", Callsign: "SAS707", State: FlightStateOnline, LastUpdated: now, FlightPlan: FlightPlan{Origin: "EKCH", Destination: "EDDF", Route: "NEW ROUTE", Revision: 8}})
 	strips := &reconciliationTestStrips{bySession: map[int32][]*models.Strip{7: {existing}}}
 	reconciler := NewReconciler(cache, reconciliationTestSessions{items: []*models.Session{{ID: 7, Airport: "EKCH"}}}, strips, reconciliationTestAssignments{}, nil, time.Second)

@@ -47,7 +47,7 @@ func TestArrivalLifecycle(t *testing.T) {
 		assert.NotEmpty(t, assignment.Stand)
 	})
 
-	t.Run("no transition on time alone without altitude for ASSIGNED", func(t *testing.T) {
+	t.Run("time alone promotes to ASSIGNED without altitude", func(t *testing.T) {
 		lifecycle, _, session, assignments, strips, clock := arrivalLifecycleFixture(t, pool, queries, "", "", nil)
 		arrivalETA := clock.current().Add(45 * time.Minute)
 		clock.set(arrivalETA.Add(-45 * time.Minute))
@@ -62,7 +62,7 @@ func TestArrivalLifecycle(t *testing.T) {
 
 		assignment, err := assignments.GetAssignment(ctx, session, "SAS201")
 		require.NoError(t, err)
-		assert.Equal(t, StageEstimated, assignment.Stage, "stays ESTIMATED without altitude despite being within 10 min")
+		assert.Equal(t, StageAssigned, assignment.Stage, "promoted to ASSIGNED by time alone within 10 min of ETA")
 	})
 
 	t.Run("transitions to ASSIGNED at ETA−10 min and below 10000 ft", func(t *testing.T) {
@@ -110,7 +110,7 @@ func TestArrivalLifecycle(t *testing.T) {
 		assert.Equal(t, StageConfirmed, assignment.Stage, "promoted to CONFIRMED at ETA−1 min below 2000 ft")
 	})
 
-	t.Run("CONFIRMED requires both time and altitude", func(t *testing.T) {
+	t.Run("CONFIRMED triggered by time alone even at higher altitude", func(t *testing.T) {
 		lifecycle, _, session, assignments, strips, clock := arrivalLifecycleFixture(t, pool, queries, "", "", nil)
 		arrivalETA := clock.current().Add(45 * time.Minute)
 		clock.set(arrivalETA.Add(-45 * time.Minute))
@@ -128,7 +128,41 @@ func TestArrivalLifecycle(t *testing.T) {
 
 		assignment, err := assignments.GetAssignment(ctx, session, "SAS402")
 		require.NoError(t, err)
-		assert.Equal(t, StageAssigned, assignment.Stage, "remains ASSIGNED at ETA−1 min when still at 8000 ft")
+		assert.Equal(t, StageConfirmed, assignment.Stage, "promoted to CONFIRMED by time alone at ETA−1 min")
+	})
+
+	t.Run("ASSIGNED by altitude alone before ETA−10 min", func(t *testing.T) {
+		lifecycle, _, session, assignments, strips, clock := arrivalLifecycleFixture(t, pool, queries, "", "", nil)
+		arrivalETA := clock.current().Add(60 * time.Minute)
+		clock.set(arrivalETA.Add(-60 * time.Minute))
+		seedTestArrivalStrip(t, queries, session, "SAS403")
+		setArrivalETA(t, strips, session, "SAS403", arrivalETA)
+
+		_, err := strips.UpdateAircraftPosition(ctx, session, "SAS403", posPtr(0), posPtr(0), altPtr(5000), "FINAL", nil)
+		require.NoError(t, err)
+
+		require.NoError(t, lifecycle.ProcessArrival(ctx, session, loadStrip(t, strips, session, "SAS403"), arrivalFlight("SAS403", 1)))
+
+		assignment, err := assignments.GetAssignment(ctx, session, "SAS403")
+		require.NoError(t, err)
+		assert.Equal(t, StageAssigned, assignment.Stage, "promoted to ASSIGNED by altitude alone below 10000 ft")
+	})
+
+	t.Run("CONFIRMED by altitude alone well before ETA−2 min", func(t *testing.T) {
+		lifecycle, _, session, assignments, strips, clock := arrivalLifecycleFixture(t, pool, queries, "", "", nil)
+		arrivalETA := clock.current().Add(30 * time.Minute)
+		clock.set(arrivalETA.Add(-30 * time.Minute))
+		seedTestArrivalStrip(t, queries, session, "SAS404")
+		setArrivalETA(t, strips, session, "SAS404", arrivalETA)
+
+		_, err := strips.UpdateAircraftPosition(ctx, session, "SAS404", posPtr(0), posPtr(0), altPtr(2000), "FINAL", nil)
+		require.NoError(t, err)
+
+		require.NoError(t, lifecycle.ProcessArrival(ctx, session, loadStrip(t, strips, session, "SAS404"), arrivalFlight("SAS404", 1)))
+
+		assignment, err := assignments.GetAssignment(ctx, session, "SAS404")
+		require.NoError(t, err)
+		assert.Equal(t, StageConfirmed, assignment.Stage, "promoted to CONFIRMED by altitude alone below 3000 ft")
 	})
 
 	t.Run("transitions are idempotent", func(t *testing.T) {

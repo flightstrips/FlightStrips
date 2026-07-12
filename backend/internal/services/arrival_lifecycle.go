@@ -113,7 +113,7 @@ func (s *ArrivalLifecycleService) ProcessArrival(ctx context.Context, session in
 		return err
 	}
 	if existing == nil {
-		return s.ensureEstimated(ctx, session, strip, flight, eta)
+		return s.ensureAssignment(ctx, session, strip, flight, eta, targetStage)
 	}
 	currentStage := existing.Stage
 	if !isArrivalStage(currentStage) {
@@ -128,8 +128,8 @@ func (s *ArrivalLifecycleService) ProcessArrival(ctx context.Context, session in
 	return s.promoteArrival(ctx, session, strip, flight, existing, eta, targetStage)
 }
 
-func (s *ArrivalLifecycleService) ensureEstimated(ctx context.Context, session int32, strip *models.Strip, flight vatsim.ArrivalFlightInfo, eta *time.Time) error {
-	request := s.buildRequest(session, strip, flight, StageEstimated, eta, nil)
+func (s *ArrivalLifecycleService) ensureAssignment(ctx context.Context, session int32, strip *models.Strip, flight vatsim.ArrivalFlightInfo, eta *time.Time, stage string) error {
+	request := s.buildRequest(session, strip, flight, stage, eta, nil)
 	_, err := s.allocations.Allocate(ctx, request)
 	return err
 }
@@ -370,10 +370,10 @@ func (s *ArrivalLifecycleService) resolveFacts(strip *models.Strip, flight vatsi
 }
 
 func determineArrivalTargetStage(timeUntilETA time.Duration, altitude *int32) string {
-	if timeUntilETA <= defaultConfirmedBefore && altitudeBelow(altitude, confirmedAltitudeThreshold) {
+	if timeUntilETA <= defaultConfirmedBefore || altitudeBelow(altitude, confirmedAltitudeThreshold) {
 		return StageConfirmed
 	}
-	if timeUntilETA <= defaultAssignedBefore && altitudeBelow(altitude, assignedAltitudeThreshold) {
+	if timeUntilETA <= defaultAssignedBefore || altitudeBelow(altitude, assignedAltitudeThreshold) {
 		return StageAssigned
 	}
 	if timeUntilETA <= defaultEstimatedBefore {

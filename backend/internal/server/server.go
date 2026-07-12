@@ -25,12 +25,13 @@ type Server struct {
 	sessionLocks      sessionRecalcLockManager
 
 	// Repositories
-	stripRepo         repository.StripRepository
-	controllerRepo    repository.ControllerRepository
-	sessionRepo       repository.SessionRepository
-	sectorRepo        repository.SectorOwnerRepository
-	coordRepo         repository.CoordinationRepository
-	tacticalStripRepo repository.TacticalStripRepository
+	stripRepo             repository.StripRepository
+	controllerRepo        repository.ControllerRepository
+	sessionRepo           repository.SessionRepository
+	sectorRepo            repository.SectorOwnerRepository
+	coordRepo             repository.CoordinationRepository
+	tacticalStripRepo     repository.TacticalStripRepository
+	standAssignmentRepo   repository.StandAssignmentRepository
 }
 
 type TransceiverLookup interface {
@@ -50,20 +51,22 @@ func NewServer(
 	sectorRepo repository.SectorOwnerRepository,
 	coordRepo repository.CoordinationRepository,
 	tacticalStripRepo repository.TacticalStripRepository,
+	standAssignmentRepo repository.StandAssignmentRepository,
 ) *Server {
 	server := Server{
-		dbPool:            dbPool,
-		euroscopeHub:      euroscopeHub,
-		frontendHub:       frontendHub,
-		cdmService:        cdmService,
-		pdcService:        pdcService,
-		transceiverLookup: transceiverLookup,
-		stripRepo:         stripRepo,
-		controllerRepo:    controllerRepo,
-		sessionRepo:       sessionRepo,
-		sectorRepo:        sectorRepo,
-		coordRepo:         coordRepo,
-		tacticalStripRepo: tacticalStripRepo,
+		dbPool:              dbPool,
+		euroscopeHub:        euroscopeHub,
+		frontendHub:         frontendHub,
+		cdmService:          cdmService,
+		pdcService:          pdcService,
+		transceiverLookup:   transceiverLookup,
+		stripRepo:           stripRepo,
+		controllerRepo:      controllerRepo,
+		sessionRepo:         sessionRepo,
+		sectorRepo:          sectorRepo,
+		coordRepo:           coordRepo,
+		tacticalStripRepo:   tacticalStripRepo,
+		standAssignmentRepo: standAssignmentRepo,
 	}
 
 	go server.monitorSessions()
@@ -97,6 +100,10 @@ func (s *Server) GetCoordinationRepository() repository.CoordinationRepository {
 
 func (s *Server) GetTacticalStripRepository() repository.TacticalStripRepository {
 	return s.tacticalStripRepo
+}
+
+func (s *Server) GetStandAssignmentRepository() repository.StandAssignmentRepository {
+	return s.standAssignmentRepo
 }
 
 func (s *Server) GetEuroscopeHub() shared.EuroscopeHub {

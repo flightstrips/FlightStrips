@@ -23,46 +23,52 @@ type InitialSnapshotRequest struct {
 }
 
 type SnapshotBuilderDependencies struct {
-	ControllerRepo     repository.ControllerRepository
-	StripRepo          SnapshotStripStore
-	SectorRepo         repository.SectorOwnerRepository
-	SessionRepo        repository.SessionRepository
-	CoordinationRepo   repository.CoordinationRepository
-	TacticalStripRepo  repository.TacticalStripRepository
-	EuroscopeHub       shared.EuroscopeHub
-	BuildClxContext    func(sessionID int32) clx.Context
-	PopulateNextStrips func(ctx context.Context, strips []*internalModels.Strip, sessionID int32)
-	LoadMessages       func(sessionID int32) []frontendEvents.MessageReceivedEvent
-	LoadCachedAtis     func(sessionID int32) *frontendEvents.AtisUpdateEvent
+	ControllerRepo         repository.ControllerRepository
+	StripRepo              SnapshotStripStore
+	SectorRepo             repository.SectorOwnerRepository
+	SessionRepo            repository.SessionRepository
+	CoordinationRepo       repository.CoordinationRepository
+	TacticalStripRepo      repository.TacticalStripRepository
+	StandAssignmentRepo    repository.StandAssignmentRepository
+	StandAssignmentEnabled bool
+	EuroscopeHub           shared.EuroscopeHub
+	BuildClxContext        func(sessionID int32) clx.Context
+	PopulateNextStrips     func(ctx context.Context, strips []*internalModels.Strip, sessionID int32)
+	LoadMessages           func(sessionID int32) []frontendEvents.MessageReceivedEvent
+	LoadCachedAtis         func(sessionID int32) *frontendEvents.AtisUpdateEvent
 }
 
 type SnapshotBuilder struct {
-	controllerRepo     repository.ControllerRepository
-	stripRepo          SnapshotStripStore
-	sectorRepo         repository.SectorOwnerRepository
-	sessionRepo        repository.SessionRepository
-	coordinationRepo   repository.CoordinationRepository
-	tacticalStripRepo  repository.TacticalStripRepository
-	euroscopeHub       shared.EuroscopeHub
-	buildClxContext    func(sessionID int32) clx.Context
-	populateNextStrips func(ctx context.Context, strips []*internalModels.Strip, sessionID int32)
-	loadMessages       func(sessionID int32) []frontendEvents.MessageReceivedEvent
-	loadCachedAtis     func(sessionID int32) *frontendEvents.AtisUpdateEvent
+	controllerRepo         repository.ControllerRepository
+	stripRepo              SnapshotStripStore
+	sectorRepo             repository.SectorOwnerRepository
+	sessionRepo            repository.SessionRepository
+	coordinationRepo       repository.CoordinationRepository
+	tacticalStripRepo      repository.TacticalStripRepository
+	standAssignmentRepo    repository.StandAssignmentRepository
+	standAssignmentEnabled bool
+	euroscopeHub           shared.EuroscopeHub
+	buildClxContext        func(sessionID int32) clx.Context
+	populateNextStrips     func(ctx context.Context, strips []*internalModels.Strip, sessionID int32)
+	loadMessages           func(sessionID int32) []frontendEvents.MessageReceivedEvent
+	loadCachedAtis         func(sessionID int32) *frontendEvents.AtisUpdateEvent
 }
 
 func NewSnapshotBuilder(deps SnapshotBuilderDependencies) *SnapshotBuilder {
 	return &SnapshotBuilder{
-		controllerRepo:     deps.ControllerRepo,
-		stripRepo:          deps.StripRepo,
-		sectorRepo:         deps.SectorRepo,
-		sessionRepo:        deps.SessionRepo,
-		coordinationRepo:   deps.CoordinationRepo,
-		tacticalStripRepo:  deps.TacticalStripRepo,
-		euroscopeHub:       deps.EuroscopeHub,
-		buildClxContext:    deps.BuildClxContext,
-		populateNextStrips: deps.PopulateNextStrips,
-		loadMessages:       deps.LoadMessages,
-		loadCachedAtis:     deps.LoadCachedAtis,
+		controllerRepo:         deps.ControllerRepo,
+		stripRepo:              deps.StripRepo,
+		sectorRepo:             deps.SectorRepo,
+		sessionRepo:            deps.SessionRepo,
+		coordinationRepo:       deps.CoordinationRepo,
+		tacticalStripRepo:      deps.TacticalStripRepo,
+		standAssignmentRepo:    deps.StandAssignmentRepo,
+		standAssignmentEnabled: deps.StandAssignmentEnabled,
+		euroscopeHub:           deps.EuroscopeHub,
+		buildClxContext:        deps.BuildClxContext,
+		populateNextStrips:     deps.PopulateNextStrips,
+		loadMessages:           deps.LoadMessages,
+		loadCachedAtis:         deps.LoadCachedAtis,
 	}
 }
 
@@ -150,6 +156,17 @@ func (b *SnapshotBuilder) Build(ctx context.Context, request InitialSnapshotRequ
 		ReadOnly:           request.ReadOnly,
 		PositionAvailable:  positionAvailable,
 		LocalIP:            localIP,
+	}
+
+	if b.standAssignmentEnabled && b.standAssignmentRepo != nil {
+		event.StandAssignmentEnabled = true
+		assignments, blocks, err := b.loadStandStatus(ctx, request.SessionID)
+		if err != nil {
+			slog.Error("Failed to load stand status for snapshot", slog.Any("error", err), slog.Int("session", int(request.SessionID)))
+		} else {
+			event.StandAssignments = assignments
+			event.StandBlocks = blocks
+		}
 	}
 
 	return event, b.cachedAtisEvent(request.SessionID), nil
@@ -269,6 +286,53 @@ func (b *SnapshotBuilder) cachedAtisEvent(sessionID int32) *frontendEvents.AtisU
 		return nil
 	}
 	return b.loadCachedAtis(sessionID)
+}
+
+func (b *SnapshotBuilder) loadStandStatus(ctx context.Context, sessionID int32) ([]frontendEvents.StandAssignmentEntry, []frontendEvents.StandBlockEntry, error) {
+	assignments, err := b.standAssignmentRepo.ListAssignments(ctx, sessionID)
+	if err != nil {
+		return nil, nil, fmt.Errorf("list stand assignments: %w", err)
+	}
+
+	blocks, err := b.standAssignmentRepo.ListBlocks(ctx, sessionID)
+	if err != nil {
+		return nil, nil, fmt.Errorf("list stand blocks: %w", err)
+	}
+
+	assignmentEntries := make([]frontendEvents.StandAssignmentEntry, 0, len(assignments))
+	for _, a := range assignments {
+		if a == nil {
+			continue
+		}
+		entry := frontendEvents.StandAssignmentEntry{
+			Callsign:  a.Callsign,
+			Stand:     a.Stand,
+			Direction: a.Direction,
+			Stage:     a.Stage,
+			Source:    a.Source,
+			ETA:       a.ETA,
+			ExpiresAt: a.ExpiresAt,
+		}
+		assignmentEntries = append(assignmentEntries, entry)
+	}
+
+	blockEntries := make([]frontendEvents.StandBlockEntry, 0, len(blocks))
+	for _, blk := range blocks {
+		if blk == nil {
+			continue
+		}
+		entry := frontendEvents.StandBlockEntry{
+			Stand:     blk.Stand,
+			BlockType: blk.BlockType,
+			Reason:    blk.Reason,
+			Callsign:  blk.Callsign,
+			CreatedBy: blk.CreatedBy,
+			ExpiresAt: blk.ExpiresAt,
+		}
+		blockEntries = append(blockEntries, entry)
+	}
+
+	return assignmentEntries, blockEntries, nil
 }
 
 func cloneStringSlice(values []string) []string {

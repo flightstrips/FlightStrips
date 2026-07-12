@@ -219,7 +219,7 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 		pdcService.SetTransceiverLookup(transceiverLookup)
 	}
 
-	fsServer = server.NewServer(dbpool, euroscopeHub, frontendHub, cdmService, pdcService, transceiverLookup, stripRepo, controllerRepo, sessionRepo, sectorRepo, coordRepo, tacticalStripRepo)
+	fsServer = server.NewServer(dbpool, euroscopeHub, frontendHub, cdmService, pdcService, transceiverLookup, stripRepo, controllerRepo, sessionRepo, sectorRepo, coordRepo, tacticalStripRepo, standAssignmentRepo)
 
 	frontendHub.SetServer(fsServer)
 	euroscopeHub.SetServer(fsServer)

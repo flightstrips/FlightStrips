@@ -30,6 +30,11 @@ import {
   type FrontendSetHeadingEvent,
   type FrontendSquawkEvent,
   type FrontendStandEvent,
+  type FrontendStandAssignmentEntry,
+  type FrontendStandBlockEntry,
+  type FrontendStandAssignmentUpdateEvent,
+  type FrontendStandBlockUpdateEvent,
+  type FrontendStandStatusSnapshotEvent,
   type FrontendStrip,
   type FrontendStripUpdateEvent,
   type MessageReceived,
@@ -162,6 +167,13 @@ export interface WebSocketState {
   openValidationDialog: (callsign: string) => void;
   closeValidationDialog: () => void;
 
+  standAssignments: FrontendStandAssignmentEntry[];
+  standBlocks: FrontendStandBlockEntry[];
+  satEnabled: boolean;
+
+  occupyStand: (stand: string) => void;
+  vacateStand: (stand: string) => void;
+
   // actions
   move: (callsign: string, bay: Bay) => void;
   moveToControlzone: (callsign: string) => void;
@@ -247,6 +259,9 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     markArmed: false,
     contextMenu: null,
     validationDialogCallsign: null,
+    standAssignments: [],
+    standBlocks: [],
+    satEnabled: false,
   };
 
   // Create the store
@@ -754,6 +769,14 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     acknowledgeValidationStatus: (callsign, activationKey) => {
       sendIfWritable({ type: ActionType.FrontendAcknowledgeValidationStatus, callsign, activation_key: activationKey });
     },
+
+    occupyStand: (stand) => {
+      sendIfWritable({ type: ActionType.FrontendStandOccupy, stand, reason: "Manual block" });
+    },
+
+    vacateStand: (stand) => {
+      sendIfWritable({ type: ActionType.FrontendStandVacate, stand });
+    },
   }});
 
   // Private methods to handle WebSocket events
@@ -799,6 +822,9 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
         state.stripTransfers = transfers;
         state.messages = data.messages ?? [];
         state.availableSids = data.available_sids ?? [];
+        state.standAssignments = data.stand_assignments ?? [];
+        state.standBlocks = data.stand_blocks ?? [];
+        state.satEnabled = data.stand_assignment_enabled ?? false;
       })
     );
 
@@ -1311,6 +1337,51 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
   wsClient.on(EventType.FrontendAvailableSids, (data) => {
     store.setState({ availableSids: data.sids });
   });
+
+  const handleStandStatusSnapshot = (data: FrontendStandStatusSnapshotEvent) => {
+    store.setState(
+      produce((state: WebSocketState) => {
+        state.standAssignments = data.assignments;
+        state.standBlocks = data.blocks;
+      }),
+    );
+  };
+
+  wsClient.on(EventType.FrontendStandStatusSnapshot, handleStandStatusSnapshot);
+
+  const handleStandAssignmentUpdate = (data: FrontendStandAssignmentUpdateEvent) => {
+    store.setState(
+      produce((state: WebSocketState) => {
+        const idx = state.standAssignments.findIndex((a) => a.callsign === data.assignment.callsign);
+        if (idx !== -1) {
+          state.standAssignments[idx] = data.assignment;
+        } else {
+          state.standAssignments.push(data.assignment);
+        }
+      }),
+    );
+  };
+
+  wsClient.on(EventType.FrontendStandAssignmentUpdate, handleStandAssignmentUpdate);
+
+  const handleStandBlockUpdate = (data: FrontendStandBlockUpdateEvent) => {
+    store.setState(
+      produce((state: WebSocketState) => {
+        if (data.block === null) {
+          state.standBlocks = state.standBlocks.filter((b) => b.stand !== data.stand);
+        } else {
+          const idx = state.standBlocks.findIndex((b) => b.stand === data.stand);
+          if (idx !== -1) {
+            state.standBlocks[idx] = data.block;
+          } else {
+            state.standBlocks.push(data.block);
+          }
+        }
+      }),
+    );
+  };
+
+  wsClient.on(EventType.FrontendStandBlockUpdate, handleStandBlockUpdate);
 
   return store;
 };

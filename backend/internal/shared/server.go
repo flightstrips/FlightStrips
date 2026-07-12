@@ -43,6 +43,7 @@ type Server interface {
 	GetSectorOwnerRepository() repository.SectorOwnerRepository
 	GetCoordinationRepository() repository.CoordinationRepository
 	GetTacticalStripRepository() repository.TacticalStripRepository
+	GetStandAssignmentRepository() repository.StandAssignmentRepository
 
 	// TODO move to another service
 	UpdateSectors(sessionId int32) ([]SectorChange, error)

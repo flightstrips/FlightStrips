@@ -134,6 +134,8 @@ func NewHub(stripService shared.StripService, authenticationService shared.Authe
 	handlers.Add(frontend.AcknowledgeValidationStatus, handleAcknowledgeValidationStatus)
 	handlers.Add(frontend.ClxOverrideValidation, handleClxOverrideValidation)
 	handlers.Add(frontend.ClxUpdateTobt, handleClxUpdateTobt)
+	handlers.Add(frontend.ActionStandOccupy, handleStandOccupy)
+	handlers.Add(frontend.ActionStandVacate, handleStandVacate)
 
 	hub := &Hub{
 		send:                  make(chan internalMessage, hubSendQueueSize),
@@ -789,6 +791,26 @@ func (hub *Hub) SendStandEvent(session int32, callsign string, stand string) {
 	hub.Broadcast(session, event)
 }
 
+func (hub *Hub) SendStandAssignmentBroadcast(session int32, entry frontend.StandAssignmentEntry) {
+	hub.Broadcast(session, frontend.StandAssignmentUpdateEvent{
+		Assignment: entry,
+	})
+}
+
+func (hub *Hub) SendStandBlockBroadcast(session int32, stand string, block *frontend.StandBlockEntry) {
+	hub.Broadcast(session, frontend.StandBlockUpdateEvent{
+		Stand: stand,
+		Block: block,
+	})
+}
+
+func (hub *Hub) SendStandStatusSnapshot(session int32, assignments []frontend.StandAssignmentEntry, blocks []frontend.StandBlockEntry) {
+	hub.Broadcast(session, frontend.StandStatusSnapshotEvent{
+		Assignments: assignments,
+		Blocks:      blocks,
+	})
+}
+
 func (hub *Hub) SendSetHeadingEvent(session int32, callsign string, heading int32) {
 	event := frontend.SetHeadingEvent{
 		Callsign: callsign,
@@ -1087,17 +1109,19 @@ func (hub *Hub) getSnapshotBuilder() *SnapshotBuilder {
 	}
 
 	hub.snapshotBuilder = NewSnapshotBuilder(SnapshotBuilderDependencies{
-		ControllerRepo:     hub.server.GetControllerRepository(),
-		StripRepo:          hub.server.GetStripRepository(),
-		SectorRepo:         hub.server.GetSectorOwnerRepository(),
-		SessionRepo:        hub.server.GetSessionRepository(),
-		CoordinationRepo:   hub.server.GetCoordinationRepository(),
-		TacticalStripRepo:  hub.server.GetTacticalStripRepository(),
-		EuroscopeHub:       hub.server.GetEuroscopeHub(),
-		BuildClxContext:    hub.makeClxValidationContext,
-		PopulateNextStrips: hub.populateNextDisplaysContext,
-		LoadMessages:       hub.snapshotMessages,
-		LoadCachedAtis:     hub.cachedAtisEvent,
+		ControllerRepo:         hub.server.GetControllerRepository(),
+		StripRepo:              hub.server.GetStripRepository(),
+		SectorRepo:             hub.server.GetSectorOwnerRepository(),
+		SessionRepo:            hub.server.GetSessionRepository(),
+		CoordinationRepo:       hub.server.GetCoordinationRepository(),
+		TacticalStripRepo:      hub.server.GetTacticalStripRepository(),
+		StandAssignmentRepo:    hub.server.GetStandAssignmentRepository(),
+		StandAssignmentEnabled: hub.server.GetStandAssignmentRepository() != nil,
+		EuroscopeHub:           hub.server.GetEuroscopeHub(),
+		BuildClxContext:        hub.makeClxValidationContext,
+		PopulateNextStrips:     hub.populateNextDisplaysContext,
+		LoadMessages:           hub.snapshotMessages,
+		LoadCachedAtis:         hub.cachedAtisEvent,
 	})
 
 	return hub.snapshotBuilder

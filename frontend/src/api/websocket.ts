@@ -27,6 +27,9 @@ import {
   type FrontendSetHeadingEvent,
   type FrontendSquawkEvent,
   type FrontendStandEvent,
+  type FrontendStandStatusSnapshotEvent,
+  type FrontendStandAssignmentUpdateEvent,
+  type FrontendStandBlockUpdateEvent,
   type FrontendStripUpdateEvent,
   type FrontendTacticalStripCreatedEvent,
   type FrontendTacticalStripDeletedEvent,
@@ -81,6 +84,9 @@ type EventMap = {
   [EventType.FrontendAtisUpdate]: FrontendAtisUpdateEvent;
   [EventType.FrontendActionRejected]: ActionRejectedEvent;
   [EventType.FrontendAvailableSids]: AvailableSidsEvent;
+  [EventType.FrontendStandStatusSnapshot]: FrontendStandStatusSnapshotEvent;
+  [EventType.FrontendStandAssignmentUpdate]: FrontendStandAssignmentUpdateEvent;
+  [EventType.FrontendStandBlockUpdate]: FrontendStandBlockUpdateEvent;
 };
 
 type WebSocketClientDelegate = {

@@ -70,6 +70,8 @@ func (m *MockServer) GetTacticalStripRepository() repository.TacticalStripReposi
 	return m.TacticalStripRepoVal
 }
 
+func (m *MockServer) GetStandAssignmentRepository() repository.StandAssignmentRepository { return nil }
+
 func (m *MockServer) UpdateSectors(sessionId int32) ([]shared.SectorChange, error) {
 	if m.UpdateSectorsFn != nil {
 		return m.UpdateSectorsFn(sessionId)

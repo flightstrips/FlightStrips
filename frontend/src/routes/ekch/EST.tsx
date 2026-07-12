@@ -16,7 +16,7 @@ import {
   type EstView,
 } from "@/components/est/metadata";
 import { useNonClearedStrips } from "@/store/airports/ekch.ts";
-import { useControllers, useMarkArmed, useMyPosition, useSelectStrip, useSelectedCallsign, useWebSocketStore } from "@/store/store-hooks.ts";
+import { useControllers, useMarkArmed, useMyPosition, useSelectStrip, useSelectedCallsign, useWebSocketStore, useSatEnabled, useStandBlocks, useOccupyStand, useVacateStand } from "@/store/store-hooks.ts";
 
 const PAGE_BG = "bg-bay-est";
 const COLOR_LABEL_DEFAULT = "#202020";
@@ -115,6 +115,10 @@ export default function EST() {
   const markArmed = useMarkArmed();
   const selectedCallsign = useSelectedCallsign();
   const selectStrip = useSelectStrip();
+  const satEnabled = useSatEnabled();
+  const standBlocks = useStandBlocks();
+  const occupyStand = useOccupyStand();
+  const vacateStand = useVacateStand();
 
   const [menuState, setMenuState] = useState<{ stand: string; anchor: EstMenuAnchor } | null>(null);
   const [statusStand, setStatusStand] = useState<string | null>(null);
@@ -189,6 +193,30 @@ export default function EST() {
     [stripByStand],
   );
 
+  const blockedStandsDerived = useMemo(() => {
+    if (satEnabled) {
+      const blocked: Record<string, true> = {};
+      for (const block of standBlocks) {
+        if (block.block_type === "MANUAL") {
+          blocked[block.stand] = true;
+        }
+      }
+      return blocked;
+    }
+    return blockedStands;
+  }, [satEnabled, standBlocks, blockedStands]);
+
+  const standBlockReasons = useMemo(() => {
+    if (!satEnabled) return {};
+    const reasons: Record<string, string> = {};
+    for (const block of standBlocks) {
+      if (block.block_type === "MANUAL") {
+        reasons[block.stand] = block.reason ?? "Manually blocked";
+      }
+    }
+    return reasons;
+  }, [satEnabled, standBlocks]);
+
   useEffect(() => {
     updateActionOverrides({ type: "prune", occupancy: standOccupancy });
   }, [standOccupancy]);
@@ -236,15 +264,19 @@ export default function EST() {
   }
 
   function clearBlockedStand(stand: string) {
-    setBlockedStands((current) => {
-      const next = { ...current };
-      delete next[stand];
-      return next;
-    });
+    if (satEnabled) {
+      vacateStand(stand);
+    } else {
+      setBlockedStands((current) => {
+        const next = { ...current };
+        delete next[stand];
+        return next;
+      });
+    }
   }
 
   function handleStandClick(stand: string, strip: FrontendStrip | undefined, element: HTMLButtonElement) {
-    const blocked = !!blockedStands[stand];
+    const blocked = !!blockedStandsDerived[stand];
 
     if (!strip || blocked) {
       setStatusStand(stand);
@@ -347,8 +379,11 @@ export default function EST() {
       return;
     }
 
-    // TODO: send stand_occupied action to backend
-    setBlockedStands((current) => ({ ...current, [statusStand]: true }));
+    if (satEnabled) {
+      occupyStand(statusStand);
+    } else {
+      setBlockedStands((current) => ({ ...current, [statusStand]: true }));
+    }
     setStatusStand(null);
     setMenuState(null);
   }
@@ -358,7 +393,11 @@ export default function EST() {
       return;
     }
 
-    clearBlockedStand(statusStand);
+    if (satEnabled) {
+      vacateStand(statusStand);
+    } else {
+      clearBlockedStand(statusStand);
+    }
     setStatusStand(null);
     setMenuState(null);
   }
@@ -461,7 +500,8 @@ export default function EST() {
                   stand={stand}
                   strip={strip}
                   selected={!!strip && selectedCallsign === strip.callsign}
-                  blocked={!!blockedStands[stand.label]}
+                  blocked={!!blockedStandsDerived[stand.label]}
+                  blockReason={standBlockReasons[stand.label]}
                   actionActive={actionActive}
                   blinking={actionActive ? actionOverride.blinking : false}
                   startReqActive={startReqActive}

@@ -67,6 +67,9 @@ type StripRepository interface {
 	GetCdmDataForCallsign(ctx context.Context, session int32, callsign string) (*models.CdmData, error)
 	SetCdmData(ctx context.Context, session int32, callsign string, data *models.CdmData) (int64, error)
 
+	// Arrival ETA
+	UpdateArrivalETA(ctx context.Context, session int32, callsign string, eta models.ArrivalETA) (int64, error)
+
 	// Release point
 	UpdateReleasePoint(ctx context.Context, session int32, callsign string, releasePoint *string) (int64, error)
 

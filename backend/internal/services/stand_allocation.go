@@ -56,6 +56,8 @@ type StandAllocationRequest struct {
 
 	Stand          string
 	ConflictReason string
+
+	DisplaceStage string
 }
 
 // StandAllocationResult is complete only after the transaction commits. The
@@ -238,6 +240,11 @@ func (s *StandAllocationService) allocateOnce(ctx context.Context, command Stand
 	if err != nil {
 		return nil, selected, err
 	}
+	if request.DisplaceStage != "" && selected != "" {
+		if err := s.displaceAssignments(ctx, txStrips, txAssignments, request, selected, assignments); err != nil {
+			return nil, selected, err
+		}
+	}
 	request.Stand = selected
 	assignment, err := s.persistStandAllocation(ctx, txAssignments, command, request, assignments, selection, match, conflict)
 	if err != nil {
@@ -361,6 +368,9 @@ func (s *StandAllocationService) availability(request StandAllocationRequest, as
 				continue
 			}
 			if candidate == standName(assignment.Stand) {
+				if request.DisplaceStage != "" && assignment.Direction == string(sat.AssignmentDirectionArrival) && assignment.Stage == request.DisplaceStage {
+					continue
+				}
 				result[candidate] = append(result[candidate], "reserved by "+assignment.Callsign)
 				continue
 			}
@@ -499,6 +509,30 @@ func joinAllocationReasons(reasons []string) string {
 		}
 	}
 	return strings.Join(result, "; ")
+}
+
+func (s *StandAllocationService) displaceAssignments(ctx context.Context, strips repository.StripRepository, assignments repository.StandAssignmentRepository, request StandAllocationRequest, selected string, current []*models.StandAssignment) error {
+	if request.DisplaceStage == "" || selected == "" {
+		return nil
+	}
+	for _, assignment := range current {
+		if assignment == nil || strings.EqualFold(assignment.Callsign, request.Callsign) {
+			continue
+		}
+		if assignment.Direction != string(sat.AssignmentDirectionArrival) || assignment.Stage != request.DisplaceStage {
+			continue
+		}
+		if standName(assignment.Stand) != standName(selected) {
+			continue
+		}
+		if _, err := strips.UpdateStand(ctx, request.SessionID, assignment.Callsign, nil, nil); err != nil {
+			return err
+		}
+		if _, err := assignments.DeleteAssignment(ctx, request.SessionID, assignment.ID, assignment.Version); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func standName(value string) string      { return strings.ToUpper(strings.TrimSpace(value)) }

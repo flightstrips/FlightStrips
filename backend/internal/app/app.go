@@ -117,6 +117,7 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 	var standAssignmentRepo repository.StandAssignmentRepository
 	var standAllocationService *services.StandAllocationService
 	var departureLifecycle *services.DepartureLifecycleService
+	var arrivalLifecycle *services.ArrivalLifecycleService
 	if standAssignmentReadiness.Ready {
 		standAssignmentRepo = postgres.NewStandAssignmentRepository(dbpool)
 		stands := appconfig.GetStandCapabilities()
@@ -134,6 +135,14 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 		)
 		if err != nil {
 			return nil, fmt.Errorf("initialize departure lifecycle service: %w", err)
+		}
+		arrivalLifecycle, err = services.NewArrivalLifecycleService(
+			standAllocationService, standAssignmentRepo, stripRepo, sessionRepo,
+			stands, appconfig.GetAircraftReference(), appconfig.GetAircraftEngineReference(), appconfig.GetAirportCountries(),
+			services.WithArrivalSweepInterval(cfg.StandAssignmentSweepInterval),
+		)
+		if err != nil {
+			return nil, fmt.Errorf("initialize arrival lifecycle service: %w", err)
 		}
 	}
 
@@ -183,6 +192,9 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 		vatsimReconciler = vatsim.NewReconciler(vatsimCache, sessionRepo, stripRepo, standAssignmentRepo, frontendHub, deps.VATSIMPollInterval, vatsim.WithAirportCoordinates(latitude, longitude))
 		if departureLifecycle != nil {
 			vatsimReconciler.SetDepartureLifecycle(departureLifecycle)
+		}
+		if arrivalLifecycle != nil {
+			vatsimReconciler.SetArrivalLifecycle(arrivalLifecycle)
 		}
 		euroscopeHub.SetAircraftDisconnectRetainer(vatsimReconciler.RetainsStrip)
 	}
@@ -260,6 +272,9 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 	}
 	if departureLifecycle != nil {
 		app.addWorker(departureLifecycle.StartSweep)
+	}
+	if arrivalLifecycle != nil {
+		app.addWorker(arrivalLifecycle.StartSweep)
 	}
 	if transceiverCache != nil {
 		app.addWorker(transceiverCache.Start)

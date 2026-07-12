@@ -56,6 +56,7 @@ type MockStripRepository struct {
 	GetCdmDataFn                    func(ctx context.Context, session int32) ([]*models.CdmDataRow, error)
 	GetCdmDataForCallsignFn         func(ctx context.Context, session int32, callsign string) (*models.CdmData, error)
 	SetCdmDataFn                    func(ctx context.Context, session int32, callsign string, data *models.CdmData) (int64, error)
+	UpdateArrivalETAFn              func(ctx context.Context, session int32, callsign string, eta models.ArrivalETA) (int64, error)
 	UpdateReleasePointFn            func(ctx context.Context, session int32, callsign string, releasePoint *string) (int64, error)
 	AppendUnexpectedChangeFieldFn   func(ctx context.Context, session int32, callsign string, fieldName string) error
 	RemoveUnexpectedChangeFieldFn   func(ctx context.Context, session int32, callsign string, fieldName string) error
@@ -413,6 +414,13 @@ func (m *MockStripRepository) SetCdmData(ctx context.Context, session int32, cal
 		panic("unexpected call to MockStripRepository.SetCdmData")
 	}
 	return m.SetCdmDataFn(ctx, session, callsign, data)
+}
+
+func (m *MockStripRepository) UpdateArrivalETA(ctx context.Context, session int32, callsign string, eta models.ArrivalETA) (int64, error) {
+	if m.UpdateArrivalETAFn == nil {
+		panic("unexpected call to MockStripRepository.UpdateArrivalETA")
+	}
+	return m.UpdateArrivalETAFn(ctx, session, callsign, eta)
 }
 
 func (m *MockStripRepository) UpdateReleasePoint(ctx context.Context, session int32, callsign string, releasePoint *string) (int64, error) {

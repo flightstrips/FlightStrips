@@ -192,7 +192,7 @@ export default function EST() {
     if (satEnabled) {
       for (const assignment of standAssignments) {
         const strip = stripsByCallsign.get(assignment.callsign);
-        if (strip && strip.bay !== Bay.Hidden) mapping.set(assignment.stand, strip);
+        if (strip && strip.bay !== Bay.Hidden && strip.bay !== Bay.DepHidden) mapping.set(assignment.stand, strip);
       }
       return mapping;
     }

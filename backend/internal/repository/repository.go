@@ -14,6 +14,7 @@ type StripRepository interface {
 	// Basic CRUD operations
 	Create(ctx context.Context, strip *models.Strip) error
 	GetByCallsign(ctx context.Context, session int32, callsign string) (*models.Strip, error)
+	LockByCallsign(ctx context.Context, session int32, callsign string) (*models.Strip, error)
 	List(ctx context.Context, session int32) ([]*models.Strip, error)
 	Update(ctx context.Context, strip *models.Strip) (int64, error)
 	Delete(ctx context.Context, session int32, callsign string) error
@@ -94,6 +95,10 @@ type StripRepository interface {
 	SetValidationStatus(ctx context.Context, session int32, callsign string, status *models.ValidationStatus) error
 	AcknowledgeValidationStatus(ctx context.Context, session int32, callsign string, activationKey string) (int64, error)
 	ClearValidationStatus(ctx context.Context, session int32, callsign string) error
+
+	// WithTx returns a repository bound to the supplied transaction for
+	// operations that must update a strip atomically with SAT state.
+	WithTx(tx pgx.Tx) StripRepository
 }
 
 // ControllerRepository defines the interface for controller data access
@@ -180,12 +185,14 @@ type StandAssignmentRepository interface {
 	CreateAssignment(ctx context.Context, assignment *models.StandAssignment) error
 	GetAssignment(ctx context.Context, session int32, callsign string) (*models.StandAssignment, error)
 	ListAssignments(ctx context.Context, session int32) ([]*models.StandAssignment, error)
+	LockAssignments(ctx context.Context, session int32, callsign string) ([]*models.StandAssignment, error)
 	UpdateAssignment(ctx context.Context, assignment *models.StandAssignment) (int64, error)
 	DeleteAssignment(ctx context.Context, session int32, id int64, version int32) (int64, error)
 
 	CreateBlock(ctx context.Context, block *models.StandBlock) error
 	GetBlock(ctx context.Context, session int32, id int64) (*models.StandBlock, error)
 	ListBlocks(ctx context.Context, session int32) ([]*models.StandBlock, error)
+	LockActiveManualBlocks(ctx context.Context, session int32) ([]*models.StandBlock, error)
 	ListBlocksByStand(ctx context.Context, session int32, stand string) ([]*models.StandBlock, error)
 	UpdateBlock(ctx context.Context, block *models.StandBlock) (int64, error)
 	DeleteBlock(ctx context.Context, session int32, id int64, version int32) (int64, error)

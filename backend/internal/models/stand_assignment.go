@@ -16,6 +16,9 @@ type StandAssignment struct {
 	RuleID         *string
 	Tier           *int32
 	MatchedVariant *string
+	// ConflictReason is set only for an explicit manual override. It preserves
+	// why a controller knowingly allocated an incompatible or unavailable stand.
+	ConflictReason *string
 	ETA            *time.Time
 	ETASource      *string
 	AssignedAt     *time.Time

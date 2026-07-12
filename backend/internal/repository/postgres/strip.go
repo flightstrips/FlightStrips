@@ -3,11 +3,13 @@ package postgres
 import (
 	"FlightStrips/internal/database"
 	"FlightStrips/internal/models"
+	"FlightStrips/internal/repository"
 	"context"
 	"encoding/json"
 	"errors"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -20,6 +22,11 @@ func NewStripRepository(db *pgxpool.Pool) *stripRepository {
 	return &stripRepository{
 		queries: database.New(db),
 	}
+}
+
+// WithTx returns a strip repository bound to tx.
+func (r *stripRepository) WithTx(tx pgx.Tx) repository.StripRepository {
+	return &stripRepository{queries: r.queries.WithTx(tx)}
 }
 
 func marshalCdmData(data *models.CdmData) ([]byte, error) {
@@ -230,6 +237,16 @@ func (r *stripRepository) GetByCallsign(ctx context.Context, session int32, call
 		Session:  session,
 		Callsign: callsign,
 	})
+	if err != nil {
+		return nil, err
+	}
+	return stripToModel(dbStrip)
+}
+
+// LockByCallsign retrieves a strip and holds a row lock until the caller's
+// transaction commits. SAT uses this before deciding strips.stand is current.
+func (r *stripRepository) LockByCallsign(ctx context.Context, session int32, callsign string) (*models.Strip, error) {
+	dbStrip, err := r.queries.LockStrip(ctx, database.LockStripParams{Callsign: callsign, Session: session})
 	if err != nil {
 		return nil, err
 	}

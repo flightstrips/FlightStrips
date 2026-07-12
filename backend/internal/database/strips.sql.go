@@ -732,6 +732,80 @@ func (q *Queries) ListStripsByOrigin(ctx context.Context, arg ListStripsByOrigin
 	return items, nil
 }
 
+const lockStrip = `-- name: LockStrip :one
+SELECT id, version, callsign, session, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay, position_latitude, position_longitude, position_altitude, next_owners, previous_owners, release_point, marked, registration, tracking_controller, runway_cleared, unexpected_change_fields, controller_modified_fields, engine_type, is_manual, persons_on_board, fpl_type, language, has_fp, cdm_data, runway_confirmed, pdc_data, validation_status, start_req, spoken_callsign, vatsim_cid, vatsim_revision, vatsim_seen_at, euroscope_seen_at
+FROM strips
+WHERE callsign = $1 AND session = $2
+FOR UPDATE
+`
+
+type LockStripParams struct {
+	Callsign string
+	Session  int32
+}
+
+func (q *Queries) LockStrip(ctx context.Context, arg LockStripParams) (Strip, error) {
+	row := q.db.QueryRow(ctx, lockStrip, arg.Callsign, arg.Session)
+	var i Strip
+	err := row.Scan(
+		&i.ID,
+		&i.Version,
+		&i.Callsign,
+		&i.Session,
+		&i.Origin,
+		&i.Destination,
+		&i.Alternative,
+		&i.Route,
+		&i.Remarks,
+		&i.AssignedSquawk,
+		&i.Squawk,
+		&i.Sid,
+		&i.ClearedAltitude,
+		&i.Heading,
+		&i.AircraftType,
+		&i.Runway,
+		&i.RequestedAltitude,
+		&i.Capabilities,
+		&i.CommunicationType,
+		&i.AircraftCategory,
+		&i.Stand,
+		&i.Sequence,
+		&i.State,
+		&i.Cleared,
+		&i.Owner,
+		&i.Bay,
+		&i.PositionLatitude,
+		&i.PositionLongitude,
+		&i.PositionAltitude,
+		&i.NextOwners,
+		&i.PreviousOwners,
+		&i.ReleasePoint,
+		&i.Marked,
+		&i.Registration,
+		&i.TrackingController,
+		&i.RunwayCleared,
+		&i.UnexpectedChangeFields,
+		&i.ControllerModifiedFields,
+		&i.EngineType,
+		&i.IsManual,
+		&i.PersonsOnBoard,
+		&i.FplType,
+		&i.Language,
+		&i.HasFp,
+		&i.CdmData,
+		&i.RunwayConfirmed,
+		&i.PdcData,
+		&i.ValidationStatus,
+		&i.StartReq,
+		&i.SpokenCallsign,
+		&i.VatsimCid,
+		&i.VatsimRevision,
+		&i.VatsimSeenAt,
+		&i.EuroscopeSeenAt,
+	)
+	return i, err
+}
+
 const markStripEuroscopeSeen = `-- name: MarkStripEuroscopeSeen :exec
 UPDATE strips
 SET euroscope_seen_at = NOW()

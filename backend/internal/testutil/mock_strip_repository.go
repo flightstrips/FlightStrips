@@ -2,8 +2,11 @@ package testutil
 
 import (
 	"FlightStrips/internal/models"
+	"FlightStrips/internal/repository"
 	"context"
 	"time"
+
+	"github.com/jackc/pgx/v5"
 )
 
 // MockStripRepository is a configurable mock for repository.StripRepository.
@@ -11,6 +14,7 @@ import (
 type MockStripRepository struct {
 	CreateFn                        func(ctx context.Context, strip *models.Strip) error
 	GetByCallsignFn                 func(ctx context.Context, session int32, callsign string) (*models.Strip, error)
+	LockByCallsignFn                func(ctx context.Context, session int32, callsign string) (*models.Strip, error)
 	ListFn                          func(ctx context.Context, session int32) ([]*models.Strip, error)
 	UpdateFn                        func(ctx context.Context, strip *models.Strip) (int64, error)
 	DeleteFn                        func(ctx context.Context, session int32, callsign string) error
@@ -69,6 +73,17 @@ type MockStripRepository struct {
 	SetValidationStatusFn           func(ctx context.Context, session int32, callsign string, status *models.ValidationStatus) error
 	AcknowledgeValidationStatusFn   func(ctx context.Context, session int32, callsign string, activationKey string) (int64, error)
 	ClearValidationStatusFn         func(ctx context.Context, session int32, callsign string) error
+	WithTxFn                        func(tx pgx.Tx) repository.StripRepository
+}
+
+// WithTx returns a transaction-bound repository in production. The mock has
+// no database state, so callers can either inject a transaction-specific mock
+// or continue using this instance.
+func (m *MockStripRepository) WithTx(tx pgx.Tx) repository.StripRepository {
+	if m.WithTxFn != nil {
+		return m.WithTxFn(tx)
+	}
+	return m
 }
 
 func (m *MockStripRepository) Create(ctx context.Context, strip *models.Strip) error {
@@ -83,6 +98,13 @@ func (m *MockStripRepository) GetByCallsign(ctx context.Context, session int32, 
 		panic("unexpected call to MockStripRepository.GetByCallsign")
 	}
 	return m.GetByCallsignFn(ctx, session, callsign)
+}
+
+func (m *MockStripRepository) LockByCallsign(ctx context.Context, session int32, callsign string) (*models.Strip, error) {
+	if m.LockByCallsignFn == nil {
+		panic("unexpected call to MockStripRepository.LockByCallsign")
+	}
+	return m.LockByCallsignFn(ctx, session, callsign)
 }
 
 func (m *MockStripRepository) List(ctx context.Context, session int32) ([]*models.Strip, error) {

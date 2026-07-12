@@ -91,6 +91,16 @@ func (s *StripService) UpdateAircraftPosition(ctx context.Context, session int32
 		return err
 	}
 
+	// VATSIM-backed departures are observed by the feed reconciler. Locally
+	// spawned EuroScope aircraft never enter that path, so feed their live
+	// position into the same stand lifecycle here.
+	if s.departureObserver != nil && existingStrip.VatsimSeenAt == nil &&
+		strings.EqualFold(strings.TrimSpace(existingStrip.Origin), strings.TrimSpace(airport)) {
+		if err := s.departureObserver.ObserveDeparturePosition(ctx, session, existingStrip, lat, lon); err != nil {
+			return err
+		}
+	}
+
 	if existingStrip.Bay != bay {
 		slog.DebugContext(ctx, "UpdateAircraftPosition: bay changed, moving strip",
 			slog.String("callsign", callsign),

@@ -167,6 +167,27 @@ func (s *DepartureLifecycleService) ProcessDeparture(ctx context.Context, sessio
 	return s.ensureReservation(ctx, session, strip, flight)
 }
 
+// ObserveDeparturePosition applies the live stand-detection path to an
+// EuroScope aircraft that has no VATSIM feed record.
+func (s *DepartureLifecycleService) ObserveDeparturePosition(ctx context.Context, session int32, strip *models.Strip, latitude, longitude float64) error {
+	if strip == nil || strings.TrimSpace(strip.Callsign) == "" {
+		return nil
+	}
+	activated, err := s.activateObservedBlock(ctx, session, strip, vatsim.DepartureFlightInfo{
+		Callsign: strip.Callsign, Online: true, Origin: strip.Origin,
+		Destination: strip.Destination, AircraftType: valueString(strip.AircraftType),
+		Latitude: latitude, Longitude: longitude,
+	})
+	if err != nil || !activated {
+		return err
+	}
+	return s.revalidateFacts(ctx, session, strip, vatsim.DepartureFlightInfo{
+		Callsign: strip.Callsign, Online: true, Origin: strip.Origin,
+		Destination: strip.Destination, AircraftType: valueString(strip.AircraftType),
+		Latitude: latitude, Longitude: longitude,
+	})
+}
+
 // activateObservedBlock only converts an online aircraft to a departure block
 // after its live position resolves to a stand. A compatible, available spawn
 // stand replaces the reservation atomically. An unavailable or incompatible
@@ -326,8 +347,10 @@ func (s *DepartureLifecycleService) renewInPlace(ctx context.Context, strip *mod
 	updated.ExpiresAt = &expiry
 	updated.AssignedAt = &now
 	updated.Stage = StageReserved
-	revision := flight.Revision
-	updated.VatsimRevision = &revision
+	if parseCID(flight.CID) != nil {
+		revision := flight.Revision
+		updated.VatsimRevision = &revision
+	}
 	affected, err := s.assignments.UpdateAssignment(ctx, &updated)
 	if err != nil {
 		return err
@@ -375,8 +398,10 @@ func (s *DepartureLifecycleService) activateBlock(ctx context.Context, session i
 		updated.ConflictReason = nil
 	}
 	updated.AssignedAt = &now
-	revision := flight.Revision
-	updated.VatsimRevision = &revision
+	if parseCID(flight.CID) != nil {
+		revision := flight.Revision
+		updated.VatsimRevision = &revision
+	}
 	affected, err := s.assignments.UpdateAssignment(ctx, &updated)
 	if err != nil {
 		return err
@@ -397,7 +422,10 @@ func (s *DepartureLifecycleService) activateBlock(ctx context.Context, session i
 	reloaded.Stage = StageDepartureBlock
 	reloaded.ExpiresAt = expiry
 	reloaded.AssignedAt = &now
-	reloaded.VatsimRevision = &revision
+	if parseCID(flight.CID) != nil {
+		revision := flight.Revision
+		reloaded.VatsimRevision = &revision
+	}
 	_, err = s.assignments.UpdateAssignment(ctx, reloaded)
 	return err
 }
@@ -532,8 +560,7 @@ func (s *DepartureLifecycleService) StartSweep(ctx context.Context) {
 
 func (s *DepartureLifecycleService) buildRequest(session int32, strip *models.Strip, flight vatsim.DepartureFlightInfo, stage string, expiresAt *time.Time) StandAllocationRequest {
 	facts, assignmentFacts := s.resolveFacts(strip, flight)
-	revision := flight.Revision
-	return StandAllocationRequest{
+	request := StandAllocationRequest{
 		SessionID:       session,
 		Callsign:        strip.Callsign,
 		Airport:         strings.ToUpper(strings.TrimSpace(strip.Origin)),
@@ -542,9 +569,13 @@ func (s *DepartureLifecycleService) buildRequest(session int32, strip *models.St
 		FlightFacts:     facts,
 		AssignmentFacts: assignmentFacts,
 		ExpiresAt:       expiresAt,
-		VatsimCID:       parseCID(flight.CID),
-		VatsimRevision:  &revision,
 	}
+	if cid := parseCID(flight.CID); cid != nil {
+		revision := flight.Revision
+		request.VatsimCID = cid
+		request.VatsimRevision = &revision
+	}
+	return request
 }
 
 func (s *DepartureLifecycleService) resolveFacts(strip *models.Strip, flight vatsim.DepartureFlightInfo) (sat.FlightCompatibilityFacts, sat.AssignmentFlightFacts) {

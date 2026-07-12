@@ -36,6 +36,11 @@ type StripService struct {
 	routeComputer     StripRouteComputer
 	pdcService        shared.PdcService
 	cdmService        shared.CdmService
+	departureObserver departurePositionObserver
+}
+
+type departurePositionObserver interface {
+	ObserveDeparturePosition(ctx context.Context, session int32, strip *internalModels.Strip, latitude, longitude float64) error
 }
 
 func NewStripService(stripReader StripReader, options ...StripServiceOption) *StripService {
@@ -152,6 +157,10 @@ func (s *StripService) recalculateRouteForStrip(ctx context.Context, session int
 
 func (s *StripService) SetCdmService(cdmService shared.CdmService) {
 	s.cdmService = cdmService
+}
+
+func (s *StripService) SetDeparturePositionObserver(observer departurePositionObserver) {
+	s.departureObserver = observer
 }
 
 func (s *StripService) ClearMandatoryRouteCdm(ctx context.Context, sessionID int32, callsign string) {

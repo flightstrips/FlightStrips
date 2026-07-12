@@ -9,6 +9,7 @@ import { ArrStandDialog } from "./ArrStandDialog";
 import { ApronTaxiMapDialog } from "../map-dialogs/ApronTaxiMapDialog";
 import { SIBox } from "./SIBox";
 import { ValidationStatusDialog } from "./ValidationStatusDialog";
+import { getStandAssignmentStyle } from "./standAssignmentStyle";
 
 // Height: 4.72dvh (51px at 1080p), matches FinalArrStrip ATC arrival strip spec
 const TOP_H = "3.15dvh"; // 2/3 of 4.72dvh
@@ -73,7 +74,11 @@ export function ApnArrStrip({
   const [taxiMapOpen, setTaxiMapOpen] = useState(false);
   const [fplOpen, setFplOpen] = useState(false);
   const acknowledgeUnexpectedChange = useWebSocketStore(s => s.acknowledgeUnexpectedChange);
-  const standYellow = unexpectedChangeFields?.includes("stand");
+  const satEnabled = useWebSocketStore(s => s.satEnabled);
+  const satAssignment = useWebSocketStore(s => s.standAssignments.find(a => a.callsign === callsign));
+  const acknowledgeStandAssignment = useWebSocketStore(s => s.acknowledgeStandAssignment);
+  const satStandStyle = getStandAssignmentStyle(satEnabled ? satAssignment : undefined);
+  const standYellow = !satEnabled && unexpectedChangeFields?.includes("stand");
   const runwayYellow = unexpectedChangeFields?.includes("runway");
   const nextFreq = useNextFrequencyDisplay(nextDisplay, nextControllers, myPosition);
 
@@ -162,9 +167,12 @@ export function ApnArrStrip({
       {/* Stand */}
       <div
         className="flex flex-col overflow-hidden min-w-0 cursor-pointer hover:brightness-95"
-        style={{ flexGrow: F_STAND, flexBasis: 0, height: "100%", backgroundColor: standYellow ? COLOR_UNEXPECTED_YELLOW : undefined, cursor: getValidationBlockedCursor(isValidationActive) }}
+        style={{ flexGrow: F_STAND, flexBasis: 0, height: "100%", backgroundColor: satStandStyle.backgroundColor ?? (standYellow ? COLOR_UNEXPECTED_YELLOW : undefined), cursor: getValidationBlockedCursor(isValidationActive) }}
+        title={satStandStyle.blocked ? satAssignment?.conflict_reason : undefined}
         onClick={(e) => guardValidationAction(e, () => {
-          if (standYellow) {
+          if (satStandStyle.changed && satAssignment?.version !== undefined) {
+            acknowledgeStandAssignment(callsign, satAssignment.version);
+          } else if (standYellow) {
             acknowledgeUnexpectedChange(callsign, "stand");
           } else {
             setStandOpen(true);
@@ -172,7 +180,7 @@ export function ApnArrStrip({
         })}
       >
         <div className="flex items-center justify-center" style={{ height: TOP_H }}>
-          <span className="truncate" style={{ fontWeight: "bold", fontSize: "1.04vw", color: getCellTextColor("stand", controllerModifiedFields) }}>{stand}</span>
+          <span className="truncate" style={{ fontWeight: "bold", fontSize: "1.04vw", color: satStandStyle.color ?? getCellTextColor("stand", controllerModifiedFields) }}>{stand}</span>
         </div>
         <div style={{ height: BOT_H }} />
       </div>

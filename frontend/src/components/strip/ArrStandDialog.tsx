@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import EstStandCell from "@/components/est/EstStandCell";
 import EstViewButtons from "@/components/est/EstViewButtons";
 import {
@@ -9,7 +9,7 @@ import {
   isCargoStand,
   type EstView,
 } from "@/components/est/metadata";
-import { Bay, type FrontendStrip } from "@/api/models";
+import { ActionType, Bay, type FrontendStrip } from "@/api/models";
 import { useStrips, useWebSocketStore } from "@/store/store-hooks";
 
 const COLOR_LABEL_DEFAULT = "#202020";
@@ -22,6 +22,92 @@ interface Props {
 }
 
 export function ArrStandDialog({ open, onOpenChange, callsign, currentStand }: Props) {
+  const satEnabled = useWebSocketStore(s => s.satEnabled);
+  return satEnabled
+    ? <SatStandAssignmentMenu open={open} onOpenChange={onOpenChange} callsign={callsign} />
+    : <LegacyArrStandDialog open={open} onOpenChange={onOpenChange} callsign={callsign} currentStand={currentStand} />;
+}
+
+function SatStandAssignmentMenu({ open, onOpenChange, callsign }: Omit<Props, "currentStand">) {
+  const [manualStand, setManualStand] = useState("");
+  const assignment = useWebSocketStore(s => s.standAssignments.find(a => a.callsign === callsign));
+  const rejection = useWebSocketStore(s => s.standActionRejection);
+  const requestAutomatic = useWebSocketStore(s => s.requestAutomaticStand);
+  const requestManual = useWebSocketStore(s => s.requestManualStand);
+  const confirmOverride = useWebSocketStore(s => s.confirmStandOverride);
+  const clearRejection = useWebSocketStore(s => s.clearStandActionRejection);
+  const submittedVersion = useRef<number | null>(null);
+  const version = assignment?.version ?? 0;
+  const relevantRejection = rejection?.callsign === callsign ? rejection : null;
+  const unsafeManual = relevantRejection?.action === ActionType.FrontendStandAssignmentManualRequest
+    && relevantRejection.code === "incompatible_or_occupied";
+
+  useEffect(() => {
+    if (open && submittedVersion.current !== null && assignment?.version !== submittedVersion.current) {
+      submittedVersion.current = null;
+      onOpenChange(false);
+    }
+  }, [assignment?.version, onOpenChange, open]);
+
+  if (!open) return null;
+
+  const close = () => {
+    setManualStand("");
+    submittedVersion.current = null;
+    clearRejection();
+    onOpenChange(false);
+  };
+  const send = () => {
+    submittedVersion.current = version;
+    const stand = manualStand.trim().toUpperCase();
+    if (stand) requestManual(callsign, stand, version);
+    else requestAutomatic(callsign, version);
+  };
+
+  if (relevantRejection) {
+    return (
+      <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/25" onMouseDown={close}>
+        <div className="w-[38rem] border border-black bg-[#e4e4e4] p-5 text-center shadow-lg" onMouseDown={e => e.stopPropagation()} role="alertdialog" aria-label="Stand assignment warning">
+          <h2 className="mb-5 text-2xl font-light">STAND ASSIGNMENT</h2>
+          <p className="mb-6 text-2xl text-red-600">{relevantRejection.code === "invalid_stand" ? "STAND NOT FOUND" : relevantRejection.reason}</p>
+          <div className="flex justify-center gap-4">
+            <MenuButton onClick={close}>ESC</MenuButton>
+            {unsafeManual && <MenuButton onClick={() => { submittedVersion.current = version; requestAutomatic(callsign, version); }}>AUTO ASSIGN</MenuButton>}
+            {unsafeManual && <MenuButton onClick={() => { submittedVersion.current = version; confirmOverride(callsign, manualStand.trim().toUpperCase(), version, relevantRejection.reason); }}>YES</MenuButton>}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20" onMouseDown={close}>
+      <div className="w-[17.8rem] border border-black bg-[#b3b3b3] p-4 shadow-lg" onMouseDown={e => e.stopPropagation()} role="dialog" aria-label="Stand assignment">
+        <h2 className="mb-2 text-center text-2xl font-light">STAND ASSIGNMENT</h2>
+        <div className="flex flex-col gap-2">
+          <MenuButton onClick={send}>SEND REQ</MenuButton>
+          <button className={`h-[4.4rem] text-3xl ${manualStand ? "bg-[#3f3f3f] text-white" : "bg-[#00ff26] text-black"}`} onClick={() => setManualStand("")}>AUTOMATIC</button>
+          <input
+            className="h-[4.4rem] bg-[#fcfcfc] px-3 text-center text-3xl uppercase text-black outline-none"
+            aria-label="Manual stand"
+            value={manualStand}
+            maxLength={8}
+            onChange={e => setManualStand(e.target.value.toUpperCase())}
+            onKeyDown={e => { if (e.key === "Enter") send(); if (e.key === "Escape") close(); }}
+            autoFocus
+          />
+          <MenuButton onClick={close}>ESC</MenuButton>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MenuButton({ children, onClick }: { children: ReactNode; onClick: () => void }) {
+  return <button className="h-[4.4rem] bg-[#3f3f3f] px-5 text-2xl font-semibold text-white shadow" onClick={onClick}>{children}</button>;
+}
+
+function LegacyArrStandDialog({ open, onOpenChange, callsign, currentStand }: Props) {
   const updateStrip = useWebSocketStore(s => s.updateStrip);
   const strips = useStrips();
   const [boardScale, setBoardScale] = useState(1);

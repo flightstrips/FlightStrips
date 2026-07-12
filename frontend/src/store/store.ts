@@ -2,6 +2,7 @@ import {createStore} from 'zustand/vanilla';
 import {produce} from 'immer';
 import {
   ActionType,
+  type ActionRejectedEvent,
   Bay,
   EventType,
   type FrontendAircraftDisconnectEvent,
@@ -174,6 +175,11 @@ export interface WebSocketState {
   occupyStand: (stand: string) => void;
   vacateStand: (stand: string, blockId: number, version: number) => void;
   requestManualStand: (callsign: string, stand: string, version: number) => void;
+  requestAutomaticStand: (callsign: string, version: number) => void;
+  confirmStandOverride: (callsign: string, stand: string, version: number, reason: string) => void;
+  acknowledgeStandAssignment: (callsign: string, version: number) => void;
+  standActionRejection: ActionRejectedEvent | null;
+  clearStandActionRejection: () => void;
 
   // actions
   move: (callsign: string, bay: Bay) => void;
@@ -261,6 +267,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     contextMenu: null,
     validationDialogCallsign: null,
     standAssignments: [],
+    standActionRejection: null,
     standBlocks: [],
     satEnabled: false,
   };
@@ -779,8 +786,21 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
       sendIfWritable({ type: ActionType.FrontendStandBlockRemove, stand, block_id: blockId, version });
     },
     requestManualStand: (callsign, stand, version) => {
+      store.setState({ standActionRejection: null });
       sendIfWritable({ type: ActionType.FrontendStandAssignmentManualRequest, callsign, stand, version });
     },
+    requestAutomaticStand: (callsign, version) => {
+      store.setState({ standActionRejection: null });
+      sendIfWritable({ type: ActionType.FrontendStandAssignmentAutomaticRequest, callsign, version });
+    },
+    confirmStandOverride: (callsign, stand, version, reason) => {
+      store.setState({ standActionRejection: null });
+      sendIfWritable({ type: ActionType.FrontendStandAssignmentConfirmedOverride, callsign, stand, version, reason });
+    },
+    acknowledgeStandAssignment: (callsign, version) => {
+      sendIfWritable({ type: ActionType.FrontendStandAssignmentAcknowledge, callsign, version });
+    },
+    clearStandActionRejection: () => store.setState({ standActionRejection: null }),
   }});
 
   // Private methods to handle WebSocket events
@@ -829,6 +849,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
         state.standAssignments = data.stand_assignments ?? [];
         state.standBlocks = data.stand_blocks ?? [];
         state.satEnabled = data.stand_assignment_enabled ?? false;
+        state.standActionRejection = null;
       })
     );
 
@@ -1330,7 +1351,14 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
 
   wsClient.on(EventType.FrontendAtisUpdate, handleAtisUpdateEvent);
 
-  const handleActionRejectedEvent = () => {
+  const handleActionRejectedEvent = (data: ActionRejectedEvent) => {
+    if (data.action.startsWith("stand_assignment_")) {
+      store.setState({ standActionRejection: data });
+      if (data.code === "stale_version") {
+        wsClient.reconnect();
+      }
+      return;
+    }
     // Reconnect to receive a fresh initial event from the server,
     // which overwrites any optimistic updates that were rejected.
     wsClient.reconnect();

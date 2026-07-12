@@ -154,7 +154,21 @@ func (m *MockStripRepository) ListByOrigin(ctx context.Context, session int32, o
 	if m.ListByOriginFn == nil {
 		panic("unexpected call to MockStripRepository.ListByOrigin")
 	}
-	return m.ListByOriginFn(ctx, session, origin)
+	strips, err := m.ListByOriginFn(ctx, session, origin)
+	if err != nil {
+		return nil, err
+	}
+	// Older CDM fixtures predate strip provenance. Treat provenance-less mock
+	// strips as EuroScope observations; tests that model VATSIM records set
+	// VatsimSeenAt explicitly and remain unconnected unless they also set
+	// EuroscopeSeenAt.
+	for _, strip := range strips {
+		if strip != nil && strip.VatsimSeenAt == nil && strip.EuroscopeSeenAt == nil {
+			seenAt := time.Now()
+			strip.EuroscopeSeenAt = &seenAt
+		}
+	}
+	return strips, nil
 }
 
 func (m *MockStripRepository) GetBay(ctx context.Context, session int32, callsign string) (string, error) {

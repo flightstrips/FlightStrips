@@ -9,6 +9,7 @@ import (
 	"FlightStrips/pkg/events/frontend"
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"strings"
 	"time"
@@ -770,5 +771,76 @@ func handleSendPrivateMessage(ctx context.Context, client *Client, message Messa
 	}
 	euroscopeHub := client.hub.server.GetEuroscopeHub()
 	euroscopeHub.Send(client.session, client.GetCid(), event)
+	return nil
+}
+
+func handleStandOccupy(ctx context.Context, client *Client, message Message) error {
+	var action frontend.StandOccupyAction
+	if err := message.JsonUnmarshal(&action); err != nil {
+		return err
+	}
+
+	repo := client.hub.server.GetStandAssignmentRepository()
+	if repo == nil {
+		return errors.New("stand assignment is not enabled")
+	}
+
+	reason := action.Reason
+	createdBy := client.position
+
+	block := &internalModels.StandBlock{
+		SessionID: client.session,
+		Stand:     action.Stand,
+		BlockType: "MANUAL",
+		Source:    "CONTROLLER",
+		Reason:    &reason,
+		CreatedBy: &createdBy,
+		Manual:    true,
+	}
+
+	if err := repo.CreateBlock(ctx, block); err != nil {
+		return fmt.Errorf("create stand block: %w", err)
+	}
+
+	client.hub.SendStandBlockBroadcast(client.session, action.Stand, &frontend.StandBlockEntry{
+		Stand:     block.Stand,
+		BlockType: block.BlockType,
+		Reason:    block.Reason,
+		CreatedBy: block.CreatedBy,
+	})
+
+	return nil
+}
+
+func handleStandVacate(ctx context.Context, client *Client, message Message) error {
+	var action frontend.StandVacateAction
+	if err := message.JsonUnmarshal(&action); err != nil {
+		return err
+	}
+
+	repo := client.hub.server.GetStandAssignmentRepository()
+	if repo == nil {
+		return errors.New("stand assignment is not enabled")
+	}
+
+	blocks, err := repo.ListBlocksByStand(ctx, client.session, action.Stand)
+	if err != nil {
+		return fmt.Errorf("list stand blocks: %w", err)
+	}
+
+	deletedAny := false
+	for _, block := range blocks {
+		if block != nil && block.BlockType == "MANUAL" {
+			if _, err := repo.DeleteBlock(ctx, client.session, block.ID, block.Version); err != nil {
+				return fmt.Errorf("delete stand block: %w", err)
+			}
+			deletedAny = true
+		}
+	}
+
+	if deletedAny {
+		client.hub.SendStandBlockBroadcast(client.session, action.Stand, nil)
+	}
+
 	return nil
 }

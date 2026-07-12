@@ -29,6 +29,7 @@ interface EstStandCellProps {
   strip?: FrontendStrip;
   selected: boolean;
   blocked: boolean;
+  blockReason?: string;
   actionActive: boolean;
   blinking: boolean;
   startReqActive: boolean;
@@ -42,6 +43,7 @@ export default function EstStandCell({
   stand,
   strip,
   blocked,
+  blockReason,
   actionActive,
   blinking,
   startReqActive,
@@ -52,7 +54,7 @@ export default function EstStandCell({
 }: EstStandCellProps) {
   const vgdsStatus = getVgdsStatus(stand.label);
   const bridgeStatus = getBridgeStatus(stand.label);
-  const tooltipContent = [vgdsStatus, bridgeStatus].filter(Boolean).join(" \u2022 ");
+  const tooltipContent = [vgdsStatus, bridgeStatus, blocked ? blockReason : undefined].filter(Boolean).join(" \u2022 ");
   const gridStyle =
     "column" in stand && "row" in stand && stand.column !== undefined && stand.row !== undefined
       ? { gridColumn: stand.column, gridRow: stand.row }

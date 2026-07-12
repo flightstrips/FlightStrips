@@ -143,3 +143,9 @@ export const useCloseStripContextMenu = () => useWebSocketStore((state) => state
 export const useValidationDialogCallsign = () => useWebSocketStore((state) => state.validationDialogCallsign);
 export const useOpenValidationDialog = () => useWebSocketStore((state) => state.openValidationDialog);
 export const useCloseValidationDialog = () => useWebSocketStore((state) => state.closeValidationDialog);
+
+export const useStandAssignments = () => useWebSocketStore((state) => state.standAssignments);
+export const useStandBlocks = () => useWebSocketStore((state) => state.standBlocks);
+export const useSatEnabled = () => useWebSocketStore((state) => state.satEnabled);
+export const useOccupyStand = () => useWebSocketStore((state) => state.occupyStand);
+export const useVacateStand = () => useWebSocketStore((state) => state.vacateStand);

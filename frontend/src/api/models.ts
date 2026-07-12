@@ -39,6 +39,9 @@ export enum EventType {
   FrontendActionRejected = "action_rejected",
   FrontendAvailableSids = "available_sids",
   FrontendCoordinationTagRequestBroadcast = "coordination_tag_request_broadcast",
+  FrontendStandStatusSnapshot = "stand_status_snapshot",
+  FrontendStandAssignmentUpdate = "stand_assignment_update",
+  FrontendStandBlockUpdate = "stand_block_update",
 }
 
 export enum ActionType {
@@ -77,6 +80,8 @@ export enum ActionType {
   FrontendAcknowledgeValidationStatus = "acknowledge_validation_status",
   FrontendClxOverrideValidation = "clx_override_validation",
   FrontendClxUpdateTobt = "clx_update_tobt",
+  FrontendStandOccupy = "stand_occupy",
+  FrontendStandVacate = "stand_vacate",
 }
 
 export type PdcStatus = "NONE" | "REQUESTED" | "REQUESTED_WITH_FAULTS" | "CLEARED" | "CONFIRMED" | "NO_RESPONSE" | "FAILED" | "REVERT_TO_VOICE";
@@ -282,6 +287,9 @@ export interface FrontendInitialEvent {
   read_only: boolean;
   position_available: boolean;
   local_ip?: string;
+  stand_assignment_enabled: boolean;
+  stand_assignments: FrontendStandAssignmentEntry[];
+  stand_blocks: FrontendStandBlockEntry[];
 }
 
 export interface FrontendStripUpdateEvent {
@@ -643,12 +651,62 @@ export type WebSocketEvent =
   | FrontendMessageReceivedEvent
   | FrontendAtisUpdateEvent
   | ActionRejectedEvent
-  | FrontendBulkBayEvent;
+  | FrontendBulkBayEvent
+  | FrontendStandStatusSnapshotEvent
+  | FrontendStandAssignmentUpdateEvent
+  | FrontendStandBlockUpdateEvent;
 
 export interface ActionRejectedEvent {
   type: EventType.FrontendActionRejected;
   action: string;
   reason: string;
+}
+
+export interface FrontendStandAssignmentEntry {
+  callsign: string;
+  stand: string;
+  direction: string;
+  stage: string;
+  source: string;
+  eta?: string;
+  expires_at?: string;
+}
+
+export interface FrontendStandBlockEntry {
+  stand: string;
+  block_type: string;
+  reason?: string;
+  callsign?: string;
+  created_by?: string;
+  expires_at?: string;
+}
+
+export interface FrontendStandStatusSnapshotEvent {
+  type: EventType.FrontendStandStatusSnapshot;
+  assignments: FrontendStandAssignmentEntry[];
+  blocks: FrontendStandBlockEntry[];
+}
+
+export interface FrontendStandAssignmentUpdateEvent {
+  type: EventType.FrontendStandAssignmentUpdate;
+  assignment: FrontendStandAssignmentEntry;
+}
+
+export interface FrontendStandBlockUpdateEvent {
+  type: EventType.FrontendStandBlockUpdate;
+  stand: string;
+  block: FrontendStandBlockEntry | null;
+}
+
+export interface FrontendStandOccupyAction {
+  type: ActionType.FrontendStandOccupy;
+  stand: string;
+  reason: string;
+}
+
+export interface FrontendStandVacateAction {
+  type: ActionType.FrontendStandVacate;
+  stand: string;
 }
 
 export interface FrontendGoAroundEvent {
@@ -854,7 +912,7 @@ export interface FrontendClxUpdateTobtEvent {
 }
 
 // Union type for all events that can be sent
-export type FrontendSendEvent = FrontendUpdateRunwayStatusEvent | FrontendMissedApproachEvent |FrontendCreateManualFPLAction | FrontendCreateVFRFPLAction |FrontendAuthenticationEvent | FrontendMoveEvent | FrontendGenerateSquawkEvent | FrontendUpdateStripDataEvent | FrontendUpdateOrder | FrontendSendMessageEvent | FrontendSendPrivateMessageEvent | FrontendCdmReadyEvent | FrontendSendReleasePointEvent | FrontendSetStartReqAction | FrontendSendMarkedEvent | FrontendSendRunwayClearanceEvent | FrontendSendRunwayConfirmationEvent | FrontendIssuePdcClearanceRequest | FrontendRevertToVoiceRequest | FrontendCoordinationTransferRequestEvent | FrontendCoordinationAssumeRequestEvent | FrontendCoordinationForceAssumeRequestEvent | FrontendCoordinationFreeRequestEvent | FrontendCoordinationCancelTransferRequestEvent | FrontendCoordinationTagRequestEvent | FrontendCoordinationAcceptTagRequestEvent | FrontendCreateTacticalStripAction | FrontendDeleteTacticalStripAction | FrontendConfirmTacticalStripAction | FrontendStartTacticalTimerAction | FrontendMoveTacticalStripAction | FrontendAcknowledgeUnexpectedChangeEvent | FrontendAcknowledgeValidationStatusEvent | FrontendClxOverrideValidationEvent | FrontendClxUpdateTobtEvent;
+export type FrontendSendEvent = FrontendUpdateRunwayStatusEvent | FrontendMissedApproachEvent |FrontendCreateManualFPLAction | FrontendCreateVFRFPLAction |FrontendAuthenticationEvent | FrontendMoveEvent | FrontendGenerateSquawkEvent | FrontendUpdateStripDataEvent | FrontendUpdateOrder | FrontendSendMessageEvent | FrontendSendPrivateMessageEvent | FrontendCdmReadyEvent | FrontendSendReleasePointEvent | FrontendSetStartReqAction | FrontendSendMarkedEvent | FrontendSendRunwayClearanceEvent | FrontendSendRunwayConfirmationEvent | FrontendIssuePdcClearanceRequest | FrontendRevertToVoiceRequest | FrontendCoordinationTransferRequestEvent | FrontendCoordinationAssumeRequestEvent | FrontendCoordinationForceAssumeRequestEvent | FrontendCoordinationFreeRequestEvent | FrontendCoordinationCancelTransferRequestEvent | FrontendCoordinationTagRequestEvent | FrontendCoordinationAcceptTagRequestEvent | FrontendCreateTacticalStripAction | FrontendDeleteTacticalStripAction | FrontendConfirmTacticalStripAction | FrontendStartTacticalTimerAction | FrontendMoveTacticalStripAction | FrontendAcknowledgeUnexpectedChangeEvent | FrontendAcknowledgeValidationStatusEvent | FrontendClxOverrideValidationEvent | FrontendClxUpdateTobtEvent | FrontendStandOccupyAction | FrontendStandVacateAction;
 
 export type AnyStrip = FrontendStrip | TacticalStrip;
 export const isFlight = (s: AnyStrip): s is FrontendStrip => 'callsign' in s;

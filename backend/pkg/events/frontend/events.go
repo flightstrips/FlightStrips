@@ -106,6 +106,15 @@ const (
 	AcknowledgeValidationStatus EventType = "acknowledge_validation_status"
 	ClxOverrideValidation       EventType = "clx_override_validation"
 	ClxUpdateTobt               EventType = "clx_update_tobt"
+
+	// Stand Status events (broadcast to frontend)
+	StandStatusSnapshot   EventType = "stand_status_snapshot"
+	StandAssignmentUpdate EventType = "stand_assignment_update"
+	StandBlockUpdate      EventType = "stand_block_update"
+
+	// Stand action types (sent from frontend to backend)
+	ActionStandOccupy EventType = "stand_occupy"
+	ActionStandVacate EventType = "stand_vacate"
 )
 
 type OutgoingMessage interface {
@@ -255,22 +264,25 @@ type SyncCoordination struct {
 }
 
 type InitialEvent struct {
-	Contsollers        []Controller            `json:"controllers"`
-	Strips             []Strip                 `json:"strips"`
-	TacticalStrips     []TacticalStripPayload  `json:"tactical_strips"`
-	Me                 Controller              `json:"me"`
-	Layout             string                  `json:"layout"`
-	Airport            string                  `json:"airport"`
-	Callsign           string                  `json:"callsign"`
-	RunwaySetup        RunwayConfiguration     `json:"runway_setup"`
-	Coordinations      []SyncCoordination      `json:"coordinations"`
-	Messages           []MessageReceivedEvent  `json:"messages"`
-	AvailableSids      pkgModels.AvailableSids `json:"available_sids"`
-	InitialCFLByRunway map[string]int32        `json:"initial_cfl_by_runway"`
-	TransitionAltitude int32                   `json:"transition_altitude"`
-	ReadOnly           bool                    `json:"read_only"`
-	PositionAvailable  bool                    `json:"position_available"`
-	LocalIP            string                  `json:"local_ip,omitempty"`
+	Contsollers            []Controller            `json:"controllers"`
+	Strips                 []Strip                 `json:"strips"`
+	TacticalStrips         []TacticalStripPayload  `json:"tactical_strips"`
+	Me                     Controller              `json:"me"`
+	Layout                 string                  `json:"layout"`
+	Airport                string                  `json:"airport"`
+	Callsign               string                  `json:"callsign"`
+	RunwaySetup            RunwayConfiguration     `json:"runway_setup"`
+	Coordinations          []SyncCoordination      `json:"coordinations"`
+	Messages               []MessageReceivedEvent  `json:"messages"`
+	AvailableSids          pkgModels.AvailableSids `json:"available_sids"`
+	InitialCFLByRunway     map[string]int32        `json:"initial_cfl_by_runway"`
+	TransitionAltitude     int32                   `json:"transition_altitude"`
+	ReadOnly               bool                    `json:"read_only"`
+	PositionAvailable      bool                    `json:"position_available"`
+	LocalIP                string                  `json:"local_ip,omitempty"`
+	StandAssignmentEnabled bool                    `json:"stand_assignment_enabled"`
+	StandAssignments       []StandAssignmentEntry  `json:"stand_assignments"`
+	StandBlocks            []StandBlockEntry       `json:"stand_blocks"`
 }
 
 func (i InitialEvent) Marshal() ([]byte, error) {
@@ -1013,4 +1025,68 @@ func (e GoAroundEvent) GetType() EventType       { return GoAround }
 type MissedApproachRequestEvent struct {
 	Type     EventType `json:"type"`
 	Callsign string    `json:"callsign"`
+}
+
+// ---------- STAND STATUS EVENTS ----------
+
+// StandAssignmentEntry represents a single stand assignment for frontend consumption.
+type StandAssignmentEntry struct {
+	Callsign  string     `json:"callsign"`
+	Stand     string     `json:"stand"`
+	Direction string     `json:"direction"`
+	Stage     string     `json:"stage"`
+	Source    string     `json:"source"`
+	ETA       *time.Time `json:"eta,omitempty"`
+	ExpiresAt *time.Time `json:"expires_at,omitempty"`
+}
+
+// StandBlockEntry represents a single stand block for frontend consumption.
+type StandBlockEntry struct {
+	Stand     string     `json:"stand"`
+	BlockType string     `json:"block_type"`
+	Reason    *string    `json:"reason,omitempty"`
+	Callsign  *string    `json:"callsign,omitempty"`
+	CreatedBy *string    `json:"created_by,omitempty"`
+	ExpiresAt *time.Time `json:"expires_at,omitempty"`
+}
+
+// StandStatusSnapshotEvent is broadcast to a newly connected frontend to seed stand state.
+type StandStatusSnapshotEvent struct {
+	Assignments []StandAssignmentEntry `json:"assignments"`
+	Blocks      []StandBlockEntry      `json:"blocks"`
+}
+
+func (e StandStatusSnapshotEvent) Marshal() ([]byte, error) { return marshall(e) }
+func (e StandStatusSnapshotEvent) GetType() EventType       { return StandStatusSnapshot }
+
+// StandAssignmentUpdateEvent is broadcast when an assignment changes.
+type StandAssignmentUpdateEvent struct {
+	Assignment StandAssignmentEntry `json:"assignment"`
+}
+
+func (e StandAssignmentUpdateEvent) Marshal() ([]byte, error) { return marshall(e) }
+func (e StandAssignmentUpdateEvent) GetType() EventType       { return StandAssignmentUpdate }
+
+// StandBlockUpdateEvent is broadcast when a manual block changes.
+type StandBlockUpdateEvent struct {
+	Stand string `json:"stand"`
+	Block *StandBlockEntry `json:"block,omitempty"`
+}
+
+func (e StandBlockUpdateEvent) Marshal() ([]byte, error) { return marshall(e) }
+func (e StandBlockUpdateEvent) GetType() EventType       { return StandBlockUpdate }
+
+// ---------- STAND ACTION PAYLOADS ----------
+
+// StandOccupyAction is sent by a frontend controller to manually block a stand.
+type StandOccupyAction struct {
+	Type   EventType `json:"type"`
+	Stand  string    `json:"stand"`
+	Reason string    `json:"reason"`
+}
+
+// StandVacateAction is sent by a frontend controller to remove a manual block.
+type StandVacateAction struct {
+	Type  EventType `json:"type"`
+	Stand string    `json:"stand"`
 }

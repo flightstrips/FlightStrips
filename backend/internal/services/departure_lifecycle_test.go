@@ -58,6 +58,34 @@ func TestDepartureLifecycle(t *testing.T) {
 		assert.Equal(t, int64(1), *assignment.VatsimRevision)
 	})
 
+	t.Run("local EuroScope departure occupies its observed stand", func(t *testing.T) {
+		lifecycle, _, session, assignments, strips, _ := departureLifecycleFixture(t, pool, queries, "", "", nil)
+		testdata.SeedTestStrip(t, queries, session, "SAS102")
+		strip := loadStrip(t, strips, session, "SAS102")
+
+		require.NoError(t, lifecycle.ObserveDeparturePosition(ctx, session, strip, 55.6285306, 12.642625))
+
+		assignment, err := assignments.GetAssignment(ctx, session, "SAS102")
+		require.NoError(t, err)
+		assert.Equal(t, StageDepartureBlock, assignment.Stage)
+		assert.Equal(t, "A1", assignment.Stand)
+		assert.Nil(t, assignment.VatsimCID)
+		assert.Nil(t, assignment.VatsimRevision)
+
+		// Force the existing-assignment update path by adding a block expiry.
+		tsat := "1030"
+		_, err = strips.SetCdmData(ctx, session, "SAS102", &models.CdmData{Tsat: &tsat})
+		require.NoError(t, err)
+		require.NoError(t, lifecycle.ObserveDeparturePosition(ctx, session,
+			loadStrip(t, strips, session, "SAS102"), 55.6285306, 12.642625))
+
+		updated, err := assignments.GetAssignment(ctx, session, "SAS102")
+		require.NoError(t, err)
+		require.NotNil(t, updated.ExpiresAt)
+		assert.Nil(t, updated.VatsimCID)
+		assert.Nil(t, updated.VatsimRevision)
+	})
+
 	t.Run("repeated feed polls do not extend or reshuffle the reservation", func(t *testing.T) {
 		lifecycle, _, session, assignments, strips, clock := departureLifecycleFixture(t, pool, queries, "", "", nil)
 		testdata.SeedTestStrip(t, queries, session, "SAS201")

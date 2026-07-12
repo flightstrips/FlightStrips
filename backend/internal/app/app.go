@@ -155,6 +155,9 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 		services.WithSessionReader(sessionRepo),
 		services.WithSectorOwnerRepository(sectorRepo),
 	)
+	if departureLifecycle != nil {
+		stripService.SetDeparturePositionObserver(departureLifecycle)
+	}
 	stripValidationService := services.NewStripValidationService(stripRepo, stripRepo)
 	controllerService := services.NewControllerService(controllerRepo)
 	cdmClient := cdm.NewClient(cdm.WithAPIKey(cfg.CDMKey))

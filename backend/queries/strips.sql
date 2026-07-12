@@ -3,7 +3,8 @@ INSERT INTO strips (version, callsign, session, origin, destination, alternative
                      squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities,
                      communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay,
                      position_latitude, position_longitude, position_altitude, cdm_data, next_owners, previous_owners,
-                     registration, tracking_controller, engine_type, spoken_callsign, has_fp, start_req)
+                     registration, tracking_controller, engine_type, spoken_callsign, has_fp, start_req,
+                     vatsim_cid, vatsim_revision, vatsim_seen_at, euroscope_seen_at)
 VALUES (
     1,
     sqlc.arg(callsign),
@@ -41,7 +42,11 @@ VALUES (
     sqlc.arg(engine_type),
     sqlc.arg(spoken_callsign),
     sqlc.arg(has_fp),
-    sqlc.arg(start_req)
+    sqlc.arg(start_req),
+    sqlc.arg(vatsim_cid),
+    sqlc.arg(vatsim_revision),
+    sqlc.arg(vatsim_seen_at),
+    sqlc.arg(euroscope_seen_at)
 );
 
 -- name: UpdateStrip :execrows
@@ -92,8 +97,42 @@ SET version = version + 1,
     has_fp = sqlc.arg(has_fp),
     pdc_data = sqlc.arg(pdc_data),
     validation_status = sqlc.arg(validation_status),
-    start_req = sqlc.arg(start_req)
+    start_req = sqlc.arg(start_req),
+    vatsim_cid = sqlc.arg(vatsim_cid),
+    vatsim_revision = sqlc.arg(vatsim_revision),
+    vatsim_seen_at = sqlc.arg(vatsim_seen_at),
+    euroscope_seen_at = sqlc.arg(euroscope_seen_at)
 WHERE callsign = sqlc.arg(callsign) AND session = sqlc.arg(session);
+
+-- name: MarkStripEuroscopeSeen :exec
+UPDATE strips
+SET euroscope_seen_at = NOW()
+WHERE callsign = $1 AND session = $2;
+
+-- name: ClearStripEuroscopeSeen :exec
+UPDATE strips
+SET euroscope_seen_at = NULL
+WHERE callsign = $1 AND session = $2;
+
+-- name: UpdateStripVatsimSource :execrows
+UPDATE strips
+SET
+    version = version + 1,
+    vatsim_cid = sqlc.arg(vatsim_cid),
+    vatsim_revision = sqlc.arg(vatsim_revision),
+    vatsim_seen_at = sqlc.arg(vatsim_seen_at),
+    origin = CASE WHEN NOT ('origin' = ANY(controller_modified_fields)) AND (euroscope_seen_at IS NULL OR euroscope_seen_at <= sqlc.arg(vatsim_seen_at)) THEN sqlc.arg(origin) ELSE origin END,
+    destination = CASE WHEN NOT ('destination' = ANY(controller_modified_fields)) AND (euroscope_seen_at IS NULL OR euroscope_seen_at <= sqlc.arg(vatsim_seen_at)) THEN sqlc.arg(destination) ELSE destination END,
+    alternative = CASE WHEN NOT ('alternative' = ANY(controller_modified_fields)) AND (euroscope_seen_at IS NULL OR euroscope_seen_at <= sqlc.arg(vatsim_seen_at)) THEN sqlc.arg(alternative) ELSE alternative END,
+    route = CASE WHEN NOT ('route' = ANY(controller_modified_fields)) AND (euroscope_seen_at IS NULL OR euroscope_seen_at <= sqlc.arg(vatsim_seen_at)) THEN sqlc.arg(route) ELSE route END,
+    remarks = CASE WHEN NOT ('remarks' = ANY(controller_modified_fields)) AND (euroscope_seen_at IS NULL OR euroscope_seen_at <= sqlc.arg(vatsim_seen_at)) THEN sqlc.arg(remarks) ELSE remarks END,
+    assigned_squawk = CASE WHEN NOT ('assigned_squawk' = ANY(controller_modified_fields)) AND (euroscope_seen_at IS NULL OR euroscope_seen_at <= sqlc.arg(vatsim_seen_at)) THEN sqlc.arg(assigned_squawk) ELSE assigned_squawk END,
+    aircraft_type = CASE WHEN NOT ('aircraft_type' = ANY(controller_modified_fields)) AND (euroscope_seen_at IS NULL OR euroscope_seen_at <= sqlc.arg(vatsim_seen_at)) THEN sqlc.arg(aircraft_type) ELSE aircraft_type END,
+    position_latitude = CASE WHEN sqlc.arg(online)::boolean AND NOT ('position_latitude' = ANY(controller_modified_fields)) AND (euroscope_seen_at IS NULL OR euroscope_seen_at <= sqlc.arg(vatsim_seen_at)) THEN sqlc.arg(position_latitude) ELSE position_latitude END,
+    position_longitude = CASE WHEN sqlc.arg(online)::boolean AND NOT ('position_longitude' = ANY(controller_modified_fields)) AND (euroscope_seen_at IS NULL OR euroscope_seen_at <= sqlc.arg(vatsim_seen_at)) THEN sqlc.arg(position_longitude) ELSE position_longitude END,
+    position_altitude = CASE WHEN sqlc.arg(online)::boolean AND NOT ('position_altitude' = ANY(controller_modified_fields)) AND (euroscope_seen_at IS NULL OR euroscope_seen_at <= sqlc.arg(vatsim_seen_at)) THEN sqlc.arg(position_altitude) ELSE position_altitude END
+WHERE callsign = sqlc.arg(callsign) AND session = sqlc.arg(session);
+
 
 -- name: GetStrip :one
 SELECT *

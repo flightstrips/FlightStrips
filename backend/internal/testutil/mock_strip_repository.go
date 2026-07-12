@@ -56,6 +56,9 @@ type MockStripRepository struct {
 	AppendUnexpectedChangeFieldFn   func(ctx context.Context, session int32, callsign string, fieldName string) error
 	RemoveUnexpectedChangeFieldFn   func(ctx context.Context, session int32, callsign string, fieldName string) error
 	AppendControllerModifiedFieldFn func(ctx context.Context, session int32, callsign string, fieldName string) error
+	MarkEuroscopeSeenFn             func(ctx context.Context, session int32, callsign string) error
+	ClearEuroscopeSeenFn            func(ctx context.Context, session int32, callsign string) error
+	UpdateVatsimSourceFn            func(ctx context.Context, session int32, callsign string, source models.VatsimStripSource) (int64, error)
 	SetPdcDataFn                    func(ctx context.Context, session int32, callsign string, data *models.PdcData) error
 	SetPdcRequestedFn               func(ctx context.Context, session int32, callsign string, pdcState string, pdcRequestedAt *time.Time, pdcRequestRemarks *string) error
 	SetPdcMessageSentFn             func(ctx context.Context, session int32, callsign string, pdcState string, pdcMessageSequence *int32, pdcMessageSent *time.Time) error
@@ -94,6 +97,27 @@ func (m *MockStripRepository) Update(ctx context.Context, strip *models.Strip) (
 		panic("unexpected call to MockStripRepository.Update")
 	}
 	return m.UpdateFn(ctx, strip)
+}
+
+func (m *MockStripRepository) MarkEuroscopeSeen(ctx context.Context, session int32, callsign string) error {
+	if m.MarkEuroscopeSeenFn != nil {
+		return m.MarkEuroscopeSeenFn(ctx, session, callsign)
+	}
+	return nil
+}
+
+func (m *MockStripRepository) ClearEuroscopeSeen(ctx context.Context, session int32, callsign string) error {
+	if m.ClearEuroscopeSeenFn != nil {
+		return m.ClearEuroscopeSeenFn(ctx, session, callsign)
+	}
+	return nil
+}
+
+func (m *MockStripRepository) UpdateVatsimSource(ctx context.Context, session int32, callsign string, source models.VatsimStripSource) (int64, error) {
+	if m.UpdateVatsimSourceFn == nil {
+		panic("unexpected call to MockStripRepository.UpdateVatsimSource")
+	}
+	return m.UpdateVatsimSourceFn(ctx, session, callsign, source)
 }
 
 func (m *MockStripRepository) Delete(ctx context.Context, session int32, callsign string) error {

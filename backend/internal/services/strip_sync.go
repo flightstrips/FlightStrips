@@ -28,7 +28,15 @@ func (s *StripService) SyncStrip(ctx context.Context, session int32, cid string,
 	if !ok {
 		return fmt.Errorf("SyncStrip: unexpected strip type %T", strip)
 	}
-	return s.syncEuroscopeStrip(ctx, session, cid, esStrip, airport)
+	if err := s.syncEuroscopeStrip(ctx, session, cid, esStrip, airport); err != nil {
+		return err
+	}
+	if sourceStore, ok := s.lifecycleStore.(interface {
+		MarkEuroscopeSeen(context.Context, int32, string) error
+	}); ok {
+		return sourceStore.MarkEuroscopeSeen(ctx, session, esStrip.Callsign)
+	}
+	return nil
 }
 
 type syncRouteComputer interface {
@@ -323,6 +331,10 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 		personsOnBoard := existingStrip.PersonsOnBoard
 		fplType := existingStrip.FplType
 		language := existingStrip.Language
+		vatsimCID := existingStrip.VatsimCID
+		vatsimRevision := existingStrip.VatsimRevision
+		vatsimSeenAt := existingStrip.VatsimSeenAt
+		euroscopeSeenAt := existingStrip.EuroscopeSeenAt
 
 		if restartLifecycle {
 			cdmData = internalModels.NewLegacyCdmData(&strip.Eobt, nil, nil, nil, nil, nil, &strip.Eobt, nil)
@@ -417,6 +429,10 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 			PersonsOnBoard:           personsOnBoard,
 			FplType:                  fplType,
 			Language:                 language,
+			VatsimCID:                vatsimCID,
+			VatsimRevision:           vatsimRevision,
+			VatsimSeenAt:             vatsimSeenAt,
+			EuroscopeSeenAt:          euroscopeSeenAt,
 		}
 		validationStrip = updateStrip
 		registrationNeedsUpdate := restartLifecycle

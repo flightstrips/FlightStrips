@@ -311,7 +311,11 @@ func handlePositionUpdate(ctx context.Context, client *Client, message Message) 
 		return err
 	}
 	client.hub.cancelAircraftDisconnect(client.session, event.Callsign)
-	return client.hub.stripService.UpdateAircraftPosition(ctx, client.session, event.Callsign, event.Lat, event.Lon, int32(event.Altitude), client.airport)
+	if err := client.hub.stripService.UpdateAircraftPosition(ctx, client.session, event.Callsign, event.Lat, event.Lon, int32(event.Altitude), client.airport); err != nil {
+		return err
+	}
+	client.hub.markEuroscopeSeen(ctx, client.session, event.Callsign)
+	return nil
 }
 
 func handleTrackingControllerChanged(ctx context.Context, client *Client, message Message) error {

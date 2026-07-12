@@ -149,6 +149,10 @@ func stripToModel(db database.Strip) (*models.Strip, error) {
 		Language:                 db.Language,
 		HasFP:                    db.HasFp,
 		ValidationStatus:         validationStatus,
+		VatsimCID:                db.VatsimCid,
+		VatsimRevision:           db.VatsimRevision,
+		VatsimSeenAt:             PgTimestamptzToTime(db.VatsimSeenAt),
+		EuroscopeSeenAt:          PgTimestamptzToTime(db.EuroscopeSeenAt),
 	}, nil
 }
 
@@ -213,6 +217,10 @@ func (r *stripRepository) Create(ctx context.Context, strip *models.Strip) error
 		SpokenCallsign:     strip.SpokenCallsign,
 		HasFp:              strip.HasFP,
 		StartReq:           strip.StartReq,
+		VatsimCid:          strip.VatsimCID,
+		VatsimRevision:     strip.VatsimRevision,
+		VatsimSeenAt:       TimeToPgTimestamptz(strip.VatsimSeenAt),
+		EuroscopeSeenAt:    TimeToPgTimestamptz(strip.EuroscopeSeenAt),
 	})
 }
 
@@ -364,6 +372,10 @@ func (r *stripRepository) Update(ctx context.Context, strip *models.Strip) (int6
 		PdcData:                  pdcData,
 		ValidationStatus:         validationStatus,
 		StartReq:                 strip.StartReq,
+		VatsimCid:                strip.VatsimCID,
+		VatsimRevision:           strip.VatsimRevision,
+		VatsimSeenAt:             TimeToPgTimestamptz(strip.VatsimSeenAt),
+		EuroscopeSeenAt:          TimeToPgTimestamptz(strip.EuroscopeSeenAt),
 	})
 }
 
@@ -859,6 +871,58 @@ func (r *stripRepository) AppendControllerModifiedField(ctx context.Context, ses
 		Session:     session,
 		Callsign:    callsign,
 		ArrayAppend: fieldName,
+	})
+}
+
+func (r *stripRepository) MarkEuroscopeSeen(ctx context.Context, session int32, callsign string) error {
+	return r.queries.MarkStripEuroscopeSeen(ctx, database.MarkStripEuroscopeSeenParams{
+		Callsign: callsign,
+		Session:  session,
+	})
+}
+
+func (r *stripRepository) ClearEuroscopeSeen(ctx context.Context, session int32, callsign string) error {
+	return r.queries.ClearStripEuroscopeSeen(ctx, database.ClearStripEuroscopeSeenParams{
+		Callsign: callsign,
+		Session:  session,
+	})
+}
+
+func (r *stripRepository) UpdateVatsimSource(ctx context.Context, session int32, callsign string, source models.VatsimStripSource) (int64, error) {
+	cid := source.CID
+	revision := source.Revision
+	alternate := source.Alternate
+	route := source.Route
+	remarks := source.Remarks
+	assignedSquawk := source.AssignedSquawk
+	aircraftType := source.AircraftType
+
+	var latitude *float64
+	var longitude *float64
+	var altitude *int32
+	if source.Online {
+		latitude = &source.Latitude
+		longitude = &source.Longitude
+		altitude = &source.Altitude
+	}
+
+	return r.queries.UpdateStripVatsimSource(ctx, database.UpdateStripVatsimSourceParams{
+		VatsimCid:         &cid,
+		VatsimRevision:    &revision,
+		VatsimSeenAt:      TimeToPgTimestamptz(&source.SeenAt),
+		Origin:            source.Origin,
+		Destination:       source.Destination,
+		Alternative:       &alternate,
+		Route:             &route,
+		Remarks:           &remarks,
+		AssignedSquawk:    &assignedSquawk,
+		AircraftType:      &aircraftType,
+		Online:            source.Online,
+		PositionLatitude:  latitude,
+		PositionLongitude: longitude,
+		PositionAltitude:  altitude,
+		Callsign:          callsign,
+		Session:           session,
 	})
 }
 

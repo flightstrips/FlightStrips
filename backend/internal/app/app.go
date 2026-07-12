@@ -110,6 +110,10 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 	sectorRepo := postgres.NewSectorOwnerRepository(dbpool)
 	coordRepo := postgres.NewCoordinationRepository(dbpool)
 	tacticalStripRepo := postgres.NewTacticalStripRepository(dbpool)
+	var standAssignmentRepo repository.StandAssignmentRepository
+	if standAssignmentReadiness.Ready {
+		standAssignmentRepo = postgres.NewStandAssignmentRepository(dbpool)
+	}
 
 	stripService := services.NewStripService(
 		stripRepo,
@@ -128,7 +132,7 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 
 	pdcService := buildPDCService(cfg, deps.PDCClient, sessionRepo, stripRepo, sectorRepo, controllerRepo)
 	requireLiveCIDVerification := isLiveEnvironment(cfg.Environment)
-	vatsimCache := buildVATSIMCache(cfg, deps, requireLiveCIDVerification)
+	vatsimCache := buildVATSIMCache(cfg, deps, requireLiveCIDVerification, standAssignmentReadiness.Ready)
 
 	var fsServer *server.Server
 	var transceiverCache *vatsim.TransceiverCache
@@ -151,6 +155,11 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 
 	frontendHub := frontend.NewHub(stripService, authService)
 	euroscopeHub := euroscope.NewHub(stripService, controllerService, authService)
+	var vatsimReconciler *vatsim.Reconciler
+	if standAssignmentReadiness.Ready && vatsimCache != nil && standAssignmentRepo != nil {
+		vatsimReconciler = vatsim.NewReconciler(vatsimCache, sessionRepo, stripRepo, standAssignmentRepo, frontendHub, deps.VATSIMPollInterval)
+		euroscopeHub.SetAircraftDisconnectRetainer(vatsimReconciler.RetainsStrip)
+	}
 	albHub := alb.NewHub()
 	ecfmpService := ecfmp.NewService(ecfmp.NewClient(ecfmp.WithBaseURL(cfg.ECFMPBaseURL)), stripRepo, sessionRepo, frontendHub, euroscopeHub)
 
@@ -219,6 +228,9 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 	}
 	if cfg.EnableVATSIM && vatsimCache != nil {
 		app.addWorker(vatsimCache.Start)
+	}
+	if vatsimReconciler != nil {
+		app.addWorker(vatsimReconciler.Start)
 	}
 	if transceiverCache != nil {
 		app.addWorker(transceiverCache.Start)
@@ -360,13 +372,13 @@ func buildPDCService(
 	return service
 }
 
-func buildVATSIMCache(cfg Config, deps Dependencies, requireLiveCIDVerification bool) *vatsim.Cache {
-	if !cfg.EnableVATSIM || !requireLiveCIDVerification {
+func buildVATSIMCache(cfg Config, deps Dependencies, requireLiveCIDVerification bool, enableReconciliation bool) *vatsim.Cache {
+	if !cfg.EnableVATSIM || (!requireLiveCIDVerification && !enableReconciliation) {
 		return nil
 	}
 
 	cache := vatsim.NewCache(deps.VATSIMStatusURL, deps.VATSIMPollInterval, nil)
-	slog.Info("VATSIM cache enabled for live web PDC ownership verification")
+	slog.Info("VATSIM cache enabled", slog.Bool("livePdcVerification", requireLiveCIDVerification), slog.Bool("standAssignmentReconciliation", enableReconciliation))
 	return cache
 }
 

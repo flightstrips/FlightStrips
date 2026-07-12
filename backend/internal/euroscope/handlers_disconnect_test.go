@@ -111,3 +111,16 @@ func TestHandlePositionUpdate_CancelsPendingAircraftDisconnect(t *testing.T) {
 	assert.Equal(t, int32(1), stripService.positionCalls.Load(), "position update should still be processed")
 	assert.Equal(t, int32(0), stripService.deleteCalls.Load(), "cancelled disconnect timer must not delete the strip")
 }
+
+func TestAircraftDisconnectTimerRetainsStripOwnedByAnotherSource(t *testing.T) {
+	stripService := &aircraftAliveStripService{}
+	hub := newAircraftDisconnectTestHub(stripService)
+	hub.SetAircraftDisconnectRetainer(func(_ context.Context, session int32, callsign string) bool {
+		return session == 42 && callsign == "SAS808"
+	})
+
+	hub.scheduleAircraftDisconnect(42, "SAS808", 10*time.Millisecond)
+	time.Sleep(30 * time.Millisecond)
+
+	assert.Equal(t, int32(0), stripService.deleteCalls.Load(), "VATSIM or an active SAT assignment must retain the strip")
+}

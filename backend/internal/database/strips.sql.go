@@ -7,6 +7,8 @@ package database
 
 import (
 	"context"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const appendControllerModifiedField = `-- name: AppendControllerModifiedField :exec
@@ -40,6 +42,22 @@ type AppendUnexpectedChangeFieldParams struct {
 
 func (q *Queries) AppendUnexpectedChangeField(ctx context.Context, arg AppendUnexpectedChangeFieldParams) error {
 	_, err := q.db.Exec(ctx, appendUnexpectedChangeField, arg.Session, arg.Callsign, arg.ArrayAppend)
+	return err
+}
+
+const clearStripEuroscopeSeen = `-- name: ClearStripEuroscopeSeen :exec
+UPDATE strips
+SET euroscope_seen_at = NULL
+WHERE callsign = $1 AND session = $2
+`
+
+type ClearStripEuroscopeSeenParams struct {
+	Callsign string
+	Session  int32
+}
+
+func (q *Queries) ClearStripEuroscopeSeen(ctx context.Context, arg ClearStripEuroscopeSeenParams) error {
+	_, err := q.db.Exec(ctx, clearStripEuroscopeSeen, arg.Callsign, arg.Session)
 	return err
 }
 
@@ -295,7 +313,7 @@ func (q *Queries) GetSequence(ctx context.Context, arg GetSequenceParams) (int32
 }
 
 const getStrip = `-- name: GetStrip :one
-SELECT id, version, callsign, session, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay, position_latitude, position_longitude, position_altitude, next_owners, previous_owners, release_point, marked, registration, tracking_controller, runway_cleared, unexpected_change_fields, controller_modified_fields, engine_type, is_manual, persons_on_board, fpl_type, language, has_fp, cdm_data, runway_confirmed, pdc_data, validation_status, start_req, spoken_callsign
+SELECT id, version, callsign, session, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay, position_latitude, position_longitude, position_altitude, next_owners, previous_owners, release_point, marked, registration, tracking_controller, runway_cleared, unexpected_change_fields, controller_modified_fields, engine_type, is_manual, persons_on_board, fpl_type, language, has_fp, cdm_data, runway_confirmed, pdc_data, validation_status, start_req, spoken_callsign, vatsim_cid, vatsim_revision, vatsim_seen_at, euroscope_seen_at
 FROM strips
 WHERE callsign = $1 AND session = $2
 `
@@ -359,6 +377,10 @@ func (q *Queries) GetStrip(ctx context.Context, arg GetStripParams) (Strip, erro
 		&i.ValidationStatus,
 		&i.StartReq,
 		&i.SpokenCallsign,
+		&i.VatsimCid,
+		&i.VatsimRevision,
+		&i.VatsimSeenAt,
+		&i.EuroscopeSeenAt,
 	)
 	return i, err
 }
@@ -368,7 +390,8 @@ INSERT INTO strips (version, callsign, session, origin, destination, alternative
                      squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities,
                      communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay,
                      position_latitude, position_longitude, position_altitude, cdm_data, next_owners, previous_owners,
-                     registration, tracking_controller, engine_type, spoken_callsign, has_fp, start_req)
+                     registration, tracking_controller, engine_type, spoken_callsign, has_fp, start_req,
+                     vatsim_cid, vatsim_revision, vatsim_seen_at, euroscope_seen_at)
 VALUES (
     1,
     $1,
@@ -406,7 +429,11 @@ VALUES (
     $33,
     $34,
     $35,
-    $36
+    $36,
+    $37,
+    $38,
+    $39,
+    $40
 )
 `
 
@@ -447,6 +474,10 @@ type InsertStripParams struct {
 	SpokenCallsign     *string
 	HasFp              bool
 	StartReq           bool
+	VatsimCid          *string
+	VatsimRevision     *int64
+	VatsimSeenAt       pgtype.Timestamptz
+	EuroscopeSeenAt    pgtype.Timestamptz
 }
 
 func (q *Queries) InsertStrip(ctx context.Context, arg InsertStripParams) error {
@@ -487,6 +518,10 @@ func (q *Queries) InsertStrip(ctx context.Context, arg InsertStripParams) error 
 		arg.SpokenCallsign,
 		arg.HasFp,
 		arg.StartReq,
+		arg.VatsimCid,
+		arg.VatsimRevision,
+		arg.VatsimSeenAt,
+		arg.EuroscopeSeenAt,
 	)
 	return err
 }
@@ -529,7 +564,7 @@ func (q *Queries) ListStripSequences(ctx context.Context, arg ListStripSequences
 }
 
 const listStrips = `-- name: ListStrips :many
-SELECT id, version, callsign, session, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay, position_latitude, position_longitude, position_altitude, next_owners, previous_owners, release_point, marked, registration, tracking_controller, runway_cleared, unexpected_change_fields, controller_modified_fields, engine_type, is_manual, persons_on_board, fpl_type, language, has_fp, cdm_data, runway_confirmed, pdc_data, validation_status, start_req, spoken_callsign
+SELECT id, version, callsign, session, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay, position_latitude, position_longitude, position_altitude, next_owners, previous_owners, release_point, marked, registration, tracking_controller, runway_cleared, unexpected_change_fields, controller_modified_fields, engine_type, is_manual, persons_on_board, fpl_type, language, has_fp, cdm_data, runway_confirmed, pdc_data, validation_status, start_req, spoken_callsign, vatsim_cid, vatsim_revision, vatsim_seen_at, euroscope_seen_at
 FROM strips
 WHERE session = $1
 ORDER BY callsign
@@ -595,6 +630,10 @@ func (q *Queries) ListStrips(ctx context.Context, session int32) ([]Strip, error
 			&i.ValidationStatus,
 			&i.StartReq,
 			&i.SpokenCallsign,
+			&i.VatsimCid,
+			&i.VatsimRevision,
+			&i.VatsimSeenAt,
+			&i.EuroscopeSeenAt,
 		); err != nil {
 			return nil, err
 		}
@@ -607,7 +646,7 @@ func (q *Queries) ListStrips(ctx context.Context, session int32) ([]Strip, error
 }
 
 const listStripsByOrigin = `-- name: ListStripsByOrigin :many
-SELECT id, version, callsign, session, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay, position_latitude, position_longitude, position_altitude, next_owners, previous_owners, release_point, marked, registration, tracking_controller, runway_cleared, unexpected_change_fields, controller_modified_fields, engine_type, is_manual, persons_on_board, fpl_type, language, has_fp, cdm_data, runway_confirmed, pdc_data, validation_status, start_req, spoken_callsign
+SELECT id, version, callsign, session, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay, position_latitude, position_longitude, position_altitude, next_owners, previous_owners, release_point, marked, registration, tracking_controller, runway_cleared, unexpected_change_fields, controller_modified_fields, engine_type, is_manual, persons_on_board, fpl_type, language, has_fp, cdm_data, runway_confirmed, pdc_data, validation_status, start_req, spoken_callsign, vatsim_cid, vatsim_revision, vatsim_seen_at, euroscope_seen_at
 FROM strips
 WHERE origin = $1 AND session = $2
 ORDER BY callsign
@@ -678,6 +717,10 @@ func (q *Queries) ListStripsByOrigin(ctx context.Context, arg ListStripsByOrigin
 			&i.ValidationStatus,
 			&i.StartReq,
 			&i.SpokenCallsign,
+			&i.VatsimCid,
+			&i.VatsimRevision,
+			&i.VatsimSeenAt,
+			&i.EuroscopeSeenAt,
 		); err != nil {
 			return nil, err
 		}
@@ -687,6 +730,22 @@ func (q *Queries) ListStripsByOrigin(ctx context.Context, arg ListStripsByOrigin
 		return nil, err
 	}
 	return items, nil
+}
+
+const markStripEuroscopeSeen = `-- name: MarkStripEuroscopeSeen :exec
+UPDATE strips
+SET euroscope_seen_at = NOW()
+WHERE callsign = $1 AND session = $2
+`
+
+type MarkStripEuroscopeSeenParams struct {
+	Callsign string
+	Session  int32
+}
+
+func (q *Queries) MarkStripEuroscopeSeen(ctx context.Context, arg MarkStripEuroscopeSeenParams) error {
+	_, err := q.db.Exec(ctx, markStripEuroscopeSeen, arg.Callsign, arg.Session)
+	return err
 }
 
 const recalculateStripSequences = `-- name: RecalculateStripSequences :exec
@@ -998,8 +1057,12 @@ SET version = version + 1,
     has_fp = $43,
     pdc_data = $44,
     validation_status = $45,
-    start_req = $46
-WHERE callsign = $47 AND session = $48
+    start_req = $46,
+    vatsim_cid = $47,
+    vatsim_revision = $48,
+    vatsim_seen_at = $49,
+    euroscope_seen_at = $50
+WHERE callsign = $51 AND session = $52
 `
 
 type UpdateStripParams struct {
@@ -1049,6 +1112,10 @@ type UpdateStripParams struct {
 	PdcData                  []byte
 	ValidationStatus         []byte
 	StartReq                 bool
+	VatsimCid                *string
+	VatsimRevision           *int64
+	VatsimSeenAt             pgtype.Timestamptz
+	EuroscopeSeenAt          pgtype.Timestamptz
 	Callsign                 string
 	Session                  int32
 }
@@ -1101,6 +1168,10 @@ func (q *Queries) UpdateStrip(ctx context.Context, arg UpdateStripParams) (int64
 		arg.PdcData,
 		arg.ValidationStatus,
 		arg.StartReq,
+		arg.VatsimCid,
+		arg.VatsimRevision,
+		arg.VatsimSeenAt,
+		arg.EuroscopeSeenAt,
 		arg.Callsign,
 		arg.Session,
 	)
@@ -1586,6 +1657,70 @@ func (q *Queries) UpdateStripStartReqByID(ctx context.Context, arg UpdateStripSt
 		arg.Callsign,
 		arg.Session,
 		arg.Version,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const updateStripVatsimSource = `-- name: UpdateStripVatsimSource :execrows
+UPDATE strips
+SET
+    version = version + 1,
+    vatsim_cid = $1,
+    vatsim_revision = $2,
+    vatsim_seen_at = $3,
+    origin = CASE WHEN NOT ('origin' = ANY(controller_modified_fields)) AND (euroscope_seen_at IS NULL OR euroscope_seen_at <= $3) THEN $4 ELSE origin END,
+    destination = CASE WHEN NOT ('destination' = ANY(controller_modified_fields)) AND (euroscope_seen_at IS NULL OR euroscope_seen_at <= $3) THEN $5 ELSE destination END,
+    alternative = CASE WHEN NOT ('alternative' = ANY(controller_modified_fields)) AND (euroscope_seen_at IS NULL OR euroscope_seen_at <= $3) THEN $6 ELSE alternative END,
+    route = CASE WHEN NOT ('route' = ANY(controller_modified_fields)) AND (euroscope_seen_at IS NULL OR euroscope_seen_at <= $3) THEN $7 ELSE route END,
+    remarks = CASE WHEN NOT ('remarks' = ANY(controller_modified_fields)) AND (euroscope_seen_at IS NULL OR euroscope_seen_at <= $3) THEN $8 ELSE remarks END,
+    assigned_squawk = CASE WHEN NOT ('assigned_squawk' = ANY(controller_modified_fields)) AND (euroscope_seen_at IS NULL OR euroscope_seen_at <= $3) THEN $9 ELSE assigned_squawk END,
+    aircraft_type = CASE WHEN NOT ('aircraft_type' = ANY(controller_modified_fields)) AND (euroscope_seen_at IS NULL OR euroscope_seen_at <= $3) THEN $10 ELSE aircraft_type END,
+    position_latitude = CASE WHEN $11::boolean AND NOT ('position_latitude' = ANY(controller_modified_fields)) AND (euroscope_seen_at IS NULL OR euroscope_seen_at <= $3) THEN $12 ELSE position_latitude END,
+    position_longitude = CASE WHEN $11::boolean AND NOT ('position_longitude' = ANY(controller_modified_fields)) AND (euroscope_seen_at IS NULL OR euroscope_seen_at <= $3) THEN $13 ELSE position_longitude END,
+    position_altitude = CASE WHEN $11::boolean AND NOT ('position_altitude' = ANY(controller_modified_fields)) AND (euroscope_seen_at IS NULL OR euroscope_seen_at <= $3) THEN $14 ELSE position_altitude END
+WHERE callsign = $15 AND session = $16
+`
+
+type UpdateStripVatsimSourceParams struct {
+	VatsimCid         *string
+	VatsimRevision    *int64
+	VatsimSeenAt      pgtype.Timestamptz
+	Origin            string
+	Destination       string
+	Alternative       *string
+	Route             *string
+	Remarks           *string
+	AssignedSquawk    *string
+	AircraftType      *string
+	Online            bool
+	PositionLatitude  *float64
+	PositionLongitude *float64
+	PositionAltitude  *int32
+	Callsign          string
+	Session           int32
+}
+
+func (q *Queries) UpdateStripVatsimSource(ctx context.Context, arg UpdateStripVatsimSourceParams) (int64, error) {
+	result, err := q.db.Exec(ctx, updateStripVatsimSource,
+		arg.VatsimCid,
+		arg.VatsimRevision,
+		arg.VatsimSeenAt,
+		arg.Origin,
+		arg.Destination,
+		arg.Alternative,
+		arg.Route,
+		arg.Remarks,
+		arg.AssignedSquawk,
+		arg.AircraftType,
+		arg.Online,
+		arg.PositionLatitude,
+		arg.PositionLongitude,
+		arg.PositionAltitude,
+		arg.Callsign,
+		arg.Session,
 	)
 	if err != nil {
 		return 0, err

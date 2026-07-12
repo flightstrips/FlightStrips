@@ -7,6 +7,7 @@ import (
 	"FlightStrips/internal/shared"
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"time"
 
@@ -25,13 +26,13 @@ type Server struct {
 	sessionLocks      sessionRecalcLockManager
 
 	// Repositories
-	stripRepo             repository.StripRepository
-	controllerRepo        repository.ControllerRepository
-	sessionRepo           repository.SessionRepository
-	sectorRepo            repository.SectorOwnerRepository
-	coordRepo             repository.CoordinationRepository
-	tacticalStripRepo     repository.TacticalStripRepository
-	standAssignmentRepo   repository.StandAssignmentRepository
+	stripRepo           repository.StripRepository
+	controllerRepo      repository.ControllerRepository
+	sessionRepo         repository.SessionRepository
+	sectorRepo          repository.SectorOwnerRepository
+	coordRepo           repository.CoordinationRepository
+	tacticalStripRepo   repository.TacticalStripRepository
+	standAssignmentRepo repository.StandAssignmentRepository
 }
 
 type TransceiverLookup interface {
@@ -149,7 +150,11 @@ func (s *Server) GetOrCreateSession(airport string, name string) (shared.Session
 
 		}
 
-		return shared.Session{Name: name, Airport: airport, Id: id}, err
+		if err := s.cdmService.SetSessionCdmMaster(context.Background(), id, true); err != nil {
+			return shared.Session{}, fmt.Errorf("initialize CDM master for new session %d: %w", id, err)
+		}
+
+		return shared.Session{Name: name, Airport: airport, Id: id}, nil
 	}
 
 	return shared.Session{}, nil

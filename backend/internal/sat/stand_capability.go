@@ -45,6 +45,7 @@ type StandCapability struct {
 	Length   float64
 	Width    float64
 	Height   float64
+	MTOW     float64
 	Code     string
 
 	AircraftTypes    []string
@@ -326,8 +327,10 @@ func applyStandDirective(capability *StandCapability, key, value string, line in
 		return setDimension(&capability.Width, "WIDTH", value, line)
 	case "HEIGHT":
 		return setDimension(&capability.Height, "HEIGHT", value, line)
+	case "MTOW":
+		return setDimension(&capability.MTOW, "MTOW", value, line)
 	case "CODE":
-		capability.Code = value
+		capability.Code = normalizeToken(value)
 	case "ATYP":
 		capability.AircraftTypes = unionTokens(capability.AircraftTypes, parseTokenList(value))
 	case "NOTATYP":

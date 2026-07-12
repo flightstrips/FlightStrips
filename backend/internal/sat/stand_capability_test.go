@@ -23,6 +23,7 @@ WINGSPAN:44
 LENGTH:40
 WIDTH:30
 HEIGHT:12
+MTOW:90000
 CODE:ABC
 ATYP:B77*, A20N
 NOTATYP:CRJ*
@@ -65,6 +66,7 @@ STAND:EKCH:A3:N055.37.43.000:E012.38.34.000:20
 	assert.Equal(t, 40.0, schengen.Length)
 	assert.Equal(t, 30.0, schengen.Width)
 	assert.Equal(t, 12.0, schengen.Height)
+	assert.Equal(t, 90000.0, schengen.MTOW)
 	assert.Equal(t, "ABC", schengen.Code)
 	assert.Equal(t, []string{"B77*", "A20N"}, schengen.AircraftTypes)
 	assert.Equal(t, []string{"CRJ*"}, schengen.NotAircraftTypes)

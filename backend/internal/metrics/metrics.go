@@ -37,6 +37,12 @@ type instruments struct {
 	trafficTaxiing          metric.Int64Gauge
 	trafficArrivalRate15m   metric.Int64Gauge
 	trafficDepartureRate15m metric.Int64Gauge
+	satSnapshotAge          metric.Float64Gauge
+	satFeedRecords          metric.Int64Gauge
+	satAssignments          metric.Int64Counter
+	satOutcomes             metric.Int64Counter
+	satConflicts            metric.Int64Counter
+	satExpirations          metric.Int64Counter
 }
 
 func get() *instruments {
@@ -145,6 +151,12 @@ func get() *instruments {
 			metric.WithDescription("Departures (AOBT set) in the rolling last 15 minutes"),
 			metric.WithUnit("{aircraft}"),
 		)
+		satSnapshotAge, _ := meter.Float64Gauge("sat.vatsim.snapshot.age", metric.WithDescription("Age of the VATSIM snapshot used by SAT"), metric.WithUnit("s"))
+		satFeedRecords, _ := meter.Int64Gauge("sat.vatsim.records", metric.WithDescription("Relevant VATSIM records observed by SAT"), metric.WithUnit("{flight}"))
+		satAssignments, _ := meter.Int64Counter("sat.assignments", metric.WithDescription("Committed SAT assignments and reallocations"), metric.WithUnit("{assignment}"))
+		satOutcomes, _ := meter.Int64Counter("sat.allocation.outcomes", metric.WithDescription("SAT allocation outcomes"), metric.WithUnit("{result}"))
+		satConflicts, _ := meter.Int64Counter("sat.allocation.conflicts", metric.WithDescription("SAT allocation database and occupancy conflicts"), metric.WithUnit("{conflict}"))
+		satExpirations, _ := meter.Int64Counter("sat.assignments.expired", metric.WithDescription("SAT assignments expired or released"), metric.WithUnit("{assignment}"))
 
 		inst = &instruments{
 			activeConnections:       activeConnections,
@@ -167,9 +179,45 @@ func get() *instruments {
 			trafficTaxiing:          trafficTaxiing,
 			trafficArrivalRate15m:   trafficArrivalRate15m,
 			trafficDepartureRate15m: trafficDepartureRate15m,
+			satSnapshotAge: satSnapshotAge, satFeedRecords: satFeedRecords,
+			satAssignments: satAssignments, satOutcomes: satOutcomes,
+			satConflicts: satConflicts, satExpirations: satExpirations,
 		}
 	})
 	return inst
+}
+
+// RecordSATFeedSnapshot records only operational dimensions. Callsigns, CIDs,
+// names, and other pilot data are deliberately excluded from metric labels.
+func RecordSATFeedSnapshot(ctx context.Context, age time.Duration, pilots, prefiles int) {
+	i := get()
+	i.satSnapshotAge.Record(ctx, max(age.Seconds(), 0))
+	i.satFeedRecords.Record(ctx, int64(pilots), metric.WithAttributes(attribute.String("state", "online")))
+	i.satFeedRecords.Record(ctx, int64(prefiles), metric.WithAttributes(attribute.String("state", "prefile")))
+}
+
+func RecordSATRelevantFlights(ctx context.Context, sessionName, airport string, pilots, prefiles int) {
+	i := get()
+	i.satFeedRecords.Record(ctx, int64(pilots), sessionAttributes(sessionName, airport, attribute.String("state", "online")))
+	i.satFeedRecords.Record(ctx, int64(prefiles), sessionAttributes(sessionName, airport, attribute.String("state", "prefile")))
+}
+
+func RecordSATAssignment(ctx context.Context, stage, source, category string, tier int) {
+	attrs := []attribute.KeyValue{attribute.String("stage", stage), attribute.String("source", source), attribute.String("category", category)}
+	if tier > 0 { attrs = append(attrs, attribute.Int("tier", tier)) }
+	get().satAssignments.Add(ctx, 1, metric.WithAttributes(attrs...))
+}
+
+func RecordSATOutcome(ctx context.Context, outcome, category string) {
+	get().satOutcomes.Add(ctx, 1, metric.WithAttributes(attribute.String("outcome", outcome), attribute.String("category", category)))
+}
+
+func RecordSATConflict(ctx context.Context, kind string) {
+	get().satConflicts.Add(ctx, 1, metric.WithAttributes(attribute.String("kind", kind)))
+}
+
+func RecordSATExpiration(ctx context.Context, direction, stage string) {
+	get().satExpirations.Add(ctx, 1, metric.WithAttributes(attribute.String("direction", direction), attribute.String("stage", stage)))
 }
 
 func sessionAttributes(sessionName, airport string, extra ...attribute.KeyValue) metric.MeasurementOption {

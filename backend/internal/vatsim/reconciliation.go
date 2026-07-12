@@ -1,8 +1,10 @@
 package vatsim
 
 import (
+	"FlightStrips/internal/metrics"
 	"FlightStrips/internal/models"
 	"context"
+	"log/slog"
 	"strings"
 	"time"
 )
@@ -179,11 +181,13 @@ func (r *Reconciler) reconcileSession(ctx context.Context, snapshot Snapshot, se
 
 	relevant := make(map[string]Flight)
 	airport := strings.ToUpper(strings.TrimSpace(session.Airport))
+	pilots, prefiles, changedCount := 0, 0, 0
 	for _, flight := range snapshot.Flights() {
 		if flight.Callsign == "" || (strings.ToUpper(strings.TrimSpace(flight.FlightPlan.Origin)) != airport && strings.ToUpper(strings.TrimSpace(flight.FlightPlan.Destination)) != airport) {
 			continue
 		}
 		relevant[flight.Callsign] = flight
+		if flight.Prefile() { prefiles++ } else { pilots++ }
 		strip := existing[flight.Callsign]
 		created := false
 		if strip == nil {
@@ -210,6 +214,7 @@ func (r *Reconciler) reconcileSession(ctx context.Context, snapshot Snapshot, se
 			changed = etaChanged || changed
 		}
 		if changed {
+			changedCount++
 			r.notify(session.ID, strip.Callsign)
 		}
 		if r.lifecycle != nil && strings.EqualFold(strings.TrimSpace(flight.FlightPlan.Origin), airport) {
@@ -223,6 +228,8 @@ func (r *Reconciler) reconcileSession(ctx context.Context, snapshot Snapshot, se
 			}
 		}
 	}
+	metrics.RecordSATRelevantFlights(ctx, session.Name, airport, pilots, prefiles)
+	slog.InfoContext(ctx, "SAT VATSIM reconciliation completed", slog.Int("session", int(session.ID)), slog.String("airport", airport), slog.Duration("snapshot_age", snapshot.Age), slog.Int("pilots", pilots), slog.Int("prefiles", prefiles), slog.Int("changed", changedCount))
 
 	for callsign, strip := range existing {
 		if relevant[callsign].Callsign == "" && r.lifecycle != nil &&

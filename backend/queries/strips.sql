@@ -139,6 +139,12 @@ SELECT *
 FROM strips
 WHERE callsign = $1 AND session = $2;
 
+-- name: LockStrip :one
+SELECT *
+FROM strips
+WHERE callsign = $1 AND session = $2
+FOR UPDATE;
+
 -- name: ListStrips :many
 SELECT *
 FROM strips

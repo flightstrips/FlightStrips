@@ -1,15 +1,15 @@
 -- name: CreateStandAssignment :one
 INSERT INTO stand_assignments (
     session_id, callsign, stand, direction, stage, source, rule_id, tier,
-    matched_variant, eta, eta_source,
+    matched_variant, conflict_reason, eta, eta_source,
     assigned_at, expires_at, manual, acknowledged, acknowledged_at,
     acknowledged_by, vatsim_cid, vatsim_revision
 )
 VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8,
-    $9, $10, $11,
-    $12, $13, $14, $15, $16,
-    $17, $18, $19
+    $9, $10, $11, $12,
+    $13, $14, $15, $16, $17,
+    $18, $19, $20
 )
 RETURNING *;
 
@@ -24,6 +24,14 @@ FROM stand_assignments
 WHERE session_id = $1
 ORDER BY callsign;
 
+-- name: LockStandAssignments :many
+SELECT *
+FROM stand_assignments
+WHERE session_id = $1
+  AND (callsign = $2 OR expires_at IS NULL OR expires_at > NOW())
+ORDER BY callsign
+FOR UPDATE;
+
 -- name: UpdateStandAssignment :execrows
 UPDATE stand_assignments
 SET stand = $3,
@@ -33,19 +41,20 @@ SET stand = $3,
     rule_id = $7,
     tier = $8,
     matched_variant = $9,
-    eta = $10,
-    eta_source = $11,
-    assigned_at = $12,
-    expires_at = $13,
-    manual = $14,
-    acknowledged = $15,
-    acknowledged_at = $16,
-    acknowledged_by = $17,
-    vatsim_cid = $18,
-    vatsim_revision = $19,
+    conflict_reason = $10,
+    eta = $11,
+    eta_source = $12,
+    assigned_at = $13,
+    expires_at = $14,
+    manual = $15,
+    acknowledged = $16,
+    acknowledged_at = $17,
+    acknowledged_by = $18,
+    vatsim_cid = $19,
+    vatsim_revision = $20,
     version = version + 1,
     updated_at = NOW()
-WHERE id = $1 AND session_id = $2 AND version = $20;
+WHERE id = $1 AND session_id = $2 AND version = $21;
 
 -- name: DeleteStandAssignment :execrows
 DELETE FROM stand_assignments
@@ -56,7 +65,8 @@ INSERT INTO stand_blocks (
     session_id, stand, block_type, source, reason, callsign, created_by,
     expires_at, manual
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+SELECT $1, $2, $3, $4, $5, $6, $7, $8, $9
+FROM (SELECT id FROM sessions WHERE id = $1 FOR UPDATE) AS locked_session
 RETURNING *;
 
 -- name: GetStandBlock :one
@@ -69,6 +79,15 @@ SELECT *
 FROM stand_blocks
 WHERE session_id = $1
 ORDER BY stand, id;
+
+-- name: LockActiveManualStandBlocks :many
+SELECT *
+FROM stand_blocks
+WHERE session_id = $1
+  AND manual = TRUE
+  AND (expires_at IS NULL OR expires_at > NOW())
+ORDER BY stand, id
+FOR UPDATE;
 
 -- name: ListStandBlocksByStand :many
 SELECT *

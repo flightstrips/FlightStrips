@@ -34,6 +34,7 @@ func standAssignmentToModel(db database.StandAssignment) *models.StandAssignment
 		RuleID:         db.RuleID,
 		Tier:           db.Tier,
 		MatchedVariant: db.MatchedVariant,
+		ConflictReason: db.ConflictReason,
 		ETA:            PgTimestamptzToTime(db.Eta),
 		ETASource:      db.EtaSource,
 		AssignedAt:     PgTimestamptzToTime(db.AssignedAt),
@@ -86,6 +87,7 @@ func standAssignmentParams(assignment *models.StandAssignment) database.CreateSt
 		RuleID:         assignment.RuleID,
 		Tier:           assignment.Tier,
 		MatchedVariant: assignment.MatchedVariant,
+		ConflictReason: assignment.ConflictReason,
 		Eta:            TimeToPgTimestamptz(assignment.ETA),
 		EtaSource:      assignment.ETASource,
 		AssignedAt:     TimeToPgTimestamptz(assignment.AssignedAt),
@@ -142,6 +144,21 @@ func (r *standAssignmentRepository) ListAssignments(ctx context.Context, session
 	return result, nil
 }
 
+// LockAssignments locks session assignments for the duration of the caller's
+// transaction. It is used exclusively by the SAT allocator while calculating
+// availability and choosing an atomic replacement.
+func (r *standAssignmentRepository) LockAssignments(ctx context.Context, session int32, callsign string) ([]*models.StandAssignment, error) {
+	rows, err := r.queries.LockStandAssignments(ctx, database.LockStandAssignmentsParams{SessionID: session, Callsign: callsign})
+	if err != nil {
+		return nil, err
+	}
+	result := make([]*models.StandAssignment, len(rows))
+	for i, row := range rows {
+		result[i] = standAssignmentToModel(row)
+	}
+	return result, nil
+}
+
 func (r *standAssignmentRepository) UpdateAssignment(ctx context.Context, assignment *models.StandAssignment) (int64, error) {
 	return r.queries.UpdateStandAssignment(ctx, database.UpdateStandAssignmentParams{
 		ID:             assignment.ID,
@@ -153,6 +170,7 @@ func (r *standAssignmentRepository) UpdateAssignment(ctx context.Context, assign
 		RuleID:         assignment.RuleID,
 		Tier:           assignment.Tier,
 		MatchedVariant: assignment.MatchedVariant,
+		ConflictReason: assignment.ConflictReason,
 		Eta:            TimeToPgTimestamptz(assignment.ETA),
 		EtaSource:      assignment.ETASource,
 		AssignedAt:     TimeToPgTimestamptz(assignment.AssignedAt),
@@ -190,6 +208,16 @@ func (r *standAssignmentRepository) GetBlock(ctx context.Context, session int32,
 
 func (r *standAssignmentRepository) ListBlocks(ctx context.Context, session int32) ([]*models.StandBlock, error) {
 	rows, err := r.queries.ListStandBlocks(ctx, session)
+	if err != nil {
+		return nil, err
+	}
+	return standBlocksToModels(rows), nil
+}
+
+// LockActiveManualBlocks locks only blocks that can currently affect an
+// allocation. Expired blocks are deliberately excluded from availability.
+func (r *standAssignmentRepository) LockActiveManualBlocks(ctx context.Context, session int32) ([]*models.StandBlock, error) {
+	rows, err := r.queries.LockActiveManualStandBlocks(ctx, session)
 	if err != nil {
 		return nil, err
 	}

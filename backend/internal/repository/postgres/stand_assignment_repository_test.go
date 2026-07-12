@@ -139,6 +139,31 @@ func TestStandAssignmentRepositoryWithTx(t *testing.T) {
 	require.Equal(t, "ECHO14", got.Stand)
 }
 
+func TestCreateStandBlockWaitsForSessionAllocationGuard(t *testing.T) {
+	pool, queries := testdata.SetupTestDB(t)
+	sessionID := testdata.SeedTestSessionNamedWithSectors(t, queries, "SAT-BLOCK-GUARD", nil)
+	repo := NewStandAssignmentRepository(pool)
+	ctx := context.Background()
+
+	tx, err := pool.Begin(ctx)
+	require.NoError(t, err)
+	defer tx.Rollback(ctx)
+	_, err = tx.Exec(ctx, "SELECT id FROM sessions WHERE id = $1 FOR UPDATE", sessionID)
+	require.NoError(t, err)
+
+	timedOut, cancel := context.WithTimeout(ctx, 100*time.Millisecond)
+	defer cancel()
+	err = repo.CreateBlock(timedOut, &models.StandBlock{
+		SessionID: sessionID,
+		Stand:     "ECHO12",
+		BlockType: "CLOSURE",
+		Source:    "CONTROLLER",
+		Manual:    true,
+	})
+	require.Error(t, err)
+	require.ErrorIs(t, err, context.DeadlineExceeded)
+}
+
 func stringPtrForTest(value string) *string {
 	return &value
 }

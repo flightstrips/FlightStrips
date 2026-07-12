@@ -87,6 +87,7 @@ type StandAssignment struct {
 	Version        int32
 	CreatedAt      pgtype.Timestamptz
 	UpdatedAt      pgtype.Timestamptz
+	ConflictReason *string
 }
 
 type StandBlock struct {

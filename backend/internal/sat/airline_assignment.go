@@ -802,17 +802,36 @@ func (c *AirlineAssignmentConfig) eligibleTierCandidates(tier StandTier, eligibl
 				return nil, 0, err
 			}
 		}
+		if entry.Weight == 0 {
+			continue
+		}
+
+		eligibleMembers := make([]string, 0, len(stands))
 		for _, stand := range stands {
 			stand = normalizeStandName(stand)
-			if _, ok := eligible[stand]; !ok || entry.Weight == 0 {
+			if _, ok := eligible[stand]; !ok {
 				continue
 			}
+			eligibleMembers = append(eligibleMembers, stand)
+		}
+		if len(eligibleMembers) == 0 {
+			continue
+		}
+
+		// A group is one weighted target. Once expanded, divide its weight
+		// between its eligible physical stands so the group contributes its
+		// declared weight regardless of its size or unavailable members.
+		candidateWeight := entry.Weight
+		if entry.Group != "" {
+			candidateWeight /= float64(len(eligibleMembers))
+		}
+		for _, stand := range eligibleMembers {
 			if index, exists := indexes[stand]; exists {
-				candidates[index].weight += entry.Weight
+				candidates[index].weight += candidateWeight
 				continue
 			}
 			indexes[stand] = len(candidates)
-			candidates = append(candidates, weightedStandCandidate{stand: stand, weight: entry.Weight})
+			candidates = append(candidates, weightedStandCandidate{stand: stand, weight: candidateWeight})
 		}
 	}
 

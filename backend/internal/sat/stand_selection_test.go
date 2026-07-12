@@ -38,8 +38,32 @@ func TestSelectStandExpandsGroupsAndIgnoresZeroWeight(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, selection)
 	assert.Equal(t, "A1", selection.Stand)
-	assert.Equal(t, 10.0, selection.OriginalWeight)
+	assert.Equal(t, 5.0, selection.OriginalWeight)
 	assert.Equal(t, 0.5, selection.NormalizedWeight)
+}
+
+func TestSelectStandPreservesGroupWeightAcrossExpansionAndAvailability(t *testing.T) {
+	document := `{
+  "rules":[{"id":"sas","callsigns":["SAS"],"stands":{"tier1":{"Large":40,"Small":20}}}],
+  "stand_groups":{"Large":["A1","A2","A3"],"Small":["A4"]},
+  "fallback_rules":{` + fallbackJSON("A3") + `}
+}`
+	config, err := LoadAirlineAssignment(strings.NewReader(document), testAssignmentRegistry(t))
+	require.NoError(t, err)
+
+	selection, err := config.SelectStand(AssignmentFlightFacts{Callsign: "SAS123"}, []string{"A1", "A2", "A3", "A4"}, func() float64 { return .7 })
+	require.NoError(t, err)
+	require.NotNil(t, selection)
+	assert.Equal(t, "A4", selection.Stand)
+	assert.Equal(t, 20.0, selection.OriginalWeight)
+	assert.InDelta(t, 1.0/3.0, selection.NormalizedWeight, 1e-9)
+
+	selection, err = config.SelectStand(AssignmentFlightFacts{Callsign: "SAS123"}, []string{"A1", "A4"}, func() float64 { return .5 })
+	require.NoError(t, err)
+	require.NotNil(t, selection)
+	assert.Equal(t, "A1", selection.Stand)
+	assert.Equal(t, 40.0, selection.OriginalWeight)
+	assert.InDelta(t, 2.0/3.0, selection.NormalizedWeight, 1e-9)
 }
 
 func TestSelectStandUsesFallbackOnlyAfterAirlineRuleIsExhausted(t *testing.T) {

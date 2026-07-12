@@ -75,6 +75,9 @@ type StripRepository interface {
 
 	// Controller-modified field tracking
 	AppendControllerModifiedField(ctx context.Context, session int32, callsign string, fieldName string) error
+	MarkEuroscopeSeen(ctx context.Context, session int32, callsign string) error
+	ClearEuroscopeSeen(ctx context.Context, session int32, callsign string) error
+	UpdateVatsimSource(ctx context.Context, session int32, callsign string, source models.VatsimStripSource) (int64, error)
 
 	// Manual FPL creation
 	UpdateIFRManualFPLFields(ctx context.Context, session int32, callsign string, destination string, sid *string, assignedSquawk *string, eobt *string, aircraftType *string, requestedAltitude *int32, route *string, stand *string, runway *string) (int64, error)

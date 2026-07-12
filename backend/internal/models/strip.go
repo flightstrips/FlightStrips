@@ -7,6 +7,25 @@ type NextDisplay struct {
 	Frequency string
 }
 
+// VatsimStripSource contains the fields that the VATSIM reconciler is allowed
+// to persist. It intentionally excludes all controller-owned operational state.
+type VatsimStripSource struct {
+	CID            string
+	Revision       int64
+	SeenAt         time.Time
+	Origin         string
+	Destination    string
+	Alternate      string
+	Route          string
+	Remarks        string
+	AssignedSquawk string
+	AircraftType   string
+	Online         bool
+	Latitude       float64
+	Longitude      float64
+	Altitude       int32
+}
+
 type Strip struct {
 	ID                       int32
 	Version                  int32
@@ -64,6 +83,10 @@ type Strip struct {
 	Language                 *string
 	HasFP                    bool
 	ValidationStatus         *ValidationStatus
+	VatsimCID                *string
+	VatsimRevision           *int64
+	VatsimSeenAt             *time.Time
+	EuroscopeSeenAt          *time.Time
 }
 
 // IsValidationLocked returns true when the strip has an active validation issue

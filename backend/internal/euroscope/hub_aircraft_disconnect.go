@@ -40,7 +40,15 @@ func (hub *Hub) scheduleAircraftDisconnect(session int32, callsign string, delay
 
 		hub.aircraftDisconnectMu.Lock()
 		delete(hub.aircraftDisconnectTimers, key)
+		retainer := hub.aircraftDisconnectRetainer
 		hub.aircraftDisconnectMu.Unlock()
+		if retainer != nil && retainer(context.Background(), session, callsign) {
+			hub.clearEuroscopeSeen(session, callsign)
+			slog.Debug("Aircraft disconnect retained by another source",
+				slog.String("callsign", callsign),
+				slog.Int("session", int(session)))
+			return
+		}
 
 		slog.Debug("Aircraft disconnected, removing strip",
 			slog.String("callsign", callsign),
@@ -51,6 +59,18 @@ func (hub *Hub) scheduleAircraftDisconnect(session int32, callsign string, delay
 				slog.Any("error", err))
 		}
 	}()
+}
+
+func (hub *Hub) clearEuroscopeSeen(session int32, callsign string) {
+	if hub.server == nil || hub.server.GetStripRepository() == nil {
+		return
+	}
+	if err := hub.server.GetStripRepository().ClearEuroscopeSeen(context.Background(), session, callsign); err != nil {
+		slog.Warn("Failed to clear EuroScope strip presence after disconnect",
+			slog.String("callsign", callsign),
+			slog.Int("session", int(session)),
+			slog.Any("error", err))
+	}
 }
 
 // cancelAircraftDisconnect cancels a pending aircraft disconnect timer.

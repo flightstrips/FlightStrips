@@ -69,8 +69,9 @@ type Hub struct {
 	offlineTimers map[string]*offlineTimerEntry // key: "<sessionID>:<positionName>"
 
 	// Aircraft disconnect timer support — delays strip removal to survive master transitions
-	aircraftDisconnectMu     sync.Mutex
-	aircraftDisconnectTimers map[string]*aircraftDisconnectEntry // key: "<sessionID>:<callsign>"
+	aircraftDisconnectMu       sync.Mutex
+	aircraftDisconnectTimers   map[string]*aircraftDisconnectEntry // key: "<sessionID>:<callsign>"
+	aircraftDisconnectRetainer func(context.Context, int32, string) bool
 
 	// Session update debouncer — batches UpdateSectors/UpdateLayouts/UpdateRoutes calls
 	// so concurrent offline timers produce a single recalculation per session.
@@ -88,6 +89,26 @@ type Hub struct {
 	runwayStates  map[string]*clientRunwayState
 
 	squawkThrottle *squawkThrottle
+}
+
+// SetAircraftDisconnectRetainer installs an optional source-of-truth check
+// used by the delayed EuroScope disconnect cleanup.
+func (hub *Hub) SetAircraftDisconnectRetainer(retainer func(context.Context, int32, string) bool) {
+	hub.aircraftDisconnectMu.Lock()
+	hub.aircraftDisconnectRetainer = retainer
+	hub.aircraftDisconnectMu.Unlock()
+}
+
+func (hub *Hub) markEuroscopeSeen(ctx context.Context, session int32, callsign string) {
+	if hub.server == nil || hub.server.GetStripRepository() == nil {
+		return
+	}
+	if err := hub.server.GetStripRepository().MarkEuroscopeSeen(ctx, session, callsign); err != nil {
+		slog.WarnContext(ctx, "Failed to record EuroScope strip presence",
+			slog.String("callsign", callsign),
+			slog.Int("session", int(session)),
+			slog.Any("error", err))
+	}
 }
 
 func NewHub(stripService shared.StripService, controllerService shared.ControllerService, authenticationService shared.AuthenticationService) *Hub {

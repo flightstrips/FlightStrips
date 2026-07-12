@@ -156,6 +156,10 @@ type Strip struct {
 	ValidationStatus         []byte
 	StartReq                 bool
 	SpokenCallsign           *string
+	VatsimCid                *string
+	VatsimRevision           *int64
+	VatsimSeenAt             pgtype.Timestamptz
+	EuroscopeSeenAt          pgtype.Timestamptz
 }
 
 type TacticalStrip struct {

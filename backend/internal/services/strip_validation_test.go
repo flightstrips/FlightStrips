@@ -119,6 +119,44 @@ func TestStripValidationService_SetValidationStatusReturnsMissingStoreErrorWhenO
 	assert.EqualError(t, err, "strip validation service missing validation status store dependency")
 }
 
+func TestReconcileStandAssignmentValidationActivatesBlockedAssignment(t *testing.T) {
+	owner := "EKCH_APP"
+	var persisted *models.ValidationStatus
+	repo := &validationStoreFake{
+		getByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			return &models.Strip{Callsign: "SAS123", Owner: &owner}, nil
+		},
+		setValidationStatusFn: func(_ context.Context, _ int32, _ string, status *models.ValidationStatus) error {
+			persisted = status
+			return nil
+		},
+	}
+	svc := NewStripValidationService(repo, repo)
+
+	require.NoError(t, svc.ReconcileStandAssignmentValidation(context.Background(), 1, "SAS123", []string{"A22"}, ""))
+	require.NotNil(t, persisted)
+	require.Equal(t, standAssignmentValidationIssueType, persisted.IssueType)
+	require.Equal(t, "Assigned stand is blocked by A22.", persisted.Message)
+	require.Equal(t, owner, persisted.OwningPosition)
+	require.True(t, persisted.Active)
+	require.Equal(t, "assign_stand", persisted.CustomAction.ActionKind)
+}
+
+func TestReconcileStandAssignmentValidationClearsResolvedSatIssueOnly(t *testing.T) {
+	repo := &validationStoreFake{
+		getByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			return &models.Strip{Callsign: "SAS123", ValidationStatus: &models.ValidationStatus{IssueType: standAssignmentValidationIssueType}}, nil
+		},
+		clearValidationStatusFn: func(_ context.Context, _ int32, callsign string) error {
+			require.Equal(t, "SAS123", callsign)
+			return nil
+		},
+	}
+	svc := NewStripValidationService(repo, repo)
+
+	require.NoError(t, svc.ReconcileStandAssignmentValidation(context.Background(), 1, "SAS123", nil, ""))
+}
+
 func TestNewStripValidationService_ReturnsMissingReaderErrorWhenReaderNotInjected(t *testing.T) {
 	t.Parallel()
 

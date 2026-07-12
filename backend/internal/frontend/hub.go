@@ -95,6 +95,7 @@ type nextDisplayBatchComputer interface {
 
 type validationStatusAcknowledger interface {
 	AcknowledgeValidationStatus(ctx context.Context, session int32, callsign string, activationKey string, requestingPosition string) error
+	ReconcileStandAssignmentValidation(ctx context.Context, session int32, callsign string, blockedBy []string, conflictReason string) error
 }
 
 func NewHub(stripService shared.StripService, authenticationService shared.AuthenticationService) *Hub {
@@ -858,8 +859,9 @@ func (hub *Hub) enrichedStandAssignmentEntry(sessionID int32, assignment *intern
 	return entry
 }
 
-func (hub *Hub) PublishStandAllocation(_ context.Context, result services.StandAllocationResult) error {
+func (hub *Hub) PublishStandAllocation(ctx context.Context, result services.StandAllocationResult) error {
 	entry := mapStandAssignmentEntry(&result.Assignment)
+	publishEntries := []frontend.StandAssignmentEntry{entry}
 	if session, err := hub.server.GetSessionRepository().GetByID(context.Background(), result.Assignment.SessionID); err == nil {
 		all, _ := hub.server.GetStandAssignmentRepository().ListAssignments(context.Background(), result.Assignment.SessionID)
 		entries := make([]frontend.StandAssignmentEntry, 0, len(all))
@@ -869,6 +871,7 @@ func (hub *Hub) PublishStandAllocation(_ context.Context, result services.StandA
 			}
 		}
 		enrichStandAssignmentBlocking(entries, session.Airport)
+		publishEntries = entries
 		for _, candidate := range entries {
 			if candidate.Callsign == result.Assignment.Callsign {
 				entry = candidate
@@ -876,7 +879,18 @@ func (hub *Hub) PublishStandAllocation(_ context.Context, result services.StandA
 			}
 		}
 	}
-	hub.SendStandAssignmentBroadcast(result.Assignment.SessionID, entry)
+	for _, published := range publishEntries {
+		conflictReason := ""
+		if published.ConflictReason != nil {
+			conflictReason = *published.ConflictReason
+		}
+		if hub.validationService != nil {
+			if err := hub.validationService.ReconcileStandAssignmentValidation(ctx, result.Assignment.SessionID, published.Callsign, published.BlockedBy, conflictReason); err != nil {
+				slog.ErrorContext(ctx, "Failed to reconcile stand assignment validation", slog.String("callsign", published.Callsign), slog.Any("error", err))
+			}
+		}
+		hub.SendStandAssignmentBroadcast(result.Assignment.SessionID, published)
+	}
 	hub.SendStandEvent(result.Assignment.SessionID, result.Assignment.Callsign, result.Assignment.Stand)
 	hub.server.GetEuroscopeHub().Broadcast(result.Assignment.SessionID, euroscopeEvents.StandEvent{Callsign: result.Assignment.Callsign, Stand: result.Assignment.Stand})
 	return nil

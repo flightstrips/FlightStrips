@@ -5,9 +5,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/google/uuid"
 )
+
+const standAssignmentValidationIssueType = "STAND ASSIGNMENT"
 
 type validationStripReader interface {
 	GetByCallsign(ctx context.Context, session int32, callsign string) (*internalModels.Strip, error)
@@ -91,6 +94,49 @@ func (s *StripValidationService) ClearValidationStatus(ctx context.Context, sess
 	}
 	s.sendStripUpdate(session, callsign)
 	return nil
+}
+
+// ReconcileStandAssignmentValidation keeps SAT conflicts in the same durable,
+// owner-scoped validation workflow as other strip issues without overwriting a
+// higher-priority validation produced by another subsystem.
+func (s *StripValidationService) ReconcileStandAssignmentValidation(ctx context.Context, session int32, callsign string, blockedBy []string, conflictReason string) error {
+	strip, err := s.stripReader.GetByCallsign(ctx, session, callsign)
+	if err != nil {
+		return err
+	}
+	current := strip.ValidationStatus
+	blocked := len(blockedBy) > 0 || strings.TrimSpace(conflictReason) != ""
+	if !blocked {
+		if current != nil && current.IssueType == standAssignmentValidationIssueType {
+			return s.ClearValidationStatus(ctx, session, callsign)
+		}
+		return nil
+	}
+	if current != nil && current.IssueType != standAssignmentValidationIssueType {
+		return nil
+	}
+
+	message := strings.TrimSpace(conflictReason)
+	if message == "" {
+		message = "Assigned stand is blocked by " + strings.Join(blockedBy, ", ") + "."
+	}
+	owner := ""
+	if strip.Owner != nil {
+		owner = *strip.Owner
+	}
+	if current != nil && current.Message == message && current.OwningPosition == owner {
+		return nil
+	}
+	return s.SetValidationStatus(ctx, session, callsign, &internalModels.ValidationStatus{
+		IssueType:      standAssignmentValidationIssueType,
+		Message:        message,
+		OwningPosition: owner,
+		Active:         true,
+		CustomAction: &internalModels.ValidationAction{
+			Label:      "REQUEST NEW STAND",
+			ActionKind: "assign_stand",
+		},
+	})
 }
 
 // IsValidationBlocking returns true when the strip has an active (unacknowledged) validation.

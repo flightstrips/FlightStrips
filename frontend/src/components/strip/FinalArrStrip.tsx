@@ -9,6 +9,7 @@ import { SIBox } from "./SIBox";
 import { ArrStandDialog } from "./ArrStandDialog";
 import { TaxiMapDialog } from "@/components/map-dialogs/TaxiMapDialog";
 import { ValidationStatusDialog } from "./ValidationStatusDialog";
+import { getStandAssignmentStyle } from "./standAssignmentStyle";
 
 /** Gold cell borders — matches the yellow arrival strip design. */
 const CELL_BORDER = "var(--color-cell-border-arr)";
@@ -68,6 +69,10 @@ export function FinalArrStrip({
   const [taxiMapOpen, setTaxiMapOpen] = useState(false);
   const [fplOpen, setFplOpen] = useState(false);
   const nextFreq = useNextFrequencyDisplay(nextDisplay, nextControllers, myPosition);
+  const satEnabled = useWebSocketStore(s => s.satEnabled);
+  const satAssignment = useWebSocketStore(s => s.standAssignments.find(a => a.callsign === callsign));
+  const acknowledgeStandAssignment = useWebSocketStore(s => s.acknowledgeStandAssignment);
+  const satStandStyle = getStandAssignmentStyle(satEnabled ? satAssignment : undefined);
 
   // RWY cell color — only when cleared in RWY_ARR bay:
   // - runway_confirmed = true: green (controller acknowledged)
@@ -152,11 +157,15 @@ export function FinalArrStrip({
       {/* Stand (left of runway); stand in top 2/3, bottom 1/3 empty */}
       <div
         className="flex flex-col border-r-2 min-w-0 cursor-pointer hover:brightness-95"
-        style={{ flexGrow: F_TAXIWAY, flexBasis: 0, height: "100%", borderRightColor: cellBorderColor, cursor: isAssumed ? getValidationBlockedCursor(isValidationActive) : undefined }}
-        onClick={isAssumed ? (e) => guardValidationAction(e, () => setStandOpen(true)) : undefined}
+        style={{ flexGrow: F_TAXIWAY, flexBasis: 0, height: "100%", borderRightColor: cellBorderColor, backgroundColor: satStandStyle.backgroundColor, cursor: isAssumed ? getValidationBlockedCursor(isValidationActive) : undefined }}
+        title={satStandStyle.blocked ? satAssignment?.conflict_reason : undefined}
+        onClick={isAssumed ? (e) => guardValidationAction(e, () => {
+          if (satStandStyle.changed && satAssignment?.version !== undefined) acknowledgeStandAssignment(callsign, satAssignment.version);
+          else setStandOpen(true);
+        }) : undefined}
       >
         <div className="flex items-center justify-center" style={{ height: TOP_H }}>
-          <span className="truncate px-[0.21vw]" style={{ fontFamily: FONT, fontWeight: 600, fontSize: "0.83vw" }}>
+          <span className="truncate px-[0.21vw]" style={{ fontFamily: FONT, fontWeight: 600, fontSize: "0.83vw", color: satStandStyle.color }}>
             {stand}
           </span>
         </div>

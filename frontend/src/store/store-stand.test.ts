@@ -96,6 +96,37 @@ describe("stand store events", () => {
   });
 
   describe("stand assignment update", () => {
+    it("reconnects after a stale stand assignment version", () => {
+      client._emit(EventType.FrontendActionRejected, {
+        type: EventType.FrontendActionRejected,
+        action: "stand_assignment_manual_request",
+        code: "stale_version",
+        reason: "stand assignment version is stale",
+        callsign: "SAS456",
+        version: 2,
+      });
+
+      expect(client.reconnect).toHaveBeenCalledOnce();
+      expect(store.getState().standActionRejection?.code).toBe("stale_version");
+    });
+
+    it("does not clear another callsign's stand rejection", () => {
+      client._emit(EventType.FrontendActionRejected, {
+        type: EventType.FrontendActionRejected,
+        action: "stand_assignment_manual_request",
+        code: "incompatible_or_occupied",
+        reason: "occupied",
+        callsign: "SAS456",
+        version: 2,
+      });
+      client._emit(EventType.FrontendStandAssignmentUpdate, {
+        type: EventType.FrontendStandAssignmentUpdate,
+        assignment: { callsign: "NAX123", stand: "A20", direction: "ARRIVAL", stage: "CONFIRMED", source: "AUTOMATIC" },
+      } as FrontendStandAssignmentUpdateEvent);
+
+      expect(store.getState().standActionRejection?.callsign).toBe("SAS456");
+    });
+
     it("adds new assignment", () => {
       const entry: FrontendStandAssignmentEntry = {
         callsign: "SAS456", stand: "A20", direction: "ARRIVAL", stage: "ESTIMATED", source: "AUTOMATIC",
@@ -278,6 +309,23 @@ describe("stand store events", () => {
         stand: "A25",
         version: 4,
       });
+    });
+
+    it("sends automatic, confirmed override, and acknowledgement commands", () => {
+      store.getState().requestAutomaticStand("SAS123", 4);
+      expect(client.send).toHaveBeenCalledWith({ type: "stand_assignment_auto_request", callsign: "SAS123", version: 4 });
+
+      store.getState().confirmStandOverride("SAS123", "A25", 4, "A25 is occupied");
+      expect(client.send).toHaveBeenCalledWith({
+        type: "stand_assignment_confirmed_override",
+        callsign: "SAS123",
+        stand: "A25",
+        version: 4,
+        reason: "A25 is occupied",
+      });
+
+      store.getState().acknowledgeStandAssignment("SAS123", 5);
+      expect(client.send).toHaveBeenCalledWith({ type: "stand_assignment_acknowledge", callsign: "SAS123", version: 5 });
     });
 
     it("sends stand block create action", () => {

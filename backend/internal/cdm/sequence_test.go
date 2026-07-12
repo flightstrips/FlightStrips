@@ -759,6 +759,9 @@ func TestSequenceService_RecalculateAirport_TreatsMidnightAsBaseTime(t *testing.
 	}
 
 	service := NewSequenceService(stripRepo, sessionRepo, NewCdmConfigStore("", "", "", 0, CdmConfigDefaults{}, nil), &testutil.MockFrontendHub{}, &testutil.MockEuroscopeHub{})
+	service.now = func() time.Time {
+		return time.Date(2026, time.January, 1, 0, 0, 0, 0, time.UTC)
+	}
 
 	if err := service.RecalculateAirport(context.Background(), 7, "EKCH"); err != nil {
 		t.Fatalf("RecalculateAirport returned error: %v", err)

@@ -157,7 +157,8 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 	euroscopeHub := euroscope.NewHub(stripService, controllerService, authService)
 	var vatsimReconciler *vatsim.Reconciler
 	if standAssignmentReadiness.Ready && vatsimCache != nil && standAssignmentRepo != nil {
-		vatsimReconciler = vatsim.NewReconciler(vatsimCache, sessionRepo, stripRepo, standAssignmentRepo, frontendHub, deps.VATSIMPollInterval)
+		latitude, longitude := appconfig.GetAirportCoordinates()
+		vatsimReconciler = vatsim.NewReconciler(vatsimCache, sessionRepo, stripRepo, standAssignmentRepo, frontendHub, deps.VATSIMPollInterval, vatsim.WithAirportCoordinates(latitude, longitude))
 		euroscopeHub.SetAircraftDisconnectRetainer(vatsimReconciler.RetainsStrip)
 	}
 	albHub := alb.NewHub()

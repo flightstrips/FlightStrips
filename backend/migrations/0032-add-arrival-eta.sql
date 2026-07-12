@@ -1,0 +1,2 @@
+ALTER TABLE strips
+    ADD COLUMN IF NOT EXISTS arrival_eta JSONB;

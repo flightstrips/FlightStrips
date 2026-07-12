@@ -114,6 +114,13 @@ UPDATE strips
 SET euroscope_seen_at = NULL
 WHERE callsign = $1 AND session = $2;
 
+-- name: UpdateStripArrivalETA :execrows
+UPDATE strips
+SET
+    version = version + 1,
+    arrival_eta = sqlc.arg(arrival_eta)
+WHERE callsign = sqlc.arg(callsign) AND session = sqlc.arg(session);
+
 -- name: UpdateStripVatsimSource :execrows
 UPDATE strips
 SET

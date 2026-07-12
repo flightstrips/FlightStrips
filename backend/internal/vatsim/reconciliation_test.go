@@ -52,6 +52,18 @@ func (s *reconciliationTestStrips) UpdateVatsimSource(_ context.Context, session
 	return 0, nil
 }
 
+func (s *reconciliationTestStrips) UpdateArrivalETA(_ context.Context, session int32, callsign string, eta models.ArrivalETA) (int64, error) {
+	for _, strip := range s.bySession[session] {
+		if strip.Callsign != callsign {
+			continue
+		}
+		strip.ArrivalETA = &eta
+		s.updated = append(s.updated, strip)
+		return 1, nil
+	}
+	return 0, nil
+}
+
 func (s *reconciliationTestStrips) Delete(_ context.Context, session int32, callsign string) error {
 	s.deleted = append(s.deleted, callsign)
 	return nil

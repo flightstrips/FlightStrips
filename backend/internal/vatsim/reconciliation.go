@@ -22,6 +22,7 @@ type reconciliationStripStore interface {
 	List(context.Context, int32) ([]*models.Strip, error)
 	Create(context.Context, *models.Strip) error
 	UpdateVatsimSource(context.Context, int32, string, models.VatsimStripSource) (int64, error)
+	UpdateArrivalETA(context.Context, int32, string, models.ArrivalETA) (int64, error)
 	Delete(context.Context, int32, string) error
 }
 
@@ -37,19 +38,25 @@ type reconciliationNotifier interface {
 // session. It deliberately owns only feed fields; operational state remains
 // controller/EuroScope owned.
 type Reconciler struct {
-	cache       *Cache
-	sessions    reconciliationSessionStore
-	strips      reconciliationStripStore
-	assignments reconciliationAssignmentStore
-	notifier    reconciliationNotifier
-	interval    time.Duration
+	cache              *Cache
+	sessions           reconciliationSessionStore
+	strips             reconciliationStripStore
+	assignments        reconciliationAssignmentStore
+	notifier           reconciliationNotifier
+	interval           time.Duration
+	airportCoordinates AirportCoordinates
+	now                func() time.Time
 }
 
-func NewReconciler(cache *Cache, sessions reconciliationSessionStore, strips reconciliationStripStore, assignments reconciliationAssignmentStore, notifier reconciliationNotifier, interval time.Duration) *Reconciler {
+func NewReconciler(cache *Cache, sessions reconciliationSessionStore, strips reconciliationStripStore, assignments reconciliationAssignmentStore, notifier reconciliationNotifier, interval time.Duration, options ...ArrivalETAOption) *Reconciler {
 	if interval <= 0 {
 		interval = defaultRefreshInterval
 	}
-	return &Reconciler{cache: cache, sessions: sessions, strips: strips, assignments: assignments, notifier: notifier, interval: interval}
+	reconciler := &Reconciler{cache: cache, sessions: sessions, strips: strips, assignments: assignments, notifier: notifier, interval: interval, now: time.Now}
+	for _, option := range options {
+		option(reconciler)
+	}
+	return reconciler
 }
 
 func (r *Reconciler) Start(ctx context.Context) {
@@ -115,6 +122,7 @@ func (r *Reconciler) reconcileSession(ctx context.Context, snapshot Snapshot, se
 		}
 		relevant[flight.Callsign] = flight
 		strip := existing[flight.Callsign]
+		created := false
 		if strip == nil {
 			strip = r.newStrip(session, flight, snapshot.Timestamp, nextSequence(strips, flight, airport))
 			if err := r.strips.Create(ctx, strip); err != nil {
@@ -122,13 +130,23 @@ func (r *Reconciler) reconcileSession(ctx context.Context, snapshot Snapshot, se
 			}
 			existing[flight.Callsign] = strip
 			strips = append(strips, strip)
-			r.notify(session.ID, strip.Callsign)
-			continue
+			created = true
 		}
-		if r.applyFlight(strip, flight, snapshot.Timestamp) {
+		changed := created
+		if !created && r.applyFlight(strip, flight, snapshot.Timestamp) {
 			if _, err := r.strips.UpdateVatsimSource(ctx, session.ID, strip.Callsign, vatsimSource(flight, snapshot.Timestamp)); err != nil {
 				return err
 			}
+			changed = true
+		}
+		if strings.EqualFold(strings.TrimSpace(flight.FlightPlan.Destination), airport) {
+			etaChanged, err := r.updateArrivalETA(ctx, session.ID, strip, flight)
+			if err != nil {
+				return err
+			}
+			changed = etaChanged || changed
+		}
+		if changed {
 			r.notify(session.ID, strip.Callsign)
 		}
 	}
@@ -142,6 +160,28 @@ func (r *Reconciler) reconcileSession(ctx context.Context, snapshot Snapshot, se
 		}
 	}
 	return nil
+}
+
+func (r *Reconciler) updateArrivalETA(ctx context.Context, session int32, strip *models.Strip, flight Flight) (bool, error) {
+	now := time.Now()
+	if r.now != nil {
+		now = r.now()
+	}
+	candidate, ok := calculateArrivalETA(now, flight, r.airportCoordinates)
+	if !ok {
+		// VATSIM can temporarily omit timing or movement fields. Keep the last
+		// accepted estimate rather than replacing a useful stable ETA with none.
+		return false, nil
+	}
+	accepted, changed := acceptedArrivalETA(strip.ArrivalETA, candidate)
+	if !changed {
+		return false, nil
+	}
+	if _, err := r.strips.UpdateArrivalETA(ctx, session, strip.Callsign, accepted); err != nil {
+		return false, err
+	}
+	strip.ArrivalETA = &accepted
+	return true, nil
 }
 
 func vatsimSource(flight Flight, snapshotTime time.Time) models.VatsimStripSource {
@@ -237,6 +277,10 @@ func nextSequence(strips []*models.Strip, flight Flight, airport string) int32 {
 	if strings.EqualFold(strings.TrimSpace(flight.FlightPlan.Origin), airport) {
 		bay = plannedDepartureBay
 	}
+	return nextSequenceForBay(strips, bay)
+}
+
+func nextSequenceForBay(strips []*models.Strip, bay string) int32 {
 	max := int32(0)
 	for _, strip := range strips {
 		if strip != nil && strip.Bay == bay && strip.Sequence != nil && *strip.Sequence > max {

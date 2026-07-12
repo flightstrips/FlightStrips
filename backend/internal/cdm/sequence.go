@@ -414,6 +414,13 @@ func sequenceSortKey(strip *models.Strip) string {
 }
 
 func shouldSkipStrip(strip *models.Strip) bool {
+	// CDM only sequences operational flights currently supplied by EuroScope.
+	// EuroscopeSeenAt is populated when EuroScope reports the aircraft and is
+	// cleared after the aircraft disconnect grace period expires.
+	if strip.EuroscopeSeenAt == nil {
+		return true
+	}
+
 	state := strings.ToUpper(strings.TrimSpace(valueOrEmpty(strip.State)))
 	if state == "ARR" || state == "DEPA" {
 		return true

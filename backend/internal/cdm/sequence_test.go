@@ -135,6 +135,58 @@ func TestSequenceService_RecalculateAirportPersistsAndBroadcasts(t *testing.T) {
 	}
 }
 
+func TestSequenceService_RecalculateAirportSkipsVatsimOnlyFlights(t *testing.T) {
+	t.Parallel()
+
+	now := time.Now().UTC()
+	tobt := addMinutes(timeToClock(now), 10)
+	vatsimSeenAt := now.Add(-time.Minute)
+	euroscopeSeenAt := now
+	vatsimOnly := &models.Strip{
+		Callsign:     "VATSIM1",
+		Origin:       "EKCH",
+		Runway:       testStringPtr("04L"),
+		VatsimSeenAt: &vatsimSeenAt,
+		CdmData:      &models.CdmData{Tobt: testStringPtr(tobt)},
+	}
+	connected := &models.Strip{
+		Callsign:        "ES1",
+		Origin:          "EKCH",
+		Runway:          testStringPtr("04L"),
+		VatsimSeenAt:    &vatsimSeenAt,
+		EuroscopeSeenAt: &euroscopeSeenAt,
+		CdmData:         &models.CdmData{Tobt: testStringPtr(tobt)},
+	}
+
+	var persistedCallsigns []string
+	stripRepo := &testutil.MockStripRepository{
+		ListByOriginFn: func(context.Context, int32, string) ([]*models.Strip, error) {
+			return []*models.Strip{vatsimOnly, connected}, nil
+		},
+		SetCdmDataFn: func(_ context.Context, _ int32, callsign string, _ *models.CdmData) (int64, error) {
+			persistedCallsigns = append(persistedCallsigns, callsign)
+			return 1, nil
+		},
+	}
+	sessionRepo := &testutil.MockSessionRepository{
+		GetByIDFn: func(_ context.Context, id int32) (*models.Session, error) {
+			return &models.Session{ID: id, Airport: "EKCH", ActiveRunways: pkgModels.ActiveRunways{DepartureRunways: []string{"04L"}}}, nil
+		},
+	}
+	service := NewSequenceService(stripRepo, sessionRepo, NewCdmConfigStore("", "", "", 0, CdmConfigDefaults{}, nil), &testutil.MockFrontendHub{}, &testutil.MockEuroscopeHub{})
+
+	if err := service.RecalculateAirport(context.Background(), 7, "EKCH"); err != nil {
+		t.Fatalf("RecalculateAirport returned error: %v", err)
+	}
+
+	if len(persistedCallsigns) != 1 || persistedCallsigns[0] != "ES1" {
+		t.Fatalf("expected only the EuroScope-connected flight to receive CDM data, got %v", persistedCallsigns)
+	}
+	if got := valueOrEmpty(vatsimOnly.EffectiveTsat()); got != "" {
+		t.Fatalf("expected VATSIM-only flight to have no TSAT, got %q", got)
+	}
+}
+
 func TestSequenceService_RecalculateAirport_SortsEqualBaseTimesByNaturalTtot(t *testing.T) {
 	t.Parallel()
 

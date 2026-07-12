@@ -391,10 +391,12 @@ func TestBuildPersistedSequenceRows_IncludesEobtCappedReasonMarker(t *testing.T)
 	t.Parallel()
 
 	eobt := "1030"
+	euroscopeSeenAt := time.Now().UTC()
 	rows := buildPersistedSequenceRows([]*models.Strip{{
-		Callsign:    "SAS131",
-		Origin:      "EKCH",
-		Destination: "ESSA",
+		Callsign:        "SAS131",
+		Origin:          "EKCH",
+		Destination:     "ESSA",
+		EuroscopeSeenAt: &euroscopeSeenAt,
 		CdmData: (&models.CdmData{
 			Eobt: &eobt,
 			Calculation: &models.CdmCalculation{

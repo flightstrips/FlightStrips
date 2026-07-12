@@ -190,6 +190,9 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 		standAllocationService.SetPublisher(frontendHub.PublishStandAllocation)
 	}
 	euroscopeHub := euroscope.NewHub(stripService, controllerService, authService)
+	if departureLifecycle != nil {
+		departureLifecycle.SetWrongStandMessenger(euroscopeHub)
+	}
 	var vatsimReconciler *vatsim.Reconciler
 	if standAssignmentReadiness.Ready && vatsimCache != nil && standAssignmentRepo != nil {
 		latitude, longitude := appconfig.GetAirportCoordinates()

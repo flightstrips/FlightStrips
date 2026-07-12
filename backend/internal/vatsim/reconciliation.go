@@ -63,6 +63,7 @@ type ArrivalFlightInfo struct {
 // timing; the lifecycle owns allocation timing and persistence.
 type DepartureLifecycle interface {
 	ProcessDeparture(ctx context.Context, session int32, strip *models.Strip, flight DepartureFlightInfo) error
+	CancelDeparture(ctx context.Context, session int32, callsign string) error
 }
 
 // ArrivalLifecycle drives the ESTIMATED → ASSIGNED → CONFIRMED transitions
@@ -224,6 +225,12 @@ func (r *Reconciler) reconcileSession(ctx context.Context, snapshot Snapshot, se
 	}
 
 	for callsign, strip := range existing {
+		if relevant[callsign].Callsign == "" && r.lifecycle != nil &&
+			strings.EqualFold(strings.TrimSpace(strip.Origin), airport) {
+			if err := r.lifecycle.CancelDeparture(ctx, session.ID, callsign); err != nil {
+				return err
+			}
+		}
 		if strip.VatsimCID == nil || relevant[callsign].Callsign != "" || strip.EuroscopeSeenAt != nil || r.isAssigned(ctx, session.ID, strip.Callsign) {
 			continue
 		}

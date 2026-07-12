@@ -730,6 +730,17 @@ func (hub *Hub) resolveGenerateSquawkCid(ctx context.Context, session int32) str
 	return ""
 }
 
+// SendPrivateMessageFromDelivery routes an automated pilot message through an
+// operational DEL client when available, falling back to the session master.
+func (hub *Hub) SendPrivateMessageFromDelivery(session int32, callsign, message string) bool {
+	cid := hub.resolveGenerateSquawkCid(context.Background(), session)
+	if cid == "" {
+		return false
+	}
+	hub.Send(session, cid, euroscope.SendPrivateMessageEvent{Callsign: callsign, Message: message})
+	return true
+}
+
 func (hub *Hub) SendGroundState(session int32, cid string, callsign string, state string) {
 	event := euroscope.GroundStateEvent{
 		Callsign:    callsign,

@@ -86,6 +86,7 @@ type StandAllocationService struct {
 	random      func() float64
 	publish     StandAllocationPublisher
 	attempts    int
+	now         func() time.Time
 }
 
 type StandAllocationOption func(*StandAllocationService)
@@ -108,13 +109,23 @@ func WithStandAllocationAttempts(attempts int) StandAllocationOption {
 	}
 }
 
+// WithStandAllocationClock injects the clock used for assignment timestamps.
+// It lets lifecycle and tests drive expiry from a deterministic time source.
+func WithStandAllocationClock(now func() time.Time) StandAllocationOption {
+	return func(service *StandAllocationService) {
+		if now != nil {
+			service.now = now
+		}
+	}
+}
+
 func NewStandAllocationService(pool *pgxpool.Pool, strips repository.StripRepository, assignments repository.StandAssignmentRepository, stands *sat.StandCapabilityRegistry, policy *sat.AirlineAssignmentConfig, options ...StandAllocationOption) (*StandAllocationService, error) {
 	if pool == nil || strips == nil || assignments == nil || stands == nil || policy == nil {
 		return nil, errors.New("stand allocation requires database, repositories, capabilities, and policy")
 	}
 	service := &StandAllocationService{
 		pool: pool, strips: strips, assignments: assignments, stands: stands,
-		policy: policy, random: rand.Float64, attempts: 3,
+		policy: policy, random: rand.Float64, attempts: 3, now: time.Now,
 	}
 	for _, option := range options {
 		if option != nil {
@@ -228,7 +239,7 @@ func (s *StandAllocationService) allocateOnce(ctx context.Context, command Stand
 		return nil, selected, err
 	}
 	request.Stand = selected
-	assignment, err := persistStandAllocation(ctx, txAssignments, command, request, assignments, selection, match, conflict)
+	assignment, err := s.persistStandAllocation(ctx, txAssignments, command, request, assignments, selection, match, conflict)
 	if err != nil {
 		return nil, selected, err
 	}
@@ -248,6 +259,48 @@ func (s *StandAllocationService) allocateOnce(ctx context.Context, command Stand
 		Command: command, Assignment: *assignment, Selection: selection, MatchedVariant: match,
 		Compatibility: evaluation, ConflictReason: conflict, Attempts: attempt, AvailableCandidates: available,
 	}, selected, nil
+}
+
+// StandAvailable reports whether the named stand is currently compatible with
+// the request's flight facts and free of occupancy or manual blocks. It runs
+// the same locking read as an allocation so the lifecycle can decide whether to
+// renew an existing reservation in place or reallocate. The transaction is
+// read-only and rolls back without persisting any state.
+func (s *StandAllocationService) StandAvailable(ctx context.Context, request StandAllocationRequest, stand string) (bool, error) {
+	if err := validateStandAllocationRequest(AutomaticStandAllocation, &request); err != nil {
+		return false, err
+	}
+	target := standName(stand)
+	if target == "" {
+		return false, errors.New("stand availability requires a stand")
+	}
+	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable})
+	if err != nil {
+		return false, err
+	}
+	defer tx.Rollback(ctx)
+	if _, err := tx.Exec(ctx, "SELECT id FROM sessions WHERE id = $1 FOR UPDATE", request.SessionID); err != nil {
+		return false, err
+	}
+	txAssignments := s.assignments.WithTx(tx)
+	assignments, err := txAssignments.LockAssignments(ctx, request.SessionID, request.Callsign)
+	if err != nil {
+		return false, err
+	}
+	blocks, err := txAssignments.LockActiveManualBlocks(ctx, request.SessionID)
+	if err != nil {
+		return false, err
+	}
+	evaluation := s.stands.EvaluateCompatibility(request.Airport, request.FlightFacts)
+	matches := make(map[string]sat.StandCompatibilityMatch, len(evaluation.Matches))
+	for _, match := range evaluation.Matches {
+		matches[standName(match.Stand.Name)] = match
+	}
+	if _, compatible := matches[target]; !compatible {
+		return false, nil
+	}
+	availability := s.availability(request, assignments, blocks, matches)
+	return len(availability[target]) == 0, nil
 }
 
 func (s *StandAllocationService) selectStand(command StandAllocationCommand, request StandAllocationRequest, evaluation sat.StandCompatibilityEvaluation, assignments []*models.StandAssignment, blocks []*models.StandBlock, tried map[string]struct{}) (string, *sat.StandSelection, *sat.StandCompatibilityMatch, []string, string, error) {
@@ -300,7 +353,7 @@ func (s *StandAllocationService) selectStand(command StandAllocationCommand, req
 }
 
 func (s *StandAllocationService) availability(request StandAllocationRequest, assignments []*models.StandAssignment, blocks []*models.StandBlock, matches map[string]sat.StandCompatibilityMatch) map[string][]string {
-	now := time.Now()
+	now := s.now()
 	result := map[string][]string{}
 	for candidate, match := range matches {
 		for _, assignment := range assignments {
@@ -343,7 +396,7 @@ func (s *StandAllocationService) assignedBlocks(airport string, assignment *mode
 	return slices.Clone(stand.Blocks)
 }
 
-func persistStandAllocation(ctx context.Context, store repository.StandAssignmentRepository, command StandAllocationCommand, request StandAllocationRequest, current []*models.StandAssignment, selection *sat.StandSelection, match *sat.StandCompatibilityMatch, conflict string) (*models.StandAssignment, error) {
+func (s *StandAllocationService) persistStandAllocation(ctx context.Context, store repository.StandAssignmentRepository, command StandAllocationCommand, request StandAllocationRequest, current []*models.StandAssignment, selection *sat.StandSelection, match *sat.StandCompatibilityMatch, conflict string) (*models.StandAssignment, error) {
 	var existing *models.StandAssignment
 	for _, assignment := range current {
 		if assignment != nil && strings.EqualFold(assignment.Callsign, request.Callsign) {
@@ -355,7 +408,7 @@ func persistStandAllocation(ctx context.Context, store repository.StandAssignmen
 	if existing != nil {
 		*next = *existing
 	}
-	now := time.Now().UTC()
+	now := s.now().UTC()
 	next.Stand, next.Direction, next.Stage = request.Stand, string(request.Direction), request.Stage
 	next.Source, next.Manual = allocationSource(command)
 	next.RuleID, next.Tier, next.MatchedVariant = allocationSelectionMetadata(request, selection, match)

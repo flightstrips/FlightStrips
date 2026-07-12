@@ -101,6 +101,17 @@ func WithStandAllocationPublisher(publisher StandAllocationPublisher) StandAlloc
 	return func(service *StandAllocationService) { service.publish = publisher }
 }
 
+func (s *StandAllocationService) SetPublisher(publisher StandAllocationPublisher) {
+	s.publish = publisher
+}
+
+func (s *StandAllocationService) PublishAssignment(ctx context.Context, assignment models.StandAssignment) error {
+	if s.publish == nil {
+		return nil
+	}
+	return s.publish(ctx, StandAllocationResult{Assignment: assignment})
+}
+
 // WithStandAllocationAttempts bounds retries for serialization, uniqueness,
 // and optimistic-version conflicts. The default is three attempts.
 func WithStandAllocationAttempts(attempts int) StandAllocationOption {
@@ -154,6 +165,69 @@ func (s *StandAllocationService) AssignManually(ctx context.Context, request Sta
 
 func (s *StandAllocationService) OverrideManually(ctx context.Context, request StandAllocationRequest) (*StandAllocationResult, error) {
 	return s.allocate(ctx, IncompatibleManualOverride, request)
+}
+
+// CreateManualBlock applies the same session lock and occupancy graph used by
+// stand allocation before persisting a controller-created block.
+func (s *StandAllocationService) CreateManualBlock(ctx context.Context, airport string, block *models.StandBlock) error {
+	if block == nil || block.SessionID <= 0 {
+		return errors.New("manual stand block requires a session")
+	}
+	block.Stand = standName(block.Stand)
+	physical, known := s.stands.Lookup(airport, block.Stand)
+	if !known {
+		return fmt.Errorf("%w: %s", ErrUnknownManualOverrideStand, block.Stand)
+	}
+	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable})
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	if _, err := tx.Exec(ctx, "SELECT id FROM sessions WHERE id = $1 FOR UPDATE", block.SessionID); err != nil {
+		return err
+	}
+	store := s.assignments.WithTx(tx)
+	assignments, err := store.LockAssignments(ctx, block.SessionID, "")
+	if err != nil {
+		return err
+	}
+	blocks, err := store.LockActiveManualBlocks(ctx, block.SessionID)
+	if err != nil {
+		return err
+	}
+	for _, existing := range assignments {
+		if existing == nil || expired(existing.ExpiresAt, s.now()) {
+			continue
+		}
+		if standName(existing.Stand) == block.Stand || blocksEachOther(physical.Blocks, s.assignedBlocks(airport, existing), block.Stand, existing.Stand) {
+			return fmt.Errorf("%w: %s is reserved or adjacency-blocked by %s", ErrIncompatibleManualAssignment, block.Stand, existing.Callsign)
+		}
+	}
+	for _, existing := range blocks {
+		if existing != nil && standName(existing.Stand) == block.Stand {
+			return fmt.Errorf("%w: %s is already blocked", ErrIncompatibleManualAssignment, block.Stand)
+		}
+	}
+	if err := store.CreateBlock(ctx, block); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
+}
+
+func (s *StandAllocationService) DeleteManualBlock(ctx context.Context, session int32, id int64, version int32) (int64, error) {
+	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable})
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback(ctx)
+	if _, err := tx.Exec(ctx, "SELECT id FROM sessions WHERE id = $1 FOR UPDATE", session); err != nil {
+		return 0, err
+	}
+	count, err := s.assignments.WithTx(tx).DeleteBlock(ctx, session, id, version)
+	if err != nil || count != 1 {
+		return count, err
+	}
+	return count, tx.Commit(ctx)
 }
 
 func (s *StandAllocationService) allocate(ctx context.Context, command StandAllocationCommand, request StandAllocationRequest) (*StandAllocationResult, error) {

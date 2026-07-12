@@ -11,6 +11,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"strings"
 )
 
 type InitialSnapshotRequest struct {
@@ -164,8 +165,19 @@ func (b *SnapshotBuilder) Build(ctx context.Context, request InitialSnapshotRequ
 		if err != nil {
 			slog.Error("Failed to load stand status for snapshot", slog.Any("error", err), slog.Int("session", int(request.SessionID)))
 		} else {
+			enrichStandAssignmentBlocking(assignments, request.Airport)
 			event.StandAssignments = assignments
 			event.StandBlocks = blocks
+			byCallsign := make(map[string]frontendEvents.StandAssignmentEntry, len(assignments))
+			for _, assignment := range assignments {
+				byCallsign[assignment.Callsign] = assignment
+			}
+			for i := range event.Strips {
+				if assignment, ok := byCallsign[event.Strips[i].Callsign]; ok {
+					copy := assignment
+					event.Strips[i].StandAssignment = &copy
+				}
+			}
 		}
 	}
 
@@ -304,15 +316,7 @@ func (b *SnapshotBuilder) loadStandStatus(ctx context.Context, sessionID int32) 
 		if a == nil {
 			continue
 		}
-		entry := frontendEvents.StandAssignmentEntry{
-			Callsign:  a.Callsign,
-			Stand:     a.Stand,
-			Direction: a.Direction,
-			Stage:     a.Stage,
-			Source:    a.Source,
-			ETA:       a.ETA,
-			ExpiresAt: a.ExpiresAt,
-		}
+		entry := mapStandAssignmentEntry(a)
 		assignmentEntries = append(assignmentEntries, entry)
 	}
 
@@ -322,17 +326,60 @@ func (b *SnapshotBuilder) loadStandStatus(ctx context.Context, sessionID int32) 
 			continue
 		}
 		entry := frontendEvents.StandBlockEntry{
+			ID:        blk.ID,
 			Stand:     blk.Stand,
 			BlockType: blk.BlockType,
 			Reason:    blk.Reason,
 			Callsign:  blk.Callsign,
 			CreatedBy: blk.CreatedBy,
 			ExpiresAt: blk.ExpiresAt,
+			Version:   blk.Version,
 		}
 		blockEntries = append(blockEntries, entry)
 	}
 
 	return assignmentEntries, blockEntries, nil
+}
+
+func mapStandAssignmentEntry(a *internalModels.StandAssignment) frontendEvents.StandAssignmentEntry {
+	entry := frontendEvents.StandAssignmentEntry{ID: a.ID, Callsign: a.Callsign, Stand: a.Stand,
+		Direction: a.Direction, Stage: a.Stage, Source: a.Source, Manual: a.Manual,
+		RuleID: a.RuleID, Tier: a.Tier, MatchedVariant: a.MatchedVariant,
+		ConflictReason: a.ConflictReason, PendingAcknowledgement: !a.Acknowledged,
+		ETA: a.ETA, ExpiresAt: a.ExpiresAt, Version: a.Version}
+	return entry
+}
+
+func enrichStandAssignmentBlocking(entries []frontendEvents.StandAssignmentEntry, airport string) {
+	registry := config.GetStandCapabilities()
+	for i := range entries {
+		if stand, ok := registry.Lookup(airport, entries[i].Stand); ok {
+			entries[i].Blocks = append([]string(nil), stand.Blocks...)
+		}
+		if entries[i].Blocks == nil {
+			entries[i].Blocks = []string{}
+		}
+		entries[i].BlockedBy = []string{}
+	}
+	for i := range entries {
+		for j := range entries {
+			if i == j {
+				continue
+			}
+			if containsStandName(entries[j].Blocks, entries[i].Stand) || containsStandName(entries[i].Blocks, entries[j].Stand) {
+				entries[i].BlockedBy = append(entries[i].BlockedBy, entries[j].Callsign)
+			}
+		}
+	}
+}
+
+func containsStandName(values []string, wanted string) bool {
+	for _, value := range values {
+		if strings.EqualFold(strings.TrimSpace(value), strings.TrimSpace(wanted)) {
+			return true
+		}
+	}
+	return false
 }
 
 func cloneStringSlice(values []string) []string {

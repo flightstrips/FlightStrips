@@ -185,6 +185,10 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 	}
 
 	frontendHub := frontend.NewHub(stripService, authService)
+	if standAllocationService != nil {
+		frontendHub.SetStandActionService(services.NewStandActionService(standAllocationService, standAssignmentRepo, stripRepo, appconfig.GetAircraftReference(), appconfig.GetAircraftEngineReference(), appconfig.GetAirportCountries()))
+		standAllocationService.SetPublisher(frontendHub.PublishStandAllocation)
+	}
 	euroscopeHub := euroscope.NewHub(stripService, controllerService, authService)
 	var vatsimReconciler *vatsim.Reconciler
 	if standAssignmentReadiness.Ready && vatsimCache != nil && standAssignmentRepo != nil {

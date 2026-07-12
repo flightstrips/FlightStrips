@@ -206,9 +206,10 @@ func LoadStandCapabilities(source io.Reader) (*StandCapabilityRegistry, error) {
 	}
 	for i := range registry.ordered {
 		stand := &registry.ordered[i]
-		stand.Blocks = filterKnownBlocks(stand.Airport, stand.Blocks, registry.byAirport)
-		for j := range stand.Variants {
-			stand.Variants[j].Blocks = filterKnownBlocks(stand.Airport, stand.Variants[j].Blocks, registry.byAirport)
+		for _, blocked := range stand.Blocks {
+			if _, exists := registry.byAirport[stand.Airport][blocked]; !exists {
+				problems = append(problems, fmt.Errorf("stand %s:%s references unknown BLOCKS target %q", stand.Airport, stand.Name, blocked))
+			}
 		}
 		registry.byAirport[stand.Airport][stand.Name] = *stand
 	}

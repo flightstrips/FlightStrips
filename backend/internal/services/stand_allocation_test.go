@@ -75,6 +75,31 @@ func TestStandAllocationServiceTransactions(t *testing.T) {
 		require.ErrorIs(t, err, ErrIncompatibleManualAssignment)
 	})
 
+	t.Run("manual blocks use allocation occupancy and adjacency locks", func(t *testing.T) {
+		service, session, assignments := standAllocationFixture(t, pool, queries, "BLOCKS:A2", "")
+		testdata.SeedTestStrip(t, queries, session, "SAS302")
+		_, err := service.AssignManually(ctx, withStand(standAllocationRequest(session, "SAS302"), "A1"))
+		require.NoError(t, err)
+
+		block := &models.StandBlock{SessionID: session, Stand: "A2", BlockType: "MANUAL", Source: "CONTROLLER", Manual: true}
+		err = service.CreateManualBlock(ctx, "EKCH", block)
+		require.ErrorIs(t, err, ErrIncompatibleManualAssignment)
+		listed, listErr := assignments.ListBlocks(ctx, session)
+		require.NoError(t, listErr)
+		assert.Empty(t, listed)
+
+		free := &models.StandBlock{SessionID: session, Stand: "A1", BlockType: "MANUAL", Source: "CONTROLLER", Manual: true}
+		otherService, otherSession, otherAssignments := standAllocationFixture(t, pool, queries, "", "")
+		free.SessionID = otherSession
+		require.NoError(t, otherService.CreateManualBlock(ctx, "EKCH", free))
+		count, deleteErr := otherService.DeleteManualBlock(ctx, otherSession, free.ID, free.Version)
+		require.NoError(t, deleteErr)
+		assert.Equal(t, int64(1), count)
+		remaining, listErr := otherAssignments.ListBlocks(ctx, otherSession)
+		require.NoError(t, listErr)
+		assert.Empty(t, remaining)
+	})
+
 	t.Run("records an explicit incompatible override and leaves failures unpublished", func(t *testing.T) {
 		service, session, _ := standAllocationFixture(t, pool, queries, "", "")
 		testdata.SeedTestStrip(t, queries, session, "SAS401")

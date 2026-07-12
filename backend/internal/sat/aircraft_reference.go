@@ -52,8 +52,7 @@ type Aircraft struct {
 
 // AircraftRegistry provides read-only lookup by canonical ICAO type or alias.
 type AircraftRegistry struct {
-	byType   map[string]Aircraft
-	warnings []string
+	byType map[string]Aircraft
 }
 
 // Types returns all canonical aircraft types in deterministic order.
@@ -85,16 +84,6 @@ func (r *AircraftRegistry) Lookup(aircraftType string) (Aircraft, bool) {
 	}
 	facts.Aliases = append([]string(nil), facts.Aliases...)
 	return facts, true
-}
-
-// Warnings reports non-fatal source ambiguities, including duplicate aliases.
-// GRplugin uses several broad aliases for multiple specific aircraft records;
-// those aliases resolve deterministically to their first declaration.
-func (r *AircraftRegistry) Warnings() []string {
-	if r == nil {
-		return nil
-	}
-	return append([]string(nil), r.warnings...)
 }
 
 // LoadAircraftReference parses GRpluginAircraftInfo.txt data into a validated
@@ -132,13 +121,14 @@ func LoadAircraftReference(source io.Reader) (*AircraftRegistry, error) {
 		canonicalLines[aircraft.Type] = lineNumber
 
 		if firstLine, exists := keyLines[aircraft.Type]; exists {
-			registry.warnings = append(registry.warnings, fmt.Sprintf("line %d: canonical type %q replaces alias declared on line %d", lineNumber, aircraft.Type, firstLine))
+			problems = append(problems, fmt.Errorf("line %d: canonical type %q conflicts with alias declared on line %d", lineNumber, aircraft.Type, firstLine))
+			continue
 		}
 		registry.byType[aircraft.Type] = aircraft
 		keyLines[aircraft.Type] = lineNumber
 		for _, alias := range aircraft.Aliases {
 			if firstLine, exists := keyLines[alias]; exists {
-				registry.warnings = append(registry.warnings, fmt.Sprintf("line %d: conflicting alias %q already declared on line %d; using the first declaration", lineNumber, alias, firstLine))
+				problems = append(problems, fmt.Errorf("line %d: conflicting alias %q already declared on line %d", lineNumber, alias, firstLine))
 				continue
 			}
 			registry.byType[alias] = aircraft

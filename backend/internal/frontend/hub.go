@@ -7,8 +7,10 @@ import (
 	internalModels "FlightStrips/internal/models"
 	"FlightStrips/internal/rnav"
 	internalServer "FlightStrips/internal/server"
+	"FlightStrips/internal/services"
 	"FlightStrips/internal/shared"
 	"FlightStrips/pkg/events"
+	euroscopeEvents "FlightStrips/pkg/events/euroscope"
 	"FlightStrips/pkg/events/frontend"
 	"FlightStrips/pkg/helpers"
 	pkgModels "FlightStrips/pkg/models"
@@ -79,7 +81,8 @@ type Hub struct {
 	clxMu        sync.RWMutex
 	clxOverrides map[int32]map[string]bool
 
-	snapshotBuilder *SnapshotBuilder
+	snapshotBuilder    *SnapshotBuilder
+	standActionService *services.StandActionService
 }
 
 type nextDisplayComputer interface {
@@ -134,8 +137,6 @@ func NewHub(stripService shared.StripService, authenticationService shared.Authe
 	handlers.Add(frontend.AcknowledgeValidationStatus, handleAcknowledgeValidationStatus)
 	handlers.Add(frontend.ClxOverrideValidation, handleClxOverrideValidation)
 	handlers.Add(frontend.ClxUpdateTobt, handleClxUpdateTobt)
-	handlers.Add(frontend.ActionStandOccupy, handleStandOccupy)
-	handlers.Add(frontend.ActionStandVacate, handleStandVacate)
 
 	hub := &Hub{
 		send:                  make(chan internalMessage, hubSendQueueSize),
@@ -158,6 +159,21 @@ func NewHub(stripService shared.StripService, authenticationService shared.Authe
 	go hub.Run()
 
 	return hub
+}
+
+// SetStandActionService enables SAT commands only after SAT readiness has been
+// established during application startup.
+func (hub *Hub) SetStandActionService(service *services.StandActionService) {
+	hub.standActionService = service
+	if service == nil {
+		return
+	}
+	hub.handlers.Add(frontend.ActionStandAutomaticRequest, handleStandAutomaticRequest)
+	hub.handlers.Add(frontend.ActionStandManualRequest, handleStandManualRequest)
+	hub.handlers.Add(frontend.ActionStandConfirmedOverride, handleStandConfirmedOverride)
+	hub.handlers.Add(frontend.ActionStandAcknowledge, handleStandAcknowledge)
+	hub.handlers.Add(frontend.ActionStandOccupy, handleStandOccupy)
+	hub.handlers.Add(frontend.ActionStandVacate, handleStandVacate)
 }
 
 func (hub *Hub) Unregister(client *Client) {
@@ -603,6 +619,26 @@ func (hub *Hub) SendStripUpdate(session int32, callsign string) {
 
 	hub.populateNextDisplay(strip, session)
 	model := MapStripToFrontendModelWithClx(strip, hub.makeClxValidationContext(session))
+	if repo := hub.server.GetStandAssignmentRepository(); repo != nil {
+		if assignment, assignmentErr := repo.GetAssignment(context.Background(), session, callsign); assignmentErr == nil && assignment != nil {
+			entry := mapStandAssignmentEntry(assignment)
+			all, _ := repo.ListAssignments(context.Background(), session)
+			entries := make([]frontend.StandAssignmentEntry, 0, len(all))
+			for _, item := range all {
+				if item != nil {
+					entries = append(entries, mapStandAssignmentEntry(item))
+				}
+			}
+			enrichStandAssignmentBlocking(entries, clientAirport(strip, assignment.Direction))
+			for _, candidate := range entries {
+				if candidate.Callsign == callsign {
+					entry = candidate
+					break
+				}
+			}
+			model.StandAssignment = &entry
+		}
+	}
 
 	event := frontend.StripUpdateEvent{
 		Strip: model,
@@ -797,10 +833,71 @@ func (hub *Hub) SendStandAssignmentBroadcast(session int32, entry frontend.Stand
 	})
 }
 
-func (hub *Hub) SendStandBlockBroadcast(session int32, stand string, block *frontend.StandBlockEntry) {
+func (hub *Hub) enrichedStandAssignmentEntry(sessionID int32, assignment *internalModels.StandAssignment) frontend.StandAssignmentEntry {
+	entry := mapStandAssignmentEntry(assignment)
+	session, err := hub.server.GetSessionRepository().GetByID(context.Background(), sessionID)
+	if err != nil {
+		return entry
+	}
+	all, err := hub.server.GetStandAssignmentRepository().ListAssignments(context.Background(), sessionID)
+	if err != nil {
+		return entry
+	}
+	entries := make([]frontend.StandAssignmentEntry, 0, len(all))
+	for _, item := range all {
+		if item != nil {
+			entries = append(entries, mapStandAssignmentEntry(item))
+		}
+	}
+	enrichStandAssignmentBlocking(entries, session.Airport)
+	for _, candidate := range entries {
+		if strings.EqualFold(candidate.Callsign, assignment.Callsign) {
+			return candidate
+		}
+	}
+	return entry
+}
+
+func (hub *Hub) PublishStandAllocation(_ context.Context, result services.StandAllocationResult) error {
+	entry := mapStandAssignmentEntry(&result.Assignment)
+	if session, err := hub.server.GetSessionRepository().GetByID(context.Background(), result.Assignment.SessionID); err == nil {
+		all, _ := hub.server.GetStandAssignmentRepository().ListAssignments(context.Background(), result.Assignment.SessionID)
+		entries := make([]frontend.StandAssignmentEntry, 0, len(all))
+		for _, item := range all {
+			if item != nil {
+				entries = append(entries, mapStandAssignmentEntry(item))
+			}
+		}
+		enrichStandAssignmentBlocking(entries, session.Airport)
+		for _, candidate := range entries {
+			if candidate.Callsign == result.Assignment.Callsign {
+				entry = candidate
+				break
+			}
+		}
+	}
+	hub.SendStandAssignmentBroadcast(result.Assignment.SessionID, entry)
+	hub.SendStandEvent(result.Assignment.SessionID, result.Assignment.Callsign, result.Assignment.Stand)
+	hub.server.GetEuroscopeHub().Broadcast(result.Assignment.SessionID, euroscopeEvents.StandEvent{Callsign: result.Assignment.Callsign, Stand: result.Assignment.Stand})
+	return nil
+}
+
+func clientAirport(strip *internalModels.Strip, direction string) string {
+	if direction == "DEPARTURE" {
+		return strip.Origin
+	}
+	return strip.Destination
+}
+
+func (hub *Hub) SendStandBlockBroadcast(session int32, stand string, block *frontend.StandBlockEntry, blockID ...int64) {
+	id := int64(0)
+	if len(blockID) > 0 {
+		id = blockID[0]
+	}
 	hub.Broadcast(session, frontend.StandBlockUpdateEvent{
-		Stand: stand,
-		Block: block,
+		Stand:   stand,
+		Block:   block,
+		BlockID: id,
 	})
 }
 

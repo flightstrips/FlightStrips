@@ -41,6 +41,8 @@ type DepartureFlightInfo struct {
 	Origin       string
 	Destination  string
 	AircraftType string
+	Latitude     float64
+	Longitude    float64
 }
 
 // ArrivalFlightInfo is the minimal VATSIM view the arrival lifecycle needs to
@@ -355,6 +357,8 @@ func departureFlightInfo(flight Flight) DepartureFlightInfo {
 		Origin:       flight.FlightPlan.Origin,
 		Destination:  flight.FlightPlan.Destination,
 		AircraftType: flight.FlightPlan.AircraftShort,
+		Latitude:     flight.Latitude,
+		Longitude:    flight.Longitude,
 	}
 }
 

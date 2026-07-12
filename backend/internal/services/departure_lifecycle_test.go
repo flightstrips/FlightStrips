@@ -145,6 +145,51 @@ func TestDepartureLifecycle(t *testing.T) {
 		assert.Equal(t, time.Date(2026, 7, 12, 10, 40, 0, 0, time.UTC), block.ExpiresAt.UTC(), "block is retained through TSAT+10 minutes")
 	})
 
+	t.Run("coming online at a different free stand blocks the observed stand", func(t *testing.T) {
+		lifecycle, _, session, assignments, strips, clock := departureLifecycleFixture(t, pool, queries, "", "", nil)
+		testdata.SeedTestStrip(t, queries, session, "SAS602")
+		clock.set(time.Date(2026, 7, 12, 10, 0, 0, 0, time.UTC))
+		require.NoError(t, lifecycle.ProcessDeparture(ctx, session, loadStrip(t, strips, session, "SAS602"), offlineFlight("SAS602", 1)))
+
+		require.NoError(t, lifecycle.ProcessDeparture(ctx, session, loadStrip(t, strips, session, "SAS602"), onlineFlightAtA2("SAS602", 1)))
+
+		block, err := assignments.GetAssignment(ctx, session, "SAS602")
+		require.NoError(t, err)
+		assert.Equal(t, StageDepartureBlock, block.Stage)
+		assert.Equal(t, "A2", block.Stand)
+	})
+
+	t.Run("occupied observed stand records a task 19 mismatch without blocking the reserved stand", func(t *testing.T) {
+		lifecycle, allocations, session, assignments, strips, clock := departureLifecycleFixture(t, pool, queries, "", "", nil)
+		var published []StandAllocationResult
+		allocations.SetPublisher(func(_ context.Context, result StandAllocationResult) error {
+			published = append(published, result)
+			return nil
+		})
+		testdata.SeedTestStrip(t, queries, session, "SAS603")
+		clock.set(time.Date(2026, 7, 12, 10, 0, 0, 0, time.UTC))
+		require.NoError(t, lifecycle.ProcessDeparture(ctx, session, loadStrip(t, strips, session, "SAS603"), offlineFlight("SAS603", 1)))
+		require.NoError(t, assignments.CreateBlock(ctx, &models.StandBlock{SessionID: session, Stand: "A2", BlockType: "MANUAL", Source: "CONTROLLER", Manual: true}))
+
+		require.NoError(t, lifecycle.ProcessDeparture(ctx, session, loadStrip(t, strips, session, "SAS603"), onlineFlightAtA2("SAS603", 1)))
+
+		assignment, err := assignments.GetAssignment(ctx, session, "SAS603")
+		require.NoError(t, err)
+		assert.Equal(t, StageReserved, assignment.Stage)
+		assert.Equal(t, "A1", assignment.Stand)
+		require.NotNil(t, assignment.ConflictReason)
+		assert.Contains(t, *assignment.ConflictReason, "WRONG_STAND_PENDING_TASK_19")
+		require.Len(t, published, 2, "reservation and first mismatch are both published")
+		assert.Equal(t, assignment.Version, published[1].Assignment.Version)
+
+		version := assignment.Version
+		require.NoError(t, lifecycle.ProcessDeparture(ctx, session, loadStrip(t, strips, session, "SAS603"), onlineFlightAtA2("SAS603", 1)))
+		unchanged, err := assignments.GetAssignment(ctx, session, "SAS603")
+		require.NoError(t, err)
+		assert.Equal(t, version, unchanged.Version, "an unchanged mismatch must not churn the optimistic version")
+		assert.Len(t, published, 2, "an unchanged mismatch must not be republished")
+	})
+
 	t.Run("TSAT controls block release when present", func(t *testing.T) {
 		lifecycle, _, session, assignments, strips, clock := departureLifecycleFixture(t, pool, queries, "", "", nil)
 		testdata.SeedTestStrip(t, queries, session, "SAS701")
@@ -272,7 +317,7 @@ func departureLifecycleFixtureWithEngines(t *testing.T, pool *pgxpool.Pool, quer
 	registry, err := sat.LoadStandCapabilities(strings.NewReader(`
 STAND:EKCH:A1:N055.37.42.710:E012.38.33.450:30
 ` + a1Directive + `
-STAND:EKCH:A2:N055.37.42.710:E012.38.33.451:30
+STAND:EKCH:A2:N055.37.42.710:E012.38.36.450:30
 ` + a2Directive + `
 `))
 	require.NoError(t, err)
@@ -316,6 +361,16 @@ func offlineFlight(callsign string, revision int64) vatsim.DepartureFlightInfo {
 func onlineFlight(callsign string, revision int64) vatsim.DepartureFlightInfo {
 	info := offlineFlight(callsign, revision)
 	info.Online = true
+	info.Latitude = 55.6285306
+	info.Longitude = 12.642625
+	return info
+}
+
+func onlineFlightAtA2(callsign string, revision int64) vatsim.DepartureFlightInfo {
+	info := offlineFlight(callsign, revision)
+	info.Online = true
+	info.Latitude = 55.6285306
+	info.Longitude = 12.6434583
 	return info
 }
 

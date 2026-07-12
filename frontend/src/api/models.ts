@@ -82,6 +82,12 @@ export enum ActionType {
   FrontendClxUpdateTobt = "clx_update_tobt",
   FrontendStandOccupy = "stand_occupy",
   FrontendStandVacate = "stand_vacate",
+  FrontendStandAssignmentManualRequest = "stand_assignment_manual_request",
+  FrontendStandAssignmentAutomaticRequest = "stand_assignment_auto_request",
+  FrontendStandAssignmentConfirmedOverride = "stand_assignment_confirmed_override",
+  FrontendStandAssignmentAcknowledge = "stand_assignment_acknowledge",
+  FrontendStandBlockCreate = "stand_block_create",
+  FrontendStandBlockRemove = "stand_block_remove",
 }
 
 export type PdcStatus = "NONE" | "REQUESTED" | "REQUESTED_WITH_FAULTS" | "CLEARED" | "CONFIRMED" | "NO_RESPONSE" | "FAILED" | "REVERT_TO_VOICE";
@@ -139,6 +145,7 @@ export interface RunwayConfiguration {
 }
 
 export interface FrontendStrip {
+  stand_assignment?: FrontendStandAssignmentEntry;
   callsign: string;
   origin: string;
   destination: string;
@@ -660,25 +667,81 @@ export interface ActionRejectedEvent {
   type: EventType.FrontendActionRejected;
   action: string;
   reason: string;
+	code?: string;
+	callsign?: string;
+	stand?: string;
+	version?: number;
 }
 
 export interface FrontendStandAssignmentEntry {
+  id?: number;
   callsign: string;
   stand: string;
   direction: string;
   stage: string;
   source: string;
+  manual?: boolean;
+  rule_id?: string;
+  tier?: number;
+  matched_variant?: string;
   eta?: string;
   expires_at?: string;
+  conflict_reason?: string;
+  pending_acknowledgement?: boolean;
+  version?: number;
+  blocks?: string[];
+  blocked_by?: string[];
+}
+
+export interface FrontendStandAutomaticRequestAction {
+  type: ActionType.FrontendStandAssignmentAutomaticRequest;
+  callsign: string;
+  version: number;
+}
+
+export interface FrontendStandManualRequestAction {
+  type: ActionType.FrontendStandAssignmentManualRequest;
+  callsign: string;
+  stand: string;
+  version: number;
+}
+
+export interface FrontendStandConfirmedOverrideAction {
+  type: ActionType.FrontendStandAssignmentConfirmedOverride;
+  callsign: string;
+  stand: string;
+  version: number;
+  reason: string;
+}
+
+export interface FrontendStandAcknowledgeAction {
+  type: ActionType.FrontendStandAssignmentAcknowledge;
+  callsign: string;
+  version: number;
+}
+
+export interface FrontendStandBlockCreateAction {
+  type: ActionType.FrontendStandBlockCreate;
+  stand: string;
+  reason: string;
+}
+
+export interface FrontendStandBlockRemoveAction {
+  type: ActionType.FrontendStandBlockRemove;
+  block_id: number;
+  stand: string;
+  version: number;
 }
 
 export interface FrontendStandBlockEntry {
+  id?: number;
   stand: string;
   block_type: string;
   reason?: string;
   callsign?: string;
   created_by?: string;
   expires_at?: string;
+  version?: number;
 }
 
 export interface FrontendStandStatusSnapshotEvent {
@@ -696,6 +759,7 @@ export interface FrontendStandBlockUpdateEvent {
   type: EventType.FrontendStandBlockUpdate;
   stand: string;
   block: FrontendStandBlockEntry | null;
+  block_id?: number;
 }
 
 export interface FrontendStandOccupyAction {
@@ -912,7 +976,7 @@ export interface FrontendClxUpdateTobtEvent {
 }
 
 // Union type for all events that can be sent
-export type FrontendSendEvent = FrontendUpdateRunwayStatusEvent | FrontendMissedApproachEvent |FrontendCreateManualFPLAction | FrontendCreateVFRFPLAction |FrontendAuthenticationEvent | FrontendMoveEvent | FrontendGenerateSquawkEvent | FrontendUpdateStripDataEvent | FrontendUpdateOrder | FrontendSendMessageEvent | FrontendSendPrivateMessageEvent | FrontendCdmReadyEvent | FrontendSendReleasePointEvent | FrontendSetStartReqAction | FrontendSendMarkedEvent | FrontendSendRunwayClearanceEvent | FrontendSendRunwayConfirmationEvent | FrontendIssuePdcClearanceRequest | FrontendRevertToVoiceRequest | FrontendCoordinationTransferRequestEvent | FrontendCoordinationAssumeRequestEvent | FrontendCoordinationForceAssumeRequestEvent | FrontendCoordinationFreeRequestEvent | FrontendCoordinationCancelTransferRequestEvent | FrontendCoordinationTagRequestEvent | FrontendCoordinationAcceptTagRequestEvent | FrontendCreateTacticalStripAction | FrontendDeleteTacticalStripAction | FrontendConfirmTacticalStripAction | FrontendStartTacticalTimerAction | FrontendMoveTacticalStripAction | FrontendAcknowledgeUnexpectedChangeEvent | FrontendAcknowledgeValidationStatusEvent | FrontendClxOverrideValidationEvent | FrontendClxUpdateTobtEvent | FrontendStandOccupyAction | FrontendStandVacateAction;
+export type FrontendSendEvent = FrontendUpdateRunwayStatusEvent | FrontendMissedApproachEvent |FrontendCreateManualFPLAction | FrontendCreateVFRFPLAction |FrontendAuthenticationEvent | FrontendMoveEvent | FrontendGenerateSquawkEvent | FrontendUpdateStripDataEvent | FrontendUpdateOrder | FrontendSendMessageEvent | FrontendSendPrivateMessageEvent | FrontendCdmReadyEvent | FrontendSendReleasePointEvent | FrontendSetStartReqAction | FrontendSendMarkedEvent | FrontendSendRunwayClearanceEvent | FrontendSendRunwayConfirmationEvent | FrontendIssuePdcClearanceRequest | FrontendRevertToVoiceRequest | FrontendCoordinationTransferRequestEvent | FrontendCoordinationAssumeRequestEvent | FrontendCoordinationForceAssumeRequestEvent | FrontendCoordinationFreeRequestEvent | FrontendCoordinationCancelTransferRequestEvent | FrontendCoordinationTagRequestEvent | FrontendCoordinationAcceptTagRequestEvent | FrontendCreateTacticalStripAction | FrontendDeleteTacticalStripAction | FrontendConfirmTacticalStripAction | FrontendStartTacticalTimerAction | FrontendMoveTacticalStripAction | FrontendAcknowledgeUnexpectedChangeEvent | FrontendAcknowledgeValidationStatusEvent | FrontendClxOverrideValidationEvent | FrontendClxUpdateTobtEvent | FrontendStandOccupyAction | FrontendStandVacateAction | FrontendStandAutomaticRequestAction | FrontendStandManualRequestAction | FrontendStandConfirmedOverrideAction | FrontendStandAcknowledgeAction | FrontendStandBlockCreateAction | FrontendStandBlockRemoveAction;
 
 export type AnyStrip = FrontendStrip | TacticalStrip;
 export const isFlight = (s: AnyStrip): s is FrontendStrip => 'callsign' in s;

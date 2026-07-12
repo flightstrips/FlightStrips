@@ -238,7 +238,7 @@ func (s *DepartureLifecycleService) deliverWrongStandWarning(ctx context.Context
 		return nil
 	}
 	if !s.messenger.SendPrivateMessageFromDelivery(assignment.SessionID, assignment.Callsign,
-		fmt.Sprintf("FLIGHTSTRIPS: PLEASE RELOCATE TO YOUR ASSIGNED STAND %s", assignment.Stand)) {
+		fmt.Sprintf("STAND ASSIGNMENT: PLEASE RELOCATE TO YOUR ASSIGNED STAND %s", assignment.Stand)) {
 		return nil
 	}
 	observed := strings.TrimSpace(strings.TrimPrefix(*assignment.ConflictReason, wrongStandAwaitingPrefix))

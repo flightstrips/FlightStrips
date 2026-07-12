@@ -28,10 +28,12 @@ func (c *fakeClock) advance(d time.Duration) { c.now = c.now.Add(d) }
 type wrongStandTestMessenger struct {
 	available bool
 	calls     int
+	message   string
 }
 
-func (m *wrongStandTestMessenger) SendPrivateMessageFromDelivery(int32, string, string) bool {
+func (m *wrongStandTestMessenger) SendPrivateMessageFromDelivery(_ int32, _ string, message string) bool {
 	m.calls++
+	m.message = message
 	return m.available
 }
 
@@ -241,6 +243,7 @@ func TestDepartureLifecycle(t *testing.T) {
 		assert.Contains(t, *active.ConflictReason, wrongStandPendingPrefix)
 		assert.Equal(t, clock.current().Add(5*time.Minute).UTC(), active.ExpiresAt.UTC())
 		assert.Equal(t, 2, messenger.calls)
+		assert.Equal(t, "STAND ASSIGNMENT: PLEASE RELOCATE TO YOUR ASSIGNED STAND A1", messenger.message)
 	})
 
 	t.Run("moving away cancels the wrong stand deadline", func(t *testing.T) {

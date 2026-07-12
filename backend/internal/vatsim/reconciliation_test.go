@@ -88,6 +88,19 @@ func assignmentKey(session int32, callsign string) string {
 	return string(rune(session)) + ":" + callsign
 }
 
+// expiryTestAssignments reports an assignment with a controllable expiry so the
+// reconciler's retainer can distinguish active reservations from expired ones.
+type expiryTestAssignments struct {
+	expiry map[string]*time.Time
+}
+
+func (s expiryTestAssignments) GetAssignment(_ context.Context, session int32, callsign string) (*models.StandAssignment, error) {
+	if expiry, ok := s.expiry[assignmentKey(session, callsign)]; ok {
+		return &models.StandAssignment{SessionID: session, Callsign: callsign, ExpiresAt: expiry}, nil
+	}
+	return nil, errors.New("not found")
+}
+
 type reconciliationTestNotifier struct{ callsigns []string }
 
 func (n *reconciliationTestNotifier) SendStripUpdate(_ int32, callsign string) {
@@ -180,4 +193,19 @@ func TestReconcileCleanupAndDisconnectRetentionRespectOtherOwners(t *testing.T) 
 	assert.Equal(t, []string{"SAS505"}, strips.deleted)
 	assert.True(t, reconciler.RetainsStrip(context.Background(), 7, "SAS606"))
 	assert.False(t, reconciler.RetainsStrip(context.Background(), 7, "SAS505"))
+}
+
+func TestRetainsStripHonorsReservationExpiry(t *testing.T) {
+	now := time.Date(2026, 7, 12, 10, 0, 0, 0, time.UTC)
+	active := now.Add(15 * time.Minute)
+	expired := now.Add(-time.Minute)
+	assignments := expiryTestAssignments{expiry: map[string]*time.Time{
+		assignmentKey(7, "SAS1"): &active,
+		assignmentKey(7, "SAS2"): &expired,
+	}}
+	cache := newReconciliationTestCache(now)
+	reconciler := NewReconciler(cache, reconciliationTestSessions{items: []*models.Session{{ID: 7, Airport: "EKCH"}}}, &reconciliationTestStrips{bySession: map[int32][]*models.Strip{}}, assignments, nil, time.Second, WithClock(func() time.Time { return now }))
+
+	assert.True(t, reconciler.RetainsStrip(context.Background(), 7, "SAS1"), "an active reservation keeps the strip alive")
+	assert.False(t, reconciler.RetainsStrip(context.Background(), 7, "SAS2"), "an expired reservation no longer retains the strip")
 }

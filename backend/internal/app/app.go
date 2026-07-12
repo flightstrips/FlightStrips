@@ -66,6 +66,10 @@ type Config struct {
 	EnableStandAssignment bool
 	EnableDBSeed          bool
 	CloseDBOnClose        bool
+
+	StandAssignmentHoldDuration   time.Duration
+	StandAssignmentBlockExtension time.Duration
+	StandAssignmentSweepInterval  time.Duration
 }
 
 type Dependencies struct {
@@ -111,8 +115,26 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 	coordRepo := postgres.NewCoordinationRepository(dbpool)
 	tacticalStripRepo := postgres.NewTacticalStripRepository(dbpool)
 	var standAssignmentRepo repository.StandAssignmentRepository
+	var standAllocationService *services.StandAllocationService
+	var departureLifecycle *services.DepartureLifecycleService
 	if standAssignmentReadiness.Ready {
 		standAssignmentRepo = postgres.NewStandAssignmentRepository(dbpool)
+		stands := appconfig.GetStandCapabilities()
+		policy := appconfig.GetAirlineAssignment()
+		standAllocationService, err = services.NewStandAllocationService(dbpool, stripRepo, standAssignmentRepo, stands, policy)
+		if err != nil {
+			return nil, fmt.Errorf("initialize stand allocation service: %w", err)
+		}
+		departureLifecycle, err = services.NewDepartureLifecycleService(
+			standAllocationService, standAssignmentRepo, stripRepo, sessionRepo,
+			stands, appconfig.GetAircraftReference(), appconfig.GetAircraftEngineReference(), appconfig.GetAirportCountries(),
+			services.WithDepartureHoldDuration(cfg.StandAssignmentHoldDuration),
+			services.WithDepartureBlockExtension(cfg.StandAssignmentBlockExtension),
+			services.WithDepartureSweepInterval(cfg.StandAssignmentSweepInterval),
+		)
+		if err != nil {
+			return nil, fmt.Errorf("initialize departure lifecycle service: %w", err)
+		}
 	}
 
 	stripService := services.NewStripService(
@@ -159,6 +181,9 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 	if standAssignmentReadiness.Ready && vatsimCache != nil && standAssignmentRepo != nil {
 		latitude, longitude := appconfig.GetAirportCoordinates()
 		vatsimReconciler = vatsim.NewReconciler(vatsimCache, sessionRepo, stripRepo, standAssignmentRepo, frontendHub, deps.VATSIMPollInterval, vatsim.WithAirportCoordinates(latitude, longitude))
+		if departureLifecycle != nil {
+			vatsimReconciler.SetDepartureLifecycle(departureLifecycle)
+		}
 		euroscopeHub.SetAircraftDisconnectRetainer(vatsimReconciler.RetainsStrip)
 	}
 	albHub := alb.NewHub()
@@ -232,6 +257,9 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 	}
 	if vatsimReconciler != nil {
 		app.addWorker(vatsimReconciler.Start)
+	}
+	if departureLifecycle != nil {
+		app.addWorker(departureLifecycle.StartSweep)
 	}
 	if transceiverCache != nil {
 		app.addWorker(transceiverCache.Start)
@@ -526,6 +554,15 @@ func (cfg Config) withDefaults() Config {
 	}
 	if cfg.ECFMPBaseURL == "" {
 		cfg.ECFMPBaseURL = ecfmp.DefaultBaseURL
+	}
+	if cfg.StandAssignmentHoldDuration <= 0 {
+		cfg.StandAssignmentHoldDuration = 15 * time.Minute
+	}
+	if cfg.StandAssignmentBlockExtension <= 0 {
+		cfg.StandAssignmentBlockExtension = 10 * time.Minute
+	}
+	if cfg.StandAssignmentSweepInterval <= 0 {
+		cfg.StandAssignmentSweepInterval = 30 * time.Second
 	}
 	return cfg
 }

@@ -30,6 +30,26 @@ type reconciliationAssignmentStore interface {
 	GetAssignment(context.Context, int32, string) (*models.StandAssignment, error)
 }
 
+// DepartureFlightInfo is the minimal VATSIM view the departure lifecycle needs
+// to reserve, renew, or block a departure stand. It is deliberately decoupled
+// from the full Flight record so the lifecycle service can stay testable.
+type DepartureFlightInfo struct {
+	Callsign     string
+	CID          string
+	Online       bool
+	Revision     int64
+	Origin       string
+	Destination  string
+	AircraftType string
+}
+
+// DepartureLifecycle drives stand reservation and departure-block transitions
+// for a departure the reconciler has just applied. The reconciler owns feed
+// timing; the lifecycle owns allocation timing and persistence.
+type DepartureLifecycle interface {
+	ProcessDeparture(ctx context.Context, session int32, strip *models.Strip, flight DepartureFlightInfo) error
+}
+
 type reconciliationNotifier interface {
 	SendStripUpdate(session int32, callsign string)
 }
@@ -42,6 +62,7 @@ type Reconciler struct {
 	sessions           reconciliationSessionStore
 	strips             reconciliationStripStore
 	assignments        reconciliationAssignmentStore
+	lifecycle          DepartureLifecycle
 	notifier           reconciliationNotifier
 	interval           time.Duration
 	airportCoordinates AirportCoordinates
@@ -57,6 +78,15 @@ func NewReconciler(cache *Cache, sessions reconciliationSessionStore, strips rec
 		option(reconciler)
 	}
 	return reconciler
+}
+
+// SetDepartureLifecycle wires the stand reservation lifecycle. It is installed
+// after construction so the lifecycle can depend on the reconciler's stores
+// without a circular constructor dependency.
+func (r *Reconciler) SetDepartureLifecycle(lifecycle DepartureLifecycle) {
+	if r != nil {
+		r.lifecycle = lifecycle
+	}
 }
 
 func (r *Reconciler) Start(ctx context.Context) {
@@ -148,6 +178,11 @@ func (r *Reconciler) reconcileSession(ctx context.Context, snapshot Snapshot, se
 		}
 		if changed {
 			r.notify(session.ID, strip.Callsign)
+		}
+		if r.lifecycle != nil && strings.EqualFold(strings.TrimSpace(flight.FlightPlan.Origin), airport) {
+			if err := r.lifecycle.ProcessDeparture(ctx, session.ID, strip, departureFlightInfo(flight)); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -263,7 +298,29 @@ func (r *Reconciler) isAssigned(ctx context.Context, session int32, callsign str
 		return false
 	}
 	assignment, err := r.assignments.GetAssignment(ctx, session, callsign)
-	return err == nil && assignment != nil
+	if err != nil || assignment == nil {
+		return false
+	}
+	if assignment.ExpiresAt == nil {
+		return true
+	}
+	now := time.Now()
+	if r.now != nil {
+		now = r.now()
+	}
+	return assignment.ExpiresAt.After(now)
+}
+
+func departureFlightInfo(flight Flight) DepartureFlightInfo {
+	return DepartureFlightInfo{
+		Callsign:     flight.Callsign,
+		CID:          flight.CID,
+		Online:       flight.Online(),
+		Revision:     flight.FlightPlan.Revision,
+		Origin:       flight.FlightPlan.Origin,
+		Destination:  flight.FlightPlan.Destination,
+		AircraftType: flight.FlightPlan.AircraftShort,
+	}
 }
 
 func (r *Reconciler) notify(session int32, callsign string) {

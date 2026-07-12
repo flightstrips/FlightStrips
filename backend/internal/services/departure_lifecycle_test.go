@@ -1,0 +1,321 @@
+package services
+
+import (
+	"FlightStrips/internal/database"
+	"FlightStrips/internal/models"
+	"FlightStrips/internal/pdc/testdata"
+	"FlightStrips/internal/repository"
+	"FlightStrips/internal/repository/postgres"
+	"FlightStrips/internal/sat"
+	"FlightStrips/internal/vatsim"
+	"context"
+	"fmt"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+type fakeClock struct{ now time.Time }
+
+func (c *fakeClock) current() time.Time      { return c.now }
+func (c *fakeClock) set(value time.Time)     { c.now = value }
+func (c *fakeClock) advance(d time.Duration) { c.now = c.now.Add(d) }
+
+func TestDepartureLifecycle(t *testing.T) {
+	pool, queries := testdata.SetupTestDB(t)
+	ctx := context.Background()
+
+	t.Run("offline prefile allocates a 15-minute reservation", func(t *testing.T) {
+		lifecycle, _, session, assignments, strips, clock := departureLifecycleFixture(t, pool, queries, "", "", nil)
+		testdata.SeedTestStrip(t, queries, session, "SAS101")
+		clock.set(time.Date(2026, 7, 12, 10, 0, 0, 0, time.UTC))
+
+		require.NoError(t, lifecycle.ProcessDeparture(ctx, session, loadStrip(t, strips, session, "SAS101"), offlineFlight("SAS101", 1)))
+
+		assignment, err := assignments.GetAssignment(ctx, session, "SAS101")
+		require.NoError(t, err)
+		assert.Equal(t, StageReserved, assignment.Stage)
+		assert.Equal(t, "A1", assignment.Stand)
+		require.NotNil(t, assignment.ExpiresAt)
+		assert.Equal(t, clock.current().Add(15*time.Minute).UTC(), assignment.ExpiresAt.UTC())
+		require.NotNil(t, assignment.VatsimRevision)
+		assert.Equal(t, int64(1), *assignment.VatsimRevision)
+	})
+
+	t.Run("repeated feed polls do not extend or reshuffle the reservation", func(t *testing.T) {
+		lifecycle, _, session, assignments, strips, clock := departureLifecycleFixture(t, pool, queries, "", "", nil)
+		testdata.SeedTestStrip(t, queries, session, "SAS201")
+		clock.set(time.Date(2026, 7, 12, 10, 0, 0, 0, time.UTC))
+		require.NoError(t, lifecycle.ProcessDeparture(ctx, session, loadStrip(t, strips, session, "SAS201"), offlineFlight("SAS201", 1)))
+
+		original, err := assignments.GetAssignment(ctx, session, "SAS201")
+		require.NoError(t, err)
+
+		clock.advance(5 * time.Minute)
+		require.NoError(t, lifecycle.ProcessDeparture(ctx, session, loadStrip(t, strips, session, "SAS201"), offlineFlight("SAS201", 1)))
+
+		repeated, err := assignments.GetAssignment(ctx, session, "SAS201")
+		require.NoError(t, err)
+		assert.Equal(t, original.ExpiresAt.UTC(), repeated.ExpiresAt.UTC(), "expiry must not move on a repeated poll")
+		assert.Equal(t, original.Stand, repeated.Stand)
+		assert.Equal(t, original.Version, repeated.Version)
+	})
+
+	t.Run("a later revision renews the reservation in place", func(t *testing.T) {
+		lifecycle, _, session, assignments, strips, clock := departureLifecycleFixture(t, pool, queries, "", "", nil)
+		testdata.SeedTestStrip(t, queries, session, "SAS301")
+		clock.set(time.Date(2026, 7, 12, 10, 0, 0, 0, time.UTC))
+		require.NoError(t, lifecycle.ProcessDeparture(ctx, session, loadStrip(t, strips, session, "SAS301"), offlineFlight("SAS301", 1)))
+
+		clock.advance(5 * time.Minute)
+		require.NoError(t, lifecycle.ProcessDeparture(ctx, session, loadStrip(t, strips, session, "SAS301"), offlineFlight("SAS301", 2)))
+
+		renewed, err := assignments.GetAssignment(ctx, session, "SAS301")
+		require.NoError(t, err)
+		assert.Equal(t, StageReserved, renewed.Stage)
+		assert.Equal(t, "A1", renewed.Stand, "renewal keeps the same stand when it remains free")
+		require.NotNil(t, renewed.ExpiresAt)
+		assert.Equal(t, clock.current().Add(15*time.Minute).UTC(), renewed.ExpiresAt.UTC())
+		require.NotNil(t, renewed.VatsimRevision)
+		assert.Equal(t, int64(2), *renewed.VatsimRevision)
+	})
+
+	t.Run("renewal reallocates when the stand becomes unavailable", func(t *testing.T) {
+		lifecycle, _, session, assignments, strips, clock := departureLifecycleFixture(t, pool, queries, "", "", nil)
+		testdata.SeedTestStrip(t, queries, session, "SAS401")
+		clock.set(time.Date(2026, 7, 12, 10, 0, 0, 0, time.UTC))
+		require.NoError(t, lifecycle.ProcessDeparture(ctx, session, loadStrip(t, strips, session, "SAS401"), offlineFlight("SAS401", 1)))
+
+		require.NoError(t, assignments.CreateBlock(ctx, &models.StandBlock{
+			SessionID: session, Stand: "A1", BlockType: "CLOSURE", Source: "CONTROLLER", Manual: true,
+		}))
+
+		clock.advance(5 * time.Minute)
+		require.NoError(t, lifecycle.ProcessDeparture(ctx, session, loadStrip(t, strips, session, "SAS401"), offlineFlight("SAS401", 2)))
+
+		reallocated, err := assignments.GetAssignment(ctx, session, "SAS401")
+		require.NoError(t, err)
+		assert.Equal(t, StageReserved, reallocated.Stage)
+		assert.Equal(t, "A2", reallocated.Stand, "the unavailable stand is replaced by a fresh 15-minute hold on A2")
+		require.NotNil(t, reallocated.ExpiresAt)
+		assert.Equal(t, clock.current().Add(15*time.Minute).UTC(), reallocated.ExpiresAt.UTC())
+	})
+
+	t.Run("expired offline reservations are released idempotently", func(t *testing.T) {
+		lifecycle, _, session, assignments, strips, clock := departureLifecycleFixture(t, pool, queries, "", "", nil)
+		testdata.SeedTestStrip(t, queries, session, "SAS501")
+		clock.set(time.Date(2026, 7, 12, 10, 0, 0, 0, time.UTC))
+		require.NoError(t, lifecycle.ProcessDeparture(ctx, session, loadStrip(t, strips, session, "SAS501"), offlineFlight("SAS501", 1)))
+		strip := loadStrip(t, strips, session, "SAS501")
+		require.NotNil(t, strip.Stand)
+
+		clock.advance(16 * time.Minute)
+		require.NoError(t, lifecycle.ReleaseExpired(ctx))
+
+		_, err := assignments.GetAssignment(ctx, session, "SAS501")
+		require.Error(t, err, "the reservation is removed once it expires")
+		updated := loadStrip(t, strips, session, "SAS501")
+		require.Nil(t, updated.Stand, "the operational stand is cleared")
+
+		require.NoError(t, lifecycle.ReleaseExpired(ctx), "a second sweep is a no-op")
+	})
+
+	t.Run("coming online converts the reservation to a departure block", func(t *testing.T) {
+		lifecycle, _, session, assignments, strips, clock := departureLifecycleFixture(t, pool, queries, "", "", nil)
+		testdata.SeedTestStrip(t, queries, session, "SAS601")
+		clock.set(time.Date(2026, 7, 12, 10, 0, 0, 0, time.UTC))
+		require.NoError(t, lifecycle.ProcessDeparture(ctx, session, loadStrip(t, strips, session, "SAS601"), offlineFlight("SAS601", 1)))
+
+		tsat := "1030"
+		_, err := strips.SetCdmData(ctx, session, "SAS601", &models.CdmData{Tsat: &tsat})
+		require.NoError(t, err)
+
+		clock.advance(2 * time.Minute)
+		require.NoError(t, lifecycle.ProcessDeparture(ctx, session, loadStrip(t, strips, session, "SAS601"), onlineFlight("SAS601", 1)))
+
+		block, err := assignments.GetAssignment(ctx, session, "SAS601")
+		require.NoError(t, err)
+		assert.Equal(t, StageDepartureBlock, block.Stage)
+		assert.Equal(t, "A1", block.Stand)
+		require.NotNil(t, block.ExpiresAt)
+		assert.Equal(t, time.Date(2026, 7, 12, 10, 40, 0, 0, time.UTC), block.ExpiresAt.UTC(), "block is retained through TSAT+10 minutes")
+	})
+
+	t.Run("TSAT controls block release when present", func(t *testing.T) {
+		lifecycle, _, session, assignments, strips, clock := departureLifecycleFixture(t, pool, queries, "", "", nil)
+		testdata.SeedTestStrip(t, queries, session, "SAS701")
+		clock.set(time.Date(2026, 7, 12, 10, 0, 0, 0, time.UTC))
+		require.NoError(t, lifecycle.ProcessDeparture(ctx, session, loadStrip(t, strips, session, "SAS701"), offlineFlight("SAS701", 1)))
+		tsat := "1030"
+		_, err := strips.SetCdmData(ctx, session, "SAS701", &models.CdmData{Tsat: &tsat})
+		require.NoError(t, err)
+		clock.advance(2 * time.Minute)
+		require.NoError(t, lifecycle.ProcessDeparture(ctx, session, loadStrip(t, strips, session, "SAS701"), onlineFlight("SAS701", 1)))
+
+		clock.set(time.Date(2026, 7, 12, 10, 39, 0, 0, time.UTC))
+		require.NoError(t, lifecycle.ReleaseExpired(ctx))
+		if assignment, err := assignments.GetAssignment(ctx, session, "SAS701"); assert.NoError(t, err) {
+			assert.NotNil(t, assignment.ExpiresAt, "block is retained before TSAT+10")
+		}
+
+		clock.set(time.Date(2026, 7, 12, 10, 41, 0, 0, time.UTC))
+		require.NoError(t, lifecycle.ReleaseExpired(ctx))
+		_, err = assignments.GetAssignment(ctx, session, "SAS701")
+		require.Error(t, err, "block is released once TSAT+10 has passed")
+	})
+
+	t.Run("TOBT controls release when TSAT is absent", func(t *testing.T) {
+		lifecycle, _, session, assignments, strips, clock := departureLifecycleFixture(t, pool, queries, "", "", nil)
+		testdata.SeedTestStrip(t, queries, session, "SAS801")
+		clock.set(time.Date(2026, 7, 12, 10, 0, 0, 0, time.UTC))
+		require.NoError(t, lifecycle.ProcessDeparture(ctx, session, loadStrip(t, strips, session, "SAS801"), offlineFlight("SAS801", 1)))
+		tobt := "1030"
+		_, err := strips.SetCdmData(ctx, session, "SAS801", &models.CdmData{Tobt: &tobt})
+		require.NoError(t, err)
+		clock.advance(2 * time.Minute)
+		require.NoError(t, lifecycle.ProcessDeparture(ctx, session, loadStrip(t, strips, session, "SAS801"), onlineFlight("SAS801", 1)))
+
+		block, err := assignments.GetAssignment(ctx, session, "SAS801")
+		require.NoError(t, err)
+		require.NotNil(t, block.ExpiresAt)
+		assert.Equal(t, time.Date(2026, 7, 12, 10, 40, 0, 0, time.UTC), block.ExpiresAt.UTC(), "TOBT+10 governs the block when TSAT is absent")
+
+		clock.set(time.Date(2026, 7, 12, 10, 41, 0, 0, time.UTC))
+		require.NoError(t, lifecycle.ReleaseExpired(ctx))
+		_, err = assignments.GetAssignment(ctx, session, "SAS801")
+		require.Error(t, err)
+	})
+
+	t.Run("revalidation reallocates when EuroScope facts invalidate the stand", func(t *testing.T) {
+		aircraft := mustLoadAircraftRegistry(t, "A320", "B737")
+		engines := mustLoadEngineRegistry(t, aircraft, []engineRecord{{ICAO: "A320", WTC: "M", Engine: "J"}, {ICAO: "B737", WTC: "M", Engine: "J"}})
+		lifecycle, _, session, assignments, strips, clock := departureLifecycleFixtureWithEngines(t, pool, queries, "ATYP:A320", "ATYP:B737", aircraft, engines)
+		testdata.SeedTestStrip(t, queries, session, "SAS901")
+		clock.set(time.Date(2026, 7, 12, 10, 0, 0, 0, time.UTC))
+		require.NoError(t, lifecycle.ProcessDeparture(ctx, session, loadStrip(t, strips, session, "SAS901"), offlineFlight("SAS901", 1)))
+
+		_, err := pool.Exec(ctx, "UPDATE strips SET engine_type = $3, aircraft_type = $4 WHERE session = $1 AND callsign = $2", session, "SAS901", "J", "B737")
+		require.NoError(t, err)
+
+		clock.advance(2 * time.Minute)
+		require.NoError(t, lifecycle.ProcessDeparture(ctx, session, loadStrip(t, strips, session, "SAS901"), onlineFlight("SAS901", 1)))
+
+		reallocated, err := assignments.GetAssignment(ctx, session, "SAS901")
+		require.NoError(t, err)
+		assert.Equal(t, "A2", reallocated.Stand, "an incompatible stand is replaced once better facts arrive")
+		assert.Equal(t, StageDepartureBlock, reallocated.Stage)
+	})
+
+	t.Run("restart reconstructs pending deadlines from persisted timestamps", func(t *testing.T) {
+		_, allocations, session, assignments, strips, clock := departureLifecycleFixture(t, pool, queries, "", "", nil)
+		testdata.SeedTestStrip(t, queries, session, "SAS110")
+		clock.set(time.Date(2026, 7, 12, 10, 0, 0, 0, time.UTC))
+		expiry := time.Date(2026, 7, 12, 10, 5, 0, 0, time.UTC)
+		require.NoError(t, assignments.CreateAssignment(ctx, &models.StandAssignment{
+			SessionID: session, Callsign: "SAS110", Stand: "A1", Direction: "DEPARTURE",
+			Stage: StageReserved, Source: "AUTOMATIC", AssignedAt: &expiry, ExpiresAt: &expiry,
+		}))
+
+		restarted, err := NewDepartureLifecycleService(
+			allocations, assignments, strips, postgres.NewSessionRepository(pool),
+			allocations.stands, nil, nil, nil,
+			WithDepartureLifecycleClock(func() time.Time { return time.Date(2026, 7, 12, 10, 6, 0, 0, time.UTC) }),
+		)
+		require.NoError(t, err)
+
+		require.NoError(t, restarted.ReleaseExpired(ctx))
+		_, err = assignments.GetAssignment(ctx, session, "SAS110")
+		require.Error(t, err, "the restarted sweep releases the assignment from its persisted expiry alone")
+		updated := loadStrip(t, strips, session, "SAS110")
+		require.Nil(t, updated.Stand, "the operational stand is cleared from persisted state")
+	})
+}
+
+func departureLifecycleFixture(t *testing.T, pool *pgxpool.Pool, queries *database.Queries, a1Directive, a2Directive string, aircraft *sat.AircraftRegistry) (*DepartureLifecycleService, *StandAllocationService, int32, repository.StandAssignmentRepository, repository.StripRepository, *fakeClock) {
+	t.Helper()
+	return departureLifecycleFixtureWithEngines(t, pool, queries, a1Directive, a2Directive, aircraft, nil)
+}
+
+func departureLifecycleFixtureWithEngines(t *testing.T, pool *pgxpool.Pool, queries *database.Queries, a1Directive, a2Directive string, aircraft *sat.AircraftRegistry, engines *sat.AircraftEngineRegistry) (*DepartureLifecycleService, *StandAllocationService, int32, repository.StandAssignmentRepository, repository.StripRepository, *fakeClock) {
+	t.Helper()
+	registry, err := sat.LoadStandCapabilities(strings.NewReader(`
+STAND:EKCH:A1:N055.37.42.710:E012.38.33.450:30
+` + a1Directive + `
+STAND:EKCH:A2:N055.37.42.710:E012.38.33.451:30
+` + a2Directive + `
+`))
+	require.NoError(t, err)
+	policy, err := sat.LoadAirlineAssignment(strings.NewReader(`{
+  "rules": [{"id":"sas","callsigns":["SAS"],"stands":{"tier1":{"A1":100,"A2":100}}}],
+  "stand_groups": {}, "fallback_rules": {`+testFallbackJSON("A1")+`}
+}`), registry)
+	require.NoError(t, err)
+	assignments := postgres.NewStandAssignmentRepository(pool)
+	strips := postgres.NewStripRepository(pool)
+	sessions := postgres.NewSessionRepository(pool)
+	clock := &fakeClock{now: time.Date(2026, 7, 12, 10, 0, 0, 0, time.UTC)}
+	allocations, err := NewStandAllocationService(pool, strips, assignments, registry, policy,
+		WithStandAllocationRandom(func() float64 { return 0 }),
+		WithStandAllocationClock(clock.current),
+	)
+	require.NoError(t, err)
+	lifecycle, err := NewDepartureLifecycleService(allocations, assignments, strips, sessions, registry, aircraft, engines, sat.NewAirportCountryRegistry(),
+		WithDepartureLifecycleClock(clock.current),
+	)
+	require.NoError(t, err)
+	name := fmt.Sprintf("%s-%d", t.Name(), standAllocationSessionSequence.Add(1))
+	session := testdata.SeedTestSessionNamedWithSectors(t, queries, name, nil)
+	return lifecycle, allocations, session, assignments, strips, clock
+}
+
+func loadStrip(t *testing.T, strips repository.StripRepository, session int32, callsign string) *models.Strip {
+	t.Helper()
+	strip, err := strips.GetByCallsign(context.Background(), session, callsign)
+	require.NoError(t, err)
+	return strip
+}
+
+func offlineFlight(callsign string, revision int64) vatsim.DepartureFlightInfo {
+	return vatsim.DepartureFlightInfo{
+		Callsign: callsign, CID: "1001", Online: false, Revision: revision,
+		Origin: "EKCH", Destination: "ESSA", AircraftType: "A320",
+	}
+}
+
+func onlineFlight(callsign string, revision int64) vatsim.DepartureFlightInfo {
+	info := offlineFlight(callsign, revision)
+	info.Online = true
+	return info
+}
+
+type engineRecord struct {
+	ICAO   string
+	WTC    string
+	Engine string
+}
+
+func mustLoadAircraftRegistry(t *testing.T, types ...string) *sat.AircraftRegistry {
+	t.Helper()
+	var rows []string
+	for _, aircraftType := range types {
+		rows = append(rows, aircraftType+"\t35.8\t37.6\t11.8\t78000\tA")
+	}
+	registry, err := sat.LoadAircraftReference(strings.NewReader(strings.Join(rows, "\n")))
+	require.NoError(t, err)
+	return registry
+}
+
+func mustLoadEngineRegistry(t *testing.T, aircraft *sat.AircraftRegistry, records []engineRecord) *sat.AircraftEngineRegistry {
+	t.Helper()
+	var parts []string
+	for _, record := range records {
+		parts = append(parts, fmt.Sprintf(`{"ICAO":%q,"Description":"%s %s","WTC":%q}`, record.ICAO, record.ICAO, record.Engine, record.WTC))
+	}
+	engines, err := sat.LoadAircraftEngineReference(strings.NewReader("["+strings.Join(parts, ",")+"]"), aircraft)
+	require.NoError(t, err)
+	return engines
+}

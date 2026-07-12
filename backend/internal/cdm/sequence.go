@@ -38,6 +38,7 @@ type SequenceService struct {
 	frontendHub    shared.FrontendHub
 	euroscopeHub   shared.EuroscopeHub
 	afterPersist   func(ctx context.Context, session int32, callsign string)
+	now            func() time.Time
 }
 
 func NewSequenceService(stripRepo CdmSequenceStripStore, sessionRepo repository.SessionRepository, configProvider ConfigProvider, frontendHub shared.FrontendHub, euroscopeHub shared.EuroscopeHub) *SequenceService {
@@ -47,6 +48,7 @@ func NewSequenceService(stripRepo CdmSequenceStripStore, sessionRepo repository.
 		configProvider: configProvider,
 		frontendHub:    frontendHub,
 		euroscopeHub:   euroscopeHub,
+		now:            time.Now,
 	}
 }
 
@@ -105,7 +107,7 @@ func (s *SequenceService) recalculateAirport(ctx context.Context, session int32,
 		}
 	}
 	config = config.SnapshotWithRunways(sessionData.ActiveRunways.ArrivalRunways, sessionData.ActiveRunways.DepartureRunways)
-	now := time.Now().UTC()
+	now := s.now().UTC()
 	nowHHMMSS := timeToClock(now)
 
 	candidates := make([]sequencingCandidate, 0, len(strips))

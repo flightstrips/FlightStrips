@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"FlightStrips/internal/models"
 	"FlightStrips/internal/shared"
@@ -16,12 +17,14 @@ import (
 )
 
 type spyStripCdmService struct {
-	callsign        string
-	groundState     string
-	recalcAirport   string
-	recalcSession   int32
-	called          bool
-	recalcTriggered bool
+	callsign             string
+	groundState          string
+	recalcAirport        string
+	recalcSession        int32
+	called               bool
+	recalcTriggered      bool
+	prepareEobtSyncCalls int
+	prepareEobtSyncFn    func(session int32, data *models.CdmData, eobt string, now time.Time) (*models.CdmData, string, bool)
 }
 
 func (s *spyStripCdmService) TriggerRecalculate(_ context.Context, session int32, airport string) {
@@ -39,6 +42,15 @@ func (s *spyStripCdmService) HandleReadyRequest(_ context.Context, _ int32, _ st
 }
 func (s *spyStripCdmService) HandleEobtUpdate(_ context.Context, _ int32, _ string, _ string, _ string, _ string) error {
 	panic("unexpected")
+}
+func (s *spyStripCdmService) PrepareEuroscopeEobtSync(session int32, data *models.CdmData, eobt string, now time.Time) (*models.CdmData, string, bool) {
+	s.prepareEobtSyncCalls++
+	if s.prepareEobtSyncFn != nil {
+		return s.prepareEobtSyncFn(session, data, eobt, now)
+	}
+	updated := data.Clone()
+	updated.Eobt = &eobt
+	return updated, eobt, false
 }
 func (s *spyStripCdmService) HandleTobtUpdate(_ context.Context, _ int32, _ string, _ string, _ string, _ string) error {
 	panic("unexpected")

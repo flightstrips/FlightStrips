@@ -94,6 +94,8 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 	needsStripBroadcast := false
 	needsPdcValidation := false
 	restartLifecycle := false
+	correctedEobt := ""
+	eobtClamped := false
 
 	if errors.Is(err, pgx.ErrNoRows) {
 		// Strip doesn't exist, so insert
@@ -109,6 +111,17 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 		if newClearedAlt == 0 && bay == shared.BAY_NOT_CLEARED {
 			if autoCfl, ok := config.GetInitialCFLForRunway(runwayForStrip); ok {
 				newClearedAlt = int32(autoCfl)
+			}
+		}
+
+		cdmData := internalModels.NewLegacyCdmData(&strip.Eobt, nil, nil, nil, nil, nil, &strip.Eobt, nil)
+		if isLocalCdmDeparture(strip.Origin, airport) {
+			var normalizedEobt string
+			cdmData, normalizedEobt, eobtClamped = s.prepareEuroscopeEobtSync(session, &internalModels.CdmData{}, strip.Eobt, time.Now().UTC())
+			if eobtClamped && normalizedEobt != strings.TrimSpace(strip.Eobt) {
+				correctedEobt = normalizedEobt
+			} else {
+				eobtClamped = false
 			}
 		}
 
@@ -138,7 +151,7 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 			Stand:              &strip.Stand,
 			Capabilities:       &strip.Capabilities,
 			CommunicationType:  &strip.CommunicationType,
-			CdmData:            internalModels.NewLegacyCdmData(&strip.Eobt, nil, nil, nil, nil, nil, &strip.Eobt, nil),
+			CdmData:            cdmData,
 			Bay:                bay,
 			TrackingController: strip.TrackingController,
 			EngineType:         strip.EngineType,
@@ -338,6 +351,15 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 
 		if restartLifecycle {
 			cdmData = internalModels.NewLegacyCdmData(&strip.Eobt, nil, nil, nil, nil, nil, &strip.Eobt, nil)
+			if isLocalCdmDeparture(origin, airport) {
+				var normalizedEobt string
+				cdmData, normalizedEobt, eobtClamped = s.prepareEuroscopeEobtSync(session, &internalModels.CdmData{}, strip.Eobt, time.Now().UTC())
+				if eobtClamped && normalizedEobt != strings.TrimSpace(strip.Eobt) {
+					correctedEobt = normalizedEobt
+				} else {
+					eobtClamped = false
+				}
+			}
 			pdcData = (&internalModels.PdcData{}).Normalize()
 			nextOwners = []string{}
 			previousOwners = []string{}
@@ -356,13 +378,16 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 			fplType = nil
 			language = nil
 		} else if strip.Eobt != "" {
-			cdmData.Eobt = &strip.Eobt
-			if shouldForceSyncStripRecalculation(cdmData, time.Now().UTC()) {
-				cdmData.Recalculate = true
-			}
-			if shouldSyncUpdatedEobtToTobt(strip.Eobt, helpers.ValueOrDefault(cdmData.Tobt)) {
-				cdmData.Tobt = &strip.Eobt
-				cdmData.Recalculate = true
+			if isLocalCdmDeparture(origin, airport) {
+				var normalizedEobt string
+				cdmData, normalizedEobt, eobtClamped = s.prepareEuroscopeEobtSync(session, cdmData, strip.Eobt, time.Now().UTC())
+				if eobtClamped && normalizedEobt != strings.TrimSpace(strip.Eobt) {
+					correctedEobt = normalizedEobt
+				} else {
+					eobtClamped = false
+				}
+			} else {
+				cdmData = prepareEuroscopeEobtWithoutCdm(cdmData, strip.Eobt, time.Now().UTC())
 			}
 		}
 
@@ -485,6 +510,7 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 		primaryChange := syncStripChanged(existingStrip, updateStrip)
 
 		if !primaryChange {
+			s.sendCorrectedEuroscopeEobt(session, cid, strip.Callsign, correctedEobt, eobtClamped)
 			return nil
 		}
 
@@ -515,6 +541,8 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 		needsStripBroadcast = true
 		needsPdcValidation = true
 	}
+
+	s.sendCorrectedEuroscopeEobt(session, cid, strip.Callsign, correctedEobt, eobtClamped)
 
 	if syncState != nil {
 		if routeNeedsUpdate {
@@ -564,6 +592,60 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 	}
 
 	return nil
+}
+
+func (s *StripService) prepareEuroscopeEobtSync(session int32, data *internalModels.CdmData, eobt string, now time.Time) (*internalModels.CdmData, string, bool) {
+	if s.cdmService != nil {
+		return s.cdmService.PrepareEuroscopeEobtSync(session, data, eobt, now)
+	}
+	return prepareEuroscopeEobtWithoutCdm(data, eobt, now), strings.TrimSpace(eobt), false
+}
+
+func prepareEuroscopeEobtWithoutCdm(data *internalModels.CdmData, eobt string, now time.Time) *internalModels.CdmData {
+	updated := data.Clone()
+	normalizedEobt := strings.TrimSpace(eobt)
+	previousEobt := helpers.ValueOrDefault(updated.EffectiveEobt())
+	previousTobt := helpers.ValueOrDefault(updated.Tobt)
+	updated.Eobt = &normalizedEobt
+	if shouldSyncUpdatedEobtToTobt(normalizedEobt, previousTobt) && !hasProtectedSyncedTobt(updated, previousEobt) {
+		updated.Tobt = &normalizedEobt
+		updated.TobtSetBy = nil
+		updated.TobtConfirmedBy = nil
+		updated.TobtAutoSynced = true
+		updated.TobtManuallyConfirmed = false
+		updated.Recalculate = true
+	}
+	if shouldForceSyncStripRecalculation(updated, now) {
+		updated.Recalculate = true
+	}
+	return updated
+}
+
+func hasProtectedSyncedTobt(data *internalModels.CdmData, previousEobt string) bool {
+	if data == nil || data.TobtAutoSynced {
+		return false
+	}
+	currentTobt := strings.TrimSpace(helpers.ValueOrDefault(data.EffectiveTobt()))
+	confirmedBy := strings.TrimSpace(helpers.ValueOrDefault(data.TobtConfirmedBy))
+	if currentTobt == "" || confirmedBy == "" {
+		return false
+	}
+	if data.TobtManuallyConfirmed {
+		return true
+	}
+	return !(confirmedBy == internalModels.TobtConfirmedByATC && currentTobt == strings.TrimSpace(previousEobt))
+}
+
+func (s *StripService) sendCorrectedEuroscopeEobt(session int32, cid string, callsign string, correctedEobt string, clamped bool) {
+	if !clamped || correctedEobt == "" || s.esCommander == nil {
+		return
+	}
+	s.esCommander.SendEobt(session, cid, callsign, correctedEobt)
+}
+
+func isLocalCdmDeparture(origin string, airport string) bool {
+	normalizedAirport := strings.TrimSpace(airport)
+	return normalizedAirport != "" && strings.EqualFold(strings.TrimSpace(origin), normalizedAirport)
 }
 
 func shouldSyncUpdatedEobtToTobt(eobt string, currentTobt string) bool {

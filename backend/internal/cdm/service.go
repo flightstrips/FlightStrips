@@ -96,6 +96,10 @@ func (s *Service) HandleEobtUpdate(ctx context.Context, session int32, callsign 
 	return s.actionService.HandleEobtUpdate(ctx, session, callsign, eobt, sourcePosition, sourceRole)
 }
 
+func (s *Service) PrepareEuroscopeEobtSync(session int32, data *models.CdmData, eobt string, now time.Time) (*models.CdmData, string, bool) {
+	return s.actionService.PrepareEuroscopeEobtSync(session, data, eobt, now)
+}
+
 func (s *Service) normalizeMasterEobtValue(session int32, eobt string, now time.Time) (string, bool) {
 	return s.actionService.normalizeMasterEobtValue(session, eobt, now)
 }

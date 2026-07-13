@@ -13,7 +13,7 @@ func WithStripEventPublisher(publisher shared.StripEventPublisher) StripServiceO
 	}
 }
 
-func WithEuroscopeCommander(esCommander shared.EuroscopeStripCommander) StripServiceOption {
+func WithEuroscopeCommander(esCommander StripEuroscopeCommander) StripServiceOption {
 	return func(s *StripService) {
 		s.esCommander = esCommander
 	}
@@ -70,7 +70,7 @@ func WithPdcService(pdcService shared.PdcService) StripServiceOption {
 	}
 }
 
-func WithCdmService(cdmService shared.CdmService) StripServiceOption {
+func WithCdmService(cdmService StripCdmService) StripServiceOption {
 	return func(s *StripService) {
 		s.cdmService = cdmService
 	}

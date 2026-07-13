@@ -4,7 +4,18 @@ import (
 	internalModels "FlightStrips/internal/models"
 	"FlightStrips/internal/shared"
 	"context"
+	"time"
 )
+
+type StripCdmService interface {
+	shared.CdmService
+	PrepareEuroscopeEobtSync(session int32, data *internalModels.CdmData, eobt string, now time.Time) (*internalModels.CdmData, string, bool)
+}
+
+type StripEuroscopeCommander interface {
+	shared.EuroscopeStripCommander
+	SendEobt(session int32, cid string, callsign string, eobt string)
+}
 
 type StripLifecycleStore interface {
 	Create(ctx context.Context, strip *internalModels.Strip) error

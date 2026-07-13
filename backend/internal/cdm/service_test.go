@@ -701,6 +701,81 @@ func TestHandleEobtUpdate_MasterSession_ClampsFarFutureValueSyncsBackAndMarksRea
 	assert.Equal(t, expectedClamped, euroscopeHub.Eobts[0].Eobt)
 }
 
+func TestPrepareEuroscopeEobtSync_MasterSessionClampsBeforeInitialSequenceAndLeavesTobtUnconfirmed(t *testing.T) {
+	const sessionID = int32(146)
+	now := time.Date(2026, time.July, 13, 10, 0, 0, 0, time.UTC)
+	rawFutureEobt := truncateCDMClockValue(addMinutes(timeToClock(now), 60))
+	expectedClamped := truncateCDMClockValue(addMinutes(timeToClock(now), masterEobtClampTarget))
+
+	service := NewCdmService(newTestClientWithAirportMasters(nil), &testutil.MockStripRepository{}, &testutil.MockSessionRepository{}, &testutil.MockControllerRepository{})
+	service.sessionMaster.Store(sessionID, true)
+
+	updated, corrected, clamped := service.PrepareEuroscopeEobtSync(sessionID, &models.CdmData{}, rawFutureEobt, now)
+
+	require.True(t, clamped)
+	assert.Equal(t, expectedClamped, corrected)
+	assert.Equal(t, expectedClamped, valueOrEmpty(updated.Eobt))
+	assert.Equal(t, expectedClamped, valueOrEmpty(updated.Tobt))
+	assert.True(t, updated.TobtAutoSynced)
+	assert.False(t, updated.TobtManuallyConfirmed)
+	assert.Empty(t, valueOrEmpty(updated.TobtConfirmedBy))
+	assert.Empty(t, valueOrEmpty(updated.TobtSetBy))
+	assert.True(t, updated.Recalculate)
+	require.NotNil(t, updated.Calculation)
+	require.Len(t, updated.Calculation.ReasonMarkers, 1)
+	assert.Equal(t, eobtCappedReasonKind, updated.Calculation.ReasonMarkers[0].Kind)
+}
+
+func TestPrepareEuroscopeEobtSync_ClearsLegacyAutoConfirmationButPreservesManualConfirmation(t *testing.T) {
+	const sessionID = int32(149)
+	now := time.Date(2026, time.July, 13, 10, 0, 0, 0, time.UTC)
+	previousEobt := truncateCDMClockValue(addMinutes(timeToClock(now), 15))
+	rawFutureEobt := truncateCDMClockValue(addMinutes(timeToClock(now), 60))
+	expectedClamped := truncateCDMClockValue(addMinutes(timeToClock(now), masterEobtClampTarget))
+	atc := models.TobtConfirmedByATC
+	pilot := models.TobtConfirmedByPilot
+	setBy := "EKCH_DEL"
+
+	service := NewCdmService(newTestClientWithAirportMasters(nil), &testutil.MockStripRepository{}, &testutil.MockSessionRepository{}, &testutil.MockControllerRepository{})
+	service.sessionMaster.Store(sessionID, true)
+
+	t.Run("legacy auto-follow metadata is cleared", func(t *testing.T) {
+		updated, corrected, clamped := service.PrepareEuroscopeEobtSync(sessionID, &models.CdmData{
+			Eobt:            &previousEobt,
+			Tobt:            &previousEobt,
+			TobtSetBy:       &setBy,
+			TobtConfirmedBy: &atc,
+		}, rawFutureEobt, now)
+
+		require.True(t, clamped)
+		assert.Equal(t, expectedClamped, corrected)
+		assert.Equal(t, expectedClamped, valueOrEmpty(updated.Tobt))
+		assert.True(t, updated.TobtAutoSynced)
+		assert.False(t, updated.TobtManuallyConfirmed)
+		assert.Empty(t, valueOrEmpty(updated.TobtConfirmedBy))
+		assert.Empty(t, valueOrEmpty(updated.TobtSetBy))
+	})
+
+	t.Run("manual confirmation remains protected", func(t *testing.T) {
+		updated, corrected, clamped := service.PrepareEuroscopeEobtSync(sessionID, &models.CdmData{
+			Eobt:                  &previousEobt,
+			Tobt:                  &previousEobt,
+			TobtSetBy:             &setBy,
+			TobtConfirmedBy:       &pilot,
+			TobtManuallyConfirmed: true,
+		}, rawFutureEobt, now)
+
+		require.True(t, clamped)
+		assert.Equal(t, expectedClamped, corrected)
+		assert.Equal(t, expectedClamped, valueOrEmpty(updated.Eobt))
+		assert.Equal(t, previousEobt, valueOrEmpty(updated.Tobt))
+		assert.False(t, updated.TobtAutoSynced)
+		assert.True(t, updated.TobtManuallyConfirmed)
+		assert.Equal(t, models.TobtConfirmedByPilot, valueOrEmpty(updated.TobtConfirmedBy))
+		assert.Equal(t, setBy, valueOrEmpty(updated.TobtSetBy))
+	})
+}
+
 func TestHandleEobtUpdate_MasterSession_ClampsEmptyValueToNowPlus30(t *testing.T) {
 	const sessionID = int32(149)
 	const callsign = "SAS131"

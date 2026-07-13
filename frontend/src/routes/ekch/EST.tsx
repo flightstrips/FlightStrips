@@ -7,6 +7,7 @@ import EstStandCell from "@/components/est/EstStandCell";
 import EstStandMenu, { type EstMenuAnchor } from "@/components/est/EstStandMenu";
 import EstStandStatusDialog from "@/components/est/EstStandStatusDialog";
 import EstViewButtons from "@/components/est/EstViewButtons";
+import { deriveEstStandBlocking } from "@/components/est/standBlocking";
 import {
   EST_BACKGROUND_BOXES,
   EST_BOARD_HEIGHT,
@@ -213,36 +214,12 @@ export default function EST() {
     [stripByStand],
   );
 
-  const blockedStandsDerived = useMemo(() => {
-    if (satEnabled) {
-      const blocked: Record<string, true> = {};
-      for (const block of standBlocks) {
-        blocked[block.stand] = true;
-      }
-	  for (const assignment of standAssignments) {
-		for (const neighbor of assignment.blocks ?? []) blocked[neighbor] = true;
-	  }
-      return blocked;
-    }
-    return blockedStands;
-  }, [satEnabled, standAssignments, standBlocks, blockedStands]);
-
-  const standBlockReasons = useMemo(() => {
-    if (!satEnabled) return {};
-    const reasons: Record<string, string> = {};
-    for (const block of standBlocks) {
-      const cause = block.callsign ? ` by ${block.callsign}` : "";
-      const reason = block.reason ?? `${block.block_type.replace(/_/g, " ")}${cause}`;
-      reasons[block.stand] = reasons[block.stand] ? `${reasons[block.stand]}; ${reason}` : reason;
-    }
-	for (const assignment of standAssignments) {
-	  for (const neighbor of assignment.blocks ?? []) {
-		const reason = `Blocked by ${assignment.stand} (${assignment.callsign})`;
-		reasons[neighbor] = reasons[neighbor] ? `${reasons[neighbor]}; ${reason}` : reason;
-	  }
-	}
-    return reasons;
-  }, [satEnabled, standAssignments, standBlocks]);
+  const satStandBlocking = useMemo(
+    () => deriveEstStandBlocking(standAssignments, standBlocks),
+    [standAssignments, standBlocks],
+  );
+  const blockedStandsDerived = satEnabled ? satStandBlocking.blocked : blockedStands;
+  const standBlockReasons = satEnabled ? satStandBlocking.reasons : {};
 
   useEffect(() => {
     updateActionOverrides({ type: "prune", occupancy: standOccupancy });

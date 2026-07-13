@@ -41,6 +41,7 @@ export enum EventType {
   FrontendCoordinationTagRequestBroadcast = "coordination_tag_request_broadcast",
   FrontendStandStatusSnapshot = "stand_status_snapshot",
   FrontendStandAssignmentUpdate = "stand_assignment_update",
+  FrontendStandAssignmentRemoved = "stand_assignment_removed",
   FrontendStandBlockUpdate = "stand_block_update",
 }
 
@@ -662,6 +663,7 @@ export type WebSocketEvent =
   | FrontendBulkBayEvent
   | FrontendStandStatusSnapshotEvent
   | FrontendStandAssignmentUpdateEvent
+  | FrontendStandAssignmentRemovedEvent
   | FrontendStandBlockUpdateEvent;
 
 export interface ActionRejectedEvent {
@@ -738,6 +740,7 @@ export interface FrontendStandBlockEntry {
   id?: number;
   stand: string;
   block_type: string;
+  blocks?: string[];
   reason?: string;
   callsign?: string;
   created_by?: string;
@@ -754,6 +757,11 @@ export interface FrontendStandStatusSnapshotEvent {
 export interface FrontendStandAssignmentUpdateEvent {
   type: EventType.FrontendStandAssignmentUpdate;
   assignment: FrontendStandAssignmentEntry;
+}
+
+export interface FrontendStandAssignmentRemovedEvent {
+  type: EventType.FrontendStandAssignmentRemoved;
+  callsign: string;
 }
 
 export interface FrontendStandBlockUpdateEvent {

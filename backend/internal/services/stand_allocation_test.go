@@ -48,6 +48,86 @@ func TestStandAllocationServiceTransactions(t *testing.T) {
 		}
 	})
 
+	t.Run("does not report a committed allocation as failed when publication fails", func(t *testing.T) {
+		service, session, assignments := standAllocationFixture(t, pool, queries, "", "")
+		testdata.SeedTestStrip(t, queries, session, "SAS103")
+		service.SetPublisher(func(context.Context, StandAllocationResult) error {
+			return errors.New("publisher unavailable")
+		})
+
+		result, err := service.Allocate(ctx, standAllocationRequest(session, "SAS103"))
+		require.NoError(t, err)
+		persisted, err := assignments.GetAssignment(ctx, session, "SAS103")
+		require.NoError(t, err)
+		assert.Equal(t, result.Assignment.ID, persisted.ID)
+	})
+
+	t.Run("releases strip and assignment atomically before publishing removal", func(t *testing.T) {
+		service, session, assignments := standAllocationFixture(t, pool, queries, "", "")
+		testdata.SeedTestStrip(t, queries, session, "SAS102")
+		allocated, err := service.Allocate(ctx, standAllocationRequest(session, "SAS102"))
+		require.NoError(t, err)
+
+		stale := allocated.Assignment
+		stale.Version--
+		require.ErrorIs(t, service.ReleaseAssignment(ctx, &stale), errAllocationVersionConflict)
+		retained, err := assignments.GetAssignment(ctx, session, "SAS102")
+		require.NoError(t, err, "a stale release rolls back the assignment deletion")
+		strip, err := queries.GetStrip(ctx, database.GetStripParams{Session: session, Callsign: "SAS102"})
+		require.NoError(t, err)
+		require.NotNil(t, strip.Stand, "a stale release rolls back the strip update")
+		assert.Equal(t, retained.Stand, *strip.Stand)
+
+		published := make(chan StandAllocationResult, 1)
+		service.SetPublisher(func(_ context.Context, result StandAllocationResult) error {
+			published <- result
+			return errors.New("publisher unavailable")
+		})
+		require.NoError(t, service.ReleaseAssignment(ctx, retained))
+		_, err = assignments.GetAssignment(ctx, session, "SAS102")
+		require.Error(t, err)
+		strip, err = queries.GetStrip(ctx, database.GetStripParams{Session: session, Callsign: "SAS102"})
+		require.NoError(t, err)
+		assert.Nil(t, strip.Stand)
+		select {
+		case event := <-published:
+			assert.True(t, event.Removed)
+			assert.Equal(t, retained.ID, event.Assignment.ID)
+		default:
+			t.Fatal("removal was not published after commit")
+		}
+	})
+
+	t.Run("reports displaced assignments after commit", func(t *testing.T) {
+		service, session, assignments := standAllocationFixture(t, pool, queries, "", "")
+		testdata.SeedTestStrip(t, queries, session, "SAS104")
+		testdata.SeedTestStrip(t, queries, session, "SAS105")
+		estimatedRequest := withStand(standAllocationRequest(session, "SAS104"), "A1")
+		estimatedRequest.Stage = StageEstimated
+		_, err := service.AssignManually(ctx, estimatedRequest)
+		require.NoError(t, err)
+
+		var published StandAllocationResult
+		service.SetPublisher(func(_ context.Context, result StandAllocationResult) error {
+			published = result
+			return nil
+		})
+		assignedRequest := standAllocationRequest(session, "SAS105")
+		assignedRequest.Stage = StageAssigned
+		assignedRequest.DisplaceStage = StageEstimated
+		result, err := service.Allocate(ctx, assignedRequest)
+		require.NoError(t, err)
+		require.Len(t, result.RemovedAssignments, 1)
+		assert.Equal(t, "SAS104", result.RemovedAssignments[0].Callsign)
+		require.Len(t, published.RemovedAssignments, 1)
+		assert.Equal(t, "SAS104", published.RemovedAssignments[0].Callsign)
+		_, err = assignments.GetAssignment(ctx, session, "SAS104")
+		require.Error(t, err)
+		displacedStrip, err := queries.GetStrip(ctx, database.GetStripParams{Session: session, Callsign: "SAS104"})
+		require.NoError(t, err)
+		assert.Nil(t, displacedStrip.Stand)
+	})
+
 	t.Run("rejects direct occupancy and one-way or two-way blocks", func(t *testing.T) {
 		for _, directives := range []struct{ a1, a2 string }{
 			{a1: "BLOCKS:A2"},
@@ -73,6 +153,33 @@ func TestStandAllocationServiceTransactions(t *testing.T) {
 		}))
 		_, err := service.AssignManually(ctx, withStand(standAllocationRequest(session, "SAS301"), "A1"))
 		require.ErrorIs(t, err, ErrIncompatibleManualAssignment)
+	})
+
+	t.Run("manual blocks make configured neighbors unavailable bidirectionally", func(t *testing.T) {
+		for _, testCase := range []struct {
+			blocked  string
+			neighbor string
+		}{
+			{blocked: "A1", neighbor: "A2"},
+			{blocked: "A2", neighbor: "A1"},
+		} {
+			t.Run(testCase.blocked, func(t *testing.T) {
+				service, session, assignments := standAllocationFixture(t, pool, queries, "BLOCKS:A2", "")
+				testdata.SeedTestStrip(t, queries, session, "SAS311")
+				reason := "marshaller closed"
+				require.NoError(t, assignments.CreateBlock(ctx, &models.StandBlock{
+					SessionID: session, Stand: testCase.blocked, BlockType: "CLOSURE", Source: "CONTROLLER", Reason: &reason, Manual: true,
+				}))
+
+				available, err := service.StandAvailable(ctx, standAllocationRequest(session, "SAS311"), testCase.neighbor)
+				require.NoError(t, err)
+				assert.False(t, available)
+				_, err = service.AssignManually(ctx, withStand(standAllocationRequest(session, "SAS311"), testCase.neighbor))
+				require.ErrorIs(t, err, ErrIncompatibleManualAssignment)
+				_, err = service.Allocate(ctx, standAllocationRequest(session, "SAS311"))
+				require.ErrorIs(t, err, ErrNoAvailableStand)
+			})
+		}
 	})
 
 	t.Run("manual blocks use allocation occupancy and adjacency locks", func(t *testing.T) {

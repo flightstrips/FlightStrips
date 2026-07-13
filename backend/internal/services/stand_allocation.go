@@ -69,6 +69,8 @@ type StandAllocationRequest struct {
 type StandAllocationResult struct {
 	Command             StandAllocationCommand
 	Assignment          models.StandAssignment
+	Removed             bool
+	RemovedAssignments  []models.StandAssignment
 	Selection           *sat.StandSelection
 	MatchedVariant      *sat.StandCompatibilityMatch
 	Compatibility       sat.StandCompatibilityEvaluation
@@ -109,10 +111,84 @@ func (s *StandAllocationService) SetPublisher(publisher StandAllocationPublisher
 }
 
 func (s *StandAllocationService) PublishAssignment(ctx context.Context, assignment models.StandAssignment) error {
+	s.publishCommitted(ctx, StandAllocationResult{Assignment: assignment})
+	return nil
+}
+
+func (s *StandAllocationService) publishCommitted(ctx context.Context, result StandAllocationResult) {
 	if s.publish == nil {
+		return
+	}
+	if err := s.publish(ctx, result); err != nil {
+		slog.ErrorContext(ctx, "Failed to publish committed stand allocation",
+			slog.Int("session", int(result.Assignment.SessionID)),
+			slog.String("callsign", result.Assignment.Callsign),
+			slog.Any("error", err))
+	}
+}
+
+// ReleaseAssignment clears the operational strip stand and removes the SAT
+// assignment in one transaction. Publishing happens only after commit so
+// connected clients never observe a removal that was rolled back.
+func (s *StandAllocationService) ReleaseAssignment(ctx context.Context, assignment *models.StandAssignment) error {
+	if assignment == nil || assignment.SessionID <= 0 || strings.TrimSpace(assignment.Callsign) == "" {
+		return errors.New("stand assignment release requires an assignment")
+	}
+
+	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable})
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	if _, err := tx.Exec(ctx, "SELECT id FROM sessions WHERE id = $1 FOR UPDATE", assignment.SessionID); err != nil {
+		return err
+	}
+
+	txStrips := s.strips.WithTx(tx)
+	txAssignments := s.assignments.WithTx(tx)
+	strip, err := txStrips.LockByCallsign(ctx, assignment.SessionID, assignment.Callsign)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return err
+	}
+	currentAssignments, err := txAssignments.LockAssignments(ctx, assignment.SessionID, assignment.Callsign)
+	if err != nil {
+		return err
+	}
+	var current *models.StandAssignment
+	for _, candidate := range currentAssignments {
+		if candidate != nil && strings.EqualFold(candidate.Callsign, assignment.Callsign) {
+			current = candidate
+			break
+		}
+	}
+	if current == nil {
 		return nil
 	}
-	return s.publish(ctx, StandAllocationResult{Assignment: assignment})
+	if current.ID != assignment.ID || current.Version != assignment.Version {
+		return errAllocationVersionConflict
+	}
+
+	if strip != nil && strip.Stand != nil && strings.EqualFold(strings.TrimSpace(*strip.Stand), strings.TrimSpace(current.Stand)) {
+		updated, err := txStrips.UpdateStand(ctx, assignment.SessionID, assignment.Callsign, nil, nil)
+		if err != nil {
+			return err
+		}
+		if updated != 1 {
+			return errAllocationVersionConflict
+		}
+	}
+	deleted, err := txAssignments.DeleteAssignment(ctx, assignment.SessionID, current.ID, current.Version)
+	if err != nil {
+		return err
+	}
+	if deleted != 1 {
+		return errAllocationVersionConflict
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return err
+	}
+	s.publishCommitted(ctx, StandAllocationResult{Assignment: *current, Removed: true})
+	return nil
 }
 
 // WithStandAllocationAttempts bounds retries for serialization, uniqueness,
@@ -264,11 +340,7 @@ func (s *StandAllocationService) allocate(ctx context.Context, command StandAllo
 				slog.String("command", string(command)), slog.String("stand", result.Assignment.Stand),
 				slog.String("stage", result.Assignment.Stage), slog.String("source", result.Assignment.Source),
 				slog.String("rule_id", rule), slog.Int("tier", tier), slog.Int("attempt", attempt))
-			if s.publish != nil {
-				if err := s.publish(ctx, *result); err != nil {
-					return result, fmt.Errorf("publish committed stand allocation: %w", err)
-				}
-			}
+			s.publishCommitted(ctx, *result)
 			return result, nil
 		}
 		if selected != "" {
@@ -352,8 +424,10 @@ func (s *StandAllocationService) allocateOnce(ctx context.Context, command Stand
 	if err != nil {
 		return nil, selected, err
 	}
+	var removedAssignments []models.StandAssignment
 	if request.DisplaceStage != "" && selected != "" {
-		if err := s.displaceAssignments(ctx, txStrips, txAssignments, request, selected, assignments); err != nil {
+		removedAssignments, err = s.displaceAssignments(ctx, txStrips, txAssignments, request, selected, assignments)
+		if err != nil {
 			return nil, selected, err
 		}
 	}
@@ -377,6 +451,7 @@ func (s *StandAllocationService) allocateOnce(ctx context.Context, command Stand
 	return &StandAllocationResult{
 		Command: command, Assignment: *assignment, Selection: selection, MatchedVariant: match,
 		Compatibility: evaluation, ConflictReason: conflict, Attempts: attempt, AvailableCandidates: available,
+		RemovedAssignments: removedAssignments,
 	}, selected, nil
 }
 
@@ -494,16 +569,34 @@ func (s *StandAllocationService) availability(request StandAllocationRequest, as
 			}
 		}
 		for _, block := range blocks {
-			if block != nil && candidate == standName(block.Stand) {
-				reason := "manually blocked"
-				if block.Reason != nil && strings.TrimSpace(*block.Reason) != "" {
-					reason += ": " + strings.TrimSpace(*block.Reason)
-				}
-				result[candidate] = append(result[candidate], reason)
+			if block == nil {
+				continue
 			}
+			blockedStand := standName(block.Stand)
+			directlyBlocked := candidate == blockedStand
+			adjacencyBlocked := blocksEachOther(s.configuredStandBlocks(request.Airport, candidate), s.configuredStandBlocks(request.Airport, blockedStand), candidate, blockedStand)
+			if !directlyBlocked && !adjacencyBlocked {
+				continue
+			}
+			reason := "manually blocked"
+			if adjacencyBlocked && !directlyBlocked {
+				reason = "blocked by manual block " + blockedStand
+			}
+			if block.Reason != nil && strings.TrimSpace(*block.Reason) != "" {
+				reason += ": " + strings.TrimSpace(*block.Reason)
+			}
+			result[candidate] = append(result[candidate], reason)
 		}
 	}
 	return result
+}
+
+func (s *StandAllocationService) configuredStandBlocks(airport, standName string) []string {
+	stand, found := s.stands.Lookup(airport, standName)
+	if !found {
+		return nil
+	}
+	return stand.Blocks
 }
 
 func (s *StandAllocationService) assignedBlocks(airport string, assignment *models.StandAssignment) []string {
@@ -626,10 +719,11 @@ func joinAllocationReasons(reasons []string) string {
 	return strings.Join(result, "; ")
 }
 
-func (s *StandAllocationService) displaceAssignments(ctx context.Context, strips repository.StripRepository, assignments repository.StandAssignmentRepository, request StandAllocationRequest, selected string, current []*models.StandAssignment) error {
+func (s *StandAllocationService) displaceAssignments(ctx context.Context, strips repository.StripRepository, assignments repository.StandAssignmentRepository, request StandAllocationRequest, selected string, current []*models.StandAssignment) ([]models.StandAssignment, error) {
 	if request.DisplaceStage == "" || selected == "" {
-		return nil
+		return nil, nil
 	}
+	removed := []models.StandAssignment{}
 	for _, assignment := range current {
 		if assignment == nil || strings.EqualFold(assignment.Callsign, request.Callsign) {
 			continue
@@ -641,13 +735,18 @@ func (s *StandAllocationService) displaceAssignments(ctx context.Context, strips
 			continue
 		}
 		if _, err := strips.UpdateStand(ctx, request.SessionID, assignment.Callsign, nil, nil); err != nil {
-			return err
+			return nil, err
 		}
-		if _, err := assignments.DeleteAssignment(ctx, request.SessionID, assignment.ID, assignment.Version); err != nil {
-			return err
+		deleted, err := assignments.DeleteAssignment(ctx, request.SessionID, assignment.ID, assignment.Version)
+		if err != nil {
+			return nil, err
 		}
+		if deleted != 1 {
+			return nil, errAllocationVersionConflict
+		}
+		removed = append(removed, *assignment)
 	}
-	return nil
+	return removed, nil
 }
 
 func standName(value string) string      { return strings.ToUpper(strings.TrimSpace(value)) }

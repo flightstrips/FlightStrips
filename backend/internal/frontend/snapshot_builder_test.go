@@ -2,13 +2,29 @@ package frontend
 
 import (
 	internalModels "FlightStrips/internal/models"
+	"FlightStrips/internal/sat"
 	"FlightStrips/internal/testutil"
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func TestStandBlockNeighborsAreBidirectional(t *testing.T) {
+	registry, err := sat.LoadStandCapabilities(strings.NewReader(`
+STAND:EKCH:A1:N055.37.42.710:E012.38.33.450:30
+BLOCKS:A2
+STAND:EKCH:A2:N055.37.42.710:E012.38.33.451:30
+STAND:EKCH:A3:N055.37.42.710:E012.38.33.452:30
+BLOCKS:A1
+`))
+	require.NoError(t, err)
+
+	assert.ElementsMatch(t, []string{"A2", "A3"}, standBlockNeighborsFromRegistry(registry, "EKCH", "A1"))
+	assert.Equal(t, []string{"A1"}, standBlockNeighborsFromRegistry(registry, "EKCH", "A2"))
+}
 
 func TestSnapshotBuilder_Build_IncludesAssociatedLocalIP(t *testing.T) {
 	ctx := context.WithValue(context.Background(), "request-id", "snapshot-test")

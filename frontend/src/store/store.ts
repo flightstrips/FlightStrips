@@ -34,6 +34,7 @@ import {
   type FrontendStandAssignmentEntry,
   type FrontendStandBlockEntry,
   type FrontendStandAssignmentUpdateEvent,
+  type FrontendStandAssignmentRemovedEvent,
   type FrontendStandBlockUpdateEvent,
   type FrontendStandStatusSnapshotEvent,
   type FrontendStrip,
@@ -1395,6 +1396,18 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
   };
 
   wsClient.on(EventType.FrontendStandAssignmentUpdate, handleStandAssignmentUpdate);
+
+  const handleStandAssignmentRemoved = (data: FrontendStandAssignmentRemovedEvent) => {
+    store.setState(
+      produce((state: WebSocketState) => {
+        state.standAssignments = state.standAssignments.filter(
+          (assignment) => assignment.callsign.toUpperCase() !== data.callsign.toUpperCase(),
+        );
+      }),
+    );
+  };
+
+  wsClient.on(EventType.FrontendStandAssignmentRemoved, handleStandAssignmentRemoved);
 
   const handleStandBlockUpdate = (data: FrontendStandBlockUpdateEvent) => {
     store.setState(

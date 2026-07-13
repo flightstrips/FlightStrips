@@ -29,6 +29,7 @@ import {
   type FrontendStandEvent,
   type FrontendStandStatusSnapshotEvent,
   type FrontendStandAssignmentUpdateEvent,
+  type FrontendStandAssignmentRemovedEvent,
   type FrontendStandBlockUpdateEvent,
   type FrontendStripUpdateEvent,
   type FrontendTacticalStripCreatedEvent,
@@ -86,6 +87,7 @@ type EventMap = {
   [EventType.FrontendAvailableSids]: AvailableSidsEvent;
   [EventType.FrontendStandStatusSnapshot]: FrontendStandStatusSnapshotEvent;
   [EventType.FrontendStandAssignmentUpdate]: FrontendStandAssignmentUpdateEvent;
+  [EventType.FrontendStandAssignmentRemoved]: FrontendStandAssignmentRemovedEvent;
   [EventType.FrontendStandBlockUpdate]: FrontendStandBlockUpdateEvent;
 };
 

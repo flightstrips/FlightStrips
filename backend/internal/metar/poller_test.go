@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -82,8 +83,40 @@ func TestFetchAllAtisData_SeparateArrDep(t *testing.T) {
 	result, err := p.fetchAllAtisData(context.Background())
 
 	require.NoError(t, err)
-	assert.Equal(t, "A", result["KJFK"].arr)
-	assert.Equal(t, "B", result["KJFK"].dep)
+	assert.Equal(t, "A", result["KJFK"].arr.Code)
+	assert.Equal(t, "B", result["KJFK"].dep.Code)
+}
+
+func TestFetchAllAtisData_PreservesPilotFacingFields(t *testing.T) {
+	feed := []afvAtisEntry{{Callsign: "KJFK_D_ATIS", AtisCode: "B", Frequency: "128.725", TextAtis: []string{"KJFK DEPARTURE ATIS B", "RUNWAY 22R"}, LastUpdated: "2026-07-12T20:10:11.123Z"}}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { _ = json.NewEncoder(w).Encode(feed) }))
+	defer srv.Close()
+
+	p := newTestPoller(nil, srv)
+	result, err := p.fetchAllAtisData(context.Background())
+	require.NoError(t, err)
+	assert.Equal(t, "128.725", result["KJFK"].dep.Frequency)
+	assert.Equal(t, []string{"KJFK DEPARTURE ATIS B", "RUNWAY 22R"}, result["KJFK"].dep.Text)
+	assert.Equal(t, 2026, result["KJFK"].dep.LastUpdated.Year())
+}
+
+func TestGetATISReturnsDefensiveCopy(t *testing.T) {
+	p := &Poller{atisCache: map[string]atisInfo{"EKCH": {dep: &ATIS{Code: "D", Text: []string{"ORIGINAL"}}}}, atisFetchedAt: time.Now().UTC()}
+	first := p.GetATIS("ekch", true)
+	first.Text[0] = "CHANGED"
+	assert.Equal(t, "ORIGINAL", p.GetATIS("EKCH", true).Text[0])
+}
+
+func TestGetATISMarksCacheStaleAfterFeedStopsRefreshing(t *testing.T) {
+	p := &Poller{
+		interval:      2 * time.Minute,
+		atisFetchedAt: time.Now().UTC().Add(-6 * time.Minute),
+		atisCache:     map[string]atisInfo{"EKCH": {dep: &ATIS{Code: "D"}}},
+	}
+	assert.True(t, p.GetATIS("EKCH", true).Stale)
+
+	p.atisFetchedAt = time.Now().UTC()
+	assert.False(t, p.GetATIS("EKCH", true).Stale)
 }
 
 func TestFetchAllAtisData_GeneralFillsBothSlots(t *testing.T) {
@@ -99,8 +132,8 @@ func TestFetchAllAtisData_GeneralFillsBothSlots(t *testing.T) {
 	result, err := p.fetchAllAtisData(context.Background())
 
 	require.NoError(t, err)
-	assert.Equal(t, "C", result["EGLL"].arr)
-	assert.Equal(t, "C", result["EGLL"].dep)
+	assert.Equal(t, "C", result["EGLL"].arr.Code)
+	assert.Equal(t, "C", result["EGLL"].dep.Code)
 }
 
 func TestFetchAllAtisData_GeneralDoesNotOverwriteSpecific(t *testing.T) {
@@ -118,8 +151,8 @@ func TestFetchAllAtisData_GeneralDoesNotOverwriteSpecific(t *testing.T) {
 	result, err := p.fetchAllAtisData(context.Background())
 
 	require.NoError(t, err)
-	assert.Equal(t, "X", result["EGLL"].arr)
-	assert.Equal(t, "Y", result["EGLL"].dep) // general fills empty dep slot
+	assert.Equal(t, "X", result["EGLL"].arr.Code)
+	assert.Equal(t, "Y", result["EGLL"].dep.Code) // general fills empty dep slot
 }
 
 func TestFetchAllAtisData_EmptyFeed(t *testing.T) {
@@ -174,7 +207,7 @@ func TestFetchAllAtisData_IgnoresNonAtisCallsigns(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Len(t, result, 1)
-	assert.Equal(t, "B", result["KJFK"].dep)
+	assert.Equal(t, "B", result["KJFK"].dep.Code)
 }
 
 // --- fetch (METAR) ---

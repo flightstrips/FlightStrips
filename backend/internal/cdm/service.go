@@ -237,7 +237,7 @@ func (s *Service) loadCdmActionTarget(ctx context.Context, session int32, callsi
 }
 
 func (s *Service) prepareTobtUpdate(ctx context.Context, session int32, callsign string, tobt string, sourcePosition string, now time.Time) (*models.Strip, cdmSnapshot, *models.CdmData, string, bool, bool, error) {
-	return s.actionService.prepareTobtUpdate(ctx, session, callsign, tobt, sourcePosition, now)
+	return s.actionService.prepareTobtUpdate(ctx, session, callsign, tobt, sourcePosition, "ATC", now)
 }
 
 func (s *Service) SyncAsatForGroundState(ctx context.Context, session int32, callsign string, groundState string) error {

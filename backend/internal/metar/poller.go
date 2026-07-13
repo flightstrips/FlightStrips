@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -19,24 +20,39 @@ type FrontendHub interface {
 
 // afvAtisEntry holds the fields we need from a single AFV ATIS data entry.
 type afvAtisEntry struct {
-	Callsign string `json:"callsign"`
-	AtisCode string `json:"atis_code"`
+	Callsign    string   `json:"callsign"`
+	Frequency   string   `json:"frequency"`
+	AtisCode    string   `json:"atis_code"`
+	TextAtis    []string `json:"text_atis"`
+	LastUpdated string   `json:"last_updated"`
 }
 
-// atisInfo holds arrival and departure ATIS codes for an airport.
+// ATIS is the current VATSIM ATIS information exposed to pilot-facing APIs.
+type ATIS struct {
+	Callsign    string    `json:"callsign"`
+	Code        string    `json:"code"`
+	Frequency   string    `json:"frequency"`
+	Text        []string  `json:"text"`
+	LastUpdated time.Time `json:"last_updated"`
+	Stale       bool      `json:"stale"`
+}
+
 type atisInfo struct {
-	arr string
-	dep string
+	arr *ATIS
+	dep *ATIS
 }
 
 // Poller fetches METAR data for all active sessions and pushes it to connected frontend clients.
 type Poller struct {
-	sessionRepo  repository.SessionRepository
-	hub          FrontendHub
-	interval     time.Duration
-	httpClient   *http.Client
-	metarBaseURL string
-	atisDataURL  string
+	sessionRepo   repository.SessionRepository
+	hub           FrontendHub
+	interval      time.Duration
+	httpClient    *http.Client
+	metarBaseURL  string
+	atisDataURL   string
+	atisMu        sync.RWMutex
+	atisCache     map[string]atisInfo
+	atisFetchedAt time.Time
 }
 
 // NewPoller creates a new METAR poller.
@@ -48,6 +64,7 @@ func NewPoller(sessionRepo repository.SessionRepository, hub FrontendHub) *Polle
 		httpClient:   &http.Client{Timeout: 10 * time.Second},
 		metarBaseURL: "https://metar.vatsim.net",
 		atisDataURL:  "https://data.vatsim.net/v3/afv-atis-data.json",
+		atisCache:    make(map[string]atisInfo),
 	}
 }
 
@@ -80,6 +97,11 @@ func (p *Poller) poll(ctx context.Context) {
 	if err != nil {
 		slog.Warn("metar poller: failed to fetch ATIS data", slog.Any("error", err))
 		atisMap = map[string]atisInfo{}
+	} else {
+		p.atisMu.Lock()
+		p.atisCache = atisMap
+		p.atisFetchedAt = time.Now().UTC()
+		p.atisMu.Unlock()
 	}
 
 	for _, session := range sessions {
@@ -94,7 +116,7 @@ func (p *Poller) poll(ctx context.Context) {
 		}
 
 		info := atisMap[strings.ToUpper(airport)]
-		p.hub.SendAtisUpdate(session.ID, metar, info.arr, info.dep)
+		p.hub.SendAtisUpdate(session.ID, metar, atisCode(info.arr), atisCode(info.dep))
 	}
 }
 
@@ -156,23 +178,66 @@ func (p *Poller) fetchAllAtisData(ctx context.Context) (map[string]atisInfo, err
 			continue
 		}
 		info := result[icao]
+		updated, _ := time.Parse(time.RFC3339Nano, e.LastUpdated)
+		entry := &ATIS{Callsign: e.Callsign, Code: e.AtisCode, Frequency: e.Frequency, Text: e.TextAtis, LastUpdated: updated}
 		switch kind {
 		case "arr":
-			info.arr = e.AtisCode
+			info.arr = entry
 		case "dep":
-			info.dep = e.AtisCode
+			info.dep = entry
 		default: // general: fill whichever slots are still empty
-			if info.arr == "" {
-				info.arr = e.AtisCode
+			if info.arr == nil {
+				info.arr = entry
 			}
-			if info.dep == "" {
-				info.dep = e.AtisCode
+			if info.dep == nil {
+				info.dep = entry
 			}
 		}
 		result[icao] = info
 	}
 
 	return result, nil
+}
+
+func atisCode(info *ATIS) string {
+	if info == nil {
+		return ""
+	}
+	return info.Code
+}
+
+// GetATIS returns the latest cached arrival or departure ATIS for an airport.
+func (p *Poller) GetATIS(airport string, departure bool) *ATIS {
+	p.atisMu.RLock()
+	defer p.atisMu.RUnlock()
+	info := p.atisCache[strings.ToUpper(strings.TrimSpace(airport))]
+	var result *ATIS
+	if departure {
+		result = cloneATIS(info.dep)
+	} else {
+		result = cloneATIS(info.arr)
+	}
+	if result != nil {
+		result.Stale = p.atisFetchedAt.IsZero() || time.Since(p.atisFetchedAt) > p.atisStaleAfter()
+	}
+	return result
+}
+
+func (p *Poller) atisStaleAfter() time.Duration {
+	threshold := 2 * p.interval
+	if threshold < 5*time.Minute {
+		return 5 * time.Minute
+	}
+	return threshold
+}
+
+func cloneATIS(info *ATIS) *ATIS {
+	if info == nil {
+		return nil
+	}
+	copy := *info
+	copy.Text = append([]string(nil), info.Text...)
+	return &copy
 }
 
 // parseAtisCallsign parses a VATSIM ATIS callsign and returns the ICAO and kind.

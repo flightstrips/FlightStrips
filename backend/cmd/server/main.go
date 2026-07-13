@@ -78,6 +78,7 @@ func main() {
 		EnableECFMP:              true,
 		EnableECFMPAPI:           !isLiveEnvironment(getEnv("ENVIRONMENT", "development")),
 		EnablePilotAPI:           true,
+		EnableEFB:                envBool("ENABLE_EFB", false),
 		EnableALB:                true,
 		EnableMetar:              true,
 		EnableVATSIM:             true,

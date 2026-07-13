@@ -7,6 +7,7 @@ import (
 	"FlightStrips/internal/database"
 	"FlightStrips/internal/ecfmp"
 	ecfmpWebAPI "FlightStrips/internal/ecfmp/webapi"
+	"FlightStrips/internal/efb"
 	"FlightStrips/internal/euroscope"
 	"FlightStrips/internal/frontend"
 	"FlightStrips/internal/metar"
@@ -59,6 +60,7 @@ type Config struct {
 	EnableECFMP           bool
 	EnableECFMPAPI        bool
 	EnablePilotAPI        bool
+	EnableEFB             bool
 	EnableALB             bool
 	EnableMetar           bool
 	EnableVATSIM          bool
@@ -117,6 +119,7 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 	tacticalStripRepo := postgres.NewTacticalStripRepository(dbpool)
 	var standAssignmentRepo repository.StandAssignmentRepository
 	var standAllocationService *services.StandAllocationService
+	var standActionService *services.StandActionService
 	var departureLifecycle *services.DepartureLifecycleService
 	var arrivalLifecycle *services.ArrivalLifecycleService
 	if standAssignmentReadiness.Ready {
@@ -190,7 +193,8 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 
 	frontendHub := frontend.NewHub(stripService, authService)
 	if standAllocationService != nil {
-		frontendHub.SetStandActionService(services.NewStandActionService(standAllocationService, standAssignmentRepo, stripRepo, appconfig.GetAircraftReference(), appconfig.GetAircraftEngineReference(), appconfig.GetAirportCountries()))
+		standActionService = services.NewStandActionService(standAllocationService, standAssignmentRepo, stripRepo, appconfig.GetAircraftReference(), appconfig.GetAircraftEngineReference(), appconfig.GetAirportCountries())
+		frontendHub.SetStandActionService(standActionService)
 		standAllocationService.SetPublisher(frontendHub.PublishStandAllocation)
 	}
 	euroscopeHub := euroscope.NewHub(stripService, controllerService, authService)
@@ -244,16 +248,23 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 		_ = db.InsertAirport(context.Background(), "EKCH")
 	}
 
+	metarPoller := metar.NewPoller(sessionRepo, frontendHub)
+	efbFlightFinder := efb.NewFlightQuery(sessionRepo, stripRepo, requireLiveCIDVerification)
 	app := &App{
 		dbpool:                   dbpool,
 		closeDB:                  closeDB,
 		standAssignmentReadiness: standAssignmentReadiness,
-			handler: buildHandler(buildHandlerConfig{
-			authService:                authService,
-			frontendHub:                frontendHub,
-			euroscopeHub:               euroscopeHub,
-			albHub:                     albHub,
-			pdcService:                 pdcService,
+		handler: buildHandler(buildHandlerConfig{
+			authService:  authService,
+			frontendHub:  frontendHub,
+			euroscopeHub: euroscopeHub,
+			albHub:       albHub,
+			pdcService:   pdcService,
+			efbAPI: efb.NewWebAPI(efb.WebAPIConfig{
+				Auth: authService, Callsigns: vatsimCache, Flights: efbFlightFinder, Sessions: sessionRepo,
+				Assignments: standAssignmentRepo, CDM: cdmService, CDMReady: sequenceService != nil,
+				Stands: standActionService, ATIS: metarPoller, Routes: fsServer, PDCReady: pdcService != nil, Live: requireLiveCIDVerification,
+			}),
 			sessionRepo:                sessionRepo,
 			sequenceService:            sequenceService,
 			vatsimCache:                vatsimCache,
@@ -265,6 +276,7 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 			enableCDMAPI:               sequenceService != nil,
 			enableECFMPAPI:             cfg.EnableECFMPAPI,
 			enablePilotAPI:             cfg.EnablePilotAPI,
+			enableEFBAPI:               cfg.EnableEFB,
 			enablePDCAPI:               pdcService != nil,
 			ecfmpService:               ecfmpService,
 		}),
@@ -299,7 +311,6 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 		app.addWorker(func(context.Context) { albHub.Run() })
 	}
 	if cfg.EnableMetar {
-		metarPoller := metar.NewPoller(sessionRepo, frontendHub)
 		app.addWorker(metarPoller.Start)
 	}
 	if cfg.EnableTraffic {
@@ -507,6 +518,7 @@ type buildHandlerConfig struct {
 	euroscopeHub               *euroscope.Hub
 	albHub                     *alb.Hub
 	pdcService                 *pdc.Service
+	efbAPI                     *efb.WebAPI
 	sessionRepo                repository.SessionRepository
 	sequenceService            *cdm.SequenceService
 	vatsimCache                *vatsim.Cache
@@ -518,6 +530,7 @@ type buildHandlerConfig struct {
 	enableCDMAPI               bool
 	enableECFMPAPI             bool
 	enablePilotAPI             bool
+	enableEFBAPI               bool
 	enablePDCAPI               bool
 	ecfmpService               *ecfmp.Service
 }
@@ -545,10 +558,13 @@ func buildHandler(cfg buildHandlerConfig) http.Handler {
 		flightLookup := pdc.NewFlightLookupAdapter(cfg.pdcService, cfg.sessionRepo)
 		pilot.NewWebAPI(cfg.authService, cfg.vatsimCache, flightLookup, cfg.requireLiveCIDVerification).RegisterRoutes(apiMux)
 	}
+	if cfg.enableEFBAPI && cfg.efbAPI != nil {
+		cfg.efbAPI.RegisterRoutes(apiMux)
+	}
 	if cfg.enablePDCAPI {
 		pdc.NewWebAPI(cfg.authService, cfg.pdcService, cfg.vatsimCache, cfg.requireLiveCIDVerification).RegisterRoutes(apiMux)
 	}
-	if cfg.enableCDMAPI || cfg.enableECFMPAPI || cfg.enablePilotAPI || cfg.enablePDCAPI {
+	if cfg.enableCDMAPI || cfg.enableECFMPAPI || cfg.enablePilotAPI || cfg.enableEFBAPI || cfg.enablePDCAPI {
 		mux.Handle("/api/", server.APIMiddleware(http.StripPrefix("/api", apiMux)))
 	}
 
@@ -560,15 +576,15 @@ func buildHandler(cfg buildHandlerConfig) http.Handler {
 }
 
 type healthResponse struct {
-	Status string `json:"status"`
+	Status          string    `json:"status"`
 	StandAssignment satHealth `json:"stand_assignment"`
 }
 
 type satHealth struct {
-	Enabled bool `json:"enabled"`
-	Ready bool `json:"ready"`
-	Status string `json:"status"`
-	Reason string `json:"reason,omitempty"`
+	Enabled            bool     `json:"enabled"`
+	Ready              bool     `json:"ready"`
+	Status             string   `json:"status"`
+	Reason             string   `json:"reason,omitempty"`
 	SnapshotAgeSeconds *float64 `json:"snapshot_age_seconds,omitempty"`
 }
 
@@ -584,7 +600,9 @@ func satHealthz(readiness appconfig.StandAssignmentReadiness, cache *vatsim.Cach
 			result.Status, sat.Status, sat.Ready, sat.Reason = "degraded", "feed_unavailable", false, "VATSIM feed is unavailable"
 		default:
 			*sat = evaluateSATHealth(readiness, cache.Snapshot(), staleAfter)
-			if !sat.Ready { result.Status = "degraded" }
+			if !sat.Ready {
+				result.Status = "degraded"
+			}
 		}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK) // SAT degradation must not take unrelated features down.
@@ -608,9 +626,13 @@ func evaluateSATHealth(readiness appconfig.StandAssignmentReadiness, snapshot va
 }
 
 func satStaleAfter(poll time.Duration) time.Duration {
-	if poll <= 0 { poll = 15 * time.Second }
+	if poll <= 0 {
+		poll = 15 * time.Second
+	}
 	threshold := 2 * poll
-	if threshold < time.Minute { return time.Minute }
+	if threshold < time.Minute {
+		return time.Minute
+	}
 	return threshold
 }
 

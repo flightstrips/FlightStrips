@@ -1,5 +1,41 @@
 # Changelog
 
+## [0.36.0](https://github.com/flightstrips/FlightStrips/compare/backend/v0.35.1...backend/v0.36.0) (2026-07-12)
+
+
+### Features
+
+* **sat:** add validated airline assignment schema ([#275](https://github.com/flightstrips/FlightStrips/issues/275)) ([be3f7c6](https://github.com/flightstrips/FlightStrips/commit/be3f7c6e3390be342cc46073765d812fa0bc8bf2))
+* **sat:** import aircraft reference data ([#270](https://github.com/flightstrips/FlightStrips/issues/270)) ([2e9bdb6](https://github.com/flightstrips/FlightStrips/commit/2e9bdb669d8a9e81f1b25bdc96d303fb64c33d9b))
+* **sat:** import stand capability data ([#272](https://github.com/flightstrips/FlightStrips/issues/272)) ([8cc10ea](https://github.com/flightstrips/FlightStrips/commit/8cc10ea93a5ec0ef71889a982dc3fd0cea572971))
+* **sat:** persist stand assignments and blocks ([#274](https://github.com/flightstrips/FlightStrips/issues/274)) ([8088d5b](https://github.com/flightstrips/FlightStrips/commit/8088d5bf1d5dff3a17f76a9f4f31c855ef3b1376))
+* **stand:** add observability and replay ([#290](https://github.com/flightstrips/FlightStrips/issues/290)) ([22248f7](https://github.com/flightstrips/FlightStrips/commit/22248f70eb32acc8e295c043d7b1102b88b03080))
+* **stand:** add strip assignment workflow ([#289](https://github.com/flightstrips/FlightStrips/issues/289)) ([376ee54](https://github.com/flightstrips/FlightStrips/commit/376ee545f30aa92e5c548a579bcbb2717db10cd6))
+* **stand:** allocate stands transactionally ([#282](https://github.com/flightstrips/FlightStrips/issues/282)) ([d08eb51](https://github.com/flightstrips/FlightStrips/commit/d08eb516ae522700ab2e740f4f43974339e6c213))
+* **stand:** calculate arrival ETA ([#283](https://github.com/flightstrips/FlightStrips/issues/283)) ([b34e6c9](https://github.com/flightstrips/FlightStrips/commit/b34e6c9f26fe8c93a0b54f1cb530de31397338e4))
+* **stand:** complete SAT controller integration ([#287](https://github.com/flightstrips/FlightStrips/issues/287)) ([f35bcca](https://github.com/flightstrips/FlightStrips/commit/f35bcca32dc4bcfa4b78193d47bd42b5b7d4e777))
+* **stand:** evaluate physical compatibility ([#277](https://github.com/flightstrips/FlightStrips/issues/277)) ([d3a2ed0](https://github.com/flightstrips/FlightStrips/commit/d3a2ed0c4d86839243036ba3d1a1f9ad54bd5696))
+* **stand:** handle wrong stand departures ([#288](https://github.com/flightstrips/FlightStrips/issues/288)) ([b9024e7](https://github.com/flightstrips/FlightStrips/commit/b9024e78a33c2e4c440eb26068e5c2c05afe08c3))
+* **stand:** implement arrival stage lifecycle ([#285](https://github.com/flightstrips/FlightStrips/issues/285)) ([3313fa1](https://github.com/flightstrips/FlightStrips/commit/3313fa12239160707262c29e07bfd34280c041b1))
+* **stand:** implement departure reservation lifecycle ([#284](https://github.com/flightstrips/FlightStrips/issues/284)) ([05ddd6c](https://github.com/flightstrips/FlightStrips/commit/05ddd6cd7d750adf3ffe85667c8aa2ff98951721))
+* **stand:** integrate EST board with SAT backend assignment and block metadata ([#286](https://github.com/flightstrips/FlightStrips/issues/286)) ([d37e8a9](https://github.com/flightstrips/FlightStrips/commit/d37e8a9445c8ad09b98aca5c2e411f92e5830147))
+* **stand:** resolve flight compatibility facts ([#276](https://github.com/flightstrips/FlightStrips/issues/276)) ([fd85b0c](https://github.com/flightstrips/FlightStrips/commit/fd85b0c123027ac152eb763f359d6041bb06d7b2))
+* **stand:** select weighted assignment tiers ([#280](https://github.com/flightstrips/FlightStrips/issues/280)) ([1022577](https://github.com/flightstrips/FlightStrips/commit/10225776f9f622cadb1526c90f2d2ca6db08adde))
+* **vatsim:** expand feed cache snapshots ([#278](https://github.com/flightstrips/FlightStrips/issues/278)) ([dda9655](https://github.com/flightstrips/FlightStrips/commit/dda96558f1a711ee64c277db57edf38965f5e3a0))
+* **vatsim:** reconcile flights into sessions ([#281](https://github.com/flightstrips/FlightStrips/issues/281)) ([5287dac](https://github.com/flightstrips/FlightStrips/commit/5287dac340c466b5090c2f9a0da4cffb6ff1bcd6))
+
+
+### Bug Fixes
+
+* **cdm:** initialize new sessions as master ([#291](https://github.com/flightstrips/FlightStrips/issues/291)) ([8eb06e0](https://github.com/flightstrips/FlightStrips/commit/8eb06e02d85e229d8ea5c7eb04f180d7c15c9f6c))
+* **cdm:** prioritize confirmed TOBT flights ([#268](https://github.com/flightstrips/FlightStrips/issues/268)) ([d0cba64](https://github.com/flightstrips/FlightStrips/commit/d0cba64e676f3262e74195056bad342e5c239c8b))
+* **cdm:** restrict sequencing to EuroScope flights ([#292](https://github.com/flightstrips/FlightStrips/issues/292)) ([fd10ea6](https://github.com/flightstrips/FlightStrips/commit/fd10ea646e7799eead6b2aa9f3ac057ea8af8383))
+* **cdm:** stabilize midnight sequence recalculation test ([#279](https://github.com/flightstrips/FlightStrips/issues/279)) ([95cf074](https://github.com/flightstrips/FlightStrips/commit/95cf074c5dae1e0100b9705d1e58f6dd15636ae9))
+* **stand:** hide offline departures from CLX ([#294](https://github.com/flightstrips/FlightStrips/issues/294)) ([13b7d83](https://github.com/flightstrips/FlightStrips/commit/13b7d83f1a777402b97a2262aac27b58fce7d970))
+* **stand:** keep VATSIM-only departures hidden ([#295](https://github.com/flightstrips/FlightStrips/issues/295)) ([66f4dc7](https://github.com/flightstrips/FlightStrips/commit/66f4dc7f2181f287d30eed621069da1980801d15))
+* **stand:** normalize VATSIM aircraft types ([#296](https://github.com/flightstrips/FlightStrips/issues/296)) ([7b57f4b](https://github.com/flightstrips/FlightStrips/commit/7b57f4bf3ff27dfaa2a045f4c0e604b091c83fea))
+* **stand:** occupy stands for local aircraft ([#293](https://github.com/flightstrips/FlightStrips/issues/293)) ([b0b633c](https://github.com/flightstrips/FlightStrips/commit/b0b633cf45815adf138aad357a393f0ffaedc3af))
+
 ## [0.35.1](https://github.com/flightstrips/FlightStrips/compare/backend/v0.35.0...backend/v0.35.1) (2026-07-08)
 
 

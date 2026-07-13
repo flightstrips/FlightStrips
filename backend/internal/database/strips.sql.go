@@ -313,7 +313,7 @@ func (q *Queries) GetSequence(ctx context.Context, arg GetSequenceParams) (int32
 }
 
 const getStrip = `-- name: GetStrip :one
-SELECT id, version, callsign, session, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay, position_latitude, position_longitude, position_altitude, next_owners, previous_owners, release_point, marked, registration, tracking_controller, runway_cleared, unexpected_change_fields, controller_modified_fields, engine_type, is_manual, persons_on_board, fpl_type, language, has_fp, cdm_data, runway_confirmed, pdc_data, validation_status, start_req, spoken_callsign, vatsim_cid, vatsim_revision, vatsim_seen_at, euroscope_seen_at, arrival_eta
+SELECT id, version, callsign, session, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay, position_latitude, position_longitude, position_altitude, next_owners, previous_owners, release_point, marked, registration, tracking_controller, runway_cleared, unexpected_change_fields, controller_modified_fields, engine_type, is_manual, persons_on_board, fpl_type, language, has_fp, cdm_data, runway_confirmed, pdc_data, validation_status, start_req, spoken_callsign, vatsim_cid, vatsim_revision, vatsim_seen_at, euroscope_seen_at, arrival_eta, star
 FROM strips
 WHERE callsign = $1 AND session = $2
 `
@@ -382,13 +382,14 @@ func (q *Queries) GetStrip(ctx context.Context, arg GetStripParams) (Strip, erro
 		&i.VatsimSeenAt,
 		&i.EuroscopeSeenAt,
 		&i.ArrivalEta,
+		&i.Star,
 	)
 	return i, err
 }
 
 const insertStrip = `-- name: InsertStrip :exec
 INSERT INTO strips (version, callsign, session, origin, destination, alternative, route, remarks, assigned_squawk,
-                     squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities,
+                     squawk, sid, star, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities,
                      communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay,
                      position_latitude, position_longitude, position_altitude, cdm_data, next_owners, previous_owners,
                      registration, tracking_controller, engine_type, spoken_callsign, has_fp, start_req,
@@ -423,9 +424,9 @@ VALUES (
     $26,
     $27,
     $28,
-    COALESCE($29::jsonb, '[]'::jsonb),
+    $29,
     COALESCE($30::jsonb, '[]'::jsonb),
-    $31,
+    COALESCE($31::jsonb, '[]'::jsonb),
     $32,
     $33,
     $34,
@@ -434,7 +435,8 @@ VALUES (
     $37,
     $38,
     $39,
-    $40
+    $40,
+    $41
 )
 `
 
@@ -449,6 +451,7 @@ type InsertStripParams struct {
 	AssignedSquawk     *string
 	Squawk             *string
 	Sid                *string
+	Star               *string
 	ClearedAltitude    *int32
 	Heading            *int32
 	AircraftType       *string
@@ -493,6 +496,7 @@ func (q *Queries) InsertStrip(ctx context.Context, arg InsertStripParams) error 
 		arg.AssignedSquawk,
 		arg.Squawk,
 		arg.Sid,
+		arg.Star,
 		arg.ClearedAltitude,
 		arg.Heading,
 		arg.AircraftType,
@@ -565,7 +569,7 @@ func (q *Queries) ListStripSequences(ctx context.Context, arg ListStripSequences
 }
 
 const listStrips = `-- name: ListStrips :many
-SELECT id, version, callsign, session, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay, position_latitude, position_longitude, position_altitude, next_owners, previous_owners, release_point, marked, registration, tracking_controller, runway_cleared, unexpected_change_fields, controller_modified_fields, engine_type, is_manual, persons_on_board, fpl_type, language, has_fp, cdm_data, runway_confirmed, pdc_data, validation_status, start_req, spoken_callsign, vatsim_cid, vatsim_revision, vatsim_seen_at, euroscope_seen_at, arrival_eta
+SELECT id, version, callsign, session, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay, position_latitude, position_longitude, position_altitude, next_owners, previous_owners, release_point, marked, registration, tracking_controller, runway_cleared, unexpected_change_fields, controller_modified_fields, engine_type, is_manual, persons_on_board, fpl_type, language, has_fp, cdm_data, runway_confirmed, pdc_data, validation_status, start_req, spoken_callsign, vatsim_cid, vatsim_revision, vatsim_seen_at, euroscope_seen_at, arrival_eta, star
 FROM strips
 WHERE session = $1
 ORDER BY callsign
@@ -636,6 +640,7 @@ func (q *Queries) ListStrips(ctx context.Context, session int32) ([]Strip, error
 			&i.VatsimSeenAt,
 			&i.EuroscopeSeenAt,
 			&i.ArrivalEta,
+			&i.Star,
 		); err != nil {
 			return nil, err
 		}
@@ -648,7 +653,7 @@ func (q *Queries) ListStrips(ctx context.Context, session int32) ([]Strip, error
 }
 
 const listStripsByOrigin = `-- name: ListStripsByOrigin :many
-SELECT id, version, callsign, session, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay, position_latitude, position_longitude, position_altitude, next_owners, previous_owners, release_point, marked, registration, tracking_controller, runway_cleared, unexpected_change_fields, controller_modified_fields, engine_type, is_manual, persons_on_board, fpl_type, language, has_fp, cdm_data, runway_confirmed, pdc_data, validation_status, start_req, spoken_callsign, vatsim_cid, vatsim_revision, vatsim_seen_at, euroscope_seen_at, arrival_eta
+SELECT id, version, callsign, session, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay, position_latitude, position_longitude, position_altitude, next_owners, previous_owners, release_point, marked, registration, tracking_controller, runway_cleared, unexpected_change_fields, controller_modified_fields, engine_type, is_manual, persons_on_board, fpl_type, language, has_fp, cdm_data, runway_confirmed, pdc_data, validation_status, start_req, spoken_callsign, vatsim_cid, vatsim_revision, vatsim_seen_at, euroscope_seen_at, arrival_eta, star
 FROM strips
 WHERE origin = $1 AND session = $2
 ORDER BY callsign
@@ -724,6 +729,7 @@ func (q *Queries) ListStripsByOrigin(ctx context.Context, arg ListStripsByOrigin
 			&i.VatsimSeenAt,
 			&i.EuroscopeSeenAt,
 			&i.ArrivalEta,
+			&i.Star,
 		); err != nil {
 			return nil, err
 		}
@@ -736,7 +742,7 @@ func (q *Queries) ListStripsByOrigin(ctx context.Context, arg ListStripsByOrigin
 }
 
 const lockStrip = `-- name: LockStrip :one
-SELECT id, version, callsign, session, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay, position_latitude, position_longitude, position_altitude, next_owners, previous_owners, release_point, marked, registration, tracking_controller, runway_cleared, unexpected_change_fields, controller_modified_fields, engine_type, is_manual, persons_on_board, fpl_type, language, has_fp, cdm_data, runway_confirmed, pdc_data, validation_status, start_req, spoken_callsign, vatsim_cid, vatsim_revision, vatsim_seen_at, euroscope_seen_at, arrival_eta
+SELECT id, version, callsign, session, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay, position_latitude, position_longitude, position_altitude, next_owners, previous_owners, release_point, marked, registration, tracking_controller, runway_cleared, unexpected_change_fields, controller_modified_fields, engine_type, is_manual, persons_on_board, fpl_type, language, has_fp, cdm_data, runway_confirmed, pdc_data, validation_status, start_req, spoken_callsign, vatsim_cid, vatsim_revision, vatsim_seen_at, euroscope_seen_at, arrival_eta, star
 FROM strips
 WHERE callsign = $1 AND session = $2
 FOR UPDATE
@@ -806,6 +812,7 @@ func (q *Queries) LockStrip(ctx context.Context, arg LockStripParams) (Strip, er
 		&i.VatsimSeenAt,
 		&i.EuroscopeSeenAt,
 		&i.ArrivalEta,
+		&i.Star,
 	)
 	return i, err
 }
@@ -1098,49 +1105,50 @@ SET version = version + 1,
     assigned_squawk = $6,
     squawk = $7,
     sid = $8,
-    cleared_altitude = $9,
-    heading = $10,
-    aircraft_type = $11,
-    runway = $12,
-    requested_altitude = $13,
-    capabilities = $14,
-    communication_type = $15,
-    aircraft_category = $16,
-    stand = $17,
-    sequence = $18,
-    state = $19,
-    cleared = $20,
-    owner = $21,
-    bay = $22,
-    position_latitude = $23,
-    position_longitude = $24,
-    position_altitude = $25,
-    cdm_data = $26,
-    next_owners = COALESCE($27::jsonb, '[]'::jsonb),
-    previous_owners = COALESCE($28::jsonb, '[]'::jsonb),
-    release_point = $29,
-    marked = $30,
-    registration = $31,
-    tracking_controller = $32,
-    spoken_callsign = $33,
-    runway_cleared = $34,
-    runway_confirmed = $35,
-    engine_type = $36,
-    unexpected_change_fields = COALESCE($37::text[], '{}'::text[]),
-    controller_modified_fields = COALESCE($38::text[], '{}'::text[]),
-    is_manual = $39,
-    persons_on_board = $40,
-    fpl_type = $41,
-    language = $42,
-    has_fp = $43,
-    pdc_data = $44,
-    validation_status = $45,
-    start_req = $46,
-    vatsim_cid = $47,
-    vatsim_revision = $48,
-    vatsim_seen_at = $49,
-    euroscope_seen_at = $50
-WHERE callsign = $51 AND session = $52
+    star = $9,
+    cleared_altitude = $10,
+    heading = $11,
+    aircraft_type = $12,
+    runway = $13,
+    requested_altitude = $14,
+    capabilities = $15,
+    communication_type = $16,
+    aircraft_category = $17,
+    stand = $18,
+    sequence = $19,
+    state = $20,
+    cleared = $21,
+    owner = $22,
+    bay = $23,
+    position_latitude = $24,
+    position_longitude = $25,
+    position_altitude = $26,
+    cdm_data = $27,
+    next_owners = COALESCE($28::jsonb, '[]'::jsonb),
+    previous_owners = COALESCE($29::jsonb, '[]'::jsonb),
+    release_point = $30,
+    marked = $31,
+    registration = $32,
+    tracking_controller = $33,
+    spoken_callsign = $34,
+    runway_cleared = $35,
+    runway_confirmed = $36,
+    engine_type = $37,
+    unexpected_change_fields = COALESCE($38::text[], '{}'::text[]),
+    controller_modified_fields = COALESCE($39::text[], '{}'::text[]),
+    is_manual = $40,
+    persons_on_board = $41,
+    fpl_type = $42,
+    language = $43,
+    has_fp = $44,
+    pdc_data = $45,
+    validation_status = $46,
+    start_req = $47,
+    vatsim_cid = $48,
+    vatsim_revision = $49,
+    vatsim_seen_at = $50,
+    euroscope_seen_at = $51
+WHERE callsign = $52 AND session = $53
 `
 
 type UpdateStripParams struct {
@@ -1152,6 +1160,7 @@ type UpdateStripParams struct {
 	AssignedSquawk           *string
 	Squawk                   *string
 	Sid                      *string
+	Star                     *string
 	ClearedAltitude          *int32
 	Heading                  *int32
 	AircraftType             *string
@@ -1208,6 +1217,7 @@ func (q *Queries) UpdateStrip(ctx context.Context, arg UpdateStripParams) (int64
 		arg.AssignedSquawk,
 		arg.Squawk,
 		arg.Sid,
+		arg.Star,
 		arg.ClearedAltitude,
 		arg.Heading,
 		arg.AircraftType,

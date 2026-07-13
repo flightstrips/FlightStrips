@@ -56,3 +56,11 @@ func TestMapStripToFrontendModelLeavesSpokenCallsignEmptyWhenMissing(t *testing.
 
 	assert.Equal(t, "", strip.SpokenCallsign)
 }
+
+func TestMapStripToFrontendModelMapsStoredStar(t *testing.T) {
+	star := "LUXAL2A"
+
+	strip := MapStripToFrontendModel(&models.Strip{Star: &star})
+
+	assert.Equal(t, star, strip.Star)
+}

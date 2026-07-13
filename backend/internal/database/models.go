@@ -162,6 +162,7 @@ type Strip struct {
 	VatsimSeenAt             pgtype.Timestamptz
 	EuroscopeSeenAt          pgtype.Timestamptz
 	ArrivalEta               []byte
+	Star                     *string
 }
 
 type TacticalStrip struct {

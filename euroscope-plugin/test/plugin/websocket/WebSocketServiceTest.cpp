@@ -1272,6 +1272,7 @@ TEST(StripUpdateEventTest, SerializesSpokenCallsignField) {
         "1234",
         "2345",
         "BETOS1B",
+        "LUXAL2A",
         true,
         "TAXI",
         5000,
@@ -1293,6 +1294,7 @@ TEST(StripUpdateEventTest, SerializesSpokenCallsignField) {
     const nlohmann::json j = e;
     EXPECT_EQ(j["type"], EVENT_STRIP_UPDATE_NAME);
     EXPECT_EQ(j["spoken_callsign"], "WOLFAIR");
+    EXPECT_EQ(j["star"], "LUXAL2A");
 }
 
 TEST(SyncEventTest, PopulatedStripSerializesSpokenCallsignField) {
@@ -1309,6 +1311,7 @@ TEST(SyncEventTest, PopulatedStripSerializesSpokenCallsignField) {
                 "1234",
                 "2345",
                 "BETOS1B",
+                "LUXAL2A",
                 true,
                 "TAXI",
                 5000,
@@ -1335,4 +1338,5 @@ TEST(SyncEventTest, PopulatedStripSerializesSpokenCallsignField) {
     const nlohmann::json j = e;
     ASSERT_EQ(j["strips"].size(), 1u);
     EXPECT_EQ(j["strips"][0]["spoken_callsign"], "WOLFAIR");
+    EXPECT_EQ(j["strips"][0]["star"], "LUXAL2A");
 }

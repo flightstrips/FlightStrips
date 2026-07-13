@@ -400,6 +400,7 @@ func MapStripToFrontendModelWithClx(strip *internalModels.Strip, clxContext clx.
 		Squawk:                   helpers.ValueOrDefault(strip.Squawk),
 		AssignedSquawk:           helpers.ValueOrDefault(strip.AssignedSquawk),
 		Sid:                      helpers.ValueOrDefault(strip.Sid),
+		Star:                     helpers.ValueOrDefault(strip.Star),
 		ClearedAltitude:          helpers.ValueOrDefault(strip.ClearedAltitude),
 		RequestedAltitude:        helpers.ValueOrDefault(strip.RequestedAltitude),
 		Heading:                  helpers.ValueOrDefault(strip.Heading),

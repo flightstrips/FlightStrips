@@ -227,6 +227,7 @@ namespace FlightStrips::messages {
                 squawk,
                 std::string(controllerAssignedData.GetSquawk()),
                 std::string(flightPlanData.GetSidName()),
+                isArrival ? std::string(flightPlanData.GetStarName()) : "",
                 it.GetClearenceFlag(),
                 std::string(it.GetGroundState()),
                 controllerAssignedData.GetClearedAltitude(),
@@ -277,7 +278,7 @@ namespace FlightStrips::messages {
                 callsign,
                 "", "",  // origin, destination — unknown for VFR
                 "", "", "", "",  // alternate, route, remarks, runway
-                std::string(position.GetSquawk()), "", "",  // squawk, assigned_squawk, sid
+                std::string(position.GetSquawk()), "", "", "",  // squawk, assigned_squawk, sid, star
                 false, "",   // cleared, ground_state
                 0, 0, 0,    // cleared_altitude, requested_altitude, heading
                 "", "", "", // aircraft_type, aircraft_category, spoken_callsign

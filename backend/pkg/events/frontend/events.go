@@ -146,6 +146,7 @@ type Strip struct {
 	Squawk                   string                `json:"squawk"`
 	AssignedSquawk           string                `json:"assigned_squawk"`
 	Sid                      string                `json:"sid"`
+	Star                     string                `json:"star"`
 	ClearedAltitude          int32                 `json:"cleared_altitude"`
 	RequestedAltitude        int32                 `json:"requested_altitude"`
 	Heading                  int32                 `json:"heading"`

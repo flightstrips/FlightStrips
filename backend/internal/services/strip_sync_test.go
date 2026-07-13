@@ -269,6 +269,75 @@ func TestSyncEuroscopeStrip_NewStripPersistsSpokenCallsign(t *testing.T) {
 	assert.Equal(t, "WOLFAIR", *createdStrip.SpokenCallsign)
 }
 
+func TestSyncEuroscopeStrip_NewArrivalPersistsStar(t *testing.T) {
+	ctx := context.Background()
+	const session = int32(1)
+
+	var createdStrip *models.Strip
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			return nil, pgx.ErrNoRows
+		},
+		CreateFn: func(_ context.Context, strip *models.Strip) error {
+			createdStrip = strip
+			return nil
+		},
+	}
+
+	svc, _, _ := newSyncTestFixture(t, nil, stripRepo)
+
+	err := svc.syncEuroscopeStrip(ctx, session, "", euroscope.Strip{
+		Callsign:    "SAS101",
+		Origin:      "ESSA",
+		Destination: "EKCH",
+		Star:        "LUXAL2A",
+	}, "EKCH")
+	require.NoError(t, err)
+	require.NotNil(t, createdStrip)
+	require.NotNil(t, createdStrip.Star)
+	assert.Equal(t, "LUXAL2A", *createdStrip.Star)
+}
+
+func TestSyncEuroscopeStrip_ExistingArrivalUpdatesStar(t *testing.T) {
+	ctx := context.Background()
+	const session = int32(1)
+	sequence := int32(300)
+	existingStar := "LUXAL1A"
+
+	existingStrip := &models.Strip{
+		Callsign:    "SAS102",
+		Origin:      "ESSA",
+		Destination: "EKCH",
+		Bay:         shared.BAY_FINAL,
+		Sequence:    &sequence,
+		Star:        &existingStar,
+	}
+
+	var updatedStrip *models.Strip
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			return existingStrip, nil
+		},
+		UpdateFn: func(_ context.Context, strip *models.Strip) (int64, error) {
+			updatedStrip = strip
+			return 1, nil
+		},
+	}
+
+	svc, _, _ := newSyncTestFixture(t, existingStrip, stripRepo)
+
+	err := svc.syncEuroscopeStrip(ctx, session, "", euroscope.Strip{
+		Callsign:    "SAS102",
+		Origin:      "ESSA",
+		Destination: "EKCH",
+		Star:        "LUXAL2A",
+	}, "EKCH")
+	require.NoError(t, err)
+	require.NotNil(t, updatedStrip)
+	require.NotNil(t, updatedStrip.Star)
+	assert.Equal(t, "LUXAL2A", *updatedStrip.Star)
+}
+
 func TestSyncEuroscopeStrip_ExistingStripUpdatesSpokenCallsign(t *testing.T) {
 	ctx := context.Background()
 	const session = int32(1)

@@ -52,6 +52,7 @@ type Strip struct {
 	AssignedSquawk           *string
 	Squawk                   *string
 	Sid                      *string
+	Star                     *string
 	ClearedAltitude          *int32
 	Heading                  *int32
 	AircraftType             *string

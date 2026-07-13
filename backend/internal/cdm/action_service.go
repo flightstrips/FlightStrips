@@ -810,7 +810,12 @@ func applyConfirmedTobtUpdate(updated *models.CdmData, tobt string, sourcePositi
 
 func groundStateAllowsAsat(groundState string) bool {
 	switch strings.ToUpper(strings.TrimSpace(groundState)) {
-	case "STUP", "ST-UP", "PUSH", "TAXI", "DEPA":
+	case "STUP",
+		euroscopeEvents.GroundStateStartup,
+		euroscopeEvents.GroundStatePush,
+		euroscopeEvents.GroundStateTaxi,
+		euroscopeEvents.GroundStateLineup,
+		euroscopeEvents.GroundStateDepart:
 		return true
 	default:
 		return false

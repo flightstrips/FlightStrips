@@ -939,6 +939,65 @@ func TestSequenceService_RecalculateAirport_SkipsAircraftWithAobtAndPreservesExi
 	}
 }
 
+func TestSequenceService_RecalculateAirport_GroundStateFreezesTsatBeforeCdmTimestampsArrive(t *testing.T) {
+	t.Parallel()
+
+	now := time.Now().UTC()
+	lockedTobt := addMinutes(timeToClock(now), 10)
+	lockedTtot := addMinutes(lockedTobt, 10)
+	activeTobt := addMinutes(lockedTobt, 2)
+	startupState := euroscopeEvents.GroundStateStartup
+
+	// Ground-state persistence and CDM timestamp persistence are separate writes.
+	// The operational state must freeze the assigned slot during that window.
+	locked := &models.Strip{
+		Callsign: "SASSTATE",
+		Origin:   "EKCH",
+		Runway:   testStringPtr("04L"),
+		State:    &startupState,
+		CdmData: &models.CdmData{
+			Tobt:        testStringPtr(lockedTobt),
+			Tsat:        testStringPtr(lockedTobt),
+			Ttot:        testStringPtr(lockedTtot),
+			Recalculate: true,
+		},
+	}
+	active := &models.Strip{
+		Callsign: "SASACTIVE",
+		Origin:   "EKCH",
+		Runway:   testStringPtr("04L"),
+		CdmData:  &models.CdmData{Tobt: testStringPtr(activeTobt)},
+	}
+
+	persisted := map[string]*models.CdmData{}
+	stripRepo := &testutil.MockStripRepository{
+		ListByOriginFn: func(context.Context, int32, string) ([]*models.Strip, error) {
+			return []*models.Strip{locked, active}, nil
+		},
+		SetCdmDataFn: func(_ context.Context, _ int32, callsign string, data *models.CdmData) (int64, error) {
+			persisted[callsign] = data.Clone()
+			return 1, nil
+		},
+	}
+	sessionRepo := &testutil.MockSessionRepository{
+		GetByIDFn: func(_ context.Context, id int32) (*models.Session, error) {
+			return &models.Session{ID: id, Airport: "EKCH"}, nil
+		},
+	}
+
+	service := NewSequenceService(stripRepo, sessionRepo, NewCdmConfigStore("", "", "", 0, CdmConfigDefaults{}, nil), &testutil.MockFrontendHub{}, &testutil.MockEuroscopeHub{})
+
+	if err := service.RecalculateAirport(context.Background(), 7, "EKCH"); err != nil {
+		t.Fatalf("RecalculateAirport returned error: %v", err)
+	}
+	if _, ok := persisted[locked.Callsign]; ok {
+		t.Fatalf("expected startup-state strip to preserve TSAT %q, got persisted update %#v", lockedTobt, persisted[locked.Callsign])
+	}
+	if persisted[active.Callsign] == nil {
+		t.Fatal("expected mutable strip to be recalculated")
+	}
+}
+
 func TestSequenceService_RecalculateAirport_ExpiredTsatDoesNotInvalidateStartedStrip(t *testing.T) {
 	t.Parallel()
 

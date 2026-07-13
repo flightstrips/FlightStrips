@@ -125,7 +125,7 @@ func (s *SequenceService) recalculateAirport(ctx context.Context, session int32,
 			slot:        slot,
 			hasSlot:     hasSlot,
 			hasCtot:     strings.TrimSpace(valueOrEmpty(strip.EffectiveCtot())) != "",
-			started:     valueOrEmpty(strip.EffectiveAsat()) != "" || valueOrEmpty(strip.EffectiveAobt()) != "",
+			started:     stripHasStarted(strip),
 			staleBase:   shouldInvalidateStaleTobt(calcInput, nowHHMMSS),
 		})
 	}
@@ -171,7 +171,7 @@ func (s *SequenceService) recalculateAirport(ctx context.Context, session int32,
 		strip := candidate.strip
 		if !shouldRecalculateStrip(strip, now) {
 			if slot, ok := existingSlotEntry(strip); ok {
-				if valueOrEmpty(strip.EffectiveAsat()) != "" || valueOrEmpty(strip.EffectiveAobt()) != "" || canRetainExistingSlot(candidate, slot, slots, config, now) {
+				if candidate.started || canRetainExistingSlot(candidate, slot, slots, config, now) {
 					slots = append(slots, slot)
 					continue
 				}
@@ -437,7 +437,7 @@ func shouldRecalculateStrip(strip *models.Strip, now time.Time) bool {
 	if data == nil {
 		return true
 	}
-	if valueOrEmpty(data.EffectiveAsat()) != "" || valueOrEmpty(data.EffectiveAobt()) != "" {
+	if stripHasStarted(strip) {
 		return false
 	}
 	if data.NeedsLocalRecalculation() {
@@ -454,6 +454,16 @@ func shouldRecalculateStrip(strip *models.Strip, now time.Time) bool {
 		return true
 	}
 	return false
+}
+
+func stripHasStarted(strip *models.Strip) bool {
+	if strip == nil {
+		return false
+	}
+	if valueOrEmpty(strip.EffectiveAsat()) != "" || valueOrEmpty(strip.EffectiveAobt()) != "" {
+		return true
+	}
+	return groundStateAllowsAsat(valueOrEmpty(strip.State))
 }
 
 func isTsatSpecificallyExpired(strip *models.Strip, now time.Time) bool {

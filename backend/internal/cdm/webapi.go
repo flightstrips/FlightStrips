@@ -189,7 +189,7 @@ func buildSequenceSnapshotRows(strips []*models.Strip, config *CdmAirportConfig,
 			slot:        slot,
 			hasSlot:     hasSlot,
 			hasCtot:     strings.TrimSpace(valueOrEmpty(strip.EffectiveCtot())) != "",
-			started:     valueOrEmpty(strip.EffectiveAsat()) != "" || valueOrEmpty(strip.EffectiveAobt()) != "",
+			started:     stripHasStarted(strip),
 			staleBase:   shouldInvalidateStaleTobt(calcInput, timeToClock(now)),
 		})
 	}

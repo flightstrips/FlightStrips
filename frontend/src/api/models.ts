@@ -158,6 +158,7 @@ export interface FrontendStrip {
   squawk: string;
   assigned_squawk: string;
   sid: string;
+  star: string;
   cleared_altitude: number;
   requested_altitude: number;
   heading: number;
@@ -313,6 +314,7 @@ export interface FrontendStripUpdateEvent {
   squawk: string;
   assigned_squawk: string;
   sid: string;
+  star: string;
   cleared_altitude: number;
   requested_altitude: number;
   heading: number;

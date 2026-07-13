@@ -138,6 +138,7 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 			Squawk:             &strip.Squawk,
 			AssignedSquawk:     &strip.AssignedSquawk,
 			Sid:                &strip.Sid,
+			Star:               &strip.Star,
 			Cleared:            strip.Cleared,
 			State:              &strip.GroundState,
 			ClearedAltitude:    &newClearedAlt,
@@ -411,6 +412,7 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 			AssignedSquawk:           &strip.AssignedSquawk,
 			Squawk:                   &strip.Squawk,
 			Sid:                      &strip.Sid,
+			Star:                     &strip.Star,
 			ClearedAltitude:          &updateClearedAlt,
 			Heading:                  &updateHeading,
 			AircraftType:             &strip.AircraftType,
@@ -739,6 +741,7 @@ func syncStripChanged(existingStrip, updateStrip *internalModels.Strip) bool {
 		!reflect.DeepEqual(existingStrip.AssignedSquawk, updateStrip.AssignedSquawk) ||
 		!reflect.DeepEqual(existingStrip.Squawk, updateStrip.Squawk) ||
 		!reflect.DeepEqual(existingStrip.Sid, updateStrip.Sid) ||
+		!reflect.DeepEqual(existingStrip.Star, updateStrip.Star) ||
 		!reflect.DeepEqual(existingStrip.ClearedAltitude, updateStrip.ClearedAltitude) ||
 		!reflect.DeepEqual(existingStrip.Heading, updateStrip.Heading) ||
 		!reflect.DeepEqual(existingStrip.AircraftType, updateStrip.AircraftType) ||
@@ -807,6 +810,7 @@ func applySyncStripUpdate(existingStrip, updateStrip *internalModels.Strip) {
 	existingStrip.AssignedSquawk = updateStrip.AssignedSquawk
 	existingStrip.Squawk = updateStrip.Squawk
 	existingStrip.Sid = updateStrip.Sid
+	existingStrip.Star = updateStrip.Star
 	existingStrip.ClearedAltitude = updateStrip.ClearedAltitude
 	existingStrip.Heading = updateStrip.Heading
 	existingStrip.AircraftType = updateStrip.AircraftType

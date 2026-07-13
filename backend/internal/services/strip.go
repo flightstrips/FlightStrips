@@ -28,14 +28,14 @@ type StripService struct {
 	tacticalRepo      repository.TacticalStripRepository
 	sectorOwnerRepo   repository.SectorOwnerRepository
 	publisher         shared.StripEventPublisher
-	esCommander       shared.EuroscopeStripCommander
+	esCommander       StripEuroscopeCommander
 	coordRepo         CoordinationStore
 	controllerRepo    ControllerReader
 	sessionRepo       SessionReader
 	routeRecalculator RouteRecalculator
 	routeComputer     StripRouteComputer
 	pdcService        shared.PdcService
-	cdmService        shared.CdmService
+	cdmService        StripCdmService
 	departureObserver departurePositionObserver
 }
 
@@ -83,7 +83,7 @@ func (s *StripService) SetFrontendHub(publisher shared.StripEventPublisher) {
 	s.publisher = publisher
 }
 
-func (s *StripService) SetEuroscopeHub(esCommander shared.EuroscopeStripCommander) {
+func (s *StripService) SetEuroscopeHub(esCommander StripEuroscopeCommander) {
 	s.esCommander = esCommander
 }
 
@@ -155,7 +155,7 @@ func (s *StripService) recalculateRouteForStrip(ctx context.Context, session int
 	return routeRecalculator.UpdateRouteForStripContext(ctx, callsign, session, false)
 }
 
-func (s *StripService) SetCdmService(cdmService shared.CdmService) {
+func (s *StripService) SetCdmService(cdmService StripCdmService) {
 	s.cdmService = cdmService
 }
 

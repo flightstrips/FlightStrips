@@ -558,7 +558,7 @@ struct Position final {
 
 struct StripUpdateEvent final : Event {
     StripUpdateEvent(std::string callsign, std::string origin, std::string destination, std::string alternate, std::string route,
-          std::string remarks, std::string runway, std::string squawk, std::string assigned_squawk, std::string sid,
+          std::string remarks, std::string runway, std::string squawk, std::string assigned_squawk, std::string sid, std::string star,
           bool cleared, std::string ground_state, int cleared_altitude, int requested_altitude, int heading,
           std::string aircraft_type, std::string aircraft_category, std::string spoken_callsign, Position position, std::string stand,
           std::string communication_type, std::string capabilities, std::string eobt, std::string eldt,
@@ -573,6 +573,7 @@ struct StripUpdateEvent final : Event {
           squawk(std::move(squawk)),
           assigned_squawk(std::move(assigned_squawk)),
           sid(std::move(sid)),
+          star(std::move(star)),
           cleared(cleared),
           ground_state(std::move(ground_state)),
           cleared_altitude(cleared_altitude),
@@ -602,6 +603,7 @@ struct StripUpdateEvent final : Event {
     std::string squawk;
     std::string assigned_squawk;
     std::string sid;
+    std::string star;
     bool cleared;
     std::string ground_state;
     int cleared_altitude;
@@ -621,7 +623,7 @@ struct StripUpdateEvent final : Event {
     bool has_fp;
 
     NLOHMANN_DEFINE_TYPE_INTRUSIVE(StripUpdateEvent, callsign, origin, destination, alternate, route, remarks, runway, squawk,
-                                   assigned_squawk, sid, cleared, ground_state, cleared_altitude, requested_altitude,
+                                   assigned_squawk, sid, star, cleared, ground_state, cleared_altitude, requested_altitude,
                                    heading, aircraft_type, aircraft_category, spoken_callsign, position, stand, communication_type,
                                    capabilities, eobt, eldt, tracking_controller, engine_type, has_fp, type);
 
@@ -677,7 +679,7 @@ struct TrackingControllerChangedEvent final : Event {
 
 struct Strip final {
     Strip(std::string callsign, std::string origin, std::string destination, std::string alternate, std::string route,
-          std::string remarks, std::string runway, std::string squawk, std::string assigned_squawk, std::string sid,
+          std::string remarks, std::string runway, std::string squawk, std::string assigned_squawk, std::string sid, std::string star,
           bool cleared, std::string ground_state, int cleared_altitude, int requested_altitude, int heading,
           std::string aircraft_type, std::string aircraft_category, std::string spoken_callsign, Position position, std::string stand,
           std::string communication_type, std::string capabilities, std::string eobt, std::string eldt,
@@ -692,6 +694,7 @@ struct Strip final {
           squawk(std::move(squawk)),
           assigned_squawk(std::move(assigned_squawk)),
           sid(std::move(sid)),
+          star(std::move(star)),
           cleared(cleared),
           ground_state(std::move(ground_state)),
           cleared_altitude(cleared_altitude),
@@ -721,6 +724,7 @@ struct Strip final {
     std::string squawk;
     std::string assigned_squawk;
     std::string sid;
+    std::string star;
     bool cleared;
     std::string ground_state;
     int cleared_altitude;
@@ -740,7 +744,7 @@ struct Strip final {
     bool has_fp;
 
     NLOHMANN_DEFINE_TYPE_INTRUSIVE(Strip, callsign, origin, destination, alternate, route, remarks, runway, squawk,
-                                   assigned_squawk, sid, cleared, ground_state, cleared_altitude, requested_altitude,
+                                   assigned_squawk, sid, star, cleared, ground_state, cleared_altitude, requested_altitude,
                                    heading, aircraft_type, aircraft_category, spoken_callsign, position, stand, communication_type,
                                    capabilities, eobt, eldt, tracking_controller, engine_type, has_fp);
 };

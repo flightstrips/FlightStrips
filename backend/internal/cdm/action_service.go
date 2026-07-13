@@ -18,6 +18,18 @@ type ActionService struct {
 	service *Service
 }
 
+type preparedEobtUpdate struct {
+	updated                  *models.CdmData
+	normalizedEobt           string
+	previousEobt             string
+	previousTobt             string
+	clamped                  bool
+	markerChanged            bool
+	shouldForceRecalculate   bool
+	shouldTriggerRecalculate bool
+	shouldSyncTobt           bool
+}
+
 func (c *ActionService) HandleTobtUpdate(ctx context.Context, session int32, callsign string, tobt string, sourcePosition string, sourceRole string) error {
 	s := c.service
 	callsign = strings.TrimSpace(callsign)
@@ -67,22 +79,40 @@ func (c *ActionService) HandleEobtUpdate(ctx context.Context, session int32, cal
 		return nil
 	}
 
-	before := snapshotCdm(cdmData)
-	updated := cdmData.Clone()
 	now := time.Now().UTC()
-	normalizedEobt, clamped := s.normalizeMasterEobtValue(session, eobt, now)
-	markerChanged := setEobtCapReasonMarker(updated, clamped, true)
-	shouldForceRecalculate := shouldForceRecalculateForStaleSequence(updated, now)
-	previousEobt := helpers.ValueOrDefault(updated.EffectiveEobt())
-	if previousEobt == normalizedEobt && !shouldForceRecalculate && !markerChanged {
-		if clamped && eobt != normalizedEobt {
-			c.pushCorrectedEobtToEuroscope(ctx, session, callsign, normalizedEobt)
+	before := snapshotCdm(cdmData)
+	prepared := c.prepareEobtUpdate(session, cdmData, eobt, now, true)
+	if prepared.previousEobt == prepared.normalizedEobt && !prepared.shouldForceRecalculate && !prepared.markerChanged {
+		if prepared.clamped && eobt != prepared.normalizedEobt {
+			c.pushCorrectedEobtToEuroscope(ctx, session, callsign, prepared.normalizedEobt)
 		}
 		return nil
 	}
 
-	updated.Eobt = &normalizedEobt
+	if err := s.persistCdmUpdate(ctx, session, callsign, before, prepared.updated); err != nil {
+		return err
+	}
+	if prepared.clamped && eobt != prepared.normalizedEobt {
+		c.pushCorrectedEobtToEuroscope(ctx, session, callsign, prepared.normalizedEobt)
+	}
+
+	if prepared.shouldTriggerRecalculate {
+		s.TriggerRecalculate(ctx, session, strip.Origin)
+		if prepared.shouldSyncTobt {
+			c.pushTobtAsync(ctx, session, callsign, prepared.previousTobt, prepared.normalizedEobt)
+		}
+	}
+	return nil
+}
+
+func (c *ActionService) prepareEobtUpdate(session int32, data *models.CdmData, eobt string, now time.Time, replaceCapMarker bool) preparedEobtUpdate {
+	updated := data.Clone()
+	normalizedEobt, clamped := c.normalizeMasterEobtValue(session, eobt, now)
+	markerChanged := setEobtCapReasonMarker(updated, clamped, replaceCapMarker)
+	shouldForceRecalculate := shouldForceRecalculateForStaleSequence(updated, now)
+	previousEobt := helpers.ValueOrDefault(updated.EffectiveEobt())
 	previousTobt := helpers.ValueOrDefault(updated.EffectiveTobt())
+	updated.Eobt = &normalizedEobt
 	shouldAlignTobtWithEobt := shouldSyncEobtToTobt(normalizedEobt, now)
 	shouldSyncTobt := shouldAlignTobtWithEobt && !hasProtectedConfirmedTobt(updated, previousEobt)
 	shouldTriggerRecalculate := clamped || shouldAlignTobtWithEobt || shouldForceRecalculate
@@ -93,20 +123,26 @@ func (c *ActionService) HandleEobtUpdate(ctx context.Context, session int32, cal
 		updated.MarkLocalRecalculationPending()
 	}
 
-	if err := s.persistCdmUpdate(ctx, session, callsign, before, updated); err != nil {
-		return err
+	return preparedEobtUpdate{
+		updated:                  updated,
+		normalizedEobt:           normalizedEobt,
+		previousEobt:             previousEobt,
+		previousTobt:             previousTobt,
+		clamped:                  clamped,
+		markerChanged:            markerChanged,
+		shouldForceRecalculate:   shouldForceRecalculate,
+		shouldTriggerRecalculate: shouldTriggerRecalculate,
+		shouldSyncTobt:           shouldSyncTobt,
 	}
-	if clamped && eobt != normalizedEobt {
-		c.pushCorrectedEobtToEuroscope(ctx, session, callsign, normalizedEobt)
-	}
+}
 
-	if shouldTriggerRecalculate {
-		s.TriggerRecalculate(ctx, session, strip.Origin)
-		if shouldSyncTobt {
-			c.pushTobtAsync(ctx, session, callsign, previousTobt, normalizedEobt)
-		}
-	}
-	return nil
+// PrepareEuroscopeEobtSync applies the same EOBT/TOBT rules used by controller
+// EOBT actions before an incoming EuroScope strip is persisted. This keeps the
+// initial session sync from bypassing master-session clamping and confirmation
+// metadata cleanup.
+func (c *ActionService) PrepareEuroscopeEobtSync(session int32, data *models.CdmData, eobt string, now time.Time) (*models.CdmData, string, bool) {
+	prepared := c.prepareEobtUpdate(session, data, strings.TrimSpace(eobt), now.UTC(), true)
+	return prepared.updated, prepared.normalizedEobt, prepared.clamped
 }
 
 func (c *ActionService) normalizeMasterEobtValue(session int32, eobt string, now time.Time) (string, bool) {

@@ -3,11 +3,13 @@ package services
 import (
 	"context"
 	"testing"
+	"time"
 
 	"FlightStrips/internal/models"
 	"FlightStrips/internal/shared"
 	"FlightStrips/internal/testutil"
 	"FlightStrips/pkg/events/euroscope"
+	"FlightStrips/pkg/helpers"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/stretchr/testify/assert"
@@ -52,6 +54,90 @@ func TestSyncEuroscopeStrip_NewLocalDepartureWithoutPositionStartsInNotCleared(t
 	require.NotNil(t, createdStrip)
 	assert.Equal(t, callsign, createdStrip.Callsign)
 	assert.Equal(t, shared.BAY_NOT_CLEARED, createdStrip.Bay)
+}
+
+func TestSyncEuroscopeStrip_PreparesInitialEobtBeforePersistingAndCorrectsEuroscope(t *testing.T) {
+	ctx := context.Background()
+	const (
+		session       = int32(1)
+		callsign      = "SAS130"
+		cid           = "1234567"
+		rawEobt       = "1200"
+		correctedEobt = "1030"
+	)
+
+	var createdStrip *models.Strip
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			return nil, pgx.ErrNoRows
+		},
+		CreateFn: func(_ context.Context, strip *models.Strip) error {
+			createdStrip = strip
+			return nil
+		},
+	}
+
+	svc, _, esHub := newSyncTestFixture(t, nil, stripRepo)
+	cdmService := &spyStripCdmService{
+		prepareEobtSyncFn: func(gotSession int32, data *models.CdmData, eobt string, _ time.Time) (*models.CdmData, string, bool) {
+			assert.Equal(t, session, gotSession)
+			assert.Equal(t, rawEobt, eobt)
+			updated := data.Clone()
+			correctedEobtValue := correctedEobt
+			correctedTobtValue := correctedEobt
+			updated.Eobt = &correctedEobtValue
+			updated.Tobt = &correctedTobtValue
+			updated.TobtAutoSynced = true
+			updated.TobtConfirmedBy = nil
+			updated.TobtManuallyConfirmed = false
+			return updated, correctedEobt, true
+		},
+	}
+	svc.SetCdmService(cdmService)
+
+	err := svc.syncEuroscopeStrip(ctx, session, cid, euroscope.Strip{
+		Callsign: callsign,
+		Origin:   "EKCH",
+		Eobt:     rawEobt,
+	}, "EKCH")
+	require.NoError(t, err)
+
+	require.NotNil(t, createdStrip)
+	require.NotNil(t, createdStrip.CdmData)
+	assert.Equal(t, correctedEobt, helpers.ValueOrDefault(createdStrip.CdmData.Eobt))
+	assert.Equal(t, correctedEobt, helpers.ValueOrDefault(createdStrip.CdmData.Tobt))
+	assert.True(t, createdStrip.CdmData.TobtAutoSynced)
+	assert.Empty(t, helpers.ValueOrDefault(createdStrip.CdmData.TobtConfirmedBy))
+	assert.False(t, createdStrip.CdmData.TobtManuallyConfirmed)
+	assert.Equal(t, 1, cdmService.prepareEobtSyncCalls)
+	require.Len(t, esHub.Eobts, 1)
+	assert.Equal(t, session, esHub.Eobts[0].Session)
+	assert.Equal(t, cid, esHub.Eobts[0].Cid)
+	assert.Equal(t, callsign, esHub.Eobts[0].Callsign)
+	assert.Equal(t, correctedEobt, esHub.Eobts[0].Eobt)
+}
+
+func TestPrepareEuroscopeEobtWithoutCdm_PreservesManualConfirmation(t *testing.T) {
+	now := time.Date(2026, time.July, 13, 9, 0, 0, 0, time.UTC)
+	previousEobt := "1000"
+	confirmedTobt := "1015"
+	confirmedBy := models.TobtConfirmedByPilot
+	setBy := "PILOT"
+
+	updated := prepareEuroscopeEobtWithoutCdm(&models.CdmData{
+		Eobt:                  &previousEobt,
+		Tobt:                  &confirmedTobt,
+		TobtSetBy:             &setBy,
+		TobtConfirmedBy:       &confirmedBy,
+		TobtManuallyConfirmed: true,
+	}, "1030", now)
+
+	assert.Equal(t, "1030", helpers.ValueOrDefault(updated.Eobt))
+	assert.Equal(t, confirmedTobt, helpers.ValueOrDefault(updated.Tobt))
+	assert.Equal(t, confirmedBy, helpers.ValueOrDefault(updated.TobtConfirmedBy))
+	assert.Equal(t, setBy, helpers.ValueOrDefault(updated.TobtSetBy))
+	assert.True(t, updated.TobtManuallyConfirmed)
+	assert.False(t, updated.TobtAutoSynced)
 }
 
 func TestSyncEuroscopeStrip_NewStripWithFlightPlanDoesNotCallSeparateHasFPUpdate(t *testing.T) {
@@ -181,6 +267,75 @@ func TestSyncEuroscopeStrip_NewStripPersistsSpokenCallsign(t *testing.T) {
 	require.NotNil(t, createdStrip)
 	require.NotNil(t, createdStrip.SpokenCallsign)
 	assert.Equal(t, "WOLFAIR", *createdStrip.SpokenCallsign)
+}
+
+func TestSyncEuroscopeStrip_NewArrivalPersistsStar(t *testing.T) {
+	ctx := context.Background()
+	const session = int32(1)
+
+	var createdStrip *models.Strip
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			return nil, pgx.ErrNoRows
+		},
+		CreateFn: func(_ context.Context, strip *models.Strip) error {
+			createdStrip = strip
+			return nil
+		},
+	}
+
+	svc, _, _ := newSyncTestFixture(t, nil, stripRepo)
+
+	err := svc.syncEuroscopeStrip(ctx, session, "", euroscope.Strip{
+		Callsign:    "SAS101",
+		Origin:      "ESSA",
+		Destination: "EKCH",
+		Star:        "LUXAL2A",
+	}, "EKCH")
+	require.NoError(t, err)
+	require.NotNil(t, createdStrip)
+	require.NotNil(t, createdStrip.Star)
+	assert.Equal(t, "LUXAL2A", *createdStrip.Star)
+}
+
+func TestSyncEuroscopeStrip_ExistingArrivalUpdatesStar(t *testing.T) {
+	ctx := context.Background()
+	const session = int32(1)
+	sequence := int32(300)
+	existingStar := "LUXAL1A"
+
+	existingStrip := &models.Strip{
+		Callsign:    "SAS102",
+		Origin:      "ESSA",
+		Destination: "EKCH",
+		Bay:         shared.BAY_FINAL,
+		Sequence:    &sequence,
+		Star:        &existingStar,
+	}
+
+	var updatedStrip *models.Strip
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			return existingStrip, nil
+		},
+		UpdateFn: func(_ context.Context, strip *models.Strip) (int64, error) {
+			updatedStrip = strip
+			return 1, nil
+		},
+	}
+
+	svc, _, _ := newSyncTestFixture(t, existingStrip, stripRepo)
+
+	err := svc.syncEuroscopeStrip(ctx, session, "", euroscope.Strip{
+		Callsign:    "SAS102",
+		Origin:      "ESSA",
+		Destination: "EKCH",
+		Star:        "LUXAL2A",
+	}, "EKCH")
+	require.NoError(t, err)
+	require.NotNil(t, updatedStrip)
+	require.NotNil(t, updatedStrip.Star)
+	assert.Equal(t, "LUXAL2A", *updatedStrip.Star)
 }
 
 func TestSyncEuroscopeStrip_ExistingStripUpdatesSpokenCallsign(t *testing.T) {
@@ -898,16 +1053,18 @@ func TestSyncEuroscopeStrip_ArrivalDoesNotTriggerCdmRecalculation(t *testing.T) 
 	ctx := context.Background()
 	const session = int32(1)
 
+	var createdStrip *models.Strip
 	stripRepo := &testutil.MockStripRepository{
 		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
 			return nil, pgx.ErrNoRows
 		},
 		CreateFn: func(_ context.Context, strip *models.Strip) error {
+			createdStrip = strip
 			return nil
 		},
 	}
 
-	svc, _, _ := newSyncTestFixture(t, nil, stripRepo)
+	svc, _, esHub := newSyncTestFixture(t, nil, stripRepo)
 	cdmService := &spyStripCdmService{}
 	svc.SetCdmService(cdmService)
 
@@ -918,6 +1075,12 @@ func TestSyncEuroscopeStrip_ArrivalDoesNotTriggerCdmRecalculation(t *testing.T) 
 	}, "EKCH")
 	require.NoError(t, err)
 	assert.False(t, cdmService.recalcTriggered)
+	assert.Zero(t, cdmService.prepareEobtSyncCalls)
+	require.NotNil(t, createdStrip)
+	require.NotNil(t, createdStrip.CdmData)
+	assert.Empty(t, helpers.ValueOrDefault(createdStrip.CdmData.Eobt))
+	assert.Empty(t, helpers.ValueOrDefault(createdStrip.CdmData.Tobt))
+	assert.Empty(t, esHub.Eobts)
 }
 
 func TestSyncEuroscopeStrip_NewStrip_TaxiNoGndOnline_InsertsTaxiLwr(t *testing.T) {

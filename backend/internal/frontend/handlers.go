@@ -789,6 +789,7 @@ func handleStandOccupy(ctx context.Context, client *Client, message Message) err
 		Stand:     block.Stand,
 		ID:        block.ID,
 		BlockType: block.BlockType,
+		Blocks:    standBlockNeighbors(client.airport, block.Stand),
 		Reason:    block.Reason,
 		CreatedBy: block.CreatedBy,
 		Version:   block.Version,

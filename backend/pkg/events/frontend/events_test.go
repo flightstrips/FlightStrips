@@ -96,6 +96,20 @@ func TestStandAssignmentUpdateMarshalIncludesAuthoritativeMetadata(t *testing.T)
 	}
 }
 
+func TestStandAssignmentRemovedMarshalIncludesCallsign(t *testing.T) {
+	payload, err := (StandAssignmentRemovedEvent{Callsign: "SAS123"}).Marshal()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var decoded map[string]any
+	if err := json.Unmarshal(payload, &decoded); err != nil {
+		t.Fatal(err)
+	}
+	if decoded["type"] != string(StandAssignmentRemoved) || decoded["callsign"] != "SAS123" {
+		t.Fatalf("unexpected removal payload: %#v", decoded)
+	}
+}
+
 func TestStandBlockRemovalMarshalIncludesStableID(t *testing.T) {
 	payload, err := (StandBlockUpdateEvent{Stand: "A1", BlockID: 81}).Marshal()
 	if err != nil {

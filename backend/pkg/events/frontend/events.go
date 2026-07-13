@@ -108,9 +108,10 @@ const (
 	ClxUpdateTobt               EventType = "clx_update_tobt"
 
 	// Stand Status events (broadcast to frontend)
-	StandStatusSnapshot   EventType = "stand_status_snapshot"
-	StandAssignmentUpdate EventType = "stand_assignment_update"
-	StandBlockUpdate      EventType = "stand_block_update"
+	StandStatusSnapshot    EventType = "stand_status_snapshot"
+	StandAssignmentUpdate  EventType = "stand_assignment_update"
+	StandAssignmentRemoved EventType = "stand_assignment_removed"
+	StandBlockUpdate       EventType = "stand_block_update"
 
 	// Stand action types (sent from frontend to backend)
 	ActionStandOccupy            EventType = "stand_block_create"
@@ -1064,6 +1065,7 @@ type StandBlockEntry struct {
 	ID        int64      `json:"id"`
 	Stand     string     `json:"stand"`
 	BlockType string     `json:"block_type"`
+	Blocks    []string   `json:"blocks"`
 	Reason    *string    `json:"reason,omitempty"`
 	Callsign  *string    `json:"callsign,omitempty"`
 	CreatedBy *string    `json:"created_by,omitempty"`
@@ -1087,6 +1089,15 @@ type StandAssignmentUpdateEvent struct {
 
 func (e StandAssignmentUpdateEvent) Marshal() ([]byte, error) { return marshall(e) }
 func (e StandAssignmentUpdateEvent) GetType() EventType       { return StandAssignmentUpdate }
+
+// StandAssignmentRemovedEvent removes an assignment without requiring a full
+// status reload. It is emitted for lifecycle releases and displaced arrivals.
+type StandAssignmentRemovedEvent struct {
+	Callsign string `json:"callsign"`
+}
+
+func (e StandAssignmentRemovedEvent) Marshal() ([]byte, error) { return marshall(e) }
+func (e StandAssignmentRemovedEvent) GetType() EventType       { return StandAssignmentRemoved }
 
 // StandBlockUpdateEvent is broadcast when a manual block changes.
 type StandBlockUpdateEvent struct {

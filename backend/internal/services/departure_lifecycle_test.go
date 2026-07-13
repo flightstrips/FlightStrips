@@ -146,10 +146,16 @@ func TestDepartureLifecycle(t *testing.T) {
 	})
 
 	t.Run("expired offline reservations are released idempotently", func(t *testing.T) {
-		lifecycle, _, session, assignments, strips, clock := departureLifecycleFixture(t, pool, queries, "", "", nil)
+		lifecycle, allocations, session, assignments, strips, clock := departureLifecycleFixture(t, pool, queries, "", "", nil)
+		var published []StandAllocationResult
+		allocations.SetPublisher(func(_ context.Context, result StandAllocationResult) error {
+			published = append(published, result)
+			return nil
+		})
 		testdata.SeedTestStrip(t, queries, session, "SAS501")
 		clock.set(time.Date(2026, 7, 12, 10, 0, 0, 0, time.UTC))
 		require.NoError(t, lifecycle.ProcessDeparture(ctx, session, loadStrip(t, strips, session, "SAS501"), offlineFlight("SAS501", 1)))
+		published = nil
 		strip := loadStrip(t, strips, session, "SAS501")
 		require.NotNil(t, strip.Stand)
 
@@ -160,8 +166,18 @@ func TestDepartureLifecycle(t *testing.T) {
 		require.Error(t, err, "the reservation is removed once it expires")
 		updated := loadStrip(t, strips, session, "SAS501")
 		require.Nil(t, updated.Stand, "the operational stand is cleared")
+		var matching []StandAllocationResult
+		for _, result := range published {
+			if result.Assignment.SessionID == session && result.Assignment.Callsign == "SAS501" {
+				matching = append(matching, result)
+			}
+		}
+		require.Len(t, matching, 1)
+		assert.True(t, matching[0].Removed, "the lifecycle publishes the removal after it commits")
 
+		publishedBeforeSecondSweep := len(published)
 		require.NoError(t, lifecycle.ReleaseExpired(ctx), "a second sweep is a no-op")
+		assert.Len(t, published, publishedBeforeSecondSweep, "an idempotent second sweep does not publish another removal")
 	})
 
 	t.Run("coming online converts the reservation to a departure block", func(t *testing.T) {

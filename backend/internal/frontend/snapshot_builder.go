@@ -5,6 +5,7 @@ import (
 	"FlightStrips/internal/config"
 	internalModels "FlightStrips/internal/models"
 	"FlightStrips/internal/repository"
+	"FlightStrips/internal/sat"
 	"FlightStrips/internal/shared"
 	frontendEvents "FlightStrips/pkg/events/frontend"
 	pkgModels "FlightStrips/pkg/models"
@@ -161,7 +162,7 @@ func (b *SnapshotBuilder) Build(ctx context.Context, request InitialSnapshotRequ
 
 	if b.standAssignmentEnabled && b.standAssignmentRepo != nil {
 		event.StandAssignmentEnabled = true
-		assignments, blocks, err := b.loadStandStatus(ctx, request.SessionID)
+		assignments, blocks, err := b.loadStandStatus(ctx, request.SessionID, request.Airport)
 		if err != nil {
 			slog.Error("Failed to load stand status for snapshot", slog.Any("error", err), slog.Int("session", int(request.SessionID)))
 		} else {
@@ -300,7 +301,7 @@ func (b *SnapshotBuilder) cachedAtisEvent(sessionID int32) *frontendEvents.AtisU
 	return b.loadCachedAtis(sessionID)
 }
 
-func (b *SnapshotBuilder) loadStandStatus(ctx context.Context, sessionID int32) ([]frontendEvents.StandAssignmentEntry, []frontendEvents.StandBlockEntry, error) {
+func (b *SnapshotBuilder) loadStandStatus(ctx context.Context, sessionID int32, airport string) ([]frontendEvents.StandAssignmentEntry, []frontendEvents.StandBlockEntry, error) {
 	assignments, err := b.standAssignmentRepo.ListAssignments(ctx, sessionID)
 	if err != nil {
 		return nil, nil, fmt.Errorf("list stand assignments: %w", err)
@@ -325,20 +326,57 @@ func (b *SnapshotBuilder) loadStandStatus(ctx context.Context, sessionID int32) 
 		if blk == nil {
 			continue
 		}
-		entry := frontendEvents.StandBlockEntry{
-			ID:        blk.ID,
-			Stand:     blk.Stand,
-			BlockType: blk.BlockType,
-			Reason:    blk.Reason,
-			Callsign:  blk.Callsign,
-			CreatedBy: blk.CreatedBy,
-			ExpiresAt: blk.ExpiresAt,
-			Version:   blk.Version,
-		}
-		blockEntries = append(blockEntries, entry)
+		blockEntries = append(blockEntries, mapStandBlockEntry(blk, airport))
 	}
 
 	return assignmentEntries, blockEntries, nil
+}
+
+func mapStandBlockEntry(blk *internalModels.StandBlock, airport string) frontendEvents.StandBlockEntry {
+	return frontendEvents.StandBlockEntry{
+		ID:        blk.ID,
+		Stand:     blk.Stand,
+		BlockType: blk.BlockType,
+		Blocks:    standBlockNeighbors(airport, blk.Stand),
+		Reason:    blk.Reason,
+		Callsign:  blk.Callsign,
+		CreatedBy: blk.CreatedBy,
+		ExpiresAt: blk.ExpiresAt,
+		Version:   blk.Version,
+	}
+}
+
+func standBlockNeighbors(airport, blockedStand string) []string {
+	return standBlockNeighborsFromRegistry(config.GetStandCapabilities(), airport, blockedStand)
+}
+
+func standBlockNeighborsFromRegistry(registry *sat.StandCapabilityRegistry, airport, blockedStand string) []string {
+	seen := map[string]struct{}{}
+	neighbors := []string{}
+	add := func(stand string) {
+		stand = strings.TrimSpace(stand)
+		if stand == "" || strings.EqualFold(stand, blockedStand) {
+			return
+		}
+		key := strings.ToUpper(stand)
+		if _, exists := seen[key]; exists {
+			return
+		}
+		seen[key] = struct{}{}
+		neighbors = append(neighbors, stand)
+	}
+	for _, stand := range registry.Stands(airport) {
+		if strings.EqualFold(stand.Name, blockedStand) {
+			for _, neighbor := range stand.Blocks {
+				add(neighbor)
+			}
+			continue
+		}
+		if containsStandName(stand.Blocks, blockedStand) {
+			add(stand.Name)
+		}
+	}
+	return neighbors
 }
 
 func mapStandAssignmentEntry(a *internalModels.StandAssignment) frontendEvents.StandAssignmentEntry {

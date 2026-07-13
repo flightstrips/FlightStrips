@@ -234,8 +234,9 @@ func (s *ArrivalLifecycleService) updateStageInPlace(ctx context.Context, existi
 	if affected != 1 {
 		return fmt.Errorf("arrival stage update version conflict for %s", existing.Callsign)
 	}
+	updated.Version++
 	slog.InfoContext(ctx, "SAT assignment stage changed", slog.String("callsign", existing.Callsign), slog.String("stand", existing.Stand), slog.String("from_stage", existing.Stage), slog.String("to_stage", stage))
-	return nil
+	return s.allocations.PublishAssignment(ctx, updated)
 }
 
 func (s *ArrivalLifecycleService) ReleaseExpired(ctx context.Context) error {
@@ -281,23 +282,17 @@ func (s *ArrivalLifecycleService) releaseIfDue(ctx context.Context, session int3
 		return err
 	}
 	if strip == nil {
-		_, err := s.assignments.DeleteAssignment(ctx, session, assignment.ID, assignment.Version)
+		err := s.allocations.ReleaseAssignment(ctx, assignment)
 		recordSATExpiry(ctx, assignment, "strip_removed", err)
 		return err
 	}
 	if assignment.ExpiresAt != nil && !assignment.ExpiresAt.After(now) {
-		if _, err := s.strips.UpdateStand(ctx, session, assignment.Callsign, nil, nil); err != nil {
-			return err
-		}
-		_, err = s.assignments.DeleteAssignment(ctx, session, assignment.ID, assignment.Version)
+		err = s.allocations.ReleaseAssignment(ctx, assignment)
 		recordSATExpiry(ctx, assignment, "expired", err)
 		return err
 	}
 	if assignment.ETA != nil && now.After(assignment.ETA.Add(30*time.Minute)) {
-		if _, err := s.strips.UpdateStand(ctx, session, assignment.Callsign, nil, nil); err != nil {
-			return err
-		}
-		_, err = s.assignments.DeleteAssignment(ctx, session, assignment.ID, assignment.Version)
+		err = s.allocations.ReleaseAssignment(ctx, assignment)
 		recordSATExpiry(ctx, assignment, "arrival_timeout", err)
 		return err
 	}
@@ -305,7 +300,9 @@ func (s *ArrivalLifecycleService) releaseIfDue(ctx context.Context, session int3
 }
 
 func recordSATExpiry(ctx context.Context, assignment *models.StandAssignment, reason string, err error) {
-	if err != nil || assignment == nil { return }
+	if err != nil || assignment == nil {
+		return
+	}
 	metrics.RecordSATExpiration(ctx, assignment.Direction, assignment.Stage)
 	slog.InfoContext(ctx, "SAT assignment expired", slog.String("callsign", assignment.Callsign), slog.String("stand", assignment.Stand), slog.String("stage", assignment.Stage), slog.String("reason", reason))
 }

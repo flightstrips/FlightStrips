@@ -5,6 +5,7 @@ import {
   EventType,
   type FrontendStandStatusSnapshotEvent,
   type FrontendStandAssignmentUpdateEvent,
+  type FrontendStandAssignmentRemovedEvent,
   type FrontendStandBlockUpdateEvent,
   type FrontendStandAssignmentEntry,
   type FrontendStandBlockEntry,
@@ -159,6 +160,27 @@ describe("stand store events", () => {
 
       expect(store.getState().standAssignments).toHaveLength(1);
       expect(store.getState().standAssignments[0].stage).toBe("CONFIRMED");
+    });
+
+    it("removes a displaced assignment by callsign", () => {
+      const retained: FrontendStandAssignmentEntry = {
+        callsign: "SAS456", stand: "A20", direction: "ARRIVAL", stage: "ASSIGNED", source: "AUTOMATIC",
+      };
+      const displaced: FrontendStandAssignmentEntry = {
+        callsign: "NAX123", stand: "A21", direction: "ARRIVAL", stage: "ESTIMATED", source: "AUTOMATIC",
+      };
+      client._emit(EventType.FrontendStandStatusSnapshot, {
+        type: EventType.FrontendStandStatusSnapshot,
+        assignments: [retained, displaced],
+        blocks: [],
+      } as FrontendStandStatusSnapshotEvent);
+
+      client._emit(EventType.FrontendStandAssignmentRemoved, {
+        type: EventType.FrontendStandAssignmentRemoved,
+        callsign: "nax123",
+      } as FrontendStandAssignmentRemovedEvent);
+
+      expect(store.getState().standAssignments).toEqual([retained]);
     });
   });
 

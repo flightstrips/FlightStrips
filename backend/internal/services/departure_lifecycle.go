@@ -303,7 +303,8 @@ func (s *DepartureLifecycleService) cancelWrongStandEpisode(ctx context.Context,
 	if affected != 1 {
 		return fmt.Errorf("cancel wrong stand episode version conflict for %s", callsign)
 	}
-	return nil
+	updated.Version++
+	return s.allocations.PublishAssignment(ctx, updated)
 }
 
 // ensureReservation allocates a 15-minute hold for a new offline prefile, and
@@ -356,7 +357,8 @@ func (s *DepartureLifecycleService) renewInPlace(ctx context.Context, strip *mod
 		return err
 	}
 	if affected == 1 {
-		return nil
+		updated.Version++
+		return s.allocations.PublishAssignment(ctx, updated)
 	}
 	request := s.buildRequest(existing.SessionID, strip, flight, StageReserved, &expiry)
 	_, err = s.allocations.Reallocate(ctx, request)
@@ -410,7 +412,8 @@ func (s *DepartureLifecycleService) activateBlock(ctx context.Context, session i
 		if existing.Stage != StageDepartureBlock {
 			slog.InfoContext(ctx, "SAT assignment stage changed", slog.String("callsign", existing.Callsign), slog.String("stand", existing.Stand), slog.String("from_stage", existing.Stage), slog.String("to_stage", StageDepartureBlock))
 		}
-		return nil
+		updated.Version++
+		return s.allocations.PublishAssignment(ctx, updated)
 	}
 	reloaded, reloadErr := s.assignments.GetAssignment(ctx, session, strip.Callsign)
 	if reloadErr != nil || reloaded == nil {
@@ -426,8 +429,15 @@ func (s *DepartureLifecycleService) activateBlock(ctx context.Context, session i
 		revision := flight.Revision
 		reloaded.VatsimRevision = &revision
 	}
-	_, err = s.assignments.UpdateAssignment(ctx, reloaded)
-	return err
+	affected, err = s.assignments.UpdateAssignment(ctx, reloaded)
+	if err != nil {
+		return err
+	}
+	if affected != 1 {
+		return fmt.Errorf("activate departure block version conflict for %s", strip.Callsign)
+	}
+	reloaded.Version++
+	return s.allocations.PublishAssignment(ctx, *reloaded)
 }
 
 // revalidateFacts re-runs compatibility against the strip's current aircraft and
@@ -511,7 +521,7 @@ func (s *DepartureLifecycleService) releaseIfDue(ctx context.Context, session in
 		return err
 	}
 	if strip == nil {
-		_, err := s.assignments.DeleteAssignment(ctx, session, assignment.ID, assignment.Version)
+		err := s.allocations.ReleaseAssignment(ctx, assignment)
 		recordSATExpiry(ctx, assignment, "strip_removed", err)
 		return err
 	}
@@ -521,10 +531,7 @@ func (s *DepartureLifecycleService) releaseIfDue(ctx context.Context, session in
 	if assignment.ConflictReason != nil && strings.HasPrefix(*assignment.ConflictReason, wrongStandPendingPrefix) {
 		return s.forceObservedStand(ctx, strip, assignment)
 	}
-	if _, err := s.strips.UpdateStand(ctx, session, assignment.Callsign, nil, nil); err != nil {
-		return err
-	}
-	_, err = s.assignments.DeleteAssignment(ctx, session, assignment.ID, assignment.Version)
+	err = s.allocations.ReleaseAssignment(ctx, assignment)
 	recordSATExpiry(ctx, assignment, "expired", err)
 	return err
 }

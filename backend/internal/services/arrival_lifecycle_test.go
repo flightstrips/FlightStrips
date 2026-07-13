@@ -66,13 +66,19 @@ func TestArrivalLifecycle(t *testing.T) {
 	})
 
 	t.Run("transitions to ASSIGNED at ETA−10 min and below 10000 ft", func(t *testing.T) {
-		lifecycle, _, session, assignments, strips, clock := arrivalLifecycleFixture(t, pool, queries, "", "", nil)
+		lifecycle, allocations, session, assignments, strips, clock := arrivalLifecycleFixture(t, pool, queries, "", "", nil)
+		var published []StandAllocationResult
+		allocations.SetPublisher(func(_ context.Context, result StandAllocationResult) error {
+			published = append(published, result)
+			return nil
+		})
 		arrivalETA := clock.current().Add(45 * time.Minute)
 		clock.set(arrivalETA.Add(-45 * time.Minute))
 		seedTestArrivalStrip(t, queries, session, "SAS301")
 		setArrivalETA(t, strips, session, "SAS301", arrivalETA)
 
 		require.NoError(t, lifecycle.ProcessArrival(ctx, session, loadStrip(t, strips, session, "SAS301"), arrivalFlight("SAS301", 1)))
+		published = nil
 
 		_, err := strips.UpdateAircraftPosition(ctx, session, "SAS301", posPtr(0), posPtr(0), altPtr(8000), "FINAL", nil)
 		require.NoError(t, err)
@@ -84,6 +90,9 @@ func TestArrivalLifecycle(t *testing.T) {
 		assignment, err := assignments.GetAssignment(ctx, session, "SAS301")
 		require.NoError(t, err)
 		assert.Equal(t, StageAssigned, assignment.Stage, "promoted to ASSIGNED at ETA−5 min below 8000 ft")
+		require.Len(t, published, 1, "an in-place lifecycle transition is published")
+		assert.Equal(t, StageAssigned, published[0].Assignment.Stage)
+		assert.Equal(t, assignment.Version, published[0].Assignment.Version)
 	})
 
 	t.Run("transitions to CONFIRMED at ETA−2 min and below 3000 ft", func(t *testing.T) {
@@ -384,16 +393,16 @@ func TestArrivalLifecycle(t *testing.T) {
 func seedTestArrivalStrip(t *testing.T, queries *database.Queries, sessionID int32, callsign string) {
 	ctx := context.Background()
 	err := queries.InsertStrip(ctx, database.InsertStripParams{
-		Callsign:     callsign,
-		Session:      sessionID,
-		Origin:       "ESSA",
-		Destination:  "EKCH",
-		AircraftType: strp("A320"),
-		Runway:       strp("22L"),
-		Squawk:       strp("2401"),
+		Callsign:       callsign,
+		Session:        sessionID,
+		Origin:         "ESSA",
+		Destination:    "EKCH",
+		AircraftType:   strp("A320"),
+		Runway:         strp("22L"),
+		Squawk:         strp("2401"),
 		AssignedSquawk: strp("2401"),
-		Bay:          "ARR_HIDDEN",
-		CdmData:      []byte(`{"canonical":{}}`),
+		Bay:            "ARR_HIDDEN",
+		CdmData:        []byte(`{"canonical":{}}`),
 	})
 	require.NoError(t, err)
 }

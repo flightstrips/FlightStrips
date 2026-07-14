@@ -81,3 +81,38 @@ func TestBuildDisablesStandAssignmentByDefault(t *testing.T) {
 	require.False(t, application.StandAssignmentReadiness().Ready)
 	require.Len(t, application.workers, 1)
 }
+
+func TestBuildGatesEFBAPIBehindFeatureFlag(t *testing.T) {
+	poolConfig, err := pgxpool.ParseConfig("postgres://user:password@127.0.0.1:1/test")
+	require.NoError(t, err)
+	dbPool, err := pgxpool.NewWithConfig(context.Background(), poolConfig)
+	require.NoError(t, err)
+	t.Cleanup(dbPool.Close)
+
+	build := func(enabled bool) *App {
+		application, buildErr := Build(context.Background(), Config{
+			Environment:          "test",
+			EnableEFB:            enabled,
+			EnableCDMConfigStore: false,
+			EnablePDC:            false,
+			EnableECFMP:          false,
+			EnableECFMPAPI:       false,
+			EnablePilotAPI:       false,
+			EnableALB:            false,
+			EnableMetar:          false,
+			EnableVATSIM:         false,
+			EnableTraffic:        false,
+			EnableDBSeed:         false,
+		}, Dependencies{DBPool: dbPool, AuthenticationService: services.NewTestAuthenticationService()})
+		require.NoError(t, buildErr)
+		return application
+	}
+
+	disabled := httptest.NewRecorder()
+	build(false).Handler().ServeHTTP(disabled, httptest.NewRequest(http.MethodGet, "/api/efb/me", nil))
+	require.Equal(t, http.StatusNotFound, disabled.Code)
+
+	enabled := httptest.NewRecorder()
+	build(true).Handler().ServeHTTP(enabled, httptest.NewRequest(http.MethodGet, "/api/efb/me", nil))
+	require.Equal(t, http.StatusUnauthorized, enabled.Code)
+}

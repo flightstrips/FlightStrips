@@ -40,6 +40,8 @@ services:
       # Keep SAT release-safe. Enable only after /healthz reports
       # stand_assignment.status=ready; rollback by restoring false and restarting.
       ENABLE_STAND_ASSIGNMENT: ${ENABLE_STAND_ASSIGNMENT:-false}
+      # Release EFB code disabled until the authenticated pilot surface is ready.
+      ENABLE_EFB: ${ENABLE_EFB:-false}
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
       OTEL_EXPORTER_OTLP_PROTOCOL: ${OTEL_EXPORTER_OTLP_PROTOCOL:-}
       OTEL_EXPORTER_OTLP_HEADERS: ${OTEL_EXPORTER_OTLP_HEADERS:-}

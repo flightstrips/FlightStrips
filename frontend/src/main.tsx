@@ -17,6 +17,8 @@ import PluginAuthComplete from "@/pages/plugin-auth-complete";
 import CdmPage from "@/pages/cdm";
 import PilotLayout from "@/pages/pilot-layout";
 import PilotFlightPage from "@/pages/pilot-flight";
+import EfbLayout from "@/pages/efb-layout";
+import EfbPage from "@/pages/efb";
 import { withAuthenticationRequired } from '@auth0/auth0-react';
 import DocsRouter from "@/pages/docs/DocsRouter";
 import { ThemeSync } from "@/components/public/ThemeSync";
@@ -41,6 +43,9 @@ createRoot(document.getElementById('root')!).render(
           <Route path="/contact" element={<Contact/>}/>
           <Route path="/pilot" element={<PilotLayout />}>
             <Route index element={<PilotFlightPage/>}/>
+          </Route>
+          <Route path="/efb" element={<EfbLayout />}>
+            <Route index element={<EfbPage />} />
           </Route>
           <Route path="/app" element={<AppPage />}/>
           <Route path="/plugin-auth-complete" element={<PluginAuthComplete/>}/>

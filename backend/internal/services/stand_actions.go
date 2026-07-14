@@ -55,6 +55,21 @@ func (s *StandActionService) AssignManually(ctx context.Context, session int32, 
 	return s.allocations.AssignManually(ctx, req)
 }
 
+// AssignForPilot applies a pilot-selected stand through the same compatibility,
+// occupancy and optimistic-concurrency rules as a controller assignment. It
+// deliberately cannot invoke the incompatible override path.
+func (s *StandActionService) AssignForPilot(ctx context.Context, session int32, airport, cid, callsign, stand string, version int32) (*StandAllocationResult, error) {
+	if strings.TrimSpace(cid) == "" {
+		return nil, ErrStandActionUnauthorized
+	}
+	req, err := s.request(ctx, session, airport, "PILOT:"+strings.TrimSpace(cid), callsign, version)
+	if err != nil {
+		return nil, err
+	}
+	req.Stand = stand
+	return s.allocations.AssignManually(ctx, req)
+}
+
 func (s *StandActionService) Override(ctx context.Context, session int32, airport, position, callsign, stand, reason string, version int32) (*StandAllocationResult, error) {
 	req, err := s.request(ctx, session, airport, position, callsign, version)
 	if err != nil {

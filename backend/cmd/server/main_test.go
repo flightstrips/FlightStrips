@@ -36,3 +36,15 @@ func TestStandAssignmentFlagDefaultsFalseRegardlessOfEnvironment(t *testing.T) {
 		t.Fatal("ENABLE_STAND_ASSIGNMENT should remain false in production unless explicitly enabled")
 	}
 }
+
+func TestEFBFlagDefaultsFalseRegardlessOfEnvironment(t *testing.T) {
+	t.Setenv("ENABLE_EFB", "")
+	if got := envBool("ENABLE_EFB", false); got {
+		t.Fatal("ENABLE_EFB should default to false when unset")
+	}
+
+	t.Setenv("ENVIRONMENT", "production")
+	if got := envBool("ENABLE_EFB", false); got {
+		t.Fatal("ENABLE_EFB should remain false in production unless explicitly enabled")
+	}
+}

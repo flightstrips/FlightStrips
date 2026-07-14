@@ -38,7 +38,7 @@ func (c *ActionService) HandleTobtUpdate(ctx context.Context, session int32, cal
 		return nil
 	}
 
-	strip, before, updated, previousTobt, changed, shouldTriggerRecalculate, err := s.prepareTobtUpdate(ctx, session, callsign, tobt, sourcePosition, time.Now().UTC())
+	strip, before, updated, previousTobt, changed, shouldTriggerRecalculate, err := c.prepareTobtUpdate(ctx, session, callsign, tobt, sourcePosition, sourceRole, time.Now().UTC())
 	if err != nil {
 		return err
 	}
@@ -255,7 +255,7 @@ func (c *ActionService) HandleClxTobtUpdate(ctx context.Context, session int32, 
 		return nil
 	}
 
-	strip, _, updated, previousTobt, changed, shouldTriggerRecalculate, err := s.prepareTobtUpdate(ctx, session, callsign, tobt, sourcePosition, time.Now().UTC())
+	strip, _, updated, previousTobt, changed, shouldTriggerRecalculate, err := c.prepareTobtUpdate(ctx, session, callsign, tobt, sourcePosition, sourceRole, time.Now().UTC())
 	if err != nil {
 		return err
 	}
@@ -639,7 +639,7 @@ func (c *ActionService) loadCdmActionTarget(ctx context.Context, session int32, 
 	return strip, cdmData, nil
 }
 
-func (c *ActionService) prepareTobtUpdate(ctx context.Context, session int32, callsign string, tobt string, sourcePosition string, now time.Time) (*models.Strip, cdmSnapshot, *models.CdmData, string, bool, bool, error) {
+func (c *ActionService) prepareTobtUpdate(ctx context.Context, session int32, callsign string, tobt string, sourcePosition string, sourceRole string, now time.Time) (*models.Strip, cdmSnapshot, *models.CdmData, string, bool, bool, error) {
 	s := c.service
 	strip, cdmData, err := s.loadCdmActionTarget(ctx, session, callsign)
 	if err != nil {
@@ -654,7 +654,7 @@ func (c *ActionService) prepareTobtUpdate(ctx context.Context, session int32, ca
 	previousTobt := helpers.ValueOrDefault(updated.Tobt)
 	shouldTriggerRecalculate := shouldTriggerClockRecalculation(tobt, now) || shouldForceRecalculateForStaleSequence(updated, now)
 	prospective := updated.Clone()
-	applyConfirmedTobtUpdate(prospective, tobt, sourcePosition)
+	applyConfirmedTobtUpdate(prospective, tobt, sourcePosition, sourceRole)
 	metadataChanged := snapshotCdm(prospective) != before
 	if previousTobt == tobt && helpers.ValueOrDefault(updated.ReqTobt) == "" && !shouldTriggerRecalculate && !metadataChanged {
 		return strip, before, updated, previousTobt, false, false, nil
@@ -829,7 +829,7 @@ func isValidDeiceType(value string) bool {
 	}
 }
 
-func applyConfirmedTobtUpdate(updated *models.CdmData, tobt string, sourcePosition string) {
+func applyConfirmedTobtUpdate(updated *models.CdmData, tobt string, sourcePosition string, sourceRole ...string) {
 	if updated == nil {
 		return
 	}
@@ -837,6 +837,9 @@ func applyConfirmedTobtUpdate(updated *models.CdmData, tobt string, sourcePositi
 	setBy := strings.TrimSpace(sourcePosition)
 	updated.TobtSetBy = &setBy
 	confirmedBy := models.TobtConfirmedByATC
+	if len(sourceRole) > 0 && strings.EqualFold(strings.TrimSpace(sourceRole[0]), "pilot") {
+		confirmedBy = models.TobtConfirmedByPilot
+	}
 	updated.TobtConfirmedBy = &confirmedBy
 	updated.TobtAutoSynced = false
 	updated.TobtManuallyConfirmed = true

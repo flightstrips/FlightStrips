@@ -127,33 +127,34 @@ func ReadPump[TType comparable, TClient Client, THub Hub[TType, TClient]](hub TH
 }
 
 func logReadError(client Client, err error) {
+	attrs := []any{
+		slog.String("source", client.GetSource()),
+		slog.String("cid", client.GetCid()),
+		slog.Int("session", int(client.GetSession())),
+	}
+	if sessionName := client.GetSessionName(); sessionName != "" {
+		attrs = append(attrs, slog.String("session_name", sessionName))
+	}
+	if airport := client.GetAirport(); airport != "" {
+		attrs = append(attrs, slog.String("airport", airport))
+	}
+	if callsign := client.GetCallsign(); callsign != "" {
+		attrs = append(attrs, slog.String("callsign", callsign))
+	}
+	if position := client.GetPosition(); position != "" {
+		attrs = append(attrs, slog.String("position", position))
+	}
+
 	var closeErr *websocket.CloseError
 	if errors.As(err, &closeErr) {
-		attrs := []any{
-			slog.String("source", client.GetSource()),
-			slog.String("cid", client.GetCid()),
-			slog.Int("session", int(client.GetSession())),
-			slog.Int("close_code", closeErr.Code),
-		}
-		if sessionName := client.GetSessionName(); sessionName != "" {
-			attrs = append(attrs, slog.String("session_name", sessionName))
-		}
-		if airport := client.GetAirport(); airport != "" {
-			attrs = append(attrs, slog.String("airport", airport))
-		}
-		if callsign := client.GetCallsign(); callsign != "" {
-			attrs = append(attrs, slog.String("callsign", callsign))
-		}
-		if position := client.GetPosition(); position != "" {
-			attrs = append(attrs, slog.String("position", position))
-		}
+		attrs = append(attrs, slog.Int("close_code", closeErr.Code))
 		if closeErr.Text != "" {
 			attrs = append(attrs, slog.String("reason", closeErr.Text))
 		}
 
 		if websocket.IsUnexpectedCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway, websocket.CloseAbnormalClosure, websocket.CloseNoStatusReceived) {
 			attrs = append(attrs, slog.Any("error", err))
-			slog.Warn("Unexpected websocket close", attrs...)
+			slog.Warn("Websocket connection closed", attrs...)
 			return
 		}
 
@@ -161,14 +162,8 @@ func logReadError(client Client, err error) {
 		return
 	}
 
-	if websocket.IsUnexpectedCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway, websocket.CloseAbnormalClosure, websocket.CloseNoStatusReceived) {
-		slog.Warn("Unexpected websocket close",
-			slog.String("source", client.GetSource()),
-			slog.String("cid", client.GetCid()),
-			slog.Int("session", int(client.GetSession())),
-			slog.Any("error", err),
-		)
-	}
+	attrs = append(attrs, slog.Any("error", err))
+	slog.Warn("Websocket connection closed", attrs...)
 }
 
 func shouldTrackMessageDBOperations(source string, msgType string) bool {

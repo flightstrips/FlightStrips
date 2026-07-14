@@ -234,6 +234,20 @@ func (s *StripService) UpdateClearedFlag(ctx context.Context, session int32, cal
 		return err
 	}
 
+	// A cleared flag received from EuroScope is authoritative voice/manual
+	// clearance. Clear any pending or failed PDC state before moving the strip so
+	// the cleared bay cannot retain a misleading PDC background or keep waiting
+	// for a pilot acknowledgement. Preserve only an already-confirmed PDC exchange.
+	if shouldConfirmVoiceClearanceForEuroscopeClear(existingStrip, cleared) {
+		pdcService := s.getPdcService()
+		if pdcService == nil {
+			return errors.New("PDC service not available")
+		}
+		if err := pdcService.ConfirmVoiceClearance(ctx, callsign, session); err != nil {
+			return err
+		}
+	}
+
 	if existingStrip.Cleared == cleared {
 		return nil
 	}
@@ -265,6 +279,19 @@ func (s *StripService) UpdateClearedFlag(ctx context.Context, session int32, cal
 	}
 
 	return nil
+}
+
+func shouldConfirmVoiceClearanceForEuroscopeClear(strip *internalModels.Strip, cleared bool) bool {
+	if !cleared || strip == nil {
+		return false
+	}
+
+	switch strip.PdcState {
+	case "", internalModels.PdcStateNone, "CONFIRMED":
+		return false
+	default:
+		return true
+	}
 }
 
 // UpdateStand updates the stand for a strip, notifies the frontend, and triggers route recalculation.

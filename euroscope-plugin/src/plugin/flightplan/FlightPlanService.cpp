@@ -210,6 +210,7 @@ namespace FlightStrips::flightplan {
             {flightPlanData.GetEngineType()}
         };
         m_websocketService->SendEvent(event);
+        plan.MarkRunwaySynced(runway);
     }
 
     void FlightPlanService::ControllerFlightPlanDataEvent(EuroScopePlugIn::CFlightPlan flightPlan, int dataType) {
@@ -384,19 +385,32 @@ namespace FlightStrips::flightplan {
             m_lastPositionFlushCounter = counter;
         }
 
-        // Poll for tracking controller changes every tick.
-        // OnFlightPlanControllerAssignedDataUpdate does not fire when a tracking controller is
-        // assumed or dropped, so we must detect the transition here instead.
+        // Poll values whose EuroScope changes do not reliably emit plugin callbacks.
         if (!m_websocketService->ShouldSend()) return;
         for (auto it = m_flightStripsPlugin->FlightPlanSelectFirst(); it.IsValid();
              it = m_flightStripsPlugin->FlightPlanSelectNext(it)) {
             if (it.GetSimulated()) continue;
             const auto callsign = std::string(it.GetCallsign());
-            const auto trackingController = std::string(it.GetTrackingControllerCallsign());
             auto &plan = m_flightPlans.try_emplace(callsign).first->second;
-            if (plan.tracking_controller == trackingController) continue;
-            plan.tracking_controller = trackingController;
-            m_websocketService->SendEvent(TrackingControllerChangedEvent(callsign, trackingController));
+
+            const auto trackingController = std::string(it.GetTrackingControllerCallsign());
+            if (plan.tracking_controller != trackingController) {
+                plan.tracking_controller = trackingController;
+                m_websocketService->SendEvent(TrackingControllerChangedEvent(callsign, trackingController));
+            }
+
+            if (!m_flightStripsPlugin->IsRelevant(it)) continue;
+            const auto flightPlanData = it.GetFlightPlanData();
+            const auto isArrival = strcmp(flightPlanData.GetDestination(),
+                                          m_flightStripsPlugin->GetConnectionState().relevant_airport.c_str()) == 0;
+            const auto runway = std::string(isArrival
+                                                ? flightPlanData.GetArrivalRwy()
+                                                : flightPlanData.GetDepartureRwy());
+            if (!plan.runway_initialized) {
+                plan.MarkRunwaySynced(runway);
+            } else if (plan.HasRunwayChanged(runway)) {
+                FlightPlanEvent(it);
+            }
         }
     }
 

@@ -78,6 +78,8 @@ namespace FlightStrips::flightplan {
         std::string squawk{};
         std::string stand{};
         std::string tracking_controller{};
+        std::string runway{};
+        bool runway_initialized{false};
         CdmState cdm{};
         std::string pdc_state{};
         std::string pdc_request_remarks{};
@@ -92,6 +94,15 @@ namespace FlightStrips::flightplan {
 
         [[nodiscard]] bool KeepsEuroScopeStripUncleared() const {
             return IsPdcCleared();
+        }
+
+        [[nodiscard]] bool HasRunwayChanged(const std::string& current_runway) const {
+            return runway_initialized && runway != current_runway;
+        }
+
+        void MarkRunwaySynced(const std::string& synced_runway) {
+            runway = synced_runway;
+            runway_initialized = true;
         }
     };
 }

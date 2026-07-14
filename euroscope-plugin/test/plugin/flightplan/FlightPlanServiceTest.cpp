@@ -102,6 +102,28 @@ TEST(FlightPlanStructTest, FieldAssignment_RoundTrips) {
     EXPECT_EQ(fp.tracking_controller, "EK_APP");
 }
 
+TEST(FlightPlanStructTest, MarkRunwaySynced_InitializesRunwayState) {
+    FlightPlan fp;
+
+    EXPECT_FALSE(fp.HasRunwayChanged("04L"));
+    fp.MarkRunwaySynced("04L");
+    EXPECT_TRUE(fp.runway_initialized);
+    EXPECT_EQ(fp.runway, "04L");
+}
+
+TEST(FlightPlanStructTest, HasRunwayChanged_DoesNotConsumeAssignedRunwayChange) {
+    FlightPlan fp;
+    fp.MarkRunwaySynced("04L");
+
+    EXPECT_TRUE(fp.HasRunwayChanged("04R"));
+    EXPECT_TRUE(fp.HasRunwayChanged("04R"));
+    EXPECT_EQ(fp.runway, "04L");
+
+    fp.MarkRunwaySynced("04R");
+    EXPECT_EQ(fp.runway, "04R");
+    EXPECT_FALSE(fp.HasRunwayChanged("04R"));
+}
+
 TEST(FlightPlanServiceStateTest, ApplyCdmUpdate_PopulatesBackendFields) {
     FlightPlanService service(
         std::shared_ptr<FlightStrips::websocket::WebSocketService>{},

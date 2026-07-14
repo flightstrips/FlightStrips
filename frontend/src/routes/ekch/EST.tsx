@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 
-import { Bay, type FrontendStandAssignmentEntry, type FrontendStrip } from "@/api/models";
+import { Bay, type FrontendStrip } from "@/api/models";
 import FlightPlanDialog from "@/components/FlightPlanDialog";
 import EstDeIceDialog from "@/components/est/EstDeIceDialog";
 import EstStandCell from "@/components/est/EstStandCell";
@@ -8,6 +8,7 @@ import EstStandMenu, { type EstMenuAnchor } from "@/components/est/EstStandMenu"
 import EstStandStatusDialog from "@/components/est/EstStandStatusDialog";
 import EstViewButtons from "@/components/est/EstViewButtons";
 import { deriveEstStandBlocking } from "@/components/est/standBlocking";
+import { deriveEstStandDisplay } from "@/components/est/standDisplay";
 import {
   EST_BACKGROUND_BOXES,
   EST_BOARD_HEIGHT,
@@ -177,37 +178,12 @@ export default function EST() {
     updateCtotState(strips);
   }, [strips]);
 
-  const stripsByCallsign = useMemo(() => new Map(strips.map((strip) => [strip.callsign, strip])), [strips]);
-
-  const assignmentByStand = useMemo(() => {
-    const mapping = new Map<string, FrontendStandAssignmentEntry>();
-    if (satEnabled) {
-      for (const assignment of standAssignments) mapping.set(assignment.stand, assignment);
-    }
-    return mapping;
-  }, [satEnabled, standAssignments]);
-
-  const stripByStand = useMemo(() => {
-    const mapping = new Map<string, FrontendStrip>();
-
-    if (satEnabled) {
-      for (const assignment of standAssignments) {
-        const strip = stripsByCallsign.get(assignment.callsign);
-        if (strip && strip.bay !== Bay.Hidden && strip.bay !== Bay.DepHidden) mapping.set(assignment.stand, strip);
-      }
-      return mapping;
-    }
-
-    for (const strip of strips) {
-      if (!strip.stand || strip.bay === Bay.Hidden) {
-        continue;
-      }
-
-      mapping.set(strip.stand, strip);
-    }
-
-    return mapping;
-  }, [satEnabled, standAssignments, strips, stripsByCallsign]);
+  const standDisplay = useMemo(
+    () => deriveEstStandDisplay(strips, standAssignments, satEnabled),
+    [satEnabled, standAssignments, strips],
+  );
+  const assignmentByStand = standDisplay.assignmentsByStand;
+  const stripByStand = standDisplay.stripsByStand;
 
   const standOccupancy = useMemo(
     () => Object.fromEntries([...stripByStand.entries()].map(([stand, strip]) => [stand, strip.callsign])),

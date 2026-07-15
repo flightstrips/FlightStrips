@@ -106,6 +106,14 @@ func isMoreThanMinutesPast(value, reference string, threshold float64) bool {
 	return minutesBetween(value, reference) > threshold
 }
 
+func isTsatWithinReadyWindow(tsat string, now time.Time) bool {
+	if _, ok := parseClock(tsat); !ok {
+		return false
+	}
+
+	return math.Abs(minutesBetween(timeToClock(now), tsat)) < 6
+}
+
 func timeToClock(now time.Time) string {
 	return now.UTC().Format("150405")
 }

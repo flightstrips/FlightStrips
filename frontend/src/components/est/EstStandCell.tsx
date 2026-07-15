@@ -1,10 +1,10 @@
 import type { CSSProperties } from "react";
 
 import { Bay, type FrontendStandAssignmentEntry, type FrontendStrip } from "@/api/models";
-import { COLOR_BTN_YELLOW, SELECTION_COLOR } from "@/components/strip/shared";
-import { cn } from "@/lib/utils";
+import { SELECTION_COLOR } from "@/components/strip/shared";
+import { cn, getSimpleAircraftType } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { CTOT_BLUE, computeCDMColors, hasManualTobtSource } from "@/lib/cdmColors";
+import { CDM_GREEN, CTOT_BLUE, computeCDMColors, computeCTOTColors, hasManualTobtSource } from "@/lib/cdmColors";
 
 import {
   EST_CELL_HEIGHT,
@@ -15,14 +15,21 @@ import {
   type EstCanvasStand,
 } from "@/components/est/metadata";
 
-const LABEL_TOP = EST_CELL_HEIGHT * 0.14;
-const CALLSIGN_TOP = EST_CELL_HEIGHT * 0.31;
-const TOBT_ROW_TOP = EST_CELL_HEIGHT * 0.555;
-const TSAT_ROW_TOP = EST_CELL_HEIGHT * 0.673;
-const CTOT_ROW_TOP = EST_CELL_HEIGHT * 0.797;
-const ROW_HEIGHT = EST_CELL_HEIGHT * 0.108;
+const STAND_ROW_TOP = 0;
+const STAND_ROW_HEIGHT = 27.5;
+const CALLSIGN_ROW_TOP = 27.5;
+const CALLSIGN_ROW_HEIGHT = 21;
+const DETAILS_ROW_TOP = 50.5;
+const DETAILS_ROW_HEIGHT = 20;
+const READY_ROW_TOP = 72;
+const TOBT_ROW_TOP = 88;
+const TSAT_ROW_TOP = 104;
+const CTOT_ROW_TOP = 120;
+const ROW_HEIGHT = 15;
 const LABEL_FONT_SIZE = 20;
-const CONTENT_FONT_SIZE = 13;
+const DETAILS_FONT_SIZE = 14;
+const CONTENT_FONT_SIZE = 12;
+const CONTENT_FONT = "Rubik, sans-serif";
 
 interface EstStandCellProps {
   stand: { label: string; column?: number; row?: number } | EstCanvasStand;
@@ -34,6 +41,7 @@ interface EstStandCellProps {
   actionActive: boolean;
   blinking: boolean;
   startReqActive: boolean;
+  departureTransferActive?: boolean;
   ctotImproved: boolean;
   nowMs: number;
   containerStyle?: CSSProperties;
@@ -49,6 +57,7 @@ export default function EstStandCell({
   actionActive,
   blinking,
   startReqActive,
+  departureTransferActive = false,
   ctotImproved,
   nowMs,
   containerStyle,
@@ -99,11 +108,16 @@ export default function EstStandCell({
   const { tobtBg: tobtBarColor, tsatBg: tsatBarColor } = strip && isDeparture
     ? computeCDMColors(strip.tsat, strip.tobt, nowMs, strip.bay as Bay, strip.phase)
     : { tobtBg: "", tsatBg: "" };
+  const ctotColors = strip ? computeCTOTColors(strip.ctot, nowMs) : null;
   const emphasizeTobtTime = strip ? hasManualTobtSource(strip.req_tobt_type, strip.tobt_set_by) : false;
 
-  const showTobt = isDeparture && !!strip && strip.tobt !== "";
-  const showTsat = isDeparture && !!strip && strip.tsat !== "";
-  const showCtot = isClearedDeparture && !!strip?.ctot.trim();
+  const showTobt = isDeparture && !departureTransferActive && !!strip && strip.tobt !== "";
+  const showTsat = isDeparture && !departureTransferActive && !!strip && strip.tsat !== "";
+  const showCtot = isClearedDeparture && !!strip?.ctot.trim() && (ctotImproved || !!ctotColors?.showCtot);
+  const showReady = isDeparture && !!strip?.start_req;
+  const showReleasePoint = isPushing && !!strip?.release_point.trim();
+  const ctotBarColor = ctotImproved ? CTOT_BLUE : ctotColors?.ctotBg;
+  const ctotTextColor = ctotImproved ? "#FFFFFF" : ctotColors?.ctotColor;
 
   const ctotLabel =
     showCtot && strip?.ctot
@@ -115,11 +129,8 @@ export default function EstStandCell({
   const showMark = isClearedDeparture && !!strip?.marked;
   const showCtotText = ctotLabel !== "";
   const boxShadows: string[] = [];
-  if (startReqActive) {
-    boxShadows.push(`0 0 0 4px ${COLOR_BTN_YELLOW}`);
-  }
   if (showMark) {
-    boxShadows.push(`0 0 0 ${startReqActive ? 8 : 4}px ${SELECTION_COLOR}`);
+    boxShadows.push(`0 0 0 4px ${SELECTION_COLOR}`);
   }
   const buttonStyle: CSSProperties = {
     width: EST_CELL_WIDTH,
@@ -135,7 +146,7 @@ export default function EstStandCell({
             type="button"
             onClick={(event) => onClick(stand.label, strip, event.currentTarget)}
             className={cn(
-              "relative overflow-hidden rounded-xl border-2 border-black/15 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-white",
+              "relative overflow-hidden rounded-xl transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-white",
               backgroundClass,
               textClass,
               blinking && "animate-pulse",
@@ -158,25 +169,39 @@ export default function EstStandCell({
             {showCtot && (
               <div
                 className="absolute left-0 right-0"
-                style={{ top: CTOT_ROW_TOP, height: ROW_HEIGHT, backgroundColor: CTOT_BLUE }}
+                data-testid="est-ctot-background"
+                style={{ top: CTOT_ROW_TOP, height: ROW_HEIGHT, backgroundColor: ctotBarColor }}
+              />
+            )}
+            {showReady && (
+              <div
+                className="absolute left-0 right-0"
+                data-testid="est-ready-background"
+                style={{ top: READY_ROW_TOP, height: ROW_HEIGHT, backgroundColor: CDM_GREEN }}
               />
             )}
             {/* Stand label */}
-             <div
-               className="absolute left-0 right-0 text-center font-bold"
-               style={{ top: LABEL_TOP, fontSize: LABEL_FONT_SIZE, lineHeight: `${LABEL_FONT_SIZE}px` }}
-             >
-               {stand.label}
-             </div>
+            <div
+              className="absolute left-0 right-0 flex items-center justify-center text-center font-bold"
+              style={{
+                top: STAND_ROW_TOP,
+                height: STAND_ROW_HEIGHT,
+                fontFamily: "Roboto, sans-serif",
+                fontSize: LABEL_FONT_SIZE,
+              }}
+            >
+              {stand.label}
+            </div>
 
             {/* Callsign */}
             {(assignment || (strip && !blocked)) && (
                <div
-                 className="absolute left-0 right-0 flex items-center justify-center overflow-hidden px-0.5 text-center"
+                 className="absolute left-0 right-0 flex items-center justify-center overflow-hidden px-0.5 text-center font-bold"
                  style={{
-                  top: CALLSIGN_TOP,
-                  height: ROW_HEIGHT,
-                  fontSize: CONTENT_FONT_SIZE,
+                  top: CALLSIGN_ROW_TOP,
+                  height: CALLSIGN_ROW_HEIGHT,
+                  fontFamily: CONTENT_FONT,
+                  fontSize: DETAILS_FONT_SIZE,
                   backgroundColor: showMark ? SELECTION_COLOR : undefined,
                   color: showMark ? "#000000" : undefined,
                 }}
@@ -185,10 +210,43 @@ export default function EstStandCell({
               </div>
             )}
 
+            {showReleasePoint && (
+              <div
+                className="absolute left-0 right-0 flex items-center justify-center"
+                style={{ top: READY_ROW_TOP, height: ROW_HEIGHT, fontFamily: CONTENT_FONT, fontSize: DETAILS_FONT_SIZE }}
+              >
+                {strip!.release_point}
+              </div>
+            )}
+
+            {strip && !blocked && (
+              <div
+                className="absolute left-0 right-0 flex items-center justify-between overflow-hidden px-1"
+                style={{
+                  top: DETAILS_ROW_TOP,
+                  height: DETAILS_ROW_HEIGHT,
+                  fontFamily: CONTENT_FONT,
+                  fontSize: DETAILS_FONT_SIZE,
+                }}
+              >
+                <span className="truncate text-left">{getSimpleAircraftType(strip.aircraft_type)}</span>
+                <span className="truncate text-right">{strip.runway}</span>
+              </div>
+            )}
+
+            {showReady && (
+              <div
+                className="absolute left-0 right-0 flex items-center justify-center"
+                style={{ top: READY_ROW_TOP, height: ROW_HEIGHT, fontFamily: CONTENT_FONT, fontSize: CONTENT_FONT_SIZE }}
+              >
+                READY
+              </div>
+            )}
+
             {assignment && !showTobt && (
               <div
                 className="absolute left-0 right-0 flex items-center justify-center truncate px-1 uppercase"
-                style={{ top: TOBT_ROW_TOP, height: ROW_HEIGHT, fontSize: 10 }}
+                style={{ top: TOBT_ROW_TOP, height: ROW_HEIGHT, fontFamily: CONTENT_FONT, fontSize: 10 }}
               >
                 {assignment.stage} · {assignment.source}
               </div>
@@ -197,7 +255,7 @@ export default function EstStandCell({
             {assignment?.eta && !showTsat && (
               <div
                 className="absolute left-0 right-0 flex items-center justify-center"
-                style={{ top: TSAT_ROW_TOP, height: ROW_HEIGHT, fontSize: 10 }}
+                style={{ top: TSAT_ROW_TOP, height: ROW_HEIGHT, fontFamily: CONTENT_FONT, fontSize: 10 }}
               >
                 ETA {formatTimeLabel(assignment.eta).replace(":", "")}
               </div>
@@ -206,7 +264,7 @@ export default function EstStandCell({
             {assignment?.expires_at && !showCtot && (
               <div
                 className="absolute left-0 right-0 flex items-center justify-center"
-                style={{ top: CTOT_ROW_TOP, height: ROW_HEIGHT, fontSize: 10 }}
+                style={{ top: CTOT_ROW_TOP, height: ROW_HEIGHT, fontFamily: CONTENT_FONT, fontSize: 10 }}
               >
                 EXP {formatTimeLabel(assignment.expires_at).replace(":", "")}
               </div>
@@ -216,7 +274,7 @@ export default function EstStandCell({
              {showTobt && (
                 <div
                   className="absolute left-0 right-0 flex items-center justify-center gap-1"
-                  style={{ top: TOBT_ROW_TOP, height: ROW_HEIGHT, fontSize: CONTENT_FONT_SIZE }}
+                  style={{ top: TOBT_ROW_TOP, height: ROW_HEIGHT, fontFamily: CONTENT_FONT, fontSize: CONTENT_FONT_SIZE }}
                 >
                   <span>TOBT:</span>
                   <span style={{ fontWeight: emphasizeTobtTime ? 700 : undefined }}>
@@ -229,7 +287,7 @@ export default function EstStandCell({
             {showTsat && (
                <div
                  className="absolute left-0 right-0 flex items-center justify-center"
-                 style={{ top: TSAT_ROW_TOP, height: ROW_HEIGHT, fontSize: CONTENT_FONT_SIZE }}
+                 style={{ top: TSAT_ROW_TOP, height: ROW_HEIGHT, fontFamily: CONTENT_FONT, fontSize: CONTENT_FONT_SIZE }}
                >
                  {`TSAT: ${formatTimeLabel(strip!.tsat).replace(":", "")}`}
                </div>
@@ -239,7 +297,7 @@ export default function EstStandCell({
             {showCtotText && (
               <div
                 className="absolute left-0 right-0 flex items-center justify-center font-bold"
-                style={{ top: CTOT_ROW_TOP, height: ROW_HEIGHT, fontSize: CONTENT_FONT_SIZE, color: "#FFFFFF" }}
+                style={{ top: CTOT_ROW_TOP, height: ROW_HEIGHT, fontFamily: CONTENT_FONT, fontSize: CONTENT_FONT_SIZE, color: ctotTextColor }}
               >
                 {ctotLabel}
               </div>

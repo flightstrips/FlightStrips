@@ -7,6 +7,8 @@ import EstStandCell from "@/components/est/EstStandCell";
 import EstStandMenu, { type EstMenuAnchor } from "@/components/est/EstStandMenu";
 import EstStandStatusDialog from "@/components/est/EstStandStatusDialog";
 import EstViewButtons from "@/components/est/EstViewButtons";
+import { isEstDepartureTransferActive } from "@/components/est/transferState";
+import { isTsatWithinStartRequestWindow } from "@/lib/cdmColors";
 import { deriveEstStandBlocking } from "@/components/est/standBlocking";
 import {
   EST_BACKGROUND_BOXES,
@@ -17,7 +19,7 @@ import {
   type EstView,
 } from "@/components/est/metadata";
 import { useNonClearedStrips } from "@/store/airports/ekch.ts";
-import { useControllers, useMarkArmed, useMyPosition, useSelectStrip, useSelectedCallsign, useWebSocketStore, useSatEnabled, useStandAssignments, useStandBlocks, useOccupyStand, useVacateStand, useRequestManualStand } from "@/store/store-hooks.ts";
+import { useControllers, useMarkArmed, useMyPosition, useSelectStrip, useSelectedCallsign, useWebSocketStore, useSatEnabled, useStandAssignments, useStandBlocks, useOccupyStand, useVacateStand, useRequestManualStand, useStripTransfers } from "@/store/store-hooks.ts";
 
 const PAGE_BG = "bg-bay-est";
 const COLOR_LABEL_DEFAULT = "#202020";
@@ -109,7 +111,6 @@ export default function EST() {
   const transferStrip = useWebSocketStore((state) => state.transferStrip);
   const setStartReq = useWebSocketStore((state) => state.setStartReq);
   const toggleMarked = useWebSocketStore((state) => state.toggleMarked);
-  const cdmReady = useWebSocketStore((state) => state.cdmReady);
   const controllers = useControllers();
   const myPosition = useMyPosition();
   const nonClearedStrips = useNonClearedStrips();
@@ -122,6 +123,7 @@ export default function EST() {
   const occupyStand = useOccupyStand();
   const vacateStand = useVacateStand();
   const requestManualStand = useRequestManualStand();
+  const stripTransfers = useStripTransfers();
 
   const [menuState, setMenuState] = useState<{ stand: string; anchor: EstMenuAnchor } | null>(null);
   const [statusStand, setStatusStand] = useState<string | null>(null);
@@ -313,15 +315,6 @@ export default function EST() {
     setStatusStand(null);
     setStatusAnchor(null);
     setDeIceOpen(false);
-  }
-
-  function handleSendReady() {
-    if (!menuStrip || !menuState) {
-      return;
-    }
-
-    cdmReady(menuStrip.callsign);
-    closeMenu();
   }
 
   function handleStartTransfer() {
@@ -530,6 +523,11 @@ export default function EST() {
                   actionActive={actionActive}
                   blinking={actionActive ? actionOverride.blinking : false}
                   startReqActive={startReqActive}
+                  departureTransferActive={isEstDepartureTransferActive(
+                    strip ? stripTransfers[strip.callsign] : undefined,
+                    myPosition,
+                    apronDepartureTransferTarget,
+                  )}
                   ctotImproved={strip ? !!ctotState.flags[strip.callsign] : false}
                   nowMs={nowMs}
                   containerStyle={{
@@ -551,9 +549,12 @@ export default function EST() {
           anchor={menuState.anchor}
           strip={menuStrip}
           onClose={closeMenu}
-          onSendReady={handleSendReady}
           onStartTransfer={handleStartTransfer}
-          startTransferDisabled={!apronDepartureTransferTarget}
+          startTransferDisabled={
+            !apronDepartureTransferTarget ||
+            !menuStrip.start_req ||
+            !isTsatWithinStartRequestWindow(menuStrip.tsat, nowMs)
+          }
           onStartRequest={handleStartRequest}
           onPush={handlePush}
           onTaxi={handleTaxi}

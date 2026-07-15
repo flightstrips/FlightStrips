@@ -4,7 +4,7 @@ import { normalizeCdmTime } from "@/lib/cdmTime";
 const MINUTE_MS = 60_000;
 
 // ── Shared colour tokens ────────────────────────────────────────────────────
-export const CDM_GREEN  = "#16a34a";
+export const CDM_GREEN  = "#00FF26";
 export const CDM_YELLOW = "#F3EA1F";
 export const CDM_RED    = "#dc2626";
 export const CDM_ORANGE = "#DD6A12";
@@ -23,8 +23,17 @@ function parseHHMM(hhmm: string, refMs: number): number {
   const m = parseInt(normalizedTime.slice(2, 4), 10);
   const d = new Date(refMs);
   d.setUTCHours(h, m, 0, 0);
-  if (refMs - d.getTime() > 12 * 60 * 60 * 1000) d.setUTCDate(d.getUTCDate() + 1);
+  const offsetMs = d.getTime() - refMs;
+  if (offsetMs <= -12 * 60 * 60 * 1000) d.setUTCDate(d.getUTCDate() + 1);
+  if (offsetMs > 12 * 60 * 60 * 1000) d.setUTCDate(d.getUTCDate() - 1);
   return d.getTime();
+}
+
+export function isTsatWithinStartRequestWindow(tsat: string, nowMs: number): boolean {
+  const normalizedTsat = normalizeCdmTime(tsat);
+  if (!normalizedTsat) return false;
+
+  return Math.abs(parseHHMM(normalizedTsat, nowMs) - nowMs) < 6 * MINUTE_MS;
 }
 
 // ── TOBT / TSAT ────────────────────────────────────────────────────────────
@@ -73,8 +82,8 @@ export function computeCDMColors(
   const diffMs = nowMs - tsatMs;
 
   if (diffMs > 5 * MINUTE_MS)  return { tobtBg: CDM_RED,    tsatBg: ""          };
-  if (diffMs > 4 * MINUTE_MS)  return { tobtBg: "",          tsatBg: CDM_YELLOW  };
-  if (diffMs > -5 * MINUTE_MS) return { tobtBg: "",          tsatBg: CDM_GREEN   };
+  if (diffMs > 4 * MINUTE_MS)  return { tobtBg: CDM_GREEN,   tsatBg: CDM_YELLOW  };
+  if (diffMs > -5 * MINUTE_MS) return { tobtBg: CDM_GREEN,   tsatBg: CDM_GREEN   };
   if (tobtMs !== null && Math.abs(tsatMs - tobtMs) > 5 * MINUTE_MS)
     return { tobtBg: CDM_ORANGE, tsatBg: "" };
   return { tobtBg: "", tsatBg: "" };

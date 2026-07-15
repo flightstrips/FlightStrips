@@ -21,7 +21,6 @@ interface EstStandMenuProps {
   anchor: EstMenuAnchor | null;
   strip: FrontendStrip;
   onClose: () => void;
-  onSendReady: () => void;
   onStartTransfer: () => void;
   startTransferDisabled: boolean;
   onStartRequest: () => void;
@@ -40,7 +39,6 @@ export default function EstStandMenu({
   anchor,
   strip,
   onClose,
-  onSendReady,
   onStartTransfer,
   startTransferDisabled,
   onStartRequest,
@@ -107,20 +105,11 @@ export default function EstStandMenu({
           </div>
           <Button
             variant="trf"
-            type="button"
-            className="mt-1 w-full px-2 py-2 text-sm font-semibold"
-            onClick={onSendReady}
-          >
-            SEND RDY MSG
-          </Button>
-
-          <Button
-            variant="trf"
-            className="h-11 text-sm font-semibold"
+            className="mt-1 h-11 text-sm font-semibold"
             onClick={onStartTransfer}
             disabled={startTransferDisabled}
           >
-            START+TRF
+            START REQ+TRF
           </Button>
           <Button variant="trf" className="h-11 text-sm font-semibold" onClick={onStartRequest}>
             {strip.start_req ? "REMOVE START REQ" : "START REQ"}

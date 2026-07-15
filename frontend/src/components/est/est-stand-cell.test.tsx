@@ -69,7 +69,7 @@ describe("EstStandCell", () => {
     render(
       <EstStandCell
         stand={stand}
-        strip={makeStrip()}
+        strip={makeStrip({ aircraft_type: "A320/H-SDE2E3FGHIRWXY" })}
         blocked={false}
         selected={false}
         actionActive={false}
@@ -81,6 +81,93 @@ describe("EstStandCell", () => {
       />,
     );
     expect(screen.getByText("SAS123")).toBeDefined();
+    expect(screen.getByText("A320")).toBeDefined();
+    expect(screen.queryByText("A320/H-SDE2E3FGHIRWXY")).toBeNull();
+    expect(screen.getByText("22R")).toBeDefined();
+  });
+
+  it("shows READY in the same green used by green TOBT states", () => {
+    render(
+      <EstStandCell
+        stand={stand}
+        strip={makeStrip({ start_req: true })}
+        blocked={false}
+        selected={false}
+        actionActive={false}
+        blinking={false}
+        startReqActive
+        ctotImproved={false}
+        nowMs={Date.now()}
+        onClick={() => {}}
+      />,
+    );
+
+    expect(screen.getByText("READY")).toBeDefined();
+    expect(screen.getByTestId("est-ready-background").style.backgroundColor).toBe("rgb(0, 255, 38)");
+  });
+
+  it("hides TOBT and TSAT during transfer to APRON but retains CTOT", () => {
+    render(
+      <EstStandCell
+        stand={stand}
+        strip={makeStrip({ bay: Bay.Cleared, ctot: "1430" })}
+        blocked={false}
+        selected={false}
+        actionActive={false}
+        blinking={false}
+        startReqActive={false}
+        departureTransferActive
+        ctotImproved={false}
+        nowMs={Date.UTC(2026, 6, 14, 14, 25, 0)}
+        onClick={() => {}}
+      />,
+    );
+
+    expect(screen.queryByText(/TOBT:/)).toBeNull();
+    expect(screen.queryByText(/TSAT:/)).toBeNull();
+    expect(screen.getByText("CTOT: 1430")).toBeDefined();
+  });
+
+  it("shows a future CTOT in yellow with black text", () => {
+    render(
+      <EstStandCell
+        stand={stand}
+        strip={makeStrip({ bay: Bay.Cleared, ctot: "1430" })}
+        blocked={false}
+        selected={false}
+        actionActive={false}
+        blinking={false}
+        startReqActive={false}
+        ctotImproved={false}
+        nowMs={Date.UTC(2026, 6, 14, 14, 0, 0)}
+        onClick={() => {}}
+      />,
+    );
+
+    expect(screen.getByTestId("est-ctot-background").style.backgroundColor).toBe("rgb(243, 234, 31)");
+    expect(screen.getByText("CTOT: 1430").style.color).toBe("black");
+  });
+
+  it("shows the release point instead of READY and times during pushback", () => {
+    render(
+      <EstStandCell
+        stand={stand}
+        strip={makeStrip({ bay: Bay.Push, release_point: "J4", start_req: false })}
+        blocked={false}
+        selected={false}
+        actionActive={false}
+        blinking={false}
+        startReqActive={false}
+        ctotImproved={false}
+        nowMs={Date.now()}
+        onClick={() => {}}
+      />,
+    );
+
+    expect(screen.getByText("J4")).toBeDefined();
+    expect(screen.queryByText("READY")).toBeNull();
+    expect(screen.queryByText(/TOBT:/)).toBeNull();
+    expect(screen.queryByText(/TSAT:/)).toBeNull();
   });
 
   it("renders backend assignment metadata without a matching strip", () => {

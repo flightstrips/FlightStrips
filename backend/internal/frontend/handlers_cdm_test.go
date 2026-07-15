@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"FlightStrips/internal/models"
+	"FlightStrips/internal/services"
 	"FlightStrips/internal/testutil"
 	frontendEvents "FlightStrips/pkg/events/frontend"
 
@@ -113,6 +114,57 @@ func TestHandleCdmReady_UsesOrchestrationMethod(t *testing.T) {
 	assert.Equal(t, "SAS321", cdmService.callsign)
 	assert.Equal(t, "EKCH_DEL", cdmService.sourcePos)
 	assert.Equal(t, "ATC", cdmService.sourceRole)
+}
+
+func TestHandleStartReq_ReportsReadyAndPersistsStartRequest(t *testing.T) {
+	cdmService := &spyCdmService{}
+	frontendHub := &testutil.MockFrontendHub{}
+	startReqPersisted := false
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, session int32, callsign string) (*models.Strip, error) {
+			assert.Equal(t, int32(42), session)
+			assert.Equal(t, "SAS321", callsign)
+			return &models.Strip{Session: session, Callsign: callsign}, nil
+		},
+		UpdateStartReqFn: func(_ context.Context, session int32, callsign string, startReq bool, _ *int32) (int64, error) {
+			assert.Equal(t, int32(42), session)
+			assert.Equal(t, "SAS321", callsign)
+			startReqPersisted = startReq
+			return 1, nil
+		},
+	}
+	stripService := services.NewStripService(stripRepo, services.WithStripEventPublisher(frontendHub))
+	server := &testutil.MockServer{CdmServiceVal: cdmService, StripRepoVal: stripRepo}
+	hub := &Hub{server: server, stripService: stripService}
+	client := &Client{hub: hub, session: 42, position: "EKCH_DEL"}
+
+	payload, err := json.Marshal(frontendEvents.StartReqEvent{Callsign: "SAS321", StartReq: true})
+	require.NoError(t, err)
+	require.NoError(t, handleStartReq(context.Background(), client, Message{Message: payload}))
+
+	assert.True(t, cdmService.called)
+	assert.Equal(t, int32(42), cdmService.session)
+	assert.Equal(t, "SAS321", cdmService.callsign)
+	assert.Equal(t, "EKCH_DEL", cdmService.sourcePos)
+	assert.True(t, startReqPersisted)
+}
+
+func TestHandleStartReq_DoesNotReportReadyAgainWhenAlreadyActive(t *testing.T) {
+	cdmService := &spyCdmService{}
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, session int32, callsign string) (*models.Strip, error) {
+			return &models.Strip{Session: session, Callsign: callsign, StartReq: true}, nil
+		},
+	}
+	stripService := services.NewStripService(stripRepo)
+	server := &testutil.MockServer{CdmServiceVal: cdmService, StripRepoVal: stripRepo}
+	client := &Client{hub: &Hub{server: server, stripService: stripService}, session: 42, position: "EKCH_DEL"}
+
+	payload, err := json.Marshal(frontendEvents.StartReqEvent{Callsign: "SAS321", StartReq: true})
+	require.NoError(t, err)
+	require.NoError(t, handleStartReq(context.Background(), client, Message{Message: payload}))
+
+	assert.False(t, cdmService.called)
 }
 
 func TestHandleClxUpdateTobt_UsesClxOrchestrationMethod(t *testing.T) {

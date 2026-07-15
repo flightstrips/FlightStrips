@@ -1745,6 +1745,45 @@ func TestHandleReadyRequest_UpdatesFutureTobtToNow(t *testing.T) {
 	assert.Equal(t, "EKCH_DEL", *persisted.TobtSetBy)
 }
 
+func TestHandleReadyRequest_PreservesTobtWithinTsatWindow(t *testing.T) {
+	const callsign = "SAS210"
+	const sessionID = int32(210)
+
+	previousTobt := time.Now().UTC().Add(15 * time.Minute).Format("1504")
+	activeTsat := time.Now().UTC().Add(5 * time.Minute).Format("1504")
+	var persisted *models.CdmData
+
+	service := NewCdmService(
+		newTestClientWithAirportMasters(nil),
+		&testutil.MockStripRepository{
+			GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+				return &models.Strip{Callsign: callsign, Origin: "EKCH"}, nil
+			},
+			GetCdmDataForCallsignFn: func(_ context.Context, _ int32, _ string) (*models.CdmData, error) {
+				if persisted != nil {
+					return persisted.Clone(), nil
+				}
+				return (&models.CdmData{Tobt: stringPtr(previousTobt), Tsat: stringPtr(activeTsat)}).Normalize(), nil
+			},
+			SetCdmDataFn: func(_ context.Context, _ int32, _ string, data *models.CdmData) (int64, error) {
+				persisted = data.Clone()
+				return 1, nil
+			},
+		},
+		&testutil.MockSessionRepository{},
+		&testutil.MockControllerRepository{},
+	)
+	service.client.isValid = false
+	service.SetFrontendHub(&testutil.MockFrontendHub{})
+
+	require.NoError(t, service.HandleReadyRequest(context.Background(), sessionID, callsign, "EKCH_DEL", "ATC"))
+	require.NotNil(t, persisted)
+	require.NotNil(t, persisted.Tobt)
+	assert.Equal(t, previousTobt, *persisted.Tobt)
+	require.NotNil(t, persisted.Status)
+	assert.Equal(t, "REA", *persisted.Status)
+}
+
 func TestHandleReadyRequest_UpdatesPastTobtToNowWithActiveTsat(t *testing.T) {
 	const callsign = "SAS212"
 	const sessionID = int32(212)

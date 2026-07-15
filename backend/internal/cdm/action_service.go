@@ -489,6 +489,9 @@ func (c *ActionService) HandleReadyRequest(ctx context.Context, session int32, c
 	if strip == nil || cdmData == nil {
 		return nil
 	}
+	if isTsatWithinReadyWindow(helpers.ValueOrDefault(cdmData.EffectiveTsat()), now) {
+		return s.SetReady(ctx, session, callsign)
+	}
 
 	updated := cdmData.Clone()
 	previousEobt := helpers.ValueOrDefault(updated.EffectiveEobt())

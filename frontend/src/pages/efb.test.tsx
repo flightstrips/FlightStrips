@@ -109,7 +109,7 @@ describe('EFB page interactions', () => {
       if (String(input).includes('/api/efb/me')) return jsonResponse({ live_mode: false, online_callsign: null });
       return jsonResponse({
         callsign: 'SAS790', aircraft_type: 'A320', origin: 'ESSA', destination: 'EKCH', phase: 'ARRIVAL',
-        stand: 'A12', runway: '22L', sid: null, pdc_state: '', pdc_requires_pilot_action: false,
+        stand: 'A12', runway: '22L', sid: null, star: 'LUXAL2A', pdc_state: '', pdc_requires_pilot_action: false,
         pdc_available: false, pdc_can_submit: false, capabilities: { pdc: false, tobt_update: false, stand_reassignment: false },
       });
     });
@@ -120,6 +120,7 @@ describe('EFB page interactions', () => {
     fireEvent.click(screen.getByRole('button', { name: 'LOAD' }));
 
     expect(await screen.findByText('COMING SOON')).toBeInTheDocument();
+    expect(screen.getByText('LUXAL2A')).toBeInTheDocument();
     fireEvent.click(screen.getByLabelText('Arrival briefing coming soon'));
     expect(screen.queryByRole('dialog', { name: /brief/i })).not.toBeInTheDocument();
   });

@@ -62,6 +62,7 @@ interface ApiFlight {
   departure_frequency?: string | null;
   runway?: string | null;
   sid?: string | null;
+  star?: string | null;
   destination: string;
   phase: 'DEPARTURE' | 'ARRIVAL';
   pdc_state: string;
@@ -144,6 +145,7 @@ export default function EFBPage() {
     assignedRunway: apiFlight.runway || 'NIL',
     depFrequency: apiFlight.departure_frequency?.trim() || 'NIL',
     sid: apiFlight.sid || 'NIL',
+    star: apiFlight.star || 'NIL',
     arrivalAirport: apiFlight.destination,
     arrivalRunway: apiFlight.runway || 'NIL',
     atisBetter: apiFlight.atis?.code || '',

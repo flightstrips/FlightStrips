@@ -144,6 +144,18 @@ func TestSnapshotOnlyIncludesComputedDepartureFrequency(t *testing.T) {
 	}
 }
 
+func TestSnapshotIncludesSynchronizedArrivalSTAR(t *testing.T) {
+	star := "LUXAL2A"
+	api := NewWebAPI(WebAPIConfig{Auth: authStub{}})
+	result := api.buildSnapshot(context.Background(), pdc.WebStripMatch{Strip: &models.Strip{
+		Callsign: "SAS123", Origin: "ESSA", Destination: "EKCH", Star: &star,
+	}}, &models.Session{Airport: "EKCH"})
+
+	if result.STAR == nil || *result.STAR != star {
+		t.Fatalf("expected synchronized STAR %q, got %v", star, result.STAR)
+	}
+}
+
 func TestSnapshotDisablesTOBTWhenCDMIsNotReady(t *testing.T) {
 	api := NewWebAPI(WebAPIConfig{Auth: authStub{}, CDM: &cdmStub{}, CDMReady: false})
 	result := api.buildSnapshot(context.Background(), pdc.WebStripMatch{Strip: &models.Strip{

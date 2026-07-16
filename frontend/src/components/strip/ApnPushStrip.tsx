@@ -107,7 +107,7 @@ export function ApnPushStrip({
   const [taxiMapOpen, setTaxiMapOpen] = useState(false);
   const [runwayOpen, setRunwayOpen] = useState(false);
   const [fplOpen, setFplOpen] = useState(false);
-  const cdmReady = useWebSocketStore(s => s.cdmReady);
+  const setStartReq = useWebSocketStore(s => s.setStartReq);
   const acknowledgeUnexpectedChange = useWebSocketStore(s => s.acknowledgeUnexpectedChange);
   const standYellow = unexpectedChangeFields?.includes("stand");
   const runwayYellow = unexpectedChangeFields?.includes("runway");
@@ -223,7 +223,7 @@ export function ApnPushStrip({
             style={{ height: HALF_H, borderBottomColor: cellBorderColor, backgroundColor: tsatBg || undefined, cursor: canSendCdmReady ? getValidationBlockedCursor(isValidationActive, "pointer", true) : undefined }}
             onClick={canSendCdmReady ? (e) => {
               e.stopPropagation();
-              cdmReady(callsign);
+              setStartReq(callsign, true);
             } : undefined}
           >
             <span className="shrink-0" style={{ fontFamily: FONT, fontSize: "0.63vw" }}>TSAT</span>
@@ -234,7 +234,7 @@ export function ApnPushStrip({
             style={{ height: HALF_H, backgroundColor: ctotBg || undefined, color: ctotColor, cursor: canSendCdmReady ? getValidationBlockedCursor(isValidationActive, "pointer", true) : undefined }}
             onClick={canSendCdmReady ? (e) => {
               e.stopPropagation();
-              cdmReady(callsign);
+              setStartReq(callsign, true);
             } : undefined}
           >
             <span className="shrink-0" style={{ fontFamily: FONT, fontSize: "0.63vw" }}>{showCtot ? "CTOT" : ""}</span>

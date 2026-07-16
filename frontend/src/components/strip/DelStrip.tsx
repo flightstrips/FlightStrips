@@ -67,7 +67,7 @@ export function DelStrip({
     setValidationDialogOpen,
     validationStatus,
   } = useStripCallsignInteraction({ callsign, selectable, bay, owner, myPosition });
-  const cdmReady = useWebSocketStore(s => s.cdmReady);
+  const setStartReq = useWebSocketStore(s => s.setStartReq);
   const acknowledgeUnexpectedChange = useWebSocketStore(s => s.acknowledgeUnexpectedChange);
   const stripTransfers = useStripTransfers();
   const isTagRequest = !!stripTransfers[callsign]?.isTagRequest;
@@ -163,7 +163,7 @@ export function DelStrip({
               style={{ height: HALF_H, fontFamily: FONT, fontSize: "0.73vw", borderBottomColor: cellBorderColor, backgroundColor: tobtBg, cursor: getValidationBlockedCursor(isValidationActive, "pointer", true) }}
               onClick={(e) => {
                 e.stopPropagation();
-                cdmReady(callsign);
+                setStartReq(callsign, true);
               }}
             >
               <span className="shrink-0">TOBT</span>
@@ -172,7 +172,7 @@ export function DelStrip({
             <div className="flex items-center justify-between px-[0.21vw] overflow-hidden" style={{ height: HALF_H, fontFamily: FONT, fontSize: "0.73vw", backgroundColor: tsatBg, cursor: getValidationBlockedCursor(isValidationActive, "pointer", true) }}
               onClick={(e) => {
                 e.stopPropagation();
-                cdmReady(callsign);
+                setStartReq(callsign, true);
               }}
             >
               <span className="shrink-0">TSAT</span>

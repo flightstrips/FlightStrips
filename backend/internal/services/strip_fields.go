@@ -392,18 +392,23 @@ func (s *StripService) applyClearedFlagForMoveWithOptions(ctx context.Context, s
 // UpdateGroundStateForMove handles the frontend "move to general bay" action.
 // It computes the new ground state, updates the DB, and notifies EuroScope.
 func (s *StripService) UpdateGroundStateForMove(ctx context.Context, session int32, callsign string, bay string, cid string, airport string) error {
-	return s.updateGroundStateForMoveWithOptions(ctx, session, callsign, bay, cid, airport, bay, true)
-}
-
-func (s *StripService) updateGroundStateForMoveWithOptions(ctx context.Context, session int32, callsign string, targetBay string, cid string, airport string, persistedBay string, reevaluate bool) error {
-	strip, err := s.stripReader.GetByCallsign(ctx, session, callsign)
+	state, err := s.updateGroundStateForMoveWithOptions(ctx, session, callsign, bay, cid, airport, bay, true)
 	if err != nil {
 		return err
+	}
+	s.syncAsatForGroundStateBestEffort(ctx, session, callsign, state)
+	return nil
+}
+
+func (s *StripService) updateGroundStateForMoveWithOptions(ctx context.Context, session int32, callsign string, targetBay string, cid string, airport string, persistedBay string, reevaluate bool) (*string, error) {
+	strip, err := s.stripReader.GetByCallsign(ctx, session, callsign)
+	if err != nil {
+		return nil, err
 	}
 
 	if strip.StartReq && shouldResetStartReqOnMove(strip.Bay, targetBay) {
 		if err := s.setStartReqState(ctx, session, callsign, false, false, strip); err != nil {
-			return err
+			return nil, err
 		}
 	}
 
@@ -420,10 +425,10 @@ func (s *StripService) updateGroundStateForMoveWithOptions(ctx context.Context, 
 
 	count, err := s.fieldStore.UpdateGroundState(ctx, session, callsign, state, persistedBay, nil)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if count != 1 {
-		return errors.New("failed to update strip bay/ground state")
+		return nil, errors.New("failed to update strip bay/ground state")
 	}
 
 	if state != strip.State && state != nil && s.esCommander != nil {
@@ -434,18 +439,32 @@ func (s *StripService) updateGroundStateForMoveWithOptions(ctx context.Context, 
 	// action behaves like a fresh clearance instead of a confirmation.
 	if strip.RunwayCleared && shouldResetRunwayClearanceOnMove(strip.Bay, targetBay) {
 		if _, err := s.fieldStore.ResetRunwayClearance(ctx, session, callsign); err != nil {
-			return err
+			return nil, err
 		}
 		s.publisher.SendStripUpdate(session, callsign)
 	}
 
 	if reevaluate {
 		if err := s.reevaluateStripValidationPrecedence(ctx, session, callsign, true, true); err != nil {
-			return err
+			return nil, err
 		}
 	}
 
-	return nil
+	return state, nil
+}
+
+func (s *StripService) syncAsatForGroundStateBestEffort(ctx context.Context, session int32, callsign string, state *string) {
+	if state == nil || s.cdmService == nil {
+		return
+	}
+	if err := s.cdmService.SyncAsatForGroundState(ctx, session, callsign, *state); err != nil {
+		slog.WarnContext(ctx, "Failed to synchronize ASAT after strip move",
+			slog.Int("session", int(session)),
+			slog.String("callsign", callsign),
+			slog.String("ground_state", *state),
+			slog.Any("error", err),
+		)
+	}
 }
 
 // UpdateReleasePoint updates the release point for a strip and broadcasts to all frontend clients.

@@ -99,7 +99,7 @@ export function ClxClearedStrip({
     bay,
   );
   const showClearedCallsignHighlight = usePdcClearedCallsignBlink(pdcStatus);
-  const cdmReady = useWebSocketStore(s => s.cdmReady);
+  const setStartReq = useWebSocketStore(s => s.setStartReq);
   const acknowledgeUnexpectedChange = useWebSocketStore(s => s.acknowledgeUnexpectedChange);
   const standYellow = unexpectedChangeFields?.includes("stand");
   const { tobtBg, tsatBg } = useCDMColors({ bay: bay ?? Bay.Unknown, tsat: tsat ?? "", tobt: tobt ?? "", phase });
@@ -196,7 +196,7 @@ export function ClxClearedStrip({
               style={{ height: HALF_H, fontFamily: FONT, fontSize: "0.73vw", borderBottomColor: cellBorderColor, backgroundColor: tobtBg, cursor: getValidationBlockedCursor(isValidationActive, "pointer", true) }}
               onClick={(e) => {
                 e.stopPropagation();
-                cdmReady(callsign);
+                setStartReq(callsign, true);
               }}
             >
               <span className={`${textWhite ? "text-white" : "text-black"} shrink-0`}>TOBT</span>
@@ -205,7 +205,7 @@ export function ClxClearedStrip({
             <div className="flex items-center justify-between px-[0.21vw] overflow-hidden" style={{ height: HALF_H, fontFamily: FONT, fontSize: "0.73vw", backgroundColor: tsatBg, cursor: getValidationBlockedCursor(isValidationActive, "pointer", true) }}
               onClick={(e) => {
                 e.stopPropagation();
-                cdmReady(callsign);
+                setStartReq(callsign, true);
               }}
             >
               <span className={`${textWhite ? "text-white" : "text-black"} shrink-0`}>TSAT</span>

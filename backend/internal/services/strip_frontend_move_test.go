@@ -215,6 +215,8 @@ func TestMoveFrontendStrip_ToGeneralBayUsesSingleBayWrite(t *testing.T) {
 		Destination: "ESSA",
 		StartReq:    true,
 	})
+	cdmService := &spyStripCdmService{}
+	fixture.svc.SetCdmService(cdmService)
 
 	err := fixture.svc.MoveFrontendStrip(fixture.ctx, 1, "SAS125", shared.BAY_PUSH, "1234567", "EKCH", "EKCH_DEL")
 	require.NoError(t, err)
@@ -226,6 +228,36 @@ func TestMoveFrontendStrip_ToGeneralBayUsesSingleBayWrite(t *testing.T) {
 	assert.Equal(t, shared.BAY_PUSH, fixture.strip.Bay)
 	require.Len(t, fixture.esHub.GroundStates, 1)
 	assert.Equal(t, euroscope.GroundStatePush, fixture.esHub.GroundStates[0].GroundState)
+	assert.True(t, cdmService.called)
+	assert.Equal(t, "SAS125", cdmService.callsign)
+	assert.Equal(t, euroscope.GroundStatePush, cdmService.groundState)
+}
+
+func TestMoveFrontendStrip_AsatSyncFailureDoesNotRejectCompletedMove(t *testing.T) {
+	fixture := newFrontendMoveFixture(&internalModels.Strip{
+		Callsign:    "SAS132",
+		Bay:         shared.BAY_STAND,
+		Origin:      "EKCH",
+		Destination: "ESSA",
+	})
+	bayWhenAsatSynced := ""
+	cdmService := &spyStripCdmService{
+		syncAsatErr: assert.AnError,
+		syncAsatFn: func() {
+			bayWhenAsatSynced = fixture.strip.Bay
+		},
+	}
+	fixture.svc.SetCdmService(cdmService)
+
+	err := fixture.svc.MoveFrontendStrip(fixture.ctx, 1, "SAS132", shared.BAY_PUSH, "1234567", "EKCH", "EKCH_DEL")
+	require.NoError(t, err)
+
+	assert.Equal(t, shared.BAY_PUSH, fixture.strip.Bay)
+	assert.Equal(t, []string{shared.BAY_PUSH}, fixture.updateBayTargets)
+	require.Len(t, fixture.esHub.GroundStates, 1)
+	assert.Equal(t, euroscope.GroundStatePush, fixture.esHub.GroundStates[0].GroundState)
+	assert.True(t, cdmService.called)
+	assert.Equal(t, shared.BAY_PUSH, bayWhenAsatSynced)
 }
 
 func TestMoveFrontendStrip_DepartureToArrivalBayRejected(t *testing.T) {

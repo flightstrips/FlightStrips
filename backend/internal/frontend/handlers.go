@@ -416,15 +416,9 @@ func handleStartReq(ctx context.Context, client *Client, message Message) error 
 		return err
 	}
 	if event.StartReq {
-		strip, err := client.hub.server.GetStripRepository().GetByCallsign(ctx, client.session, event.Callsign)
-		if err != nil {
+		cdmService := client.hub.server.GetCdmService()
+		if err := cdmService.HandleReadyRequest(ctx, client.session, event.Callsign, client.position, "ATC"); err != nil {
 			return err
-		}
-		if !strip.StartReq {
-			cdmService := client.hub.server.GetCdmService()
-			if err := cdmService.HandleReadyRequest(ctx, client.session, event.Callsign, client.position, "ATC"); err != nil {
-				return err
-			}
 		}
 	}
 	return client.hub.stripService.UpdateStartReq(ctx, client.session, event.Callsign, event.StartReq)

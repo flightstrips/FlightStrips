@@ -302,6 +302,7 @@ export default function EST() {
       return;
     }
 
+    setStartReq(menuStrip.callsign, true);
     setActionState(menuState.stand, menuStrip);
     transferStrip(menuStrip.callsign, apronDepartureTransferTarget);
     closeMenu();
@@ -528,7 +529,6 @@ export default function EST() {
           onStartTransfer={handleStartTransfer}
           startTransferDisabled={
             !apronDepartureTransferTarget ||
-            !menuStrip.start_req ||
             !isTsatWithinStartRequestWindow(menuStrip.tsat, nowMs)
           }
           onStartRequest={handleStartRequest}

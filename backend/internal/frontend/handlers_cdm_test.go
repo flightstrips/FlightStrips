@@ -149,7 +149,7 @@ func TestHandleStartReq_ReportsReadyAndPersistsStartRequest(t *testing.T) {
 	assert.True(t, startReqPersisted)
 }
 
-func TestHandleStartReq_DoesNotReportReadyAgainWhenAlreadyActive(t *testing.T) {
+func TestHandleStartReq_ReportsReadyAgainWhenAlreadyActive(t *testing.T) {
 	cdmService := &spyCdmService{}
 	stripRepo := &testutil.MockStripRepository{
 		GetByCallsignFn: func(_ context.Context, session int32, callsign string) (*models.Strip, error) {
@@ -164,7 +164,9 @@ func TestHandleStartReq_DoesNotReportReadyAgainWhenAlreadyActive(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, handleStartReq(context.Background(), client, Message{Message: payload}))
 
-	assert.False(t, cdmService.called)
+	assert.True(t, cdmService.called)
+	assert.Equal(t, int32(42), cdmService.session)
+	assert.Equal(t, "SAS321", cdmService.callsign)
 }
 
 func TestHandleClxUpdateTobt_UsesClxOrchestrationMethod(t *testing.T) {

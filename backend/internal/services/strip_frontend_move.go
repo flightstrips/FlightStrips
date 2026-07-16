@@ -63,7 +63,8 @@ func (s *StripService) MoveFrontendStrip(ctx context.Context, session int32, cal
 		strip.PdcState != "" &&
 		strip.PdcState != internalModels.PdcStateNone
 
-	if err := s.applyFrontendMoveState(ctx, session, strip, targetBay, cid, airport); err != nil {
+	groundState, err := s.applyFrontendMoveState(ctx, session, strip, targetBay, cid, airport)
+	if err != nil {
 		return err
 	}
 
@@ -75,25 +76,24 @@ func (s *StripService) MoveFrontendStrip(ctx context.Context, session int32, cal
 		s.ClearMandatoryRouteCdm(ctx, session, callsign)
 	}
 
-	if !shouldConfirmVoiceClearance {
-		return nil
-	}
-
-	pdcService := s.getPdcService()
-	if pdcService == nil {
-		return errors.New("PDC service not available")
-	}
-
-	if err := pdcService.ConfirmVoiceClearance(ctx, callsign, session); err != nil {
-		if rollbackErr := s.MoveToBay(ctx, session, callsign, previousBay, true); rollbackErr != nil {
-			return errors.Join(err, rollbackErr)
+	if shouldConfirmVoiceClearance {
+		pdcService := s.getPdcService()
+		if pdcService == nil {
+			return errors.New("PDC service not available")
 		}
-		if rollbackErr := s.applyClearedFlagForMoveWithOptions(ctx, session, callsign, previousCleared, previousBay, previousBay == shared.BAY_NOT_CLEARED, cid, false, false); rollbackErr != nil {
-			return errors.Join(err, rollbackErr)
+
+		if err := pdcService.ConfirmVoiceClearance(ctx, callsign, session); err != nil {
+			if rollbackErr := s.MoveToBay(ctx, session, callsign, previousBay, true); rollbackErr != nil {
+				return errors.Join(err, rollbackErr)
+			}
+			if rollbackErr := s.applyClearedFlagForMoveWithOptions(ctx, session, callsign, previousCleared, previousBay, previousBay == shared.BAY_NOT_CLEARED, cid, false, false); rollbackErr != nil {
+				return errors.Join(err, rollbackErr)
+			}
+			return err
 		}
-		return err
 	}
 
+	s.syncAsatForGroundStateBestEffort(ctx, session, callsign, groundState)
 	return nil
 }
 
@@ -133,9 +133,9 @@ func (s *StripService) authorizeFrontendMove(ctx context.Context, session int32,
 	return nil
 }
 
-func (s *StripService) applyFrontendMoveState(ctx context.Context, session int32, strip *internalModels.Strip, targetBay string, cid string, airport string) error {
+func (s *StripService) applyFrontendMoveState(ctx context.Context, session int32, strip *internalModels.Strip, targetBay string, cid string, airport string) (*string, error) {
 	if targetBay == shared.BAY_NOT_CLEARED || targetBay == shared.BAY_CLEARED {
-		return s.applyClearedFlagForMoveWithOptions(ctx, session, strip.Callsign, targetBay == shared.BAY_CLEARED, strip.Bay, targetBay == shared.BAY_NOT_CLEARED, cid, false, true)
+		return nil, s.applyClearedFlagForMoveWithOptions(ctx, session, strip.Callsign, targetBay == shared.BAY_CLEARED, strip.Bay, targetBay == shared.BAY_NOT_CLEARED, cid, false, true)
 	}
 
 	return s.updateGroundStateForMoveWithOptions(ctx, session, strip.Callsign, targetBay, cid, airport, strip.Bay, false)

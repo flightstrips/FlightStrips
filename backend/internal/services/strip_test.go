@@ -25,6 +25,8 @@ type spyStripCdmService struct {
 	recalcTriggered      bool
 	prepareEobtSyncCalls int
 	prepareEobtSyncFn    func(session int32, data *models.CdmData, eobt string, now time.Time) (*models.CdmData, string, bool)
+	syncAsatErr          error
+	syncAsatFn           func()
 }
 
 func (s *spyStripCdmService) TriggerRecalculate(_ context.Context, session int32, airport string) {
@@ -80,7 +82,10 @@ func (s *spyStripCdmService) SyncAsatForGroundState(_ context.Context, _ int32, 
 	s.called = true
 	s.callsign = callsign
 	s.groundState = groundState
-	return nil
+	if s.syncAsatFn != nil {
+		s.syncAsatFn()
+	}
+	return s.syncAsatErr
 }
 func (s *spyStripCdmService) RequestBetterTobt(_ context.Context, _ int32, _ string) error {
 	panic("unexpected")

@@ -1530,6 +1530,75 @@ func TestSetReady_SendsRea1ViaDpi(t *testing.T) {
 	assert.Equal(t, "REA", frontendHub.CdmUpdates[len(frontendHub.CdmUpdates)-1].Event.Status)
 }
 
+func TestSetReady_MasterPersistsAndExportsAsrt(t *testing.T) {
+	t.Parallel()
+	const callsign = "SAS123"
+	const sessionID = int32(123)
+
+	dpiCh := make(chan string, 1)
+	setCdmCh := make(chan url.Values, 1)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/ifps/dpi":
+			dpiCh <- r.URL.Query().Get("value")
+		case "/ifps/setCdmData":
+			setCdmCh <- r.URL.Query()
+		default:
+			t.Errorf("unexpected path %s", r.URL.Path)
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	runway := "22R"
+	stored := (&models.CdmData{
+		Tobt: stringPtr("1010"),
+		Tsat: stringPtr("1015"),
+		Ttot: stringPtr("1025"),
+	}).Normalize()
+	service := NewCdmService(
+		NewClient(WithAPIKey("test-key"), WithBaseURL(server.URL)),
+		&testutil.MockStripRepository{
+			GetCdmDataForCallsignFn: func(_ context.Context, _ int32, _ string) (*models.CdmData, error) {
+				return stored.Clone(), nil
+			},
+			SetCdmDataFn: func(_ context.Context, _ int32, _ string, data *models.CdmData) (int64, error) {
+				stored = data.Clone()
+				return 1, nil
+			},
+			GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+				return &models.Strip{Callsign: callsign, Runway: &runway}, nil
+			},
+		},
+		&testutil.MockSessionRepository{},
+		&testutil.MockControllerRepository{},
+	)
+	service.SetFrontendHub(&testutil.MockFrontendHub{})
+	service.sessionMaster.Store(sessionID, true)
+	markSessionLive(service, sessionID)
+
+	beforeNow := time.Now().UTC().Format("1504")
+	require.NoError(t, service.SetReady(context.Background(), sessionID, callsign))
+	afterNow := time.Now().UTC().Format("1504")
+
+	require.NotNil(t, stored.Asrt)
+	assert.Contains(t, []string{beforeNow, afterNow}, *stored.Asrt)
+	assert.Equal(t, "REA", valueOrEmpty(stored.Status))
+	select {
+	case dpi := <-dpiCh:
+		assert.Equal(t, "REA/1", dpi)
+	case <-time.After(time.Second):
+		t.Fatal("expected ready DPI to be sent to vIFF")
+	}
+	select {
+	case setCdm := <-setCdmCh:
+		assert.Equal(t, *stored.Asrt+"00", setCdm.Get("asrt"))
+		assert.Equal(t, "22R", setCdm.Get("depInfo"))
+	case <-time.After(time.Second):
+		t.Fatal("expected ASRT to be exported to vIFF")
+	}
+}
+
 func TestSetReady_WithoutValidClient_PersistsLocalReadyStatus(t *testing.T) {
 	t.Parallel()
 	const callsign = "SAS938"
@@ -1743,6 +1812,10 @@ func TestHandleReadyRequest_UpdatesFutureTobtToNow(t *testing.T) {
 	assert.Equal(t, "REA", *persisted.Status)
 	require.NotNil(t, persisted.TobtSetBy)
 	assert.Equal(t, "EKCH_DEL", *persisted.TobtSetBy)
+	require.NotNil(t, persisted.TobtConfirmedBy)
+	assert.Equal(t, models.TobtConfirmedByATC, *persisted.TobtConfirmedBy)
+	assert.True(t, persisted.TobtManuallyConfirmed)
+	assert.False(t, persisted.TobtAutoSynced)
 }
 
 func TestHandleReadyRequest_PreservesTobtWithinTsatWindow(t *testing.T) {
@@ -1790,6 +1863,8 @@ func TestHandleReadyRequest_UpdatesPastTobtToNowWithActiveTsat(t *testing.T) {
 
 	pastTobt := time.Now().UTC().Add(-5 * time.Minute).Format("1504")
 	activeTsat := time.Now().UTC().Add(10 * time.Minute).Format("1504")
+	previousAsrt := time.Now().UTC().Add(-5 * time.Minute).Format("1504")
+	readyStatus := "REA"
 	var persisted *models.CdmData
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -1807,7 +1882,12 @@ func TestHandleReadyRequest_UpdatesPastTobtToNowWithActiveTsat(t *testing.T) {
 				if persisted != nil {
 					return persisted.Clone(), nil
 				}
-				return (&models.CdmData{Tobt: stringPtr(pastTobt), Tsat: stringPtr(activeTsat)}).Normalize(), nil
+				return (&models.CdmData{
+					Tobt:   stringPtr(pastTobt),
+					Tsat:   stringPtr(activeTsat),
+					Asrt:   stringPtr(previousAsrt),
+					Status: stringPtr(readyStatus),
+				}).Normalize(), nil
 			},
 			SetCdmDataFn: func(_ context.Context, _ int32, _ string, data *models.CdmData) (int64, error) {
 				persisted = data.Clone()
@@ -1829,6 +1909,8 @@ func TestHandleReadyRequest_UpdatesPastTobtToNowWithActiveTsat(t *testing.T) {
 	require.NotNil(t, persisted)
 	require.NotNil(t, persisted.Tobt)
 	assert.Contains(t, []string{beforeNow, afterNow}, *persisted.Tobt)
+	require.NotNil(t, persisted.Asrt)
+	assert.Contains(t, []string{beforeNow, afterNow}, *persisted.Asrt)
 	require.NotNil(t, persisted.Status)
 	assert.Equal(t, "REA", *persisted.Status)
 }

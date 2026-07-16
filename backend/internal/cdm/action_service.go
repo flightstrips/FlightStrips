@@ -496,7 +496,8 @@ func (c *ActionService) HandleReadyRequest(ctx context.Context, session int32, c
 	updated := cdmData.Clone()
 	previousEobt := helpers.ValueOrDefault(updated.EffectiveEobt())
 	previousTobt := helpers.ValueOrDefault(updated.EffectiveTobt())
-	applyConfirmedTobtUpdate(updated, tobt, sourcePosition)
+	applyConfirmedTobtUpdate(updated, tobt, sourcePosition, sourceRole)
+	updated.Asrt = &tobt
 	currentEobt := normalizeCalculationClock(helpers.ValueOrDefault(updated.EffectiveEobt()))
 	if currentEobt == "" || !isAfterOrEqual(tobt, currentEobt) {
 		updated.Eobt = &tobt
@@ -540,6 +541,7 @@ func (c *ActionService) HandleReadyRequest(ctx context.Context, session int32, c
 
 func (c *ActionService) SetReady(ctx context.Context, session int32, callsign string) error {
 	s := c.service
+	masterViffSession := s.client.isValid && s.usesViffSession(session) && s.isMasterSession(session)
 	if s.client.isValid && s.usesViffSession(session) {
 		if err := s.client.IFPSDpi(ctx, callsign, "REA/1"); err != nil {
 			return err
@@ -553,16 +555,32 @@ func (c *ActionService) SetReady(ctx context.Context, session int32, callsign st
 	if err != nil {
 		return err
 	}
-	if cdmData.EffectiveStatus() != nil && *cdmData.EffectiveStatus() == "REA" {
-		return nil
+	alreadyReady := cdmData.EffectiveStatus() != nil && *cdmData.EffectiveStatus() == "REA" && helpers.ValueOrDefault(cdmData.Asrt) != ""
+	updated := cdmData
+	if !alreadyReady {
+		before := snapshotCdm(cdmData)
+		updated = cdmData.Clone()
+		rea := "REA"
+		updated.Status = &rea
+		if helpers.ValueOrDefault(updated.Asrt) == "" {
+			now := time.Now().UTC().Format("1504")
+			updated.Asrt = &now
+		}
+		if err := s.persistCdmUpdate(ctx, session, callsign, before, updated); err != nil {
+			return err
+		}
 	}
-
-	before := snapshotCdm(cdmData)
-	updated := cdmData.Clone()
-	rea := "REA"
-	updated.Status = &rea
-	if err := s.persistCdmUpdate(ctx, session, callsign, before, updated); err != nil {
-		return err
+	if _, exportable := buildViffPushState(callsign, nil, updated); masterViffSession && exportable {
+		strip, err := s.stripRepo.GetByCallsign(ctx, session, callsign)
+		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			return err
+		}
+		if err := s.pushViffAfterRecalc(ctx, callsign, strip, updated); err != nil {
+			return err
+		}
+	}
+	if alreadyReady {
+		return nil
 	}
 
 	if s.publisher != nil {

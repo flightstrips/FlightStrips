@@ -1,10 +1,10 @@
 package services
 
 import (
+	"FlightStrips/internal/dependencies"
 	internalModels "FlightStrips/internal/models"
 	"context"
 	"errors"
-	"fmt"
 	"strings"
 
 	"github.com/google/uuid"
@@ -26,22 +26,31 @@ type StripValidationService struct {
 	publisher       validationStripNotifier
 }
 
-func NewStripValidationService(stripReader validationStripReader, validationStore StripValidationStatusStore) *StripValidationService {
-	service := &StripValidationService{
-		stripReader:     missingStripValidationReader{},
-		validationStore: missingValidationStatusStore{},
-	}
-	if stripReader != nil {
-		service.stripReader = stripReader
-	}
-	if validationStore != nil {
-		service.validationStore = validationStore
-	}
-	return service
+type StripValidationDependencies struct {
+	Strips    validationStripReader
+	Statuses  StripValidationStatusStore
+	Publisher validationStripNotifier
 }
 
-func (s *StripValidationService) SetFrontendHub(publisher validationStripNotifier) {
-	s.publisher = publisher
+func NewStripValidationService(deps StripValidationDependencies) (*StripValidationService, error) {
+	required := []struct {
+		name  string
+		value any
+	}{
+		{"strip reader", deps.Strips},
+		{"validation status store", deps.Statuses},
+		{"strip update publisher", deps.Publisher},
+	}
+	for _, dependency := range required {
+		if dependencies.IsNil(dependency.value) {
+			return nil, errors.New("strip validation service requires " + dependency.name)
+		}
+	}
+	return &StripValidationService{
+		stripReader:     deps.Strips,
+		validationStore: deps.Statuses,
+		publisher:       deps.Publisher,
+	}, nil
 }
 
 // SetValidationStatus sets a new validation status on a strip. A fresh activation key is
@@ -149,31 +158,5 @@ func (s *StripValidationService) IsValidationBlocking(ctx context.Context, sessi
 }
 
 func (s *StripValidationService) sendStripUpdate(session int32, callsign string) {
-	if s.publisher != nil {
-		s.publisher.SendStripUpdate(session, callsign)
-	}
-}
-
-type missingStripValidationReader struct{}
-
-func (missingStripValidationReader) GetByCallsign(ctx context.Context, session int32, callsign string) (*internalModels.Strip, error) {
-	return nil, missingStripValidationDependency("strip reader")
-}
-
-type missingValidationStatusStore struct{}
-
-func (missingValidationStatusStore) SetValidationStatus(ctx context.Context, session int32, callsign string, status *internalModels.ValidationStatus) error {
-	return missingStripValidationDependency("validation status store")
-}
-
-func (missingValidationStatusStore) AcknowledgeValidationStatus(ctx context.Context, session int32, callsign string, activationKey string) (int64, error) {
-	return 0, missingStripValidationDependency("validation status store")
-}
-
-func (missingValidationStatusStore) ClearValidationStatus(ctx context.Context, session int32, callsign string) error {
-	return missingStripValidationDependency("validation status store")
-}
-
-func missingStripValidationDependency(name string) error {
-	return fmt.Errorf("strip validation service missing %s dependency", name)
+	s.publisher.SendStripUpdate(session, callsign)
 }

@@ -54,7 +54,10 @@ func TestService_InjectTestMeasures_AppliesRestrictionsImmediately(t *testing.T)
 		}, nil
 	}
 
-	service := NewService(NewClient(), stripRepo, sessionRepo, frontendHub, euroscopeHub)
+	service, err := NewService(ServiceDependencies{
+		Client: NewClient(), Strips: stripRepo, Sessions: sessionRepo, Frontend: frontendHub, Euroscope: euroscopeHub,
+	})
+	require.NoError(t, err)
 	measures := []FlowMeasure{
 		makeMeasure(
 			MeasureTypeMandatoryRoute,
@@ -122,7 +125,10 @@ func TestService_InjectTestMeasures_DefaultsMissingTimeWindow(t *testing.T) {
 		}, nil
 	}
 
-	service := NewService(NewClient(), stripRepo, sessionRepo, frontendHub, euroscopeHub)
+	service, err := NewService(ServiceDependencies{
+		Client: NewClient(), Strips: stripRepo, Sessions: sessionRepo, Frontend: frontendHub, Euroscope: euroscopeHub,
+	})
+	require.NoError(t, err)
 	measures := []FlowMeasure{
 		{
 			ID:     2,

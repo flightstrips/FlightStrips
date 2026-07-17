@@ -8,12 +8,21 @@ import (
 	"FlightStrips/internal/repository/postgres"
 	"FlightStrips/internal/testutil"
 	"context"
+	"errors"
 	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func emptyFrequencyTestControllerRepository() *testutil.MockControllerRepository {
+	return &testutil.MockControllerRepository{
+		ListBySessionFn: func(context.Context, int32) ([]*models.Controller, error) {
+			return nil, errors.New("no online controllers")
+		},
+	}
+}
 
 func TestMain(m *testing.M) {
 	// Change to backend root so config/ekch.yaml is found.
@@ -47,7 +56,7 @@ func TestGetNextFrequency_SQOwnerOnline(t *testing.T) {
 		{Sector: []string{"K_DEP"}, Position: "124.980", Identifier: "K_DEP"},
 	})
 
-	svc := &Service{sectorRepo: postgres.NewSectorOwnerRepository(dbPool)}
+	svc := &Service{sectorRepo: postgres.NewSectorOwnerRepository(dbPool), controllerRepo: emptyFrequencyTestControllerRepository()}
 
 	freq, err := svc.getNextFrequency(context.Background(), sessionID)
 	require.NoError(t, err)
@@ -64,7 +73,7 @@ func TestGetNextFrequency_FallbackToDEL(t *testing.T) {
 		{Sector: []string{"DEL"}, Position: "119.905", Identifier: "DEL"},
 	})
 
-	svc := &Service{sectorRepo: postgres.NewSectorOwnerRepository(dbPool)}
+	svc := &Service{sectorRepo: postgres.NewSectorOwnerRepository(dbPool), controllerRepo: emptyFrequencyTestControllerRepository()}
 
 	freq, err := svc.getNextFrequency(context.Background(), sessionID)
 	require.NoError(t, err)
@@ -81,7 +90,7 @@ func TestGetNextFrequency_NoSQOrDEL_ReturnsError(t *testing.T) {
 		{Sector: []string{"K_DEP"}, Position: "124.980", Identifier: "K_DEP"},
 	})
 
-	svc := &Service{sectorRepo: postgres.NewSectorOwnerRepository(dbPool)}
+	svc := &Service{sectorRepo: postgres.NewSectorOwnerRepository(dbPool), controllerRepo: emptyFrequencyTestControllerRepository()}
 
 	_, err := svc.getNextFrequency(context.Background(), sessionID)
 	assert.Error(t, err)
@@ -100,7 +109,7 @@ func TestGetAirborneFrequency_UsesSidSpecificSectorPriority(t *testing.T) {
 		{Sector: []string{"SQ", "DEL"}, Position: "119.905", Identifier: "DEL"}, // not airborne
 	})
 
-	svc := &Service{sectorRepo: postgres.NewSectorOwnerRepository(dbPool)}
+	svc := &Service{sectorRepo: postgres.NewSectorOwnerRepository(dbPool), controllerRepo: emptyFrequencyTestControllerRepository()}
 	sid := "BETUD2A"
 
 	freq, err := svc.getAirborneFrequency(context.Background(), sessionID, &sid)
@@ -118,7 +127,7 @@ func TestGetAirborneFrequency_UsesDifferentSidSpecificSectorPriority(t *testing.
 		{Sector: []string{"R_DEP"}, Position: "120.255", Identifier: "R_DEP"},
 	})
 
-	svc := &Service{sectorRepo: postgres.NewSectorOwnerRepository(dbPool)}
+	svc := &Service{sectorRepo: postgres.NewSectorOwnerRepository(dbPool), controllerRepo: emptyFrequencyTestControllerRepository()}
 	sid := "GOLGA2C"
 
 	freq, err := svc.getAirborneFrequency(context.Background(), sessionID, &sid)
@@ -135,7 +144,7 @@ func TestGetAirborneFrequency_FallsBackWithinSidSpecificPriority(t *testing.T) {
 		{Sector: []string{"R_DEP"}, Position: "120.255", Identifier: "R_DEP"},
 	})
 
-	svc := &Service{sectorRepo: postgres.NewSectorOwnerRepository(dbPool)}
+	svc := &Service{sectorRepo: postgres.NewSectorOwnerRepository(dbPool), controllerRepo: emptyFrequencyTestControllerRepository()}
 	sid := "BETUD2A"
 
 	freq, err := svc.getAirborneFrequency(context.Background(), sessionID, &sid)
@@ -153,7 +162,7 @@ func TestGetAirborneFrequency_NoAirborneOnline_ReturnsUNICOM(t *testing.T) {
 		{Sector: []string{"TE", "TW"}, Position: "118.105", Identifier: "TE"},
 	})
 
-	svc := &Service{sectorRepo: postgres.NewSectorOwnerRepository(dbPool)}
+	svc := &Service{sectorRepo: postgres.NewSectorOwnerRepository(dbPool), controllerRepo: emptyFrequencyTestControllerRepository()}
 	sid := "BETUD2A"
 
 	freq, err := svc.getAirborneFrequency(context.Background(), sessionID, &sid)
@@ -171,7 +180,7 @@ func TestGetAirborneFrequency_UsesDefaultSectorWhenSidMissing(t *testing.T) {
 		{Sector: []string{"R_DEP"}, Position: "120.255", Identifier: "R_DEP"},
 	})
 
-	svc := &Service{sectorRepo: postgres.NewSectorOwnerRepository(dbPool)}
+	svc := &Service{sectorRepo: postgres.NewSectorOwnerRepository(dbPool), controllerRepo: emptyFrequencyTestControllerRepository()}
 
 	freq, err := svc.getAirborneFrequency(context.Background(), sessionID, nil)
 	require.NoError(t, err)
@@ -228,9 +237,9 @@ func TestGetAirborneFrequency_UsesCoveredFrequencyForCrossCoupledController(t *t
 			},
 		},
 		controllerRepo: controllerRepo,
-		transceiverLookup: staticTransceiverLookup{frequenciesByCallsign: map[string][]string{
+		transceiverLookups: []TransceiverLookup{staticTransceiverLookup{frequenciesByCallsign: map[string][]string{
 			"EKCH_O_APP": {"124.980"},
-		}},
+		}}},
 	}
 	sid := "BETUD2A"
 
@@ -249,7 +258,7 @@ func TestGetAirborneFrequency_UsesDefaultSectorForUnknownSid(t *testing.T) {
 		{Sector: []string{"R_DEP"}, Position: "120.255", Identifier: "R_DEP"},
 	})
 
-	svc := &Service{sectorRepo: postgres.NewSectorOwnerRepository(dbPool)}
+	svc := &Service{sectorRepo: postgres.NewSectorOwnerRepository(dbPool), controllerRepo: emptyFrequencyTestControllerRepository()}
 	sid := "UNKNOWN1A"
 
 	freq, err := svc.getAirborneFrequency(context.Background(), sessionID, &sid)

@@ -71,8 +71,8 @@ func NewArrivalLifecycleService(
 	borders *sat.AirportCountryRegistry,
 	options ...ArrivalLifecycleOption,
 ) (*ArrivalLifecycleService, error) {
-	if allocations == nil || assignments == nil || strips == nil || stands == nil {
-		return nil, errors.New("arrival lifecycle requires allocation service, repositories, and stand registry")
+	if allocations == nil || assignments == nil || strips == nil || sessions == nil || stands == nil {
+		return nil, errors.New("arrival lifecycle requires allocation service, repositories, session store, and stand registry")
 	}
 	service := &ArrivalLifecycleService{
 		allocations:   allocations,
@@ -240,9 +240,6 @@ func (s *ArrivalLifecycleService) updateStageInPlace(ctx context.Context, existi
 }
 
 func (s *ArrivalLifecycleService) ReleaseExpired(ctx context.Context) error {
-	if s.sessions == nil {
-		return nil
-	}
 	sessions, err := s.sessions.List(ctx)
 	if err != nil {
 		return err

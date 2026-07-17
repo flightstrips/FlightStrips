@@ -2,6 +2,7 @@ package pdc
 
 import (
 	"FlightStrips/internal/config"
+	"FlightStrips/internal/dependencies"
 	"FlightStrips/internal/metrics"
 	"FlightStrips/internal/models"
 	"FlightStrips/internal/repository"
@@ -27,6 +28,35 @@ type HoppieClientInterface interface {
 
 type TransceiverLookup interface {
 	GetFrequencies(callsign string) []string
+}
+
+type FrontendNotifier interface {
+	GetAtisCodes(session int32) (arrival string, departure string)
+	SendMessage(session int32, sender, text string, recipients []string)
+	SendPdcStateChange(session int32, callsign, state, remarks string)
+	SendStripUpdate(session int32, callsign string)
+}
+
+type EuroscopeCommander interface {
+	GetMasterCallsign(session int32) string
+	GetMasterCid(session int32) string
+	SendClearedFlag(session int32, cid string, callsign string, flag bool)
+	SendPdcStateChange(session int32, callsign, state, remarks string)
+	SendRoute(session int32, cid string, callsign string, route string)
+	SendSid(session int32, cid string, callsign string, sid string)
+}
+
+type ServiceDependencies struct {
+	Client               HoppieClientInterface
+	Sessions             repository.SessionRepository
+	Strips               PdcStripStore
+	Sectors              repository.SectorOwnerRepository
+	Controllers          repository.ControllerRepository
+	Frontend             FrontendNotifier
+	Euroscope            EuroscopeCommander
+	StripService         shared.StripService
+	TransceiverProviders []TransceiverLookup
+	WebLookupLiveOnly    bool
 }
 
 type timeoutTracker struct {
@@ -62,51 +92,60 @@ type PdcRequestOutcome struct {
 }
 
 type Service struct {
-	client            HoppieClientInterface
-	sessionRepo       repository.SessionRepository
-	stripRepo         PdcStripStore
-	sectorRepo        repository.SectorOwnerRepository
-	controllerRepo    repository.ControllerRepository
-	frontendHub       shared.FrontendHub
-	euroscopeHub      shared.EuroscopeHub
-	stripService      shared.StripService
-	transceiverLookup TransceiverLookup
-	timeouts          map[string]*timeoutTracker
-	timeoutsMutex     sync.RWMutex
-	timeoutConfig     time.Duration
-	webLookupLiveOnly bool
+	client             HoppieClientInterface
+	sessionRepo        repository.SessionRepository
+	stripRepo          PdcStripStore
+	sectorRepo         repository.SectorOwnerRepository
+	controllerRepo     repository.ControllerRepository
+	frontendHub        FrontendNotifier
+	euroscopeHub       EuroscopeCommander
+	stripService       shared.StripService
+	transceiverLookups []TransceiverLookup
+	timeouts           map[string]*timeoutTracker
+	timeoutsMutex      sync.RWMutex
+	timeoutConfig      time.Duration
+	webLookupLiveOnly  bool
 }
 
-func NewPDCService(client HoppieClientInterface, sessionRepo repository.SessionRepository, stripRepo PdcStripStore, sectorRepo repository.SectorOwnerRepository, controllerRepo repository.ControllerRepository) *Service {
-	return &Service{
-		client:         client,
-		sessionRepo:    sessionRepo,
-		stripRepo:      stripRepo,
-		sectorRepo:     sectorRepo,
-		controllerRepo: controllerRepo,
-		timeouts:       make(map[string]*timeoutTracker),
-		timeoutConfig:  10 * time.Minute, // Default 10 minutes
+func NewPDCService(deps ServiceDependencies) (*Service, error) {
+	required := []struct {
+		name  string
+		value any
+	}{
+		{"Hoppie client", deps.Client},
+		{"session repository", deps.Sessions},
+		{"strip store", deps.Strips},
+		{"sector repository", deps.Sectors},
+		{"controller repository", deps.Controllers},
+		{"frontend publisher", deps.Frontend},
+		{"EuroScope commander", deps.Euroscope},
+		{"strip service", deps.StripService},
 	}
-}
+	for _, dependency := range required {
+		if dependencies.IsNil(dependency.value) {
+			return nil, fmt.Errorf("pdc service requires %s", dependency.name)
+		}
+	}
+	for i, provider := range deps.TransceiverProviders {
+		if dependencies.IsNil(provider) {
+			return nil, fmt.Errorf("pdc service transceiver provider %d is nil", i)
+		}
+	}
 
-func (s *Service) SetFrontendHub(frontendHub shared.FrontendHub) {
-	s.frontendHub = frontendHub
-}
-
-func (s *Service) SetEuroscopeHub(euroscopeHub shared.EuroscopeHub) {
-	s.euroscopeHub = euroscopeHub
-}
-
-func (s *Service) SetStripService(stripService shared.StripService) {
-	s.stripService = stripService
-}
-
-func (s *Service) SetWebLookupLiveOnly(liveOnly bool) {
-	s.webLookupLiveOnly = liveOnly
-}
-
-func (s *Service) SetTransceiverLookup(transceiverLookup TransceiverLookup) {
-	s.transceiverLookup = transceiverLookup
+	return &Service{
+		client:             deps.Client,
+		sessionRepo:        deps.Sessions,
+		stripRepo:          deps.Strips,
+		sectorRepo:         deps.Sectors,
+		controllerRepo:     deps.Controllers,
+		frontendHub:        deps.Frontend,
+		euroscopeHub:       deps.Euroscope,
+		stripService:       deps.StripService,
+		transceiverLookups: append([]TransceiverLookup(nil), deps.TransceiverProviders...),
+		timeouts:           make(map[string]*timeoutTracker),
+		timeoutConfig:      10 * time.Minute,
+		webLookupLiveOnly:  deps.WebLookupLiveOnly,
+	}, nil
 }
 
 func normalizedStripAircraftType(strip *models.Strip) string {
@@ -162,31 +201,25 @@ func (s *Service) sendErrorAndReturn(ctx context.Context, session sessionInforma
 }
 
 func (s *Service) notifyStateChangeFrontend(sessionID int32, callsign string, state ClearanceState, remarks string) {
-	if s.frontendHub != nil {
-		s.frontendHub.SendPdcStateChange(sessionID, callsign, string(state), remarks)
-	}
+	s.frontendHub.SendPdcStateChange(sessionID, callsign, string(state), remarks)
 }
 
 func (s *Service) notifyStateChangeEuroscope(sessionID int32, callsign string, state ClearanceState, remarks string) {
-	if s.euroscopeHub != nil {
-		s.euroscopeHub.SendPdcStateChange(sessionID, callsign, string(state), remarks)
-	}
+	s.euroscopeHub.SendPdcStateChange(sessionID, callsign, string(state), remarks)
 }
 
 func (s *Service) notifyClearedFlagEuroscope(ctx context.Context, sessionID int32, callsign string, cleared bool, cid string) {
-	if s.euroscopeHub != nil {
-		if strings.TrimSpace(cid) == "" {
-			cid = s.resolveEuroscopeTargetCID(ctx, sessionID)
-		}
-		if strings.TrimSpace(cid) == "" {
-			slog.WarnContext(ctx, "PDC Service: Unable to resolve EuroScope target for cleared flag",
-				slog.Int("session", int(sessionID)),
-				slog.String("callsign", callsign),
-			)
-			return
-		}
-		s.euroscopeHub.SendClearedFlag(sessionID, cid, callsign, cleared)
+	if strings.TrimSpace(cid) == "" {
+		cid = s.resolveEuroscopeTargetCID(ctx, sessionID)
 	}
+	if strings.TrimSpace(cid) == "" {
+		slog.WarnContext(ctx, "PDC Service: Unable to resolve EuroScope target for cleared flag",
+			slog.Int("session", int(sessionID)),
+			slog.String("callsign", callsign),
+		)
+		return
+	}
+	s.euroscopeHub.SendClearedFlag(sessionID, cid, callsign, cleared)
 }
 
 // notifyStateChange sends PDC state change notification to frontend and EuroScope clients
@@ -194,10 +227,8 @@ func (s *Service) notifyStateChange(ctx context.Context, sessionID int32, callsi
 	if sessionInfo, err := s.getSessionInfo(ctx, sessionID); err == nil {
 		metrics.PDCStateChange(context.Background(), sessionInfo.name, sessionInfo.airport, string(state))
 	}
-	if s.stripService != nil {
-		if err := s.stripService.ReevaluatePdcRequestValidations(ctx, sessionID, callsign, true, state == StateRequestedWithFaults); err != nil {
-			return err
-		}
+	if err := s.stripService.ReevaluatePdcRequestValidations(ctx, sessionID, callsign, true, state == StateRequestedWithFaults); err != nil {
+		return err
 	}
 	s.notifyStateChangeFrontend(sessionID, callsign, state, remarks)
 	s.notifyStateChangeEuroscope(sessionID, callsign, state, remarks)
@@ -281,25 +312,13 @@ func valueOrEmpty(value *string) string {
 }
 
 func (s *Service) getDepartureAtisCode(sessionID int32) string {
-	if s.frontendHub == nil {
-		return ""
-	}
-
 	_, dep := s.frontendHub.GetAtisCodes(sessionID)
 	return strings.TrimSpace(dep)
 }
 
 func (s *Service) resolveEuroscopeTargetCID(ctx context.Context, sessionID int32) string {
-	if s.euroscopeHub == nil {
-		return ""
-	}
-
 	if masterCID := strings.TrimSpace(s.euroscopeHub.GetMasterCid(sessionID)); masterCID != "" {
 		return masterCID
-	}
-
-	if s.controllerRepo == nil {
-		return ""
 	}
 
 	masterCallsign := strings.TrimSpace(s.euroscopeHub.GetMasterCallsign(sessionID))
@@ -352,7 +371,7 @@ func (s *Service) applyMandatoryRouteReview(ctx context.Context, session *models
 	strip.Sid = updated.Sid
 	strip.Version = updated.Version
 
-	if targetCID := s.resolveEuroscopeTargetCID(ctx, session.ID); targetCID != "" && s.euroscopeHub != nil {
+	if targetCID := s.resolveEuroscopeTargetCID(ctx, session.ID); targetCID != "" {
 		if review.Route != "" {
 			s.euroscopeHub.SendRoute(session.ID, targetCID, strip.Callsign, review.Route)
 		}
@@ -361,9 +380,7 @@ func (s *Service) applyMandatoryRouteReview(ctx context.Context, session *models
 		}
 	}
 
-	if s.frontendHub != nil {
-		s.frontendHub.SendStripUpdate(session.ID, strip.Callsign)
-	}
+	s.frontendHub.SendStripUpdate(session.ID, strip.Callsign)
 
 	return review, nil
 }
@@ -400,17 +417,15 @@ func (s *Service) confirmPilotAcknowledgement(ctx context.Context, sessionID int
 	}
 	pdcData.State = string(StateConfirmed)
 
-	if s.stripService != nil {
-		if err := s.stripService.ConfirmPdcClearance(ctx, sessionID, strip.Callsign, clearedBay, clearanceCid); err != nil {
-			return fmt.Errorf("failed to confirm strip clearance: %w", err)
-		}
+	if err := s.stripService.ConfirmPdcClearance(ctx, sessionID, strip.Callsign, clearedBay, clearanceCid); err != nil {
+		return fmt.Errorf("failed to confirm strip clearance: %w", err)
 	}
 
 	if err := s.stripRepo.SetPdcData(ctx, sessionID, strip.Callsign, pdcData); err != nil {
 		return fmt.Errorf("failed to persist confirmed PDC data: %w", err)
 	}
 
-	if !strip.Cleared && s.stripService != nil {
+	if !strip.Cleared {
 		if err := s.stripService.AutoAssumeForClearedStripByCid(ctx, sessionID, strip.Callsign, clearanceCid); err != nil {
 			slog.ErrorContext(ctx, "Failed to auto-assume confirmed PDC strip", slog.Any("error", err))
 		}
@@ -418,15 +433,11 @@ func (s *Service) confirmPilotAcknowledgement(ctx context.Context, sessionID int
 
 	s.CancelTimeout(strip.Callsign, sessionID)
 
-	if s.stripService != nil {
-		if err := s.stripService.ReevaluatePdcInvalidValidation(ctx, sessionID, strip.Callsign, true, false); err != nil {
-			return fmt.Errorf("failed to reevaluate PDC invalid validation: %w", err)
-		}
+	if err := s.stripService.ReevaluatePdcInvalidValidation(ctx, sessionID, strip.Callsign, true, false); err != nil {
+		return fmt.Errorf("failed to reevaluate PDC invalid validation: %w", err)
 	}
 
-	if s.frontendHub != nil {
-		s.frontendHub.SendStripUpdate(sessionID, strip.Callsign)
-	}
+	s.frontendHub.SendStripUpdate(sessionID, strip.Callsign)
 
 	if sessionInfo, err := s.getSessionInfo(context.Background(), sessionID); err == nil {
 		metrics.PDCStateChange(context.Background(), sessionInfo.name, sessionInfo.airport, string(StateConfirmed))
@@ -850,10 +861,6 @@ func (s *Service) persistIssuedPdcClearance(ctx context.Context, sessionID int32
 }
 
 func (s *Service) moveIssuedPdcStrip(ctx context.Context, sessionID int32, callsign string) {
-	if s.stripService == nil {
-		return
-	}
-
 	if err := s.stripService.MoveToBay(ctx, sessionID, callsign, shared.BAY_CLEARED, true); err != nil {
 		slog.ErrorContext(ctx, "PDC Service: Warning - failed to move strip to cleared bay", slog.Any("error", err))
 	}
@@ -925,13 +932,11 @@ func (s *Service) ConfirmVoiceClearance(ctx context.Context, callsign string, se
 		return err
 	}
 
-	if s.frontendHub != nil {
-		recipients := []string{}
-		if _, ok := config.GetMessageAreas()["CLR-DEL"]; ok {
-			recipients = []string{"CLR-DEL"}
-		}
-		s.frontendHub.SendMessage(sessionID, "SYSTEM", fmt.Sprintf("%s: CLEARANCE given / confirmed over voice.", callsign), recipients)
+	recipients := []string{}
+	if _, ok := config.GetMessageAreas()["CLR-DEL"]; ok {
+		recipients = []string{"CLR-DEL"}
 	}
+	s.frontendHub.SendMessage(sessionID, "SYSTEM", fmt.Sprintf("%s: CLEARANCE given / confirmed over voice.", callsign), recipients)
 
 	return nil
 }
@@ -1008,28 +1013,26 @@ func getPdcAirborneControllerPriority(sid *string) ([]string, error) {
 func (s *Service) getOnlineControllerFrequencies(ctx context.Context, sessionID int32) map[string]struct{} {
 	onlineFreqs := make(map[string]struct{})
 
-	if s.controllerRepo != nil {
-		controllers, err := s.controllerRepo.ListBySession(ctx, sessionID)
-		if err == nil {
-			for _, controller := range controllers {
-				if !shared.IsOperationalController(controller) {
-					continue
-				}
-				if position, ok := resolvePdcOperationalPosition(controller); ok && shared.IsOperationalControllerForPosition(controller, position) {
-					addNormalizedFrequency(onlineFreqs, position.Frequency)
-				} else {
-					addNormalizedFrequency(onlineFreqs, controller.Position)
-				}
-				if s.transceiverLookup != nil {
-					for _, frequency := range s.transceiverLookup.GetFrequencies(controller.Callsign) {
-						addNormalizedFrequency(onlineFreqs, frequency)
-					}
+	controllers, err := s.controllerRepo.ListBySession(ctx, sessionID)
+	if err == nil {
+		for _, controller := range controllers {
+			if !shared.IsOperationalController(controller) {
+				continue
+			}
+			if position, ok := resolvePdcOperationalPosition(controller); ok && shared.IsOperationalControllerForPosition(controller, position) {
+				addNormalizedFrequency(onlineFreqs, position.Frequency)
+			} else {
+				addNormalizedFrequency(onlineFreqs, controller.Position)
+			}
+			for _, provider := range s.transceiverLookups {
+				for _, frequency := range provider.GetFrequencies(controller.Callsign) {
+					addNormalizedFrequency(onlineFreqs, frequency)
 				}
 			}
 		}
-		if len(onlineFreqs) > 0 {
-			return onlineFreqs
-		}
+	}
+	if len(onlineFreqs) > 0 {
+		return onlineFreqs
 	}
 
 	owners, err := s.sectorRepo.ListBySession(ctx, sessionID)
@@ -1360,10 +1363,8 @@ func (s *Service) setPdcFailed(ctx context.Context, callsign string, sessionId i
 		return fmt.Errorf("failed to update PDC status: %w", err)
 	}
 
-	if s.stripService != nil {
-		if err := s.stripService.UnclearStrip(ctx, sessionId, callsign, cid); err != nil {
-			slog.ErrorContext(ctx, "PDC Service: Error unclearing strip", slog.Any("error", err))
-		}
+	if err := s.stripService.UnclearStrip(ctx, sessionId, callsign, cid); err != nil {
+		slog.ErrorContext(ctx, "PDC Service: Error unclearing strip", slog.Any("error", err))
 	}
 
 	if err := s.notifyStateChange(ctx, sessionId, callsign, state, ""); err != nil {

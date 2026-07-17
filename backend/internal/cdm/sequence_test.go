@@ -74,7 +74,7 @@ func TestSequenceService_RecalculateAirportPersistsAndBroadcasts(t *testing.T) {
 	euroscopeHub := &testutil.MockEuroscopeHub{}
 	configStore := NewCdmConfigStore("", "", "", 0, CdmConfigDefaults{}, nil)
 
-	service := NewSequenceService(stripRepo, sessionRepo, configStore, frontendHub, euroscopeHub)
+	service := newTestSequenceService(stripRepo, sessionRepo, configStore, frontendHub, euroscopeHub)
 
 	if err := service.RecalculateAirport(context.Background(), 7, "EKCH"); err != nil {
 		t.Fatalf("RecalculateAirport returned error: %v", err)
@@ -173,7 +173,7 @@ func TestSequenceService_RecalculateAirportSkipsVatsimOnlyFlights(t *testing.T) 
 			return &models.Session{ID: id, Airport: "EKCH", ActiveRunways: pkgModels.ActiveRunways{DepartureRunways: []string{"04L"}}}, nil
 		},
 	}
-	service := NewSequenceService(stripRepo, sessionRepo, NewCdmConfigStore("", "", "", 0, CdmConfigDefaults{}, nil), &testutil.MockFrontendHub{}, &testutil.MockEuroscopeHub{})
+	service := newTestSequenceService(stripRepo, sessionRepo, NewCdmConfigStore("", "", "", 0, CdmConfigDefaults{}, nil), &testutil.MockFrontendHub{}, &testutil.MockEuroscopeHub{})
 
 	if err := service.RecalculateAirport(context.Background(), 7, "EKCH"); err != nil {
 		t.Fatalf("RecalculateAirport returned error: %v", err)
@@ -260,7 +260,7 @@ func TestSequenceService_RecalculateAirport_SortsEqualBaseTimesByNaturalTtot(t *
 		DefaultTaxiMinutes: 10,
 	}
 
-	service := NewSequenceService(stripRepo, sessionRepo, configStore, &testutil.MockFrontendHub{}, &testutil.MockEuroscopeHub{})
+	service := newTestSequenceService(stripRepo, sessionRepo, configStore, &testutil.MockFrontendHub{}, &testutil.MockEuroscopeHub{})
 
 	if err := service.RecalculateAirport(context.Background(), 7, "EKCH"); err != nil {
 		t.Fatalf("RecalculateAirport returned error: %v", err)
@@ -315,7 +315,7 @@ func TestSequenceService_RecalculateAirport_PrioritizesConfirmedTobt(t *testing.
 		},
 	}
 	configStore := NewCdmConfigStore("", "", "", 0, CdmConfigDefaults{Rate: 40, TaxiMinutes: 10}, nil)
-	service := NewSequenceService(stripRepo, sessionRepo, configStore, &testutil.MockFrontendHub{}, &testutil.MockEuroscopeHub{})
+	service := newTestSequenceService(stripRepo, sessionRepo, configStore, &testutil.MockFrontendHub{}, &testutil.MockEuroscopeHub{})
 
 	if err := service.RecalculateAirport(context.Background(), 7, "EKCH"); err != nil {
 		t.Fatalf("RecalculateAirport returned error: %v", err)
@@ -399,7 +399,7 @@ func TestSequenceService_RecalculateAirport_SortsCrossBaseTimesByNaturalTtot(t *
 		DefaultTaxiMinutes: 10,
 	}
 
-	service := NewSequenceService(stripRepo, sessionRepo, configStore, &testutil.MockFrontendHub{}, &testutil.MockEuroscopeHub{})
+	service := newTestSequenceService(stripRepo, sessionRepo, configStore, &testutil.MockFrontendHub{}, &testutil.MockEuroscopeHub{})
 
 	if err := service.RecalculateAirport(context.Background(), 7, "EKCH"); err != nil {
 		t.Fatalf("RecalculateAirport returned error: %v", err)
@@ -475,7 +475,7 @@ func TestSequenceService_RecalculateAirport_PreservesExternalCtot(t *testing.T) 
 		},
 	}
 
-	service := NewSequenceService(stripRepo, sessionRepo, NewCdmConfigStore("", "", "", 0, CdmConfigDefaults{}, nil), &testutil.MockFrontendHub{}, &testutil.MockEuroscopeHub{})
+	service := newTestSequenceService(stripRepo, sessionRepo, NewCdmConfigStore("", "", "", 0, CdmConfigDefaults{}, nil), &testutil.MockFrontendHub{}, &testutil.MockEuroscopeHub{})
 
 	if err := service.RecalculateAirport(context.Background(), 7, "EKCH"); err != nil {
 		t.Fatalf("RecalculateAirport returned error: %v", err)
@@ -527,7 +527,7 @@ func TestSequenceService_RecalculateAirport_UsesRequestedTobtWhenNoTobtExists(t 
 		},
 	}
 
-	service := NewSequenceService(stripRepo, sessionRepo, NewCdmConfigStore("", "", "", 0, CdmConfigDefaults{}, nil), &testutil.MockFrontendHub{}, &testutil.MockEuroscopeHub{})
+	service := newTestSequenceService(stripRepo, sessionRepo, NewCdmConfigStore("", "", "", 0, CdmConfigDefaults{}, nil), &testutil.MockFrontendHub{}, &testutil.MockEuroscopeHub{})
 
 	if err := service.RecalculateAirport(context.Background(), 7, "EKCH"); err != nil {
 		t.Fatalf("RecalculateAirport returned error: %v", err)
@@ -577,7 +577,7 @@ func TestSequenceService_RecalculateAirport_AppliesConfiguredDelayFloor(t *testi
 	configStore := NewCdmConfigStore("", "", "", 0, CdmConfigDefaults{}, nil)
 	configStore.SetDelay(CdmDelay{Airport: "EKCH", Runway: "04L", Time: delayFloor, Type: "ADVERSE"})
 
-	service := NewSequenceService(stripRepo, sessionRepo, configStore, &testutil.MockFrontendHub{}, &testutil.MockEuroscopeHub{})
+	service := newTestSequenceService(stripRepo, sessionRepo, configStore, &testutil.MockFrontendHub{}, &testutil.MockEuroscopeHub{})
 
 	if err := service.RecalculateAirport(context.Background(), 7, "EKCH"); err != nil {
 		t.Fatalf("RecalculateAirport returned error: %v", err)
@@ -641,7 +641,7 @@ func TestSequenceService_RecalculateAirport_AppliesWakeSpacingFromAircraftCatego
 	}
 	configStore := NewCdmConfigStore("", "", "", 0, CdmConfigDefaults{Rate: 120, RateLvo: 120, TaxiMinutes: 10}, nil)
 
-	service := NewSequenceService(stripRepo, sessionRepo, configStore, &testutil.MockFrontendHub{}, &testutil.MockEuroscopeHub{})
+	service := newTestSequenceService(stripRepo, sessionRepo, configStore, &testutil.MockFrontendHub{}, &testutil.MockEuroscopeHub{})
 
 	if err := service.RecalculateAirport(context.Background(), 7, "EKCH"); err != nil {
 		t.Fatalf("RecalculateAirport returned error: %v", err)
@@ -690,7 +690,7 @@ func TestSequenceService_RecalculateAirport_ReturnsErrorWhenPersistSkipsRow(t *t
 		},
 	}
 
-	service := NewSequenceService(stripRepo, sessionRepo, NewCdmConfigStore("", "", "", 0, CdmConfigDefaults{}, nil), &testutil.MockFrontendHub{}, &testutil.MockEuroscopeHub{})
+	service := newTestSequenceService(stripRepo, sessionRepo, NewCdmConfigStore("", "", "", 0, CdmConfigDefaults{}, nil), &testutil.MockFrontendHub{}, &testutil.MockEuroscopeHub{})
 
 	err := service.RecalculateAirport(context.Background(), 7, "EKCH")
 	if err == nil || !strings.Contains(err.Error(), "failed to persist recalculated CDM data") {
@@ -759,7 +759,7 @@ func TestSequenceService_RecalculateAirport_SkipsArrivalsAndStripsWithoutBaseTim
 		},
 	}
 
-	service := NewSequenceService(stripRepo, sessionRepo, NewCdmConfigStore("", "", "", 0, CdmConfigDefaults{}, nil), &testutil.MockFrontendHub{}, &testutil.MockEuroscopeHub{})
+	service := newTestSequenceService(stripRepo, sessionRepo, NewCdmConfigStore("", "", "", 0, CdmConfigDefaults{}, nil), &testutil.MockFrontendHub{}, &testutil.MockEuroscopeHub{})
 
 	if err := service.RecalculateAirport(context.Background(), 7, "EKCH"); err != nil {
 		t.Fatalf("RecalculateAirport returned error: %v", err)
@@ -810,7 +810,7 @@ func TestSequenceService_RecalculateAirport_TreatsMidnightAsBaseTime(t *testing.
 		},
 	}
 
-	service := NewSequenceService(stripRepo, sessionRepo, NewCdmConfigStore("", "", "", 0, CdmConfigDefaults{}, nil), &testutil.MockFrontendHub{}, &testutil.MockEuroscopeHub{})
+	service := newTestSequenceService(stripRepo, sessionRepo, NewCdmConfigStore("", "", "", 0, CdmConfigDefaults{}, nil), &testutil.MockFrontendHub{}, &testutil.MockEuroscopeHub{})
 	service.now = func() time.Time {
 		return time.Date(2026, time.January, 1, 0, 0, 0, 0, time.UTC)
 	}
@@ -878,7 +878,7 @@ func TestSequenceService_RecalculateAirport_SkipsAircraftWithAsatAndPreservesExi
 		},
 	}
 
-	service := NewSequenceService(stripRepo, sessionRepo, NewCdmConfigStore("", "", "", 0, CdmConfigDefaults{}, nil), &testutil.MockFrontendHub{}, &testutil.MockEuroscopeHub{})
+	service := newTestSequenceService(stripRepo, sessionRepo, NewCdmConfigStore("", "", "", 0, CdmConfigDefaults{}, nil), &testutil.MockFrontendHub{}, &testutil.MockEuroscopeHub{})
 
 	if err := service.RecalculateAirport(context.Background(), 7, "EKCH"); err != nil {
 		t.Fatalf("RecalculateAirport returned error: %v", err)
@@ -929,7 +929,7 @@ func TestSequenceService_RecalculateAirport_SkipsAircraftWithAobtAndPreservesExi
 		},
 	}
 
-	service := NewSequenceService(stripRepo, sessionRepo, NewCdmConfigStore("", "", "", 0, CdmConfigDefaults{}, nil), &testutil.MockFrontendHub{}, &testutil.MockEuroscopeHub{})
+	service := newTestSequenceService(stripRepo, sessionRepo, NewCdmConfigStore("", "", "", 0, CdmConfigDefaults{}, nil), &testutil.MockFrontendHub{}, &testutil.MockEuroscopeHub{})
 
 	if err := service.RecalculateAirport(context.Background(), 7, "EKCH"); err != nil {
 		t.Fatalf("RecalculateAirport returned error: %v", err)
@@ -985,7 +985,7 @@ func TestSequenceService_RecalculateAirport_GroundStateFreezesTsatBeforeCdmTimes
 		},
 	}
 
-	service := NewSequenceService(stripRepo, sessionRepo, NewCdmConfigStore("", "", "", 0, CdmConfigDefaults{}, nil), &testutil.MockFrontendHub{}, &testutil.MockEuroscopeHub{})
+	service := newTestSequenceService(stripRepo, sessionRepo, NewCdmConfigStore("", "", "", 0, CdmConfigDefaults{}, nil), &testutil.MockFrontendHub{}, &testutil.MockEuroscopeHub{})
 
 	if err := service.RecalculateAirport(context.Background(), 7, "EKCH"); err != nil {
 		t.Fatalf("RecalculateAirport returned error: %v", err)
@@ -1041,7 +1041,7 @@ func TestSequenceService_RecalculateAirport_ExpiredTsatDoesNotInvalidateStartedS
 		},
 	}
 
-	service := NewSequenceService(stripRepo, sessionRepo, NewCdmConfigStore("", "", "", 0, CdmConfigDefaults{}, nil), &testutil.MockFrontendHub{}, &testutil.MockEuroscopeHub{})
+	service := newTestSequenceService(stripRepo, sessionRepo, NewCdmConfigStore("", "", "", 0, CdmConfigDefaults{}, nil), &testutil.MockFrontendHub{}, &testutil.MockEuroscopeHub{})
 
 	if err := service.RecalculateAirport(context.Background(), 7, "EKCH"); err != nil {
 		t.Fatalf("RecalculateAirport returned error: %v", err)
@@ -1094,7 +1094,7 @@ func TestSequenceService_RecalculateAirport_ExpiredTsatDoesNotInvalidateAobtOnly
 		},
 	}
 
-	service := NewSequenceService(stripRepo, sessionRepo, NewCdmConfigStore("", "", "", 0, CdmConfigDefaults{}, nil), &testutil.MockFrontendHub{}, &testutil.MockEuroscopeHub{})
+	service := newTestSequenceService(stripRepo, sessionRepo, NewCdmConfigStore("", "", "", 0, CdmConfigDefaults{}, nil), &testutil.MockFrontendHub{}, &testutil.MockEuroscopeHub{})
 
 	if err := service.RecalculateAirport(context.Background(), 7, "EKCH"); err != nil {
 		t.Fatalf("RecalculateAirport returned error: %v", err)
@@ -1155,7 +1155,7 @@ func TestSequenceService_RecalculateAirport_KeepsExistingLocalCalcTimesLocked(t 
 		},
 	}
 
-	service := NewSequenceService(stripRepo, sessionRepo, NewCdmConfigStore("", "", "", 0, CdmConfigDefaults{}, nil), &testutil.MockFrontendHub{}, &testutil.MockEuroscopeHub{})
+	service := newTestSequenceService(stripRepo, sessionRepo, NewCdmConfigStore("", "", "", 0, CdmConfigDefaults{}, nil), &testutil.MockFrontendHub{}, &testutil.MockEuroscopeHub{})
 
 	if err := service.RecalculateAirport(context.Background(), 7, "EKCH"); err != nil {
 		t.Fatalf("RecalculateAirport returned error: %v", err)
@@ -1233,7 +1233,7 @@ func TestSequenceService_RecalculateAirport_SeedsPreservedSlotsBeforeReorderedFl
 		DefaultTaxiMinutes: 10,
 	}
 
-	service := NewSequenceService(stripRepo, sessionRepo, configStore, &testutil.MockFrontendHub{}, &testutil.MockEuroscopeHub{})
+	service := newTestSequenceService(stripRepo, sessionRepo, configStore, &testutil.MockFrontendHub{}, &testutil.MockEuroscopeHub{})
 
 	if err := service.RecalculateAirport(context.Background(), 7, "EKCH"); err != nil {
 		t.Fatalf("RecalculateAirport returned error: %v", err)
@@ -1331,7 +1331,7 @@ func TestSequenceService_RecalculateAirport_ReadiedFlightUsesNextFreeGapWithoutM
 		DefaultTaxiMinutes: 0,
 	}
 
-	service := NewSequenceService(stripRepo, sessionRepo, configStore, &testutil.MockFrontendHub{}, &testutil.MockEuroscopeHub{})
+	service := newTestSequenceService(stripRepo, sessionRepo, configStore, &testutil.MockFrontendHub{}, &testutil.MockEuroscopeHub{})
 
 	if err := service.RecalculateAirport(context.Background(), 7, "EKCH"); err != nil {
 		t.Fatalf("RecalculateAirport returned error: %v", err)
@@ -1400,7 +1400,7 @@ func TestSequenceService_RecalculateAirport_ClearsExpiredLocalCalcTimes(t *testi
 		},
 	}
 
-	service := NewSequenceService(stripRepo, sessionRepo, NewCdmConfigStore("", "", "", 0, CdmConfigDefaults{}, nil), &testutil.MockFrontendHub{}, &testutil.MockEuroscopeHub{})
+	service := newTestSequenceService(stripRepo, sessionRepo, NewCdmConfigStore("", "", "", 0, CdmConfigDefaults{}, nil), &testutil.MockFrontendHub{}, &testutil.MockEuroscopeHub{})
 
 	if err := service.RecalculateAirport(context.Background(), 7, "EKCH"); err != nil {
 		t.Fatalf("RecalculateAirport returned error: %v", err)
@@ -1466,7 +1466,7 @@ func TestSequenceService_RecalculateAirport_AlreadyInvalidStripIsNotRepersisted(
 		},
 	}
 
-	service := NewSequenceService(stripRepo, sessionRepo, NewCdmConfigStore("", "", "", 0, CdmConfigDefaults{}, nil), &testutil.MockFrontendHub{}, &testutil.MockEuroscopeHub{})
+	service := newTestSequenceService(stripRepo, sessionRepo, NewCdmConfigStore("", "", "", 0, CdmConfigDefaults{}, nil), &testutil.MockFrontendHub{}, &testutil.MockEuroscopeHub{})
 
 	if err := service.RecalculateAirport(context.Background(), 7, "EKCH"); err != nil {
 		t.Fatalf("RecalculateAirport returned error: %v", err)
@@ -1514,7 +1514,7 @@ func TestSequenceService_RecalculateAirport_InvalidStripIsRescheduledAfterNewTob
 		},
 	}
 
-	service := NewSequenceService(stripRepo, sessionRepo, NewCdmConfigStore("", "", "", 0, CdmConfigDefaults{}, nil), &testutil.MockFrontendHub{}, &testutil.MockEuroscopeHub{})
+	service := newTestSequenceService(stripRepo, sessionRepo, NewCdmConfigStore("", "", "", 0, CdmConfigDefaults{}, nil), &testutil.MockFrontendHub{}, &testutil.MockEuroscopeHub{})
 
 	if err := service.RecalculateAirport(context.Background(), 7, "EKCH"); err != nil {
 		t.Fatalf("RecalculateAirport returned error: %v", err)
@@ -1584,7 +1584,7 @@ func TestSequenceService_RecalculateAirport_RepairsPersistedDuplicateTtot(t *tes
 		},
 	}
 
-	service := NewSequenceService(stripRepo, sessionRepo, NewCdmConfigStore("", "", "", 0, CdmConfigDefaults{}, nil), &testutil.MockFrontendHub{}, &testutil.MockEuroscopeHub{})
+	service := newTestSequenceService(stripRepo, sessionRepo, NewCdmConfigStore("", "", "", 0, CdmConfigDefaults{}, nil), &testutil.MockFrontendHub{}, &testutil.MockEuroscopeHub{})
 
 	if err := service.RecalculateAirport(context.Background(), 7, "EKCH"); err != nil {
 		t.Fatalf("RecalculateAirport returned error: %v", err)
@@ -1649,7 +1649,7 @@ func TestSequenceService_RecalculateAirport_RepairsPersistedSameDestinationSpaci
 		},
 	}
 
-	service := NewSequenceService(stripRepo, sessionRepo, NewCdmConfigStore("", "", "", 0, CdmConfigDefaults{}, nil), &testutil.MockFrontendHub{}, &testutil.MockEuroscopeHub{})
+	service := newTestSequenceService(stripRepo, sessionRepo, NewCdmConfigStore("", "", "", 0, CdmConfigDefaults{}, nil), &testutil.MockFrontendHub{}, &testutil.MockEuroscopeHub{})
 
 	if err := service.RecalculateAirport(context.Background(), 7, "EKCH"); err != nil {
 		t.Fatalf("RecalculateAirport returned error: %v", err)
@@ -1695,7 +1695,7 @@ func TestSequenceService_RecalculateAirport_RecalculatesDirtyLocalCalcFlight(t *
 		},
 	}
 
-	service := NewSequenceService(stripRepo, sessionRepo, NewCdmConfigStore("", "", "", 0, CdmConfigDefaults{}, nil), &testutil.MockFrontendHub{}, &testutil.MockEuroscopeHub{})
+	service := newTestSequenceService(stripRepo, sessionRepo, NewCdmConfigStore("", "", "", 0, CdmConfigDefaults{}, nil), &testutil.MockFrontendHub{}, &testutil.MockEuroscopeHub{})
 
 	if err := service.RecalculateAirport(context.Background(), 7, "EKCH"); err != nil {
 		t.Fatalf("RecalculateAirport returned error: %v", err)
@@ -1826,7 +1826,7 @@ func TestSequenceService_RecalculateAirport_MixedConstraintScenario(t *testing.T
 		},
 	}
 
-	service := NewSequenceService(stripRepo, sessionRepo, configStore, &testutil.MockFrontendHub{}, &testutil.MockEuroscopeHub{})
+	service := newTestSequenceService(stripRepo, sessionRepo, configStore, &testutil.MockFrontendHub{}, &testutil.MockEuroscopeHub{})
 
 	if err := service.RecalculateAirport(context.Background(), 7, "EKCH"); err != nil {
 		t.Fatalf("RecalculateAirport returned error: %v", err)
@@ -1888,7 +1888,7 @@ func TestSequenceService_RecalculateAirport_DoesNotClearValidTsatWhenSharedTobtJ
 		},
 	}
 
-	service := NewSequenceService(stripRepo, sessionRepo, NewCdmConfigStore("", "", "", 0, CdmConfigDefaults{}, nil), &testutil.MockFrontendHub{}, &testutil.MockEuroscopeHub{})
+	service := newTestSequenceService(stripRepo, sessionRepo, NewCdmConfigStore("", "", "", 0, CdmConfigDefaults{}, nil), &testutil.MockFrontendHub{}, &testutil.MockEuroscopeHub{})
 
 	if err := service.RecalculateAirport(context.Background(), 7, "EKCH"); err != nil {
 		t.Fatalf("RecalculateAirport returned error: %v", err)
@@ -1947,7 +1947,7 @@ func TestSequenceService_RecalculateAirport_ClearsAllTsatsWhenBothExpiredWithSam
 		},
 	}
 
-	service := NewSequenceService(stripRepo, sessionRepo, NewCdmConfigStore("", "", "", 0, CdmConfigDefaults{}, nil), &testutil.MockFrontendHub{}, &testutil.MockEuroscopeHub{})
+	service := newTestSequenceService(stripRepo, sessionRepo, NewCdmConfigStore("", "", "", 0, CdmConfigDefaults{}, nil), &testutil.MockFrontendHub{}, &testutil.MockEuroscopeHub{})
 
 	if err := service.RecalculateAirport(context.Background(), 7, "EKCH"); err != nil {
 		t.Fatalf("RecalculateAirport returned error: %v", err)

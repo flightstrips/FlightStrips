@@ -3,6 +3,7 @@ package frontend
 import (
 	"FlightStrips/internal/clx"
 	"FlightStrips/internal/config"
+	"FlightStrips/internal/dependencies"
 	"FlightStrips/internal/metrics"
 	internalModels "FlightStrips/internal/models"
 	"FlightStrips/internal/rnav"
@@ -56,6 +57,7 @@ type Hub struct {
 	stripService          shared.StripService
 	validationService     validationStatusAcknowledger
 	stripUpdateService    frontendStripUpdateUseCase
+	pdcService            shared.PdcService
 	authenticationService shared.AuthenticationService
 	clients               map[*Client]bool
 
@@ -98,7 +100,19 @@ type validationStatusAcknowledger interface {
 	ReconcileStandAssignmentValidation(ctx context.Context, session int32, callsign string, blockedBy []string, conflictReason string) error
 }
 
-func NewHub(stripService shared.StripService, authenticationService shared.AuthenticationService) *Hub {
+type HubDependencies struct {
+	Strips         shared.StripService
+	Authentication shared.AuthenticationService
+}
+
+func NewHub(deps HubDependencies) (*Hub, error) {
+	if dependencies.IsNil(deps.Strips) {
+		return nil, errors.New("frontend hub requires strip service")
+	}
+	if dependencies.IsNil(deps.Authentication) {
+		return nil, errors.New("frontend hub requires authentication service")
+	}
+
 	handlers := shared.NewMessageHandlers[frontend.EventType, *Client]()
 
 	handlers.Add(frontend.Token, handleTokenEvent)
@@ -122,9 +136,6 @@ func NewHub(stripService shared.StripService, authenticationService shared.Authe
 	handlers.Add(frontend.RunwayClearance, handleRunwayClearance)
 	handlers.Add(frontend.RunwayConfirmation, handleRunwayConfirmation)
 	handlers.Add(frontend.AcknowledgeUnexpectedChange, handleAcknowledgeUnexpectedChange)
-	handlers.Add(frontend.IssuePdcClearance, handleIssuePdcClearance)
-	handlers.Add(frontend.PdcManualStateChange, handlePdcManualStateChange)
-	handlers.Add(frontend.RevertToVoice, handleRevertToVoice)
 	handlers.Add(frontend.ActionCreateTacticalStrip, handleCreateTacticalStrip)
 	handlers.Add(frontend.ActionDeleteTacticalStrip, handleDeleteTacticalStrip)
 	handlers.Add(frontend.ActionConfirmTacticalStrip, handleConfirmTacticalStrip)
@@ -148,8 +159,8 @@ func NewHub(stripService shared.StripService, authenticationService shared.Authe
 		cidDisconnect:         make(chan cidDisconnectMessage),
 		clients:               make(map[*Client]bool),
 		handlers:              handlers,
-		stripService:          stripService,
-		authenticationService: authenticationService,
+		stripService:          deps.Strips,
+		authenticationService: deps.Authentication,
 		messages:              make(map[int32][]frontend.MessageReceivedEvent),
 		metarCache:            make(map[int32]string),
 		arrAtisCodeCache:      make(map[int32]string),
@@ -157,9 +168,18 @@ func NewHub(stripService shared.StripService, authenticationService shared.Authe
 		clxOverrides:          make(map[int32]map[string]bool),
 	}
 
-	go hub.Run()
+	return hub, nil
+}
 
-	return hub
+func (hub *Hub) RegisterPDCHandlers(service shared.PdcService) error {
+	if dependencies.IsNil(service) {
+		return errors.New("frontend hub requires PDC service when registering PDC handlers")
+	}
+	hub.pdcService = service
+	hub.handlers.Add(frontend.IssuePdcClearance, handleIssuePdcClearance)
+	hub.handlers.Add(frontend.PdcManualStateChange, handlePdcManualStateChange)
+	hub.handlers.Add(frontend.RevertToVoice, handleRevertToVoice)
+	return nil
 }
 
 // SetStandActionService enables SAT commands only after SAT readiness has been
@@ -1334,9 +1354,11 @@ func (hub *Hub) cachedAtisEvent(session int32) *frontend.AtisUpdateEvent {
 	}
 }
 
-func (hub *Hub) Run() {
+func (hub *Hub) Run(ctx context.Context) {
 	for {
 		select {
+		case <-ctx.Done():
+			return
 		case client := <-hub.register:
 			hub.clients[client] = true
 			hub.OnRegister(client)

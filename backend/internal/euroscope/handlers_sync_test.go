@@ -14,7 +14,7 @@ import (
 )
 
 type autoAssumeSpyStripService struct {
-	testutil.NoOpStripService
+	noOpStripService
 	mu        sync.Mutex
 	positions []string
 }

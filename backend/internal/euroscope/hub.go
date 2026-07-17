@@ -2,6 +2,7 @@ package euroscope
 
 import (
 	"FlightStrips/internal/config"
+	"FlightStrips/internal/dependencies"
 	"FlightStrips/internal/metrics"
 	internalModels "FlightStrips/internal/models"
 	"FlightStrips/internal/shared"
@@ -39,6 +40,7 @@ type Hub struct {
 	server                shared.Server
 	stripService          shared.StripService
 	controllerService     shared.ControllerService
+	pdcService            shared.PdcService
 	authenticationService shared.AuthenticationService
 	clients               map[*Client]bool
 
@@ -111,7 +113,23 @@ func (hub *Hub) markEuroscopeSeen(ctx context.Context, session int32, callsign s
 	}
 }
 
-func NewHub(stripService shared.StripService, controllerService shared.ControllerService, authenticationService shared.AuthenticationService) *Hub {
+type HubDependencies struct {
+	Strips         shared.StripService
+	Controllers    shared.ControllerService
+	Authentication shared.AuthenticationService
+}
+
+func NewHub(deps HubDependencies) (*Hub, error) {
+	if dependencies.IsNil(deps.Strips) {
+		return nil, errors.New("EuroScope hub requires strip service")
+	}
+	if dependencies.IsNil(deps.Controllers) {
+		return nil, errors.New("EuroScope hub requires controller service")
+	}
+	if dependencies.IsNil(deps.Authentication) {
+		return nil, errors.New("EuroScope hub requires authentication service")
+	}
+
 	handlers := shared.NewMessageHandlers[euroscope.EventType, *Client]()
 
 	handlers.Add(euroscope.Login, handleLoginEvent)
@@ -142,8 +160,6 @@ func NewHub(stripService shared.StripService, controllerService shared.Controlle
 	handlers.Add(euroscope.TrackingControllerChanged, handleTrackingControllerChanged)
 	handlers.Add(euroscope.CoordinationReceived, handleCoordinationReceived)
 	handlers.Add(euroscope.CdmMasterToggle, handleCdmMasterToggle)
-	handlers.Add(euroscope.IssuePdcClearance, handleIssuePdcClearance)
-	handlers.Add(euroscope.PdcRevertToVoice, handlePdcRevertToVoice)
 	handlers.Add(euroscope.SendPrivateMessage, handleSendPrivateMessage)
 
 	hub := &Hub{
@@ -153,9 +169,9 @@ func NewHub(stripService shared.StripService, controllerService shared.Controlle
 		send:                        make(chan internalMessage, hubSendQueueSize),
 		master:                      make(map[int32]*Client),
 		handlers:                    handlers,
-		stripService:                stripService,
-		controllerService:           controllerService,
-		authenticationService:       authenticationService,
+		stripService:                deps.Strips,
+		controllerService:           deps.Controllers,
+		authenticationService:       deps.Authentication,
 		recorders:                   make(map[int32]*recorder.Recorder),
 		offlineTimers:               make(map[string]*offlineTimerEntry),
 		aircraftDisconnectTimers:    make(map[string]*aircraftDisconnectEntry),
@@ -168,9 +184,17 @@ func NewHub(stripService shared.StripService, controllerService shared.Controlle
 	}
 	hub.squawkThrottle = newSquawkThrottle(defaultSquawkRequestInterval, hub.readAssignedSquawk, hub.dispatchGenerateSquawkRequest)
 
-	go hub.Run()
+	return hub, nil
+}
 
-	return hub
+func (hub *Hub) RegisterPDCHandlers(service shared.PdcService) error {
+	if dependencies.IsNil(service) {
+		return errors.New("EuroScope hub requires PDC service when registering PDC handlers")
+	}
+	hub.pdcService = service
+	hub.handlers.Add(euroscope.IssuePdcClearance, handleIssuePdcClearance)
+	hub.handlers.Add(euroscope.PdcRevertToVoice, handlePdcRevertToVoice)
+	return nil
 }
 
 func (hub *Hub) Register(client *Client) {
@@ -973,9 +997,11 @@ func (hub *Hub) BroadcastCdmUpdates(session int32, events []euroscope.CdmUpdateE
 	}
 }
 
-func (hub *Hub) Run() {
+func (hub *Hub) Run(ctx context.Context) {
 	for {
 		select {
+		case <-ctx.Done():
+			return
 		case client := <-hub.register:
 			hub.clients[client] = true
 			hub.OnRegister(client)

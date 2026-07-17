@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"FlightStrips/internal/database"
-	"FlightStrips/internal/pdc/mocks"
 	"FlightStrips/internal/pdc/testdata"
 	"FlightStrips/internal/repository/postgres"
 	"FlightStrips/internal/shared"
@@ -30,10 +29,10 @@ type handlerTestSetup struct {
 	service       *Service
 	queries       *database.Queries
 	sessionID     int32
-	mockStrip     *mocks.StripService
-	mockFrontend  *mocks.FrontendHub
-	mockEuroscope *mocks.EuroscopeHub
-	mockHoppie    *mocks.HoppieClient
+	mockStrip     *mockPdcStripService
+	mockFrontend  *mockPdcFrontendHub
+	mockEuroscope *mockPdcEuroscopeHub
+	mockHoppie    *mockHoppieClient
 }
 
 func setupHandlerTest(t *testing.T) *handlerTestSetup {
@@ -44,22 +43,25 @@ func setupHandlerTest(t *testing.T) *handlerTestSetup {
 	sessionRepo := postgres.NewSessionRepository(dbPool)
 	stripRepo := postgres.NewStripRepository(dbPool)
 	sectorRepo := postgres.NewSectorOwnerRepository(dbPool)
+	controllerRepo := postgres.NewControllerRepository(dbPool)
 
-	mockStrip := new(mocks.StripService)
-	mockFrontend := new(mocks.FrontendHub)
-	mockEuroscope := new(mocks.EuroscopeHub)
-	mockHoppie := new(mocks.HoppieClient)
+	mockStrip := new(mockPdcStripService)
+	mockFrontend := new(mockPdcFrontendHub)
+	mockEuroscope := new(mockPdcEuroscopeHub)
+	mockHoppie := new(mockHoppieClient)
 
 	adapter := &hoppieClientAdapter{HoppieClient: mockHoppie}
 	service := &Service{
-		client:        adapter,
-		sessionRepo:   sessionRepo,
-		stripRepo:     stripRepo,
-		sectorRepo:    sectorRepo,
-		frontendHub:   mockFrontend,
-		stripService:  mockStrip,
-		timeouts:      make(map[string]*timeoutTracker),
-		timeoutConfig: 30 * time.Second,
+		client:         adapter,
+		sessionRepo:    sessionRepo,
+		stripRepo:      stripRepo,
+		sectorRepo:     sectorRepo,
+		controllerRepo: controllerRepo,
+		frontendHub:    mockFrontend,
+		euroscopeHub:   testPdcEuroscope{},
+		stripService:   mockStrip,
+		timeouts:       make(map[string]*timeoutTracker),
+		timeoutConfig:  30 * time.Second,
 	}
 	mockStrip.On("ReevaluatePdcInvalidValidation", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
 	mockStrip.On("ClearMandatoryRouteCdm", mock.Anything, mock.Anything, mock.Anything).Maybe()
@@ -171,7 +173,7 @@ func TestHandleAcknowledgeSuccessConfirmsClearance(t *testing.T) {
 	err := s.service.SubmitWebPDCRequest(context.Background(), "SAS123", "B", "", "", "A320")
 	require.NoError(t, err)
 
-	s.service.SetEuroscopeHub(s.mockEuroscope)
+	s.service.euroscopeHub = s.mockEuroscope
 	mock.InOrder(
 		s.mockStrip.On("ConfirmPdcClearance", mock.Anything, s.sessionID, "SAS123", shared.BAY_CLEARED, "").Return(nil),
 		s.mockStrip.On("AutoAssumeForClearedStripByCid", mock.Anything, s.sessionID, "SAS123", "").Return(nil),

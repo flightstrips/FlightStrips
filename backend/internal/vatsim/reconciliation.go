@@ -1,9 +1,11 @@
 package vatsim
 
 import (
+	"FlightStrips/internal/dependencies"
 	"FlightStrips/internal/metrics"
 	"FlightStrips/internal/models"
 	"context"
+	"fmt"
 	"log/slog"
 	"strings"
 	"time"
@@ -96,39 +98,64 @@ type Reconciler struct {
 	now                func() time.Time
 }
 
-func NewReconciler(cache *Cache, sessions reconciliationSessionStore, strips reconciliationStripStore, assignments reconciliationAssignmentStore, notifier reconciliationNotifier, interval time.Duration, options ...ArrivalETAOption) *Reconciler {
+type ReconcilerDependencies struct {
+	Cache              *Cache
+	Sessions           reconciliationSessionStore
+	Strips             reconciliationStripStore
+	Assignments        reconciliationAssignmentStore
+	DepartureLifecycle DepartureLifecycle
+	ArrivalLifecycle   ArrivalLifecycle
+	Notifier           reconciliationNotifier
+}
+
+func NewReconciler(deps ReconcilerDependencies, interval time.Duration, options ...ArrivalETAOption) (*Reconciler, error) {
+	required := []struct {
+		name  string
+		value any
+	}{
+		{"VATSIM cache", deps.Cache},
+		{"session store", deps.Sessions},
+		{"strip store", deps.Strips},
+		{"stand assignment store", deps.Assignments},
+		{"departure lifecycle", deps.DepartureLifecycle},
+		{"arrival lifecycle", deps.ArrivalLifecycle},
+		{"strip notifier", deps.Notifier},
+	}
+	for _, dependency := range required {
+		if dependencies.IsNil(dependency.value) {
+			return nil, fmt.Errorf("VATSIM reconciler requires %s", dependency.name)
+		}
+	}
+
+	return newReconciler(
+		deps.Cache,
+		deps.Sessions,
+		deps.Strips,
+		deps.Assignments,
+		deps.DepartureLifecycle,
+		deps.ArrivalLifecycle,
+		deps.Notifier,
+		interval,
+		options...,
+	), nil
+}
+
+func newReconciler(cache *Cache, sessions reconciliationSessionStore, strips reconciliationStripStore, assignments reconciliationAssignmentStore, departureLifecycle DepartureLifecycle, arrivalLifecycle ArrivalLifecycle, notifier reconciliationNotifier, interval time.Duration, options ...ArrivalETAOption) *Reconciler {
 	if interval <= 0 {
 		interval = defaultRefreshInterval
 	}
-	reconciler := &Reconciler{cache: cache, sessions: sessions, strips: strips, assignments: assignments, notifier: notifier, interval: interval, now: time.Now}
+	reconciler := &Reconciler{
+		cache: cache, sessions: sessions, strips: strips, assignments: assignments,
+		lifecycle: departureLifecycle, arrivalLifecycle: arrivalLifecycle,
+		notifier: notifier, interval: interval, now: time.Now,
+	}
 	for _, option := range options {
 		option(reconciler)
 	}
 	return reconciler
 }
 
-// SetDepartureLifecycle wires the stand reservation lifecycle. It is installed
-// after construction so the lifecycle can depend on the reconciler's stores
-// without a circular constructor dependency.
-func (r *Reconciler) SetDepartureLifecycle(lifecycle DepartureLifecycle) {
-	if r != nil {
-		r.lifecycle = lifecycle
-	}
-}
-
-// SetArrivalLifecycle wires the arrival stand lifecycle. It is installed after
-// construction so the lifecycle can depend on the reconciler's stores without a
-// circular constructor dependency.
-func (r *Reconciler) SetArrivalLifecycle(lifecycle ArrivalLifecycle) {
-	if r != nil {
-		r.arrivalLifecycle = lifecycle
-	}
-}
-
 func (r *Reconciler) Start(ctx context.Context) {
-	if r == nil || r.cache == nil || r.sessions == nil || r.strips == nil {
-		return
-	}
 	_ = r.Reconcile(ctx)
 	ticker := time.NewTicker(r.interval)
 	defer ticker.Stop()
@@ -146,9 +173,6 @@ func (r *Reconciler) Start(ctx context.Context) {
 // directly instead of deriving them from EuroScope clients, so it also works
 // before a tower or EuroScope master connects.
 func (r *Reconciler) Reconcile(ctx context.Context) error {
-	if r == nil || r.cache == nil || r.sessions == nil || r.strips == nil {
-		return nil
-	}
 	snapshot := r.cache.Snapshot()
 	if snapshot.Timestamp.IsZero() {
 		return nil
@@ -234,12 +258,12 @@ func (r *Reconciler) reconcileSession(ctx context.Context, snapshot Snapshot, se
 			changedCount++
 			r.notify(session.ID, strip.Callsign)
 		}
-		if r.lifecycle != nil && strings.EqualFold(strings.TrimSpace(flight.FlightPlan.Origin), airport) {
+		if strings.EqualFold(strings.TrimSpace(flight.FlightPlan.Origin), airport) {
 			if err := r.lifecycle.ProcessDeparture(ctx, session.ID, strip, departureFlightInfo(flight)); err != nil {
 				return err
 			}
 		}
-		if r.arrivalLifecycle != nil && strings.EqualFold(strings.TrimSpace(flight.FlightPlan.Destination), airport) {
+		if strings.EqualFold(strings.TrimSpace(flight.FlightPlan.Destination), airport) {
 			if err := r.arrivalLifecycle.ProcessArrival(ctx, session.ID, strip, arrivalFlightInfo(flight)); err != nil {
 				return err
 			}
@@ -249,7 +273,7 @@ func (r *Reconciler) reconcileSession(ctx context.Context, snapshot Snapshot, se
 	slog.InfoContext(ctx, "SAT VATSIM reconciliation completed", slog.Int("session", int(session.ID)), slog.String("airport", airport), slog.Duration("snapshot_age", snapshot.Age), slog.Int("pilots", pilots), slog.Int("prefiles", prefiles), slog.Int("changed", changedCount))
 
 	for callsign, strip := range existing {
-		if relevant[callsign].Callsign == "" && r.lifecycle != nil &&
+		if relevant[callsign].Callsign == "" &&
 			strings.EqualFold(strings.TrimSpace(strip.Origin), airport) {
 			if err := r.lifecycle.CancelDeparture(ctx, session.ID, callsign); err != nil {
 				return err
@@ -266,10 +290,7 @@ func (r *Reconciler) reconcileSession(ctx context.Context, snapshot Snapshot, se
 }
 
 func (r *Reconciler) updateArrivalETA(ctx context.Context, session int32, strip *models.Strip, flight Flight) (bool, error) {
-	now := time.Now()
-	if r.now != nil {
-		now = r.now()
-	}
+	now := r.now()
 	candidate, ok := calculateArrivalETA(now, flight, r.airportCoordinates)
 	if !ok {
 		// VATSIM can temporarily omit timing or movement fields. Keep the last
@@ -353,18 +374,13 @@ func (r *Reconciler) applyFlight(strip *models.Strip, flight Flight, snapshotTim
 // RetainsStrip reports whether VATSIM or SAT is still responsible for keeping
 // a strip alive after EuroScope disconnects it.
 func (r *Reconciler) RetainsStrip(ctx context.Context, session int32, callsign string) bool {
-	if r != nil && r.cache != nil {
-		if _, ok := r.cache.Snapshot().FlightByCallsign(callsign); ok {
-			return true
-		}
+	if _, ok := r.cache.Snapshot().FlightByCallsign(callsign); ok {
+		return true
 	}
-	return r != nil && r.isAssigned(ctx, session, callsign)
+	return r.isAssigned(ctx, session, callsign)
 }
 
 func (r *Reconciler) isAssigned(ctx context.Context, session int32, callsign string) bool {
-	if r.assignments == nil {
-		return false
-	}
 	assignment, err := r.assignments.GetAssignment(ctx, session, callsign)
 	if err != nil || assignment == nil {
 		return false
@@ -372,10 +388,7 @@ func (r *Reconciler) isAssigned(ctx context.Context, session int32, callsign str
 	if assignment.ExpiresAt == nil {
 		return true
 	}
-	now := time.Now()
-	if r.now != nil {
-		now = r.now()
-	}
+	now := r.now()
 	return assignment.ExpiresAt.After(now)
 }
 
@@ -406,9 +419,7 @@ func arrivalFlightInfo(flight Flight) ArrivalFlightInfo {
 }
 
 func (r *Reconciler) notify(session int32, callsign string) {
-	if r.notifier != nil {
-		r.notifier.SendStripUpdate(session, callsign)
-	}
+	r.notifier.SendStripUpdate(session, callsign)
 }
 
 func nextSequence(strips []*models.Strip, flight Flight, airport string) int32 {

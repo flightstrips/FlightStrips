@@ -12,7 +12,7 @@ import (
 )
 
 type coordinationSpyStripService struct {
-	testutil.NoOpStripService
+	noOpStripService
 	assumeCalled      bool
 	forceAssumeCalled bool
 	forceAssumeArg    struct {

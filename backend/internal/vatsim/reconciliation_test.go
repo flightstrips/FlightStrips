@@ -151,7 +151,7 @@ func TestReconcileCreatesPrefileDepartureAndHiddenArrivals(t *testing.T) {
 	)
 	strips := &reconciliationTestStrips{bySession: map[int32][]*models.Strip{}}
 	notifier := &reconciliationTestNotifier{}
-	reconciler := NewReconciler(cache, reconciliationTestSessions{items: []*models.Session{{ID: 7, Airport: "EKCH"}}}, strips, reconciliationTestAssignments{}, notifier, time.Second)
+	reconciler := newTestReconciler(cache, reconciliationTestSessions{items: []*models.Session{{ID: 7, Airport: "EKCH"}}}, strips, reconciliationTestAssignments{}, notifier, time.Second)
 
 	require.NoError(t, reconciler.Reconcile(context.Background()))
 	require.Len(t, strips.created, 3)
@@ -175,7 +175,7 @@ func TestReconcileKeepsOnlineAPIDepartureHidden(t *testing.T) {
 	existing := &models.Strip{Callsign: "SAS101", Session: 7, Origin: "EKCH", Destination: "EGLL", Bay: hiddenDepartureBay, Sequence: &sequence}
 	cache := newReconciliationTestCache(now, Flight{CID: "1", Callsign: "SAS101", State: FlightStateOnline, LastUpdated: now, FlightPlan: FlightPlan{Origin: "EKCH", Destination: "EGLL", Revision: 4}})
 	strips := &reconciliationTestStrips{bySession: map[int32][]*models.Strip{7: {existing}}}
-	reconciler := NewReconciler(cache, reconciliationTestSessions{items: []*models.Session{{ID: 7, Airport: "EKCH"}}}, strips, reconciliationTestAssignments{}, nil, time.Second)
+	reconciler := newTestReconciler(cache, reconciliationTestSessions{items: []*models.Session{{ID: 7, Airport: "EKCH"}}}, strips, reconciliationTestAssignments{}, nil, time.Second)
 
 	require.NoError(t, reconciler.Reconcile(context.Background()))
 	assert.Equal(t, hiddenDepartureBay, existing.Bay)
@@ -187,7 +187,7 @@ func TestReconcileMovesExistingAPIPrefileOutOfCLX(t *testing.T) {
 	existing := &models.Strip{Callsign: "SAS101", Session: 7, Origin: "EKCH", Destination: "EGLL", Bay: "NOT_CLEARED", Sequence: &sequence}
 	cache := newReconciliationTestCache(now, Flight{CID: "1", Callsign: "SAS101", State: FlightStatePrefile, LastUpdated: now, FlightPlan: FlightPlan{Origin: "EKCH", Destination: "EGLL", Revision: 4}})
 	strips := &reconciliationTestStrips{bySession: map[int32][]*models.Strip{7: {existing}}}
-	reconciler := NewReconciler(cache, reconciliationTestSessions{items: []*models.Session{{ID: 7, Airport: "EKCH"}}}, strips, reconciliationTestAssignments{}, nil, time.Second)
+	reconciler := newTestReconciler(cache, reconciliationTestSessions{items: []*models.Session{{ID: 7, Airport: "EKCH"}}}, strips, reconciliationTestAssignments{}, nil, time.Second)
 
 	require.NoError(t, reconciler.Reconcile(context.Background()))
 	assert.Equal(t, hiddenDepartureBay, existing.Bay)
@@ -198,7 +198,7 @@ func TestReconcileDoesNotMoveEuroscopeOwnedPrefileToHidden(t *testing.T) {
 	existing := &models.Strip{Callsign: "SAS101", Session: 7, Origin: "EKCH", Destination: "EGLL", Bay: "NOT_CLEARED", EuroscopeSeenAt: &now}
 	cache := newReconciliationTestCache(now, Flight{CID: "1", Callsign: "SAS101", State: FlightStatePrefile, LastUpdated: now, FlightPlan: FlightPlan{Origin: "EKCH", Destination: "EGLL", Revision: 4}})
 	strips := &reconciliationTestStrips{bySession: map[int32][]*models.Strip{7: {existing}}}
-	reconciler := NewReconciler(cache, reconciliationTestSessions{items: []*models.Session{{ID: 7, Airport: "EKCH"}}}, strips, reconciliationTestAssignments{}, nil, time.Second)
+	reconciler := newTestReconciler(cache, reconciliationTestSessions{items: []*models.Session{{ID: 7, Airport: "EKCH"}}}, strips, reconciliationTestAssignments{}, nil, time.Second)
 
 	require.NoError(t, reconciler.Reconcile(context.Background()))
 	assert.Equal(t, "NOT_CLEARED", existing.Bay)
@@ -215,7 +215,7 @@ func TestReconcileKeepsEuroscopeFieldsAndProtectsControllerEdits(t *testing.T) {
 	}
 	cache := newReconciliationTestCache(now, Flight{CID: "4", Callsign: "SAS404", State: FlightStateOnline, LastUpdated: now, FlightPlan: FlightPlan{Origin: "EKCH", Destination: "EDDF", Route: "VATSIM ROUTE", Revision: 7}})
 	strips := &reconciliationTestStrips{bySession: map[int32][]*models.Strip{7: {existing}}}
-	reconciler := NewReconciler(cache, reconciliationTestSessions{items: []*models.Session{{ID: 7, Airport: "EKCH"}}}, strips, reconciliationTestAssignments{}, nil, time.Second)
+	reconciler := newTestReconciler(cache, reconciliationTestSessions{items: []*models.Session{{ID: 7, Airport: "EKCH"}}}, strips, reconciliationTestAssignments{}, nil, time.Second)
 
 	require.NoError(t, reconciler.Reconcile(context.Background()))
 	assert.Empty(t, strips.created, "the matching callsign must not create a duplicate strip")
@@ -231,7 +231,7 @@ func TestReconcileUsesNewerVatsimFieldsWhenEuroScopeDataIsOlder(t *testing.T) {
 	existing := &models.Strip{Callsign: "SAS707", Session: 7, Origin: "EKCH", Destination: "EDDF", Route: &oldRoute, Bay: "NOT_CLEARED", EuroscopeSeenAt: &euroscopeSeen}
 	cache := newReconciliationTestCache(now, Flight{CID: "7", Callsign: "SAS707", State: FlightStateOnline, LastUpdated: now, FlightPlan: FlightPlan{Origin: "EKCH", Destination: "EDDF", Route: "NEW ROUTE", Revision: 8}})
 	strips := &reconciliationTestStrips{bySession: map[int32][]*models.Strip{7: {existing}}}
-	reconciler := NewReconciler(cache, reconciliationTestSessions{items: []*models.Session{{ID: 7, Airport: "EKCH"}}}, strips, reconciliationTestAssignments{}, nil, time.Second)
+	reconciler := newTestReconciler(cache, reconciliationTestSessions{items: []*models.Session{{ID: 7, Airport: "EKCH"}}}, strips, reconciliationTestAssignments{}, nil, time.Second)
 
 	require.NoError(t, reconciler.Reconcile(context.Background()))
 	require.Len(t, strips.updated, 1)
@@ -247,7 +247,7 @@ func TestReconcileCleanupAndDisconnectRetentionRespectOtherOwners(t *testing.T) 
 	cache := newReconciliationTestCache(now)
 	strips := &reconciliationTestStrips{bySession: map[int32][]*models.Strip{7: {stale, assigned}}}
 	assignments := reconciliationTestAssignments{active: map[string]bool{assignmentKey(7, "SAS606"): true}}
-	reconciler := NewReconciler(cache, reconciliationTestSessions{items: []*models.Session{{ID: 7, Airport: "EKCH"}}}, strips, assignments, nil, time.Second)
+	reconciler := newTestReconciler(cache, reconciliationTestSessions{items: []*models.Session{{ID: 7, Airport: "EKCH"}}}, strips, assignments, nil, time.Second)
 
 	require.NoError(t, reconciler.Reconcile(context.Background()))
 	assert.Equal(t, []string{"SAS505"}, strips.deleted)
@@ -260,9 +260,9 @@ func TestReconcileCancelsDepartureLifecycleWhenFlightDisappears(t *testing.T) {
 	cid := "5"
 	strip := &models.Strip{Callsign: "SAS505", Session: 7, Origin: "EKCH", VatsimCID: &cid}
 	strips := &reconciliationTestStrips{bySession: map[int32][]*models.Strip{7: {strip}}}
-	reconciler := NewReconciler(newReconciliationTestCache(now), reconciliationTestSessions{items: []*models.Session{{ID: 7, Airport: "EKCH"}}}, strips, reconciliationTestAssignments{}, nil, time.Second)
+	reconciler := newTestReconciler(newReconciliationTestCache(now), reconciliationTestSessions{items: []*models.Session{{ID: 7, Airport: "EKCH"}}}, strips, reconciliationTestAssignments{}, nil, time.Second)
 	lifecycle := &reconciliationTestDepartureLifecycle{}
-	reconciler.SetDepartureLifecycle(lifecycle)
+	reconciler.lifecycle = lifecycle
 
 	require.NoError(t, reconciler.Reconcile(context.Background()))
 	assert.Equal(t, []string{"SAS505"}, lifecycle.cancelled)
@@ -277,7 +277,7 @@ func TestRetainsStripHonorsReservationExpiry(t *testing.T) {
 		assignmentKey(7, "SAS2"): &expired,
 	}}
 	cache := newReconciliationTestCache(now)
-	reconciler := NewReconciler(cache, reconciliationTestSessions{items: []*models.Session{{ID: 7, Airport: "EKCH"}}}, &reconciliationTestStrips{bySession: map[int32][]*models.Strip{}}, assignments, nil, time.Second, WithClock(func() time.Time { return now }))
+	reconciler := newTestReconciler(cache, reconciliationTestSessions{items: []*models.Session{{ID: 7, Airport: "EKCH"}}}, &reconciliationTestStrips{bySession: map[int32][]*models.Strip{}}, assignments, nil, time.Second, WithClock(func() time.Time { return now }))
 
 	assert.True(t, reconciler.RetainsStrip(context.Background(), 7, "SAS1"), "an active reservation keeps the strip alive")
 	assert.False(t, reconciler.RetainsStrip(context.Background(), 7, "SAS2"), "an expired reservation no longer retains the strip")

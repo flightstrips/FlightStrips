@@ -93,7 +93,7 @@ func TestReconcileKeepsHiddenArrivalOutOfFinalAtETAminusFortyFiveMinutes(t *test
 	}
 	cache := newReconciliationTestCache(now, flight)
 	strips := &reconciliationTestStrips{bySession: map[int32][]*models.Strip{}}
-	reconciler := NewReconciler(cache, reconciliationTestSessions{items: []*models.Session{{ID: 7, Airport: "EKCH"}}}, strips, reconciliationTestAssignments{}, nil, time.Second, WithClock(func() time.Time { return now }))
+	reconciler := newTestReconciler(cache, reconciliationTestSessions{items: []*models.Session{{ID: 7, Airport: "EKCH"}}}, strips, reconciliationTestAssignments{}, nil, time.Second, WithClock(func() time.Time { return now }))
 
 	require.NoError(t, reconciler.Reconcile(context.Background()))
 	require.Len(t, strips.created, 1)

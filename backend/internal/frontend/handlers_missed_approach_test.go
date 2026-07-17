@@ -12,7 +12,7 @@ import (
 )
 
 type spyMissedApproachStripService struct {
-	testutil.NoOpStripService
+	noOpStripService
 	session  int32
 	callsign string
 	position string

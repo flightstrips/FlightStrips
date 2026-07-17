@@ -49,7 +49,7 @@ func (s *Server) UpdateRouteForStripContext(ctx context.Context, callsign string
 		return err
 	}
 
-	coverage, err := routeDisplayCoverage(ctx, s.controllerRepo, sessionId, s.transceiverLookup)
+	coverage, err := routeDisplayCoverage(ctx, s.controllerRepo, sessionId, s.frequencyProviders)
 	if err != nil {
 		return err
 	}
@@ -94,7 +94,7 @@ func (s *Server) ComputeNextDisplayForStripContext(ctx context.Context, strip *m
 		return nil, err
 	}
 
-	coverage, err := routeDisplayCoverage(ctx, s.controllerRepo, sessionId, s.transceiverLookup)
+	coverage, err := routeDisplayCoverage(ctx, s.controllerRepo, sessionId, s.frequencyProviders)
 	if err != nil {
 		return nil, err
 	}
@@ -122,7 +122,7 @@ func (s *Server) ComputeNextDisplaysForStripsContext(ctx context.Context, strips
 		return err
 	}
 
-	coverage, err := routeDisplayCoverage(ctx, s.controllerRepo, sessionId, s.transceiverLookup)
+	coverage, err := routeDisplayCoverage(ctx, s.controllerRepo, sessionId, s.frequencyProviders)
 	if err != nil {
 		return err
 	}
@@ -175,7 +175,7 @@ func (s *Server) updateRoutesForSessionContextUnlocked(ctx context.Context, sess
 		return err
 	}
 
-	coverage, err := routeDisplayCoverage(ctx, s.controllerRepo, sessionId, s.transceiverLookup)
+	coverage, err := routeDisplayCoverage(ctx, s.controllerRepo, sessionId, s.frequencyProviders)
 	if err != nil {
 		return err
 	}
@@ -497,12 +497,12 @@ func buildRouteNextDisplay(session *models.Session, sectorRef string, owner stri
 	return nil
 }
 
-func routeDisplayCoverage(ctx context.Context, controllerRepo repository.ControllerRepository, sessionId int32, transceiverLookup TransceiverLookup) (map[string]map[string]struct{}, error) {
+func routeDisplayCoverage(ctx context.Context, controllerRepo repository.ControllerRepository, sessionId int32, frequencyProviders []TransceiverLookup) (map[string]map[string]struct{}, error) {
 	if controllerRepo == nil {
 		return map[string]map[string]struct{}{}, nil
 	}
 
-	controllerCoverage, err := getCurrentControllerCoverage(ctx, controllerRepo, sessionId, transceiverLookup)
+	controllerCoverage, err := getCurrentControllerCoverage(ctx, controllerRepo, sessionId, frequencyProviders)
 	if err != nil {
 		return nil, err
 	}

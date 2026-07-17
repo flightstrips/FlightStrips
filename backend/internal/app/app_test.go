@@ -118,6 +118,11 @@ func TestBuildDisablesStandAssignmentByDefault(t *testing.T) {
 	response := httptest.NewRecorder()
 	application.Handler().ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/api/pdc/status", nil))
 	require.Equal(t, http.StatusNotFound, response.Code)
+
+	statusRequest := httptest.NewRequest(http.MethodGet, "/api/stand/status", nil)
+	statusResponse := httptest.NewRecorder()
+	application.Handler().ServeHTTP(statusResponse, statusRequest)
+	require.Equal(t, http.StatusUnauthorized, statusResponse.Code)
 }
 
 func TestBuildAssemblesPDCOnlyWithInjectedRealClientBoundary(t *testing.T) {

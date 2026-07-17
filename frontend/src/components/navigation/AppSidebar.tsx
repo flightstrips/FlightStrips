@@ -1,5 +1,6 @@
 import {
   Clock3,
+  Warehouse,
   User,
   Proportions,
 } from "lucide-react"
@@ -39,6 +40,11 @@ export function AppSidebar() {
       title: "CDM",
       url: "/cdm",
       icon: Clock3,
+    },
+    {
+      title: "Stand System",
+      url: "/stand",
+      icon: Warehouse,
     },
     docsNav,
   ]

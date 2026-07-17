@@ -15,6 +15,7 @@ import Dashboard from "@/pages/dashboard";
 import AppPage from "@/pages/app";
 import PluginAuthComplete from "@/pages/plugin-auth-complete";
 import CdmPage from "@/pages/cdm";
+import StandStatusPage from "@/pages/stand-status";
 import PilotLayout from "@/pages/pilot-layout";
 import PilotFlightPage from "@/pages/pilot-flight";
 import EfbLayout from "@/pages/efb-layout";
@@ -28,6 +29,7 @@ startAppUpdateMonitoring();
 
 const ProtectedLayout = withAuthenticationRequired(Layout);
 const ProtectedCdmPage = withAuthenticationRequired(CdmPage);
+const ProtectedStandStatusPage = withAuthenticationRequired(StandStatusPage);
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -55,6 +57,7 @@ createRoot(document.getElementById('root')!).render(
             <Route path="/dashboard/docs" element={<DocsRouter />}/>
           </Route>
           <Route path="/cdm" element={<ProtectedCdmPage />} />
+          <Route path="/stand" element={<ProtectedStandStatusPage />} />
           <Route path="*" element={<div>404 Not Found</div>}/>
         </Routes>
       </Auth0ProviderWithNavigate>

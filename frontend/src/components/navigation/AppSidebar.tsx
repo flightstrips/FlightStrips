@@ -1,5 +1,6 @@
 import {
   Clock3,
+  FlaskConical,
   Warehouse,
   User,
   Proportions,
@@ -20,10 +21,12 @@ import { Button } from "@/components/ui/button"
 import { useAuth0 } from "@auth0/auth0-react"
 import { useDocsNav } from "@/hooks/useDocsNav"
 import type { NavItem } from "@/types/nav"
+import { useTestToolsAvailability } from "@/hooks/useTestToolsAvailability"
 
 export function AppSidebar() {
   const { logout } = useAuth0()
   const docsNav = useDocsNav()
+  const testToolsAvailable = useTestToolsAvailability()
 
   const items: NavItem[] = [
     {
@@ -47,6 +50,11 @@ export function AppSidebar() {
       icon: Warehouse,
     },
     docsNav,
+    ...(testToolsAvailable ? [{
+      title: "Test Console",
+      url: "/test",
+      icon: FlaskConical,
+    }] : []),
   ]
 
   return (

@@ -86,7 +86,7 @@ type reconciliationNotifier interface {
 // session. It deliberately owns only feed fields; operational state remains
 // controller/EuroScope owned.
 type Reconciler struct {
-	cache              *Cache
+	cache              SnapshotSource
 	sessions           reconciliationSessionStore
 	strips             reconciliationStripStore
 	assignments        reconciliationAssignmentStore
@@ -99,7 +99,7 @@ type Reconciler struct {
 }
 
 type ReconcilerDependencies struct {
-	Cache              *Cache
+	Cache              SnapshotSource
 	Sessions           reconciliationSessionStore
 	Strips             reconciliationStripStore
 	Assignments        reconciliationAssignmentStore
@@ -140,7 +140,7 @@ func NewReconciler(deps ReconcilerDependencies, interval time.Duration, options 
 	), nil
 }
 
-func newReconciler(cache *Cache, sessions reconciliationSessionStore, strips reconciliationStripStore, assignments reconciliationAssignmentStore, departureLifecycle DepartureLifecycle, arrivalLifecycle ArrivalLifecycle, notifier reconciliationNotifier, interval time.Duration, options ...ArrivalETAOption) *Reconciler {
+func newReconciler(cache SnapshotSource, sessions reconciliationSessionStore, strips reconciliationStripStore, assignments reconciliationAssignmentStore, departureLifecycle DepartureLifecycle, arrivalLifecycle ArrivalLifecycle, notifier reconciliationNotifier, interval time.Duration, options ...ArrivalETAOption) *Reconciler {
 	if interval <= 0 {
 		interval = defaultRefreshInterval
 	}
@@ -190,6 +190,29 @@ func (r *Reconciler) Reconcile(ctx context.Context) error {
 		}
 	}
 	return nil
+}
+
+// ReconcileSession applies the current source snapshot to one explicitly
+// selected session. Test tools use this to avoid leaking synthetic flights
+// into other sessions that happen to serve the same airport.
+func (r *Reconciler) ReconcileSession(ctx context.Context, sessionID int32) error {
+	snapshot := r.cache.Snapshot()
+	if snapshot.Timestamp.IsZero() {
+		return nil
+	}
+	sessions, err := r.sessions.List(ctx)
+	if err != nil {
+		return err
+	}
+	for _, session := range sessions {
+		if session != nil && session.ID == sessionID {
+			if strings.TrimSpace(session.Airport) == "" {
+				return fmt.Errorf("session %d has no airport", sessionID)
+			}
+			return r.reconcileSession(ctx, snapshot, session)
+		}
+	}
+	return fmt.Errorf("session %d not found", sessionID)
 }
 
 func (r *Reconciler) reconcileSession(ctx context.Context, snapshot Snapshot, session *models.Session) error {

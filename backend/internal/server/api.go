@@ -28,7 +28,7 @@ func setAPIHeaders(w http.ResponseWriter, r *http.Request) {
 	addVaryHeader(headers, "Access-Control-Request-Method")
 	addVaryHeader(headers, "Access-Control-Request-Headers")
 	headers.Set("Access-Control-Allow-Origin", origin)
-	headers.Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+	headers.Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 	headers.Set("Access-Control-Allow-Headers", "Authorization, Content-Type")
 	headers.Set("Access-Control-Max-Age", "600")
 }

@@ -81,6 +81,18 @@ type Snapshot struct {
 	flightsByCID      map[string]Flight
 }
 
+// SnapshotSource supplies the latest immutable network-data generation.
+type SnapshotSource interface {
+	Snapshot() Snapshot
+}
+
+// FlightSource is the complete VATSIM lookup surface consumed by the app.
+type FlightSource interface {
+	SnapshotSource
+	VerifyPilotOwnsCallsign(context.Context, string, string) (bool, error)
+	GetCallsignByCID(context.Context, string) (string, bool, error)
+}
+
 // FlightByCallsign retrieves either an online pilot or prefile by normalized
 // callsign.
 func (s Snapshot) FlightByCallsign(callsign string) (Flight, bool) {
@@ -281,10 +293,16 @@ func (c *Cache) refresh(ctx context.Context) error {
 	c.lastRefreshError = nil
 	c.mu.Unlock()
 	age := time.Since(snapshot.timestamp)
-	if age < 0 { age = 0 }
+	if age < 0 {
+		age = 0
+	}
 	pilots, prefiles := 0, 0
 	for _, flight := range snapshot.flightsByCallsign {
-		if flight.Prefile() { prefiles++ } else { pilots++ }
+		if flight.Prefile() {
+			prefiles++
+		} else {
+			pilots++
+		}
 	}
 	metrics.RecordSATFeedSnapshot(ctx, age, pilots, prefiles)
 	slog.InfoContext(ctx, "SAT VATSIM feed refreshed", slog.Time("snapshot_at", snapshot.timestamp), slog.Duration("snapshot_age", age), slog.Int("pilots", pilots), slog.Int("prefiles", prefiles))

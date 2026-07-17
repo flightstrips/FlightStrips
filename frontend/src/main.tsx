@@ -22,6 +22,7 @@ import EfbLayout from "@/pages/efb-layout";
 import EfbPage from "@/pages/efb";
 import { withAuthenticationRequired } from '@auth0/auth0-react';
 import DocsRouter from "@/pages/docs/DocsRouter";
+import TestToolsPage from "@/pages/test-tools";
 import { ThemeSync } from "@/components/public/ThemeSync";
 import { startAppUpdateMonitoring } from "@/lib/app-update";
 
@@ -30,6 +31,7 @@ startAppUpdateMonitoring();
 const ProtectedLayout = withAuthenticationRequired(Layout);
 const ProtectedCdmPage = withAuthenticationRequired(CdmPage);
 const ProtectedStandStatusPage = withAuthenticationRequired(StandStatusPage);
+const ProtectedTestToolsPage = withAuthenticationRequired(TestToolsPage);
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -58,6 +60,7 @@ createRoot(document.getElementById('root')!).render(
           </Route>
           <Route path="/cdm" element={<ProtectedCdmPage />} />
           <Route path="/stand" element={<ProtectedStandStatusPage />} />
+          <Route path="/test" element={<ProtectedTestToolsPage />} />
           <Route path="*" element={<div>404 Not Found</div>}/>
         </Routes>
       </Auth0ProviderWithNavigate>

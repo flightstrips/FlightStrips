@@ -20,12 +20,14 @@ import (
 	"FlightStrips/internal/shared"
 	"FlightStrips/internal/standdiagnostics"
 	"FlightStrips/internal/standstatus"
+	"FlightStrips/internal/testtools"
 	"FlightStrips/internal/vatsim"
 	"FlightStrips/internal/websocket"
 	pkgEuroscope "FlightStrips/pkg/events/euroscope"
 	pkgFrontend "FlightStrips/pkg/events/frontend"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -69,8 +71,11 @@ type Config struct {
 	EnableTransceivers    bool
 	EnableTraffic         bool
 	EnableStandAssignment bool
+	EnableTestTools       bool
 	EnableDBSeed          bool
 	CloseDBOnClose        bool
+
+	StandAssignmentAircraftJSON string
 
 	StandAssignmentHoldDuration   time.Duration
 	StandAssignmentBlockExtension time.Duration
@@ -98,7 +103,16 @@ type App struct {
 
 func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 	cfg = cfg.withDefaults()
-	standAssignmentReadiness := configureStandAssignment(cfg.EnableStandAssignment)
+	if cfg.EnableTestTools && isLiveEnvironment(cfg.Environment) {
+		return nil, errors.New("ENABLE_TEST_TOOLS cannot be enabled in a live environment")
+	}
+	standAssignmentReadiness := configureStandAssignment(cfg.EnableStandAssignment, cfg.StandAssignmentAircraftJSON)
+	var testClock *testtools.Clock
+	satNow := time.Now
+	if cfg.EnableTestTools {
+		testClock = testtools.NewClock()
+		satNow = testClock.Now
+	}
 
 	dbpool, closeDB, err := buildDBPool(ctx, cfg, deps.DBPool)
 	if err != nil {
@@ -121,7 +135,7 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 	coordRepo := core.coordinations
 	tacticalStripRepo := core.tacticalStrips
 
-	satGraph, err := assembleSAT(cfg, standAssignmentReadiness, dbpool, core)
+	satGraph, err := assembleSAT(cfg, standAssignmentReadiness, dbpool, core, satNow)
 	if err != nil {
 		if closeDB {
 			dbpool.Close()
@@ -150,7 +164,7 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 	cdmClient := cdm.NewClient(cdm.WithAPIKey(cfg.CDMKey))
 
 	requireLiveCIDVerification := isLiveEnvironment(cfg.Environment)
-	vatsimCache := buildVATSIMCache(cfg, deps, requireLiveCIDVerification, standAssignmentReadiness.Ready)
+	vatsimGraph := assembleVATSIMSource(cfg, deps, requireLiveCIDVerification, standAssignmentReadiness.Ready)
 
 	var fsServer *server.Server
 	transports := assembleTransports(cfg, deps, func(ctx context.Context) error {
@@ -198,21 +212,18 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 		return nil, fmt.Errorf("initialize CDM service: %w", err)
 	}
 	stripService.SetCdmService(cdmService)
-	if departureLifecycle != nil {
-		departureLifecycle.SetWrongStandMessenger(euroscopeHub)
-	}
 	var vatsimReconciler *vatsim.Reconciler
-	if standAssignmentReadiness.Ready && vatsimCache != nil && standAssignmentRepo != nil {
+	if standAssignmentReadiness.Ready && vatsimGraph.source != nil && standAssignmentRepo != nil {
 		latitude, longitude := appconfig.GetAirportCoordinates()
 		vatsimReconciler, err = vatsim.NewReconciler(vatsim.ReconcilerDependencies{
-			Cache:              vatsimCache,
+			Cache:              vatsimGraph.source,
 			Sessions:           sessionRepo,
 			Strips:             stripRepo,
 			Assignments:        standAssignmentRepo,
 			DepartureLifecycle: departureLifecycle,
 			ArrivalLifecycle:   arrivalLifecycle,
 			Notifier:           frontendHub,
-		}, deps.VATSIMPollInterval, vatsim.WithAirportCoordinates(latitude, longitude))
+		}, deps.VATSIMPollInterval, vatsim.WithAirportCoordinates(latitude, longitude), vatsim.WithClock(satNow))
 		if err != nil {
 			if closeDB {
 				dbpool.Close()
@@ -221,6 +232,12 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 		}
 		euroscopeHub.SetAircraftDisconnectRetainer(vatsimReconciler.RetainsStrip)
 	}
+	testToolsGraph := assembleTestTools(cfg.EnableTestTools, testToolsAssemblyDependencies{
+		auth: authService, readiness: standAssignmentReadiness,
+		source: vatsimGraph.synthetic, reconciler: vatsimReconciler,
+		sat: satGraph, core: core, stripDeleter: stripService,
+		clock: testClock, euroscope: euroscopeHub,
+	})
 	var albHub *alb.Hub
 	if cfg.EnableALB {
 		albHub = alb.NewHub()
@@ -336,13 +353,13 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 			albHub:       albHub,
 			pdcService:   pdcService,
 			efbAPI: efb.NewWebAPI(efb.WebAPIConfig{
-				Auth: authService, Callsigns: vatsimCache, Flights: efbFlightFinder, Sessions: sessionRepo,
+				Auth: authService, Callsigns: vatsimGraph.source, Flights: efbFlightFinder, Sessions: sessionRepo,
 				Assignments: standAssignmentRepo, CDM: cdmService, CDMReady: sequenceService != nil,
 				Stands: standActionService, ATIS: metarPoller, Routes: fsServer, PDCReady: pdcService != nil, Live: requireLiveCIDVerification,
 			}),
 			sessionRepo:                sessionRepo,
 			sequenceService:            sequenceService,
-			vatsimCache:                vatsimCache,
+			vatsimSource:               vatsimGraph.source,
 			standAssignmentRepo:        standAssignmentRepo,
 			standAssignmentReadiness:   standAssignmentReadiness,
 			standAssignmentDiagnostics: standAssignmentDiagnostics(),
@@ -356,7 +373,9 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 			enablePilotAPI:             cfg.EnablePilotAPI,
 			enableEFBAPI:               cfg.EnableEFB,
 			enablePDCAPI:               pdcService != nil,
+			enableTestTools:            cfg.EnableTestTools,
 			ecfmpService:               ecfmpService,
+			testToolsAPI:               testToolsGraph.api,
 		}),
 	}
 
@@ -370,10 +389,10 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 	if cfg.EnablePDC && pdcService != nil {
 		app.addWorker(pdcService.Start)
 	}
-	if cfg.EnableVATSIM && vatsimCache != nil {
-		app.addWorker(vatsimCache.Start)
+	if cfg.EnableVATSIM && vatsimGraph.cache != nil {
+		app.addWorker(vatsimGraph.cache.Start)
 	}
-	if vatsimReconciler != nil {
+	if vatsimReconciler != nil && !cfg.EnableTestTools {
 		app.addWorker(vatsimReconciler.Start)
 	}
 	if departureLifecycle != nil {
@@ -431,7 +450,7 @@ type satAssembly struct {
 	failures    *standdiagnostics.AllocationFailureLog
 }
 
-func assembleSAT(cfg Config, readiness appconfig.StandAssignmentReadiness, dbpool *pgxpool.Pool, core coreRepositories) (satAssembly, error) {
+func assembleSAT(cfg Config, readiness appconfig.StandAssignmentReadiness, dbpool *pgxpool.Pool, core coreRepositories, now func() time.Time) (satAssembly, error) {
 	graph := satAssembly{
 		failures: standdiagnostics.NewAllocationFailureLog(100),
 	}
@@ -447,6 +466,7 @@ func assembleSAT(cfg Config, readiness appconfig.StandAssignmentReadiness, dbpoo
 	allocations, err := services.NewStandAllocationService(
 		dbpool, core.strips, assignments, stands, appconfig.GetAirlineAssignment(),
 		services.WithStandAllocationFailureLog(graph.failures),
+		services.WithStandAllocationClock(now),
 	)
 	if err != nil {
 		return satAssembly{}, fmt.Errorf("initialize stand allocation service: %w", err)
@@ -456,6 +476,7 @@ func assembleSAT(cfg Config, readiness appconfig.StandAssignmentReadiness, dbpoo
 		services.WithDepartureHoldDuration(cfg.StandAssignmentHoldDuration),
 		services.WithDepartureBlockExtension(cfg.StandAssignmentBlockExtension),
 		services.WithDepartureSweepInterval(cfg.StandAssignmentSweepInterval),
+		services.WithDepartureLifecycleClock(now),
 	)
 	if err != nil {
 		return satAssembly{}, fmt.Errorf("initialize departure lifecycle service: %w", err)
@@ -463,6 +484,7 @@ func assembleSAT(cfg Config, readiness appconfig.StandAssignmentReadiness, dbpoo
 	arrivals, err := services.NewArrivalLifecycleService(
 		allocations, assignments, core.strips, core.sessions, stands, aircraft, engines, borders,
 		services.WithArrivalSweepInterval(cfg.StandAssignmentSweepInterval),
+		services.WithArrivalLifecycleClock(now),
 	)
 	if err != nil {
 		return satAssembly{}, fmt.Errorf("initialize arrival lifecycle service: %w", err)
@@ -483,7 +505,7 @@ type transportAssembly struct {
 }
 
 func assembleTransports(cfg Config, deps Dependencies, refreshSectors func(context.Context) error) transportAssembly {
-	if !cfg.EnableTransceivers {
+	if !cfg.EnableTransceivers || cfg.EnableTestTools {
 		return transportAssembly{}
 	}
 
@@ -529,8 +551,8 @@ func (a *App) StandAssignmentReadiness() appconfig.StandAssignmentReadiness {
 	return a.standAssignmentReadiness
 }
 
-func configureStandAssignment(enabled bool) appconfig.StandAssignmentReadiness {
-	readiness := appconfig.InitializeStandAssignment(enabled)
+func configureStandAssignment(enabled bool, aircraftFile string) appconfig.StandAssignmentReadiness {
+	readiness := appconfig.InitializeStandAssignmentWithAircraftFile(enabled, aircraftFile)
 	switch {
 	case !readiness.Enabled:
 		slog.Info("Stand Assignment Tool disabled")
@@ -759,7 +781,7 @@ type buildHandlerConfig struct {
 	efbAPI                     *efb.WebAPI
 	sessionRepo                repository.SessionRepository
 	sequenceService            *cdm.SequenceService
-	vatsimCache                *vatsim.Cache
+	vatsimSource               vatsim.FlightSource
 	standAssignmentRepo        repository.StandAssignmentRepository
 	standAssignmentReadiness   appconfig.StandAssignmentReadiness
 	standAssignmentDiagnostics standstatus.WebAPIDiagnostics
@@ -773,7 +795,9 @@ type buildHandlerConfig struct {
 	enablePilotAPI             bool
 	enableEFBAPI               bool
 	enablePDCAPI               bool
+	enableTestTools            bool
 	ecfmpService               *ecfmp.Service
+	testToolsAPI               *testtools.WebAPI
 }
 
 func buildHandler(cfg buildHandlerConfig) http.Handler {
@@ -781,7 +805,7 @@ func buildHandler(cfg buildHandlerConfig) http.Handler {
 	frontendUpgrader := websocket.NewConnectionUpgrader[pkgFrontend.EventType, *frontend.Client](cfg.frontendHub, cfg.authService)
 	euroscopeUpgrader := websocket.NewConnectionUpgrader[pkgEuroscope.EventType, *euroscope.Client](cfg.euroscopeHub, cfg.authService)
 
-	mux.HandleFunc("/healthz", satHealthz(cfg.standAssignmentReadiness, cfg.vatsimCache, cfg.standAssignmentStaleAfter))
+	mux.HandleFunc("/healthz", satHealthz(cfg.standAssignmentReadiness, cfg.vatsimSource, cfg.standAssignmentStaleAfter))
 	mux.HandleFunc("/euroscopeEvents", euroscopeUpgrader.Upgrade)
 	mux.HandleFunc("/frontEndEvents", frontendUpgrader.Upgrade)
 	if cfg.enableALB {
@@ -791,7 +815,7 @@ func buildHandler(cfg buildHandlerConfig) http.Handler {
 	apiMux := http.NewServeMux()
 	standstatus.NewWebAPI(standstatus.WebAPIConfig{
 		Auth: cfg.authService, Sessions: cfg.sessionRepo, Assignments: cfg.standAssignmentRepo,
-		Feed: cfg.vatsimCache, Enabled: cfg.standAssignmentReadiness.Enabled,
+		Feed: cfg.vatsimSource, Enabled: cfg.standAssignmentReadiness.Enabled,
 		Ready: cfg.standAssignmentReadiness.Ready, Reason: cfg.standAssignmentReadiness.Reason,
 		StaleAfter: cfg.standAssignmentStaleAfter, Diagnostics: cfg.standAssignmentDiagnostics,
 		Failures: cfg.standAssignmentFailures,
@@ -804,13 +828,16 @@ func buildHandler(cfg buildHandlerConfig) http.Handler {
 	}
 	if cfg.enablePilotAPI {
 		flightLookup := pdc.NewFlightLookupAdapter(cfg.pdcService, cfg.sessionRepo)
-		pilot.NewWebAPI(cfg.authService, cfg.vatsimCache, flightLookup, cfg.requireLiveCIDVerification).RegisterRoutes(apiMux)
+		pilot.NewWebAPI(cfg.authService, cfg.vatsimSource, flightLookup, cfg.requireLiveCIDVerification).RegisterRoutes(apiMux)
 	}
 	if cfg.enableEFBAPI && cfg.efbAPI != nil {
 		cfg.efbAPI.RegisterRoutes(apiMux)
 	}
 	if cfg.enablePDCAPI {
-		pdc.NewWebAPI(cfg.authService, cfg.pdcService, cfg.vatsimCache, cfg.requireLiveCIDVerification).RegisterRoutes(apiMux)
+		pdc.NewWebAPI(cfg.authService, cfg.pdcService, cfg.vatsimSource, cfg.requireLiveCIDVerification).RegisterRoutes(apiMux)
+	}
+	if cfg.enableTestTools && cfg.testToolsAPI != nil {
+		cfg.testToolsAPI.RegisterRoutes(apiMux)
 	}
 	mux.Handle("/api/", server.APIMiddleware(http.StripPrefix("/api", apiMux)))
 
@@ -834,7 +861,7 @@ type satHealth struct {
 	SnapshotAgeSeconds *float64 `json:"snapshot_age_seconds,omitempty"`
 }
 
-func satHealthz(readiness appconfig.StandAssignmentReadiness, cache *vatsim.Cache, staleAfter time.Duration) http.HandlerFunc {
+func satHealthz(readiness appconfig.StandAssignmentReadiness, cache vatsim.SnapshotSource, staleAfter time.Duration) http.HandlerFunc {
 	return func(w http.ResponseWriter, _ *http.Request) {
 		result := healthResponse{Status: "ok", StandAssignment: satHealth{Enabled: readiness.Enabled, Ready: readiness.Ready, Status: "disabled"}}
 		sat := &result.StandAssignment

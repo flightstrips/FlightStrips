@@ -38,13 +38,20 @@ func main() {
 		slog.Error("Failed to initialize config", slog.Any("error", err))
 		os.Exit(1)
 	}
+	environment := getEnv("ENVIRONMENT", "development")
+	enableTestTools := envBool("ENABLE_TEST_TOOLS", false)
+	if enableTestTools && isLiveEnvironment(environment) {
+		slog.Error("ENABLE_TEST_TOOLS cannot be enabled in a live environment")
+		os.Exit(1)
+	}
+	standAssignmentAircraftJSON := standAssignmentAircraftFile(enableTestTools, os.Getenv("GRPLUGIN_ICAO_AIRCRAFT_JSON"))
 
 	otlpEndpoint := os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
 	if otlpEndpoint != "" {
 		tel, err := telemetry.Initialize(ctx, telemetry.Config{
 			ServiceName:    "flightstrips-backend",
 			ServiceVersion: "1.0.0",
-			Environment:    getEnv("ENVIRONMENT", "development"),
+			Environment:    environment,
 		})
 		if err != nil {
 			slog.Error("Failed to initialize telemetry", slog.Any("error", err))
@@ -61,31 +68,33 @@ func main() {
 	}
 
 	application, err := app.Build(ctx, app.Config{
-		DatabaseConnectionString: os.Getenv("DATABASE_CONNECTIONSTRING"),
-		OIDCSigningAlgorithm:     os.Getenv("OIDC_SIGNING_ALGO"),
-		OIDCAuthority:            os.Getenv("OIDC_AUTHORITY"),
-		OIDCAudience:             getEnv("OIDC_AUDIENCE", "backend-dev"),
-		Environment:              getEnv("ENVIRONMENT", "development"),
-		EnablePostgresTracing:    otlpEndpoint != "",
-		EnableHTTPTracing:        otlpEndpoint != "",
-		CDMKey:                   os.Getenv("CDM_KEY"),
-		CDMConfigRefreshInterval: envDuration("CDM_CONFIG_REFRESH_INTERVAL", 15*time.Minute),
-		EnableCDMConfigStore:     true,
-		HoppieLogon:              os.Getenv("HOPPIE_LOGON"),
-		PDCWebLookupLiveOnly:     envBool("PDC_WEB_LOOKUP_LIVE_ONLY", isLiveEnvironment(getEnv("ENVIRONMENT", "development"))),
-		EnablePDC:                true,
-		ECFMPBaseURL:             getEnv("ECFMP_BASE_URL", ""),
-		EnableECFMP:              true,
-		EnableECFMPAPI:           !isLiveEnvironment(getEnv("ENVIRONMENT", "development")),
-		EnablePilotAPI:           true,
-		EnableEFB:                envBool("ENABLE_EFB", false),
-		EnableALB:                true,
-		EnableMetar:              true,
-		EnableVATSIM:             true,
-		EnableTransceivers:       true,
-		EnableTraffic:            true,
-		EnableStandAssignment:    envBool("ENABLE_STAND_ASSIGNMENT", false),
-		EnableDBSeed:             true,
+		DatabaseConnectionString:    os.Getenv("DATABASE_CONNECTIONSTRING"),
+		OIDCSigningAlgorithm:        os.Getenv("OIDC_SIGNING_ALGO"),
+		OIDCAuthority:               os.Getenv("OIDC_AUTHORITY"),
+		OIDCAudience:                getEnv("OIDC_AUDIENCE", "backend-dev"),
+		Environment:                 environment,
+		EnablePostgresTracing:       otlpEndpoint != "",
+		EnableHTTPTracing:           otlpEndpoint != "",
+		CDMKey:                      os.Getenv("CDM_KEY"),
+		CDMConfigRefreshInterval:    envDuration("CDM_CONFIG_REFRESH_INTERVAL", 15*time.Minute),
+		EnableCDMConfigStore:        true,
+		HoppieLogon:                 os.Getenv("HOPPIE_LOGON"),
+		PDCWebLookupLiveOnly:        envBool("PDC_WEB_LOOKUP_LIVE_ONLY", isLiveEnvironment(environment)),
+		EnablePDC:                   true,
+		ECFMPBaseURL:                getEnv("ECFMP_BASE_URL", ""),
+		EnableECFMP:                 true,
+		EnableECFMPAPI:              !isLiveEnvironment(environment),
+		EnablePilotAPI:              true,
+		EnableEFB:                   envBool("ENABLE_EFB", false),
+		EnableALB:                   true,
+		EnableMetar:                 true,
+		EnableVATSIM:                true,
+		EnableTransceivers:          true,
+		EnableTraffic:               true,
+		EnableStandAssignment:       envBool("ENABLE_STAND_ASSIGNMENT", false),
+		EnableTestTools:             enableTestTools,
+		EnableDBSeed:                true,
+		StandAssignmentAircraftJSON: standAssignmentAircraftJSON,
 	}, app.Dependencies{
 		VATSIMStatusURL:      getEnv("VATSIM_STATUS_URL", ""),
 		VATSIMPollInterval:   envDuration("VATSIM_POLL_INTERVAL", 15*time.Second),
@@ -132,6 +141,14 @@ func main() {
 	}
 
 	slog.Info("Server shutdown complete")
+}
+
+func standAssignmentAircraftFile(testTools bool, configured string) string {
+	configured = strings.TrimSpace(configured)
+	if testTools && configured == "" {
+		return "config/test/ICAO_Aircraft.json"
+	}
+	return configured
 }
 
 func configureLogging() {

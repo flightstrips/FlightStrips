@@ -195,3 +195,50 @@ func TestBuildGatesEFBAPIBehindFeatureFlag(t *testing.T) {
 	build(true).Handler().ServeHTTP(enabled, httptest.NewRequest(http.MethodGet, "/api/efb/me", nil))
 	require.Equal(t, http.StatusUnauthorized, enabled.Code)
 }
+
+func TestBuildRejectsTestToolsInLiveEnvironmentBeforeOpeningDatabase(t *testing.T) {
+	_, err := Build(context.Background(), Config{
+		Environment:     "production",
+		EnableTestTools: true,
+	}, Dependencies{})
+	require.EqualError(t, err, "ENABLE_TEST_TOOLS cannot be enabled in a live environment")
+}
+
+func TestBuildGatesTestToolsAPIBehindExplicitFlag(t *testing.T) {
+	poolConfig, err := pgxpool.ParseConfig("postgres://user:password@127.0.0.1:1/test")
+	require.NoError(t, err)
+	dbPool, err := pgxpool.NewWithConfig(context.Background(), poolConfig)
+	require.NoError(t, err)
+	t.Cleanup(dbPool.Close)
+
+	build := func(enabled bool) *App {
+		application, buildErr := Build(context.Background(), Config{
+			Environment:          "test",
+			EnableTestTools:      enabled,
+			EnableTransceivers:   true,
+			EnableCDMConfigStore: false,
+			EnablePDC:            false,
+			EnableECFMP:          false,
+			EnableECFMPAPI:       false,
+			EnablePilotAPI:       false,
+			EnableALB:            false,
+			EnableMetar:          false,
+			EnableVATSIM:         false,
+			EnableTraffic:        false,
+			EnableDBSeed:         false,
+		}, Dependencies{DBPool: dbPool, AuthenticationService: services.NewTestAuthenticationService()})
+		require.NoError(t, buildErr)
+		return application
+	}
+
+	disabled := httptest.NewRecorder()
+	disabledApp := build(false)
+	disabledApp.Handler().ServeHTTP(disabled, httptest.NewRequest(http.MethodGet, "/api/test/status", nil))
+	require.Equal(t, http.StatusNotFound, disabled.Code)
+
+	enabled := httptest.NewRecorder()
+	enabledApp := build(true)
+	enabledApp.Handler().ServeHTTP(enabled, httptest.NewRequest(http.MethodGet, "/api/test/status", nil))
+	require.Equal(t, http.StatusUnauthorized, enabled.Code)
+	require.Len(t, disabledApp.workers, len(enabledApp.workers)+1, "normal mode should have the configured VATSIM transceiver worker")
+}

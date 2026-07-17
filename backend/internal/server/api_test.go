@@ -28,6 +28,28 @@ func TestAPIMiddlewareHandlesPreflight(t *testing.T) {
 	}
 }
 
+func TestAPIMiddlewareAllowsDeletePreflight(t *testing.T) {
+	handler := APIMiddleware(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+		t.Fatal("preflight request should not reach downstream handler")
+	}))
+
+	req := httptest.NewRequest(http.MethodOptions, "/api/test/sat/scenarios", nil)
+	req.Header.Set("Origin", "http://localhost:5173")
+	req.Header.Set("Access-Control-Request-Method", http.MethodDelete)
+	req.Header.Set("Access-Control-Request-Headers", "authorization,content-type")
+
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, req)
+
+	response := recorder.Result()
+	if response.StatusCode != http.StatusNoContent {
+		t.Fatalf("expected status %d, got %d", http.StatusNoContent, response.StatusCode)
+	}
+	if got := response.Header.Get("Access-Control-Allow-Methods"); got != "GET, POST, PUT, DELETE, OPTIONS" {
+		t.Fatalf("DELETE preflight is not allowed, got methods %q", got)
+	}
+}
+
 func TestAPIMiddlewareAddsCORSHeadersToNormalRequests(t *testing.T) {
 	handler := APIMiddleware(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusAccepted)
@@ -43,7 +65,7 @@ func TestAPIMiddlewareAddsCORSHeadersToNormalRequests(t *testing.T) {
 	if response.StatusCode != http.StatusAccepted {
 		t.Fatalf("expected status %d, got %d", http.StatusAccepted, response.StatusCode)
 	}
-	if got := response.Header.Get("Access-Control-Allow-Methods"); got != "GET, POST, OPTIONS" {
+	if got := response.Header.Get("Access-Control-Allow-Methods"); got != "GET, POST, PUT, DELETE, OPTIONS" {
 		t.Fatalf("unexpected Access-Control-Allow-Methods header %q", got)
 	}
 	if got := response.Header.Get("Access-Control-Allow-Headers"); got != "Authorization, Content-Type" {

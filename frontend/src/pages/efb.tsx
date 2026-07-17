@@ -15,8 +15,11 @@ import ATISPicture from '../assets/efb/ATIS-Picture.png';
 import HOLD from '../assets/efb/HOLD.png';
 import APPBRIEF from '../assets/efb/APPBRIEF.png';
 import RNAVLOGO from '../assets/efb/RNAVLOGO.png';
+import DOWNLOADS from '../assets/efb/DOWNLOADS.png';
+import TRAFFICBOARD from '../assets/efb/TRAFFICBOARD.png';
 import D1BRIEFDialog from '../components/efb/dialogs/D1Brief';
 import D1ChartDialog from '../components/efb/dialogs/D1Chart';
+import D1DownloadsDialog from '../components/efb/dialogs/D1DownloadsDialog';
 import D1STANDDialog from '../components/efb/dialogs/D1Stand';
 import D2CDMDialog from '../components/efb/dialogs/D2CDMDialog';
 import D2ATISDialog from '../components/efb/dialogs/D2ATISDialog';
@@ -109,7 +112,7 @@ const unavailableFlightData: FlightDisplayData = {
   typeofapp: 'NIL', Terminalfix: 'NIL',
 };
 
-type DialogType = 'D1BRIEF' | 'D1CHART' | 'D1STAND' | 'D2CDM' | 'D2ATIS' | 'D2PDC' | null;
+type DialogType = 'D1BRIEF' | 'D1CHART' | 'D1DOWNLOADS' | 'D1STAND' | 'D2CDM' | 'D2ATIS' | 'D2PDC' | null;
 type BoxType = 'L2' | 'M2' | 'R2' | 'L3' | 'M3' | 'R3';
 
 export default function EFBPage() {
@@ -122,6 +125,7 @@ export default function EFBPage() {
   const [pilotState, setPilotState] = useState<PilotState>('OFFLINE_NO_FP');
   const [openDialog, setOpenDialog] = useState<DialogType>(null);
   const [activeBox, setActiveBox] = useState<BoxType | null>(null);
+  const [hoveredBox, setHoveredBox] = useState<BoxType | null>(null);
 
   // PDC flow
   const [pdcStatus, setPdcStatus] = useState<PDCStatus>('NOREQ');
@@ -315,6 +319,12 @@ useEffect(() => {
     setActiveBox(null);
   };
 
+  const handleDownloadsClick = () => {
+    if (!showFlightplanElements) return;
+    setOpenDialog('D1DOWNLOADS');
+    setActiveBox(null);
+  };
+
   const openAtisDialog = (box: BoxType) => {
     setOpenDialog('D2ATIS');
     setActiveBox(box);
@@ -465,6 +475,12 @@ useEffect(() => {
     return 'bg-[#1A475F]';
   };
 
+  const getHoverClass = (boxType: BoxType) => (
+    hoveredBox === boxType
+      ? 'z-[3] scale-[1.015] brightness-[1.06] shadow-[0_10px_24px_rgba(0,0,0,0.35)]'
+      : 'z-[1] scale-100 brightness-100 shadow-none'
+  );
+
   return (
     <div className="relative h-screen w-screen overflow-hidden bg-[#1D293D]">
       {profile?.live_mode === false && (
@@ -486,6 +502,10 @@ useEffect(() => {
         runway={isArrival ? flightData.arrivalRunway : flightData.assignedRunway}
         sid={flightData.sid}
         arrival={isArrival}
+      />
+      <D1DownloadsDialog
+        isOpen={openDialog === 'D1DOWNLOADS'}
+        onClose={handleCloseDialog}
       />
       {openDialog === 'D1STAND' && (
         <D1STANDDialog
@@ -539,9 +559,15 @@ useEffect(() => {
 
       <div className="absolute top-[2.5%] left-0 h-[10%] w-full">
         {showFlightplanElements === false && (
-          <a href="https://www.simbrief.com/home/" target="_blank" rel="noreferrer" className="absolute top-[2.5%] left-[2.5%] flex h-[60%] w-[30.83%] cursor-pointer items-center justify-center border-0 bg-[#2E343D] text-xs text-white">
+          <a href="https://www.simbrief.com/home/" target="_blank" rel="noreferrer" className="absolute top-[2.5%] left-[2.5%] flex h-[84.16%] w-[30.83%] cursor-pointer items-center justify-center border-0 bg-[#2E343D] text-xs text-white">
             <img src={simbriefFplImg} alt="L1 Picture" className="h-full w-full object-cover" />
           </a>
+        )}
+
+        {showFlightplanElements && (
+          <button type="button" aria-label="Downloads" onClick={handleDownloadsClick} className="absolute top-[2.5%] left-[2.5%] flex h-[84.16%] w-[30.83%] cursor-pointer items-center justify-center border-0 bg-white text-xs text-[#999]">
+            <img src={DOWNLOADS} alt="Downloads" className="h-full w-full object-cover" />
+          </button>
         )}
 
         <button type="button" onClick={() => { if (!showFlightplanElements) void (profile === null ? loadProfile() : refreshFlight()); }} className={`absolute top-[2.5%] left-[34.58%] flex h-[60%] w-[30.83%] items-center justify-center bg-[#011328] text-center text-[clamp(24px,5.5vh,106px)] font-bold text-white ${showFlightplanElements ? 'cursor-default' : 'cursor-pointer'}`}>
@@ -553,14 +579,20 @@ useEffect(() => {
         </div>
 
         {showFlightplanElements === false && (
-          <a href="https://my.vatsim.net/pilots/flightplan" target="_blank" rel="noreferrer" className="absolute top-0 left-[66.66%] flex h-[60%] w-[30.83%] cursor-pointer items-center justify-center border-0 bg-white text-xs text-[#999]">
+          <a href="https://my.vatsim.net/pilots/flightplan" target="_blank" rel="noreferrer" className="absolute top-0 left-[66.66%] flex h-[86.66%] w-[30.83%] cursor-pointer items-center justify-center border-0 bg-white text-xs text-[#999]">
             <img src={fileVatsimFplImg} alt="R1 Picture" className="h-full w-full object-cover" />
           </a>
+        )}
+
+        {showFlightplanElements && (
+          <div className="absolute top-0 left-[66.66%] flex h-[86.66%] w-[30.83%] items-center justify-center border-0 bg-white text-xs text-[#999]">
+            <img src={TRAFFICBOARD} alt="Traffic Board" className="h-full w-full object-cover" />
+          </div>
         )}
       </div>
 
       <div className="absolute top-[15%] left-0 h-[40%] w-full">
-        <div className={`absolute top-0 left-[2.5%] h-full w-[30.83%] border-2 border-[#1D293D] bg-[#000109] ${showFlightplanElements ? 'cursor-pointer' : 'cursor-default'}`} onClick={() => handleBoxClick('L2')}>
+        <div className={`absolute top-0 left-[2.5%] h-full w-[30.83%] border-2 border-[#1D293D] bg-[#000109] transition-[transform,box-shadow,filter] duration-150 ${getHoverClass('L2')} ${showFlightplanElements ? 'cursor-pointer' : 'cursor-default'}`} onClick={() => handleBoxClick('L2')} onMouseEnter={() => setHoveredBox('L2')} onMouseLeave={() => setHoveredBox(null)}>
           {showFlightplanElements ? (
             isArrival ? (
               <img src={chartsImage} alt="Charts" className="h-[95%] w-[95%] object-contain" />
@@ -583,7 +615,7 @@ useEffect(() => {
           )}
         </div>
 
-        <div className="absolute top-0 left-[34.58%] h-full w-[30.83%] cursor-default border-2 border-[#1D293D] bg-[#000109]">
+        <div className={`absolute top-0 left-[34.58%] h-full w-[30.83%] cursor-default border-2 border-[#1D293D] bg-[#000109] transition-[transform,box-shadow,filter] duration-150 ${getHoverClass('M2')}`} onMouseEnter={() => setHoveredBox('M2')} onMouseLeave={() => setHoveredBox(null)}>
           {/* unchanged */}
           {showFlightplanElements ? (
             <>
@@ -630,7 +662,7 @@ useEffect(() => {
         </div>
 
         {/* R2 ARRIVAL now uses ATIS state machine */}
-        <div className={`absolute top-0 left-[66.66%] flex h-full w-[30.83%] items-center justify-center border-2 border-[#1D293D] bg-[#000109] ${showFlightplanElements ? 'cursor-pointer' : 'cursor-default'}`} onClick={() => handleBoxClick('R2')}>
+        <div className={`absolute top-0 left-[66.66%] flex h-full w-[30.83%] items-center justify-center border-2 border-[#1D293D] bg-[#000109] transition-[transform,box-shadow,filter] duration-150 ${getHoverClass('R2')} ${showFlightplanElements ? 'cursor-pointer' : 'cursor-default'}`} onClick={() => handleBoxClick('R2')} onMouseEnter={() => setHoveredBox('R2')} onMouseLeave={() => setHoveredBox(null)}>
           {showFlightplanElements ? (
             isArrival ? (
               <>
@@ -651,7 +683,7 @@ useEffect(() => {
       </div>
 
       <div className="absolute top-[57.5%] left-0 h-[40%] w-full">
-        <div className="absolute top-0 left-[2.5%] h-full w-[30.83%] cursor-default border-2 border-[#1D293D] bg-[#000109]">
+        <div className={`absolute top-0 left-[2.5%] h-full w-[30.83%] cursor-default border-2 border-[#1D293D] bg-[#000109] transition-[transform,box-shadow,filter] duration-150 ${getHoverClass('L3')}`} onMouseEnter={() => setHoveredBox('L3')} onMouseLeave={() => setHoveredBox(null)}>
           {showFlightplanElements ? (
             isArrival ? (
               <div className="relative flex h-full w-full items-center justify-center" aria-label="Arrival briefing coming soon">
@@ -690,7 +722,7 @@ useEffect(() => {
           )}
         </div>
 
-        <div className={`absolute top-0 left-[34.58%] h-full w-[30.83%] border-2 border-[#1D293D] bg-[#000109] ${!showFlightplanElements || isArrival ? 'cursor-default' : 'cursor-pointer'}`} onClick={() => { if (!isArrival) handleBoxClick('M3'); }}>
+        <div className={`absolute top-0 left-[34.58%] h-full w-[30.83%] border-2 border-[#1D293D] bg-[#000109] transition-[transform,box-shadow,filter] duration-150 ${getHoverClass('M3')} ${!showFlightplanElements || isArrival ? 'cursor-default' : 'cursor-pointer'}`} onClick={() => { if (!isArrival) handleBoxClick('M3'); }} onMouseEnter={() => setHoveredBox('M3')} onMouseLeave={() => setHoveredBox(null)}>
           {showFlightplanElements ? (
             isArrival ? (
               <div className="relative h-full w-full border-[clamp(5px,0.5vw,18px)] border-[#000109] text-white">
@@ -726,7 +758,7 @@ useEffect(() => {
           )}
         </div>
 
-        <div className={`absolute top-0 left-[66.66%] flex h-full w-[30.83%] items-center justify-center border-2 border-[#1D293D] bg-[#000109] ${showFlightplanElements ? 'cursor-pointer' : 'cursor-default'}`} onClick={() => handleBoxClick('R3')}>
+        <div className={`absolute top-0 left-[66.66%] flex h-full w-[30.83%] items-center justify-center border-2 border-[#1D293D] bg-[#000109] transition-[transform,box-shadow,filter] duration-150 ${getHoverClass('R3')} ${showFlightplanElements ? 'cursor-pointer' : 'cursor-default'}`} onClick={() => handleBoxClick('R3')} onMouseEnter={() => setHoveredBox('R3')} onMouseLeave={() => setHoveredBox(null)}>
           {showFlightplanElements ? (
             isArrival ? (
               <>

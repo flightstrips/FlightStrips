@@ -2,6 +2,7 @@ package cdm
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -13,6 +14,30 @@ import (
 	"FlightStrips/internal/testutil"
 	euroscopeEvents "FlightStrips/pkg/events/euroscope"
 )
+
+type masterSyncTestTimes struct {
+	Eobt        string
+	Tobt        string
+	ReqTobt     string
+	Tsat        string
+	Ttot        string
+	Ctot        string
+	TobtSeconds string
+}
+
+func futureMasterSyncTestTimes() masterSyncTestTimes {
+	eobt := time.Now().UTC().Truncate(time.Minute).Add(15 * time.Minute)
+	tobt := eobt.Add(10 * time.Minute)
+	return masterSyncTestTimes{
+		Eobt:        eobt.Format("1504"),
+		Tobt:        tobt.Format("1504"),
+		ReqTobt:     eobt.Add(5 * time.Minute).Format("1504"),
+		Tsat:        eobt.Add(15 * time.Minute).Format("150405"),
+		Ttot:        eobt.Add(25 * time.Minute).Format("150405"),
+		Ctot:        eobt.Add(40 * time.Minute).Format("1504"),
+		TobtSeconds: tobt.Format("150405"),
+	}
+}
 
 func TestSyncCdmData_PersistsFlowMessageAndReqTobtSource(t *testing.T) {
 	const sessionID = int32(77)
@@ -900,17 +925,18 @@ func TestSyncCdmData_SlaveSession_ReplacesPersistedCalculationSnapshotWithStored
 func TestSyncCdmData_MasterSession_DoesNotSyncTsatFromAPI(t *testing.T) {
 	const sessionID = int32(80)
 	const callsign = "SAS130"
+	times := futureMasterSyncTestTimes()
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_, _ = w.Write([]byte(`[{
+		_, _ = fmt.Fprintf(w, `[{
 			"callsign":"SAS130",
 			"departure":"EKCH",
-			"eobt":"1000",
-			"tobt":"1010",
+			"eobt":%q,
+			"tobt":%q,
 			"ctot":"",
 			"cdmSts":"STUP",
-			"cdmData":{"tsat":"101500","ttot":"102500"}
-		}]`))
+			"cdmData":{"tsat":%q,"ttot":%q}
+		}]`, times.Eobt, times.Tobt, times.Tsat, times.Ttot)
 	}))
 	defer server.Close()
 
@@ -922,7 +948,7 @@ func TestSyncCdmData_MasterSession_DoesNotSyncTsatFromAPI(t *testing.T) {
 				return []*models.CdmDataRow{{
 					Callsign: callsign,
 					Data: (&models.CdmData{
-						Eobt: testStringPtr("1000"),
+						Eobt: testStringPtr(times.Eobt),
 					}).Normalize(),
 				}}, nil
 			},
@@ -1020,20 +1046,21 @@ func TestSyncCdmData_MasterSession_MarksRecalculationForReqTobtAndCtotChanges(t 
 func TestSyncCdmData_MasterSession_DoesNotExportStaleLocalTimesWhileRecalcPending(t *testing.T) {
 	const sessionID = int32(83)
 	const callsign = "SAS133"
+	times := futureMasterSyncTestTimes()
 
 	setCdmCh := make(chan struct{}, 1)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/ifps/depAirport":
-			_, _ = w.Write([]byte(`[{
+			_, _ = fmt.Fprintf(w, `[{
 				"callsign":"SAS133",
 				"departure":"EKCH",
-				"eobt":"1000",
-				"tobt":"1010",
-				"ctot":"1040",
+				"eobt":%q,
+				"tobt":%q,
+				"ctot":%q,
 				"cdmSts":"REA",
-				"cdmData":{"reqTobt":"1005","reason":"REGUL"}
-			}]`))
+				"cdmData":{"reqTobt":%q,"reason":"REGUL"}
+			}]`, times.Eobt, times.Tobt, times.Ctot, times.ReqTobt)
 		case "/ifps/setCdmData":
 			setCdmCh <- struct{}{}
 			w.WriteHeader(http.StatusOK)
@@ -1051,10 +1078,10 @@ func TestSyncCdmData_MasterSession_DoesNotExportStaleLocalTimesWhileRecalcPendin
 				return []*models.CdmDataRow{{
 					Callsign: callsign,
 					Data: (&models.CdmData{
-						Eobt: testStringPtr("1000"),
-						Tobt: testStringPtr("1010"),
-						Tsat: testStringPtr("1015"),
-						Ttot: testStringPtr("1025"),
+						Eobt: testStringPtr(times.Eobt),
+						Tobt: testStringPtr(times.Tobt),
+						Tsat: testStringPtr(times.Tsat),
+						Ttot: testStringPtr(times.Ttot),
 					}).Normalize(),
 				}}, nil
 			},
@@ -1092,20 +1119,21 @@ func TestSyncCdmData_MasterSession_DoesNotExportStaleLocalTimesWhileRecalcPendin
 func TestSyncCdmData_MasterSession_PushesLocalTimesToViffWhenApiDiffers(t *testing.T) {
 	const sessionID = int32(81)
 	const callsign = "SAS131"
+	times := futureMasterSyncTestTimes()
 
 	setCdmCh := make(chan url.Values, 1)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/ifps/depAirport":
-			_, _ = w.Write([]byte(`[{
+			_, _ = fmt.Fprintf(w, `[{
 				"callsign":"SAS131",
 				"departure":"EKCH",
-				"eobt":"1000",
-				"tobt":"1010",
+				"eobt":%q,
+				"tobt":%q,
 				"ctot":"",
 				"cdmSts":"STUP",
 				"cdmData":{"tsat":"","ttot":"","reason":""}
-			}]`))
+			}]`, times.Eobt, times.Tobt)
 		case "/ifps/setCdmData":
 			setCdmCh <- r.URL.Query()
 			w.WriteHeader(http.StatusOK)
@@ -1116,10 +1144,10 @@ func TestSyncCdmData_MasterSession_PushesLocalTimesToViffWhenApiDiffers(t *testi
 	defer server.Close()
 
 	local := (&models.CdmData{
-		Eobt: testStringPtr("1000"),
-		Tobt: testStringPtr("1010"),
-		Tsat: testStringPtr("101500"),
-		Ttot: testStringPtr("102500"),
+		Eobt: testStringPtr(times.Eobt),
+		Tobt: testStringPtr(times.Tobt),
+		Tsat: testStringPtr(times.Tsat),
+		Ttot: testStringPtr(times.Ttot),
 	}).Normalize()
 
 	service := newTestCdmService(
@@ -1144,7 +1172,7 @@ func TestSyncCdmData_MasterSession_PushesLocalTimesToViffWhenApiDiffers(t *testi
 
 	select {
 	case q := <-setCdmCh:
-		if q.Get("callsign") != callsign || q.Get("tobt") != "101000" || q.Get("tsat") != "101500" || q.Get("ttot") != "102500" || q.Get("depInfo") != "22R" {
+		if q.Get("callsign") != callsign || q.Get("tobt") != times.TobtSeconds || q.Get("tsat") != times.Tsat || q.Get("ttot") != times.Ttot || q.Get("depInfo") != "22R" {
 			t.Fatalf("unexpected setCdmData payload: %v", q)
 		}
 	case <-time.After(time.Second):

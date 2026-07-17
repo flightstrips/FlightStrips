@@ -104,3 +104,31 @@ Dev server runs at `localhost:4321` by default.
 ## Wiring checks
 
 With the backend on **8090**: the frontend shows live strips once auth and WebSockets succeed; the plugin negotiates the `euroscopeEvents` WebSocket independently of the frontend origin.
+
+## Local SAT test console
+
+The protected `/test` page can create and advance synthetic stand-assignment
+scenarios without contacting the VATSIM data feed. Start the backend from
+`backend/` with:
+
+```powershell
+$env:ENABLE_STAND_ASSIGNMENT = "true"
+$env:ENABLE_TEST_TOOLS = "true"
+go run ./cmd/server
+```
+
+When test tools are enabled, the backend uses its committed small aircraft
+fixture unless `GRPLUGIN_ICAO_AIRCRAFT_JSON` explicitly points to a full
+installed reference. The production VATSIM HTTP cache is replaced by an
+in-memory source, and the VATSIM transceiver cache is disabled, so no VATSIM
+network data is requested.
+
+Sign in normally, connect the local EuroScope plugin to create an EKCH session,
+then open `http://localhost:8080/test`. Select the session and use a departure,
+arrival, or wrong-stand preset. `Next` drives the real reconciliation and SAT
+lifecycle; manual time, position, block, remove, and reset controls are also
+available.
+
+`ENABLE_TEST_TOOLS` defaults to false. The backend refuses to start when it is
+true in a `live`, `prod`, or `production` environment, and `/api/test/*` is not
+registered while it is false.

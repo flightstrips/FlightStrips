@@ -1,0 +1,20 @@
+[
+  {
+    "ICAO": "A320",
+    "Description": "L2J",
+    "WTC": "M",
+    "IATA": "320"
+  },
+  {
+    "ICAO": "B738",
+    "Description": "L2J",
+    "WTC": "M",
+    "IATA": "738"
+  },
+  {
+    "ICAO": "C172",
+    "Description": "L1P",
+    "WTC": "L",
+    "IATA": "172"
+  }
+]

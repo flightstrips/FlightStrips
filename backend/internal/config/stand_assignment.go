@@ -38,6 +38,13 @@ func defaultStandAssignmentICAOFile() string {
 // enabled. A failed load leaves the rest of FlightStrips usable and records the
 // actionable reason that prevents SAT from becoming ready.
 func InitializeStandAssignment(enabled bool) StandAssignmentReadiness {
+	return InitializeStandAssignmentWithAircraftFile(enabled, "")
+}
+
+// InitializeStandAssignmentWithAircraftFile allows the explicitly enabled
+// local test console to supply a small aircraft fixture without changing the
+// production default or overriding an operator-provided path.
+func InitializeStandAssignmentWithAircraftFile(enabled bool, aircraftFile string) StandAssignmentReadiness {
 	if !enabled {
 		standAssignmentReadiness = StandAssignmentReadiness{}
 		aircraftReference = nil
@@ -62,7 +69,10 @@ func InitializeStandAssignment(enabled bool) StandAssignmentReadiness {
 		return standAssignmentReadiness
 	}
 
-	engineReference, err := sat.LoadAircraftEngineReferenceFile(standAssignmentICAOFile(), registry)
+	if strings.TrimSpace(aircraftFile) == "" {
+		aircraftFile = standAssignmentICAOFile()
+	}
+	engineReference, err := sat.LoadAircraftEngineReferenceFile(aircraftFile, registry)
 	if err != nil {
 		standAssignmentReadiness = StandAssignmentReadiness{
 			Enabled: true,

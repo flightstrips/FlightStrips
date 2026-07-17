@@ -98,9 +98,6 @@ type App struct {
 
 func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 	cfg = cfg.withDefaults()
-	if cfg.EnablePDC && deps.PDCClient == nil && strings.TrimSpace(cfg.HoppieLogon) == "" {
-		return nil, fmt.Errorf("PDC is enabled but no Hoppie client or HOPPIE_LOGON is configured")
-	}
 	standAssignmentReadiness := configureStandAssignment(cfg.EnableStandAssignment)
 
 	dbpool, closeDB, err := buildDBPool(ctx, cfg, deps.DBPool)
@@ -650,11 +647,11 @@ func buildPDCService(
 	transceiverProviders []pdc.TransceiverLookup,
 ) (*pdc.Service, error) {
 	if client == nil {
-		if cfg.HoppieLogon != "" {
-			client = pdc.NewClient(cfg.HoppieLogon)
+		if hoppieLogon := strings.TrimSpace(cfg.HoppieLogon); hoppieLogon != "" {
+			client = pdc.NewClient(hoppieLogon)
 			slog.Info("PDC Hoppie client initialized")
 		} else {
-			return nil, fmt.Errorf("PDC is enabled but no Hoppie client or HOPPIE_LOGON is configured")
+			slog.Info("PDC Hoppie integration disabled; Web PDC remains available")
 		}
 	}
 

@@ -112,7 +112,6 @@ func NewPDCService(deps ServiceDependencies) (*Service, error) {
 		name  string
 		value any
 	}{
-		{"Hoppie client", deps.Client},
 		{"session repository", deps.Sessions},
 		{"strip store", deps.Strips},
 		{"sector repository", deps.Sectors},
@@ -146,6 +145,13 @@ func NewPDCService(deps ServiceDependencies) (*Service, error) {
 		timeoutConfig:      10 * time.Minute,
 		webLookupLiveOnly:  deps.WebLookupLiveOnly,
 	}, nil
+}
+
+func (s *Service) hoppieClient() (HoppieClientInterface, error) {
+	if dependencies.IsNil(s.client) {
+		return nil, errors.New("Hoppie is not configured; only Web PDC is available")
+	}
+	return s.client, nil
 }
 
 func normalizedStripAircraftType(strip *models.Strip) string {
@@ -187,13 +193,18 @@ func (s *Service) getNextSequence(ctx context.Context, sessionID int32) (int32, 
 
 // sendErrorAndReturn sends an error message to the pilot and returns the original error
 func (s *Service) sendErrorAndReturn(ctx context.Context, session sessionInformation, callsign string, originalErr error, messageBuilder func(int32) string) error {
+	client, err := s.hoppieClient()
+	if err != nil {
+		return errors.Join(originalErr, err)
+	}
+
 	seq, seqErr := s.getNextSequence(ctx, session.id)
 	if seqErr != nil {
 		return fmt.Errorf("%w; also failed to get message sequence: %w", originalErr, seqErr)
 	}
 
 	msg := messageBuilder(seq)
-	if sendErr := s.client.SendCPDLC(ctx, session.callsign, callsign, msg); sendErr != nil {
+	if sendErr := client.SendCPDLC(ctx, session.callsign, callsign, msg); sendErr != nil {
 		return fmt.Errorf("%w; also failed to send error message: %w", originalErr, sendErr)
 	}
 
@@ -462,6 +473,11 @@ func (s *Service) Start(ctx context.Context) {
 		slog.InfoContext(ctx, "PDC Service: Restored pending confirmation timeouts", slog.Int("count", restored))
 	}
 
+	if _, err := s.hoppieClient(); err != nil {
+		slog.InfoContext(ctx, "PDC Service: Hoppie polling disabled; Web PDC remains available")
+		return
+	}
+
 	slog.InfoContext(ctx, "PDC Service: Starting Hoppie polling loop")
 
 	for {
@@ -545,8 +561,13 @@ func (s *Service) pollAndProcess(ctx context.Context) error {
 }
 
 func (s *Service) pollAndProcessForSession(ctx context.Context, session sessionInformation) error {
+	client, err := s.hoppieClient()
+	if err != nil {
+		return err
+	}
+
 	slog.DebugContext(ctx, "PDC Service: Polling for messages", slog.String("callsign", session.callsign), slog.Int("session", int(session.id)))
-	messages, err := s.client.Poll(ctx, session.callsign)
+	messages, err := client.Poll(ctx, session.callsign)
 	if err != nil {
 		return fmt.Errorf("failed to poll: %w", err)
 	}
@@ -686,13 +707,18 @@ func (s *Service) ProcessPDCRequest(ctx context.Context, msg *IncomingMessage, s
 
 // SendStatusAck sends the "request received" message
 func (s *Service) SendStatusAck(ctx context.Context, session sessionInformation, callsign, origin string) error {
+	client, err := s.hoppieClient()
+	if err != nil {
+		return err
+	}
+
 	seq, err := s.getNextSequence(ctx, session.id)
 	if err != nil {
 		return err
 	}
 
 	msg := buildRequestAck(seq, origin, callsign)
-	return s.client.SendCPDLC(ctx, session.callsign, callsign, msg)
+	return client.SendCPDLC(ctx, session.callsign, callsign, msg)
 }
 
 // IssueClearance sends a PDC clearance to a pilot
@@ -830,7 +856,11 @@ func (s *Service) deliverPdcClearance(ctx context.Context, sessionInfo sessionIn
 		return nil
 	}
 
-	if err := s.client.SendCPDLC(ctx, sessionInfo.callsign, callsign, buildPDCClearance(options)); err != nil {
+	client, err := s.hoppieClient()
+	if err != nil {
+		return err
+	}
+	if err := client.SendCPDLC(ctx, sessionInfo.callsign, callsign, buildPDCClearance(options)); err != nil {
 		return fmt.Errorf("failed to send clearance: %w", err)
 	}
 
@@ -890,15 +920,18 @@ func (s *Service) RevertToVoice(ctx context.Context, callsign string, sessionId 
 		return fmt.Errorf("cannot revert to voice, PDC state is %s", strip.PdcState)
 	}
 
-	nextSeq, err := s.getNextSequence(ctx, sessionInfo.id)
-	if err != nil {
-		return err
-	}
-
-	pdcMessage := buildRevertToVoice(nextSeq)
-	err = s.client.SendCPDLC(ctx, sessionInfo.callsign, callsign, pdcMessage)
-	if err != nil {
-		return fmt.Errorf("failed to send revert to voice: %w", err)
+	if !isWebPDCRequest(strip) {
+		client, clientErr := s.hoppieClient()
+		if clientErr != nil {
+			return clientErr
+		}
+		nextSeq, sequenceErr := s.getNextSequence(ctx, sessionInfo.id)
+		if sequenceErr != nil {
+			return sequenceErr
+		}
+		if sendErr := client.SendCPDLC(ctx, sessionInfo.callsign, callsign, buildRevertToVoice(nextSeq)); sendErr != nil {
+			return fmt.Errorf("failed to send revert to voice: %w", sendErr)
+		}
 	}
 
 	s.CancelTimeout(callsign, sessionId)
@@ -1237,12 +1270,17 @@ func (s *Service) ManualStateChange(ctx context.Context, callsign string, sessio
 
 // SendErrorMessage sends error message to pilot for invalid PDC requests
 func (s *Service) SendErrorMessage(ctx context.Context, session sessionInformation, callsign string) error {
+	client, err := s.hoppieClient()
+	if err != nil {
+		return err
+	}
+
 	seq, err := s.getNextSequence(ctx, session.id)
 	if err != nil {
 		return err
 	}
 	msg := fmt.Sprintf("/data2/%d//NE/BAD PDC MESSAGE. @RESEND OR REVERT TO VOICE", seq)
-	return s.client.SendCPDLC(ctx, session.callsign, callsign, msg)
+	return client.SendCPDLC(ctx, session.callsign, callsign, msg)
 }
 
 // StartClearanceTimeout starts a timeout that reverts cleared flag if pilot doesn't respond
@@ -1332,14 +1370,19 @@ func (s *Service) handleTimeout(ctx context.Context, delay time.Duration, callsi
 		}
 
 		if !tracker.web {
-			seq, err := s.getNextSequence(ctx, session.id)
-			if err != nil {
-				slog.ErrorContext(ctx, "PDC Service: Failed to get next message sequence", slog.Any("error", err))
+			client, clientErr := s.hoppieClient()
+			if clientErr != nil {
+				slog.ErrorContext(ctx, "PDC Service: Failed to send no response message", slog.Any("error", clientErr))
 			} else {
-				msg := buildNoResponseMessage(seq, messageId, session.airport, callsign)
-				err = s.client.SendCPDLC(ctx, session.callsign, callsign, msg)
+				seq, err := s.getNextSequence(ctx, session.id)
 				if err != nil {
-					slog.ErrorContext(ctx, "PDC Service: Failed to send no response message", slog.Any("error", err))
+					slog.ErrorContext(ctx, "PDC Service: Failed to get next message sequence", slog.Any("error", err))
+				} else {
+					msg := buildNoResponseMessage(seq, messageId, session.airport, callsign)
+					err = client.SendCPDLC(ctx, session.callsign, callsign, msg)
+					if err != nil {
+						slog.ErrorContext(ctx, "PDC Service: Failed to send no response message", slog.Any("error", err))
+					}
 				}
 			}
 		}

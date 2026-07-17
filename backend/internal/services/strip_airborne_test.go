@@ -7,10 +7,26 @@ import (
 	"FlightStrips/pkg/events/euroscope"
 	"context"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+type departurePositionObserverSpy struct {
+	calls     int
+	callsign  string
+	latitude  float64
+	longitude float64
+}
+
+func (s *departurePositionObserverSpy) ObserveDeparturePosition(_ context.Context, _ int32, strip *models.Strip, latitude, longitude float64) error {
+	s.calls++
+	s.callsign = strip.Callsign
+	s.latitude = latitude
+	s.longitude = longitude
+	return nil
+}
 
 // TestResolveAirborneController_NilSID verifies that a strip without a SID returns nil.
 func TestResolveAirborneController_NilSID(t *testing.T) {
@@ -211,6 +227,35 @@ func TestUpdateAircraftPosition_ArrivalHiddenRemainsHidden(t *testing.T) {
 	assert.Equal(t, shared.BAY_HIDDEN, savedBay,
 		"already-hidden arrivals must stay HIDDEN so valid post-STAND auto-hide is preserved")
 	assert.False(t, moveCalled, "no bay move should be triggered when the arrival remains in HIDDEN")
+}
+
+func TestUpdateAircraftPosition_PrefileStillUsesEuroscopeForDepartureBlock(t *testing.T) {
+	ctx := context.Background()
+	const session = int32(1)
+	const callsign = "SAS123"
+	vatsimSeenAt := time.Date(2026, time.July, 17, 10, 0, 0, 0, time.UTC)
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			return &models.Strip{
+				Callsign: callsign, Origin: "EKCH", Destination: "EGLL",
+				Bay: shared.BAY_NOT_CLEARED, VatsimSeenAt: &vatsimSeenAt,
+			}, nil
+		},
+		UpdateAircraftPositionFn: func(_ context.Context, _ int32, _ string, _ *float64, _ *float64, _ *int32, _ string, _ *int32) (int64, error) {
+			return 1, nil
+		},
+	}
+	observer := &departurePositionObserverSpy{}
+	service := NewStripService(stripRepo)
+	service.SetDeparturePositionObserver(observer)
+
+	require.NoError(t, service.UpdateAircraftPosition(
+		ctx, session, callsign, shared.AirportLatitude, shared.AirportLongitude, 20, "EKCH",
+	))
+	require.Equal(t, 1, observer.calls)
+	require.Equal(t, callsign, observer.callsign)
+	require.Equal(t, shared.AirportLatitude, observer.latitude)
+	require.Equal(t, shared.AirportLongitude, observer.longitude)
 }
 
 // TestCreateCoordinationTransfer_EsHandoverSentWhenTargetHasNoEsConnection verifies that

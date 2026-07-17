@@ -91,10 +91,11 @@ func (s *StripService) UpdateAircraftPosition(ctx context.Context, session int32
 		return err
 	}
 
-	// VATSIM-backed departures are observed by the feed reconciler. Locally
-	// spawned EuroScope aircraft never enter that path, so feed their live
-	// position into the same stand lifecycle here.
-	if s.departureObserver != nil && existingStrip.VatsimSeenAt == nil &&
+	// An EuroScope position is authoritative evidence that the operational
+	// departure strip exists. Feed it into the stand lifecycle even when VATSIM
+	// has only supplied a prefile; prefile provenance must not suppress the
+	// EuroScope-first transition to a departure block.
+	if s.departureObserver != nil &&
 		strings.EqualFold(strings.TrimSpace(existingStrip.Origin), strings.TrimSpace(airport)) {
 		if err := s.departureObserver.ObserveDeparturePosition(ctx, session, existingStrip, lat, lon); err != nil {
 			return err

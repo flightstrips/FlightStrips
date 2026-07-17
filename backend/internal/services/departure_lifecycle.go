@@ -11,6 +11,7 @@ import (
 	"log/slog"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -53,6 +54,8 @@ type DepartureLifecycleService struct {
 	blockExtension time.Duration
 	sweepInterval  time.Duration
 	messenger      wrongStandMessenger
+	warningMu      sync.Mutex
+	warnings       map[string]string
 }
 
 type wrongStandMessenger interface {
@@ -66,6 +69,7 @@ func (s *DepartureLifecycleService) SetWrongStandMessenger(messenger wrongStandM
 // CancelDeparture cancels transient wrong-stand state when a departure
 // disappears from the live feed.
 func (s *DepartureLifecycleService) CancelDeparture(ctx context.Context, session int32, callsign string) error {
+	s.clearUnassignedStandWarning(session, callsign)
 	return s.cancelWrongStandEpisode(ctx, session, callsign)
 }
 
@@ -134,6 +138,7 @@ func NewDepartureLifecycleService(
 		hold:           defaultDepartureHoldDuration,
 		blockExtension: defaultDepartureBlockExtension,
 		sweepInterval:  defaultDepartureSweepInterval,
+		warnings:       make(map[string]string),
 	}
 	for _, option := range options {
 		if option != nil {
@@ -196,6 +201,7 @@ func (s *DepartureLifecycleService) ObserveDeparturePosition(ctx context.Context
 func (s *DepartureLifecycleService) activateObservedBlock(ctx context.Context, session int32, strip *models.Strip, flight vatsim.DepartureFlightInfo) (bool, error) {
 	observed, found := s.stands.StandAtPosition(strings.TrimSpace(strip.Origin), flight.Latitude, flight.Longitude)
 	if !found {
+		s.clearUnassignedStandWarning(session, strip.Callsign)
 		slog.Warn("online departure is not inside a configured stand radius",
 			slog.String("callsign", strip.Callsign),
 			slog.Float64("latitude", flight.Latitude),
@@ -218,11 +224,22 @@ func (s *DepartureLifecycleService) activateObservedBlock(ctx context.Context, s
 	request := s.buildRequest(session, strip, flight, StageDepartureBlock, expiry)
 	request.Stand = observed.Name
 	if _, err := s.allocations.AssignManually(ctx, request); err == nil {
+		s.clearUnassignedStandWarning(session, strip.Callsign)
 		return true, nil
 	} else if existing == nil {
-		slog.Warn("observed departure stand requires task 19 handling",
-			slog.String("callsign", strip.Callsign), slog.String("observedStand", observed.Name), slog.Any("error", err))
-		return false, nil
+		automaticRequest := s.buildRequest(session, strip, flight, StageDepartureBlock, expiry)
+		result, allocationErr := s.allocations.Allocate(ctx, automaticRequest)
+		if allocationErr != nil {
+			s.deliverUnassignedOccupiedStandWarning(session, strip.Callsign, observed.Name)
+			slog.Warn("observed departure stand is occupied and no alternative stand could be assigned",
+				slog.String("callsign", strip.Callsign),
+				slog.String("observedStand", observed.Name),
+				slog.Any("observed_stand_error", err),
+				slog.Any("alternative_allocation_error", allocationErr))
+			return false, nil
+		}
+		s.clearUnassignedStandWarning(session, strip.Callsign)
+		existing = &result.Assignment
 	}
 
 	pendingReason := wrongStandPendingPrefix + observed.Name
@@ -250,6 +267,30 @@ func (s *DepartureLifecycleService) activateObservedBlock(ctx context.Context, s
 		return false, fmt.Errorf("publish observed stand mismatch for %s: %w", strip.Callsign, err)
 	}
 	return false, s.deliverWrongStandWarning(ctx, &updated)
+}
+
+func (s *DepartureLifecycleService) deliverUnassignedOccupiedStandWarning(session int32, callsign, observedStand string) {
+	if s.messenger == nil {
+		return
+	}
+	key := fmt.Sprintf("%d:%s", session, strings.ToUpper(strings.TrimSpace(callsign)))
+
+	s.warningMu.Lock()
+	defer s.warningMu.Unlock()
+	if warnedStand, ok := s.warnings[key]; ok && strings.EqualFold(warnedStand, observedStand) {
+		return
+	}
+	if s.messenger.SendPrivateMessageFromDelivery(session, callsign,
+		fmt.Sprintf("STAND ASSIGNMENT: STAND %s IS OCCUPIED. PLEASE RELOCATE", observedStand)) {
+		s.warnings[key] = observedStand
+	}
+}
+
+func (s *DepartureLifecycleService) clearUnassignedStandWarning(session int32, callsign string) {
+	key := fmt.Sprintf("%d:%s", session, strings.ToUpper(strings.TrimSpace(callsign)))
+	s.warningMu.Lock()
+	delete(s.warnings, key)
+	s.warningMu.Unlock()
 }
 
 func (s *DepartureLifecycleService) deliverWrongStandWarning(ctx context.Context, assignment *models.StandAssignment) error {

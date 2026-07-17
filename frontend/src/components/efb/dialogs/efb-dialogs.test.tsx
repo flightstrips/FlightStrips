@@ -1,11 +1,19 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
+import D1Brief from './D1Brief';
 import D1Stand from './D1Stand';
 import D2ATISDialog from './D2ATISDialog';
 import D2CDMDialog from './D2CDMDialog';
 import D2PDCDialog from './D2PDCDialog';
 
 describe('EFB operational dialogs', () => {
+  it('uses the upstream departure briefing artwork', () => {
+    render(<D1Brief isOpen onClose={vi.fn()} stand="A12" sid="NEXEN2A" />);
+
+    expect(screen.getByRole('dialog', { name: 'Departure briefing' })).toBeInTheDocument();
+    expect(screen.getByAltText('Prepare your Flight').getAttribute('src')).toContain('INTRO');
+  });
+
   it('does not claim unknown stand availability and keeps a rejected request open', async () => {
     const onClose = vi.fn();
     const onRequest = vi.fn().mockRejectedValue(new Error('stand is occupied'));

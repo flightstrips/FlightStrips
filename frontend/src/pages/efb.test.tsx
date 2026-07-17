@@ -90,6 +90,12 @@ describe('EFB page interactions', () => {
     expect(screen.getByText('1230')).toBeInTheDocument();
     expect(screen.queryByText('123000')).not.toBeInTheDocument();
     expect(screen.queryByText('CONTACT PASSING')).not.toBeInTheDocument();
+    expect(screen.getByAltText('Traffic Board')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Downloads' }));
+    expect(screen.getByRole('dialog', { name: 'Downloads' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Download GSX profile' })).toHaveAttribute('href', 'https://www.flightsim.to');
+    fireEvent.click(screen.getByRole('button', { name: 'Close downloads' }));
 
     fireEvent.click(screen.getByAltText('Charts'));
     expect(screen.getByRole('dialog', { name: 'CHARTS' })).toBeInTheDocument();

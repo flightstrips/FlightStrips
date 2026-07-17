@@ -57,7 +57,17 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,webp,woff2,webmanifest}'],
-        globIgnores: ['**/config.js'],
+        globIgnores: [
+          '**/config.js',
+          '**/assets/COMPLETE-*.png',
+          '**/assets/INTRO-*.png',
+          '**/assets/PUSH-*.png',
+          '**/assets/PUSHINTRO-*.png',
+          '**/assets/SIDINIT-*.png',
+          '**/assets/SIDNEXT-*.png',
+          '**/assets/TAXIINIT-*.png',
+          '**/assets/TAXINEXT-*.png',
+        ],
         navigateFallback: 'index.html',
         cleanupOutdatedCaches: true,
         clientsClaim: true,

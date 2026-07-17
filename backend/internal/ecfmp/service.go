@@ -1,6 +1,7 @@
 package ecfmp
 
 import (
+	"FlightStrips/internal/dependencies"
 	"FlightStrips/internal/models"
 	"FlightStrips/internal/repository"
 	"FlightStrips/internal/shared"
@@ -22,28 +23,45 @@ type Service struct {
 	euroscopeHub shared.EuroscopeHub
 }
 
-func NewService(client *Client, stripRepo StripStore, sessionRepo repository.SessionRepository, publisher shared.CdmEventPublisher, euroscopeHub shared.EuroscopeHub) *Service {
-	return &Service{
-		client:       client,
-		stripRepo:    stripRepo,
-		sessionRepo:  sessionRepo,
-		publisher:    publisher,
-		euroscopeHub: euroscopeHub,
+type ServiceDependencies struct {
+	Client    *Client
+	Strips    StripStore
+	Sessions  repository.SessionRepository
+	Frontend  shared.CdmEventPublisher
+	Euroscope shared.EuroscopeHub
+}
+
+func NewService(deps ServiceDependencies) (*Service, error) {
+	required := []struct {
+		name  string
+		value any
+	}{
+		{"client", deps.Client},
+		{"strip store", deps.Strips},
+		{"session repository", deps.Sessions},
+		{"frontend publisher", deps.Frontend},
+		{"EuroScope publisher", deps.Euroscope},
 	}
+	for _, dependency := range required {
+		if dependencies.IsNil(dependency.value) {
+			return nil, fmt.Errorf("ecfmp service requires %s", dependency.name)
+		}
+	}
+
+	return &Service{
+		client:       deps.Client,
+		stripRepo:    deps.Strips,
+		sessionRepo:  deps.Sessions,
+		publisher:    deps.Frontend,
+		euroscopeHub: deps.Euroscope,
+	}, nil
 }
 
 func (s *Service) FlowMeasures(ctx context.Context) ([]FlowMeasure, error) {
-	if s.client == nil {
-		return nil, fmt.Errorf("ecfmp client is not configured")
-	}
 	return s.client.FlowMeasures(ctx)
 }
 
 func (s *Service) Start(ctx context.Context) {
-	if s.client == nil {
-		return
-	}
-
 	if err := s.refreshMeasures(ctx); err != nil {
 		slog.WarnContext(ctx, "Failed to fetch initial ECFMP measures", slog.Any("error", err))
 	}
@@ -64,10 +82,6 @@ func (s *Service) Start(ctx context.Context) {
 }
 
 func (s *Service) InjectTestMeasures(ctx context.Context, measures []FlowMeasure) error {
-	if s.client == nil {
-		return fmt.Errorf("ecfmp client is not configured")
-	}
-
 	measures = normalizeTestMeasures(measures, time.Now())
 	s.client.SetTestMeasures(measures)
 	return s.refreshMeasures(ctx)
@@ -87,10 +101,6 @@ func (s *Service) refreshMeasures(ctx context.Context) error {
 }
 
 func (s *Service) applyMeasures(ctx context.Context, measures []FlowMeasure) error {
-	if s.stripRepo == nil || s.sessionRepo == nil {
-		return fmt.Errorf("ecfmp service is missing repositories")
-	}
-
 	sessions, err := s.sessionRepo.List(ctx)
 	if err != nil {
 		return err
@@ -163,13 +173,8 @@ func (s *Service) applyMeasures(ctx context.Context, measures []FlowMeasure) err
 }
 
 func (s *Service) broadcastEcfmpChanges(session int32, callsign string, cdmData *models.CdmData) {
-	if s.publisher != nil {
-		s.publisher.SendCdmUpdates(session, []frontendEvents.CdmDataEvent{shared.BuildFrontendCdmDataEvent(callsign, cdmData)})
-	}
-
-	if s.euroscopeHub != nil {
-		s.euroscopeHub.BroadcastCdmUpdates(session, []euroscopeEvents.CdmUpdateEvent{shared.BuildEuroscopeCdmUpdateEvent(callsign, cdmData)})
-	}
+	s.publisher.SendCdmUpdates(session, []frontendEvents.CdmDataEvent{shared.BuildFrontendCdmDataEvent(callsign, cdmData)})
+	s.euroscopeHub.BroadcastCdmUpdates(session, []euroscopeEvents.CdmUpdateEvent{shared.BuildEuroscopeCdmUpdateEvent(callsign, cdmData)})
 }
 
 func convertStripRestrictions(restrictions []StripRestriction) []models.EcfmpRestriction {

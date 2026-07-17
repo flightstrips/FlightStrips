@@ -118,8 +118,8 @@ func NewDepartureLifecycleService(
 	borders *sat.AirportCountryRegistry,
 	options ...DepartureLifecycleOption,
 ) (*DepartureLifecycleService, error) {
-	if allocations == nil || assignments == nil || strips == nil || stands == nil {
-		return nil, errors.New("departure lifecycle requires allocation service, repositories, and stand registry")
+	if allocations == nil || assignments == nil || strips == nil || sessions == nil || stands == nil {
+		return nil, errors.New("departure lifecycle requires allocation service, repositories, session store, and stand registry")
 	}
 	service := &DepartureLifecycleService{
 		allocations:    allocations,
@@ -482,9 +482,6 @@ func (s *DepartureLifecycleService) revalidateFacts(ctx context.Context, session
 // deadline from persisted ExpiresAt timestamps, so it is safe to run after a
 // restart.
 func (s *DepartureLifecycleService) ReleaseExpired(ctx context.Context) error {
-	if s.sessions == nil {
-		return nil
-	}
 	sessions, err := s.sessions.List(ctx)
 	if err != nil {
 		return err

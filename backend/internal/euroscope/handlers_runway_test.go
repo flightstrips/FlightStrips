@@ -15,7 +15,7 @@ import (
 )
 
 // buildTestHub returns a minimal Hub wired with the given server and strip service.
-func buildTestHub(server *testutil.MockServer, ss *testutil.NoOpStripService) *Hub {
+func buildTestHub(server *testutil.MockServer, ss *noOpStripService) *Hub {
 	return &Hub{
 		server:       server,
 		stripService: ss,
@@ -53,7 +53,7 @@ func TestApplyOrValidateRunways_Master_CallsUpdateLayouts(t *testing.T) {
 		},
 	}
 
-	hub := buildTestHub(mockServer, &testutil.NoOpStripService{})
+	hub := buildTestHub(mockServer, &noOpStripService{})
 	client := buildTestClient(hub, 1, "cid-master", "EKCH_A_TWR")
 
 	// Register client as master for session 1.
@@ -92,7 +92,7 @@ func TestApplyOrValidateRunways_Slave_DoesNotCallUpdateLayouts(t *testing.T) {
 		},
 	}
 
-	hub := buildTestHub(mockServer, &testutil.NoOpStripService{})
+	hub := buildTestHub(mockServer, &noOpStripService{})
 	master := buildTestClient(hub, 1, "cid-master", "EKCH_A_TWR")
 	slave := buildTestClient(hub, 1, "cid-slave", "EKCH_D_TWR")
 
@@ -128,7 +128,7 @@ func TestApplyOrValidateRunways_SlaveMismatch_TargetsFrontendAndAlertsOnceUntilR
 		FrontendHubVal: frontendHub,
 	}
 
-	hub := buildTestHub(mockServer, &testutil.NoOpStripService{})
+	hub := buildTestHub(mockServer, &noOpStripService{})
 	master := buildTestClient(hub, 1, "cid-master", "EKCH_A_TWR")
 	slave := buildTestClient(hub, 1, "cid-slave", "EKCH_D_TWR")
 	hub.master[1] = master
@@ -209,7 +209,7 @@ func TestApplyOrValidateRunways_ObserverMismatch_TargetsFrontendAndAlerts(t *tes
 		FrontendHubVal: frontendHub,
 	}
 
-	hub := buildTestHub(mockServer, &testutil.NoOpStripService{})
+	hub := buildTestHub(mockServer, &noOpStripService{})
 	master := buildTestClient(hub, 1, "cid-master", "EKCH_A_TWR")
 	observer := buildTestClient(hub, 1, "cid-observer", "EKCH_OBS")
 	observer.observer = true
@@ -259,7 +259,7 @@ func TestApplyOrValidateRunways_ObserverWithoutMasterDoesNotFlagMismatch(t *test
 		FrontendHubVal: frontendHub,
 	}
 
-	hub := buildTestHub(mockServer, &testutil.NoOpStripService{})
+	hub := buildTestHub(mockServer, &noOpStripService{})
 	observer := buildTestClient(hub, 1, "cid-observer", "EKCH_OBS")
 	observer.observer = true
 

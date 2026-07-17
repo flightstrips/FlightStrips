@@ -96,6 +96,9 @@ type App struct {
 
 func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 	cfg = cfg.withDefaults()
+	if cfg.EnablePDC && deps.PDCClient == nil && strings.TrimSpace(cfg.HoppieLogon) == "" {
+		return nil, fmt.Errorf("PDC is enabled but no Hoppie client or HOPPIE_LOGON is configured")
+	}
 	standAssignmentReadiness := configureStandAssignment(cfg.EnableStandAssignment)
 
 	dbpool, closeDB, err := buildDBPool(ctx, cfg, deps.DBPool)
@@ -111,44 +114,26 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 		return nil, err
 	}
 
-	stripRepo := postgres.NewStripRepository(dbpool)
-	controllerRepo := postgres.NewControllerRepository(dbpool)
-	sessionRepo := postgres.NewSessionRepository(dbpool)
-	sectorRepo := postgres.NewSectorOwnerRepository(dbpool)
-	coordRepo := postgres.NewCoordinationRepository(dbpool)
-	tacticalStripRepo := postgres.NewTacticalStripRepository(dbpool)
-	var standAssignmentRepo repository.StandAssignmentRepository
-	var standAllocationService *services.StandAllocationService
-	var standActionService *services.StandActionService
-	var departureLifecycle *services.DepartureLifecycleService
-	var arrivalLifecycle *services.ArrivalLifecycleService
-	if standAssignmentReadiness.Ready {
-		standAssignmentRepo = postgres.NewStandAssignmentRepository(dbpool)
-		stands := appconfig.GetStandCapabilities()
-		policy := appconfig.GetAirlineAssignment()
-		standAllocationService, err = services.NewStandAllocationService(dbpool, stripRepo, standAssignmentRepo, stands, policy)
-		if err != nil {
-			return nil, fmt.Errorf("initialize stand allocation service: %w", err)
+	core := assembleCoreRepositories(dbpool)
+	stripRepo := core.strips
+	controllerRepo := core.controllers
+	sessionRepo := core.sessions
+	sectorRepo := core.sectors
+	coordRepo := core.coordinations
+	tacticalStripRepo := core.tacticalStrips
+
+	satGraph, err := assembleSAT(cfg, standAssignmentReadiness, dbpool, core)
+	if err != nil {
+		if closeDB {
+			dbpool.Close()
 		}
-		departureLifecycle, err = services.NewDepartureLifecycleService(
-			standAllocationService, standAssignmentRepo, stripRepo, sessionRepo,
-			stands, appconfig.GetAircraftReference(), appconfig.GetAircraftEngineReference(), appconfig.GetAirportCountries(),
-			services.WithDepartureHoldDuration(cfg.StandAssignmentHoldDuration),
-			services.WithDepartureBlockExtension(cfg.StandAssignmentBlockExtension),
-			services.WithDepartureSweepInterval(cfg.StandAssignmentSweepInterval),
-		)
-		if err != nil {
-			return nil, fmt.Errorf("initialize departure lifecycle service: %w", err)
-		}
-		arrivalLifecycle, err = services.NewArrivalLifecycleService(
-			standAllocationService, standAssignmentRepo, stripRepo, sessionRepo,
-			stands, appconfig.GetAircraftReference(), appconfig.GetAircraftEngineReference(), appconfig.GetAirportCountries(),
-			services.WithArrivalSweepInterval(cfg.StandAssignmentSweepInterval),
-		)
-		if err != nil {
-			return nil, fmt.Errorf("initialize arrival lifecycle service: %w", err)
-		}
+		return nil, err
 	}
+	standAssignmentRepo := satGraph.assignments
+	standAllocationService := satGraph.allocations
+	standActionService := satGraph.actions
+	departureLifecycle := satGraph.departures
+	arrivalLifecycle := satGraph.arrivals
 
 	stripService := services.NewStripService(
 		stripRepo,
@@ -161,80 +146,170 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 	if departureLifecycle != nil {
 		stripService.SetDeparturePositionObserver(departureLifecycle)
 	}
-	stripValidationService := services.NewStripValidationService(stripRepo, stripRepo)
 	controllerService := services.NewControllerService(controllerRepo)
 	cdmClient := cdm.NewClient(cdm.WithAPIKey(cfg.CDMKey))
-	cdmService := cdm.NewCdmService(cdmClient, stripRepo, sessionRepo, controllerRepo)
-	stripService.SetCdmService(cdmService)
-	cdmService.SetValidationReevaluator(stripService)
 
-	pdcService := buildPDCService(cfg, deps.PDCClient, sessionRepo, stripRepo, sectorRepo, controllerRepo)
 	requireLiveCIDVerification := isLiveEnvironment(cfg.Environment)
 	vatsimCache := buildVATSIMCache(cfg, deps, requireLiveCIDVerification, standAssignmentReadiness.Ready)
 
 	var fsServer *server.Server
-	var transceiverCache *vatsim.TransceiverCache
-	var transceiverLookup server.TransceiverLookup = noopTransceiverLookup{}
-	if cfg.EnableTransceivers {
-		transceiverCache = vatsim.NewTransceiverCache(
-			deps.TransceiversURL,
-			deps.TransceiversInterval,
-			nil,
-			func(ctx context.Context) error {
-				if fsServer == nil {
-					return nil
-				}
-				return fsServer.RefreshAllSectors(ctx)
-			},
-		)
-		transceiverLookup = transceiverCache
-		slog.Info("VATSIM transceiver cache enabled for sector ownership refresh")
-	}
+	transports := assembleTransports(cfg, deps, func(ctx context.Context) error {
+		return fsServer.RefreshAllSectors(ctx)
+	})
+	transceiverCache := transports.transceivers
+	serverFrequencyProviders := transports.serverFrequencyProviders
+	pdcFrequencyProviders := transports.pdcFrequencyProviders
 
-	frontendHub := frontend.NewHub(stripService, authService)
+	realtime, err := assembleRealtime(stripService, controllerService, authService)
+	if err != nil {
+		if closeDB {
+			dbpool.Close()
+		}
+		return nil, err
+	}
+	frontendHub := realtime.frontend
+	euroscopeHub := realtime.euroscope
+	stripValidationService, err := services.NewStripValidationService(services.StripValidationDependencies{
+		Strips: stripRepo, Statuses: stripRepo, Publisher: frontendHub,
+	})
+	if err != nil {
+		if closeDB {
+			dbpool.Close()
+		}
+		return nil, fmt.Errorf("initialize strip validation service: %w", err)
+	}
 	if standAllocationService != nil {
-		standActionService = services.NewStandActionService(standAllocationService, standAssignmentRepo, stripRepo, appconfig.GetAircraftReference(), appconfig.GetAircraftEngineReference(), appconfig.GetAirportCountries())
 		frontendHub.SetStandActionService(standActionService)
 		standAllocationService.SetPublisher(frontendHub.PublishStandAllocation)
 	}
-	euroscopeHub := euroscope.NewHub(stripService, controllerService, authService)
+	cdmService, err := cdm.NewCdmService(cdm.ServiceDependencies{
+		Client:                cdmClient,
+		Strips:                stripRepo,
+		Sessions:              sessionRepo,
+		Controllers:           controllerRepo,
+		Frontend:              frontendHub,
+		Euroscope:             euroscopeHub,
+		ValidationReevaluator: stripService,
+	})
+	if err != nil {
+		if closeDB {
+			dbpool.Close()
+		}
+		return nil, fmt.Errorf("initialize CDM service: %w", err)
+	}
+	stripService.SetCdmService(cdmService)
 	if departureLifecycle != nil {
 		departureLifecycle.SetWrongStandMessenger(euroscopeHub)
 	}
 	var vatsimReconciler *vatsim.Reconciler
 	if standAssignmentReadiness.Ready && vatsimCache != nil && standAssignmentRepo != nil {
 		latitude, longitude := appconfig.GetAirportCoordinates()
-		vatsimReconciler = vatsim.NewReconciler(vatsimCache, sessionRepo, stripRepo, standAssignmentRepo, frontendHub, deps.VATSIMPollInterval, vatsim.WithAirportCoordinates(latitude, longitude))
-		if departureLifecycle != nil {
-			vatsimReconciler.SetDepartureLifecycle(departureLifecycle)
-		}
-		if arrivalLifecycle != nil {
-			vatsimReconciler.SetArrivalLifecycle(arrivalLifecycle)
+		vatsimReconciler, err = vatsim.NewReconciler(vatsim.ReconcilerDependencies{
+			Cache:              vatsimCache,
+			Sessions:           sessionRepo,
+			Strips:             stripRepo,
+			Assignments:        standAssignmentRepo,
+			DepartureLifecycle: departureLifecycle,
+			ArrivalLifecycle:   arrivalLifecycle,
+			Notifier:           frontendHub,
+		}, deps.VATSIMPollInterval, vatsim.WithAirportCoordinates(latitude, longitude))
+		if err != nil {
+			if closeDB {
+				dbpool.Close()
+			}
+			return nil, fmt.Errorf("initialize VATSIM reconciler: %w", err)
 		}
 		euroscopeHub.SetAircraftDisconnectRetainer(vatsimReconciler.RetainsStrip)
 	}
-	albHub := alb.NewHub()
-	ecfmpService := ecfmp.NewService(ecfmp.NewClient(ecfmp.WithBaseURL(cfg.ECFMPBaseURL)), stripRepo, sessionRepo, frontendHub, euroscopeHub)
+	var albHub *alb.Hub
+	if cfg.EnableALB {
+		albHub = alb.NewHub()
+	}
+	var ecfmpService *ecfmp.Service
+	if cfg.EnableECFMP || cfg.EnableECFMPAPI {
+		ecfmpService, err = ecfmp.NewService(ecfmp.ServiceDependencies{
+			Client:    ecfmp.NewClient(ecfmp.WithBaseURL(cfg.ECFMPBaseURL)),
+			Strips:    stripRepo,
+			Sessions:  sessionRepo,
+			Frontend:  frontendHub,
+			Euroscope: euroscopeHub,
+		})
+		if err != nil {
+			if closeDB {
+				dbpool.Close()
+			}
+			return nil, fmt.Errorf("initialize ECFMP service: %w", err)
+		}
+	}
 
 	stripService.SetFrontendHub(frontendHub)
-	stripValidationService.SetFrontendHub(frontendHub)
 	frontendHub.SetValidationService(stripValidationService)
 	stripService.SetEuroscopeHub(euroscopeHub)
 	stripService.SetSectorOwnerRepo(sectorRepo)
-	cdmService.SetFrontendHub(frontendHub)
-	cdmService.SetEuroscopeHub(euroscopeHub)
 
-	sequenceService, configStore := configureCDM(cfg, cdmClient, cdmService, stripRepo, sessionRepo, frontendHub, euroscopeHub)
-
-	if pdcService != nil {
-		stripService.SetPdcService(pdcService)
-		pdcService.SetStripService(stripService)
-		pdcService.SetFrontendHub(frontendHub)
-		pdcService.SetEuroscopeHub(euroscopeHub)
-		pdcService.SetTransceiverLookup(transceiverLookup)
+	sequenceService, configStore, err := configureCDM(cfg, cdmClient, cdmService, stripRepo, sessionRepo, frontendHub, euroscopeHub)
+	if err != nil {
+		if closeDB {
+			dbpool.Close()
+		}
+		return nil, err
 	}
 
-	fsServer = server.NewServer(dbpool, euroscopeHub, frontendHub, cdmService, pdcService, transceiverLookup, stripRepo, controllerRepo, sessionRepo, sectorRepo, coordRepo, tacticalStripRepo, standAssignmentRepo)
+	var pdcService *pdc.Service
+	if cfg.EnablePDC {
+		pdcService, err = buildPDCService(
+			cfg,
+			deps.PDCClient,
+			sessionRepo,
+			stripRepo,
+			sectorRepo,
+			controllerRepo,
+			frontendHub,
+			euroscopeHub,
+			stripService,
+			pdcFrequencyProviders,
+		)
+		if err != nil {
+			if closeDB {
+				dbpool.Close()
+			}
+			return nil, err
+		}
+		stripService.SetPdcService(pdcService)
+		if err := frontendHub.RegisterPDCHandlers(pdcService); err != nil {
+			if closeDB {
+				dbpool.Close()
+			}
+			return nil, fmt.Errorf("register frontend PDC handlers: %w", err)
+		}
+		if err := euroscopeHub.RegisterPDCHandlers(pdcService); err != nil {
+			if closeDB {
+				dbpool.Close()
+			}
+			return nil, fmt.Errorf("register EuroScope PDC handlers: %w", err)
+		}
+	}
+
+	fsServer, err = server.NewServer(server.Dependencies{
+		DBPool:             dbpool,
+		Euroscope:          euroscopeHub,
+		Frontend:           frontendHub,
+		CDM:                cdmService,
+		FrequencyProviders: serverFrequencyProviders,
+		Strips:             stripRepo,
+		Controllers:        controllerRepo,
+		Sessions:           sessionRepo,
+		Sectors:            sectorRepo,
+		Coordinations:      coordRepo,
+		TacticalStrips:     tacticalStripRepo,
+		StandAssignments:   standAssignmentRepo,
+	})
+	if err != nil {
+		if closeDB {
+			dbpool.Close()
+		}
+		return nil, fmt.Errorf("initialize server: %w", err)
+	}
 
 	frontendHub.SetServer(fsServer)
 	euroscopeHub.SetServer(fsServer)
@@ -283,6 +358,9 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 	}
 
 	app.addWorker(cdmService.Start)
+	app.addWorker(fsServer.StartSessionMonitor)
+	app.addWorker(frontendHub.Run)
+	app.addWorker(euroscopeHub.Run)
 	if configStore != nil {
 		app.addWorker(configStore.Start)
 	}
@@ -319,6 +397,122 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 	}
 
 	return app, nil
+}
+
+type coreRepositories struct {
+	strips         repository.StripRepository
+	controllers    repository.ControllerRepository
+	sessions       repository.SessionRepository
+	sectors        repository.SectorOwnerRepository
+	coordinations  repository.CoordinationRepository
+	tacticalStrips repository.TacticalStripRepository
+}
+
+func assembleCoreRepositories(dbpool *pgxpool.Pool) coreRepositories {
+	return coreRepositories{
+		strips:         postgres.NewStripRepository(dbpool),
+		controllers:    postgres.NewControllerRepository(dbpool),
+		sessions:       postgres.NewSessionRepository(dbpool),
+		sectors:        postgres.NewSectorOwnerRepository(dbpool),
+		coordinations:  postgres.NewCoordinationRepository(dbpool),
+		tacticalStrips: postgres.NewTacticalStripRepository(dbpool),
+	}
+}
+
+type satAssembly struct {
+	assignments repository.StandAssignmentRepository
+	allocations *services.StandAllocationService
+	actions     *services.StandActionService
+	departures  *services.DepartureLifecycleService
+	arrivals    *services.ArrivalLifecycleService
+}
+
+func assembleSAT(cfg Config, readiness appconfig.StandAssignmentReadiness, dbpool *pgxpool.Pool, core coreRepositories) (satAssembly, error) {
+	if !readiness.Ready {
+		return satAssembly{}, nil
+	}
+
+	assignments := postgres.NewStandAssignmentRepository(dbpool)
+	stands := appconfig.GetStandCapabilities()
+	aircraft := appconfig.GetAircraftReference()
+	engines := appconfig.GetAircraftEngineReference()
+	borders := appconfig.GetAirportCountries()
+	allocations, err := services.NewStandAllocationService(
+		dbpool, core.strips, assignments, stands, appconfig.GetAirlineAssignment(),
+	)
+	if err != nil {
+		return satAssembly{}, fmt.Errorf("initialize stand allocation service: %w", err)
+	}
+	departures, err := services.NewDepartureLifecycleService(
+		allocations, assignments, core.strips, core.sessions, stands, aircraft, engines, borders,
+		services.WithDepartureHoldDuration(cfg.StandAssignmentHoldDuration),
+		services.WithDepartureBlockExtension(cfg.StandAssignmentBlockExtension),
+		services.WithDepartureSweepInterval(cfg.StandAssignmentSweepInterval),
+	)
+	if err != nil {
+		return satAssembly{}, fmt.Errorf("initialize departure lifecycle service: %w", err)
+	}
+	arrivals, err := services.NewArrivalLifecycleService(
+		allocations, assignments, core.strips, core.sessions, stands, aircraft, engines, borders,
+		services.WithArrivalSweepInterval(cfg.StandAssignmentSweepInterval),
+	)
+	if err != nil {
+		return satAssembly{}, fmt.Errorf("initialize arrival lifecycle service: %w", err)
+	}
+
+	return satAssembly{
+		assignments: assignments,
+		allocations: allocations,
+		actions:     services.NewStandActionService(allocations, assignments, core.strips, aircraft, engines, borders),
+		departures:  departures,
+		arrivals:    arrivals,
+	}, nil
+}
+
+type transportAssembly struct {
+	transceivers             *vatsim.TransceiverCache
+	serverFrequencyProviders []server.TransceiverLookup
+	pdcFrequencyProviders    []pdc.TransceiverLookup
+}
+
+func assembleTransports(cfg Config, deps Dependencies, refreshSectors func(context.Context) error) transportAssembly {
+	if !cfg.EnableTransceivers {
+		return transportAssembly{}
+	}
+
+	cache := vatsim.NewTransceiverCache(
+		deps.TransceiversURL,
+		deps.TransceiversInterval,
+		nil,
+		refreshSectors,
+	)
+	slog.Info("VATSIM transceiver cache enabled for sector ownership refresh")
+	return transportAssembly{
+		transceivers:             cache,
+		serverFrequencyProviders: []server.TransceiverLookup{cache},
+		pdcFrequencyProviders:    []pdc.TransceiverLookup{cache},
+	}
+}
+
+type realtimeAssembly struct {
+	frontend  *frontend.Hub
+	euroscope *euroscope.Hub
+}
+
+func assembleRealtime(stripService shared.StripService, controllerService shared.ControllerService, authService shared.AuthenticationService) (realtimeAssembly, error) {
+	frontendHub, err := frontend.NewHub(frontend.HubDependencies{
+		Strips: stripService, Authentication: authService,
+	})
+	if err != nil {
+		return realtimeAssembly{}, fmt.Errorf("initialize frontend hub: %w", err)
+	}
+	euroscopeHub, err := euroscope.NewHub(euroscope.HubDependencies{
+		Strips: stripService, Controllers: controllerService, Authentication: authService,
+	})
+	if err != nil {
+		return realtimeAssembly{}, fmt.Errorf("initialize EuroScope hub: %w", err)
+	}
+	return realtimeAssembly{frontend: frontendHub, euroscope: euroscopeHub}, nil
 }
 
 // StandAssignmentReadiness returns the SAT configuration state created with
@@ -420,24 +614,36 @@ func buildPDCService(
 	stripRepo repository.StripRepository,
 	sectorRepo repository.SectorOwnerRepository,
 	controllerRepo repository.ControllerRepository,
-) *pdc.Service {
-	if !cfg.EnablePDC {
-		return nil
-	}
-
+	frontendHub shared.FrontendHub,
+	euroscopeHub shared.EuroscopeHub,
+	stripService shared.StripService,
+	transceiverProviders []pdc.TransceiverLookup,
+) (*pdc.Service, error) {
 	if client == nil {
 		if cfg.HoppieLogon != "" {
 			client = pdc.NewClient(cfg.HoppieLogon)
 			slog.Info("PDC Hoppie client initialized")
 		} else {
-			client = pdc.NoopHoppieClient{}
-			slog.Warn("PDC Hoppie client disabled - HOPPIE_LOGON not set")
+			return nil, fmt.Errorf("PDC is enabled but no Hoppie client or HOPPIE_LOGON is configured")
 		}
 	}
 
-	service := pdc.NewPDCService(client, sessionRepo, stripRepo, sectorRepo, controllerRepo)
-	service.SetWebLookupLiveOnly(cfg.PDCWebLookupLiveOnly)
-	return service
+	service, err := pdc.NewPDCService(pdc.ServiceDependencies{
+		Client:               client,
+		Sessions:             sessionRepo,
+		Strips:               stripRepo,
+		Sectors:              sectorRepo,
+		Controllers:          controllerRepo,
+		Frontend:             frontendHub,
+		Euroscope:            euroscopeHub,
+		StripService:         stripService,
+		TransceiverProviders: transceiverProviders,
+		WebLookupLiveOnly:    cfg.PDCWebLookupLiveOnly,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("initialize PDC service: %w", err)
+	}
+	return service, nil
 }
 
 func buildVATSIMCache(cfg Config, deps Dependencies, requireLiveCIDVerification bool, enableReconciliation bool) *vatsim.Cache {
@@ -458,9 +664,9 @@ func configureCDM(
 	sessionRepo repository.SessionRepository,
 	frontendHub *frontend.Hub,
 	euroscopeHub *euroscope.Hub,
-) (*cdm.SequenceService, *cdm.CdmConfigStore) {
+) (*cdm.SequenceService, *cdm.CdmConfigStore, error) {
 	if !cfg.EnableCDMConfigStore {
-		return nil, nil
+		return nil, nil, nil
 	}
 
 	cdmCfg := appconfig.GetCdmConfig()
@@ -496,7 +702,12 @@ func configureCDM(
 			return platforms
 		}(),
 	})
-	sequenceService := cdm.NewSequenceService(stripRepo, sessionRepo, configStore, frontendHub, euroscopeHub)
+	sequenceService, err := cdm.NewSequenceService(cdm.SequenceServiceDependencies{
+		Strips: stripRepo, Sessions: sessionRepo, Config: configStore, Frontend: frontendHub, Euroscope: euroscopeHub,
+	})
+	if err != nil {
+		return nil, nil, fmt.Errorf("initialize CDM sequence service: %w", err)
+	}
 	cdmService.SetConfigProvider(configStore)
 	cdmService.SetSequenceService(sequenceService)
 	configStore.SetOnAirportConfigChanged(func(airport string) {
@@ -509,7 +720,7 @@ func configureCDM(
 	})
 	slog.Info("CDM local calculation enabled", slog.String("rateUri", resolveURI(cdmCfg.RateUri)))
 
-	return sequenceService, configStore
+	return sequenceService, configStore, nil
 }
 
 type buildHandlerConfig struct {
@@ -634,12 +845,6 @@ func satStaleAfter(poll time.Duration) time.Duration {
 		return time.Minute
 	}
 	return threshold
-}
-
-type noopTransceiverLookup struct{}
-
-func (noopTransceiverLookup) GetFrequencies(string) []string {
-	return nil
 }
 
 func (cfg Config) withDefaults() Config {

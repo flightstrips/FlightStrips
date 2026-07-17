@@ -430,11 +430,7 @@ func handleIssuePdcClearance(ctx context.Context, client *Client, message Messag
 	if err := message.JsonUnmarshal(&event); err != nil {
 		return err
 	}
-	pdcService := client.hub.server.GetPdcService()
-	if pdcService == nil {
-		return nil
-	}
-	return pdcService.IssueClearance(ctx, event.Callsign, event.Remarks, client.GetCid(), client.session)
+	return client.hub.pdcService.IssueClearance(ctx, event.Callsign, event.Remarks, client.GetCid(), client.session)
 }
 
 func handlePdcRevertToVoice(ctx context.Context, client *Client, message Message) error {
@@ -442,11 +438,7 @@ func handlePdcRevertToVoice(ctx context.Context, client *Client, message Message
 	if err := message.JsonUnmarshal(&event); err != nil {
 		return err
 	}
-	pdcService := client.hub.server.GetPdcService()
-	if pdcService == nil {
-		return nil
-	}
-	return pdcService.RevertToVoice(ctx, event.Callsign, client.session, client.GetCid())
+	return client.hub.pdcService.RevertToVoice(ctx, event.Callsign, client.session, client.GetCid())
 }
 
 func handleSendPrivateMessage(ctx context.Context, client *Client, message Message) error {

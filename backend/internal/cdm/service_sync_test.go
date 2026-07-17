@@ -45,7 +45,7 @@ func TestSyncCdmData_PersistsFlowMessageAndReqTobtSource(t *testing.T) {
 	existing := (&models.CdmData{}).Normalize()
 	var persisted *models.CdmData
 	euroscopeHub := &testutil.MockEuroscopeHub{}
-	service := NewCdmService(
+	service := newTestCdmService(
 		NewClient(WithAPIKey("test-key"), WithBaseURL(server.URL)),
 		&testutil.MockStripRepository{
 			GetCdmDataFn: func(context.Context, int32) ([]*models.CdmDataRow, error) {
@@ -68,7 +68,7 @@ func TestSyncCdmData_PersistsFlowMessageAndReqTobtSource(t *testing.T) {
 		&testutil.MockSessionRepository{},
 		&testutil.MockControllerRepository{},
 	)
-	service.SetEuroscopeHub(euroscopeHub)
+	setTestCdmEuroscope(service, euroscopeHub)
 
 	err := service.syncCdmData(context.Background(), &models.Session{ID: sessionID, Name: "LIVE", Airport: "EKCH"})
 	if err != nil {
@@ -128,7 +128,7 @@ func TestSyncCdmData_PreservesExistingAsat(t *testing.T) {
 
 	existing := &models.CdmData{Asat: &asat}
 	var persisted *models.CdmData
-	service := NewCdmService(
+	service := newTestCdmService(
 		NewClient(WithAPIKey("test-key"), WithBaseURL(server.URL)),
 		&testutil.MockStripRepository{
 			GetCdmDataFn: func(context.Context, int32) ([]*models.CdmDataRow, error) {
@@ -198,7 +198,7 @@ func TestSyncCdmData_MasterSession_NormalizesExistingFarFutureEobt(t *testing.T)
 			return &models.Controller{Cid: testStringPtr(masterCid)}, nil
 		},
 	}
-	service := NewCdmService(
+	service := newTestCdmService(
 		NewClient(WithAPIKey("test-key"), WithBaseURL(server.URL)),
 		&testutil.MockStripRepository{
 			GetCdmDataFn: func(context.Context, int32) ([]*models.CdmDataRow, error) {
@@ -239,7 +239,7 @@ func TestSyncCdmData_MasterSession_NormalizesExistingFarFutureEobt(t *testing.T)
 		&testutil.MockSessionRepository{},
 		controllerRepo,
 	)
-	service.SetEuroscopeHub(euroscopeHub)
+	setTestCdmEuroscope(service, euroscopeHub)
 	service.sessionMaster.Store(sessionID, true)
 
 	err := service.syncCdmData(context.Background(), &models.Session{ID: sessionID, Name: "LIVE", Airport: airport, CdmMaster: true})
@@ -316,7 +316,7 @@ func TestSyncCdmData_MasterSession_NormalizesEmptyEobt(t *testing.T) {
 			return &models.Controller{Cid: testStringPtr(masterCid)}, nil
 		},
 	}
-	service := NewCdmService(
+	service := newTestCdmService(
 		NewClient(WithAPIKey("test-key"), WithBaseURL(server.URL)),
 		&testutil.MockStripRepository{
 			GetCdmDataFn: func(context.Context, int32) ([]*models.CdmDataRow, error) {
@@ -357,7 +357,7 @@ func TestSyncCdmData_MasterSession_NormalizesEmptyEobt(t *testing.T) {
 		&testutil.MockSessionRepository{},
 		controllerRepo,
 	)
-	service.SetEuroscopeHub(euroscopeHub)
+	setTestCdmEuroscope(service, euroscopeHub)
 	service.sessionMaster.Store(sessionID, true)
 
 	err := service.syncCdmData(context.Background(), &models.Session{ID: sessionID, Name: "LIVE", Airport: airport, CdmMaster: true})
@@ -449,7 +449,7 @@ func TestSyncCdmData_MasterSession_KeepsFreshCtotWhenEobtNormalizationAlsoRuns(t
 			return &models.Controller{Cid: testStringPtr(masterCid)}, nil
 		},
 	}
-	service := NewCdmService(
+	service := newTestCdmService(
 		NewClient(WithAPIKey("test-key"), WithBaseURL(server.URL)),
 		&testutil.MockStripRepository{
 			GetCdmDataFn: func(context.Context, int32) ([]*models.CdmDataRow, error) {
@@ -481,7 +481,7 @@ func TestSyncCdmData_MasterSession_KeepsFreshCtotWhenEobtNormalizationAlsoRuns(t
 		&testutil.MockSessionRepository{},
 		controllerRepo,
 	)
-	service.SetEuroscopeHub(euroscopeHub)
+	setTestCdmEuroscope(service, euroscopeHub)
 	service.sessionMaster.Store(sessionID, true)
 
 	err := service.syncCdmData(context.Background(), &models.Session{ID: sessionID, Name: "LIVE", Airport: airport, CdmMaster: true})
@@ -569,7 +569,7 @@ func TestSyncCdmData_MasterSession_DoesNotOverwriteConfirmedTobtDuringEobtNormal
 			return &models.Controller{Cid: testStringPtr(masterCid)}, nil
 		},
 	}
-	service := NewCdmService(
+	service := newTestCdmService(
 		NewClient(WithAPIKey("test-key"), WithBaseURL(server.URL)),
 		&testutil.MockStripRepository{
 			GetCdmDataFn: func(context.Context, int32) ([]*models.CdmDataRow, error) {
@@ -610,7 +610,7 @@ func TestSyncCdmData_MasterSession_DoesNotOverwriteConfirmedTobtDuringEobtNormal
 		&testutil.MockSessionRepository{},
 		controllerRepo,
 	)
-	service.SetEuroscopeHub(euroscopeHub)
+	setTestCdmEuroscope(service, euroscopeHub)
 	service.sessionMaster.Store(sessionID, true)
 
 	err := service.syncCdmData(context.Background(), &models.Session{ID: sessionID, Name: "LIVE", Airport: airport, CdmMaster: true})
@@ -659,7 +659,7 @@ func TestSyncCdmData_UsesNestedCtotForFrontendUpdate(t *testing.T) {
 
 	var persisted *models.CdmData
 	frontendHub := &testutil.MockFrontendHub{}
-	service := NewCdmService(
+	service := newTestCdmService(
 		NewClient(WithAPIKey("test-key"), WithBaseURL(server.URL)),
 		&testutil.MockStripRepository{
 			GetCdmDataFn: func(context.Context, int32) ([]*models.CdmDataRow, error) {
@@ -684,7 +684,7 @@ func TestSyncCdmData_UsesNestedCtotForFrontendUpdate(t *testing.T) {
 		&testutil.MockSessionRepository{},
 		&testutil.MockControllerRepository{},
 	)
-	service.SetFrontendHub(frontendHub)
+	setTestCdmFrontend(service, frontendHub)
 
 	err := service.syncCdmData(context.Background(), &models.Session{ID: sessionID, Name: "LIVE", Airport: "EKCH"})
 	if err != nil {
@@ -724,7 +724,7 @@ func TestSyncCdmData_ReturnsErrorWhenPersistSkipsRow(t *testing.T) {
 	}))
 	defer server.Close()
 
-	service := NewCdmService(
+	service := newTestCdmService(
 		NewClient(WithAPIKey("test-key"), WithBaseURL(server.URL)),
 		&testutil.MockStripRepository{
 			GetCdmDataFn: func(context.Context, int32) ([]*models.CdmDataRow, error) {
@@ -786,14 +786,14 @@ func TestSyncCdmData_SlaveSession_StartupStatusInitializesAsat(t *testing.T) {
 			}}, nil
 		},
 	}
-	service := NewCdmService(
+	service := newTestCdmService(
 		NewClient(WithAPIKey("test-key"), WithBaseURL(server.URL)),
 		stripRepo,
 		&testutil.MockSessionRepository{},
 		&testutil.MockControllerRepository{},
 	)
-	service.SetEuroscopeHub(euroscopeHub)
-	service.SetSequenceService(NewSequenceService(stripRepo, &testutil.MockSessionRepository{}, NewCdmConfigStore("", "", "", 0, CdmConfigDefaults{}, nil), nil, nil))
+	setTestCdmEuroscope(service, euroscopeHub)
+	service.SetSequenceService(newTestSequenceService(stripRepo, &testutil.MockSessionRepository{}, NewCdmConfigStore("", "", "", 0, CdmConfigDefaults{}, nil), nil, nil))
 	// Session is NOT master — full API sync applies.
 
 	err := service.syncCdmData(context.Background(), &models.Session{ID: sessionID, Name: "LIVE", Airport: "EKCH"})
@@ -871,13 +871,13 @@ func TestSyncCdmData_SlaveSession_ReplacesPersistedCalculationSnapshotWithStored
 			}}, nil
 		},
 	}
-	service := NewCdmService(
+	service := newTestCdmService(
 		NewClient(WithAPIKey("test-key"), WithBaseURL(server.URL)),
 		stripRepo,
 		&testutil.MockSessionRepository{},
 		&testutil.MockControllerRepository{},
 	)
-	service.SetSequenceService(NewSequenceService(stripRepo, &testutil.MockSessionRepository{}, NewCdmConfigStore("", "", "", 0, CdmConfigDefaults{}, nil), nil, nil))
+	service.SetSequenceService(newTestSequenceService(stripRepo, &testutil.MockSessionRepository{}, NewCdmConfigStore("", "", "", 0, CdmConfigDefaults{}, nil), nil, nil))
 
 	err := service.syncCdmData(context.Background(), &models.Session{ID: sessionID, Name: "LIVE", Airport: "EKCH"})
 	if err != nil {
@@ -915,7 +915,7 @@ func TestSyncCdmData_MasterSession_DoesNotSyncTsatFromAPI(t *testing.T) {
 	defer server.Close()
 
 	var persisted *models.CdmData
-	service := NewCdmService(
+	service := newTestCdmService(
 		NewClient(WithAPIKey("test-key"), WithBaseURL(server.URL)),
 		&testutil.MockStripRepository{
 			GetCdmDataFn: func(context.Context, int32) ([]*models.CdmDataRow, error) {
@@ -971,7 +971,7 @@ func TestSyncCdmData_MasterSession_MarksRecalculationForReqTobtAndCtotChanges(t 
 	defer server.Close()
 
 	var persisted *models.CdmData
-	service := NewCdmService(
+	service := newTestCdmService(
 		NewClient(WithAPIKey("test-key"), WithBaseURL(server.URL)),
 		&testutil.MockStripRepository{
 			GetCdmDataFn: func(context.Context, int32) ([]*models.CdmDataRow, error) {
@@ -1044,7 +1044,7 @@ func TestSyncCdmData_MasterSession_DoesNotExportStaleLocalTimesWhileRecalcPendin
 	defer server.Close()
 
 	var persisted *models.CdmData
-	service := NewCdmService(
+	service := newTestCdmService(
 		NewClient(WithAPIKey("test-key"), WithBaseURL(server.URL)),
 		&testutil.MockStripRepository{
 			GetCdmDataFn: func(context.Context, int32) ([]*models.CdmDataRow, error) {
@@ -1122,7 +1122,7 @@ func TestSyncCdmData_MasterSession_PushesLocalTimesToViffWhenApiDiffers(t *testi
 		Ttot: testStringPtr("102500"),
 	}).Normalize()
 
-	service := NewCdmService(
+	service := newTestCdmService(
 		NewClient(WithAPIKey("test-key"), WithBaseURL(server.URL)),
 		&testutil.MockStripRepository{
 			GetCdmDataFn: func(context.Context, int32) ([]*models.CdmDataRow, error) {
@@ -1210,7 +1210,7 @@ func TestDiffRemoteCdmData_SlaveCopiesRemoteFieldsAndClearsStoredMarkers(t *test
 }
 
 func TestMarkViffPushPending_DeduplicatesAndAllowsRetryAfterClear(t *testing.T) {
-	service := NewCdmService(
+	service := newTestCdmService(
 		NewClient(WithAPIKey("test-key"), WithHTTPClient(newFailingHTTPClient())),
 		&testutil.MockStripRepository{},
 		&testutil.MockSessionRepository{},

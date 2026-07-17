@@ -112,10 +112,6 @@ func (c *MasterViffSync) pushViffDataAfterRecalc(ctx context.Context, session in
 
 func (c *MasterViffSync) pushCdmDataAfterRecalc(ctx context.Context, session int32, callsign string) {
 	s := c.service
-	if s.publisher == nil && s.euroscopeHub == nil && (!s.client.isValid || !s.usesViffSession(session)) {
-		return
-	}
-
 	data, err := s.stripRepo.GetCdmDataForCallsign(ctx, session, callsign)
 	if err != nil {
 		slog.WarnContext(ctx, "Failed to load recalculated CDM data",
@@ -126,12 +122,8 @@ func (c *MasterViffSync) pushCdmDataAfterRecalc(ctx context.Context, session int
 		return
 	}
 
-	if s.publisher != nil {
-		s.publisher.SendCdmUpdates(session, []frontendEvents.CdmDataEvent{shared.BuildFrontendCdmDataEvent(callsign, data)})
-	}
-	if s.euroscopeHub != nil {
-		s.euroscopeHub.BroadcastCdmUpdates(session, []euroscopeEvents.CdmUpdateEvent{shared.BuildEuroscopeCdmUpdateEvent(callsign, data)})
-	}
+	s.publisher.SendCdmUpdates(session, []frontendEvents.CdmDataEvent{shared.BuildFrontendCdmDataEvent(callsign, data)})
+	s.euroscopeHub.BroadcastCdmUpdates(session, []euroscopeEvents.CdmUpdateEvent{shared.BuildEuroscopeCdmUpdateEvent(callsign, data)})
 
 	if !s.client.isValid || !s.usesViffSession(session) {
 		return

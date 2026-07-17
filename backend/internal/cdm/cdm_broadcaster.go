@@ -29,40 +29,35 @@ func (c *CdmBroadcaster) broadcastIfChanged(session int32, callsign string, befo
 		return
 	}
 
-	if s.publisher != nil {
-		cdmData := &models.CdmData{
-			Eobt:                   stringPointerIfPresent(after.Eobt),
-			Tobt:                   stringPointerIfPresent(after.Tobt),
-			ReqTobt:                stringPointerIfPresent(after.ReqTobt),
-			ReqTobtType:            stringPointerIfPresent(after.ReqTobtType),
-			Tsat:                   stringPointerIfPresent(after.Tsat),
-			Ttot:                   stringPointerIfPresent(after.Ttot),
-			Ctot:                   stringPointerIfPresent(after.Ctot),
-			CtotSource:             stringPointerIfPresent(after.CtotSource),
-			Aobt:                   stringPointerIfPresent(after.Aobt),
-			Asat:                   stringPointerIfPresent(after.Asat),
-			Asrt:                   stringPointerIfPresent(after.Asrt),
-			Tsac:                   stringPointerIfPresent(after.Tsac),
-			Status:                 stringPointerIfPresent(after.Status),
-			MostPenalizingAirspace: stringPointerIfPresent(after.MostPenalizingAirspace),
-			EcfmpID:                stringPointerIfPresent(after.EcfmpID),
-			Phase:                  stringPointerIfPresent(after.Phase),
-		}
-		if before.EcfmpRestrictionsJSON != after.EcfmpRestrictionsJSON {
-			storedData, err := s.stripRepo.GetCdmDataForCallsign(context.Background(), session, callsign)
-			if err == nil && storedData != nil {
-				cdmData.EcfmpRestrictions = storedData.EcfmpRestrictions
-			}
-		}
-
-		s.publisher.SendCdmUpdates(session, []frontendEvents.CdmDataEvent{shared.BuildFrontendCdmDataEvent(callsign, cdmData)})
+	cdmData := &models.CdmData{
+		Eobt:                   stringPointerIfPresent(after.Eobt),
+		Tobt:                   stringPointerIfPresent(after.Tobt),
+		ReqTobt:                stringPointerIfPresent(after.ReqTobt),
+		ReqTobtType:            stringPointerIfPresent(after.ReqTobtType),
+		Tsat:                   stringPointerIfPresent(after.Tsat),
+		Ttot:                   stringPointerIfPresent(after.Ttot),
+		Ctot:                   stringPointerIfPresent(after.Ctot),
+		CtotSource:             stringPointerIfPresent(after.CtotSource),
+		Aobt:                   stringPointerIfPresent(after.Aobt),
+		Asat:                   stringPointerIfPresent(after.Asat),
+		Asrt:                   stringPointerIfPresent(after.Asrt),
+		Tsac:                   stringPointerIfPresent(after.Tsac),
+		Status:                 stringPointerIfPresent(after.Status),
+		MostPenalizingAirspace: stringPointerIfPresent(after.MostPenalizingAirspace),
+		EcfmpID:                stringPointerIfPresent(after.EcfmpID),
+		Phase:                  stringPointerIfPresent(after.Phase),
 	}
-
-	if s.euroscopeHub != nil {
-		data, err := s.stripRepo.GetCdmDataForCallsign(context.Background(), session, callsign)
-		if err == nil {
-			s.euroscopeHub.BroadcastCdmUpdates(session, []euroscopeEvents.CdmUpdateEvent{shared.BuildEuroscopeCdmUpdateEvent(callsign, data)})
+	if before.EcfmpRestrictionsJSON != after.EcfmpRestrictionsJSON {
+		storedData, err := s.stripRepo.GetCdmDataForCallsign(context.Background(), session, callsign)
+		if err == nil && storedData != nil {
+			cdmData.EcfmpRestrictions = storedData.EcfmpRestrictions
 		}
+	}
+	s.publisher.SendCdmUpdates(session, []frontendEvents.CdmDataEvent{shared.BuildFrontendCdmDataEvent(callsign, cdmData)})
+
+	data, err := s.stripRepo.GetCdmDataForCallsign(context.Background(), session, callsign)
+	if err == nil {
+		s.euroscopeHub.BroadcastCdmUpdates(session, []euroscopeEvents.CdmUpdateEvent{shared.BuildEuroscopeCdmUpdateEvent(callsign, data)})
 	}
 }
 

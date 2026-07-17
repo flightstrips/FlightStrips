@@ -52,7 +52,7 @@ type moveFrontendStripCall struct {
 }
 
 type spyStripService struct {
-	testutil.NoOpStripService
+	noOpStripService
 	moveFrontendStripCalls []moveFrontendStripCall
 	moveFrontendStripErr   error
 }

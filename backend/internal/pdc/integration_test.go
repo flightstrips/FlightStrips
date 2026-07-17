@@ -3,7 +3,6 @@ package pdc
 import (
 	"FlightStrips/internal/database"
 	"FlightStrips/internal/models"
-	"FlightStrips/internal/pdc/mocks"
 	"FlightStrips/internal/pdc/testdata"
 	"FlightStrips/internal/repository/postgres"
 	"FlightStrips/internal/shared"
@@ -23,7 +22,7 @@ import (
 
 // HoppieClientAdapter adapts the mock to the interface
 type hoppieClientAdapter struct {
-	*mocks.HoppieClient
+	HoppieClient *mockHoppieClient
 }
 
 func (a *hoppieClientAdapter) Poll(ctx context.Context, callsign string) ([]Message, error) {
@@ -31,7 +30,7 @@ func (a *hoppieClientAdapter) Poll(ctx context.Context, callsign string) ([]Mess
 	if err != nil {
 		return nil, err
 	}
-	// Convert mocks.Message to pdc.Message
+	// Convert mockHoppieMessage to pdc.Message
 	messages := make([]Message, len(mockMessages))
 	for i, m := range mockMessages {
 		messages[i] = Message{
@@ -45,13 +44,21 @@ func (a *hoppieClientAdapter) Poll(ctx context.Context, callsign string) ([]Mess
 	return messages, nil
 }
 
+func (a *hoppieClientAdapter) SendCPDLC(ctx context.Context, from, to, packet string) error {
+	return a.HoppieClient.SendCPDLC(ctx, from, to, packet)
+}
+
+func (a *hoppieClientAdapter) SendTelex(ctx context.Context, from, to, packet string) error {
+	return a.HoppieClient.SendTelex(ctx, from, to, packet)
+}
+
 // Test suite setup helper
 type PDCIntegrationTestSuite struct {
 	service       *Service
-	mockHoppie    *mocks.HoppieClient
-	mockStrip     *mocks.StripService
-	mockFrontend  *mocks.FrontendHub
-	mockEuroscope *mocks.EuroscopeHub
+	mockHoppie    *mockHoppieClient
+	mockStrip     *mockPdcStripService
+	mockFrontend  *mockPdcFrontendHub
+	mockEuroscope *mockPdcEuroscopeHub
 	queries       *database.Queries
 }
 
@@ -79,10 +86,10 @@ func readStripPdcData(t *testing.T, strip database.Strip) *models.PdcData {
 
 func (suite *PDCIntegrationTestSuite) SetupTest(t *testing.T) {
 	// Create mocks
-	suite.mockHoppie = new(mocks.HoppieClient)
-	suite.mockStrip = new(mocks.StripService)
-	suite.mockFrontend = new(mocks.FrontendHub)
-	suite.mockEuroscope = new(mocks.EuroscopeHub)
+	suite.mockHoppie = new(mockHoppieClient)
+	suite.mockStrip = new(mockPdcStripService)
+	suite.mockFrontend = new(mockPdcFrontendHub)
+	suite.mockEuroscope = new(mockPdcEuroscopeHub)
 
 	// Setup database
 	dbPool, queries := testdata.SetupTestDB(t)
@@ -92,18 +99,21 @@ func (suite *PDCIntegrationTestSuite) SetupTest(t *testing.T) {
 	sessionRepo := postgres.NewSessionRepository(dbPool)
 	stripRepo := postgres.NewStripRepository(dbPool)
 	sectorRepo := postgres.NewSectorOwnerRepository(dbPool)
+	controllerRepo := postgres.NewControllerRepository(dbPool)
 
 	// Create service with mocks
 	adapter := &hoppieClientAdapter{HoppieClient: suite.mockHoppie}
 	suite.service = &Service{
-		client:        adapter,
-		sessionRepo:   sessionRepo,
-		stripRepo:     stripRepo,
-		sectorRepo:    sectorRepo,
-		frontendHub:   suite.mockFrontend,
-		stripService:  suite.mockStrip,
-		timeouts:      make(map[string]*timeoutTracker),
-		timeoutConfig: 30 * time.Second, // Long timeout to prevent firing during test
+		client:         adapter,
+		sessionRepo:    sessionRepo,
+		stripRepo:      stripRepo,
+		sectorRepo:     sectorRepo,
+		controllerRepo: controllerRepo,
+		frontendHub:    suite.mockFrontend,
+		euroscopeHub:   testPdcEuroscope{},
+		stripService:   suite.mockStrip,
+		timeouts:       make(map[string]*timeoutTracker),
+		timeoutConfig:  30 * time.Second, // Long timeout to prevent firing during test
 	}
 	suite.mockStrip.On("ReevaluatePdcRequestValidations", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
 	suite.mockStrip.On("ClearMandatoryRouteCdm", mock.Anything, mock.Anything, mock.Anything).Maybe()
@@ -487,7 +497,14 @@ func TestSubmitWebPDCRequest_SearchesAllSessionsOutsideLiveMode(t *testing.T) {
 	stripRepo := postgres.NewStripRepository(dbPool)
 	sectorRepo := postgres.NewSectorOwnerRepository(dbPool)
 
-	service := NewPDCService(&hoppieClientAdapter{HoppieClient: new(mocks.HoppieClient)}, sessionRepo, stripRepo, sectorRepo, nil)
+	service := &Service{
+		client:        &hoppieClientAdapter{HoppieClient: new(mockHoppieClient)},
+		sessionRepo:   sessionRepo,
+		stripRepo:     stripRepo,
+		sectorRepo:    sectorRepo,
+		timeouts:      make(map[string]*timeoutTracker),
+		timeoutConfig: 10 * time.Minute,
+	}
 
 	sessionID := testdata.SeedTestSessionNamedWithSectors(t, queries, "DEV", []database.InsertSectorOwnersParams{
 		{
@@ -555,7 +572,7 @@ func TestHandleWilcoFlow(t *testing.T) {
 	require.NoError(t, err)
 
 	// Now handle WILCO
-	suite.service.SetEuroscopeHub(suite.mockEuroscope)
+	suite.service.euroscopeHub = suite.mockEuroscope
 	mock.InOrder(
 		suite.mockStrip.On("ConfirmPdcClearance", mock.Anything, sessionID, callsign, shared.BAY_CLEARED, cid).Return(nil),
 		suite.mockStrip.On("AutoAssumeForClearedStripByCid", mock.Anything, sessionID, callsign, cid).Return(nil),
@@ -618,7 +635,7 @@ func TestHandleWilcoConfirmClearanceFailureLeavesPdcCleared(t *testing.T) {
 	err := suite.service.IssueClearance(ctx, callsign, "", cid, sessionID)
 	require.NoError(t, err)
 
-	suite.service.SetEuroscopeHub(suite.mockEuroscope)
+	suite.service.euroscopeHub = suite.mockEuroscope
 	suite.mockStrip.On("ConfirmPdcClearance", mock.Anything, sessionID, callsign, shared.BAY_CLEARED, cid).Return(errors.New("boom"))
 
 	incomingMsg := &IncomingMessage{
@@ -827,6 +844,7 @@ func TestRestorePendingTimeouts_ExpiresClearedPdcAfterRestart(t *testing.T) {
 		sessionRepo:   suite.service.sessionRepo,
 		stripRepo:     suite.service.stripRepo,
 		frontendHub:   suite.mockFrontend,
+		euroscopeHub:  testPdcEuroscope{},
 		stripService:  suite.mockStrip,
 		timeouts:      make(map[string]*timeoutTracker),
 		timeoutConfig: 100 * time.Millisecond,
@@ -1268,7 +1286,6 @@ func TestProcessPDCRequest_InactiveDepartureRunwayCreatesFault(t *testing.T) {
 
 func TestProcessPDCRequest_MandatoryRouteRequiresManualApprovalWithoutChangingStrip(t *testing.T) {
 
-
 	suite := &PDCIntegrationTestSuite{}
 	suite.SetupTest(t)
 	ctx := context.Background()
@@ -1364,7 +1381,6 @@ func TestProcessPDCRequest_AlreadyCleared(t *testing.T) {
 }
 
 func TestIssueClearance_MandatoryRouteIncludesFullRouteAndCorrectedSid(t *testing.T) {
-
 
 	suite := &PDCIntegrationTestSuite{}
 	suite.SetupTest(t)

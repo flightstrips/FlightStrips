@@ -41,7 +41,7 @@ func TestHandleManualCtot_ReevaluatesCtotValidation(t *testing.T) {
 
 	stored := (&models.CdmData{}).Normalize()
 	reevaluator := &spyValidationReevaluator{}
-	service := NewCdmService(
+	service := newTestCdmService(
 		newTestClientWithAirportMasters(nil),
 		&testutil.MockStripRepository{
 			GetByCallsignFn: func(_ context.Context, session int32, cs string) (*models.Strip, error) {
@@ -64,7 +64,7 @@ func TestHandleManualCtot_ReevaluatesCtotValidation(t *testing.T) {
 		&testutil.MockSessionRepository{},
 		&testutil.MockControllerRepository{},
 	)
-	service.SetValidationReevaluator(reevaluator)
+	setTestCdmValidation(service, reevaluator)
 
 	err := service.HandleManualCtot(context.Background(), sessionID, callsign, "1045")
 	require.NoError(t, err)
@@ -96,7 +96,7 @@ func TestSyncCdmData_ReevaluatesCtotValidationWhenSyncedCtotChanges(t *testing.T
 
 	var persisted *models.CdmData
 	reevaluator := &spyValidationReevaluator{}
-	service := NewCdmService(
+	service := newTestCdmService(
 		NewClient(WithAPIKey("test-key"), WithBaseURL(server.URL)),
 		&testutil.MockStripRepository{
 			GetCdmDataFn: func(context.Context, int32) ([]*models.CdmDataRow, error) {
@@ -115,7 +115,7 @@ func TestSyncCdmData_ReevaluatesCtotValidationWhenSyncedCtotChanges(t *testing.T
 		&testutil.MockSessionRepository{},
 		&testutil.MockControllerRepository{},
 	)
-	service.SetValidationReevaluator(reevaluator)
+	setTestCdmValidation(service, reevaluator)
 
 	err := service.syncCdmData(context.Background(), &models.Session{ID: sessionID, Airport: "EKCH"})
 	require.NoError(t, err)
@@ -124,7 +124,7 @@ func TestSyncCdmData_ReevaluatesCtotValidationWhenSyncedCtotChanges(t *testing.T
 }
 
 func TestSchedulePeriodicCtotValidationReevaluation_ReevaluatesAllSessions(t *testing.T) {
-	service := NewCdmService(
+	service := newTestCdmService(
 		newTestClientWithAirportMasters(nil),
 		&testutil.MockStripRepository{},
 		&testutil.MockSessionRepository{
@@ -138,7 +138,7 @@ func TestSchedulePeriodicCtotValidationReevaluation_ReevaluatesAllSessions(t *te
 		&testutil.MockControllerRepository{},
 	)
 	reevaluator := &spyValidationReevaluator{}
-	service.SetValidationReevaluator(reevaluator)
+	setTestCdmValidation(service, reevaluator)
 
 	require.NoError(t, service.schedulePeriodicCtotValidationReevaluation(context.Background()))
 	assert.Equal(t, []int32{1, 2}, reevaluator.sessionOnly)

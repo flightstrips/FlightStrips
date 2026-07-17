@@ -34,7 +34,6 @@ type Server interface {
 	GetFrontendHub() FrontendHub
 	GetOrCreateSession(airport string, name string) (Session, error)
 	GetCdmService() CdmService
-	GetPdcService() PdcService
 
 	// Repository access
 	GetStripRepository() repository.StripRepository

@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"FlightStrips/internal/shared"
-	"FlightStrips/internal/testutil"
 	eventseuroscope "FlightStrips/pkg/events/euroscope"
 
 	"github.com/stretchr/testify/assert"
@@ -16,7 +15,7 @@ import (
 )
 
 type aircraftAliveStripService struct {
-	testutil.NoOpStripService
+	noOpStripService
 	syncCalls     atomic.Int32
 	positionCalls atomic.Int32
 	deleteCalls   atomic.Int32

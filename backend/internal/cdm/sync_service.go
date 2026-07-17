@@ -301,7 +301,7 @@ func (c *SyncService) persistSyncedCdmData(ctx context.Context, session int32, c
 
 func (c *SyncService) reevaluateCtotValidationAsync(ctx context.Context, session int32, callsign string, before, after cdmSnapshot) {
 	s := c.service
-	if s.validationReevaluator == nil || before.Ctot == after.Ctot {
+	if before.Ctot == after.Ctot {
 		return
 	}
 	if err := s.validationReevaluator.ReevaluateCtotValidation(ctx, session, callsign, true, false); err != nil {
@@ -315,10 +315,6 @@ func (c *SyncService) reevaluateCtotValidationAsync(ctx context.Context, session
 
 func (c *SyncService) schedulePeriodicCtotValidationReevaluation(ctx context.Context) error {
 	s := c.service
-	if s.validationReevaluator == nil {
-		return nil
-	}
-
 	sessions, err := s.sessionRepo.List(ctx)
 	if err != nil {
 		return err

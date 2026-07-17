@@ -1,9 +1,11 @@
 package cdm
 
 import (
+	"FlightStrips/internal/dependencies"
 	"FlightStrips/internal/models"
 	"FlightStrips/internal/repository"
 	"FlightStrips/internal/shared"
+	euroscopeEvents "FlightStrips/pkg/events/euroscope"
 	"context"
 	"fmt"
 	"log/slog"
@@ -23,7 +25,7 @@ type Service struct {
 	sessionRepo            repository.SessionRepository
 	controllerRepo         repository.ControllerRepository
 	publisher              shared.CdmEventPublisher
-	euroscopeHub           shared.EuroscopeHub
+	euroscopeHub           CdmEuroscope
 	configProvider         ConfigProvider
 	sequenceService        *SequenceService
 	validationReevaluator  StripValidationReevaluator
@@ -43,6 +45,23 @@ type StripValidationReevaluator interface {
 	ReevaluateCtotValidationsForSession(ctx context.Context, session int32, publish bool) error
 }
 
+type CdmEuroscope interface {
+	Broadcast(session int32, message euroscopeEvents.OutgoingMessage)
+	BroadcastCdmUpdates(session int32, events []euroscopeEvents.CdmUpdateEvent)
+	GetMasterCallsign(session int32) string
+	SendEobt(session int32, cid string, callsign string, eobt string)
+}
+
+type ServiceDependencies struct {
+	Client                *Client
+	Strips                CdmStripStore
+	Sessions              repository.SessionRepository
+	Controllers           repository.ControllerRepository
+	Frontend              shared.CdmEventPublisher
+	Euroscope             CdmEuroscope
+	ValidationReevaluator StripValidationReevaluator
+}
+
 const DefaultMasterPosition = "FlightStrips"
 
 const (
@@ -52,13 +71,46 @@ const (
 	masterEobtClampTarget     = 30.0
 )
 
-func NewCdmService(client *Client, stripRepo CdmStripStore, sessionRepo repository.SessionRepository, controllerRepo repository.ControllerRepository) *Service {
+func NewCdmService(deps ServiceDependencies) (*Service, error) {
+	required := []struct {
+		name  string
+		value any
+	}{
+		{"client", deps.Client},
+		{"strip store", deps.Strips},
+		{"session repository", deps.Sessions},
+		{"controller repository", deps.Controllers},
+		{"frontend publisher", deps.Frontend},
+		{"EuroScope publisher", deps.Euroscope},
+		{"validation reevaluator", deps.ValidationReevaluator},
+	}
+	for _, dependency := range required {
+		if dependencies.IsNil(dependency.value) {
+			return nil, fmt.Errorf("CDM service requires %s", dependency.name)
+		}
+	}
+
+	return newCdmService(
+		deps.Client,
+		deps.Strips,
+		deps.Sessions,
+		deps.Controllers,
+		deps.Frontend,
+		deps.Euroscope,
+		deps.ValidationReevaluator,
+	), nil
+}
+
+func newCdmService(client *Client, stripRepo CdmStripStore, sessionRepo repository.SessionRepository, controllerRepo repository.ControllerRepository, publisher shared.CdmEventPublisher, euroscopeHub CdmEuroscope, validationReevaluator StripValidationReevaluator) *Service {
 	service := &Service{
-		client:         client,
-		stripRepo:      stripRepo,
-		sessionRepo:    sessionRepo,
-		controllerRepo: controllerRepo,
-		debouncer:      newRecalcDebouncer(500 * time.Millisecond),
+		client:                client,
+		stripRepo:             stripRepo,
+		sessionRepo:           sessionRepo,
+		controllerRepo:        controllerRepo,
+		publisher:             publisher,
+		euroscopeHub:          euroscopeHub,
+		validationReevaluator: validationReevaluator,
+		debouncer:             newRecalcDebouncer(500 * time.Millisecond),
 	}
 	service.actionService = &ActionService{service: service}
 	service.syncService = &SyncService{service: service}
@@ -288,14 +340,6 @@ func (s *Service) resolveTaxiMinutes(strip *models.Strip) int {
 	return s.actionService.resolveTaxiMinutes(strip)
 }
 
-func (s *Service) SetFrontendHub(publisher shared.CdmEventPublisher) {
-	s.publisher = publisher
-}
-
-func (s *Service) SetEuroscopeHub(euroscopeHub shared.EuroscopeHub) {
-	s.euroscopeHub = euroscopeHub
-}
-
 func (s *Service) SetConfigProvider(configProvider ConfigProvider) {
 	s.configProvider = configProvider
 }
@@ -307,10 +351,6 @@ func (s *Service) SetSequenceService(sequenceService *SequenceService) {
 			s.pushViffDataAfterRecalc(ctx, session, callsign)
 		})
 	}
-}
-
-func (s *Service) SetValidationReevaluator(validationReevaluator StripValidationReevaluator) {
-	s.validationReevaluator = validationReevaluator
 }
 
 // isMasterSession returns true if the in-memory cache indicates this session is CDM master.
@@ -327,9 +367,6 @@ func (s *Service) usesViffSession(sessionID int32) bool {
 	v, ok := s.sessionUsesViff.Load(sessionID)
 	if ok {
 		return v.(bool)
-	}
-	if s.sessionRepo == nil {
-		return false
 	}
 	session, err := s.sessionRepo.GetByID(context.Background(), sessionID)
 	if err != nil || session == nil {

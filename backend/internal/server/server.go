@@ -1,8 +1,8 @@
 package server
 
 import (
+	"FlightStrips/internal/dependencies"
 	"FlightStrips/internal/models"
-	"FlightStrips/internal/pdc"
 	"FlightStrips/internal/repository"
 	"FlightStrips/internal/shared"
 	"context"
@@ -17,13 +17,12 @@ import (
 )
 
 type Server struct {
-	dbPool            *pgxpool.Pool
-	euroscopeHub      shared.EuroscopeHub
-	frontendHub       shared.FrontendHub
-	cdmService        shared.CdmService
-	pdcService        *pdc.Service
-	transceiverLookup TransceiverLookup
-	sessionLocks      sessionRecalcLockManager
+	dbPool             *pgxpool.Pool
+	euroscopeHub       shared.EuroscopeHub
+	frontendHub        shared.FrontendHub
+	cdmService         shared.CdmService
+	frequencyProviders []TransceiverLookup
+	sessionLocks       sessionRecalcLockManager
 
 	// Repositories
 	stripRepo           repository.StripRepository
@@ -39,40 +38,62 @@ type TransceiverLookup interface {
 	GetFrequencies(callsign string) []string
 }
 
-func NewServer(
-	dbPool *pgxpool.Pool,
-	euroscopeHub shared.EuroscopeHub,
-	frontendHub shared.FrontendHub,
-	cdmService shared.CdmService,
-	pdcService *pdc.Service,
-	transceiverLookup TransceiverLookup,
-	stripRepo repository.StripRepository,
-	controllerRepo repository.ControllerRepository,
-	sessionRepo repository.SessionRepository,
-	sectorRepo repository.SectorOwnerRepository,
-	coordRepo repository.CoordinationRepository,
-	tacticalStripRepo repository.TacticalStripRepository,
-	standAssignmentRepo repository.StandAssignmentRepository,
-) *Server {
-	server := Server{
-		dbPool:              dbPool,
-		euroscopeHub:        euroscopeHub,
-		frontendHub:         frontendHub,
-		cdmService:          cdmService,
-		pdcService:          pdcService,
-		transceiverLookup:   transceiverLookup,
-		stripRepo:           stripRepo,
-		controllerRepo:      controllerRepo,
-		sessionRepo:         sessionRepo,
-		sectorRepo:          sectorRepo,
-		coordRepo:           coordRepo,
-		tacticalStripRepo:   tacticalStripRepo,
-		standAssignmentRepo: standAssignmentRepo,
+type Dependencies struct {
+	DBPool             *pgxpool.Pool
+	Euroscope          shared.EuroscopeHub
+	Frontend           shared.FrontendHub
+	CDM                shared.CdmService
+	FrequencyProviders []TransceiverLookup
+	Strips             repository.StripRepository
+	Controllers        repository.ControllerRepository
+	Sessions           repository.SessionRepository
+	Sectors            repository.SectorOwnerRepository
+	Coordinations      repository.CoordinationRepository
+	TacticalStrips     repository.TacticalStripRepository
+	StandAssignments   repository.StandAssignmentRepository
+}
+
+func NewServer(deps Dependencies) (*Server, error) {
+	required := []struct {
+		name  string
+		value any
+	}{
+		{"database pool", deps.DBPool},
+		{"EuroScope hub", deps.Euroscope},
+		{"frontend hub", deps.Frontend},
+		{"CDM service", deps.CDM},
+		{"strip repository", deps.Strips},
+		{"controller repository", deps.Controllers},
+		{"session repository", deps.Sessions},
+		{"sector repository", deps.Sectors},
+		{"coordination repository", deps.Coordinations},
+		{"tactical strip repository", deps.TacticalStrips},
+	}
+	for _, dependency := range required {
+		if dependencies.IsNil(dependency.value) {
+			return nil, fmt.Errorf("server requires %s", dependency.name)
+		}
+	}
+	for i, provider := range deps.FrequencyProviders {
+		if dependencies.IsNil(provider) {
+			return nil, fmt.Errorf("server frequency provider %d is nil", i)
+		}
 	}
 
-	go server.monitorSessions()
-
-	return &server
+	return &Server{
+		dbPool:              deps.DBPool,
+		euroscopeHub:        deps.Euroscope,
+		frontendHub:         deps.Frontend,
+		cdmService:          deps.CDM,
+		frequencyProviders:  append([]TransceiverLookup(nil), deps.FrequencyProviders...),
+		stripRepo:           deps.Strips,
+		controllerRepo:      deps.Controllers,
+		sessionRepo:         deps.Sessions,
+		sectorRepo:          deps.Sectors,
+		coordRepo:           deps.Coordinations,
+		tacticalStripRepo:   deps.TacticalStrips,
+		standAssignmentRepo: deps.StandAssignments,
+	}, nil
 }
 
 func (s *Server) GetDatabasePool() *pgxpool.Pool {
@@ -119,10 +140,6 @@ func (s *Server) GetCdmService() shared.CdmService {
 	return s.cdmService
 }
 
-func (s *Server) GetPdcService() shared.PdcService {
-	return s.pdcService
-}
-
 func (s *Server) GetOrCreateSession(airport string, name string) (shared.Session, error) {
 	sessionRepo := s.sessionRepo
 
@@ -160,36 +177,44 @@ func (s *Server) GetOrCreateSession(airport string, name string) (shared.Session
 	return shared.Session{}, nil
 }
 
-func (s *Server) monitorSessions() {
+func (s *Server) StartSessionMonitor(ctx context.Context) {
+	ticker := time.NewTicker(time.Minute)
+	defer ticker.Stop()
+
 	for {
 		expired := time.Now().Add(-time.Minute * 5).UTC()
-		sessionRepo := s.sessionRepo
-
-		sessions, err := sessionRepo.GetExpiredSessions(context.Background(), &expired)
+		sessions, err := s.sessionRepo.GetExpiredSessions(ctx, &expired)
 
 		if err != nil {
-			slog.Error("Failed to get expired sessions", slog.Any("error", err))
+			if ctx.Err() != nil {
+				return
+			}
+			slog.ErrorContext(ctx, "Failed to get expired sessions", slog.Any("error", err))
 		}
 
 		for _, session := range sessions {
-			slog.Info("Removing expired session", slog.Int("session", int(session.ID)))
+			slog.InfoContext(ctx, "Removing expired session", slog.Int("session", int(session.ID)))
 
 			if session.CdmMaster {
-				if err := s.cdmService.SetSessionCdmMaster(context.Background(), session.ID, false); err != nil {
-					slog.Error("Failed to deregister CDM master for expired session", slog.Int("session", int(session.ID)), slog.Any("error", err))
+				if err := s.cdmService.SetSessionCdmMaster(ctx, session.ID, false); err != nil {
+					slog.ErrorContext(ctx, "Failed to deregister CDM master for expired session", slog.Int("session", int(session.ID)), slog.Any("error", err))
 				}
 			}
 
-			count, err := sessionRepo.Delete(context.Background(), session.ID)
+			count, err := s.sessionRepo.Delete(ctx, session.ID)
 			if err != nil {
-				slog.Error("Failed to remove expired session", slog.Int("session", int(session.ID)), slog.Any("error", err))
+				slog.ErrorContext(ctx, "Failed to remove expired session", slog.Int("session", int(session.ID)), slog.Any("error", err))
 			}
 
 			if count != 1 {
-				slog.Warn("Failed to remove expired session (no changes)", slog.Int("session", int(session.ID)))
+				slog.WarnContext(ctx, "Failed to remove expired session (no changes)", slog.Int("session", int(session.ID)))
 			}
 		}
 
-		time.Sleep(time.Minute)
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
 	}
 }

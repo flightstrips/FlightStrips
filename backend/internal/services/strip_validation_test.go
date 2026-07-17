@@ -77,8 +77,8 @@ func TestAcknowledgeValidationStatus_AllowsPdcValidationForNonOwnerPosition(t *t
 		},
 	}
 
-	svc := NewStripValidationService(repo, repo)
-	svc.SetFrontendHub(&testutil.MockFrontendHub{})
+	svc := newTestStripValidationService(repo, repo)
+	svc.publisher = &testutil.MockFrontendHub{}
 
 	require.NoError(t, svc.AcknowledgeValidationStatus(context.Background(), 1, "SAS123", "activation-key", "EKCH_GND"))
 	assert.True(t, acknowledged)
@@ -101,22 +101,22 @@ func TestAcknowledgeValidationStatus_RejectsNonOwnerForNonPdcValidation(t *testi
 		},
 	}
 
-	svc := NewStripValidationService(repo, repo)
+	svc := newTestStripValidationService(repo, repo)
 
 	err := svc.AcknowledgeValidationStatus(context.Background(), 1, "SAS123", "activation-key", "EKCH_GND")
 	require.Error(t, err)
 	assert.EqualError(t, err, "acknowledge_validation_status: requesting position is not the owning position")
 }
 
-func TestStripValidationService_SetValidationStatusReturnsMissingStoreErrorWhenOnlyReaderInjected(t *testing.T) {
+func TestNewStripValidationServiceRejectsMissingStore(t *testing.T) {
 	t.Parallel()
 
-	svc := NewStripValidationService(readerOnlyStripFake{}, nil)
-
-	err := svc.SetValidationStatus(context.Background(), 1, "SAS123", &models.ValidationStatus{})
+	_, err := NewStripValidationService(StripValidationDependencies{
+		Strips: readerOnlyStripFake{}, Publisher: testStripValidationPublisher{},
+	})
 
 	require.Error(t, err)
-	assert.EqualError(t, err, "strip validation service missing validation status store dependency")
+	assert.EqualError(t, err, "strip validation service requires validation status store")
 }
 
 func TestReconcileStandAssignmentValidationActivatesBlockedAssignment(t *testing.T) {
@@ -131,7 +131,7 @@ func TestReconcileStandAssignmentValidationActivatesBlockedAssignment(t *testing
 			return nil
 		},
 	}
-	svc := NewStripValidationService(repo, repo)
+	svc := newTestStripValidationService(repo, repo)
 
 	require.NoError(t, svc.ReconcileStandAssignmentValidation(context.Background(), 1, "SAS123", []string{"A22"}, ""))
 	require.NotNil(t, persisted)
@@ -152,18 +152,16 @@ func TestReconcileStandAssignmentValidationClearsResolvedSatIssueOnly(t *testing
 			return nil
 		},
 	}
-	svc := NewStripValidationService(repo, repo)
+	svc := newTestStripValidationService(repo, repo)
 
 	require.NoError(t, svc.ReconcileStandAssignmentValidation(context.Background(), 1, "SAS123", nil, ""))
 }
 
-func TestNewStripValidationService_ReturnsMissingReaderErrorWhenReaderNotInjected(t *testing.T) {
+func TestNewStripValidationServiceRejectsMissingReader(t *testing.T) {
 	t.Parallel()
 
-	svc := NewStripValidationService(nil, nil)
-
-	_, err := svc.IsValidationBlocking(context.Background(), 1, "SAS123")
+	_, err := NewStripValidationService(StripValidationDependencies{})
 
 	require.Error(t, err)
-	assert.EqualError(t, err, "strip validation service missing strip reader dependency")
+	assert.EqualError(t, err, "strip validation service requires strip reader")
 }

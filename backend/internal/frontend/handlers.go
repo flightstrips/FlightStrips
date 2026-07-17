@@ -454,14 +454,7 @@ func handleIssuePdcClearance(ctx context.Context, client *Client, message Messag
 		return err
 	}
 
-	// Get PDC service from server
-	pdcService := client.hub.server.GetPdcService()
-	if pdcService == nil {
-		return errors.New("PDC service not available")
-	}
-
-	// Issue clearance
-	return pdcService.IssueClearance(ctx, req.Callsign, req.Remarks, client.GetCid(), client.session)
+	return client.hub.pdcService.IssueClearance(ctx, req.Callsign, req.Remarks, client.GetCid(), client.session)
 }
 
 func handlePdcManualStateChange(ctx context.Context, client *Client, message Message) error {
@@ -470,14 +463,7 @@ func handlePdcManualStateChange(ctx context.Context, client *Client, message Mes
 		return err
 	}
 
-	// Get PDC service
-	pdcService := client.hub.server.GetPdcService()
-	if pdcService == nil {
-		return errors.New("PDC service not available")
-	}
-
-	// Manually update PDC state
-	return pdcService.ManualStateChange(ctx, req.Callsign, client.session, req.State)
+	return client.hub.pdcService.ManualStateChange(ctx, req.Callsign, client.session, req.State)
 }
 
 func handleRevertToVoice(ctx context.Context, client *Client, message Message) error {
@@ -486,12 +472,7 @@ func handleRevertToVoice(ctx context.Context, client *Client, message Message) e
 		return err
 	}
 
-	pdcService := client.hub.server.GetPdcService()
-	if pdcService == nil {
-		return errors.New("PDC service not available")
-	}
-
-	return pdcService.RevertToVoice(ctx, req.Callsign, client.session, client.GetCid())
+	return client.hub.pdcService.RevertToVoice(ctx, req.Callsign, client.session, client.GetCid())
 }
 
 func handleCreateTacticalStrip(ctx context.Context, client *Client, message Message) error {

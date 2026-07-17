@@ -140,7 +140,7 @@ func (s *syncControllerServiceSpy) UpsertController(ctx context.Context, session
 }
 
 type syncStripServiceSpy struct {
-	testutil.NoOpStripService
+	noOpStripService
 	syncStripFn            func(ctx context.Context, session int32, cid string, strip interface{}, airport string) error
 	autoAssumePositions    []string
 	propagateRunwayCalls   []pkgModels.ActiveRunways

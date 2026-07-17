@@ -27,7 +27,7 @@ func TestWebAPIHandleSequenceRequiresAuthorization(t *testing.T) {
 		ListFn: func(context.Context) ([]*models.Session, error) {
 			return []*models.Session{}, nil
 		},
-	}, NewSequenceService(&testutil.MockStripRepository{}, &testutil.MockSessionRepository{}, NewCdmConfigStore("", "", "", 0, CdmConfigDefaults{}, nil), nil, nil))
+	}, newTestSequenceService(&testutil.MockStripRepository{}, &testutil.MockSessionRepository{}, NewCdmConfigStore("", "", "", 0, CdmConfigDefaults{}, nil), nil, nil))
 
 	req := httptest.NewRequest(http.MethodGet, "/cdm/sequence", nil)
 	recorder := httptest.NewRecorder()
@@ -136,7 +136,7 @@ func TestWebAPIHandleSequenceReturnsSessionRows(t *testing.T) {
 		},
 	}
 	configStore := NewCdmConfigStore("", "", "", 0, CdmConfigDefaults{}, nil)
-	sequenceService := NewSequenceService(stripRepo, sessionRepo, configStore, nil, nil)
+	sequenceService := newTestSequenceService(stripRepo, sessionRepo, configStore, nil, nil)
 	api := NewWebAPI(cdmAuthStub{}, sessionRepo, sequenceService)
 	api.now = func() time.Time { return now }
 
@@ -249,7 +249,7 @@ func TestWebAPIHandleSequenceDoesNotRecalculateSlaveSessions(t *testing.T) {
 	}
 
 	configStore := NewCdmConfigStore("", "", "", 0, CdmConfigDefaults{}, nil)
-	sequenceService := NewSequenceService(stripRepo, sessionRepo, configStore, nil, nil)
+	sequenceService := newTestSequenceService(stripRepo, sessionRepo, configStore, nil, nil)
 	api := NewWebAPI(cdmAuthStub{}, sessionRepo, sequenceService)
 	api.now = func() time.Time { return now }
 
@@ -355,7 +355,7 @@ func TestWebAPIHandleSequenceAssignsMissingStoredPositionsIndependently(t *testi
 	}
 
 	configStore := NewCdmConfigStore("", "", "", 0, CdmConfigDefaults{}, nil)
-	sequenceService := NewSequenceService(stripRepo, sessionRepo, configStore, nil, nil)
+	sequenceService := newTestSequenceService(stripRepo, sessionRepo, configStore, nil, nil)
 	api := NewWebAPI(cdmAuthStub{}, sessionRepo, sequenceService)
 	api.now = func() time.Time { return now }
 

@@ -20,7 +20,7 @@ import (
 )
 
 type stripUpdateValidationReevaluator struct {
-	testutil.NoOpStripService
+	noOpStripService
 	reevaluateForStripFn  func(ctx context.Context, session int32, strip *models.Strip, activeDepartureRunways []string, publish bool, forceReactivate bool) error
 	reevaluateDepartureFn func(ctx context.Context, session int32, callsign string, publish bool, forceReactivate bool) error
 }
@@ -32,7 +32,7 @@ type recordingCdmService struct {
 }
 
 type transferStripService struct {
-	testutil.NoOpStripService
+	noOpStripService
 	createCoordinationTransferFn func(ctx context.Context, session int32, callsign string, from string, to string) error
 	updateMarkedFn               func(ctx context.Context, session int32, callsign string, marked bool) error
 }
@@ -911,7 +911,7 @@ func TestHandleReleasePoint_NonOwnerWithActiveValidationSkipsControllerModified(
 }
 
 type standUpdateStripService struct {
-	testutil.NoOpStripService
+	noOpStripService
 	updateStandFn func(ctx context.Context, session int32, callsign string, stand string) error
 }
 

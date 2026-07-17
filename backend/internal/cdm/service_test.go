@@ -106,7 +106,7 @@ func TestHandleReadyRequest_UsesReadyFlow(t *testing.T) {
 		WithBaseURL(server.URL),
 	)
 
-	service := NewCdmService(
+	service := newTestCdmService(
 		client,
 		stripRepo,
 		&testutil.MockSessionRepository{
@@ -122,8 +122,8 @@ func TestHandleReadyRequest_UsesReadyFlow(t *testing.T) {
 			},
 		},
 	)
-	service.SetFrontendHub(frontendHub)
-	service.SetEuroscopeHub(euroscopeHub)
+	setTestCdmFrontend(service, frontendHub)
+	setTestCdmEuroscope(service, euroscopeHub)
 	service.sessionMaster.Store(sessionID, true)
 	markSessionLive(service, sessionID)
 	err := service.HandleReadyRequest(context.Background(), sessionID, callsign, "EKCH_DEL", "ATC")
@@ -208,9 +208,9 @@ func TestHandleReadyRequest_SendsEobtToResolvedEuroscopeMaster(t *testing.T) {
 		},
 	}
 
-	service := NewCdmService(newTestClientWithAirportMasters(nil), stripRepo, &testutil.MockSessionRepository{}, controllerRepo)
-	service.SetFrontendHub(frontendHub)
-	service.SetEuroscopeHub(euroscopeHub)
+	service := newTestCdmService(newTestClientWithAirportMasters(nil), stripRepo, &testutil.MockSessionRepository{}, controllerRepo)
+	setTestCdmFrontend(service, frontendHub)
+	setTestCdmEuroscope(service, euroscopeHub)
 	service.sessionMaster.Store(sessionID, true)
 	markSessionNonLive(service, sessionID)
 
@@ -281,12 +281,12 @@ func TestHandleReadyRequest_WithoutValidClient_StillRecalculatesLocally(t *testi
 	frontendHub := &testutil.MockFrontendHub{}
 	euroscopeHub := &testutil.MockEuroscopeHub{}
 	configStore := NewCdmConfigStore("", "", "", time.Minute, CdmConfigDefaults{}, newFailingHTTPClient())
-	sequenceService := NewSequenceService(stripRepo, sessionRepo, configStore, frontendHub, euroscopeHub)
+	sequenceService := newTestSequenceService(stripRepo, sessionRepo, configStore, frontendHub, euroscopeHub)
 
-	service := NewCdmService(newTestClientWithAirportMasters(nil), stripRepo, sessionRepo, &testutil.MockControllerRepository{})
+	service := newTestCdmService(newTestClientWithAirportMasters(nil), stripRepo, sessionRepo, &testutil.MockControllerRepository{})
 	service.client.isValid = false
-	service.SetFrontendHub(frontendHub)
-	service.SetEuroscopeHub(euroscopeHub)
+	setTestCdmFrontend(service, frontendHub)
+	setTestCdmEuroscope(service, euroscopeHub)
 	service.SetConfigProvider(configStore)
 	service.SetSequenceService(sequenceService)
 	service.sessionMaster.Store(sessionID, true)
@@ -342,9 +342,9 @@ func TestHandleTobtUpdate_PersistsOverrideAndClearsRequestedTobt(t *testing.T) {
 	}
 
 	frontendHub := &testutil.MockFrontendHub{}
-	service := NewCdmService(newTestClientWithAirportMasters(nil), stripRepo, &testutil.MockSessionRepository{}, &testutil.MockControllerRepository{})
+	service := newTestCdmService(newTestClientWithAirportMasters(nil), stripRepo, &testutil.MockSessionRepository{}, &testutil.MockControllerRepository{})
 	service.client.isValid = false
-	service.SetFrontendHub(frontendHub)
+	setTestCdmFrontend(service, frontendHub)
 
 	err := service.HandleTobtUpdate(context.Background(), sessionID, callsign, updatedTobt, "EKCH_B_GND", "master")
 	require.NoError(t, err)
@@ -397,9 +397,9 @@ func TestHandleTobtUpdate_PastValueDoesNotMarkRecalculation(t *testing.T) {
 	}
 
 	frontendHub := &testutil.MockFrontendHub{}
-	service := NewCdmService(newTestClientWithAirportMasters(nil), stripRepo, &testutil.MockSessionRepository{}, &testutil.MockControllerRepository{})
+	service := newTestCdmService(newTestClientWithAirportMasters(nil), stripRepo, &testutil.MockSessionRepository{}, &testutil.MockControllerRepository{})
 	service.client.isValid = false
-	service.SetFrontendHub(frontendHub)
+	setTestCdmFrontend(service, frontendHub)
 
 	err := service.HandleTobtUpdate(context.Background(), sessionID, callsign, pastTobt, "EKCH_B_GND", "master")
 	require.NoError(t, err)
@@ -449,9 +449,9 @@ func TestHandleEobtUpdate_SyncsLaterFutureTobtAndMarksRecalculation(t *testing.T
 	}
 
 	frontendHub := &testutil.MockFrontendHub{}
-	service := NewCdmService(newTestClientWithAirportMasters(nil), stripRepo, &testutil.MockSessionRepository{}, &testutil.MockControllerRepository{})
+	service := newTestCdmService(newTestClientWithAirportMasters(nil), stripRepo, &testutil.MockSessionRepository{}, &testutil.MockControllerRepository{})
 	service.client.isValid = false
-	service.SetFrontendHub(frontendHub)
+	setTestCdmFrontend(service, frontendHub)
 
 	err := service.HandleEobtUpdate(context.Background(), sessionID, callsign, futureEobt, "EKCH_DEL", "ATC")
 	require.NoError(t, err)
@@ -503,9 +503,9 @@ func TestHandleEobtUpdate_EarlierFutureValueStillSyncsTobtAndMarksRecalculation(
 	}
 
 	frontendHub := &testutil.MockFrontendHub{}
-	service := NewCdmService(newTestClientWithAirportMasters(nil), stripRepo, &testutil.MockSessionRepository{}, &testutil.MockControllerRepository{})
+	service := newTestCdmService(newTestClientWithAirportMasters(nil), stripRepo, &testutil.MockSessionRepository{}, &testutil.MockControllerRepository{})
 	service.client.isValid = false
-	service.SetFrontendHub(frontendHub)
+	setTestCdmFrontend(service, frontendHub)
 
 	err := service.HandleEobtUpdate(context.Background(), sessionID, callsign, earlierFutureEobt, "EKCH_DEL", "ATC")
 	require.NoError(t, err)
@@ -555,9 +555,9 @@ func TestHandleEobtUpdate_PastValueDoesNotSyncTobtOrMarkRecalculation(t *testing
 	}
 
 	frontendHub := &testutil.MockFrontendHub{}
-	service := NewCdmService(newTestClientWithAirportMasters(nil), stripRepo, &testutil.MockSessionRepository{}, &testutil.MockControllerRepository{})
+	service := newTestCdmService(newTestClientWithAirportMasters(nil), stripRepo, &testutil.MockSessionRepository{}, &testutil.MockControllerRepository{})
 	service.client.isValid = false
-	service.SetFrontendHub(frontendHub)
+	setTestCdmFrontend(service, frontendHub)
 
 	err := service.HandleEobtUpdate(context.Background(), sessionID, callsign, pastEobt, "EKCH_DEL", "ATC")
 	require.NoError(t, err)
@@ -607,9 +607,9 @@ func TestHandleEobtUpdate_ExpiredTsatMarksRecalculationAndStillSyncsTobt(t *test
 	}
 
 	frontendHub := &testutil.MockFrontendHub{}
-	service := NewCdmService(newTestClientWithAirportMasters(nil), stripRepo, &testutil.MockSessionRepository{}, &testutil.MockControllerRepository{})
+	service := newTestCdmService(newTestClientWithAirportMasters(nil), stripRepo, &testutil.MockSessionRepository{}, &testutil.MockControllerRepository{})
 	service.client.isValid = false
-	service.SetFrontendHub(frontendHub)
+	setTestCdmFrontend(service, frontendHub)
 
 	err := service.HandleEobtUpdate(context.Background(), sessionID, callsign, earlierFutureEobt, "EKCH_DEL", "ATC")
 	require.NoError(t, err)
@@ -677,9 +677,9 @@ func TestHandleEobtUpdate_MasterSession_ClampsFarFutureValueSyncsBackAndMarksRea
 		},
 	}
 
-	service := NewCdmService(newTestClientWithAirportMasters(nil), stripRepo, &testutil.MockSessionRepository{}, controllerRepo)
+	service := newTestCdmService(newTestClientWithAirportMasters(nil), stripRepo, &testutil.MockSessionRepository{}, controllerRepo)
 	service.client.isValid = false
-	service.SetEuroscopeHub(euroscopeHub)
+	setTestCdmEuroscope(service, euroscopeHub)
 	service.sessionMaster.Store(sessionID, true)
 
 	err := service.HandleEobtUpdate(context.Background(), sessionID, callsign, rawFutureEobt, "EKCH_DEL", "ATC")
@@ -707,7 +707,7 @@ func TestPrepareEuroscopeEobtSync_MasterSessionClampsBeforeInitialSequenceAndLea
 	rawFutureEobt := truncateCDMClockValue(addMinutes(timeToClock(now), 60))
 	expectedClamped := truncateCDMClockValue(addMinutes(timeToClock(now), masterEobtClampTarget))
 
-	service := NewCdmService(newTestClientWithAirportMasters(nil), &testutil.MockStripRepository{}, &testutil.MockSessionRepository{}, &testutil.MockControllerRepository{})
+	service := newTestCdmService(newTestClientWithAirportMasters(nil), &testutil.MockStripRepository{}, &testutil.MockSessionRepository{}, &testutil.MockControllerRepository{})
 	service.sessionMaster.Store(sessionID, true)
 
 	updated, corrected, clamped := service.PrepareEuroscopeEobtSync(sessionID, &models.CdmData{}, rawFutureEobt, now)
@@ -736,7 +736,7 @@ func TestPrepareEuroscopeEobtSync_ClearsLegacyAutoConfirmationButPreservesManual
 	pilot := models.TobtConfirmedByPilot
 	setBy := "EKCH_DEL"
 
-	service := NewCdmService(newTestClientWithAirportMasters(nil), &testutil.MockStripRepository{}, &testutil.MockSessionRepository{}, &testutil.MockControllerRepository{})
+	service := newTestCdmService(newTestClientWithAirportMasters(nil), &testutil.MockStripRepository{}, &testutil.MockSessionRepository{}, &testutil.MockControllerRepository{})
 	service.sessionMaster.Store(sessionID, true)
 
 	t.Run("legacy auto-follow metadata is cleared", func(t *testing.T) {
@@ -825,9 +825,9 @@ func TestHandleEobtUpdate_MasterSession_ClampsEmptyValueToNowPlus30(t *testing.T
 		},
 	}
 
-	service := NewCdmService(newTestClientWithAirportMasters(nil), stripRepo, &testutil.MockSessionRepository{}, controllerRepo)
+	service := newTestCdmService(newTestClientWithAirportMasters(nil), stripRepo, &testutil.MockSessionRepository{}, controllerRepo)
 	service.client.isValid = false
-	service.SetEuroscopeHub(euroscopeHub)
+	setTestCdmEuroscope(service, euroscopeHub)
 	service.sessionMaster.Store(sessionID, true)
 
 	err := service.HandleEobtUpdate(context.Background(), sessionID, callsign, "", "EKCH_DEL", "ATC")
@@ -918,9 +918,9 @@ func TestHandleEobtUpdate_DoesNotOverwriteConfirmedTobt(t *testing.T) {
 			}
 
 			frontendHub := &testutil.MockFrontendHub{}
-			service := NewCdmService(newTestClientWithAirportMasters(nil), stripRepo, &testutil.MockSessionRepository{}, &testutil.MockControllerRepository{})
+			service := newTestCdmService(newTestClientWithAirportMasters(nil), stripRepo, &testutil.MockSessionRepository{}, &testutil.MockControllerRepository{})
 			service.client.isValid = false
-			service.SetFrontendHub(frontendHub)
+			setTestCdmFrontend(service, frontendHub)
 
 			err := service.HandleEobtUpdate(context.Background(), sessionID, callsign, futureEobt, "EKCH_DEL", "ATC")
 			require.NoError(t, err)
@@ -975,9 +975,9 @@ func TestHandleEobtUpdate_LegacyAutoSyncedTobtContinuesFollowingEobt(t *testing.
 	}
 
 	frontendHub := &testutil.MockFrontendHub{}
-	service := NewCdmService(newTestClientWithAirportMasters(nil), stripRepo, &testutil.MockSessionRepository{}, &testutil.MockControllerRepository{})
+	service := newTestCdmService(newTestClientWithAirportMasters(nil), stripRepo, &testutil.MockSessionRepository{}, &testutil.MockControllerRepository{})
 	service.client.isValid = false
-	service.SetFrontendHub(frontendHub)
+	setTestCdmFrontend(service, frontendHub)
 
 	err := service.HandleEobtUpdate(context.Background(), sessionID, callsign, nextEobt, "EKCH_DEL", "ATC")
 	require.NoError(t, err)
@@ -1034,11 +1034,11 @@ func TestHandleEobtUpdate_NonMasterSession_DoesNotClampFarFutureValue(t *testing
 	}
 	euroscopeHub := &testutil.MockEuroscopeHub{}
 
-	service := NewCdmService(newTestClientWithAirportMasters(nil), stripRepo, &testutil.MockSessionRepository{}, &testutil.MockControllerRepository{})
+	service := newTestCdmService(newTestClientWithAirportMasters(nil), stripRepo, &testutil.MockSessionRepository{}, &testutil.MockControllerRepository{})
 	service.client.isValid = false
 	service.debouncer = newRecalcDebouncer(time.Millisecond)
-	service.SetEuroscopeHub(euroscopeHub)
-	service.SetSequenceService(NewSequenceService(
+	setTestCdmEuroscope(service, euroscopeHub)
+	service.SetSequenceService(newTestSequenceService(
 		stripRepo,
 		&testutil.MockSessionRepository{},
 		&stubConfigProvider{},
@@ -1091,9 +1091,9 @@ func TestHandleTobtUpdate_SameValueConvertsAutoSyncedTobtToManualConfirmation(t 
 	}
 
 	frontendHub := &testutil.MockFrontendHub{}
-	service := NewCdmService(newTestClientWithAirportMasters(nil), stripRepo, &testutil.MockSessionRepository{}, &testutil.MockControllerRepository{})
+	service := newTestCdmService(newTestClientWithAirportMasters(nil), stripRepo, &testutil.MockSessionRepository{}, &testutil.MockControllerRepository{})
 	service.client.isValid = false
-	service.SetFrontendHub(frontendHub)
+	setTestCdmFrontend(service, frontendHub)
 
 	err := service.HandleTobtUpdate(context.Background(), sessionID, callsign, currentTobt, "EKCH_B_GND", "master")
 	require.NoError(t, err)
@@ -1130,10 +1130,10 @@ func TestHandleEobtUpdate_NonMasterSession_IgnoresEmptyValue(t *testing.T) {
 		},
 	}
 
-	service := NewCdmService(newTestClientWithAirportMasters(nil), stripRepo, &testutil.MockSessionRepository{}, &testutil.MockControllerRepository{})
+	service := newTestCdmService(newTestClientWithAirportMasters(nil), stripRepo, &testutil.MockSessionRepository{}, &testutil.MockControllerRepository{})
 	service.client.isValid = false
 	service.debouncer = newRecalcDebouncer(time.Millisecond)
-	service.SetSequenceService(NewSequenceService(
+	service.SetSequenceService(newTestSequenceService(
 		stripRepo,
 		&testutil.MockSessionRepository{},
 		&stubConfigProvider{},
@@ -1204,11 +1204,11 @@ func TestHandleClxTobtUpdate_BroadcastsFinalCalculatedCdmData(t *testing.T) {
 	}
 	frontendHub := &testutil.MockFrontendHub{}
 	configStore := NewCdmConfigStore("", "", "", time.Minute, CdmConfigDefaults{}, newFailingHTTPClient())
-	sequenceService := NewSequenceService(stripRepo, sessionRepo, configStore, frontendHub, nil)
+	sequenceService := newTestSequenceService(stripRepo, sessionRepo, configStore, frontendHub, nil)
 
-	service := NewCdmService(newTestClientWithAirportMasters(nil), stripRepo, sessionRepo, &testutil.MockControllerRepository{})
+	service := newTestCdmService(newTestClientWithAirportMasters(nil), stripRepo, sessionRepo, &testutil.MockControllerRepository{})
 	service.client.isValid = false
-	service.SetFrontendHub(frontendHub)
+	setTestCdmFrontend(service, frontendHub)
 	service.SetConfigProvider(configStore)
 	service.SetSequenceService(sequenceService)
 	service.sessionMaster.Store(sessionID, true)
@@ -1234,7 +1234,7 @@ func TestHandleManualCtot_BroadcastsEffectiveFrontendCtot(t *testing.T) {
 
 	stored := (&models.CdmData{}).Normalize()
 	frontendHub := &testutil.MockFrontendHub{}
-	service := NewCdmService(
+	service := newTestCdmService(
 		newTestClientWithAirportMasters(nil),
 		&testutil.MockStripRepository{
 			GetByCallsignFn: func(_ context.Context, session int32, cs string) (*models.Strip, error) {
@@ -1257,7 +1257,7 @@ func TestHandleManualCtot_BroadcastsEffectiveFrontendCtot(t *testing.T) {
 		&testutil.MockSessionRepository{},
 		&testutil.MockControllerRepository{},
 	)
-	service.SetFrontendHub(frontendHub)
+	setTestCdmFrontend(service, frontendHub)
 
 	err := service.HandleManualCtot(context.Background(), sessionID, callsign, "1045")
 	require.NoError(t, err)
@@ -1277,7 +1277,7 @@ func TestSyncAsatForGroundState_SetsAndClearsCanonicalAsat(t *testing.T) {
 
 	var stored = (&models.CdmData{}).Normalize()
 	euroscopeHub := &testutil.MockEuroscopeHub{}
-	service := NewCdmService(
+	service := newTestCdmService(
 		newTestClientWithAirportMasters(nil),
 		&testutil.MockStripRepository{
 			GetByCallsignFn: func(_ context.Context, session int32, cs string) (*models.Strip, error) {
@@ -1300,7 +1300,7 @@ func TestSyncAsatForGroundState_SetsAndClearsCanonicalAsat(t *testing.T) {
 		&testutil.MockSessionRepository{},
 		&testutil.MockControllerRepository{},
 	)
-	service.SetEuroscopeHub(euroscopeHub)
+	setTestCdmEuroscope(service, euroscopeHub)
 
 	err := service.SyncAsatForGroundState(context.Background(), sessionID, callsign, "PUSH")
 	require.NoError(t, err)
@@ -1336,7 +1336,7 @@ func TestPushTobt_UsesTaxiMinutesWithoutResolvingMasterPosition(t *testing.T) {
 		WithBaseURL(server.URL),
 	)
 
-	service := NewCdmService(
+	service := newTestCdmService(
 		client,
 		&testutil.MockStripRepository{
 			GetByCallsignFn: func(_ context.Context, session int32, cs string) (*models.Strip, error) {
@@ -1392,7 +1392,7 @@ func TestPushTobt_UsesPersistedCalculationTaxiMinutes(t *testing.T) {
 		WithBaseURL(server.URL),
 	)
 
-	service := NewCdmService(
+	service := newTestCdmService(
 		client,
 		&testutil.MockStripRepository{
 			GetByCallsignFn: func(_ context.Context, session int32, cs string) (*models.Strip, error) {
@@ -1471,9 +1471,9 @@ func TestSchedulePeriodicRecalculate_TriggersAllAirportSessions(t *testing.T) {
 	}
 
 	configStore := NewCdmConfigStore("", "", "", 0, CdmConfigDefaults{}, nil)
-	sequenceService := NewSequenceService(stripRepo, sessionRepo, configStore, &testutil.MockFrontendHub{}, &testutil.MockEuroscopeHub{})
+	sequenceService := newTestSequenceService(stripRepo, sessionRepo, configStore, &testutil.MockFrontendHub{}, &testutil.MockEuroscopeHub{})
 
-	service := NewCdmService(newTestClientWithAirportMasters(nil), stripRepo, sessionRepo, &testutil.MockControllerRepository{})
+	service := newTestCdmService(newTestClientWithAirportMasters(nil), stripRepo, sessionRepo, &testutil.MockControllerRepository{})
 	service.client.isValid = false
 	service.debouncer = newRecalcDebouncer(time.Millisecond)
 	service.SetSequenceService(sequenceService)
@@ -1505,7 +1505,7 @@ func TestSetReady_SendsRea1ViaDpi(t *testing.T) {
 	}))
 	defer server.Close()
 
-	service := NewCdmService(
+	service := newTestCdmService(
 		NewClient(WithAPIKey("test-key"), WithBaseURL(server.URL)),
 		&testutil.MockStripRepository{
 			GetCdmDataForCallsignFn: func(_ context.Context, _ int32, _ string) (*models.CdmData, error) {
@@ -1520,7 +1520,7 @@ func TestSetReady_SendsRea1ViaDpi(t *testing.T) {
 	)
 
 	frontendHub := &testutil.MockFrontendHub{}
-	service.SetFrontendHub(frontendHub)
+	setTestCdmFrontend(service, frontendHub)
 	service.sessionMaster.Store(sessionID, true)
 	markSessionLive(service, sessionID)
 
@@ -1556,7 +1556,7 @@ func TestSetReady_MasterPersistsAndExportsAsrt(t *testing.T) {
 		Tsat: stringPtr("1015"),
 		Ttot: stringPtr("1025"),
 	}).Normalize()
-	service := NewCdmService(
+	service := newTestCdmService(
 		NewClient(WithAPIKey("test-key"), WithBaseURL(server.URL)),
 		&testutil.MockStripRepository{
 			GetCdmDataForCallsignFn: func(_ context.Context, _ int32, _ string) (*models.CdmData, error) {
@@ -1573,7 +1573,7 @@ func TestSetReady_MasterPersistsAndExportsAsrt(t *testing.T) {
 		&testutil.MockSessionRepository{},
 		&testutil.MockControllerRepository{},
 	)
-	service.SetFrontendHub(&testutil.MockFrontendHub{})
+	setTestCdmFrontend(service, &testutil.MockFrontendHub{})
 	service.sessionMaster.Store(sessionID, true)
 	markSessionLive(service, sessionID)
 
@@ -1605,7 +1605,7 @@ func TestSetReady_WithoutValidClient_PersistsLocalReadyStatus(t *testing.T) {
 	const sessionID = int32(938)
 
 	var persisted *models.CdmData
-	service := NewCdmService(
+	service := newTestCdmService(
 		newTestClientWithAirportMasters(nil),
 		&testutil.MockStripRepository{
 			GetCdmDataForCallsignFn: func(_ context.Context, _ int32, _ string) (*models.CdmData, error) {
@@ -1624,7 +1624,7 @@ func TestSetReady_WithoutValidClient_PersistsLocalReadyStatus(t *testing.T) {
 	)
 	service.client.isValid = false
 	frontendHub := &testutil.MockFrontendHub{}
-	service.SetFrontendHub(frontendHub)
+	setTestCdmFrontend(service, frontendHub)
 
 	require.NoError(t, service.SetReady(context.Background(), sessionID, callsign))
 
@@ -1651,7 +1651,7 @@ func TestSetReady_WithValidClient_NonMasterSendsReaWithoutPersistingLocally(t *t
 	defer server.Close()
 
 	var persisted *models.CdmData
-	service := NewCdmService(
+	service := newTestCdmService(
 		NewClient(WithAPIKey("test-key"), WithBaseURL(server.URL)),
 		&testutil.MockStripRepository{
 			GetCdmDataForCallsignFn: func(_ context.Context, _ int32, _ string) (*models.CdmData, error) {
@@ -1666,7 +1666,7 @@ func TestSetReady_WithValidClient_NonMasterSendsReaWithoutPersistingLocally(t *t
 		&testutil.MockControllerRepository{},
 	)
 	frontendHub := &testutil.MockFrontendHub{}
-	service.SetFrontendHub(frontendHub)
+	setTestCdmFrontend(service, frontendHub)
 	markSessionLive(service, sessionID)
 
 	require.NoError(t, service.SetReady(context.Background(), sessionID, callsign))
@@ -1690,7 +1690,7 @@ func TestHandleReadyRequest_WithValidClient_NonMasterOnlySendsRea(t *testing.T) 
 	defer server.Close()
 
 	var persisted *models.CdmData
-	service := NewCdmService(
+	service := newTestCdmService(
 		NewClient(WithAPIKey("test-key"), WithBaseURL(server.URL)),
 		&testutil.MockStripRepository{
 			GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
@@ -1708,7 +1708,7 @@ func TestHandleReadyRequest_WithValidClient_NonMasterOnlySendsRea(t *testing.T) 
 		&testutil.MockControllerRepository{},
 	)
 	frontendHub := &testutil.MockFrontendHub{}
-	service.SetFrontendHub(frontendHub)
+	setTestCdmFrontend(service, frontendHub)
 	markSessionLive(service, sessionID)
 
 	require.NoError(t, service.HandleReadyRequest(context.Background(), sessionID, callsign, "EKCH_DEL", "ATC"))
@@ -1725,7 +1725,7 @@ func TestHandleReadyRequest_WithoutValidClient_PersistsReadyWhenNoTobtChangeNeed
 	pastTobt := time.Now().UTC().Add(-5 * time.Minute).Format("1504")
 	var persisted *models.CdmData
 
-	service := NewCdmService(
+	service := newTestCdmService(
 		newTestClientWithAirportMasters(nil),
 		&testutil.MockStripRepository{
 			GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
@@ -1747,7 +1747,7 @@ func TestHandleReadyRequest_WithoutValidClient_PersistsReadyWhenNoTobtChangeNeed
 	)
 	service.client.isValid = false
 	frontendHub := &testutil.MockFrontendHub{}
-	service.SetFrontendHub(frontendHub)
+	setTestCdmFrontend(service, frontendHub)
 
 	beforeNow := time.Now().UTC().Format("1504")
 	require.NoError(t, service.HandleReadyRequest(context.Background(), sessionID, callsign, "EKCH_DEL", "ATC"))
@@ -1776,7 +1776,7 @@ func TestHandleReadyRequest_UpdatesFutureTobtToNow(t *testing.T) {
 	}))
 	defer server.Close()
 
-	service := NewCdmService(
+	service := newTestCdmService(
 		NewClient(WithAPIKey("test-key"), WithBaseURL(server.URL)),
 		&testutil.MockStripRepository{
 			GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
@@ -1796,7 +1796,7 @@ func TestHandleReadyRequest_UpdatesFutureTobtToNow(t *testing.T) {
 		&testutil.MockSessionRepository{},
 		&testutil.MockControllerRepository{},
 	)
-	service.SetFrontendHub(&testutil.MockFrontendHub{})
+	setTestCdmFrontend(service, &testutil.MockFrontendHub{})
 	service.sessionMaster.Store(sessionID, true)
 	markSessionLive(service, sessionID)
 
@@ -1826,7 +1826,7 @@ func TestHandleReadyRequest_PreservesTobtWithinTsatWindow(t *testing.T) {
 	activeTsat := time.Now().UTC().Add(5 * time.Minute).Format("1504")
 	var persisted *models.CdmData
 
-	service := NewCdmService(
+	service := newTestCdmService(
 		newTestClientWithAirportMasters(nil),
 		&testutil.MockStripRepository{
 			GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
@@ -1847,7 +1847,7 @@ func TestHandleReadyRequest_PreservesTobtWithinTsatWindow(t *testing.T) {
 		&testutil.MockControllerRepository{},
 	)
 	service.client.isValid = false
-	service.SetFrontendHub(&testutil.MockFrontendHub{})
+	setTestCdmFrontend(service, &testutil.MockFrontendHub{})
 
 	require.NoError(t, service.HandleReadyRequest(context.Background(), sessionID, callsign, "EKCH_DEL", "ATC"))
 	require.NotNil(t, persisted)
@@ -1872,7 +1872,7 @@ func TestHandleReadyRequest_UpdatesPastTobtToNowWithActiveTsat(t *testing.T) {
 	}))
 	defer server.Close()
 
-	service := NewCdmService(
+	service := newTestCdmService(
 		NewClient(WithAPIKey("test-key"), WithBaseURL(server.URL)),
 		&testutil.MockStripRepository{
 			GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
@@ -1897,7 +1897,7 @@ func TestHandleReadyRequest_UpdatesPastTobtToNowWithActiveTsat(t *testing.T) {
 		&testutil.MockSessionRepository{},
 		&testutil.MockControllerRepository{},
 	)
-	service.SetFrontendHub(&testutil.MockFrontendHub{})
+	setTestCdmFrontend(service, &testutil.MockFrontendHub{})
 	service.sessionMaster.Store(sessionID, true)
 	markSessionLive(service, sessionID)
 
@@ -1988,10 +1988,10 @@ func TestHandleReadyRequest_MasterSessionRecalculatesTsatAndTtot(t *testing.T) {
 	)
 	frontendHub := &testutil.MockFrontendHub{}
 	configStore := NewCdmConfigStore("", "", "", time.Minute, CdmConfigDefaults{}, newFailingHTTPClient())
-	sequenceService := NewSequenceService(stripRepo, sessionRepo, configStore, frontendHub, &testutil.MockEuroscopeHub{})
+	sequenceService := newTestSequenceService(stripRepo, sessionRepo, configStore, frontendHub, &testutil.MockEuroscopeHub{})
 
-	service := NewCdmService(client, stripRepo, sessionRepo, &testutil.MockControllerRepository{})
-	service.SetFrontendHub(frontendHub)
+	service := newTestCdmService(client, stripRepo, sessionRepo, &testutil.MockControllerRepository{})
+	setTestCdmFrontend(service, frontendHub)
 	service.SetConfigProvider(configStore)
 	service.SetSequenceService(sequenceService)
 	service.sessionMaster.Store(sessionID, true)
@@ -2103,11 +2103,11 @@ func TestHandleReadyRequest_MasterSessionUsesNextFreeGapWithoutMovingExistingFli
 		DefaultRate:        30,
 		DefaultTaxiMinutes: 10,
 	}
-	sequenceService := NewSequenceService(stripRepo, sessionRepo, configStore, frontendHub, &testutil.MockEuroscopeHub{})
+	sequenceService := newTestSequenceService(stripRepo, sessionRepo, configStore, frontendHub, &testutil.MockEuroscopeHub{})
 
-	service := NewCdmService(newTestClientWithAirportMasters(nil), stripRepo, sessionRepo, &testutil.MockControllerRepository{})
+	service := newTestCdmService(newTestClientWithAirportMasters(nil), stripRepo, sessionRepo, &testutil.MockControllerRepository{})
 	service.client.isValid = false
-	service.SetFrontendHub(frontendHub)
+	setTestCdmFrontend(service, frontendHub)
 	service.SetConfigProvider(configStore)
 	service.SetSequenceService(sequenceService)
 	service.sessionMaster.Store(sessionID, true)
@@ -2183,12 +2183,12 @@ func TestHandleReadyRequest_NonMasterWithoutValidClient_DoesNotRecalculate(t *te
 		},
 	}
 
-	service := NewCdmService(newTestClientWithAirportMasters(nil), stripRepo, sessionRepo, &testutil.MockControllerRepository{})
+	service := newTestCdmService(newTestClientWithAirportMasters(nil), stripRepo, sessionRepo, &testutil.MockControllerRepository{})
 	service.client.isValid = false
-	service.SetFrontendHub(&testutil.MockFrontendHub{})
-	service.SetEuroscopeHub(&testutil.MockEuroscopeHub{})
+	setTestCdmFrontend(service, &testutil.MockFrontendHub{})
+	setTestCdmEuroscope(service, &testutil.MockEuroscopeHub{})
 	service.SetConfigProvider(NewCdmConfigStore("", "", "", time.Minute, CdmConfigDefaults{}, newFailingHTTPClient()))
-	service.SetSequenceService(NewSequenceService(stripRepo, sessionRepo, NewCdmConfigStore("", "", "", time.Minute, CdmConfigDefaults{}, newFailingHTTPClient()), &testutil.MockFrontendHub{}, &testutil.MockEuroscopeHub{}))
+	service.SetSequenceService(newTestSequenceService(stripRepo, sessionRepo, NewCdmConfigStore("", "", "", time.Minute, CdmConfigDefaults{}, newFailingHTTPClient()), &testutil.MockFrontendHub{}, &testutil.MockEuroscopeHub{}))
 
 	require.NoError(t, service.HandleReadyRequest(context.Background(), sessionID, callsign, "EKCH_DEL", "ATC"))
 	assert.False(t, recalculated)
@@ -2240,7 +2240,7 @@ func TestHandleReadyRequest_UpdatesTobtToNowWhenTsatExpiredOrPhaseInvalid(t *tes
 			}))
 			defer server.Close()
 
-			service := NewCdmService(
+			service := newTestCdmService(
 				NewClient(WithAPIKey("test-key"), WithBaseURL(server.URL)),
 				&testutil.MockStripRepository{
 					GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
@@ -2260,7 +2260,7 @@ func TestHandleReadyRequest_UpdatesTobtToNowWhenTsatExpiredOrPhaseInvalid(t *tes
 				&testutil.MockSessionRepository{},
 				&testutil.MockControllerRepository{},
 			)
-			service.SetFrontendHub(&testutil.MockFrontendHub{})
+			setTestCdmFrontend(service, &testutil.MockFrontendHub{})
 			service.sessionMaster.Store(sessionID, true)
 			markSessionLive(service, sessionID)
 
@@ -2343,10 +2343,10 @@ func TestHandleReadyRequest_PhaseInvalidEventuallyProducesNewTsat(t *testing.T) 
 	)
 	frontendHub := &testutil.MockFrontendHub{}
 	configStore := NewCdmConfigStore("", "", "", time.Minute, CdmConfigDefaults{}, newFailingHTTPClient())
-	sequenceService := NewSequenceService(stripRepo, sessionRepo, configStore, frontendHub, &testutil.MockEuroscopeHub{})
+	sequenceService := newTestSequenceService(stripRepo, sessionRepo, configStore, frontendHub, &testutil.MockEuroscopeHub{})
 
-	service := NewCdmService(client, stripRepo, sessionRepo, &testutil.MockControllerRepository{})
-	service.SetFrontendHub(frontendHub)
+	service := newTestCdmService(client, stripRepo, sessionRepo, &testutil.MockControllerRepository{})
+	setTestCdmFrontend(service, frontendHub)
 	service.SetConfigProvider(configStore)
 	service.SetSequenceService(sequenceService)
 	service.sessionMaster.Store(sessionID, true)
@@ -2372,7 +2372,7 @@ func TestPrepareTobtUpdate_SameValueMarksRecalculationWhenTsatExpired(t *testing
 	currentTobt := "1800"
 	expiredTsat := "1749"
 
-	service := NewCdmService(newTestClientWithAirportMasters(nil), &testutil.MockStripRepository{
+	service := newTestCdmService(newTestClientWithAirportMasters(nil), &testutil.MockStripRepository{
 		GetByCallsignFn: func(_ context.Context, session int32, cs string) (*models.Strip, error) {
 			assert.Equal(t, sessionID, session)
 			assert.Equal(t, callsign, cs)
@@ -2420,7 +2420,7 @@ func TestHandleApproveReqTobt_ClearsReqTobtOnViff(t *testing.T) {
 	defer server.Close()
 
 	var persisted *models.CdmData
-	service := NewCdmService(
+	service := newTestCdmService(
 		NewClient(WithAPIKey("test-key"), WithBaseURL(server.URL)),
 		&testutil.MockStripRepository{
 			GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
@@ -2441,7 +2441,7 @@ func TestHandleApproveReqTobt_ClearsReqTobtOnViff(t *testing.T) {
 		&testutil.MockControllerRepository{},
 	)
 
-	service.SetFrontendHub(&testutil.MockFrontendHub{})
+	setTestCdmFrontend(service, &testutil.MockFrontendHub{})
 	service.sessionMaster.Store(sessionID, true)
 	markSessionLive(service, sessionID)
 
@@ -2475,7 +2475,7 @@ func TestSyncAsatForGroundState_SetsAobtLocallyAndPushesToViff(t *testing.T) {
 	}))
 	defer server.Close()
 
-	service := NewCdmService(
+	service := newTestCdmService(
 		NewClient(WithAPIKey("test-key"), WithBaseURL(server.URL)),
 		&testutil.MockStripRepository{
 			GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
@@ -2493,7 +2493,7 @@ func TestSyncAsatForGroundState_SetsAobtLocallyAndPushesToViff(t *testing.T) {
 		&testutil.MockControllerRepository{},
 	)
 
-	service.SetEuroscopeHub(&testutil.MockEuroscopeHub{})
+	setTestCdmEuroscope(service, &testutil.MockEuroscopeHub{})
 	service.sessionMaster.Store(sessionID, true)
 	markSessionLive(service, sessionID)
 
@@ -2549,7 +2549,7 @@ func TestPushViffAfterRecalcAsync_SendsSetCdmDataWhenTsatPresent(t *testing.T) {
 		EcfmpID: stringPtr(ecfmp),
 	}
 
-	service := NewCdmService(
+	service := newTestCdmService(
 		NewClient(WithAPIKey("test-key"), WithBaseURL(server.URL)),
 		nil, nil, nil,
 	)
@@ -2582,7 +2582,7 @@ func TestPushViffAfterRecalcAsync_SendsSuspWhenPhaseInvalid(t *testing.T) {
 	phase := "I"
 	data := &models.CdmData{Phase: stringPtr(phase)}
 
-	service := NewCdmService(
+	service := newTestCdmService(
 		NewClient(WithAPIKey("test-key"), WithBaseURL(server.URL)),
 		nil, nil, nil,
 	)
@@ -2662,12 +2662,12 @@ func TestSetSessionCdmMaster_True_UpdatesDBAndCachesAndRegistersMaster(t *testin
 	}
 
 	client := NewClient(WithAPIKey("test-key"), WithBaseURL(srv.URL))
-	service := NewCdmService(client, &testutil.MockStripRepository{
+	service := newTestCdmService(client, &testutil.MockStripRepository{
 		ListByOriginFn: func(context.Context, int32, string) ([]*models.Strip, error) {
 			return nil, nil
 		},
 	}, sessionRepo, &testutil.MockControllerRepository{})
-	service.SetEuroscopeHub(&testutil.MockEuroscopeHub{
+	setTestCdmEuroscope(service, &testutil.MockEuroscopeHub{
 		GetMasterCallsignFn: func(int32) string {
 			return "EKCH_A_TWR"
 		},
@@ -2750,9 +2750,9 @@ func TestSetSessionCdmMaster_True_NormalizesExistingFarFutureEobtAndSyncsBack(t 
 		},
 	}
 
-	service := NewCdmService(newTestClientWithAirportMasters(nil), stripRepo, sessionRepo, controllerRepo)
+	service := newTestCdmService(newTestClientWithAirportMasters(nil), stripRepo, sessionRepo, controllerRepo)
 	service.client.isValid = false
-	service.SetEuroscopeHub(euroscopeHub)
+	setTestCdmEuroscope(service, euroscopeHub)
 
 	err := service.SetSessionCdmMaster(context.Background(), sessionID, true)
 	require.NoError(t, err)
@@ -2795,10 +2795,10 @@ func TestSetSessionCdmMaster_True_TriggersImmediateRecalculate(t *testing.T) {
 		},
 	}
 
-	service := NewCdmService(newTestClientWithAirportMasters(nil), stripRepo, sessionRepo, &testutil.MockControllerRepository{})
+	service := newTestCdmService(newTestClientWithAirportMasters(nil), stripRepo, sessionRepo, &testutil.MockControllerRepository{})
 	service.client.isValid = false
 	service.debouncer = newRecalcDebouncer(time.Millisecond)
-	service.SetSequenceService(NewSequenceService(
+	service.SetSequenceService(newTestSequenceService(
 		stripRepo,
 		sessionRepo,
 		&stubConfigProvider{},
@@ -2847,8 +2847,8 @@ func TestSetSessionCdmMaster_False_UpdatesDBAndRemovesFromCache(t *testing.T) {
 	}
 
 	client := NewClient(WithAPIKey("test-key"), WithBaseURL(srv.URL))
-	service := NewCdmService(client, &testutil.MockStripRepository{}, sessionRepo, &testutil.MockControllerRepository{})
-	service.SetEuroscopeHub(&testutil.MockEuroscopeHub{
+	service := newTestCdmService(client, &testutil.MockStripRepository{}, sessionRepo, &testutil.MockControllerRepository{})
+	setTestCdmEuroscope(service, &testutil.MockEuroscopeHub{
 		GetMasterCallsignFn: func(int32) string {
 			return "EKCH_A_TWR"
 		},
@@ -2884,8 +2884,8 @@ func TestTriggerRecalculate_SkipsNonMasterSession(t *testing.T) {
 		},
 	}
 
-	seqSvc := NewSequenceService(stripRepo, &testutil.MockSessionRepository{}, &stubConfigProvider{}, &testutil.MockFrontendHub{}, &testutil.MockEuroscopeHub{})
-	service := NewCdmService(newTestClientWithAirportMasters(nil), stripRepo, &testutil.MockSessionRepository{}, &testutil.MockControllerRepository{})
+	seqSvc := newTestSequenceService(stripRepo, &testutil.MockSessionRepository{}, &stubConfigProvider{}, &testutil.MockFrontendHub{}, &testutil.MockEuroscopeHub{})
+	service := newTestCdmService(newTestClientWithAirportMasters(nil), stripRepo, &testutil.MockSessionRepository{}, &testutil.MockControllerRepository{})
 
 	service.debouncer = newRecalcDebouncer(time.Millisecond)
 	service.SetSequenceService(seqSvc)
@@ -2915,8 +2915,8 @@ func TestTriggerRecalculate_SkipsNonMasterSessionWhenClientUnavailable(t *testin
 		},
 	}
 
-	seqSvc := NewSequenceService(stripRepo, sessionRepo, &stubConfigProvider{}, &testutil.MockFrontendHub{}, &testutil.MockEuroscopeHub{})
-	service := NewCdmService(newTestClientWithAirportMasters(nil), stripRepo, sessionRepo, &testutil.MockControllerRepository{})
+	seqSvc := newTestSequenceService(stripRepo, sessionRepo, &stubConfigProvider{}, &testutil.MockFrontendHub{}, &testutil.MockEuroscopeHub{})
+	service := newTestCdmService(newTestClientWithAirportMasters(nil), stripRepo, sessionRepo, &testutil.MockControllerRepository{})
 	service.client.isValid = false
 	service.debouncer = newRecalcDebouncer(time.Millisecond)
 	service.SetSequenceService(seqSvc)
@@ -2947,8 +2947,8 @@ func TestTriggerRecalculate_RunsForMasterSession(t *testing.T) {
 		},
 	}
 
-	seqSvc := NewSequenceService(stripRepo, sessionRepo, &stubConfigProvider{}, &testutil.MockFrontendHub{}, &testutil.MockEuroscopeHub{})
-	service := NewCdmService(newTestClientWithAirportMasters(nil), stripRepo, sessionRepo, &testutil.MockControllerRepository{})
+	seqSvc := newTestSequenceService(stripRepo, sessionRepo, &stubConfigProvider{}, &testutil.MockFrontendHub{}, &testutil.MockEuroscopeHub{})
+	service := newTestCdmService(newTestClientWithAirportMasters(nil), stripRepo, sessionRepo, &testutil.MockControllerRepository{})
 
 	service.debouncer = newRecalcDebouncer(time.Millisecond)
 	service.SetSequenceService(seqSvc)
@@ -2984,8 +2984,8 @@ func TestTriggerRecalculate_DetachesFromCanceledCallerContext(t *testing.T) {
 		},
 	}
 
-	seqSvc := NewSequenceService(stripRepo, sessionRepo, &stubConfigProvider{}, &testutil.MockFrontendHub{}, &testutil.MockEuroscopeHub{})
-	service := NewCdmService(newTestClientWithAirportMasters(nil), stripRepo, sessionRepo, &testutil.MockControllerRepository{})
+	seqSvc := newTestSequenceService(stripRepo, sessionRepo, &stubConfigProvider{}, &testutil.MockFrontendHub{}, &testutil.MockEuroscopeHub{})
+	service := newTestCdmService(newTestClientWithAirportMasters(nil), stripRepo, sessionRepo, &testutil.MockControllerRepository{})
 	service.debouncer = newRecalcDebouncer(time.Millisecond)
 	service.SetSequenceService(seqSvc)
 
@@ -3029,8 +3029,8 @@ func TestTriggerRecalculateForAirport_RunsMatchingMasterSessions(t *testing.T) {
 		},
 	}
 
-	seqSvc := NewSequenceService(stripRepo, sessionRepo, &stubConfigProvider{}, &testutil.MockFrontendHub{}, &testutil.MockEuroscopeHub{})
-	service := NewCdmService(newTestClientWithAirportMasters(nil), stripRepo, sessionRepo, &testutil.MockControllerRepository{})
+	seqSvc := newTestSequenceService(stripRepo, sessionRepo, &stubConfigProvider{}, &testutil.MockFrontendHub{}, &testutil.MockEuroscopeHub{})
+	service := newTestCdmService(newTestClientWithAirportMasters(nil), stripRepo, sessionRepo, &testutil.MockControllerRepository{})
 
 	service.debouncer = newRecalcDebouncer(time.Millisecond)
 	service.SetSequenceService(seqSvc)
@@ -3057,7 +3057,7 @@ func TestPushViffAfterRecalcAsync_NonLiveSessionSkipsViff(t *testing.T) {
 
 	const sessionID = int32(222)
 	data := &models.CdmData{Tsat: stringPtr("153000")}
-	service := NewCdmService(
+	service := newTestCdmService(
 		NewClient(WithAPIKey("test-key"), WithHTTPClient(newFailingHTTPClient())),
 		nil, nil, nil,
 	)
@@ -3104,9 +3104,9 @@ func TestSyncSessions_RegistersMasterForCdmMasterSessions(t *testing.T) {
 		},
 	}
 	client := NewClient(WithAPIKey("test-key"), WithBaseURL(srv.URL))
-	service := NewCdmService(client, stripRepo, sessionRepo, &testutil.MockControllerRepository{})
-	service.SetFrontendHub(&testutil.MockFrontendHub{})
-	service.SetEuroscopeHub(&testutil.MockEuroscopeHub{
+	service := newTestCdmService(client, stripRepo, sessionRepo, &testutil.MockControllerRepository{})
+	setTestCdmFrontend(service, &testutil.MockFrontendHub{})
+	setTestCdmEuroscope(service, &testutil.MockEuroscopeHub{
 		GetMasterCallsignFn: func(int32) string {
 			return "EKCH_A_TWR"
 		},
@@ -3155,10 +3155,10 @@ func TestSyncSessions_TriggersImmediateRecalculateForPersistedMasterSession(t *t
 		},
 	}
 
-	service := NewCdmService(newTestClientWithAirportMasters(nil), stripRepo, sessionRepo, &testutil.MockControllerRepository{})
+	service := newTestCdmService(newTestClientWithAirportMasters(nil), stripRepo, sessionRepo, &testutil.MockControllerRepository{})
 	service.client.isValid = false
 	service.debouncer = newRecalcDebouncer(time.Millisecond)
-	service.SetSequenceService(NewSequenceService(
+	service.SetSequenceService(newTestSequenceService(
 		stripRepo,
 		sessionRepo,
 		&stubConfigProvider{},
@@ -3188,11 +3188,11 @@ func TestSyncSessions_DoesNotRegisterMasterForSlaveSession(t *testing.T) {
 	}
 
 	client := NewClient(WithAPIKey("test-key"), WithHTTPClient(newFailingHTTPClient()))
-	service := NewCdmService(client, &testutil.MockStripRepository{}, sessionRepo, &testutil.MockControllerRepository{})
+	service := newTestCdmService(client, &testutil.MockStripRepository{}, sessionRepo, &testutil.MockControllerRepository{})
 	// Disable HTTP calls so syncCdmData exits early (client must have isValid=false to skip the vIFF sync).
 	service.client.isValid = false
-	service.SetFrontendHub(&testutil.MockFrontendHub{})
-	service.SetEuroscopeHub(&testutil.MockEuroscopeHub{})
+	setTestCdmFrontend(service, &testutil.MockFrontendHub{})
+	setTestCdmEuroscope(service, &testutil.MockEuroscopeHub{})
 
 	err := service.syncSessions(context.Background())
 	require.NoError(t, err)
@@ -3213,7 +3213,7 @@ func TestSyncSessions_DoesNotUseViffForNonLiveMasterSession(t *testing.T) {
 	}
 
 	client := NewClient(WithAPIKey("test-key"), WithHTTPClient(newFailingHTTPClient()))
-	service := NewCdmService(client, &testutil.MockStripRepository{}, sessionRepo, &testutil.MockControllerRepository{})
+	service := newTestCdmService(client, &testutil.MockStripRepository{}, sessionRepo, &testutil.MockControllerRepository{})
 
 	err := service.syncSessions(context.Background())
 	require.NoError(t, err)
@@ -3244,7 +3244,7 @@ func TestSyncSessions_SynchronizesLvoFromRunwayStatus(t *testing.T) {
 	}
 
 	client := NewClient(WithAPIKey("test-key"), WithHTTPClient(newFailingHTTPClient()))
-	service := NewCdmService(client, &testutil.MockStripRepository{}, sessionRepo, &testutil.MockControllerRepository{})
+	service := newTestCdmService(client, &testutil.MockStripRepository{}, sessionRepo, &testutil.MockControllerRepository{})
 	service.client.isValid = false
 	provider := &trackingConfigProvider{}
 	service.SetConfigProvider(provider)

@@ -45,7 +45,7 @@ func (s *Server) updateSectorsContextUnlocked(ctx context.Context, sessionId int
 		return nil, nil
 	}
 
-	coverage, err := getCurrentControllerCoverage(ctx, controllerRepo, sessionId, s.transceiverLookup)
+	coverage, err := getCurrentControllerCoverage(ctx, controllerRepo, sessionId, s.frequencyProviders)
 	if err != nil {
 		return nil, err
 	}
@@ -200,7 +200,7 @@ func getControllersForUpdate(ctx context.Context, controllerRepo repository.Cont
 	return controllerRepo.List(ctx, sessionId)
 }
 
-func getCurrentControllerCoverage(ctx context.Context, controllerRepo repository.ControllerRepository, sessionId int32, transceiverLookup TransceiverLookup) ([]config.ControllerCoverage, error) {
+func getCurrentControllerCoverage(ctx context.Context, controllerRepo repository.ControllerRepository, sessionId int32, frequencyProviders []TransceiverLookup) ([]config.ControllerCoverage, error) {
 	controllers, err := getControllersForUpdate(ctx, controllerRepo, sessionId)
 	if err != nil {
 		return nil, err
@@ -217,8 +217,8 @@ func getCurrentControllerCoverage(ctx context.Context, controllerRepo repository
 			Name:      position.Name,
 			Frequency: position.Frequency,
 		}
-		if transceiverLookup != nil {
-			controllerCoverage.CoveredFrequencies = transceiverLookup.GetFrequencies(controller.Callsign)
+		for _, provider := range frequencyProviders {
+			controllerCoverage.CoveredFrequencies = append(controllerCoverage.CoveredFrequencies, provider.GetFrequencies(controller.Callsign)...)
 		}
 		coverage = append(coverage, controllerCoverage)
 	}

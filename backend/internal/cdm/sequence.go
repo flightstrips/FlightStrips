@@ -1,6 +1,7 @@
 package cdm
 
 import (
+	"FlightStrips/internal/dependencies"
 	"FlightStrips/internal/models"
 	"FlightStrips/internal/repository"
 	"FlightStrips/internal/shared"
@@ -35,13 +36,40 @@ type SequenceService struct {
 	stripRepo      CdmSequenceStripStore
 	sessionRepo    repository.SessionRepository
 	configProvider ConfigProvider
-	frontendHub    shared.FrontendHub
-	euroscopeHub   shared.EuroscopeHub
+	frontendHub    shared.CdmEventPublisher
+	euroscopeHub   CdmEuroscope
 	afterPersist   func(ctx context.Context, session int32, callsign string)
 	now            func() time.Time
 }
 
-func NewSequenceService(stripRepo CdmSequenceStripStore, sessionRepo repository.SessionRepository, configProvider ConfigProvider, frontendHub shared.FrontendHub, euroscopeHub shared.EuroscopeHub) *SequenceService {
+type SequenceServiceDependencies struct {
+	Strips    CdmSequenceStripStore
+	Sessions  repository.SessionRepository
+	Config    ConfigProvider
+	Frontend  shared.CdmEventPublisher
+	Euroscope CdmEuroscope
+}
+
+func NewSequenceService(deps SequenceServiceDependencies) (*SequenceService, error) {
+	required := []struct {
+		name  string
+		value any
+	}{
+		{"strip store", deps.Strips},
+		{"session repository", deps.Sessions},
+		{"configuration provider", deps.Config},
+		{"frontend publisher", deps.Frontend},
+		{"EuroScope publisher", deps.Euroscope},
+	}
+	for _, dependency := range required {
+		if dependencies.IsNil(dependency.value) {
+			return nil, fmt.Errorf("CDM sequence service requires %s", dependency.name)
+		}
+	}
+	return newSequenceService(deps.Strips, deps.Sessions, deps.Config, deps.Frontend, deps.Euroscope), nil
+}
+
+func newSequenceService(stripRepo CdmSequenceStripStore, sessionRepo repository.SessionRepository, configProvider ConfigProvider, frontendHub shared.CdmEventPublisher, euroscopeHub CdmEuroscope) *SequenceService {
 	return &SequenceService{
 		stripRepo:      stripRepo,
 		sessionRepo:    sessionRepo,
@@ -576,12 +604,8 @@ func calculateWithSinglePreservedSlot(preserved SlotEntry, candidate sequencingC
 }
 
 func (s *SequenceService) broadcastBatch(session int32, frontendUpdates []frontendEvents.CdmDataEvent, euroscopeUpdates []euroscopeEvents.CdmUpdateEvent) {
-	if s.frontendHub != nil {
-		s.frontendHub.SendCdmUpdates(session, frontendUpdates)
-	}
-	if s.euroscopeHub != nil {
-		s.euroscopeHub.BroadcastCdmUpdates(session, euroscopeUpdates)
-	}
+	s.frontendHub.SendCdmUpdates(session, frontendUpdates)
+	s.euroscopeHub.BroadcastCdmUpdates(session, euroscopeUpdates)
 }
 
 func valueOrEmpty(value *string) string {

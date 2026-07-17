@@ -17,7 +17,7 @@ import (
 func buildTacticalTestHub() *Hub {
 	return &Hub{
 		server:       &testutil.MockServer{FrontendHubVal: &testutil.MockFrontendHub{}},
-		stripService: &testutil.NoOpStripService{},
+		stripService: &noOpStripService{},
 	}
 }
 
@@ -27,7 +27,7 @@ func buildTacticalRepoHub(repo *testutil.MockTacticalStripRepository) *Hub {
 			FrontendHubVal:       &testutil.MockFrontendHub{},
 			TacticalStripRepoVal: repo,
 		},
-		stripService: &testutil.NoOpStripService{},
+		stripService: &noOpStripService{},
 	}
 }
 

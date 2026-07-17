@@ -583,9 +583,7 @@ func (c *ActionService) SetReady(ctx context.Context, session int32, callsign st
 		return nil
 	}
 
-	if s.publisher != nil {
-		s.publisher.SendCdmWait(session, callsign)
-	}
+	s.publisher.SendCdmWait(session, callsign)
 
 	return nil
 }
@@ -756,12 +754,12 @@ func (c *ActionService) pushAobtAsync(ctx context.Context, session int32, callsi
 
 func (c *ActionService) pushCorrectedEobtToEuroscope(ctx context.Context, session int32, callsign, eobt string) {
 	s := c.service
-	if s.euroscopeHub == nil || !s.isMasterSession(session) || strings.TrimSpace(eobt) == "" {
+	if !s.isMasterSession(session) || strings.TrimSpace(eobt) == "" {
 		return
 	}
 
 	masterCallsign := strings.TrimSpace(s.euroscopeHub.GetMasterCallsign(session))
-	if masterCallsign != "" && s.controllerRepo != nil {
+	if masterCallsign != "" {
 		controller, err := s.controllerRepo.GetByCallsign(ctx, session, masterCallsign)
 		if err == nil && controller != nil && controller.Cid != nil && strings.TrimSpace(*controller.Cid) != "" {
 			s.euroscopeHub.SendEobt(session, strings.TrimSpace(*controller.Cid), callsign, eobt)

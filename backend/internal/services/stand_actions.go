@@ -41,6 +41,7 @@ func NewStandActionService(allocations *StandAllocationService, assignments repo
 func (s *StandActionService) Allocate(ctx context.Context, session int32, airport, position, callsign string, version int32) (*StandAllocationResult, error) {
 	req, err := s.request(ctx, session, airport, position, callsign, version)
 	if err != nil {
+		s.recordRequestFailure(AutomaticStandAllocation, session, airport, callsign, "", err)
 		return nil, err
 	}
 	return s.allocations.Allocate(ctx, req)
@@ -49,6 +50,7 @@ func (s *StandActionService) Allocate(ctx context.Context, session int32, airpor
 func (s *StandActionService) AssignManually(ctx context.Context, session int32, airport, position, callsign, stand string, version int32) (*StandAllocationResult, error) {
 	req, err := s.request(ctx, session, airport, position, callsign, version)
 	if err != nil {
+		s.recordRequestFailure(CompatibleManualStand, session, airport, callsign, stand, err)
 		return nil, err
 	}
 	req.Stand = stand
@@ -60,10 +62,12 @@ func (s *StandActionService) AssignManually(ctx context.Context, session int32, 
 // deliberately cannot invoke the incompatible override path.
 func (s *StandActionService) AssignForPilot(ctx context.Context, session int32, airport, cid, callsign, stand string, version int32) (*StandAllocationResult, error) {
 	if strings.TrimSpace(cid) == "" {
+		s.recordRequestFailure(CompatibleManualStand, session, airport, callsign, stand, ErrStandActionUnauthorized)
 		return nil, ErrStandActionUnauthorized
 	}
 	req, err := s.request(ctx, session, airport, "PILOT:"+strings.TrimSpace(cid), callsign, version)
 	if err != nil {
+		s.recordRequestFailure(CompatibleManualStand, session, airport, callsign, stand, err)
 		return nil, err
 	}
 	req.Stand = stand
@@ -73,13 +77,35 @@ func (s *StandActionService) AssignForPilot(ctx context.Context, session int32, 
 func (s *StandActionService) Override(ctx context.Context, session int32, airport, position, callsign, stand, reason string, version int32) (*StandAllocationResult, error) {
 	req, err := s.request(ctx, session, airport, position, callsign, version)
 	if err != nil {
+		s.recordRequestFailure(IncompatibleManualOverride, session, airport, callsign, stand, err)
 		return nil, err
 	}
 	req.Stand, req.ConflictReason = stand, strings.TrimSpace(reason)
 	if req.ConflictReason == "" {
-		return nil, errors.New("confirmed override requires a reason")
+		err := errors.New("confirmed override requires a reason")
+		s.allocations.recordAllocationFailure(IncompatibleManualOverride, req, "invalid_request", err, 0)
+		return nil, err
 	}
 	return s.allocations.OverrideManually(ctx, req)
+}
+
+func (s *StandActionService) recordRequestFailure(command StandAllocationCommand, session int32, airport, callsign, stand string, err error) {
+	if s == nil || s.allocations == nil {
+		return
+	}
+	outcome := "request_error"
+	switch {
+	case errors.Is(err, ErrStandActionUnauthorized):
+		outcome = "unauthorized"
+	case errors.Is(err, ErrStandActionStaleVersion):
+		outcome = "stale_version"
+	}
+	s.allocations.recordAllocationFailure(command, StandAllocationRequest{
+		SessionID: session,
+		Airport:   strings.ToUpper(strings.TrimSpace(airport)),
+		Callsign:  strings.ToUpper(strings.TrimSpace(callsign)),
+		Stand:     strings.ToUpper(strings.TrimSpace(stand)),
+	}, outcome, err, 0)
 }
 
 func (s *StandActionService) request(ctx context.Context, session int32, airport, position, callsign string, version int32) (StandAllocationRequest, error) {

@@ -18,6 +18,8 @@ import (
 	"FlightStrips/internal/server"
 	"FlightStrips/internal/services"
 	"FlightStrips/internal/shared"
+	"FlightStrips/internal/standdiagnostics"
+	"FlightStrips/internal/standstatus"
 	"FlightStrips/internal/vatsim"
 	"FlightStrips/internal/websocket"
 	pkgEuroscope "FlightStrips/pkg/events/euroscope"
@@ -134,6 +136,7 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 	standActionService := satGraph.actions
 	departureLifecycle := satGraph.departures
 	arrivalLifecycle := satGraph.arrivals
+	standAssignmentFailures := satGraph.failures
 
 	stripService := services.NewStripService(
 		stripRepo,
@@ -343,7 +346,10 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 			sessionRepo:                sessionRepo,
 			sequenceService:            sequenceService,
 			vatsimCache:                vatsimCache,
+			standAssignmentRepo:        standAssignmentRepo,
 			standAssignmentReadiness:   standAssignmentReadiness,
+			standAssignmentDiagnostics: standAssignmentDiagnostics(),
+			standAssignmentFailures:    standAssignmentFailures,
 			standAssignmentStaleAfter:  satStaleAfter(deps.VATSIMPollInterval),
 			requireLiveCIDVerification: requireLiveCIDVerification,
 			enableHTTPTracing:          cfg.EnableHTTPTracing,
@@ -425,11 +431,15 @@ type satAssembly struct {
 	actions     *services.StandActionService
 	departures  *services.DepartureLifecycleService
 	arrivals    *services.ArrivalLifecycleService
+	failures    *standdiagnostics.AllocationFailureLog
 }
 
 func assembleSAT(cfg Config, readiness appconfig.StandAssignmentReadiness, dbpool *pgxpool.Pool, core coreRepositories) (satAssembly, error) {
+	graph := satAssembly{
+		failures: standdiagnostics.NewAllocationFailureLog(100),
+	}
 	if !readiness.Ready {
-		return satAssembly{}, nil
+		return graph, nil
 	}
 
 	assignments := postgres.NewStandAssignmentRepository(dbpool)
@@ -439,6 +449,7 @@ func assembleSAT(cfg Config, readiness appconfig.StandAssignmentReadiness, dbpoo
 	borders := appconfig.GetAirportCountries()
 	allocations, err := services.NewStandAllocationService(
 		dbpool, core.strips, assignments, stands, appconfig.GetAirlineAssignment(),
+		services.WithStandAllocationFailureLog(graph.failures),
 	)
 	if err != nil {
 		return satAssembly{}, fmt.Errorf("initialize stand allocation service: %w", err)
@@ -460,13 +471,12 @@ func assembleSAT(cfg Config, readiness appconfig.StandAssignmentReadiness, dbpoo
 		return satAssembly{}, fmt.Errorf("initialize arrival lifecycle service: %w", err)
 	}
 
-	return satAssembly{
-		assignments: assignments,
-		allocations: allocations,
-		actions:     services.NewStandActionService(allocations, assignments, core.strips, aircraft, engines, borders),
-		departures:  departures,
-		arrivals:    arrivals,
-	}, nil
+	graph.assignments = assignments
+	graph.allocations = allocations
+	graph.actions = services.NewStandActionService(allocations, assignments, core.strips, aircraft, engines, borders)
+	graph.departures = departures
+	graph.arrivals = arrivals
+	return graph, nil
 }
 
 type transportAssembly struct {
@@ -533,6 +543,26 @@ func configureStandAssignment(enabled bool) appconfig.StandAssignmentReadiness {
 		slog.Error("Stand Assignment Tool unavailable", slog.String("reason", readiness.Reason))
 	}
 	return readiness
+}
+
+func standAssignmentDiagnostics() standstatus.WebAPIDiagnostics {
+	diagnostics := standstatus.WebAPIDiagnostics{}
+	if registry := appconfig.GetAircraftReference(); registry != nil {
+		diagnostics.AircraftTypes = len(registry.Types())
+	}
+	if registry := appconfig.GetStandCapabilities(); registry != nil {
+		stands := registry.AllStands()
+		diagnostics.Stands = len(stands)
+		for _, stand := range stands {
+			diagnostics.StandVariants += len(stand.Variants)
+		}
+	}
+	if policy := appconfig.GetAirlineAssignment(); policy != nil {
+		diagnostics.AirlineRules = len(policy.Rules)
+		diagnostics.StandGroups = len(policy.StandGroups)
+		diagnostics.FallbackRules = len(policy.FallbackRules)
+	}
+	return diagnostics
 }
 
 func (a *App) Handler() http.Handler {
@@ -733,7 +763,10 @@ type buildHandlerConfig struct {
 	sessionRepo                repository.SessionRepository
 	sequenceService            *cdm.SequenceService
 	vatsimCache                *vatsim.Cache
+	standAssignmentRepo        repository.StandAssignmentRepository
 	standAssignmentReadiness   appconfig.StandAssignmentReadiness
+	standAssignmentDiagnostics standstatus.WebAPIDiagnostics
+	standAssignmentFailures    *standdiagnostics.AllocationFailureLog
 	standAssignmentStaleAfter  time.Duration
 	requireLiveCIDVerification bool
 	enableHTTPTracing          bool
@@ -759,6 +792,13 @@ func buildHandler(cfg buildHandlerConfig) http.Handler {
 	}
 
 	apiMux := http.NewServeMux()
+	standstatus.NewWebAPI(standstatus.WebAPIConfig{
+		Auth: cfg.authService, Sessions: cfg.sessionRepo, Assignments: cfg.standAssignmentRepo,
+		Feed: cfg.vatsimCache, Enabled: cfg.standAssignmentReadiness.Enabled,
+		Ready: cfg.standAssignmentReadiness.Ready, Reason: cfg.standAssignmentReadiness.Reason,
+		StaleAfter: cfg.standAssignmentStaleAfter, Diagnostics: cfg.standAssignmentDiagnostics,
+		Failures: cfg.standAssignmentFailures,
+	}).RegisterRoutes(apiMux)
 	if cfg.enableCDMAPI {
 		cdm.NewWebAPI(cfg.authService, cfg.sessionRepo, cfg.sequenceService).RegisterRoutes(apiMux)
 	}
@@ -775,9 +815,7 @@ func buildHandler(cfg buildHandlerConfig) http.Handler {
 	if cfg.enablePDCAPI {
 		pdc.NewWebAPI(cfg.authService, cfg.pdcService, cfg.vatsimCache, cfg.requireLiveCIDVerification).RegisterRoutes(apiMux)
 	}
-	if cfg.enableCDMAPI || cfg.enableECFMPAPI || cfg.enablePilotAPI || cfg.enableEFBAPI || cfg.enablePDCAPI {
-		mux.Handle("/api/", server.APIMiddleware(http.StripPrefix("/api", apiMux)))
-	}
+	mux.Handle("/api/", server.APIMiddleware(http.StripPrefix("/api", apiMux)))
 
 	var handler http.Handler = mux
 	if cfg.enableHTTPTracing {

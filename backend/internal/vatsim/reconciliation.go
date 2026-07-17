@@ -258,9 +258,17 @@ func (r *Reconciler) reconcileSession(ctx context.Context, snapshot Snapshot, se
 			changedCount++
 			r.notify(session.ID, strip.Callsign)
 		}
-		if strings.EqualFold(strings.TrimSpace(flight.FlightPlan.Origin), airport) {
-			if err := r.lifecycle.ProcessDeparture(ctx, session.ID, strip, departureFlightInfo(flight)); err != nil {
-				return err
+		if r.lifecycle != nil && strings.EqualFold(strings.TrimSpace(flight.FlightPlan.Origin), airport) {
+			// Prefiles may reserve a stand before EuroScope sees the flight, but
+			// an online VATSIM record alone must not create a departure block.
+			// EuroScope supplies the operational strip that makes the block
+			// controller-visible and authoritative.
+			prefileBeforeEuroscope := !flight.Online() && strip.EuroscopeSeenAt == nil
+			onlineAfterEuroscope := flight.Online() && strip.EuroscopeSeenAt != nil
+			if prefileBeforeEuroscope || onlineAfterEuroscope {
+				if err := r.lifecycle.ProcessDeparture(ctx, session.ID, strip, departureFlightInfo(flight)); err != nil {
+					return err
+				}
 			}
 		}
 		if strings.EqualFold(strings.TrimSpace(flight.FlightPlan.Destination), airport) {
@@ -273,7 +281,7 @@ func (r *Reconciler) reconcileSession(ctx context.Context, snapshot Snapshot, se
 	slog.InfoContext(ctx, "SAT VATSIM reconciliation completed", slog.Int("session", int(session.ID)), slog.String("airport", airport), slog.Duration("snapshot_age", snapshot.Age), slog.Int("pilots", pilots), slog.Int("prefiles", prefiles), slog.Int("changed", changedCount))
 
 	for callsign, strip := range existing {
-		if relevant[callsign].Callsign == "" &&
+		if relevant[callsign].Callsign == "" && strip.EuroscopeSeenAt == nil && r.lifecycle != nil &&
 			strings.EqualFold(strings.TrimSpace(strip.Origin), airport) {
 			if err := r.lifecycle.CancelDeparture(ctx, session.ID, callsign); err != nil {
 				return err

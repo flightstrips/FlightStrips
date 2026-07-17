@@ -248,6 +248,82 @@ func TestDepartureLifecycle(t *testing.T) {
 		assert.Len(t, published, 3, "an unchanged mismatch must not be republished")
 	})
 
+	t.Run("EuroScope spawn on occupied stand sends relocation message", func(t *testing.T) {
+		lifecycle, _, session, assignments, strips, clock := departureLifecycleFixture(t, pool, queries, "", "", nil)
+		messenger := &wrongStandTestMessenger{available: true}
+		lifecycle.SetWrongStandMessenger(messenger)
+		testdata.SeedTestStrip(t, queries, session, "SAS607")
+		clock.set(time.Date(2026, 7, 12, 10, 0, 0, 0, time.UTC))
+		require.NoError(t, lifecycle.ProcessDeparture(ctx, session, loadStrip(t, strips, session, "SAS607"), offlineFlight("SAS607", 1)))
+		require.NoError(t, assignments.CreateBlock(ctx, &models.StandBlock{
+			SessionID: session, Stand: "A2", BlockType: "MANUAL", Source: "CONTROLLER", Manual: true,
+		}))
+
+		require.NoError(t, lifecycle.ObserveDeparturePosition(
+			ctx, session, loadStrip(t, strips, session, "SAS607"), 55.6285306, 12.6434583,
+		))
+
+		require.Equal(t, 1, messenger.calls)
+		require.Equal(t, "STAND ASSIGNMENT: PLEASE RELOCATE TO YOUR ASSIGNED STAND A1", messenger.message)
+		assignment, err := assignments.GetAssignment(ctx, session, "SAS607")
+		require.NoError(t, err)
+		assert.Equal(t, "A1", assignment.Stand, "the occupied observed stand must not replace the reserved stand")
+		require.NotNil(t, assignment.ConflictReason)
+		assert.Contains(t, *assignment.ConflictReason, wrongStandPendingPrefix)
+	})
+
+	t.Run("EuroScope-only spawn on occupied stand receives an alternative and relocation message", func(t *testing.T) {
+		lifecycle, _, session, assignments, strips, _ := departureLifecycleFixture(t, pool, queries, "", "", nil)
+		messenger := &wrongStandTestMessenger{available: true}
+		lifecycle.SetWrongStandMessenger(messenger)
+		testdata.SeedTestStrip(t, queries, session, "SAS608")
+		require.NoError(t, assignments.CreateBlock(ctx, &models.StandBlock{
+			SessionID: session, Stand: "A2", BlockType: "MANUAL", Source: "CONTROLLER", Manual: true,
+		}))
+
+		require.NoError(t, lifecycle.ObserveDeparturePosition(
+			ctx, session, loadStrip(t, strips, session, "SAS608"), 55.6285306, 12.6434583,
+		))
+
+		require.Equal(t, 1, messenger.calls)
+		require.Equal(t, "STAND ASSIGNMENT: PLEASE RELOCATE TO YOUR ASSIGNED STAND A1", messenger.message)
+		assignment, err := assignments.GetAssignment(ctx, session, "SAS608")
+		require.NoError(t, err)
+		assert.Equal(t, "A1", assignment.Stand)
+		assert.Equal(t, StageDepartureBlock, assignment.Stage)
+		require.NotNil(t, assignment.ConflictReason)
+		assert.Contains(t, *assignment.ConflictReason, wrongStandPendingPrefix)
+
+		require.NoError(t, lifecycle.ObserveDeparturePosition(
+			ctx, session, loadStrip(t, strips, session, "SAS608"), 55.6285306, 12.6434583,
+		))
+		require.Equal(t, 1, messenger.calls, "the same occupied-stand episode must not send another message")
+	})
+
+	t.Run("EuroScope-only spawn with no alternative receives one occupied message", func(t *testing.T) {
+		lifecycle, _, session, assignments, strips, _ := departureLifecycleFixture(t, pool, queries, "", "", nil)
+		messenger := &wrongStandTestMessenger{available: true}
+		lifecycle.SetWrongStandMessenger(messenger)
+		testdata.SeedTestStrip(t, queries, session, "SAS609")
+		for _, stand := range []string{"A1", "A2"} {
+			require.NoError(t, assignments.CreateBlock(ctx, &models.StandBlock{
+				SessionID: session, Stand: stand, BlockType: "MANUAL", Source: "CONTROLLER", Manual: true,
+			}))
+		}
+		strip := loadStrip(t, strips, session, "SAS609")
+
+		require.NoError(t, lifecycle.ObserveDeparturePosition(ctx, session, strip, 55.6285306, 12.6434583))
+		require.NoError(t, lifecycle.ObserveDeparturePosition(ctx, session, strip, 55.6285306, 12.6434583))
+
+		require.Equal(t, 1, messenger.calls)
+		require.Equal(t, "STAND ASSIGNMENT: STAND A2 IS OCCUPIED. PLEASE RELOCATE", messenger.message)
+		_, err := assignments.GetAssignment(ctx, session, "SAS609")
+		require.Error(t, err)
+
+		require.NoError(t, lifecycle.ObserveDeparturePosition(ctx, session, strip, 55.6285306, 12.6434583))
+		require.Equal(t, 1, messenger.calls, "the same occupied-stand episode must remain one-shot")
+	})
+
 	t.Run("wrong stand timeout forces an explicit override", func(t *testing.T) {
 		lifecycle, _, session, assignments, strips, clock := departureLifecycleFixture(t, pool, queries, "", "", nil)
 		testdata.SeedTestStrip(t, queries, session, "SAS604")

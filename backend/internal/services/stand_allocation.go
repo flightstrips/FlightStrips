@@ -5,6 +5,7 @@ import (
 	"FlightStrips/internal/models"
 	"FlightStrips/internal/repository"
 	"FlightStrips/internal/sat"
+	"FlightStrips/internal/standdiagnostics"
 	"context"
 	"errors"
 	"fmt"
@@ -94,6 +95,7 @@ type StandAllocationService struct {
 	publish     StandAllocationPublisher
 	attempts    int
 	now         func() time.Time
+	failures    *standdiagnostics.AllocationFailureLog
 }
 
 type StandAllocationOption func(*StandAllocationService)
@@ -104,6 +106,10 @@ func WithStandAllocationRandom(random func() float64) StandAllocationOption {
 
 func WithStandAllocationPublisher(publisher StandAllocationPublisher) StandAllocationOption {
 	return func(service *StandAllocationService) { service.publish = publisher }
+}
+
+func WithStandAllocationFailureLog(failures *standdiagnostics.AllocationFailureLog) StandAllocationOption {
+	return func(service *StandAllocationService) { service.failures = failures }
 }
 
 func (s *StandAllocationService) SetPublisher(publisher StandAllocationPublisher) {
@@ -218,6 +224,7 @@ func NewStandAllocationService(pool *pgxpool.Pool, strips repository.StripReposi
 	service := &StandAllocationService{
 		pool: pool, strips: strips, assignments: assignments, stands: stands,
 		policy: policy, random: rand.Float64, attempts: 3, now: time.Now,
+		failures: standdiagnostics.NewAllocationFailureLog(100),
 	}
 	for _, option := range options {
 		if option != nil {
@@ -311,6 +318,7 @@ func (s *StandAllocationService) DeleteManualBlock(ctx context.Context, session 
 
 func (s *StandAllocationService) allocate(ctx context.Context, command StandAllocationCommand, request StandAllocationRequest) (*StandAllocationResult, error) {
 	if err := validateStandAllocationRequest(command, &request); err != nil {
+		s.recordAllocationFailure(command, request, "invalid_request", err, 0)
 		return nil, err
 	}
 	tried := map[string]struct{}{}
@@ -347,22 +355,65 @@ func (s *StandAllocationService) allocate(ctx context.Context, command StandAllo
 			tried[selected] = struct{}{}
 		}
 		if !retryableStandAllocationError(err) {
-			outcome := "error"
-			if errors.Is(err, ErrNoCompatibleStand) {
-				outcome = "no_compatible_stand"
-			}
-			if errors.Is(err, ErrNoAvailableStand) {
-				outcome = "no_available_stand"
-			}
+			outcome := standAllocationFailureOutcome(err)
 			metrics.RecordSATOutcome(ctx, outcome, string(request.Direction))
 			slog.WarnContext(ctx, "SAT stand allocation rejected", slog.String("callsign", request.Callsign), slog.String("command", string(command)), slog.String("outcome", outcome), slog.Any("error", err))
+			s.recordAllocationFailure(command, request, outcome, err, attempt)
 			return nil, err
 		}
 		metrics.RecordSATConflict(ctx, "database_contention")
 		slog.WarnContext(ctx, "SAT allocation contention; retrying", slog.String("callsign", request.Callsign), slog.Int("attempt", attempt), slog.Any("error", err))
 	}
 	metrics.RecordSATOutcome(ctx, "database_contention", string(request.Direction))
-	return nil, fmt.Errorf("%w after %d attempts", ErrAllocationRetriesExhausted, s.attempts)
+	err := fmt.Errorf("%w after %d attempts", ErrAllocationRetriesExhausted, s.attempts)
+	s.recordAllocationFailure(command, request, "database_contention", err, s.attempts)
+	return nil, err
+}
+
+func standAllocationFailureOutcome(err error) string {
+	switch {
+	case errors.Is(err, ErrNoCompatibleStand):
+		return "no_compatible_stand"
+	case errors.Is(err, ErrNoAvailableStand):
+		return "no_available_stand"
+	case errors.Is(err, ErrIncompatibleManualAssignment):
+		return "manual_stand_unavailable"
+	case errors.Is(err, ErrUnknownManualOverrideStand):
+		return "unknown_stand"
+	default:
+		return "error"
+	}
+}
+
+func (s *StandAllocationService) recordAllocationFailure(command StandAllocationCommand, request StandAllocationRequest, outcome string, err error, attempts int) {
+	if s.failures == nil {
+		return
+	}
+	now := time.Now
+	if s.now != nil {
+		now = s.now
+	}
+	reason := ""
+	if err != nil {
+		reason = err.Error()
+	}
+	s.failures.Record(standdiagnostics.AllocationFailure{
+		OccurredAt:     now().UTC(),
+		SessionID:      request.SessionID,
+		Airport:        request.Airport,
+		Callsign:       request.Callsign,
+		Command:        string(command),
+		Outcome:        outcome,
+		Reason:         reason,
+		Direction:      string(request.Direction),
+		Stage:          request.Stage,
+		AttemptedStand: request.Stand,
+		AircraftType:   request.AssignmentFacts.AircraftType,
+		EngineType:     string(request.FlightFacts.EngineType),
+		WTC:            request.FlightFacts.WTC,
+		BorderStatus:   string(request.FlightFacts.BorderStatus),
+		Attempts:       attempts,
+	})
 }
 
 func validateStandAllocationRequest(command StandAllocationCommand, request *StandAllocationRequest) error {

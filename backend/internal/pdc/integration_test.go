@@ -187,6 +187,7 @@ func TestSubmitWebPDCRequest_AutoIssuesClearanceWithoutHoppie(t *testing.T) {
 	t.Parallel()
 	suite := &PDCIntegrationTestSuite{}
 	suite.SetupTest(t)
+	suite.service.client = nil
 
 	ctx := context.Background()
 	sessionID := int32(1)

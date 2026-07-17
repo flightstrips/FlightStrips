@@ -22,7 +22,7 @@ func (appTestHoppieClient) SendTelex(context.Context, string, string, string) er
 	return nil
 }
 
-func TestBuildFailsWhenPDCIsEnabledWithoutHoppieConfiguration(t *testing.T) {
+func TestBuildEnablesWebPDCWithoutHoppieConfiguration(t *testing.T) {
 	poolConfig, err := pgxpool.ParseConfig("postgres://user:password@127.0.0.1:1/test")
 	require.NoError(t, err)
 	dbPool, err := pgxpool.NewWithConfig(context.Background(), poolConfig)
@@ -40,9 +40,13 @@ func TestBuildFailsWhenPDCIsEnabledWithoutHoppieConfiguration(t *testing.T) {
 		AuthenticationService: services.NewTestAuthenticationService(),
 	})
 
-	require.Nil(t, application)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "PDC is enabled but no Hoppie client or HOPPIE_LOGON is configured")
+	require.NoError(t, err)
+	require.NotNil(t, application)
+	require.Len(t, application.workers, 5)
+
+	response := httptest.NewRecorder()
+	application.Handler().ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/api/pdc/status", nil))
+	require.NotEqual(t, http.StatusNotFound, response.Code)
 }
 
 func TestBuildKeepsUnrelatedApplicationAvailableWhenStandAssignmentIsUnavailable(t *testing.T) {

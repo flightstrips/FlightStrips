@@ -37,7 +37,6 @@ func TestNewPDCServiceRejectsMissingRequiredDependencies(t *testing.T) {
 		remove func(*ServiceDependencies)
 		want   string
 	}{
-		{"client", func(d *ServiceDependencies) { d.Client = nil }, "pdc service requires Hoppie client"},
 		{"sessions", func(d *ServiceDependencies) { d.Sessions = nil }, "pdc service requires session repository"},
 		{"strips", func(d *ServiceDependencies) { d.Strips = nil }, "pdc service requires strip store"},
 		{"sectors", func(d *ServiceDependencies) { d.Sectors = nil }, "pdc service requires sector repository"},
@@ -55,6 +54,16 @@ func TestNewPDCServiceRejectsMissingRequiredDependencies(t *testing.T) {
 			require.EqualError(t, err, test.want)
 		})
 	}
+}
+
+func TestNewPDCServiceAllowsWebPDCWithoutHoppieClient(t *testing.T) {
+	deps := validPdcServiceDependencies()
+	deps.Client = nil
+
+	service, err := NewPDCService(deps)
+
+	require.NoError(t, err)
+	require.NotNil(t, service)
 }
 
 func TestNewPDCServiceRejectsNilTransceiverProvider(t *testing.T) {

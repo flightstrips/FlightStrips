@@ -77,14 +77,16 @@ type FallbackRule struct {
 }
 
 const (
-	FallbackAirlinerDefault    = "airliner_default"
-	FallbackBusinessVIP        = "business_vip"
-	FallbackCargo              = "cargo"
-	FallbackMilitary           = "military"
-	FallbackMilitaryHelicopter = "military_helicopter"
-	FallbackHelicopter         = "helicopter"
-	FallbackGAPrivate          = "ga_private"
-	FallbackUnknown            = "unknown"
+	FallbackAirlinerDefault     = "airliner_default"
+	FallbackAirlinerSchengen    = "airliner_schengen"
+	FallbackAirlinerNonSchengen = "airliner_non_schengen"
+	FallbackBusinessVIP         = "business_vip"
+	FallbackCargo               = "cargo"
+	FallbackMilitary            = "military"
+	FallbackMilitaryHelicopter  = "military_helicopter"
+	FallbackHelicopter          = "helicopter"
+	FallbackGAPrivate           = "ga_private"
+	FallbackUnknown             = "unknown"
 )
 
 var requiredFallbacks = []string{
@@ -325,6 +327,7 @@ func validateTiers(tiers []StandTier, path string, registry *StandCapabilityRegi
 	if len(tiers) > 3 {
 		return fmt.Errorf("%s.tiers must contain at most three tiers", path)
 	}
+	seenTargets := make(map[string]string)
 	for tierIndex := range tiers {
 		tier := &tiers[tierIndex]
 		if len(tier.Entries) == 0 {
@@ -348,6 +351,16 @@ func validateTiers(tiers []StandTier, path string, registry *StandCapabilityRegi
 					return fmt.Errorf("%s.tiers[%d].entries[%d] references unknown stand %q", path, tierIndex, entryIndex, entry.Stand)
 				}
 			}
+			targetKey := "stand:" + normalizeStandName(entry.Stand)
+			targetName := entry.Stand
+			if entry.Group != "" {
+				targetKey = "group:" + normalizeGroupName(entry.Group)
+				targetName = entry.Group
+			}
+			if earlierTier, ok := seenTargets[targetKey]; ok && earlierTier != tier.Name {
+				return fmt.Errorf("%s repeats target %q in tiers %q and %q", path, targetName, earlierTier, tier.Name)
+			}
+			seenTargets[targetKey] = tier.Name
 		}
 	}
 	return nil
@@ -680,7 +693,7 @@ func conditionSpecificity(conditions *AirlineAssignmentConditions) int {
 }
 
 func (c *AirlineAssignmentConfig) matchFallbackRule(facts AssignmentFlightFacts) (*RuleMatch, error) {
-	if fallbackName := fallbackNameForFacts(facts); fallbackName != FallbackAirlinerDefault {
+	if fallbackName := c.preferredFallbackName(facts); fallbackName != FallbackAirlinerDefault {
 		if fallback, ok := c.GetFallbackRule(fallbackName); ok {
 			rule := AirlineAssignmentRule{ID: fallbackName, Stands: fallback.Stands, Tiers: fallback.Tiers}
 			return &RuleMatch{Rule: &rule, Fallback: fallbackName, Precedence: RulePrecedenceUseFallback}, nil
@@ -730,7 +743,7 @@ func (c *AirlineAssignmentConfig) SelectStand(facts AssignmentFlightFacts, eligi
 }
 
 func (c *AirlineAssignmentConfig) selectFallback(facts AssignmentFlightFacts, eligible map[string]struct{}, random func() float64) (*StandSelection, error) {
-	fallbackName := fallbackNameForFacts(facts)
+	fallbackName := c.preferredFallbackName(facts)
 	if fallbackName != FallbackAirlinerDefault {
 		if fallback, ok := c.GetFallbackRule(fallbackName); ok {
 			rule := &AirlineAssignmentRule{ID: fallbackName, Stands: fallback.Stands, Tiers: fallback.Tiers}
@@ -936,4 +949,25 @@ func fallbackNameForFacts(facts AssignmentFlightFacts) string {
 	default:
 		return FallbackUnknown
 	}
+}
+
+func (c *AirlineAssignmentConfig) preferredFallbackName(facts AssignmentFlightFacts) string {
+	fallbackName := fallbackNameForFacts(facts)
+	if fallbackName != FallbackAirlinerDefault {
+		return fallbackName
+	}
+
+	var borderFallback string
+	switch facts.BorderStatus {
+	case BorderStatusSchengen:
+		borderFallback = FallbackAirlinerSchengen
+	case BorderStatusNonSchengen:
+		borderFallback = FallbackAirlinerNonSchengen
+	default:
+		return FallbackAirlinerDefault
+	}
+	if _, ok := lookupFallback(c.FallbackRules, borderFallback); ok {
+		return borderFallback
+	}
+	return FallbackAirlinerDefault
 }

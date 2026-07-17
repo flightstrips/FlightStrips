@@ -285,6 +285,74 @@
       }
     },
     {
+      "id": "BEL",
+      "callsigns": [
+        "BEL"
+      ],
+      "stands": {
+        "tier1": {
+          "A11": 12,
+          "A12": 10,
+          "A14": 8,
+          "A15": 15,
+          "A17": 14,
+          "A18": 2,
+          "A4": 8,
+          "A6": 6,
+          "A8": 9,
+          "A9": 16
+        },
+        "tier2": {
+          "A20": 4,
+          "A21": 6,
+          "A22": 7,
+          "A23": 12,
+          "A25": 3,
+          "A26": 12,
+          "A27": 6,
+          "B19": 2,
+          "EchoHigh": 49
+        }
+      }
+    },
+    {
+      "id": "BRX",
+      "callsigns": [
+        "BRX"
+      ],
+      "stands": {
+        "tier1": {
+          "EchoHigh": 87,
+          "B4": 1,
+          "B6": 1,
+          "B7": 1,
+          "B8": 1,
+          "B9": 1,
+          "D1": 0,
+          "D2": 1,
+          "D3": 1,
+          "D4": 1,
+          "A27": 4,
+          "A11": 1,
+          "A7": 2,
+          "A9": 0
+        },
+        "tier2": {
+          "A12": 21,
+          "A15": 5,
+          "A17": 11,
+          "A20": 11,
+          "A21": 5,
+          "A23": 5,
+          "A25": 5,
+          "A26": 5,
+          "A28": 5,
+          "A6": 16,
+          "B19": 11
+        }
+      }
+    },
+    {
       "id": "BTI",
       "callsigns": [
         "BTI"
@@ -766,6 +834,38 @@
       }
     },
     {
+      "id": "IBS_IBE",
+      "callsigns": [
+        "IBS",
+        "IBE"
+      ],
+      "stands": {
+        "tier1": {
+          "A18": 7,
+          "A20": 12,
+          "A21": 11,
+          "A22": 16,
+          "A11": 0,
+          "A12": 1,
+          "A14": 1,
+          "A15": 1,
+          "A17": 1,
+          "A23": 2
+        },
+        "tier2": {
+          "A4": 13,
+          "A6": 27,
+          "A8": 27,
+          "B7": 7,
+          "B8": 27
+        },
+        "tier3": {
+          "Delta": 50,
+          "EchoHigh": 50
+        }
+      }
+    },
+    {
       "id": "ICE",
       "callsigns": [
         "ICE"
@@ -1058,6 +1158,71 @@
       }
     },
     {
+      "id": "LHX",
+      "callsigns": [
+        "LHX"
+      ],
+      "stands": {
+        "tier1": {
+          "A11": 16,
+          "A12": 4,
+          "A14": 4,
+          "A15": 14,
+          "A17": 9,
+          "A18": 2,
+          "A20": 7,
+          "A21": 5,
+          "A22": 7,
+          "A23": 7,
+          "A25": 2,
+          "A26": 4,
+          "A27": 2,
+          "A8": 2,
+          "A9": 16
+        },
+        "tier2": {
+          "EchoHigh": 100
+        }
+      }
+    },
+    {
+      "id": "LOT",
+      "callsigns": [
+        "LOT"
+      ],
+      "stands": {
+        "tier1": {
+          "A11": 23,
+          "A12": 5,
+          "A14": 4,
+          "A15": 9,
+          "A17": 9,
+          "A18": 1,
+          "A20": 1,
+          "A21": 2,
+          "A22": 2,
+          "A23": 4,
+          "A7": 16,
+          "A9": 15,
+          "EchoHigh": 12
+        },
+        "tier2": {
+          "A25": 16,
+          "A26": 21,
+          "A27": 16,
+          "A4": 9,
+          "A6": 7,
+          "A8": 9,
+          "B15": 14,
+          "B4": 2,
+          "B8": 5
+        },
+        "tier3": {
+          "Delta": 100
+        }
+      }
+    },
+    {
       "id": "LZB",
       "callsigns": [
         "LZB"
@@ -1146,6 +1311,60 @@
       "stands": {
         "tier2": {
           "EchoHigh": 100
+        }
+      }
+    },
+    {
+      "id": "NOZ_NZS_NSZ",
+      "callsigns": [
+        "NOZ",
+        "NZS",
+        "NSZ"
+      ],
+      "stands": {
+        "tier1": {
+          "A11": 0,
+          "A12": 5,
+          "A14": 5,
+          "A15": 1,
+          "A17": 1,
+          "A18": 8,
+          "A20": 7,
+          "A21": 6,
+          "A22": 5,
+          "A23": 1,
+          "A25": 1,
+          "A26": 2,
+          "A27": 1,
+          "A4": 14,
+          "A6": 13,
+          "A8": 10,
+          "A9": 0,
+          "C28": 1,
+          "C30": 2,
+          "C34": 2,
+          "C35": 2,
+          "C36": 1,
+          "C32": 1,
+          "C33": 0,
+          "C37": 0,
+          "D1": 4,
+          "D2": 3,
+          "D3": 3,
+          "D4": 3
+        },
+        "tier2": {
+          "B10": 13,
+          "B19": 11,
+          "B4": 21,
+          "B6": 20,
+          "B7": 11,
+          "B8": 17,
+          "B9": 7
+        },
+        "tier3": {
+          "EchoHigh": 50,
+          "Hotel": 50
         }
       }
     },
@@ -1277,6 +1496,211 @@
       }
     },
     {
+      "id": "RYR",
+      "callsigns": [
+        "RYR"
+      ],
+      "stands": {
+        "tier1": {
+          "F1": 3,
+          "F4": 5,
+          "F5": 2,
+          "F7": 7,
+          "F8": 7,
+          "F9": 5,
+          "H101": 2
+        },
+        "tier2": {
+          "Hotel": 89,
+          "C32": 5,
+          "C34": 2,
+          "C35": 2,
+          "C37": 2
+        },
+        "tier3": {
+          "EchoHigh": 100
+        }
+      }
+    },
+    {
+      "id": "SAS",
+      "callsigns": [
+        "SAS"
+      ],
+      "conditions": {
+        "border_status": "SCHENGEN"
+      },
+      "stands": {
+        "tier1": {
+          "B10": 9,
+          "B15": 8,
+          "B19": 8,
+          "B4": 16,
+          "B6": 15,
+          "B7": 15,
+          "B8": 14,
+          "B9": 15
+        },
+        "tier2": {
+          "A11": 5,
+          "A12": 4,
+          "A14": 4,
+          "A15": 4,
+          "A17": 3,
+          "A18": 4,
+          "A20": 4,
+          "A21": 4,
+          "A22": 4,
+          "A23": 2,
+          "A25": 2,
+          "A26": 2,
+          "A27": 2,
+          "A4": 4,
+          "A6": 3,
+          "A8": 4,
+          "A9": 4,
+          "D1": 9,
+          "D2": 10,
+          "D3": 10,
+          "D4": 8,
+          "E20": 4,
+          "E24": 4
+        },
+        "tier3": {
+          "EchoHigh": 100
+        }
+      }
+    },
+    {
+      "id": "SAS_NON-SCHENGEN",
+      "callsigns": [
+        "SAS"
+      ],
+      "conditions": {
+        "border_status": "NON_SCHENGEN"
+      },
+      "stands": {
+        "tier1": {
+          "C39": 3,
+          "C27": 5,
+          "C28": 4,
+          "C29": 3,
+          "C30": 7,
+          "C32": 4,
+          "C33": 4,
+          "C34": 6,
+          "C35": 6,
+          "C36": 8,
+          "C37": 7,
+          "E24": 3,
+          "E36": 6,
+          "D1": 5,
+          "D2": 5,
+          "D3": 5,
+          "D4": 4
+        }
+      }
+    },
+    {
+      "id": "SAS_PROP",
+      "callsigns": [
+        "SAS"
+      ],
+      "conditions": {
+        "border_status": "SCHENGEN",
+        "aircraft_types": [
+          "AT*",
+          "DH*"
+        ]
+      },
+      "stands": {
+        "tier1": {
+          "EchoHigh": 87,
+          "B4": 1,
+          "B6": 1,
+          "B7": 1,
+          "B8": 1,
+          "B9": 1,
+          "D1": 0,
+          "D2": 1,
+          "D3": 1,
+          "D4": 1,
+          "A27": 4,
+          "A11": 1,
+          "A7": 2,
+          "A9": 0
+        },
+        "tier2": {
+          "A12": 21,
+          "A15": 5,
+          "A17": 11,
+          "A20": 11,
+          "A21": 5,
+          "A23": 5,
+          "A25": 5,
+          "A26": 5,
+          "A28": 5,
+          "A6": 16,
+          "B19": 11
+        }
+      }
+    },
+    {
+      "id": "SAS_CRJ_ERJ",
+      "callsigns": [
+        "SAS"
+      ],
+      "conditions": {
+        "border_status": "SCHENGEN",
+        "aircraft_types": [
+          "CRJ*",
+          "E1*"
+        ]
+      },
+      "stands": {
+        "tier1": {
+          "A11": 2,
+          "A12": 1,
+          "A14": 1,
+          "A15": 1,
+          "A17": 1,
+          "A9": 1,
+          "B10": 1,
+          "B15": 5,
+          "B19": 2,
+          "EchoHigh": 73,
+          "A25": 1,
+          "A26": 2,
+          "A27": 2,
+          "B4": 1,
+          "B6": 1,
+          "B7": 1,
+          "B8": 1,
+          "B9": 1,
+          "D1": 2
+        },
+        "tier2": {
+          "A4": 8,
+          "A6": 8,
+          "A8": 10,
+          "A18": 10,
+          "A20": 16,
+          "A21": 12,
+          "A22": 16,
+          "D2": 2,
+          "D3": 1,
+          "D4": 10,
+          "C27": 2,
+          "C30": 5
+        },
+        "tier3": {
+          "EchoLow": 33,
+          "EchoSAS": 33,
+          "Delta": 33
+        }
+      }
+    },
+    {
       "id": "SEH",
       "callsigns": [
         "SEH"
@@ -1364,8 +1788,7 @@
           "B4": 3
         },
         "tier3": {
-          "EchoHigh": 50,
-          "Alpha": 50
+          "Alpha": 100
         }
       }
     },
@@ -1384,6 +1807,28 @@
         },
         "tier3": {
           "B10": 100
+        }
+      }
+    },
+    {
+      "id": "SXS",
+      "callsigns": [
+        "SXS"
+      ],
+      "stands": {
+        "tier1": {
+          "C28": 9,
+          "C29": 7,
+          "C30": 2,
+          "C32": 10,
+          "C33": 6,
+          "C34": 6,
+          "C35": 3,
+          "C36": 7,
+          "C37": 2
+        },
+        "tier2": {
+          "Delta": 100
         }
       }
     },
@@ -1460,9 +1905,6 @@
         "tier2": {
           "EchoHigh": 50,
           "Delta": 50
-        },
-        "tier3": {
-          "Delta": 100
         }
       }
     },
@@ -1493,6 +1935,23 @@
       }
     },
     {
+      "id": "TRA",
+      "callsigns": [
+        "TRA"
+      ],
+      "stands": {
+        "tier2": {
+          "EchoHigh": 50,
+          "Hotel": 50
+        },
+        "tier1": {
+          "F7": 11,
+          "F8": 25,
+          "F9": 6
+        }
+      }
+    },
+    {
       "id": "TUI_BLX",
       "callsigns": [
         "TUI",
@@ -1509,18 +1968,14 @@
           "C39": 9
         },
         "tier2": {
-          "A15": 5,
-          "A9": 5,
-          "B10": 5,
-          "B19": 5,
-          "Bravo": 26,
-          "C28": 11,
-          "C29": 11,
-          "C33": 5,
-          "C34": 11,
-          "C35": 5,
-          "C36": 5,
-          "Delta": 5
+          "A15": 7,
+          "A9": 7,
+          "B10": 7,
+          "B19": 7,
+          "Bravo": 36,
+          "C28": 14,
+          "C29": 14,
+          "Delta": 7
         },
         "tier3": {
           "EchoHigh": 100
@@ -1557,6 +2012,20 @@
         },
         "tier2": {
           "EchoHigh": 100
+        }
+      }
+    },
+    {
+      "id": "VAW",
+      "callsigns": [
+        "VAW"
+      ],
+      "stands": {
+        "tier1": {
+          "EchoHigh": 10,
+          "C32": 10,
+          "C34": 10,
+          "C37": 10
         }
       }
     },
@@ -1640,6 +2109,767 @@
         },
         "tier3": {
           "Delta": 100
+        }
+      }
+    },
+    {
+      "id": "VOE",
+      "callsigns": [
+        "VOE"
+      ],
+      "stands": {
+        "tier3": {
+          "Charlie": 100
+        },
+        "tier1": {
+          "EchoHigh": 3,
+          "Hotel": 3,
+          "F7": 15,
+          "F8": 14,
+          "F9": 9
+        },
+        "tier2": {
+          "AlphaHigh": 100
+        }
+      }
+    },
+    {
+      "id": "WZZ_WMT_WAU_WAZ_WUK_WVL",
+      "callsigns": [
+        "WZZ",
+        "WMT",
+        "WAU",
+        "WAZ",
+        "WUK",
+        "WVL"
+      ],
+      "stands": {
+        "tier2": {
+          "Hotel": 69,
+          "EchoHigh": 25,
+          "C28": 2
+        },
+        "tier3": {
+          "Alpha": 100
+        },
+        "tier1": {
+          "F7": 33,
+          "F8": 33,
+          "F9": 13
+        }
+      }
+    },
+    {
+      "id": "HFY",
+      "callsigns": [
+        "HFY"
+      ],
+      "stands": {
+        "tier1": {
+          "Alpha": 100
+        },
+        "tier2": {
+          "Delta+Charlie": 100
+        },
+        "tier3": {
+          "EchoHigh": 100
+        }
+      }
+    },
+    {
+      "id": "HFM",
+      "callsigns": [
+        "HFM"
+      ],
+      "stands": {
+        "tier1": {
+          "Alpha": 100
+        },
+        "tier2": {
+          "Delta+Charlie": 100
+        },
+        "tier3": {
+          "EchoHigh": 100
+        }
+      }
+    },
+    {
+      "id": "HUN",
+      "callsigns": [
+        "HUN"
+      ],
+      "stands": {
+        "tier1": {
+          "Alpha": 100
+        },
+        "tier2": {
+          "Delta+Charlie": 100
+        },
+        "tier3": {
+          "EchoHigh": 100
+        }
+      }
+    },
+    {
+      "id": "WAT",
+      "callsigns": [
+        "WAT"
+      ],
+      "stands": {
+        "tier1": {
+          "Alpha": 100
+        },
+        "tier2": {
+          "Delta+Charlie": 100
+        },
+        "tier3": {
+          "EchoHigh": 100
+        }
+      }
+    },
+    {
+      "id": "LGX",
+      "callsigns": [
+        "LGX"
+      ],
+      "stands": {
+        "tier1": {
+          "Alpha": 100
+        },
+        "tier2": {
+          "Delta+Charlie": 100
+        },
+        "tier3": {
+          "EchoHigh": 100
+        }
+      }
+    },
+    {
+      "id": "LHA",
+      "callsigns": [
+        "LHA"
+      ],
+      "stands": {
+        "tier1": {
+          "Alpha": 100
+        },
+        "tier2": {
+          "Delta+Charlie": 100
+        },
+        "tier3": {
+          "EchoHigh": 100
+        }
+      }
+    },
+    {
+      "id": "DXX",
+      "callsigns": [
+        "DXX"
+      ],
+      "stands": {
+        "tier1": {
+          "Alpha": 100
+        },
+        "tier2": {
+          "Delta+Charlie": 100
+        },
+        "tier3": {
+          "EchoHigh": 100
+        }
+      }
+    },
+    {
+      "id": "EXS",
+      "callsigns": [
+        "EXS"
+      ],
+      "stands": {
+        "tier1": {
+          "Alpha": 100
+        },
+        "tier2": {
+          "Delta+Charlie": 100
+        },
+        "tier3": {
+          "EchoHigh": 100
+        }
+      }
+    },
+    {
+      "id": "VCP",
+      "callsigns": [
+        "VCP"
+      ],
+      "stands": {
+        "tier1": {
+          "Alpha": 100
+        },
+        "tier2": {
+          "Delta+Charlie": 100
+        },
+        "tier3": {
+          "EchoHigh": 100
+        }
+      }
+    },
+    {
+      "id": "OEO",
+      "callsigns": [
+        "OEO"
+      ],
+      "stands": {
+        "tier1": {
+          "Alpha": 100
+        },
+        "tier2": {
+          "Delta+Charlie": 100
+        },
+        "tier3": {
+          "EchoHigh": 100
+        }
+      }
+    },
+    {
+      "id": "ENT",
+      "callsigns": [
+        "ENT"
+      ],
+      "stands": {
+        "tier1": {
+          "Alpha": 100
+        },
+        "tier2": {
+          "Delta+Charlie": 100
+        },
+        "tier3": {
+          "EchoHigh": 100
+        }
+      }
+    },
+    {
+      "id": "FYI",
+      "callsigns": [
+        "FYI"
+      ],
+      "stands": {
+        "tier1": {
+          "Alpha": 100
+        },
+        "tier2": {
+          "Delta+Charlie": 100
+        },
+        "tier3": {
+          "EchoHigh": 100
+        }
+      }
+    },
+    {
+      "id": "EDW",
+      "callsigns": [
+        "EDW"
+      ],
+      "stands": {
+        "tier1": {
+          "Alpha": 100
+        },
+        "tier2": {
+          "Delta+Charlie": 100
+        },
+        "tier3": {
+          "EchoHigh": 100
+        }
+      }
+    },
+    {
+      "id": "OAL",
+      "callsigns": [
+        "OAL"
+      ],
+      "stands": {
+        "tier1": {
+          "Alpha": 100
+        },
+        "tier2": {
+          "Delta+Charlie": 100
+        },
+        "tier3": {
+          "EchoHigh": 100
+        }
+      }
+    },
+    {
+      "id": "MQT",
+      "callsigns": [
+        "MQT"
+      ],
+      "stands": {
+        "tier1": {
+          "Alpha": 100
+        },
+        "tier2": {
+          "Delta+Charlie": 100
+        },
+        "tier3": {
+          "EchoHigh": 100
+        }
+      }
+    },
+    {
+      "id": "AZA",
+      "callsigns": [
+        "AZA"
+      ],
+      "stands": {
+        "tier1": {
+          "Alpha": 100
+        },
+        "tier2": {
+          "Delta+Charlie": 100
+        },
+        "tier3": {
+          "EchoHigh": 100
+        }
+      }
+    },
+    {
+      "id": "CAT",
+      "callsigns": [
+        "CAT"
+      ],
+      "stands": {
+        "tier1": {
+          "Alpha": 100
+        },
+        "tier2": {
+          "Delta+Charlie": 100
+        },
+        "tier3": {
+          "EchoHigh": 100
+        }
+      }
+    },
+    {
+      "id": "GJT",
+      "callsigns": [
+        "GJT"
+      ],
+      "stands": {
+        "tier1": {
+          "Alpha": 100
+        },
+        "tier2": {
+          "Delta+Charlie": 100
+        },
+        "tier3": {
+          "EchoHigh": 100
+        }
+      }
+    },
+    {
+      "id": "MAH",
+      "callsigns": [
+        "MAH"
+      ],
+      "stands": {
+        "tier1": {
+          "Alpha": 100
+        },
+        "tier2": {
+          "Delta+Charlie": 100
+        },
+        "tier3": {
+          "EchoHigh": 100
+        }
+      }
+    },
+    {
+      "id": "NPV",
+      "callsigns": [
+        "NPV"
+      ],
+      "stands": {
+        "tier1": {
+          "Alpha": 100
+        },
+        "tier2": {
+          "Delta+Charlie": 100
+        },
+        "tier3": {
+          "EchoHigh": 100
+        }
+      }
+    },
+    {
+      "id": "DNO",
+      "callsigns": [
+        "DNO"
+      ],
+      "stands": {
+        "tier1": {
+          "Alpha": 100
+        },
+        "tier2": {
+          "Delta+Charlie": 100
+        },
+        "tier3": {
+          "EchoHigh": 100
+        }
+      }
+    },
+    {
+      "id": "XNO",
+      "callsigns": [
+        "XNO"
+      ],
+      "stands": {
+        "tier1": {
+          "Delta+Charlie": 100
+        },
+        "tier2": {
+          "EchoLow": 100
+        },
+        "tier3": {
+          "EchoHigh": 100
+        }
+      }
+    },
+    {
+      "id": "UKV",
+      "callsigns": [
+        "UKV"
+      ],
+      "stands": {
+        "tier1": {
+          "Delta+Charlie": 100
+        },
+        "tier2": {
+          "EchoLow": 100
+        },
+        "tier3": {
+          "EchoHigh": 100
+        }
+      }
+    },
+    {
+      "id": "OCN",
+      "callsigns": [
+        "OCN"
+      ],
+      "stands": {
+        "tier1": {
+          "Delta+Charlie": 100
+        },
+        "tier2": {
+          "EchoLow": 100
+        },
+        "tier3": {
+          "EchoHigh": 100
+        }
+      }
+    },
+    {
+      "id": "UAL",
+      "callsigns": [
+        "UAL"
+      ],
+      "stands": {
+        "tier1": {
+          "Delta+Charlie": 100
+        },
+        "tier2": {
+          "EchoLow": 100
+        },
+        "tier3": {
+          "EchoHigh": 100
+        }
+      }
+    },
+    {
+      "id": "TOM",
+      "callsigns": [
+        "TOM"
+      ],
+      "stands": {
+        "tier1": {
+          "Delta+Charlie": 100
+        },
+        "tier2": {
+          "EchoLow": 100
+        },
+        "tier3": {
+          "EchoHigh": 100
+        }
+      }
+    },
+    {
+      "id": "WJA",
+      "callsigns": [
+        "WJA"
+      ],
+      "stands": {
+        "tier1": {
+          "Delta+Charlie": 100
+        },
+        "tier2": {
+          "EchoLow": 100
+        },
+        "tier3": {
+          "EchoHigh": 100
+        }
+      }
+    },
+    {
+      "id": "BVX",
+      "callsigns": [
+        "BVX"
+      ],
+      "stands": {
+        "tier1": {
+          "Delta+Charlie": 100
+        },
+        "tier2": {
+          "EchoLow": 100
+        },
+        "tier3": {
+          "EchoHigh": 100
+        }
+      }
+    },
+    {
+      "id": "PIA",
+      "callsigns": [
+        "PIA"
+      ],
+      "stands": {
+        "tier1": {
+          "Delta+Charlie": 100
+        },
+        "tier2": {
+          "EchoLow": 100
+        },
+        "tier3": {
+          "EchoHigh": 100
+        }
+      }
+    },
+    {
+      "id": "KAL",
+      "callsigns": [
+        "KAL"
+      ],
+      "stands": {
+        "tier1": {
+          "Delta+Charlie": 100
+        },
+        "tier2": {
+          "EchoLow": 100
+        },
+        "tier3": {
+          "EchoHigh": 100
+        }
+      }
+    },
+    {
+      "id": "AWC",
+      "callsigns": [
+        "AWC"
+      ],
+      "stands": {
+        "tier1": {
+          "Delta+Charlie": 100
+        },
+        "tier2": {
+          "EchoLow": 100
+        },
+        "tier3": {
+          "EchoHigh": 100
+        }
+      }
+    },
+    {
+      "id": "VIR",
+      "callsigns": [
+        "VIR"
+      ],
+      "stands": {
+        "tier1": {
+          "Delta+Charlie": 100
+        },
+        "tier2": {
+          "EchoLow": 100
+        },
+        "tier3": {
+          "EchoHigh": 100
+        }
+      }
+    },
+    {
+      "id": "SVA",
+      "callsigns": [
+        "SVA"
+      ],
+      "stands": {
+        "tier1": {
+          "Delta+Charlie": 100
+        },
+        "tier2": {
+          "EchoLow": 100
+        },
+        "tier3": {
+          "EchoHigh": 100
+        }
+      }
+    },
+    {
+      "id": "EIN",
+      "callsigns": [
+        "EIN"
+      ],
+      "stands": {
+        "tier1": {
+          "Delta+Charlie": 100
+        },
+        "tier2": {
+          "EchoLow": 100
+        },
+        "tier3": {
+          "EchoHigh": 100
+        }
+      }
+    },
+    {
+      "id": "TAX",
+      "callsigns": [
+        "TAX"
+      ],
+      "stands": {
+        "tier1": {
+          "Delta+Charlie": 100
+        },
+        "tier2": {
+          "EchoLow": 100
+        },
+        "tier3": {
+          "EchoHigh": 100
+        }
+      }
+    },
+    {
+      "id": "CPA",
+      "callsigns": [
+        "CPA"
+      ],
+      "stands": {
+        "tier1": {
+          "Delta+Charlie": 100
+        },
+        "tier2": {
+          "EchoLow": 100
+        },
+        "tier3": {
+          "EchoHigh": 100
+        }
+      }
+    },
+    {
+      "id": "ELY",
+      "callsigns": [
+        "ELY"
+      ],
+      "stands": {
+        "tier1": {
+          "Delta+Charlie": 100
+        },
+        "tier2": {
+          "EchoLow": 100
+        },
+        "tier3": {
+          "EchoHigh": 100
+        }
+      }
+    },
+    {
+      "id": "AMV",
+      "callsigns": [
+        "AMV"
+      ],
+      "stands": {
+        "tier1": {
+          "Delta+Charlie": 100
+        },
+        "tier2": {
+          "EchoLow": 100
+        },
+        "tier3": {
+          "EchoHigh": 100
+        }
+      }
+    },
+    {
+      "id": "ARG",
+      "callsigns": [
+        "ARG"
+      ],
+      "stands": {
+        "tier1": {
+          "Delta+Charlie": 100
+        },
+        "tier2": {
+          "EchoLow": 100
+        },
+        "tier3": {
+          "EchoHigh": 100
+        }
+      }
+    },
+    {
+      "id": "EIA",
+      "callsigns": [
+        "EIA"
+      ],
+      "stands": {
+        "tier1": {
+          "Delta+Charlie": 100
+        },
+        "tier2": {
+          "EchoLow": 100
+        },
+        "tier3": {
+          "EchoHigh": 100
+        }
+      }
+    },
+    {
+      "id": "EVA",
+      "callsigns": [
+        "EVA"
+      ],
+      "stands": {
+        "tier1": {
+          "Delta+Charlie": 100
+        },
+        "tier2": {
+          "EchoLow": 100
+        },
+        "tier3": {
+          "EchoHigh": 100
+        }
+      }
+    },
+    {
+      "id": "WLF",
+      "callsigns": [
+        "WLF"
+      ],
+      "stands": {
+        "tier1": {
+          "Delta+Charlie": 100
+        },
+        "tier2": {
+          "EchoLow": 100
+        },
+        "tier3": {
+          "EchoHigh": 100
         }
       }
     }
@@ -1742,6 +2972,23 @@
       "H105",
       "H106",
       "H107"
+    ],
+    "Delta+Charlie": [
+      "D1",
+      "D2",
+      "D3",
+      "D4",
+      "C27",
+      "C28",
+      "C29",
+      "C30",
+      "C32",
+      "C33",
+      "C34",
+      "C35",
+      "C36",
+      "C37",
+      "C39"
     ]
   },
   "fallback_rules": {
@@ -1752,6 +2999,32 @@
           "Bravo": 20,
           "Charlie": 20,
           "Delta": 20
+        }
+      }
+    },
+    "airliner_schengen": {
+      "stands": {
+        "tier1": {
+          "Alpha": 100
+        },
+        "tier2": {
+          "Delta+Charlie": 100
+        },
+        "tier3": {
+          "EchoHigh": 100
+        }
+      }
+    },
+    "airliner_non_schengen": {
+      "stands": {
+        "tier1": {
+          "Delta+Charlie": 100
+        },
+        "tier2": {
+          "EchoLow": 100
+        },
+        "tier3": {
+          "EchoHigh": 100
         }
       }
     },

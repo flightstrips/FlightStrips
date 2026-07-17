@@ -67,16 +67,52 @@ func TestLoadCommittedAirlineAssignment(t *testing.T) {
 	config, err := LoadAirlineAssignmentFile(filepath.Join("..", "..", "config", "ekch", "airline_assignment.json"), standRegistry)
 	require.NoError(t, err)
 
-	assert.Len(t, config.Rules, 62)
+	assert.Len(t, config.Rules, 120)
 	assert.Equal(t, []string{"JTD"}, config.RulesByID("JTD_NON-SCHENGEN")[0].Callsigns)
 	assert.NotEmpty(t, config.RulesByID("MEA"))
 	assert.NotEmpty(t, config.RulesByID("MGH"))
+	assert.NotEmpty(t, config.RulesByID("RYR"))
+	assert.Equal(t, []string{"WZZ", "WMT", "WAU", "WAZ", "WUK", "WVL"}, config.RulesByID("WZZ_WMT_WAU_WAZ_WUK_WVL")[0].Callsigns)
 	match, err := config.MatchRule(AssignmentFlightFacts{Callsign: "JTD123", BorderStatus: BorderStatusNonSchengen})
 	require.NoError(t, err)
 	assert.Equal(t, "JTD_NON-SCHENGEN", match.Rule.ID)
+	match, err = config.MatchRule(AssignmentFlightFacts{Callsign: "SAS123", AircraftType: "AT76", BorderStatus: BorderStatusSchengen})
+	require.NoError(t, err)
+	assert.Equal(t, "SAS_PROP", match.Rule.ID)
+	match, err = config.MatchRule(AssignmentFlightFacts{Callsign: "SAS123", AircraftType: "E190", BorderStatus: BorderStatusSchengen})
+	require.NoError(t, err)
+	assert.Equal(t, "SAS_CRJ_ERJ", match.Rule.ID)
+	match, err = config.MatchRule(AssignmentFlightFacts{Callsign: "SAS123", BorderStatus: BorderStatusNonSchengen})
+	require.NoError(t, err)
+	assert.Equal(t, "SAS_NON-SCHENGEN", match.Rule.ID)
+	match, err = config.MatchRule(AssignmentFlightFacts{Callsign: "ZZZ123", AircraftUse: AircraftUseCodeA, BorderStatus: BorderStatusSchengen})
+	require.NoError(t, err)
+	assert.Equal(t, FallbackAirlinerSchengen, match.Fallback)
+	match, err = config.MatchRule(AssignmentFlightFacts{Callsign: "ZZZ123", AircraftUse: AircraftUseCodeA, BorderStatus: BorderStatusNonSchengen})
+	require.NoError(t, err)
+	assert.Equal(t, FallbackAirlinerNonSchengen, match.Fallback)
+	selection, err := config.SelectStand(
+		AssignmentFlightFacts{Callsign: "ZZZ123", AircraftUse: AircraftUseCodeA, BorderStatus: BorderStatusSchengen},
+		[]string{"E70", "E82"},
+		func() float64 { return 0 },
+	)
+	require.NoError(t, err)
+	require.NotNil(t, selection)
+	assert.Equal(t, "E70", selection.Stand)
+	selection, err = config.SelectStand(
+		AssignmentFlightFacts{Callsign: "ZZZ123", AircraftUse: AircraftUseCodeA, BorderStatus: BorderStatusNonSchengen},
+		[]string{"E70", "E82"},
+		func() float64 { return 0 },
+	)
+	require.NoError(t, err)
+	require.NotNil(t, selection)
+	assert.Equal(t, "E82", selection.Stand)
 	group, err := config.ResolveStandGroup("echoHigh")
 	require.NoError(t, err)
 	assert.Equal(t, []string{"E70", "E72", "E76", "E77", "E78"}, group)
+	group, err = config.ResolveStandGroup("Delta+Charlie")
+	require.NoError(t, err)
+	assert.Equal(t, []string{"D1", "D2", "D3", "D4", "C27", "C28", "C29", "C30", "C32", "C33", "C34", "C35", "C36", "C37", "C39"}, group)
 	for _, fallback := range requiredFallbacks {
 		_, ok := config.GetFallbackRule(fallback)
 		assert.True(t, ok, fallback)
@@ -111,10 +147,14 @@ func TestAirlineAssignmentRulePrecedenceAndFallbacks(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "prefix", match.Rule.ID)
 
-	match, err = config.MatchRule(AssignmentFlightFacts{Callsign: "ZZZ", AircraftUse: AircraftUseCodeC})
+	match, err = config.MatchRule(AssignmentFlightFacts{Callsign: "ZZZ", AircraftUse: AircraftUseCodeC, BorderStatus: BorderStatusNonSchengen})
 	require.NoError(t, err)
 	assert.Equal(t, FallbackCargo, match.Fallback)
 	assert.Equal(t, RulePrecedenceUseFallback, match.Precedence)
+
+	match, err = config.MatchRule(AssignmentFlightFacts{Callsign: "ZZZ", AircraftUse: AircraftUseCodeA, BorderStatus: BorderStatusSchengen})
+	require.NoError(t, err)
+	assert.Equal(t, FallbackAirlinerDefault, match.Fallback, "configs without border-specific fallbacks remain backward compatible")
 }
 
 func TestAirlineAssignmentRejectsAmbiguityAndInvalidPreferences(t *testing.T) {
@@ -136,6 +176,14 @@ func TestAirlineAssignmentRejectsAmbiguityAndInvalidPreferences(t *testing.T) {
 	_, err := config.MatchRule(AssignmentFlightFacts{Callsign: "SAS123"})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "ambiguous")
+
+	_, err = LoadAirlineAssignment(strings.NewReader(`{
+  "rules": [{"callsigns":["SAS"],"stands":{"tier1":{"A1":1},"tier2":{"A1":1}}}],
+  "stand_groups": {},
+  "fallback_rules": {`+fallbackJSON("A2")+`}
+}`), testAssignmentRegistry(t))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "repeats target")
 }
 
 func TestAirlineAssignmentRejectsCircularGroups(t *testing.T) {

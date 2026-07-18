@@ -49,11 +49,57 @@ type DatasetCompatibility struct {
 	EffectiveUntil time.Time `json:"effectiveUntil"`
 }
 
+// CoordinateDefinition is the terminal configuration's explicit wire shape.
+// It intentionally does not reuse navdata.Coordinate so the checked-in schema
+// remains stable when canonical domain types evolve.
+type CoordinateDefinition struct {
+	LatitudeDeg  float64 `json:"latitudeDeg"`
+	LongitudeDeg float64 `json:"longitudeDeg"`
+}
+
+type ThresholdDefinition struct {
+	Position      CoordinateDefinition `json:"position"`
+	ElevationFt   *int                 `json:"elevationFt,omitempty"`
+	CourseTrueDeg *float64             `json:"courseTrueDeg,omitempty"`
+}
+
+type ProvenanceDefinition struct {
+	SourceID       string    `json:"sourceId"`
+	SourceRevision string    `json:"sourceRevision"`
+	ImportedAt     time.Time `json:"importedAt"`
+	EffectiveFrom  time.Time `json:"effectiveFrom"`
+	EffectiveUntil time.Time `json:"effectiveUntil"`
+}
+
+type FinalApproachDefinition struct {
+	Runway        navdata.RunwayID     `json:"runway"`
+	Threshold     ThresholdDefinition  `json:"threshold"`
+	CourseTrueDeg float64              `json:"courseTrueDeg"`
+	Provenance    ProvenanceDefinition `json:"provenance"`
+}
+
+// HoldingDefinition is the terminal-owned wire contract for an official AIP
+// fallback holding. It is converted to navdata only after configuration
+// validation reaches the canonical-domain boundary.
+type HoldingDefinition struct {
+	ID                   navdata.HoldingID          `json:"id"`
+	Fix                  navdata.FixID              `json:"fix"`
+	InboundCourseTrueDeg float64                    `json:"inboundCourseTrueDeg"`
+	TurnDirection        navdata.TurnDirection      `json:"turnDirection"`
+	LegLengthNM          *float64                   `json:"legLengthNm,omitempty"`
+	LegTimeSeconds       *int64                     `json:"legTimeSeconds,omitempty"`
+	MinimumAltitudeFt    *int                       `json:"minimumAltitudeFt,omitempty"`
+	MaximumAltitudeFt    *int                       `json:"maximumAltitudeFt,omitempty"`
+	MaximumSpeedKt       *int                       `json:"maximumSpeedKt,omitempty"`
+	Termination          navdata.HoldingTermination `json:"termination"`
+	Provenance           ProvenanceDefinition       `json:"provenance"`
+}
+
 type RunwayGroup struct {
-	ID              aman.RunwayGroupID      `json:"id"`
-	Aliases         []aman.RunwayGroupID    `json:"aliases"`
-	Runways         []navdata.RunwayID      `json:"runways"`
-	FinalApproaches []navdata.FinalApproach `json:"finalApproaches"`
+	ID              aman.RunwayGroupID        `json:"id"`
+	Aliases         []aman.RunwayGroupID      `json:"aliases"`
+	Runways         []navdata.RunwayID        `json:"runways"`
+	FinalApproaches []FinalApproachDefinition `json:"finalApproaches"`
 }
 
 type Feeder struct {
@@ -80,18 +126,38 @@ type Path struct {
 }
 
 type Configuration struct {
-	SchemaVersion      string                   `json:"schemaVersion"`
-	ConfigVersion      string                   `json:"configVersion"`
-	Airport            navdata.AirportID        `json:"airport"`
-	ApplicabilityFrom  time.Time                `json:"applicabilityFrom"`
-	ApplicabilityUntil time.Time                `json:"applicabilityUntil"`
-	Dataset            DatasetCompatibility     `json:"dataset"`
-	Sources            []Source                 `json:"sources"`
-	RunwayGroups       []RunwayGroup            `json:"runwayGroups"`
-	Feeders            []Feeder                 `json:"feeders"`
-	FixAliases         []FixAlias               `json:"fixAliases"`
-	Paths              []Path                   `json:"paths"`
-	OverlayHoldings    []navdata.HoldingPattern `json:"overlayHoldings"`
+	SchemaVersion      string               `json:"schemaVersion"`
+	ConfigVersion      string               `json:"configVersion"`
+	Airport            navdata.AirportID    `json:"airport"`
+	ApplicabilityFrom  time.Time            `json:"applicabilityFrom"`
+	ApplicabilityUntil time.Time            `json:"applicabilityUntil"`
+	Dataset            DatasetCompatibility `json:"dataset"`
+	Sources            []Source             `json:"sources"`
+	RunwayGroups       []RunwayGroup        `json:"runwayGroups"`
+	Feeders            []Feeder             `json:"feeders"`
+	FixAliases         []FixAlias           `json:"fixAliases"`
+	Paths              []Path               `json:"paths"`
+	OverlayHoldings    []HoldingDefinition  `json:"overlayHoldings"`
+}
+
+func (c CoordinateDefinition) canonical() navdata.Coordinate {
+	return navdata.Coordinate{LatitudeDeg: c.LatitudeDeg, LongitudeDeg: c.LongitudeDeg}
+}
+
+func (t ThresholdDefinition) canonical() navdata.Threshold {
+	return navdata.Threshold{Position: t.Position.canonical(), ElevationFt: t.ElevationFt, CourseTrueDeg: t.CourseTrueDeg}
+}
+
+func (p ProvenanceDefinition) canonical() navdata.Provenance {
+	return navdata.Provenance{SourceID: p.SourceID, SourceRevision: p.SourceRevision, ImportedAt: p.ImportedAt, EffectiveFrom: p.EffectiveFrom, EffectiveUntil: p.EffectiveUntil}
+}
+
+func (f FinalApproachDefinition) canonical() navdata.FinalApproach {
+	return navdata.FinalApproach{Runway: f.Runway, Threshold: f.Threshold.canonical(), CourseTrueDeg: f.CourseTrueDeg, Provenance: f.Provenance.canonical()}
+}
+
+func (h HoldingDefinition) canonical() navdata.HoldingPattern {
+	return navdata.HoldingPattern{ID: h.ID, Fix: h.Fix, InboundCourseTrueDeg: h.InboundCourseTrueDeg, TurnDirection: h.TurnDirection, LegLengthNM: h.LegLengthNM, LegTimeSeconds: h.LegTimeSeconds, MinimumAltitudeFt: h.MinimumAltitudeFt, MaximumAltitudeFt: h.MaximumAltitudeFt, MaximumSpeedKt: h.MaximumSpeedKt, Termination: h.Termination, Provenance: h.Provenance.canonical()}
 }
 
 func LoadFile(path string) (Configuration, error) {
@@ -171,6 +237,7 @@ func (c Configuration) Validate(refs ReferenceSet) error {
 		fixes[f.ID] = true
 	}
 	aliases := map[navdata.FixID]navdata.FixID{}
+	aliasNames := map[navdata.FixID]string{}
 	for i, alias := range c.FixAliases {
 		if alias.Alias == "" || alias.Canonical == "" || alias.Alias == alias.Canonical {
 			add(&errs, fmt.Sprintf("fixAliases[%d]", i), "requires distinct alias and canonical identifiers")
@@ -179,6 +246,14 @@ func (c Configuration) Validate(refs ReferenceSet) error {
 		if _, found := aliases[alias.Alias]; found {
 			add(&errs, fmt.Sprintf("fixAliases[%d].alias", i), "is duplicated")
 		}
+		if previous, found := aliasNames[alias.Alias]; found {
+			add(&errs, fmt.Sprintf("fixAliases[%d].alias", i), "collides with "+previous)
+		}
+		aliasNames[alias.Alias] = fmt.Sprintf("fixAliases[%d].alias", i)
+		if previous, found := aliasNames[alias.Canonical]; found {
+			add(&errs, fmt.Sprintf("fixAliases[%d].canonical", i), "collides with "+previous)
+		}
+		aliasNames[alias.Canonical] = fmt.Sprintf("fixAliases[%d].canonical", i)
 		aliases[alias.Alias] = alias.Canonical
 		if !fixes[alias.Canonical] {
 			add(&errs, fmt.Sprintf("fixAliases[%d].canonical", i), "is absent from active dataset")
@@ -201,7 +276,13 @@ func (c Configuration) Validate(refs ReferenceSet) error {
 			}
 		}
 	}
-	for i, h := range c.OverlayHoldings {
+	overlayIDs := map[navdata.HoldingID]bool{}
+	for i, definition := range c.OverlayHoldings {
+		h := definition.canonical()
+		if overlayIDs[h.ID] {
+			add(&errs, fmt.Sprintf("overlayHoldings[%d].id", i), "is duplicated")
+		}
+		overlayIDs[h.ID] = true
 		if err := h.Validate(); err != nil {
 			add(&errs, fmt.Sprintf("overlayHoldings[%d]", i), err.Error())
 			continue
@@ -250,12 +331,23 @@ func (c Configuration) Validate(refs ReferenceSet) error {
 		if len(group.Runways) == 0 || len(group.FinalApproaches) == 0 {
 			add(&errs, fmt.Sprintf("runwayGroups[%d]", i), "requires runways and final approaches")
 		}
+		groupRunways := map[navdata.RunwayID]bool{}
 		for j, id := range group.Runways {
+			if groupRunways[id] {
+				add(&errs, fmt.Sprintf("runwayGroups[%d].runways[%d]", i, j), "is duplicated")
+			}
+			groupRunways[id] = true
 			if _, ok := runways[id]; !ok {
 				add(&errs, fmt.Sprintf("runwayGroups[%d].runways[%d]", i, j), "is absent from active dataset")
 			}
 		}
-		for j, final := range group.FinalApproaches {
+		finalRunways := map[navdata.RunwayID]int{}
+		for j, definition := range group.FinalApproaches {
+			final := definition.canonical()
+			finalRunways[final.Runway]++
+			if finalRunways[final.Runway] > 1 {
+				add(&errs, fmt.Sprintf("runwayGroups[%d].finalApproaches[%d].runway", i, j), "is duplicated")
+			}
 			if err := final.Validate(); err != nil {
 				add(&errs, fmt.Sprintf("runwayGroups[%d].finalApproaches[%d]", i, j), err.Error())
 				continue
@@ -270,6 +362,11 @@ func (c Configuration) Validate(refs ReferenceSet) error {
 			}
 			if !sameThreshold(final.Threshold, runway.Threshold) || !sameCourse(final.CourseTrueDeg, runway.Threshold.CourseTrueDeg) {
 				add(&errs, fmt.Sprintf("runwayGroups[%d].finalApproaches[%d]", i, j), "does not match active runway threshold/final course")
+			}
+		}
+		for j, runway := range group.Runways {
+			if finalRunways[runway] != 1 {
+				add(&errs, fmt.Sprintf("runwayGroups[%d].runways[%d]", i, j), "requires exactly one final approach")
 			}
 		}
 	}
@@ -318,6 +415,9 @@ func (c Configuration) Validate(refs ReferenceSet) error {
 		if len(path.Fixes) < 2 {
 			add(&errs, fmt.Sprintf("paths[%d].fixes", i), "requires connected terminal fixes")
 		}
+		if len(path.Fixes) > 0 && canonicalFix(path.Fixes[0], aliases) != canonicalFix(navdata.FixID(path.Feeder), aliases) {
+			add(&errs, fmt.Sprintf("paths[%d].fixes[0]", i), "must equal the configured feeder after normalization")
+		}
 		if len(path.Fixes) > 0 && path.Fixes[len(path.Fixes)-1] != path.MergeFix {
 			add(&errs, fmt.Sprintf("paths[%d].mergeFix", i), "must be final path fix")
 		}
@@ -341,7 +441,8 @@ func (c Configuration) Validate(refs ReferenceSet) error {
 		if group, ok := groups[path.RunwayGroup]; ok && len(path.Fixes) > 0 {
 			merge, found := refFix(refs.Fixes, canonicalFix(path.MergeFix, aliases))
 			if found {
-				for _, final := range group.FinalApproaches {
+				for _, definition := range group.FinalApproaches {
+					final := definition.canonical()
 					if !plausibleIntercept(merge.Position, final.Threshold.Position, final.CourseTrueDeg) {
 						add(&errs, fmt.Sprintf("paths[%d].mergeFix", i), "does not connect plausibly to final approach "+string(final.Runway))
 					}
@@ -438,7 +539,8 @@ func (c Configuration) Candidate(refs ReferenceSet, importedAt time.Time) (navda
 		}
 	}
 	overlays := make([]navdata.HoldingPattern, 0, len(c.OverlayHoldings))
-	for _, holding := range c.OverlayHoldings {
+	for _, definition := range c.OverlayHoldings {
+		holding := definition.canonical()
 		if _, found := published[holding.ID]; !found {
 			overlays = append(overlays, holding)
 		}
@@ -477,7 +579,11 @@ type Store struct {
 	active Configuration
 }
 
-func (s *Store) Active() Configuration { s.mu.RLock(); defer s.mu.RUnlock(); return s.active }
+func (s *Store) Active() Configuration {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return cloneConfiguration(s.active)
+}
 func (s *Store) Reload(path string, refs ReferenceSet) error {
 	candidate, err := LoadFile(path)
 	if err != nil {
@@ -487,9 +593,55 @@ func (s *Store) Reload(path string, refs ReferenceSet) error {
 		return err
 	}
 	s.mu.Lock()
-	s.active = candidate
+	s.active = cloneConfiguration(candidate)
 	s.mu.Unlock()
 	return nil
+}
+
+func cloneConfiguration(value Configuration) Configuration {
+	clone := value
+	clone.Sources = slices.Clone(value.Sources)
+	clone.RunwayGroups = make([]RunwayGroup, len(value.RunwayGroups))
+	for i, group := range value.RunwayGroups {
+		clone.RunwayGroups[i] = group
+		clone.RunwayGroups[i].Aliases = slices.Clone(group.Aliases)
+		clone.RunwayGroups[i].Runways = slices.Clone(group.Runways)
+		clone.RunwayGroups[i].FinalApproaches = make([]FinalApproachDefinition, len(group.FinalApproaches))
+		for j, final := range group.FinalApproaches {
+			clone.RunwayGroups[i].FinalApproaches[j] = final
+			clone.RunwayGroups[i].FinalApproaches[j].Threshold.ElevationFt = clonePointer(final.Threshold.ElevationFt)
+			clone.RunwayGroups[i].FinalApproaches[j].Threshold.CourseTrueDeg = clonePointer(final.Threshold.CourseTrueDeg)
+		}
+	}
+	clone.Feeders = make([]Feeder, len(value.Feeders))
+	for i, feeder := range value.Feeders {
+		clone.Feeders[i] = feeder
+		clone.Feeders[i].Aliases = slices.Clone(feeder.Aliases)
+	}
+	clone.FixAliases = slices.Clone(value.FixAliases)
+	clone.Paths = make([]Path, len(value.Paths))
+	for i, path := range value.Paths {
+		clone.Paths[i] = path
+		clone.Paths[i].Fixes = slices.Clone(path.Fixes)
+	}
+	clone.OverlayHoldings = make([]HoldingDefinition, len(value.OverlayHoldings))
+	for i, holding := range value.OverlayHoldings {
+		clone.OverlayHoldings[i] = holding
+		clone.OverlayHoldings[i].LegLengthNM = clonePointer(holding.LegLengthNM)
+		clone.OverlayHoldings[i].LegTimeSeconds = clonePointer(holding.LegTimeSeconds)
+		clone.OverlayHoldings[i].MinimumAltitudeFt = clonePointer(holding.MinimumAltitudeFt)
+		clone.OverlayHoldings[i].MaximumAltitudeFt = clonePointer(holding.MaximumAltitudeFt)
+		clone.OverlayHoldings[i].MaximumSpeedKt = clonePointer(holding.MaximumSpeedKt)
+	}
+	return clone
+}
+
+func clonePointer[T any](value *T) *T {
+	if value == nil {
+		return nil
+	}
+	clone := *value
+	return &clone
 }
 
 type SelectionInput struct{ ExplicitFMP, SessionRunwayGroup *aman.RunwayGroupID }

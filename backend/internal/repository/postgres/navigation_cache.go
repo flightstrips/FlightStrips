@@ -46,7 +46,8 @@ func (r *navigationCache) PutProcedureFragment(ctx context.Context, value navdat
 		Airport    navdata.AirportID
 		Kind       navdata.ProcedureKind
 		Procedures []navdata.Procedure
-	}{value.Airport, value.Kind, value.Procedures})
+		Coverage   navdata.Coverage
+	}{value.Airport, value.Kind, value.Procedures, value.Coverage})
 	if err != nil {
 		return "", err
 	}
@@ -58,7 +59,10 @@ func (r *navigationCache) PutFixFragment(ctx context.Context, value navdata.Cand
 	if err := value.Validate(); err != nil {
 		return "", err
 	}
-	payload, err := json.Marshal(struct{ Fixes []navdata.Fix }{value.Fixes})
+	payload, err := json.Marshal(struct {
+		Fixes    []navdata.Fix
+		Coverage navdata.Coverage
+	}{value.Fixes, value.Coverage})
 	if err != nil {
 		return "", err
 	}
@@ -169,7 +173,7 @@ func (r *navigationCache) ActivateManifest(ctx context.Context, candidate navdat
 func (r *navigationCache) ActiveVersion(ctx context.Context, airport navdata.AirportID) (navdata.DatasetVersion, error) {
 	var v navdata.DatasetVersion
 	var airportDigest string
-	err := r.pool.QueryRow(ctx, `SELECT m.cycle,m.source_revision,m.effective_from,m.effective_until FROM aman_nav_active_manifests a JOIN aman_nav_manifests m ON m.manifest_id=a.manifest_id WHERE a.airport=$1`, airport).Scan(&v.Cycle, &v.SourceRevision, &v.EffectiveFrom, &v.EffectiveUntil)
+	err := r.pool.QueryRow(ctx, `SELECT m.cycle,m.source_revision,m.effective_from,m.effective_until,m.airport_digest FROM aman_nav_active_manifests a JOIN aman_nav_manifests m ON m.manifest_id=a.manifest_id WHERE a.airport=$1`, airport).Scan(&v.Cycle, &v.SourceRevision, &v.EffectiveFrom, &v.EffectiveUntil, &airportDigest)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return v, cacheNotFound("active dataset was not found")
 	}
@@ -180,10 +184,6 @@ func (r *navigationCache) ActiveVersion(ctx context.Context, airport navdata.Air
 	v.EffectiveUntil = v.EffectiveUntil.UTC()
 	if err := v.Validate(); err != nil {
 		return navdata.DatasetVersion{}, cacheCorrupt("stored active dataset is invalid")
-	}
-	err = r.pool.QueryRow(ctx, `SELECT m.airport_digest FROM aman_nav_active_manifests a JOIN aman_nav_manifests m ON m.manifest_id=a.manifest_id WHERE a.airport=$1`, airport).Scan(&airportDigest)
-	if err != nil {
-		return navdata.DatasetVersion{}, err
 	}
 	fragment, err := loadAirportFragment(ctx, r.pool, airportDigest)
 	if err != nil || fragment.State != navdata.ValidationValidated || !fragment.Version.Equal(v) {
@@ -286,7 +286,7 @@ func (r *navigationCache) validateManifest(ctx context.Context, tx pgx.Tx, m nav
 	if err != nil {
 		return err
 	}
-	if fixes.State != navdata.ValidationValidated || !fixes.Version.Equal(m.Version) {
+	if fixes.State != navdata.ValidationValidated || fixes.Coverage != navdata.CoverageComplete || !fixes.Version.Equal(m.Version) {
 		return cacheCorrupt("manifest fix fragment is not validated or does not match")
 	}
 	fixSet := map[navdata.FixID]bool{}
@@ -297,15 +297,20 @@ func (r *navigationCache) validateManifest(ctx context.Context, tx pgx.Tx, m nav
 	for _, runway := range airport.Runways {
 		runways[runway.ID] = true
 	}
-	holdings := map[navdata.HoldingID]navdata.FixID{}
+	holdings := map[navdata.HoldingID]string{}
+	procedureKinds := map[navdata.ProcedureKind]struct{}{}
 	for _, digest := range m.ProcedureDigests {
 		fragment, err := loadProcedureFragment(ctx, tx, digest)
 		if err != nil {
 			return err
 		}
-		if fragment.State != navdata.ValidationValidated || fragment.Airport != m.Airport || !fragment.Version.Equal(m.Version) {
+		if fragment.State != navdata.ValidationValidated || fragment.Coverage != navdata.CoverageComplete || fragment.Airport != m.Airport || !fragment.Version.Equal(m.Version) {
 			return cacheCorrupt("manifest procedure fragment is not validated or does not match")
 		}
+		if _, found := procedureKinds[fragment.Kind]; found {
+			return cacheCorrupt("manifest contains competing procedure fragments for one kind")
+		}
+		procedureKinds[fragment.Kind] = struct{}{}
 		for _, procedure := range fragment.Procedures {
 			for _, runway := range procedure.Runways {
 				if !runways[runway] {
@@ -316,7 +321,14 @@ func (r *navigationCache) validateManifest(ctx context.Context, tx pgx.Tx, m nav
 				if !fixSet[holding.Fix] {
 					return cacheCorrupt("holding references missing fix")
 				}
-				holdings[holding.ID] = holding.Fix
+				holdingDigest, err := navdata.HoldingDigest(holding)
+				if err != nil {
+					return cacheCorrupt("calculate holding digest")
+				}
+				if previous, found := holdings[holding.ID]; found && previous != holdingDigest {
+					return cacheCorrupt("holding ID has conflicting canonical definitions")
+				}
+				holdings[holding.ID] = holdingDigest
 			}
 			for _, leg := range procedure.Legs {
 				if leg.FromFix != nil && !fixSet[*leg.FromFix] {
@@ -337,9 +349,20 @@ func (r *navigationCache) validateManifest(ctx context.Context, tx pgx.Tx, m nav
 			return cacheCorrupt("manifest terminal fragment is not validated or does not match")
 		}
 		for _, path := range terminal.Paths {
+			if path.Coverage != navdata.CoverageComplete {
+				return cacheCorrupt("terminal path is incomplete")
+			}
 			for _, holding := range path.HoldingIDs {
 				if _, found := holdings[holding]; !found {
 					return cacheCorrupt("terminal path references missing holding")
+				}
+			}
+			for _, leg := range path.Legs {
+				if leg.FromFix != nil && !fixSet[*leg.FromFix] {
+					return cacheCorrupt("terminal path references missing from fix")
+				}
+				if leg.ToFix != nil && !fixSet[*leg.ToFix] {
+					return cacheCorrupt("terminal path references missing to fix")
 				}
 			}
 		}
@@ -402,6 +425,7 @@ func loadProcedureFragment(ctx context.Context, db rowQuerier, digest string) (n
 		Airport    navdata.AirportID
 		Kind       navdata.ProcedureKind
 		Procedures []navdata.Procedure
+		Coverage   navdata.Coverage
 	}
 	if err := json.Unmarshal(payload, &body); err != nil {
 		return value, cacheCorrupt("decode procedure fragment")
@@ -409,6 +433,7 @@ func loadProcedureFragment(ctx context.Context, db rowQuerier, digest string) (n
 	value.Airport = body.Airport
 	value.Kind = body.Kind
 	value.Procedures = body.Procedures
+	value.Coverage = body.Coverage
 	value.Version.EffectiveFrom = value.Version.EffectiveFrom.UTC()
 	value.Version.EffectiveUntil = value.Version.EffectiveUntil.UTC()
 	value.ImportedAt = value.ImportedAt.UTC()
@@ -434,11 +459,15 @@ func loadFixFragment(ctx context.Context, db rowQuerier, digest string) (navdata
 	if err := json.Unmarshal(provenance, &value.Provenance); err != nil {
 		return value, cacheCorrupt("decode fix provenance")
 	}
-	var body struct{ Fixes []navdata.Fix }
+	var body struct {
+		Fixes    []navdata.Fix
+		Coverage navdata.Coverage
+	}
 	if err := json.Unmarshal(payload, &body); err != nil {
 		return value, cacheCorrupt("decode fix fragment")
 	}
 	value.Fixes = body.Fixes
+	value.Coverage = body.Coverage
 	value.Version.EffectiveFrom = value.Version.EffectiveFrom.UTC()
 	value.Version.EffectiveUntil = value.Version.EffectiveUntil.UTC()
 	value.ImportedAt = value.ImportedAt.UTC()

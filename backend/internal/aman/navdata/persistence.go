@@ -47,6 +47,7 @@ type CandidateProcedureFragment struct {
 	Airport       AirportID
 	Kind          ProcedureKind
 	Procedures    []Procedure
+	Coverage      Coverage
 	Provenance    Provenance
 	ImportedAt    time.Time
 	ValidatedAt   *time.Time
@@ -61,6 +62,7 @@ type CandidateFixFragment struct {
 	SchemaVersion string
 	Version       DatasetVersion
 	Fixes         []Fix
+	Coverage      Coverage
 	Provenance    Provenance
 	ImportedAt    time.Time
 	ValidatedAt   *time.Time
@@ -201,6 +203,9 @@ func (f CandidateAirportFragment) Validate() error {
 		if err := runway.Validate(); err != nil {
 			return err
 		}
+		if runway.Provenance != f.Provenance {
+			return invalid("airport fragment runway provenance is inconsistent")
+		}
 		if runway.Airport != f.Airport.ID {
 			return invalid("runway is not owned by fragment airport")
 		}
@@ -212,7 +217,7 @@ func (f CandidateAirportFragment) Validate() error {
 	return nil
 }
 func (f CandidateProcedureFragment) Validate() error {
-	if !f.Kind.Valid() || !validIdentifier(string(f.Airport)) {
+	if !f.Kind.Valid() || !validIdentifier(string(f.Airport)) || !f.Coverage.Valid() {
 		return invalid("procedure fragment airport or kind is invalid")
 	}
 	if err := validateFragment(f.SchemaVersion, f.Version, f.Provenance, f.ImportedAt, f.ValidatedAt, f.State, f.Digest, f.payload()); err != nil {
@@ -234,6 +239,9 @@ func (f CandidateProcedureFragment) Validate() error {
 	return nil
 }
 func (f CandidateFixFragment) Validate() error {
+	if !f.Coverage.Valid() {
+		return invalid("fix fragment coverage is invalid")
+	}
 	if err := validateFragment(f.SchemaVersion, f.Version, f.Provenance, f.ImportedAt, f.ValidatedAt, f.State, f.Digest, f.payload()); err != nil {
 		return err
 	}
@@ -348,9 +356,15 @@ func (f CandidateProcedureFragment) payload() any {
 		Airport    AirportID
 		Kind       ProcedureKind
 		Procedures []Procedure
-	}{f.Airport, f.Kind, f.Procedures}
+		Coverage   Coverage
+	}{f.Airport, f.Kind, f.Procedures, f.Coverage}
 }
-func (f CandidateFixFragment) payload() any { return struct{ Fixes []Fix }{f.Fixes} }
+func (f CandidateFixFragment) payload() any {
+	return struct {
+		Fixes    []Fix
+		Coverage Coverage
+	}{f.Fixes, f.Coverage}
+}
 func (f CandidateTerminalFragment) payload() any {
 	return struct {
 		Airport       AirportID

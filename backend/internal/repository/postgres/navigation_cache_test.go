@@ -131,6 +131,140 @@ func TestNavigationCacheRejectsCorruptCandidateWithoutReplacingActiveManifest(t 
 	require.NoError(t, err, "a corrupt route must not damage the manifest")
 }
 
+func TestNavigationCacheStoresPartialDiagnosticsButRejectsPartialActivation(t *testing.T) {
+	pool, _ := testdata.SetupTestDB(t)
+	ctx := context.Background()
+	data := fixture.EKCH()
+	repo := NewNavigationCache(pool)
+	active, _ := writeNavigationFixture(t, ctx, repo, data)
+	_, err := repo.ActivateManifest(ctx, active)
+	require.NoError(t, err)
+
+	partialProcedure := newProcedureFragment(t, data, navdata.ProcedureApproach, procedureByKind(data, navdata.ProcedureApproach).Procedures)
+	require.Equal(t, navdata.CoveragePartial, partialProcedure.Coverage)
+	procedureDigest, err := repo.PutProcedureFragment(ctx, partialProcedure)
+	require.NoError(t, err, "incomplete source data remains available for diagnostics")
+	badProcedure := active
+	badProcedure.ExpectedRevision = 1
+	badProcedure.ProcedureDigests = append(badProcedure.ProcedureDigests, procedureDigest)
+	_, err = repo.ActivateManifest(ctx, badProcedure)
+	requireDomainErrorClass(t, err, aman.ErrorCorruptData)
+
+	partialFix := newFixFragment(t, data)
+	partialFix.Coverage = navdata.CoveragePartial
+	partialFix.Digest = digestFixFragment(t, partialFix)
+	fixDigest, err := repo.PutFixFragment(ctx, partialFix)
+	require.NoError(t, err)
+	badFix := active
+	badFix.ExpectedRevision = 1
+	badFix.FixDigest = fixDigest
+	_, err = repo.ActivateManifest(ctx, badFix)
+	requireDomainErrorClass(t, err, aman.ErrorCorruptData)
+
+	version, err := repo.ActiveVersion(ctx, "EKCH")
+	require.NoError(t, err)
+	require.Equal(t, data.Version, version)
+}
+
+func TestNavigationCacheRejectsCompetingProcedureKindsAndHoldingDefinitions(t *testing.T) {
+	pool, _ := testdata.SetupTestDB(t)
+	ctx := context.Background()
+	data := fixture.EKCH()
+	repo := NewNavigationCache(pool)
+	active, _ := writeNavigationFixture(t, ctx, repo, data)
+	_, err := repo.ActivateManifest(ctx, active)
+	require.NoError(t, err)
+
+	// A second SID fragment is a competing revision for the same kind even
+	// when its data is otherwise valid.
+	sid := procedureByKind(data, navdata.ProcedureSID).Procedures
+	sid = append([]navdata.Procedure(nil), sid...)
+	sid[0].Legs = append([]navdata.ProcedureLeg(nil), sid[0].Legs...)
+	sid[0].Legs[0].ID = "SID-1-R2"
+	competing := newProcedureFragment(t, data, navdata.ProcedureSID, sid)
+	competingDigest, err := repo.PutProcedureFragment(ctx, competing)
+	require.NoError(t, err)
+	badKind := active
+	badKind.ExpectedRevision = 1
+	badKind.ProcedureDigests = append(badKind.ProcedureDigests, competingDigest)
+	_, err = repo.ActivateManifest(ctx, badKind)
+	requireDomainErrorClass(t, err, aman.ErrorCorruptData)
+
+	// Reusing a HoldingID is valid only for byte/semantic-equivalent published
+	// definitions. This SID deliberately conflicts with the STAR's SOK-HF.
+	conflicting := procedureByKind(data, navdata.ProcedureSID).Procedures
+	conflicting = append([]navdata.Procedure(nil), conflicting...)
+	conflicting[0].Holdings = append([]navdata.HoldingPattern(nil), conflicting[0].Holdings...)
+	conflicting[0].Legs = append([]navdata.ProcedureLeg(nil), conflicting[0].Legs...)
+	conflicting[0].Holdings[0].ID = "SOK-HF"
+	conflicting[0].Legs[len(conflicting[0].Legs)-1].HoldingID = ptr(navdata.HoldingID("SOK-HF"))
+	conflictDigest, err := repo.PutProcedureFragment(ctx, newProcedureFragment(t, data, navdata.ProcedureSID, conflicting))
+	require.NoError(t, err)
+	badHolding := active
+	badHolding.ExpectedRevision = 1
+	badHolding.ProcedureDigests = replaceDigest(badHolding.ProcedureDigests, firstProcedureDigest(t, data, navdata.ProcedureSID), conflictDigest)
+	_, err = repo.ActivateManifest(ctx, badHolding)
+	requireDomainErrorClass(t, err, aman.ErrorCorruptData)
+}
+
+func TestNavigationCacheRejectsTerminalPathMissingFixAndCoherentActiveReads(t *testing.T) {
+	pool, _ := testdata.SetupTestDB(t)
+	ctx := context.Background()
+	data := fixture.EKCH()
+	repo := NewNavigationCache(pool)
+	active, _ := writeNavigationFixture(t, ctx, repo, data)
+	_, err := repo.ActivateManifest(ctx, active)
+	require.NoError(t, err)
+
+	broken := newTerminalFragment(t, data)
+	broken.Paths = append([]navdata.TerminalPath(nil), broken.Paths...)
+	broken.Paths[0].Legs = append([]navdata.ProcedureLeg(nil), broken.Paths[0].Legs...)
+	missing := navdata.FixID("MISSING")
+	broken.Paths[0].Legs[0].FromFix = &missing
+	broken.Digest = digestTerminalFragment(t, broken)
+	brokenDigest, err := repo.PutTerminalFragment(ctx, broken)
+	require.NoError(t, err)
+	bad := active
+	bad.ExpectedRevision = 1
+	bad.TerminalDigest = brokenDigest
+	_, err = repo.ActivateManifest(ctx, bad)
+	requireDomainErrorClass(t, err, aman.ErrorCorruptData)
+
+	// Repeated atomic activations while a reader runs must never surface a
+	// mixed-manifest corruption error.
+	readErrors := make(chan error, 32)
+	done := make(chan struct{})
+	readerDone := make(chan struct{})
+	go func() {
+		defer close(readerDone)
+		for {
+			select {
+			case <-done:
+				return
+			default:
+				_, err := repo.ActiveVersion(ctx, "EKCH")
+				if err != nil {
+					readErrors <- err
+					return
+				}
+			}
+		}
+	}()
+	for revision := int64(1); revision <= 8; revision++ {
+		next := active
+		next.ExpectedRevision = revision
+		_, err = repo.ActivateManifest(ctx, next)
+		require.NoError(t, err)
+	}
+	close(done)
+	<-readerDone
+	select {
+	case err := <-readErrors:
+		require.NoError(t, err)
+	default:
+	}
+}
+
 func TestNavigationCacheCompareAndSwapAndRoutePutRaces(t *testing.T) {
 	pool, _ := testdata.SetupTestDB(t)
 	ctx := context.Background()
@@ -231,7 +365,9 @@ func writeNavigationFixture(t *testing.T, ctx context.Context, repo *navigationC
 		candidate := newProcedureFragment(t, data, kind, fragment.Procedures)
 		digest, err := repo.PutProcedureFragment(ctx, candidate)
 		require.NoError(t, err)
-		digests = append(digests, digest)
+		if candidate.Coverage == navdata.CoverageComplete {
+			digests = append(digests, digest)
+		}
 	}
 	terminal := newTerminalFragment(t, data)
 	terminalDigest, err := repo.PutTerminalFragment(ctx, terminal)
@@ -270,9 +406,21 @@ func newFixFragment(t *testing.T, data fixture.Dataset) navdata.CandidateFixFrag
 			}
 		}
 	}
-	digest, err := navdata.CanonicalFragmentDigest(navdata.CanonicalSchemaVersion, data.Version, data.Provenance, struct{ Fixes []navdata.Fix }{fixes})
+	digest, err := navdata.CanonicalFragmentDigest(navdata.CanonicalSchemaVersion, data.Version, data.Provenance, struct {
+		Fixes    []navdata.Fix
+		Coverage navdata.Coverage
+	}{fixes, navdata.CoverageComplete})
 	require.NoError(t, err)
-	return navdata.CandidateFixFragment{SchemaVersion: navdata.CanonicalSchemaVersion, Version: data.Version, Fixes: fixes, Provenance: data.Provenance, ImportedAt: data.Provenance.ImportedAt, ValidatedAt: &validated, State: navdata.ValidationValidated, Digest: digest}
+	return navdata.CandidateFixFragment{SchemaVersion: navdata.CanonicalSchemaVersion, Version: data.Version, Fixes: fixes, Coverage: navdata.CoverageComplete, Provenance: data.Provenance, ImportedAt: data.Provenance.ImportedAt, ValidatedAt: &validated, State: navdata.ValidationValidated, Digest: digest}
+}
+func digestFixFragment(t *testing.T, fragment navdata.CandidateFixFragment) string {
+	t.Helper()
+	digest, err := navdata.CanonicalFragmentDigest(fragment.SchemaVersion, fragment.Version, fragment.Provenance, struct {
+		Fixes    []navdata.Fix
+		Coverage navdata.Coverage
+	}{fragment.Fixes, fragment.Coverage})
+	require.NoError(t, err)
+	return digest
 }
 func procedureByKind(data fixture.Dataset, kind navdata.ProcedureKind) navdata.CandidateProcedureFragment {
 	values := []navdata.Procedure{}
@@ -281,18 +429,31 @@ func procedureByKind(data fixture.Dataset, kind navdata.ProcedureKind) navdata.C
 			values = append(values, value)
 		}
 	}
-	return navdata.CandidateProcedureFragment{Airport: "EKCH", Kind: kind, Procedures: values}
+	coverage := navdata.CoverageComplete
+	for _, procedure := range values {
+		if procedure.HasUnsupportedLeg() {
+			coverage = navdata.CoveragePartial
+		}
+	}
+	return navdata.CandidateProcedureFragment{Airport: "EKCH", Kind: kind, Procedures: values, Coverage: coverage}
 }
 func newProcedureFragment(t *testing.T, data fixture.Dataset, kind navdata.ProcedureKind, procedures []navdata.Procedure) navdata.CandidateProcedureFragment {
 	t.Helper()
 	validated := data.Provenance.ImportedAt.Add(time.Minute)
+	coverage := navdata.CoverageComplete
+	for _, procedure := range procedures {
+		if procedure.HasUnsupportedLeg() {
+			coverage = navdata.CoveragePartial
+		}
+	}
 	digest, err := navdata.CanonicalFragmentDigest(navdata.CanonicalSchemaVersion, data.Version, data.Provenance, struct {
 		Airport    navdata.AirportID
 		Kind       navdata.ProcedureKind
 		Procedures []navdata.Procedure
-	}{"EKCH", kind, procedures})
+		Coverage   navdata.Coverage
+	}{"EKCH", kind, procedures, coverage})
 	require.NoError(t, err)
-	return navdata.CandidateProcedureFragment{SchemaVersion: navdata.CanonicalSchemaVersion, Version: data.Version, Airport: "EKCH", Kind: kind, Procedures: procedures, Provenance: data.Provenance, ImportedAt: data.Provenance.ImportedAt, ValidatedAt: &validated, State: navdata.ValidationValidated, Digest: digest}
+	return navdata.CandidateProcedureFragment{SchemaVersion: navdata.CanonicalSchemaVersion, Version: data.Version, Airport: "EKCH", Kind: kind, Procedures: procedures, Coverage: coverage, Provenance: data.Provenance, ImportedAt: data.Provenance.ImportedAt, ValidatedAt: &validated, State: navdata.ValidationValidated, Digest: digest}
 }
 func firstProcedureDigest(t *testing.T, data fixture.Dataset, kind navdata.ProcedureKind) string {
 	return newProcedureFragment(t, data, kind, procedureByKind(data, kind).Procedures).Digest
@@ -308,6 +469,16 @@ func newTerminalFragment(t *testing.T, data fixture.Dataset) navdata.CandidateTe
 	require.NoError(t, err)
 	return navdata.CandidateTerminalFragment{SchemaVersion: navdata.CanonicalSchemaVersion, Version: data.Version, Airport: "EKCH", ConfigVersion: "fixture-config-v1", Paths: data.TerminalPaths, Provenance: data.Provenance, ImportedAt: data.Provenance.ImportedAt, ValidatedAt: &validated, State: navdata.ValidationValidated, Digest: digest}
 }
+func digestTerminalFragment(t *testing.T, fragment navdata.CandidateTerminalFragment) string {
+	t.Helper()
+	digest, err := navdata.CanonicalFragmentDigest(fragment.SchemaVersion, fragment.Version, fragment.Provenance, struct {
+		Airport       navdata.AirportID
+		ConfigVersion string
+		Paths         []navdata.TerminalPath
+	}{fragment.Airport, fragment.ConfigVersion, fragment.Paths})
+	require.NoError(t, err)
+	return digest
+}
 func replaceDigest(values []string, old, replacement string) []string {
 	result := append([]string(nil), values...)
 	for i, value := range result {
@@ -317,6 +488,7 @@ func replaceDigest(values []string, old, replacement string) []string {
 	}
 	return result
 }
+func ptr[T any](value T) *T { return &value }
 func fixtureRouteQuery(data fixture.Dataset) navdata.RouteQuery {
 	procedure := navdata.ProcedureID("SOK1P")
 	runway := navdata.RunwayID("22L")

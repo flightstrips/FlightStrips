@@ -44,6 +44,16 @@ func (s *Source) Airport(_ context.Context, version navdata.DatasetVersion, airp
 	}
 	return value, nil
 }
+func (s *Source) Runways(_ context.Context, version navdata.DatasetVersion, airport navdata.AirportID) ([]navdata.Runway, error) {
+	s.calls++
+	if err := matchVersion(s.dataset.Version, version); err != nil {
+		return nil, err
+	}
+	if _, ok := s.dataset.Airports[airport]; !ok {
+		return nil, unavailable(aman.ErrorNotFound, "airport was not found")
+	}
+	return []navdata.Runway{{ID: "22L", Airport: airport, Threshold: navdata.Threshold{Position: navdata.Coordinate{LatitudeDeg: 55.6254111111, LongitudeDeg: 12.6675805556}, CourseTrueDeg: ptr(221.2)}, LengthNM: 3302.0 / 1852.0, Provenance: s.dataset.Provenance}}, nil
+}
 func (s *Source) Procedures(_ context.Context, query navdata.ProcedureQuery) (navdata.ProcedureSet, error) {
 	s.calls++
 	if err := query.Validate(); err != nil {
@@ -137,6 +147,7 @@ func unavailable(class aman.ErrorClass, message string) error {
 
 var _ navdata.CycleSource = (*Source)(nil)
 var _ navdata.AirportSource = (*Source)(nil)
+var _ navdata.RunwaySource = (*Source)(nil)
 var _ navdata.ProcedureSource = (*Source)(nil)
 var _ navdata.FixSource = (*Source)(nil)
 var _ navdata.RouteResolver = (*Source)(nil)

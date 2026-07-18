@@ -72,10 +72,14 @@ type ProvenanceDefinition struct {
 }
 
 type FinalApproachDefinition struct {
-	Runway        navdata.RunwayID     `json:"runway"`
-	Threshold     ThresholdDefinition  `json:"threshold"`
-	CourseTrueDeg float64              `json:"courseTrueDeg"`
-	Provenance    ProvenanceDefinition `json:"provenance"`
+	Runway        navdata.RunwayID    `json:"runway"`
+	Threshold     ThresholdDefinition `json:"threshold"`
+	CourseTrueDeg float64             `json:"courseTrueDeg"`
+	// PhysicalLengthM is the published physical runway length in metres from
+	// the official aerodrome chart. It is converted once at this boundary to
+	// the canonical nautical-mile representation.
+	PhysicalLengthM float64              `json:"physicalLengthM"`
+	Provenance      ProvenanceDefinition `json:"provenance"`
 }
 
 // HoldingDefinition is the terminal-owned wire contract for an official AIP
@@ -154,6 +158,37 @@ func (p ProvenanceDefinition) canonical() navdata.Provenance {
 
 func (f FinalApproachDefinition) canonical() navdata.FinalApproach {
 	return navdata.FinalApproach{Runway: f.Runway, Threshold: f.Threshold.canonical(), CourseTrueDeg: f.CourseTrueDeg, Provenance: f.Provenance.canonical()}
+}
+
+// Runways is a non-HTTP, official-terminal-configuration-backed RunwaySource.
+// It deliberately complements, rather than extends, AirportSource: airport
+// reference metadata and authoritative thresholds need not share a provider.
+func (c Configuration) Runways(_ context.Context, version navdata.DatasetVersion, airport navdata.AirportID) ([]navdata.Runway, error) {
+	if airport != c.Airport || version.Cycle != c.Dataset.Cycle || !version.EffectiveFrom.Equal(c.Dataset.EffectiveFrom) || !version.EffectiveUntil.Equal(c.Dataset.EffectiveUntil) {
+		return nil, fmt.Errorf("terminal runway source does not cover requested airport dataset")
+	}
+	seen := map[navdata.RunwayID]struct{}{}
+	result := make([]navdata.Runway, 0)
+	for _, group := range c.RunwayGroups {
+		for _, definition := range group.FinalApproaches {
+			if definition.PhysicalLengthM <= 0 {
+				return nil, fmt.Errorf("runway %s physicalLengthM must be positive", definition.Runway)
+			}
+			if _, exists := seen[definition.Runway]; exists {
+				return nil, fmt.Errorf("runway %s is duplicated", definition.Runway)
+			}
+			seen[definition.Runway] = struct{}{}
+			runway := navdata.Runway{ID: definition.Runway, Airport: airport, Threshold: definition.Threshold.canonical(), LengthNM: definition.PhysicalLengthM / 1852.0, Provenance: definition.Provenance.canonical()}
+			if err := runway.Validate(); err != nil {
+				return nil, fmt.Errorf("validate runway %s: %w", definition.Runway, err)
+			}
+			result = append(result, runway)
+		}
+	}
+	if len(result) == 0 {
+		return nil, fmt.Errorf("terminal runway source has no runways")
+	}
+	return result, nil
 }
 
 func (h HoldingDefinition) canonical() navdata.HoldingPattern {
@@ -344,6 +379,9 @@ func (c Configuration) Validate(refs ReferenceSet) error {
 		finalRunways := map[navdata.RunwayID]int{}
 		for j, definition := range group.FinalApproaches {
 			final := definition.canonical()
+			if !finitePositive(definition.PhysicalLengthM) {
+				add(&errs, fmt.Sprintf("runwayGroups[%d].finalApproaches[%d].physicalLengthM", i, j), "must be a positive published metre value")
+			}
 			finalRunways[final.Runway]++
 			if finalRunways[final.Runway] > 1 {
 				add(&errs, fmt.Sprintf("runwayGroups[%d].finalApproaches[%d].runway", i, j), "is duplicated")
@@ -490,6 +528,9 @@ func near(a, b float64) bool {
 		d = -d
 	}
 	return d < 0.000001
+}
+func finitePositive(value float64) bool {
+	return !math.IsNaN(value) && !math.IsInf(value, 0) && value > 0
 }
 func refFix(fixes []navdata.Fix, id navdata.FixID) (navdata.Fix, bool) {
 	for _, fix := range fixes {

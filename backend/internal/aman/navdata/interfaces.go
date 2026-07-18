@@ -14,6 +14,14 @@ type CycleSource interface {
 type AirportSource interface {
 	Airport(context.Context, DatasetVersion, AirportID) (Airport, error)
 }
+
+// RunwaySource supplies authoritative physical runway geometry independently
+// from airport-reference metadata. Some providers do not publish threshold
+// coordinates, so application composition may use an official AIP-backed
+// implementation alongside an AirportSource.
+type RunwaySource interface {
+	Runways(context.Context, DatasetVersion, AirportID) ([]Runway, error)
+}
 type ProcedureSource interface {
 	Procedures(context.Context, ProcedureQuery) (ProcedureSet, error)
 }

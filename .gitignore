@@ -31,3 +31,5 @@ docs/.env.production
 
 # macOS-specific files
 docs/.DS_Store
+
+backend/config/data/

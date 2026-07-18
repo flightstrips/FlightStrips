@@ -2,6 +2,7 @@ package navdata
 
 import (
 	"errors"
+	"math"
 	"reflect"
 	"strings"
 	"testing"
@@ -96,6 +97,27 @@ func TestQueriesRejectNonCanonicalOptionalIdentifiers(t *testing.T) {
 	assertInvalid(t, ProcedureQuery{Version: version, Airport: " EKCH", Kinds: []ProcedureKind{ProcedureSID}}.Validate())
 	assertInvalid(t, FixQuery{Version: version, Identifiers: []FixID{"KEMAX", "KEMAX"}}.Validate())
 	assertInvalid(t, RouteQuery{Version: version, Origin: "ENGM", Destination: "EKCH", FiledRoute: "DCT", ArrivalProcedure: &procedure, Runway: &runway, RunwayGroup: &group}.Validate())
+}
+
+func TestCanonicalFloatFieldsRejectNaNAndInfinity(t *testing.T) {
+	assertInvalid(t, Coordinate{LatitudeDeg: math.NaN(), LongitudeDeg: 12}.Validate())
+	provenance, seconds := testProvenance(), int64(60)
+	assertInvalid(t, HoldingPattern{ID: "HOLD", Fix: "KEMAX", InboundCourseTrueDeg: math.Inf(1), TurnDirection: TurnRight, LegTimeSeconds: &seconds, Termination: HoldingManual, Provenance: provenance}.Validate())
+	distance := math.Inf(1)
+	assertInvalid(t, ProcedureLeg{ID: "LEG", PathTerminator: PathDF, DistanceNM: &distance}.Validate())
+	assertInvalid(t, ProcedureLeg{ID: "leg/with delimiter", PathTerminator: PathDF}.Validate())
+	assertInvalid(t, RouteGeometry{Version: testVersion(), TotalDistanceNM: math.NaN(), Coverage: CoveragePartial, Provenance: provenance, Digest: "digest"}.Validate())
+}
+
+func TestRouteDigestRejectsDatasetMismatch(t *testing.T) {
+	query := RouteQuery{Version: testVersion(), Origin: "ENGM", Destination: "EKCH", FiledRoute: "DCT KEMAX"}
+	geometry := RouteGeometry{Version: query.Version, Coverage: CoveragePartial, Provenance: testProvenance()}
+	geometry.Version.SourceRevision = "other"
+	_, err := RouteGeometryDigest(query, geometry)
+	var domain *aman.DomainError
+	require.Error(t, err)
+	require.True(t, errors.As(err, &domain))
+	require.Equal(t, ErrorDatasetMismatch, domain.Class)
 }
 
 func TestRouteDigestIsDeterministicForHoldingAndUnresolvedOrdering(t *testing.T) {

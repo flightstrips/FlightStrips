@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"math"
 	"slices"
 	"strconv"
 	"strings"
@@ -98,6 +99,9 @@ func (c Coverage) Authoritative() bool { return c == CoverageComplete }
 type Coordinate struct{ LatitudeDeg, LongitudeDeg float64 }
 
 func (c Coordinate) Validate() error {
+	if !finite(c.LatitudeDeg) || !finite(c.LongitudeDeg) {
+		return invalid("coordinate must be finite")
+	}
 	if c.LatitudeDeg < -90 || c.LatitudeDeg > 90 || c.LongitudeDeg < -180 || c.LongitudeDeg > 180 {
 		return invalid("coordinate is outside WGS84 bounds")
 	}
@@ -130,7 +134,7 @@ type Runway struct {
 }
 
 func (r Runway) Validate() error {
-	if !validIdentifier(string(r.ID)) || !validIdentifier(string(r.Airport)) || r.LengthNM <= 0 {
+	if !validIdentifier(string(r.ID)) || !validIdentifier(string(r.Airport)) || !finite(r.LengthNM) || r.LengthNM <= 0 {
 		return invalid("runway identity or length is invalid")
 	}
 	if err := r.Threshold.Validate(); err != nil {
@@ -188,7 +192,7 @@ func (t Threshold) Validate() error {
 	if err := t.Position.Validate(); err != nil {
 		return err
 	}
-	if t.CourseTrueDeg != nil && (*t.CourseTrueDeg < 0 || *t.CourseTrueDeg >= 360) {
+	if t.CourseTrueDeg != nil && (!finite(*t.CourseTrueDeg) || *t.CourseTrueDeg < 0 || *t.CourseTrueDeg >= 360) {
 		return invalid("threshold course must be true degrees in [0,360)")
 	}
 	return nil
@@ -202,7 +206,7 @@ type FinalApproach struct {
 }
 
 func (f FinalApproach) Validate() error {
-	if !validIdentifier(string(f.Runway)) || f.CourseTrueDeg < 0 || f.CourseTrueDeg >= 360 {
+	if !validIdentifier(string(f.Runway)) || !finite(f.CourseTrueDeg) || f.CourseTrueDeg < 0 || f.CourseTrueDeg >= 360 {
 		return invalid("final approach identity or course is invalid")
 	}
 	if err := f.Threshold.Validate(); err != nil {
@@ -298,7 +302,7 @@ func (h HoldingPattern) Validate() error {
 	if !validIdentifier(string(h.ID)) || !validIdentifier(string(h.Fix)) {
 		return invalid("holding identity is incomplete")
 	}
-	if h.InboundCourseTrueDeg < 0 || h.InboundCourseTrueDeg >= 360 {
+	if !finite(h.InboundCourseTrueDeg) || h.InboundCourseTrueDeg < 0 || h.InboundCourseTrueDeg >= 360 {
 		return invalid("holding inbound course must be true degrees in [0,360)")
 	}
 	if !h.TurnDirection.Valid() || !h.Termination.Valid() {
@@ -307,7 +311,7 @@ func (h HoldingPattern) Validate() error {
 	if (h.LegLengthNM == nil) == (h.LegTimeSeconds == nil) {
 		return invalid("holding requires exactly one time or distance construction")
 	}
-	if h.LegLengthNM != nil && *h.LegLengthNM <= 0 {
+	if h.LegLengthNM != nil && (!finite(*h.LegLengthNM) || *h.LegLengthNM <= 0) {
 		return invalid("holding leg distance must be positive")
 	}
 	if h.LegTimeSeconds != nil && *h.LegTimeSeconds <= 0 {
@@ -333,13 +337,13 @@ type ProcedureLeg struct {
 }
 
 func (l ProcedureLeg) Validate() error {
-	if strings.TrimSpace(l.ID) == "" || l.PathTerminator == "" {
+	if !validIdentifier(l.ID) || l.PathTerminator == "" {
 		return invalid("procedure leg identity is incomplete")
 	}
-	if l.CourseTrueDeg != nil && (*l.CourseTrueDeg < 0 || *l.CourseTrueDeg >= 360) {
+	if l.CourseTrueDeg != nil && (!finite(*l.CourseTrueDeg) || *l.CourseTrueDeg < 0 || *l.CourseTrueDeg >= 360) {
 		return invalid("leg course must be true degrees in [0,360)")
 	}
-	if l.DistanceNM != nil && *l.DistanceNM < 0 {
+	if l.DistanceNM != nil && (!finite(*l.DistanceNM) || *l.DistanceNM < 0) {
 		return invalid("leg distance cannot be negative")
 	}
 	if l.PathTerminator.IsHolding() && l.HoldingID == nil {
@@ -644,7 +648,7 @@ func (g RouteGeometry) validateCanonical() error {
 	if err := g.Version.Validate(); err != nil {
 		return err
 	}
-	if !g.Coverage.Valid() || g.TotalDistanceNM < 0 {
+	if !g.Coverage.Valid() || !finite(g.TotalDistanceNM) || g.TotalDistanceNM < 0 {
 		return invalid("route geometry is incomplete")
 	}
 	if err := g.Provenance.Validate(); err != nil {
@@ -702,6 +706,12 @@ func (p TerminalPath) Validate() error {
 }
 
 func RouteGeometryDigest(query RouteQuery, geometry RouteGeometry) (string, error) {
+	if err := query.Validate(); err != nil {
+		return "", err
+	}
+	if !query.Version.Equal(geometry.Version) {
+		return "", &aman.DomainError{Class: ErrorDatasetMismatch, Message: "route query and geometry dataset versions differ"}
+	}
 	key, err := query.Key()
 	if err != nil {
 		return "", err
@@ -836,3 +846,4 @@ func hasUnsupportedLeg(legs []ProcedureLeg) bool {
 	}
 	return false
 }
+func finite(value float64) bool { return !math.IsNaN(value) && !math.IsInf(value, 0) }

@@ -74,7 +74,6 @@ func (f Flight) Prefile() bool {
 // methods return values, so callers cannot mutate cache state.
 type Snapshot struct {
 	Timestamp        time.Time
-	Age              time.Duration
 	LastRefreshError error
 
 	flightsByCallsign map[string]Flight
@@ -225,12 +224,6 @@ func (c *Cache) Snapshot() Snapshot {
 		LastRefreshError:  c.lastRefreshError,
 		flightsByCallsign: c.snapshot.flightsByCallsign,
 		flightsByCID:      c.snapshot.flightsByCID,
-	}
-	if !snapshot.Timestamp.IsZero() {
-		snapshot.Age = time.Since(snapshot.Timestamp)
-		if snapshot.Age < 0 {
-			snapshot.Age = 0
-		}
 	}
 	return snapshot
 }

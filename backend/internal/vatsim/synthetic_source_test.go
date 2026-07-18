@@ -3,10 +3,22 @@ package vatsim
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func TestSyntheticSourceSnapshotRefreshesReadTime(t *testing.T) {
+	source := NewSyntheticSource()
+	before := time.Now().UTC()
+
+	snapshot := source.Snapshot()
+	after := time.Now().UTC()
+
+	assert.False(t, snapshot.Timestamp.Before(before))
+	assert.False(t, snapshot.Timestamp.After(after))
+}
 
 func TestSyntheticSourceSupportsOfflineScenarioControl(t *testing.T) {
 	source := NewSyntheticSource()

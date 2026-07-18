@@ -10,13 +10,12 @@ import (
 // SyntheticSource is an in-memory VATSIM source for explicitly enabled local
 // test tools. It never performs network I/O.
 type SyntheticSource struct {
-	mu       sync.RWMutex
-	flights  map[string]Flight
-	received time.Time
+	mu      sync.RWMutex
+	flights map[string]Flight
 }
 
 func NewSyntheticSource() *SyntheticSource {
-	return &SyntheticSource{flights: make(map[string]Flight), received: time.Now().UTC()}
+	return &SyntheticSource{flights: make(map[string]Flight)}
 }
 
 func (s *SyntheticSource) Upsert(flight Flight) {
@@ -30,7 +29,6 @@ func (s *SyntheticSource) Upsert(flight Flight) {
 	}
 	s.mu.Lock()
 	s.flights[flight.Callsign] = flight
-	s.received = time.Now().UTC()
 	s.mu.Unlock()
 }
 
@@ -40,7 +38,6 @@ func (s *SyntheticSource) Remove(callsign string) {
 	}
 	s.mu.Lock()
 	delete(s.flights, normalizeCallsign(callsign))
-	s.received = time.Now().UTC()
 	s.mu.Unlock()
 }
 
@@ -50,7 +47,6 @@ func (s *SyntheticSource) Reset() {
 	}
 	s.mu.Lock()
 	s.flights = make(map[string]Flight)
-	s.received = time.Now().UTC()
 	s.mu.Unlock()
 }
 
@@ -60,6 +56,7 @@ func (s *SyntheticSource) Snapshot() Snapshot {
 	}
 	s.mu.RLock()
 	defer s.mu.RUnlock()
+	now := time.Now().UTC()
 
 	byCallsign := make(map[string]Flight, len(s.flights))
 	byCID := make(map[string]Flight, len(s.flights))
@@ -69,13 +66,8 @@ func (s *SyntheticSource) Snapshot() Snapshot {
 			byCID[flight.CID] = flight
 		}
 	}
-	age := time.Since(s.received)
-	if age < 0 {
-		age = 0
-	}
 	return Snapshot{
-		Timestamp:         s.received,
-		Age:               age,
+		Timestamp:         now,
 		flightsByCallsign: byCallsign,
 		flightsByCID:      byCID,
 	}

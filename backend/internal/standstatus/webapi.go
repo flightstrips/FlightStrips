@@ -77,13 +77,12 @@ type standStatusSystemResponse struct {
 }
 
 type standStatusFeedResponse struct {
-	Status             string   `json:"status"`
-	SnapshotAt         string   `json:"snapshot_at,omitempty"`
-	SnapshotAgeSeconds *float64 `json:"snapshot_age_seconds,omitempty"`
-	LastError          string   `json:"last_error,omitempty"`
-	Flights            int      `json:"flights"`
-	Online             int      `json:"online"`
-	Prefiles           int      `json:"prefiles"`
+	Status     string `json:"status"`
+	SnapshotAt string `json:"snapshot_at,omitempty"`
+	LastError  string `json:"last_error,omitempty"`
+	Flights    int    `json:"flights"`
+	Online     int    `json:"online"`
+	Prefiles   int    `json:"prefiles"`
 }
 
 type standStatusSessionResponse struct {
@@ -162,7 +161,9 @@ func (a *WebAPI) handleStatus(w http.ResponseWriter, r *http.Request) {
 		Sessions:      []standStatusSessionResponse{},
 	}
 	if a.config.Failures != nil {
-		response.Failures = a.config.Failures.List()
+		if failures := a.config.Failures.List(); failures != nil {
+			response.Failures = failures
+		}
 	}
 
 	if a.config.Sessions != nil && a.config.Assignments != nil {
@@ -240,8 +241,6 @@ func (a *WebAPI) feedStatus() standStatusFeedResponse {
 	result := standStatusFeedResponse{Status: "ready"}
 	if !snapshot.Timestamp.IsZero() {
 		result.SnapshotAt = snapshot.Timestamp.UTC().Format(time.RFC3339)
-		age := snapshot.Age.Seconds()
-		result.SnapshotAgeSeconds = &age
 	}
 	for _, flight := range snapshot.Flights() {
 		result.Flights++
@@ -259,7 +258,7 @@ func (a *WebAPI) feedStatus() standStatusFeedResponse {
 	case snapshot.LastRefreshError != nil:
 		result.Status = "feed_failed"
 		result.LastError = snapshot.LastRefreshError.Error()
-	case a.config.StaleAfter > 0 && snapshot.Age > a.config.StaleAfter:
+	case a.config.StaleAfter > 0 && a.now().UTC().Sub(snapshot.Timestamp) > a.config.StaleAfter:
 		result.Status = "feed_stale"
 		result.LastError = "VATSIM snapshot is stale"
 	}

@@ -23,7 +23,6 @@ type StandConfiguration = {
 type StandFeed = {
   status: string;
   snapshot_at?: string;
-  snapshot_age_seconds?: number;
   last_error?: string;
   flights: number;
   online: number;
@@ -138,10 +137,15 @@ function formatTimestamp(value?: string): string {
   });
 }
 
-function formatAge(seconds?: number): string {
-  if (typeof seconds !== "number") {
+function formatAge(timestamp?: string): string {
+  if (!timestamp) {
     return "—";
   }
+  const timestampMs = new Date(timestamp).getTime();
+  if (Number.isNaN(timestampMs)) {
+    return "—";
+  }
+  const seconds = Math.max(0, (Date.now() - timestampMs) / 1000);
   if (seconds < 60) {
     return `${Math.round(seconds)} sec`;
   }
@@ -264,7 +268,7 @@ export default function StandStatusPage() {
                   {data.feed.online} online · {data.feed.prefiles} prefiles · {data.feed.flights} total
                 </div>
                 <div className="mt-1 text-sm">
-                  Snapshot {formatTimestamp(data.feed.snapshot_at)} ({formatAge(data.feed.snapshot_age_seconds)} old)
+                  Snapshot {formatTimestamp(data.feed.snapshot_at)} ({formatAge(data.feed.snapshot_at)} old)
                 </div>
                 {data.feed.last_error ? <div className="mt-2 text-sm">{data.feed.last_error}</div> : null}
               </section>

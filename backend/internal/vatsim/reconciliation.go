@@ -301,7 +301,11 @@ func (r *Reconciler) reconcileSession(ctx context.Context, snapshot Snapshot, se
 		}
 	}
 	metrics.RecordSATRelevantFlights(ctx, session.Name, airport, pilots, prefiles)
-	slog.InfoContext(ctx, "SAT VATSIM reconciliation completed", slog.Int("session", int(session.ID)), slog.String("airport", airport), slog.Duration("snapshot_age", snapshot.Age), slog.Int("pilots", pilots), slog.Int("prefiles", prefiles), slog.Int("changed", changedCount))
+	snapshotAge := time.Since(snapshot.Timestamp)
+	if snapshotAge < 0 {
+		snapshotAge = 0
+	}
+	slog.InfoContext(ctx, "SAT VATSIM reconciliation completed", slog.Int("session", int(session.ID)), slog.String("airport", airport), slog.Duration("snapshot_age", snapshotAge), slog.Int("pilots", pilots), slog.Int("prefiles", prefiles), slog.Int("changed", changedCount))
 
 	for callsign, strip := range existing {
 		if relevant[callsign].Callsign == "" && strip.EuroscopeSeenAt == nil && r.lifecycle != nil &&

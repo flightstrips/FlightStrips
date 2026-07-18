@@ -108,150 +108,150 @@ func (r FreezeReason) Valid() bool {
 // FlightObservation is the provider-neutral reconciliation input. Adapters
 // map their vendor data to this value before it reaches AMAN.
 type FlightObservation struct {
-	FlightID        FlightID          `json:"flight_id"`
-	VATSIMCID       string            `json:"vatsim_cid"`
-	Callsign        string            `json:"callsign"`
-	Origin          string            `json:"origin"`
-	Destination     string            `json:"destination"`
-	AircraftType    *string           `json:"aircraft_type"`
-	WakeCategory    *string           `json:"wake_category"`
-	FiledRoute      *string           `json:"filed_route"`
-	RequestedLevel  *int              `json:"requested_level_ft"`
-	PlannedTiming   *PlannedTiming    `json:"planned_timing"`
-	FlightPlan      FlightPlanFact    `json:"flight_plan"`
-	Surveillance    *SurveillanceFact `json:"surveillance"`
-	TakeoffDetected *time.Time        `json:"takeoff_detected_at"`
-	ReconciledAt    time.Time         `json:"reconciled_at"`
-	SourceStatus    DataStatus        `json:"source_status"`
+	FlightID        FlightID
+	VATSIMCID       string
+	Callsign        string
+	Origin          string
+	Destination     string
+	AircraftType    *string
+	WakeCategory    *string
+	FiledRoute      *string
+	RequestedLevel  *int
+	PlannedTiming   *PlannedTiming
+	FlightPlan      FlightPlanFact
+	Surveillance    *SurveillanceFact
+	TakeoffDetected *time.Time
+	ReconciledAt    time.Time
+	SourceStatus    DataStatus
 }
 
 // PlannedTiming contains provider-neutral planned times. Durations are domain
 // time.Duration values; owning wire packages serialize them as whole seconds.
 type PlannedTiming struct {
-	EstimatedOffBlockTime *time.Time     `json:"estimated_off_block_time"`
-	EstimatedEnrouteTime  *time.Duration `json:"estimated_enroute_time"`
+	EstimatedOffBlockTime *time.Time
+	EstimatedEnrouteTime  *time.Duration
 }
 
 // FlightPlanFact records the source ordering facts for a flight plan.
 type FlightPlanFact struct {
-	Revision   *uint64    `json:"revision"`
-	ObservedAt *time.Time `json:"observed_at"`
+	Revision   *uint64
+	ObservedAt *time.Time
 }
 
 // SurveillanceFact is an optional positional observation. Coordinates are
 // WGS84 degrees, altitude is feet, ground speed is knots, and track is true
 // degrees in [0,360).
 type SurveillanceFact struct {
-	LatitudeDegrees  float64    `json:"latitude_degrees"`
-	LongitudeDegrees float64    `json:"longitude_degrees"`
-	AltitudeFeet     *int       `json:"altitude_feet"`
-	GroundspeedKnots *float64   `json:"groundspeed_knots"`
-	TrackTrueDegrees *float64   `json:"track_true_degrees"`
-	Sequence         *uint64    `json:"sequence"`
-	ObservedAt       *time.Time `json:"observed_at"`
+	LatitudeDegrees  float64
+	LongitudeDegrees float64
+	AltitudeFeet     *int
+	GroundspeedKnots *float64
+	TrackTrueDegrees *float64
+	Sequence         *uint64
+	ObservedAt       *time.Time
 }
 
 // Prediction separates a physical/model result from the backend-owned value
 // used for lifecycle and sequencing. RawTETA continues to move during a
 // freeze; OperationalTETA is the only value consumers sequence.
 type Prediction struct {
-	RawTETA           time.Time `json:"raw_teta"`
-	OperationalTETA   time.Time `json:"operational_teta"`
-	OperationalReason string    `json:"operational_reason"`
+	RawTETA           time.Time
+	OperationalTETA   time.Time
+	OperationalReason string
 
-	GeneratedAt       time.Time  `json:"generated_at"`
-	InputObservedAt   time.Time  `json:"input_observed_at"`
-	Confidence        Confidence `json:"confidence"`
-	Publishable       bool       `json:"publishable"`
-	DegradationReason *string    `json:"degradation_reason"`
+	GeneratedAt       time.Time
+	InputObservedAt   time.Time
+	Confidence        Confidence
+	Publishable       bool
+	DegradationReason *string
 
-	DatasetVersion string     `json:"dataset_version"`
-	GeometryDigest string     `json:"geometry_digest"`
-	DistanceToGoNM *float64   `json:"distance_to_go_nm"`
-	HoldingFixETA  *time.Time `json:"holding_fix_eta"`
+	DatasetVersion string
+	GeometryDigest string
+	DistanceToGoNM *float64
+	HoldingFixETA  *time.Time
 
-	ModelVersion         string   `json:"model_version"`
-	ConfigVersion        string   `json:"config_version"`
-	PerformanceProfileID *string  `json:"performance_profile_id"`
-	WeatherSource        *string  `json:"weather_source"`
-	Sources              []string `json:"sources"`
+	ModelVersion         string
+	ConfigVersion        string
+	PerformanceProfileID *string
+	WeatherSource        *string
+	Sources              []string
 }
 
 // Slot is a committed sequencing result. It intentionally has no locked
 // field: freezes are represented exclusively by AMANFlight.FreezeReason.
 type Slot struct {
-	Time          time.Time        `json:"time"`
-	RunwayGroupID RunwayGroupID    `json:"runway_group_id"`
-	Sequence      int              `json:"sequence"`
-	Revision      SequenceRevision `json:"revision"`
-	Reason        string           `json:"reason"`
+	Time          time.Time
+	RunwayGroupID RunwayGroupID
+	Sequence      int
+	Revision      SequenceRevision
+	Reason        string
 }
 
 // RouteFact is the currently active operational route fact. Transport and
 // tracking-authority details belong to the route-fact owner, not this core
 // contract.
 type RouteFact struct {
-	ID         string    `json:"id"`
-	Fix        string    `json:"fix"`
-	ObservedAt time.Time `json:"observed_at"`
+	ID         string
+	Fix        string
+	ObservedAt time.Time
 }
 
 // ETAReview and GoAroundDetectionState reserve the aggregate's owned state
 // without defining command, persistence, or detector implementation details.
 // Their full workflows are owned by their respective components.
 type ETAReview struct {
-	Status string `json:"status"`
+	Status string
 }
 
 type GoAroundDetectionState struct {
-	EpisodeID *string `json:"episode_id"`
+	EpisodeID *string
 }
 
 // RunwayGroupPolicy is the airport-state identity for a runway group. The
 // sequence component owns the policy's rate and spacing declarations.
 type RunwayGroupPolicy struct {
-	ID RunwayGroupID `json:"id"`
+	ID RunwayGroupID
 }
 
 // AMANFlight is the persisted aggregate shape. All operational TETA, state,
 // freeze, slot, and order changes are backend-owned.
 type AMANFlight struct {
-	ID                    FlightID                `json:"id"`
-	State                 FlightState             `json:"state"`
-	DataStatus            DataStatus              `json:"data_status"`
-	Prediction            *Prediction             `json:"prediction"`
-	SelectedRunwayGroup   *RunwayGroupID          `json:"selected_runway_group"`
-	SelectedFeeder        *string                 `json:"selected_feeder"`
-	SelectedHolding       *string                 `json:"selected_holding"`
-	ActiveRouteFact       *RouteFact              `json:"active_route_fact"`
-	FreezeReason          FreezeReason            `json:"freeze_reason"`
-	FrozenAt              *time.Time              `json:"frozen_at"`
-	FrozenOperationalTETA *time.Time              `json:"frozen_operational_teta"`
-	Slot                  *Slot                   `json:"slot"`
-	Order                 *int                    `json:"order"`
-	ETAReview             *ETAReview              `json:"eta_review"`
-	GoAroundDetection     *GoAroundDetectionState `json:"go_around_detection"`
-	UpdatedAt             time.Time               `json:"updated_at"`
+	ID                    FlightID
+	State                 FlightState
+	DataStatus            DataStatus
+	Prediction            *Prediction
+	SelectedRunwayGroup   *RunwayGroupID
+	SelectedFeeder        *string
+	SelectedHolding       *string
+	ActiveRouteFact       *RouteFact
+	FreezeReason          FreezeReason
+	FrozenAt              *time.Time
+	FrozenOperationalTETA *time.Time
+	Slot                  *Slot
+	Order                 *int
+	ETAReview             *ETAReview
+	GoAroundDetection     *GoAroundDetectionState
+	UpdatedAt             time.Time
 }
 
 // AirportState is the sole source for one coherent AMAN replacement state.
 // Revisions are allocated only when a committed domain result changes it.
 type AirportState struct {
-	Airport       string              `json:"airport"`
-	Revision      SequenceRevision    `json:"revision"`
-	GeneratedAt   time.Time           `json:"generated_at"`
-	PolicyVersion string              `json:"policy_version"`
-	Mode          RolloutMode         `json:"mode"`
-	Authoritative bool                `json:"authoritative"`
-	Flights       []AMANFlight        `json:"flights"`
-	RunwayGroups  []RunwayGroupPolicy `json:"runway_groups"`
+	Airport       string
+	Revision      SequenceRevision
+	GeneratedAt   time.Time
+	PolicyVersion string
+	Mode          RolloutMode
+	Authoritative bool
+	Flights       []AMANFlight
+	RunwayGroups  []RunwayGroupPolicy
 }
 
 // CommandMetadata is shared by typed command values. It deliberately does not
 // use a kind plus nullable fields; each command owner defines a separate type.
 type CommandMetadata struct {
-	CommandID        string           `json:"command_id"`
-	ExpectedRevision SequenceRevision `json:"expected_revision"`
+	CommandID        string
+	ExpectedRevision SequenceRevision
 }
 
 type ErrorClass string

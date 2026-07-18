@@ -1,44 +1,67 @@
 package aman
 
 import (
-	"encoding/json"
 	"errors"
-	"strings"
+	"reflect"
 	"testing"
 	"time"
 )
 
-func TestPredictionJSONUsesUTCInstantsAndExplicitNulls(t *testing.T) {
+func TestFormatTimeUsesRFC3339MillisecondsIncludingExactSeconds(t *testing.T) {
 	instant := time.Date(2026, time.July, 18, 12, 34, 56, 123000000, time.UTC)
-	prediction := Prediction{
-		RawTETA:           instant,
-		OperationalTETA:   instant,
-		OperationalReason: "smoothed",
-		GeneratedAt:       instant,
-		InputObservedAt:   instant,
-		Confidence:        ConfidenceHigh,
-		DatasetVersion:    "2026-07",
-		GeometryDigest:    "abc123",
-		ModelVersion:      "model-v1",
-		ConfigVersion:     "config-v1",
-		Sources:           []string{"vatsim", "nav-cache"},
+	encoded, err := FormatTime(instant)
+	if err != nil {
+		t.Fatalf("format millisecond timestamp: %v", err)
+	}
+	if encoded != "2026-07-18T12:34:56.123Z" {
+		t.Errorf("formatted timestamp = %q", encoded)
 	}
 
-	encoded, err := json.Marshal(prediction)
+	exactSecond, err := FormatTime(instant.Truncate(time.Second))
 	if err != nil {
-		t.Fatalf("marshal prediction: %v", err)
+		t.Fatalf("format exact-second timestamp: %v", err)
 	}
-	jsonText := string(encoded)
-	for _, want := range []string{
-		`"raw_teta":"2026-07-18T12:34:56.123Z"`,
-		`"operational_teta":"2026-07-18T12:34:56.123Z"`,
-		`"degradation_reason":null`,
-		`"distance_to_go_nm":null`,
-		`"holding_fix_eta":null`,
-		`"sources":["vatsim","nav-cache"]`,
-	} {
-		if !strings.Contains(jsonText, want) {
-			t.Errorf("prediction JSON %s does not contain %s", jsonText, want)
+	if exactSecond != "2026-07-18T12:34:56.000Z" {
+		t.Errorf("formatted exact-second timestamp = %q", exactSecond)
+	}
+}
+
+func TestWholeSecondsPreservesDurationWithoutNanosecondSerialization(t *testing.T) {
+	seconds, err := WholeSeconds(90 * time.Second)
+	if err != nil {
+		t.Fatalf("whole seconds: %v", err)
+	}
+	if seconds != 90 {
+		t.Errorf("whole seconds = %d", seconds)
+	}
+
+	if _, err := WholeSeconds(1500 * time.Millisecond); err == nil {
+		t.Error("expected non-whole duration to be rejected")
+	}
+}
+
+func TestDomainTypesDoNotDeclareWireJSONTags(t *testing.T) {
+	types := []reflect.Type{
+		reflect.TypeFor[FlightObservation](),
+		reflect.TypeFor[PlannedTiming](),
+		reflect.TypeFor[FlightPlanFact](),
+		reflect.TypeFor[SurveillanceFact](),
+		reflect.TypeFor[Prediction](),
+		reflect.TypeFor[Slot](),
+		reflect.TypeFor[RouteFact](),
+		reflect.TypeFor[ETAReview](),
+		reflect.TypeFor[GoAroundDetectionState](),
+		reflect.TypeFor[RunwayGroupPolicy](),
+		reflect.TypeFor[AMANFlight](),
+		reflect.TypeFor[AirportState](),
+		reflect.TypeFor[CommandMetadata](),
+	}
+	for _, domainType := range types {
+		for index := range domainType.NumField() {
+			field := domainType.Field(index)
+			if tag := field.Tag.Get("json"); tag != "" {
+				t.Errorf("%s.%s declares wire JSON tag %q", domainType.Name(), field.Name, tag)
+			}
 		}
 	}
 }

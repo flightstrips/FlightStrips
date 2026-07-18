@@ -1,5 +1,32 @@
 # Changelog
 
+## [0.37.0](https://github.com/flightstrips/FlightStrips/compare/backend/v0.36.0...backend/v0.37.0) (2026-07-18)
+
+
+### Features
+
+* add authenticated EFB behind feature flag ([#348](https://github.com/flightstrips/FlightStrips/issues/348)) ([b9fb84e](https://github.com/flightstrips/FlightStrips/commit/b9fb84ea9522a26cc9090468713568bef5be5c30))
+* **sat:** add local test console ([#361](https://github.com/flightstrips/FlightStrips/issues/361)) ([782afae](https://github.com/flightstrips/FlightStrips/commit/782afae462081ddce1c2a32d5da07ee6e8c66c1e))
+* send stand assignment ([#364](https://github.com/flightstrips/FlightStrips/issues/364)) ([ca957f2](https://github.com/flightstrips/FlightStrips/commit/ca957f2288e17ecceeeb45107f3348b255a10a44))
+* **stand:** add system status diagnostics ([#358](https://github.com/flightstrips/FlightStrips/issues/358)) ([8f926b3](https://github.com/flightstrips/FlightStrips/commit/8f926b35f762968a5906d8dd9abaa46943698f28))
+* **strip:** show arrival STAR in EFB ([#353](https://github.com/flightstrips/FlightStrips/issues/353)) ([d2431cb](https://github.com/flightstrips/FlightStrips/commit/d2431cb37783691d35fc9d632586bf2f82361583))
+* **strip:** store arrival STAR ([#347](https://github.com/flightstrips/FlightStrips/issues/347)) ([02747f2](https://github.com/flightstrips/FlightStrips/commit/02747f28c25f9fd5e83655392164fdcbc49c5388))
+
+
+### Bug Fixes
+
+* **cdm:** align EST startup states ([#354](https://github.com/flightstrips/FlightStrips/issues/354)) ([3567888](https://github.com/flightstrips/FlightStrips/commit/3567888699c5134c393a8b53ea82395f2b10ab59))
+* **cdm:** preserve TSAT after startup ([#345](https://github.com/flightstrips/FlightStrips/issues/345)) ([bf95c40](https://github.com/flightstrips/FlightStrips/commit/bf95c40a52939d2ed5a94dd2e7efe08f1e84d87d))
+* **cdm:** restore EOBT clamping during strip sync ([#346](https://github.com/flightstrips/FlightStrips/issues/346)) ([547749e](https://github.com/flightstrips/FlightStrips/commit/547749e45526616fbe31b32de1e33c48c5042747))
+* **cdm:** synchronize startup request timing ([#355](https://github.com/flightstrips/FlightStrips/issues/355)) ([53db077](https://github.com/flightstrips/FlightStrips/commit/53db07714180cd5afae83e21dc77f55e39f36674))
+* **pdc:** allow Web PDC without Hoppie ([#359](https://github.com/flightstrips/FlightStrips/issues/359)) ([886e502](https://github.com/flightstrips/FlightStrips/commit/886e50245c601039a3651395a893ebe3b3e7cb67))
+* **pdc:** clear pending state on EuroScope clearance ([#351](https://github.com/flightstrips/FlightStrips/issues/351)) ([28e6e78](https://github.com/flightstrips/FlightStrips/commit/28e6e78a9fbc95c31a0fad771bf3dd60aa0f470e))
+* **sat:** complete airline stand assignment rules ([#360](https://github.com/flightstrips/FlightStrips/issues/360)) ([0f61b1c](https://github.com/flightstrips/FlightStrips/commit/0f61b1c06753c313b7a4df42d2062cee94f9c9b6))
+* stand allocation blocks and retries ([#363](https://github.com/flightstrips/FlightStrips/issues/363)) ([03afd4c](https://github.com/flightstrips/FlightStrips/commit/03afd4c10adb0c4d20bea4fbdcc77e80cfc89d64))
+* **stand:** synchronize lifecycle removals and adjacency ([#340](https://github.com/flightstrips/FlightStrips/issues/340)) ([eed49fb](https://github.com/flightstrips/FlightStrips/commit/eed49fb998d0543c3e2a7c7b272043bf3a4d8e26))
+* Test console provide correct snapshot time ([#362](https://github.com/flightstrips/FlightStrips/issues/362)) ([6e253b9](https://github.com/flightstrips/FlightStrips/commit/6e253b9d25e522a9ec98dd07a685587732152d44))
+* **websocket:** normalize EuroScope disconnect logs ([#349](https://github.com/flightstrips/FlightStrips/issues/349)) ([ecd1959](https://github.com/flightstrips/FlightStrips/commit/ecd19592abacd980189a4381ac7e44f409c30f4c))
+
 ## [0.36.0](https://github.com/flightstrips/FlightStrips/compare/backend/v0.35.1...backend/v0.36.0) (2026-07-12)
 
 

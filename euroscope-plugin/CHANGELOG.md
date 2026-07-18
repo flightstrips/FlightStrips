@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.20.0](https://github.com/flightstrips/FlightStrips/compare/plugin/v0.19.0...plugin/v0.20.0) (2026-07-18)
+
+
+### Features
+
+* **strip:** store arrival STAR ([#347](https://github.com/flightstrips/FlightStrips/issues/347)) ([02747f2](https://github.com/flightstrips/FlightStrips/commit/02747f28c25f9fd5e83655392164fdcbc49c5388))
+
+
+### Bug Fixes
+
+* **strip:** sync reassigned runways from EuroScope ([#350](https://github.com/flightstrips/FlightStrips/issues/350)) ([ca4a899](https://github.com/flightstrips/FlightStrips/commit/ca4a8991d587b510594e9331a85f369d338cfd35))
+
 ## [0.19.0](https://github.com/flightstrips/FlightStrips/compare/plugin/v0.18.0...plugin/v0.19.0) (2026-07-11)
 
 

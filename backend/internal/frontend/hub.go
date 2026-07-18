@@ -7,6 +7,7 @@ import (
 	"FlightStrips/internal/metrics"
 	internalModels "FlightStrips/internal/models"
 	"FlightStrips/internal/rnav"
+	"FlightStrips/internal/sat"
 	internalServer "FlightStrips/internal/server"
 	"FlightStrips/internal/services"
 	"FlightStrips/internal/shared"
@@ -974,17 +975,31 @@ func (hub *Hub) PublishStandAllocation(ctx context.Context, result services.Stan
 	euroscopeHub := hub.server.GetEuroscopeHub()
 	for _, assignment := range removed {
 		hub.SendStandEvent(sessionID, assignment.Callsign, "")
-		if euroscopeHub != nil {
-			euroscopeHub.Broadcast(sessionID, euroscopeEvents.StandEvent{Callsign: assignment.Callsign, Stand: ""})
-		}
+		hub.sendAllocatedStandToEuroscope(euroscopeHub, assignment, "")
 	}
 	if !result.Removed {
 		hub.SendStandEvent(sessionID, result.Assignment.Callsign, result.Assignment.Stand)
-		if euroscopeHub != nil {
-			euroscopeHub.Broadcast(sessionID, euroscopeEvents.StandEvent{Callsign: result.Assignment.Callsign, Stand: result.Assignment.Stand})
-		}
+		hub.sendAllocatedStandToEuroscope(euroscopeHub, result.Assignment, result.Assignment.Stand)
 	}
 	return nil
+}
+
+func (hub *Hub) sendAllocatedStandToEuroscope(euroscopeHub shared.EuroscopeHub, assignment internalModels.StandAssignment, stand string) {
+	if euroscopeHub == nil {
+		return
+	}
+	if !strings.EqualFold(assignment.Direction, string(sat.AssignmentDirectionArrival)) {
+		euroscopeHub.Broadcast(assignment.SessionID, euroscopeEvents.StandEvent{Callsign: assignment.Callsign, Stand: stand})
+		return
+	}
+	if assignment.Stage != services.StageConfirmed {
+		return
+	}
+	masterCid := strings.TrimSpace(euroscopeHub.GetMasterCid(assignment.SessionID))
+	if masterCid == "" {
+		return
+	}
+	euroscopeHub.SendStand(assignment.SessionID, masterCid, assignment.Callsign, stand)
 }
 
 func clientAirport(strip *internalModels.Strip, direction string) string {

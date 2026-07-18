@@ -44,7 +44,7 @@ func main() {
 		slog.Error("ENABLE_TEST_TOOLS cannot be enabled in a live environment")
 		os.Exit(1)
 	}
-	standAssignmentAircraftJSON := standAssignmentAircraftFile(enableTestTools, os.Getenv("GRPLUGIN_ICAO_AIRCRAFT_JSON"))
+	standAssignmentAircraftJSON := standAssignmentAircraftFile(os.Getenv("GRPLUGIN_ICAO_AIRCRAFT_JSON"))
 
 	otlpEndpoint := os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
 	if otlpEndpoint != "" {
@@ -143,12 +143,8 @@ func main() {
 	slog.Info("Server shutdown complete")
 }
 
-func standAssignmentAircraftFile(testTools bool, configured string) string {
-	configured = strings.TrimSpace(configured)
-	if testTools && configured == "" {
-		return "config/test/ICAO_Aircraft.json"
-	}
-	return configured
+func standAssignmentAircraftFile(configured string) string {
+	return strings.TrimSpace(configured)
 }
 
 func configureLogging() {

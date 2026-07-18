@@ -152,7 +152,8 @@ func NewDepartureLifecycleService(
 // reservation path while the aircraft is offline and to the block path once it
 // is online. Both paths are idempotent: repeated feed polls with no change in
 // revision or timing leave the persisted assignment untouched.
-func (s *DepartureLifecycleService) ProcessDeparture(ctx context.Context, session int32, strip *models.Strip, flight vatsim.DepartureFlightInfo) error {
+func (s *DepartureLifecycleService) ProcessDeparture(ctx context.Context, session int32, strip *models.Strip, flight vatsim.DepartureFlightInfo) (err error) {
+	defer func() { err = suppressAutomaticAllocationError(err) }()
 	if strip == nil || strings.TrimSpace(strip.Callsign) == "" {
 		return nil
 	}
@@ -220,16 +221,32 @@ func (s *DepartureLifecycleService) activateObservedBlock(ctx context.Context, s
 		return true, s.activateBlock(ctx, session, strip, flight)
 	}
 
+	pendingReason := wrongStandPendingPrefix + observed.Name
+	awaitingReason := wrongStandAwaitingPrefix + observed.Name
+	if existing != nil && existing.ConflictReason != nil {
+		switch *existing.ConflictReason {
+		case pendingReason:
+			return false, nil
+		case awaitingReason:
+			return false, s.deliverWrongStandWarning(ctx, existing)
+		}
+	}
+
 	expiry := s.computeBlockExpiry(strip)
 	request := s.buildRequest(session, strip, flight, StageDepartureBlock, expiry)
 	request.Stand = observed.Name
-	if _, err := s.allocations.AssignManually(ctx, request); err == nil {
+	observedRequest := request
+	observedRequest.ExpiresAt = nil
+	if _, err := s.allocations.assignObservedStand(ctx, observedRequest); err == nil {
 		s.clearUnassignedStandWarning(session, strip.Callsign)
 		return true, nil
 	} else if existing == nil {
 		automaticRequest := s.buildRequest(session, strip, flight, StageDepartureBlock, expiry)
 		result, allocationErr := s.allocations.Allocate(ctx, automaticRequest)
 		if allocationErr != nil {
+			if errors.Is(allocationErr, ErrAutomaticAllocationSuppressed) {
+				return false, nil
+			}
 			s.deliverUnassignedOccupiedStandWarning(session, strip.Callsign, observed.Name)
 			slog.Warn("observed departure stand is occupied and no alternative stand could be assigned",
 				slog.String("callsign", strip.Callsign),
@@ -242,8 +259,6 @@ func (s *DepartureLifecycleService) activateObservedBlock(ctx context.Context, s
 		existing = &result.Assignment
 	}
 
-	pendingReason := wrongStandPendingPrefix + observed.Name
-	awaitingReason := wrongStandAwaitingPrefix + observed.Name
 	if existing.ConflictReason != nil {
 		switch *existing.ConflictReason {
 		case pendingReason:
@@ -426,8 +441,12 @@ func (s *DepartureLifecycleService) activateBlock(ctx context.Context, session i
 	if existing.Stage != StageReserved && existing.Stage != StageDepartureBlock {
 		return nil
 	}
+	onAssignedStand := s.stripIsAtAssignedStand(strip, existing.Stand)
+	if onAssignedStand {
+		expiry = nil
+	}
 	if existing.Stage == StageDepartureBlock {
-		if expiry == nil && existing.ExpiresAt != nil {
+		if expiry == nil && existing.ExpiresAt != nil && !onAssignedStand {
 			return nil
 		}
 		if sameExpiry(existing.ExpiresAt, expiry) {
@@ -563,6 +582,12 @@ func (s *DepartureLifecycleService) releaseIfDue(ctx context.Context, session in
 		recordSATExpiry(ctx, assignment, "strip_removed", err)
 		return err
 	}
+	if assignment.Stage == StageDepartureBlock && s.stripIsAtAssignedStand(strip, assignment.Stand) &&
+		(assignment.ConflictReason == nil ||
+			(!strings.HasPrefix(*assignment.ConflictReason, wrongStandPendingPrefix) &&
+				!strings.HasPrefix(*assignment.ConflictReason, wrongStandAwaitingPrefix))) {
+		return s.clearDepartureBlockExpiry(ctx, assignment)
+	}
 	if assignment.ExpiresAt == nil || assignment.ExpiresAt.After(now) {
 		return nil
 	}
@@ -572,6 +597,34 @@ func (s *DepartureLifecycleService) releaseIfDue(ctx context.Context, session in
 	err = s.allocations.ReleaseAssignment(ctx, assignment)
 	recordSATExpiry(ctx, assignment, "expired", err)
 	return err
+}
+
+func (s *DepartureLifecycleService) clearDepartureBlockExpiry(ctx context.Context, assignment *models.StandAssignment) error {
+	if assignment == nil || assignment.ExpiresAt == nil {
+		return nil
+	}
+	updated := *assignment
+	updated.ExpiresAt = nil
+	affected, err := s.assignments.UpdateAssignment(ctx, &updated)
+	if err != nil {
+		return err
+	}
+	if affected != 1 {
+		return fmt.Errorf("clear departure block expiry version conflict for %s", assignment.Callsign)
+	}
+	updated.Version++
+	return s.allocations.PublishAssignment(ctx, updated)
+}
+
+func (s *DepartureLifecycleService) stripIsAtAssignedStand(strip *models.Strip, stand string) bool {
+	if strip == nil {
+		return false
+	}
+	if strip.PositionLatitude != nil && strip.PositionLongitude != nil {
+		observed, found := s.stands.StandAtPosition(strings.TrimSpace(strip.Origin), *strip.PositionLatitude, *strip.PositionLongitude)
+		return found && strings.EqualFold(observed.Name, stand)
+	}
+	return strip.Stand != nil && strings.EqualFold(strings.TrimSpace(*strip.Stand), strings.TrimSpace(stand))
 }
 
 func (s *DepartureLifecycleService) forceObservedStand(ctx context.Context, strip *models.Strip, assignment *models.StandAssignment) error {
@@ -653,19 +706,33 @@ func (s *DepartureLifecycleService) resolveFacts(strip *models.Strip, flight vat
 
 func (s *DepartureLifecycleService) computeBlockExpiry(strip *models.Strip) *time.Time {
 	now := s.now()
-	if value := stripClockValue(strip.EffectiveTsat()); value != "" {
-		if t, ok := parseDepartureClockUTC(value, now); ok {
-			expiry := t.Add(s.blockExtension)
+	invalidReason := ""
+	if calculation := strip.CdmData.EffectiveCalculation(); calculation != nil && calculation.InvalidReason != nil {
+		invalidReason = strings.TrimSpace(*calculation.InvalidReason)
+	}
+	if invalidReason != models.CdmInvalidReasonStaleTsat {
+		if expiry, ok := departureBlockExpiry(stripClockValue(strip.EffectiveTsat()), now, s.blockExtension); ok {
 			return &expiry
 		}
 	}
-	if value := stripClockValue(strip.EffectiveTobt()); value != "" {
-		if t, ok := parseDepartureClockUTC(value, now); ok {
-			expiry := t.Add(s.blockExtension)
+	if invalidReason != models.CdmInvalidReasonStaleTobt {
+		if expiry, ok := departureBlockExpiry(stripClockValue(strip.EffectiveTobt()), now, s.blockExtension); ok {
 			return &expiry
 		}
 	}
 	return nil
+}
+
+func departureBlockExpiry(value string, now time.Time, extension time.Duration) (time.Time, bool) {
+	if value == "" {
+		return time.Time{}, false
+	}
+	t, ok := parseDepartureClockUTC(value, now)
+	if !ok {
+		return time.Time{}, false
+	}
+	expiry := t.Add(extension)
+	return expiry, expiry.After(now)
 }
 
 func standCompatible(evaluation sat.StandCompatibilityEvaluation, stand string) bool {

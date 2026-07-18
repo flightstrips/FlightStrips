@@ -94,7 +94,8 @@ func NewArrivalLifecycleService(
 	return service, nil
 }
 
-func (s *ArrivalLifecycleService) ProcessArrival(ctx context.Context, session int32, strip *models.Strip, flight vatsim.ArrivalFlightInfo) error {
+func (s *ArrivalLifecycleService) ProcessArrival(ctx context.Context, session int32, strip *models.Strip, flight vatsim.ArrivalFlightInfo) (err error) {
+	defer func() { err = suppressAutomaticAllocationError(err) }()
 	if strip == nil || strings.TrimSpace(strip.Callsign) == "" {
 		return nil
 	}

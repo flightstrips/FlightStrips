@@ -72,7 +72,7 @@ func TestDepartureLifecycle(t *testing.T) {
 		assert.Nil(t, assignment.VatsimCID)
 		assert.Nil(t, assignment.VatsimRevision)
 
-		// Force the existing-assignment update path by adding a block expiry.
+		// A CDM update must not reintroduce an expiry while the aircraft occupies A1.
 		tsat := "1030"
 		_, err = strips.SetCdmData(ctx, session, "SAS102", &models.CdmData{Tsat: &tsat})
 		require.NoError(t, err)
@@ -81,7 +81,7 @@ func TestDepartureLifecycle(t *testing.T) {
 
 		updated, err := assignments.GetAssignment(ctx, session, "SAS102")
 		require.NoError(t, err)
-		require.NotNil(t, updated.ExpiresAt)
+		assert.Nil(t, updated.ExpiresAt)
 		assert.Nil(t, updated.VatsimCID)
 		assert.Nil(t, updated.VatsimRevision)
 	})
@@ -197,8 +197,7 @@ func TestDepartureLifecycle(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, StageDepartureBlock, block.Stage)
 		assert.Equal(t, "A1", block.Stand)
-		require.NotNil(t, block.ExpiresAt)
-		assert.Equal(t, time.Date(2026, 7, 12, 10, 40, 0, 0, time.UTC), block.ExpiresAt.UTC(), "block is retained through TSAT+10 minutes")
+		assert.Nil(t, block.ExpiresAt, "an online aircraft on its assigned stand has no block expiry")
 	})
 
 	t.Run("coming online at a different free stand blocks the observed stand", func(t *testing.T) {
@@ -228,6 +227,7 @@ func TestDepartureLifecycle(t *testing.T) {
 		require.NoError(t, assignments.CreateBlock(ctx, &models.StandBlock{SessionID: session, Stand: "A2", BlockType: "MANUAL", Source: "CONTROLLER", Manual: true}))
 
 		require.NoError(t, lifecycle.ProcessDeparture(ctx, session, loadStrip(t, strips, session, "SAS603"), onlineFlightAtA2("SAS603", 1)))
+		assert.Empty(t, allocations.failures.List(), "an occupied observed stand is expected wrong-stand recovery, not a failed controller allocation")
 
 		assignment, err := assignments.GetAssignment(ctx, session, "SAS603")
 		require.NoError(t, err)
@@ -273,7 +273,7 @@ func TestDepartureLifecycle(t *testing.T) {
 	})
 
 	t.Run("EuroScope-only spawn on occupied stand receives an alternative and relocation message", func(t *testing.T) {
-		lifecycle, _, session, assignments, strips, _ := departureLifecycleFixture(t, pool, queries, "", "", nil)
+		lifecycle, allocations, session, assignments, strips, _ := departureLifecycleFixture(t, pool, queries, "", "", nil)
 		messenger := &wrongStandTestMessenger{available: true}
 		lifecycle.SetWrongStandMessenger(messenger)
 		testdata.SeedTestStrip(t, queries, session, "SAS608")
@@ -298,6 +298,7 @@ func TestDepartureLifecycle(t *testing.T) {
 			ctx, session, loadStrip(t, strips, session, "SAS608"), 55.6285306, 12.6434583,
 		))
 		require.Equal(t, 1, messenger.calls, "the same occupied-stand episode must not send another message")
+		assert.Empty(t, allocations.failures.List(), "observed-stand probing must not create allocation failures")
 	})
 
 	t.Run("EuroScope-only spawn with no alternative receives one occupied message", func(t *testing.T) {
@@ -385,7 +386,7 @@ func TestDepartureLifecycle(t *testing.T) {
 		assert.Equal(t, clock.current().Add(15*time.Minute).UTC(), cancelled.ExpiresAt.UTC())
 	})
 
-	t.Run("TSAT controls block release when present", func(t *testing.T) {
+	t.Run("TSAT does not release an occupied departure block", func(t *testing.T) {
 		lifecycle, _, session, assignments, strips, clock := departureLifecycleFixture(t, pool, queries, "", "", nil)
 		testdata.SeedTestStrip(t, queries, session, "SAS701")
 		clock.set(time.Date(2026, 7, 12, 10, 0, 0, 0, time.UTC))
@@ -399,16 +400,17 @@ func TestDepartureLifecycle(t *testing.T) {
 		clock.set(time.Date(2026, 7, 12, 10, 39, 0, 0, time.UTC))
 		require.NoError(t, lifecycle.ReleaseExpired(ctx))
 		if assignment, err := assignments.GetAssignment(ctx, session, "SAS701"); assert.NoError(t, err) {
-			assert.NotNil(t, assignment.ExpiresAt, "block is retained before TSAT+10")
+			assert.Nil(t, assignment.ExpiresAt, "the active block should not retain a TSAT expiry")
 		}
 
 		clock.set(time.Date(2026, 7, 12, 10, 41, 0, 0, time.UTC))
 		require.NoError(t, lifecycle.ReleaseExpired(ctx))
-		_, err = assignments.GetAssignment(ctx, session, "SAS701")
-		require.Error(t, err, "block is released once TSAT+10 has passed")
+		assignment, err := assignments.GetAssignment(ctx, session, "SAS701")
+		require.NoError(t, err, "the occupied stand remains assigned after TSAT+10")
+		assert.Nil(t, assignment.ExpiresAt)
 	})
 
-	t.Run("TOBT controls release when TSAT is absent", func(t *testing.T) {
+	t.Run("TOBT does not release an occupied departure block", func(t *testing.T) {
 		lifecycle, _, session, assignments, strips, clock := departureLifecycleFixture(t, pool, queries, "", "", nil)
 		testdata.SeedTestStrip(t, queries, session, "SAS801")
 		clock.set(time.Date(2026, 7, 12, 10, 0, 0, 0, time.UTC))
@@ -421,13 +423,37 @@ func TestDepartureLifecycle(t *testing.T) {
 
 		block, err := assignments.GetAssignment(ctx, session, "SAS801")
 		require.NoError(t, err)
-		require.NotNil(t, block.ExpiresAt)
-		assert.Equal(t, time.Date(2026, 7, 12, 10, 40, 0, 0, time.UTC), block.ExpiresAt.UTC(), "TOBT+10 governs the block when TSAT is absent")
+		assert.Nil(t, block.ExpiresAt, "an online aircraft on its assigned stand has no TOBT expiry")
 
 		clock.set(time.Date(2026, 7, 12, 10, 41, 0, 0, time.UTC))
 		require.NoError(t, lifecycle.ReleaseExpired(ctx))
 		_, err = assignments.GetAssignment(ctx, session, "SAS801")
-		require.Error(t, err)
+		require.NoError(t, err, "the occupied stand remains assigned after TOBT+10")
+	})
+
+	t.Run("stale TOBT does not recreate an already expired online block", func(t *testing.T) {
+		lifecycle, _, session, assignments, strips, clock := departureLifecycleFixture(t, pool, queries, "", "", nil)
+		testdata.SeedTestStrip(t, queries, session, "SAS802")
+		clock.set(time.Date(2026, 7, 12, 10, 0, 0, 0, time.UTC))
+		tobt := "0905"
+		invalidReason := models.CdmInvalidReasonStaleTobt
+		_, err := strips.SetCdmData(ctx, session, "SAS802", &models.CdmData{
+			Tobt:        &tobt,
+			Calculation: &models.CdmCalculation{InvalidReason: &invalidReason},
+		})
+		require.NoError(t, err)
+
+		require.NoError(t, lifecycle.ObserveDeparturePosition(
+			ctx, session, loadStrip(t, strips, session, "SAS802"), 55.6285306, 12.642625,
+		))
+		assignment, err := assignments.GetAssignment(ctx, session, "SAS802")
+		require.NoError(t, err)
+		assert.Nil(t, assignment.ExpiresAt, "stale TOBT must not create an already-expired deadline")
+
+		clock.advance(30 * time.Minute)
+		require.NoError(t, lifecycle.ReleaseExpired(ctx))
+		_, err = assignments.GetAssignment(ctx, session, "SAS802")
+		require.NoError(t, err, "an online assignment without a valid CDM deadline must remain assigned")
 	})
 
 	t.Run("revalidation reallocates when EuroScope facts invalidate the stand", func(t *testing.T) {
@@ -450,7 +476,7 @@ func TestDepartureLifecycle(t *testing.T) {
 		assert.Equal(t, StageDepartureBlock, reallocated.Stage)
 	})
 
-	t.Run("a temporary TSAT gap does not clear the existing block expiry", func(t *testing.T) {
+	t.Run("a temporary TSAT gap does not add a block expiry", func(t *testing.T) {
 		lifecycle, _, session, assignments, strips, clock := departureLifecycleFixture(t, pool, queries, "", "", nil)
 		testdata.SeedTestStrip(t, queries, session, "SAS920")
 		clock.set(time.Date(2026, 7, 12, 10, 0, 0, 0, time.UTC))
@@ -463,8 +489,7 @@ func TestDepartureLifecycle(t *testing.T) {
 
 		block, err := assignments.GetAssignment(ctx, session, "SAS920")
 		require.NoError(t, err)
-		require.NotNil(t, block.ExpiresAt)
-		original := *block.ExpiresAt
+		assert.Nil(t, block.ExpiresAt)
 
 		_, err = strips.SetCdmData(ctx, session, "SAS920", &models.CdmData{})
 		require.NoError(t, err)
@@ -473,8 +498,7 @@ func TestDepartureLifecycle(t *testing.T) {
 
 		polled, err := assignments.GetAssignment(ctx, session, "SAS920")
 		require.NoError(t, err)
-		require.NotNil(t, polled.ExpiresAt)
-		assert.Equal(t, original.UTC(), polled.ExpiresAt.UTC(), "existing TSAT-based expiry is preserved during a CDM gap")
+		assert.Nil(t, polled.ExpiresAt, "a CDM gap must not add an expiry to an occupied departure block")
 	})
 
 	t.Run("restart reconstructs pending deadlines from persisted timestamps", func(t *testing.T) {

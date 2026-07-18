@@ -13,6 +13,7 @@ import (
 	"math/rand"
 	"slices"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -33,13 +34,16 @@ const (
 )
 
 var (
-	ErrNoAvailableStand             = errors.New("no compatible stand is available")
-	ErrNoCompatibleStand            = errors.New("no stand is compatible with the flight")
-	ErrIncompatibleManualAssignment = errors.New("manual stand is not compatible or available")
-	ErrAllocationRetriesExhausted   = errors.New("stand allocation retries exhausted")
-	ErrUnknownManualOverrideStand   = errors.New("manual override stand is not configured")
-	errAllocationVersionConflict    = errors.New("stand assignment version conflict")
+	ErrNoAvailableStand              = errors.New("no compatible stand is available")
+	ErrNoCompatibleStand             = errors.New("no stand is compatible with the flight")
+	ErrIncompatibleManualAssignment  = errors.New("manual stand is not compatible or available")
+	ErrAllocationRetriesExhausted    = errors.New("stand allocation retries exhausted")
+	ErrUnknownManualOverrideStand    = errors.New("manual override stand is not configured")
+	ErrAutomaticAllocationSuppressed = errors.New("automatic stand allocation suppressed after repeated incompatibility")
+	errAllocationVersionConflict     = errors.New("stand assignment version conflict")
 )
+
+const automaticNoCompatibleFailureThreshold = 3
 
 // StandAllocationRequest contains facts already resolved by the SAT data
 // layer. It intentionally excludes lifecycle and controller authorization
@@ -96,6 +100,14 @@ type StandAllocationService struct {
 	attempts    int
 	now         func() time.Time
 	failures    *standdiagnostics.AllocationFailureLog
+
+	automaticFailureMu            sync.Mutex
+	automaticNoCompatibleFailures map[string]automaticNoCompatibleFailure
+}
+
+type automaticNoCompatibleFailure struct {
+	fingerprint string
+	failures    int
 }
 
 type StandAllocationOption func(*StandAllocationService)
@@ -249,6 +261,13 @@ func (s *StandAllocationService) AssignManually(ctx context.Context, request Sta
 	return s.allocate(ctx, CompatibleManualStand, request)
 }
 
+// assignObservedStand probes the stand where EuroScope saw an aircraft. An
+// unavailable result is expected during wrong-stand recovery, so it must not
+// be retained as a controller-facing allocation failure.
+func (s *StandAllocationService) assignObservedStand(ctx context.Context, request StandAllocationRequest) (*StandAllocationResult, error) {
+	return s.allocateWithFailureLogging(ctx, CompatibleManualStand, request, false)
+}
+
 func (s *StandAllocationService) OverrideManually(ctx context.Context, request StandAllocationRequest) (*StandAllocationResult, error) {
 	return s.allocate(ctx, IncompatibleManualOverride, request)
 }
@@ -317,14 +336,24 @@ func (s *StandAllocationService) DeleteManualBlock(ctx context.Context, session 
 }
 
 func (s *StandAllocationService) allocate(ctx context.Context, command StandAllocationCommand, request StandAllocationRequest) (*StandAllocationResult, error) {
+	return s.allocateWithFailureLogging(ctx, command, request, true)
+}
+
+func (s *StandAllocationService) allocateWithFailureLogging(ctx context.Context, command StandAllocationCommand, request StandAllocationRequest, recordFailures bool) (*StandAllocationResult, error) {
 	if err := validateStandAllocationRequest(command, &request); err != nil {
-		s.recordAllocationFailure(command, request, "invalid_request", err, 0)
+		if recordFailures {
+			s.recordAllocationFailure(command, request, "invalid_request", err, 0)
+		}
 		return nil, err
+	}
+	if isAutomaticStandAllocation(command) && s.automaticAllocationSuppressed(request) {
+		return nil, ErrAutomaticAllocationSuppressed
 	}
 	tried := map[string]struct{}{}
 	for attempt := 1; attempt <= s.attempts; attempt++ {
 		result, selected, err := s.allocateOnce(ctx, command, request, tried, attempt)
 		if err == nil {
+			s.clearAutomaticNoCompatibleFailure(request)
 			tier := 0
 			rule := ""
 			category := "manual"
@@ -355,10 +384,19 @@ func (s *StandAllocationService) allocate(ctx context.Context, command StandAllo
 			tried[selected] = struct{}{}
 		}
 		if !retryableStandAllocationError(err) {
+			if isAutomaticStandAllocation(command) {
+				if errors.Is(err, ErrNoCompatibleStand) {
+					s.noteAutomaticNoCompatibleFailure(request)
+				} else {
+					s.clearAutomaticNoCompatibleFailure(request)
+				}
+			}
 			outcome := standAllocationFailureOutcome(err)
 			metrics.RecordSATOutcome(ctx, outcome, string(request.Direction))
 			slog.WarnContext(ctx, "SAT stand allocation rejected", slog.String("callsign", request.Callsign), slog.String("command", string(command)), slog.String("outcome", outcome), slog.Any("error", err))
-			s.recordAllocationFailure(command, request, outcome, err, attempt)
+			if recordFailures {
+				s.recordAllocationFailure(command, request, outcome, err, attempt)
+			}
 			return nil, err
 		}
 		metrics.RecordSATConflict(ctx, "database_contention")
@@ -366,8 +404,66 @@ func (s *StandAllocationService) allocate(ctx context.Context, command StandAllo
 	}
 	metrics.RecordSATOutcome(ctx, "database_contention", string(request.Direction))
 	err := fmt.Errorf("%w after %d attempts", ErrAllocationRetriesExhausted, s.attempts)
-	s.recordAllocationFailure(command, request, "database_contention", err, s.attempts)
+	if recordFailures {
+		s.recordAllocationFailure(command, request, "database_contention", err, s.attempts)
+	}
 	return nil, err
+}
+
+func isAutomaticStandAllocation(command StandAllocationCommand) bool {
+	return command == AutomaticStandAllocation || command == AutomaticStandReallocation
+}
+
+func (s *StandAllocationService) automaticAllocationSuppressed(request StandAllocationRequest) bool {
+	key, fingerprint := automaticFailureKeyAndFingerprint(request)
+	s.automaticFailureMu.Lock()
+	defer s.automaticFailureMu.Unlock()
+	failure, ok := s.automaticNoCompatibleFailures[key]
+	return ok && failure.fingerprint == fingerprint && failure.failures >= automaticNoCompatibleFailureThreshold
+}
+
+func (s *StandAllocationService) noteAutomaticNoCompatibleFailure(request StandAllocationRequest) {
+	key, fingerprint := automaticFailureKeyAndFingerprint(request)
+	s.automaticFailureMu.Lock()
+	defer s.automaticFailureMu.Unlock()
+	if s.automaticNoCompatibleFailures == nil {
+		s.automaticNoCompatibleFailures = make(map[string]automaticNoCompatibleFailure)
+	}
+	failure := s.automaticNoCompatibleFailures[key]
+	if failure.fingerprint != fingerprint {
+		failure = automaticNoCompatibleFailure{fingerprint: fingerprint}
+	}
+	failure.failures++
+	s.automaticNoCompatibleFailures[key] = failure
+}
+
+func (s *StandAllocationService) clearAutomaticNoCompatibleFailure(request StandAllocationRequest) {
+	key, _ := automaticFailureKeyAndFingerprint(request)
+	s.automaticFailureMu.Lock()
+	defer s.automaticFailureMu.Unlock()
+	delete(s.automaticNoCompatibleFailures, key)
+}
+
+func automaticFailureKeyAndFingerprint(request StandAllocationRequest) (string, string) {
+	facts := request.FlightFacts
+	assignmentFacts := request.AssignmentFacts
+	key := fmt.Sprintf("%d:%s", request.SessionID, strings.ToUpper(strings.TrimSpace(request.Callsign)))
+	fingerprint := fmt.Sprintf("%s|%s|%s|%s|%t|%s|%.6f|%.6f|%.6f|%.3f|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s",
+		strings.ToUpper(strings.TrimSpace(request.Airport)), request.Direction,
+		facts.Origin, facts.Destination, facts.AircraftKnown, facts.Aircraft.Type,
+		facts.Aircraft.WingspanMetres, facts.Aircraft.LengthMetres, facts.Aircraft.HeightMetres,
+		facts.Aircraft.MTOWKilograms, facts.Aircraft.UseCode, facts.EngineType, facts.WTC,
+		facts.BorderEndpoint, facts.BorderStatus, assignmentFacts.AircraftType,
+		assignmentFacts.AircraftUse, assignmentFacts.BorderStatus, assignmentFacts.Direction,
+		assignmentFacts.Special)
+	return key, fingerprint
+}
+
+func suppressAutomaticAllocationError(err error) error {
+	if errors.Is(err, ErrAutomaticAllocationSuppressed) {
+		return nil
+	}
+	return err
 }
 
 func standAllocationFailureOutcome(err error) string {

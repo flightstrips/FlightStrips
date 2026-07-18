@@ -78,11 +78,14 @@ type CandidateTerminalFragment struct {
 	Airport       AirportID
 	ConfigVersion string
 	Paths         []TerminalPath
-	Provenance    Provenance
-	ImportedAt    time.Time
-	ValidatedAt   *time.Time
-	State         ValidationState
-	Digest        string
+	// Holdings contains only official-AIP fallback definitions that were not
+	// present in the canonical procedure fragments for this dataset.
+	Holdings    []HoldingPattern
+	Provenance  Provenance
+	ImportedAt  time.Time
+	ValidatedAt *time.Time
+	State       ValidationState
+	Digest      string
 }
 
 // RouteCandidate stores a resolver output independently from catalog
@@ -268,6 +271,20 @@ func (f CandidateTerminalFragment) Validate() error {
 		return err
 	}
 	seen := map[string]struct{}{}
+	holdings := map[HoldingID]string{}
+	for _, holding := range f.Holdings {
+		if err := holding.Validate(); err != nil {
+			return err
+		}
+		digest, err := HoldingDigest(holding)
+		if err != nil {
+			return err
+		}
+		if previous, found := holdings[holding.ID]; found && previous != digest {
+			return invalid("terminal fragment has conflicting holding ID")
+		}
+		holdings[holding.ID] = digest
+	}
 	for _, path := range f.Paths {
 		if err := path.Validate(); err != nil {
 			return err
@@ -370,7 +387,8 @@ func (f CandidateTerminalFragment) payload() any {
 		Airport       AirportID
 		ConfigVersion string
 		Paths         []TerminalPath
-	}{f.Airport, f.ConfigVersion, f.Paths}
+		Holdings      []HoldingPattern
+	}{f.Airport, f.ConfigVersion, f.Paths, f.Holdings}
 }
 
 func cloneProcedures(value []Procedure) []Procedure { return slices.Clone(value) }

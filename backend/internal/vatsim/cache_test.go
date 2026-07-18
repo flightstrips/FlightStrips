@@ -58,7 +58,6 @@ func TestCacheSnapshotDecodesPilotsAndPrefiles(t *testing.T) {
 	snapshot := cache.Snapshot()
 
 	assert.Equal(t, time.Date(2020, 7, 12, 10, 0, 0, 0, time.UTC), snapshot.Timestamp)
-	assert.Greater(t, snapshot.Age, time.Duration(0))
 	assert.NoError(t, snapshot.LastRefreshError)
 
 	pilot, ok := snapshot.FlightByCallsign(" DAL123 ")

@@ -112,7 +112,7 @@ func TestStandStatusReturnsOperationalSnapshot(t *testing.T) {
 				},
 			},
 		},
-		Feed:        standStatusFeedStub{snapshot: vatsim.Snapshot{Timestamp: now.Add(-10 * time.Second), Age: 10 * time.Second}},
+		Feed:        standStatusFeedStub{snapshot: vatsim.Snapshot{Timestamp: now.Add(-10 * time.Second)}},
 		Enabled:     true,
 		Ready:       true,
 		StaleAfter:  time.Minute,
@@ -129,6 +129,7 @@ func TestStandStatusReturnsOperationalSnapshot(t *testing.T) {
 	require.Equal(t, http.StatusOK, recorder.Code, recorder.Body.String())
 	var payload standStatusResponse
 	require.NoError(t, json.NewDecoder(recorder.Body).Decode(&payload))
+	require.NotContains(t, recorder.Body.String(), "snapshot_age_seconds")
 	require.Equal(t, "ready", payload.System.Status)
 	require.True(t, payload.System.Ready)
 	require.Equal(t, 97, payload.Configuration.Stands)
@@ -165,7 +166,7 @@ func TestStandStatusShowsConfigurationAndFeedFailures(t *testing.T) {
 			config: WebAPIConfig{
 				Auth: standStatusAuthStub{}, Enabled: true, Ready: true, StaleAfter: time.Minute,
 				Feed: standStatusFeedStub{snapshot: vatsim.Snapshot{
-					Timestamp: time.Now().UTC(), Age: time.Second, LastRefreshError: errors.New("network down"),
+					Timestamp: time.Now().UTC(), LastRefreshError: errors.New("network down"),
 				}},
 			},
 			wantStatus: "feed_failed",
@@ -176,7 +177,7 @@ func TestStandStatusShowsConfigurationAndFeedFailures(t *testing.T) {
 			config: WebAPIConfig{
 				Auth: standStatusAuthStub{}, Enabled: true, Ready: true, StaleAfter: time.Minute,
 				Feed: standStatusFeedStub{snapshot: vatsim.Snapshot{
-					Timestamp: time.Now().UTC().Add(-2 * time.Minute), Age: 2 * time.Minute,
+					Timestamp: time.Now().UTC().Add(-2 * time.Minute),
 				}},
 			},
 			wantStatus: "feed_stale",
@@ -201,4 +202,23 @@ func TestStandStatusShowsConfigurationAndFeedFailures(t *testing.T) {
 			require.Equal(t, test.wantReason, payload.System.Reason)
 		})
 	}
+}
+
+func TestStandStatusReturnsEmptyFailureListWhenNoFailuresExist(t *testing.T) {
+	t.Parallel()
+
+	api := NewWebAPI(WebAPIConfig{
+		Auth:     standStatusAuthStub{},
+		Failures: standdiagnostics.NewAllocationFailureLog(10),
+	})
+	request := httptest.NewRequest(http.MethodGet, "/stand/status", nil)
+	request.Header.Set("Authorization", "Bearer token")
+	recorder := httptest.NewRecorder()
+
+	api.handleStatus(recorder, request)
+
+	require.Equal(t, http.StatusOK, recorder.Code)
+	var payload map[string]json.RawMessage
+	require.NoError(t, json.NewDecoder(recorder.Body).Decode(&payload))
+	require.JSONEq(t, `[]`, string(payload["failures"]))
 }

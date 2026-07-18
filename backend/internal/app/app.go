@@ -885,14 +885,18 @@ func satHealthz(readiness appconfig.StandAssignmentReadiness, cache vatsim.Snaps
 
 func evaluateSATHealth(readiness appconfig.StandAssignmentReadiness, snapshot vatsim.Snapshot, staleAfter time.Duration) satHealth {
 	result := satHealth{Enabled: readiness.Enabled, Ready: readiness.Ready, Status: "ready"}
-	age := snapshot.Age.Seconds()
+	ageDuration := time.Since(snapshot.Timestamp)
+	if ageDuration < 0 {
+		ageDuration = 0
+	}
+	age := ageDuration.Seconds()
 	result.SnapshotAgeSeconds = &age
 	switch {
 	case snapshot.Timestamp.IsZero():
 		result.Status, result.Ready, result.Reason = "feed_unavailable", false, "VATSIM feed has not produced a snapshot"
 	case snapshot.LastRefreshError != nil:
 		result.Status, result.Ready, result.Reason = "feed_failed", false, snapshot.LastRefreshError.Error()
-	case snapshot.Age > staleAfter:
+	case ageDuration > staleAfter:
 		result.Status, result.Ready, result.Reason = "feed_stale", false, "VATSIM snapshot is stale"
 	}
 	return result

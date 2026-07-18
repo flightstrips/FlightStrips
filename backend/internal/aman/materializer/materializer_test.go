@@ -114,7 +114,15 @@ func TestRouteMaterializationIsExplicitAndWarmCacheSurvivesResolverOutage(t *tes
 func TestConcurrentRefreshUsesCompareAndSwapWithoutPartialActivation(t *testing.T) {
 	data := completeEKCH()
 	source := fixture.New(data)
-	cache := &memoryCache{}
+	initialReads := make(chan struct{}, 2)
+	releaseReads := make(chan struct{})
+	arrivedAtCAS := make(chan int64, 2)
+	cache := &memoryCache{beforeActivate: func(candidate navdata.ManifestCandidate) {
+		arrivedAtCAS <- candidate.ExpectedRevision
+	}, afterMissingManifestRead: func() {
+		initialReads <- struct{}{}
+		<-releaseReads
+	}}
 	clock := data.Provenance.ImportedAt.Add(time.Hour)
 	m := newMaterializer(t, source, cache, configFor(data), &clock)
 	start := make(chan struct{})
@@ -123,9 +131,29 @@ func TestConcurrentRefreshUsesCompareAndSwapWithoutPartialActivation(t *testing.
 		go func() { <-start; errs <- m.Refresh(context.Background(), Request{Airport: "EKCH"}) }()
 	}
 	close(start)
-	first, second := <-errs, <-errs
-	require.True(t, (first == nil) != (second == nil), "one CAS activation wins deterministically")
+	<-initialReads
+	<-initialReads
+	close(releaseReads)
+	require.Zero(t, <-arrivedAtCAS, "first refresh must carry the empty-cache revision")
+	require.Zero(t, <-arrivedAtCAS, "second refresh must carry the same revision captured before either activation")
+
+	results := []error{<-errs, <-errs}
+	successes, conflicts := 0, 0
+	for _, err := range results {
+		if err == nil {
+			successes++
+			continue
+		}
+		var domain *aman.DomainError
+		require.ErrorAs(t, err, &domain)
+		require.Equal(t, aman.ErrorRevisionConflict, domain.Class)
+		conflicts++
+	}
+	require.Equal(t, 1, successes)
+	require.Equal(t, 1, conflicts)
 	require.Equal(t, int64(1), cache.active.Revision)
+	require.Len(t, cache.active.Candidate.ProcedureDigests, 3)
+	require.NotEmpty(t, cache.active.Candidate.TerminalDigest)
 }
 
 func TestNoEuroScopeOrHTTPDependency(t *testing.T) {
@@ -155,11 +183,13 @@ func configFor(data fixture.Dataset) terminal.Configuration {
 }
 
 type memoryCache struct {
-	mu         sync.Mutex
-	active     navdata.ActiveManifest
-	hasActive  bool
-	routes     map[navdata.RouteKey]navdata.RouteGeometry
-	procedures map[string]navdata.CandidateProcedureFragment
+	mu                       sync.Mutex
+	active                   navdata.ActiveManifest
+	hasActive                bool
+	routes                   map[navdata.RouteKey]navdata.RouteGeometry
+	procedures               map[string]navdata.CandidateProcedureFragment
+	beforeActivate           func(navdata.ManifestCandidate)
+	afterMissingManifestRead func()
 }
 
 func (c *memoryCache) PutAirportFragment(_ context.Context, value navdata.CandidateAirportFragment) (string, error) {
@@ -197,6 +227,9 @@ func (c *memoryCache) PutRoute(_ context.Context, value navdata.RouteCandidate) 
 	return key, nil
 }
 func (c *memoryCache) ActivateManifest(_ context.Context, value navdata.ManifestCandidate) (int64, error) {
+	if c.beforeActivate != nil {
+		c.beforeActivate(value)
+	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	current := int64(0)
@@ -217,11 +250,16 @@ func (c *memoryCache) ActivateManifest(_ context.Context, value navdata.Manifest
 func (c *memoryCache) PruneNavigationCache(context.Context, navdata.AirportID) error { return nil }
 func (c *memoryCache) ActiveManifest(_ context.Context, _ navdata.AirportID) (navdata.ActiveManifest, error) {
 	c.mu.Lock()
-	defer c.mu.Unlock()
 	if !c.hasActive {
+		c.mu.Unlock()
+		if c.afterMissingManifestRead != nil {
+			c.afterMissingManifestRead()
+		}
 		return navdata.ActiveManifest{}, &aman.DomainError{Class: aman.ErrorNotFound, Message: "missing"}
 	}
-	return c.active, nil
+	active := c.active
+	c.mu.Unlock()
+	return active, nil
 }
 func (c *memoryCache) ActiveVersion(_ context.Context, _ navdata.AirportID) (navdata.DatasetVersion, error) {
 	value, err := c.ActiveManifest(context.Background(), "EKCH")

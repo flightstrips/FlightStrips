@@ -121,7 +121,15 @@ func (m *Materializer) Refresh(ctx context.Context, request Request) error {
 	m.markAttempt(request.Airport)
 	current, currentErr := m.deps.Cache.ActiveManifest(ctx, request.Airport)
 	if currentErr == nil {
-		m.recordActive(request.Airport, current.Candidate.Version)
+		if m.deps.Terminal.Airport == request.Airport && current.Candidate.TerminalDigest == "" {
+			currentErr = &aman.DomainError{Class: aman.ErrorCorruptData, Message: "active manifest is missing configured terminal geometry"}
+			m.invalidateActive(request.Airport, ReasonTerminalGeometryBad)
+			if len(request.ProcedureKinds) > 0 || len(request.FixIDs) > 0 {
+				return currentErr
+			}
+		} else {
+			m.recordActive(request.Airport, current.Candidate.Version)
+		}
 	} else if !isNotFound(currentErr) {
 		m.invalidateActive(request.Airport, ReasonCandidateInvalid)
 		if len(request.ProcedureKinds) > 0 || len(request.FixIDs) > 0 {

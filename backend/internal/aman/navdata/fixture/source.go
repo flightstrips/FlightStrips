@@ -5,6 +5,7 @@ package fixture
 import (
 	"context"
 	"slices"
+	"sync/atomic"
 	"time"
 
 	"FlightStrips/internal/aman"
@@ -24,17 +25,17 @@ type Dataset struct {
 
 type Source struct {
 	dataset Dataset
-	calls   int
+	calls   atomic.Int64
 }
 
 func New(data Dataset) *Source { return &Source{dataset: data} }
-func (s *Source) Calls() int   { return s.calls }
+func (s *Source) Calls() int   { return int(s.calls.Load()) }
 func (s *Source) LatestVersion(context.Context) (navdata.DatasetVersion, error) {
-	s.calls++
+	s.calls.Add(1)
 	return s.dataset.Version, nil
 }
 func (s *Source) Airport(_ context.Context, version navdata.DatasetVersion, airport navdata.AirportID) (navdata.Airport, error) {
-	s.calls++
+	s.calls.Add(1)
 	if err := matchVersion(s.dataset.Version, version); err != nil {
 		return navdata.Airport{}, err
 	}
@@ -45,7 +46,7 @@ func (s *Source) Airport(_ context.Context, version navdata.DatasetVersion, airp
 	return value, nil
 }
 func (s *Source) Runways(_ context.Context, version navdata.DatasetVersion, airport navdata.AirportID) ([]navdata.Runway, error) {
-	s.calls++
+	s.calls.Add(1)
 	if err := matchVersion(s.dataset.Version, version); err != nil {
 		return nil, err
 	}
@@ -55,7 +56,7 @@ func (s *Source) Runways(_ context.Context, version navdata.DatasetVersion, airp
 	return []navdata.Runway{{ID: "22L", Airport: airport, Threshold: navdata.Threshold{Position: navdata.Coordinate{LatitudeDeg: 55.6254111111, LongitudeDeg: 12.6675805556}, CourseTrueDeg: ptr(221.2)}, LengthNM: 3302.0 / 1852.0, Provenance: s.dataset.Provenance}}, nil
 }
 func (s *Source) Procedures(_ context.Context, query navdata.ProcedureQuery) (navdata.ProcedureSet, error) {
-	s.calls++
+	s.calls.Add(1)
 	if err := query.Validate(); err != nil {
 		return navdata.ProcedureSet{}, err
 	}
@@ -80,7 +81,7 @@ func (s *Source) Procedures(_ context.Context, query navdata.ProcedureQuery) (na
 	return navdata.ProcedureSet{Version: s.dataset.Version, Airport: query.Airport, Procedures: procedures, Coverage: coverage, Provenance: s.dataset.Provenance}, nil
 }
 func (s *Source) Fixes(_ context.Context, query navdata.FixQuery) (navdata.FixSet, error) {
-	s.calls++
+	s.calls.Add(1)
 	if err := query.Validate(); err != nil {
 		return navdata.FixSet{}, err
 	}
@@ -100,7 +101,7 @@ func (s *Source) Fixes(_ context.Context, query navdata.FixQuery) (navdata.FixSe
 	return navdata.FixSet{Version: s.dataset.Version, Fixes: fixes, Coverage: coverage, Provenance: s.dataset.Provenance}, nil
 }
 func (s *Source) Resolve(_ context.Context, query navdata.RouteQuery) (navdata.RouteGeometry, error) {
-	s.calls++
+	s.calls.Add(1)
 	key, err := query.Key()
 	if err != nil {
 		return navdata.RouteGeometry{}, err

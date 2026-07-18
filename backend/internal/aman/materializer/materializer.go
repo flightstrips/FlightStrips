@@ -123,7 +123,10 @@ func (m *Materializer) Refresh(ctx context.Context, request Request) error {
 	if currentErr == nil {
 		m.recordActive(request.Airport, current.Candidate.Version)
 	} else if !isNotFound(currentErr) {
-		return m.failed(request.Airport, ReasonCandidateInvalid, false, false, currentErr)
+		m.invalidateActive(request.Airport, ReasonCandidateInvalid)
+		if len(request.ProcedureKinds) > 0 || len(request.FixIDs) > 0 {
+			return currentErr // typed refresh never retains a corrupt revision.
+		}
 	}
 	version, err := m.deps.Cycles.LatestVersion(ctx)
 	if err != nil {
@@ -149,7 +152,7 @@ func (m *Materializer) Refresh(ctx context.Context, request Request) error {
 	}
 	runways, err := m.deps.Runways.Runways(ctx, version, request.Airport)
 	if err != nil {
-		return m.failed(request.Airport, ReasonSourceUnavailable, false, false, err)
+		return m.failed(request.Airport, ReasonTerminalGeometryBad, false, false, err)
 	}
 	sets := make(map[navdata.ProcedureKind]navdata.ProcedureSet, len(kinds))
 	for _, kind := range kinds {
@@ -157,8 +160,11 @@ func (m *Materializer) Refresh(ctx context.Context, request Request) error {
 		if err != nil {
 			return m.failed(request.Airport, ReasonSourceUnavailable, false, false, err)
 		}
-		if err := set.Validate(); err != nil || set.Coverage == navdata.CoverageUnavailable {
-			return m.failed(request.Airport, ReasonCandidateInvalid, false, false, fmt.Errorf("%s procedures are unavailable or invalid: %w", kind, err))
+		if err := set.Validate(); err != nil {
+			return m.failed(request.Airport, ReasonCandidateInvalid, false, false, fmt.Errorf("validate %s procedures: %w", kind, err))
+		}
+		if set.Coverage == navdata.CoverageUnavailable {
+			return m.failed(request.Airport, ReasonCandidateInvalid, false, false, fmt.Errorf("%s procedures are unavailable", kind))
 		}
 		sets[kind] = set
 	}
@@ -176,8 +182,11 @@ func (m *Materializer) Refresh(ctx context.Context, request Request) error {
 	if err != nil {
 		return m.failed(request.Airport, ReasonSourceUnavailable, false, false, err)
 	}
-	if err := fixes.Validate(); err != nil || fixes.Coverage != navdata.CoverageComplete {
-		return m.failed(request.Airport, ReasonCandidateInvalid, false, false, fmt.Errorf("fixes are not complete: %w", err))
+	if err := fixes.Validate(); err != nil {
+		return m.failed(request.Airport, ReasonCandidateInvalid, false, false, fmt.Errorf("validate fixes: %w", err))
+	}
+	if fixes.Coverage != navdata.CoverageComplete {
+		return m.failed(request.Airport, ReasonCandidateInvalid, false, false, errors.New("fixes are not complete"))
 	}
 	refs := terminal.ReferenceSet{Version: version, Airport: airport, Runways: runways, Fixes: fixes.Fixes, Procedures: allProcedures}
 	terminalFragment, err := m.deps.Terminal.Candidate(refs, m.deps.Now().UTC())
@@ -231,10 +240,7 @@ func (m *Materializer) Refresh(ctx context.Context, request Request) error {
 		digests = append(digests, digest)
 	}
 	sort.Strings(digests)
-	revision := int64(0)
-	if currentErr == nil {
-		revision = current.Revision
-	}
+	revision := current.Revision
 	if _, err = m.deps.Cache.ActivateManifest(ctx, navdata.ManifestCandidate{Airport: request.Airport, Version: version, AirportDigest: airportFragment.Digest, ProcedureDigests: digests, FixDigest: fixDigest, TerminalDigest: terminalDigest, ExpectedRevision: revision}); err != nil {
 		return m.failed(request.Airport, ReasonCandidateInvalid, true, false, err)
 	}
@@ -257,7 +263,18 @@ func (m *Materializer) MaterializeRoute(ctx context.Context, query navdata.Route
 func (m *Materializer) Health(airport navdata.AirportID) Health {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	value := m.health[airport]
+	value, found := m.health[airport]
+	if !found {
+		return Health{Airport: airport, Reason: ReasonNoActiveDataset}
+	}
+	if value.ActiveVersion != nil {
+		clone := *value.ActiveVersion
+		value.ActiveVersion = &clone
+	}
+	if value.AvailableVersion != nil {
+		clone := *value.AvailableVersion
+		value.AvailableVersion = &clone
+	}
 	return value
 }
 func (m *Materializer) markAttempt(airport navdata.AirportID) {
@@ -271,7 +288,7 @@ func (m *Materializer) markAttempt(airport navdata.AirportID) {
 func (m *Materializer) recordActive(airport navdata.AirportID, version navdata.DatasetVersion) {
 	m.mu.Lock()
 	value := m.health[airport]
-	value.Airport, value.ActiveVersion, value.CacheReady = airport, &version, true
+	value.Airport, value.ActiveVersion, value.CacheReady, value.FragmentsValid, value.TerminalValid = airport, &version, true, true, true
 	m.health[airport] = value
 	m.mu.Unlock()
 }
@@ -285,10 +302,20 @@ func (m *Materializer) recordAvailable(airport navdata.AirportID, version navdat
 func (m *Materializer) failed(airport navdata.AirportID, reason string, fragments, terminalValid bool, err error) error {
 	m.mu.Lock()
 	value := m.health[airport]
-	value.Airport, value.Reason, value.FragmentsValid, value.TerminalValid = airport, reason, fragments, terminalValid
+	value.Airport, value.Reason = airport, reason
+	if !value.CacheReady {
+		value.FragmentsValid, value.TerminalValid = fragments, terminalValid
+	}
 	m.health[airport] = value
 	m.mu.Unlock()
 	return err
+}
+func (m *Materializer) invalidateActive(airport navdata.AirportID, reason string) {
+	m.mu.Lock()
+	value := m.health[airport]
+	value.Airport, value.Reason, value.ActiveVersion, value.CacheReady, value.FragmentsValid, value.TerminalValid = airport, reason, nil, false, false, false
+	m.health[airport] = value
+	m.mu.Unlock()
 }
 func (m *Materializer) succeeded(airport navdata.AirportID, version navdata.DatasetVersion) {
 	m.mu.Lock()

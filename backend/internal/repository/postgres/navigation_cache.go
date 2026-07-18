@@ -209,14 +209,17 @@ func (r *navigationCache) ActiveManifest(ctx context.Context, airport navdata.Ai
 	result.Candidate.Version.EffectiveFrom = result.Candidate.Version.EffectiveFrom.UTC()
 	result.Candidate.Version.EffectiveUntil = result.Candidate.Version.EffectiveUntil.UTC()
 	if err := json.Unmarshal(digests, &result.Candidate.ProcedureDigests); err != nil {
-		return navdata.ActiveManifest{}, cacheCorrupt("decode active manifest procedure digests")
+		return result, cacheCorrupt("decode active manifest procedure digests")
 	}
 	for _, digest := range result.Candidate.ProcedureDigests {
 		fragment, err := loadProcedureFragment(ctx, r.pool, digest)
 		if err != nil {
-			return navdata.ActiveManifest{}, err
+			return result, err
 		}
 		result.Procedures = append(result.Procedures, navdata.ActiveProcedureFragment{Kind: fragment.Kind, Digest: digest, Procedures: fragment.Procedures})
+	}
+	if err := r.validateManifest(ctx, r.pool, result.Candidate); err != nil {
+		return result, err
 	}
 	return result, nil
 }
@@ -346,15 +349,15 @@ func (r *navigationCache) PruneNavigationCache(ctx context.Context, airport navd
 	return tx.Commit(ctx)
 }
 
-func (r *navigationCache) validateManifest(ctx context.Context, tx pgx.Tx, m navdata.ManifestCandidate) error {
-	airport, err := loadAirportFragment(ctx, tx, m.AirportDigest)
+func (r *navigationCache) validateManifest(ctx context.Context, db rowQuerier, m navdata.ManifestCandidate) error {
+	airport, err := loadAirportFragment(ctx, db, m.AirportDigest)
 	if err != nil {
 		return err
 	}
 	if airport.State != navdata.ValidationValidated || airport.Airport.ID != m.Airport || !airport.Version.Equal(m.Version) {
 		return cacheCorrupt("manifest airport fragment is not validated or does not match")
 	}
-	fixes, err := loadFixFragment(ctx, tx, m.FixDigest)
+	fixes, err := loadFixFragment(ctx, db, m.FixDigest)
 	if err != nil {
 		return err
 	}
@@ -372,7 +375,7 @@ func (r *navigationCache) validateManifest(ctx context.Context, tx pgx.Tx, m nav
 	holdings := map[navdata.HoldingID]string{}
 	procedureKinds := map[navdata.ProcedureKind]struct{}{}
 	for _, digest := range m.ProcedureDigests {
-		fragment, err := loadProcedureFragment(ctx, tx, digest)
+		fragment, err := loadProcedureFragment(ctx, db, digest)
 		if err != nil {
 			return err
 		}
@@ -413,7 +416,7 @@ func (r *navigationCache) validateManifest(ctx context.Context, tx pgx.Tx, m nav
 		}
 	}
 	if m.TerminalDigest != "" {
-		terminal, err := loadTerminalFragment(ctx, tx, m.TerminalDigest)
+		terminal, err := loadTerminalFragment(ctx, db, m.TerminalDigest)
 		if err != nil {
 			return err
 		}

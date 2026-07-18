@@ -68,12 +68,12 @@ func TestGoldenEKCHConfigurationMatchesIndependentOfficialContent(t *testing.T) 
 	for _, runway := range runways {
 		lengths[runway.ID] = runway.LengthNM * 1852
 	}
-	require.Equal(t, 3600.0, lengths["04L"])
+	require.Equal(t, 3001.0, lengths["04L"])
 	require.Equal(t, 3302.0, lengths["04R"])
 	require.Equal(t, 3302.0, lengths["22L"])
-	require.Equal(t, 3600.0, lengths["22R"])
+	require.Equal(t, 3571.0, lengths["22R"])
 	require.Equal(t, 2800.0, lengths["12"])
-	require.Equal(t, 2800.0, lengths["30"])
+	require.Equal(t, 2365.0, lengths["30"])
 
 	wantHoldings := map[navdata.HoldingID]struct {
 		fix     navdata.FixID

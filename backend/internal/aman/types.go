@@ -216,7 +216,11 @@ type RunwayGroupPolicy struct {
 // AMANFlight is the persisted aggregate shape. All operational TETA, state,
 // freeze, slot, and order changes are backend-owned.
 type AMANFlight struct {
-	ID                    FlightID
+	ID FlightID
+	// VATSIMCID remains bound to the aggregate while CurrentCallsign may be
+	// corrected without rekeying FlightID.
+	VATSIMCID             string
+	CurrentCallsign       string
 	State                 FlightState
 	DataStatus            DataStatus
 	Prediction            *Prediction
@@ -387,6 +391,9 @@ func (f AMANFlight) Validate() error {
 	if !f.State.Valid() || !f.DataStatus.Valid() || !f.FreezeReason.Valid() {
 		return invalid("flight has an invalid state")
 	}
+	if f.State != StateRemoved && (!isTrimmedNonEmpty(f.VATSIMCID) || !isTrimmedNonEmpty(f.CurrentCallsign)) {
+		return invalid("active flight requires VATSIM CID and current callsign")
+	}
 	if f.Prediction != nil {
 		if err := f.Prediction.Validate(); err != nil {
 			return err
@@ -474,4 +481,8 @@ func requireUTCTime(name string, value time.Time) error {
 
 func invalid(message string) error {
 	return &DomainError{Class: ErrorInvalidArgument, Message: message}
+}
+
+func isTrimmedNonEmpty(value string) bool {
+	return value != "" && strings.TrimSpace(value) == value
 }

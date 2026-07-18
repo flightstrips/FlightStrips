@@ -98,6 +98,32 @@ func TestFlightFreezeHasOneCanonicalRepresentation(t *testing.T) {
 	}
 }
 
+func TestFlightCallsignCorrectionKeepsFlightIDAndVATSIMCID(t *testing.T) {
+	now := time.Date(2026, time.July, 18, 12, 0, 0, 0, time.UTC)
+	flight := validFlight(now)
+	originalID := flight.ID
+	originalCID := flight.VATSIMCID
+
+	flight.CurrentCallsign = "SAS124"
+	if err := flight.Validate(); err != nil {
+		t.Fatalf("validate corrected callsign: %v", err)
+	}
+	if flight.ID != originalID || flight.VATSIMCID != originalCID {
+		t.Fatalf("callsign correction changed stable identity: ID=%q CID=%q", flight.ID, flight.VATSIMCID)
+	}
+}
+
+func TestActiveFlightRejectsEmptyOrUntrimmedProviderIdentity(t *testing.T) {
+	now := time.Date(2026, time.July, 18, 12, 0, 0, 0, time.UTC)
+	flight := validFlight(now)
+	flight.VATSIMCID = ""
+	assertInvalidArgument(t, flight.Validate())
+
+	flight = validFlight(now)
+	flight.CurrentCallsign = " SAS123"
+	assertInvalidArgument(t, flight.Validate())
+}
+
 func TestAirportStateRejectsMismatchedSlotRevisionAndDuplicateFlight(t *testing.T) {
 	now := time.Date(2026, time.July, 18, 12, 0, 0, 0, time.UTC)
 	flight := validFlight(now)
@@ -190,11 +216,13 @@ func validPrediction() Prediction {
 
 func validFlight(now time.Time) AMANFlight {
 	return AMANFlight{
-		ID:           "flight-1",
-		State:        StateStable,
-		DataStatus:   DataFresh,
-		FreezeReason: FreezeNone,
-		UpdatedAt:    now,
+		ID:              "flight-1",
+		VATSIMCID:       "1234567",
+		CurrentCallsign: "SAS123",
+		State:           StateStable,
+		DataStatus:      DataFresh,
+		FreezeReason:    FreezeNone,
+		UpdatedAt:       now,
 	}
 }
 

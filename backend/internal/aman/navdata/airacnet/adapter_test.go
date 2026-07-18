@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -21,6 +22,7 @@ import (
 	"FlightStrips/internal/aman/navdata/contracttest"
 	"FlightStrips/internal/aman/navdata/fixture"
 	pdctestdata "FlightStrips/internal/pdc/testdata"
+	"FlightStrips/internal/repository/postgres"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/stretchr/testify/require"
@@ -387,6 +389,94 @@ func TestErrorEnvelopeAndPermanentTransportFailureFailClosed(t *testing.T) {
 	require.Equal(t, int32(1), requests.Load())
 }
 
+func TestRequestConstructionBodyCancellationAndTruncationAreTyped(t *testing.T) {
+	t.Run("request construction", func(t *testing.T) {
+		adapter := testAdapter(t, "http://example.test", Config{})
+		adapter.requestMaker = func(context.Context, string, string, io.Reader) (*http.Request, error) {
+			return nil, errors.New("invalid request")
+		}
+		_, err := adapter.LatestVersion(context.Background())
+		var domain *aman.DomainError
+		require.ErrorAs(t, err, &domain)
+		require.Equal(t, navdata.ErrorInvalidRequest, domain.Class)
+	})
+	t.Run("parent cancellation while reading", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		var requests atomic.Int32
+		adapter := testAdapter(t, "http://example.test", Config{Retries: 2, HTTPClient: &http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
+			requests.Add(1)
+			return &http.Response{StatusCode: http.StatusOK, Body: cancelingBody{cancel: cancel}}, nil
+		})}})
+		_, err := adapter.LatestVersion(ctx)
+		require.ErrorIs(t, err, context.Canceled)
+		require.Equal(t, int32(1), requests.Load())
+	})
+	t.Run("truncated body retry", func(t *testing.T) {
+		var requests atomic.Int32
+		adapter := testAdapter(t, "http://example.test", Config{Retries: 1, RetryBackoff: time.Millisecond, HTTPClient: &http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
+			if requests.Add(1) == 1 {
+				return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(unexpectedEOFReader{})}, nil
+			}
+			body, _ := json.Marshal(map[string]any{"status": "success", "data": map[string]any{"cycle": "2608", "effective_date": "2026-07-16T00:00:00+00:00", "expiration_date": "2026-08-13T00:00:00+00:00"}})
+			return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(string(body)))}, nil
+		})}})
+		_, err := adapter.LatestVersion(context.Background())
+		require.NoError(t, err)
+		require.Equal(t, int32(2), requests.Load())
+	})
+}
+
+func TestAirportNotFoundAndWarmPostgresRouteSurviveSourceOutage(t *testing.T) {
+	t.Run("airport not found", func(t *testing.T) {
+		server := newAPIServer(t, func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path == "/api/v1/airac/current" {
+				writeJSON(w, cycleJSON())
+				return
+			}
+			w.WriteHeader(http.StatusNotFound)
+		})
+		adapter := testAdapter(t, server.URL, Config{})
+		version, err := adapter.LatestVersion(context.Background())
+		require.NoError(t, err)
+		_, err = adapter.Airport(context.Background(), version, "MISSING")
+		var domain *aman.DomainError
+		require.ErrorAs(t, err, &domain)
+		require.Equal(t, navdata.ErrorNotFound, domain.Class)
+	})
+	t.Run("durable warm route", func(t *testing.T) {
+		pool, _ := pdctestdata.SetupTestDB(t)
+		var calls atomic.Int32
+		server := newAPIServer(t, func(w http.ResponseWriter, r *http.Request) {
+			calls.Add(1)
+			if r.URL.Path == "/api/v1/airac/current" {
+				writeJSON(w, cycleJSON())
+				return
+			}
+			if r.URL.Path == "/api/v1/routes/parse" {
+				writeJSON(w, routeJSON())
+				return
+			}
+			w.WriteHeader(http.StatusNotFound)
+		})
+		adapter := testAdapter(t, server.URL, Config{})
+		version, err := adapter.LatestVersion(context.Background())
+		require.NoError(t, err)
+		query := routeQuery(version)
+		query.FiledRoute = "DCT KEMAX P60 TUDLO"
+		geometry, err := adapter.Resolve(context.Background(), query)
+		require.NoError(t, err)
+		first := postgres.NewNavigationCache(pool)
+		key, err := first.PutRoute(context.Background(), navdata.RouteCandidate{Query: query, Geometry: geometry, CreatedAt: time.Date(2026, 7, 17, 0, 0, 0, 0, time.UTC), ResolverVersion: "airacnet-v1", SchemaVersion: navdata.CanonicalSchemaVersion})
+		require.NoError(t, err)
+		before := calls.Load()
+		server.Close()
+		warm, err := postgres.NewNavigationCache(pool).Route(context.Background(), key)
+		require.NoError(t, err)
+		require.Equal(t, geometry.Digest, warm.Digest)
+		require.Equal(t, before, calls.Load())
+	})
+}
+
 func TestVendorAdapterCannotLeakIntoRuntimeOrCanonicalPackages(t *testing.T) {
 	_, file, _, ok := runtime.Caller(0)
 	require.True(t, ok)
@@ -458,6 +548,15 @@ type roundTripFunc func(*http.Request) (*http.Response, error)
 
 func (fn roundTripFunc) RoundTrip(request *http.Request) (*http.Response, error) { return fn(request) }
 
+type cancelingBody struct{ cancel context.CancelFunc }
+
+func (b cancelingBody) Read([]byte) (int, error) { b.cancel(); return 0, io.ErrUnexpectedEOF }
+func (cancelingBody) Close() error               { return nil }
+
+type unexpectedEOFReader struct{}
+
+func (unexpectedEOFReader) Read([]byte) (int, error) { return 0, io.ErrUnexpectedEOF }
+
 func newAPIServer(t *testing.T, handler http.HandlerFunc) *httptest.Server {
 	t.Helper()
 	return httptest.NewServer(handler)
@@ -515,7 +614,7 @@ func detailJSON(airport, identifier, kind, terminator, fix string) any {
 	return map[string]any{"data": map[string]any{"airport": airport, "identifier": identifier, "type": map[string]any{"code": kind}, "available_runways": []string{"22L"}, "segments": []any{map[string]any{"sequence": 10, "path_terminator": terminator, "fix_identifier": fix}}}}
 }
 func routeJSON() any {
-	return map[string]any{"data": map[string]any{"total_distance": 100.5, "segments": []any{map[string]any{"from": map[string]any{"identifier": "EHAM"}, "to": map[string]any{"identifier": "KEMAX"}, "distance": 80.0, "bearing": 45.0}, map[string]any{"from": map[string]any{"identifier": "KEMAX"}, "to": map[string]any{"identifier": "EKCH"}, "distance": 20.5, "bearing": 90.0}}, "errors": []any{map[string]any{"type": "airway_not_found"}}}}
+	return map[string]any{"data": map[string]any{"total_distance": 116.0, "segments": []any{map[string]any{"from": map[string]any{"identifier": "EHAM"}, "to": map[string]any{"identifier": "KEMAX"}, "distance": 40.0, "bearing": 45.0}, map[string]any{"from": map[string]any{"identifier": "KEMAX"}, "to": map[string]any{"identifier": "SUGOL"}, "distance": 20.0, "bearing": 60.0}, map[string]any{"from": map[string]any{"identifier": "SUGOL"}, "to": map[string]any{"identifier": "TUDLO"}, "distance": 20.0, "bearing": 80.0}, map[string]any{"from": map[string]any{"identifier": "TUDLO"}, "to": map[string]any{"identifier": "SOK"}, "distance": 20.0, "bearing": 100.0}, map[string]any{"from": map[string]any{"identifier": "SOK"}, "to": map[string]any{"identifier": "EKCH"}, "distance": 16.0, "bearing": 120.0}}, "errors": []any{}}}
 }
 func routeQuery(version navdata.DatasetVersion) navdata.RouteQuery {
 	arrival, runway := navdata.ProcedureID("SOK1P"), navdata.RunwayID("22L")
@@ -523,10 +622,11 @@ func routeQuery(version navdata.DatasetVersion) navdata.RouteQuery {
 	return navdata.RouteQuery{Version: version, Origin: "EHAM", Destination: "EKCH", FiledRoute: "DCT KEMAX", ArrivalProcedure: &arrival, Runway: &runway, RunwayGroup: &group}
 }
 func expectedRoute(query navdata.RouteQuery) (navdata.RouteGeometry, error) {
-	from, to, ekch := navdata.FixID("EHAM"), navdata.FixID("KEMAX"), navdata.FixID("EKCH")
-	firstCourse, secondCourse, firstDistance, secondDistance := 45.0, 90.0, 80.0, 20.5
+	from, kemax, sugol, tudlo, sok, ekch := navdata.FixID("EHAM"), navdata.FixID("KEMAX"), navdata.FixID("SUGOL"), navdata.FixID("TUDLO"), navdata.FixID("SOK"), navdata.FixID("EKCH")
+	firstCourse, secondCourse, thirdCourse, fourthCourse, fifthCourse := 45.0, 60.0, 80.0, 100.0, 120.0
+	firstDistance, secondDistance, thirdDistance, fourthDistance, fifthDistance := 40.0, 20.0, 20.0, 20.0, 16.0
 	provenance := navdata.Provenance{SourceID: "airac.net", SourceRevision: query.Version.SourceRevision, ImportedAt: time.Date(2026, 7, 17, 0, 0, 0, 0, time.UTC), EffectiveFrom: query.Version.EffectiveFrom, EffectiveUntil: query.Version.EffectiveUntil}
-	geometry := navdata.RouteGeometry{Version: query.Version, TotalDistanceNM: 100.5, Coverage: navdata.CoveragePartial, Unresolved: []string{"AIRWAY_NOT_FOUND"}, Provenance: provenance, Legs: []navdata.ProcedureLeg{{ID: "ROUTE-0001", PathTerminator: navdata.PathTF, FromFix: &from, ToFix: &to, CourseTrueDeg: &firstCourse, DistanceNM: &firstDistance}, {ID: "ROUTE-0002", PathTerminator: navdata.PathTF, FromFix: &to, ToFix: &ekch, CourseTrueDeg: &secondCourse, DistanceNM: &secondDistance}}}
+	geometry := navdata.RouteGeometry{Version: query.Version, TotalDistanceNM: 116, Coverage: navdata.CoveragePartial, Unresolved: []string{"PUBLISHED_HOLDING_DATA_UNAVAILABLE"}, Provenance: provenance, Legs: []navdata.ProcedureLeg{{ID: "ROUTE-0001", PathTerminator: navdata.PathTF, FromFix: &from, ToFix: &kemax, CourseTrueDeg: &firstCourse, DistanceNM: &firstDistance}, {ID: "ROUTE-0002", PathTerminator: navdata.PathTF, FromFix: &kemax, ToFix: &sugol, CourseTrueDeg: &secondCourse, DistanceNM: &secondDistance}, {ID: "ROUTE-0003", PathTerminator: navdata.PathTF, FromFix: &sugol, ToFix: &tudlo, CourseTrueDeg: &thirdCourse, DistanceNM: &thirdDistance}, {ID: "ROUTE-0004", PathTerminator: navdata.PathTF, FromFix: &tudlo, ToFix: &sok, CourseTrueDeg: &fourthCourse, DistanceNM: &fourthDistance}, {ID: "ROUTE-0005", PathTerminator: navdata.PathTF, FromFix: &sok, ToFix: &ekch, CourseTrueDeg: &fifthCourse, DistanceNM: &fifthDistance}}}
 	digest, err := navdata.RouteGeometryDigest(query, geometry)
 	geometry.Digest = digest
 	return geometry, err

@@ -111,15 +111,16 @@ type Config struct {
 // Adapter implements the acquisition interfaces. It is never a runtime
 // GeometryReader: materializers persist its output to the canonical cache.
 type Adapter struct {
-	baseURL     *url.URL
-	client      *http.Client
-	timeout     time.Duration
-	retries     int
-	backoff     time.Duration
-	userAgent   string
-	checkpoints CheckpointStore
-	now         func() time.Time
-	requests    chan struct{}
+	baseURL      *url.URL
+	client       *http.Client
+	timeout      time.Duration
+	retries      int
+	backoff      time.Duration
+	userAgent    string
+	checkpoints  CheckpointStore
+	now          func() time.Time
+	requests     chan struct{}
+	requestMaker func(context.Context, string, string, io.Reader) (*http.Request, error)
 }
 
 func New(config Config) (*Adapter, error) {
@@ -155,7 +156,7 @@ func New(config Config) (*Adapter, error) {
 	if config.Now == nil {
 		config.Now = time.Now
 	}
-	return &Adapter{baseURL: parsed, client: config.HTTPClient, timeout: config.Timeout, retries: config.Retries, backoff: config.RetryBackoff, userAgent: config.UserAgent, checkpoints: config.Checkpoints, now: config.Now, requests: make(chan struct{}, config.MaxConcurrent)}, nil
+	return &Adapter{baseURL: parsed, client: config.HTTPClient, timeout: config.Timeout, retries: config.Retries, backoff: config.RetryBackoff, userAgent: config.UserAgent, checkpoints: config.Checkpoints, now: config.Now, requests: make(chan struct{}, config.MaxConcurrent), requestMaker: http.NewRequestWithContext}, nil
 }
 
 func (a *Adapter) LatestVersion(ctx context.Context) (navdata.DatasetVersion, error) {
@@ -186,7 +187,9 @@ func (a *Adapter) Airport(ctx context.Context, version navdata.DatasetVersion, i
 		return navdata.Airport{}, err
 	}
 	var response airportResponse
-	if err := a.getJSON(ctx, "airports/"+url.PathEscape(string(id)), nil, &response); err != nil {
+	if err := a.getJSON(ctx, "airports/"+url.PathEscape(string(id)), nil, &response); isHTTPStatus(err, http.StatusNotFound) {
+		return navdata.Airport{}, notFound("AIRAC.NET airport was not found")
+	} else if err != nil {
 		return navdata.Airport{}, err
 	}
 	airport, err := a.airport(version, response.Data)
@@ -411,6 +414,9 @@ func (a *Adapter) listProcedurePage(ctx context.Context, parameters url.Values) 
 func (a *Adapter) procedure(ctx context.Context, version navdata.DatasetVersion, item procedureListItem) (navdata.Procedure, bool, error) {
 	var response procedureDetailResponse
 	if err := a.getJSON(ctx, path.Join("procedures", item.Airport, item.Identifier), nil, &response); err != nil {
+		if isHTTPStatus(err, http.StatusNotFound) {
+			return navdata.Procedure{}, false, unavailable("AIRAC.NET procedure changed during retrieval")
+		}
 		return navdata.Procedure{}, false, err
 	}
 	detail := response.Data
@@ -468,6 +474,10 @@ func (a *Adapter) fix(version navdata.DatasetVersion, value waypointDTO) (navdat
 }
 func (a *Adapter) routeGeometry(query navdata.RouteQuery, result routeData) (navdata.RouteGeometry, error) {
 	geometry := navdata.RouteGeometry{Version: query.Version, TotalDistanceNM: result.TotalDistance, Coverage: navdata.CoverageComplete, Provenance: a.provenance(query.Version)}
+	if query.ArrivalProcedure != nil {
+		geometry.Coverage = navdata.CoveragePartial
+		geometry.Unresolved = append(geometry.Unresolved, "PUBLISHED_HOLDING_DATA_UNAVAILABLE")
+	}
 	if len(result.Segments) == 0 {
 		geometry.Coverage = navdata.CoveragePartial
 		geometry.Unresolved = append(geometry.Unresolved, "route-empty")
@@ -520,16 +530,19 @@ func (a *Adapter) getJSON(ctx context.Context, endpoint string, parameters url.V
 			return ctx.Err()
 		}
 		requestCtx, cancel := context.WithTimeout(ctx, a.timeout)
-		request, err := http.NewRequestWithContext(requestCtx, http.MethodGet, requestURL.String(), nil)
-		if err == nil {
-			request.Header.Set("Accept", "application/json")
-			request.Header.Set("User-Agent", a.userAgent)
-			if cached && checkpoint.ETag != "" {
-				request.Header.Set("If-None-Match", checkpoint.ETag)
-			}
-			if cached && checkpoint.LastModified != "" {
-				request.Header.Set("If-Modified-Since", checkpoint.LastModified)
-			}
+		request, err := a.requestMaker(requestCtx, http.MethodGet, requestURL.String(), nil)
+		if err != nil {
+			cancel()
+			<-a.requests
+			return invalid("construct AIRAC.NET request")
+		}
+		request.Header.Set("Accept", "application/json")
+		request.Header.Set("User-Agent", a.userAgent)
+		if cached && checkpoint.ETag != "" {
+			request.Header.Set("If-None-Match", checkpoint.ETag)
+		}
+		if cached && checkpoint.LastModified != "" {
+			request.Header.Set("If-Modified-Since", checkpoint.LastModified)
 		}
 		response, doErr := a.client.Do(request)
 		if doErr != nil {
@@ -551,6 +564,9 @@ func (a *Adapter) getJSON(ctx context.Context, endpoint string, parameters url.V
 		cancel()
 		<-a.requests
 		if readErr != nil {
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
 			if retryableTransport(readErr) && attempt < a.retries {
 				if err := wait(ctx, a.backoff, attempt); err != nil {
 					return err
@@ -726,6 +742,10 @@ type httpStatusError struct {
 func (e *httpStatusError) Error() string {
 	return fmt.Sprintf("AIRAC.NET request to %s returned HTTP %d", e.endpoint, e.status)
 }
+func isHTTPStatus(err error, status int) bool {
+	var value *httpStatusError
+	return errors.As(err, &value) && value.status == status
+}
 
 func firstWaypoint(raw json.RawMessage) (waypointDTO, bool, error) {
 	var one waypointDTO
@@ -864,6 +884,9 @@ func nextPage(hasMore bool, page int) int {
 	return 0
 }
 func retryableTransport(err error) bool {
+	if errors.Is(err, io.ErrUnexpectedEOF) {
+		return true
+	}
 	var network net.Error
 	return errors.As(err, &network) && (network.Timeout() || network.Temporary())
 }
@@ -886,6 +909,9 @@ func wait(ctx context.Context, base time.Duration, attempt int) error {
 }
 func invalid(message string) error {
 	return &aman.DomainError{Class: navdata.ErrorInvalidRequest, Message: message}
+}
+func notFound(message string) error {
+	return &aman.DomainError{Class: navdata.ErrorNotFound, Message: message}
 }
 func incomplete(message string) error {
 	return &aman.DomainError{Class: navdata.ErrorIncompleteGeometry, Message: message}

@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.46.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.45.0...frontend/v0.46.0) (2026-07-18)
+
+
+### Features
+
+* add authenticated EFB behind feature flag ([#348](https://github.com/flightstrips/FlightStrips/issues/348)) ([b9fb84e](https://github.com/flightstrips/FlightStrips/commit/b9fb84ea9522a26cc9090468713568bef5be5c30))
+* refresh EFB interface and briefing assets ([#357](https://github.com/flightstrips/FlightStrips/issues/357)) ([f6233bd](https://github.com/flightstrips/FlightStrips/commit/f6233bd16a672b274fea4f772e771ebe7e742437))
+* **sat:** add local test console ([#361](https://github.com/flightstrips/FlightStrips/issues/361)) ([782afae](https://github.com/flightstrips/FlightStrips/commit/782afae462081ddce1c2a32d5da07ee6e8c66c1e))
+* **stand:** add system status diagnostics ([#358](https://github.com/flightstrips/FlightStrips/issues/358)) ([8f926b3](https://github.com/flightstrips/FlightStrips/commit/8f926b35f762968a5906d8dd9abaa46943698f28))
+* **strip:** show arrival STAR in EFB ([#353](https://github.com/flightstrips/FlightStrips/issues/353)) ([d2431cb](https://github.com/flightstrips/FlightStrips/commit/d2431cb37783691d35fc9d632586bf2f82361583))
+* **strip:** store arrival STAR ([#347](https://github.com/flightstrips/FlightStrips/issues/347)) ([02747f2](https://github.com/flightstrips/FlightStrips/commit/02747f28c25f9fd5e83655392164fdcbc49c5388))
+
+
+### Bug Fixes
+
+* **cdm:** align EST startup states ([#354](https://github.com/flightstrips/FlightStrips/issues/354)) ([3567888](https://github.com/flightstrips/FlightStrips/commit/3567888699c5134c393a8b53ea82395f2b10ab59))
+* **cdm:** synchronize startup request timing ([#355](https://github.com/flightstrips/FlightStrips/issues/355)) ([53db077](https://github.com/flightstrips/FlightStrips/commit/53db07714180cd5afae83e21dc77f55e39f36674))
+* **stand:** prefer current stand occupants in SEQ ([#352](https://github.com/flightstrips/FlightStrips/issues/352)) ([32f71e4](https://github.com/flightstrips/FlightStrips/commit/32f71e49a369d9ec2d88631be106ae6881439705))
+* **stand:** synchronize lifecycle removals and adjacency ([#340](https://github.com/flightstrips/FlightStrips/issues/340)) ([eed49fb](https://github.com/flightstrips/FlightStrips/commit/eed49fb998d0543c3e2a7c7b272043bf3a4d8e26))
+* Test console provide correct snapshot time ([#362](https://github.com/flightstrips/FlightStrips/issues/362)) ([6e253b9](https://github.com/flightstrips/FlightStrips/commit/6e253b9d25e522a9ec98dd07a685587732152d44))
+
 ## [0.45.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.44.0...frontend/v0.45.0) (2026-07-12)
 
 

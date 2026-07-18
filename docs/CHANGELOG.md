@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.15.0](https://github.com/flightstrips/FlightStrips/compare/docs/v0.14.0...docs/v0.15.0) (2026-07-18)
+
+
+### Features
+
+* **sat:** add local test console ([#361](https://github.com/flightstrips/FlightStrips/issues/361)) ([782afae](https://github.com/flightstrips/FlightStrips/commit/782afae462081ddce1c2a32d5da07ee6e8c66c1e))
+
 ## [0.14.0](https://github.com/flightstrips/FlightStrips/compare/docs/v0.13.0...docs/v0.14.0) (2026-07-12)
 
 

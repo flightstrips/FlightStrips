@@ -49,14 +49,11 @@ func TestEFBFlagDefaultsFalseRegardlessOfEnvironment(t *testing.T) {
 	}
 }
 
-func TestTestToolsAircraftFixtureDoesNotOverrideExplicitConfiguration(t *testing.T) {
-	if got := standAssignmentAircraftFile(true, " C:/sector/ICAO_Aircraft.json "); got != "C:/sector/ICAO_Aircraft.json" {
+func TestStandAssignmentAircraftFilePreservesExplicitConfiguration(t *testing.T) {
+	if got := standAssignmentAircraftFile(" C:/sector/ICAO_Aircraft.json "); got != "C:/sector/ICAO_Aircraft.json" {
 		t.Fatalf("explicit aircraft file = %q", got)
 	}
-	if got := standAssignmentAircraftFile(true, ""); got != "config/test/ICAO_Aircraft.json" {
-		t.Fatalf("test-tools fixture = %q", got)
-	}
-	if got := standAssignmentAircraftFile(false, ""); got != "" {
-		t.Fatalf("production default changed to %q", got)
+	if got := standAssignmentAircraftFile(""); got != "" {
+		t.Fatalf("empty aircraft file = %q, want empty so config selects its default", got)
 	}
 }

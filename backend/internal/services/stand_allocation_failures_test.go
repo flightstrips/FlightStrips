@@ -55,3 +55,32 @@ func TestStandActionRecordsPreAllocationRejection(t *testing.T) {
 	require.Equal(t, "unauthorized", recorded[0].Outcome)
 	require.Equal(t, "A12", recorded[0].AttemptedStand)
 }
+
+func TestAutomaticNoCompatibleFailuresAreSuppressedUntilFactsChange(t *testing.T) {
+	service := &StandAllocationService{}
+	request := StandAllocationRequest{
+		SessionID: 7,
+		Callsign:  "sas123",
+		Airport:   "ekch",
+		Direction: sat.AssignmentDirectionDeparture,
+		FlightFacts: sat.FlightCompatibilityFacts{
+			Origin: "EKCH", Destination: "EGLL", AircraftKnown: false,
+			EngineType: sat.EngineJet, WTC: "UNKNOWN", BorderStatus: sat.BorderStatusNonSchengen,
+		},
+		AssignmentFacts: sat.AssignmentFlightFacts{
+			AircraftType: "MD82", BorderStatus: sat.BorderStatusNonSchengen,
+			Direction: sat.AssignmentDirectionDeparture,
+		},
+	}
+
+	for attempt := 0; attempt < automaticNoCompatibleFailureThreshold; attempt++ {
+		require.False(t, service.automaticAllocationSuppressed(request))
+		service.noteAutomaticNoCompatibleFailure(request)
+	}
+	require.True(t, service.automaticAllocationSuppressed(request))
+
+	request.FlightFacts.AircraftKnown = true
+	request.FlightFacts.Aircraft.Type = "MD82"
+	request.FlightFacts.WTC = "M"
+	require.False(t, service.automaticAllocationSuppressed(request), "new aircraft facts must allow a fresh allocation attempt")
+}

@@ -44,6 +44,9 @@ func (s *StandActionService) Allocate(ctx context.Context, session int32, airpor
 		s.recordRequestFailure(AutomaticStandAllocation, session, airport, callsign, "", err)
 		return nil, err
 	}
+	// A controller's explicit automatic request is a deliberate retry. It may
+	// restart an allocation that the feed-driven lifecycle has suppressed.
+	s.allocations.clearAutomaticNoCompatibleFailure(req)
 	return s.allocations.Allocate(ctx, req)
 }
 

@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.38.0](https://github.com/flightstrips/FlightStrips/compare/backend/v0.37.0...backend/v0.38.0) (2026-07-18)
+
+
+### Features
+
+* Add feature flag for ES private messages ([beb99b8](https://github.com/flightstrips/FlightStrips/commit/beb99b8cd23fe4f518b627b98202014407ffc16c))
+
+
+### Bug Fixes
+
+* allow aircraft already spawned to keep their stand ([2c5e6f0](https://github.com/flightstrips/FlightStrips/commit/2c5e6f0afca46032f4dc67123cacaab62185a191))
+* **stand:** preserve assignments during stand conflicts ([14d4f42](https://github.com/flightstrips/FlightStrips/commit/14d4f425d831b4cbf041e5827e0176664fc5fc18))
+
 ## [0.37.0](https://github.com/flightstrips/FlightStrips/compare/backend/v0.36.0...backend/v0.37.0) (2026-07-18)
 
 

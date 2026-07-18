@@ -1,6 +1,6 @@
 {
   "euroscope-plugin": "0.20.0",
-  "backend": "0.37.0",
-  "frontend": "0.46.0",
-  "docs": "0.15.0"
+  "backend": "0.38.0",
+  "frontend": "0.46.1",
+  "docs": "0.16.0"
 }

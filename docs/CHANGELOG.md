@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.16.0](https://github.com/flightstrips/FlightStrips/compare/docs/v0.15.0...docs/v0.16.0) (2026-07-18)
+
+
+### Features
+
+* Add feature flag for ES private messages ([beb99b8](https://github.com/flightstrips/FlightStrips/commit/beb99b8cd23fe4f518b627b98202014407ffc16c))
+
 ## [0.15.0](https://github.com/flightstrips/FlightStrips/compare/docs/v0.14.0...docs/v0.15.0) (2026-07-18)
 
 

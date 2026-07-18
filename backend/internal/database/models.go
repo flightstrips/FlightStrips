@@ -20,6 +20,53 @@ type AirportMasterOrder struct {
 	Priority int32
 }
 
+type AmanAirportState struct {
+	Airport       string
+	Revision      int64
+	GeneratedAt   pgtype.Timestamptz
+	PolicyVersion string
+	Mode          string
+	Authoritative bool
+	RunwayGroups  []byte
+	UpdatedAt     pgtype.Timestamptz
+}
+
+type AmanAuditRecord struct {
+	ID         int64
+	Airport    string
+	Revision   int64
+	Category   string
+	Payload    []byte
+	RecordedAt pgtype.Timestamptz
+}
+
+type AmanCommandOutcome struct {
+	CommandID  string
+	Airport    string
+	Revision   int64
+	Payload    []byte
+	RecordedAt pgtype.Timestamptz
+}
+
+type AmanFlight struct {
+	FlightID        string
+	Airport         string
+	VatsimCid       string
+	CurrentCallsign string
+	State           string
+	DataStatus      string
+	UpdatedAt       pgtype.Timestamptz
+	Payload         []byte
+}
+
+type AmanValidationEvidence struct {
+	EvidenceID string
+	Airport    string
+	Kind       string
+	Payload    []byte
+	RecordedAt pgtype.Timestamptz
+}
+
 type Controller struct {
 	ID                int32
 	Session           int32

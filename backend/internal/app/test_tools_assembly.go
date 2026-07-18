@@ -13,20 +13,21 @@ type testToolsAssembly struct {
 }
 
 type testToolsAssemblyDependencies struct {
-	auth         shared.AuthenticationService
-	readiness    appconfig.StandAssignmentReadiness
-	source       *vatsim.SyntheticSource
-	reconciler   *vatsim.Reconciler
-	sat          satAssembly
-	core         coreRepositories
-	stripDeleter testtools.StripDeleter
-	clock        *testtools.Clock
-	euroscope    *euroscope.Hub
+	auth                            shared.AuthenticationService
+	readiness                       appconfig.StandAssignmentReadiness
+	source                          *vatsim.SyntheticSource
+	reconciler                      *vatsim.Reconciler
+	sat                             satAssembly
+	core                            coreRepositories
+	stripDeleter                    testtools.StripDeleter
+	clock                           *testtools.Clock
+	euroscope                       *euroscope.Hub
+	enableStandAssignmentESMessages bool
 }
 
 func assembleTestTools(enabled bool, deps testToolsAssemblyDependencies) testToolsAssembly {
 	if !enabled {
-		if deps.sat.departures != nil {
+		if deps.enableStandAssignmentESMessages && deps.sat.departures != nil {
 			deps.sat.departures.SetWrongStandMessenger(deps.euroscope)
 		}
 		return testToolsAssembly{}
@@ -39,7 +40,7 @@ func assembleTestTools(enabled bool, deps testToolsAssemblyDependencies) testToo
 		StripDeleter: deps.stripDeleter,
 		Assignments:  deps.sat.assignments, Stands: appconfig.GetStandCapabilities(), Clock: deps.clock,
 	})
-	if deps.sat.departures != nil {
+	if deps.enableStandAssignmentESMessages && deps.sat.departures != nil {
 		deps.sat.departures.SetWrongStandMessenger(testtools.NewFallbackMessenger(deps.euroscope, service))
 	}
 	return testToolsAssembly{api: testtools.NewWebAPI(service, deps.auth, deps.readiness)}

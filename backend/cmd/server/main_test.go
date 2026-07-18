@@ -37,6 +37,18 @@ func TestStandAssignmentFlagDefaultsFalseRegardlessOfEnvironment(t *testing.T) {
 	}
 }
 
+func TestStandAssignmentEuroscopeMessagesDefaultToDisabled(t *testing.T) {
+	t.Setenv("ENABLE_STAND_ASSIGNMENT_ES_MESSAGES", "")
+	if got := envBool("ENABLE_STAND_ASSIGNMENT_ES_MESSAGES", false); got {
+		t.Fatal("ENABLE_STAND_ASSIGNMENT_ES_MESSAGES should default to false")
+	}
+
+	t.Setenv("ENABLE_STAND_ASSIGNMENT_ES_MESSAGES", "true")
+	if got := envBool("ENABLE_STAND_ASSIGNMENT_ES_MESSAGES", false); !got {
+		t.Fatal("ENABLE_STAND_ASSIGNMENT_ES_MESSAGES should enable messages when explicitly set true")
+	}
+}
+
 func TestEFBFlagDefaultsFalseRegardlessOfEnvironment(t *testing.T) {
 	t.Setenv("ENABLE_EFB", "")
 	if got := envBool("ENABLE_EFB", false); got {

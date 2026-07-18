@@ -25,6 +25,21 @@ func (c *fakeClock) current() time.Time      { return c.now }
 func (c *fakeClock) set(value time.Time)     { c.now = value }
 func (c *fakeClock) advance(d time.Duration) { c.now = c.now.Add(d) }
 
+func TestDepartureLifecycleWithoutEuroscopeMessengerSkipsStandMessages(t *testing.T) {
+	lifecycle := &DepartureLifecycleService{}
+
+	lifecycle.deliverUnassignedOccupiedStandWarning(7, "SAS701", "A12")
+	reason := wrongStandAwaitingPrefix + "A12"
+	err := lifecycle.deliverWrongStandWarning(context.Background(), &models.StandAssignment{
+		SessionID:      7,
+		Callsign:       "SAS701",
+		Stand:          "A1",
+		ConflictReason: &reason,
+	})
+
+	require.NoError(t, err)
+}
+
 type wrongStandTestMessenger struct {
 	available bool
 	calls     int

@@ -9,6 +9,12 @@ In this mode SAT does not load its configuration, start its VATSIM reconciliatio
 or lifecycle workers, expose controller actions, or change the controller UI.
 Existing manual stand handling remains available.
 
+SAT can remain active without sending its automated stand-assignment private
+messages to pilots through EuroScope. Set `ENABLE_STAND_ASSIGNMENT_ES_MESSAGES=true`
+to enable those messages. The default is `false`; SAT allocation, persistence,
+stand synchronization, controller notifications, and the frontend continue to
+operate regardless of this flag.
+
 ## Readiness
 
 `GET /healthz` remains an HTTP 200 liveness endpoint so a SAT input failure does

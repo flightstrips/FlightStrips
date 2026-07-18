@@ -60,20 +60,21 @@ type Config struct {
 	PDCWebLookupLiveOnly bool
 	EnablePDC            bool
 
-	ECFMPBaseURL          string
-	EnableECFMP           bool
-	EnableECFMPAPI        bool
-	EnablePilotAPI        bool
-	EnableEFB             bool
-	EnableALB             bool
-	EnableMetar           bool
-	EnableVATSIM          bool
-	EnableTransceivers    bool
-	EnableTraffic         bool
-	EnableStandAssignment bool
-	EnableTestTools       bool
-	EnableDBSeed          bool
-	CloseDBOnClose        bool
+	ECFMPBaseURL                    string
+	EnableECFMP                     bool
+	EnableECFMPAPI                  bool
+	EnablePilotAPI                  bool
+	EnableEFB                       bool
+	EnableALB                       bool
+	EnableMetar                     bool
+	EnableVATSIM                    bool
+	EnableTransceivers              bool
+	EnableTraffic                   bool
+	EnableStandAssignment           bool
+	EnableStandAssignmentESMessages bool
+	EnableTestTools                 bool
+	EnableDBSeed                    bool
+	CloseDBOnClose                  bool
 
 	StandAssignmentAircraftJSON string
 
@@ -236,7 +237,7 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 		auth: authService, readiness: standAssignmentReadiness,
 		source: vatsimGraph.synthetic, reconciler: vatsimReconciler,
 		sat: satGraph, core: core, stripDeleter: stripService,
-		clock: testClock, euroscope: euroscopeHub,
+		clock: testClock, euroscope: euroscopeHub, enableStandAssignmentESMessages: cfg.EnableStandAssignmentESMessages,
 	})
 	var albHub *alb.Hub
 	if cfg.EnableALB {

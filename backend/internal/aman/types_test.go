@@ -99,6 +99,30 @@ func TestFlightFreezeHasOneCanonicalRepresentation(t *testing.T) {
 	}
 }
 
+func TestBaselineStateRejectsCorruptHeldProvenance(t *testing.T) {
+	now := time.Date(2026, time.July, 18, 12, 0, 0, 0, time.UTC)
+	baseline := BaselineState{
+		ArrivalAt: now.Add(time.Hour), AirborneSensedAt: now, Source: BaselineSourceAirborneGreatCircle,
+		Confidence: ConfidenceLow, FlightPlanObservedAt: now, ModelVersion: "baseline-v1", ConfigVersion: "config-v1",
+		SpeedDefaultsVersion: "speed-v1",
+	}
+	degradation := BaselineDegradationGreatCircleUsed
+	baseline.DegradationReason = &degradation
+	if err := baseline.Validate(); err != nil {
+		t.Fatalf("validate great-circle baseline: %v", err)
+	}
+
+	baseline.ArrivalAt = now
+	assertInvalidArgument(t, baseline.Validate())
+	baseline.ArrivalAt = now.Add(time.Hour)
+	baseline.Source = BaselineSourcePlannedEOBTFiledEET
+	assertInvalidArgument(t, baseline.Validate())
+	baseline.Source = BaselineSourceAirborneGreatCircle
+	invalidDegradation := BaselineDegradationReason("unknown")
+	baseline.DegradationReason = &invalidDegradation
+	assertInvalidArgument(t, baseline.Validate())
+}
+
 func TestFlightCallsignCorrectionKeepsFlightIDAndVATSIMCID(t *testing.T) {
 	now := time.Date(2026, time.July, 18, 12, 0, 0, 0, time.UTC)
 	flight := validFlight(now)

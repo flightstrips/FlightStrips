@@ -14,9 +14,16 @@ import (
 const (
 	// DefaultEXOT is the planning-only estimated taxi-out duration added to a
 	// filed EOBT. It is never an operational arrival timeline value.
-	DefaultEXOT          = 15 * time.Minute
-	defaultModelVersion  = "aman-baseline-v1"
-	defaultConfigVersion = "aman-baseline-defaults-v1"
+	DefaultEXOT = 15 * time.Minute
+	// DefaultMaxFlightDuration accepts an aviation-long filed duration while
+	// bounding malformed input before time arithmetic.
+	DefaultMaxFlightDuration = 24 * time.Hour
+	// DefaultMaxArrivalHorizon bounds planning and route-aware arrival instants
+	// relative to the injected clock. It is intentionally longer than the
+	// maximum duration to allow a next-service-day EOBT.
+	DefaultMaxArrivalHorizon = 36 * time.Hour
+	defaultModelVersion      = "aman-baseline-v1"
+	defaultConfigVersion     = "aman-baseline-defaults-v1"
 )
 
 // Status reports whether an estimate may be consumed, is usable with an
@@ -35,21 +42,28 @@ const (
 type Reason string
 
 const (
-	ReasonNone                            Reason = "none"
-	ReasonMissingDepartureTime            Reason = "missing_departure_time"
-	ReasonMissingFlightDuration           Reason = "missing_flight_duration"
-	ReasonNegativeFlightDuration          Reason = "negative_flight_duration"
-	ReasonInvalidTimestamp                Reason = "invalid_timestamp"
-	ReasonDestinationMismatch             Reason = "destination_mismatch"
-	ReasonObservationInFuture             Reason = "observation_in_future"
-	ReasonObservationTooOld               Reason = "observation_too_old"
-	ReasonArrivalInPast                   Reason = "arrival_in_past"
-	ReasonSuddenAppearancePolicyRequired  Reason = "sudden_appearance_policy_required"
-	ReasonMissingGreatCircleInput         Reason = "missing_great_circle_input"
-	ReasonMissingAircraftSpeed            Reason = "missing_aircraft_speed"
-	ReasonHeldFirstAirborneBaseline       Reason = "held_first_airborne_baseline"
-	ReasonUnstableReviewReset             Reason = "unstable_review_reset"
-	ReasonRouteAwareSupersedesGreatCircle Reason = "route_aware_supersedes_great_circle"
+	ReasonNone                             Reason = "none"
+	ReasonMissingDepartureTime             Reason = "missing_departure_time"
+	ReasonMissingFlightDuration            Reason = "missing_flight_duration"
+	ReasonMissingFlightDurationAndGeometry Reason = "missing_flight_duration_and_great_circle_input"
+	ReasonNegativeFlightDuration           Reason = "negative_flight_duration"
+	ReasonFlightDurationTooLong            Reason = "flight_duration_too_long"
+	ReasonInvalidTimestamp                 Reason = "invalid_timestamp"
+	ReasonDestinationMismatch              Reason = "destination_mismatch"
+	ReasonObservationInFuture              Reason = "observation_in_future"
+	ReasonFlightPlanObservedInFuture       Reason = "flight_plan_observed_in_future"
+	ReasonObservationTooOld                Reason = "observation_too_old"
+	ReasonArrivalInPast                    Reason = "arrival_in_past"
+	ReasonTimestampBeyondHorizon           Reason = "timestamp_beyond_arrival_horizon"
+	ReasonArrivalBeyondHorizon             Reason = "arrival_beyond_horizon"
+	ReasonSuddenAppearancePolicyRequired   Reason = "sudden_appearance_policy_required"
+	ReasonMissingGreatCircleInput          Reason = "missing_great_circle_input"
+	ReasonMissingAircraftSpeed             Reason = "missing_aircraft_speed"
+	ReasonFiledEETMissingAPIUsed           Reason = "filed_eet_missing_api_estimated_flight_time_used"
+	ReasonGreatCircleUsed                  Reason = "route_geometry_or_duration_unavailable_great_circle_used"
+	ReasonHeldFirstAirborneBaseline        Reason = "held_first_airborne_baseline"
+	ReasonUnstableReviewReset              Reason = "unstable_review_reset"
+	ReasonRouteAwareSupersedesGreatCircle  Reason = "route_aware_supersedes_great_circle"
 )
 
 // AircraftCategory selects a documented default speed for a degraded
@@ -90,6 +104,12 @@ func SpeedDefaultsV1() SpeedDefaults {
 type Config struct {
 	EXOT              time.Duration
 	MaxObservationAge time.Duration
+	// MaxFlightDuration bounds positive filed/API and great-circle durations;
+	// zero selects DefaultMaxFlightDuration.
+	MaxFlightDuration time.Duration
+	// MaxArrivalHorizon bounds accepted departure and arrival instants from Now;
+	// zero selects DefaultMaxArrivalHorizon.
+	MaxArrivalHorizon time.Duration
 	SpeedDefaults     SpeedDefaults
 	ModelVersion      string
 	ConfigVersion     string
@@ -106,7 +126,13 @@ func NewReducer(config Config) (Reducer, error) {
 	if config.EXOT == 0 {
 		config.EXOT = DefaultEXOT
 	}
-	if config.EXOT < 0 || config.MaxObservationAge <= 0 {
+	if config.MaxFlightDuration == 0 {
+		config.MaxFlightDuration = DefaultMaxFlightDuration
+	}
+	if config.MaxArrivalHorizon == 0 {
+		config.MaxArrivalHorizon = DefaultMaxArrivalHorizon
+	}
+	if config.EXOT < 0 || config.MaxObservationAge <= 0 || config.MaxFlightDuration <= 0 || config.MaxArrivalHorizon <= 0 {
 		return Reducer{}, errInvalidConfig
 	}
 	if config.SpeedDefaults.Version == "" {
@@ -192,55 +218,51 @@ type Result struct {
 // held baseline wins unchanged until ResetHeldAirborne is explicitly true; the
 // caller, not this package, owns the Unstable-review transition and commit.
 func (r Reducer) Reduce(input Input, prior *aman.BaselineState) Result {
+	// Invalid current facts must never let a persisted baseline cross an
+	// airport boundary or make the injected clock irrelevant.
+	if !validUTC(input.Now) {
+		return unavailable(ReasonInvalidTimestamp)
+	}
+	if !destinationMatches(input.ExpectedDestination, input.Destination) {
+		return unavailable(ReasonDestinationMismatch)
+	}
 	if prior != nil && !input.ResetHeldAirborne {
 		if prior.Validate() != nil {
 			return unavailable(ReasonInvalidTimestamp)
 		}
 		return held(*prior)
 	}
-	if prior != nil && input.ResetHeldAirborne {
-		// The next model layer owns recalculation after an explicit review.
-		// Do not infer that review from time, position, or a lifecycle enum.
-		if input.RouteAware == nil {
+	if input.Airborne.SensedAt == nil {
+		if input.ResetHeldAirborne {
 			return unavailable(ReasonUnstableReviewReset)
 		}
+		return r.planned(input)
 	}
-	if !validUTC(input.Now) || !destinationMatches(input.ExpectedDestination, input.Destination) {
-		if !validUTC(input.Now) {
-			return unavailable(ReasonInvalidTimestamp)
-		}
-		return unavailable(ReasonDestinationMismatch)
-	}
-	if result := r.routeAware(input); result != nil {
-		return *result
-	}
-	if input.Airborne.SensedAt != nil {
-		return r.firstAirborne(input)
-	}
-	return r.planned(input)
+	return r.airborne(input)
 }
 
-func (r Reducer) routeAware(input Input) *Result {
+func (r Reducer) routeAware(input Input) Result {
 	if input.RouteAware == nil {
-		return nil
+		return unavailable(ReasonUnstableReviewReset)
 	}
-	if !validUTC(input.RouteAware.ArrivalAt) || !validUTC(input.Now) {
-		result := unavailable(ReasonInvalidTimestamp)
-		return &result
+	if !validUTC(input.RouteAware.ArrivalAt) {
+		return unavailable(ReasonInvalidTimestamp)
 	}
 	if !input.RouteAware.ArrivalAt.After(input.Now) {
-		result := unavailable(ReasonArrivalInPast)
-		return &result
+		return unavailable(ReasonArrivalInPast)
+	}
+	if beyondHorizon(input.Now, input.RouteAware.ArrivalAt, r.config.MaxArrivalHorizon) {
+		return unavailable(ReasonArrivalBeyondHorizon)
 	}
 	confidence := input.RouteAware.Confidence
 	if !confidence.Valid() || confidence == aman.ConfidenceUnknown {
 		confidence = aman.ConfidenceMedium
 	}
 	arrival := input.RouteAware.ArrivalAt
-	return &Result{Status: StatusAvailable, Reason: ReasonRouteAwareSupersedesGreatCircle, ArrivalAt: &arrival, Source: aman.BaselineSourceRouteAware, Confidence: confidence}
+	return Result{Status: StatusAvailable, Reason: ReasonRouteAwareSupersedesGreatCircle, ArrivalAt: &arrival, Source: aman.BaselineSourceRouteAware, Confidence: confidence}
 }
 
-func (r Reducer) firstAirborne(input Input) Result {
+func (r Reducer) airborne(input Input) Result {
 	sensed := *input.Airborne.SensedAt
 	if !validUTC(sensed) {
 		return unavailable(ReasonInvalidTimestamp)
@@ -254,6 +276,11 @@ func (r Reducer) firstAirborne(input Input) Result {
 	if !input.Airborne.PreviouslyObserved {
 		return Result{Status: StatusPolicyRequired, Reason: ReasonSuddenAppearancePolicyRequired, Source: aman.BaselineSourceNone, Confidence: aman.ConfidenceUnknown}
 	}
+	if input.ResetHeldAirborne {
+		// The next model layer owns recalculation after an explicit review.
+		// Do not infer that review from time, position, or a lifecycle enum.
+		return r.routeAware(input)
+	}
 
 	duration, source, reason := preferredDuration(input.Timing)
 	if duration != nil {
@@ -262,11 +289,11 @@ func (r Reducer) firstAirborne(input Input) Result {
 	if reason == ReasonNegativeFlightDuration {
 		return unavailable(reason)
 	}
-	return r.greatCircle(input, sensed)
+	return r.greatCircle(input, sensed, reason)
 }
 
 func (r Reducer) planned(input Input) Result {
-	departure, source, reason := r.departure(input.Timing)
+	departure, source, reason := r.departure(input, input.Timing)
 	if departure == nil {
 		return unavailable(reason)
 	}
@@ -274,17 +301,29 @@ func (r Reducer) planned(input Input) Result {
 	if duration == nil {
 		return unavailable(durationReason)
 	}
+	if *duration > r.config.MaxFlightDuration {
+		return unavailable(ReasonFlightDurationTooLong)
+	}
+	if beyondHorizon(input.Now, *departure, r.config.MaxArrivalHorizon) {
+		return unavailable(ReasonTimestampBeyondHorizon)
+	}
 	arrival := departure.Add(*duration)
 	if !arrival.After(input.Now) {
 		return unavailable(ReasonArrivalInPast)
 	}
+	if beyondHorizon(input.Now, arrival, r.config.MaxArrivalHorizon) {
+		return unavailable(ReasonArrivalBeyondHorizon)
+	}
 	return Result{Status: statusFor(durationReason), Reason: durationReason, ArrivalAt: pointer(arrival), Source: plannedSource(source, durationSource), Confidence: confidenceFor(durationReason)}
 }
 
-func (r Reducer) departure(timing Timing) (*time.Time, aman.BaselineSource, Reason) {
+func (r Reducer) departure(input Input, timing Timing) (*time.Time, aman.BaselineSource, Reason) {
 	if timing.EOBT != nil {
 		if !validUTC(*timing.EOBT) {
 			return nil, aman.BaselineSourceNone, ReasonInvalidTimestamp
+		}
+		if beyondHorizon(input.Now, *timing.EOBT, r.config.MaxArrivalHorizon) {
+			return nil, aman.BaselineSourceNone, ReasonTimestampBeyondHorizon
 		}
 		value := timing.EOBT.Add(r.config.EXOT)
 		return &value, aman.BaselineSourcePlannedEOBTFiledEET, ReasonNone
@@ -293,6 +332,9 @@ func (r Reducer) departure(timing Timing) (*time.Time, aman.BaselineSource, Reas
 		if !validUTC(*timing.EstimatedDeparture) {
 			return nil, aman.BaselineSourceNone, ReasonInvalidTimestamp
 		}
+		if beyondHorizon(input.Now, *timing.EstimatedDeparture, r.config.MaxArrivalHorizon) {
+			return nil, aman.BaselineSourceNone, ReasonTimestampBeyondHorizon
+		}
 		value := *timing.EstimatedDeparture
 		return &value, aman.BaselineSourcePlannedEstimatedDepartureFiledEET, ReasonNone
 	}
@@ -300,27 +342,44 @@ func (r Reducer) departure(timing Timing) (*time.Time, aman.BaselineSource, Reas
 }
 
 func (r Reducer) hold(input Input, sensed time.Time, duration time.Duration, source aman.BaselineSource, reason Reason) Result {
+	if duration <= 0 {
+		return unavailable(ReasonNegativeFlightDuration)
+	}
+	if duration > r.config.MaxFlightDuration {
+		return unavailable(ReasonFlightDurationTooLong)
+	}
 	arrival := sensed.Add(duration)
 	if !arrival.After(input.Now) {
 		return unavailable(ReasonArrivalInPast)
 	}
+	if beyondHorizon(input.Now, arrival, r.config.MaxArrivalHorizon) {
+		return unavailable(ReasonArrivalBeyondHorizon)
+	}
 	if input.FlightPlanObservedAt == nil || !validUTC(*input.FlightPlanObservedAt) {
 		return unavailable(ReasonInvalidTimestamp)
 	}
+	if input.FlightPlanObservedAt.After(input.Now) {
+		return unavailable(ReasonFlightPlanObservedInFuture)
+	}
 	state := aman.BaselineState{
 		ArrivalAt: arrival, AirborneSensedAt: sensed, Source: source, Confidence: confidenceFor(reason),
-		FlightPlanRevision: input.FlightPlanRevision, FlightPlanObservedAt: *input.FlightPlanObservedAt,
+		FlightPlanRevision: cloneUint64(input.FlightPlanRevision), FlightPlanObservedAt: *input.FlightPlanObservedAt,
 		ModelVersion: r.config.ModelVersion, ConfigVersion: r.config.ConfigVersion,
 	}
-	if reason != ReasonNone {
-		value := string(reason)
-		state.DegradationReason = &value
+	if degradation := degradationFor(reason); degradation != nil {
+		state.DegradationReason = degradation
 	}
-	return Result{Status: statusFor(reason), Reason: reason, ArrivalAt: pointer(arrival), Source: source, Confidence: state.Confidence, State: &state}
+	if source == aman.BaselineSourceAirborneGreatCircle {
+		state.SpeedDefaultsVersion = r.config.SpeedDefaults.Version
+	}
+	return Result{Status: statusFor(reason), Reason: reason, ArrivalAt: pointer(arrival), Source: source, Confidence: state.Confidence, State: cloneBaselineState(&state)}
 }
 
-func (r Reducer) greatCircle(input Input, sensed time.Time) Result {
+func (r Reducer) greatCircle(input Input, sensed time.Time, durationReason Reason) Result {
 	if input.GreatCircle == nil || !validCoordinates(input.GreatCircle.LatitudeDegrees, input.GreatCircle.LongitudeDegrees) || !validCoordinates(input.GreatCircle.DestinationLatitudeDegrees, input.GreatCircle.DestinationLongitudeDegrees) {
+		if durationReason == ReasonMissingFlightDuration {
+			return unavailable(ReasonMissingFlightDurationAndGeometry)
+		}
 		return unavailable(ReasonMissingGreatCircleInput)
 	}
 	speed, found := r.config.SpeedDefaults.Knots[input.GreatCircle.AircraftCategory]
@@ -331,8 +390,12 @@ func (r Reducer) greatCircle(input Input, sensed time.Time) Result {
 	if distance <= 0 || math.IsNaN(distance) || math.IsInf(distance, 0) {
 		return unavailable(ReasonMissingGreatCircleInput)
 	}
-	duration := time.Duration(float64(time.Hour) * distance / speed)
-	return r.hold(input, sensed, duration, aman.BaselineSourceAirborneGreatCircle, ReasonMissingFlightDuration)
+	durationHours := distance / speed
+	if durationHours > float64(r.config.MaxFlightDuration)/float64(time.Hour) {
+		return unavailable(ReasonFlightDurationTooLong)
+	}
+	duration := time.Duration(float64(time.Hour) * durationHours)
+	return r.hold(input, sensed, duration, aman.BaselineSourceAirborneGreatCircle, ReasonGreatCircleUsed)
 }
 
 func preferredDuration(timing Timing) (*time.Duration, aman.BaselineSource, Reason) {
@@ -348,7 +411,7 @@ func preferredDuration(timing Timing) (*time.Duration, aman.BaselineSource, Reas
 			return nil, aman.BaselineSourceNone, ReasonNegativeFlightDuration
 		}
 		value := *timing.APIEstimatedFlightTime
-		return &value, aman.BaselineSourceAirborneAPIEstimatedFlightTime, ReasonMissingFlightDuration
+		return &value, aman.BaselineSourceAirborneAPIEstimatedFlightTime, ReasonFiledEETMissingAPIUsed
 	}
 	return nil, aman.BaselineSourceNone, ReasonMissingFlightDuration
 }
@@ -371,8 +434,9 @@ func unavailable(reason Reason) Result {
 }
 
 func held(state aman.BaselineState) Result {
-	arrival := state.ArrivalAt
-	return Result{Status: statusForReasonPointer(state.DegradationReason), Reason: ReasonHeldFirstAirborneBaseline, ArrivalAt: &arrival, Source: state.Source, Confidence: state.Confidence, State: &state}
+	copy := cloneBaselineState(&state)
+	arrival := copy.ArrivalAt
+	return Result{Status: statusForBaselineDegradation(copy.DegradationReason), Reason: ReasonHeldFirstAirborneBaseline, ArrivalAt: &arrival, Source: copy.Source, Confidence: copy.Confidence, State: copy}
 }
 
 func statusFor(reason Reason) Status {
@@ -382,11 +446,24 @@ func statusFor(reason Reason) Status {
 	return StatusDegraded
 }
 
-func statusForReasonPointer(reason *string) Status {
+func statusForBaselineDegradation(reason *aman.BaselineDegradationReason) Status {
 	if reason == nil {
 		return StatusAvailable
 	}
 	return StatusDegraded
+}
+
+func degradationFor(reason Reason) *aman.BaselineDegradationReason {
+	var value aman.BaselineDegradationReason
+	switch reason {
+	case ReasonFiledEETMissingAPIUsed:
+		value = aman.BaselineDegradationFiledEETMissingAPIUsed
+	case ReasonGreatCircleUsed:
+		value = aman.BaselineDegradationGreatCircleUsed
+	default:
+		return nil
+	}
+	return &value
 }
 
 func confidenceFor(reason Reason) aman.Confidence {
@@ -402,6 +479,10 @@ func destinationMatches(expected, actual string) bool {
 }
 
 func validUTC(value time.Time) bool { return !value.IsZero() && value.Location() == time.UTC }
+
+func beyondHorizon(now, value time.Time, horizon time.Duration) bool {
+	return value.After(now.Add(horizon))
+}
 
 func validCoordinates(latitude, longitude float64) bool {
 	return latitude >= -90 && latitude <= 90 && longitude >= -180 && longitude <= 180 && (latitude != 0 || longitude != 0)
@@ -436,5 +517,26 @@ func cloneSpeeds(values map[AircraftCategory]float64) map[AircraftCategory]float
 }
 
 func pointer(value time.Time) *time.Time { return &value }
+
+func cloneUint64(value *uint64) *uint64 {
+	if value == nil {
+		return nil
+	}
+	copy := *value
+	return &copy
+}
+
+func cloneBaselineState(value *aman.BaselineState) *aman.BaselineState {
+	if value == nil {
+		return nil
+	}
+	copy := *value
+	copy.FlightPlanRevision = cloneUint64(value.FlightPlanRevision)
+	if value.DegradationReason != nil {
+		degradation := *value.DegradationReason
+		copy.DegradationReason = &degradation
+	}
+	return &copy
+}
 
 var errInvalidConfig = &aman.DomainError{Class: aman.ErrorInvalidArgument, Message: "baseline predictor configuration is invalid"}

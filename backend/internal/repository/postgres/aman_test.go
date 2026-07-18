@@ -108,10 +108,12 @@ func TestAMANRepositoryRestoresHeldAirborneBaselineForFreshPredictor(t *testing.
 	require.NoError(t, err)
 	require.Equal(t, first.State, restored.Flights[0].ArrivalBaseline)
 
-	// A fresh reducer receives the stored baseline and preserves it instead of
-	// recalculating from a changed source duration after restart.
+	// A newly constructed reducer receives the stored baseline and preserves it
+	// instead of recalculating from a changed source duration after restart.
+	freshReducer, err := predictor.NewReducer(predictor.Config{MaxObservationAge: 2 * time.Minute})
+	require.NoError(t, err)
 	changedEET := 3 * time.Hour
-	held := reducer.Reduce(predictor.Input{
+	held := freshReducer.Reduce(predictor.Input{
 		Now: amanTestTime.Add(time.Minute), ExpectedDestination: "EKCH", Destination: "EKCH",
 		Timing:               predictor.Timing{FiledEET: &changedEET},
 		Airborne:             predictor.AirborneObservation{SensedAt: &amanTestTime, PreviouslyObserved: true},

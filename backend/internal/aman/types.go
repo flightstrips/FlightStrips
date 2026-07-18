@@ -122,6 +122,20 @@ func (s BaselineSource) Valid() bool {
 	}
 }
 
+// BaselineDegradationReason is persisted with a successful degraded baseline.
+// It is deliberately separate from transient unavailable reasons so corrupt
+// aggregate JSON cannot claim a successful fallback with arbitrary text.
+type BaselineDegradationReason string
+
+const (
+	BaselineDegradationFiledEETMissingAPIUsed BaselineDegradationReason = "filed_eet_missing_api_estimated_flight_time_used"
+	BaselineDegradationGreatCircleUsed        BaselineDegradationReason = "route_geometry_or_duration_unavailable_great_circle_used"
+)
+
+func (r BaselineDegradationReason) Valid() bool {
+	return r == BaselineDegradationFiledEETMissingAPIUsed || r == BaselineDegradationGreatCircleUsed
+}
+
 // FreezeReason is the only representation of an operational TETA/slot freeze.
 // A flight must not add a parallel state or locked boolean.
 type FreezeReason string
@@ -222,7 +236,8 @@ type BaselineState struct {
 	AirborneSensedAt     time.Time
 	Source               BaselineSource
 	Confidence           Confidence
-	DegradationReason    *string
+	DegradationReason    *BaselineDegradationReason
+	SpeedDefaultsVersion string
 	FlightPlanRevision   *uint64
 	FlightPlanObservedAt time.Time
 	ModelVersion         string
@@ -444,6 +459,9 @@ func (b BaselineState) Validate() error {
 	if err := requireUTCTime("baseline airborne sensed at", b.AirborneSensedAt); err != nil {
 		return err
 	}
+	if !b.ArrivalAt.After(b.AirborneSensedAt) {
+		return invalid("baseline arrival must be after airborne sensed at")
+	}
 	if err := requireUTCTime("baseline flight plan observed at", b.FlightPlanObservedAt); err != nil {
 		return err
 	}
@@ -452,6 +470,20 @@ func (b BaselineState) Validate() error {
 	}
 	if strings.TrimSpace(b.ModelVersion) == "" || strings.TrimSpace(b.ConfigVersion) == "" {
 		return invalid("baseline model and config versions are required")
+	}
+	switch b.Source {
+	case BaselineSourceAirborneFiledEET:
+		if b.DegradationReason != nil || b.SpeedDefaultsVersion != "" {
+			return invalid("filed airborne baseline must not claim degradation or speed defaults")
+		}
+	case BaselineSourceAirborneAPIEstimatedFlightTime:
+		if b.DegradationReason == nil || *b.DegradationReason != BaselineDegradationFiledEETMissingAPIUsed || b.SpeedDefaultsVersion != "" {
+			return invalid("API airborne baseline provenance is invalid")
+		}
+	case BaselineSourceAirborneGreatCircle:
+		if b.DegradationReason == nil || *b.DegradationReason != BaselineDegradationGreatCircleUsed || strings.TrimSpace(b.SpeedDefaultsVersion) == "" {
+			return invalid("great-circle airborne baseline provenance is invalid")
+		}
 	}
 	return nil
 }

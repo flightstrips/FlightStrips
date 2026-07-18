@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.46.1](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.46.0...frontend/v0.46.1) (2026-07-18)
+
+
+### Bug Fixes
+
+* **stand:** preserve assignments during stand conflicts ([14d4f42](https://github.com/flightstrips/FlightStrips/commit/14d4f425d831b4cbf041e5827e0176664fc5fc18))
+
 ## [0.46.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.45.0...frontend/v0.46.0) (2026-07-18)
 
 

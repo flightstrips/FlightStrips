@@ -65,9 +65,12 @@ type Input struct {
 }
 
 type RemainingLeg struct {
-	ID         string
-	From, To   navdata.FixID
-	DistanceNM float64
+	ID                string
+	From, To          navdata.FixID
+	DistanceNM        float64
+	CourseTrueDegrees float64
+	Start             navdata.Coordinate
+	End               navdata.Coordinate
 }
 type Result struct {
 	Remaining       []RemainingLeg
@@ -387,10 +390,14 @@ func remaining(legs []leg, index int, along float64) []RemainingLeg {
 	out := make([]RemainingLeg, 0, len(legs)-index)
 	for i := index; i < len(legs); i++ {
 		d := legs[i].distance
+		start := legs[i].a
 		if i == index {
 			d -= along
+			_, bearing := wgs84Inverse(legs[i].a, legs[i].b)
+			start = wgs84Direct(legs[i].a, bearing, along)
 		}
-		out = append(out, RemainingLeg{legs[i].id, legs[i].from, legs[i].to, math.Max(0, d)})
+		_, course := wgs84Inverse(start, legs[i].b)
+		out = append(out, RemainingLeg{ID: legs[i].id, From: legs[i].from, To: legs[i].to, DistanceNM: math.Max(0, d), CourseTrueDegrees: course * 180 / math.Pi, Start: start, End: legs[i].b})
 	}
 	return out
 }

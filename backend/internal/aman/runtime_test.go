@@ -43,17 +43,17 @@ func validRuntimeConfig(mode RolloutMode) RuntimeConfig {
 func runtimeTestDependencies() Dependencies {
 	component := runtimeTestComponent("test component")
 	return Dependencies{
-		Repositories:            component,
-		NavigationMaterializer:  component,
-		NavigationReader:        component,
-		Predictor:               component,
-		StateEngine:             component,
-		SequenceService:         component,
-		Publisher:               component,
-		ValidationService:       component,
-		HealthService:           component,
-		NavigationRefreshWorker: newRuntimeTestWorker(),
-		ReconciliationWorker:    newRuntimeTestWorker(),
+		Repositories:           component,
+		NavigationMaterializer: component,
+		NavigationReader:       component,
+		Predictor:              component,
+		StateEngine:            component,
+		SequenceService:        component,
+		Publisher:              component,
+		ValidationService:      component,
+		HealthService:          component,
+		SurveillanceWorker:     newRuntimeTestWorker(),
+		ReconciliationWorker:   newRuntimeTestWorker(),
 	}
 }
 
@@ -85,7 +85,7 @@ func TestRuntimeRejectsInvalidConfiguration(t *testing.T) {
 		want   string
 	}{
 		{"airport", func(c *RuntimeConfig) { c.EnabledAirports = []string{"bad"} }, "ICAO"},
-		{"duplicate airport", func(c *RuntimeConfig) { c.EnabledAirports = []string{"EKCH", "ekch"} }, "unique"},
+		{"duplicate airport", func(c *RuntimeConfig) { c.EnabledAirports = []string{" EKCH ", "ekch"} }, "unique"},
 		{"reconciliation timing", func(c *RuntimeConfig) { c.ReconciliationInterval = -time.Second }, "reconciliation interval"},
 		{"surveillance timing", func(c *RuntimeConfig) { c.SurveillanceInterval = -time.Second }, "surveillance interval"},
 		{"source adapter", func(c *RuntimeConfig) { c.NavigationSourceAdapter = "other" }, "source adapter"},
@@ -117,12 +117,12 @@ func TestRuntimeWorkersUseApplicationContextAndConfiguredIntervals(t *testing.T)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	runtime.Start(ctx)
-	require.Equal(t, 4*time.Second, <-deps.NavigationRefreshWorker.(*runtimeTestWorker).started)
+	require.Equal(t, 4*time.Second, <-deps.SurveillanceWorker.(*runtimeTestWorker).started)
 	require.Equal(t, 3*time.Second, <-deps.ReconciliationWorker.(*runtimeTestWorker).started)
 	cancel()
 	require.Eventually(t, func() bool {
 		select {
-		case <-deps.NavigationRefreshWorker.(*runtimeTestWorker).stopped:
+		case <-deps.SurveillanceWorker.(*runtimeTestWorker).stopped:
 			return true
 		default:
 			return false
@@ -136,6 +136,25 @@ func TestRuntimeWorkersUseApplicationContextAndConfiguredIntervals(t *testing.T)
 			return false
 		}
 	}, time.Second, 10*time.Millisecond)
+}
+
+func TestRuntimeStoresNormalizedConfiguration(t *testing.T) {
+	config := validRuntimeConfig(ModeShadow)
+	config.Mode = " SHADOW "
+	config.EnabledAirports = []string{" ekch ", "ekrn"}
+	config.NavigationSourceAdapter = " AIRACNET "
+	config.TerminalGeometryPath = " testdata/terminal.geojson "
+
+	runtime, err := NewRuntime(config, runtimeTestDependencies())
+	require.NoError(t, err)
+	require.Equal(t, RuntimeConfig{
+		Mode:                    ModeShadow,
+		EnabledAirports:         []string{"EKCH", "EKRN"},
+		ReconciliationInterval:  3 * time.Second,
+		SurveillanceInterval:    4 * time.Second,
+		TerminalGeometryPath:    "testdata/terminal.geojson",
+		NavigationSourceAdapter: NavigationAdapterAIRACNet,
+	}, runtime.Config())
 }
 
 func TestRuntimeOwnershipFollowsRolloutMode(t *testing.T) {

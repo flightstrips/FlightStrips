@@ -36,17 +36,17 @@ func (w *amanAppTestWorker) Run(ctx context.Context, _ time.Duration) {
 func amanAppTestDependencies() aman.Dependencies {
 	component := amanAppTestComponent("injected test component")
 	return aman.Dependencies{
-		Repositories:            component,
-		NavigationMaterializer:  component,
-		NavigationReader:        component,
-		Predictor:               component,
-		StateEngine:             component,
-		SequenceService:         component,
-		Publisher:               component,
-		ValidationService:       component,
-		HealthService:           component,
-		NavigationRefreshWorker: newAMANAppTestWorker(),
-		ReconciliationWorker:    newAMANAppTestWorker(),
+		Repositories:           component,
+		NavigationMaterializer: component,
+		NavigationReader:       component,
+		Predictor:              component,
+		StateEngine:            component,
+		SequenceService:        component,
+		Publisher:              component,
+		ValidationService:      component,
+		HealthService:          component,
+		SurveillanceWorker:     newAMANAppTestWorker(),
+		ReconciliationWorker:   newAMANAppTestWorker(),
 	}
 }
 
@@ -108,13 +108,13 @@ func TestBuildAddsAMANWorkersOnlyWhenEnabled(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	application.StartWorkers(ctx)
-	refresh := amanDeps.NavigationRefreshWorker.(*amanAppTestWorker)
+	surveillance := amanDeps.SurveillanceWorker.(*amanAppTestWorker)
 	reconcile := amanDeps.ReconciliationWorker.(*amanAppTestWorker)
-	require.Eventually(t, func() bool { return len(refresh.started) == 1 && len(reconcile.started) == 1 }, time.Second, 10*time.Millisecond)
+	require.Eventually(t, func() bool { return len(surveillance.started) == 1 && len(reconcile.started) == 1 }, time.Second, 10*time.Millisecond)
 	cancel()
 	require.Eventually(t, func() bool {
 		select {
-		case <-refresh.stopped:
+		case <-surveillance.stopped:
 			return true
 		default:
 			return false

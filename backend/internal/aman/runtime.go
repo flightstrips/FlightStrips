@@ -56,10 +56,20 @@ func (c RuntimeConfig) withDefaults() RuntimeConfig {
 	return c
 }
 
+func (c RuntimeConfig) normalize() RuntimeConfig {
+	c = c.withDefaults()
+	c.Mode = RolloutMode(strings.ToLower(strings.TrimSpace(string(c.Mode))))
+	c.EnabledAirports = normalizeAirports(c.EnabledAirports)
+	c.TerminalGeometryPath = strings.TrimSpace(c.TerminalGeometryPath)
+	c.NavigationSourceAdapter = strings.ToLower(strings.TrimSpace(c.NavigationSourceAdapter))
+	return c
+}
+
 // Validate rejects configuration that would make an enabled AMAN runtime
 // ambiguous or unusable. Disabled AMAN accepts its zero-value configuration.
 func (c RuntimeConfig) Validate() error {
-	c = c.withDefaults()
+	original := c.withDefaults()
+	c = original.normalize()
 	if !c.Mode.Valid() {
 		return fmt.Errorf("AMAN mode %q is invalid", c.Mode)
 	}
@@ -70,12 +80,11 @@ func (c RuntimeConfig) Validate() error {
 		return fmt.Errorf("AMAN surveillance interval must be greater than 0")
 	}
 
-	airports := normalizeAirports(c.EnabledAirports)
-	if len(airports) != len(nonEmpty(c.EnabledAirports)) {
+	if len(c.EnabledAirports) != len(nonEmpty(original.EnabledAirports)) {
 		return fmt.Errorf("AMAN enabled airports must be unique ICAO identifiers")
 	}
-	seenAirports := make(map[string]struct{}, len(airports))
-	for _, airport := range airports {
+	seenAirports := make(map[string]struct{}, len(c.EnabledAirports))
+	for _, airport := range c.EnabledAirports {
 		if !airportIdentifier.MatchString(airport) {
 			return fmt.Errorf("AMAN airport %q must be a four-letter ICAO identifier", airport)
 		}
@@ -90,7 +99,7 @@ func (c RuntimeConfig) Validate() error {
 	if c.Mode == ModeDisabled {
 		return nil
 	}
-	if len(airports) == 0 {
+	if len(c.EnabledAirports) == 0 {
 		return fmt.Errorf("AMAN enabled airports are required when mode is %q", c.Mode)
 	}
 	if !isSupportedNavigationAdapter(c.NavigationSourceAdapter) {
@@ -135,7 +144,7 @@ type Component interface {
 }
 
 // Worker is a cancellation-aware AMAN loop. The runtime owns its lifecycle;
-// concrete source and reconciliation implementations stay outside this task.
+// concrete surveillance and reconciliation implementations stay outside this task.
 type Worker interface {
 	Run(context.Context, time.Duration)
 }
@@ -144,17 +153,17 @@ type Worker interface {
 // explicit lets later AMAN tasks add concrete implementations without changing
 // startup ownership or adding a service locator.
 type Dependencies struct {
-	Repositories            Component
-	NavigationMaterializer  Component
-	NavigationReader        Component
-	Predictor               Component
-	StateEngine             Component
-	SequenceService         Component
-	Publisher               Component
-	ValidationService       Component
-	HealthService           Component
-	NavigationRefreshWorker Worker
-	ReconciliationWorker    Worker
+	Repositories           Component
+	NavigationMaterializer Component
+	NavigationReader       Component
+	Predictor              Component
+	StateEngine            Component
+	SequenceService        Component
+	Publisher              Component
+	ValidationService      Component
+	HealthService          Component
+	SurveillanceWorker     Worker
+	ReconciliationWorker   Worker
 }
 
 // Ownership describes the runtime authority selected by rollout mode.
@@ -177,7 +186,7 @@ type Runtime struct {
 // NewRuntime validates the rollout configuration and all required explicit
 // dependencies before workers can start.
 func NewRuntime(config RuntimeConfig, deps Dependencies) (*Runtime, error) {
-	config = config.withDefaults()
+	config = config.normalize()
 	if err := config.Validate(); err != nil {
 		return nil, err
 	}
@@ -203,8 +212,8 @@ func NewRuntime(config RuntimeConfig, deps Dependencies) (*Runtime, error) {
 			return nil, fmt.Errorf("AMAN runtime requires %s", dependency.name)
 		}
 	}
-	if deps.NavigationRefreshWorker == nil {
-		return nil, fmt.Errorf("AMAN runtime requires navigation refresh worker")
+	if deps.SurveillanceWorker == nil {
+		return nil, fmt.Errorf("AMAN runtime requires surveillance worker")
 	}
 	if deps.ReconciliationWorker == nil {
 		return nil, fmt.Errorf("AMAN runtime requires reconciliation worker")
@@ -250,10 +259,12 @@ func (r *Runtime) Enabled() bool {
 
 // Start runs only the configured AMAN loops. Both workers receive the same
 // application context, so normal application cancellation shuts them down.
+// Surveillance is the source-observation loop; navigation materializer refresh
+// policy is deliberately outside this runtime.
 func (r *Runtime) Start(ctx context.Context) {
 	if !r.Enabled() {
 		return
 	}
-	go r.deps.NavigationRefreshWorker.Run(ctx, r.config.SurveillanceInterval)
+	go r.deps.SurveillanceWorker.Run(ctx, r.config.SurveillanceInterval)
 	go r.deps.ReconciliationWorker.Run(ctx, r.config.ReconciliationInterval)
 }

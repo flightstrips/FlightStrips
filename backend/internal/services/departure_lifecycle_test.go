@@ -214,6 +214,24 @@ func TestDepartureLifecycle(t *testing.T) {
 		assert.Equal(t, "A2", block.Stand)
 	})
 
+	t.Run("coming online at a different free incompatible stand adopts the observed stand", func(t *testing.T) {
+		aircraft := mustLoadAircraftRegistry(t, "A320")
+		lifecycle, _, session, assignments, strips, clock := departureLifecycleFixture(t, pool, queries, "", "WINGSPAN:20", aircraft)
+		testdata.SeedTestStrip(t, queries, session, "SAS610")
+		clock.set(time.Date(2026, 7, 12, 10, 0, 0, 0, time.UTC))
+		require.NoError(t, lifecycle.ProcessDeparture(ctx, session, loadStrip(t, strips, session, "SAS610"), offlineFlight("SAS610", 1)))
+
+		require.NoError(t, lifecycle.ProcessDeparture(ctx, session, loadStrip(t, strips, session, "SAS610"), onlineFlightAtA2("SAS610", 1)))
+
+		block, err := assignments.GetAssignment(ctx, session, "SAS610")
+		require.NoError(t, err)
+		assert.Equal(t, StageDepartureBlock, block.Stage)
+		assert.Equal(t, "A2", block.Stand)
+		assert.Equal(t, "AUTOMATIC", block.Source)
+		assert.Nil(t, block.ConflictReason)
+		assert.Nil(t, block.MatchedVariant)
+	})
+
 	t.Run("occupied observed stand records a task 19 mismatch without blocking the reserved stand", func(t *testing.T) {
 		lifecycle, allocations, session, assignments, strips, clock := departureLifecycleFixture(t, pool, queries, "", "", nil)
 		var published []StandAllocationResult

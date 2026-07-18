@@ -195,10 +195,11 @@ func (s *DepartureLifecycleService) ObserveDeparturePosition(ctx context.Context
 }
 
 // activateObservedBlock only converts an online aircraft to a departure block
-// after its live position resolves to a stand. A compatible, available spawn
-// stand replaces the reservation atomically. An unavailable or incompatible
-// observed stand leaves the reservation intact and records the mismatch for
-// task 19's future warning/deadline workflow.
+// after its live position resolves to a stand. A free observed spawn stand
+// replaces the reservation atomically. Because the aircraft is already
+// physically present, capability mismatches alone do not force relocation.
+// An occupied or blocked observed stand leaves the reservation intact and
+// records the mismatch for the warning/deadline workflow.
 func (s *DepartureLifecycleService) activateObservedBlock(ctx context.Context, session int32, strip *models.Strip, flight vatsim.DepartureFlightInfo) (bool, error) {
 	observed, found := s.stands.StandAtPosition(strings.TrimSpace(strip.Origin), flight.Latitude, flight.Longitude)
 	if !found {

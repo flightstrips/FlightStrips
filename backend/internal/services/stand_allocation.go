@@ -31,6 +31,7 @@ const (
 	AutomaticStandReallocation StandAllocationCommand = "AUTOMATIC_REALLOCATION"
 	CompatibleManualStand      StandAllocationCommand = "MANUAL_ASSIGNMENT"
 	IncompatibleManualOverride StandAllocationCommand = "MANUAL_OVERRIDE"
+	observedStandAllocation    StandAllocationCommand = "OBSERVED_STAND"
 )
 
 var (
@@ -261,11 +262,13 @@ func (s *StandAllocationService) AssignManually(ctx context.Context, request Sta
 	return s.allocate(ctx, CompatibleManualStand, request)
 }
 
-// assignObservedStand probes the stand where EuroScope saw an aircraft. An
+// assignObservedStand adopts the stand where EuroScope saw an aircraft when it
+// is operationally free. The aircraft is already physically present, so stand
+// capability preferences must not trigger a relocation by themselves. An
 // unavailable result is expected during wrong-stand recovery, so it must not
 // be retained as a controller-facing allocation failure.
 func (s *StandAllocationService) assignObservedStand(ctx context.Context, request StandAllocationRequest) (*StandAllocationResult, error) {
-	return s.allocateWithFailureLogging(ctx, CompatibleManualStand, request, false)
+	return s.allocateWithFailureLogging(ctx, observedStandAllocation, request, false)
 }
 
 func (s *StandAllocationService) OverrideManually(ctx context.Context, request StandAllocationRequest) (*StandAllocationResult, error) {
@@ -525,7 +528,7 @@ func validateStandAllocationRequest(command StandAllocationCommand, request *Sta
 	if request.Stage == "" {
 		request.Stage = "ASSIGNED"
 	}
-	if command == CompatibleManualStand || command == IncompatibleManualOverride {
+	if command == CompatibleManualStand || command == IncompatibleManualOverride || command == observedStandAllocation {
 		if request.Stand == "" {
 			return errors.New("manual stand allocation requires a stand")
 		}
@@ -648,6 +651,29 @@ func (s *StandAllocationService) selectStand(command StandAllocationCommand, req
 	matches := make(map[string]sat.StandCompatibilityMatch, len(evaluation.Matches))
 	for _, match := range evaluation.Matches {
 		matches[standName(match.Stand.Name)] = match
+	}
+	if command == observedStandAllocation {
+		target := standName(request.Stand)
+		match, compatible := matches[target]
+		if !compatible {
+			stand, known := s.stands.Lookup(request.Airport, target)
+			if !known {
+				return target, nil, nil, nil, "", fmt.Errorf("%w: %s", ErrUnknownManualOverrideStand, target)
+			}
+			if len(stand.Variants) == 0 {
+				return target, nil, nil, nil, "", fmt.Errorf("%w: %s", ErrIncompatibleManualAssignment, target)
+			}
+			match = sat.StandCompatibilityMatch{
+				Stand:  stand,
+				Blocks: slices.Clone(stand.Blocks),
+			}
+			matches[target] = match
+		}
+		availability := s.availability(request, assignments, blocks, matches)
+		if len(availability[target]) > 0 {
+			return target, nil, nil, nil, "", fmt.Errorf("%w: %s", ErrIncompatibleManualAssignment, target)
+		}
+		return target, nil, &match, []string{target}, "", nil
 	}
 	if len(matches) == 0 && command != IncompatibleManualOverride {
 		return "", nil, nil, nil, "", ErrNoCompatibleStand

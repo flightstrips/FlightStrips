@@ -31,6 +31,15 @@ type AirportCoordinates struct {
 // not need a live calculation or a controlled clock.
 type ArrivalETAOption func(*Reconciler)
 
+// WithLegacyArrivalETAWriter controls whether VATSIM reconciliation owns the
+// accepted ArrivalETA field. AMAN read-only and authoritative modes disable
+// this legacy writer before reconciliation begins.
+func WithLegacyArrivalETAWriter(enabled bool) ArrivalETAOption {
+	return func(r *Reconciler) {
+		r.legacyArrivalETAWriter = enabled
+	}
+}
+
 // WithAirportCoordinates enables live ETA calculation against the configured
 // airport location.
 func WithAirportCoordinates(latitude, longitude float64) ArrivalETAOption {

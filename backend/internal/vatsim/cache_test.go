@@ -46,7 +46,7 @@ func TestCacheSnapshotDecodesPilotsAndPrefiles(t *testing.T) {
   "pilots":[{
     "cid":1234567,"callsign":"dal123","latitude":55.618,"longitude":12.656,"altitude":34000,"groundspeed":456,
     "logon_time":"2026-07-12T08:00:00Z","last_updated":"2026-07-12T09:59:50Z",
-    "flight_plan":{"flight_rules":"I","aircraft":"A320/M-SDE2E3FGHIJ1RWXYZ/LB1","aircraft_faa":"A320/L","aircraft_short":"A320","departure":"EKCH","arrival":"EGLL","alternate":"EGKK","deptime":"0815","enroute_time":"0145","remarks":"PBN/B2","route":"DCT LAM","revision_id":4,"assigned_transponder":"1234"}
+    "flight_plan":{"flight_rules":"I","aircraft":"A320/M-SDE2E3FGHIJ1RWXYZ/LB1","aircraft_faa":"A320/L","aircraft_short":"A320","departure":"EKCH","arrival":"EGLL","alternate":"EGKK","deptime":"0815","enroute_time":"0145","altitude":"F350","remarks":"PBN/B2","route":"DCT LAM","revision_id":4,"assigned_transponder":"1234"}
   }],
   "prefiles":[{
     "cid":7654321,"callsign":" sas456 ","last_updated":"2026-07-12T09:58:00Z",
@@ -73,7 +73,7 @@ func TestCacheSnapshotDecodesPilotsAndPrefiles(t *testing.T) {
 	assert.Equal(t, time.Date(2026, 7, 12, 9, 59, 50, 0, time.UTC), pilot.LastUpdated)
 	assert.Equal(t, FlightPlan{
 		FlightRules: "I", Aircraft: "A320/M-SDE2E3FGHIJ1RWXYZ/LB1", AircraftFAA: "A320/L", AircraftShort: "A320",
-		Origin: "EKCH", Destination: "EGLL", Alternate: "EGKK", EOBT: "0815", EnrouteDuration: "0145",
+		Origin: "EKCH", Destination: "EGLL", Alternate: "EGKK", EOBT: "0815", EnrouteDuration: "0145", RequestedLevel: "F350",
 		Remarks: "PBN/B2", Route: "DCT LAM", AssignedSquawk: "1234", Revision: 4,
 	}, pilot.FlightPlan)
 

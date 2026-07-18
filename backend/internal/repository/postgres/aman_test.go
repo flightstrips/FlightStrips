@@ -143,6 +143,7 @@ func TestAMANVATSIMObservationIdentitySurvivesRestartCorrectsCallsignAndRetires(
 	next, err := NewAMANRepository(pool).BindVATSIMFlight(ctx, aman.VATSIMFlightIdentity{VATSIMCID: "123456", CurrentCallsign: "SAS789"})
 	require.NoError(t, err)
 	require.NotEqual(t, first, next, "a later flight from the same VATSIM user receives a new FlightID")
+	requireDomainErrorClass(t, secondRepository.RetireVATSIMFlight(ctx, first), aman.ErrorNotFound)
 }
 
 func TestAMANVATSIMObservationIdentityAllowsOnlyOneConcurrentActiveCID(t *testing.T) {

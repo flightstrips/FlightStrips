@@ -50,7 +50,6 @@ func amanAppTestDependencies() aman.Dependencies {
 		ValidationService:      component,
 		HealthService:          component,
 		ObservationSink:        amanAppTestObservationSink{},
-		SurveillanceWorker:     newAMANAppTestWorker(),
 		ReconciliationWorker:   newAMANAppTestWorker(),
 	}
 }
@@ -113,13 +112,12 @@ func TestBuildAddsAMANWorkersOnlyWhenEnabled(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	application.StartWorkers(ctx)
-	surveillance := amanDeps.SurveillanceWorker.(*amanAppTestWorker)
 	reconcile := amanDeps.ReconciliationWorker.(*amanAppTestWorker)
-	require.Eventually(t, func() bool { return len(surveillance.started) == 1 && len(reconcile.started) == 1 }, time.Second, 10*time.Millisecond)
+	require.Eventually(t, func() bool { return len(reconcile.started) == 1 }, time.Second, 10*time.Millisecond)
 	cancel()
 	require.Eventually(t, func() bool {
 		select {
-		case <-surveillance.stopped:
+		case <-reconcile.stopped:
 			return true
 		default:
 			return false

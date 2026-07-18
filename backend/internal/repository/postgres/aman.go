@@ -130,8 +130,14 @@ func (r *amanRepository) RetireVATSIMFlight(ctx context.Context, flightID aman.F
 	if strings.TrimSpace(string(flightID)) == "" {
 		return &aman.DomainError{Class: aman.ErrorInvalidArgument, Message: "flight ID is required"}
 	}
-	_, err := r.queries.RetireAMANVATSIMObservationIdentity(ctx, string(flightID))
-	return err
+	retired, err := r.queries.RetireAMANVATSIMObservationIdentity(ctx, string(flightID))
+	if err != nil {
+		return err
+	}
+	if retired == 0 {
+		return &aman.DomainError{Class: aman.ErrorNotFound, Message: "active VATSIM flight identity was not found"}
+	}
+	return nil
 }
 
 // Commit provides the repository's one atomic transition. A returned result

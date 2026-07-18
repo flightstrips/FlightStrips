@@ -430,7 +430,7 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 		app.addWorker(vatsimReconciler.Start)
 	}
 	if amanObservationWorker != nil {
-		app.addWorker(func(ctx context.Context) { amanObservationWorker.Run(ctx, cfg.AMAN.ReconciliationInterval) })
+		app.addWorker(func(ctx context.Context) { amanObservationWorker.Run(ctx, cfg.AMAN.SurveillanceInterval) })
 	}
 	if departureLifecycle != nil {
 		app.addWorker(departureLifecycle.StartSweep)

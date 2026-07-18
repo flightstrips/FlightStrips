@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"reflect"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -102,16 +103,21 @@ func (w *ObservationWorker) Publish(ctx context.Context) error {
 	now := w.now().UTC()
 	status := observationSourceStatus(snapshot, now, w.staleAfter)
 	current := make(map[string]aman.FlightObservation)
+	failed := make(map[string]struct{})
+	var publishErrors []error
 	if status != aman.DataDisconnected && !snapshot.Timestamp.IsZero() {
 		for _, flight := range snapshot.Flights() {
 			if _, enabled := w.airports[strings.ToUpper(strings.TrimSpace(flight.FlightPlan.Destination))]; !enabled {
 				continue
 			}
-			observation, err := w.mapFlight(ctx, flight, snapshot.Timestamp, status, now)
+			previous, known := w.known[flight.CID]
+			observation, err := w.mapFlight(ctx, flight, snapshot.Timestamp, status, now, optionalObservation(previous, known))
 			if err != nil {
-				return err
+				failed[flight.CID] = struct{}{}
+				publishErrors = append(publishErrors, fmt.Errorf("map VATSIM observation for CID %s: %w", flight.CID, err))
+				continue
 			}
-			if previous, exists := w.known[flight.CID]; exists {
+			if known {
 				observation = preserveNewerObservationFacts(previous, observation)
 			}
 			current[flight.CID] = observation
@@ -125,7 +131,6 @@ func (w *ObservationWorker) Publish(ctx context.Context) error {
 		}
 	}
 
-	var publishErrors []error
 	for cid, observation := range current {
 		if previous, exists := w.known[cid]; exists && sameObservation(previous, observation) {
 			continue
@@ -138,6 +143,9 @@ func (w *ObservationWorker) Publish(ctx context.Context) error {
 	}
 	if status != aman.DataDisconnected {
 		for cid := range w.known {
+			if _, mappingFailed := failed[cid]; mappingFailed {
+				continue
+			}
 			if _, present := current[cid]; !present {
 				delete(w.known, cid)
 			}
@@ -146,11 +154,17 @@ func (w *ObservationWorker) Publish(ctx context.Context) error {
 	return errors.Join(publishErrors...)
 }
 
-func (w *ObservationWorker) mapFlight(ctx context.Context, flight Flight, snapshotAt time.Time, status aman.DataStatus, reconciledAt time.Time) (aman.FlightObservation, error) {
+func (w *ObservationWorker) mapFlight(ctx context.Context, flight Flight, snapshotAt time.Time, status aman.DataStatus, reconciledAt time.Time, previous *aman.FlightObservation) (aman.FlightObservation, error) {
 	identity := aman.VATSIMFlightIdentity{VATSIMCID: strings.TrimSpace(flight.CID), CurrentCallsign: strings.TrimSpace(flight.Callsign)}
-	flightID, err := w.identities.BindVATSIMFlight(ctx, identity)
-	if err != nil {
-		return aman.FlightObservation{}, fmt.Errorf("bind VATSIM flight identity: %w", err)
+	flightID := aman.FlightID("")
+	if previous != nil && previous.Callsign == identity.CurrentCallsign {
+		flightID = previous.FlightID
+	} else {
+		var err error
+		flightID, err = w.identities.BindVATSIMFlight(ctx, identity)
+		if err != nil {
+			return aman.FlightObservation{}, fmt.Errorf("bind VATSIM flight identity: %w", err)
+		}
 	}
 	observedAt := flight.LastUpdated.UTC()
 	if observedAt.IsZero() {
@@ -159,8 +173,9 @@ func (w *ObservationWorker) mapFlight(ctx context.Context, flight Flight, snapsh
 	observation := aman.FlightObservation{
 		FlightID: flightID, VATSIMCID: identity.VATSIMCID, Callsign: identity.CurrentCallsign,
 		Origin: strings.ToUpper(strings.TrimSpace(flight.FlightPlan.Origin)), Destination: strings.ToUpper(strings.TrimSpace(flight.FlightPlan.Destination)),
-		AircraftType: optionalString(flight.FlightPlan.AircraftShort), FiledRoute: optionalString(flight.FlightPlan.Route),
-		PlannedTiming: plannedTiming(reconciledAt, flight.FlightPlan), FlightPlan: flightPlanFact(flight.FlightPlan.Revision, observedAt),
+		AircraftType: optionalString(flight.FlightPlan.AircraftShort), WakeCategory: wakeCategory(flight.FlightPlan.Aircraft),
+		FiledRoute: optionalString(flight.FlightPlan.Route), RequestedLevel: requestedLevelFeet(flight.FlightPlan.RequestedLevel),
+		PlannedTiming: plannedTiming(observedAt, flight.FlightPlan), FlightPlan: flightPlanFact(flight.FlightPlan.Revision, observedAt),
 		Surveillance: surveillanceFact(flight, observedAt), TakeoffDetected: takeoffDetected(flight, observedAt),
 		ReconciledAt: reconciledAt, SourceStatus: status,
 	}
@@ -241,6 +256,40 @@ func plannedOffBlockTime(now time.Time, eobt string) (time.Time, bool) {
 	return best, true
 }
 
+func wakeCategory(aircraft string) *string {
+	_, equipment, found := strings.Cut(strings.ToUpper(strings.TrimSpace(aircraft)), "/")
+	if !found || equipment == "" {
+		return nil
+	}
+	value := equipment[:1]
+	switch value {
+	case "L", "M", "H", "J":
+		return &value
+	default:
+		return nil
+	}
+}
+
+func requestedLevelFeet(value string) *int {
+	value = strings.ToUpper(strings.TrimSpace(value))
+	multiplier := 1
+	switch {
+	case strings.HasPrefix(value, "FL"):
+		value, multiplier = strings.TrimPrefix(value, "FL"), 100
+	case strings.HasPrefix(value, "F"):
+		value, multiplier = strings.TrimPrefix(value, "F"), 100
+	}
+	level, err := strconv.Atoi(value)
+	if err != nil || level <= 0 {
+		return nil
+	}
+	feet := level * multiplier
+	if feet < 1000 || feet > 60000 {
+		return nil
+	}
+	return &feet
+}
+
 func preserveNewerObservationFacts(previous, next aman.FlightObservation) aman.FlightObservation {
 	if flightPlanIsOlder(previous.FlightPlan, next.FlightPlan) {
 		next.Origin, next.Destination = previous.Origin, previous.Destination
@@ -281,6 +330,13 @@ func sameObservation(previous, next aman.FlightObservation) bool {
 func optionalString(value string) *string {
 	value = strings.TrimSpace(value)
 	if value == "" {
+		return nil
+	}
+	return &value
+}
+
+func optionalObservation(value aman.FlightObservation, ok bool) *aman.FlightObservation {
+	if !ok {
 		return nil
 	}
 	return &value

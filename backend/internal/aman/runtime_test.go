@@ -57,7 +57,6 @@ func runtimeTestDependencies() Dependencies {
 		ValidationService:      component,
 		HealthService:          component,
 		ObservationSink:        runtimeTestObservationSink{},
-		SurveillanceWorker:     newRuntimeTestWorker(),
 		ReconciliationWorker:   newRuntimeTestWorker(),
 	}
 }
@@ -122,17 +121,8 @@ func TestRuntimeWorkersUseApplicationContextAndConfiguredIntervals(t *testing.T)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	runtime.Start(ctx)
-	require.Equal(t, 4*time.Second, <-deps.SurveillanceWorker.(*runtimeTestWorker).started)
 	require.Equal(t, 3*time.Second, <-deps.ReconciliationWorker.(*runtimeTestWorker).started)
 	cancel()
-	require.Eventually(t, func() bool {
-		select {
-		case <-deps.SurveillanceWorker.(*runtimeTestWorker).stopped:
-			return true
-		default:
-			return false
-		}
-	}, time.Second, 10*time.Millisecond)
 	require.Eventually(t, func() bool {
 		select {
 		case <-deps.ReconciliationWorker.(*runtimeTestWorker).stopped:

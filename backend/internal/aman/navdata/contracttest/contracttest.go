@@ -26,6 +26,8 @@ type Suite struct {
 	ProcedureCoverage map[navdata.ProcedureKind]navdata.Coverage
 	FixQuery          navdata.FixQuery
 	RouteQuery        navdata.RouteQuery
+	RouteDigest       string
+	HoldingDigests    map[navdata.HoldingID]string
 }
 
 func Run(t testing.TB, provider Provider, suite Suite) {
@@ -60,6 +62,15 @@ func Run(t testing.TB, provider Provider, suite Suite) {
 			if err := procedure.Validate(); err != nil {
 				t.Fatalf("procedure %q invalid: %v", procedure.ID, err)
 			}
+			for _, holding := range procedure.Holdings {
+				digest, err := navdata.HoldingDigest(holding)
+				if err != nil {
+					t.Fatalf("holding %q digest: %v", holding.ID, err)
+				}
+				if expected, ok := suite.HoldingDigests[holding.ID]; !ok || digest != expected {
+					t.Fatalf("holding %q digest = %q, want %q", holding.ID, digest, expected)
+				}
+			}
 		}
 	}
 	fixes, err := provider.Fixes(ctx, suite.FixQuery)
@@ -73,7 +84,11 @@ func Run(t testing.TB, provider Provider, suite Suite) {
 	if route.Coverage != navdata.CoveragePartial || len(route.Unresolved) == 0 {
 		t.Fatalf("route must retain unsupported geometry explicitly: %#v", route)
 	}
-	if _, err := navdata.RouteGeometryDigest(suite.RouteQuery, route.Legs, route.HoldingIDs, route.Coverage, route.Unresolved); err != nil {
+	digest, err := navdata.RouteGeometryDigest(suite.RouteQuery, route)
+	if err != nil {
 		t.Fatalf("route digest: %v", err)
+	}
+	if route.Digest != suite.RouteDigest || digest != suite.RouteDigest {
+		t.Fatalf("route digest = stored %q / computed %q, want %q", route.Digest, digest, suite.RouteDigest)
 	}
 }

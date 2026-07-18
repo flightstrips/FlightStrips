@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -109,6 +110,17 @@ type Airport struct {
 	Position   Coordinate
 	Provenance Provenance
 }
+
+func (a Airport) Validate() error {
+	if !validIdentifier(string(a.ID)) || strings.TrimSpace(a.Name) == "" {
+		return invalid("airport identity is incomplete")
+	}
+	if err := a.Position.Validate(); err != nil {
+		return err
+	}
+	return a.Provenance.Validate()
+}
+
 type Runway struct {
 	ID         RunwayID
 	Airport    AirportID
@@ -116,26 +128,87 @@ type Runway struct {
 	LengthNM   float64
 	Provenance Provenance
 }
+
+func (r Runway) Validate() error {
+	if !validIdentifier(string(r.ID)) || !validIdentifier(string(r.Airport)) || r.LengthNM <= 0 {
+		return invalid("runway identity or length is invalid")
+	}
+	if err := r.Threshold.Validate(); err != nil {
+		return err
+	}
+	return r.Provenance.Validate()
+}
+
 type Fix struct {
 	ID         FixID
 	Position   Coordinate
 	Provenance Provenance
 }
+
+func (f Fix) Validate() error {
+	if !validIdentifier(string(f.ID)) {
+		return invalid("fix ID is invalid")
+	}
+	if err := f.Position.Validate(); err != nil {
+		return err
+	}
+	return f.Provenance.Validate()
+}
+
 type Airway struct {
 	ID         AirwayID
 	Fixes      []FixID
 	Provenance Provenance
 }
+
+func (a Airway) Validate() error {
+	if !validIdentifier(string(a.ID)) || len(a.Fixes) < 2 {
+		return invalid("airway identity or fixes are invalid")
+	}
+	seen := map[FixID]struct{}{}
+	for _, fix := range a.Fixes {
+		if !validIdentifier(string(fix)) {
+			return invalid("airway fix is invalid")
+		}
+		if _, found := seen[fix]; found {
+			return invalid("airway contains duplicate fix")
+		}
+		seen[fix] = struct{}{}
+	}
+	return a.Provenance.Validate()
+}
+
 type Threshold struct {
 	Position      Coordinate
 	ElevationFt   *int
 	CourseTrueDeg *float64
 }
+
+func (t Threshold) Validate() error {
+	if err := t.Position.Validate(); err != nil {
+		return err
+	}
+	if t.CourseTrueDeg != nil && (*t.CourseTrueDeg < 0 || *t.CourseTrueDeg >= 360) {
+		return invalid("threshold course must be true degrees in [0,360)")
+	}
+	return nil
+}
+
 type FinalApproach struct {
 	Runway        RunwayID
 	Threshold     Threshold
 	CourseTrueDeg float64
 	Provenance    Provenance
+}
+
+func (f FinalApproach) Validate() error {
+	if !validIdentifier(string(f.Runway)) || f.CourseTrueDeg < 0 || f.CourseTrueDeg >= 360 {
+		return invalid("final approach identity or course is invalid")
+	}
+	if err := f.Threshold.Validate(); err != nil {
+		return err
+	}
+	return f.Provenance.Validate()
 }
 
 type ProcedureKind string
@@ -175,7 +248,14 @@ const (
 )
 
 func (p PathTerminator) IsHolding() bool { return p == PathHA || p == PathHF || p == PathHM }
-func (p PathTerminator) Supported() bool { return p != "" && p != PathUnsupported }
+func (p PathTerminator) Supported() bool {
+	switch p {
+	case PathIF, PathTF, PathCF, PathDF, PathAF, PathRF, PathCA, PathFA, PathFC, PathFD, PathVA, PathVM, PathVI, PathHA, PathHF, PathHM:
+		return true
+	default:
+		return false
+	}
+}
 
 type TurnDirection string
 
@@ -288,7 +368,17 @@ func (p Procedure) Validate() error {
 	if err := p.Provenance.Validate(); err != nil {
 		return err
 	}
-	holdings := make(map[HoldingID]struct{}, len(p.Holdings))
+	runways := make(map[RunwayID]struct{}, len(p.Runways))
+	for _, runway := range p.Runways {
+		if !validIdentifier(string(runway)) {
+			return invalid("procedure runway is invalid")
+		}
+		if _, found := runways[runway]; found {
+			return invalid("procedure contains duplicate runway")
+		}
+		runways[runway] = struct{}{}
+	}
+	holdings := make(map[HoldingID]HoldingPattern, len(p.Holdings))
 	for _, holding := range p.Holdings {
 		if err := holding.Validate(); err != nil {
 			return err
@@ -296,15 +386,27 @@ func (p Procedure) Validate() error {
 		if _, found := holdings[holding.ID]; found {
 			return invalid("procedure has duplicate holding ID")
 		}
-		holdings[holding.ID] = struct{}{}
+		holdings[holding.ID] = holding
 	}
+	legIDs := make(map[string]struct{}, len(p.Legs))
 	for _, leg := range p.Legs {
 		if err := leg.Validate(); err != nil {
 			return err
 		}
+		if _, found := legIDs[leg.ID]; found {
+			return invalid("procedure contains duplicate leg ID")
+		}
+		legIDs[leg.ID] = struct{}{}
 		if leg.HoldingID != nil {
-			if _, found := holdings[*leg.HoldingID]; !found {
+			holding, found := holdings[*leg.HoldingID]
+			if !found {
 				return invalid("holding leg references missing holding")
+			}
+			if (leg.PathTerminator == PathHA && holding.Termination != HoldingToAltitude) || (leg.PathTerminator == PathHF && holding.Termination != HoldingToFix) || (leg.PathTerminator == PathHM && holding.Termination != HoldingManual) {
+				return invalid("holding leg terminator does not match holding termination")
+			}
+			if (leg.FromFix != nil && *leg.FromFix != holding.Fix) || (leg.ToFix != nil && *leg.ToFix != holding.Fix) {
+				return invalid("holding leg fix does not match holding definition")
 			}
 		}
 	}
@@ -326,10 +428,21 @@ func (q ProcedureQuery) Validate() error {
 	if !validIdentifier(string(q.Airport)) {
 		return invalid("procedure query airport is required")
 	}
+	kinds := map[ProcedureKind]struct{}{}
 	for _, kind := range q.Kinds {
 		if !kind.Valid() {
 			return invalid("procedure query kind is invalid")
 		}
+		if _, found := kinds[kind]; found {
+			return invalid("procedure query has duplicate kind")
+		}
+		kinds[kind] = struct{}{}
+	}
+	if err := uniqueRunways(q.Runways); err != nil {
+		return err
+	}
+	if err := uniqueProcedures(q.Identifiers); err != nil {
+		return err
 	}
 	return nil
 }
@@ -355,6 +468,9 @@ func (s ProcedureSet) Validate() error {
 	if s.Coverage == CoverageComplete && len(s.Procedures) == 0 {
 		return invalid("complete procedure set cannot be empty")
 	}
+	if s.Coverage == CoverageUnavailable && len(s.Procedures) > 0 {
+		return invalid("unavailable procedure set cannot carry procedures")
+	}
 	for _, procedure := range s.Procedures {
 		if procedure.Airport != s.Airport {
 			return invalid("procedure set airport mismatch")
@@ -362,8 +478,19 @@ func (s ProcedureSet) Validate() error {
 		if err := procedure.Validate(); err != nil {
 			return err
 		}
+		if s.Coverage == CoverageComplete && procedure.HasUnsupportedLeg() {
+			return invalid("complete procedure set cannot retain unsupported leg")
+		}
 	}
 	return nil
+}
+func (p Procedure) HasUnsupportedLeg() bool {
+	for _, leg := range p.Legs {
+		if !leg.PathTerminator.Supported() {
+			return true
+		}
+	}
+	return false
 }
 
 // HoldingDigest supplies a stable comparison value for equivalent published
@@ -389,7 +516,7 @@ func HoldingDigest(holding HoldingPattern) (string, error) {
 	if holding.MaximumSpeedKt != nil {
 		speed = fmt.Sprintf("%d", *holding.MaximumSpeedKt)
 	}
-	values := []string{string(holding.ID), string(holding.Fix), fmt.Sprintf("%.9f", holding.InboundCourseTrueDeg), string(holding.TurnDirection), length, seconds, minimum, maximum, speed, string(holding.Termination), holding.Provenance.SourceID, holding.Provenance.SourceRevision, holding.Provenance.EffectiveFrom.UTC().Format(time.RFC3339), holding.Provenance.EffectiveUntil.UTC().Format(time.RFC3339)}
+	values := []string{string(holding.ID), string(holding.Fix), fmt.Sprintf("%.9f", holding.InboundCourseTrueDeg), string(holding.TurnDirection), length, seconds, minimum, maximum, speed, string(holding.Termination)}
 	sum := sha256.Sum256([]byte(strings.Join(values, "\x1f")))
 	return hex.EncodeToString(sum[:]), nil
 }
@@ -406,6 +533,16 @@ func (q FixQuery) Validate() error {
 	if len(q.Identifiers) == 0 {
 		return invalid("fix query identifiers are required")
 	}
+	fixes := map[FixID]struct{}{}
+	for _, fix := range q.Identifiers {
+		if !validIdentifier(string(fix)) {
+			return invalid("fix query identifier is invalid")
+		}
+		if _, found := fixes[fix]; found {
+			return invalid("fix query contains duplicate identifier")
+		}
+		fixes[fix] = struct{}{}
+	}
 	return nil
 }
 
@@ -414,6 +551,35 @@ type FixSet struct {
 	Fixes      []Fix
 	Coverage   Coverage
 	Provenance Provenance
+}
+
+func (s FixSet) Validate() error {
+	if err := s.Version.Validate(); err != nil {
+		return err
+	}
+	if !s.Coverage.Valid() {
+		return invalid("fix set coverage is invalid")
+	}
+	if err := s.Provenance.Validate(); err != nil {
+		return err
+	}
+	if s.Coverage == CoverageComplete && len(s.Fixes) == 0 {
+		return invalid("complete fix set cannot be empty")
+	}
+	if s.Coverage == CoverageUnavailable && len(s.Fixes) > 0 {
+		return invalid("unavailable fix set cannot carry fixes")
+	}
+	seen := map[FixID]struct{}{}
+	for _, fix := range s.Fixes {
+		if err := fix.Validate(); err != nil {
+			return err
+		}
+		if _, found := seen[fix.ID]; found {
+			return invalid("fix set contains duplicate fix")
+		}
+		seen[fix.ID] = struct{}{}
+	}
+	return nil
 }
 
 type RouteQuery struct {
@@ -432,6 +598,15 @@ func (q RouteQuery) Validate() error {
 	}
 	if !validIdentifier(string(q.Origin)) || !validIdentifier(string(q.Destination)) || normalizeRoute(q.FiledRoute) == "" {
 		return invalid("route query is incomplete")
+	}
+	if q.ArrivalProcedure != nil && !validIdentifier(string(*q.ArrivalProcedure)) {
+		return invalid("route query arrival procedure is invalid")
+	}
+	if q.Runway != nil && !validIdentifier(string(*q.Runway)) {
+		return invalid("route query runway is invalid")
+	}
+	if q.RunwayGroup != nil && !validIdentifier(string(*q.RunwayGroup)) {
+		return invalid("route query runway group is invalid")
 	}
 	return nil
 }
@@ -456,10 +631,20 @@ type RouteGeometry struct {
 }
 
 func (g RouteGeometry) Validate() error {
+	if err := g.validateCanonical(); err != nil {
+		return err
+	}
+	if strings.TrimSpace(g.Digest) == "" {
+		return invalid("route geometry digest is required")
+	}
+	return nil
+}
+
+func (g RouteGeometry) validateCanonical() error {
 	if err := g.Version.Validate(); err != nil {
 		return err
 	}
-	if !g.Coverage.Valid() || g.TotalDistanceNM < 0 || strings.TrimSpace(g.Digest) == "" {
+	if !g.Coverage.Valid() || g.TotalDistanceNM < 0 {
 		return invalid("route geometry is incomplete")
 	}
 	if err := g.Provenance.Validate(); err != nil {
@@ -470,10 +655,13 @@ func (g RouteGeometry) Validate() error {
 			return err
 		}
 	}
-	if g.Coverage.Authoritative() && len(g.Unresolved) > 0 {
-		return invalid("complete geometry cannot retain unresolved elements")
+	if g.Coverage == CoverageComplete && (len(g.Unresolved) > 0 || hasUnsupportedLeg(g.Legs)) {
+		return invalid("complete geometry cannot retain unresolved or unsupported legs")
 	}
-	return nil
+	if g.Coverage == CoverageUnavailable && (len(g.Legs) > 0 || len(g.HoldingIDs) > 0 || len(g.Unresolved) > 0) {
+		return invalid("unavailable geometry cannot carry data")
+	}
+	return uniqueHoldings(g.HoldingIDs)
 }
 
 type TerminalPath struct {
@@ -489,29 +677,63 @@ type TerminalPath struct {
 	Digest      string
 }
 
-func RouteGeometryDigest(query RouteQuery, legs []ProcedureLeg, holdings []HoldingID, coverage Coverage, unresolved []string) (string, error) {
+func (p TerminalPath) Validate() error {
+	if err := p.Version.Validate(); err != nil {
+		return err
+	}
+	if !validIdentifier(string(p.Airport)) || !validIdentifier(string(p.Feeder)) || !validIdentifier(string(p.RunwayGroup)) || !p.Coverage.Valid() || strings.TrimSpace(p.Digest) == "" {
+		return invalid("terminal path is incomplete")
+	}
+	if err := p.Provenance.Validate(); err != nil {
+		return err
+	}
+	for _, leg := range p.Legs {
+		if err := leg.Validate(); err != nil {
+			return err
+		}
+	}
+	if p.Coverage == CoverageComplete && (len(p.Unresolved) > 0 || hasUnsupportedLeg(p.Legs)) {
+		return invalid("complete terminal path cannot retain unresolved or unsupported legs")
+	}
+	if p.Coverage == CoverageUnavailable && (len(p.Legs) > 0 || len(p.HoldingIDs) > 0 || len(p.Unresolved) > 0) {
+		return invalid("unavailable terminal path cannot carry data")
+	}
+	return uniqueHoldings(p.HoldingIDs)
+}
+
+func RouteGeometryDigest(query RouteQuery, geometry RouteGeometry) (string, error) {
 	key, err := query.Key()
 	if err != nil {
 		return "", err
 	}
-	legTokens := make([]string, 0, len(legs))
-	for _, leg := range legs {
-		legTokens = append(legTokens, fmt.Sprintf("%s/%s/%s/%s", leg.ID, leg.PathTerminator, optionalFix(leg.FromFix), optionalFix(leg.ToFix)))
+	if err := geometry.validateCanonical(); err != nil {
+		return "", err
 	}
-	holdings = slices.Clone(holdings)
+	legTokens := make([]string, 0, len(geometry.Legs))
+	for _, leg := range geometry.Legs {
+		course, distance := "", ""
+		if leg.CourseTrueDeg != nil {
+			course = strconv.FormatFloat(*leg.CourseTrueDeg, 'f', -1, 64)
+		}
+		if leg.DistanceNM != nil {
+			distance = strconv.FormatFloat(*leg.DistanceNM, 'f', -1, 64)
+		}
+		legTokens = append(legTokens, strings.Join([]string{leg.ID, string(leg.PathTerminator), optionalFix(leg.FromFix), optionalFix(leg.ToFix), course, distance, optionalHolding(leg.HoldingID)}, "/"))
+	}
+	holdings := slices.Clone(geometry.HoldingIDs)
 	slices.Sort(holdings)
-	unresolved = slices.Clone(unresolved)
+	unresolved := slices.Clone(geometry.Unresolved)
 	slices.Sort(unresolved)
-	sum := sha256.Sum256([]byte(strings.Join(append([]string{string(key), string(coverage)}, append(legTokens, append(stringifyHoldings(holdings), unresolved...)...)...), "\x1f")))
+	sum := sha256.Sum256([]byte(strings.Join(append([]string{string(key), strconv.FormatFloat(geometry.TotalDistanceNM, 'f', -1, 64), string(geometry.Coverage)}, append(legTokens, append(stringifyHoldings(holdings), unresolved...)...)...), "\x1f")))
 	return hex.EncodeToString(sum[:]), nil
 }
 
 func validIdentifier(value string) bool {
-	value = strings.TrimSpace(value)
-	if value == "" || value != strings.ToUpper(value) {
+	trimmed := strings.TrimSpace(value)
+	if value != trimmed || trimmed == "" || trimmed != strings.ToUpper(trimmed) {
 		return false
 	}
-	for _, r := range value {
+	for _, r := range trimmed {
 		if !(r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || r == '-' || r == '_') {
 			return false
 		}
@@ -554,10 +776,63 @@ func optionalFix(value *FixID) string {
 	}
 	return string(*value)
 }
+func optionalHolding(value *HoldingID) string {
+	if value == nil {
+		return ""
+	}
+	return string(*value)
+}
 func stringifyHoldings(values []HoldingID) []string {
 	result := make([]string, len(values))
 	for index, value := range values {
 		result[index] = string(value)
 	}
 	return result
+}
+func uniqueRunways(values []RunwayID) error {
+	seen := map[RunwayID]struct{}{}
+	for _, value := range values {
+		if !validIdentifier(string(value)) {
+			return invalid("runway identifier is invalid")
+		}
+		if _, found := seen[value]; found {
+			return invalid("duplicate runway identifier")
+		}
+		seen[value] = struct{}{}
+	}
+	return nil
+}
+func uniqueProcedures(values []ProcedureID) error {
+	seen := map[ProcedureID]struct{}{}
+	for _, value := range values {
+		if !validIdentifier(string(value)) {
+			return invalid("procedure identifier is invalid")
+		}
+		if _, found := seen[value]; found {
+			return invalid("duplicate procedure identifier")
+		}
+		seen[value] = struct{}{}
+	}
+	return nil
+}
+func uniqueHoldings(values []HoldingID) error {
+	seen := map[HoldingID]struct{}{}
+	for _, value := range values {
+		if !validIdentifier(string(value)) {
+			return invalid("holding identifier is invalid")
+		}
+		if _, found := seen[value]; found {
+			return invalid("duplicate holding identifier")
+		}
+		seen[value] = struct{}{}
+	}
+	return nil
+}
+func hasUnsupportedLeg(legs []ProcedureLeg) bool {
+	for _, leg := range legs {
+		if !leg.PathTerminator.Supported() {
+			return true
+		}
+	}
+	return false
 }

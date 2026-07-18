@@ -65,14 +65,84 @@ func TestProcedureRequiresExactlyOneReferencedHolding(t *testing.T) {
 	assertInvalid(t, procedure.Validate())
 }
 
+func TestProcedureHoldingTerminatorAndFixMustMatchDefinition(t *testing.T) {
+	provenance := testProvenance()
+	seconds := int64(60)
+	holdingID, holdingFix := HoldingID("HOLD"), FixID("KEMAX")
+	holding := HoldingPattern{ID: holdingID, Fix: holdingFix, InboundCourseTrueDeg: 180, TurnDirection: TurnRight, LegTimeSeconds: &seconds, Termination: HoldingToFix, Provenance: provenance}
+	procedure := Procedure{ID: "SOK1P", Airport: "EKCH", Kind: ProcedureSTAR, Provenance: provenance, Holdings: []HoldingPattern{holding}, Legs: []ProcedureLeg{{ID: "H", PathTerminator: PathHA, HoldingID: &holdingID}}}
+	assertInvalid(t, procedure.Validate())
+	procedure.Legs[0].PathTerminator = PathHF
+	wrongFix := FixID("ROSBI")
+	procedure.Legs[0].ToFix = &wrongFix
+	assertInvalid(t, procedure.Validate())
+}
+
+func TestCompleteCoverageRejectsUnsupportedAndUnresolvedGeometry(t *testing.T) {
+	version, provenance := testVersion(), testProvenance()
+	unsupported := Procedure{ID: "ILS22L", Airport: "EKCH", Kind: ProcedureApproach, Provenance: provenance, Legs: []ProcedureLeg{{ID: "V", PathTerminator: PathUnsupported}}}
+	assertInvalid(t, ProcedureSet{Version: version, Airport: "EKCH", Procedures: []Procedure{unsupported}, Coverage: CoverageComplete, Provenance: provenance}.Validate())
+	geometry := RouteGeometry{Version: version, Legs: []ProcedureLeg{{ID: "V", PathTerminator: PathUnsupported}}, Coverage: CoverageComplete, Provenance: provenance, Digest: "digest"}
+	assertInvalid(t, geometry.Validate())
+	path := TerminalPath{Version: version, Airport: "EKCH", Feeder: "SOK", RunwayGroup: "SOUTH", Legs: []ProcedureLeg{{ID: "V", PathTerminator: PathUnsupported}}, Coverage: CoverageComplete, Provenance: provenance, Digest: "digest"}
+	assertInvalid(t, path.Validate())
+}
+
+func TestQueriesRejectNonCanonicalOptionalIdentifiers(t *testing.T) {
+	version := testVersion()
+	procedure := ProcedureID("SOK1P")
+	runway := RunwayID("22L")
+	group := aman.RunwayGroupID("south")
+	assertInvalid(t, ProcedureQuery{Version: version, Airport: " EKCH", Kinds: []ProcedureKind{ProcedureSID}}.Validate())
+	assertInvalid(t, FixQuery{Version: version, Identifiers: []FixID{"KEMAX", "KEMAX"}}.Validate())
+	assertInvalid(t, RouteQuery{Version: version, Origin: "ENGM", Destination: "EKCH", FiledRoute: "DCT", ArrivalProcedure: &procedure, Runway: &runway, RunwayGroup: &group}.Validate())
+}
+
 func TestRouteDigestIsDeterministicForHoldingAndUnresolvedOrdering(t *testing.T) {
 	query := RouteQuery{Version: testVersion(), Origin: "ENGM", Destination: "EKCH", FiledRoute: "DCT KEMAX"}
-	legs := []ProcedureLeg{{ID: "DCT", PathTerminator: PathDF}}
-	first, err := RouteGeometryDigest(query, legs, []HoldingID{"B", "A"}, CoveragePartial, []string{"vector", "missing"})
+	course, distance := 180.0, 12.5
+	geometry := RouteGeometry{Version: query.Version, Legs: []ProcedureLeg{{ID: "DCT", PathTerminator: PathDF, CourseTrueDeg: &course, DistanceNM: &distance}}, HoldingIDs: []HoldingID{"B", "A"}, TotalDistanceNM: distance, Coverage: CoveragePartial, Unresolved: []string{"vector", "missing"}, Provenance: testProvenance()}
+	first, err := RouteGeometryDigest(query, geometry)
 	require.NoError(t, err)
-	second, err := RouteGeometryDigest(query, legs, []HoldingID{"A", "B"}, CoveragePartial, []string{"missing", "vector"})
+	geometry.HoldingIDs = []HoldingID{"A", "B"}
+	geometry.Unresolved = []string{"missing", "vector"}
+	second, err := RouteGeometryDigest(query, geometry)
 	require.NoError(t, err)
 	require.Equal(t, first, second)
+}
+
+func TestRouteDigestIncludesEveryMaterialGeometryField(t *testing.T) {
+	query := RouteQuery{Version: testVersion(), Origin: "ENGM", Destination: "EKCH", FiledRoute: "DCT KEMAX"}
+	course, distance := 180.0, 12.5
+	holding := HoldingID("HOLD")
+	from, to := FixID("KEMAX"), FixID("KEMAX")
+	base := RouteGeometry{Version: query.Version, Legs: []ProcedureLeg{{ID: "DCT", PathTerminator: PathHF, FromFix: &from, ToFix: &to, CourseTrueDeg: &course, DistanceNM: &distance, HoldingID: &holding}}, HoldingIDs: []HoldingID{holding}, TotalDistanceNM: distance, Coverage: CoveragePartial, Unresolved: []string{"vector"}, Provenance: testProvenance()}
+	baseline, err := RouteGeometryDigest(query, base)
+	require.NoError(t, err)
+	changes := []func(*RouteGeometry){func(g *RouteGeometry) { value := 181.0; g.Legs[0].CourseTrueDeg = &value }, func(g *RouteGeometry) { value := 13.0; g.Legs[0].DistanceNM = &value }, func(g *RouteGeometry) { value := HoldingID("OTHER"); g.Legs[0].HoldingID = &value }, func(g *RouteGeometry) { value := FixID("ROSBI"); g.Legs[0].FromFix = &value }, func(g *RouteGeometry) { value := FixID("ROSBI"); g.Legs[0].ToFix = &value }, func(g *RouteGeometry) { g.Legs[0].PathTerminator = PathHA }, func(g *RouteGeometry) { g.TotalDistanceNM = 13 }, func(g *RouteGeometry) { g.HoldingIDs = []HoldingID{"OTHER"} }, func(g *RouteGeometry) { g.Coverage = CoverageUnsupported }, func(g *RouteGeometry) { g.Unresolved = []string{"other"} }, func(g *RouteGeometry) { g.Legs[0].ID = "OTHER" }}
+	for _, change := range changes {
+		candidate := cloneRoute(base)
+		change(&candidate)
+		digest, err := RouteGeometryDigest(query, candidate)
+		require.NoError(t, err)
+		require.NotEqual(t, baseline, digest)
+	}
+}
+
+func TestHoldingDigestExcludesProvenanceButIncludesGeometry(t *testing.T) {
+	seconds := int64(60)
+	base := HoldingPattern{ID: "HOLD", Fix: "KEMAX", InboundCourseTrueDeg: 180, TurnDirection: TurnRight, LegTimeSeconds: &seconds, Termination: HoldingManual, Provenance: testProvenance()}
+	first, err := HoldingDigest(base)
+	require.NoError(t, err)
+	other := base
+	other.Provenance = Provenance{SourceID: "airacnet", SourceRevision: "different", ImportedAt: time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC), EffectiveFrom: time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC), EffectiveUntil: time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)}
+	second, err := HoldingDigest(other)
+	require.NoError(t, err)
+	require.Equal(t, first, second)
+	other.InboundCourseTrueDeg = 181
+	changed, err := HoldingDigest(other)
+	require.NoError(t, err)
+	require.NotEqual(t, first, changed)
 }
 
 func testVersion() DatasetVersion {

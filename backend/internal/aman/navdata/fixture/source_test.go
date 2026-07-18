@@ -13,7 +13,10 @@ import (
 func TestEKCHFixturePassesSharedSourceResolverContract(t *testing.T) {
 	data := EKCH()
 	source := New(data)
-	contracttest.Run(t, source, contracttest.Suite{Version: data.Version, Airport: "EKCH", SIDQuery: navdata.ProcedureQuery{Version: data.Version, Airport: "EKCH", Kinds: []navdata.ProcedureKind{navdata.ProcedureSID}}, STARQuery: navdata.ProcedureQuery{Version: data.Version, Airport: "EKCH", Kinds: []navdata.ProcedureKind{navdata.ProcedureSTAR}}, ApproachQuery: navdata.ProcedureQuery{Version: data.Version, Airport: "EKCH", Kinds: []navdata.ProcedureKind{navdata.ProcedureApproach}}, ProcedureCoverage: map[navdata.ProcedureKind]navdata.Coverage{navdata.ProcedureApproach: navdata.CoveragePartial}, FixQuery: navdata.FixQuery{Version: data.Version, Identifiers: []navdata.FixID{"KEMAX", "SOK"}}, RouteQuery: EKCHRouteQuery(data.Version)})
+	query := EKCHRouteQuery(data.Version)
+	key, err := query.Key()
+	require.NoError(t, err)
+	contracttest.Run(t, source, contracttest.Suite{Version: data.Version, Airport: "EKCH", SIDQuery: navdata.ProcedureQuery{Version: data.Version, Airport: "EKCH", Kinds: []navdata.ProcedureKind{navdata.ProcedureSID}}, STARQuery: navdata.ProcedureQuery{Version: data.Version, Airport: "EKCH", Kinds: []navdata.ProcedureKind{navdata.ProcedureSTAR}}, ApproachQuery: navdata.ProcedureQuery{Version: data.Version, Airport: "EKCH", Kinds: []navdata.ProcedureKind{navdata.ProcedureApproach}}, ProcedureCoverage: map[navdata.ProcedureKind]navdata.Coverage{navdata.ProcedureApproach: navdata.CoveragePartial}, FixQuery: navdata.FixQuery{Version: data.Version, Identifiers: []navdata.FixID{"KEMAX", "SOK"}}, RouteQuery: query, RouteDigest: data.Routes[key].Digest, HoldingDigests: data.HoldingDigests})
 }
 
 func TestProcedureFiltersAndPublishedHoldsAreIndependent(t *testing.T) {
@@ -39,10 +42,34 @@ func TestProcedureFiltersAndPublishedHoldsAreIndependent(t *testing.T) {
 	}
 }
 
+func TestTypedProcedureQueriesSupportEachNarrowFilter(t *testing.T) {
+	data, source := EKCH(), New(EKCH())
+	tests := []struct {
+		name     string
+		query    navdata.ProcedureQuery
+		coverage navdata.Coverage
+	}{
+		{"SID only", navdata.ProcedureQuery{Version: data.Version, Airport: "EKCH", Kinds: []navdata.ProcedureKind{navdata.ProcedureSID}}, navdata.CoverageComplete},
+		{"STAR only", navdata.ProcedureQuery{Version: data.Version, Airport: "EKCH", Kinds: []navdata.ProcedureKind{navdata.ProcedureSTAR}}, navdata.CoverageComplete},
+		{"approach only", navdata.ProcedureQuery{Version: data.Version, Airport: "EKCH", Kinds: []navdata.ProcedureKind{navdata.ProcedureApproach}}, navdata.CoveragePartial},
+		{"identifier", navdata.ProcedureQuery{Version: data.Version, Airport: "EKCH", Identifiers: []navdata.ProcedureID{"SOK1P"}}, navdata.CoverageComplete},
+		{"runway", navdata.ProcedureQuery{Version: data.Version, Airport: "EKCH", Runways: []navdata.RunwayID{"22L"}, Identifiers: []navdata.ProcedureID{"KEMAX3A"}}, navdata.CoverageComplete},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			set, err := source.Procedures(context.Background(), test.query)
+			require.NoError(t, err)
+			require.Len(t, set.Procedures, 1)
+			require.Equal(t, test.coverage, set.Coverage)
+		})
+	}
+}
+
 func TestRuntimeCacheMakesNoSourceCalls(t *testing.T) {
 	data := EKCH()
 	source := New(data)
-	cache := source.Cache()
+	cache, err := source.Cache()
+	require.NoError(t, err)
 	before := source.Calls()
 	query := EKCHRouteQuery(data.Version)
 	key, err := query.Key()
@@ -51,14 +78,34 @@ func TestRuntimeCacheMakesNoSourceCalls(t *testing.T) {
 	require.NoError(t, err)
 	_, err = cache.Route(context.Background(), key)
 	require.NoError(t, err)
-	_, err = cache.TerminalPath(context.Background(), "EKCH", "SOK", aman.RunwayGroupID("south"))
+	_, err = cache.TerminalPath(context.Background(), "EKCH", "SOK", aman.RunwayGroupID("SOUTH"))
 	require.NoError(t, err)
 	require.Equal(t, before, source.Calls())
+}
+
+func TestRuntimeCacheDefensivelyClonesGeometry(t *testing.T) {
+	data, source := EKCH(), New(EKCH())
+	cache, err := source.Cache()
+	require.NoError(t, err)
+	query := EKCHRouteQuery(data.Version)
+	key, err := query.Key()
+	require.NoError(t, err)
+	source.dataset.Routes[key] = navdata.RouteGeometry{}
+	first, err := cache.Route(context.Background(), key)
+	require.NoError(t, err)
+	first.Legs[0].ID = "MUTATED"
+	first.HoldingIDs[0] = "MUTATED"
+	*first.Legs[0].ToFix = "MUTATED"
+	second, err := cache.Route(context.Background(), key)
+	require.NoError(t, err)
+	require.NotEqual(t, "MUTATED", second.Legs[0].ID)
+	require.NotEqual(t, navdata.HoldingID("MUTATED"), second.HoldingIDs[0])
+	require.NotEqual(t, navdata.FixID("MUTATED"), *second.Legs[0].ToFix)
 }
 
 func EKCHRouteQuery(version navdata.DatasetVersion) navdata.RouteQuery {
 	arrival := navdata.ProcedureID("SOK1P")
 	runway := navdata.RunwayID("22L")
-	group := aman.RunwayGroupID("south")
+	group := aman.RunwayGroupID("SOUTH")
 	return navdata.RouteQuery{Version: version, Origin: "ENGM", Destination: "EKCH", FiledRoute: " dct   kemax ", ArrivalProcedure: &arrival, Runway: &runway, RunwayGroup: &group}
 }

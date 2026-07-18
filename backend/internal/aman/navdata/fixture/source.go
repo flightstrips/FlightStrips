@@ -104,7 +104,7 @@ func (s *Source) Resolve(_ context.Context, query navdata.RouteQuery) (navdata.R
 	}
 	return route, nil
 }
-func (s *Source) Cache() navdata.Cache {
+func (s *Source) Cache() (navdata.Cache, error) {
 	return navdata.NewCache(map[navdata.AirportID]navdata.DatasetVersion{"EKCH": s.dataset.Version}, s.dataset.Routes, s.dataset.TerminalPaths)
 }
 
@@ -160,14 +160,16 @@ func EKCH() Dataset {
 	sid := navdata.Procedure{ID: "KEMAX3A", Airport: "EKCH", Kind: navdata.ProcedureSID, Runways: []navdata.RunwayID{"22L"}, Provenance: provenance, Holdings: []navdata.HoldingPattern{hold(ha, kemax, navdata.HoldingToAltitude)}, Legs: []navdata.ProcedureLeg{{ID: "SID-1", PathTerminator: navdata.PathTF, ToFix: &kemax, CourseTrueDeg: &course, DistanceNM: &distance}, {ID: "SID-HOLD", PathTerminator: navdata.PathHA, ToFix: &kemax, HoldingID: &ha}}}
 	star := navdata.Procedure{ID: "SOK1P", Airport: "EKCH", Kind: navdata.ProcedureSTAR, Runways: []navdata.RunwayID{"22L"}, Provenance: provenance, Holdings: []navdata.HoldingPattern{hold(hf, sok, navdata.HoldingToFix)}, Legs: []navdata.ProcedureLeg{{ID: "STAR-HOLD", PathTerminator: navdata.PathHF, ToFix: &sok, HoldingID: &hf}}}
 	approach := navdata.Procedure{ID: "ILS22L", Airport: "EKCH", Kind: navdata.ProcedureApproach, Runways: []navdata.RunwayID{"22L"}, Provenance: provenance, Holdings: []navdata.HoldingPattern{hold(hm, rosbi, navdata.HoldingManual)}, Legs: []navdata.ProcedureLeg{{ID: "APP-HOLD", PathTerminator: navdata.PathHM, ToFix: &rosbi, HoldingID: &hm}, {ID: "VECTOR", PathTerminator: navdata.PathUnsupported}}}
-	query := navdata.RouteQuery{Version: version, Origin: "ENGM", Destination: "EKCH", FiledRoute: "DCT KEMAX", ArrivalProcedure: ptr(navdata.ProcedureID("SOK1P")), Runway: ptr(navdata.RunwayID("22L")), RunwayGroup: ptr(aman.RunwayGroupID("south"))}
+	query := navdata.RouteQuery{Version: version, Origin: "ENGM", Destination: "EKCH", FiledRoute: "DCT KEMAX", ArrivalProcedure: ptr(navdata.ProcedureID("SOK1P")), Runway: ptr(navdata.RunwayID("22L")), RunwayGroup: ptr(aman.RunwayGroupID("SOUTH"))}
 	routeLegs := []navdata.ProcedureLeg{{ID: "DCT-KEMAX", PathTerminator: navdata.PathDF, ToFix: &kemax, DistanceNM: &distance}, {ID: "VECTOR", PathTerminator: navdata.PathUnsupported}}
-	digest, _ := navdata.RouteGeometryDigest(query, routeLegs, []navdata.HoldingID{hf}, navdata.CoveragePartial, []string{"vector"})
+	route := navdata.RouteGeometry{Version: version, Legs: routeLegs, HoldingIDs: []navdata.HoldingID{hf}, TotalDistanceNM: distance, Coverage: navdata.CoveragePartial, Unresolved: []string{"vector"}, Provenance: provenance}
+	digest, _ := navdata.RouteGeometryDigest(query, route)
+	route.Digest = digest
 	key, _ := query.Key()
 	haDigest, _ := navdata.HoldingDigest(sid.Holdings[0])
 	hfDigest, _ := navdata.HoldingDigest(star.Holdings[0])
 	hmDigest, _ := navdata.HoldingDigest(approach.Holdings[0])
-	return Dataset{Version: version, Provenance: provenance, Airports: map[navdata.AirportID]navdata.Airport{"EKCH": {ID: "EKCH", Name: "Copenhagen", Position: navdata.Coordinate{LatitudeDeg: 55.618, LongitudeDeg: 12.656}, Provenance: provenance}}, Fixes: map[navdata.FixID]navdata.Fix{kemax: {ID: kemax, Position: navdata.Coordinate{LatitudeDeg: 55.8, LongitudeDeg: 12.4}, Provenance: provenance}, sok: {ID: sok, Position: navdata.Coordinate{LatitudeDeg: 55.7, LongitudeDeg: 12.2}, Provenance: provenance}, rosbi: {ID: rosbi, Position: navdata.Coordinate{LatitudeDeg: 55.6, LongitudeDeg: 12.7}, Provenance: provenance}}, Procedures: []navdata.Procedure{sid, star, approach}, Routes: map[navdata.RouteKey]navdata.RouteGeometry{key: {Version: version, Legs: routeLegs, HoldingIDs: []navdata.HoldingID{hf}, TotalDistanceNM: distance, Coverage: navdata.CoveragePartial, Unresolved: []string{"vector"}, Provenance: provenance, Digest: digest}}, HoldingDigests: map[navdata.HoldingID]string{ha: haDigest, hf: hfDigest, hm: hmDigest}, TerminalPaths: []navdata.TerminalPath{{Version: version, Airport: "EKCH", Feeder: "SOK", RunwayGroup: "south", Legs: star.Legs, HoldingIDs: []navdata.HoldingID{hf}, Coverage: navdata.CoverageComplete, Provenance: provenance, Digest: "fixture-terminal-sok"}}}
+	return Dataset{Version: version, Provenance: provenance, Airports: map[navdata.AirportID]navdata.Airport{"EKCH": {ID: "EKCH", Name: "Copenhagen", Position: navdata.Coordinate{LatitudeDeg: 55.618, LongitudeDeg: 12.656}, Provenance: provenance}}, Fixes: map[navdata.FixID]navdata.Fix{kemax: {ID: kemax, Position: navdata.Coordinate{LatitudeDeg: 55.8, LongitudeDeg: 12.4}, Provenance: provenance}, sok: {ID: sok, Position: navdata.Coordinate{LatitudeDeg: 55.7, LongitudeDeg: 12.2}, Provenance: provenance}, rosbi: {ID: rosbi, Position: navdata.Coordinate{LatitudeDeg: 55.6, LongitudeDeg: 12.7}, Provenance: provenance}}, Procedures: []navdata.Procedure{sid, star, approach}, Routes: map[navdata.RouteKey]navdata.RouteGeometry{key: route}, HoldingDigests: map[navdata.HoldingID]string{ha: haDigest, hf: hfDigest, hm: hmDigest}, TerminalPaths: []navdata.TerminalPath{{Version: version, Airport: "EKCH", Feeder: "SOK", RunwayGroup: "SOUTH", Legs: star.Legs, HoldingIDs: []navdata.HoldingID{hf}, Coverage: navdata.CoverageComplete, Provenance: provenance, Digest: "fixture-terminal-sok"}}}
 }
 
 func timeUTC(year, month, day int) time.Time {

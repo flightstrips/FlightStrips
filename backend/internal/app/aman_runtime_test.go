@@ -17,6 +17,10 @@ type amanAppTestComponent string
 
 func (c amanAppTestComponent) Name() string { return string(c) }
 
+type amanAppTestObservationSink struct{}
+
+func (amanAppTestObservationSink) Observe(context.Context, aman.FlightObservation) error { return nil }
+
 type amanAppTestWorker struct {
 	started chan struct{}
 	stopped chan struct{}
@@ -45,6 +49,7 @@ func amanAppTestDependencies() aman.Dependencies {
 		Publisher:              component,
 		ValidationService:      component,
 		HealthService:          component,
+		ObservationSink:        amanAppTestObservationSink{},
 		SurveillanceWorker:     newAMANAppTestWorker(),
 		ReconciliationWorker:   newAMANAppTestWorker(),
 	}
@@ -87,7 +92,7 @@ func TestBuildAddsAMANWorkersOnlyWhenEnabled(t *testing.T) {
 		EnablePilotAPI:       false,
 		EnableALB:            false,
 		EnableMetar:          false,
-		EnableVATSIM:         false,
+		EnableVATSIM:         true,
 		EnableTraffic:        false,
 		EnableDBSeed:         false,
 		AMAN: aman.RuntimeConfig{
@@ -104,7 +109,7 @@ func TestBuildAddsAMANWorkersOnlyWhenEnabled(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, application.AMANRuntime())
 	require.True(t, application.AMANRuntime().Ownership().LegacyArrivalETAWriter)
-	require.Len(t, application.workers, 5)
+	require.Len(t, application.workers, 7)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	application.StartWorkers(ctx)

@@ -59,6 +59,34 @@ func (q *Queries) CreateAMANCommandOutcome(ctx context.Context, arg CreateAMANCo
 	return err
 }
 
+const createAMANVATSIMObservationIdentity = `-- name: CreateAMANVATSIMObservationIdentity :one
+INSERT INTO aman_vatsim_observation_identities (
+    flight_id, vatsim_cid, current_callsign
+)
+VALUES ($1, $2, $3)
+RETURNING flight_id, vatsim_cid, current_callsign, retired_at, created_at, updated_at
+`
+
+type CreateAMANVATSIMObservationIdentityParams struct {
+	FlightID        string
+	VatsimCid       string
+	CurrentCallsign string
+}
+
+func (q *Queries) CreateAMANVATSIMObservationIdentity(ctx context.Context, arg CreateAMANVATSIMObservationIdentityParams) (AmanVatsimObservationIdentity, error) {
+	row := q.db.QueryRow(ctx, createAMANVATSIMObservationIdentity, arg.FlightID, arg.VatsimCid, arg.CurrentCallsign)
+	var i AmanVatsimObservationIdentity
+	err := row.Scan(
+		&i.FlightID,
+		&i.VatsimCid,
+		&i.CurrentCallsign,
+		&i.RetiredAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const createAMANValidationEvidence = `-- name: CreateAMANValidationEvidence :exec
 INSERT INTO aman_validation_evidence (evidence_id, airport, kind, payload, recorded_at)
 VALUES ($1, $2, $3, $4, $5)
@@ -130,6 +158,27 @@ func (q *Queries) GetAMANCommandOutcome(ctx context.Context, commandID string) (
 		&i.Revision,
 		&i.Payload,
 		&i.RecordedAt,
+	)
+	return i, err
+}
+
+const getActiveAMANVATSIMObservationIdentity = `-- name: GetActiveAMANVATSIMObservationIdentity :one
+SELECT flight_id, vatsim_cid, current_callsign, retired_at, created_at, updated_at
+FROM aman_vatsim_observation_identities
+WHERE vatsim_cid = $1
+  AND retired_at IS NULL
+`
+
+func (q *Queries) GetActiveAMANVATSIMObservationIdentity(ctx context.Context, vatsimCid string) (AmanVatsimObservationIdentity, error) {
+	row := q.db.QueryRow(ctx, getActiveAMANVATSIMObservationIdentity, vatsimCid)
+	var i AmanVatsimObservationIdentity
+	err := row.Scan(
+		&i.FlightID,
+		&i.VatsimCid,
+		&i.CurrentCallsign,
+		&i.RetiredAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
 	)
 	return i, err
 }
@@ -244,6 +293,59 @@ SELECT pg_advisory_xact_lock(hashtextextended($1, 0))
 func (q *Queries) LockAMANCommand(ctx context.Context, hashtextextended string) error {
 	_, err := q.db.Exec(ctx, lockAMANCommand, hashtextextended)
 	return err
+}
+
+const lockAMANVATSIMObservationIdentity = `-- name: LockAMANVATSIMObservationIdentity :exec
+SELECT pg_advisory_xact_lock(hashtextextended($1, 0))
+`
+
+func (q *Queries) LockAMANVATSIMObservationIdentity(ctx context.Context, hashtextextended string) error {
+	_, err := q.db.Exec(ctx, lockAMANVATSIMObservationIdentity, hashtextextended)
+	return err
+}
+
+const retireAMANVATSIMObservationIdentity = `-- name: RetireAMANVATSIMObservationIdentity :execrows
+UPDATE aman_vatsim_observation_identities
+SET retired_at = NOW(),
+    updated_at = NOW()
+WHERE flight_id = $1
+  AND retired_at IS NULL
+`
+
+func (q *Queries) RetireAMANVATSIMObservationIdentity(ctx context.Context, flightID string) (int64, error) {
+	result, err := q.db.Exec(ctx, retireAMANVATSIMObservationIdentity, flightID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const updateAMANVATSIMObservationIdentityCallsign = `-- name: UpdateAMANVATSIMObservationIdentityCallsign :one
+UPDATE aman_vatsim_observation_identities
+SET current_callsign = $2,
+    updated_at = NOW()
+WHERE flight_id = $1
+  AND retired_at IS NULL
+RETURNING flight_id, vatsim_cid, current_callsign, retired_at, created_at, updated_at
+`
+
+type UpdateAMANVATSIMObservationIdentityCallsignParams struct {
+	FlightID        string
+	CurrentCallsign string
+}
+
+func (q *Queries) UpdateAMANVATSIMObservationIdentityCallsign(ctx context.Context, arg UpdateAMANVATSIMObservationIdentityCallsignParams) (AmanVatsimObservationIdentity, error) {
+	row := q.db.QueryRow(ctx, updateAMANVATSIMObservationIdentityCallsign, arg.FlightID, arg.CurrentCallsign)
+	var i AmanVatsimObservationIdentity
+	err := row.Scan(
+		&i.FlightID,
+		&i.VatsimCid,
+		&i.CurrentCallsign,
+		&i.RetiredAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }
 
 const upsertAMANAirportState = `-- name: UpsertAMANAirportState :one

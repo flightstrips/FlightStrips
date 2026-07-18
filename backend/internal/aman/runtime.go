@@ -162,6 +162,7 @@ type Dependencies struct {
 	Publisher              Component
 	ValidationService      Component
 	HealthService          Component
+	ObservationSink        ObservationSink
 	SurveillanceWorker     Worker
 	ReconciliationWorker   Worker
 }
@@ -217,6 +218,9 @@ func NewRuntime(config RuntimeConfig, deps Dependencies) (*Runtime, error) {
 	}
 	if deps.ReconciliationWorker == nil {
 		return nil, fmt.Errorf("AMAN runtime requires reconciliation worker")
+	}
+	if deps.ObservationSink == nil {
+		return nil, fmt.Errorf("AMAN runtime requires observation sink")
 	}
 	return runtime, nil
 }

@@ -1,6 +1,37 @@
 -- name: LockAMANCommand :exec
 SELECT pg_advisory_xact_lock(hashtextextended($1, 0));
 
+-- name: LockAMANVATSIMObservationIdentity :exec
+SELECT pg_advisory_xact_lock(hashtextextended($1, 0));
+
+-- name: GetActiveAMANVATSIMObservationIdentity :one
+SELECT flight_id, vatsim_cid, current_callsign, retired_at, created_at, updated_at
+FROM aman_vatsim_observation_identities
+WHERE vatsim_cid = $1
+  AND retired_at IS NULL;
+
+-- name: CreateAMANVATSIMObservationIdentity :one
+INSERT INTO aman_vatsim_observation_identities (
+    flight_id, vatsim_cid, current_callsign
+)
+VALUES ($1, $2, $3)
+RETURNING flight_id, vatsim_cid, current_callsign, retired_at, created_at, updated_at;
+
+-- name: UpdateAMANVATSIMObservationIdentityCallsign :one
+UPDATE aman_vatsim_observation_identities
+SET current_callsign = $2,
+    updated_at = NOW()
+WHERE flight_id = $1
+  AND retired_at IS NULL
+RETURNING flight_id, vatsim_cid, current_callsign, retired_at, created_at, updated_at;
+
+-- name: RetireAMANVATSIMObservationIdentity :execrows
+UPDATE aman_vatsim_observation_identities
+SET retired_at = NOW(),
+    updated_at = NOW()
+WHERE flight_id = $1
+  AND retired_at IS NULL;
+
 -- name: GetAMANAirportState :one
 SELECT *
 FROM aman_airport_states

@@ -13,6 +13,10 @@ type runtimeTestComponent string
 
 func (c runtimeTestComponent) Name() string { return string(c) }
 
+type runtimeTestObservationSink struct{}
+
+func (runtimeTestObservationSink) Observe(context.Context, FlightObservation) error { return nil }
+
 type runtimeTestWorker struct {
 	started chan time.Duration
 	stopped chan struct{}
@@ -52,6 +56,7 @@ func runtimeTestDependencies() Dependencies {
 		Publisher:              component,
 		ValidationService:      component,
 		HealthService:          component,
+		ObservationSink:        runtimeTestObservationSink{},
 		SurveillanceWorker:     newRuntimeTestWorker(),
 		ReconciliationWorker:   newRuntimeTestWorker(),
 	}

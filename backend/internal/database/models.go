@@ -67,6 +67,15 @@ type AmanValidationEvidence struct {
 	RecordedAt pgtype.Timestamptz
 }
 
+type AmanVatsimObservationIdentity struct {
+	FlightID        string
+	VatsimCid       string
+	CurrentCallsign string
+	RetiredAt       pgtype.Timestamptz
+	CreatedAt       pgtype.Timestamptz
+	UpdatedAt       pgtype.Timestamptz
+}
+
 type Controller struct {
 	ID                int32
 	Session           int32

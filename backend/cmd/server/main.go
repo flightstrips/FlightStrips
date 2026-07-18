@@ -1,11 +1,13 @@
 package main
 
 import (
+	"FlightStrips/internal/aman"
 	"FlightStrips/internal/app"
 	"FlightStrips/internal/config"
 	"FlightStrips/internal/telemetry"
 	"context"
 	"flag"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
@@ -45,6 +47,11 @@ func main() {
 		os.Exit(1)
 	}
 	standAssignmentAircraftJSON := standAssignmentAircraftFile(os.Getenv("GRPLUGIN_ICAO_AIRCRAFT_JSON"))
+	amanConfig, err := amanConfigFromEnv()
+	if err != nil {
+		slog.Error("Failed to configure AMAN", slog.Any("error", err))
+		os.Exit(1)
+	}
 
 	otlpEndpoint := os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
 	if otlpEndpoint != "" {
@@ -96,6 +103,7 @@ func main() {
 		EnableTestTools:                 enableTestTools,
 		EnableDBSeed:                    true,
 		StandAssignmentAircraftJSON:     standAssignmentAircraftJSON,
+		AMAN:                            amanConfig,
 	}, app.Dependencies{
 		VATSIMStatusURL:      getEnv("VATSIM_STATUS_URL", ""),
 		VATSIMPollInterval:   envDuration("VATSIM_POLL_INTERVAL", 15*time.Second),
@@ -206,6 +214,45 @@ func envDuration(key string, fallback time.Duration) time.Duration {
 		return fallback
 	}
 	return parsed
+}
+
+func amanConfigFromEnv() (aman.RuntimeConfig, error) {
+	config := aman.DefaultRuntimeConfig()
+	if value := strings.TrimSpace(os.Getenv("AMAN_MODE")); value != "" {
+		config.Mode = aman.RolloutMode(strings.ToLower(value))
+	}
+	config.EnabledAirports = splitEnvList(os.Getenv("AMAN_ENABLED_AIRPORTS"))
+	config.TerminalGeometryPath = strings.TrimSpace(os.Getenv("AMAN_TERMINAL_GEOMETRY_PATH"))
+	config.NavigationSourceAdapter = strings.TrimSpace(os.Getenv("AMAN_NAVIGATION_SOURCE"))
+	config.EnableEuroScopeGainLoseTags = envBool("ENABLE_AMAN_EUROSCOPE_GAIN_LOSE_TAGS", false)
+
+	var err error
+	if config.ReconciliationInterval, err = requiredEnvDuration("AMAN_RECONCILIATION_INTERVAL", config.ReconciliationInterval); err != nil {
+		return aman.RuntimeConfig{}, err
+	}
+	if config.SurveillanceInterval, err = requiredEnvDuration("AMAN_SURVEILLANCE_INTERVAL", config.SurveillanceInterval); err != nil {
+		return aman.RuntimeConfig{}, err
+	}
+	if err := config.Validate(); err != nil {
+		return aman.RuntimeConfig{}, err
+	}
+	return config, nil
+}
+
+func requiredEnvDuration(key string, fallback time.Duration) (time.Duration, error) {
+	value := strings.TrimSpace(os.Getenv(key))
+	if value == "" {
+		return fallback, nil
+	}
+	duration, err := time.ParseDuration(value)
+	if err != nil {
+		return 0, fmt.Errorf("%s must be a duration: %w", key, err)
+	}
+	return duration, nil
+}
+
+func splitEnvList(value string) []string {
+	return strings.FieldsFunc(value, func(r rune) bool { return r == ',' })
 }
 
 func isLiveEnvironment(environment string) bool {

@@ -1,6 +1,11 @@
 package main
 
-import "testing"
+import (
+	"FlightStrips/internal/aman"
+	"os"
+	"testing"
+	"time"
+)
 
 func TestEnvBool(t *testing.T) {
 	tests := []struct {
@@ -67,5 +72,50 @@ func TestStandAssignmentAircraftFilePreservesExplicitConfiguration(t *testing.T)
 	}
 	if got := standAssignmentAircraftFile(""); got != "" {
 		t.Fatalf("empty aircraft file = %q, want empty so config selects its default", got)
+	}
+}
+
+func TestAMANConfigFromEnvDefaultsDisabled(t *testing.T) {
+	for _, key := range []string{"AMAN_MODE", "AMAN_ENABLED_AIRPORTS", "AMAN_TERMINAL_GEOMETRY_PATH", "AMAN_NAVIGATION_SOURCE", "AMAN_RECONCILIATION_INTERVAL", "AMAN_SURVEILLANCE_INTERVAL", "ENABLE_AMAN_EUROSCOPE_GAIN_LOSE_TAGS"} {
+		t.Setenv(key, "")
+	}
+	config, err := amanConfigFromEnv()
+	if err != nil {
+		t.Fatalf("amanConfigFromEnv() error = %v", err)
+	}
+	if config.Mode != aman.ModeDisabled {
+		t.Fatalf("AMAN mode = %q, want disabled", config.Mode)
+	}
+}
+
+func TestAMANConfigFromEnvParsesConfiguredRuntime(t *testing.T) {
+	geometry, err := os.CreateTemp(t.TempDir(), "terminal-*.geojson")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := geometry.Close(); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("AMAN_MODE", "authoritative")
+	t.Setenv("AMAN_ENABLED_AIRPORTS", "EKCH,EKRN")
+	t.Setenv("AMAN_TERMINAL_GEOMETRY_PATH", geometry.Name())
+	t.Setenv("AMAN_NAVIGATION_SOURCE", "airacnet")
+	t.Setenv("AMAN_RECONCILIATION_INTERVAL", "21s")
+	t.Setenv("AMAN_SURVEILLANCE_INTERVAL", "34s")
+	t.Setenv("ENABLE_AMAN_EUROSCOPE_GAIN_LOSE_TAGS", "true")
+
+	config, err := amanConfigFromEnv()
+	if err != nil {
+		t.Fatalf("amanConfigFromEnv() error = %v", err)
+	}
+	if config.Mode != aman.ModeAuthoritative || len(config.EnabledAirports) != 2 || config.ReconciliationInterval != 21*time.Second || config.SurveillanceInterval != 34*time.Second || !config.EnableEuroScopeGainLoseTags {
+		t.Fatalf("unexpected AMAN config: %#v", config)
+	}
+}
+
+func TestAMANConfigFromEnvRejectsInvalidTiming(t *testing.T) {
+	t.Setenv("AMAN_RECONCILIATION_INTERVAL", "later")
+	if _, err := amanConfigFromEnv(); err == nil {
+		t.Fatal("amanConfigFromEnv() succeeded with invalid timing")
 	}
 }

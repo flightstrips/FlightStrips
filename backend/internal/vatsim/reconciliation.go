@@ -86,16 +86,17 @@ type reconciliationNotifier interface {
 // session. It deliberately owns only feed fields; operational state remains
 // controller/EuroScope owned.
 type Reconciler struct {
-	cache              SnapshotSource
-	sessions           reconciliationSessionStore
-	strips             reconciliationStripStore
-	assignments        reconciliationAssignmentStore
-	lifecycle          DepartureLifecycle
-	arrivalLifecycle   ArrivalLifecycle
-	notifier           reconciliationNotifier
-	interval           time.Duration
-	airportCoordinates AirportCoordinates
-	now                func() time.Time
+	cache                  SnapshotSource
+	sessions               reconciliationSessionStore
+	strips                 reconciliationStripStore
+	assignments            reconciliationAssignmentStore
+	lifecycle              DepartureLifecycle
+	arrivalLifecycle       ArrivalLifecycle
+	notifier               reconciliationNotifier
+	interval               time.Duration
+	airportCoordinates     AirportCoordinates
+	legacyArrivalETAWriter bool
+	now                    func() time.Time
 }
 
 type ReconcilerDependencies struct {
@@ -148,6 +149,7 @@ func newReconciler(cache SnapshotSource, sessions reconciliationSessionStore, st
 		cache: cache, sessions: sessions, strips: strips, assignments: assignments,
 		lifecycle: departureLifecycle, arrivalLifecycle: arrivalLifecycle,
 		notifier: notifier, interval: interval, now: time.Now,
+		legacyArrivalETAWriter: true,
 	}
 	for _, option := range options {
 		option(reconciler)
@@ -271,11 +273,13 @@ func (r *Reconciler) reconcileSession(ctx context.Context, snapshot Snapshot, se
 			}
 		}
 		if strings.EqualFold(strings.TrimSpace(flight.FlightPlan.Destination), airport) {
-			etaChanged, err := r.updateArrivalETA(ctx, session.ID, strip, flight)
-			if err != nil {
-				return err
+			if r.legacyArrivalETAWriter {
+				etaChanged, err := r.updateArrivalETA(ctx, session.ID, strip, flight)
+				if err != nil {
+					return err
+				}
+				changed = etaChanged || changed
 			}
-			changed = etaChanged || changed
 		}
 		if changed {
 			changedCount++

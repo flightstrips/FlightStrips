@@ -2,6 +2,7 @@ package app
 
 import (
 	"FlightStrips/internal/alb"
+	"FlightStrips/internal/aman"
 	"FlightStrips/internal/cdm"
 	appconfig "FlightStrips/internal/config"
 	"FlightStrips/internal/database"
@@ -31,6 +32,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -81,6 +83,8 @@ type Config struct {
 	StandAssignmentHoldDuration   time.Duration
 	StandAssignmentBlockExtension time.Duration
 	StandAssignmentSweepInterval  time.Duration
+
+	AMAN aman.RuntimeConfig
 }
 
 type Dependencies struct {
@@ -91,6 +95,7 @@ type Dependencies struct {
 	VATSIMPollInterval    time.Duration
 	TransceiversURL       string
 	TransceiversInterval  time.Duration
+	AMAN                  aman.Dependencies
 }
 
 type App struct {
@@ -100,12 +105,20 @@ type App struct {
 	workers                  []func(context.Context)
 	startWorkers             sync.Once
 	standAssignmentReadiness appconfig.StandAssignmentReadiness
+	amanRuntime              *aman.Runtime
 }
 
 func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 	cfg = cfg.withDefaults()
 	if cfg.EnableTestTools && isLiveEnvironment(cfg.Environment) {
 		return nil, errors.New("ENABLE_TEST_TOOLS cannot be enabled in a live environment")
+	}
+	if err := validateAMANTerminalGeometry(cfg.AMAN); err != nil {
+		return nil, err
+	}
+	amanRuntime, err := aman.NewRuntime(cfg.AMAN, deps.AMAN)
+	if err != nil {
+		return nil, fmt.Errorf("initialize AMAN runtime: %w", err)
 	}
 	standAssignmentReadiness := configureStandAssignment(cfg.EnableStandAssignment, cfg.StandAssignmentAircraftJSON)
 	var testClock *testtools.Clock
@@ -224,7 +237,7 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 			DepartureLifecycle: departureLifecycle,
 			ArrivalLifecycle:   arrivalLifecycle,
 			Notifier:           frontendHub,
-		}, deps.VATSIMPollInterval, vatsim.WithAirportCoordinates(latitude, longitude), vatsim.WithClock(satNow))
+		}, deps.VATSIMPollInterval, vatsim.WithAirportCoordinates(latitude, longitude), vatsim.WithClock(satNow), vatsim.WithLegacyArrivalETAWriter(amanRuntime.Ownership().LegacyArrivalETAWriter))
 		if err != nil {
 			if closeDB {
 				dbpool.Close()
@@ -347,6 +360,7 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 		dbpool:                   dbpool,
 		closeDB:                  closeDB,
 		standAssignmentReadiness: standAssignmentReadiness,
+		amanRuntime:              amanRuntime,
 		handler: buildHandler(buildHandlerConfig{
 			authService:  authService,
 			frontendHub:  frontendHub,
@@ -417,6 +431,9 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 	if cfg.EnableTraffic {
 		trafficMetrics := services.NewTrafficMetricsService(sessionRepo, stripRepo)
 		app.addWorker(trafficMetrics.Start)
+	}
+	if amanRuntime.Enabled() {
+		app.addWorker(amanRuntime.Start)
 	}
 
 	return app, nil
@@ -550,6 +567,32 @@ func assembleRealtime(stripService shared.StripService, controllerService shared
 // state instead of independently reading environment configuration.
 func (a *App) StandAssignmentReadiness() appconfig.StandAssignmentReadiness {
 	return a.standAssignmentReadiness
+}
+
+// AMANRuntime returns the application's AMAN lifecycle and ownership state.
+func (a *App) AMANRuntime() *aman.Runtime {
+	if a == nil {
+		return nil
+	}
+	return a.amanRuntime
+}
+
+func validateAMANTerminalGeometry(config aman.RuntimeConfig) error {
+	path := strings.TrimSpace(config.TerminalGeometryPath)
+	if (config.Mode == "" || config.Mode == aman.ModeDisabled) && path == "" {
+		return nil
+	}
+	if path == "" {
+		return fmt.Errorf("AMAN terminal geometry path is required when enabled")
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		return fmt.Errorf("AMAN terminal geometry path %q: %w", path, err)
+	}
+	if info.IsDir() {
+		return fmt.Errorf("AMAN terminal geometry path %q must name a file", path)
+	}
+	return nil
 }
 
 func configureStandAssignment(enabled bool, aircraftFile string) appconfig.StandAssignmentReadiness {
@@ -915,6 +958,9 @@ func satStaleAfter(poll time.Duration) time.Duration {
 }
 
 func (cfg Config) withDefaults() Config {
+	if cfg.AMAN.Mode == "" {
+		cfg.AMAN.Mode = aman.ModeDisabled
+	}
 	if cfg.OIDCAudience == "" {
 		cfg.OIDCAudience = "backend-dev"
 	}

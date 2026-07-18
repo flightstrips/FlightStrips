@@ -1,6 +1,7 @@
 import type { ValidationStatus } from "@/api/models";
 
 const PDC_VALIDATION_ISSUE_TYPES = new Set(["PDC INVALID", "CUSTOM PDC"]);
+const NON_BLOCKING_VALIDATION_ISSUE_TYPES = new Set(["STAND ASSIGNMENT"]);
 
 const OPEN_DCL_MENU_ALLOWED_FIELDS = new Set<ValidationEditableField>([
   "sid",
@@ -46,6 +47,11 @@ export function isValidationActiveForPosition(validationStatus: ValidationStatus
     && (isPdcValidationStatus(validationStatus) || validationStatus.owning_position === myPosition);
 }
 
+export function isValidationBlockingForPosition(validationStatus: ValidationStatus | undefined, myPosition?: string): boolean {
+  return isValidationActiveForPosition(validationStatus, myPosition)
+    && !NON_BLOCKING_VALIDATION_ISSUE_TYPES.has(validationStatus?.issue_type ?? "");
+}
+
 function hasCustomAction(validationStatus: ValidationStatus | undefined, actionKind: string): boolean {
   return validationStatus?.custom_action?.action_kind === actionKind;
 }
@@ -70,7 +76,7 @@ export function isValidationActionAllowed(
   validationStatus: ValidationStatus | undefined,
   action: ValidationAttemptedAction,
 ): boolean {
-  if (!validationStatus?.active) {
+  if (!validationStatus?.active || NON_BLOCKING_VALIDATION_ISSUE_TYPES.has(validationStatus.issue_type)) {
     return true;
   }
 

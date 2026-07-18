@@ -104,10 +104,10 @@ type Strip struct {
 	ArrivalETA               *ArrivalETA
 }
 
-// IsValidationLocked returns true when the strip has an active validation issue
-// that must be acknowledged before certain mutations are permitted.
+// IsValidationLocked returns true when the strip has a blocking validation
+// issue that must be acknowledged before certain mutations are permitted.
 func (s *Strip) IsValidationLocked() bool {
-	return s != nil && s.ValidationStatus != nil && s.ValidationStatus.Active
+	return s != nil && s.ValidationStatus.IsBlocking()
 }
 
 func (s *Strip) EffectiveTobt() *string {

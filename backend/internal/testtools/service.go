@@ -576,7 +576,7 @@ func (s *Service) advance(ctx context.Context, scenario *Scenario) error {
 			}
 		case 1:
 			s.clock.Advance(6 * time.Minute)
-			s.updateScenario(scenario, func(state *Scenario) { state.LastAction = "wrong-stand deadline swept" })
+			s.updateScenario(scenario, func(state *Scenario) { state.LastAction = "wrong-stand assignment retained" })
 			if err := s.departures.ReleaseExpired(ctx); err != nil {
 				return err
 			}

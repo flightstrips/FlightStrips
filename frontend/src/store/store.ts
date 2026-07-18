@@ -57,7 +57,7 @@ import missedApproachSound from "@/assets/missed_approach.mp3";
 import { isAudioMuted } from "@/lib/audio-settings";
 import {
   isValidationActionAllowed,
-  isValidationActiveForPosition,
+  isValidationBlockingForPosition,
   type ValidationAttemptedAction,
   type ValidationEditableField,
 } from "@/lib/validation-status";
@@ -302,7 +302,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
       const strip = findStrip(callsign);
       const myPosition = get().position;
 
-      if (!strip || !isValidationActiveForPosition(strip.validation_status, myPosition)) {
+      if (!strip || !isValidationBlockingForPosition(strip.validation_status, myPosition)) {
         return true;
       }
 

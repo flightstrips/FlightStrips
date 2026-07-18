@@ -253,8 +253,7 @@ func TestDepartureLifecycle(t *testing.T) {
 		assert.Equal(t, "A1", assignment.Stand)
 		require.NotNil(t, assignment.ConflictReason)
 		assert.Contains(t, *assignment.ConflictReason, wrongStandPendingPrefix)
-		require.NotNil(t, assignment.ExpiresAt)
-		assert.Equal(t, clock.current().Add(5*time.Minute).UTC(), assignment.ExpiresAt.UTC())
+		assert.Nil(t, assignment.ExpiresAt)
 		require.Len(t, published, 3, "reservation, awaiting delivery, and active deadline are published")
 		assert.Equal(t, assignment.Version, published[2].Assignment.Version)
 
@@ -319,6 +318,53 @@ func TestDepartureLifecycle(t *testing.T) {
 		assert.Empty(t, allocations.failures.List(), "observed-stand probing must not create allocation failures")
 	})
 
+	t.Run("overlapping aircraft retain distinct assignments across restart", func(t *testing.T) {
+		lifecycle, allocations, session, assignments, strips, clock := departureLifecycleFixture(t, pool, queries, "", "", nil)
+		testdata.SeedTestStrip(t, queries, session, "SAS611")
+		testdata.SeedTestStrip(t, queries, session, "SAS612")
+
+		require.NoError(t, lifecycle.ObserveDeparturePosition(
+			ctx, session, loadStrip(t, strips, session, "SAS611"), 55.6285306, 12.6434583,
+		))
+		require.NoError(t, lifecycle.ObserveDeparturePosition(
+			ctx, session, loadStrip(t, strips, session, "SAS612"), 55.6285306, 12.6434583,
+		))
+
+		firstBefore, err := assignments.GetAssignment(ctx, session, "SAS611")
+		require.NoError(t, err)
+		secondBefore, err := assignments.GetAssignment(ctx, session, "SAS612")
+		require.NoError(t, err)
+		assert.Equal(t, "A2", firstBefore.Stand)
+		assert.Equal(t, "A1", secondBefore.Stand)
+		assert.Nil(t, firstBefore.ExpiresAt)
+		assert.Nil(t, secondBefore.ExpiresAt)
+
+		restarted, err := NewDepartureLifecycleService(
+			allocations, assignments, strips, postgres.NewSessionRepository(pool),
+			allocations.stands, nil, nil, nil, WithDepartureLifecycleClock(clock.current),
+		)
+		require.NoError(t, err)
+		restarted.SetWrongStandMessenger(&wrongStandTestMessenger{available: true})
+
+		clock.advance(time.Hour)
+		require.NoError(t, restarted.ReleaseExpired(ctx))
+		require.NoError(t, restarted.ObserveDeparturePosition(
+			ctx, session, loadStrip(t, strips, session, "SAS612"), 55.6285306, 12.6434583,
+		))
+		require.NoError(t, restarted.ObserveDeparturePosition(
+			ctx, session, loadStrip(t, strips, session, "SAS611"), 55.6285306, 12.6434583,
+		))
+
+		firstAfter, err := assignments.GetAssignment(ctx, session, "SAS611")
+		require.NoError(t, err)
+		secondAfter, err := assignments.GetAssignment(ctx, session, "SAS612")
+		require.NoError(t, err)
+		assert.Equal(t, firstBefore.ID, firstAfter.ID)
+		assert.Equal(t, firstBefore.Stand, firstAfter.Stand)
+		assert.Equal(t, secondBefore.ID, secondAfter.ID)
+		assert.Equal(t, secondBefore.Stand, secondAfter.Stand)
+	})
+
 	t.Run("EuroScope-only spawn with no alternative receives one occupied message", func(t *testing.T) {
 		lifecycle, _, session, assignments, strips, _ := departureLifecycleFixture(t, pool, queries, "", "", nil)
 		messenger := &wrongStandTestMessenger{available: true}
@@ -343,21 +389,45 @@ func TestDepartureLifecycle(t *testing.T) {
 		require.Equal(t, 1, messenger.calls, "the same occupied-stand episode must remain one-shot")
 	})
 
-	t.Run("wrong stand timeout forces an explicit override", func(t *testing.T) {
-		lifecycle, _, session, assignments, strips, clock := departureLifecycleFixture(t, pool, queries, "", "", nil)
+	t.Run("wrong stand assignment survives restart without adopting observed stand", func(t *testing.T) {
+		lifecycle, allocations, session, assignments, strips, clock := departureLifecycleFixture(t, pool, queries, "", "", nil)
 		testdata.SeedTestStrip(t, queries, session, "SAS604")
 		clock.set(time.Date(2026, 7, 12, 10, 0, 0, 0, time.UTC))
 		require.NoError(t, lifecycle.ProcessDeparture(ctx, session, loadStrip(t, strips, session, "SAS604"), offlineFlight("SAS604", 1)))
 		require.NoError(t, assignments.CreateBlock(ctx, &models.StandBlock{SessionID: session, Stand: "A2", BlockType: "MANUAL", Source: "CONTROLLER", Manual: true}))
 		require.NoError(t, lifecycle.ProcessDeparture(ctx, session, loadStrip(t, strips, session, "SAS604"), onlineFlightAtA2("SAS604", 1)))
-		clock.advance(5 * time.Minute)
-		require.NoError(t, lifecycle.ReleaseExpired(ctx))
-		forced, err := assignments.GetAssignment(ctx, session, "SAS604")
+
+		beforeRestart, err := assignments.GetAssignment(ctx, session, "SAS604")
 		require.NoError(t, err)
-		assert.Equal(t, "A2", forced.Stand)
-		assert.Equal(t, StageDepartureBlock, forced.Stage)
-		require.NotNil(t, forced.ConflictReason)
-		assert.Contains(t, *forced.ConflictReason, wrongStandForcedPrefix)
+		assert.Equal(t, "A1", beforeRestart.Stand)
+		assert.Nil(t, beforeRestart.ExpiresAt)
+
+		// Simulate a pending deadline persisted by the previous implementation.
+		legacyDeadline := clock.current().Add(5 * time.Minute)
+		beforeRestart.ExpiresAt = &legacyDeadline
+		affected, err := assignments.UpdateAssignment(ctx, beforeRestart)
+		require.NoError(t, err)
+		require.Equal(t, int64(1), affected)
+		beforeRestart.Version++
+
+		restarted, err := NewDepartureLifecycleService(
+			allocations, assignments, strips, postgres.NewSessionRepository(pool),
+			allocations.stands, nil, nil, nil, WithDepartureLifecycleClock(clock.current),
+		)
+		require.NoError(t, err)
+		restarted.SetWrongStandMessenger(&wrongStandTestMessenger{available: true})
+
+		clock.advance(time.Hour)
+		require.NoError(t, restarted.ReleaseExpired(ctx))
+		require.NoError(t, restarted.ProcessDeparture(ctx, session, loadStrip(t, strips, session, "SAS604"), onlineFlightAtA2("SAS604", 1)))
+
+		afterRestart, err := assignments.GetAssignment(ctx, session, "SAS604")
+		require.NoError(t, err)
+		assert.Equal(t, beforeRestart.ID, afterRestart.ID)
+		assert.Equal(t, "A1", afterRestart.Stand)
+		assert.Nil(t, afterRestart.ExpiresAt)
+		require.NotNil(t, afterRestart.ConflictReason)
+		assert.Contains(t, *afterRestart.ConflictReason, wrongStandPendingPrefix)
 	})
 
 	t.Run("warning failure does not start deadline and retries", func(t *testing.T) {
@@ -373,14 +443,14 @@ func TestDepartureLifecycle(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, awaiting.ConflictReason)
 		assert.Contains(t, *awaiting.ConflictReason, wrongStandAwaitingPrefix)
-		assert.Equal(t, clock.current().Add(15*time.Minute).UTC(), awaiting.ExpiresAt.UTC())
+		assert.Nil(t, awaiting.ExpiresAt)
 
 		messenger.available = true
 		require.NoError(t, lifecycle.ProcessDeparture(ctx, session, loadStrip(t, strips, session, "SAS606"), onlineFlightAtA2("SAS606", 1)))
 		active, err := assignments.GetAssignment(ctx, session, "SAS606")
 		require.NoError(t, err)
 		assert.Contains(t, *active.ConflictReason, wrongStandPendingPrefix)
-		assert.Equal(t, clock.current().Add(5*time.Minute).UTC(), active.ExpiresAt.UTC())
+		assert.Nil(t, active.ExpiresAt)
 		assert.Equal(t, 2, messenger.calls)
 		assert.Equal(t, "STAND ASSIGNMENT: PLEASE RELOCATE TO YOUR ASSIGNED STAND A1", messenger.message)
 	})

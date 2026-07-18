@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Strip, type HalfStripVariant, type StripStatus } from "@/components/strip/Strip.tsx";
 import type { FrontendStrip } from "@/api/models.ts";
 import { ValidationStatusDialog } from "@/components/strip/ValidationStatusDialog";
-import { isValidationActiveForPosition } from "@/components/strip/shared";
+import { isValidationBlockingForPosition } from "@/components/strip/shared";
 import {
   Dialog,
   DialogContent,
@@ -74,7 +74,7 @@ export function StripListPopup<T extends FrontendStrip>({
   };
 
   const handleRowClick = (strip: T) => {
-    if (isValidationActiveForPosition(strip.validation_status, myPosition)) {
+    if (isValidationBlockingForPosition(strip.validation_status, myPosition)) {
       setValidationDialogCallsign(strip.callsign);
       setValidationDialogOpen(true);
       return;

@@ -10,8 +10,6 @@ import (
 	"github.com/google/uuid"
 )
 
-const standAssignmentValidationIssueType = "STAND ASSIGNMENT"
-
 type validationStripReader interface {
 	GetByCallsign(ctx context.Context, session int32, callsign string) (*internalModels.Strip, error)
 }
@@ -116,12 +114,12 @@ func (s *StripValidationService) ReconcileStandAssignmentValidation(ctx context.
 	current := strip.ValidationStatus
 	blocked := len(blockedBy) > 0 || strings.TrimSpace(conflictReason) != ""
 	if !blocked {
-		if current != nil && current.IssueType == standAssignmentValidationIssueType {
+		if current != nil && current.IssueType == internalModels.ValidationIssueTypeStandAssignment {
 			return s.ClearValidationStatus(ctx, session, callsign)
 		}
 		return nil
 	}
-	if current != nil && current.IssueType != standAssignmentValidationIssueType {
+	if current != nil && current.IssueType != internalModels.ValidationIssueTypeStandAssignment {
 		return nil
 	}
 
@@ -137,7 +135,7 @@ func (s *StripValidationService) ReconcileStandAssignmentValidation(ctx context.
 		return nil
 	}
 	return s.SetValidationStatus(ctx, session, callsign, &internalModels.ValidationStatus{
-		IssueType:      standAssignmentValidationIssueType,
+		IssueType:      internalModels.ValidationIssueTypeStandAssignment,
 		Message:        message,
 		OwningPosition: owner,
 		Active:         true,

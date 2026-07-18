@@ -17,7 +17,7 @@ import { useBayClick } from "./BayClickContext";
 import { Children, useCallback, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import type { AnyStrip, StripRef } from "@/api/models.ts";
 import { stripDndId, isFlight } from "@/api/models.ts";
-import { isValidationActiveForPosition } from "@/components/strip/shared";
+import { isValidationBlockingForPosition } from "@/components/strip/shared";
 import { useWebSocketStore } from "@/store/store-hooks";
 import { useStripSensors } from "./useStripSensors";
 import { makeBayContainerDropZoneId } from "./dropZoneIds";
@@ -402,7 +402,7 @@ export function SortableStrip({
 }) {
   const validationDragDisabled = useWebSocketStore((state) => {
     const strip = state.strips.find((candidate) => candidate.callsign === callsign);
-    return isValidationActiveForPosition(strip?.validation_status, state.position);
+    return isValidationBlockingForPosition(strip?.validation_status, state.position);
   });
   const effectiveDragDisabled = dragDisabled || validationDragDisabled;
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({

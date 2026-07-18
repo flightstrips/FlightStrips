@@ -135,7 +135,7 @@ func TestReconcileStandAssignmentValidationActivatesBlockedAssignment(t *testing
 
 	require.NoError(t, svc.ReconcileStandAssignmentValidation(context.Background(), 1, "SAS123", []string{"A22"}, ""))
 	require.NotNil(t, persisted)
-	require.Equal(t, standAssignmentValidationIssueType, persisted.IssueType)
+	require.Equal(t, models.ValidationIssueTypeStandAssignment, persisted.IssueType)
 	require.Equal(t, "Assigned stand is blocked by A22.", persisted.Message)
 	require.Equal(t, owner, persisted.OwningPosition)
 	require.True(t, persisted.Active)
@@ -145,7 +145,7 @@ func TestReconcileStandAssignmentValidationActivatesBlockedAssignment(t *testing
 func TestReconcileStandAssignmentValidationClearsResolvedSatIssueOnly(t *testing.T) {
 	repo := &validationStoreFake{
 		getByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
-			return &models.Strip{Callsign: "SAS123", ValidationStatus: &models.ValidationStatus{IssueType: standAssignmentValidationIssueType}}, nil
+			return &models.Strip{Callsign: "SAS123", ValidationStatus: &models.ValidationStatus{IssueType: models.ValidationIssueTypeStandAssignment}}, nil
 		},
 		clearValidationStatusFn: func(_ context.Context, _ int32, callsign string) error {
 			require.Equal(t, "SAS123", callsign)

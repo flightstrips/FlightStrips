@@ -28,11 +28,9 @@ const (
 	defaultDepartureHoldDuration    = 15 * time.Minute
 	defaultDepartureBlockExtension  = 10 * time.Minute
 	defaultDepartureSweepInterval   = 30 * time.Second
-	defaultWrongStandDeadline       = 5 * time.Minute
 	departureClockRolloverThreshold = 12 * time.Hour
 	wrongStandAwaitingPrefix        = "WRONG_STAND_AWAITING_MESSAGE: observed "
 	wrongStandPendingPrefix         = "WRONG_STAND_PENDING: observed "
-	wrongStandForcedPrefix          = "WRONG_STAND_FORCED: observed "
 )
 
 // DepartureLifecycleService owns the timing rules that turn a prefiled
@@ -204,7 +202,7 @@ func (s *DepartureLifecycleService) activateObservedBlock(ctx context.Context, s
 	observed, found := s.stands.StandAtPosition(strings.TrimSpace(strip.Origin), flight.Latitude, flight.Longitude)
 	if !found {
 		s.clearUnassignedStandWarning(session, strip.Callsign)
-		slog.Warn("online departure is not inside a configured stand radius",
+		slog.Debug("online departure position does not resolve to a configured stand",
 			slog.String("callsign", strip.Callsign),
 			slog.Float64("latitude", flight.Latitude),
 			slog.Float64("longitude", flight.Longitude))
@@ -270,6 +268,9 @@ func (s *DepartureLifecycleService) activateObservedBlock(ctx context.Context, s
 	}
 	updated := *existing
 	updated.ConflictReason = &awaitingReason
+	// A live aircraft on the wrong stand must not lose or replace its persisted
+	// destination assignment while it waits to relocate.
+	updated.ExpiresAt = nil
 	updated.Acknowledged = false
 	updated.AcknowledgedAt = nil
 	updated.AcknowledgedBy = nil
@@ -323,14 +324,13 @@ func (s *DepartureLifecycleService) deliverWrongStandWarning(ctx context.Context
 	updated := *assignment
 	reason := wrongStandPendingPrefix + observed
 	updated.ConflictReason = &reason
-	deadline := s.now().Add(defaultWrongStandDeadline)
-	updated.ExpiresAt = &deadline
+	updated.ExpiresAt = nil
 	affected, err := s.assignments.UpdateAssignment(ctx, &updated)
 	if err != nil {
 		return err
 	}
 	if affected != 1 {
-		return fmt.Errorf("activate wrong stand deadline version conflict for %s", assignment.Callsign)
+		return fmt.Errorf("activate wrong stand warning version conflict for %s", assignment.Callsign)
 	}
 	updated.Version++
 	return s.allocations.PublishAssignment(ctx, updated)
@@ -589,11 +589,15 @@ func (s *DepartureLifecycleService) releaseIfDue(ctx context.Context, session in
 				!strings.HasPrefix(*assignment.ConflictReason, wrongStandAwaitingPrefix))) {
 		return s.clearDepartureBlockExpiry(ctx, assignment)
 	}
+	if assignment.ConflictReason != nil &&
+		(strings.HasPrefix(*assignment.ConflictReason, wrongStandPendingPrefix) ||
+			strings.HasPrefix(*assignment.ConflictReason, wrongStandAwaitingPrefix)) {
+		// Clear deadlines written by older versions too. A restart must retain
+		// the original assignment rather than adopting the observed stand.
+		return s.clearDepartureBlockExpiry(ctx, assignment)
+	}
 	if assignment.ExpiresAt == nil || assignment.ExpiresAt.After(now) {
 		return nil
-	}
-	if assignment.ConflictReason != nil && strings.HasPrefix(*assignment.ConflictReason, wrongStandPendingPrefix) {
-		return s.forceObservedStand(ctx, strip, assignment)
 	}
 	err = s.allocations.ReleaseAssignment(ctx, assignment)
 	recordSATExpiry(ctx, assignment, "expired", err)
@@ -626,18 +630,6 @@ func (s *DepartureLifecycleService) stripIsAtAssignedStand(strip *models.Strip, 
 		return found && strings.EqualFold(observed.Name, stand)
 	}
 	return strip.Stand != nil && strings.EqualFold(strings.TrimSpace(*strip.Stand), strings.TrimSpace(stand))
-}
-
-func (s *DepartureLifecycleService) forceObservedStand(ctx context.Context, strip *models.Strip, assignment *models.StandAssignment) error {
-	observed := strings.TrimSpace(strings.TrimPrefix(*assignment.ConflictReason, wrongStandPendingPrefix))
-	if observed == "" {
-		return nil
-	}
-	request := s.buildRequest(assignment.SessionID, strip, vatsim.DepartureFlightInfo{}, StageDepartureBlock, s.computeBlockExpiry(strip))
-	request.Stand = observed
-	request.ConflictReason = wrongStandForcedPrefix + observed + "; assigned " + assignment.Stand
-	_, err := s.allocations.OverrideManually(ctx, request)
-	return err
 }
 
 // StartSweep runs the expired-release loop until the context is cancelled. It is

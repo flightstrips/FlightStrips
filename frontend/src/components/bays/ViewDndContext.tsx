@@ -25,7 +25,7 @@ import { DragStateContext } from "./DragStateContext";
 import { DragDisabledContext } from "./DragDisabledContext";
 import { BayClickContext } from "./BayClickContext";
 import { ValidationStatusDialog } from "@/components/strip/ValidationStatusDialog";
-import { isValidationActiveForPosition } from "@/components/strip/shared";
+import { isValidationBlockingForPosition } from "@/components/strip/shared";
 import { useAirport, useMyPosition, useSelectedCallsign, useSelectStrip, useWebSocketStore } from "@/store/store-hooks";
 import { useStripSensors } from "./useStripSensors";
 import { parseBayContainerDropZoneId } from "./dropZoneIds";
@@ -200,7 +200,7 @@ export function ViewDndContext({
 
     const strip = bayStripMap[sourceBayId]?.strips.find(s => stripDndId(s) === selectedCallsign);
     if (strip && isFlight(strip) && strip.owner !== myPosition) return;
-    if (strip && isFlight(strip) && isValidationActiveForPosition(strip.validation_status, myPosition)) {
+    if (strip && isFlight(strip) && isValidationBlockingForPosition(strip.validation_status, myPosition)) {
       setValidationDialogCallsign(strip.callsign);
       setValidationDialogOpen(true);
       return;

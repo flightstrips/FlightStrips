@@ -9,9 +9,9 @@ import { Bay } from "@/api/models";
 import type { NextDisplay } from "@/api/models";
 import type { PdcStatus } from "@/api/models";
 import type { ValidationStatus } from "@/api/models";
-import { isValidationActiveForPosition } from "@/lib/validation-status";
+import { isValidationActiveForPosition, isValidationBlockingForPosition } from "@/lib/validation-status";
 
-export { isPdcValidationStatus, isValidationActiveForPosition } from "@/lib/validation-status";
+export { isPdcValidationStatus, isValidationActiveForPosition, isValidationBlockingForPosition } from "@/lib/validation-status";
 
 export const SELECTION_COLOR = "var(--color-strip-selection)";
 export const STRIP_FRAME_COLOR = "var(--color-strip-frame)";
@@ -146,7 +146,7 @@ export function useStripCallsignInteraction({
   const toggleMarked = useWebSocketStore((state) => state.toggleMarked);
   const marked = useWebSocketStore((state) => state.strips.find((strip) => strip.callsign === callsign)?.marked ?? false);
   const validationStatus = useWebSocketStore((state) => state.strips.find((s) => s.callsign === callsign)?.validation_status);
-  const isValidationActive = isValidationActiveForPosition(validationStatus, myPosition);
+  const isValidationActive = isValidationBlockingForPosition(validationStatus, myPosition);
 
   const [validationDialogOpen, setValidationDialogOpen] = useState(false);
 

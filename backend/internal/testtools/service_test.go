@@ -156,11 +156,13 @@ func TestScenariosUseRealReconciliationAndLifecycle(t *testing.T) {
 	require.NotNil(t, wrongStand.Assignment.ConflictReason)
 	assert.Contains(t, *wrongStand.Assignment.ConflictReason, "WRONG_STAND_PENDING")
 	assert.Contains(t, wrongStand.GeneratedMessage, "PLEASE RELOCATE")
+	assignedStand := wrongStand.Assignment.Stand
 
 	wrongStand, err = service.Command(ctx, wrongStand.ID, ScenarioCommand{Command: "advance"})
 	require.NoError(t, err)
 	require.NotNil(t, wrongStand.Assignment)
-	assert.Equal(t, testSource, wrongStand.Assignment.Source)
+	assert.Equal(t, assignedStand, wrongStand.Assignment.Stand)
 	require.NotNil(t, wrongStand.Assignment.ConflictReason)
-	assert.Contains(t, *wrongStand.Assignment.ConflictReason, "WRONG_STAND_FORCED")
+	assert.Contains(t, *wrongStand.Assignment.ConflictReason, "WRONG_STAND_PENDING")
+	assert.Equal(t, "wrong-stand assignment retained", wrongStand.LastAction)
 }

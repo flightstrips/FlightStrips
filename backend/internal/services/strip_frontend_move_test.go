@@ -334,6 +334,28 @@ func TestMoveFrontendStrip_ToClearedWithActivePdcConfirmsVoiceClearance(t *testi
 	assert.Equal(t, int32(1), fixture.pdcSpy.confirmCalls[0].session)
 }
 
+func TestMoveFrontendStrip_StandValidationDoesNotBlockVoiceClearance(t *testing.T) {
+	fixture := newFrontendMoveFixture(&internalModels.Strip{
+		Callsign:    "SAS133",
+		Bay:         shared.BAY_NOT_CLEARED,
+		Origin:      "EKCH",
+		Destination: "ESSA",
+		PdcState:    "REQUESTED",
+		ValidationStatus: &internalModels.ValidationStatus{
+			IssueType: internalModels.ValidationIssueTypeStandAssignment,
+			Active:    true,
+		},
+	})
+
+	err := fixture.svc.MoveFrontendStrip(fixture.ctx, 1, "SAS133", shared.BAY_CLEARED, "1234567", "EKCH", "EKCH_DEL")
+	require.NoError(t, err)
+	require.Len(t, fixture.pdcSpy.confirmCalls, 1)
+	assert.Equal(t, "SAS133", fixture.pdcSpy.confirmCalls[0].callsign)
+	assert.Equal(t, int32(1), fixture.pdcSpy.confirmCalls[0].session)
+	assert.True(t, fixture.strip.Cleared)
+	assert.Equal(t, shared.BAY_CLEARED, fixture.strip.Bay)
+}
+
 func TestMoveFrontendStrip_RevertsClearedMoveWhenVoiceConfirmationFails(t *testing.T) {
 	fixture := newFrontendMoveFixture(&internalModels.Strip{
 		Callsign:    "SAS131",

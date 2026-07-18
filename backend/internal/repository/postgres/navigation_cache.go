@@ -223,6 +223,93 @@ func (r *navigationCache) ActiveManifest(ctx context.Context, airport navdata.Ai
 	}
 	return result, nil
 }
+
+// ActiveGeometrySnapshot reads the active-manifest pointer and all named
+// fragments in a single repeatable-read transaction. Activation swaps that
+// pointer atomically, so callers cannot observe mixed fragment revisions.
+func (r *navigationCache) ActiveGeometrySnapshot(ctx context.Context, airport navdata.AirportID) (navdata.ActiveGeometrySnapshot, error) {
+	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead})
+	if err != nil {
+		return navdata.ActiveGeometrySnapshot{}, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	var result navdata.ActiveGeometrySnapshot
+	var procedureDigests []byte
+	err = tx.QueryRow(ctx, `SELECT m.revision,m.cycle,m.source_revision,m.effective_from,m.effective_until,m.airport_digest,m.procedure_digests,m.fix_digest,COALESCE(m.terminal_digest,'') FROM aman_nav_active_manifests a JOIN aman_nav_manifests m ON m.manifest_id=a.manifest_id WHERE a.airport=$1`, airport).Scan(&result.ManifestRevision, &result.Manifest.Version.Cycle, &result.Manifest.Version.SourceRevision, &result.Manifest.Version.EffectiveFrom, &result.Manifest.Version.EffectiveUntil, &result.Manifest.AirportDigest, &procedureDigests, &result.Manifest.FixDigest, &result.Manifest.TerminalDigest)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return result, cacheNotFound("active geometry snapshot was not found")
+	}
+	if err != nil {
+		return result, err
+	}
+	result.Manifest.Airport, result.Manifest.ExpectedRevision = airport, result.ManifestRevision
+	result.Manifest.Version.EffectiveFrom = result.Manifest.Version.EffectiveFrom.UTC()
+	result.Manifest.Version.EffectiveUntil = result.Manifest.Version.EffectiveUntil.UTC()
+	if err := json.Unmarshal(procedureDigests, &result.Manifest.ProcedureDigests); err != nil {
+		return result, cacheCorrupt("decode active snapshot procedure digests")
+	}
+	if err := r.validateManifest(ctx, tx, result.Manifest); err != nil {
+		return result, err
+	}
+	airportFragment, err := loadAirportFragment(ctx, tx, result.Manifest.AirportDigest)
+	if err != nil {
+		return result, err
+	}
+	fixFragment, err := loadFixFragment(ctx, tx, result.Manifest.FixDigest)
+	if err != nil {
+		return result, err
+	}
+	result.Airport = airportFragment.Airport
+	result.Runways = append([]navdata.Runway(nil), airportFragment.Runways...)
+	result.Fixes = append([]navdata.Fix(nil), fixFragment.Fixes...)
+	holdingDigests := map[navdata.HoldingID]string{}
+	addHolding := func(value navdata.HoldingPattern) error {
+		digest, digestErr := navdata.HoldingDigest(value)
+		if digestErr != nil {
+			return cacheCorrupt("calculate snapshot holding digest")
+		}
+		if previous, exists := holdingDigests[value.ID]; exists {
+			if previous != digest {
+				return cacheCorrupt("snapshot has conflicting holding definitions")
+			}
+			return nil
+		}
+		holdingDigests[value.ID] = digest
+		result.Holdings = append(result.Holdings, value)
+		return nil
+	}
+	for _, digest := range result.Manifest.ProcedureDigests {
+		fragment, loadErr := loadProcedureFragment(ctx, tx, digest)
+		if loadErr != nil {
+			return result, loadErr
+		}
+		for _, procedure := range fragment.Procedures {
+			result.Procedures = append(result.Procedures, procedure)
+			for _, holding := range procedure.Holdings {
+				if addErr := addHolding(holding); addErr != nil {
+					return result, addErr
+				}
+			}
+		}
+	}
+	if result.Manifest.TerminalDigest != "" {
+		fragment, loadErr := loadTerminalFragment(ctx, tx, result.Manifest.TerminalDigest)
+		if loadErr != nil {
+			return result, loadErr
+		}
+		result.TerminalPaths = append([]navdata.TerminalPath(nil), fragment.Paths...)
+		for _, holding := range fragment.Holdings {
+			if addErr := addHolding(holding); addErr != nil {
+				return result, addErr
+			}
+		}
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return navdata.ActiveGeometrySnapshot{}, err
+	}
+	return result, nil
+}
+
 func (r *navigationCache) Route(ctx context.Context, key navdata.RouteKey) (navdata.RouteGeometry, error) {
 	var queryJSON, payload []byte
 	var resolver, schema string
@@ -626,6 +713,7 @@ var (
 	_ navdata.NavigationManifestActivator = (*navigationCache)(nil)
 	_ navdata.ActiveManifestReader        = (*navigationCache)(nil)
 	_ navdata.GeometryReader              = (*navigationCache)(nil)
+	_ navdata.GeometrySnapshotReader      = (*navigationCache)(nil)
 	_ terminal.ReferenceReader            = (*navigationCache)(nil)
 	_ aman.Component                      = (*navigationCache)(nil)
 )

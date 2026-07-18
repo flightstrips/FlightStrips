@@ -198,6 +198,29 @@ type ActiveManifestReader interface {
 	ActiveManifest(context.Context, AirportID) (ActiveManifest, error)
 }
 
+// GeometrySnapshotReader is the cache-only, manifest-consistent reference
+// read used by route projection.  Unlike GeometryReader it deliberately
+// returns the complete immutable reference set needed to turn canonical FixID
+// references into WGS84 geometry.  It is not an acquisition interface.
+type GeometrySnapshotReader interface {
+	ActiveGeometrySnapshot(context.Context, AirportID) (ActiveGeometrySnapshot, error)
+}
+
+// ActiveGeometrySnapshot is one exact active manifest.  Every value is drawn
+// from the fragment digests named by Manifest; callers must treat it as
+// immutable.  Holding definitions include published procedure definitions and
+// terminal/AIP overlay definitions after conflict validation.
+type ActiveGeometrySnapshot struct {
+	Manifest         ManifestCandidate
+	ManifestRevision int64
+	Airport          Airport
+	Runways          []Runway
+	Fixes            []Fix
+	Procedures       []Procedure
+	TerminalPaths    []TerminalPath
+	Holdings         []HoldingPattern
+}
+
 type ActiveManifest struct {
 	Candidate  ManifestCandidate
 	Revision   int64

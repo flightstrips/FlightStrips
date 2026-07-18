@@ -2,6 +2,7 @@ package aman
 
 import (
 	"fmt"
+	"math"
 	"strings"
 	"time"
 )
@@ -261,6 +262,33 @@ type RouteFact struct {
 	ID         string
 	Fix        string
 	ObservedAt time.Time
+	State      RouteFactState
+}
+
+// RouteFactState is supplied by the direct-to fact owner. Trajectory consumes
+// it and never infers expiry from wall-clock time.
+type RouteFactState string
+
+const (
+	RouteFactActive  RouteFactState = "active"
+	RouteFactExpired RouteFactState = "expired"
+)
+
+func (s RouteFactState) Valid() bool { return s == "" || s == RouteFactActive || s == RouteFactExpired }
+
+// RouteProgress is task-owned projection state persisted inside AMANFlight's
+// aggregate JSON. The compatibility identity intentionally includes exact
+// manifest/terminal revisions so same-cycle terminal activation resets safely.
+type RouteProgress struct {
+	GeometryDigest     string
+	ManifestRevision   int64
+	TerminalDigest     string
+	FlightPlanRevision uint64
+	RouteFactID        string
+	RunwayGroupID      RunwayGroupID
+	LegIndex           int
+	RejoinLegIndex     int
+	AlongTrackNM       float64
 }
 
 // ETAReview and GoAroundDetectionState reserve the aggregate's owned state
@@ -296,6 +324,7 @@ type AMANFlight struct {
 	SelectedFeeder        *string
 	SelectedHolding       *string
 	ActiveRouteFact       *RouteFact
+	RouteProgress         *RouteProgress
 	FreezeReason          FreezeReason
 	FrozenAt              *time.Time
 	FrozenOperationalTETA *time.Time
@@ -512,6 +541,14 @@ func (f AMANFlight) Validate() error {
 	if f.ArrivalBaseline != nil {
 		if err := f.ArrivalBaseline.Validate(); err != nil {
 			return err
+		}
+	}
+	if f.ActiveRouteFact != nil && !f.ActiveRouteFact.State.Valid() {
+		return invalid("route fact state is invalid")
+	}
+	if f.RouteProgress != nil {
+		if strings.TrimSpace(f.RouteProgress.GeometryDigest) == "" || f.RouteProgress.ManifestRevision < 1 || f.RouteProgress.LegIndex < 0 || f.RouteProgress.RejoinLegIndex < 0 || f.RouteProgress.AlongTrackNM < 0 || math.IsNaN(f.RouteProgress.AlongTrackNM) || math.IsInf(f.RouteProgress.AlongTrackNM, 0) {
+			return invalid("route progress is invalid")
 		}
 	}
 	if err := f.validateFreeze(); err != nil {

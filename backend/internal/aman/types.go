@@ -1,0 +1,477 @@
+package aman
+
+import (
+	"fmt"
+	"strings"
+	"time"
+)
+
+// FlightID identifies one active AMAN flight. It is generated once and is not
+// derived from a mutable callsign.
+type FlightID string
+
+// RunwayGroupID identifies an airport-specific AMAN runway group.
+type RunwayGroupID string
+
+// SequenceRevision is the monotonically increasing committed revision for an
+// airport AMAN state.
+type SequenceRevision uint64
+
+type FlightState string
+
+const (
+	StatePlanned  FlightState = "planned"
+	StateAirborne FlightState = "airborne"
+	StateUnstable FlightState = "unstable"
+	StateStable   FlightState = "stable"
+	StateLanded   FlightState = "landed"
+	StateGoAround FlightState = "go_around"
+	StateRemoved  FlightState = "removed"
+)
+
+func (s FlightState) Valid() bool {
+	switch s {
+	case StatePlanned, StateAirborne, StateUnstable, StateStable, StateLanded, StateGoAround, StateRemoved:
+		return true
+	default:
+		return false
+	}
+}
+
+type DataStatus string
+
+const (
+	DataFresh        DataStatus = "fresh"
+	DataStale        DataStatus = "stale"
+	DataDisconnected DataStatus = "disconnected"
+)
+
+func (s DataStatus) Valid() bool {
+	return s == DataFresh || s == DataStale || s == DataDisconnected
+}
+
+type RolloutMode string
+
+const (
+	ModeDisabled      RolloutMode = "disabled"
+	ModeShadow        RolloutMode = "shadow"
+	ModeReadOnly      RolloutMode = "read_only"
+	ModeAuthoritative RolloutMode = "authoritative"
+)
+
+func (m RolloutMode) Valid() bool {
+	switch m {
+	case ModeDisabled, ModeShadow, ModeReadOnly, ModeAuthoritative:
+		return true
+	default:
+		return false
+	}
+}
+
+type Confidence string
+
+const (
+	ConfidenceUnknown Confidence = "unknown"
+	ConfidenceLow     Confidence = "low"
+	ConfidenceMedium  Confidence = "medium"
+	ConfidenceHigh    Confidence = "high"
+)
+
+func (c Confidence) Valid() bool {
+	switch c {
+	case ConfidenceUnknown, ConfidenceLow, ConfidenceMedium, ConfidenceHigh:
+		return true
+	default:
+		return false
+	}
+}
+
+// FreezeReason is the only representation of an operational TETA/slot freeze.
+// A flight must not add a parallel state or locked boolean.
+type FreezeReason string
+
+const (
+	FreezeNone        FreezeReason = "none"
+	FreezeSuperstable FreezeReason = "superstable"
+	FreezeManual      FreezeReason = "manual"
+)
+
+func (r FreezeReason) Valid() bool {
+	switch r {
+	case FreezeNone, FreezeSuperstable, FreezeManual:
+		return true
+	default:
+		return false
+	}
+}
+
+// FlightObservation is the provider-neutral reconciliation input. Adapters
+// map their vendor data to this value before it reaches AMAN.
+type FlightObservation struct {
+	FlightID        FlightID          `json:"flight_id"`
+	VATSIMCID       string            `json:"vatsim_cid"`
+	Callsign        string            `json:"callsign"`
+	Origin          string            `json:"origin"`
+	Destination     string            `json:"destination"`
+	AircraftType    *string           `json:"aircraft_type"`
+	WakeCategory    *string           `json:"wake_category"`
+	FiledRoute      *string           `json:"filed_route"`
+	RequestedLevel  *int              `json:"requested_level_ft"`
+	PlannedTiming   *PlannedTiming    `json:"planned_timing"`
+	FlightPlan      FlightPlanFact    `json:"flight_plan"`
+	Surveillance    *SurveillanceFact `json:"surveillance"`
+	TakeoffDetected *time.Time        `json:"takeoff_detected_at"`
+	ReconciledAt    time.Time         `json:"reconciled_at"`
+	SourceStatus    DataStatus        `json:"source_status"`
+}
+
+// PlannedTiming contains provider-neutral planned times. Durations are domain
+// time.Duration values; owning wire packages serialize them as whole seconds.
+type PlannedTiming struct {
+	EstimatedOffBlockTime *time.Time     `json:"estimated_off_block_time"`
+	EstimatedEnrouteTime  *time.Duration `json:"estimated_enroute_time"`
+}
+
+// FlightPlanFact records the source ordering facts for a flight plan.
+type FlightPlanFact struct {
+	Revision   *uint64    `json:"revision"`
+	ObservedAt *time.Time `json:"observed_at"`
+}
+
+// SurveillanceFact is an optional positional observation. Coordinates are
+// WGS84 degrees, altitude is feet, ground speed is knots, and track is true
+// degrees in [0,360).
+type SurveillanceFact struct {
+	LatitudeDegrees  float64    `json:"latitude_degrees"`
+	LongitudeDegrees float64    `json:"longitude_degrees"`
+	AltitudeFeet     *int       `json:"altitude_feet"`
+	GroundspeedKnots *float64   `json:"groundspeed_knots"`
+	TrackTrueDegrees *float64   `json:"track_true_degrees"`
+	Sequence         *uint64    `json:"sequence"`
+	ObservedAt       *time.Time `json:"observed_at"`
+}
+
+// Prediction separates a physical/model result from the backend-owned value
+// used for lifecycle and sequencing. RawTETA continues to move during a
+// freeze; OperationalTETA is the only value consumers sequence.
+type Prediction struct {
+	RawTETA           time.Time `json:"raw_teta"`
+	OperationalTETA   time.Time `json:"operational_teta"`
+	OperationalReason string    `json:"operational_reason"`
+
+	GeneratedAt       time.Time  `json:"generated_at"`
+	InputObservedAt   time.Time  `json:"input_observed_at"`
+	Confidence        Confidence `json:"confidence"`
+	Publishable       bool       `json:"publishable"`
+	DegradationReason *string    `json:"degradation_reason"`
+
+	DatasetVersion string     `json:"dataset_version"`
+	GeometryDigest string     `json:"geometry_digest"`
+	DistanceToGoNM *float64   `json:"distance_to_go_nm"`
+	HoldingFixETA  *time.Time `json:"holding_fix_eta"`
+
+	ModelVersion         string   `json:"model_version"`
+	ConfigVersion        string   `json:"config_version"`
+	PerformanceProfileID *string  `json:"performance_profile_id"`
+	WeatherSource        *string  `json:"weather_source"`
+	Sources              []string `json:"sources"`
+}
+
+// Slot is a committed sequencing result. It intentionally has no locked
+// field: freezes are represented exclusively by AMANFlight.FreezeReason.
+type Slot struct {
+	Time          time.Time        `json:"time"`
+	RunwayGroupID RunwayGroupID    `json:"runway_group_id"`
+	Sequence      int              `json:"sequence"`
+	Revision      SequenceRevision `json:"revision"`
+	Reason        string           `json:"reason"`
+}
+
+// RouteFact is the currently active operational route fact. Transport and
+// tracking-authority details belong to the route-fact owner, not this core
+// contract.
+type RouteFact struct {
+	ID         string    `json:"id"`
+	Fix        string    `json:"fix"`
+	ObservedAt time.Time `json:"observed_at"`
+}
+
+// ETAReview and GoAroundDetectionState reserve the aggregate's owned state
+// without defining command, persistence, or detector implementation details.
+// Their full workflows are owned by their respective components.
+type ETAReview struct {
+	Status string `json:"status"`
+}
+
+type GoAroundDetectionState struct {
+	EpisodeID *string `json:"episode_id"`
+}
+
+// RunwayGroupPolicy is the airport-state identity for a runway group. The
+// sequence component owns the policy's rate and spacing declarations.
+type RunwayGroupPolicy struct {
+	ID RunwayGroupID `json:"id"`
+}
+
+// AMANFlight is the persisted aggregate shape. All operational TETA, state,
+// freeze, slot, and order changes are backend-owned.
+type AMANFlight struct {
+	ID                    FlightID                `json:"id"`
+	State                 FlightState             `json:"state"`
+	DataStatus            DataStatus              `json:"data_status"`
+	Prediction            *Prediction             `json:"prediction"`
+	SelectedRunwayGroup   *RunwayGroupID          `json:"selected_runway_group"`
+	SelectedFeeder        *string                 `json:"selected_feeder"`
+	SelectedHolding       *string                 `json:"selected_holding"`
+	ActiveRouteFact       *RouteFact              `json:"active_route_fact"`
+	FreezeReason          FreezeReason            `json:"freeze_reason"`
+	FrozenAt              *time.Time              `json:"frozen_at"`
+	FrozenOperationalTETA *time.Time              `json:"frozen_operational_teta"`
+	Slot                  *Slot                   `json:"slot"`
+	Order                 *int                    `json:"order"`
+	ETAReview             *ETAReview              `json:"eta_review"`
+	GoAroundDetection     *GoAroundDetectionState `json:"go_around_detection"`
+	UpdatedAt             time.Time               `json:"updated_at"`
+}
+
+// AirportState is the sole source for one coherent AMAN replacement state.
+// Revisions are allocated only when a committed domain result changes it.
+type AirportState struct {
+	Airport       string              `json:"airport"`
+	Revision      SequenceRevision    `json:"revision"`
+	GeneratedAt   time.Time           `json:"generated_at"`
+	PolicyVersion string              `json:"policy_version"`
+	Mode          RolloutMode         `json:"mode"`
+	Authoritative bool                `json:"authoritative"`
+	Flights       []AMANFlight        `json:"flights"`
+	RunwayGroups  []RunwayGroupPolicy `json:"runway_groups"`
+}
+
+// CommandMetadata is shared by typed command values. It deliberately does not
+// use a kind plus nullable fields; each command owner defines a separate type.
+type CommandMetadata struct {
+	CommandID        string           `json:"command_id"`
+	ExpectedRevision SequenceRevision `json:"expected_revision"`
+}
+
+type ErrorClass string
+
+const (
+	ErrorInvalidArgument              ErrorClass = "invalid_argument"
+	ErrorNotFound                     ErrorClass = "not_found"
+	ErrorRevisionConflict             ErrorClass = "revision_conflict"
+	ErrorUnauthorized                 ErrorClass = "unauthorized"
+	ErrorInvalidTransition            ErrorClass = "invalid_transition"
+	ErrorDependencyUnavailable        ErrorClass = "dependency_unavailable"
+	ErrorDegradedOrIncompleteGeometry ErrorClass = "degraded_or_incomplete_geometry"
+	ErrorUnsupportedLeg               ErrorClass = "unsupported_leg"
+	ErrorDatasetMismatch              ErrorClass = "dataset_mismatch"
+	ErrorCorruptData                  ErrorClass = "corrupt_data"
+	ErrorActiveFlightConflict         ErrorClass = "active_flight_conflict"
+)
+
+func (c ErrorClass) Valid() bool {
+	switch c {
+	case ErrorInvalidArgument, ErrorNotFound, ErrorRevisionConflict, ErrorUnauthorized,
+		ErrorInvalidTransition, ErrorDependencyUnavailable, ErrorDegradedOrIncompleteGeometry,
+		ErrorUnsupportedLeg, ErrorDatasetMismatch, ErrorCorruptData, ErrorActiveFlightConflict:
+		return true
+	default:
+		return false
+	}
+}
+
+// DomainError provides a stable, provider-independent error class for a
+// transport adapter to map once at its boundary.
+type DomainError struct {
+	Class   ErrorClass
+	Message string
+}
+
+func (e *DomainError) Error() string {
+	if e == nil {
+		return "<nil>"
+	}
+	if e.Message == "" {
+		return string(e.Class)
+	}
+	return fmt.Sprintf("%s: %s", e.Class, e.Message)
+}
+
+// Validate checks the unit and nullability rules that can be established at
+// the neutral observation boundary without imposing a source implementation.
+func (o FlightObservation) Validate() error {
+	if strings.TrimSpace(string(o.FlightID)) == "" || strings.TrimSpace(o.VATSIMCID) == "" ||
+		strings.TrimSpace(o.Callsign) == "" || strings.TrimSpace(o.Origin) == "" || strings.TrimSpace(o.Destination) == "" {
+		return invalid("flight observation identity is incomplete")
+	}
+	if !o.SourceStatus.Valid() {
+		return invalid("source status is invalid")
+	}
+	if err := requireUTCTime("reconciled at", o.ReconciledAt); err != nil {
+		return err
+	}
+	if o.FlightPlan.ObservedAt != nil {
+		if err := requireUTCTime("flight plan observed at", *o.FlightPlan.ObservedAt); err != nil {
+			return err
+		}
+	}
+	if o.TakeoffDetected != nil {
+		if err := requireUTCTime("takeoff detected at", *o.TakeoffDetected); err != nil {
+			return err
+		}
+	}
+	if o.Surveillance != nil {
+		return o.Surveillance.validate()
+	}
+	return nil
+}
+
+func (s SurveillanceFact) validate() error {
+	if s.LatitudeDegrees < -90 || s.LatitudeDegrees > 90 || s.LongitudeDegrees < -180 || s.LongitudeDegrees > 180 {
+		return invalid("surveillance coordinates are invalid")
+	}
+	if s.GroundspeedKnots != nil && *s.GroundspeedKnots < 0 {
+		return invalid("ground speed cannot be negative")
+	}
+	if s.TrackTrueDegrees != nil && (*s.TrackTrueDegrees < 0 || *s.TrackTrueDegrees >= 360) {
+		return invalid("track must be true degrees in [0,360)")
+	}
+	if s.ObservedAt == nil {
+		return invalid("surveillance observed at is required")
+	}
+	return requireUTCTime("surveillance observed at", *s.ObservedAt)
+}
+
+func (p Prediction) Validate() error {
+	if err := requireUTCTime("raw TETA", p.RawTETA); err != nil {
+		return err
+	}
+	if err := requireUTCTime("operational TETA", p.OperationalTETA); err != nil {
+		return err
+	}
+	if strings.TrimSpace(p.OperationalReason) == "" {
+		return invalid("operational reason is required")
+	}
+	if err := requireUTCTime("generated at", p.GeneratedAt); err != nil {
+		return err
+	}
+	if err := requireUTCTime("input observed at", p.InputObservedAt); err != nil {
+		return err
+	}
+	if !p.Confidence.Valid() {
+		return invalid("confidence is invalid")
+	}
+	if strings.TrimSpace(p.DatasetVersion) == "" || strings.TrimSpace(p.GeometryDigest) == "" ||
+		strings.TrimSpace(p.ModelVersion) == "" || strings.TrimSpace(p.ConfigVersion) == "" {
+		return invalid("prediction provenance is incomplete")
+	}
+	if p.DistanceToGoNM != nil && *p.DistanceToGoNM < 0 {
+		return invalid("distance to go cannot be negative")
+	}
+	if p.HoldingFixETA != nil {
+		if err := requireUTCTime("holding fix ETA", *p.HoldingFixETA); err != nil {
+			return err
+		}
+	}
+	if p.Sources == nil {
+		return invalid("prediction sources must be explicit")
+	}
+	return nil
+}
+
+func (f AMANFlight) Validate() error {
+	if strings.TrimSpace(string(f.ID)) == "" {
+		return invalid("flight ID is required")
+	}
+	if !f.State.Valid() || !f.DataStatus.Valid() || !f.FreezeReason.Valid() {
+		return invalid("flight has an invalid state")
+	}
+	if f.Prediction != nil {
+		if err := f.Prediction.Validate(); err != nil {
+			return err
+		}
+	}
+	if err := f.validateFreeze(); err != nil {
+		return err
+	}
+	if f.Slot != nil {
+		if err := f.Slot.validate(); err != nil {
+			return err
+		}
+	}
+	return requireUTCTime("updated at", f.UpdatedAt)
+}
+
+func (f AMANFlight) validateFreeze() error {
+	if f.FreezeReason == FreezeNone {
+		if f.FrozenAt != nil || f.FrozenOperationalTETA != nil {
+			return invalid("unfrozen flight cannot retain freeze values")
+		}
+		return nil
+	}
+	if f.FrozenAt == nil || f.FrozenOperationalTETA == nil {
+		return invalid("frozen flight requires timestamp and operational TETA")
+	}
+	if err := requireUTCTime("frozen at", *f.FrozenAt); err != nil {
+		return err
+	}
+	return requireUTCTime("frozen operational TETA", *f.FrozenOperationalTETA)
+}
+
+func (s Slot) validate() error {
+	if err := requireUTCTime("slot time", s.Time); err != nil {
+		return err
+	}
+	if strings.TrimSpace(string(s.RunwayGroupID)) == "" || s.Sequence < 1 || strings.TrimSpace(s.Reason) == "" {
+		return invalid("slot is incomplete")
+	}
+	return nil
+}
+
+func (s AirportState) Validate() error {
+	if strings.TrimSpace(s.Airport) == "" || strings.TrimSpace(s.PolicyVersion) == "" || !s.Mode.Valid() {
+		return invalid("airport state is incomplete")
+	}
+	if err := requireUTCTime("generated at", s.GeneratedAt); err != nil {
+		return err
+	}
+	flightIDs := make(map[FlightID]struct{}, len(s.Flights))
+	for _, flight := range s.Flights {
+		if err := flight.Validate(); err != nil {
+			return err
+		}
+		if _, exists := flightIDs[flight.ID]; exists {
+			return invalid("airport state contains duplicate flight ID")
+		}
+		flightIDs[flight.ID] = struct{}{}
+		if flight.Slot != nil && flight.Slot.Revision != s.Revision {
+			return invalid("slot revision must match airport state revision")
+		}
+	}
+	groupIDs := make(map[RunwayGroupID]struct{}, len(s.RunwayGroups))
+	for _, group := range s.RunwayGroups {
+		if strings.TrimSpace(string(group.ID)) == "" {
+			return invalid("runway group ID is required")
+		}
+		if _, exists := groupIDs[group.ID]; exists {
+			return invalid("airport state contains duplicate runway group")
+		}
+		groupIDs[group.ID] = struct{}{}
+	}
+	return nil
+}
+
+func requireUTCTime(name string, value time.Time) error {
+	if value.IsZero() {
+		return invalid(name + " is required")
+	}
+	if value.Location() != time.UTC {
+		return invalid(name + " must be UTC")
+	}
+	return nil
+}
+
+func invalid(message string) error {
+	return &DomainError{Class: ErrorInvalidArgument, Message: message}
+}

@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.17.0](https://github.com/flightstrips/FlightStrips/compare/docs/v0.16.0...docs/v0.17.0) (2026-07-20)
+
+
+### Features
+
+* **handover:** resolve EKCH transfers from radio coverage ([#386](https://github.com/flightstrips/FlightStrips/issues/386)) ([6dccd12](https://github.com/flightstrips/FlightStrips/commit/6dccd12d857e9d0b86da4ff9947c62e09fea8933))
+
 ## [0.16.0](https://github.com/flightstrips/FlightStrips/compare/docs/v0.15.0...docs/v0.16.0) (2026-07-18)
 
 

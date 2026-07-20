@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.47.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.46.1...frontend/v0.47.0) (2026-07-20)
+
+
+### Features
+
+* **handover:** resolve EKCH transfers from radio coverage ([#386](https://github.com/flightstrips/FlightStrips/issues/386)) ([6dccd12](https://github.com/flightstrips/FlightStrips/commit/6dccd12d857e9d0b86da4ff9947c62e09fea8933))
+
+
+### Bug Fixes
+
+* **cdm:** update tower departure CTOT display ([#387](https://github.com/flightstrips/FlightStrips/issues/387)) ([f13ae1f](https://github.com/flightstrips/FlightStrips/commit/f13ae1fa2a73d63c8d7314d3f64f5f2038fb87b0))
+* **strip:** update concerned SI and departure border colors ([#384](https://github.com/flightstrips/FlightStrips/issues/384)) ([279761e](https://github.com/flightstrips/FlightStrips/commit/279761ee6761a9d2025f294d7d2b25975f8c2cf9))
+
 ## [0.46.1](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.46.0...frontend/v0.46.1) (2026-07-18)
 
 

@@ -164,7 +164,7 @@ func TestGetLayouts_NoMutationAcrossCalls(t *testing.T) {
 
 func ekchTowerLayouts() map[string][]LayoutVariant {
 	return map[string][]LayoutVariant{
-		"EKCH_C_TWR": {
+		"EKCH_GW_TWR": {
 			{Online: []string{"EKCH_A_TWR", "EKCH_D_TWR", "_GND"}, Offline: []string{}, Layout: "GEGW"},
 			{Online: []string{"EKCH_A_TWR", "_GND"}, Offline: []string{"EKCH_D_TWR"}, Layout: "GEGW"},
 			{Online: []string{"EKCH_D_TWR", "_GND"}, Offline: []string{"EKCH_A_TWR"}, Layout: "GEGW"},
@@ -226,7 +226,7 @@ func TestGetLayouts_SingleTopdown_GetsTwrGndWhenGroundOffline(t *testing.T) {
 	setupTowerLayouts(t)
 
 	controllers := []*Position{
-		makePos("EKCH_C_TWR", "118.580", "TWR"),
+		makePos("EKCH_GW_TWR", "118.580", "TWR"),
 	}
 
 	result := GetLayouts(controllers, []string{"22L", "22R"})
@@ -238,7 +238,7 @@ func TestGetLayouts_SingleTopdown_WithGroundOnlineKeepsTwte(t *testing.T) {
 	setupTowerLayouts(t)
 
 	controllers := []*Position{
-		makePos("EKCH_C_TWR", "118.580", "TWR"),
+		makePos("EKCH_GW_TWR", "118.580", "TWR"),
 		makePos("EKCH_A_GND", "121.630", "GND"),
 	}
 

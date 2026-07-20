@@ -55,7 +55,7 @@ func TestUpdateLayoutsContext_UsesSyncStateWithoutReloadingSessionOrControllers(
 	assert.Equal(t, map[string]string{"118.100": "TWR"}, layouts)
 }
 
-func TestUpdateLayoutsContext_PrefersCallsignPositionOverCrossCoupledFrequency(t *testing.T) {
+func TestUpdateLayoutsContext_UsesCallsignRoleAtActualPrimedFrequency(t *testing.T) {
 	t.Cleanup(config.SetPositionsForTest([]config.Position{
 		{Name: "EKCH_A_TWR", Frequency: "118.100"},
 		{Name: "EKCH_W_APP", Frequency: "119.805"},
@@ -98,5 +98,5 @@ func TestUpdateLayoutsContext_PrefersCallsignPositionOverCrossCoupledFrequency(t
 
 	err := server.UpdateLayoutsContext(ctx, 1)
 	require.NoError(t, err)
-	assert.Equal(t, map[string]string{"118.100": "TWR"}, layouts)
+	assert.Equal(t, map[string]string{"119.805": "TWR"}, layouts)
 }

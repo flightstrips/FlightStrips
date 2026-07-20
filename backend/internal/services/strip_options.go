@@ -55,6 +55,12 @@ func WithRouteRecalculator(routeRecalculator RouteRecalculator) StripServiceOpti
 		if routeComputer, ok := routeRecalculator.(StripRouteComputer); ok {
 			s.routeComputer = routeComputer
 		}
+		if displayComputer, ok := routeRecalculator.(StripRouteDisplayComputer); ok {
+			s.routeDisplayComputer = displayComputer
+		}
+		if resolver, ok := routeRecalculator.(ClearedStripOwnerResolver); ok {
+			s.clearedOwnerResolver = resolver
+		}
 	}
 }
 

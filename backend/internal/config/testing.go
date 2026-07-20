@@ -108,5 +108,3 @@ func SetMissedApproachHandoverForTest(m map[string]string) func() {
 	missedApproachHandover = m
 	return func() { missedApproachHandover = old }
 }
-
-

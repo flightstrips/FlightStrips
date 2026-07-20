@@ -280,7 +280,7 @@ func TestUpdateRouteForStrip_ArrivalKeepsGWAOwnerWhenControllersAreSplit(t *test
 	require.Equal(t, "GROUND_WEST", region.Name)
 
 	aTowerPosition := frequencyForPosition(t, "EKCH_A_TWR")
-	cTowerPosition := frequencyForPosition(t, "EKCH_C_TWR")
+	gwTowerPosition := frequencyForPosition(t, "EKCH_GW_TWR")
 	apronPosition := frequencyForPosition(t, "EKCH_A_GND")
 
 	strip := &models.Strip{
@@ -330,7 +330,7 @@ func TestUpdateRouteForStrip_ArrivalKeepsGWAOwnerWhenControllersAreSplit(t *test
 			{
 				Session:  92,
 				Sector:   []string{"GWA"},
-				Position: cTowerPosition,
+				Position: gwTowerPosition,
 			},
 			{
 				Session:  92,
@@ -350,12 +350,12 @@ func TestUpdateRouteForStrip_ArrivalKeepsGWAOwnerWhenControllersAreSplit(t *test
 	err = srv.UpdateRouteForStrip("SAS790", 92, true)
 	require.NoError(t, err)
 
-	assert.Equal(t, []string{cTowerPosition, apronPosition}, updatedNextOwners)
+	assert.Equal(t, []string{gwTowerPosition, apronPosition}, updatedNextOwners)
 	require.Len(t, frontendHub.OwnersUpdates, 1)
-	assert.Equal(t, []string{cTowerPosition, apronPosition}, frontendHub.OwnersUpdates[0].NextOwners)
+	assert.Equal(t, []string{gwTowerPosition, apronPosition}, frontendHub.OwnersUpdates[0].NextOwners)
 	require.NotNil(t, frontendHub.OwnersUpdates[0].NextDisplay)
 	assert.Equal(t, "GW", frontendHub.OwnersUpdates[0].NextDisplay.Label)
-	assert.Equal(t, cTowerPosition, frontendHub.OwnersUpdates[0].NextDisplay.Frequency)
+	assert.Equal(t, gwTowerPosition, frontendHub.OwnersUpdates[0].NextDisplay.Frequency)
 	assert.Equal(t, "SAS790", frontendHub.OwnersUpdates[0].Callsign)
 }
 
@@ -365,7 +365,7 @@ func TestResolveRouteSectorOwner_UsesOverrideTargetFirst(t *testing.T) {
 		"GWA",
 		map[string]string{
 			"TE":  "EKCH_A_TWR",
-			"GWA": "EKCH_C_TWR",
+			"GWA": "EKCH_GW_TWR",
 		},
 		map[string]string{"GWA": "TE"},
 	)
@@ -379,13 +379,13 @@ func TestResolveRouteSectorOwner_FallsBackToOriginalSector(t *testing.T) {
 	owner, ok := resolveRouteSectorOwner(
 		"GWA",
 		map[string]string{
-			"GWA": "EKCH_C_TWR",
+			"GWA": "EKCH_GW_TWR",
 		},
 		map[string]string{"GWA": "TE"},
 	)
 
 	require.True(t, ok)
-	assert.Equal(t, "EKCH_C_TWR", owner)
+	assert.Equal(t, "EKCH_GW_TWR", owner)
 }
 
 func TestResolveRouteDisplayFrequency_UsesSectorFrequencyForCrossCoupledAirborneSector(t *testing.T) {
@@ -457,9 +457,11 @@ func TestEKCHArrivalRoute_22LCargoFromTWUsesTEOwnedTransitSectors(t *testing.T) 
 
 	route, ok := config.ComputeToStand([]string{"22L"}, "TW", "G120")
 	require.True(t, ok)
-	assert.Equal(t, []string{"TW", "GWA", "TE"}, route.Path)
+	assert.Equal(t, []string{"TW", "GWA", "GE"}, route.Path)
 	assert.Equal(t, "TE", route.OwnerOverrides["TW"])
 	assert.Equal(t, "TE", route.OwnerOverrides["GWA"])
+	_, hasGEOverride := route.OwnerOverrides["GE"]
+	assert.False(t, hasGEOverride)
 }
 
 func TestEKCHArrivalRoute_04LHighAFromTEOnlyOverridesEntryTower(t *testing.T) {
@@ -496,8 +498,35 @@ func TestEKCHArrivalRoute_CargoFromAAUsesDirectEndpointRoute(t *testing.T) {
 
 			route, ok := config.ComputeToStand(tc.active, "AA", tc.stand)
 			require.True(t, ok)
-			assert.Equal(t, []string{"AA", "TE"}, route.Path)
+			assert.Equal(t, []string{"AA", "GE"}, route.Path)
 			assert.Empty(t, route.OwnerOverrides)
+		})
+	}
+}
+
+func TestEKCHArrivalRoute_04LCargoUsesTWThenGWAThenGE(t *testing.T) {
+	route, ok := config.ComputeToStand([]string{"04L"}, "TW", "G120")
+	require.True(t, ok)
+	assert.Equal(t, []string{"TW", "GWA", "GE"}, route.Path)
+}
+
+func TestEKCHArrivalRoute_CargoAtGroundEastHasNoFollowingHandover(t *testing.T) {
+	testCases := []struct {
+		name   string
+		active []string
+	}{
+		{name: "22L group", active: []string{"22L"}},
+		{name: "04L group", active: []string{"04L"}},
+		{name: "runway 30 group", active: []string{"30"}},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			route, ok := config.ComputeToStand(tc.active, "GE", "G120")
+			require.True(t, ok)
+			assert.Equal(t, []string{"GE"}, route.Path)
+			_, hasGEOverride := route.OwnerOverrides["GE"]
+			assert.False(t, hasGEOverride)
 		})
 	}
 }
@@ -590,6 +619,145 @@ func TestUpdateRoutesForSession_RecalculatesEachStrip(t *testing.T) {
 
 	assert.Equal(t, []string{"SAS123", "KLM456"}, updatedCallsigns)
 	assert.Empty(t, frontendHub.OwnersUpdates)
+}
+
+func TestUpdateRoutesForSession_DoesNotRetargetPendingCoordination(t *testing.T) {
+	arrivalRunway, towerSector := mustArrivalRunwayAndTowerSector(t)
+	frontendHub := &testutil.MockFrontendHub{}
+	stripRepo := &testutil.MockStripRepository{}
+	sessionRepo := &testutil.MockSessionRepository{}
+	sectorRepo := &testutil.MockSectorOwnerRepository{}
+	coordRepo := &testutil.MockCoordinationRepository{}
+
+	strips := []*models.Strip{
+		{ID: 1, Callsign: "SAS123", Session: 42, Destination: "EKCH"},
+		{ID: 2, Callsign: "KLM456", Session: 42, Destination: "EKCH"},
+	}
+	var updatedCallsigns []string
+
+	stripRepo.ListFn = func(_ context.Context, _ int32) ([]*models.Strip, error) {
+		return strips, nil
+	}
+	stripRepo.SetNextOwnersFn = func(_ context.Context, _ int32, callsign string, _ []string) error {
+		updatedCallsigns = append(updatedCallsigns, callsign)
+		return nil
+	}
+	sessionRepo.GetByIDFn = func(_ context.Context, _ int32) (*models.Session, error) {
+		return &models.Session{
+			ID:      42,
+			Airport: "EKCH",
+			ActiveRunways: pkgModels.ActiveRunways{
+				ArrivalRunways: []string{arrivalRunway},
+			},
+		}, nil
+	}
+	sectorRepo.ListBySessionFn = func(_ context.Context, _ int32) ([]*models.SectorOwner, error) {
+		return []*models.SectorOwner{{
+			Session:  42,
+			Sector:   []string{towerSector},
+			Position: "EKCH_TWR",
+		}}, nil
+	}
+	coordRepo.ListBySessionFn = func(_ context.Context, _ int32) ([]*models.Coordination, error) {
+		return []*models.Coordination{{Session: 42, StripID: 2}}, nil
+	}
+
+	srv := &Server{
+		frontendHub: frontendHub,
+		stripRepo:   stripRepo,
+		sessionRepo: sessionRepo,
+		sectorRepo:  sectorRepo,
+		coordRepo:   coordRepo,
+	}
+
+	err := srv.UpdateRoutesForSession(42, true)
+
+	require.NoError(t, err)
+	assert.Equal(t, []string{"SAS123"}, updatedCallsigns)
+	require.Len(t, frontendHub.OwnersUpdates, 1)
+	assert.Equal(t, "SAS123", frontendHub.OwnersUpdates[0].Callsign)
+}
+
+func TestUpdateRouteForStrip_DoesNotRetargetPendingCoordination(t *testing.T) {
+	stripRepo := &testutil.MockStripRepository{}
+	coordRepo := &testutil.MockCoordinationRepository{}
+
+	stripRepo.GetByCallsignFn = func(_ context.Context, session int32, callsign string) (*models.Strip, error) {
+		require.Equal(t, int32(42), session)
+		require.Equal(t, "SAS123", callsign)
+		return &models.Strip{
+			ID:       7,
+			Session:  42,
+			Callsign: "SAS123",
+		}, nil
+	}
+	coordRepo.GetByStripIDFn = func(_ context.Context, session int32, stripID int32) (*models.Coordination, error) {
+		require.Equal(t, int32(42), session)
+		require.Equal(t, int32(7), stripID)
+		return &models.Coordination{
+			Session: 42,
+			StripID: 7,
+		}, nil
+	}
+
+	srv := &Server{
+		stripRepo: stripRepo,
+		coordRepo: coordRepo,
+	}
+
+	err := srv.UpdateRouteForStripContext(context.Background(), "SAS123", 42, true)
+
+	require.NoError(t, err)
+}
+
+func TestComputeNextDisplayForStrip_PreservesDisplayDuringPendingCoordination(t *testing.T) {
+	coordRepo := &testutil.MockCoordinationRepository{}
+	strip := &models.Strip{
+		ID:      7,
+		Session: 42,
+		NextDisplay: &models.NextDisplay{
+			Label:     "GW",
+			Frequency: "118.580",
+		},
+	}
+	coordRepo.GetByStripIDFn = func(_ context.Context, session int32, stripID int32) (*models.Coordination, error) {
+		require.Equal(t, int32(42), session)
+		require.Equal(t, int32(7), stripID)
+		return &models.Coordination{Session: 42, StripID: 7}, nil
+	}
+
+	srv := &Server{coordRepo: coordRepo}
+	display, err := srv.ComputeNextDisplayForStripContext(context.Background(), strip, 42)
+
+	require.NoError(t, err)
+	require.NotNil(t, display)
+	assert.Equal(t, "GW", display.Label)
+	assert.Equal(t, "118.580", display.Frequency)
+	assert.NotSame(t, strip.NextDisplay, display)
+}
+
+func TestComputeNextDisplaysForStrips_PreservesDisplaysDuringPendingCoordination(t *testing.T) {
+	coordRepo := &testutil.MockCoordinationRepository{}
+	strip := &models.Strip{
+		ID:      7,
+		Session: 42,
+		NextDisplay: &models.NextDisplay{
+			Label:     "GW",
+			Frequency: "118.580",
+		},
+	}
+	coordRepo.ListBySessionFn = func(_ context.Context, session int32) ([]*models.Coordination, error) {
+		require.Equal(t, int32(42), session)
+		return []*models.Coordination{{Session: 42, StripID: 7}}, nil
+	}
+
+	srv := &Server{coordRepo: coordRepo}
+	err := srv.ComputeNextDisplaysForStripsContext(context.Background(), []*models.Strip{strip}, 42)
+
+	require.NoError(t, err)
+	require.NotNil(t, strip.NextDisplay)
+	assert.Equal(t, "GW", strip.NextDisplay.Label)
+	assert.Equal(t, "118.580", strip.NextDisplay.Frequency)
 }
 
 func TestUpdateRoutesForSession_ReturnsFirstStripError(t *testing.T) {

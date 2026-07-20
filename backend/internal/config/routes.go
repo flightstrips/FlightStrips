@@ -148,14 +148,12 @@ func SingleStandRange(prefix string, number int) StandRange {
 	return StandRange{Prefix: strings.ToUpper(prefix), From: number, To: number}
 }
 
-// Route is a simple, hard-coded taxi route defined by either a destination runway
-// or a destination set of stands/stand ranges. Exactly one of ForRunway or ForStandRanges must be set.
-// Note: A single stand is represented as a range with From == To (e.g., W1 -> {Prefix: "W", From: 1, To: 1}).
+// Route is an ordered logical route qualified by runway, stand, or both.
 type Route struct {
 	Name           string            `yaml:"name"`
 	ForRunway      string            `yaml:"forRunway"`       // e.g., "RWY27" or "27" (case-insensitive)
 	ForStandRanges []StandRange      `yaml:"forStandRanges"`  // e.g., A10-A20, B5-B10, or single stands like W1 (From=To=1)
-	Path           []string          `yaml:"path"`            // ordered Sector names from general origin area to destination
+	Path           []string          `yaml:"path"`            // ordered logical sector identifiers
 	Active         []string          `yaml:"active"`          // runways that must be active for this route to match
 	RequireAll     bool              `yaml:"require_all"`     // if true, all Active runways must be present (default: any)
 	OwnerOverrides map[string]string `yaml:"owner_overrides"` // matched sector -> sector whose owner should be used
@@ -173,22 +171,51 @@ type ResolvedRoute struct {
 // empty active list is a catch-all (score 0) and loses to any specific match.
 // Returns the subsequence of path from the current Sector to the end together with
 // any route-scoped owner overrides that should apply while constructing next owners.
-func ComputeToRunway(active []string, currentSector string, runway string) (ResolvedRoute, bool) {
+func ComputeToRunway(active []string, currentSector string, runway string, stand ...string) (ResolvedRoute, bool) {
+	return selectRunwayRoute(active, currentSector, runway, firstString(stand), true)
+}
+
+// ComputeDepartureRoute selects the complete outbound route for a stand and
+// runway. The caller resolves the first currently carried logical stage.
+func ComputeDepartureRoute(active []string, stand string, runway string) (ResolvedRoute, bool) {
+	return selectRunwayRoute(active, "", runway, stand, false)
+}
+
+func selectRunwayRoute(active []string, currentSector string, runway string, stand string, requireCurrentSector bool) (ResolvedRoute, bool) {
 	candidates := runwayRoutes[normalizeRunway(runway)]
 	if len(candidates) == 0 {
 		return ResolvedRoute{}, false
 	}
+
+	parsedStand, standErr := ParseStand(stand)
 	bestScore := -1
+	bestStandSpecificity := -1
 	var bestRoute ResolvedRoute
 	for _, r := range candidates {
+		standSpecificity := 0
+		if len(r.ForStandRanges) > 0 {
+			if standErr != nil || !slices.ContainsFunc(r.ForStandRanges, func(standRange StandRange) bool {
+				return standRange.Contains(parsedStand)
+			}) {
+				continue
+			}
+			standSpecificity = 1
+		}
+
 		score := scoreActive(r.Active, active, r.RequireAll)
-		if score < 0 || score <= bestScore {
+		if score < 0 || standSpecificity < bestStandSpecificity || (standSpecificity == bestStandSpecificity && score <= bestScore) {
 			continue
 		}
-		startIdx := indexOfSector(r.Path, currentSector)
-		if startIdx < 0 {
-			continue
+
+		startIdx := 0
+		if requireCurrentSector {
+			startIdx = indexOfSector(r.Path, currentSector)
+			if startIdx < 0 {
+				continue
+			}
 		}
+
+		bestStandSpecificity = standSpecificity
 		bestScore = score
 		bestRoute = resolveRouteSelection(r, startIdx)
 	}
@@ -196,6 +223,13 @@ func ComputeToRunway(active []string, currentSector string, runway string) (Reso
 		return ResolvedRoute{}, false
 	}
 	return bestRoute, true
+}
+
+func firstString(values []string) string {
+	if len(values) == 0 {
+		return ""
+	}
+	return values[0]
 }
 
 // ComputeToStand selects a route to the given destination stand that is valid under
@@ -248,7 +282,8 @@ func normalizeRunway(rwy string) string {
 
 func indexOfSector(path []string, sector string) int {
 	for i, s := range path {
-		if strings.EqualFold(s, sector) {
+		if strings.EqualFold(s, sector) ||
+			strings.EqualFold(GetSectorDisplayName(s), GetSectorDisplayName(sector)) {
 			return i
 		}
 	}

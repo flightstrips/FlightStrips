@@ -9,7 +9,7 @@ import { Aside } from '@astrojs/starlight/components';
 
 ![Kastrup Sequence Planner](../../../assets/ekch/est.jpg)
 
-**SEQ PLN** is used by **EKCH_B_GND** only when **EKCH_C_GND** (121.730) is online — B-GND takes the planner role while C-GND covers the other ground sector. The layout uses the **GND aspect** (same family as [AA + AD](/ekch/aa-ad/) and [CLR DEL](/ekch/clr-del/)).
+**SEQ PLN** uses logical frequency **121.905**. The controller carrying that frequency may be primed on it or carry it through cross-coupling. The layout uses the **GND aspect** (same family as [AA + AD](/ekch/aa-ad/) and [CLR DEL](/ekch/clr-del/)).
 
 ## Bay overview
 
@@ -35,17 +35,16 @@ import { Aside } from '@astrojs/starlight/components';
 All cleared departures sit in **Startup (SEQ)**. Clickspots match Cleared strips in CLR DEL.
 
 <Aside>
-The SI box shows white (strip is owned by SEQ PLN). SI always targets **Apron Departure (AD)** — click SI to split and send. Manual **TRF** SI is also available. Manual moves within this scope are limited to **Startup (SEQ)** ↔ **Push back**.
+The SI box shows white when the strip is owned by SEQ PLN. **START+TRF** and manual SI create normal pending coordination to the resolved primary. Manual moves within this scope are limited to **Startup (SEQ)** ↔ **Push back**.
 </Aside>
 
-## How SEQ PLN fits into staffing
+The next logical route steps are:
 
-From **CLR DEL Cleared**, automatic SI handoff depends on how many apron controllers are online:
+- **East/South:** GE 121.830 → the applicable tower.
+- **West:** GW 118.580 → the applicable tower.
+- **North:** AD 121.730 → the configured ground/tower route.
 
-- **Two or fewer** → SI to **Apron Departure**.
-- **Three** → SI to **SEQ PLN** (this scope).
-
-When **DEL+SEQ** is active on delivery, strips stay with **EKCH_DEL** in Cleared; the SI indicator changes (white vs orange) and delivery handles the handoff to apron at startup time.
+Unavailable steps are skipped. When consecutive steps are carried by the same primary, no self-transfer is created.
 
 ## Related
 

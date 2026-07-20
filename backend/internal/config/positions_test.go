@@ -5,7 +5,7 @@ import "testing"
 func TestGetPositionBasedOnFrequency_NormalizesTrailingZeros(t *testing.T) {
 	t.Cleanup(SetPositionsForTest([]Position{
 		{Name: "EKCH_A_GND", Frequency: "121.600", Section: "GND"},
-		{Name: "EKCH_C_TWR", Frequency: "118.580", Section: "TWR"},
+		{Name: "EKCH_GW_TWR", Frequency: "118.580", Section: "TWR"},
 	}))
 
 	tests := []struct {
@@ -14,8 +14,8 @@ func TestGetPositionBasedOnFrequency_NormalizesTrailingZeros(t *testing.T) {
 		wantName  string
 	}{
 		{name: "ground short decimal", frequency: "121.6", wantName: "EKCH_A_GND"},
-		{name: "tower short decimal", frequency: "118.58", wantName: "EKCH_C_TWR"},
-		{name: "already normalized", frequency: "118.580", wantName: "EKCH_C_TWR"},
+		{name: "tower short decimal", frequency: "118.58", wantName: "EKCH_GW_TWR"},
+		{name: "already normalized", frequency: "118.580", wantName: "EKCH_GW_TWR"},
 	}
 
 	for _, tt := range tests {

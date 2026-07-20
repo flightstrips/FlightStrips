@@ -153,13 +153,16 @@ positions:
   - name: "EKCH_C_GND"
     frequency: "121.730"
     section: "GND"
+  - name: "EKCH_GE_TWR"
+    frequency: "121.830"
+    section: "TWR"
   - name: "EKCH_D_TWR"
     frequency: "119.355"
     section: "TWR"
   - name: "EKCH_A_TWR"
     frequency: "118.105"
     section: "TWR"
-  - name: "EKCH_C_TWR"
+  - name: "EKCH_GW_TWR"
     frequency: "118.580"
     section: "TWR"
   - name: "EKCH_FMH"
@@ -326,10 +329,12 @@ sectors:
       - "EKCH_A_GND"
       - "EKCH_B_GND"
       - "EKCH_C_GND"
-      - "EKCH_C_TWR"
+      - "EKCH_GW_TWR"
+      - "EKCH_GE_TWR"
       - "EKCH_D_TWR"
       - "EKCH_A_TWR"
   - name: SQ
+    display_name: "SEQ PLN"
     name_priority: 0
     active: [ ]
     owner:
@@ -337,7 +342,8 @@ sectors:
       - "EKCH_DEL"
       - "EKCH_A_GND"
       - "EKCH_C_GND"
-      - "EKCH_C_TWR"
+      - "EKCH_GW_TWR"
+      - "EKCH_GE_TWR"
       - "EKCH_D_TWR"
       - "EKCH_A_TWR"
 
@@ -353,7 +359,8 @@ sectors:
       - "EKCH_A_GND"
       - "EKCH_B_GND"
       - "EKCH_C_GND"
-      - "EKCH_C_TWR"
+      - "EKCH_GW_TWR"
+      - "EKCH_GE_TWR"
       - "EKCH_D_TWR"
       - "EKCH_A_TWR"
   - name: AD
@@ -367,7 +374,18 @@ sectors:
       - "EKCH_C_GND"
       - "EKCH_B_GND"
       - "EKCH_A_GND"
-      - "EKCH_C_TWR"
+      - "EKCH_GW_TWR"
+      - "EKCH_GE_TWR"
+      - "EKCH_D_TWR"
+      - "EKCH_A_TWR"
+
+  - name: GE
+    name_priority: 40
+    active: [ ]
+    region: [GROUND_EAST]
+    owner:
+      - "EKCH_GE_TWR"
+      - "EKCH_GW_TWR"
       - "EKCH_D_TWR"
       - "EKCH_A_TWR"
 
@@ -375,11 +393,12 @@ sectors:
   - name: TE
     name_priority: 50
     active: ["22L", "22R"]
-    region: [TOWER_EAST, GROUND_EAST]
+    region: [TOWER_EAST]
     owner:
       - "EKCH_A_TWR"
       - "EKCH_D_TWR"
-      - "EKCH_C_TWR"
+      - "EKCH_GW_TWR"
+      - "EKCH_GE_TWR"
   - name: TW
     name_priority: 50
     active: ["22L", "22R"]
@@ -387,17 +406,30 @@ sectors:
     owner:
       - "EKCH_D_TWR"
       - "EKCH_A_TWR"
-      - "EKCH_C_TWR"
+      - "EKCH_GW_TWR"
+      - "EKCH_GE_TWR"
+
+  # Tower West for runway 12
+  - name: TW
+    name_priority: 50
+    active: ["12"]
+    region: [TOWER_WEST]
+    owner:
+      - "EKCH_D_TWR"
+      - "EKCH_A_TWR"
+      - "EKCH_GW_TWR"
+      - "EKCH_GE_TWR"
 
   # Towers 04s
   - name: TE
     name_priority: 50
     active: ["04L", "04R"]
-    region: [TOWER_EAST, GROUND_EAST]
+    region: [TOWER_EAST]
     owner:
       - "EKCH_D_TWR"
       - "EKCH_A_TWR"
-      - "EKCH_C_TWR"
+      - "EKCH_GW_TWR"
+      - "EKCH_GE_TWR"
   - name: TW
     name_priority: 50
     active: ["04L", "04R"]
@@ -405,7 +437,8 @@ sectors:
     owner:
       - "EKCH_A_TWR"
       - "EKCH_D_TWR"
-      - "EKCH_C_TWR"
+      - "EKCH_GW_TWR"
+      - "EKCH_GE_TWR"
 
   # Towers 30
   - name: TE
@@ -415,7 +448,8 @@ sectors:
     owner:
       - "EKCH_A_TWR"
       - "EKCH_D_TWR"
-      - "EKCH_C_TWR"
+      - "EKCH_GW_TWR"
+      - "EKCH_GE_TWR"
   - name: GW
     key: GWD
     name_priority: 40
@@ -425,7 +459,8 @@ sectors:
       departure: true
       arrival: false
     owner:
-      - "EKCH_C_TWR"
+      - "EKCH_GW_TWR"
+      - "EKCH_GE_TWR"
       - "EKCH_D_TWR"
       - "EKCH_A_TWR"
   - name: GW
@@ -437,7 +472,8 @@ sectors:
       departure: false
       arrival: true
     owner:
-      - "EKCH_C_TWR"
+      - "EKCH_GW_TWR"
+      - "EKCH_GE_TWR"
       - "EKCH_D_TWR"
       - "EKCH_A_TWR"
 
@@ -450,7 +486,8 @@ sectors:
     owner:
       - "EKCH_A_TWR"
       - "EKCH_D_TWR"
-      - "EKCH_C_TWR"
+      - "EKCH_GW_TWR"
+      - "EKCH_GE_TWR"
   - name: TW
     name_priority: 50
     active: ["30", "22R"]
@@ -459,7 +496,8 @@ sectors:
     owner:
       - "EKCH_D_TWR"
       - "EKCH_A_TWR"
-      - "EKCH_C_TWR"
+      - "EKCH_GW_TWR"
+      - "EKCH_GE_TWR"
   - name: GW
     key: GWD
     name_priority: 40
@@ -470,7 +508,8 @@ sectors:
       departure: true
       arrival: false
     owner:
-      - "EKCH_C_TWR"
+      - "EKCH_GW_TWR"
+      - "EKCH_GE_TWR"
       - "EKCH_D_TWR"
       - "EKCH_A_TWR"
   - name: GW
@@ -483,7 +522,8 @@ sectors:
       departure: false
       arrival: true
     owner:
-      - "EKCH_C_TWR"
+      - "EKCH_GW_TWR"
+      - "EKCH_GE_TWR"
       - "EKCH_D_TWR"
       - "EKCH_A_TWR"
 
@@ -497,7 +537,8 @@ sectors:
       departure: true
       arrival: false
     owner:
-      - "EKCH_C_TWR"
+      - "EKCH_GW_TWR"
+      - "EKCH_GE_TWR"
       - "EKCH_D_TWR"
       - "EKCH_A_TWR"
   - name: GW
@@ -509,7 +550,8 @@ sectors:
       departure: false
       arrival: true
     owner:
-      - "EKCH_C_TWR"
+      - "EKCH_GW_TWR"
+      - "EKCH_GE_TWR"
       - "EKCH_A_TWR"
       - "EKCH_D_TWR"
 
@@ -547,36 +589,114 @@ sectors:
       - EKDK_UN_CTR
 
 routes:
-  - name: Stands to Runway 22R
+  # Complete departure paths. Logical sectors stay fixed; live radio coverage
+  # determines which primary position carries each step.
+  - name: North stands to runway 22R
     forRunway: 22R
+    forStandRanges: &north_stands
+      - A1-A34
+      - B3-B19
+      - C10-C39
+      - D1-D4
+      - E20-E90
+      - F1-F99
+      - H101-H107
     active: [22R]
-    path: [AD, GWD, TW]
-  - name: Stands to Runway 04R
+    path: [SQ, AD, GW, TW]
+  - name: North stands to runway 04L
+    forRunway: 04L
+    forStandRanges: *north_stands
+    active: [04L]
+    path: [SQ, AD, GW, TW]
+  - name: North stands to runway 04R
     forRunway: 04R
+    forStandRanges: *north_stands
     active: [04R]
-    path: [AD, GWD, TE]
-  - name: Stands to Runway 22R cargo
+    path: [SQ, AD, GW, TE]
+  - name: North stands to runway 30
+    forRunway: "30"
+    forStandRanges: *north_stands
+    active: ["30"]
+    path: [SQ, AD, GW, TE]
+  - name: North stands to runway 22L
+    forRunway: 22L
+    forStandRanges: *north_stands
+    active: [22L]
+    path: [SQ, AD, TE]
+  - name: North stands to runway 12
+    forRunway: "12"
+    forStandRanges: *north_stands
+    active: ["12"]
+    path: [SQ, AD, TW]
+
+  - name: East and South stands to runway 22R
     forRunway: 22R
+    forStandRanges: &east_south_stands [G110-G137]
     active: [22R]
-    path: [TE, GWD, TW]
-  - name: Stands to Runway 04R cargo
+    path: [GE, TW]
+  - name: East and South stands to runway 04L
+    forRunway: 04L
+    forStandRanges: *east_south_stands
+    active: [04L]
+    path: [GE, TW]
+  - name: East and South stands to runway 04R
     forRunway: 04R
+    forStandRanges: *east_south_stands
     active: [04R]
-    path: [TW]
-  - name: Stands to Runway 30
+    path: [GE, TE]
+  - name: East and South stands to runway 30
     forRunway: "30"
+    forStandRanges: *east_south_stands
     active: ["30"]
-    path: [AD, GWD, TE]
-  - name: Stands to Runway 22R cargo
+    path: [GE, TE]
+  - name: East and South stands to runway 22L
+    forRunway: 22L
+    forStandRanges: *east_south_stands
+    active: [22L]
+    path: [GE, TE]
+  - name: East and South stands to runway 12
+    forRunway: "12"
+    forStandRanges: *east_south_stands
+    active: ["12"]
+    path: [GE, TW]
+
+  - name: West stand to runway 22R
+    forRunway: 22R
+    forStandRanges: &west_stands [W1]
+    active: [22R]
+    path: [GW, TW]
+  - name: West stand to runway 04L
+    forRunway: 04L
+    forStandRanges: *west_stands
+    active: [04L]
+    path: [GW, TW]
+  - name: West stand to runway 04R
+    forRunway: 04R
+    forStandRanges: *west_stands
+    active: [04R]
+    path: [GW, TE]
+  - name: West stand to runway 30
     forRunway: "30"
+    forStandRanges: *west_stands
     active: ["30"]
-    path: [GWD, TE]
-  # TODO rest of the runways
+    path: [GW, TE]
+  - name: West stand to runway 22L
+    forRunway: 22L
+    forStandRanges: *west_stands
+    active: [22L]
+    path: [GW, TE]
+  - name: West stand to runway 12
+    forRunway: "12"
+    forStandRanges: *west_stands
+    active: ["12"]
+    path: [GW, TW]
+
+  # Arrival paths are selected from destination stand and arrival runway.
   - name: Runway 30 to cargo
     forStandRanges:
       - G110-G137
     active: ["30"]
-    path: [TE, AA, GWA]
+    path: [TE, AA, GWA, GE]
   - name: Runway 30 to rest
     forStandRanges:
       - A1-A33
@@ -585,7 +705,7 @@ routes:
       - D1-D4
       - E20-E90
       - F1-F99
-      - H101-H106
+      - H101-H107
     active: ["30"]
     path: [TE, GWA, AA]
     owner_overrides:
@@ -611,12 +731,12 @@ routes:
     forStandRanges:
       - G110-G137
     active: [22L, 04R]
-    path: [AA, TE]
+    path: [AA, GE]
   - name: Runway 22L/04R to cargo
     forStandRanges:
       - G110-G137
     active: [22L, 04R]
-    path: [TE, TW, GWA, TE]
+    path: [TE, TW, GWA, GE]
     owner_overrides:
       TW: TE
       GWA: TE
@@ -636,7 +756,7 @@ routes:
       - D1-D4
       - E20-E90
       - F1-F99
-      - H101-H106
+      - H101-H107
     active: [22L, 04R]
     path: [TE, TW, GWA, AA]
     owner_overrides:
@@ -656,12 +776,12 @@ routes:
     forStandRanges:
       - G110-G137
     active: [04L, 22R]
-    path: [AA, TE]
+    path: [AA, GE]
   - name: Runway 04L/22R to cargo
     forStandRanges:
       - G110-G137
     active: [04L, 22R]
-    path: [TW, GWA, TE]
+    path: [TW, GWA, GE]
   - name: Runway 04L/22R to W1
     forStandRanges:
       - W1
@@ -678,7 +798,7 @@ routes:
       - D1-D4
       - E20-E90
       - F1-F99
-      - H101-H106
+      - H101-H107
     active: [04L, 22R]
     path: [TW, TE, GWA, AA]
     owner_overrides:
@@ -689,8 +809,8 @@ message_areas:
   CLR-DEL:   [EKCH_DEL, EKCH_A_GND]
   APRON ARR: [EKCH_A_GND, EKCH_B_GND]
   APRON DEP: [EKCH_C_GND, EKCH_B_GND]
-  GND WEST:  [EKCH_C_TWR, EKCH_A_TWR, EKCH_D_TWR]
-  GND EAST:  [EKCH_D_TWR, EKCH_A_TWR]
+  GND WEST:  [EKCH_GW_TWR, EKCH_A_TWR, EKCH_D_TWR]
+  GND EAST:  [EKCH_GE_TWR, EKCH_D_TWR, EKCH_A_TWR]
   TWR-ARR:   [EKCH_A_TWR, EKCH_D_TWR]
   TWR-DEP:   [EKCH_D_TWR, EKCH_A_TWR]
   SEQ PLN:   [EKCH_B_GND, EKCH_A_GND]
@@ -748,7 +868,12 @@ layouts:
       offline: [EKCH_A_GND, EKCH_B_GND]
       layout: AAAD
 
-  EKCH_C_TWR:
+  EKCH_GE_TWR:
+    - online: []
+      offline: []
+      layout: GEGW
+
+  EKCH_GW_TWR:
     - online: [EKCH_A_TWR, EKCH_D_TWR, _GND]
       offline: []
       layout: GEGW

@@ -21,14 +21,14 @@ func setupTaxiwayTypeValidationTestConfig(t *testing.T) {
 		{Name: "EKCH_DEL", Section: "DEL"},
 		{Name: "EKCH_A_GND", Section: "GND"},
 		{Name: "EKCH_A_TWR", Section: "TWR"},
-		{Name: "EKCH_C_TWR", Section: "TWR"},
+		{Name: "EKCH_GW_TWR", Section: "TWR"},
 		{Name: "TEST_GW_GND", Section: "GND"},
 	}))
 
 	t.Cleanup(config.SetLayoutsForTest(map[string][]config.LayoutVariant{
 		"EKCH_A_GND":  {{Layout: "AA"}},
 		"EKCH_A_TWR":  {{Layout: "TWTE"}},
-		"EKCH_C_TWR":  {{Layout: "GEGW"}},
+		"EKCH_GW_TWR": {{Layout: "GEGW"}},
 		"TEST_GW_GND": {{Layout: "GEGW"}},
 	}))
 

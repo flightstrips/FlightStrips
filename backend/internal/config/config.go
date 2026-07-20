@@ -259,8 +259,8 @@ func loadRoutes(cfg Config) error {
 		hasRunway := runway != ""
 		hasStands := len(rt.ForStandRanges) > 0
 
-		if hasRunway == hasStands {
-			return fmt.Errorf("route %d (%q): must specify exactly one of forRunway or forStandRanges", i, rt.Name)
+		if !hasRunway && !hasStands {
+			return fmt.Errorf("route %d (%q): must specify forRunway, forStandRanges, or both", i, rt.Name)
 		}
 		if len(rt.Path) == 0 {
 			return fmt.Errorf("route %d (%q): path must not be empty", i, rt.Name)
@@ -280,23 +280,37 @@ func loadRoutes(cfg Config) error {
 			}
 			rt.OwnerOverrides = normalizedOverrides
 		}
+		for _, reference := range rt.Path {
+			if !configuredSectorExists(cfg.Sectors, reference) {
+				return fmt.Errorf("route %d (%q): route references unknown sector %q", i, rt.Name, reference)
+			}
+		}
 
 		if hasRunway {
 			key := normalizeRunway(runway)
 			rt.ForRunway = key
 			newRunway[key] = append(newRunway[key], rt)
-		} else {
+		}
+		if hasStands {
 			// normalize prefixes in stand ranges
 			for j := range rt.ForStandRanges {
 				rt.ForStandRanges[j].Prefix = strings.ToUpper(strings.TrimSpace(rt.ForStandRanges[j].Prefix))
 			}
-			newStands = append(newStands, rt)
+			if !hasRunway {
+				newStands = append(newStands, rt)
+			}
 		}
 	}
 
 	runwayRoutes = newRunway
 	standRoutes = newStands
 	return nil
+}
+
+func configuredSectorExists(configured []Sector, reference string) bool {
+	return slices.ContainsFunc(configured, func(sector Sector) bool {
+		return strings.EqualFold(sector.Name, reference) || strings.EqualFold(sector.KeyOrName(), reference)
+	})
 }
 
 func InitConfig() error {

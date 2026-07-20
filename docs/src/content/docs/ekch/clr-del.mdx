@@ -30,14 +30,13 @@ Uncleared strips cannot be manually moved to another bay — only issuing a clea
 
 ## Cleared strips
 
-**SI from Cleared** is disabled in standard CLR DEL; enabled when **DEL+SEQ** is active.
+Completing the clearance directly assigns the strip to the first carried step in its complete departure route. This is an ownership change, not pending coordination. A logical step is carried when its frequency is primed or cross-coupled:
 
-Automatic SI handoff from Cleared depends on staffing:
+- **East/South stands (G110–G137):** GE 121.830 → the applicable tower.
+- **West stand (W1):** GW 118.580 → the applicable tower.
+- **North stands:** SEQ PLN 121.905 → AD 121.730 → the configured ground/tower route. If AD and SEQ PLN are carried by the same primary, the strip is assigned as **AD** and the displayed frequency is **121.905**.
 
-- Two or fewer apron positions online → SI hands off to **Apron Departure**.
-- Three apron positions online → SI hands off to **[SEQ PLN](/ekch/seq-pln/)**.
-
-When **DEL+SEQ** is active, strips stay with **EKCH_DEL** in Cleared; the SI indicator changes (white vs orange) and delivery coordinates the handoff to apron at startup time.
+When a logical frequency is carried, cross-coupling changes the primary position that receives the strip while the SI label continues to show the logical identifier frequency. Otherwise, the sector's configured fallback owner receives the strip with that controller's identifier and frequency. A step is skipped only when neither radio carriage nor configured sector ownership resolves it.
 
 ## Issue a clearance
 
@@ -79,5 +78,5 @@ See [Pre-departure clearance](/concepts/pre-departure-clearance/) and [Validatio
 ## Related
 
 - [AA + AD](/ekch/aa-ad/) — combined apron after handoff
-- [SEQ PLN](/ekch/seq-pln/) — when three apron positions are online
+- [SEQ PLN](/ekch/seq-pln/) — startup sequencing for North stands
 - [Apron Departure](/ekch/apn-dep/) — B/C_GND split layout

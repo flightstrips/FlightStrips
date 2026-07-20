@@ -133,7 +133,7 @@ func TestApplyCtotValidation_ReactivatesOnOwnerChange(t *testing.T) {
 	t.Parallel()
 
 	now := time.Date(2024, time.January, 1, 10, 0, 0, 0, time.UTC)
-	oldOwner := "EKCH_C_TWR"
+	oldOwner := "EKCH_GW_TWR"
 	newOwner := "EKCH_A_TWR"
 	ctot := "1015"
 	var persisted *models.ValidationStatus

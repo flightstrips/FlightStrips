@@ -7,7 +7,7 @@ sidebar:
 
 ![Kastrup Ground East + West](../../../assets/ekch/ge-gw.jpg)
 
-**GE + GW** is the tower ground scope for **EKCH_C_TWR** (118.580), using the **TWR aspect** layout. It covers runway and taxi logic while coordinating with apron and delivery.
+**GE + GW** is the tower ground scope for **EKCH_GW_TWR** (118.580) and **EKCH_GE_TWR** (121.830), using the **TWR aspect** layout. It covers runway and taxi logic while coordinating with apron and delivery.
 
 Strips live in **bays** that are **ACTIVE** or **LOCKED**. Use **REQ** where the bay allows; fully locked strip types cannot be requested.
 
@@ -30,11 +30,13 @@ Strips live in **bays** that are **ACTIVE** or **LOCKED**. Use **REQ** where the
 
 ## Departures
 
-Startup → Push back (TWR) via pushback map → TWY DEP (TWR) / De-ice A as needed. TWY DEP (TWR) and apron TWY DEP-LWR stay in sync; use SI and handoff rules per spec. RWY DEP and Airborne behaviour (including auto-move and SI) aligns with [TE + TW](/ekch/te-tw/).
+Startup → Push back (TWR) via pushback map → TWY DEP (TWR) / De-ice A as needed. TWY DEP (TWR) and apron TWY DEP-LWR stay in sync.
+
+The complete departure route contains GE or GW followed by **TW** for 22R/04L/12 and **TE** for 04R/22L/30. TWY DEP SI creates pending coordination to that next logical step. The actionable target is the primary carrying its frequency.
 
 ## Arrivals
 
-TWY ARR strips match other TWR scopes; SI splits follow system logic. Final and RWY ARR (`TWR-ARR`) landing workflow and runway colour rules are documented in [TE + TW](/ekch/te-tw/).
+For North stands, TWY ARR SI targets **AA 121.630**. East/South and West arrivals have no GE/GW handover target. Final and RWY ARR (`TWR-ARR`) landing workflow and runway colour rules are documented in [TE + TW](/ekch/te-tw/).
 
 ## Uncleared strips
 

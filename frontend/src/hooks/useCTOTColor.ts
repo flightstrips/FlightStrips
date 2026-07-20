@@ -1,7 +1,9 @@
 import { useState, useEffect } from "react";
 import { computeCTOTColors, type CTOTColors } from "@/lib/cdmColors";
 
-export function useCTOTColor(ctot: string): CTOTColors {
+type ComputeCTOTColors = (ctot: string, nowMs: number) => CTOTColors;
+
+export function useCTOTColor(ctot: string, computeColors: ComputeCTOTColors = computeCTOTColors): CTOTColors {
   const [nowMs, setNowMs] = useState(Date.now);
 
   useEffect(() => {
@@ -9,5 +11,5 @@ export function useCTOTColor(ctot: string): CTOTColors {
     return () => clearInterval(interval);
   }, []);
 
-  return computeCTOTColors(ctot, nowMs);
+  return computeColors(ctot, nowMs);
 }

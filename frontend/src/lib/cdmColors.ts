@@ -10,6 +10,10 @@ export const CDM_RED    = "#dc2626";
 export const CDM_ORANGE = "#DD6A12";
 export const CTOT_YELLOW = "#F3EA1F";
 export const CTOT_BLUE   = "#00008B";
+export const TWY_DEP_CTOT_ORANGE = "#DD6A12";
+export const TWY_DEP_CTOT_BLUE   = "#131376";
+export const TWY_DEP_CTOT_YELLOW = "#FFF500";
+export const TWY_DEP_CTOT_RED    = "#FF0000";
 
 // ── HHMM parser ────────────────────────────────────────────────────────────
 
@@ -117,4 +121,24 @@ export function computeCTOTColors(ctot: string, nowMs: number): CTOTColors {
   if (diffMs < -5 * MINUTE_MS)  return { ctotBg: CTOT_YELLOW, ctotColor: "black", showCtot: true };
   if (diffMs <= 10 * MINUTE_MS) return { ctotBg: CTOT_BLUE,   ctotColor: "white", showCtot: true };
   return { ctotBg: "", ctotColor: "black", showCtot: false };
+}
+
+/**
+ * Compute the CTOT colours used by the TE/TW departure strips.
+ *
+ * The operational CTOT window opens five minutes before CTOT. It turns yellow
+ * at CTOT + 9 minutes and red at CTOT + 11 minutes.
+ */
+export function computeTwyDepCTOTColors(ctot: string, nowMs: number): CTOTColors {
+  const normalizedCtot = normalizeCdmTime(ctot);
+
+  if (!normalizedCtot) return { ctotBg: "", ctotColor: "black", showCtot: false };
+
+  const ctotMs = parseHHMM(normalizedCtot, nowMs);
+  const diffMs = nowMs - ctotMs;
+
+  if (diffMs < -5 * MINUTE_MS) return { ctotBg: TWY_DEP_CTOT_ORANGE, ctotColor: "black", showCtot: true };
+  if (diffMs < 9 * MINUTE_MS)  return { ctotBg: TWY_DEP_CTOT_BLUE,   ctotColor: "white", showCtot: true };
+  if (diffMs < 11 * MINUTE_MS) return { ctotBg: TWY_DEP_CTOT_YELLOW, ctotColor: "black", showCtot: true };
+  return { ctotBg: TWY_DEP_CTOT_RED, ctotColor: "black", showCtot: true };
 }

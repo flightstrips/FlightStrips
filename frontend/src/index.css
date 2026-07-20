@@ -18,7 +18,7 @@
   --color-bay-est:         #767676; /* EST view lighter panel */
 
   /* ── Strip background colors ───────────────────────── */
-  --color-strip-frame:       #85b4af; /* strip frame / border (teal) */
+  --color-strip-frame:       #18BCBC; /* departure strip frame / border (cyan) */
   --color-strip-dep-bg:      #bef5ef; /* departure strip background */
   --color-strip-arr-bg:      #fff28e; /* arrival strip background */
   --color-strip-unconcerned: #cccccc; /* unconcerned strip background */
@@ -44,7 +44,7 @@
   /* ── SI (position ownership) indicator colors ────────── */
   --color-si-assumed:        #F0F0F0; /* strip assumed by current controller */
   --color-si-unconcerned:    #DD6A12; /* strip not relevant to position */
-  --color-si-concerned:      #E082E7; /* strip in next position's list */
+  --color-si-concerned:      #FA02FC; /* concerned strip in next position's list */
 
   /* ── Half-strip variant colors ───────────────────────── */
   --color-half-mem-aid:      #004FD6; /* memory aid half-strip */

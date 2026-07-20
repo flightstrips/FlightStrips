@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.39.0](https://github.com/flightstrips/FlightStrips/compare/backend/v0.38.0...backend/v0.39.0) (2026-07-20)
+
+
+### Features
+
+* **aman:** configure runtime modes ([#367](https://github.com/flightstrips/FlightStrips/issues/367)) ([93a69c2](https://github.com/flightstrips/FlightStrips/commit/93a69c2d491dddd70bd8de3338624126ec545d41))
+* **aman:** define shared domain contracts ([#366](https://github.com/flightstrips/FlightStrips/issues/366)) ([1518adb](https://github.com/flightstrips/FlightStrips/commit/1518adbbf89f3841223aa8023814fc7d11cfb8a9))
+* **aman:** persist operational state ([#368](https://github.com/flightstrips/FlightStrips/issues/368)) ([135deb1](https://github.com/flightstrips/FlightStrips/commit/135deb1c1b24d1e198f1e9067a0ead85eaed9da9))
+* **handover:** resolve EKCH transfers from radio coverage ([#386](https://github.com/flightstrips/FlightStrips/issues/386)) ([6dccd12](https://github.com/flightstrips/FlightStrips/commit/6dccd12d857e9d0b86da4ff9947c62e09fea8933))
+
 ## [0.38.0](https://github.com/flightstrips/FlightStrips/compare/backend/v0.37.0...backend/v0.38.0) (2026-07-18)
 
 

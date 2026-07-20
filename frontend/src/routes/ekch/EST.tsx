@@ -7,7 +7,7 @@ import EstStandCell from "@/components/est/EstStandCell";
 import EstStandMenu, { type EstMenuAnchor } from "@/components/est/EstStandMenu";
 import EstStandStatusDialog from "@/components/est/EstStandStatusDialog";
 import EstViewButtons from "@/components/est/EstViewButtons";
-import { isEstDepartureTransferActive } from "@/components/est/transferState";
+import { getEstDepartureTransferTarget, isEstDepartureTransferActive } from "@/components/est/transferState";
 import { isTsatWithinStartRequestWindow } from "@/lib/cdmColors";
 import { deriveEstStandBlocking } from "@/components/est/standBlocking";
 import { deriveEstStandDisplay } from "@/components/est/standDisplay";
@@ -20,11 +20,10 @@ import {
   type EstView,
 } from "@/components/est/metadata";
 import { useNonClearedStrips } from "@/store/airports/ekch.ts";
-import { useControllers, useMarkArmed, useMyPosition, useSelectStrip, useSelectedCallsign, useWebSocketStore, useSatEnabled, useStandAssignments, useStandBlocks, useOccupyStand, useVacateStand, useRequestManualStand, useStripTransfers } from "@/store/store-hooks.ts";
+import { useMarkArmed, useMyPosition, useSelectStrip, useSelectedCallsign, useWebSocketStore, useSatEnabled, useStandAssignments, useStandBlocks, useOccupyStand, useVacateStand, useRequestManualStand, useStripTransfers } from "@/store/store-hooks.ts";
 
 const PAGE_BG = "bg-bay-est";
 const COLOR_LABEL_DEFAULT = "#202020";
-const APRON_DEPARTURE_SECTOR = "AD";
 
 type ActionOverride = {
   callsign: string;
@@ -112,7 +111,6 @@ export default function EST() {
   const transferStrip = useWebSocketStore((state) => state.transferStrip);
   const setStartReq = useWebSocketStore((state) => state.setStartReq);
   const toggleMarked = useWebSocketStore((state) => state.toggleMarked);
-  const controllers = useControllers();
   const myPosition = useMyPosition();
   const nonClearedStrips = useNonClearedStrips();
   const markArmed = useMarkArmed();
@@ -207,13 +205,8 @@ export default function EST() {
   const statusStrip = statusStand ? stripByStand.get(statusStand) : undefined;
   const visibleStands = useMemo(() => getEstStandsForView(boardView), [boardView]);
   const apronDepartureTransferTarget = useMemo(
-    () =>
-      controllers.find(
-        (controller) =>
-          controller.position !== myPosition &&
-          controller.owned_sectors.includes(APRON_DEPARTURE_SECTOR),
-      )?.position ?? "",
-    [controllers, myPosition],
+    () => getEstDepartureTransferTarget(menuStrip, myPosition),
+    [menuStrip, myPosition],
   );
 
   function closeMenu() {
@@ -503,7 +496,7 @@ export default function EST() {
                   departureTransferActive={isEstDepartureTransferActive(
                     strip ? stripTransfers[strip.callsign] : undefined,
                     myPosition,
-                    apronDepartureTransferTarget,
+                    getEstDepartureTransferTarget(strip, myPosition),
                   )}
                   ctotImproved={strip ? !!ctotState.flags[strip.callsign] : false}
                   nowMs={nowMs}

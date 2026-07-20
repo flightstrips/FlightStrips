@@ -201,10 +201,40 @@ func (s *StripService) AcceptCoordination(ctx context.Context, session int32, ca
 	if count != 1 {
 		return errors.New("failed to set strip owner after accepting coordination")
 	}
+	resolvedOwner := assumingPosition
+	strip.Owner = &resolvedOwner
+	strip.NextOwners = slices.Clone(nextOwners)
+	strip.PreviousOwners = slices.Clone(previousOwners)
+
+	var nextDisplay *internalModels.NextDisplay
+	if routeRecalculator := s.getRouteRecalculator(); routeRecalculator != nil && shouldRefreshRouteAfterCoordinationAssume(strip.Bay) {
+		if err := routeRecalculator.UpdateRouteForStripContext(ctx, callsign, session, false); err != nil {
+			slog.ErrorContext(ctx, "Error updating route after coordination acceptance",
+				slog.String("callsign", callsign),
+				slog.Any("error", err))
+		} else if refreshed, err := s.syncStripByCallsign(ctx, session, callsign); err == nil {
+			nextOwners = refreshed.NextOwners
+			nextDisplay = refreshed.NextDisplay
+			if s.routeDisplayComputer != nil {
+				if computed, err := s.routeDisplayComputer.ComputeNextDisplayForStripContext(ctx, refreshed, session); err == nil {
+					nextDisplay = computed
+				}
+			}
+		}
+	}
 
 	s.publisher.SendCoordinationAssume(session, callsign, assumingPosition)
-	s.publisher.SendOwnersUpdate(session, callsign, assumingPosition, nextOwners, previousOwners, nil)
+	s.publisher.SendOwnersUpdate(session, callsign, assumingPosition, nextOwners, previousOwners, nextDisplay)
 	return nil
+}
+
+func shouldRefreshRouteAfterCoordinationAssume(bay string) bool {
+	switch bay {
+	case shared.BAY_CLEARED, shared.BAY_TAXI_LWR, shared.BAY_TWY_ARR:
+		return true
+	default:
+		return false
+	}
 }
 
 func (s *StripService) AutoTransferAirborneStrip(ctx context.Context, session int32, callsign string) error {
@@ -511,8 +541,28 @@ func (s *StripService) AssumeStripCoordination(ctx context.Context, session int3
 				if count != 1 {
 					return errors.New("failed to set strip owner")
 				}
+				resolvedOwner := position
+				strip.Owner = &resolvedOwner
+				strip.NextOwners = slices.Clone(nextOwners)
+
+				var nextDisplay *internalModels.NextDisplay
+				if routeRecalculator := s.getRouteRecalculator(); routeRecalculator != nil {
+					if err := routeRecalculator.UpdateRouteForStripContext(ctx, callsign, session, false); err != nil {
+						slog.ErrorContext(ctx, "Error updating route after stale coordination assumption",
+							slog.String("callsign", callsign),
+							slog.Any("error", err))
+					} else if refreshed, err := s.syncStripByCallsign(ctx, session, callsign); err == nil {
+						nextOwners = refreshed.NextOwners
+						nextDisplay = refreshed.NextDisplay
+						if s.routeDisplayComputer != nil {
+							if computed, err := s.routeDisplayComputer.ComputeNextDisplayForStripContext(ctx, refreshed, session); err == nil {
+								nextDisplay = computed
+							}
+						}
+					}
+				}
 				s.publisher.SendCoordinationAssume(session, callsign, position)
-				s.publisher.SendOwnersUpdate(session, callsign, position, nextOwners, strip.PreviousOwners, nil)
+				s.publisher.SendOwnersUpdate(session, callsign, position, nextOwners, strip.PreviousOwners, nextDisplay)
 				return nil
 			}
 			return errors.New("cannot assume strip which is not transferred to you")
@@ -559,19 +609,29 @@ func (s *StripService) AssumeStripCoordination(ctx context.Context, session int3
 		if count != 1 {
 			return errors.New("failed to set strip owner")
 		}
+		resolvedOwner := position
+		strip.Owner = &resolvedOwner
+		strip.NextOwners = slices.Clone(nextOwners)
 
 		s.publisher.SendCoordinationAssume(session, callsign, position)
 
+		var nextDisplay *internalModels.NextDisplay
 		if routeRecalculator := s.getRouteRecalculator(); routeRecalculator != nil {
-			if err := routeRecalculator.UpdateRouteForStrip(callsign, session, false); err != nil {
+			if err := routeRecalculator.UpdateRouteForStripContext(ctx, callsign, session, false); err != nil {
 				slog.ErrorContext(ctx, "Error updating route after direct assume", slog.String("callsign", callsign), slog.Any("error", err))
 			}
-			if refreshed, err := s.stripReader.GetByCallsign(ctx, session, callsign); err == nil {
+			if refreshed, err := s.syncStripByCallsign(ctx, session, callsign); err == nil {
 				nextOwners = refreshed.NextOwners
+				nextDisplay = refreshed.NextDisplay
+				if s.routeDisplayComputer != nil {
+					if computed, err := s.routeDisplayComputer.ComputeNextDisplayForStripContext(ctx, refreshed, session); err == nil {
+						nextDisplay = computed
+					}
+				}
 			}
 		}
 
-		s.publisher.SendOwnersUpdate(session, callsign, position, nextOwners, strip.PreviousOwners, nil)
+		s.publisher.SendOwnersUpdate(session, callsign, position, nextOwners, strip.PreviousOwners, nextDisplay)
 		return nil
 	}
 

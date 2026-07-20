@@ -5,6 +5,7 @@ import (
 	"FlightStrips/internal/models"
 	"FlightStrips/internal/repository"
 	"FlightStrips/internal/shared"
+	"FlightStrips/internal/vatsim"
 	"cmp"
 	"context"
 	"log/slog"
@@ -115,8 +116,10 @@ func (s *Server) updateSectorsContextUnlocked(ctx context.Context, sessionId int
 
 func (s *Server) RefreshAllSectors(ctx context.Context) error {
 	return refreshSessionSectors(ctx, s.sessionRepo, func(sessionID int32) error {
-		_, err := s.UpdateSectors(sessionID)
-		return err
+		if _, err := s.UpdateSectorsContext(ctx, sessionID); err != nil {
+			return err
+		}
+		return s.UpdateRoutesForSession(sessionID, true)
 	})
 }
 
@@ -215,7 +218,7 @@ func getCurrentControllerCoverage(ctx context.Context, controllerRepo repository
 
 		controllerCoverage := config.ControllerCoverage{
 			Name:      position.Name,
-			Frequency: position.Frequency,
+			Frequency: controllerPrimaryFrequency(controller, position),
 		}
 		for _, provider := range frequencyProviders {
 			controllerCoverage.CoveredFrequencies = append(controllerCoverage.CoveredFrequencies, provider.GetFrequencies(controller.Callsign)...)
@@ -238,10 +241,24 @@ func getCurrentPositions(ctx context.Context, controllerRepo repository.Controll
 		if !ok || !shared.IsOperationalControllerForPosition(controller, position) {
 			continue
 		}
-		positions = append(positions, position)
+		actualPosition := *position
+		actualPosition.Frequency = controllerPrimaryFrequency(controller, position)
+		positions = append(positions, &actualPosition)
 	}
 
 	return positions, nil
+}
+
+func controllerPrimaryFrequency(controller *models.Controller, role *config.Position) string {
+	if controller != nil {
+		if frequency := vatsim.NormalizeFrequency(controller.Position); frequency != "" {
+			return frequency
+		}
+	}
+	if role == nil {
+		return ""
+	}
+	return vatsim.NormalizeFrequency(role.Frequency)
 }
 
 func refreshSessionSectors(ctx context.Context, sessionRepo repository.SessionRepository, update func(sessionID int32) error) error {
@@ -279,7 +296,7 @@ func (s *Server) sendControllerUpdates(sessionId int32, owners []*models.SectorO
 		ownedSectors := []string{}
 		position, ok := resolveOperationalPosition(controller)
 		if ok && shared.IsOperationalControllerForPosition(controller, position) {
-			if sector, ok := ownerMap[position.Frequency]; ok {
+			if sector, ok := ownerMap[controllerPrimaryFrequency(controller, position)]; ok {
 				identifier = sector.Identifier
 				ownedSectors = slices.Clone(sector.Sector)
 			}

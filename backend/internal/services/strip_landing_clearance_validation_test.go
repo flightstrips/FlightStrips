@@ -20,7 +20,7 @@ func setupLandingClearanceValidationConfig(t *testing.T) {
 	t.Cleanup(config.SetPositionsForTest([]config.Position{
 		{Name: "EKCH_A_TWR", Frequency: "118.105", Section: "TWR"},
 		{Name: "EKCH_D_TWR", Frequency: "119.355", Section: "TWR"},
-		{Name: "EKCH_C_TWR", Frequency: "118.580", Section: "TWR"},
+		{Name: "EKCH_GW_TWR", Frequency: "118.580", Section: "TWR"},
 	}))
 	t.Cleanup(config.SetSectorsForTest([]config.Sector{
 		{Name: "TE", Active: []string{"22L", "22R"}, Owner: []string{"EKCH_A_TWR", "EKCH_D_TWR"}},

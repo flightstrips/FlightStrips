@@ -425,6 +425,73 @@ func TestGetControllerSectorsWithCoverage_PrefersDirectOwnerOverIndirectCoverage
 	}
 }
 
+func TestGetControllerSectorsWithCoverage_TransmittingControllerPrecedesNonTransmittingFallbackOwner(t *testing.T) {
+	originalSectors := sectors
+	t.Cleanup(func() { sectors = originalSectors })
+	t.Cleanup(SetPositionsForTest([]Position{
+		{Name: "EKCH_GW_TWR", Frequency: "118.580"},
+		{Name: "EKCH_GE_TWR", Frequency: "121.830"},
+		{Name: "EKCH_D_TWR", Frequency: "119.355"},
+	}))
+
+	sectors = []Sector{
+		{Name: "GW", Key: "GWD", Owner: []string{"EKCH_GW_TWR", "EKCH_GE_TWR", "EKCH_D_TWR"}},
+	}
+
+	result := GetControllerSectorsWithCoverage([]ControllerCoverage{
+		{
+			Name:      "EKCH_GE_TWR",
+			Frequency: "121.830",
+		},
+		{
+			Name:               "EKCH_D_TWR",
+			Frequency:          "119.355",
+			CoveredFrequencies: []string{"118.580"},
+		},
+	}, []string{"04L"})
+
+	if len(result["119.355"]) != 1 {
+		t.Fatalf("expected transmitting D_TWR to claim GW, got %d sectors", len(result["119.355"]))
+	}
+	if len(result["121.830"]) != 0 {
+		t.Fatalf("expected non-transmitting GE fallback owner to stay idle, got %d sectors", len(result["121.830"]))
+	}
+}
+
+func TestGetControllerSectorsWithCoverage_UsesOwnerPriorityWhenTwoControllersTransmitSameFrequency(t *testing.T) {
+	originalSectors := sectors
+	t.Cleanup(func() { sectors = originalSectors })
+	t.Cleanup(SetPositionsForTest([]Position{
+		{Name: "EKCH_GW_TWR", Frequency: "118.580"},
+		{Name: "EKCH_GE_TWR", Frequency: "121.830"},
+		{Name: "EKCH_D_TWR", Frequency: "119.355"},
+	}))
+
+	sectors = []Sector{
+		{Name: "GW", Key: "GWD", Owner: []string{"EKCH_GW_TWR", "EKCH_GE_TWR", "EKCH_D_TWR"}},
+	}
+
+	result := GetControllerSectorsWithCoverage([]ControllerCoverage{
+		{
+			Name:               "EKCH_GE_TWR",
+			Frequency:          "121.830",
+			CoveredFrequencies: []string{"118.580"},
+		},
+		{
+			Name:               "EKCH_D_TWR",
+			Frequency:          "119.355",
+			CoveredFrequencies: []string{"118.580"},
+		},
+	}, []string{"04L"})
+
+	if len(result["121.830"]) != 1 {
+		t.Fatalf("expected higher-priority GE owner to win transmitter tie, got %d sectors", len(result["121.830"]))
+	}
+	if len(result["119.355"]) != 0 {
+		t.Fatalf("expected lower-priority D_TWR owner to lose transmitter tie, got %d sectors", len(result["119.355"]))
+	}
+}
+
 func TestGetControllerSectorsWithCoverage_UsesOwnerPriorityForIndirectMatches(t *testing.T) {
 	originalSectors := sectors
 	t.Cleanup(func() { sectors = originalSectors })

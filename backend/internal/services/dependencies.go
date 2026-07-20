@@ -87,8 +87,16 @@ type RouteRecalculator interface {
 	UpdateRouteForStripContext(ctx context.Context, callsign string, sessionID int32, sendUpdate bool) error
 }
 
+type ClearedStripOwnerResolver interface {
+	ResolveClearedStripOwnerContext(ctx context.Context, strip *internalModels.Strip, sessionID int32) (string, bool, error)
+}
+
 type StripRouteComputer interface {
 	ComputeNextOwnersForStripContext(ctx context.Context, strip *internalModels.Strip, sessionID int32) ([]string, bool, error)
+}
+
+type StripRouteDisplayComputer interface {
+	ComputeNextDisplayForStripContext(ctx context.Context, strip *internalModels.Strip, sessionID int32) (*internalModels.NextDisplay, error)
 }
 
 type SessionReader interface {

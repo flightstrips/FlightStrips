@@ -42,7 +42,7 @@ func TestComputeSectorChanges_ReportsBothGWVariantsWithPublicName(t *testing.T) 
 			},
 			{
 				Sector:   []string{"GWD"},
-				Position: frequencyForPosition(t, "EKCH_C_TWR"),
+				Position: frequencyForPosition(t, "EKCH_GW_TWR"),
 			},
 		},
 		[]*models.SectorOwner{
@@ -60,7 +60,7 @@ func TestComputeSectorChanges_ReportsBothGWVariantsWithPublicName(t *testing.T) 
 	require.Len(t, changes, 2)
 	assert.ElementsMatch(t, []string{"GW", "GW"}, []string{changes[0].SectorName, changes[1].SectorName})
 	assert.ElementsMatch(t,
-		[]string{"EKCH_A_TWR", "EKCH_C_TWR"},
+		[]string{"EKCH_A_TWR", "EKCH_GW_TWR"},
 		[]string{changes[0].FromPosition, changes[1].FromPosition},
 	)
 	assert.ElementsMatch(t,
@@ -101,6 +101,45 @@ func TestEkchGwDepartureVariantAlwaysAssignsToDTower(t *testing.T) {
 	assertEkchGwOwner(t, []string{"04L", "04R"}, "GWD", "EKCH_D_TWR")
 	assertEkchGwOwner(t, []string{"30"}, "GWD", "EKCH_D_TWR")
 	assertEkchGwOwner(t, []string{"30", "22R"}, "GWD", "EKCH_D_TWR")
+}
+
+func TestEkchGeCanCoverAllTerminalSectors(t *testing.T) {
+	t.Parallel()
+
+	geTower, err := config.GetPositionByName("EKCH_GE_TWR")
+	require.NoError(t, err)
+
+	controllerSectors := config.GetControllerSectors([]*config.Position{geTower}, []string{"22L", "22R"})
+
+	assert.ElementsMatch(t,
+		[]string{"DEL", "SQ", "AA", "AD", "GE", "TE", "TW", "GWA", "GWD"},
+		sectorKeys(controllerSectors[geTower.Frequency]),
+	)
+}
+
+func TestEkchGwRetainsFallbackPriorityOverGe(t *testing.T) {
+	t.Parallel()
+
+	gwTower, err := config.GetPositionByName("EKCH_GW_TWR")
+	require.NoError(t, err)
+	geTower, err := config.GetPositionByName("EKCH_GE_TWR")
+	require.NoError(t, err)
+
+	controllerSectors := config.GetControllerSectors(
+		[]*config.Position{geTower, gwTower},
+		[]string{"22L", "22R"},
+	)
+
+	assert.Contains(t, sectorKeys(controllerSectors[gwTower.Frequency]), "DEL")
+	assert.NotContains(t, sectorKeys(controllerSectors[geTower.Frequency]), "DEL")
+}
+
+func sectorKeys(sectors []config.Sector) []string {
+	keys := make([]string, 0, len(sectors))
+	for _, sector := range sectors {
+		keys = append(keys, sector.KeyOrName())
+	}
+	return keys
 }
 
 func assertEkchGwOwner(t *testing.T, active []string, sectorKey string, expectedPositionName string) {
@@ -235,7 +274,7 @@ func TestGetCurrentControllerCoverage_UsesSyncStateControllers(t *testing.T) {
 	}, coverage)
 }
 
-func TestGetCurrentControllerCoverage_PrefersCallsignPositionOverCrossCoupledFrequency(t *testing.T) {
+func TestGetCurrentControllerCoverage_UsesCallsignRoleAtActualPrimedFrequency(t *testing.T) {
 	t.Cleanup(config.SetPositionsForTest([]config.Position{
 		{Name: "EKCH_A_TWR", Frequency: "118.100"},
 		{Name: "EKCH_W_APP", Frequency: "119.805"},
@@ -253,14 +292,14 @@ func TestGetCurrentControllerCoverage_PrefersCallsignPositionOverCrossCoupledFre
 	coverage, err := getCurrentControllerCoverage(context.Background(), controllerRepo, 1, nil)
 	require.NoError(t, err)
 	assert.Equal(t, []config.ControllerCoverage{
-		{Name: "EKCH_A_TWR", Frequency: "118.100"},
+		{Name: "EKCH_A_TWR", Frequency: "119.805"},
 	}, coverage)
 }
 
 func TestGetCurrentControllerCoverage_UsesNormalizedFrequencyForGenericControllers(t *testing.T) {
 	t.Cleanup(config.SetPositionsForTest([]config.Position{
 		{Name: "EKCH_A_GND", Frequency: "121.600"},
-		{Name: "EKCH_C_TWR", Frequency: "118.580"},
+		{Name: "EKCH_GW_TWR", Frequency: "118.580"},
 	}))
 	t.Cleanup(config.SetOwnerCallsignPrefixesForTest([]string{"EKCH"}))
 
@@ -277,7 +316,7 @@ func TestGetCurrentControllerCoverage_UsesNormalizedFrequencyForGenericControlle
 	require.NoError(t, err)
 	assert.ElementsMatch(t, []config.ControllerCoverage{
 		{Name: "EKCH_A_GND", Frequency: "121.600"},
-		{Name: "EKCH_C_TWR", Frequency: "118.580"},
+		{Name: "EKCH_GW_TWR", Frequency: "118.580"},
 	}, coverage)
 }
 
@@ -340,7 +379,7 @@ func TestSendControllerUpdates_UsesCallsignResolvedPositionForOwnedSectors(t *te
 	server := &Server{frontendHub: frontendHub}
 	err := server.sendControllerUpdates(1, []*models.SectorOwner{{
 		Session:    1,
-		Position:   "118.100",
+		Position:   "119.805",
 		Sector:     []string{"TW"},
 		Identifier: "EKCH_A_TWR",
 	}}, controllerRepo)

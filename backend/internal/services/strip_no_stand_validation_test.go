@@ -85,7 +85,7 @@ func newDuplicateNoStandPrecedenceFixture() *precedenceValidationFixture {
 }
 
 func TestApplyNoStandValidation_ActivatesForRelevantOwnerAndBay(t *testing.T) {
-	owner := "EKCH_C_TWR"
+	owner := "EKCH_GW_TWR"
 	var persisted *models.ValidationStatus
 
 	svc := NewStripService(&testutil.MockStripRepository{
@@ -175,7 +175,7 @@ func TestApplyNoStandValidation_ClearsForNonApplicableOwner(t *testing.T) {
 
 func TestReevaluateNoStandValidation_ReactivatesOnOwnerChange(t *testing.T) {
 	oldOwner := "EKCH_A_GND"
-	newOwner := "EKCH_C_TWR"
+	newOwner := "EKCH_GW_TWR"
 	var persisted *models.ValidationStatus
 
 	repo := &testutil.MockStripRepository{
@@ -252,7 +252,7 @@ func TestUpdateStand_ReevaluatesNoStandValidation(t *testing.T) {
 }
 
 func TestMoveToBay_ReevaluatesNoStandValidationOnActivationEdge(t *testing.T) {
-	owner := "EKCH_C_TWR"
+	owner := "EKCH_GW_TWR"
 	var persisted *models.ValidationStatus
 
 	repo := &testutil.MockStripRepository{

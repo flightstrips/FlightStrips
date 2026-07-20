@@ -12,10 +12,10 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// AutoAssumeForClearedStrip finds the SQ (or fallback DEL) sector owner for a
-// cleared departure strip and assigns them as the strip owner. It sends an owners
-// update broadcast to all frontend clients. If no SQ/DEL owner is found, the strip
-// is left unowned.
+// AutoAssumeForClearedStrip resolves the configured clearance handover target for a
+// cleared departure strip and assigns it directly as the strip owner. It sends an
+// owners update broadcast to all frontend clients. If no target is sensed, the
+// strip is left unchanged.
 func (s *StripService) AutoAssumeForClearedStrip(ctx context.Context, session int32, callsign string) error {
 	return s.autoAssumeForClearedStrip(ctx, session, callsign, "")
 }
@@ -30,7 +30,7 @@ func (s *StripService) AutoAssumeForClearedStripByCid(ctx context.Context, sessi
 }
 
 func (s *StripService) autoAssumeForClearedStrip(ctx context.Context, session int32, callsign string, actingPosition string) error {
-	if s.sectorOwnerRepo == nil {
+	if s.sectorOwnerRepo == nil && s.clearedOwnerResolver == nil {
 		return nil
 	}
 
@@ -48,58 +48,78 @@ func (s *StripService) autoAssumeForClearedStrip(ctx context.Context, session in
 		return nil
 	}
 
-	owners, err := s.syncSectorOwners(ctx, session)
+	targetPosition, resolved, err := s.resolveClearedStripOwner(ctx, session, strip)
 	if err != nil {
 		return err
 	}
-
-	sqPosition := ""
-	for _, owner := range owners {
-		if slices.Contains(owner.Sector, "SQ") {
-			sqPosition = owner.Position
-			break
-		}
-	}
-	if sqPosition == "" {
-		for _, owner := range owners {
-			if slices.Contains(owner.Sector, "DEL") {
-				sqPosition = owner.Position
-				break
-			}
-		}
-	}
-
-	if sqPosition == "" {
-		slog.DebugContext(ctx, "No SQ/DEL owner found for auto-assume", slog.String("callsign", callsign))
+	if !resolved {
+		slog.DebugContext(ctx, "No clearance handover target sensed for auto-assume", slog.String("callsign", callsign))
 		return nil
 	}
 
-	slog.DebugContext(ctx, "Auto-assuming cleared departure strip", slog.String("callsign", callsign), slog.String("position", sqPosition))
+	slog.DebugContext(ctx, "Auto-assuming cleared departure strip", slog.String("callsign", callsign), slog.String("position", targetPosition))
 
-	nextOwners, previousOwners := prepareOwnersForAutomaticTransfer(strip, sqPosition, actingPosition)
+	nextOwners, previousOwners := prepareOwnersForAutomaticTransfer(strip, targetPosition, actingPosition)
 
 	if err := s.ownerStore.SetNextAndPreviousOwners(ctx, session, callsign, nextOwners, previousOwners); err != nil {
 		return err
 	}
 
-	count, err := s.setOwnerAndReevaluateDuplicateSquawkValidation(ctx, session, callsign, &sqPosition, strip.Version)
+	count, err := s.setOwnerAndReevaluateDuplicateSquawkValidation(ctx, session, callsign, &targetPosition, strip.Version)
 	if err != nil {
 		return err
 	}
 
 	if count == 1 {
+		resolvedOwner := targetPosition
+		strip.Owner = &resolvedOwner
+		strip.NextOwners = slices.Clone(nextOwners)
+		strip.PreviousOwners = slices.Clone(previousOwners)
+
+		var nextDisplay *models.NextDisplay
 		if routeRecalculator := s.getRouteRecalculator(); routeRecalculator != nil {
 			if err := routeRecalculator.UpdateRouteForStripContext(ctx, callsign, session, false); err != nil {
 				slog.ErrorContext(ctx, "Error updating route after auto-assume", slog.String("callsign", callsign), slog.Any("error", err))
 			}
 			if refreshed, err := s.syncStripByCallsign(ctx, session, callsign); err == nil {
 				nextOwners = refreshed.NextOwners
+				nextDisplay = refreshed.NextDisplay
+				if s.routeDisplayComputer != nil {
+					if computed, err := s.routeDisplayComputer.ComputeNextDisplayForStripContext(ctx, refreshed, session); err == nil {
+						nextDisplay = computed
+					} else {
+						slog.ErrorContext(ctx, "Error computing route display after auto-assume",
+							slog.String("callsign", callsign),
+							slog.Any("error", err))
+					}
+				}
 			}
 		}
-		s.publisher.SendOwnersUpdate(session, callsign, sqPosition, nextOwners, previousOwners, nil)
+		s.publisher.SendOwnersUpdate(session, callsign, targetPosition, nextOwners, previousOwners, nextDisplay)
 	}
 
 	return nil
+}
+
+func (s *StripService) resolveClearedStripOwner(ctx context.Context, session int32, strip *models.Strip) (string, bool, error) {
+	if s.clearedOwnerResolver != nil {
+		return s.clearedOwnerResolver.ResolveClearedStripOwnerContext(ctx, strip, session)
+	}
+
+	// Preserve the legacy fallback for isolated service users that do not wire the
+	// server resolver (primarily narrow unit tests and test tools).
+	owners, err := s.syncSectorOwners(ctx, session)
+	if err != nil {
+		return "", false, err
+	}
+	for _, sector := range []string{"SQ", "DEL"} {
+		for _, owner := range owners {
+			if slices.Contains(owner.Sector, sector) {
+				return owner.Position, true, nil
+			}
+		}
+	}
+	return "", false, nil
 }
 
 func (s *StripService) resolveControllerPositionByCid(ctx context.Context, cid string) (string, error) {

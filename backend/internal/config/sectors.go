@@ -15,6 +15,7 @@ type constraints struct {
 type Sector struct {
 	Name         string       `yaml:"name"`
 	Key          string       `yaml:"key"`
+	DisplayName  string       `yaml:"display_name"`
 	NamePriority int          `yaml:"name_priority"`
 	Region       []string     `yaml:"region"`
 	Constraints  *constraints `yaml:"constraints"`
@@ -78,6 +79,7 @@ func GetControllerSectorsWithCoverage(controllers []ControllerCoverage, active [
 		result[primaryFrequency] = make([]Sector, 0)
 		directLookup[c.Name] = primaryFrequency
 		primaryNameByFrequency[primaryFrequency] = c.Name
+		coverageByFrequency[primaryFrequency] = appendUniqueFrequency(coverageByFrequency[primaryFrequency], primaryFrequency)
 		for _, coveredFrequency := range c.CoveredFrequencies {
 			normalizedCoveredFrequency := vatsim.NormalizeFrequency(coveredFrequency)
 			if normalizedCoveredFrequency == "" {
@@ -124,12 +126,6 @@ func GetControllerSectorsWithCoverage(controllers []ControllerCoverage, active [
 
 func resolveSectorOwnerFrequency(owners []string, directLookup map[string]string, primaryNameByFrequency map[string]string, coverageByFrequency map[string][]string) (string, bool) {
 	for _, owner := range owners {
-		if frequency, ok := directLookup[owner]; ok {
-			return frequency, true
-		}
-	}
-
-	for _, owner := range owners {
 		position, err := GetPositionByName(owner)
 		if err != nil {
 			continue
@@ -141,6 +137,12 @@ func resolveSectorOwnerFrequency(owners []string, directLookup map[string]string
 				return frequency, true
 			}
 			return frequencies[0], true
+		}
+	}
+
+	for _, owner := range owners {
+		if frequency, ok := directLookup[owner]; ok {
+			return frequency, true
 		}
 	}
 
@@ -179,6 +181,9 @@ func matchScore(sector Sector, active []string) int {
 func GetSectorDisplayName(sectorRef string) string {
 	for _, sector := range sectors {
 		if sectorMatchesIdentifier(sector, sectorRef) {
+			if strings.TrimSpace(sector.DisplayName) != "" {
+				return sector.DisplayName
+			}
 			return sector.Name
 		}
 	}
@@ -202,6 +207,48 @@ func GetSectorDisplayFrequency(active []string, sectorRef string, isArrival bool
 	}
 
 	return "", false
+}
+
+// GetSectorIdentifier resolves a public or internal sector reference to the
+// runway- and direction-specific configured sector identifier.
+func GetSectorIdentifier(active []string, sectorRef string, isArrival bool) (string, bool) {
+	sector, ok := getSectorByIdentifier(active, sectorRef, isArrival)
+	if !ok {
+		return "", false
+	}
+	return sector.KeyOrName(), true
+}
+
+// GetPositionLogicalIdentifier returns the logical sector that represents a
+// controller's configured operational role. Only sectors for which the position
+// is the primary configured owner are considered; fallback sectors do not change
+// the controller's displayed identity.
+func GetPositionLogicalIdentifier(active []string, positionName string, isArrival bool) (string, bool) {
+	bestPriority := -1
+	bestScore := -1
+	identifier := ""
+
+	for _, sector := range sectors {
+		if sector.Constraints != nil && (sector.Constraints.Arrival != isArrival || sector.Constraints.Departure != !isArrival) {
+			continue
+		}
+		if len(sector.Owner) == 0 || !strings.EqualFold(sector.Owner[0], positionName) {
+			continue
+		}
+		score := matchScore(sector, active)
+		if score < 0 {
+			continue
+		}
+		if sector.NamePriority < bestPriority || (sector.NamePriority == bestPriority && score <= bestScore) {
+			continue
+		}
+
+		bestPriority = sector.NamePriority
+		bestScore = score
+		identifier = sector.KeyOrName()
+	}
+
+	return identifier, identifier != ""
 }
 
 func IsArrivalTowerOwner(owner string, active []string) bool {

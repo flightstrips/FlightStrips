@@ -42,7 +42,12 @@ Strips are organised into **bays**. A bay is either **ACTIVE** or **LOCKED**. St
 ## REQ and transfers
 
 - Bays marked **Can be REQ** allow requesting a strip you do not own.
-- **APN-TAXI-DEP** strips in **TWY DEP** qualify for **SI** transfer to the next controller (e.g. GW) per system rules.
+- **TWY DEP-LWR** SI creates normal pending coordination to the next carried step in the configured route:
+  - 22R/04L: AD → GW → TW
+  - 04R/30: AD → GW → TE
+  - 22L: AD → TE
+  - 12: AD → TW
+- Cross-coupled targets use the carrying primary while displaying the logical identifier frequency. For example, when TW or GE carries GW, AD transfers to that primary but the strip shows **GW 118.580**. When GW is not carried and GE is the configured owner of the GW sector, AD transfers to GE and the strip shows **GE 121.830**.
 - Manual moves are allowed between **ACTIVE** bays.
 
 For clearance dialogue, PDC strip colours, and delivery workflow, see [CLR DEL](/ekch/clr-del/) and [Pre-departure clearance](/concepts/pre-departure-clearance/).

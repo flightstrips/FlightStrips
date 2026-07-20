@@ -1,6 +1,9 @@
 package config
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestGetArrivalTowerSector_ReturnsFirstSectorOfMatchingRoute(t *testing.T) {
 	original := standRoutes
@@ -383,5 +386,65 @@ func TestGetDefaultAirborneControllerPriorityReturnsErrorWithoutDefaultRoute(t *
 
 	if _, err := GetDefaultAirborneControllerPriority(); err == nil {
 		t.Fatal("expected error without default airborne route")
+	}
+}
+
+func TestLoadRoutesSupportsCompleteDepartureRoutesQualifiedByStandAndRunway(t *testing.T) {
+	originalRunway := runwayRoutes
+	originalStands := standRoutes
+	t.Cleanup(func() {
+		runwayRoutes = originalRunway
+		standRoutes = originalStands
+	})
+
+	err := loadRoutes(Config{
+		Sectors: []Sector{
+			{Name: "AD"},
+			{Name: "GW"},
+			{Name: "TW"},
+		},
+		Routes: []Route{
+			{
+				Name:           "complete departure route",
+				ForRunway:      "22R",
+				ForStandRanges: []StandRange{{Prefix: "A", From: 1, To: 34}},
+				Path:           []string{"AD", "GW", "TW"},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("loadRoutes returned error: %v", err)
+	}
+
+	route, ok := ComputeDepartureRoute(nil, "A12", "22R")
+	if !ok || len(route.Path) != 3 {
+		t.Fatalf("expected complete departure route, got %#v", route)
+	}
+	if got := strings.Join(route.Path, ","); got != "AD,GW,TW" {
+		t.Fatalf("expected logical path AD,GW,TW, got %s", got)
+	}
+	if _, ok := ComputeDepartureRoute(nil, "G120", "22R"); ok {
+		t.Fatal("route must not match a stand outside its configured ranges")
+	}
+}
+
+func TestLoadRoutesRejectsUnknownRouteSector(t *testing.T) {
+	originalRunway := runwayRoutes
+	originalStands := standRoutes
+	t.Cleanup(func() {
+		runwayRoutes = originalRunway
+		standRoutes = originalStands
+	})
+
+	err := loadRoutes(Config{
+		Sectors: []Sector{{Name: "AD"}},
+		Routes: []Route{{
+			Name:      "invalid route",
+			ForRunway: "22R",
+			Path:      []string{"AD", "MISSING"},
+		}},
+	})
+	if err == nil || !strings.Contains(err.Error(), `unknown sector "MISSING"`) {
+		t.Fatalf("expected unknown route sector error, got %v", err)
 	}
 }

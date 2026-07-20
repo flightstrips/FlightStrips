@@ -17,26 +17,28 @@ const (
 )
 
 type StripService struct {
-	stripReader       StripReader
-	lifecycleStore    StripLifecycleStore
-	orderingStore     StripOrderingStore
-	fieldStore        StripFieldStore
-	ownerStore        StripOwnerStore
-	cdmStore          StripCdmStore
-	validationStore   StripValidationStatusStore
-	manualFplStore    StripManualFplStore
-	tacticalRepo      repository.TacticalStripRepository
-	sectorOwnerRepo   repository.SectorOwnerRepository
-	publisher         shared.StripEventPublisher
-	esCommander       StripEuroscopeCommander
-	coordRepo         CoordinationStore
-	controllerRepo    ControllerReader
-	sessionRepo       SessionReader
-	routeRecalculator RouteRecalculator
-	routeComputer     StripRouteComputer
-	pdcService        shared.PdcService
-	cdmService        StripCdmService
-	departureObserver departurePositionObserver
+	stripReader          StripReader
+	lifecycleStore       StripLifecycleStore
+	orderingStore        StripOrderingStore
+	fieldStore           StripFieldStore
+	ownerStore           StripOwnerStore
+	cdmStore             StripCdmStore
+	validationStore      StripValidationStatusStore
+	manualFplStore       StripManualFplStore
+	tacticalRepo         repository.TacticalStripRepository
+	sectorOwnerRepo      repository.SectorOwnerRepository
+	publisher            shared.StripEventPublisher
+	esCommander          StripEuroscopeCommander
+	coordRepo            CoordinationStore
+	controllerRepo       ControllerReader
+	sessionRepo          SessionReader
+	routeRecalculator    RouteRecalculator
+	routeComputer        StripRouteComputer
+	routeDisplayComputer StripRouteDisplayComputer
+	clearedOwnerResolver ClearedStripOwnerResolver
+	pdcService           shared.PdcService
+	cdmService           StripCdmService
+	departureObserver    departurePositionObserver
 }
 
 type departurePositionObserver interface {
@@ -111,6 +113,12 @@ func (s *StripService) SetRouteRecalculator(routeRecalculator RouteRecalculator)
 	s.routeRecalculator = routeRecalculator
 	if routeComputer, ok := routeRecalculator.(StripRouteComputer); ok {
 		s.routeComputer = routeComputer
+	}
+	if displayComputer, ok := routeRecalculator.(StripRouteDisplayComputer); ok {
+		s.routeDisplayComputer = displayComputer
+	}
+	if resolver, ok := routeRecalculator.(ClearedStripOwnerResolver); ok {
+		s.clearedOwnerResolver = resolver
 	}
 }
 

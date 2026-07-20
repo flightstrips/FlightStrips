@@ -12,6 +12,8 @@ import (
 	"log/slog"
 	"slices"
 	"strings"
+
+	"github.com/jackc/pgx/v5"
 )
 
 // This is dumb please optimize
@@ -19,6 +21,23 @@ import (
 type computedRouteState struct {
 	NextOwners  []string
 	NextDisplay *models.NextDisplay
+}
+
+type resolvedRouteStage struct {
+	Identifier     string
+	Owner          string
+	Display        *models.NextDisplay
+	LogicalCarried bool
+}
+
+type routeOwnership struct {
+	sectorToOwner   map[string]string
+	ownerIdentifier map[string]string
+}
+
+type routeRadioState struct {
+	coverage      map[string]map[string]struct{}
+	roleByPrimary map[string]string
 }
 
 func (s *Server) UpdateRouteForStrip(callsign string, sessionId int32, sendUpdate bool) error {
@@ -38,6 +57,15 @@ func (s *Server) UpdateRouteForStripContext(ctx context.Context, callsign string
 	if err != nil {
 		return err
 	}
+	if s.coordRepo != nil {
+		_, err := s.coordRepo.GetByStripID(ctx, sessionId, strip.ID)
+		switch {
+		case err == nil:
+			return nil
+		case !errors.Is(err, pgx.ErrNoRows):
+			return err
+		}
+	}
 
 	session, err := routeSessionByID(ctx, sessionRepo, sessionId)
 	if err != nil {
@@ -49,12 +77,12 @@ func (s *Server) UpdateRouteForStripContext(ctx context.Context, callsign string
 		return err
 	}
 
-	coverage, err := routeDisplayCoverage(ctx, s.controllerRepo, sessionId, s.frequencyProviders)
+	radio, err := routeRadioStateForSession(ctx, s.controllerRepo, sessionId, s.frequencyProviders)
 	if err != nil {
 		return err
 	}
 
-	err = s.updateRouteForStripHelper(ctx, strip, session, owners, coverage, sendUpdate)
+	err = s.updateRouteForStripHelper(ctx, strip, session, owners, radio, sendUpdate)
 	if err == nil {
 		slog.Debug("Route recalculation finished for strip",
 			slog.Int("session", int(sessionId)),
@@ -75,7 +103,12 @@ func (s *Server) ComputeNextOwnersForStripContext(ctx context.Context, strip *mo
 		return nil, false, err
 	}
 
-	result, shouldUpdate, err := computeRouteStateForStrip(strip, session, owners, nil)
+	radio, err := routeRadioStateForSession(ctx, s.controllerRepo, sessionId, s.frequencyProviders)
+	if err != nil {
+		return nil, false, err
+	}
+
+	result, shouldUpdate, err := computeRouteStateForStrip(strip, session, owners, radio)
 	if err != nil {
 		return nil, false, err
 	}
@@ -84,6 +117,19 @@ func (s *Server) ComputeNextOwnersForStripContext(ctx context.Context, strip *mo
 }
 
 func (s *Server) ComputeNextDisplayForStripContext(ctx context.Context, strip *models.Strip, sessionId int32) (*models.NextDisplay, error) {
+	if strip == nil {
+		return nil, nil
+	}
+	if s.coordRepo != nil {
+		_, err := s.coordRepo.GetByStripID(ctx, sessionId, strip.ID)
+		switch {
+		case err == nil:
+			return cloneNextDisplay(strip.NextDisplay), nil
+		case !errors.Is(err, pgx.ErrNoRows):
+			return nil, err
+		}
+	}
+
 	session, err := routeSessionByID(ctx, s.sessionRepo, sessionId)
 	if err != nil {
 		return nil, err
@@ -94,12 +140,12 @@ func (s *Server) ComputeNextDisplayForStripContext(ctx context.Context, strip *m
 		return nil, err
 	}
 
-	coverage, err := routeDisplayCoverage(ctx, s.controllerRepo, sessionId, s.frequencyProviders)
+	radio, err := routeRadioStateForSession(ctx, s.controllerRepo, sessionId, s.frequencyProviders)
 	if err != nil {
 		return nil, err
 	}
 
-	result, _, err := computeRouteStateForStrip(strip, session, owners, coverage)
+	result, _, err := computeRouteStateForStrip(strip, session, owners, radio)
 	if err != nil {
 		return nil, err
 	}
@@ -109,6 +155,33 @@ func (s *Server) ComputeNextDisplayForStripContext(ctx context.Context, strip *m
 
 func (s *Server) ComputeNextDisplaysForStripsContext(ctx context.Context, strips []*models.Strip, sessionId int32) error {
 	if len(strips) == 0 {
+		return nil
+	}
+
+	pendingStripIDs := make(map[int32]struct{})
+	if s.coordRepo != nil {
+		coordinations, err := s.coordRepo.ListBySession(ctx, sessionId)
+		if err != nil {
+			return err
+		}
+		for _, coordination := range coordinations {
+			if coordination != nil {
+				pendingStripIDs[coordination.StripID] = struct{}{}
+			}
+		}
+	}
+
+	hasUncoordinatedStrip := false
+	for _, strip := range strips {
+		if strip == nil {
+			continue
+		}
+		if _, pending := pendingStripIDs[strip.ID]; !pending {
+			hasUncoordinatedStrip = true
+			break
+		}
+	}
+	if !hasUncoordinatedStrip {
 		return nil
 	}
 
@@ -122,7 +195,7 @@ func (s *Server) ComputeNextDisplaysForStripsContext(ctx context.Context, strips
 		return err
 	}
 
-	coverage, err := routeDisplayCoverage(ctx, s.controllerRepo, sessionId, s.frequencyProviders)
+	radio, err := routeRadioStateForSession(ctx, s.controllerRepo, sessionId, s.frequencyProviders)
 	if err != nil {
 		return err
 	}
@@ -131,8 +204,11 @@ func (s *Server) ComputeNextDisplaysForStripsContext(ctx context.Context, strips
 		if strip == nil {
 			continue
 		}
+		if _, pending := pendingStripIDs[strip.ID]; pending {
+			continue
+		}
 
-		result, _, err := computeRouteStateForStrip(strip, session, owners, coverage)
+		result, _, err := computeRouteStateForStrip(strip, session, owners, radio)
 		if err != nil {
 			return err
 		}
@@ -175,9 +251,22 @@ func (s *Server) updateRoutesForSessionContextUnlocked(ctx context.Context, sess
 		return err
 	}
 
-	coverage, err := routeDisplayCoverage(ctx, s.controllerRepo, sessionId, s.frequencyProviders)
+	radio, err := routeRadioStateForSession(ctx, s.controllerRepo, sessionId, s.frequencyProviders)
 	if err != nil {
 		return err
+	}
+
+	pendingStripIDs := make(map[int32]struct{})
+	if s.coordRepo != nil {
+		coordinations, err := s.coordRepo.ListBySession(ctx, sessionId)
+		if err != nil {
+			return err
+		}
+		for _, coordination := range coordinations {
+			if coordination != nil {
+				pendingStripIDs[coordination.StripID] = struct{}{}
+			}
+		}
 	}
 
 	slog.Debug("Route recalculation loaded strips for session",
@@ -186,7 +275,10 @@ func (s *Server) updateRoutesForSessionContextUnlocked(ctx context.Context, sess
 		slog.Bool("send_update", sendUpdate))
 
 	for _, strip := range strips {
-		err := s.updateRouteForStripHelper(ctx, strip, session, owners, coverage, sendUpdate)
+		if _, pending := pendingStripIDs[strip.ID]; pending {
+			continue
+		}
+		err := s.updateRouteForStripHelper(ctx, strip, session, owners, radio, sendUpdate)
 		if err != nil {
 			return err
 		}
@@ -200,8 +292,8 @@ func (s *Server) updateRoutesForSessionContextUnlocked(ctx context.Context, sess
 	return nil
 }
 
-func (s *Server) updateRouteForStripHelper(ctx context.Context, strip *models.Strip, session *models.Session, owners []*models.SectorOwner, coverage map[string]map[string]struct{}, sendUpdate bool) error {
-	result, shouldUpdate, err := computeRouteStateForStrip(strip, session, owners, coverage)
+func (s *Server) updateRouteForStripHelper(ctx context.Context, strip *models.Strip, session *models.Session, owners []*models.SectorOwner, radio routeRadioState, sendUpdate bool) error {
+	result, shouldUpdate, err := computeRouteStateForStrip(strip, session, owners, radio)
 	if err != nil {
 		return err
 	}
@@ -266,7 +358,7 @@ func (s *Server) updateRouteForStripHelper(ctx context.Context, strip *models.St
 }
 
 func computeNextOwnersForStrip(strip *models.Strip, session *models.Session, owners []*models.SectorOwner) ([]string, bool, error) {
-	result, shouldUpdate, err := computeRouteStateForStrip(strip, session, owners, nil)
+	result, shouldUpdate, err := computeRouteStateForStrip(strip, session, owners, routeRadioState{})
 	if err != nil {
 		return nil, false, err
 	}
@@ -274,7 +366,7 @@ func computeNextOwnersForStrip(strip *models.Strip, session *models.Session, own
 	return result.NextOwners, shouldUpdate, nil
 }
 
-func computeRouteStateForStrip(strip *models.Strip, session *models.Session, owners []*models.SectorOwner, coverage map[string]map[string]struct{}) (computedRouteState, bool, error) {
+func computeRouteStateForStrip(strip *models.Strip, session *models.Session, owners []*models.SectorOwner, radio routeRadioState) (computedRouteState, bool, error) {
 	isArrival := strip.Destination == session.Airport
 	currentOwner := helpers.ValueOrDefault(strip.Owner)
 	currentStand := helpers.ValueOrDefault(strip.Stand)
@@ -299,7 +391,21 @@ func computeRouteStateForStrip(strip *models.Strip, session *models.Session, own
 
 	var route config.ResolvedRoute
 
-	if isArrival && (strip.Stand == nil || *strip.Stand == "") {
+	if !isArrival {
+		var success bool
+		route, success = config.ComputeDepartureRoute(
+			session.ActiveRunways.GetAllActiveRunways(),
+			currentStand,
+			currentRunway,
+		)
+		if !success {
+			slog.Warn("Could not compute complete departure route for strip",
+				slog.String("callsign", strip.Callsign),
+				slog.String("runway", currentRunway),
+				slog.String("stand", currentStand))
+			return computedRouteState{}, false, nil
+		}
+	} else if strip.Stand == nil || *strip.Stand == "" {
 		// No stand yet: use the receiving tower sector so the strip always has
 		// at least the tower controller as its next owner.
 		towerSector, ok := config.GetArrivalTowerSector(session.ActiveRunways.ArrivalRunways)
@@ -316,12 +422,6 @@ func computeRouteStateForStrip(strip *models.Strip, session *models.Session, own
 	} else {
 		region, err := config.GetRegionForPosition(helpers.ValueOrDefault(strip.PositionLatitude), helpers.ValueOrDefault(strip.PositionLongitude))
 		if errors.Is(err, config.ErrUnsupportedRegion) {
-			if !isArrival {
-				slog.Debug("Skipping departure route recalculation because aircraft position is outside supported regions",
-					slog.Int("session", int(session.ID)),
-					slog.String("callsign", strip.Callsign))
-				return computedRouteState{}, false, nil
-			}
 			// Arrival is still airborne (outside known ground regions) but already has
 			// a stand assigned. Use the receiving tower sector as the start of the
 			// stand route so the route can still continue onward to apron/ground.
@@ -359,16 +459,10 @@ func computeRouteStateForStrip(strip *models.Strip, session *models.Session, own
 				return computedRouteState{}, false, nil
 			}
 
-			allRunways := session.ActiveRunways.GetAllActiveRunways()
-
+			// Use only arrival runways to select the correct arrival route.
+			// Mixing in departure runways can cause the wrong cargo route to match.
 			var success bool
-			if isArrival {
-				// Use only arrival runways to select the correct arrival route.
-				// Mixing in departure runways can cause the wrong cargo route to match.
-				route, success = config.ComputeToStand(session.ActiveRunways.ArrivalRunways, sector, helpers.ValueOrDefault(strip.Stand))
-			} else {
-				route, success = config.ComputeToRunway(allRunways, sector, helpers.ValueOrDefault(strip.Runway))
-			}
+			route, success = config.ComputeToStand(session.ActiveRunways.ArrivalRunways, sector, helpers.ValueOrDefault(strip.Stand))
 
 			if !success {
 				runway := helpers.ValueOrDefault(strip.Runway)
@@ -380,14 +474,10 @@ func computeRouteStateForStrip(strip *models.Strip, session *models.Session, own
 					slog.String("runway", runway),
 					slog.String("stand", stand))
 
-				if isArrival {
-					// Fall back to the tower sector so arrivals always have at least
-					// the receiving tower controller, even when the full route fails.
-					if towerSector, ok := config.GetArrivalTowerSector(session.ActiveRunways.ArrivalRunways); ok {
-						route = config.ResolvedRoute{Path: []string{towerSector}}
-					} else {
-						return computedRouteState{}, false, nil
-					}
+				// Fall back to the tower sector so arrivals always have at least
+				// the receiving tower controller, even when the full route fails.
+				if towerSector, ok := config.GetArrivalTowerSector(session.ActiveRunways.ArrivalRunways); ok {
+					route = config.ResolvedRoute{Path: []string{towerSector}}
 				} else {
 					return computedRouteState{}, false, nil
 				}
@@ -395,59 +485,182 @@ func computeRouteStateForStrip(strip *models.Strip, session *models.Session, own
 		}
 	}
 
-	sectorToOnwer := make(map[string]string)
-	for _, owner := range owners {
-		for _, s := range owner.Sector {
-			sectorToOnwer[normalizeRouteSectorRef(s)] = owner.Position
-		}
-	}
+	ownership := buildRouteOwnership(owners)
 
-	actualRoute := make([]string, 0)
-	var nextDisplay *models.NextDisplay
-	nextDisplayResolved := false
-	for _, s := range route.Path {
-		owner, ok := resolveRouteSectorOwner(s, sectorToOnwer, route.OwnerOverrides)
+	stages := make([]resolvedRouteStage, 0, len(route.Path)+1)
+	for _, sector := range route.Path {
+		stage, ok := resolveRouteStage(strip, session, sector, ownership, route.OwnerOverrides, radio, isArrival)
 		if !ok {
 			continue
 		}
-		if !nextDisplayResolved && (currentOwner == "" || owner != currentOwner) {
-			nextDisplay = buildRouteNextDisplay(session, s, owner, coverage[vatsim.NormalizeFrequency(owner)], isArrival)
-			nextDisplayResolved = true
+		if len(stages) > 0 && vatsim.NormalizeFrequency(stages[len(stages)-1].Owner) == vatsim.NormalizeFrequency(stage.Owner) {
+			previous := &stages[len(stages)-1]
+			if strings.EqualFold(previous.Identifier, "SQ") &&
+				strings.EqualFold(stage.Identifier, "AD") &&
+				previous.LogicalCarried &&
+				stage.LogicalCarried &&
+				previous.Display != nil {
+				previous.Identifier = "AD"
+				previous.Display.Label = config.GetSectorDisplayName("AD")
+			}
+			continue
 		}
-		if len(actualRoute) == 0 || actualRoute[len(actualRoute)-1] != owner {
-			actualRoute = append(actualRoute, owner)
-		}
+		stages = append(stages, stage)
 	}
 
 	if !isArrival && strip.Sid != nil && *strip.Sid != "" {
 		as, err := config.GetAirborneSector(*strip.Sid)
 		if err != nil {
 			slog.Debug("Error getting airborne frequency", slog.String("sid", *strip.Sid), slog.Any("error", err))
-		} else if owner, ok := sectorToOnwer[normalizeRouteSectorRef(as)]; ok {
-			if !nextDisplayResolved && (currentOwner == "" || owner != currentOwner) {
-				nextDisplay = buildRouteNextDisplay(session, as, owner, coverage[vatsim.NormalizeFrequency(owner)], isArrival)
-				nextDisplayResolved = true
-			}
-			if !slices.Contains(actualRoute, owner) {
-				actualRoute = append(actualRoute, owner)
+		} else if owner, ok := ownership.sectorToOwner[normalizeRouteSectorRef(as)]; ok {
+			if !slices.ContainsFunc(stages, func(stage resolvedRouteStage) bool {
+				return vatsim.NormalizeFrequency(stage.Owner) == vatsim.NormalizeFrequency(owner)
+			}) {
+				stages = append(stages, resolvedRouteStage{
+					Owner:   owner,
+					Display: buildRouteNextDisplay(session, as, owner, radio.coverage[vatsim.NormalizeFrequency(owner)], isArrival),
+				})
 			}
 		}
 	}
 
-	if strip.Owner != nil && *strip.Owner != "" {
-		index := slices.Index(actualRoute, *strip.Owner)
+	if currentOwner != "" {
+		index := resolveCurrentRouteStageIndex(stages, currentOwner, strip.PreviousOwners)
 		if index != -1 {
 			// Trim everything up to and including the current owner.
 			// The owner already holds the strip, so neither the owner nor any earlier
 			// position in the route should appear in next_owners.
-			actualRoute = actualRoute[index+1:]
+			stages = stages[index+1:]
 		}
+	}
+
+	actualRoute := make([]string, 0, len(stages))
+	for _, stage := range stages {
+		actualRoute = append(actualRoute, stage.Owner)
+	}
+	var nextDisplay *models.NextDisplay
+	if len(stages) > 0 {
+		nextDisplay = stages[0].Display
 	}
 
 	return computedRouteState{
 		NextOwners:  actualRoute,
 		NextDisplay: cloneNextDisplay(nextDisplay),
 	}, true, nil
+}
+
+func resolveRouteStage(
+	strip *models.Strip,
+	session *models.Session,
+	sector string,
+	ownership routeOwnership,
+	ownerOverrides map[string]string,
+	radio routeRadioState,
+	isArrival bool,
+) (resolvedRouteStage, bool) {
+	normalizedSector := normalizeRouteSectorRef(sector)
+	if normalizedSector == "" {
+		return resolvedRouteStage{}, false
+	}
+
+	if overrideTarget, ok := ownerOverrides[normalizedSector]; ok {
+		owner, ok := ownership.sectorToOwner[normalizeRouteSectorRef(overrideTarget)]
+		if !ok {
+			return resolvedRouteStage{}, false
+		}
+		return resolvedRouteStage{
+			Identifier: sector,
+			Owner:      owner,
+			Display:    buildRouteNextDisplay(session, sector, owner, radio.coverage[vatsim.NormalizeFrequency(owner)], isArrival),
+		}, true
+	}
+
+	ownerSector := resolveConfiguredRouteSector(sector, strip, session)
+	owner, ok := resolveRouteSectorOwner(ownerSector, ownership.sectorToOwner, nil)
+	if !ok {
+		return resolvedRouteStage{}, false
+	}
+	resolution := resolveHandoverTargetForOwner(sector, owner, strip, session, ownership, radio)
+	return resolvedRouteStage{
+		Identifier:     resolution.Identifier,
+		Owner:          resolution.Owner,
+		Display:        cloneNextDisplay(resolution.Display),
+		LogicalCarried: resolution.LogicalCarried,
+	}, true
+}
+
+func buildConfiguredOwnerDisplay(strip *models.Strip, session *models.Session, owner string, ownership routeOwnership, radio routeRadioState) *models.NextDisplay {
+	normalizedOwner := vatsim.NormalizeFrequency(owner)
+	identifier := ""
+	if role := strings.TrimSpace(radio.roleByPrimary[normalizedOwner]); role != "" {
+		active := session.ActiveRunways.DepartureRunways
+		isArrival := strip.Destination == session.Airport
+		if isArrival {
+			active = session.ActiveRunways.ArrivalRunways
+		}
+		if resolved, ok := config.GetPositionLogicalIdentifier(active, role, isArrival); ok {
+			identifier = resolved
+		}
+	}
+	if identifier == "" {
+		identifier = strings.TrimSpace(ownership.ownerIdentifier[normalizedOwner])
+	}
+	if identifier == "" {
+		return nil
+	}
+
+	frequency, ok := resolveLogicalSectorFrequency(identifier, strip, session)
+	if !ok {
+		return nil
+	}
+	if !ownerCarriesFrequency(owner, frequency, radio.coverage) {
+		return nil
+	}
+	return &models.NextDisplay{
+		Label:     config.GetSectorDisplayName(identifier),
+		Frequency: frequency,
+	}
+}
+
+func resolveCurrentRouteStageIndex(stages []resolvedRouteStage, currentOwner string, previousOwners []string) int {
+	normalizedCurrent := vatsim.NormalizeFrequency(currentOwner)
+	if normalizedCurrent == "" {
+		return -1
+	}
+
+	history := make([]string, 0, len(previousOwners)+1)
+	for _, owner := range previousOwners {
+		normalized := vatsim.NormalizeFrequency(owner)
+		if normalized != "" {
+			history = append(history, normalized)
+		}
+	}
+	history = append(history, normalizedCurrent)
+
+	bestIndex := -1
+	bestMatched := -1
+	for candidate, stage := range stages {
+		if vatsim.NormalizeFrequency(stage.Owner) != normalizedCurrent {
+			continue
+		}
+
+		matched := 1
+		stageIndex := candidate - 1
+		for historyIndex := len(history) - 2; historyIndex >= 0 && stageIndex >= 0; historyIndex-- {
+			for stageIndex >= 0 && vatsim.NormalizeFrequency(stages[stageIndex].Owner) != history[historyIndex] {
+				stageIndex--
+			}
+			if stageIndex >= 0 {
+				matched++
+				stageIndex--
+			}
+		}
+		if matched > bestMatched {
+			bestMatched = matched
+			bestIndex = candidate
+		}
+	}
+	return bestIndex
 }
 
 func resolveRouteSectorOwner(sector string, sectorToOwner map[string]string, ownerOverrides map[string]string) (string, bool) {
@@ -497,17 +710,23 @@ func buildRouteNextDisplay(session *models.Session, sectorRef string, owner stri
 	return nil
 }
 
-func routeDisplayCoverage(ctx context.Context, controllerRepo repository.ControllerRepository, sessionId int32, frequencyProviders []TransceiverLookup) (map[string]map[string]struct{}, error) {
+func routeRadioStateForSession(ctx context.Context, controllerRepo repository.ControllerRepository, sessionId int32, frequencyProviders []TransceiverLookup) (routeRadioState, error) {
 	if controllerRepo == nil {
-		return map[string]map[string]struct{}{}, nil
+		return routeRadioState{
+			coverage:      map[string]map[string]struct{}{},
+			roleByPrimary: map[string]string{},
+		}, nil
 	}
 
 	controllerCoverage, err := getCurrentControllerCoverage(ctx, controllerRepo, sessionId, frequencyProviders)
 	if err != nil {
-		return nil, err
+		return routeRadioState{}, err
 	}
 
-	result := make(map[string]map[string]struct{}, len(controllerCoverage))
+	result := routeRadioState{
+		coverage:      make(map[string]map[string]struct{}, len(controllerCoverage)),
+		roleByPrimary: make(map[string]string, len(controllerCoverage)),
+	}
 	for _, controller := range controllerCoverage {
 		primaryFrequency := vatsim.NormalizeFrequency(controller.Frequency)
 		if primaryFrequency == "" {
@@ -522,7 +741,8 @@ func routeDisplayCoverage(ctx context.Context, controllerRepo repository.Control
 			}
 			covered[normalizedCoveredFrequency] = struct{}{}
 		}
-		result[primaryFrequency] = covered
+		result.coverage[primaryFrequency] = covered
+		result.roleByPrimary[primaryFrequency] = controller.Name
 	}
 
 	return result, nil

@@ -4,7 +4,7 @@ import { Bay, type FrontendStandAssignmentEntry, type FrontendStrip } from "@/ap
 import { SELECTION_COLOR } from "@/components/strip/shared";
 import { cn, getSimpleAircraftType } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { CDM_GREEN, CTOT_BLUE, computeCDMColors, computeCTOTColors, hasManualTobtSource } from "@/lib/cdmColors";
+import { CDM_GREEN, CDM_ORANGE, CTOT_BLUE, computeCDMColors, computeCTOTColors, hasManualTobtSource } from "@/lib/cdmColors";
 
 import {
   EST_CELL_HEIGHT,
@@ -23,8 +23,8 @@ const DETAILS_ROW_TOP = 50.5;
 const DETAILS_ROW_HEIGHT = 20;
 const READY_ROW_TOP = 72;
 const TOBT_ROW_TOP = 88;
-const TSAT_ROW_TOP = 104;
-const CTOT_ROW_TOP = 120;
+const TSAT_ROW_TOP = 105;
+const CTOT_ROW_TOP = 121;
 const ROW_HEIGHT = 15;
 const LABEL_FONT_SIZE = 20;
 const DETAILS_FONT_SIZE = 14;
@@ -129,6 +129,9 @@ export default function EstStandCell({
   const showMark = isClearedDeparture && !!strip?.marked;
   const showCtotText = ctotLabel !== "";
   const boxShadows: string[] = [];
+  if (startReqActive) {
+    boxShadows.push(`inset 0 0 0 2px ${tobtBarColor === CDM_GREEN ? CDM_GREEN : CDM_ORANGE}`);
+  }
   if (showMark) {
     boxShadows.push(`0 0 0 4px ${SELECTION_COLOR}`);
   }
@@ -157,12 +160,14 @@ export default function EstStandCell({
             {tobtBarColor && (
               <div
                 className="absolute left-0 right-0"
+                data-testid="est-tobt-background"
                 style={{ top: TOBT_ROW_TOP, height: ROW_HEIGHT, backgroundColor: tobtBarColor }}
               />
             )}
             {tsatBarColor && (
               <div
                 className="absolute left-0 right-0"
+                data-testid="est-tsat-background"
                 style={{ top: TSAT_ROW_TOP, height: ROW_HEIGHT, backgroundColor: tsatBarColor }}
               />
             )}
@@ -237,7 +242,7 @@ export default function EstStandCell({
             {showReady && (
               <div
                 className="absolute left-0 right-0 flex items-center justify-center"
-                style={{ top: READY_ROW_TOP, height: ROW_HEIGHT, fontFamily: CONTENT_FONT, fontSize: CONTENT_FONT_SIZE }}
+                style={{ top: READY_ROW_TOP, height: ROW_HEIGHT, fontFamily: CONTENT_FONT, fontSize: CONTENT_FONT_SIZE, color: "#000000" }}
               >
                 READY
               </div>
@@ -274,7 +279,7 @@ export default function EstStandCell({
              {showTobt && (
                 <div
                   className="absolute left-0 right-0 flex items-center justify-center gap-1"
-                  style={{ top: TOBT_ROW_TOP, height: ROW_HEIGHT, fontFamily: CONTENT_FONT, fontSize: CONTENT_FONT_SIZE }}
+                  style={{ top: TOBT_ROW_TOP, height: ROW_HEIGHT, fontFamily: CONTENT_FONT, fontSize: CONTENT_FONT_SIZE, color: tobtBarColor === CDM_GREEN ? "#000000" : undefined }}
                 >
                   <span>TOBT:</span>
                   <span style={{ fontWeight: emphasizeTobtTime ? 700 : undefined }}>
@@ -287,7 +292,7 @@ export default function EstStandCell({
             {showTsat && (
                <div
                  className="absolute left-0 right-0 flex items-center justify-center"
-                 style={{ top: TSAT_ROW_TOP, height: ROW_HEIGHT, fontFamily: CONTENT_FONT, fontSize: CONTENT_FONT_SIZE }}
+                 style={{ top: TSAT_ROW_TOP, height: ROW_HEIGHT, fontFamily: CONTENT_FONT, fontSize: CONTENT_FONT_SIZE, color: tsatBarColor === CDM_GREEN ? "#000000" : undefined }}
                >
                  {`TSAT: ${formatTimeLabel(strip!.tsat).replace(":", "")}`}
                </div>

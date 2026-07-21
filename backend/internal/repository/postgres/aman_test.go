@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"FlightStrips/internal/aman"
+	"FlightStrips/internal/aman/predictor"
 	"FlightStrips/internal/pdc/testdata"
 	"context"
 	"errors"
@@ -82,6 +83,44 @@ func TestAMANRepositoryRoundTripIdempotencyAndRollback(t *testing.T) {
 	loaded, err = repo.LoadAirportState(ctx, first.Airport)
 	require.NoError(t, err)
 	require.Equal(t, corrected, loaded, "a failed transaction must leave the complete prior aggregate")
+}
+
+func TestAMANRepositoryRestoresHeldAirborneBaselineForFreshPredictor(t *testing.T) {
+	pool, _ := testdata.SetupTestDB(t)
+	ctx := context.Background()
+	reducer, err := predictor.NewReducer(predictor.Config{MaxObservationAge: 2 * time.Minute})
+	require.NoError(t, err)
+	filedEET := 90 * time.Minute
+	flightPlanObserved := amanTestTime.Add(-time.Minute)
+	first := reducer.Reduce(predictor.Input{
+		Now: amanTestTime, ExpectedDestination: "EKCH", Destination: "EKCH",
+		Timing:               predictor.Timing{FiledEET: &filedEET},
+		Airborne:             predictor.AirborneObservation{SensedAt: &flightPlanObserved, PreviouslyObserved: true},
+		FlightPlanObservedAt: &flightPlanObserved,
+	}, nil)
+	require.NotNil(t, first.State)
+
+	state := amanState(1, "CID-1", "SAS123")
+	state.Flights[0].ArrivalBaseline = first.State
+	_, err = NewAMANRepository(pool).Commit(ctx, aman.StateCommit{ExpectedRevision: 0, State: state})
+	require.NoError(t, err)
+	restored, err := NewAMANRepository(pool).LoadAirportState(ctx, state.Airport)
+	require.NoError(t, err)
+	require.Equal(t, first.State, restored.Flights[0].ArrivalBaseline)
+
+	// A newly constructed reducer receives the stored baseline and preserves it
+	// instead of recalculating from a changed source duration after restart.
+	freshReducer, err := predictor.NewReducer(predictor.Config{MaxObservationAge: 2 * time.Minute})
+	require.NoError(t, err)
+	changedEET := 3 * time.Hour
+	held := freshReducer.Reduce(predictor.Input{
+		Now: amanTestTime.Add(time.Minute), ExpectedDestination: "EKCH", Destination: "EKCH",
+		Timing:               predictor.Timing{FiledEET: &changedEET},
+		Airborne:             predictor.AirborneObservation{SensedAt: &amanTestTime, PreviouslyObserved: true},
+		FlightPlanObservedAt: &flightPlanObserved,
+	}, restored.Flights[0].ArrivalBaseline)
+	require.Equal(t, predictor.ReasonHeldFirstAirborneBaseline, held.Reason)
+	require.Equal(t, first.State, held.State)
 }
 
 func TestAMANRepositoryCompareAndSwapAllocatesOneRevision(t *testing.T) {

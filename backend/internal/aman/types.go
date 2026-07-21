@@ -86,6 +86,56 @@ func (c Confidence) Valid() bool {
 	}
 }
 
+// BaselineSource identifies the deterministic input used before the
+// route-aware predictor can calculate a replacement raw prediction.
+//
+// The source is retained with a held first-airborne baseline so a restored
+// aggregate retains the exact provenance of its initial prediction.
+type BaselineSource string
+
+const (
+	BaselineSourceNone                                            BaselineSource = "none"
+	BaselineSourcePlannedEOBTFiledEET                             BaselineSource = "planned_eobt_filed_eet"
+	BaselineSourcePlannedEstimatedDepartureFiledEET               BaselineSource = "planned_estimated_departure_filed_eet"
+	BaselineSourcePlannedEOBTAPIEstimatedFlightTime               BaselineSource = "planned_eobt_api_estimated_flight_time"
+	BaselineSourcePlannedEstimatedDepartureAPIEstimatedFlightTime BaselineSource = "planned_estimated_departure_api_estimated_flight_time"
+	BaselineSourceAirborneFiledEET                                BaselineSource = "airborne_filed_eet"
+	BaselineSourceAirborneAPIEstimatedFlightTime                  BaselineSource = "airborne_api_estimated_flight_time"
+	BaselineSourceAirborneGreatCircle                             BaselineSource = "airborne_great_circle"
+	BaselineSourceRouteAware                                      BaselineSource = "route_aware"
+)
+
+func (s BaselineSource) Valid() bool {
+	switch s {
+	case BaselineSourceNone,
+		BaselineSourcePlannedEOBTFiledEET,
+		BaselineSourcePlannedEstimatedDepartureFiledEET,
+		BaselineSourcePlannedEOBTAPIEstimatedFlightTime,
+		BaselineSourcePlannedEstimatedDepartureAPIEstimatedFlightTime,
+		BaselineSourceAirborneFiledEET,
+		BaselineSourceAirborneAPIEstimatedFlightTime,
+		BaselineSourceAirborneGreatCircle,
+		BaselineSourceRouteAware:
+		return true
+	default:
+		return false
+	}
+}
+
+// BaselineDegradationReason is persisted with a successful degraded baseline.
+// It is deliberately separate from transient unavailable reasons so corrupt
+// aggregate JSON cannot claim a successful fallback with arbitrary text.
+type BaselineDegradationReason string
+
+const (
+	BaselineDegradationFiledEETMissingAPIUsed BaselineDegradationReason = "filed_eet_missing_api_estimated_flight_time_used"
+	BaselineDegradationGreatCircleUsed        BaselineDegradationReason = "route_geometry_or_duration_unavailable_great_circle_used"
+)
+
+func (r BaselineDegradationReason) Valid() bool {
+	return r == BaselineDegradationFiledEETMissingAPIUsed || r == BaselineDegradationGreatCircleUsed
+}
+
 // FreezeReason is the only representation of an operational TETA/slot freeze.
 // A flight must not add a parallel state or locked boolean.
 type FreezeReason string
@@ -177,6 +227,23 @@ type Prediction struct {
 	Sources              []string
 }
 
+// BaselineState is the narrow persisted result of the first normal airborne
+// calculation. It is held unchanged until the owning state engine supplies an
+// explicit Unstable-review reset. The baseline predictor owns how this value
+// is created; the aggregate owns its persistence through StateCommit.
+type BaselineState struct {
+	ArrivalAt            time.Time
+	AirborneSensedAt     time.Time
+	Source               BaselineSource
+	Confidence           Confidence
+	DegradationReason    *BaselineDegradationReason
+	SpeedDefaultsVersion string
+	FlightPlanRevision   *uint64
+	FlightPlanObservedAt time.Time
+	ModelVersion         string
+	ConfigVersion        string
+}
+
 // Slot is a committed sequencing result. It intentionally has no locked
 // field: freezes are represented exclusively by AMANFlight.FreezeReason.
 type Slot struct {
@@ -224,6 +291,7 @@ type AMANFlight struct {
 	State                 FlightState
 	DataStatus            DataStatus
 	Prediction            *Prediction
+	ArrivalBaseline       *BaselineState
 	SelectedRunwayGroup   *RunwayGroupID
 	SelectedFeeder        *string
 	SelectedHolding       *string
@@ -384,6 +452,48 @@ func (p Prediction) Validate() error {
 	return nil
 }
 
+func (b BaselineState) Validate() error {
+	if err := requireUTCTime("baseline arrival", b.ArrivalAt); err != nil {
+		return err
+	}
+	if err := requireUTCTime("baseline airborne sensed at", b.AirborneSensedAt); err != nil {
+		return err
+	}
+	if !b.ArrivalAt.After(b.AirborneSensedAt) {
+		return invalid("baseline arrival must be after airborne sensed at")
+	}
+	if err := requireUTCTime("baseline flight plan observed at", b.FlightPlanObservedAt); err != nil {
+		return err
+	}
+	if !b.Source.Valid() || !b.Source.holdsAirborneBaseline() || !b.Confidence.Valid() {
+		return invalid("baseline provenance is invalid")
+	}
+	if strings.TrimSpace(b.ModelVersion) == "" || strings.TrimSpace(b.ConfigVersion) == "" {
+		return invalid("baseline model and config versions are required")
+	}
+	switch b.Source {
+	case BaselineSourceAirborneFiledEET:
+		if b.DegradationReason != nil || b.SpeedDefaultsVersion != "" {
+			return invalid("filed airborne baseline must not claim degradation or speed defaults")
+		}
+	case BaselineSourceAirborneAPIEstimatedFlightTime:
+		if b.DegradationReason == nil || *b.DegradationReason != BaselineDegradationFiledEETMissingAPIUsed || b.SpeedDefaultsVersion != "" {
+			return invalid("API airborne baseline provenance is invalid")
+		}
+	case BaselineSourceAirborneGreatCircle:
+		if b.DegradationReason == nil || *b.DegradationReason != BaselineDegradationGreatCircleUsed || strings.TrimSpace(b.SpeedDefaultsVersion) == "" {
+			return invalid("great-circle airborne baseline provenance is invalid")
+		}
+	}
+	return nil
+}
+
+func (s BaselineSource) holdsAirborneBaseline() bool {
+	return s == BaselineSourceAirborneFiledEET ||
+		s == BaselineSourceAirborneAPIEstimatedFlightTime ||
+		s == BaselineSourceAirborneGreatCircle
+}
+
 func (f AMANFlight) Validate() error {
 	if strings.TrimSpace(string(f.ID)) == "" {
 		return invalid("flight ID is required")
@@ -396,6 +506,11 @@ func (f AMANFlight) Validate() error {
 	}
 	if f.Prediction != nil {
 		if err := f.Prediction.Validate(); err != nil {
+			return err
+		}
+	}
+	if f.ArrivalBaseline != nil {
+		if err := f.ArrivalBaseline.Validate(); err != nil {
 			return err
 		}
 	}

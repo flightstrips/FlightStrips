@@ -193,6 +193,36 @@ func (r *navigationCache) ActiveVersion(ctx context.Context, airport navdata.Air
 	}
 	return v, nil
 }
+
+func (r *navigationCache) ActiveManifest(ctx context.Context, airport navdata.AirportID) (navdata.ActiveManifest, error) {
+	var result navdata.ActiveManifest
+	var digests []byte
+	err := r.pool.QueryRow(ctx, `SELECT m.revision,m.cycle,m.source_revision,m.effective_from,m.effective_until,m.airport_digest,m.procedure_digests,m.fix_digest,COALESCE(m.terminal_digest,'') FROM aman_nav_active_manifests a JOIN aman_nav_manifests m ON m.manifest_id=a.manifest_id WHERE a.airport=$1`, airport).Scan(&result.Revision, &result.Candidate.Version.Cycle, &result.Candidate.Version.SourceRevision, &result.Candidate.Version.EffectiveFrom, &result.Candidate.Version.EffectiveUntil, &result.Candidate.AirportDigest, &digests, &result.Candidate.FixDigest, &result.Candidate.TerminalDigest)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return result, cacheNotFound("active manifest was not found")
+	}
+	if err != nil {
+		return result, err
+	}
+	result.Candidate.Airport = airport
+	result.Candidate.ExpectedRevision = result.Revision
+	result.Candidate.Version.EffectiveFrom = result.Candidate.Version.EffectiveFrom.UTC()
+	result.Candidate.Version.EffectiveUntil = result.Candidate.Version.EffectiveUntil.UTC()
+	if err := json.Unmarshal(digests, &result.Candidate.ProcedureDigests); err != nil {
+		return result, cacheCorrupt("decode active manifest procedure digests")
+	}
+	for _, digest := range result.Candidate.ProcedureDigests {
+		fragment, err := loadProcedureFragment(ctx, r.pool, digest)
+		if err != nil {
+			return result, err
+		}
+		result.Procedures = append(result.Procedures, navdata.ActiveProcedureFragment{Kind: fragment.Kind, Digest: digest, Procedures: fragment.Procedures})
+	}
+	if err := r.validateManifest(ctx, r.pool, result.Candidate); err != nil {
+		return result, err
+	}
+	return result, nil
+}
 func (r *navigationCache) Route(ctx context.Context, key navdata.RouteKey) (navdata.RouteGeometry, error) {
 	var queryJSON, payload []byte
 	var resolver, schema string
@@ -285,7 +315,7 @@ func (r *navigationCache) ActiveTerminalReferences(ctx context.Context, airport 
 	}
 	for _, digest := range digests {
 		fragment, err := loadProcedureFragment(ctx, r.pool, digest)
-		if err != nil || fragment.State != navdata.ValidationValidated || fragment.Coverage != navdata.CoverageComplete || !fragment.Version.Equal(result.Version) {
+		if err != nil || fragment.State != navdata.ValidationValidated || fragment.Coverage == navdata.CoverageUnavailable || !fragment.Version.Equal(result.Version) {
 			return terminal.ReferenceSet{}, cacheCorrupt("active terminal procedure fragment is invalid")
 		}
 		result.Procedures = append(result.Procedures, fragment.Procedures...)
@@ -319,15 +349,15 @@ func (r *navigationCache) PruneNavigationCache(ctx context.Context, airport navd
 	return tx.Commit(ctx)
 }
 
-func (r *navigationCache) validateManifest(ctx context.Context, tx pgx.Tx, m navdata.ManifestCandidate) error {
-	airport, err := loadAirportFragment(ctx, tx, m.AirportDigest)
+func (r *navigationCache) validateManifest(ctx context.Context, db rowQuerier, m navdata.ManifestCandidate) error {
+	airport, err := loadAirportFragment(ctx, db, m.AirportDigest)
 	if err != nil {
 		return err
 	}
 	if airport.State != navdata.ValidationValidated || airport.Airport.ID != m.Airport || !airport.Version.Equal(m.Version) {
 		return cacheCorrupt("manifest airport fragment is not validated or does not match")
 	}
-	fixes, err := loadFixFragment(ctx, tx, m.FixDigest)
+	fixes, err := loadFixFragment(ctx, db, m.FixDigest)
 	if err != nil {
 		return err
 	}
@@ -345,11 +375,11 @@ func (r *navigationCache) validateManifest(ctx context.Context, tx pgx.Tx, m nav
 	holdings := map[navdata.HoldingID]string{}
 	procedureKinds := map[navdata.ProcedureKind]struct{}{}
 	for _, digest := range m.ProcedureDigests {
-		fragment, err := loadProcedureFragment(ctx, tx, digest)
+		fragment, err := loadProcedureFragment(ctx, db, digest)
 		if err != nil {
 			return err
 		}
-		if fragment.State != navdata.ValidationValidated || fragment.Coverage != navdata.CoverageComplete || fragment.Airport != m.Airport || !fragment.Version.Equal(m.Version) {
+		if fragment.State != navdata.ValidationValidated || fragment.Coverage == navdata.CoverageUnavailable || fragment.Airport != m.Airport || !fragment.Version.Equal(m.Version) {
 			return cacheCorrupt("manifest procedure fragment is not validated or does not match")
 		}
 		if _, found := procedureKinds[fragment.Kind]; found {
@@ -386,7 +416,7 @@ func (r *navigationCache) validateManifest(ctx context.Context, tx pgx.Tx, m nav
 		}
 	}
 	if m.TerminalDigest != "" {
-		terminal, err := loadTerminalFragment(ctx, tx, m.TerminalDigest)
+		terminal, err := loadTerminalFragment(ctx, db, m.TerminalDigest)
 		if err != nil {
 			return err
 		}
@@ -594,6 +624,7 @@ func isUniqueViolation(err error) bool {
 var (
 	_ navdata.NavigationCandidateWriter   = (*navigationCache)(nil)
 	_ navdata.NavigationManifestActivator = (*navigationCache)(nil)
+	_ navdata.ActiveManifestReader        = (*navigationCache)(nil)
 	_ navdata.GeometryReader              = (*navigationCache)(nil)
 	_ terminal.ReferenceReader            = (*navigationCache)(nil)
 	_ aman.Component                      = (*navigationCache)(nil)

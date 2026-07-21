@@ -167,7 +167,7 @@ func TestNavigationCacheRejectsCorruptCandidateWithoutReplacingActiveManifest(t 
 	require.NoError(t, err, "a corrupt route must not damage the manifest")
 }
 
-func TestNavigationCacheStoresPartialDiagnosticsButRejectsPartialActivation(t *testing.T) {
+func TestNavigationCacheStoresPartialDiagnosticsAndActivatesPartialProcedureCoverage(t *testing.T) {
 	pool, _ := testdata.SetupTestDB(t)
 	ctx := context.Background()
 	data := fixture.EKCH()
@@ -182,9 +182,9 @@ func TestNavigationCacheStoresPartialDiagnosticsButRejectsPartialActivation(t *t
 	require.NoError(t, err, "incomplete source data remains available for diagnostics")
 	badProcedure := active
 	badProcedure.ExpectedRevision = 1
-	badProcedure.ProcedureDigests = append(badProcedure.ProcedureDigests, procedureDigest)
+	badProcedure.ProcedureDigests[2] = procedureDigest
 	_, err = repo.ActivateManifest(ctx, badProcedure)
-	requireDomainErrorClass(t, err, aman.ErrorCorruptData)
+	require.NoError(t, err, "partial procedure coverage remains explicit but does not block unrelated terminal paths")
 
 	partialFix := newFixFragment(t, data)
 	partialFix.Coverage = navdata.CoveragePartial
@@ -192,7 +192,7 @@ func TestNavigationCacheStoresPartialDiagnosticsButRejectsPartialActivation(t *t
 	fixDigest, err := repo.PutFixFragment(ctx, partialFix)
 	require.NoError(t, err)
 	badFix := active
-	badFix.ExpectedRevision = 1
+	badFix.ExpectedRevision = 2
 	badFix.FixDigest = fixDigest
 	_, err = repo.ActivateManifest(ctx, badFix)
 	requireDomainErrorClass(t, err, aman.ErrorCorruptData)
@@ -401,9 +401,7 @@ func writeNavigationFixture(t *testing.T, ctx context.Context, repo *navigationC
 		candidate := newProcedureFragment(t, data, kind, fragment.Procedures)
 		digest, err := repo.PutProcedureFragment(ctx, candidate)
 		require.NoError(t, err)
-		if candidate.Coverage == navdata.CoverageComplete {
-			digests = append(digests, digest)
-		}
+		digests = append(digests, digest)
 	}
 	terminal := newTerminalFragment(t, data)
 	terminalDigest, err := repo.PutTerminalFragment(ctx, terminal)

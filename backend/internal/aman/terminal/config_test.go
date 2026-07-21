@@ -1,6 +1,7 @@
 package terminal
 
 import (
+	"context"
 	"errors"
 	"os"
 	"path/filepath"
@@ -60,6 +61,19 @@ func TestGoldenEKCHConfigurationMatchesIndependentOfficialContent(t *testing.T) 
 		require.NotNil(t, actual.Threshold.CourseTrueDeg, runway)
 		require.Equal(t, want.course, *actual.Threshold.CourseTrueDeg, runway)
 	}
+
+	runways, err := config.Runways(context.Background(), navdata.DatasetVersion{Cycle: config.Dataset.Cycle, SourceRevision: "test", EffectiveFrom: config.Dataset.EffectiveFrom, EffectiveUntil: config.Dataset.EffectiveUntil}, "EKCH")
+	require.NoError(t, err)
+	lengths := map[navdata.RunwayID]float64{}
+	for _, runway := range runways {
+		lengths[runway.ID] = runway.LengthNM * 1852
+	}
+	require.Equal(t, 3001.0, lengths["04L"])
+	require.Equal(t, 3302.0, lengths["04R"])
+	require.Equal(t, 3302.0, lengths["22L"])
+	require.Equal(t, 3571.0, lengths["22R"])
+	require.Equal(t, 2800.0, lengths["12"])
+	require.Equal(t, 2365.0, lengths["30"])
 
 	wantHoldings := map[navdata.HoldingID]struct {
 		fix     navdata.FixID

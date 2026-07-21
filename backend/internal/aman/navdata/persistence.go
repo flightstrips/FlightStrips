@@ -191,6 +191,25 @@ type NavigationManifestActivator interface {
 	PruneNavigationCache(context.Context, AirportID) error
 }
 
+// ActiveManifestReader exposes the current complete manifest only to
+// materializers. Runtime consumers remain on GeometryReader and cannot reach
+// source acquisition or mutable candidate state.
+type ActiveManifestReader interface {
+	ActiveManifest(context.Context, AirportID) (ActiveManifest, error)
+}
+
+type ActiveManifest struct {
+	Candidate  ManifestCandidate
+	Revision   int64
+	Procedures []ActiveProcedureFragment
+}
+
+type ActiveProcedureFragment struct {
+	Kind       ProcedureKind
+	Digest     string
+	Procedures []Procedure
+}
+
 func (f CandidateAirportFragment) Validate() error {
 	if err := validateFragment(f.SchemaVersion, f.Version, f.Provenance, f.ImportedAt, f.ValidatedAt, f.State, f.Digest, f.payload()); err != nil {
 		return err
@@ -206,9 +225,10 @@ func (f CandidateAirportFragment) Validate() error {
 		if err := runway.Validate(); err != nil {
 			return err
 		}
-		if runway.Provenance != f.Provenance {
-			return invalid("airport fragment runway provenance is inconsistent")
-		}
+		// Airport reference metadata and physical threshold geometry may come
+		// from separate authoritative publications. Their individual immutable
+		// provenance is retained in the canonical payload and bound by this
+		// fragment digest; forcing a shared source would fabricate one of them.
 		if runway.Airport != f.Airport.ID {
 			return invalid("runway is not owned by fragment airport")
 		}

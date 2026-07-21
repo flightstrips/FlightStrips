@@ -43,6 +43,42 @@ func TestNavigationCachePersistsCompleteManifestAndWarmRoute(t *testing.T) {
 	require.Equal(t, route.Geometry, warm)
 }
 
+func TestNavigationCacheReadsManifestConsistentTerminalReferences(t *testing.T) {
+	pool, _ := testdata.SetupTestDB(t)
+	ctx := context.Background()
+	data := fixture.EKCH()
+	repo := NewNavigationCache(pool)
+	manifest, _ := writeNavigationFixture(t, ctx, repo, data)
+	_, err := repo.ActivateManifest(ctx, manifest)
+	require.NoError(t, err)
+	references, err := repo.ActiveTerminalReferences(ctx, "EKCH")
+	require.NoError(t, err)
+	require.True(t, references.Version.Equal(data.Version))
+	require.Equal(t, navdata.AirportID("EKCH"), references.Airport.ID)
+	require.NotEmpty(t, references.Runways)
+	require.NotEmpty(t, references.Fixes)
+	require.NotEmpty(t, references.Procedures)
+}
+
+func TestNavigationCacheActivatesOfficialTerminalHoldingFallback(t *testing.T) {
+	pool, _ := testdata.SetupTestDB(t)
+	ctx := context.Background()
+	data := fixture.EKCH()
+	repo := NewNavigationCache(pool)
+	manifest, _ := writeNavigationFixture(t, ctx, repo, data)
+	terminal := newTerminalFragment(t, data)
+	overlay := data.Procedures[1].Holdings[0]
+	overlay.ID = "SOK-HF-AIP"
+	terminal.Holdings = []navdata.HoldingPattern{overlay}
+	terminal.Paths[0].HoldingIDs = []navdata.HoldingID{overlay.ID}
+	terminal.Digest = digestTerminalFragment(t, terminal)
+	digest, err := repo.PutTerminalFragment(ctx, terminal)
+	require.NoError(t, err)
+	manifest.TerminalDigest = digest
+	_, err = repo.ActivateManifest(ctx, manifest)
+	require.NoError(t, err)
+}
+
 func TestNavigationCachePromotesCandidateFragmentWithoutChangingRevision(t *testing.T) {
 	pool, _ := testdata.SetupTestDB(t)
 	ctx := context.Background()
@@ -465,7 +501,8 @@ func newTerminalFragment(t *testing.T, data fixture.Dataset) navdata.CandidateTe
 		Airport       navdata.AirportID
 		ConfigVersion string
 		Paths         []navdata.TerminalPath
-	}{"EKCH", "fixture-config-v1", data.TerminalPaths})
+		Holdings      []navdata.HoldingPattern
+	}{"EKCH", "fixture-config-v1", data.TerminalPaths, nil})
 	require.NoError(t, err)
 	return navdata.CandidateTerminalFragment{SchemaVersion: navdata.CanonicalSchemaVersion, Version: data.Version, Airport: "EKCH", ConfigVersion: "fixture-config-v1", Paths: data.TerminalPaths, Provenance: data.Provenance, ImportedAt: data.Provenance.ImportedAt, ValidatedAt: &validated, State: navdata.ValidationValidated, Digest: digest}
 }
@@ -475,7 +512,8 @@ func digestTerminalFragment(t *testing.T, fragment navdata.CandidateTerminalFrag
 		Airport       navdata.AirportID
 		ConfigVersion string
 		Paths         []navdata.TerminalPath
-	}{fragment.Airport, fragment.ConfigVersion, fragment.Paths})
+		Holdings      []navdata.HoldingPattern
+	}{fragment.Airport, fragment.ConfigVersion, fragment.Paths, fragment.Holdings})
 	require.NoError(t, err)
 	return digest
 }

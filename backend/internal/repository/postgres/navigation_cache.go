@@ -9,6 +9,7 @@ import (
 
 	"FlightStrips/internal/aman"
 	"FlightStrips/internal/aman/navdata"
+	"FlightStrips/internal/aman/terminal"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -78,7 +79,8 @@ func (r *navigationCache) PutTerminalFragment(ctx context.Context, value navdata
 		Airport       navdata.AirportID
 		ConfigVersion string
 		Paths         []navdata.TerminalPath
-	}{value.Airport, value.ConfigVersion, value.Paths})
+		Holdings      []navdata.HoldingPattern
+	}{value.Airport, value.ConfigVersion, value.Paths, value.Holdings})
 	if err != nil {
 		return "", err
 	}
@@ -248,6 +250,49 @@ func (r *navigationCache) TerminalPath(ctx context.Context, airport navdata.Airp
 	return navdata.TerminalPath{}, cacheNotFound("terminal path was not found")
 }
 
+// ActiveTerminalReferences supplies the small manifest-consistent cache view
+// required by terminal configuration validation. It cannot acquire data.
+func (r *navigationCache) ActiveTerminalReferences(ctx context.Context, airport navdata.AirportID) (terminal.ReferenceSet, error) {
+	var result terminal.ReferenceSet
+	var airportDigest, fixDigest string
+	var procedureDigests []byte
+	err := r.pool.QueryRow(ctx, `SELECT m.cycle,m.source_revision,m.effective_from,m.effective_until,m.airport_digest,m.fix_digest,m.procedure_digests FROM aman_nav_active_manifests a JOIN aman_nav_manifests m ON m.manifest_id=a.manifest_id WHERE a.airport=$1`, airport).Scan(&result.Version.Cycle, &result.Version.SourceRevision, &result.Version.EffectiveFrom, &result.Version.EffectiveUntil, &airportDigest, &fixDigest, &procedureDigests)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return result, cacheNotFound("active terminal references were not found")
+	}
+	if err != nil {
+		return result, err
+	}
+	result.Version.EffectiveFrom = result.Version.EffectiveFrom.UTC()
+	result.Version.EffectiveUntil = result.Version.EffectiveUntil.UTC()
+	if err := result.Version.Validate(); err != nil {
+		return terminal.ReferenceSet{}, cacheCorrupt("active terminal reference version is invalid")
+	}
+	airportFragment, err := loadAirportFragment(ctx, r.pool, airportDigest)
+	if err != nil || airportFragment.State != navdata.ValidationValidated || !airportFragment.Version.Equal(result.Version) {
+		return terminal.ReferenceSet{}, cacheCorrupt("active terminal airport fragment is invalid")
+	}
+	result.Airport = airportFragment.Airport
+	result.Runways = airportFragment.Runways
+	fixFragment, err := loadFixFragment(ctx, r.pool, fixDigest)
+	if err != nil || fixFragment.State != navdata.ValidationValidated || fixFragment.Coverage != navdata.CoverageComplete || !fixFragment.Version.Equal(result.Version) {
+		return terminal.ReferenceSet{}, cacheCorrupt("active terminal fix fragment is invalid")
+	}
+	result.Fixes = fixFragment.Fixes
+	var digests []string
+	if err := json.Unmarshal(procedureDigests, &digests); err != nil {
+		return terminal.ReferenceSet{}, cacheCorrupt("decode terminal procedure digests")
+	}
+	for _, digest := range digests {
+		fragment, err := loadProcedureFragment(ctx, r.pool, digest)
+		if err != nil || fragment.State != navdata.ValidationValidated || fragment.Coverage != navdata.CoverageComplete || !fragment.Version.Equal(result.Version) {
+			return terminal.ReferenceSet{}, cacheCorrupt("active terminal procedure fragment is invalid")
+		}
+		result.Procedures = append(result.Procedures, fragment.Procedures...)
+	}
+	return result, nil
+}
+
 func (r *navigationCache) PruneNavigationCache(ctx context.Context, airport navdata.AirportID) error {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
@@ -352,17 +397,32 @@ func (r *navigationCache) validateManifest(ctx context.Context, tx pgx.Tx, m nav
 			if path.Coverage != navdata.CoverageComplete {
 				return cacheCorrupt("terminal path is incomplete")
 			}
-			for _, holding := range path.HoldingIDs {
-				if _, found := holdings[holding]; !found {
-					return cacheCorrupt("terminal path references missing holding")
-				}
-			}
 			for _, leg := range path.Legs {
 				if leg.FromFix != nil && !fixSet[*leg.FromFix] {
 					return cacheCorrupt("terminal path references missing from fix")
 				}
 				if leg.ToFix != nil && !fixSet[*leg.ToFix] {
 					return cacheCorrupt("terminal path references missing to fix")
+				}
+			}
+		}
+		for _, holding := range terminal.Holdings {
+			if !fixSet[holding.Fix] {
+				return cacheCorrupt("terminal holding references missing fix")
+			}
+			holdingDigest, err := navdata.HoldingDigest(holding)
+			if err != nil {
+				return cacheCorrupt("calculate terminal holding digest")
+			}
+			if previous, found := holdings[holding.ID]; found && previous != holdingDigest {
+				return cacheCorrupt("terminal holding ID conflicts with canonical definition")
+			}
+			holdings[holding.ID] = holdingDigest
+		}
+		for _, path := range terminal.Paths {
+			for _, holding := range path.HoldingIDs {
+				if _, found := holdings[holding]; !found {
+					return cacheCorrupt("terminal path references missing selected holding")
 				}
 			}
 		}
@@ -497,6 +557,7 @@ func loadTerminalFragment(ctx context.Context, db rowQuerier, digest string) (na
 		Airport       navdata.AirportID
 		ConfigVersion string
 		Paths         []navdata.TerminalPath
+		Holdings      []navdata.HoldingPattern
 	}
 	if err := json.Unmarshal(payload, &body); err != nil {
 		return value, cacheCorrupt("decode terminal fragment")
@@ -504,6 +565,7 @@ func loadTerminalFragment(ctx context.Context, db rowQuerier, digest string) (na
 	value.Airport = body.Airport
 	value.ConfigVersion = body.ConfigVersion
 	value.Paths = body.Paths
+	value.Holdings = body.Holdings
 	value.Version.EffectiveFrom = value.Version.EffectiveFrom.UTC()
 	value.Version.EffectiveUntil = value.Version.EffectiveUntil.UTC()
 	value.ImportedAt = value.ImportedAt.UTC()
@@ -533,5 +595,6 @@ var (
 	_ navdata.NavigationCandidateWriter   = (*navigationCache)(nil)
 	_ navdata.NavigationManifestActivator = (*navigationCache)(nil)
 	_ navdata.GeometryReader              = (*navigationCache)(nil)
+	_ terminal.ReferenceReader            = (*navigationCache)(nil)
 	_ aman.Component                      = (*navigationCache)(nil)
 )

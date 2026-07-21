@@ -1,0 +1,65 @@
+{
+  "schemaVersion": "aman-terminal/v1",
+  "configVersion": "EKCH-AIP-2607-V1",
+  "airport": "EKCH",
+  "applicabilityFrom": "2026-07-09T00:00:00Z",
+  "applicabilityUntil": "2026-08-06T00:00:00Z",
+  "dataset": { "cycle": "2607", "effectiveFrom": "2026-07-09T00:00:00Z", "effectiveUntil": "2026-08-06T00:00:00Z" },
+  "sources": [
+    { "id": "NAVIAIR-AIP-DK", "document": "Naviair official tree API getsearch (09 JUL 2026): current EKCH RNAV STAR chart-1 for RWY 04, 12, 22 and 30", "effectiveFrom": "2026-07-09T00:00:00Z", "effectiveUntil": "2026-08-06T00:00:00Z" },
+    { "id": "NAVIAIR-AIP-DK", "document": "AD 2 EKCH-17, AIRAC AMDT 12/25 (27 NOV 2025), sections 1.1 and 1.5 primary holdings; published holding name OLPIB uses facility/fix OLPIB", "effectiveFrom": "2025-11-27T00:00:00Z", "effectiveUntil": "2026-08-06T00:00:00Z" },
+    { "id": "NAVIAIR-AIP-DK", "document": "EK_AD_2_EKCH_ADC_en, AIRAC AMDT 02/26 (19 FEB 2026), runway threshold positions and GEO courses", "effectiveFrom": "2026-02-19T00:00:00Z", "effectiveUntil": "2026-08-06T00:00:00Z" },
+    { "id": "NAVIAIR-AIP-DK", "document": "EKCH RNAV STAR tabular charts: RWY 12-2/3 AIRAC AMDT 12/25 and 12/24; RWY 30-2/3 AIRAC AMDT 12/25 and 12/24; RWY 04/22 retained official tabular descriptions", "effectiveFrom": "2025-11-27T00:00:00Z", "effectiveUntil": "2026-08-06T00:00:00Z" }
+  ],
+  "runwayGroups": [
+    { "id": "ARRIVAL-04", "aliases": ["04", "04L", "04R"], "runways": ["04L", "04R"], "finalApproaches": [
+      { "runway": "04L", "threshold": { "position": { "latitudeDeg": 55.5922, "longitudeDeg": 12.6035361111 }, "courseTrueDeg": 41.2 }, "courseTrueDeg": 41.2, "provenance": { "sourceId": "NAVIAIR-AIP-DK", "sourceRevision": "EK_AD_2_EKCH_ADC_A-02-26", "importedAt": "2026-07-18T00:00:00Z", "effectiveFrom": "2026-02-19T00:00:00Z", "effectiveUntil": "2026-08-06T00:00:00Z" } },
+      { "runway": "04R", "threshold": { "position": { "latitudeDeg": 55.6031, "longitudeDeg": 12.6330472222 }, "courseTrueDeg": 41.2 }, "courseTrueDeg": 41.2, "provenance": { "sourceId": "NAVIAIR-AIP-DK", "sourceRevision": "EK_AD_2_EKCH_ADC_A-02-26", "importedAt": "2026-07-18T00:00:00Z", "effectiveFrom": "2026-02-19T00:00:00Z", "effectiveUntil": "2026-08-06T00:00:00Z" } }
+    ] },
+    { "id": "ARRIVAL-22", "aliases": ["22", "22L", "22R"], "runways": ["22L", "22R"], "finalApproaches": [
+      { "runway": "22L", "threshold": { "position": { "latitudeDeg": 55.6254111111, "longitudeDeg": 12.6675805556 }, "courseTrueDeg": 221.2 }, "courseTrueDeg": 221.2, "provenance": { "sourceId": "NAVIAIR-AIP-DK", "sourceRevision": "EK_AD_2_EKCH_ADC_A-02-26", "importedAt": "2026-07-18T00:00:00Z", "effectiveFrom": "2026-02-19T00:00:00Z", "effectiveUntil": "2026-08-06T00:00:00Z" } },
+      { "runway": "22R", "threshold": { "position": { "latitudeDeg": 55.6124777778, "longitudeDeg": 12.6348916667 }, "courseTrueDeg": 221.2 }, "courseTrueDeg": 221.2, "provenance": { "sourceId": "NAVIAIR-AIP-DK", "sourceRevision": "EK_AD_2_EKCH_ADC_A-02-26", "importedAt": "2026-07-18T00:00:00Z", "effectiveFrom": "2026-02-19T00:00:00Z", "effectiveUntil": "2026-08-06T00:00:00Z" } }
+    ] },
+    { "id": "ARRIVAL-12", "aliases": ["12"], "runways": ["12"], "finalApproaches": [
+      { "runway": "12", "threshold": { "position": { "latitudeDeg": 55.62415, "longitudeDeg": 12.6391166667 }, "courseTrueDeg": 123.2 }, "courseTrueDeg": 123.2, "provenance": { "sourceId": "NAVIAIR-AIP-DK", "sourceRevision": "EK_AD_2_EKCH_ADC_A-02-26", "importedAt": "2026-07-18T00:00:00Z", "effectiveFrom": "2026-02-19T00:00:00Z", "effectiveUntil": "2026-08-06T00:00:00Z" } }
+    ] },
+    { "id": "ARRIVAL-30", "aliases": ["30"], "runways": ["30"], "finalApproaches": [
+      { "runway": "30", "threshold": { "position": { "latitudeDeg": 55.6138527778, "longitudeDeg": 12.6669472222 }, "courseTrueDeg": 303.2 }, "courseTrueDeg": 303.2, "provenance": { "sourceId": "NAVIAIR-AIP-DK", "sourceRevision": "EK_AD_2_EKCH_ADC_A-02-26", "importedAt": "2026-07-18T00:00:00Z", "effectiveFrom": "2026-02-19T00:00:00Z", "effectiveUntil": "2026-08-06T00:00:00Z" } }
+    ] }
+  ],
+  "feeders": [
+    { "id": "TESPI", "aliases": [] }, { "id": "TUDLO", "aliases": [] }, { "id": "MONAK", "aliases": [] }, { "id": "TIDVU", "aliases": [] }, { "id": "ERNOV", "aliases": [] }
+  ],
+  "fixAliases": [
+    { "alias": "CDA", "canonical": "OLPIB", "source": { "id": "NAVIAIR-AIP-DK", "document": "EK AD 2 EKCH RNAV STAR RWY 12-3, AIRAC AMDT 12/24: WPT CDA withdrawn and WPT OLPIB added at the legacy holding location", "effectiveFrom": "2024-11-28T00:00:00Z", "effectiveUntil": "2026-08-06T00:00:00Z" } }
+  ],
+  "overlayHoldings": [
+    { "id": "EKCH-TIDVU-PRIMARY-LOW", "fix": "TIDVU", "inboundCourseTrueDeg": 298, "turnDirection": "right", "legTimeSeconds": 90, "minimumAltitudeFt": 5000, "maximumSpeedKt": 230, "termination": "manual", "provenance": { "sourceId": "NAVIAIR-AIP-DK", "sourceRevision": "AD2-EKCH-17-AMDT-12-25", "importedAt": "2026-07-18T00:00:00Z", "effectiveFrom": "2025-11-27T00:00:00Z", "effectiveUntil": "2026-08-06T00:00:00Z" } },
+    { "id": "EKCH-OLPIB-PRIMARY-LOW", "fix": "OLPIB", "inboundCourseTrueDeg": 34, "turnDirection": "right", "legTimeSeconds": 60, "minimumAltitudeFt": 3500, "maximumAltitudeFt": 14000, "maximumSpeedKt": 230, "termination": "manual", "provenance": { "sourceId": "NAVIAIR-AIP-DK", "sourceRevision": "AD2-EKCH-17-AMDT-12-25", "importedAt": "2026-07-18T00:00:00Z", "effectiveFrom": "2025-11-27T00:00:00Z", "effectiveUntil": "2026-08-06T00:00:00Z" } },
+    { "id": "EKCH-LUGAS-PRIMARY-LOW", "fix": "LUGAS", "inboundCourseTrueDeg": 77, "turnDirection": "left", "legTimeSeconds": 60, "minimumAltitudeFt": 3500, "maximumAltitudeFt": 14000, "maximumSpeedKt": 230, "termination": "manual", "provenance": { "sourceId": "NAVIAIR-AIP-DK", "sourceRevision": "AD2-EKCH-17-AMDT-12-25", "importedAt": "2026-07-18T00:00:00Z", "effectiveFrom": "2025-11-27T00:00:00Z", "effectiveUntil": "2026-08-06T00:00:00Z" } },
+    { "id": "EKCH-ROSBI-PRIMARY-LOW", "fix": "ROSBI", "inboundCourseTrueDeg": 107, "turnDirection": "left", "legTimeSeconds": 60, "minimumAltitudeFt": 3500, "maximumAltitudeFt": 14000, "maximumSpeedKt": 230, "termination": "manual", "provenance": { "sourceId": "NAVIAIR-AIP-DK", "sourceRevision": "AD2-EKCH-17-AMDT-12-25", "importedAt": "2026-07-18T00:00:00Z", "effectiveFrom": "2025-11-27T00:00:00Z", "effectiveUntil": "2026-08-06T00:00:00Z" } },
+    { "id": "EKCH-ERNOV-PRIMARY", "fix": "ERNOV", "inboundCourseTrueDeg": 183, "turnDirection": "left", "legTimeSeconds": 90, "minimumAltitudeFt": 10000, "maximumSpeedKt": 230, "termination": "manual", "provenance": { "sourceId": "NAVIAIR-AIP-DK", "sourceRevision": "AD2-EKCH-17-AMDT-12-25", "importedAt": "2026-07-18T00:00:00Z", "effectiveFrom": "2025-11-27T00:00:00Z", "effectiveUntil": "2026-08-06T00:00:00Z" } }
+  ],
+  "paths": [
+    { "feeder": "TESPI", "runwayGroup": "ARRIVAL-04", "fixes": ["TESPI","ROSBI","TNO","CH750","CH742","CH734","CH727","ERPUK"], "mergeFix": "ERPUK", "selectedHolding": "EKCH-ROSBI-PRIMARY-LOW" },
+    { "feeder": "TUDLO", "runwayGroup": "ARRIVAL-04", "fixes": ["TUDLO","LUGAS","KOR","CH751","CH740","CH734","CH727","ERPUK"], "mergeFix": "ERPUK", "selectedHolding": "EKCH-LUGAS-PRIMARY-LOW" },
+    { "feeder": "MONAK", "runwayGroup": "ARRIVAL-04", "fixes": ["MONAK","OLPIB","NEKSO","CH731","CH724","DOPEM"], "mergeFix": "DOPEM", "selectedHolding": "EKCH-OLPIB-PRIMARY-LOW" },
+    { "feeder": "TIDVU", "runwayGroup": "ARRIVAL-04", "fixes": ["TIDVU","ESJAH","CH743","CH737","CH731","CH724","DOPEM"], "mergeFix": "DOPEM", "selectedHolding": "EKCH-TIDVU-PRIMARY-LOW" },
+    { "feeder": "ERNOV", "runwayGroup": "ARRIVAL-04", "fixes": ["ERNOV","CH744","CH727","ERPUK"], "mergeFix": "ERPUK", "selectedHolding": "EKCH-ERNOV-PRIMARY" },
+    { "feeder": "TESPI", "runwayGroup": "ARRIVAL-22", "fixes": ["TESPI","ROSBI","TNO","CH653","CH645","CH638","CH631","CH626","ABEGI"], "mergeFix": "ABEGI", "selectedHolding": "EKCH-ROSBI-PRIMARY-LOW" },
+    { "feeder": "TUDLO", "runwayGroup": "ARRIVAL-22", "fixes": ["TUDLO","LUGAS","KOR","CH654","CH645","CH638","CH631","CH626","ABEGI"], "mergeFix": "ABEGI", "selectedHolding": "EKCH-LUGAS-PRIMARY-LOW" },
+    { "feeder": "MONAK", "runwayGroup": "ARRIVAL-22", "fixes": ["MONAK","OLPIB","NEKSO","CH643","CH636","CH630","CH625","ADOVI"], "mergeFix": "ADOVI", "selectedHolding": "EKCH-OLPIB-PRIMARY-LOW" },
+    { "feeder": "TIDVU", "runwayGroup": "ARRIVAL-22", "fixes": ["TIDVU","ESJAH","CH641","CH636","CH630","CH625","ADOVI"], "mergeFix": "ADOVI", "selectedHolding": "EKCH-TIDVU-PRIMARY-LOW" },
+    { "feeder": "ERNOV", "runwayGroup": "ARRIVAL-22", "fixes": ["ERNOV","CH632","ABEGI"], "mergeFix": "ABEGI", "selectedHolding": "EKCH-ERNOV-PRIMARY" },
+    { "feeder": "TESPI", "runwayGroup": "ARRIVAL-12", "fixes": ["TESPI","ROSBI","TNO","CH553","CH542","CH533","CH525","AGTIC"], "mergeFix": "AGTIC", "selectedHolding": "EKCH-ROSBI-PRIMARY-LOW" },
+    { "feeder": "TUDLO", "runwayGroup": "ARRIVAL-12", "fixes": ["TUDLO","LUGAS","KOR","CH543","CH533","CH525","AGTIC"], "mergeFix": "AGTIC", "selectedHolding": "EKCH-LUGAS-PRIMARY-LOW" },
+    { "feeder": "MONAK", "runwayGroup": "ARRIVAL-12", "fixes": ["MONAK","OLPIB","NEKSO","CH546","CH530","CH525","AGTIC"], "mergeFix": "AGTIC", "selectedHolding": "EKCH-OLPIB-PRIMARY-LOW" },
+    { "feeder": "TIDVU", "runwayGroup": "ARRIVAL-12", "fixes": ["TIDVU","WUPJA","CH545","CH535","CH524","FEDJO"], "mergeFix": "FEDJO", "selectedHolding": "EKCH-TIDVU-PRIMARY-LOW" },
+    { "feeder": "ERNOV", "runwayGroup": "ARRIVAL-12", "fixes": ["ERNOV","CH532","CH524","FEDJO"], "mergeFix": "FEDJO", "selectedHolding": "EKCH-ERNOV-PRIMARY" },
+    { "feeder": "TESPI", "runwayGroup": "ARRIVAL-30", "fixes": ["TESPI","ROSBI","TNO","CH969","CH949","CH941","CH932","CH925","HOFFO"], "mergeFix": "HOFFO", "selectedHolding": "EKCH-ROSBI-PRIMARY-LOW" },
+    { "feeder": "TUDLO", "runwayGroup": "ARRIVAL-30", "fixes": ["TUDLO","LUGAS","KOR","CH947","CH930","COPHO"], "mergeFix": "COPHO", "selectedHolding": "EKCH-LUGAS-PRIMARY-LOW" },
+    { "feeder": "MONAK", "runwayGroup": "ARRIVAL-30", "fixes": ["MONAK","OLPIB","KUBIS","CH930","COPHO"], "mergeFix": "COPHO", "selectedHolding": "EKCH-OLPIB-PRIMARY-LOW" },
+    { "feeder": "TIDVU", "runwayGroup": "ARRIVAL-30", "fixes": ["TIDVU","WUPJA","CH940","CH932","CH925","HOFFO"], "mergeFix": "HOFFO", "selectedHolding": "EKCH-TIDVU-PRIMARY-LOW" },
+    { "feeder": "ERNOV", "runwayGroup": "ARRIVAL-30", "fixes": ["ERNOV","CH956","CH949","CH941","CH932","CH925","HOFFO"], "mergeFix": "HOFFO", "selectedHolding": "EKCH-ERNOV-PRIMARY" }
+  ]
+}

@@ -178,7 +178,7 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 	cdmClient := cdm.NewClient(cdm.WithAPIKey(cfg.CDMKey))
 
 	requireLiveCIDVerification := isLiveEnvironment(cfg.Environment)
-	vatsimGraph := assembleVATSIMSource(cfg, deps, requireLiveCIDVerification, standAssignmentReadiness.Ready)
+	vatsimGraph := assembleVATSIMSource(cfg, deps, requireLiveCIDVerification, standAssignmentReadiness.Ready || amanRuntime.Enabled())
 
 	var fsServer *server.Server
 	transports := assembleTransports(cfg, deps, func(ctx context.Context) error {
@@ -245,6 +245,25 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 			return nil, fmt.Errorf("initialize VATSIM reconciler: %w", err)
 		}
 		euroscopeHub.SetAircraftDisconnectRetainer(vatsimReconciler.RetainsStrip)
+	}
+	var amanObservationWorker *vatsim.ObservationWorker
+	if amanRuntime.Enabled() {
+		if vatsimGraph.source == nil {
+			if closeDB {
+				dbpool.Close()
+			}
+			return nil, errors.New("initialize AMAN VATSIM observations: VATSIM source is unavailable")
+		}
+		amanObservationWorker, err = vatsim.NewObservationWorker(vatsim.ObservationWorkerDependencies{
+			Cache: vatsimGraph.source, Identities: postgres.NewAMANRepository(dbpool), Sink: deps.AMAN.ObservationSink,
+			EnabledAirports: cfg.AMAN.EnabledAirports, StaleAfter: satStaleAfter(deps.VATSIMPollInterval), Now: satNow,
+		})
+		if err != nil {
+			if closeDB {
+				dbpool.Close()
+			}
+			return nil, fmt.Errorf("initialize AMAN VATSIM observations: %w", err)
+		}
 	}
 	testToolsGraph := assembleTestTools(cfg.EnableTestTools, testToolsAssemblyDependencies{
 		auth: authService, readiness: standAssignmentReadiness,
@@ -409,6 +428,9 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 	}
 	if vatsimReconciler != nil && !cfg.EnableTestTools {
 		app.addWorker(vatsimReconciler.Start)
+	}
+	if amanObservationWorker != nil {
+		app.addWorker(func(ctx context.Context) { amanObservationWorker.Run(ctx, cfg.AMAN.SurveillanceInterval) })
 	}
 	if departureLifecycle != nil {
 		app.addWorker(departureLifecycle.StartSweep)
@@ -745,7 +767,7 @@ func buildVATSIMCache(cfg Config, deps Dependencies, requireLiveCIDVerification 
 	}
 
 	cache := vatsim.NewCache(deps.VATSIMStatusURL, deps.VATSIMPollInterval, nil)
-	slog.Info("VATSIM cache enabled", slog.Bool("livePdcVerification", requireLiveCIDVerification), slog.Bool("standAssignmentReconciliation", enableReconciliation))
+	slog.Info("VATSIM cache enabled", slog.Bool("livePdcVerification", requireLiveCIDVerification), slog.Bool("reconciliationRequired", enableReconciliation))
 	return cache
 }
 

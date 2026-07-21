@@ -143,8 +143,8 @@ type Component interface {
 	Name() string
 }
 
-// Worker is a cancellation-aware AMAN loop. The runtime owns its lifecycle;
-// concrete surveillance and reconciliation implementations stay outside this task.
+// Worker is a cancellation-aware AMAN reconciliation loop. The concrete source
+// observation worker is assembled independently by the application.
 type Worker interface {
 	Run(context.Context, time.Duration)
 }
@@ -162,7 +162,7 @@ type Dependencies struct {
 	Publisher              Component
 	ValidationService      Component
 	HealthService          Component
-	SurveillanceWorker     Worker
+	ObservationSink        ObservationSink
 	ReconciliationWorker   Worker
 }
 
@@ -212,11 +212,11 @@ func NewRuntime(config RuntimeConfig, deps Dependencies) (*Runtime, error) {
 			return nil, fmt.Errorf("AMAN runtime requires %s", dependency.name)
 		}
 	}
-	if deps.SurveillanceWorker == nil {
-		return nil, fmt.Errorf("AMAN runtime requires surveillance worker")
-	}
 	if deps.ReconciliationWorker == nil {
 		return nil, fmt.Errorf("AMAN runtime requires reconciliation worker")
+	}
+	if deps.ObservationSink == nil {
+		return nil, fmt.Errorf("AMAN runtime requires observation sink")
 	}
 	return runtime, nil
 }
@@ -257,14 +257,12 @@ func (r *Runtime) Enabled() bool {
 	return r != nil && r.config.Mode != ModeDisabled
 }
 
-// Start runs only the configured AMAN loops. Both workers receive the same
-// application context, so normal application cancellation shuts them down.
-// Surveillance is the source-observation loop; navigation materializer refresh
-// policy is deliberately outside this runtime.
+// Start runs the configured future AMAN reconciliation loop. The application
+// owns the concrete VATSIM source-observation worker so it cannot be started a
+// second time through this runtime.
 func (r *Runtime) Start(ctx context.Context) {
 	if !r.Enabled() {
 		return
 	}
-	go r.deps.SurveillanceWorker.Run(ctx, r.config.SurveillanceInterval)
 	go r.deps.ReconciliationWorker.Run(ctx, r.config.ReconciliationInterval)
 }

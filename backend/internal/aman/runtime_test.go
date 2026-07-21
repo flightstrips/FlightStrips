@@ -13,6 +13,10 @@ type runtimeTestComponent string
 
 func (c runtimeTestComponent) Name() string { return string(c) }
 
+type runtimeTestObservationSink struct{}
+
+func (runtimeTestObservationSink) Observe(context.Context, FlightObservation) error { return nil }
+
 type runtimeTestWorker struct {
 	started chan time.Duration
 	stopped chan struct{}
@@ -52,7 +56,7 @@ func runtimeTestDependencies() Dependencies {
 		Publisher:              component,
 		ValidationService:      component,
 		HealthService:          component,
-		SurveillanceWorker:     newRuntimeTestWorker(),
+		ObservationSink:        runtimeTestObservationSink{},
 		ReconciliationWorker:   newRuntimeTestWorker(),
 	}
 }
@@ -117,17 +121,8 @@ func TestRuntimeWorkersUseApplicationContextAndConfiguredIntervals(t *testing.T)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	runtime.Start(ctx)
-	require.Equal(t, 4*time.Second, <-deps.SurveillanceWorker.(*runtimeTestWorker).started)
 	require.Equal(t, 3*time.Second, <-deps.ReconciliationWorker.(*runtimeTestWorker).started)
 	cancel()
-	require.Eventually(t, func() bool {
-		select {
-		case <-deps.SurveillanceWorker.(*runtimeTestWorker).stopped:
-			return true
-		default:
-			return false
-		}
-	}, time.Second, 10*time.Millisecond)
 	require.Eventually(t, func() bool {
 		select {
 		case <-deps.ReconciliationWorker.(*runtimeTestWorker).stopped:

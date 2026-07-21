@@ -7,8 +7,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -78,6 +80,64 @@ func (r *amanRepository) ListValidationEvidence(ctx context.Context, airport str
 		})
 	}
 	return evidence, nil
+}
+
+// BindVATSIMFlight creates an opaque FlightID once for an active VATSIM flight
+// and keeps the current callsign current across repository reconstruction. The
+// CID lock makes concurrent first observations converge without making the
+// caller choose or derive an identifier. A retired flight releases the CID for
+// a subsequent flight to receive a different generated FlightID.
+func (r *amanRepository) BindVATSIMFlight(ctx context.Context, identity aman.VATSIMFlightIdentity) (aman.FlightID, error) {
+	if err := identity.Validate(); err != nil {
+		return "", err
+	}
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return "", err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	queries := r.queries.WithTx(tx)
+	if err := queries.LockAMANVATSIMObservationIdentity(ctx, identity.VATSIMCID); err != nil {
+		return "", err
+	}
+	row, err := queries.GetActiveAMANVATSIMObservationIdentity(ctx, identity.VATSIMCID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		row, err = queries.CreateAMANVATSIMObservationIdentity(ctx, database.CreateAMANVATSIMObservationIdentityParams{
+			FlightID: uuid.NewString(), VatsimCid: identity.VATSIMCID, CurrentCallsign: identity.CurrentCallsign,
+		})
+	}
+	if err != nil {
+		return "", err
+	}
+	if row.CurrentCallsign != identity.CurrentCallsign {
+		row, err = queries.UpdateAMANVATSIMObservationIdentityCallsign(ctx, database.UpdateAMANVATSIMObservationIdentityCallsignParams{
+			FlightID: row.FlightID, CurrentCallsign: identity.CurrentCallsign,
+		})
+		if err != nil {
+			return "", err
+		}
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return "", err
+	}
+	return aman.FlightID(row.FlightID), nil
+}
+
+// RetireVATSIMFlight releases one active identity after its owning AMAN
+// lifecycle has removed the flight. It intentionally has no callsign or CID
+// alias behavior.
+func (r *amanRepository) RetireVATSIMFlight(ctx context.Context, flightID aman.FlightID) error {
+	if strings.TrimSpace(string(flightID)) == "" {
+		return &aman.DomainError{Class: aman.ErrorInvalidArgument, Message: "flight ID is required"}
+	}
+	retired, err := r.queries.RetireAMANVATSIMObservationIdentity(ctx, string(flightID))
+	if err != nil {
+		return err
+	}
+	if retired == 0 {
+		return &aman.DomainError{Class: aman.ErrorNotFound, Message: "active VATSIM flight identity was not found"}
+	}
+	return nil
 }
 
 // Commit provides the repository's one atomic transition. A returned result
@@ -298,10 +358,12 @@ func mapAMANWriteError(err error) error {
 }
 
 var (
-	_ aman.AirportStateReader       = (*amanRepository)(nil)
-	_ aman.CommandOutcomeReader     = (*amanRepository)(nil)
-	_ aman.StateCommitter           = (*amanRepository)(nil)
-	_ aman.AuditReader              = (*amanRepository)(nil)
-	_ aman.ValidationEvidenceReader = (*amanRepository)(nil)
-	_ aman.Component                = (*amanRepository)(nil)
+	_ aman.AirportStateReader          = (*amanRepository)(nil)
+	_ aman.CommandOutcomeReader        = (*amanRepository)(nil)
+	_ aman.StateCommitter              = (*amanRepository)(nil)
+	_ aman.AuditReader                 = (*amanRepository)(nil)
+	_ aman.ValidationEvidenceReader    = (*amanRepository)(nil)
+	_ aman.VATSIMFlightIdentityBinder  = (*amanRepository)(nil)
+	_ aman.VATSIMFlightIdentityRetirer = (*amanRepository)(nil)
+	_ aman.Component                   = (*amanRepository)(nil)
 )

@@ -40,6 +40,7 @@ type FlightPlan struct {
 	Alternate       string
 	EOBT            string
 	EnrouteDuration string
+	RequestedLevel  string
 	Remarks         string
 	Route           string
 	AssignedSquawk  string
@@ -170,6 +171,7 @@ type flightPlan struct {
 	Alternate           string `json:"alternate"`
 	DepartureTime       string `json:"deptime"`
 	EnrouteTime         string `json:"enroute_time"`
+	Altitude            string `json:"altitude"`
 	Remarks             string `json:"remarks"`
 	Route               string `json:"route"`
 	RevisionID          int64  `json:"revision_id"`
@@ -417,6 +419,7 @@ func toFlight(entry networkFlight, state FlightState) Flight {
 		Alternate:       entry.FlightPlan.Alternate,
 		EOBT:            entry.FlightPlan.DepartureTime,
 		EnrouteDuration: entry.FlightPlan.EnrouteTime,
+		RequestedLevel:  entry.FlightPlan.Altitude,
 		Remarks:         entry.FlightPlan.Remarks,
 		Route:           entry.FlightPlan.Route,
 		AssignedSquawk:  entry.FlightPlan.AssignedTransponder,
